@@ -42,6 +42,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
+#include "params.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -272,10 +273,7 @@ static void htab_statistics (FILE *, htab_t);
 static void record_cond (tree, tree);
 static void record_const_or_copy (tree, tree);
 static void record_equality (tree, tree);
-static tree update_rhs_and_lookup_avail_expr (tree, tree, bool);
-static tree simplify_rhs_and_lookup_avail_expr (tree, int);
 static tree simplify_cond_and_lookup_avail_expr (tree, stmt_ann_t, int);
-static tree simplify_switch_and_lookup_avail_expr (tree, int);
 static tree find_equivalent_equality_comparison (tree);
 static void record_range (tree, basic_block);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
@@ -479,7 +477,11 @@ tree_ssa_dominator_optimize (void)
       if (cfg_altered)
         free_dominance_info (CDI_DOMINATORS);
 
-      cfg_altered = cleanup_tree_cfg ();
+      /* Only iterate if we threaded jumps AND the CFG cleanup did
+	 something interesting.  Other cases generate far fewer
+	 optimization opportunities and thus are not worth another
+	 full DOM iteration.  */
+      cfg_altered &= cleanup_tree_cfg ();
 
       if (rediscover_loops_after_threading)
 	{
@@ -583,6 +585,52 @@ struct tree_opt_pass pass_dominator =
 };
 
 
+/* Given a stmt CONDSTMT containing a COND_EXPR, canonicalize the
+   COND_EXPR into a canonical form.  */
+
+static void
+canonicalize_comparison (tree condstmt)
+{
+  tree cond = COND_EXPR_COND (condstmt);
+  tree op0;
+  tree op1;
+  enum tree_code code = TREE_CODE (cond);
+
+  if (!COMPARISON_CLASS_P (cond))
+    return;
+
+  op0 = TREE_OPERAND (cond, 0);
+  op1 = TREE_OPERAND (cond, 1);
+
+  /* If it would be profitable to swap the operands, then do so to
+     canonicalize the statement, enabling better optimization.
+
+     By placing canonicalization of such expressions here we
+     transparently keep statements in canonical form, even
+     when the statement is modified.  */
+  if (tree_swap_operands_p (op0, op1, false))
+    {
+      /* For relationals we need to swap the operands
+	 and change the code.  */
+      if (code == LT_EXPR
+	  || code == GT_EXPR
+	  || code == LE_EXPR
+	  || code == GE_EXPR)
+	{
+	  TREE_SET_CODE (cond, swap_tree_comparison (code));
+	  swap_tree_operands (condstmt,
+			      &TREE_OPERAND (cond, 0),
+			      &TREE_OPERAND (cond, 1));
+	  /* If one operand was in the operand cache, but the other is
+	     not, because it is a constant, this is a case that the
+	     internal updating code of swap_tree_operands can't handle
+	     properly.  */
+	  if (TREE_CODE_CLASS (TREE_CODE (op0)) 
+	      != TREE_CODE_CLASS (TREE_CODE (op1)))
+	    update_stmt (condstmt);
+	}
+    }
+}
 /* We are exiting E->src, see if E->dest ends with a conditional
    jump which has a known value when reached via E. 
 
@@ -604,6 +652,9 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
   block_stmt_iterator bsi;
   tree stmt = NULL;
   tree phi;
+  int stmt_count = 0;
+  int max_stmt_count;
+
 
   /* If E->dest does not end with a conditional, then there is
      nothing to do.  */
@@ -633,6 +684,11 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       tree src = PHI_ARG_DEF_FROM_EDGE (phi, e);
       tree dst = PHI_RESULT (phi);
 
+      /* Do not include virtual PHIs in our statement count as
+	 they never generate code.  */
+      if (is_gimple_reg (dst))
+	stmt_count++;
+
       /* If the desired argument is not the same as this PHI's result 
 	 and it is set by a PHI in E->dest, then we can not thread
 	 through E->dest.  */
@@ -660,15 +716,22 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
      Failure to simplify into the form above merely means that the
      statement provides no equivalences to help simplify later
      statements.  This does not prevent threading through E->dest.  */
+  max_stmt_count = PARAM_VALUE (PARAM_MAX_JUMP_THREAD_DUPLICATION_STMTS);
   for (bsi = bsi_start (e->dest); ! bsi_end_p (bsi); bsi_next (&bsi))
     {
-      tree cached_lhs;
+      tree cached_lhs = NULL;
 
       stmt = bsi_stmt (bsi);
 
       /* Ignore empty statements and labels.  */
       if (IS_EMPTY_STMT (stmt) || TREE_CODE (stmt) == LABEL_EXPR)
 	continue;
+
+      /* If duplicating this block is going to cause too much code
+	 expansion, then do not thread through this block.  */
+      stmt_count++;
+      if (stmt_count > max_stmt_count)
+	return;
 
       /* Safely handle threading across loop backedges.  This is
 	 over conservative, but still allows us to capture the
@@ -701,7 +764,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       else
 	{
 	  /* Copy the operands.  */
-	  tree *copy;
+	  tree *copy, pre_fold_expr;
 	  ssa_op_iter iter;
 	  use_operand_p use_p;
 	  unsigned int num, i = 0;
@@ -725,12 +788,31 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 
 	  /* Try to fold/lookup the new expression.  Inserting the
 	     expression into the hash table is unlikely to help
-	     simplify anything later, so just query the hashtable.  */
-	  cached_lhs = fold (TREE_OPERAND (stmt, 1));
-	  if (TREE_CODE (cached_lhs) != SSA_NAME
-	      && !is_gimple_min_invariant (cached_lhs))
-	    cached_lhs = lookup_avail_expr (stmt, false);
+	     Sadly, we have to handle conditional assignments specially
+	     here, because fold expects all the operands of an expression
+	     to be folded before the expression itself is folded, but we
+	     can't just substitute the folded condition here.  */
+	  if (TREE_CODE (TREE_OPERAND (stmt, 1)) == COND_EXPR)
+	    {
+	      tree cond = COND_EXPR_COND (TREE_OPERAND (stmt, 1));
+	      cond = fold (cond);
+	      if (cond == boolean_true_node)
+		pre_fold_expr = COND_EXPR_THEN (TREE_OPERAND (stmt, 1));
+	      else if (cond == boolean_false_node)
+		pre_fold_expr = COND_EXPR_ELSE (TREE_OPERAND (stmt, 1));
+	      else
+		pre_fold_expr = TREE_OPERAND (stmt, 1);
+	    }
+	  else
+	    pre_fold_expr = TREE_OPERAND (stmt, 1);
 
+	  if (pre_fold_expr)
+	    {
+	      cached_lhs = fold (pre_fold_expr);
+	      if (TREE_CODE (cached_lhs) != SSA_NAME
+		  && !is_gimple_min_invariant (cached_lhs))
+	        cached_lhs = lookup_avail_expr (stmt, false);
+	    }
 
 	  /* Restore the statement's original uses/defs.  */
 	  i = 0;
@@ -760,7 +842,10 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
       /* Now temporarily cprop the operands and try to find the resulting
 	 expression in the hash tables.  */
       if (TREE_CODE (stmt) == COND_EXPR)
-	cond = COND_EXPR_COND (stmt);
+	{
+	  canonicalize_comparison (stmt);
+	  cond = COND_EXPR_COND (stmt);
+	}
       else if (TREE_CODE (stmt) == GOTO_EXPR)
 	cond = GOTO_DESTINATION (stmt);
       else
@@ -795,9 +880,9 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	  dummy_cond = walk_data->global_data;
 	  if (! dummy_cond)
 	    {
-	      dummy_cond = build (cond_code, boolean_type_node, op0, op1);
-	      dummy_cond = build (COND_EXPR, void_type_node,
-				  dummy_cond, NULL, NULL);
+	      dummy_cond = build2 (cond_code, boolean_type_node, op0, op1);
+	      dummy_cond = build3 (COND_EXPR, void_type_node,
+				   dummy_cond, NULL_TREE, NULL_TREE);
 	      walk_data->global_data = dummy_cond;
 	    }
 	  else
@@ -997,14 +1082,14 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 {
   tree last;
 
-  /* If we are at a leaf node in the dominator tree, see if we can thread
-     the edge from BB through its successor.
-
-     Do this before we remove entries from our equivalence tables.  */
+  /* If we have an outgoing edge to a block with multiple incoming and
+     outgoing edges, then we may be able to thread the edge.  ie, we
+     may be able to statically determine which of the outgoing edges
+     will be traversed when the incoming edge from BB is traversed.  */
   if (single_succ_p (bb)
       && (single_succ_edge (bb)->flags & EDGE_ABNORMAL) == 0
-      && (get_immediate_dominator (CDI_DOMINATORS, single_succ (bb)) != bb
-	  || phi_nodes (single_succ (bb))))
+      && !single_pred_p (single_succ (bb))
+      && !single_succ_p (single_succ (bb)))
 	
     {
       thread_across_edge (walk_data, single_succ_edge (bb));
@@ -1021,10 +1106,9 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 
       extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
 
-      /* If the THEN arm is the end of a dominator tree or has PHI nodes,
-	 then try to thread through its edge.  */
-      if (get_immediate_dominator (CDI_DOMINATORS, true_edge->dest) != bb
-	  || phi_nodes (true_edge->dest))
+      /* Only try to thread the edge if it reaches a target block with
+	 more than one predecessor and more than one successor.  */
+      if (!single_pred_p (true_edge->dest) && !single_succ_p (true_edge->dest))
 	{
 	  struct edge_info *edge_info;
 	  unsigned int i;
@@ -1071,8 +1155,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	}
 
       /* Similarly for the ELSE arm.  */
-      if (get_immediate_dominator (CDI_DOMINATORS, false_edge->dest) != bb
-	  || phi_nodes (false_edge->dest))
+      if (!single_pred_p (false_edge->dest) && !single_succ_p (false_edge->dest))
 	{
 	  struct edge_info *edge_info;
 	  unsigned int i;
@@ -1709,151 +1792,6 @@ simple_iv_increment_p (tree stmt)
   return false;
 }
 
-/* STMT is a MODIFY_EXPR for which we were unable to find RHS in the
-   hash tables.  Try to simplify the RHS using whatever equivalences
-   we may have recorded.
-
-   If we are able to simplify the RHS, then lookup the simplified form in
-   the hash table and return the result.  Otherwise return NULL.  */
-
-static tree
-simplify_rhs_and_lookup_avail_expr (tree stmt, int insert)
-{
-  tree rhs = TREE_OPERAND (stmt, 1);
-  enum tree_code rhs_code = TREE_CODE (rhs);
-  tree result = NULL;
-
-  /* If we have lhs = ~x, look and see if we earlier had x = ~y.
-     In which case we can change this statement to be lhs = y.
-     Which can then be copy propagated. 
-
-     Similarly for negation.  */
-  if ((rhs_code == BIT_NOT_EXPR || rhs_code == NEGATE_EXPR)
-      && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME)
-    {
-      /* Get the definition statement for our RHS.  */
-      tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
-
-      /* See if the RHS_DEF_STMT has the same form as our statement.  */
-      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == rhs_code)
-	{
-	  tree rhs_def_operand;
-
-	  rhs_def_operand = TREE_OPERAND (TREE_OPERAND (rhs_def_stmt, 1), 0);
-
-	  /* Verify that RHS_DEF_OPERAND is a suitable SSA variable.  */
-	  if (TREE_CODE (rhs_def_operand) == SSA_NAME
-	      && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs_def_operand))
-	    result = update_rhs_and_lookup_avail_expr (stmt,
-						       rhs_def_operand,
-						       insert);
-	}
-    }
-
-  /* If we have z = (x OP C1), see if we earlier had x = y OP C2.
-     If OP is associative, create and fold (y OP C2) OP C1 which
-     should result in (y OP C3), use that as the RHS for the
-     assignment.  Add minus to this, as we handle it specially below.  */
-  if ((associative_tree_code (rhs_code) || rhs_code == MINUS_EXPR)
-      && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
-      && is_gimple_min_invariant (TREE_OPERAND (rhs, 1)))
-    {
-      tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
-
-      /* If the statement defines an induction variable, do not propagate
-	 its value, so that we do not create overlapping life ranges.  */
-      if (simple_iv_increment_p (rhs_def_stmt))
-	goto dont_fold_assoc;
-
-      /* See if the RHS_DEF_STMT has the same form as our statement.  */
-      if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR)
-	{
-	  tree rhs_def_rhs = TREE_OPERAND (rhs_def_stmt, 1);
-	  enum tree_code rhs_def_code = TREE_CODE (rhs_def_rhs);
-
-	  if ((rhs_code == rhs_def_code && unsafe_associative_fp_binop (rhs))
-	      || (rhs_code == PLUS_EXPR && rhs_def_code == MINUS_EXPR)
-	      || (rhs_code == MINUS_EXPR && rhs_def_code == PLUS_EXPR))
-	    {
-	      tree def_stmt_op0 = TREE_OPERAND (rhs_def_rhs, 0);
-	      tree def_stmt_op1 = TREE_OPERAND (rhs_def_rhs, 1);
-
-	      if (TREE_CODE (def_stmt_op0) == SSA_NAME
-		  && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def_stmt_op0)
-		  && is_gimple_min_invariant (def_stmt_op1))
-		{
-		  tree outer_const = TREE_OPERAND (rhs, 1);
-		  tree type = TREE_TYPE (TREE_OPERAND (stmt, 0));
-		  tree t;
-
-		  /* If we care about correct floating point results, then
-		     don't fold x + c1 - c2.  Note that we need to take both
-		     the codes and the signs to figure this out.  */
-		  if (FLOAT_TYPE_P (type)
-		      && !flag_unsafe_math_optimizations
-		      && (rhs_def_code == PLUS_EXPR
-			  || rhs_def_code == MINUS_EXPR))
-		    {
-		      bool neg = false;
-
-		      neg ^= (rhs_code == MINUS_EXPR);
-		      neg ^= (rhs_def_code == MINUS_EXPR);
-		      neg ^= real_isneg (TREE_REAL_CST_PTR (outer_const));
-		      neg ^= real_isneg (TREE_REAL_CST_PTR (def_stmt_op1));
-
-		      if (neg)
-			goto dont_fold_assoc;
-		    }
-
-		  /* Ho hum.  So fold will only operate on the outermost
-		     thingy that we give it, so we have to build the new
-		     expression in two pieces.  This requires that we handle
-		     combinations of plus and minus.  */
-		  if (rhs_def_code != rhs_code)
-		    {
-		      if (rhs_def_code == MINUS_EXPR)
-		        t = build (MINUS_EXPR, type, outer_const, def_stmt_op1);
-		      else
-		        t = build (MINUS_EXPR, type, def_stmt_op1, outer_const);
-		      rhs_code = PLUS_EXPR;
-		    }
-		  else if (rhs_def_code == MINUS_EXPR)
-		    t = build (PLUS_EXPR, type, def_stmt_op1, outer_const);
-		  else
-		    t = build (rhs_def_code, type, def_stmt_op1, outer_const);
-		  t = local_fold (t);
-		  t = build (rhs_code, type, def_stmt_op0, t);
-		  t = local_fold (t);
-
-		  /* If the result is a suitable looking gimple expression,
-		     then use it instead of the original for STMT.  */
-		  if (TREE_CODE (t) == SSA_NAME
-		      || (UNARY_CLASS_P (t)
-			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME)
-		      || ((BINARY_CLASS_P (t) || COMPARISON_CLASS_P (t))
-			  && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME
-			  && is_gimple_val (TREE_OPERAND (t, 1))))
-		    result = update_rhs_and_lookup_avail_expr (stmt, t, insert);
-		}
-	    }
-	}
- dont_fold_assoc:;
-    }
-
-  /* Optimize *"foo" into 'f'.  This is done here rather than
-     in fold to avoid problems with stuff like &*"foo".  */
-  if (TREE_CODE (rhs) == INDIRECT_REF || TREE_CODE (rhs) == ARRAY_REF)
-    {
-      tree t = fold_read_from_constant_string (rhs);
-
-      if (t)
-        result = update_rhs_and_lookup_avail_expr (stmt, t, insert);
-    }
-
-  return result;
-}
-
 /* COND is a condition of the form:
 
      x == const or x != const
@@ -1931,8 +1869,8 @@ find_equivalent_equality_comparison (tree cond)
 	  new = build1 (TREE_CODE (def_rhs), def_rhs_inner_type, op1);
 	  new = local_fold (new);
 	  if (is_gimple_val (new) && tree_int_cst_equal (new, op1))
-	    return build (TREE_CODE (cond), TREE_TYPE (cond),
-			  def_rhs_inner, new);
+	    return build2 (TREE_CODE (cond), TREE_TYPE (cond),
+			   def_rhs_inner, new);
 	}
     }
   return NULL;
@@ -2180,67 +2118,6 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
     }
   return 0;
 }
-
-/* STMT is a SWITCH_EXPR for which we could not trivially determine its
-   result.  This routine attempts to find equivalent forms of the
-   condition which we may be able to optimize better.  */
-
-static tree
-simplify_switch_and_lookup_avail_expr (tree stmt, int insert)
-{
-  tree cond = SWITCH_COND (stmt);
-  tree def, to, ti;
-
-  /* The optimization that we really care about is removing unnecessary
-     casts.  That will let us do much better in propagating the inferred
-     constant at the switch target.  */
-  if (TREE_CODE (cond) == SSA_NAME)
-    {
-      def = SSA_NAME_DEF_STMT (cond);
-      if (TREE_CODE (def) == MODIFY_EXPR)
-	{
-	  def = TREE_OPERAND (def, 1);
-	  if (TREE_CODE (def) == NOP_EXPR)
-	    {
-	      int need_precision;
-	      bool fail;
-
-	      def = TREE_OPERAND (def, 0);
-
-#ifdef ENABLE_CHECKING
-	      /* ??? Why was Jeff testing this?  We are gimple...  */
-	      gcc_assert (is_gimple_val (def));
-#endif
-
-	      to = TREE_TYPE (cond);
-	      ti = TREE_TYPE (def);
-
-	      /* If we have an extension that preserves value, then we
-		 can copy the source value into the switch.  */
-
-	      need_precision = TYPE_PRECISION (ti);
-	      fail = false;
-	      if (TYPE_UNSIGNED (to) && !TYPE_UNSIGNED (ti))
-		fail = true;
-	      else if (!TYPE_UNSIGNED (to) && TYPE_UNSIGNED (ti))
-		need_precision += 1;
-	      if (TYPE_PRECISION (to) < need_precision)
-		fail = true;
-
-	      if (!fail)
-		{
-		  SWITCH_COND (stmt) = def;
-		  mark_stmt_modified (stmt);
-
-		  return lookup_avail_expr (stmt, insert);
-		}
-	    }
-	}
-    }
-
-  return 0;
-}
-
 
 /* CONST_AND_COPIES is a table which maps an SSA_NAME to the current
    known value for that SSA_NAME (or NULL if no value is known).  
@@ -2530,19 +2407,10 @@ eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
   /* Check if the expression has been computed before.  */
   cached_lhs = lookup_avail_expr (stmt, insert);
 
-  /* If this is an assignment and the RHS was not in the hash table,
-     then try to simplify the RHS and lookup the new RHS in the
-     hash table.  */
-  if (! cached_lhs && TREE_CODE (stmt) == MODIFY_EXPR)
-    cached_lhs = simplify_rhs_and_lookup_avail_expr (stmt, insert);
-  /* Similarly if this is a COND_EXPR and we did not find its
-     expression in the hash table, simplify the condition and
-     try again.  */
-  else if (! cached_lhs && TREE_CODE (stmt) == COND_EXPR)
+  /* If this is a COND_EXPR and we did not find its expression in
+     the hash table, simplify the condition and try again.  */
+  if (! cached_lhs && TREE_CODE (stmt) == COND_EXPR)
     cached_lhs = simplify_cond_and_lookup_avail_expr (stmt, ann, insert);
-  /* Similarly for a SWITCH_EXPR.  */
-  else if (!cached_lhs && TREE_CODE (stmt) == SWITCH_EXPR)
-    cached_lhs = simplify_switch_and_lookup_avail_expr (stmt, insert);
 
   opt_stats.num_exprs_considered++;
 
@@ -2714,7 +2582,7 @@ record_equivalences_from_stmt (tree stmt,
       if (rhs)
 	{
 	  /* Build a new statement with the RHS and LHS exchanged.  */
-	  new = build (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
+	  new = build2 (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
 
 	  create_ssa_artficial_load_stmt (new, stmt);
 
@@ -2880,7 +2748,10 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   bool may_have_exposed_new_symbols = false;
 
   old_stmt = stmt = bsi_stmt (si);
-
+  
+  if (TREE_CODE (stmt) == COND_EXPR)
+    canonicalize_comparison (stmt);
+  
   update_stmt_if_modified (stmt);
   ann = stmt_ann (stmt);
   opt_stats.num_stmts++;
@@ -2917,7 +2788,7 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
       rhs = get_rhs (stmt);
       if (rhs && TREE_CODE (rhs) == ADDR_EXPR)
-	recompute_tree_invarant_for_addr_expr (rhs);
+	recompute_tree_invariant_for_addr_expr (rhs);
 
       /* Constant/copy propagation above may change the set of 
 	 virtual operands associated with this statement.  Folding
@@ -3000,64 +2871,6 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
   if (may_have_exposed_new_symbols)
     VEC_safe_push (tree, heap, stmts_to_rescan, bsi_stmt (si));
-}
-
-/* Replace the RHS of STMT with NEW_RHS.  If RHS can be found in the
-   available expression hashtable, then return the LHS from the hash
-   table.
-
-   If INSERT is true, then we also update the available expression
-   hash table to account for the changes made to STMT.  */
-
-static tree
-update_rhs_and_lookup_avail_expr (tree stmt, tree new_rhs, bool insert)
-{
-  tree cached_lhs = NULL;
-
-  /* Remove the old entry from the hash table.  */
-  if (insert)
-    {
-      struct expr_hash_elt element;
-
-      initialize_hash_element (stmt, NULL, &element);
-      htab_remove_elt_with_hash (avail_exprs, &element, element.hash);
-    }
-
-  /* Now update the RHS of the assignment.  */
-  TREE_OPERAND (stmt, 1) = new_rhs;
-
-  /* Now lookup the updated statement in the hash table.  */
-  cached_lhs = lookup_avail_expr (stmt, insert);
-
-  /* We have now called lookup_avail_expr twice with two different
-     versions of this same statement, once in optimize_stmt, once here.
-
-     We know the call in optimize_stmt did not find an existing entry
-     in the hash table, so a new entry was created.  At the same time
-     this statement was pushed onto the AVAIL_EXPRS_STACK vector. 
-
-     If this call failed to find an existing entry on the hash table,
-     then the new version of this statement was entered into the
-     hash table.  And this statement was pushed onto BLOCK_AVAIL_EXPR
-     for the second time.  So there are two copies on BLOCK_AVAIL_EXPRs
-
-     If this call succeeded, we still have one copy of this statement
-     on the BLOCK_AVAIL_EXPRs vector.
-
-     For both cases, we need to pop the most recent entry off the
-     BLOCK_AVAIL_EXPRs vector.  For the case where we never found this
-     statement in the hash tables, that will leave precisely one
-     copy of this statement on BLOCK_AVAIL_EXPRs.  For the case where
-     we found a copy of this statement in the second hash table lookup
-     we want _no_ copies of this statement in BLOCK_AVAIL_EXPRs.  */
-  if (insert)
-    VEC_pop (tree, avail_exprs_stack);
-
-  /* And make sure we record the fact that we modified this
-     statement.  */
-  mark_stmt_modified (stmt);
-
-  return cached_lhs;
 }
 
 /* Search for an existing instance of STMT in the AVAIL_EXPRS table.  If
@@ -3165,10 +2978,7 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
      record ranges for enumerations.  Presumably this is due to
      the fact that they're rarely used directly.  They are typically
      cast into an integer type and used that way.  */
-  if (TREE_CODE (type) != INTEGER_TYPE
-      /* We don't know how to deal with types with variable bounds.  */
-      || TREE_CODE (TYPE_MIN_VALUE (type)) != INTEGER_CST
-      || TREE_CODE (TYPE_MAX_VALUE (type)) != INTEGER_CST)
+  if (TREE_CODE (type) != INTEGER_TYPE)
     return 0;
 
   switch (TREE_CODE (cond))
@@ -3185,12 +2995,19 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
 
     case GE_EXPR:
       low = op1;
+
+      /* Get the highest value of the type.  If not a constant, use that
+	 of its base type, if it has one.  */
       high = TYPE_MAX_VALUE (type);
+      if (TREE_CODE (high) != INTEGER_CST && TREE_TYPE (type))
+	high = TYPE_MAX_VALUE (TREE_TYPE (type));
       inverted = 0;
       break;
 
     case GT_EXPR:
       high = TYPE_MAX_VALUE (type);
+      if (TREE_CODE (high) != INTEGER_CST && TREE_TYPE (type))
+	high = TYPE_MAX_VALUE (TREE_TYPE (type));
       if (!tree_int_cst_lt (op1, high))
 	return 0;
       low = int_const_binop (PLUS_EXPR, op1, integer_one_node, 1);
@@ -3200,11 +3017,15 @@ extract_range_from_cond (tree cond, tree *hi_p, tree *lo_p, int *inverted_p)
     case LE_EXPR:
       high = op1;
       low = TYPE_MIN_VALUE (type);
+      if (TREE_CODE (low) != INTEGER_CST && TREE_TYPE (type))
+	low = TYPE_MIN_VALUE (TREE_TYPE (type));
       inverted = 0;
       break;
 
     case LT_EXPR:
       low = TYPE_MIN_VALUE (type);
+      if (TREE_CODE (low) != INTEGER_CST && TREE_TYPE (type))
+	low = TYPE_MIN_VALUE (TREE_TYPE (type));
       if (!tree_int_cst_lt (low, op1))
 	return 0;
       high = int_const_binop (MINUS_EXPR, op1, integer_one_node, 1);

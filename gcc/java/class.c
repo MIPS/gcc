@@ -319,6 +319,9 @@ make_class (void)
 {
   tree type;
   type = make_node (RECORD_TYPE);
+  /* Unfortunately we must create the binfo here, so that class
+     loading works.  */
+  TYPE_BINFO (type) = make_tree_binfo (0);
   MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC (type);
 
   return type;
@@ -468,7 +471,8 @@ set_super_info (int access_flags, tree this_class,
   if (super_class)
     total_supers++;
 
-  TYPE_BINFO (this_class) = make_tree_binfo (total_supers);
+  if (total_supers)
+    TYPE_BINFO (this_class) = make_tree_binfo (total_supers);
   TYPE_VFIELD (this_class) = TYPE_VFIELD (object_type_node);
   if (super_class)
     {
@@ -549,9 +553,11 @@ inherits_from_p (tree type1, tree type2)
     {
       if (type1 == type2)
 	return 1;
+
       if (! CLASS_LOADED_P (type1))
 	load_class (type1, 1);
-      type1 = CLASSTYPE_SUPER (type1);
+
+      type1 = maybe_layout_super_class (CLASSTYPE_SUPER (type1), type1);
     }
   return 0;
 }
@@ -909,7 +915,7 @@ build_utf8_ref (tree name)
 	  int flags = (SECTION_OVERRIDE
 		       | SECTION_MERGE | (SECTION_ENTSIZE & decl_size));
 	  sprintf (buf, ".rodata.jutf8.%d", decl_size);
-	  named_section_flags (buf, flags);
+	  switch_to_section (get_section (buf, flags, NULL));
 	  DECL_SECTION_NAME (decl) = build_string (strlen (buf), buf);
 	}
     }
@@ -1911,7 +1917,7 @@ finish_class (void)
       tree verify_method = TYPE_VERIFY_METHOD (output_class);
       DECL_SAVED_TREE (verify_method) 
 	= add_stmt_to_compound (DECL_SAVED_TREE (verify_method), void_type_node,
-				build (RETURN_EXPR, void_type_node, NULL));
+				build1 (RETURN_EXPR, void_type_node, NULL));
       java_genericize (verify_method);
       cgraph_finalize_function (verify_method, false);
       TYPE_ASSERTIONS (current_class) = NULL;
@@ -2058,7 +2064,9 @@ push_super_field (tree this_class, tree super_class)
 static tree
 maybe_layout_super_class (tree super_class, tree this_class)
 {
-  if (TREE_CODE (super_class) == RECORD_TYPE)
+  if (!super_class)
+    return NULL_TREE;
+  else if (TREE_CODE (super_class) == RECORD_TYPE)
     {
       if (!CLASS_LOADED_P (super_class) && CLASS_FROM_SOURCE_P (super_class))
 	safe_layout_class (super_class);
@@ -2076,6 +2084,9 @@ maybe_layout_super_class (tree super_class, tree this_class)
 	  /* do_resolve_class expects an EXPR_WITH_FILE_LOCATION, so
 	     we give it one.  */
 	  tree this_wrap = NULL_TREE;
+
+	  /* Set the correct context for class resolution.  */
+	  current_class = this_class;
 
 	  if (this_class)
 	    {
@@ -2380,8 +2391,8 @@ layout_class_method (tree this_class, tree super_class,
 	  /* We generate vtable entries for final methods because they
 	     may one day be changed to non-final.  */
 	  set_method_index (method_decl, dtable_count);
-	  dtable_count = fold (build2 (PLUS_EXPR, integer_type_node,
-				       dtable_count, integer_one_node));
+	  dtable_count = fold_build2 (PLUS_EXPR, integer_type_node,
+				      dtable_count, integer_one_node);
 	}
     }
 
@@ -2426,7 +2437,7 @@ emit_register_classes (tree *list_p)
       int i;
 
 #ifdef JCR_SECTION_NAME
-      named_section_flags (JCR_SECTION_NAME, SECTION_WRITE);
+      switch_to_section (get_section (JCR_SECTION_NAME, SECTION_WRITE, NULL));
 #else
       /* A target has defined TARGET_USE_JCR_SECTION,
 	 but doesn't have a JCR_SECTION_NAME.  */

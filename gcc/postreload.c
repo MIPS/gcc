@@ -575,6 +575,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 		      op_alt_regno[i][j] = regno;
 		    }
 		  j++;
+		  class = (int) NO_REGS;
 		  break;
 		}
 	      p += CONSTRAINT_LEN (c, p);
@@ -607,7 +608,7 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	  int this_nregs = alternative_nregs[alternative_order[j]];
 
 	  if (this_reject < best_reject
-	      || (this_reject == best_reject && this_nregs < best_nregs))
+	      || (this_reject == best_reject && this_nregs > best_nregs))
 	    {
 	      best = j;
 	      best_reject = this_reject;
@@ -1267,7 +1268,7 @@ reload_cse_move2add (rtx first)
 		      rtx tem = gen_rtx_PLUS (GET_MODE (reg), reg, new_src);
 		      validate_change (insn, &SET_SRC (pat), tem, 0);
 		    }
-		  else
+		  else if (GET_MODE (reg) != BImode)
 		    {
 		      enum machine_mode narrow_mode;
 		      for (narrow_mode = GET_CLASS_NARROWEST_MODE (MODE_INT);

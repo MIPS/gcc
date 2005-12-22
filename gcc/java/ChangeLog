@@ -1,3 +1,163 @@
+2005-12-16  Alexandre Oliva  <aoliva@redhat.com>
+
+	* jcf-parse.c (set_source_filename): Set the decl source location
+	even when returning early.
+
+2005-12-15  Tom Tromey  <tromey@redhat.com>
+	    Andrew Haley  <aph@redhat.com>
+
+	PR java/25429
+	* parse.y (resolve_expression_name): Don't generate accessor
+	methods for constant fields.
+
+2005-12-13  Andrew Haley  <aph@redhat.com>
+
+	PR java/25366
+	PR java/25368
+	* class.c (maybe_layout_super_class): Update current_class before
+	calling do_resolve_class.
+
+2005-12-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR java/25330
+	* jcf-write.c (write_classfile): Use PID in temporary class
+	file. Save/restore errno when reporting error.
+
+2005-12-10  Terry Laurenzo  <tlaurenzo@gmail.com>
+
+	PR java/9861
+	* mangle.c (mangle_method_decl): Mangle Java methods by prepending 'J'
+	to bare_function_type and including the return type
+	* builtins.c (initialize_builtins) : Change builtin mangled name
+	constants to conform to new mangling scheme
+
+2005-12-08  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/25265
+	* java-tree.h (enum java_tree_index): Add JTI_SOFT_NOSUCHFIELD_NODE.
+	(soft_abstractmethod_node): New.
+	* expr.c (build_field_ref): Add in-line check for missing field.
+	* decl.c (java_init_decl_processing): Add soft_nosuchfield_node.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in (java.all.build, java.install-normal): Remove.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in: Remove all dependencies on s-gtype, except for
+	gt-java-parse.h.
+
+2005-12-07  Richard Sandiford  <richard@codesourcery.com>
+
+	* class.c (build_utf8_ref, emit_register_classes): Use
+	switch_to_section and get_section.
+
+2005-12-06  Tom Tromey  <tromey@redhat.com>
+
+	PR java/25283:
+	* parse.y (patch_new_array_init): Revert previous patch.
+	(lookup_method_invoke): Use size-less array type when creating an
+	anonymous constructor.
+
+2005-12-05  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (patch_new_array_init): Don't set length on array.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* java-gimplify.c (java_gimplify_labeled_block_expr): Use
+	buildN instead of build.
+	* class.c (finish_class): Likewise.
+	* expr.c (java_create_object): Likewise.
+
+2005-11-28  Tom Tromey  <tromey@redhat.com>
+
+	PR java/18278:
+	* expr.c (build_jni_stub): Unwrap the return value.
+	* java-tree.h (soft_unwrapjni_node): New define.
+	(enum java_tree_index): Added JTI_SOFT_UNWRAPJNI_NODE.
+	* decl.c (java_init_decl_processing): Initialize
+	soft_unwrapjni_node.
+
+2005-11-24  Bryce McKinlay  <mckinlay@redhat.com>
+
+        * gcj.texi (gij options): Add -Xss documentation.
+
+2005-11-08  Wil Mahan  <wmahan@gmail.com>
+
+	PR java/23617
+	* zextract.c (read_zip_archive): Fix out of memory error when
+	reading jar files with zip-style comments.
+
+2005-11-07   Terry Laurenzo   <tlaurenzo@gmail.com>
+
+	* gjavah.c (HANDLE_CODE_ATTRIBUTE): Only define for ELF Object
+	formats.
+	* gjavah.c (decompile_method): Add ATTRIBUTE_UNUSED
+
+2005-10-12  Nathan Sidwell  <nathan@codesourcery.com>
+	    Wil Mahan <wmahan@gmail.com>
+
+	PR java/23620
+	* class.c (make_class): Create empty binfo here.
+	(set_super_info): Only create binfo if we have superclasses.
+
+2005-10-03  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	PR java/24127
+	* parse.y (method_header): Make the result of the rule a NULL_TREE
+	when a parsing error occurs.
+
+2005-09-29  Tom Tromey  <tromey@redhat.com>
+
+	PR java/24120:
+	* jcf-io.c (memoized_dirlist_hash): New function.
+	(caching_stat): Use it.
+
+2005-09-21  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	PR java/21418
+	* class.c (inherits_from_p): Try to lay out super class
+	if it is not already laid out.
+	(maybe_layout_super_class): Handle the case where SUPER_CLASS
+	is a NULL_TREE.
+
+2005-09-18  James A. Morrison  <phython@gcc.gnu.org>
+
+	* builtins.c (max_builtin, min_builtin, abs_builtin,
+	java_build_function_call_expr): Use fold_buildN.
+	* class.c (layout_class_method): Likewise.
+	* expr.c (java_truthvalue_conversion, build_java_jsr,
+	build_java_arrayaccess, expand_java_arrayload, expand_iinc,
+	build_java_binop, build_field_ref, expand_compare,
+	build_known_method_ref, build_invokevirtual,
+	process_jvm_instruction): Likewise.
+	* parse.y (patch_binop, patch_exit_expr): Likewise.
+	* typeck.c (convert_ieee_real_to_integer): Likewise.
+	(convert): Don't call fold after convert_ieee_real_to_integer.
+
+2005-09-14  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR java/23891
+	* parse.y (maybe_create_class_interface_decl): Set TYPE_PACKAGE for
+	the newly created type. Set import lists here, not in create_class.
+	(jdep_resolve_class): Set current_class.
+	(do_resolve_class): Use current_class's TYPE_PACKAGE to determine 
+	the current package context, not ctxp->package.
+	(cicp_cache): Removed.
+	(class_in_current_package): Simplify implementation using TYPE_PACKAGE.
+	* jcf-parse.c (give_name_to_class): Set TYPE_PACKAGE.
+	* java-tree.h (TYPE_PACKAGE): New macro.
+	(struct lang_type): New member 'package'.
+
+2005-09-09  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/23182 
+	* expr.c (pop_type_0): If the expected type is object or ptr
+	(i.e. void*), return the type of the object we just popped from
+	the stack.
+
 2005-09-06  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* java-gimplify.c (java_gimplify_block): NULL out the old BLOCK's

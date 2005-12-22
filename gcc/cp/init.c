@@ -1344,7 +1344,8 @@ build_offset_ref (tree type, tree name, bool address_p)
     return name;
 
   if (dependent_type_p (type) || type_dependent_expression_p (name))
-    return build_min_nt (SCOPE_REF, type, name);
+    return build_qualified_name (NULL_TREE, type, name, 
+				 /*template_p=*/false);
 
   if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
     {
@@ -1559,62 +1560,81 @@ build_offset_ref (tree type, tree name, bool address_p)
   return member;
 }
 
-/* If DECL is a CONST_DECL, or a constant VAR_DECL initialized by
-   constant of integral or enumeration type, then return that value.
-   These are those variables permitted in constant expressions by
-   [5.19/1].  FIXME:If we did lazy folding, this could be localized.  */
+/* If DECL is a scalar enumeration constant or variable with a
+   constant initializer, return the initializer (or, its initializers,
+   recursively); otherwise, return DECL.  If INTEGRAL_P, the
+   initializer is only returned if DECL is an integral
+   constant-expression.  */
 
-tree
-integral_constant_value (tree decl)
+static tree
+constant_value_1 (tree decl, bool integral_p)
 {
-  while ((TREE_CODE (decl) == CONST_DECL
-	  || (TREE_CODE (decl) == VAR_DECL
-	      /* And so are variables with a 'const' type -- unless they
-		 are also 'volatile'.  */
-	      && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))
-	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))))
+  while (TREE_CODE (decl) == CONST_DECL
+	 || (integral_p 
+	     ? DECL_INTEGRAL_CONSTANT_VAR_P (decl)
+	     : (TREE_CODE (decl) == VAR_DECL
+		&& CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl)))))
     {
       tree init;
-      /* If DECL is a static data member in a template class, we must
-	 instantiate it here.  The initializer for the static data
-	 member is not processed until needed; we need it now.  */ 
-      mark_used (decl);
-      init = DECL_INITIAL (decl);
-      /* If we are currently processing a template, the
-	 initializer for a static data member may not be dependent,
-	 but it is not folded until instantiation time.  */
-      if (init)
-	init = fold_non_dependent_expr (init);
+      /* Static data members in template classes may have
+	 non-dependent initializers.  References to such non-static
+	 data members are no value-dependent, so we must retrieve the
+	 initializer here.  The DECL_INITIAL will have the right type,
+	 but will not have been folded because that would prevent us
+	 from performing all appropriate semantic checks at
+	 instantiation time.  */
+      if (DECL_CLASS_SCOPE_P (decl)
+	  && CLASSTYPE_TEMPLATE_INFO (DECL_CONTEXT (decl))
+	  && uses_template_parms (CLASSTYPE_TI_ARGS 
+				  (DECL_CONTEXT (decl))))
+	init = fold_non_dependent_expr (DECL_INITIAL (decl));
+      else
+	{
+	  /* If DECL is a static data member in a template
+	     specialization, we must instantiate it here.  The
+	     initializer for the static data member is not processed
+	     until needed; we need it now.  */
+	  mark_used (decl);
+	  init = DECL_INITIAL (decl);
+	}
       if (!(init || init == error_mark_node)
 	  || !TREE_TYPE (init)
-	  || !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (init)))
+	  || (integral_p
+	      ? !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (init))
+	      : (!TREE_CONSTANT (init)
+		 /* Do not return an aggregate constant (of which
+		    string literals are a special case), as we do not
+		    want to make inadvertent copies of such entities,
+		    and we must be sure that their addresses are the
+		    same everywhere.  */
+		 || TREE_CODE (init) == CONSTRUCTOR
+		 || TREE_CODE (init) == STRING_CST)))
 	break;
       decl = init;
     }
   return decl;
 }
 
-/* A more relaxed version of integral_constant_value, for which type
-   is not considered.  This is used by the common C/C++ code, and not
-   directly by the C++ front end.  */
+/* If DECL is a CONST_DECL, or a constant VAR_DECL initialized by
+   constant of integral or enumeration type, then return that value.
+   These are those variables permitted in constant expressions by
+   [5.19/1].  */
+
+tree
+integral_constant_value (tree decl)
+{
+  return constant_value_1 (decl, /*integral_p=*/true);
+}
+
+/* A more relaxed version of integral_constant_value, used by the
+   common C/C++ code and by the C++ front-end for optimization
+   purposes.  */
 
 tree
 decl_constant_value (tree decl)
 {
-  if ((TREE_CODE (decl) == CONST_DECL
-      || (TREE_CODE (decl) == VAR_DECL
-	  /* And so are variables with a 'const' type -- unless they
-	     are also 'volatile'.  */
-	  && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (decl))))
-      && DECL_INITIAL (decl)
-      && DECL_INITIAL (decl) != error_mark_node
-      /* This is invalid if initial value is not constant.  If it has
-	 either a function call, a memory reference, or a variable,
-	 then re-evaluating it could give different results.  */
-      && TREE_CONSTANT (DECL_INITIAL (decl)))
-    return DECL_INITIAL (decl);
-
-  return decl;
+  return constant_value_1 (decl, 
+			   /*integral_p=*/processing_template_decl);
 }
 
 /* Common subroutines of build_new and build_vec_delete.  */
@@ -2593,8 +2613,8 @@ build_vec_init (tree base, tree maxindex, tree init,
 
       for_stmt = begin_for_stmt ();
       finish_for_init_stmt (for_stmt);
-      finish_for_cond (build2 (NE_EXPR, boolean_type_node,
-			       iterator, integer_minus_one_node),
+      finish_for_cond (build2 (NE_EXPR, boolean_type_node, iterator,
+			       build_int_cst (TREE_TYPE (iterator), -1)),
 		       for_stmt);
       finish_for_expr (build_unary_op (PREDECREMENT_EXPR, iterator, 0),
 		       for_stmt);

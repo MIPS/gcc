@@ -101,6 +101,8 @@ public class Window extends Container implements Accessible
 
   protected class AccessibleAWTWindow extends AccessibleAWTContainer
   {
+    private static final long serialVersionUID = 4215068635060671780L;
+
     public AccessibleRole getAccessibleRole()
     {
       return AccessibleRole.WINDOW;
@@ -155,6 +157,9 @@ public class Window extends Container implements Accessible
             }
         }
       });
+    
+    GraphicsEnvironment g = GraphicsEnvironment.getLocalGraphicsEnvironment();
+    graphicsConfiguration = g.getDefaultScreenDevice().getDefaultConfiguration();
   }
 
   Window(GraphicsConfiguration gc)
@@ -275,14 +280,14 @@ public class Window extends Container implements Accessible
    */
   public void show()
   {
+    synchronized (getTreeLock())
+    {
     if (parent != null && !parent.isDisplayable())
       parent.addNotify();
     if (peer == null)
       addNotify();
 
     // Show visible owned windows.
-    synchronized (getTreeLock())
-      {
 	Iterator e = ownedWindows.iterator();
 	while(e.hasNext())
 	  {
@@ -299,14 +304,13 @@ public class Window extends Container implements Accessible
 	      // synchronous access to ownedWindows there.
 	      e.remove();
 	  }
-      }
     validate();
     super.show();
     toFront();
 
     KeyboardFocusManager manager = KeyboardFocusManager.getCurrentKeyboardFocusManager ();
     manager.setGlobalFocusedWindow (this);
-
+    
     if (!shown)
       {
         FocusTraversalPolicy policy = getFocusTraversalPolicy ();
@@ -320,6 +324,7 @@ public class Window extends Container implements Accessible
 
         shown = true;
       }
+    }
   }
 
   public void hide()
@@ -341,13 +346,6 @@ public class Window extends Container implements Accessible
 	  }
       }
     super.hide();
-  }
-
-  public boolean isDisplayable()
-  {
-    if (super.isDisplayable())
-      return true;
-    return peer != null;
   }
 
   /**
@@ -619,6 +617,8 @@ public class Window extends Container implements Accessible
 	    || windowStateListener != null
 	    || (eventMask & AWTEvent.WINDOW_EVENT_MASK) != 0))
       processEvent(e);
+    else if (e.id == ComponentEvent.COMPONENT_RESIZED)
+      validate ();
     else
       super.dispatchEventImpl(e);
   }
@@ -741,7 +741,25 @@ public class Window extends Container implements Accessible
     if (activeWindow == this)
       return manager.getFocusOwner ();
     else
-      return windowFocusOwner;
+      return null;
+  }
+
+  /**
+   * Returns the child component of this window that would receive
+   * focus if this window were to become focused.  If the window
+   * already has the top-level focus, then this method returns the
+   * same component as getFocusOwner.  If no child component has
+   * requested focus within the window, then the initial focus owner
+   * is returned.  If this is a non-focusable window, this method
+   * returns null.
+   *
+   * @return the child component of this window that most recently had
+   * the focus, or <code>null</code>
+   * @since 1.4
+   */
+  public Component getMostRecentFocusOwner ()
+  {
+    return windowFocusOwner;
   }
 
   /**
@@ -785,20 +803,81 @@ public class Window extends Container implements Accessible
     return isVisible();
   }
 
-  public void setLocationRelativeTo (Component c)
+  public void setLocationRelativeTo(Component c)
   {
-    if (c == null || !c.isShowing ())
+    int x = 0;
+    int y = 0;
+    
+    if (c == null || !c.isShowing())
       {
-        int x = 0;
-        int y = 0;
-
-        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment ();
-        Point center = ge.getCenterPoint ();
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        Point center = ge.getCenterPoint();
         x = center.x - (width / 2);
         y = center.y - (height / 2);
-        setLocation (x, y);
       }
-    // FIXME: handle case where component is non-null.
+    else
+      {
+        int cWidth = c.getWidth();
+        int cHeight = c.getHeight();
+        Dimension screenSize = getToolkit().getScreenSize();
+
+        x = c.getLocationOnScreen().x;
+        y = c.getLocationOnScreen().y;
+        
+        // If bottom of component is cut off, window placed
+        // on the left or the right side of component
+        if ((y + cHeight) > screenSize.height)
+          {
+            // If the right side of the component is closer to the center
+            if ((screenSize.width / 2 - x) <= 0)
+              {
+                if ((x - width) >= 0)
+                  x -= width;
+                else
+                  x = 0;
+              }
+            else
+              {
+                if ((x + cWidth + width) <= screenSize.width)
+                  x += cWidth;
+                else
+                  x = screenSize.width - width;
+              }
+
+            y = screenSize.height - height;
+          }
+        else if (cWidth > width || cHeight > height)
+          {
+            // If right side of component is cut off
+            if ((x + width) > screenSize.width)
+              x = screenSize.width - width;
+            // If left side of component is cut off
+            else if (x < 0)
+              x = 0;
+            else
+              x += (cWidth - width) / 2;
+            
+            y += (cHeight - height) / 2;
+          }
+        else
+          {
+            // If right side of component is cut off
+            if ((x + width) > screenSize.width)
+              x = screenSize.width - width;
+            // If left side of component is cut off
+            else if (x < 0 || (x - (width - cWidth) / 2) < 0)
+              x = 0;
+            else
+              x -= (width - cWidth) / 2;
+
+            if ((y - (height - cHeight) / 2) > 0)
+              y -= (height - cHeight) / 2;
+            else
+              y = 0;
+          }
+      }
+
+    setLocation(x, y);
   }
 
   /**
@@ -915,8 +994,8 @@ public class Window extends Container implements Accessible
    *
    * @since 1.4
    */
-  public void createBufferStrategy(int numBuffers,
-				   BufferCapabilities caps)
+  public void createBufferStrategy(int numBuffers, BufferCapabilities caps)
+    throws AWTException
   {
     if (numBuffers < 1)
       throw new IllegalArgumentException("Window.createBufferStrategy: number"
@@ -928,15 +1007,7 @@ public class Window extends Container implements Accessible
 
     // a flipping strategy was requested
     if (caps.isPageFlipping())
-      {
-	try
-	  {
-	    bufferStrategy = new WindowFlipBufferStrategy(numBuffers);
-	  }
-	catch (AWTException e)
-	  {
-	  }
-      }
+      bufferStrategy = new WindowFlipBufferStrategy(numBuffers);
     else
       bufferStrategy = new WindowBltBufferStrategy(numBuffers, true);
   }
@@ -1068,44 +1139,6 @@ public class Window extends Container implements Accessible
   public void setFocusableWindowState (boolean focusableWindowState)
   {
     this.focusableWindowState = focusableWindowState;
-  }
-
-  // setBoundsCallback is needed so that when a user moves a window,
-  // the Window's location can be updated without calling the peer's
-  // setBounds method.  When a user moves a window the peer window's
-  // location is updated automatically and the windowing system sends
-  // a message back to the application informing it of its updated
-  // dimensions.  We must update the AWT Window class with these new
-  // dimensions.  But we don't want to call the peer's setBounds
-  // method, because the peer's dimensions have already been updated.
-  // (Under X, having this method prevents Configure event loops when
-  // moving windows: Component.setBounds -> peer.setBounds ->
-  // postConfigureEvent -> Component.setBounds -> ...  In some cases
-  // Configure event loops cause windows to jitter back and forth
-  // continuously).
-  void setBoundsCallback (int x, int y, int w, int h)
-  {
-    if (this.x == x && this.y == y && width == w && height == h)
-      return;
-    invalidate();
-    boolean resized = width != w || height != h;
-    boolean moved = this.x != x || this.y != y;
-    this.x = x;
-    this.y = y;
-    width = w;
-    height = h;
-    if (resized && isShowing ())
-      {
-        ComponentEvent ce =
-          new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED);
-        getToolkit().getSystemEventQueue().postEvent(ce);
-      }
-    if (moved && isShowing ())
-      {
-        ComponentEvent ce =
-          new ComponentEvent(this, ComponentEvent.COMPONENT_MOVED);
-        getToolkit().getSystemEventQueue().postEvent(ce);
-      }
   }
 
   /**

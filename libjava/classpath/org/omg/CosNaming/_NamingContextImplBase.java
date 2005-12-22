@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package org.omg.CosNaming;
 
+import gnu.CORBA.Minor;
+
 import org.omg.CORBA.BAD_OPERATION;
 import org.omg.CORBA.CompletionStatus;
 import org.omg.CORBA.DynamicImplementation;
@@ -78,8 +80,9 @@ public abstract class _NamingContextImplBase
 
   /**
    * As there are quite many methods, it may be sensible to use the hashtable.
+   * This field is also reused in NamingContextPOA.
    */
-  private static Hashtable methods = new Hashtable();
+  static Hashtable methods = new Hashtable();
 
   /**
    * Put all methods into the table.
@@ -122,7 +125,7 @@ public abstract class _NamingContextImplBase
     OutputStream out = null;
     Integer call_method = (Integer) methods.get(method);
     if (call_method == null)
-      throw new BAD_OPERATION(0, CompletionStatus.COMPLETED_MAYBE);
+      throw new BAD_OPERATION(Minor.Method, CompletionStatus.COMPLETED_MAYBE);
 
     switch (call_method.intValue())
       {
@@ -388,7 +391,7 @@ public abstract class _NamingContextImplBase
     // The server request contains no required result type.
     Integer call_method = (Integer) methods.get(request.operation());
     if (call_method == null)
-      throw new BAD_OPERATION(0, CompletionStatus.COMPLETED_MAYBE);
+      throw new BAD_OPERATION(Minor.Method, CompletionStatus.COMPLETED_MAYBE);
 
     switch (call_method.intValue())
       {

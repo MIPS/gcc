@@ -62,7 +62,8 @@ import java.util.Vector;
  * <p>
  * If you need more information about SGML DTD documents,
  * the author suggests to read SGML tutorial on
- * {@link http://www.w3.org/TR/WD-html40-970708/intro/sgmltut.html}.
+ * <a href="http://www.w3.org/TR/WD-html40-970708/intro/sgmltut.html"
+ * >http://www.w3.org/TR/WD-html40-970708/intro/sgmltut.html</a>.
  * We also recommend Goldfarb C.F (1991) <i>The SGML Handbook</i>,
  * Oxford University Press, 688 p, ISBN: 0198537379.
  * </p>
@@ -80,8 +81,9 @@ public class DTD
 {
   /**
    * The version of the persistent data format.
+   * @specnote This was made <code>final</code> in 1.5.
    */
-  public static int FILE_VERSION = 1;
+  public static final int FILE_VERSION = 1;
 
   /**
    * The table of existing available DTDs.
@@ -402,7 +404,7 @@ public class DTD
    * placed to the field
    * {@link javax.swing.text.html.parser.AttributeList#next },
    * creating a linked list.
-   * @return
+   * @return The attributes.
    */
   protected AttributeList defAttributeList(String name, int type, int modifier,
                                            String default_value,
@@ -541,7 +543,7 @@ public class DTD
    * The unknown elements are automatically defined and added
    * to the element table.
    * @param elements
-   * @return
+   * @return The bit set.
    */
   private BitSet bitSet(String[] elements)
   {
@@ -589,8 +591,7 @@ public class DTD
    * @param name the name of the entity
    * @param type the type of the entity, a bitwise combination
    * of GENERAL, PARAMETER, SYSTEM and PUBLIC.
-   * @throws an error if the parameter is both GENERAL and PARAMETER
-   * of both PUBLIC and SYSTEM.
+   *
    * @return the created entity
    */
   private Entity newEntity(String name, int type)

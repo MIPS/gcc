@@ -141,11 +141,11 @@ gfc_match_eos (void)
    old-style character length specifications.  */
 
 match
-gfc_match_small_literal_int (int *value)
+gfc_match_small_literal_int (int *value, int *cnt)
 {
   locus old_loc;
   char c;
-  int i;
+  int i, j;
 
   old_loc = gfc_current_locus;
 
@@ -159,6 +159,7 @@ gfc_match_small_literal_int (int *value)
     }
 
   i = c - '0';
+  j = 1;
 
   for (;;)
     {
@@ -169,6 +170,7 @@ gfc_match_small_literal_int (int *value)
 	break;
 
       i = 10 * i + c - '0';
+      j++;
 
       if (i > 99999999)
 	{
@@ -180,6 +182,7 @@ gfc_match_small_literal_int (int *value)
   gfc_current_locus = old_loc;
 
   *value = i;
+  *cnt = j;
   return MATCH_YES;
 }
 
@@ -217,25 +220,35 @@ gfc_match_small_int (int *value)
    do most of the work.  */
 
 match
-gfc_match_st_label (gfc_st_label ** label, int allow_zero)
+gfc_match_st_label (gfc_st_label ** label)
 {
   locus old_loc;
   match m;
-  int i;
+  int i, cnt;
 
   old_loc = gfc_current_locus;
 
-  m = gfc_match_small_literal_int (&i);
+  m = gfc_match_small_literal_int (&i, &cnt);
   if (m != MATCH_YES)
     return m;
 
-  if (((i == 0) && allow_zero) || i <= 99999)
+  if (cnt > 5)
     {
-      *label = gfc_get_st_label (i);
-      return MATCH_YES;
+      gfc_error ("Too many digits in statement label at %C");
+      goto cleanup;
     }
 
-  gfc_error ("Statement label at %C is out of range");
+  if (i == 0)
+    {
+      gfc_error ("Statement label at %C is zero");
+      goto cleanup;
+    }
+
+  *label = gfc_get_st_label (i);
+  return MATCH_YES;
+
+cleanup:
+
   gfc_current_locus = old_loc;
   return MATCH_ERROR;
 }
@@ -690,7 +703,7 @@ loop:
 
 	case 'l':
 	  label = va_arg (argp, gfc_st_label **);
-	  n = gfc_match_st_label (label, 0);
+	  n = gfc_match_st_label (label);
 	  if (n != MATCH_YES)
 	    {
 	      m = n;
@@ -1242,7 +1255,7 @@ gfc_match_do (void)
   if (gfc_match (" do") != MATCH_YES)
     return MATCH_NO;
 
-  m = gfc_match_st_label (&label, 0);
+  m = gfc_match_st_label (&label);
   if (m == MATCH_ERROR)
     goto cleanup;
 
@@ -1275,7 +1288,7 @@ gfc_match_do (void)
   gfc_match_label ();		/* This won't error */
   gfc_match (" do ");		/* This will work */
 
-  gfc_match_st_label (&label, 0);	/* Can't error out */
+  gfc_match_st_label (&label);	/* Can't error out */
   gfc_match_char (',');		/* Optional comma */
 
   m = gfc_match_iterator (&iter, 0);
@@ -1404,21 +1417,22 @@ gfc_match_stopcode (gfc_statement st)
   int stop_code;
   gfc_expr *e;
   match m;
+  int cnt;
 
-  stop_code = 0;
+  stop_code = -1;
   e = NULL;
 
   if (gfc_match_eos () != MATCH_YES)
     {
-      m = gfc_match_small_literal_int (&stop_code);
+      m = gfc_match_small_literal_int (&stop_code, &cnt);
       if (m == MATCH_ERROR)
         goto cleanup;
 
-      if (m == MATCH_YES && stop_code > 99999)
-        {
-          gfc_error ("STOP code out of range at %C");
-          goto cleanup;
-        }
+      if (m == MATCH_YES && cnt > 5)
+	{
+	  gfc_error ("Too many digits in STOP code at %C");
+	  goto cleanup;
+	}
 
       if (m == MATCH_NO)
         {
@@ -1585,7 +1599,7 @@ gfc_match_goto (void)
 
       do
 	{
-	  m = gfc_match_st_label (&label, 0);
+	  m = gfc_match_st_label (&label);
 	  if (m != MATCH_YES)
 	    goto syntax;
 
@@ -1631,7 +1645,7 @@ gfc_match_goto (void)
 
   do
     {
-      m = gfc_match_st_label (&label, 0);
+      m = gfc_match_st_label (&label);
       if (m != MATCH_YES)
 	goto syntax;
 
@@ -2226,10 +2240,11 @@ match_common_name (char *name)
 match
 gfc_match_common (void)
 {
-  gfc_symbol *sym, **head, *tail, *old_blank_common;
+  gfc_symbol *sym, **head, *tail, *other, *old_blank_common;
   char name[GFC_MAX_SYMBOL_LEN+1];
   gfc_common_head *t;
   gfc_array_spec *as;
+  gfc_equiv * e1, * e2;
   match m;
 
   old_blank_common = gfc_current_ns->blank_common.head;
@@ -2240,9 +2255,6 @@ gfc_match_common (void)
     }
 
   as = NULL;
-
-  if (gfc_match_eos () == MATCH_YES)
-    goto syntax;
 
   for (;;)
     {
@@ -2273,9 +2285,6 @@ gfc_match_common (void)
 	}
 
       /* Grab the list of symbols.  */
-      if (gfc_match_eos () == MATCH_YES)
-	goto done;
-  
       for (;;)
 	{
 	  m = gfc_match_symbol (&sym, 0);
@@ -2354,7 +2363,45 @@ gfc_match_common (void)
 
 	      sym->as = as;
 	      as = NULL;
+
 	    }
+
+	  sym->common_head = t;
+
+	  /* Check to see if the symbol is already in an equivalence group.
+	     If it is, set the other members as being in common.  */
+	  if (sym->attr.in_equivalence)
+	    {
+	      for (e1 = gfc_current_ns->equiv; e1; e1 = e1->next)
+	        {
+	          for (e2 = e1; e2; e2 = e2->eq)
+	            if (e2->expr->symtree->n.sym == sym)
+		      goto equiv_found;
+
+		  continue;
+
+	  equiv_found:
+
+		  for (e2 = e1; e2; e2 = e2->eq)
+		    {
+		      other = e2->expr->symtree->n.sym;
+		      if (other->common_head
+		            && other->common_head != sym->common_head)
+			{
+			  gfc_error ("Symbol '%s', in COMMON block '%s' at "
+				     "%C is being indirectly equivalenced to "
+				     "another COMMON block '%s'",
+				     sym->name,
+				     sym->common_head->name,
+				     other->common_head->name);
+			    goto cleanup;
+			}
+		      other->attr.in_common = 1;
+		      other->common_head = t;
+		    }
+		}
+	    }
+
 
 	  gfc_gobble_whitespace ();
 	  if (gfc_match_eos () == MATCH_YES)
@@ -2559,7 +2606,11 @@ gfc_match_equivalence (void)
 {
   gfc_equiv *eq, *set, *tail;
   gfc_ref *ref;
+  gfc_symbol *sym;
   match m;
+  gfc_common_head *common_head = NULL;
+  bool common_flag;
+  int cnt;
 
   tail = NULL;
 
@@ -2576,14 +2627,26 @@ gfc_match_equivalence (void)
 	goto syntax;
 
       set = eq;
+      common_flag = FALSE;
+      cnt = 0;
 
       for (;;)
 	{
-	  m = gfc_match_variable (&set->expr, 1);
+	  m = gfc_match_equiv_variable (&set->expr);
 	  if (m == MATCH_ERROR)
 	    goto cleanup;
 	  if (m == MATCH_NO)
 	    goto syntax;
+
+	  /*  count the number of objects.  */
+	  cnt++;
+
+	  if (gfc_match_char ('%') == MATCH_YES)
+	    {
+	      gfc_error ("Derived type component %C is not a "
+			 "permitted EQUIVALENCE member");
+	      goto cleanup;
+	    }
 
 	  for (ref = set->expr->ref; ref; ref = ref->next)
 	    if (ref->type == REF_ARRAY && ref->u.ar.type == AR_SECTION)
@@ -2594,14 +2657,53 @@ gfc_match_equivalence (void)
 		goto cleanup;
 	      }
 
+	  sym = set->expr->symtree->n.sym;
+
+	  if (gfc_add_in_equivalence (&sym->attr, sym->name, NULL)
+		== FAILURE)
+	    goto cleanup;
+
+	  if (sym->attr.in_common)
+	    {
+	      common_flag = TRUE;
+	      common_head = sym->common_head;
+	    }
+
 	  if (gfc_match_char (')') == MATCH_YES)
 	    break;
+
 	  if (gfc_match_char (',') != MATCH_YES)
 	    goto syntax;
 
 	  set->eq = gfc_get_equiv ();
 	  set = set->eq;
 	}
+
+      if (cnt < 2)
+	{
+	  gfc_error ("EQUIVALENCE at %C requires two or more objects");
+	  goto cleanup;
+	}
+
+      /* If one of the members of an equivalence is in common, then
+	 mark them all as being in common.  Before doing this, check
+	 that members of the equivalence group are not in different
+	 common blocks. */
+      if (common_flag)
+	for (set = eq; set; set = set->eq)
+	  {
+	    sym = set->expr->symtree->n.sym;
+	    if (sym->common_head && sym->common_head != common_head)
+	      {
+		gfc_error ("Attempt to indirectly overlap COMMON "
+			   "blocks %s and %s by EQUIVALENCE at %C",
+			   sym->common_head->name,
+			   common_head->name);
+		goto cleanup;
+	      }
+	    sym->attr.in_common = 1;
+	    sym->common_head = common_head;
+	  }
 
       if (gfc_match_eos () == MATCH_YES)
 	break;
@@ -2622,6 +2724,91 @@ cleanup:
   gfc_current_ns->equiv = eq;
 
   return MATCH_ERROR;
+}
+
+/* Check that a statement function is not recursive. This is done by looking
+   for the statement function symbol(sym) by looking recursively through its
+   expression(e).  If a reference to sym is found, true is returned.  */
+static bool
+recursive_stmt_fcn (gfc_expr *e, gfc_symbol *sym)
+{
+  gfc_actual_arglist *arg;
+  gfc_ref *ref;
+  int i;
+
+  if (e == NULL)
+    return false;
+
+  switch (e->expr_type)
+    {
+    case EXPR_FUNCTION:
+      for (arg = e->value.function.actual; arg; arg = arg->next)
+	{
+	  if (sym->name == arg->name
+		|| recursive_stmt_fcn (arg->expr, sym))
+	    return true;
+	}
+
+      if (e->symtree == NULL)
+	return false;
+
+      /* Check the name before testing for nested recursion!  */
+      if (sym->name == e->symtree->n.sym->name)
+	return true;
+
+      /* Catch recursion via other statement functions.  */
+      if (e->symtree->n.sym->attr.proc == PROC_ST_FUNCTION
+	    && e->symtree->n.sym->value
+	    && recursive_stmt_fcn (e->symtree->n.sym->value, sym))
+	return true;
+
+      break;
+
+    case EXPR_VARIABLE:
+      if (e->symtree && sym->name == e->symtree->n.sym->name)
+	return true;
+      break;
+
+    case EXPR_OP:
+      if (recursive_stmt_fcn (e->value.op.op1, sym)
+	    || recursive_stmt_fcn (e->value.op.op2, sym))
+	return true;
+      break;
+
+    default:
+      break;
+    }
+
+  /* Component references do not need to be checked.  */
+  if (e->ref)
+    {
+      for (ref = e->ref; ref; ref = ref->next)
+	{
+	  switch (ref->type)
+	    {
+	    case REF_ARRAY:
+	      for (i = 0; i < ref->u.ar.dimen; i++)
+		{
+		  if (recursive_stmt_fcn (ref->u.ar.start[i], sym)
+			|| recursive_stmt_fcn (ref->u.ar.end[i], sym)
+			|| recursive_stmt_fcn (ref->u.ar.stride[i], sym))
+		    return true;
+		}
+	      break;
+
+	    case REF_SUBSTRING:
+	      if (recursive_stmt_fcn (ref->u.ss.start, sym)
+		    || recursive_stmt_fcn (ref->u.ss.end, sym))
+		return true;
+
+	      break;
+
+	    default:
+	      break;
+	    }
+	}
+    }
+  return false;
 }
 
 
@@ -2657,6 +2844,13 @@ gfc_match_st_function (void)
   gfc_free_error (&old_error);
   if (m == MATCH_ERROR)
     return m;
+
+  if (recursive_stmt_fcn (expr, sym))
+    {
+      gfc_error ("Statement function at %L is recursive",
+		 &expr->where);
+      return MATCH_ERROR;
+    }
 
   sym->value = expr;
 

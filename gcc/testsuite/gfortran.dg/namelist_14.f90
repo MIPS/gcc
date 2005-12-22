@@ -16,7 +16,7 @@ program namelist_14
   integer          ::  i(2) = (/101,201/)
   type(mt)         ::  dt(2)
   type(mt)         ::  cdt
-  real*8           ::  pi = 3.14159_8
+  real(kind=8)           ::  pi = 3.14159_8
   character*10     ::  chs="singleton"
   character*10     ::  cha(2)=(/"first     ","second    "/)
 
@@ -37,7 +37,7 @@ contains
   subroutine foo (i, dt, pi, chs, cha)
     use global
     common /myc/ cdt
-    real *8        :: pi                   !local real scalar
+    real(kind=8)        :: pi                   !local real scalar
     integer        :: i(2)                 !dummy arg. array
     integer        :: j(2) = (/21, 21/)    !equivalenced array
     integer        :: jj                   !    -||-     scalar
@@ -55,7 +55,7 @@ contains
     dts = mt ((/1, 2, 3, 4/))
     dtl = mt ((/41, 42, 43, 44/))
 
-    open (10, status = "scratch")
+    open (10, status = "scratch", delim='apostrophe')
     write (10, nml = z, iostat = ier)
     if (ier /= 0 ) call abort()
     rewind (10)

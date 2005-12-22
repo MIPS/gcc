@@ -129,14 +129,16 @@ init_empty_tree_cfg (void)
   /* Initialize the basic block array.  */
   init_flow ();
   profile_status = PROFILE_ABSENT;
-  n_basic_blocks = 0;
-  last_basic_block = 0;
+  n_basic_blocks = NUM_FIXED_BLOCKS;
+  last_basic_block = NUM_FIXED_BLOCKS;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
 
   /* Build a mapping of labels to their associated blocks.  */
   VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
 		  "label to block map");
 
+  BASIC_BLOCK (ENTRY_BLOCK) = ENTRY_BLOCK_PTR;
+  BASIC_BLOCK (EXIT_BLOCK) = EXIT_BLOCK_PTR;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 }
@@ -170,7 +172,7 @@ build_tree_cfg (tree *tp)
     factor_computed_gotos ();
 
   /* Make sure there is always at least one block, even if it's empty.  */
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     create_empty_bb (ENTRY_BLOCK_PTR);
 
   /* Adjust the size of the array.  */
@@ -298,8 +300,8 @@ factor_computed_gotos (void)
 	    }
 
 	  /* Copy the original computed goto's destination into VAR.  */
-	  assignment = build (MODIFY_EXPR, ptr_type_node,
-			      var, GOTO_DESTINATION (last));
+	  assignment = build2 (MODIFY_EXPR, ptr_type_node,
+			       var, GOTO_DESTINATION (last));
 	  bsi_insert_before (&bsi, assignment, BSI_SAME_STMT);
 
 	  /* And re-vector the computed goto to the new destination.  */
@@ -372,7 +374,7 @@ create_bb (void *h, void *e, basic_block after)
 
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
-  bb->stmt_list = h ? h : alloc_stmt_list ();
+  bb->stmt_list = h ? (tree) h : alloc_stmt_list ();
 
   /* Add the new block to the linked list of blocks.  */
   link_block (bb, after);
@@ -430,7 +432,7 @@ make_edges (void)
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
-  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
+  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (NUM_FIXED_BLOCKS), EDGE_FALLTHRU);
 
   /* Traverse the basic block array placing edges.  */
   FOR_EACH_BB (bb)
@@ -638,7 +640,7 @@ edge_to_cases_eq (const void *p1, const void *p2)
 static void
 edge_to_cases_cleanup (void *p)
 {
-  struct edge_to_cases_elt *elt = p;
+  struct edge_to_cases_elt *elt = (struct edge_to_cases_elt *) p;
   tree t, next;
 
   for (t = elt->case_labels; t; t = next)
@@ -689,7 +691,7 @@ record_switch_edge (edge e, tree case_label)
 
   /* Build a hash table element so we can see if E is already
      in the table.  */
-  elt = xmalloc (sizeof (struct edge_to_cases_elt));
+  elt = XNEW (struct edge_to_cases_elt);
   elt->e = e;
   elt->case_labels = case_label;
 
@@ -794,7 +796,8 @@ label_to_block_fn (struct function *ifun, tree dest)
      and undefined variable warnings quite right.  */
   if ((errorcount || sorrycount) && uid < 0)
     {
-      block_stmt_iterator bsi = bsi_start (BASIC_BLOCK (0));
+      block_stmt_iterator bsi = 
+	bsi_start (BASIC_BLOCK (NUM_FIXED_BLOCKS));
       tree stmt;
 
       stmt = build1 (LABEL_EXPR, void_type_node, dest);
@@ -939,7 +942,7 @@ void
 cleanup_dead_labels (void)
 {
   basic_block bb;
-  label_for_bb = xcalloc (last_basic_block, sizeof (tree));
+  label_for_bb = XCNEWVEC (tree, last_basic_block);
 
   /* Find a suitable label for each block.  We use the first user-defined
      label if there is one, or otherwise just the first label we see.  */
@@ -1237,8 +1240,7 @@ replace_uses_by (tree name, tree val)
   FOR_EACH_IMM_USE_SAFE (use, imm_iter, name)
     {
       stmt = USE_STMT (use);
-
-      SET_USE (use, val);
+      replace_exp (use, val);
 
       if (TREE_CODE (stmt) == PHI_NODE)
 	{
@@ -1271,7 +1273,7 @@ replace_uses_by (tree name, tree val)
 
       rhs = get_rhs (stmt);
       if (TREE_CODE (rhs) == ADDR_EXPR)
-	recompute_tree_invarant_for_addr_expr (rhs);
+	recompute_tree_invariant_for_addr_expr (rhs);
 
       /* If the statement could throw and now cannot, we need to prune cfg.  */
       if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
@@ -1315,8 +1317,17 @@ tree_merge_blocks (basic_block a, basic_block b)
     {
       tree def = PHI_RESULT (phi), use = PHI_ARG_DEF (phi, 0);
       tree copy;
-      
-      if (!may_propagate_copy (def, use))
+      bool may_replace_uses = may_propagate_copy (def, use);
+
+      /* In case we have loops to care about, do not propagate arguments of
+	 loop closed ssa phi nodes.  */
+      if (current_loops
+	  && is_gimple_reg (def)
+	  && TREE_CODE (use) == SSA_NAME
+	  && a->loop_father != b->loop_father)
+	may_replace_uses = false;
+
+      if (!may_replace_uses)
 	{
 	  gcc_assert (is_gimple_reg (def));
 
@@ -1979,6 +1990,12 @@ remove_bb (basic_block bb)
 	{
 	  loop->latch = NULL;
 	  loop->header = NULL;
+
+	  /* Also clean up the information associated with the loop.  Updating
+	     it would waste time. More importantly, it may refer to ssa
+	     names that were defined in other removed basic block -- these
+	     ssa names are now removed and invalid.  */
+	  free_numbers_of_iterations_estimates_loop (loop);
 	}
     }
 
@@ -2923,7 +2940,7 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi,
       if (TREE_CODE (tmp) == RETURN_EXPR)
         {
 	  tree op = TREE_OPERAND (tmp, 0);
-	  if (!is_gimple_val (op))
+	  if (op && !is_gimple_val (op))
 	    {
 	      gcc_assert (TREE_CODE (op) == MODIFY_EXPR);
 	      bsi_insert_before (bsi, op, BSI_NEW_STMT);
@@ -3179,7 +3196,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	old_constant = TREE_CONSTANT (t);
 	old_side_effects = TREE_SIDE_EFFECTS (t);
 
-	recompute_tree_invarant_for_addr_expr (t);
+	recompute_tree_invariant_for_addr_expr (t);
 	new_invariant = TREE_INVARIANT (t);
 	new_side_effects = TREE_SIDE_EFFECTS (t);
 	new_constant = TREE_CONSTANT (t);
@@ -3436,7 +3453,7 @@ verify_node_sharing (tree * tp, int *walk_subtrees, void *data)
 
   slot = htab_find_slot (htab, *tp, INSERT);
   if (*slot)
-    return *slot;
+    return (tree) *slot;
   *slot = *tp;
 
   return NULL;
@@ -4326,7 +4343,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   if (!region_copy)
     {
-      region_copy = xmalloc (sizeof (basic_block) * n_region);
+      region_copy = XNEWVEC (basic_block, n_region);
       free_region_copy = true;
     }
 
@@ -4334,7 +4351,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
-  doms = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  doms = XNEWVEC (basic_block, n_basic_blocks);
   initialize_original_copy_tables ();
 
   n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
@@ -4411,6 +4428,26 @@ tree_duplicate_sese_region (edge entry, edge exit,
 }
 
 
+static tree
+mark_used_vars (tree *tp, int *walk_subtrees, void *used_vars_)
+{
+  bitmap *used_vars = (bitmap *)used_vars_;
+
+  if (walk_subtrees
+      && IS_TYPE_OR_DECL_P (*tp))
+    *walk_subtrees = 0;
+
+  if (!SSA_VAR_P (*tp))
+    return NULL_TREE;
+
+  if (TREE_CODE (*tp) == SSA_NAME)
+    bitmap_set_bit (*used_vars, DECL_UID (SSA_NAME_VAR (*tp)));
+  else
+    bitmap_set_bit (*used_vars, DECL_UID (*tp));
+
+  return NULL_TREE;
+}
+
 /* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree.h)  */
 
 void
@@ -4445,18 +4482,47 @@ dump_function_to_file (tree fn, FILE *file, int flags)
      BIND_EXPRs, so display them separately.  */
   if (cfun && cfun->decl == fn && cfun->unexpanded_var_list)
     {
+      bitmap used_vars = BITMAP_ALLOC (NULL);
       ignore_topmost_bind = true;
 
+      /* Record vars we'll use dumping the functions tree.  */
+      if (cfun->cfg && basic_block_info)
+	{
+	  FOR_EACH_BB (bb)
+	    {
+	      block_stmt_iterator bsi;
+	      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	        walk_tree (bsi_stmt_ptr (bsi), mark_used_vars,
+			   &used_vars, NULL);
+	    }
+	  for (vars = cfun->unexpanded_var_list; vars;
+	       vars = TREE_CHAIN (vars))
+	    {
+	      var = TREE_VALUE (vars);
+	      if (TREE_CODE (var) == VAR_DECL
+		  && DECL_INITIAL (var)
+		  && bitmap_bit_p (used_vars, DECL_UID (var)))
+		walk_tree (&DECL_INITIAL (var), mark_used_vars,
+			   &used_vars, NULL);
+	    }
+	}
+
+      /* Dump used vars.  */
       fprintf (file, "{\n");
       for (vars = cfun->unexpanded_var_list; vars; vars = TREE_CHAIN (vars))
 	{
 	  var = TREE_VALUE (vars);
+	  if (cfun->cfg && basic_block_info
+	      && !bitmap_bit_p (used_vars, DECL_UID (var)))
+            continue;
 
 	  print_generic_decl (file, var, flags);
 	  fprintf (file, "\n");
 
 	  any_var = true;
 	}
+
+      BITMAP_FREE (used_vars);
     }
 
   if (cfun && cfun->decl == fn && cfun->cfg && basic_block_info)
@@ -4593,7 +4659,7 @@ print_loop_ir (FILE *file)
 {
   basic_block bb;
   
-  bb = BASIC_BLOCK (0);
+  bb = BASIC_BLOCK (NUM_FIXED_BLOCKS);
   if (bb && bb->loop_father)
     print_loop (file, bb->loop_father, 0);
 }
@@ -4675,7 +4741,7 @@ tree_flow_call_edges_add (sbitmap blocks)
   int last_bb = last_basic_block;
   bool check_last_block = false;
 
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return 0;
 
   if (! blocks)
@@ -5011,7 +5077,7 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
     return exp;
 
   t = make_rename_temp (type, NULL);
-  new_stmt = build (MODIFY_EXPR, type, t, exp);
+  new_stmt = build2 (MODIFY_EXPR, type, t, exp);
 
   orig_stmt = bsi_stmt (*bsi);
   SET_EXPR_LOCUS (new_stmt, EXPR_LOCUS (orig_stmt));

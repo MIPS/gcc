@@ -386,6 +386,7 @@ enum java_tree_index
   JTI_SOFT_BADARRAYINDEX_NODE,
   JTI_SOFT_NULLPOINTER_NODE,
   JTI_SOFT_ABSTRACTMETHOD_NODE,
+  JTI_SOFT_NOSUCHFIELD_NODE,
   JTI_SOFT_CHECKARRAYSTORE_NODE,
   JTI_SOFT_MONITORENTER_NODE,
   JTI_SOFT_MONITOREXIT_NODE,
@@ -394,6 +395,7 @@ enum java_tree_index
   JTI_SOFT_LOOKUPJNIMETHOD_NODE,
   JTI_SOFT_GETJNIENVNEWFRAME_NODE,
   JTI_SOFT_JNIPOPSYSTEMFRAME_NODE,
+  JTI_SOFT_UNWRAPJNI_NODE,
   JTI_SOFT_FMOD_NODE,
   JTI_SOFT_IDIV_NODE,
   JTI_SOFT_IREM_NODE,
@@ -647,6 +649,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_NULLPOINTER_NODE]
 #define soft_abstractmethod_node \
   java_global_trees[JTI_SOFT_ABSTRACTMETHOD_NODE]
+#define soft_nosuchfield_node \
+  java_global_trees[JTI_SOFT_NOSUCHFIELD_NODE]
 #define soft_checkarraystore_node \
   java_global_trees[JTI_SOFT_CHECKARRAYSTORE_NODE]
 #define soft_monitorenter_node \
@@ -663,6 +667,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_GETJNIENVNEWFRAME_NODE]
 #define soft_jnipopsystemframe_node \
   java_global_trees[JTI_SOFT_JNIPOPSYSTEMFRAME_NODE]
+#define soft_unwrapjni_node \
+  java_global_trees[JTI_SOFT_UNWRAPJNI_NODE]
 #define soft_fmod_node \
   java_global_trees[JTI_SOFT_FMOD_NODE]
 #define soft_idiv_node \
@@ -1074,6 +1080,7 @@ struct lang_decl GTY(())
 
 #define TYPE_TO_RUNTIME_MAP(T)   (TYPE_LANG_SPECIFIC (T)->type_to_runtime_map)
 #define TYPE_ASSERTIONS(T)   	 (TYPE_LANG_SPECIFIC (T)->type_assertions)
+#define TYPE_PACKAGE(T)     	 (TYPE_LANG_SPECIFIC (T)->package)
 
 struct lang_type GTY(())
 {
@@ -1121,6 +1128,9 @@ struct lang_type GTY(())
   htab_t GTY ((param_is (struct type_assertion))) type_assertions;
 				/* Table of type assertions to be evaluated 
   				   by the runtime when this class is loaded. */
+
+  tree package;			/* IDENTIFIER_NODE for package this class is
+  				   a member of.  */
 
   unsigned pic:1;		/* Private Inner Class. */
   unsigned poic:1;		/* Protected Inner Class. */

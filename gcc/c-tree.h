@@ -207,7 +207,10 @@ enum c_typespec_keyword {
   cts_char,
   cts_int,
   cts_float,
-  cts_double
+  cts_double,
+  cts_dfloat32,
+  cts_dfloat64,
+  cts_dfloat128
 };
 
 /* A sequence of declaration specifiers in C.  */
@@ -454,7 +457,6 @@ extern tree groktypename (struct c_type_name *);
 extern tree grokparm (const struct c_parm *);
 extern tree implicitly_declare (tree);
 extern void keep_next_level (void);
-extern tree lookup_name (tree);
 extern void pending_xref_error (void);
 extern void c_push_function_context (struct function *);
 extern void c_pop_function_context (struct function *);

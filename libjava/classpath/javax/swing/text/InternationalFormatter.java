@@ -57,9 +57,8 @@ import javax.swing.JFormattedTextField;
 public class InternationalFormatter
   extends DefaultFormatter
 {
-
-  /** The serialVersoinUID. */
-  private static final long serialVersionUID = 6941977820906408656L;
+  /** The serialization UID (compatible with JDK1.5). */
+  private static final long serialVersionUID = 2436068675711756856L;
 
   /** The format that handles value to string conversion. */
   Format format;
@@ -214,7 +213,7 @@ public class InternationalFormatter
 
   /**
    * Converts a value object into a String. This is done by invoking
-   * {@link Format#format} on the specified <code>Format</code> object.
+   * {@link Format#format(Object)} on the specified <code>Format</code> object.
    * If no format is set, then {@link DefaultFormatter#valueToString(Object)}
    * is called as a fallback.
    *

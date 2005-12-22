@@ -107,6 +107,8 @@ protected transient TextListener textListener;
     extends AccessibleAWTComponent
     implements AccessibleText, TextListener
   {
+    private static final long serialVersionUID = 3631432373506317811L;
+
     // Constructor
     // Adds a listener for tracking caret changes
     public AccessibleAWTTextComponent()
@@ -475,7 +477,7 @@ select(int selectionStart, int selectionEnd)
   if (selectionEnd > text.length())
     selectionEnd = text.length();
 
-  if (selectionStart > getSelectionEnd())
+  if (selectionStart > selectionEnd)
     selectionStart = selectionEnd;
 
   this.selectionStart = selectionStart;

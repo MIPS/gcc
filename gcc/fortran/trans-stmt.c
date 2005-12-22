@@ -91,6 +91,9 @@ gfc_conv_label_variable (gfc_se * se, gfc_expr * expr)
   /* Deals with variable in common block. Get the field declaration.  */
   if (TREE_CODE (se->expr) == COMPONENT_REF)
     se->expr = TREE_OPERAND (se->expr, 1);
+  /* Deals with dummy argument. Get the parameter declaration.  */
+  else if (TREE_CODE (se->expr) == INDIRECT_REF)
+    se->expr = TREE_OPERAND (se->expr, 0);
 }
 
 /* Translate a label assignment statement.  */
@@ -314,7 +317,7 @@ gfc_trans_pause (gfc_code * code)
       fndecl = gfor_fndecl_pause_string;
     }
 
-  tmp = gfc_build_function_call (fndecl, args);
+  tmp = build_function_call_expr (fndecl, args);
   gfc_add_expr_to_block (&se.pre, tmp);
 
   gfc_add_block_to_block (&se.pre, &se.post);
@@ -354,7 +357,7 @@ gfc_trans_stop (gfc_code * code)
       fndecl = gfor_fndecl_stop_string;
     }
 
-  tmp = gfc_build_function_call (fndecl, args);
+  tmp = build_function_call_expr (fndecl, args);
   gfc_add_expr_to_block (&se.pre, tmp);
 
   gfc_add_block_to_block (&se.pre, &se.post);
@@ -1280,7 +1283,7 @@ gfc_trans_character_select (gfc_code *code)
 
   gfc_add_block_to_block (&block, &se.pre);
 
-  tmp = gfc_build_function_call (gfor_fndecl_select_string, args);
+  tmp = build_function_call_expr (gfor_fndecl_select_string, args);
   tmp = build1 (GOTO_EXPR, void_type_node, tmp);
   gfc_add_expr_to_block (&block, tmp);
 
@@ -1468,7 +1471,7 @@ gfc_trans_nested_forall_loop (forall_info * nested_forall_info, tree body,
                 {
                   /* If a mask was specified make the assignment conditional.  */
                   if (pmask)
-		    tmp = gfc_build_indirect_ref (mask);
+		    tmp = build_fold_indirect_ref (mask);
                   else
                     tmp = mask;
                   tmp = gfc_build_array_ref (tmp, maskindex);
@@ -1531,7 +1534,7 @@ gfc_do_allocate (tree bytesize, tree size, tree * pdata, stmtblock_t * pblock,
 	tmp = gfor_fndecl_internal_malloc64;
       else
 	gcc_unreachable ();
-      tmp = gfc_build_function_call (tmp, args);
+      tmp = build_function_call_expr (tmp, args);
       tmp = convert (TREE_TYPE (tmpvar), tmp);
       gfc_add_modify_expr (pblock, tmpvar, tmp);
     }
@@ -1887,7 +1890,7 @@ allocate_temp_for_forall_nest_1 (tree type, tree size, stmtblock_t * block,
   temp1 = gfc_do_allocate (bytesize, size, ptemp1, block, type);
 
   if (*ptemp1)
-    tmp = gfc_build_indirect_ref (temp1);
+    tmp = build_fold_indirect_ref (temp1);
   else
     tmp = temp1;
 
@@ -2016,7 +2019,7 @@ gfc_trans_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2, tree wheremask,
     {
       /* Free the temporary.  */
       tmp = gfc_chainon_list (NULL_TREE, ptemp1);
-      tmp = gfc_build_function_call (gfor_fndecl_internal_free, tmp);
+      tmp = build_function_call_expr (gfor_fndecl_internal_free, tmp);
       gfc_add_expr_to_block (block, tmp);
     }
 }
@@ -2174,7 +2177,7 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
   if (ptemp1)
     {
       tmp = gfc_chainon_list (NULL_TREE, ptemp1);
-      tmp = gfc_build_function_call (gfor_fndecl_internal_free, tmp);
+      tmp = build_function_call_expr (gfor_fndecl_internal_free, tmp);
       gfc_add_expr_to_block (block, tmp);
     }
 }
@@ -2401,7 +2404,7 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
       se.expr = convert (smallest_boolean_type_node, se.expr);
 
       if (pmask)
-	tmp = gfc_build_indirect_ref (mask);
+	tmp = build_fold_indirect_ref (mask);
       else
 	tmp = mask;
       tmp = gfc_build_array_ref (tmp, maskindex);
@@ -2465,7 +2468,7 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
 
               /* Free the temporary.  */
               args = gfc_chainon_list (NULL_TREE, temp->temporary);
-              tmp = gfc_build_function_call (gfor_fndecl_internal_free, args);
+              tmp = build_function_call_expr (gfor_fndecl_internal_free, args);
               gfc_add_expr_to_block (&block, tmp);
 
               p = temp;
@@ -2521,7 +2524,7 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
     {
       /* Free the temporary for the mask.  */
       tmp = gfc_chainon_list (NULL_TREE, pmask);
-      tmp = gfc_build_function_call (gfor_fndecl_internal_free, tmp);
+      tmp = build_function_call_expr (gfor_fndecl_internal_free, tmp);
       gfc_add_expr_to_block (&block, tmp);
     }
   if (maskindex)
@@ -3065,7 +3068,7 @@ gfc_trans_where (gfc_code * code)
   while (temp)
     {
       args = gfc_chainon_list (NULL_TREE, temp->temporary);
-      tmp = gfc_build_function_call (gfor_fndecl_internal_free, args);
+      tmp = build_function_call_expr (gfor_fndecl_internal_free, args);
       gfc_add_expr_to_block (&block, tmp);
 
       p = temp;
@@ -3132,7 +3135,7 @@ gfc_trans_allocate (gfc_code * code)
       tree gfc_int4_type_node = gfc_get_int_type (4);
 
       stat = gfc_create_var (gfc_int4_type_node, "stat");
-      pstat = gfc_build_addr_expr (NULL, stat);
+      pstat = build_fold_addr_expr (stat);
 
       error_label = gfc_build_label_decl (NULL_TREE);
       TREE_USED (error_label) = 1;
@@ -3182,7 +3185,7 @@ gfc_trans_allocate (gfc_code * code)
 	  parm = gfc_chainon_list (NULL_TREE, val);
 	  parm = gfc_chainon_list (parm, tmp);
 	  parm = gfc_chainon_list (parm, pstat);
-	  tmp = gfc_build_function_call (gfor_fndecl_allocate, parm);
+	  tmp = build_function_call_expr (gfor_fndecl_allocate, parm);
 	  gfc_add_expr_to_block (&se.pre, tmp);
 
 	  if (code->expr)
@@ -3250,11 +3253,11 @@ gfc_trans_deallocate (gfc_code * code)
 
       /* Variable used with the library call.  */
       stat = gfc_create_var (gfc_int4_type_node, "stat");
-      pstat = gfc_build_addr_expr (NULL, stat);
+      pstat = build_fold_addr_expr (stat);
 
       /* Running total of possible deallocation failures.  */
       astat = gfc_create_var (gfc_int4_type_node, "astat");
-      apstat = gfc_build_addr_expr (NULL, astat);
+      apstat = build_fold_addr_expr (astat);
 
       /* Initialize astat to 0.  */
       gfc_add_modify_expr (&block, astat, build_int_cst (TREE_TYPE (astat), 0));
@@ -3277,7 +3280,7 @@ gfc_trans_deallocate (gfc_code * code)
       se.descriptor_only = 1;
       gfc_conv_expr (&se, expr);
 
-      if (expr->symtree->n.sym->attr.dimension)
+      if (expr->rank)
 	tmp = gfc_array_deallocate (se.expr, pstat);
       else
 	{
@@ -3288,7 +3291,7 @@ gfc_trans_deallocate (gfc_code * code)
 
 	  parm = gfc_chainon_list (NULL_TREE, var);
 	  parm = gfc_chainon_list (parm, pstat);
-	  tmp = gfc_build_function_call (gfor_fndecl_deallocate, parm);
+	  tmp = build_function_call_expr (gfor_fndecl_deallocate, parm);
 	}
 
       gfc_add_expr_to_block (&se.pre, tmp);

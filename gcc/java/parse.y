@@ -1034,26 +1034,31 @@ method_header:
 |	type error
 		{
 		  yyerror ("Invalid method declaration, method name required");
+		  $$ = NULL_TREE;
 		  RECOVER;
 		}
 |	modifiers type error
 		{
 		  yyerror ("Identifier expected");
+		  $$ = NULL_TREE;
 		  RECOVER;
 		}
 |	VOID_TK error
 		{
 		  yyerror ("Identifier expected");
+		  $$ = NULL_TREE;
 		  RECOVER;
 		}
 |	modifiers VOID_TK error
 		{
 		  yyerror ("Identifier expected");
+		  $$ = NULL_TREE;
 		  RECOVER;
 		}
 |	modifiers error
 		{
 		  yyerror ("Invalid method declaration, return type required");
+		  $$ = NULL_TREE;
 		  RECOVER;
 		}
 ;
@@ -3911,6 +3916,14 @@ maybe_create_class_interface_decl (tree decl, tree raw_name,
   /* Install a new dependency list element */
   create_jdep_list (ctxp);
 
+  /* We keep the compilation unit imports in the class so that
+     they can be used later to resolve type dependencies that
+     aren't necessary to solve now. */
+  TYPE_IMPORT_LIST (TREE_TYPE (decl)) = ctxp->import_list;
+  TYPE_IMPORT_DEMAND_LIST (TREE_TYPE (decl)) = ctxp->import_demand_list;
+
+  TYPE_PACKAGE (TREE_TYPE (decl)) = ctxp->package;
+
   SOURCE_FRONTEND_DEBUG (("Defining class/interface %s",
 			  IDENTIFIER_POINTER (qualified_name)));
   return decl;
@@ -4184,12 +4197,6 @@ create_class (int flags, tree id, tree super, tree interfaces)
      virtual function tables.  In gcj, every class has a common base
      virtual function table in java.lang.object.  */
   TYPE_VFIELD (TREE_TYPE (decl)) = TYPE_VFIELD (object_type_node);
-
-  /* We keep the compilation unit imports in the class so that
-     they can be used later to resolve type dependencies that
-     aren't necessary to solve now. */
-  TYPE_IMPORT_LIST (TREE_TYPE (decl)) = ctxp->import_list;
-  TYPE_IMPORT_DEMAND_LIST (TREE_TYPE (decl)) = ctxp->import_demand_list;
 
   /* Add the private this$<n> field, Replicate final locals still in
      scope as private final fields mangled like val$<local_name>.
@@ -5644,6 +5651,9 @@ static tree
 jdep_resolve_class (jdep *dep)
 {
   tree decl;
+  
+  /* Set the correct context for class resolution.  */
+  current_class = TREE_TYPE (JDEP_ENCLOSING (dep));
 
   if (JDEP_RESOLVED_P (dep))
     decl = JDEP_RESOLVED_DECL (dep);
@@ -5947,8 +5957,8 @@ do_resolve_class (tree enclosing, tree import_type, tree class_type, tree decl,
   /* 3- Search according to the current package definition */
   if (!QUALIFIED_P (TYPE_NAME (class_type)))
     {
-      if ((new_class_decl = qualify_and_find (class_type, ctxp->package,
-					     TYPE_NAME (class_type))))
+      if ((new_class_decl = qualify_and_find (class_type, 
+      		TYPE_PACKAGE (current_class), TYPE_NAME (class_type))))
 	return new_class_decl;
     }
 
@@ -9574,8 +9584,15 @@ resolve_expression_name (tree id, tree *orig)
 
 	      /* If we're processing an inner class and we're trying
 		 to access a field belonging to an outer class, build
-		 the access to the field.  */
-	      if (nested_member_access_p (current_class, decl))
+		 the access to the field.
+		 As usual, we have to treat initialized static final
+		 variables as a special case.  */
+              if (nested_member_access_p (current_class, decl)
+                  && ! (JDECL_P (decl) && CLASS_FINAL_VARIABLE_P (decl)
+                        && DECL_INITIAL (decl) != NULL_TREE
+			&& (JSTRING_TYPE_P (TREE_TYPE (decl))
+			    || JNUMERIC_TYPE_P (TREE_TYPE (decl)))
+			&& TREE_CONSTANT (DECL_INITIAL (decl))))
 		{
 		  if (!fs && CLASS_STATIC (TYPE_NAME (current_class)))
 		    {
@@ -10446,37 +10463,11 @@ check_deprecation (tree wfl, tree decl)
 
 /* Returns 1 if class was declared in the current package, 0 otherwise */
 
-static GTY(()) tree cicp_cache;
 static int
 class_in_current_package (tree class)
 {
-  int qualified_flag;
-  tree left;
-
-  if (cicp_cache == class)
+  if (TYPE_PACKAGE (current_class) == TYPE_PACKAGE (class))
     return 1;
-
-  qualified_flag = QUALIFIED_P (DECL_NAME (TYPE_NAME (class)));
-
-  /* If the current package is empty and the name of CLASS is
-     qualified, class isn't in the current package.  If there is a
-     current package and the name of the CLASS is not qualified, class
-     isn't in the current package */
-  if ((!ctxp->package && qualified_flag) || (ctxp->package && !qualified_flag))
-    return 0;
-
-  /* If there is not package and the name of CLASS isn't qualified,
-     they belong to the same unnamed package */
-  if (!ctxp->package && !qualified_flag)
-    return 1;
-
-  /* Compare the left part of the name of CLASS with the package name */
-  split_qualified_name (&left, NULL, DECL_NAME (TYPE_NAME (class)));
-  if (ctxp->package == left)
-    {
-      cicp_cache = class;
-      return 1;
-    }
   return 0;
 }
 
@@ -11220,6 +11211,17 @@ lookup_method_invoke (int lc, tree cl, tree class, tree name, tree arg_list)
       /* And promoted */
       if (TREE_CODE (current_arg) == RECORD_TYPE)
         current_arg = promote_type (current_arg);
+      /* If we're building an anonymous constructor call, and one of
+	 the arguments has array type, cast it to a size-less array
+	 type.  This prevents us from getting a strange gcj-specific
+	 "sized array" signature in the constructor's signature.  */
+      if (lc && ANONYMOUS_CLASS_P (class)
+	  && TREE_CODE (current_arg) == POINTER_TYPE
+	  && TYPE_ARRAY_P (TREE_TYPE (current_arg)))
+	{
+	  tree elt = TYPE_ARRAY_ELEMENT (TREE_TYPE (current_arg));
+	  current_arg = build_pointer_type (build_java_array_type (elt, -1));
+	}
       atl = tree_cons (NULL_TREE, current_arg, atl);
     }
 
@@ -13664,11 +13666,11 @@ patch_binop (tree node, tree wfl_op1, tree wfl_op2, int folding)
 
       /* Shift int only up to 0x1f and long up to 0x3f */
       if (prom_type == int_type_node)
-	op2 = fold (build2 (BIT_AND_EXPR, int_type_node, op2,
-			    build_int_cst (NULL_TREE, 0x1f)));
+	op2 = fold_build2 (BIT_AND_EXPR, int_type_node, op2,
+			   build_int_cst (NULL_TREE, 0x1f));
       else
-	op2 = fold (build2 (BIT_AND_EXPR, int_type_node, op2,
-			    build_int_cst (NULL_TREE, 0x3f)));
+	op2 = fold_build2 (BIT_AND_EXPR, int_type_node, op2,
+			   build_int_cst (NULL_TREE, 0x3f));
 
       /* The >>> operator is a >> operating on unsigned quantities */
       if (code == URSHIFT_EXPR && (folding || ! flag_emit_class_files))
@@ -15443,7 +15445,7 @@ patch_exit_expr (tree node)
   /* Now we know things are allright, invert the condition, fold and
      return */
   TREE_OPERAND (node, 0) =
-    fold (build1 (TRUTH_NOT_EXPR, boolean_type_node, expression));
+    fold_build1 (TRUTH_NOT_EXPR, boolean_type_node, expression);
 
   if (! integer_zerop (TREE_OPERAND (node, 0))
       && ctxp->current_loop != NULL_TREE

@@ -43,10 +43,13 @@ import java.awt.Component;
 import java.awt.Rectangle;
 import java.io.Serializable;
 
+import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JTable;
+import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
+import javax.swing.JTextField;
 
 /**
  * Class to display every cells.
@@ -63,8 +66,19 @@ public class DefaultTableCellRenderer extends JLabel
   {
     public UIResource()
     {
+      super();
     }
   }
+
+  /**
+   * Stores the color set by setForeground().
+   */
+  Color foreground;
+
+  /**
+   * Stores the color set by setBackground().
+   */
+  Color background;
 
   /**
    * Creates a default table cell renderer with an empty border.
@@ -82,6 +96,7 @@ public class DefaultTableCellRenderer extends JLabel
   public void setForeground(Color c)
   {
     super.setForeground(c);
+    foreground = c;
   }
 
   /**
@@ -92,6 +107,7 @@ public class DefaultTableCellRenderer extends JLabel
   public void setBackground(Color c)
   {
     super.setBackground(c);
+    background = c;
   }
 
   /**
@@ -103,6 +119,8 @@ public class DefaultTableCellRenderer extends JLabel
   public void updateUI()
   {
     super.updateUI();
+    background = null;
+    foreground = null;
   }
 
   /**
@@ -123,7 +141,11 @@ public class DefaultTableCellRenderer extends JLabel
                                                  int row, int column)
   {
     if (value != null)
-      super.setText(value.toString());
+      {
+        if (value instanceof JTextField)
+          return new JTextField(((JTextField)value).getText());
+        super.setText(value.toString());
+      }
 
     setOpaque(true);
 
@@ -132,17 +154,41 @@ public class DefaultTableCellRenderer extends JLabel
 
     if (isSelected)
       {
-        setBackground(table.getSelectionBackground());
-        setForeground(table.getSelectionForeground());
+        super.setBackground(table.getSelectionBackground());
+        super.setForeground(table.getSelectionForeground());
       }
     else
       {
-        setBackground(table.getBackground());
-        setForeground(table.getForeground());
+        if (background != null)
+          super.setBackground(background);
+        else
+          super.setBackground(table.getBackground());
+        if (foreground != null)
+          super.setForeground(foreground);
+        else
+          super.setForeground(table.getForeground());
       }
+
+    if (hasFocus)
+      {
+        setBorder(UIManager.getBorder("Table.focusCellHighlightBorder"));
+        if (table.isCellEditable(row, column))
+          {
+            super.setBackground(UIManager.getColor("Table.focusCellBackground"));
+            super.setForeground(UIManager.getColor("Table.focusCellForeground"));
+          }
+      }
+    else
+      setBorder(BorderFactory.createEmptyBorder(1, 1, 1, 1));
 
     setEnabled(table.isEnabled());
     setFont(table.getFont());
+
+    // If the current background is equal to the table's background, then we
+    // can avoid filling the background by setting the renderer opaque.
+    Color back = getBackground();
+    setOpaque(back != null && back.equals(table.getBackground()));
+    
     return this;    
   }
 

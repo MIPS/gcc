@@ -265,6 +265,17 @@ struct data_dependence_relation
 #define DDR_POLYHEDRON(DDR) DDR->dependence_polyhedron
 #define DDR_OMEGA(DDR) DDR->omega_dependence
 
+#define DDR_DIST_VECTS(DDR) ((DDR)->dist_vects)
+#define DDR_DIR_VECTS(DDR) ((DDR)->dir_vects)
+#define DDR_NUM_DIST_VECTS(DDR) \
+  (VEC_length (lambda_vector, DDR_DIST_VECTS (DDR)))
+#define DDR_NUM_DIR_VECTS(DDR) \
+  (VEC_length (lambda_vector, DDR_DIR_VECTS (DDR)))
+#define DDR_DIR_VECT(DDR, I) \
+  VEC_index (lambda_vector, DDR_DIR_VECTS (DDR), I)
+#define DDR_DIST_VECT(DDR, I) \
+  VEC_index (lambda_vector, DDR_DIST_VECTS (DDR), I)
+
 
 
 extern tree find_data_references_in_loop (struct loop *, varray_type *);
@@ -289,6 +300,7 @@ extern void free_dependence_relations (varray_type);
 extern void free_data_refs (varray_type);
 extern void compute_subscript_distance (struct data_dependence_relation *);
 extern struct data_reference *analyze_array (tree, tree, bool);
+extern void estimate_iters_using_array (tree, tree);
 
 
 

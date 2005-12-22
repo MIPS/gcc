@@ -38,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-chrec.h"
 #include "tree-pass.h"
 #include "params.h"
+#include "tree-scalar-evolution.h"
 
 
 
@@ -934,9 +935,16 @@ evolution_function_is_invariant_rec_p (tree chrec, int loopnum)
 				   chrec))
     return true;
 
-  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC
-      && CHREC_VARIABLE (chrec) == (unsigned) loopnum)
-    return false;
+  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
+    {
+      if (CHREC_VARIABLE (chrec) == (unsigned) loopnum
+	  || !evolution_function_is_invariant_rec_p (CHREC_RIGHT (chrec),
+						     loopnum)
+	  || !evolution_function_is_invariant_rec_p (CHREC_LEFT (chrec),
+						     loopnum))
+	return false;
+      return true;
+    }
 
   switch (TREE_CODE_LENGTH (TREE_CODE (chrec)))
     {
@@ -1123,8 +1131,12 @@ chrec_convert (tree type, tree chrec, tree at_stmt)
 
   if (evolution_function_is_affine_p (chrec))
     {
-      tree step;
+      tree base, step;
       bool dummy;
+      struct loop *loop = current_loops->parray[CHREC_VARIABLE (chrec)];
+
+      base = instantiate_parameters (loop, CHREC_LEFT (chrec));
+      step = instantiate_parameters (loop, CHREC_RIGHT (chrec));
 
       /* Avoid conversion of (signed char) {(uchar)1, +, (uchar)1}_x
 	 when it is not possible to prove that the scev does not wrap.
@@ -1133,16 +1145,30 @@ chrec_convert (tree type, tree chrec, tree at_stmt)
 	 1, 2, ..., 127, -128, ...  The result should not be
 	 {(schar)1, +, (schar)1}_x, but instead, we should keep the
 	 conversion: (schar) {(uchar)1, +, (uchar)1}_x.  */
-      if (scev_probably_wraps_p (type, CHREC_LEFT (chrec), CHREC_RIGHT (chrec),
-				 at_stmt,
-				 current_loops->parray[CHREC_VARIABLE (chrec)],
+      if (scev_probably_wraps_p (type, base, step, at_stmt, loop,
 				 &dummy, &dummy))
-	return fold_convert (type, chrec);
+	goto failed_to_convert;
 
-      step = convert_step (current_loops->parray[CHREC_VARIABLE (chrec)], type,
-			   CHREC_LEFT (chrec), CHREC_RIGHT (chrec), at_stmt);
+      step = convert_step (loop, type, base, step, at_stmt);
       if (!step)
- 	return fold_convert (type, chrec);
+ 	{
+	failed_to_convert:;
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "(failed conversion:");
+	      fprintf (dump_file, "\n  type: ");
+	      print_generic_expr (dump_file, type, 0);
+	      fprintf (dump_file, "\n  base: ");
+	      print_generic_expr (dump_file, base, 0);
+	      fprintf (dump_file, "\n  step: ");
+	      print_generic_expr (dump_file, step, 0);
+	      fprintf (dump_file, "\n  estimated_nb_iterations: ");
+	      print_generic_expr (dump_file, loop->estimated_nb_iterations, 0);
+	      fprintf (dump_file, "\n)\n");
+	    }
+
+	  return fold_convert (type, chrec);
+	}
 
       return build_polynomial_chrec (CHREC_VARIABLE (chrec),
  				     chrec_convert (type, CHREC_LEFT (chrec),
@@ -1176,6 +1202,35 @@ chrec_convert (tree type, tree chrec, tree at_stmt)
   return res;
 }
 
+/* Convert CHREC to TYPE, without regard to signed overflows.  Returns the new
+   chrec if something else than what chrec_convert would do happens, NULL_TREE
+   otherwise.  */
+
+tree
+chrec_convert_aggressive (tree type, tree chrec)
+{
+  tree inner_type, left, right, lc, rc;
+
+  if (automatically_generated_chrec_p (chrec)
+      || TREE_CODE (chrec) != POLYNOMIAL_CHREC)
+    return NULL_TREE;
+
+  inner_type = TREE_TYPE (chrec);
+  if (TYPE_PRECISION (type) > TYPE_PRECISION (inner_type))
+    return NULL_TREE;
+
+  left = CHREC_LEFT (chrec);
+  right = CHREC_RIGHT (chrec);
+  lc = chrec_convert_aggressive (type, left);
+  if (!lc)
+    lc = chrec_convert (type, left, NULL_TREE);
+  rc = chrec_convert_aggressive (type, right);
+  if (!rc)
+    rc = chrec_convert (type, right, NULL_TREE);
+
+  return build_polynomial_chrec (CHREC_VARIABLE (chrec), lc, rc);
+}
+
 /* Returns the type of the chrec.  */
 
 tree 
@@ -1204,7 +1259,7 @@ eq_evolutions_p (tree chrec0,
   switch (TREE_CODE (chrec0))
     {
     case INTEGER_CST:
-      return integer_zerop (fold (build (MINUS_EXPR, TREE_TYPE (chrec0), 
+      return integer_zerop (fold (build2 (MINUS_EXPR, TREE_TYPE (chrec0), 
 					 chrec0, chrec1)));
     case POLYNOMIAL_CHREC:
       return (CHREC_VARIABLE (chrec0) == CHREC_VARIABLE (chrec1)

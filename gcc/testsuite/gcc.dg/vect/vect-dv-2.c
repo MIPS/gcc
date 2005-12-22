@@ -29,7 +29,7 @@ int main ()
     }
 
   /* Vectorizable */
-  for (i = 0; i < N-20 ; i++)
+  for (i = 0; i < N-20; i++)
     {
       A[i] = A[i+20];
     }

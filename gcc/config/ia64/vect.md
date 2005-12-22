@@ -270,6 +270,36 @@
   "pmpy2.l %0 = %1, %2"
   [(set_attr "itanium_class" "mmshf")])
 
+(define_insn "pmpy2_r"
+  [(set (match_operand:V2SI 0 "gr_register_operand" "=r")
+	(mult:V2SI
+	  (vec_select:V2SI
+	    (sign_extend:V4SI
+	      (match_operand:V4HI 1 "gr_register_operand" "r"))
+	    (parallel [(const_int 0) (const_int 2)]))
+	  (vec_select:V2SI
+	    (sign_extend:V4SI
+	      (match_operand:V4HI 2 "gr_register_operand" "r"))
+	    (parallel [(const_int 0) (const_int 2)]))))]
+  ""
+  "pmpy2.r %0 = %1, %2"
+  [(set_attr "itanium_class" "mmshf")])
+
+(define_insn "pmpy2_l"
+  [(set (match_operand:V2SI 0 "gr_register_operand" "=r")
+	(mult:V2SI
+	  (vec_select:V2SI
+	    (sign_extend:V4SI
+	      (match_operand:V4HI 1 "gr_register_operand" "r"))
+	    (parallel [(const_int 1) (const_int 3)]))
+	  (vec_select:V2SI
+	    (sign_extend:V4SI
+	      (match_operand:V4HI 2 "gr_register_operand" "r"))
+	    (parallel [(const_int 1) (const_int 3)]))))]
+  ""
+  "pmpy2.l %0 = %1, %2"
+  [(set_attr "itanium_class" "mmshf")])
+
 (define_expand "umax<mode>3"
   [(set (match_operand:VECINT 0 "gr_register_operand" "")
 	(umax:VECINT (match_operand:VECINT 1 "gr_register_operand" "")

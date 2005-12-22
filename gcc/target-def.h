@@ -136,6 +136,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 # endif
 #endif
 
+#ifndef TARGET_ASM_INIT_SECTIONS
+#define TARGET_ASM_INIT_SECTIONS hook_void_void
+#endif
+
 #ifdef TARGET_ASM_NAMED_SECTION
 #define TARGET_HAVE_NAMED_SECTIONS true
 #else
@@ -145,6 +149,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #ifndef TARGET_INVALID_WITHIN_DOLOOP
 #define TARGET_INVALID_WITHIN_DOLOOP default_invalid_within_doloop
+#endif
+
+#ifndef TARGET_VALID_DLLIMPORT_ATTRIBUTE_P
+#define TARGET_VALID_DLLIMPORT_ATTRIBUTE_P hook_bool_tree_true
 #endif
 
 #ifndef TARGET_HAVE_TLS
@@ -164,14 +172,6 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #endif
 
 #define TARGET_DWARF_REGISTER_SPAN hook_rtx_rtx_null
-
-#ifndef TARGET_ASM_EXCEPTION_SECTION
-#define TARGET_ASM_EXCEPTION_SECTION default_exception_section
-#endif
-
-#ifndef TARGET_ASM_EH_FRAME_SECTION
-#define TARGET_ASM_EH_FRAME_SECTION default_eh_frame_section
-#endif
 
 #ifndef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START default_file_start
@@ -229,9 +229,8 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\
 			TARGET_ASM_FUNCTION_BEGIN_EPILOGUE,	\
 			TARGET_ASM_FUNCTION_EPILOGUE,		\
+			TARGET_ASM_INIT_SECTIONS,		\
 			TARGET_ASM_NAMED_SECTION,		\
-			TARGET_ASM_EXCEPTION_SECTION,		\
-			TARGET_ASM_EH_FRAME_SECTION,		\
 			TARGET_ASM_SELECT_SECTION,		\
 			TARGET_ASM_SELECT_RTX_SECTION,		\
 			TARGET_ASM_UNIQUE_SECTION,		\
@@ -376,6 +375,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_MANGLE_FUNDAMENTAL_TYPE hook_constcharptr_tree_null
 #define TARGET_ALLOCATE_INITIAL_VALUE NULL
 
+#ifndef TARGET_DECIMAL_FLOAT_SUPPORTED_P
+#define TARGET_DECIMAL_FLOAT_SUPPORTED_P hook_bool_void_false
+#endif
+
 #ifndef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS hook_void_void
 #endif
@@ -450,6 +453,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_ARG_PARTIAL_BYTES hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
 
 #define TARGET_FUNCTION_VALUE default_function_value
+#define TARGET_INTERNAL_ARG_POINTER default_internal_arg_pointer
 
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -468,7 +472,8 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
    TARGET_CALLEE_COPIES,					\
    TARGET_ARG_PARTIAL_BYTES,					\
    TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN,			\
-   TARGET_FUNCTION_VALUE					\
+   TARGET_FUNCTION_VALUE,					\
+   TARGET_INTERNAL_ARG_POINTER					\
    }
 
 #ifndef TARGET_UNWIND_TABLES_DEFAULT
@@ -481,6 +486,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 #ifndef TARGET_HANDLE_PRAGMA_EXTERN_PREFIX
 #define TARGET_HANDLE_PRAGMA_EXTERN_PREFIX 0
+#endif
+
+#ifndef TARGET_SECONDARY_RELOAD
+#define TARGET_SECONDARY_RELOAD default_secondary_reload
 #endif
 
 
@@ -525,6 +534,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_CXX_USE_AEABI_ATEXIT hook_bool_void_false
 #endif
 
+#ifndef TARGET_CXX_ADJUST_CLASS_AT_DEFINITION
+#define TARGET_CXX_ADJUST_CLASS_AT_DEFINITION hook_void_tree
+#endif
+
 #define TARGET_CXX				\
   {						\
     TARGET_CXX_GUARD_TYPE,			\
@@ -537,6 +550,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
     TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY,	\
     TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT,        \
     TARGET_CXX_USE_AEABI_ATEXIT,		\
+    TARGET_CXX_ADJUST_CLASS_AT_DEFINITION	\
   }
 
 /* The whole shebang.  */
@@ -556,6 +570,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_INSERT_ATTRIBUTES,			\
   TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P,	\
   TARGET_MS_BITFIELD_LAYOUT_P,			\
+  TARGET_DECIMAL_FLOAT_SUPPORTED_P,		\
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
@@ -602,10 +617,12 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_STACK_PROTECT_GUARD,			\
   TARGET_STACK_PROTECT_FAIL,			\
   TARGET_INVALID_WITHIN_DOLOOP,			\
+  TARGET_VALID_DLLIMPORT_ATTRIBUTE_P,		\
   TARGET_CALLS,					\
   TARGET_INVALID_CONVERSION,			\
   TARGET_INVALID_UNARY_OP,			\
   TARGET_INVALID_BINARY_OP,			\
+  TARGET_SECONDARY_RELOAD,			\
   TARGET_CXX,					\
   TARGET_UNWIND_TABLES_DEFAULT,			\
   TARGET_HAVE_NAMED_SECTIONS,			\

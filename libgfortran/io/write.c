@@ -29,6 +29,7 @@ the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
+#include <assert.h>
 #include <string.h>
 #include <ctype.h>
 #include <float.h>
@@ -45,17 +46,15 @@ typedef enum
 sign_t;
 
 
-static int no_leading_blank = 0 ;
-
 void
-write_a (fnode * f, const char *source, int len)
+write_a (st_parameter_dt *dtp, const fnode *f, const char *source, int len)
 {
   int wlen;
   char *p;
 
   wlen = f->u.string.length < 0 ? len : f->u.string.length;
 
-  p = write_block (wlen);
+  p = write_block (dtp, wlen);
   if (p == NULL)
     return;
 
@@ -79,24 +78,44 @@ extract_int (const void *p, int len)
   switch (len)
     {
     case 1:
-      i = *((const GFC_INTEGER_1 *) p);
+      {
+	GFC_INTEGER_1 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 2:
-      i = *((const GFC_INTEGER_2 *) p);
+      {
+	GFC_INTEGER_2 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 4:
-      i = *((const GFC_INTEGER_4 *) p);
+      {
+	GFC_INTEGER_4 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 8:
-      i = *((const GFC_INTEGER_8 *) p);
+      {
+	GFC_INTEGER_8 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #ifdef HAVE_GFC_INTEGER_16
     case 16:
-      i = *((const GFC_INTEGER_16 *) p);
+      {
+	GFC_INTEGER_16 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #endif
     default:
-      internal_error ("bad integer kind");
+      internal_error (NULL, "bad integer kind");
     }
 
   return i;
@@ -113,24 +132,44 @@ extract_uint (const void *p, int len)
   switch (len)
     {
     case 1:
-      i = (GFC_UINTEGER_1) *((const GFC_INTEGER_1 *) p);
+      {
+	GFC_INTEGER_1 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_1) tmp;
+      }
       break;
     case 2:
-      i = (GFC_UINTEGER_2) *((const GFC_INTEGER_2 *) p);
+      {
+	GFC_INTEGER_2 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_2) tmp;
+      }
       break;
     case 4:
-      i = (GFC_UINTEGER_4) *((const GFC_INTEGER_4 *) p);
+      {
+	GFC_INTEGER_4 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_4) tmp;
+      }
       break;
     case 8:
-      i = (GFC_UINTEGER_8) *((const GFC_INTEGER_8 *) p);
+      {
+	GFC_INTEGER_8 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_8) tmp;
+      }
       break;
 #ifdef HAVE_GFC_INTEGER_16
     case 16:
-      i = (GFC_UINTEGER_16) *((const GFC_INTEGER_16 *) p);
+      {
+	GFC_INTEGER_16 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = (GFC_UINTEGER_16) tmp;
+      }
       break;
 #endif
     default:
-      internal_error ("bad integer kind");
+      internal_error (NULL, "bad integer kind");
     }
 
   return i;
@@ -143,23 +182,39 @@ extract_real (const void *p, int len)
   switch (len)
     {
     case 4:
-      i = *((const GFC_REAL_4 *) p);
+      {
+	GFC_REAL_4 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
     case 8:
-      i = *((const GFC_REAL_8 *) p);
+      {
+	GFC_REAL_8 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #ifdef HAVE_GFC_REAL_10
     case 10:
-      i = *((const GFC_REAL_10 *) p);
+      {
+	GFC_REAL_10 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #endif
 #ifdef HAVE_GFC_REAL_16
     case 16:
-      i = *((const GFC_REAL_16 *) p);
+      {
+	GFC_REAL_16 tmp;
+	memcpy ((void *) &tmp, p, len);
+	i = tmp;
+      }
       break;
 #endif
     default:
-      internal_error ("bad real kind");
+      internal_error (NULL, "bad real kind");
     }
   return i;
 }
@@ -169,14 +224,14 @@ extract_real (const void *p, int len)
    sign_t that gives the sign that we need to produce.  */
 
 static sign_t
-calculate_sign (int negative_flag)
+calculate_sign (st_parameter_dt *dtp, int negative_flag)
 {
   sign_t s = SIGN_NONE;
 
   if (negative_flag)
     s = SIGN_MINUS;
   else
-    switch (g.sign_status)
+    switch (dtp->u.p.sign_status)
       {
       case SIGN_SP:
 	s = SIGN_PLUS;
@@ -228,7 +283,8 @@ calculate_exp (int d)
           for Gw.dEe, n' ' means e+2 blanks  */
 
 static fnode *
-calculate_G_format (fnode *f, GFC_REAL_LARGEST value, int *num_blank)
+calculate_G_format (st_parameter_dt *dtp, const fnode *f,
+		    GFC_REAL_LARGEST value, int *num_blank)
 {
   int e = f->u.real.e;
   int d = f->u.real.d;
@@ -309,7 +365,7 @@ calculate_G_format (fnode *f, GFC_REAL_LARGEST value, int *num_blank)
     newf->u.real.d = - (mid - d - 1);
 
   /* For F editing, the scale factor is ignored.  */
-  g.scale_factor = 0;
+  dtp->u.p.scale_factor = 0;
   return newf;
 }
 
@@ -317,7 +373,7 @@ calculate_G_format (fnode *f, GFC_REAL_LARGEST value, int *num_blank)
 /* Output a real number according to its format which is FMT_G free.  */
 
 static void
-output_float (fnode *f, GFC_REAL_LARGEST value)
+output_float (st_parameter_dt *dtp, const fnode *f, GFC_REAL_LARGEST value)
 {
   /* This must be large enough to accurately hold any value.  */
   char buffer[32];
@@ -353,12 +409,12 @@ output_float (fnode *f, GFC_REAL_LARGEST value)
 
   /* We should always know the field width and precision.  */
   if (d < 0)
-    internal_error ("Unspecified precision");
+    internal_error (&dtp->common, "Unspecified precision");
 
   /* Use sprintf to print the number in the format +D.DDDDe+ddd
      For an N digit exponent, this gives us (32-6)-N digits after the
      decimal point, plus another one before the decimal point.  */
-  sign = calculate_sign (value < 0.0);
+  sign = calculate_sign (dtp, value < 0.0);
   if (value < 0)
     value = -value;
 
@@ -379,7 +435,7 @@ output_float (fnode *f, GFC_REAL_LARGEST value)
     }
 
   if (ft == FMT_F || ft == FMT_EN
-      || ((ft == FMT_D || ft == FMT_E) && g.scale_factor != 0))
+      || ((ft == FMT_D || ft == FMT_E) && dtp->u.p.scale_factor != 0))
     {
       /* Always convert at full precision to avoid double rounding.  */
       ndigits = 27 - edigits;
@@ -417,7 +473,7 @@ output_float (fnode *f, GFC_REAL_LARGEST value)
 
   /* Check the resulting string has punctuation in the correct places.  */
   if (buffer[2] != '.' || buffer[ndigits + 2] != 'e')
-      internal_error ("printf is broken");
+      internal_error (&dtp->common, "printf is broken");
 
   /* Read the exponent back in.  */
   e = atoi (&buffer[ndigits + 3]) + 1;
@@ -434,7 +490,7 @@ output_float (fnode *f, GFC_REAL_LARGEST value)
   switch (ft)
     {
     case FMT_F:
-      nbefore = e + g.scale_factor;
+      nbefore = e + dtp->u.p.scale_factor;
       if (nbefore < 0)
 	{
 	  nzero = -nbefore;
@@ -454,7 +510,7 @@ output_float (fnode *f, GFC_REAL_LARGEST value)
 
     case FMT_E:
     case FMT_D:
-      i = g.scale_factor;
+      i = dtp->u.p.scale_factor;
       if (value != 0.0)
 	e -= i;
       if (i < 0)
@@ -513,7 +569,7 @@ output_float (fnode *f, GFC_REAL_LARGEST value)
 
     default:
       /* Should never happen.  */
-      internal_error ("Unexpected format token");
+      internal_error (&dtp->common, "Unexpected format token");
     }
 
   /* Round the value.  */
@@ -614,7 +670,7 @@ output_float (fnode *f, GFC_REAL_LARGEST value)
     w = nbefore + nzero + nafter + (sign != SIGN_NONE ? 2 : 1);
 
   /* Create the ouput buffer.  */
-  out = write_block (w);
+  out = write_block (dtp, w);
   if (out == NULL)
     return;
 
@@ -626,7 +682,7 @@ output_float (fnode *f, GFC_REAL_LARGEST value)
 	break;
     }
   if (i == ndigits)
-    sign = calculate_sign (0);
+    sign = calculate_sign (dtp, 0);
 
   /* Work out how much padding is needed.  */
   nblanks = w - (nbefore + nzero + nafter + edigits + 1);
@@ -652,7 +708,7 @@ output_float (fnode *f, GFC_REAL_LARGEST value)
   /* Pad to full field width.  */
 
 
-  if ( ( nblanks > 0 ) && !no_leading_blank )
+  if ( ( nblanks > 0 ) && !dtp->u.p.no_leading_blank)
     {
       memset (out, ' ', nblanks);
       out += nblanks;
@@ -727,22 +783,22 @@ output_float (fnode *f, GFC_REAL_LARGEST value)
       memcpy (out, buffer, edigits);
     }
 
-  if ( no_leading_blank )
+  if (dtp->u.p.no_leading_blank)
     {
       out += edigits;
       memset( out , ' ' , nblanks );
-      no_leading_blank = 0;
+      dtp->u.p.no_leading_blank = 0;
     }
 }
 
 
 void
-write_l (fnode * f, char *source, int len)
+write_l (st_parameter_dt *dtp, const fnode *f, char *source, int len)
 {
   char *p;
   GFC_INTEGER_LARGEST n;
 
-  p = write_block (f->u.w);
+  p = write_block (dtp, f->u.w);
   if (p == NULL)
     return;
 
@@ -754,7 +810,7 @@ write_l (fnode * f, char *source, int len)
 /* Output a real number according to its format.  */
 
 static void
-write_float (fnode *f, const char *source, int len)
+write_float (st_parameter_dt *dtp, const fnode *f, const char *source, int len)
 {
   GFC_REAL_LARGEST n;
   int nb =0, res, save_scale_factor;
@@ -765,9 +821,6 @@ write_float (fnode *f, const char *source, int len)
 
   if (f->format != FMT_B && f->format != FMT_O && f->format != FMT_Z)
     {
-      /* TODO: there are some systems where isfinite is not able to work
-               with long double variables. We should detect this case and
-	       provide our own version for isfinite.  */
       res = isfinite (n); 
       if (res == 0)
 	{
@@ -777,7 +830,9 @@ write_float (fnode *f, const char *source, int len)
 	     not zero.  4 is chosen to allow output of '-Inf' or '+Inf' */
 	     
 	  if (nb == 0) nb = 4;
-	  p = write_block (nb);
+	  p = write_block (dtp, nb);
+          if (p == NULL)
+            return;
 	  if (nb < 3)
 	    {
 	      memset (p, '*',nb);
@@ -834,21 +889,21 @@ write_float (fnode *f, const char *source, int len)
     }
 
   if (f->format != FMT_G)
-    {
-      output_float (f, n);
-    }
+    output_float (dtp, f, n);
   else
     {
-      save_scale_factor = g.scale_factor;
-      f2 = calculate_G_format(f, n, &nb);
-      output_float (f2, n);
-      g.scale_factor = save_scale_factor;
+      save_scale_factor = dtp->u.p.scale_factor;
+      f2 = calculate_G_format (dtp, f, n, &nb);
+      output_float (dtp, f2, n);
+      dtp->u.p.scale_factor = save_scale_factor;
       if (f2 != NULL)
         free_mem(f2);
 
       if (nb > 0)
         {
-          p = write_block (nb);
+	  p = write_block (dtp, nb);
+          if (p == NULL)
+            return;
           memset (p, ' ', nb);
         }
     }
@@ -856,12 +911,14 @@ write_float (fnode *f, const char *source, int len)
 
 
 static void
-write_int (fnode *f, const char *source, int len,
-           char *(*conv) (GFC_UINTEGER_LARGEST))
+write_int (st_parameter_dt *dtp, const fnode *f, const char *source, int len,
+           const char *(*conv) (GFC_UINTEGER_LARGEST, char *, size_t))
 {
   GFC_UINTEGER_LARGEST n = 0;
   int w, m, digits, nzero, nblank;
-  char *p, *q;
+  char *p;
+  const char *q;
+  char itoa_buf[GFC_BTOA_BUF_SIZE];
 
   w = f->u.integer.w;
   m = f->u.integer.m;
@@ -875,7 +932,7 @@ write_int (fnode *f, const char *source, int len,
       if (w == 0)
         w = 1;
 
-      p = write_block (w);
+      p = write_block (dtp, w);
       if (p == NULL)
         return;
 
@@ -883,7 +940,7 @@ write_int (fnode *f, const char *source, int len,
       goto done;
     }
 
-  q = conv (n);
+  q = conv (n, itoa_buf, sizeof (itoa_buf));
   digits = strlen (q);
 
   /* Select a width if none was specified.  The idea here is to always
@@ -892,7 +949,7 @@ write_int (fnode *f, const char *source, int len,
   if (w == 0)
     w = ((digits < m) ? m : digits);
 
-  p = write_block (w);
+  p = write_block (dtp, w);
   if (p == NULL)
     return;
 
@@ -911,13 +968,13 @@ write_int (fnode *f, const char *source, int len,
     }
 
 
-  if (!no_leading_blank)
+  if (!dtp->u.p.no_leading_blank)
     {
-  memset (p, ' ', nblank);
-  p += nblank;
-  memset (p, '0', nzero);
-  p += nzero;
-  memcpy (p, q, digits);
+      memset (p, ' ', nblank);
+      p += nblank;
+      memset (p, '0', nzero);
+      p += nzero;
+      memcpy (p, q, digits);
     }
   else
     {
@@ -926,7 +983,7 @@ write_int (fnode *f, const char *source, int len,
       memcpy (p, q, digits);
       p += digits;
       memset (p, ' ', nblank);
-      no_leading_blank = 0;
+      dtp->u.p.no_leading_blank = 0;
     }
 
  done:
@@ -934,13 +991,16 @@ write_int (fnode *f, const char *source, int len,
 }
 
 static void
-write_decimal (fnode *f, const char *source, int len,
-               char *(*conv) (GFC_INTEGER_LARGEST))
+write_decimal (st_parameter_dt *dtp, const fnode *f, const char *source,
+	       int len,
+               const char *(*conv) (GFC_INTEGER_LARGEST, char *, size_t))
 {
   GFC_INTEGER_LARGEST n = 0;
   int w, m, digits, nsign, nzero, nblank;
-  char *p, *q;
+  char *p;
+  const char *q;
   sign_t sign;
+  char itoa_buf[GFC_BTOA_BUF_SIZE];
 
   w = f->u.integer.w;
   m = f->u.integer.m;
@@ -954,7 +1014,7 @@ write_decimal (fnode *f, const char *source, int len,
       if (w == 0)
         w = 1;
 
-      p = write_block (w);
+      p = write_block (dtp, w);
       if (p == NULL)
         return;
 
@@ -962,12 +1022,12 @@ write_decimal (fnode *f, const char *source, int len,
       goto done;
     }
 
-  sign = calculate_sign (n < 0);
+  sign = calculate_sign (dtp, n < 0);
   if (n < 0)
     n = -n;
 
   nsign = sign == SIGN_NONE ? 0 : 1;
-  q = conv (n);
+  q = conv (n, itoa_buf, sizeof (itoa_buf));
 
   digits = strlen (q);
 
@@ -977,7 +1037,7 @@ write_decimal (fnode *f, const char *source, int len,
   if (w == 0)
     w = ((digits < m) ? m : digits) + nsign;
 
-  p = write_block (w);
+  p = write_block (dtp, w);
   if (p == NULL)
     return;
 
@@ -1022,129 +1082,124 @@ write_decimal (fnode *f, const char *source, int len,
 
 /* Convert unsigned octal to ascii.  */
 
-static char *
-otoa (GFC_UINTEGER_LARGEST n)
+static const char *
+otoa (GFC_UINTEGER_LARGEST n, char *buffer, size_t len)
 {
   char *p;
 
-  if (n == 0)
-    {
-      scratch[0] = '0';
-      scratch[1] = '\0';
-      return scratch;
-    }
+  assert (len >= GFC_OTOA_BUF_SIZE);
 
-  p = scratch + SCRATCH_SIZE - 1;
-  *p-- = '\0';
+  if (n == 0)
+    return "0";
+
+  p = buffer + GFC_OTOA_BUF_SIZE - 1;
+  *p = '\0';
 
   while (n != 0)
     {
-      *p = '0' + (n & 7);
-      p--;
+      *--p = '0' + (n & 7);
       n >>= 3;
     }
 
-  return ++p;
+  return p;
 }
 
 
 /* Convert unsigned binary to ascii.  */
 
-static char *
-btoa (GFC_UINTEGER_LARGEST n)
+static const char *
+btoa (GFC_UINTEGER_LARGEST n, char *buffer, size_t len)
 {
   char *p;
 
-  if (n == 0)
-    {
-      scratch[0] = '0';
-      scratch[1] = '\0';
-      return scratch;
-    }
+  assert (len >= GFC_BTOA_BUF_SIZE);
 
-  p = scratch + SCRATCH_SIZE - 1;
-  *p-- = '\0';
+  if (n == 0)
+    return "0";
+
+  p = buffer + GFC_BTOA_BUF_SIZE - 1;
+  *p = '\0';
 
   while (n != 0)
     {
-      *p-- = '0' + (n & 1);
+      *--p = '0' + (n & 1);
       n >>= 1;
     }
 
-  return ++p;
+  return p;
 }
 
 
 void
-write_i (fnode * f, const char *p, int len)
+write_i (st_parameter_dt *dtp, const fnode *f, const char *p, int len)
 {
-  write_decimal (f, p, len, (void *) gfc_itoa);
+  write_decimal (dtp, f, p, len, (void *) gfc_itoa);
 }
 
 
 void
-write_b (fnode * f, const char *p, int len)
+write_b (st_parameter_dt *dtp, const fnode *f, const char *p, int len)
 {
-  write_int (f, p, len, btoa);
+  write_int (dtp, f, p, len, btoa);
 }
 
 
 void
-write_o (fnode * f, const char *p, int len)
+write_o (st_parameter_dt *dtp, const fnode *f, const char *p, int len)
 {
-  write_int (f, p, len, otoa);
+  write_int (dtp, f, p, len, otoa);
 }
 
 void
-write_z (fnode * f, const char *p, int len)
+write_z (st_parameter_dt *dtp, const fnode *f, const char *p, int len)
 {
-  write_int (f, p, len, xtoa);
-}
-
-
-void
-write_d (fnode *f, const char *p, int len)
-{
-  write_float (f, p, len);
+  write_int (dtp, f, p, len, xtoa);
 }
 
 
 void
-write_e (fnode *f, const char *p, int len)
+write_d (st_parameter_dt *dtp, const fnode *f, const char *p, int len)
 {
-  write_float (f, p, len);
+  write_float (dtp, f, p, len);
 }
 
 
 void
-write_f (fnode *f, const char *p, int len)
+write_e (st_parameter_dt *dtp, const fnode *f, const char *p, int len)
 {
-  write_float (f, p, len);
+  write_float (dtp, f, p, len);
 }
 
 
 void
-write_en (fnode *f, const char *p, int len)
+write_f (st_parameter_dt *dtp, const fnode *f, const char *p, int len)
 {
-  write_float (f, p, len);
+  write_float (dtp, f, p, len);
 }
 
 
 void
-write_es (fnode *f, const char *p, int len)
+write_en (st_parameter_dt *dtp, const fnode *f, const char *p, int len)
 {
-  write_float (f, p, len);
+  write_float (dtp, f, p, len);
+}
+
+
+void
+write_es (st_parameter_dt *dtp, const fnode *f, const char *p, int len)
+{
+  write_float (dtp, f, p, len);
 }
 
 
 /* Take care of the X/TR descriptor.  */
 
 void
-write_x (int len, int nspaces)
+write_x (st_parameter_dt *dtp, int len, int nspaces)
 {
   char *p;
 
-  p = write_block (len);
+  p = write_block (dtp, len);
   if (p == NULL)
     return;
 
@@ -1160,11 +1215,11 @@ write_x (int len, int nspaces)
    something goes wrong.  */
 
 static int
-write_char (char c)
+write_char (st_parameter_dt *dtp, char c)
 {
   char *p;
 
-  p = write_block (1);
+  p = write_block (dtp, 1);
   if (p == NULL)
     return 1;
 
@@ -1177,23 +1232,24 @@ write_char (char c)
 /* Write a list-directed logical value.  */
 
 static void
-write_logical (const char *source, int length)
+write_logical (st_parameter_dt *dtp, const char *source, int length)
 {
-  write_char (extract_int (source, length) ? 'T' : 'F');
+  write_char (dtp, extract_int (source, length) ? 'T' : 'F');
 }
 
 
 /* Write a list-directed integer value.  */
 
 static void
-write_integer (const char *source, int length)
+write_integer (st_parameter_dt *dtp, const char *source, int length)
 {
   char *p;
   const char *q;
   int digits;
   int width;
+  char itoa_buf[GFC_ITOA_BUF_SIZE];
 
-  q = gfc_itoa (extract_int (source, length));
+  q = gfc_itoa (extract_int (source, length), itoa_buf, sizeof (itoa_buf));
 
   switch (length)
     {
@@ -1220,18 +1276,20 @@ write_integer (const char *source, int length)
 
   digits = strlen (q);
 
-  if(width < digits )
-    width = digits ;
-  p = write_block (width) ;
-  if (no_leading_blank)
+  if (width < digits)
+    width = digits;
+  p = write_block (dtp, width);
+  if (p == NULL)
+    return;
+  if (dtp->u.p.no_leading_blank)
     {
       memcpy (p, q, digits);
-      memset(p + digits ,' ', width - digits) ;
+      memset (p + digits, ' ', width - digits);
     }
   else
     {
-  memset(p ,' ', width - digits) ;
-  memcpy (p + width - digits, q, digits);
+      memset (p, ' ', width - digits);
+      memcpy (p + width - digits, q, digits);
     }
 }
 
@@ -1240,12 +1298,12 @@ write_integer (const char *source, int length)
    the strings if the file has been opened in that mode.  */
 
 static void
-write_character (const char *source, int length)
+write_character (st_parameter_dt *dtp, const char *source, int length)
 {
   int i, extra;
   char *p, d;
 
-  switch (current_unit->flags.delim)
+  switch (dtp->u.p.current_unit->flags.delim)
     {
     case DELIM_APOSTROPHE:
       d = '\'';
@@ -1269,7 +1327,7 @@ write_character (const char *source, int length)
 	  extra++;
     }
 
-  p = write_block (length + extra);
+  p = write_block (dtp, length + extra);
   if (p == NULL)
     return;
 
@@ -1296,12 +1354,12 @@ write_character (const char *source, int length)
    1PG24.15E4 for REAL(10) and 1PG40.31E4 for REAL(16).  */
 
 static void
-write_real (const char *source, int length)
+write_real (st_parameter_dt *dtp, const char *source, int length)
 {
   fnode f ;
-  int org_scale = g.scale_factor;
+  int org_scale = dtp->u.p.scale_factor;
   f.format = FMT_G;
-  g.scale_factor = 1;
+  dtp->u.p.scale_factor = 1;
   switch (length)
     {
     case 4:
@@ -1325,37 +1383,37 @@ write_real (const char *source, int length)
       f.u.real.e = 4;
       break;
     default:
-      internal_error ("bad real kind");
+      internal_error (&dtp->common, "bad real kind");
       break;
     }
-  write_float (&f, source , length);
-  g.scale_factor = org_scale;
+  write_float (dtp, &f, source , length);
+  dtp->u.p.scale_factor = org_scale;
 }
 
 
 static void
-write_complex (const char *source, int len)
+write_complex (st_parameter_dt *dtp, const char *source, int kind, size_t size)
 {
-  if (write_char ('('))
+  if (write_char (dtp, '('))
     return;
-  write_real (source, len);
+  write_real (dtp, source, kind);
 
-  if (write_char (','))
+  if (write_char (dtp, ','))
     return;
-  write_real (source + len, len);
+  write_real (dtp, source + size / 2, kind);
 
-  write_char (')');
+  write_char (dtp, ')');
 }
 
 
 /* Write the separator between items.  */
 
 static void
-write_separator (void)
+write_separator (st_parameter_dt *dtp)
 {
   char *p;
 
-  p = write_block (options.separator_len);
+  p = write_block (dtp, options.separator_len);
   if (p == NULL)
     return;
 
@@ -1367,49 +1425,65 @@ write_separator (void)
    TODO: handle skipping to the next record correctly, particularly
    with strings.  */
 
-void
-list_formatted_write (bt type, void *p, int len)
+static void
+list_formatted_write_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
+			     size_t size)
 {
-  static int char_flag;
-
-  if (current_unit == NULL)
+  if (dtp->u.p.current_unit == NULL)
     return;
 
-  if (g.first_item)
+  if (dtp->u.p.first_item)
     {
-      g.first_item = 0;
-      char_flag = 0;
-      write_char (' ');
+      dtp->u.p.first_item = 0;
+      write_char (dtp, ' ');
     }
   else
     {
-      if (type != BT_CHARACTER || !char_flag ||
-	  current_unit->flags.delim != DELIM_NONE)
-	write_separator ();
+      if (type != BT_CHARACTER || !dtp->u.p.char_flag ||
+	  dtp->u.p.current_unit->flags.delim != DELIM_NONE)
+	write_separator (dtp);
     }
 
   switch (type)
     {
     case BT_INTEGER:
-      write_integer (p, len);
+      write_integer (dtp, p, kind);
       break;
     case BT_LOGICAL:
-      write_logical (p, len);
+      write_logical (dtp, p, kind);
       break;
     case BT_CHARACTER:
-      write_character (p, len);
+      write_character (dtp, p, kind);
       break;
     case BT_REAL:
-      write_real (p, len);
+      write_real (dtp, p, kind);
       break;
     case BT_COMPLEX:
-      write_complex (p, len);
+      write_complex (dtp, p, kind, size);
       break;
     default:
-      internal_error ("list_formatted_write(): Bad type");
+      internal_error (&dtp->common, "list_formatted_write(): Bad type");
     }
 
-  char_flag = (type == BT_CHARACTER);
+  dtp->u.p.char_flag = (type == BT_CHARACTER);
+}
+
+
+void
+list_formatted_write (st_parameter_dt *dtp, bt type, void *p, int kind,
+		      size_t size, size_t nelems)
+{
+  size_t elem;
+  char *tmp;
+
+  tmp = (char *) p;
+
+  /* Big loop over all the elements.  */
+  for (elem = 0; elem < nelems; elem++)
+    {
+      dtp->u.p.item_count++;
+      list_formatted_write_scalar (dtp, type, tmp + size*elem, kind, size);
+    }
 }
 
 /*			NAMELIST OUTPUT
@@ -1435,12 +1509,8 @@ list_formatted_write (bt type, void *p, int len)
 
 #define NML_DIGITS 20
 
-/* Stores the delimiter to be used for character objects.  */
-
-static const char * nml_delim;
-
 static namelist_info *
-nml_write_obj (namelist_info * obj, index_type offset,
+nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 	       namelist_info * base, char * base_name)
 {
   int rep_ctr;
@@ -1466,7 +1536,11 @@ nml_write_obj (namelist_info * obj, index_type offset,
 
   if (obj->type != GFC_DTYPE_DERIVED)
     {
-      write_character ("\n ", 2);
+#ifdef HAVE_CRLF
+      write_character (dtp, "\r\n ", 3);
+#else
+      write_character (dtp, "\n ", 2);
+#endif
       len = 0;
       if (base)
 	{
@@ -1474,15 +1548,15 @@ nml_write_obj (namelist_info * obj, index_type offset,
 	  for (dim_i = 0; dim_i < (index_type) strlen (base_name); dim_i++)
             {
 	      cup = toupper (base_name[dim_i]);
-	      write_character (&cup, 1);
+	      write_character (dtp, &cup, 1);
             }
 	}
       for (dim_i =len; dim_i < (index_type) strlen (obj->var_name); dim_i++)
 	{
 	  cup = toupper (obj->var_name[dim_i]);
-	  write_character (&cup, 1);
+	  write_character (dtp, &cup, 1);
 	}
-      write_character ("=", 1);
+      write_character (dtp, "=", 1);
     }
 
   /* Counts the number of data output on a line, including names.  */
@@ -1490,11 +1564,26 @@ nml_write_obj (namelist_info * obj, index_type offset,
   num = 1;
 
   len = obj->len;
-  obj_size = len;
-  if (obj->type == GFC_DTYPE_COMPLEX)
-    obj_size = 2*len;
-  if (obj->type == GFC_DTYPE_CHARACTER)
-    obj_size = obj->string_length;
+
+  switch (obj->type)
+    {
+
+    case GFC_DTYPE_REAL:
+      obj_size = size_from_real_kind (len);
+      break;
+
+    case GFC_DTYPE_COMPLEX:
+      obj_size = size_from_complex_kind (len);
+      break;
+
+    case GFC_DTYPE_CHARACTER:
+      obj_size = obj->string_length;
+      break;
+
+    default:
+      obj_size = len;      
+    }
+
   if (obj->var_rank)
     obj_size = obj->size;
 
@@ -1537,8 +1626,8 @@ nml_write_obj (namelist_info * obj, index_type offset,
 	  if (rep_ctr > 1)
 	    {
 	      st_sprintf(rep_buff, " %d*", rep_ctr);
-	      write_character (rep_buff, strlen (rep_buff));
-	      no_leading_blank = 1;
+	      write_character (dtp, rep_buff, strlen (rep_buff));
+	      dtp->u.p.no_leading_blank = 1;
 	    }
 	  num++;
 
@@ -1549,29 +1638,29 @@ nml_write_obj (namelist_info * obj, index_type offset,
 	    {
 
 	    case GFC_DTYPE_INTEGER:
-              write_integer (p, len);
+	      write_integer (dtp, p, len);
               break;
 
 	    case GFC_DTYPE_LOGICAL:
-              write_logical (p, len);
+	      write_logical (dtp, p, len);
               break;
 
 	    case GFC_DTYPE_CHARACTER:
-	      if (nml_delim)
-		write_character (nml_delim, 1);
-	      write_character (p, obj->string_length);
-	      if (nml_delim)
-		write_character (nml_delim, 1);
+	      if (dtp->u.p.nml_delim)
+		write_character (dtp, &dtp->u.p.nml_delim, 1);
+	      write_character (dtp, p, obj->string_length);
+	      if (dtp->u.p.nml_delim)
+		write_character (dtp, &dtp->u.p.nml_delim, 1);
               break;
 
 	    case GFC_DTYPE_REAL:
-              write_real (p, len);
+	      write_real (dtp, p, len);
               break;
 
 	    case GFC_DTYPE_COMPLEX:
-	      no_leading_blank = 0;
+	      dtp->u.p.no_leading_blank = 0;
 	      num++;
-              write_complex (p, len);
+              write_complex (dtp, p, len, obj_size);
               break;
 
 	    case GFC_DTYPE_DERIVED:
@@ -1621,7 +1710,8 @@ nml_write_obj (namelist_info * obj, index_type offset,
 		   cmp && !strncmp (cmp->var_name, obj_name, obj_name_len);
 		   cmp = retval)
 		{
-		  retval = nml_write_obj (cmp, (index_type)(p - obj->mem_pos),
+		  retval = nml_write_obj (dtp, cmp,
+					  (index_type)(p - obj->mem_pos),
 					  obj, ext_name);
 		}
 
@@ -1630,19 +1720,23 @@ nml_write_obj (namelist_info * obj, index_type offset,
 	      goto obj_loop;
 
             default:
-              internal_error ("Bad type for namelist write");
+	      internal_error (&dtp->common, "Bad type for namelist write");
             }
 
 	  /* Reset the leading blank suppression, write a comma and, if 5
 	     values have been output, write a newline and advance to column
 	     2. Reset the repeat counter.  */
 
-	  no_leading_blank = 0;
-	  write_character (",", 1);
+	  dtp->u.p.no_leading_blank = 0;
+	  write_character (dtp, ",", 1);
 	  if (num > 5)
 	    {
 	      num = 0;
-	      write_character ("\n ", 2);
+#ifdef HAVE_CRLF
+	      write_character (dtp, "\r\n ", 3);
+#else
+	      write_character (dtp, "\n ", 2);
+#endif
 	    }
 	  rep_ctr = 1;
 	}
@@ -1675,7 +1769,7 @@ obj_loop:
    the treatment of derived types.  */
 
 void
-namelist_write (void)
+namelist_write (st_parameter_dt *dtp)
 {
   namelist_info * t1, *t2, *dummy = NULL;
   index_type i;
@@ -1686,46 +1780,51 @@ namelist_write (void)
 
   /* Set the delimiter for namelist output.  */
 
-  tmp_delim = current_unit->flags.delim;
-  current_unit->flags.delim = DELIM_NONE;
+  tmp_delim = dtp->u.p.current_unit->flags.delim;
+  dtp->u.p.current_unit->flags.delim = DELIM_NONE;
   switch (tmp_delim)
     {
     case (DELIM_QUOTE):
-      nml_delim = "\"";
+      dtp->u.p.nml_delim = '"';
       break;
 
     case (DELIM_APOSTROPHE):
-      nml_delim = "'";
+      dtp->u.p.nml_delim = '\'';
       break;
 
     default:
-      nml_delim = NULL;
+      dtp->u.p.nml_delim = '\0';
+      break;
     }
 
-  write_character ("&",1);
+  write_character (dtp, "&", 1);
 
   /* Write namelist name in upper case - f95 std.  */
 
-  for (i = 0 ;i < ioparm.namelist_name_len ;i++ )
+  for (i = 0 ;i < dtp->namelist_name_len ;i++ )
     {
-      c = toupper (ioparm.namelist_name[i]);
-      write_character (&c ,1);
-	    }
+      c = toupper (dtp->namelist_name[i]);
+      write_character (dtp, &c ,1);
+    }
 
-  if (ionml != NULL)
+  if (dtp->u.p.ionml != NULL)
     {
-      t1 = ionml;
+      t1 = dtp->u.p.ionml;
       while (t1 != NULL)
 	{
 	  t2 = t1;
-	  t1 = nml_write_obj (t2, dummy_offset, dummy, dummy_name);
+	  t1 = nml_write_obj (dtp, t2, dummy_offset, dummy, dummy_name);
 	}
     }
-  write_character ("  /\n", 4);
+#ifdef HAVE_CRLF
+  write_character (dtp, "  /\r\n", 5);
+#else
+  write_character (dtp, "  /\n", 4);
+#endif
 
   /* Recover the original delimiter.  */
 
-  current_unit->flags.delim = tmp_delim;
+  dtp->u.p.current_unit->flags.delim = tmp_delim;
 }
 
 #undef NML_DIGITS

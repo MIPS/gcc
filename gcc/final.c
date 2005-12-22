@@ -114,12 +114,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define JUMP_TABLES_IN_TEXT_SECTION 0
 #endif
 
-#if defined(READONLY_DATA_SECTION) || defined(READONLY_DATA_SECTION_ASM_OP)
-#define HAVE_READONLY_DATA_SECTION 1
-#else
-#define HAVE_READONLY_DATA_SECTION 0
-#endif
-
 /* Bitflags used by final_scan_insn.  */
 #define SEEN_BB		1
 #define SEEN_NOTE	2
@@ -141,6 +135,9 @@ static int high_function_linenum;
 /* Filename of last NOTE.  */
 static const char *last_filename;
 
+/* Whether to force emission of a line note before the next insn.  */
+static bool force_source_line = false;
+  
 extern int length_unit_log; /* This is defined in insn-attrtab.c.  */
 
 /* Nonzero while outputting an `asm' with operands.
@@ -383,10 +380,11 @@ init_insn_lengths (void)
 }
 
 /* Obtain the current length of an insn.  If branch shortening has been done,
-   get its actual length.  Otherwise, get its maximum length.  */
-
-int
-get_attr_length (rtx insn ATTRIBUTE_UNUSED)
+   get its actual length.  Otherwise, use FALLBACK_FN to calcualte the
+   length.  */
+static inline int
+get_attr_length_1 (rtx insn ATTRIBUTE_UNUSED,
+		   int (*fallback_fn) (rtx) ATTRIBUTE_UNUSED)
 {
 #ifdef HAVE_ATTR_length
   rtx body;
@@ -404,7 +402,7 @@ get_attr_length (rtx insn ATTRIBUTE_UNUSED)
 	return 0;
 
       case CALL_INSN:
-	length = insn_default_length (insn);
+	length = fallback_fn (insn);
 	break;
 
       case JUMP_INSN:
@@ -415,7 +413,7 @@ get_attr_length (rtx insn ATTRIBUTE_UNUSED)
 	       ADDR_VEC_ALIGN.  */
 	  }
 	else
-	  length = insn_default_length (insn);
+	  length = fallback_fn (insn);
 	break;
 
       case INSN:
@@ -424,12 +422,12 @@ get_attr_length (rtx insn ATTRIBUTE_UNUSED)
 	  return 0;
 
 	else if (GET_CODE (body) == ASM_INPUT || asm_noperands (body) >= 0)
-	  length = asm_insn_count (body) * insn_default_length (insn);
+	  length = asm_insn_count (body) * fallback_fn (insn);
 	else if (GET_CODE (body) == SEQUENCE)
 	  for (i = 0; i < XVECLEN (body, 0); i++)
 	    length += get_attr_length (XVECEXP (body, 0, i));
 	else
-	  length = insn_default_length (insn);
+	  length = fallback_fn (insn);
 	break;
 
       default:
@@ -442,7 +440,25 @@ get_attr_length (rtx insn ATTRIBUTE_UNUSED)
   return length;
 #else /* not HAVE_ATTR_length */
   return 0;
+#define insn_default_length 0
+#define insn_min_length 0
 #endif /* not HAVE_ATTR_length */
+}
+
+/* Obtain the current length of an insn.  If branch shortening has been done,
+   get its actual length.  Otherwise, get its maximum length.  */
+int
+get_attr_length (rtx insn)
+{
+  return get_attr_length_1 (insn, insn_default_length);
+}
+
+/* Obtain the current length of an insn.  If branch shortening has been done,
+   get its actual length.  Otherwise, get its minimum length.  */
+int
+get_attr_min_length (rtx insn)
+{
+  return get_attr_length_1 (insn, insn_min_length);
 }
 
 /* Code to handle alignment inside shorten_branches.  */
@@ -865,7 +881,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	  next = next_nonnote_insn (insn);
 	  /* ADDR_VECs only take room if read-only data goes into the text
 	     section.  */
-	  if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
+	  if (JUMP_TABLES_IN_TEXT_SECTION
+	      || readonly_data_section == text_section)
 	    if (next && JUMP_P (next))
 	      {
 		rtx nextbody = PATTERN (next);
@@ -1028,7 +1045,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	{
 	  /* This only takes room if read-only data goes into the text
 	     section.  */
-	  if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
+	  if (JUMP_TABLES_IN_TEXT_SECTION
+	      || readonly_data_section == text_section)
 	    insn_lengths[uid] = (XVECLEN (body,
 					  GET_CODE (body) == ADDR_DIFF_VEC)
 				 * GET_MODE_SIZE (GET_MODE (body)));
@@ -1229,7 +1247,8 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 	      PUT_MODE (body, CASE_VECTOR_SHORTEN_MODE (min_addr - rel_addr,
 							max_addr - rel_addr,
 							body));
-	      if (JUMP_TABLES_IN_TEXT_SECTION || !HAVE_READONLY_DATA_SECTION)
+	      if (JUMP_TABLES_IN_TEXT_SECTION
+		  || readonly_data_section == text_section)
 		{
 		  insn_lengths[uid]
 		    = (XVECLEN (body, 1) * GET_MODE_SIZE (GET_MODE (body)));
@@ -1446,13 +1465,13 @@ profile_function (FILE *file ATTRIBUTE_UNUSED)
   if (! NO_PROFILE_COUNTERS)
     {
       int align = MIN (BIGGEST_ALIGNMENT, LONG_TYPE_SIZE);
-      data_section ();
+      switch_to_section (data_section);
       ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
       targetm.asm_out.internal_label (file, "LP", current_function_funcdef_no);
       assemble_integer (const0_rtx, LONG_TYPE_SIZE / BITS_PER_UNIT, align, 1);
     }
 
-  current_function_section (current_function_decl);
+  switch_to_section (current_function_section ());
 
 #if defined(ASM_OUTPUT_REG_PUSH)
   if (sval && svrtx != NULL_RTX && REG_P (svrtx))
@@ -1689,22 +1708,9 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_SWITCH_TEXT_SECTIONS:
-	  
-	  /* The presence of this note indicates that this basic block
-	     belongs in the "cold" section of the .o file.  If we are
-	     not already writing to the cold section we need to change
-	     to it.  */
-
-	  if (last_text_section == in_text)
-	    {
-	      (*debug_hooks->switch_text_section) ();
-	      unlikely_text_section ();
-	    }
-	  else
-	    {
-	      (*debug_hooks->switch_text_section) ();
-	      text_section ();
-	    }
+	  in_cold_section_p = !in_cold_section_p;
+	  (*debug_hooks->switch_text_section) ();
+	  switch_to_section (current_function_section ());
 	  break;
 	  
 	case NOTE_INSN_BASIC_BLOCK:
@@ -1720,7 +1726,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  if ((*seen & (SEEN_EMITTED | SEEN_BB)) == SEEN_BB)
 	    {
 	      *seen |= SEEN_EMITTED;
-	      last_filename = NULL;
+	      force_source_line = true;
 	    }
 	  else
 	    *seen |= SEEN_BB;
@@ -1744,7 +1750,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  if ((*seen & (SEEN_EMITTED | SEEN_NOTE)) == SEEN_NOTE)
 	    {
 	      *seen |= SEEN_EMITTED;
-	      last_filename = NULL;
+	      force_source_line = true;
 	    }
 	  else
 	    *seen |= SEEN_NOTE;
@@ -1762,7 +1768,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	  if ((*seen & (SEEN_EMITTED | SEEN_NOTE)) == SEEN_NOTE)
 	    {
 	      *seen |= SEEN_EMITTED;
-	      last_filename = NULL;
+	      force_source_line = true;
 	    }
 	  else
 	    *seen |= SEEN_NOTE;
@@ -1917,7 +1923,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		{
 		  int log_align;
 
-		  targetm.asm_out.function_rodata_section (current_function_decl);
+		  switch_to_section (targetm.asm_out.function_rodata_section
+				     (current_function_decl));
 
 #ifdef ADDR_VEC_ALIGN
 		  log_align = ADDR_VEC_ALIGN (next);
@@ -1927,7 +1934,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		  ASM_OUTPUT_ALIGN (file, log_align);
 		}
 	      else
-		current_function_section (current_function_decl);
+		switch_to_section (current_function_section ());
 
 #ifdef ASM_OUTPUT_CASE_LABEL
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
@@ -1984,9 +1991,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #endif
 
 	    if (! JUMP_TABLES_IN_TEXT_SECTION)
-	      targetm.asm_out.function_rodata_section (current_function_decl);
+	      switch_to_section (targetm.asm_out.function_rodata_section
+				 (current_function_decl));
 	    else
-	      current_function_section (current_function_decl);
+	      switch_to_section (current_function_section ());
 
 	    if (app_on)
 	      {
@@ -2044,7 +2052,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 #endif
 #endif
 
-	    current_function_section (current_function_decl);
+	    switch_to_section (current_function_section ());
 
 	    break;
 	  }
@@ -2482,8 +2490,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
   return NEXT_INSN (insn);
 }
 
-/* Output debugging info to the assembler file FILE
-   based on the NOTE-insn INSN, assumed to be a line number.  */
+/* Return whether a source line note needs to be emitted before INSN.  */
 
 static bool
 notice_source_line (rtx insn)
@@ -2491,8 +2498,12 @@ notice_source_line (rtx insn)
   const char *filename = insn_file (insn);
   int linenum = insn_line (insn);
 
-  if (filename && (filename != last_filename || last_linenum != linenum))
+  if (filename
+      && (force_source_line
+	  || filename != last_filename
+	  || last_linenum != linenum))
     {
+      force_source_line = false;
       last_filename = filename;
       last_linenum = linenum;
       high_block_linenum = MAX (last_linenum, high_block_linenum);

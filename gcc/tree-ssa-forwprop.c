@@ -244,7 +244,7 @@ forward_propagate_into_cond_1 (tree cond, tree *test_var_p)
 	  if (!is_gimple_val (t))
 	    return NULL_TREE;
 
-	  new_cond = build (cond_code, boolean_type_node, op0, t);
+	  new_cond = build2 (cond_code, boolean_type_node, op0, t);
 	}
     }
 
@@ -285,8 +285,8 @@ forward_propagate_into_cond_1 (tree cond, tree *test_var_p)
 	  if (has_single_use (test_var))
 	    {
 	      /* TEST_VAR was set from a relational operator.  */
-	      new_cond = build (TREE_CODE (def_rhs),
-				boolean_type_node, op0, op1);
+	      new_cond = build2 (TREE_CODE (def_rhs),
+				 boolean_type_node, op0, op1);
 
 	      /* Invert the conditional if necessary.  */
 	      if ((cond_code == EQ_EXPR
@@ -452,7 +452,7 @@ tidy_after_forward_propagate_addr (tree stmt)
     cfg_changed = true;
 
   if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ADDR_EXPR)
-     recompute_tree_invarant_for_addr_expr (TREE_OPERAND (stmt, 1));
+     recompute_tree_invariant_for_addr_expr (TREE_OPERAND (stmt, 1));
 
   update_stmt (stmt);
 }
@@ -528,36 +528,16 @@ forward_propagate_addr_into_variable_array_index (tree offset, tree lhs,
 
 /* STMT is a statement of the form SSA_NAME = ADDR_EXPR <whatever>.
 
-   Try to forward propagate the ADDR_EXPR into the uses of the SSA_NAME.
+   Try to forward propagate the ADDR_EXPR into the use USE_STMT.
    Often this will allow for removal of an ADDR_EXPR and INDIRECT_REF
-   node or for recovery of array indexing from pointer arithmetic.  */
+   node or for recovery of array indexing from pointer arithmetic.
+   Return true, if the propagation was successful.  */
 
 static bool
-forward_propagate_addr_expr (tree stmt)
+forward_propagate_addr_expr_1 (tree stmt, tree use_stmt)
 {
-  int stmt_loop_depth = bb_for_stmt (stmt)->loop_depth;
   tree name = TREE_OPERAND (stmt, 0);
-  use_operand_p imm_use;
-  tree use_stmt, lhs, rhs, array_ref;
-
-  /* We require that the SSA_NAME holding the result of the ADDR_EXPR
-     be used only once.  That may be overly conservative in that we
-     could propagate into multiple uses.  However, that would effectively
-     be un-cseing the ADDR_EXPR, which is probably not what we want.  */
-  single_imm_use (name, &imm_use, &use_stmt);
-  if (!use_stmt)
-    return false;
-
-  /* If the use is not in a simple assignment statement, then
-     there is nothing we can do.  */
-  if (TREE_CODE (use_stmt) != MODIFY_EXPR)
-    return false;
-
-  /* If the use is in a deeper loop nest, then we do not want
-     to propagate the ADDR_EXPR into the loop as that is likely
-     adding expression evaluations into the loop.  */
-  if (bb_for_stmt (use_stmt)->loop_depth > stmt_loop_depth)
-    return false;
+  tree lhs, rhs, array_ref;
 
   /* Strip away any outer COMPONENT_REF/ARRAY_REF nodes from the LHS. 
      ADDR_EXPR will not appear on the LHS.  */
@@ -775,7 +755,7 @@ replacable_use_in_cond_expr (tree stmt, tree def_stmt, tree *new_stmt)
   if (is_gimple_val (temp) && tree_int_cst_equal (temp, other_op))
     {
       if (new_stmt)
-        *new_stmt = build (TREE_CODE (stmt), TREE_TYPE (stmt),
+        *new_stmt = build2 (TREE_CODE (stmt), TREE_TYPE (stmt),
                            TREE_OPERAND (def_rhs, 0), temp);
 
       return true;
@@ -1025,6 +1005,140 @@ eliminate_unnecessary_casts (void)
   BITMAP_FREE (vars2);
 }
 
+/* STMT is a statement of the form SSA_NAME = ADDR_EXPR <whatever>.
+
+   Try to forward propagate the ADDR_EXPR into all uses of the SSA_NAME.
+   Often this will allow for removal of an ADDR_EXPR and INDIRECT_REF
+   node or for recovery of array indexing from pointer arithmetic.
+   Returns true, if all uses have been propagated into.  */
+
+static bool
+forward_propagate_addr_expr (tree stmt)
+{
+  int stmt_loop_depth = bb_for_stmt (stmt)->loop_depth;
+  tree name = TREE_OPERAND (stmt, 0);
+  use_operand_p imm_use;
+  imm_use_iterator iter;
+  bool all = true;
+
+  FOR_EACH_IMM_USE_SAFE (imm_use, iter, name)
+    {
+      tree use_stmt = USE_STMT (imm_use);
+
+      /* If the use is not in a simple assignment statement, then
+	 there is nothing we can do.  */
+      if (TREE_CODE (use_stmt) != MODIFY_EXPR)
+	{
+	  all = false;
+	  continue;
+	}
+
+     /* If the use is in a deeper loop nest, then we do not want
+	to propagate the ADDR_EXPR into the loop as that is likely
+	adding expression evaluations into the loop.  */
+      if (bb_for_stmt (use_stmt)->loop_depth > stmt_loop_depth)
+	{
+	  all = false;
+	  continue;
+	}
+
+      all = forward_propagate_addr_expr_1 (stmt, use_stmt) && all;
+    }
+
+  return all;
+}
+
+/* If we have lhs = ~x (STMT), look and see if earlier we had x = ~y.
+   If so, we can change STMT into lhs = y which can later be copy
+   propagated.  Similarly for negation. 
+
+   This could trivially be formulated as a forward propagation 
+   to immediate uses.  However, we already had an implementation
+   from DOM which used backward propagation via the use-def links.
+
+   It turns out that backward propagation is actually faster as
+   there's less work to do for each NOT/NEG expression we find.
+   Backwards propagation needs to look at the statement in a single
+   backlink.  Forward propagation needs to look at potentially more
+   than one forward link.  */
+
+static void
+simplify_not_neg_expr (tree stmt)
+{
+  tree rhs = TREE_OPERAND (stmt, 1);
+  tree rhs_def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
+
+  /* See if the RHS_DEF_STMT has the same form as our statement.  */
+  if (TREE_CODE (rhs_def_stmt) == MODIFY_EXPR
+      && TREE_CODE (TREE_OPERAND (rhs_def_stmt, 1)) == TREE_CODE (rhs))
+    {
+      tree rhs_def_operand = TREE_OPERAND (TREE_OPERAND (rhs_def_stmt, 1), 0);
+
+      /* Verify that RHS_DEF_OPERAND is a suitable SSA_NAME.  */
+      if (TREE_CODE (rhs_def_operand) == SSA_NAME
+	  && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs_def_operand))
+	{
+	  TREE_OPERAND (stmt, 1) = rhs_def_operand;
+	  update_stmt (stmt);
+	}
+    }
+}
+
+/* STMT is a SWITCH_EXPR for which we attempt to find equivalent forms of
+   the condition which we may be able to optimize better.  */
+
+static void
+simplify_switch_expr (tree stmt)
+{
+  tree cond = SWITCH_COND (stmt);
+  tree def, to, ti;
+
+  /* The optimization that we really care about is removing unnecessary
+     casts.  That will let us do much better in propagating the inferred
+     constant at the switch target.  */
+  if (TREE_CODE (cond) == SSA_NAME)
+    {
+      def = SSA_NAME_DEF_STMT (cond);
+      if (TREE_CODE (def) == MODIFY_EXPR)
+	{
+	  def = TREE_OPERAND (def, 1);
+	  if (TREE_CODE (def) == NOP_EXPR)
+	    {
+	      int need_precision;
+	      bool fail;
+
+	      def = TREE_OPERAND (def, 0);
+
+#ifdef ENABLE_CHECKING
+	      /* ??? Why was Jeff testing this?  We are gimple...  */
+	      gcc_assert (is_gimple_val (def));
+#endif
+
+	      to = TREE_TYPE (cond);
+	      ti = TREE_TYPE (def);
+
+	      /* If we have an extension that preserves value, then we
+		 can copy the source value into the switch.  */
+
+	      need_precision = TYPE_PRECISION (ti);
+	      fail = false;
+	      if (TYPE_UNSIGNED (to) && !TYPE_UNSIGNED (ti))
+		fail = true;
+	      else if (!TYPE_UNSIGNED (to) && TYPE_UNSIGNED (ti))
+		need_precision += 1;
+	      if (TYPE_PRECISION (to) < need_precision)
+		fail = true;
+
+	      if (!fail)
+		{
+		  SWITCH_COND (stmt) = def;
+		  update_stmt (stmt);
+		}
+	    }
+	}
+    }
+}
+
 /* Main entry point for the forward propagation optimizer.  */
 
 static void
@@ -1047,14 +1161,39 @@ tree_ssa_forward_propagate_single_use_vars (void)
 
 	  /* If this statement sets an SSA_NAME to an address,
 	     try to propagate the address into the uses of the SSA_NAME.  */
-	  if (TREE_CODE (stmt) == MODIFY_EXPR
-	      && TREE_CODE (TREE_OPERAND (stmt, 1)) == ADDR_EXPR
-	      && TREE_CODE (TREE_OPERAND (stmt, 0)) == SSA_NAME)
+	  if (TREE_CODE (stmt) == MODIFY_EXPR)
 	    {
-	      if (forward_propagate_addr_expr (stmt))
-		bsi_remove (&bsi);
+	      tree lhs = TREE_OPERAND (stmt, 0);
+	      tree rhs = TREE_OPERAND (stmt, 1);
+
+
+	      if (TREE_CODE (lhs) != SSA_NAME)
+		{
+		  bsi_next (&bsi);
+		  continue;
+		}
+
+	      if (TREE_CODE (rhs) == ADDR_EXPR)
+		{
+		  if (forward_propagate_addr_expr (stmt))
+		    bsi_remove (&bsi);
+		  else
+		    bsi_next (&bsi);
+		}
+	      else if ((TREE_CODE (rhs) == BIT_NOT_EXPR
+		        || TREE_CODE (rhs) == NEGATE_EXPR)
+		       && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME)
+		{
+		  simplify_not_neg_expr (stmt);
+		  bsi_next (&bsi);
+		}
 	      else
 		bsi_next (&bsi);
+	    }
+	  else if (TREE_CODE (stmt) == SWITCH_EXPR)
+	    {
+	      simplify_switch_expr (stmt);
+	      bsi_next (&bsi);
 	    }
 	  else if (TREE_CODE (stmt) == COND_EXPR)
 	    {

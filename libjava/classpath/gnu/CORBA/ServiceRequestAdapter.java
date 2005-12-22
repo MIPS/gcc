@@ -38,7 +38,7 @@ exception statement from your version. */
 
 package gnu.CORBA;
 
-import gnu.CORBA.CDR.cdrBufOutput;
+import gnu.CORBA.CDR.BufferedCdrOutput;
 
 import org.omg.CORBA.ARG_IN;
 import org.omg.CORBA.ARG_INOUT;
@@ -53,10 +53,11 @@ import org.omg.CORBA.portable.ResponseHandler;
 import org.omg.CORBA.portable.Streamable;
 
 /**
- * This class exists to handle obsolete invocation style using
- * ServerRequest.
- *
- * @deprecated The method {@link ObjectImpl#_invoke} is much faster.
+ * This class supports invocation using ServerRequest. When possible,
+ * it is better to use  the {@link ObjectImpl#_invoke} rather than
+ * working via ServerRequest. However since 1.4 the ServerRequest is
+ * involved into POA machinery making this type of call is sometimes
+ * inavoidable.
  *
  * @author Audrius Meskauskas, Lithuania (AudriusA@Bioinformatics.org)
  */
@@ -66,7 +67,7 @@ public class ServiceRequestAdapter
   /**
    * A buffer for writing the response.
    */
-  cdrBufOutput reply = new cdrBufOutput();
+  BufferedCdrOutput reply = new BufferedCdrOutput();
 
   /**
    * If set to true, an exception has been thrown during the invocation.
@@ -86,13 +87,13 @@ public class ServiceRequestAdapter
   }
 
   /**
-   * The old style invocation using the currently deprecated server
-   * request class.
+   * Make an invocation.
    *
    * @param request a server request, containg the invocation information.
    * @param target the invocation target
-   * @param result the result holder with the set suitable streamable to read
-   * the result or null for void.
+   * @param result the result holder with the set suitable streamable.
+   * Using this parameter only increase the performance. It can be
+   * null if the return type is void or unknown.
    */
   public static void invoke(ServerRequest request, InvokeHandler target,
                             Streamable result
@@ -104,7 +105,7 @@ public class ServiceRequestAdapter
         int OUT = ARG_OUT.value;
 
         // Write all arguments to the buffer output stream.
-        cdrBufOutput buffer = new cdrBufOutput();
+        BufferedCdrOutput buffer = new BufferedCdrOutput();
         gnuNVList args = new gnuNVList();
         request.arguments(args);
 
@@ -126,19 +127,27 @@ public class ServiceRequestAdapter
           {
             // Write the exception information
             gnuAny exc = new gnuAny();
-            universalHolder uku = new universalHolder(h.reply);
+            GeneralHolder uku = new GeneralHolder(h.reply);
             exc.insert_Streamable(uku);
             request.set_exception(exc);
           }
         else
           {
             if (result != null)
-            {
-              result._read(in);
-              gnuAny r = new gnuAny();
-              r.insert_Streamable(result);
-              request.set_result(r);
-            };
+              {
+                // Use the holder for the return value, if provided.
+                result._read(in);
+
+                gnuAny r = new gnuAny();
+                r.insert_Streamable(result);
+                request.set_result(r);
+              }
+            else
+              {
+                // Use the universal holder otherwise.
+                gnuAny r = new gnuAny();
+                r.insert_Streamable(new StreamHolder(in));
+              }
 
             // Unpack the arguments
             for (int i = 0; i < args.count(); i++)

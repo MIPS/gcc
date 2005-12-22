@@ -27,7 +27,6 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-
 #include <bits/c++config.h>
 #include "unwind-cxx.h"
 
@@ -97,7 +96,7 @@ __cxxabiv1::__cxa_rethrow ()
 #ifdef _GLIBCXX_SJLJ_EXCEPTIONS
       _Unwind_SjLj_Resume_or_Rethrow (&header->unwindHeader);
 #else
-#if defined(_LIBUNWIND_STD_ABI) || defined (__ARM_EABI_UNWINDER__)
+#if defined(_LIBUNWIND_STD_ABI)
       _Unwind_RaiseException (&header->unwindHeader);
 #else
       _Unwind_Resume_or_Rethrow (&header->unwindHeader);

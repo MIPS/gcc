@@ -963,9 +963,8 @@ static int
 mostly_true_jump (rtx jump_insn, rtx condition)
 {
   rtx target_label = JUMP_LABEL (jump_insn);
-  rtx insn, note;
-  int rare_dest = rare_destination (target_label);
-  int rare_fallthrough = rare_destination (NEXT_INSN (jump_insn));
+  rtx note;
+  int rare_dest, rare_fallthrough;
 
   /* If branch probabilities are available, then use that number since it
      always gives a correct answer.  */
@@ -984,32 +983,10 @@ mostly_true_jump (rtx jump_insn, rtx condition)
 	return -1;
     }
 
-  /* ??? Ought to use estimate_probability instead.  */
-
-  /* If this is a branch outside a loop, it is highly unlikely.  */
-  if (GET_CODE (PATTERN (jump_insn)) == SET
-      && GET_CODE (SET_SRC (PATTERN (jump_insn))) == IF_THEN_ELSE
-      && ((GET_CODE (XEXP (SET_SRC (PATTERN (jump_insn)), 1)) == LABEL_REF
-	   && LABEL_OUTSIDE_LOOP_P (XEXP (SET_SRC (PATTERN (jump_insn)), 1)))
-	  || (GET_CODE (XEXP (SET_SRC (PATTERN (jump_insn)), 2)) == LABEL_REF
-	      && LABEL_OUTSIDE_LOOP_P (XEXP (SET_SRC (PATTERN (jump_insn)), 2)))))
-    return -1;
-
-  if (target_label)
-    {
-      /* If this is the test of a loop, it is very likely true.  We scan
-	 backwards from the target label.  If we find a NOTE_INSN_LOOP_BEG
-	 before the next real insn, we assume the branch is to the top of
-	 the loop.  */
-      for (insn = PREV_INSN (target_label);
-	   insn && NOTE_P (insn);
-	   insn = PREV_INSN (insn))
-	if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-	  return 2;
-    }
-
   /* Look at the relative rarities of the fallthrough and destination.  If
      they differ, we can predict the branch that way.  */
+  rare_dest = rare_destination (target_label);
+  rare_fallthrough = rare_destination (NEXT_INSN (jump_insn));
 
   switch (rare_fallthrough - rare_dest)
     {
@@ -1029,33 +1006,6 @@ mostly_true_jump (rtx jump_insn, rtx condition)
      taken.  This should be rare.  */
   if (condition == 0)
     return 0;
-
-  /* EQ tests are usually false and NE tests are usually true.  Also,
-     most quantities are positive, so we can make the appropriate guesses
-     about signed comparisons against zero.  */
-  switch (GET_CODE (condition))
-    {
-    case CONST_INT:
-      /* Unconditional branch.  */
-      return 1;
-    case EQ:
-      return 0;
-    case NE:
-      return 1;
-    case LE:
-    case LT:
-      if (XEXP (condition, 1) == const0_rtx)
-	return 0;
-      break;
-    case GE:
-    case GT:
-      if (XEXP (condition, 1) == const0_rtx)
-	return 1;
-      break;
-
-    default:
-      break;
-    }
 
   /* Predict backward branches usually take, forward branches usually not.  If
      we don't know whether this is forward or backward, assume the branch
@@ -1337,7 +1287,7 @@ steal_delay_list_from_target (rtx insn, rtx condition, rtx seq,
       if (! must_annul
 	  && ((condition == const_true_rtx
 	       || (! insn_sets_resource_p (trial, other_needed, 0)
-		   && ! may_trap_p (PATTERN (trial)))))
+		   && ! may_trap_or_fault_p (PATTERN (trial)))))
 	  ? eligible_for_delay (insn, total_slots_filled, trial, flags)
 	  : (must_annul || (delay_list == NULL && new_delay_list == NULL))
 	     && (must_annul = 1,
@@ -1431,7 +1381,7 @@ steal_delay_list_from_fallthrough (rtx insn, rtx condition, rtx seq,
       if (! must_annul
 	  && ((condition == const_true_rtx
 	       || (! insn_sets_resource_p (trial, other_needed, 0)
-		   && ! may_trap_p (PATTERN (trial)))))
+		   && ! may_trap_or_fault_p (PATTERN (trial)))))
 	  ? eligible_for_delay (insn, *pslots_filled, trial, flags)
 	  : (must_annul || delay_list == NULL) && (must_annul = 1,
 	     check_annul_list_true_false (1, delay_list)
@@ -2323,7 +2273,7 @@ fill_simple_delay_slots (int non_jumps_p)
 #ifdef HAVE_cc0
 		    && ! (reg_mentioned_p (cc0_rtx, pat) && ! sets_cc0_p (pat))
 #endif
-		    && ! (maybe_never && may_trap_p (pat))
+		    && ! (maybe_never && may_trap_or_fault_p (pat))
 		    && (trial = try_split (pat, trial, 0))
 		    && eligible_for_delay (insn, slots_filled, trial, flags)
 		    && ! can_throw_internal(trial))
@@ -2376,7 +2326,7 @@ fill_simple_delay_slots (int non_jumps_p)
 #ifdef HAVE_cc0
 	      && ! reg_mentioned_p (cc0_rtx, PATTERN (next_trial))
 #endif
-	      && ! (maybe_never && may_trap_p (PATTERN (next_trial)))
+	      && ! (maybe_never && may_trap_or_fault_p (PATTERN (next_trial)))
 	      && (next_trial = try_split (PATTERN (next_trial), next_trial, 0))
 	      && eligible_for_delay (insn, slots_filled, next_trial, flags)
 	      && ! can_throw_internal (trial))
@@ -2656,7 +2606,7 @@ fill_slots_from_thread (rtx insn, rtx condition, rtx thread,
 	  if (!must_annul
 	      && (condition == const_true_rtx
 	          || (! insn_sets_resource_p (trial, &opposite_needed, 1)
-		      && ! may_trap_p (pat))))
+		      && ! may_trap_or_fault_p (pat))))
 	    {
 	      old_trial = trial;
 	      trial = try_split (pat, trial, 0);
@@ -3589,7 +3539,7 @@ dbr_schedule (rtx first, FILE *file)
 
   /* If the current function has no insns other than the prologue and
      epilogue, then do not try to fill any delay slots.  */
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return;
 
   /* Find the highest INSN_UID and allocate and initialize our map from

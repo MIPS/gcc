@@ -71,6 +71,11 @@ Java_java_lang_VMDouble_initIDs (JNIEnv * env, jclass cls __attribute__ ((__unus
     {
       DBG ("unable to get class java.lang.Double\n") return;
     }
+  clsDouble = (*env)->NewGlobalRef(env, clsDouble);
+  if (clsDouble == NULL)
+    {
+      DBG ("unable to register class java.lang.Double as global ref\n") return;
+    }
   isNaNID = (*env)->GetStaticMethodID (env, clsDouble, "isNaN", "(D)Z");
   if (isNaNID == NULL)
     {
@@ -348,12 +353,7 @@ Java_java_lang_VMDouble_parseDouble
 	  struct _Jv_reent reent;
 	  memset (&reent, 0, sizeof reent);
 
-#ifdef KISSME_LINUX_USER
-	  /* FIXME: The libc strtod may not be reliable. */
-	  val = strtod (p, &endptr);
-#else
 	  val = _strtod_r (&reent, p, &endptr);
-#endif
 
 #ifdef DEBUG
 	  fprintf (stderr, "java.lang.VMDouble.parseDouble val = %g\n", val);

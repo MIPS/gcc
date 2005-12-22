@@ -38,7 +38,8 @@ exception statement from your version. */
 
 package org.omg.CORBA;
 
-import gnu.CORBA.primitiveTypeCode;
+import gnu.CORBA.Minor;
+import gnu.CORBA.typecodes.PrimitiveTypeCode;
 
 import org.omg.CORBA.portable.InputStream;
 import org.omg.CORBA.portable.OutputStream;
@@ -50,10 +51,7 @@ import org.omg.CORBA.portable.OutputStream;
  */
 public abstract class ObjectHelper
 {
-  /**
-   * The cached binding list type code.
-   */
-  private static TypeCode typeCode = new primitiveTypeCode(TCKind.tk_objref);
+  static TypeCode typeCode;
 
   /**
    * Extract the array of object from the given {@link Any}.
@@ -66,7 +64,9 @@ public abstract class ObjectHelper
       }
     catch (ClassCastException ex)
       {
-        throw new BAD_OPERATION("CORBA object expected");
+        BAD_OPERATION bad = new BAD_OPERATION("CORBA object expected");
+        bad.minor = Minor.Any;
+        throw bad;        
       }
   }
 
@@ -100,6 +100,8 @@ public abstract class ObjectHelper
    */
   public static TypeCode type()
   {
+    if (typeCode == null)
+      typeCode = ORB.init().get_primitive_tc(TCKind.tk_objref);
     return typeCode;
   }
 

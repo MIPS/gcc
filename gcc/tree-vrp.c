@@ -528,12 +528,14 @@ compare_values (tree val1, tree val2)
   if (!is_gimple_min_invariant (val1) || !is_gimple_min_invariant (val2))
     return -2;
 
-  /* We cannot compare overflowed values.  */
-  if (TREE_OVERFLOW (val1) || TREE_OVERFLOW (val2))
-    return -2;
-
   if (!POINTER_TYPE_P (TREE_TYPE (val1)))
-    return tree_int_cst_compare (val1, val2);
+    {
+      /* We cannot compare overflowed values.  */
+      if (TREE_OVERFLOW (val1) || TREE_OVERFLOW (val2))
+	return -2;
+
+      return tree_int_cst_compare (val1, val2);
+    }
   else
     {
       tree t;
@@ -564,7 +566,23 @@ compare_values (tree val1, tree val2)
 
 /* Return 1 if VAL is inside value range VR (VR->MIN <= VAL <= VR->MAX),
           0 if VAL is not inside VR,
-	 -2 if we cannot tell either way.  */
+	 -2 if we cannot tell either way.
+
+   FIXME, the current semantics of this functions are a bit quirky
+	  when taken in the context of VRP.  In here we do not care
+	  about VR's type.  If VR is the anti-range ~[3, 5] the call
+	  value_inside_range (4, VR) will return 1.
+
+	  This is counter-intuitive in a strict sense, but the callers
+	  currently expect this.  They are calling the function
+	  merely to determine whether VR->MIN <= VAL <= VR->MAX.  The
+	  callers are applying the VR_RANGE/VR_ANTI_RANGE semantics
+	  themselves.
+
+	  This also applies to value_ranges_intersect_p and
+	  range_includes_zero_p.  The semantics of VR_RANGE and
+	  VR_ANTI_RANGE should be encoded here, but that also means
+	  adapting the users of these functions to the new semantics.  */
 
 static inline int
 value_inside_range (tree val, value_range_t *vr)
@@ -596,7 +614,11 @@ value_ranges_intersect_p (value_range_t *vr0, value_range_t *vr1)
 }
 
 
-/* Return true if VR includes the value zero, false otherwise.  */
+/* Return true if VR includes the value zero, false otherwise.  FIXME,
+   currently this will return false for an anti-range like ~[-4, 3].
+   This will be wrong when the semantics of value_inside_range are
+   modified (currently the users of this function expect these
+   semantics).  */
 
 static inline bool
 range_includes_zero_p (value_range_t *vr)
@@ -609,6 +631,81 @@ range_includes_zero_p (value_range_t *vr)
 
   zero = build_int_cst (TREE_TYPE (vr->min), 0);
   return (value_inside_range (zero, vr) == 1);
+}
+
+
+/* When extracting ranges from X_i = ASSERT_EXPR <Y_j, pred>, we will
+   initially consider X_i and Y_j equivalent, so the equivalence set
+   of Y_j is added to the equivalence set of X_i.  However, it is
+   possible to have a chain of ASSERT_EXPRs whose predicates are
+   actually incompatible.  This is usually the result of nesting of
+   contradictory if-then-else statements.  For instance, in PR 24670:
+
+   	count_4 has range [-INF, 63]
+
+   	if (count_4 != 0)
+	  {
+	    count_19 = ASSERT_EXPR <count_4, count_4 != 0>
+	    if (count_19 > 63)
+	      {
+	        count_18 = ASSERT_EXPR <count_19, count_19 > 63>
+		if (count_18 <= 63)
+		  ...
+	      }
+	  }
+
+   Notice that 'if (count_19 > 63)' is trivially false and will be
+   folded out at the end.  However, during propagation, the flowgraph
+   is not cleaned up and so, VRP will evaluate predicates more
+   predicates than necessary, so it must support these
+   inconsistencies.  The problem here is that because of the chaining
+   of ASSERT_EXPRs, the equivalency set for count_18 includes count_4.
+   Since count_4 has an incompatible range, we ICE when evaluating the
+   ranges in the equivalency set.  So, we need to remove count_4 from
+   it.  */
+
+static void
+fix_equivalence_set (value_range_t *vr_p)
+{
+  bitmap_iterator bi;
+  unsigned i;
+  bitmap e = vr_p->equiv;
+  bitmap to_remove = BITMAP_ALLOC (NULL);
+
+  /* Only detect inconsistencies on numeric ranges.  */
+  if (vr_p->type == VR_VARYING
+      || vr_p->type == VR_UNDEFINED
+      || symbolic_range_p (vr_p))
+    return;
+
+  EXECUTE_IF_SET_IN_BITMAP (e, 0, i, bi)
+    {
+      value_range_t *equiv_vr = vr_value[i];
+
+      if (equiv_vr->type == VR_VARYING
+	  || equiv_vr->type == VR_UNDEFINED
+	  || symbolic_range_p (equiv_vr))
+	continue;
+
+      if (equiv_vr->type == VR_RANGE
+	  && vr_p->type == VR_RANGE
+	  && !value_ranges_intersect_p (vr_p, equiv_vr))
+	bitmap_set_bit (to_remove, i);
+      else if ((equiv_vr->type == VR_RANGE && vr_p->type == VR_ANTI_RANGE)
+	       || (equiv_vr->type == VR_ANTI_RANGE && vr_p->type == VR_RANGE))
+	{
+	  /* A range and an anti-range have an empty intersection if
+	     their end points are the same.  FIXME,
+	     value_ranges_intersect_p should handle this
+	     automatically.  */
+	  if (compare_values (equiv_vr->min, vr_p->min) == 0
+	      && compare_values (equiv_vr->max, vr_p->max) == 0)
+	    bitmap_set_bit (to_remove, i);
+	}
+    }
+
+  bitmap_and_compl_into (vr_p->equiv, to_remove);
+  BITMAP_FREE (to_remove);
 }
 
 
@@ -727,7 +824,11 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	}
     }
 
-  /* The new range has the same set of equivalences of VAR's range.  */
+  /* Initially, the new range has the same set of equivalences of
+     VAR's range.  This will be revised before returning the final
+     value.  Since assertions may be chained via mutually exclusive
+     predicates, we will need to trim the set of equivalences before
+     we are done.  */
   gcc_assert (vr_p->equiv == NULL);
   vr_p->equiv = BITMAP_ALLOC (NULL);
   add_equivalence (vr_p->equiv, var);
@@ -774,17 +875,32 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	 LIMIT's range was ~[0, 0], the assertion 'VAR != LIMIT' does
 	 not imply that VAR's range is [0, 0].  So, in the case of
 	 anti-ranges, we just assert the inequality using LIMIT and
-	 not its anti-range.  */
-      if (limit_vr == NULL
-	  || limit_vr->type == VR_ANTI_RANGE)
-	{
-	  min = limit;
-	  max = limit;
-	}
-      else
+	 not its anti-range.
+
+	 If LIMIT_VR is a range, we can only use it to build a new
+	 anti-range if LIMIT_VR is a single-valued range.  For
+	 instance, if LIMIT_VR is [0, 1], the predicate
+	 VAR != [0, 1] does not mean that VAR's range is ~[0, 1].
+	 Rather, it means that for value 0 VAR should be ~[0, 0]
+	 and for value 1, VAR should be ~[1, 1].  We cannot
+	 represent these ranges.
+
+	 The only situation in which we can build a valid
+	 anti-range is when LIMIT_VR is a single-valued range
+	 (i.e., LIMIT_VR->MIN == LIMIT_VR->MAX).  In that case, 
+	 build the anti-range ~[LIMIT_VR->MIN, LIMIT_VR->MAX].  */
+      if (limit_vr
+	  && limit_vr->type == VR_RANGE
+	  && compare_values (limit_vr->min, limit_vr->max) == 0)
 	{
 	  min = limit_vr->min;
 	  max = limit_vr->max;
+	}
+      else
+	{
+	  /* In any other case, we cannot use LIMIT's range to build a
+	     valid anti-range.  */
+	  min = max = limit;
 	}
 
       /* If MIN and MAX cover the whole range for their type, then
@@ -845,30 +961,99 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
   else
     gcc_unreachable ();
 
-  /* If VAR already had a known range and the two ranges have a
-     non-empty intersection, we can refine the resulting range.
-     Since the assert expression creates an equivalency and at the
-     same time it asserts a predicate, we can take the intersection of
-     the two ranges to get better precision.  */
+  /* If VAR already had a known range, it may happen that the new
+     range we have computed and VAR's range are not compatible.  For
+     instance,
+
+	if (p_5 == NULL)
+	  p_6 = ASSERT_EXPR <p_5, p_5 == NULL>;
+	  x_7 = p_6->fld;
+	  p_8 = ASSERT_EXPR <p_6, p_6 != NULL>;
+
+     While the above comes from a faulty program, it will cause an ICE
+     later because p_8 and p_6 will have incompatible ranges and at
+     the same time will be considered equivalent.  A similar situation
+     would arise from
+
+     	if (i_5 > 10)
+	  i_6 = ASSERT_EXPR <i_5, i_5 > 10>;
+	  if (i_5 < 5)
+	    i_7 = ASSERT_EXPR <i_6, i_6 < 5>;
+
+     Again i_6 and i_7 will have incompatible ranges.  It would be
+     pointless to try and do anything with i_7's range because
+     anything dominated by 'if (i_5 < 5)' will be optimized away.
+     Note, due to the wa in which simulation proceeds, the statement
+     i_7 = ASSERT_EXPR <...> we would never be visited because the
+     conditional 'if (i_5 < 5)' always evaluates to false.  However,
+     this extra check does not hurt and may protect against future
+     changes to VRP that may get into a situation similar to the
+     NULL pointer dereference example.
+
+     Note that these compatibility tests are only needed when dealing
+     with ranges or a mix of range and anti-range.  If VAR_VR and VR_P
+     are both anti-ranges, they will always be compatible, because two
+     anti-ranges will always have a non-empty intersection.  */
+
   var_vr = get_value_range (var);
-  if (var_vr->type == VR_RANGE
-      && vr_p->type == VR_RANGE
-      && value_ranges_intersect_p (var_vr, vr_p))
+
+  /* We may need to make adjustments when VR_P and VAR_VR are numeric
+     ranges or anti-ranges.  */
+  if (vr_p->type == VR_VARYING
+      || vr_p->type == VR_UNDEFINED
+      || var_vr->type == VR_VARYING
+      || var_vr->type == VR_UNDEFINED
+      || symbolic_range_p (vr_p)
+      || symbolic_range_p (var_vr))
+    goto done;
+
+  if (var_vr->type == VR_RANGE && vr_p->type == VR_RANGE)
     {
-      /* Use the larger of the two minimums.  */
-      if (compare_values (vr_p->min, var_vr->min) == -1)
-	min = var_vr->min;
-      else
-	min = vr_p->min;
+      /* If the two ranges have a non-empty intersection, we can
+	 refine the resulting range.  Since the assert expression
+	 creates an equivalency and at the same time it asserts a
+	 predicate, we can take the intersection of the two ranges to
+	 get better precision.  */
+      if (value_ranges_intersect_p (var_vr, vr_p))
+	{
+	  /* Use the larger of the two minimums.  */
+	  if (compare_values (vr_p->min, var_vr->min) == -1)
+	    min = var_vr->min;
+	  else
+	    min = vr_p->min;
 
-      /* Use the smaller of the two maximums.  */
-      if (compare_values (vr_p->max, var_vr->max) == 1)
-	max = var_vr->max;
-      else
-	max = vr_p->max;
+	  /* Use the smaller of the two maximums.  */
+	  if (compare_values (vr_p->max, var_vr->max) == 1)
+	    max = var_vr->max;
+	  else
+	    max = vr_p->max;
 
-      set_value_range (vr_p, vr_p->type, min, max, vr_p->equiv);
+	  set_value_range (vr_p, vr_p->type, min, max, vr_p->equiv);
+	}
+      else
+	{
+	  /* The two ranges do not intersect, set the new range to
+	     VARYING, because we will not be able to do anything
+	     meaningful with it.  */
+	  set_value_range_to_varying (vr_p);
+	}
     }
+  else if ((var_vr->type == VR_RANGE && vr_p->type == VR_ANTI_RANGE)
+           || (var_vr->type == VR_ANTI_RANGE && vr_p->type == VR_RANGE))
+    {
+      /* A range and an anti-range will cancel each other only if
+	 their ends are the same.  For instance, in the example above,
+	 p_8's range ~[0, 0] and p_6's range [0, 0] are incompatible,
+	 so VR_P should be set to VR_VARYING.  */
+      if (compare_values (var_vr->min, vr_p->min) == 0
+	  && compare_values (var_vr->max, vr_p->max) == 0)
+	set_value_range_to_varying (vr_p);
+    }
+
+  /* Remove names from the equivalence set that have ranges
+     incompatible with VR_P.  */
+done:
+  fix_equivalence_set (vr_p);
 }
 
 
@@ -956,8 +1141,10 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
 	  /* For subtraction, the operands must be of different
 	     signs to yield an overflow.  Its sign is therefore
 	     that of the first operand or the opposite of that
-	     of the second operand.  */
-	  || (code == MINUS_EXPR && sgn1 > 0)
+	     of the second operand.  A first operand of 0 counts
+	     as positive here, for the corner case 0 - (-INF),
+	     which overflows, but must yield +INF.  */
+	  || (code == MINUS_EXPR && sgn1 >= 0)
 	  /* For division, the only case is -INF / -1 = +INF.  */
 	  || code == TRUNC_DIV_EXPR
 	  || code == FLOOR_DIV_EXPR
@@ -1341,7 +1528,7 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
 	      && tree_int_cst_equal (new_min, vr0.min)
 	      && tree_int_cst_equal (new_max, vr0.max)
 	      && compare_values (new_min, new_max) <= 0
-	      && compare_values (new_min, new_max) >= -2)
+	      && compare_values (new_min, new_max) >= -1)
 	    {
 	      set_value_range (vr, VR_RANGE, new_min, new_max, vr->equiv);
 	      return;
@@ -1517,10 +1704,10 @@ extract_range_from_expr (value_range_t *vr, tree expr)
     extract_range_from_unary_expr (vr, expr);
   else if (TREE_CODE_CLASS (code) == tcc_comparison)
     extract_range_from_comparison (vr, expr);
-  else if (vrp_expr_computes_nonzero (expr))
-    set_value_range_to_nonnull (vr, TREE_TYPE (expr));
   else if (is_gimple_min_invariant (expr))
     set_value_range (vr, VR_RANGE, expr, expr, NULL);
+  else if (vrp_expr_computes_nonzero (expr))
+    set_value_range_to_nonnull (vr, TREE_TYPE (expr));
   else
     set_value_range_to_varying (vr);
 }
@@ -1693,6 +1880,10 @@ compare_ranges (enum tree_code comp, value_range_t *vr0, value_range_t *vr1)
 	  else if (cmp_min != -2 && cmp_max != -2)
 	    return boolean_false_node;
 	}
+      /* If [V0_MIN, V1_MAX] < [V1_MIN, V1_MAX] then V0 != V1.  */
+      else if (compare_values (vr0->min, vr1->max) == 1
+	       || compare_values (vr1->min, vr0->max) == 1)
+	return boolean_false_node;
 
       return NULL_TREE;
     }
@@ -1973,21 +2164,21 @@ build_assert_expr_for (tree cond, tree v)
 
   if (COMPARISON_CLASS_P (cond))
     {
-      tree a = build (ASSERT_EXPR, TREE_TYPE (v), v, cond); 
-      assertion = build (MODIFY_EXPR, TREE_TYPE (v), n, a);
+      tree a = build2 (ASSERT_EXPR, TREE_TYPE (v), v, cond); 
+      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, a);
     }
   else if (TREE_CODE (cond) == TRUTH_NOT_EXPR)
     {
       /* Given !V, build the assignment N = false.  */
       tree op0 = TREE_OPERAND (cond, 0);
       gcc_assert (op0 == v);
-      assertion = build (MODIFY_EXPR, TREE_TYPE (v), n, boolean_false_node);
+      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, boolean_false_node);
     }
   else if (TREE_CODE (cond) == SSA_NAME)
     {
       /* Given V, build the assignment N = true.  */
       gcc_assert (v == cond);
-      assertion = build (MODIFY_EXPR, TREE_TYPE (v), n, boolean_true_node);
+      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, boolean_true_node);
     }
   else
     gcc_unreachable ();
@@ -2034,6 +2225,13 @@ infer_value_range (tree stmt, tree op, enum tree_code *comp_code_p, tree *val_p)
   /* Similarly, don't infer anything from statements that may throw
      exceptions.  */
   if (tree_could_throw_p (stmt))
+    return false;
+
+  /* If STMT is the last statement of a basic block with no
+     successors, there is no point inferring anything about any of its
+     operands.  We would not be able to find a proper insertion point
+     for the assertion, anyway.  */
+  if (stmt_ends_bb_p (stmt) && EDGE_COUNT (bb_for_stmt (stmt)->succs) == 0)
     return false;
 
   if (POINTER_TYPE_P (TREE_TYPE (op)))
@@ -2319,6 +2517,24 @@ register_edge_assert_for (tree name, edge e, block_stmt_iterator si)
 	     need to invert the sign comparison.  */
 	  if (is_else_edge)
 	    comp_code = invert_tree_comparison (comp_code, 0);
+
+	  /* Do not register always-false predicates.  FIXME, this
+	     works around a limitation in fold() when dealing with
+	     enumerations.  Given 'enum { N1, N2 } x;', fold will not
+	     fold 'if (x > N2)' to 'if (0)'.  */
+	  if ((comp_code == GT_EXPR || comp_code == LT_EXPR)
+	      && (INTEGRAL_TYPE_P (TREE_TYPE (val))
+		  || SCALAR_FLOAT_TYPE_P (TREE_TYPE (val))))
+	    {
+	      tree min = TYPE_MIN_VALUE (TREE_TYPE (val));
+	      tree max = TYPE_MAX_VALUE (TREE_TYPE (val));
+
+	      if (comp_code == GT_EXPR && compare_values (val, max) == 0)
+		return false;
+
+	      if (comp_code == LT_EXPR && compare_values (val, min) == 0)
+		return false;
+	    }
 	}
     }
   else
@@ -2565,7 +2781,7 @@ process_assert_insertions_for (tree name, assert_locus_t loc)
   edge_iterator ei;
   edge e;
 
-  cond = build (loc->comp_code, boolean_type_node, name, loc->val);
+  cond = build2 (loc->comp_code, boolean_type_node, name, loc->val);
   assert_expr = build_assert_expr_for (cond, name);
 
   if (loc->e)
@@ -2782,6 +2998,8 @@ remove_range_assertions (void)
 	else
 	  bsi_next (&si);
       }
+
+  sbitmap_free (blocks_visited);
 }
 
 
@@ -3394,8 +3612,11 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
 	  && !symbolic_range_p (vr1)
 	  && !value_ranges_intersect_p (vr0, vr1))
 	{
+	  /* Copy most of VR1 into VR0.  Don't copy VR1's equivalence
+	     set.  We need to compute the intersection of the two
+	     equivalence sets.  */
 	  if (vr1->type == VR_ANTI_RANGE)
-	    copy_value_range (vr0, vr1);
+	    set_value_range (vr0, vr1->type, vr1->min, vr1->max, vr0->equiv);
 
 	  /* The resulting set of equivalences is the intersection of
 	     the two sets.  */
@@ -3415,12 +3636,23 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
 no_meet:
   /* The two range VR0 and VR1 do not meet.  Before giving up and
      setting the result to VARYING, see if we can at least derive a
-     useful anti-range.  */
+     useful anti-range.  FIXME, all this nonsense about distinguishing
+     anti-ranges from ranges is necessary because of the odd
+     semantics of range_includes_zero_p and friends.  */
   if (!symbolic_range_p (vr0)
-      && !range_includes_zero_p (vr0)
+      && ((vr0->type == VR_RANGE && !range_includes_zero_p (vr0))
+	  || (vr0->type == VR_ANTI_RANGE && range_includes_zero_p (vr0)))
       && !symbolic_range_p (vr1)
-      && !range_includes_zero_p (vr1))
-    set_value_range_to_nonnull (vr0, TREE_TYPE (vr0->min));
+      && ((vr1->type == VR_RANGE && !range_includes_zero_p (vr1))
+	  || (vr1->type == VR_ANTI_RANGE && range_includes_zero_p (vr1))))
+    {
+      set_value_range_to_nonnull (vr0, TREE_TYPE (vr0->min));
+
+      /* Since this meet operation did not result from the meeting of
+	 two equivalent names, VR0 cannot have any equivalences.  */
+      if (vr0->equiv)
+	bitmap_clear (vr0->equiv);
+    }
   else
     set_value_range_to_varying (vr0);
 }
@@ -3495,7 +3727,7 @@ vrp_visit_phi_node (tree phi)
   /* To prevent infinite iterations in the algorithm, derive ranges
      when the new value is slightly bigger or smaller than the
      previous one.  */
-  if (lhs_vr->type == VR_RANGE)
+  if (lhs_vr->type == VR_RANGE && vr_result.type == VR_RANGE)
     {
       if (!POINTER_TYPE_P (TREE_TYPE (lhs)))
 	{
@@ -3725,7 +3957,7 @@ simplify_cond_using_ranges (tree stmt)
 		}
 
 	      COND_EXPR_COND (stmt)
-		= build (EQ_EXPR, boolean_type_node, op0, new);
+		= build2 (EQ_EXPR, boolean_type_node, op0, new);
 	      update_stmt (stmt);
 
 	      if (dump_file)
@@ -3753,7 +3985,7 @@ simplify_cond_using_ranges (tree stmt)
 		}
 
 	      COND_EXPR_COND (stmt)
-		= build (NE_EXPR, boolean_type_node, op0, new);
+		= build2 (NE_EXPR, boolean_type_node, op0, new);
 	      update_stmt (stmt);
 
 	      if (dump_file)

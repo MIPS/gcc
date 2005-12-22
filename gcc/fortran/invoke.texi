@@ -119,7 +119,9 @@ by type.  Explanations are in the following sections.
 -fdollar-ok  -fimplicit-none  -fmax-identifier-length @gol
 -std=@var{std} -fd-lines-as-code -fd-lines-as-comments @gol
 -ffixed-line-length-@var{n}  -ffixed-line-length-none @gol
--fdefault-double-8  -fdefault-integer-8  -fdefault-real-8 }
+-ffree-line-length-@var{n}  -ffree-line-length-none @gol
+-fdefault-double-8  -fdefault-integer-8  -fdefault-real-8 @gol
+-fcray-pointer }
 
 @item Warning Options
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
@@ -127,13 +129,12 @@ by type.  Explanations are in the following sections.
 -fsyntax-only  -pedantic  -pedantic-errors @gol
 -w  -Wall  -Waliasing  -Wconversion @gol
 -Wimplicit-interface  -Wnonstd-intrinsics  -Wsurprising  -Wunderflow @gol
--Wunused-labels -Wline-truncation @gol
--Werror  -W}
+-Wunused-labels -Wline-truncation -W}
 
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @gccoptlist{
--fdump-parse-tree}
+-fdump-parse-tree -ffpe-trap=@var{list}}
 
 @item Directory Options
 @xref{Directory Options,,Options for Directory Search}.
@@ -145,7 +146,7 @@ by type.  Explanations are in the following sections.
 @gccoptlist{
 -fno-automatic -ff2c -fno-underscoring  -fsecond-underscore @gol
 -fbounds-check  -fmax-stack-var-size=@var{n} @gol
--fpackderived  -frepack-arrays}
+-fpackderived  -frepack-arrays  -fshort-enums}
 @end table
 
 @menu
@@ -225,7 +226,6 @@ Allow @samp{$} as a valid character in a symbol name.
 @item -fno-backslash
 @cindex backslash
 @cindex escape characters
-@item
 Compile switch to change the interpretation of a backslash from
 ``C''-style escape characters to a single backslash character.
 
@@ -252,6 +252,20 @@ to them to fill out the line.
 @option{-ffixed-line-length-0} means the same thing as
 @option{-ffixed-line-length-none}.
 
+@cindex -ffree-line-length-@var{n} option
+@cindex options, -ffree-line-length-@var{n}
+@item -ffree-line-length-@var{n}
+@cindex source file format
+@cindex lines, length
+@cindex length of source lines
+@cindex free form
+@cindex limits, lengths of source lines
+Set column after which characters are ignored in typical free-form
+lines in the source file. For free-form, the default value is 132.
+@var{n} may be @samp{none}, meaning that the entire line is meaningful.
+@option{-ffree-line-length-0} means the same thing as
+@option{-ffree-line-length-none}.
+
 @cindex -fmax-identifier-length=@var{n} option
 @cindex option -fmax-identifier-length=@var{n}
 @item -fmax-identifier-length=@var{n}
@@ -264,6 +278,11 @@ Specify the maximum allowed identifier length. Typical values are
 Specify that no implicit typing is allowed, unless overridden by explicit
 @samp{IMPLICIT} statements.  This is the equivalent of adding
 @samp{implicit none} to the start of every procedure.
+
+@cindex -fcray-pointer option
+@cindex options, -fcray-pointer
+@item -fcray-pointer
+Enables the Cray pointer extension, which provides a C-like pointer.
 
 @cindex -std=@var{std} option
 @cindex option, -std=@var{std}
@@ -462,6 +481,22 @@ either your program or @command{gfortran}
 @item -fdump-parse-tree
 Output the internal parse tree before starting code generation.  Only
 really useful for debugging gfortran itself.
+@end table
+
+@table @gcctabopt
+@cindex -ffpe-trap=@var{list} option
+@cindex option, -ffpe-trap=@var{list}
+@item -ffpe-trap=@var{list}
+Specify a list of IEEE exceptions when a Floating Point Exception
+(FPE) should be raised.  On most systems, this will result in a SIGFPE
+signal being sent and the program being interrupted, producing a core
+file useful for debugging.  @var{list} is a (possibly empty) comma-separated
+list of the following IEEE exceptions: @samp{invalid} (invalid floating
+point operation, such as @code{sqrt(-1.0)}), @samp{zero} (division by
+zero), @samp{overflow} (overflow in a floating point operation),
+@samp{underflow} (underflow in a floating point operation),
+@samp{precision} (loss of precision during operation) and @samp{denormal}
+(operation produced a denormal denormal value).
 @end table
 
 @xref{Debugging Options,,Options for Debugging Your Program or GCC,
@@ -730,6 +765,13 @@ a contiguous block at runtime.
 This should result in faster accesses to the array.  However it can introduce
 significant overhead to the function call, especially  when the passed data
 is discontiguous.
+
+@cindex -fshort-enums
+@item -fshort-enums
+This option is provided for interoperability with C code that was
+compiled with the @command{-fshort-enums} option.  It will make
+@command{gfortran} choose the smallest @code{INTEGER} kind a given
+enumerator set will fit in, and give all its enumerators this kind.
 @end table
 
 @xref{Code Gen Options,,Options for Code Generation Conventions,

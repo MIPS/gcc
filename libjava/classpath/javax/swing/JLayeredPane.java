@@ -38,29 +38,58 @@ exception statement from your version. */
 
 package javax.swing;
 
+import java.awt.Color;
 import java.awt.Component;
+import java.awt.Container;
+import java.awt.Graphics;
+import java.awt.Rectangle;
+import java.awt.Shape;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
 
 import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
 
 /**
- * <p>The "Layered Pane" is a container which divides its children into 6 (or
- * more) disjoint sets. the pre-defined sets are:</p>
+ * A container that adds depth to the usual <code>Container</code> semantics.
+ * Each child component of a <code>Layered Pane</code> is placed within one
+ * of several layers. <code>JLayeredPane</code> defines a set of standard
+ * layers. The pre-defined sets are (in the order from button to top):
  *
- *  <ul>
- *    <li>"Frame Content"</li>
- *    <li>"Default"</li>
- *    <li>"Palette"</li>
- *    <li>"Modal"</li>
- *    <li>"Popup"</li>
- *    <li>"Drag"</li>
- *  </ul>
+ *  <dl>
+ *    <dt>{@link #DEFAULT_LAYER}</dt>
+ *    <dd>The layer where most of the normal components are placed. This
+ *      is the bottommost layer.</dd>
+ *
+ *    <dt>{@link #PALETTE_LAYER}</dt>
+ *    <dd>Palette windows are placed in this layer.</dd>
+ *
+ *    <dt>{@link #MODAL_LAYER}</dt>
+ *    <dd>The layer where internal modal dialog windows are placed.</dd>
+ *
+ *    <dt>{@link #POPUP_LAYER}</dt>
+ *    <dd>The layer for popup menus</dd>
+ *
+ *    <dt>{@link #DRAG_LAYER}</dt>
+ *    <dd>Components that are beeing dragged are temporarily placed in
+ *       this layer.</dd>
+ *  </dl>
  *
  * <p>A child is in exactly one of these layers at any time, though there may
  * be other layers if someone creates them.</p>
+ *
+ * <p>You can add a component to a specific layer using the
+ * {@link Container#add(Component, Object)} method. I.e.
+ * <code>layeredPane.add(comp, JLayeredPane.MODAL_LAYER)</code> will add the
+ * component <code>comp</code> to the modal layer of <code>layeredPane</code>.
+ * </p>
+ *
+ * <p>To change the layer of a component that is already a child of
+ * a <code>JLayeredPane</code>, use the {@link #setLayer(Component, int)} 
+ * method.</p>
  *
  * <p>The purpose of this class is to translate this view of "layers" into a
  * contiguous array of components: the one held in our ancestor,
@@ -93,6 +122,30 @@ import javax.accessibility.Accessible;
  */
 public class JLayeredPane extends JComponent implements Accessible
 {
+  
+  /**
+   * Provides accessibility support for <code>JLayeredPane</code>.
+   */
+  protected class AccessibleJLayeredPane extends AccessibleJComponent
+  {
+    /**
+     * Creates a new instance of <code>AccessibleJLayeredPane</code>.
+     */
+    public AccessibleJLayeredPane()
+    {
+      // Nothing to do here.
+    }
+
+    /**
+     * Returns the accessble role of <code>JLayeredPane</code>,
+     * {@link AccessibleRole#LAYERED_PANE}. 
+     */
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.LAYERED_PANE;
+    }
+  }
+
   private static final long serialVersionUID = 5534920399324590459L;
   
   public static final String LAYER_PROPERTY = "layeredContainerLayer";
@@ -108,12 +161,14 @@ public class JLayeredPane extends JComponent implements Accessible
   TreeMap layers;               // Layer Number (Integer) -> Layer Size (Integer)
   Hashtable componentToLayer;   // Component -> Layer Number (Integer)
 
+  private transient Rectangle rectCache;
+  
   public JLayeredPane()
   {
     layers = new TreeMap ();
     componentToLayer = new Hashtable ();
+    setLayout(null);
   }
-
 
   /** 
    * Looks up the layer a child component is currently assigned to.
@@ -200,29 +255,37 @@ public class JLayeredPane extends JComponent implements Accessible
     ret[1] = getComponents ().length;
     Iterator i = layers.entrySet ().iterator ();
     while (i.hasNext())
-	    {
+      {
         Map.Entry pair = (Map.Entry) i.next();
         Integer layerNum = (Integer) pair.getKey ();
         Integer layerSz = (Integer) pair.getValue ();
-        if (layerNum.intValue() == layer.intValue())
+        int layerInt = layerNum.intValue();
+        if (layerInt == layer.intValue())
           {
             ret[0] = ret[1] - layerSz.intValue ();
-            return ret;
+            break;
+          }
+        // In the following case there exists no layer with the specified
+        // number, so we return an empty interval here with the index at which
+        // such a layer would be inserted
+        else if (layerInt > layer.intValue())
+          {
+            ret[1] = ret[0];
+            break;
           }
         else
           {
             ret[1] -= layerSz.intValue ();
           }
-	    }
-    // should have found the layer during iteration
-    throw new IllegalArgumentException ();
+      }
+    return ret;
   }
 
   /**
    * Increments the recorded size of a given layer.
    *
    * @param layer the layer number to increment.
-   * @see #incrLayer()
+   * @see #incrLayer
    */
   private void incrLayer(Integer layer)
   {
@@ -236,7 +299,7 @@ public class JLayeredPane extends JComponent implements Accessible
    * Decrements the recorded size of a given layer.
    *
    * @param layer the layer number to decrement.
-   * @see #decrLayer()
+   * @see #incrLayer
    */
   private void decrLayer(Integer layer)
   {
@@ -283,7 +346,7 @@ public class JLayeredPane extends JComponent implements Accessible
    * @param c the component to move to the front of its layer.
    * @throws IllegalArgumentException if the component is not a child of
    * this container.
-   * @see #moveToBack()
+   * @see #moveToBack
    */
   public void moveToFront(Component c)
   {
@@ -302,7 +365,7 @@ public class JLayeredPane extends JComponent implements Accessible
    * @param c the component to move to the back of its layer.
    * @throws IllegalArgumentException if the component is not a child of
    * this container.
-   * @see #moveToFront()
+   * @see #moveToFront
    */
   public void moveToBack(Component c)
   {
@@ -317,7 +380,7 @@ public class JLayeredPane extends JComponent implements Accessible
    * @param c the component to get the position of.
    * @throws IllegalArgumentException if the component is not a child of
    * this container.
-   * @see #setPosition()
+   * @see #setPosition
    */
   public int getPosition(Component c)
   {
@@ -344,7 +407,7 @@ public class JLayeredPane extends JComponent implements Accessible
    * @param position the position to assign the component to.
    * @throws IllegalArgumentException if the component is not a child of
    * this container.
-   * @see #getPosition()
+   * @see #getPosition
    */
   public void setPosition(Component c, int position)
   {
@@ -523,26 +586,15 @@ public class JLayeredPane extends JComponent implements Accessible
    *
    * @param index the index of the child component to remove.
    */
-  public void remove (int index)
+  public void remove(int index)
   {
-    Component c = getComponent (index);
-    int layer = getLayer (c);
-    decrLayer (new Integer(layer));
-    componentToLayer.remove (c);
-    super.remove (index);
+    Component c = getComponent(index);
+    int layer = getLayer(c);
+    decrLayer(new Integer(layer));
+    componentToLayer.remove(c);
+    super.remove(index);
+    // FIXME: Figure out if this call is correct.
     revalidate();
-    repaint();
-  }
-
-  /**
-   * Removes a child from this container. The child is specified directly.
-   * After removal, the child no longer occupies a layer.
-   *
-   * @param comp the child to remove.
-   */
-  public void remove (Component comp)
-  {
-    remove (getIndexOf (comp));
   }
 
   /**
@@ -590,7 +642,7 @@ public class JLayeredPane extends JComponent implements Accessible
    * @param index an ignored parameter, for compatibility.
    */
   protected void addImpl(Component comp, Object layerConstraint, int index) 
-  {        	
+  {
     Integer layer;
     if (layerConstraint != null && layerConstraint instanceof Integer)
       layer = (Integer) layerConstraint;
@@ -604,10 +656,8 @@ public class JLayeredPane extends JComponent implements Accessible
     componentToLayer.put (comp, layer);
     incrLayer (layer);
 	
-    super.addImpl(comp, null, newIdx);	
-    revalidate();
-    repaint();
-  }     
+    super.addImpl(comp, null, newIdx);
+  }
 
   /**
    * Sets the layer property for a JComponent.
@@ -618,5 +668,51 @@ public class JLayeredPane extends JComponent implements Accessible
   public static void putLayer(JComponent component, int layer)
   {
     getLayeredPaneAbove(component).setLayer(component, layer);
+  }
+
+  /**
+   * Returns the accessible context for this <code>JLayeredPane</code>.
+   *
+   * @return the accessible context for this <code>JLayeredPane</code>
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJLayeredPane();
+    return accessibleContext;
+  }
+
+  /**
+   * This method is overridden order to provide a reasonable painting
+   * mechanism for <code>JLayeredPane</code>. This is necessary since
+   * <code>JLayeredPane</code>'s do not have an own UI delegate.
+   *
+   * Basically this method clears the background for the
+   * <code>JLayeredPane</code> and then calls <code>super.paint(g)</code>.
+   *
+   * @param g the graphics context to use
+   */
+  public void paint(Graphics g)
+  {
+    if (isOpaque())
+      {
+        Color oldColor = g.getColor();
+        Rectangle clip = g.getClipBounds();
+        g.setColor(getBackground());
+        g.fillRect(clip.x, clip.y, clip.width, clip.height);
+        g.setColor(oldColor);
+      }
+    super.paint(g);
+  }
+
+  /**
+   * Overridden to return <code>false</code>, since <code>JLayeredPane</code>
+   * cannot guarantee that its children don't overlap.
+   *
+   * @return <code>false</code>
+   */
+  public boolean isOptimizedDrawingEnabled()
+  {
+    return false;
   }
 }

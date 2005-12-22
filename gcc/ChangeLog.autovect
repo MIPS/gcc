@@ -1,3 +1,7 @@
+2005-12-22  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* Merge from mainline (r103985:r108746)
+
 2005-12-21  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-loop-linear.c (gather_interchange_stats): Test for the

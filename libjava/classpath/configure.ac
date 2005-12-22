@@ -6,7 +6,7 @@ dnl -----------------------------------------------------------
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-AC_INIT([GNU Classpath],[0.17+cvs],[classpath@gnu.org],[classpath])
+AC_INIT([GNU Classpath],[0.20-pre],[classpath@gnu.org],[classpath])
 AC_CONFIG_SRCDIR(java/lang/System.java)
 
 AC_CANONICAL_TARGET
@@ -21,7 +21,16 @@ dnl We will not track/change lib version until we reach version 1.0
 dnl at which time we'll have to be more anal about such things
 dnl -----------------------------------------------------------
 AC_SUBST(LIBVERSION, "0:0:0")
-CLASSPATH_MODULE="-module -version-info ${LIBVERSION} -no-undefined"
+case "$host_os" in
+     darwin*)
+	cp_module=""
+	;;
+	*)
+	cp_module="-module"
+	;;
+esac
+
+CLASSPATH_MODULE="${cp_module} -version-info ${LIBVERSION} -no-undefined"
 AC_SUBST(CLASSPATH_MODULE)
 
 AC_PREREQ(2.59)
@@ -56,15 +65,15 @@ AC_ARG_ENABLE([core-jni],
               [COMPILE_CORE_JNI=yes])
 AM_CONDITIONAL(CREATE_CORE_JNI_LIBRARIES, test "x${COMPILE_CORE_JNI}" = xyes)
 
-dnl -----------------------------------------------------------
-dnl Whether to compile with -Werror or not (enabled by default)
-dnl -----------------------------------------------------------
+dnl ------------------------------------------------------------
+dnl Whether to compile with -Werror or not (disabled by default)
+dnl ------------------------------------------------------------
 AC_ARG_ENABLE([Werror],
-              [AS_HELP_STRING(--disable-Werror,whether to compile C code with -Werror which turns any compiler warning into a compilation failure [default=no])],
+              [AS_HELP_STRING(--enable-Werror,whether to compile C code with -Werror which turns any compiler warning into a compilation failure [default=no])],
               [case "${enableval}" in
                 yes) ENABLE_WERROR=yes ;;
                 no) ENABLE_WERROR=no ;;
-                *) ENABLE_WERROR=yes ;;
+                *) ENABLE_WERROR=no ;;
               esac],
               [ENABLE_WERROR=no])
 
@@ -92,6 +101,34 @@ AC_ARG_ENABLE([xmlj],
               esac],
               [COMPILE_XMLJ=no])
 AM_CONDITIONAL(CREATE_XMLJ_LIBRARY, test "x${COMPILE_XMLJ}" = xyes)
+
+dnl -----------------------------------------------------------
+dnl ALSA code (enabled by default)
+dnl -----------------------------------------------------------
+AC_ARG_ENABLE([alsa],
+              [AS_HELP_STRING(--disable-alsa,compile ALSA providers (enable by --enable-alsa) [default=yes])],
+              [case "${enableval}" in
+                yes) COMPILE_ALSA=yes ;;
+                no) COMPILE_ALSA=no ;;
+                *) COMPILE_ALSA=yes ;;
+              esac],
+	      [AC_CHECK_HEADERS([alsa/asoundlib.h],
+				[AC_CHECK_LIB([asound], [snd_seq_open], COMPILE_ALSA=yes,COMPILE_ALSA=no)],
+				COMPILE_ALSA=no)])
+AM_CONDITIONAL(CREATE_ALSA_LIBRARIES, test "x${COMPILE_ALSA}" = xyes)
+
+dnl -----------------------------------------------------------
+dnl DSSI code (enabled by default)
+dnl -----------------------------------------------------------
+AC_ARG_ENABLE([dssi],
+              [AS_HELP_STRING(--disable-dssi,compile DSSI providers (enable by --enable-dssi) [default=yes])],
+              [case "${enableval}" in
+                yes) COMPILE_DSSI=yes ;;
+                no) COMPILE_DSSI=no ;;
+                *) COMPILE_DSSI=yes ;;
+              esac],
+              [AC_CHECK_HEADERS([dssi.h],COMPILE_DSSI=yes,COMPILE_DSSI=no)])
+AM_CONDITIONAL(CREATE_DSSI_LIBRARIES, test "x${COMPILE_DSSI}" = xyes)
 
 dnl -----------------------------------------------------------
 dnl GTK native peer (enabled by default)
@@ -129,6 +166,48 @@ fi
 AM_CONDITIONAL(GTK_CAIRO, test "x${GTK_CAIRO_ENABLED}" = xtrue)
 
 dnl -----------------------------------------------------------
+dnl Qt native peer (disabled by default)
+dnl -----------------------------------------------------------
+AC_ARG_ENABLE([qt-peer],
+              [AS_HELP_STRING(--enable-qt-peer,compile Qt4 native peers (disabled by --disable-jni) [default=no])],
+              [case "${enableval}" in
+                yes) COMPILE_QT_PEER=yes ;;
+                no) COMPILE_QT_PEER=no ;;
+                *) COMPILE_QT_PEER=yes ;;
+              esac],
+              [COMPILE_QT_PEER=no])
+AM_CONDITIONAL(CREATE_QT_PEER_LIBRARIES, test "x${COMPILE_QT_PEER}" = xyes)
+
+
+dnl -----------------------------------------------------------
+dnl Sets the native libraries installation dir
+dnl -----------------------------------------------------------
+AC_ARG_WITH([native-libdir],
+	    [AS_HELP_STRING(--with-native-libdir,sets the installation directore for native libraries [default='${libdir}/${PACKAGE}'])],
+	    [
+	     nativelibdir=${withval}
+	    ],
+	    [
+	     nativelibdir='${libdir}/${PACKAGE}'
+	    ])
+
+AC_SUBST(nativelibdir)
+
+dnl -----------------------------------------------------------
+dnl Sets the Java library installation dir.
+dnl -----------------------------------------------------------
+AC_ARG_WITH([glibj-dir],
+	    [AS_HELP_STRING(--with-glibj-dir,sets the installation directory for glibj.zip [default='${libdir}/${PACKAGE}'])],
+	    [
+	     glibjdir=${withval}
+	    ],
+	    [
+	     glibjdir='${datadir}/${PACKAGE}'
+	    ])
+
+AC_SUBST(glibjdir)
+
+dnl -----------------------------------------------------------
 dnl Regenerate headers at build time (disabled by default)
 dnl -----------------------------------------------------------
 AC_ARG_ENABLE([regen-headers],
@@ -147,13 +226,17 @@ AC_PROG_INSTALL
 dnl -----------------------------------------------------------
 dnl Checks for programs.
 dnl -----------------------------------------------------------
-dnl AC_PROG_CXX
+
+dnl GCC LOCAL
+GCC_NO_EXECUTABLES
+
 dnl Initialize libtool
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 dnl AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_CPP
+AC_PROG_CXX
 
 if test "x${COMPILE_JNI}" = xyes; then
   AC_HEADER_STDC
@@ -175,7 +258,8 @@ if test "x${COMPILE_JNI}" = xyes; then
 		    sys/time.h \
 		    sys/select.h \
 		    crt_externs.h \
-                    fcntl.h])
+                    fcntl.h \
+		    sys/mman.h])
 
   AC_EGREP_HEADER(uint32_t, stdint.h, AC_DEFINE(HAVE_INT32_DEFINED, 1, [Define to 1 if you have uint32_t]))
   AC_EGREP_HEADER(uint32_t, inttypes.h, AC_DEFINE(HAVE_INT32_DEFINED, 1, [Define to 1 if you have uint32_t]))
@@ -189,7 +273,8 @@ if test "x${COMPILE_JNI}" = xyes; then
 		  recvfrom send sendto setsockopt getsockopt time mktime \
 		  localtime_r \
 		  strerror_r \
-                  fcntl])
+                  fcntl \
+		  mmap munmap mincore msync madvise getpagesize sysconf])
 
   AC_HEADER_TIME
   AC_STRUCT_TM
@@ -218,6 +303,7 @@ if test "x${COMPILE_JNI}" = xyes; then
           [AC_MSG_RESULT(no)])])])
 
   AC_C_CONST
+  AC_C_ATTRIBUTE
 
   dnl See if we HAVE_ICONV, how ICONV_CONST is set and LTLIBICONV
   AM_ICONV
@@ -258,27 +344,78 @@ if test "x${COMPILE_JNI}" = xyes; then
 
   dnl Check for AWT related gthread/gtk
   if test "x${COMPILE_GTK_PEER}" = xyes; then
-     AC_PATH_XTRA
-     if test "$no_x" = yes; then
-         AC_MSG_ERROR([GTK+ peers requested but no X library available])
-     fi
-     dnl We explicitly want the XTest Extension for Robot support.
-     AC_CHECK_LIB([Xtst], [XTestQueryExtension], [true],
-		  [AC_MSG_ERROR([libXtst NOT found, required for GdkRobot])],
-		  [${X_LIBS}])
-     PKG_CHECK_MODULES(GTK, gtk+-2.0 >= 2.4 gthread-2.0 >= 2.2 gdk-pixbuf-2.0)
-     AC_SUBST(GTK_CFLAGS)
-     AC_SUBST(GTK_LIBS)
+    AC_PATH_XTRA
+    if test "$no_x" = yes; then
+        AC_MSG_ERROR([GTK+ peers requested but no X library available])
+    fi
+    dnl We explicitly want the XTest Extension for Robot support.
+    AC_CHECK_LIB([Xtst], [XTestQueryExtension], [true],
+       	  [AC_MSG_ERROR([libXtst NOT found, required for GdkRobot])],
+       	  [${X_LIBS}])
+    PKG_CHECK_MODULES(GTK, gtk+-2.0 >= 2.4 gthread-2.0 >= 2.2 gdk-pixbuf-2.0)
+
+    if test "x${enable_gtk_cairo}" = xyes; then
+      PKG_CHECK_MODULES(CAIRO, cairo >= 0.5.0)
+    fi
+
+    PKG_CHECK_MODULES(PANGOFT2, pangoft2)
+  
+    AC_SUBST(GTK_CFLAGS)
+    AC_SUBST(GTK_LIBS)
+    AC_SUBST(CAIRO_LIBS)
+    AC_SUBST(CAIRO_CFLAGS)
+    AC_SUBST(PANGOFT2_LIBS)
+    AC_SUBST(PANGOFT2_CFLAGS)
   fi
 
-  if test "x${enable_gtk_cairo}" = xyes; then
-    PKG_CHECK_MODULES(CAIRO, cairo >= 0.5.0)
-    PKG_CHECK_MODULES(PANGOFT2, pangoft2)
+  dnl Check for AWT related Qt4
+  if test "x${COMPILE_QT_PEER}" = xyes; then
+    PKG_CHECK_MODULES(QT, QtGui >= 4.0.1, HAVE_QT4="yes", HAVE_QT4="no")
+    if test "x$HAVE_QT4" = "xyes"; then
+      dnl Check needed because in some cases the QtGui includedir
+      dnl doesn't contain the subsystem dir.
+      QT_INCLUDE_DIR=$($PKG_CONFIG --variable=includedir QtGui)
+      EXTRA_QT_INCLUDE_DIR="$QT_INCLUDE_DIR/Qt"
+      AC_CHECK_FILE([$QT_INCLUDE_DIR/QWidget],
+      AC_MSG_NOTICE([No extra QT_INCLUDE_DIR needed]),
+      AC_CHECK_FILE([$EXTRA_QT_INCLUDE_DIR/QWidget],
+	QT_CFLAGS="$QT_CFLAGS -I$EXTRA_QT_INCLUDE_DIR",
+	AC_MSG_WARN([QWidget not found])))
+	AC_CHECK_PROG(MOC, [moc], [moc])
+    fi
+    if test "x$HAVE_QT4" = "xno"; then
+      AC_MSG_NOTICE([Looking for QT_CFLAGS and QT_LIBS without pkg-config])
+      case "$host_os" in
+  	darwin*)
+  	  AC_ARG_WITH([qt4dir],
+  	    [AS_HELP_STRING([--with-qt4dir=DIR],
+  	    [Qt4 installation directory used for OS-X.
+  	    For other systems use pkg-config.])],
+  	    [QT4DIR=$withval]
+  	    )
+  	  if test x"$QT4DIR" = x ; then
+  	    AC_MSG_ERROR([*** No path for Qt4 --with-qt4dir option given])
+  	  fi
+  	  AC_MSG_RESULT([QT4DIR... $QT4DIR])
+  	  AC_CHECK_PROG(MOC, [moc], [$QT4DIR/bin/moc], [], $QT4DIR/bin)
+  	  if test x"$MOC" = x; then
+  	    AC_MSG_ERROR([*** This is not the right Qt installation])
+  	  fi
+  	  QT_CFLAGS="-F$QT4DIR/lib -I$QT4DIR/lib/QtCore.framework/Headers"
+  	  QT_CFLAGS="$QT_CFLAGS -I$QT4DIR/lib/QtGui.framework/Headers"
+  	  QT_LIBS="-Xlinker -F$QT4DIR/lib -Xlinker -framework -Xlinker QtCore"
+  	  QT_LIBS="$QT_LIBS -Xlinker -framework -Xlinker QtGui"
+  	  ;;
+  	*)
+  	  AC_MSG_ERROR([*** Please check PKG_CONFIG_PATH or the version
+  	  of your installed Qt4 installation.])
+  	  ;;
+      esac
+    fi
+    AC_MSG_NOTICE([Set QT_CFLAGS... $QT_CFLAGS])
+    AC_SUBST(QT_CFLAGS)
+    AC_SUBST(QT_LIBS)
   fi
-  AC_SUBST(CAIRO_LIBS)
-  AC_SUBST(CAIRO_CFLAGS)
-  AC_SUBST(PANGOFT2_LIBS)
-  AC_SUBST(PANGOFT2_CFLAGS)
 fi
 
 CLASSPATH_WITH_JAVAH
@@ -380,7 +517,6 @@ AC_SUBST(REMOVE)
 dnl -----------------------------------------------------------
 dnl This is probably useless.
 dnl -----------------------------------------------------------
-AC_PATH_PROG(SH, sh)
 AC_PATH_PROG(MKDIR, mkdir)
 AC_PATH_PROG(CP, cp)
 AC_PATH_PROG(DATE, date)
@@ -437,6 +573,7 @@ gnu/classpath/Configuration.java
 include/Makefile
 native/Makefile
 native/fdlibm/Makefile
+native/jawt/Makefile
 native/jni/Makefile
 native/jni/classpath/Makefile
 native/jni/java-io/Makefile
@@ -445,7 +582,10 @@ native/jni/java-net/Makefile
 native/jni/java-nio/Makefile
 native/jni/java-util/Makefile
 native/jni/gtk-peer/Makefile
+native/jni/qt-peer/Makefile
 native/jni/xmlj/Makefile
+native/jni/midi-alsa/Makefile
+native/jni/midi-dssi/Makefile
 native/target/Makefile
 native/target/Linux/Makefile
 native/target/generic/Makefile
@@ -454,6 +594,9 @@ scripts/Makefile
 scripts/classpath.spec
 lib/Makefile
 lib/gen-classlist.sh
-examples/Makefile])
+lib/copy-vmresources.sh
+examples/Makefile
+examples/Makefile.jawt])
 AC_CONFIG_COMMANDS([gen-classlist],[chmod 755 lib/gen-classlist.sh])
+AC_CONFIG_COMMANDS([copy-vmresources],[chmod 755 lib/copy-vmresources.sh])
 AC_OUTPUT

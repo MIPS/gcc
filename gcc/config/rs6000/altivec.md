@@ -57,9 +57,7 @@
    (UNSPEC_VPKUHUM       93)
    (UNSPEC_VPKUWUM       94)
    (UNSPEC_VPKPX         95)
-   (UNSPEC_VPKUHSS       96)
    (UNSPEC_VPKSHSS       97)
-   (UNSPEC_VPKUWSS       98)
    (UNSPEC_VPKSWSS       99)
    (UNSPEC_VPKUHUS      100)
    (UNSPEC_VPKSHUS      101)
@@ -231,36 +229,12 @@
 })
 
 (define_split
-  [(set (match_operand:V4SI 0 "altivec_register_operand" "")
-	(match_operand:V4SI 1 "easy_vector_constant_add_self" ""))]
-  "TARGET_ALTIVEC && reload_completed"
-  [(set (match_dup 0) (match_dup 3))
-   (set (match_dup 0)
-	(plus:V4SI (match_dup 0)
-		   (match_dup 0)))]
-{ 
-  operands[3] = gen_easy_vector_constant_add_self (operands[1]);
-})    
-
-(define_split
   [(set (match_operand:V8HI 0 "nonimmediate_operand" "")
         (match_operand:V8HI 1 "input_operand" ""))]
   "TARGET_ALTIVEC && reload_completed
    && gpr_or_gpr_p (operands[0], operands[1])"
   [(pc)]
 { rs6000_split_multireg_move (operands[0], operands[1]); DONE; })
-
-(define_split
-  [(set (match_operand:V8HI 0 "altivec_register_operand" "")
-	(match_operand:V8HI 1 "easy_vector_constant_add_self" ""))]
-  "TARGET_ALTIVEC && reload_completed"
-  [(set (match_dup 0) (match_dup 3))
-   (set (match_dup 0)
-	(plus:V8HI (match_dup 0)
-		   (match_dup 0)))]
-{
-  operands[3] = gen_easy_vector_constant_add_self (operands[1]);
-})
 
 (define_split
   [(set (match_operand:V16QI 0 "nonimmediate_operand" "")
@@ -271,18 +245,6 @@
 { rs6000_split_multireg_move (operands[0], operands[1]); DONE; })
 
 (define_split
-  [(set (match_operand:V16QI 0 "altivec_register_operand" "")
-	(match_operand:V16QI 1 "easy_vector_constant_add_self" ""))]
-  "TARGET_ALTIVEC && reload_completed"
-  [(set (match_dup 0) (match_dup 3))
-   (set (match_dup 0)
-	(plus:V16QI (match_dup 0)
-		   (match_dup 0)))]
-{
-  operands[3] = gen_easy_vector_constant_add_self (operands[1]);
-})
-
-(define_split
   [(set (match_operand:V4SF 0 "nonimmediate_operand" "")
         (match_operand:V4SF 1 "input_operand" ""))]
   "TARGET_ALTIVEC && reload_completed
@@ -290,6 +252,29 @@
   [(pc)]
 {
   rs6000_split_multireg_move (operands[0], operands[1]); DONE;
+})
+
+(define_split
+  [(set (match_operand:VI 0 "altivec_register_operand" "")
+	(match_operand:VI 1 "easy_vector_constant_add_self" ""))]
+  "TARGET_ALTIVEC && reload_completed"
+  [(set (match_dup 0) (match_dup 3))
+   (set (match_dup 0) (plus:VI (match_dup 0)
+			       (match_dup 0)))]
+{
+  rtx dup = gen_easy_altivec_constant (operands[1]);
+  rtx const_vec;
+
+  /* Divide the operand of the resulting VEC_DUPLICATE, and use
+     simplify_rtx to make a CONST_VECTOR.  */
+  XEXP (dup, 0) = simplify_const_binary_operation (ASHIFTRT, QImode,
+						   XEXP (dup, 0), const1_rtx);
+  const_vec = simplify_rtx (dup);
+
+  if (GET_MODE (const_vec) == <MODE>mode)
+    operands[3] = const_vec;
+  else
+    operands[3] = gen_lowpart (<MODE>mode, const_vec);
 })
 
 (define_insn "get_vrsave_internal"
@@ -1166,16 +1151,6 @@
   "vpkpx %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
-(define_insn "altivec_vpkuhss"
-  [(set (match_operand:V16QI 0 "register_operand" "=v")
-        (unspec:V16QI [(match_operand:V8HI 1 "register_operand" "v")
-                       (match_operand:V8HI 2 "register_operand" "v")]
-		      UNSPEC_VPKUHSS))
-   (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))]
-  "TARGET_ALTIVEC"
-  "vpkuhss %0,%1,%2"
-  [(set_attr "type" "vecperm")])
-
 (define_insn "altivec_vpkshss"
   [(set (match_operand:V16QI 0 "register_operand" "=v")
         (unspec:V16QI [(match_operand:V8HI 1 "register_operand" "v")
@@ -1184,16 +1159,6 @@
    (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))]
   "TARGET_ALTIVEC"
   "vpkshss %0,%1,%2"
-  [(set_attr "type" "vecperm")])
-
-(define_insn "altivec_vpkuwss"
-  [(set (match_operand:V8HI 0 "register_operand" "=v")
-        (unspec:V8HI [(match_operand:V4SI 1 "register_operand" "v")
-                      (match_operand:V4SI 2 "register_operand" "v")]
-		     UNSPEC_VPKUWSS))
-   (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))]
-  "TARGET_ALTIVEC"
-  "vpkuwss %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
 (define_insn "altivec_vpkswss"
@@ -1899,7 +1864,7 @@
   emit_insn (gen_rtx_SET (VOIDmode, temp, 
 			  gen_rtx_NEG (GET_MODE (addr), addr)));
   emit_insn (gen_altivec_lvsr (operands[0], 
-			       gen_rtx_MEM (GET_MODE (operands[1]), temp)));
+			       replace_equiv_address (operands[1], temp)));
   DONE;
 }")
 

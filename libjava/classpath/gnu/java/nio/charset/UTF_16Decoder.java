@@ -1,5 +1,5 @@
 /* UTF_16Decoder.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -54,6 +54,8 @@ final class UTF_16Decoder extends CharsetDecoder
   static final int BIG_ENDIAN = 0;
   static final int LITTLE_ENDIAN = 1;
   static final int UNKNOWN_ENDIAN = 2;
+  static final int MAYBE_BIG_ENDIAN = 3;
+  static final int MAYBE_LITTLE_ENDIAN = 4;
 
   private static final char BYTE_ORDER_MARK = 0xFEFF;
   private static final char REVERSED_BYTE_ORDER_MARK = 0xFFFE;
@@ -81,32 +83,44 @@ final class UTF_16Decoder extends CharsetDecoder
             byte b2 = in.get ();
 
             // handle byte order mark
-            if (byteOrder == UNKNOWN_ENDIAN)
+            if (byteOrder == UNKNOWN_ENDIAN ||
+                byteOrder == MAYBE_BIG_ENDIAN ||
+                byteOrder == MAYBE_LITTLE_ENDIAN)
               {
                 char c = (char) (((b1 & 0xFF) << 8) | (b2 & 0xFF));
                 if (c == BYTE_ORDER_MARK)
                   {
+                    if (byteOrder == MAYBE_LITTLE_ENDIAN)
+                      {
+                        return CoderResult.malformedForLength (2);
+                      }
                     byteOrder = BIG_ENDIAN;
                     inPos += 2;
                     continue;
                   }
                 else if (c == REVERSED_BYTE_ORDER_MARK)
                   {
+                    if (byteOrder == MAYBE_BIG_ENDIAN)
+                      {
+                        return CoderResult.malformedForLength (2);
+                      }
                     byteOrder = LITTLE_ENDIAN;
                     inPos += 2;
                     continue;
                   }
                 else
                   {
-                    // assume big endian, do not consume bytes,
+                    // assume big or little endian, do not consume bytes,
                     // continue with normal processing
-                    byteOrder = BIG_ENDIAN;
+                    byteOrder = (byteOrder == MAYBE_LITTLE_ENDIAN ?
+                                 LITTLE_ENDIAN : BIG_ENDIAN);
                   }
               }
 
 	    // FIXME: Change so you only do a single comparison here.
-            char c = byteOrder == BIG_ENDIAN ? (char) ((b1 << 8) | b2)
-                                             : (char) ((b2 << 8) | b1);
+            char c = (byteOrder == BIG_ENDIAN
+		      ? (char) (((b1 & 0xFF) << 8) | (b2 & 0xFF))
+		      : (char) (((b2 & 0xFF) << 8) | (b1 & 0xFF)));
 
             if (0xD800 <= c && c <= 0xDFFF)
               {
@@ -119,8 +133,9 @@ final class UTF_16Decoder extends CharsetDecoder
                   return CoderResult.UNDERFLOW;
                 byte b3 = in.get ();
                 byte b4 = in.get ();
-                char d = byteOrder == BIG_ENDIAN ? (char) ((b3 << 8) | b4)
-                                                 : (char) ((b4 << 8) | b3);
+                char d = (byteOrder == BIG_ENDIAN
+			  ? (char) (((b3 & 0xFF) << 8) | (b4 & 0xFF))
+			  : (char) (((b4 & 0xFF) << 8) | (b3 & 0xFF)));
                 // make sure d is a low surrogate
                 if (d < 0xDC00 || d > 0xDFFF)
                   return CoderResult.malformedForLength (2);

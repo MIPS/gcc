@@ -285,14 +285,14 @@ add_alias_set_conflicts (void)
 
   for (i = 0; i < n; ++i)
     {
-      bool aggr_i = AGGREGATE_TYPE_P (TREE_TYPE (stack_vars[i].decl));
-      HOST_WIDE_INT set_i = get_alias_set (stack_vars[i].decl);
+      tree type_i = TREE_TYPE (stack_vars[i].decl);
+      bool aggr_i = AGGREGATE_TYPE_P (type_i);
 
       for (j = 0; j < i; ++j)
 	{
-	  bool aggr_j = AGGREGATE_TYPE_P (TREE_TYPE (stack_vars[j].decl));
-	  HOST_WIDE_INT set_j = get_alias_set (stack_vars[j].decl);
-	  if (aggr_i != aggr_j || !alias_sets_conflict_p (set_i, set_j))
+	  tree type_j = TREE_TYPE (stack_vars[j].decl);
+	  bool aggr_j = AGGREGATE_TYPE_P (type_j);
+	  if (aggr_i != aggr_j || !objects_must_conflict_p (type_i, type_j))
 	    add_stack_var_conflict (i, j);
 	}
     }
@@ -1463,6 +1463,67 @@ construct_exit_block (void)
   update_bb_for_insn (exit_block);
 }
 
+/* Helper function for discover_nonconstant_array_refs. 
+   Look for ARRAY_REF nodes with non-constant indexes and mark them
+   addressable.  */
+
+static tree
+discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
+				   void *data ATTRIBUTE_UNUSED)
+{
+  tree t = *tp;
+
+  if (IS_TYPE_OR_DECL_P (t))
+    *walk_subtrees = 0;
+  else if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
+    {
+      while (((TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
+	      && is_gimple_min_invariant (TREE_OPERAND (t, 1))
+	      && (!TREE_OPERAND (t, 2)
+		  || is_gimple_min_invariant (TREE_OPERAND (t, 2))))
+	     || (TREE_CODE (t) == COMPONENT_REF
+		 && (!TREE_OPERAND (t,2)
+		     || is_gimple_min_invariant (TREE_OPERAND (t, 2))))
+	     || TREE_CODE (t) == BIT_FIELD_REF
+	     || TREE_CODE (t) == REALPART_EXPR
+	     || TREE_CODE (t) == IMAGPART_EXPR
+	     || TREE_CODE (t) == VIEW_CONVERT_EXPR
+	     || TREE_CODE (t) == NOP_EXPR
+	     || TREE_CODE (t) == CONVERT_EXPR)
+	t = TREE_OPERAND (t, 0);
+
+      if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
+	{
+	  t = get_base_address (t);
+	  if (t && DECL_P (t))
+	    TREE_ADDRESSABLE (t) = 1;
+	}
+
+      *walk_subtrees = 0;
+    }
+
+  return NULL_TREE;
+}
+
+/* RTL expansion is not able to compile array references with variable
+   offsets for arrays stored in single register.  Discover such
+   expressions and mark variables as addressable to avoid this
+   scenario.  */
+
+static void
+discover_nonconstant_array_refs (void)
+{
+  basic_block bb;
+  block_stmt_iterator bsi;
+
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	walk_tree (bsi_stmt_ptr (bsi), discover_nonconstant_array_refs_r,
+		   NULL , NULL);
+    }
+}
+
 /* Translate the intermediate representation contained in the CFG
    from GIMPLE trees to RTL.
 
@@ -1483,6 +1544,9 @@ tree_expand_cfg (void)
 
   /* Prepare the rtl middle end to start recording block changes.  */
   reset_block_changes ();
+
+  /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.  */
+  discover_nonconstant_array_refs ();
 
   /* Expand the variables recorded during gimple lowering.  */
   expand_used_vars ();
@@ -1578,6 +1642,10 @@ tree_expand_cfg (void)
     (*debug_hooks->outlining_inline_function) (current_function_decl);
 
   TREE_ASM_WRITTEN (current_function_decl) = 1;
+
+  /* After expanding, the return labels are no longer needed. */
+  return_label = NULL;
+  naked_return_label = NULL;
 }
 
 struct tree_opt_pass pass_expand =

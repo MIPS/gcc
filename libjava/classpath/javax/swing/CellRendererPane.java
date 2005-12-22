@@ -48,21 +48,18 @@ import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
 
 /**
- * The CellRendererPane's purpose is to paint the cells of JList, JTable and
- * JTree. It intercepts the usual paint tree, so that we don't walk up and
+ * Paints the cells of JList, JTable and JTree.
+ * It intercepts the usual paint tree, so that we don't walk up and
  * repaint everything.
  *
- * @author	Andrew Selkirk
- * @version	1.0
+ * @author Andrew Selkirk
  */
-public class CellRendererPane
-  extends Container
-  implements Accessible
+public class CellRendererPane extends Container implements Accessible
 {
   private static final long serialVersionUID = -7642183829532984273L;
 
   /**
-   * AccessibleCellRendererPane
+   * Provides accessibility support for CellRendererPanes.
    */
   protected class AccessibleCellRendererPane extends AccessibleAWTContainer
   {
@@ -70,10 +67,10 @@ public class CellRendererPane
 
     /**
      * Constructor AccessibleCellRendererPane
-     * @param component TODO
      */
     protected AccessibleCellRendererPane()
     {
+      // Nothing to do here.
     }
 
     /**
@@ -91,22 +88,13 @@ public class CellRendererPane
    */
   protected AccessibleContext accessibleContext = null;
 
-
-  //-------------------------------------------------------------
-  // Initialization ---------------------------------------------
-  //-------------------------------------------------------------
-
   /**
    * Constructs a new CellRendererPane.
    */
   public CellRendererPane()
   {
-  } // CellRendererPane()
-
-
-  //-------------------------------------------------------------
-  // Methods ----------------------------------------------------
-  //-------------------------------------------------------------
+    // Nothing to do here.
+  }
 
   /**
    * Should not be called.
@@ -115,7 +103,8 @@ public class CellRendererPane
    */
   public void update(Graphics graphics)
   {
-  } // update()
+    //Nothing to do here.
+  }
 
   /**
    * Despite normal behaviour this does <em>not</em> cause the container
@@ -123,7 +112,8 @@ public class CellRendererPane
    */
   public void invalidate()
   {
-  } // invalidate()
+    // Overridden to do nothing.
+  }
 
   /**
    * Should not be called.
@@ -132,6 +122,7 @@ public class CellRendererPane
    */
   public void paint(Graphics graphics)
   {
+    // Overridden to do nothing.
   }
 
   /**
@@ -149,7 +140,7 @@ public class CellRendererPane
       {
         super.addImpl(c, constraints, index);
       }
-  } // addImpl()
+  }
 
   /**
    * Paints the specified component <code>c</code> on the {@link Graphics}
@@ -177,9 +168,10 @@ public class CellRendererPane
     // reparent c
     addImpl(c, null, 0);
 
+    Rectangle oldClip = graphics.getClipBounds();
     // translate to (x,y)
     graphics.translate(x, y);
-
+    graphics.clipRect(0, 0, w, h);
     // set bounds of c
     c.setBounds(0, 0, w, h);
 
@@ -194,8 +186,8 @@ public class CellRendererPane
 
     // untranslate g
     graphics.translate(-x, -y);
-
-  } // paintComponent()
+    graphics.setClip(oldClip);
+  }
 
   /**
    * Paints the specified component <code>c</code> on the {@link Graphics}
@@ -217,7 +209,7 @@ public class CellRendererPane
                              Container p, int x, int y, int w, int h)
   {
     paintComponent(graphics, c, p, x, y, w, h, false);
-  } // paintComponent()
+  }
 
   /**
    * Paints the specified component <code>c</code> on the {@link Graphics}
@@ -235,7 +227,7 @@ public class CellRendererPane
                              Container p, Rectangle r)
   {
     paintComponent(graphics, c, p, r.x, r.y, r.width, r.height);
-  } // paintComponent()
+  }
 
   /**
    * getAccessibleContext <em>TODO</em>

@@ -49,6 +49,14 @@ import java.util.Set;
 
 
 /**
+ * Maps {@link KeyStroke}s to arbitrary objects, usually Strings. This
+ * is used in combination with {@link ActionMap}s.
+ *
+ * If a component receives an input event, this is looked up in
+ * the component's <code>InputMap</code>. The result is an object which
+ * serves as a key to the components <code>ActionMap</code>. Finally
+ * the <code>Action</code> that is stored is executed.
+ *
  * @author Andrew Selkirk
  * @author Michael Koch
  *
@@ -80,7 +88,7 @@ public class InputMap
   /**
    * Returns the binding for keystroke.
    *
-   * @param key the key of the enty
+   * @param keystroke the key of the enty
    *
    * @return the binding associated with keystroke may be null
    */
@@ -111,7 +119,7 @@ public class InputMap
   /**
    * Remove an entry from the <code>InputMap</code>.
    *
-   * @param key the key of the entry to remove
+   * @param keystroke the key of the entry to remove
    */
   public void remove(KeyStroke keystroke)
   {
@@ -163,8 +171,12 @@ public class InputMap
    */
   public KeyStroke[] keys()
   {
-    KeyStroke[] array = new KeyStroke[size()];
-    return (KeyStroke[]) inputMap.keySet().toArray(array);
+    if (size() != 0)
+      {
+        KeyStroke[] array = new KeyStroke[size()];
+        return (KeyStroke[]) inputMap.keySet().toArray(array);
+      }
+    return null;
   }
 
   /**
@@ -181,7 +193,9 @@ public class InputMap
       set.addAll(Arrays.asList(parent.allKeys()));
 
     set.addAll(inputMap.keySet());
-    KeyStroke[] array = new KeyStroke[size()];
+    if (set.size() == 0)
+      return null;    
+    KeyStroke[] array = new KeyStroke[set.size()];
     return (KeyStroke[]) set.toArray(array);
   }
 

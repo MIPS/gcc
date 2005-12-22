@@ -146,7 +146,9 @@ public class MenuSelectionManager
   {
     // Convert sourcePoint to screen coordinates.
     Point sourcePointOnScreen = sourcePoint;
-    SwingUtilities.convertPointToScreen(sourcePointOnScreen, source);
+    
+    if (source.isShowing())
+      SwingUtilities.convertPointToScreen(sourcePointOnScreen, source);
 
     Point compPointOnScreen;
     Component resultComp = null;
@@ -168,7 +170,10 @@ public class MenuSelectionManager
 	    && sourcePointOnScreen.y < compPointOnScreen.y + size.height)
 	  {
 	    Point p = sourcePointOnScreen;
-	    SwingUtilities.convertPointFromScreen(p, comp);
+        
+        if (comp.isShowing())
+          SwingUtilities.convertPointFromScreen(p, comp);
+        
 	    resultComp = SwingUtilities.getDeepestComponentAt(comp, p.x, p.y);
 	    break;
 	  }
@@ -211,17 +216,18 @@ public class MenuSelectionManager
   public boolean isComponentPartOfCurrentMenu(Component c)
   {
     MenuElement[] subElements;
-    for (int i = 0; i < selectedPath.size(); i++)
+      for (int i = 0; i < selectedPath.size(); i++)
       {
-	subElements = ((MenuElement) selectedPath.get(i)).getSubElements();
-	for (int j = 0; j < subElements.length; j++)
-	  {
-	    if ((subElements[j].getComponent()).equals(c))
-	      return true;
-	  }
+         subElements = ((MenuElement) selectedPath.get(i)).getSubElements();
+         for (int j = 0; j < subElements.length; j++)
+         {
+            MenuElement me = subElements[j]; 
+            if (me != null && (me.getComponent()).equals(c))
+               return true;
+         }
       }
 
-    return false;
+      return false;
   }
 
   /**

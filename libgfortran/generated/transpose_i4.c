@@ -32,11 +32,15 @@ Boston, MA 02110-1301, USA.  */
 #include <assert.h>
 #include "libgfortran.h"
 
-extern void transpose_i4 (gfc_array_i4 * ret, gfc_array_i4 * source);
+#if defined (HAVE_GFC_INTEGER_4)
+
+extern void transpose_i4 (gfc_array_i4 * const restrict ret, 
+	gfc_array_i4 * const restrict source);
 export_proto(transpose_i4);
 
 void
-transpose_i4 (gfc_array_i4 * ret, gfc_array_i4 * source)
+transpose_i4 (gfc_array_i4 * const restrict ret, 
+	gfc_array_i4 * const restrict source)
 {
   /* r.* indicates the return array.  */
   index_type rxstride, rystride;
@@ -96,3 +100,5 @@ transpose_i4 (gfc_array_i4 * ret, gfc_array_i4 * source)
         rptr += rxstride - (rystride * xcount);
     }
 }
+
+#endif

@@ -295,10 +295,10 @@ gfc_match_end_interface (void)
       /* Comparing the symbol node names is OK because only use-associated
          symbols can be renamed.  */
       if (type != current_interface.type
-	  || strcmp (current_interface.sym->name, name) != 0)
+	  || strcmp (current_interface.uop->name, name) != 0)
 	{
 	  gfc_error ("Expecting 'END INTERFACE OPERATOR (.%s.)' at %C",
-		     current_interface.sym->name);
+		     current_interface.uop->name);
 	  m = MATCH_ERROR;
 	}
 
@@ -926,8 +926,7 @@ check_interface1 (gfc_interface * p, gfc_interface * q,
 	if (p->sym == q->sym)
 	  continue;		/* Duplicates OK here */
 
-	if (strcmp (p->sym->name, q->sym->name) == 0
-	    && strcmp (p->sym->module, q->sym->module) == 0)
+	if (p->sym->name == q->sym->name && p->sym->module == q->sym->module)
 	  continue;
 
 	if (compare_interfaces (p->sym, q->sym, generic_flag))
@@ -1233,6 +1232,21 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 	  if (where)
 	    gfc_error ("Type/rank mismatch in argument '%s' at %L",
 		       f->sym->name, &a->expr->where);
+	  return 0;
+	}
+
+      if (f->sym->as
+	  && f->sym->as->type == AS_ASSUMED_SHAPE
+	  && a->expr->expr_type == EXPR_VARIABLE
+	  && a->expr->symtree->n.sym->as
+	  && a->expr->symtree->n.sym->as->type == AS_ASSUMED_SIZE
+	  && (a->expr->ref == NULL
+	      || (a->expr->ref->type == REF_ARRAY
+		  && a->expr->ref->u.ar.type == AR_FULL)))
+	{
+	  if (where)
+	    gfc_error ("Actual argument for '%s' cannot be an assumed-size"
+		       " array at %L", f->sym->name, where);
 	  return 0;
 	}
 

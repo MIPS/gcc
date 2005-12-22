@@ -1,3 +1,54 @@
+2005-11-22  Janis Johnson  <janis187@us.ibm.com>
+
+	* testsuite/lib/libmudflap.exp (libmudflap-init): Remove -static from
+	MUDFLAP_FLAGS if static library not supported.
+	* testsuite/libmudflap.c/cfrags.exp (MUDFLAP_FLAGS): new.
+	* testsuite/libmudflap.c/externs.exp: Ditto.
+	* testsuite/libmudflap.c++/ctors.exp: Ditto.
+	* testsuite/libmudflap.c++/c++frags.exp: Ditto.
+	* testsuite/libmudflap.cth/cthfrags.exp: Ditto.
+
+2005-10-04  James E Wilson  <wilson@specifix.com>
+
+	* configure.ac (mudflap_cv_entry_point): Use quadrigraphs to declare
+	$name as array of characters with unknown bound.  Also store into the
+	array.
+	* configure: Regenerate.
+
+2005-09-30  James E. Wilson  <wilson@specifix.com>
+
+	* configure.ac (pthread.h): Use AC_CHECK_HEADERS instead of
+	AC_CHECK_HEADER.
+	(target_thread_file): New.  Set from sed'ed gcc output.
+	(posix_threads): New.  Set from target_thread_file.  Use instead of
+	ac_have_pthread_h.
+	(pthread_create_version): Move initialization before code using it.
+	* configure: Regenerate.
+
+	* mf-heuristics.c (_end, ENTRY_POINT): Make them arrays with unknown
+	bounds.
+
+2005-09-29  James E. Wilson  <wilson@specifix.com>
+
+	* mf-hooks1.c (__mf_0fn_mmap, mmap, __mf_0fn_munmap, munmap): Protect
+	with HAVE_MMAP ifdef.
+
+2005-09-23  Frank Ch. Eigler  <fche@elastic.org>
+
+	PR 23084.
+	* mf-hooks2.c (accept): Tolerate NULL sockaddr* parameter.
+
+2005-09-23  Frank Ch. Eigler  <fche@elastic.org>
+
+	* testsuite/libmudflap.c++/pass58-frag.cxx: New test for heisenbug 19319.
+
+2005-09-23  Tom Tromey  <tromey@redhat.com>
+
+	* aclocal.m4, configure: Rebuilt.
+	* configure.ac: Use GCC_CHECK_TLS.
+	* acinclude.m4 (LIBMUDFLAP_CHECK_TLS, LIBMUDFLAP_ENABLE): Moved
+	to ../config.
+
 2005-08-22  Jim Wilson  <wilson@specifix.com>
 
 	* mf-hooks2.c (MF_REGISTER_fopen): Define to __MF_TYPE_STATIC when

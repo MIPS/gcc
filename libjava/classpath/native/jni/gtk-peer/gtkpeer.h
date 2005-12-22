@@ -83,6 +83,20 @@ extern struct state_table *cp_gtk_native_global_ref_table;
     (*env)->DeleteGlobalRef (env, *globRefPtr); \
     free (globRefPtr);} while (0)
 
+extern struct state_table *cp_gtk_native_graphics_state_table;
+
+#define NSA_G_INIT(env, clazz) \
+  cp_gtk_native_graphics_state_table = cp_gtk_init_state_table (env, clazz)
+
+#define NSA_GET_G_PTR(env, obj) \
+  cp_gtk_get_state (env, obj, cp_gtk_native_graphics_state_table)
+
+#define NSA_SET_G_PTR(env, obj, ptr) \
+  cp_gtk_set_state (env, obj, cp_gtk_native_graphics_state_table, (void *)ptr)
+
+#define NSA_DEL_G_PTR(env, obj) \
+  cp_gtk_remove_state_slot (env, obj, cp_gtk_native_graphics_state_table)
+
 #define SWAPU32(w)							\
   (((w) << 24) | (((w) & 0xff00) << 8) | (((w) >> 8) & 0xff00) | ((w) >> 24))
 
@@ -97,14 +111,25 @@ struct graphics
   jint x_offset, y_offset;
 };
 
+/* New-style event masks. */
+#define AWT_BUTTON1_DOWN_MASK (1 << 10)
+#define AWT_BUTTON2_DOWN_MASK (1 << 11)
+#define AWT_BUTTON3_DOWN_MASK (1 << 12)
+
 #define AWT_SHIFT_DOWN_MASK   (1 << 6)
 #define AWT_CTRL_DOWN_MASK    (1 << 7)
 #define AWT_META_DOWN_MASK    (1 << 8)
 #define AWT_ALT_DOWN_MASK     (1 << 9)
 
+/* Old-style event masks. */
 #define AWT_BUTTON1_MASK (1 << 4)
 #define AWT_BUTTON2_MASK (1 << 3)
 #define AWT_BUTTON3_MASK (1 << 2)
+
+#define AWT_SHIFT_MASK   (1 << 0)
+#define AWT_CTRL_MASK    (1 << 1)
+#define AWT_META_MASK    (1 << 2)
+#define AWT_ALT_MASK     (1 << 3)
 
 #define AWT_ITEM_SELECTED 1
 #define AWT_ITEM_DESELECTED 2
@@ -142,6 +167,14 @@ JNIEnv *cp_gtk_gdk_env(void);
 extern double cp_gtk_dpi_conversion_factor;
 extern GtkWindowGroup *cp_gtk_global_window_group;
 
+/* Shared global clipboard for GtkClipboard and GtkSelection. */
+extern GtkClipboard *cp_gtk_clipboard;
+
+/* Standard target (strings) for GtkClipboard and GtkSelection. */
+extern jstring cp_gtk_stringTarget;
+extern jstring cp_gtk_imageTarget;
+extern jstring cp_gtk_filesTarget;
+
 /* Union used for type punning. */
 union widget_union
 {
@@ -149,8 +182,9 @@ union widget_union
   GtkWidget **widget;
 };
 
-/* Keycode helpers */
+/* Constant conversion helpers */
 guint cp_gtk_awt_keycode_to_keysym (jint keyCode, jint keyLocation);
+jint cp_gtk_state_to_awt_mods (guint state);
 
 /* Image helpers */
 GdkPixbuf *cp_gtk_image_get_pixbuf (JNIEnv *env, jobject obj);
@@ -166,6 +200,7 @@ void cp_gtk_button_init_jni (void);
 void cp_gtk_checkbox_init_jni (void);
 void cp_gtk_choice_init_jni (void);
 void cp_gtk_component_init_jni (void);
+void cp_gtk_filedialog_init_jni (void);
 void cp_gtk_list_init_jni (void);
 void cp_gtk_menuitem_init_jni (void);
 void cp_gtk_scrollbar_init_jni (void);
@@ -181,6 +216,8 @@ void cp_gtk_textcomponent_connect_signals (GObject *ptr, jobject *gref);
 
 /* Debugging */
 void cp_gtk_print_current_thread (void);
+
+#define SYNCHRONIZE_GDK 0
 
 #define DEBUG_LOCKING 0
 

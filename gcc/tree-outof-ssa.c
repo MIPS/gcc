@@ -191,7 +191,7 @@ insert_copy_on_edge (edge e, tree dest, tree src)
 {
   tree copy;
 
-  copy = build (MODIFY_EXPR, TREE_TYPE (dest), dest, src);
+  copy = build2 (MODIFY_EXPR, TREE_TYPE (dest), dest, src);
   set_is_used (dest);
 
   if (TREE_CODE (src) == ADDR_EXPR)
@@ -1340,12 +1340,12 @@ new_temp_expr_table (var_map map)
 {
   temp_expr_table_p t;
 
-  t = (temp_expr_table_p) xmalloc (sizeof (struct temp_expr_table_d));
+  t = XNEW (struct temp_expr_table_d);
   t->map = map;
 
-  t->version_info = xcalloc (num_ssa_names + 1, sizeof (void *));
-  t->partition_dep_list = xcalloc (num_var_partitions (map) + 1, 
-				   sizeof (value_expr_p));
+  t->version_info = XCNEWVEC (void *, num_ssa_names + 1);
+  t->partition_dep_list = XCNEWVEC (value_expr_p,
+                                    num_var_partitions (map) + 1);
 
   t->replaceable = BITMAP_ALLOC (NULL);
   t->partition_in_use = BITMAP_ALLOC (NULL);
@@ -1823,69 +1823,6 @@ dump_replaceable_exprs (FILE *f, tree *expr)
 	fprintf (f, "\n");
       }
   fprintf (f, "\n");
-}
-
-
-/* Helper function for discover_nonconstant_array_refs. 
-   Look for ARRAY_REF nodes with non-constant indexes and mark them
-   addressable.  */
-
-static tree
-discover_nonconstant_array_refs_r (tree * tp, int *walk_subtrees,
-				   void *data ATTRIBUTE_UNUSED)
-{
-  tree t = *tp;
-
-  if (IS_TYPE_OR_DECL_P (t))
-    *walk_subtrees = 0;
-  else if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
-    {
-      while (((TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
-	      && is_gimple_min_invariant (TREE_OPERAND (t, 1))
-	      && (!TREE_OPERAND (t, 2)
-		  || is_gimple_min_invariant (TREE_OPERAND (t, 2))))
-	     || (TREE_CODE (t) == COMPONENT_REF
-		 && (!TREE_OPERAND (t,2)
-		     || is_gimple_min_invariant (TREE_OPERAND (t, 2))))
-	     || TREE_CODE (t) == BIT_FIELD_REF
-	     || TREE_CODE (t) == REALPART_EXPR
-	     || TREE_CODE (t) == IMAGPART_EXPR
-	     || TREE_CODE (t) == VIEW_CONVERT_EXPR
-	     || TREE_CODE (t) == NOP_EXPR
-	     || TREE_CODE (t) == CONVERT_EXPR)
-	t = TREE_OPERAND (t, 0);
-
-      if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
-	{
-	  t = get_base_address (t);
-	  if (t && DECL_P (t))
-	    TREE_ADDRESSABLE (t) = 1;
-	}
-
-      *walk_subtrees = 0;
-    }
-
-  return NULL_TREE;
-}
-
-
-/* RTL expansion is not able to compile array references with variable
-   offsets for arrays stored in single register.  Discover such
-   expressions and mark variables as addressable to avoid this
-   scenario.  */
-
-static void
-discover_nonconstant_array_refs (void)
-{
-  basic_block bb;
-  block_stmt_iterator bsi;
-
-  FOR_EACH_BB (bb)
-    {
-      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	walk_tree (bsi_stmt_ptr (bsi), discover_nonconstant_array_refs_r,
-		   NULL , NULL);
-    }
 }
 
 
@@ -2534,8 +2471,8 @@ insert_backedge_copies (void)
 
 		  /* Create a new instance of the underlying
 		     variable of the PHI result.  */
-		  stmt = build (MODIFY_EXPR, TREE_TYPE (result_var),
-				NULL, PHI_ARG_DEF (phi, i));
+		  stmt = build2 (MODIFY_EXPR, TREE_TYPE (result_var),
+				 NULL_TREE, PHI_ARG_DEF (phi, i));
 		  name = make_ssa_name (result_var, stmt);
 		  TREE_OPERAND (stmt, 0) = name;
 
@@ -2597,9 +2534,6 @@ rewrite_out_of_ssa (void)
 
   /* Flush out flow graph and SSA data.  */
   delete_var_map (map);
-
-  /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.  */
-  discover_nonconstant_array_refs ();
 
   in_ssa_p = false;
 }

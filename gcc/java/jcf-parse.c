@@ -142,7 +142,13 @@ set_source_filename (JCF *jcf, int index)
 	  && strcmp (sfname, old_filename + old_len - new_len) == 0
 	  && (old_filename[old_len - new_len - 1] == '/'
 	      || old_filename[old_len - new_len - 1] == '\\'))
-	return;
+	{
+#ifndef USE_MAPPED_LOCATION
+	  DECL_SOURCE_LOCATION (TYPE_NAME (current_class)) = input_location;
+	  file_start_location = input_location;
+#endif
+	  return;
+	}
     }
   if (strchr (sfname, '/') == NULL && strchr (sfname, '\\') == NULL)
     {
@@ -444,6 +450,7 @@ give_name_to_class (JCF *jcf, int i)
     abort ();
   else
     {
+      tree package_name = NULL_TREE, tmp;
       tree this_class;
       int j = JPOOL_USHORT1 (jcf, i);
       /* verify_constant_pool confirmed that j is a CONSTANT_Utf8. */
@@ -469,6 +476,9 @@ give_name_to_class (JCF *jcf, int i)
 
       jcf->cpool.data[i].t = this_class;
       JPOOL_TAG (jcf, i) = CONSTANT_ResolvedClass;
+      split_qualified_name (&package_name, &tmp, 
+      			    DECL_NAME (TYPE_NAME (this_class)));
+      TYPE_PACKAGE (this_class) = package_name;
       return this_class;
     }
 }

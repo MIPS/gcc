@@ -1,5 +1,6 @@
-@c Copyright (C) 1988,1989,1992,1993,1994,1996,1998,1999,2000,2001,2002,2003,2004,2005
-@c Free Software Foundation, Inc.
+@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000,
+@c 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -32,6 +33,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Conditionals::        Omitting the middle operand of a @samp{?:} expression.
 * Long Long::		Double-word integers---@code{long long int}.
 * Complex::             Data types for complex numbers.
+* Decimal Float::	Decimal Floating Point. 
 * Hex Floats::          Hexadecimal floating-point constants.
 * Zero Length::         Zero-length arrays.
 * Variable Length::     Arrays whose length is computed at run time.
@@ -813,6 +815,42 @@ If the variable's actual name is @code{foo}, the two fictitious
 variables are named @code{foo$real} and @code{foo$imag}.  You can
 examine and set these two fictitious variables with your debugger.
 
+@node Decimal Float
+@section Decimal Floating Point
+@cindex decimal floating point
+@cindex @code{_Decimal32} data type
+@cindex @code{_Decimal64} data type
+@cindex @code{_Decimal128} data type
+@cindex @code{df} integer suffix
+@cindex @code{dd} integer suffix
+@cindex @code{dl} integer suffix
+@cindex @code{DF} integer suffix
+@cindex @code{DD} integer suffix
+@cindex @code{DL} integer suffix
+
+GNU C supports decimal floating point types in addition to the
+standard floating-point types.  This extension supports decimal
+floating-point arithmetic as defined in IEEE-754R, the proposed
+revision of IEEE-754.  The C language extension is defined in ISO/IEC
+DTR 24732, Draft 5.  Support for this functionality will change when
+it is accepted into the C standard and might change for new drafts
+of the proposal.  Calling conventions for any target might also change.
+Not all targets support decimal floating point.
+
+Support for decimal floating point includes the arithmetic operators
+add, subtract, multiply, divide; unary arithmetic operators;
+relational operators; equality operators; and conversions to and from
+integer and other floating-point types.  Use a suffix @samp{df} or
+@samp{DF} in a literal constant of type @code{_Decimal32}, @samp{dd}
+or @samp{DD} for @code{_Decimal64}, and @samp{dl} or @samp{DL} for
+@code{_Decimal128}.
+
+Passing a decimal floating-point value as an argument to a function
+without a prototype is undefined.
+
+Types @code{_Decimal32}, @code{_Decimal64}, and @code{_Decimal128}
+are supported by the DWARF2 debug information format.
+
 @node Hex Floats
 @section Hex Floats
 @cindex hex floats
@@ -1554,7 +1592,7 @@ void __f () @{ /* @r{Do something.} */; @}
 void f () __attribute__ ((weak, alias ("__f")));
 @end smallexample
 
-declares @samp{f} to be a weak alias for @samp{__f}.  In C++, the
+defines @samp{f} to be a weak alias for @samp{__f}.  In C++, the
 mangled name for the target must be used.  It is an error if @samp{__f}
 is not defined in the same translation unit.
 
@@ -2364,6 +2402,41 @@ also be used with non-function declarations.  Weak symbols are supported
 for ELF targets, and also for a.out targets when using the GNU assembler
 and linker.
 
+@item weakref
+@itemx weakref ("@var{target}")
+@cindex @code{weakref} attribute
+The @code{weakref} attribute marks a declaration as a weak reference.
+Without arguments, it should be accompanied by an @code{alias} attribute
+naming the target symbol.  Optionally, the @var{target} may be given as
+an argument to @code{weakref} itself.  In either case, @code{weakref}
+implicitly marks the declaration as @code{weak}.  Without a
+@var{target}, given as an argument to @code{weakref} or to @code{alias},
+@code{weakref} is equivalent to @code{weak}.
+
+@smallexample
+static int x() __attribute__ ((weakref ("y")));
+/* is equivalent to... */
+static int x() __attribute__ ((weak, weakref, alias ("y")));
+/* and to... */
+static int x() __attribute__ ((weakref));
+static int x() __attribute__ ((alias ("y")));
+@end smallexample
+
+A weak reference is an alias that does not by itself require a
+definition to be given for the target symbol.  If the target symbol is
+only referenced through weak references, then the becomes a @code{weak}
+undefined symbol.  If it is directly referenced, however, then such
+strong references prevail, and a definition will be required for the
+symbol, not necessarily in the same translation unit.
+
+The effect is equivalent to moving all references to the alias to a
+separate translation unit, renaming the alias to the aliased symbol,
+declaring it as weak, compiling the two separate translation units and
+performing a reloadable link on them.
+
+At present, a declaration to which @code{weakref} is attached can
+only be @code{static}.
+
 @item externally_visible
 @cindex @code{externally_visible} attribute.
 This attribute, attached to a global variable or function nullify
@@ -3018,14 +3091,6 @@ The @var{tls_model} argument should be one of @code{global-dynamic},
 @code{local-dynamic}, @code{initial-exec} or @code{local-exec}.
 
 Not all targets support this attribute.
-
-@item transparent_union
-This attribute, attached to a function parameter which is a union, means
-that the corresponding argument may have the type of any union member,
-but the argument is passed as if its type were that of the first union
-member.  For more details see @xref{Type Attributes}.  You can also use
-this attribute on a @code{typedef} for a union data type; then it
-applies to all function parameters with that type.
 
 @item unused
 This attribute, attached to a variable, means that the variable is meant
@@ -5634,6 +5699,18 @@ Similar to @code{__builtin_huge_val}, except a warning is generated
 if the target floating-point format does not support infinities.
 @end deftypefn
 
+@deftypefn {Built-in Function} _Decimal32 __builtin_infd32 (void)
+Similar to @code{__builtin_inf}, except the return type is @code{_Decimal32}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal64 __builtin_infd64 (void)
+Similar to @code{__builtin_inf}, except the return type is @code{_Decimal64}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal128 __builtin_infd128 (void)
+Similar to @code{__builtin_inf}, except the return type is @code{_Decimal128}.
+@end deftypefn
+
 @deftypefn {Built-in Function} float __builtin_inff (void)
 Similar to @code{__builtin_inf}, except the return type is @code{float}.
 This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
@@ -5658,6 +5735,18 @@ forced to be a quiet NaN@.
 
 This function, if given a string literal, is evaluated early enough
 that it is considered a compile-time constant.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal32 __builtin_nand32 (const char *str)
+Similar to @code{__builtin_nan}, except the return type is @code{_Decimal32}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal64 __builtin_nand64 (const char *str)
+Similar to @code{__builtin_nan}, except the return type is @code{_Decimal64}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal128 __builtin_nand128 (const char *str)
+Similar to @code{__builtin_nan}, except the return type is @code{_Decimal128}.
 @end deftypefn
 
 @deftypefn {Built-in Function} float __builtin_nanf (const char *str)
@@ -6465,6 +6554,14 @@ into the data cache.  The instruction will be issued in slot I1@.
 
 These built-in functions are available for the i386 and x86-64 family
 of computers, depending on the command-line switches used.
+
+Note that, if you specify command-line switches such as @option{-msse},
+the compiler could use the extended instruction sets even if the built-ins
+are not used explicitly in the program.  For this reason, applications
+which perform runtime CPU detection must compile separate files for each
+supported architecture, using the appropriate flags.  In particular,
+the file containing the CPU detection code should be compiled without
+these options.
 
 The following machine modes are available for use with MMX built-in functions
 (@pxref{Vector Extensions}): @code{V2SI} for a vector of two 32-bit integers,

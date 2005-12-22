@@ -1238,13 +1238,15 @@ scan_loop (struct loop *loop, int flags)
 		 - with -Os (this certainly increases size),
 		 - if the mode doesn't support copy operations (obviously),
 		 - if the source is already a reg (the motion will gain nothing),
-		 - if the source is a legitimate constant (likewise).  */
+		 - if the source is a legitimate constant (likewise),
+	         - if the dest is a hard register (may be unrecognizable).  */
 	      else if (insert_temp
 		       && (optimize_size
 			   || ! can_copy_p (GET_MODE (SET_SRC (set)))
 			   || REG_P (SET_SRC (set))
 			   || (CONSTANT_P (SET_SRC (set))
-			       && LEGITIMATE_CONSTANT_P (SET_SRC (set)))))
+			       && LEGITIMATE_CONSTANT_P (SET_SRC (set)))
+			   || REGNO (SET_DEST (set)) < FIRST_PSEUDO_REGISTER))
 		;
 	      else if ((tem = loop_invariant_p (loop, src))
 		       && (dependencies == 0
@@ -1266,12 +1268,13 @@ scan_loop (struct loop *loop, int flags)
 		{
 		  struct movable *m;
 		  int regno = REGNO (SET_DEST (set));
+		  rtx user, user_set;
 
-		  /* A potential lossage is where we have a case where two insns
-		     can be combined as long as they are both in the loop, but
-		     we move one of them outside the loop.  For large loops,
-		     this can lose.  The most common case of this is the address
-		     of a function being called.
+		  /* A potential lossage is where we have a case where two
+		     insns can be combined as long as they are both in the
+		     loop, but we move one of them outside the loop.  For
+		     large loops, this can lose.  The most common case of
+		     this is the address of a function being called.
 
 		     Therefore, if this register is marked as being used
 		     exactly once if we are in a loop with calls
@@ -1279,41 +1282,44 @@ scan_loop (struct loop *loop, int flags)
 		     this register with the source of this SET.  If we can,
 		     delete this insn.
 
-		     Don't do this if P has a REG_RETVAL note or if we have
-		     SMALL_REGISTER_CLASSES and SET_SRC is a hard register.  */
+		     Don't do this if:
+		      (1) P has a REG_RETVAL note or
+		      (2) if we have SMALL_REGISTER_CLASSES and
+			(a) SET_SRC is a hard register or
+			(b) the destination of the user is a hard register.  */
 
 		  if (loop_info->has_call
-		      && regs->array[regno].single_usage != 0
-		      && regs->array[regno].single_usage != const0_rtx
+		      && regno >= FIRST_PSEUDO_REGISTER 
+		      && (user = regs->array[regno].single_usage) != NULL
+		      && user != const0_rtx
 		      && REGNO_FIRST_UID (regno) == INSN_UID (p)
-		      && (REGNO_LAST_UID (regno)
-			  == INSN_UID (regs->array[regno].single_usage))
+		      && REGNO_LAST_UID (regno) == INSN_UID (user)
 		      && regs->array[regno].set_in_loop == 1
 		      && GET_CODE (SET_SRC (set)) != ASM_OPERANDS
 		      && ! side_effects_p (SET_SRC (set))
 		      && ! find_reg_note (p, REG_RETVAL, NULL_RTX)
-		      && (! SMALL_REGISTER_CLASSES
-			  || (! (REG_P (SET_SRC (set))
-				 && (REGNO (SET_SRC (set))
-				     < FIRST_PSEUDO_REGISTER))))
-		      && regno >= FIRST_PSEUDO_REGISTER 
+		      && (!SMALL_REGISTER_CLASSES
+			  || !REG_P (SET_SRC (set))
+			  || !HARD_REGISTER_P (SET_SRC (set)))
+		      && (!SMALL_REGISTER_CLASSES
+			  || !NONJUMP_INSN_P (user)
+			  || !(user_set = single_set (user))
+			  || !REG_P (SET_DEST (user_set))
+			  || !HARD_REGISTER_P (SET_DEST (user_set)))
 		      /* This test is not redundant; SET_SRC (set) might be
 			 a call-clobbered register and the life of REGNO
 			 might span a call.  */
-		      && ! modified_between_p (SET_SRC (set), p,
-					       regs->array[regno].single_usage)
-		      && no_labels_between_p (p,
-					      regs->array[regno].single_usage)
-		      && validate_replace_rtx (SET_DEST (set), SET_SRC (set),
-					       regs->array[regno].single_usage))
+		      && ! modified_between_p (SET_SRC (set), p, user)
+		      && no_labels_between_p (p, user)
+		      && validate_replace_rtx (SET_DEST (set),
+					       SET_SRC (set), user))
 		    {
 		      /* Replace any usage in a REG_EQUAL note.  Must copy
 			 the new source, so that we don't get rtx sharing
 			 between the SET_SOURCE and REG_NOTES of insn p.  */
-		      REG_NOTES (regs->array[regno].single_usage)
-			= (replace_rtx
-			   (REG_NOTES (regs->array[regno].single_usage),
-			    SET_DEST (set), copy_rtx (SET_SRC (set))));
+		      REG_NOTES (user)
+			= replace_rtx (REG_NOTES (user), SET_DEST (set),
+				       copy_rtx (SET_SRC (set)));
 
 		      delete_insn (p);
 		      for (i = 0; i < LOOP_REGNO_NREGS (regno, SET_DEST (set));
@@ -5493,9 +5499,16 @@ loop_givs_rescan (struct loop *loop, struct iv_class *bl, rtx *reg_map)
 	  /* Not replaceable; emit an insn to set the original
 	     giv reg from the reduced giv.  */
 	  else if (REG_P (*v->location))
-	    loop_insn_emit_before (loop, 0, v->insn,
-				   gen_move_insn (*v->location,
-						  v->new_reg));
+	    {
+	      rtx tem;
+	      start_sequence ();
+	      tem = force_operand (v->new_reg, *v->location);
+	      if (tem != *v->location)
+		emit_move_insn (*v->location, tem);
+	      tem = get_insns ();
+	      end_sequence ();
+	      loop_insn_emit_before (loop, 0, v->insn, tem);
+	    }
 	  else if (GET_CODE (*v->location) == PLUS
 		   && REG_P (XEXP (*v->location, 0))
 		   && CONSTANT_P (XEXP (*v->location, 1)))
@@ -6470,6 +6483,17 @@ strength_reduce (struct loop *loop, int flags)
 			 "giv of insn %d not worth while, %d vs %d.\n",
 			 INSN_UID (v->insn),
 			 v->lifetime * threshold * benefit, insn_count);
+	      v->ignore = 1;
+	      bl->all_reduced = 0;
+	    }
+	  else if (!v->always_computable
+		   && (may_trap_or_fault_p (v->add_val)
+		       || may_trap_or_fault_p (v->mult_val)))
+	    {
+	      if (loop_dump_stream)
+		fprintf (loop_dump_stream,
+			 "giv of insn %d: not always computable.\n",
+			 INSN_UID (v->insn));
 	      v->ignore = 1;
 	      bl->all_reduced = 0;
 	    }
@@ -10803,7 +10827,7 @@ load_mems (const struct loop *loop)
 	}
 
       if (flag_float_store && written
-	  && GET_MODE_CLASS (GET_MODE (mem)) == MODE_FLOAT)
+	  && SCALAR_FLOAT_MODE_P (GET_MODE (mem)))
 	loop_info->mems[i].optimize = 0;
 
       /* If this MEM is written to, we must be sure that there

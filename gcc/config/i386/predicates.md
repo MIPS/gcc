@@ -75,6 +75,11 @@
   return REGNO (op) > LAST_VIRTUAL_REGISTER || REGNO (op) < 4;
 })
 
+;; Return true if op is the AX register.
+(define_predicate "ax_reg_operand"
+  (and (match_code "reg")
+       (match_test "REGNO (op) == 0")))
+
 ;; Return true if op is the flags register.
 (define_predicate "flags_reg_operand"
   (and (match_code "reg")
@@ -108,7 +113,7 @@
 	 library.  Don't count TLS SYMBOL_REFs here, since they should fit
 	 only if inside of UNSPEC handled below.  */
       /* TLS symbols are not constant.  */
-      if (tls_symbolic_operand (op, Pmode))
+      if (SYMBOL_REF_TLS_MODEL (op))
 	return false;
       return (ix86_cmodel == CM_SMALL || ix86_cmodel == CM_KERNEL
 	      || (ix86_cmodel == CM_MEDIUM && !SYMBOL_REF_FAR_ADDR_P (op)));
@@ -147,6 +152,9 @@
 	  switch (GET_CODE (op1))
 	    {
 	    case SYMBOL_REF:
+	      /* TLS symbols are not constant.  */
+	      if (SYMBOL_REF_TLS_MODEL (op1))
+		return 0;
 	      /* For CM_SMALL assume that latest object is 16MB before
 		 end of 31bits boundary.  We may also accept pretty
 		 large negative constants knowing that all objects are
@@ -225,7 +233,7 @@
     case SYMBOL_REF:
       /* For certain code models, the symbolic references are known to fit.  */
       /* TLS symbols are not constant.  */
-      if (tls_symbolic_operand (op, Pmode))
+      if (SYMBOL_REF_TLS_MODEL (op))
 	return false;
       return (ix86_cmodel == CM_SMALL
 	      || (ix86_cmodel == CM_MEDIUM
@@ -248,6 +256,9 @@
 	  switch (GET_CODE (op1))
 	    {
 	    case SYMBOL_REF:
+	      /* TLS symbols are not constant.  */
+	      if (SYMBOL_REF_TLS_MODEL (op1))
+		return 0;
 	      /* For small code model we may accept pretty large positive
 		 offsets, since one bit is available for free.  Negative
 		 offsets are limited by the size of NULL pointer area
@@ -455,22 +466,6 @@
 (define_predicate "tls_symbolic_operand"
   (and (match_code "symbol_ref")
        (match_test "SYMBOL_REF_TLS_MODEL (op) != 0")))
-
-(define_predicate "global_dynamic_symbolic_operand"
-  (and (match_code "symbol_ref")
-       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_GLOBAL_DYNAMIC")))
-
-(define_predicate "local_dynamic_symbolic_operand"
-  (and (match_code "symbol_ref")
-       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_LOCAL_DYNAMIC")))
-
-(define_predicate "initial_exec_symbolic_operand"
-  (and (match_code "symbol_ref")
-       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_INITIAL_EXEC")))
-
-(define_predicate "local_exec_symbolic_operand"
-  (and (match_code "symbol_ref")
-       (match_test "SYMBOL_REF_TLS_MODEL (op) == TLS_MODEL_LOCAL_EXEC")))
 
 ;; Test for a pc-relative call operand
 (define_predicate "constant_call_address_operand"
@@ -692,7 +687,7 @@
   return parts.seg == SEG_DEFAULT;
 })
 
-;; Return nonzero if the rtx is known aligned.
+;; Return nonzero if the rtx is known to be at least 32 bits aligned.
 (define_predicate "aligned_operand"
   (match_operand 0 "general_operand")
 {
@@ -706,6 +701,10 @@
   /* Don't even try to do any aligned optimizations with volatiles.  */
   if (MEM_VOLATILE_P (op))
     return 0;
+
+  if (MEM_ALIGN (op) >= 32)
+    return 1;
+
   op = XEXP (op, 0);
 
   /* Pushes and pops are only valid on the stack pointer.  */
@@ -748,6 +747,22 @@
 
   ok = ix86_decompose_address (XEXP (op, 0), &parts);
   gcc_assert (ok);
+  return parts.disp != NULL_RTX;
+})
+
+;; Returns 1 if OP is memory operand with a displacement only.
+(define_predicate "memory_displacement_only_operand"
+  (match_operand 0 "memory_operand")
+{
+  struct ix86_address parts;
+  int ok;
+
+  ok = ix86_decompose_address (XEXP (op, 0), &parts);
+  gcc_assert (ok);
+
+  if (parts.base || parts.index)
+    return 0;
+
   return parts.disp != NULL_RTX;
 })
 

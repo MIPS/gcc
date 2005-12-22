@@ -39,6 +39,9 @@ package javax.swing;
 
 
 /**
+ * An {@link InputMap} that is associated with a particular {@link JComponent}.
+ * The component is notified when its <code>ComponentInputMap</code> changes.
+ *
  * @author Andrew Selkirk
  * @author Michael Koch
  */
@@ -70,12 +73,13 @@ public class ComponentInputMap extends InputMap
    * If actionMapKey is null an existing entry will be removed.
    *
    * @param keystroke the keystroke for the entry
-   * @param actionMapKey the action.
+   * @param value the action.
    */
   public void put(KeyStroke keystroke, Object value)
   {
     super.put(keystroke, value);
-    // FIXME: Notify component.
+    if (component != null)
+      component.updateComponentInputMap(this);
   }
 
   /**
@@ -84,18 +88,20 @@ public class ComponentInputMap extends InputMap
   public void clear()
   {
     super.clear();
-    // FIXME: Notify component.
+    if (component != null)
+      component.updateComponentInputMap(this);
   }
 
   /**
    * Remove an entry from the <code>InputMap</code>.
    *
-   * @param key the key of the entry to remove
+   * @param keystroke the key of the entry to remove
    */
   public void remove(KeyStroke keystroke)
   {
     super.remove(keystroke);
-    // FIXME: Notify component.
+    if (component != null)
+      component.updateComponentInputMap(this);
   }
 
   /**
@@ -103,19 +109,24 @@ public class ComponentInputMap extends InputMap
    *
    * @param parentMap the new parent
    *
-   * @exception IllegalArgument if parentMap is not a
+   * @exception IllegalArgumentException if parentMap is not a
    * <code>ComponentInputMap</code> or not associated with the same component
    */
   public void setParent(InputMap parentMap)
   {
-    if (! (parentMap instanceof ComponentInputMap))
-      throw new IllegalArgumentException();
-
-    if (((ComponentInputMap) parentMap).getComponent() != component)
-      throw new IllegalArgumentException();
+    if (parentMap != null && !(parentMap instanceof ComponentInputMap))
+      throw new IllegalArgumentException("ComponentInputMaps can only have " +
+                                         "ComponentInputMaps for parents");
+    
+    if (parentMap != null && 
+        ((ComponentInputMap) parentMap).getComponent() != component)
+      throw new 
+        IllegalArgumentException("ComponentInputMaps' parents must " +
+                                 "be associated with the same JComponents");
    
     super.setParent(parentMap);
-    // FIXME: Notify component.
+    if (component != null)
+      component.updateComponentInputMap(this);
   }
 
   /**

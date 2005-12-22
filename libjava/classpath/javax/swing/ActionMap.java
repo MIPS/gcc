@@ -49,6 +49,14 @@ import java.util.Set;
 
 
 /**
+ * Maps arbitrary keys (usually Strings) to {@link Action} instances. This
+ * is used in combination with {@link InputMap}s.
+ *
+ * If a component receives an input event, this is looked up in
+ * the component's <code>InputMap</code>. The result is an object which
+ * serves as a key to the components <code>ActionMap</code>. Finally
+ * the <code>Action</code> that is stored is executed.
+ *
  * @author Andrew Selkirk
  * @author Michael Koch
  */
@@ -72,6 +80,7 @@ public class ActionMap
    */
   public ActionMap()
   {
+    // Nothing to do here.
   }
 
   /**
@@ -162,7 +171,9 @@ public class ActionMap
    */
   public Object[] keys()
   {
-    return actionMap.keySet().toArray();
+    if (size() != 0)
+      return actionMap.keySet().toArray();
+    return null;
   }
 
   /**
@@ -179,7 +190,9 @@ public class ActionMap
       set.addAll(Arrays.asList(parent.allKeys()));
 
     set.addAll(actionMap.keySet());
-    return set.toArray();
+    if (set.size() != 0)
+      return set.toArray();
+    return null;
   }
 
   /**

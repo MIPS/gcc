@@ -53,6 +53,9 @@ import javax.accessibility.AccessibleIcon;
 import javax.accessibility.AccessibleRole;
 import javax.accessibility.AccessibleStateSet;
 
+/**
+ * An {@link Icon} implementation that is backed by an {@link Image}.
+ */
 public class ImageIcon
   implements Icon, Serializable, Accessible
 {
@@ -70,6 +73,7 @@ public class ImageIcon
      */
     protected AccessibleImageIcon()
     {
+      // Nothing to do here.
     }
 
     /**
@@ -201,7 +205,10 @@ public class ImageIcon
   private static final long serialVersionUID = 532615968316031794L;
 
   /** A dummy Component that is used in the MediaTracker. */
-  protected static Component component = new Component(){};
+  protected static Component component = new Component()
+  {
+    // No need to implement this. 
+  };
 
   /** The MediaTracker used to monitor the loading of images. */
   protected static MediaTracker tracker = new MediaTracker(component);
@@ -219,92 +226,182 @@ public class ImageIcon
   /** The AccessibleContext of this ImageIcon. */
   private AccessibleContext accessibleContext;
 
+  /**
+   * Creates an ImageIcon without any properties set.
+   */
   public ImageIcon()
   {
+    // Nothing to do here.
   }
-  
-  public ImageIcon(String file)
+ 
+  /**
+   * Constructs an ImageIcon given a filename.  The icon's description
+   * is initially set to the filename itself.  A filename of "" means
+   * create a blank icon.
+   *
+   * @param filename name of file to load or "" for a blank icon
+   */
+  public ImageIcon(String filename)
   {
-    this(file, file);
+    this(filename, filename);
   }
 
-  public ImageIcon(String file, String description)
+  /**
+   * Constructs an ImageIcon from the given filename, setting its
+   * description to the given description.  A filename of "" means
+   * create a blank icon.
+   *
+   * @param filename name of file to load or "" for a blank icon
+   * @param description human-readable description of this icon
+   */
+  public ImageIcon(String filename, String description)
   {
-    this(Toolkit.getDefaultToolkit().getImage(file), description);
+    this(Toolkit.getDefaultToolkit().getImage(filename), description);
   }
 
+  /**
+   * Creates an ImageIcon from the given byte array without any
+   * description set.
+   */
   public ImageIcon(byte[] imageData)
   {
     this(imageData, null);
   }
   
+  /**
+   * Creates an ImageIcon from the given byte array and sets the given
+   * description.
+   */
   public ImageIcon(byte[] imageData, String description)
   {
     this(Toolkit.getDefaultToolkit().createImage(imageData), description);
   }
 
+  /**
+   * Creates an ImageIcon from the given URL without any description
+   * set.
+   */
   public ImageIcon(URL url)
   {
     this(url, null);
   }
 
+  /**
+   * Creates an ImageIcon from the given URL and sets the given
+   * description.
+   */
   public ImageIcon(URL url, String description)
   {
     this(Toolkit.getDefaultToolkit().getImage(url), description);
   }
 
+  /**
+   * Creates an ImageIcon from the given Image without any description
+   * set.
+   */
   public ImageIcon(Image image)
   {
     this(image, null);
   }
 
+  /**
+   * Creates an ImageIcon from the given Image and sets the given
+   * description.
+   */
   public ImageIcon(Image image, String description)
   {
     setImage(image);
     setDescription(description);
   }
-    
+
+  /**
+   * Returns the ImageObserver that is used for all Image
+   * operations. Defaults to null when not explicitly set.
+   */
   public ImageObserver getImageObserver()
   {
     return observer;
   }
   
+  /**
+   * Sets the ImageObserver that will be used for all Image
+   * operations. Can be set to null (the default) when no observer is
+   * needed.
+   */
   public void setImageObserver(ImageObserver newObserver)
   {
     observer = newObserver;
   }
 
+  /**
+   * Returns the backing Image for this ImageIcon. Might be set to
+   * null in which case no image is shown.
+   */
   public Image getImage()
   {
     return image;
   }
 
+  /**
+   * Explicitly sets the backing Image for this ImageIcon. Will call
+   * loadImage() to make sure that the Image is completely loaded
+   * before returning.
+   */
   public void setImage(Image image)
   {
     loadImage(image);
     this.image = image;
   }
 
+  /**
+   * Returns a human readable description for this ImageIcon or null
+   * when no description is set or available.
+   */
   public String getDescription()
   {
     return description;
   }
 
+  /**
+   * Sets a human readable description for this ImageIcon. Can be set
+   * to null when no description is available.
+   */
   public void setDescription(String description)
   {
     this.description = description;
   }
 
+  /**
+   * Returns the the height of the backing Image, or -1 if the backing
+   * Image is null. The getHeight() method of the Image will be called
+   * with the set observer of this ImageIcon.
+   */
   public int getIconHeight()
   {
+    if (image == null)
+      return -1;
+
     return image.getHeight(observer);
   }
 
+  /**
+   * Returns the the width of the backing Image, or -1 if the backing
+   * Image is null. The getWidth() method of the Image will be called
+   * with the set observer of this ImageIcon.
+   */
   public int getIconWidth()
   {
+    if (image == null)
+      return -1;
+
     return image.getWidth(observer);
   }
 
+  /**
+   * Calls <code>g.drawImage()</code> on the backing Image using the
+   * set observer of this ImageIcon. If the set observer is null, the
+   * given Component is used as observer.
+   */
   public void paintIcon(Component c, Graphics g, int x, int y)
   {
     g.drawImage(image, x, y, observer != null ? observer : c);
@@ -325,7 +422,7 @@ public class ImageIcon
       }
     catch (InterruptedException ex)
       {
-        ; // ignore this for now
+        // Ignore this for now.
       }
     finally
       {
@@ -338,9 +435,9 @@ public class ImageIcon
    *
    * @return the load status of the icon image
    *
-   * @see {@link MediaTracker.COMPLETE}
-   * @see {@link MediaTracker.ABORTED}
-   * @see {@link MediaTracker.ERRORED}
+   * @see MediaTracker#COMPLETE
+   * @see MediaTracker#ABORTED
+   * @see MediaTracker#ERRORED
    */
   public int getImageLoadStatus()
   {

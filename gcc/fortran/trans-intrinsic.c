@@ -52,14 +52,18 @@ typedef struct gfc_intrinsic_map_t	GTY(())
 
   /* Enum value from the "language-independent", aka C-centric, part
      of gcc, or END_BUILTINS of no such value set.  */
-  /* ??? There are now complex variants in builtins.def, though we
-     don't currently do anything with them.  */
-  enum built_in_function code4;
-  enum built_in_function code8;
+  enum built_in_function code_r4;
+  enum built_in_function code_r8;
+  enum built_in_function code_r10;
+  enum built_in_function code_r16;
+  enum built_in_function code_c4;
+  enum built_in_function code_c8;
+  enum built_in_function code_c10;
+  enum built_in_function code_c16;
 
   /* True if the naming pattern is to prepend "c" for complex and
      append "f" for kind=4.  False if the naming pattern is to
-     prepend "_gfortran_" and append "[rc][48]".  */
+     prepend "_gfortran_" and append "[rc](4|8|10|16)".  */
   bool libm_name;
 
   /* True if a complex version of the function exists.  */
@@ -74,32 +78,42 @@ typedef struct gfc_intrinsic_map_t	GTY(())
   /* Cache decls created for the various operand types.  */
   tree real4_decl;
   tree real8_decl;
+  tree real10_decl;
+  tree real16_decl;
   tree complex4_decl;
   tree complex8_decl;
+  tree complex10_decl;
+  tree complex16_decl;
 }
 gfc_intrinsic_map_t;
 
 /* ??? The NARGS==1 hack here is based on the fact that (c99 at least)
    defines complex variants of all of the entries in mathbuiltins.def
    except for atan2.  */
-#define BUILT_IN_FUNCTION(ID, NAME, HAVE_COMPLEX) \
-  { GFC_ISYM_ ## ID, BUILT_IN_ ## ID ## F, BUILT_IN_ ## ID, true, \
-    HAVE_COMPLEX, true, NAME, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE},
+#define DEFINE_MATH_BUILTIN(ID, NAME, ARGTYPE) \
+  { GFC_ISYM_ ## ID, BUILT_IN_ ## ID ## F, BUILT_IN_ ## ID, \
+    BUILT_IN_ ## ID ## L, BUILT_IN_ ## ID ## L, 0, 0, 0, 0, true, \
+    false, true, NAME, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, \
+    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE},
 
-#define DEFINE_MATH_BUILTIN(id, name, argtype) \
-  BUILT_IN_FUNCTION (id, name, false)
-
-/* TODO: Use builtin function for complex intrinsics.  */
-#define DEFINE_MATH_BUILTIN_C(id, name, argtype) \
-  BUILT_IN_FUNCTION (id, name, true)
+#define DEFINE_MATH_BUILTIN_C(ID, NAME, ARGTYPE) \
+  { GFC_ISYM_ ## ID, BUILT_IN_ ## ID ## F, BUILT_IN_ ## ID, \
+    BUILT_IN_ ## ID ## L, BUILT_IN_ ## ID ## L, BUILT_IN_C ## ID ## F, \
+    BUILT_IN_C ## ID, BUILT_IN_C ## ID ## L, BUILT_IN_C ## ID ## L, true, \
+    true, true, NAME, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, \
+    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE},
 
 #define LIBM_FUNCTION(ID, NAME, HAVE_COMPLEX) \
-  { GFC_ISYM_ ## ID, END_BUILTINS, END_BUILTINS, true, HAVE_COMPLEX, true, \
-    NAME, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE }
+  { GFC_ISYM_ ## ID, END_BUILTINS, END_BUILTINS, END_BUILTINS, END_BUILTINS, \
+    END_BUILTINS, END_BUILTINS, END_BUILTINS, END_BUILTINS, \
+    true, HAVE_COMPLEX, true, NAME, NULL_TREE, NULL_TREE, NULL_TREE, \
+    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE }
 
 #define LIBF_FUNCTION(ID, NAME, HAVE_COMPLEX) \
-  { GFC_ISYM_ ## ID, END_BUILTINS, END_BUILTINS, false, HAVE_COMPLEX, true, \
-    NAME, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE }
+  { GFC_ISYM_ ## ID, END_BUILTINS, END_BUILTINS, END_BUILTINS, END_BUILTINS, \
+    END_BUILTINS, END_BUILTINS, END_BUILTINS, END_BUILTINS, \
+    false, HAVE_COMPLEX, true, NAME, NULL_TREE, NULL_TREE, NULL_TREE, \
+    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE }
 
 static GTY(()) gfc_intrinsic_map_t gfc_intrinsic_map[] =
 {
@@ -122,7 +136,6 @@ static GTY(()) gfc_intrinsic_map_t gfc_intrinsic_map[] =
 };
 #undef DEFINE_MATH_BUILTIN
 #undef DEFINE_MATH_BUILTIN_C
-#undef BUILT_IN_FUNCTION
 #undef LIBM_FUNCTION
 #undef LIBF_FUNCTION
 
@@ -336,6 +349,11 @@ gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, enum tree_code op)
 	case 8:
 	  n = BUILT_IN_ROUND;
 	  break;
+
+	case 10:
+	case 16:
+	  n = BUILT_IN_ROUNDL;
+	  break;
 	}
       break;
 
@@ -348,6 +366,11 @@ gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, enum tree_code op)
 
 	case 8:
 	  n = BUILT_IN_TRUNC;
+	  break;
+
+	case 10:
+	case 16:
+	  n = BUILT_IN_TRUNCL;
 	  break;
 	}
       break;
@@ -364,7 +387,7 @@ gfc_conv_intrinsic_aint (gfc_se * se, gfc_expr * expr, enum tree_code op)
   if (n != END_BUILTINS)
     {
       tmp = built_in_decls[n];
-      se->expr = gfc_build_function_call (tmp, arg);
+      se->expr = build_function_call_expr (tmp, arg);
       return;
     }
 
@@ -469,10 +492,22 @@ gfc_build_intrinsic_lib_fndecls (void)
   /* Add GCC builtin functions.  */
   for (m = gfc_intrinsic_map; m->id != GFC_ISYM_NONE; m++)
     {
-      if (m->code4 != END_BUILTINS)
-        m->real4_decl = built_in_decls[m->code4];
-      if (m->code8 != END_BUILTINS)
-	m->real8_decl = built_in_decls[m->code8];
+      if (m->code_r4 != END_BUILTINS)
+	m->real4_decl = built_in_decls[m->code_r4];
+      if (m->code_r8 != END_BUILTINS)
+	m->real8_decl = built_in_decls[m->code_r8];
+      if (m->code_r10 != END_BUILTINS)
+	m->real10_decl = built_in_decls[m->code_r10];
+      if (m->code_r16 != END_BUILTINS)
+	m->real16_decl = built_in_decls[m->code_r16];
+      if (m->code_c4 != END_BUILTINS)
+	m->complex4_decl = built_in_decls[m->code_c4];
+      if (m->code_c8 != END_BUILTINS)
+	m->complex8_decl = built_in_decls[m->code_c8];
+      if (m->code_c10 != END_BUILTINS)
+	m->complex10_decl = built_in_decls[m->code_c10];
+      if (m->code_c16 != END_BUILTINS)
+	m->complex16_decl = built_in_decls[m->code_c16];
     }
 }
 
@@ -501,6 +536,12 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
 	case 8:
 	  pdecl = &m->real8_decl;
 	  break;
+	case 10:
+	  pdecl = &m->real10_decl;
+	  break;
+	case 16:
+	  pdecl = &m->real16_decl;
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -517,6 +558,12 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
 	case 8:
 	  pdecl = &m->complex8_decl;
 	  break;
+	case 10:
+	  pdecl = &m->complex10_decl;
+	  break;
+	case 16:
+	  pdecl = &m->complex16_decl;
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -529,7 +576,8 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
 
   if (m->libm_name)
     {
-      gcc_assert (ts->kind == 4 || ts->kind == 8);
+      gcc_assert (ts->kind == 4 || ts->kind == 8 || ts->kind == 10
+                 || ts->kind == 16);
       snprintf (name, sizeof (name), "%s%s%s",
 		ts->type == BT_COMPLEX ? "c" : "",
 		m->name,
@@ -593,7 +641,7 @@ gfc_conv_intrinsic_lib_function (gfc_se * se, gfc_expr * expr)
   /* Get the decl and generate the call.  */
   args = gfc_conv_intrinsic_function_args (se, expr);
   fndecl = gfc_get_intrinsic_lib_fndecl (m, expr);
-  se->expr = gfc_build_function_call (fndecl, args);
+  se->expr = build_function_call_expr (fndecl, args);
 }
 
 /* Generate code for EXPONENT(X) intrinsic function.  */
@@ -615,11 +663,17 @@ gfc_conv_intrinsic_exponent (gfc_se * se, gfc_expr * expr)
     case 8:
       fndecl = gfor_fndecl_math_exponent8;
       break;
+    case 10:
+      fndecl = gfor_fndecl_math_exponent10;
+      break;
+    case 16:
+      fndecl = gfor_fndecl_math_exponent16;
+      break;
     default:
       gcc_unreachable ();
     }
 
-  se->expr = gfc_build_function_call (fndecl, args);
+  se->expr = build_function_call_expr (fndecl, args);
 }
 
 /* Evaluate a single upper or lower bound.  */
@@ -639,7 +693,6 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
   gfc_ss *ss;
   int i;
 
-  gfc_init_se (&argse, NULL);
   arg = expr->value.function.actual;
   arg2 = arg->next;
 
@@ -671,7 +724,7 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
   /* Get a descriptor for the first parameter.  */
   ss = gfc_walk_expr (arg->expr);
   gcc_assert (ss != gfc_ss_terminator);
-  argse.want_pointer = 0;
+  gfc_init_se (&argse, NULL);
   gfc_conv_expr_descriptor (&argse, arg->expr, ss);
   gfc_add_block_to_block (&se->pre, &argse.pre);
   gfc_add_block_to_block (&se->post, &argse.post);
@@ -735,10 +788,14 @@ gfc_conv_intrinsic_abs (gfc_se * se, gfc_expr * expr)
 	case 8:
 	  n = BUILT_IN_CABS;
 	  break;
+	case 10:
+	case 16:
+	  n = BUILT_IN_CABSL;
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
-      se->expr = fold (gfc_build_function_call (built_in_decls[n], args));
+      se->expr = build_function_call_expr (built_in_decls[n], args);
       break;
 
     default:
@@ -897,10 +954,14 @@ gfc_conv_intrinsic_sign (gfc_se * se, gfc_expr * expr)
 	case 8:
 	  tmp = built_in_decls[BUILT_IN_COPYSIGN];
 	  break;
+	case 10:
+	case 16:
+	  tmp = built_in_decls[BUILT_IN_COPYSIGNL];
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
-      se->expr = fold (gfc_build_function_call (tmp, arg));
+      se->expr = build_function_call_expr (tmp, arg);
       return;
     }
 
@@ -973,6 +1034,116 @@ gfc_conv_intrinsic_char (gfc_se * se, gfc_expr * expr)
   gfc_add_modify_expr (&se->pre, var, arg);
   se->expr = gfc_build_addr_expr (build_pointer_type (type), var);
   se->string_length = integer_one_node;
+}
+
+
+static void
+gfc_conv_intrinsic_ctime (gfc_se * se, gfc_expr * expr)
+{
+  tree var;
+  tree len;
+  tree tmp;
+  tree arglist;
+  tree type;
+  tree cond;
+  tree gfc_int8_type_node = gfc_get_int_type (8);
+
+  type = build_pointer_type (gfc_character1_type_node);
+  var = gfc_create_var (type, "pstr");
+  len = gfc_create_var (gfc_int8_type_node, "len");
+
+  tmp = gfc_conv_intrinsic_function_args (se, expr);
+  arglist = gfc_chainon_list (NULL_TREE, build_fold_addr_expr (var));
+  arglist = gfc_chainon_list (arglist, build_fold_addr_expr (len));
+  arglist = chainon (arglist, tmp);
+
+  tmp = build_function_call_expr (gfor_fndecl_ctime, arglist);
+  gfc_add_expr_to_block (&se->pre, tmp);
+
+  /* Free the temporary afterwards, if necessary.  */
+  cond = build2 (GT_EXPR, boolean_type_node, len,
+		 build_int_cst (TREE_TYPE (len), 0));
+  arglist = gfc_chainon_list (NULL_TREE, var);
+  tmp = build_function_call_expr (gfor_fndecl_internal_free, arglist);
+  tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
+  gfc_add_expr_to_block (&se->post, tmp);
+
+  se->expr = var;
+  se->string_length = len;
+}
+
+
+static void
+gfc_conv_intrinsic_fdate (gfc_se * se, gfc_expr * expr)
+{
+  tree var;
+  tree len;
+  tree tmp;
+  tree arglist;
+  tree type;
+  tree cond;
+  tree gfc_int4_type_node = gfc_get_int_type (4);
+
+  type = build_pointer_type (gfc_character1_type_node);
+  var = gfc_create_var (type, "pstr");
+  len = gfc_create_var (gfc_int4_type_node, "len");
+
+  tmp = gfc_conv_intrinsic_function_args (se, expr);
+  arglist = gfc_chainon_list (NULL_TREE, build_fold_addr_expr (var));
+  arglist = gfc_chainon_list (arglist, build_fold_addr_expr (len));
+  arglist = chainon (arglist, tmp);
+
+  tmp = build_function_call_expr (gfor_fndecl_fdate, arglist);
+  gfc_add_expr_to_block (&se->pre, tmp);
+
+  /* Free the temporary afterwards, if necessary.  */
+  cond = build2 (GT_EXPR, boolean_type_node, len,
+		 build_int_cst (TREE_TYPE (len), 0));
+  arglist = gfc_chainon_list (NULL_TREE, var);
+  tmp = build_function_call_expr (gfor_fndecl_internal_free, arglist);
+  tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
+  gfc_add_expr_to_block (&se->post, tmp);
+
+  se->expr = var;
+  se->string_length = len;
+}
+
+
+/* Return a character string containing the tty name.  */
+
+static void
+gfc_conv_intrinsic_ttynam (gfc_se * se, gfc_expr * expr)
+{
+  tree var;
+  tree len;
+  tree tmp;
+  tree arglist;
+  tree type;
+  tree cond;
+  tree gfc_int4_type_node = gfc_get_int_type (4);
+
+  type = build_pointer_type (gfc_character1_type_node);
+  var = gfc_create_var (type, "pstr");
+  len = gfc_create_var (gfc_int4_type_node, "len");
+
+  tmp = gfc_conv_intrinsic_function_args (se, expr);
+  arglist = gfc_chainon_list (NULL_TREE, build_fold_addr_expr (var));
+  arglist = gfc_chainon_list (arglist, build_fold_addr_expr (len));
+  arglist = chainon (arglist, tmp);
+
+  tmp = build_function_call_expr (gfor_fndecl_ttynam, arglist);
+  gfc_add_expr_to_block (&se->pre, tmp);
+
+  /* Free the temporary afterwards, if necessary.  */
+  cond = build2 (GT_EXPR, boolean_type_node, len,
+		 build_int_cst (TREE_TYPE (len), 0));
+  arglist = gfc_chainon_list (NULL_TREE, var);
+  tmp = build_function_call_expr (gfor_fndecl_internal_free, arglist);
+  tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
+  gfc_add_expr_to_block (&se->post, tmp);
+
+  se->expr = var;
+  se->string_length = len;
 }
 
 
@@ -1862,10 +2033,13 @@ gfc_conv_intrinsic_ishftc (gfc_se * se, gfc_expr * expr)
 	case 8:
 	  tmp = gfor_fndecl_math_ishftc8;
 	  break;
+	case 16:
+	  tmp = gfor_fndecl_math_ishftc16;
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
-      se->expr = gfc_build_function_call (tmp, arg);
+      se->expr = build_function_call_expr (tmp, arg);
       /* Convert the result back to the original type, if we extended
 	 the first argument's width above.  */
       if (expr->ts.kind < 4)
@@ -1955,7 +2129,7 @@ gfc_conv_intrinsic_len_trim (gfc_se * se, gfc_expr * expr)
 
   args = gfc_conv_intrinsic_function_args (se, expr);
   type = gfc_typenode_for_spec (&expr->ts);
-  se->expr = gfc_build_function_call (gfor_fndecl_string_len_trim, args);
+  se->expr = build_function_call_expr (gfor_fndecl_string_len_trim, args);
   se->expr = convert (type, se->expr);
 }
 
@@ -1986,7 +2160,7 @@ gfc_conv_intrinsic_index (gfc_se * se, gfc_expr * expr)
       TREE_VALUE (back) = convert (logical4_type_node, TREE_VALUE (back));
     }
 
-  se->expr = gfc_build_function_call (gfor_fndecl_string_index, args);
+  se->expr = build_function_call_expr (gfor_fndecl_string_index, args);
   se->expr = convert (type, se->expr);
 }
 
@@ -2003,7 +2177,7 @@ gfc_conv_intrinsic_ichar (gfc_se * se, gfc_expr * expr)
   arg = build1 (NOP_EXPR, pchar_type_node, arg);
   type = gfc_typenode_for_spec (&expr->ts);
 
-  se->expr = gfc_build_indirect_ref (arg);
+  se->expr = build_fold_indirect_ref (arg);
   se->expr = convert (type, se->expr);
 }
 
@@ -2080,7 +2254,7 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr)
   else
     fndecl = gfor_fndecl_size0;
 
-  se->expr = gfc_build_function_call (fndecl, args);
+  se->expr = build_function_call_expr (fndecl, args);
   type = gfc_typenode_for_spec (&expr->ts);
   se->expr = convert (type, se->expr);
 }
@@ -2096,7 +2270,7 @@ gfc_conv_intrinsic_strcmp (gfc_se * se, gfc_expr * expr, int op)
 
   args = gfc_conv_intrinsic_function_args (se, expr);
   /* Build a call for the comparison.  */
-  se->expr = gfc_build_function_call (gfor_fndecl_compare_string, args);
+  se->expr = build_function_call_expr (gfor_fndecl_compare_string, args);
 
   type = gfc_typenode_for_spec (&expr->ts);
   se->expr = build2 (op, type, se->expr,
@@ -2120,7 +2294,7 @@ gfc_conv_intrinsic_adjust (gfc_se * se, gfc_expr * expr, tree fndecl)
   var = gfc_conv_string_tmp (se, type, len);
   args = tree_cons (NULL_TREE, var, args);
 
-  tmp = gfc_build_function_call (fndecl, args);
+  tmp = build_function_call_expr (fndecl, args);
   gfc_add_expr_to_block (&se->pre, tmp);
   se->expr = var;
   se->string_length = len;
@@ -2128,7 +2302,7 @@ gfc_conv_intrinsic_adjust (gfc_se * se, gfc_expr * expr, tree fndecl)
 
 
 /* Scalar transfer statement.
-   TRANSFER (source, mold) = *(typeof<mould> *)&source  */
+   TRANSFER (source, mold) = *(typeof<mold> *)&source.  */
 
 static void
 gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
@@ -2167,7 +2341,7 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
     }
   else
     {
-      se->expr = gfc_build_indirect_ref (ptr);
+      se->expr = build_fold_indirect_ref (ptr);
     }
 }
 
@@ -2270,7 +2444,7 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
           gfc_add_block_to_block (&se->post, &arg2se.post);
           args = gfc_chainon_list (args, arg2se.expr);
           fndecl = gfor_fndecl_associated;
-          se->expr = gfc_build_function_call (fndecl, args);
+          se->expr = build_function_call_expr (fndecl, args);
         }
      }
   se->expr = convert (gfc_typenode_for_spec (&expr->ts), se->expr);
@@ -2303,7 +2477,7 @@ gfc_conv_intrinsic_scan (gfc_se * se, gfc_expr * expr)
       TREE_VALUE (back) = convert (logical4_type_node, TREE_VALUE (back));
     }
 
-  se->expr = gfc_build_function_call (gfor_fndecl_string_scan, args);
+  se->expr = build_function_call_expr (gfor_fndecl_string_scan, args);
   se->expr = convert (type, se->expr);
 }
 
@@ -2336,7 +2510,7 @@ gfc_conv_intrinsic_verify (gfc_se * se, gfc_expr * expr)
       TREE_VALUE (back) = convert (logical4_type_node, TREE_VALUE (back));
     }
 
-  se->expr = gfc_build_function_call (gfor_fndecl_string_verify, args);
+  se->expr = build_function_call_expr (gfor_fndecl_string_verify, args);
   se->expr = convert (type, se->expr);
 }
 
@@ -2427,7 +2601,7 @@ call_builtin_clz (tree result_type, tree op0)
     gcc_unreachable ();
 
   parms = tree_cons (NULL, op0, NULL);
-  call = gfc_build_function_call (fn, parms);
+  call = build_function_call_expr (fn, parms);
 
   return convert (result_type, call);
 }
@@ -2547,9 +2721,9 @@ gfc_conv_intrinsic_si_kind (gfc_se * se, gfc_expr * expr)
 
   args = gfc_conv_intrinsic_function_args (se, expr);
   args = TREE_VALUE (args);
-  args = gfc_build_addr_expr (NULL, args);
+  args = build_fold_addr_expr (args);
   args = tree_cons (NULL_TREE, args, NULL_TREE);
-  se->expr = gfc_build_function_call (gfor_fndecl_si_kind, args);
+  se->expr = build_function_call_expr (gfor_fndecl_si_kind, args);
 }
 
 /* Generate code for SELECTED_REAL_KIND (P, R) intrinsic function.  */
@@ -2576,7 +2750,7 @@ gfc_conv_intrinsic_sr_kind (gfc_se * se, gfc_expr * expr)
       gfc_add_block_to_block (&se->post, &argse.post);
       args = gfc_chainon_list (args, argse.expr);
     }
-  se->expr = gfc_build_function_call (gfor_fndecl_sr_kind, args);
+  se->expr = build_function_call_expr (gfor_fndecl_sr_kind, args);
 }
 
 
@@ -2602,18 +2776,18 @@ gfc_conv_intrinsic_trim (gfc_se * se, gfc_expr * expr)
   len = gfc_create_var (gfc_int4_type_node, "len");
 
   tmp = gfc_conv_intrinsic_function_args (se, expr);
-  arglist = gfc_chainon_list (arglist, gfc_build_addr_expr (NULL, len));
+  arglist = gfc_chainon_list (arglist, build_fold_addr_expr (len));
   arglist = gfc_chainon_list (arglist, addr);
   arglist = chainon (arglist, tmp);
 
-  tmp = gfc_build_function_call (gfor_fndecl_string_trim, arglist);
+  tmp = build_function_call_expr (gfor_fndecl_string_trim, arglist);
   gfc_add_expr_to_block (&se->pre, tmp);
 
   /* Free the temporary afterwards, if necessary.  */
   cond = build2 (GT_EXPR, boolean_type_node, len,
 		 build_int_cst (TREE_TYPE (len), 0));
   arglist = gfc_chainon_list (NULL_TREE, var);
-  tmp = gfc_build_function_call (gfor_fndecl_internal_free, arglist);
+  tmp = build_function_call_expr (gfor_fndecl_internal_free, arglist);
   tmp = build3_v (COND_EXPR, cond, tmp, build_empty_stmt ());
   gfc_add_expr_to_block (&se->post, tmp);
 
@@ -2647,7 +2821,7 @@ gfc_conv_intrinsic_repeat (gfc_se * se, gfc_expr * expr)
   arglist = NULL_TREE;
   arglist = gfc_chainon_list (arglist, var);
   arglist = chainon (arglist, args);
-  tmp = gfc_build_function_call (gfor_fndecl_string_repeat, arglist);
+  tmp = build_function_call_expr (gfor_fndecl_string_repeat, arglist);
   gfc_add_expr_to_block (&se->pre, tmp);
 
   se->expr = var;
@@ -2666,13 +2840,43 @@ gfc_conv_intrinsic_iargc (gfc_se * se, gfc_expr * expr)
 
   /* Call the library function.  This always returns an INTEGER(4).  */
   fndecl = gfor_fndecl_iargc;
-  tmp = gfc_build_function_call (fndecl, NULL_TREE);
+  tmp = build_function_call_expr (fndecl, NULL_TREE);
 
   /* Convert it to the required type.  */
   type = gfc_typenode_for_spec (&expr->ts);
   tmp = fold_convert (type, tmp);
 
   se->expr = tmp;
+}
+
+
+/* The loc intrinsic returns the address of its argument as
+   gfc_index_integer_kind integer.  */
+
+static void
+gfc_conv_intrinsic_loc(gfc_se * se, gfc_expr * expr)
+{
+  tree temp_var;
+  gfc_expr *arg_expr;
+  gfc_ss *ss;
+
+  gcc_assert (!se->ss);
+
+  arg_expr = expr->value.function.actual->expr;
+  ss = gfc_walk_expr (arg_expr);
+  if (ss == gfc_ss_terminator)
+    gfc_conv_expr_reference (se, arg_expr);
+  else
+    gfc_conv_array_parameter (se, arg_expr, ss, 1); 
+  se->expr= convert (gfc_unsigned_type (long_integer_type_node), 
+		     se->expr);
+   
+  /* Create a temporary variable for loc return value.  Without this, 
+     we get an error an ICE in gcc/expr.c(expand_expr_addr_expr_1).  */
+  temp_var = gfc_create_var (gfc_unsigned_type (long_integer_type_node), 
+			     NULL);
+  gfc_add_modify_expr (&se->pre, temp_var, se->expr);
+  se->expr = temp_var;
 }
 
 /* Generate code for an intrinsic function.  Some map directly to library
@@ -2690,7 +2894,7 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
 
   name = &expr->value.function.name[2];
 
-  if (expr->rank > 0)
+  if (expr->rank > 0 && !expr->inline_noncopying_intrinsic)
     {
       lib = gfc_is_intrinsic_libcall (expr);
       if (lib != 0)
@@ -2779,6 +2983,10 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_aint (se, expr, FIX_ROUND_EXPR);
       break;
 
+    case GFC_ISYM_AND:
+      gfc_conv_intrinsic_bitop (se, expr, BIT_AND_EXPR);
+      break;
+
     case GFC_ISYM_ANY:
       gfc_conv_intrinsic_anyall (se, expr, NE_EXPR);
       break;
@@ -2833,6 +3041,10 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_iargc (se, expr);
       break;
 
+    case GFC_ISYM_COMPLEX:
+      gfc_conv_intrinsic_cmplx (se, expr, 1);
+      break;
+
     case GFC_ISYM_CONJG:
       gfc_conv_intrinsic_conjg (se, expr);
       break;
@@ -2841,12 +3053,20 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_count (se, expr);
       break;
 
+    case GFC_ISYM_CTIME:
+      gfc_conv_intrinsic_ctime (se, expr);
+      break;
+
     case GFC_ISYM_DIM:
       gfc_conv_intrinsic_dim (se, expr);
       break;
 
     case GFC_ISYM_DPROD:
       gfc_conv_intrinsic_dprod (se, expr);
+      break;
+
+    case GFC_ISYM_FDATE:
+      gfc_conv_intrinsic_fdate (se, expr);
       break;
 
     case GFC_ISYM_IAND:
@@ -2897,6 +3117,16 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
 
     case GFC_ISYM_LBOUND:
       gfc_conv_intrinsic_bound (se, expr, 0);
+      break;
+
+    case GFC_ISYM_TRANSPOSE:
+      if (se->ss && se->ss->useflags)
+	{
+	  gfc_conv_tmp_array_ref (se);
+	  gfc_advance_se_ss_chain (se);
+	}
+      else
+	gfc_conv_array_transpose (se, expr->value.function.actual->expr);
       break;
 
     case GFC_ISYM_LEN:
@@ -2955,6 +3185,10 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_not (se, expr);
       break;
 
+    case GFC_ISYM_OR:
+      gfc_conv_intrinsic_bitop (se, expr, BIT_IOR_EXPR);
+      break;
+
     case GFC_ISYM_PRESENT:
       gfc_conv_intrinsic_present (se, expr);
       break;
@@ -2979,15 +3213,32 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_transfer (se, expr);
       break;
 
+    case GFC_ISYM_TTYNAM:
+      gfc_conv_intrinsic_ttynam (se, expr);
+      break;
+
     case GFC_ISYM_UBOUND:
       gfc_conv_intrinsic_bound (se, expr, 1);
+      break;
+
+    case GFC_ISYM_XOR:
+      gfc_conv_intrinsic_bitop (se, expr, BIT_XOR_EXPR);
+      break;
+
+    case GFC_ISYM_LOC:
+      gfc_conv_intrinsic_loc (se, expr);
       break;
 
     case GFC_ISYM_CHDIR:
     case GFC_ISYM_DOT_PRODUCT:
     case GFC_ISYM_ETIME:
+    case GFC_ISYM_FGET:
+    case GFC_ISYM_FGETC:
     case GFC_ISYM_FNUM:
+    case GFC_ISYM_FPUT:
+    case GFC_ISYM_FPUTC:
     case GFC_ISYM_FSTAT:
+    case GFC_ISYM_FTELL:
     case GFC_ISYM_GETCWD:
     case GFC_ISYM_GETGID:
     case GFC_ISYM_GETPID:
@@ -2998,10 +3249,13 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_IRAND:
     case GFC_ISYM_ISATTY:
     case GFC_ISYM_LINK:
+    case GFC_ISYM_MALLOC:
     case GFC_ISYM_MATMUL:
     case GFC_ISYM_RAND:
     case GFC_ISYM_RENAME:
     case GFC_ISYM_SECOND:
+    case GFC_ISYM_SECNDS:
+    case GFC_ISYM_SIGNAL:
     case GFC_ISYM_STAT:
     case GFC_ISYM_SYMLNK:
     case GFC_ISYM_SYSTEM:

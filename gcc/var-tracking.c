@@ -557,8 +557,13 @@ adjust_stack_reference (rtx mem, HOST_WIDE_INT adjustment)
 {
   rtx addr, cfa, tmp;
 
+#ifdef FRAME_POINTER_CFA_OFFSET
+  adjustment -= FRAME_POINTER_CFA_OFFSET (current_function_decl);
+  cfa = plus_constant (frame_pointer_rtx, adjustment);
+#else
   adjustment -= ARG_POINTER_CFA_OFFSET (current_function_decl);
   cfa = plus_constant (arg_pointer_rtx, adjustment);
+#endif
 
   addr = replace_rtx (copy_rtx (XEXP (mem, 0)), stack_pointer_rtx, cfa);
   tmp = simplify_rtx (addr);
@@ -1633,10 +1638,10 @@ vt_find_locations (void)
 
   /* Compute reverse completion order of depth first search of the CFG
      so that the data-flow runs faster.  */
-  rc_order = xmalloc (n_basic_blocks * sizeof (int));
+  rc_order = xmalloc ((n_basic_blocks - NUM_FIXED_BLOCKS) * sizeof (int));
   bb_order = xmalloc (last_basic_block * sizeof (int));
   flow_depth_first_order_compute (NULL, rc_order);
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
     bb_order[rc_order[i]] = i;
   free (rc_order);
 
@@ -2516,7 +2521,7 @@ vt_initialize (void)
   FOR_EACH_BB (bb)
     {
       rtx insn;
-      HOST_WIDE_INT pre, post;
+      HOST_WIDE_INT pre, post = 0;
 
       /* Count the number of micro operations.  */
       VTI (bb)->n_mos = 0;

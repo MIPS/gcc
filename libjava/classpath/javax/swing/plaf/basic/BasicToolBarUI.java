@@ -65,10 +65,11 @@ import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JToolBar;
+import javax.swing.KeyStroke;
+import javax.swing.LookAndFeel;
 import javax.swing.RootPaneContainer;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.event.MouseInputListener;
@@ -131,6 +132,26 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
 
   /** The Focus listener for the JToolBar. */
   protected FocusListener toolBarFocusListener;
+
+  /**
+   * @deprecated since JDK1.3.
+   */
+  protected KeyStroke leftKey;
+
+  /**
+   * @deprecated since JDK1.3.
+   */
+  protected KeyStroke rightKey;
+
+  /**
+   * @deprecated since JDK1.3.
+   */
+  protected KeyStroke upKey;
+
+  /**
+   * @deprecated since JDK1.3.
+   */
+  protected KeyStroke downKey;
 
   /**
    * The floating window that is responsible for holding the JToolBar when it
@@ -383,6 +404,8 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
     boolean tmp = ((loc == SwingConstants.NORTH)
                   || (loc == SwingConstants.SOUTH) || (loc == -1));
 
+    cachedOrientation = toolBar.getOrientation();
+    cachedBounds = toolBar.getSize();
     if (((cachedOrientation == SwingConstants.HORIZONTAL) && tmp)
         || ((cachedOrientation == VERTICAL) && ! tmp))
       {
@@ -542,19 +565,6 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
   }
 
   /**
-   * This method returns the preferred size of the given JComponent for this
-   * UI.
-   *
-   * @param c The JComponent to find a preferred size for.
-   *
-   * @return The preferred size for this UI.
-   */
-  public Dimension getPreferredSize(JComponent c)
-  {
-    return toolBar.getLayout().preferredLayoutSize(c);
-  }
-
-  /**
    * This method installs the needed components for the JToolBar.
    */
   protected void installComponents()
@@ -562,9 +572,6 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
     floatFrame = (Window) createFloatingWindow(toolBar);
 
     dragWindow = createDragWindow(toolBar);
-
-    cachedBounds = toolBar.getPreferredSize();
-    cachedOrientation = toolBar.getOrientation();
 
     nonRolloverBorder = createNonRolloverBorder();
     rolloverBorder = createRolloverBorder();
@@ -579,18 +586,16 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
    */
   protected void installDefaults()
   {
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
+    LookAndFeel.installBorder(toolBar, "ToolBar.border");
+    LookAndFeel.installColorsAndFont(toolBar, "ToolBar.background",
+                                     "ToolBar.foreground", "ToolBar.font");
 
-    toolBar.setBorder(new ToolBarBorder());
-    toolBar.setBackground(defaults.getColor("ToolBar.background"));
-    toolBar.setForeground(defaults.getColor("ToolBar.foreground"));
-    toolBar.setFont(defaults.getFont("ToolBar.font"));
+    dockingBorderColor = UIManager.getColor("ToolBar.dockingForeground");
+    dockingColor = UIManager.getColor("ToolBar.dockingBackground");
 
-    dockingBorderColor = defaults.getColor("ToolBar.dockingForeground");
-    dockingColor = defaults.getColor("ToolBar.dockingBackground");
-
-    floatingBorderColor = defaults.getColor("ToolBar.floatingForeground");
-    floatingColor = defaults.getColor("ToolBar.floatingBackground");
+    floatingBorderColor = UIManager.getColor("ToolBar.floatingForeground");
+    floatingColor = UIManager.getColor("ToolBar.floatingBackground");
+    setRolloverBorders(toolBar.isRollover());
   }
 
   /**
@@ -604,10 +609,8 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
 
   /**
    * This method installs listeners for the JToolBar.
-   *
-   * @param toolbar The JToolBar to register listeners for.
    */
-  protected void installListeners(JToolBar toolbar)
+  protected void installListeners()
   {
     dockingListener = createDockingListener();
     toolBar.addMouseListener(dockingListener);
@@ -707,7 +710,7 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
 	toolBar.setOpaque(true);
 	installDefaults();
 	installComponents();
-	installListeners(toolBar);
+	installListeners();
 	installKeyboardActions();
       }
   }
@@ -1013,6 +1016,7 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
      */
     public void mouseMoved(MouseEvent e)
     {
+      // TODO: What should be done here, if anything?
     }
 
     /**
@@ -1043,13 +1047,15 @@ public class BasicToolBarUI extends ToolBarUI implements SwingConstants
         }
 
       origin = new Point(0, 0);
-      SwingUtilities.convertPointToScreen(ssd, toolBar);
+      if (toolBar.isShowing())
+        SwingUtilities.convertPointToScreen(ssd, toolBar);
 
       if (! (SwingUtilities.getAncestorOfClass(Window.class, toolBar) instanceof UIResource))
 	// Need to know who keeps the toolBar if it gets dragged back into it.
 	origParent = toolBar.getParent();
-
-      SwingUtilities.convertPointToScreen(origin, toolBar);
+      
+      if (toolBar.isShowing())
+        SwingUtilities.convertPointToScreen(origin, toolBar);
 
       isDragging = true;
 

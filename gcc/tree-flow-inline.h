@@ -78,7 +78,8 @@ static inline tree
 first_referenced_var (referenced_var_iterator *iter)
 {
   struct int_tree_map *itm;
-  itm = first_htab_element (&iter->hti, referenced_vars);
+  itm = (struct int_tree_map *) first_htab_element (&iter->hti,
+                                                    referenced_vars);
   if (!itm) 
     return NULL;
   return itm->to;
@@ -100,7 +101,7 @@ static inline tree
 next_referenced_var (referenced_var_iterator *iter)
 {
   struct int_tree_map *itm;
-  itm = next_htab_element (&iter->hti);
+  itm = (struct int_tree_map *) next_htab_element (&iter->hti);
   if (!itm) 
     return NULL;
   return itm->to;
@@ -675,23 +676,6 @@ is_label_stmt (tree t)
   return false;
 }
 
-/* Set the default definition for VAR to DEF.  */
-static inline void
-set_default_def (tree var, tree def)
-{
-  var_ann_t ann = get_var_ann (var);
-  ann->default_def = def;
-}
-
-/* Return the default definition for variable VAR, or NULL if none
-   exists.  */
-static inline tree
-default_def (tree var)
-{
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->default_def : NULL_TREE;
-}
-
 /* PHI nodes should contain only ssa_names and invariants.  A test
    for ssa_name is definitely simpler; don't let invalid contents
    slip in in the meantime.  */
@@ -719,7 +703,7 @@ bsi_start (basic_block bb)
     bsi.tsi = tsi_start (bb->stmt_list);
   else
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }
@@ -727,7 +711,7 @@ bsi_start (basic_block bb)
   return bsi;
 }
 
-/* Return a block statement iterator that points to the last label in
+/* Return a block statement iterator that points to the first non-label
    block BB.  */
 
 static inline block_stmt_iterator
@@ -740,7 +724,7 @@ bsi_after_labels (basic_block bb)
 
   if (!bb->stmt_list)
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
       return bsi;
@@ -749,13 +733,6 @@ bsi_after_labels (basic_block bb)
   bsi.tsi = tsi_start (bb->stmt_list);
   if (tsi_end_p (bsi.tsi))
     return bsi;
-
-  /* Ensure that there are some labels.  The rationale is that we want
-     to insert after the bsi that is returned, and these insertions should
-     be placed at the start of the basic block.  This would not work if the
-     first statement was not label; rather fail here than enable the user
-     proceed in wrong way.  */
-  gcc_assert (TREE_CODE (tsi_stmt (bsi.tsi)) == LABEL_EXPR);
 
   next = bsi.tsi;
   tsi_next (&next);
@@ -780,7 +757,7 @@ bsi_last (basic_block bb)
     bsi.tsi = tsi_last (bb->stmt_list);
   else
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }
@@ -852,13 +829,12 @@ is_call_clobbered (tree var)
 static inline void
 mark_call_clobbered (tree var)
 {
-  var_ann_t ann = var_ann (var);
   /* If VAR is a memory tag, then we need to consider it a global
      variable.  This is because the pointer that VAR represents has
      been found to point to either an arbitrary location or to a known
      location in global memory.  */
-  if (ann->mem_tag_kind != NOT_A_TAG && ann->mem_tag_kind != STRUCT_FIELD)
-    DECL_EXTERNAL (var) = 1;
+  if (MTAG_P (var) && TREE_CODE (var) != STRUCT_FIELD_TAG)
+    MTAG_GLOBAL (var) = 1;
   bitmap_set_bit (call_clobbered_vars, DECL_UID (var));
   ssa_call_clobbered_cache_valid = false;
   ssa_ro_call_cache_valid = false;
@@ -868,9 +844,8 @@ mark_call_clobbered (tree var)
 static inline void
 clear_call_clobbered (tree var)
 {
-  var_ann_t ann = var_ann (var);
-  if (ann->mem_tag_kind != NOT_A_TAG && ann->mem_tag_kind != STRUCT_FIELD)
-    DECL_EXTERNAL (var) = 0;
+  if (MTAG_P (var) && TREE_CODE (var) != STRUCT_FIELD_TAG)
+    MTAG_GLOBAL (var) = 0;
   bitmap_clear_bit (call_clobbered_vars, DECL_UID (var));
   ssa_call_clobbered_cache_valid = false;
   ssa_ro_call_cache_valid = false;
@@ -1043,7 +1018,7 @@ op_iter_next_tree (ssa_op_iter *ptr)
 
 
 /* This functions clears the iterator PTR, and marks it done.  This is normally
-   used to prevent warnings in the compile about might be uninitailzied
+   used to prevent warnings in the compile about might be uninitialized
    components.  */
 
 static inline void
@@ -1411,20 +1386,41 @@ unmodifiable_var_p (tree var)
 {
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
+
+  if (MTAG_P (var))
+    return TREE_READONLY (var) && (TREE_STATIC (var) || MTAG_GLOBAL (var));
+
   return TREE_READONLY (var) && (TREE_STATIC (var) || DECL_EXTERNAL (var));
 }
 
-/* Return true if REF, a COMPONENT_REF, has an ARRAY_REF somewhere in it.  */
+/* Return true if REF, an ARRAY_REF, has an INDIRECT_REF somewhere in it.  */
+
+static inline bool
+array_ref_contains_indirect_ref (tree ref)
+{
+  gcc_assert (TREE_CODE (ref) == ARRAY_REF);
+
+  do {
+    ref = TREE_OPERAND (ref, 0);
+  } while (handled_component_p (ref));
+
+  return TREE_CODE (ref) == INDIRECT_REF;
+}
+
+/* Return true if REF, a handled component reference, has an ARRAY_REF
+   somewhere in it.  */
 
 static inline bool
 ref_contains_array_ref (tree ref)
 {
-  while (handled_component_p (ref))
-    {
-      if (TREE_CODE (ref) == ARRAY_REF)
-	return true;
-      ref = TREE_OPERAND (ref, 0);
-    }
+  gcc_assert (handled_component_p (ref));
+
+  do {
+    if (TREE_CODE (ref) == ARRAY_REF)
+      return true;
+    ref = TREE_OPERAND (ref, 0);
+  } while (handled_component_p (ref));
+
   return false;
 }
 

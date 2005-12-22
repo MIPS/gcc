@@ -64,6 +64,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "target-def.h"
 #include "ggc.h"
+#include "hard-reg-set.h"
+#include "reload.h"
+#include "optabs.h"
+#include "recog.h"
 
 
 void
@@ -258,6 +262,9 @@ default_scalar_mode_supported_p (enum machine_mode mode)
 	return true;
       if (precision == LONG_DOUBLE_TYPE_SIZE)
 	return true;
+      return false;
+
+    case MODE_DECIMAL_FLOAT:
       return false;
 
     default:
@@ -513,6 +520,109 @@ interleave_vectorize_builtin_extract_odd (tree dest, tree vec1,
 {
   return interleave_vectorize_builtin_extract_evenodd (dest, vec1, vec2,
 						       stmt, true);
+}
+
+rtx
+default_internal_arg_pointer (void)
+{
+  /* If the reg that the virtual arg pointer will be translated into is
+     not a fixed reg or is the stack pointer, make a copy of the virtual
+     arg pointer, and address parms via the copy.  The frame pointer is
+     considered fixed even though it is not marked as such.  */
+  if ((ARG_POINTER_REGNUM == STACK_POINTER_REGNUM
+       || ! (fixed_regs[ARG_POINTER_REGNUM]
+	     || ARG_POINTER_REGNUM == FRAME_POINTER_REGNUM)))
+    return copy_to_reg (virtual_incoming_args_rtx);
+  else
+    return virtual_incoming_args_rtx;
+}
+
+enum reg_class
+default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
+			  enum reg_class reload_class ATTRIBUTE_UNUSED,
+			  enum machine_mode reload_mode ATTRIBUTE_UNUSED,
+			  secondary_reload_info *sri)
+{
+  enum reg_class class = NO_REGS;
+
+  if (sri->prev_sri && sri->prev_sri->t_icode != CODE_FOR_nothing)
+    {
+      sri->icode = sri->prev_sri->t_icode;
+      return NO_REGS;
+    }
+#ifdef SECONDARY_INPUT_RELOAD_CLASS
+  if (in_p)
+    class = SECONDARY_INPUT_RELOAD_CLASS (reload_class, reload_mode, x);
+#endif
+#ifdef SECONDARY_OUTPUT_RELOAD_CLASS
+  if (! in_p)
+    class = SECONDARY_OUTPUT_RELOAD_CLASS (reload_class, reload_mode, x);
+#endif
+  if (class != NO_REGS)
+    {
+      enum insn_code icode = (in_p ? reload_in_optab[(int) reload_mode]
+			      : reload_out_optab[(int) reload_mode]);
+
+      if (icode != CODE_FOR_nothing
+	  && insn_data[(int) icode].operand[in_p].predicate
+	  && ! insn_data[(int) icode].operand[in_p].predicate (x, reload_mode))
+	icode = CODE_FOR_nothing;
+      else if (icode != CODE_FOR_nothing)
+	{
+	  const char *insn_constraint, *scratch_constraint;
+	  char insn_letter, scratch_letter;
+	  enum reg_class insn_class, scratch_class;
+
+	  gcc_assert (insn_data[(int) icode].n_operands == 3);
+	  insn_constraint = insn_data[(int) icode].operand[!in_p].constraint;
+	  if (!*insn_constraint)
+	    insn_class = ALL_REGS;
+	  else
+	    {
+	      if (in_p)
+		{
+		  gcc_assert (*insn_constraint == '=');
+		  insn_constraint++;
+		}
+	      insn_letter = *insn_constraint;
+	      insn_class
+		= (insn_letter == 'r' ? GENERAL_REGS
+		   : REG_CLASS_FROM_CONSTRAINT ((unsigned char) insn_letter,
+						insn_constraint));
+	      gcc_assert (insn_class != NO_REGS);
+	    }
+
+	  scratch_constraint = insn_data[(int) icode].operand[2].constraint;
+	  /* The scratch register's constraint must start with "=&",
+	     except for an input reload, where only "=" is necessary,
+	     and where it might be beneficial to re-use registers from
+	     the input.  */
+	  gcc_assert (scratch_constraint[0] == '='
+		      && (in_p || scratch_constraint[1] == '&'));
+	  scratch_constraint++;
+	  if (*scratch_constraint == '&')
+	    scratch_constraint++;
+	  scratch_letter = *scratch_constraint;
+	  scratch_class
+	    = (scratch_letter == 'r' ? GENERAL_REGS
+	       : REG_CLASS_FROM_CONSTRAINT ((unsigned char) scratch_letter,
+					    scratch_constraint));
+
+	  if (reg_class_subset_p (reload_class, insn_class))
+	    {
+	      gcc_assert (scratch_class == class);
+	      class = NO_REGS;
+	    }
+	  else
+	    class = insn_class;
+
+        }
+      if (class == NO_REGS)
+	sri->icode = icode;
+      else
+	sri->t_icode = icode;
+    }
+  return class;
 }
 
 #include "gt-targhooks.h"

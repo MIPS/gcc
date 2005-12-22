@@ -317,7 +317,7 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi ATTRIBUTE_UNUSED,
 
   /* If tag is a variable (and NOT_A_TAG) than a new type alias
      tag must be created with tag added to its may alias list.  */
-  if (var_ann (tag)->mem_tag_kind == NOT_A_TAG)
+  if (!MTAG_P (tag))
     new_type_alias (vect_ptr, tag);
   else
     var_ann (vect_ptr)->type_mem_tag = tag;
@@ -1120,7 +1120,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt, tree reduction_op,
 	fprintf (vect_dump, "extract scalar result");
 
       /* The result is in the low order bits.  */
-      if (BITS_BIG_ENDIAN)
+      if (BYTES_BIG_ENDIAN)
 	bitpos = size_binop (MULT_EXPR,
 		       bitsize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1),
 		       TYPE_SIZE (scalar_type));
@@ -3495,7 +3495,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 		 the value of the parameter and no global variables are touched
 		 which makes the builtin a "const" function.  Requiring the
 		 builtin to have the "const" attribute makes it unnecessary
-		 to call mark_call_clobbered_vars_to_rename.  */
+		 to call mark_call_clobbered_vars.  */
 	      gcc_assert (TREE_READONLY (builtin_decl));
 	    }
 
@@ -3507,13 +3507,10 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  add_phi_arg (phi_stmt, msq_init, loop_preheader_edge (loop));
 
 	  /* <2> Create lsq = *(floor(p2')) in the loop  */ 
-	  offset = build_int_cst (integer_type_node, 
-				  TYPE_VECTOR_SUBPARTS (vectype));
-	  offset = int_const_binop (MINUS_EXPR, offset, integer_one_node, 1);
-
+	  offset = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
 	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
-	  dataref_ptr = vect_create_data_ref_ptr (first_stmt, bsi, offset, &dummy1,
-						  &dummy, false, &dr_chain);
+	  vect_create_data_ref_ptr (first_stmt, bsi, offset, &dummy1,
+                                    &dummy, false, &dr_chain);
 	  dataref_ptr = VEC_index (tree, dr_chain, 0);
 	  data_ref = build1 (ALIGN_INDIRECT_REF, vectype, dataref_ptr);
 	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
@@ -3637,7 +3634,6 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	  add_phi_arg (phi_stmt, lsq, loop_latch_edge (loop));
 	  STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
 	}
-
       else
 	{
 	  /* <1> Create msq_init = *(floor(p1)) in the loop preheader  */
@@ -3674,7 +3670,7 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 		 the value of the parameter and no global variables are touched
 		 which makes the builtin a "const" function.  Requiring the
 		 builtin to have the "const" attribute makes it unnecessary
-		 to call mark_call_clobbered_vars_to_rename.  */
+		 to call mark_call_clobbered.  */
 	      gcc_assert (TREE_READONLY (builtin_decl));
 	    }
 	  else
@@ -3984,8 +3980,8 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   /* Arguments are ready. create the new vector stmt.  */
   vec_compare = build2 (TREE_CODE (cond_expr), vectype, 
 			vec_cond_lhs, vec_cond_rhs);
-  vec_cond_expr = build (VEC_COND_EXPR, vectype, 
-			 vec_compare, vec_then_clause, vec_else_clause);
+  vec_cond_expr = build3 (VEC_COND_EXPR, vectype, 
+			  vec_compare, vec_then_clause, vec_else_clause);
 
   *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, vec_cond_expr);
   new_temp = make_ssa_name (vec_dest, *vec_stmt);
@@ -4870,12 +4866,44 @@ vect_transform_loop (loop_vec_info loop_vinfo,
       tree cond_expr_stmt_list = NULL_TREE;
       basic_block condition_bb;
       block_stmt_iterator cond_exp_bsi;
+      basic_block merge_bb;
+      basic_block new_exit_bb;
+      edge new_exit_e, e;
+      tree orig_phi, new_phi, arg;
 
       cond_expr = vect_create_cond_for_align_checks (loop_vinfo,
                                                      &cond_expr_stmt_list);
       initialize_original_copy_tables ();
       nloop = loop_version (loops, loop, cond_expr, &condition_bb, true);
       free_original_copy_tables();
+
+      /** Loop versioning violates an assumption we try to maintain during 
+	 vectorization - that the loop exit block has a single predecessor.
+	 After versioning, the exit block of both loop versions is the same
+	 basic block (i.e. it has two predecessors). Just in order to simplify
+	 following transformations in the vectorizer, we fix this situation
+	 here by adding a new (empty) block on the exit-edge of the loop,
+	 with the proper loop-exit phis to maintain loop-closed-form.  **/
+      
+      merge_bb = loop->single_exit->dest;
+      gcc_assert (EDGE_COUNT (merge_bb->preds) == 2);
+      new_exit_bb = split_edge (loop->single_exit);
+      add_bb_to_loop (new_exit_bb, loop->outer);
+      new_exit_e = loop->single_exit;
+      e = EDGE_SUCC (new_exit_bb, 0);
+
+      for (orig_phi = phi_nodes (merge_bb); orig_phi; 
+	   orig_phi = PHI_CHAIN (orig_phi))
+	{
+          new_phi = create_phi_node (SSA_NAME_VAR (PHI_RESULT (orig_phi)),
+				     new_exit_bb);
+          arg = PHI_ARG_DEF_FROM_EDGE (orig_phi, e);
+          add_phi_arg (new_phi, arg, new_exit_e);
+	  SET_PHI_ARG_DEF (orig_phi, e->dest_idx, PHI_RESULT (new_phi));
+	} 
+
+      /** end loop-exit-fixes after versioning  **/
+
       update_ssa (TODO_update_ssa);
       cond_exp_bsi = bsi_last (condition_bb);
       bsi_insert_before (&cond_exp_bsi, cond_expr_stmt_list, BSI_SAME_STMT);

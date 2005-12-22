@@ -74,7 +74,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static inline bool
 tree_is_ge (tree a, tree b, bool *res)
 {
-  tree cmp = fold (build (GE_EXPR, boolean_type_node, a, b));
+  tree cmp = fold (build2 (GE_EXPR, boolean_type_node, a, b));
   if (TREE_CODE (cmp) != INTEGER_CST)
     return false;
 

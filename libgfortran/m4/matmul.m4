@@ -35,27 +35,44 @@ Boston, MA 02110-1301, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
-/* This is a C version of the following fortran pseudo-code. The key
-   point is the loop order -- we access all arrays column-first, which
-   improves the performance enough to boost galgel spec score by 50%.
+`#if defined (HAVE_'rtype_name`)'
+
+/* The order of loops is different in the case of plain matrix
+   multiplication C=MATMUL(A,B), and in the frequent special case where
+   the argument A is the temporary result of a TRANSPOSE intrinsic:
+   C=MATMUL(TRANSPOSE(A),B).  Transposed temporaries are detected by
+   looking at their strides.
+
+   The equivalent Fortran pseudo-code is:
 
    DIMENSION A(M,COUNT), B(COUNT,N), C(M,N)
-   C = 0
-   DO J=1,N
-     DO K=1,COUNT
+   IF (.NOT.IS_TRANSPOSED(A)) THEN
+     C = 0
+     DO J=1,N
+       DO K=1,COUNT
+         DO I=1,M
+           C(I,J) = C(I,J)+A(I,K)*B(K,J)
+   ELSE
+     DO J=1,N
        DO I=1,M
-         C(I,J) = C(I,J)+A(I,K)*B(K,J)
+         S = 0
+         DO K=1,COUNT
+           S = S+A(I,K)+B(K,J)
+         C(I,J) = S
+   ENDIF
 */
 
-extern void matmul_`'rtype_code (rtype * retarray, rtype * a, rtype * b);
+extern void matmul_`'rtype_code (rtype * const restrict retarray, 
+	rtype * const restrict a, rtype * const restrict b);
 export_proto(matmul_`'rtype_code);
 
 void
-matmul_`'rtype_code (rtype * retarray, rtype * a, rtype * b)
+matmul_`'rtype_code (rtype * const restrict retarray, 
+	rtype * const restrict a, rtype * const restrict b)
 {
-  rtype_name *abase;
-  rtype_name *bbase;
-  rtype_name *dest;
+  const rtype_name * restrict abase;
+  const rtype_name * restrict bbase;
+  rtype_name * restrict dest;
 
   index_type rxstride, rystride, axstride, aystride, bxstride, bystride;
   index_type x, y, n, count, xcount, ycount;
@@ -104,12 +121,10 @@ matmul_`'rtype_code (rtype * retarray, rtype * a, rtype * b)
       retarray->offset = 0;
     }
 
-  abase = a->data;
-  bbase = b->data;
-  dest = retarray->data;
-
   if (retarray->dim[0].stride == 0)
     retarray->dim[0].stride = 1;
+
+  /* This prevents constifying the input arguments.  */
   if (a->dim[0].stride == 0)
     a->dim[0].stride = 1;
   if (b->dim[0].stride == 0)
@@ -175,9 +190,9 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
 
   if (rxstride == 1 && axstride == 1 && bxstride == 1)
     {
-      rtype_name *bbase_y;
-      rtype_name *dest_y;
-      rtype_name *abase_n;
+      const rtype_name * restrict bbase_y;
+      rtype_name * restrict dest_y;
+      const rtype_name * restrict abase_n;
       rtype_name bbase_yn;
 
       if (rystride == ycount)
@@ -204,7 +219,28 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
 	    }
 	}
     }
-  else
+  else if (rxstride == 1 && aystride == 1 && bxstride == 1)
+    {
+      const rtype_name *restrict abase_x;
+      const rtype_name *restrict bbase_y;
+      rtype_name *restrict dest_y;
+      rtype_name s;
+
+      for (y = 0; y < ycount; y++)
+	{
+	  bbase_y = &bbase[y*bystride];
+	  dest_y = &dest[y*rystride];
+	  for (x = 0; x < xcount; x++)
+	    {
+	      abase_x = &abase[x*axstride];
+	      s = (rtype_name) 0;
+	      for (n = 0; n < count; n++)
+		s += abase_x[n] * bbase_y[n];
+	      dest_y[x] = s;
+	    }
+	}
+    }
+  else if (axstride < aystride)
     {
       for (y = 0; y < ycount; y++)
 	for (x = 0; x < xcount; x++)
@@ -216,4 +252,27 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
 	    /* dest[x,y] += a[x,n] * b[n,y] */
 	    dest[x*rxstride + y*rystride] += abase[x*axstride + n*aystride] * bbase[n*bxstride + y*bystride];
     }
+  else
+    {
+      const rtype_name *restrict abase_x;
+      const rtype_name *restrict bbase_y;
+      rtype_name *restrict dest_y;
+      rtype_name s;
+
+      for (y = 0; y < ycount; y++)
+	{
+	  bbase_y = &bbase[y*bystride];
+	  dest_y = &dest[y*rystride];
+	  for (x = 0; x < xcount; x++)
+	    {
+	      abase_x = &abase[x*axstride];
+	      s = (rtype_name) 0;
+	      for (n = 0; n < count; n++)
+		s += abase_x[n*aystride] * bbase_y[n*bxstride];
+	      dest_y[x*rxstride] = s;
+	    }
+	}
+    }
 }
+
+#endif

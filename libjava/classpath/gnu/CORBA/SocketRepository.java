@@ -39,8 +39,10 @@ exception statement from your version. */
 package gnu.CORBA;
 
 import java.net.Socket;
-
+import java.net.SocketException;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 /**
  * This class caches the opened sockets that are reused during the
@@ -55,9 +57,10 @@ public class SocketRepository
    * The socket map.
    */
   private static HashMap sockets = new HashMap();
-
+  
   /**
-   * Put a socket.
+   * Put a socket. This method also discards all not reusable sockets from
+   * the map.
    *
    * @param key as socket key.
    *
@@ -65,29 +68,84 @@ public class SocketRepository
    */
   public static void put_socket(Object key, Socket s)
   {
-    sockets.put(key, s);
+    synchronized (sockets)
+      {
+        sockets.put(key, s);
+        gc();
+      }
+  }
+  
+  /**
+   * Removes all non reusable sockets. As it is private,
+   * we know we call from the synchronized code already. 
+   */
+  private static void gc()
+  {
+    Iterator iter = sockets.entrySet().iterator();
+    
+    Map.Entry e;
+    Socket sx;
+    
+    while (iter.hasNext())
+      {
+        e = (Map.Entry) iter.next();
+        sx = (Socket) e.getValue();
+        
+        if (not_reusable(sx))
+          iter.remove();
+      }
+  }
+  
+  /**
+   * Return true if the socket is no longer reusable.
+   */
+  static boolean not_reusable(Socket s)
+  {
+    return (s.isClosed() || !s.isBound() || !s.isConnected() ||
+        s.isInputShutdown() || s.isOutputShutdown());
   }
 
   /**
    * Get a socket.
-   *
+   * 
    * @param key a socket key.
-   *
-   * @return an opened socket for reuse, null if no such
-   * available or it is closed.
+   * 
+   * @return an opened socket for reuse, null if no such available or it is
+   * closed, its input or output has been shutown or otherwise the socket is not
+   * reuseable.
    */
   public static Socket get_socket(Object key)
   {
-    Socket s = (Socket) sockets.get(key);
-    if (s != null && s.isClosed())
+    if (true)
+      return null;
+
+    synchronized (sockets)
       {
-        sockets.remove(key);
-        return null;
-      }
-    else
-      {
-        sockets.remove(key);
-        return s;
+        Socket s = (Socket) sockets.get(key);
+        if (s == null)
+          return null;
+
+        // Ensure that the socket is fully reusable.
+        else if (not_reusable(s))
+          {
+            sockets.remove(key);
+            return null;
+          }
+        else
+          {
+            try
+              {
+                // Set one minute time out that will be changed later.
+                s.setSoTimeout(60 * 1000);
+              }
+            catch (SocketException e)
+              {
+                s = null;
+              }
+
+            sockets.remove(key);
+            return s;
+          }
       }
   }
 }

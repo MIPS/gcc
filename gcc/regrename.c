@@ -58,7 +58,11 @@ enum scan_actions
   terminate_write,
   terminate_dead,
   mark_read,
-  mark_write
+  mark_write,
+  /* mark_access is for marking the destination regs in
+     REG_FRAME_RELATED_EXPR notes (as if they were read) so that the
+     note is updated properly.  */
+  mark_access
 };
 
 static const char * const scan_actions_name[] =
@@ -68,7 +72,8 @@ static const char * const scan_actions_name[] =
   "terminate_write",
   "terminate_dead",
   "mark_read",
-  "mark_write"
+  "mark_write",
+  "mark_access"
 };
 
 static struct obstack rename_obstack;
@@ -408,8 +413,7 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class cl,
       return;
     }
 
-  if ((type == OP_OUT && action != terminate_write)
-      || (type != OP_OUT && action == terminate_write))
+  if ((type == OP_OUT) != (action == terminate_write || action == mark_access))
     return;
 
   for (p = &open_chains; *p;)
@@ -438,7 +442,7 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class cl,
 	      continue;
 	    }
 
-	  if (action == mark_read)
+	  if (action == mark_read || action == mark_access)
 	    {
 	      gcc_assert (exact_match);
 
@@ -509,7 +513,7 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
   const char *fmt;
   int i, j;
 
-  if (action == mark_write)
+  if (action == mark_write || action == mark_access)
     return;
 
   switch (code)
@@ -866,17 +870,19 @@ build_def_use (basic_block bb)
 		scan_rtx (insn, loc, cl, mark_read, type, 0);
 	    }
 
-	  /* Step 4: Close chains for registers that die here.
-	     Also record updates for REG_INC notes.  */
+	  /* Step 3B: Record updates for regs in REG_INC notes, and
+	     source regs in REG_FRAME_RELATED_EXPR notes.  */
 	  for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
-	    {
-	      if (REG_NOTE_KIND (note) == REG_DEAD)
-		scan_rtx (insn, &XEXP (note, 0), NO_REGS, terminate_dead,
-			  OP_IN, 0);
-	      else if (REG_NOTE_KIND (note) == REG_INC)
-		scan_rtx (insn, &XEXP (note, 0), ALL_REGS, mark_read,
-			  OP_INOUT, 0);
-	    }
+	    if (REG_NOTE_KIND (note) == REG_INC
+		|| REG_NOTE_KIND (note) == REG_FRAME_RELATED_EXPR)
+	      scan_rtx (insn, &XEXP (note, 0), ALL_REGS, mark_read,
+			OP_INOUT, 0);
+
+	  /* Step 4: Close chains for registers that die here.  */
+	  for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
+	    if (REG_NOTE_KIND (note) == REG_DEAD)
+	      scan_rtx (insn, &XEXP (note, 0), NO_REGS, terminate_dead,
+			OP_IN, 0);
 
 	  /* Step 4B: If this is a call, any chain live at this point
 	     requires a caller-saved reg.  */
@@ -948,6 +954,13 @@ build_def_use (basic_block bb)
 		  scan_rtx (insn, loc, cl, mark_write, OP_OUT,
 			    recog_op_alt[opn][alt].earlyclobber);
 	      }
+
+	  /* Step 6B: Record destination regs in REG_FRAME_RELATED_EXPR
+	     notes for update.  */
+	  for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
+	    if (REG_NOTE_KIND (note) == REG_FRAME_RELATED_EXPR)
+	      scan_rtx (insn, &XEXP (note, 0), ALL_REGS, mark_access,
+			OP_INOUT, 0);
 
 	  /* Step 7: Close chains for registers that were never
 	     really used here.  */
@@ -1763,20 +1776,19 @@ copyprop_hardreg_forward (void)
 
   all_vd = xmalloc (sizeof (struct value_data) * last_basic_block);
 
-  visited = sbitmap_alloc (last_basic_block - (INVALID_BLOCK + 1));
+  visited = sbitmap_alloc (last_basic_block);
   sbitmap_zero (visited);
 
   FOR_EACH_BB (bb)
     {
-      SET_BIT (visited, bb->index - (INVALID_BLOCK + 1));
+      SET_BIT (visited, bb->index);
 
       /* If a block has a single predecessor, that we've already
 	 processed, begin with the value data that was live at
 	 the end of the predecessor block.  */
       /* ??? Ought to use more intelligent queuing of blocks.  */
-      if (single_pred_p (bb)
-	  && TEST_BIT (visited,
-		       single_pred (bb)->index - (INVALID_BLOCK + 1))
+      if (single_pred_p (bb) 
+	  && TEST_BIT (visited, single_pred (bb)->index)
 	  && ! (single_pred_edge (bb)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH)))
 	all_vd[bb->index] = all_vd[single_pred (bb)->index];
       else

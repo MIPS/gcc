@@ -16,8 +16,10 @@ JNIEXPORT jintArray JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidge
 JNIEXPORT jintArray JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetBackground (JNIEnv *env, jobject);
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetDimensions (JNIEnv *env, jobject, jintArray);
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetPreferredDimensions (JNIEnv *env, jobject, jintArray);
+JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWindowGetLocationOnScreen (JNIEnv *env, jobject, jintArray);
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetGetLocationOnScreen (JNIEnv *env, jobject, jintArray);
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetCursor (JNIEnv *env, jobject, jint);
+JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetCursorUnlocked (JNIEnv *env, jobject, jint);
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetBackground (JNIEnv *env, jobject, jint, jint, jint);
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetForeground (JNIEnv *env, jobject, jint, jint, jint);
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_gtkWidgetSetSensitive (JNIEnv *env, jobject, jboolean);
@@ -28,8 +30,8 @@ JNIEXPORT jboolean JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_isRealize
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setNativeEventMask (JNIEnv *env, jobject);
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_connectSignals (JNIEnv *env, jobject);
 JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setNativeBounds (JNIEnv *env, jobject, jint, jint, jint, jint);
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_hide (JNIEnv *env, jobject);
-JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_show (JNIEnv *env, jobject);
+JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setVisibleNative (JNIEnv *env, jobject, jboolean);
+JNIEXPORT void JNICALL Java_gnu_java_awt_peer_gtk_GtkComponentPeer_setVisibleNativeUnlocked (JNIEnv *env, jobject, jboolean);
 
 #ifdef __cplusplus
 }

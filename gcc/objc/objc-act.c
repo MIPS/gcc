@@ -1259,7 +1259,7 @@ objc_build_component_ref (tree datum, tree component)
      front-end, but 'finish_class_member_access_expr' seems to be
      a worthy substitute.  */
 #ifdef OBJCPLUS
-  return finish_class_member_access_expr (datum, component);
+  return finish_class_member_access_expr (datum, component, false);
 #else
   return build_component_ref (datum, component);
 #endif
@@ -1597,6 +1597,10 @@ synth_module_prologue (void)
 		       (xref_tag (RECORD_TYPE,
 				  get_identifier (UTAG_IVAR_LIST)));
 
+  /* TREE_NOTHROW is cleared for the message-sending functions,
+     because the function that gets called can throw in Obj-C++, or
+     could itself call something that can throw even in Obj-C.  */
+
   if (flag_next_runtime)
     {
       /* NB: In order to call one of the ..._stret (struct-returning)
@@ -1626,12 +1630,21 @@ synth_module_prologue (void)
 						 type, 0, NOT_BUILT_IN,
 						 NULL, NULL_TREE);
 
+      /* These can throw, because the function that gets called can throw
+	 in Obj-C++, or could itself call something that can throw even
+	 in Obj-C.  */
+      TREE_NOTHROW (umsg_decl) = 0;
+      TREE_NOTHROW (umsg_nonnil_decl) = 0;
+      TREE_NOTHROW (umsg_stret_decl) = 0;
+      TREE_NOTHROW (umsg_nonnil_stret_decl) = 0;
+
       /* id objc_msgSend_Fast (id, SEL, ...)
 	   __attribute__ ((hard_coded_address (OFFS_MSGSEND_FAST))); */
 #ifdef OFFS_MSGSEND_FAST
       umsg_fast_decl = builtin_function (TAG_MSGSEND_FAST,
 					 type, 0, NOT_BUILT_IN,
 					 NULL, NULL_TREE);
+      TREE_NOTHROW (umsg_fast_decl) = 0;
       DECL_ATTRIBUTES (umsg_fast_decl) 
 	= tree_cons (get_identifier ("hard_coded_address"), 
 		     build_int_cst (NULL_TREE, OFFS_MSGSEND_FAST),
@@ -1654,6 +1667,8 @@ synth_module_prologue (void)
       umsg_super_stret_decl = builtin_function (TAG_MSGSENDSUPER_STRET,
 						type, 0, NOT_BUILT_IN, 0,
 						NULL_TREE);
+      TREE_NOTHROW (umsg_super_decl) = 0;
+      TREE_NOTHROW (umsg_super_stret_decl) = 0;
     }
   else
     {
@@ -1676,6 +1691,7 @@ synth_module_prologue (void)
       umsg_decl = builtin_function (TAG_MSGSEND,
 				    type, 0, NOT_BUILT_IN,
 				    NULL, NULL_TREE);
+      TREE_NOTHROW (umsg_decl) = 0;
 
       /* IMP objc_msg_lookup_super (struct objc_super *, SEL); */
       type
@@ -1686,6 +1702,7 @@ synth_module_prologue (void)
       umsg_super_decl = builtin_function (TAG_MSGSENDSUPER,
 					  type, 0, NOT_BUILT_IN,
 					  NULL, NULL_TREE);
+      TREE_NOTHROW (umsg_super_decl) = 0;
 
       /* The following GNU runtime entry point is called to initialize
 	 each module:
@@ -3468,7 +3485,7 @@ objc_build_exc_ptr (void)
       return var;
     }
   else
-    return build (EXC_PTR_EXPR, objc_object_type);
+    return build0 (EXC_PTR_EXPR, objc_object_type);
 }
 
 /* Build "objc_exception_try_exit(&_stack)".  */
@@ -3516,10 +3533,10 @@ next_sjlj_build_enter_and_setjmp (void)
   t = tree_cons (NULL, t, NULL);
   sj = build_function_call (objc_setjmp_decl, t);
 
-  cond = build (COMPOUND_EXPR, TREE_TYPE (sj), enter, sj);
+  cond = build2 (COMPOUND_EXPR, TREE_TYPE (sj), enter, sj);
   cond = c_common_truthvalue_conversion (cond);
 
-  return build (COND_EXPR, void_type_node, cond, NULL, NULL);
+  return build3 (COND_EXPR, void_type_node, cond, NULL, NULL);
 }
 
 /* Build
@@ -3535,7 +3552,7 @@ next_sjlj_build_exc_extract (tree decl)
   t = tree_cons (NULL, t, NULL);
   t = build_function_call (objc_exception_extract_decl, t);
   t = convert (TREE_TYPE (decl), t);
-  t = build (MODIFY_EXPR, void_type_node, decl, t);
+  t = build2 (MODIFY_EXPR, void_type_node, decl, t);
 
   return t;
 }
@@ -3586,7 +3603,7 @@ next_sjlj_build_catch_list (void)
 	      t = build_function_call (objc_exception_match_decl, args);
 	      cond = c_common_truthvalue_conversion (t);
 	    }
-	  t = build (COND_EXPR, void_type_node, cond, body, NULL);
+	  t = build3 (COND_EXPR, void_type_node, cond, body, NULL);
 	  SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
 
 	  *last = t;
@@ -3596,8 +3613,8 @@ next_sjlj_build_catch_list (void)
 
   if (!saw_id)
     {
-      t = build (MODIFY_EXPR, void_type_node, cur_try_context->rethrow_decl,
-		 cur_try_context->caught_decl);
+      t = build2 (MODIFY_EXPR, void_type_node, cur_try_context->rethrow_decl,
+		  cur_try_context->caught_decl);
       SET_EXPR_LOCATION (t, cur_try_context->end_catch_locus);
       append_to_statement_list (t, last);
 
@@ -3662,18 +3679,18 @@ next_sjlj_build_try_catch_finally (void)
   TREE_CHAIN (rethrow_decl) = stack_decl;
 
   /* Build the outermost variable binding level.  */
-  bind = build (BIND_EXPR, void_type_node, rethrow_decl, NULL, NULL);
+  bind = build3 (BIND_EXPR, void_type_node, rethrow_decl, NULL, NULL);
   SET_EXPR_LOCATION (bind, cur_try_context->try_locus);
   TREE_SIDE_EFFECTS (bind) = 1;
 
   /* Initialize rethrow_decl.  */
-  t = build (MODIFY_EXPR, void_type_node, rethrow_decl,
-	     convert (objc_object_type, null_pointer_node));
+  t = build2 (MODIFY_EXPR, void_type_node, rethrow_decl,
+	      convert (objc_object_type, null_pointer_node));
   SET_EXPR_LOCATION (t, cur_try_context->try_locus);
   append_to_statement_list (t, &BIND_EXPR_BODY (bind));
 
   /* Build the outermost TRY_FINALLY_EXPR.  */
-  try_fin = build (TRY_FINALLY_EXPR, void_type_node, NULL, NULL);
+  try_fin = build2 (TRY_FINALLY_EXPR, void_type_node, NULL, NULL);
   SET_EXPR_LOCATION (try_fin, cur_try_context->try_locus);
   TREE_SIDE_EFFECTS (try_fin) = 1;
   append_to_statement_list (try_fin, &BIND_EXPR_BODY (bind));
@@ -3807,7 +3824,7 @@ objc_begin_catch_clause (tree decl)
   /* Initialize the decl from the EXC_PTR_EXPR we get from the runtime.  */
   t = objc_build_exc_ptr ();
   t = convert (TREE_TYPE (decl), t);
-  t = build (MODIFY_EXPR, void_type_node, decl, t);
+  t = build2 (MODIFY_EXPR, void_type_node, decl, t);
   add_stmt (t);
 }
 
@@ -6523,7 +6540,7 @@ build_objc_method_call (int super_flag, tree method_prototype,
 
   /* ??? Selector is not at this point something we can use inside
      the compiler itself.  Set it to garbage for the nonce.  */
-  t = build (OBJ_TYPE_REF, sender_cast, method, lookup_object, size_zero_node);
+  t = build3 (OBJ_TYPE_REF, sender_cast, method, lookup_object, size_zero_node);
   return build_function_call (t, method_params);
 }
 
@@ -7903,9 +7920,12 @@ encode_array (tree type, int curtype, int format)
       return;
     }
 
-  sprintf (buffer, "[" HOST_WIDE_INT_PRINT_DEC,
-		   (TREE_INT_CST_LOW (an_int_cst)
-		    / TREE_INT_CST_LOW (TYPE_SIZE (array_of))));
+  if (TREE_INT_CST_LOW (TYPE_SIZE (array_of)) == 0)
+   sprintf (buffer, "[" HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT)0);
+  else 
+    sprintf (buffer, "[" HOST_WIDE_INT_PRINT_DEC,
+	     TREE_INT_CST_LOW (an_int_cst)
+	      / TREE_INT_CST_LOW (TYPE_SIZE (array_of)));
 
   obstack_grow (&util_obstack, buffer, strlen (buffer));
   encode_type (array_of, curtype, format);
@@ -8099,6 +8119,12 @@ encode_type (tree type, int curtype, int format)
 
   else if (code == FUNCTION_TYPE) /* '?' */
     obstack_1grow (&util_obstack, '?');
+    
+  else if (code == COMPLEX_TYPE)
+    {
+      obstack_1grow (&util_obstack, 'j');
+      encode_type (TREE_TYPE (type), curtype, format);
+    }
 }
 
 static void
@@ -9411,9 +9437,9 @@ objc_rewrite_function_call (tree function, tree params)
       && TREE_CODE (TREE_OPERAND (TREE_OPERAND (function, 0), 0))
 	 == FUNCTION_DECL)
     {
-      function = build (OBJ_TYPE_REF, TREE_TYPE (function),
-			TREE_OPERAND (function, 0),
-			TREE_VALUE (params), size_zero_node);
+      function = build3 (OBJ_TYPE_REF, TREE_TYPE (function),
+			 TREE_OPERAND (function, 0),
+			 TREE_VALUE (params), size_zero_node);
     }
 
   return function;

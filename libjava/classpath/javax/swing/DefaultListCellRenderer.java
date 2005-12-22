@@ -46,22 +46,29 @@ import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 
 /**
- * DefaultListCellRenderer. This class is responsible for rendering  list
- * cells.
+ * The default implementation {@link ListCellRenderer}. It provides a standard
+ * renderer for data objects of all types via {@link Object#toString()}.
  *
  * @author Andrew Selkirk
- * @version 1.0
  */
 public class DefaultListCellRenderer extends JLabel
   implements ListCellRenderer, Serializable
 {
   private static final long serialVersionUID = 7708947179685189462L;
 
+  /**
+   * Subclasses <code>DefaultListCellRenderers</code> and implements
+   * {@link javax.swing.plaf.UIResource}. This is used by
+   * {@link javax.swing.plaf.ListUI} subclasses to provide a default for
+   * the <code>List.cellRenderer</code> property. If you want to override
+   * this property, use <code>DefaultListCellRenderer</code> or a subclass.
+   */
   public static class UIResource extends DefaultListCellRenderer
     implements javax.swing.plaf.UIResource
   {
     public UIResource()
     {
+      super();
     }
   }
 
@@ -118,62 +125,75 @@ public class DefaultListCellRenderer extends JLabel
 
   public void validate()
   {
+    // Overridden to do nothing.
   }
 
   public void revalidate()
   {
+    // Overridden to do nothing.
   }
 
   public void repaint(long tm, int x, int y, int w, int h)
   {
+    // Overridden to do nothing.
   }
 
   public void repaint(Rectangle rect)
   {
+    // Overridden to do nothing.
   }
 
   protected void firePropertyChange(String propertyName, Object oldValue,
                                     Object newValue)
   {
+    // Overridden to do nothing.
   }
 
   public void firePropertyChange(String propertyName, byte oldValue,
                                  byte newValue)
   {
+    // Overridden to do nothing.
   }
 
   public void firePropertyChange(String propertyName, char oldValue,
                                  char newValue)
   {
+    // Overridden to do nothing.
   }
 
   public void firePropertyChange(String propertyName, short oldValue,
                                  short newValue)
   {
+    // Overridden to do nothing.
   }
 
   public void firePropertyChange(String propertyName, int oldValue,
                                  int newValue)
   {
+    // Overridden to do nothing.
   }
 
   public void firePropertyChange(String propertyName, long oldValue,
                                  long newValue)
   {
+    // Overridden to do nothing.
   }
 
   public void firePropertyChange(String propertyName, float oldValue,
                                  float newValue)
   {
+    // Overridden to do nothing.
   }
 
   public void firePropertyChange(String propertyName, double oldValue,
                                  double newValue)
   {
+    // Overridden to do nothing.
   }
 
   public void firePropertyChange(String propertyName, boolean oldValue,
                                  boolean newValue)
   {
+    // Overridden to do nothing.
   }
 }

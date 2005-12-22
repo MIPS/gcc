@@ -803,6 +803,7 @@ pop_scope (void)
 	case VAR_DECL:
 	  /* Warnings for unused variables.  */
 	  if (!TREE_USED (p)
+	      && !TREE_NO_WARNING (p)
 	      && !DECL_IN_SYSTEM_HEADER (p)
 	      && DECL_NAME (p)
 	      && !DECL_ARTIFICIAL (p)
@@ -1876,7 +1877,11 @@ duplicate_decls (tree newdecl, tree olddecl)
   tree newtype = NULL, oldtype = NULL;
 
   if (!diagnose_mismatched_decls (newdecl, olddecl, &newtype, &oldtype))
-    return false;
+    {
+      /* Avoid `unused variable' and other warnings warnings for OLDDECL.  */
+      TREE_NO_WARNING (olddecl) = 1;
+      return false;
+    }
 
   merge_decls (newdecl, olddecl, newtype, oldtype);
   return true;
@@ -3426,8 +3431,6 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	      && !TREE_STATIC (decl))
 	    warning (0, "ignoring asm-specifier for non-static local "
 		     "variable %q+D", decl);
-	  else if (C_DECL_REGISTER (decl))
-	    change_decl_assembler_name (decl, get_identifier (asmspec));
 	  else
 	    set_user_assembler_name (decl, asmspec);
 	}
@@ -4011,8 +4014,13 @@ grokdeclarator (const struct c_declarator *declarator,
 	   && !funcdef_flag)
     {
       /* 'extern' with initialization is invalid if not at file scope.  */
-      if (current_scope == file_scope)
-	warning (0, "%qs initialized and declared %<extern%>", name);
+       if (current_scope == file_scope)
+         {
+           /* It is fine to have 'extern const' when compiling at C
+              and C++ intersection.  */
+           if (!(warn_cxx_compat && constp))
+             warning (0, "%qs initialized and declared %<extern%>", name);
+         }
       else
 	error ("%qs has both %<extern%> and initializer", name);
     }
@@ -4250,16 +4258,19 @@ grokdeclarator (const struct c_declarator *declarator,
 	    else
 	      type = build_array_type (type, itype);
 
-	    if (size_varies)
-	      C_TYPE_VARIABLE_SIZE (type) = 1;
-
-	    /* The GCC extension for zero-length arrays differs from
-	       ISO flexible array members in that sizeof yields
-	       zero.  */
-	    if (size && integer_zerop (size))
+	    if (type != error_mark_node)
 	      {
-		TYPE_SIZE (type) = bitsize_zero_node;
-		TYPE_SIZE_UNIT (type) = size_zero_node;
+		if (size_varies)
+		C_TYPE_VARIABLE_SIZE (type) = 1;
+
+		/* The GCC extension for zero-length arrays differs from
+		   ISO flexible array members in that sizeof yields
+		   zero.  */
+		if (size && integer_zerop (size))
+		  {
+		    TYPE_SIZE (type) = bitsize_zero_node;
+		    TYPE_SIZE_UNIT (type) = size_zero_node;
+		  }
 	      }
 
 	    if (decl_context != PARM
@@ -4688,11 +4699,10 @@ grokdeclarator (const struct c_declarator *declarator,
 	/* At file scope, the presence of a `static' or `register' storage
 	   class specifier, or the absence of all storage class specifiers
 	   makes this declaration a definition (perhaps tentative).  Also,
-	   the absence of both `static' and `register' makes it public.  */
+	   the absence of `static' makes it public.  */
 	if (current_scope == file_scope)
 	  {
-	    TREE_PUBLIC (decl) = !(storage_class == csc_static
-				   || storage_class == csc_register);
+	    TREE_PUBLIC (decl) = storage_class != csc_static;
 	    TREE_STATIC (decl) = !extern_ref;
 	  }
 	/* Not at file scope, only `static' makes a static definition.  */
@@ -5316,7 +5326,9 @@ finish_struct (tree t, tree fieldlist, tree attributes)
   for (x = fieldlist; x; x = TREE_CHAIN (x))
     {
       DECL_CONTEXT (x) = t;
-      DECL_PACKED (x) |= TYPE_PACKED (t);
+
+      if (TYPE_PACKED (t) && TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT)
+	DECL_PACKED (x) = 1;
 
       /* If any field is const, the structure type is pseudo-const.  */
       if (TREE_READONLY (x))
@@ -7057,6 +7069,15 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      else if (specs->typespec_word == cts_float)
 		error ("both %<long%> and %<float%> in "
 		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat32)
+		error ("both %<long%> and %<_Decimal32%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat64)
+		error ("both %<long%> and %<_Decimal64%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat128)
+		error ("both %<long%> and %<_Decimal128%> in "
+		       "declaration specifiers");
 	      else
 		specs->long_p = true;
 	      break;
@@ -7080,6 +7101,15 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      else if (specs->typespec_word == cts_double)
 		error ("both %<short%> and %<double%> in "
 		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat32)
+                error ("both %<short%> and %<_Decimal32%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat64)
+		error ("both %<short%> and %<_Decimal64%> in "
+		                        "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat128)
+		error ("both %<short%> and %<_Decimal128%> in "
+		       "declaration specifiers");
 	      else
 		specs->short_p = true;
 	      break;
@@ -7099,6 +7129,15 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		       "declaration specifiers");
 	      else if (specs->typespec_word == cts_double)
 		error ("both %<signed%> and %<double%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat32)
+		error ("both %<signed%> and %<_Decimal32%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat64)
+		error ("both %<signed%> and %<_Decimal64%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat128)
+		error ("both %<signed%> and %<_Decimal128%> in "
 		       "declaration specifiers");
 	      else
 		specs->signed_p = true;
@@ -7120,6 +7159,15 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 	      else if (specs->typespec_word == cts_double)
 		error ("both %<unsigned%> and %<double%> in "
 		       "declaration specifiers");
+              else if (specs->typespec_word == cts_dfloat32)
+		error ("both %<unsigned%> and %<_Decimal32%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat64)
+		error ("both %<unsigned%> and %<_Decimal64%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat128)
+		error ("both %<unsigned%> and %<_Decimal128%> in "
+		       "declaration specifiers");
 	      else
 		specs->unsigned_p = true;
 	      break;
@@ -7132,6 +7180,15 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		       "declaration specifiers");
 	      else if (specs->typespec_word == cts_bool)
 		error ("both %<complex%> and %<_Bool%> in "
+		       "declaration specifiers");
+              else if (specs->typespec_word == cts_dfloat32)
+		error ("both %<complex%> and %<_Decimal32%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat64)
+		error ("both %<complex%> and %<_Decimal64%> in "
+		       "declaration specifiers");
+	      else if (specs->typespec_word == cts_dfloat128)
+		error ("both %<complex%> and %<_Decimal128%> in "
 		       "declaration specifiers");
 	      else
 		specs->complex_p = true;
@@ -7237,6 +7294,47 @@ declspecs_add_type (struct c_declspecs *specs, struct c_typespec spec)
 		       "declaration specifiers");
 	      else
 		specs->typespec_word = cts_double;
+	      return specs;
+	    case RID_DFLOAT32:
+	    case RID_DFLOAT64:
+	    case RID_DFLOAT128:
+	      { 
+		const char *str;
+		if (i == RID_DFLOAT32)
+		  str = "_Decimal32";
+		else if (i == RID_DFLOAT64)
+		  str = "_Decimal64";
+		else
+		  str = "_Decimal128";
+		if (specs->long_long_p)
+		  error ("both %<long long%> and %<%s%> in "
+			 "declaration specifiers", str);
+		if (specs->long_p)
+		  error ("both %<long%> and %<%s%> in "
+			 "declaration specifiers", str);
+		else if (specs->short_p)
+		  error ("both %<short%> and %<%s%> in "
+			 "declaration specifiers", str);
+		else if (specs->signed_p)
+		  error ("both %<signed%> and %<%s%> in "
+			 "declaration specifiers", str);
+		else if (specs->unsigned_p)
+		  error ("both %<unsigned%> and %<%s%> in "
+			 "declaration specifiers", str);
+                else if (specs->complex_p)
+                  error ("both %<complex%> and %<%s%> in "
+                         "declaration specifiers", str);
+		else if (i == RID_DFLOAT32)
+		  specs->typespec_word = cts_dfloat32;
+		else if (i == RID_DFLOAT64)
+		  specs->typespec_word = cts_dfloat64;
+		else
+		  specs->typespec_word = cts_dfloat128;
+	      }
+	      if (!targetm.decimal_float_supported_p ())
+		error ("decimal floating point not supported for this target");
+	      if (pedantic)
+		pedwarn ("ISO C does not support decimal floating point");
 	      return specs;
 	    default:
 	      /* ObjC reserved word "id", handled below.  */
@@ -7515,6 +7613,18 @@ finish_declspecs (struct c_declspecs *specs)
 			 : double_type_node);
 	}
       break;
+    case cts_dfloat32:
+    case cts_dfloat64:
+    case cts_dfloat128:
+      gcc_assert (!specs->long_p && !specs->long_long_p && !specs->short_p
+		  && !specs->signed_p && !specs->unsigned_p && !specs->complex_p);
+      if (specs->typespec_word == cts_dfloat32)
+	specs->type = dfloat32_type_node;
+      else if (specs->typespec_word == cts_dfloat64)
+	specs->type = dfloat64_type_node;
+      else
+	specs->type = dfloat128_type_node;
+      break;
     default:
       gcc_unreachable ();
     }
@@ -7540,20 +7650,19 @@ build_cdtor (int method_type, tree cdtors)
   cgraph_build_static_cdtor (method_type, body, DEFAULT_INIT_PRIORITY);
 }
 
-/* Perform final processing on one file scope's declarations (or the
-   external scope's declarations), GLOBALS.  */
+/* A subroutine of c_write_global_declarations.  Perform final processing
+   on one file scope's declarations (or the external scope's declarations),
+   GLOBALS.  */
+
 static void
 c_write_global_declarations_1 (tree globals)
 {
-  size_t len = list_length (globals);
-  tree *vec = XNEWVEC (tree, len);
-  size_t i;
   tree decl;
+  bool reconsider;
 
   /* Process the decls in the order they were written.  */
-  for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
+  for (decl = globals; decl; decl = TREE_CHAIN (decl))
     {
-      vec[i] = decl;
       /* Check for used but undefined static functions using the C
 	 standard's definition of "used", and set TREE_NO_WARNING so
 	 that check_global_declarations doesn't repeat the check.  */
@@ -7566,18 +7675,41 @@ c_write_global_declarations_1 (tree globals)
 	  pedwarn ("%q+F used but never defined", decl);
 	  TREE_NO_WARNING (decl) = 1;
 	}
+
+      wrapup_global_declaration_1 (decl);
     }
 
-  wrapup_global_declarations (vec, len);
-  check_global_declarations (vec, len);
+  do
+    {
+      reconsider = false;
+      for (decl = globals; decl; decl = TREE_CHAIN (decl))
+	reconsider |= wrapup_global_declaration_2 (decl);
+    }
+  while (reconsider);
 
-  free (vec);
+  for (decl = globals; decl; decl = TREE_CHAIN (decl))
+    check_global_declaration_1 (decl);
 }
+
+/* A subroutine of c_write_global_declarations Emit debug information for each
+   of the declarations in GLOBALS.  */
+
+static void
+c_write_global_declarations_2 (tree globals)
+{
+  tree decl;
+
+  for (decl = globals; decl ; decl = TREE_CHAIN (decl))
+    debug_hooks->global_decl (decl);
+}
+
+/* Preserve the external declarations scope across a garbage collect.  */
+static GTY(()) tree ext_block;
 
 void
 c_write_global_declarations (void)
 {
-  tree ext_block, t;
+  tree t;
 
   /* We don't want to do this if generating a PCH.  */
   if (pch_file)
@@ -7593,10 +7725,6 @@ c_write_global_declarations (void)
   external_scope = 0;
   gcc_assert (!current_scope);
 
-  /* Process all file scopes in this compilation, and the external_scope,
-     through wrapup_global_declarations and check_global_declarations.  */
-  for (t = all_translation_units; t; t = TREE_CHAIN (t))
-    c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   if (ext_block)
     {
       tree tmp = BLOCK_VARS (ext_block);
@@ -7608,6 +7736,11 @@ c_write_global_declarations (void)
           dump_end (TDI_tu, stream);
         }
     }
+
+  /* Process all file scopes in this compilation, and the external_scope,
+     through wrapup_global_declarations and check_global_declarations.  */
+  for (t = all_translation_units; t; t = TREE_CHAIN (t))
+    c_write_global_declarations_1 (BLOCK_VARS (DECL_INITIAL (t)));
   c_write_global_declarations_1 (BLOCK_VARS (ext_block));
 
   /* Generate functions to call static constructors and destructors
@@ -7619,6 +7752,19 @@ c_write_global_declarations (void)
   /* We're done parsing; proceed to optimize and emit assembly.
      FIXME: shouldn't be the front end's responsibility to call this.  */
   cgraph_optimize ();
+
+  /* After cgraph has had a chance to emit everything that's going to
+     be emitted, output debug information for globals.  */
+  if (errorcount == 0 && sorrycount == 0)
+    {
+      timevar_push (TV_SYMOUT);
+      for (t = all_translation_units; t; t = TREE_CHAIN (t))
+	c_write_global_declarations_2 (BLOCK_VARS (DECL_INITIAL (t)));
+      c_write_global_declarations_2 (BLOCK_VARS (ext_block));
+      timevar_pop (TV_SYMOUT);
+    }
+
+  ext_block = NULL;
 }
 
 #include "gt-c-decl.h"

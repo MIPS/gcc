@@ -236,6 +236,12 @@ extern int dot_symbols;
    ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
    : MAX ((COMPUTED), (SPECIFIED)))
 
+/* Use the default for compiling target libs.  */
+#ifdef IN_TARGET_LIBS
+#undef TARGET_ALIGN_NATURAL
+#define TARGET_ALIGN_NATURAL 1
+#endif
+
 /* Indicate that jump tables go in the text section.  */
 #undef  JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION TARGET_64BIT
@@ -289,7 +295,6 @@ extern int dot_symbols;
 	  builtin_define ("__PPC64__");			\
 	  builtin_define ("__powerpc__");		\
 	  builtin_define ("__powerpc64__");		\
-	  builtin_define ("__PIC__");			\
 	  builtin_assert ("cpu=powerpc64");		\
 	  builtin_assert ("machine=powerpc64");		\
 	}						\
@@ -458,12 +463,12 @@ extern int dot_symbols;
 	   && ((TARGET_64BIT						\
 		&& (TARGET_POWERPC64					\
 		    || TARGET_MINIMAL_TOC				\
-		    || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT	\
+		    || (SCALAR_FLOAT_MODE_P (GET_MODE (X))		\
 			&& ! TARGET_NO_FP_IN_TOC)))			\
 	       || (!TARGET_64BIT					\
 		   && !TARGET_NO_FP_IN_TOC				\
 		   && !TARGET_RELOCATABLE				\
-		   && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT	\
+		   && SCALAR_FLOAT_MODE_P (GET_MODE (X))		\
 		   && BITS_PER_WORD == HOST_BITS_PER_INT)))))
 
 /* This ABI cannot use DBX_LINES_FUNCTION_RELATIVE, nor can it use
@@ -494,10 +499,19 @@ while (0)
     {									\
       const char *s;							\
       dbxout_begin_stabn (BRAC);					\
-      assemble_name (FILE, NAME);					\
-      putc ('-', FILE);							\
       s = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);		\
-      rs6000_output_function_entry (FILE, s);				\
+      /* dbxout_block passes this macro the function name as NAME,	\
+	 assuming that it is the function code start label.  In our	\
+	 case, the function name is the OPD entry.  dbxout_block is	\
+	 broken, hack around it here.  */				\
+      if (NAME == s)							\
+	putc ('0', FILE);						\
+      else								\
+	{								\
+	  assemble_name (FILE, NAME);					\
+	  putc ('-', FILE);						\
+	  rs6000_output_function_entry (FILE, s);			\
+	}								\
       putc ('\n', FILE);						\
     }									\
   while (0)

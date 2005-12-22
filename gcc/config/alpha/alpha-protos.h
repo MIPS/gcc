@@ -53,8 +53,9 @@ extern rtx split_small_symbolic_operand (rtx);
 extern void get_aligned_mem (rtx, rtx *, rtx *);
 extern rtx get_unaligned_address (rtx, int);
 extern enum reg_class alpha_preferred_reload_class (rtx, enum reg_class);
-extern enum reg_class secondary_reload_class (enum reg_class,
-					      enum machine_mode, rtx, int);
+extern enum reg_class alpha_secondary_reload_class (enum reg_class,
+						    enum machine_mode, rtx,
+						    int);
 
 extern void alpha_set_memflags (rtx, rtx);
 extern bool alpha_split_const_mov (enum machine_mode, rtx *);
@@ -126,8 +127,6 @@ extern rtx unicosmk_add_call_info_word (rtx);
 extern void unicosmk_defer_case_vector (rtx, rtx);
 extern void unicosmk_add_extern (const char *);
 extern void unicosmk_output_align (FILE *, int);
-extern char * unicosmk_text_section (void);
-extern char * unicosmk_data_section (void);
 extern void unicosmk_output_common (FILE *, const char *, int, int);
 extern int unicosmk_initial_elimination_offset (int, int);
 #endif

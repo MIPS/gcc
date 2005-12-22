@@ -106,8 +106,6 @@ extern int emit_move_sequence (rtx *, enum machine_mode, rtx);
 extern int emit_hpdiv_const (rtx *, int);
 extern int is_function_label_plus_const (rtx);
 extern int jump_in_call_delay (rtx);
-extern enum reg_class secondary_reload_class (enum reg_class,
-					      enum machine_mode, rtx);
 extern int hppa_fpstore_bypass_p (rtx, rtx);
 extern int attr_length_millicode_call (rtx);
 extern int attr_length_call (rtx, int);
@@ -132,6 +130,7 @@ extern enum direction function_arg_padding (enum machine_mode, tree);
 extern int non_hard_reg_operand (rtx, enum machine_mode);
 extern int eq_neq_comparison_operator (rtx, enum machine_mode);
 extern int insn_refs_are_delayed (rtx);
+extern rtx get_deferred_plabel (rtx);
 #endif /* RTX_CODE */
 
 /* Prototype function used in macro CONST_OK_FOR_LETTER_P.  */
@@ -139,7 +138,6 @@ extern int zdepi_cint_p (unsigned HOST_WIDE_INT);
 
 extern void override_options (void);
 extern void output_ascii (FILE *, const char *, int);
-extern const char * som_text_section_asm_op (void);
 extern HOST_WIDE_INT compute_frame_size (HOST_WIDE_INT, int *);
 extern int and_mask_p (unsigned HOST_WIDE_INT);
 extern int cint_ok_for_move (HOST_WIDE_INT);
@@ -180,9 +178,3 @@ extern void pa_hpux_asm_output_external (FILE *, tree, const char *);
 
 extern const int magic_milli[];
 extern int shadd_constant_p (int);
-
-/* Functions in varasm.c used by pa.c.  */
-extern void som_readonly_data_section (void);
-extern void som_one_only_readonly_data_section (void);
-extern void som_one_only_data_section (void);
-extern void forget_section (void);

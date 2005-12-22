@@ -34,18 +34,22 @@ Boston, MA 02110-1301, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
+`#if defined (HAVE_'rtype_name`)'
+
 /* Dimensions: retarray(x,y) a(x, count) b(count,y).
    Either a or b can be rank 1.  In this case x or y is 1.  */
 
-extern void matmul_`'rtype_code (rtype *, gfc_array_l4 *, gfc_array_l4 *);
+extern void matmul_`'rtype_code (rtype * const restrict, 
+	gfc_array_l4 * const restrict, gfc_array_l4 * const restrict);
 export_proto(matmul_`'rtype_code);
 
 void
-matmul_`'rtype_code (rtype * retarray, gfc_array_l4 * a, gfc_array_l4 * b)
+matmul_`'rtype_code (rtype * const restrict retarray, 
+	gfc_array_l4 * const restrict a, gfc_array_l4 * const restrict b)
 {
-  GFC_INTEGER_4 *abase;
-  GFC_INTEGER_4 *bbase;
-  rtype_name *dest;
+  const GFC_INTEGER_4 * restrict abase;
+  const GFC_INTEGER_4 * restrict bbase;
+  rtype_name * restrict dest;
   index_type rxstride;
   index_type rystride;
   index_type xcount;
@@ -55,8 +59,8 @@ matmul_`'rtype_code (rtype * retarray, gfc_array_l4 * a, gfc_array_l4 * b)
   index_type x;
   index_type y;
 
-  GFC_INTEGER_4 *pa;
-  GFC_INTEGER_4 *pb;
+  const GFC_INTEGER_4 * restrict pa;
+  const GFC_INTEGER_4 * restrict pb;
   index_type astride;
   index_type bstride;
   index_type count;
@@ -192,3 +196,5 @@ sinclude(`matmul_asm_'rtype_code`.m4')dnl
       dest += rystride - (rxstride * xcount);
     }
 }
+
+#endif

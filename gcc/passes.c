@@ -158,8 +158,7 @@ rest_of_decl_compilation (tree decl,
 	   || DECL_INITIAL (decl))
 	  && !DECL_EXTERNAL (decl))
 	{
-	  if (flag_unit_at_a_time && !cgraph_global_info_ready
-	      && TREE_CODE (decl) != FUNCTION_DECL)
+	  if (TREE_CODE (decl) != FUNCTION_DECL)
 	    cgraph_varpool_finalize_decl (decl);
 	  else
 	    assemble_variable (decl, top_level, at_end, 0);
@@ -421,7 +420,25 @@ next_pass_1 (struct tree_opt_pass **list, struct tree_opt_pass *pass)
           
 }
 
-/* Construct the pass tree.  */
+/* Construct the pass tree.  The sequencing of passes is driven by
+   the cgraph routines:
+
+   cgraph_finalize_compilation_unit ()
+       for each node N in the cgraph
+	   cgraph_analyze_function (N)
+	       cgraph_lower_function (N) -> all_lowering_passes
+
+   If we are optimizing, cgraph_optimize is then invoked:
+
+   cgraph_optimize ()
+       ipa_passes () 			-> all_ipa_passes
+       cgraph_expand_all_functions ()
+           for each node N in the cgraph
+	       cgraph_expand_function (N)
+	           cgraph_lower_function (N)	-> Now a NOP.
+		   lang_hooks.callgraph.expand_function (DECL (N))
+		   	tree_rest_of_compilation (DECL (N))  -> all_passes
+*/
 
 void
 init_optimization_passes (void)
@@ -440,9 +457,8 @@ init_optimization_passes (void)
   NEXT_PASS (pass_ipa_type_escape);
   *p = NULL;
 
-  /* All passes needed to lower the function into shape optimizers can operate
-     on.  These passes are performed before interprocedural passes, unlike rest
-     of local passes (all_passes).  */
+  /* All passes needed to lower the function into shape optimizers can
+     operate on.  */
   p = &all_lowering_passes;
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
@@ -495,6 +511,12 @@ init_optimization_passes (void)
   NEXT_PASS (pass_merge_phi);
   NEXT_PASS (pass_dominator);
 
+  /* The only copy propagation opportunities left after DOM
+     should be due to degenerate PHI nodes.  So rather than
+     run the full copy propagator, just discover and copy
+     propagate away the degenerate PHI nodes.  */
+  NEXT_PASS (pass_phi_only_copy_prop);
+
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_tail_recursion);
@@ -509,7 +531,14 @@ init_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
-  NEXT_PASS (pass_copy_prop);
+
+  /* The only copy propagation opportunities left after DOM
+     should be due to degenerate PHI nodes.  So rather than
+     run the full copy propagator, just discover and copy
+     propagate away the degenerate PHI nodes.  */
+  NEXT_PASS (pass_phi_only_copy_prop);
+
+  NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dse);
   NEXT_PASS (pass_may_alias);
@@ -525,12 +554,18 @@ init_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_cse_reciprocals);
   NEXT_PASS (pass_split_crit_edges);
-  NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_sink_code);
   NEXT_PASS (pass_tree_loop);
+  NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_dominator);
-  NEXT_PASS (pass_copy_prop);
+
+  /* The only copy propagation opportunities left after DOM
+     should be due to degenerate PHI nodes.  So rather than
+     run the full copy propagator, just discover and copy
+     propagate away the degenerate PHI nodes.  */
+  NEXT_PASS (pass_phi_only_copy_prop);
+
   NEXT_PASS (pass_cd_dce);
 
   /* FIXME: If DCE is not run before checking for uninitialized uses,
@@ -575,10 +610,14 @@ init_optimization_passes (void)
   /* NEXT_PASS (pass_may_alias) cannot be done again because the
      vectorizer creates alias relations that are not supported by
      pass_may_alias.  */
-  NEXT_PASS (pass_lower_vector_ssa);
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_iv_optimize);
   NEXT_PASS (pass_tree_loop_done);
+  *p = NULL;
+
+  p = &pass_vectorize.sub;
+  NEXT_PASS (pass_lower_vector_ssa);
+  NEXT_PASS (pass_dce_loop);
   *p = NULL;
 
   p = &pass_loop2.sub;
@@ -661,11 +700,9 @@ init_optimization_passes (void)
 #undef NEXT_PASS
 
   /* Register the passes with the tree dump code.  */
+  register_dump_files (all_ipa_passes, true, PROP_gimple_leh | PROP_cfg);
   register_dump_files (all_lowering_passes, false, PROP_gimple_any);
-  register_dump_files (all_passes, false, PROP_gimple_leh
-					  | PROP_cfg);
-  register_dump_files (all_ipa_passes, true, PROP_gimple_leh
-					     | PROP_cfg);
+  register_dump_files (all_passes, false, PROP_gimple_leh | PROP_cfg);
 }
 
 static unsigned int last_verified;

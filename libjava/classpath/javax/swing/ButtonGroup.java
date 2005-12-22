@@ -43,7 +43,25 @@ import java.util.Vector;
 
 
 /**
- * DOCUMENT ME!
+ * Logically groups a set of buttons, so that only one of the buttons in
+ * a <code>ButtonGroup</code> can be selected at the same time. If one
+ * button in a <code>ButtonGroup</code> is selected, all other buttons
+ * are automatically deselected.
+ *
+ * While <code>ButtonGroup</code> can be used for all buttons that are derived
+ * from {@link AbstractButton}, it is normally only used for
+ * {@link JRadioButton}s, {@link JRadioButtonMenuItem}s and
+ * {@link JToggleButton}s.
+ *
+ * You could use it for {@link JCheckBox}es, but for the sake of usability
+ * this is strongly discouraged because the common expectation of checkboxes
+ * is that the user is allowed to make multiple selections.
+ *
+ * It makes no sense to put {@link JButton}s or {@link JMenuItem}s in
+ * a <code>ButtonGroup</code> because they don't implement the
+ * <code>selected</code> semantics.
+ *
+ * @author original author unknown
  */
 public class ButtonGroup implements Serializable
 {
@@ -61,6 +79,7 @@ public class ButtonGroup implements Serializable
    */
   public ButtonGroup()
   {
+    // Nothing to do here.
   }
 
   /**
@@ -71,6 +90,8 @@ public class ButtonGroup implements Serializable
   public void add(AbstractButton b)
   {
     b.getModel().setGroup(this);
+    if (b.isSelected())
+      sel = b.getModel();
     buttons.addElement(b);
   }
 
@@ -140,7 +161,7 @@ public class ButtonGroup implements Serializable
       {
         ButtonModel old = sel;
         sel = m;
-
+        
         if (old != null)
           old.setSelected(false);
         AbstractButton button = FindButton(old);

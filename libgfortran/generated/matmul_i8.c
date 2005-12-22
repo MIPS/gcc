@@ -34,27 +34,44 @@ Boston, MA 02110-1301, USA.  */
 #include <assert.h>
 #include "libgfortran.h"
 
-/* This is a C version of the following fortran pseudo-code. The key
-   point is the loop order -- we access all arrays column-first, which
-   improves the performance enough to boost galgel spec score by 50%.
+#if defined (HAVE_GFC_INTEGER_8)
+
+/* The order of loops is different in the case of plain matrix
+   multiplication C=MATMUL(A,B), and in the frequent special case where
+   the argument A is the temporary result of a TRANSPOSE intrinsic:
+   C=MATMUL(TRANSPOSE(A),B).  Transposed temporaries are detected by
+   looking at their strides.
+
+   The equivalent Fortran pseudo-code is:
 
    DIMENSION A(M,COUNT), B(COUNT,N), C(M,N)
-   C = 0
-   DO J=1,N
-     DO K=1,COUNT
+   IF (.NOT.IS_TRANSPOSED(A)) THEN
+     C = 0
+     DO J=1,N
+       DO K=1,COUNT
+         DO I=1,M
+           C(I,J) = C(I,J)+A(I,K)*B(K,J)
+   ELSE
+     DO J=1,N
        DO I=1,M
-         C(I,J) = C(I,J)+A(I,K)*B(K,J)
+         S = 0
+         DO K=1,COUNT
+           S = S+A(I,K)+B(K,J)
+         C(I,J) = S
+   ENDIF
 */
 
-extern void matmul_i8 (gfc_array_i8 * retarray, gfc_array_i8 * a, gfc_array_i8 * b);
+extern void matmul_i8 (gfc_array_i8 * const restrict retarray, 
+	gfc_array_i8 * const restrict a, gfc_array_i8 * const restrict b);
 export_proto(matmul_i8);
 
 void
-matmul_i8 (gfc_array_i8 * retarray, gfc_array_i8 * a, gfc_array_i8 * b)
+matmul_i8 (gfc_array_i8 * const restrict retarray, 
+	gfc_array_i8 * const restrict a, gfc_array_i8 * const restrict b)
 {
-  GFC_INTEGER_8 *abase;
-  GFC_INTEGER_8 *bbase;
-  GFC_INTEGER_8 *dest;
+  const GFC_INTEGER_8 * restrict abase;
+  const GFC_INTEGER_8 * restrict bbase;
+  GFC_INTEGER_8 * restrict dest;
 
   index_type rxstride, rystride, axstride, aystride, bxstride, bystride;
   index_type x, y, n, count, xcount, ycount;
@@ -103,12 +120,10 @@ matmul_i8 (gfc_array_i8 * retarray, gfc_array_i8 * a, gfc_array_i8 * b)
       retarray->offset = 0;
     }
 
-  abase = a->data;
-  bbase = b->data;
-  dest = retarray->data;
-
   if (retarray->dim[0].stride == 0)
     retarray->dim[0].stride = 1;
+
+  /* This prevents constifying the input arguments.  */
   if (a->dim[0].stride == 0)
     a->dim[0].stride = 1;
   if (b->dim[0].stride == 0)
@@ -173,9 +188,9 @@ matmul_i8 (gfc_array_i8 * retarray, gfc_array_i8 * a, gfc_array_i8 * b)
 
   if (rxstride == 1 && axstride == 1 && bxstride == 1)
     {
-      GFC_INTEGER_8 *bbase_y;
-      GFC_INTEGER_8 *dest_y;
-      GFC_INTEGER_8 *abase_n;
+      const GFC_INTEGER_8 * restrict bbase_y;
+      GFC_INTEGER_8 * restrict dest_y;
+      const GFC_INTEGER_8 * restrict abase_n;
       GFC_INTEGER_8 bbase_yn;
 
       if (rystride == ycount)
@@ -202,7 +217,28 @@ matmul_i8 (gfc_array_i8 * retarray, gfc_array_i8 * a, gfc_array_i8 * b)
 	    }
 	}
     }
-  else
+  else if (rxstride == 1 && aystride == 1 && bxstride == 1)
+    {
+      const GFC_INTEGER_8 *restrict abase_x;
+      const GFC_INTEGER_8 *restrict bbase_y;
+      GFC_INTEGER_8 *restrict dest_y;
+      GFC_INTEGER_8 s;
+
+      for (y = 0; y < ycount; y++)
+	{
+	  bbase_y = &bbase[y*bystride];
+	  dest_y = &dest[y*rystride];
+	  for (x = 0; x < xcount; x++)
+	    {
+	      abase_x = &abase[x*axstride];
+	      s = (GFC_INTEGER_8) 0;
+	      for (n = 0; n < count; n++)
+		s += abase_x[n] * bbase_y[n];
+	      dest_y[x] = s;
+	    }
+	}
+    }
+  else if (axstride < aystride)
     {
       for (y = 0; y < ycount; y++)
 	for (x = 0; x < xcount; x++)
@@ -214,4 +250,27 @@ matmul_i8 (gfc_array_i8 * retarray, gfc_array_i8 * a, gfc_array_i8 * b)
 	    /* dest[x,y] += a[x,n] * b[n,y] */
 	    dest[x*rxstride + y*rystride] += abase[x*axstride + n*aystride] * bbase[n*bxstride + y*bystride];
     }
+  else
+    {
+      const GFC_INTEGER_8 *restrict abase_x;
+      const GFC_INTEGER_8 *restrict bbase_y;
+      GFC_INTEGER_8 *restrict dest_y;
+      GFC_INTEGER_8 s;
+
+      for (y = 0; y < ycount; y++)
+	{
+	  bbase_y = &bbase[y*bystride];
+	  dest_y = &dest[y*rystride];
+	  for (x = 0; x < xcount; x++)
+	    {
+	      abase_x = &abase[x*axstride];
+	      s = (GFC_INTEGER_8) 0;
+	      for (n = 0; n < count; n++)
+		s += abase_x[n*aystride] * bbase_y[n*bxstride];
+	      dest_y[x*rxstride] = s;
+	    }
+	}
+    }
 }
+
+#endif

@@ -69,6 +69,7 @@ struct objc_method_description
 #define _C_FLT      'f'
 #define _C_DBL      'd'
 #define _C_BFLD     'b'
+#define _C_BOOL	    'B'
 #define _C_VOID     'v'
 #define _C_UNDEF    '?'
 #define _C_PTR      '^'
@@ -81,6 +82,7 @@ struct objc_method_description
 #define _C_STRUCT_B '{'
 #define _C_STRUCT_E '}'
 #define _C_VECTOR   '!'
+#define _C_COMPLEX   'j'
 
 
 /*
@@ -213,14 +215,7 @@ typedef struct objc_module {
 ** The compiler generates one of these structures for a class that has
 ** instance variables defined in its specification. 
 */
-typedef struct objc_ivar* Ivar_t;
-typedef struct objc_ivar_list {
-  int   ivar_count;                             /* Number of structures (Ivar) 
-                                                  contained in the list.  One
-                                                  structure per instance 
-                                                  variable defined in the
-                                                  class. */
-  struct objc_ivar {
+typedef struct objc_ivar {
     const char* ivar_name;                      /* Name of the instance
                                                   variable as entered in the
                                                   class definition. */
@@ -230,8 +225,15 @@ typedef struct objc_ivar_list {
     int        ivar_offset;                    /* Byte offset from the base 
                                                   address of the instance 
                                                   structure to the variable. */
+} *Ivar_t;
 
-  } ivar_list[1];                               /* Variable length 
+typedef struct objc_ivar_list {
+  int   ivar_count;                             /* Number of structures (Ivar) 
+                                                  contained in the list.  One
+                                                  structure per instance 
+                                                  variable defined in the
+                                                  class. */
+  struct objc_ivar ivar_list[1];               /* Variable length 
                                                   structure. */
 } IvarList, *IvarList_t;
 

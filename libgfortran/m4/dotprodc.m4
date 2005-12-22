@@ -35,17 +35,20 @@ Boston, MA 02110-1301, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
+`#if defined (HAVE_'rtype_name`)'
+
 typedef GFC_ARRAY_DESCRIPTOR(GFC_MAX_DIMENSIONS, char) char_array;
 
-extern rtype_name dot_product_`'rtype_code (rtype * a, rtype * b);
+extern rtype_name dot_product_`'rtype_code (rtype * const restrict a, 
+	rtype * const restrict b);
 export_proto(dot_product_`'rtype_code);
 
 /* Both parameters will already have been converted to the result type.  */
 rtype_name
-dot_product_`'rtype_code (rtype * a, rtype * b)
+dot_product_`'rtype_code (rtype * const restrict a, rtype * const restrict b)
 {
-  rtype_name *pa;
-  rtype_name *pb;
+  const rtype_name * restrict pa;
+  const rtype_name * restrict pb;
   rtype_name res;
   rtype_name conjga;
   index_type count;
@@ -78,3 +81,5 @@ sinclude(`dotprod_asm_'rtype_code`.m4')dnl
 
   return res;
 }
+
+#endif

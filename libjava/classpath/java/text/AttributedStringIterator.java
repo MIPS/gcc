@@ -55,129 +55,102 @@ import java.util.Set;
 class AttributedStringIterator implements AttributedCharacterIterator
 {
 
-/*************************************************************************/
+  /*************************************************************************/
 
-/**
-  * Instance Variables
-  */
+  /** The character iterator containing the text */
+  private CharacterIterator ci;
 
-/**
-  * The character iterator containing the text
-  */
-private CharacterIterator ci;
+  /** The list of attributes and ranges */
+  private AttributedString.AttributeRange[] attribs;
 
-/**
-  * The list of attributes and ranges
-  */
-private AttributedString.AttributeRange[] attribs;
+  /**
+   * The list of attributes that the user is interested in.  We may,
+   * at our option, not return any other attributes.
+   */
+  private AttributedCharacterIterator.Attribute[] restricts;
 
-/**
-  * The list of attributes that the user is interested in.  We may,
-  * at our option, not return any other attributes.
-  */
-private AttributedCharacterIterator.Attribute[] restricts;
+  /*************************************************************************/
 
-/*************************************************************************/
+  AttributedStringIterator(StringCharacterIterator sci, 
+                           AttributedString.AttributeRange[] attribs,
+                           int begin_index, int end_index,
+                           AttributedCharacterIterator.Attribute[] restricts)
+  {
+    this.ci = new StringCharacterIterator(sci, begin_index, end_index);
+    this.attribs = attribs;
+    this.restricts = restricts;
+  }
 
-/*
- * Constructors
- */
+  /*************************************************************************/
 
-AttributedStringIterator(StringCharacterIterator sci, 
-                         AttributedString.AttributeRange[] attribs,
-                         int begin_index, int end_index,
-                         AttributedCharacterIterator.Attribute[] restricts)
-{
-  this.ci = new StringCharacterIterator(sci, begin_index, end_index);
-  this.attribs = attribs;
-  this.restricts = restricts;
-}
+  // First we have a bunch of stupid redirects.  If StringCharacterIterator
+  // weren't final, I just would have extended that for this class.  Alas, no.
 
-/*************************************************************************/
+  public Object clone()
+  {
+    return(ci.clone());
+  }
 
-/*
- * Instance Methods
- */
+  public char current()
+  {
+    return(ci.current());
+  }
 
-// First we have a bunch of stupid redirects.  If StringCharacterIterator
-// weren't final, I just would have extended that for this class.  Alas, no.
+  public char next()
+  {
+    return(ci.next());
+  }
 
-public Object
-clone()
-{
-  return(ci.clone());
-}
+  public char previous()
+  {
+    return(ci.previous());
+  }
 
-public char
-current()
-{
-  return(ci.current());
-}
+  public char first()
+  {
+    return(ci.first());
+  }
 
-public char
-next()
-{
-  return(ci.next());
-}
+  public char last()
+  {
+    return(ci.last());
+  }
 
-public char
-previous()
-{
-  return(ci.previous());
-}
+  public int getIndex()
+  {
+    return(ci.getIndex());
+  }
 
-public char
-first()
-{
-  return(ci.first());
-}
+  public char setIndex(int index)
+  {
+    return(ci.setIndex(index));  
+  }
 
-public char
-last()
-{
-  return(ci.last());
-}
+  public int getBeginIndex()
+  {
+    return(ci.getBeginIndex());
+  }
 
-public int
-getIndex()
-{
-  return(ci.getIndex());
-}
+  public int getEndIndex()
+  {
+    return(ci.getEndIndex());
+  }
 
-public char
-setIndex(int index)
-{
-  return(ci.setIndex(index));
-}
+  /*
+   * Here is where the AttributedCharacterIterator methods start.
+   */ 
 
-public int
-getBeginIndex()
-{
-  return(ci.getBeginIndex());
-}
+  /*************************************************************************/
 
-public int
-getEndIndex()
-{
-  return(ci.getEndIndex());
-}
-
-/*
- * Here is where the AttributedCharacterIterator methods start.
- */ 
-
-/*************************************************************************/
-
-/**
-  * Returns a list of all the attribute keys that are defined anywhere
-  * on this string.
-  */
-public Set
-getAllAttributeKeys()
-{
-  HashSet s = new HashSet();
-  if (attribs == null)
-    return(s);
+  /**
+   * Returns a list of all the attribute keys that are defined anywhere
+   * on this string.
+   */
+  public Set getAllAttributeKeys()
+  {
+    HashSet s = new HashSet();
+    if (attribs == null)
+      return(s);
 
     for (int i = 0; i < attribs.length; i++)
     {
@@ -193,156 +166,219 @@ getAllAttributeKeys()
         }
     }
 
-  return(s);
-}
+    return(s);
+  }
 
-/*************************************************************************/
+  /*************************************************************************/
 
-/**
-  * Various methods that determine how far the run extends for various
-  * attribute combinations.
-  */
+  /**
+   * Various methods that determine how far the run extends for various
+   * attribute combinations.
+   */
 
-public int
-getRunLimit()
-{
-  return(getRunLimit(getAttributes().keySet()));
-}
+  public int getRunLimit()
+  {
+    return(getRunLimit(getAttributes().keySet()));
+  }
 
-public int
-getRunLimit(AttributedCharacterIterator.Attribute attrib)
-{
-  HashSet s = new HashSet();
-  s.add(attrib);
+  public int getRunLimit(AttributedCharacterIterator.Attribute attrib)
+  {
+    HashSet s = new HashSet();
+    s.add(attrib);
+    return(getRunLimit(s));
+  }
 
-  return(getRunLimit(s));
-}
-
-public synchronized int
-getRunLimit(Set attribute_set)
-{
-  boolean hit = false;
-  int runLimit = ci.getEndIndex ();
-  int pos = ci.getIndex ();
-
-  for (int i = 0; i < attribs.length; ++i)
+  public synchronized int getRunLimit(Set attributeSet)
+  {
+    if (attributeSet == null)
+      return ci.getEndIndex();
+    
+    int current = ci.getIndex();
+    int end = ci.getEndIndex();
+    int limit = current;
+    if (current == end) 
+      return end;
+    Map runValues = getAttributes();
+    while (limit < end) 
     {
-      if (pos >= attribs[i].begin_index &&
-          pos < attribs[i].end_index)
-        {
-          Iterator iter = attribute_set.iterator();
-          while(iter.hasNext()) 
-            if (attribs[i].attribs.containsKey(iter.next()))
+      Iterator iterator = attributeSet.iterator();
+      while (iterator.hasNext()) 
+      {
+	// Qualified name is a workaround for a gcj 4.0 bug.
+        AttributedCharacterIterator.Attribute attributeKey
+	  = (AttributedCharacterIterator.Attribute) iterator.next();
+        Object v1 = runValues.get(attributeKey);
+        Object v2 = getAttribute(attributeKey, limit + 1);
+        boolean changed = false;
+        // check for equal or both null, if NO return start
+        if (v1 != null) 
+          {
+            changed = !v1.equals(v2);
+          }
+        else 
+          {
+            changed = (v2 != null);  
+          }
+        if (changed)
+          return limit + 1;
+      }
+      // no differences, so increment limit and next and loop again
+      limit++;
+    }
+    return end;
+  }
+
+  /*************************************************************************/
+
+  /**
+   * Various methods that determine where the run begins for various
+   * attribute combinations.
+   */
+
+  /**
+   * Returns the index of the first character in the run containing the current
+   * character and defined by all the attributes defined for that character
+   * position.
+   * 
+   * @return The run start index.
+   */
+  public int getRunStart()
+  {
+    return(getRunStart(getAttributes().keySet()));
+  }
+
+  /**
+   * Returns the index of the first character in the run, defined by the 
+   * specified attribute, that contains the current character.
+   * 
+   * @param attrib  the attribute (<code>null</code> permitted).
+   * 
+   * return The index of the first character in the run.
+   */
+  public int getRunStart(AttributedCharacterIterator.Attribute attrib)
+  {
+    if (attrib == null)
+      return ci.getBeginIndex();
+    HashSet s = new HashSet();
+    s.add(attrib);
+    return(getRunStart(s));
+  }
+
+  /**
+   * Returns the index of the first character in the run, defined by the 
+   * specified attribute set, that contains the current character.
+   * 
+   * @param attributeSet  the attribute set (<code>null</code> permitted).
+   * 
+   * return The index of the first character in the run.
+   */
+  public int getRunStart(Set attributeSet)
+  {
+    if (attributeSet == null)
+      return ci.getBeginIndex();
+    
+    int current = ci.getIndex();
+    int begin = ci.getBeginIndex();
+    int start = current;
+    if (start == begin) 
+      return begin;
+    Map runValues = getAttributes();
+    int prev = start - 1;
+    while (start > begin) 
+    {
+      Iterator iterator = attributeSet.iterator();
+      while (iterator.hasNext()) 
+      {
+	// Qualified name is a workaround for a gcj 4.0 bug.
+        AttributedCharacterIterator.Attribute attributeKey
+	  = (AttributedCharacterIterator.Attribute) iterator.next();
+        Object v1 = runValues.get(attributeKey);
+        Object v2 = getAttribute(attributeKey, prev);
+        boolean changed = false;
+        // check for equal or both null, if NO return start
+        if (v1 != null) 
+          {
+            changed = !v1.equals(v2);
+          }
+        else 
+          {
+            changed = (v2 != null);  
+          }
+        if (changed)
+          return start;
+      }
+      // no differences, so decrement start and prev and loop again
+      start--;
+      prev--;
+    }
+    return start;
+  }
+
+  /*************************************************************************/
+
+  /**
+   * Returns the value for an attribute at the specified position.  If the
+   * attribute key (<code>key</code>) is <code>null</code>, the method returns
+   * <code>null</code>.
+   * 
+   * @param key  the key (<code>null</code> permitted).
+   * @param pos  the character position.
+   * 
+   * @return The attribute value (possibly <code>null</code>).
+   */
+  private Object getAttribute(AttributedCharacterIterator.Attribute key, 
+          int pos)
+  {
+    if (attribs == null)
+      return null;
+    for (int i = attribs.length - 1; i >= 0; i--)
+      {
+        if (pos >= attribs[i].begin_index && pos < attribs[i].end_index)
+          {
+            Set keys = attribs[i].attribs.keySet();
+            if (keys.contains(key)) 
               {
-                hit = true;
-                runLimit = Math.min(runLimit, attribs[i].end_index);
+                return attribs[i].attribs.get(key);
               }
-        }
-    }
-  if (hit)
-    return runLimit;
-  else
-    return ci.getEndIndex();
-}
-
-/*************************************************************************/
-
-/**
-  * Various methods that determine where the run begins for various
-  * attribute combinations.
-  */
-
-public int
-getRunStart()
-{
-  return(getRunStart(getAttributes().keySet()));
-}
-
-public int
-getRunStart(AttributedCharacterIterator.Attribute attrib)
-{
-  HashSet s = new HashSet();
-  s.add(attrib);
-
-  return(getRunStart(s));
-}
-
-public int
-getRunStart(Set attribute_set)
-{
-  boolean hit = false;
-  int runBegin = 0;
-  int pos = ci.getIndex ();
-
-  for (int i = 0; i < attribs.length; ++i)
-    {
-      if (pos >= attribs[i].begin_index &&
-          pos <= attribs[i].end_index)
-        {
-          Iterator iter = attribute_set.iterator();
-          while(iter.hasNext()) 
-            if (attribs[i].attribs.containsKey(iter.next()))
-              {
-                hit = true;
-                runBegin = Math.max(runBegin, attribs[i].begin_index);
-              }
-        }
-    }
-  if (hit)
-    return runBegin;
-  else
-    return -1;
-}
-
-/*************************************************************************/
-
-public Object
-getAttribute(AttributedCharacterIterator.Attribute attrib)
-{
-  if (attribs == null)
-    return(null);
-
-  for (int i = 0; i < attribs.length; i++)
-    {
-      Set key_set = attribs[i].attribs.keySet();
-      Iterator iter = key_set.iterator();
-      while (iter.hasNext())
-        {
-          Object obj = iter.next();
-
-          // Check for attribute match and range match
-          if (obj.equals(attrib))
-            if ((ci.getIndex() >= attribs[i].begin_index) &&
-                (ci.getIndex() < attribs[i].end_index))
-              return(attribs[i].attribs.get(obj));
-        }
-    }
-
-  return(null);
-}
-
-/*************************************************************************/
-
-/**
-  * Return a list of all the attributes and values defined for this
-  * character
-  */
-public Map
-getAttributes()
-{
-  HashMap m = new HashMap();
-  if (attribs == null)
-    return(m);
+          }
+      }
+    return null;   
+  }
   
-  for (int i = 0; i < attribs.length; i++)
-    {
-       if ((ci.getIndex() >= attribs[i].begin_index) &&
-           (ci.getIndex() < attribs[i].end_index))
-         m.putAll(attribs[i].attribs);
-    }
+  /**
+   * Returns the value for an attribute at the current position.  If the
+   * attribute key (<code>key</code>) is <code>null</code>, the method returns
+   * <code>null</code>.
+   * 
+   * @param key  the key (<code>null</code> permitted).
+   * 
+   * @return The attribute value (possibly <code>null</code>).
+   */
+  public Object getAttribute(AttributedCharacterIterator.Attribute key)
+  {
+    return getAttribute(key, ci.getIndex());
+  }
 
-  return(m);
-}
+  /*************************************************************************/
+
+  /**
+   * Return a list of all the attributes and values defined for this
+   * character
+   */
+  public Map getAttributes()
+  {
+    HashMap m = new HashMap();
+    if (attribs == null)
+      return(m);
+  
+    for (int i = 0; i < attribs.length; i++)
+      {
+         if ((ci.getIndex() >= attribs[i].begin_index) &&
+             (ci.getIndex() < attribs[i].end_index))
+           m.putAll(attribs[i].attribs);
+      }
+
+    return(m);
+  }
 
 } // class AttributedStringIterator
-

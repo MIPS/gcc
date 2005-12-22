@@ -138,8 +138,8 @@ typedef enum
      uses this temporary inside the scalarization loop.  */
   GFC_SS_CONSTRUCTOR,
 
-  /* A vector subscript.  Only used as the SS chain for a subscript.
-     Similar int format to a GFC_SS_SECTION.  */
+  /* A vector subscript.  The vector's descriptor is cached in the
+     "descriptor" field of the associated gfc_ss_info.  */
   GFC_SS_VECTOR,
 
   /* A temporary array allocated by the scalarizer.  Its rank can be less
@@ -345,14 +345,8 @@ tree gfc_get_extern_function_decl (gfc_symbol *);
 /* Return the decl for a function.  */
 tree gfc_get_function_decl (gfc_symbol *);
 
-/* Build a CALL_EXPR.  */
-tree gfc_build_function_call (tree, tree);
-
 /* Build an ADDR_EXPR.  */
 tree gfc_build_addr_expr (tree, tree);
-
-/* Build an INDIRECT_REF.  */
-tree gfc_build_indirect_ref (tree);
 
 /* Build an ARRAY_REF.  */
 tree gfc_build_array_ref (tree, tree);
@@ -443,6 +437,8 @@ tree builtin_function (const char *, tree, int, enum built_in_class,
 /* Runtime library function decls.  */
 extern GTY(()) tree gfor_fndecl_internal_malloc;
 extern GTY(()) tree gfor_fndecl_internal_malloc64;
+extern GTY(()) tree gfor_fndecl_internal_realloc;
+extern GTY(()) tree gfor_fndecl_internal_realloc64;
 extern GTY(()) tree gfor_fndecl_internal_free;
 extern GTY(()) tree gfor_fndecl_allocate;
 extern GTY(()) tree gfor_fndecl_allocate64;
@@ -453,7 +449,11 @@ extern GTY(()) tree gfor_fndecl_stop_numeric;
 extern GTY(()) tree gfor_fndecl_stop_string;
 extern GTY(()) tree gfor_fndecl_select_string;
 extern GTY(()) tree gfor_fndecl_runtime_error;
+extern GTY(()) tree gfor_fndecl_set_fpe;
 extern GTY(()) tree gfor_fndecl_set_std;
+extern GTY(()) tree gfor_fndecl_ttynam;
+extern GTY(()) tree gfor_fndecl_ctime;
+extern GTY(()) tree gfor_fndecl_fdate;
 extern GTY(()) tree gfor_fndecl_in_pack;
 extern GTY(()) tree gfor_fndecl_in_unpack;
 extern GTY(()) tree gfor_fndecl_associated;
@@ -469,13 +469,18 @@ typedef struct gfc_powdecl_list GTY(())
 }
 gfc_powdecl_list;
 
-extern GTY(()) gfc_powdecl_list gfor_fndecl_math_powi[3][2];
+extern GTY(()) gfc_powdecl_list gfor_fndecl_math_powi[4][3];
 extern GTY(()) tree gfor_fndecl_math_cpowf;
 extern GTY(()) tree gfor_fndecl_math_cpow;
+extern GTY(()) tree gfor_fndecl_math_cpowl10;
+extern GTY(()) tree gfor_fndecl_math_cpowl16;
 extern GTY(()) tree gfor_fndecl_math_ishftc4;
 extern GTY(()) tree gfor_fndecl_math_ishftc8;
+extern GTY(()) tree gfor_fndecl_math_ishftc16;
 extern GTY(()) tree gfor_fndecl_math_exponent4;
 extern GTY(()) tree gfor_fndecl_math_exponent8;
+extern GTY(()) tree gfor_fndecl_math_exponent10;
+extern GTY(()) tree gfor_fndecl_math_exponent16;
 
 /* String functions.  */
 extern GTY(()) tree gfor_fndecl_copy_string;
@@ -565,9 +570,79 @@ struct lang_decl		GTY(())
 #define gfc_todo_error(args...) fatal_error("gfc_todo: Not Implemented: " args)
 
 /* Build an expression with void type.  */
-#define build1_v(code, arg) build(code, void_type_node, arg)
+#define build1_v(code, arg) build1(code, void_type_node, arg)
 #define build2_v(code, arg1, arg2) build2(code, void_type_node, \
                                           arg1, arg2)
 #define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
                                                 arg1, arg2, arg3)
+
+/* This group of functions allows a caller to evaluate an expression from
+   the callee's interface.  It establishes a mapping between the interface's
+   dummy arguments and the caller's actual arguments, then applies that
+   mapping to a given gfc_expr.
+
+   You can initialize a mapping structure like so:
+
+       gfc_interface_mapping mapping;
+       ...
+       gfc_init_interface_mapping (&mapping);
+
+   You should then evaluate each actual argument into a temporary
+   gfc_se structure, here called "se", and map the result to the
+   dummy argument's symbol, here called "sym":
+
+       gfc_add_interface_mapping (&mapping, sym, &se);
+
+   After adding all mappings, you should call:
+
+       gfc_finish_interface_mapping (&mapping, pre, post);
+
+   where "pre" and "post" are statement blocks for initialization
+   and finalization code respectively.  You can then evaluate an
+   interface expression "expr" as follows:
+
+       gfc_apply_interface_mapping (&mapping, se, expr);
+
+   Once you've evaluated all expressions, you should free
+   the mapping structure with:
+
+       gfc_free_interface_mapping (&mapping); */
+
+
+/* This structure represents a mapping from OLD to NEW, where OLD is a
+   dummy argument symbol and NEW is a symbol that represents the value
+   of an actual argument.  Mappings are linked together using NEXT
+   (in no particular order).  */
+typedef struct gfc_interface_sym_mapping
+{
+  struct gfc_interface_sym_mapping *next;
+  gfc_symbol *old;
+  gfc_symtree *new;
+}
+gfc_interface_sym_mapping;
+
+
+/* This structure is used by callers to evaluate an expression from
+   a callee's interface.  */
+typedef struct gfc_interface_mapping
+{
+  /* Maps the interface's dummy arguments to the values that the caller
+     is passing.  The whole list is owned by this gfc_interface_mapping.  */
+  gfc_interface_sym_mapping *syms;
+
+  /* A list of gfc_charlens that were needed when creating copies of
+     expressions.  The whole list is owned by this gfc_interface_mapping.  */
+  gfc_charlen *charlens;
+}
+gfc_interface_mapping;
+
+void gfc_init_interface_mapping (gfc_interface_mapping *);
+void gfc_free_interface_mapping (gfc_interface_mapping *);
+void gfc_add_interface_mapping (gfc_interface_mapping *,
+				gfc_symbol *, gfc_se *);
+void gfc_finish_interface_mapping (gfc_interface_mapping *,
+				   stmtblock_t *, stmtblock_t *);
+void gfc_apply_interface_mapping (gfc_interface_mapping *,
+				  gfc_se *, gfc_expr *);
+
 #endif /* GFC_TRANS_H */

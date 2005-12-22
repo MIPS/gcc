@@ -1,7 +1,7 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 # Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -822,7 +822,7 @@ MISSING="${CONFIG_SHELL-/bin/sh} $srcdir/../missing"
 # that we can use it.
 gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.[2-9]*])
+  [4.[4-9]*])
 if test $gcc_cv_prog_makeinfo_modern = no; then
   MAKEINFO="$MISSING makeinfo"
   AC_MSG_WARN([
@@ -1797,13 +1797,9 @@ m4_pattern_allow([AS_FOR_TARGET])dnl
 elif test -x as$build_exeext; then
 	# Build using assembler in the current directory.
 	gcc_cv_as=./as$build_exeext
-elif test -x "$AS_FOR_TARGET"; then
-        gcc_cv_as="$AS_FOR_TARGET"
-elif test -x "$AS" && test x$host = x$target; then
-	gcc_cv_as="$AS"
 fi
 
-gcc_AC_CHECK_TOOL(gcc_cv_as, as, ORIGINAL_AS_FOR_TARGET)
+gcc_AC_CHECK_TOOL(gcc_cv_as, as, ORIGINAL_AS_FOR_TARGET, AS_FOR_TARGET, AS)
 AC_MSG_CHECKING(what assembler to use)
 case $in_tree_gas in
   yes)
@@ -1859,13 +1855,9 @@ changequote([,])dnl
 elif test -x collect-ld$build_exeext; then
 	# Build using linker in the current directory.
 	gcc_cv_ld=./collect-ld$build_exeext
-elif test -x "$LD_FOR_TARGET"; then
-        gcc_cv_ld="$LD_FOR_TARGET"
-elif test -x "$LD" && test x$host = x$target; then
-	gcc_cv_ld="$LD"
 fi
 
-gcc_AC_CHECK_TOOL(gcc_cv_ld, ld, ORIGINAL_LD_FOR_TARGET)
+gcc_AC_CHECK_TOOL(gcc_cv_ld, ld, ORIGINAL_LD_FOR_TARGET, LD_FOR_TARGET, LD)
 AC_MSG_CHECKING(what linker to use)
 case $in_tree_ld in
   yes)
@@ -1889,7 +1881,7 @@ elif test -x nm$build_exeext; then
 	gcc_cv_nm=./nm$build_exeext
 fi
 
-gcc_AC_CHECK_TOOL(gcc_cv_nm, nm, ORIGINAL_NM_FOR_TARGET)
+gcc_AC_CHECK_TOOL(gcc_cv_nm, nm, ORIGINAL_NM_FOR_TARGET, NM_FOR_TARGET, NM)
 AC_MSG_CHECKING(what nm to use)
 case $in_tree_nm in
   yes) AC_MSG_RESULT("newly built nm") ;;
@@ -1897,23 +1889,20 @@ case $in_tree_nm in
 esac
 
 # Figure out what objdump we will be using.
-AC_MSG_CHECKING(what objdump to use)
 in_tree_objdump=no
-if test -x objdump$build_exeext; then
-	gcc_cv_objdump=./objdump$build_exeext
-elif test -f $gcc_cv_binutils_srcdir/configure.in \
+gcc_cv_objdump=
+if test -f $gcc_cv_binutils_srcdir/configure.in \
      && test -f ../binutils/Makefile; then
 	# Single tree build which includes binutils.
 	in_tree_objdump=yes
 	gcc_cv_objdump=../binutils/objdump$build_exeext
-elif test "x$program_prefix" != xNONE; then
-	gcc_cv_objdump=${program_prefix}objdump$build_exeext
-elif test x$build != x$host && test x$build != x$target; then
-	gcc_cv_objdump=${target_noncanonical}-objdump$build_exeext
-else
-	gcc_cv_objdump=`echo objdump | \
-		sed "${program_transform_name}"`$build_exeext
+elif test -x objdump$build_exeext; then
+	gcc_cv_objdump=./objdump$build_exeext
 fi
+
+gcc_AC_CHECK_TOOL(gcc_cv_objdump, objdump, ORIGINAL_OBJDUMP_FOR_TARGET,
+		  OBJDUMP_FOR_TARGET, OBJDUMP)
+AC_MSG_CHECKING(what objdump to use)
 case $in_tree_objdump in
   yes) AC_MSG_RESULT("newly built objdump") ;;
   no)  AC_MSG_RESULT($gcc_cv_objdump) ;;
@@ -1957,6 +1946,11 @@ gcc_GAS_CHECK_FEATURE([.weak], gcc_cv_as_weak,
  [2,2,0],,
  [	.weak foobar],,
 [AC_DEFINE(HAVE_GAS_WEAK, 1, [Define if your assembler supports .weak.])])
+
+gcc_GAS_CHECK_FEATURE([.weakref], gcc_cv_as_weakref,
+ [2,17,0],,
+ [	.weakref foobar, barfnot],,
+[AC_DEFINE(HAVE_GAS_WEAKREF, 1, [Define if your assembler supports .weakref.])])
 
 gcc_GAS_CHECK_FEATURE([.nsubspa comdat], gcc_cv_as_nsubspa_comdat,
  [2,15,91],,
@@ -2246,6 +2240,19 @@ foo:	.long	25
 	tls_first_major=2
 	tls_first_minor=15
 	tls_as_opt=--fatal-warnings
+	;;
+  arm*-*-*)
+    conftest_s='
+	.section ".tdata","awT",%progbits
+foo:	.long	25
+	.text
+.word foo(gottpoff)
+.word foo(tpoff)
+.word foo(tlsgd)
+.word foo(tlsldm)
+.word foo(tlsldo)'
+	tls_first_major=2
+	tls_first_minor=17
 	;;
   i[34567]86-*-*)
     conftest_s='
@@ -2756,6 +2763,21 @@ foo:	nop
 	  [Define if your assembler supports popcntb field.])])
 
     case $target in
+      *-*-aix*) conftest_s='	.machine "pwr5x"
+	.csect .text[[PR]]
+	frin 1,1';;
+      *) conftest_s='	.machine power5
+	.text
+	frin 1,1';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([fp round support],
+      gcc_cv_as_powerpc_fprnd, [2,17,0],,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_FPRND, 1,
+	  [Define if your assembler supports fprnd.])])
+
+    case $target in
       *-*-aix*) conftest_s='	.csect .text[[PR]]
 LCF..0:
 	addis 11,30,_GLOBAL_OFFSET_TABLE_-LCF..0@ha';;
@@ -2783,7 +2805,14 @@ LCF0:
        then target_cpu_default=MASK_EXPLICIT_RELOCS
        else target_cpu_default="($target_cpu_default)|MASK_EXPLICIT_RELOCS"
        fi])
+    ;;
+esac
 
+# Mips and HP-UX need the GNU assembler.
+# Linux on IA64 might be able to use the Intel assembler.
+
+case "$target" in
+  mips*-*-* | *-*-hpux* )
     if test x$gas_flag = xyes \
        || test x"$host" != x"$build" \
        || test ! -x "$gcc_cv_as" \
@@ -2795,6 +2824,7 @@ LCF0:
     fi
     ;;
 esac
+
 # ??? Not all targets support dwarf2 debug_line, even within a version
 # of gas.  Moreover, we need to emit a valid instruction to trigger any
 # info to the output file.  So, as supported targets are added to gas 2.11,
@@ -2804,7 +2834,7 @@ esac
 case "$target" in
   i?86*-*-* | mips*-*-* | alpha*-*-* | powerpc*-*-* | sparc*-*-* | m68*-*-* \
   | x86_64*-*-* | hppa*-*-* | arm*-*-* | strongarm*-*-* | xscale*-*-* \
-  | xstormy16*-*-* | cris-*-* | xtensa-*-*)
+  | xstormy16*-*-* | cris-*-* | xtensa-*-* | bfin-*-*)
     insn="nop"
     ;;
   ia64*-*-* | s390*-*-*)
@@ -3225,8 +3255,8 @@ done
 
 rm -f Make-hooks
 touch Make-hooks
-target_list="all.build all.cross start.encap rest.encap tags \
-	install-normal install-common install-man \
+target_list="all.cross start.encap rest.encap tags \
+	install-common install-man \
 	uninstall info man srcextra srcman srcinfo \
 	mostlyclean clean distclean maintainer-clean \
 	stage1 stage2 stage3 stage4 stageprofile stagefeedback"

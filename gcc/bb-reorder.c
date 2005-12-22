@@ -1173,12 +1173,12 @@ copy_bb_p (basic_block bb, int code_may_grow)
     return false;
 
   if (code_may_grow && maybe_hot_bb_p (bb))
-    max_size *= 8;
+    max_size *= PARAM_VALUE (PARAM_MAX_GROW_COPY_BB_INSNS);
 
   FOR_BB_INSNS (bb, insn)
     {
       if (INSN_P (insn))
-	size += get_attr_length (insn);
+	size += get_attr_min_length (insn);
     }
 
   if (size <= max_size)
@@ -1205,7 +1205,7 @@ get_uncond_jump_length (void)
   label = emit_label_before (gen_label_rtx (), get_insns ());
   jump = emit_jump_insn (gen_jump (label));
 
-  length = get_attr_length (jump);
+  length = get_attr_min_length (jump);
 
   delete_insn (jump);
   delete_insn (label);
@@ -1739,7 +1739,8 @@ fix_crossing_unconditional_branches (void)
 	      for (cur_insn = indirect_jump_sequence; cur_insn;
 		   cur_insn = NEXT_INSN (cur_insn))
 		{
-		  BLOCK_FOR_INSN (cur_insn) = cur_bb;
+		  if (!BARRIER_P (cur_insn))
+		    BLOCK_FOR_INSN (cur_insn) = cur_bb;
 		  if (JUMP_P (cur_insn))
 		    jump_insn = cur_insn;
 		}
@@ -1893,7 +1894,7 @@ reorder_basic_blocks (unsigned int flags)
   int i;
   struct trace *traces;
 
-  if (n_basic_blocks <= 1)
+  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
     return;
 
   if (targetm.cannot_modify_jumps_p ())
@@ -1944,7 +1945,7 @@ reorder_basic_blocks (unsigned int flags)
    encountering this note will make the compiler switch between the
    hot and cold text sections.  */
 
-void
+static void
 insert_section_boundary_note (void)
 {
   basic_block bb;
@@ -1985,7 +1986,7 @@ duplicate_computed_gotos (void)
   bitmap candidates;
   int max_size;
 
-  if (n_basic_blocks <= 1)
+  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
     return;
 
   if (targetm.cannot_modify_jumps_p ())
@@ -2030,7 +2031,7 @@ duplicate_computed_gotos (void)
       FOR_BB_INSNS (bb, insn)
 	if (INSN_P (insn))
 	  {
-	    size += get_attr_length (insn);
+	    size += get_attr_min_length (insn);
 	    if (size > max_size)
 	       break;
 	  }
@@ -2168,7 +2169,7 @@ partition_hot_cold_basic_blocks (void)
   int n_crossing_edges;
   int max_edges = 2 * last_basic_block;
   
-  if (n_basic_blocks <= 1)
+  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
     return;
   
   crossing_edges = xcalloc (max_edges, sizeof (edge));
@@ -2176,8 +2177,8 @@ partition_hot_cold_basic_blocks (void)
   cfg_layout_initialize (0);
   
   FOR_EACH_BB (cur_bb)
-    if (cur_bb->index >= 0
- 	&& cur_bb->next_bb->index >= 0)
+    if (cur_bb->index >= NUM_FIXED_BLOCKS
+ 	&& cur_bb->next_bb->index >= NUM_FIXED_BLOCKS)
       cur_bb->aux = cur_bb->next_bb;
   
   find_rarely_executed_basic_blocks_and_crossing_edges (crossing_edges, 
@@ -2230,6 +2231,9 @@ rest_of_handle_reorder_blocks (void)
   if (changed && HAVE_conditional_execution)
     update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
                       PROP_DEATH_NOTES);
+
+  /* Add NOTE_INSN_SWITCH_TEXT_SECTIONS notes.  */
+  insert_section_boundary_note ();
 }
 
 struct tree_opt_pass pass_reorder_blocks =

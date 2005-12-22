@@ -38,7 +38,6 @@ exception statement from your version. */
 
 package javax.swing.plaf.basic;
 
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -49,13 +48,18 @@ import javax.swing.AbstractButton;
 import javax.swing.ButtonModel;
 import javax.swing.Icon;
 import javax.swing.InputMap;
+import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.LookAndFeel;
 import javax.swing.SwingUtilities;
-import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 import javax.swing.plaf.ButtonUI;
 import javax.swing.plaf.ComponentUI;
+import javax.swing.plaf.UIResource;
 
+/**
+ * A UI delegate for the {@link JButton} component.
+ */
 public class BasicButtonUI extends ButtonUI
 {
   /**
@@ -72,13 +76,11 @@ public class BasicButtonUI extends ButtonUI
 
   private int textShiftOffset;
 
-  private Color focusColor;
-
   /**
    * Factory method to create an instance of BasicButtonUI for a given
    * {@link JComponent}, which should be an {@link AbstractButton}.
    *
-   * @param c The component to create a UI got
+   * @param c The component.
    *
    * @return A new UI capable of drawing the component
    */
@@ -87,21 +89,46 @@ public class BasicButtonUI extends ButtonUI
     return new BasicButtonUI();
   }
 
+  /**
+   * Returns the default gap between the button's text and icon (in pixels).
+   * 
+   * @param b  the button (ignored).
+   * 
+   * @return The gap.
+   */
   public int getDefaultTextIconGap(AbstractButton b)
   {
     return defaultTextIconGap;
   }
 
+  /**
+   * Sets the text shift offset to zero.
+   * 
+   * @see #setTextShiftOffset()
+   */
   protected void clearTextShiftOffset()
   {
     textShiftOffset = 0;
   }
   
+  /**
+   * Returns the text shift offset.
+   * 
+   * @return The text shift offset.
+   * 
+   * @see #clearTextShiftOffset()
+   * @see #setTextShiftOffset()
+   */
   protected int getTextShiftOffset()
   {
     return textShiftOffset;
   }
 
+  /**
+   * Sets the text shift offset to the value in {@link #defaultTextShiftOffset}.
+   * 
+   * @see #clearTextShiftOffset()
+   */
   protected void setTextShiftOffset()
   {
     textShiftOffset = defaultTextShiftOffset;
@@ -115,26 +142,35 @@ public class BasicButtonUI extends ButtonUI
    */
   protected String getPropertyPrefix()
   {
-    return "Button";
+    return "Button.";
   }
 
+  /**
+   * Installs the default settings.
+   * 
+   * @param b  the button (<code>null</code> not permitted).
+   */
   protected void installDefaults(AbstractButton b)
   {
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
     String prefix = getPropertyPrefix();
-    focusColor = defaults.getColor(prefix + ".focus");
-    b.setForeground(defaults.getColor(prefix + ".foreground"));
-    b.setBackground(defaults.getColor(prefix + ".background"));
-    b.setMargin(defaults.getInsets(prefix + ".margin"));
-    b.setBorder(defaults.getBorder(prefix + ".border"));
-    b.setIconTextGap(defaults.getInt(prefix + ".textIconGap"));
+    LookAndFeel.installColorsAndFont(b, prefix + "background",
+                                     prefix + "foreground", prefix + "font");
+    LookAndFeel.installBorder(b, prefix + "border");
+    b.setMargin(UIManager.getInsets(prefix + "margin"));
+    b.setIconTextGap(UIManager.getInt(prefix + "textIconGap"));
     b.setInputMap(JComponent.WHEN_FOCUSED, 
-                  (InputMap) defaults.get(prefix + ".focusInputMap"));
-    b.setOpaque(true);
+                  (InputMap) UIManager.get(prefix + "focusInputMap"));
   }
 
+  /**
+   * Removes the defaults added by {@link #installDefaults(AbstractButton)}.
+   * 
+   * @param b  the button (<code>null</code> not permitted).
+   */
   protected void uninstallDefaults(AbstractButton b)
   {
+    if (b.getFont() instanceof UIResource)
+      b.setFont(null);
     b.setForeground(null);
     b.setBackground(null);
     b.setBorder(null);
@@ -144,11 +180,25 @@ public class BasicButtonUI extends ButtonUI
 
   protected BasicButtonListener listener;
 
+  /**
+   * Creates and returns a new instance of {@link BasicButtonListener}.  This
+   * method provides a hook to make it easy for subclasses to install a 
+   * different listener.
+   * 
+   * @param b  the button.
+   * 
+   * @return A new listener.
+   */
   protected BasicButtonListener createButtonListener(AbstractButton b)
   {
     return new BasicButtonListener(b);
   }
 
+  /**
+   * Installs listeners for the button.
+   * 
+   * @param b  the button (<code>null</code> not permitted).
+   */
   protected void installListeners(AbstractButton b)
   {
     listener = createButtonListener(b);
@@ -159,6 +209,11 @@ public class BasicButtonUI extends ButtonUI
     b.addMouseMotionListener(listener);
   }
 
+  /**
+   * Uninstalls listeners for the button.
+   * 
+   * @param b  the button (<code>null</code> not permitted).
+   */
   protected void uninstallListeners(AbstractButton b)
   {
     b.removeChangeListener(listener);
@@ -215,12 +270,12 @@ public class BasicButtonUI extends ButtonUI
     return d;
   }
 
-  private static Icon currentIcon(AbstractButton b)
+  static Icon currentIcon(AbstractButton b)
   {
     Icon i = b.getIcon();
     ButtonModel model = b.getModel();
 
-    if (model.isPressed() && b.getPressedIcon() != null)
+    if (model.isPressed() && b.getPressedIcon() != null && b.isEnabled())
       i = b.getPressedIcon();
 
     else if (model.isRollover())
@@ -231,7 +286,7 @@ public class BasicButtonUI extends ButtonUI
           i = b.getRolloverIcon();
       }    
 
-    else if (b.isSelected())
+    else if (b.isSelected() && b.isEnabled())
       {
         if (b.isEnabled() && b.getSelectedIcon() != null)
           i = b.getSelectedIcon();
@@ -264,7 +319,10 @@ public class BasicButtonUI extends ButtonUI
 
     g.setFont(f);
 
-    SwingUtilities.calculateInnerArea(b, vr);
+    if (b.isBorderPainted())
+      SwingUtilities.calculateInnerArea(b, vr);
+    else
+      vr = SwingUtilities.getLocalBounds(b);
     String text = SwingUtilities.layoutCompoundLabel(c, g.getFontMetrics(f), 
                                                      b.getText(),
                                                      currentIcon(b),
@@ -279,13 +337,12 @@ public class BasicButtonUI extends ButtonUI
     if ((b.getModel().isArmed() && b.getModel().isPressed()) 
         || b.isSelected())
       paintButtonPressed(g, b);
-    else
-      paintButtonNormal(g, vr, c);
 	
     paintIcon(g, c, ir);
     if (text != null)
       paintText(g, b, tr, text);
-    paintFocus(g, b, vr, tr, ir);
+    if (b.isFocusOwner() && b.isFocusPainted())
+      paintFocus(g, b, vr, tr, ir);
   }
 
   /**
@@ -306,15 +363,8 @@ public class BasicButtonUI extends ButtonUI
   protected void paintFocus(Graphics g, AbstractButton b, Rectangle vr,
                             Rectangle tr, Rectangle ir)
   {
-    if (b.hasFocus() && b.isFocusPainted())
-      {
-        Color saved_color = g.getColor();
-        g.setColor(focusColor);
-        Rectangle focusRect = ir.union(tr);
-        g.drawRect(focusRect.x, focusRect.y,
-                   focusRect.width, focusRect.height);
-        g.setColor(saved_color);
-      }
+    // In the BasicLookAndFeel no focus border is drawn. This can be
+    // overridden in subclasses to implement such behaviour.
   }
 
   /**
@@ -337,44 +387,25 @@ public class BasicButtonUI extends ButtonUI
 
   /**
    * Paints the background area of an {@link AbstractButton} in the pressed
-   * state.  This means filling the supplied area with the {@link
-   * pressedBackgroundColor}.
+   * state.  This means filling the supplied area with a darker than normal 
+   * background.
    *
    * @param g The graphics context to paint with
    * @param b The button to paint the state of
    */
   protected void paintButtonPressed(Graphics g, AbstractButton b)
   {
-    if (b.isContentAreaFilled())
+    if (b.isContentAreaFilled() && b.isOpaque())
       {
-	Rectangle area = new Rectangle();
-	SwingUtilities.calculateInnerArea(b, area);
-        g.setColor(b.getBackground().darker());
+        Rectangle area = new Rectangle();
+        SwingUtilities.calculateInnerArea(b, area);
+        g.setColor(UIManager.getColor(getPropertyPrefix() + "shadow"));
         g.fillRect(area.x, area.y, area.width, area.height);
       }
   }
     
   /**
-   * Paints the background area of an {@link AbstractButton} in the normal,
-   * non-pressed state.  This means filling the supplied area with the
-   * {@link normalBackgroundColor}.
-   *
-   * @param g The graphics context to paint with
-   * @param area The area in which to paint
-   * @param b The component to paint the state of
-   */
-  private void paintButtonNormal(Graphics g, Rectangle area, JComponent b)
-  {
-    if (((AbstractButton)b).isContentAreaFilled() && b.isOpaque())
-      {
-        g.setColor(b.getBackground());
-        g.fillRect(area.x, area.y, area.width, area.height);
-      }
-  }
-    
-  /**
-   * Paints the "text" property of an {@link AbstractButton}, using the
-   * {@link textColor} color.
+   * Paints the "text" property of an {@link AbstractButton}.
    *
    * @param g The graphics context to paint with
    * @param c The component to paint the state of
@@ -388,8 +419,7 @@ public class BasicButtonUI extends ButtonUI
   }
 
   /**
-   * Paints the "text" property of an {@link AbstractButton}, using the
-   * {@link textColor} color.
+   * Paints the "text" property of an {@link AbstractButton}.
    *
    * @param g The graphics context to paint with
    * @param b The button to paint the state of
@@ -407,15 +437,14 @@ public class BasicButtonUI extends ButtonUI
 
     if (b.isEnabled())
       {
-	g.setColor(b.getForeground());
-	g.drawString(text, textRect.x, textRect.y + fm.getAscent());
+        g.setColor(b.getForeground());
+        g.drawString(text, textRect.x, textRect.y + fm.getAscent());
       }
     else
       {
-	g.setColor(b.getBackground().brighter());
-	g.drawString(text, textRect.x, textRect.y + fm.getAscent());
-	g.setColor(b.getBackground().darker());
-	g.drawString(text, textRect.x + 1, textRect.y + fm.getAscent() + 1);
+        String prefix = getPropertyPrefix();
+        g.setColor(UIManager.getColor(prefix + "disabledText"));
+        g.drawString(text, textRect.x, textRect.y + fm.getAscent());
       }
   } 
 }

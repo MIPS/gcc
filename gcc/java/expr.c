@@ -192,10 +192,9 @@ java_truthvalue_conversion (tree expr)
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
-      return fold
-	       (build3 (COND_EXPR, boolean_type_node, TREE_OPERAND (expr, 0),
-			java_truthvalue_conversion (TREE_OPERAND (expr, 1)),
-			java_truthvalue_conversion (TREE_OPERAND (expr, 2))));
+      return fold_build3 (COND_EXPR, boolean_type_node, TREE_OPERAND (expr, 0),
+			  java_truthvalue_conversion (TREE_OPERAND (expr, 1)),
+			  java_truthvalue_conversion (TREE_OPERAND (expr, 2)));
 
     case NOP_EXPR:
       /* If this is widening the argument, we can ignore it.  */
@@ -205,8 +204,8 @@ java_truthvalue_conversion (tree expr)
       /* fall through to default */
 
     default:
-      return fold (build2 (NE_EXPR, boolean_type_node,
-			   expr, boolean_false_node));
+      return fold_build2 (NE_EXPR, boolean_type_node,
+			  expr, boolean_false_node);
     }
 }
 
@@ -350,6 +349,11 @@ pop_type_0 (tree type, char **messagep)
     return t;
   if (TREE_CODE (type) == POINTER_TYPE && TREE_CODE (t) == POINTER_TYPE)
     {
+      /* If the expected type we've been passed is object or ptr
+	 (i.e. void*), the caller needs to know the real type.  */
+      if (type == ptr_type_node || type == object_ptr_type_node)
+        return t;
+
       /* Since the verifier has already run, we know that any
 	 types we see will be compatible.  In BC mode, this fact
 	 may be checked at runtime, but if that is so then we can
@@ -724,7 +728,7 @@ build_java_jsr (int target_pc, int return_pc)
 {
   tree where =  lookup_label (target_pc);
   tree ret = lookup_label (return_pc);
-  tree ret_label = fold (build1 (ADDR_EXPR, return_address_type_node, ret));
+  tree ret_label = fold_build1 (ADDR_EXPR, return_address_type_node, ret);
   push_value (ret_label);
   flush_quick_stack ();
   java_add_stmt (build1 (GOTO_EXPR, void_type_node, where));
@@ -891,9 +895,9 @@ build_java_arrayaccess (tree array, tree type, tree index)
       tree test;
       tree len = convert (unsigned_int_type_node,
 			  build_java_array_length_access (array));
-      test = fold (build2 (GE_EXPR, boolean_type_node, 
-			   convert (unsigned_int_type_node, index),
-			   len));
+      test = fold_build2 (GE_EXPR, boolean_type_node, 
+			  convert (unsigned_int_type_node, index),
+			  len);
       if (! integer_zerop (test))
 	{
 	  throw = build2 (TRUTH_ANDIF_EXPR, int_type_node, test,
@@ -1185,7 +1189,7 @@ expand_java_arrayload (tree lhs_type_node)
 				      lhs_type_node,
 				      index_node);
   if (INTEGRAL_TYPE_P (lhs_type_node) && TYPE_PRECISION (lhs_type_node) <= 32)
-    load_node = fold (build1 (NOP_EXPR, int_type_node, load_node));
+    load_node = fold_build1 (NOP_EXPR, int_type_node, load_node);
   push_value (load_node);
 }
 
@@ -1308,10 +1312,10 @@ java_create_object (tree type)
 		     ? alloc_object_node
 		     : alloc_no_finalizer_node);
   
-  return build (CALL_EXPR, promote_type (type),
-		build_address_of (alloc_node),
-		build_tree_list (NULL_TREE, build_class_ref (type)),
-		NULL_TREE);
+  return build3 (CALL_EXPR, promote_type (type),
+		 build_address_of (alloc_node),
+		 build_tree_list (NULL_TREE, build_class_ref (type)),
+		 NULL_TREE);
 }
 
 static void
@@ -1446,7 +1450,7 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
   flush_quick_stack ();
   local_var = find_local_variable (local_var_index, int_type_node, pc);
   constant_value = build_int_cst (NULL_TREE, ival);
-  res = fold (build2 (PLUS_EXPR, int_type_node, local_var, constant_value));
+  res = fold_build2 (PLUS_EXPR, int_type_node, local_var, constant_value);
   java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (local_var), local_var, res));
   update_aliases (local_var, local_var_index, pc);
 }
@@ -1517,36 +1521,36 @@ build_java_binop (enum tree_code op, tree type, tree arg1, tree arg2)
     case RSHIFT_EXPR:
       mask = build_int_cst (NULL_TREE,
 			    TYPE_PRECISION (TREE_TYPE (arg1)) - 1);
-      arg2 = fold (build2 (BIT_AND_EXPR, int_type_node, arg2, mask));
+      arg2 = fold_build2 (BIT_AND_EXPR, int_type_node, arg2, mask);
       break;
 
     case COMPARE_L_EXPR:  /* arg1 > arg2 ?  1 : arg1 == arg2 ? 0 : -1 */
     case COMPARE_G_EXPR:  /* arg1 < arg2 ? -1 : arg1 == arg2 ? 0 :  1 */
       arg1 = save_expr (arg1);  arg2 = save_expr (arg2);
       {
-	tree ifexp1 = fold (build2 (op == COMPARE_L_EXPR ? GT_EXPR : LT_EXPR,
-				    boolean_type_node, arg1, arg2));
-	tree ifexp2 = fold (build2 (EQ_EXPR, boolean_type_node, arg1, arg2));
-	tree second_compare = fold (build3 (COND_EXPR, int_type_node,
-					    ifexp2, integer_zero_node,
-					    op == COMPARE_L_EXPR
-					    ? integer_minus_one_node
-					    : integer_one_node));
-	return fold (build3 (COND_EXPR, int_type_node, ifexp1,
-			     op == COMPARE_L_EXPR ? integer_one_node
-			     : integer_minus_one_node,
-			     second_compare));
+	tree ifexp1 = fold_build2 (op == COMPARE_L_EXPR ? GT_EXPR : LT_EXPR,
+				   boolean_type_node, arg1, arg2);
+	tree ifexp2 = fold_build2 (EQ_EXPR, boolean_type_node, arg1, arg2);
+	tree second_compare = fold_build3 (COND_EXPR, int_type_node,
+					   ifexp2, integer_zero_node,
+					   op == COMPARE_L_EXPR
+					   ? integer_minus_one_node
+					   : integer_one_node);
+	return fold_build3 (COND_EXPR, int_type_node, ifexp1,
+			    op == COMPARE_L_EXPR ? integer_one_node
+			    : integer_minus_one_node,
+			    second_compare);
       }
     case COMPARE_EXPR:
       arg1 = save_expr (arg1);  arg2 = save_expr (arg2);
       {
-	tree ifexp1 = fold (build2 (LT_EXPR, boolean_type_node, arg1, arg2));
-	tree ifexp2 = fold (build2 (GT_EXPR, boolean_type_node, arg1, arg2));
-	tree second_compare = fold (build3 (COND_EXPR, int_type_node,
-					    ifexp2, integer_one_node,
-					    integer_zero_node));
-	return fold (build3 (COND_EXPR, int_type_node,
-			     ifexp1, integer_minus_one_node, second_compare));
+	tree ifexp1 = fold_build2 (LT_EXPR, boolean_type_node, arg1, arg2);
+	tree ifexp2 = fold_build2 (GT_EXPR, boolean_type_node, arg1, arg2);
+	tree second_compare = fold_build3 (COND_EXPR, int_type_node,
+					   ifexp2, integer_one_node,
+					   integer_zero_node);
+	return fold_build3 (COND_EXPR, int_type_node,
+			    ifexp1, integer_minus_one_node, second_compare);
       }      
     case TRUNC_DIV_EXPR:
     case TRUNC_MOD_EXPR:
@@ -1577,7 +1581,7 @@ build_java_binop (enum tree_code op, tree type, tree arg1, tree arg2)
       break;
     default:  ;
     }
-  return fold (build2 (op, type, arg1, arg2));
+  return fold_build2 (op, type, arg1, arg2);
 }
 
 static void
@@ -1687,7 +1691,7 @@ build_field_ref (tree self_value, tree self_class, tree name)
 
       tree base_type = promote_type (base_class);
       if (base_type != TREE_TYPE (self_value))
-	self_value = fold (build1 (NOP_EXPR, base_type, self_value));
+	self_value = fold_build1 (NOP_EXPR, base_type, self_value);
       if (! flag_syntax_only && flag_indirect_dispatch)
 	{
 	  tree otable_index
@@ -1699,18 +1703,29 @@ build_field_ref (tree self_value, tree self_class, tree name)
 		      NULL_TREE, NULL_TREE);
 	  tree address;
 
+	  if (DECL_CONTEXT (field_decl) != output_class)
+	    field_offset
+	      = build3 (COND_EXPR, TREE_TYPE (field_offset),
+			build2 (EQ_EXPR, boolean_type_node,
+				field_offset, integer_zero_node),
+			build3 (CALL_EXPR, void_type_node, 
+				build_address_of (soft_nosuchfield_node),
+				build_tree_list (NULL_TREE, otable_index), 
+				NULL_TREE),
+			field_offset);
+	  
 	  field_offset = fold (convert (sizetype, field_offset));
 	  address 
-	    = fold (build2 (PLUS_EXPR, 
-			    build_pointer_type (TREE_TYPE (field_decl)),
-			    self_value, field_offset));
-	  return fold (build1 (INDIRECT_REF, TREE_TYPE (field_decl), address));
+	    = fold_build2 (PLUS_EXPR, 
+			   build_pointer_type (TREE_TYPE (field_decl)),
+			   self_value, field_offset);
+	  return fold_build1 (INDIRECT_REF, TREE_TYPE (field_decl), address);
 	}
 
       self_value = build_java_indirect_ref (TREE_TYPE (TREE_TYPE (self_value)),
 					    self_value, check);
-      return fold (build3 (COMPONENT_REF, TREE_TYPE (field_decl),
-			   self_value, field_decl, NULL_TREE));
+      return fold_build3 (COMPONENT_REF, TREE_TYPE (field_decl),
+			  self_value, field_decl, NULL_TREE);
     }
 }
 
@@ -1776,7 +1791,7 @@ expand_compare (enum tree_code condition, tree value1, tree value2,
 		int target_pc)
 {
   tree target = lookup_label (target_pc);
-  tree cond = fold (build2 (condition, boolean_type_node, value1, value2));
+  tree cond = fold_build2 (condition, boolean_type_node, value1, value2);
   java_add_stmt 
     (build3 (COND_EXPR, void_type_node, java_truthvalue_conversion (cond),
 	     build1 (GOTO_EXPR, void_type_node, target), 
@@ -2056,8 +2071,8 @@ build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
 	  method_index++;
 	}
       method_index *= int_size_in_bytes (method_type_node);
-      ref = fold (build2 (PLUS_EXPR, method_ptr_type_node,
-			  ref, build_int_cst (NULL_TREE, method_index)));
+      ref = fold_build2 (PLUS_EXPR, method_ptr_type_node,
+			 ref, build_int_cst (NULL_TREE, method_index));
       ref = build1 (INDIRECT_REF, method_type_node, ref);
       func = build3 (COMPONENT_REF, nativecode_ptr_type_node,
 		     ref, lookup_field (&method_type_node, ncode_ident),
@@ -2160,8 +2175,8 @@ build_invokevirtual (tree dtable, tree method)
 				   size_int (TARGET_VTABLE_USES_DESCRIPTORS));
     }
 
-  func = fold (build2 (PLUS_EXPR, nativecode_ptr_ptr_type_node, dtable,
-		       convert (nativecode_ptr_ptr_type_node, method_index)));
+  func = fold_build2 (PLUS_EXPR, nativecode_ptr_ptr_type_node, dtable,
+		      convert (nativecode_ptr_ptr_type_node, method_index));
 
   if (TARGET_VTABLE_USES_DESCRIPTORS)
     func = build1 (NOP_EXPR, nativecode_ptr_type_node, func);
@@ -2554,8 +2569,17 @@ build_jni_stub (tree method)
   /* If the JNI call returned a result, capture it here.  If we had to
      unwrap JNI object results, we would do that here.  */
   if (res_var != NULL_TREE)
-    call = build2 (MODIFY_EXPR, TREE_TYPE (TREE_TYPE (method)),
-		   res_var, call);
+    {
+      /* If the call returns an object, it may return a JNI weak
+	 reference, in which case we must unwrap it.  */
+      if (! JPRIMITIVE_TYPE_P (TREE_TYPE (TREE_TYPE (method))))
+	call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (method)),
+		       build_address_of (soft_unwrapjni_node),
+		       build_tree_list (NULL_TREE, call),
+		       NULL_TREE);
+      call = build2 (MODIFY_EXPR, TREE_TYPE (TREE_TYPE (method)),
+		     res_var, call);
+    }
 
   TREE_SIDE_EFFECTS (call) = 1;
   CAN_COMPLETE_NORMALLY (call) = 1;
@@ -3177,8 +3201,8 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
   }
 
 #define UNOP(OPERAND_TYPE, OPERAND_VALUE) \
-  push_value (fold (build1 (NEGATE_EXPR, OPERAND_TYPE##_type_node, \
-			    pop_value (OPERAND_TYPE##_type_node))));
+  push_value (fold_build1 (NEGATE_EXPR, OPERAND_TYPE##_type_node, \
+			   pop_value (OPERAND_TYPE##_type_node)));
 
 #define CONVERT2(FROM_TYPE, TO_TYPE)					 \
   {									 \

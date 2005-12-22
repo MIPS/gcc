@@ -323,11 +323,32 @@ pp_c_type_specifier (c_pretty_printer *pp, tree t)
 	{
 	  int prec = TYPE_PRECISION (t);
 	  t = c_common_type_for_mode (TYPE_MODE (t), TYPE_UNSIGNED (t));
-	  pp_c_type_specifier (pp, t);
-	  if (TYPE_PRECISION (t) != prec)
+	  if (TYPE_NAME (t))
 	    {
-	      pp_string (pp, ":");
+	      pp_c_type_specifier (pp, t);
+	      if (TYPE_PRECISION (t) != prec)
+		{
+		  pp_string (pp, ":");
+		  pp_decimal_int (pp, prec);
+		}
+	    }
+	  else
+	    {
+	      switch (code)
+		{
+		case INTEGER_TYPE:
+		  pp_string (pp, (TYPE_UNSIGNED (t)
+				  ? "<unnamed-unsigned:"
+				  : "<unnamed-signed:"));
+		  break;
+		case REAL_TYPE:
+		  pp_string (pp, "<unnamed-float:");
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
 	      pp_decimal_int (pp, prec);
+	      pp_string (pp, ">");
 	    }
 	}
       break;
@@ -890,6 +911,12 @@ pp_c_floating_constant (c_pretty_printer *pp, tree r)
     pp_character (pp, 'f');
   else if (TREE_TYPE (r) == long_double_type_node)
     pp_character (pp, 'l');
+  else if (TREE_TYPE (r) == dfloat128_type_node)
+    pp_string (pp, "dl");
+  else if (TREE_TYPE (r) == dfloat64_type_node)
+    pp_string (pp, "dd");
+  else if (TREE_TYPE (r) == dfloat32_type_node)
+    pp_string (pp, "df");
 }
 
 /* Pretty-print a compound literal expression.  GNU extensions include
@@ -1471,6 +1498,7 @@ pp_c_cast_expression (c_pretty_printer *pp, tree e)
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case CONVERT_EXPR:
+    case NOP_EXPR:
       pp_c_type_cast (pp, TREE_TYPE (e));
       pp_c_cast_expression (pp, TREE_OPERAND (e, 0));
       break;
@@ -1849,6 +1877,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case CONVERT_EXPR:
+    case NOP_EXPR:
       pp_c_cast_expression (pp, e);
       break;
 
@@ -1917,7 +1946,6 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       pp_c_right_paren (pp);
       break;
 
-    case NOP_EXPR:
     case NON_LVALUE_EXPR:
     case SAVE_EXPR:
       pp_expression (pp, TREE_OPERAND (e, 0));

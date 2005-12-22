@@ -248,9 +248,21 @@ extern void init_code_table (void);
    called.  */
 extern Node_Id error_gnat_node;
 
-/* This is equivalent to stabilize_reference in GCC's tree.c, but we know
-   how to handle our new nodes and we take an extra argument that says
-   whether to force evaluation of everything.  */
+/* This is equivalent to stabilize_reference in GCC's tree.c, but we know how
+   to handle our new nodes and we take extra arguments.
+
+   FORCE says whether to force evaluation of everything,
+
+   SUCCESS we set to true unless we walk through something we don't
+   know how to stabilize, or through something which is not an lvalue
+   and LVALUES_ONLY is true, in which cases we set to false.  */
+extern tree maybe_stabilize_reference (tree ref, bool force, bool lvalues_only,
+				       bool *success);
+
+/* Wrapper around maybe_stabilize_reference, for common uses without
+   lvalue restrictions and without need to examine the success
+   indication.  */
+
 extern tree gnat_stabilize_reference (tree ref, bool force);
 
 /* Highest number in the front-end node table.  */
@@ -612,6 +624,11 @@ extern tree build_vms_descriptor (tree type, Mechanism_Type mech,
 extern tree build_unc_object_type (tree template_type, tree object_type,
                                    tree name);
 
+/* Same as build_unc_object_type, but taking a thin or fat pointer type
+   instead of the template type. */
+extern tree build_unc_object_type_from_ptr (tree thin_fat_ptr_type,
+					    tree object_type, tree name);
+
 /* Update anything previously pointing to OLD_TYPE to point to NEW_TYPE.  In
    the normal case this is just two adjustments, but we have more to do
    if NEW is an UNCONSTRAINED_ARRAY_TYPE.  */
@@ -678,6 +695,9 @@ extern tree build_unary_op (enum tree_code op_code, tree result_type,
 extern tree build_cond_expr (tree result_type, tree condition_operand,
                              tree true_operand, tree false_operand);
 
+/* Similar, but for RETURN_EXPR.  */
+extern tree build_return_expr (tree result_decl, tree ret_val);
+
 /* Build a CALL_EXPR to call FUNDECL with one argument, ARG.  Return
    the CALL_EXPR.  */
 extern tree build_call_1_expr (tree fundecl, tree arg);
@@ -690,8 +710,12 @@ extern tree build_call_2_expr (tree fundecl, tree arg1, tree arg2);
 extern tree build_call_0_expr (tree fundecl);
 
 /* Call a function that raises an exception and pass the line number and file
-   name, if requested.  MSG says which exception function to call.  */
-extern tree build_call_raise (int msg);
+   name, if requested.  MSG says which exception function to call.
+
+   GNAT_NODE is the gnat node conveying the source location for which the
+   error should be signaled, or Empty in which case the error is signaled on
+   the current ref_file_name/input_line.  */
+extern tree build_call_raise (int msg, Node_Id gnat_node);
 
 /* Return a CONSTRUCTOR of TYPE whose list is LIST.  This is not the
    same as build_constructor in the language-independent tree.c.  */

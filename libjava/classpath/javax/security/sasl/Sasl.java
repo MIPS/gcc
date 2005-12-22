@@ -74,6 +74,8 @@ import javax.security.auth.callback.CallbackHandler;
  *      Sasl.createSaslServer(mechanism, protocol, serverName, props,
  *                            callbackHandler);
  * </pre>
+ *
+ * @since 1.5
  */
 public class Sasl
 {
@@ -448,7 +450,7 @@ public class Sasl
     HashSet names = new HashSet();
     Provider[] providers = Security.getProviders();
     Iterator it;
-    if (providers == null)
+    if (providers != null)
       {
         Provider p;
         String key;
@@ -640,7 +642,7 @@ public class Sasl
     HashSet names = new HashSet();
     Provider[] providers = Security.getProviders();
     Iterator it;
-    if (providers == null)
+    if (providers != null)
       {
         Provider p;
         String key;

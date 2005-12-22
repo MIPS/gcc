@@ -246,7 +246,7 @@ get_ssa_name_ann (tree name)
   if (!SSA_NAME_AUX (name))
     SSA_NAME_AUX (name) = xcalloc (1, sizeof (struct ssa_name_info));
 
-  return SSA_NAME_AUX (name);
+  return (struct ssa_name_info *) SSA_NAME_AUX (name);
 }
 
 
@@ -365,7 +365,7 @@ get_def_blocks_for (tree var)
   slot = htab_find_slot (def_blocks, (void *) &db, INSERT);
   if (*slot == NULL)
     {
-      db_p = xmalloc (sizeof (*db_p));
+      db_p = XNEW (struct def_blocks_d);
       db_p->var = var;
       db_p->def_blocks = BITMAP_ALLOC (NULL);
       db_p->phi_blocks = BITMAP_ALLOC (NULL);
@@ -532,7 +532,7 @@ add_to_repl_tbl (tree new, tree old)
   slot = htab_find_slot (repl_tbl, (void *) &m, INSERT);
   if (*slot == NULL)
     {
-      mp = xmalloc (sizeof (*mp));
+      mp = XNEW (struct repl_map_d);
       mp->name = new;
       mp->set = BITMAP_ALLOC (NULL);
       *slot = (void *) mp;
@@ -619,8 +619,7 @@ add_new_name_mapping (tree new, tree old)
       WALK_DATA->GLOBAL_DATA->KILLS.
 
    2- If S uses a variable VAR and there is no preceding kill of VAR,
-      then it is marked in marked in the LIVEIN_BLOCKS bitmap
-      associated with VAR.
+      then it is marked in the LIVEIN_BLOCKS bitmap associated with VAR.
 
    This information is used to determine which variables are live
    across block boundaries to reduce the number of PHI nodes
@@ -631,7 +630,8 @@ mark_def_sites (struct dom_walk_data *walk_data,
 		basic_block bb,
 		block_stmt_iterator bsi)
 {
-  struct mark_def_sites_global_data *gd = walk_data->global_data;
+  struct mark_def_sites_global_data *gd =
+     (struct mark_def_sites_global_data *) walk_data->global_data;
   bitmap kills = gd->kills;
   tree stmt, def;
   use_operand_p use_p;
@@ -1204,7 +1204,7 @@ def_blocks_eq (const void *p1, const void *p2)
 static void
 def_blocks_free (void *p)
 {
-  struct def_blocks_d *entry = p;
+  struct def_blocks_d *entry = (struct def_blocks_d *) p;
   BITMAP_FREE (entry->def_blocks);
   BITMAP_FREE (entry->phi_blocks);
   BITMAP_FREE (entry->livein_blocks);
@@ -1646,7 +1646,8 @@ static void
 mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
 				 basic_block bb ATTRIBUTE_UNUSED)
 {
-  struct mark_def_sites_global_data *gd = walk_data->global_data;
+  struct mark_def_sites_global_data *gd =
+     (struct mark_def_sites_global_data *) walk_data->global_data;
   bitmap kills = gd->kills;
   bitmap_clear (kills);
 }
@@ -1727,7 +1728,7 @@ mark_def_site_blocks (sbitmap interesting_blocks)
 
    4- Rename all the blocks (rewrite_blocks) and statements in the program.
 
-   Steps 3 and 5 are done using the dominator tree walker
+   Steps 3 and 4 are done using the dominator tree walker
    (walk_dominator_tree).  */
 
 static void
@@ -2745,7 +2746,7 @@ update_ssa (unsigned update_flags)
 
       /* If the caller requested PHI nodes to be added, compute
 	 dominance frontiers.  */
-      dfs = xmalloc (last_basic_block * sizeof (bitmap));
+      dfs = XNEWVEC (bitmap, last_basic_block);
       FOR_EACH_BB (bb)
 	dfs[bb->index] = BITMAP_ALLOC (NULL);
       compute_dominance_frontiers (dfs);

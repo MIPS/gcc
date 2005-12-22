@@ -113,26 +113,28 @@ cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
    clones or re-using node originally representing out-of-line function call.
    */
 void
-cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
+cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate, bool update_original)
 {
-  struct cgraph_node *n;
-
-  /* We may eliminate the need for out-of-line copy to be output.  In that
-     case just go ahead and re-use it.  */
-  if (!e->callee->callers->next_caller
-      && (!e->callee->needed || DECL_EXTERNAL (e->callee->decl))
-      && duplicate
-      && flag_unit_at_a_time)
+  if (duplicate)
     {
-      gcc_assert (!e->callee->global.inlined_to);
-      if (!DECL_EXTERNAL (e->callee->decl))
-        overall_insns -= e->callee->global.insns, nfunctions_inlined++;
-      duplicate = 0;
-    }
-   else if (duplicate)
-    {
-      n = cgraph_clone_node (e->callee, e->count, e->loop_nest, true);
-      cgraph_redirect_edge_callee (e, n);
+      /* We may eliminate the need for out-of-line copy to be output.
+	 In that case just go ahead and re-use it.  */
+      if (!e->callee->callers->next_caller
+	  && !e->callee->needed
+	  && flag_unit_at_a_time)
+	{
+	  gcc_assert (!e->callee->global.inlined_to);
+	  if (DECL_SAVED_TREE (e->callee->decl))
+	    overall_insns -= e->callee->global.insns, nfunctions_inlined++;
+	  duplicate = false;
+	}
+      else
+	{
+	  struct cgraph_node *n;
+	  n = cgraph_clone_node (e->callee, e->count, e->loop_nest, 
+				 update_original);
+	  cgraph_redirect_edge_callee (e, n);
+	}
     }
 
   if (e->caller->global.inlined_to)
@@ -143,13 +145,15 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
   /* Recursively clone all bodies.  */
   for (e = e->callee->callees; e; e = e->next_callee)
     if (!e->inline_failed)
-      cgraph_clone_inlined_nodes (e, duplicate);
+      cgraph_clone_inlined_nodes (e, duplicate, update_original);
 }
 
-/* Mark edge E as inlined and update callgraph accordingly.  */
+/* Mark edge E as inlined and update callgraph accordingly. 
+   UPDATE_ORIGINAL specify whether profile of original function should be
+   updated. */
 
 void
-cgraph_mark_inline_edge (struct cgraph_edge *e)
+cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original)
 {
   int old_insns = 0, new_insns = 0;
   struct cgraph_node *to = NULL, *what;
@@ -161,7 +165,7 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
     DECL_POSSIBLY_INLINED (e->callee->decl) = true;
   e->callee->global.inlined = true;
 
-  cgraph_clone_inlined_nodes (e, true);
+  cgraph_clone_inlined_nodes (e, true, update_original);
 
   what = e->callee;
 
@@ -200,7 +204,7 @@ cgraph_mark_inline (struct cgraph_edge *edge)
       next = e->next_caller;
       if (e->caller == to && e->inline_failed)
 	{
-          cgraph_mark_inline_edge (e);
+          cgraph_mark_inline_edge (e, true);
 	  if (e == edge)
 	    edge = next;
 	  times++;
@@ -520,7 +524,7 @@ cgraph_flatten_node (struct cgraph_node *node, htab_t cycles)
 	{
 	  if (dump_file)
     	    fprintf (dump_file, " inlining %s", cgraph_node_name (e->callee));
-          cgraph_mark_inline_edge (e);
+          cgraph_mark_inline_edge (e, true);
 	  cgraph_flatten_node (e->callee, cycles);
 	}
       else if (dump_file)
@@ -571,7 +575,7 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
   master_clone->needed = true;
   for (e = master_clone->callees; e; e = e->next_callee)
     if (!e->inline_failed)
-      cgraph_clone_inlined_nodes (e, true);
+      cgraph_clone_inlined_nodes (e, true, false);
 
   /* Do the inlining and update list of recursive call during process.  */
   while (!fibheap_empty (heap)
@@ -623,7 +627,7 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
 	  fprintf (dump_file, "\n");
 	}
       cgraph_redirect_edge_callee (curr, master_clone);
-      cgraph_mark_inline_edge (curr);
+      cgraph_mark_inline_edge (curr, false);
       lookup_recursive_calls (node, curr->callee, heap);
       n++;
     }
@@ -648,7 +652,7 @@ cgraph_decide_recursive_inlining (struct cgraph_node *node)
      function.  At this place we should probably walk the function and
      inline clones and compensate the counts accordingly.  This probably
      doesn't matter much in practice.  */
-  return true;
+  return n > 0;
 }
 
 /* Set inline_failed for all callers of given function to REASON.  */
@@ -720,11 +724,13 @@ cgraph_decide_inlining_of_small_functions (void)
       if (dump_file)
 	{
 	  fprintf (dump_file, 
-		   "\nConsidering %s with %i insns to be inlined into %s\n"
+		   "\nConsidering %s with %i insns\n",
+		   cgraph_node_name (edge->callee),
+		   edge->callee->global.insns);
+	  fprintf (dump_file, 
+		   " to be inlined into %s\n"
 		   " Estimated growth after inlined into all callees is %+i insns.\n"
 		   " Estimated badness is %i.\n",
-		   cgraph_node_name (edge->callee),
-		   edge->callee->global.insns,
 		   cgraph_node_name (edge->caller),
 		   cgraph_estimate_growth (edge->callee),
 		   cgraph_edge_badness (edge));
@@ -808,7 +814,7 @@ cgraph_decide_inlining_of_small_functions (void)
 	      continue;
 	    }
 	  callee = edge->callee;
-	  cgraph_mark_inline_edge (edge);
+	  cgraph_mark_inline_edge (edge, true);
 	  update_callee_keys (heap, callee, updated_nodes);
 	}
       where = edge->caller;
@@ -825,14 +831,14 @@ cgraph_decide_inlining_of_small_functions (void)
       bitmap_clear (updated_nodes);
 
       if (dump_file)
-	fprintf (dump_file, 
-		 " Inlined into %s which now has %i insns.\n",
-		 cgraph_node_name (edge->caller),
-		 edge->caller->global.insns);
-      if (dump_file)
-	fprintf (dump_file, 
-		 " Inlined for a net change of %+i insns.\n",
-		 overall_insns - old_insns);
+	{
+	  fprintf (dump_file, 
+		   " Inlined into %s which now has %i insns,"
+		   "net change of %+i insns.\n",
+		   cgraph_node_name (edge->caller),
+		   edge->caller->global.insns,
+		   overall_insns - old_insns);
+	}
     }
   while ((edge = fibheap_extract_min (heap)) != NULL)
     {
@@ -873,7 +879,11 @@ cgraph_decide_inlining (void)
   overall_insns = initial_insns;
   gcc_assert (!max_count || (profile_info && flag_branch_probabilities));
 
-  max_insns = ((HOST_WIDEST_INT) overall_insns
+  max_insns = overall_insns;
+  if (max_insns < PARAM_VALUE (PARAM_LARGE_UNIT_INSNS))
+    max_insns = PARAM_VALUE (PARAM_LARGE_UNIT_INSNS);
+
+  max_insns = ((HOST_WIDEST_INT) max_insns
 	       * (100 + PARAM_VALUE (PARAM_INLINE_UNIT_GROWTH)) / 100);
 
   nnodes = cgraph_postorder (order);
@@ -930,7 +940,7 @@ cgraph_decide_inlining (void)
 	  if (cgraph_recursive_inlining_p (e->caller, e->callee,
 				  	   &e->inline_failed))
 	    continue;
-	  cgraph_mark_inline_edge (e);
+	  cgraph_mark_inline_edge (e, true);
 	  if (dump_file)
 	    fprintf (dump_file, 
 		     " Inlined into %s which now has %i insns.\n",
@@ -974,12 +984,15 @@ cgraph_decide_inlining (void)
 	      if (ok)
 		{
 		  if (dump_file)
-		    fprintf (dump_file,
-			     "\nConsidering %s %i insns.\n"
-			     " Called once from %s %i insns.\n",
-			     cgraph_node_name (node), node->global.insns,
-			     cgraph_node_name (node->callers->caller),
-			     node->callers->caller->global.insns);
+		    {
+		      fprintf (dump_file,
+			       "\nConsidering %s %i insns.\n",
+			       cgraph_node_name (node), node->global.insns);
+		      fprintf (dump_file,
+			       " Called once from %s %i insns.\n",
+			       cgraph_node_name (node->callers->caller),
+			       node->callers->caller->global.insns);
+		    }
 
 		  old_insns = overall_insns;
 
@@ -1036,8 +1049,11 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node, bool early)
 	&& DECL_SAVED_TREE (e->callee->decl))
       {
         if (dump_file && early)
-          fprintf (dump_file, "  Early inlining %s into %s\n",
-		   cgraph_node_name (e->callee), cgraph_node_name (node));
+	  {
+	    fprintf (dump_file, "  Early inlining %s",
+		     cgraph_node_name (e->callee));
+	    fprintf (dump_file, " into %s\n", cgraph_node_name (node));
+	  }
 	cgraph_mark_inline (e);
 	inlined = true;
       }
@@ -1058,8 +1074,11 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node, bool early)
 	  if (cgraph_default_inline_p (e->callee, &failed_reason))
 	    {
 	      if (dump_file && early)
-                fprintf (dump_file, "  Early inlining %s into %s\n",
-			 cgraph_node_name (e->callee), cgraph_node_name (node));
+		{
+		  fprintf (dump_file, "  Early inlining %s",
+			   cgraph_node_name (e->callee));
+		  fprintf (dump_file, " into %s\n", cgraph_node_name (node));
+		}
 	      cgraph_mark_inline (e);
 	      inlined = true;
 	    }

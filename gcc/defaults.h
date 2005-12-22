@@ -166,6 +166,27 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #endif
 #endif
 
+/* This is how we tell the assembler that a symbol is a weak alias to
+   another symbol that doesn't require the other symbol to be defined.
+   Uses of the former will turn into weak uses of the latter, i.e.,
+   uses that, in case the latter is undefined, will not cause errors,
+   and will add it to the symbol table as weak undefined.  However, if
+   the latter is referenced directly, a strong reference prevails.  */
+#ifndef ASM_OUTPUT_WEAKREF
+#if defined HAVE_GAS_WEAKREF
+#define ASM_OUTPUT_WEAKREF(FILE, DECL, NAME, VALUE)			\
+  do									\
+    {									\
+      fprintf ((FILE), "\t.weakref\t");					\
+      assemble_name ((FILE), (NAME));					\
+      fprintf ((FILE), ",");						\
+      assemble_name ((FILE), (VALUE));					\
+      fprintf ((FILE), "\n");						\
+    }									\
+  while (0)
+#endif
+#endif
+
 /* How to emit a .type directive.  */
 #ifndef ASM_OUTPUT_TYPE_DIRECTIVE
 #if defined TYPE_ASM_OP && defined TYPE_OPERAND_FMT
@@ -408,6 +429,18 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #ifndef LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE (BITS_PER_WORD * 2)
+#endif
+
+#ifndef DECIMAL32_TYPE_SIZE
+#define DECIMAL32_TYPE_SIZE 32
+#endif 
+
+#ifndef DECIMAL64_TYPE_SIZE 
+#define DECIMAL64_TYPE_SIZE 64
+#endif 
+
+#ifndef DECIMAL128_TYPE_SIZE
+#define DECIMAL128_TYPE_SIZE 128
 #endif
 
 /* Width in bits of a pointer.  Mind the value of the macro `Pmode'.  */
@@ -673,6 +706,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #ifndef TARGET_FLT_EVAL_METHOD
 #define TARGET_FLT_EVAL_METHOD 0
+#endif
+
+#ifndef TARGET_DEC_EVAL_METHOD
+#define TARGET_DEC_EVAL_METHOD 2
 #endif
 
 #ifndef HOT_TEXT_SECTION_NAME

@@ -355,6 +355,9 @@
 /* Define to 1 if you have the `tanl' function. */
 #undef HAVE_TANL
 
+/* Define to 1 if the target supports thread-local storage. */
+#undef HAVE_TLS
+
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
@@ -667,7 +670,7 @@
 /* Define if the compiler is configured for setjmp/longjmp exceptions. */
 #undef _GLIBCXX_SJLJ_EXCEPTIONS
 
-/* Define to use symbol versioning in the shared library. */
+/* Define to use GNU symbol versioning in the shared library. */
 #undef _GLIBCXX_SYMVER
 
 /* Define if C99 functions or macros from <wchar.h>, <math.h>, <complex.h>,

@@ -30,7 +30,12 @@
 #define TARGET_UNWIND_INFO 1
 
 /* Section 4.1 of the AAPCS requires the use of VFP format.  */
+#undef FPUTYPE_DEFAULT
 #define FPUTYPE_DEFAULT FPUTYPE_VFP
+
+/* EABI targets should enable interworking by default.  */
+#undef TARGET_DEFAULT
+#define TARGET_DEFAULT MASK_INTERWORK
 
 /* The ARM BPABI functions return a boolean; they use no special
    calling convention.  */
@@ -41,7 +46,7 @@
 
 /* Tell the assembler to build BPABI binaries.  */
 #undef SUBTARGET_EXTRA_ASM_SPEC
-#define SUBTARGET_EXTRA_ASM_SPEC "-meabi=4"
+#define SUBTARGET_EXTRA_ASM_SPEC "%{mabi=apcs-gnu|mabi=atpcs:-meabi=gnu;:-meabi=4}"
 
 /* The generic link spec in elf.h does not support shared libraries.  */
 #undef LINK_SPEC
@@ -101,6 +106,7 @@
     }							\
   while (false)
 
+#undef TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS() \
   TARGET_BPABI_CPP_BUILTINS()
 

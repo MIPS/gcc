@@ -510,6 +510,46 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
       }
       break;
 
+    case TRUTH_AND_EXPR:
+      /* High branch cost, expand as the bitwise AND of the conditions.
+	 Do the same if the RHS has side effects, because we're effectively
+	 turning a TRUTH_AND_EXPR into a TRUTH_ANDIF_EXPR.  */
+      if (BRANCH_COST >= 4 || TREE_SIDE_EFFECTS (TREE_OPERAND (exp, 1)))
+	goto normal;
+
+      if (if_false_label == NULL_RTX)
+        {
+	  drop_through_label = gen_label_rtx ();
+          do_jump (TREE_OPERAND (exp, 0), drop_through_label, NULL_RTX);
+          do_jump (TREE_OPERAND (exp, 1), NULL_RTX, if_true_label);
+	}
+      else
+	{
+	  do_jump (TREE_OPERAND (exp, 0), if_false_label, NULL_RTX);
+          do_jump (TREE_OPERAND (exp, 1), if_false_label, if_true_label);
+	}
+      break;
+
+    case TRUTH_OR_EXPR:
+      /* High branch cost, expand as the bitwise OR of the conditions.
+	 Do the same if the RHS has side effects, because we're effectively
+	 turning a TRUTH_OR_EXPR into a TRUTH_ORIF_EXPR.  */
+      if (BRANCH_COST >= 4 || TREE_SIDE_EFFECTS (TREE_OPERAND (exp, 1)))
+	goto normal;
+
+      if (if_true_label == NULL_RTX)
+	{
+          drop_through_label = gen_label_rtx ();
+          do_jump (TREE_OPERAND (exp, 0), NULL_RTX, drop_through_label);
+          do_jump (TREE_OPERAND (exp, 1), if_false_label, NULL_RTX);
+	}
+      else
+	{
+          do_jump (TREE_OPERAND (exp, 0), NULL_RTX, if_true_label);
+          do_jump (TREE_OPERAND (exp, 1), if_false_label, if_true_label);
+	}
+      break;
+
       /* Special case:
           __builtin_expect (<test>, 0)	and
           __builtin_expect (<test>, 1)
@@ -540,8 +580,8 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 	      }
 	  }
       }
+ 
       /* Fall through and generate the normal code.  */
-
     default:
     normal:
       temp = expand_expr (exp, NULL_RTX, VOIDmode, 0);

@@ -654,9 +654,8 @@ dump_align_info (FILE *file)
       tree var = referenced_var (i);
       if (POINTER_TYPE_P (TREE_TYPE (var)))
 	{
-	  var_ann_t ann = var_ann (var);
-	  if (ann->default_def)
-	    dump_align_info_for (file, ann->default_def);
+	  if (default_def (var))
+	    dump_align_info_for (file, default_def (var));
 	}
     }
 

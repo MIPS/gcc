@@ -55,8 +55,7 @@ import java.awt.Insets;
  *
  * @author Sascha Brawer (brawer@dandelis.ch)
  */
-public class BevelBorder
-  extends AbstractBorder
+public class BevelBorder extends AbstractBorder
 {
   /**
    * Determined using the <code>serialver</code> tool
@@ -172,7 +171,7 @@ public class BevelBorder
    * @throws NullPointerException if <code>highlight</code> or
    *         <code>shadow</code> is <code>null</code>.
    *
-   * @see java.awt.Color.brighter()
+   * @see java.awt.Color#brighter()
    */
   public BevelBorder(int bevelType, Color highlight, Color shadow)
   {
@@ -289,7 +288,7 @@ public class BevelBorder
    *
    * @return the same object that was passed for <code>insets</code>.
    *
-   * @see #getBorderInsets()
+   * @see #getBorderInsets(Component)
    */
   public Insets getBorderInsets(Component c, Insets insets)
   {
@@ -508,11 +507,11 @@ public class BevelBorder
    * Paints a two-pixel bevel in four colors.
    * 
    * <pre>
-   * @@@@@@@@@@@@
-   * @..........#    @ = color a
-   * @.        X#    . = color b
-   * @.        X#    X = color c
-   * @.XXXXXXXXX#    # = color d
+   * ++++++++++++
+   * +..........#    + = color a
+   * +.        X#    . = color b
+   * +.        X#    X = color c
+   * +.XXXXXXXXX#    # = color d
    * ############</pre>
    *
    * @param g the graphics for painting.

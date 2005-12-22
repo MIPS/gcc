@@ -531,7 +531,7 @@ compute_branch_probabilities (void)
 	{
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    e->probability = (e->count * REG_BR_PROB_BASE + bb->count / 2) / bb->count;
-	  if (bb->index >= 0
+	  if (bb->index >= NUM_FIXED_BLOCKS
 	      && block_ends_with_condjump_p (bb)
 	      && EDGE_COUNT (bb->succs) >= 2)
 	    {
@@ -609,7 +609,7 @@ compute_branch_probabilities (void)
 	      FOR_EACH_EDGE (e, ei, bb->succs)
 		e->probability = REG_BR_PROB_BASE / total;
 	    }
-	  if (bb->index >= 0
+	  if (bb->index >= NUM_FIXED_BLOCKS
 	      && block_ends_with_condjump_p (bb)
 	      && EDGE_COUNT (bb->succs) >= 2)
 	    num_branches++, num_never_executed;
@@ -704,7 +704,9 @@ compute_value_histograms (histogram_values values)
       free (histogram_counts[t]);
 }
 
-#define BB_TO_GCOV_INDEX(bb)  ((bb)->index + 1)
+/* The entry basic block will be moved around so that it has index=1,
+   there is nothing at index 0 and the exit is at n_basic_block.  */
+#define BB_TO_GCOV_INDEX(bb)  ((bb)->index - 1)
 /* When passed NULL as file_name, initialize.
    When passed something else, output the necessary commands to change
    line to LINE and offset to FILE_NAME.  */
@@ -806,13 +808,27 @@ branch_prob (void)
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
-	  tree last = last_stmt (bb);
+	  block_stmt_iterator bsi;
+	  tree last = NULL;
+
+	  /* It may happen that there are compiler generated statements
+	     without a locus at all.  Go through the basic block from the
+	     last to the first statement looking for a locus.  */
+	  for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
+	    {
+	      last = bsi_stmt (bsi);
+	      if (EXPR_LOCUS (last))
+		break;
+	    }
+
 	  /* Edge with goto locus might get wrong coverage info unless
 	     it is the only edge out of BB.   
 	     Don't do that when the locuses match, so 
 	     if (blah) goto something;
 	     is not computed twice.  */
-	  if (e->goto_locus && !single_succ_p (bb)
+	  if (last && EXPR_LOCUS (last)
+	      && e->goto_locus
+	      && !single_succ_p (bb)
 #ifdef USE_MAPPED_LOCATION
 	      && (LOCATION_FILE (e->goto_locus)
 	          != LOCATION_FILE (EXPR_LOCATION  (last))
@@ -820,8 +836,7 @@ branch_prob (void)
 		      != LOCATION_LINE (EXPR_LOCATION  (last)))))
 #else
 	      && (e->goto_locus->file != EXPR_LOCUS (last)->file
-		  || (e->goto_locus->line
-		      != EXPR_LOCUS (last)->line)))
+		  || (e->goto_locus->line != EXPR_LOCUS (last)->line)))
 #endif
 	    {
 	      basic_block new = split_edge (e);
@@ -904,7 +919,7 @@ branch_prob (void)
 	num_instrumented++;
     }
 
-  total_num_blocks += n_basic_blocks + 2;
+  total_num_blocks += n_basic_blocks;
   if (dump_file)
     fprintf (dump_file, "%d basic blocks\n", n_basic_blocks);
 
@@ -925,7 +940,7 @@ branch_prob (void)
       gcov_position_t offset;
 
       offset = gcov_write_tag (GCOV_TAG_BLOCKS);
-      for (i = 0; i != (unsigned) (n_basic_blocks + 2); i++)
+      for (i = 0; i != (unsigned) (n_basic_blocks); i++)
 	gcov_write_unsigned (0);
       gcov_write_length (offset);
     }
@@ -933,7 +948,7 @@ branch_prob (void)
    /* Keep all basic block indexes nonnegative in the gcov output.
       Index 0 is used for entry block, last index is for exit block.
       */
-  ENTRY_BLOCK_PTR->index = -1;
+  ENTRY_BLOCK_PTR->index = 1;
   EXIT_BLOCK_PTR->index = last_basic_block;
 
   /* Arcs */

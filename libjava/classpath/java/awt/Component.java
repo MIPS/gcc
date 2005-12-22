@@ -587,6 +587,7 @@ public abstract class Component
    */
   protected Component()
   {
+    // Nothing to do here.
   }
 
   /**
@@ -720,8 +721,9 @@ public abstract class Component
 
   /**
    * Tests if the component is displayable. It must be connected to a native
-   * screen resource, and all its ancestors must be displayable. A containment
-   * hierarchy is made displayable when a window is packed or made visible.
+   * screen resource.  This reduces to checking that peer is not null.  A 
+   * containment  hierarchy is made displayable when a window is packed or 
+   * made visible.
    *
    * @return true if the component is displayable
    * @see Container#add(Component)
@@ -733,9 +735,7 @@ public abstract class Component
    */
   public boolean isDisplayable()
   {
-    if (parent != null)
-      return parent.isDisplayable();
-    return false;
+    return peer != null;
   }
 
   /**
@@ -763,7 +763,7 @@ public abstract class Component
     if (! visible || peer == null)
       return false;
 
-    return parent == null ? true : parent.isShowing();
+    return parent == null ? false : parent.isShowing();
   }
 
   /**
@@ -897,9 +897,22 @@ public abstract class Component
     if(!isVisible())
       {
         this.visible = true;
-        if (peer != null)
-          peer.setVisible(true);
-        invalidate();
+        // Avoid NullPointerExceptions by creating a local reference.
+        ComponentPeer currentPeer=peer;
+        if (currentPeer != null)
+            currentPeer.setVisible(true);
+
+        // The JDK repaints the component before invalidating the parent.
+        // So do we.
+        if (isShowing())
+          repaint();
+        // Invalidate the parent if we have one. The component itself must
+        // not be invalidated. We also avoid NullPointerException with
+        // a local reference here.
+        Container currentParent = parent;
+        if (currentParent != null)
+          currentParent.invalidate();
+
         ComponentEvent ce =
           new ComponentEvent(this,ComponentEvent.COMPONENT_SHOWN);
         getToolkit().getSystemEventQueue().postEvent(ce);
@@ -930,10 +943,24 @@ public abstract class Component
   {
     if (isVisible())
       {
-        if (peer != null)
-          peer.setVisible(false);
+        // Avoid NullPointerExceptions by creating a local reference.
+        ComponentPeer currentPeer=peer;
+        if (currentPeer != null)
+            currentPeer.setVisible(false);
+        boolean wasShowing = isShowing();
         this.visible = false;
-        invalidate();
+
+        // The JDK repaints the component before invalidating the parent.
+        // So do we.
+        if (wasShowing)
+          repaint();
+        // Invalidate the parent if we have one. The component itself must
+        // not be invalidated. We also avoid NullPointerException with
+        // a local reference here.
+        Container currentParent = parent;
+        if (currentParent != null)
+          currentParent.invalidate();
+
         ComponentEvent ce =
           new ComponentEvent(this,ComponentEvent.COMPONENT_HIDDEN);
         getToolkit().getSystemEventQueue().postEvent(ce);
@@ -951,7 +978,7 @@ public abstract class Component
   {
     if (foreground != null)
       return foreground;
-    return parent == null ? SystemColor.windowText : parent.getForeground();
+    return parent == null ? null : parent.getForeground();
   }
 
   /**
@@ -963,10 +990,12 @@ public abstract class Component
    */
   public void setForeground(Color c)
   {
-    firePropertyChange("foreground", foreground, c);
     if (peer != null)
       peer.setForeground(c);
+    
+    Color previous = foreground;
     foreground = c;
+    firePropertyChange("foreground", previous, c);
   }
 
   /**
@@ -992,7 +1021,7 @@ public abstract class Component
   {
     if (background != null)
       return background;
-    return parent == null ? SystemColor.window : parent.getBackground();
+    return parent == null ? null : parent.getBackground();
   }
 
   /**
@@ -1006,16 +1035,18 @@ public abstract class Component
   public void setBackground(Color c)
   {
     // return if the background is already set to that color.
-    if (background != null && c != null)
-      if (background.equals(c))
-	return;
+    if ((c != null) && c.equals(background))
+      return;
+
     // If c is null, inherit from closest ancestor whose bg is set.
     if (c == null && parent != null)
       c = parent.getBackground();
-    firePropertyChange("background", background, c);
     if (peer != null && c != null)
       peer.setBackground(c);
+    
+    Color previous = background;
     background = c;
+    firePropertyChange("background", previous, c);
   }
 
   /**
@@ -1039,13 +1070,16 @@ public abstract class Component
    */
   public Font getFont()
   {
-    if (font != null)
-      return font;
+    Font f = font;
+    if (f != null)
+      return f;
 
-    if (parent != null)
-      return parent.getFont ();
-    else
-      return new Font ("Dialog", Font.PLAIN, 12);
+    Component p = parent;
+    if (p != null)
+      return p.getFont();
+    if (peer != null)
+      return peer.getGraphics().getFont();
+    return null;
   }
 
   /**
@@ -1058,15 +1092,16 @@ public abstract class Component
    */
   public void setFont(Font newFont)
   {
-    if (font == newFont)
-      return;
-    
-    Font oldFont = font;
-    font = newFont;
-    if (peer != null)
-      peer.setFont(font);
-    firePropertyChange("font", oldFont, newFont);
-    invalidate();
+    if((newFont != null && (font == null || !font.equals(newFont)))
+       || newFont == null)
+      {
+        Font oldFont = font;
+        font = newFont;
+        if (peer != null)
+          peer.setFont(font);
+        firePropertyChange("font", oldFont, newFont);
+        invalidate();
+      }
   }
 
   /**
@@ -1370,28 +1405,18 @@ public abstract class Component
       peer.setBounds (x, y, width, height);
 
     // Erase old bounds and repaint new bounds for lightweights.
-    if (isLightweight() && isShowing ())
+    if (isLightweight() && isShowing())
       {
-        boolean shouldRepaintParent = false;
-        boolean shouldRepaintSelf = false;
-
         if (parent != null)
           {
-            Rectangle parentBounds = parent.getBounds();
-            Rectangle oldBounds = new Rectangle(parent.getX() + oldx,
-                                                parent.getY() + oldy,
-                                                oldwidth, oldheight);
-            Rectangle newBounds = new Rectangle(parent.getX() + x,
-                                                parent.getY() + y,
-                                                width, height);
-            shouldRepaintParent = parentBounds.intersects(oldBounds);
-            shouldRepaintSelf = parentBounds.intersects(newBounds);
+            Rectangle oldBounds = new Rectangle(oldx, oldy, oldwidth,
+                                                oldheight);
+            Rectangle newBounds = new Rectangle(x, y, width, height);
+            Rectangle destroyed = oldBounds.union(newBounds);
+            if (!destroyed.isEmpty())
+              parent.repaint(0, destroyed.x, destroyed.y, destroyed.width,
+                             destroyed.height);
           }
-
-        if (shouldRepaintParent && parent != null)
-          parent.repaint(oldx, oldy, oldwidth, oldheight);
-        if (shouldRepaintSelf)
-          repaint();
       }
 
     // Only post event if this component is visible and has changed size.
@@ -1620,7 +1645,7 @@ public abstract class Component
    */
   public Dimension getMaximumSize()
   {
-    return new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE);
+    return new Dimension(Short.MAX_VALUE, Short.MAX_VALUE);
   }
 
   /**
@@ -1694,7 +1719,7 @@ public abstract class Component
     valid = false;
     prefSize = null;
     minSize = null;
-    if (parent != null && parent.valid)
+    if (parent != null && parent.isValid())
       parent.invalidate();
   }
 
@@ -1710,11 +1735,8 @@ public abstract class Component
     if (peer != null)
       {
         Graphics gfx = peer.getGraphics();
-        if (gfx != null)
-          return gfx;
-        // create graphics for lightweight:
-        Container parent = getParent();
-        if (parent != null)
+        // Create peer for lightweights.
+        if (gfx == null && parent != null)
           {
             gfx = parent.getGraphics();
             Rectangle bounds = getBounds();
@@ -1722,6 +1744,8 @@ public abstract class Component
             gfx.translate(bounds.x, bounds.y);
             return gfx;
           }
+        gfx.setFont(font);
+        return gfx;
       }
     return null;
   }
@@ -1798,9 +1822,8 @@ public abstract class Component
    */
   public void paint(Graphics g)
   {
-    // Paint the heavyweight peer
-    if (!isLightweight() && peer != null)
-      peer.paint(g);
+    // This is a callback method and is meant to be overridden by subclasses
+    // that want to perform custom painting.
   }
 
   /**
@@ -1816,10 +1839,20 @@ public abstract class Component
    *
    * @see #paint(Graphics)
    * @see #repaint()
+   *
+   * @specnote In contrast to what the spec says, tests show that the exact
+   *           behaviour is to clear the background on lightweight and
+   *           top-level components only. Heavyweight components are not
+   *           affected by this method and only call paint().
    */
   public void update(Graphics g)
   {
-    if (!isLightweight())
+    // Tests show that the clearing of the background is only done in
+    // two cases:
+    // - If the component is lightweight (yes this is in contrast to the spec).
+    // or
+    // - If the component is a toplevel container.
+    if (isLightweight() || getParent() == null)
       {
         Rectangle clip = g.getClipBounds();
         if (clip == null)
@@ -1827,7 +1860,6 @@ public abstract class Component
         else
           g.clearRect(clip.x, clip.y, clip.width, clip.height);
       }
-
     paint(g);
   }
 
@@ -1853,8 +1885,9 @@ public abstract class Component
    * @see #repaint(long, int, int, int, int)
    */
   public void repaint()
-  {
-    repaint(0, 0, 0, width, height);
+  {   
+    if (isShowing())
+      repaint(0, 0, 0, width, height);
   }
 
   /**
@@ -1868,7 +1901,8 @@ public abstract class Component
    */
   public void repaint(long tm)
   {
-    repaint(tm, 0, 0, width, height);
+    if (isShowing())
+      repaint(tm, 0, 0, width, height);
   }
 
   /**
@@ -1885,7 +1919,8 @@ public abstract class Component
    */
   public void repaint(int x, int y, int w, int h)
   {
-    repaint(0, x, y, w, h);
+    if (isShowing())
+      repaint(0, x, y, w, h);
   }
 
   /**
@@ -1903,14 +1938,12 @@ public abstract class Component
    */
   public void repaint(long tm, int x, int y, int width, int height)
   {
-    // Handle lightweight repainting by forwarding to native parent
-    if (isLightweight() && parent != null)
+    if (isShowing())
       {
-        if (parent != null)
-          parent.repaint(tm, x + getX(), y + getY(), width, height);
+        ComponentPeer p = peer;
+        if (p != null)
+          p.repaint(tm, x, y, width, height);
       }
-    else if (peer != null)
-      peer.repaint(tm, x, y, width, height);
   }
 
   /**
@@ -1971,7 +2004,7 @@ public abstract class Component
   public boolean imageUpdate(Image img, int flags, int x, int y, int w, int h)
   {
     if ((flags & (FRAMEBITS | ALLBITS)) != 0)
-      repaint ();
+      repaint();
     else if ((flags & SOMEBITS) != 0)
       {
 	if (incrementalDraw)
@@ -1981,10 +2014,10 @@ public abstract class Component
 		long tm = redrawRate.longValue();
 		if (tm < 0)
 		  tm = 0;
-		repaint (tm);
+                repaint(tm);
 	      }
 	    else
-	      repaint (100);
+              repaint(100);
 	  }
       }
     return (flags & (ALLBITS | ABORT | ERROR)) == 0;
@@ -2282,8 +2315,6 @@ public abstract class Component
     // Some subclasses in the AWT package need to override this behavior,
     // hence the use of dispatchEventImpl().
     dispatchEventImpl(e);
-    if (peer != null && ! e.consumed)
-      peer.handleEvent(e);
   }
 
   /**
@@ -3424,7 +3455,10 @@ public abstract class Component
     ComponentPeer tmp = peer;
     peer = null;
     if (tmp != null)
-      tmp.dispose();
+      {
+        tmp.hide();
+        tmp.dispose();
+      }
   }
 
   /**
@@ -3750,13 +3784,16 @@ public abstract class Component
       {
         synchronized (getTreeLock ())
           {
-            // Find this Component's top-level ancestor.
-            Container parent = getParent ();
-
+            // Find this Component's top-level ancestor.            
+            Container parent = (this instanceof Container) ? (Container) this
+                                                          : getParent();            
             while (parent != null
                    && !(parent instanceof Window))
               parent = parent.getParent ();
 
+            if (parent == null)
+              return;
+            
             Window toplevel = (Window) parent;
             if (toplevel.isFocusableWindow ())
               {
@@ -4183,6 +4220,10 @@ public abstract class Component
       param.append(",translucent");
     if (isDoubleBuffered())
       param.append(",doublebuffered");
+    if (parent == null)
+      param.append(",parent=null");
+    else
+      param.append(",parent=").append(parent.getName());
     return param.toString();
   }
 
@@ -4742,7 +4783,7 @@ p   * <li>the set of backward traversal keys
    * @param e the event to dispatch
    */
 
-  void dispatchEventImpl (AWTEvent e)
+  void dispatchEventImpl(AWTEvent e)
   {
     Event oldEvent = translateEvent (e);
 
@@ -4776,8 +4817,12 @@ p   * <li>the set of backward traversal keys
                 break;
               }
           }
-        processEvent (e);
+        if (e.id != PaintEvent.PAINT && e.id != PaintEvent.UPDATE)
+          processEvent(e);
       }
+
+    if (peer != null)
+      peer.handleEvent(e);
   }
 
   /**
@@ -5502,6 +5547,7 @@ p   * <li>the set of backward traversal keys
        */
       protected AccessibleAWTComponentHandler()
       {
+        // Nothing to do here.
       }
 
       /**
@@ -5533,6 +5579,7 @@ p   * <li>the set of backward traversal keys
        */
       public void componentMoved(ComponentEvent e)
       {
+        // Nothing to do here.
       }
 
       /**
@@ -5542,6 +5589,7 @@ p   * <li>the set of backward traversal keys
        */
       public void componentResized(ComponentEvent e)
       {
+        // Nothing to do here.
       }
     } // class AccessibleAWTComponentHandler
 
@@ -5559,6 +5607,7 @@ p   * <li>the set of backward traversal keys
        */
       protected AccessibleAWTFocusHandler()
       {
+        // Nothing to do here.
       }
 
       /**

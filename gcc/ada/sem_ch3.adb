@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -65,6 +65,7 @@ with Sem_Warn; use Sem_Warn;
 with Stand;    use Stand;
 with Sinfo;    use Sinfo;
 with Snames;   use Snames;
+with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Ttypes;   use Ttypes;
 with Uintp;    use Uintp;
@@ -170,14 +171,6 @@ package body Sem_Ch3 is
    --  be derived from the parent type. The only case where Derive_Subps is
    --  False is for an implicit derived full type for a type derived from a
    --  private type (see Build_Derived_Type).
-
-   procedure Collect_Interfaces
-     (N            : Node_Id;
-      Derived_Type : Entity_Id);
-   --  Ada 2005 (AI-251): Subsidiary procedure to Build_Derived_Record_Type.
-   --  Collect the list of interfaces that are not already implemented by the
-   --  ancestors. This is the list of interfaces for which we must provide
-   --  additional tag components.
 
    procedure Complete_Subprograms_Derivation
      (Partial_View : Entity_Id;
@@ -799,6 +792,20 @@ package body Sem_Ch3 is
          Set_Has_Delayed_Freeze (Current_Scope);
       end if;
 
+      --  Ada 2005: if the designated type is an interface that may contain
+      --  tasks, create a Master entity for the declaration. This must be done
+      --  before expansion of the full declaration, because the declaration
+      --  may include an expression that is an allocator, whose expansion needs
+      --  the proper Master for the created tasks.
+
+      if Nkind (Related_Nod) = N_Object_Declaration
+         and then Expander_Active
+         and then Is_Interface (Desig_Type)
+         and then Is_Limited_Record (Desig_Type)
+      then
+         Build_Class_Wide_Master (Anon_Type);
+      end if;
+
       return Anon_Type;
    end Access_Definition;
 
@@ -985,6 +992,10 @@ package body Sem_Ch3 is
       then
          Error_Msg_N
            ("access type cannot designate its own classwide type", S);
+
+         --  Clean up indication of tagged status to prevent cascaded errors
+
+         Set_Is_Tagged_Type (T, False);
       end if;
 
       Set_Etype (T, T);
@@ -1406,6 +1417,7 @@ package body Sem_Ch3 is
 
          elsif not Is_Derived_Type (Current_Scope)
            and then not Is_Limited_Record (Current_Scope)
+           and then not Is_Concurrent_Type (Current_Scope)
          then
             Error_Msg_N
               ("nonlimited tagged type cannot have limited components", N);
@@ -1583,6 +1595,33 @@ package body Sem_Ch3 is
       Set_Private_Dependents (T, New_Elmt_List);
       Set_Is_Pure (T, F);
    end Analyze_Incomplete_Type_Decl;
+
+   -----------------------------------
+   -- Analyze_Interface_Declaration --
+   -----------------------------------
+
+   procedure Analyze_Interface_Declaration (T : Entity_Id; Def : Node_Id) is
+   begin
+      Set_Is_Tagged_Type      (T);
+
+      Set_Is_Limited_Record   (T, Limited_Present (Def)
+                                   or else Task_Present (Def)
+                                   or else Protected_Present (Def)
+                                   or else Synchronized_Present (Def));
+
+      --  Type is abstract if full declaration carries keyword, or if
+      --  previous partial view did.
+
+      Set_Is_Abstract  (T);
+      Set_Is_Interface (T);
+
+      Set_Is_Limited_Interface      (T, Limited_Present (Def));
+      Set_Is_Protected_Interface    (T, Protected_Present (Def));
+      Set_Is_Synchronized_Interface (T, Synchronized_Present (Def));
+      Set_Is_Task_Interface         (T, Task_Present (Def));
+      Set_Abstract_Interfaces       (T, New_Elmt_List);
+      Set_Primitive_Operations      (T, New_Elmt_List);
+   end Analyze_Interface_Declaration;
 
    -----------------------------
    -- Analyze_Itype_Reference --
@@ -1958,7 +1997,7 @@ package body Sem_Ch3 is
       if Constant_Present (N)
         and then No (E)
       then
-         if not Is_Package (Current_Scope) then
+         if not Is_Package_Or_Generic_Package (Current_Scope) then
             Error_Msg_N
               ("invalid context for deferred constant declaration ('R'M 7.4)",
                 N);
@@ -2589,7 +2628,7 @@ package body Sem_Ch3 is
          return;
       end if;
 
-      if (not Is_Package (Current_Scope)
+      if (not Is_Package_Or_Generic_Package (Current_Scope)
            and then Nkind (Parent (N)) /= N_Generic_Subprogram_Declaration)
         or else In_Private_Part (Current_Scope)
 
@@ -2617,6 +2656,15 @@ package body Sem_Ch3 is
       end if;
 
       Build_Derived_Record_Type (N, Parent_Type, T);
+
+      if Limited_Present (N) then
+         Set_Is_Limited_Record (T);
+
+         if not Is_Limited_Type (Parent_Type) then
+            Error_Msg_NE ("parent type& of limited extension must be limited",
+              N, Parent_Type);
+         end if;
+      end if;
    end Analyze_Private_Extension_Declaration;
 
    ---------------------------------
@@ -3011,6 +3059,51 @@ package body Sem_Ch3 is
                                        or else
                                      In_Package_Body (Current_Scope));
 
+      procedure Check_Ops_From_Incomplete_Type;
+      --  If there is a tagged incomplete partial view of the type, transfer
+      --  its operations to the full view, and indicate that the type of the
+      --  controlling parameter (s) is this full view.
+
+      ------------------------------------
+      -- Check_Ops_From_Incomplete_Type --
+      ------------------------------------
+
+      procedure Check_Ops_From_Incomplete_Type is
+         Elmt   : Elmt_Id;
+         Formal : Entity_Id;
+         Op     : Entity_Id;
+
+      begin
+         if Prev /= T
+           and then Ekind (Prev) = E_Incomplete_Type
+           and then Is_Tagged_Type (Prev)
+           and then Is_Tagged_Type (T)
+         then
+            Elmt := First_Elmt (Primitive_Operations (Prev));
+            while Present (Elmt) loop
+               Op := Node (Elmt);
+               Prepend_Elmt (Op, Primitive_Operations (T));
+
+               Formal := First_Formal (Op);
+               while Present (Formal) loop
+                  if Etype (Formal) = Prev then
+                     Set_Etype (Formal, T);
+                  end if;
+
+                  Next_Formal (Formal);
+               end loop;
+
+               if Etype (Op) = Prev then
+                  Set_Etype (Op, T);
+               end if;
+
+               Next_Elmt (Elmt);
+            end loop;
+         end if;
+      end Check_Ops_From_Incomplete_Type;
+
+   --  Start of processing for Analyze_Type_Declaration
+
    begin
       Prev := Find_Type_Name (N);
 
@@ -3149,6 +3242,7 @@ package body Sem_Ch3 is
       --  Some common processing for all types
 
       Set_Depends_On_Private (T, Has_Private_Component (T));
+      Check_Ops_From_Incomplete_Type;
 
       --  Both the declared entity, and its anonymous base type if one
       --  was created, need freeze nodes allocated.
@@ -3787,7 +3881,8 @@ package body Sem_Ch3 is
       if Number_Dimensions (Parent_Type) = 1
         and then not Is_Limited_Type (Parent_Type)
         and then not Is_Derived_Type (Parent_Type)
-        and then not Is_Package (Scope (Base_Type (Parent_Type)))
+        and then not Is_Package_Or_Generic_Package
+                       (Scope (Base_Type (Parent_Type)))
       then
          if not Is_Constrained (Parent_Type)
            and then Is_Constrained (Derived_Type)
@@ -4438,6 +4533,7 @@ package body Sem_Ch3 is
                Full_Decl := New_Copy_Tree (N);
                Full_Der  := New_Copy (Derived_Type);
                Set_Comes_From_Source (Full_Decl, False);
+               Set_Comes_From_Source (Full_Der, False);
 
                Insert_After (N, Full_Decl);
 
@@ -4493,8 +4589,18 @@ package body Sem_Ch3 is
             --  view, the completion does not derive them anew.
 
             if not Is_Tagged_Type (Parent_Type) then
-               Build_Derived_Record_Type
-                 (Full_Decl, Parent_Type, Full_Der, False);
+
+               --  If the parent is itself derived from another private type,
+               --  installing the private declarations has not affected its
+               --  privacy status, so use its own full view explicitly.
+
+               if Is_Private_Type (Parent_Type) then
+                  Build_Derived_Record_Type
+                    (Full_Decl, Full_View (Parent_Type), Full_Der, False);
+               else
+                  Build_Derived_Record_Type
+                    (Full_Decl, Parent_Type, Full_Der, False);
+               end if;
 
             else
                --  If full view of parent is tagged, the completion
@@ -5608,8 +5714,12 @@ package body Sem_Ch3 is
       --  are only specified for limited records. For completeness, these
       --  flags are also initialized along with all the other flags below.
 
+      --  AI-419:  limitedness is not inherited from an interface parent
+
       Set_Is_Tagged_Type    (Derived_Type, Is_Tagged);
-      Set_Is_Limited_Record (Derived_Type, Is_Limited_Record (Parent_Type));
+      Set_Is_Limited_Record (Derived_Type,
+        Is_Limited_Record (Parent_Type)
+          and then not Is_Interface (Parent_Type));
 
       --  STEP 2a: process discriminants of derived type if any
 
@@ -5792,7 +5902,9 @@ package body Sem_Ch3 is
       Set_Is_Limited_Composite
         (Derived_Type, Is_Limited_Composite     (Parent_Type));
       Set_Is_Limited_Record
-        (Derived_Type, Is_Limited_Record        (Parent_Type));
+        (Derived_Type,
+           Is_Limited_Record        (Parent_Type)
+             and then not Is_Interface (Parent_Type));
       Set_Is_Private_Composite
         (Derived_Type, Is_Private_Composite     (Parent_Type));
 
@@ -5895,112 +6007,36 @@ package body Sem_Ch3 is
                Collect_Interfaces (Type_Definition (N), Derived_Type);
             end if;
 
-            --  Check that the full view and the partial view agree
-            --  in the set of implemented interfaces
+            --  Ada 2005 (AI-251): The progenitor types specified in a private
+            --  extension declaration and the progenitor types specified in the
+            --  corresponding declaration of a record extension given in the
+            --  private part need not be the same; the only requirement is that
+            --  the private extension must be descended from each interface
+            --  from which the record extension is descended (AARM 7.3, 20.1/2)
 
-            if Has_Private_Declaration (Derived_Type)
-              and then Present (Abstract_Interfaces (Derived_Type))
-              and then not Is_Empty_Elmt_List
-                             (Abstract_Interfaces (Derived_Type))
-            then
+            if Has_Private_Declaration (Derived_Type) then
                declare
                   N_Partial : constant Node_Id := Parent (Tagged_Partial_View);
-                  N_Full    : constant Node_Id := Parent (Derived_Type);
-
-                  Iface_Partial      : Entity_Id;
-                  Iface_Full         : Entity_Id;
-                  Num_Ifaces_Partial : Natural := 0;
-                  Num_Ifaces_Full    : Natural := 0;
-                  Same_Interfaces    : Boolean := True;
+                  Iface_Partial : Entity_Id;
 
                begin
-                  if Nkind (N_Partial) /= N_Private_Extension_Declaration then
-                     Error_Msg_N
-                       ("(Ada 2005) interfaces only allowed in private"
-                        & " extension declarations", N_Partial);
-                  end if;
-
-                  --  Count the interfaces implemented by the partial view
-
                   if Nkind (N_Partial) = N_Private_Extension_Declaration
                     and then not Is_Empty_List (Interface_List (N_Partial))
                   then
                      Iface_Partial := First (Interface_List (N_Partial));
+
                      while Present (Iface_Partial) loop
-                        Num_Ifaces_Partial := Num_Ifaces_Partial + 1;
-                        Next (Iface_Partial);
-                     end loop;
-                  end if;
-
-                  --  Take into account the case in which the partial
-                  --  view is a directly derived from an interface
-
-                  if Is_Interface (Etype
-                                   (Defining_Identifier (N_Partial)))
-                  then
-                     Num_Ifaces_Partial := Num_Ifaces_Partial + 1;
-                  end if;
-
-                  --  Count the interfaces implemented by the full view
-
-                  if not Is_Empty_List (Interface_List
-                                        (Type_Definition (N_Full)))
-                  then
-                     Iface_Full := First (Interface_List
-                                          (Type_Definition (N_Full)));
-                     while Present (Iface_Full) loop
-                        Num_Ifaces_Full := Num_Ifaces_Full + 1;
-                        Next (Iface_Full);
-                     end loop;
-                  end if;
-
-                  --  Take into account the case in which the full
-                  --  view is a directly derived from an interface
-
-                  if Is_Interface (Etype
-                                   (Defining_Identifier (N_Full)))
-                  then
-                     Num_Ifaces_Full := Num_Ifaces_Full + 1;
-                  end if;
-
-                  if Num_Ifaces_Full > 0
-                    and then Num_Ifaces_Full = Num_Ifaces_Partial
-                  then
-                     --  Check that the full-view and the private-view have
-                     --  the same list of interfaces.
-
-                     Iface_Full := First (Interface_List
-                                           (Type_Definition (N_Full)));
-                     while Present (Iface_Full) loop
-                        Iface_Partial := First (Interface_List (N_Partial));
-                        while Present (Iface_Partial)
-                          and then Etype (Iface_Partial) /= Etype (Iface_Full)
-                        loop
-                           Next (Iface_Partial);
-                        end loop;
-
-                        --  If not found we check if the partial view is a
-                        --  direct derivation of the interface.
-
-                        if not Present (Iface_Partial)
-                             and then
-                           Etype (Tagged_Partial_View) /= Etype (Iface_Full)
+                        if not Interface_Present_In_Ancestor
+                                 (Derived_Type, Etype (Iface_Partial))
                         then
-                           Same_Interfaces := False;
+                           Error_Msg_N
+                             ("(Ada 2005) full type and private extension must"
+                              & " have the same progenitors", Derived_Type);
                            exit;
                         end if;
 
-                        Next (Iface_Full);
+                        Next (Iface_Partial);
                      end loop;
-                  end if;
-
-                  if Num_Ifaces_Partial /= Num_Ifaces_Full
-                    or else not Same_Interfaces
-                  then
-                     Error_Msg_N
-                       ("(Ada 2005) full declaration and private declaration"
-                        & " must have the same list of interfaces",
-                        Derived_Type);
                   end if;
                end;
             end if;
@@ -6132,7 +6168,14 @@ package body Sem_Ch3 is
                E : Entity_Id;
 
             begin
-               E := Derived_Type;
+               --  Handle private types
+
+               if Present (Full_View (Derived_Type)) then
+                  E := Full_View (Derived_Type);
+               else
+                  E := Derived_Type;
+               end if;
+
                loop
                   if Is_Interface (E)
                     or else (Present (Abstract_Interfaces (E))
@@ -6145,11 +6188,22 @@ package body Sem_Ch3 is
 
                   exit when Etype (E) = E
 
+                     --  Handle private types
+
+                     or else (Present (Full_View (Etype (E)))
+                               and then Full_View (Etype (E)) = E)
+
                      --  Protect the frontend against wrong source
 
                     or else Etype (E) = Derived_Type;
 
-                  E := Etype (E);
+                  --  Climb to the ancestor type handling private types
+
+                  if Present (Full_View (Etype (E))) then
+                     E := Full_View (Etype (E));
+                  else
+                     E := Etype (E);
+                  end if;
                end loop;
             end;
          end if;
@@ -6168,7 +6222,7 @@ package body Sem_Ch3 is
 
             if Present (Tagged_Partial_View) then
                Derive_Subprograms
-                 (Parent_Type, Derived_Type, Predefined_Prims_Only => True);
+                 (Parent_Type, Derived_Type);
 
                Complete_Subprograms_Derivation
                  (Partial_View => Tagged_Partial_View,
@@ -6452,10 +6506,11 @@ package body Sem_Ch3 is
       then
          CR_Disc := Make_Defining_Identifier (Sloc (Discrim), Chars (Discrim));
 
-         Set_Ekind     (CR_Disc, E_In_Parameter);
-         Set_Mechanism (CR_Disc, Default_Mechanism);
-         Set_Etype     (CR_Disc, Etype (Discrim));
-         Set_CR_Discriminant (Discrim, CR_Disc);
+         Set_Ekind            (CR_Disc, E_In_Parameter);
+         Set_Mechanism        (CR_Disc, Default_Mechanism);
+         Set_Etype            (CR_Disc, Etype (Discrim));
+         Set_Discriminal_Link (CR_Disc, Discrim);
+         Set_CR_Discriminant  (Discrim, CR_Disc);
       end if;
    end Build_Discriminal;
 
@@ -7179,7 +7234,7 @@ package body Sem_Ch3 is
                if Is_Aliased (C)
                  and then Has_Discriminants (Etype (C))
                  and then not Is_Constrained (Etype (C))
-                 and then not In_Instance
+                 and then not In_Instance_Body
                  and then Ada_Version < Ada_05
                then
                   Error_Msg_N
@@ -7194,7 +7249,8 @@ package body Sem_Ch3 is
             if Has_Aliased_Components (T)
               and then Has_Discriminants (Component_Type (T))
               and then not Is_Constrained (Component_Type (T))
-              and then not In_Instance
+              and then not In_Instance_Body
+              and then Ada_Version < Ada_05
             then
                Error_Msg_N
                  ("aliased component type must be constrained ('R'M 3.6(11))",
@@ -7363,7 +7419,7 @@ package body Sem_Ch3 is
                Post_Error;
             end if;
 
-         elsif Is_Package (E) then
+         elsif Is_Package_Or_Generic_Package (E) then
             if Unit_Requires_Body (E) then
                if not Has_Completion (E)
                  and then Nkind (Parent (Unit_Declaration_Node (E))) /=
@@ -7607,7 +7663,7 @@ package body Sem_Ch3 is
          end if;
       end Add_Interface;
 
-   --  Start of processing for Add_Interface
+   --  Start of processing for Collect_Interfaces
 
    begin
       pragma Assert (False
@@ -7873,6 +7929,25 @@ package body Sem_Ch3 is
       E       : Entity_Id;
 
    begin
+      --  Handle the case in which the full-view is a transitive
+      --  derivation of the ancestor of the partial view.
+
+      --   type I is interface;
+      --   type T is new I with ...
+
+      --   package H is
+      --      type DT is new I with private;
+      --   private
+      --      type DT is new T with ...
+      --   end;
+
+      if Etype (Partial_View) /= Etype (Derived_Type)
+        and then Is_Interface (Etype (Partial_View))
+        and then Is_Ancestor (Etype (Partial_View), Etype (Derived_Type))
+      then
+         return;
+      end if;
+
       if Is_Tagged_Type (Partial_View) then
          Elmt_P := First_Elmt (Primitive_Operations (Partial_View));
       else
@@ -8795,7 +8870,7 @@ package body Sem_Ch3 is
 
    --  For concurrent types, the associated record value type carries the same
    --  discriminants, so when we constrain a concurrent type, we must constrain
-   --  the value type as well.
+   --  the corresponding record type as well.
 
    procedure Constrain_Concurrent
      (Def_Id      : in out Entity_Id;
@@ -9638,24 +9713,42 @@ package body Sem_Ch3 is
          New_Compon : constant Entity_Id := New_Copy (Old_Compon);
 
       begin
-         --  Set the parent so we have a proper link for freezing etc. This
-         --  is not a real parent pointer, since of course our parent does
-         --  not own up to us and reference us, we are an illegitimate
-         --  child of the original parent!
+         --  Set the parent so we have a proper link for freezing etc. This is
+         --  not a real parent pointer, since of course our parent does not own
+         --  up to us and reference us, we are an illegitimate child of the
+         --  original parent!
 
          Set_Parent (New_Compon, Parent (Old_Compon));
 
+         --  If the old component's Esize was already determined and is a
+         --  static value, then the new component simply inherits it. Otherwise
+         --  the old component's size may require run-time determination, but
+         --  the new component's size still might be statically determinable
+         --  (if, for example it has a static constraint). In that case we want
+         --  Layout_Type to recompute the component's size, so we reset its
+         --  size and positional fields.
+
+         if Frontend_Layout_On_Target
+           and then not Known_Static_Esize (Old_Compon)
+         then
+            Set_Esize (New_Compon, Uint_0);
+            Init_Normalized_First_Bit    (New_Compon);
+            Init_Normalized_Position     (New_Compon);
+            Init_Normalized_Position_Max (New_Compon);
+         end if;
+
          --  We do not want this node marked as Comes_From_Source, since
-         --  otherwise it would get first class status and a separate
-         --  cross-reference line would be generated. Illegitimate
-         --  children do not rate such recognition.
+         --  otherwise it would get first class status and a separate cross-
+         --  reference line would be generated. Illegitimate children do not
+         --  rate such recognition.
 
          Set_Comes_From_Source (New_Compon, False);
 
-         --  But it is a real entity, and a birth certificate must be
-         --  properly registered by entering it into the entity list.
+         --  But it is a real entity, and a birth certificate must be properly
+         --  registered by entering it into the entity list.
 
          Enter_Name (New_Compon);
+
          return New_Compon;
       end Create_Component;
 
@@ -9970,10 +10063,12 @@ package body Sem_Ch3 is
          then
             AI := First_Elmt (Abstract_Interfaces (T));
             while Present (AI) loop
-               Derive_Subprograms
-                 (Parent_Type         => Node (AI),
-                  Derived_Type        => Derived_Type,
-                  No_Predefined_Prims => True);
+               if not Is_Ancestor (Node (AI), Derived_Type) then
+                  Derive_Subprograms
+                    (Parent_Type         => Node (AI),
+                     Derived_Type        => Derived_Type,
+                     No_Predefined_Prims => True);
+               end if;
 
                Next_Elmt (AI);
             end loop;
@@ -10391,8 +10486,7 @@ package body Sem_Ch3 is
      (Parent_Type           : Entity_Id;
       Derived_Type          : Entity_Id;
       Generic_Actual        : Entity_Id := Empty;
-      No_Predefined_Prims   : Boolean   := False;
-      Predefined_Prims_Only : Boolean   := False)
+      No_Predefined_Prims   : Boolean   := False)
    is
       Op_List     : constant Elist_Id :=
                       Collect_Primitive_Operations (Parent_Type);
@@ -10436,7 +10530,13 @@ package body Sem_Ch3 is
             if No_Predefined_Prims and then Is_Predef then
                null;
 
-            elsif Predefined_Prims_Only and then not Is_Predef then
+            --  We don't need to derive alias entities associated with
+            --  abstract interfaces
+
+            elsif Is_Dispatching_Operation (Subp)
+               and then Present (Alias (Subp))
+               and then Present (Abstract_Interface_Alias (Subp))
+            then
                null;
 
             elsif No (Generic_Actual) then
@@ -10661,6 +10761,13 @@ package body Sem_Ch3 is
 
                if not Is_Interface (T) then
                   Error_Msg_NE ("(Ada 2005) & must be an interface", Intf, T);
+
+               elsif Limited_Present (Def)
+                 and then not Is_Limited_Interface (T)
+               then
+                  Error_Msg_NE
+                   ("progenitor interface& of limited type must be limited",
+                     N, T);
                end if;
 
                Next (Intf);
@@ -10692,6 +10799,100 @@ package body Sem_Ch3 is
          end if;
 
          return;
+      end if;
+
+      --  Ada 2005 (AI-251): The case in which the parent of the full-view is
+      --  an interface is special because the list of interfaces in the full
+      --  view can be given in any order. For example:
+
+      --     type A is interface;
+      --     type B is interface and A;
+      --     type D is new B with private;
+      --   private
+      --     type D is new A and B with null record; -- 1 --
+
+      --  In this case we perform the following transformation of -1-:
+
+      --     type D is new B and A with null record;
+
+      --  If the parent of the full-view covers the parent of the partial-view
+      --  we have two possible cases:
+
+      --     1) They have the same parent
+      --     2) The parent of the full-view implements some further interfaces
+
+      --  In both cases we do not need to perform the transformation. In the
+      --  first case the source program is correct and the transformation is
+      --  not needed; in the second case the source program does not fulfill
+      --  the no-hidden interfaces rule (AI-396) and the error will be reported
+      --  later.
+
+      --  This transformation not only simplifies the rest of the analysis of
+      --  this type declaration but also simplifies the correct generation of
+      --  the object layout to the expander.
+
+      if In_Private_Part (Current_Scope)
+        and then Is_Interface (Parent_Type)
+      then
+         declare
+            Iface               : Node_Id;
+            Partial_View        : Entity_Id;
+            Partial_View_Parent : Entity_Id;
+            New_Iface           : Node_Id;
+
+         begin
+            --  Look for the associated private type declaration
+
+            Partial_View := First_Entity (Current_Scope);
+            loop
+               exit when not Present (Partial_View)
+                 or else (Has_Private_Declaration (Partial_View)
+                           and then Full_View (Partial_View) = T);
+
+               Next_Entity (Partial_View);
+            end loop;
+
+            --  If the partial view was not found then the source code has
+            --  errors and the transformation is not needed.
+
+            if Present (Partial_View) then
+               Partial_View_Parent := Etype (Partial_View);
+
+               --  If the parent of the full-view covers the parent of the
+               --  partial-view we have nothing else to do.
+
+               if Interface_Present_In_Ancestor
+                    (Parent_Type, Partial_View_Parent)
+               then
+                  null;
+
+               --  Traverse the list of interfaces of the full-view to look
+               --  for the parent of the partial-view and perform the tree
+               --  transformation.
+
+               else
+                  Iface := First (Interface_List (Def));
+                  while Present (Iface) loop
+                     if Etype (Iface) = Etype (Partial_View) then
+                        Rewrite (Subtype_Indication (Def),
+                          New_Copy (Subtype_Indication
+                                     (Parent (Partial_View))));
+
+                        New_Iface := Make_Identifier (Sloc (N),
+                                       Chars (Parent_Type));
+                        Append (New_Iface, Interface_List (Def));
+
+                        --  Analyze the transformed code
+
+                        Derived_Type_Declaration (T, N, Is_Completion);
+                        return;
+                     end if;
+
+                     Next (Iface);
+                  end loop;
+               end if;
+            end if;
+         end;
       end if;
 
       --  Only composite types other than array types are allowed to have
@@ -10817,6 +11018,20 @@ package body Sem_Ch3 is
       end if;
 
       Build_Derived_Type (N, Parent_Type, T, Is_Completion);
+
+      --  AI-419:  the parent type of an explicitly limited derived type must
+      --  be limited. Interface progenitors were checked earlier.
+
+      if Limited_Present (Def) then
+         Set_Is_Limited_Record (T);
+
+         if not Is_Limited_Type (Parent_Type)
+           and then not Is_Interface (Parent_Type)
+         then
+            Error_Msg_NE ("parent type& of limited type must be limited",
+              N, Parent_Type);
+         end if;
+      end if;
    end Derived_Type_Declaration;
 
    ----------------------------------
@@ -13098,36 +13313,136 @@ package body Sem_Ch3 is
       Full_Parent : Entity_Id;
       Full_Indic  : Node_Id;
 
-      function Find_Interface_In_Descendant
-        (Typ : Entity_Id) return Entity_Id;
-      --  Find an implemented interface in the derivation chain of Typ
+      procedure Collect_Implemented_Interfaces
+        (Typ    : Entity_Id;
+         Ifaces : Elist_Id);
+      --  Ada 2005: Gather all the interfaces that Typ directly or
+      --  inherently implements. Duplicate entries are not added to
+      --  the list Ifaces.
 
-      ----------------------------------
-      -- Find_Interface_In_Descendant --
-      ----------------------------------
+      function Contain_Interface
+        (Iface  : Entity_Id;
+         Ifaces : Elist_Id) return Boolean;
+      --  Ada 2005: Determine whether Iface is present in the list Ifaces
 
-      function Find_Interface_In_Descendant
-        (Typ : Entity_Id) return Entity_Id
+      function Find_Hidden_Interface
+        (Src  : Elist_Id;
+         Dest : Elist_Id) return Entity_Id;
+      --  Ada 2005: Determine whether the interfaces in list Src are all
+      --  present in the list Dest. Return the first differing interface,
+      --  or Empty otherwise.
+
+      ------------------------------------
+      -- Collect_Implemented_Interfaces --
+      ------------------------------------
+
+      procedure Collect_Implemented_Interfaces
+        (Typ    : Entity_Id;
+         Ifaces : Elist_Id)
       is
-         T : Entity_Id;
+         Iface      : Entity_Id;
+         Iface_Elmt : Elmt_Id;
 
       begin
-         T := Typ;
-         while T /= Etype (T) loop
-            if Is_Interface (Etype (T)) then
-               return Etype (T);
-            end if;
+         --  Implementations of the form:
+         --    type Typ is new Iface ...
 
-            T := Etype (T);
+         if Is_Interface (Etype (Typ))
+           and then not Contain_Interface (Etype (Typ), Ifaces)
+         then
+            Append_Elmt (Etype (Typ), Ifaces);
+         end if;
 
-            --  Protect us against erroneous code that has a large
-            --  chain of circularity dependencies
+         --  Implementations of the form:
+         --    type Typ is ... and Iface ...
 
-            exit when T = Typ;
-         end loop;
+         if Present (Abstract_Interfaces (Typ)) then
+            Iface_Elmt := First_Elmt (Abstract_Interfaces (Typ));
+            while Present (Iface_Elmt) loop
+               Iface := Node (Iface_Elmt);
+
+               if Is_Interface (Iface)
+                 and then not Contain_Interface (Iface, Ifaces)
+               then
+                  Append_Elmt (Iface, Ifaces);
+               end if;
+
+               Next_Elmt (Iface_Elmt);
+            end loop;
+         end if;
+
+         --  Implementations of the form:
+         --    type Typ is new Parent_Typ and ...
+
+         if Ekind (Typ) = E_Record_Type
+           and then Present (Parent_Subtype (Typ))
+         then
+            Collect_Implemented_Interfaces (Parent_Subtype (Typ), Ifaces);
+
+         --  Implementations of the form:
+         --    type Typ is ... with private;
+
+         elsif Ekind (Typ) = E_Record_Type_With_Private
+           and then Present (Full_View (Typ))
+           and then Etype (Typ) /= Full_View (Typ)
+           and then Etype (Typ) /= Typ
+         then
+            Collect_Implemented_Interfaces (Etype (Typ), Ifaces);
+         end if;
+      end Collect_Implemented_Interfaces;
+
+      -----------------------
+      -- Contain_Interface --
+      -----------------------
+
+      function Contain_Interface
+        (Iface  : Entity_Id;
+         Ifaces : Elist_Id) return Boolean
+      is
+         Iface_Elmt : Elmt_Id;
+
+      begin
+         if Present (Ifaces) then
+            Iface_Elmt := First_Elmt (Ifaces);
+            while Present (Iface_Elmt) loop
+               if Node (Iface_Elmt) = Iface then
+                  return True;
+               end if;
+
+               Next_Elmt (Iface_Elmt);
+            end loop;
+         end if;
+
+         return False;
+      end Contain_Interface;
+
+      ---------------------------
+      -- Find_Hidden_Interface --
+      ---------------------------
+
+      function Find_Hidden_Interface
+        (Src  : Elist_Id;
+         Dest : Elist_Id) return Entity_Id
+      is
+         Iface      : Entity_Id;
+         Iface_Elmt : Elmt_Id;
+
+      begin
+         if Present (Src) and then Present (Dest) then
+            Iface_Elmt := First_Elmt (Src);
+            while Present (Iface_Elmt) loop
+               Iface := Node (Iface_Elmt);
+
+               if not Contain_Interface (Iface, Dest) then
+                  return Iface;
+               end if;
+
+               Next_Elmt (Iface_Elmt);
+            end loop;
+         end if;
 
          return Empty;
-      end Find_Interface_In_Descendant;
+      end Find_Hidden_Interface;
 
    --  Start of processing for Process_Full_View
 
@@ -13167,50 +13482,28 @@ package body Sem_Ch3 is
          Error_Msg_N ("generic type cannot have a completion", Full_T);
       end if;
 
-      --  Ada 2005 (AI-396): A full view shall be a descendant of an
-      --  interface type if and only if the corresponding partial view
-      --  (if any) is also a descendant of the interface type, or if
-      --  the partial view is untagged.
-
       if Ada_Version >= Ada_05
+        and then Is_Tagged_Type (Priv_T)
         and then Is_Tagged_Type (Full_T)
       then
          declare
-            Iface     : Entity_Id;
-            Iface_Def : Node_Id;
+            Iface         : Entity_Id;
+            Priv_T_Ifaces : constant Elist_Id := New_Elmt_List;
+            Full_T_Ifaces : constant Elist_Id := New_Elmt_List;
 
          begin
-            Iface := Find_Interface_In_Descendant (Full_T);
+            Collect_Implemented_Interfaces (Priv_T, Priv_T_Ifaces);
+            Collect_Implemented_Interfaces (Full_T, Full_T_Ifaces);
+
+            --  Ada 2005 (AI-396): The partial view shall be a descendant of
+            --  an interface type if and only if the full view is a descendant
+            --  of the interface type.
+
+            Iface := Find_Hidden_Interface (Full_T_Ifaces, Priv_T_Ifaces);
 
             if Present (Iface) then
-               Iface_Def := Type_Definition (Parent (Iface));
-            end if;
-
-            --  The full view derives from an interface descendant, but the
-            --  partial view does not share the same tagged type.
-
-            if Present (Iface)
-              and then Is_Tagged_Type (Priv_T)
-              and then Etype (Full_T) /= Etype (Priv_T)
-            then
-               Error_Msg_N ("(Ada 2005) tagged partial view cannot be " &
-                            "completed by a type that implements an " &
-                            "interface", Priv_T);
-            end if;
-
-            --  The full view derives from a limited, protected,
-            --  synchronized or task interface descendant, but the
-            --  partial view is not labeled as limited.
-
-            if Present (Iface)
-              and then (Limited_Present      (Iface_Def)
-                     or Protected_Present    (Iface_Def)
-                     or Synchronized_Present (Iface_Def)
-                     or Task_Present         (Iface_Def))
-              and then not Limited_Present (Parent (Priv_T))
-            then
-               Error_Msg_N ("(Ada 2005) non-limited private type cannot be " &
-                            "completed by a limited type", Priv_T);
+               Error_Msg_NE ("interface & not implemented by partial view " &
+                             "('R'M'-2005 7.3(9))", Full_T, Iface);
             end if;
          end;
       end if;
@@ -13241,25 +13534,19 @@ package body Sem_Ch3 is
          if Priv_Parent = Any_Type or else Full_Parent = Any_Type then
             return;
 
+         --  Ada 2005 (AI-251): Interfaces in the full-typ can be given in
+         --  any order. Therefore we don't have to check that its parent must
+         --  be a descendant of the parent of the private type declaration.
+
+         elsif Is_Interface (Priv_Parent)
+           and then Is_Interface (Full_Parent)
+         then
+            null;
+
          elsif not Is_Ancestor (Base_Type (Priv_Parent), Full_Parent) then
-
-            --  Ada 2005 (AI-251): No error needed if the immediate
-            --  ancestor of the partial view is an interface
-            --
-            --  Example:
-            --
-            --       type PT1 is new I1 with private;
-            --    private
-            --       type PT1 is new T and I1 with null record;
-
-            if Is_Interface (Base_Type (Priv_Parent)) then
-               null;
-
-            else
-               Error_Msg_N
-                 ("parent of full type must descend from parent"
-                     & " of private extension", Full_Indic);
-            end if;
+            Error_Msg_N
+              ("parent of full type must descend from parent"
+                  & " of private extension", Full_Indic);
 
          --  Check the rules of 7.3(10): if the private extension inherits
          --  known discriminants, then the full type must also inherit those
@@ -13355,6 +13642,23 @@ package body Sem_Ch3 is
             Error_Msg_N ("full view of type must be definite subtype", Full_T);
          end if;
       end if;
+
+      --  AI-419: verify that the use of "limited" is consistent
+
+      declare
+         Orig_Decl : constant Node_Id := Original_Node (N);
+      begin
+         if Nkind (Parent (Priv_T)) = N_Private_Extension_Declaration
+           and then not Limited_Present (Parent (Priv_T))
+           and then Nkind (Orig_Decl) = N_Full_Type_Declaration
+           and then Nkind
+             (Type_Definition (Orig_Decl)) = N_Derived_Type_Definition
+           and then Limited_Present (Type_Definition (Orig_Decl))
+         then
+            Error_Msg_N
+              ("full view of non-limited extension cannot be limited", N);
+         end if;
+      end;
 
       --  Ada 2005 AI-363: if the full view has discriminants with
       --  defaults, it is illegal to declare constrained access subtypes
@@ -14000,8 +14304,7 @@ package body Sem_Ch3 is
          if Nkind (Parent (S)) /= N_Access_To_Object_Definition
            and then not
             (Nkind (Parent (S)) = N_Subtype_Declaration
-              and then
-             Is_Itype (Defining_Identifier (Parent (S))))
+              and then Is_Itype (Defining_Identifier (Parent (S))))
          then
             Check_Incomplete (Subtype_Mark (S));
          end if;
@@ -14409,17 +14712,7 @@ package body Sem_Ch3 is
 
       else
          Is_Tagged := True;
-         Set_Is_Tagged_Type      (T);
-
-         Set_Is_Limited_Record   (T, Limited_Present (Def)
-                                      or else Task_Present (Def)
-                                      or else Protected_Present (Def));
-
-         --  Type is abstract if full declaration carries keyword, or if
-         --  previous partial view did.
-
-         Set_Is_Abstract  (T);
-         Set_Is_Interface (T);
+         Analyze_Interface_Declaration (T, Def);
       end if;
 
       --  First pass: if there are self-referential access components,
@@ -14428,10 +14721,6 @@ package body Sem_Ch3 is
 
       Check_Anonymous_Access_Types (Component_List (Def));
 
-      --  Ada 2005 (AI-251): Complete the initialization of attributes
-      --  associated with abstract interfaces and decorate the names in the
-      --  list of ancestor interfaces (if any).
-
       if Ada_Version >= Ada_05
         and then Present (Interface_List (Def))
       then
@@ -14439,6 +14728,7 @@ package body Sem_Ch3 is
             Iface     : Node_Id;
             Iface_Def : Node_Id;
             Iface_Typ : Entity_Id;
+
          begin
             Iface := First (Interface_List (Def));
             while Present (Iface) loop
@@ -14521,9 +14811,8 @@ package body Sem_Ch3 is
 
                Next (Iface);
             end loop;
-
             Set_Abstract_Interfaces (T, New_Elmt_List);
-            Collect_Interfaces (Type_Definition (N), T);
+            Collect_Interfaces (Def, T);
          end;
       end if;
 

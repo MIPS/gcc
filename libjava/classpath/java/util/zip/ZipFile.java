@@ -48,6 +48,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
+import java.io.UnsupportedEncodingException;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -143,9 +144,18 @@ public class ZipFile implements ZipConstants
   private void checkZipFile() throws IOException, ZipException
   {
     byte[] magicBuf = new byte[4];
-    raf.read(magicBuf);
+    boolean validRead = true;
 
-    if (readLeInt(magicBuf, 0) != LOCSIG)
+    try 
+      {
+	raf.readFully(magicBuf);
+      } 
+    catch (EOFException eof) 
+      {
+	validRead = false;
+      } 
+
+    if (validRead == false || readLeInt(magicBuf, 0) != LOCSIG)
       {
 	raf.close();
 	throw new ZipException("Not a valid zip file");
@@ -284,7 +294,15 @@ public class ZipFile implements ZipConstants
 	  buffer = new byte[needBuffer];
 
 	raf.readFully(buffer, 0, nameLen);
-	String name = new String(buffer, 0, 0, nameLen);
+	String name;
+	try
+	  {
+	    name = new String(buffer, 0, nameLen, "UTF-8");
+	  }
+	catch (UnsupportedEncodingException uee)
+	  {
+	    throw new AssertionError(uee);
+	  }
 
 	ZipEntry entry = new ZipEntry(name);
 	entry.setMethod(method);
@@ -301,7 +319,14 @@ public class ZipFile implements ZipConstants
 	if (commentLen > 0)
 	  {
 	    raf.readFully(buffer, 0, commentLen);
-	    entry.setComment(new String(buffer, 0, commentLen));
+	    try
+	      {
+		entry.setComment(new String(buffer, 0, commentLen, "UTF-8"));
+	      }
+	    catch (UnsupportedEncodingException uee)
+	      {
+		throw new AssertionError(uee);
+	      }
 	  }
 	entry.offset = offset;
 	entries.put(name, entry);
@@ -317,6 +342,10 @@ public class ZipFile implements ZipConstants
    */
   public void close() throws IOException
   {
+    RandomAccessFile raf = this.raf;
+    if (raf == null)
+      return;
+
     synchronized (raf)
       {
 	closed = true;
@@ -357,7 +386,7 @@ public class ZipFile implements ZipConstants
    * Checks that the ZipFile is still open and reads entries when necessary.
    *
    * @exception IllegalStateException when the ZipFile has already been closed.
-   * @exception IOEexception when the entries could not be read.
+   * @exception IOException when the entries could not be read.
    */
   private HashMap getEntries() throws IOException
   {
@@ -375,7 +404,7 @@ public class ZipFile implements ZipConstants
   /**
    * Searches for a zip entry in this archive with the given name.
    *
-   * @param the name. May contain directory components separated by
+   * @param name the name. May contain directory components separated by
    * slashes ('/').
    * @return the zip entry, or null if no entry with that name exists.
    *

@@ -49,6 +49,7 @@ import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.ByteBuffer;
 import java.security.CodeSource;
 import java.security.PermissionCollection;
 import java.security.Policy;
@@ -123,14 +124,6 @@ import java.util.StringTokenizer;
  */
 public abstract class ClassLoader
 {
-  /**
-   * All classes loaded by this classloader. VM's may choose to implement
-   * this cache natively; but it is here available for use if necessary. It
-   * is not private in order to allow native code (and trusted subclasses)
-   * access to this field.
-   */
-  final HashMap loadedClasses = new HashMap();
-
   /**
    * All packages defined by this classloader. It is not private in order to
    * allow native code (and trusted subclasses) access to this field.
@@ -472,15 +465,40 @@ public abstract class ClassLoader
 						 ProtectionDomain domain)
     throws ClassFormatError
   {
+    checkInitialized();
     if (domain == null)
       domain = StaticData.defaultProtectionDomain;
-    if (! initialized)
-      throw new SecurityException("attempt to define class from uninitialized class loader");
     
-    Class retval = VMClassLoader.defineClass(this, name, data,
-					     offset, len, domain);
-    loadedClasses.put(retval.getName(), retval);
-    return retval;
+    return VMClassLoader.defineClass(this, name, data, offset, len, domain);
+  }
+
+  /**
+   * Helper to define a class using the contents of a byte buffer. If
+   * the domain is null, the default of
+   * <code>Policy.getPolicy().getPermissions(new CodeSource(null,
+   * null))</code> is used. Once a class has been defined in a
+   * package, all further classes in that package must have the same
+   * set of certificates or a SecurityException is thrown.
+   *
+   * @param name the name to give the class.  null if unknown
+   * @param buf a byte buffer containing bytes that form a class.
+   * @param domain the ProtectionDomain to give to the class, null for the
+   *        default protection domain
+   * @return the class that was defined
+   * @throws ClassFormatError if data is not in proper classfile format
+   * @throws NoClassDefFoundError if the supplied name is not the same as
+   *                              the one specified by the byte buffer.
+   * @throws SecurityException if name starts with "java.", or if certificates
+   *         do not match up
+   * @since 1.5
+   */
+  protected final Class defineClass(String name, ByteBuffer buf,
+				    ProtectionDomain domain)
+    throws ClassFormatError
+  {
+    byte[] data = new byte[buf.remaining()];
+    buf.get(data);
+    return defineClass(name, data, 0, data.length, domain);
   }
 
   /**
@@ -493,6 +511,7 @@ public abstract class ClassLoader
    */
   protected final void resolveClass(Class c)
   {
+    checkInitialized();
     VMClassLoader.resolveClass(c);
   }
 
@@ -508,6 +527,7 @@ public abstract class ClassLoader
   protected final Class findSystemClass(String name)
     throws ClassNotFoundException
   {
+    checkInitialized();
     return Class.forName(name, false, StaticData.systemClassLoader);
   }
 
@@ -544,6 +564,7 @@ public abstract class ClassLoader
    */
   protected final void setSigners(Class c, Object[] signers)
   {
+    checkInitialized();
     c.setSigners(signers);
   }
 
@@ -556,9 +577,8 @@ public abstract class ClassLoader
    */
   protected final synchronized Class findLoadedClass(String name)
   {
-    // NOTE: If the VM is keeping its own cache, it may make sense to have
-    // this method be native.
-    return (Class) loadedClasses.get(name);
+    checkInitialized();
+    return VMClassLoader.findLoadedClass(this, name);
   }
 
   /**
@@ -893,7 +913,7 @@ public abstract class ClassLoader
    *
    * @param name the (system specific) name of the requested library
    * @return the full pathname to the requested library, or null
-   * @see Runtime#loadLibrary()
+   * @see Runtime#loadLibrary(String)
    * @since 1.2
    */
   protected String findLibrary(String name)
@@ -923,7 +943,7 @@ public abstract class ClassLoader
    *
    * @param name the package (and subpackages) to affect
    * @param enabled true to set the default to enabled
-   * @see #setDefaultAssertionStatus(String, boolean)
+   * @see #setDefaultAssertionStatus(boolean)
    * @see #setClassAssertionStatus(String, boolean)
    * @see #clearAssertionStatus()
    * @since 1.4
@@ -944,7 +964,7 @@ public abstract class ClassLoader
    * @param name the class to affect
    * @param enabled true to set the default to enabled
    * @throws NullPointerException if name is null
-   * @see #setDefaultAssertionStatus(String, boolean)
+   * @see #setDefaultAssertionStatus(boolean)
    * @see #setPackageAssertionStatus(String, boolean)
    * @see #clearAssertionStatus()
    * @since 1.4
@@ -1112,5 +1132,17 @@ public abstract class ClassLoader
 	    new Error("Requested system classloader " + loader + " failed.")
 		.initCause(e);
       }
+  }
+
+  /**
+   * Before doing anything "dangerous" please call this method to make sure
+   * this class loader instance was properly constructed (and not obtained
+   * by exploiting the finalizer attack)
+   * @see #initialized
+   */
+  private void checkInitialized()
+  {
+    if (! initialized)
+      throw new SecurityException("attempt to use uninitialized class loader");
   }
 }

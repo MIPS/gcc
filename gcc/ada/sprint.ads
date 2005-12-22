@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -58,6 +58,7 @@ package Sprint is
    --    Freeze entity with freeze actions   freeze entityname [ actions ]
    --    Interpretation                      interpretation type [, entity]
    --    Intrinsic calls                     function-name!(arg, arg, arg)
+   --    Itype declaration                   [(sub)type declaration without ;]
    --    Itype reference                     reference itype
    --    Label declaration                   labelname : label
    --    Mod wi Treat_Fixed_As_Integer       x #mod y
@@ -115,7 +116,7 @@ package Sprint is
    --  does not generate any New_Line calls.
 
    procedure Sprint_Opt_Node_List (List : List_Id);
-   --  Like Sprint_Node_List, but prints nothing if List = No_List.
+   --  Like Sprint_Node_List, but prints nothing if List = No_List
 
    procedure Sprint_Indented_List (List : List_Id);
    --  Like Sprint_Line_List, except that the indentation level is

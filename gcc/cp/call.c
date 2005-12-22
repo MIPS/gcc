@@ -1309,10 +1309,10 @@ add_function_candidate (struct z_candidate **candidates,
   tree orig_arglist;
   int viable = 1;
 
-  /* Built-in functions that haven't been declared don't really
-     exist.  */
-  if (DECL_ANTICIPATED (fn))
-    return NULL;
+  /* At this point we should not see any functions which haven't been
+     explicitly declared, except for friend functions which will have
+     been found using argument dependent lookup.  */
+  gcc_assert (!DECL_ANTICIPATED (fn) || DECL_HIDDEN_FRIEND_P (fn));
 
   /* The `this', `in_chrg' and VTT arguments to constructors are not
      considered in overload resolution.  */
@@ -2689,7 +2689,7 @@ resolve_args (tree args)
     {
       tree arg = TREE_VALUE (t);
 
-      if (arg == error_mark_node)
+      if (error_operand_p (arg))
 	return error_mark_node;
       else if (VOID_TYPE_P (TREE_TYPE (arg)))
 	{
@@ -2758,7 +2758,7 @@ perform_overload_resolution (tree fn,
    or a static member function) with the ARGS.  */
 
 tree
-build_new_function_call (tree fn, tree args)
+build_new_function_call (tree fn, tree args, bool koenig_p)
 {
   struct z_candidate *candidates, *cand;
   bool any_viable_p;
@@ -2768,6 +2768,22 @@ build_new_function_call (tree fn, tree args)
   args = resolve_args (args);
   if (args == error_mark_node)
     return error_mark_node;
+
+  /* If this function was found without using argument dependent
+     lookup, then we want to ignore any undeclared friend
+     functions.  */
+  if (!koenig_p)
+    {
+      tree orig_fn = fn;
+
+      fn = remove_hidden_names (fn);
+      if (!fn)
+	{
+	  error ("no matching function for call to %<%D(%A)%>",
+		 DECL_NAME (OVL_CURRENT (orig_fn)), args);
+	  return error_mark_node;
+	}
+    }
 
   /* Get the high-water mark for the CONVERSION_OBSTACK.  */
   p = conversion_obstack_alloc (0);
@@ -2914,9 +2930,14 @@ build_object_call (tree obj, tree args)
       return error_mark_node;
     }
 
-  fns = lookup_fnfields (TYPE_BINFO (type), ansi_opname (CALL_EXPR), 1);
-  if (fns == error_mark_node)
-    return error_mark_node;
+  if (TYPE_BINFO (type))
+    {
+      fns = lookup_fnfields (TYPE_BINFO (type), ansi_opname (CALL_EXPR), 1);
+      if (fns == error_mark_node)
+	return error_mark_node;
+    }
+  else
+    fns = NULL_TREE;
 
   args = resolve_args (args);
 
@@ -3257,16 +3278,17 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	  || (conv2 && conv2->kind == ck_ambig)
 	  || (conv3 && conv3->kind == ck_ambig))
 	{
-	  error ("operands to ?: have different types");
+	  error ("operands to ?: have different types %qT and %qT",
+             arg2_type, arg3_type);
 	  result = error_mark_node;
 	}
-      else if (conv2 && !conv2->bad_p)
+      else if (conv2 && (!conv2->bad_p || !conv3))
 	{
 	  arg2 = convert_like (conv2, arg2);
 	  arg2 = convert_from_reference (arg2);
 	  arg2_type = TREE_TYPE (arg2);
 	}
-      else if (conv3 && !conv3->bad_p)
+      else if (conv3 && (!conv3->bad_p || !conv2))
 	{
 	  arg3 = convert_like (conv3, arg3);
 	  arg3 = convert_from_reference (arg3);
@@ -3467,7 +3489,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 
   if (!result_type)
     {
-      error ("operands to ?: have different types");
+	  error ("operands to ?: have different types %qT and %qT",
+             arg2_type, arg3_type);
       return error_mark_node;
     }
 
@@ -4195,21 +4218,6 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  else
 	    warning (0, "converting to %qT from %qT", t, TREE_TYPE (expr));
 	}
-      /* And warn about assigning a negative value to an unsigned
-	 variable.  */
-      else if (TYPE_UNSIGNED (t) && TREE_CODE (t) != BOOLEAN_TYPE)
-	{
-	  if (TREE_CODE (expr) == INTEGER_CST && TREE_NEGATED_INT (expr))
-	    {
-	      if (fn)
-		warning (0, "passing negative value %qE for argument %P to %qD",
-			 expr, argnum, fn);
-	      else
-		warning (0, "converting negative value %qE to %qT", expr, t);
-	    }
-
-	  overflow_warning (expr);
-	}
     }
 
   switch (convs->kind)
@@ -4282,7 +4290,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	 about to bind it to a reference, in which case we need to
 	 leave it as an lvalue.  */
       if (inner >= 0)
-	expr = integral_constant_value (expr);
+	expr = decl_constant_value (expr);
       if (convs->check_copy_constructor_p)
 	check_constructor_callable (totype, expr);
       return expr;
@@ -4409,8 +4417,13 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
     default:
       break;
     }
-  return ocp_convert (totype, expr, CONV_IMPLICIT,
-		      LOOKUP_NORMAL|LOOKUP_NO_CONVERSION);
+
+  if (issue_conversion_warnings)
+    expr = convert_and_check (totype, expr);
+  else
+    expr = convert (totype, expr);
+
+  return expr;
 }
 
 /* Build a call to __builtin_trap.  */
@@ -5251,66 +5264,49 @@ build_new_method_call (tree instance, tree fns, tree args,
       || args == error_mark_node)
     return error_mark_node;
 
-  orig_instance = instance;
-  orig_fns = fns;
-  orig_args = args;
-
-  if (processing_template_decl)
-    {
-      instance = build_non_dependent_expr (instance);
-      if (!BASELINK_P (fns)
-	  && TREE_CODE (fns) != PSEUDO_DTOR_EXPR
-	  && TREE_TYPE (fns) != unknown_type_node)
-	fns = build_non_dependent_expr (fns);
-      args = build_non_dependent_args (orig_args);
-    }
-
-  /* Process the argument list.  */
-  user_args = args;
-  args = resolve_args (args);
-  if (args == error_mark_node)
-    return error_mark_node;
-
-  basetype = TYPE_MAIN_VARIANT (TREE_TYPE (instance));
-  instance_ptr = build_this (instance);
-
   if (!BASELINK_P (fns))
     {
       error ("call to non-function %qD", fns);
       return error_mark_node;
     }
 
+  orig_instance = instance;
+  orig_fns = fns;
+  orig_args = args;
+
+  /* Dismantle the baselink to collect all the information we need.  */  
   if (!conversion_path)
     conversion_path = BASELINK_BINFO (fns);
   access_binfo = BASELINK_ACCESS_BINFO (fns);
   optype = BASELINK_OPTYPE (fns);
   fns = BASELINK_FUNCTIONS (fns);
-
   if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
     {
       explicit_targs = TREE_OPERAND (fns, 1);
       fns = TREE_OPERAND (fns, 0);
       template_only = 1;
     }
-
   gcc_assert (TREE_CODE (fns) == FUNCTION_DECL
 	      || TREE_CODE (fns) == TEMPLATE_DECL
 	      || TREE_CODE (fns) == OVERLOAD);
-
-  /* XXX this should be handled before we get here.  */
-  if (! IS_AGGR_TYPE (basetype))
-    {
-      if ((flags & LOOKUP_COMPLAIN) && basetype != error_mark_node)
-	error ("request for member %qD in %qE, which is of non-aggregate "
-	       "type %qT",
-	       fns, instance, basetype);
-
-      return error_mark_node;
-    }
-
   fn = get_first_fn (fns);
   name = DECL_NAME (fn);
 
+  basetype = TYPE_MAIN_VARIANT (TREE_TYPE (instance));
+  gcc_assert (CLASS_TYPE_P (basetype));
+
+  if (processing_template_decl)
+    {
+      instance = build_non_dependent_expr (instance);
+      args = build_non_dependent_args (orig_args);
+    }
+
+  /* The USER_ARGS are the arguments we will display to users if an
+     error occurs.  The USER_ARGS should not include any
+     compiler-generated arguments.  The "this" pointer hasn't been
+     added yet.  However, we must remove the VTT pointer if this is a
+     call to a base-class constructor or destructor.  */
+  user_args = args;
   if (IDENTIFIER_CTOR_OR_DTOR_P (name))
     {
       /* Callers should explicitly indicate whether they want to construct
@@ -5318,7 +5314,18 @@ build_new_method_call (tree instance, tree fns, tree args,
       gcc_assert (name != ctor_identifier);
       /* Similarly for destructors.  */
       gcc_assert (name != dtor_identifier);
+      /* Remove the VTT pointer, if present.  */
+      if ((name == base_ctor_identifier || name == base_dtor_identifier)
+	  && CLASSTYPE_VBASECLASSES (basetype))
+	user_args = TREE_CHAIN (user_args);
     }
+
+  /* Process the argument list.  */
+  args = resolve_args (args);
+  if (args == error_mark_node)
+    return error_mark_node;
+
+  instance_ptr = build_this (instance);
 
   /* It's OK to call destructors on cv-qualified objects.  Therefore,
      convert the INSTANCE_PTR to the unqualified type, if necessary.  */
@@ -5327,6 +5334,7 @@ build_new_method_call (tree instance, tree fns, tree args,
       tree type = build_pointer_type (basetype);
       if (!same_type_p (type, TREE_TYPE (instance_ptr)))
 	instance_ptr = build_nop (type, instance_ptr);
+      name = complete_dtor_identifier;
     }
 
   class_type = (conversion_path ? BINFO_TYPE (conversion_path) : NULL_TREE);
@@ -6117,17 +6125,11 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
       winner = more_specialized_fn
 	(TI_TEMPLATE (cand1->template_decl),
 	 TI_TEMPLATE (cand2->template_decl),
-	 /* Tell the deduction code how many real function arguments
-	    we saw, not counting the implicit 'this' argument.  But,
-	    add_function_candidate() suppresses the "this" argument
-	    for constructors.
-
-	    [temp.func.order]: The presence of unused ellipsis and default
+	 /* [temp.func.order]: The presence of unused ellipsis and default
 	    arguments has no effect on the partial ordering of function
-	    templates.  */
-	 cand1->num_convs
-	 - (DECL_NONSTATIC_MEMBER_FUNCTION_P (cand1->fn)
-	    - DECL_CONSTRUCTOR_P (cand1->fn)));
+	    templates.   add_function_candidate() will not have
+	    counted the "this" argument for constructors.  */
+	 cand1->num_convs + DECL_CONSTRUCTOR_P (cand1->fn));
       if (winner)
 	return winner;
     }

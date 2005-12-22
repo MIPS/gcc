@@ -144,6 +144,9 @@ static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
 static GTY ((if_marked ("tree_int_map_marked_p"), param_is (struct tree_int_map)))
   htab_t init_priority_for_decl;
 
+static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
+  htab_t restrict_base_for_decl;
+
 struct tree_int_map GTY(())
 {
   tree from;
@@ -187,6 +190,8 @@ init_ttree (void)
 					 tree_map_eq, 0);
   init_priority_for_decl = htab_create_ggc (512, tree_int_map_hash,
 					    tree_int_map_eq, 0);
+  restrict_base_for_decl = htab_create_ggc (256, tree_map_hash,
+					    tree_map_eq, 0);
 
   int_cst_hash_table = htab_create_ggc (1024, int_cst_hash_hash,
 					int_cst_hash_eq, NULL);
@@ -225,6 +230,13 @@ init_ttree (void)
   tree_contains_struct[TRANSLATION_UNIT_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[LABEL_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[FIELD_DECL][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[STRUCT_FIELD_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[NAME_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[TYPE_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+
+  tree_contains_struct[STRUCT_FIELD_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[NAME_MEMORY_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[TYPE_MEMORY_TAG][TS_MEMORY_TAG] = 1;
 
   tree_contains_struct[VAR_DECL][TS_DECL_WITH_VIS] = 1;
   tree_contains_struct[FUNCTION_DECL][TS_DECL_WITH_VIS] = 1;
@@ -283,6 +295,10 @@ tree_code_size (enum tree_code code)
 	    return sizeof (struct tree_type_decl);
 	  case FUNCTION_DECL:
 	    return sizeof (struct tree_function_decl);
+	  case NAME_MEMORY_TAG:
+	  case TYPE_MEMORY_TAG:
+	  case STRUCT_FIELD_TAG:
+	    return sizeof (struct tree_memory_tag);
 	  default:
 	    return sizeof (struct tree_decl_non_common);
 	  }
@@ -474,13 +490,16 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
       break;
 
     case tcc_declaration:
-      if (code != FUNCTION_DECL)
-	DECL_ALIGN (t) = 1;
-      DECL_USER_ALIGN (t) = 0;
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
 	DECL_IN_SYSTEM_HEADER (t) = in_system_header;
-      /* We have not yet computed the alias set for this declaration.  */
-      DECL_POINTER_ALIAS_SET (t) = -1;
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
+	{
+	  if (code != FUNCTION_DECL)
+	    DECL_ALIGN (t) = 1;
+	  DECL_USER_ALIGN (t) = 0;	  
+	  /* We have not yet computed the alias set for this declaration.  */
+	  DECL_POINTER_ALIAS_SET (t) = -1;
+	}
       DECL_SOURCE_LOCATION (t) = input_location;
       DECL_UID (t) = next_decl_uid++;
 
@@ -568,7 +587,11 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	  SET_DECL_INIT_PRIORITY (t, DECL_INIT_PRIORITY (node));
 	  DECL_HAS_INIT_PRIORITY_P (t) = 1;
 	}
-      
+      if (TREE_CODE (node) == VAR_DECL && DECL_BASED_ON_RESTRICT_P (node))
+	{
+	  SET_DECL_RESTRICT_BASE (t, DECL_GET_RESTRICT_BASE (node));
+	  DECL_BASED_ON_RESTRICT_P (t) = 1;
+	}
     }
   else if (TREE_CODE_CLASS (code) == tcc_type)
     {
@@ -1185,9 +1208,11 @@ integer_all_onesp (tree expr)
     return 0;
 
   uns = TYPE_UNSIGNED (TREE_TYPE (expr));
+  if (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
+      && TREE_INT_CST_HIGH (expr) == -1)
+    return 1;
   if (!uns)
-    return (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
-	    && TREE_INT_CST_HIGH (expr) == -1);
+    return 0;
 
   /* Note that using TYPE_PRECISION here is wrong.  We care about the
      actual bits, not the (arbitrary) range of the type.  */
@@ -1788,7 +1813,7 @@ staticp (tree arg)
     case VAR_DECL:
       return ((TREE_STATIC (arg) || DECL_EXTERNAL (arg))
 	      && ! DECL_THREAD_LOCAL_P (arg)
-	      && ! DECL_NON_ADDR_CONST_P (arg)
+	      && ! DECL_DLLIMPORT_P (arg)
 	      ? arg : NULL);
 
     case CONST_DECL:
@@ -1970,6 +1995,10 @@ tree_node_structure (tree t)
 	    return TS_TYPE_DECL;
 	  case FUNCTION_DECL:
 	    return TS_FUNCTION_DECL;
+	  case TYPE_MEMORY_TAG:
+	  case NAME_MEMORY_TAG:
+	  case STRUCT_FIELD_TAG:
+	    return TS_MEMORY_TAG;
 	  default:
 	    return TS_DECL_NON_COMMON;
 	  }
@@ -2057,6 +2086,9 @@ contains_placeholder_p (tree exp)
 	  return (CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 0))
 		  || CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 1))
 		  || CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 2)));
+
+	case CALL_EXPR:
+	  return CONTAINS_PLACEHOLDER_P (TREE_OPERAND (exp, 1));
 
 	default:
 	  break;
@@ -2177,7 +2209,7 @@ tree
 substitute_in_expr (tree exp, tree f, tree r)
 {
   enum tree_code code = TREE_CODE (exp);
-  tree op0, op1, op2;
+  tree op0, op1, op2, op3;
   tree new;
   tree inner;
 
@@ -2260,6 +2292,20 @@ substitute_in_expr (tree exp, tree f, tree r)
 	      return exp;
 
 	    new = fold_build3 (code, TREE_TYPE (exp), op0, op1, op2);
+	    break;
+
+	  case 4:
+	    op0 = SUBSTITUTE_IN_EXPR (TREE_OPERAND (exp, 0), f, r);
+	    op1 = SUBSTITUTE_IN_EXPR (TREE_OPERAND (exp, 1), f, r);
+	    op2 = SUBSTITUTE_IN_EXPR (TREE_OPERAND (exp, 2), f, r);
+	    op3 = SUBSTITUTE_IN_EXPR (TREE_OPERAND (exp, 3), f, r);
+
+	    if (op0 == TREE_OPERAND (exp, 0) && op1 == TREE_OPERAND (exp, 1)
+		&& op2 == TREE_OPERAND (exp, 2)
+		&& op3 == TREE_OPERAND (exp, 3))
+	      return exp;
+
+	    new = fold (build4 (code, TREE_TYPE (exp), op0, op1, op2, op3));
 	    break;
 
 	  default:
@@ -2576,7 +2622,7 @@ stabilize_reference_1 (tree e)
    TREE_INVARIANT, and TREE_SIDE_EFFECTS for an ADDR_EXPR.  */
 
 void
-recompute_tree_invarant_for_addr_expr (tree t)
+recompute_tree_invariant_for_addr_expr (tree t)
 {
   tree node;
   bool tc = true, ti = true, se = false;
@@ -2665,9 +2711,7 @@ do { tree _node = (NODE); \
    Constants, decls, types and misc nodes cannot be.
 
    We define 5 non-variadic functions, from 0 to 4 arguments.  This is
-   enough for all extant tree codes.  These functions can be called
-   directly (preferably!), but can also be obtained via GCC preprocessor
-   magic within the build macro.  */
+   enough for all extant tree codes.  */
 
 tree
 build0_stat (enum tree_code code, tree tt MEM_STAT_DECL)
@@ -2753,7 +2797,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 
     case ADDR_EXPR:
       if (node)
-	recompute_tree_invarant_for_addr_expr (t);
+	recompute_tree_invariant_for_addr_expr (t);
       break;
 
     default:
@@ -2929,61 +2973,6 @@ build7_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
   return t;
 }
 
-/* Backup definition for non-gcc build compilers.  */
-
-tree
-(build) (enum tree_code code, tree tt, ...)
-{
-  tree t, arg0, arg1, arg2, arg3, arg4, arg5, arg6;
-  int length = TREE_CODE_LENGTH (code);
-  va_list p;
-
-  va_start (p, tt);
-  switch (length)
-    {
-    case 0:
-      t = build0 (code, tt);
-      break;
-    case 1:
-      arg0 = va_arg (p, tree);
-      t = build1 (code, tt, arg0);
-      break;
-    case 2:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      t = build2 (code, tt, arg0, arg1);
-      break;
-    case 3:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      t = build3 (code, tt, arg0, arg1, arg2);
-      break;
-    case 4:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      arg3 = va_arg (p, tree);
-      t = build4 (code, tt, arg0, arg1, arg2, arg3);
-      break;
-    case 7:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      arg3 = va_arg (p, tree);
-      arg4 = va_arg (p, tree);
-      arg5 = va_arg (p, tree);
-      arg6 = va_arg (p, tree);
-      t = build7 (code, tt, arg0, arg1, arg2, arg3, arg4, arg5, arg6);
-      break;
-    default:
-      gcc_unreachable ();
-    }
-  va_end (p);
-
-  return t;
-}
-
 /* Similar except don't specify the TREE_TYPE
    and leave the TREE_SIDE_EFFECTS as 0.
    It is permissible for arguments to be null,
@@ -3081,7 +3070,7 @@ build_block (tree vars, tree subblocks, tree supercontext, tree chain)
 
 #if 1 /* ! defined(USE_MAPPED_LOCATION) */
 /* ??? gengtype doesn't handle conditionals */
-static GTY(()) tree last_annotated_node;
+static GTY(()) location_t *last_annotated_node;
 #endif
 
 #ifdef USE_MAPPED_LOCATION
@@ -3113,11 +3102,11 @@ annotate_with_file_line (tree node, const char *file, int line)
      a node with the same information already attached to that node!
      Just return instead of wasting memory.  */
   if (EXPR_LOCUS (node)
+      && EXPR_LINENO (node) == line
       && (EXPR_FILENAME (node) == file
-	  || ! strcmp (EXPR_FILENAME (node), file))
-      && EXPR_LINENO (node) == line)
+	  || !strcmp (EXPR_FILENAME (node), file)))
     {
-      last_annotated_node = node;
+      last_annotated_node = EXPR_LOCUS (node);
       return;
     }
 
@@ -3125,19 +3114,18 @@ annotate_with_file_line (tree node, const char *file, int line)
      entry cache can reduce the number of allocations by more
      than half.  */
   if (last_annotated_node
-      && EXPR_LOCUS (last_annotated_node)
-      && (EXPR_FILENAME (last_annotated_node) == file
-	  || ! strcmp (EXPR_FILENAME (last_annotated_node), file))
-      && EXPR_LINENO (last_annotated_node) == line)
+      && last_annotated_node->line == line
+      && (last_annotated_node->file == file
+	  || !strcmp (last_annotated_node->file, file)))
     {
-      SET_EXPR_LOCUS (node, EXPR_LOCUS (last_annotated_node));
+      SET_EXPR_LOCUS (node, last_annotated_node);
       return;
     }
 
   SET_EXPR_LOCUS (node, ggc_alloc (sizeof (location_t)));
   EXPR_LINENO (node) = line;
   EXPR_FILENAME (node) = file;
-  last_annotated_node = node;
+  last_annotated_node = EXPR_LOCUS (node);
 }
 
 void
@@ -3453,31 +3441,66 @@ tree
 merge_dllimport_decl_attributes (tree old, tree new)
 {
   tree a;
-  int delete_dllimport_p;
-
-  old = DECL_ATTRIBUTES (old);
-  new = DECL_ATTRIBUTES (new);
+  int delete_dllimport_p = 1;
 
   /* What we need to do here is remove from `old' dllimport if it doesn't
      appear in `new'.  dllimport behaves like extern: if a declaration is
      marked dllimport and a definition appears later, then the object
-     is not dllimport'd.  */
-  if (lookup_attribute ("dllimport", old) != NULL_TREE
-      && lookup_attribute ("dllimport", new) == NULL_TREE)
-    delete_dllimport_p = 1;
+     is not dllimport'd.  We also remove a `new' dllimport if the old list
+     contains dllexport:  dllexport always overrides dllimport, regardless
+     of the order of declaration.  */     
+  if (!VAR_OR_FUNCTION_DECL_P (new))
+    delete_dllimport_p = 0;
+  else if (DECL_DLLIMPORT_P (new)
+     	   && lookup_attribute ("dllexport", DECL_ATTRIBUTES (old)))
+    { 
+      DECL_DLLIMPORT_P (new) = 0;
+      warning (OPT_Wattributes, "%q+D already declared with dllexport attribute: "
+	      "dllimport ignored", new);
+    }
+  else if (DECL_DLLIMPORT_P (old) && !DECL_DLLIMPORT_P (new))
+    {
+      /* Warn about overriding a symbol that has already been used. eg:
+           extern int __attribute__ ((dllimport)) foo;
+	   int* bar () {return &foo;}
+	   int foo;
+      */
+      if (TREE_USED (old))
+	{
+	  warning (0, "%q+D redeclared without dllimport attribute "
+		   "after being referenced with dll linkage", new);
+	  /* If we have used a variable's address with dllimport linkage,
+	      keep the old DECL_DLLIMPORT_P flag: the ADDR_EXPR using the
+	      decl may already have had TREE_INVARIANT and TREE_CONSTANT
+	      computed.
+	      We still remove the attribute so that assembler code refers
+	      to '&foo rather than '_imp__foo'.  */
+	  if (TREE_CODE (old) == VAR_DECL && TREE_ADDRESSABLE (old))
+	    DECL_DLLIMPORT_P (new) = 1;
+	}
+
+      /* Let an inline definition silently override the external reference,
+	 but otherwise warn about attribute inconsistency.  */ 
+      else if (TREE_CODE (new) == VAR_DECL
+	       || !DECL_DECLARED_INLINE_P (new))
+	warning (OPT_Wattributes, "%q+D redeclared without dllimport attribute: "
+		  "previous dllimport ignored", new);
+    }
   else
     delete_dllimport_p = 0;
 
-  a = merge_attributes (old, new);
+  a = merge_attributes (DECL_ATTRIBUTES (old), DECL_ATTRIBUTES (new));
 
-  if (delete_dllimport_p)
+  if (delete_dllimport_p) 
     {
       tree prev, t;
-
+      const size_t attr_len = strlen ("dllimport"); 
+     
       /* Scan the list for dllimport and delete it.  */
       for (prev = NULL_TREE, t = a; t; prev = t, t = TREE_CHAIN (t))
 	{
-	  if (is_attribute_p ("dllimport", TREE_PURPOSE (t)))
+	  if (is_attribute_with_length_p ("dllimport", attr_len,
+					  TREE_PURPOSE (t)))
 	    {
 	      if (prev == NULL_TREE)
 		a = TREE_CHAIN (a);
@@ -3524,18 +3547,26 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
      any damage.  */
   if (is_attribute_p ("dllimport", name))
     {
+      /* Honor any target-specific overrides. */ 
+      if (!targetm.valid_dllimport_attribute_p (node))
+	*no_add_attrs = true;
+
+     else if (TREE_CODE (node) == FUNCTION_DECL
+	        && DECL_DECLARED_INLINE_P (node))
+	{
+	  warning (OPT_Wattributes, "inline function %q+D declared as "
+		  " dllimport: attribute ignored", node); 
+	  *no_add_attrs = true;
+	}
       /* Like MS, treat definition of dllimported variables and
-	 non-inlined functions on declaration as syntax errors.  We
-	 allow the attribute for function definitions if declared
-	 inline.  */
-      if (TREE_CODE (node) == FUNCTION_DECL  && DECL_INITIAL (node)
-          && !DECL_DECLARED_INLINE_P (node))
+	 non-inlined functions on declaration as syntax errors. */
+     else if (TREE_CODE (node) == FUNCTION_DECL && DECL_INITIAL (node))
 	{
 	  error ("function %q+D definition is marked dllimport", node);
 	  *no_add_attrs = true;
 	}
 
-      else if (TREE_CODE (node) == VAR_DECL)
+     else if (TREE_CODE (node) == VAR_DECL)
 	{
 	  if (DECL_INITIAL (node))
 	    {
@@ -3552,6 +3583,9 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	  if (current_function_decl != NULL_TREE && !TREE_STATIC (node))
 	    TREE_PUBLIC (node) = 1;
 	}
+
+      if (*no_add_attrs == false)
+        DECL_DLLIMPORT_P (node) = 1;
     }
 
   /*  Report error if symbol is not accessible at global scope.  */
@@ -3631,6 +3665,20 @@ build_qualified_type (tree type, int type_quals)
     {
       t = build_variant_type_copy (type);
       set_type_quals (t, type_quals);
+
+      /* If it's a pointer type, the new variant points to the same type.  */
+      if (TREE_CODE (type) == POINTER_TYPE)
+	{
+	  TYPE_NEXT_PTR_TO (t) = TYPE_NEXT_PTR_TO (type);
+	  TYPE_NEXT_PTR_TO (type) = t;
+	}
+
+      /* Same for a reference type.  */
+      else if (TREE_CODE (type) == REFERENCE_TYPE)
+	{
+	  TYPE_NEXT_REF_TO (t) = TYPE_NEXT_REF_TO (type);
+	  TYPE_NEXT_REF_TO (type) = t;
+	}
     }
 
   return t;
@@ -3760,6 +3808,36 @@ decl_init_priority_insert (tree from, unsigned short to)
   *(struct tree_int_map **) loc = h;
 }  
 
+/* Look up a restrict qualified base decl for FROM.  */
+
+tree
+decl_restrict_base_lookup (tree from)
+{
+  struct tree_map *h;
+  struct tree_map in;
+
+  in.from = from;
+  h = htab_find_with_hash (restrict_base_for_decl, &in,
+			   htab_hash_pointer (from));
+  return h ? h->to : NULL_TREE;
+}
+
+/* Record the restrict qualified base TO for FROM.  */
+
+void
+decl_restrict_base_insert (tree from, tree to)
+{
+  struct tree_map *h;
+  void **loc;
+
+  h = ggc_alloc (sizeof (struct tree_map));
+  h->hash = htab_hash_pointer (from);
+  h->from = from;
+  h->to = to;
+  loc = htab_find_slot_with_hash (restrict_base_for_decl, h, h->hash, INSERT);
+  *(struct tree_map **) loc = h;
+}
+
 /* Print out the statistics for the DECL_DEBUG_EXPR hash table.  */
 
 static void
@@ -3781,6 +3859,21 @@ print_value_expr_statistics (void)
 	   (long) htab_elements (value_expr_for_decl),
 	   htab_collisions (value_expr_for_decl));
 }
+
+/* Print out statistics for the RESTRICT_BASE_FOR_DECL hash table, but
+   don't print anything if the table is empty.  */
+
+static void
+print_restrict_base_statistics (void)
+{
+  if (htab_elements (restrict_base_for_decl) != 0)
+    fprintf (stderr,
+	     "RESTRICT_BASE    hash: size %ld, %ld elements, %f collisions\n",
+	     (long) htab_size (restrict_base_for_decl),
+	     (long) htab_elements (restrict_base_for_decl),
+	     htab_collisions (restrict_base_for_decl));
+}
+
 /* Lookup a debug expression for FROM, and return it if we find one.  */
 
 tree 
@@ -4244,7 +4337,7 @@ tree_int_cst_compare (tree t1, tree t2)
 
 /* Return 1 if T is an INTEGER_CST that can be manipulated efficiently on
    the host.  If POS is zero, the value can be represented in a single
-   HOST_WIDE_INT.  If POS is nonzero, the value must be positive and can
+   HOST_WIDE_INT.  If POS is nonzero, the value must be non-negative and can
    be represented in a single unsigned HOST_WIDE_INT.  */
 
 int
@@ -4262,7 +4355,7 @@ host_integerp (tree t, int pos)
 
 /* Return the HOST_WIDE_INT least significant bits of T if it is an
    INTEGER_CST and there is no overflow.  POS is nonzero if the result must
-   be positive.  We must be able to satisfy the above conditions.  */
+   be non-negative.  We must be able to satisfy the above conditions.  */
 
 HOST_WIDE_INT
 tree_low_cst (tree t, int pos)
@@ -4290,7 +4383,7 @@ tree_int_cst_msb (tree t)
 
 /* Return an indication of the sign of the integer constant T.
    The return value is -1 if T < 0, 0 if T == 0, and 1 if T > 0.
-   Note that -1 will never be returned it T's type is unsigned.  */
+   Note that -1 will never be returned if T's type is unsigned.  */
 
 int
 tree_int_cst_sgn (tree t)
@@ -4701,10 +4794,12 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
       && TREE_CODE (TYPE_POINTER_TO (to_type)) != POINTER_TYPE)
     return TYPE_POINTER_TO (to_type);
 
-  /* First, if we already have a type for pointers to TO_TYPE and it's
-     the proper mode, use it.  */
+  /* First, if we already have an unqualified type for pointers to TO_TYPE
+     and it's the proper mode, use it.  */
   for (t = TYPE_POINTER_TO (to_type); t; t = TYPE_NEXT_PTR_TO (t))
-    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (TYPE_MODE (t) == mode
+	&& !TYPE_QUALS (t)
+	&& TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
   t = make_node (POINTER_TYPE);
@@ -4750,10 +4845,12 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
       && TREE_CODE (TYPE_REFERENCE_TO (to_type)) != REFERENCE_TYPE)
     return TYPE_REFERENCE_TO (to_type);
 
-  /* First, if we already have a type for pointers to TO_TYPE and it's
-     the proper mode, use it.  */
+  /* First, if we already have an unqualified type for references to TO_TYPE
+     and it's the proper mode, use it.  */
   for (t = TYPE_REFERENCE_TO (to_type); t; t = TYPE_NEXT_REF_TO (t))
-    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (TYPE_MODE (t) == mode
+	&& !TYPE_QUALS (t)
+	&& TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
   t = make_node (REFERENCE_TYPE);
@@ -5424,8 +5521,11 @@ int_fits_type_p (tree c, tree type)
     return 0;
 
   /* If we haven't been able to decide at this point, there nothing more we
-     can check ourselves here. Look at the base type if we have one.  */
-  if (TREE_CODE (type) == INTEGER_TYPE && TREE_TYPE (type) != 0)
+     can check ourselves here.  Look at the base type if we have one and it
+     has the same precision.  */
+  if (TREE_CODE (type) == INTEGER_TYPE
+      && TREE_TYPE (type) != 0
+      && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (type)))
     return int_fits_type_p (c, TREE_TYPE (type));
 
   /* Or to force_fit_type, if nothing else.  */
@@ -5708,6 +5808,7 @@ dump_tree_statistics (void)
   print_type_hash_statistics ();
   print_debug_expr_statistics ();
   print_value_expr_statistics ();
+  print_restrict_base_statistics ();
   lang_hooks.print_statistics ();
 }
 
@@ -6158,6 +6259,25 @@ build_common_tree_nodes_2 (int short_double)
   long_double_ptr_type_node = build_pointer_type (long_double_type_node);
   integer_ptr_type_node = build_pointer_type (integer_type_node);
 
+  /* Decimal float types. */
+  dfloat32_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (dfloat32_type_node) = DECIMAL32_TYPE_SIZE; 
+  layout_type (dfloat32_type_node);
+  TYPE_MODE (dfloat32_type_node) = SDmode;
+  dfloat32_ptr_type_node = build_pointer_type (dfloat32_type_node);
+
+  dfloat64_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (dfloat64_type_node) = DECIMAL64_TYPE_SIZE;
+  layout_type (dfloat64_type_node);
+  TYPE_MODE (dfloat64_type_node) = DDmode;
+  dfloat64_ptr_type_node = build_pointer_type (dfloat64_type_node);
+
+  dfloat128_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (dfloat128_type_node) = DECIMAL128_TYPE_SIZE; 
+  layout_type (dfloat128_type_node);
+  TYPE_MODE (dfloat128_type_node) = TDmode;
+  dfloat128_ptr_type_node = build_pointer_type (dfloat128_type_node);
+
   complex_integer_type_node = make_node (COMPLEX_TYPE);
   TREE_TYPE (complex_integer_type_node) = integer_type_node;
   layout_type (complex_integer_type_node);
@@ -6549,7 +6669,10 @@ in_array_bounds_p (tree ref)
 bool
 is_global_var (tree t)
 {
-  return (TREE_STATIC (t) || DECL_EXTERNAL (t));
+  if (MTAG_P (t))
+    return (TREE_STATIC (t) || MTAG_GLOBAL (t));
+  else
+    return (TREE_STATIC (t) || DECL_EXTERNAL (t));
 }
 
 /* Return true if T (assumed to be a DECL) must be assigned a memory

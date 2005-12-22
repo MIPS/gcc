@@ -695,10 +695,8 @@ digest_init (tree type, tree init)
 	}
     }
 
-  /* Handle scalar types, including conversions,
-     and signature pointers and references.  */
-  if (SCALAR_TYPE_P (type)
-      || code == REFERENCE_TYPE)
+  /* Handle scalar types (including conversions) and references.  */
+  if (SCALAR_TYPE_P (type) || code == REFERENCE_TYPE)
     return convert_for_initialization (0, type, init, LOOKUP_NORMAL,
 				       "initialization", NULL_TREE, 0);
 
@@ -995,12 +993,7 @@ process_init_constructor_union (tree type, tree init)
       tree field = TYPE_FIELDS (type);
       while (field && (!DECL_NAME (field) || TREE_CODE (field) != FIELD_DECL))
 	field = TREE_CHAIN (field);
-      if (!field)
-	{
-	  error ("union %qT with no named members cannot be initialized",
-		 type);
-	  ce->value = error_mark_node;
-	}
+      gcc_assert (field);
       ce->index = field;
     }
 

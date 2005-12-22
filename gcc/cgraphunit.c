@@ -311,11 +311,19 @@ cgraph_varpool_remove_unreferenced_decls (void)
 	  && ((DECL_ASSEMBLER_NAME_SET_P (decl)
 	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	      || node->force_output
-	      || decide_is_variable_needed (node, decl)))
+	      || decide_is_variable_needed (node, decl)
+	      /* ??? Cgraph does not yet rule the world with an iron hand, 
+		 and does not control the emission of debug information.
+		 After a variable has its DECL_RTL set, we must assume that
+		 it may be referenced by the debug information, and we can
+		 no longer elide it.  */
+	      || DECL_RTL_SET_P (decl)))
 	cgraph_varpool_mark_needed_node (node);
 
       node = next;
     }
+  /* Make sure we mark alias targets as used targets.  */
+  finish_aliases_1 ();
   cgraph_varpool_analyze_pending_decls ();
 }
 
@@ -657,8 +665,18 @@ verify_cgraph_node (struct cgraph_node *node)
 	       cgraph_node_name (e->caller), cgraph_node_name (e->callee));
 	error_found = true;
       }
+  if (node->count < 0)
+    {
+      error ("Execution count is negative");
+      error_found = true;
+    }
   for (e = node->callers; e; e = e->next_caller)
     {
+      if (e->count < 0)
+	{
+	  error ("caller edge count is negative");
+	  error_found = true;
+	}
       if (!e->inline_failed)
 	{
 	  if (node->global.inlined_to

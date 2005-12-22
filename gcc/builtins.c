@@ -199,6 +199,15 @@ static tree fold_builtin_strncat_chk (tree, tree);
 static tree fold_builtin_sprintf_chk (tree, enum built_in_function);
 static tree fold_builtin_printf (tree, tree, bool, enum built_in_function);
 static tree fold_builtin_fprintf (tree, tree, bool, enum built_in_function);
+static bool init_target_chars (void);
+
+static unsigned HOST_WIDE_INT target_newline;
+static unsigned HOST_WIDE_INT target_percent;
+static unsigned HOST_WIDE_INT target_c;
+static unsigned HOST_WIDE_INT target_s;
+static char target_percent_c[3];
+static char target_percent_s[3];
+static char target_percent_s_newline[4];
 
 /* Return true if NODE should be considered for inline expansion regardless
    of the optimization level.  This means whenever a function is invoked with
@@ -1781,101 +1790,53 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
-    case BUILT_IN_SQRT:
-    case BUILT_IN_SQRTF:
-    case BUILT_IN_SQRTL:
+    CASE_FLT_FN (BUILT_IN_SQRT):
       errno_set = ! tree_expr_nonnegative_p (arg);
       builtin_optab = sqrt_optab;
       break;
-    case BUILT_IN_EXP:
-    case BUILT_IN_EXPF:
-    case BUILT_IN_EXPL:
+    CASE_FLT_FN (BUILT_IN_EXP):
       errno_set = true; builtin_optab = exp_optab; break;
-    case BUILT_IN_EXP10:
-    case BUILT_IN_EXP10F:
-    case BUILT_IN_EXP10L:
-    case BUILT_IN_POW10:
-    case BUILT_IN_POW10F:
-    case BUILT_IN_POW10L:
+    CASE_FLT_FN (BUILT_IN_EXP10):
+    CASE_FLT_FN (BUILT_IN_POW10):
       errno_set = true; builtin_optab = exp10_optab; break;
-    case BUILT_IN_EXP2:
-    case BUILT_IN_EXP2F:
-    case BUILT_IN_EXP2L:
+    CASE_FLT_FN (BUILT_IN_EXP2):
       errno_set = true; builtin_optab = exp2_optab; break;
-    case BUILT_IN_EXPM1:
-    case BUILT_IN_EXPM1F:
-    case BUILT_IN_EXPM1L:
+    CASE_FLT_FN (BUILT_IN_EXPM1):
       errno_set = true; builtin_optab = expm1_optab; break;
-    case BUILT_IN_LOGB:
-    case BUILT_IN_LOGBF:
-    case BUILT_IN_LOGBL:
+    CASE_FLT_FN (BUILT_IN_LOGB):
       errno_set = true; builtin_optab = logb_optab; break;
-    case BUILT_IN_ILOGB:
-    case BUILT_IN_ILOGBF:
-    case BUILT_IN_ILOGBL:
+    CASE_FLT_FN (BUILT_IN_ILOGB):
       errno_set = true; builtin_optab = ilogb_optab; break;
-    case BUILT_IN_LOG:
-    case BUILT_IN_LOGF:
-    case BUILT_IN_LOGL:
+    CASE_FLT_FN (BUILT_IN_LOG):
       errno_set = true; builtin_optab = log_optab; break;
-    case BUILT_IN_LOG10:
-    case BUILT_IN_LOG10F:
-    case BUILT_IN_LOG10L:
+    CASE_FLT_FN (BUILT_IN_LOG10):
       errno_set = true; builtin_optab = log10_optab; break;
-    case BUILT_IN_LOG2:
-    case BUILT_IN_LOG2F:
-    case BUILT_IN_LOG2L:
+    CASE_FLT_FN (BUILT_IN_LOG2):
       errno_set = true; builtin_optab = log2_optab; break;
-    case BUILT_IN_LOG1P:
-    case BUILT_IN_LOG1PF:
-    case BUILT_IN_LOG1PL:
+    CASE_FLT_FN (BUILT_IN_LOG1P):
       errno_set = true; builtin_optab = log1p_optab; break;
-    case BUILT_IN_ASIN:
-    case BUILT_IN_ASINF:
-    case BUILT_IN_ASINL:
+    CASE_FLT_FN (BUILT_IN_ASIN):
       builtin_optab = asin_optab; break;
-    case BUILT_IN_ACOS:
-    case BUILT_IN_ACOSF:
-    case BUILT_IN_ACOSL:
+    CASE_FLT_FN (BUILT_IN_ACOS):
       builtin_optab = acos_optab; break;
-    case BUILT_IN_TAN:
-    case BUILT_IN_TANF:
-    case BUILT_IN_TANL:
+    CASE_FLT_FN (BUILT_IN_TAN):
       builtin_optab = tan_optab; break;
-    case BUILT_IN_ATAN:
-    case BUILT_IN_ATANF:
-    case BUILT_IN_ATANL:
+    CASE_FLT_FN (BUILT_IN_ATAN):
       builtin_optab = atan_optab; break;
-    case BUILT_IN_FLOOR:
-    case BUILT_IN_FLOORF:
-    case BUILT_IN_FLOORL:
+    CASE_FLT_FN (BUILT_IN_FLOOR):
       builtin_optab = floor_optab; break;
-    case BUILT_IN_CEIL:
-    case BUILT_IN_CEILF:
-    case BUILT_IN_CEILL:
+    CASE_FLT_FN (BUILT_IN_CEIL):
       builtin_optab = ceil_optab; break;
-    case BUILT_IN_TRUNC:
-    case BUILT_IN_TRUNCF:
-    case BUILT_IN_TRUNCL:
+    CASE_FLT_FN (BUILT_IN_TRUNC):
       builtin_optab = btrunc_optab; break;
-    case BUILT_IN_ROUND:
-    case BUILT_IN_ROUNDF:
-    case BUILT_IN_ROUNDL:
+    CASE_FLT_FN (BUILT_IN_ROUND):
       builtin_optab = round_optab; break;
-    case BUILT_IN_NEARBYINT:
-    case BUILT_IN_NEARBYINTF:
-    case BUILT_IN_NEARBYINTL:
+    CASE_FLT_FN (BUILT_IN_NEARBYINT):
       builtin_optab = nearbyint_optab; break;
-    case BUILT_IN_RINT:
-    case BUILT_IN_RINTF:
-    case BUILT_IN_RINTL:
+    CASE_FLT_FN (BUILT_IN_RINT):
       builtin_optab = rint_optab; break;
-    case BUILT_IN_LRINT:
-    case BUILT_IN_LRINTF:
-    case BUILT_IN_LRINTL:
-    case BUILT_IN_LLRINT:
-    case BUILT_IN_LLRINTF:
-    case BUILT_IN_LLRINTL:
+    CASE_FLT_FN (BUILT_IN_LRINT):
+    CASE_FLT_FN (BUILT_IN_LLRINT):
       builtin_optab = lrint_optab; break;
     default:
       gcc_unreachable ();
@@ -2008,25 +1969,15 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
-    case BUILT_IN_POW:
-    case BUILT_IN_POWF:
-    case BUILT_IN_POWL:
+    CASE_FLT_FN (BUILT_IN_POW):
       builtin_optab = pow_optab; break;
-    case BUILT_IN_ATAN2:
-    case BUILT_IN_ATAN2F:
-    case BUILT_IN_ATAN2L:
+    CASE_FLT_FN (BUILT_IN_ATAN2):
       builtin_optab = atan2_optab; break;
-    case BUILT_IN_LDEXP:
-    case BUILT_IN_LDEXPF:
-    case BUILT_IN_LDEXPL:
+    CASE_FLT_FN (BUILT_IN_LDEXP):
       builtin_optab = ldexp_optab; break;
-    case BUILT_IN_FMOD:
-    case BUILT_IN_FMODF:
-    case BUILT_IN_FMODL:
+    CASE_FLT_FN (BUILT_IN_FMOD):
       builtin_optab = fmod_optab; break;
-    case BUILT_IN_DREM:
-    case BUILT_IN_DREMF:
-    case BUILT_IN_DREML:
+    CASE_FLT_FN (BUILT_IN_DREM):
       builtin_optab = drem_optab; break;
     default:
       gcc_unreachable ();
@@ -2123,12 +2074,8 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
-    case BUILT_IN_SIN:
-    case BUILT_IN_SINF:
-    case BUILT_IN_SINL:
-    case BUILT_IN_COS:
-    case BUILT_IN_COSF:
-    case BUILT_IN_COSL:
+    CASE_FLT_FN (BUILT_IN_SIN):
+    CASE_FLT_FN (BUILT_IN_COS):
       builtin_optab = sincos_optab; break;
     default:
       gcc_unreachable ();
@@ -2145,13 +2092,9 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
   if (builtin_optab->handlers[(int) mode].insn_code == CODE_FOR_nothing) {
     switch (DECL_FUNCTION_CODE (fndecl))
       {
-      case BUILT_IN_SIN:
-      case BUILT_IN_SINF:
-      case BUILT_IN_SINL:
+      CASE_FLT_FN (BUILT_IN_SIN):
 	builtin_optab = sin_optab; break;
-      case BUILT_IN_COS:
-      case BUILT_IN_COSF:
-      case BUILT_IN_COSL:
+      CASE_FLT_FN (BUILT_IN_COS):
 	builtin_optab = cos_optab; break;
       default:
 	gcc_unreachable ();
@@ -2186,14 +2129,10 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
 
 	  switch (DECL_FUNCTION_CODE (fndecl))
 	    {
-	    case BUILT_IN_SIN:
-	    case BUILT_IN_SINF:
-	    case BUILT_IN_SINL:
+	    CASE_FLT_FN (BUILT_IN_SIN):
 	      result = expand_twoval_unop (builtin_optab, op0, 0, target, 0);
 	      break;
-	    case BUILT_IN_COS:
-	    case BUILT_IN_COSF:
-	    case BUILT_IN_COSL:
+	    CASE_FLT_FN (BUILT_IN_COS):
 	      result = expand_twoval_unop (builtin_optab, op0, target, 0, 0);
 	      break;
 	    default:
@@ -2254,22 +2193,14 @@ expand_builtin_int_roundingfn (tree exp, rtx target, rtx subtarget)
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
-    case BUILT_IN_LCEIL:
-    case BUILT_IN_LCEILF:
-    case BUILT_IN_LCEILL:
-    case BUILT_IN_LLCEIL:
-    case BUILT_IN_LLCEILF:
-    case BUILT_IN_LLCEILL:
+    CASE_FLT_FN (BUILT_IN_LCEIL):
+    CASE_FLT_FN (BUILT_IN_LLCEIL):
       builtin_optab = lceil_optab;
       fallback_fn = BUILT_IN_CEIL;
       break;
 
-    case BUILT_IN_LFLOOR:
-    case BUILT_IN_LFLOORF:
-    case BUILT_IN_LFLOORL:
-    case BUILT_IN_LLFLOOR:
-    case BUILT_IN_LLFLOORF:
-    case BUILT_IN_LLFLOORL:
+    CASE_FLT_FN (BUILT_IN_LFLOOR):
+    CASE_FLT_FN (BUILT_IN_LLFLOOR):
       builtin_optab = lfloor_optab;
       fallback_fn = BUILT_IN_FLOOR;
       break;
@@ -4751,7 +4682,7 @@ expand_builtin_expect_jump (tree exp, rtx if_false_label, rtx if_true_label)
   return ret;
 }
 
-static void
+void
 expand_builtin_trap (void)
 {
 #ifdef HAVE_trap
@@ -4843,11 +4774,12 @@ expand_builtin_printf (tree exp, rtx target, enum machine_mode mode,
 		       bool unlocked)
 {
   tree arglist = TREE_OPERAND (exp, 1);
-  tree fn_putchar = unlocked
-		    ? implicit_built_in_decls[BUILT_IN_PUTCHAR_UNLOCKED]
-		    : implicit_built_in_decls[BUILT_IN_PUTCHAR];
-  tree fn_puts = unlocked ? implicit_built_in_decls[BUILT_IN_PUTS_UNLOCKED]
-			  : implicit_built_in_decls[BUILT_IN_PUTS];
+  /* If we're using an unlocked function, assume the other unlocked
+     functions exist explicitly.  */
+  tree const fn_putchar = unlocked ? built_in_decls[BUILT_IN_PUTCHAR_UNLOCKED]
+    : implicit_built_in_decls[BUILT_IN_PUTCHAR];
+  tree const fn_puts = unlocked ? built_in_decls[BUILT_IN_PUTS_UNLOCKED]
+    : implicit_built_in_decls[BUILT_IN_PUTS];
   const char *fmt_str;
   tree fn, fmt, arg;
 
@@ -4868,8 +4800,11 @@ expand_builtin_printf (tree exp, rtx target, enum machine_mode mode,
   if (fmt_str == NULL)
     return 0;
 
+  if (!init_target_chars())
+    return 0;
+  
   /* If the format specifier was "%s\n", call __builtin_puts(arg).  */
-  if (strcmp (fmt_str, "%s\n") == 0)
+  if (strcmp (fmt_str, target_percent_s_newline) == 0)
     {
       if (! arglist
           || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
@@ -4878,7 +4813,7 @@ expand_builtin_printf (tree exp, rtx target, enum machine_mode mode,
       fn = fn_puts;
     }
   /* If the format specifier was "%c", call __builtin_putchar(arg).  */
-  else if (strcmp (fmt_str, "%c") == 0)
+  else if (strcmp (fmt_str, target_percent_c) == 0)
     {
       if (! arglist
 	  || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != INTEGER_TYPE
@@ -4889,7 +4824,7 @@ expand_builtin_printf (tree exp, rtx target, enum machine_mode mode,
   else
     {
       /* We can't handle anything else with % args or %% ... yet.  */
-      if (strchr (fmt_str, '%'))
+      if (strchr (fmt_str, target_percent))
         return 0;
 
       if (arglist)
@@ -4912,7 +4847,7 @@ expand_builtin_printf (tree exp, rtx target, enum machine_mode mode,
 	{
 	  /* If the format specifier was "string\n", call puts("string").  */
 	  size_t len = strlen (fmt_str);
-	  if (fmt_str[len - 1] == '\n')
+	  if ((unsigned char)fmt_str[len - 1] == target_newline)
 	    {
 	      /* Create a NUL-terminated string that's one char shorter
 		 than the original, stripping off the trailing '\n'.  */
@@ -4949,10 +4884,12 @@ expand_builtin_fprintf (tree exp, rtx target, enum machine_mode mode,
 		        bool unlocked)
 {
   tree arglist = TREE_OPERAND (exp, 1);
-  tree fn_fputc = unlocked ? implicit_built_in_decls[BUILT_IN_FPUTC_UNLOCKED]
-			   : implicit_built_in_decls[BUILT_IN_FPUTC];
-  tree fn_fputs = unlocked ? implicit_built_in_decls[BUILT_IN_FPUTS_UNLOCKED]
-			   : implicit_built_in_decls[BUILT_IN_FPUTS];
+  /* If we're using an unlocked function, assume the other unlocked
+     functions exist explicitly.  */
+  tree const fn_fputc = unlocked ? built_in_decls[BUILT_IN_FPUTC_UNLOCKED]
+    : implicit_built_in_decls[BUILT_IN_FPUTC];
+  tree const fn_fputs = unlocked ? built_in_decls[BUILT_IN_FPUTS_UNLOCKED]
+    : implicit_built_in_decls[BUILT_IN_FPUTS];
   const char *fmt_str;
   tree fn, fmt, fp, arg;
 
@@ -4979,8 +4916,11 @@ expand_builtin_fprintf (tree exp, rtx target, enum machine_mode mode,
   if (fmt_str == NULL)
     return 0;
 
+  if (!init_target_chars())
+    return 0;
+  
   /* If the format specifier was "%s", call __builtin_fputs(arg,fp).  */
-  if (strcmp (fmt_str, "%s") == 0)
+  if (strcmp (fmt_str, target_percent_s) == 0)
     {
       if (! arglist
           || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
@@ -4992,7 +4932,7 @@ expand_builtin_fprintf (tree exp, rtx target, enum machine_mode mode,
       fn = fn_fputs;
     }
   /* If the format specifier was "%c", call __builtin_fputc(arg,fp).  */
-  else if (strcmp (fmt_str, "%c") == 0)
+  else if (strcmp (fmt_str, target_percent_c) == 0)
     {
       if (! arglist
 	  || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != INTEGER_TYPE
@@ -5006,7 +4946,7 @@ expand_builtin_fprintf (tree exp, rtx target, enum machine_mode mode,
   else
     {
       /* We can't handle anything else with % args or %% ... yet.  */
-      if (strchr (fmt_str, '%'))
+      if (strchr (fmt_str, target_percent))
         return 0;
 
       if (arglist)
@@ -5068,8 +5008,11 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
   if (fmt_str == NULL)
     return 0;
 
+  if (!init_target_chars())
+    return 0;
+
   /* If the format doesn't contain % args or %%, use strcpy.  */
-  if (strchr (fmt_str, '%') == 0)
+  if (strchr (fmt_str, target_percent) == 0)
     {
       tree fn = implicit_built_in_decls[BUILT_IN_STRCPY];
       tree exp;
@@ -5084,7 +5027,7 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
       return expand_expr (exp, target, mode, EXPAND_NORMAL);
     }
   /* If the format is "%s", use strcpy if the result isn't used.  */
-  else if (strcmp (fmt_str, "%s") == 0)
+  else if (strcmp (fmt_str, target_percent_s) == 0)
     {
       tree fn, arg, len;
       fn = implicit_built_in_decls[BUILT_IN_STRCPY];
@@ -5388,6 +5331,22 @@ expand_builtin_fork_or_exec (tree fn, tree arglist, rtx target, int ignore)
 }
 
 
+/* Reconstitute a mode for a __sync intrinsic operation.  Since the type of
+   the pointer in these functions is void*, the tree optimizers may remove
+   casts.  The mode computed in expand_builtin isn't reliable either, due
+   to __sync_bool_compare_and_swap.
+
+   FCODE_DIFF should be fcode - base, where base is the FOO_1 code for the
+   group of builtins.  This gives us log2 of the mode size.  */
+
+static inline enum machine_mode
+get_builtin_sync_mode (int fcode_diff)
+{
+  /* The size is not negotiable, so ask not to get BLKmode in return
+     if the target indicates that a smaller size would be better.  */
+  return mode_for_size (BITS_PER_UNIT << fcode_diff, MODE_INT, 0);
+}
+
 /* Expand the __sync_xxx_and_fetch and __sync_fetch_and_xxx intrinsics.
    ARGLIST is the operands list to the function.  CODE is the rtx code 
    that corresponds to the arithmetic or logical operation from the name;
@@ -5397,15 +5356,14 @@ expand_builtin_fork_or_exec (tree fn, tree arglist, rtx target, int ignore)
    the result of the operation at all.  */
 
 static rtx
-expand_builtin_sync_operation (tree arglist, enum rtx_code code, bool after,
+expand_builtin_sync_operation (enum machine_mode mode, tree arglist,
+			       enum rtx_code code, bool after,
 			       rtx target, bool ignore)
 {
-  enum machine_mode mode;
   rtx addr, val, mem;
 
   /* Expand the operands.  */
   addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_SUM);
-  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (TREE_VALUE (arglist))));
 
   arglist = TREE_CHAIN (arglist);
   val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
@@ -5428,14 +5386,13 @@ expand_builtin_sync_operation (tree arglist, enum rtx_code code, bool after,
    results; this is NOT optional if IS_BOOL is true.  */
 
 static rtx
-expand_builtin_compare_and_swap (tree arglist, bool is_bool, rtx target)
+expand_builtin_compare_and_swap (enum machine_mode mode, tree arglist,
+				 bool is_bool, rtx target)
 {
-  enum machine_mode mode;
   rtx addr, old_val, new_val, mem;
 
   /* Expand the operands.  */
   addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_SUM);
-  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (TREE_VALUE (arglist))));
 
   arglist = TREE_CHAIN (arglist);
   old_val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
@@ -5462,14 +5419,13 @@ expand_builtin_compare_and_swap (tree arglist, bool is_bool, rtx target)
    place for us to store the results.  */
 
 static rtx
-expand_builtin_lock_test_and_set (tree arglist, rtx target)
+expand_builtin_lock_test_and_set (enum machine_mode mode, tree arglist,
+				  rtx target)
 {
-  enum machine_mode mode;
   rtx addr, val, mem;
 
   /* Expand the operands.  */
   addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_NORMAL);
-  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (TREE_VALUE (arglist))));
 
   arglist = TREE_CHAIN (arglist);
   val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
@@ -5488,7 +5444,7 @@ expand_builtin_lock_test_and_set (tree arglist, rtx target)
 static void
 expand_builtin_synchronize (void)
 {
-  rtx body;
+  tree x;
 
 #ifdef HAVE_memory_barrier
   if (HAVE_memory_barrier)
@@ -5498,27 +5454,26 @@ expand_builtin_synchronize (void)
     }
 #endif
 
-  /* If no explicit memory barrier instruction is available, create an empty
-     asm stmt that will prevent compiler movement across the barrier.  */
-  body = gen_rtx_ASM_INPUT (VOIDmode, "");
-  MEM_VOLATILE_P (body) = 1;
-  emit_insn (body);
+  /* If no explicit memory barrier instruction is available, create an
+     empty asm stmt with a memory clobber.  */
+  x = build4 (ASM_EXPR, void_type_node, build_string (0, ""), NULL, NULL,
+	      tree_cons (NULL, build_string (6, "memory"), NULL));
+  ASM_VOLATILE_P (x) = 1;
+  expand_asm_expr (x);
 }
 
 /* Expand the __sync_lock_release intrinsic.  ARGLIST is the operands list
    to the function.  */
 
 static void
-expand_builtin_lock_release (tree arglist)
+expand_builtin_lock_release (enum machine_mode mode, tree arglist)
 {
-  enum machine_mode mode;
   enum insn_code icode;
-  rtx addr, val, mem, insn;
+  rtx addr, mem, insn;
+  rtx val = const0_rtx;
 
   /* Expand the operands.  */
   addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_NORMAL);
-  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (TREE_VALUE (arglist))));
-  val = const0_rtx;
 
   /* Note that we explicitly do not want any alias information for this
      memory, so that we kill all other live memories.  Otherwise we don't
@@ -5605,17 +5560,13 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
   switch (fcode)
     {
-    case BUILT_IN_FABS:
-    case BUILT_IN_FABSF:
-    case BUILT_IN_FABSL:
+    CASE_FLT_FN (BUILT_IN_FABS):
       target = expand_builtin_fabs (arglist, target, subtarget);
       if (target)
         return target;
       break;
 
-    case BUILT_IN_COPYSIGN:
-    case BUILT_IN_COPYSIGNF:
-    case BUILT_IN_COPYSIGNL:
+    CASE_FLT_FN (BUILT_IN_COPYSIGN):
       target = expand_builtin_copysign (arglist, target, subtarget);
       if (target)
 	return target;
@@ -5623,137 +5574,67 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
       /* Just do a normal library call if we were unable to fold
 	 the values.  */
-    case BUILT_IN_CABS:
-    case BUILT_IN_CABSF:
-    case BUILT_IN_CABSL:
+    CASE_FLT_FN (BUILT_IN_CABS):
       break;
 
-    case BUILT_IN_EXP:
-    case BUILT_IN_EXPF:
-    case BUILT_IN_EXPL:
-    case BUILT_IN_EXP10:
-    case BUILT_IN_EXP10F:
-    case BUILT_IN_EXP10L:
-    case BUILT_IN_POW10:
-    case BUILT_IN_POW10F:
-    case BUILT_IN_POW10L:
-    case BUILT_IN_EXP2:
-    case BUILT_IN_EXP2F:
-    case BUILT_IN_EXP2L:
-    case BUILT_IN_EXPM1:
-    case BUILT_IN_EXPM1F:
-    case BUILT_IN_EXPM1L:
-    case BUILT_IN_LOGB:
-    case BUILT_IN_LOGBF:
-    case BUILT_IN_LOGBL:
-    case BUILT_IN_ILOGB:
-    case BUILT_IN_ILOGBF:
-    case BUILT_IN_ILOGBL:
-    case BUILT_IN_LOG:
-    case BUILT_IN_LOGF:
-    case BUILT_IN_LOGL:
-    case BUILT_IN_LOG10:
-    case BUILT_IN_LOG10F:
-    case BUILT_IN_LOG10L:
-    case BUILT_IN_LOG2:
-    case BUILT_IN_LOG2F:
-    case BUILT_IN_LOG2L:
-    case BUILT_IN_LOG1P:
-    case BUILT_IN_LOG1PF:
-    case BUILT_IN_LOG1PL:
-    case BUILT_IN_TAN:
-    case BUILT_IN_TANF:
-    case BUILT_IN_TANL:
-    case BUILT_IN_ASIN:
-    case BUILT_IN_ASINF:
-    case BUILT_IN_ASINL:
-    case BUILT_IN_ACOS:
-    case BUILT_IN_ACOSF:
-    case BUILT_IN_ACOSL:
-    case BUILT_IN_ATAN:
-    case BUILT_IN_ATANF:
-    case BUILT_IN_ATANL:
+    CASE_FLT_FN (BUILT_IN_EXP):
+    CASE_FLT_FN (BUILT_IN_EXP10):
+    CASE_FLT_FN (BUILT_IN_POW10):
+    CASE_FLT_FN (BUILT_IN_EXP2):
+    CASE_FLT_FN (BUILT_IN_EXPM1):
+    CASE_FLT_FN (BUILT_IN_LOGB):
+    CASE_FLT_FN (BUILT_IN_ILOGB):
+    CASE_FLT_FN (BUILT_IN_LOG):
+    CASE_FLT_FN (BUILT_IN_LOG10):
+    CASE_FLT_FN (BUILT_IN_LOG2):
+    CASE_FLT_FN (BUILT_IN_LOG1P):
+    CASE_FLT_FN (BUILT_IN_TAN):
+    CASE_FLT_FN (BUILT_IN_ASIN):
+    CASE_FLT_FN (BUILT_IN_ACOS):
+    CASE_FLT_FN (BUILT_IN_ATAN):
       /* Treat these like sqrt only if unsafe math optimizations are allowed,
 	 because of possible accuracy problems.  */
       if (! flag_unsafe_math_optimizations)
 	break;
-    case BUILT_IN_SQRT:
-    case BUILT_IN_SQRTF:
-    case BUILT_IN_SQRTL:
-    case BUILT_IN_FLOOR:
-    case BUILT_IN_FLOORF:
-    case BUILT_IN_FLOORL:
-    case BUILT_IN_CEIL:
-    case BUILT_IN_CEILF:
-    case BUILT_IN_CEILL:
-    case BUILT_IN_TRUNC:
-    case BUILT_IN_TRUNCF:
-    case BUILT_IN_TRUNCL:
-    case BUILT_IN_ROUND:
-    case BUILT_IN_ROUNDF:
-    case BUILT_IN_ROUNDL:
-    case BUILT_IN_NEARBYINT:
-    case BUILT_IN_NEARBYINTF:
-    case BUILT_IN_NEARBYINTL:
-    case BUILT_IN_RINT:
-    case BUILT_IN_RINTF:
-    case BUILT_IN_RINTL:
-    case BUILT_IN_LRINT:
-    case BUILT_IN_LRINTF:
-    case BUILT_IN_LRINTL:
-    case BUILT_IN_LLRINT:
-    case BUILT_IN_LLRINTF:
-    case BUILT_IN_LLRINTL:
+    CASE_FLT_FN (BUILT_IN_SQRT):
+    CASE_FLT_FN (BUILT_IN_FLOOR):
+    CASE_FLT_FN (BUILT_IN_CEIL):
+    CASE_FLT_FN (BUILT_IN_TRUNC):
+    CASE_FLT_FN (BUILT_IN_ROUND):
+    CASE_FLT_FN (BUILT_IN_NEARBYINT):
+    CASE_FLT_FN (BUILT_IN_RINT):
+    CASE_FLT_FN (BUILT_IN_LRINT):
+    CASE_FLT_FN (BUILT_IN_LLRINT):
       target = expand_builtin_mathfn (exp, target, subtarget);
       if (target)
 	return target;
       break;
 
-    case BUILT_IN_LCEIL:
-    case BUILT_IN_LCEILF:
-    case BUILT_IN_LCEILL:
-    case BUILT_IN_LLCEIL:
-    case BUILT_IN_LLCEILF:
-    case BUILT_IN_LLCEILL:
-    case BUILT_IN_LFLOOR:
-    case BUILT_IN_LFLOORF:
-    case BUILT_IN_LFLOORL:
-    case BUILT_IN_LLFLOOR:
-    case BUILT_IN_LLFLOORF:
-    case BUILT_IN_LLFLOORL:
+    CASE_FLT_FN (BUILT_IN_LCEIL):
+    CASE_FLT_FN (BUILT_IN_LLCEIL):
+    CASE_FLT_FN (BUILT_IN_LFLOOR):
+    CASE_FLT_FN (BUILT_IN_LLFLOOR):
       target = expand_builtin_int_roundingfn (exp, target, subtarget);
       if (target)
 	return target;
       break;
 
-    case BUILT_IN_POW:
-    case BUILT_IN_POWF:
-    case BUILT_IN_POWL:
+    CASE_FLT_FN (BUILT_IN_POW):
       target = expand_builtin_pow (exp, target, subtarget);
       if (target)
 	return target;
       break;
 
-    case BUILT_IN_POWI:
-    case BUILT_IN_POWIF:
-    case BUILT_IN_POWIL:
+    CASE_FLT_FN (BUILT_IN_POWI):
       target = expand_builtin_powi (exp, target, subtarget);
       if (target)
 	return target;
       break;
 
-    case BUILT_IN_ATAN2:
-    case BUILT_IN_ATAN2F:
-    case BUILT_IN_ATAN2L:
-    case BUILT_IN_LDEXP:
-    case BUILT_IN_LDEXPF:
-    case BUILT_IN_LDEXPL:
-    case BUILT_IN_FMOD:
-    case BUILT_IN_FMODF:
-    case BUILT_IN_FMODL:
-    case BUILT_IN_DREM:
-    case BUILT_IN_DREMF:
-    case BUILT_IN_DREML:
+    CASE_FLT_FN (BUILT_IN_ATAN2):
+    CASE_FLT_FN (BUILT_IN_LDEXP):
+    CASE_FLT_FN (BUILT_IN_FMOD):
+    CASE_FLT_FN (BUILT_IN_DREM):
       if (! flag_unsafe_math_optimizations)
 	break;
       target = expand_builtin_mathfn_2 (exp, target, subtarget);
@@ -5761,12 +5642,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
-    case BUILT_IN_SIN:
-    case BUILT_IN_SINF:
-    case BUILT_IN_SINL:
-    case BUILT_IN_COS:
-    case BUILT_IN_COSF:
-    case BUILT_IN_COSL:
+    CASE_FLT_FN (BUILT_IN_SIN):
+    CASE_FLT_FN (BUILT_IN_COS):
       if (! flag_unsafe_math_optimizations)
 	break;
       target = expand_builtin_mathfn_3 (exp, target, subtarget);
@@ -5859,9 +5736,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       expand_stack_restore (TREE_VALUE (arglist));
       return const0_rtx;
 
-    case BUILT_IN_FFS:
-    case BUILT_IN_FFSL:
-    case BUILT_IN_FFSLL:
+    CASE_INT_FN (BUILT_IN_FFS):
     case BUILT_IN_FFSIMAX:
       target = expand_builtin_unop (target_mode, arglist, target,
 				    subtarget, ffs_optab);
@@ -5869,9 +5744,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
-    case BUILT_IN_CLZ:
-    case BUILT_IN_CLZL:
-    case BUILT_IN_CLZLL:
+    CASE_INT_FN (BUILT_IN_CLZ):
     case BUILT_IN_CLZIMAX:
       target = expand_builtin_unop (target_mode, arglist, target,
 				    subtarget, clz_optab);
@@ -5879,9 +5752,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
-    case BUILT_IN_CTZ:
-    case BUILT_IN_CTZL:
-    case BUILT_IN_CTZLL:
+    CASE_INT_FN (BUILT_IN_CTZ):
     case BUILT_IN_CTZIMAX:
       target = expand_builtin_unop (target_mode, arglist, target,
 				    subtarget, ctz_optab);
@@ -5889,9 +5760,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
-    case BUILT_IN_POPCOUNT:
-    case BUILT_IN_POPCOUNTL:
-    case BUILT_IN_POPCOUNTLL:
+    CASE_INT_FN (BUILT_IN_POPCOUNT):
     case BUILT_IN_POPCOUNTIMAX:
       target = expand_builtin_unop (target_mode, arglist, target,
 				    subtarget, popcount_optab);
@@ -5899,9 +5768,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
-    case BUILT_IN_PARITY:
-    case BUILT_IN_PARITYL:
-    case BUILT_IN_PARITYLL:
+    CASE_INT_FN (BUILT_IN_PARITY):
     case BUILT_IN_PARITYIMAX:
       target = expand_builtin_unop (target_mode, arglist, target,
 				    subtarget, parity_optab);
@@ -6132,9 +5999,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
-    case BUILT_IN_SIGNBIT:
-    case BUILT_IN_SIGNBITF:
-    case BUILT_IN_SIGNBITL:
+    CASE_FLT_FN (BUILT_IN_SIGNBIT):
       target = expand_builtin_signbit (exp, target);
       if (target)
 	return target;
@@ -6207,7 +6072,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_ADD_2:
     case BUILT_IN_FETCH_AND_ADD_4:
     case BUILT_IN_FETCH_AND_ADD_8:
-      target = expand_builtin_sync_operation (arglist, PLUS,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_ADD_1);
+      target = expand_builtin_sync_operation (mode, arglist, PLUS,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6217,7 +6083,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_SUB_2:
     case BUILT_IN_FETCH_AND_SUB_4:
     case BUILT_IN_FETCH_AND_SUB_8:
-      target = expand_builtin_sync_operation (arglist, MINUS,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_SUB_1);
+      target = expand_builtin_sync_operation (mode, arglist, MINUS,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6227,7 +6094,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_OR_2:
     case BUILT_IN_FETCH_AND_OR_4:
     case BUILT_IN_FETCH_AND_OR_8:
-      target = expand_builtin_sync_operation (arglist, IOR,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_OR_1);
+      target = expand_builtin_sync_operation (mode, arglist, IOR,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6237,7 +6105,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_AND_2:
     case BUILT_IN_FETCH_AND_AND_4:
     case BUILT_IN_FETCH_AND_AND_8:
-      target = expand_builtin_sync_operation (arglist, AND,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_AND_1);
+      target = expand_builtin_sync_operation (mode, arglist, AND,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6247,7 +6116,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_XOR_2:
     case BUILT_IN_FETCH_AND_XOR_4:
     case BUILT_IN_FETCH_AND_XOR_8:
-      target = expand_builtin_sync_operation (arglist, XOR,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_XOR_1);
+      target = expand_builtin_sync_operation (mode, arglist, XOR,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6257,7 +6127,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_NAND_2:
     case BUILT_IN_FETCH_AND_NAND_4:
     case BUILT_IN_FETCH_AND_NAND_8:
-      target = expand_builtin_sync_operation (arglist, NOT,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_NAND_1);
+      target = expand_builtin_sync_operation (mode, arglist, NOT,
 					      false, target, ignore);
       if (target)
 	return target;
@@ -6267,7 +6138,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_ADD_AND_FETCH_2:
     case BUILT_IN_ADD_AND_FETCH_4:
     case BUILT_IN_ADD_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, PLUS,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_ADD_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, PLUS,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6277,7 +6149,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_SUB_AND_FETCH_2:
     case BUILT_IN_SUB_AND_FETCH_4:
     case BUILT_IN_SUB_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, MINUS,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_SUB_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, MINUS,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6287,7 +6160,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_OR_AND_FETCH_2:
     case BUILT_IN_OR_AND_FETCH_4:
     case BUILT_IN_OR_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, IOR,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_OR_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, IOR,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6297,7 +6171,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_AND_AND_FETCH_2:
     case BUILT_IN_AND_AND_FETCH_4:
     case BUILT_IN_AND_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, AND,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_AND_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, AND,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6307,7 +6182,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_XOR_AND_FETCH_2:
     case BUILT_IN_XOR_AND_FETCH_4:
     case BUILT_IN_XOR_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, XOR,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_XOR_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, XOR,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6317,7 +6193,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_NAND_AND_FETCH_2:
     case BUILT_IN_NAND_AND_FETCH_4:
     case BUILT_IN_NAND_AND_FETCH_8:
-      target = expand_builtin_sync_operation (arglist, NOT,
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_NAND_AND_FETCH_1);
+      target = expand_builtin_sync_operation (mode, arglist, NOT,
 					      true, target, ignore);
       if (target)
 	return target;
@@ -6331,7 +6208,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	mode = TYPE_MODE (boolean_type_node);
       if (!target || !register_operand (target, mode))
 	target = gen_reg_rtx (mode);
-      target = expand_builtin_compare_and_swap (arglist, true, target);
+
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_BOOL_COMPARE_AND_SWAP_1);
+      target = expand_builtin_compare_and_swap (mode, arglist, true, target);
       if (target)
 	return target;
       break;
@@ -6340,7 +6219,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_VAL_COMPARE_AND_SWAP_2:
     case BUILT_IN_VAL_COMPARE_AND_SWAP_4:
     case BUILT_IN_VAL_COMPARE_AND_SWAP_8:
-      target = expand_builtin_compare_and_swap (arglist, false, target);
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_VAL_COMPARE_AND_SWAP_1);
+      target = expand_builtin_compare_and_swap (mode, arglist, false, target);
       if (target)
 	return target;
       break;
@@ -6349,7 +6229,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOCK_TEST_AND_SET_2:
     case BUILT_IN_LOCK_TEST_AND_SET_4:
     case BUILT_IN_LOCK_TEST_AND_SET_8:
-      target = expand_builtin_lock_test_and_set (arglist, target);
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_LOCK_TEST_AND_SET_1);
+      target = expand_builtin_lock_test_and_set (mode, arglist, target);
       if (target)
 	return target;
       break;
@@ -6358,7 +6239,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOCK_RELEASE_2:
     case BUILT_IN_LOCK_RELEASE_4:
     case BUILT_IN_LOCK_RELEASE_8:
-      expand_builtin_lock_release (arglist);
+      mode = get_builtin_sync_mode (fcode - BUILT_IN_LOCK_RELEASE_1);
+      expand_builtin_lock_release (mode, arglist);
       return const0_rtx;
 
     case BUILT_IN_SYNCHRONIZE:
@@ -6675,6 +6557,7 @@ integer_valued_real_p (tree t)
 	real_trunc (&cint, TYPE_MODE (TREE_TYPE (t)), &c);
 	return real_identical (&c, &cint);
       }
+      break;
 
     case NOP_EXPR:
       {
@@ -6689,24 +6572,12 @@ integer_valued_real_p (tree t)
     case CALL_EXPR:
       switch (builtin_mathfn_code (t))
 	{
-	case BUILT_IN_CEIL:
-	case BUILT_IN_CEILF:
-	case BUILT_IN_CEILL:
-	case BUILT_IN_FLOOR:
-	case BUILT_IN_FLOORF:
-	case BUILT_IN_FLOORL:
-	case BUILT_IN_NEARBYINT:
-	case BUILT_IN_NEARBYINTF:
-	case BUILT_IN_NEARBYINTL:
-	case BUILT_IN_RINT:
-	case BUILT_IN_RINTF:
-	case BUILT_IN_RINTL:
-	case BUILT_IN_ROUND:
-	case BUILT_IN_ROUNDF:
-	case BUILT_IN_ROUNDL:
-	case BUILT_IN_TRUNC:
-	case BUILT_IN_TRUNCF:
-	case BUILT_IN_TRUNCL:
+	CASE_FLT_FN (BUILT_IN_CEIL):
+	CASE_FLT_FN (BUILT_IN_FLOOR):
+	CASE_FLT_FN (BUILT_IN_NEARBYINT):
+	CASE_FLT_FN (BUILT_IN_RINT):
+	CASE_FLT_FN (BUILT_IN_ROUND):
+	CASE_FLT_FN (BUILT_IN_TRUNC):
 	  return true;
 
 	default:
@@ -7297,30 +7168,18 @@ fold_builtin_int_roundingfn (tree fndecl, tree arglist)
 
 	  switch (DECL_FUNCTION_CODE (fndecl))
 	    {
-	    case BUILT_IN_LFLOOR:
-	    case BUILT_IN_LFLOORF:
-	    case BUILT_IN_LFLOORL:
-	    case BUILT_IN_LLFLOOR:
-	    case BUILT_IN_LLFLOORF:
-	    case BUILT_IN_LLFLOORL:
+	    CASE_FLT_FN (BUILT_IN_LFLOOR):
+	    CASE_FLT_FN (BUILT_IN_LLFLOOR):
 	      real_floor (&r, TYPE_MODE (ftype), &x);
 	      break;
 
-	    case BUILT_IN_LCEIL:
-	    case BUILT_IN_LCEILF:
-	    case BUILT_IN_LCEILL:
-	    case BUILT_IN_LLCEIL:
-	    case BUILT_IN_LLCEILF:
-	    case BUILT_IN_LLCEILL:
+	    CASE_FLT_FN (BUILT_IN_LCEIL):
+	    CASE_FLT_FN (BUILT_IN_LLCEIL):
 	      real_ceil (&r, TYPE_MODE (ftype), &x);
 	      break;
 
-	    case BUILT_IN_LROUND:
-	    case BUILT_IN_LROUNDF:
-	    case BUILT_IN_LROUNDL:
-	    case BUILT_IN_LLROUND:
-	    case BUILT_IN_LLROUNDF:
-	    case BUILT_IN_LLROUNDL:
+	    CASE_FLT_FN (BUILT_IN_LROUND):
+	    CASE_FLT_FN (BUILT_IN_LLROUND):
 	      real_round (&r, TYPE_MODE (ftype), &x);
 	      break;
 
@@ -7378,9 +7237,7 @@ fold_builtin_bitop (tree fndecl, tree arglist)
 
       switch (DECL_FUNCTION_CODE (fndecl))
 	{
-	case BUILT_IN_FFS:
-	case BUILT_IN_FFSL:
-	case BUILT_IN_FFSLL:
+	CASE_INT_FN (BUILT_IN_FFS):
 	  if (lo != 0)
 	    result = exact_log2 (lo & -lo) + 1;
 	  else if (hi != 0)
@@ -7389,9 +7246,7 @@ fold_builtin_bitop (tree fndecl, tree arglist)
 	    result = 0;
 	  break;
 
-	case BUILT_IN_CLZ:
-	case BUILT_IN_CLZL:
-	case BUILT_IN_CLZLL:
+	CASE_INT_FN (BUILT_IN_CLZ):
 	  if (hi != 0)
 	    result = width - floor_log2 (hi) - 1 - HOST_BITS_PER_WIDE_INT;
 	  else if (lo != 0)
@@ -7400,9 +7255,7 @@ fold_builtin_bitop (tree fndecl, tree arglist)
 	    result = width;
 	  break;
 
-	case BUILT_IN_CTZ:
-	case BUILT_IN_CTZL:
-	case BUILT_IN_CTZLL:
+	CASE_INT_FN (BUILT_IN_CTZ):
 	  if (lo != 0)
 	    result = exact_log2 (lo & -lo);
 	  else if (hi != 0)
@@ -7411,9 +7264,7 @@ fold_builtin_bitop (tree fndecl, tree arglist)
 	    result = width;
 	  break;
 
-	case BUILT_IN_POPCOUNT:
-	case BUILT_IN_POPCOUNTL:
-	case BUILT_IN_POPCOUNTLL:
+	CASE_INT_FN (BUILT_IN_POPCOUNT):
 	  result = 0;
 	  while (lo)
 	    result++, lo &= lo - 1;
@@ -7421,9 +7272,7 @@ fold_builtin_bitop (tree fndecl, tree arglist)
 	    result++, hi &= hi - 1;
 	  break;
 
-	case BUILT_IN_PARITY:
-	case BUILT_IN_PARITYL:
-	case BUILT_IN_PARITYLL:
+	CASE_INT_FN (BUILT_IN_PARITY):
 	  result = 0;
 	  while (lo)
 	    result++, lo &= lo - 1;
@@ -7508,49 +7357,35 @@ fold_builtin_logarithm (tree fndecl, tree arglist,
 
 	  switch (fcode)
 	  {
-	  case BUILT_IN_EXP:
-	  case BUILT_IN_EXPF:
-	  case BUILT_IN_EXPL:
+	  CASE_FLT_FN (BUILT_IN_EXP):
 	    /* Prepare to do logN(exp(exponent) -> exponent*logN(e).  */
 	    x = build_real (type,
 			    real_value_truncate (TYPE_MODE (type), dconste));
 	    exponent = TREE_VALUE (TREE_OPERAND (arg, 1));
 	    break;
-	  case BUILT_IN_EXP2:
-	  case BUILT_IN_EXP2F:
-	  case BUILT_IN_EXP2L:
+	  CASE_FLT_FN (BUILT_IN_EXP2):
 	    /* Prepare to do logN(exp2(exponent) -> exponent*logN(2).  */
 	    x = build_real (type, dconst2);
 	    exponent = TREE_VALUE (TREE_OPERAND (arg, 1));
 	    break;
-	  case BUILT_IN_EXP10:
-	  case BUILT_IN_EXP10F:
-	  case BUILT_IN_EXP10L:
-	  case BUILT_IN_POW10:
-	  case BUILT_IN_POW10F:
-	  case BUILT_IN_POW10L:
+	  CASE_FLT_FN (BUILT_IN_EXP10):
+	  CASE_FLT_FN (BUILT_IN_POW10):
 	    /* Prepare to do logN(exp10(exponent) -> exponent*logN(10).  */
 	    x = build_real (type, dconst10);
 	    exponent = TREE_VALUE (TREE_OPERAND (arg, 1));
 	    break;
-	  case BUILT_IN_SQRT:
-	  case BUILT_IN_SQRTF:
-	  case BUILT_IN_SQRTL:
+	  CASE_FLT_FN (BUILT_IN_SQRT):
 	    /* Prepare to do logN(sqrt(x) -> 0.5*logN(x).  */
 	    x = TREE_VALUE (TREE_OPERAND (arg, 1));
 	    exponent = build_real (type, dconsthalf);
 	    break;
-	  case BUILT_IN_CBRT:
-	  case BUILT_IN_CBRTF:
-	  case BUILT_IN_CBRTL:
+	  CASE_FLT_FN (BUILT_IN_CBRT):
 	    /* Prepare to do logN(cbrt(x) -> (1/3)*logN(x).  */
 	    x = TREE_VALUE (TREE_OPERAND (arg, 1));
 	    exponent = build_real (type, real_value_truncate (TYPE_MODE (type),
 							      dconstthird));
 	    break;
-	  case BUILT_IN_POW:
-	  case BUILT_IN_POWF:
-	  case BUILT_IN_POWL:
+	  CASE_FLT_FN (BUILT_IN_POW):
 	    /* Prepare to do logN(pow(x,exponent) -> exponent*logN(x).  */
 	    x = TREE_VALUE (TREE_OPERAND (arg, 1));
 	    exponent = TREE_VALUE (TREE_CHAIN (TREE_OPERAND (arg, 1)));
@@ -8063,7 +7898,9 @@ fold_builtin_memcmp (tree arglist)
   if (host_integerp (len, 1) && tree_low_cst (len, 1) == 1)
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       tree ind1 = fold_convert (integer_type_node,
 				build1 (INDIRECT_REF, cst_uchar_node,
 					fold_convert (cst_uchar_ptr_node,
@@ -8115,7 +7952,9 @@ fold_builtin_strcmp (tree arglist)
   if (p2 && *p2 == '\0')
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       return fold_convert (integer_type_node,
 			   build1 (INDIRECT_REF, cst_uchar_node,
 				   fold_convert (cst_uchar_ptr_node,
@@ -8126,7 +7965,9 @@ fold_builtin_strcmp (tree arglist)
   if (p1 && *p1 == '\0')
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       tree temp = fold_convert (integer_type_node,
 				build1 (INDIRECT_REF, cst_uchar_node,
 					fold_convert (cst_uchar_ptr_node,
@@ -8184,7 +8025,9 @@ fold_builtin_strncmp (tree arglist)
       && tree_int_cst_sgn (len) == 1)
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       return fold_convert (integer_type_node,
 			   build1 (INDIRECT_REF, cst_uchar_node,
 				   fold_convert (cst_uchar_ptr_node,
@@ -8198,7 +8041,9 @@ fold_builtin_strncmp (tree arglist)
       && tree_int_cst_sgn (len) == 1)
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       tree temp = fold_convert (integer_type_node,
 				build1 (INDIRECT_REF, cst_uchar_node,
 					fold_convert (cst_uchar_ptr_node,
@@ -8211,7 +8056,9 @@ fold_builtin_strncmp (tree arglist)
   if (host_integerp (len, 1) && tree_low_cst (len, 1) == 1)
     {
       tree cst_uchar_node = build_type_variant (unsigned_char_type_node, 1, 0);
-      tree cst_uchar_ptr_node = build_pointer_type (cst_uchar_node);
+      tree cst_uchar_ptr_node
+	= build_pointer_type_for_mode (cst_uchar_node, ptr_mode, true);
+
       tree ind1 = fold_convert (integer_type_node,
 				build1 (INDIRECT_REF, cst_uchar_node,
 					fold_convert (cst_uchar_ptr_node,
@@ -8673,9 +8520,7 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
     case BUILT_IN_STRLEN:
       return fold_builtin_strlen (arglist);
 
-    case BUILT_IN_FABS:
-    case BUILT_IN_FABSF:
-    case BUILT_IN_FABSL:
+    CASE_FLT_FN (BUILT_IN_FABS):
       return fold_builtin_fabs (arglist, type);
 
     case BUILT_IN_ABS:
@@ -8684,198 +8529,120 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
     case BUILT_IN_IMAXABS:
       return fold_builtin_abs (arglist, type);
 
-    case BUILT_IN_CONJ:
-    case BUILT_IN_CONJF:
-    case BUILT_IN_CONJL:
+    CASE_FLT_FN (BUILT_IN_CONJ):
       if (validate_arglist (arglist, COMPLEX_TYPE, VOID_TYPE))
 	return fold_build1 (CONJ_EXPR, type, TREE_VALUE (arglist));
       break;
 
-    case BUILT_IN_CREAL:
-    case BUILT_IN_CREALF:
-    case BUILT_IN_CREALL:
+    CASE_FLT_FN (BUILT_IN_CREAL):
       if (validate_arglist (arglist, COMPLEX_TYPE, VOID_TYPE))
         return non_lvalue (fold_build1 (REALPART_EXPR, type,
 					TREE_VALUE (arglist)));
       break;
 
-    case BUILT_IN_CIMAG:
-    case BUILT_IN_CIMAGF:
-    case BUILT_IN_CIMAGL:
+    CASE_FLT_FN (BUILT_IN_CIMAG):
       if (validate_arglist (arglist, COMPLEX_TYPE, VOID_TYPE))
         return non_lvalue (fold_build1 (IMAGPART_EXPR, type,
 					TREE_VALUE (arglist)));
       break;
 
-    case BUILT_IN_CABS:
-    case BUILT_IN_CABSF:
-    case BUILT_IN_CABSL:
+    CASE_FLT_FN (BUILT_IN_CABS):
       return fold_builtin_cabs (arglist, type);
 
-    case BUILT_IN_SQRT:
-    case BUILT_IN_SQRTF:
-    case BUILT_IN_SQRTL:
+    CASE_FLT_FN (BUILT_IN_SQRT):
       return fold_builtin_sqrt (arglist, type);
 
-    case BUILT_IN_CBRT:
-    case BUILT_IN_CBRTF:
-    case BUILT_IN_CBRTL:
+    CASE_FLT_FN (BUILT_IN_CBRT):
       return fold_builtin_cbrt (arglist, type);
 
-    case BUILT_IN_SIN:
-    case BUILT_IN_SINF:
-    case BUILT_IN_SINL:
+    CASE_FLT_FN (BUILT_IN_SIN):
       return fold_builtin_sin (arglist);
 
-    case BUILT_IN_COS:
-    case BUILT_IN_COSF:
-    case BUILT_IN_COSL:
+    CASE_FLT_FN (BUILT_IN_COS):
       return fold_builtin_cos (arglist, type, fndecl);
 
-    case BUILT_IN_EXP:
-    case BUILT_IN_EXPF:
-    case BUILT_IN_EXPL:
+    CASE_FLT_FN (BUILT_IN_EXP):
       return fold_builtin_exponent (fndecl, arglist, &dconste);
 
-    case BUILT_IN_EXP2:
-    case BUILT_IN_EXP2F:
-    case BUILT_IN_EXP2L:
+    CASE_FLT_FN (BUILT_IN_EXP2):
       return fold_builtin_exponent (fndecl, arglist, &dconst2);
 
-    case BUILT_IN_EXP10:
-    case BUILT_IN_EXP10F:
-    case BUILT_IN_EXP10L:
-    case BUILT_IN_POW10:
-    case BUILT_IN_POW10F:
-    case BUILT_IN_POW10L:
+    CASE_FLT_FN (BUILT_IN_EXP10):
+    CASE_FLT_FN (BUILT_IN_POW10):
       return fold_builtin_exponent (fndecl, arglist, &dconst10);
 
-    case BUILT_IN_LOG:
-    case BUILT_IN_LOGF:
-    case BUILT_IN_LOGL:
+    CASE_FLT_FN (BUILT_IN_LOG):
       return fold_builtin_logarithm (fndecl, arglist, &dconste);
 
-    case BUILT_IN_LOG2:
-    case BUILT_IN_LOG2F:
-    case BUILT_IN_LOG2L:
+    CASE_FLT_FN (BUILT_IN_LOG2):
       return fold_builtin_logarithm (fndecl, arglist, &dconst2);
 
-    case BUILT_IN_LOG10:
-    case BUILT_IN_LOG10F:
-    case BUILT_IN_LOG10L:
+    CASE_FLT_FN (BUILT_IN_LOG10):
       return fold_builtin_logarithm (fndecl, arglist, &dconst10);
 
-    case BUILT_IN_TAN:
-    case BUILT_IN_TANF:
-    case BUILT_IN_TANL:
+    CASE_FLT_FN (BUILT_IN_TAN):
       return fold_builtin_tan (arglist);
 
-    case BUILT_IN_ATAN:
-    case BUILT_IN_ATANF:
-    case BUILT_IN_ATANL:
+    CASE_FLT_FN (BUILT_IN_ATAN):
       return fold_builtin_atan (arglist, type);
 
-    case BUILT_IN_POW:
-    case BUILT_IN_POWF:
-    case BUILT_IN_POWL:
+    CASE_FLT_FN (BUILT_IN_POW):
       return fold_builtin_pow (fndecl, arglist, type);
 
-    case BUILT_IN_POWI:
-    case BUILT_IN_POWIF:
-    case BUILT_IN_POWIL:
+    CASE_FLT_FN (BUILT_IN_POWI):
       return fold_builtin_powi (fndecl, arglist, type);
 
-    case BUILT_IN_INF:
-    case BUILT_IN_INFF:
-    case BUILT_IN_INFL:
+    CASE_FLT_FN (BUILT_IN_INF):
+    case BUILT_IN_INFD32:
+    case BUILT_IN_INFD64:
+    case BUILT_IN_INFD128:
       return fold_builtin_inf (type, true);
 
-    case BUILT_IN_HUGE_VAL:
-    case BUILT_IN_HUGE_VALF:
-    case BUILT_IN_HUGE_VALL:
+    CASE_FLT_FN (BUILT_IN_HUGE_VAL):
       return fold_builtin_inf (type, false);
 
-    case BUILT_IN_NAN:
-    case BUILT_IN_NANF:
-    case BUILT_IN_NANL:
+    CASE_FLT_FN (BUILT_IN_NAN):
+    case BUILT_IN_NAND32:
+    case BUILT_IN_NAND64:
+    case BUILT_IN_NAND128:
       return fold_builtin_nan (arglist, type, true);
 
-    case BUILT_IN_NANS:
-    case BUILT_IN_NANSF:
-    case BUILT_IN_NANSL:
+    CASE_FLT_FN (BUILT_IN_NANS):
       return fold_builtin_nan (arglist, type, false);
 
-    case BUILT_IN_FLOOR:
-    case BUILT_IN_FLOORF:
-    case BUILT_IN_FLOORL:
+    CASE_FLT_FN (BUILT_IN_FLOOR):
       return fold_builtin_floor (fndecl, arglist);
 
-    case BUILT_IN_CEIL:
-    case BUILT_IN_CEILF:
-    case BUILT_IN_CEILL:
+    CASE_FLT_FN (BUILT_IN_CEIL):
       return fold_builtin_ceil (fndecl, arglist);
 
-    case BUILT_IN_TRUNC:
-    case BUILT_IN_TRUNCF:
-    case BUILT_IN_TRUNCL:
+    CASE_FLT_FN (BUILT_IN_TRUNC):
       return fold_builtin_trunc (fndecl, arglist);
 
-    case BUILT_IN_ROUND:
-    case BUILT_IN_ROUNDF:
-    case BUILT_IN_ROUNDL:
+    CASE_FLT_FN (BUILT_IN_ROUND):
       return fold_builtin_round (fndecl, arglist);
 
-    case BUILT_IN_NEARBYINT:
-    case BUILT_IN_NEARBYINTF:
-    case BUILT_IN_NEARBYINTL:
-    case BUILT_IN_RINT:
-    case BUILT_IN_RINTF:
-    case BUILT_IN_RINTL:
+    CASE_FLT_FN (BUILT_IN_NEARBYINT):
+    CASE_FLT_FN (BUILT_IN_RINT):
       return fold_trunc_transparent_mathfn (fndecl, arglist);
 
-    case BUILT_IN_LCEIL:
-    case BUILT_IN_LCEILF:
-    case BUILT_IN_LCEILL:
-    case BUILT_IN_LLCEIL:
-    case BUILT_IN_LLCEILF:
-    case BUILT_IN_LLCEILL:
-    case BUILT_IN_LFLOOR:
-    case BUILT_IN_LFLOORF:
-    case BUILT_IN_LFLOORL:
-    case BUILT_IN_LLFLOOR:
-    case BUILT_IN_LLFLOORF:
-    case BUILT_IN_LLFLOORL:
-    case BUILT_IN_LROUND:
-    case BUILT_IN_LROUNDF:
-    case BUILT_IN_LROUNDL:
-    case BUILT_IN_LLROUND:
-    case BUILT_IN_LLROUNDF:
-    case BUILT_IN_LLROUNDL:
+    CASE_FLT_FN (BUILT_IN_LCEIL):
+    CASE_FLT_FN (BUILT_IN_LLCEIL):
+    CASE_FLT_FN (BUILT_IN_LFLOOR):
+    CASE_FLT_FN (BUILT_IN_LLFLOOR):
+    CASE_FLT_FN (BUILT_IN_LROUND):   
+    CASE_FLT_FN (BUILT_IN_LLROUND):
       return fold_builtin_int_roundingfn (fndecl, arglist);
 
-    case BUILT_IN_LRINT:
-    case BUILT_IN_LRINTF:
-    case BUILT_IN_LRINTL:
-    case BUILT_IN_LLRINT:
-    case BUILT_IN_LLRINTF:
-    case BUILT_IN_LLRINTL:
+    CASE_FLT_FN (BUILT_IN_LRINT):
+    CASE_FLT_FN (BUILT_IN_LLRINT):
       return fold_fixed_mathfn (fndecl, arglist);
 
-    case BUILT_IN_FFS:
-    case BUILT_IN_FFSL:
-    case BUILT_IN_FFSLL:
-    case BUILT_IN_CLZ:
-    case BUILT_IN_CLZL:
-    case BUILT_IN_CLZLL:
-    case BUILT_IN_CTZ:
-    case BUILT_IN_CTZL:
-    case BUILT_IN_CTZLL:
-    case BUILT_IN_POPCOUNT:
-    case BUILT_IN_POPCOUNTL:
-    case BUILT_IN_POPCOUNTLL:
-    case BUILT_IN_PARITY:
-    case BUILT_IN_PARITYL:
-    case BUILT_IN_PARITYLL:
+    CASE_INT_FN (BUILT_IN_FFS):
+    CASE_INT_FN (BUILT_IN_CLZ):
+    CASE_INT_FN (BUILT_IN_CTZ):
+    CASE_INT_FN (BUILT_IN_POPCOUNT):
+    CASE_INT_FN (BUILT_IN_PARITY):
       return fold_builtin_bitop (fndecl, arglist);
 
     case BUILT_IN_MEMCPY:
@@ -8887,9 +8654,7 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
     case BUILT_IN_MEMMOVE:
       return fold_builtin_memmove (arglist, type);
 
-    case BUILT_IN_SIGNBIT:
-    case BUILT_IN_SIGNBITF:
-    case BUILT_IN_SIGNBITL:
+    CASE_FLT_FN (BUILT_IN_SIGNBIT):
       return fold_builtin_signbit (fndecl, arglist);
 
     case BUILT_IN_ISASCII:
@@ -8901,24 +8666,25 @@ fold_builtin_1 (tree fndecl, tree arglist, bool ignore)
     case BUILT_IN_ISDIGIT:
       return fold_builtin_isdigit (arglist);
 
-    case BUILT_IN_COPYSIGN:
-    case BUILT_IN_COPYSIGNF:
-    case BUILT_IN_COPYSIGNL:
+    CASE_FLT_FN (BUILT_IN_COPYSIGN):
       return fold_builtin_copysign (fndecl, arglist, type);
 
-    case BUILT_IN_FINITE:
-    case BUILT_IN_FINITEF:
-    case BUILT_IN_FINITEL:
+    CASE_FLT_FN (BUILT_IN_FINITE):
+    case BUILT_IN_FINITED32:
+    case BUILT_IN_FINITED64:
+    case BUILT_IN_FINITED128:
       return fold_builtin_classify (fndecl, arglist, BUILT_IN_FINITE);
 
-    case BUILT_IN_ISINF:
-    case BUILT_IN_ISINFF:
-    case BUILT_IN_ISINFL:
+    CASE_FLT_FN (BUILT_IN_ISINF):
+    case BUILT_IN_ISINFD32:
+    case BUILT_IN_ISINFD64:
+    case BUILT_IN_ISINFD128:
       return fold_builtin_classify (fndecl, arglist, BUILT_IN_ISINF);
 
-    case BUILT_IN_ISNAN:
-    case BUILT_IN_ISNANF:
-    case BUILT_IN_ISNANL:
+    CASE_FLT_FN (BUILT_IN_ISNAN):
+    case BUILT_IN_ISNAND32:
+    case BUILT_IN_ISNAND64:
+    case BUILT_IN_ISNAND128:
       return fold_builtin_classify (fndecl, arglist, BUILT_IN_ISNAN);
 
     case BUILT_IN_ISGREATER:
@@ -9157,8 +8923,10 @@ fold_builtin_strstr (tree arglist, tree type)
 	  return fold_convert (type, tem);
 	}
 
+      /* The argument is const char *, and the result is char *, so we need
+	 a type conversion here to avoid a warning.  */
       if (p2[0] == '\0')
-	return s1;
+	return fold_convert (type, s1);
 
       if (p2[1] != '\0')
 	return 0;
@@ -9567,14 +9335,15 @@ tree
 fold_builtin_fputs (tree arglist, bool ignore, bool unlocked, tree len)
 {
   tree fn;
-  tree fn_fputc = unlocked ? implicit_built_in_decls[BUILT_IN_FPUTC_UNLOCKED]
+  /* If we're using an unlocked function, assume the other unlocked
+     functions exist explicitly.  */
+  tree const fn_fputc = unlocked ? built_in_decls[BUILT_IN_FPUTC_UNLOCKED]
     : implicit_built_in_decls[BUILT_IN_FPUTC];
-  tree fn_fwrite = unlocked ? implicit_built_in_decls[BUILT_IN_FWRITE_UNLOCKED]
+  tree const fn_fwrite = unlocked ? built_in_decls[BUILT_IN_FWRITE_UNLOCKED]
     : implicit_built_in_decls[BUILT_IN_FWRITE];
 
-  /* If the return value is used, or the replacement _DECL isn't
-     initialized, don't do the transformation.  */
-  if (!ignore || !fn_fputc || !fn_fwrite)
+  /* If the return value is used, don't do the transformation.  */
+  if (!ignore)
     return 0;
 
   /* Verify the arguments in the original call.  */
@@ -9635,6 +9404,11 @@ fold_builtin_fputs (tree arglist, bool ignore, bool unlocked, tree len)
     default:
       gcc_unreachable ();
     }
+
+  /* If the replacement _DECL isn't initialized, don't do the
+     transformation.  */
+  if (!fn)
+    return 0;
 
   /* These optimizations are only performed when the result is ignored,
      hence there's no need to cast the result to integer_type_node.  */
@@ -9741,8 +9515,11 @@ fold_builtin_sprintf (tree arglist, int ignored)
   call = NULL_TREE;
   retval = NULL_TREE;
 
+  if (!init_target_chars())
+    return 0;
+
   /* If the format doesn't contain % args or %%, use strcpy.  */
-  if (strchr (fmt_str, '%') == NULL)
+  if (strchr (fmt_str, target_percent) == NULL)
     {
       tree fn = implicit_built_in_decls[BUILT_IN_STRCPY];
 
@@ -9759,7 +9536,7 @@ fold_builtin_sprintf (tree arglist, int ignored)
     }
 
   /* If the format is "%s", use strcpy if the result isn't used.  */
-  else if (fmt_str && strcmp (fmt_str, "%s") == 0)
+  else if (fmt_str && strcmp (fmt_str, target_percent_s) == 0)
     {
       tree fn, orig;
       fn = implicit_built_in_decls[BUILT_IN_STRCPY];
@@ -10056,12 +9833,15 @@ maybe_emit_sprintf_chk_warning (tree exp, enum built_in_function fcode)
   if (fmt_str == NULL)
     return;
 
+  if (!init_target_chars())
+    return;
+
   /* If the format doesn't contain % args or %%, we know its size.  */
-  if (strchr (fmt_str, '%') == 0)
+  if (strchr (fmt_str, target_percent) == 0)
     len = build_int_cstu (size_type_node, strlen (fmt_str));
   /* If the format is "%s" and first ... argument is a string literal,
      we know it too.  */
-  else if (fcode == BUILT_IN_SPRINTF_CHK && strcmp (fmt_str, "%s") == 0)
+  else if (fcode == BUILT_IN_SPRINTF_CHK && strcmp (fmt_str, target_percent_s) == 0)
     {
       tree arg;
 
@@ -10516,19 +10296,22 @@ fold_builtin_sprintf_chk (tree arglist, enum built_in_function fcode)
 
   len = NULL_TREE;
 
+  if (!init_target_chars())
+    return 0;
+
   /* Check whether the format is a literal string constant.  */
   fmt_str = c_getstr (fmt);
   if (fmt_str != NULL)
     {
       /* If the format doesn't contain % args or %%, we know the size.  */
-      if (strchr (fmt_str, '%') == 0)
+      if (strchr (fmt_str, target_percent) == 0)
 	{
 	  if (fcode != BUILT_IN_SPRINTF_CHK || arglist == NULL_TREE)
 	    len = build_int_cstu (size_type_node, strlen (fmt_str));
 	}
       /* If the format is "%s" and first ... argument is a string literal,
 	 we know the size too.  */
-      else if (fcode == BUILT_IN_SPRINTF_CHK && strcmp (fmt_str, "%s") == 0)
+      else if (fcode == BUILT_IN_SPRINTF_CHK && strcmp (fmt_str, target_percent_s) == 0)
 	{
 	  tree arg;
 
@@ -10557,7 +10340,7 @@ fold_builtin_sprintf_chk (tree arglist, enum built_in_function fcode)
     {
       if (fmt_str == NULL)
 	return 0;
-      if (strchr (fmt_str, '%') != NULL && strcmp (fmt_str, "%s"))
+      if (strchr (fmt_str, target_percent) != NULL && strcmp (fmt_str, target_percent_s))
 	return 0;
     }
 
@@ -10638,6 +10421,9 @@ fold_builtin_snprintf_chk (tree arglist, tree maxlen,
 	return 0;
     }
 
+  if (!init_target_chars())
+    return 0;
+
   /* Only convert __{,v}snprintf_chk to {,v}snprintf if flag is 0
      or if format doesn't contain % chars or is "%s".  */
   if (! integer_zerop (flag))
@@ -10645,7 +10431,7 @@ fold_builtin_snprintf_chk (tree arglist, tree maxlen,
       fmt_str = c_getstr (fmt);
       if (fmt_str == NULL)
 	return 0;
-      if (strchr (fmt_str, '%') != NULL && strcmp (fmt_str, "%s"))
+      if (strchr (fmt_str, target_percent) != NULL && strcmp (fmt_str, target_percent_s))
 	return 0;
     }
 
@@ -10708,8 +10494,10 @@ fold_builtin_printf (tree fndecl, tree arglist, bool ignore,
 
   if (fcode == BUILT_IN_PRINTF_UNLOCKED)
     {
-      fn_putchar = implicit_built_in_decls[BUILT_IN_PUTCHAR_UNLOCKED];
-      fn_puts = implicit_built_in_decls[BUILT_IN_PUTS_UNLOCKED];
+      /* If we're using an unlocked function, assume the other
+	 unlocked functions exist explicitly.  */
+      fn_putchar = built_in_decls[BUILT_IN_PUTCHAR_UNLOCKED];
+      fn_puts = built_in_decls[BUILT_IN_PUTS_UNLOCKED];
     }
   else
     {
@@ -10717,11 +10505,14 @@ fold_builtin_printf (tree fndecl, tree arglist, bool ignore,
       fn_puts = implicit_built_in_decls[BUILT_IN_PUTS];
     }
 
-  if (strcmp (fmt_str, "%s") == 0 || strchr (fmt_str, '%') == NULL)
+  if (!init_target_chars())
+    return 0;
+  
+  if (strcmp (fmt_str, target_percent_s) == 0 || strchr (fmt_str, target_percent) == NULL)
     {
       const char *str;
 
-      if (strcmp (fmt_str, "%s") == 0)
+      if (strcmp (fmt_str, target_percent_s) == 0)
 	{
 	  if (fcode == BUILT_IN_VPRINTF || fcode == BUILT_IN_VPRINTF_CHK)
 	    return 0;
@@ -10762,7 +10553,7 @@ fold_builtin_printf (tree fndecl, tree arglist, bool ignore,
 	{
 	  /* If the string was "string\n", call puts("string").  */
 	  size_t len = strlen (str);
-	  if (str[len - 1] == '\n')
+	  if ((unsigned char)str[len - 1] == target_newline)
 	    {
 	      /* Create a NUL-terminated string that's one char shorter
 		 than the original, stripping off the trailing '\n'.  */
@@ -10786,7 +10577,7 @@ fold_builtin_printf (tree fndecl, tree arglist, bool ignore,
     return 0;
 
   /* If the format specifier was "%s\n", call __builtin_puts(arg).  */
-  else if (strcmp (fmt_str, "%s\n") == 0)
+  else if (strcmp (fmt_str, target_percent_s_newline) == 0)
     {
       if (! arglist
 	  || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
@@ -10796,7 +10587,7 @@ fold_builtin_printf (tree fndecl, tree arglist, bool ignore,
     }
 
   /* If the format specifier was "%c", call __builtin_putchar(arg).  */
-  else if (strcmp (fmt_str, "%c") == 0)
+  else if (strcmp (fmt_str, target_percent_c) == 0)
     {
       if (! arglist
 	  || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != INTEGER_TYPE
@@ -10864,8 +10655,10 @@ fold_builtin_fprintf (tree fndecl, tree arglist, bool ignore,
 
   if (fcode == BUILT_IN_FPRINTF_UNLOCKED)
     {
-      fn_fputc = implicit_built_in_decls[BUILT_IN_FPUTC_UNLOCKED];
-      fn_fputs = implicit_built_in_decls[BUILT_IN_FPUTS_UNLOCKED];
+      /* If we're using an unlocked function, assume the other
+	 unlocked functions exist explicitly.  */
+      fn_fputc = built_in_decls[BUILT_IN_FPUTC_UNLOCKED];
+      fn_fputs = built_in_decls[BUILT_IN_FPUTS_UNLOCKED];
     }
   else
     {
@@ -10873,8 +10666,11 @@ fold_builtin_fprintf (tree fndecl, tree arglist, bool ignore,
       fn_fputs = implicit_built_in_decls[BUILT_IN_FPUTS];
     }
 
+  if (!init_target_chars())
+    return 0;
+  
   /* If the format doesn't contain % args or %%, use strcpy.  */
-  if (strchr (fmt_str, '%') == NULL)
+  if (strchr (fmt_str, target_percent) == NULL)
     {
       if (fcode != BUILT_IN_VFPRINTF && fcode != BUILT_IN_VFPRINTF_CHK
 	  && arglist)
@@ -10904,7 +10700,7 @@ fold_builtin_fprintf (tree fndecl, tree arglist, bool ignore,
     return 0;
 
   /* If the format specifier was "%s", call __builtin_fputs (arg, fp).  */
-  else if (strcmp (fmt_str, "%s") == 0)
+  else if (strcmp (fmt_str, target_percent_s) == 0)
     {
       if (! arglist
 	  || ! POINTER_TYPE_P (TREE_TYPE (TREE_VALUE (arglist)))
@@ -10917,7 +10713,7 @@ fold_builtin_fprintf (tree fndecl, tree arglist, bool ignore,
     }
 
   /* If the format specifier was "%c", call __builtin_fputc (arg, fp).  */
-  else if (strcmp (fmt_str, "%c") == 0)
+  else if (strcmp (fmt_str, target_percent_c) == 0)
     {
       if (! arglist
 	  || TREE_CODE (TREE_TYPE (TREE_VALUE (arglist))) != INTEGER_TYPE
@@ -10934,4 +10730,38 @@ fold_builtin_fprintf (tree fndecl, tree arglist, bool ignore,
 
   call = build_function_call_expr (fn, arglist);
   return fold_convert (TREE_TYPE (TREE_TYPE (fndecl)), call);
+}
+
+/* Initialize format string characters in the target charset.  */
+
+static bool
+init_target_chars (void)
+{
+  static bool init;
+  if (!init)
+    {
+      target_newline = lang_hooks.to_target_charset ('\n');
+      target_percent = lang_hooks.to_target_charset ('%');
+      target_c = lang_hooks.to_target_charset ('c');
+      target_s = lang_hooks.to_target_charset ('s');
+      if (target_newline == 0 || target_percent == 0 || target_c == 0
+	  || target_s == 0)
+	return false;
+
+      target_percent_c[0] = target_percent;
+      target_percent_c[1] = target_c;
+      target_percent_c[2] = '\0';
+
+      target_percent_s[0] = target_percent;
+      target_percent_s[1] = target_s;
+      target_percent_s[2] = '\0';
+
+      target_percent_s_newline[0] = target_percent;
+      target_percent_s_newline[1] = target_s;
+      target_percent_s_newline[2] = target_newline;
+      target_percent_s_newline[3] = '\0';
+      
+      init = true;
+    }
+  return true;
 }

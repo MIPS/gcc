@@ -192,16 +192,12 @@ public class GridBagLayout
 
 	if (clone.gridwidth == 0)
 	    clone.gridwidth = GridBagConstraints.REMAINDER;
-	else if (clone.gridwidth < 0
-	    && clone.gridwidth != GridBagConstraints.REMAINDER
-	    && clone.gridwidth != GridBagConstraints.RELATIVE)
+	else if (clone.gridwidth < 0)
 	    clone.gridwidth = 1;
     
 	if (clone.gridheight == 0)
 	    clone.gridheight = GridBagConstraints.REMAINDER;
-	else if (clone.gridheight < 0
-	    && clone.gridheight != GridBagConstraints.REMAINDER
-	    && clone.gridheight != GridBagConstraints.RELATIVE)
+	else if (clone.gridheight < 0)
 	    clone.gridheight = 1;
     
 	comptable.put (component, clone);
@@ -709,17 +705,20 @@ public class GridBagLayout
                       if (lastInCol.containsKey(new Integer(x)))
                         {
                           Component lastComponent = (Component) lastInRow.get(new Integer(x));
-                          GridBagConstraints lastConstraints = lookupInternalConstraints(lastComponent);
-
-                          if (lastConstraints.gridheight == GridBagConstraints.RELATIVE)
+                          if (lastComponent != null)
                             {
-                              constraints.gridy = max_y - 1;
-                              break;
-                            }
-                          else
-                            {
-                              constraints.gridy = Math.max (constraints.gridy,
-                                                            lastConstraints.gridy + Math.max (1, lastConstraints.gridheight));
+                              GridBagConstraints lastConstraints = lookupInternalConstraints(lastComponent);
+    
+                              if (lastConstraints.gridheight == GridBagConstraints.RELATIVE)
+                                {
+                                  constraints.gridy = max_y - 1;
+                                  break;
+                                }
+                              else
+                                {
+                                  constraints.gridy = Math.max (constraints.gridy,
+                                                                lastConstraints.gridy + Math.max (1, lastConstraints.gridheight));
+                                }
                             }
                         }
                     }
@@ -913,7 +912,7 @@ public class GridBagLayout
           sizes[start] = Math.max(sizes[start], size);
           weights[start] = Math.max(weights[start], weight);
         }
-      else
+      else if (span > 1)
         {
           int numOccupied = span;
           int lastOccupied = -1;

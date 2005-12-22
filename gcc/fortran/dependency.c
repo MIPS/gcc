@@ -175,25 +175,147 @@ gfc_is_same_range (gfc_array_ref * ar1, gfc_array_ref * ar2, int n, int def)
 }
 
 
-/* Dependency checking for direct function return by reference.
-   Returns true if the arguments of the function depend on the
-   destination.  This is considerably less conservative than other
-   dependencies because many function arguments will already be
-   copied into a temporary.  */
+/* Some array-returning intrinsics can be implemented by reusing the
+   data from one of the array arguments.  For example, TRANSPOSE does
+   not necessarily need to allocate new data: it can be implemented
+   by copying the original array's descriptor and simply swapping the
+   two dimension specifications.
+
+   If EXPR is a call to such an intrinsic, return the argument
+   whose data can be reused, otherwise return NULL.  */
+
+gfc_expr *
+gfc_get_noncopying_intrinsic_argument (gfc_expr * expr)
+{
+  if (expr->expr_type != EXPR_FUNCTION || !expr->value.function.isym)
+    return NULL;
+
+  switch (expr->value.function.isym->generic_id)
+    {
+    case GFC_ISYM_TRANSPOSE:
+      return expr->value.function.actual->expr;
+
+    default:
+      return NULL;
+    }
+}
+
+
+/* Return true if the result of reference REF can only be constructed
+   using a temporary array.  */
+
+bool
+gfc_ref_needs_temporary_p (gfc_ref *ref)
+{
+  int n;
+  bool subarray_p;
+
+  subarray_p = false;
+  for (; ref; ref = ref->next)
+    switch (ref->type)
+      {
+      case REF_ARRAY:
+	/* Vector dimensions are generally not monotonic and must be
+	   handled using a temporary.  */
+	if (ref->u.ar.type == AR_SECTION)
+	  for (n = 0; n < ref->u.ar.dimen; n++)
+	    if (ref->u.ar.dimen_type[n] == DIMEN_VECTOR)
+	      return true;
+
+	subarray_p = true;
+	break;
+
+      case REF_SUBSTRING:
+	/* Within an array reference, character substrings generally
+	   need a temporary.  Character array strides are expressed as
+	   multiples of the element size (consistent with other array
+	   types), not in characters.  */
+	return subarray_p;
+
+      case REF_COMPONENT:
+	break;
+      }
+
+  return false;
+}
+
+
+/* Return true if array variable VAR could be passed to the same function
+   as argument EXPR without interfering with EXPR.  INTENT is the intent
+   of VAR.
+
+   This is considerably less conservative than other dependencies
+   because many function arguments will already be copied into a
+   temporary.  */
+
+static int
+gfc_check_argument_var_dependency (gfc_expr * var, sym_intent intent,
+				   gfc_expr * expr)
+{
+  gcc_assert (var->expr_type == EXPR_VARIABLE);
+  gcc_assert (var->rank > 0);
+
+  switch (expr->expr_type)
+    {
+    case EXPR_VARIABLE:
+      return (gfc_ref_needs_temporary_p (expr->ref)
+	      || gfc_check_dependency (var, expr, NULL, 0));
+
+    case EXPR_ARRAY:
+      return gfc_check_dependency (var, expr, NULL, 0);
+
+    case EXPR_FUNCTION:
+      if (intent != INTENT_IN && expr->inline_noncopying_intrinsic)
+	{
+	  expr = gfc_get_noncopying_intrinsic_argument (expr);
+	  return gfc_check_argument_var_dependency (var, intent, expr);
+	}
+      return 0;
+
+    default:
+      return 0;
+    }
+}
+  
+  
+/* Like gfc_check_argument_var_dependency, but extended to any
+   array expression OTHER, not just variables.  */
+
+static int
+gfc_check_argument_dependency (gfc_expr * other, sym_intent intent,
+			       gfc_expr * expr)
+{
+  switch (other->expr_type)
+    {
+    case EXPR_VARIABLE:
+      return gfc_check_argument_var_dependency (other, intent, expr);
+
+    case EXPR_FUNCTION:
+      if (other->inline_noncopying_intrinsic)
+	{
+	  other = gfc_get_noncopying_intrinsic_argument (other);
+	  return gfc_check_argument_dependency (other, INTENT_IN, expr);
+	}
+      return 0;
+
+    default:
+      return 0;
+    }
+}
+
+
+/* Like gfc_check_argument_dependency, but check all the arguments in ACTUAL.
+   FNSYM is the function being called, or NULL if not known.  */
 
 int
-gfc_check_fncall_dependency (gfc_expr * dest, gfc_expr * fncall)
+gfc_check_fncall_dependency (gfc_expr * other, sym_intent intent,
+			     gfc_symbol * fnsym, gfc_actual_arglist * actual)
 {
-  gfc_actual_arglist *actual;
-  gfc_ref *ref;
+  gfc_formal_arglist *formal;
   gfc_expr *expr;
-  int n;
 
-  gcc_assert (dest->expr_type == EXPR_VARIABLE
-	  && fncall->expr_type == EXPR_FUNCTION);
-  gcc_assert (fncall->rank > 0);
-
-  for (actual = fncall->value.function.actual; actual; actual = actual->next)
+  formal = fnsym ? fnsym->formal : NULL;
+  for (; actual; actual = actual->next, formal = formal ? formal->next : NULL)
     {
       expr = actual->expr;
 
@@ -201,46 +323,14 @@ gfc_check_fncall_dependency (gfc_expr * dest, gfc_expr * fncall)
       if (!expr)
 	continue;
 
-      /* Non-variable expressions will be allocated temporaries anyway.  */
-      switch (expr->expr_type)
-	{
-	case EXPR_VARIABLE:
-	  if (expr->rank > 1)
-	    {
-	      /* This is an array section.  */
-	      for (ref = expr->ref; ref; ref = ref->next)
-		{
-		  if (ref->type == REF_ARRAY && ref->u.ar.type != AR_ELEMENT)
-		    break;
-		}
-	      gcc_assert (ref);
-	      /* AR_FULL can't contain vector subscripts.  */
-	      if (ref->u.ar.type == AR_SECTION)
-		{
-		  for (n = 0; n < ref->u.ar.dimen; n++)
-		    {
-		      if (ref->u.ar.dimen_type[n] == DIMEN_VECTOR)
-			break;
-		    }
-		  /* Vector subscript array sections will be copied to a
-		     temporary.  */
-		  if (n != ref->u.ar.dimen)
-		    continue;
-		}
-	    }
+      /* Skip intent(in) arguments if OTHER itself is intent(in).  */
+      if (formal
+	  && intent == INTENT_IN
+	  && formal->sym->attr.intent == INTENT_IN)
+	continue;
 
-	  if (gfc_check_dependency (dest, actual->expr, NULL, 0))
-	    return 1;
-	  break;
-
-	case EXPR_ARRAY:
-	  if (gfc_check_dependency (dest, expr, NULL, 0))
-	    return 1;
-	  break;
-
-	default:
-	  break;
-	}
+      if (gfc_check_argument_dependency (other, intent, expr))
+	return 1;
     }
 
   return 0;
@@ -378,7 +468,7 @@ get_deps (mpz_t x1, mpz_t x2, mpz_t y)
 }
 
 
-/* Transforms a sections l and r such that 
+/* Perform the same linear transformation on sections l and r such that 
    (l_start:l_end:l_stride) -> (0:no_of_elements)
    (r_start:r_end:r_stride) -> (X1:X2)
    Where r_end is implicit as both sections must have the same number of
@@ -420,7 +510,7 @@ transform_sections (mpz_t X1, mpz_t X2, mpz_t no_of_elements,
     mpz_mul (X2, no_of_elements, r_stride->value.integer);
 
   if (l_stride != NULL)
-    mpz_cdiv_q (X2, X2, r_stride->value.integer);
+    mpz_cdiv_q (X2, X2, l_stride->value.integer);
   mpz_add (X2, X2, X1);
 
   return 0;

@@ -940,8 +940,10 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
       if (dist % vectorization_factor == 0 && dra_size == drb_size)
 	{
 	  /* Two references with distance zero have the same alignment.  */
-	  VEC_safe_push (dr_p, heap, STMT_VINFO_SAME_ALIGN_REFS (stmtinfo_a), drb);
-	  VEC_safe_push (dr_p, heap, STMT_VINFO_SAME_ALIGN_REFS (stmtinfo_b), dra);
+	  VEC_safe_push (dr_p, heap, 
+			 STMT_VINFO_SAME_ALIGN_REFS (stmtinfo_a), drb);
+	  VEC_safe_push (dr_p, heap, 
+			 STMT_VINFO_SAME_ALIGN_REFS (stmtinfo_b), dra);
 	  if (vect_print_dump_info (REPORT_ALIGNMENT))
 	    fprintf (vect_dump, "accesses have the same alignment.");
 	  if (vect_print_dump_info (REPORT_DR_DETAILS))
@@ -962,7 +964,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	    fprintf (vect_dump, "dependence distance >= VF.");
 	  continue;
 	}
-  
+
       if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
 	{
 	  fprintf (vect_dump,
@@ -1136,15 +1138,15 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   /* Modulo alignment.  */
   misalign = size_binop (TRUNC_MOD_EXPR, misalign, alignment);
 
-  if (tree_int_cst_sgn (misalign) < 0)
+  if (!host_integerp (misalign, 1))
     {
-      /* Negative misalignment value.  */
+      /* Negative or overflowed misalignment value.  */
       if (vect_print_dump_info (REPORT_DETAILS))
 	fprintf (vect_dump, "unexpected misalign value");
       return false;
     }
 
-  DR_MISALIGNMENT (dr) = tree_low_cst (misalign, 1);
+  DR_MISALIGNMENT (dr) = TREE_INT_CST_LOW (misalign);
 
   if (vect_print_dump_info (REPORT_DETAILS))
     {

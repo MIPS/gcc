@@ -187,7 +187,7 @@ c_common_write_pch (void)
   if (fwrite (&h, sizeof (h), 1, pch_outfile) != 1)
     fatal_error ("can%'t write %s: %m", pch_file);
   
-  buf = xmalloc (16384);
+  buf = XNEWVEC (char, 16384);
 
   if (fseek (asm_out_file, asm_file_startpos, SEEK_SET) != 0)
     fatal_error ("can%'t seek in %s: %m", asm_file_name);
@@ -385,7 +385,7 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
   if (!flag_preprocess_only)
     {
       unsigned long written;
-      char * buf = xmalloc (16384);
+      char * buf = XNEWVEC (char, 16384);
 
       for (written = 0; written < h.asm_size; )
 	{
@@ -447,7 +447,7 @@ c_common_pch_pragma (cpp_reader *pfile)
   const char *name;
   int fd;
 
-  if (c_lex (&name_t) != CPP_STRING)
+  if (pragma_lex (&name_t) != CPP_STRING)
     {
       error ("malformed #pragma GCC pch_preprocess, ignored");
       return;

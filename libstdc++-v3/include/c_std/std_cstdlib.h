@@ -1,6 +1,6 @@
 // -*- C++ -*- forwarding header.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -38,7 +38,8 @@
  *
  *  This is the C++ version of the Standard C Library header @c stdlib.h,
  *  and its contents are (mostly) the same as that header, but are all
- *  contained in the namespace @c std.
+ *  contained in the namespace @c std (except for names which are defined
+ *  as macros in C).
  */
 
 #ifndef _GLIBCXX_CSTDLIB
@@ -49,13 +50,25 @@
 #include <bits/c++config.h>
 #include <cstddef>
 
-#if _GLIBCXX_HOSTED
-/* The C standard does not require a freestanding implementation to
-   provide <stdlib.h>.  However, the C++ standard does still require
-   <cstdlib> -- but only the functionality mentioned in
-   [lib.support.start.term].  */
+#if !_GLIBCXX_HOSTED
+// The C standard does not require a freestanding implementation to
+// provide <stdlib.h>.  However, the C++ standard does still require
+// <cstdlib> -- but only the functionality mentioned in
+// [lib.support.start.term].
+
+#define EXIT_SUCCESS 0
+#define EXIT_FAILURE 1
+
+namespace std
+{
+  extern "C" void abort(void);
+  extern "C" int atexit(void (*)());
+  extern "C" void exit(int);
+} // namespace std
+
+#else
+
 #include <stdlib.h>
-#endif
 
 // Get rid of those macros defined in <stdlib.h> in lieu of real functions.
 #undef abort
@@ -89,7 +102,6 @@
 
 namespace std
 {
-#if _GLIBCXX_HOSTED
   using ::div_t;
   using ::ldiv_t;
 
@@ -131,16 +143,7 @@ namespace std
 
   inline ldiv_t
   div(long __i, long __j) { return ldiv(__i, __j); }
-#else
-  /* Provide the minimal set of definitions required of a freestanding
-     implementation.  */
-  #define EXIT_SUCCESS 0
-  #define EXIT_FAILURE 1
-  extern "C" void abort(void);
-  extern "C" int atexit(void (*)());
-  extern "C" void exit(int);
-#endif
-}
+} // namespace std
 
 #if _GLIBCXX_USE_C99
 
@@ -197,21 +200,24 @@ namespace __gnu_cxx
 namespace std
 {
 #if !_GLIBCXX_USE_C99_LONG_LONG_DYNAMIC
-  using __gnu_cxx::lldiv_t;
+  using ::__gnu_cxx::lldiv_t;
 #endif
-  using __gnu_cxx::_Exit;
-  using __gnu_cxx::abs;
+  using ::__gnu_cxx::_Exit;
+  using ::__gnu_cxx::abs;
 #if !_GLIBCXX_USE_C99_LONG_LONG_DYNAMIC
-  using __gnu_cxx::llabs;
-  using __gnu_cxx::div;
-  using __gnu_cxx::lldiv;
+  using ::__gnu_cxx::llabs;
+  using ::__gnu_cxx::div;
+  using ::__gnu_cxx::lldiv;
 #endif
-  using __gnu_cxx::atoll;
-  using __gnu_cxx::strtof;
-  using __gnu_cxx::strtoll;
-  using __gnu_cxx::strtoull;
-  using __gnu_cxx::strtold;
+  using ::__gnu_cxx::atoll;
+  using ::__gnu_cxx::strtof;
+  using ::__gnu_cxx::strtoll;
+  using ::__gnu_cxx::strtoull;
+  using ::__gnu_cxx::strtold;
 }
-#endif
+
+#endif // _GLIBCXX_USE_C99
+
+#endif // !_GLIBCXX_HOSTED
 
 #endif

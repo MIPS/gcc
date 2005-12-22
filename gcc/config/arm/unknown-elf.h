@@ -58,9 +58,9 @@
   do									\
     {									\
       if (IN_NAMED_SECTION (DECL))					\
-	named_section (DECL, NULL, 0);					\
+	switch_to_section (get_named_section (DECL, NULL, 0));		\
       else								\
-	bss_section ();							\
+	switch_to_section (bss_section);				\
       									\
       ASM_OUTPUT_ALIGN (FILE, floor_log2 (ALIGN / BITS_PER_UNIT));	\
 									\
@@ -75,9 +75,9 @@
   do									\
     {									\
       if ((DECL) != NULL && IN_NAMED_SECTION (DECL))			\
-	named_section (DECL, NULL, 0);					\
+	switch_to_section (get_named_section (DECL, NULL, 0));		\
       else								\
-	bss_section ();							\
+	switch_to_section (bss_section);				\
 									\
       ASM_OUTPUT_ALIGN (FILE, floor_log2 (ALIGN / BITS_PER_UNIT));	\
       ASM_OUTPUT_LABEL (FILE, NAME);					\
@@ -89,3 +89,9 @@
 #define SUBTARGET_CPU_DEFAULT 		TARGET_CPU_arm7tdmi
 #endif
 
+/* The libgcc udivmod functions may throw exceptions.  If newlib is
+   configured to support long longs in I/O, then printf will depend on
+   udivmoddi4, which will depend on the exception unwind routines,
+   which will depend on abort, which is defined in libc.  */ 
+#undef LINK_GCC_C_SEQUENCE_SPEC
+#define LINK_GCC_C_SEQUENCE_SPEC "--start-group %G %L --end-group"

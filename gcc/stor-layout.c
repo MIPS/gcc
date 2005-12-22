@@ -800,9 +800,19 @@ place_field (record_layout_info rli, tree field)
   /* The type of this field.  */
   tree type = TREE_TYPE (field);
 
-  if (TREE_CODE (field) == ERROR_MARK || TREE_CODE (type) == ERROR_MARK)
-      return;
+  gcc_assert (TREE_CODE (field) != ERROR_MARK);
 
+  if (TREE_CODE (type) == ERROR_MARK)
+    {
+      if (TREE_CODE (field) == FIELD_DECL)
+	{
+	  DECL_FIELD_OFFSET (field) = size_int (0);
+	  DECL_FIELD_BIT_OFFSET (field) = bitsize_int (0);
+	}
+      
+      return;
+    }
+  
   /* If FIELD is static, then treat it like a separate variable, not
      really like a structure field.  If it is a FUNCTION_DECL, it's a
      method.  In both cases, all we do is lay out the decl, and we do
@@ -1367,14 +1377,15 @@ compute_record_mode (tree type)
 #endif /* MEMBER_TYPE_FORCES_BLK  */
     }
 
-  TYPE_MODE (type) = mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
-
   /* If we only have one real field; use its mode if that mode's size
      matches the type's size.  This only applies to RECORD_TYPE.  This
      does not apply to unions.  */
   if (TREE_CODE (type) == RECORD_TYPE && mode != VOIDmode
-      && GET_MODE_SIZE (mode) == GET_MODE_SIZE (TYPE_MODE (type)))
+      && host_integerp (TYPE_SIZE (type), 1)
+      && GET_MODE_BITSIZE (mode) == TREE_INT_CST_LOW (TYPE_SIZE (type)))
     TYPE_MODE (type) = mode;
+  else
+    TYPE_MODE (type) = mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
 
   /* If structure's known alignment is less than what the scalar
      mode would need, and it matters, then stick with BLKmode.  */
@@ -1484,8 +1495,6 @@ finalize_type_size (tree type)
 void
 finish_record_layout (record_layout_info rli, int free_p)
 {
-  tree field;
-  
   /* Compute the final size.  */
   finalize_record_size (rli);
 
@@ -1495,15 +1504,6 @@ finish_record_layout (record_layout_info rli, int free_p)
   /* Perform any last tweaks to the TYPE_SIZE, etc.  */
   finalize_type_size (rli->t);
 
-  /* We might be able to clear DECL_PACKED on any members that happen
-     to be suitably aligned (not forgetting the alignment of the type
-     itself).  */
-  for (field = TYPE_FIELDS (rli->t); field; field = TREE_CHAIN (field))
-    if (TREE_CODE (field) == FIELD_DECL && DECL_PACKED (field)
-	&& DECL_OFFSET_ALIGN (field) >= TYPE_ALIGN (TREE_TYPE (field))
-	&& TYPE_ALIGN (rli->t) >= TYPE_ALIGN (TREE_TYPE (field)))
-      DECL_PACKED (field) = 0;
-  
   /* Lay out any static members.  This is done now because their type
      may use the record's type.  */
   while (rli->pending_statics)
@@ -1634,7 +1634,7 @@ layout_type (tree type)
 	    enum machine_mode mode;
 
 	    /* First, look for a supported vector type.  */
-	    if (GET_MODE_CLASS (innermode) == MODE_FLOAT)
+	    if (SCALAR_FLOAT_MODE_P (innermode))
 	      mode = MIN_MODE_VECTOR_FLOAT;
 	    else
 	      mode = MIN_MODE_VECTOR_INT;
@@ -1816,6 +1816,17 @@ layout_type (tree type)
 		TYPE_MODE (type) = BLKmode;
 	      }
 	  }
+	/* When the element size is constant, check that it is at least as
+	   large as the element alignment.  */
+	if (TYPE_SIZE_UNIT (element)
+	    && TREE_CODE (TYPE_SIZE_UNIT (element)) == INTEGER_CST
+	    /* If TYPE_SIZE_UNIT overflowed, then it is certainly larger than
+	       TYPE_ALIGN_UNIT.  */
+	    && !TREE_CONSTANT_OVERFLOW (TYPE_SIZE_UNIT (element))
+	    && !integer_zerop (TYPE_SIZE_UNIT (element))
+	    && compare_tree_int (TYPE_SIZE_UNIT (element),
+			  	 TYPE_ALIGN_UNIT (element)) < 0)
+	  error ("alignment of array elements is greater than element size");
 	break;
       }
 
@@ -1965,8 +1976,10 @@ set_sizetype (tree type)
   TYPE_PRECISION (t) = precision;
   TYPE_UID (t) = TYPE_UID (bitsizetype);
   TYPE_IS_SIZETYPE (t) = 1;
+
   /* Replace our original stub bitsizetype.  */
   memcpy (bitsizetype, t, tree_size (bitsizetype));
+  TYPE_MAIN_VARIANT (bitsizetype) = bitsizetype;
   
   if (TYPE_UNSIGNED (type))
     {

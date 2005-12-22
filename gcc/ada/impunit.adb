@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 2000-2005 Free Software Foundation, Inc.         --
+--           Copyright (C) 2000-2005, Free Software Foundation, Inc.        --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -195,6 +195,11 @@ package body Impunit is
    -- GNAT Library Units --
    ------------------------
 
+     "g-altive",    -- GNAT.Altivec
+     "g-alvety",    -- GNAT.Altivec.Vector_Types
+     "g-alvevi",    -- GNAT.Altivec.Vector_Views
+     "g-alveop",    -- GNAT.Altivec.Vector_Operations
+     "g-altcon",    -- GNAT.Altivec.Conversions
      "g-arrspl",    -- GNAT.Array_Split
      "g-awk   ",    -- GNAT.AWK
      "g-boubuf",    -- GNAT.Bounded_Buffers
@@ -334,29 +339,19 @@ package body Impunit is
      "a-cgarso",    -- Ada.Containers.Generic_Array_Sort
      "a-cgcaso",    -- Ada.Containers.Generic_Constrained_Array_Sort
      "a-chacon",    -- Ada.Characters.Conversions
-     "a-chtgke",    -- Ada.Containers.Hash_Tables.Generic_Keys
-     "a-chtgop",    -- Ada.Containers.Hash_Tables.Generic_Operations
      "a-cidlli",    -- Ada.Containers.Indefinite_Doubly_Linked_Lists
      "a-cihama",    -- Ada.Containers.Indefinite_Hashed_Maps
      "a-cihase",    -- Ada.Containers.Indefinite_Hashed_Sets
      "a-ciorma",    -- Ada.Containers.Indefinite_Ordered_Maps
-     "a-ciormu",    -- Ada.Containers.Indefinite_Ordered_Multisets
      "a-ciorse",    -- Ada.Containers.Indefinite_Ordered_Sets
      "a-cohama",    -- Ada.Containers.Hashed_Maps
      "a-cohase",    -- Ada.Containers.Hashed_Sets
-     "a-cohata",    -- Ada.Containers.Hash_Tables
      "a-coinve",    -- Ada.Containers.Indefinite_Vectors
      "a-contai",    -- Ada.Containers
      "a-convec",    -- Ada.Containers.Vectors
      "a-coorma",    -- Ada.Containers.Ordered_Maps
-     "a-coormu",    -- Ada.Containers.Ordered_Multisets
      "a-coorse",    -- Ada.Containers.Ordered_Sets
-     "a-coprnu",    -- Ada.Containers.Prime_Numbers
-     "a-crbltr",    -- Ada.Containers.Red_Black_Trees
-     "a-crbtgk",    -- Ada.Containers.Red_Black_Trees.Generic_Keys
-     "a-crbtgo",    -- Ada.Containers.Red_Black_Trees.Generic_Operations
      "a-direct",    -- Ada.Directories
-     "a-rbtgso",    -- Ada.Containers.Red_Black_Trees.Generic_Set_Operations
      "a-secain",    -- Ada.Strings.Equal_Case_Insensitive
      "a-shcain",    -- Ada.Strings.Hash_Case_Insensitive
      "a-slcain",    -- Ada.Strings.Less_Case_Insensitive
@@ -369,12 +364,13 @@ package body Impunit is
      "a-stzmap",    -- Ada.Strings.Wide_Wide_Maps
      "a-stzunb",    -- Ada.Strings.Wide_Wide_Unbounded
      "a-swuwha",    -- Ada.Strings.Wide_Unbounded.Wide_Hash
-     "a-szmzco",    -- Ada.Strings.Wide_Wide_Maps.Wide_Wide_Constants;
+     "a-szmzco",    -- Ada.Strings.Wide_Wide_Maps.Wide_Wide_Constants
      "a-szuzha",    -- Ada.Strings.Wide_Wide_Unbounded.Wide_Wide_Hash
-     "a-tgdico",    -- Ada.Tags.Generic_Dispatching_Constructor;
-     "a-tiunio",    -- Ada.Text_IO.Unbounded_IO;
+     "a-taster",    -- Ada.Task_Termination
+     "a-tgdico",    -- Ada.Tags.Generic_Dispatching_Constructor
+     "a-tiunio",    -- Ada.Text_IO.Unbounded_IO
      "a-wichun",    -- Ada.Wide_Characters.Unicode
-     "a-wwunio",    -- Ada.Wide_Text_IO.Wide_Unbounded_IO;
+     "a-wwunio",    -- Ada.Wide_Text_IO.Wide_Unbounded_IO
      "a-zchara",    -- Ada.Wide_Wide_Characters
      "a-zttest",    -- Ada.Wide_Wide_Text_IO.Text_Streams
      "a-ztexio",    -- Ada.Wide_Wide_Text_IO
@@ -399,6 +395,8 @@ package body Impunit is
 
      "a-chzla1",    -- Ada.Characters.Wide_Wide_Latin_1
      "a-chzla9",    -- Ada.Characters.Wide_Wide_Latin_9
+     "a-ciormu",    -- Ada.Containers.Indefinite_Ordered_Multisets
+     "a-coormu",    -- Ada.Containers.Ordered_Multisets
      "a-szuzti",    -- Ada.Strings.Wide_Wide_Unbounded.Wide_Wide_Text_IO
      "a-zchuni",    -- Ada.Wide_Wide_Characters.Unicode
 

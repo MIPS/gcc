@@ -39,13 +39,11 @@ exception statement from your version. */
 
 package gnu.classpath.jdwp.processor;
 
-import gnu.classpath.jdwp.IVirtualMachine;
-import gnu.classpath.jdwp.Jdwp;
 import gnu.classpath.jdwp.JdwpConstants;
+import gnu.classpath.jdwp.VMVirtualMachine;
 import gnu.classpath.jdwp.exception.JdwpException;
 import gnu.classpath.jdwp.exception.JdwpInternalErrorException;
 import gnu.classpath.jdwp.exception.NotImplementedException;
-import gnu.classpath.jdwp.id.IdManager;
 import gnu.classpath.jdwp.id.ObjectId;
 import gnu.classpath.jdwp.id.ReferenceTypeId;
 import gnu.classpath.jdwp.util.JdwpString;
@@ -63,21 +61,13 @@ import java.util.Properties;
  * 
  * @author Aaron Luchko <aluchko@redhat.com>
  */
-public class VirtualMachineCommandSet implements CommandSet
+public class VirtualMachineCommandSet
+  extends CommandSet
 {
-  // Our hook into the jvm
-  private final IVirtualMachine vm = Jdwp.getIVirtualMachine();
-
-  // Manages all the different ids that are assigned by jdwp
-  private final IdManager idMan = Jdwp.getIdManager();
-
-  // The Jdwp object
-  private final Jdwp jdwp = Jdwp.getDefault();
-
   public boolean runCommand(ByteBuffer bb, DataOutputStream os, byte command)
     throws JdwpException
   {
-    boolean keepRunning = true;
+    boolean shutdown = false;
     try
       {
         switch (command)
@@ -101,7 +91,7 @@ public class VirtualMachineCommandSet implements CommandSet
             executeIDsizes(bb, os);
             break;
           case JdwpConstants.CommandSet.VirtualMachine.DISPOSE:
-            keepRunning = false;
+            shutdown = true;
             executeDispose(bb, os);
             break;
           case JdwpConstants.CommandSet.VirtualMachine.SUSPEND:
@@ -111,7 +101,7 @@ public class VirtualMachineCommandSet implements CommandSet
             executeResume(bb, os);
             break;
           case JdwpConstants.CommandSet.VirtualMachine.EXIT:
-            keepRunning = false;
+	    shutdown = true;
             executeExit(bb, os);
             break;
           case JdwpConstants.CommandSet.VirtualMachine.CREATE_STRING:
@@ -144,9 +134,9 @@ public class VirtualMachineCommandSet implements CommandSet
           case JdwpConstants.CommandSet.VirtualMachine.ALL_CLASSES_WITH_GENERIC:
             executeAllClassesWithGeneric(bb, os);
             break;
-
           default:
-            break;
+            throw new NotImplementedException("Command " + command +
+            " not found in VirtualMachine Command Set.");
           }
       }
     catch (IOException ex)
@@ -155,7 +145,8 @@ public class VirtualMachineCommandSet implements CommandSet
         // So if we throw an IOException we're in serious trouble
         throw new JdwpInternalErrorException(ex);
       }
-    return keepRunning;
+
+    return shutdown;
   }
 
   private void executeVersion(ByteBuffer bb, DataOutputStream os)
@@ -174,8 +165,8 @@ public class VirtualMachineCommandSet implements CommandSet
     String vmVersion = props.getProperty("java.version");
     String vmName = props.getProperty("java.vm.name");
     JdwpString.writeString(os, description);
-    os.write(jdwpMajor);
-    os.write(jdwpMinor);
+    os.writeInt(jdwpMajor);
+    os.writeInt(jdwpMinor);
     JdwpString.writeString(os, vmName);
     JdwpString.writeString(os, vmVersion);
   }
@@ -187,7 +178,7 @@ public class VirtualMachineCommandSet implements CommandSet
     ArrayList allMatchingClasses = new ArrayList();
 
     // This will be an Iterator over all loaded Classes
-    Iterator iter = vm.getAllLoadedClasses();
+    Iterator iter = VMVirtualMachine.getAllLoadedClasses();
 
     while (iter.hasNext())
       {
@@ -203,7 +194,7 @@ public class VirtualMachineCommandSet implements CommandSet
         Class clazz = (Class) allMatchingClasses.get(i);
         ReferenceTypeId id = idMan.getReferenceTypeId(clazz);
         id.writeTagged(os);
-        int status = vm.getStatus(clazz);
+        int status = VMVirtualMachine.getClassStatus(clazz);
         os.writeInt(status);
       }
   }
@@ -214,14 +205,14 @@ public class VirtualMachineCommandSet implements CommandSet
     // Disable garbage collection while we're collecting the info on loaded
     // classes so we some classes don't get collected between the time we get
     // the count and the time we get the list
-    vm.disableGarbageCollection();
+    //VMVirtualMachine.disableGarbageCollection();
 
-    int classCount = vm.getAllLoadedClassesCount();
+    int classCount = VMVirtualMachine.getAllLoadedClassesCount();
     os.writeInt(classCount);
 
     // This will be an Iterator over all loaded Classes
-    Iterator iter = vm.getAllLoadedClasses();
-    vm.enableGarbageCollection();
+    Iterator iter = VMVirtualMachine.getAllLoadedClasses();
+    //VMVirtualMachine.enableGarbageCollection();
     int count = 0;
 
     // Note it's possible classes were created since out classCount so make
@@ -233,7 +224,7 @@ public class VirtualMachineCommandSet implements CommandSet
         id.writeTagged(os);
         String sig = Signature.computeClassSignature(clazz);
         JdwpString.writeString(os, sig);
-        int status = vm.getStatus(clazz);
+        int status = VMVirtualMachine.getClassStatus(clazz);
         os.writeInt(status);
       }
   }
@@ -246,7 +237,7 @@ public class VirtualMachineCommandSet implements CommandSet
 
     int numThreads = root.activeCount();
     Thread allThreads[] = new Thread[numThreads];
-    root.enumerate(allThreads, true);
+    root.enumerate(allThreads);
 
     // We need to loop through for the true count since some threads may have
     // been destroyed since we got
@@ -270,18 +261,18 @@ public class VirtualMachineCommandSet implements CommandSet
         if (thread == null)
           break; // No threads after this point
         if (!thread.getThreadGroup().equals(jdwpGroup))
-          idMan.getId(thread).write(os);
+          idMan.getObjectId(thread).write(os);
       }
   }
 
   private void executeTopLevelThreadGroups(ByteBuffer bb, DataOutputStream os)
     throws JdwpException, IOException
   {
-    ThreadGroup jdwpGroup = jdwp.getJdwpThreadGroup();
+    ThreadGroup jdwpGroup = Thread.currentThread().getThreadGroup ();
     ThreadGroup root = getRootThreadGroup(jdwpGroup);
 
     os.writeInt(1); // Just one top level group allowed?
-    idMan.getId(root);
+    idMan.getObjectId(root);
   }
 
   private void executeDispose(ByteBuffer bb, DataOutputStream os)
@@ -291,11 +282,11 @@ public class VirtualMachineCommandSet implements CommandSet
     // suspended multiple times, we likely need a way to keep track of how many
     // times a thread has been suspended or else a stronger resume method for
     // this purpose
-    // vm.resumeAllThreadsExcept(jdwp.getJdwpThreadGroup());
+    // VMVirtualMachine.resumeAllThreads ();
 
     // Simply shutting down the jdwp layer will take care of the rest of the
     // shutdown other than disabling debugging in the VM
-    // vm.disableDebugging();
+    // VMVirtualMachine.disableDebugging();
 
     // Don't implement this until we're sure how to remove all the debugging
     // effects from the VM.
@@ -318,27 +309,27 @@ public class VirtualMachineCommandSet implements CommandSet
   private void executeSuspend(ByteBuffer bb, DataOutputStream os)
     throws JdwpException
   {
-    vm.suspendAllThreadsExcept(jdwp.getJdwpThreadGroup());
+    VMVirtualMachine.suspendAllThreads ();
   }
 
   private void executeResume(ByteBuffer bb, DataOutputStream os)
     throws JdwpException
   {
-    vm.resumeAllThreadsExcept(jdwp.getJdwpThreadGroup());
+    VMVirtualMachine.resumeAllThreads ();
   }
 
   private void executeExit(ByteBuffer bb, DataOutputStream os)
     throws JdwpException, IOException
   {
     int exitCode = bb.getInt();
-    jdwp.setExit(exitCode);
+    System.exit (exitCode);
   }
 
   private void executeCreateString(ByteBuffer bb, DataOutputStream os)
     throws JdwpException, IOException
   {
     String string = JdwpString.readString(bb);
-    ObjectId stringId = Jdwp.getIdManager().getId(string);
+    ObjectId stringId = idMan.getObjectId(string);
     
     // Since this string isn't referenced anywhere we'll disable garbage
     // collection on it so it's still around when the debugger gets back to it.
@@ -386,7 +377,7 @@ public class VirtualMachineCommandSet implements CommandSet
   {
     // Instead of going through the list of objects they give us it's probably
     // better just to find the garbage collected objects ourselves
-    idMan.update();
+    //idMan.update();
   }
 
   private void executeHoldEvents(ByteBuffer bb, DataOutputStream os)

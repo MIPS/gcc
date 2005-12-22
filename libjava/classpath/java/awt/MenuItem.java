@@ -108,6 +108,8 @@ private transient ActionListener action_listeners;
     extends MenuComponent.AccessibleAWTMenuComponent
     implements AccessibleAction, AccessibleValue
   {
+    private static final long serialVersionUID = -217847831945965825L;
+
     /** Constructor */
     public AccessibleAWTMenuItem()
     {
@@ -179,14 +181,11 @@ private transient ActionListener action_listeners;
      */
     public boolean setCurrentAccessibleValue(Number number)
     {
-      if (number.intValue() == 0)
-	{
-	  setEnabled(false);
-	  return false;
-	}
-    
-      setEnabled(true);
-      return true;
+      boolean result = (number.intValue() != 0);
+      // this. is required by javac 1.3, otherwise it is confused with
+      // MenuItem.this.setEnabled.
+      this.setEnabled(result);
+      return result; 
     }
 
     /* (non-Javadoc)

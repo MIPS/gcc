@@ -108,6 +108,30 @@ const struct floatformat floatformat_ieee_double_littlebyte_bigword =
   floatformat_always_valid
 };
 
+/* floatformat for VAX.  Not quite IEEE, but close enough.  */
+
+const struct floatformat floatformat_vax_f =
+{
+  floatformat_vax, 32, 0, 1, 8, 129, 0, 9, 23,
+  floatformat_intbit_no,
+  "floatformat_vax_f",
+  floatformat_always_valid
+};
+const struct floatformat floatformat_vax_d =
+{
+  floatformat_vax, 64, 0, 1, 8, 129, 0, 9, 55,
+  floatformat_intbit_no,
+  "floatformat_vax_d",
+  floatformat_always_valid
+};
+const struct floatformat floatformat_vax_g =
+{
+  floatformat_vax, 64, 0, 1, 11, 1025, 0, 12, 52,
+  floatformat_intbit_no,
+  "floatformat_vax_g",
+  floatformat_always_valid
+};
+
 static int floatformat_i387_ext_is_valid (const struct floatformat *fmt,
 					  const void *from);
 
@@ -119,7 +143,7 @@ floatformat_i387_ext_is_valid (const struct floatformat *fmt, const void *from)
      nor ~0, the intbit must also be set.  Only if the exponent is
      zero can it be zero, and then it must be zero.  */
   unsigned long exponent, int_bit;
-  const unsigned char *ufrom = from;
+  const unsigned char *ufrom = (const unsigned char *) from;
 
   exponent = get_field (ufrom, fmt->byteorder, fmt->totalsize,
 			fmt->exp_start, fmt->exp_len);
@@ -271,7 +295,7 @@ void
 floatformat_to_double (const struct floatformat *fmt,
                        const void *from, double *to)
 {
-  const unsigned char *ufrom = from;
+  const unsigned char *ufrom = (const unsigned char *) from;
   double dto;
   long exponent;
   unsigned long mant;
@@ -447,7 +471,7 @@ floatformat_from_double (const struct floatformat *fmt,
   double mant;
   unsigned int mant_bits, mant_off;
   int mant_bits_left;
-  unsigned char *uto = to;
+  unsigned char *uto = (unsigned char *) to;
 
   dfrom = *from;
   memset (uto, 0, fmt->totalsize / FLOATFORMAT_CHAR_BIT);

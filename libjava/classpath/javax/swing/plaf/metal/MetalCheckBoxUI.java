@@ -38,12 +38,16 @@ exception statement from your version. */
 
 package javax.swing.plaf.metal;
 
+import javax.swing.JCheckBox;
 import javax.swing.JComponent;
+import javax.swing.UIDefaults;
 import javax.swing.plaf.ComponentUI;
-import javax.swing.plaf.basic.BasicCheckBoxUI;
 
+/**
+ * A UI delegate for the {@link JCheckBox} component.
+ */
 public class MetalCheckBoxUI
-  extends BasicCheckBoxUI
+  extends MetalRadioButtonUI
 {
 
   // FIXME: maybe replace by a Map of instances when this becomes stateful
@@ -59,11 +63,11 @@ public class MetalCheckBoxUI
   }
 
   /**
-   * Returns an instance of MetalCheckBoxUI.
+   * Returns a shared instance of <code>MetalCheckBoxUI</code>.
    *
    * @param component the component for which we return an UI instance
    *
-   * @return an instance of MetalCheckBoxUI
+   * @return A shared instance of <code>MetalCheckBoxUI</code>.
    */
   public static ComponentUI createUI(JComponent component)
   {
@@ -71,4 +75,15 @@ public class MetalCheckBoxUI
       instance = new MetalCheckBoxUI();
     return instance;
   }
+  
+  /**
+   * Returns the prefix for properties defined in the {@link UIDefaults} table.
+   * 
+   * @return The property prefix (<code>"CheckBox."</code>).
+   */
+  public String getPropertyPrefix()
+  {
+    return "CheckBox.";
+  }
 }
+

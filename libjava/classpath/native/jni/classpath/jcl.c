@@ -1,5 +1,5 @@
 /* jcl.c
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -177,4 +177,97 @@ JCL_FindClass (JNIEnv * env, const char *className)
       JCL_ThrowException (env, "java/lang/ClassNotFoundException", className);
     }
   return retval;
+}
+
+
+/*
+ * Build a Pointer object. The function caches the class type 
+ */
+
+static jclass rawDataClass;
+static jfieldID rawData_fid;
+static jmethodID rawData_mid;
+
+JNIEXPORT jobject JNICALL
+JCL_NewRawDataObject (JNIEnv * env, void *data)
+{
+  if (rawDataClass == NULL)
+    {
+      jclass tmp;
+#if SIZEOF_VOID_P == 8
+      rawDataClass = (*env)->FindClass (env, "gnu/classpath/Pointer64");
+      if (rawDataClass == NULL)
+	{
+	  JCL_ThrowException (env, "java/lang/InternalError",
+			      "unable to find internal class");
+	  return NULL;
+	}
+
+      rawData_mid = (*env)->GetMethodID (env, rawDataClass, "<init>", "(J)V");
+      if (rawData_mid == NULL)
+	{
+	  JCL_ThrowException (env, "java/lang/InternalError",
+			      "unable to find internal constructor");
+	  return NULL;
+	}
+
+      rawData_fid = (*env)->GetFieldID (env, rawDataClass, "data", "J");
+      if (rawData_fid == NULL)
+	{
+	  JCL_ThrowException (env, "java/lang/InternalError",
+			      "unable to find internal field");
+	  return NULL;
+	}
+#else
+      rawDataClass = (*env)->FindClass (env, "gnu/classpath/Pointer32");
+      if (rawDataClass == NULL)
+	{
+	  JCL_ThrowException (env, "java/lang/InternalError",
+			      "unable to find internal class");
+	  return NULL;
+	}
+
+      rawData_mid = (*env)->GetMethodID (env, rawDataClass, "<init>", "(I)V");
+      if (rawData_mid == NULL)
+	{
+	  JCL_ThrowException (env, "java/lang/InternalError",
+			      "unable to find internal constructor");
+	  return NULL;
+	}
+
+      rawData_fid = (*env)->GetFieldID (env, rawDataClass, "data", "I");
+      if (rawData_fid == NULL)
+	{
+	  JCL_ThrowException (env, "java/lang/InternalError",
+			      "unable to find internal field");
+	  return NULL;
+	}
+
+#endif
+      tmp = (*env)->NewGlobalRef (env, rawDataClass);
+      if (tmp == NULL)
+	{
+	  JCL_ThrowException (env, "java/lang/InternalError",
+			      "unable to create an internal global ref");
+	  return NULL;
+	}
+      (*env)->DeleteLocalRef(env, rawDataClass);
+      rawDataClass = tmp;
+    }
+
+#if SIZEOF_VOID_P == 8
+  return (*env)->NewObject (env, rawDataClass, rawData_mid, (jlong) data);
+#else
+  return (*env)->NewObject (env, rawDataClass, rawData_mid, (jint) data);
+#endif
+}
+
+JNIEXPORT void * JNICALL
+JCL_GetRawData (JNIEnv * env, jobject rawdata)
+{
+#if SIZEOF_VOID_P == 8
+  return (void *) (*env)->GetLongField (env, rawdata, rawData_fid);
+#else
+  return (void *) (*env)->GetIntField (env, rawdata, rawData_fid);
+#endif  
 }

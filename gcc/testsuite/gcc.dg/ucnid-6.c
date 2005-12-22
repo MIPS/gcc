@@ -1,6 +1,6 @@
 /* { dg-do run */
 /* { dg-xfail-if "" { "powerpc-ibm-aix*" } { "*" } { "" } } */
-/* { dg-options "-std=c99 -save-temps" } */
+/* { dg-options "-std=c99 -fextended-identifiers -save-temps" } */
 void abort (void);
 
 int \u00C0(void) { return 1; }
@@ -25,3 +25,4 @@ int main (void)
   
   return 0;
 }
+/* { dg-final { cleanup-saved-temps } } */

@@ -63,48 +63,23 @@ AC_DEFUN([CLASSPATH_CHECK_GCJ],
   else
     AC_PATH_PROG(GCJ, "gcj")
   fi  
-
+  dnl Test the given GCJ, but use it as C (!) compiler to check version
   if test "x$GCJ" != x; then
-    ## GCC version 2 puts out version messages that looked like:
-    ##   2.95
-
-    ## GCC version 3 puts out version messages like:
-    ##   gcj (GCC) 3.3.3
-    ##   Copyright (C) 2003 Free Software Foundation, Inc.
-    ##   This is free software; see the source for copying conditions.  There is NO
-    ##   warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    AC_MSG_CHECKING(gcj version)
-    ## Take the output from gcj --version and extract just the version number
-    ## into GCJ_VERSION.
-    ## (we need to do this to be compatible with both GCC 2 and GCC 3 version
-    ##  numbers)
-    ## 
-    ## First, we get rid of everything before the first number on that line.
-    ## Assume that the first number on that line is the start of the
-    ## version.
-    ##
-    ## Second, while we're at it, go ahead and get rid of the first character
-    ## that is not part of a version number (i.e., is neither a digit nor
-    ## a dot).
-    ##
-    ## Third, quit, so that we won't process the second and subsequent lines.
-    GCJ_VERSION=`$GCJ --version | sed -e 's/^@<:@^0-9@:>@*//' -e 's/@<:@^.0-9@:>@@<:@^.0-9@:>@*//' -e 'q'` 
-    GCJ_VERSION_MAJOR=`echo "$GCJ_VERSION" | cut -d '.' -f 1`
-    GCJ_VERSION_MINOR=`echo "$GCJ_VERSION" | cut -d '.' -f 2`
-
-    if expr "$GCJ_VERSION_MAJOR" \< 3 > /dev/null; then
-      GCJ=""
-    fi
-    if expr "$GCJ_VERSION_MAJOR" = 3 > /dev/null; then
-      if expr "$GCJ_VERSION_MINOR" \< 3; then
-        GCJ=""
-      fi
-    fi
-    if test "x$GCJ" != x; then
-      AC_MSG_RESULT($GCJ_VERSION)
+    AC_MSG_CHECKING([gcj version 4.0])
+    AC_LANG_PUSH([C])
+    AC_LANG_CONFTEST(
+    [[#if __GNUC__ <= 3
+    #error GCJ 4.0.0 or higher is required
+    #endif
+    ]])
+    $GCJ -E conftest.c > /dev/null
+    gcj_4_result=$?
+    if test "x$gcj_4_result" = "x0"; then
+      AC_MSG_RESULT([4.0 or higher found])
     else
-      AC_MSG_WARN($GCJ_VERSION: gcj 3.3 or higher required)
+      AC_MSG_WARN([4.0 or higher required])
     fi
+    AC_LANG_POP
   fi 
 ])
 
@@ -319,38 +294,39 @@ dnl CLASSPATH_WITH_GLIBJ - specify what to install
 dnl -----------------------------------------------------------
 AC_DEFUN([CLASSPATH_WITH_GLIBJ],
 [
+  AC_PATH_PROG(ZIP, zip)
   AC_ARG_WITH([glibj],
               [AS_HELP_STRING([--with-glibj],[define what to install (zip|flat|both|none|build) [default=zip]])],
               [
                 if test "x${withval}" = xyes || test "x${withval}" = xzip; then
-      		  AC_PATH_PROG(ZIP, zip)
 		  install_class_files=no
 		  build_class_files=yes
+		  use_zip=yes
 		elif test "x${withval}" = xboth; then
-		  AC_PATH_PROG(ZIP, zip)
 		  install_class_files=yes
 		  build_class_files=yes
+		  use_zip=yes
 		elif test "x${withval}" = xflat; then
-		  ZIP=
 		  install_class_files=yes
 		  build_class_files=yes
+		  use_zip=no
                 elif test "x${withval}" = xno || test "x${withval}" = xnone; then
-                  ZIP=
 		  install_class_files=no
 		  build_class_files=no
+		  use_zip=no
 		elif test "x${withval}" = xbuild; then
-                  ZIP=
 		  install_class_files=no
 		  build_class_files=yes
+		  use_zip=no
                 else
 		  AC_MSG_ERROR([unknown value given to --with-glibj])
                 fi
 	      ],
   	      [
-		AC_PATH_PROG(ZIP, zip)
 		install_class_files=no
+		use_zip=yes
 	      ])
-  AM_CONDITIONAL(INSTALL_GLIBJ_ZIP, test "x${ZIP}" != x)
+  AM_CONDITIONAL(INSTALL_GLIBJ_ZIP, test "x${use_zip}" = xyes)
   AM_CONDITIONAL(INSTALL_CLASS_FILES, test "x${install_class_files}" = xyes)
   AM_CONDITIONAL(BUILD_CLASS_FILES, test "x${build_class_files}" = xyes)
 
@@ -362,7 +338,7 @@ AC_DEFUN([CLASSPATH_WITH_GLIBJ],
 		  *) AC_MSG_ERROR(bad value ${enableval} for --enable-examples) ;;
 		esac],
 		[EXAMPLESDIR="examples"])
-  if test "x${ZIP}" = x && test "x${install_class_files}" = xno; then
+  if test "x${use_zip}" = xno && test "x${install_class_files}" = xno; then
     EXAMPLESDIR=""
   fi
   AC_SUBST(EXAMPLESDIR)

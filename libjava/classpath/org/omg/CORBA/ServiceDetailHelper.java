@@ -38,9 +38,11 @@ exception statement from your version. */
 
 package org.omg.CORBA;
 
+import gnu.CORBA.Minor;
+import gnu.CORBA.ServiceDetailHolder;
+
 import org.omg.CORBA.portable.InputStream;
 import org.omg.CORBA.portable.OutputStream;
-import gnu.CORBA.*;
 
 /**
  * The helper operations on the Service Detail.
@@ -77,7 +79,10 @@ public abstract class ServiceDetailHelper
       }
     catch (ClassCastException ex)
       {
-        throw new BAD_OPERATION();
+        BAD_OPERATION bad = new BAD_OPERATION();
+        bad.initCause(ex);
+        bad.minor = Minor.Any;
+        throw bad;
       }
   }
 
@@ -140,8 +145,8 @@ public abstract class ServiceDetailHelper
 
         TypeCode type =
           orb.create_alias_tc(_id, "ServiceDetailType",
-                              orb.get_primitive_tc(TCKind.tk_ulong)
-                             );
+            orb.get_primitive_tc(TCKind.tk_ulong)
+          );
         members [ 0 ] = new StructMember("service_detail_type", type, null);
 
         TypeCode data =
@@ -166,7 +171,7 @@ public abstract class ServiceDetailHelper
     ostream.write_ulong(value.service_detail_type);
     ostream.write_long(value.service_detail.length);
     ostream.write_octet_array(value.service_detail, 0,
-                              value.service_detail.length
-                             );
+      value.service_detail.length
+    );
   }
 }

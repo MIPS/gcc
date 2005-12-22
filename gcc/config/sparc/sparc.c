@@ -1900,8 +1900,10 @@ select_cc_mode (enum rtx_code op, rtx x, rtx y ATTRIBUTE_UNUSED)
    return the rtx for the cc reg in the proper mode.  */
 
 rtx
-gen_compare_reg (enum rtx_code code, rtx x, rtx y)
+gen_compare_reg (enum rtx_code code)
 {
+  rtx x = sparc_compare_op0;
+  rtx y = sparc_compare_op1;
   enum machine_mode mode = SELECT_CC_MODE (code, x, y);
   rtx cc_reg;
 
@@ -1990,22 +1992,20 @@ gen_compare_reg (enum rtx_code code, rtx x, rtx y)
 int
 gen_v9_scc (enum rtx_code compare_code, register rtx *operands)
 {
-  rtx temp, op0, op1;
-
   if (! TARGET_ARCH64
       && (GET_MODE (sparc_compare_op0) == DImode
 	  || GET_MODE (operands[0]) == DImode))
     return 0;
 
-  op0 = sparc_compare_op0;
-  op1 = sparc_compare_op1;
-
   /* Try to use the movrCC insns.  */
   if (TARGET_ARCH64
-      && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
-      && op1 == const0_rtx
+      && GET_MODE_CLASS (GET_MODE (sparc_compare_op0)) == MODE_INT
+      && sparc_compare_op1 == const0_rtx
       && v9_regcmp_p (compare_code))
     {
+      rtx op0 = sparc_compare_op0;
+      rtx temp;
+
       /* Special case for op0 != 0.  This can be done with one instruction if
 	 operands[0] == sparc_compare_op0.  */
 
@@ -2048,7 +2048,7 @@ gen_v9_scc (enum rtx_code compare_code, register rtx *operands)
     }
   else
     {
-      operands[1] = gen_compare_reg (compare_code, op0, op1);
+      operands[1] = gen_compare_reg (compare_code);
 
       switch (GET_MODE (operands[1]))
 	{
@@ -3287,7 +3287,7 @@ emit_pic_helper (void)
   const char *pic_name = reg_names[REGNO (pic_offset_table_rtx)];
   int align;
 
-  text_section ();
+  switch_to_section (text_section);
 
   align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
   if (align > 0)
@@ -3826,10 +3826,11 @@ gen_save_register_window (rtx increment)
 static rtx
 gen_stack_pointer_inc (rtx increment)
 {
-  if (TARGET_ARCH64)
-    return gen_adddi3 (stack_pointer_rtx, stack_pointer_rtx, increment);
-  else
-    return gen_addsi3 (stack_pointer_rtx, stack_pointer_rtx, increment);
+  return gen_rtx_SET (VOIDmode,
+		      stack_pointer_rtx,
+		      gen_rtx_PLUS (Pmode,
+				    stack_pointer_rtx,
+				    increment));
 }
 
 /* Generate a decrement for the stack pointer.  */
@@ -3837,10 +3838,11 @@ gen_stack_pointer_inc (rtx increment)
 static rtx
 gen_stack_pointer_dec (rtx decrement)
 {
-  if (TARGET_ARCH64)
-    return gen_subdi3 (stack_pointer_rtx, stack_pointer_rtx, decrement);
-  else
-    return gen_subsi3 (stack_pointer_rtx, stack_pointer_rtx, decrement);
+  return gen_rtx_SET (VOIDmode,
+		      stack_pointer_rtx,
+		      gen_rtx_MINUS (Pmode,
+				     stack_pointer_rtx,
+				     decrement));
 }
 
 /* Expand the function prologue.  The prologue is responsible for reserving
@@ -3918,7 +3920,7 @@ sparc_expand_prologue (void)
 	  insn = emit_insn (gen_stack_pointer_inc (reg));
 	  REG_NOTES (insn) =
 	    gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
-			       PATTERN (gen_stack_pointer_inc (GEN_INT (-actual_fsize))),
+			       gen_stack_pointer_inc (GEN_INT (-actual_fsize)),
 			       REG_NOTES (insn));
 	}
 
@@ -4441,7 +4443,7 @@ function_arg_slotno (const struct sparc_args *cum, enum machine_mode mode,
 
   /* For SPARC64, objects requiring 16-byte alignment get it.  */
   if (TARGET_ARCH64
-      && GET_MODE_ALIGNMENT (mode) >= 2 * BITS_PER_WORD
+      && (type ? TYPE_ALIGN (type) : GET_MODE_ALIGNMENT (mode)) >= 128
       && (slotno & 1) != 0)
     slotno++, *ppadding = 1;
 
@@ -4500,13 +4502,6 @@ function_arg_slotno (const struct sparc_args *cum, enum machine_mode mode,
 	return -1;
 
       gcc_assert (mode == BLKmode);
-
-      /* For SPARC64, objects requiring 16-byte alignment get it.  */
-      if (TARGET_ARCH64
-	  && type
-	  && TYPE_ALIGN (type) >= 2 * BITS_PER_WORD
-	  && (slotno & 1) != 0)
-	slotno++, *ppadding = 1;
 
       if (TARGET_ARCH32 || !type || (TREE_CODE (type) == UNION_TYPE))
 	{
@@ -7482,7 +7477,7 @@ sparc_output_deferred_case_vectors (void)
     return;
 
   /* Align to cache line in the function's code section.  */
-  current_function_section (current_function_decl);
+  switch_to_section (current_function_section ());
 
   align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
   if (align > 0)
@@ -7712,12 +7707,14 @@ sparc_init_libfuncs (void)
       set_conv_libfunc (sfix_optab,   SImode, TFmode, "_Q_qtoi");
       set_conv_libfunc (ufix_optab,   SImode, TFmode, "_Q_qtou");
       set_conv_libfunc (sfloat_optab, TFmode, SImode, "_Q_itoq");
+      set_conv_libfunc (ufloat_optab, TFmode, SImode, "_Q_utoq");
 
       if (DITF_CONVERSION_LIBFUNCS)
 	{
 	  set_conv_libfunc (sfix_optab,   DImode, TFmode, "_Q_qtoll");
 	  set_conv_libfunc (ufix_optab,   DImode, TFmode, "_Q_qtoull");
 	  set_conv_libfunc (sfloat_optab, TFmode, DImode, "_Q_lltoq");
+	  set_conv_libfunc (ufloat_optab, TFmode, DImode, "_Q_ulltoq");
 	}
 
       if (SUN_CONVERSION_LIBFUNCS)

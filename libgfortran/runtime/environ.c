@@ -28,6 +28,7 @@ the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -356,7 +357,7 @@ choice;
 enum
 { FP_ROUND_NEAREST, FP_ROUND_UP, FP_ROUND_DOWN, FP_ROUND_ZERO };
 
-static choice rounding[] = {
+static const choice rounding[] = {
   {"NEAREST", FP_ROUND_NEAREST},
   {"UP", FP_ROUND_UP},
   {"DOWN", FP_ROUND_DOWN},
@@ -364,7 +365,7 @@ static choice rounding[] = {
   {NULL, 0}
 };
 
-static choice precision[] =
+static const choice precision[] =
 {
   { "24", 1},
   { "53", 2},
@@ -372,7 +373,7 @@ static choice precision[] =
   { NULL, 0}
 };
 
-static choice signal_choices[] =
+static const choice signal_choices[] =
 {
   { "IGNORE", 1},
   { "ABORT", 0},
@@ -381,7 +382,7 @@ static choice signal_choices[] =
 
 
 static void
-init_choice (variable * v, choice * c)
+init_choice (variable * v, const choice * c)
 {
   char *p;
 
@@ -408,7 +409,7 @@ init_choice (variable * v, choice * c)
 
 
 static void
-show_choice (variable * v, choice * c)
+show_choice (variable * v, const choice * c)
 {
   st_printf ("%s  ", var_source (v));
 
@@ -532,30 +533,6 @@ static variable variable_table[] = {
    show_precision,
    "Precision of intermediate results.  Values are 24, 53 and 64.", 0},
 
-  {"GFORTRAN_FPU_INVALID", 1, &options.fpu_invalid, init_boolean,
-   show_boolean,
-   "Raise a floating point exception on invalid FP operation.", 0},
-
-  {"GFORTRAN_FPU_DENORMAL", 1, &options.fpu_denormal, init_boolean,
-   show_boolean,
-   "Raise a floating point exception when denormal numbers are encountered.",
-   0},
-
-  {"GFORTRAN_FPU_ZERO", 0, &options.fpu_zerodiv, init_boolean, show_boolean,
-   "Raise a floating point exception when dividing by zero.", 0},
-
-  {"GFORTRAN_FPU_OVERFLOW", 0, &options.fpu_overflow, init_boolean,
-   show_boolean,
-   "Raise a floating point exception on overflow.", 0},
-
-  {"GFORTRAN_FPU_UNDERFLOW", 0, &options.fpu_underflow, init_boolean,
-   show_boolean,
-   "Raise a floating point exception on underflow.", 0},
-
-  {"GFORTRAN_FPU_PRECISION", 0, &options.fpu_precision_loss, init_boolean,
-   show_boolean,
-   "Raise a floating point exception on precision loss.", 0},
-
   {NULL, 0, NULL, NULL, NULL, NULL, 0}
 };
 
@@ -580,15 +557,14 @@ init_variables (void)
 int
 check_buffered (int n)
 {
-  char name[40];
+  char name[22 + sizeof (n) * 3];
   variable v;
   int rv;
 
   if (options.all_unbuffered)
     return 0;
 
-  strcpy (name, "GFORTRAN_UNBUFFERED_");
-  strcat (name, gfc_itoa (n));
+  sprintf (name, "GFORTRAN_UNBUFFERED_%d", n);
 
   v.name = name;
   v.value = 2;

@@ -193,7 +193,8 @@ public abstract class FontMetrics implements java.io.Serializable
    */
   public int charWidth(int ch)
   {
-    return charWidth((char) ch);
+    char[] chars = Character.toChars(ch);
+    return charsWidth(chars, 0, chars.length);
   }
 
   /**
@@ -235,7 +236,8 @@ public abstract class FontMetrics implements java.io.Serializable
   public int charsWidth(char[] buf, int offset, int len)
   {
     int total_width = 0;
-    for (int i = offset; i < len; i++)
+    int endOffset = offset + len;
+    for (int i = offset; i < endOffset; i++)
       total_width += charWidth(buf[i]);
     return total_width;
   }
@@ -360,6 +362,18 @@ public abstract class FontMetrics implements java.io.Serializable
       rc = gRC;
     return font.getLineMetrics(chars, begin, limit, rc);
   }
+  
+  /**
+   * Returns the bounds of the largest character in a Graphics context.
+   * @param context the Graphics context object.
+   * @return a <code>Rectangle2D</code> representing the bounds
+   */
+  public Rectangle2D getMaxCharBounds(Graphics context)
+  {
+    if( context instanceof Graphics2D )
+      return font.getMaxCharBounds(((Graphics2D)context).getFontRenderContext());
+    return font.getMaxCharBounds( gRC );
+  }
 
   /**
    * Returns a {@link LineMetrics} object constructed with the
@@ -421,5 +435,14 @@ public abstract class FontMetrics implements java.io.Serializable
       return ((Graphics2D) context).getFontRenderContext();
 
     return gRC;
+  }
+
+  /**
+   * Returns if the font has uniform line metrics.
+   * @see Font#hasUniformLineMetrics()
+   */
+  public boolean hasUniformLineMetrics()
+  {
+    return font.hasUniformLineMetrics();
   }
 }

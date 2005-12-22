@@ -797,13 +797,14 @@ struct cum_arg { int nbytes; int anonymous_args; };
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
 do {									\
-  if (RTX_OK_FOR_BASE_P (X)) goto ADDR;					\
+  if (RTX_OK_FOR_BASE_P (X)) 						\
+    goto ADDR;								\
   if (CONSTANT_ADDRESS_P (X)						\
       && (MODE == QImode || INTVAL (X) % 2 == 0)			\
       && (GET_MODE_SIZE (MODE) <= 4 || INTVAL (X) % 4 == 0))		\
     goto ADDR;								\
   if (GET_CODE (X) == LO_SUM						\
-      && GET_CODE (XEXP (X, 0)) == REG					\
+      && REG_P (XEXP (X, 0))						\
       && REG_OK_FOR_BASE_P (XEXP (X, 0))				\
       && CONSTANT_P (XEXP (X, 1))					\
       && (GET_CODE (XEXP (X, 1)) != CONST_INT				\
@@ -815,9 +816,12 @@ do {									\
       && (GET_MODE_SIZE (MODE) <= GET_MODE_SIZE (word_mode)))		\
      goto ADDR;								\
   if (GET_CODE (X) == PLUS						\
+      && RTX_OK_FOR_BASE_P (XEXP (X, 0)) 				\
       && CONSTANT_ADDRESS_P (XEXP (X, 1))				\
-      && (MODE == QImode || INTVAL (XEXP (X, 1)) % 2 == 0)		\
-      && RTX_OK_FOR_BASE_P (XEXP (X, 0))) goto ADDR;			\
+      && ((MODE == QImode || INTVAL (XEXP (X, 1)) % 2 == 0)		\
+	   && CONST_OK_FOR_K (INTVAL (XEXP (X, 1)) 			\
+                              + (GET_MODE_NUNITS (MODE) * UNITS_PER_WORD)))) \
+    goto ADDR;			\
 } while (0)
 
 
@@ -872,101 +876,11 @@ typedef enum
   DATA_AREA_ZDA
 } v850_data_area;
 
-/* A list of names for sections other than the standard two, which are
-   `in_text' and `in_data'.  You need not define this macro on a
-   system with no other sections (that GCC needs to use).  */
-#undef	EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_tdata, in_sdata, in_zdata, \
- in_rozdata, in_rosdata, in_sbss, in_zbss, in_zcommon, in_scommon
-
-/* One or more functions to be defined in `varasm.c'.  These
-   functions should do jobs analogous to those of `text_section' and
-   `data_section', for your additional sections.  Do not define this
-   macro if you do not define `EXTRA_SECTIONS'.  */
-#undef	EXTRA_SECTION_FUNCTIONS
-
-/* This could be done a lot more cleanly using ANSI C....  */
-#define EXTRA_SECTION_FUNCTIONS						\
-void									\
-sdata_section ()							\
-{									\
-  if (in_section != in_sdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", SDATA_SECTION_ASM_OP);		\
-      in_section = in_sdata;						\
-    }									\
-}									\
-									\
-void									\
-rosdata_section ()							\
-{									\
-  if (in_section != in_rosdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", ROSDATA_SECTION_ASM_OP);		\
-      in_section = in_sdata;						\
-    }									\
-}									\
-									\
-void									\
-sbss_section ()								\
-{									\
-  if (in_section != in_sbss)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", SBSS_SECTION_ASM_OP);		\
-      in_section = in_sbss;						\
-    }									\
-}									\
-									\
-void									\
-tdata_section ()							\
-{									\
-  if (in_section != in_tdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", TDATA_SECTION_ASM_OP);		\
-      in_section = in_tdata;						\
-    }									\
-}									\
-									\
-void									\
-zdata_section ()							\
-{									\
-  if (in_section != in_zdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", ZDATA_SECTION_ASM_OP);		\
-      in_section = in_zdata;						\
-    }									\
-}									\
-									\
-void									\
-rozdata_section ()							\
-{									\
-  if (in_section != in_rozdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", ROZDATA_SECTION_ASM_OP);		\
-      in_section = in_rozdata;						\
-    }									\
-}									\
-									\
-void									\
-zbss_section ()								\
-{									\
-  if (in_section != in_zbss)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", ZBSS_SECTION_ASM_OP);		\
-      in_section = in_zbss;						\
-    }									\
-}
-
 #define TEXT_SECTION_ASM_OP  "\t.section .text"
 #define DATA_SECTION_ASM_OP  "\t.section .data"
 #define BSS_SECTION_ASM_OP   "\t.section .bss"
 #define SDATA_SECTION_ASM_OP "\t.section .sdata,\"aw\""
 #define SBSS_SECTION_ASM_OP  "\t.section .sbss,\"aw\""
-#define ZDATA_SECTION_ASM_OP "\t.section .zdata,\"aw\""
-#define ZBSS_SECTION_ASM_OP  "\t.section .zbss,\"aw\""
-#define TDATA_SECTION_ASM_OP "\t.section .tdata,\"aw\""
-#define ROSDATA_SECTION_ASM_OP "\t.section .rosdata,\"a\""
-#define ROZDATA_SECTION_ASM_OP "\t.section .rozdata,\"a\""
 
 #define SCOMMON_ASM_OP 	       "\t.scomm\t"
 #define ZCOMMON_ASM_OP 	       "\t.zcomm\t"
@@ -1225,5 +1139,7 @@ extern union tree_node * GHS_current_section_names [(int) COUNT_OF_GHS_SECTION_K
 #define SYMBOL_REF_ZDA_P(X)	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_ZDA) != 0)
 #define SYMBOL_REF_TDA_P(X)	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_TDA) != 0)
 #define SYMBOL_REF_SDA_P(X)	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_SDA) != 0)
+
+#define TARGET_ASM_INIT_SECTIONS v850_asm_init_sections
 
 #endif /* ! GCC_V850_H */

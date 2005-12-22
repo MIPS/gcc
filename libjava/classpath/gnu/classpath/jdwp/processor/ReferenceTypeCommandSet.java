@@ -1,4 +1,4 @@
-/* ReferenceTypeCommandSet.java -- lass to implement the ReferenceType
+/* ReferenceTypeCommandSet.java -- class to implement the ReferenceType
    Command Set
    Copyright (C) 2005 Free Software Foundation
 
@@ -36,16 +36,15 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package gnu.classpath.jdwp.processor;
 
-import gnu.classpath.jdwp.IVirtualMachine;
-import gnu.classpath.jdwp.Jdwp;
 import gnu.classpath.jdwp.JdwpConstants;
+import gnu.classpath.jdwp.VMVirtualMachine;
 import gnu.classpath.jdwp.exception.InvalidFieldException;
 import gnu.classpath.jdwp.exception.JdwpException;
 import gnu.classpath.jdwp.exception.JdwpInternalErrorException;
 import gnu.classpath.jdwp.exception.NotImplementedException;
-import gnu.classpath.jdwp.id.IdManager;
 import gnu.classpath.jdwp.id.ObjectId;
 import gnu.classpath.jdwp.id.ReferenceTypeId;
 import gnu.classpath.jdwp.util.JdwpString;
@@ -63,14 +62,9 @@ import java.nio.ByteBuffer;
  * 
  * @author Aaron Luchko <aluchko@redhat.com>
  */
-public class ReferenceTypeCommandSet implements CommandSet
+public class ReferenceTypeCommandSet
+  extends CommandSet
 {
-  // Our hook into the jvm
-  private final IVirtualMachine vm = Jdwp.getIVirtualMachine();
-
-  // Manages all the different ids that are assigned by jdwp
-  private final IdManager idMan = Jdwp.getIdManager();
-
   public boolean runCommand(ByteBuffer bb, DataOutputStream os, byte command)
     throws JdwpException
   {
@@ -125,7 +119,7 @@ public class ReferenceTypeCommandSet implements CommandSet
             break;
           default:
             throw new NotImplementedException("Command " + command +
-              " not found in String Reference Command Set.");
+              " not found in ReferenceType Command Set.");
           }
       }
     catch (IOException ex)
@@ -134,7 +128,8 @@ public class ReferenceTypeCommandSet implements CommandSet
         // So if we throw an IOException we're in serious trouble
         throw new JdwpInternalErrorException(ex);
       }
-    return true;
+
+    return false;
   }
 
   private void executeSignature(ByteBuffer bb, DataOutputStream os)
@@ -152,7 +147,7 @@ public class ReferenceTypeCommandSet implements CommandSet
 
     Class clazz = refId.getType();
     ClassLoader loader = clazz.getClassLoader();
-    ObjectId oid = idMan.getId(loader);
+    ObjectId oid = idMan.getObjectId(loader);
     oid.write(os);
   }
 
@@ -176,7 +171,7 @@ public class ReferenceTypeCommandSet implements CommandSet
     for (int i = 0; i < fields.length; i++)
       {
         Field field = fields[i];
-        idMan.getId(field).write(os);
+        idMan.getObjectId(field).write(os);
         JdwpString.writeString(os, field.getName());
         JdwpString.writeString(os, Signature.computeFieldSignature(field));
         os.writeInt(field.getModifiers());
@@ -194,7 +189,7 @@ public class ReferenceTypeCommandSet implements CommandSet
     for (int i = 0; i < methods.length; i++)
       {
         Method method = methods[i];
-        idMan.getId(method).write(os);
+        idMan.getObjectId(method).write(os);
         JdwpString.writeString(os, method.getName());
         JdwpString.writeString(os, Signature.computeMethodSignature(method));
         os.writeInt(method.getModifiers());
@@ -211,14 +206,31 @@ public class ReferenceTypeCommandSet implements CommandSet
     os.writeInt(numFields); // Looks pointless but this is the protocol
     for (int i = 0; i < numFields; i++)
       {
-        ObjectId fieldId = idMan.readId(bb);
+        ObjectId fieldId = idMan.readObjectId(bb);
         Field field = (Field) (fieldId.getObject());
         Class fieldClazz = field.getDeclaringClass();
 
         // We don't actually need the clazz to get the field but we might as
         // well check that the debugger got it right
         if (fieldClazz.isAssignableFrom(clazz))
-          Value.writeStaticValueFromField(os, field);
+          {
+            try
+              {
+                field.setAccessible(true); // Might be a private field
+                Object value = field.get(null);
+                Value.writeTaggedValue(os, value);
+              }
+            catch (IllegalArgumentException ex)
+              {
+                // I suppose this would best qualify as an invalid field then
+                throw new InvalidFieldException(ex);
+              }
+            catch (IllegalAccessException ex)
+              {
+                // Since we set it as accessible this really shouldn't happen
+                throw new JdwpInternalErrorException(ex);
+              }
+          }
         else
           throw new InvalidFieldException(fieldId.getId());
       }
@@ -231,7 +243,7 @@ public class ReferenceTypeCommandSet implements CommandSet
     Class clazz = refId.getType();
 
     // We'll need to go into the jvm for this unless there's an easier way
-    String sourceFileName = vm.getSourceFile(clazz);
+    String sourceFileName = VMVirtualMachine.getSourceFile(clazz);
     JdwpString.writeString(os, sourceFileName);
     // clazz.getProtectionDomain().getCodeSource().getLocation();
   }
@@ -258,7 +270,7 @@ public class ReferenceTypeCommandSet implements CommandSet
     Class clazz = refId.getType();
 
     // I don't think there's any other way to get this
-    int status = vm.getStatus(clazz);
+    int status = VMVirtualMachine.getClassStatus(clazz);
     os.writeInt(status);
   }
 
@@ -282,7 +294,7 @@ public class ReferenceTypeCommandSet implements CommandSet
   {
     ReferenceTypeId refId = idMan.readReferenceTypeId(bb);
     Class clazz = refId.getType();
-    ObjectId clazzObjectId = idMan.getId(clazz);
+    ObjectId clazzObjectId = idMan.getObjectId(clazz);
     clazzObjectId.write(os);
   }
 

@@ -1,3 +1,35 @@
+2005-12-16  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* zh_CN.po: Update.
+
+2005-12-15  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* nl.po: Update.
+
+2005-12-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* zh_CN.po: Update.
+
+2005-12-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,
+	rw.po, sv.po, tr.po, zh_CN.po: Update.
+
+2005-11-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.pot: Regenerate.
+
+2005-09-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/15586
+	* exgettext: Add a new nocmsgid convention for arguments
+	that should be marked as no-c-format.
+	* gcc.pot: Regenerate.
+
+2005-09-13  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* zh_CN.po: Update.
+
 2005-09-04  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* be.po, ca.po, da.po, de.po, el.po, es.po, fr.po, ja.po, nl.po,

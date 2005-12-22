@@ -1,3 +1,73 @@
+2005-12-17  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* floatformat.c (floatformat_i387_ext_is_valid): Use explicit cast
+	to convert from "from".
+	(floatformat_to_double): Likewise.
+	(floatformat_from_double): Use explicit cast to convert from "to".
+
+2005-12-10  Terry Laurenzo  <tlaurenzo@gmail.com>
+
+	PR java/9861
+	* cp-demangle.c (d_bare_function_type): Recognize new 'J' qualifer
+	and include return type when found.
+	(d_print_comp)[DEMANGLE_COMPONENT_FUNCTION_TYPE]: Add
+	conditional logic to change printing order of return type.when
+	the DMGL_RET_POSTFIX option is present.
+	(java_demangle_v3): Add DMGL_RET_POSTFIX option to d_demangle
+	call.
+	* testsuite/test-demangle.c (main): Recognize option --ret-postfix
+	* testsuite/demangle-expected: Test cases to verify extended encoding.
+	Updated comment to document --ret-postfix option.
+	
+2005-11-06  Richard Guenther  <rguenther@suse.de>
+
+	* splay-tree.c (rotate_left): New function.
+	(rotate_right): Likewise.
+	(splay_tree_splay_helper): Remove.
+	(splay_tree_splay): Re-implement.
+
+2005-10-31  Mark Kettenis  <kettenis@gnu.org>
+
+	* floatformat.c (floatformat_vax_aingle, floatformat_vax_double):
+	New variables.
+
+2005-10-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* at-file.texi: Fix typo.
+
+2005-10-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* at-file.texi: New file.
+
+2005-09-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* argv.c (expandargv): Do not use xmalloc_failed.
+
+2005-09-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* argv.c (safe-ctype.h): Include it.
+	(ISBLANK): Remove.
+	(stdio.h): Include.
+	(buildargv): Use ISSPACE instead of ISBLANK.
+	(expandargv): New function.
+	* Makefile.in: Regenerated.
+
+2005-09-14  Christopher Faylor  <cgf@timesys.com>
+
+	* pex-win32.c: Include "windows.h".
+	(backslashify): New function.
+	(fix_argv): Use backslashify to convert path to windows format.
+	Allocate one more place in new argv for potential executable from '#!'
+	parsing.
+	(tack_on_executable): New function.  Conditional on USE_MINGW_MSYS
+	(openkey): Ditto.
+	(mingw_rootify): Ditto.
+	(msys_rootify): Ditto.
+	(spawn_script): New function.
+	(pex_win32_exec_child): Save translated argv in newargv.  Pass to
+	spawn_script if spawnv* fails.
+	(main): New function.  Conditional on MAIN.  Useful for testing.
+
 2005-08-17  Mark Kettenis  <kettenis@gnu.org>
 
 	* floatformat.c (floatformat_always_valid): Change type of last

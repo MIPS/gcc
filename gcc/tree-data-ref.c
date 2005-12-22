@@ -674,6 +674,7 @@ dump_data_dependence_relation (FILE *outf,
   else if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
     {
       unsigned int i;
+
       for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
 	{
 	  fprintf (outf, "  access_fn_A: ");
@@ -888,13 +889,16 @@ estimate_niter_from_size_of_data (struct loop *loop,
 /* Given an ARRAY_REF node REF, records its access functions.
    Example: given A[i][3], record in ACCESS_FNS the opnd1 function,
    i.e. the constant "3", then recursively call the function on opnd0,
-   i.e. the ARRAY_REF "A[i]".  The function returns the base name:
-   "A".  */
+   i.e. the ARRAY_REF "A[i]".  
+   If ESTIMATE_ONLY is true, we just set the estimated number of loop
+   iterations, we don't store the access function.
+   The function returns the base name: "A".  */
 
 static tree
 analyze_array_indexes (struct loop *loop,
                        VEC(tree,heap) **access_fns,
-                       tree ref, tree stmt)
+                       tree ref, tree stmt,
+		       bool estimate_only)
 {
   tree opnd0, opnd1;
   tree access_fn;
@@ -909,20 +913,32 @@ analyze_array_indexes (struct loop *loop,
   access_fn = instantiate_parameters
     (loop, analyze_scalar_evolution (loop, opnd1));
 
-  if (chrec_contains_undetermined (loop->estimated_nb_iterations))
-    estimate_niter_from_size_of_data (loop, opnd0, access_fn, stmt); 
-                                    
-  VEC_safe_push (tree, heap, *access_fns, access_fn);
-                                                 
+  if (estimate_only 
+      && chrec_contains_undetermined (loop->estimated_nb_iterations))
+    estimate_niter_from_size_of_data (loop, opnd0, access_fn, stmt);
+
+  if (!estimate_only)
+    VEC_safe_push (tree, heap, *access_fns, access_fn);
+  
   /* Recursively record other array access functions.  */
   if (TREE_CODE (opnd0) == ARRAY_REF)
-    return analyze_array_indexes (loop, access_fns, opnd0, stmt);
+    return analyze_array_indexes (loop, access_fns, opnd0, stmt, estimate_only);
         
   /* Return the base name of the data access.  */
   else
     return opnd0;
 }
    
+/* For an array reference REF contained in STMT, attempt to bound the
+   number of iterations in the loop containing STMT  */
+
+void 
+estimate_iters_using_array (tree stmt, tree ref)
+{
+  analyze_array_indexes (loop_containing_stmt (stmt), NULL, ref, stmt, 
+			 true);
+}
+  
 /* For a data reference REF contained in the statement STMT, initialize
    a DATA_REFERENCE structure, and return it.  IS_READ flag has to be
    set to true when REF is in the right hand side of an
@@ -948,7 +964,7 @@ analyze_array (tree stmt, tree ref, bool is_read)
   DR_REF (res) = ref;
   acc_fns = VEC_alloc (tree, heap, 3);
   DR_BASE_OBJECT (res) = analyze_array_indexes
-    (loop_containing_stmt (stmt), &acc_fns, ref, stmt);
+    (loop_containing_stmt (stmt), &acc_fns, ref, stmt, false);
   DR_TYPE (res) = ARRAY_REF_TYPE;                
   DR_SET_ACCESS_FNS (res, acc_fns);
   DR_IS_READ (res) = is_read;
@@ -1197,7 +1213,7 @@ analyze_offset_expr (tree expr,
 	return false;
 
       init = initial_condition_in_loop_num (access_fn, loop->num);
-      if (init == expr && !expr_invariant_in_loop_p (loop, init))
+      if (!expr_invariant_in_loop_p (loop, init))
 	/* Not enough information: may be not loop invariant.  
 	   E.g., for a[b[i]], we get a[D], where D=b[i]. EXPR is D, its 
 	   initial_condition is D, but it depends on i - loop's induction
@@ -2300,17 +2316,19 @@ analyze_ziv_subscript (tree chrec_a,
 
 /* Get the real or estimated number of iterations for LOOPNUM, whichever is
    available. Return the number of iterations as a tree, or NULL_TREE if
-   we don't know */
+   we don't know.  */
 
 static tree
 get_number_of_iters_for_loop (int loopnum)
 {
   tree numiter = number_of_iterations_in_loop (current_loops->parray[loopnum]);
+
   if (TREE_CODE (numiter) != INTEGER_CST)
     numiter = current_loops->parray[loopnum]->estimated_nb_iterations;
+  if (chrec_contains_undetermined (numiter))
+    return NULL_TREE;
   return numiter;
 }
-
     
 /* Analyze a SIV (Single Index Variable) subscript where CHREC_A is a
    constant, and CHREC_B is an affine function.  *OVERLAPS_A and
@@ -2594,29 +2612,12 @@ compute_overlap_steps_for_affine_1_2 (tree chrec_a, tree chrec_b,
   step_y = int_cst_value (CHREC_RIGHT (chrec_a));
   step_z = int_cst_value (CHREC_RIGHT (chrec_b));
 
-  numiter_x = number_of_iterations_in_loop 
-    (current_loops->parray[CHREC_VARIABLE (CHREC_LEFT (chrec_a))]);
-  numiter_y = number_of_iterations_in_loop 
-    (current_loops->parray[CHREC_VARIABLE (chrec_a)]);
-  numiter_z = number_of_iterations_in_loop 
-    (current_loops->parray[CHREC_VARIABLE (chrec_b)]);
-
-  if (TREE_CODE (numiter_x) != INTEGER_CST)
-    numiter_x = current_loops->parray[CHREC_VARIABLE (CHREC_LEFT (chrec_a))]
-      ->estimated_nb_iterations;
-  if (TREE_CODE (numiter_y) != INTEGER_CST)
-    numiter_y = current_loops->parray[CHREC_VARIABLE (chrec_a)]
-      ->estimated_nb_iterations;
-  if (TREE_CODE (numiter_z) != INTEGER_CST)
-    numiter_z = current_loops->parray[CHREC_VARIABLE (chrec_b)]
-      ->estimated_nb_iterations;
-
-  if (chrec_contains_undetermined (numiter_x)
-      || chrec_contains_undetermined (numiter_y)
-      || chrec_contains_undetermined (numiter_z)
-      || TREE_CODE (numiter_x) != INTEGER_CST
-      || TREE_CODE (numiter_y) != INTEGER_CST
-      || TREE_CODE (numiter_z) != INTEGER_CST)
+  numiter_x = get_number_of_iters_for_loop (CHREC_VARIABLE (CHREC_LEFT (chrec_a)));
+  numiter_y = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_a));
+  numiter_z = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_b));
+  
+  if (numiter_x == NULL_TREE || numiter_y == NULL_TREE 
+      || numiter_z == NULL_TREE)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "overlap steps test failed: no iteration counts.\n");
@@ -2713,7 +2714,17 @@ analyze_subscript_affine_affine (tree chrec_a,
   int init_a, init_b, gamma, gcd_alpha_beta;
   int tau1, tau2;
   lambda_matrix A, U, S;
+  tree difference = chrec_fold_minus (integer_type_node, chrec_a, chrec_b);
 
+  if (integer_zerop (difference))
+    {
+      /* The difference is equal to zero: the accessed index
+	 overlaps for each iteration in the loop.  */
+      *overlaps_a = integer_zero_node;
+      *overlaps_b = integer_zero_node;
+      *last_conflicts = chrec_dont_know;
+      return;
+    }
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(analyze_subscript_affine_affine \n");
   
@@ -2757,21 +2768,9 @@ analyze_subscript_affine_affine (tree chrec_a,
 	  int niter, niter_a, niter_b;
 	  tree numiter_a, numiter_b;
 
-	  numiter_a = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_a)]);
-	  numiter_b = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_b)]);
-
-	  if (TREE_CODE (numiter_a) != INTEGER_CST)
-	    numiter_a = current_loops->parray[CHREC_VARIABLE (chrec_a)]
-	      ->estimated_nb_iterations;
-	  if (TREE_CODE (numiter_b) != INTEGER_CST)
-	    numiter_b = current_loops->parray[CHREC_VARIABLE (chrec_b)]
-	      ->estimated_nb_iterations;
-	  if (chrec_contains_undetermined (numiter_a)
-	      || chrec_contains_undetermined (numiter_b)
-	      || TREE_CODE (numiter_a) != INTEGER_CST
-	      || TREE_CODE (numiter_b) != INTEGER_CST)
+	  numiter_a = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_a));
+	  numiter_b = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_b));
+	  if (numiter_a == NULL_TREE || numiter_b == NULL_TREE)
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "affine-affine test failed: missing iteration counts.\n");
@@ -2865,21 +2864,10 @@ analyze_subscript_affine_affine (tree chrec_a,
 	  int niter, niter_a, niter_b;
 	  tree numiter_a, numiter_b;
 
-	  numiter_a = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_a)]);
-	  numiter_b = number_of_iterations_in_loop 
-	    (current_loops->parray[CHREC_VARIABLE (chrec_b)]);
+	  numiter_a = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_a));
+	  numiter_b = get_number_of_iters_for_loop (CHREC_VARIABLE (chrec_b));
 
-	  if (TREE_CODE (numiter_a) != INTEGER_CST)
-	    numiter_a = current_loops->parray[CHREC_VARIABLE (chrec_a)]
-	      ->estimated_nb_iterations;
-	  if (TREE_CODE (numiter_b) != INTEGER_CST)
-	    numiter_b = current_loops->parray[CHREC_VARIABLE (chrec_b)]
-	      ->estimated_nb_iterations;
-	  if (chrec_contains_undetermined (numiter_a)
-	      || chrec_contains_undetermined (numiter_b)
-	      || TREE_CODE (numiter_a) != INTEGER_CST
-	      || TREE_CODE (numiter_b) != INTEGER_CST)
+	  if (numiter_a == NULL_TREE || numiter_b == NULL_TREE)
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "affine-affine test failed: missing iteration counts.\n");
@@ -3385,6 +3373,7 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
   int nb_loops = DDR_SIZE_VECT (ddr);
   bool init_b = false;
   
+  DDR_SIZE_VECT (ddr) = nb_loops;
   dist_v = lambda_vector_new (nb_loops);
   init_v = lambda_vector_new (nb_loops);
 
@@ -3533,7 +3522,7 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 
     gcc_assert (lca_depth >= 0);
     gcc_assert (lca_depth < nb_loops);
-
+    
     /* For each outer loop where init_v is not set, the accesses are
        in dependence of distance 1 in the loop.  */
     while (lca->depth != 0)
@@ -3611,6 +3600,8 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
   
   dir_v = lambda_vector_new (nb_loops);
   init_v = lambda_vector_new (nb_loops);
+
+  DDR_SIZE_VECT (ddr) = nb_loops;
   
   if (DDR_ARE_DEPENDENT (ddr) != NULL_TREE)
     return true;
@@ -3772,7 +3763,7 @@ build_classic_dir_vector (struct data_dependence_relation *ddr,
 
       }
   }
-  
+
   return true;
 }
 

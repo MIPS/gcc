@@ -1322,17 +1322,14 @@ m32c_pushm_popm (Push_Pop_Type ppt)
     }
   if (ppt == PP_popm && byte_count)
     {
-      rtx insn;
-
       if (cfun->machine->is_interrupt)
 	for (i = MEM7_REGNO; i >= MEM0_REGNO; i--)
 	  if (cfun->machine->intr_pushmem[i - MEM0_REGNO])
 	    {
 	      if (TARGET_A16)
-		insn = emit_insn (gen_pophi_16 (gen_rtx_REG (HImode, i)));
+		emit_insn (gen_pophi_16 (gen_rtx_REG (HImode, i)));
 	      else
-		insn = emit_insn (gen_pophi_24 (gen_rtx_REG (HImode, i)));
-	      F (insn);
+		emit_insn (gen_pophi_24 (gen_rtx_REG (HImode, i)));
 	    }
       if (reg_mask)
 	emit_insn (gen_popm (GEN_INT (reg_mask)));
@@ -2799,6 +2796,30 @@ m32c_prepare_shift (rtx * operands, int scale, int bits)
     temp = operands[2];
   operands[2] = temp;
   return 0;
+}
+
+/* The m32c has a limited range of operations that work on PSImode
+   values; we have to expand to SI, do the math, and truncate back to
+   PSI.  Yes, this is expensive, but hopefully gcc will learn to avoid
+   those cases.  */
+void
+m32c_expand_neg_mulpsi3 (rtx * operands)
+{
+  /* operands: a = b * i */
+  rtx temp1; /* b as SI */
+  rtx temp2; /* -b as SI */
+  rtx temp3; /* -b as PSI */
+  rtx scale;
+
+  temp1 = gen_reg_rtx (SImode);
+  temp2 = gen_reg_rtx (SImode);
+  temp3 = gen_reg_rtx (PSImode);
+  scale = GEN_INT (- INTVAL (operands[2]));
+
+  emit_insn (gen_zero_extendpsisi2 (temp1, operands[1]));
+  emit_insn (gen_negsi2 (temp2, temp1));
+  emit_insn (gen_truncsipsi2 (temp3, temp2));
+  emit_insn (gen_mulpsi3 (operands[0], temp3, scale));
 }
 
 /* Pattern Output Functions */

@@ -45,7 +45,7 @@ package java.awt.image;
  * points should give the desired results although Sun does not 
  * specify what the exact algorithm should be.
  * <br>
- * Currently this filter does nothing and needs to be implemented.
+ * FIXME: Currently this filter does nothing and needs to be implemented.
  *
  * @author C. Brian Jones (cbj@gnu.org) 
  */
@@ -80,6 +80,7 @@ public class AreaAveragingScaleFilter extends ReplicateScaleFilter
      */
     public void setHints(int flags)
     {
+      if (consumer != null)
 	consumer.setHints(flags);
     }
 
@@ -100,6 +101,7 @@ public class AreaAveragingScaleFilter extends ReplicateScaleFilter
     public void setPixels(int x, int y, int w, int h, 
 	   ColorModel model, byte[] pixels, int offset, int scansize)
     {
+      if (consumer != null)
 	consumer.setPixels(x, y, w, h, model, pixels, offset, scansize);
     }
 
@@ -120,6 +122,7 @@ public class AreaAveragingScaleFilter extends ReplicateScaleFilter
     public void setPixels(int x, int y, int w, int h, 
            ColorModel model, int[] pixels, int offset, int scansize)
     {
+      if (consumer != null)
 	consumer.setPixels(x, y, w, h, model, pixels, offset, scansize);
     }
 

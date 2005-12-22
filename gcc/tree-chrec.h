@@ -68,6 +68,7 @@ extern tree chrec_fold_plus (tree, tree, tree);
 extern tree chrec_fold_minus (tree, tree, tree);
 extern tree chrec_fold_multiply (tree, tree, tree);
 extern tree chrec_convert (tree, tree, tree);
+extern tree chrec_convert_aggressive (tree, tree);
 extern tree chrec_type (tree);
 
 /* Operations.  */
@@ -105,8 +106,8 @@ build_polynomial_chrec (unsigned loop_num,
       || right == chrec_dont_know)
     return chrec_dont_know;
 
-  return build (POLYNOMIAL_CHREC, TREE_TYPE (left), 
-		build_int_cst (NULL_TREE, loop_num), left, right);
+  return build3 (POLYNOMIAL_CHREC, TREE_TYPE (left), 
+		 build_int_cst (NULL_TREE, loop_num), left, right);
 }
 
 

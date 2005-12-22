@@ -130,7 +130,7 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_nativeSetCheckboxGroup
     gtk_radio_button_set_group (button, NULL);
   else
     gtk_radio_button_set_group (button,
-				gtk_radio_button_group 
+				gtk_radio_button_get_group
 				(GTK_RADIO_BUTTON (native_group)));
 
   /* If the native group wasn't set on the new CheckboxGroup, then set
@@ -227,14 +227,10 @@ Java_gnu_java_awt_peer_gtk_GtkCheckboxPeer_gtkButtonSetLabel
 static void
 item_toggled_cb (GtkToggleButton *item, jobject peer)
 {
-  gdk_threads_leave ();
-
   (*cp_gtk_gdk_env())->CallVoidMethod (cp_gtk_gdk_env(), peer,
                                 postItemEventID,
                                 peer,
                                 item->active ?
                                 (jint) AWT_ITEM_SELECTED :
                                 (jint) AWT_ITEM_DESELECTED);
-
-  gdk_threads_enter ();
 }

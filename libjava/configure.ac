@@ -142,8 +142,12 @@ AC_SUBST(LIBGCJ_CXXFLAGS)
 AC_SUBST(LIBGCJ_JAVAFLAGS)
 AC_SUBST(LIBGCJ_LD_SYMBOLIC)
 
-AC_CONFIG_HEADERS([include/config.h gcj/libgcj-config.h])
+# Only use libltdl for non-newlib builds.
+if test "x${with_newlib}" = "x" || test "x${with_newlib}" = "xno"; then
+   AC_LTDL_SHLIBPATH
+fi
 
+AC_CONFIG_HEADERS([include/config.h gcj/libgcj-config.h])
 
 # See if the user has requested runtime debugging.
 LIBGCJDEBUG="disable"
@@ -164,6 +168,7 @@ AC_ARG_ENABLE(java-awt,
 peerlibs="`echo ${enable_java_awt} | tr ',' ' '`"
 use_xlib_awt=""
 use_gtk_awt=""
+use_qt_awt=""
 # The default toolkit to use is the first one specified.
 TOOLKIT=
 AC_SUBST(TOOLKIT)
@@ -183,7 +188,7 @@ for peer in $peerlibs ; do
       ;;
     gtk)
       if test "$no_x" = yes; then
-	 echo "*** xlib peers requested but no X library available" 1>&2
+	 echo "*** gtk peers requested but no X library available" 1>&2
 	 exit 1
       else
 	 use_gtk_awt=yes
@@ -192,9 +197,22 @@ for peer in $peerlibs ; do
 	 fi
       fi
       ;;
+    qt)
+      if test "$no_x" = yes; then
+         # Perhaps we should admit the possibility of embedded Qt.
+	 echo "*** Qt peers requested but no X library available" 1>&2
+	 exit 1
+      else
+	 use_qt_awt=yes
+	 if test -z "$TOOLKIT"; then
+	    TOOLKIT=gnu.java.awt.peer.qt.QtToolkit
+	 fi
+      fi
+      ;;
     no)
       use_xlib_awt=
       use_gtk_awt=
+      use_qt_awt=
       break
       ;;
     *)
@@ -205,6 +223,7 @@ done
 
 AM_CONDITIONAL(XLIB_AWT, test "$use_xlib_awt" = yes)
 AM_CONDITIONAL(GTK_AWT, test "$use_gtk_awt" = yes)
+AM_CONDITIONAL(QT_AWT, test "$use_qt_awt" = yes)
 
 # Create standard.omit based on decisions we just made.
 cp $srcdir/standard.omit.in standard.omit
@@ -214,6 +233,9 @@ if test "$use_xlib_awt" != yes; then
 fi
 if test "$use_gtk_awt" != yes; then
    echo gnu/java/awt/peer/gtk >> standard.omit
+fi
+if test "$use_qt_awt" != yes; then
+   echo gnu/java/awt/peer/qt >> standard.omit
 fi
 
 if test -z "${with_multisubdir}"; then
@@ -310,6 +332,12 @@ ac_configure_args="$ac_configure_args --disable-examples"
 ac_configure_args="$ac_configure_args --with-glibj=build"
 if test "$use_gtk_awt" != yes; then
   ac_configure_args="$ac_configure_args --disable-gtk-peer"
+fi
+if test "$use_qt_awt" != yes; then
+  ac_configure_args="$ac_configure_args --disable-qt-peer"
+else
+  # We need this as qt is disabled by default in classpath.
+  ac_configure_args="$ac_configure_args --enable-qt-peer"
 fi
 dnl --with-gcj=$GCJ
 dnl --with-javah=$GCJH
@@ -539,8 +567,6 @@ AC_ARG_WITH(ecos,
 [  --with-ecos             enable runtime eCos target support],
 TARGET_ECOS="$with_ecos"
 )
-
-supply_backtrace=no
 
 PLATFORM_INNER_NAT_HDRS=
 case "$TARGET_ECOS" in
@@ -874,33 +900,6 @@ else
 		   fork execvp pipe sigaction ftruncate])
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
    AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h) 
-   AC_CHECK_FUNC(backtrace, [
-     case "$host" in
-       ia64-*-linux*)
-	 # Has broken backtrace()
-	 ;;
-       mips*-*-linux*)
-         # Has broken backtrace(), but we supply our own.
-         if test -d sysdep; then true; else mkdir -p sysdep; fi
-	 supply_backtrace=yes
-         AC_DEFINE(HAVE_BACKTRACE, 1,
-           [Define if your platform has a working backtrace() function.])
-         ;;
-       *)
-         AC_DEFINE(HAVE_BACKTRACE, 1,
-           [Define if your platform has a working backtrace() function.])
-	 ;;
-     esac
-   ], [
-     case "$host" in
-       *mingw*)
-         # Has backtrace() defined in libgcj itself
-         AC_DEFINE(HAVE_BACKTRACE, 1,
-           [Define if your platform has a working backtrace() function.])
-         ;;
-     esac
-   ])
-
    AC_CHECK_LIB(dl, dladdr, [
      if test "x${disable_dladdr}" = "xyes"; then
        #Broken dladdr().
@@ -1134,7 +1133,6 @@ else
       AC_CHECK_LIB(dl, main, SYSTEMSPEC="$SYSTEMSPEC -ldl")
    fi
 fi
-AM_CONDITIONAL(SUPPLY_BACKTRACE, test "$supply_backtrace" = yes)
 
 # Use a semicolon as CLASSPATH separator for MinGW, otherwise a colon.
 case $build in
@@ -1414,6 +1412,8 @@ else
   multilib_arg=
 fi
 
+# See if we support thread-local storage.
+GCC_CHECK_TLS
 
 
 here=`${PWDCMD-pwd}`

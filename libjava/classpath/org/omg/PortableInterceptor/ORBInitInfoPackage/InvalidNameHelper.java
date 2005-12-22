@@ -39,6 +39,7 @@ exception statement from your version. */
 package org.omg.PortableInterceptor.ORBInitInfoPackage;
 
 import gnu.CORBA.EmptyExceptionHolder;
+import gnu.CORBA.Minor;
 
 import org.omg.CORBA.Any;
 import org.omg.CORBA.BAD_OPERATION;
@@ -50,10 +51,10 @@ import org.omg.CORBA.portable.InputStream;
 import org.omg.CORBA.portable.OutputStream;
 
 /**
-* The helper operations for the exception {@link InvalidName}.
-*
-* @author Audrius Meskauskas, Lithiania (AudriusA@Bioinformatics.org)
-*/
+ * The helper operations for the exception {@link InvalidName}.
+ *
+ * @author Audrius Meskauskas, Lithiania (AudriusA@Bioinformatics.org)
+ */
 public abstract class InvalidNameHelper
 {
   /**
@@ -103,6 +104,7 @@ public abstract class InvalidNameHelper
     catch (ClassCastException cex)
       {
         BAD_OPERATION bad = new BAD_OPERATION("InvalidName expected");
+        bad.minor = Minor.Any;        
         bad.initCause(cex);
         throw bad;
       }

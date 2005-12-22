@@ -93,6 +93,9 @@ static const struct resword reswords[] =
 {
   { "_Bool",		RID_BOOL,	0 },
   { "_Complex",		RID_COMPLEX,	0 },
+  { "_Decimal32",       RID_DFLOAT32,  D_EXT },
+  { "_Decimal64",       RID_DFLOAT64,  D_EXT },
+  { "_Decimal128",      RID_DFLOAT128, D_EXT },
   { "__FUNCTION__",	RID_FUNCTION_NAME, 0 },
   { "__PRETTY_FUNCTION__", RID_PRETTY_FUNCTION_NAME, 0 },
   { "__alignof",	RID_ALIGNOF,	0 },
@@ -461,6 +464,9 @@ c_token_starts_typename (c_token *token)
 	case RID_FLOAT:
 	case RID_DOUBLE:
 	case RID_VOID:
+	case RID_DFLOAT32:
+	case RID_DFLOAT64:
+	case RID_DFLOAT128:
 	case RID_BOOL:
 	case RID_ENUM:
 	case RID_STRUCT:
@@ -532,6 +538,9 @@ c_token_starts_declspecs (c_token *token)
 	case RID_FLOAT:
 	case RID_DOUBLE:
 	case RID_VOID:
+	case RID_DFLOAT32:
+	case RID_DFLOAT64:
+	case RID_DFLOAT128:
 	case RID_BOOL:
 	case RID_ENUM:
 	case RID_STRUCT:
@@ -1396,6 +1405,9 @@ c_parser_asm_definition (c_parser *parser)
 
    type-specifier:
      typeof-specifier
+     _Decimal32
+     _Decimal64
+     _Decimal128
 
    Objective-C:
 
@@ -1494,6 +1506,9 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	case RID_FLOAT:
 	case RID_DOUBLE:
 	case RID_VOID:
+	case RID_DFLOAT32:
+	case RID_DFLOAT64:
+	case RID_DFLOAT128:
 	case RID_BOOL:
 	  if (!typespec_ok)
 	    goto out;
@@ -2714,6 +2729,9 @@ c_parser_attributes (c_parser *parser)
 		case RID_FLOAT:
 		case RID_DOUBLE:
 		case RID_VOID:
+		case RID_DFLOAT32:
+		case RID_DFLOAT64:
+		case RID_DFLOAT128:
 		case RID_BOOL:
 		  ok = true;
 		  break;
@@ -3629,7 +3647,7 @@ c_parser_if_body (c_parser *parser, bool *if_p)
     c_parser_label (parser);
   *if_p = c_parser_next_token_is_keyword (parser, RID_IF);
   if (extra_warnings && c_parser_next_token_is (parser, CPP_SEMICOLON))
-    add_stmt (build (NOP_EXPR, NULL_TREE, NULL_TREE));
+    add_stmt (build1 (NOP_EXPR, NULL_TREE, NULL_TREE));
   c_parser_statement_after_labels (parser);
   return c_end_compound_stmt (block, flag_isoc99);
 }
@@ -3692,7 +3710,7 @@ c_parser_switch_statement (c_parser *parser)
   body = c_parser_c99_block_statement (parser);
   c_finish_case (body);
   if (c_break_label)
-    add_stmt (build (LABEL_EXPR, void_type_node, c_break_label));
+    add_stmt (build1 (LABEL_EXPR, void_type_node, c_break_label));
   c_break_label = save_break;
   add_stmt (c_end_compound_stmt (block, flag_isoc99));
 }
@@ -3776,8 +3794,9 @@ static void
 c_parser_for_statement (c_parser *parser)
 {
   tree block, cond, incr, save_break, save_cont, body;
-  location_t loc = UNKNOWN_LOCATION;
+  location_t loc;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_FOR));
+  loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
@@ -5722,6 +5741,11 @@ c_parser_objc_method_definition (c_parser *parser)
       c_parser_consume_token (parser);
       if (pedantic)
 	pedwarn ("extra semicolon in method definition specified");
+    }
+  if (!c_parser_next_token_is (parser, CPP_OPEN_BRACE))
+    {
+      c_parser_error (parser, "expected %<{%>");
+      return;
     }
   objc_pq_context = 0;
   objc_start_method_definition (decl);

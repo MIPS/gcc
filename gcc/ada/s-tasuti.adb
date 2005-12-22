@@ -117,9 +117,6 @@ package body System.Tasking.Utilities is
    -- Abort_Tasks --
    -----------------
 
-   --  Compiler interface only: Do not call from within the RTS,
-
-   --  except in the implementation of Ada.Task_Identification.
    --  This must be called to implement the abort statement.
    --  Much of the actual work of the abort is done by the abortee,
    --  via the Abort_Handler signal handler, and propagation of the
@@ -131,6 +128,17 @@ package body System.Tasking.Utilities is
       P       : Task_Id;
 
    begin
+      --  If pragma Detect_Blocking is active then Program_Error must be
+      --  raised if this potentially blocking operation is called from a
+      --  protected action.
+
+      if System.Tasking.Detect_Blocking
+        and then Self_Id.Common.Protected_Action_Nesting > 0
+      then
+         Ada.Exceptions.Raise_Exception
+           (Program_Error'Identity, "potentially blocking operation");
+      end if;
+
       Initialization.Defer_Abort_Nestable (Self_Id);
 
       --  ?????
@@ -294,7 +302,7 @@ package body System.Tasking.Utilities is
 
       if Parent /= Environment_Task then
 
-         --  We can not lock three tasks at the same time, so defer the
+         --  We cannot lock three tasks at the same time, so defer the
          --  operations on the parent.
 
          Parent_Needs_Updating := True;
@@ -382,7 +390,7 @@ package body System.Tasking.Utilities is
             pragma Assert (Self_ID.Awake_Count = 1);
          end if;
 
-      --  We are accepting with a terminate alternative.
+      --  We are accepting with a terminate alternative
 
       else
          if Self_ID.Open_Accepts = null then
@@ -494,7 +502,7 @@ package body System.Tasking.Utilities is
       --  C has a parent, P.
 
       loop
-         --  Notify P that C has gone passive.
+         --  Notify P that C has gone passive
 
          P.Awake_Count := P.Awake_Count - 1;
 
@@ -516,7 +524,7 @@ package body System.Tasking.Utilities is
          Write_Lock (C);
       end loop;
 
-      --  P has non-passive dependents.
+      --  P has non-passive dependents
 
       if P.Common.State = Master_Completion_Sleep
         and then C.Master_of_Task = P.Master_Within

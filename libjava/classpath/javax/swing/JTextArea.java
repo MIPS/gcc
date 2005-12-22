@@ -42,6 +42,8 @@ import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Rectangle;
 
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleStateSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 import javax.swing.text.Element;
@@ -80,17 +82,46 @@ import javax.swing.text.View;
  * @author Michael Koch  (konqueror@gmx.de)
  * @author Andrew John Hughes  (gnu_andrew@member.fsf.org)
  * @see java.awt.TextArea
- * @see javax.swing.JTextComponent
+ * @see javax.swing.text.JTextComponent
  * @see javax.swing.JTextField
  * @see javax.swing.JTextPane
  * @see javax.swing.JEditorPane
  * @see javax.swing.text.Document
- * @see javax.swing.text.DocumentEvent
- * @see javax.swing.text.DocumentListener
+ * @see javax.swing.event.DocumentEvent
+ * @see javax.swing.event.DocumentListener
  */
 
 public class JTextArea extends JTextComponent
 {
+  /**
+   * Provides accessibility support for <code>JTextArea</code>.
+   *
+   * @author Roman Kennke (kennke@aicas.com)
+   */
+  protected class AccessibleJTextArea extends AccessibleJTextComponent
+  {
+
+    /**
+     * Creates a new <code>AccessibleJTextArea</code> object.
+     */
+    protected AccessibleJTextArea()
+    {
+      super();
+    }
+
+    /**
+     * Returns the accessible state of this <code>AccessibleJTextArea</code>.
+     *
+     * @return  the accessible state of this <code>AccessibleJTextArea</code>
+     */
+    public AccessibleStateSet getAccessibleStateSet()
+    {
+      AccessibleStateSet state = super.getAccessibleStateSet();
+      // TODO: Figure out what state must be added here to the super's state.
+      return state;
+    }
+  }
+
   /**
    * Compatible with Sun's JDK
    */
@@ -166,7 +197,7 @@ public class JTextArea extends JTextComponent
   /**
    * Creates a new <code>JTextArea</code> object.
    *
-   * @param the document model to use
+   * @param doc the document model to use
    */
   public JTextArea(Document doc)
   {
@@ -176,7 +207,7 @@ public class JTextArea extends JTextComponent
   /**
    * Creates a new <code>JTextArea</code> object.
    *
-   * @param the document model to use
+   * @param doc the document model to use
    * @param text the initial text
    * @param rows the number of rows
    * @param columns the number of cols
@@ -208,6 +239,8 @@ public class JTextArea extends JTextComponent
 	      /* This shouldn't happen in theory -- but, if it does...  */
 	      throw new RuntimeException("Unexpected exception occurred.", exception);
 	  }
+      if (toAppend != null && toAppend.length() > 0)
+        revalidate();
   }
 
   /**
@@ -235,12 +268,12 @@ public class JTextArea extends JTextComponent
   /**
    * Returns the increment that is needed to expose exactly one new line
    * of text. This is implemented here to return the values of
-   * {@link #getRowHeight} and {@link getColumnWidth}, depending on
+   * {@link #getRowHeight} and {@link #getColumnWidth}, depending on
    * the value of the argument <code>direction</code>.
    *
    * @param visibleRect the view area that is visible in the viewport
-   * @param orientation either {@link SwingConstants.VERTICAL} or
-   *     {@link SwingConstants.HORIZONTAL}
+   * @param orientation either {@link SwingConstants#VERTICAL} or
+   *     {@link SwingConstants#HORIZONTAL}
    * @param direction less than zero for up/left scrolling, greater
    *     than zero for down/right scrolling
    *
@@ -312,8 +345,12 @@ public class JTextArea extends JTextComponent
   {
     if (columns < 0)
       throw new IllegalArgumentException();
-
-    this.columns = columns;
+    
+    if (columns != this.columns)
+      {
+        this.columns = columns;
+        revalidate();
+      }
   }
 
   /**
@@ -329,7 +366,7 @@ public class JTextArea extends JTextComponent
   /**
    * Sets the number of rows.
    *
-   * @param columns number of columns
+   * @param rows number of rows
    *
    * @exception IllegalArgumentException if rows is negative
    */
@@ -337,8 +374,12 @@ public class JTextArea extends JTextComponent
   {
     if (rows < 0)
       throw new IllegalArgumentException();
-
-    this.rows = rows;
+   
+    if (rows != this.rows)
+      {
+        this.rows = rows;
+        revalidate();
+      }
   }
 
   /**
@@ -355,7 +396,7 @@ public class JTextArea extends JTextComponent
   /**
    * Enables/disables line wrapping.
    *
-   * @param wrapping <code>true</code> to enable line wrapping,
+   * @param flag <code>true</code> to enable line wrapping,
    * <code>false</code> otherwise
    */
   public void setLineWrap(boolean flag)
@@ -546,5 +587,17 @@ public class JTextArea extends JTextComponent
     int neededHeight = (int) view.getPreferredSpan(View.VERTICAL);
     return new Dimension(Math.max(reqWidth, neededWidth),
                           Math.max(reqHeight, neededHeight));
+  }
+
+  /**
+   * Returns the accessible context associated with the <code>JTextArea</code>.
+   *
+   * @return the accessible context associated with the <code>JTextArea</code>
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJTextArea();
+    return accessibleContext;
   }
 }

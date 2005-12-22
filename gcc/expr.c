@@ -349,8 +349,8 @@ convert_move (rtx to, rtx from, int unsignedp)
 {
   enum machine_mode to_mode = GET_MODE (to);
   enum machine_mode from_mode = GET_MODE (from);
-  int to_real = GET_MODE_CLASS (to_mode) == MODE_FLOAT;
-  int from_real = GET_MODE_CLASS (from_mode) == MODE_FLOAT;
+  int to_real = SCALAR_FLOAT_MODE_P (to_mode);
+  int from_real = SCALAR_FLOAT_MODE_P (from_mode);
   enum insn_code code;
   rtx libcall;
 
@@ -2812,7 +2812,7 @@ emit_move_change_mode (enum machine_mode new_mode,
    emitted, or NULL if such a move could not be generated.  */
 
 static rtx
-emit_move_via_integer (enum machine_mode mode, rtx x, rtx y)
+emit_move_via_integer (enum machine_mode mode, rtx x, rtx y, bool force)
 {
   enum machine_mode imode;
   enum insn_code code;
@@ -2827,10 +2827,10 @@ emit_move_via_integer (enum machine_mode mode, rtx x, rtx y)
   if (code == CODE_FOR_nothing)
     return NULL_RTX;
 
-  x = emit_move_change_mode (imode, mode, x, false);
+  x = emit_move_change_mode (imode, mode, x, force);
   if (x == NULL_RTX)
     return NULL_RTX;
-  y = emit_move_change_mode (imode, mode, y, false);
+  y = emit_move_change_mode (imode, mode, y, force);
   if (y == NULL_RTX)
     return NULL_RTX;
   return emit_insn (GEN_FCN (code) (x, y));
@@ -2852,6 +2852,19 @@ emit_move_resolve_push (enum machine_mode mode, rtx x)
 #endif
   if (code == PRE_DEC || code == POST_DEC)
     adjust = -adjust;
+  else if (code == PRE_MODIFY || code == POST_MODIFY)
+    {
+      rtx expr = XEXP (XEXP (x, 0), 1);
+      HOST_WIDE_INT val;
+
+      gcc_assert (GET_CODE (expr) == PLUS || GET_CODE (expr) == MINUS);
+      gcc_assert (GET_CODE (XEXP (expr, 1)) == CONST_INT);
+      val = INTVAL (XEXP (expr, 1));
+      if (GET_CODE (expr) == MINUS)
+	val = -val;
+      gcc_assert (adjust == val || adjust == -val);
+      adjust = val;
+    }
 
   /* Do not use anti_adjust_stack, since we don't want to update
      stack_pointer_delta.  */
@@ -2865,13 +2878,13 @@ emit_move_resolve_push (enum machine_mode mode, rtx x)
     {
     case PRE_INC:
     case PRE_DEC:
+    case PRE_MODIFY:
       temp = stack_pointer_rtx;
       break;
     case POST_INC:
-      temp = plus_constant (stack_pointer_rtx, -GET_MODE_SIZE (mode));
-      break;
     case POST_DEC:
-      temp = plus_constant (stack_pointer_rtx, GET_MODE_SIZE (mode));
+    case POST_MODIFY:
+      temp = plus_constant (stack_pointer_rtx, -adjust);
       break;
     default:
       gcc_unreachable ();
@@ -2973,7 +2986,7 @@ emit_move_complex (enum machine_mode mode, rtx x, rtx y)
 	  return get_last_insn ();
 	}
 
-      ret = emit_move_via_integer (mode, x, y);
+      ret = emit_move_via_integer (mode, x, y, true);
       if (ret)
 	return ret;
     }
@@ -3011,7 +3024,7 @@ emit_move_ccmode (enum machine_mode mode, rtx x, rtx y)
     }
 
   /* Otherwise, find the MODE_INT mode of the same width.  */
-  ret = emit_move_via_integer (mode, x, y);
+  ret = emit_move_via_integer (mode, x, y, false);
   gcc_assert (ret != NULL);
   return ret;
 }
@@ -3119,7 +3132,7 @@ emit_move_insn_1 (rtx x, rtx y)
      fits within a HOST_WIDE_INT.  */
   if (!CONSTANT_P (y) || GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
     {
-      rtx ret = emit_move_via_integer (mode, x, y);
+      rtx ret = emit_move_via_integer (mode, x, y, false);
       if (ret)
 	return ret;
     }
@@ -3924,10 +3937,18 @@ expand_assignment (tree to, tree from)
 
       if (offset != 0)
 	{
-	  rtx offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, EXPAND_SUM);
+	  rtx offset_rtx;
 
-	  gcc_assert (MEM_P (to_rtx));
+	  if (!MEM_P (to_rtx))
+	    {
+	      /* We can get constant negative offsets into arrays with broken
+		 user code.  Translate this to a trap instead of ICEing.  */
+	      gcc_assert (TREE_CODE (offset) == INTEGER_CST);
+	      expand_builtin_trap ();
+	      to_rtx = gen_rtx_MEM (BLKmode, const0_rtx);
+	    }
 
+	  offset_rtx = expand_expr (offset, NULL_RTX, VOIDmode, EXPAND_SUM);
 #ifdef POINTERS_EXTEND_UNSIGNED
 	  if (GET_MODE (offset_rtx) != Pmode)
 	    offset_rtx = convert_to_mode (Pmode, offset_rtx, 0);
@@ -5859,8 +5880,20 @@ force_operand (rtx value, rtx target)
     }
   if (UNARY_P (value))
     {
+      int unsignedp = 0;
+
       op1 = force_operand (XEXP (value, 0), NULL_RTX);
-      return expand_simple_unop (GET_MODE (value), code, op1, target, 0);
+      switch (code)
+	{
+	case ZERO_EXTEND: case UNSIGNED_FIX: case UNSIGNED_FLOAT:
+	  unsignedp = 1;
+	  /* fall through.  */
+	case TRUNCATE:
+	case SIGN_EXTEND: case FIX: case FLOAT:
+	  return convert_to_mode (GET_MODE (value), op1, unsignedp);
+	default:
+	  return expand_simple_unop (GET_MODE (value), code, op1, target, 0);
+	}
     }
 
 #ifdef INSN_SCHEDULING
@@ -6338,7 +6371,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
       result = convert_memory_address (tmode, result);
       tmp = convert_memory_address (tmode, tmp);
 
-      if (modifier == EXPAND_SUM)
+      if (modifier == EXPAND_SUM || modifier == EXPAND_INITIALIZER)
 	result = gen_rtx_PLUS (tmode, result, tmp);
       else
 	{
@@ -6480,7 +6513,7 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
      information.  It would be better of the diagnostic routines
      used the file/line information embedded in the tree nodes rather
      than globals.  */
-  if (cfun && EXPR_HAS_LOCATION (exp))
+  if (cfun && cfun->ib_boundaries_block && EXPR_HAS_LOCATION (exp))
     {
       location_t saved_location = input_location;
       input_location = EXPR_LOCATION (exp);
@@ -6535,7 +6568,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
   optab this_optab;
   rtx subtarget, original_target;
   int ignore;
-  tree context;
+  tree context, subexp0, subexp1;
   bool reduce_bit_field = false;
 #define REDUCE_BIT_FIELD(expr)	(reduce_bit_field && !ignore		  \
 				 ? reduce_to_bit_field_precision ((expr), \
@@ -6966,7 +6999,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    int icode;
 	    rtx reg, insn;
 
-	    gcc_assert (modifier == EXPAND_NORMAL);
+	    gcc_assert (modifier == EXPAND_NORMAL
+			|| modifier == EXPAND_STACK_PARM);
 
 	    /* The vectorizer should have already checked the mode.  */
 	    icode = movmisalign_optab->handlers[mode].insn_code;
@@ -7818,7 +7852,43 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	 from a narrower type.  If this machine supports multiplying
 	 in that narrower type with a result in the desired type,
 	 do it that way, and avoid the explicit type-conversion.  */
-      if (TREE_CODE (TREE_OPERAND (exp, 0)) == NOP_EXPR
+
+      subexp0 = TREE_OPERAND (exp, 0);
+      subexp1 = TREE_OPERAND (exp, 1);
+      /* First, check if we have a multiplication of one signed and one
+	 unsigned operand.  */
+      if (TREE_CODE (subexp0) == NOP_EXPR
+	  && TREE_CODE (subexp1) == NOP_EXPR
+	  && TREE_CODE (type) == INTEGER_TYPE
+	  && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (subexp0, 0)))
+	      < TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (exp, 0))))
+	  && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (subexp0, 0)))
+	      == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (subexp1, 0))))
+	  && (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (subexp0, 0)))
+	      != TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (subexp1, 0)))))
+	{
+	  enum machine_mode innermode
+	    = TYPE_MODE (TREE_TYPE (TREE_OPERAND (subexp0, 0)));
+	  this_optab = usmul_widen_optab;
+	  if (mode == GET_MODE_WIDER_MODE (innermode))
+	    {
+	      if (this_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
+		{
+		  if (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (subexp0, 0))))
+		    expand_operands (TREE_OPERAND (subexp0, 0),
+				     TREE_OPERAND (subexp1, 0),
+				     NULL_RTX, &op0, &op1, 0);
+		  else
+		    expand_operands (TREE_OPERAND (subexp0, 0),
+				     TREE_OPERAND (subexp1, 0),
+				     NULL_RTX, &op1, &op0, 0);
+
+		  goto binop3;
+		}
+	    }
+	}
+      /* Check for a multiplication with matching signedness.  */
+      else if (TREE_CODE (TREE_OPERAND (exp, 0)) == NOP_EXPR
 	  && TREE_CODE (type) == INTEGER_TYPE
 	  && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)))
 	      < TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (exp, 0))))
@@ -8014,69 +8084,92 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       if (! CONSTANT_P (op1))
 	op1 = force_reg (mode, op1);
 
+      {
+	enum rtx_code comparison_code;
+	rtx cmpop1 = op1;
+
+	if (code == MAX_EXPR)
+	  comparison_code = unsignedp ? GEU : GE;
+	else
+	  comparison_code = unsignedp ? LEU : LE;
+
+	/* Canonicalize to comparisons against 0.  */
+	if (op1 == const1_rtx)
+	  {
+	    /* Converting (a >= 1 ? a : 1) into (a > 0 ? a : 1)
+	       or (a != 0 ? a : 1) for unsigned.
+	       For MIN we are safe converting (a <= 1 ? a : 1)
+	       into (a <= 0 ? a : 1)  */
+	    cmpop1 = const0_rtx;
+	    if (code == MAX_EXPR)
+	      comparison_code = unsignedp ? NE : GT;
+	  }
+	if (op1 == constm1_rtx && !unsignedp)
+	  {
+	    /* Converting (a >= -1 ? a : -1) into (a >= 0 ? a : -1)
+	       and (a <= -1 ? a : -1) into (a < 0 ? a : -1) */
+	    cmpop1 = const0_rtx;
+	    if (code == MIN_EXPR)
+	      comparison_code = LT;
+	  }
 #ifdef HAVE_conditional_move
-      /* Use a conditional move if possible.  */
-      if (can_conditionally_move_p (mode))
-	{
-	  enum rtx_code comparison_code;
-	  rtx insn;
+	/* Use a conditional move if possible.  */
+	if (can_conditionally_move_p (mode))
+	  {
+	    rtx insn;
 
-	  if (code == MAX_EXPR)
-	    comparison_code = unsignedp ? GEU : GE;
-	  else
-	    comparison_code = unsignedp ? LEU : LE;
+	    /* ??? Same problem as in expmed.c: emit_conditional_move
+	       forces a stack adjustment via compare_from_rtx, and we
+	       lose the stack adjustment if the sequence we are about
+	       to create is discarded.  */
+	    do_pending_stack_adjust ();
 
-	  /* ??? Same problem as in expmed.c: emit_conditional_move
-	     forces a stack adjustment via compare_from_rtx, and we
-	     lose the stack adjustment if the sequence we are about
-	     to create is discarded.  */
-	  do_pending_stack_adjust ();
+	    start_sequence ();
 
-	  start_sequence ();
+	    /* Try to emit the conditional move.  */
+	    insn = emit_conditional_move (target, comparison_code,
+					  op0, cmpop1, mode,
+					  op0, op1, mode,
+					  unsignedp);
 
-	  /* Try to emit the conditional move.  */
-	  insn = emit_conditional_move (target, comparison_code,
-					op0, op1, mode,
-					op0, op1, mode,
-					unsignedp);
+	    /* If we could do the conditional move, emit the sequence,
+	       and return.  */
+	    if (insn)
+	      {
+		rtx seq = get_insns ();
+		end_sequence ();
+		emit_insn (seq);
+		return target;
+	      }
 
-	  /* If we could do the conditional move, emit the sequence,
-	     and return.  */
-	  if (insn)
-	    {
-	      rtx seq = get_insns ();
-	      end_sequence ();
-	      emit_insn (seq);
-	      return target;
-	    }
-
-	  /* Otherwise discard the sequence and fall back to code with
-	     branches.  */
-	  end_sequence ();
-	}
+	    /* Otherwise discard the sequence and fall back to code with
+	       branches.  */
+	    end_sequence ();
+	  }
 #endif
-      if (target != op0)
-	emit_move_insn (target, op0);
+	if (target != op0)
+	  emit_move_insn (target, op0);
 
-      temp = gen_label_rtx ();
+	temp = gen_label_rtx ();
 
-      /* If this mode is an integer too wide to compare properly,
-	 compare word by word.  Rely on cse to optimize constant cases.  */
-      if (GET_MODE_CLASS (mode) == MODE_INT
-	  && ! can_compare_p (GE, mode, ccp_jump))
-	{
-	  if (code == MAX_EXPR)
-	    do_jump_by_parts_greater_rtx (mode, unsignedp, target, op1,
-					  NULL_RTX, temp);
-	  else
-	    do_jump_by_parts_greater_rtx (mode, unsignedp, op1, target,
-					  NULL_RTX, temp);
-	}
-      else
-	{
-	  do_compare_rtx_and_jump (target, op1, code == MAX_EXPR ? GE : LE,
-				   unsignedp, mode, NULL_RTX, NULL_RTX, temp);
-	}
+	/* If this mode is an integer too wide to compare properly,
+	   compare word by word.  Rely on cse to optimize constant cases.  */
+	if (GET_MODE_CLASS (mode) == MODE_INT
+	    && ! can_compare_p (GE, mode, ccp_jump))
+	  {
+	    if (code == MAX_EXPR)
+	      do_jump_by_parts_greater_rtx (mode, unsignedp, target, op1,
+					    NULL_RTX, temp);
+	    else
+	      do_jump_by_parts_greater_rtx (mode, unsignedp, op1, target,
+					    NULL_RTX, temp);
+	  }
+	else
+	  {
+	    do_compare_rtx_and_jump (target, cmpop1, comparison_code,
+				     unsignedp, mode, NULL_RTX, NULL_RTX, temp);
+	  }
+      }
       emit_move_insn (target, op1);
       emit_label (temp);
       return target;

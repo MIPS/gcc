@@ -282,22 +282,6 @@ gfc_build_addr_expr (tree type, tree t)
 }
 
 
-/* Build an INDIRECT_REF with its natural type.  */
-
-tree
-gfc_build_indirect_ref (tree t)
-{
-  tree type = TREE_TYPE (t);
-  gcc_assert (POINTER_TYPE_P (type));
-  type = TREE_TYPE (type);
-
-  if (TREE_CODE (t) == ADDR_EXPR)
-    return TREE_OPERAND (t, 0);
-  else
-    return build1 (INDIRECT_REF, type, t);
-}
-
-
 /* Build an ARRAY_REF with its natural type.  */
 
 tree
@@ -311,24 +295,6 @@ gfc_build_array_ref (tree base, tree offset)
     TREE_ADDRESSABLE (base) = 1;
 
   return build4 (ARRAY_REF, type, base, offset, NULL_TREE, NULL_TREE);
-}
-
-
-/* Given a function declaration FNDECL and an argument list ARGLIST,
-   build a CALL_EXPR.  */
-
-tree
-gfc_build_function_call (tree fndecl, tree arglist)
-{
-  tree fn;
-  tree call;
-
-  fn = gfc_build_addr_expr (NULL, fndecl);
-  call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (fndecl)), 
-		 fn, arglist, NULL);
-  TREE_SIDE_EFFECTS (call) = 1;
-
-  return call;
 }
 
 
@@ -363,7 +329,7 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   tmp = build_int_cst (NULL_TREE, input_line);
   args = gfc_chainon_list (args, tmp);
 
-  tmp = gfc_build_function_call (gfor_fndecl_runtime_error, args);
+  tmp = build_function_call_expr (gfor_fndecl_runtime_error, args);
   gfc_add_expr_to_block (&block, tmp);
 
   body = gfc_finish_block (&block);
@@ -377,7 +343,7 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
       /* Tell the compiler that this isn't likely.  */
       tmp = gfc_chainon_list (NULL_TREE, cond);
       tmp = gfc_chainon_list (tmp, integer_zero_node);
-      cond = gfc_build_function_call (built_in_decls[BUILT_IN_EXPECT], tmp);
+      cond = build_function_call_expr (built_in_decls[BUILT_IN_EXPECT], tmp);
 
       tmp = build3_v (COND_EXPR, cond, body, build_empty_stmt ());
       gfc_add_expr_to_block (pblock, tmp);
@@ -654,30 +620,6 @@ gfc_generate_code (gfc_namespace * ns)
     {
       gfc_generate_block_data (ns);
       return;
-    }
-
-  /* Main program subroutine.  */
-  if (!ns->proc_name)
-    {
-      gfc_symbol *main_program;
-      symbol_attribute attr;
-
-      /* Lots of things get upset if a subroutine doesn't have a symbol, so we
-         make one now.  Hopefully we've set all the required fields.  */
-      gfc_get_symbol ("MAIN__", ns, &main_program);
-      gfc_clear_attr (&attr);
-      attr.flavor = FL_PROCEDURE;
-      attr.proc = PROC_UNKNOWN;
-      attr.subroutine = 1;
-      attr.access = ACCESS_PUBLIC;
-      attr.is_main_program = 1;
-      main_program->attr = attr;
-
-      /* Set the location to the first line of code.  */
-      if (ns->code)
-	main_program->declared_at = ns->code->loc;
-      ns->proc_name = main_program;
-      gfc_commit_symbols ();
     }
 
   gfc_generate_function_code (ns);

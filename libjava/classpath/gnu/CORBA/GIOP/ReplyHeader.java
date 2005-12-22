@@ -38,9 +38,8 @@ exception statement from your version. */
 
 package gnu.CORBA.GIOP;
 
-import gnu.CORBA.CDR.cdrInput;
-import gnu.CORBA.CDR.cdrOutput;
-
+import gnu.CORBA.CDR.AbstractCdrInput;
+import gnu.CORBA.CDR.AbstractCdrOutput;
 
 /**
  * The header of the standard reply.
@@ -48,6 +47,7 @@ import gnu.CORBA.CDR.cdrOutput;
  * @author Audrius Meskauskas (AudriusA@Bioinformatics.org)
  */
 public abstract class ReplyHeader
+  extends ContextHandler
 {
   /**
    * Reply status, if no exception occured.
@@ -65,9 +65,8 @@ public abstract class ReplyHeader
   public static final int SYSTEM_EXCEPTION = 2;
 
   /**
-   * Reply status, if the client ORB must re - send
-   * the request to another destination. The body
-   * contains IOR.
+   * Reply status, if the client ORB must re - send the request to another
+   * destination. The body contains IOR.
    */
   public static final int LOCATION_FORWARD = 3;
 
@@ -82,16 +81,6 @@ public abstract class ReplyHeader
    * address in the required addressing mode, contained as the reply body.
    */
   public static final int NEEDS_ADDRESSING_MODE = 5;
-
-  /**
-   * Empty array, indicating that no service context is available.
-   */
-  protected static final ServiceContext[] NO_CONTEXT = new ServiceContext[ 0 ];
-
-  /**
-   * The ORB service data.
-   */
-  public ServiceContext[] service_context = NO_CONTEXT;
 
   /**
    * The status of this reply, holds one of the reply status constants.
@@ -110,19 +99,19 @@ public abstract class ReplyHeader
   {
     switch (reply_status)
       {
-        case NO_EXCEPTION :
+        case NO_EXCEPTION:
           return "ok";
 
-        case USER_EXCEPTION :
+        case USER_EXCEPTION:
           return "user exception";
 
-        case SYSTEM_EXCEPTION :
+        case SYSTEM_EXCEPTION:
           return "system exception";
 
-        case LOCATION_FORWARD :
+        case LOCATION_FORWARD:
           return "moved";
 
-        default :
+        default:
           return null;
       }
   }
@@ -132,7 +121,7 @@ public abstract class ReplyHeader
    *
    * @param in a stream to read from.
    */
-  public abstract void read(cdrInput in);
+  public abstract void read(AbstractCdrInput in);
 
   /**
    * Returns a short string representation.
@@ -152,5 +141,5 @@ public abstract class ReplyHeader
    *
    * @param out a stream to write into.
    */
-  public abstract void write(cdrOutput out);
+  public abstract void write(AbstractCdrOutput out);
 }

@@ -255,15 +255,15 @@ gfc_extract_int (gfc_expr * expr, int *result)
 {
 
   if (expr->expr_type != EXPR_CONSTANT)
-    return "Constant expression required at %C";
+    return _("Constant expression required at %C");
 
   if (expr->ts.type != BT_INTEGER)
-    return "Integer expression required at %C";
+    return _("Integer expression required at %C");
 
   if ((mpz_cmp_si (expr->value.integer, INT_MAX) > 0)
       || (mpz_cmp_si (expr->value.integer, INT_MIN) < 0))
     {
-      return "Integer value too large in expression at %C";
+      return _("Integer value too large in expression at %C");
     }
 
   *result = (int) mpz_get_si (expr->value.integer);
@@ -308,6 +308,23 @@ copy_ref (gfc_ref * src)
   dest->next = copy_ref (src->next);
 
   return dest;
+}
+
+
+/* Detect whether an expression has any vector index array
+   references.  */
+
+int
+gfc_has_vector_index (gfc_expr *e)
+{
+  gfc_ref * ref;
+  int i;
+  for (ref = e->ref; ref; ref = ref->next)
+    if (ref->type == REF_ARRAY)
+      for (i = 0; i < ref->u.ar.dimen; i++)
+	if (ref->u.ar.dimen_type[i] == DIMEN_VECTOR)
+	  return 1;
+  return 0;
 }
 
 
@@ -1355,7 +1372,7 @@ check_inquiry (gfc_expr * e)
   /* FIXME: This should be moved into the intrinsic definitions,
      to eliminate this ugly hack.  */
   static const char * const inquiry_function[] = {
-    "digits", "epsilon", "huge", "kind", "maxexponent", "minexponent",
+    "digits", "epsilon", "huge", "kind", "len", "maxexponent", "minexponent",
     "precision", "radix", "range", "tiny", "bit_size", "size", "shape",
     "lbound", "ubound", NULL
   };
@@ -1376,10 +1393,9 @@ check_inquiry (gfc_expr * e)
   if (e == NULL || e->expr_type != EXPR_VARIABLE)
     return FAILURE;
 
-  /* At this point we have a numeric inquiry function with a variable
-     argument.  The type of the variable might be undefined, but we
-     need it now, because the arguments of these functions are allowed
-     to be undefined.  */
+  /* At this point we have an inquiry function with a variable argument.  The
+     type of the variable might be undefined, but we need it now, because the
+     arguments of these functions are allowed to be undefined.  */
 
   if (e->ts.type == BT_UNKNOWN)
     {
@@ -1674,12 +1690,16 @@ check_restricted (gfc_expr * e)
 	  break;
 	}
 
+      /* gfc_is_formal_arg broadcasts that a formal argument list is being processed
+	 in resolve.c(resolve_formal_arglist).  This is done so that host associated
+	 dummy array indices are accepted (PR23446).  */
       if (sym->attr.in_common
 	  || sym->attr.use_assoc
 	  || sym->attr.dummy
 	  || sym->ns != gfc_current_ns
 	  || (sym->ns->proc_name != NULL
-	      && sym->ns->proc_name->attr.flavor == FL_MODULE))
+	      && sym->ns->proc_name->attr.flavor == FL_MODULE)
+	  || gfc_is_formal_arg ())
 	{
 	  t = SUCCESS;
 	  break;
@@ -1753,7 +1773,8 @@ gfc_specification_expr (gfc_expr * e)
 /* Given two expressions, make sure that the arrays are conformable.  */
 
 try
-gfc_check_conformance (const char *optype, gfc_expr * op1, gfc_expr * op2)
+gfc_check_conformance (const char *optype_msgid,
+		       gfc_expr * op1, gfc_expr * op2)
 {
   int op1_flag, op2_flag, d;
   mpz_t op1_size, op2_size;
@@ -1764,7 +1785,8 @@ gfc_check_conformance (const char *optype, gfc_expr * op1, gfc_expr * op2)
 
   if (op1->rank != op2->rank)
     {
-      gfc_error ("Incompatible ranks in %s at %L", optype, &op1->where);
+      gfc_error ("Incompatible ranks in %s at %L", _(optype_msgid),
+		 &op1->where);
       return FAILURE;
     }
 
@@ -1778,7 +1800,8 @@ gfc_check_conformance (const char *optype, gfc_expr * op1, gfc_expr * op2)
       if (op1_flag && op2_flag && mpz_cmp (op1_size, op2_size) != 0)
 	{
 	  gfc_error ("%s at %L has different shape on dimension %d (%d/%d)",
-		     optype, &op1->where, d + 1, (int) mpz_get_si (op1_size),
+		     _(optype_msgid), &op1->where, d + 1,
+		     (int) mpz_get_si (op1_size),
 		     (int) mpz_get_si (op2_size));
 
 	  t = FAILURE;
@@ -1832,6 +1855,16 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
      {
        gfc_error ("NULL appears on right-hand side in assignment at %L",
 		  &rvalue->where);
+       return FAILURE;
+     }
+
+   if (sym->attr.cray_pointee
+       && lvalue->ref != NULL
+       && lvalue->ref->u.ar.type != AR_ELEMENT
+       && lvalue->ref->u.ar.as->cp_was_assumed)
+     {
+       gfc_error ("Vector assignment to assumed-size Cray Pointee at %L"
+		  " is illegal.", &lvalue->where);
        return FAILURE;
      }
 
@@ -1920,7 +1953,7 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
 
   if (lvalue->ts.kind != rvalue->ts.kind)
     {
-      gfc_error	("Different kind type parameters in pointer "
+      gfc_error ("Different kind type parameters in pointer "
 		 "assignment at %L", &lvalue->where);
       return FAILURE;
     }
@@ -1928,14 +1961,14 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
   attr = gfc_expr_attr (rvalue);
   if (!attr.target && !attr.pointer)
     {
-      gfc_error	("Pointer assignment target is neither TARGET "
+      gfc_error ("Pointer assignment target is neither TARGET "
 		 "nor POINTER at %L", &rvalue->where);
       return FAILURE;
     }
 
   if (is_pure && gfc_impure_variable (rvalue->symtree->n.sym))
     {
-      gfc_error	("Bad target in pointer assignment in PURE "
+      gfc_error ("Bad target in pointer assignment in PURE "
 		 "procedure at %L", &rvalue->where);
     }
 
@@ -1943,6 +1976,13 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
     {
       gfc_error ("Unequal ranks %d and %d in pointer assignment at %L", 
 		 lvalue->rank, rvalue->rank, &rvalue->where);
+      return FAILURE;
+    }
+
+  if (gfc_has_vector_index (rvalue))
+    {
+      gfc_error ("Pointer assignment with vector subscript "
+		 "on rhs at %L", &rvalue->where);
       return FAILURE;
     }
 

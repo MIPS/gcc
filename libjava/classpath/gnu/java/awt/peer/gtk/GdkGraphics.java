@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package gnu.java.awt.peer.gtk;
 
+import gnu.classpath.Configuration;
+
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -52,11 +54,21 @@ import java.text.AttributedCharacterIterator;
 
 public class GdkGraphics extends Graphics
 {
-  private final int native_state = GtkGenericPeer.getUniqueInteger();
+  static 
+  {
+    if (Configuration.INIT_LOAD_LIBRARY)
+      {
+        System.loadLibrary("gtkpeer");
+      }
+    initStaticState ();
+  }
+  
+  static native void initStaticState();
+  private final int native_state = GtkGenericPeer.getUniqueInteger ();
 
   Color color, xorColor;
   GtkComponentPeer component;
-  Font font;
+  Font font = new Font ("Dialog", Font.PLAIN, 12);
   Rectangle clip;
   GtkImage image; 
 
@@ -66,6 +78,7 @@ public class GdkGraphics extends Graphics
   static final int GDK_COPY = 0, GDK_XOR = 2;
 
   native void initState (GtkComponentPeer component);
+  native void initStateUnlocked (GtkComponentPeer component);
   native void initState (int width, int height);
   native void initFromImage (GtkImage image);
   native void copyState (GdkGraphics g);
@@ -75,6 +88,8 @@ public class GdkGraphics extends Graphics
     color = g.color;
     xorColor = g.xorColor;
     font = g.font;
+    if (font == null)
+      font = new Font ("Dialog", Font.PLAIN, 12);
     clip = new Rectangle (g.clip);
     component = g.component;
 
@@ -102,7 +117,6 @@ public class GdkGraphics extends Graphics
   GdkGraphics (GtkComponentPeer component)
   {
     this.component = component;
-    font = component.awtComponent.getFont ();
     color = Color.black;
 
     if (component.isRealized ())
@@ -115,6 +129,19 @@ public class GdkGraphics extends Graphics
   {
     initState (component);
     color = component.awtComponent.getForeground ();
+    if (color == null)
+      color = Color.BLACK;
+    Dimension d = component.awtComponent.getSize ();
+    clip = new Rectangle (0, 0, d.width, d.height);
+  }
+
+  // called back by native side: realize_cb
+  void initComponentGraphicsUnlocked ()
+  {
+    initStateUnlocked (component);
+    color = component.awtComponent.getForeground ();
+    if (color == null)
+      color = Color.BLACK;
     Dimension d = component.awtComponent.getSize ();
     clip = new Rectangle (0, 0, d.width, d.height);
   }
@@ -327,7 +354,13 @@ public class GdkGraphics extends Graphics
 
   public void setClip (Shape clip)
   {
-    if (clip != null)
+    if (clip == null)
+      {
+	// Reset clipping.
+	Dimension d = component.awtComponent.getSize();
+	setClip(new Rectangle (0, 0, d.width, d.height));
+      }
+    else
       setClip(clip.getBounds());
   }
 
@@ -350,7 +383,8 @@ public class GdkGraphics extends Graphics
   
   public void setFont (Font font)
   {
-    this.font = font;
+    if (font != null)
+      this.font = font;
   }
 
   native void setFunction (int gdk_func);

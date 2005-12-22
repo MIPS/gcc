@@ -319,6 +319,9 @@
 /* Define if global 'timezone' exists. */
 #undef HAVE_TIMEZONE
 
+/* Define to 1 if the target supports thread-local storage. */
+#undef HAVE_TLS
+
 /* Define to 1 if your `struct tm' has `tm_zone'. Deprecated, use
    `HAVE_STRUCT_TM_TM_ZONE' instead. */
 #undef HAVE_TM_ZONE
@@ -377,6 +380,10 @@
 
 /* Define if using POSIX threads on Linux. */
 #undef LINUX_THREADS
+
+/* Define to the name of the environment variable that determines the dynamic
+   library search path. */
+#undef LTDL_SHLIBPATH_VAR
 
 /* Define if MinGW libgcj uses the Windows UNICODE OS API. */
 #undef MINGW_LIBGCJ_UNICODE

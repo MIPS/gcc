@@ -47,7 +47,6 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.LayoutManager;
-import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
@@ -67,7 +66,6 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 
 /**
@@ -85,6 +83,14 @@ public class BasicInternalFrameTitlePane extends JComponent
   public class CloseAction extends AbstractAction
   {
     /**
+     * Creates a new action.
+     */
+    public CloseAction()
+    {
+      super("Close");
+    }
+    
+    /**
      * This method is called when something closes the JInternalFrame.
      *
      * @param e The ActionEvent.
@@ -93,13 +99,14 @@ public class BasicInternalFrameTitlePane extends JComponent
     {
       if (frame.isClosable())
         {
-	  try
-	    {
-	      frame.setClosed(true);
-	    }
-	  catch (PropertyVetoException pve)
-	    {
-	    }
+          try
+            {
+              frame.setClosed(true);
+            }
+          catch (PropertyVetoException pve)
+            {
+              // We do nothing if the attempt has been vetoed.
+            }
         }
     }
   }
@@ -114,6 +121,14 @@ public class BasicInternalFrameTitlePane extends JComponent
   public class IconifyAction extends AbstractAction
   {
     /**
+     * Creates a new action.
+     */
+    public IconifyAction()
+    {
+      super("Minimize");
+    }
+
+    /**
      * This method is called when the user wants to iconify the
      * JInternalFrame.
      *
@@ -123,13 +138,14 @@ public class BasicInternalFrameTitlePane extends JComponent
     {
       if (frame.isIconifiable() && ! frame.isIcon())
         {
-	  try
-	    {
-	      frame.setIcon(true);
-	    }
-	  catch (PropertyVetoException pve)
-	    {
-	    }
+          try
+            {
+              frame.setIcon(true);
+            }
+          catch (PropertyVetoException pve)
+            {
+              // We do nothing if the attempt has been vetoed.
+            }
         }
     }
   }
@@ -144,6 +160,13 @@ public class BasicInternalFrameTitlePane extends JComponent
   public class MaximizeAction extends AbstractAction
   {
     /**
+     * Creates a new action.
+     */
+    public MaximizeAction()
+    {
+      super("Maximize");
+    }
+    /**
      * This method is called when the user wants to maximize the
      * JInternalFrame.
      *
@@ -153,13 +176,14 @@ public class BasicInternalFrameTitlePane extends JComponent
     {
       try
         {
-	  if (frame.isMaximizable() && ! frame.isMaximum())
-	    frame.setMaximum(true);
-	  else if (frame.isMaximum())
-	    frame.setMaximum(false);
+          if (frame.isMaximizable() && ! frame.isMaximum())
+            frame.setMaximum(true);
+          else if (frame.isMaximum())
+            frame.setMaximum(false);
         }
       catch (PropertyVetoException pve)
         {
+          // We do nothing if the attempt has been vetoed.
         }
     }
   }
@@ -173,6 +197,13 @@ public class BasicInternalFrameTitlePane extends JComponent
    */
   public class MoveAction extends AbstractAction
   {
+    /**
+     * Creates a new action.
+     */
+    public MoveAction()
+    {
+      super("Move");
+    }
     /**
      * This method is called when the user wants to drag the JInternalFrame.
      *
@@ -195,6 +226,13 @@ public class BasicInternalFrameTitlePane extends JComponent
   public class RestoreAction extends AbstractAction
   {
     /**
+     * Creates a new action.
+     */
+    public RestoreAction()
+    {
+      super("Restore");
+    }
+    /**
      * This method is called when the user wants to restore the
      * JInternalFrame.
      *
@@ -204,13 +242,14 @@ public class BasicInternalFrameTitlePane extends JComponent
     {
       if (frame.isMaximum())
         {
-	  try
-	    {
-	      frame.setMaximum(false);
-	    }
-	  catch (PropertyVetoException pve)
-	    {
-	    }
+          try
+            {
+              frame.setMaximum(false);
+            }
+          catch (PropertyVetoException pve)
+            {
+              // We do nothing if the attempt has been vetoed.
+            }
         }
     }
   }
@@ -224,6 +263,13 @@ public class BasicInternalFrameTitlePane extends JComponent
    */
   public class SizeAction extends AbstractAction
   {
+    /**
+     * Creates a new action.
+     */
+    public SizeAction()
+    {
+      super("Size");
+    }
     /**
      * This method is called when the user wants to resize the JInternalFrame.
      *
@@ -378,24 +424,26 @@ public class BasicInternalFrameTitlePane extends JComponent
 
       int loc = width + insets.left - 1;
       int top = insets.top + 1;
-      int buttonWidth = height - 2;
       int buttonHeight = height - 4;
       if (closeButton.isVisible())
         {
-	  loc -= buttonWidth + 2;
-	  closeButton.setBounds(loc, top, buttonWidth, buttonHeight);
+          int buttonWidth = closeIcon.getIconWidth();
+          loc -= buttonWidth + 2;
+          closeButton.setBounds(loc, top, buttonWidth, buttonHeight);
         }
 
       if (maxButton.isVisible())
         {
-	  loc -= buttonWidth + 2;
-	  maxButton.setBounds(loc, top, buttonWidth, buttonHeight);
+          int buttonWidth = maxIcon.getIconWidth();
+          loc -= buttonWidth + 2;
+          maxButton.setBounds(loc, top, buttonWidth, buttonHeight);
         }
 
       if (iconButton.isVisible())
         {
-	  loc -= buttonWidth + 2;
-	  iconButton.setBounds(loc, top, buttonWidth, buttonHeight);
+          int buttonWidth = iconIcon.getIconWidth();
+          loc -= buttonWidth + 2;
+          iconButton.setBounds(loc, top, buttonWidth, buttonHeight);
         }
 
       if (title != null)
@@ -436,6 +484,7 @@ public class BasicInternalFrameTitlePane extends JComponent
      */
     public void removeLayoutComponent(Component c)
     {
+      // Nothing to do here.
     }
   }
 
@@ -467,6 +516,7 @@ public class BasicInternalFrameTitlePane extends JComponent
       // These buttons cannot be given focus.
       return false;
     }
+
   }
 
   /** The action command for the Close action. */
@@ -514,18 +564,6 @@ public class BasicInternalFrameTitlePane extends JComponent
   /** The button that maximizes the JInternalFrame. */
   protected JButton maxButton;
 
-  /** Active background color. */
-  protected Color activeBGColor;
-
-  /** Active foreground color. */
-  protected Color activeFGColor;
-
-  /** Inactive background color. */
-  protected Color inactiveBGColor;
-
-  /** Inactive foreground color. */
-  protected Color inactiveFGColor;
-
   /** The icon displayed in the restore button. */
   protected Icon minIcon = BasicIconFactory.createEmptyFrameIcon();
 
@@ -535,6 +573,9 @@ public class BasicInternalFrameTitlePane extends JComponent
   /** The icon displayed in the iconify button. */
   protected Icon iconIcon = BasicIconFactory.createEmptyFrameIcon();
 
+  /** The icon displayed in the close button. */
+  protected Icon closeIcon;
+  
   /** The JInternalFrame that this TitlePane is used in. */
   protected JInternalFrame frame;
 
@@ -592,6 +633,7 @@ public class BasicInternalFrameTitlePane extends JComponent
     setOpaque(true);
 
     setBackground(Color.LIGHT_GRAY);
+    setOpaque(true);
 
     installTitlePane();
   }
@@ -657,7 +699,7 @@ public class BasicInternalFrameTitlePane extends JComponent
    */
   protected void installListeners()
   {
-    propertyChangeListener = new PropertyChangeHandler();
+    propertyChangeListener = createPropertyChangeListener();
     frame.addPropertyChangeListener(propertyChangeListener);
   }
 
@@ -675,14 +717,15 @@ public class BasicInternalFrameTitlePane extends JComponent
    */
   protected void installDefaults()
   {
-    // FIXME: move icons to defaults.
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-
-    setFont(defaults.getFont("InternalFrame.titleFont"));
-    activeFGColor = defaults.getColor("InternalFrame.activeTitleForeground");
-    activeBGColor = defaults.getColor("InternalFrame.activeTitleBackground");
-    inactiveFGColor = defaults.getColor("InternalFrame.inactiveTitleForeground");
-    inactiveBGColor = defaults.getColor("InternalFrame.inactiveTitleBackground");
+    title.setFont(UIManager.getFont("InternalFrame.titleFont"));
+    selectedTextColor = UIManager.getColor("InternalFrame.activeTitleForeground");
+    selectedTitleColor = UIManager.getColor("InternalFrame.activeTitleBackground");
+    notSelectedTextColor = UIManager.getColor("InternalFrame.inactiveTitleForeground");
+    notSelectedTitleColor = UIManager.getColor("InternalFrame.inactiveTitleBackground");
+  
+    closeIcon = UIManager.getIcon("InternalFrame.closeIcon");
+    iconIcon = UIManager.getIcon("InternalFrame.iconifyIcon");
+    maxIcon = UIManager.getIcon("InternalFrame.maximizeIcon");
   }
 
   /**
@@ -691,10 +734,14 @@ public class BasicInternalFrameTitlePane extends JComponent
   protected void uninstallDefaults()
   {
     setFont(null);
-    activeFGColor = null;
-    activeBGColor = null;
-    inactiveFGColor = null;
-    inactiveBGColor = null;
+    selectedTextColor = null;
+    selectedTitleColor = null;
+    notSelectedTextColor = null;
+    notSelectedTitleColor = null;
+    
+    closeIcon = null;
+    iconIcon = null;
+    maxIcon = null;
   }
 
   /**
@@ -703,23 +750,30 @@ public class BasicInternalFrameTitlePane extends JComponent
   protected void createButtons()
   {
     closeButton = new PaneButton(closeAction);
+    closeButton.setText(null);
     if (!frame.isClosable())
       closeButton.setVisible(false);
     iconButton = new PaneButton(iconifyAction);
+    iconButton.setText(null);
     if (!frame.isIconifiable())
       iconButton.setVisible(false);
     maxButton = new PaneButton(maximizeAction);
+    maxButton.setText(null);
     if (!frame.isMaximizable())
       maxButton.setVisible(false);
   }
 
   /**
-   * This method sets the icons in the buttons. This is a no-op method here, it
-   * can be overridden by subclasses to set icons for the minimize-, maximize-
-   * and close-buttons.
+   * Set icons for the minimize-, maximize- and close-buttons.
    */
   protected void setButtonIcons()
   {
+    if (closeIcon != null && closeButton != null)
+      closeButton.setIcon(closeIcon);
+    if (iconIcon != null && iconButton != null)
+      iconButton.setIcon(iconIcon);
+    if (maxIcon != null && maxButton != null)
+      maxButton.setIcon(maxIcon);
   }
 
   /**
@@ -821,15 +875,16 @@ public class BasicInternalFrameTitlePane extends JComponent
   public void paintComponent(Graphics g)
   {
     paintTitleBackground(g);
-    Font f = g.getFont();
-    FontMetrics fm = g.getFontMetrics(f);
     if (frame.getTitle() != null && title != null)
       {
 	Color saved = g.getColor();
+        Font f = title.getFont();
+        g.setFont(f);
+        FontMetrics fm = g.getFontMetrics(f);
 	if (frame.isSelected())
-	  g.setColor(activeFGColor);
+	  g.setColor(selectedTextColor);
 	else
-	  g.setColor(inactiveFGColor);
+	  g.setColor(notSelectedTextColor);
 	title.setText(getTitle(frame.getTitle(), fm, title.getBounds().width));
 	SwingUtilities.paintComponent(g, title, null, title.getBounds());
 	g.setColor(saved);
@@ -843,14 +898,17 @@ public class BasicInternalFrameTitlePane extends JComponent
    */
   protected void paintTitleBackground(Graphics g)
   {
+    if (!isOpaque())
+      return;
+
     Color saved = g.getColor();
     Dimension dims = getSize();
 
     Color bg = getBackground();
     if (frame.isSelected())
-      bg = activeBGColor;
+      bg = selectedTitleColor;
     else
-      bg = inactiveBGColor;
+      bg = notSelectedTitleColor;
     g.setColor(bg);
     g.fillRect(0, 0, dims.width, dims.height);
     g.setColor(saved);

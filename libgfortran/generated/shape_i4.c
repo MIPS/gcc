@@ -33,11 +33,15 @@ Boston, MA 02110-1301, USA.  */
 #include <assert.h>
 #include "libgfortran.h"
 
-extern void shape_4 (gfc_array_i4 * ret, const gfc_array_i4 * array);
+#if defined (HAVE_GFC_INTEGER_4)
+
+extern void shape_4 (gfc_array_i4 * const restrict ret, 
+	const gfc_array_i4 * const restrict array);
 export_proto(shape_4);
 
 void
-shape_4 (gfc_array_i4 * ret, const gfc_array_i4 * array)
+shape_4 (gfc_array_i4 * const restrict ret, 
+	const gfc_array_i4 * const restrict array)
 {
   int n;
   index_type stride;
@@ -52,3 +56,5 @@ shape_4 (gfc_array_i4 * ret, const gfc_array_i4 * array)
         array->dim[n].ubound + 1 - array->dim[n].lbound;
     }
 }
+
+#endif

@@ -48,7 +48,7 @@ import javax.swing.plaf.DesktopPaneUI;
 
 /**
  * JDesktopPane is a container (usually for JInternalFrames) that simulates a
- * desktop. Typically, the user will create JInternalFrames and place thme in
+ * desktop. Typically, the user will create JInternalFrames and place them in
  * a JDesktopPane. The user can then interact with JInternalFrames like they
  * usually would with JFrames. The actions (minimize, maximize, close, etc)
  * are done by using a DesktopManager that is associated with the
@@ -97,6 +97,7 @@ public class JDesktopPane extends JLayeredPane implements Accessible
      */
     protected AccessibleJDesktopPane()
     {
+      // Nothing to do here.
     }
 
     /**
@@ -246,6 +247,7 @@ public class JDesktopPane extends JLayeredPane implements Accessible
           }
         catch (PropertyVetoException e)
           {
+            // We do nothing when the attempt is vetoed.
           }
       }
     selectedFrame = null;
@@ -259,6 +261,7 @@ public class JDesktopPane extends JLayeredPane implements Accessible
       }
     catch (PropertyVetoException e)
       {
+        // We do nothing when the attempt is vetoed.
       }
   }
 

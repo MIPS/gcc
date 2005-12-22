@@ -92,11 +92,6 @@ do { \
     builtin_define ("__HITACHI__"); \
   builtin_define (TARGET_LITTLE_ENDIAN \
 		  ? "__LITTLE_ENDIAN__" : "__BIG_ENDIAN__"); \
-  if (flag_pic) \
-    { \
-      builtin_define ("__pic__"); \
-      builtin_define ("__PIC__"); \
-    } \
 } while (0)
 
 /* We can not debug without a frame pointer.  */
@@ -486,6 +481,10 @@ do {									\
     flag_finite_math_only.  We set it to 2 here so we know if the user	\
     explicitly requested this to be on or off.  */			\
   flag_finite_math_only = 2;						\
+  /* If flag_schedule_insns is 1, we set it to 2 here so we know if	\
+     the user explicitly requested this to be on or off.  */		\
+  if (flag_schedule_insns > 0)						\
+    flag_schedule_insns = 2;						\
 } while (0)
 
 #define ASSEMBLER_DIALECT assembler_dialect
@@ -661,6 +660,17 @@ do {									\
 	 SH3 and lower as they give spill failures for R0.  */		\
       if (!TARGET_HARD_SH4) 						\
         flag_schedule_insns = 0;		 			\
+      /* ??? Current exception handling places basic block boundaries	\
+	 after call_insns.  It causes the high pressure on R0 and gives	\
+	 spill failures for R0 in reload.  See PR 22553 and the thread	\
+	 on gcc-patches							\
+         <http://gcc.gnu.org/ml/gcc-patches/2005-10/msg00816.html>.  */	\
+      else if (flag_exceptions)						\
+	{								\
+	  if (flag_schedule_insns == 1)		 			\
+	    warning (0, "ignoring -fschedule-insns because of exception handling bug");	\
+	  flag_schedule_insns = 0;		 			\
+	}								\
     }									\
 									\
   if (align_loops == 0)							\
@@ -1152,7 +1162,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
       || GENERAL_REGISTER_P (REGNO)) \
    : (MODE) == V4SFmode \
    ? ((FP_REGISTER_P (REGNO) && ((REGNO) - FIRST_FP_REG) % 4 == 0) \
-      || (! TARGET_SHMEDIA && GENERAL_REGISTER_P (REGNO))) \
+      || GENERAL_REGISTER_P (REGNO)) \
    : (MODE) == V16SFmode \
    ? (TARGET_SHMEDIA \
       ? (FP_REGISTER_P (REGNO) && ((REGNO) - FIRST_FP_REG) % 16 == 0) \
@@ -1341,6 +1351,7 @@ enum reg_class
   DF_REGS,
   FPSCR_REGS,
   GENERAL_FP_REGS,
+  GENERAL_DF_REGS,
   TARGET_REGS,
   ALL_REGS,
   LIM_REG_CLASSES
@@ -1365,6 +1376,7 @@ enum reg_class
   "DF_REGS",		\
   "FPSCR_REGS",		\
   "GENERAL_FP_REGS",	\
+  "GENERAL_DF_REGS",	\
   "TARGET_REGS",	\
   "ALL_REGS",		\
 }
@@ -1402,7 +1414,9 @@ enum reg_class
 /* FPSCR_REGS:  */							\
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00800000 },	\
 /* GENERAL_FP_REGS:  */							\
-  { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x0102ff00 },	\
+  { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x03020000 },	\
+/* GENERAL_DF_REGS:  */							\
+  { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x0302ff00 },	\
 /* TARGET_REGS:  */							\
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x000000ff },	\
 /* ALL_REGS:  */							\
@@ -1590,6 +1604,7 @@ extern enum reg_class reg_class_from_letter[];
    ? GENERAL_REGS \
    : (CLASS)) \
 
+#if 0
 #define SECONDARY_INOUT_RELOAD_CLASS(CLASS,MODE,X,ELSE) \
   ((((REGCLASS_HAS_FP_REG (CLASS) 					\
       && (GET_CODE (X) == REG						\
@@ -1661,6 +1676,9 @@ extern enum reg_class reg_class_from_letter[];
       && (GET_CODE (X) == LABEL_REF || PIC_DIRECT_ADDR_P (X)))		\
    ? TARGET_REGS							\
    : SECONDARY_INOUT_RELOAD_CLASS((CLASS),(MODE),(X), NO_REGS))
+#else
+#define HAVE_SECONDARY_RELOADS
+#endif
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
