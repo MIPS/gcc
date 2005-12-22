@@ -1,6 +1,9 @@
 2005-12-22  Janis Johnson  <janis187@us.ibm.com>
 
-	* gcc.dg/dfp/usual-arith-conv.c: Rename from conversions-1.c.
+	* gcc.dg/dfp/usual-arith-conv-const.c: Remove mixed operations that
+	are now disallowed.
+
+	* gcc.dg/dfp/usual-arith-conv-const.c: Rename from conversions-1.c.
 
 	* gcc.dg/dfp/convert-complex.c: Use values that always convert.
 
