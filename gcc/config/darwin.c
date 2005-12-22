@@ -600,6 +600,49 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
   return ptr_ref;
 }
 
+/* APPLE LOCAL begin 4380289 */
+/* Force a Mach-O stub.  Expects MEM(SYM_REF(foo)).  No sanity
+   checking.  */
+static inline rtx
+machopic_force_stub (rtx target)
+{
+  rtx sym_ref = XEXP (target, 0);
+  rtx new_target;
+  enum machine_mode mem_mode = GET_MODE (target);
+  enum machine_mode sym_mode = GET_MODE (XEXP (target, 0));
+  tree decl = SYMBOL_REF_DECL (sym_ref);
+  const char *stub_name = XSTR (sym_ref, 0);
+
+  stub_name = machopic_indirection_name (sym_ref, /*stub_p=*/true);
+
+  new_target = gen_rtx_MEM (mem_mode, gen_rtx_SYMBOL_REF (sym_mode, stub_name));
+  SYMBOL_REF_DECL (XEXP (new_target, 0)) = decl;
+  MEM_READONLY_P (new_target) = 1;
+  MEM_NOTRAP_P (new_target) = 1;
+  return new_target;
+}
+
+/* APPLE LOCAL begin 4380289 */
+/* Like machopic_indirect_call_target, but always stubify,
+   and don't re-stubify anything already stubified.  */
+rtx
+machopic_force_indirect_call_target (rtx target)
+{
+  if (MEM_P (target))
+  {
+    rtx sym_ref = XEXP (target, 0);
+    const char *stub_name = XSTR (sym_ref, 0);
+    unsigned int stub_name_length = strlen (stub_name);
+      
+    /* If "$stub" suffix absent, add it.  */
+    if (stub_name_length < 6 || strcmp ("$stub", stub_name + stub_name_length - 5))
+      target = machopic_force_stub (target);
+  }
+
+  return target;
+}
+/* APPLE LOCAL end 4380289 */
+
 /* Transform TARGET (a MEM), which is a function call target, to the
    corresponding symbol_stub if necessary.  Return a new MEM.  */
 
@@ -613,18 +656,9 @@ machopic_indirect_call_target (rtx target)
       && GET_CODE (XEXP (target, 0)) == SYMBOL_REF
       && !(SYMBOL_REF_FLAGS (XEXP (target, 0))
 	   & MACHO_SYMBOL_FLAG_DEFINED))
-    {
-      rtx sym_ref = XEXP (target, 0);
-      const char *stub_name = machopic_indirection_name (sym_ref, 
-							 /*stub_p=*/true);
-      enum machine_mode mode = GET_MODE (sym_ref);
-      tree decl = SYMBOL_REF_DECL (sym_ref);
-      
-      XEXP (target, 0) = gen_rtx_SYMBOL_REF (mode, stub_name);
-      SYMBOL_REF_DECL (XEXP (target, 0)) = decl;
-      MEM_READONLY_P (target) = 1;
-      MEM_NOTRAP_P (target) = 1;
-    }
+    /* APPLE LOCAL begin 4380289 */
+    target = machopic_force_stub (target);
+    /* APPLE LOCAL end 4380289 */
 
   return target;
 }

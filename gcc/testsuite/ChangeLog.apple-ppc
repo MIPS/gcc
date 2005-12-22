@@ -1,3 +1,8 @@
+2005-12-21  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4380298, 4299630
+	* g++.dg/apple-longcall-3.C: New.
+
 2005-12-14  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4278774

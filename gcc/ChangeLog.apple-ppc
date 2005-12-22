@@ -1,3 +1,16 @@
+2005-12-21  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4380289, 4299630
+	* gcc/config/rs6000/rs6000.c (add_compiler_branch_island):
+	Remove one parameter.  (rs6000_output_mi_thunk): Update call
+	to add_compiler_branch_island.  (macho_branch_islands):
+	Rewrite.  (output_call): Rewrite.
+	* gcc/config/darwin-protos.h
+	(machopic_force_indirect_call_target): New.
+	* gcc/config/darwin.c (machopic_force_stub): New.
+	(machopic_force_indirect_call_target): Use it.
+	(machopic_indirect_call_target): Ditto.
+
 2005-12-20  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4385068

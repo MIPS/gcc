@@ -57,6 +57,8 @@ extern int machopic_operand_p (rtx);
 extern enum machopic_addr_class machopic_classify_symbol (rtx);
 
 extern rtx machopic_indirect_data_reference (rtx, rtx);
+/* APPLE LOCAL 4380289 */
+extern rtx machopic_force_indirect_call_target (rtx);
 extern rtx machopic_indirect_call_target (rtx);
 extern rtx machopic_legitimize_pic_address (rtx, enum machine_mode, rtx);
 

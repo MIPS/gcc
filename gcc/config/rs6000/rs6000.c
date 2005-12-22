@@ -816,7 +816,8 @@ static int rs6000_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 static const char *invalid_arg_for_unprototyped_fn (tree, tree, tree);
 #if TARGET_MACHO
 static void macho_branch_islands (void);
-static void add_compiler_branch_island (tree, tree, int);
+/* APPLE LOCAL 4380289 */
+static tree add_compiler_branch_island (tree, int);
 static int no_previous_def (tree function_name);
 static tree get_prev_label (tree function_name);
 static void rs6000_darwin_file_start (void);
@@ -17697,15 +17698,10 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     }
   else
     {
-      tree labelname;
-      rtx label_rtx = gen_label_rtx ();
+      /* APPLE LOCAL begin 4380289 */
+      tree label_decl;
       int line_number = 0;
-      char *label_buf, temp_buf[256];
-      tree function_asm_name;
-      ASM_GENERATE_INTERNAL_LABEL (temp_buf, "L",
-				   CODE_LABEL_NUMBER (label_rtx));
-      label_buf = temp_buf[0] == '*' ? temp_buf + 1 : temp_buf;
-      labelname = get_identifier (label_buf);
+      /* APPLE LOCAL end 4380289 */
       /* APPLE LOCAL begin 3910248, 3915171 */
       for (insn = get_last_insn ();
 	   insn && (GET_CODE (insn) != NOTE 
@@ -17715,11 +17711,17 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
       /* APPLE LOCAL end 3910248, 3915171 */
       if (insn)
 	line_number = NOTE_LINE_NUMBER (insn);
-      function_asm_name = get_identifier (XSTR (symbol_ref, 0));
-      add_compiler_branch_island (labelname, function_asm_name, line_number);
+      /* APPLE LOCAL begin 4380289 */
+      /* This JMP is in a coalesced section, and Mach-O forbids us to
+	 directly reference anything else in a coalesced section; if
+	 our target gets coalesced away, the linker (static or
+	 dynamic) won't know where to send our JMP.  Ergo, force a
+	 stub.  */
+      label_decl = add_compiler_branch_island (function, line_number);
       /* Emit "jmp <function>, L42", and define L42 as a branch island.  */
-      insn = emit_jump_insn (gen_longjump (label_rtx,
+      insn = emit_jump_insn (gen_longjump (label_rtx (label_decl),
 					   XEXP (DECL_RTL (function), 0)));
+      /* APPLE LOCAL end 4380289 */
     }
   /* APPLE LOCAL end 4299630 */
   emit_barrier ();
@@ -19811,18 +19813,23 @@ rs6000_fatal_bad_address (rtx op)
 /* APPLE LOCAL mlongcall long names 4271187 */
 static GTY (()) tree branch_island_list = 0;
 
+/* APPLE LOCAL begin 4380289 */
 /* Remember to generate a branch island for far calls to the given
-   function.  */
+   function.  Force the creation of a Mach-O stub.  */
 
-static void
-add_compiler_branch_island (tree label_name, tree function_name,
-			    int line_number)
+static tree
+add_compiler_branch_island (tree function_name, int line_number)
 {
-  tree branch_island = build_tree_list (function_name, label_name);
+  tree branch_island;
+  tree label_decl = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+
+  branch_island = build_tree_list (function_name, label_decl);
   TREE_TYPE (branch_island) = build_int_cst (NULL_TREE, line_number);
   TREE_CHAIN (branch_island) = branch_island_list;
   branch_island_list = branch_island;
+  return label_decl;
 }
+/* APPLE LOCAL end 4380289 */
 
 #define BRANCH_ISLAND_LABEL_NAME(BRANCH_ISLAND)     TREE_VALUE (BRANCH_ISLAND)
 #define BRANCH_ISLAND_FUNCTION_NAME(BRANCH_ISLAND)  TREE_PURPOSE (BRANCH_ISLAND)
@@ -19838,84 +19845,53 @@ add_compiler_branch_island (tree label_name, tree function_name,
 static void
 macho_branch_islands (void)
 {
-  /* APPLE LOCAL begin mlongcall long names 4271187 */
-  char *tmp_buf;
+  /* APPLE LOCAL begin 4380289 */
   tree branch_island;
-  unsigned int label_len, name_len;
 
   for (branch_island = branch_island_list;
        branch_island;
        branch_island = TREE_CHAIN (branch_island))
     {
-      const char *label =
-	IDENTIFIER_POINTER (BRANCH_ISLAND_LABEL_NAME (branch_island));
-      tree function_name = BRANCH_ISLAND_FUNCTION_NAME (branch_island);
-      const char *name = IDENTIFIER_POINTER (function_name);
-      char *name_buf;
+      rtx operands[2];
+      rtx decl_rtl;
 
-      name_len = 2 + strlen (name);
-      name_buf = alloca (name_len);
-      label_len = 1 + strlen (label);
-      tmp_buf = alloca (512 + (4 * label_len) + (2 * name_len));
-      /* APPLE LOCAL end mlongcall long names 4271187 */
-
-      /* Cheap copy of the details from the Darwin ASM_OUTPUT_LABELREF().  */
-      if (name[0] == '*' || name[0] == '&')
-	strcpy (name_buf, name+1);
-      else
-	{
-	  name_buf[0] = '_';
-	  strcpy (name_buf+1, name);
-	}
-      strcpy (tmp_buf, "\n");
-      strcat (tmp_buf, label);
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
       if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
 	dbxout_stabd (N_SLINE, BRANCH_ISLAND_LINE_NUMBER (branch_island));
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
+      decl_rtl = DECL_RTL (BRANCH_ISLAND_FUNCTION_NAME (branch_island));
+      operands[0] = in_text_section ()
+	? machopic_indirect_call_target (decl_rtl)
+	: machopic_force_indirect_call_target (decl_rtl);
+      operands[1] = label_rtx (BRANCH_ISLAND_LABEL_NAME (branch_island));
       if (flag_pic)
 	{
-	  strcat (tmp_buf, ":\n\tmflr r0\n\tbcl 20,31,");
-	  strcat (tmp_buf, label);
-	  strcat (tmp_buf, "_pic\n");
-	  strcat (tmp_buf, label);
-	  /* APPLE LOCAL indirect calls in R12 */
-	  strcat (tmp_buf, "_pic:\n\tmflr r12\n");
-
-	  /* APPLE LOCAL indirect calls in R12 */
-	  strcat (tmp_buf, "\taddis r12,r12,ha16(");
-	  strcat (tmp_buf, name_buf);
-	  strcat (tmp_buf, " - ");
-	  strcat (tmp_buf, label);
-	  strcat (tmp_buf, "_pic)\n");
-
-	  strcat (tmp_buf, "\tmtlr r0\n");
-
-	  /* APPLE LOCAL indirect calls in R12 */
-	  strcat (tmp_buf, "\taddi r12,r12,lo16(");
-	  strcat (tmp_buf, name_buf);
-	  strcat (tmp_buf, " - ");
-	  strcat (tmp_buf, label);
-	  strcat (tmp_buf, "_pic)\n");
-
-	  /* APPLE LOCAL cleanup formatting */
-	  strcat (tmp_buf, "\tmtctr r12\n\tbctr");
+	  output_asm_insn ("\n%1:\n\tmflr r0\n"
+			   "\tbcl 20,31,%1_pic\n"
+			   "%1_pic:\n"
+			   "\tmflr r12\n"
+			   "\taddis r12,r12,ha16(%0 - %1_pic)\n"
+			   "\tmtlr r0\n"
+			   "\taddi r12,r12,lo16(%0 - %1_pic)\n"
+			   "\tmtctr r12\n"
+			   "\tbctr",
+			   operands);
 	}
       else
 	{
-	  /* APPLE LOCAL cleanup formatting */
-	  strcat (tmp_buf, ":\n\tlis r12,hi16(");
-	  strcat (tmp_buf, name_buf);
-	  strcat (tmp_buf, ")\n\tori r12,r12,lo16(");
-	  strcat (tmp_buf, name_buf);
-	  strcat (tmp_buf, ")\n\tmtctr r12\n\tbctr");
+	  output_asm_insn ("\n%1:\n"
+			   "\tlis r12,hi16(%0)\n"
+			   "\tori r12,r12,lo16(%0)\n"
+			   "\tmtctr r12\n"
+			   "\tbctr",
+			   operands);
 	}
-      output_asm_insn (tmp_buf, 0);
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
       if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
 	dbxout_stabd (N_SLINE, BRANCH_ISLAND_LINE_NUMBER (branch_island));
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
     }
+  /* APPLE LOCAL end 4380289 */
 
   branch_island_list = 0;
 }
@@ -19960,89 +19936,62 @@ output_call (rtx insn, rtx *operands, int dest_operand_number,
 	     int cookie_operand_number)
 {
   static char buf[256];
-  /* APPLE LOCAL begin long-branch */
-  const char *far_call_instr_str=NULL, *near_call_instr_str=NULL;
-  rtx pattern;
-
-  switch (GET_CODE (insn))
-    {
-    case CALL_INSN:
-      far_call_instr_str = "jbsr";
-      near_call_instr_str = "bl";
-      pattern = NULL_RTX;
-      break;
-    case JUMP_INSN:
-      far_call_instr_str = "jmp";
-      near_call_instr_str = "b";
-      pattern = NULL_RTX;
-      break;
-    case INSN:
-      pattern = PATTERN (insn);
-      break;
-    default:
-      gcc_unreachable ();
-      break;
-    }
-    /* APPLE LOCAL end long-branch */
 
   if (GET_CODE (operands[dest_operand_number]) == SYMBOL_REF
       && (INTVAL (operands[cookie_operand_number]) & CALL_LONG))
     {
       tree labelname;
-      tree funname = get_identifier (XSTR (operands[dest_operand_number], 0));
+      /* APPLE LOCAL begin 4380289 */
+      tree funname = SYMBOL_REF_DECL (operands[dest_operand_number]);
 
-      /* APPLE LOCAL begin long-branch */
-      /* This insn represents a prologue or epilogue.  */
-      if ((pattern != NULL_RTX) && GET_CODE (pattern) == PARALLEL)
+      if (!funname)
 	{
-	  rtx parallel_first_op = XVECEXP (pattern, 0, 0);
-	  switch (GET_CODE (parallel_first_op))
-	    {
-	    case CLOBBER:	/* Prologue: a call to save_world.  */
-	      far_call_instr_str = "jbsr";
-	      near_call_instr_str = "bl";
-	      break;
-	    case RETURN:	/* Epilogue: a call to rest_world.  */
-	      far_call_instr_str = "jmp";
-	      near_call_instr_str = "b";
-	      break;
-	    default:
-	      abort();
-	      break;
-	    }
+	  funname = build_decl_stat (FUNCTION_DECL,
+				     get_identifier (XSTR (operands[dest_operand_number], 0)),
+				     void_type_node);
+	  set_decl_rtl (funname, operands[dest_operand_number]);
 	}
-      /* APPLE LOCAL end long-branch */
 
-      if (no_previous_def (funname))
-	{
-	  int line_number = 0;
-	  rtx label_rtx = gen_label_rtx ();
-	  char *label_buf, temp_buf[256];
-	  ASM_GENERATE_INTERNAL_LABEL (temp_buf, "L",
-				       CODE_LABEL_NUMBER (label_rtx));
-	  label_buf = temp_buf[0] == '*' ? temp_buf + 1 : temp_buf;
-	  labelname = get_identifier (label_buf);
-	  /* APPLE LOCAL begin 3910248, 3915171 */
- 	  for (;
- 	       insn && (GET_CODE (insn) != NOTE 
-			|| NOTE_LINE_NUMBER (insn) < 0);
- 	       insn = PREV_INSN (insn))
-	    ;
-	  /* APPLE LOCAL end 3910248, 3915171 */
-	  if (insn)
-	    line_number = NOTE_LINE_NUMBER (insn);
-	  add_compiler_branch_island (labelname, funname, line_number);
-	}
-      else
-	labelname = get_prev_label (funname);
+      {
+	int line_number = 0;
+
+	/* APPLE LOCAL begin 3910248, 3915171 */
+	for (;
+	     insn && (GET_CODE (insn) != NOTE 
+		      || NOTE_LINE_NUMBER (insn) < 0);
+	     insn = PREV_INSN (insn))
+	  ;
+	/* APPLE LOCAL end 3910248, 3915171 */
+	if (insn)
+	  line_number = NOTE_LINE_NUMBER (insn);
+
+	labelname = no_previous_def (funname)
+	  ? add_compiler_branch_island (funname, line_number)
+	  : get_prev_label (funname);
+      }
+
+      /* If we're generating a long call from the text section, we
+	 can use the usual rules for Mach-O indirection.  If we're
+	 in a coalesced text section, we must always refer to a
+	 Mach-O stub; if refer directly to our callee, and our
+	 callee is also in a coalesced section, and is coalesced
+	 away, the linkers (static and dynamic) won't know where
+	 to send us.  Ergo, when we're in a coalesced section, we
+	 must always use a stub for all callees.  */
+      
+      operands[dest_operand_number] = in_text_section ()
+	? machopic_indirect_call_target (operands[dest_operand_number])
+	: machopic_force_indirect_call_target (operands[dest_operand_number]);
+      operands[1+dest_operand_number] = label_rtx (labelname);
 
       /* "jbsr foo, L42" is Mach-O for "Link as 'bl foo' if a 'bl'
 	 instruction will reach 'foo', otherwise link as 'bl L42'".
 	 "L42" should be a 'branch island', that will do a far jump to
 	 'foo'.  Branch islands are generated in
 	 macho_branch_islands().  */
-      sprintf (buf, "jbsr %%z%d,%.246s",
-	       dest_operand_number, IDENTIFIER_POINTER (labelname));
+      sprintf (buf, "jbsr %%z%d,%%l%d",
+	       dest_operand_number, 1+dest_operand_number);
+      /* APPLE LOCAL end 4380289 */
     }
   else
     sprintf (buf, "bl %%z%d", dest_operand_number);
