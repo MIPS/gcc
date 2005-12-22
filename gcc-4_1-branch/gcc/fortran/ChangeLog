@@ -1,10 +1,25 @@
+2005-12-22  Steven G. Kargl  <kargls@comcast.net>
+
+	* decl.c (gfc_match_old_kind_spec,match_type_spec): Use gfc_std_notify
+	to report nonstandard intrinsic type declarations.
+
+2005-12-21  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25423
+	* parse.c (parse_where_block): break instead of "fall
+	through" after parsing nested WHERE construct.
+
+2005-12-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/24268
+	* io.c (format_lex): Allow whitespace within text of format specifier.
+
 2005-12-20  Steven G. Kargl  <kargls@comcast.net>
             Tobias Schlueter <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/25458
 	* simplify.c (gfc_simplify_ibset, gfc_simplify_not): Add call to
 	twos_complement.
-
 
 2005-12-14  Erik Edelmann  <eedelman@gcc.gnu.org>
 
@@ -8847,3 +8862,4 @@
 	(g95_conv_intrinsic_anyall): New function.
 	* iresolve.c (g95_resolve_any, g95_resolve_all): Include rank in
 	mangled name
+

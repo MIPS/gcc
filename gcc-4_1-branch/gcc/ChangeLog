@@ -1,3 +1,29 @@
+2005-12-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR debug/25518
+	* dwarf2out.c (dwarf2out_switch_text_section): Declare when
+	DWARF2_UNWIND_INFO is defined or when DWARF2_DEBUGGING_INFO is
+	defined.
+
+2005-12-20  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/24793
+	* tree-ssa-loop-ivopts.c (get_ref_tag): Remember the
+	original reference if there are subvars.
+	* tree-ssa-operands.c (get_tmr_operands): Handle subvars.
+
+2005-12-21  Steven Bosscher  <stevenb@suse.de>
+
+	PR rtl-optimization/25196
+	* postreload-gcse.c (record_last_set_info): Notice stack pointer
+	changes in push insns without REG_INC notes.
+
+2005-12-21  Andrew Haley  <aph@redhat.com>
+
+	PR middle-end/25121
+	* recog.c (peephole2_optimize): Don't peephole any
+	RTX_FRAME_RELATED_P insns.
+
 2005-12-20  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/24306
