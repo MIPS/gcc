@@ -1,3 +1,7 @@
+2005-12-22  Paolo Bonzini  <bonzini@gnu.org>
+
+	* df-scan.c (df_ref_unlink): Fix thinko when REF == CHAIN. 
+
 2005-12-22  Danny Berlin <dberlin@dberlin.org>
     	    Richard Sandiford  <richard@codesourcery.com>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>

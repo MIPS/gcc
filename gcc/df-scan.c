@@ -591,8 +591,9 @@ df_ref_unlink (struct df_ref * chain, struct df_ref * ref)
 	    }
 	  else
 	    {
+	      chain = ref->next_ref;
 	      ref->next_ref = NULL;
-	      return ref->next_ref;
+	      return chain;
 	    }
 	}
 
