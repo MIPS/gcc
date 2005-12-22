@@ -1,3 +1,9 @@
+2005-12-22  Stuart Hastings  <stuart@apple.com>
+
+	* gcc/config/darwin.c (machopic_force_indirect_call_target):
+	Remove extra APPLE LOCAL marker.
+	* gcc/config/rs6000/rs6000.c (output_call): Remove blank line.
+
 2005-12-21  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4380289, 4299630

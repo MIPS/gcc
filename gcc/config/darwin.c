@@ -622,7 +622,6 @@ machopic_force_stub (rtx target)
   return new_target;
 }
 
-/* APPLE LOCAL begin 4380289 */
 /* Like machopic_indirect_call_target, but always stubify,
    and don't re-stubify anything already stubified.  */
 rtx
