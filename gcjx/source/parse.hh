@@ -86,8 +86,8 @@ class parse
   token &assume (token_value);
 
   // Classify tokens.
-  static bool parse::basic_type_p (token_value);
-  static bool parse::assignment_op_p (token_value);
+  static bool basic_type_p (token_value);
+  static bool assignment_op_p (token_value);
 
   // Locate the lexically enclosing class with the given name.
   model_class *find_lexically_enclosing_class (const std::string &);

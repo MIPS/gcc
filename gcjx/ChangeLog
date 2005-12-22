@@ -1,3 +1,9 @@
+2005-12-21  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* source/parse.hh (parse::basic_type_p(token_value)): Remove extra
+	"parse::" qualification.
+	(parse::assignment_op_p(token_value)): Likewise.
+
 2005-12-21  Tom Tromey  <tromey@redhat.com>
 
 	* TODO: Updated.
