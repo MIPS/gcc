@@ -63,8 +63,8 @@
 #include <debug/debug.h>
 #include <bits/predefined_ops.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // is_heap, a predicate testing whether or not a range is
   // a heap.  This function is an extension, not part of the C++
   // standard.
@@ -395,10 +395,6 @@ namespace std
       std::sort_heap(__first, __last, __gnu_cxx::__ops::less<_ValueType>());
     }
  
-} // namespace std
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _STL_HEAP_H */
-
-// Local Variables:
-// mode:C++
-// End:

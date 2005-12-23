@@ -36,8 +36,8 @@
 
 #include <ext/string_util.h>
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     class __sso_string
     : protected __string_utility<_CharT, _Traits, _Alloc>
@@ -568,6 +568,7 @@ namespace __gnu_cxx
 	return true;
       return false;
     }
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _SSO_STRING_H */

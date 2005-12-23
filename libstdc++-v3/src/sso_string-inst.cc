@@ -41,8 +41,8 @@
 # define C char
 #endif
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   using std::allocator;
 
   template class __sso_string<C, std::char_traits<C>, allocator<C> >;
@@ -69,4 +69,5 @@ namespace __gnu_cxx
   template
     void
     RS::_M_construct(const C*, const C*, std::forward_iterator_tag);
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE

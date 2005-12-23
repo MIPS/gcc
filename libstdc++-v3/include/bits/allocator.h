@@ -51,8 +51,8 @@
 // Define the base class to std::allocator.
 #include <bits/c++allocator.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template<typename _Tp>
     class allocator;
 
@@ -144,6 +144,7 @@ namespace std
 	  swap(__one, __two);
       }
     };
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

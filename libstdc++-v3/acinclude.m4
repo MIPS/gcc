@@ -577,7 +577,7 @@ AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
   fi
   
   # Export file names for ABI checking.
-  baseline_dir="$glibcxx_srcdir/config/abi/${abi_baseline_pair}\$(MULTISUBDIR)"
+  baseline_dir="$glibcxx_srcdir/config/abi/post/${abi_baseline_pair}\$(MULTISUBDIR)"
   AC_SUBST(baseline_dir)
 ])
 
@@ -1742,7 +1742,7 @@ AC_DEFUN([GLIBCXX_ENABLE_SYMVERS], [
 
 GLIBCXX_ENABLE(symvers,$1,[=STYLE],
   [enables symbol versioning of the shared library],
-  [permit yes|no|gnu|darwin-export])
+  [permit yes|no|gnu|gnu-versioned-namespace|darwin-export])
 
 # If we never went through the GLIBCXX_CHECK_LINKER_FEATURES macro, then we
 # don't know enough about $LD to do tricks...
@@ -1769,7 +1769,7 @@ if test x$enable_symvers = xyes ; then
 fi
 
 # Check to see if 'gnu' can win.
-if test $enable_symvers = gnu; then
+if test $enable_symvers = gnu || test $enable_symvers = gnu-versioned-namespace; then
   # Check to see if libgcc_s exists, indicating that shared libgcc is possible.
   AC_MSG_CHECKING([for shared libgcc])
   ac_save_CFLAGS="$CFLAGS"
@@ -1825,17 +1825,29 @@ fi
 # Everything parsed; figure out what file to use.
 case $enable_symvers in
   no)
-    SYMVER_MAP=config/linker-map.dummy
+    SYMVER_FILE=config/abi/pre/none.ver
     ;;
   gnu)
-    SYMVER_MAP=config/linker-map.gnu
-    AC_DEFINE(_GLIBCXX_SYMVER, 1, 
-              [Define to use GNU symbol versioning in the shared library.])
+    SYMVER_FILE=config/abi/pre/gnu.ver
+    AC_DEFINE(_GLIBCXX_SYMVER_GNU, 1, 
+              [Define to use GNU versioning in the shared library.])
+    ;;
+  gnu-versioned-namespace)
+    SYMVER_FILE=config/abi/pre/gnu-versioned-namespace.ver
+    AC_DEFINE(_GLIBCXX_SYMVER_GNU_NAMESPACE, 1, 
+              [Define to use GNU namespace versioning in the shared library.])
     ;;
   darwin-export)
-    SYMVER_MAP=config/linker-map.gnu
+    SYMVER_FILE=config/abi/pre/gnu.ver
+    AC_DEFINE(_GLIBCXX_SYMVER_DARWIN, 1, 
+              [Define to use darwin versioning in the shared library.])
     ;;
 esac
+
+if test x$enable_symvers != xno ; then
+  AC_DEFINE(_GLIBCXX_SYMVER, 1,
+	 [Define to use symbol versioning in the shared library.])
+fi
 
 AH_VERBATIM([_GLIBCXX_SYMVERextra],
 [/* Define symbol versioning in assember directives. If symbol
@@ -1851,9 +1863,10 @@ AH_VERBATIM([_GLIBCXX_SYMVERextra],
   #define _GLIBCXX_ASM_SYMVER(cur, old, version)
 #endif])
 
-AC_SUBST(SYMVER_MAP)
+AC_SUBST(SYMVER_FILE)
 AC_SUBST(port_specific_symbol_files)
 GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_GNU, test $enable_symvers = gnu)
+GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_GNU_NAMESPACE, test $enable_symvers = gnu-versioned-namespace)
 GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_DARWIN_EXPORT, dnl
   test $enable_symvers = darwin-export)
 AC_MSG_NOTICE(versioning on shared library symbols is $enable_symvers)

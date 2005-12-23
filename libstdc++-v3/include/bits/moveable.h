@@ -41,8 +41,7 @@
 #include <cstddef>
 #include <bits/stl_iterator_base_types.h>
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
   template<typename _Tp>
     struct __is_moveable
@@ -242,6 +241,6 @@ namespace __gnu_cxx
     __make_move_iterator(const _Iterator& __iterator)
     { return __move_iterator<_Iterator>(__iterator); }
 
-} // namespace __gnu_cxx
+_GLIBCXX_END_NAMESPACE
 
 #endif

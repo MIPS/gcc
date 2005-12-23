@@ -664,8 +664,17 @@
 /* Define if the compiler is configured for setjmp/longjmp exceptions. */
 #undef _GLIBCXX_SJLJ_EXCEPTIONS
 
-/* Define to use GNU symbol versioning in the shared library. */
+/* Define to use symbol versioning in the shared library. */
 #undef _GLIBCXX_SYMVER
+
+/* Define to use darwin versioning in the shared library. */
+#undef _GLIBCXX_SYMVER_DARWIN
+
+/* Define to use GNU versioning in the shared library. */
+#undef _GLIBCXX_SYMVER_GNU
+
+/* Define to use GNU namespace versioning in the shared library. */
+#undef _GLIBCXX_SYMVER_GNU_NAMESPACE
 
 /* Define symbol versioning in assember directives. If symbol
    versioning is being used, and the assembler supports this kind of

@@ -66,8 +66,8 @@
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/moveable.h>
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+
   /**
    *  @if maint
    *  @brief This function controls the size of memory nodes.
@@ -322,6 +322,17 @@ namespace _GLIBCXX_STD
   // According to the resolution of DR179 not only the various comparison
   // operators but also operator- must accept mixed iterator/const_iterator
   // parameters.
+  template<typename _Tp, typename _Ref, typename _Ptr>
+    inline typename _Deque_iterator<_Tp, _Ref, _Ptr>::difference_type
+    operator-(const _Deque_iterator<_Tp, _Ref, _Ptr>& __x,
+	      const _Deque_iterator<_Tp, _Ref, _Ptr>& __y)
+    {
+      return typename _Deque_iterator<_Tp, _Ref, _Ptr>::difference_type
+	(_Deque_iterator<_Tp, _Ref, _Ptr>::_S_buffer_size())
+	* (__x._M_node - __y._M_node - 1) + (__x._M_cur - __x._M_first)
+	+ (__y._M_last - __y._M_cur);
+    }
+
   template<typename _Tp, typename _RefL, typename _PtrL,
 	   typename _RefR, typename _PtrR>
     inline typename _Deque_iterator<_Tp, _RefL, _PtrL>::difference_type
@@ -905,7 +916,7 @@ namespace _GLIBCXX_STD
       {
 	const size_type __len = size();
 	if (__new_size < __len)
-	  _M_erase_at_end(this->_M_impl._M_start + __new_size);
+	  _M_erase_at_end(this->_M_impl._M_start + difference_type(__new_size));
 	else
 	  insert(this->_M_impl._M_finish, __new_size - __len, __x);
       }
@@ -1178,7 +1189,7 @@ namespace _GLIBCXX_STD
        *  specified location.
        */
       iterator
-      insert(iterator position, const value_type& __x);
+      insert(iterator __position, const value_type& __x);
 
       /**
        *  @brief  Inserts a number of copies of given data into the %deque.
@@ -1404,7 +1415,7 @@ namespace _GLIBCXX_STD
 	  }
 	else
 	  {
-	    _M_erase_at_end(begin() + __n);
+	    _M_erase_at_end(begin() + difference_type(__n));
 	    std::fill(begin(), end(), __val);
 	  }
       }
@@ -1579,7 +1590,7 @@ namespace _GLIBCXX_STD
        *  @endif
        */
       void
-      _M_reserve_map_at_back (size_type __nodes_to_add = 1)
+      _M_reserve_map_at_back(size_type __nodes_to_add = 1)
       {
 	if (__nodes_to_add + 1 > this->_M_impl._M_map_size
 	    - (this->_M_impl._M_finish._M_node - this->_M_impl._M_map))
@@ -1668,13 +1679,15 @@ namespace _GLIBCXX_STD
     inline void
     swap(deque<_Tp,_Alloc>& __x, deque<_Tp,_Alloc>& __y)
     { __x.swap(__y); }
-} // namespace std
 
-namespace __gnu_cxx
-{
+_GLIBCXX_END_NESTED_NAMESPACE
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template<typename _Tp, typename _Alloc>
-    struct __is_moveable<_GLIBCXX_STD::deque<_Tp, _Alloc> >
+    struct __is_moveable<_GLIBCXX_STD_MOVE::deque<_Tp, _Alloc> >
     { static const bool __value = true; };
-}
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _DEQUE_H */

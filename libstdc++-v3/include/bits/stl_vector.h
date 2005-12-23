@@ -66,8 +66,8 @@
 #include <bits/concept_check.h>
 #include <bits/moveable.h>
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+
   /**
    *  @if maint
    *  See bits/stl_deque.h's _Deque_base for an explanation.
@@ -1069,14 +1069,15 @@ namespace _GLIBCXX_STD
     inline void
     swap(vector<_Tp, _Alloc>& __x, vector<_Tp, _Alloc>& __y)
     { __x.swap(__y); }
-} // namespace std
 
+_GLIBCXX_END_NESTED_NAMESPACE
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template<typename _Tp, typename _Alloc>
-    struct __is_moveable<_GLIBCXX_STD::vector<_Tp, _Alloc> >
+    struct __is_moveable<_GLIBCXX_STD_MOVE::vector<_Tp, _Alloc> >
     { static const bool __value = true; };
-}
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _VECTOR_H */

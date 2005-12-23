@@ -61,8 +61,8 @@
 #ifndef _DEQUE_TCC
 #define _DEQUE_TCC 1
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+
   template<typename _Tp, typename _Alloc>
     deque<_Tp, _Alloc>&
     deque<_Tp, _Alloc>::
@@ -87,14 +87,14 @@ namespace _GLIBCXX_STD
   template<typename _Tp, typename _Alloc>
     typename deque<_Tp, _Alloc>::iterator
     deque<_Tp, _Alloc>::
-    insert(iterator position, const value_type& __x)
+    insert(iterator __position, const value_type& __x)
     {
-      if (position._M_cur == this->_M_impl._M_start._M_cur)
+      if (__position._M_cur == this->_M_impl._M_start._M_cur)
 	{
 	  push_front(__x);
 	  return this->_M_impl._M_start;
 	}
-      else if (position._M_cur == this->_M_impl._M_finish._M_cur)
+      else if (__position._M_cur == this->_M_impl._M_finish._M_cur)
 	{
 	  push_back(__x);
 	  iterator __tmp = this->_M_impl._M_finish;
@@ -102,7 +102,7 @@ namespace _GLIBCXX_STD
 	  return __tmp;
 	}
       else
-        return _M_insert_aux(position, __x);
+        return _M_insert_aux(__position, __x);
     }
 
   template<typename _Tp, typename _Alloc>
@@ -112,8 +112,8 @@ namespace _GLIBCXX_STD
     {
       iterator __next = __position;
       ++__next;
-      const size_type __index = __position - begin();
-      if (__index < (size() >> 1))
+      const difference_type __index = __position - begin();
+      if (static_cast<size_type>(__index) < (size() >> 1))
 	{
 	  if (__position != begin())
 	    std::__move_backward(begin(), __position, __next);
@@ -185,8 +185,7 @@ namespace _GLIBCXX_STD
 	  try
 	    {
 	      std::__uninitialized_fill_a(__new_start, this->_M_impl._M_start,
-					  __x,
-					  _M_get_Tp_allocator());
+					  __x, _M_get_Tp_allocator());
 	      this->_M_impl._M_start = __new_start;
 	    }
 	  catch(...)
@@ -639,27 +638,27 @@ namespace _GLIBCXX_STD
         }
       }
 
-  template<typename _Tp, typename _Alloc>
-    void
-    deque<_Tp, _Alloc>::
-    _M_destroy_data_aux(iterator __first, iterator __last)
-    {
-      for (_Map_pointer __node = __first._M_node + 1;
-           __node < __last._M_node; ++__node)
-	std::_Destroy(*__node, *__node + _S_buffer_size(),
-		      _M_get_Tp_allocator());
+   template<typename _Tp, typename _Alloc>
+     void
+     deque<_Tp, _Alloc>::
+     _M_destroy_data_aux(iterator __first, iterator __last)
+     {
+       for (_Map_pointer __node = __first._M_node + 1;
+	    __node < __last._M_node; ++__node)
+	 std::_Destroy(*__node, *__node + _S_buffer_size(),
+		       _M_get_Tp_allocator());
 
-      if (__first._M_node != __last._M_node)
-	{
-	  std::_Destroy(__first._M_cur, __first._M_last,
-			_M_get_Tp_allocator());
-	  std::_Destroy(__last._M_first, __last._M_cur,
-			_M_get_Tp_allocator());
-	}
-      else
-        std::_Destroy(__first._M_cur, __last._M_cur,
-		      _M_get_Tp_allocator());
-    }
+       if (__first._M_node != __last._M_node)
+	 {
+	   std::_Destroy(__first._M_cur, __first._M_last,
+			 _M_get_Tp_allocator());
+	   std::_Destroy(__last._M_first, __last._M_cur,
+			 _M_get_Tp_allocator());
+	 }
+       else
+	 std::_Destroy(__first._M_cur, __last._M_cur,
+		       _M_get_Tp_allocator());
+     }
 
   template<typename _Tp, typename _Alloc>
     void
@@ -750,6 +749,7 @@ namespace _GLIBCXX_STD
       this->_M_impl._M_start._M_set_node(__new_nstart);
       this->_M_impl._M_finish._M_set_node(__new_nstart + __old_num_nodes - 1);
     }
-} // namespace std
+
+_GLIBCXX_END_NESTED_NAMESPACE
 
 #endif

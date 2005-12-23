@@ -1,6 +1,6 @@
 // Pair implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -63,8 +63,8 @@
 
 #include <bits/moveable.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   /// pair holds two objects of arbitrary type.
   template<class _T1, class _T2>
     struct pair
@@ -163,13 +163,15 @@ namespace std
     inline pair<_T1, _T2>
     make_pair(_T1 __x, _T2 __y)
     { return pair<_T1, _T2>(__x, __y); }
-} // namespace std
 
-namespace __gnu_cxx
-{
+_GLIBCXX_END_NAMESPACE
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template<typename _T1, typename _T2>
     struct __is_moveable<std::pair<_T1, _T2> >
     { static const bool __value = true; };
-}
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _PAIR_H */

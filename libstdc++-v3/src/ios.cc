@@ -36,8 +36,8 @@
 #include <limits>
 #include <bits/atomicity.h>
 
-namespace std 
-{  
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // Definitions for static const members of ios_base.
   const ios_base::fmtflags ios_base::boolalpha;
   const ios_base::fmtflags ios_base::dec;
@@ -193,4 +193,5 @@ namespace std
       }
     _M_callbacks = 0;
   }
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE

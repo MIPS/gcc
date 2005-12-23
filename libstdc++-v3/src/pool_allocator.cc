@@ -40,8 +40,8 @@ namespace __gnu_internal
   static __glibcxx_mutex_define_initialized(palloc_init_mutex);
 }
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   // Definitions for __pool_alloc_base.
   __pool_alloc_base::_Obj* volatile*
   __pool_alloc_base::_M_get_free_list(size_t __bytes)
@@ -171,4 +171,5 @@ namespace __gnu_cxx
   template class __pool_alloc<char>;
   template class __pool_alloc<wchar_t>;
   template class __pool_alloc<size_t>;  
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE

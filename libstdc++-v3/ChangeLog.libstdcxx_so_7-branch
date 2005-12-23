@@ -1,3 +1,7 @@
+2005-12-23  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at revision 109012.
+
 2005-12-22  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/stl_algobase.h (fill(const _Deque_iterator&,

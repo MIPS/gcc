@@ -69,8 +69,7 @@
 
 // See concept_check.h for the __glibcxx_*_requires macros.
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
   
   /**
    *  @brief Find the median of three values using a predicate for comparison.
@@ -4619,6 +4618,6 @@ namespace std
 			   equal_to<_ValueType1, _ValueType2>());
     }
 
-} // namespace std
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _ALGO_H */

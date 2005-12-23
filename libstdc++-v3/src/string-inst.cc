@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -32,9 +32,6 @@
 // ISO C++ 14882: 21  Strings library
 //
 
-// Written by Jason Merrill based upon the specification by Takanori Adachi
-// in ANSI X3J16/94-0013R2.  Rewritten by Nathan Myers.
-
 #include <string>
 
 // Instantiation configuration.
@@ -42,8 +39,8 @@
 # define C char
 #endif
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   typedef basic_string<C> S;
 
   template class basic_string<C>;
@@ -78,11 +75,12 @@ namespace std
     __find_if(const C*, const C*,
 	      __gnu_cxx::__ops::__bind2nd<C, C, bool(*)(const C&, const C&)>,
 	      random_access_iterator_tag);
-} // namespace std
+_GLIBCXX_END_NAMESPACE
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   using std::S;
   template bool operator==(const S::iterator&, const S::iterator&);
   template bool operator==(const S::const_iterator&, const S::const_iterator&);
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE

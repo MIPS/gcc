@@ -42,8 +42,8 @@
 #include <bits/cpp_type_traits.h>
 #include <algorithm> // For std::distance, srd::search.
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     struct __string_utility
     {
@@ -141,6 +141,7 @@ namespace __gnu_cxx
       _S_copy_chars(_CharT* __p, const _CharT* __k1, const _CharT* __k2)
       { _S_copy(__p, __k1, __k2 - __k1); }
     };
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _STRING_UTIL_H */

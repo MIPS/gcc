@@ -35,8 +35,8 @@
 
 #include <locale>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // NB: The other ctype<char> specializations are in src/locale.cc and
   // various /config/os/* files.
   template<>
@@ -260,4 +260,5 @@ namespace std
       }  
   }
 #endif //  _GLIBCXX_USE_WCHAR_T
-}
+
+_GLIBCXX_END_NAMESPACE

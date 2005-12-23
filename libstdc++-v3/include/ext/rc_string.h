@@ -37,8 +37,8 @@
 #include <ext/string_util.h>
 #include <bits/atomicity.h>
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   /**
    *  @if maint
    *  Documentation?  What's that?
@@ -696,6 +696,7 @@ namespace __gnu_cxx
 	return true;
       return false;
     }
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _RC_STRING_H */

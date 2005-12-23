@@ -76,8 +76,7 @@
 #include <bits/concept_check.h>
 #include <debug/debug.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
   /**
    *  @brief Swaps two values.
@@ -317,7 +316,7 @@ namespace std
     {
       template<typename _II, typename _OI>
         static _OI
-        copy_n(_II __first, _II __last, _OI __result)
+        __copy_n(_II __first, _II __last, _OI __result)
         { return std::__copy_aux(__first, __last, __result); }
     };
 
@@ -326,7 +325,7 @@ namespace std
     {
       template<typename _II, typename _OI>
         static _OI
-        copy_n(_II __first, _II __last, _OI __result)
+        __copy_n(_II __first, _II __last, _OI __result)
         { return std::__copy_aux(__first.base(), __last.base(), __result); }
     };
 
@@ -335,7 +334,7 @@ namespace std
     {
       template<typename _II, typename _OI>
         static _OI
-        copy_n(_II __first, _II __last, _OI __result)
+        __copy_n(_II __first, _II __last, _OI __result)
         { return _OI(std::__copy_aux(__first, __last, __result.base())); }
     };
 
@@ -344,7 +343,7 @@ namespace std
     {
       template<typename _II, typename _OI>
         static _OI
-        copy_n(_II __first, _II __last, _OI __result)
+        __copy_n(_II __first, _II __last, _OI __result)
         { return _OI(std::__copy_aux(__first.base(), __last.base(),
 				     __result.base())); }
     };
@@ -378,8 +377,8 @@ namespace std
 
        const bool __in = __is_normal_iterator<_InputIterator>::__value;
        const bool __out = __is_normal_iterator<_OutputIterator>::__value;
-       return std::__copy_normal<__in, __out>::copy_n(__first, __last,
-						      __result);
+       return std::__copy_normal<__in, __out>::__copy_n(__first, __last,
+							__result);
     }
   
   /**
@@ -439,7 +438,7 @@ namespace std
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b(_BI1 __first, _BI1 __last, _BI2 __result)
         { 
 	  while (__first != __last)
 	    *--__result = *--__last;
@@ -452,7 +451,7 @@ namespace std
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b(_BI1 __first, _BI1 __last, _BI2 __result)
         { 
 	  typename iterator_traits<_BI1>::difference_type __n;
 	  for (__n = __last - __first; __n > 0; --__n)
@@ -466,7 +465,7 @@ namespace std
     {
       template<typename _Tp>
         static _Tp*
-        copy_b(const _Tp* __first, const _Tp* __last, _Tp* __result)
+        __copy_b(const _Tp* __first, const _Tp* __last, _Tp* __result)
         { 
 	  const ptrdiff_t _Num = __last - __first;
 	  std::memmove(__result - _Num, __first, sizeof(_Tp) * _Num);
@@ -486,8 +485,9 @@ namespace std
 	                     && __is_pointer<_BI2>::__value
 			     && __are_same<_ValueType1, _ValueType2>::__value);
 
-      return std::__copy_backward<__simple, _Category>::copy_b(__first, __last,
-							       __result);
+      return std::__copy_backward<__simple, _Category>::__copy_b(__first,
+								 __last,
+								 __result);
     }
 
   template<bool, bool>
@@ -495,7 +495,7 @@ namespace std
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
         { return std::__copy_backward_aux(__first, __last, __result); }
     };
 
@@ -504,7 +504,7 @@ namespace std
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
         { return std::__copy_backward_aux(__first.base(), __last.base(),
 					  __result); }
     };
@@ -514,7 +514,7 @@ namespace std
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
         { return _BI2(std::__copy_backward_aux(__first, __last,
 					       __result.base())); }
     };
@@ -524,7 +524,7 @@ namespace std
     {
       template<typename _BI1, typename _BI2>
         static _BI2
-        copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
+        __copy_b_n(_BI1 __first, _BI1 __last, _BI2 __result)
         { return _BI2(std::__copy_backward_aux(__first.base(), __last.base(),
 					       __result.base())); }
     };
@@ -560,8 +560,9 @@ namespace std
 
       const bool __bi1 = __is_normal_iterator<_BI1>::__value;
       const bool __bi2 = __is_normal_iterator<_BI2>::__value;
-      return std::__copy_backward_normal<__bi1, __bi2>::copy_b_n(__first, __last,
-								 __result);
+      return std::__copy_backward_normal<__bi1, __bi2>::__copy_b_n(__first,
+								   __last,
+								   __result);
     }
 
   /**
@@ -1012,6 +1013,6 @@ namespace std
 #endif /* CHAR_MAX == SCHAR_MAX */
   }
 
-} // namespace std
+_GLIBCXX_END_NAMESPACE
 
 #endif

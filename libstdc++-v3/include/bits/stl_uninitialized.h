@@ -63,8 +63,8 @@
 
 #include <cstring>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // uninitialized_copy
   template<typename _InputIterator, typename _ForwardIterator>
     inline _ForwardIterator
@@ -585,7 +585,6 @@ namespace std
 	}
     }
 
-
-} // namespace std
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _STL_UNINITIALIZED_H */

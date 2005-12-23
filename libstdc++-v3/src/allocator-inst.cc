@@ -34,9 +34,10 @@
 
 #include <memory>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template class allocator<char>;
   template class allocator<wchar_t>;
   template class allocator<size_t>;
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE

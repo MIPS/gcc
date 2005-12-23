@@ -64,8 +64,8 @@
 #include <bits/concept_check.h>
 #include <bits/moveable.h>
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+
   // Forward declaration of operators < and ==, needed for friend declaration.
 
   template <typename _Key, typename _Tp,
@@ -702,13 +702,16 @@ namespace _GLIBCXX_STD
     swap(multimap<_Key, _Tp, _Compare, _Alloc>& __x,
          multimap<_Key, _Tp, _Compare, _Alloc>& __y)
     { __x.swap(__y); }
-} // namespace std
 
-namespace __gnu_cxx
-{
+_GLIBCXX_END_NESTED_NAMESPACE
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
-    struct __is_moveable<_GLIBCXX_STD::multimap<_Key, _Tp, _Compare, _Alloc> >
+    struct __is_moveable<_GLIBCXX_STD_MOVE::multimap<_Key, _Tp, _Compare,
+						     _Alloc> >
     { static const bool __value = true; };
-}
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _MULTIMAP_H */

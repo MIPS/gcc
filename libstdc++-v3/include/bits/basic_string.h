@@ -47,8 +47,8 @@
 #include <debug/debug.h>
 #include <bits/moveable.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   /**
    *  @class basic_string basic_string.h <string>
    *  @brief  Managing sequences of characters and character-like objects.
@@ -2203,13 +2203,15 @@ namespace std
 
   // Undefine.
 #undef __glibcxx_base_string
-} // namespace std
 
-namespace __gnu_cxx
-{
+_GLIBCXX_END_NAMESPACE
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     struct __is_moveable<std::basic_string<_CharT, _Traits, _Alloc> >
     { static const bool __value = true; };
-}
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _BASIC_STRING_H */

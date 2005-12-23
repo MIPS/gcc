@@ -29,11 +29,24 @@ toolexeclib_LTLIBRARIES = libstdc++.la
 
 # Symbol versioning for shared libraries.
 if ENABLE_SYMVERS_GNU
-version_arg = -Wl,--version-script=libstdc++-symbol.ver
-version_dep = libstdc++-symbol.ver
-libstdc++-symbol.ver:  ${glibcxx_srcdir}/$(SYMVER_MAP)
+version_arg = -Wl,--version-script=libstdc++-symbols.ver
+version_dep = libstdc++-symbols.ver
+libstdc++-symbols.ver:  ${glibcxx_srcdir}/$(SYMVER_FILE)
 
-	cp ${glibcxx_srcdir}/$(SYMVER_MAP) ./libstdc++-symbol.ver
+	cp ${glibcxx_srcdir}/$(SYMVER_FILE) ./libstdc++-symbols.ver
+	if test "x$(port_specific_symbol_files)" != x; then \
+	  sed -n '1,/DO NOT DELETE/p' $@ > tmp.top; \
+	  sed -n '/DO NOT DELETE/,$$p' $@ > tmp.bottom; \
+	  cat tmp.top $(port_specific_symbol_files) tmp.bottom > $@; \
+	  rm tmp.top tmp.bottom; \
+	fi
+endif
+if ENABLE_SYMVERS_GNU_NAMESPACE
+version_arg = -Wl,--version-script=libstdc++-symbols.ver
+version_dep = libstdc++-symbols.ver
+libstdc++-symbols.ver:  ${glibcxx_srcdir}/$(SYMVER_FILE)
+
+	cp ${glibcxx_srcdir}/$(SYMVER_FILE) ./libstdc++-symbols.ver
 	if test "x$(port_specific_symbol_files)" != x; then \
 	  sed -n '1,/DO NOT DELETE/p' $@ > tmp.top; \
 	  sed -n '/DO NOT DELETE/,$$p' $@ > tmp.bottom; \
@@ -41,15 +54,15 @@ libstdc++-symbol.ver:  ${glibcxx_srcdir}/$(SYMVER_MAP)
 	  rm tmp.top tmp.bottom; \
 	fi
 
-else
+endif
 if ENABLE_SYMVERS_DARWIN_EXPORT
-version_arg = -Wl,-exported_symbols_list,libstdc++-symbol.explist
-version_dep = libstdc++-symbol.explist
-libstdc++-symbol.explist : ${glibcxx_srcdir}/$(SYMVER_MAP) \
+version_arg = -Wl,-exported_symbols_list,libstdc++-symbols.explist
+version_dep = libstdc++-symbols.explist
+libstdc++-symbols.explist : ${glibcxx_srcdir}/$(SYMVER_FILE) \
 		${glibcxx_srcdir}/scripts/make_exports.pl \
 		$(libstdc___la_OBJECTS) $(libstdc___la_LIBADD)
 	perl ${glibcxx_srcdir}/scripts/make_exports.pl \
-	  ${glibcxx_srcdir}/$(SYMVER_MAP) \
+	  ${glibcxx_srcdir}/$(SYMVER_FILE) \
 	  $(libstdc___la_OBJECTS:%.lo=.libs/%.o) \
 	 `echo $(libstdc___la_LIBADD) | \
 	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
@@ -57,7 +70,6 @@ libstdc++-symbol.explist : ${glibcxx_srcdir}/$(SYMVER_MAP) \
 else
 version_arg =
 version_dep =
-endif
 endif
 
 
@@ -140,7 +152,8 @@ sources = \
 	concept-inst.cc \
 	fstream-inst.cc \
 	ext-inst.cc \
-	io-inst.cc \
+	ios-inst.cc \
+	iostream-inst.cc \
 	istream-inst.cc \
 	istream.cc \
 	locale-inst.cc \

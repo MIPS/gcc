@@ -64,8 +64,8 @@
 #include <bits/concept_check.h>
 #include <bits/moveable.h>
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+
   // Forward declarations of operators < and ==, needed for friend declaration.
   template<class _Key, class _Compare = std::less<_Key>,
 	   class _Alloc = std::allocator<_Key> >
@@ -612,12 +612,14 @@ namespace _GLIBCXX_STD
     swap(set<_Key, _Compare, _Alloc>& __x, set<_Key, _Compare, _Alloc>& __y)
     { __x.swap(__y); }
 
-} // namespace std
+_GLIBCXX_END_NESTED_NAMESPACE
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template <typename _Key, typename _Compare, typename _Alloc>
-    struct __is_moveable<_GLIBCXX_STD::set<_Key, _Compare, _Alloc> >
+    struct __is_moveable<_GLIBCXX_STD_MOVE::set<_Key, _Compare, _Alloc> >
     { static const bool __value = true; };
-}
+
+_GLIBCXX_END_NAMESPACE
+
 #endif /* _SET_H */

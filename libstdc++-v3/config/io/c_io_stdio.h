@@ -1,4 +1,4 @@
-// underlying io library  -*- C++ -*-
+// Underlying io library details -*- C++ -*-
 
 // Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
@@ -37,12 +37,13 @@
 #include <cstddef>
 #include <bits/gthr.h>
 
-namespace std 
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   typedef __gthread_mutex_t __c_lock;
 
   // for basic_file.h
   typedef FILE __c_file;
-}
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

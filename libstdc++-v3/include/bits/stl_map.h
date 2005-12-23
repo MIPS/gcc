@@ -65,8 +65,8 @@
 #include <bits/concept_check.h>
 #include <bits/moveable.h>
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+
   /**
    *  @brief A standard container made up of (key,value) pairs, which can be
    *  retrieved based on a key, in logarithmic time.
@@ -750,13 +750,15 @@ namespace _GLIBCXX_STD
     swap(map<_Key, _Tp, _Compare, _Alloc>& __x,
 	 map<_Key, _Tp, _Compare, _Alloc>& __y)
     { __x.swap(__y); }
-} // namespace std
 
-namespace __gnu_cxx
-{
+_GLIBCXX_END_NESTED_NAMESPACE
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
-    struct __is_moveable<_GLIBCXX_STD::map<_Key, _Tp, _Compare,_Alloc> >
+    struct __is_moveable<_GLIBCXX_STD_MOVE::map<_Key, _Tp, _Compare, _Alloc> >
     { static const bool __value = true; };
-}
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _MAP_H */

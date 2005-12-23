@@ -64,8 +64,8 @@
 #include <bits/concept_check.h>
 #include <bits/moveable.h>
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+
   // Supporting structures are split into common and templated types; the
   // latter publicly inherits from the former in an effort to reduce code
   // duplication.  This results in some "needless" static_cast'ing later on,
@@ -1264,14 +1264,16 @@ namespace _GLIBCXX_STD
     inline void
     swap(list<_Tp, _Alloc>& __x, list<_Tp, _Alloc>& __y)
     { __x.swap(__y); }
-} // namespace std
 
-namespace __gnu_cxx
-{
+_GLIBCXX_END_NESTED_NAMESPACE
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template<typename _Tp, typename _Alloc>
-    struct __is_moveable<_GLIBCXX_STD::list<_Tp, _Alloc> >
+    struct __is_moveable<_GLIBCXX_STD_MOVE::list<_Tp, _Alloc> >
     { static const bool __value = true; };
-}
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _LIST_H */
 
