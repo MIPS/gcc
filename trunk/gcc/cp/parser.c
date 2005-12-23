@@ -17503,7 +17503,8 @@ cp_parser_cw_asm_postfix_expression (cp_parser *parser, bool address_p)
 	    if (inside_cw_asm_block)
 	      {
 		if (TREE_CODE (postfix_expression) == BRACKET_EXPR
-		    || TREE_CODE (index) == IDENTIFIER_NODE)
+		    || TREE_CODE (index) == IDENTIFIER_NODE
+		    || TREE_TYPE (index) == NULL_TREE)
 		  {
 		    postfix_expression = cw_build_bracket (postfix_expression, index);
 		    break;
@@ -17941,6 +17942,15 @@ cp_parser_objc_encode_expression (cp_parser* parser)
       error ("`@encode' must specify a type as an argument");
       return error_mark_node;
     }
+
+  /* APPLE LOCAL begin radar 4278774 */
+  if (dependent_type_p (type))
+    {
+      tree value = build_min (AT_ENCODE_EXPR, size_type_node, type);
+      TREE_READONLY (value) = 1;
+      return value;
+    }
+  /* APPLE LOCAL end radar 4278774 */
 
   return objc_build_encode_expr (type);
 }

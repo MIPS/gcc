@@ -15,6 +15,201 @@
 	* c-typeck.c (build_component_ref): Generate the new ivar reference
 	tree.
 
+2005-12-22  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4387676 4388773
+	* tree.h (TREE_FIELDS_REVERSED):  Remove.
+	* varasm.c (output_constructor):  Remove reference to it.
+	* stor-layout.c (place_field): Ditto.
+
+2005-12-22  Stuart Hastings  <stuart@apple.com>
+
+	* gcc/config/darwin.c (machopic_force_indirect_call_target):
+	Remove extra APPLE LOCAL marker.
+	* gcc/config/rs6000/rs6000.c (output_call): Remove blank line.
+
+2005-12-21  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4380289, 4299630
+	* gcc/config/rs6000/rs6000.c (add_compiler_branch_island):
+	Remove one parameter.  (rs6000_output_mi_thunk): Update call
+	to add_compiler_branch_island.  (macho_branch_islands):
+	Rewrite.  (output_call): Rewrite.
+	* gcc/config/darwin-protos.h
+	(machopic_force_indirect_call_target): New.
+	* gcc/config/darwin.c (machopic_force_stub): New.
+	(machopic_force_indirect_call_target): Use it.
+	(machopic_indirect_call_target): Ditto.
+
+2005-12-20  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4385068
+	* global.c (expand_preferences): Reduce aggressiveness
+	of previous preference enhancement on x86, and disable
+	altogether on ppc.
+
+2005-12-15  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4370117
+	* config/darwin.h (DEBUG_FRAME_SECTION): Mark as 'regular,debug';
+	move to __DWARF segment.
+	(DEBUG_INFO_SECTION): Move to __DWARF segment.
+	(DEBUG_ABBREV_SECTION): Move to __DWARF segment.
+	(DEBUG_ARANGES_SECTION): Move to __DWARF segment.
+	(DEBUG_MACINFO_SECTION): Move to __DWARF segment.
+	(DEBUG_LINE_SECTION): Move to __DWARF segment.
+	(DEBUG_LOC_SECTION): Move to __DWARF segment.
+	(DEBUG_PUBNAMES_SECTION): Move to __DWARF segment.
+	(DEBUG_STR_SECTION): Move to __DWARF segment.
+	(DEBUG_RANGES_SECTION): Move to __DWARF segment.
+	* config/darwin.c (darwin_emit_unwind_label): Don't emit global
+	symbols in debug sections.
+
+2005-12-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4278774
+	* c-common.def: Add new expression code AT_ENCODE_EXPR.
+
+2005-12-14  Eric Christopher  <echristo@apple.com>
+
+	Radar 4363479
+	* tree-ssa-forwprop.c (all_uses_are_replacable): Fold replaced
+	statements.
+
+2005-12-14  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4271691 (partial)
+	* global.c (expand_preferences): Enhance pseudo
+	preferences for vectors.
+	* reload1.c (reload): Make sure reused stack slots
+	are expanded correctly.
+
+2005-12-13  Mike Stump  <mrs@apple.com>
+
+	* Revert 2005-12-07  Devang Patel  <dpatel@apple.com> Radar 4137741
+
+2005-12-13  Stuart Hastings  <stuart@apple.com>
+
+	* config/rs6000/rs6000.c (macho_branch_islands): Add APPLE LOCAL.
+
+2005-12-12  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4373486
+
+	* config/darwin.h (objc_section_init): Remove initialization of
+	C* sections.
+
+2005-12-12  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4261575
+
+	* config/i386/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Undid the setting for
+	darwin_constant_cfstrings. Tests need be modified instead.
+
+2005-12-12  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4261575
+
+	* config/i386/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Set default value 
+	for darwin_constant_cfstrings
+	
+2005-12-09  Mike Stump  <mrs@apple.com>
+
+	Radar 4371551
+	* c-common.c (print_cw_asm_operand): Handle complex operands better.
+	(cw_simple_expr): New.
+	* c-typeck.c (build_array_ref): Also handle exprs with no type.
+	* config/i386/i386.c (cw_canonicalize_bracket): Add support for
+	more complex offsets.
+	
+2005-12-09  Zdenek Dvorak <rakdver@gcc.gnu.org>
+	    Dale Johannesen  <dalej@apple.com>
+
+	Radar 3791237
+	* toplev.c (process_options):  Make -funroll-loops
+	turn on -fweb.
+	* doc/invoke.texi (-fsplit-ivs-in-unroller, -fweb,
+	-funroll-loops):  Document this behavior.
+
+2005-12-09  Zdenek Dvorak <rakdver@gcc.gnu.org>
+
+	Radar 4233898
+        * tree-chrec.c (chrec_fold_multiply_poly_poly): Associate chrecs
+        correctly.	
+
+2005-12-09  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4299630
+	* config/rs6000/rs6000.c (rs6000_output_mi_thunk): Fixed APPLE LOCAL.
+
+2005-12-08  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4285232
+	* cp/typeck2.c (split_nonconstant_init):  Don't
+	zero out object which is fully initialized.
+
+2005-12-08  Devang Patel  <dpatel@apple.com>
+	    Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4298879
+	* config/rs6000/darwin.h (PROCESSOR_DEFAULT): Tune for G5 instructions
+	by default when not optimizing for size.
+	(SUBTARGET_OVERRIDE_OPTIONS): Enable Altivec by default when deployment
+	target is Mac OSX 10.5 or higher.
+
+2005-12-07  Devang Patel  <dpatel@apple.com>
+
+	Radar 4333194
+	* tree-vect-analyze.c (vect_compute_data_ref_alignment): Check 
+	misalignment where natural alignment is not reachable using loop
+	peeling.
+
+2005-12-07  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4370117
+	* config/darwin.h (DEBUG_INFO_SECTION): Mark as 'debug'.
+	(DEBUG_ABBREV_SECTION): Mark as 'debug'.
+	(DEBUG_ARANGES_SECTION): Mark as 'debug'.
+	(DEBUG_MACINFO_SECTION): Mark as 'debug'.
+	(DEBUG_LINE_SECTION): Mark as 'debug'.
+	(DEBUG_LOC_SECTION): Mark as 'debug'.
+	(DEBUG_PUBNAMES_SECTION): Mark as 'debug'.
+	(DEBUG_STR_SECTION): Mark as 'debug'.
+	(DEBUG_RANGES_SECTION): Mark as 'debug'.
+
+2005-12-07  Devang Patel  <dpatel@apple.com>
+   	    Ziemowit Laski  <zlaski@apple.com>
+
+        Radar 4137741
+        * Makefile.in (c-lex.o): Revert langhooks.h dependency.
+        (langhooks.o): Revert debug.h dependency.
+        * c-lex.c: Do not include langhooks.h.
+        (fe_file_change): Revert lang_hooks calls; issue debug_hooks
+        calls only if defer_file_change_debug_hooks flag is cleared.
+        (c_lex_with_flags): Propagate line number information for
+        CPP_BINCL and CPP_EINCL tokens.
+        * langhooks-def.h: Revert Radar 4133801 changes.
+        * langhooks.c: Likewise.
+        * langhooks.h: Likewise.
+	
+2005-12-07  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4349512
+	* tree-ssa-forwprop.c (substitute_single_use_vars):
+	Check that COND_EXPRs being substituted into have the
+	expected form.
+
+2005-12-06  Stuart Hastings  <stuart@apple.com>
+
+	* config/rs6000/rs6000.md (longjump): New pattern.
+	* config/rs6000/rs6000.c (rs6000_output_mi_thunk): Use it.
+
+2005-12-06  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4332318
+	* config/i386/sse.md (sse_movhlps):  Reverse operands for
+	2nd and 3rd alternatives.
+
 2005-12-05  Mike Stump  <mrs@apple.com>
 
 	Radar 4357979

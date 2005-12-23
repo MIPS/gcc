@@ -137,7 +137,7 @@ extern int machopic_symbol_defined_p (rtx);
   { "-segs_read_only_addr", "-Zsegs_read_only_addr" }, \
   { "-segs_read_write_addr", "-Zsegs_read_write_addr" }, \
   { "-seg_addr_table", "-Zseg_addr_table" }, \
-  /* APPLE LOCAL why did I do that?  -- mrs */ \
+  /* APPLE LOCAL mainline 4.2 3941990 */ \
   { "-seg_addr_table_filename", "-Zfn_seg_addr_table_filename" }, \
   { "-filelist", "-Xlinker -filelist -Xlinker" },  \
   { "-framework", "-Xlinker -framework -Xlinker" },  \
@@ -309,7 +309,7 @@ do {					\
    !strcmp (STR, "Zsegs_read_only_addr") ? 1 :  \
    !strcmp (STR, "Zsegs_read_write_addr") ? 1 : \
    !strcmp (STR, "Zseg_addr_table") ? 1 :       \
-  /* APPLE LOCAL why did I do that?  -- mrs */ \
+  /* APPLE LOCAL mainline 4.2 3941990 */ \
    !strcmp (STR, "Zfn_seg_addr_table_filename") ? 1 :\
    !strcmp (STR, "seg1addr") ? 1 :              \
    !strcmp (STR, "segprot") ? 3 :               \
@@ -431,7 +431,7 @@ do {					\
    %{Zsegs_read_only_addr*:-segs_read_only_addr %*} \
    %{Zsegs_read_write_addr*:-segs_read_write_addr %*} \
    %{Zseg_addr_table*: -seg_addr_table %*} \
-   "/* APPLE LOCAL why did I do that?  -- mrs */" \
+   "/* APPLE LOCAL mainline 4.2 3941990 */" \
    %{Zfn_seg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
    "/* APPLE LOCAL mainline 4.1 2005-06-03 */" \
@@ -522,16 +522,18 @@ do {					\
 #define DWARF2_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-#define DEBUG_FRAME_SECTION   "__DWARFA,__debug_frame,coalesced,no_toc+strip_static_syms"
-#define DEBUG_INFO_SECTION    "__DWARFA,__debug_info"
-#define DEBUG_ABBREV_SECTION  "__DWARFA,__debug_abbrev"
-#define DEBUG_ARANGES_SECTION "__DWARFA,__debug_aranges"
-#define DEBUG_MACINFO_SECTION "__DWARFA,__debug_macinfo"
-#define DEBUG_LINE_SECTION    "__DWARFA,__debug_line"
-#define DEBUG_LOC_SECTION     "__DWARFA,__debug_loc"
-#define DEBUG_PUBNAMES_SECTION        "__DWARFA,__debug_pubnames"
-#define DEBUG_STR_SECTION     "__DWARFA,__debug_str"
-#define DEBUG_RANGES_SECTION  "__DWARFA,__debug_ranges"
+/* APPLE LOCAL begin dwarf2 section flags */
+#define DEBUG_FRAME_SECTION	"__DWARF,__debug_frame,regular,debug"
+#define DEBUG_INFO_SECTION	"__DWARF,__debug_info,regular,debug"
+#define DEBUG_ABBREV_SECTION	"__DWARF,__debug_abbrev,regular,debug"
+#define DEBUG_ARANGES_SECTION	"__DWARF,__debug_aranges,regular,debug"
+#define DEBUG_MACINFO_SECTION	"__DWARF,__debug_macinfo,regular,debug"
+#define DEBUG_LINE_SECTION	"__DWARF,__debug_line,regular,debug"
+#define DEBUG_LOC_SECTION	"__DWARF,__debug_loc,regular,debug"
+#define DEBUG_PUBNAMES_SECTION	"__DWARF,__debug_pubnames,regular,debug"
+#define DEBUG_STR_SECTION	"__DWARF,__debug_str,regular,debug"
+#define DEBUG_RANGES_SECTION	"__DWARF,__debug_ranges,regular,debug"
+/* APPLE LOCAL end dwarf2 section flags */
 
 /* APPLE LOCAL begin gdb only used symbols */
 /* Support option to generate stabs for only used symbols. */
@@ -598,6 +600,12 @@ do {					\
 #undef TARGET_WEAK_NOT_IN_ARCHIVE_TOC
 #define TARGET_WEAK_NOT_IN_ARCHIVE_TOC 1
 
+/* APPLE LOCAL begin mainline 4.2 2005-12-06 4263752 */
+/* On Darwin, we don't (at the time of writing) have linkonce sections
+   with names, so it's safe to make the class data not comdat.  */
+#define TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT hook_bool_void_false
+
+/* APPLE LOCAL end mainline 4.2 2005-12-06 4263752 */
 /* We make exception information linkonce. */
 #undef TARGET_USES_WEAK_UNWIND_INFO
 #define TARGET_USES_WEAK_UNWIND_INFO 1
@@ -1070,11 +1078,6 @@ objc_section_init (void)			\
       objc_instance_vars_section ();		\
       objc_module_info_section ();		\
       objc_symbols_section ();			\
-      /* APPLE LOCAL begin ObjC new abi */	\
-      objc_classlist_section ();		\
-      objc_data_section ();			\
-      objc_message_refs_section ();		\
-      /* APPLE LOCAL end ObjC new abi */	\
     }						\
 }
 

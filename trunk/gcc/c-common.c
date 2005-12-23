@@ -599,7 +599,6 @@ static char *cw_asm_buffer;
 static GTY(()) varray_type cw_asm_labels;
 static GTY(()) varray_type cw_asm_labels_uniq;
 
-static int cw_asm_expr_val (tree arg);
 static void cw_asm_get_register_var (tree, const char *, char *,
 				     unsigned, bool, cw_md_extra_info*);
 static tree cw_asm_identifier (tree expr);
@@ -6947,7 +6946,41 @@ cw_asm_field_offset (tree arg)
 	  + tree_low_cst (DECL_FIELD_BIT_OFFSET (arg), 0)  / BITS_PER_UNIT);
 }
 
-/* Compute the int value for the expression. */
+/* Determine if an expression is simple enough to form an int.
+   Really, this all should be done via folding at build time, then,
+   these all go away.  */
+
+static bool
+cw_simple_expr (tree arg)
+{
+  if (TREE_CODE (arg) == FIELD_DECL)
+    return true;
+
+  if (TREE_CODE (arg) == INTEGER_CST)
+    return true;
+
+  if (TREE_CODE (arg) == REAL_CST)
+    return true;
+
+  if (TREE_CODE (arg) == PLUS_EXPR
+      || TREE_CODE (arg) == MINUS_EXPR)
+    return cw_simple_expr (TREE_OPERAND (arg, 0))
+      && cw_simple_expr (TREE_OPERAND (arg, 1));
+
+  if (TREE_CODE (arg) == NEGATE_EXPR)
+    return cw_simple_expr (TREE_OPERAND (arg, 0));
+
+  if (TREE_CODE (arg) == ARRAY_REF
+      && TREE_CODE (TREE_OPERAND (arg, 1)) == INTEGER_CST
+      && TREE_INT_CST_LOW (TREE_OPERAND (arg, 1)) == 0)
+    return cw_simple_expr (TREE_OPERAND (arg, 0));
+
+  return false;
+}
+
+/* Compute the int value for the expression.
+   Really, this all should be done via folding at build time, then,
+   these all go away.  */
 
 static int
 cw_asm_expr_val (tree arg)
@@ -7198,24 +7231,23 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 
     case MINUS_EXPR:
     case PLUS_EXPR:
-      if ((TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL
-	   && TREE_CODE (TREE_OPERAND (arg, 1)) == LABEL_DECL)
-	  || TREE_CODE (TREE_OPERAND (arg, 0)) == IDENTIFIER_NODE)
+      if (cw_simple_expr (arg))
 	{
-	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
-				false, true, e);
-	  if (TREE_CODE (arg) == MINUS_EXPR)
-	    strcat (buf, "-");
-	  else
-	    strcat (buf, "+");
-
-	  CW_SEE_IMMEDIATE(e);
-	  print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses,
-				false, true, e);
-	  CW_SEE_NO_IMMEDIATE(e);
+	  sprintf (buf + strlen (buf), "%d", cw_asm_expr_val (arg));
 	  break;
 	}
-      sprintf (buf + strlen (buf), "%d", cw_asm_expr_val (arg));
+	
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
+			    false, true, e);
+      if (TREE_CODE (arg) == MINUS_EXPR)
+	strcat (buf, "-");
+      else
+	strcat (buf, "+");
+
+      CW_SEE_IMMEDIATE(e);
+      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses,
+			    false, true, e);
+      CW_SEE_NO_IMMEDIATE(e);
       break;
 
     case FIELD_DECL:

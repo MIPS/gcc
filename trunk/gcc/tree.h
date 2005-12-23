@@ -1040,9 +1040,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
    unavailable feature by __attribute__((unavailable)).  */
 #define TREE_UNAVAILABLE(NODE) ((NODE)->common.unavailable_flag)
 /* APPLE LOCAL end "unavailable" attribute (Radar 2809697) */
-/* APPLE LOCAL begin bitfield reversal 4228294 */
-#define TREE_FIELDS_REVERSED(NODE) ((NODE)->common.reversed_flag)
-/* APPLE LOCAL end bitfield reversal 4228294 */
 
 /* Value of expression is function invariant.  A strict subset of
    TREE_CONSTANT, such an expression is constant over any one function

@@ -10,6 +10,41 @@
 	* typeck.c (build_class_member_access_expr): Build the new ivar
 	reference tree.
 
+2005-12-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4278774
+	* pt.c (cxx_sizeof_or_alignof_expr): Instantiate @endcode(T).
+	* parser.c (cp_parser_objc_encode_expression): Build a templatized 
+	parse tree for @encode(T).
+
+2005-12-13  Mike Stump  <mrs@apple.com>
+
+	* Revert 2005-12-07  Devang Patel  <dpatel@apple.com> Radar 4137741
+
+2005-12-08  Mike Stump  <mrs@apple.com>
+
+	Radar 4371551
+	* parser.c (cp_parser_cw_asm_postfix_expression): Also handle
+	exprs with no type.
+
+2005-12-07  Devang Patel  <dpatel@apple.com>
+   	    Ziemowit Laski  <zlaski@apple.com>
+
+        Radar 4137741
+        * cp-objcp-common.h: Revert Radar 4133801 changes.
+        * cp-tree.h: Likewise.
+        * decl2.c: Likewise.
+        * parser.c: Likewise.
+        (cp_lexer_handle_pragma): Rename to cp_lexer_handle_pragma_etc();
+        handle CPP_BINCL and CPP_EINCL tokens in addition to CPP_PRAGMA.
+        (cp_lexer_new_main): Set defer_file_change_debug_hooks flag
+        in preprocessor.
+        (cp_parser_statement, cp_parser_declaration_seq_opt,
+        cp_parser_member_specification_opt, cp_parser_cw_asm_declaration_seq_opt,
+        cp_parser_cw_asm_statement, cp_parser_objc_interstitial_code):
+        Call cp_lexer_handle_pragma_etc() for CPP_BINCL and CPP_EINCL tokens
+        also.
+
 2005-11-08  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4330422

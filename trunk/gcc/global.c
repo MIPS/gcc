@@ -1014,21 +1014,49 @@ expand_preferences (void)
 	    && ! CONFLICTP (reg_allocno[REGNO (SET_DEST (set))],
 			    reg_allocno[REGNO (XEXP (link, 0))]))
 	  {
-            /* APPLE LOCAL 4321079 */
+	    /* APPLE LOCAL begin 4271691 */
+	    /* APPLE LOCAL 4321079 */
 	    int j;
 	    int a1 = reg_allocno[REGNO (SET_DEST (set))];
 	    int a2 = reg_allocno[REGNO (XEXP (link, 0))];
 
 	    if (XEXP (link, 0) == SET_SRC (set))
 	      {
-                /* APPLE LOCAL 4321079 */
-		int ialloc_prod = a1 * allocno_row_words;
 		IOR_HARD_REG_SET (allocno[a1].hard_reg_copy_preferences,
 				  allocno[a2].hard_reg_copy_preferences);
 		IOR_HARD_REG_SET (allocno[a2].hard_reg_copy_preferences,
 				  allocno[a1].hard_reg_copy_preferences);
-                /* APPLE LOCAL begin 4321079 */
-		ialloc_prod = a1 * allocno_row_words;
+	      }
+	    /* APPLE LOCAL begin 4385068 */
+	    /* We can establish a new pseudo preference as well; this tends
+	       to cut down on the number of reg-reg copies.  Since two
+	       inputs that both die conflict with each other, we shouldn't
+	       tie both.  Experimentally, neither picking the first nor the second
+	       seems to be a winner, so we tie neither. 
+	       On ppc, this whole idea seems to be a loser; introducing extra
+	       dependencies for scheduling loses more than eliminating reg-reg
+	       copies gains.  We make some attempt to abstract this by looking
+	       at flag_schedule_insns; if this is off, we conclude good scheduling
+	       is relatively unimportant.
+	       The limitation to vectors is not necessary for correctness. */
+	    if (!flag_schedule_insns
+		&& REG_NOTES (insn) == link && XEXP (link, 1) == 0
+		&& VECTOR_MODE_P (GET_MODE (SET_DEST (set)))
+		&& VECTOR_MODE_P (GET_MODE (XEXP (link, 0))))
+	      {
+		SET_PSEUDO_PREF (a1, a2);
+		SET_PSEUDO_PREF (a2, a1);
+	      }
+	    /* For vectors, propagate association even for things that
+	       aren't reg-reg copies.  See caveats above.  */
+	    if (XEXP (link, 0) == SET_SRC (set)
+		|| (!flag_schedule_insns
+		    && REG_NOTES (insn) == link && XEXP (link, 1) == 0
+		    && VECTOR_MODE_P (GET_MODE (SET_DEST (set)))
+		    && VECTOR_MODE_P (GET_MODE (XEXP (link, 0)))))
+	    /* APPLE LOCAL end 4385068 */
+	      {
+		/* APPLE LOCAL begin 4321079 */
 		for (j = allocno_row_words - 1; j >= 0; j--)
 		  {
 		    pseudo_preferences[a1 * allocno_row_words + j] 
@@ -1036,8 +1064,9 @@ expand_preferences (void)
 		    pseudo_preferences[a2 * allocno_row_words + j] 
 		      |= pseudo_preferences[a1 * allocno_row_words + j];
 		  }
-                /* APPLE LOCAL end 4321079 */
+		/* APPLE LOCAL end 4321079 */
 	      }
+	    /* APPLE LOCAL end 4271691 */
 
 	    IOR_HARD_REG_SET (allocno[a1].hard_reg_preferences,
 			      allocno[a2].hard_reg_preferences);

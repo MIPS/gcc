@@ -1,3 +1,15 @@
+2005-12-06  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.h (TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): New.
+
+2005-12-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.c (machopic_select_section): It's not defined
+	as weak if it's only marked as weak_import.
+	
+	* config/rs6000/host-darwin.c (segv_handler): Unblock SEGV so
+	we don't go into an infinite loop.
+
 2005-11-15  Mike Stump  <mrs@apple.com>
 
 	* c-decl.c (lookup_name_two): Add.

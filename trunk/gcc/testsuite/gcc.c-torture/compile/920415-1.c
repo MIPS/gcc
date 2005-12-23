@@ -2,8 +2,10 @@
 /* { dg-options "-fnested-functions" } */
 /* APPLE LOCAL end testsuite nested functions */
 
-/* APPLE LOCAL testsuite added stdlib.h */
-#include <stdlib.h>
+/* APPLE LOCAL begin mainline */
+extern void abort (void);
+extern void exit (int);
+/* APPLE LOCAL end mainline */
 
 #ifndef NO_LABEL_VALUES
 f ()

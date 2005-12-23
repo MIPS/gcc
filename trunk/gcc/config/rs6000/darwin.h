@@ -122,6 +122,13 @@ do {									\
       target_flags |= MASK_POWERPC64;					\
       warning ("-m64 requires PowerPC64 architecture, enabling");	\
     }									\
+  /* APPLE LOCAL begin 4298879.  */                                     \
+  if (darwin_macosx_version_min                                         \
+      && strverscmp (darwin_macosx_version_min, "10.5") >= 0            \
+      && !(target_flags_explicit & MASK_ALTIVEC)                        \
+      && !(rs6000_select[1].string))                                    \
+    target_flags |= MASK_ALTIVEC;                                       \
+  /* APPLE LOCAL end 4298879.  */                                       \
 } while(0)
 
 /* Darwin has 128-bit long double support in libc in 10.4 and later.
@@ -377,10 +384,13 @@ do {									\
 
 #define RS6000_MCOUNT "*mcount"
 
-/* Default processor: G4, and G5 for 64-bit.  */
-
+/* APPLE LOCAL begin 4298879.  */
+/* Default processor (for -mtune): G5 when not optimizing for size othwerise G4. 
+   It is G5 by default for 64-bit in all cases.  */
+/* APPLE LOCAL end 4298879.  */
 #undef PROCESSOR_DEFAULT
-#define PROCESSOR_DEFAULT  PROCESSOR_PPC7400
+/* APPLE LOCAL 4298879.  */
+#define PROCESSOR_DEFAULT  (optimize_size ? PROCESSOR_PPC7400 : PROCESSOR_POWER4)
 #undef PROCESSOR_DEFAULT64
 #define PROCESSOR_DEFAULT64  PROCESSOR_POWER4
 

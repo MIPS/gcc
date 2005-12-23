@@ -3,6 +3,75 @@
 	Radar 4229905
 	* obj-c++.dg/warn5.mm: New
 
+2005-12-22  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4387676 4388773
+	* gcc.apple/bitreverse-14.c:  New.
+
+2005-12-21  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4380298, 4299630
+	* g++.dg/apple-longcall-3.C: New.
+
+2005-12-14  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4278774
+	* obj-c++.dg/encode-9.mm: New.
+
+2005-12-14  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4271691 (partial)
+	* gcc.target/i386/4271691.c:  New.
+
+2005-12-09  Mike Stump  <mrs@apple.com>
+
+	Radar 4371958
+	* gcc.apple/asm-block-36.c: Add.
+	* g++.dg/asm-block-36.C: Add.
+
+2005-12-09  Mike Stump  <mrs@apple.com>
+
+	Radar 4371551
+	* gcc.apple/asm-block-35.c: Add.
+	* g++.dg/asm-block-35.C: Add.
+
+2005-12-09  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4233898
+	* gcc.c-torture/execute/4233898.c: New.
+
+2005-12-08  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4285232
+	* g++.dg/4285232.C:  New.
+
+2005-12-08  Devang Patel  <dpatel@apple.com>
+
+	Radar 4298879
+	* gcc.apple/default-cpu-1.c: New.
+	* gcc.apple/default-cpu-2.c: New.
+	* gcc.apple/default-cpu-3.c: New.
+
+2005-12-07  Devang Patel  <dpatel@apple.com>
+
+	Radar 4333194
+	* gcc.dg/vect/vect-align-1.c: New.
+
+2005-12-07  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4349512
+	* g++.dg/4349512.C:  New.
+
+2005-12-07  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4299630
+	* g++.dg/apple-longcall-2.C: New.
+
+2005-12-06  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4332318
+	* gcc.target/i386/sse-17.c:  New.
+
 2005-12-03  Mike Stump  <mrs@apple.com>
 
 	* lib/c-torture.exp: Added -fnested-functions.

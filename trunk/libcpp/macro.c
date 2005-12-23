@@ -1106,6 +1106,13 @@ cpp_get_token (cpp_reader *pfile)
 	      ((cpp_token *)result)->flags |= BOL;
 	      context->bol_p = false;
 	    }
+	  else
+	    {
+	      /* We can reinject macro bodies into the stream of tokens, we have to
+		 reset the BOL flag for this on the basis of the context alone to
+		 avoid previous BOL setting for prior uses of the macro.  */
+	      ((cpp_token *)result)->flags &= ~BOL;
+	    }
 	  /* APPLE LOCAL end CW asm blocks */
 
 	  if (result->flags & PASTE_LEFT)
