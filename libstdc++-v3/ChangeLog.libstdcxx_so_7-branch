@@ -1,5 +1,15 @@
 2005-12-23  Paolo Carlini  <pcarlini@suse.de>
 
+	* include/bits/stl_bvector.h (class vector<bool>): Move all the
+	helpers under protected access mode, consistently with the primary
+	vector template.
+	(vector<bool>::_M_erase_at_end): Add.
+	(erase(iterator, iterator), clear, resize, _M_fill_assign,
+	_M_assign_aux): Use it.
+	* testsuite/23_containers/vector/bool/modifiers/erase/1.cc: New.
+
+2005-12-23  Paolo Carlini  <pcarlini@suse.de>
+
 	Implement Option 3 of DR 431 for vector<bool>.
 	* include/bits/stl_bvector.h (class _Bvector_base): Change to
 	a struct, consistently with the primary vector template.
