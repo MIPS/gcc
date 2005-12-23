@@ -1,5 +1,10 @@
 2005-12-23  Paolo Carlini  <pcarlini@suse.de>
 
+	* include/bits/stl_bvector.h (vector<bool>::erase(iterator,
+	iterator)): Just use _M_erase_at_end.
+
+2005-12-23  Paolo Carlini  <pcarlini@suse.de>
+
 	* include/bits/stl_bvector.h (class vector<bool>): Move all the
 	helpers under protected access mode, consistently with the primary
 	vector template.
