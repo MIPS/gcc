@@ -354,12 +354,13 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
   { return __x + __n; }
 
   template<class _Alloc>
-    class _Bvector_base
+    struct _Bvector_base
     {
       typedef typename _Alloc::template rebind<_Bit_type>::other
         _Bit_alloc_type;
       
-      struct _Bvector_impl : public _Bit_alloc_type
+      struct _Bvector_impl 
+      : public _Bit_alloc_type
       {
 	_Bit_iterator 	_M_start;
 	_Bit_iterator 	_M_finish;
@@ -372,9 +373,17 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
     public:
       typedef _Alloc allocator_type;
 
+      _Bit_alloc_type&
+      _M_get_Bit_allocator()
+      { return *static_cast<_Bit_alloc_type*>(&this->_M_impl); }
+
+      const _Bit_alloc_type&
+      _M_get_Bit_allocator() const
+      { return *static_cast<const _Bit_alloc_type*>(&this->_M_impl); }
+
       allocator_type
       get_allocator() const
-      { return *static_cast<const _Bit_alloc_type*>(&this->_M_impl); }
+      { return allocator_type(_M_get_Bit_allocator()); }
 
       _Bvector_base(const allocator_type& __a) : _M_impl(__a) { }
 
@@ -424,31 +433,31 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
    *  also provided as with C-style arrays.
   */
 template<typename _Alloc>
-  class vector<bool, _Alloc> : public _Bvector_base<_Alloc>
+  class vector<bool, _Alloc> : protected _Bvector_base<_Alloc>
   {
+    typedef _Bvector_base<_Alloc>			 _Base;
+
   public:
-    typedef bool value_type;
-    typedef size_t size_type;
-    typedef ptrdiff_t difference_type;
-    typedef _Bit_reference reference;
-    typedef bool const_reference;
-    typedef _Bit_reference* pointer;
-    typedef const bool* const_pointer;
-
-    typedef _Bit_iterator                iterator;
-    typedef _Bit_const_iterator          const_iterator;
-
-    typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
-    typedef std::reverse_iterator<iterator> reverse_iterator;
-
-    typedef typename _Bvector_base<_Alloc>::allocator_type allocator_type;
+    typedef bool                                         value_type;
+    typedef size_t                                       size_type;
+    typedef ptrdiff_t                                    difference_type;
+    typedef _Bit_reference                               reference;
+    typedef bool                                         const_reference;
+    typedef _Bit_reference*                              pointer;
+    typedef const bool*                                  const_pointer;
+    typedef _Bit_iterator                                iterator;
+    typedef _Bit_const_iterator                          const_iterator;
+    typedef std::reverse_iterator<const_iterator>        const_reverse_iterator;
+    typedef std::reverse_iterator<iterator>              reverse_iterator;
+    typedef _Alloc                        		 allocator_type;
 
     allocator_type get_allocator() const
-    { return _Bvector_base<_Alloc>::get_allocator(); }
+    { return _Base::get_allocator(); }
 
   protected:
-    using _Bvector_base<_Alloc>::_M_allocate;
-    using _Bvector_base<_Alloc>::_M_deallocate;
+    using _Base::_M_allocate;
+    using _Base::_M_deallocate;
+    using _Base::_M_get_Bit_allocator;
 
   protected:
     void
@@ -643,7 +652,7 @@ template<typename _Alloc>
     }
 
     vector(const vector& __x)
-    : _Bvector_base<_Alloc>(__x.get_allocator())
+    : _Bvector_base<_Alloc>(__x._M_get_Bit_allocator())
     {
       _M_initialize(__x.size());
       std::copy(__x.begin(), __x.end(), this->_M_impl._M_start);
@@ -656,7 +665,7 @@ template<typename _Alloc>
      */
     template<typename _Vector>
       vector(__gnu_cxx::__rvalref<_Vector> __x)
-      : _Bvector_base<_Alloc>(__x.__ref.get_allocator())
+      : _Bvector_base<_Alloc>(__x.__ref._M_get_Bit_allocator())
       { this->swap(__x.__ref); }
 
     // Check whether it's an integral type.  If so, it's not an iterator.
@@ -848,6 +857,11 @@ template<typename _Alloc>
       std::swap(this->_M_impl._M_finish, __x._M_impl._M_finish);
       std::swap(this->_M_impl._M_end_of_storage, 
 		__x._M_impl._M_end_of_storage);
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 431. Swapping containers with unequal allocators.
+      std::__alloc_swap<typename _Base::_Bit_alloc_type>::
+	_S_do_it(_M_get_Bit_allocator(), __x._M_get_Bit_allocator());
     }
 
     // [23.2.5]/1, third-to-last entry in synopsis listing
