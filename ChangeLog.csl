@@ -1,3 +1,12 @@
+2005-12-22  Joseph Myers  <jsm@polyomino.org.uk>
+
+	* gcc/config.gcc (powerpc-wrs-linux-gnu): Use rs6000/wrs-linux.h
+	* gcc/config/arm/t-wrs-linux (EXTRA_MULTILIB_PARTS): Add
+	crtbeginT.o.
+	* gcc/config/mips/t-wrs-linux, gcc/config/mips/wrs-linux.h: Add
+	hard-float multilibs.
+	* gcc/config/rs6000/wrs-linux.h: New.
+
 2005-12-21  Joseph Myers  <joseph@codesourcery.com>
 
 	* libstdc++-v3/crossconfig.m4: Use link tests for *-*-linux*.

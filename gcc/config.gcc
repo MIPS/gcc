@@ -1760,6 +1760,7 @@ powerpc64-*-linux*|powerpc-wrs-linux-gnu)
 	powerpc-wrs-linux-gnu)
 		# This configuration does not use t-linux64, as there
 	        # are no 64-bit multilibs.  
+		tm_file="$tm_file rs6000/wrs-linux.h"
 		;;
 	*)
 		tmake_file="$tmake_file rs6000/t-linux64"

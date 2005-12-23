@@ -23,4 +23,4 @@
 MULTILIB_OPTIONS = muclibc tarm926ej-s/tiwmmxt/txscale
 MULTILIB_DIRNAMES = uclibc tarm926ej-s tiwmmxt txscale
 # These files must be built for each multilib.
-EXTRA_MULTILIB_PARTS = crtbegin.o crtend.o crtbeginS.o crtendS.o
+EXTRA_MULTILIB_PARTS = crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o
