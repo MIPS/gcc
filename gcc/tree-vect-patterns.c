@@ -43,7 +43,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Funcion prototypes */
 static void vect_pattern_recog_1 
-  (tree (* ) (tree, tree *, tree *, varray_type *), block_stmt_iterator);
+  (tree (* ) (tree, tree *, tree *), block_stmt_iterator);
 static bool widened_name_p (tree, tree, tree *, tree *);
 
 /* Pattern recognition functions  */
@@ -131,18 +131,15 @@ widened_name_p (tree name, tree use_stmt, tree *half_type, tree *def_stmt)
    LAST_STMT: A stmt from which the pattern search begins. 
 
    Output:
-   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
-   are part of the pattern. 
 
    PATTERN_TYPE: The vector type to be used for the returned new stmt.
 
    Return value: A new stmt that will be used to replace the sequence of
-   stmts in STMT_LIST. In this case it will be:
-   sad = SAD_EXPR <x, y, sad>
+   stmts that constitutes the pattern. In this case it will be:
+  	 sad = SAD_EXPR <x, y, sad>
 */
 
-tree vect_recog_sad_pattern (tree last_stmt, tree *type_in, tree *type_out,
-                             varray_type *stmt_list)
+tree vect_recog_sad_pattern (tree last_stmt, tree *type_in, tree *type_out)
 {
   tree stmt, expr;
   tree oprnd0, oprnd1;
@@ -175,7 +172,6 @@ tree vect_recog_sad_pattern (tree last_stmt, tree *type_in, tree *type_out,
 	return NULL;
       oprnd0 = TREE_OPERAND (expr, 0);
       oprnd1 = TREE_OPERAND (expr, 1);
-      VARRAY_PUSH_TREE (*stmt_list, last_stmt);
       half_type = TREE_TYPE (oprnd0);
     }
   else
@@ -187,12 +183,10 @@ tree vect_recog_sad_pattern (tree last_stmt, tree *type_in, tree *type_out,
       if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type)
           || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
         return NULL;
-      VARRAY_PUSH_TREE (*stmt_list, last_stmt);
 
       if (widened_name_p (oprnd0, last_stmt, &half_type, &def_stmt))
 	{
 	  stmt = def_stmt;
-	  VARRAY_PUSH_TREE (*stmt_list, stmt);
 	  expr = TREE_OPERAND (stmt, 1);
 	  oprnd0 = TREE_OPERAND (expr, 0);
 	}
@@ -208,16 +202,11 @@ tree vect_recog_sad_pattern (tree last_stmt, tree *type_in, tree *type_out,
   gcc_assert (stmt);
   stmt_vinfo = vinfo_for_stmt (stmt);
   gcc_assert (stmt_vinfo);
-  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
-    return NULL;
   gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
   gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
   expr = TREE_OPERAND (stmt, 1);
   if (TREE_CODE (expr) != ABS_EXPR)
    return NULL;
-
-  VARRAY_PUSH_TREE (*stmt_list, stmt);
-
 
   /* Absolute difference?  */
 
@@ -228,8 +217,6 @@ tree vect_recog_sad_pattern (tree last_stmt, tree *type_in, tree *type_out,
   gcc_assert (stmt);
   stmt_vinfo = vinfo_for_stmt (stmt);
   gcc_assert (stmt_vinfo);
-  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
-    return NULL;
   if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
     return NULL;
   if (TREE_CODE (stmt) != MODIFY_EXPR)
@@ -238,9 +225,6 @@ tree vect_recog_sad_pattern (tree last_stmt, tree *type_in, tree *type_out,
   expr = TREE_OPERAND (stmt, 1);
   if (TREE_CODE (expr) != MINUS_EXPR)
    return NULL;
-
-  VARRAY_PUSH_TREE (*stmt_list, stmt);
-
   *type_in = half_type;
   *type_out = type;
 
@@ -277,28 +261,22 @@ tree vect_recog_sad_pattern (tree last_stmt, tree *type_in, tree *type_out,
    LAST_STMT: A stmt from which the pattern search begins. 
 
    Output:
-   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
-   are part of the pattern. 
 
    PATTERN_TYPE: The vector type to be used for the returned new stmt.
 
    Return value: A new stmt that will be used to replace the sequence of
-   stmts in STMT_LIST. In this case it will be:
-   hi_part = MULT_HI_EXPR <x, y>
+   stmts that constitutes the pattern. In this case it will be:
+   	hi_part = MULT_HI_EXPR <x, y>
 */
 
 tree
-vect_recog_mult_hi_pattern (tree last_stmt, tree *type_in, tree *type_out,
-                            varray_type *stmt_list)
+vect_recog_mult_hi_pattern (tree last_stmt, tree *type_in, tree *type_out)
 {
   tree stmt, expr;
   tree oprnd0, oprnd1;
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (last_stmt);
   tree type, half_type;
   tree pattern_expr;
-
-  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (last_stmt)))
-    return NULL;
 
   if (TREE_CODE (last_stmt) != MODIFY_EXPR)
     return NULL;
@@ -317,17 +295,12 @@ vect_recog_mult_hi_pattern (tree last_stmt, tree *type_in, tree *type_out,
 
   oprnd0 = TREE_OPERAND (expr, 0);
 
-  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
-
-
   /* Check that oprnd0 is defined by a shift-right stmt.  */
 
   stmt = SSA_NAME_DEF_STMT (oprnd0);
   gcc_assert (stmt);
   stmt_vinfo = vinfo_for_stmt (stmt);
   if (!stmt_vinfo)
-    return NULL;
-  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
     return NULL;
   if (STMT_VINFO_DEF_TYPE (stmt_vinfo) != vect_loop_def)
     return NULL;
@@ -348,9 +321,6 @@ vect_recog_mult_hi_pattern (tree last_stmt, tree *type_in, tree *type_out,
 
   oprnd0 = TREE_OPERAND (expr, 0);
   oprnd1 = TREE_OPERAND (expr, 1); 
-
-  VARRAY_PUSH_TREE (*stmt_list, stmt);
-  
 
   /* Check that oprnd0 is defined by a widening-mult, and that oprnd1
      is a constant which value is the size of half_type.  */
@@ -394,7 +364,6 @@ vect_recog_mult_hi_pattern (tree last_stmt, tree *type_in, tree *type_out,
       if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type)
           || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
         return NULL;
-      VARRAY_PUSH_TREE (*stmt_list, stmt);
       if (!widened_name_p (oprnd0, stmt, &half_type0, &def_stmt))
         return NULL;
       oprnd0 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
@@ -450,22 +419,17 @@ vect_recog_mult_hi_pattern (tree last_stmt, tree *type_in, tree *type_out,
 
    Output:
 
-   * STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
-   are part of the pattern. In the example, STMT_LIST will consist of 
-   {S3,S4,S5,S6,S7}.
-
    * TYPE_IN: The type of the input arguments to the pattern.
 
    * TYPE_OUT: The type of the output  of this pattern.
 
    * Return value: A new stmt that will be used to replace the sequence of
-   stmts in STMT_LIST. In this case it will be:
+   stmts that constitute the pattern. In this case it will be:
    	WIDEN_DOT_PRODUCT <x_t, y_t, sum_0>
 */
 
 tree
-vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out,
-                             varray_type *stmt_list)
+vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
 {
   tree stmt, expr;
   tree oprnd0, oprnd1;
@@ -491,15 +455,15 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out,
      - DX is double the size of X
      - DY is double the size of Y
      - DX, DY, DPROD all have the same type
-     - sum is the same size of PROD or bigger
+     - sum is the same size of DPROD or bigger
      - sum has been recognized as a reduction variable.
 
      This is equivalent to:
-       DPROD = X w* Y;
-       sum_1 = DPROD w+ sum_0;
+       DPROD = X w* Y;		#widen mult
+       sum_1 = DPROD w+ sum_0;	#widen summation
      or
-       DPROD = X w* Y;
-       sum_1 = DPROD + sum_0;
+       DPROD = X w* Y;		#widen mult
+       sum_1 = DPROD + sum_0;	#summation
    */
 
   /* Starting from LAST_STMT, follow the defs of its uses in search
@@ -534,12 +498,10 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out,
           || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
         return NULL;
       stmt = last_stmt;
-      VARRAY_PUSH_TREE (*stmt_list, stmt);
 
       if (widened_name_p (oprnd0, stmt, &half_type, &def_stmt))
         {
           stmt = def_stmt;
-          VARRAY_PUSH_TREE (*stmt_list, stmt);
           expr = TREE_OPERAND (stmt, 1);
           oprnd0 = TREE_OPERAND (expr, 0);
         }
@@ -547,10 +509,8 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out,
         half_type = type;
     }
 
-  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
- 
-  /* So far so good.
-     Assumption: oprnd1 is the reduction variable (defined by a loop-header
+  /* So far so good. Since last_stmt was detected as a (summation) reduction,
+     we know that oprnd1 is the reduction variable (defined by a loop-header
      phi), and oprnd0 is an ssa-name defined by a stmt in the loop body.
      Left to check that oprnd0 is defined by a (widen_)mult_expr  */
   prod_type = type;
@@ -566,6 +526,8 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out,
     return NULL;
   if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
     {
+      /* Has been detected as a widening multiplication?  */
+
       stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
       gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
       expr = TREE_OPERAND (stmt, 1);
@@ -587,7 +549,6 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out,
       if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type)
           || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
         return NULL;
-      VARRAY_PUSH_TREE (*stmt_list, stmt);
       if (!widened_name_p (oprnd0, stmt, &half_type0, &def_stmt))
         return NULL;
       oprnd00 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
@@ -635,21 +596,17 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out,
 
    Output:
 
-   * STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
-   are part of the pattern. In the example, STMT_LIST consists of {S3,S4,S5}.
-
    * TYPE_IN: The type of the input arguments to the pattern.
 
    * TYPE_OUT: The type of the output  of this pattern.
 
    * Return value: A new stmt that will be used to replace the sequence of
-   stmts in STMT_LIST. In this case it will be:
+   stmts that constitute the pattern. In this case it will be:
    	WIDEN_MULT <a_t, b_t>
 */
    
 tree
-vect_recog_widen_mult_pattern (tree last_stmt, tree *type_in, tree *type_out,
-                               varray_type *stmt_list)
+vect_recog_widen_mult_pattern (tree last_stmt, tree *type_in, tree *type_out)
 {
   tree expr;
   tree def_stmt0, def_stmt1;
@@ -659,9 +616,6 @@ vect_recog_widen_mult_pattern (tree last_stmt, tree *type_in, tree *type_out,
   tree vectype;
   tree dummy;
   enum tree_code dummy_code;
-
-  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (last_stmt)))
-    return NULL;
 
   if (TREE_CODE (last_stmt) != MODIFY_EXPR)
     return NULL;
@@ -681,8 +635,6 @@ vect_recog_widen_mult_pattern (tree last_stmt, tree *type_in, tree *type_out,
       || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
     return NULL;
 
-  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
-
   /* Check argument 0 */
   if (!widened_name_p (oprnd0, last_stmt, &half_type0, &def_stmt0))
     return NULL;
@@ -695,9 +647,6 @@ vect_recog_widen_mult_pattern (tree last_stmt, tree *type_in, tree *type_out,
 
   if (TYPE_MAIN_VARIANT (half_type0) != TYPE_MAIN_VARIANT (half_type1))
     return NULL;
-
-  VARRAY_PUSH_TREE (*stmt_list, def_stmt0);
-  VARRAY_PUSH_TREE (*stmt_list, def_stmt1);
 
   /* Check target support  */
   vectype = get_vectype_for_scalar_type (half_type0);
@@ -743,30 +692,23 @@ vect_recog_widen_mult_pattern (tree last_stmt, tree *type_in, tree *type_out,
 
    Output:
 
-   * STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that
-   are part of the pattern. In the example, STMT_LIST will consist of {S2,S3}.
-
    * TYPE_IN: The type of the input arguments to the pattern.
 
    * TYPE_OUT: The type of the output of this pattern.
 
    * Return value: A new stmt that will be used to replace the sequence of
-   stmts in STMT_LIST. In this case it will be:
+   stmts that constitute the pattern. In this case it will be:
    	WIDEN_SUM <x_t, sum_0>
 */
 
 tree
-vect_recog_widen_sum_pattern (tree last_stmt, tree *type_in, tree *type_out,
-			      varray_type *stmt_list)
+vect_recog_widen_sum_pattern (tree last_stmt, tree *type_in, tree *type_out)
 {
   tree stmt, expr;
   tree oprnd0, oprnd1;
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (last_stmt);
   tree type, half_type;
   tree pattern_expr;
-
-  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (last_stmt)))
-    return NULL;
 
   if (TREE_CODE (last_stmt) != MODIFY_EXPR)
     return NULL;
@@ -796,8 +738,6 @@ vect_recog_widen_sum_pattern (tree last_stmt, tree *type_in, tree *type_out,
       || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
     return NULL;
   
-  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
-  
   /* So far so good.
      Assumption: oprnd1 is the reduction variable (defined by a loop-header
      phi), and oprnd0 is an ssa-name defined by a stmt in the loop body.
@@ -812,8 +752,6 @@ vect_recog_widen_sum_pattern (tree last_stmt, tree *type_in, tree *type_out,
     return NULL;
 
   oprnd0 = TREE_OPERAND (TREE_OPERAND (stmt, 1), 0);
-  VARRAY_PUSH_TREE (*stmt_list, stmt);
-
   *type_in = half_type;
   *type_out = type;
 
@@ -848,16 +786,14 @@ vect_recog_widen_sum_pattern (tree last_stmt, tree *type_in, tree *type_out,
    when this function is called with S2, the pattern {S1,S2} will be detected.
 
    Output:
-   STMT_LIST: If this pattern is detected, STMT_LIST will hold the stmts that 
-   are part of the pattern. In the example, STMT_LIST will consist of {S1,S2}.
 
    Return value: A new stmt that will be used to replace the sequence of
-   stmts in STMT_LIST. In this case it will be: SAT_MINUS_EXPR (a,b).
+   stmts that constitute the pattern. In this case it will be: 
+	SAT_MINUS_EXPR (a,b).
 */  
   
 tree
-vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *type_in, tree *type_out, 
-				    varray_type *stmt_list)
+vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *type_in, tree *type_out) 
 {
   tree stmt, expr;
   tree type;
@@ -869,9 +805,6 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *type_in, tree *type_ou
   tree a, b, a_minus_b, b_minus_1;
   tree pattern_expr;
   tree new;
-
-  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (last_stmt)))
-    return NULL;
 
   if (TREE_CODE (last_stmt) != MODIFY_EXPR)
     return NULL;
@@ -949,8 +882,6 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *type_in, tree *type_ou
   if (TYPE_MAIN_VARIANT (TREE_TYPE (a)) != TYPE_MAIN_VARIANT (type))
     return NULL;
 
-  VARRAY_PUSH_TREE (*stmt_list, last_stmt);
-  
   /* So far so good. Left to check that:
 	- a_minus_b == a - b
 	- b_minus_1 == b - 1
@@ -958,9 +889,6 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *type_in, tree *type_ou
 
   stmt = SSA_NAME_DEF_STMT (a_minus_b);
   if (!stmt || TREE_CODE (stmt) != MODIFY_EXPR)
-    return NULL;
-
-  if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (stmt)))
     return NULL;
 
   expr = TREE_OPERAND (stmt, 1);
@@ -981,9 +909,6 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *type_in, tree *type_ou
 
   if (!expressions_equal_p (b_minus_1, new))
     return NULL;
-
-  VARRAY_PUSH_TREE (*stmt_list, stmt);
-
   *type_in = type;
   *type_out = NULL_TREE;
 
@@ -1022,15 +947,13 @@ vect_recog_unsigned_subsat_pattern (tree last_stmt, tree *type_in, tree *type_ou
 
 static void
 vect_pattern_recog_1 (
-	tree (* pattern_recog_func) (tree, tree *, tree *, varray_type *),
+	tree (* pattern_recog_func) (tree, tree *, tree *),
 	block_stmt_iterator si)
 {
   tree stmt = bsi_stmt (si);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   stmt_vec_info pattern_stmt_info;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  varray_type stmt_list;
   tree pattern_expr;
   tree pattern_vectype;
   tree type_in, type_out;
@@ -1039,13 +962,9 @@ vect_pattern_recog_1 (
   tree var, var_name;
   stmt_ann_t ann;
 
-  VARRAY_TREE_INIT (stmt_list, 10, "stmt list");
-  pattern_expr = (* pattern_recog_func) (stmt, &type_in, &type_out, &stmt_list);
+  pattern_expr = (* pattern_recog_func) (stmt, &type_in, &type_out);
   if (!pattern_expr) 
-    { 
-      varray_clear (stmt_list); 
-      return; 
-    } 
+    return; 
  
   if (VECTOR_MODE_P (TYPE_MODE (type_in))) 
     { 
@@ -1069,10 +988,7 @@ vect_pattern_recog_1 (
           || (type_out
               && (insn_data[icode].operand[0].mode !=
                   TYPE_MODE (get_vectype_for_scalar_type (type_out)))))
-        {
-          varray_clear (stmt_list);
-          return;
-        }
+        return;
     }
 
   /* Found a vectorizable pattern.  */
@@ -1099,22 +1015,8 @@ vect_pattern_recog_1 (
   STMT_VINFO_RELATED_STMT (pattern_stmt_info) = stmt;
   STMT_VINFO_DEF_TYPE (pattern_stmt_info) = STMT_VINFO_DEF_TYPE (stmt_info);
   STMT_VINFO_VECTYPE (pattern_stmt_info) = pattern_vectype;
-
-  while (VARRAY_ACTIVE_SIZE (stmt_list) > 0)
-    {
-      tree stmt_in_pattern = VARRAY_TOP_TREE (stmt_list);
-      basic_block bb = bb_for_stmt (stmt_in_pattern);
-
-      VARRAY_POP (stmt_list);
-      if (flow_bb_inside_loop_p (loop, bb))
-        {
-          stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt_in_pattern);
-
-          STMT_VINFO_IN_PATTERN_P (stmt_vinfo) = true;
-          STMT_VINFO_RELATED_STMT (stmt_vinfo) = pattern_expr;
-        }
-    }
-  varray_clear (stmt_list);
+  STMT_VINFO_IN_PATTERN_P (stmt_info) = true;
+  STMT_VINFO_RELATED_STMT (stmt_info) = pattern_expr;
 
   return;
 }
@@ -1135,11 +1037,11 @@ vect_pattern_recog_1 (
    following initial value in the STMT_VINFO fields:
 
          stmt                     in_pattern_p  related_stmt    vec_stmt
-         S1: a_i = ....                 false
-         S2: a_2 = ..use(a_i)..         false
-         S3: a_1 = ..use(a_2)..         false
-         S4: a_0 = ..use(a_1)..         false
-         S5: ... = ..use(a_0)..         false
+         S1: a_i = ....			-	-		-
+         S2: a_2 = ..use(a_i)..		-	-		-
+         S3: a_1 = ..use(a_2)..		-	-		-
+         S4: a_0 = ..use(a_1)..		-	-		-
+         S5: ... = ..use(a_0)..		-	-		-
 
 
    Say the sequence {S1,S2,S3,S4} was detected as a pattern that can be
@@ -1149,12 +1051,12 @@ vect_pattern_recog_1 (
    - fill in the STMT_VINFO fields as follows:
 
                                   in_pattern_p  related_stmt    vec_stmt
-         S1: a_i = ....                 true    S6
-         S2: a_2 = ..use(a_i)..         true    S6
-         S3: a_1 = ..use(a_2)..         true    S6
-       > S6: a_new = ....               false   S4
-         S4: a_0 = ..use(a_1)..         true    S6
-         S5: ... = ..use(a_0)..         false
+         S1: a_i = ....			-	-		-	
+         S2: a_2 = ..use(a_i)..		-	-		-
+         S3: a_1 = ..use(a_2)..		-	-		-
+       > S6: a_new = ....               -   	S4		-
+         S4: a_0 = ..use(a_1)..         true    S6		-
+         S5: ... = ..use(a_0)..		-	-		-
 
    (the last stmt in the pattern (S4) and the new pattern stmt (S6) point
     to each other through the RELATED_STMT field).
@@ -1171,14 +1073,14 @@ vect_pattern_recog_1 (
    vector-def from. S4 will be skipped, and S5 will be vectorized as usual:
 
                                   in_pattern_p  related_stmt    vec_stmt
-         S1: a_i = ....                 true    S6            
-         S2: a_2 = ..use(a_i)..         true    S6    
-         S3: a_1 = ..use(a_2)..         true    S6    
-       > VS6: va_new = ....     
-         S6: a_new = ....               false   S4              VS6
+         S1: a_i = ....			-	-		-
+         S2: a_2 = ..use(a_i)..		-	-		-
+         S3: a_1 = ..use(a_2)..		-	-		-
+       > VS6: va_new = ....  		-	-		-
+         S6: a_new = ....               -	S4              VS6
          S4: a_0 = ..use(a_1)..         true    S6              VS6
-       > VS5: ... = ..vuse(va_new)..
-         S5: ... = ..use(a_0)..         false   
+       > VS5: ... = ..vuse(va_new)..	-	-		-
+         S5: ... = ..use(a_0)..		-	-		-
 
    DCE could then get rid of {S1,S2,S3,S4,S5,S6} (if their defs are not used
    elsewhere), and we'll end up with:
@@ -1199,7 +1101,7 @@ vect_pattern_recog (loop_vec_info loop_vinfo)
   block_stmt_iterator si;
   tree stmt;
   unsigned int i, j;
-  tree (* pattern_recog_func) (tree, tree *, tree *, varray_type *);
+  tree (* pattern_recog_func) (tree, tree *, tree *);
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_pattern_recog ===");

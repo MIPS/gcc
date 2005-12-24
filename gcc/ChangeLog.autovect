@@ -1,3 +1,21 @@
+2005-12-24  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vectorizer.h (vect_recog_unsigned_subsat_pattern):
+	(vect_recog_widen_sum_pattern, vect_recog_widen_mult_pattern):
+	(vect_recog_mult_hi_pattern, vect_recog_sad_pattern):
+	(vect_recog_dot_prod_pattern, _recog_func_ptr): Last argument removed.
+	* tree-vect-analyze.c (vect_recog_unsigned_subsat_pattern):
+        (vect_recog_widen_sum_pattern, vect_recog_widen_mult_pattern):
+        (vect_recog_mult_hi_pattern, vect_recog_sad_pattern):
+        (vect_recog_dot_prod_pattern): Last argument (stmt_list) removed.
+	Documentation updated accordingly. STMT_VINFO_IN_PATTERN_P checks 
+	removed. 
+	(vect_pattern_recog_1): Update declaration of pattern_recog_func.
+	stmt_list removed. Set STMT_VINFO_RELATED_STMT and 
+	STMT_VINFO_IN_PATTERN_P only for 'stmt'.
+	(vect_pattern_recog): Update documentation. Update declaration of
+	pattern_recog_func.
+
 2005-12-22  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vectorizer.h (related_stmt): Update documentation.

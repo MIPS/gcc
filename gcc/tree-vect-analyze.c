@@ -2048,21 +2048,22 @@ vect_mark_relevant (VEC(tree,heap) **worklist, tree stmt,
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "mark relevant %d, live %d.",relevant, live_p);
 
-  if (STMT_VINFO_IN_PATTERN_P (stmt_info) 
-      && STMT_VINFO_RELATED_STMT (stmt_info)
-      && STMT_VINFO_RELATED_STMT (vinfo_for_stmt 
-			(STMT_VINFO_RELATED_STMT (stmt_info))) == stmt)
+  if (STMT_VINFO_IN_PATTERN_P (stmt_info))
     {
+      tree pattern_stmt;
+
       /* This is the last stmt in a sequence that was detected as a 
 	 pattern that can potentially be vectorized.  Don't mark the stmt
 	 as relevant/live because it's not going to vectorized.
 	 Instead mark the pattern-stmt that replaces it.  */
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "last stmt in pattern. don't mark relevant/live.");
-      stmt = STMT_VINFO_RELATED_STMT (stmt_info);
-      stmt_info = vinfo_for_stmt (stmt);
+      pattern_stmt = STMT_VINFO_RELATED_STMT (stmt_info);
+      stmt_info = vinfo_for_stmt (pattern_stmt);
+      gcc_assert (STMT_VINFO_RELATED_STMT (stmt_info) == stmt);
       save_relevant = STMT_VINFO_RELEVANT (stmt_info);
       save_live_p = STMT_VINFO_LIVE_P (stmt_info);
+      stmt = pattern_stmt;
     }
 
   STMT_VINFO_LIVE_P (stmt_info) |= live_p;

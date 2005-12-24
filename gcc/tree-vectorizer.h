@@ -222,7 +222,10 @@ typedef struct _stmt_vec_info {
      Current uses of this field are:
      1. If this stmt is part of a pattern (i.e. the field 'in_pattern_p' is 
 	true): S is the "pattern stmt" that represents (and replaces) the 
-	sequence of stmts that constitutes the pattern.
+	sequence of stmts that constitutes the pattern.  Similarly, the 
+	related_stmt of the "pattern stmt" points back to this stmt (which is 
+	the last stmt in the original sequence of stmts that constitutes the 
+	pattern.
      2. If this stmt is a load (store): S is also a load (store), and the
         datarefs accessed by both stmts are in the same "group" (i.e. the
 	related_stmt field connects between interleaved accesses that belong
@@ -231,10 +234,7 @@ typedef struct _stmt_vec_info {
 	and both stmts are part of a sequence of vector stmts that computes 
 	vector defs that correspond to a single scalar stmt. This is used when 
 	vectorizing type conversions, in which case we often replace one scalar 
-	stmt with a sequence of pack/unpack vector stmts.
-     4. Otherwise (this stmt is not part of a pattern and is not a load/store) -
-	this stmt is a "pattern stmt" (see 1 above), and S is the last stmt in 
-	the original sequence of stmts that constitutes the pattern.  */
+	stmt with a sequence of pack/unpack vector stmts.  */
   tree related_stmt;
 
   /* List of datarefs that are known to have the same alignment as the dataref
@@ -407,13 +407,13 @@ extern loop_vec_info vect_analyze_loop (struct loop *);
 /* Pattern recognition functions.
    Additional pattern recognition functions can (and will) be added
    in the future.  */
-tree vect_recog_unsigned_subsat_pattern (tree, tree *, tree *, varray_type *);
-tree vect_recog_widen_sum_pattern (tree, tree *, tree *, varray_type *);
-tree vect_recog_widen_mult_pattern (tree, tree *, tree *, varray_type *);
-tree vect_recog_mult_hi_pattern (tree, tree *, tree *, varray_type *);
-tree vect_recog_sad_pattern (tree, tree *, tree *, varray_type *);
-tree vect_recog_dot_prod_pattern (tree, tree *, tree *, varray_type *);
-typedef tree (* _recog_func_ptr) (tree, tree *, tree *, varray_type *);
+tree vect_recog_unsigned_subsat_pattern (tree, tree *, tree *);
+tree vect_recog_widen_sum_pattern (tree, tree *, tree *);
+tree vect_recog_widen_mult_pattern (tree, tree *, tree *);
+tree vect_recog_mult_hi_pattern (tree, tree *, tree *);
+tree vect_recog_sad_pattern (tree, tree *, tree *);
+tree vect_recog_dot_prod_pattern (tree, tree *, tree *);
+typedef tree (* _recog_func_ptr) (tree, tree *, tree *);
 #define NUM_PATTERNS 6
 extern _recog_func_ptr vect_pattern_recog_funcs[];
 void vect_pattern_recog (loop_vec_info);
