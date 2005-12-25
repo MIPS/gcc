@@ -1,3 +1,113 @@
+2005-12-22  Richard Henderson  <rth@redhat.com>
+
+	* gcc.target/i386/sse-7.c: Use -msse2.
+
+2005-12-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/25432
+	* gcc.c-torture/compile/20051216-1.c: New test.
+
+	PR objc/25328
+	* objc/execute/pr25328.m: New test.
+
+2005-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25364
+	* g++.dg/template/call4.C: New test.
+
+2005-12-22  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.target/i386/sse-17.c:  New.
+
+2005-12-22  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/tree-ssa/loop-1.c: Look for jump/branch on m68k.
+
+2005-12-22  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/25513
+	* gcc.c-torture/compile/pr25513.c: New test.
+
+2005-12-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23333
+	* g++.dg/parse/error25.C: Add more tests.
+
+2005-12-22  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18990
+	* gfortran.dg/der_charlen_1.f90: New.
+
+2005-12-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/20889
+	*gfortran.dg/pointer_component_type_1.f90: New test.
+
+	PR fortran/25029
+	PR fortran/21256
+	*gfortran.dg/assumed_size_refs.f90: New test for the conditions that
+	should give an error with assumed size array refernces and checks those
+	that should not.
+	*gfortran.dg/gfortran.dg/pr15140.f90: Give the assumed size array
+	reference an upper bound so that it does not generate an error.
+
+	PR fortran/19362
+	PR fortran/20244
+	PR fortran/20864
+	PR fortran/25391
+	*gfortran.dg/used_dummy_types_1.f90: New test.
+	*gfortran.dg/used_dummy_types_2.f90: New test.
+	*gfortran.dg/used_dummy_types_3.f90: New test.
+	*gfortran.dg/used_dummy_types_4.f90: New test.
+	*gfortran.dg/used_dummy_types_5.f90: New test.
+
+	PR fortran/23152
+	*gfortran.dg/namelist_use.f90: Add trap for warning on NAMELIST
+	group already being USE associated.
+	*gfortran.dg/assumed_shape_nml.f90: New test.
+	*gfortran.dg/assumed_size_nml.f90: New test.
+
+	PR fortran/20862
+	PR fortran/25053
+	PR fortran/25063
+	PR fortran/25064
+	PR fortran/25066
+	PR fortran/25067
+	PR fortran/25068
+	PR fortran/25307
+	* gfortran.dg/io_constraints_1.f90: New test.
+	* gfortran.dg/io_constraints_1.f90: New test.
+	* gfortran.dg/iostat_3.f90: Change wording of warning.
+	 * gfortran.dg/g77/19981216-0.f:  the same.
+
+2005-12-22  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/23518
+	* testsuite/gcc.dg/pr23518.c: New.
+
+2005-12-21  Mike Stump  <mrs@apple.com>
+
+	* gcc.dg/attr-weakref-1.c: Really skip on darwin.
+
+2005-12-21  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/pr19340.c: Skip on m68k targets.
+
+2005-12-21  Steven Bosscher  <stevenb@suse.de>
+
+	PR rtl-optimization/25196
+	* gcc.dg/pr25196.c: New test.
+
+2005-12-21  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25423
+	gfortran.dg/where_nested_1.f90: New.
+
+2005-12-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25382.
+	* gcc.dg/tree-ssa/pr25382.c: New.
+
 2005-12-20  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/24306

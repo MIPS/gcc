@@ -167,6 +167,26 @@ create_var_ann (tree t)
   return ann;
 }
 
+/* Create a new annotation for a FUNCTION_DECL node T.  */
+
+function_ann_t
+create_function_ann (tree t)
+{
+  function_ann_t ann;
+
+  gcc_assert (t);
+  gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
+  gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
+
+  ann = ggc_alloc (sizeof (*ann));
+  memset ((void *) ann, 0, sizeof (*ann));
+
+  ann->common.type = FUNCTION_ANN;
+
+  t->common.ann = (tree_ann_t) ann;
+
+  return ann;
+}
 
 /* Create a new annotation for a statement node T.  */
 
@@ -216,6 +236,10 @@ tree
 make_rename_temp (tree type, const char *prefix)
 {
   tree t = create_tmp_var (type, prefix);
+
+  if (TREE_CODE (type) == COMPLEX_TYPE)
+    DECL_COMPLEX_GIMPLE_REG_P (t) = 1;
+
   if (referenced_vars)
     {
       add_referenced_tmp_var (t);

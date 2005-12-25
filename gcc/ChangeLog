@@ -1,3 +1,201 @@
+2005-12-23  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/24342
+	* config/cris/cris.c (cris_split_movdx): Add REG_INC notes for
+	emitted insns with post-increments.
+	(cris_expand_epilogue): Ditto.
+
+2005-12-22  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	Merge from gomp-branch.
+	* builtins.def: Move all DEF_SYNC_BUILTIN to ...
+	* sync-builtins.def: ... new file.
+	(BUILT_IN_FETCH_AND_ADD_16,
+	BUILT_IN_FETCH_AND_SUB_16, BUILT_IN_FETCH_AND_OR_16,
+	BUILT_IN_FETCH_AND_AND_16, BUILT_IN_FETCH_AND_XOR_16,
+	BUILT_IN_FETCH_AND_NAND_16, BUILT_IN_ADD_AND_FETCH_16,
+	BUILT_IN_SUB_AND_FETCH_16, BUILT_IN_OR_AND_FETCH_16,
+	BUILT_IN_AND_AND_FETCH_16, BUILT_IN_XOR_AND_FETCH_16,
+	BUILT_IN_NAND_AND_FETCH_16, BUILT_IN_BOOL_COMPARE_AND_SWAP_16,
+	BUILT_IN_VAL_COMPARE_AND_SWAP_16, BUILT_IN_LOCK_TEST_AND_SET_16,
+	BUILT_IN_LOCK_RELEASE_16): New builtins.
+	* builtin-types.def (BT_I16, BT_FN_I16_VPTR_I16,
+	BT_FN_BOOL_VPTR_I16_I16, BT_FN_I16_VPTR_I16_I16): Add.
+	* builtins.c (expand_builtin): Handle sync BUILT_IN_*_16 builtins.
+	* c-common.c (enum c_builtin_type): Move to top-level from
+	c_common_nodes_and_builtins enum builtin_type.
+	(builtin_types): Move from c_common_nodes_and_builtins.
+	(def_fn_type): New.
+	(c_common_nodes_and_builtins): Use it.
+	(def_builtin_1): Check for error_mark_node.
+	(sync_resolve_size): Handle also 128 bit sync builtins.
+	* Makefile.in (BUILTINS_DEF): New.  Use it instead of builtins.def.
+
+	* config/i386/i386.h (x86_cmpxchg8b, x86_cmpxchg16b): New decls.
+	(TARGET_CMPXCHG8B, TARGET_CMPXCHG16B): Define.
+	* config/i386/i386.c (x86_cmpxchg8b, x86_cmpxchg16b): New variables.
+	* config/i386/sync.md (CASMODE, DCASMODE): New mode macros.
+	(doublemodesuffix, DCASHMODE): New mode attrs.
+	(sync_compare_and_swap<mode>): Change into expand, use CASMODE
+	instead of IMODE, if mode is wider than a word, expand into
+	sync_double_compare_and_swap*.
+	(*sync_compare_and_swap<mode>): New insn.
+	(sync_double_compare_and_swap<mode>): Likewise.
+	(*sync_double_compare_and_swapdi_pic): Likewise.
+	(sync_compare_and_swap_cc<mode>): Use CASMODE instead of IMODE, if
+	mode is wider than a word, expand into
+	sync_double_compare_and_swap_cc*.
+	(sync_double_compare_and_swap_cc<mode>): New insn.
+	(*sync_double_compare_and_swap_ccdi_pic): Likewise.
+
+2005-12-22  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/mmintrin.h (_mm_add_si64): Only define for SSE2.
+	(_mm_sub_si64): Likewise.
+	* config/i386/xmmintrin.h (_mm_shuffle_pi16, _m_pshufw): Likewise.
+
+2005-12-23  Alan Modra  <amodra@bigpond.net.au>
+
+	PR rtl-optimization/25432
+	* reload1.c (eliminate_regs_in_insn): Update insn code on
+	successfully re-recognizing modified insn.
+
+2005-12-22  Richard Guenther  <rguenther@suse.de>
+
+	* tree.c (tree_fold_gcd): Use build_int_cst where appropriate.
+	* tree-ssa-loop-ivcanon.c (create_canonical_iv): Likewise.
+	* varasm.c (array_size_for_constructor): Likewise.
+	* fold-const.c (size_diffop, invert_truthvalue,
+	optimize_bit_field_compare, make_range, build_range_check,
+	fold_cond_expr_with_comparison, fold_truthop,
+	fold_single_bit_test_into_sign_test, fold_binary): Likewise.
+
+2005-12-22  Dale Johannesen  <dalej@apple.com>
+
+	* config/i386/sse.md (sse_movhlps):  Reverse operands for
+	2nd and 3rd alternatives.
+
+2005-12-22  Andrew Pinski <pinskia@physics.uc.edu>
+
+	PR tree-opt/25513
+	* tree-dfa.c (make_rename_temp): Set DECL_COMPLEX_GIMPLE_REG_P complex
+	variables.
+
+2005-12-22  Zdenek Dvorak <dvorakz@suse.cz>
+	    Steven Bosscher <stevenb@suse.de>
+
+	* df.c (df_bitmaps_free): Only work for bbs for that structures are
+	allocated.
+	(df_bb_modify): Realloc tables to the new index.
+	(df_find_use): New function.
+	(df_find_def, df_reg_used): Handle subregs.
+	* df.h (df_find_use): Declare.
+
+	* loop-invariant.c: Include hashtab.h.
+	(struct invariant): Remove processed field, add eqto and reg fields.
+	(struct invariant_expr_entry): New.
+	(invariant_for_use, hash_invariant_expr_1, invariant_expr_equal_p,
+	hash_invariant_expr, eq_invariant_expr, find_or_insert_inv,
+	find_identical_invariants, merge_identical_invariants): New functions.
+	(create_new_invariant): Return the new invariant.  Initialize new
+	fields.
+	(find_invariants): Call merge_identical_invariants.
+	(get_inv_cost, best_gain_for_invariant, set_move_mark,
+	move_invariant_reg): Handle equivalent invariants.
+	* Makefile.in (loop-invariant.o): Add HASHTAB_H dependency.
+
+2005-12-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23333
+	* c-lex.c (c_lex_with_flags): Add PURE_ZERO to cpp_flags if
+	number is a single digit '0'.
+
+2005-12-22  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/23518
+	* fold-const.c (make_range): Don't move a constant to the
+	other side of the comparison if the type is signed and -fwrapv
+	is given.
+
+2005-12-22  Kazu Hirata  <kazu@codesourcery.com>
+
+	* tree-vrp.c (extract_range_from_binary_expr): Clean up uses
+	of vr0.type.
+
+2005-12-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR middle-end/24998
+	* config/arm/t-arm-elf (LIB1ASMFUNCS): Add _floatundidf and
+	_floatundisf.
+
+2005-12-21  Andrew Haley  <aph@redhat.com>
+
+	PR middle-end/25121
+	* recog.c (peephole2_optimize): Don't peephole any
+	RTX_FRAME_RELATED_P insns.
+
+2005-12-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	* tree-data-ref.c (estimate_niter_from_size_of_data): Replace
+	fold_build2 with fold_binary.
+	* tree-ssa-ccp.c (visit_assignment, maybe_fold_stmt_addition):
+	Replace fold_build1 with fold_unary.
+	* tree-ssa-reassoc.c (optimize_ops_list): Replace fold_build2
+	with fold_binary.
+
+2005-12-21  Steven Bosscher  <stevenb@suse.de>
+
+	PR rtl-optimization/25196
+	* postreload-gcse.c (record_last_set_info): Notice stack pointer
+	changes in push insns without REG_INC notes.
+
+2005-12-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25382.
+	* tree-vrp.c (extract_range_from_binary_expr): Extract a range
+	from BIT_AND_EXPR.
+
+2005-12-21  Janis Johnson  <janis187@us.ibm.com>
+	    Ben Elliston  <bje@au.ibm.com>
+
+	* configure.ac: Enable C extension for decimal float if invoked
+	with --enable-decimal-float.
+	* doc/install.texi (Configuration): Document it.
+	* configure, config.in: Regenerate.
+
+2005-12-20  Mike Stump  <mrs@apple.com>
+
+	* config/darwin.h (TARGET_OPTION_TRANSLATE_TABLE): Handle the
+	ambiguity between -seg_addr_table and -seg_addr_table_filename.
+	(WORD_SWITCH_TAKES_ARG): Likewise.
+	(LINK_SPEC): Likewise.
+
+2005-12-20  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* cfganal.c (flow_reverse_top_sort_order_compute):
+	Renamed to post_order_compute and additional parameter added which
+	allows the inclusion of entry and exit blocks into list.
+	(mark_dfs_back_edges): Fixed comment.
+	(flow_depth_first_order_compute): Renamed to
+	pre_and_rev_post_order_compute additional parameter added which
+	allows the inclusion of entry and exit blocks into list.
+	* global.c (set_up_bb_rts_numbers): Call to
+	flow_reverse_top_sort_order_compute renamed to
+	post_order_compute.
+	* var-tracking.c (vt_stack_adjustments): Fixed comment.
+	(vt_find_locations): Call to
+	flow_depth_first_order_compute renamed to
+	pre_and_rev_post_order_compute.
+	* cfgloop.c (flow_find_loops): Ditto.
+	* tree-ssa-reassoc.c (init_reassoc): Ditto.
+	* df.c (df_analyze_1, df_analyze_subcfg): Calls to
+	flow_reverse_top_sort_order_compute renamed to post_order_compute
+	and calls to flow_reverse_top_sort_order_compute renamed to
+	post_order_compute.
+	* basic_block.h: Ditto.
+
+
 2005-12-20  Roger Sayle  <roger@eyesopen.com>
 	    Paolo Bonzini  <bonzini@gnu.org>
 
@@ -39,8 +237,8 @@
 	Strip away all type conversions after simplifying the
 	condition.
 
-        * tree-cfgcleanup.c (merge_phi_nodes): Allow merging in some
-        cases the forwarder block dominates the destination.
+	* tree-cfgcleanup.c (merge_phi_nodes): Allow merging in some
+	cases the forwarder block dominates the destination.
 
 2005-12-19  DJ Delorie  <dj@redhat.com>
 
@@ -110,7 +308,7 @@
 
 2005-12-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-        * flow.c (update_life_info, count_or_remove_death_notes): Fixed
+	* flow.c (update_life_info, count_or_remove_death_notes): Fixed
 	latent bug that could happen if update_life_info was called with a
 	blocks parameter and the call to cleanup_cfg actually deleted one
 	of those blocks. 
@@ -160,10 +358,10 @@
 2005-12-18  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/25481
-	* tree-ssa-structalias.c (handle_ptr_arith): Handle
-	accesses we don't have a varinfo for.
+	* tree-ssa-structalias.c (handle_ptr_arith): Handle accesses we
+	don't have a varinfo for.
 
-2005-12-17  Jon Grimm  <jgrimm2@us.ibm.com>
+2005-12-18  Jon Grimm  <jgrimm2@us.ibm.com>
 	    Janis Johnson  <janis187@us.ibm.com>
 	    Ben Elliston  <bje@au.ibm.com>
 
@@ -880,10 +1078,10 @@
 
 2005-12-15  Paolo Bonzini  <bonzini@gnu.org>
 
-        * combine.c: Remove force_to_mode's fourth parameter.
-        (force_to_mode): Do not handle REG.
-        (canon_reg_for_combine): New.
-        (make_field_assignment): Use it where the removed argument was non-NULL.
+	* combine.c: Remove force_to_mode's fourth parameter.
+	(force_to_mode): Do not handle REG.
+	(canon_reg_for_combine): New.
+	(make_field_assignment): Use it where the removed argument was non-NULL.
 
 2005-12-15  Alan Modra  <amodra@bigpond.net.au>
 
@@ -1059,8 +1257,8 @@
 
 	Back out this change:
 	2005-03-07  Kazu Hirata  <kazu@cs.umass.edu>
-          * recog.c (verify_changes): Make it static.
-          * recog.h: Remove the corresponding prototype.
+	  * recog.c (verify_changes): Make it static.
+	  * recog.h: Remove the corresponding prototype.
 
 2005-12-13  J"orn Rennecke <joern.rennecke@st.com>
 
@@ -1357,7 +1555,7 @@
 	call_used_regs can't be used to save reg in another reg.
 
 2005-12-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
-            Christophe Jaillet  <christophe.jaillet@wanadoo.fr>
+	    Christophe Jaillet  <christophe.jaillet@wanadoo.fr>
 
 	* ipa-type-escape.c (analyze_variable): Use gcc_assert instead of
 	abort.
@@ -1397,7 +1595,7 @@
 	* tree.h (DECL_EXTERNAL): Clarify documentation.
 
 2005-12-08  Andreas Krebbel  <krebbel1@de.ibm.com>
-            Jakub Jelinek  <jakub@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/25268
 	* config/s390/s390.c (s390_decompose_shift_count): Remove BITS
@@ -2072,7 +2270,7 @@
 2005-12-06  Jan Beulich  <jbeulich@novell.com>
 
 	* config/i386/i386.c (builtin_description): Use MASK_SSE2 for
-	__builtin_ia32_paddq and __builtin_ia32_subq.
+	__builtin_ia32_paddq and __builtin_ia32_psubq.
 	(ix86_init_mmx_sse_builtins): Use MASK_SSE|MASK_3DNOW_A for
 	__builtin_ia32_pshufw.
 	* config/i386/i386.md (mmx_adddi3, mmx_subdi3): Depend on TARGET_SSE2.
@@ -2193,11 +2391,11 @@
 
 2005-12-05  Paolo Bonzini  <bonzini@gnu.org>
 
-        * config/rs6000/predicates.md (logical_const_operand): Split
-        out of logical_operand.
-        (logical_operand): Use it.
-        * config/rs6000/rs6000.md (cmp -> xor peephole2): Use
-        logical_const_operand.
+	* config/rs6000/predicates.md (logical_const_operand): Split
+	out of logical_operand.
+	(logical_operand): Use it.
+	* config/rs6000/rs6000.md (cmp -> xor peephole2): Use
+	logical_const_operand.
 
 2005-12-05  Jan Beulich  <jbeulich@novell.com>
 
@@ -2568,7 +2766,7 @@
 
 2005-12-01  Ben Elliston  <bje@au.ibm.com>
 
-        * mklibgcc.in: Parameterise the script to build soft float
+	* mklibgcc.in: Parameterise the script to build soft float
 	functions by iterating over each type, rather than cloning the
 	code for each type.
 
@@ -2609,7 +2807,7 @@
 	(tree_expr_nonnegative_p): Likewise.
 
 2005-11-30  Dale Johannesen  <dalej@apple.com>
-            Andrew Pinski  <pinskia@physics.uc.edu>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* combine.c (find_split_point):  Sign extend bitmask
 	when changing bitfield assignment to IOR of AND.
