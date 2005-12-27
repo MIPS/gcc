@@ -1983,6 +1983,9 @@ extern void web_main (void);
 /* In sched-rgn.c.  */
 extern void schedule_insns (FILE *);
 
+/* In sched-treegions.c.  */
+extern void schedule_treegions (FILE *);
+
 /* In sched-ebb.c.  */
 extern void schedule_ebbs (FILE *);
 

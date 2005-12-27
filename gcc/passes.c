@@ -659,6 +659,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_recompute_reg_usage);
   NEXT_PASS (pass_sms);
   NEXT_PASS (pass_sched);
+  NEXT_PASS (pass_sched_treegions);
   NEXT_PASS (pass_local_alloc);
   NEXT_PASS (pass_global_alloc);
   NEXT_PASS (pass_postreload);
