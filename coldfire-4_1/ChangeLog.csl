@@ -1,3 +1,13 @@
+2005-12-29  Daniel Jacobowitz  <dan@codesourcery.com>
+	Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (m68k_output_pic_call): Don't use bsr.l for
+	!TARGET_68020.
+	* gcc/config/m68k/t-m68kelf (EXTRA_PARTS): Remove.
+	(EXTRA_MULTILIB_PARTS): Set.
+	* gcc/config/m68k/t-uclinux (EXTRA_PARTS): Remove.
+	(EXTRA_MULTILIB_PARTS): Set.
+
 2005-12-20  Paul Brook  <paul@codesourcery.com>
 
 	* gcc/testsuite/lib/target-supports.exp (check_profiling_available):
