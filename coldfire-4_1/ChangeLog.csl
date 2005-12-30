@@ -37,6 +37,10 @@
 	* gcc/config/m68k/t-uclinux (EXTRA_PARTS): Remove.
 	(EXTRA_MULTILIB_PARTS): Set.
 
+2005-12-21  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/pr19340.c: Skip on m68k targets.
+
 2005-12-20  Paul Brook  <paul@codesourcery.com>
 
 	* gcc/testsuite/lib/target-supports.exp (check_profiling_available):

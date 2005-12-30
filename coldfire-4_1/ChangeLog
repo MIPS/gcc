@@ -1,7 +1,3 @@
-2005-12-21  Paul Brook  <paul@codesourcery.com>
-
-	* gcc/testsuite/gcc.dg/pr19340.c: Skip on m68k targets.
-
 2005-10-24  Kean Johnston  <jkj@sco.com>
 
 	* config.sub, config.guess: Sync from upstream sources.
