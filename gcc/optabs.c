@@ -390,20 +390,20 @@ optab_for_tree_code (enum tree_code code, tree type)
    There are two different classes of operations handled here:
    1) Operations whose result is wider than all the arguments to the operation.
       Examples: VEC_UNPACK_HI/LO_EXPR, VEC_WIDEN_MULT_HI/LO_EXPR
-      In this case OP0 and optionally OP1 will be initialized,
+      In this case OP0 and optionally OP1 would be initialized,
       but WIDE_OP wouldn't (not relevant for this case).
-   2) Operations whose result is of the same size as the lase argument to the
+   2) Operations whose result is of the same size as the last argument to the
       operations, but wider than all the other arguments to the operation.
       Examples: WIDEN_SUM_EXPR, VEC_DOT_PROD_EXPR.
-      In the case WIDE_OP, OP0 and optionally OP1 will be initialized.
+      In the case WIDE_OP, OP0 and optionally OP1 would be initialized.
 
-   E.g, when called to expand the following operations, thes is how
+   E.g, when called to expand the following operations, this is how
    the arguments will be initialized:
 				nops	OP0	OP1	WIDE_OP
    widening-sum			2	oprnd0	-	oprnd1		
    widening-dot-product		3	oprnd0	oprnd1	oprnd2
    widening-mult		2	oprnd0	oprnd1	-
-   type-promotion (vec-unpack)	1	oprmd0	-	-  */
+   type-promotion (vec-unpack)	1	oprnd0	-	-  */
 
 rtx
 expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target, 
@@ -434,8 +434,7 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target,
       xmode1 = insn_data[icode].operand[2].mode;
     }
 
-  /* The last operand is of a wider mode than the rest
-     of the operands.  */
+  /* The last operand is of a wider mode than the rest of the operands.  */
   if (nops == 2)
     {
       wmode = tmode1;
@@ -485,14 +484,12 @@ expand_widen_pattern_expr (tree exp, rtx op0, rtx op1, rtx wide_op, rtx target,
                             xop1, unsignedp);
 
   if (wide_op)
-    {
-      if (GET_MODE (wide_op) != wxmode && wxmode != VOIDmode)
-        wxop = convert_modes (wxmode,
-                          GET_MODE (wide_op) != VOIDmode
-                          ? GET_MODE (wide_op)
-                          : wmode,
-                          wxop, unsignedp);
-    }
+    if (GET_MODE (wide_op) != wxmode && wxmode != VOIDmode)
+      wxop = convert_modes (wxmode,
+                            GET_MODE (wide_op) != VOIDmode
+                            ? GET_MODE (wide_op)
+                            : wmode,
+                            wxop, unsignedp);
 
   /* Now, if insn's predicates don't allow our operands, put them into
      pseudo regs.  */

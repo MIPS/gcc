@@ -425,7 +425,7 @@ vect_recog_mult_hi_pattern (tree last_stmt, tree *type_in, tree *type_out)
 
    * Return value: A new stmt that will be used to replace the sequence of
    stmts that constitute the pattern. In this case it will be:
-   	WIDEN_DOT_PRODUCT <x_t, y_t, sum_0>
+   	DOT_PRODUCT <x_t, y_t, sum_0>
 */
 
 tree
@@ -477,7 +477,6 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
       /* Has been detected as widening-summation?  */
 
       stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
-      gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
       expr = TREE_OPERAND (stmt, 1);
       type = TREE_TYPE (expr);
       if (TREE_CODE (expr) != WIDEN_SUM_EXPR)
@@ -513,14 +512,13 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
      we know that oprnd1 is the reduction variable (defined by a loop-header
      phi), and oprnd0 is an ssa-name defined by a stmt in the loop body.
      Left to check that oprnd0 is defined by a (widen_)mult_expr  */
-  prod_type = type;
 
+  prod_type = half_type;
   stmt = SSA_NAME_DEF_STMT (oprnd0);
   gcc_assert (stmt);
   stmt_vinfo = vinfo_for_stmt (stmt);
   gcc_assert (stmt_vinfo);
   gcc_assert (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_loop_def);
-  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
   expr = TREE_OPERAND (stmt, 1);
   if (TREE_CODE (expr) != MULT_EXPR)
     return NULL;
@@ -529,7 +527,6 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
       /* Has been detected as a widening multiplication?  */
 
       stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
-      gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
       expr = TREE_OPERAND (stmt, 1);
       if (TREE_CODE (expr) != WIDEN_MULT_EXPR)
         return NULL;
@@ -543,11 +540,14 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
     {
       tree half_type0, half_type1;
       tree def_stmt;
+      tree oprnd0, oprnd1;
 
       oprnd0 = TREE_OPERAND (expr, 0);
       oprnd1 = TREE_OPERAND (expr, 1);
-      if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) != TYPE_MAIN_VARIANT (type)
-          || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) != TYPE_MAIN_VARIANT (type))
+      if (TYPE_MAIN_VARIANT (TREE_TYPE (oprnd0)) 
+				!= TYPE_MAIN_VARIANT (prod_type)
+          || TYPE_MAIN_VARIANT (TREE_TYPE (oprnd1)) 
+				!= TYPE_MAIN_VARIANT (prod_type))
         return NULL;
       if (!widened_name_p (oprnd0, stmt, &half_type0, &def_stmt))
         return NULL;
@@ -556,6 +556,8 @@ vect_recog_dot_prod_pattern (tree last_stmt, tree *type_in, tree *type_out)
         return NULL;
       oprnd01 = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
       if (TYPE_MAIN_VARIANT (half_type0) != TYPE_MAIN_VARIANT (half_type1))
+        return NULL;
+      if (TYPE_PRECISION (prod_type) != TYPE_PRECISION (half_type0) * 2)
         return NULL;
     }
 
