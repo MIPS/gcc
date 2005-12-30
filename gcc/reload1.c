@@ -1834,8 +1834,6 @@ find_reload_regs (struct insn_chain *chain)
 	  && rld[r].regno == -1)
 	if (! find_reg (chain, i))
 	  {
- 	    if (dump_file)
- 	      fprintf (dump_file, "reload failure for reload %d\n", r);
 	    spill_failure (chain->insn, rld[r].class);
 	    failure = 1;
 	    return;
@@ -1904,12 +1902,6 @@ spill_failure (rtx insn, enum reg_class class)
     {
       error ("unable to find a register to spill in class %qs",
 	     reg_class_names[class]);
- 
-      if (dump_file)
- 	{
- 	  fprintf (dump_file, "\nReloads for insn # %d\n", INSN_UID (insn));
- 	  debug_reload_to_stream (dump_file);
- 	}
       fatal_insn ("this is the insn:", insn);
     }
 }
@@ -3244,8 +3236,8 @@ eliminate_regs_in_insn (rtx insn, int replace)
 	      || GET_CODE (SET_SRC (old_set)) == PLUS))
 	{
 	  int new_icode = recog (PATTERN (insn), insn, 0);
-	  if (new_icode < 0)
-	    INSN_CODE (insn) = icode;
+	  if (new_icode >= 0)
+	    INSN_CODE (insn) = new_icode;
 	}
     }
 

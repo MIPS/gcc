@@ -20,13 +20,10 @@ contains
 
     real(8) :: x (1:2, *)
     real(8) :: y (0:,:)
+    integer :: i
 
 ! However, this gives a warning because it is an initialization expression.
     integer :: l1 = len (ch1)     ! { dg-warning "assumed character length variable" }
-
-! Dependence on upper bound of final dimension of assumed size array knocks these out.
-    integer :: m1 = size (x, 2)   ! { dg-error "not a valid dimension index" }
-    integer :: m2(2) = shape (x)  ! { dg-error "assumed size array" }
 
 ! These are warnings because they are gfortran extensions.
     integer :: m3 = size (x, 1)   ! { dg-warning "Evaluation of nonstandard initialization" }
@@ -34,5 +31,6 @@ contains
 
 ! This does not depend on non-constant properties.
     real(8) :: big = huge (x)
+
   end subroutine foo  
 end module const

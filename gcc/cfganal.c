@@ -646,7 +646,6 @@ connect_infinite_loops_to_exit (void)
 }
 
 /* Compute reverse top sort order.  
-
    This is computing a post order numbering of the graph.  */
 
 int
@@ -818,8 +817,7 @@ pre_and_rev_post_order_compute (int *pre_order, int *rev_post_order,
       pre_order_num++;
       if (rev_post_order)
 	rev_post_order[rev_post_order_num--] = EXIT_BLOCK;
-      /* The number of nodes visited should be the number of blocks minus
-	 the entry and exit blocks which are not visited here.  */
+      /* The number of nodes visited should be the number of blocks.  */
       gcc_assert (pre_order_num == n_basic_blocks);
     }
   else

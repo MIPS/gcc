@@ -114,7 +114,6 @@ static void store_parm_decls (tree);
 static void initialize_local_var (tree, tree);
 static void expand_static_init (tree, tree);
 static tree next_initializable_field (tree);
-static tree reshape_init (tree, tree);
 
 /* Erroneous argument lists can use this *IFF* they do not modify it.  */
 tree error_mark_list;
@@ -4274,8 +4273,7 @@ reshape_init_vector (tree type, reshape_iter *d)
 
   gcc_assert (TREE_CODE (type) == VECTOR_TYPE);
 
-  if (TREE_CODE (d->cur->value) == CONSTRUCTOR
-      && TREE_HAS_CONSTRUCTOR (d->cur->value))
+  if (COMPOUND_LITERAL_P (d->cur->value))
     {
       tree value = d->cur->value;
       if (!same_type_p (TREE_TYPE (value), type))
@@ -4459,7 +4457,7 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p)
 	     we should add a call to reshape_init in finish_compound_literal,
 	     before calling digest_init, so changing this code would still
 	     not be necessary.  */
-	  if (!TREE_HAS_CONSTRUCTOR (init))
+	  if (!COMPOUND_LITERAL_P (init))
 	    {
 	      ++d->cur;
 	      gcc_assert (BRACE_ENCLOSED_INITIALIZER_P (init));
@@ -4499,14 +4497,13 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p)
    routine transforms INIT from the former form into the latter.  The
    revised CONSTRUCTOR node is returned.  */
 
-static tree
+tree
 reshape_init (tree type, tree init)
 {
   VEC(constructor_elt, gc) *v;
   reshape_iter d;
   tree new_init;
 
-  gcc_assert (TREE_CODE (init) == CONSTRUCTOR);
   gcc_assert (BRACE_ENCLOSED_INITIALIZER_P (init));
 
   v = CONSTRUCTOR_ELTS (init);
@@ -4595,7 +4592,7 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
       /* Do not reshape constructors of vectors (they don't need to be
          reshaped.  */
       if (TREE_CODE (init) == CONSTRUCTOR
-	  && !TREE_HAS_CONSTRUCTOR (init)
+	  && !COMPOUND_LITERAL_P (init)
 	  && !TREE_TYPE (init))  /* ptrmemfunc */
 	{
 	  init = reshape_init (type, init);
@@ -4618,7 +4615,6 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 	    goto initialize_aggr;
 	  else if (TREE_CODE (init) == CONSTRUCTOR)
 	    {
-	      gcc_assert (BRACE_ENCLOSED_INITIALIZER_P (init));
 	      if (TYPE_NON_AGGREGATE_CLASS (type))
 		{
 		  error ("%qD must be initialized by constructor, "
@@ -4837,13 +4833,17 @@ initialize_local_var (tree decl, tree init)
 
 /* DECL is a VAR_DECL for a compiler-generated variable with static
    storage duration (like a virtual table) whose initializer is a
-   compile-time constant.  Initialize the variable and provide it to
-   the back end.  */
+   compile-time constant.  INIT must be either a TREE_LIST of values,
+   or a CONSTRUCTOR.  Initialize the variable and provide it to the
+   back end.  */
 
 void
 initialize_artificial_var (tree decl, tree init)
 {
-  DECL_INITIAL (decl) = build_constructor_from_list (NULL_TREE, init);
+  if (TREE_CODE (init) == TREE_LIST)
+    init = build_constructor_from_list (NULL_TREE, init);
+  gcc_assert (TREE_CODE (init) == CONSTRUCTOR);
+  DECL_INITIAL (decl) = init;
   DECL_INITIALIZED_P (decl) = 1;
   determine_visibility (decl);
   layout_var_decl (decl);
@@ -6725,10 +6725,6 @@ grokdeclarator (const cp_declarator *declarator,
 		else if (TREE_CODE (qualifying_scope) == NAMESPACE_DECL)
 		  in_namespace = qualifying_scope;
 	      }
-	    if (TREE_CODE (decl) == BASELINK)
-	      decl = BASELINK_FUNCTIONS (decl);
-	    if (decl == error_mark_node)
-	      return error_mark_node;
 	    switch (TREE_CODE (decl))
 	      {
 	      case BIT_NOT_EXPR:
@@ -6790,11 +6786,6 @@ grokdeclarator (const cp_declarator *declarator,
 		    else
 		      name = "<invalid operator>";
 		  }
-		break;
-
-	      case TYPE_DECL:
-		dname = constructor_name (TREE_TYPE (decl));
-		name = IDENTIFIER_POINTER (dname);
 		break;
 
 	      default:
@@ -7262,18 +7253,11 @@ grokdeclarator (const cp_declarator *declarator,
   else
     {
       unqualified_id = id_declarator->u.id.unqualified_name;
-      if (TREE_CODE (unqualified_id) == BASELINK)
-	unqualified_id = BASELINK_FUNCTIONS (unqualified_id);
       switch (TREE_CODE (unqualified_id))
 	{
 	case BIT_NOT_EXPR:
 	  unqualified_id
 	    = constructor_name (TREE_OPERAND (unqualified_id, 0));
-	  break;
-
-	case TYPE_DECL:
-	  unqualified_id
-	    = constructor_name (TREE_TYPE (unqualified_id));
 	  break;
 
 	case IDENTIFIER_NODE:
@@ -7609,8 +7593,13 @@ grokdeclarator (const cp_declarator *declarator,
 	}
 
       if (ctype == current_class_type)
-	pedwarn ("extra qualification %<%T::%> on member %qs",
-		 ctype, name);
+	{
+	  if (friendp)
+	    pedwarn ("member functions are implicitly friends of their class");
+	  else
+	    pedwarn ("extra qualification %<%T::%> on member %qs",
+		     ctype, name);
+	}
       else if (TREE_CODE (type) == FUNCTION_TYPE)
 	{
 	  tree sname = declarator->u.id.unqualified_name;
@@ -8183,7 +8172,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  {
 	    /* Friends are treated specially.  */
 	    if (ctype == current_class_type)
-	      warning (0, "member functions are implicitly friends of their class");
+	      ;  /* We already issued a pedwarn.  */
 	    else if (decl && DECL_NAME (decl))
 	      {
 		if (template_class_depth (current_class_type) == 0)
@@ -10482,6 +10471,30 @@ start_function (cp_decl_specifier_seq *declspecs,
   return 1;
 }
 
+/* Returns true iff an EH_SPEC_BLOCK should be created in the body of
+   FN.  */
+
+static bool
+use_eh_spec_block (tree fn)
+{
+  return (flag_exceptions && flag_enforce_eh_specs
+	  && !processing_template_decl
+	  && TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn))
+	  /* We insert the EH_SPEC_BLOCK only in the original
+	     function; then, it is copied automatically to the
+	     clones.  */
+	  && !DECL_CLONED_FUNCTION_P (fn)
+	  /* Implicitly-generated constructors and destructors have
+	     exception specifications.  However, those specifications
+	     are the union of the possible exceptions specified by the
+	     constructors/destructors for bases and members, so no
+	     unallowed exception will ever reach this function.  By
+	     not creating the EH_SPEC_BLOCK we save a little memory,
+	     and we avoid spurious warnings about unreachable
+	     code.  */
+	  && !DECL_ARTIFICIAL (fn));
+}
+
 /* Store the parameter declarations into the current function declaration.
    This is called after parsing the parameter declarations, before
    digesting the body of the function.
@@ -10552,16 +10565,8 @@ store_parm_decls (tree current_function_parms)
      DECL_ARGUMENTS is not modified.  */
   current_binding_level->names = chainon (nonparms, DECL_ARGUMENTS (fndecl));
 
-  /* For a cloned function, we've already got all the code we need;
-     there's no need to add any extra bits.  */
-  if (!DECL_CLONED_FUNCTION_P (fndecl))
-    {
-      /* Do the starting of the exception specifications, if we have any.  */
-      if (flag_exceptions && !processing_template_decl
-	  && flag_enforce_eh_specs
-	  && TYPE_RAISES_EXCEPTIONS (TREE_TYPE (current_function_decl)))
-	current_eh_spec_block = begin_eh_spec_block ();
-    }
+  if (use_eh_spec_block (current_function_decl))
+    current_eh_spec_block = begin_eh_spec_block ();
 }
 
 
@@ -10848,10 +10853,7 @@ finish_function (int flags)
 #endif
 	}
 
-      /* Finish dealing with exception specifiers.  */
-      if (flag_exceptions && !processing_template_decl
-	  && flag_enforce_eh_specs
-	  && TYPE_RAISES_EXCEPTIONS (TREE_TYPE (current_function_decl)))
+      if (use_eh_spec_block (current_function_decl))
 	finish_eh_spec_block (TYPE_RAISES_EXCEPTIONS
 			      (TREE_TYPE (current_function_decl)),
 			      current_eh_spec_block);

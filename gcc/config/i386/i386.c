@@ -587,6 +587,10 @@ const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K6 | m_PENT;
 const int x86_use_bt = m_ATHLON_K8;
 /* Compare and exchange was added for 80486.  */
 const int x86_cmpxchg = ~m_386;
+/* Compare and exchange 8 bytes was added for pentium.  */
+const int x86_cmpxchg8b = ~(m_386 | m_486);
+/* Compare and exchange 16 bytes was added for nocona.  */
+const int x86_cmpxchg16b = m_NOCONA;
 /* Exchange and add was added for 80486.  */
 const int x86_xadd = ~m_386;
 
@@ -4075,7 +4079,8 @@ ix86_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   /* ... otherwise out of the overflow area.  */
 
   /* Care for on-stack alignment if needed.  */
-  if (FUNCTION_ARG_BOUNDARY (VOIDmode, type) <= 64)
+  if (FUNCTION_ARG_BOUNDARY (VOIDmode, type) <= 64
+      || integer_zerop (TYPE_SIZE (type)))
     t = ovf;
   else
     {

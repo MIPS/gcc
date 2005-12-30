@@ -562,9 +562,6 @@ bitmap_count_bits (bitmap a)
   bitmap_element *elt;
   unsigned ix;
 
-  if (!a->first) 
-    return 0;
-
   for (elt = a->first; elt; elt = elt->next)
     {
       for (ix = 0; ix != BITMAP_ELEMENT_WORDS; ix++)
@@ -866,7 +863,7 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
   unsigned int end_bit_plus1 = start + count;
   unsigned int end_bit = end_bit_plus1 - 1;
   unsigned int last_index = (end_bit) / BITMAP_ELEMENT_ALL_BITS;
-  bitmap_element * elt = bitmap_find_bit (head, start);
+  bitmap_element *elt = bitmap_find_bit (head, start);
 
   /* If bitmap_find_bit returns zero, the current is the closest block
      to the result.  If the current is less than first index, find the
@@ -894,12 +891,13 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
       unsigned elt_start_bit = (elt->indx) * BITMAP_ELEMENT_ALL_BITS;
       unsigned elt_end_bit_plus1 = elt_start_bit + BITMAP_ELEMENT_ALL_BITS;
 
+
       if (elt_start_bit >= start && elt_end_bit_plus1 <= end_bit_plus1)
 	/* Get rid of the entire elt and go to the next one.  */
 	bitmap_element_free (head, elt);
       else 
 	{
-	  /* Going to have to knock out some bits in this the elt.  */
+	  /* Going to have to knock out some bits in this elt.  */
 	  unsigned int first_word_to_mod; 
 	  BITMAP_WORD first_mask; 
 	  unsigned int last_word_to_mod;
@@ -922,14 +920,16 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 	    {
 	      /* The first bit to turn off is below this start of this elt.  */
 	      first_word_to_mod = 0;
-	      first_mask = (long) -1;
+	      first_mask = 0;
+	      first_mask = ~first_mask;
 	    }	      
 	    
 	  if (elt_end_bit_plus1 <= end_bit_plus1)
 	    {
 	      /* The last bit to turn off is beyond this elt.  */
 	      last_word_to_mod = BITMAP_ELEMENT_WORDS - 1;
-	      last_mask = (long) -1;
+	      last_mask = 0;
+	      last_mask = ~last_mask;
 	    }
 	  else
 	    {
@@ -942,6 +942,7 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 		(((BITMAP_WORD) 1) << (((end_bit_plus1) % BITMAP_WORD_BITS))) - 1;
 	    }
 
+
 	  if (first_word_to_mod == last_word_to_mod)
 	    {
 	      BITMAP_WORD mask = first_mask & last_mask;
@@ -950,12 +951,11 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 	  else
 	    {
 	      elt->bits[first_word_to_mod] &= ~first_mask;
-	      for (i=first_word_to_mod + 1; i<last_word_to_mod; i++)
+	      for (i = first_word_to_mod + 1; i < last_word_to_mod; i++)
 		elt->bits[i] = 0;
 	      elt->bits[last_word_to_mod] &= ~last_mask;
 	    }
-
-	  for (i=0; i<BITMAP_ELEMENT_WORDS; i++)
+	  for (i = 0; i < BITMAP_ELEMENT_WORDS; i++)
 	    if (elt->bits[i])
 	      {
 		clear = false;

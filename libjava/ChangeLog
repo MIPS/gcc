@@ -1,3 +1,29 @@
+2005-12-28  Anthony Green  <green@redhat.com>
+
+	* gnu/java/net/natPlainSocketImplWin32.cc (connect): Same 
+	as previous patch, but for win32.
+
+2005-12-28  Anthony Green  <green@redhat.com>
+
+	* gnu/java/net/natPlainSocketImplPosix.cc (connect): Record
+	address and port before attempting anything.
+
+2005-12-28  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* sysdep/pa/locks.h (compare_and_swap): Add ldcw semaphore to make
+	operation atomic.
+
+2005-12-22  Andrew Haley  <aph@redhat.com>
+
+	PR java/25535
+	* testsuite/libjava.lang/PR25535.java: New test.
+
+2005-12-22  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_NewArrayClass): Don't
+	reference NUM_OBJECT_METHODS.
+	* include/jvm.h (NUM_OBJECT_METHODS): Removed.
+
 2005-12-18  Anthony Green  <green@redhat.com>
 
 	* gnu/java/net/natPlainDatagramSocketImplPosix.cc (getLocalAddress): 

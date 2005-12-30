@@ -1,3 +1,160 @@
+2005-12-30  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cxx-pretty-print.c (pp_cxx_constant): New.  Print
+	string-literal in parens if input program says so.
+	(pp_cxx_primary_expression): Hand off constant printing to
+	pp_cxx_constant. 
+	(pp_cxx_pretty_printer_init): Set pp->c_base.constant.
+	(pp_cxx_expression): Use pp_cxx_constant for literals. 
+	* error.c (dump_expr): Use pp_constant for literals.
+
+2005-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* method.c (make_thunk): Don't set comdat_linkage here.
+	(use_thunk): Make thunk one only here, if thunk target is
+	DECL_ONE_ONLY.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25439
+	* decl.c (grokdeclarator): Remove dead code.
+	* ptree.c (cxx_print_xnode): Handle BASELINK.
+	* parser.c (make_id_declarator): Add sfk parameter.  
+	(cp_parser_direct_declarator): Do not pass TYPE_DECLs to
+	make_id_declarator.
+	(cp_parser_declarator_id): Simplify BASELINKs here.
+	(cp_parser_member_declaration): Adjust calls to
+	make_id_declarator.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23171, c++/23172, c++/25417.
+	* typeck.c (build_unary_op): Create temporary variables for
+	compound literals whose addresses are taken.
+	* init.c (expand_aggr_init_1): Use COMPOUND_LITERAL_P.
+	* decl.c (reshape_init_vector): Likewise.
+	(reshape_init): Give it external linkage.
+	(check_initializer): Use COMPOUND_LITERAL_P.
+	(initialize_artificial_var): Allow the initializer to be a
+	CONSTRUCTOR.
+	* call.c (make_temporary_var_for_ref_to_temp): Use
+	create_temporary_var.
+	* cp-tree.h (COMPOUND_LITERAL_P): New macro.
+	(rehape_init): Declare.
+	* typeck2.c (digest_init): Use COMPOUND_LITERAL_P.
+	* semantics.c (finish_compound_literal): Use reshape_init.
+
+2005-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24671
+	* pt.c (instantiate_template): Handle SFINAE.
+
+2005-12-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* decl.c (grokdeclarator): Improve diagnostic for friend
+	declarations of class members.
+
+2005-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25369
+	* tree.c (really_overloaded_fn): Tweak comment.
+	* pt.c (tsubst_call_declarator_parms): Remove.
+	(tsubst_copy): Call mark_used on the member referenced by an
+	OFFSET_REF.
+	* semantics.c (finish_qualified_id_expr): Simplify.
+	* decl2.c (mark_used): Accept BASELINKs.
+
+	PR c++/25364
+	* typeck.c (build_unary_op): Pass DECLs not names to
+	build_offset_refs.
+	* init.c (build_offset_ref): Do not do name lookup.  Do not call
+	mark_used.
+	* call.c (build_call): Simplify and tidy.
+	* semantics.c (finish_qualified_id_expr): Call mark_used.
+
+2005-12-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23333
+	* parser.c (cp_parser_pure_specifier): Check for PURE_ZERO to
+	identify a single '0'.
+
+2005-12-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21228
+	* decl.c (use_eh_spec_block): New function.
+	(store_parm_decls): Use it.
+	(finish_function): Likewise.
+	
+2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24278
+	* init.c (expand_member_init): Print messages about baseclasses
+	using %T rather than %D.
+
+	PR c++/24915
+	* class.c (add_method): Do not treat templates as identical unless
+	their return types are the same.
+	
+2005-12-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25300
+	* tree.c (build_qualified_name): Return error_mark_node for
+	erroneous input.
+
+2005-12-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25337 
+	* pt.c (tsubst_copy_and_build): Permit dependent types for the
+	object in a class member access expression.
+
+2005-12-10  Terry Laurenzo  <tlaurenzo@gmail.com>
+
+	PR java/9861
+	* mangle.c (write_bare_function_type): Mangle return type for
+	methods of Java classes
+
+2005-12-08  Théodore Papadopoulo <Theodore.Papadopoulo@sophia.inria.fr>
+	
+	* call.c (build_conditional_expr): Print types in error messages.
+	
+2005-12-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* expr.c (cxx_expand_expr): Call gcc_unreachable instead of abort.
+
+2005-12-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* cp-gimplify.c (gimplify_cp_loop): Use fold_build3.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in (c++.all.build, c++.install-normal): Remove.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in: Remove all dependencies on s-gtype.
+
+2005-12-06  Aldy Hernandez  <aldyh@redhat.com>
+
+       PR C++/24138
+        * decl.c (reshape_init_array_1): Handle max_index of -1.
+
+2005-12-06  Roger Sayle  <roger@eyesopen.com>
+
+	* typeck.c (build_binary_op): Issue warning if either operand of a
+	comparison operator is a string literal, except for testing equality
+	or inequality against NULL.
+
+2005-12-06  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/25263
+	* decl.c (compute_array_index_type): Check that itype is an
+	INTEGER_CST node before testing/clearing TREE_OVERFLOW.
+
+2005-12-05  Daniel Berlin  <dberlin@dberlin.org>
+
+	* ptree.c (cxx_print_decl): Update to check for decl_common
+	structure.
+
 2005-12-02  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/24173

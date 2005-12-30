@@ -434,11 +434,13 @@ m68k_compute_frame_layout (void)
 HOST_WIDE_INT
 m68k_initial_elimination_offset (int from, int to)
 {
-  /* FIXME: The correct offset to compute here would appear to be
-       (frame_pointer_needed ? -UNITS_PER_WORD * 2 : -UNITS_PER_WORD);
-     but for some obscure reason, this must be 0 to get correct code.  */
+  int argptr_offset;
+  /* The arg pointer points 8 bytes before the start of the arguments,
+     as defined by FIRST_PARM_OFFSET.  This makes it coincident with the
+     frame pointer in most frames.  */
+  argptr_offset = frame_pointer_needed ? 0 : UNITS_PER_WORD;
   if (from == ARG_POINTER_REGNUM && to == FRAME_POINTER_REGNUM)
-    return 0;
+    return argptr_offset;
 
   m68k_compute_frame_layout ();
 
@@ -446,8 +448,7 @@ m68k_initial_elimination_offset (int from, int to)
   switch (from)
     {
     case ARG_POINTER_REGNUM:
-      return (current_frame.offset + current_frame.size
-	      + (frame_pointer_needed ? -UNITS_PER_WORD * 2 : -UNITS_PER_WORD));
+      return current_frame.offset + current_frame.size - argptr_offset;
     case FRAME_POINTER_REGNUM:
       return current_frame.offset + current_frame.size;
     default:
@@ -1057,15 +1058,14 @@ m68k_output_pic_call (rtx dest)
 
   if (!(GET_CODE (dest) == MEM && GET_CODE (XEXP (dest, 0)) == SYMBOL_REF))
     out = "jsr %0";
-      /* We output a BSR instruction if we're using -fpic or we're building for
-	 a target that supports long branches.  If we're building -fPIC on the
-	 68000, 68010 or ColdFire we generate one of two sequences:
+      /* We output a BSR instruction if we're building for a target that
+	 supports long branches.  Otherwise we generate one of two sequences:
 	 a shorter one that uses a GOT entry or a longer one that doesn't.
 	 We'll use the -Os command-line flag to decide which to generate.
 	 Both sequences take the same time to execute on the ColdFire.  */
   else if (TARGET_PCREL)
     out = "bsr.l %o0";
-  else if (flag_pic == 1 || TARGET_68020)
+  else if (TARGET_68020)
 #if defined(USE_GAS)
     out = "bsr.l %0@PLTPC";
 #else
