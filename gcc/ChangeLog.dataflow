@@ -1,4 +1,4 @@
-2005-12-22  Kenneth Zadeck <zadeck@naturalbridge.com>
+2005-12-30  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* df-core.c (df_find_def, df_find_use):  Added subreg aware code.
 	(df_reg_defined, df_reg_used): New function.
 	df.h (df_reg_defined, df_reg_used): New function.
