@@ -1,3 +1,10 @@
+2005-12-30  Paul Brook  <paul@codesourcery.com>
+
+	PR target/23482
+	* doc/md.texi: Document m68k Q, S, T and U constraints.
+	* config/m68k/m68k.h (EXTRA_CONSTRAINTS): Restrict U to 16-bit
+	offsets.
+
 2005-12-29  Paul Brook  <paul@codesourcery.com>
 
 	* config/m68k/m68k.h (RETURN_ADDR_RTX): Define.

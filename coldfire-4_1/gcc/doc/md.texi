@@ -2421,7 +2421,7 @@ Memory reference in external OSF/rose PIC format
 (@samp{m} is preferable for @code{asm} statements)
 @end table
 
-@item Motorola 680x0---@file{m68k.h}
+@item Motorola 680x0 and ColdFire---@file{m68k.h}
 @table @code
 @item a
 Address register
@@ -2446,6 +2446,18 @@ Integer in the range @minus{}8 to @minus{}1
 
 @item M
 Signed number whose magnitude is greater than 0x100
+
+@item Q
+Address register indirect addressing mode
+
+@item S
+Operands that satisfy @code{m} when -mpcrel is in effect
+
+@item T
+Operands that satisfy @code{s} when -mpcrel is not in effect
+
+@item U
+Register offset addressing mode
 
 @item G
 Floating point constant that is not a 68881 constant

@@ -397,7 +397,9 @@ extern enum reg_class regno_reg_class[];
    ? (GET_CODE (OP) == MEM 				\
       && GET_CODE (XEXP (OP, 0)) == PLUS		\
       && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG	\
-      && GET_CODE (XEXP (XEXP (OP, 0), 1)) == CONST_INT) \
+      && GET_CODE (XEXP (XEXP (OP, 0), 1)) == CONST_INT	\
+      && INTVAL (XEXP (XEXP (OP, 0), 1)) < 0x8000	\
+      && INTVAL (XEXP (XEXP (OP, 0), 1)) >= -0x8000)	\
    :							\
    0))))
 
