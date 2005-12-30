@@ -628,6 +628,9 @@ __transfer_from_trampoline ()					\
 /* 1 if X is an fp register.  */
 #define FP_REG_P(X) (REG_P (X) && REGNO_OK_FOR_FP_P (REGNO (X)))
 
+/* Like FP_REG_P, but for peephole2.  */
+#define HARD_FP_REG_P(X) (REG_P(X) && (REGNO(X) ^ 020) < 8)
+
 /* 1 if X is an address register  */
 #define ADDRESS_REG_P(X) (REG_P (X) && REGNO_OK_FOR_BASE_P (REGNO (X)))
 

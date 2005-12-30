@@ -1,5 +1,12 @@
 2005-12-30  Paul Brook  <paul@codesourcery.com>
 
+	* config/m68k/m68k.md: Convert define_peephole to define_peephole2.
+	(UNSPEC_MOVEQ_MEM): New constant.
+	(movsi_smallconst): New pattern.
+	* config/m68k/m68k.h (HARD_FP_REG_P): Define.
+
+2005-12-30  Paul Brook  <paul@codesourcery.com>
+
 	PR target/23482
 	* doc/md.texi: Document m68k Q, S, T and U constraints.
 	* config/m68k/m68k.h (EXTRA_CONSTRAINTS): Restrict U to 16-bit
