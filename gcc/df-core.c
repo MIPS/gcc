@@ -128,12 +128,6 @@ The df_instance is also freed and its pointer should be NULLed.
 
 
 
-One instance of df is stored in the cfun structure.  This instance is
-used to manage persistent dataflow in the backend.  This support is
-currently primitive.  The live variables and uninitialized variables
-problems are defined with DF_HARD_REGS.
-
-
 Scanning produces a `struct df_ref' data structure (ref) is allocated
 for every register reference (def or use) and this records the insn
 and bb the ref is found within.  The refs are linked together in
@@ -146,56 +140,38 @@ Different optimizations have different needs.  Ultimately, only
 register allocation and schedulers should be using the bitmaps and the
 rest of the backend should be upgraded to using and maintaining the
 linked information.  
-*/
 
-
-/* 
-LINKAGE PROBLEMS:
-
-While incremental bitmaps are not worthwhile to maintian, incremental
-chains are perfectly reasonable.  The fastest way to build chains from
-scratch or after significant modifications is to build reaching
-definitions (RD) and build the chains from this.  
-
-However, these are not suitable datastructures to maintain
-incrementally so the bitmaps are destroyed after the chains are built
-and the incremental calls should be used as instructions are modified,
-added or deleted.
 
 
 PHILOSOPHY:
 
-Note that the dataflow information is not updated for every newly
-deleted or created insn.  If the dataflow information requires
-updating then all the changed, new, or deleted insns needs to be
-marked with df_insn_modify (or df_insns_modify) either directly or
-indirectly (say through calling df_insn_delete).  df_insn_modify
-marks all the modified insns to get processed the next time df_analyze
- is called.
+While incremental bitmaps are not worthwhile to maintian, incremental
+chains may be perfectly reasonable.  The fastest way to build chains
+from scratch or after significant modifications is to build reaching
+definitions (RD) and build the chains from this.
 
-Beware that tinkering with insns may invalidate the dataflow information.
-The philosophy behind these routines is that once the dataflow
-information has been gathered, the user should store what they require
-before they tinker with any insn.  Once a reg is replaced, for example,
-then the reg-def/reg-use chains will point to the wrong place.  Once a
-whole lot of changes have been made, df_analyze can be called again
-to update the dataflow information.  Currently, this is not very smart
-with regard to propagating changes to the dataflow so it should not
-be called very often.
+However, general algorithms for maintaining use-def or def-use chains
+are not practical.  The amount of work to recompute the chain any
+chain after an arbitrary change is large.  However, with a modest
+amount of work it is generally possible to have the application that
+uses the chains keep them up to date.  The high level knowledge of
+what is really happening is essential to crafting efficient
+incremental algorithms.
 
+As for the bit vector problems, there is no interface to give a set of
+blocks over with to resolve the iteration.  In general, restarting a
+dataflow iteration is difficult and expensive.  Again, the best way to
+keep the dataflow infomation up to data (if this is really what is
+needed) it to formulate a problem specific solution.
 
-INCREMENTAL DATAFLOW
-
-There is no interface to give a set of blocks over with to resolve the
-iteration.  In general, restarting a dataflow iteration is difficult
-and expensive.  The best way to keep the dataflow infomation up to
-data (if this is really what is needed) it to formulate a problem
-specific solution.
+There are fine grained calls for creating and deleting references from
+instructions in df-scan.c.  However, these are not currently connected
+to the engine that resolves the dataflow equations.
 
 
 DATA STRUCTURES:
 
-The basic object is a REF (reference) and this may either be a 
+The basic object is a DF_REF (reference) and this may either be a 
 DEF (definition) or a USE of a register.
 
 These are linked into a variety of lists; namely reg-def, reg-use,
@@ -1016,10 +992,45 @@ df_find_def (struct df *df, rtx insn, rtx reg)
   unsigned int uid;
   struct df_ref *def;
 
+  if (GET_CODE (reg) == SUBREG)
+    reg = SUBREG_REG (reg);
+  gcc_assert (REG_P (reg));
+
   uid = INSN_UID (insn);
   for (def = DF_INSN_UID_GET (df, uid)->defs; def; def = def->next_ref)
-    if (rtx_equal_p (DF_REF_REG (def), reg))
+    if (rtx_equal_p (DF_REF_REAL_REG (def), reg))
       return def;
+
+  return NULL;
+}
+
+
+/* Return true if REG is defined in INSN, zero otherwise.  */ 
+
+bool
+df_reg_defined (struct df *df, rtx insn, rtx reg)
+{
+  return df_find_def (df, insn, reg) != NULL;
+}
+  
+
+/* Finds the reference corresponding to the use of REG in INSN.
+   DF is the dataflow object.  */
+  
+struct df_ref *
+df_find_use (struct df *df, rtx insn, rtx reg)
+{
+  unsigned int uid;
+  struct df_ref *use;
+
+  if (GET_CODE (reg) == SUBREG)
+    reg = SUBREG_REG (reg);
+  gcc_assert (REG_P (reg));
+
+  uid = INSN_UID (insn);
+  for (use = DF_INSN_UID_GET (df, uid)->uses; use; use = use->next_ref)
+    if (rtx_equal_p (DF_REF_REAL_REG (use), reg))
+      return use; 
 
   return NULL;
 }
@@ -1027,20 +1038,12 @@ df_find_def (struct df *df, rtx insn, rtx reg)
 
 /* Return true if REG is referenced in INSN, zero otherwise.  */ 
 
-struct df_ref *
-df_find_use (struct df *df, rtx insn, rtx reg)
+bool
+df_reg_used (struct df *df, rtx insn, rtx reg)
 {
-  unsigned int uid;
-  struct df_ref *use;
-
-  uid = INSN_UID (insn);
-  for (use = DF_INSN_UID_GET (df, uid)->uses; use; use = use->next_ref)
-    if (rtx_equal_p (DF_REF_REG (use), reg))
-      return use; 
-
-  return NULL;
+  return df_find_use (df, insn, reg) != NULL;
 }
-
+  
 
 /****************************************************************************/
 /* Debugging and printing functions.                                        */

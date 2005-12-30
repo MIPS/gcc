@@ -310,13 +310,6 @@ struct df
   bitmap exit_block_uses;        /* The set of hardware registers used in exit block.  */
 };
 
-struct df_map
-{
-  rtx old;
-  rtx new;
-};
-
-
 #define DF_SCAN_BB_INFO(DF, BB) (df_scan_get_bb_info((DF)->problems_by_index[DF_SCAN],(BB)->index))
 #define DF_RU_BB_INFO(DF, BB) (df_ru_get_bb_info((DF)->problems_by_index[DF_RU],(BB)->index))
 #define DF_RD_BB_INFO(DF, BB) (df_rd_get_bb_info((DF)->problems_by_index[DF_RD],(BB)->index))
@@ -515,7 +508,9 @@ extern struct df_ref * df_bb_regno_first_def_find (struct df *, basic_block, uns
 extern struct df_ref * df_bb_regno_last_def_find (struct df *, basic_block, unsigned int);
 extern bool df_insn_regno_def_p (struct df *, rtx, unsigned int);
 extern struct df_ref * df_find_def (struct df *, rtx, rtx);
+extern bool df_reg_defined (struct df *, rtx, rtx);
 extern struct df_ref * df_find_use (struct df *, rtx, rtx);
+extern bool df_reg_used (struct df *, rtx, rtx);
 extern void df_iterative_dataflow (struct dataflow *, bitmap, bitmap, int *, int, bool);
 extern void df_dump (struct df *, FILE *);
 extern void df_chain_dump (struct df *, struct df_link *, FILE *);

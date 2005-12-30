@@ -1,3 +1,19 @@
+2005-12-22  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* df-core.c (df_find_def, df_find_use):  Added subreg aware code.
+	(df_reg_defined, df_reg_used): New function.
+	df.h (df_reg_defined, df_reg_used): New function.
+	loop-invariant.c (struct invariant, hash_invariant_expr, 
+	eq_invariant_expr, find_or_insert_inv, find_or_insert_inv,
+	find_identical_invariants, merge_identical_invariants, 
+	find_defs, create_new_invariant, check_dependencies,
+	find_invariant_insn, find_invariants, get_inv_cost,
+	best_gain_for_invariant, set_move_mark, move_invariants, 
+	free_inv_motion_data): Functions added from mainline patch.
+	(invariant_for_use, hash_invariant_expr_1, invariant_expr_equal_p,
+	check_dependencies, create_new_invariant, find_invariant_insn 
+	move_invariant_reg): Functions modified from mainline patch to be 
+	consistent with latest df.
+
 2005-12-22  Paolo Bonzini  <bonzini@gnu.org>
 
 	* df-scan.c (df_ref_unlink): Fix thinko when REF == CHAIN. 
