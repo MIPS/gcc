@@ -1,4 +1,68 @@
+2005-12-30  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cxx-pretty-print.c (pp_cxx_constant): New.  Print
+	string-literal in parens if input program says so.
+	(pp_cxx_primary_expression): Hand off constant printing to
+	pp_cxx_constant. 
+	(pp_cxx_pretty_printer_init): Set pp->c_base.constant.
+	(pp_cxx_expression): Use pp_cxx_constant for literals. 
+	* error.c (dump_expr): Use pp_constant for literals.
+
+2005-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* method.c (make_thunk): Don't set comdat_linkage here.
+	(use_thunk): Make thunk one only here, if thunk target is
+	DECL_ONE_ONLY.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25439
+	* decl.c (grokdeclarator): Remove dead code.
+	* ptree.c (cxx_print_xnode): Handle BASELINK.
+	* parser.c (make_id_declarator): Add sfk parameter.  
+	(cp_parser_direct_declarator): Do not pass TYPE_DECLs to
+	make_id_declarator.
+	(cp_parser_declarator_id): Simplify BASELINKs here.
+	(cp_parser_member_declaration): Adjust calls to
+	make_id_declarator.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23171, c++/23172, c++/25417.
+	* typeck.c (build_unary_op): Create temporary variables for
+	compound literals whose addresses are taken.
+	* init.c (expand_aggr_init_1): Use COMPOUND_LITERAL_P.
+	* decl.c (reshape_init_vector): Likewise.
+	(reshape_init): Give it external linkage.
+	(check_initializer): Use COMPOUND_LITERAL_P.
+	(initialize_artificial_var): Allow the initializer to be a
+	CONSTRUCTOR.
+	* call.c (make_temporary_var_for_ref_to_temp): Use
+	create_temporary_var.
+	* cp-tree.h (COMPOUND_LITERAL_P): New macro.
+	(rehape_init): Declare.
+	* typeck2.c (digest_init): Use COMPOUND_LITERAL_P.
+	* semantics.c (finish_compound_literal): Use reshape_init.
+
+2005-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24671
+	* pt.c (instantiate_template): Handle SFINAE.
+
+2005-12-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* decl.c (grokdeclarator): Improve diagnostic for friend
+	declarations of class members.
+
 2005-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25369
+	* tree.c (really_overloaded_fn): Tweak comment.
+	* pt.c (tsubst_call_declarator_parms): Remove.
+	(tsubst_copy): Call mark_used on the member referenced by an
+	OFFSET_REF.
+	* semantics.c (finish_qualified_id_expr): Simplify.
+	* decl2.c (mark_used): Accept BASELINKs.
 
 	PR c++/25364
 	* typeck.c (build_unary_op): Pass DECLs not names to

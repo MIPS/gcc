@@ -249,10 +249,8 @@ get_section (const char *name, unsigned int flags, tree decl)
 	  /* Sanity check user variables for flag changes.  */
 	  if (decl == 0)
 	    decl = sect->named.decl;
-	  if (decl)
-	    error ("%+D causes a section type conflict", decl);
-	  else
-	    gcc_unreachable ();
+	  gcc_assert (decl);
+	  error ("%+D causes a section type conflict", decl);
 	}
     }
   return sect;
@@ -3477,18 +3475,24 @@ initializer_constant_valid_p (tree value, tree endtype)
     case ADDR_EXPR:
     case FDESC_EXPR:
       value = staticp (TREE_OPERAND (value, 0));
-      /* "&(*a).f" is like unto pointer arithmetic.  If "a" turns out to
-	 be a constant, this is old-skool offsetof-like nonsense.  */
-      if (value
-	  && TREE_CODE (value) == INDIRECT_REF
-	  && TREE_CONSTANT (TREE_OPERAND (value, 0)))
-	return null_pointer_node;
-      /* Taking the address of a nested function involves a trampoline.  */
-      if (value
-	  && TREE_CODE (value) == FUNCTION_DECL
-	  && ((decl_function_context (value) && !DECL_NO_STATIC_CHAIN (value))
-	      || DECL_DLLIMPORT_P (value)))
-	return NULL_TREE;
+      if (value)
+	{
+	  /* "&(*a).f" is like unto pointer arithmetic.  If "a" turns out to
+	     be a constant, this is old-skool offsetof-like nonsense.  */
+	  if (TREE_CODE (value) == INDIRECT_REF
+	      && TREE_CONSTANT (TREE_OPERAND (value, 0)))
+	    return null_pointer_node;
+	  /* Taking the address of a nested function involves a trampoline.  */
+	  if (TREE_CODE (value) == FUNCTION_DECL
+	      && ((decl_function_context (value) 
+		   && !DECL_NO_STATIC_CHAIN (value))
+		  || DECL_DLLIMPORT_P (value)))
+	    return NULL_TREE;
+	  /* "&{...}" requires a temporary to hold the constructed
+	     object.  */
+	  if (TREE_CODE (value) == CONSTRUCTOR)
+	    return NULL_TREE;
+	}
       return value;
 
     case VIEW_CONVERT_EXPR:

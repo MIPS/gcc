@@ -1,3 +1,155 @@
+2006-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/25294
+	* gcc.dg/pragma-pack-3.c: New test.
+	* g++.dg/parse/pragma3.C: New test.
+
+2005-12-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/24827
+	* gcc.dg/attr-weakref-1.c: Skip test on hppa*-*-hpux*.
+
+2005-12-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/25214
+	* gcc.target/i386/local2.c: Skip if ilp32 and -fpic/-fpic.
+
+2005-12-30  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/22607
+	* gfortran-dg/pure_byref_3.f90: New.
+
+	fortran/PR 25396
+	* gfortran.dg/userdef_operator_1.f90: New.
+
+2005-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/abi/thunk3.C: New.
+	* g++.dg/abi/thunk4.C: New.
+
+2005-12-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25532
+	* gfortran.dg/host_used_types_1.f90: New test. Check that host
+	associated derived type components of derived types are
+	properly declared in contained procedures.
+
+2005-12-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25139
+	* gfortran.dg/backspace_2.f: New test.
+
+2005-12-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25550
+	* gfortran.dg/endfile.f: New test.
+
+2005-12-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25419
+	* gfortran.dg/comma.f: New test.
+
+2005-12-28  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* lib/gfortran-dg.exp: Remove trailing whitespace.
+	* lib/fortran-torture.exp: Test with -fbounds-check instead of
+	-funroll-all-loops.
+
+2005-12-28  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.dg/torture/fp-int-convert-timode.c: Don't test IBM
+	Extended Double long doubles or repeat tests when long double is
+	the same size as double.
+
+2005-12-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/rtti/tinfo1.C: Scan for ".global" also.
+	
+	PR testsuite/25442
+	* gcc.dg/ipa/ipa-1.c, gcc.dg/ipa/ipa-2.c, gcc.dg/ipa/ipa-3.c,
+	gcc.dg/ipa/ipa-4.c, gcc.dg/ipa/ipa-5.c: Skip if -fpic/-fPIC.
+
+	PR testsuite/25441
+	* gcc.dg/pr23911.c: Make test variable static.
+
+	PR testsuite/25444
+	* gcc.dg/tree-ssa/pr14841.c: Likewise.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25439
+	* g++.dg/parse/crash17.C: Adjust error markers.
+	* g++.dg/template/error20.C: New test.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23172
+	* g++.dg/ext/complit4.C: New test.
+
+	PR c++/25417
+	* g++.dg/ext/complit5.C: Likewise.
+
+2005-12-26  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25125
+	* gcc.dg/vect/vect-7.c, gcc.dg/vect/vect-reduc-2char.c,
+	gcc.dg/vect/vect-reduc-2short.c: XFAIL.
+	* gcc.c-torture/execute/pr25125.c: New.
+
+2005-12-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25029
+	PR fortran/21256
+	* gfortran.dg/initialization_1.f90: Remove tests of intrinsic functions
+	with incorrect assumed size references.
+
+2005-12-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23171
+	* g++.dg/opt/init1.C: New test.
+
+2005-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24671
+	* g++.dg/template/sfinae3.C: New test.
+
+2005-12-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* g++.dg/other/friend4.C: New test.
+
+2005-12-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/25005
+	* g++.dg/opt/pr25005.C: New test.
+
+2005-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25369
+	* g++.dg/template/ptrmem16.C: New test.
+
+2005-12-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25029
+	PR fortran/21256
+	*gfortran.dg/initialization_1.f90: Add test of SIZE.
+
+2005-12-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25307
+	* gfortran.dg/list_read_5.f90: New test.
+
+2005-12-22  Richard Henderson  <rth@redhat.com>
+
+	* gcc.target/i386/sse-7.c: Use -msse2.
+
+2005-12-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/25432
+	* gcc.c-torture/compile/20051216-1.c: New test.
+
+	PR objc/25328
+	* objc/execute/pr25328.m: New test.
+
 2005-12-22  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/25364
@@ -6,6 +158,10 @@
 2005-12-22  Dale Johannesen  <dalej@apple.com>
 
 	* gcc.target/i386/sse-17.c:  New.
+
+2005-12-22  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/weak/typeof-2.c: Skip assembly test on m68k.
 
 2005-12-22  Paul Brook  <paul@codesourcery.com>
 

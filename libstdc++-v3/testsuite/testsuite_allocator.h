@@ -184,7 +184,7 @@ namespace __gnu_test
     check_new(Alloc a = Alloc())
     {
       bool test __attribute__((unused)) = true;
-      typename Alloc::pointer p = a.allocate(10);
+      a.allocate(10);
       test &= ( new_called == uses_global_new );
       return test;
     }
@@ -201,13 +201,14 @@ namespace __gnu_test
     }
 
   template<typename Alloc>
-    bool 
+    bool
     check_deallocate_null()
     {
       // Let's not core here...
       Alloc  a;
       a.deallocate(NULL, 1);
       a.deallocate(NULL, 10);
+      return true;
     }
 
   template<typename Alloc>

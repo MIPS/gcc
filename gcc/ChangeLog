@@ -1,3 +1,363 @@
+2005-12-31  Andrew Pinski  <pinskia@ohysics.uc.edu>
+
+	PR tree-opt/25612
+	* tree-ssa-pre.c (compute_avail): Treat the static chain decl as a
+	parameter and pretend that it is defined in the entry basic block.
+
+2005-12-30  Kazu Hirata  <kazu@codesourcery.com>
+
+	* tree-outof-ssa.c (_elim_graph): Change the type of STACK to
+	VEC(int,heap).
+	(new_elim_graph, delete_elim_graph, elim_forward,
+	eliminate_phi): Use the VEC API on STACK.
+
+2005-12-29  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree.h (VALUE_HANDLE_VUSES): New.
+	(struct tree_value_handle): Add vuses.
+
+	* tree-vn.c (struct val_expr_pair_d): Remove stmt, add vuses.
+	(vn_compute): Remove stmt argument.
+	Don't use vuses in hash value computation.
+	(val_expr_pair_eq): Compare vuse lists.
+	(copy_vuses_from_stmt): New function.
+	(shared_vuses_from_stmt): Ditto.
+	(vn_add): Rewrite in terms of vn_add_with_vuses.
+	(vn_add_with_vuses): New function.
+	(vn_lookup): Rewrite in terms of vn_lookup_with_vuses.
+	(vn_lookup_with_vuses): New function.
+	(vuses_compare): New function.
+	(print_creation_to_file): Ditto.
+	(vn_lookup_or_add): Rewrite to handle vuses.
+	(sort_vuses): New function.
+	(vn_lookup_or_add_with_vuses): Ditto.
+	(vn_init): Initialize shared_lookup_vuses.
+	(vn_delete): Free shared_lookup_vuses.
+
+	* tree-ssa-pre.c: Update todo list.
+	(bb_value_sets_t): Add rvuse_in, rvuse_out, rvuse_gen, and
+	rvuse_kill.
+	(RVUSE_IN): New macro.
+	(RVUSE_GEN): Ditto.
+	(RVUSE_KILL): Ditto.
+	(RVUSE_OUT): Ditto.
+	(modify_expr_node_pool): New function.
+	(pretemp): New.
+	(storetemp): Ditto.
+	(mergephitemp): Ditto.
+	(prephitemp): Ditto.
+	(struct expr_pred_trans_d): Add vuses member.
+	(expr_pred_trans_eq): Compare vuses.
+	(phi_trans_lookup): Add vuses argument.
+	(phi_trans_add): Ditto.
+	(translate_vuses_through_block): New function.
+	(phi_translate): Use vuses to ask about those expressions that can
+	have vuses.
+	Properly translate virtual uses through phis, and use
+	vn_lookup_or_add_with vuses.  Handle tcc_reference.
+	(phi_translate_set): Don't add pointless translations to the
+	cache.
+	(get_representative): New function.
+	(vuses_dies_in_block_x): Ditto.
+	(valid_in_set): Add block argument.  Check virtual use validity.
+	(clean): Add block argument. Update call to valid_in_set
+	(compute_antic_aux): Update call to clean.
+	(dump_bitmap_of_names): New function.
+	(compute_vuse_representatives): Ditto.
+	(compute_rvuse): Ditto.
+	(can_value_number_call): Modified to accept calls with vuses.
+	(can_value_number_operation): New function.
+	(can_PRE_operation): Ditto.
+	(need_creation): New vector of stores that may need creation.
+	(find_or_generate_expression): use can_PRE_operation.
+	(create_expression_by_pieces): Handle INDIRECT_REF.
+	Only create one temp until we have to change types.
+	Mark new vars for renaming.
+	(insert_into_preds_of_block): Ignore loopiness of loads.
+	Use can_PRE_operation.
+	Only create one temp until we have to chnge types.
+	(insert_aux): Use can_PRE_operation.
+	Don't pass name to insert_into_preds_of_block.
+	(insert_extra_phis): Only use one temp until we have to change
+	types.
+	(poolify_tree): New function.
+	(modify_expr_template): New var.
+	(poolify_modify_expr): New function.
+	(insert_fake_stores): Ditto.
+	(realify_fake_stores): Ditto.
+	(compute_avail): Use can_value_number_operation.
+	(mark_operand_necessary): Return NULL for non-SSA names.
+	(remove_dead_inserted_code): Update comment.
+	(init_pre): Initialize pretemp, need_creation, storetemp,
+	mergephitemp, prephitemp.
+	Create modify_expr_node_pool.
+	(fini_pre): Free modify_expr_node_pool and need_creation array.
+	(execute_pre): Call insert_fake_stores, compute_rvuse, and
+	realify_fake_stores. 
+	* tree-flow.h (vn_compute): Fix prototype.
+	(vn_add): Ditto.
+	(vn_lookup): Ditto.
+	(sort_vuses): New.
+	(vn_lookup_or_add_with_vuses): Ditto.
+	(vn_add_with_vuses): Ditto.
+	(vn_lookup_with_vuses): Ditto.
+	* passes.c (pass_may_alias): Add.
+
+2005-12-30  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* c-pretty-print.h (struct c_pretty_print_info): Add new member
+	"constant". 
+	(pp_constant): New macro.
+	* c-pretty-print.c (pp_c_pretty_printer_init): Set pp->constant.
+
+2005-12-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR fortran/25586
+	* pa.md: Remove REG_POINTER check from REG+REG peephole2 floating-point
+	store patterns.
+
+2005-12-29  Mike Stump  <mrs@apple.com>
+
+	* doc/invoke.texi (Objective-C and Objective-C++ Dialect Options
+	-fobjc-exceptions): Don't imply this doesn't work with the GNU
+	runtime.
+
+2005-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* varasm.c (get_section): Use gcc_assert.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.h (RETURN_ADDR_RTX): Define.
+	* config/m68k/m68k.c (m68k_initial_elimination_offset): Remove FIXME.
+	Include offset due to FIRST_PARM_OFFSET.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/lb1sf68.asm (__cmpdf2): Fix typo in immediate mask.
+	Create wrapper and rename body...
+	(__cmpdf2_internal): ... to this.  Return correct value for unordered
+	result.
+	(__cmpsf2): Create wrapper and rename body...
+	(__cmpsf2_internal): ... to this.  Return corerct value for unordered
+	result.
+	(__eqdf2, __nedf2, __gtdf2, __gedf2, __ltdf2, __ledf2): Use
+	__cmpdf2_internal.
+	(__eqsf2, __nesf2, __gtsf2, __gesf2, __ltsf2, __lesf2): Use
+	__cmpsf2_internal.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/fpgnulib.c (__extendsfdf2): Handle negative zero.
+	(__truncdfsf2): Ditto.
+	(__extenddfxf2): Ditto.
+	(__truncxfdf2): Ditto.
+	* config/m68k/lb1sf68.asm (__addsf3): Return -0.0 for -0.0 + -0.0.
+	(__adddf3): Ditto.
+
+2005-12-29  Daniel Jacobowitz  <dan@codesourcery.com>
+	Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_output_pic_call): Don't use bsr.l for
+	!TARGET_68020.
+	* config/m68k/t-m68kelf (EXTRA_PARTS): Remove.
+	(EXTRA_MULTILIB_PARTS): Set.
+	* config/m68k/t-uclinux (EXTRA_PARTS): Remove.
+	(EXTRA_MULTILIB_PARTS): Set.
+
+2005-12-29  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/25572
+	* config/rs6000/rs6000.c (create_TOC_reference): Set regs_ever_live.
+
+2005-12-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config.gcc (mt-*-*): Add --with-arch support.
+	(--with): Print accepted options on error.
+	* config/mt/mt.h (OPTION_DEFAULT_SPECS): Define.
+
+	* config/mt/mt.c (DEF_VEC_P(basic_block),
+	DEF_VEC_ALLOC_P(basic_bloc,heap)): Remove from here.
+
+2005-12-28  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/25394
+	* fold-const.c (fold_checksum_tree): Guard 
+	portions of checksumming with correct structure checks.
+
+2005-12-27  Kazu Hirata  <kazu@codesourcery.com>
+
+	* global.c, tree-ssa-pre.c: Move DEF_VEC_P(basic_block) and
+	DEF_VEC_ALLOC_P(basic_block,{gc,heap}) to ...
+	* basic-block.h: ... here.
+
+2005-12-27  Roger Sayle  <roger@eyesopen.com>
+
+	* fold-const.c (int_const_binop): Return NULL_TREE when an expression
+	can't be evaluated at compile-time (instead of calling abort).
+	Return NULL_TREE for division (and modulus) by zero.
+	(const_binop):  Return NULL_TREE for floating point operators that
+	aren't handled by real_arithmetic.
+	(fold_binary):  Eliminate "wins" variable, and "binary" label, by
+	folding operators with constant operands early.  Assert that
+	operands are non-NULL.
+
+2005-12-27  Kazu Hirata  <kazu@codesourcery.com>
+
+	* tree-vrp.c (extract_range_from_binary_expr): Use
+	build_int_cst instead of fold_convert.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23171, c++/23172, c++/25417.
+	* c-decl.c (compound_literal_number): Remove.
+	(build_compound_literal): Use set_compound_literal_name.
+	* c-common.c (compound_literal_number): New variable.
+	(set_compound_literal_name): New function.
+	* c-common.h (set_compound_literal_name): Declare.
+	
+2005-12-26  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25125
+	* convert.c (convert_to_integer): Don't narrow the type of a
+	PLUX_EXPR or MINUS_EXPR if !flag_wrapv and the unwidened type
+	is signed.
+
+2005-12-26  Graham Stott  <graham.stott@btinternet.com>
+
+	PR middle-end/25568
+	* combine.c (simplify_shift_const_1 <case PLUS>):Fix enable-checking
+	rtl bootstrap failure.
+
+2005-12-25  Kazu Hirata  <kazu@codesourcery.com>
+
+	* final.c (compute_alignments): Make it static.
+	* gcse.c (gcse_main, bypass_jumps): Likewise.
+	* web.c (web_main): Likewise.
+	* output.h: Remove the prototype for compute_alignments.
+	* rtl.h: Remove the prototypes for web_main, gcse_main, and
+	bypass_jumps.
+
+2005-12-24  Roger Sayle  <roger@eyesopen.com>
+
+	* expr.c (force_operand): Use expand_fix and expand_float to
+	implement integer <-> FP conversions instead of convert_to_mode.
+
+2005-12-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23171
+	* varasm.c (initializer_constant_valid_p): An ADDR_EXPR of a
+	CONSTRUCTOR is invalid.
+
+2005-12-23  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-pass.h (pass_eliminate_useless_stores): Remove.
+	* tree-ssa-pre.c (is_copy_stmt): Ditto.
+	(follow_copies_till_vuse): Ditto.
+	(do_eustore): Ditto.
+	(gate_eustores): Ditto.
+	(pass_eliminate_useless_stores): Ditto.
+	* passes.c (init_optimization_passes): Ditto.
+
+2005-12-23  Paolo Bonzini  <bonzini@gnu.org>
+
+        * combine.c (simplify_shift_const): Fix typo.  Use, whenever
+	applicable, simplify_const_binary_operation.
+
+        (simplify_shift_const): Leave only the fallback
+        case when no simplification is possible.  Extract to...
+        (simplify_shift_const_1): ... here.  Always create a new
+        RTX instead of substituting.  Remove the signed_count variable.
+        Return NULL_RTX if no substitution is possible.
+
+        (simplify_and_const_int): Leave only the fallback
+        case when no simplification is possible.  Extract to...
+        (simplify_and_const_int_1): ... here.  Always create a new
+        RTX instead of substituting.  Return NULL_RTX if no substitution
+        is possible.
+
+        (force_to_mode, simplify_comparison): Don't pass a non-NULL first
+        parameter to simplify_and_const_int and simplify_shift_const,
+        unless it is equal to the expected non-simplified result.
+
+2005-12-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/25005
+	* regrename.c (replace_oldest_value_reg): Use validate_change with
+	IN_GROUP set to 1 instead of doing direct modifications.
+	(copyprop_hardreg_forward_1): Likewise.  If any replace_oldest_*
+	replacements have been performed on an instruction, use
+	apply_change_group ().
+
+2005-12-23  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/arit.c (do_31div): Clarify what "31" refers to.
+	[L_divsi3] (__Udiv): Don't use as inline function.
+	[L_modsi3] (__Umod): Ditto.
+	(__Div): Rearrange to call do_31div directly instead of __Udiv.
+	(__Mod): Similarly regarding __Umod.
+
+	PR target/24342
+	* config/cris/cris.c (cris_split_movdx): Add REG_INC notes for
+	emitted insns with post-increments.
+	(cris_expand_epilogue): Ditto.
+
+2005-12-22  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	Merge from gomp-branch.
+	* builtins.def: Move all DEF_SYNC_BUILTIN to ...
+	* sync-builtins.def: ... new file.
+	(BUILT_IN_FETCH_AND_ADD_16,
+	BUILT_IN_FETCH_AND_SUB_16, BUILT_IN_FETCH_AND_OR_16,
+	BUILT_IN_FETCH_AND_AND_16, BUILT_IN_FETCH_AND_XOR_16,
+	BUILT_IN_FETCH_AND_NAND_16, BUILT_IN_ADD_AND_FETCH_16,
+	BUILT_IN_SUB_AND_FETCH_16, BUILT_IN_OR_AND_FETCH_16,
+	BUILT_IN_AND_AND_FETCH_16, BUILT_IN_XOR_AND_FETCH_16,
+	BUILT_IN_NAND_AND_FETCH_16, BUILT_IN_BOOL_COMPARE_AND_SWAP_16,
+	BUILT_IN_VAL_COMPARE_AND_SWAP_16, BUILT_IN_LOCK_TEST_AND_SET_16,
+	BUILT_IN_LOCK_RELEASE_16): New builtins.
+	* builtin-types.def (BT_I16, BT_FN_I16_VPTR_I16,
+	BT_FN_BOOL_VPTR_I16_I16, BT_FN_I16_VPTR_I16_I16): Add.
+	* builtins.c (expand_builtin): Handle sync BUILT_IN_*_16 builtins.
+	* c-common.c (enum c_builtin_type): Move to top-level from
+	c_common_nodes_and_builtins enum builtin_type.
+	(builtin_types): Move from c_common_nodes_and_builtins.
+	(def_fn_type): New.
+	(c_common_nodes_and_builtins): Use it.
+	(def_builtin_1): Check for error_mark_node.
+	(sync_resolve_size): Handle also 128 bit sync builtins.
+	* Makefile.in (BUILTINS_DEF): New.  Use it instead of builtins.def.
+
+	* config/i386/i386.h (x86_cmpxchg8b, x86_cmpxchg16b): New decls.
+	(TARGET_CMPXCHG8B, TARGET_CMPXCHG16B): Define.
+	* config/i386/i386.c (x86_cmpxchg8b, x86_cmpxchg16b): New variables.
+	* config/i386/sync.md (CASMODE, DCASMODE): New mode macros.
+	(doublemodesuffix, DCASHMODE): New mode attrs.
+	(sync_compare_and_swap<mode>): Change into expand, use CASMODE
+	instead of IMODE, if mode is wider than a word, expand into
+	sync_double_compare_and_swap*.
+	(*sync_compare_and_swap<mode>): New insn.
+	(sync_double_compare_and_swap<mode>): Likewise.
+	(*sync_double_compare_and_swapdi_pic): Likewise.
+	(sync_compare_and_swap_cc<mode>): Use CASMODE instead of IMODE, if
+	mode is wider than a word, expand into
+	sync_double_compare_and_swap_cc*.
+	(sync_double_compare_and_swap_cc<mode>): New insn.
+	(*sync_double_compare_and_swap_ccdi_pic): Likewise.
+
+2005-12-22  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/mmintrin.h (_mm_add_si64): Only define for SSE2.
+	(_mm_sub_si64): Likewise.
+	* config/i386/xmmintrin.h (_mm_shuffle_pi16, _m_pshufw): Likewise.
+
+2005-12-23  Alan Modra  <amodra@bigpond.net.au>
+
+	PR rtl-optimization/25432
+	* reload1.c (eliminate_regs_in_insn): Update insn code on
+	successfully re-recognizing modified insn.
+
 2005-12-22  Richard Guenther  <rguenther@suse.de>
 
 	* tree.c (tree_fold_gcd): Use build_int_cst where appropriate.
@@ -174,8 +534,8 @@
 	Strip away all type conversions after simplifying the
 	condition.
 
-        * tree-cfgcleanup.c (merge_phi_nodes): Allow merging in some
-        cases the forwarder block dominates the destination.
+	* tree-cfgcleanup.c (merge_phi_nodes): Allow merging in some
+	cases the forwarder block dominates the destination.
 
 2005-12-19  DJ Delorie  <dj@redhat.com>
 
@@ -245,7 +605,7 @@
 
 2005-12-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-        * flow.c (update_life_info, count_or_remove_death_notes): Fixed
+	* flow.c (update_life_info, count_or_remove_death_notes): Fixed
 	latent bug that could happen if update_life_info was called with a
 	blocks parameter and the call to cleanup_cfg actually deleted one
 	of those blocks. 
@@ -1015,10 +1375,10 @@
 
 2005-12-15  Paolo Bonzini  <bonzini@gnu.org>
 
-        * combine.c: Remove force_to_mode's fourth parameter.
-        (force_to_mode): Do not handle REG.
-        (canon_reg_for_combine): New.
-        (make_field_assignment): Use it where the removed argument was non-NULL.
+	* combine.c: Remove force_to_mode's fourth parameter.
+	(force_to_mode): Do not handle REG.
+	(canon_reg_for_combine): New.
+	(make_field_assignment): Use it where the removed argument was non-NULL.
 
 2005-12-15  Alan Modra  <amodra@bigpond.net.au>
 
@@ -1194,8 +1554,8 @@
 
 	Back out this change:
 	2005-03-07  Kazu Hirata  <kazu@cs.umass.edu>
-          * recog.c (verify_changes): Make it static.
-          * recog.h: Remove the corresponding prototype.
+	  * recog.c (verify_changes): Make it static.
+	  * recog.h: Remove the corresponding prototype.
 
 2005-12-13  J"orn Rennecke <joern.rennecke@st.com>
 
@@ -1492,7 +1852,7 @@
 	call_used_regs can't be used to save reg in another reg.
 
 2005-12-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
-            Christophe Jaillet  <christophe.jaillet@wanadoo.fr>
+	    Christophe Jaillet  <christophe.jaillet@wanadoo.fr>
 
 	* ipa-type-escape.c (analyze_variable): Use gcc_assert instead of
 	abort.
@@ -1532,7 +1892,7 @@
 	* tree.h (DECL_EXTERNAL): Clarify documentation.
 
 2005-12-08  Andreas Krebbel  <krebbel1@de.ibm.com>
-            Jakub Jelinek  <jakub@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/25268
 	* config/s390/s390.c (s390_decompose_shift_count): Remove BITS
@@ -2207,7 +2567,7 @@
 2005-12-06  Jan Beulich  <jbeulich@novell.com>
 
 	* config/i386/i386.c (builtin_description): Use MASK_SSE2 for
-	__builtin_ia32_paddq and __builtin_ia32_subq.
+	__builtin_ia32_paddq and __builtin_ia32_psubq.
 	(ix86_init_mmx_sse_builtins): Use MASK_SSE|MASK_3DNOW_A for
 	__builtin_ia32_pshufw.
 	* config/i386/i386.md (mmx_adddi3, mmx_subdi3): Depend on TARGET_SSE2.
@@ -2328,11 +2688,11 @@
 
 2005-12-05  Paolo Bonzini  <bonzini@gnu.org>
 
-        * config/rs6000/predicates.md (logical_const_operand): Split
-        out of logical_operand.
-        (logical_operand): Use it.
-        * config/rs6000/rs6000.md (cmp -> xor peephole2): Use
-        logical_const_operand.
+	* config/rs6000/predicates.md (logical_const_operand): Split
+	out of logical_operand.
+	(logical_operand): Use it.
+	* config/rs6000/rs6000.md (cmp -> xor peephole2): Use
+	logical_const_operand.
 
 2005-12-05  Jan Beulich  <jbeulich@novell.com>
 
@@ -2703,7 +3063,7 @@
 
 2005-12-01  Ben Elliston  <bje@au.ibm.com>
 
-        * mklibgcc.in: Parameterise the script to build soft float
+	* mklibgcc.in: Parameterise the script to build soft float
 	functions by iterating over each type, rather than cloning the
 	code for each type.
 
@@ -2744,7 +3104,7 @@
 	(tree_expr_nonnegative_p): Likewise.
 
 2005-11-30  Dale Johannesen  <dalej@apple.com>
-            Andrew Pinski  <pinskia@physics.uc.edu>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* combine.c (find_split_point):  Sign extend bitmask
 	when changing bitfield assignment to IOR of AND.
