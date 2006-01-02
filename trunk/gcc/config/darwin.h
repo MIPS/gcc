@@ -1039,7 +1039,7 @@ SECTION_FUNCTION (darwin_eh_frame_section,				\
 /* APPLE LOCAL begin ObjC new abi */					\
 SECTION_FUNCTION (objc_classlist_section,				\
 		  in_objc_classlist_section,				\
-		  ".section __OBJC, __classlist, regular, no_dead_strip", 1) 		\
+		  ".section __OBJC2, __class_list, regular, no_dead_strip", 1) 	\
 SECTION_FUNCTION (objc_data_section,					\
 		  in_data,						\
 		  ".data", 1) 						\
@@ -1078,6 +1078,15 @@ objc_section_init (void)			\
       objc_instance_vars_section ();		\
       objc_module_info_section ();		\
       objc_symbols_section ();			\
+      /* APPLE LOCAL begin ObjC abi v2 */	\
+      if (flag_objc_abi == 2)			\
+        {					\
+          objc_data_section ();			\
+          objc_classlist_section ();		\
+	}					\
+      if (flag_objc_abi >= 2)			\
+        objc_message_refs_section ();		\
+      /* APPLE LOCAL end ObjC abi v2 */		\
     }						\
 }
 

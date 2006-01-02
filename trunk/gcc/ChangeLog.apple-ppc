@@ -1,3 +1,10 @@
+2005-01-02  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4391705
+	* config/darwin.h: Change segment and section name of class meta 
+	data.
+	(objc_section_init): Initialize OBJC2 sections for new abi only.
+	
 2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4229905
