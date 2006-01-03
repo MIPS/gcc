@@ -1,3 +1,7 @@
+2006-01-03  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Use jmp, not jsr.
+
 2005-12-30  Paul Brook  <paul@codesourcery.com>
 
 	* config/m68k/m68k.md: Convert define_peephole to define_peephole2.

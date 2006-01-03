@@ -3323,7 +3323,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       else if (optimize_size || TARGET_ID_SHARED_LIBRARY)
         fmt = "move.l %0@GOT(%%a5), %%a1\n\tjmp (%%a1)";
       else
-        fmt = "lea %0-.-8,%%a1\n\tjsr 0(%%pc,%%a1)";
+        fmt = "lea %0-.-8,%%a1\n\tjmp 0(%%pc,%%a1)";
     }
   else
     {
