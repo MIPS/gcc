@@ -1,4 +1,15 @@
-2005-12-22  Joseph Myers  <jsm@polyomino.org.uk>
+2006-01-02  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/arm/arm.h (ARM_FLAG_UCLIBC, TARGET_UCLIBC): New.
+	* gcc/config/arm/linux-elf.h (SUBTARGET_SWITCHES): Use
+	ARM_FLAG_UCLIBC.
+	(TARGET_C99_FUNCTIONS): Define in terms of TARGET_UCLIBC.
+	* gcc/config/mips/mips.h (MASK_UCLIBC, TARGET_UCLIBC): New.
+	* gcc/config/mips/linux.h (SUBTARGET_TARGET_SWITCHES): Use
+	MASK_UCLIBC.
+	(TARGET_C99_FUNCTIONS): Define in terms of TARGET_UCLIBC.
+
+2005-12-22  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/config.gcc (powerpc-wrs-linux-gnu): Use rs6000/wrs-linux.h
 	* gcc/config/arm/t-wrs-linux (EXTRA_MULTILIB_PARTS): Add

@@ -170,6 +170,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 			   0x00800000	/* Store uninitialized
 					   consts in rodata */
 #define MASK_FIX_SB1       0x01000000   /* Work around SB-1 errata.  */
+#define MASK_UCLIBC        0x02000000   /* Use uClibc not glibc.  */
 
 					/* Debug switches, not documented */
 #define MASK_DEBUG	0		/* unused */
@@ -257,6 +258,8 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TARGET_BRANCHLIKELY	(target_flags & MASK_BRANCHLIKELY)
 
 #define TARGET_FIX_SB1		(target_flags & MASK_FIX_SB1)
+
+#define TARGET_UCLIBC		(target_flags & MASK_UCLIBC)
 
 /* True if we should use NewABI-style relocation operators for
    symbolic addresses.  This is never true for mips16 code,

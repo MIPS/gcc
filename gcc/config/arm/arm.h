@@ -262,6 +262,9 @@ extern GTY(()) rtx aof_pic_label;
 /* Fix invalid Cirrus instruction combinations by inserting NOPs.  */
 #define CIRRUS_FIX_INVALID_INSNS (1 << 21)
 
+/* Use uClibc instead of glibc.  */
+#define ARM_FLAG_UCLIBC	(1 << 22)
+
 #define TARGET_APCS_FRAME		(target_flags & ARM_FLAG_APCS_FRAME)
 #define TARGET_POKE_FUNCTION_NAME	(target_flags & ARM_FLAG_POKE)
 #define TARGET_FPE			(target_flags & ARM_FLAG_FPE)
@@ -295,6 +298,7 @@ extern GTY(()) rtx aof_pic_label;
 				         ? (target_flags & THUMB_FLAG_LEAF_BACKTRACE)	\
 				         : (target_flags & THUMB_FLAG_BACKTRACE))
 #define TARGET_CIRRUS_FIX_INVALID_INSNS	(target_flags & CIRRUS_FIX_INVALID_INSNS)
+#define TARGET_UCLIBC			(target_flags & ARM_FLAG_UCLIBC)
 #define TARGET_LDRD			(arm_arch5e && ARM_DOUBLEWORD_ALIGN)
 #define TARGET_AAPCS_BASED \
     (arm_abi != ARM_ABI_APCS && arm_abi != ARM_ABI_ATPCS)

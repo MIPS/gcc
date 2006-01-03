@@ -44,8 +44,11 @@
 /* Add a -muclibc switch so that users can request uClibc instead of
    GLIBC.  */
 #define SUBTARGET_SWITCHES				\
-  {"uclibc", 0,						\
+  {"uclibc", ARM_FLAG_UCLIBC,				\
    N_("Use the uClibc C library instead of GLIBC") },
+
+#undef TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS (!TARGET_UCLIBC)
 
 #undef  MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS \

@@ -105,8 +105,11 @@ Boston, MA 02111-1307, USA.  */
    GLIBC.  */
 #undef SUBTARGET_TARGET_SWITCHES
 #define SUBTARGET_TARGET_SWITCHES			\
-  {"uclibc", 0,						\
+  {"uclibc", MASK_UCLIBC,				\
    N_("Use the uClibc C library instead of GLIBC") },
+
+#undef TARGET_C99_FUNCTIONS
+#define TARGET_C99_FUNCTIONS (!TARGET_UCLIBC)
 
 /* From iris5.h */
 /* -G is incompatible with -KPIC which is the default, so only allow objects
