@@ -1,3 +1,53 @@
+2006-01-03  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/25101
+	* gfortran.dg/forall_2.f90:  New test.
+
+2006-01-03  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* g++.dg/abi/thunk3.C, g++.dg/abi/thunk4.C: Gate on
+	dg-require-weak.  Adjust regexp to handle leading-underscore
+	targets and space as well as TAB after .weak.  Change previous
+	64-bit fix to not use naked dot.
+
+2006-01-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/25578
+	* gcc.c-torture/execute/20060102-1.c: New testcase.
+
+2006-01-03  Richard Guenther  <rguenther@suse.de>
+
+	PR c/25183
+	* gcc.dg/torture/pr25183.c: New testcase.
+
+2006-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	Merge from gomp-branch.
+	* gcc.dg/ia64-sync-1.c: On sparc*-*-*, pass -mcpu=v9.
+	* gcc.dg/ia64-sync-2.c: Likewise.
+	* gcc.dg/ia64-sync-3.c: Likewise.
+	* gcc.dg/ia64-sync-4.c: Likewise.
+	* gcc.dg/sync-2.c: Likewise.
+	* lib/target-supports.exp (sync_char_short, sync_int_long): Indicate
+	that sparc64-*-* and sparcv9-*-* supports sync builtins.
+
+2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25635
+	* g++.dg/parse/operator6.C: New test.
+
+	PR c++/25637
+	* g++.dg/parse/error29.C: New test.
+
+	PR c++/25638
+	* g++.dg/parse/dtor6.C: New test.
+
+	PR c++/25633
+	* g++.dg/parse/ctor3.C: New test.
+
+	PR c++/25634
+	* g++.dg/template/class3.C: New test.
+
 2006-01-02  Geoffrey Keating  <geoffk@apple.com>
 
 	* g++.dg/debug/debug9.C: New.

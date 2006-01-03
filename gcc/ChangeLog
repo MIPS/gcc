@@ -1,3 +1,74 @@
+2006-01-03  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	Merge from gomp-branch:
+        * varasm.c (assemble_variable): Handle thread-local COMMON data.
+        * defaults.h (ASM_OUTPUT_TLS_COMMON): Define.
+
+2006-01-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR rtl-optimization/25578
+	* combine.c (combine_simplify_rtx, force_to_mode): Don't
+	pass a parameter to simplify_shift_const if changing ASHIFTRT
+	to LSHIFTRT.
+
+2006-01-03  Adrian Straetling  <straetling@de.ibm.com>
+
+	* gcc/builtins.c (get_builtin_sync_mem): New function.
+	(expand_builtin_sync_operation, expand_builtin_compare_and_swap,
+	expand_builtin_lock_test_and_set, expand_builtin_lock_release):
+	Call get_builtin_sync_mem to generate mem rtx.
+
+2006-01-03  Richard Guenther  <rguenther@suse.de>
+
+	PR c/25183
+	* stmt.c (add_case_node): Make sure to clear overflow flags
+	from ranges.
+
+2006-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	Merge from gomp-branch.
+	* config/sparc/sync.md: New file.
+	* config/sparc/sparc.md (UNSPECV_MEMBAR, UNSPECV_CAS, UNSPECV_SWAP,
+	UNSPECV_LDSTUB): New constants.
+	* config/sparc/sparc.c (sparc_expand_compare_and_swap_12): New function.
+	* config/sparc/predicates.md (memory_reg_operand): New predicate.
+	* config/sparc/sparc-protos.h (sparc_expand_compare_and_swap_12): New
+	prototype.
+
+2006-01-03  Roger Sayle  <roger@eyesopen.com>
+
+	* combine.c (reg_subword_p): New predicate to test whether the
+	destination of a set refers to a subword/piece of a register.
+	(try_combine): Generalize the code to merge the setting of a
+	pseudo to a constant followed by a set of a subword of that
+	register to a constant.
+
+2006-01-03  Kazu Hirata  <kazu@codesourcery.com>
+
+	* basic-block.h (control_flow_graph): Change the type of
+	x_label_to_block_map to VEC(basic_block,gc) *.
+	* tree-cfg.c (init_empty_tree_cfg, label_to_block_fn,
+	set_bb_for_stmt): Adjust the uses of x_label_to_block_map.
+
+	* tree-ssa-propagate.c (cfg_blocks): Change the type to
+	VEC(basic_block,heap) *.
+	(cfg_blocks_add, cfg_blocks_get, ssa_prop_init,
+	ssa_prop_fini): Adjust the uses of cfg_blocks.
+
+2006-01-03  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* fold-const.c (operand_equal_p): Accept a NULL operand 0 for
+	COMPONENT_REFs.
+	* emit-rtl.c (mem_attrs_htab_eq): Use iterative_hash_expr for
+	hashing trees instead of a pointer hash.
+	(mem_attrs_htab_eq): Do a deep compare instead of a pointer
+	compare for MEM_EXPR.
+
+	PR rtl-optimization/25130
+	* cse.c (exp_equiv_p): Compare MEM_ATTRS instead of MEM_ALIAS_SET
+	when comparing MEMs for GCSE
+
 2006-01-03  Ben Elliston  <bje@au.ibm.com>
 
 	* targhooks.h (default_decimal_float_supported_p): Declare.
