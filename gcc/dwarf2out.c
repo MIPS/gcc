@@ -3796,6 +3796,11 @@ static GTY(()) unsigned line_info_table_allocated;
 /* Number of elements in line_info_table currently in use.  */
 static GTY(()) unsigned line_info_table_in_use;
 
+/* APPLE LOCAL begin mainline 4.2 2006-01-02 4386366 */
+/* True if the compilation unit places functions in more than one section.  */
+static GTY(()) bool have_multiple_function_sections = false;
+
+/* APPLE LOCAL end mainline 4.2 2006-01-02 4386366 */
 /* A pointer to the base of a table that contains line information
    for each source code line outside of .text in the compilation unit.  */
 static GTY ((length ("separate_line_info_table_allocated")))
@@ -3852,7 +3857,8 @@ static GTY(()) unsigned ranges_table_in_use;
 #define RANGES_TABLE_INCREMENT 64
 
 /* Whether we have location lists that need outputting */
-static GTY(()) unsigned have_location_lists;
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+static GTY(()) bool have_location_lists;
 
 /* Unique label counter.  */
 static GTY(()) unsigned int loclabel_num;
@@ -5067,7 +5073,8 @@ add_AT_loc_list (dw_die_ref die, enum dwarf_attribute attr_kind, dw_loc_list_ref
   attr->dw_attr_val.val_class = dw_val_class_loc_list;
   attr->dw_attr_val.v.val_loc_list = loc_list;
   add_dwarf_attr (die, attr);
-  have_location_lists = 1;
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+  have_location_lists = true;
 }
 
 static inline dw_loc_list_ref
@@ -6885,7 +6892,8 @@ output_loc_list (dw_loc_list_ref list_head)
   for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
     {
       unsigned long size;
-      if (separate_line_info_table_in_use == 0)
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+      if (!have_multiple_function_sections)
 	{
 	  dw2_asm_output_delta (DWARF2_ADDR_SIZE, curr->begin, curr->section,
 				"Location list begin address (%s)",
@@ -7387,7 +7395,8 @@ output_ranges (void)
 	  /* If all code is in the text section, then the compilation
 	     unit base address defaults to DW_AT_low_pc, which is the
 	     base of the text section.  */
-	  if (separate_line_info_table_in_use == 0)
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+	  if (!have_multiple_function_sections)
 	    {
 	      dw2_asm_output_delta (DWARF2_ADDR_SIZE, blabel,
 				    text_section_label,
@@ -13282,15 +13291,20 @@ dwarf2out_var_location (rtx loc_note)
   add_var_loc_to_decl (decl, newloc);
 }
 
+/* APPLE LOCAL begin mainline 4.2 2006-01-02 4386366 */
 /* We need to reset the locations at the beginning of each
    function. We can't do this in the end_function hook, because the
-   declarations that use the locations won't have been outputted when
-   that hook is called.  */
+   declarations that use the locations won't have been output when
+   that hook is called.  Also compute have_multiple_function_sections here.  */
 
 static void
-dwarf2out_begin_function (tree unused ATTRIBUTE_UNUSED)
+dwarf2out_begin_function (tree fun)
 {
   htab_empty (decl_loc_table);
+  
+  if (DECL_WEAK (fun) || DECL_SECTION_NAME (fun))
+    have_multiple_function_sections = true;
+/* APPLE LOCAL end mainline 4.2 2006-01-02 4386366 */
 }
 
 /* Output a label to mark the beginning of a source code line entry
@@ -13321,12 +13335,13 @@ dwarf2out_source_line (unsigned int line, const char *filename)
 
 	  /* Indicate that line number info exists.  */
 	  line_info_table_in_use++;
-
-	  /* Indicate that multiple line number tables exist.  */
-	  if (DECL_SECTION_NAME (current_function_decl))
-	    separate_line_info_table_in_use++;
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+/* Don't set separate_line_info_table_in_use.  */
 	}
-      else if (DECL_SECTION_NAME (current_function_decl))
+/* APPLE LOCAL begin mainline 4.2 2006-01-02 4386366 */
+      else if (DECL_WEAK (current_function_decl) 
+	       || DECL_SECTION_NAME (current_function_decl))
+/* APPLE LOCAL end mainline 4.2 2006-01-02 4386366 */
 	{
 	  dw_separate_line_info_ref line_info;
 	  targetm.asm_out.internal_label (asm_out_file, SEPARATE_LINE_CODE_LABEL,
@@ -13874,21 +13889,12 @@ dwarf2out_finish (const char *filename)
       output_line_info ();
     }
 
-  /* Output location list section if necessary.  */
-  if (have_location_lists)
-    {
-      /* Output the location lists info.  */
-      named_section_flags (DEBUG_LOC_SECTION, SECTION_DEBUG);
-      ASM_GENERATE_INTERNAL_LABEL (loc_section_label,
-				   DEBUG_LOC_SECTION_LABEL, 0);
-      ASM_OUTPUT_LABEL (asm_out_file, loc_section_label);
-      output_location_lists (die);
-      have_location_lists = 0;
-    }
-
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+/* Don't output location list here.  */
   /* We can only use the low/high_pc attributes if all of the code was
      in .text.  */
-  if (separate_line_info_table_in_use == 0)
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+  if (!have_multiple_function_sections)
     {
       add_AT_lbl_id (comp_unit_die, DW_AT_low_pc, text_section_label);
       add_AT_lbl_id (comp_unit_die, DW_AT_high_pc, text_end_label);
@@ -13899,6 +13905,19 @@ dwarf2out_finish (const char *filename)
   else if (have_location_lists || ranges_table_in_use)
     add_AT_addr (comp_unit_die, DW_AT_entry_pc, const0_rtx);
 
+/* APPLE LOCAL begin mainline 4.2 2006-01-02 4386366 */
+  /* Output location list section if necessary.  */
+  if (have_location_lists)
+    {
+      /* Output the location lists info.  */
+      named_section_flags (DEBUG_LOC_SECTION, SECTION_DEBUG);
+      ASM_GENERATE_INTERNAL_LABEL (loc_section_label,
+				   DEBUG_LOC_SECTION_LABEL, 0);
+      ASM_OUTPUT_LABEL (asm_out_file, loc_section_label);
+      output_location_lists (die);
+    }
+
+/* APPLE LOCAL end mainline 4.2 2006-01-02 4386366 */
   if (debug_info_level >= DINFO_LEVEL_NORMAL)
     add_AT_lbl_offset (comp_unit_die, DW_AT_stmt_list,
 		       debug_line_section_label);
