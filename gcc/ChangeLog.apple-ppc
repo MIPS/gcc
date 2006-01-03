@@ -1,3 +1,8 @@
+2006-01-03  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4392520
+	* config/darwin.h (FRAME_BEGIN_LABEL): Use Lname if not for EH.
+
 2005-12-22  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4387676 4388773
