@@ -613,7 +613,8 @@ do {					\
 /* We need to use a nonlocal label for the start of an EH frame: the
    Darwin linker requires that a coalesced section start with a label. */
 #undef FRAME_BEGIN_LABEL
-#define FRAME_BEGIN_LABEL "EH_frame"
+/* APPLE LOCAL dwarf2 4392520 */
+#define FRAME_BEGIN_LABEL (for_eh ? "EH_frame" : "Lframe")
 
 /* Emit a label for the FDE corresponding to DECL.  EMPTY means 
    emit a label for an empty FDE. */
