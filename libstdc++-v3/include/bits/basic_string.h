@@ -1313,7 +1313,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       */
       allocator_type
       get_allocator() const
-      { return this->_M_get_allocator(); }
+      { return allocator_type(this->_M_get_allocator()); }
 
       /**
        *  @brief  Find position of a C substring.

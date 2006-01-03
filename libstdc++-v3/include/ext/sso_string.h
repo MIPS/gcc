@@ -45,7 +45,6 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     public:
       typedef _Traits					    traits_type;
       typedef typename _Traits::char_type		    value_type;
-      typedef _Alloc					    allocator_type;
 
       typedef __string_utility<_CharT, _Traits, _Alloc>     _Util_Base;
       typedef typename _Util_Base::_CharT_alloc_type        _CharT_alloc_type;
@@ -67,7 +66,8 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 			     / sizeof(_CharT)) - 1) / 4 };
 
       // Data Members (private):
-      typename _Util_Base::template _Alloc_hider<_Alloc>    _M_dataplus;
+      typename _Util_Base::template _Alloc_hider<_CharT_alloc_type>
+                                                            _M_dataplus;
       size_type                                             _M_string_length;
 
       enum { _S_local_capacity = 15 };
@@ -202,11 +202,11 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       ~__sso_string()
       { _M_dispose(); }
 
-      allocator_type&
+      _CharT_alloc_type&
       _M_get_allocator()
       { return _M_dataplus; }
 
-      const allocator_type&
+      const _CharT_alloc_type&
       _M_get_allocator() const
       { return _M_dataplus; }
 
@@ -235,7 +235,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     void
     __sso_string<_CharT, _Traits, _Alloc>::
     _M_destroy(size_type __size) throw()
-    { _CharT_alloc_type(_M_get_allocator()).deallocate(_M_data(), __size + 1); }
+    { _M_dataplus._CharT_alloc_type::deallocate(_M_data(), __size + 1); }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
@@ -244,8 +244,8 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 431. Swapping containers with unequal allocators.
-      std::__alloc_swap<allocator_type>::_S_do_it(_M_get_allocator(),
-						  __rcs._M_get_allocator());
+      std::__alloc_swap<_CharT_alloc_type>::_S_do_it(_M_get_allocator(),
+						     __rcs._M_get_allocator());
       
       if (_M_is_local())
 	if (__rcs._M_is_local())
@@ -329,7 +329,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
       // NB: Need an array of char_type[__capacity], plus a terminating
       // null char_type() element.
-      return _CharT_alloc_type(_M_get_allocator()).allocate(__capacity + 1);
+      return _M_dataplus._CharT_alloc_type::allocate(__capacity + 1);
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>

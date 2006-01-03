@@ -1,3 +1,10 @@
+2006-01-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string.h (__sso_string<>::_M_dataplus):
+	Use _CharT_alloc_type as base class.
+	(_M_get_allocator, _M_swap, _M_create, _M_destroy): Adjust.
+	* include/bits/basic_string.h (get_allocator): Tidy.
+
 2005-12-23  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/stl_bvector.h (vector<bool>::erase(iterator,
