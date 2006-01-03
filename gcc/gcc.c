@@ -840,7 +840,9 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 
 /* Adding -fopenmp should imply pthreads.  This is particularly important
    for targets that use different start files and suchlike.  */
+#ifndef GOMP_SELF_SPECS
 #define GOMP_SELF_SPECS "%{fopenmp: -pthread}"
+#endif
 
 static const char *const driver_self_specs[] = {
   DRIVER_SELF_SPECS, GOMP_SELF_SPECS
@@ -3292,11 +3294,11 @@ process_command (int argc, const char **argv)
     }
 
   /* If there is a -V or -b option (or both), process it now, before
-     trying to interpret the rest of the command line. 
+     trying to interpret the rest of the command line.
      Use heuristic that all configuration names must have at least
      one dash '-'. This allows us to pass options starting with -b.  */
   if (argc > 1 && argv[1][0] == '-'
-      && (argv[1][1] == 'V' || 
+      && (argv[1][1] == 'V' ||
 	 ((argv[1][1] == 'b') && (NULL != strchr(argv[1] + 2,'-')))))
     {
       const char *new_version = DEFAULT_TARGET_VERSION;
@@ -6478,7 +6480,7 @@ main (int argc, char **argv)
   if (combine_flag)
     combine_inputs = true;
   else
-    combine_inputs = false;  
+    combine_inputs = false;
 
   for (i = 0; (int) i < n_infiles; i++)
     {
@@ -6509,7 +6511,7 @@ main (int argc, char **argv)
       infiles[i].compiled = false;
       infiles[i].preprocessed = false;
     }
-    
+
   if (!combine_inputs && have_c && have_o && lang_n_infiles > 1)
    fatal ("cannot specify -o with -c or -S with multiple files");
 
@@ -7802,8 +7804,8 @@ version_compare_spec_function (int argc, const char **argv)
 }
 
 /* %:include builtin spec function.  This differs from %include in that it
-   can be nested inside a spec, and thus be conditionalized.  It takes 
-   one argument, the filename, and looks for it in the startfile path.  
+   can be nested inside a spec, and thus be conditionalized.  It takes
+   one argument, the filename, and looks for it in the startfile path.
    The result is always NULL, i.e. an empty expansion.  */
 
 static const char *
