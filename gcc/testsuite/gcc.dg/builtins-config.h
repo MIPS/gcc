@@ -26,9 +26,10 @@
    gives us a way of seeing if _NEWLIB_VERSION is defined.  Including
    <math.h> would work too, but the GLIBC math inlines cause us to
    generate inferior code, which causes the test to fail, so it is
-   not safe to include <math.h>.  */
+   not safe to include <math.h>.  Similarly, uClibc lacks the C99
+   functions.  */
 #include <ctype.h>
-#ifdef _NEWLIB_VERSION
+#if defined(_NEWLIB_VERSION) || defined(__UCLIBC__)
 #else
 #define HAVE_C99_RUNTIME
 #endif

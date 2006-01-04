@@ -1,3 +1,8 @@
+2006-01-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/builtins-config.h (HAVE_C99_RUNTIME): Don't
+	define if __UCLIBC__ is defined.
+
 2006-01-02  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/config/arm/arm.h (ARM_FLAG_UCLIBC, TARGET_UCLIBC): New.
