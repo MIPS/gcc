@@ -1,3 +1,7 @@
+2006-01-04  Chris Lattner  <clattner@apple.com>
+
+        * typeck2.c (split_nonconstant_init_1):  Set TREE_CONSTANT to true.
+
 2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4229905
