@@ -499,7 +499,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_return_slot);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
-  NEXT_PASS (pass_eliminate_useless_stores);
 
   /* Initial scalar cleanups.  */
   NEXT_PASS (pass_ccp);
@@ -556,6 +555,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_cse_reciprocals);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
+  NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_sink_code);
   NEXT_PASS (pass_tree_loop);
   NEXT_PASS (pass_reassoc);

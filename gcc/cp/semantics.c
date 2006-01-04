@@ -1516,12 +1516,8 @@ finish_qualified_id_expr (tree qualifying_class,
   if (error_operand_p (expr))
     return error_mark_node;
 
-  if (DECL_P (expr))
+  if (DECL_P (expr) || BASELINK_P (expr))
     mark_used (expr);
-  else if (BASELINK_P (expr)
-	   && TREE_CODE (BASELINK_FUNCTIONS (expr)) != TEMPLATE_ID_EXPR
-	   && !really_overloaded_fn (BASELINK_FUNCTIONS (expr)))
-    mark_used (OVL_CURRENT (BASELINK_FUNCTIONS (expr)));
 
   if (template_p)
     check_template_keyword (expr);
@@ -2012,12 +2008,12 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 
   /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
   compound_literal = build_constructor (NULL_TREE, initializer_list);
-  /* Mark it as a compound-literal.  */
   if (processing_template_decl)
     TREE_TYPE (compound_literal) = type;
   else
     {
       /* Check the initialization.  */
+      compound_literal = reshape_init (type, compound_literal);
       compound_literal = digest_init (type, compound_literal);
       /* If the TYPE was an array type with an unknown bound, then we can
 	 figure out the dimension now.  For example, something like:
@@ -2030,7 +2026,9 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 				compound_literal, 1);
     }
 
+  /* Mark it as a compound-literal.  */
   TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
+
   return compound_literal;
 }
 

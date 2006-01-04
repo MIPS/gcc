@@ -3359,6 +3359,21 @@ set_builtin_user_assembler_name (tree decl, const char *asmspec)
     init_block_clear_fn (asmspec);
 }
 
+/* The number of named compound-literals generated thus far.  */
+static GTY(()) int compound_literal_number;
+
+/* Set DECL_NAME for DECL, a VAR_DECL for a compound-literal.  */
+
+void
+set_compound_literal_name (tree decl)
+{
+  char *name;
+  ASM_FORMAT_PRIVATE_NAME (name, "__compound_literal",
+			   compound_literal_number);
+  compound_literal_number++;
+  DECL_NAME (decl) = get_identifier (name);
+}
+
 tree
 build_va_arg (tree expr, tree type)
 {
@@ -5182,6 +5197,18 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
     {
       error ("invalid vector type for attribute %qE", name);
       return NULL_TREE;
+    }
+
+  if (vecsize % tree_low_cst (TYPE_SIZE_UNIT (type), 1))
+    {
+      error ("vector size not an integral multiple of component size");
+      return NULL;
+    }
+
+  if (vecsize == 0)
+    {
+      error ("zero vector size");
+      return NULL;
     }
 
   /* Calculate how many units fit in the vector.  */

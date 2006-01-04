@@ -282,6 +282,10 @@ struct rtl_bb_info GTY(())
 
 typedef struct basic_block_def *basic_block;
 
+DEF_VEC_P(basic_block);
+DEF_VEC_ALLOC_P(basic_block,gc);
+DEF_VEC_ALLOC_P(basic_block,heap);
+
 #define BB_FREQ_MAX 10000
 
 /* Masks for basic_block.flags.
@@ -376,7 +380,7 @@ struct control_flow_graph GTY(())
 
   /* Mapping of labels to their associated blocks.  At present
      only used for the tree CFG.  */
-  varray_type x_label_to_block_map;
+  VEC(basic_block,gc) *x_label_to_block_map;
 
   enum profile_status {
     PROFILE_ABSENT,
