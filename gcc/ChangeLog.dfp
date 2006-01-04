@@ -1,3 +1,8 @@
+2006-01-04  Ben Elliston  <bje@au.ibm.com>
+
+	* config/fp-bit.h: Use top-of-file comment from libgcc2.c.
+	* config/fp-bit.c: Likewise.
+
 2005-12-21  Janis Johnson  <janis187@us.ibm.com>
 
 	* config/rs6000/rs6000.c: Remove rs6000_decimal_float_supported_p
