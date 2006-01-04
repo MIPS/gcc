@@ -1,6 +1,7 @@
 // RB tree implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -69,8 +70,8 @@
 #include <bits/stl_function.h>
 #include <bits/cpp_type_traits.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // Red-black tree class, designed for use in implementing STL
   // associative containers (set, multiset, map, and multimap). The
   // insertion and deletion algorithms are based on those in Cormen,
@@ -348,9 +349,17 @@ namespace std
       typedef ptrdiff_t difference_type;
       typedef _Alloc allocator_type;
 
-      allocator_type 
-      get_allocator() const
+      _Node_allocator&
+      _M_get_Node_allocator()
+      { return *static_cast<_Node_allocator*>(&this->_M_impl); }
+      
+      const _Node_allocator&
+      _M_get_Node_allocator() const
       { return *static_cast<const _Node_allocator*>(&this->_M_impl); }
+
+      allocator_type
+      get_allocator() const
+      { return allocator_type(_M_get_Node_allocator()); }
 
     protected:
       _Rb_tree_node*
@@ -563,7 +572,7 @@ namespace std
       { }
 
       _Rb_tree(const _Rb_tree<_Key, _Val, _KeyOfValue, _Compare, _Alloc>& __x)
-      : _M_impl(__x.get_allocator(), __x._M_impl._M_key_compare)
+      : _M_impl(__x._M_get_Node_allocator(), __x._M_impl._M_key_compare)
       {
 	if (__x._M_root() != 0)
 	  {
@@ -903,6 +912,11 @@ namespace std
       // No need to swap header's color as it does not change.
       std::swap(this->_M_impl._M_node_count, __t._M_impl._M_node_count);
       std::swap(this->_M_impl._M_key_compare, __t._M_impl._M_key_compare);
+
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 431. Swapping containers with unequal allocators.
+      std::__alloc_swap<_Node_allocator>::
+	_S_do_it(_M_get_Node_allocator(), __t._M_get_Node_allocator());
     }
 
   template<typename _Key, typename _Val, typename _KeyOfValue,
@@ -1492,6 +1506,7 @@ namespace std
 	return false;
       return true;
     }
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

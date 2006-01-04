@@ -129,14 +129,18 @@ init_empty_tree_cfg (void)
   /* Initialize the basic block array.  */
   init_flow ();
   profile_status = PROFILE_ABSENT;
-  n_basic_blocks = 0;
-  last_basic_block = 0;
+  n_basic_blocks = NUM_FIXED_BLOCKS;
+  last_basic_block = NUM_FIXED_BLOCKS;
   VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
 
   /* Build a mapping of labels to their associated blocks.  */
-  VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
-		  "label to block map");
+  label_to_block_map = VEC_alloc (basic_block, gc, initial_cfg_capacity);
+  VEC_safe_grow (basic_block, gc, label_to_block_map, initial_cfg_capacity);
+  memset (VEC_address (basic_block, label_to_block_map),
+	  0, sizeof (basic_block) * initial_cfg_capacity);
 
+  BASIC_BLOCK (ENTRY_BLOCK) = ENTRY_BLOCK_PTR;
+  BASIC_BLOCK (EXIT_BLOCK) = EXIT_BLOCK_PTR;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 }
@@ -170,7 +174,7 @@ build_tree_cfg (tree *tp)
     factor_computed_gotos ();
 
   /* Make sure there is always at least one block, even if it's empty.  */
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     create_empty_bb (ENTRY_BLOCK_PTR);
 
   /* Adjust the size of the array.  */
@@ -372,7 +376,7 @@ create_bb (void *h, void *e, basic_block after)
 
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
-  bb->stmt_list = h ? h : alloc_stmt_list ();
+  bb->stmt_list = h ? (tree) h : alloc_stmt_list ();
 
   /* Add the new block to the linked list of blocks.  */
   link_block (bb, after);
@@ -430,7 +434,7 @@ make_edges (void)
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
-  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
+  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (NUM_FIXED_BLOCKS), EDGE_FALLTHRU);
 
   /* Traverse the basic block array placing edges.  */
   FOR_EACH_BB (bb)
@@ -638,7 +642,7 @@ edge_to_cases_eq (const void *p1, const void *p2)
 static void
 edge_to_cases_cleanup (void *p)
 {
-  struct edge_to_cases_elt *elt = p;
+  struct edge_to_cases_elt *elt = (struct edge_to_cases_elt *) p;
   tree t, next;
 
   for (t = elt->case_labels; t; t = next)
@@ -689,7 +693,7 @@ record_switch_edge (edge e, tree case_label)
 
   /* Build a hash table element so we can see if E is already
      in the table.  */
-  elt = xmalloc (sizeof (struct edge_to_cases_elt));
+  elt = XNEW (struct edge_to_cases_elt);
   elt->e = e;
   elt->case_labels = case_label;
 
@@ -794,16 +798,18 @@ label_to_block_fn (struct function *ifun, tree dest)
      and undefined variable warnings quite right.  */
   if ((errorcount || sorrycount) && uid < 0)
     {
-      block_stmt_iterator bsi = bsi_start (BASIC_BLOCK (0));
+      block_stmt_iterator bsi = 
+	bsi_start (BASIC_BLOCK (NUM_FIXED_BLOCKS));
       tree stmt;
 
       stmt = build1 (LABEL_EXPR, void_type_node, dest);
       bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
       uid = LABEL_DECL_UID (dest);
     }
-  if (VARRAY_SIZE (ifun->cfg->x_label_to_block_map) <= (unsigned int)uid)
+  if (VEC_length (basic_block, ifun->cfg->x_label_to_block_map)
+      <= (unsigned int) uid)
     return NULL;
-  return VARRAY_BB (ifun->cfg->x_label_to_block_map, uid);
+  return VEC_index (basic_block, ifun->cfg->x_label_to_block_map, uid);
 }
 
 /* Create edges for a goto statement at block BB.  */
@@ -939,7 +945,7 @@ void
 cleanup_dead_labels (void)
 {
   basic_block bb;
-  label_for_bb = xcalloc (last_basic_block, sizeof (tree));
+  label_for_bb = XCNEWVEC (tree, last_basic_block);
 
   /* Find a suitable label for each block.  We use the first user-defined
      label if there is one, or otherwise just the first label we see.  */
@@ -2711,15 +2717,26 @@ set_bb_for_stmt (tree t, basic_block bb)
 	  uid = LABEL_DECL_UID (t);
 	  if (uid == -1)
 	    {
+	      unsigned old_len = VEC_length (basic_block, label_to_block_map);
 	      LABEL_DECL_UID (t) = uid = cfun->last_label_uid++;
-	      if (VARRAY_SIZE (label_to_block_map) <= (unsigned) uid)
-		VARRAY_GROW (label_to_block_map, 3 * uid / 2);
+	      if (old_len <= (unsigned) uid)
+		{
+		  basic_block *addr;
+		  unsigned new_len = 3 * uid / 2;
+
+		  VEC_safe_grow (basic_block, gc, label_to_block_map,
+				 new_len);
+		  addr = VEC_address (basic_block, label_to_block_map);
+		  memset (&addr[old_len],
+			  0, sizeof (basic_block) * (new_len - old_len));
+		}
 	    }
 	  else
 	    /* We're moving an existing label.  Make sure that we've
 		removed it from the old block.  */
-	    gcc_assert (!bb || !VARRAY_BB (label_to_block_map, uid));
-	  VARRAY_BB (label_to_block_map, uid) = bb;
+	    gcc_assert (!bb
+			|| !VEC_index (basic_block, label_to_block_map, uid));
+	  VEC_replace (basic_block, label_to_block_map, uid, bb);
 	}
     }
 }
@@ -3450,7 +3467,7 @@ verify_node_sharing (tree * tp, int *walk_subtrees, void *data)
 
   slot = htab_find_slot (htab, *tp, INSERT);
   if (*slot)
-    return *slot;
+    return (tree) *slot;
   *slot = *tp;
 
   return NULL;
@@ -4340,7 +4357,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   if (!region_copy)
     {
-      region_copy = xmalloc (sizeof (basic_block) * n_region);
+      region_copy = XNEWVEC (basic_block, n_region);
       free_region_copy = true;
     }
 
@@ -4348,7 +4365,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
-  doms = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  doms = XNEWVEC (basic_block, n_basic_blocks);
   initialize_original_copy_tables ();
 
   n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
@@ -4425,26 +4442,6 @@ tree_duplicate_sese_region (edge entry, edge exit,
 }
 
 
-static tree
-mark_used_vars (tree *tp, int *walk_subtrees, void *used_vars_)
-{
-  bitmap *used_vars = (bitmap *)used_vars_;
-
-  if (walk_subtrees
-      && IS_TYPE_OR_DECL_P (*tp))
-    *walk_subtrees = 0;
-
-  if (!SSA_VAR_P (*tp))
-    return NULL_TREE;
-
-  if (TREE_CODE (*tp) == SSA_NAME)
-    bitmap_set_bit (*used_vars, DECL_UID (SSA_NAME_VAR (*tp)));
-  else
-    bitmap_set_bit (*used_vars, DECL_UID (*tp));
-
-  return NULL_TREE;
-}
-
 /* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree.h)  */
 
 void
@@ -4479,47 +4476,18 @@ dump_function_to_file (tree fn, FILE *file, int flags)
      BIND_EXPRs, so display them separately.  */
   if (cfun && cfun->decl == fn && cfun->unexpanded_var_list)
     {
-      bitmap used_vars = BITMAP_ALLOC (NULL);
       ignore_topmost_bind = true;
 
-      /* Record vars we'll use dumping the functions tree.  */
-      if (cfun->cfg && basic_block_info)
-	{
-	  FOR_EACH_BB (bb)
-	    {
-	      block_stmt_iterator bsi;
-	      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-	        walk_tree (bsi_stmt_ptr (bsi), mark_used_vars,
-			   &used_vars, NULL);
-	    }
-	  for (vars = cfun->unexpanded_var_list; vars;
-	       vars = TREE_CHAIN (vars))
-	    {
-	      var = TREE_VALUE (vars);
-	      if (TREE_CODE (var) == VAR_DECL
-		  && DECL_INITIAL (var)
-		  && bitmap_bit_p (used_vars, DECL_UID (var)))
-		walk_tree (&DECL_INITIAL (var), mark_used_vars,
-			   &used_vars, NULL);
-	    }
-	}
-
-      /* Dump used vars.  */
       fprintf (file, "{\n");
       for (vars = cfun->unexpanded_var_list; vars; vars = TREE_CHAIN (vars))
 	{
 	  var = TREE_VALUE (vars);
-	  if (cfun->cfg && basic_block_info
-	      && !bitmap_bit_p (used_vars, DECL_UID (var)))
-            continue;
 
 	  print_generic_decl (file, var, flags);
 	  fprintf (file, "\n");
 
 	  any_var = true;
 	}
-
-      BITMAP_FREE (used_vars);
     }
 
   if (cfun && cfun->decl == fn && cfun->cfg && basic_block_info)
@@ -4656,7 +4624,7 @@ print_loop_ir (FILE *file)
 {
   basic_block bb;
   
-  bb = BASIC_BLOCK (0);
+  bb = BASIC_BLOCK (NUM_FIXED_BLOCKS);
   if (bb && bb->loop_father)
     print_loop (file, bb->loop_father, 0);
 }
@@ -4738,7 +4706,7 @@ tree_flow_call_edges_add (sbitmap blocks)
   int last_bb = last_basic_block;
   bool check_last_block = false;
 
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return 0;
 
   if (! blocks)
@@ -4766,7 +4734,7 @@ tree_flow_call_edges_add (sbitmap blocks)
       if (!bsi_end_p (bsi))
 	t = bsi_stmt (bsi);
 
-      if (need_fake_edge_p (t))
+      if (t && need_fake_edge_p (t))
 	{
 	  edge e;
 

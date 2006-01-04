@@ -1420,7 +1420,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       && ashl_optab->handlers[(int) word_mode].insn_code != CODE_FOR_nothing
       && lshr_optab->handlers[(int) word_mode].insn_code != CODE_FOR_nothing)
     {
-      rtx insns, equiv_value;
+      rtx insns;
       rtx into_target, outof_target;
       rtx into_input, outof_input;
       rtx inter;
@@ -1520,20 +1520,12 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
       if (inter != 0)
 	{
-	  if (binoptab->code != UNKNOWN)
-	    equiv_value = gen_rtx_fmt_ee (binoptab->code, mode, op0, op1);
-	  else
-	    equiv_value = 0;
-
-	  /* We can't make this a no conflict block if this is a word swap,
-	     because the word swap case fails if the input and output values
-	     are in the same register.  */
-	  if (shift_count != BITS_PER_WORD)
-	    emit_no_conflict_block (insns, target, op0, op1, equiv_value);
-	  else
-	    emit_insn (insns);
-
-
+	  /* One may be tempted to wrap the insns in a REG_NO_CONFLICT
+	     block to help the register allocator a bit.  But a multi-word
+	     rotate will need all the input bits when setting the output
+	     bits, so there clearly is a conflict between the input and
+	     output registers.  So we can't use a no-conflict block here.  */
+	  emit_insn (insns);
 	  return target;
 	}
     }
@@ -4383,9 +4375,10 @@ expand_float (rtx to, rtx from, int unsignedp)
 	  }
       }
 
-  /* Unsigned integer, and no way to convert directly.
-     Convert as signed, then conditionally adjust the result.  */
-  if (unsignedp && can_do_signed)
+  /* Unsigned integer, and no way to convert directly.  For binary
+     floating point modes, convert as signed, then conditionally adjust
+     the result.  */
+  if (unsignedp && can_do_signed && !DECIMAL_FLOAT_MODE_P (GET_MODE (to)))
     {
       rtx label = gen_label_rtx ();
       rtx temp;
@@ -4845,6 +4838,8 @@ static void
 init_floating_libfuncs (optab optable, const char *opname, int suffix)
 {
   init_libfuncs (optable, MIN_MODE_FLOAT, MAX_MODE_FLOAT, opname, suffix);
+  init_libfuncs (optable, MIN_MODE_DECIMAL_FLOAT, MAX_MODE_DECIMAL_FLOAT,
+		 opname, suffix);
 }
 
 /* Initialize the libfunc fields of an entire group of entries of an
@@ -5262,16 +5257,32 @@ init_optabs (void)
   /* Conversions.  */
   init_interclass_conv_libfuncs (sfloat_optab, "float",
 				 MODE_INT, MODE_FLOAT);
+  init_interclass_conv_libfuncs (sfloat_optab, "float",
+				 MODE_INT, MODE_DECIMAL_FLOAT);
   init_interclass_conv_libfuncs (ufloat_optab, "floatun",
 				 MODE_INT, MODE_FLOAT);
+  init_interclass_conv_libfuncs (ufloat_optab, "floatun",
+				 MODE_INT, MODE_DECIMAL_FLOAT);
   init_interclass_conv_libfuncs (sfix_optab, "fix",
 				 MODE_FLOAT, MODE_INT);
+  init_interclass_conv_libfuncs (sfix_optab, "fix",
+				 MODE_DECIMAL_FLOAT, MODE_INT);
   init_interclass_conv_libfuncs (ufix_optab, "fixuns",
 				 MODE_FLOAT, MODE_INT);
+  init_interclass_conv_libfuncs (ufix_optab, "fixuns",
+				 MODE_DECIMAL_FLOAT, MODE_INT);
+  init_interclass_conv_libfuncs (ufloat_optab, "floatuns",
+				 MODE_INT, MODE_DECIMAL_FLOAT);
 
   /* sext_optab is also used for FLOAT_EXTEND.  */
   init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_FLOAT, true);
+  init_intraclass_conv_libfuncs (sext_optab, "extend", MODE_DECIMAL_FLOAT, true);
+  init_interclass_conv_libfuncs (sext_optab, "extend", MODE_FLOAT, MODE_DECIMAL_FLOAT);
+  init_interclass_conv_libfuncs (sext_optab, "extend", MODE_DECIMAL_FLOAT, MODE_FLOAT);
   init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT, false);
+  init_intraclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT, false);
+  init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_FLOAT, MODE_DECIMAL_FLOAT);
+  init_interclass_conv_libfuncs (trunc_optab, "trunc", MODE_DECIMAL_FLOAT, MODE_FLOAT);
 
   /* Use cabs for double complex abs, since systems generally have cabs.
      Don't define any libcall for float complex, so that cabs will be used.  */

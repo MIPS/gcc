@@ -963,7 +963,7 @@ static int
 mostly_true_jump (rtx jump_insn, rtx condition)
 {
   rtx target_label = JUMP_LABEL (jump_insn);
-  rtx insn, note;
+  rtx note;
   int rare_dest, rare_fallthrough;
 
   /* If branch probabilities are available, then use that number since it
@@ -3539,7 +3539,7 @@ dbr_schedule (rtx first, FILE *file)
 
   /* If the current function has no insns other than the prologue and
      epilogue, then do not try to fill any delay slots.  */
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return;
 
   /* Find the highest INSN_UID and allocate and initialize our map from

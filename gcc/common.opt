@@ -753,10 +753,6 @@ fsched2-use-traces
 Common Report Var(flag_sched2_use_traces)
 If scheduling post reload, do trace scheduling
 
-fschedule-treegions
-Common Report Var(flag_schedule_treegions)
-Treegion schedule instructions before register allocation
-
 fschedule-insns
 Common Report Var(flag_schedule_insns)
 Reschedule instructions before register allocation

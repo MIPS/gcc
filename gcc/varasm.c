@@ -249,10 +249,8 @@ get_section (const char *name, unsigned int flags, tree decl)
 	  /* Sanity check user variables for flag changes.  */
 	  if (decl == 0)
 	    decl = sect->named.decl;
-	  if (decl)
-	    error ("%+D causes a section type conflict", decl);
-	  else
-	    gcc_unreachable ();
+	  gcc_assert (decl);
+	  error ("%+D causes a section type conflict", decl);
 	}
     }
   return sect;
@@ -1539,11 +1537,20 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
      isn't common, and shouldn't be handled as such.  */
   if (DECL_SECTION_NAME (decl) || dont_output_data)
     ;
-  /* We don't implement common thread-local data at present.  */
   else if (DECL_THREAD_LOCAL_P (decl))
     {
       if (DECL_COMMON (decl))
-	sorry ("thread-local COMMON data not implemented");
+	{
+#ifdef ASM_OUTPUT_TLS_COMMON
+	  unsigned HOST_WIDE_INT size;
+
+	  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+	  ASM_OUTPUT_TLS_COMMON (asm_out_file, decl, name, size);
+	  return;
+#else
+	  sorry ("thread-local COMMON data not implemented");
+#endif
+	}
     }
   else if (DECL_INITIAL (decl) == 0
 	   || DECL_INITIAL (decl) == error_mark_node
@@ -3077,6 +3084,7 @@ output_constant_pool_2 (enum machine_mode mode, rtx x, unsigned int align)
   switch (GET_MODE_CLASS (mode))
     {
     case MODE_FLOAT:
+    case MODE_DECIMAL_FLOAT:
       {
 	REAL_VALUE_TYPE r;
 	
@@ -3476,18 +3484,24 @@ initializer_constant_valid_p (tree value, tree endtype)
     case ADDR_EXPR:
     case FDESC_EXPR:
       value = staticp (TREE_OPERAND (value, 0));
-      /* "&(*a).f" is like unto pointer arithmetic.  If "a" turns out to
-	 be a constant, this is old-skool offsetof-like nonsense.  */
-      if (value
-	  && TREE_CODE (value) == INDIRECT_REF
-	  && TREE_CONSTANT (TREE_OPERAND (value, 0)))
-	return null_pointer_node;
-      /* Taking the address of a nested function involves a trampoline.  */
-      if (value
-	  && TREE_CODE (value) == FUNCTION_DECL
-	  && ((decl_function_context (value) && !DECL_NO_STATIC_CHAIN (value))
-	      || DECL_DLLIMPORT_P (value)))
-	return NULL_TREE;
+      if (value)
+	{
+	  /* "&(*a).f" is like unto pointer arithmetic.  If "a" turns out to
+	     be a constant, this is old-skool offsetof-like nonsense.  */
+	  if (TREE_CODE (value) == INDIRECT_REF
+	      && TREE_CONSTANT (TREE_OPERAND (value, 0)))
+	    return null_pointer_node;
+	  /* Taking the address of a nested function involves a trampoline.  */
+	  if (TREE_CODE (value) == FUNCTION_DECL
+	      && ((decl_function_context (value) 
+		   && !DECL_NO_STATIC_CHAIN (value))
+		  || DECL_DLLIMPORT_P (value)))
+	    return NULL_TREE;
+	  /* "&{...}" requires a temporary to hold the constructed
+	     object.  */
+	  if (TREE_CODE (value) == CONSTRUCTOR)
+	    return NULL_TREE;
+	}
       return value;
 
     case VIEW_CONVERT_EXPR:
@@ -3882,7 +3896,7 @@ array_size_for_constructor (tree val)
   i = size_binop (MINUS_EXPR, convert (sizetype, max_index),
 		  convert (sizetype,
 			   TYPE_MIN_VALUE (TYPE_DOMAIN (TREE_TYPE (val)))));
-  i = size_binop (PLUS_EXPR, i, convert (sizetype, integer_one_node));
+  i = size_binop (PLUS_EXPR, i, build_int_cst (sizetype, 1));
 
   /* Multiply by the array element unit size to find number of bytes.  */
   i = size_binop (MULT_EXPR, i, TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (val))));

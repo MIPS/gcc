@@ -234,7 +234,6 @@ operand_entry_eq (const void *p1, const void *p2)
   return vr1->op == vr2->op;
 }
 
-
 /* Given an expression E, return the rank of the expression.  */
 
 static unsigned int
@@ -756,10 +755,10 @@ optimize_ops_list (enum tree_code opcode,
 	  && lang_hooks.types_compatible_p (TREE_TYPE (oelm1->op),
 					    TREE_TYPE (oelast->op)))
 	{
-	  tree folded = fold_build2 (opcode, TREE_TYPE (oelm1->op),
+	  tree folded = fold_binary (opcode, TREE_TYPE (oelm1->op),
 				     oelm1->op, oelast->op);
 
-	  if (is_gimple_min_invariant (folded))
+	  if (folded && is_gimple_min_invariant (folded))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "Merging constants\n");
@@ -1425,7 +1424,7 @@ init_reassoc (void)
 
   /* Reverse RPO (Reverse Post Order) will give us something where
      deeper loops come later.  */
-  flow_depth_first_order_compute (NULL, bbs);
+  pre_and_rev_post_order_compute (NULL, bbs, false);
   bb_rank = xcalloc (last_basic_block + 1, sizeof (unsigned int));
   
   operand_rank = htab_create (511, operand_entry_hash,
@@ -1452,7 +1451,7 @@ init_reassoc (void)
     }
 
   /* Set up rank for each BB  */
-  for (i = 0; i < n_basic_blocks; i++)
+  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
     bb_rank[bbs[i]] = ++rank  << 16;
 
   free (bbs);

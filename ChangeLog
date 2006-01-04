@@ -1,3 +1,74 @@
+2006-01-04  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/24252
+
+	* Makefile.def (flags_to_pass): Add STAGE1_CFLAGS and STAGE1_LANGUAGES.
+	* Makefile.tpl (OBJDUMP): New.
+	(EXTRA_HOST_FLAGS): Add it.
+	(EXTRA_GCC_FLAGS): Remove flags already specified in flags_to_pass.
+
+        * Makefile.tpl (stage[+id+]-start, stage[+id+]-end): Do not try
+        to use symbolic links between directories.  Avoid race conditions
+        or make them harmless.
+        * configure.in: Do not try to use symbolic links between directories.
+
+	* Makefile.def (LEAN): Pass.
+	* Makefile.tpl (LEAN): Define.
+	(stage[+id+]-start): Accept that the previous directory does not
+	exist, if the bootstrap is lean.
+	(stage[+id+]-bubble): Invoke lean bootstrap commands after
+	stage[+id+]-start.  Use a makefile variable and an `if' instead of a
+	configure substitution.
+	([+compare-target+]): Likewise.
+	([+bootstrap-target+]-lean): New.
+	* configure.in: Remove lean bootstrap support from here.
+
+        * Makefile.in: Regenerate.
+        * configure: Regenerate.
+
+2006-01-04  Ben Elliston  <bje@au.ibm.com>
+
+	* MAINTAINERS (libdecnumber): Add myself.
+
+2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* libtool-ldflags: New script.
+
+2006-01-02  Andreas Schwab  <schwab@suse.de>
+
+	* configure.in: When reconfiguring remove Makefile in
+	all stage directories.
+	* configure: Regenerate.
+
+2005-12-27  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* MAINTAINERS: Update my email address.
+
+2005-12-20  Paolo Bonzini  <bonzini@gnu.org>
+
+	Revert Ada-related part of the previous change.
+
+	* Makefile.def (ADAFLAGS, BOOT_ADAFLAGS, ADAFLAGS_FOR_TARGET):
+	Do not pass.
+	* Makefile.tpl (BOOT_ADAFLAGS): Do not define.
+	* Makefile.in: Regenerate.
+	* configure.in: Do not include mt-ppc-aix target fragment.
+	* configure: Regenerate.
+
+2005-12-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Select appropriate fragments for PowerPC/AIX.
+	* configure: Regenerate.
+
+	* Makefile.def (flags_to_pass): Add ADAFLAGS, BOOT_ADAFLAGS,
+	BOOT_CFLAGS, BOOT_LDFLAGS.
+	* Makefile.tpl (POSTSTAGE1_FLAGS_TO_PASS): Handle BOOT_ADAFLAGS,
+	BOOT_CFLAGS, BOOT_LDFLAGS.
+	(TARGET_FLAGS_TO_PASS): Handle ADAFLAGS_FOR_TARGET.
+	(stage[+id+]-bubble): Pass flags recursively to the comparison target.
+	(stage): Fail if we cannot complete the work.
+	* Makefile.in: Regenerate.
+
 2005-12-16  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* configure.in: Replace ms1 with mt.

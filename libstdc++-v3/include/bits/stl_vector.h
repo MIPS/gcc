@@ -1,6 +1,7 @@
 // Vector implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -65,8 +66,8 @@
 #include <bits/functexcept.h>
 #include <bits/concept_check.h>
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
+
   /**
    *  @if maint
    *  See bits/stl_deque.h's _Deque_base for an explanation.
@@ -101,7 +102,7 @@ namespace _GLIBCXX_STD
 
       allocator_type
       get_allocator() const
-      { return _M_get_Tp_allocator(); }
+      { return allocator_type(_M_get_Tp_allocator()); }
 
       _Vector_base(const allocator_type& __a)
       : _M_impl(__a)
@@ -182,11 +183,6 @@ namespace _GLIBCXX_STD
       typedef _Alloc                        		 allocator_type;
 
     protected:
-      /** @if maint
-       *  These two functions and three data members are all from the
-       *  base class.  They should be pretty self-explanatory, as
-       *  %vector uses a simple contiguous allocation scheme.  @endif
-       */
       using _Base::_M_allocate;
       using _Base::_M_deallocate;
       using _Base::_M_impl;
@@ -230,7 +226,7 @@ namespace _GLIBCXX_STD
        *  @a x (for fast expansion) will not be copied.
        */
       vector(const vector& __x)
-      : _Base(__x.size(), __x.get_allocator())
+      : _Base(__x.size(), __x._M_get_Tp_allocator())
       { this->_M_impl._M_finish =
 	  std::__uninitialized_copy_a(__x.begin(), __x.end(),
 				      this->_M_impl._M_start,
@@ -735,6 +731,11 @@ namespace _GLIBCXX_STD
 	std::swap(this->_M_impl._M_finish, __x._M_impl._M_finish);
 	std::swap(this->_M_impl._M_end_of_storage,
 		  __x._M_impl._M_end_of_storage);
+
+	// _GLIBCXX_RESOLVE_LIB_DEFECTS
+	// 431. Swapping containers with unequal allocators.
+	std::__alloc_swap<_Tp_alloc_type>::_S_do_it(_M_get_Tp_allocator(),
+						    __x._M_get_Tp_allocator());
       }
 
       /**
@@ -985,6 +986,7 @@ namespace _GLIBCXX_STD
     inline void
     swap(vector<_Tp, _Alloc>& __x, vector<_Tp, _Alloc>& __y)
     { __x.swap(__y); }
-} // namespace std
+
+_GLIBCXX_END_NESTED_NAMESPACE
 
 #endif /* _VECTOR_H */

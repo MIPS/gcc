@@ -254,7 +254,7 @@ mem_attrs_htab_hash (const void *x)
   return (p->alias ^ (p->align * 1000)
 	  ^ ((p->offset ? INTVAL (p->offset) : 0) * 50000)
 	  ^ ((p->size ? INTVAL (p->size) : 0) * 2500000)
-	  ^ (size_t) p->expr);
+	  ^ (size_t) iterative_hash_expr (p->expr, 0));
 }
 
 /* Returns nonzero if the value represented by X (which is really a
@@ -267,8 +267,11 @@ mem_attrs_htab_eq (const void *x, const void *y)
   mem_attrs *p = (mem_attrs *) x;
   mem_attrs *q = (mem_attrs *) y;
 
-  return (p->alias == q->alias && p->expr == q->expr && p->offset == q->offset
-	  && p->size == q->size && p->align == q->align);
+  return (p->alias == q->alias && p->offset == q->offset
+	  && p->size == q->size && p->align == q->align
+	  && (p->expr == q->expr
+	      || (p->expr != NULL_TREE && q->expr != NULL_TREE
+		  && operand_equal_p (p->expr, q->expr, 0))));
 }
 
 /* Allocate a new mem_attrs structure and insert it into the hash table if
@@ -5151,6 +5154,8 @@ gen_const_vector (enum machine_mode mode, int constant)
   units = GET_MODE_NUNITS (mode);
   inner = GET_MODE_INNER (mode);
 
+  gcc_assert (!DECIMAL_FLOAT_MODE_P (inner));
+
   v = rtvec_alloc (units);
 
   /* We need to call this function after we set the scalar const_tiny_rtx
@@ -5227,7 +5232,8 @@ init_emit_once (int line_numbers)
   word_mode = VOIDmode;
   double_mode = VOIDmode;
 
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
+       mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     {
       if (GET_MODE_BITSIZE (mode) == BITS_PER_UNIT
@@ -5239,7 +5245,8 @@ init_emit_once (int line_numbers)
 	word_mode = mode;
     }
 
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
+       mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     {
       if (GET_MODE_BITSIZE (mode) == DOUBLE_TYPE_SIZE
@@ -5324,14 +5331,22 @@ init_emit_once (int line_numbers)
       REAL_VALUE_TYPE *r =
 	(i == 0 ? &dconst0 : i == 1 ? &dconst1 : &dconst2);
 
-      for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
+      for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
+	   mode != VOIDmode;
+	   mode = GET_MODE_WIDER_MODE (mode))
+	const_tiny_rtx[i][(int) mode] =
+	  CONST_DOUBLE_FROM_REAL_VALUE (*r, mode);
+
+      for (mode = GET_CLASS_NARROWEST_MODE (MODE_DECIMAL_FLOAT);
+	   mode != VOIDmode;
 	   mode = GET_MODE_WIDER_MODE (mode))
 	const_tiny_rtx[i][(int) mode] =
 	  CONST_DOUBLE_FROM_REAL_VALUE (*r, mode);
 
       const_tiny_rtx[i][(int) VOIDmode] = GEN_INT (i);
 
-      for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
+      for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
+	   mode != VOIDmode;
 	   mode = GET_MODE_WIDER_MODE (mode))
 	const_tiny_rtx[i][(int) mode] = GEN_INT (i);
 

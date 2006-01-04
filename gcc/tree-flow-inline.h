@@ -78,7 +78,8 @@ static inline tree
 first_referenced_var (referenced_var_iterator *iter)
 {
   struct int_tree_map *itm;
-  itm = first_htab_element (&iter->hti, referenced_vars);
+  itm = (struct int_tree_map *) first_htab_element (&iter->hti,
+                                                    referenced_vars);
   if (!itm) 
     return NULL;
   return itm->to;
@@ -100,7 +101,7 @@ static inline tree
 next_referenced_var (referenced_var_iterator *iter)
 {
   struct int_tree_map *itm;
-  itm = next_htab_element (&iter->hti);
+  itm = (struct int_tree_map *) next_htab_element (&iter->hti);
   if (!itm) 
     return NULL;
   return itm->to;
@@ -125,6 +126,7 @@ var_ann (tree t)
 {
   gcc_assert (t);
   gcc_assert (DECL_P (t));
+  gcc_assert (TREE_CODE (t) != FUNCTION_DECL);
   gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
 
   return (var_ann_t) t->common.ann;
@@ -137,6 +139,27 @@ get_var_ann (tree var)
 {
   var_ann_t ann = var_ann (var);
   return (ann) ? ann : create_var_ann (var);
+}
+
+/* Return the function annotation for T, which must be a FUNCTION_DECL node.
+   Return NULL if the function annotation doesn't already exist.  */
+static inline function_ann_t
+function_ann (tree t)
+{
+  gcc_assert (t);
+  gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
+  gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
+
+  return (function_ann_t) t->common.ann;
+}
+
+/* Return the function annotation for T, which must be a FUNCTION_DECL node.
+   Create the function annotation if it doesn't exist.  */
+static inline function_ann_t
+get_function_ann (tree var)
+{
+  function_ann_t ann = function_ann (var);
+  return (ann) ? ann : create_function_ann (var);
 }
 
 /* Return the statement annotation for T, which must be a statement
@@ -181,7 +204,7 @@ bb_for_stmt (tree t)
 
 /* Return the may_aliases varray for variable VAR, or NULL if it has
    no may aliases.  */
-static inline varray_type
+static inline VEC(tree, gc) *
 may_aliases (tree var)
 {
   var_ann_t ann = var_ann (var);
@@ -675,23 +698,6 @@ is_label_stmt (tree t)
   return false;
 }
 
-/* Set the default definition for VAR to DEF.  */
-static inline void
-set_default_def (tree var, tree def)
-{
-  var_ann_t ann = get_var_ann (var);
-  ann->default_def = def;
-}
-
-/* Return the default definition for variable VAR, or NULL if none
-   exists.  */
-static inline tree
-default_def (tree var)
-{
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->default_def : NULL_TREE;
-}
-
 /* PHI nodes should contain only ssa_names and invariants.  A test
    for ssa_name is definitely simpler; don't let invalid contents
    slip in in the meantime.  */
@@ -719,7 +725,7 @@ bsi_start (basic_block bb)
     bsi.tsi = tsi_start (bb->stmt_list);
   else
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }
@@ -740,7 +746,7 @@ bsi_after_labels (basic_block bb)
 
   if (!bb->stmt_list)
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
       return bsi;
@@ -773,7 +779,7 @@ bsi_last (basic_block bb)
     bsi.tsi = tsi_last (bb->stmt_list);
   else
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }

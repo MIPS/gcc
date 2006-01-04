@@ -1977,14 +1977,9 @@ extern unsigned int extended_count (rtx, enum machine_mode, int);
 extern rtx remove_death (unsigned int, rtx);
 extern void dump_combine_stats (FILE *);
 extern void dump_combine_total_stats (FILE *);
-/* In web.c */
-extern void web_main (void);
 
 /* In sched-rgn.c.  */
 extern void schedule_insns (FILE *);
-
-/* In sched-treegions.c.  */
-extern void schedule_treegions (FILE *);
 
 /* In sched-ebb.c.  */
 extern void schedule_ebbs (FILE *);
@@ -2043,8 +2038,6 @@ extern void expand_dec (rtx, rtx);
 /* In gcse.c */
 extern bool can_copy_p (enum machine_mode);
 extern rtx fis_get_condition (rtx);
-extern int gcse_main (rtx, FILE *);
-extern int bypass_jumps (FILE *);
 
 /* In postreload-gcse.c */
 extern void gcse_after_reload_main (rtx);

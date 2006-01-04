@@ -1,6 +1,6 @@
 // Explicit instantiation file.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -35,8 +35,8 @@
 #include <ostream>
 #include <iomanip>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // ostream
   template class basic_ostream<char>;
   template ostream& endl(ostream&);
@@ -56,6 +56,17 @@ namespace std
   template ostream& operator<<(ostream&, _Setprecision);
   template ostream& operator<<(ostream&, _Setw);
 
+  template ostream& ostream::_M_insert(long);
+  template ostream& ostream::_M_insert(unsigned long);
+  template ostream& ostream::_M_insert(bool);
+#ifdef _GLIBCXX_USE_LONG_LONG
+  template ostream& ostream::_M_insert(long long);
+  template ostream& ostream::_M_insert(unsigned long long);
+#endif
+  template ostream& ostream::_M_insert(double);
+  template ostream& ostream::_M_insert(long double);
+  template ostream& ostream::_M_insert(const void*);
+
 #ifdef _GLIBCXX_USE_WCHAR_T
   template class basic_ostream<wchar_t>;
   template wostream& endl(wostream&);
@@ -72,5 +83,17 @@ namespace std
   template wostream& operator<<(wostream&, _Setbase);
   template wostream& operator<<(wostream&, _Setprecision);
   template wostream& operator<<(wostream&, _Setw);
+
+  template wostream& wostream::_M_insert(long);
+  template wostream& wostream::_M_insert(unsigned long);
+  template wostream& wostream::_M_insert(bool);
+#ifdef _GLIBCXX_USE_LONG_LONG
+  template wostream& wostream::_M_insert(long long);
+  template wostream& wostream::_M_insert(unsigned long long);
 #endif
-} // namespace std
+  template wostream& wostream::_M_insert(double);
+  template wostream& wostream::_M_insert(long double);
+  template wostream& wostream::_M_insert(const void*);
+#endif
+
+_GLIBCXX_END_NAMESPACE

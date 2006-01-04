@@ -1,6 +1,6 @@
 // Versatile string -*- C++ -*-
 
-// Copyright (C) 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,8 +40,8 @@
 #include <ext/rc_string_base.h>
 #include <ext/sso_string_base.h>
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   /**
    *  @class __versa_string vstring.h
    *  @brief  Managing sequences of characters and character-like objects.
@@ -1271,7 +1271,7 @@ namespace __gnu_cxx
       */
       allocator_type
       get_allocator() const
-      { return this->_M_get_allocator(); }
+      { return allocator_type(this->_M_get_allocator()); }
 
       /**
        *  @brief  Find position of a C substring.
@@ -2106,10 +2106,10 @@ namespace __gnu_cxx
 	 __versa_string<_CharT, _Traits, _Alloc, _Base>& __rhs)
     { __lhs.swap(__rhs); }
 
-} // namespace __gnu_cxx
+_GLIBCXX_END_NAMESPACE
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   /**
    *  @brief  Read stream into a string.
    *  @param is  Input stream.
@@ -2183,7 +2183,7 @@ namespace std
 	    __gnu_cxx::__versa_string<_CharT, _Traits, _Alloc, _Base>& __str)
     { return getline(__is, __str, __is.widen('\n')); }      
 
-} // namespace std
+_GLIBCXX_END_NAMESPACE
 
 #ifndef _GLIBCXX_EXPORT_TEMPLATE
 # include "vstring.tcc" 

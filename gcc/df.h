@@ -155,9 +155,6 @@ struct df
   int *dfs_order;		/* DFS order -> block number.  */
   int *rc_order;		/* Reverse completion order -> block number.  */
   int *rts_order;		/* Reverse top sort order -> block number.  */
-  int *inverse_rc_map;		/* Block number -> reverse completion order.  */
-  int *inverse_dfs_map;		/* Block number -> DFS order.  */
-  int *inverse_rts_map;		/* Block number -> reverse top-sort order.  */
 };
 
 
@@ -292,6 +289,8 @@ extern struct ref *df_bb_regno_first_def_find (struct df *, basic_block, unsigne
 extern struct ref *df_bb_regno_last_def_find (struct df *, basic_block, unsigned int);
 
 extern struct ref *df_find_def (struct df *, rtx, rtx);
+
+extern struct ref *df_find_use (struct df *, rtx, rtx);
 
 extern int df_reg_used (struct df *, rtx, rtx);
 

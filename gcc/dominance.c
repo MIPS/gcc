@@ -51,8 +51,7 @@ enum dom_state dom_computed[2];
    'undefined' or 'end of list'.  The name of each node is given by the dfs
    number of the corresponding basic block.  Please note, that we include the
    artificial ENTRY_BLOCK (or EXIT_BLOCK in the post-dom case) in our lists to
-   support multiple entry points.  As it has no real basic block index we use
-   'last_basic_block' for that.  Its dfs number is of course 1.  */
+   support multiple entry points.  Its dfs number is of course 1.  */
 
 /* Type of Basic Block aka. TBB */
 typedef unsigned int TBB;
@@ -149,9 +148,7 @@ static unsigned n_bbs_in_dom_tree[2];
 static void
 init_dom_info (struct dom_info *di, enum cdi_direction dir)
 {
-  /* We need memory for n_basic_blocks nodes and the ENTRY_BLOCK or
-     EXIT_BLOCK.  */
-  unsigned int num = n_basic_blocks + 1 + 1;
+  unsigned int num = n_basic_blocks;
   init_ar (di->dfs_parent, TBB, num, 0);
   init_ar (di->path_min, TBB, num, i);
   init_ar (di->key, TBB, num, i);
@@ -216,7 +213,7 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
   /* Ending block.  */
   basic_block ex_block;
 
-  stack = xmalloc ((n_basic_blocks + 3) * sizeof (edge_iterator));
+  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
   sp = 0;
 
   /* Initialize our border blocks, and the first edge.  */
@@ -372,8 +369,8 @@ calc_dfs_tree (struct dom_info *di, enum cdi_direction reverse)
 
   di->nodes = di->dfsnum - 1;
 
-  /* Make sure there is a path from ENTRY to EXIT at all.  */
-  gcc_assert (di->nodes == (unsigned int) n_basic_blocks + 1);
+  /* This aborts e.g. when there is _no_ path from ENTRY to EXIT at all.  */
+  gcc_assert (di->nodes == (unsigned int) n_basic_blocks - 1);
 }
 
 /* Compress the path from V to the root of its set and update path_min at the
@@ -627,7 +624,7 @@ calculate_dominance_info (enum cdi_direction dir)
 	{
 	  b->dom[dir] = et_new_tree (b);
 	}
-      n_bbs_in_dom_tree[dir] = n_basic_blocks + 2;
+      n_bbs_in_dom_tree[dir] = n_basic_blocks;
 
       init_dom_info (&di, dir);
       calc_dfs_tree (&di, dir);
@@ -817,6 +814,80 @@ nearest_common_dominator_for_set (enum cdi_direction dir, bitmap blocks)
   return dom;
 }
 
+/*  Given a dominator tree, we can determine whether one thing
+    dominates another in constant time by using two DFS numbers:
+
+    1. The number for when we visit a node on the way down the tree
+    2. The number for when we visit a node on the way back up the tree
+
+    You can view these as bounds for the range of dfs numbers the
+    nodes in the subtree of the dominator tree rooted at that node
+    will contain.
+    
+    The dominator tree is always a simple acyclic tree, so there are
+    only three possible relations two nodes in the dominator tree have
+    to each other:
+    
+    1. Node A is above Node B (and thus, Node A dominates node B)
+
+     A
+     |
+     C
+    / \
+   B   D
+
+
+   In the above case, DFS_Number_In of A will be <= DFS_Number_In of
+   B, and DFS_Number_Out of A will be >= DFS_Number_Out of B.  This is
+   because we must hit A in the dominator tree *before* B on the walk
+   down, and we will hit A *after* B on the walk back up
+   
+   2. Node A is below node B (and thus, node B dominates node A)
+   
+   
+     B
+     |
+     A
+    / \
+   C   D
+
+   In the above case, DFS_Number_In of A will be >= DFS_Number_In of
+   B, and DFS_Number_Out of A will be <= DFS_Number_Out of B.
+   
+   This is because we must hit A in the dominator tree *after* B on
+   the walk down, and we will hit A *before* B on the walk back up
+   
+   3. Node A and B are siblings (and thus, neither dominates the other)
+
+     C
+     |
+     D
+    / \
+   A   B
+
+   In the above case, DFS_Number_In of A will *always* be <=
+   DFS_Number_In of B, and DFS_Number_Out of A will *always* be <=
+   DFS_Number_Out of B.  This is because we will always finish the dfs
+   walk of one of the subtrees before the other, and thus, the dfs
+   numbers for one subtree can't intersect with the range of dfs
+   numbers for the other subtree.  If you swap A and B's position in
+   the dominator tree, the comparison changes direction, but the point
+   is that both comparisons will always go the same way if there is no
+   dominance relationship.
+
+   Thus, it is sufficient to write
+
+   A_Dominates_B (node A, node B)
+   {
+     return DFS_Number_In(A) <= DFS_Number_In(B) 
+            && DFS_Number_Out (A) >= DFS_Number_Out(B);
+   }
+
+   A_Dominated_by_B (node A, node B)
+   {
+     return DFS_Number_In(A) >= DFS_Number_In(A)
+            && DFS_Number_Out (A) <= DFS_Number_Out(B);
+   }  */
 
 /* Return TRUE in case BB1 is dominated by BB2.  */
 bool

@@ -482,9 +482,7 @@ likely_value (tree stmt)
   /* If we are not doing store-ccp, statements with loads
      and/or stores will never fold into a constant.  */
   if (!do_store_ccp
-      && (ann->makes_aliased_stores
-	  || ann->makes_aliased_loads
-	  || !ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS)))
+      && !ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
     return VARYING;
 
 
@@ -538,7 +536,7 @@ ccp_initialize (void)
 {
   basic_block bb;
 
-  const_val = xmalloc (num_ssa_names * sizeof (*const_val));
+  const_val = XNEWVEC (prop_value_t, num_ssa_names);
   memset (const_val, 0, num_ssa_names * sizeof (*const_val));
 
   /* Initialize simulation flags for PHI nodes and statements.  */
@@ -935,7 +933,7 @@ ccp_fold (tree stmt)
 	  use_operand_p var_p;
 
 	  /* Preserve the original values of every operand.  */
-	  orig = xmalloc (sizeof (tree) *  NUM_SSA_OPERANDS (stmt, SSA_OP_USE));
+	  orig = XNEWVEC (tree,  NUM_SSA_OPERANDS (stmt, SSA_OP_USE));
 	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
 	    orig[i++] = var;
 
@@ -1193,9 +1191,9 @@ visit_assignment (tree stmt, tree *output_p)
     if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
 	&& val.lattice_val == CONSTANT)
       {
-	tree w = fold_build1 (VIEW_CONVERT_EXPR,
-			      TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
-			      val.value);
+	tree w = fold_unary (VIEW_CONVERT_EXPR,
+			     TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
+			     val.value);
 
 	orig_lhs = TREE_OPERAND (orig_lhs, 0);
 	if (w && is_gimple_min_invariant (w))
@@ -1903,9 +1901,9 @@ maybe_fold_stmt_addition (tree expr)
     {
       if (TYPE_UNSIGNED (TREE_TYPE (op1)))
 	return NULL;
-      op1 = fold_build1 (NEGATE_EXPR, TREE_TYPE (op1), op1);
+      op1 = fold_unary (NEGATE_EXPR, TREE_TYPE (op1), op1);
       /* ??? In theory fold should always produce another integer.  */
-      if (TREE_CODE (op1) != INTEGER_CST)
+      if (op1 == NULL || TREE_CODE (op1) != INTEGER_CST)
 	return NULL;
     }
 
@@ -1937,7 +1935,7 @@ struct fold_stmt_r_data
 static tree
 fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 {
-  struct fold_stmt_r_data *fold_stmt_r_data = data;
+  struct fold_stmt_r_data *fold_stmt_r_data = (struct fold_stmt_r_data *) data;
   bool *inside_addr_expr_p = fold_stmt_r_data->inside_addr_expr_p;
   bool *changed_p = fold_stmt_r_data->changed_p;
   tree expr = *expr_p, t;

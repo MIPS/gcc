@@ -4162,7 +4162,8 @@ std_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 
   /* va_list pointer is aligned to PARM_BOUNDARY.  If argument actually
      requires greater alignment, we must perform dynamic alignment.  */
-  if (boundary > align)
+  if (boundary > align
+      && !integer_zerop (TYPE_SIZE (type)))
     {
       t = fold_convert (TREE_TYPE (valist), size_int (boundary - 1));
       t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist_tmp,
@@ -5347,6 +5348,27 @@ get_builtin_sync_mode (int fcode_diff)
   return mode_for_size (BITS_PER_UNIT << fcode_diff, MODE_INT, 0);
 }
 
+/* Expand the memory expression LOC and return the appropriate memory operand
+   for the builtin_sync operations.  */
+
+static rtx
+get_builtin_sync_mem (tree loc, enum machine_mode mode)
+{
+  rtx addr, mem;
+
+  addr = expand_expr (loc, NULL, Pmode, EXPAND_SUM);
+
+  /* Note that we explicitly do not want any alias information for this
+     memory, so that we kill all other live memories.  Otherwise we don't
+     satisfy the full barrier semantics of the intrinsic.  */
+  mem = validize_mem (gen_rtx_MEM (mode, addr));
+
+  set_mem_align (mem, get_pointer_alignment (loc, BIGGEST_ALIGNMENT));
+  MEM_VOLATILE_P (mem) = 1;
+
+  return mem;
+}
+
 /* Expand the __sync_xxx_and_fetch and __sync_fetch_and_xxx intrinsics.
    ARGLIST is the operands list to the function.  CODE is the rtx code 
    that corresponds to the arithmetic or logical operation from the name;
@@ -5360,19 +5382,13 @@ expand_builtin_sync_operation (enum machine_mode mode, tree arglist,
 			       enum rtx_code code, bool after,
 			       rtx target, bool ignore)
 {
-  rtx addr, val, mem;
+  rtx val, mem;
 
   /* Expand the operands.  */
-  addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_SUM);
+  mem = get_builtin_sync_mem (TREE_VALUE (arglist), mode);
 
   arglist = TREE_CHAIN (arglist);
   val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
-
-  /* Note that we explicitly do not want any alias information for this
-     memory, so that we kill all other live memories.  Otherwise we don't
-     satisfy the full barrier semantics of the intrinsic.  */
-  mem = validize_mem (gen_rtx_MEM (mode, addr));
-  MEM_VOLATILE_P (mem) = 1;
 
   if (ignore)
     return expand_sync_operation (mem, val, code);
@@ -5389,22 +5405,16 @@ static rtx
 expand_builtin_compare_and_swap (enum machine_mode mode, tree arglist,
 				 bool is_bool, rtx target)
 {
-  rtx addr, old_val, new_val, mem;
+  rtx old_val, new_val, mem;
 
   /* Expand the operands.  */
-  addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_SUM);
+  mem = get_builtin_sync_mem (TREE_VALUE (arglist), mode);
 
   arglist = TREE_CHAIN (arglist);
   old_val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
 
   arglist = TREE_CHAIN (arglist);
   new_val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
-
-  /* Note that we explicitly do not want any alias information for this
-     memory, so that we kill all other live memories.  Otherwise we don't
-     satisfy the full barrier semantics of the intrinsic.  */
-  mem = validize_mem (gen_rtx_MEM (mode, addr));
-  MEM_VOLATILE_P (mem) = 1;
 
   if (is_bool)
     return expand_bool_compare_and_swap (mem, old_val, new_val, target);
@@ -5422,19 +5432,13 @@ static rtx
 expand_builtin_lock_test_and_set (enum machine_mode mode, tree arglist,
 				  rtx target)
 {
-  rtx addr, val, mem;
+  rtx val, mem;
 
   /* Expand the operands.  */
-  addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_NORMAL);
+  mem = get_builtin_sync_mem (TREE_VALUE (arglist), mode);
 
   arglist = TREE_CHAIN (arglist);
   val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
-
-  /* Note that we explicitly do not want any alias information for this
-     memory, so that we kill all other live memories.  Otherwise we don't
-     satisfy the barrier semantics of the intrinsic.  */
-  mem = validize_mem (gen_rtx_MEM (mode, addr));
-  MEM_VOLATILE_P (mem) = 1;
 
   return expand_sync_lock_test_and_set (mem, val, target);
 }
@@ -5469,17 +5473,11 @@ static void
 expand_builtin_lock_release (enum machine_mode mode, tree arglist)
 {
   enum insn_code icode;
-  rtx addr, mem, insn;
+  rtx mem, insn;
   rtx val = const0_rtx;
 
   /* Expand the operands.  */
-  addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_NORMAL);
-
-  /* Note that we explicitly do not want any alias information for this
-     memory, so that we kill all other live memories.  Otherwise we don't
-     satisfy the barrier semantics of the intrinsic.  */
-  mem = validize_mem (gen_rtx_MEM (mode, addr));
-  MEM_VOLATILE_P (mem) = 1;
+  mem = get_builtin_sync_mem (TREE_VALUE (arglist), mode);
 
   /* If there is an explicit operation in the md file, use it.  */
   icode = sync_lock_release[mode];
@@ -6072,6 +6070,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_ADD_2:
     case BUILT_IN_FETCH_AND_ADD_4:
     case BUILT_IN_FETCH_AND_ADD_8:
+    case BUILT_IN_FETCH_AND_ADD_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_ADD_1);
       target = expand_builtin_sync_operation (mode, arglist, PLUS,
 					      false, target, ignore);
@@ -6083,6 +6082,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_SUB_2:
     case BUILT_IN_FETCH_AND_SUB_4:
     case BUILT_IN_FETCH_AND_SUB_8:
+    case BUILT_IN_FETCH_AND_SUB_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_SUB_1);
       target = expand_builtin_sync_operation (mode, arglist, MINUS,
 					      false, target, ignore);
@@ -6094,6 +6094,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_OR_2:
     case BUILT_IN_FETCH_AND_OR_4:
     case BUILT_IN_FETCH_AND_OR_8:
+    case BUILT_IN_FETCH_AND_OR_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_OR_1);
       target = expand_builtin_sync_operation (mode, arglist, IOR,
 					      false, target, ignore);
@@ -6105,6 +6106,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_AND_2:
     case BUILT_IN_FETCH_AND_AND_4:
     case BUILT_IN_FETCH_AND_AND_8:
+    case BUILT_IN_FETCH_AND_AND_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_AND_1);
       target = expand_builtin_sync_operation (mode, arglist, AND,
 					      false, target, ignore);
@@ -6116,6 +6118,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_XOR_2:
     case BUILT_IN_FETCH_AND_XOR_4:
     case BUILT_IN_FETCH_AND_XOR_8:
+    case BUILT_IN_FETCH_AND_XOR_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_XOR_1);
       target = expand_builtin_sync_operation (mode, arglist, XOR,
 					      false, target, ignore);
@@ -6127,6 +6130,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_NAND_2:
     case BUILT_IN_FETCH_AND_NAND_4:
     case BUILT_IN_FETCH_AND_NAND_8:
+    case BUILT_IN_FETCH_AND_NAND_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_NAND_1);
       target = expand_builtin_sync_operation (mode, arglist, NOT,
 					      false, target, ignore);
@@ -6138,6 +6142,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_ADD_AND_FETCH_2:
     case BUILT_IN_ADD_AND_FETCH_4:
     case BUILT_IN_ADD_AND_FETCH_8:
+    case BUILT_IN_ADD_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_ADD_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, PLUS,
 					      true, target, ignore);
@@ -6149,6 +6154,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_SUB_AND_FETCH_2:
     case BUILT_IN_SUB_AND_FETCH_4:
     case BUILT_IN_SUB_AND_FETCH_8:
+    case BUILT_IN_SUB_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_SUB_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, MINUS,
 					      true, target, ignore);
@@ -6160,6 +6166,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_OR_AND_FETCH_2:
     case BUILT_IN_OR_AND_FETCH_4:
     case BUILT_IN_OR_AND_FETCH_8:
+    case BUILT_IN_OR_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_OR_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, IOR,
 					      true, target, ignore);
@@ -6171,6 +6178,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_AND_AND_FETCH_2:
     case BUILT_IN_AND_AND_FETCH_4:
     case BUILT_IN_AND_AND_FETCH_8:
+    case BUILT_IN_AND_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_AND_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, AND,
 					      true, target, ignore);
@@ -6182,6 +6190,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_XOR_AND_FETCH_2:
     case BUILT_IN_XOR_AND_FETCH_4:
     case BUILT_IN_XOR_AND_FETCH_8:
+    case BUILT_IN_XOR_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_XOR_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, XOR,
 					      true, target, ignore);
@@ -6193,6 +6202,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_NAND_AND_FETCH_2:
     case BUILT_IN_NAND_AND_FETCH_4:
     case BUILT_IN_NAND_AND_FETCH_8:
+    case BUILT_IN_NAND_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_NAND_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, NOT,
 					      true, target, ignore);
@@ -6204,6 +6214,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_BOOL_COMPARE_AND_SWAP_2:
     case BUILT_IN_BOOL_COMPARE_AND_SWAP_4:
     case BUILT_IN_BOOL_COMPARE_AND_SWAP_8:
+    case BUILT_IN_BOOL_COMPARE_AND_SWAP_16:
       if (mode == VOIDmode)
 	mode = TYPE_MODE (boolean_type_node);
       if (!target || !register_operand (target, mode))
@@ -6219,6 +6230,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_VAL_COMPARE_AND_SWAP_2:
     case BUILT_IN_VAL_COMPARE_AND_SWAP_4:
     case BUILT_IN_VAL_COMPARE_AND_SWAP_8:
+    case BUILT_IN_VAL_COMPARE_AND_SWAP_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_VAL_COMPARE_AND_SWAP_1);
       target = expand_builtin_compare_and_swap (mode, arglist, false, target);
       if (target)
@@ -6229,6 +6241,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOCK_TEST_AND_SET_2:
     case BUILT_IN_LOCK_TEST_AND_SET_4:
     case BUILT_IN_LOCK_TEST_AND_SET_8:
+    case BUILT_IN_LOCK_TEST_AND_SET_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_LOCK_TEST_AND_SET_1);
       target = expand_builtin_lock_test_and_set (mode, arglist, target);
       if (target)
@@ -6239,6 +6252,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOCK_RELEASE_2:
     case BUILT_IN_LOCK_RELEASE_4:
     case BUILT_IN_LOCK_RELEASE_8:
+    case BUILT_IN_LOCK_RELEASE_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_LOCK_RELEASE_1);
       expand_builtin_lock_release (mode, arglist);
       return const0_rtx;

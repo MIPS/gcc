@@ -282,6 +282,10 @@ struct rtl_bb_info GTY(())
 
 typedef struct basic_block_def *basic_block;
 
+DEF_VEC_P(basic_block);
+DEF_VEC_ALLOC_P(basic_block,gc);
+DEF_VEC_ALLOC_P(basic_block,heap);
+
 #define BB_FREQ_MAX 10000
 
 /* Masks for basic_block.flags.
@@ -376,7 +380,7 @@ struct control_flow_graph GTY(())
 
   /* Mapping of labels to their associated blocks.  At present
      only used for the tree CFG.  */
-  varray_type x_label_to_block_map;
+  VEC(basic_block,gc) *x_label_to_block_map;
 
   enum profile_status {
     PROFILE_ABSENT,
@@ -430,12 +434,12 @@ extern bool rediscover_loops_after_threading;
 /* For iterating over insns in basic block.  */
 #define FOR_BB_INSNS(BB, INSN)			\
   for ((INSN) = BB_HEAD (BB);			\
-       (INSN) != NEXT_INSN (BB_END (BB));	\
+       (INSN) && (INSN) != NEXT_INSN (BB_END (BB));	\
        (INSN) = NEXT_INSN (INSN))
 
 #define FOR_BB_INSNS_REVERSE(BB, INSN)		\
   for ((INSN) = BB_END (BB);			\
-       (INSN) != PREV_INSN (BB_HEAD (BB));	\
+       (INSN) && (INSN) != PREV_INSN (BB_HEAD (BB));	\
        (INSN) = PREV_INSN (INSN))
 
 /* Cycles through _all_ basic blocks, even the fake ones (entry and
@@ -467,11 +471,12 @@ extern bitmap_obstack reg_obstack;
 #define BB_END(B)       (B)->il.rtl->end_
 
 /* Special block numbers [markers] for entry and exit.  */
-#define ENTRY_BLOCK (-1)
-#define EXIT_BLOCK (-2)
+#define ENTRY_BLOCK (0)
+#define EXIT_BLOCK (1)
 
-/* Special block number not valid for any block.  */
-#define INVALID_BLOCK (-3)
+/* The two blocks that are always in the cfg.  */
+#define NUM_FIXED_BLOCKS (2)
+
 
 #define BLOCK_NUM(INSN)	      (BLOCK_FOR_INSN (INSN)->index + 0)
 #define set_block_for_insn(INSN, BB)  (BLOCK_FOR_INSN (INSN) = BB)
@@ -502,8 +507,8 @@ extern edge redirect_edge_succ_nodup (edge, basic_block);
 extern void redirect_edge_pred (edge, basic_block);
 extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
 extern void clear_bb_flags (void);
-extern void flow_reverse_top_sort_order_compute (int *);
-extern int flow_depth_first_order_compute (int *, int *);
+extern int post_order_compute (int *, bool);
+extern int pre_and_rev_post_order_compute (int *, int *, bool);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(basic_block, void *),
 			       basic_block *, int, void *);

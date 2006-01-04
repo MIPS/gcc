@@ -621,7 +621,7 @@ global_alloc (FILE *file)
 
 #if 0 /* We need to eliminate regs even if there is no rtl code,
 	 for the sake of debugging information.  */
-  if (n_basic_blocks > 0)
+  if (n_basic_blocks > NUM_FIXED_BLOCKS)
 #endif
     {
       build_insn_chain (get_insns ());
@@ -2281,9 +2281,9 @@ set_up_bb_rts_numbers (void)
   int i;
   int *rts_order;
   
-  rts_order = xmalloc (sizeof (int) * n_basic_blocks);
-  flow_reverse_top_sort_order_compute (rts_order);
-  for (i = 0; i < n_basic_blocks; i++)
+  rts_order = xmalloc (sizeof (int) * (n_basic_blocks - NUM_FIXED_BLOCKS));
+  post_order_compute (rts_order, false);
+  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
     BB_INFO_BY_INDEX (rts_order [i])->rts_number = i;
   free (rts_order);
 }
@@ -2300,9 +2300,6 @@ rpost_cmp (const void *bb1, const void *bb2)
 
 /* Temporary bitmap used for live_pavin, live_pavout calculation.  */
 static bitmap temp_bitmap;
-
-DEF_VEC_P(basic_block);
-DEF_VEC_ALLOC_P(basic_block,heap);
 
 /* The function calculates partial register availability according to
    the following equations:

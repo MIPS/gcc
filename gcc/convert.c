@@ -263,6 +263,28 @@ convert_to_real (tree type, tree expr)
 		 && FLOAT_TYPE_P (TREE_TYPE (arg1)))
 	       {
 		  tree newtype = type;
+
+		  if (TYPE_MODE (TREE_TYPE (arg0)) == SDmode
+		      || TYPE_MODE (TREE_TYPE (arg1)) == SDmode)
+		    newtype = dfloat32_type_node;
+		  if (TYPE_MODE (TREE_TYPE (arg0)) == DDmode
+		      || TYPE_MODE (TREE_TYPE (arg1)) == DDmode)
+		    newtype = dfloat64_type_node;
+		  if (TYPE_MODE (TREE_TYPE (arg0)) == TDmode
+		      || TYPE_MODE (TREE_TYPE (arg1)) == TDmode)
+                    newtype = dfloat128_type_node;
+		  if (newtype == dfloat32_type_node
+		      || newtype == dfloat64_type_node
+		      || newtype == dfloat128_type_node)
+		    {
+		      expr = build2 (TREE_CODE (expr), newtype,
+				     fold (convert_to_real (newtype, arg0)),
+				     fold (convert_to_real (newtype, arg1)));
+		      if (newtype == type)
+			return expr;
+		      break;
+		    }
+
 		  if (TYPE_PRECISION (TREE_TYPE (arg0)) > TYPE_PRECISION (newtype))
 		    newtype = TREE_TYPE (arg0);
 		  if (TYPE_PRECISION (TREE_TYPE (arg1)) > TYPE_PRECISION (newtype))
@@ -606,7 +628,17 @@ convert_to_integer (tree type, tree expr)
 				|| ex_form == RSHIFT_EXPR
 				|| ex_form == LROTATE_EXPR
 				|| ex_form == RROTATE_EXPR))
-			|| ex_form == LSHIFT_EXPR)
+			|| ex_form == LSHIFT_EXPR
+			/* If we have !flag_wrapv, and either ARG0 or
+			   ARG1 is of a signed type, we have to do
+			   PLUS_EXPR or MINUS_EXPR in an unsigned
+			   type.  Otherwise, we would introduce
+			   signed-overflow undefinedness.  */
+			|| (!flag_wrapv
+			    && (ex_form == PLUS_EXPR
+				|| ex_form == MINUS_EXPR)
+			    && (!TYPE_UNSIGNED (TREE_TYPE (arg0))
+				|| !TYPE_UNSIGNED (TREE_TYPE (arg1)))))
 		      typex = lang_hooks.types.unsigned_type (typex);
 		    else
 		      typex = lang_hooks.types.signed_type (typex);
