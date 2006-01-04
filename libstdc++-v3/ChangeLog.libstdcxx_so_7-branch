@@ -1,3 +1,13 @@
+2006-01-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Set default versioning to
+	gnu-versioned-namespace.
+	* configure: Regenerate.
+	* include/bits/c++config: Update version to 7.
+	* config/abi/pre/gnu-versioned-namespace.ver: Same, merge in missing
+	symbols.
+	* config/abi/pre/gnu.ver: Correct versions labels.
+	
 2006-01-03  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string.h (__sso_string<>::_M_dataplus):

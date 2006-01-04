@@ -1754,7 +1754,7 @@ if test x$enable_symvers = xyes ; then
      test "x$LD" = x ; then
     enable_symvers=no
   elif test $with_gnu_ld = yes ; then
-    enable_symvers=gnu
+    enable_symvers=gnu-versioned-namespace
   else
     case ${target_os} in
       darwin*)
@@ -1768,7 +1768,7 @@ if test x$enable_symvers = xyes ; then
   fi
 fi
 
-# Check to see if 'gnu' can win.
+# Check to see if 'gnu' and permutations can win.
 if test $enable_symvers = gnu || test $enable_symvers = gnu-versioned-namespace; then
   # Check to see if libgcc_s exists, indicating that shared libgcc is possible.
   AC_MSG_CHECKING([for shared libgcc])

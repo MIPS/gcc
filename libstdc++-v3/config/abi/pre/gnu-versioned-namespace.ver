@@ -20,14 +20,14 @@
 ## Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 ## USA.
 
-GLIBCXX_3.7 {
+GLIBCXX_4.2 {
 
   global:
 
     # Names inside the 'extern' block are demangled names.
     extern "C++"
     {
-      std::_6::*;
+      std::_7::*;
       std::*
     };
 
@@ -63,29 +63,39 @@ GLIBCXX_3.7 {
     _ZTv0_n*;
 
     # std::__convert_to_v
-    _ZNSt2_614__convert_to_v*;
+    _ZNSt2_714__convert_to_v*;
 
     # std::__copy_streambufs
-    _ZNSt2_617__copy_streambufsI[cw]NS_11char_traitsI[cw]EEEEiPNS_15basic_streambufIT_T0_EES7_;
+    _ZNSt2_717__copy_streambufsI[cw]NS_11char_traitsI[cw]EEEEiPNS_15basic_streambuf*;
 
     # __gnu_cxx::__atomic_add
     # __gnu_cxx::__exchange_and_add
-    _ZN9__gnu_cxx2_612__atomic_addEPV[il][il];
-    _ZN9__gnu_cxx2_618__exchange_and_addEPV[li][il];
+    _ZN9__gnu_cxx2_712__atomic_addEPV[il][il];
+    _ZN9__gnu_cxx2_718__exchange_and_addEPV[li][il];
 
     # __gnu_cxx::__pool
-    _ZN9__gnu_cxx2_66__poolILb[01]EE13_M_initializeEv;
-    _ZN9__gnu_cxx2_66__poolILb[01]EE16_M_reserve_blockE[jm][jm];
-    _ZN9__gnu_cxx2_66__poolILb[01]EE16_M_reclaim_blockEPc[jm];
-    _ZN9__gnu_cxx2_66__poolILb[01]EE10_M_destroyEv;
-    _ZN9__gnu_cxx2_66__poolILb1EE16_M_get_thread_idEv;
+    _ZN9__gnu_cxx2_76__poolILb[01]EE13_M_initializeEv;
+    _ZN9__gnu_cxx2_76__poolILb[01]EE16_M_reserve_blockE[jm][jm];
+    _ZN9__gnu_cxx2_76__poolILb[01]EE16_M_reclaim_blockEPc[jm];
+    _ZN9__gnu_cxx2_76__poolILb[01]EE10_M_destroyEv;
+    _ZN9__gnu_cxx2_76__poolILb1EE16_M_get_thread_idEv;
 
-    _ZN9__gnu_cxx2_617__pool_alloc_base9_M_refillE[jm];    
-    _ZN9__gnu_cxx2_617__pool_alloc_base16_M_get_free_listE[jm];
-    _ZN9__gnu_cxx2_617__pool_alloc_base12_M_get_mutexEv;
+    _ZN9__gnu_cxx2_717__pool_alloc_base9_M_refillE[jm];    
+    _ZN9__gnu_cxx2_717__pool_alloc_base16_M_get_free_listE[jm];
+    _ZN9__gnu_cxx2_717__pool_alloc_base12_M_get_mutexEv;
 
-    _ZN9__gnu_cxx2_69free_list6_M_getE[jm];
-    _ZN9__gnu_cxx2_69free_list8_M_clearEv;
+    _ZN9__gnu_cxx2_79free_list6_M_getE[jm];
+    _ZN9__gnu_cxx2_79free_list8_M_clearEv;
+
+    _ZN9__gnu_cxx2_711__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
+    _ZNK9__gnu_cxx2_711__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
+    _ZZN9__gnu_cxx2_711__rc_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
+    
+    _ZN9__gnu_cxx2_712__sso_stringI[cw]NSt2_711char_traitsI[cw]EENS2_9allocatorI[cw]EEE10_M_destroyE[jm];
+    _ZN9__gnu_cxx2_712__sso_stringI[cw]NSt2_711char_traitsI[cw]EENS2_9allocatorI[cw]EEEC*;
+    _ZN9__gnu_cxx2_712__sso_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
+    _ZNK9__gnu_cxx2_712__sso_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
+    _ZZN9__gnu_cxx2_712__sso_stringI[cw]St11char_traitsI[cw]ESaI[cw]EE*;
 
   local:
     *;
@@ -93,7 +103,7 @@ GLIBCXX_3.7 {
 
 
 # Symbols in the support library (libsupc++) have their own tag.
-CXXABI_1.7 {
+CXXABI_1.4 {
 
   global:
     __cxa_allocate_exception;
@@ -195,7 +205,7 @@ CXXABI_1.7 {
     _ZTSN10__cxxabiv121__vmi_class_type_infoE;
 
     # __gnu_cxx::_verbose_terminate_handler()
-    _ZN9__gnu_cxx2_627__verbose_terminate_handlerEv;
+    _ZN9__gnu_cxx2_727__verbose_terminate_handlerEv;
 
   local:
     *;

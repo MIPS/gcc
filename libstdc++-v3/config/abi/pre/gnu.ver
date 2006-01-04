@@ -20,7 +20,7 @@
 ## Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 ## USA.
 
-GLIBCXX_3.6 {
+GLIBCXX_4.2 {
 
   global:
 
@@ -333,7 +333,7 @@ GLIBCXX_3.6 {
 };
 
 # Symbols in the support library (libsupc++) have their own tag.
-CXXABI_1.3 {
+CXXABI_1.4 {
 
   global:
     __cxa_allocate_exception;
@@ -347,6 +347,7 @@ CXXABI_1.3 {
     __cxa_end_catch;
     __cxa_end_cleanup;
     __cxa_free_exception;
+    __cxa_get_exception_ptr;
     __cxa_get_globals;
     __cxa_get_globals_fast;
     __cxa_guard_abort;
@@ -438,9 +439,3 @@ CXXABI_1.3 {
   local:
     *;
 };
-
-CXXABI_1.3.1 {
-
-    __cxa_get_exception_ptr;
-
-} CXXABI_1.3;

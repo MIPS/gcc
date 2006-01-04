@@ -1,6 +1,6 @@
 // Predefined symbols and macros -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -55,7 +55,7 @@
 #if _GLIBCXX_NAMESPACE_ASSOCIATION_VERSION
 # define _GLIBCXX_BEGIN_NESTED_NAMESPACE(X, Y) namespace X { namespace Y {
 # define _GLIBCXX_END_NESTED_NAMESPACE } }
-# define _GLIBCXX_BEGIN_NAMESPACE(X) _GLIBCXX_BEGIN_NESTED_NAMESPACE(X, _6)
+# define _GLIBCXX_BEGIN_NAMESPACE(X) _GLIBCXX_BEGIN_NESTED_NAMESPACE(X, _7)
 # define _GLIBCXX_END_NAMESPACE _GLIBCXX_END_NESTED_NAMESPACE
 #else
 # define _GLIBCXX_BEGIN_NAMESPACE(X) namespace X { 
@@ -73,29 +73,29 @@
 #if _GLIBCXX_NAMESPACE_ASSOCIATION_VERSION
 namespace std
 {
-  namespace _6 { }
-  using namespace _6 __attribute__ ((strong));
+  namespace _7 { }
+  using namespace _7 __attribute__ ((strong));
 }
 
 // In addition, other supported namespace configurations.
 namespace __gnu_cxx 
 { 
-  namespace _6 { }
-  using namespace _6 __attribute__ ((strong));
+  namespace _7 { }
+  using namespace _7 __attribute__ ((strong));
 }
 
 namespace __gnu_ext
 { 
-  namespace _6 { }
-  using namespace _6 __attribute__ ((strong));
+  namespace _7 { }
+  using namespace _7 __attribute__ ((strong));
 }
 
 namespace std
 {
   namespace tr1 
   { 
-    namespace _6 { }
-    using namespace _6 __attribute__ ((strong));
+    namespace _7 { }
+    using namespace _7 __attribute__ ((strong));
   }
 }
 #endif
@@ -124,8 +124,8 @@ namespace std
 # endif
 #else
 #if _GLIBCXX_NAMESPACE_ASSOCIATION_VERSION
-# define _GLIBCXX_STD _6
-# define _GLIBCXX_STD_MOVE std::_6
+# define _GLIBCXX_STD _7
+# define _GLIBCXX_STD_MOVE std::_7
 #else
 # define _GLIBCXX_STD std
 # define _GLIBCXX_STD_MOVE std
