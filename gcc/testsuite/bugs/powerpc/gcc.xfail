@@ -99,6 +99,7 @@
 4271531: gcc.c-torture/execute/nestfunc-6.c execution,  -fast
 4271531: gcc.dg/trampoline-1.c execution test
 4366412: gcc.dg/trampoline-1.c (test for excess errors)
+4385002: gcc.dg/vect/vect-align-1.c scan-tree-dump-times Inappropriate alignment 1
 #
 # the following failures occur only when the tests are being run through ObjC
 3904213: gcc.dg/20040813-1.c scan-assembler .stabs.*100,0,2
@@ -154,6 +155,7 @@
 3788046: gcc.dg/simd-2.c (test for excess errors)
 3719311: gcc.dg/void-cast-2.c  (test for warnings, line 7)
 3719311: gcc.dg/void-cast-2.c  (test for warnings, line 8)
+4385016: gcc.apple/default-cpu-1.c scan-assembler machine ppc7400
 #
 # the following failures are for -m64
 3966342: gcc.apple/altivec-1.c (test for excess errors)

@@ -126,6 +126,16 @@
 4157563: ./debug-1.H -O2 -g (test for excess errors)
 4157563: ./debug-1.H -O2 (test for excess errors)
 4157563: ./debug-1.H -fastcp (test for excess errors)
+4385013: g++.dg/apple-longcall-2.C scan-assembler \tjmp
+# and these fail only on Leopard
+4385023: g++.dg/compat/eh/unexpected1 cp_compat_x_tst.o-cp_compat_y_tst.o execute
+4385023: g++.dg/eh/unexpected1.C execution test
+4385023: g++.old-deja/g++.eh/spec2.C execution test
+4385023: g++.old-deja/g++.eh/spec3.C execution test
+4385023: g++.old-deja/g++.eh/spec4.C execution test
+4385023: g++.old-deja/g++.mike/eh33.C execution test
+4385023: g++.old-deja/g++.mike/eh50.C execution test
+4385023: g++.old-deja/g++.mike/eh51.C execution test
 #
 # The following tests fail only when the c++ suite is run on x86
 4241732: g++.dg/asm-block-11.C (test for excess errors)
