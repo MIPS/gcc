@@ -1,3 +1,109 @@
+2005-01-04  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR c++/25632
+	* init.c (constant_value_1): Unshare use of DECL_INITIAL.  Fix a typo
+	in condition.
+
+2006-01-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24782
+	* parser.c (cp_parser_nested_name_specifier_opt): Preserve access
+	checks, even when parsing tentatively.
+
+2006-01-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25492
+	* name-lookup.c (push_class_level_binding): When a derived class
+	provides a type binding, eliminate any type binding from a base
+	class. 
+
+	PR c++/25625
+	* repo.c (repo_emit_p): Always instantiate static data members
+	initialized by constant expressions, so that there values are
+	available.
+
+2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25635
+	* class.c (add_method): Set TYPE_HAS_CONVERSION for classes with a
+	conversion operator.
+	* decl.c (grokdeclarator): Do not set TYPE_HAS_CONVERSION here.
+
+	PR c++/25638
+	* class.c (add_method): Never associate more than one destructor
+	with a single class.
+
+	PR c++/25637
+	* decl.c (grokdeclarator): Refine check for invalid
+	declarations/definitions of member functions outside of their own
+	class.
+
+	PR c++/25633
+	* parser.c (cp_parser_mem_initializer_list): Check result of
+	cp_parser_mem_initializer against error_mark_node, not NULL_TREE.
+	(cp_parser_mem_initializer): Return error_mark_node for failure.
+
+	PR c++/25634
+	* parser.c (cp_parser_elaborated_type_specifier): Call
+	cp_parser_check_template_parameters.
+
+2006-01-02  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* parser.c (cp_parser_using_declaration): Skip name-lookup on
+	invalid scope.
+
+2006-01-02  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* decl.c (grokdeclarator): Improve diagnostic for friend
+	declarations of class members.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23171, c++/23172, c++/25417.
+	* typeck.c (build_unary_op): Create temporary variables for
+	compound literals whose addresses are taken.
+	* init.c (expand_aggr_init_1): Use COMPOUND_LITERAL_P.
+	* decl.c (reshape_init_vector): Likewise.
+	(reshape_init): Give it external linkage.
+	(check_initializer): Use COMPOUND_LITERAL_P.
+	(initialize_artificial_var): Allow the initializer to be a
+	CONSTRUCTOR.
+	* call.c (make_temporary_var_for_ref_to_temp): Use
+	create_temporary_var.
+	* cp-tree.h (COMPOUND_LITERAL_P): New macro.
+	(rehape_init): Declare.
+	* typeck2.c (digest_init): Use COMPOUND_LITERAL_P.
+	* semantics.c (finish_compound_literal): Use reshape_init.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25439
+	* decl.c (grokdeclarator): Remove dead code.
+	* ptree.c (cxx_print_xnode): Handle BASELINK.
+	* parser.c (make_id_declarator): Add sfk parameter.  
+	(cp_parser_direct_declarator): Do not pass TYPE_DECLs to
+	make_id_declarator.
+	(cp_parser_declarator_id): Simplify BASELINKs here.
+	(cp_parser_member_declaration): Adjust calls to
+	make_id_declarator.
+
+2005-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24671
+	* pt.c (instantiate_template): Handle SFINAE.
+
+2005-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25369
+	* pt.c (tsubst_copy): Call mark_used on the member referenced by an
+	OFFSET_REF.
+	* decl2.c (mark_used): Accept BASELINKs.
+
+2005-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25364
+	* semantics.c (finish_qualified_id_expr): Call mark_used.
+
 2005-12-20  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/21228

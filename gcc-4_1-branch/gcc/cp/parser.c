@@ -817,12 +817,15 @@ make_declarator (cp_declarator_kind kind)
   return declarator;
 }
 
-/* Make a declarator for a generalized identifier.  If non-NULL, the
-   identifier is QUALIFYING_SCOPE::UNQUALIFIED_NAME; otherwise, it is
-   just UNQUALIFIED_NAME.  */
+/* Make a declarator for a generalized identifier.  If
+   QUALIFYING_SCOPE is non-NULL, the identifier is
+   QUALIFYING_SCOPE::UNQUALIFIED_NAME; otherwise, it is just
+   UNQUALIFIED_NAME.  SFK indicates the kind of special function this
+   is, if any.   */
 
 static cp_declarator *
-make_id_declarator (tree qualifying_scope, tree unqualified_name)
+make_id_declarator (tree qualifying_scope, tree unqualified_name,
+		    special_function_kind sfk)
 {
   cp_declarator *declarator;
 
@@ -839,10 +842,14 @@ make_id_declarator (tree qualifying_scope, tree unqualified_name)
   if (qualifying_scope && TYPE_P (qualifying_scope))
     qualifying_scope = TYPE_MAIN_VARIANT (qualifying_scope);
 
+  gcc_assert (TREE_CODE (unqualified_name) == IDENTIFIER_NODE
+	      || TREE_CODE (unqualified_name) == BIT_NOT_EXPR
+	      || TREE_CODE (unqualified_name) == TEMPLATE_ID_EXPR);
+
   declarator = make_declarator (cdk_id);
   declarator->u.id.qualifying_scope = qualifying_scope;
   declarator->u.id.unqualified_name = unqualified_name;
-  declarator->u.id.sfk = sfk_none;
+  declarator->u.id.sfk = sfk;
 
   return declarator;
 }
@@ -3524,7 +3531,6 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 				     bool is_declaration)
 {
   bool success = false;
-  tree access_check = NULL_TREE;
   cp_token_position start = 0;
   cp_token *token;
 
@@ -3544,9 +3550,10 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
 
   /* Remember where the nested-name-specifier starts.  */
   if (cp_parser_uncommitted_to_tentative_parse_p (parser))
-    start = cp_lexer_token_position (parser->lexer, false);
-
-  push_deferring_access_checks (dk_deferred);
+    {
+      start = cp_lexer_token_position (parser->lexer, false);
+      push_deferring_access_checks (dk_deferred);
+    }
 
   while (true)
     {
@@ -3725,10 +3732,6 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
       parser->scope = new_scope;
     }
 
-  /* Retrieve any deferred checks.  Do not pop this access checks yet
-     so the memory will not be reclaimed during token replacing below.  */
-  access_check = get_deferred_access_checks ();
-
   /* If parsing tentatively, replace the sequence of tokens that makes
      up the nested-name-specifier with a CPP_NESTED_NAME_SPECIFIER
      token.  That way, should we re-parse the token stream, we will
@@ -3736,19 +3739,27 @@ cp_parser_nested_name_specifier_opt (cp_parser *parser,
      we issue duplicate error messages.  */
   if (success && start)
     {
-      cp_token *token = cp_lexer_token_at (parser->lexer, start);
+      cp_token *token;
+      tree access_checks;
 
+      token = cp_lexer_token_at (parser->lexer, start);
       /* Reset the contents of the START token.  */
       token->type = CPP_NESTED_NAME_SPECIFIER;
-      token->value = build_tree_list (access_check, parser->scope);
+      /* Retrieve any deferred checks.  Do not pop this access checks yet
+	 so the memory will not be reclaimed during token replacing below.  */
+      access_checks = get_deferred_access_checks ();
+      token->value = build_tree_list (copy_list (access_checks),
+				      parser->scope);
       TREE_TYPE (token->value) = parser->qualifying_scope;
       token->keyword = RID_MAX;
 
       /* Purge all subsequent tokens.  */
       cp_lexer_purge_tokens_after (parser->lexer, start);
     }
+  
+  if (start)
+    pop_to_parent_deferring_access_checks ();
 
-  pop_deferring_access_checks ();
   return success ? parser->scope : NULL_TREE;
 }
 
@@ -7866,7 +7877,7 @@ cp_parser_mem_initializer_list (cp_parser* parser)
       /* Parse the mem-initializer.  */
       mem_initializer = cp_parser_mem_initializer (parser);
       /* Add it to the list, unless it was erroneous.  */
-      if (mem_initializer)
+      if (mem_initializer != error_mark_node)
 	{
 	  TREE_CHAIN (mem_initializer) = mem_initializer_list;
 	  mem_initializer_list = mem_initializer;
@@ -7895,7 +7906,8 @@ cp_parser_mem_initializer_list (cp_parser* parser)
 
    Returns a TREE_LIST.  The TREE_PURPOSE is the TYPE (for a base
    class) or FIELD_DECL (for a non-static data member) to initialize;
-   the TREE_VALUE is the expression-list.  */
+   the TREE_VALUE is the expression-list.  An empty initialization
+   list is represented by void_list_node.  */
 
 static tree
 cp_parser_mem_initializer (cp_parser* parser)
@@ -7920,12 +7932,14 @@ cp_parser_mem_initializer (cp_parser* parser)
     = cp_parser_parenthesized_expression_list (parser, false,
 					       /*cast_p=*/false,
 					       /*non_constant_p=*/NULL);
+  if (expression_list == error_mark_node)
+    return error_mark_node;
   if (!expression_list)
     expression_list = void_type_node;
 
   in_base_initializer = 0;
 
-  return member ? build_tree_list (member, expression_list) : NULL_TREE;
+  return member ? build_tree_list (member, expression_list) : error_mark_node;
 }
 
 /* Parse a mem-initializer-id.
@@ -10169,6 +10183,11 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	    (parser->num_template_parameter_lists
 	     && (cp_parser_next_token_starts_class_definition_p (parser)
 		 || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)));
+	  /* An unqualified name was used to reference this type, so
+	     there were no qualifying templates.  */
+	  if (!cp_parser_check_template_parameters (parser, 
+						    /*num_templates=*/0))
+	    return error_mark_node;
 	  type = xref_tag (tag_type, identifier, ts, template_p);
 	}
     }
@@ -10543,7 +10562,7 @@ cp_parser_using_declaration (cp_parser* parser)
 
   /* The function we call to handle a using-declaration is different
      depending on what scope we are in.  */
-  if (identifier == error_mark_node)
+  if (qscope == error_mark_node || identifier == error_mark_node)
     ;
   else if (TREE_CODE (identifier) != IDENTIFIER_NODE
 	   && TREE_CODE (identifier) != BIT_NOT_EXPR)
@@ -11418,6 +11437,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 	{
 	  tree qualifying_scope;
 	  tree unqualified_name;
+	  special_function_kind sfk;
 
 	  /* Parse a declarator-id */
 	  if (dcl_kind == CP_PARSER_DECLARATOR_EITHER)
@@ -11475,9 +11495,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 	      qualifying_scope = type;
 	    }
 
-	  declarator = make_id_declarator (qualifying_scope,
-					   unqualified_name);
-	  declarator->id_loc = token->location;
+	  sfk = sfk_none;
 	  if (unqualified_name)
 	    {
 	      tree class_type;
@@ -11488,28 +11506,9 @@ cp_parser_direct_declarator (cp_parser* parser,
 	      else
 		class_type = current_class_type;
 
-	      if (class_type)
+	      if (TREE_CODE (unqualified_name) == TYPE_DECL)
 		{
-		  if (TREE_CODE (unqualified_name) == BIT_NOT_EXPR)
-		    declarator->u.id.sfk = sfk_destructor;
-		  else if (IDENTIFIER_TYPENAME_P (unqualified_name))
-		    declarator->u.id.sfk = sfk_conversion;
-		  else if (/* There's no way to declare a constructor
-			      for an anonymous type, even if the type
-			      got a name for linkage purposes.  */
-			   !TYPE_WAS_ANONYMOUS (class_type)
-			   && (constructor_name_p (unqualified_name,
-						   class_type)
-			       || (TREE_CODE (unqualified_name) == TYPE_DECL
-				   && (same_type_p
-				       (TREE_TYPE (unqualified_name),
-					class_type)))))
-		    declarator->u.id.sfk = sfk_constructor;
-
-		  if (ctor_dtor_or_conv_p && declarator->u.id.sfk != sfk_none)
-		    *ctor_dtor_or_conv_p = -1;
-		  if (qualifying_scope
-		      && TREE_CODE (unqualified_name) == TYPE_DECL
+		  if (qualifying_scope 
 		      && CLASSTYPE_USE_TEMPLATE (TREE_TYPE (unqualified_name)))
 		    {
 		      error ("invalid use of constructor as a template");
@@ -11518,9 +11517,50 @@ cp_parser_direct_declarator (cp_parser* parser,
 			      class_type,
 			      DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
 			      class_type, class_type);
+		      declarator = cp_error_declarator;
+		      break;
+		    }
+		  else if (class_type
+			   && same_type_p (TREE_TYPE (unqualified_name),
+					   class_type))
+		    unqualified_name = constructor_name (class_type);
+		  else
+		    {
+		      /* We do not attempt to print the declarator
+			 here because we do not have enough
+			 information about its original syntactic
+			 form.  */
+		      error ("invalid declarator");
+		      declarator = cp_error_declarator;
+		      break;
 		    }
 		}
+
+	      if (class_type)
+		{
+		  if (TREE_CODE (unqualified_name) == BIT_NOT_EXPR)
+		    sfk = sfk_destructor;
+		  else if (IDENTIFIER_TYPENAME_P (unqualified_name))
+		    sfk = sfk_conversion;
+		  else if (/* There's no way to declare a constructor
+			      for an anonymous type, even if the type
+			      got a name for linkage purposes.  */
+			   !TYPE_WAS_ANONYMOUS (class_type)
+			   && constructor_name_p (unqualified_name,
+						  class_type))
+		    {
+		      unqualified_name = constructor_name (class_type);
+		      sfk = sfk_constructor;
+		    }
+
+		  if (ctor_dtor_or_conv_p && sfk != sfk_none)
+		    *ctor_dtor_or_conv_p = -1;
+		}
 	    }
+	  declarator = make_id_declarator (qualifying_scope, 
+					   unqualified_name,
+					   sfk);
+	  declarator->id_loc = token->location;
 
 	handle_declarator:;
 	  scope = get_scope_of_declarator (declarator);
@@ -11730,6 +11770,7 @@ cp_parser_cv_qualifier_seq_opt (cp_parser* parser)
 static tree
 cp_parser_declarator_id (cp_parser* parser)
 {
+  tree id;
   /* The expression must be an id-expression.  Assume that qualified
      names are the names of types so that:
 
@@ -11744,11 +11785,14 @@ cp_parser_declarator_id (cp_parser* parser)
        int S<T>::R<T>::i = 3;
 
      will work, too.  */
-  return cp_parser_id_expression (parser,
-				  /*template_keyword_p=*/false,
-				  /*check_dependency_p=*/false,
-				  /*template_p=*/NULL,
-				  /*declarator_p=*/true);
+  id = cp_parser_id_expression (parser,
+				/*template_keyword_p=*/false,
+				/*check_dependency_p=*/false,
+				/*template_p=*/NULL,
+				/*declarator_p=*/true);
+  if (BASELINK_P (id))
+    id = BASELINK_FUNCTIONS (id);
+  return id;
 }
 
 /* Parse a type-id.
@@ -13530,7 +13574,8 @@ cp_parser_member_declaration (cp_parser* parser)
 	      /* Create the bitfield declaration.  */
 	      decl = grokbitfield (identifier
 				   ? make_id_declarator (NULL_TREE,
-							 identifier)
+							 identifier,
+							 sfk_none)
 				   : NULL,
 				   &decl_specifiers,
 				   width);
@@ -17187,7 +17232,8 @@ cp_parser_objc_class_ivars (cp_parser* parser)
 	    {
 	      /* Get the name of the bitfield.  */
 	      declarator = make_id_declarator (NULL_TREE,
-					       cp_parser_identifier (parser));
+					       cp_parser_identifier (parser),
+					       sfk_none);
 
 	     eat_colon:
 	      cp_lexer_consume_token (parser->lexer);  /* Eat ':'.  */

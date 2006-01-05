@@ -586,9 +586,18 @@ resolve_structure_cons (gfc_expr * expr)
 
       /* If we don't have the right type, try to convert it.  */
 
-      if (!gfc_compare_types (&cons->expr->ts, &comp->ts)
-	  && gfc_convert_type (cons->expr, &comp->ts, 1) == FAILURE)
-	t = FAILURE;
+      if (!gfc_compare_types (&cons->expr->ts, &comp->ts))
+	{
+	  t = FAILURE;
+	  if (comp->pointer && cons->expr->ts.type != BT_UNKNOWN)
+	    gfc_error ("The element in the derived type constructor at %L, "
+		       "for pointer component '%s', is %s but should be %s",
+		       &cons->expr->where, comp->name,
+		       gfc_basic_typename (cons->expr->ts.type),
+		       gfc_basic_typename (comp->ts.type));
+	  else
+	    t = gfc_convert_type (cons->expr, &comp->ts, 1);
+	}
     }
 
   return t;
@@ -4254,6 +4263,60 @@ resolve_values (gfc_symbol * sym)
 }
 
 
+/* Resolve a charlen structure.  */
+
+static try
+resolve_charlen (gfc_charlen *cl)
+{
+  if (cl->resolved)
+    return SUCCESS;
+
+  cl->resolved = 1;
+
+  if (gfc_resolve_expr (cl->length) == FAILURE)
+    return FAILURE;
+
+  if (gfc_simplify_expr (cl->length, 0) == FAILURE)
+    return FAILURE;
+
+  if (gfc_specification_expr (cl->length) == FAILURE)
+    return FAILURE;
+
+  return SUCCESS;
+}
+
+
+/* Resolve the components of a derived type.  */
+
+static try
+resolve_derived (gfc_symbol *sym)
+{
+  gfc_component *c;
+
+  for (c = sym->components; c != NULL; c = c->next)
+    {
+      if (c->ts.type == BT_CHARACTER)
+	{
+         if (resolve_charlen (c->ts.cl) == FAILURE)
+	   return FAILURE;
+	 
+	 if (c->ts.cl->length == NULL
+	     || !gfc_is_constant_expr (c->ts.cl->length))
+	   {
+	     gfc_error ("Character length of component '%s' needs to "
+			"be a constant specification expression at %L.",
+			c->name,
+			c->ts.cl->length ? &c->ts.cl->length->where : &c->loc);
+	     return FAILURE;
+	   }
+	}
+
+      /* TODO: Anything else that should be done here?  */
+    }
+
+  return SUCCESS;
+}
+
 /* Do anything necessary to resolve a symbol.  Right now, we just
    assume that an otherwise unknown symbol is a variable.  This sort
    of thing commonly happens for symbols in module.  */
@@ -4305,6 +4368,9 @@ resolve_symbol (gfc_symbol * sym)
 	    sym->attr.function = 1;
 	}
     }
+
+  if (sym->attr.flavor == FL_DERIVED && resolve_derived (sym) == FAILURE)
+    return;
 
   /* Symbols that are module procedures with results (functions) have
      the types and array specification copied for type checking in
@@ -4632,6 +4698,17 @@ resolve_symbol (gfc_symbol * sym)
 			   &sym->declared_at);
 	    }
 	}
+      break;
+
+    case FL_DERIVED:
+      /* Add derived type to the derived type list.  */
+      {
+	gfc_dt_list * dt_list;
+	dt_list = gfc_get_dt_list ();
+	dt_list->next = sym->ns->derived_types;
+	dt_list->derived = sym;
+	sym->ns->derived_types = dt_list;
+      }
       break;
 
     default:
@@ -5511,16 +5588,7 @@ gfc_resolve (gfc_namespace * ns)
   gfc_check_interfaces (ns);
 
   for (cl = ns->cl_list; cl; cl = cl->next)
-    {
-      if (cl->length == NULL || gfc_resolve_expr (cl->length) == FAILURE)
-	continue;
-
-      if (gfc_simplify_expr (cl->length, 0) == FAILURE)
-	continue;
-
-      if (gfc_specification_expr (cl->length) == FAILURE)
-	continue;
-    }
+    resolve_charlen (cl);
 
   gfc_traverse_ns (ns, resolve_values);
 
