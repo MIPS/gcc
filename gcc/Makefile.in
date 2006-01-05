@@ -986,11 +986,12 @@ OBJS-common = \
  print-rtl.o print-tree.o profile.o value-prof.o var-tracking.o		   \
  real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
  reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	   \
- sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
- simplify-rtx.o sreal.o stmt.o stor-layout.o stringpool.o		   \
- struct-equiv.o targhooks.o timevar.o toplev.o tracer.o tree.o tree-dump.o \
- varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
- et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
+ sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-treegion.o           \
+ sched-vis.o sdbout.o simplify-rtx.o sreal.o stmt.o stor-layout.o          \
+ stringpool.o struct-equiv.o targhooks.o timevar.o toplev.o tracer.o       \
+ tree.o tree-dump.o varasm.o varray.o vec.o version.o vmsdbgout.o          \
+ xcoffout.o alloc-pool.o et-forest.o cfghooks.o bt-load.o                  \
+ pretty-print.o $(GGC) web.o passes.o	                                   \
  tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o    			   \
  lambda-trans.o	lambda-code.o tree-loop-linear.o tree-ssa-sink.o 	   \
  tree-vrp.o tree-stdarg.o tree-cfgcleanup.o tree-ssa-reassoc.o		   \
@@ -2474,6 +2475,10 @@ sched-deps.o : sched-deps.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    function.h $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h cselib.h \
    $(PARAMS_H) $(TM_P_H) $(DF_H)
 sched-rgn.o : sched-rgn.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(RTL_H) $(SCHED_INT_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) insn-config.h \
+   function.h $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(PARAMS_H) \
+   $(TM_P_H) $(TARGET_H) $(CFGLAYOUT_H) timevar.h tree-pass.h
+sched-treegions.o : sched-rgn.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(SCHED_INT_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) insn-config.h \
    function.h $(INSN_ATTR_H) toplev.h $(RECOG_H) except.h $(PARAMS_H) \
    $(TM_P_H) $(TARGET_H) $(CFGLAYOUT_H) timevar.h tree-pass.h

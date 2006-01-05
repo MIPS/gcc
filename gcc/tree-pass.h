@@ -342,6 +342,7 @@ extern struct tree_opt_pass pass_mode_switching;
 extern struct tree_opt_pass pass_recompute_reg_usage;
 extern struct tree_opt_pass pass_sms;
 extern struct tree_opt_pass pass_sched;
+extern struct tree_opt_pass pass_sched_treegions;
 extern struct tree_opt_pass pass_local_alloc;
 extern struct tree_opt_pass pass_global_alloc;
 extern struct tree_opt_pass pass_postreload;

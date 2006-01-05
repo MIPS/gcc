@@ -1984,6 +1984,9 @@ extern void schedule_insns (FILE *);
 /* In sched-ebb.c.  */
 extern void schedule_ebbs (FILE *);
 
+/* In sched-treegions.c.  */
+extern void schedule_treegions (FILE *);
+
 /* In haifa-sched.c.  */
 extern void fix_sched_param (const char *, const char *);
 
