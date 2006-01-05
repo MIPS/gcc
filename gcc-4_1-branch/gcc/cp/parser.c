@@ -2417,7 +2417,9 @@ cp_parser_skip_to_closing_brace (cp_parser *parser)
     }
 }
 
-/* Consume tokens until we reach the end of the pragma.  */
+/* Consume tokens until we reach the end of the pragma.  The PRAGMA_TOK
+   parameter is the PRAGMA token, allowing us to purge the entire pragma
+   sequence.  */
 
 static void
 cp_parser_skip_to_pragma_eol (cp_parser* parser, cp_token *pragma_tok)
@@ -6040,7 +6042,10 @@ cp_parser_builtin_offsetof (cp_parser *parser)
      iteration-statement
      jump-statement
      declaration-statement
-     try-block  */
+     try-block
+
+  IN_COMPOUND is true when the statement is nested inside a
+  cp_parser_compound_statement; this matters for certain pragmas.  */
 
 static void
 cp_parser_statement (cp_parser* parser, tree in_statement_expr,
@@ -6178,7 +6183,10 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr,
      case constant-expression ... constant-expression : statement
 
    Returns the new CASE_LABEL_EXPR, for a `case' or `default' label.
-   For an ordinary label, returns a LABEL_EXPR.  */
+   For an ordinary label, returns a LABEL_EXPR.
+
+   IN_COMPOUND is as for cp_parser_statement: true when we're nested
+   inside a compound.  */
 
 static tree
 cp_parser_labeled_statement (cp_parser* parser, tree in_statement_expr,

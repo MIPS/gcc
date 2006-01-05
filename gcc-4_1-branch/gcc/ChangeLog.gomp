@@ -1,3 +1,8 @@
+2005-01-03  Eric Christopher  <echristo@apple.com>
+
+	* gcc.c (GOMP_SELF_SPECS): Bracket in #ifndef/#endif.
+	* config/darwin.h (GOMP_SELF_SPECS): Define.
+
 2005-12-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/25246
@@ -417,7 +422,7 @@
 2005-10-25  Diego Novillo  <dnovillo@redhat.com>
 
 	Mainline merge (gomp-merge-20051025).
-	
+
 2005-10-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-nested.c (convert_nonlocal_reference): Handle OMP_MASTER and
@@ -567,7 +572,7 @@
 	(critical_name_mutexes, expand_omp_critical): Move from gimplify.c.
 	(expand_omp_1): Call them.  Handle RETURN_EXPR.
 	(expand_omp): Set want_return_expr.
-	* tree-gimple.c (is_gimple_stmt): True for OMP_MASTER, 
+	* tree-gimple.c (is_gimple_stmt): True for OMP_MASTER,
 	OMP_ORDERED, OMP_CRITICAL.
 	* tree-gimple.h (struct walk_stmt_info): Add want_return_expr.
 	* tree-nested.c (walk_stmts): Honor it.
@@ -875,7 +880,7 @@
 
 2005-10-09  Richard Henderson  <rth@redhat.com>
 
-	* c-parser.c (c_parser_omp_clause_copyin): Verify that the 
+	* c-parser.c (c_parser_omp_clause_copyin): Verify that the
 	variables are in fact threadprivate.
 
 2005-10-09  Richard Henderson  <rth@redhat.com>
@@ -945,7 +950,7 @@
 	(gimplify_expr): Use gimplify_omp_parallel.  Pass the bodies of
 	OMP_SECTIONS, OMP_SECTION, OMP_SINGLE, through gimplify_to_stmt_list.
 	(gimplify_body): Verify gimplify_ctxp is empty after gimplification.
-	* tree-gimple.c (is_gimple_stmt): Add OMP_SECTIONS, OMP_SECTION, 
+	* tree-gimple.c (is_gimple_stmt): Add OMP_SECTIONS, OMP_SECTION,
 	and OMP_SINGLE.
 	* tree-gimple.h (use_pointer_for_field): Remove.
 	(struct walk_stmt_info): Add want_bind_expr, want_locations.
@@ -964,7 +969,7 @@
 	OMP_FOR_VAR_INIT, OMP_FOR_VAR_LAST, OMP_FOR_VAR_REDUC,
 	OMP_SECTIONS_VAR_INIT, OMP_SECTIONS_VAR_LAST,
 	OMP_SECTIONS_VAR_REDUC): Remove.
-	(OMP_CLAUSE_DECL): Rename from OMP_CLAUSE_OUTER_DECL. 
+	(OMP_CLAUSE_DECL): Rename from OMP_CLAUSE_OUTER_DECL.
 	(OMP_CLAUSE_INNER_DECL): Remove.
 	(OMP_CLAUSE_DEFAULT_KIND): New.
 
@@ -1223,7 +1228,7 @@
 	(c_parser_for_statement): Revert all changes since mainline.
 	(c_parser_omp_for_statement): New.
 	(c_parser_omp_sections_body): Return the stmt created.
-	(c_parser_omp_directive): Use c_begin_omp_parallel, 
+	(c_parser_omp_directive): Use c_begin_omp_parallel,
 	c_finish_omp_bindings, c_finish_omp_parallel as necessary.
 	(c_parser_pragma_omp_variable_list): Put parsed expression in
 	the TREE_PURPOSE of the list.
@@ -1452,7 +1457,7 @@
 	* c-parser.c (c_parser_for_statement): Don't emit the init expr
 	when is_omp_for.
 	* gimple-low.c (lower_function_body): Clear data.
-	(emit_num_threads_setup_code): Fix num_threads logic when 
+	(emit_num_threads_setup_code): Fix num_threads logic when
 	if clause present and num_threads clause absent.
 	(emit_omp_for_static, lower_omp_for): Remove.
 	(lower_stmt): Don't call it.
