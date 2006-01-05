@@ -1,3 +1,7 @@
+2006-01-05  Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/rs6000.c (debug_stack_info): Revert trivial hunk.
+
 2006-01-04  Ben Elliston  <bje@au.ibm.com>
 
 	* config/fp-bit.h: Use top-of-file comment from libgcc2.c.

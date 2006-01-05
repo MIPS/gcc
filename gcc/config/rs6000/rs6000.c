@@ -13220,8 +13220,7 @@ debug_stack_info (rs6000_stack_t *info)
     fprintf (stderr, "\tcr_save_offset      = %5d\n", info->cr_save_offset);
 
   if (info->varargs_save_offset)
-    fprintf (stderr, "\tvarargs_save_offset = %5d\n",
-	     info->varargs_save_offset);
+    fprintf (stderr, "\tvarargs_save_offset = %5d\n", info->varargs_save_offset);
 
   if (info->total_size)
     fprintf (stderr, "\ttotal_size          = "HOST_WIDE_INT_PRINT_DEC"\n",
