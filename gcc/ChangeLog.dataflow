@@ -1,8 +1,21 @@
+2006-01-06  Daniel Berlin  <dberlin@dberlin.org>
+  	    Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-scan.c (df_reg_use_gen, df_reg_def_gen): Removed.
+	(df_insn_contains_asm_1): New function.
+	(df_insn_contains_asm): Rewritten to use for_each_rtx.
+	(df_insn_refs_record): Fixed call to df_insn_contains_asm and
+	the way calls are processed.
+	(df_insn_refs_record, df_bb_refs_record): Changed calls to not
+	need df_reg_use_gen or df_reg_def_gen.
+	* loop-invariant.c (free_inv_motion_data): Removed duplicated code typo.
+
 2005-12-30  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* df-core.c (df_find_def, df_find_use):  Added subreg aware code.
 	(df_reg_defined, df_reg_used): New function.
-	df.h (df_reg_defined, df_reg_used): New function.
-	loop-invariant.c (struct invariant, hash_invariant_expr, 
+	* df.h (df_reg_defined, df_reg_used): New function.
+	* loop-invariant.c (struct invariant, hash_invariant_expr, 
 	eq_invariant_expr, find_or_insert_inv, find_or_insert_inv,
 	find_identical_invariants, merge_identical_invariants, 
 	find_defs, create_new_invariant, check_dependencies,

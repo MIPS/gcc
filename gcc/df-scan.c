@@ -1,9 +1,9 @@
-/* ToDO: We need to go back and add the warning messages about code
+/* FIXME: We need to go back and add the warning messages about code
    moved across setjmp.  */
 
 
 /* Scanning of rtl for dataflow analysis.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
@@ -47,6 +47,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "bitmap.h"
 #include "timevar.h"
 #include "df.h"
+
 #ifndef HAVE_epilogue
 #define HAVE_epilogue 0
 #endif
@@ -61,28 +62,27 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define EPILOGUE_USES(REGNO)  0
 #endif
 
-
-int df_state;            /* Indicates where we are in the compilation.  */
+/* Indicates where we are in the compilation.  */
+int df_state;
 
 /* The bitmap_obstack is used to hold some static variables that
-should not be reset after each function is compiled.  */
+   should not be reset after each function is compiled.  */
 
 static bitmap_obstack persistent_obstack;
+
+/* The set of hard registers in eliminables[i].from. */
 
 static HARD_REG_SET elim_reg_set;
 
 /* This is a bitmap copy of regs_invalidated_by_call so that we can
-easily add it into bitmaps, etc. */ 
+   easily add it into bitmaps, etc. */ 
 
 bitmap df_invalidated_by_call = NULL;
 
 /* Initialize ur_in and ur_out as if all hard registers were partially
-available.  */
+   available.  */
 
 bitmap df_all_hard_regs = NULL;
-
-/*  The number of def allowed for any pseudo before sparce techniques
-are used. */
 
 static void df_ref_record (struct dataflow *, rtx, rtx *, 
 			   basic_block, rtx, enum df_ref_type,
@@ -96,24 +96,23 @@ static void df_uses_record (struct dataflow *, rtx *, enum df_ref_type,
 static void df_insn_refs_record (struct dataflow *, basic_block, rtx);
 static void df_bb_refs_record (struct dataflow *, basic_block);
 static void df_refs_record (struct dataflow *, bitmap);
-static struct df_ref * df_ref_create_structure (struct dataflow *, rtx, rtx *, 
-						basic_block, rtx, enum df_ref_type, 
-						enum df_ref_flags);
+static struct df_ref *df_ref_create_structure (struct dataflow *, rtx, rtx *, 
+					       basic_block, rtx, enum df_ref_type, 
+					       enum df_ref_flags);
 static void df_record_exit_block_uses (struct dataflow *);
 static void df_grow_reg_info (struct dataflow *, struct df_ref_info *);
 static void df_grow_ref_info (struct df_ref_info *, unsigned int);
 static void df_grow_insn_info (struct df *);
 
 
-/****************************************************************************/
-/* SCANNING DATAFLOW PROBLEM                                                */
-/*                                                                          */
-/* There are several ways in which scanning looks just like the other       */
-/* dataflow problems.  It shares the all the mechanisms for local info      */
-/* as well as basic block info.  Where it differs is when and how often     */
-/* it gets run.  It also has no need for the iterative solver.              */
-/*                                                                          */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+   SCANNING DATAFLOW PROBLEM
+
+   There are several ways in which scanning looks just like the other
+   dataflow problems.  It shares the all the mechanisms for local info
+   as well as basic block info.  Where it differs is when and how often
+   it gets run.  It also has no need for the iterative solver.
+----------------------------------------------------------------------------*/
 
 /* Problem data for the scanning dataflow function.  */
 struct df_scan_problem_data
@@ -123,14 +122,14 @@ struct df_scan_problem_data
   alloc_pool reg_pool;
 };
 
-typedef struct df_scan_bb_info * df_scan_bb_info_t;
+typedef struct df_scan_bb_info *df_scan_bb_info_t;
 
 static void 
-df_scan_free_internal (struct dataflow * dflow)
+df_scan_free_internal (struct dataflow *dflow)
 {
-  struct df * df = dflow->df;
-  struct df_scan_problem_data * problem_data = 
-    (struct df_scan_problem_data *)dflow->problem_data;
+  struct df *df = dflow->df;
+  struct df_scan_problem_data *problem_data = 
+    (struct df_scan_problem_data *) dflow->problem_data;
 
   free (df->def_info.regs);
   free (df->def_info.refs);
@@ -161,18 +160,18 @@ df_scan_free_internal (struct dataflow * dflow)
 /* Get basic block info.  */
 
 struct df_scan_bb_info *
-df_scan_get_bb_info (struct dataflow * dflow, unsigned int index)
+df_scan_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (index < dflow->block_info_size); 
-  return (struct df_scan_bb_info *)dflow->block_info[index];
+  return (struct df_scan_bb_info *) dflow->block_info[index];
 }
 
 
 /* Set basic block info.  */
 
 static void
-df_scan_set_bb_info (struct dataflow * dflow, unsigned int index, 
-		     struct df_scan_bb_info * bb_info)
+df_scan_set_bb_info (struct dataflow *dflow, unsigned int index, 
+		     struct df_scan_bb_info *bb_info)
 {
   gcc_assert (index < dflow->block_info_size); 
   dflow->block_info[index] = (void *) bb_info;
@@ -182,7 +181,7 @@ df_scan_set_bb_info (struct dataflow * dflow, unsigned int index,
 /* Free basic block info.  */
 
 static void
-df_scan_free_bb_info (struct dataflow * dflow, void * vbb_info)
+df_scan_free_bb_info (struct dataflow *dflow, void *vbb_info)
 {
   struct df_scan_bb_info *bb_info = (struct df_scan_bb_info *) vbb_info;
   if (bb_info)
@@ -195,10 +194,10 @@ df_scan_free_bb_info (struct dataflow * dflow, void * vbb_info)
    be rescanned.  */
 
 static void 
-df_scan_alloc (struct dataflow * dflow, bitmap blocks_to_rescan)
+df_scan_alloc (struct dataflow *dflow, bitmap blocks_to_rescan)
 {
-  struct df * df = dflow->df;
-  struct df_scan_problem_data * problem_data;
+  struct df *df = dflow->df;
+  struct df_scan_problem_data *problem_data;
   unsigned int insn_num = get_max_uid () + 1;
   unsigned int block_size = 50;
   unsigned int bb_index;
@@ -209,19 +208,10 @@ df_scan_alloc (struct dataflow * dflow, bitmap blocks_to_rescan)
   if (dflow->problem_data)
     df_scan_free_internal (dflow);
 
-/*   if (last_basic_block > 200) */
-/*     block_size = (last_basic_block + 20)/2; */
-/*   else */
-/*     block_size = 100; */
   dflow->block_pool 
     = create_alloc_pool ("df_scan_block pool", 
 			 sizeof (struct df_scan_bb_info), 
 			 block_size);
-
-/*   if (insn_num > 200) */
-/*     block_size = (insn_num + 20)/2; */
-/*   else */
-/*     block_size = 100; */
 
   problem_data = xmalloc (sizeof (struct df_scan_problem_data));
   dflow->problem_data = problem_data;
@@ -233,21 +223,16 @@ df_scan_alloc (struct dataflow * dflow, bitmap blocks_to_rescan)
     = create_alloc_pool ("df_scan_insn pool", 
 			 sizeof (struct df_insn_info), block_size);
 
-/*   if (max_reg_num () > 200) */
-/*     block_size = (max_reg_num () + 20)/2; */
-/*   else */
-/*     block_size = 100; */
-
   problem_data->reg_pool 
     = create_alloc_pool ("df_scan_reg pool", 
 			 sizeof (struct df_reg_info), block_size);
 
-  insn_num += insn_num/4; 
+  insn_num += insn_num / 4; 
   df_grow_reg_info (dflow, &df->def_info);
   df_grow_ref_info (&df->def_info, insn_num);
 
   df_grow_reg_info (dflow, &df->use_info);
-  df_grow_ref_info (&df->use_info, insn_num * 2);
+  df_grow_ref_info (&df->use_info, insn_num *2);
 
   df_grow_insn_info (df);
   df_grow_bb_info (dflow);
@@ -257,7 +242,7 @@ df_scan_alloc (struct dataflow * dflow, bitmap blocks_to_rescan)
       struct df_scan_bb_info *bb_info = df_scan_get_bb_info (dflow, bb_index);
       if (!bb_info)
 	{
-	  bb_info = (struct df_scan_bb_info *)pool_alloc (dflow->block_pool);
+	  bb_info = (struct df_scan_bb_info *) pool_alloc (dflow->block_pool);
 	  df_scan_set_bb_info (dflow, bb_index, bb_info);
 	}
       bb_info->artificial_defs = NULL;
@@ -272,9 +257,9 @@ df_scan_alloc (struct dataflow * dflow, bitmap blocks_to_rescan)
 /* Free all of the data associated with the scan problem.  */
 
 static void 
-df_scan_free (struct dataflow * dflow)
+df_scan_free (struct dataflow *dflow)
 {
-  struct df * df = dflow->df;
+  struct df *df = dflow->df;
   
   df_scan_free_internal (dflow);
   if (df->blocks_to_scan)
@@ -288,9 +273,9 @@ df_scan_free (struct dataflow * dflow)
 }
 
 static void 
-df_scan_dump (struct dataflow * dflow ATTRIBUTE_UNUSED, FILE * file ATTRIBUTE_UNUSED)
+df_scan_dump (struct dataflow *dflow ATTRIBUTE_UNUSED, FILE *file ATTRIBUTE_UNUSED)
 {
-  struct df * df = dflow->df;
+  struct df *df = dflow->df;
   int i;
 
   fprintf (file, "  all hard regs \t");
@@ -302,7 +287,7 @@ df_scan_dump (struct dataflow * dflow ATTRIBUTE_UNUSED, FILE * file ATTRIBUTE_UN
   fprintf (file, "  exit block uses \t");
   dump_bitmap (file, df->exit_block_uses);
   fprintf (file, "  regs ever live \t");
-  for (i=0; i<FIRST_PSEUDO_REGISTER; i++)
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (regs_ever_live[i])
       fprintf (file, "%d ", i);
   fprintf (file, "\n");
@@ -332,14 +317,14 @@ static struct df_problem problem_SCAN =
    solution.  */
 
 struct dataflow *
-df_scan_add_problem (struct df * df)
+df_scan_add_problem (struct df *df)
 {
   return df_add_problem (df, &problem_SCAN);
 }
 
-/****************************************************************************/
-/* Storage Allocation Utilities                                             */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+   Storage Allocation Utilities
+----------------------------------------------------------------------------*/
 
 
 /* First, grow the reg_info information.  If the current size is less than
@@ -350,25 +335,25 @@ df_scan_add_problem (struct df * df)
    filled with reg_info structures.  */
 
 static void 
-df_grow_reg_info (struct dataflow * dflow, struct df_ref_info * ref_info)
+df_grow_reg_info (struct dataflow *dflow, struct df_ref_info *ref_info)
 {
   unsigned int max_reg = max_reg_num ();
   unsigned int new_size = max_reg;
-  struct df_scan_problem_data * problem_data =
-    (struct df_scan_problem_data *)dflow->problem_data;
+  struct df_scan_problem_data *problem_data =
+    (struct df_scan_problem_data *) dflow->problem_data;
   unsigned int i;
 
   if (ref_info->regs_size < new_size)
     {
-      new_size += new_size/4;
+      new_size += new_size / 4;
       ref_info->regs = xrealloc (ref_info->regs, 
-				 new_size * sizeof (struct df_reg_info*));
+				 new_size *sizeof (struct df_reg_info*));
       ref_info->regs_size = new_size;
     }
 
-  for (i=ref_info->regs_inited; i<max_reg; i++)
+  for (i = ref_info->regs_inited; i < max_reg; i++)
     {
-      struct df_reg_info * reg_info = pool_alloc (problem_data->reg_pool);
+      struct df_reg_info *reg_info = pool_alloc (problem_data->reg_pool);
       memset (reg_info, 0, sizeof (struct df_reg_info));
       ref_info->regs[i] = reg_info;
     }
@@ -380,14 +365,14 @@ df_grow_reg_info (struct dataflow * dflow, struct df_ref_info * ref_info)
 /* Grow the ref information.  */
 
 static void 
-df_grow_ref_info (struct df_ref_info * ref_info, unsigned int new_size)
+df_grow_ref_info (struct df_ref_info *ref_info, unsigned int new_size)
 {
   if (ref_info->refs_size < new_size)
     {
       ref_info->refs = xrealloc (ref_info->refs, 
-				 new_size * sizeof (struct df_ref *));
+				 new_size *sizeof (struct df_ref *));
       memset (ref_info->refs + ref_info->refs_size, 0,
-	      (new_size - ref_info->refs_size) * sizeof (struct df_ref *));
+	      (new_size - ref_info->refs_size) *sizeof (struct df_ref *));
       ref_info->refs_size = new_size;
     }
 }
@@ -396,17 +381,18 @@ df_grow_ref_info (struct df_ref_info * ref_info, unsigned int new_size)
 /* Grow the ref information.  If the current size is less than the
    number of instructions, grow to 25% more than the number of
    instructions.  */
+
 static void 
-df_grow_insn_info (struct df * df)
+df_grow_insn_info (struct df *df)
 {
   unsigned int new_size = get_max_uid () + 1;
   if (df->insns_size < new_size)
     {
-      new_size += new_size/4;
+      new_size += new_size / 4;
       df->insns = xrealloc (df->insns, 
-			    new_size * sizeof (struct df_insn_info *));
+			    new_size *sizeof (struct df_insn_info *));
       memset (df->insns + df->insns_size, 0,
-	      (new_size - df->insns_size) * sizeof (struct df_insn_info *));
+	      (new_size - df->insns_size) *sizeof (struct df_insn_info *));
       df->insns_size = new_size;
     }
 }
@@ -414,19 +400,19 @@ df_grow_insn_info (struct df * df)
 
 
 
-/****************************************************************************/
-/* PUBLIC INTERFACES FOR SMALL GRAIN CHANGES TO SCANNING.                   */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+   PUBLIC INTERFACES FOR SMALL GRAIN CHANGES TO SCANNING.
+----------------------------------------------------------------------------*/
 
 /* Rescan some BLOCKS or all the blocks defined by the last call to
    df_set_blocks if BLOCKS is NULL);  */
 
 void
-df_rescan_blocks (struct df * df, bitmap blocks)
+df_rescan_blocks (struct df *df, bitmap blocks)
 {
   bitmap local_blocks_to_scan = BITMAP_ALLOC (NULL);
 
-  struct dataflow * dflow = df->problems_by_index [DF_SCAN];
+  struct dataflow *dflow = df->problems_by_index [DF_SCAN];
   basic_block bb;
 
   df->def_info.refs_organized = false;
@@ -436,13 +422,13 @@ df_rescan_blocks (struct df * df, bitmap blocks)
     {
       /* Need to assure that there are space in all of the tables.  */
       unsigned int insn_num = get_max_uid () + 1;
-      insn_num += insn_num/4;
+      insn_num += insn_num / 4;
 
       df_grow_reg_info (dflow, &df->def_info);
       df_grow_ref_info (&df->def_info, insn_num);
       
       df_grow_reg_info (dflow, &df->use_info);
-      df_grow_ref_info (&df->use_info, insn_num * 2);
+      df_grow_ref_info (&df->use_info, insn_num *2);
       
       df_grow_insn_info (df);
       df_grow_bb_info (dflow);
@@ -500,7 +486,7 @@ df_ref_create (struct df *df, rtx reg, rtx *loc, rtx insn,
 	       enum df_ref_type ref_type, 
 	       enum df_ref_flags ref_flags)
 {
-  struct dataflow * dflow = df->problems_by_index[DF_SCAN];
+  struct dataflow *dflow = df->problems_by_index[DF_SCAN];
   struct df_scan_bb_info *bb_info;
   
   df_grow_reg_info (dflow, &df->use_info);
@@ -511,7 +497,7 @@ df_ref_create (struct df *df, rtx reg, rtx *loc, rtx insn,
   bb_info = df_scan_get_bb_info (dflow, bb->index);
   if (!bb_info)
     {
-      bb_info = (struct df_scan_bb_info *)pool_alloc (dflow->block_pool);
+      bb_info = (struct df_scan_bb_info *) pool_alloc (dflow->block_pool);
       df_scan_set_bb_info (dflow, bb->index, bb_info);
       bb_info->artificial_defs = NULL;
       bb_info->artificial_uses = NULL;
@@ -527,9 +513,9 @@ df_ref_create (struct df *df, rtx reg, rtx *loc, rtx insn,
 
 
 
-/****************************************************************************/
-/* UTILITIES TO CREATE AND DESTROY REFS AND CHAINS.                         */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+   UTILITIES TO CREATE AND DESTROY REFS AND CHAINS.
+----------------------------------------------------------------------------*/
 
 
 /* Get the artifical uses for a basic block.  */
@@ -537,7 +523,7 @@ df_ref_create (struct df *df, rtx reg, rtx *loc, rtx insn,
 struct df_ref *
 df_get_artificial_defs (struct df *df, unsigned int bb_index)
 {
-  struct dataflow * dflow = df->problems_by_index[DF_SCAN];
+  struct dataflow *dflow = df->problems_by_index[DF_SCAN];
   return df_scan_get_bb_info (dflow, bb_index)->artificial_defs;
 }
 
@@ -547,7 +533,7 @@ df_get_artificial_defs (struct df *df, unsigned int bb_index)
 struct df_ref *
 df_get_artificial_uses (struct df *df, unsigned int bb_index)
 {
-  struct dataflow * dflow = df->problems_by_index[DF_SCAN];
+  struct dataflow *dflow = df->problems_by_index[DF_SCAN];
   return df_scan_get_bb_info (dflow, bb_index)->artificial_uses;
 }
 
@@ -555,19 +541,19 @@ df_get_artificial_uses (struct df *df, unsigned int bb_index)
 /* Link REF at the front of reg_use or reg_def chain for REGNO.  */
 
 void
-df_reg_chain_create (struct df_reg_info * reg_info, 
-		     struct df_ref * ref) 
+df_reg_chain_create (struct df_reg_info *reg_info, 
+		     struct df_ref *ref) 
 {
   struct df_ref *head = reg_info->reg_chain;
   reg_info->reg_chain = ref;
 
-  DF_REF_NEXT_REG(ref) = head;
+  DF_REF_NEXT_REG (ref) = head;
 
   /* We cannot actually link to the head of the chain.  */
-  DF_REF_PREV_REG(ref) = NULL;
+  DF_REF_PREV_REG (ref) = NULL;
 
   if (head)
-    DF_REF_PREV_REG(head) = ref;
+    DF_REF_PREV_REG (head) = ref;
 }
 
 
@@ -575,10 +561,10 @@ df_reg_chain_create (struct df_reg_info * reg_info,
    will be CHAIN unless the REF was at the beginning of the chain.  */
 
 static struct df_ref *
-df_ref_unlink (struct df_ref * chain, struct df_ref * ref)
+df_ref_unlink (struct df_ref *chain, struct df_ref *ref)
 {
-  struct df_ref * orig_chain = chain;
-  struct df_ref * prev = NULL;
+  struct df_ref *orig_chain = chain;
+  struct df_ref *prev = NULL;
   while (chain)
     {
       if (chain == ref)
@@ -612,27 +598,27 @@ df_ref_unlink (struct df_ref * chain, struct df_ref * ref)
    uses or defs chain.  */
 
 struct df_ref *
-df_reg_chain_unlink (struct dataflow * dflow, struct df_ref * ref) 
+df_reg_chain_unlink (struct dataflow *dflow, struct df_ref *ref) 
 {
-  struct df * df = dflow->df;
-  struct df_ref *next = DF_REF_NEXT_REG(ref);  
-  struct df_ref *prev = DF_REF_PREV_REG(ref);
-  struct df_scan_problem_data * problem_data =
-    (struct df_scan_problem_data *)dflow->problem_data;
-  struct df_reg_info * reg_info;
-  struct df_ref * next_ref = ref->next_ref;
+  struct df *df = dflow->df;
+  struct df_ref *next = DF_REF_NEXT_REG (ref);  
+  struct df_ref *prev = DF_REF_PREV_REG (ref);
+  struct df_scan_problem_data *problem_data =
+    (struct df_scan_problem_data *) dflow->problem_data;
+  struct df_reg_info *reg_info;
+  struct df_ref *next_ref = ref->next_ref;
   unsigned int id = DF_REF_ID (ref);
 
-  if (DF_REF_TYPE(ref) == DF_REF_REG_DEF)
+  if (DF_REF_TYPE (ref) == DF_REF_REG_DEF)
     {
-      reg_info = DF_REG_DEF_GET(df, DF_REF_REGNO (ref));
+      reg_info = DF_REG_DEF_GET (df, DF_REF_REGNO (ref));
       df->def_info.bitmap_size--;
       if (df->def_info.refs && (id < df->def_info.refs_size))
 	DF_DEFS_SET (df, id, NULL);
     }
   else 
     {
-      reg_info = DF_REG_USE_GET(df, DF_REF_REGNO (ref));
+      reg_info = DF_REG_USE_GET (df, DF_REF_REGNO (ref));
       df->use_info.bitmap_size--;
       if (df->use_info.refs && (id < df->use_info.refs_size))
 	DF_USES_SET (df, id, NULL);
@@ -648,15 +634,15 @@ df_reg_chain_unlink (struct dataflow * dflow, struct df_ref * ref)
      first of the list.  If not, just join the next and prev.  */
   if (prev)
     {
-      DF_REF_NEXT_REG(prev) = next;
+      DF_REF_NEXT_REG (prev) = next;
       if (next)
-	DF_REF_PREV_REG(next) = prev;
+	DF_REF_PREV_REG (next) = prev;
     }
   else
     {
       reg_info->reg_chain = next;
       if (next)
-	DF_REF_PREV_REG(next) = NULL;
+	DF_REF_PREV_REG (next) = NULL;
     }
 
   pool_free (problem_data->ref_pool, ref);
@@ -669,14 +655,15 @@ df_reg_chain_unlink (struct dataflow * dflow, struct df_ref * ref)
 void
 df_ref_remove (struct df *df, struct df_ref *ref)
 {
-  struct dataflow * dflow = df->problems_by_index [DF_SCAN];
+  struct dataflow *dflow = df->problems_by_index [DF_SCAN];
   if (DF_REF_REG_DEF_P (ref))
     {
       if (DF_REF_FLAGS (ref) & DF_REF_ARTIFICIAL)
 	{
-	  struct df_scan_bb_info * bb_info 
+	  struct df_scan_bb_info *bb_info 
 	    = df_scan_get_bb_info (dflow, DF_REF_BB (ref)->index);
-	  bb_info->artificial_defs = df_ref_unlink (bb_info->artificial_defs, ref);
+	  bb_info->artificial_defs 
+	    = df_ref_unlink (bb_info->artificial_defs, ref);
 	}
       else
 	DF_INSN_UID_DEFS (df, DF_REF_INSN_UID (ref)) = 
@@ -689,9 +676,10 @@ df_ref_remove (struct df *df, struct df_ref *ref)
     {
       if (DF_REF_FLAGS (ref) & DF_REF_ARTIFICIAL)
 	{
-	  struct df_scan_bb_info * bb_info 
+	  struct df_scan_bb_info *bb_info 
 	    = df_scan_get_bb_info (dflow, DF_REF_BB (ref)->index);
-	  bb_info->artificial_uses = df_ref_unlink (bb_info->artificial_uses, ref);
+	  bb_info->artificial_uses 
+	    = df_ref_unlink (bb_info->artificial_uses, ref);
 	}
       else
 	DF_INSN_UID_USES (df, DF_REF_INSN_UID (ref)) = 
@@ -710,15 +698,15 @@ df_ref_remove (struct df *df, struct df_ref *ref)
 static struct df_insn_info *
 df_insn_create_insn_record (struct dataflow *dflow, rtx insn)
 {
-  struct df * df = dflow->df;
-  struct df_scan_problem_data * problem_data =
-    (struct df_scan_problem_data *)dflow->problem_data;
+  struct df *df = dflow->df;
+  struct df_scan_problem_data *problem_data =
+    (struct df_scan_problem_data *) dflow->problem_data;
 
-  struct df_insn_info * insn_rec = DF_INSN_GET (df, insn);
+  struct df_insn_info *insn_rec = DF_INSN_GET (df, insn);
   if (!insn_rec)
     {
       insn_rec = pool_alloc (problem_data->insn_pool);
-      DF_INSN_SET(df, insn, insn_rec);
+      DF_INSN_SET (df, insn, insn_rec);
     }
   memset (insn_rec, 0, sizeof (struct df_insn_info));
 
@@ -730,12 +718,12 @@ df_insn_create_insn_record (struct dataflow *dflow, rtx insn)
 void 
 df_insn_refs_delete (struct dataflow *dflow, rtx insn)
 {
-  struct df * df = dflow->df;
+  struct df *df = dflow->df;
   unsigned int uid = INSN_UID (insn);
-  struct df_insn_info * insn_info = DF_INSN_UID_GET (df, uid);
-  struct df_ref * ref;
-  struct df_scan_problem_data * problem_data =
-    (struct df_scan_problem_data *)dflow->problem_data;
+  struct df_insn_info *insn_info = DF_INSN_UID_GET (df, uid);
+  struct df_ref *ref;
+  struct df_scan_problem_data *problem_data =
+    (struct df_scan_problem_data *) dflow->problem_data;
 
   if (insn_info)
     {
@@ -760,12 +748,12 @@ df_refs_delete (struct dataflow *dflow, bitmap blocks)
 {
   bitmap_iterator bi;
   unsigned int bb_index;
-  struct df_ref * def;
-  struct df_ref * use;
+  struct df_ref *def;
+  struct df_ref *use;
 
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, bb_index, bi)
     {
-      struct df_scan_bb_info * bb_info 
+      struct df_scan_bb_info *bb_info 
 	= df_scan_get_bb_info (dflow, bb_index);
       rtx insn;
       basic_block bb = BASIC_BLOCK (bb_index);
@@ -798,7 +786,7 @@ df_refs_delete (struct dataflow *dflow, bitmap blocks)
    or reg-def chains.  */ 
 
 void 
-df_reorganize_refs (struct df_ref_info * ref_info)
+df_reorganize_refs (struct df_ref_info *ref_info)
 {
   unsigned int m = ref_info->regs_inited;
   unsigned int regno;
@@ -810,13 +798,13 @@ df_reorganize_refs (struct df_ref_info * ref_info)
 
   if (ref_info->refs_size < ref_info->bitmap_size)
     {  
-      int new_size = ref_info->bitmap_size + ref_info->bitmap_size/4;
+      int new_size = ref_info->bitmap_size + ref_info->bitmap_size / 4;
       df_grow_ref_info (ref_info, new_size);
     }
 
-  for (regno=0; regno<m; regno++)
+  for (regno = 0; regno < m; regno++)
     {
-      struct df_reg_info * reg_info = ref_info->regs[regno];
+      struct df_reg_info *reg_info = ref_info->regs[regno];
       int count = 0;
       if (reg_info)
 	{
@@ -845,36 +833,10 @@ df_reorganize_refs (struct df_ref_info * ref_info)
 
 /* Local miscellaneous routines.  */
 
-/* Return a USE for register REGNO.  */
-static rtx 
-df_reg_use_gen (unsigned int regno)
-{
-  rtx reg;
-  rtx use;
-
-  reg = regno_reg_rtx[regno];
-
-  use = gen_rtx_USE (GET_MODE (reg), reg);
-  return use;
-}
-/* Return a DEF for register REGNO.  */
-static rtx 
-df_reg_def_gen (bool set, unsigned int regno)
-{
-  rtx reg;
-  rtx def;
-
-  reg = regno_reg_rtx[regno];
-  if (set)
-    def = gen_rtx_SET (GET_MODE (reg), reg, reg);
-  else
-    def = gen_rtx_CLOBBER (GET_MODE (reg), reg);
-  return def;
-}
-
 /* Local routines for recording refs.  */
 
 /* Set where we are in the compilation.  */
+
 void 
 df_set_state (int state)
 {
@@ -883,10 +845,10 @@ df_set_state (int state)
 
 
 
-/****************************************************************************/
-/* Hard core instruction scanning code.  No external interfaces here,       */
-/* just a lot of routines that look inside insns.                           */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+   Hard core instruction scanning code.  No external interfaces here,
+   just a lot of routines that look inside insns.
+----------------------------------------------------------------------------*/
 
 /* Create a ref and add it to the reg-def or reg-use chains.  */
 
@@ -897,10 +859,10 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
 			 enum df_ref_flags ref_flags)
 {
   struct df_ref *this_ref;
-  struct df * df = dflow->df;
+  struct df *df = dflow->df;
   int regno = REGNO (GET_CODE (reg) == SUBREG ? SUBREG_REG (reg) : reg);
-  struct df_scan_problem_data * problem_data =
-    (struct df_scan_problem_data *)dflow->problem_data;
+  struct df_scan_problem_data *problem_data =
+    (struct df_scan_problem_data *) dflow->problem_data;
 
   this_ref = pool_alloc (problem_data->ref_pool);
   DF_REF_REG (this_ref) = reg;
@@ -917,7 +879,7 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
      of the instances.  */
   if (ref_type == DF_REF_REG_DEF)
     {
-      struct df_reg_info * reg_info = DF_REG_DEF_GET (df, regno);
+      struct df_reg_info *reg_info = DF_REG_DEF_GET (df, regno);
       reg_info->n_refs++;
 
       /* Add the ref to the reg_def chain.  */
@@ -925,10 +887,10 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
       DF_REF_ID (this_ref) = df->def_info.bitmap_size;
       if (df->def_info.add_refs_inline)
 	{
-	  if (DF_DEFS_SIZE(df) >= df->def_info.refs_size)
+	  if (DF_DEFS_SIZE (df) >= df->def_info.refs_size)
 	    {
 	      int new_size = df->def_info.bitmap_size 
-		+ df->def_info.bitmap_size/4;
+		+ df->def_info.bitmap_size / 4;
 	      df_grow_ref_info (&df->def_info, new_size);
 	    }
 	  /* Add the ref to the big array of defs.  */
@@ -940,7 +902,7 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
 
       if (DF_REF_FLAGS (this_ref) & DF_REF_ARTIFICIAL)
 	{
-	  struct df_scan_bb_info * bb_info 
+	  struct df_scan_bb_info *bb_info 
 	    = df_scan_get_bb_info (dflow, bb->index);
 	  this_ref->next_ref = bb_info->artificial_defs;
 	  bb_info->artificial_defs = this_ref;
@@ -953,7 +915,7 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
     }
   else
     {
-      struct df_reg_info * reg_info = DF_REG_USE_GET (df, regno);
+      struct df_reg_info *reg_info = DF_REG_USE_GET (df, regno);
       reg_info->n_refs++;
 
       /* Add the ref to the reg_use chain.  */
@@ -961,10 +923,10 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
       DF_REF_ID (this_ref) = df->use_info.bitmap_size;
       if (df->use_info.add_refs_inline)
 	{
-	  if (DF_USES_SIZE(df) >= df->use_info.refs_size)
+	  if (DF_USES_SIZE (df) >= df->use_info.refs_size)
 	    {
 	      int new_size = df->use_info.bitmap_size 
-		+ df->use_info.bitmap_size/4;
+		+ df->use_info.bitmap_size / 4;
 	      df_grow_ref_info (&df->use_info, new_size);
 	    }
 	  /* Add the ref to the big array of defs.  */
@@ -975,7 +937,7 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
       df->use_info.bitmap_size++;
       if (DF_REF_FLAGS (this_ref) & DF_REF_ARTIFICIAL)
 	{
-	  struct df_scan_bb_info * bb_info 
+	  struct df_scan_bb_info *bb_info 
 	    = df_scan_get_bb_info (dflow, bb->index);
 	  this_ref->next_ref = bb_info->artificial_uses;
 	  bb_info->artificial_uses = this_ref;
@@ -992,6 +954,7 @@ df_ref_create_structure (struct dataflow *dflow, rtx reg, rtx *loc,
 
 /* Create new references of type DF_REF_TYPE for each part of register REG
    at address LOC within INSN of BB.  */
+
 static void
 df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc, 
 	       basic_block bb, rtx insn, 
@@ -1000,7 +963,7 @@ df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc,
 	       bool record_live)
 {
   unsigned int regno;
-  struct df * df = dflow->df;
+  struct df *df = dflow->df;
 
   gcc_assert (REG_P (reg) || GET_CODE (reg) == SUBREG);
 
@@ -1049,9 +1012,9 @@ df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc,
 	  else if ((ref_type == DF_REF_REG_USE 
 		   || ref_type == DF_REF_REG_MEM_STORE
 		   || ref_type == DF_REF_REG_MEM_LOAD)
-		   && ((ref_flags & DF_REF_ARTIFICIAL) == 0) )
+		   && ((ref_flags & DF_REF_ARTIFICIAL) == 0))
 	    {
-	      /* Set regs_ever live on uses of non-eliminable frame
+	      /* Set regs_ever_live on uses of non-eliminable frame
 		 pointers and arg pointers.  */
 	      if (! (TEST_HARD_REG_BIT (elim_reg_set, regno)
 		     && (regno == FRAME_POINTER_REGNUM 
@@ -1075,6 +1038,7 @@ df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc,
    covered by the outer mode is smaller than that covered by the inner mode,
    is a read-modify-write operation.
    This function returns true iff the SUBREG X is such a SUBREG.  */
+
 bool
 df_read_modify_subreg_p (rtx x)
 {
@@ -1087,7 +1051,10 @@ df_read_modify_subreg_p (rtx x)
 }
 
 
-/* Process all the registers defined in the rtx, X.  */
+/* Process all the registers defined in the rtx, X.
+   Autoincrement/decrement definitions will be picked up by
+   df_uses_record.  */
+
 static void
 df_def_record_1 (struct dataflow *dflow, rtx x, 
 		 basic_block bb, rtx insn, 
@@ -1144,11 +1111,13 @@ df_def_record_1 (struct dataflow *dflow, rtx x,
 
   if (REG_P (dst)
       || (GET_CODE (dst) == SUBREG && REG_P (SUBREG_REG (dst))))
-    df_ref_record (dflow, dst, loc, bb, insn, DF_REF_REG_DEF, flags, record_live);
+    df_ref_record (dflow, dst, loc, bb, insn, 
+		   DF_REF_REG_DEF, flags, record_live);
 }
 
 
 /* Process all the registers defined in the pattern rtx, X.  */
+
 static void
 df_defs_record (struct dataflow *dflow, rtx x, basic_block bb, rtx insn)
 {
@@ -1157,7 +1126,8 @@ df_defs_record (struct dataflow *dflow, rtx x, basic_block bb, rtx insn)
   if (code == SET || code == CLOBBER)
     {
       /* Mark the single def within the pattern.  */
-      df_def_record_1 (dflow, x, bb, insn, code == CLOBBER ? DF_REF_CLOBBER : 0, true);
+      df_def_record_1 (dflow, x, bb, insn, 
+		       code == CLOBBER ? DF_REF_CLOBBER : 0, true);
     }
   else if (code == COND_EXEC)
     {
@@ -1175,6 +1145,7 @@ df_defs_record (struct dataflow *dflow, rtx x, basic_block bb, rtx insn)
 
 
 /* Process all the registers used in the rtx at address LOC.  */
+
 static void
 df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
 		basic_block bb, rtx insn, enum df_ref_flags flags)
@@ -1242,7 +1213,8 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
 	    case SUBREG:
 	      if (df_read_modify_subreg_p (dst))
 		{
-		  df_uses_record (dflow, &SUBREG_REG (dst), DF_REF_REG_USE, bb,
+		  df_uses_record (dflow, &SUBREG_REG (dst), 
+				  DF_REF_REG_USE, bb,
 				  insn, DF_REF_READ_WRITE);
 		  break;
 		}
@@ -1264,18 +1236,22 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
 		/* A strict_low_part uses the whole REG and not just the
 		 SUBREG.  */
 		dst = XEXP (dst, 0);
-	      df_uses_record (dflow, 
-			      (GET_CODE (dst) == SUBREG) ? &SUBREG_REG (dst) : temp, 
-			      DF_REF_REG_USE, bb,
-			      insn, DF_REF_READ_WRITE);
+		df_uses_record (dflow, 
+				(GET_CODE (dst) == SUBREG) 
+				? &SUBREG_REG (dst) : temp, 
+				DF_REF_REG_USE, bb,
+				insn, DF_REF_READ_WRITE);
 	      }
 	      break;
 	    case ZERO_EXTRACT:
 	    case SIGN_EXTRACT:
-	      df_uses_record (dflow, &XEXP (dst, 0), DF_REF_REG_USE, bb, insn,
+	      df_uses_record (dflow, &XEXP (dst, 0), 
+			      DF_REF_REG_USE, bb, insn,
 			      DF_REF_READ_WRITE);
-	      df_uses_record (dflow, &XEXP (dst, 1), DF_REF_REG_USE, bb, insn, 0);
-	      df_uses_record (dflow, &XEXP (dst, 2), DF_REF_REG_USE, bb, insn, 0);
+	      df_uses_record (dflow, &XEXP (dst, 1), 
+			      DF_REF_REG_USE, bb, insn, 0);
+	      df_uses_record (dflow, &XEXP (dst, 2), 
+			      DF_REF_REG_USE, bb, insn, 0);
 	      dst = XEXP (dst, 0);
 	      break;
 	    default:
@@ -1292,21 +1268,33 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
     case TRAP_IF:
     case ASM_INPUT:
       {
-	/* Traditional and volatile asm instructions must be considered to use
-	   and clobber all hard registers, all pseudo-registers and all of
-	   memory.  So must TRAP_IF and UNSPEC_VOLATILE operations.
+	/* Traditional and volatile asm instructions must be
+	   considered to use and clobber all hard registers, all
+	   pseudo-registers and all of memory.  So must TRAP_IF and
+	   UNSPEC_VOLATILE operations.
 
-	   Consider for instance a volatile asm that changes the fpu rounding
-	   mode.  An insn should not be moved across this even if it only uses
-	   pseudo-regs because it might give an incorrectly rounded result.
+	   Consider for instance a volatile asm that changes the fpu
+	   rounding mode.  An insn should not be moved across this
+	   even if it only uses pseudo-regs because it might give an
+	   incorrectly rounded result.
 
-	   For now, just mark any regs we can find in ASM_OPERANDS as
-	   used.  */
+	   However, flow.c's liveness computation did *not* do this,
+	   giving the reasoning as " ?!? Unfortunately, marking all
+	   hard registers as live causes massive problems for the
+	   register allocator and marking all pseudos as live creates
+	   mountains of uninitialized variable warnings."
 
-	/* For all ASM_OPERANDS, we must traverse the vector of input operands.
-	   We can not just fall through here since then we would be confused
-	   by the ASM_INPUT rtx inside ASM_OPERANDS, which do not indicate
-	   traditional asms unlike their normal usage.  */
+	   In order to maintain the status quo with regard to liveness
+	   and uses, we do what flow.c did and just mark any regs we
+	   can find in ASM_OPERANDS as used.  Later on, when liveness
+	   is computed, asm insns are scanned and regs_asm_clobbered
+	   is filled out.  
+
+	   For all ASM_OPERANDS, we must traverse the vector of input
+	   operands.  We can not just fall through here since then we
+	   would be confused by the ASM_INPUT rtx inside ASM_OPERANDS,
+	   which do not indicate traditional asms unlike their normal
+	   usage.  */
 	if (code == ASM_OPERANDS)
 	  {
 	    int j;
@@ -1363,156 +1351,28 @@ df_uses_record (struct dataflow *dflow, rtx *loc, enum df_ref_type ref_type,
   }
 }
 
-/* Process INSN recursively, and return true if it contains an asm
-   instruction.  */
-static bool
-df_insn_contains_asm (rtx *loc, rtx insn)
+/* Return true if *LOC contains an asm.  */
+
+static int
+df_insn_contains_asm_1 (rtx *loc, void *data ATTRIBUTE_UNUSED)
 {
-  RTX_CODE code;
-  bool saw_asm = false;
-  
-  rtx x;
- retry:
-  x = *loc;
-  if (!x)
-    return false;
-  code = GET_CODE (x);
-  switch (code)
-    {
-    case LABEL_REF:
-    case SYMBOL_REF:
-    case CONST_INT:
-    case CONST:
-    case CONST_DOUBLE:
-    case CONST_VECTOR:
-    case PC:
-    case CC0:
-    case ADDR_VEC:
-    case ADDR_DIFF_VEC:
-      return saw_asm;
-
-    case CLOBBER:
-      /* If we are clobbering a MEM, mark any registers inside the address
-	 as being used.  */
-      if (MEM_P (XEXP (x, 0)))
-	saw_asm |= df_insn_contains_asm (&XEXP (XEXP (x, 0), 0), insn);
-
-      /* If we're clobbering a REG then we have a def so ignore.  */
-      return saw_asm;
-
-    case MEM:
-      saw_asm |= df_insn_contains_asm (&XEXP (x, 0), insn);
-      
-      return saw_asm;
-
-    case SUBREG:
-      /* While we're here, optimize this case.  */
-
-      /* In case the SUBREG is not of a REG, do not optimize.  */
-      if (!REG_P (SUBREG_REG (x)))
-	{
-	  loc = &SUBREG_REG (x);
-	  saw_asm |= df_insn_contains_asm (loc, insn);
-	  return saw_asm;
-	}
-      /* ... Fall through ...  */
-
-    case REG:
-      return saw_asm;
-
-    case SET:
-      {
-	rtx dst = SET_DEST (x);
-	saw_asm |= df_insn_contains_asm (&SET_SRC (x), insn);
-	
-	switch (GET_CODE (dst))
-	  {
-	  case SUBREG:
-	  case REG:
-	  case PARALLEL:
-	  case SCRATCH:
-	  case PC:
-	  case CC0:
-	  case MEM:
-	  case STRICT_LOW_PART:
-	  case ZERO_EXTRACT:
-	  case SIGN_EXTRACT:
-	    break;
-	  default:
-	    gcc_unreachable ();
-	  }
-	return saw_asm;
-      }
-
-    case RETURN:
-      break;
-
-    case ASM_OPERANDS:
-    case UNSPEC_VOLATILE:
-    case TRAP_IF:
-    case ASM_INPUT:
-      {
-	/* Traditional and volatile asm instructions must be considered to use
-	   and clobber all hard registers, all pseudo-registers and all of
-	   memory.  So must TRAP_IF and UNSPEC_VOLATILE operations.
-
-	   Consider for instance a volatile asm that changes the fpu rounding
-	   mode.  An insn should not be moved across this even if it only uses
-	   pseudo-regs because it might give an incorrectly rounded result.
-
-	   For now, just mark any regs we can find in ASM_OPERANDS as
-	   used.  */
-
-	/* For all ASM_OPERANDS, we must traverse the vector of input operands.
-	   We can not just fall through here since then we would be confused
-	   by the ASM_INPUT rtx inside ASM_OPERANDS, which do not indicate
-	   traditional asms unlike their normal usage.  */
-	if (code == ASM_OPERANDS)
-	  return true;
-	break;
-      }
-
-    case PRE_DEC:
-    case POST_DEC:
-    case PRE_INC:
-    case POST_INC:
-    case PRE_MODIFY:
-    case POST_MODIFY:
-      return saw_asm;
-
-      /* ... Fall through to handle uses ...  */
-
-    default:
-      break;
-    }
-
-  /* Recursively scan the operands of this expression.  */
-  {
-    const char *fmt = GET_RTX_FORMAT (code);
-    int i;
-
-    for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-      {
-	if (fmt[i] == 'e')
-	  {
-	    /* Tail recursive case: save a function call level.  */
-	    if (i == 0)
-	      {
-		loc = &XEXP (x, 0);
-		goto retry;
-	      }
-	    saw_asm |= df_insn_contains_asm (&XEXP (x, i), insn);
-	  }
-	else if (fmt[i] == 'E')
-	  {
-	    int j;
-	    for (j = 0; j < XVECLEN (x, i); j++)
-	      saw_asm |= df_insn_contains_asm (&XVECEXP (x, i, j), insn);
-	  }
-      }
-  }
-  return saw_asm;
+  if ( !*loc)
+    return 0;
+  if (GET_CODE (*loc) == ASM_OPERANDS)
+    return 1;
+  return 0;
 }
+
+
+/* Return true if INSN contains an ASM.  */
+
+static int
+df_insn_contains_asm (rtx insn)
+{
+  return for_each_rtx (&insn, df_insn_contains_asm_1, NULL);
+}
+
+
 
 /* Record all the refs for DF within INSN of basic block BB.  */
 
@@ -1520,13 +1380,13 @@ static void
 df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 {
   int i;
-  struct df * df = dflow->df;
+  struct df *df = dflow->df;
 
   if (INSN_P (insn))
     {
       rtx note;
 
-      if (df_insn_contains_asm (&PATTERN (insn), insn))
+      if (df_insn_contains_asm (insn))
 	DF_INSN_CONTAINS_ASM (df, insn) = true;
       
       /* Record register defs.  */
@@ -1550,17 +1410,19 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
       if (CALL_P (insn))
 	{
 	  rtx note;
-	  rtx x;
 
-	  /* Record the registers used to pass arguments.  */
+	  /* Record the registers used to pass arguments, and explicitly
+	     noted as clobbered.  */
 	  for (note = CALL_INSN_FUNCTION_USAGE (insn); note;
 	       note = XEXP (note, 1))
 	    {
 	      if (GET_CODE (XEXP (note, 0)) == USE)
-		df_uses_record (dflow, &XEXP (XEXP (note, 0), 0), DF_REF_REG_USE,
+		df_uses_record (dflow, &XEXP (XEXP (note, 0), 0), 
+				DF_REF_REG_USE,
 				bb, insn, 0);
               else if (GET_CODE (XEXP (note, 0)) == CLOBBER)
 		{
+		  df_defs_record (dflow, XEXP (note, 0), bb, insn);
 		  if (REG_P (XEXP (XEXP (note, 0), 0)))
 		    {
 		      rtx reg = XEXP (XEXP (note, 0), 0);
@@ -1570,7 +1432,8 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 		
 		      regno_last = regno_first = REGNO (reg);
 		      if (regno_first < FIRST_PSEUDO_REGISTER)
-			regno_last += hard_regno_nregs[regno_first][GET_MODE (reg)] - 1;
+			regno_last 
+			  += hard_regno_nregs[regno_first][GET_MODE (reg)] - 1;
 		      for (i = regno_first; i <= regno_last; i++)
 			regs_ever_live[i] = 1;
 		    }
@@ -1578,8 +1441,8 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 	    }
 
 	  /* The stack ptr is used (honorarily) by a CALL insn.  */
-	  x = df_reg_use_gen (STACK_POINTER_REGNUM);
-	  df_uses_record (dflow, &XEXP (x, 0), DF_REF_REG_USE, bb, insn, 
+	  df_uses_record (dflow, &regno_reg_rtx[STACK_POINTER_REGNUM],
+			  DF_REF_REG_USE, bb, insn, 
 			  0);
 
 	  if (df->flags & DF_HARD_REGS)
@@ -1590,17 +1453,12 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
 		 so they are recorded as used.  */
 	      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 		if (global_regs[i])
-		  {
-		    x = df_reg_use_gen (i);
-		    df_uses_record (dflow, &XEXP (x, 0),
-				    DF_REF_REG_USE, bb, insn, 
-				    0);
-		  }
+		  df_uses_record (dflow, &regno_reg_rtx[i],
+				  DF_REF_REG_USE, bb, insn, 
+				  0);
 	      EXECUTE_IF_SET_IN_BITMAP (df_invalidated_by_call, 0, ui, bi)
-		{
-		  x = df_reg_def_gen (false, ui);
-		  df_def_record_1 (dflow, x, bb, insn, DF_REF_CLOBBER, false);
-		}
+	        df_ref_record (dflow, regno_reg_rtx[ui], &regno_reg_rtx[ui], bb, insn, 
+	                       DF_REF_REG_DEF, DF_REF_CLOBBER, false);
 	    }
 	}
 
@@ -1608,53 +1466,37 @@ df_insn_refs_record (struct dataflow *dflow, basic_block bb, rtx insn)
       df_uses_record (dflow, &PATTERN (insn),
 		      DF_REF_REG_USE, bb, insn, 0);
 
-      if (CALL_P (insn))
-	{
-	  rtx note;
-
-	  /* We do not record hard registers clobbered by the call,
-	     since there are awfully many of them and "defs" created
-	     through them are not interesting (since no use can be legally
-	     reached by them).  So we must just make sure we include them when
-	     computing kill bitmaps.  */
-
-	  /* There may be extra registers to be clobbered.  */
-	  for (note = CALL_INSN_FUNCTION_USAGE (insn);
-	       note;
-	       note = XEXP (note, 1))
-	    if (GET_CODE (XEXP (note, 0)) == CLOBBER)
-	      df_defs_record (dflow, XEXP (note, 0), bb, insn);
-	}
     }
 }
 
 static bool
-has_eh_preds (basic_block bb)
+df_has_eh_preds (basic_block bb)
 {
   edge e;
   edge_iterator ei;
+
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
-      if (e->flags & (EDGE_EH))
+      if (e->flags & EDGE_EH)
 	return true;
     }
   return false;
 }
 
 /* Record all the refs within the basic block BB.  */
+
 static void
 df_bb_refs_record (struct dataflow *dflow, basic_block bb)
 {
-  struct df * df = dflow->df;
+  struct df *df = dflow->df;
   rtx insn;
-  rtx x;
   int luid = 0;
-  struct df_scan_bb_info * bb_info = df_scan_get_bb_info (dflow, bb->index);
+  struct df_scan_bb_info *bb_info = df_scan_get_bb_info (dflow, bb->index);
 
   /* Need to make sure that there is a record in the basic block info. */  
   if (!bb_info)
     {
-      bb_info = (struct df_scan_bb_info *)pool_alloc (dflow->block_pool);
+      bb_info = (struct df_scan_bb_info *) pool_alloc (dflow->block_pool);
       df_scan_set_bb_info (dflow, bb->index, bb_info);
       bb_info->artificial_defs = NULL;
       bb_info->artificial_uses = NULL;
@@ -1675,38 +1517,43 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
 
 #ifdef EH_RETURN_DATA_REGNO
   if ((df->flags & DF_HARD_REGS)
-      && has_eh_preds (bb))
+      && df_has_eh_preds (bb))
     {
       unsigned int i;
       /* Mark the registers that will contain data for the handler.  */
       if (current_function_calls_eh_return)
 	for (i = 0; ; ++i)
 	  {
-	    rtx x;
 	    unsigned regno = EH_RETURN_DATA_REGNO (i);
 	    if (regno == INVALID_REGNUM)
 	      break;
-	    x = df_reg_def_gen (true, i);
-	    df_def_record_1 (dflow, x, bb, NULL/*BB_HEAD (bb)*/, 
-			     DF_REF_ARTIFICIAL | DF_REF_AT_TOP, false);
+	    df_ref_record (dflow, regno_reg_rtx[i], &regno_reg_rtx[i], bb, NULL, 
+		           DF_REF_REG_DEF, DF_REF_ARTIFICIAL | DF_REF_AT_TOP, false);
 	  }
     }
 #endif
 
 #ifdef EH_USES
+  /*  This code is putting in a artificial ref for the use at the TOP
+      of the block that receives the exception.  It is too cumbersome
+      to actually put the ref on the edge.  We could either model this
+      at the top of the receiver block or the bottom of the sender
+      block.
+
+      The bottom of the sender block is problematic because not all
+      out-edges of the a block are eh-edges.  However, it is true that
+      all edges into a block are either eh-edges or none of them are
+      eh-edges.  Thus, we can model this at the top of the eh-receiver
+      for all of the edges at once. */
   if ((df->flags & DF_HARD_REGS)
-      && has_eh_preds (bb))
+      && df_has_eh_preds (bb))
     {
       unsigned int i;
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (EH_USES (i))
-	  {
-	    rtx use = df_reg_use_gen (i);
-	    df_ref_create_structure (dflow, regno_reg_rtx[i], 
-				     &XEXP (use, 0), NULL, EXIT_BLOCK_PTR,
-				     DF_REF_REG_USE, 
-				     DF_REF_ARTIFICIAL | DF_REF_AT_TOP);
-	  }
+	  df_uses_record (dflow, &regno_reg_rtx[i], 
+				   DF_REF_REG_USE, EXIT_BLOCK_PTR, NULL,
+				   DF_REF_ARTIFICIAL | DF_REF_AT_TOP);
     }
 #endif
 
@@ -1721,42 +1568,35 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
 	  
 	  /* Any reference to any pseudo before reload is a potential
 	     reference of the frame pointer.  */
-	  x = df_reg_use_gen (FRAME_POINTER_REGNUM);
-	  df_uses_record (dflow, &XEXP (x, 0),
-			  DF_REF_REG_USE, bb, NULL /*BB_END(bb)*/, DF_REF_ARTIFICIAL);
+	  df_uses_record (dflow, &regno_reg_rtx [FRAME_POINTER_REGNUM],
+			  DF_REF_REG_USE, bb, NULL, DF_REF_ARTIFICIAL);
 	  
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
 	  /* Pseudos with argument area equivalences may require
 	     reloading via the argument pointer.  */
 	  if (fixed_regs[ARG_POINTER_REGNUM])
-	    {
-	      x = df_reg_use_gen (ARG_POINTER_REGNUM);
-	      df_uses_record (dflow, &XEXP (x, 0),
-			      DF_REF_REG_USE, bb, NULL/*BB_END (bb)*/, 
-			      DF_REF_ARTIFICIAL);
-	    }
+	    df_uses_record (dflow, &regno_reg_rtx[ARG_POINTER_REGNUM],
+			    DF_REF_REG_USE, bb, NULL, 
+			    DF_REF_ARTIFICIAL);
 #endif
 	  
 	  /* Any constant, or pseudo with constant equivalences, may
 	     require reloading from memory using the pic register.  */
 	  if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
 	      && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
-	    {
-	      x = df_reg_use_gen (PIC_OFFSET_TABLE_REGNUM);
-	      df_uses_record (dflow, &XEXP (x, 0),
-			      DF_REF_REG_USE, bb, NULL/*BB_END (bb)*/, 
-			      DF_REF_ARTIFICIAL);
-	    }
+	    df_uses_record (dflow, &regno_reg_rtx[PIC_OFFSET_TABLE_REGNUM],
+			    DF_REF_REG_USE, bb, NULL, 
+			    DF_REF_ARTIFICIAL);
 	}
       /* The all-important stack pointer must always be live.  */
-      x = df_reg_use_gen (STACK_POINTER_REGNUM);
-      df_uses_record (dflow, &XEXP (x, 0),
-		      DF_REF_REG_USE, bb, NULL/*BB_END (bb)*/, DF_REF_ARTIFICIAL);
+      df_uses_record (dflow, &regno_reg_rtx[STACK_POINTER_REGNUM],
+		      DF_REF_REG_USE, bb, NULL, DF_REF_ARTIFICIAL);
     }
 }
 
 
 /* Record all the refs in the basic blocks specified by BLOCKS.  */
+
 static void
 df_refs_record (struct dataflow *dflow, bitmap blocks)
 {
@@ -1774,15 +1614,15 @@ df_refs_record (struct dataflow *dflow, bitmap blocks)
 }
 
 
-/****************************************************************************/
-/* Specialized hard register scanning functions.                            */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+   Specialized hard register scanning functions.
+----------------------------------------------------------------------------*/
 
 /* Mark a register in SET.  Hard registers in large modes get all
    of their component registers set as well.  */
 
 static void
-df_mark_reg (rtx reg, void * vset)
+df_mark_reg (rtx reg, void *vset)
 {
   bitmap set = (bitmap) vset;
   int regno = REGNO (reg);
@@ -1799,15 +1639,19 @@ df_mark_reg (rtx reg, void * vset)
 }
 
 /* Record the set of hard registers that are used in the exit block.  */
+
 static void
-df_record_exit_block_uses (struct dataflow * dflow)
+df_record_exit_block_uses (struct dataflow *dflow)
 {
   unsigned int i; 
   bitmap_iterator bi;
-  struct df * df = dflow->df;
+  struct df *df = dflow->df;
 
   bitmap_clear (df->exit_block_uses);
   
+  if (! (df->flags & DF_HARD_REGS))
+    return;
+
   /* If exiting needs the right stack value, consider the stack
      pointer live at the end of the function.  */
   if ((HAVE_epilogue && epilogue_completed)
@@ -1864,7 +1708,7 @@ df_record_exit_block_uses (struct dataflow * dflow)
   if (reload_completed && current_function_calls_eh_return)
     for (i = 0; ; ++i)
       {
-	unsigned regno = EH_RETURN_DATA_REGNO(i);
+	unsigned regno = EH_RETURN_DATA_REGNO (i);
 	if (regno == INVALID_REGNUM)
 	  break;
 	bitmap_set_bit (df->exit_block_uses, regno);
@@ -1892,21 +1736,19 @@ df_record_exit_block_uses (struct dataflow * dflow)
 #endif 
   
   /* Mark function return value.  */
-  diddle_return_value (df_mark_reg, (void*)df->exit_block_uses);
+  diddle_return_value (df_mark_reg, (void*) df->exit_block_uses);
 
   if (df->flags & DF_HARD_REGS)
     EXECUTE_IF_SET_IN_BITMAP (df->exit_block_uses, 0, i, bi)
-      {
-	rtx use = df_reg_use_gen (i);
-	df_ref_create_structure (dflow, regno_reg_rtx[i], 
-				 &XEXP (use, 0), EXIT_BLOCK_PTR, NULL, 
-				 DF_REF_REG_USE, DF_REF_ARTIFICIAL);
-      }
+      df_uses_record (dflow, &regno_reg_rtx[i], 
+  		      DF_REF_REG_USE, EXIT_BLOCK_PTR, NULL,
+		      DF_REF_ARTIFICIAL);
 }
 
 static bool initialized = false;
 
 /* Initialize some platform specific structures.  */
+
 void 
 df_hard_reg_init (void)
 {

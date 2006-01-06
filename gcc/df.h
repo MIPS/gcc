@@ -1,6 +1,6 @@
 /* Form lists of pseudo register references for autoinc optimization
    for GNU compiler.  This is part of flow optimization.
-   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
@@ -41,7 +41,7 @@ struct df_problem;
    a uniform manner.  */
 #define DF_SCAN  0 
 #define DF_RU    1      /* Reaching Uses. */
-#define DF_RD    2      /* Reachind Defs. */
+#define DF_RD    2      /* Reaching Defs. */
 #define DF_LR    3      /* Live Registers. */
 #define DF_UR    4      /* Uninitialized Registers. */
 #define DF_UREC  5      /* Uninitialized Registers with Early Clobber. */
@@ -129,14 +129,14 @@ struct df_problem {
 struct dataflow
 {
   struct df *df;                        /* Instance of df we are working in.  */
-  struct df_problem * problem;          /* The problem to be solved.  */
+  struct df_problem *problem;           /* The problem to be solved.  */
 
   /* Communication between iterative_dataflow and hybrid_search. */
   sbitmap visited, pending, considered; 
 
   /* Array indexed by bb->index, that contains basic block problem and
      solution specific information.  */
-  void** block_info;
+  void **block_info;
   unsigned int block_info_size;
 
   /* The pool to allocate the block_info from. */
@@ -146,7 +146,7 @@ struct dataflow
      basis.  The structure is generally defined privately for the
      problem.  The exception being the scanning problem where it is
      fully public.  */
-  void * problem_data;                  
+  void *problem_data;                  
 };
 
 /* One of these structures is allocated for every insn.  */
@@ -216,7 +216,7 @@ struct df_ref
   basic_block bb;               /* Basic block containing the instruction. */
   rtx insn;			/* Insn containing ref.  NB: THIS MAY BE NULL.  */
   rtx *loc;			/* The location of the reg.  */
-  struct df_link * chain;	/* Head of def-use, use-def or bi chain.  */
+  struct df_link *chain;	/* Head of def-use, use-def or bi chain.  */
   unsigned int id;		/* Location in table.  */
   enum df_ref_type type;	/* Type of ref.  */
   enum df_ref_flags flags;	/* Various flags.  */
@@ -224,12 +224,12 @@ struct df_ref
   /* For each regno, there are two chains of refs, one for the uses
      and one for the defs.  These chains go thru the refs themselves
      rather than using an external structure.  */
-  struct df_ref * next_reg;    /* Next ref with same regno and type.  */
-  struct df_ref * prev_reg;    /* Prev ref with same regno and type.  */
+  struct df_ref *next_reg;     /* Next ref with same regno and type.  */
+  struct df_ref *prev_reg;     /* Prev ref with same regno and type.  */
 
   /* Each insn has two lists, one for the uses and one for the
      defs. This is the next field in either of these chains. */
-  struct df_ref * next_ref; 
+  struct df_ref *next_ref; 
   void *data;			/* The data assigned to it by user.  */
 };
 
@@ -246,10 +246,10 @@ struct df_link
    the defs.  */
 struct df_ref_info
 {
-  struct df_reg_info ** regs;   /* Array indexed by pseudo regno. */
+  struct df_reg_info **regs;    /* Array indexed by pseudo regno. */
   unsigned int regs_size;       /* Size of currently allocated regs table.  */
   unsigned int regs_inited;     /* Number of regs with reg_infos allocated.  */
-  struct df_ref ** refs;        /* Ref table, indexed by id.  */
+  struct df_ref **refs;         /* Ref table, indexed by id.  */
   unsigned int refs_size;       /* Size of currently allocated refs table.  */
   unsigned int bitmap_size;	/* Number of refs seen.  */
 
@@ -262,11 +262,11 @@ struct df_ref_info
 };
 
 
-/****************************************************************************/
-/* Problem data for the scanning dataflow problem.  Unlike the other        */
-/* dataflow problems, the problem data for scanning is fully exposed and    */
-/* used by owners of the problem.                                           */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+   Problem data for the scanning dataflow problem.  Unlike the other
+   dataflow problems, the problem data for scanning is fully exposed and
+   used by owners of the problem.
+----------------------------------------------------------------------------*/
 
 struct df
 {
@@ -285,8 +285,8 @@ struct df
      the problem local data without having to search the first
      array.  */
 
-  struct dataflow * problems_in_order [DF_LAST_PROBLEM_PLUS1]; 
-  struct dataflow * problems_by_index [DF_LAST_PROBLEM_PLUS1]; 
+  struct dataflow *problems_in_order [DF_LAST_PROBLEM_PLUS1]; 
+  struct dataflow *problems_by_index [DF_LAST_PROBLEM_PLUS1]; 
   int num_problems_defined;
 
   /* Set after calls to df_scan_blocks, this contains all of the
@@ -304,7 +304,7 @@ struct df
      to keep getting it from there.  */
   struct df_ref_info def_info;   /* Def info.  */
   struct df_ref_info use_info;   /* Use info.  */
-  struct df_insn_info ** insns;  /* Insn table, indexed by insn UID.  */
+  struct df_insn_info **insns;   /* Insn table, indexed by insn UID.  */
   unsigned int insns_size;       /* Size of insn table.  */
   bitmap hardware_regs_used;     /* The set of hardware registers used.  */
   bitmap exit_block_uses;        /* The set of hardware registers used in exit block.  */
@@ -492,24 +492,26 @@ struct df_urec_bb_info
 };
 
 
+#define df_finish(df) {df_finish1(df); df=NULL;}
+
 /* Functions defined in df-core.c.  */
 
-extern struct df * df_init (int);
-extern struct dataflow * df_add_problem (struct df *, struct df_problem *);
+extern struct df *df_init (int);
+extern struct dataflow *df_add_problem (struct df *, struct df_problem *);
 extern void df_set_blocks (struct df*, bitmap);
-extern void df_finish (struct df *);
+extern void df_finish1 (struct df *);
 extern void df_analyze (struct df *);
 extern void df_analyze_simple_change_some_blocks (struct df *, int *, int);
 extern void df_analyze_simple_change_one_block (struct df *, basic_block);
 extern void df_compact_blocks (struct df *);
 extern void df_bb_replace (struct df *, int, basic_block);
-extern struct df_ref * df_bb_regno_last_use_find (struct df *, basic_block, unsigned int);
-extern struct df_ref * df_bb_regno_first_def_find (struct df *, basic_block, unsigned int);
-extern struct df_ref * df_bb_regno_last_def_find (struct df *, basic_block, unsigned int);
+extern struct df_ref *df_bb_regno_last_use_find (struct df *, basic_block, unsigned int);
+extern struct df_ref *df_bb_regno_first_def_find (struct df *, basic_block, unsigned int);
+extern struct df_ref *df_bb_regno_last_def_find (struct df *, basic_block, unsigned int);
 extern bool df_insn_regno_def_p (struct df *, rtx, unsigned int);
-extern struct df_ref * df_find_def (struct df *, rtx, rtx);
+extern struct df_ref *df_find_def (struct df *, rtx, rtx);
 extern bool df_reg_defined (struct df *, rtx, rtx);
-extern struct df_ref * df_find_use (struct df *, rtx, rtx);
+extern struct df_ref *df_find_use (struct df *, rtx, rtx);
 extern bool df_reg_used (struct df *, rtx, rtx);
 extern void df_iterative_dataflow (struct dataflow *, bitmap, bitmap, int *, int, bool);
 extern void df_dump (struct df *, FILE *);
@@ -527,12 +529,14 @@ extern void debug_df_defno (unsigned int);
 extern void debug_df_useno (unsigned int);
 extern void debug_df_ref (struct df_ref *);
 extern void debug_df_chain (struct df_link *);
+/* An instance of df that can be shared between passes.  */
+extern struct df *shared_df; 
 
 
 /* Functions defined in df-problems.c. */
 
-extern struct dataflow * df_get_dependent_problem (struct dataflow *);
-extern struct df_link * df_chain_create (struct dataflow *, struct df_ref *, struct df_ref *);
+extern struct dataflow *df_get_dependent_problem (struct dataflow *);
+extern struct df_link *df_chain_create (struct dataflow *, struct df_ref *, struct df_ref *);
 extern void df_chain_unlink (struct dataflow *, struct df_ref *, struct df_link *);
 extern void df_chain_copy (struct dataflow *, struct df_ref *, struct df_link *);
 extern bitmap df_get_live_in (struct df *, basic_block);
@@ -540,31 +544,31 @@ extern bitmap df_get_live_out (struct df *, basic_block);
 extern void df_grow_bb_info (struct dataflow *);
 extern void df_chain_dump (struct df *, struct df_link *, FILE *);
 extern void df_print_bb_index (basic_block bb, FILE *file);
-extern struct dataflow * df_ru_add_problem (struct df *);
-extern struct df_ru_bb_info * df_ru_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow * df_rd_add_problem (struct df *);
-extern struct df_rd_bb_info * df_rd_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow * df_lr_add_problem (struct df *);
-extern struct df_lr_bb_info * df_lr_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow * df_ur_add_problem (struct df *);
-extern struct df_ur_bb_info * df_ur_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow * df_urec_add_problem (struct df *);
-extern struct df_urec_bb_info * df_urec_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow * df_chain_add_problem (struct df *, int flags);
-extern struct dataflow * df_ri_add_problem (struct df *);
+extern struct dataflow *df_ru_add_problem (struct df *);
+extern struct df_ru_bb_info *df_ru_get_bb_info (struct dataflow *, unsigned int);
+extern struct dataflow *df_rd_add_problem (struct df *);
+extern struct df_rd_bb_info *df_rd_get_bb_info (struct dataflow *, unsigned int);
+extern struct dataflow *df_lr_add_problem (struct df *);
+extern struct df_lr_bb_info *df_lr_get_bb_info (struct dataflow *, unsigned int);
+extern struct dataflow *df_ur_add_problem (struct df *);
+extern struct df_ur_bb_info *df_ur_get_bb_info (struct dataflow *, unsigned int);
+extern struct dataflow *df_urec_add_problem (struct df *);
+extern struct df_urec_bb_info *df_urec_get_bb_info (struct dataflow *, unsigned int);
+extern struct dataflow *df_chain_add_problem (struct df *, int flags);
+extern struct dataflow *df_ri_add_problem (struct df *);
 extern int df_reg_lifetime (struct df *, rtx reg);
 
 
 /* Functions defined in df-scan.c.  */
 
-extern struct df_scan_bb_info * df_scan_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow * df_scan_add_problem (struct df *);
+extern struct df_scan_bb_info *df_scan_get_bb_info (struct dataflow *, unsigned int);
+extern struct dataflow *df_scan_add_problem (struct df *);
 extern void df_rescan_blocks (struct df *, bitmap);
-extern struct df_ref * df_ref_create (struct df *, rtx, rtx *, rtx,basic_block,enum df_ref_type, enum df_ref_flags);
-extern struct df_ref * df_get_artificial_defs (struct df *, unsigned int);
-extern struct df_ref * df_get_artificial_uses (struct df *, unsigned int);
+extern struct df_ref *df_ref_create (struct df *, rtx, rtx *, rtx,basic_block,enum df_ref_type, enum df_ref_flags);
+extern struct df_ref *df_get_artificial_defs (struct df *, unsigned int);
+extern struct df_ref *df_get_artificial_uses (struct df *, unsigned int);
 extern void df_reg_chain_create (struct df_reg_info *, struct df_ref *);
-extern struct df_ref * df_reg_chain_unlink (struct dataflow *, struct df_ref *);
+extern struct df_ref *df_reg_chain_unlink (struct dataflow *, struct df_ref *);
 extern void df_ref_remove (struct df *, struct df_ref *);
 extern void df_insn_refs_delete (struct dataflow *, rtx);
 extern void df_refs_delete (struct dataflow *, bitmap);

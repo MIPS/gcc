@@ -1,5 +1,5 @@
 /* Allocation for dataflow support routines.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes 
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
@@ -94,10 +94,10 @@ that case, df will just be used to do the scanning.
 
 
 DF_SET_BLOCKS is an optional call used to define a region of the
-program on which the analysis will be performed.  The normal case is
-to analyze the entire program and no call to df_set_blocks is made.
+function on which the analysis will be performed.  The normal case is
+to analyze the entire function and no call to df_set_blocks is made.
 
-When a subset is given, the analysis behaves as if the program only
+When a subset is given, the analysis behaves as if the function only
 contains those blocks and any edges that occur directly between the
 blocks in the set.  Care should be taken to call df_set_blocks right
 before the call to analyze in order to eliminate the possiblity that
@@ -137,15 +137,16 @@ the def refs for a use.  This is used to create use-def or def-use
 chains.
 
 Different optimizations have different needs.  Ultimately, only
-register allocation and schedulers should be using the bitmaps and the
-rest of the backend should be upgraded to using and maintaining the
-linked information.  
+register allocation and schedulers should be using the bitmaps
+produced for the live register and uninitialized register problems.
+The rest of the backend should be upgraded to using and maintaining
+the linked information such as def use or use def chains.
 
 
 
 PHILOSOPHY:
 
-While incremental bitmaps are not worthwhile to maintian, incremental
+While incremental bitmaps are not worthwhile to maintain, incremental
 chains may be perfectly reasonable.  The fastest way to build chains
 from scratch or after significant modifications is to build reaching
 definitions (RD) and build the chains from this.
@@ -175,9 +176,10 @@ The basic object is a DF_REF (reference) and this may either be a
 DEF (definition) or a USE of a register.
 
 These are linked into a variety of lists; namely reg-def, reg-use,
-insn-def, insn-use, def-use, and use-def lists.  For example,
-the reg-def lists contain all the refs that define a given register
-while the insn-use lists contain all the refs used by an insn.
+insn-def, insn-use, def-use, and use-def lists.  For example, the
+reg-def lists contain all the locations that define a given register
+while the insn-use lists contain all the locations that use a
+register.
 
 Note that the reg-def and reg-use chains are generally short for
 pseudos and long for the hard registers.
@@ -243,6 +245,7 @@ There are 4 ways to obtain access to refs:
    reg-use or reg-def chains.
 
 
+
 NOTES:
  
 Embedded addressing side-effects, such as POST_INC or PRE_INC, generate
@@ -286,11 +289,12 @@ are write-only operations.
 #include "df.h"
 #include "tree-pass.h"
 
-static struct df *ddf;
+static struct df *ddf = NULL;
+struct df *shared_df = NULL;
 
-/****************************************************************************/
-/* Functions to create, destroy and manipulate an instance of df.           */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+  Functions to create, destroy and manipulate an instance of df.
+----------------------------------------------------------------------------*/
 
 
 /* Initialize dataflow analysis and allocate and initialize dataflow
@@ -299,7 +303,7 @@ static struct df *ddf;
 struct df *
 df_init (int flags)
 {
-  struct df * df = xcalloc (1, sizeof (struct df));
+  struct df *df = xcalloc (1, sizeof (struct df));
   df->flags = flags;
 
   /* This is executed once per compilation to initialize platform
@@ -315,9 +319,9 @@ df_init (int flags)
 /* Add PROBLEM to the DF instance.  */
 
 struct dataflow *
-df_add_problem (struct df * df, struct df_problem * problem)
+df_add_problem (struct df *df, struct df_problem *problem)
 {
-  struct dataflow * dflow;
+  struct dataflow *dflow;
 
   /* First try to add the dependent problem. */
   if (problem->dependent_problem)
@@ -342,11 +346,11 @@ df_add_problem (struct df * df, struct df_problem * problem)
 
 
 /* Set the blocks that are to be considered for analysis.  If this is
-   not called or is called with null, the entire program in
+   not called or is called with null, the entire function in
    analyzed.  */
 
 void 
-df_set_blocks (struct df * df, bitmap blocks)
+df_set_blocks (struct df *df, bitmap blocks)
 {
   if (blocks)
     {
@@ -364,23 +368,25 @@ df_set_blocks (struct df * df, bitmap blocks)
     }
 }
 
-/* Free all the dataflow info and the DF structure.  */
+
+/* Free all the dataflow info and the DF structure.  This should be
+   called from the df_finish macro which also NULLs the parm.  */
 
 void
-df_finish (struct df *df)
+df_finish1 (struct df *df)
 {
   int i;
 
-  for (i=0; i<df->num_problems_defined; i++)
+  for (i = 0; i < df->num_problems_defined; i++)
     (*df->problems_in_order[i]->problem->free_fun) (df->problems_in_order[i]); 
 
   free (df);
 }
 
 
-/****************************************************************************/
-/* The general data flow analysis engine.                                   */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+   The general data flow analysis engine.
+----------------------------------------------------------------------------*/
 
 
 /* Hybrid search algorithm from "Implementation Techniques for
@@ -407,12 +413,12 @@ df_hybrid_search_forward (basic_block bb,
 	if (!TEST_BIT (dataflow->considered, e->src->index))
 	  continue;
 	
-	(*dataflow->problem->con_fun_n)(dataflow, e);
+	(*dataflow->problem->con_fun_n) (dataflow, e);
       }
   else if (*dataflow->problem->con_fun_0)
-    (*dataflow->problem->con_fun_0)(dataflow, bb);
+    (*dataflow->problem->con_fun_0) (dataflow, bb);
   
-  result_changed = (*dataflow->problem->trans_fun)(dataflow, i);
+  result_changed = (*dataflow->problem->trans_fun) (dataflow, i);
   
   if (!result_changed || single_pass)
     return;
@@ -459,12 +465,12 @@ df_hybrid_search_backward (basic_block bb,
 	if (!TEST_BIT (dataflow->considered, e->dest->index))		
 	  continue;							
 	
-	(*dataflow->problem->con_fun_n)(dataflow, e);
+	(*dataflow->problem->con_fun_n) (dataflow, e);
       }								
   else if (*dataflow->problem->con_fun_0)
-    (*dataflow->problem->con_fun_0)(dataflow, bb);
+    (*dataflow->problem->con_fun_0) (dataflow, bb);
 
-  result_changed = (*dataflow->problem->trans_fun)(dataflow, i);
+  result_changed = (*dataflow->problem->trans_fun) (dataflow, i);
   
   if (!result_changed || single_pass)
     return;
@@ -493,18 +499,18 @@ df_hybrid_search_backward (basic_block bb,
     }
 }
 
-/*
-  This function will perform iterative bitvector dataflow described by
-  DATAFLOW, producing the in and out sets.  Only the part of the cfg
-  induced by blocks in DATAFLOW->order is taken into account.
 
-  SINGLE_PASS is true if you just want to make one pass over the blocks. 
- */
+/* This function will perform iterative bitvector dataflow described
+   by DATAFLOW, producing the in and out sets.  Only the part of the
+   cfg induced by blocks in DATAFLOW->order is taken into account.
+
+   SINGLE_PASS is true if you just want to make one pass over the
+   blocks.  */
 
 void
 df_iterative_dataflow (struct dataflow *dataflow,
 		       bitmap blocks_to_consider, bitmap blocks_to_init, 
-		       int * blocks_in_postorder, int n_blocks, 
+		       int *blocks_in_postorder, int n_blocks, 
 		       bool single_pass)
 {
   unsigned int idx;
@@ -533,7 +539,7 @@ df_iterative_dataflow (struct dataflow *dataflow,
       SET_BIT (pending, idx);
     };
 
-  (*dataflow->problem->init_fun)(dataflow, blocks_to_init);
+  (*dataflow->problem->init_fun) (dataflow, blocks_to_init);
 
   while (1)
     {
@@ -625,31 +631,31 @@ df_prune_to_subcfg (int list[], unsigned len, bitmap blocks)
 */
 
 static void
-df_analyze_problem (struct dataflow* dflow, 
+df_analyze_problem (struct dataflow *dflow, 
 		    bitmap blocks_to_consider, 
 		    bitmap blocks_to_init,
 		    bitmap blocks_to_scan,
-		    int * postorder, int n_blocks, bool single_pass)
+		    int *postorder, int n_blocks, bool single_pass)
 {
   /* (Re)Allocate the datastructures necessary to solve the problem.  */ 
   if (*dflow->problem->alloc_fun)
-    (*dflow->problem->alloc_fun)(dflow, blocks_to_scan);
+    (*dflow->problem->alloc_fun) (dflow, blocks_to_scan);
 
   /* Set up the problem and compute the local information.  This
      function is passed both the blocks_to_consider and the
      blocks_to_scan because the RD and RU problems require the entire
-     program to be rescanned if they are going to be updated.  */
+     function to be rescanned if they are going to be updated.  */
   if (*dflow->problem->local_compute_fun)
-    (*dflow->problem->local_compute_fun)(dflow, blocks_to_consider, blocks_to_scan);
+    (*dflow->problem->local_compute_fun) (dflow, blocks_to_consider, blocks_to_scan);
 
   /* Solve the equations.  */
   if (*dflow->problem->dataflow_fun)
-    (*dflow->problem->dataflow_fun)(dflow, blocks_to_consider, blocks_to_init,
+    (*dflow->problem->dataflow_fun) (dflow, blocks_to_consider, blocks_to_init,
 				    postorder, n_blocks, single_pass);
 
   /* Massage the solution.  */
   if (*dflow->problem->finalize_fun)
-    (*dflow->problem->finalize_fun)(dflow, blocks_to_consider);
+    (*dflow->problem->finalize_fun) (dflow, blocks_to_consider);
 }
 
 
@@ -659,7 +665,7 @@ df_analyze_problem (struct dataflow* dflow,
 void
 df_analyze (struct df *df)
 {
-  int * postorder = xmalloc (sizeof (int) * last_basic_block);
+  int *postorder = xmalloc (sizeof (int) *last_basic_block);
   bitmap current_all_blocks = BITMAP_ALLOC (NULL);
   int n_blocks;
   int i;
@@ -670,7 +676,7 @@ df_analyze (struct df *df)
   if (n_blocks != n_basic_blocks)
     delete_unreachable_blocks ();
 
-  for (i=0; i<n_blocks; i++)
+  for (i = 0; i < n_blocks; i++)
     bitmap_set_bit (current_all_blocks, postorder[i]);
 
   /* No one called df_rescan_blocks, so do it.  */
@@ -695,8 +701,8 @@ df_analyze (struct df *df)
       current_all_blocks = NULL;
     }
 
-  /* Do not do DF_SCAN */
-  for (i=1; i<df->num_problems_defined; i++)
+  /* Skip over the DF_SCAN problem. */
+  for (i = 1; i < df->num_problems_defined; i++)
     df_analyze_problem (df->problems_in_order[i], 
 			df->blocks_to_analyze, df->blocks_to_analyze, 
 			df->blocks_to_scan,
@@ -714,25 +720,25 @@ df_analyze (struct df *df)
 
 
 
-/****************************************************************************/
-/* Functions to support limited incremental change.                         */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+   Functions to support limited incremental change.
+----------------------------------------------------------------------------*/
 
 
 /* Get basic block info.  */
 
 static void *
-df_get_bb_info (struct dataflow * dflow, unsigned int index)
+df_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
-  return (struct df_scan_bb_info *)dflow->block_info[index];
+  return (struct df_scan_bb_info *) dflow->block_info[index];
 }
 
 
 /* Set basic block info.  */
 
 static void
-df_set_bb_info (struct dataflow * dflow, unsigned int index, 
-		void * bb_info)
+df_set_bb_info (struct dataflow *dflow, unsigned int index, 
+		void *bb_info)
 {
   dflow->block_info[index] = bb_info;
 }
@@ -821,13 +827,13 @@ df_compact_blocks (struct df *df)
 {
   int i, p;
   basic_block bb;
-  void ** problem_temps;
-  int size = last_basic_block * sizeof (void *);
+  void **problem_temps;
+  int size = last_basic_block *sizeof (void *);
   problem_temps = xmalloc (size);
 
   for (p = 0; p < df->num_problems_defined; p++)
     {
-      struct dataflow * dflow = df->problems_in_order[p];
+      struct dataflow *dflow = df->problems_in_order[p];
       if (*dflow->problem->free_bb_fun)
 	{
 	  df_grow_bb_info (dflow);
@@ -844,14 +850,14 @@ df_compact_blocks (struct df *df)
 	      i++;
 	    }
 	  memset (dflow->block_info + i, 0, 
-		  (last_basic_block - i) * sizeof (void *));
+		  (last_basic_block - i) *sizeof (void *));
 
 	  /* Free any block infos that were not copied (and NULLed).
 	     These are from orphaned blocks.  */
-	  for (i = NUM_FIXED_BLOCKS; i<last_basic_block; i++)
+	  for (i = NUM_FIXED_BLOCKS; i < last_basic_block; i++)
 	    {
 	      if (problem_temps[i])
-		(*dflow->problem->free_bb_fun)(dflow, problem_temps[i]);
+		(*dflow->problem->free_bb_fun) (dflow, problem_temps[i]);
 	    }
 	}
     }
@@ -868,7 +874,7 @@ df_compact_blocks (struct df *df)
 
   gcc_assert (i == n_basic_blocks);
 
-  for (; i<last_basic_block; i++)
+  for (; i < last_basic_block; i++)
     BASIC_BLOCK (i) = NULL;
 }
 
@@ -883,10 +889,10 @@ df_bb_replace (struct df *df, int old_index, basic_block new_block)
 
   for (p = 0; p < df->num_problems_defined; p++)
     {
-      struct dataflow * dflow = df->problems_in_order[p];
+      struct dataflow *dflow = df->problems_in_order[p];
       if (dflow->block_info)
 	{
-	  void * temp;
+	  void *temp;
 
 	  df_grow_bb_info (dflow);
 
@@ -903,9 +909,9 @@ df_bb_replace (struct df *df, int old_index, basic_block new_block)
   new_block->index = old_index;
 }
 
-/****************************************************************************/
-/* PUBLIC INTERFACES TO QUERY INFORMATION.                                  */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+   PUBLIC INTERFACES TO QUERY INFORMATION.
+----------------------------------------------------------------------------*/
 
 
 /* Return last use of REGNO within BB.  */
@@ -933,7 +939,7 @@ struct df_ref *
 df_bb_regno_first_def_find (struct df *df, basic_block bb, unsigned int regno)
 {
   rtx insn;
-  struct df_ref * def;
+  struct df_ref *def;
 
   FOR_BB_INSNS (bb, insn)
     {
@@ -952,7 +958,7 @@ struct df_ref *
 df_bb_regno_last_def_find (struct df *df, basic_block bb, unsigned int regno)
 {
   rtx insn;
-  struct df_ref * def;
+  struct df_ref *def;
 
   FOR_BB_INSNS_REVERSE (bb, insn)
     {
@@ -1045,24 +1051,25 @@ df_reg_used (struct df *df, rtx insn, rtx reg)
 }
   
 
-/****************************************************************************/
-/* Debugging and printing functions.                                        */
-/****************************************************************************/
+/*----------------------------------------------------------------------------
+   Debugging and printing functions.
+----------------------------------------------------------------------------*/
 
 /* Dump dataflow info.  */
 void
 df_dump (struct df *df, FILE *file)
 {
   int i;
+
   if (! df || ! file)
     return;
 
-  fprintf (file, "\n\n%s\n", current_function_name());
+  fprintf (file, "\n\n%s\n", current_function_name ());
   fprintf (file, "\nDataflow summary:\n");
   fprintf (file, "def_info->bitmap_size = %d, use_info->bitmap_size = %d\n",
 	   df->def_info.bitmap_size, df->use_info.bitmap_size);
 
-  for (i=0; i<df->num_problems_defined; i++)
+  for (i = 0; i < df->num_problems_defined; i++)
     (*df->problems_in_order[i]->problem->dump_fun) (df->problems_in_order[i], file); 
 
   fprintf (file, "\n");
@@ -1070,7 +1077,7 @@ df_dump (struct df *df, FILE *file)
 
 
 void
-df_refs_chain_dump (struct df *df, struct df_ref * ref, 
+df_refs_chain_dump (struct df *df, struct df_ref *ref, 
 		   bool follow_chain, FILE *file)
 {
   fprintf (file, "{ ");
@@ -1082,7 +1089,7 @@ df_refs_chain_dump (struct df *df, struct df_ref * ref,
 	       DF_REF_REGNO (ref));
       if (follow_chain)
 	df_chain_dump (df, DF_REF_CHAIN (ref), file);
-      ref=ref->next_ref;
+      ref = ref->next_ref;
     }
   fprintf (file, "}");
 }
@@ -1091,7 +1098,7 @@ df_refs_chain_dump (struct df *df, struct df_ref * ref,
 /* Dump either a ref-def or reg-use chain.  */
 
 void
-df_regs_chain_dump (struct df *df ATTRIBUTE_UNUSED, struct df_ref * ref,  FILE *file)
+df_regs_chain_dump (struct df *df ATTRIBUTE_UNUSED, struct df_ref *ref,  FILE *file)
 {
   fprintf (file, "{ ");
   while (ref)
@@ -1100,7 +1107,7 @@ df_regs_chain_dump (struct df *df ATTRIBUTE_UNUSED, struct df_ref * ref,  FILE *
 	       DF_REF_REG_DEF_P (ref) ? 'd' : 'u',
 	       DF_REF_ID (ref),
 	       DF_REF_REGNO (ref));
-      ref=ref->next_reg;
+      ref = ref->next_reg;
     }
   fprintf (file, "}");
 }
@@ -1114,19 +1121,19 @@ df_insn_debug (struct df *df, rtx insn, bool follow_chain, FILE *file)
 
   uid = INSN_UID (insn);
 
-  if (DF_INSN_UID_DEFS(df, uid))
-    bbi = DF_REF_BBNO (DF_INSN_UID_DEFS(df, uid));
+  if (DF_INSN_UID_DEFS (df, uid))
+    bbi = DF_REF_BBNO (DF_INSN_UID_DEFS (df, uid));
   else if (DF_INSN_UID_USES(df, uid))
-    bbi = DF_REF_BBNO (DF_INSN_UID_USES(df, uid));
+    bbi = DF_REF_BBNO (DF_INSN_UID_USES (df, uid));
   else
     bbi = -1;
 
   fprintf (file, "insn %d bb %d luid %d defs ",
 	   uid, bbi, DF_INSN_LUID (df, insn));
 
-  df_refs_chain_dump (df, DF_INSN_UID_DEFS(df, uid), follow_chain, file);
+  df_refs_chain_dump (df, DF_INSN_UID_DEFS (df, uid), follow_chain, file);
   fprintf (file, " defs ");
-  df_refs_chain_dump (df, DF_INSN_UID_USES(df, uid), follow_chain, file);
+  df_refs_chain_dump (df, DF_INSN_UID_USES (df, uid), follow_chain, file);
   fprintf (file, "\n");
 }
 
@@ -1137,19 +1144,19 @@ df_insn_debug_regno (struct df *df, rtx insn, FILE *file)
   int bbi;
 
   uid = INSN_UID (insn);
-  if (DF_INSN_UID_DEFS(df, uid))
-    bbi = DF_REF_BBNO (DF_INSN_UID_DEFS(df, uid));
+  if (DF_INSN_UID_DEFS (df, uid))
+    bbi = DF_REF_BBNO (DF_INSN_UID_DEFS (df, uid));
   else if (DF_INSN_UID_USES(df, uid))
-    bbi = DF_REF_BBNO (DF_INSN_UID_USES(df, uid));
+    bbi = DF_REF_BBNO (DF_INSN_UID_USES (df, uid));
   else
     bbi = -1;
 
   fprintf (file, "insn %d bb %d luid %d defs ",
 	   uid, bbi, DF_INSN_LUID (df, insn));
-  df_regs_chain_dump (df, DF_INSN_UID_DEFS(df, uid), file);
+  df_regs_chain_dump (df, DF_INSN_UID_DEFS (df, uid), file);
     
   fprintf (file, " uses ");
-  df_regs_chain_dump (df, DF_INSN_UID_USES(df, uid), file);
+  df_regs_chain_dump (df, DF_INSN_UID_USES (df, uid), file);
   fprintf (file, "\n");
 }
 

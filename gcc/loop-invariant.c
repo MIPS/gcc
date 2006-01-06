@@ -1,5 +1,5 @@
 /* RTL-level loop invariant motion.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1174,9 +1174,6 @@ free_inv_motion_data (void)
       inv = DF_REF_DATA (ref);
       if (!inv)
 	continue;
-      def = inv->def;
-      gcc_assert (def != NULL);
-
       def = inv->def;
       gcc_assert (def != NULL);
 
