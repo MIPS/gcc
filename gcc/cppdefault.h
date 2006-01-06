@@ -43,6 +43,9 @@ struct default_include
 				   C++.  */
   const char add_sysroot;	/* FNAME should be prefixed by
 				   cpp_SYSROOT.  */
+  const char multilib;		/* FNAME should have the multilib path
+				   specified with -imultilib
+				   appended.  */
 };
 
 extern const struct default_include cpp_include_defaults[];

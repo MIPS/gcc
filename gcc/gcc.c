@@ -4825,6 +4825,15 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    {
 	      struct prefix_list *pl = include_prefixes.plist;
 
+	      if (multilib_dir)
+		{
+		  do_spec_1 ("-imultilib", 1, NULL);
+		  /* Make this a separate argument.  */
+		  do_spec_1 (" ", 0, NULL);
+		  do_spec_1 (multilib_dir, 1, NULL);
+		  do_spec_1 (" ", 0, NULL);
+		}
+
 	      if (gcc_exec_prefix)
 		{
 		  do_spec_1 ("-iprefix", 1, NULL);

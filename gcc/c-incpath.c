@@ -44,7 +44,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #endif
 
 static void add_env_var_paths (const char *, int);
-static void add_standard_paths (const char *, const char *, int);
+static void add_standard_paths (const char *, const char *, const char *, int);
 static void free_path (struct cpp_dir *, int);
 static void merge_include_chains (cpp_reader *, int);
 static struct cpp_dir *remove_duplicates (cpp_reader *, struct cpp_dir *,
@@ -118,7 +118,8 @@ add_env_var_paths (const char *env_var, int chain)
 
 /* Append the standard include chain defined in cppdefault.c.  */
 static void
-add_standard_paths (const char *sysroot, const char *iprefix, int cxx_stdinc)
+add_standard_paths (const char *sysroot, const char *iprefix,
+		    const char *imultilib, int cxx_stdinc)
 {
   const struct default_include *p;
   size_t len;
@@ -140,6 +141,8 @@ add_standard_paths (const char *sysroot, const char *iprefix, int cxx_stdinc)
 	      if (!strncmp (p->fname, cpp_GCC_INCLUDE_DIR, len))
 		{
 		  char *str = concat (iprefix, p->fname + len, NULL);
+		  if (p->multilib && imultilib)
+		    str = concat (str, "/", imultilib, NULL);
 		  add_path (str, SYSTEM, p->cxx_aware);
 		}
 	    }
@@ -157,6 +160,9 @@ add_standard_paths (const char *sysroot, const char *iprefix, int cxx_stdinc)
 	    str = concat (sysroot, p->fname, NULL);
 	  else
 	    str = update_path (p->fname, p->component);
+
+	  if (p->multilib && imultilib)
+	    str = concat (str, "/", imultilib, NULL);
 
 	  add_path (str, SYSTEM, p->cxx_aware);
 	}
@@ -334,8 +340,8 @@ add_path (char *path, int chain, int cxx_aware)
    removal, and registration with cpplib.  */
 void
 register_include_chains (cpp_reader *pfile, const char *sysroot,
-			 const char *iprefix, int stdinc, int cxx_stdinc,
-			 int verbose)
+			 const char *iprefix, const char *imultilib,
+			 int stdinc, int cxx_stdinc, int verbose)
 {
   static const char *const lang_env_vars[] =
     { "C_INCLUDE_PATH", "CPLUS_INCLUDE_PATH",
@@ -355,7 +361,7 @@ register_include_chains (cpp_reader *pfile, const char *sysroot,
 
   /* Finally chain on the standard directories.  */
   if (stdinc)
-    add_standard_paths (sysroot, iprefix, cxx_stdinc);
+    add_standard_paths (sysroot, iprefix, imultilib, cxx_stdinc);
 
   merge_include_chains (pfile, verbose);
 
