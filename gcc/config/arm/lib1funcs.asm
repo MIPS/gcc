@@ -1,7 +1,7 @@
 @ libgcc routines for ARM cpu.
 @ Division routines, written by Richard Earnshaw, (rearnsha@armltd.co.uk)
 
-/* Copyright 1995, 1996, 1998, 1999, 2000, 2003, 2004
+/* Copyright 1995, 1996, 1998, 1999, 2000, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
@@ -922,21 +922,15 @@ LSYM(Lover12):
 #ifdef L_dvmd_lnx
 @ GNU/Linux division-by zero handler.  Used in place of L_dvmd_tls
 
-/* Constants taken from <asm/unistd.h> and <asm/signal.h> */
+/* Constant taken from <asm/signal.h>.  */
 #define SIGFPE	8
-#define __NR_SYSCALL_BASE	0x900000
-#define __NR_getpid			(__NR_SYSCALL_BASE+ 20)
-#define __NR_kill			(__NR_SYSCALL_BASE+ 37)
 
 	.code	32
 	FUNC_START div0
 
 	stmfd	sp!, {r1, lr}
-	swi	__NR_getpid
-	cmn	r0, #1000
-	RETLDM	r1 hs
-	mov	r1, #SIGFPE
-	swi	__NR_kill
+	mov	r0, #SIGFPE
+	bl	SYM(raise) __PLT__
 	RETLDM	r1
 
 	FUNC_END div0
