@@ -1654,7 +1654,19 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
 
   free (lab);
 }
+/* APPLE LOCAL begin mainline */
+static GTY(()) unsigned long except_table_label_num;
 
+void
+darwin_emit_except_table_label (FILE *file)
+{
+  char section_start_label[30];
+
+  ASM_GENERATE_INTERNAL_LABEL (section_start_label, "GCC_except_table",
+			       except_table_label_num++);
+  ASM_OUTPUT_LABEL (file, section_start_label);
+}
+/* APPLE LOCAL end mainline */
 /* Generate a PC-relative reference to a Mach-O non-lazy-symbol.  */ 
 
 void

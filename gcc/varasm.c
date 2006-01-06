@@ -5513,6 +5513,16 @@ default_emit_unwind_label (FILE * stream ATTRIBUTE_UNUSED,
 { 
 }
 
+/* APPLE LOCAL begin mainline */
+/* Default function to output a label to divide up the exception table.
+   The default is to do nothing.  A target that needs/wants to divide
+   up the table must provide it's own function to do this.  */
+void
+default_emit_except_table_label (FILE * stream ATTRIBUTE_UNUSED)
+{
+}
+
+/* APPLE LOCAL end mainline */
 /* This is how to output an internal numbered label where PREFIX is
    the class of label and LABELNO is the number within the class.  */
 
