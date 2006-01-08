@@ -1,6 +1,6 @@
 // Class representation.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -637,11 +637,10 @@ model_class::get_this_0 ()
 			   new model_forwarding_resolved (get_location (),
 							  declaring_class),
 			   this);
-      // Note that it might be possible for us to inherit this$0
-      // from our superclass.  We could do this if we made it
-      // package-private, and if our superclass was an inner class
-      // of our declaring class.  FIXME?
-      this_0->set_modifiers (ACC_PRIVATE | ACC_FINAL);
+      // Make the new field package-private.  This lets any inner
+      // classes of this more easily access our outer class -- no
+      // accessor methods will be required.
+      this_0->set_modifiers (ACC_FINAL);
       this_0->set_synthetic ();
 
       assert (resolution_state >= POST_MEMBERS);

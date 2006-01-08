@@ -1,3 +1,7 @@
+2006-01-07  Tom Tromey  <tromey@redhat.com>
+
+	* model/class.cc (get_this_0): Make this$0 package-private.
+
 2005-12-21  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* source/parse.hh (parse::basic_type_p(token_value)): Remove extra
