@@ -433,7 +433,7 @@ forward_propagate_into_cond (tree cond_expr)
 	{
 	  tree def = SSA_NAME_DEF_STMT (test_var);
 	  block_stmt_iterator bsi = bsi_for_stmt (def);
-	  bsi_remove (&bsi);
+	  bsi_remove (&bsi, true);
 	}
     }
 }
@@ -444,8 +444,6 @@ forward_propagate_into_cond (tree cond_expr)
 static void
 tidy_after_forward_propagate_addr (tree stmt)
 {
-  mark_new_vars_to_rename (stmt);
-
   /* We may have turned a trapping insn into a non-trapping insn.  */
   if (maybe_clean_or_replace_eh_stmt (stmt, stmt)
       && tree_purge_dead_eh_edges (bb_for_stmt (stmt)))
@@ -454,7 +452,7 @@ tidy_after_forward_propagate_addr (tree stmt)
   if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ADDR_EXPR)
      recompute_tree_invariant_for_addr_expr (TREE_OPERAND (stmt, 1));
 
-  update_stmt (stmt);
+  mark_new_vars_to_rename (stmt);
 }
 
 /* STMT defines LHS which is contains the address of the 0th element
@@ -829,7 +827,7 @@ tree_ssa_forward_propagate_single_use_vars (void)
 	      if (TREE_CODE (rhs) == ADDR_EXPR)
 		{
 		  if (forward_propagate_addr_expr (stmt))
-		    bsi_remove (&bsi);
+		    bsi_remove (&bsi, true);
 		  else
 		    bsi_next (&bsi);
 		}

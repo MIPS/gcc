@@ -1,3 +1,226 @@
+2006-01-08  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (get_constraint_for): Remove
+	anyoffset argument.
+	(get_constraint_for_component_ref): Likewise.
+	(do_deref): Likewise.
+	(get_constraint_for): Likewise.
+	(do_structure_copy): Likewise.
+	(handle_ptr_arith): Likewise.
+	(find_func_aliases): Likewise.  Remove unused need_anyoffset
+	variable.
+
+2006-01-08  J"orn Rennecke  <joern.rennecke@st.com>
+	    Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.h (CONST_OK_FOR_K16): Define.
+	(CONST_OK_FOR_K): Add CONST_OK_FOR_K16 case.
+	(EXTRA_CONSTRAINT_C16): Remove.
+	(EXTRA_CONSTRAINT_Css, EXTRA_CONSTRAINT_Csu): Define.
+	(EXTRA_CONSTRAINT_C): Remove EXTRA_CONSTRAINT_C16 case and add
+	EXTRA_CONSTRAINT_Css and EXTRA_CONSTRAINT_Csu cases.
+	* config/sh/sh.c (print_operand): Handle unsigned 16-bit symbolic
+	constants of SHmedia.  Handle nested constant expressions of
+	SHmedia correctly.
+	(andcosts): Fix the costs for SHmedia constants.
+	(sh_rtx_costs): Take account of outer_code for SHmedia constants.
+	* config/sh/sh.md (*movsi_media): Use Css constraint instead of C16.
+	(*movsi_media_nofpu, *movqi_media, *movhi_media): Likewise.
+	(*movdi_media, *movdi_media_nofpu, movv8qi_i, movv2hi_i): Likewise.
+	(movv4hi_i, movv2si_i):	Likewise.
+	(movsi_const): Adjust the second operand of ior so to match with
+	the Csu constraint.
+	(movdi_const, movdi_const_32bit): Likewise.
+	(movdi_const_16bit+1): Don't sign-extend LOW.
+	(movdi_const_16bit+2): Likewise.  Remove the zero_extend and truncate
+	step.
+	(*double_shori): Fix the split condition.  Use GEN_INT instead
+	of get_int_mode calls.  Mask lower 16-bit of the argument of
+	the last GEN_INT.
+	(sym2GOTPLT): Remove.
+	(symGOTPLT2reg): Replace gen_sym2GOTPLT with gen_rtx_CONST and
+	gen_rtx_UNSPEC.
+	* config/sh/predicates.md (arith_operand): Use EXTRA_CONSTRAINT_Css
+	instead of EXTRA_CONSTRAINT_C16.
+
+2006-01-07  Ian Lance Taylor  <ian@airs.com>
+	    David Edelsohn  <edelsohn@gnu.org>
+
+	PR rtl-optimization/25662
+	* optabs.c (simplify_expand_binop): Use simplify_binary_operation
+	for constant operands instead of simplify_gen_binary.
+	* simplify-rtx.c (simplify_gen_binary): Swap commutative operands
+	after trying simplify_binary_operation
+
+2006-01-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree.c (iterative_hash_expr): Hash decls based on UID.
+
+2006-01-06  Eric Christopher  <echristo@apple.com>
+
+	* doc/tm.texi (TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL): Document.
+	(TARGET_UNWIND_EMIT): Fix spelling.
+	* target.h (gcc_target): Add except_table_label.
+	* except.c (output_function_exception_table): Use.
+	* varasm.c (default_emit_except_table_label): New.
+	* target-def.h (TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL): New default
+	define.
+	(asm_out): Add here.
+	* output.h (default_emit_except_table_label): Prototype.
+	* config/darwin-protos.h (darwin_emit_except_table_label): Ditto.
+	* config/darwin.c (darwin_emit_except_table_label): Define.
+	* config/darwin.h (TARGET_ASM_EMIT_EXCEPT_TABLE): Ditto.
+
+2005-01-06  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/18527
+	* tree-ssa-loop-niter.c (number_of_iterations_cond,
+	number_of_iterations_special, number_of_iterations_exit):
+	Move base and step of an iv to a single structure.  Add
+	no_overflow flag, and use it in # of iterations analysis.
+	* tree-scalar-evolution.c (analyze_scalar_evolution_in_loop): Add
+	folded_casts argument.
+	(simple_iv): Pass base and step in a structure.  Set no_overflow
+	flag.
+	(scev_const_prop): Add argument to analyze_scalar_evolution_in_loop.
+	Evaluate expensiveness of computing # of iterations instead of
+	the final expression.
+	* tree-scalar-evolution.h (affine_iv): New structure.
+	(simple_iv): Declaration changed.
+	* tree-chrec.c (chrec_apply): Handle chrecs containing symbols.
+	* tree-ssa-loop-ivopts.c (determine_biv_step, find_givs_in_stmt_scev,
+	find_givs_in_stmt): Changed due to simple_iv change.
+
+2005-01-06  Jeff Law  <law@redhat.com>
+
+	PR ada/24994
+	* tree-cfg.c (bsi_replace): Rename final argument from
+	PRESERVE_EH_INFO to UPDATE_EH_INFO.  Fix typo in last
+	change (stmt -> orig_stmt).
+	* tree-eh.c (verify_eh_throw_stmt_node): New function.
+	(bsi_remove): Add new argument.  Remove EH information
+	if requested.
+	(verify_eh_throw_table_statements): New function.
+	(bsi_remove): Add new argument REMOVE_EH_INFO.  All callers
+	updated.
+	* tree-optimize.c (execute_free_cfg_annotations): Verify
+	the EH throw statement table after removing annotations.
+	* except.h (verify_eh_throw_table_statements): Prototype.
+	* tree-flow.h (bsi_remove): Update prototype.
+	* tree-vrp.c (remove_range_assertions): Add new argument to
+	bsi_remove call.
+	* tree-ssa-loop-im.c (move_computations_stmt): Likewise.
+	* tree-complex.c (expand_complex_div_wide): Likewise.
+	* tree-ssa-threadupdate.c (remove_ctrl_stmt_and_useless_edges): Likewise
+	* tree-tailcall.c (eliminate_tailcall): Likewise.
+	* tree-ssa-dse.c (dse_optimize_stmt): Likewise.
+	* tree-ssa-loop-ivopts.c (remove_statement): Likewise.
+	* tree-nrv.c (tree_nrv): Likewise.
+	* tree-vectorizer.c (slpeel_make_loop_iterate_ntimes): Likewise.
+	* tree-if-conv.c (tree_if_convert_cond_expr): Likewise.
+	(combine_blocks): Likewise.
+	* tree-ssa-phiopt.c (replace_phi_edge_with_variable): Likewise.
+	* tree-cfgcleanup.c (cleanup_ctrl_expr_graph): Likewise.
+	(cleanup_control_flow): Likewise.
+	(remove_forwarder_block): Likewise.
+	* tree-ssa-pre.c (remove_dead_inserted_code): Likewise.
+	* tree-sra.c (sra_replace): Likewise.
+	* tree-ssa-forwprop.c (forward_propagate_into_cond): Likewise.
+	(forward_propagate_single_use_vars): Likewise.
+	* tree-ssa-dce.c (remove_dead_stmt): Likewise.
+	* tree-inline.c (expand_call_inline): Likewise.
+	* tree-vect-transform.c (vect_transform_loop): Likewise.
+	* tree-outof-ssa.c (rewrite_trees): Likewise.
+	* tree-cfg.c (make_goto_expr_edges): Likewise.
+	(cleanup_dead_labels): Likewise.
+	(tree_merge_blocks, remove_bb, disband_implicit_edges): Likewise.
+	(bsi_move_before, bsi_move_after): Likewise.
+	(bsi_move_to_bb_end, try_redirect_by_replacing_jump): Likewise
+	(tree_redirect_edge_and_branch, tree_split_block): Likewise.
+
+2006-01-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/25528
+	* tree-ssa-alias.c (find_used_portions): Handle REALPART_EXPR
+	and IMAGPART_EXPR.
+	* tree-flow-inline.h (var_can_have_subvars): Handle complex types
+	on non gimple variables.  Also add checks at the top for decls and
+	mtags.
+	* tree-ssa-structalias.c (push_fields_onto_fieldstack): Handle
+	complex types.
+	* tree-ssa-operands.c (parse_ssa_operands): Handle REALPART_EXPR
+	and IMAGPART_EXPR for creating MUST_DEFs.
+	(get_expr_operands): Handle SSA_NAME, STRUCT_FIELD_TAG, TYPE_MEMORY_TAG,
+	and NAME_MEMORY_TAG separately from the DECLs.
+
+2006-01-06  Richard Guenther  <rguenther@suse.de>
+
+	* tree-dfa.c (mark_new_vars_to_rename): Create stmt
+	annotation, if necessary.
+	* tree-ssa-pre.c (create_expression_by_pieces): Remove
+	redundant calls to update_stmt.
+	* tree-ssa-forwprop.c (tidy_after_forward_propagate_addr):
+	Likewise.
+
+2006-01-05  Richard Henderson  <rth@redhat.com>
+
+	* c-parser.c (c_parser_objc_methodprotolist): Handle CPP_PRAGMA.
+
+2006-01-05  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* c-typeck.c: Update copyright date.
+
+2006-01-05  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* c-typeck.c (build_c_cast): Always warn when casting
+	from a pointer to an integer of different size, even if
+	the node was constant.
+
+2006-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/22555
+	* tree-ssa-alias.c (create_overlap_variables_for): Do not give up,
+	if one structure field is an array.
+	* tree-ssa-operands.c (get_expr_operands): Continue scanning
+	operands even if we found a subvar, but ignore VOPs in this
+	case.
+	* tree-ssa-loop-ivopts.c (rewrite_use): Mark new vars in stmt
+	for renaming.
+	* tree-ssa-loop.c (pass_iv_optimize): Schedule TODO_update_ssa.
+
+2006-01-05  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR middle-end/24998
+	* arm/t-netbsd (LIB2FUNCS_EXTRA): Define.
+
+2006-01-05  Richard Guenther  <rguenther@suse.de>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-pass.h (TODO_remove_unused_locals): Define.
+	* gimple-low.c (expand_var_p, remove_useless_vars,
+	pass_remove_useless_vars): Remove.  Update all users.
+	* tree-ssa-live.c (mark_all_vars_used_1): Handle SSA names.
+	(remove_unused_locals): New function.
+	* tree-flow.h (remove_unused_locals): Declare.
+	* passes.c (execute_todo): Call remove_unused_locals if
+	TODO_remove_unused_locals is set.
+	* tree-into-ssa.c (pass_build_ssa): Add TODO_remove_unused_locals.
+	* tree-ssa-dce.c (pass_dce): Likewise.
+	* tree-outof-ssa.c (pass_del_ssa): Likewise.
+
+2006-01-05  Richard Guenther  <rguenther@suse.de>
+
+	* tree-flow.h (struct fieldoff): Decompose field to
+	type, size and decl.
+	* tree-ssa-alias.c (create_sft): Take type as parameter.
+	(create_overlap_variables_for): Store type, size and decl
+	in the fieldoff structure.
+	* tree-ssa-structalias.c (fieldoff_compare): Adjust users
+	of struct fieldoff.
+	(push_fields_onto_fieldstack): Likewise.
+	(create_variable_info_for): Likewise.  Use offset for the
+	SFT name if the decl is not available.
+
 2006-01-04  Paul Brook  <paul@codesourcery.com>
 
 	* config/m68k/m68k.c (m68k_output_mi_thunk): Use jmp, not jsr.
@@ -229,4 +452,3 @@
 	* config/rs6000/sync.md (sync_compare_and_swap{hi,qi}): New.
 	(sync_compare_and_swapqhi_internal): New.
 	* config/rs6000/rs6000-protos.h: Declare.
-

@@ -1,3 +1,179 @@
+2006-01-08  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/22102 (insert as close to hint as possible)
+	* include/bits/stl_tree.h (_Rb_tree<>::_M_insert_lower,
+	_M_insert_equal_lower): New.
+	(_M_insert_equal(iterator, const _Val&),
+	_M_insert_equal(const_iterator, const _Val&)): Use the above.
+	* docs/html/ext/howto.html: Add an entry for DR 233.
+	* testsuite/23_containers/multiset/modifiers/insert/22102.cc: New.
+	* testsuite/23_containers/multimap/modifiers/insert/22102.cc: New.
+
+	* testsuite/23_containers/set/insert/: Move...
+	* testsuite/23_containers/set/modifiers/insert/: ...here.
+	* testsuite/23_containers/map/insert/: Move...
+	* testsuite/23_containers/map/modifiers/insert/: ...here.
+	* testsuite/23_containers/multiset/insert/: Move...
+	* testsuite/23_containers/multiset/modifiers/insert/: ...here.
+
+2006-01-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_tree.h (_Rb_tree<>::insert_unique): Rename
+	to _M_insert_unique.
+	(_Rb_tree<>::insert_equal): Rename to _M_insert_equal.
+	* include/bits/stl_map.h (class map<>): Update callers.
+	* include/bits/stl_set.h (class set<>): Likewise.
+	* include/bits/stl_multimap.h (class multimap<>): Likewise.
+	* include/bits/stl_multiset.h (class multiset<>): Likewise.
+
+2006-01-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_bvector.h (vector<bool>::erase(iterator,
+	iterator)): Just use _M_erase_at_end.
+
+2006-01-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_bvector.h (class vector<bool>): Move all the
+	helpers under protected access mode, consistently with the primary
+	vector template.
+	(vector<bool>::_M_erase_at_end): Add.
+	(erase(iterator, iterator), clear, resize, _M_fill_assign,
+	_M_assign_aux): Use it.
+	* testsuite/23_containers/vector/bool/modifiers/erase/1.cc: New.
+
+2006-01-06  Paolo Carlini  <pcarlini@suse.de>
+
+	Implement Option 3 of DR 431 for vector<bool>.
+	* include/bits/stl_bvector.h (class _Bvector_base): Change to
+	a struct, consistently with the primary vector template.
+	(class vector<bool>): Adjust to protected inheritance, tidy
+	typedefs.
+	(_Bvector_base<>::_M_get_Bit_allocator): Add.
+	(vector<bool>::vector(const vector&)): Use it.
+	(_Bvector_base<>::get_allocator): Tidy.
+	(vector<bool>::swap): Use __alloc_swap.
+	* testsuite/23_containers/vector/bool/modifiers/swap/1.cc: New.
+	* testsuite/23_containers/vector/bool/modifiers/swap/2.cc: New.
+
+2006-01-05  Paolo Carlini  <pcarlini@suse.de>
+	
+	* testsuite/testsuite_hooks.h (test_tm(unsigned)): Change to
+	take all the tm members.
+	* testsuite/testsuite_hooks.cc (test_tm): Adjust.
+	* testsuite/22_locale/time_put/put/wchar_t/10.cc: Update.
+	* testsuite/22_locale/time_put/put/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/6.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/7.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/8.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/9.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/17038.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/10.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/6.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/7.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/8.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/9.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/17038.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/4.cc: Likewise.
+
+2006-01-05  Paolo Carlini  <pcarlini@suse.de>
+	
+	* testsuite/testsuite_hooks.h (test_tm(unsigned)): New.
+	* testsuite/testsuite_hooks.cc (test_tm(unsigned)): Define.
+	* testsuite/22_locale/time_put/put/wchar_t/10.cc: Use it.
+	* testsuite/22_locale/time_put/put/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/6.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/7.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/8.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/9.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/17038.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/10.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/6.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/7.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/8.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/9.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/17038.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/4.cc: Likewise.
+
 2006-01-04  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string_base.h (__sso_string_base<>::_M_dataplus):
