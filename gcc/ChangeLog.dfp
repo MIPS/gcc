@@ -1,5 +1,8 @@
 2006-01-09  Ben Elliston  <bje@au.ibm.com>
 
+	* expr.c (emit_move_decimal_float): Assert MODE_DECIMAL_FLOAT.
+	Update the function comment accordingly.
+
 	* expr.c (emit_move_change_dfp_mode): New.
 	(emit_move_decimal_float): New.
 	(emit_move_insn_1): Handle decimal floating point modes by calling

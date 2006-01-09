@@ -3056,7 +3056,7 @@ emit_move_ccmode (enum machine_mode mode, rtx x, rtx y)
 }
 
 /* A subroutine of emit_move_insn_1.  Generate a move from Y into X.
-   MODE is known to be MODE_CC.  Returns the last instruction emitted.  */
+   MODE is known to be MODE_DECIMAL_FLOAT.  Returns the last instruction emitted.  */
 
 static rtx
 emit_move_decimal_float (enum machine_mode mode, rtx x, rtx y)
@@ -3064,6 +3064,8 @@ emit_move_decimal_float (enum machine_mode mode, rtx x, rtx y)
   rtx ret;
   enum machine_mode imode;
   enum insn_code code;
+
+  gcc_assert (GET_MODE_CLASS (mode) == MODE_DECIMAL_FLOAT);
 
   /* Find the MODE_INT mode of the same width.  There must exist a
      mode of the exact size we require.  */
