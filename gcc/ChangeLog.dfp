@@ -1,3 +1,28 @@
+2006-01-09  Ben Elliston  <bje@au.ibm.com>
+
+	* expr.c (emit_move_change_dfp_mode): New.
+	(emit_move_decimal_float): New.
+	(emit_move_insn_1): Handle decimal floating point modes by calling
+	emit_move_decimal_float.
+	* config/rs6000/decimal.md: Remove.
+	* config/rs6000/rs6000.md: Do not include "decimal.md".
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Omit SDmode.
+	(rs6000_legitimize_address): Likewise for TDmode.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address): Likewise.
+	(rs6000_legitimate_offset_address_p): Remove special handling for
+	DDmode and TDmode.
+	(rs6000_emit_move): Likewise for SDmode, DDmode and TDmode.
+	(USE_FP_FOR_ARG): Exclude all decimal float modes for now.
+	(rs6000_return_in_memory): Exclude TDmode.
+	(function_arg_advance): Likewise for DDmode and TDmode.
+	(function_arg): Likewise for DDmode and TDmode.
+	(rs6000_pass_by_reference): Exclude TDmode.
+	(rs6000_gimplify_va_arg): Likewise for DDmode and TDmode.
+	(rs6000_register_move_cost): Exclude TDmode.
+	(rs6000_function_value): Use GP_ARG_RETURN for all decimal modes.
+	(rs6000_libcall_value): Likewise.
+
 2006-01-05  Ben Elliston  <bje@au.ibm.com>
 
 	* config/rs6000/rs6000.c (debug_stack_info): Revert trivial hunk.
