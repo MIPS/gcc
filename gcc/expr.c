@@ -2784,7 +2784,7 @@ emit_move_change_mode (enum machine_mode new_mode,
 {
   rtx ret;
 
-  if (reload_in_progress && MEM_P (x))
+  if (MEM_P (x))
     {
       /* We can't use gen_lowpart here because it may call change_address
 	 which is not appropriate if we were called when a reload was in
@@ -2792,9 +2792,9 @@ emit_move_change_mode (enum machine_mode new_mode,
 	 the size in bytes is supposed to be the same.  Copy the MEM to
 	 change the mode and move any substitutions from the old MEM to
 	 the new one.  */
-
       ret = adjust_address_nv (x, new_mode, 0);
-      copy_replacements (x, ret);
+      if (reload_in_progress)
+	copy_replacements (x, ret);
     }
   else
     {
@@ -2809,26 +2809,6 @@ emit_move_change_mode (enum machine_mode new_mode,
       else
 	ret = simplify_subreg (new_mode, x, old_mode, 0);
     }
-
-  return ret;
-}
-
-/* Modelled on emit_move_change_mode.  */
-/* FIXME: This is the right way, but works for illustration.  */
-
-static rtx
-emit_move_change_dfp_mode (enum machine_mode new_mode,
-			   enum machine_mode old_mode, rtx x)
-{
-  rtx ret;
-
-  if (MEM_P (x))
-    {
-      ret = adjust_address_nv (x, new_mode, 0);
-      copy_replacements (x, ret);
-    }
-  else
-    ret = simplify_gen_subreg (new_mode, x, old_mode, 0);
 
   return ret;
 }
@@ -3056,41 +3036,6 @@ emit_move_ccmode (enum machine_mode mode, rtx x, rtx y)
 }
 
 /* A subroutine of emit_move_insn_1.  Generate a move from Y into X.
-   MODE is known to be MODE_DECIMAL_FLOAT.  Returns the last instruction emitted.  */
-
-static rtx
-emit_move_decimal_float (enum machine_mode mode, rtx x, rtx y)
-{
-  rtx ret;
-  enum machine_mode imode;
-  enum insn_code code;
-
-  gcc_assert (GET_MODE_CLASS (mode) == MODE_DECIMAL_FLOAT);
-
-  /* Find the MODE_INT mode of the same width.  There must exist a
-     mode of the exact size we require.  */
-  imode = int_mode_for_mode (mode);
-  if (imode == BLKmode)
-    return NULL_RTX;
-
-  /* The target must support moves in this mode.  */
-  code = mov_optab->handlers[imode].insn_code;
-  if (code == CODE_FOR_nothing)
-    return NULL_RTX;
-
-  x = emit_move_change_dfp_mode (imode, mode, x);
-  if (x == NULL_RTX)
-    return NULL_RTX;
-  y = emit_move_change_dfp_mode (imode, mode, y);
-  if (y == NULL_RTX)
-    return NULL_RTX;
-
-  ret = emit_insn (GEN_FCN (code) (x, y));
-  gcc_assert (ret != NULL);
-  return ret;
-}
-
-/* A subroutine of emit_move_insn_1.  Generate a move from Y into X.
    MODE is any multi-word or full-word mode that lacks a move_insn
    pattern.  Note that you will get better code if you define such
    patterns, even if they must turn into multiple assembler instructions.  */
@@ -3185,7 +3130,7 @@ emit_move_insn_1 (rtx x, rtx y)
     return emit_move_complex (mode, x, y);
 
   if (GET_MODE_CLASS (mode) == MODE_DECIMAL_FLOAT)
-    return emit_move_decimal_float (mode, x, y);
+    return emit_move_via_integer (mode, x, y, false);
 
   if (GET_MODE_CLASS (mode) == MODE_CC)
     return emit_move_ccmode (mode, x, y);
