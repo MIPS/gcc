@@ -1,5 +1,10 @@
 2006-01-10  Ben Elliston  <bje@au.ibm.com>
 
+	* config/i386/decimal.md: Remove.
+	* config/i386/i386.md: Don't include it.
+
+2006-01-10  Ben Elliston  <bje@au.ibm.com>
+
 	* expr.c (emit_move_insn_1): Pass true for the `force' parameter
 	when calling emit_move_via_integer.
 
