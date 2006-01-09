@@ -1,5 +1,8 @@
 2006-01-10  Ben Elliston  <bje@au.ibm.com>
 
+	* expr.c (emit_move_insn_1): Pass true for the `force' parameter
+	when calling emit_move_via_integer.
+
 	* expr.c (emit_move_change_mode): Always adjust addresses, not
 	just during reload.  Copy replacements only during reload.
 	(emit_move_insn_1): Move MODE_DECIMAL_FLOAT modes by invoking
