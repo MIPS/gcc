@@ -1,6 +1,7 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3508,8 +3509,12 @@ build_c_cast (tree type, tree expr)
 
       if (TREE_CODE (type) == INTEGER_TYPE
 	  && TREE_CODE (otype) == POINTER_TYPE
-	  && TYPE_PRECISION (type) != TYPE_PRECISION (otype)
-	  && !TREE_CONSTANT (value))
+	  && TYPE_PRECISION (type) != TYPE_PRECISION (otype))
+      /* Unlike conversion of integers to pointers, where the 
+         warning is disabled for converting constants because 
+         of cases such as SIG_*, warn about converting constant 
+         pointers to integers. In some cases it may cause unwanted 
+         sign extension, and a warning is appropriate.  */
 	warning (OPT_Wpointer_to_int_cast,
 		 "cast from pointer to integer of different size");
 

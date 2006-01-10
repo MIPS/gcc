@@ -1,3 +1,107 @@
+2006-01-08  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/StringBuilder.java (appendCodePoint): New method.
+	(insert): New overloads.
+	* java/lang/StringBuffer.java (StringBuffer): New constructor.
+	(charAt): Remerged javadoc.
+	(codePointAt, codePointBefore): New methods.
+	(appendCodePoint): New method.
+	(append): New overloads.
+	(insert): Likewise.
+	(trimToSize, codePointCount, offsetByCodePoints): New methods.
+	* java/lang/Float.java (SIZE): New field.
+	(valueOf): New method.
+	* java/lang/natDouble.cc (initIDs): Removed.
+	* java/lang/Double.java (static initializer): Removed.
+	(SIZE): New field.
+	(valueOf): New method.
+	(initIDs): Removed.
+
+2006-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgcj/24940
+	* shlibpath.m4: Replace $SED with sed.
+	* configure: Rebuilt.
+
+2006-01-06  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Character.java (SIZE, MAX_CACHE, charCache,
+	MIN_SURROGATE, MAX_SURROGATE): New fields from Classpath.
+	(MIN_HIGH_SURROGATE, MAX_HIGH_SURROGATE, MIN_LOW_SURROGATE,
+	MAX_LOW_SURROGATE): Javadoc fixes.
+	(valueOf, reverseBytes, isHighSurrogate, isLowSurrogate,
+	isSurrogatePair, toCodePoint, codePointAt, codePointBefore): New
+	methods from Classpath.
+	* java/lang/String.java (codePointAt, codePointBefore,
+	codePointCount, contains, replace): New methods from Classpath.
+	(contentEquals): Declare.
+	* java/lang/natString.cc (contentEquals): New method.
+
+2005-12-26  Anthony Green  <green@redhat.com>
+
+	* gnu/java/nio/SocketChannelImpl.java (read): Compute the right amount
+	of data to read (dst.remaining()).
+	* gnu/java/nio/DatagramChannelImpl.java (receive): Ditto.
+
+2005-11-11  Mark Wielaard  <mark@klomp.org>
+
+	Reported by john.zigman@anu.edu.au as bug #24608.
+	* gnu/java/nio/SocketChannelImpl.java (read): Put readBytes in
+	destination ByteBuffer when it doesn't have an array instead of len
+	bytes.
+
+2006-01-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natThread.cc (finish_): Don't clear 'group'.
+	* sources.am, Makefile.in: Rebuilt.
+	* java/lang/Runtime.java (exit): Merged with Classpath.
+	(runShutdownHooks): New method from Classpath.
+	* java/io/File.java (deleteOnExit): Use DeleteFileHelper, not
+	FileDeleter.
+	* gnu/gcj/runtime/FileDeleter.java: Removed.
+	* java/lang/natRuntime.cc (runFinalizationForExit): New method.
+	(exitInternal): Don't run finalizers or delete files.
+
+2006-01-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natPosixProcess.cc (reap): Ignore unknown children.
+
+2006-01-04  Krister Walfridsson  <cato@df.lth.se>
+
+	* posix-threads.cc (_Jv_InitThreads): #ifdef PTHREAD_STACK_MIN
+
+2006-01-04  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (_Jv_CopyClassesToSystemLoader): Updated.
+	* java/lang/natClassLoader.cc (_Jv_CopyClassesToSystemLoader):
+	Changed argument type.  Use SystemClassLoader.addClass.
+	* gnu/gcj/runtime/SystemClassLoader.java (addClass): New method.
+
+2005-12-24  David Daney <ddaney@avtrex.com>
+	    Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/9715, PR libgcj/19132:
+	* java/nio/charset/Charset.java (charsetForName): Try default
+	provider first.
+	(availableCharsets): Re-merged.
+	(providers2): Likewise.
+	(defaultCharset): Likewise.
+	* sources.am, Makefile.in: Rebuilt.
+	* gnu/java/nio/charset/Provider.java: Removed.
+	* java/io/OutputStreamWriter.java
+	(OutputStreamWriter(OutputStream,Charset)): New constructor.
+	(OutputStreamWriter(OutputStream,CharsetEncoder)): Likewise.
+	* java/io/InputStreamReader.java
+	(InputStreamReader(InputStream,CharsetDecoder)): New constructor.
+	(InputStreamReader(InputStream,Charset)): Likewise.
+	* gnu/gcj/convert/BytesToUnicode.java (getDecoder): Try a
+	BytesToCharsetAdaptor.
+	* gnu/gcj/convert/UnicodeToBytes.java (getEncoder): Try a
+	CharsetToBytesAdaptor.
+	* gnu/gcj/convert/CharsetToBytesAdaptor.java: New file.
+	* gnu/gcj/convert/BytesToCharsetAdaptor.java: New file.
+	* mauve-libgcj: Remove getEncoding exclusion.
+
 2005-12-28  Anthony Green  <green@redhat.com>
 
 	* gnu/java/net/natPlainSocketImplWin32.cc (connect): Same 

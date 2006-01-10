@@ -449,7 +449,7 @@ static inline void bsi_prev (block_stmt_iterator *);
 static inline tree bsi_stmt (block_stmt_iterator);
 static inline tree * bsi_stmt_ptr (block_stmt_iterator);
 
-extern void bsi_remove (block_stmt_iterator *);
+extern void bsi_remove (block_stmt_iterator *, bool);
 extern void bsi_move_before (block_stmt_iterator *, block_stmt_iterator *);
 extern void bsi_move_after (block_stmt_iterator *, block_stmt_iterator *);
 extern void bsi_move_to_bb_end (block_stmt_iterator *, basic_block);
@@ -776,10 +776,14 @@ void print_value_expressions (FILE *, tree);
 /* In tree-vn.c  */
 bool expressions_equal_p (tree, tree);
 tree get_value_handle (tree);
-hashval_t vn_compute (tree, hashval_t, tree);
+hashval_t vn_compute (tree, hashval_t);
+void sort_vuses (VEC (tree, gc) *);
 tree vn_lookup_or_add (tree, tree);
-void vn_add (tree, tree, tree);
+tree vn_lookup_or_add_with_vuses (tree, VEC (tree, gc) *);
+void vn_add (tree, tree);
+void vn_add_with_vuses (tree, tree, VEC (tree, gc) *);
 tree vn_lookup (tree, tree);
+tree vn_lookup_with_vuses (tree, VEC (tree, gc) *);
 void vn_init (void);
 void vn_delete (void);
 
@@ -810,6 +814,9 @@ tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);
+
+/* In tree-ssa-live.c */
+extern void remove_unused_locals (void);
 
 /* In tree-ssa-address.c  */
 
@@ -859,7 +866,9 @@ tree maybe_fold_tmr (tree);
 
 struct fieldoff
 {
-  tree field;
+  tree type;
+  tree size;
+  tree decl;
   HOST_WIDE_INT offset;  
 };
 typedef struct fieldoff fieldoff_s;

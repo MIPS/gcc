@@ -734,9 +734,7 @@ parse_ssa_operands (tree stmt)
 
 	if (TREE_CODE (lhs) != ARRAY_REF
 	    && TREE_CODE (lhs) != ARRAY_RANGE_REF
-	    && TREE_CODE (lhs) != BIT_FIELD_REF
-	    && TREE_CODE (lhs) != REALPART_EXPR
-	    && TREE_CODE (lhs) != IMAGPART_EXPR)
+	    && TREE_CODE (lhs) != BIT_FIELD_REF)
 	  lhs_flags |= opf_kill_def;
 
         get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), lhs_flags);
@@ -1065,6 +1063,10 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case STRUCT_FIELD_TAG:
     case TYPE_MEMORY_TAG:
     case NAME_MEMORY_TAG:
+
+     add_stmt_operand (expr_p, s_ann, flags);
+     return;
+
     case VAR_DECL:
     case PARM_DECL:
     case RESULT_DECL:
@@ -1126,6 +1128,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       {
 	tree ref;
 	HOST_WIDE_INT offset, size, maxsize;
+	bool none = true;
  	/* This component ref becomes an access to all of the subvariables
 	   it can touch,  if we can determine that, but *NOT* the real one.
 	   If we can't determine which fields we could touch, the recursion
@@ -1143,16 +1146,22 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 		if (overlap_subvar (offset, maxsize, sv, &exact))
 		  {
 	            int subvar_flags = flags;
+		    none = false;
 		    if (!exact
 			|| size != maxsize)
 		      subvar_flags &= ~opf_kill_def;
 		    add_stmt_operand (&sv->var, s_ann, subvar_flags);
 		  }
 	      }
+	    if (!none)
+	      flags |= opf_no_vops;
 	  }
-	else
-	  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), 
-			     flags & ~opf_kill_def);
+
+	/* Even if we found subvars above we need to ensure to see
+	   immediate uses for d in s.a[d].  In case of s.a having
+	   a subvar we'd miss it otherwise.  */
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), 
+			   flags & ~opf_kill_def);
 	
 	if (code == COMPONENT_REF)
 	  {
