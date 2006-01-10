@@ -1,3 +1,21 @@
+2006-01-10  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/25718
+	* gcc.dg/torture/pr25718-1.c: New test.
+
+2006-01-10  Bernhard Fischer  <rep.nop@aon.at>
+
+	* gfortran.dg/list_read_2.f90: Fix typo in description.
+
+2006-01-10  Jan Beulich  <jbeulich@novell.com>
+
+	* lib/target-supports.exp (check_visibility_available): Simplify test
+	for *-*-netware*.
+	(check_profiling_available): Fail for *-*-netware*.
+	* g++.old-deja/g++.law/profile1.C: Remove dg-bogus for *-*-netware*.
+	* gcc.dg/20021014-1.c: Likewise.
+	* gcc.dg/nest.c: Likewise.
+
 2006-01-09  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	fortran/24936

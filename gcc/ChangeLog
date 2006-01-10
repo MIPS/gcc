@@ -1,3 +1,37 @@
+2006-01-10  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.h (SH5_WOULD_BE_PARTIAL_NREGS): Use GET_MODE_SIZE
+	when MODE isn't BLKmode.
+
+2006-01-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/25367
+	* config/sparc/sparc.h (HARD_REGNO_RENAME_OK): New macro.
+
+2006-01-10  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/25718
+	* config/cris/cris.md ("uminsi3"): Don't use 8- or 16-bit sizes
+	for a negative bound.
+
+2006-01-10  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (get_constraint_for_component_ref):
+	Never override with anything constraint.
+
+2006-01-10  Jan Beulich  <jbeulich@novell.com>
+
+	* config/i386/i386.c (ix86_data_alignment): Don't force alignment to
+	256 bits when optimize_size.
+
+2006-01-10  Jan Beulich  <jbeulich@novell.com>
+
+	* config/i386/netware.h (TARGET_SUBTARGET_DEFAULT): Include
+	MASK_ALIGN_DOUBLE.
+	* config/i386/nwld.h (LINK_SPEC): Add --extensions:GNU option.
+	* config/i386/t-nwld (SHLIB_LINK): Insert spaces between expr
+	arguments.
+
 2006-01-10  Ben Elliston  <bje@au.ibm.com>
 
 	* config/rs6000/predicates.md (easy_fp_constant): Discount decimal
