@@ -34,12 +34,17 @@ if {[istarget i?86-*-linux-gnu] || [istarget x86_64-*-linux-gnu]} {
 
 proc target-specific-flags {} {
   set result "-frounding-math "
-  if [istarget i?86-*-linux-gnu] { append result "-msse" } 
   return $result
 }
   
 # Load support procs (borrow these from c-torture).
 load_lib c-torture.exp
+load_lib target-supports.exp
+
+# Skip these tests for targets that don't support this extension.
+if { ![check_effective_target_dfp] } {
+    return
+}
 
 # The list format is [coefficient, max-exponent, min-exponent].
 set properties(_Decimal32) [list 7 96 -95]

@@ -1,3 +1,12 @@
+2006-01-10  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.dg/debug/dwarf2/dwarf-dfp.c: Add dg-require-effective-target
+	dfp directive.
+ 	* gcc.misc-tests/dectest.exp (target-specific-flags): No longer
+	require -msse on i?86 targets.
+	Load target-supports.exp library. Skip these tests for targets
+	that don't support the DFP extension.
+
 2005-12-22  Janis Johnson  <janis187@us.ibm.com>
 
 	* gcc.dg/dfp/usual-arith-conv-const.c: Remove mixed operations that
