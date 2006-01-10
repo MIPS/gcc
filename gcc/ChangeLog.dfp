@@ -1,5 +1,9 @@
 2006-01-10  Ben Elliston  <bje@au.ibm.com>
 
+	* config/i386/i386.md (mode): Remove SD, DD, TD values.
+
+2006-01-10  Ben Elliston  <bje@au.ibm.com>
+
 	* expr.c (emit_move_change_mode): When reload not in progress,
 	adjust addresses using adjust_address, not adjust_address_nv.
 	Update comments.
