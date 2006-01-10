@@ -2786,15 +2786,17 @@ emit_move_change_mode (enum machine_mode new_mode,
 
   if (MEM_P (x))
     {
-      /* We can't use gen_lowpart here because it may call change_address
-	 which is not appropriate if we were called when a reload was in
-	 progress.  We don't have to worry about changing the address since
-	 the size in bytes is supposed to be the same.  Copy the MEM to
-	 change the mode and move any substitutions from the old MEM to
-	 the new one.  */
-      ret = adjust_address_nv (x, new_mode, 0);
+      /* We don't have to worry about changing the address since the
+	 size in bytes is supposed to be the same.  */
       if (reload_in_progress)
-	copy_replacements (x, ret);
+	{
+	  /* Copy the MEM to change the mode and move any
+	     substitutions from the old MEM to the new one.  */
+	  ret = adjust_address_nv (x, new_mode, 0);
+	  copy_replacements (x, ret);
+	}
+      else
+	ret = adjust_address (x, new_mode, 0);
     }
   else
     {
