@@ -1,5 +1,19 @@
 2006-01-11  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-dump.h (debug_function): Declare.
+	* tree-cfg.c (set_bb_for_stmt): Do not update the
+	block-to-labels map if we are currently expanding to RTL.
+	(tree_node_can_be_shared): Remove unnecessary CONSTANT_CLASS_P
+	checks.
+	Handle IDENTIFIER_NODE.
+	(tree_verify_flow_info): Do not ICE when emitting error
+	messages about invalid labels.
+	(dump_function_to_file): Reset CFUN before emitting the body
+	of the function.
+	(debug_function): New.
+
+2006-01-11  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-ssa-dce.c (find_control_dependence): Do not assume that
 	ENTRY_BLOCK_PTR->next_bb == single_succ (ENTRY_BLOCK_PTR).
 
