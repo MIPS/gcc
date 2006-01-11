@@ -254,7 +254,7 @@ dequeue_and_dump (dump_info_p di)
     {
       unsigned ix;
       tree base;
-      VEC (tree) *accesses = BINFO_BASE_ACCESSES (t);
+      VEC(tree,gc) *accesses = BINFO_BASE_ACCESSES (t);
 
       dump_child ("type", BINFO_TYPE (t));
 
@@ -672,7 +672,7 @@ static struct dump_file_info dump_files[TDI_end] =
   {".tu", "translation-unit", NULL, TDF_TREE, 0, 0, 0},
   {".class", "class-hierarchy", NULL, TDF_TREE, 0, 1, 0},
   {".original", "tree-original", NULL, TDF_TREE, 0, 2, 0},
-  {".generic", "tree-generic", NULL, TDF_TREE, 0, 3, 0},
+  {".gimple", "tree-gimple", NULL, TDF_TREE, 0, 3, 0},
   {".nested", "tree-nested", NULL, TDF_TREE, 0, 4, 0},
   {".inlined", "tree-inlined", NULL, TDF_TREE, 0, 5, 0},
   {".vcg", "tree-vcg", NULL, TDF_TREE, 0, 6, 0},
@@ -745,7 +745,9 @@ static const struct dump_option_value_info dump_options[] =
   {"vops", TDF_VOPS},
   {"lineno", TDF_LINENO},
   {"uid", TDF_UID},
-  {"all", ~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_TREE | TDF_RTL | TDF_IPA)},
+  {"stmtaddr", TDF_STMTADDR},
+  {"all", ~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_TREE | TDF_RTL | TDF_IPA 
+	    | TDF_STMTADDR)},
   {NULL, 0}
 };
 
@@ -962,7 +964,7 @@ dump_switch_p_1 (const char *arg, struct dump_file_info *dfi, bool doglob)
 	    flags |= option_ptr->value;
 	    goto found;
 	  }
-      warning ("ignoring unknown option %q.*s in %<-fdump-%s%>",
+      warning (0, "ignoring unknown option %q.*s in %<-fdump-%s%>",
 	       length, ptr, dfi->swtch);
     found:;
       ptr = end_ptr;

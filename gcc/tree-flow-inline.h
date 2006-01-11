@@ -141,24 +141,35 @@ noreturn_call_p (tree t)
 
 /* Mark statement T as modified.  */
 static inline void
-modify_stmt (tree t)
+mark_stmt_modified (tree t)
 {
-  stmt_ann_t ann = stmt_ann (t);
+  stmt_ann_t ann;
+  if (TREE_CODE (t) == PHI_NODE)
+    return;
+
+  ann = stmt_ann (t);
   if (ann == NULL)
     ann = create_stmt_ann (t);
   else if (noreturn_call_p (t))
-    VEC_safe_push (tree, modified_noreturn_calls, t);
+    VEC_safe_push (tree, gc, modified_noreturn_calls, t);
   ann->modified = 1;
 }
 
-/* Mark statement T as unmodified.  */
+/* Mark statement T as modified, and update it.  */
 static inline void
-unmodify_stmt (tree t)
+update_stmt (tree t)
 {
-  stmt_ann_t ann = stmt_ann (t);
-  if (ann == NULL)
-    ann = create_stmt_ann (t);
-  ann->modified = 0;
+  if (TREE_CODE (t) == PHI_NODE)
+    return;
+  mark_stmt_modified (t);
+  update_stmt_operands (t);
+}
+
+static inline void
+update_stmt_if_modified (tree t)
+{
+  if (stmt_modified_p (t))
+    update_stmt_operands (t);
 }
 
 /* Return true if T is marked as modified, false otherwise.  */
@@ -168,155 +179,312 @@ stmt_modified_p (tree t)
   stmt_ann_t ann = stmt_ann (t);
 
   /* Note that if the statement doesn't yet have an annotation, we consider it
-     modified.  This will force the next call to get_stmt_operands to scan the
-     statement.  */
+     modified.  This will force the next call to update_stmt_operands to scan 
+     the statement.  */
   return ann ? ann->modified : true;
 }
 
-/* Return the definitions present in ANN, a statement annotation.
-   Return NULL if this annotation contains no definitions.  */
-static inline def_optype
-get_def_ops (stmt_ann_t ann)
+/* Delink an immediate_uses node from its chain.  */
+static inline void
+delink_imm_use (ssa_use_operand_t *linknode)
 {
-  return ann ? ann->operands.def_ops : NULL;
+  /* Return if this node is not in a list.  */
+  if (linknode->prev == NULL)
+    return;
+
+  linknode->prev->next = linknode->next;
+  linknode->next->prev = linknode->prev;
+  linknode->prev = NULL;
+  linknode->next = NULL;
 }
 
-/* Return the uses present in ANN, a statement annotation.
-   Return NULL if this annotation contains no uses.  */
-static inline use_optype
-get_use_ops (stmt_ann_t ann)
+/* Link ssa_imm_use node LINKNODE into the chain for LIST.  */
+static inline void
+link_imm_use_to_list (ssa_use_operand_t *linknode, ssa_use_operand_t *list)
 {
-  return ann ? ann->operands.use_ops : NULL;
+  /* Link the new node at the head of the list.  If we are in the process of 
+     traversing the list, we won't visit any new nodes added to it.  */
+  linknode->prev = list;
+  linknode->next = list->next;
+  list->next->prev = linknode;
+  list->next = linknode;
 }
 
-/* Return the virtual may-defs present in ANN, a statement
-   annotation.
-   Return NULL if this annotation contains no virtual may-defs.  */
-static inline v_may_def_optype
-get_v_may_def_ops (stmt_ann_t ann)
+/* Link ssa_imm_use node LINKNODE into the chain for DEF.  */
+static inline void
+link_imm_use (ssa_use_operand_t *linknode, tree def)
 {
-  return ann ? ann->operands.v_may_def_ops : NULL;
+  ssa_use_operand_t *root;
+
+  if (!def || TREE_CODE (def) != SSA_NAME)
+    linknode->prev = NULL;
+  else
+    {
+      root = &(SSA_NAME_IMM_USE_NODE (def));
+#ifdef ENABLE_CHECKING
+      if (linknode->use)
+        gcc_assert (*(linknode->use) == def);
+#endif
+      link_imm_use_to_list (linknode, root);
+    }
 }
 
-/* Return the virtual uses present in ANN, a statement annotation.
-   Return NULL if this annotation contains no virtual uses.  */
-static inline vuse_optype
-get_vuse_ops (stmt_ann_t ann)
+/* Set the value of a use pointed by USE to VAL.  */
+static inline void
+set_ssa_use_from_ptr (use_operand_p use, tree val)
 {
-  return ann ? ann->operands.vuse_ops : NULL;
+  delink_imm_use (use);
+  *(use->use) = val;
+  link_imm_use (use, val);
 }
 
-/* Return the virtual must-defs present in ANN, a statement
-   annotation.  Return NULL if this annotation contains no must-defs.*/
-static inline v_must_def_optype
-get_v_must_def_ops (stmt_ann_t ann)
+/* Link ssa_imm_use node LINKNODE into the chain for DEF, with use occuring 
+   in STMT.  */
+static inline void
+link_imm_use_stmt (ssa_use_operand_t *linknode, tree def, tree stmt)
 {
-  return ann ? ann->operands.v_must_def_ops : NULL;
+  if (stmt)
+    link_imm_use (linknode, def);
+  else
+    link_imm_use (linknode, NULL);
+  linknode->stmt = stmt;
 }
+
+/* Relink a new node in place of an old node in the list.  */
+static inline void
+relink_imm_use (ssa_use_operand_t *node, ssa_use_operand_t *old)
+{
+  /* The node one had better be in the same list.  */
+  gcc_assert (*(old->use) == *(node->use));
+  node->prev = old->prev;
+  node->next = old->next;
+  if (old->prev)
+    {
+      old->prev->next = node;
+      old->next->prev = node;
+      /* Remove the old node from the list.  */
+      old->prev = NULL;
+    }
+}
+
+/* Relink ssa_imm_use node LINKNODE into the chain for OLD, with use occuring 
+   in STMT.  */
+static inline void
+relink_imm_use_stmt (ssa_use_operand_t *linknode, ssa_use_operand_t *old, tree stmt)
+{
+  if (stmt)
+    relink_imm_use (linknode, old);
+  else
+    link_imm_use (linknode, NULL);
+  linknode->stmt = stmt;
+}
+
+/* Finished the traverse of an immediate use list IMM by removing it from 
+   the list.  */
+static inline void
+end_safe_imm_use_traverse (imm_use_iterator *imm)
+{
+ delink_imm_use (&(imm->iter_node));
+}
+
+/* Return true if IMM is at the end of the list.  */
+static inline bool
+end_safe_imm_use_p (imm_use_iterator *imm)
+{
+  return (imm->imm_use == imm->end_p);
+}
+
+/* Initialize iterator IMM to process the list for VAR.  */
+static inline use_operand_p
+first_safe_imm_use (imm_use_iterator *imm, tree var)
+{
+  /* Set up and link the iterator node into the linked list for VAR.  */
+  imm->iter_node.use = NULL;
+  imm->iter_node.stmt = NULL_TREE;
+  imm->end_p = &(SSA_NAME_IMM_USE_NODE (var));
+  /* Check if there are 0 elements.  */
+  if (imm->end_p->next == imm->end_p)
+    {
+      imm->imm_use = imm->end_p;
+      return NULL_USE_OPERAND_P;
+    }
+
+  link_imm_use (&(imm->iter_node), var);
+  imm->imm_use = imm->iter_node.next;
+  return imm->imm_use;
+}
+
+/* Bump IMM to the next use in the list.  */
+static inline use_operand_p
+next_safe_imm_use (imm_use_iterator *imm)
+{
+  ssa_use_operand_t *ptr;
+  use_operand_p old;
+
+  old = imm->imm_use;
+  /* If the next node following the iter_node is still the one referred to by
+     imm_use, then the list hasn't changed, go to the next node.  */
+  if (imm->iter_node.next == imm->imm_use)
+    {
+      ptr = &(imm->iter_node);
+      /* Remove iternode from the list.  */
+      delink_imm_use (ptr);
+      imm->imm_use = imm->imm_use->next;
+      if (! end_safe_imm_use_p (imm))
+	{
+	  /* This isn't the end, link iternode before the next use.  */
+	  ptr->prev = imm->imm_use->prev;
+	  ptr->next = imm->imm_use;
+	  imm->imm_use->prev->next = ptr;
+	  imm->imm_use->prev = ptr;
+	}
+      else
+	return old;
+    }
+  else
+    {
+      /* If the 'next' value after the iterator isn't the same as it was, then
+	 a node has been deleted, so we simply proceed to the node following 
+	 where the iterator is in the list.  */
+      imm->imm_use = imm->iter_node.next;
+      if (end_safe_imm_use_p (imm))
+        {
+	  end_safe_imm_use_traverse (imm);
+	  return old;
+	}
+    }
+
+  return imm->imm_use;
+}
+
+/* Return true is IMM has reached the end of the immediate use list.  */
+static inline bool
+end_readonly_imm_use_p (imm_use_iterator *imm)
+{
+  return (imm->imm_use == imm->end_p);
+}
+
+/* Initialize iterator IMM to process the list for VAR.  */
+static inline use_operand_p
+first_readonly_imm_use (imm_use_iterator *imm, tree var)
+{
+  gcc_assert (TREE_CODE (var) == SSA_NAME);
+
+  imm->end_p = &(SSA_NAME_IMM_USE_NODE (var));
+  imm->imm_use = imm->end_p->next;
+#ifdef ENABLE_CHECKING
+  imm->iter_node.next = imm->imm_use->next;
+#endif
+  if (end_readonly_imm_use_p (imm))
+    return NULL_USE_OPERAND_P;
+  return imm->imm_use;
+}
+
+/* Bump IMM to the next use in the list.  */
+static inline use_operand_p
+next_readonly_imm_use (imm_use_iterator *imm)
+{
+  use_operand_p old = imm->imm_use;
+
+#ifdef ENABLE_CHECKING
+  /* If this assertion fails, it indicates the 'next' pointer has changed 
+     since we the last bump.  This indicates that the list is being modified
+     via stmt changes, or SET_USE, or somesuch thing, and you need to be
+     using the SAFE version of the iterator.  */
+  gcc_assert (imm->iter_node.next == old->next);
+  imm->iter_node.next = old->next->next;
+#endif
+
+  imm->imm_use = old->next;
+  if (end_readonly_imm_use_p (imm))
+    return old;
+  return imm->imm_use;
+}
+
+/* Return true if VAR has no uses.  */
+static inline bool
+has_zero_uses (tree var)
+{
+  ssa_use_operand_t *ptr;
+  ptr = &(SSA_NAME_IMM_USE_NODE (var));
+  /* A single use means there is no items in the list.  */
+  return (ptr == ptr->next);
+}
+
+/* Return true if VAR has a single use.  */
+static inline bool
+has_single_use (tree var)
+{
+  ssa_use_operand_t *ptr;
+  ptr = &(SSA_NAME_IMM_USE_NODE (var));
+  /* A single use means there is one item in the list.  */
+  return (ptr != ptr->next && ptr == ptr->next->next);
+}
+
+/* If VAR has only a single immediate use, return true, and set USE_P and STMT
+   to the use pointer and stmt of occurrence.  */
+static inline bool
+single_imm_use (tree var, use_operand_p *use_p, tree *stmt)
+{
+  ssa_use_operand_t *ptr;
+
+  ptr = &(SSA_NAME_IMM_USE_NODE (var));
+  if (ptr != ptr->next && ptr == ptr->next->next)
+    {
+      *use_p = ptr->next;
+      *stmt = ptr->next->stmt;
+      return true;
+    }
+  *use_p = NULL_USE_OPERAND_P;
+  *stmt = NULL_TREE;
+  return false;
+}
+
+/* Return the number of immediate uses of VAR.  */
+static inline unsigned int
+num_imm_uses (tree var)
+{
+  ssa_use_operand_t *ptr, *start;
+  unsigned int num;
+
+  start = &(SSA_NAME_IMM_USE_NODE (var));
+  num = 0;
+  for (ptr = start->next; ptr != start; ptr = ptr->next)
+     num++;
+
+  return num;
+}
+
 
 /* Return the tree pointer to by USE.  */ 
 static inline tree
 get_use_from_ptr (use_operand_p use)
 { 
-  return *(use.use);
+  return *(use->use);
 } 
 
 /* Return the tree pointer to by DEF.  */
 static inline tree
 get_def_from_ptr (def_operand_p def)
 {
-  return *(def.def);
-}
-
-/* Return a pointer to the tree that is at INDEX in the USES array.  */
-static inline use_operand_p
-get_use_op_ptr (use_optype uses, unsigned int index)
-{
-  gcc_assert (index < uses->num_uses);
-  return uses->uses[index];
-}
-
-/* Return a def_operand_p pointer for element INDEX of DEFS.  */
-static inline def_operand_p
-get_def_op_ptr (def_optype defs, unsigned int index)
-{
-  gcc_assert (index < defs->num_defs);
-  return defs->defs[index];
-}
-
-
-/* Return the def_operand_p that is the V_MAY_DEF_RESULT for the V_MAY_DEF
-   at INDEX in the V_MAY_DEFS array.  */
-static inline def_operand_p
-get_v_may_def_result_ptr(v_may_def_optype v_may_defs, unsigned int index)
-{
-  def_operand_p op;
-  gcc_assert (index < v_may_defs->num_v_may_defs);
-  op.def = &(v_may_defs->v_may_defs[index].def);
-  return op;
-}
-
-/* Return a use_operand_p that is the V_MAY_DEF_OP for the V_MAY_DEF at
-   INDEX in the V_MAY_DEFS array.  */
-static inline use_operand_p
-get_v_may_def_op_ptr(v_may_def_optype v_may_defs, unsigned int index)
-{
-  use_operand_p op;
-  gcc_assert (index < v_may_defs->num_v_may_defs);
-  op.use = &(v_may_defs->v_may_defs[index].use);
-  return op;
-}
-
-/* Return a use_operand_p that is at INDEX in the VUSES array.  */
-static inline use_operand_p
-get_vuse_op_ptr(vuse_optype vuses, unsigned int index)
-{
-  use_operand_p op;
-  gcc_assert (index < vuses->num_vuses);
-  op.use = &(vuses->vuses[index]);
-  return op;
-}
-
-/* Return a def_operand_p that is the V_MUST_DEF_RESULT for the
-   V_MUST_DEF at INDEX in the V_MUST_DEFS array.  */
-static inline def_operand_p
-get_v_must_def_result_ptr (v_must_def_optype v_must_defs, unsigned int index)
-{
-  def_operand_p op;
-  gcc_assert (index < v_must_defs->num_v_must_defs);
-  op.def = &(v_must_defs->v_must_defs[index].def);
-  return op;
-}
-
-/* Return a use_operand_p that is the V_MUST_DEF_KILL for the 
-   V_MUST_DEF at INDEX in the V_MUST_DEFS array.  */
-static inline use_operand_p
-get_v_must_def_kill_ptr (v_must_def_optype v_must_defs, unsigned int index)
-{
-  use_operand_p op;
-  gcc_assert (index < v_must_defs->num_v_must_defs);
-  op.use = &(v_must_defs->v_must_defs[index].use);
-  return op;
+  return *def;
 }
 
 /* Return a def_operand_p pointer for the result of PHI.  */
 static inline def_operand_p
 get_phi_result_ptr (tree phi)
 {
-  def_operand_p op;
-  op.def = &(PHI_RESULT_TREE (phi));
-  return op;
+  return &(PHI_RESULT_TREE (phi));
 }
 
 /* Return a use_operand_p pointer for argument I of phinode PHI.  */
 static inline use_operand_p
 get_phi_arg_def_ptr (tree phi, int i)
 {
-  use_operand_p op;
-  op.use = &(PHI_ARG_DEF_TREE (phi, i));
-  return op;
+  return &(PHI_ARG_IMM_USE_NODE (phi,i));
 }
- 
+
+
 /* Return the bitmap of addresses taken by STMT, or NULL if it takes
    no addresses.  */
 static inline bitmap
@@ -324,52 +492,6 @@ addresses_taken (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
   return ann ? ann->addresses_taken : NULL;
-}
-
-/* Return the immediate uses of STMT, or NULL if this information is
-   not computed.  */
-static dataflow_t
-get_immediate_uses (tree stmt)
-{
-  stmt_ann_t ann;
-
-  if (TREE_CODE (stmt) == PHI_NODE)
-    return PHI_DF (stmt);
-
-  ann = stmt_ann (stmt);
-  return ann ? ann->df : NULL;
-}
-
-/* Return the number of immediate uses present in the dataflow
-   information at DF.  */
-static inline int
-num_immediate_uses (dataflow_t df)
-{
-  varray_type imm;
-
-  if (!df)
-    return 0;
-
-  imm = df->immediate_uses;
-  if (!imm)
-    return df->uses[1] ? 2 : 1;
-
-  return VARRAY_ACTIVE_SIZE (imm) + 2;
-}
-
-/* Return the tree that is at NUM in the immediate use DF array.  */
-static inline tree
-immediate_use (dataflow_t df, int num)
-{
-  if (!df)
-    return NULL_TREE;
-
-#ifdef ENABLE_CHECKING
-  gcc_assert (num < num_immediate_uses (df));
-#endif
-  if (num < 2)
-    return df->uses[num];
-  return VARRAY_TREE (df->immediate_uses, num - 2);
 }
 
 /* Return the basic_block annotation for BB.  */
@@ -397,6 +519,37 @@ set_phi_nodes (basic_block bb, tree l)
   bb_ann (bb)->phi_nodes = l;
   for (phi = l; phi; phi = PHI_CHAIN (phi))
     set_bb_for_stmt (phi, bb);
+}
+
+/* Return the phi argument which contains the specified use.  */
+
+static inline int
+phi_arg_index_from_use (use_operand_p use)
+{
+  struct phi_arg_d *element, *root;
+  int index;
+  tree phi;
+
+  /* Since the use is the first thing in a PHI argument element, we can
+     calculate its index based on casting it to an argument, and performing
+     pointer arithmetic.  */
+
+  phi = USE_STMT (use);
+  gcc_assert (TREE_CODE (phi) == PHI_NODE);
+
+  element = (struct phi_arg_d *)use;
+  root = &(PHI_ARG_ELT (phi, 0));
+  index = element - root;
+
+#ifdef ENABLE_CHECKING
+  /* Make sure the calculation doesn't have any leftover bytes.  If it does, 
+     then imm_use is likely not the first element in phi_arg_d.  */
+  gcc_assert (
+	  (((char *)element - (char *)root) % sizeof (struct phi_arg_d)) == 0);
+  gcc_assert (index >= 0 && index < PHI_ARG_CAPACITY (phi));
+#endif
+ 
+ return index;
 }
 
 /* Mark VAR as used, so that it'll be preserved during rtl expansion.  */
@@ -681,23 +834,37 @@ op_iter_done (ssa_op_iter *ptr)
 static inline use_operand_p
 op_iter_next_use (ssa_op_iter *ptr)
 {
-  if (ptr->use_i < ptr->num_use)
+  use_operand_p use_p;
+#ifdef ENABLE_CHECKING
+  gcc_assert (ptr->iter_type == ssa_op_iter_use);
+#endif
+  if (ptr->uses)
     {
-      return USE_OP_PTR (ptr->ops->use_ops, (ptr->use_i)++);
+      use_p = USE_OP_PTR (ptr->uses);
+      ptr->uses = ptr->uses->next;
+      return use_p;
     }
-  if (ptr->vuse_i < ptr->num_vuse)
+  if (ptr->vuses)
     {
-      return VUSE_OP_PTR (ptr->ops->vuse_ops, (ptr->vuse_i)++);
+      use_p = VUSE_OP_PTR (ptr->vuses);
+      ptr->vuses = ptr->vuses->next;
+      return use_p;
     }
-  if (ptr->v_mayu_i < ptr->num_v_mayu)
+  if (ptr->mayuses)
     {
-      return V_MAY_DEF_OP_PTR (ptr->ops->v_may_def_ops,
-			       (ptr->v_mayu_i)++);
+      use_p = MAYDEF_OP_PTR (ptr->mayuses);
+      ptr->mayuses = ptr->mayuses->next;
+      return use_p;
     }
-  if (ptr->v_mustu_i < ptr->num_v_mustu)
+  if (ptr->mustkills)
     {
-      return V_MUST_DEF_KILL_PTR (ptr->ops->v_must_def_ops,
-				  (ptr->v_mustu_i)++);
+      use_p = MUSTDEF_KILL_PTR (ptr->mustkills);
+      ptr->mustkills = ptr->mustkills->next;
+      return use_p;
+    }
+  if (ptr->phi_i < ptr->num_phi)
+    {
+      return PHI_ARG_DEF_PTR (ptr->phi_stmt, (ptr->phi_i)++);
     }
   ptr->done = true;
   return NULL_USE_OPERAND_P;
@@ -707,19 +874,27 @@ op_iter_next_use (ssa_op_iter *ptr)
 static inline def_operand_p
 op_iter_next_def (ssa_op_iter *ptr)
 {
-  if (ptr->def_i < ptr->num_def)
+  def_operand_p def_p;
+#ifdef ENABLE_CHECKING
+  gcc_assert (ptr->iter_type == ssa_op_iter_def);
+#endif
+  if (ptr->defs)
     {
-      return DEF_OP_PTR (ptr->ops->def_ops, (ptr->def_i)++);
+      def_p = DEF_OP_PTR (ptr->defs);
+      ptr->defs = ptr->defs->next;
+      return def_p;
     }
-  if (ptr->v_mustd_i < ptr->num_v_mustd)
+  if (ptr->mustdefs)
     {
-      return V_MUST_DEF_RESULT_PTR (ptr->ops->v_must_def_ops, 
-					(ptr->v_mustd_i)++);
+      def_p = MUSTDEF_RESULT_PTR (ptr->mustdefs);
+      ptr->mustdefs = ptr->mustdefs->next;
+      return def_p;
     }
-  if (ptr->v_mayd_i < ptr->num_v_mayd)
+  if (ptr->maydefs)
     {
-      return V_MAY_DEF_RESULT_PTR (ptr->ops->v_may_def_ops,
-					   (ptr->v_mayd_i)++);
+      def_p = MAYDEF_RESULT_PTR (ptr->maydefs);
+      ptr->maydefs = ptr->maydefs->next;
+      return def_p;
     }
   ptr->done = true;
   return NULL_DEF_OPERAND_P;
@@ -729,68 +904,100 @@ op_iter_next_def (ssa_op_iter *ptr)
 static inline tree
 op_iter_next_tree (ssa_op_iter *ptr)
 {
-  if (ptr->use_i < ptr->num_use)
+  tree val;
+#ifdef ENABLE_CHECKING
+  gcc_assert (ptr->iter_type == ssa_op_iter_tree);
+#endif
+  if (ptr->uses)
     {
-      return USE_OP (ptr->ops->use_ops, (ptr->use_i)++);
+      val = USE_OP (ptr->uses);
+      ptr->uses = ptr->uses->next;
+      return val;
     }
-  if (ptr->vuse_i < ptr->num_vuse)
+  if (ptr->vuses)
     {
-      return VUSE_OP (ptr->ops->vuse_ops, (ptr->vuse_i)++);
+      val = VUSE_OP (ptr->vuses);
+      ptr->vuses = ptr->vuses->next;
+      return val;
     }
-  if (ptr->v_mayu_i < ptr->num_v_mayu)
+  if (ptr->mayuses)
     {
-      return V_MAY_DEF_OP (ptr->ops->v_may_def_ops, (ptr->v_mayu_i)++);
+      val = MAYDEF_OP (ptr->mayuses);
+      ptr->mayuses = ptr->mayuses->next;
+      return val;
     }
-  if (ptr->v_mustu_i < ptr->num_v_mustu)
+  if (ptr->mustkills)
     {
-      return V_MUST_DEF_KILL (ptr->ops->v_must_def_ops, (ptr->v_mustu_i)++);
+      val = MUSTDEF_KILL (ptr->mustkills);
+      ptr->mustkills = ptr->mustkills->next;
+      return val;
     }
-  if (ptr->def_i < ptr->num_def)
+  if (ptr->defs)
     {
-      return DEF_OP (ptr->ops->def_ops, (ptr->def_i)++);
+      val = DEF_OP (ptr->defs);
+      ptr->defs = ptr->defs->next;
+      return val;
     }
-  if (ptr->v_mustd_i < ptr->num_v_mustd)
+  if (ptr->mustdefs)
     {
-      return V_MUST_DEF_RESULT (ptr->ops->v_must_def_ops, 
-					(ptr->v_mustd_i)++);
+      val = MUSTDEF_RESULT (ptr->mustdefs);
+      ptr->mustdefs = ptr->mustdefs->next;
+      return val;
     }
-  if (ptr->v_mayd_i < ptr->num_v_mayd)
+  if (ptr->maydefs)
     {
-      return V_MAY_DEF_RESULT (ptr->ops->v_may_def_ops,
-					   (ptr->v_mayd_i)++);
+      val = MAYDEF_RESULT (ptr->maydefs);
+      ptr->maydefs = ptr->maydefs->next;
+      return val;
     }
+
   ptr->done = true;
-  return NULL;
+  return NULL_TREE;
+
+}
+
+
+/* This functions clears the iterator PTR, and marks it done.  This is normally
+   used to prevent warnings in the compile about might be uninitailzied
+   components.  */
+
+static inline void
+clear_and_done_ssa_iter (ssa_op_iter *ptr)
+{
+  ptr->defs = NULL;
+  ptr->uses = NULL;
+  ptr->vuses = NULL;
+  ptr->maydefs = NULL;
+  ptr->mayuses = NULL;
+  ptr->mustdefs = NULL;
+  ptr->mustkills = NULL;
+  ptr->iter_type = ssa_op_iter_none;
+  ptr->phi_i = 0;
+  ptr->num_phi = 0;
+  ptr->phi_stmt = NULL_TREE;
+  ptr->done = true;
 }
 
 /* Initialize the iterator PTR to the virtual defs in STMT.  */
 static inline void
 op_iter_init (ssa_op_iter *ptr, tree stmt, int flags)
 {
-  stmt_operands_p ops;
-  stmt_ann_t ann = get_stmt_ann (stmt);
+#ifdef ENABLE_CHECKING
+  gcc_assert (stmt_ann (stmt));
+#endif
 
-  ops = &(ann->operands);
+  ptr->defs = (flags & SSA_OP_DEF) ? DEF_OPS (stmt) : NULL;
+  ptr->uses = (flags & SSA_OP_USE) ? USE_OPS (stmt) : NULL;
+  ptr->vuses = (flags & SSA_OP_VUSE) ? VUSE_OPS (stmt) : NULL;
+  ptr->maydefs = (flags & SSA_OP_VMAYDEF) ? MAYDEF_OPS (stmt) : NULL;
+  ptr->mayuses = (flags & SSA_OP_VMAYUSE) ? MAYDEF_OPS (stmt) : NULL;
+  ptr->mustdefs = (flags & SSA_OP_VMUSTDEF) ? MUSTDEF_OPS (stmt) : NULL;
+  ptr->mustkills = (flags & SSA_OP_VMUSTKILL) ? MUSTDEF_OPS (stmt) : NULL;
   ptr->done = false;
-  ptr->ops = ops;
-  ptr->num_def = (flags & SSA_OP_DEF) ? NUM_DEFS (ops->def_ops) : 0;
-  ptr->num_use = (flags & SSA_OP_USE) ? NUM_USES (ops->use_ops) : 0;
-  ptr->num_vuse = (flags & SSA_OP_VUSE) ? NUM_VUSES (ops->vuse_ops) : 0;
-  ptr->num_v_mayu = (flags & SSA_OP_VMAYUSE)
-		     ?  NUM_V_MAY_DEFS (ops->v_may_def_ops) : 0;
-  ptr->num_v_mayd = (flags & SSA_OP_VMAYDEF) 
-		     ?  NUM_V_MAY_DEFS (ops->v_may_def_ops) : 0;
-  ptr->num_v_mustu = (flags & SSA_OP_VMUSTDEFKILL)
-                     ? NUM_V_MUST_DEFS (ops->v_must_def_ops) : 0;
-  ptr->num_v_mustd = (flags & SSA_OP_VMUSTDEF) 
-		     ? NUM_V_MUST_DEFS (ops->v_must_def_ops) : 0;
-  ptr->def_i = 0;
-  ptr->use_i = 0;
-  ptr->vuse_i = 0;
-  ptr->v_mayu_i = 0;
-  ptr->v_mayd_i = 0;
-  ptr->v_mustu_i = 0;
-  ptr->v_mustd_i = 0;
+
+  ptr->phi_i = 0;
+  ptr->num_phi = 0;
+  ptr->phi_stmt = NULL_TREE;
 }
 
 /* Initialize iterator PTR to the use operands in STMT based on FLAGS. Return
@@ -798,7 +1005,9 @@ op_iter_init (ssa_op_iter *ptr, tree stmt, int flags)
 static inline use_operand_p
 op_iter_init_use (ssa_op_iter *ptr, tree stmt, int flags)
 {
+  gcc_assert ((flags & SSA_OP_ALL_DEFS) == 0);
   op_iter_init (ptr, stmt, flags);
+  ptr->iter_type = ssa_op_iter_use;
   return op_iter_next_use (ptr);
 }
 
@@ -807,7 +1016,9 @@ op_iter_init_use (ssa_op_iter *ptr, tree stmt, int flags)
 static inline def_operand_p
 op_iter_init_def (ssa_op_iter *ptr, tree stmt, int flags)
 {
+  gcc_assert ((flags & (SSA_OP_ALL_USES | SSA_OP_VIRTUAL_KILLS)) == 0);
   op_iter_init (ptr, stmt, flags);
+  ptr->iter_type = ssa_op_iter_def;
   return op_iter_next_def (ptr);
 }
 
@@ -817,47 +1028,41 @@ static inline tree
 op_iter_init_tree (ssa_op_iter *ptr, tree stmt, int flags)
 {
   op_iter_init (ptr, stmt, flags);
+  ptr->iter_type = ssa_op_iter_tree;
   return op_iter_next_tree (ptr);
 }
 
 /* Get the next iterator mustdef value for PTR, returning the mustdef values in
    KILL and DEF.  */
 static inline void
-op_iter_next_mustdef (use_operand_p *kill, def_operand_p *def, ssa_op_iter *ptr)
+op_iter_next_maymustdef (use_operand_p *use, def_operand_p *def, 
+			 ssa_op_iter *ptr)
 {
-  if (ptr->v_mustu_i < ptr->num_v_mustu)
+#ifdef ENABLE_CHECKING
+  gcc_assert (ptr->iter_type == ssa_op_iter_maymustdef);
+#endif
+  if (ptr->mayuses)
     {
-      *def = V_MUST_DEF_RESULT_PTR (ptr->ops->v_must_def_ops, ptr->v_mustu_i);
-      *kill = V_MUST_DEF_KILL_PTR (ptr->ops->v_must_def_ops, (ptr->v_mustu_i)++);
+      *def = MAYDEF_RESULT_PTR (ptr->mayuses);
+      *use = MAYDEF_OP_PTR (ptr->mayuses);
+      ptr->mayuses = ptr->mayuses->next;
       return;
     }
-  else
+
+  if (ptr->mustkills)
     {
-      *def = NULL_DEF_OPERAND_P;
-      *kill = NULL_USE_OPERAND_P;
+      *def = MUSTDEF_RESULT_PTR (ptr->mustkills);
+      *use = MUSTDEF_KILL_PTR (ptr->mustkills);
+      ptr->mustkills = ptr->mustkills->next;
+      return;
     }
+
+  *def = NULL_DEF_OPERAND_P;
+  *use = NULL_USE_OPERAND_P;
   ptr->done = true;
   return;
 }
-/* Get the next iterator maydef value for PTR, returning the maydef values in
-   USE and DEF.  */
-static inline void
-op_iter_next_maydef (use_operand_p *use, def_operand_p *def, ssa_op_iter *ptr)
-{
-  if (ptr->v_mayu_i < ptr->num_v_mayu)
-    {
-      *def = V_MAY_DEF_RESULT_PTR (ptr->ops->v_may_def_ops, ptr->v_mayu_i);
-      *use = V_MAY_DEF_OP_PTR (ptr->ops->v_may_def_ops, (ptr->v_mayu_i)++);
-      return;
-    }
-  else
-    {
-      *def = NULL_DEF_OPERAND_P;
-      *use = NULL_USE_OPERAND_P;
-    }
-  ptr->done = true;
-  return;
-}
+
 
 /* Initialize iterator PTR to the operands in STMT.  Return the first operands
    in USE and DEF.  */
@@ -865,9 +1070,13 @@ static inline void
 op_iter_init_maydef (ssa_op_iter *ptr, tree stmt, use_operand_p *use, 
 		     def_operand_p *def)
 {
+  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
+
   op_iter_init (ptr, stmt, SSA_OP_VMAYUSE);
-  op_iter_next_maydef (use, def, ptr);
+  ptr->iter_type = ssa_op_iter_maymustdef;
+  op_iter_next_maymustdef (use, def, ptr);
 }
+
 
 /* Initialize iterator PTR to the operands in STMT.  Return the first operands
    in KILL and DEF.  */
@@ -875,8 +1084,249 @@ static inline void
 op_iter_init_mustdef (ssa_op_iter *ptr, tree stmt, use_operand_p *kill, 
 		     def_operand_p *def)
 {
-  op_iter_init (ptr, stmt, SSA_OP_VMUSTDEFKILL);
-  op_iter_next_mustdef (kill, def, ptr);
+  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
+
+  op_iter_init (ptr, stmt, SSA_OP_VMUSTKILL);
+  ptr->iter_type = ssa_op_iter_maymustdef;
+  op_iter_next_maymustdef (kill, def, ptr);
+}
+
+/* Initialize iterator PTR to the operands in STMT.  Return the first operands
+   in KILL and DEF.  */
+static inline void
+op_iter_init_must_and_may_def (ssa_op_iter *ptr, tree stmt,
+			       use_operand_p *kill, def_operand_p *def)
+{
+  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
+
+  op_iter_init (ptr, stmt, SSA_OP_VMUSTKILL|SSA_OP_VMAYUSE);
+  ptr->iter_type = ssa_op_iter_maymustdef;
+  op_iter_next_maymustdef (kill, def, ptr);
+}
+
+
+/* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
+   return NULL.  PTR is the iterator to use.  */
+static inline tree
+single_ssa_tree_operand (tree stmt, int flags)
+{
+  tree var;
+  ssa_op_iter iter;
+
+  var = op_iter_init_tree (&iter, stmt, flags);
+  if (op_iter_done (&iter))
+    return NULL_TREE;
+  op_iter_next_tree (&iter);
+  if (op_iter_done (&iter))
+    return var;
+  return NULL_TREE;
+}
+
+
+/* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
+   return NULL.  PTR is the iterator to use.  */
+static inline use_operand_p
+single_ssa_use_operand (tree stmt, int flags)
+{
+  use_operand_p var;
+  ssa_op_iter iter;
+
+  var = op_iter_init_use (&iter, stmt, flags);
+  if (op_iter_done (&iter))
+    return NULL_USE_OPERAND_P;
+  op_iter_next_use (&iter);
+  if (op_iter_done (&iter))
+    return var;
+  return NULL_USE_OPERAND_P;
+}
+
+
+
+/* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
+   return NULL.  PTR is the iterator to use.  */
+static inline def_operand_p
+single_ssa_def_operand (tree stmt, int flags)
+{
+  def_operand_p var;
+  ssa_op_iter iter;
+
+  var = op_iter_init_def (&iter, stmt, flags);
+  if (op_iter_done (&iter))
+    return NULL_DEF_OPERAND_P;
+  op_iter_next_def (&iter);
+  if (op_iter_done (&iter))
+    return var;
+  return NULL_DEF_OPERAND_P;
+}
+
+
+/* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
+   return NULL.  PTR is the iterator to use.  */
+static inline bool
+zero_ssa_operands (tree stmt, int flags)
+{
+  ssa_op_iter iter;
+
+  op_iter_init_tree (&iter, stmt, flags);
+  return op_iter_done (&iter);
+}
+
+
+/* Return the number of operands matching FLAGS in STMT.  */
+static inline int
+num_ssa_operands (tree stmt, int flags)
+{
+  ssa_op_iter iter;
+  tree t;
+  int num = 0;
+
+  FOR_EACH_SSA_TREE_OPERAND (t, stmt, iter, flags)
+    num++;
+  return num;
+}
+
+
+/* Delink all immediate_use information for STMT.  */
+static inline void
+delink_stmt_imm_use (tree stmt)
+{
+   ssa_op_iter iter;
+   use_operand_p use_p;
+
+   if (ssa_operands_active ())
+     FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
+			       (SSA_OP_ALL_USES | SSA_OP_ALL_KILLS))
+       delink_imm_use (use_p);
+}
+
+
+/* This routine will compare all the operands matching FLAGS in STMT1 to those
+   in STMT2.  TRUE is returned if they are the same.  STMTs can be NULL.  */
+static inline bool
+compare_ssa_operands_equal (tree stmt1, tree stmt2, int flags)
+{
+  ssa_op_iter iter1, iter2;
+  tree op1 = NULL_TREE;
+  tree op2 = NULL_TREE;
+  bool look1, look2;
+
+  if (stmt1 == stmt2)
+    return true;
+
+  look1 = stmt1 && stmt_ann (stmt1);
+  look2 = stmt2 && stmt_ann (stmt2);
+
+  if (look1)
+    {
+      op1 = op_iter_init_tree (&iter1, stmt1, flags);
+      if (!look2)
+        return op_iter_done (&iter1);
+    }
+  else
+    clear_and_done_ssa_iter (&iter1);
+
+  if (look2)
+    {
+      op2 = op_iter_init_tree (&iter2, stmt2, flags);
+      if (!look1)
+        return op_iter_done (&iter2);
+    }
+  else
+    clear_and_done_ssa_iter (&iter2);
+
+  while (!op_iter_done (&iter1) && !op_iter_done (&iter2))
+    {
+      if (op1 != op2)
+	return false;
+      op1 = op_iter_next_tree (&iter1);
+      op2 = op_iter_next_tree (&iter2);
+    }
+
+  return (op_iter_done (&iter1) && op_iter_done (&iter2));
+}
+
+
+/* If there is a single DEF in the PHI node which matches FLAG, return it.
+   Otherwise return NULL_DEF_OPERAND_P.  */
+static inline tree
+single_phi_def (tree stmt, int flags)
+{
+  tree def = PHI_RESULT (stmt);
+  if ((flags & SSA_OP_DEF) && is_gimple_reg (def)) 
+    return def;
+  if ((flags & SSA_OP_VIRTUAL_DEFS) && !is_gimple_reg (def))
+    return def;
+  return NULL_TREE;
+}
+
+/* Initialize the iterator PTR for uses matching FLAGS in PHI.  FLAGS should
+   be either SSA_OP_USES or SAS_OP_VIRTUAL_USES.  */
+static inline use_operand_p
+op_iter_init_phiuse (ssa_op_iter *ptr, tree phi, int flags)
+{
+  tree phi_def = PHI_RESULT (phi);
+  int comp;
+
+  clear_and_done_ssa_iter (ptr);
+  ptr->done = false;
+
+  gcc_assert ((flags & (SSA_OP_USE | SSA_OP_VIRTUAL_USES)) != 0);
+
+  comp = (is_gimple_reg (phi_def) ? SSA_OP_USE : SSA_OP_VIRTUAL_USES);
+    
+  /* If the PHI node doesn't the operand type we care about, we're done.  */
+  if ((flags & comp) == 0)
+    {
+      ptr->done = true;
+      return NULL_USE_OPERAND_P;
+    }
+
+  ptr->phi_stmt = phi;
+  ptr->num_phi = PHI_NUM_ARGS (phi);
+  ptr->iter_type = ssa_op_iter_use;
+  return op_iter_next_use (ptr);
+}
+
+
+/* Start an iterator for a PHI definition.  */
+
+static inline def_operand_p
+op_iter_init_phidef (ssa_op_iter *ptr, tree phi, int flags)
+{
+  tree phi_def = PHI_RESULT (phi);
+  int comp;
+
+  clear_and_done_ssa_iter (ptr);
+  ptr->done = false;
+
+  gcc_assert ((flags & (SSA_OP_DEF | SSA_OP_VIRTUAL_DEFS)) != 0);
+
+  comp = (is_gimple_reg (phi_def) ? SSA_OP_DEF : SSA_OP_VIRTUAL_DEFS);
+    
+  /* If the PHI node doesn't the operand type we care about, we're done.  */
+  if ((flags & comp) == 0)
+    {
+      ptr->done = true;
+      return NULL_USE_OPERAND_P;
+    }
+
+  ptr->iter_type = ssa_op_iter_def;
+  /* The first call to op_iter_next_def will terminate the iterator since
+     all the fields are NULL.  Simply return the result here as the first and
+     therefore only result.  */
+  return PHI_RESULT_PTR (phi);
+}
+
+
+
+/* Return true if VAR cannot be modified by the program.  */
+
+static inline bool
+unmodifiable_var_p (tree var)
+{
+  if (TREE_CODE (var) == SSA_NAME)
+    var = SSA_NAME_VAR (var);
+  return TREE_READONLY (var) && (TREE_STATIC (var) || DECL_EXTERNAL (var));
 }
 
 /* Return true if REF, a COMPONENT_REF, has an ARRAY_REF somewhere in it.  */
@@ -933,5 +1383,48 @@ var_can_have_subvars (tree v)
 }
 
   
+/* Return true if OFFSET and SIZE define a range that overlaps with some
+   portion of the range of SV, a subvar.  If there was an exact overlap,
+   *EXACT will be set to true upon return. */
+
+static inline bool
+overlap_subvar (HOST_WIDE_INT offset, HOST_WIDE_INT size,
+		subvar_t sv,  bool *exact)
+{
+  /* There are three possible cases of overlap.
+     1. We can have an exact overlap, like so:   
+     |offset, offset + size             |
+     |sv->offset, sv->offset + sv->size |
+     
+     2. We can have offset starting after sv->offset, like so:
+     
+           |offset, offset + size              |
+     |sv->offset, sv->offset + sv->size  |
+
+     3. We can have offset starting before sv->offset, like so:
+     
+     |offset, offset + size    |
+       |sv->offset, sv->offset + sv->size|
+  */
+
+  if (exact)
+    *exact = false;
+  if (offset == sv->offset && size == sv->size)
+    {
+      if (exact)
+	*exact = true;
+      return true;
+    }
+  else if (offset >= sv->offset && offset < (sv->offset + sv->size))
+    {
+      return true;
+    }
+  else if (offset < sv->offset && (offset + size > sv->offset))
+    {
+      return true;
+    }
+  return false;
+
+}
 
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -90,14 +90,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    `in_struct' (ATTR_CURR_SIMPLIFIED_P): This rtx is fully simplified
       for the insn code currently being processed (see optimize_attrs).
    `return_val' (ATTR_PERMANENT_P): This rtx is permanent and unique
-      (see attr_rtx).
-   `volatil' (ATTR_EQ_ATTR_P): During simplify_by_exploding the value of an
-      EQ_ATTR rtx is true if !volatil and false if volatil.  */
+      (see attr_rtx).  */
 
 #define ATTR_IND_SIMPLIFIED_P(RTX) (RTX_FLAG((RTX), unchanging))
 #define ATTR_CURR_SIMPLIFIED_P(RTX) (RTX_FLAG((RTX), in_struct))
 #define ATTR_PERMANENT_P(RTX) (RTX_FLAG((RTX), return_val))
-#define ATTR_EQ_ATTR_P(RTX) (RTX_FLAG((RTX), volatil))
 
 #if 0
 #define strcmp_check(S1, S2) ((S1) == (S2)		\
@@ -184,14 +181,10 @@ struct attr_desc
   struct attr_value *default_val; /* Default value for this attribute.  */
   int lineno : 24;		/* Line number.  */
   unsigned is_numeric	: 1;	/* Values of this attribute are numeric.  */
-  unsigned negative_ok	: 1;	/* Allow negative numeric values.  */
-  unsigned unsigned_p	: 1;	/* Make the output function unsigned int.  */
   unsigned is_const	: 1;	/* Attribute value constant for each run.  */
   unsigned is_special	: 1;	/* Don't call `write_attr_set'.  */
   unsigned static_p	: 1;	/* Make the output function static.  */
 };
-
-#define NULL_ATTR (struct attr_desc *) NULL
 
 /* Structure for each DEFINE_DELAY.  */
 
@@ -735,7 +728,6 @@ attr_copy_rtx (rtx orig)
   ATTR_IND_SIMPLIFIED_P (copy) = ATTR_IND_SIMPLIFIED_P (orig);
   ATTR_CURR_SIMPLIFIED_P (copy) = ATTR_CURR_SIMPLIFIED_P (orig);
   ATTR_PERMANENT_P (copy) = ATTR_PERMANENT_P (orig);
-  ATTR_EQ_ATTR_P (copy) = ATTR_EQ_ATTR_P (orig);
 
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
 
@@ -967,7 +959,7 @@ check_attr_value (rtx exp, struct attr_desc *attr)
 	  break;
 	}
 
-      if (INTVAL (exp) < 0 && ! attr->negative_ok)
+      if (INTVAL (exp) < 0)
 	{
 	  message_with_line (attr->lineno,
 			     "negative numeric value specified for attribute %s",
@@ -984,8 +976,6 @@ check_attr_value (rtx exp, struct attr_desc *attr)
       if (attr == 0 || attr->is_numeric)
 	{
 	  p = XSTR (exp, 0);
-	  if (attr && attr->negative_ok && *p == '-')
-	    p++;
 	  for (; *p; p++)
 	    if (! ISDIGIT (*p))
 	      {
@@ -1088,8 +1078,7 @@ check_attr_value (rtx exp, struct attr_desc *attr)
 	    have_error = 1;
 	  }
 	else if (attr
-		 && (attr->is_numeric != attr2->is_numeric
-		     || (! attr->negative_ok && attr2->negative_ok)))
+		 && attr->is_numeric != attr2->is_numeric)
 	  {
 	    message_with_line (attr->lineno,
 		"numeric attribute mismatch calling `%s' from `%s'",
@@ -3716,8 +3705,6 @@ write_attr_get (struct attr_desc *attr)
     printf ("static ");
   if (!attr->is_numeric)
     printf ("enum attr_%s\n", attr->name);
-  else if (attr->unsigned_p)
-    printf ("unsigned int\n");
   else
     printf ("int\n");
 
@@ -3965,8 +3952,6 @@ write_expr_attr_cache (rtx p, struct attr_desc *attr)
 
       if (!attr->is_numeric)
 	printf ("  enum attr_%s ", attr->name);
-      else if (attr->unsigned_p)
-	printf ("  unsigned int ");
       else
 	printf ("  int ");
 
@@ -4278,8 +4263,8 @@ find_attr (const char **name_p, int create)
   attr = oballoc (sizeof (struct attr_desc));
   attr->name = DEF_ATTR_STRING (name);
   attr->first_value = attr->default_val = NULL;
-  attr->is_numeric = attr->negative_ok = attr->is_const = attr->is_special = 0;
-  attr->unsigned_p = attr->static_p = 0;
+  attr->is_numeric = attr->is_const = attr->is_special = 0;
+  attr->static_p = 0;
   attr->next = attrs[index];
   attrs[index] = attr;
 
@@ -4301,8 +4286,6 @@ make_internal_attr (const char *name, rtx value, int special)
   attr->is_numeric = 1;
   attr->is_const = 0;
   attr->is_special = (special & ATTR_SPECIAL) != 0;
-  attr->negative_ok = (special & ATTR_NEGATIVE_OK) != 0;
-  attr->unsigned_p = (special & ATTR_UNSIGNED) != 0;
   attr->static_p = (special & ATTR_STATIC) != 0;
   attr->default_val = get_attr_value (value, attr, -2);
 }

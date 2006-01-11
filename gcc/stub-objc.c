@@ -71,6 +71,12 @@ objc_comptypes (tree ARG_UNUSED (lhs), tree ARG_UNUSED (rhs),
 }
 
 tree
+objc_rewrite_function_call (tree function, tree ARG_UNUSED (params))
+{
+  return function;
+}
+
+tree
 objc_message_selector (void)
 { 
   return 0;
@@ -189,7 +195,8 @@ objc_build_keyword_decl (tree ARG_UNUSED (selector),
 tree
 objc_build_method_signature (tree ARG_UNUSED (rettype),
 			     tree ARG_UNUSED (selectors),
-			     tree ARG_UNUSED (optparms))
+			     tree ARG_UNUSED (optparms),
+			     bool ARG_UNUSED (ellipsis))
 {
   return 0;
 }
@@ -256,21 +263,22 @@ objc_is_public (tree ARG_UNUSED (expr), tree ARG_UNUSED (identifier))
 }
 
 tree
-objc_get_class_ivars (tree ARG_UNUSED (class_name))
+objc_get_class_ivars (tree ARG_UNUSED (name))
 {
   return 0;
 }
 
 tree
-objc_build_throw_stmt (tree ARG_UNUSED (throw_expr))
+objc_build_throw_stmt (tree ARG_UNUSED (expr))
 {
   return 0;
 }
 
-void
+tree
 objc_build_synchronized (location_t ARG_UNUSED (start_locus),
 			 tree ARG_UNUSED (mutex), tree ARG_UNUSED (body))
 {
+  return 0;
 }
 
 void
@@ -294,7 +302,16 @@ objc_build_finally_clause (location_t ARG_UNUSED (finally_locus),
 {
 }
 
-void
+tree
 objc_finish_try_stmt (void)
 {
+  return 0;
 }
+
+tree
+objc_generate_write_barrier (tree ARG_UNUSED (lhs),
+			     enum tree_code ARG_UNUSED (modifycode),
+			     tree ARG_UNUSED (rhs))
+{
+  return 0;
+}  

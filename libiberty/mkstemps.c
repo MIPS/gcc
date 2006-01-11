@@ -13,8 +13,8 @@
 
    You should have received a copy of the GNU Library General Public
    License along with the GNU C Library; see the file COPYING.LIB.  If not,
-   write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -71,9 +71,7 @@ reading and writing.
 */
 
 int
-mkstemps (template, suffix_len)
-     char *template;
-     int suffix_len;
+mkstemps (char *template, int suffix_len)
 {
   static const char letters[]
     = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";

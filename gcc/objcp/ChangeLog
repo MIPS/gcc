@@ -1,0 +1,25 @@
+2005-05-18  Geoffrey Keating  <geoffk@apple.com>
+
+	* Make-lang.in (cc1objplus-dummy): New.
+	(cc1objplus-checksum.c): New.
+	(cc1objplus-checksum.o): New.
+	(cc1objplus): Add cc1objplus-checksum.o.
+
+2005-05-17  Mike Stump  <mrs@apple.com>
+
+	Yet more Objective-C++...
+	
+	* Make-lang.in (objcp/objcp-lang.o): Add tree-gimple.h
+	(objcp/objcp-decl.o): Likewise.
+	(objcp/objcp-act.o): Likewise.
+	* objcp-lang.c (LANG_HOOKS_GIMPLIFY_EXPR): Add.
+
+2005-04-21  Mike Stump  <mrs@apple.com>
+
+	* ChangeLog: New.
+	* Make-lang.in: Likewise.
+	* config-lang.in: Likewise.
+	* lang-specs.h: Likewise.
+	* objcp-decl.c: Likewise.
+	* objcp-decl.h: Likewise.
+	* objcp-lang.c: Likewise.

@@ -172,8 +172,6 @@ struct language_function GTY(())
 #define LANG_HOOKS_PARSE_FILE java_parse_file
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE java_mark_addressable
-#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION java_truthvalue_conversion
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL java_dup_lang_specific_decl
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
@@ -803,7 +801,7 @@ merge_init_test_initialization (void **entry, void *x)
   does this by setting the DECL_INITIAL of the init_test_decl for that
   class, and no initializations are emitted for that class.
 
-  However, what if the method that is suppoed to do the initialization
+  However, what if the method that is supposed to do the initialization
   is itself inlined in the caller?  When expanding the called method
   we'll assume that the class initialization has already been done,
   because the DECL_INITIAL of the init_test_decl is set.

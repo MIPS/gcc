@@ -49,29 +49,27 @@ add_reg_br_prob_note (FILE *dump_file, rtx last, int probability)
   if (profile_status == PROFILE_ABSENT)
     return;
   for (last = NEXT_INSN (last); last && NEXT_INSN (last); last = NEXT_INSN (last))
-    if (GET_CODE (last) == JUMP_INSN)
+    if (JUMP_P (last))
       {
 	/* It is common to emit condjump-around-jump sequence when we don't know
 	   how to reverse the conditional.  Special case this.  */
 	if (!any_condjump_p (last)
-	    || GET_CODE (NEXT_INSN (last)) != JUMP_INSN
+	    || !JUMP_P (NEXT_INSN (last))
 	    || !simplejump_p (NEXT_INSN (last))
-	    || GET_CODE (NEXT_INSN (NEXT_INSN (last))) != BARRIER
-	    || GET_CODE (NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))) != CODE_LABEL
+	    || !BARRIER_P (NEXT_INSN (NEXT_INSN (last)))
+	    || !LABEL_P (NEXT_INSN (NEXT_INSN (NEXT_INSN (last))))
 	    || NEXT_INSN (NEXT_INSN (NEXT_INSN (NEXT_INSN (last)))))
 	  goto failed;
-	if (find_reg_note (last, REG_BR_PROB, 0))
-	  abort ();
+	gcc_assert (!find_reg_note (last, REG_BR_PROB, 0));
 	REG_NOTES (last)
 	  = gen_rtx_EXPR_LIST (REG_BR_PROB,
 			       GEN_INT (REG_BR_PROB_BASE - probability),
 			       REG_NOTES (last));
 	return;
       }
-  if (!last || GET_CODE (last) != JUMP_INSN || !any_condjump_p (last))
-      goto failed;
-  if (find_reg_note (last, REG_BR_PROB, 0))
-    abort ();
+  if (!last || !JUMP_P (last) || !any_condjump_p (last))
+    goto failed;
+  gcc_assert (!find_reg_note (last, REG_BR_PROB, 0));
   REG_NOTES (last)
     = gen_rtx_EXPR_LIST (REG_BR_PROB,
 			 GEN_INT (probability), REG_NOTES (last));
@@ -599,7 +597,7 @@ expand_one_register_var (tree var)
 }
 
 /* A subroutine of expand_one_var.  Called to assign rtl to a VAR_DECL that
-   has some associated error, e.g. it's type is error-mark.  We just need
+   has some associated error, e.g. its type is error-mark.  We just need
    to pick something that won't crash the rest of the compiler.  */
 
 static void
@@ -1320,7 +1318,7 @@ tree_expand_cfg (void)
   blocks = sbitmap_alloc (last_basic_block);
   sbitmap_ones (blocks);
   find_many_sub_basic_blocks (blocks);
-  purge_all_dead_edges (0);
+  purge_all_dead_edges ();
   sbitmap_free (blocks);
 
   compact_blocks ();

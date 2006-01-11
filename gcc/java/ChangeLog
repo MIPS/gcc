@@ -1,3 +1,267 @@
+2005-05-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR java/17845
+
+	* parse.y (register_package, package_list): Remove.
+	(package_declaration): Do not call register_package.
+	(do_resolve_class): Do not use package_list.
+
+2005-05-15  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* jcf-write.c (generate_bytecode_insns) <SAVE_EXPR>: Remove
+	unused variable.
+
+2005-05-15  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21519:
+	* jcf-write.c (generate_bytecode_insns) <SAVE_EXPR>: Don't call
+	NOTE_PUSH.
+
+2005-05-12  Aaron Luchko <aluchko@redhat.com>
+
+        * gcj.texi: Add '-verify', '-noverify', and '-verifyremote'.
+
+2005-05-11  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Code Generation): Document -fbootstrap-classes.
+	* decl.c (GCJ_BOOTSTRAP_LOADER_ADDITION): New macro.
+	(parse_version): Use it.
+	* lang.opt (-fbootstrap-classes): New option.
+
+2005-05-10  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR java/21436
+	* class.c (maybe_layout_super_class): Look for imports in this_class.
+	* parse.h (ctxp_for_generation_last): New.
+	(do_resolve_class): Add a parameter.
+	* parse.y (ctxp_for_generation_last): New.
+	(java_pop_parser_context): Add at end of list.
+	(find_in_imports, find_in_imports_on_demand): Look in ctxp
+	if the TYPE_IMPORT_LIST or respectively the TYPE_IMPORT_DEMAND_LIST of
+	the given type are NULL.
+	(do_resolve_class): Look into the imports of the new second parameter.
+	Adjust recursive calls.
+	(resolve_class, resolve_inner_class, find_as_inner_class): Adjust
+	calls to do_resolve_class.
+	(create_class): Set the TYPE_IMPORT_LIST and TYPE_IMPORT_DEMAND_LIST.
+	(java_complete_class): Do not do that here.
+
+2005-05-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	PR java/20309
+	* Make-lang.in (java): Add gjnih.
+	(JAVA_TARGET_INDEPENDENT_BIN_TOOLS): Likewise.
+	(GJNIH_OBJS): New variable.
+	(gjnih$(exeext)): New target.
+	(JAVA_MANFILES): Add gjnih.1.
+	(java.uninstall): Add gjnih.1.
+	(java.mostlyclean): Add gjnih.
+	(java.maintainer-clean): Add gjnih.1.
+	(java/gjavah-jni.o): New target.
+	(.INTERMEDIATE): Add gjnih.pod.
+	(gjnih.pod): New target.
+	* config-lang.in (stagestuff): Add gjnih.
+	* gcj.texi (Top): Add gjnih node.
+	(Invoking gcjh): Add descriptions of -force, -old, -trace, -J and
+	-bootclasspath options.
+	(Invoking gjnih): New node.
+	* gjavah.c Initialize flag_jni to 1 if JNI_DEFAULT is defined.
+	(TOOLNAME): New macro.
+	(error): Replace hard-coded gcjh with TOOLNAME.
+	(process_file): Likewise.
+	(usage): Likewise.
+	(version): Likewise.
+	(help): Likewise.  Add help output for -force, -old, -trace and -J
+	options.
+	(OPT_FORCE, OPT_OLD, OPT_TRACE): New macros.
+	(options): Add force, old, trace and J fields.
+	(main): Handle -force, -old, -trace and -J options.
+
+2005-05-03  Tom Tromey  <tromey@redhat.com>
+
+	PR java/21245:
+	* gjavah.c (main): Unlink output file on error.
+
+2005-05-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* constants.c, jvgenmain.c, lang.opt, resource.c: Update
+	copyright.
+
+2005-04-29  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (build_jni_stub): Updated for change to build_block.
+
+2005-04-29  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+	* expr.c (force_evaluation_order): Declare 'saved' earlier.
+
+2005-04-28  Andrew Haley  <aph@redhat.com>
+
+	PR java/19285
+	* java-tree.h (soft_resolvepoolentry_node): New.
+	(alloc_constant_fieldref): Declare.
+	* expr.c (expand_java_field_op): Don't call class_init for
+	accesses to static fields with indirect dispatch.
+	* builtins.c (initialize_builtins): Add "__builtin_expect".
+	* decl.c (soft_resolvepoolentry_node): New variable.
+	(java_init_decl_processing): Create a decl for
+	"_Jv_ResolvePoolEntry".
+	* class.c (build_fieldref_cache_entry): New function.
+	(build_static_field_ref): Rewrite for indirect dispatch.
+	* constants.c (find_name_and_type_constant_tree): New function.
+	(alloc_constant_fieldref): Likewise.
+	(build_constants_constructor): Handle CONSTANT_Fieldref and
+	CONSTANT_NameAndType.
+
+	PR java/21115
+	* expr.c (force_evaluation_order): Convert outgoing args smaller
+	than integer.
+
+2005-04-27  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gcj.texi (libgcj Runtime Properties): Remove obsolete
+	gnu.gcj.runtime.NameFinder.* system properties. Update documentation 
+	for gnu.gcj.runtime.NameFinder.use_addr2line and gnu.gcj.progname.
+
+2005-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gjavah.c, jcf-dump.c, jv-scan.c, jvgenmain.c: Replace calls
+	to `unlock_stream' with `unlock_std_streams'.
+
+2005-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in (java/decl.o, java/resource.o): Depend on $(EXPR_H)
+	instead of just expr.h.
+
+2005-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gjavah.c (main): Unlock the stdio streams.
+	* jcf-dump.c (main): Likewise.
+	* jv-scan.c (main): Likewise.
+	* jvgenmain.c (main): Likewise.
+
+2005-04-23  DJ Delorie  <dj@redhat.com>
+
+	* class.c, decl.c, expr.c, jcf-io.c, jcf-parse.c, jv-scan.c,
+	parse.y: Adjust warning() callers.
+
+2005-04-21  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gcj.texi (Object fields): Change "Integer" to "Int" in example
+	contructor.
+
+2005-04-20  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gcj.texi: Fix typos and bogus example.
+
+2005-04-19  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* except.c: Fix a comment typo.
+
+2005-04-19  Julian Brown  <julian@codesourcery.com>
+
+	* decl.c (finish_method): Revert patch from 2005-04-13 for breaking
+	indirect dispatch with PIC.
+
+2005-04-18  Andrew Haley  <aph@redhat.com>
+
+	* java-except.h (struct eh_range.handler): Remove unused field.
+	(handle_nested_ranges): Remove function declaration.
+	(sanity_check_exception_range): Add function declaration.	
+	* verify.c (verify_jvm_instructions): Remove call to
+	handle_nested_ranges.
+	* verify-glue.c (verify_jvm_instructions_new): Call
+	sanity_check_exception_range.
+	* except.c (link_handler, eh_range_freelist, link_handler,
+	handle_nested_ranges): Remove.
+	(add_handler): Rewrite.
+	(sanity_check_exception_range): New function.
+	(print_ranges): New function.
+
+2005-04-13  Julian Brown  <julian@codesourcery.com>
+
+	* decl.c (finish_method): Give methods once-only linkage.
+
+2005-04-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* lang.opt: Refer to the GCC internals documentation instead of c.opt.
+
+2005-04-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* java-tree.h: Don't use PARAMS().
+
+2005-04-07  Per Bothner  <per@bothner.com>
+
+	* class.c (push_class): By default, suppress debug output.
+	(finish_class): Enable debug output for classes we're emitting.
+
+2005-04-07  Andrew Haley  <aph@redhat.com>
+
+	* gcj.texi: Correct gcj-dbtool instructions.
+
+2005-04-04  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcj.texi: Fix a typo.
+	* lang.c: Fix a comment typo.
+
+2005-04-01  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gcj.texi (Invoking gij): Add descriptions of new -X options.
+	Mention recognized-and-ignored compatibility options.
+	(Memory allocation): Add descriptions of JvMalloc, JvRealloc and
+	JvFree.
+	(About CNI): Add Memory allocation section.
+
+2005-04-01  Tom Tromey  <tromey@redhat.com>
+
+	* decl.c (java_init_decl_processing): Fix types of
+	_Jv_MonitorEnter, _Jv_MonitorExit, _Jv_AllocObject,
+	_Jv_AllocObjectNoFinalizer, _Jv_Throw, _Jv_NewPrimArray,
+	_Jv_JNI_PopSystemFrame, _Jv_divI, _Jv_remI, _Jv_divJ, _Jv_remJ.
+
+2005-03-31  Jan Hubicka  <jh@suse.cz>
+
+	* Make-lang.in (class.o, decl.o): Depend on cgraph.h.
+	* class.c: Include cgraph.h
+	(make_local_functoin_alias): Mark aslias as needed.
+	* resource.c: Include cgraph.h
+	(compile_resource_data): Go via cgraph interface.
+
+2005-03-30  Ian Lance Taylor  <ian@airs.com>
+
+	* parse.y (maybe_yank_clinit): Don't crash if bbody is NULL.
+
+2005-03-30  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-dump.c (HANDLE_INNERCLASSES_ATTRIBUTE): Handle cases where
+	inner_class_info_index==0 or outer_class_info_index==0.
+
+2005-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (libgcj Runtime Properties): Document
+	gnu.gcj.runtime.endorsed.dirs.
+
+2005-03-24  Anthony Green  <green@redhat.com>
+
+	* gcj.texi (Invoking gcj-dbtool): Document new LIBDIR option to
+	'gcj-dbtool -p'.
+
+2005-03-23  Tom Tromey  <tromey@redhat.com>
+
+	* decl.c (GCJ_CURRENT_BC_ABI_VERSION): New define.
+	(parse_version): Use it.
+
+2005-03-23  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* lang.c (LANG_HOOKS_TRUTHVALUE_CONVERSION): Remove.
+
+2005-03-18  Andrew Haley  <aph@redhat.com>
+
+	PR java/20522
+	* decl.c (update_aliases): Don't update variables that are about
+	to die.
+	(maybe_poplevels): Add comment.
+
 2005-03-17  Bryce McKinlay  <mckinlay@redhat.com>
 
 	PR java/20502
@@ -15231,7 +15495,7 @@
 	(CLASS_P): Moved around.
 	(java_parse_abort_on_error): Macro moved from jcf-parse.c
 	* jcf-parse.c (java_parse_abort_on_error): Macro moved to
-	java-parse.h
+	java-tree.h
 	(jcf_parse_source): Changed leading comment. Removed unnecessary
 	fclose and CLASS_FROM_SOURCE_P marking.
 	(parse_source_file): New local variables remember_for_generation

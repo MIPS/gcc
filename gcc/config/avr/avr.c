@@ -48,6 +48,7 @@
 /* Maximal allowed offset for an address in the LD command */
 #define MAX_LD_OFFSET(MODE) (64 - (signed)GET_MODE_SIZE (MODE))
 
+static bool avr_handle_option (size_t, const char *, int);
 static int avr_naked_function_p (tree);
 static int interrupt_function_p (tree);
 static int signal_function_p (tree);
@@ -111,10 +112,10 @@ static int epilogue_size;
 static int jump_tables_size;
 
 /* Initial stack value specified by the `-minit-stack=' option */
-const char *avr_init_stack = "__stack";
+static const char *avr_init_stack = "__stack";
 
 /* Default MCU name */
-const char *avr_mcu_name = "avr2";
+static const char *avr_mcu_name = "avr2";
 
 /* Preprocessor macros to define depending on MCU type.  */
 const char *avr_base_arch_macro;
@@ -244,6 +245,8 @@ int avr_case_values_threshold = 30000;
 #define TARGET_ATTRIBUTE_TABLE avr_attribute_table
 #undef TARGET_ASM_FUNCTION_RODATA_SECTION
 #define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
+#undef TARGET_HANDLE_OPTION
+#define TARGET_HANDLE_OPTION avr_handle_option
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES avr_insert_attributes
 #undef TARGET_SECTION_TYPE_FLAGS
@@ -263,6 +266,26 @@ int avr_case_values_threshold = 30000;
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* Implement TARGET_HANDLE_OPTION.  */
+
+static bool
+avr_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
+{
+  switch (code)
+    {
+    case OPT_minit_stack_:
+      avr_init_stack = arg;
+      return true;
+
+    case OPT_mmcu_:
+      avr_mcu_name = arg;
+      return true;
+
+    default:
+      return true;
+    }
+}
+
 void
 avr_override_options (void)
 {
@@ -357,8 +380,7 @@ avr_naked_function_p (tree func)
 {
   tree a;
 
-  if (TREE_CODE (func) != FUNCTION_DECL)
-    abort ();
+  gcc_assert (TREE_CODE (func) == FUNCTION_DECL);
   
   a = lookup_attribute ("naked", DECL_ATTRIBUTES (func));
   return a != NULL_TREE;
@@ -529,7 +551,7 @@ out_adj_frame_ptr (FILE *file, int adj)
       if (TARGET_TINY_STACK)
 	{
 	  if (adj < -63 || adj > 63)
-	    warning ("large frame pointer change (%d) with -mtiny-stack", adj);
+	    warning (0, "large frame pointer change (%d) with -mtiny-stack", adj);
 
 	  /* The high byte (r29) doesn't change - prefer "subi" (1 cycle)
 	     over "sbiw" (2 cycles, same size).  */
@@ -681,14 +703,12 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
     }
   else if (minimize && (frame_pointer_needed || live_seq > 6)) 
     {
-      const char *cfun_name = current_function_name ();
       fprintf (file, ("\t"
 		      AS1 (ldi, r26) ",lo8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB
 		      AS1 (ldi, r27) ",hi8(" HOST_WIDE_INT_PRINT_DEC ")" CR_TAB), size, size);
 
-      fprintf (file, (AS2 (ldi, r30, pm_lo8(.L_%s_body)) CR_TAB
-		      AS2 (ldi, r31, pm_hi8(.L_%s_body)) CR_TAB),
-	       cfun_name, cfun_name);
+      fputs ((AS2 (ldi,r30,pm_lo8(1f)) CR_TAB
+	      AS2 (ldi,r31,pm_hi8(1f)) CR_TAB), file);
       
       prologue_size += 4;
       
@@ -704,7 +724,7 @@ avr_output_function_prologue (FILE *file, HOST_WIDE_INT size)
 		   (18 - live_seq) * 2);
 	  ++prologue_size;
 	}
-      fprintf (file, ".L_%s_body:\n", cfun_name);
+      fputs ("1:\n", file);
     }
   else
     {
@@ -1009,7 +1029,7 @@ ptrreg_to_str (int regno)
     case REG_Y: return "Y";
     case REG_Z: return "Z";
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return NULL;
 }
@@ -1041,7 +1061,7 @@ cond_string (enum rtx_code code)
     case LTU:
       return "lo";
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -4649,14 +4669,14 @@ avr_handle_progmem_attribute (tree *node, tree name,
 	{
 	  if (DECL_INITIAL (*node) == NULL_TREE && !DECL_EXTERNAL (*node))
 	    {
-	      warning ("only initialized variables can be placed into "
+	      warning (0, "only initialized variables can be placed into "
 		       "program memory area");
 	      *no_add_attrs = true;
 	    }
 	}
       else
 	{
-	  warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
+	  warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
     }
@@ -4675,7 +4695,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning ("%qs attribute only applies to functions",
+      warning (0, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -4692,7 +4712,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
         {
           if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
             {
-              warning ("`%s' appears to be a misspelled interrupt handler",
+              warning (0, "`%s' appears to be a misspelled interrupt handler",
                        func_name);
             }
         }
@@ -4700,7 +4720,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
         {
           if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
             {
-              warning ("`%s' appears to be a misspelled signal handler",
+              warning (0, "`%s' appears to be a misspelled signal handler",
                        func_name);
             }
         }
@@ -4769,7 +4789,7 @@ avr_section_type_flags (tree decl, const char *name, int reloc)
 	  && DECL_INITIAL (decl) == NULL_TREE)
 	flags |= SECTION_BSS;  /* @nobits */
       else
-	warning ("only uninitialized variables can be placed in the "
+	warning (0, "only uninitialized variables can be placed in the "
 		 ".noinit section");
     }
 
@@ -5513,7 +5533,7 @@ avr_normalize_condition (RTX_CODE condition)
     case LEU:
       return LTU;
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -5849,6 +5869,7 @@ avr_output_bld (rtx operands[], int bit_nr)
 void
 avr_output_addr_vec_elt (FILE *stream, int value)
 {
+  progmem_section ();
   if (AVR_MEGA)
     fprintf (stream, "\t.word pm(.L%d)\n", value);
   else

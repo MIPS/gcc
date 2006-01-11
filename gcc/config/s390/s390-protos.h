@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390.
-   Copyright (C) 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com)
 
 This file is part of GCC.
@@ -33,37 +33,27 @@ extern void s390_conditional_register_usage (void);
 #ifdef RTX_CODE
 extern int s390_extra_constraint_str (rtx, int, const char *);
 extern int s390_const_ok_for_constraint_p (HOST_WIDE_INT, int, const char *);
-extern int const0_operand (rtx, enum machine_mode);
-extern int consttable_operand (rtx, enum machine_mode);
-extern int larl_operand (rtx, enum machine_mode);
-extern int s_operand (rtx, enum machine_mode);
-extern int shift_count_operand (rtx, enum machine_mode);
-extern int bras_sym_operand (rtx, enum machine_mode);
-extern int load_multiple_operation (rtx, enum machine_mode);
-extern int store_multiple_operation (rtx, enum machine_mode);
+extern int s390_const_double_ok_for_constraint_p (rtx, int, const char *);
 extern int s390_single_part (rtx, enum machine_mode, enum machine_mode, int);
 extern unsigned HOST_WIDE_INT s390_extract_part (rtx, enum machine_mode, int);
 extern bool s390_split_ok_p (rtx, rtx, enum machine_mode, int);
 extern bool s390_offset_p (rtx, rtx, rtx);
 extern int tls_symbolic_operand (rtx);
 
-extern int s390_match_ccmode (rtx, enum machine_mode);
-extern enum machine_mode s390_tm_ccmode (rtx, rtx, int);
+extern bool s390_match_ccmode (rtx, enum machine_mode);
+extern enum machine_mode s390_tm_ccmode (rtx, rtx, bool);
 extern enum machine_mode s390_select_ccmode (enum rtx_code, rtx, rtx);
 extern void s390_canonicalize_comparison (enum rtx_code *, rtx *, rtx *);
-extern int s390_comparison (rtx op, enum machine_mode mode);
-extern int s390_alc_comparison (rtx op, enum machine_mode mode);
-extern int s390_slb_comparison (rtx op, enum machine_mode mode);
 extern rtx s390_emit_compare (enum rtx_code, rtx, rtx);
 extern void s390_emit_jump (rtx, rtx);
-extern int symbolic_reference_mentioned_p (rtx);
-extern int tls_symbolic_reference_mentioned_p (rtx);
-extern int legitimate_la_operand_p (rtx);
-extern int preferred_la_operand_p (rtx, rtx);
+extern bool symbolic_reference_mentioned_p (rtx);
+extern bool tls_symbolic_reference_mentioned_p (rtx);
+extern bool legitimate_la_operand_p (rtx);
+extern bool preferred_la_operand_p (rtx, rtx);
 extern int legitimate_pic_operand_p (rtx);
 extern int legitimate_constant_p (rtx);
-extern int legitimate_reload_constant_p (rtx);
-extern int legitimate_address_p (enum machine_mode, rtx, int);
+extern bool legitimate_reload_constant_p (rtx);
+extern bool legitimate_address_p (enum machine_mode, rtx, int);
 extern rtx legitimize_pic_address (rtx, rtx);
 extern rtx legitimize_address (rtx, rtx, enum machine_mode);
 extern rtx legitimize_reload_address (rtx, enum machine_mode, int, int);
@@ -74,7 +64,6 @@ extern enum reg_class s390_secondary_input_reload_class (enum reg_class,
 extern enum reg_class s390_secondary_output_reload_class (enum reg_class,
 							  enum machine_mode,
 							  rtx);
-extern int s390_plus_operand (rtx, enum machine_mode);
 extern void s390_expand_plus_operand (rtx, rtx, rtx);
 extern void emit_symbolic_move (rtx *);
 extern void s390_load_address (rtx, rtx);
@@ -103,6 +92,8 @@ extern void s390_output_dwarf_dtprel (FILE*, int, rtx);
 extern int s390_agen_dep_p (rtx, rtx);
 extern rtx s390_load_got (void);
 extern void s390_emit_tpf_eh_return (rtx);
+extern bool s390_legitimate_address_without_index_p (rtx);
+extern int s390_branch_condition_mask (rtx);
 
 #endif /* RTX_CODE */
 

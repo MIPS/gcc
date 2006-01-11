@@ -899,6 +899,43 @@ cleanup:
 }
 
 
+/* We try to match an easy arithmetic IF statement. This only happens
+   when just after having encountered a simple IF statement. This code
+   is really duplicate with parts of the gfc_match_if code, but this is
+   *much* easier.  */
+static match
+match_arithmetic_if (void)
+{
+  gfc_st_label *l1, *l2, *l3;
+  gfc_expr *expr;
+  match m;
+
+  m = gfc_match (" ( %e ) %l , %l , %l%t", &expr, &l1, &l2, &l3);
+  if (m != MATCH_YES)
+    return m;
+
+  if (gfc_reference_st_label (l1, ST_LABEL_TARGET) == FAILURE
+      || gfc_reference_st_label (l2, ST_LABEL_TARGET) == FAILURE
+      || gfc_reference_st_label (l3, ST_LABEL_TARGET) == FAILURE)
+    {
+      gfc_free_expr (expr);
+      return MATCH_ERROR;
+    }
+
+  if (gfc_notify_std (GFC_STD_F95_DEL,
+		      "Obsolete: arithmetic IF statement at %C") == FAILURE)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_ARITHMETIC_IF;
+  new_st.expr = expr;
+  new_st.label = l1;
+  new_st.label2 = l2;
+  new_st.label3 = l3;
+
+  return MATCH_YES;
+}
+
+
 /* The IF statement is a bit of a pain.  First of all, there are three
    forms of it, the simple IF, the IF that starts a block and the
    arithmetic IF.
@@ -960,6 +997,11 @@ gfc_match_if (gfc_statement * if_type)
 	  gfc_free_expr (expr);
 	  return MATCH_ERROR;
 	}
+      
+      if (gfc_notify_std (GFC_STD_F95_DEL,
+  		          "Obsolete: arithmetic IF statement at %C")
+	  == FAILURE)
+        return MATCH_ERROR;
 
       new_st.op = EXEC_ARITHMETIC_IF;
       new_st.expr = expr;
@@ -1036,6 +1078,7 @@ gfc_match_if (gfc_statement * if_type)
     match ("exit", gfc_match_exit, ST_EXIT)
     match ("forall", match_simple_forall, ST_FORALL)
     match ("go to", gfc_match_goto, ST_GOTO)
+    match ("if", match_arithmetic_if, ST_ARITHMETIC_IF)
     match ("inquire", gfc_match_inquire, ST_INQUIRE)
     match ("nullify", gfc_match_nullify, ST_NULLIFY)
     match ("open", gfc_match_open, ST_OPEN)
@@ -1940,12 +1983,7 @@ gfc_match_return (void)
   gfc_expr *e;
   match m;
   gfc_compile_state s;
-
-  gfc_enclosing_unit (&s);
-  if (s == COMP_PROGRAM
-      && gfc_notify_std (GFC_STD_GNU, "Extension: RETURN statement in "
-			 "main program at %C") == FAILURE)
-      return MATCH_ERROR;
+  int c;
 
   e = NULL;
   if (gfc_match_eos () == MATCH_YES)
@@ -1958,7 +1996,18 @@ gfc_match_return (void)
       goto cleanup;
     }
 
-  m = gfc_match ("% %e%t", &e);
+  if (gfc_current_form == FORM_FREE)
+    {
+      /* The following are valid, so we can't require a blank after the
+        RETURN keyword:
+          return+1
+          return(1)  */
+      c = gfc_peek_char ();
+      if (ISALPHA (c) || ISDIGIT (c))
+       return MATCH_NO;
+    }
+
+  m = gfc_match (" %e%t", &e);
   if (m == MATCH_YES)
     goto done;
   if (m == MATCH_ERROR)
@@ -1971,6 +2020,12 @@ cleanup:
   return MATCH_ERROR;
 
 done:
+  gfc_enclosing_unit (&s);
+  if (s == COMP_PROGRAM
+      && gfc_notify_std (GFC_STD_GNU, "Extension: RETURN statement in "
+                        "main program at %C") == FAILURE)
+      return MATCH_ERROR;
+
   new_st.op = EXEC_RETURN;
   new_st.expr = e;
 

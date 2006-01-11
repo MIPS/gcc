@@ -46,6 +46,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define NULL 0
 #endif
 
+/* Use the unlocked open routines from libiberty.  */
+#define fopen(PATH,MODE) fopen_unlocked(PATH,MODE)
+#define fdopen(FILDES,MODE) fdopen_unlocked(FILDES,MODE)
+#define freopen(PATH,MODE,STREAM) freopen_unlocked(PATH,MODE,STREAM)
+
 /* The compiler is not a multi-threaded application and therefore we
    do not have to use the locking functions.  In fact, using the locking
    functions can cause the compiler to be significantly slower under
@@ -65,11 +70,65 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #  undef putc
 #  define putc(C, Stream) putc_unlocked (C, Stream)
 # endif
+# ifdef HAVE_PUTCHAR_UNLOCKED
+#  undef putchar
+#  define putchar(C) putchar_unlocked (C)
+# endif
+# ifdef HAVE_GETC_UNLOCKED
+#  undef getc
+#  define getc(Stream) getc_unlocked (Stream)
+# endif
+# ifdef HAVE_GETCHAR_UNLOCKED
+#  undef getchar
+#  define getchar() getchar_unlocked ()
+# endif
 # ifdef HAVE_FPUTC_UNLOCKED
 #  undef fputc
 #  define fputc(C, Stream) fputc_unlocked (C, Stream)
 # endif
 
+# ifdef HAVE_CLEARERR_UNLOCKED
+#  undef clearerr
+#  define clearerr(Stream) clearerr_unlocked (Stream)
+#  if defined (HAVE_DECL_CLEARERR_UNLOCKED) && !HAVE_DECL_CLEARERR_UNLOCKED
+extern void clearerr_unlocked (FILE *);
+#  endif
+# endif
+# ifdef HAVE_FEOF_UNLOCKED
+#  undef feof
+#  define feof(Stream) feof_unlocked (Stream)
+#  if defined (HAVE_DECL_FEOF_UNLOCKED) && !HAVE_DECL_FEOF_UNLOCKED
+extern int feof_unlocked (FILE *);
+#  endif
+# endif
+# ifdef HAVE_FILENO_UNLOCKED
+#  undef fileno
+#  define fileno(Stream) fileno_unlocked (Stream)
+#  if defined (HAVE_DECL_FILENO_UNLOCKED) && !HAVE_DECL_FILENO_UNLOCKED
+extern int fileno_unlocked (FILE *);
+#  endif
+# endif
+# ifdef HAVE_FFLUSH_UNLOCKED
+#  undef fflush
+#  define fflush(Stream) fflush_unlocked (Stream)
+#  if defined (HAVE_DECL_FFLUSH_UNLOCKED) && !HAVE_DECL_FFLUSH_UNLOCKED
+extern int fflush_unlocked (FILE *);
+#  endif
+# endif
+# ifdef HAVE_FGETC_UNLOCKED
+#  undef fgetc
+#  define fgetc(Stream) fgetc_unlocked (Stream)
+#  if defined (HAVE_DECL_FGETC_UNLOCKED) && !HAVE_DECL_FGETC_UNLOCKED
+extern int fgetc_unlocked (FILE *);
+#  endif
+# endif
+# ifdef HAVE_FGETS_UNLOCKED
+#  undef fgets
+#  define fgets(S, n, Stream) fgets_unlocked (S, n, Stream)
+#  if defined (HAVE_DECL_FGETS_UNLOCKED) && !HAVE_DECL_FGETS_UNLOCKED
+extern char *fgets_unlocked (char *, int, FILE *);
+#  endif
+# endif
 # ifdef HAVE_FPUTS_UNLOCKED
 #  undef fputs
 #  define fputs(String, Stream) fputs_unlocked (String, Stream)
@@ -77,11 +136,25 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 extern int fputs_unlocked (const char *, FILE *);
 #  endif
 # endif
+# ifdef HAVE_FERROR_UNLOCKED
+#  undef ferror
+#  define ferror(Stream) ferror_unlocked (Stream)
+#  if defined (HAVE_DECL_FERROR_UNLOCKED) && !HAVE_DECL_FERROR_UNLOCKED
+extern int ferror_unlocked (FILE *);
+#  endif
+# endif
+# ifdef HAVE_FREAD_UNLOCKED
+#  undef fread
+#  define fread(Ptr, Size, N, Stream) fread_unlocked (Ptr, Size, N, Stream)
+#  if defined (HAVE_DECL_FREAD_UNLOCKED) && !HAVE_DECL_FREAD_UNLOCKED
+extern size_t fread_unlocked (void *, size_t, size_t, FILE *);
+#  endif
+# endif
 # ifdef HAVE_FWRITE_UNLOCKED
 #  undef fwrite
 #  define fwrite(Ptr, Size, N, Stream) fwrite_unlocked (Ptr, Size, N, Stream)
 #  if defined (HAVE_DECL_FWRITE_UNLOCKED) && !HAVE_DECL_FWRITE_UNLOCKED
-extern int fwrite_unlocked (const void *, size_t, size_t, FILE *);
+extern size_t fwrite_unlocked (const void *, size_t, size_t, FILE *);
 #  endif
 # endif
 # ifdef HAVE_FPRINTF_UNLOCKED
@@ -370,6 +443,10 @@ extern void abort (void);
 extern int snprintf (char *, size_t, const char *, ...);
 #endif
 
+#if defined (HAVE_DECL_VSNPRINTF) && !HAVE_DECL_VSNPRINTF
+extern int vsnprintf(char *, size_t, const char *, va_list);
+#endif
+
 /* 1 if we have C99 designated initializers.  */
 #if !defined(HAVE_DESIGNATED_INITIALIZERS)
 #define HAVE_DESIGNATED_INITIALIZERS \
@@ -631,8 +708,8 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	NO_BUILTIN_PTRDIFF_TYPE NO_BUILTIN_WCHAR_TYPE NO_BUILTIN_WINT_TYPE \
 	BLOCK_PROFILER BLOCK_PROFILER_CODE FUNCTION_BLOCK_PROFILER	   \
 	FUNCTION_BLOCK_PROFILER_EXIT MACHINE_STATE_SAVE			   \
-	MACHINE_STATE_RESTORE SCCS_DIRECTIVE SECTION_ASM_OP		   \
-	ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL \
+	MACHINE_STATE_RESTORE SCCS_DIRECTIVE SECTION_ASM_OP BYTEORDER	   \
+	ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL HOST_WORDS_BIG_ENDIAN	   \
 	OBJC_PROLOGUE ALLOCATE_TRAMPOLINE HANDLE_PRAGMA ROUND_TYPE_SIZE	   \
 	ROUND_TYPE_SIZE_UNIT CONST_SECTION_ASM_OP CRT_GET_RFIB_TEXT	   \
 	DBX_LBRAC_FIRST DBX_OUTPUT_ENUM DBX_OUTPUT_SOURCE_FILENAME	   \
@@ -646,8 +723,7 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	PROMOTED_MODE EXPAND_BUILTIN_VA_END				   \
 	LINKER_DOES_NOT_WORK_WITH_DWARF2 FUNCTION_ARG_KEEP_AS_REFERENCE	   \
 	GIV_SORT_CRITERION MAX_LONG_TYPE_SIZE MAX_LONG_DOUBLE_TYPE_SIZE	   \
-	MAX_WCHAR_TYPE_SIZE GCOV_TYPE_SIZE SHARED_SECTION_ASM_OP	   \
-	INTEGRATE_THRESHOLD                                                \
+	MAX_WCHAR_TYPE_SIZE SHARED_SECTION_ASM_OP INTEGRATE_THRESHOLD      \
 	FINAL_REG_PARM_STACK_SPACE MAYBE_REG_PARM_STACK_SPACE		   \
 	TRADITIONAL_PIPELINE_INTERFACE DFA_PIPELINE_INTERFACE		   \
 	DBX_OUTPUT_STANDARD_TYPES BUILTIN_SETJMP_FRAME_VALUE		   \
@@ -662,7 +738,7 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	NON_SAVING_SETJMP TARGET_LATE_RTL_PROLOGUE_EPILOGUE		   \
 	CASE_DROPS_THROUGH TARGET_BELL TARGET_BS TARGET_CR TARGET_DIGIT0   \
         TARGET_ESC TARGET_FF TARGET_NEWLINE TARGET_TAB TARGET_VT	   \
-        LINK_LIBGCC_SPECIAL
+        LINK_LIBGCC_SPECIAL DONT_ACCESS_GBLS_AFTER_EPILOGUE
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\
@@ -670,7 +746,7 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS \
 	LANG_HOOKS_PUSHLEVEL LANG_HOOKS_SET_BLOCK \
 	LANG_HOOKS_MAYBE_BUILD_CLEANUP LANG_HOOKS_UPDATE_DECL_AFTER_SAVING \
-	LANG_HOOKS_POPLEVEL
+	LANG_HOOKS_POPLEVEL LANG_HOOKS_TRUTHVALUE_CONVERSION
 
 /* Libiberty macros that are no longer used in GCC.  */
 #undef ANSI_PROTOTYPES

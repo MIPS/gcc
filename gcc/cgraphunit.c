@@ -136,33 +136,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 	decision on whether function is needed is made more conservative so
 	uninlininable static functions are needed too.  During the call-graph
 	construction the edge destinations are not marked as reachable and it
-	is completely relied upn assemble_variable to mark them.
-	
-     Inlining decision heuristics
-        ??? Move this to separate file after tree-ssa merge.
-
-	We separate inlining decisions from the inliner itself and store it
-	inside callgraph as so called inline plan.  Refer to cgraph.c
-	documentation about particular representation of inline plans in the
-	callgraph
-
-	The implementation of particular heuristics is separated from
-	the rest of code to make it easier to replace it with more complicated
-	implementation in the future.  The rest of inlining code acts as a
-	library aimed to modify the callgraph and verify that the parameters
-	on code size growth fits.
-
-	To mark given call inline, use cgraph_mark_inline function, the
-	verification is performed by cgraph_default_inline_p and
-	cgraph_check_inline_limits.
-
-	The heuristics implements simple knapsack style algorithm ordering
-	all functions by their "profitability" (estimated by code size growth)
-	and inlining them in priority order.
-
-	cgraph_decide_inlining implements heuristics taking whole callgraph
-	into account, while cgraph_decide_inlining_incrementally considers
-	only one function at a time and is used in non-unit-at-a-time mode.  */
+	is completely relied upn assemble_variable to mark them.  */
 
 
 #include "config.h"
@@ -189,23 +163,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "function.h"
 #include "tree-gimple.h"
-
-#define INSNS_PER_CALL 10
+#include "tree-pass.h"
+#include "output.h"
 
 static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
 static tree record_call_1 (tree *, int *, void *);
 static void cgraph_mark_local_functions (void);
-static bool cgraph_default_inline_p (struct cgraph_node *n);
 static void cgraph_analyze_function (struct cgraph_node *node);
-static void cgraph_decide_inlining_incrementally (struct cgraph_node *);
-
-/* Statistics we collect about inlining algorithm.  */
-static int ncalls_inlined;
-static int nfunctions_inlined;
-static int initial_insns;
-static int overall_insns;
+static void cgraph_create_edges (struct cgraph_node *node, tree body);
 
 /* Records tree nodes seen in cgraph_create_edges.  Simply using
    walk_tree_without_duplicates doesn't guarantee each node is visited
@@ -281,6 +248,64 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
   return false;
 }
 
+/* Walk the decls we marked as necessary and see if they reference new
+   variables or functions and add them into the worklists.  */
+static bool
+cgraph_varpool_analyze_pending_decls (void)
+{
+  bool changed = false;
+  timevar_push (TV_CGRAPH);
+
+  while (cgraph_varpool_first_unanalyzed_node)
+    {
+      tree decl = cgraph_varpool_first_unanalyzed_node->decl;
+
+      cgraph_varpool_first_unanalyzed_node->analyzed = true;
+
+      cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
+
+      if (DECL_INITIAL (decl))
+	cgraph_create_edges (NULL, DECL_INITIAL (decl));
+      changed = true;
+    }
+  timevar_pop (TV_CGRAPH);
+  return changed;
+}
+
+/* Optimization of function bodies might've rendered some variables as
+   unnecessary so we want to avoid these from being compiled.
+
+   This is done by prunning the queue and keeping only the variables that
+   really appear needed (ie they are either externally visible or referenced
+   by compiled function). Re-doing the reachability analysis on variables
+   brings back the remaining variables referenced by these.  */
+static void
+cgraph_varpool_remove_unreferenced_decls (void)
+{
+  struct cgraph_varpool_node *next, *node = cgraph_varpool_nodes_queue;
+
+  cgraph_varpool_reset_queue ();
+
+  if (errorcount || sorrycount)
+    return;
+
+  while (node)
+    {
+      tree decl = node->decl;
+      next = node->next_needed;
+      node->needed = 0;
+
+      if (node->finalized
+	  && ((DECL_ASSEMBLER_NAME_SET_P (decl)
+	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+	      || node->force_output
+	      || decide_is_variable_needed (node, decl)))
+	cgraph_varpool_mark_needed_node (node);
+
+      node = next;
+    }
+  cgraph_varpool_analyze_pending_decls ();
+}
 
 
 /* When not doing unit-at-a-time, output all functions enqueued.
@@ -300,7 +325,9 @@ cgraph_assemble_pending_functions (void)
 
       cgraph_nodes_queue = cgraph_nodes_queue->next_needed;
       n->next_needed = NULL;
-      if (!n->global.inlined_to && !DECL_EXTERNAL (n->decl))
+      if (!n->global.inlined_to
+	  && !n->alias
+	  && !DECL_EXTERNAL (n->decl))
 	{
 	  cgraph_expand_function (n);
 	  output = true;
@@ -375,6 +402,7 @@ cgraph_finalize_function (tree decl, bool nested)
   notice_global_symbol (decl);
   node->decl = decl;
   node->local.finalized = true;
+  node->lowered = DECL_STRUCT_FUNCTION (decl)->cfg != NULL;
   if (node->nested)
     lower_nested_functions (decl);
   gcc_assert (!node->nested);
@@ -407,6 +435,18 @@ cgraph_finalize_function (tree decl, bool nested)
     do_warn_unused_parameter (decl);
 }
 
+/* Used only while constructing the callgraph.  */
+static basic_block current_basic_block;
+
+void
+cgraph_lower_function (struct cgraph_node *node)
+{
+  if (node->lowered)
+    return;
+  tree_lowering_passes (node->decl);
+  node->lowered = true;
+}
+
 /* Walk tree and record all calls.  Called via walk_tree.  */
 static tree
 record_call_1 (tree *tp, int *walk_subtrees, void *data)
@@ -419,7 +459,7 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
       /* ??? Really, we should mark this decl as *potentially* referenced
 	 by this function and re-examine whether the decl is actually used
 	 after rtl has been generated.  */
-      if (TREE_STATIC (t))
+      if (TREE_STATIC (t) || DECL_EXTERNAL (t))
 	{
 	  cgraph_varpool_mark_needed_node (cgraph_varpool_node (t));
 	  if (lang_hooks.callgraph.analyze_expr)
@@ -428,6 +468,7 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 	}
       break;
 
+    case FDESC_EXPR:
     case ADDR_EXPR:
       if (flag_unit_at_a_time)
 	{
@@ -444,7 +485,9 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 	tree decl = get_callee_fndecl (*tp);
 	if (decl && TREE_CODE (decl) == FUNCTION_DECL)
 	  {
-	    cgraph_create_edge (data, cgraph_node (decl), *tp);
+	    cgraph_create_edge (data, cgraph_node (decl), *tp,
+			        current_basic_block->count,
+				current_basic_block->loop_depth);
 
 	    /* When we see a function call, we don't want to look at the
 	       function reference in the ADDR_EXPR that is hanging from
@@ -479,13 +522,50 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 
 /* Create cgraph edges for function calls inside BODY from NODE.  */
 
-void
+static void
 cgraph_create_edges (struct cgraph_node *node, tree body)
 {
   /* The nodes we're interested in are never shared, so walk
      the tree ignoring duplicates.  */
   visited_nodes = pointer_set_create ();
-  walk_tree (&body, record_call_1, node, visited_nodes);
+  gcc_assert (current_basic_block == NULL);
+  if (TREE_CODE (body) == FUNCTION_DECL)
+    {
+      struct function *this_cfun = DECL_STRUCT_FUNCTION (body);
+      block_stmt_iterator bsi;
+      tree step;
+
+      /* Reach the trees by walking over the CFG, and note the 
+	 enclosing basic-blocks in the call edges.  */
+      FOR_EACH_BB_FN (current_basic_block, this_cfun)
+        for (bsi = bsi_start (current_basic_block); !bsi_end_p (bsi); bsi_next (&bsi))
+	  walk_tree (bsi_stmt_ptr (bsi), record_call_1, node, visited_nodes);
+      current_basic_block = NULL;
+
+      /* Walk over any private statics that may take addresses of functions.  */
+      if (TREE_CODE (DECL_INITIAL (body)) == BLOCK)
+	{
+	  for (step = BLOCK_VARS (DECL_INITIAL (body));
+	       step;
+	       step = TREE_CHAIN (step))
+	    if (DECL_INITIAL (step))
+	      walk_tree (&DECL_INITIAL (step), record_call_1, node, visited_nodes);
+	}
+
+      /* Also look here for private statics.  */
+      if (DECL_STRUCT_FUNCTION (body))
+	for (step = DECL_STRUCT_FUNCTION (body)->unexpanded_var_list;
+	     step;
+	     step = TREE_CHAIN (step))
+	  {
+	    tree decl = TREE_VALUE (step);
+	    if (DECL_INITIAL (decl) && TREE_STATIC (decl))
+	      walk_tree (&DECL_INITIAL (decl), record_call_1, node, visited_nodes);
+	  }
+    }
+  else
+    walk_tree (&body, record_call_1, node, visited_nodes);
+    
   pointer_set_destroy (visited_nodes);
   visited_nodes = NULL;
 }
@@ -543,6 +623,9 @@ verify_cgraph_node (struct cgraph_node *node)
 {
   struct cgraph_edge *e;
   struct cgraph_node *main_clone;
+  struct function *this_cfun = DECL_STRUCT_FUNCTION (node->decl);
+  basic_block this_block;
+  block_stmt_iterator bsi;
 
   timevar_push (TV_CGRAPH_VERIFY);
   error_found = false;
@@ -602,8 +685,23 @@ verify_cgraph_node (struct cgraph_node *node)
       && DECL_SAVED_TREE (node->decl) && !TREE_ASM_WRITTEN (node->decl)
       && (!DECL_EXTERNAL (node->decl) || node->global.inlined_to))
     {
-      walk_tree_without_duplicates (&DECL_SAVED_TREE (node->decl),
-				    verify_cgraph_node_1, node);
+      if (this_cfun->cfg)
+	{
+	  /* The nodes we're interested in are never shared, so walk
+	     the tree ignoring duplicates.  */
+	  visited_nodes = pointer_set_create ();
+	  /* Reach the trees by walking over the CFG, and note the
+	     enclosing basic-blocks in the call edges.  */
+	  FOR_EACH_BB_FN (this_block, this_cfun)
+	    for (bsi = bsi_start (this_block); !bsi_end_p (bsi); bsi_next (&bsi))
+	      walk_tree (bsi_stmt_ptr (bsi), verify_cgraph_node_1, node, visited_nodes);
+	  pointer_set_destroy (visited_nodes);
+	  visited_nodes = NULL;
+	}
+      else
+	/* No CFG available?!  */
+	gcc_unreachable ();
+
       for (e = node->callees; e; e = e->next_callee)
 	{
 	  if (!e->aux)
@@ -637,6 +735,37 @@ verify_cgraph (void)
     verify_cgraph_node (node);
 }
 
+
+/* Output all variables enqueued to be assembled.  */
+bool
+cgraph_varpool_assemble_pending_decls (void)
+{
+  bool changed = false;
+
+  if (errorcount || sorrycount)
+    return false;
+ 
+  /* EH might mark decls as needed during expansion.  This should be safe since
+     we don't create references to new function, but it should not be used
+     elsewhere.  */
+  cgraph_varpool_analyze_pending_decls ();
+
+  while (cgraph_varpool_nodes_queue)
+    {
+      tree decl = cgraph_varpool_nodes_queue->decl;
+      struct cgraph_varpool_node *node = cgraph_varpool_nodes_queue;
+
+      cgraph_varpool_nodes_queue = cgraph_varpool_nodes_queue->next_needed;
+      if (!TREE_ASM_WRITTEN (decl) && !node->alias && !DECL_EXTERNAL (decl))
+	{
+	  assemble_variable (decl, 0, 1, 0);
+	  changed = true;
+	}
+      node->next_needed = NULL;
+    }
+  return changed;
+}
+
 /* Analyze the function scheduled to be output.  */
 static void
 cgraph_analyze_function (struct cgraph_node *node)
@@ -645,12 +774,14 @@ cgraph_analyze_function (struct cgraph_node *node)
   struct cgraph_edge *e;
 
   current_function_decl = decl;
+  push_cfun (DECL_STRUCT_FUNCTION (decl));
+  cgraph_lower_function (node);
 
   /* First kill forward declaration so reverse inlining works properly.  */
-  cgraph_create_edges (node, DECL_SAVED_TREE (decl));
+  cgraph_create_edges (node, decl);
 
   node->local.inlinable = tree_inlinable_function_p (decl);
-  node->local.self_insns = estimate_num_insns (DECL_SAVED_TREE (decl));
+  node->local.self_insns = estimate_num_insns (decl);
   if (node->local.inlinable)
     node->local.disregard_inline_limits
       = lang_hooks.tree_inlining.disregard_inline_limits (decl);
@@ -670,6 +801,7 @@ cgraph_analyze_function (struct cgraph_node *node)
   node->global.insns = node->local.self_insns;
 
   node->analyzed = true;
+  pop_cfun ();
   current_function_decl = NULL;
 }
 
@@ -679,6 +811,9 @@ void
 cgraph_finalize_compilation_unit (void)
 {
   struct cgraph_node *node;
+  /* Keep track of already processed nodes when called multiple times for
+     intermodule optimization.  */
+  static struct cgraph_node *first_analyzed;
 
   finish_aliases_1 ();
 
@@ -688,15 +823,18 @@ cgraph_finalize_compilation_unit (void)
       return;
     }
 
-  cgraph_varpool_assemble_pending_decls ();
   if (!quiet_flag)
-    fprintf (stderr, "\nAnalyzing compilation unit\n");
+    {
+      fprintf (stderr, "\nAnalyzing compilation unit");
+      fflush (stderr);
+    }
 
   timevar_push (TV_CGRAPH);
+  cgraph_varpool_analyze_pending_decls ();
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Initial entry points:");
-      for (node = cgraph_nodes; node; node = node->next)
+      for (node = cgraph_nodes; node != first_analyzed; node = node->next)
 	if (node->needed && DECL_SAVED_TREE (node->decl))
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
       fprintf (cgraph_dump_file, "\n");
@@ -716,7 +854,7 @@ cgraph_finalize_compilation_unit (void)
       node->next_needed = NULL;
 
       /* ??? It is possible to create extern inline function and later using
-	 weak alas attribute to kill its body. See
+	 weak alias attribute to kill its body. See
 	 gcc.c-torture/compile/20011119-1.c  */
       if (!DECL_SAVED_TREE (decl))
 	continue;
@@ -730,7 +868,7 @@ cgraph_finalize_compilation_unit (void)
 	if (!edge->callee->reachable)
 	  cgraph_mark_reachable_node (edge->callee);
 
-      cgraph_varpool_assemble_pending_decls ();
+      cgraph_varpool_analyze_pending_decls ();
     }
 
   /* Collect entry points to the unit.  */
@@ -738,7 +876,7 @@ cgraph_finalize_compilation_unit (void)
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Unit entry points:");
-      for (node = cgraph_nodes; node; node = node->next)
+      for (node = cgraph_nodes; node != first_analyzed; node = node->next)
 	if (node->needed && DECL_SAVED_TREE (node->decl))
 	  fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
       fprintf (cgraph_dump_file, "\n\nInitial ");
@@ -748,7 +886,7 @@ cgraph_finalize_compilation_unit (void)
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "\nReclaiming functions:");
 
-  for (node = cgraph_nodes; node; node = node->next)
+  for (node = cgraph_nodes; node != first_analyzed; node = node->next)
     {
       tree decl = node->decl;
 
@@ -766,6 +904,7 @@ cgraph_finalize_compilation_unit (void)
       fprintf (cgraph_dump_file, "\n\nReclaimed ");
       dump_cgraph (cgraph_dump_file);
     }
+  first_analyzed = cgraph_nodes;
   ggc_collect ();
   timevar_pop (TV_CGRAPH);
 }
@@ -847,807 +986,6 @@ cgraph_expand_function (struct cgraph_node *node)
       cgraph_node_remove_callees (node);
     }
 }
-
-/* Fill array order with all nodes with output flag set in the reverse
-   topological order.  */
-
-static int
-cgraph_postorder (struct cgraph_node **order)
-{
-  struct cgraph_node *node, *node2;
-  int stack_size = 0;
-  int order_pos = 0;
-  struct cgraph_edge *edge, last;
-
-  struct cgraph_node **stack =
-    xcalloc (cgraph_n_nodes, sizeof (struct cgraph_node *));
-
-  /* We have to deal with cycles nicely, so use a depth first traversal
-     output algorithm.  Ignore the fact that some functions won't need
-     to be output and put them into order as well, so we get dependencies
-     right through intline functions.  */
-  for (node = cgraph_nodes; node; node = node->next)
-    node->aux = NULL;
-  for (node = cgraph_nodes; node; node = node->next)
-    if (!node->aux)
-      {
-	node2 = node;
-	if (!node->callers)
-	  node->aux = &last;
-	else
-	  node->aux = node->callers;
-	while (node2)
-	  {
-	    while (node2->aux != &last)
-	      {
-		edge = node2->aux;
-		if (edge->next_caller)
-		  node2->aux = edge->next_caller;
-		else
-		  node2->aux = &last;
-		if (!edge->caller->aux)
-		  {
-		    if (!edge->caller->callers)
-		      edge->caller->aux = &last;
-		    else
-		      edge->caller->aux = edge->caller->callers;
-		    stack[stack_size++] = node2;
-		    node2 = edge->caller;
-		    break;
-		  }
-	      }
-	    if (node2->aux == &last)
-	      {
-		order[order_pos++] = node2;
-		if (stack_size)
-		  node2 = stack[--stack_size];
-		else
-		  node2 = NULL;
-	      }
-	  }
-      }
-  free (stack);
-  return order_pos;
-}
-
-
-/* Perform reachability analysis and reclaim all unreachable nodes.
-   This function also remove unneeded bodies of extern inline functions
-   and thus needs to be done only after inlining decisions has been made.  */
-static bool
-cgraph_remove_unreachable_nodes (void)
-{
-  struct cgraph_node *first = (void *) 1;
-  struct cgraph_node *node;
-  bool changed = false;
-  int insns = 0;
-
-#ifdef ENABLE_CHECKING
-  verify_cgraph ();
-#endif
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "\nReclaiming functions:");
-#ifdef ENABLE_CHECKING
-  for (node = cgraph_nodes; node; node = node->next)
-    gcc_assert (!node->aux);
-#endif
-  for (node = cgraph_nodes; node; node = node->next)
-    if (node->needed && !node->global.inlined_to
-	&& (!DECL_EXTERNAL (node->decl) || !node->analyzed))
-      {
-	node->aux = first;
-	first = node;
-      }
-    else
-      gcc_assert (!node->aux);
-
-  /* Perform reachability analysis.  As a special case do not consider
-     extern inline functions not inlined as live because we won't output
-     them at all.  */
-  while (first != (void *) 1)
-    {
-      struct cgraph_edge *e;
-      node = first;
-      first = first->aux;
-
-      for (e = node->callees; e; e = e->next_callee)
-	if (!e->callee->aux
-	    && node->analyzed
-	    && (!e->inline_failed || !e->callee->analyzed
-		|| !DECL_EXTERNAL (e->callee->decl)))
-	  {
-	    e->callee->aux = first;
-	    first = e->callee;
-	  }
-    }
-
-  /* Remove unreachable nodes.  Extern inline functions need special care;
-     Unreachable extern inline functions shall be removed.
-     Reachable extern inline functions we never inlined shall get their bodies
-     eliminated.
-     Reachable extern inline functions we sometimes inlined will be turned into
-     unanalyzed nodes so they look like for true extern functions to the rest
-     of code.  Body of such functions is released via remove_node once the
-     inline clones are eliminated.  */
-  for (node = cgraph_nodes; node; node = node->next)
-    {
-      if (!node->aux)
-	{
-	  int local_insns;
-	  tree decl = node->decl;
-
-          node->global.inlined_to = NULL;
-	  if (DECL_STRUCT_FUNCTION (decl))
-	    local_insns = node->local.self_insns;
-	  else
-	    local_insns = 0;
-	  if (cgraph_dump_file)
-	    fprintf (cgraph_dump_file, " %s", cgraph_node_name (node));
-	  if (!node->analyzed || !DECL_EXTERNAL (node->decl))
-	    cgraph_remove_node (node);
-	  else
-	    {
-	      struct cgraph_edge *e;
-
-	      for (e = node->callers; e; e = e->next_caller)
-		if (e->caller->aux)
-		  break;
-	      if (e || node->needed)
-		{
-		  struct cgraph_node *clone;
-
-		  for (clone = node->next_clone; clone;
-		       clone = clone->next_clone)
-		    if (clone->aux)
-		      break;
-		  if (!clone)
-		    {
-		      DECL_SAVED_TREE (node->decl) = NULL;
-		      DECL_STRUCT_FUNCTION (node->decl) = NULL;
-		      DECL_INITIAL (node->decl) = error_mark_node;
-		    }
-		  cgraph_node_remove_callees (node);
-		  node->analyzed = false;
-		}
-	      else
-		cgraph_remove_node (node);
-	    }
-	  if (!DECL_SAVED_TREE (decl))
-	    insns += local_insns;
-	  changed = true;
-	}
-    }
-  for (node = cgraph_nodes; node; node = node->next)
-    node->aux = NULL;
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "\nReclaimed %i insns", insns);
-  return changed;
-}
-
-/* Estimate size of the function after inlining WHAT into TO.  */
-
-static int
-cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
-				     struct cgraph_node *what)
-{
-  return (what->global.insns - INSNS_PER_CALL) * times + to->global.insns;
-}
-
-/* Estimate the growth caused by inlining NODE into all callees.  */
-
-static int
-cgraph_estimate_growth (struct cgraph_node *node)
-{
-  int growth = 0;
-  struct cgraph_edge *e;
-
-  for (e = node->callers; e; e = e->next_caller)
-    if (e->inline_failed)
-      growth += (cgraph_estimate_size_after_inlining (1, e->caller, node)
-		 - e->caller->global.insns);
-
-  /* ??? Wrong for self recursive functions or cases where we decide to not
-     inline for different reasons, but it is not big deal as in that case
-     we will keep the body around, but we will also avoid some inlining.  */
-  if (!node->needed && !DECL_EXTERNAL (node->decl))
-    growth -= node->global.insns;
-
-  return growth;
-}
-
-/* E is expected to be an edge being inlined.  Clone destination node of
-   the edge and redirect it to the new clone.
-   DUPLICATE is used for bookkeeping on whether we are actually creating new
-   clones or re-using node originally representing out-of-line function call.
-   */
-void
-cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
-{
-  struct cgraph_node *n;
-
-  /* We may eliminate the need for out-of-line copy to be output.  In that
-     case just go ahead and re-use it.  */
-  if (!e->callee->callers->next_caller
-      && (!e->callee->needed || DECL_EXTERNAL (e->callee->decl))
-      && duplicate
-      && flag_unit_at_a_time)
-    {
-      gcc_assert (!e->callee->global.inlined_to);
-      if (!DECL_EXTERNAL (e->callee->decl))
-        overall_insns -= e->callee->global.insns, nfunctions_inlined++;
-      duplicate = 0;
-    }
-   else if (duplicate)
-    {
-      n = cgraph_clone_node (e->callee);
-      cgraph_redirect_edge_callee (e, n);
-    }
-
-  if (e->caller->global.inlined_to)
-    e->callee->global.inlined_to = e->caller->global.inlined_to;
-  else
-    e->callee->global.inlined_to = e->caller;
-
-  /* Recursively clone all bodies.  */
-  for (e = e->callee->callees; e; e = e->next_callee)
-    if (!e->inline_failed)
-      cgraph_clone_inlined_nodes (e, duplicate);
-}
-
-/* Mark edge E as inlined and update callgraph accordingly.  */
-
-void
-cgraph_mark_inline_edge (struct cgraph_edge *e)
-{
-  int old_insns = 0, new_insns = 0;
-  struct cgraph_node *to = NULL, *what;
-
-  gcc_assert (e->inline_failed);
-  e->inline_failed = NULL;
-
-  if (!e->callee->global.inlined && flag_unit_at_a_time)
-    DECL_POSSIBLY_INLINED (e->callee->decl) = true;
-  e->callee->global.inlined = true;
-
-  cgraph_clone_inlined_nodes (e, true);
-
-  what = e->callee;
-
-  /* Now update size of caller and all functions caller is inlined into.  */
-  for (;e && !e->inline_failed; e = e->caller->callers)
-    {
-      old_insns = e->caller->global.insns;
-      new_insns = cgraph_estimate_size_after_inlining (1, e->caller,
-						       what);
-      gcc_assert (new_insns >= 0);
-      to = e->caller;
-      to->global.insns = new_insns;
-    }
-  gcc_assert (what->global.inlined_to == to);
-  overall_insns += new_insns - old_insns;
-  ncalls_inlined++;
-}
-
-/* Mark all calls of EDGE->CALLEE inlined into EDGE->CALLER.
-   Return following unredirected edge in the list of callers
-   of EDGE->CALLEE  */
-
-static struct cgraph_edge *
-cgraph_mark_inline (struct cgraph_edge *edge)
-{
-  struct cgraph_node *to = edge->caller;
-  struct cgraph_node *what = edge->callee;
-  struct cgraph_edge *e, *next;
-  int times = 0;
-
-  /* Look for all calls, mark them inline and clone recursively
-     all inlined functions.  */
-  for (e = what->callers; e; e = next)
-    {
-      next = e->next_caller;
-      if (e->caller == to && e->inline_failed)
-	{
-          cgraph_mark_inline_edge (e);
-	  if (e == edge)
-	    edge = next;
-	  times++;
-	}
-    }
-  gcc_assert (times);
-  return edge;
-}
-
-/* Return false when inlining WHAT into TO is not good idea
-   as it would cause too large growth of function bodies.  */
-
-static bool
-cgraph_check_inline_limits (struct cgraph_node *to, struct cgraph_node *what,
-			    const char **reason)
-{
-  int times = 0;
-  struct cgraph_edge *e;
-  int newsize;
-  int limit;
-
-  if (to->global.inlined_to)
-    to = to->global.inlined_to;
-
-  for (e = to->callees; e; e = e->next_callee)
-    if (e->callee == what)
-      times++;
-
-  /* When inlining large function body called once into small function,
-     take the inlined function as base for limiting the growth.  */
-  if (to->local.self_insns > what->local.self_insns)
-    limit = to->local.self_insns;
-  else
-    limit = what->local.self_insns;
-
-  limit += limit * PARAM_VALUE (PARAM_LARGE_FUNCTION_GROWTH) / 100;
-
-  newsize = cgraph_estimate_size_after_inlining (times, to, what);
-  if (newsize > PARAM_VALUE (PARAM_LARGE_FUNCTION_INSNS)
-      && newsize > limit)
-    {
-      if (reason)
-        *reason = N_("--param large-function-growth limit reached");
-      return false;
-    }
-  return true;
-}
-
-/* Return true when function N is small enough to be inlined.  */
-
-static bool
-cgraph_default_inline_p (struct cgraph_node *n)
-{
-  if (!DECL_INLINE (n->decl) || !DECL_SAVED_TREE (n->decl))
-    return false;
-  if (DECL_DECLARED_INLINE_P (n->decl))
-    return n->global.insns < MAX_INLINE_INSNS_SINGLE;
-  else
-    return n->global.insns < MAX_INLINE_INSNS_AUTO;
-}
-
-/* Return true when inlining WHAT would create recursive inlining.
-   We call recursive inlining all cases where same function appears more than
-   once in the single recursion nest path in the inline graph.  */
-
-static bool
-cgraph_recursive_inlining_p (struct cgraph_node *to,
-			     struct cgraph_node *what,
-			     const char **reason)
-{
-  bool recursive;
-  if (to->global.inlined_to)
-    recursive = what->decl == to->global.inlined_to->decl;
-  else
-    recursive = what->decl == to->decl;
-  /* Marking recursive function inline has sane semantic and thus we should
-     not warn on it.  */
-  if (recursive && reason)
-    *reason = (what->local.disregard_inline_limits
-	       ? N_("recursive inlining") : "");
-  return recursive;
-}
-
-/* Recompute heap nodes for each of callees.  */
-static void
-update_callee_keys (fibheap_t heap, struct fibnode **heap_node,
-		    struct cgraph_node *node)
-{
-  struct cgraph_edge *e;
-
-  for (e = node->callees; e; e = e->next_callee)
-    if (e->inline_failed && heap_node[e->callee->uid])
-      fibheap_replace_key (heap, heap_node[e->callee->uid],
-			   cgraph_estimate_growth (e->callee));
-    else if (!e->inline_failed)
-      update_callee_keys (heap, heap_node, e->callee);
-}
-
-/* Enqueue all recursive calls from NODE into queue linked via aux pointers
-   in between FIRST and LAST.  WHERE is used for bookkeeping while looking
-   int calls inlined within NODE.  */
-static void
-lookup_recursive_calls (struct cgraph_node *node, struct cgraph_node *where,
-			struct cgraph_edge **first, struct cgraph_edge **last)
-{
-  struct cgraph_edge *e;
-  for (e = where->callees; e; e = e->next_callee)
-    if (e->callee == node)
-      {
-	if (!*first)
-	  *first = e;
-	else
-	  (*last)->aux = e;
-	*last = e;
-      }
-  for (e = where->callees; e; e = e->next_callee)
-    if (!e->inline_failed)
-      lookup_recursive_calls (node, e->callee, first, last);
-}
-
-/* Decide on recursive inlining: in the case function has recursive calls,
-   inline until body size reaches given argument.  */
-static void
-cgraph_decide_recursive_inlining (struct cgraph_node *node)
-{
-  int limit = PARAM_VALUE (PARAM_MAX_INLINE_INSNS_RECURSIVE_AUTO);
-  int max_depth = PARAM_VALUE (PARAM_MAX_INLINE_RECURSIVE_DEPTH_AUTO);
-  struct cgraph_edge *first_call = NULL, *last_call = NULL;
-  struct cgraph_edge *last_in_current_depth;
-  struct cgraph_edge *e;
-  struct cgraph_node *master_clone;
-  int depth = 0;
-  int n = 0;
-
-  if (DECL_DECLARED_INLINE_P (node->decl))
-    {
-      limit = PARAM_VALUE (PARAM_MAX_INLINE_INSNS_RECURSIVE);
-      max_depth = PARAM_VALUE (PARAM_MAX_INLINE_RECURSIVE_DEPTH);
-    }
-
-  /* Make sure that function is small enough to be considered for inlining.  */
-  if (!max_depth
-      || cgraph_estimate_size_after_inlining (1, node, node)  >= limit)
-    return;
-  lookup_recursive_calls (node, node, &first_call, &last_call);
-  if (!first_call)
-    return;
-
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, 
-	     "\nPerforming recursive inlining on %s\n",
-	     cgraph_node_name (node));
-
-  /* We need original clone to copy around.  */
-  master_clone = cgraph_clone_node (node);
-  master_clone->needed = true;
-  for (e = master_clone->callees; e; e = e->next_callee)
-    if (!e->inline_failed)
-      cgraph_clone_inlined_nodes (e, true);
-
-  /* Do the inlining and update list of recursive call during process.  */
-  last_in_current_depth = last_call;
-  while (first_call
-	 && cgraph_estimate_size_after_inlining (1, node, master_clone) <= limit)
-    {
-      struct cgraph_edge *curr = first_call;
-
-      first_call = first_call->aux;
-      curr->aux = NULL;
-
-      cgraph_redirect_edge_callee (curr, master_clone);
-      cgraph_mark_inline_edge (curr);
-      lookup_recursive_calls (node, curr->callee, &first_call, &last_call);
-
-      if (last_in_current_depth
-	  && ++depth >= max_depth)
-	break;
-      n++;
-    }
-
-  /* Cleanup queue pointers.  */
-  while (first_call)
-    {
-      struct cgraph_edge *next = first_call->aux;
-      first_call->aux = NULL;
-      first_call = next;
-    }
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, 
-	     "\n   Inlined %i times, body grown from %i to %i insns\n", n,
-	     master_clone->global.insns, node->global.insns);
-
-  /* Remove master clone we used for inlining.  We rely that clones inlined
-     into master clone gets queued just before master clone so we don't
-     need recursion.  */
-  for (node = cgraph_nodes; node != master_clone;
-       node = node->next)
-    if (node->global.inlined_to == master_clone)
-      cgraph_remove_node (node);
-  cgraph_remove_node (master_clone);
-}
-
-/* Set inline_failed for all callers of given function to REASON.  */
-
-static void
-cgraph_set_inline_failed (struct cgraph_node *node, const char *reason)
-{
-  struct cgraph_edge *e;
-
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "Inlining failed: %s\n", reason);
-  for (e = node->callers; e; e = e->next_caller)
-    if (e->inline_failed)
-      e->inline_failed = reason;
-}
-
-/* We use greedy algorithm for inlining of small functions:
-   All inline candidates are put into prioritized heap based on estimated
-   growth of the overall number of instructions and then update the estimates.
-
-   INLINED and INLINED_CALEES are just pointers to arrays large enough
-   to be passed to cgraph_inlined_into and cgraph_inlined_callees.  */
-
-static void
-cgraph_decide_inlining_of_small_functions (void)
-{
-  struct cgraph_node *node;
-  fibheap_t heap = fibheap_new ();
-  struct fibnode **heap_node =
-    xcalloc (cgraph_max_uid, sizeof (struct fibnode *));
-  int max_insns = ((HOST_WIDEST_INT) initial_insns
-		   * (100 + PARAM_VALUE (PARAM_INLINE_UNIT_GROWTH)) / 100);
-
-  /* Put all inline candidates into the heap.  */
-
-  for (node = cgraph_nodes; node; node = node->next)
-    {
-      if (!node->local.inlinable || !node->callers
-	  || node->local.disregard_inline_limits)
-	continue;
-
-      if (!cgraph_default_inline_p (node))
-	{
-	  cgraph_set_inline_failed (node,
-	    N_("--param max-inline-insns-single limit reached"));
-	  continue;
-	}
-      heap_node[node->uid] =
-	fibheap_insert (heap, cgraph_estimate_growth (node), node);
-    }
-
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "\nDeciding on smaller functions:\n");
-  while (overall_insns <= max_insns && (node = fibheap_extract_min (heap)))
-    {
-      struct cgraph_edge *e, *next;
-      int old_insns = overall_insns;
-
-      heap_node[node->uid] = NULL;
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file, 
-		 "\nConsidering %s with %i insns\n"
-		 " Estimated growth is %+i insns.\n",
-		 cgraph_node_name (node), node->global.insns,
-		 cgraph_estimate_growth (node));
-      if (!cgraph_default_inline_p (node))
-	{
-	  cgraph_set_inline_failed (node,
-	    N_("--param max-inline-insns-single limit reached after inlining into the callee"));
-	  continue;
-	}
-      for (e = node->callers; e; e = next)
-	{
-	  next = e->next_caller;
-	  if (e->inline_failed)
-	    {
-	      struct cgraph_node *where;
-
-	      if (cgraph_recursive_inlining_p (e->caller, e->callee,
-				      	       &e->inline_failed)
-		  || !cgraph_check_inline_limits (e->caller, e->callee,
-			  			  &e->inline_failed))
-		{
-		  if (cgraph_dump_file)
-		    fprintf (cgraph_dump_file, " Not inlining into %s:%s.\n",
-			     cgraph_node_name (e->caller), e->inline_failed);
-		  continue;
-		}
-	      next = cgraph_mark_inline (e);
-	      where = e->caller;
-	      if (where->global.inlined_to)
-		where = where->global.inlined_to;
-
-	      if (heap_node[where->uid])
-		fibheap_replace_key (heap, heap_node[where->uid],
-				     cgraph_estimate_growth (where));
-
-	      if (cgraph_dump_file)
-		fprintf (cgraph_dump_file, 
-			 " Inlined into %s which now has %i insns.\n",
-			 cgraph_node_name (e->caller),
-			 e->caller->global.insns);
-	    }
-	}
-
-      cgraph_decide_recursive_inlining (node);
-
-      /* Similarly all functions called by the function we just inlined
-         are now called more times; update keys.  */
-      update_callee_keys (heap, heap_node, node);
-
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file, 
-		 " Inlined for a net change of %+i insns.\n",
-		 overall_insns - old_insns);
-    }
-  while ((node = fibheap_extract_min (heap)) != NULL)
-    if (!node->local.disregard_inline_limits)
-      cgraph_set_inline_failed (node, N_("--param inline-unit-growth limit reached"));
-  fibheap_delete (heap);
-  free (heap_node);
-}
-
-/* Decide on the inlining.  We do so in the topological order to avoid
-   expenses on updating data structures.  */
-
-static void
-cgraph_decide_inlining (void)
-{
-  struct cgraph_node *node;
-  int nnodes;
-  struct cgraph_node **order =
-    xcalloc (cgraph_n_nodes, sizeof (struct cgraph_node *));
-  int old_insns = 0;
-  int i;
-
-  for (node = cgraph_nodes; node; node = node->next)
-    initial_insns += node->local.self_insns;
-  overall_insns = initial_insns;
-
-  nnodes = cgraph_postorder (order);
-
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file,
-	     "\nDeciding on inlining.  Starting with %i insns.\n",
-	     initial_insns);
-
-  for (node = cgraph_nodes; node; node = node->next)
-    node->aux = 0;
-
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file, "\nInlining always_inline functions:\n");
-
-  /* In the first pass mark all always_inline edges.  Do this with a priority
-     so none of our later choices will make this impossible.  */
-  for (i = nnodes - 1; i >= 0; i--)
-    {
-      struct cgraph_edge *e, *next;
-
-      node = order[i];
-
-      if (!node->local.disregard_inline_limits)
-	continue;
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file,
-		 "\nConsidering %s %i insns (always inline)\n",
-		 cgraph_node_name (node), node->global.insns);
-      old_insns = overall_insns;
-      for (e = node->callers; e; e = next)
-	{
-	  next = e->next_caller;
-	  if (!e->inline_failed)
-	    continue;
-	  if (cgraph_recursive_inlining_p (e->caller, e->callee,
-				  	   &e->inline_failed))
-	    continue;
-	  cgraph_mark_inline_edge (e);
-	  if (cgraph_dump_file)
-	    fprintf (cgraph_dump_file, 
-		     " Inlined into %s which now has %i insns.\n",
-		     cgraph_node_name (e->caller),
-		     e->caller->global.insns);
-	}
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file, 
-		 " Inlined for a net change of %+i insns.\n",
-		 overall_insns - old_insns);
-    }
-
-  if (!flag_really_no_inline)
-    {
-      cgraph_decide_inlining_of_small_functions ();
-
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file, "\nDeciding on functions called once:\n");
-
-      /* And finally decide what functions are called once.  */
-
-      for (i = nnodes - 1; i >= 0; i--)
-	{
-	  node = order[i];
-
-	  if (node->callers && !node->callers->next_caller && !node->needed
-	      && node->local.inlinable && node->callers->inline_failed
-	      && !DECL_EXTERNAL (node->decl) && !DECL_COMDAT (node->decl))
-	    {
-	      bool ok = true;
-	      struct cgraph_node *node1;
-
-	      /* Verify that we won't duplicate the caller.  */
-	      for (node1 = node->callers->caller;
-		   node1->callers && !node1->callers->inline_failed
-		   && ok; node1 = node1->callers->caller)
-		if (node1->callers->next_caller || node1->needed)
-		  ok = false;
-	      if (ok)
-		{
-		  if (cgraph_dump_file)
-		    fprintf (cgraph_dump_file,
-			     "\nConsidering %s %i insns.\n"
-			     " Called once from %s %i insns.\n",
-			     cgraph_node_name (node), node->global.insns,
-			     cgraph_node_name (node->callers->caller),
-			     node->callers->caller->global.insns);
-
-		  old_insns = overall_insns;
-
-		  if (cgraph_check_inline_limits (node->callers->caller, node,
-					  	  NULL))
-		    {
-		      cgraph_mark_inline (node->callers);
-		      if (cgraph_dump_file)
-			fprintf (cgraph_dump_file,
-				 " Inlined into %s which now has %i insns"
-				 " for a net change of %+i insns.\n",
-				 cgraph_node_name (node->callers->caller),
-				 node->callers->caller->global.insns,
-				 overall_insns - old_insns);
-		    }
-		  else
-		    {
-		      if (cgraph_dump_file)
-			fprintf (cgraph_dump_file,
-				 " Inline limit reached, not inlined.\n");
-		    }
-		}
-	    }
-	}
-    }
-
-  /* We will never output extern functions we didn't inline. 
-     ??? Perhaps we can prevent accounting of growth of external
-     inline functions.  */
-  cgraph_remove_unreachable_nodes ();
-
-  if (cgraph_dump_file)
-    fprintf (cgraph_dump_file,
-	     "\nInlined %i calls, eliminated %i functions, "
-	     "%i insns turned to %i insns.\n\n",
-	     ncalls_inlined, nfunctions_inlined, initial_insns,
-	     overall_insns);
-  free (order);
-}
-
-/* Decide on the inlining.  We do so in the topological order to avoid
-   expenses on updating data structures.  */
-
-static void
-cgraph_decide_inlining_incrementally (struct cgraph_node *node)
-{
-  struct cgraph_edge *e;
-
-  /* First of all look for always inline functions.  */
-  for (e = node->callees; e; e = e->next_callee)
-    if (e->callee->local.disregard_inline_limits
-	&& e->inline_failed
-        && !cgraph_recursive_inlining_p (node, e->callee, &e->inline_failed)
-	/* ??? It is possible that renaming variable removed the function body
-	   in duplicate_decls. See gcc.c-torture/compile/20011119-2.c  */
-	&& DECL_SAVED_TREE (e->callee->decl))
-      cgraph_mark_inline (e);
-
-  /* Now do the automatic inlining.  */
-  if (!flag_really_no_inline)
-    for (e = node->callees; e; e = e->next_callee)
-      if (e->callee->local.inlinable
-	  && e->inline_failed
-	  && !e->callee->local.disregard_inline_limits
-	  && !cgraph_recursive_inlining_p (node, e->callee, &e->inline_failed)
-	  && cgraph_check_inline_limits (node, e->callee, &e->inline_failed)
-	  && DECL_SAVED_TREE (e->callee->decl))
-	{
-	  if (cgraph_default_inline_p (e->callee))
-	    cgraph_mark_inline (e);
-	  else
-	    e->inline_failed
-	      = N_("--param max-inline-insns-single limit reached");
-	}
-}
-
 
 /* Return true when CALLER_DECL should be inlined into CALLEE_DECL.  */
 
@@ -1758,9 +1096,16 @@ cgraph_optimize (void)
   verify_cgraph ();
 #endif
   if (!flag_unit_at_a_time)
-    return;
+    {
+      cgraph_varpool_assemble_pending_decls ();
+      return;
+    }
 
   process_pending_assemble_externals ();
+  
+  /* Frontend may output common variables after the unit has been finalized.
+     It is safe to deal with them here as they are always zero initialized.  */
+  cgraph_varpool_analyze_pending_decls ();
 
   timevar_push (TV_CGRAPHOPT);
   if (!quiet_flag)
@@ -1772,14 +1117,13 @@ cgraph_optimize (void)
       fprintf (cgraph_dump_file, "Marked ");
       dump_cgraph (cgraph_dump_file);
     }
-
-  if (flag_inline_trees)
-    cgraph_decide_inlining ();
+  ipa_passes ();
   cgraph_global_info_ready = true;
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Optimized ");
       dump_cgraph (cgraph_dump_file);
+      dump_varpool (cgraph_dump_file);
     }
   timevar_pop (TV_CGRAPHOPT);
 
@@ -1791,8 +1135,11 @@ cgraph_optimize (void)
 #endif
   
   cgraph_mark_functions_to_output ();
-  
   cgraph_expand_all_functions ();
+  cgraph_varpool_remove_unreferenced_decls ();
+
+  cgraph_varpool_assemble_pending_decls ();
+
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "\nFinal ");
@@ -1879,7 +1226,10 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
 
   /* ??? We will get called LATE in the compilation process.  */
   if (cgraph_global_info_ready)
-    tree_rest_of_compilation (decl);
+    {
+      tree_lowering_passes (decl);
+      tree_rest_of_compilation (decl);
+    }
   else
     cgraph_finalize_function (decl, 0);
   

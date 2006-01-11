@@ -1,4 +1,5 @@
-/* Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -54,7 +55,9 @@ static const char *error;
 static format_token saved_token;
 static int value, format_string_len, reversion_ok;
 
-static fnode *saved_format, colon_node = { FMT_COLON };
+static fnode *saved_format;
+static fnode colon_node = { FMT_COLON, 0, NULL, NULL, {{ 0, 0, 0 }}, 0,
+			    NULL };
 
 /* Error messages */
 
@@ -452,6 +455,7 @@ parse_format_list (void)
   /* Get the next format item */
  format_item:
   t = format_lex ();
+ format_item_1:
   switch (t)
     {
     case FMT_POSINT:
@@ -564,6 +568,7 @@ parse_format_list (void)
 
     case FMT_COLON:
       get_fnode (&head, &tail, FMT_COLON);
+      tail->repeat = 1;
       goto optional_comma;
 
     case FMT_SLASH:
@@ -852,8 +857,8 @@ parse_format_list (void)
       goto finished;
 
     default:
-      error = "Missing comma in format";
-      goto finished;
+      /* Assume a missing comma, this is a GNU extension */
+      goto format_item_1;
     }
 
   /* Optional comma is a weird between state where we've just finished

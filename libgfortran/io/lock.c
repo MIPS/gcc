@@ -1,5 +1,5 @@
 /* Thread/recursion locking
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org> and Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -33,11 +33,11 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 #include "io.h"
 
-st_parameter ioparm = { };
+st_parameter ioparm;
 iexport_data(ioparm);
 
-namelist_info *ionml = 0;
-global_t g = { };
+namelist_info *ionml;
+global_t g;
 
 
 /* library_start()-- Called with a library call is entered.  */
@@ -73,20 +73,28 @@ library_end (void)
   g.in_library = 0;
   filename = NULL;
   line = 0;
-
   t = ioparm.library_return;
+
+  /* Delete the namelist, if it exists.  */
+
   if (ionml != NULL)
     {
       t1 = ionml;
       while (t1 != NULL)
-       {
-         t2 = t1;
-         t1 = t1->next;
-         free_mem (t2);
-       }
+	{
+	  t2 = t1;
+	  t1 = t1->next;
+	  free_mem (t2->var_name);
+	  if (t2->var_rank)
+	    {
+	     free_mem (t2->dim);
+	     free_mem (t2->ls);
+	    }
+	  free_mem (t2);
+	}
     }
-  
   ionml = NULL;
+
   memset (&ioparm, '\0', sizeof (ioparm));
   ioparm.library_return = t;
 }

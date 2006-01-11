@@ -1076,13 +1076,21 @@ largest value that @code{BITS_PER_WORD} can have at run-time.
 @end defmac
 
 @defmac UNITS_PER_WORD
-Number of storage units in a word; normally 4.
+Number of storage units in a word; normally the size of a general-purpose
+register, a power of two from 1 or 8.
 @end defmac
 
 @defmac MIN_UNITS_PER_WORD
 Minimum number of units in a word.  If this is undefined, the default is
 @code{UNITS_PER_WORD}.  Otherwise, it is the constant value that is the
 smallest value that @code{UNITS_PER_WORD} can have at run-time.
+@end defmac
+
+@defmac UNITS_PER_SIMD_WORD
+Number of units in the vectors that the vectorizer can produce.
+The default is equal to @code{UNITS_PER_WORD}, because the vectorizer
+can do some transformations even in absence of specialized @acronym{SIMD}
+hardware.
 @end defmac
 
 @defmac POINTER_SIZE
@@ -4866,7 +4874,7 @@ This macro should evaluate to @code{true} if the integer comparison
 functions (like @code{__cmpdi2}) return 0 to indicate that the first
 operand is smaller than the second, 1 to indicate that they are equal,
 and 2 to indicate that the first operand is greater than the second.
-If this macro evalutes to @code{false} the comparison functions return
+If this macro evaluates to @code{false} the comparison functions return
 @minus{}1, 0, and 1 instead of 0, 1, and 2.  If the target uses the routines
 in @file{libgcc.a}, you do not need to define this macro.
 @end defmac
@@ -5566,7 +5574,7 @@ used to set a chunk of memory to a constant value, or whether some other
 mechanism will be used.  Used by @code{__builtin_memset} when storing
 values other than constant zero and by @code{__builtin_strcpy} when
 when called with a constant source string.
-Defaults to to 1 if @code{move_by_pieces_ninsns} returns less
+Defaults to 1 if @code{move_by_pieces_ninsns} returns less
 than @code{MOVE_RATIO}.
 @end defmac
 
@@ -6009,6 +6017,22 @@ If defined, a C expression whose value is a string, including spacing,
 containing the assembler operation to identify the following data as
 finalization code.  If not defined, GCC will assume such a section does
 not exist.
+@end defmac
+
+@defmac INIT_ARRAY_SECTION_ASM_OP
+If defined, a C expression whose value is a string, including spacing,
+containing the assembler operation to identify the following data as
+part of the @code{.init_array} (or equivalent) section.  If not
+defined, GCC will assume such a section does not exist.  Do not define
+both this macro and @code{INIT_SECTION_ASM_OP}.
+@end defmac
+ 
+@defmac FINI_ARRAY_SECTION_ASM_OP
+If defined, a C expression whose value is a string, including spacing,
+containing the assembler operation to identify the following data as
+part of the @code{.fini_array} (or equivalent) section.  If not
+defined, GCC will assume such a section does not exist.  Do not define
+both this macro and @code{FINI_SECTION_ASM_OP}.
 @end defmac
 
 @defmac CRT_CALL_STATIC_FUNCTION (@var{section_op}, @var{function})
@@ -8718,12 +8742,27 @@ some variants of the ABI, an inline function can never be the key
 method.  The default is to return @code{true}.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_CXX_EXPORT_CLASS_DATA (void)
-If this hook returns false (the default), then virtual tables and RTTI
-data structures will have the ELF visibility of their containing
-class.  If this hook returns true, then these data structures will
-have ELF ``default'' visibility, independently of the visibility of
-the containing class.
+@deftypefn {Target Hook} void TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY (tree @var{decl})
+@var{decl} is a virtual table, virtual table table, typeinfo object,
+or other similar implicit class data object that will be emitted with
+external linkage in this translation unit.  No ELF visibility has been
+explicitly specified.  If the target needs to specify a visibility
+other than that of the containing class, use this hook to set
+@code{DECL_VISIBILITY} and @code{DECL_VISIBILITY_SPECIFIED}.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT (void)
+This hook returns true (the default) if virtual tables and other
+similar implicit class data objects are always COMDAT if they have
+external linkage.  If this hook returns false, then class data for
+classes whose virtual table will be emitted in only one translation
+unit will not be COMDAT.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_CXX_USE_AEABI_ATEXIT (void)
+This hook returns true if @code{__aeabi_atexit} (as defined by the ARM EABI)
+should be used to register static destructors when @option{-fuse-cxa-atexit}
+is in effect.  The default is to return false to use @code{__cxa_atexit}.
 @end deftypefn
 
 @node Misc
@@ -9252,7 +9291,7 @@ arguments of @samp{#pragma pack}.
 
 @defmac TARGET_DEFAULT_PACK_STRUCT
 If your target requires a structure packing default other than 0 (meaning
-the machine default), define this macro the the necessary value (in bytes).
+the machine default), define this macro to the necessary value (in bytes).
 This must be a value that would also valid to be used with
 @samp{#pragma pack()} (that is, a small power of two).
 @end defmac
@@ -9314,11 +9353,15 @@ from shared libraries (DLLs).
 You need not define this macro if it would always evaluate to zero.
 @end defmac
 
-@deftypefn {Target Hook} tree TARGET_MD_ASM_CLOBBERS (tree @var{clobbers})
+@deftypefn {Target Hook} tree TARGET_MD_ASM_CLOBBERS (tree @var{outputs}, tree @var{inputs}, tree @var{clobbers})
 This target hook should add to @var{clobbers} @code{STRING_CST} trees for
-any hard regs the port wishes to automatically clobber for all asms.
+any hard regs the port wishes to automatically clobber for an asm.
 It should return the result of the last @code{tree_cons} used to add a
-clobber.
+clobber.  The @var{outputs}, @var{inputs} and @var{clobber} lists are the
+corresponding parameters to the asm and may be inspected to avoid
+clobbering a register that is an input or output of the asm.  You can use
+@code{decl_overlaps_hard_reg_set_p}, declared in @file{tree.h}, to test
+for overlap with regards to asm-declared registers.
 @end deftypefn
 
 @defmac MATH_LIBRARY
@@ -9446,13 +9489,26 @@ ignored.  This function should return the result of the call to the
 built-in function.
 @end deftypefn
 
-@deftypefn {Target Hook} tree TARGET_FOLD_BUILTIN (tree @var{exp}, bool @var{ignore})
+@deftypefn {Target Hook} tree TARGET_RESOLVE_OVERLOADED_BUILTIN (tree @var{fndecl}, tree @var{arglist})
 
-Expand a call to a machine specific built-in function that was set up by
-@samp{TARGET_INIT_BUILTINS}.  @var{exp} is the expression for the
-function call; the result is another tree containing a simplified
-expression for the call's result.  If @var{ignore} is true the
-value will be ignored.
+Select a replacement for a machine specific built-in function that
+was set up by @samp{TARGET_INIT_BUILTINS}.  This is done
+@emph{before} regular type checking, and so allows the target to
+implement a crude form of function overloading.  @var{fndecl} is the
+declaration of the built-in function.  @var{arglist} is the list of
+arguments passed to the built-in function.  The result is a
+complete expression that implements the operation, usually
+another @code{CALL_EXPR}.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_FOLD_BUILTIN (tree @var{fndecl}, tree @var{arglist}, bool @var{ignore})
+
+Fold a call to a machine specific built-in function that was set up by
+@samp{TARGET_INIT_BUILTINS}.  @var{fndecl} is the declaration of the
+built-in function.  @var{arglist} is the list of arguments passed to
+the built-in function.  The result is another tree containing a
+simplified expression for the call's result.  If @var{ignore} is true
+the value will be ignored.
 @end deftypefn
 
 @defmac MD_CAN_REDIRECT_BRANCH (@var{branch1}, @var{branch2})

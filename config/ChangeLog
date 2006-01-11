@@ -1,3 +1,26 @@
+2005-05-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* accross.m4: Delete file.
+
+2005-05-12  Ryota Kunisawa  <kunisawa@access.co.jp>
+
+	PR bootstrap/21230
+	* warnings.m4 (ACX_PROG_CC_WARNING_ALMOST_PEDANTIC): Add
+	double quotes around GCC variable.
+
+2005-04-29  Paolo Bonzini  <bonzini@gnu.org>
+
+	* acx.m4 (ACX_PROG_GNAT): Remove stray break.
+
+2005-03-31  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc-lib-path.m4: Remove.
+
+2005-03-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* gxx-include-dir.m4: In all substitutions, leave $(gcc_version)
+	to be expanded by the Makefile.
+
 2005-03-15  Zack Weinberg  <zack@codesourcery.com>
 
 	* gcc-version.m4: Delete.

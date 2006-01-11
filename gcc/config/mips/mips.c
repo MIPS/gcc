@@ -357,7 +357,6 @@ static bool mips_callee_copies (CUMULATIVE_ARGS *, enum machine_mode mode,
 static int mips_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode mode,
 				   tree, bool);
 static bool mips_valid_pointer_mode (enum machine_mode);
-static bool mips_scalar_mode_supported_p (enum machine_mode);
 static bool mips_vector_mode_supported_p (enum machine_mode);
 static rtx mips_prepare_builtin_arg (enum insn_code, unsigned int, tree *);
 static rtx mips_prepare_builtin_target (enum insn_code, unsigned int, rtx);
@@ -696,10 +695,15 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
   /* MIPS32 */
   { "4kc", PROCESSOR_4KC, 32 },
-  { "4kp", PROCESSOR_4KC, 32 }, /* = 4kc */
+  { "4km", PROCESSOR_4KC, 32 }, /* = 4kc */
+  { "4kp", PROCESSOR_4KP, 32 },
 
   /* MIPS32 Release 2 */
   { "m4k", PROCESSOR_M4K, 33 },
+  { "24k", PROCESSOR_24K, 33 },
+  { "24kc", PROCESSOR_24K, 33 },  /* 24K  no FPU */
+  { "24kf", PROCESSOR_24K, 33 },  /* 24K 1:2 FPU */
+  { "24kx", PROCESSOR_24KX, 33 }, /* 24K 1:1 FPU */
 
   /* MIPS64 */
   { "5kc", PROCESSOR_5KC, 64 },
@@ -819,9 +823,6 @@ const struct mips_cpu_info mips_cpu_info_table[] = {
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P mips_vector_mode_supported_p
-
-#undef TARGET_SCALAR_MODE_SUPPORTED_P
-#define TARGET_SCALAR_MODE_SUPPORTED_P mips_scalar_mode_supported_p
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS mips_init_builtins
@@ -1698,7 +1699,7 @@ mips_legitimize_tls_address (rtx loc)
       break;
 
     default:
-      abort ();
+      gcc_unreachable ();
     }
 
   return dest;
@@ -2806,8 +2807,6 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
       switch (*code)
 	{
 	case NE:
-	case UNGE:
-	case UNGT:
 	case LTGT:
 	case ORDERED:
 	  cmp_code = reverse_condition_maybe_unordered (*code);
@@ -3973,7 +3972,8 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 	}
 
       /* [2] Emit code to branch if off == 0.  */
-      t = lang_hooks.truthvalue_conversion (off);
+      t = build (NE_EXPR, boolean_type_node, off,
+		 build_int_cst (TREE_TYPE (off), 0));
       addr = build (COND_EXPR, ptr_type_node, t, NULL, NULL);
 
       /* [5] Emit code for: off -= rsize.  We do this as a form of
@@ -4335,24 +4335,11 @@ override_options (void)
 
   if ((target_flags_explicit & MASK_LONG64) == 0)
     {
-      if (TARGET_INT64)
-	target_flags |= MASK_LONG64;
-      /* If no type size setting options (-mlong64,-mint64,-mlong32)
-	 were used, then set the type sizes.  In the EABI in 64 bit mode,
-	 longs and pointers are 64 bits.  Likewise for the SGI Irix6 N64
-	 ABI.  */
-      else if ((mips_abi == ABI_EABI && TARGET_64BIT) || mips_abi == ABI_64)
+      if ((mips_abi == ABI_EABI && TARGET_64BIT) || mips_abi == ABI_64)
 	target_flags |= MASK_LONG64;
       else
 	target_flags &= ~MASK_LONG64;
     }
-
-  /* Deprecate -mint64. Remove after 4.0 branches.  */
-  if (TARGET_INT64)
-    warning ("-mint64 is a deprecated option");
-
-  if (TARGET_INT64 && !TARGET_LONG64)
-    error ("unsupported combination: %s", "-mint64 -mlong32");
 
   if (MIPS_MARCH_CONTROLS_SOFT_FLOAT
       && (target_flags_explicit & MASK_SOFT_FLOAT) == 0)
@@ -4403,7 +4390,7 @@ override_options (void)
 	target_flags &= ~MASK_BRANCHLIKELY;
     }
   if (TARGET_BRANCHLIKELY && !ISA_HAS_BRANCHLIKELY)
-    warning ("generation of Branch Likely instructions enabled, but not supported by architecture");
+    warning (0, "generation of Branch Likely instructions enabled, but not supported by architecture");
 
   /* The effect of -mabicalls isn't defined for the EABI.  */
   if (mips_abi == ABI_EABI && TARGET_ABICALLS)
@@ -4420,7 +4407,7 @@ override_options (void)
     {
       flag_pic = 1;
       if (mips_section_threshold > 0)
-	warning ("-G is incompatible with PIC code which is the default");
+	warning (0, "-G is incompatible with PIC code which is the default");
     }
 
   /* mips_split_addresses is a half-way house between explicit
@@ -6275,8 +6262,18 @@ mips_set_frame_expr (rtx frame_pattern)
 static rtx
 mips_frame_set (rtx mem, rtx reg)
 {
-  rtx set = gen_rtx_SET (VOIDmode, mem, reg);
+  rtx set;
+
+  /* If we're saving the return address register and the dwarf return
+     address column differs from the hard register number, adjust the
+     note reg to refer to the former.  */
+  if (REGNO (reg) == GP_REG_FIRST + 31
+      && DWARF_FRAME_RETURN_COLUMN != GP_REG_FIRST + 31)
+    reg = gen_rtx_REG (GET_MODE (reg), DWARF_FRAME_RETURN_COLUMN);
+
+  set = gen_rtx_SET (VOIDmode, mem, reg);
   RTX_FRAME_RELATED_P (set) = 1;
+
   return set;
 }
 
@@ -6718,7 +6715,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     mips16_lay_out_constants ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
-  final (insn, file, 1, 0);
+  final (insn, file, 1);
   final_end_function ();
 
   /* Clean up the vars set above.  Note that final_end_function resets
@@ -7287,44 +7284,8 @@ mips_valid_pointer_mode (enum machine_mode mode)
   return (mode == SImode || (TARGET_64BIT && mode == DImode));
 }
 
-/* Define this so that we can deal with a testcase like:
-
-   char foo __attribute__ ((mode (SI)));
-
-   then compiled with -mabi=64 and -mint64. We have no
-   32-bit type at that point and so the default case
-   always fails.  */
-
-static bool
-mips_scalar_mode_supported_p (enum machine_mode mode)
-{
-  switch (mode)
-    {
-    case QImode:
-    case HImode:
-    case SImode:
-    case DImode:
-      return true;
-
-      /* Handled via optabs.c.  */
-    case TImode:
-      return TARGET_64BIT;
-
-    case SFmode:
-    case DFmode:
-      return true;
-
-      /* LONG_DOUBLE_TYPE_SIZE is 128 for TARGET_NEWABI only.  */
-    case TFmode:
-      return TARGET_NEWABI;
-
-    default:
-      return false;
-    }
-}
-
-
 /* Target hook for vector_mode_supported_p.  */
+
 static bool
 mips_vector_mode_supported_p (enum machine_mode mode)
 {
@@ -7977,11 +7938,7 @@ dump_constants (struct mips16_constant *constants, rtx insn)
   emit_barrier_after (insn);
 }
 
-/* Return the length of instruction INSN.
-
-   ??? MIPS16 switch tables go in .text, but we don't define
-   JUMP_TABLES_IN_TEXT_SECTION, so get_attr_length will not
-   compute their lengths correctly.  */
+/* Return the length of instruction INSN.  */
 
 static int
 mips16_insn_length (rtx insn)
@@ -8982,7 +8939,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
             /* Output delay slot instruction.  */
             rtx insn = final_sequence;
             final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
-                             optimize, 0, 1, NULL);
+                             optimize, 1, NULL);
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
 	else
@@ -9001,7 +8958,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
             /* Output delay slot instruction.  */
             rtx insn = final_sequence;
             final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
-                             optimize, 0, 1, NULL);
+                             optimize, 1, NULL);
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
 	else
@@ -9193,7 +9150,7 @@ mips_matching_cpu_name_p (const char *canonical, const char *given)
 
 
 /* Return the mips_cpu_info entry for the processor or ISA given
-   by CPU_STRING.  Return null if the string isn't recognised.
+   by CPU_STRING.  Return null if the string isn't recognized.
 
    A similar function exists in GAS.  */
 
@@ -9208,7 +9165,7 @@ mips_parse_cpu (const char *cpu_string)
   for (s = cpu_string; *s != 0; s++)
     if (ISUPPER (*s))
       {
-	warning ("the cpu name must be lower case");
+	warning (0, "the cpu name must be lower case");
 	break;
       }
 

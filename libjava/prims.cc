@@ -55,11 +55,12 @@ details.  */
 #include <java/lang/OutOfMemoryError.h>
 #include <java/lang/System.h>
 #include <java/lang/VMThrowable.h>
+#include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
 #include <java/io/PrintStream.h>
 #include <java/lang/UnsatisfiedLinkError.h>
 #include <java/lang/VirtualMachineError.h>
-#include <gnu/gcj/runtime/VMClassLoader.h>
+#include <gnu/gcj/runtime/ExtensionClassLoader.h>
 #include <gnu/gcj/runtime/FinalizerThread.h>
 #include <execution.h>
 #include <gnu/java/lang/MainThread.h>
@@ -83,9 +84,6 @@ static java::lang::OutOfMemoryError *no_memory;
 // Properties set at compile time.
 const char **_Jv_Compiler_Properties = NULL;
 int _Jv_Properties_Count = 0;
-
-// The JAR file to add to the beginning of java.class.path.
-const char *_Jv_Jar_Class_Path;
 
 #ifndef DISABLE_GETENV_PROPERTIES
 // Property key/value pairs.
@@ -360,6 +358,22 @@ _Jv_ThrowNullPointerException ()
 {
   throw new java::lang::NullPointerException;
 }
+
+// Resolve an entry in the constant pool and return the target
+// address.
+void *
+_Jv_ResolvePoolEntry (jclass this_class, jint index)
+{
+  _Jv_Constants *pool = &this_class->constants;
+
+  if ((pool->tags[index] & JV_CONSTANT_ResolvedFlag) != 0)
+    return pool->data[index].field->u.addr;
+
+  JvSynchronize sync (this_class);
+  return (_Jv_Linker::resolve_pool_entry (this_class, index))
+    .field->u.addr;
+}
+
 
 // Explicitly throw a no memory exception.
 // The collector calls this when it encounters an out-of-memory condition.
@@ -677,46 +691,79 @@ _Jv_InitPrimClass (jclass cl, char *cname, char sig, int len)
 }
 
 jclass
-_Jv_FindClassFromSignature (char *sig, java::lang::ClassLoader *loader)
+_Jv_FindClassFromSignature (char *sig, java::lang::ClassLoader *loader,
+			    char **endp)
 {
+  // First count arrays.
+  int array_count = 0;
+  while (*sig == '[')
+    {
+      ++sig;
+      ++array_count;
+    }
+
+  jclass result = NULL;
   switch (*sig)
     {
     case 'B':
-      return JvPrimClass (byte);
+      result = JvPrimClass (byte);
+      break;
     case 'S':
-      return JvPrimClass (short);
+      result = JvPrimClass (short);
+      break;
     case 'I':
-      return JvPrimClass (int);
+      result = JvPrimClass (int);
+      break;
     case 'J':
-      return JvPrimClass (long);
+      result = JvPrimClass (long);
+      break;
     case 'Z':
-      return JvPrimClass (boolean);
+      result = JvPrimClass (boolean);
+      break;
     case 'C':
-      return JvPrimClass (char);
+      result = JvPrimClass (char);
+      break;
     case 'F':
-      return JvPrimClass (float);
+      result = JvPrimClass (float);
+      break;
     case 'D':
-      return JvPrimClass (double);
+      result = JvPrimClass (double);
+      break;
     case 'V':
-      return JvPrimClass (void);
+      result = JvPrimClass (void);
+      break;
     case 'L':
       {
-	int i;
-	for (i = 1; sig[i] && sig[i] != ';'; ++i)
-	  ;
-	_Jv_Utf8Const *name = _Jv_makeUtf8Const (&sig[1], i - 1);
-	return _Jv_FindClass (name, loader);
+	char *save = ++sig;
+	while (*sig && *sig != ';')
+	  ++sig;
+	// Do nothing if signature appears to be malformed.
+	if (*sig == ';')
+	  {
+	    _Jv_Utf8Const *name = _Jv_makeUtf8Const (save, sig - save);
+	    result = _Jv_FindClass (name, loader);
+	  }
+	break;
       }
-    case '[':
-      {
-	jclass klass = _Jv_FindClassFromSignature (&sig[1], loader);
-	if (! klass)
-	  return NULL;
-	return _Jv_GetArrayClass (klass, loader);
-      }
+    default:
+      // Do nothing -- bad signature.
+      break;
     }
 
-  return NULL;			// Placate compiler.
+  if (endp)
+    {
+      // Not really the "end", but the last valid character that we
+      // looked at.
+      *endp = sig;
+    }
+
+  if (! result)
+    return NULL;
+
+  // Find arrays.
+  while (array_count-- > 0)
+    result = _Jv_GetArrayClass (result, loader);
+  return result;
 }
 
 
@@ -906,13 +953,125 @@ namespace gcj
   _Jv_Utf8Const *finit_name;
   
   bool runtimeInitialized = false;
+  
+  // When true, print debugging information about class loading.
+  bool verbose_class_flag;
+  
+  // When true, enable the bytecode verifier and BC-ABI type verification. 
+  bool verifyClasses = true;
+}
+
+// We accept all non-standard options accepted by Sun's java command,
+// for compatibility with existing application launch scripts.
+static jint
+parse_x_arg (char* option_string)
+{
+  if (strlen (option_string) <= 0)
+    return -1;
+
+  if (! strcmp (option_string, "int"))
+    {
+      // FIXME: this should cause the vm to never load shared objects
+    }
+  else if (! strcmp (option_string, "mixed"))
+    {
+      // FIXME: allow interpreted and native code
+    }
+  else if (! strcmp (option_string, "batch"))
+    {
+      // FIXME: disable background JIT'ing
+    }
+  else if (! strcmp (option_string, "debug"))
+    {
+      // FIXME: add JDWP/JVMDI support
+    }
+  else if (! strncmp (option_string, "bootclasspath:", 14))
+    {
+      // FIXME: add a parse_bootclasspath_arg function
+    }
+  else if (! strncmp (option_string, "bootclasspath/a:", 16))
+    {
+    }
+  else if (! strncmp (option_string, "bootclasspath/p:", 16))
+    {
+    }
+  else if (! strcmp (option_string, "check:jni"))
+    {
+      // FIXME: enable strict JNI checking
+    }
+  else if (! strcmp (option_string, "future"))
+    {
+      // FIXME: enable strict class file format checks
+    }
+  else if (! strcmp (option_string, "noclassgc"))
+    {
+      // FIXME: disable garbage collection for classes
+    }
+  else if (! strcmp (option_string, "incgc"))
+    {
+      // FIXME: incremental garbage collection
+    }
+  else if (! strncmp (option_string, "loggc:", 6))
+    {
+      if (option_string[6] == '\0')
+        {
+          fprintf (stderr,
+                   "libgcj: filename argument expected for loggc option\n");
+          return -1;
+        }
+      // FIXME: set gc logging filename
+    }
+  else if (! strncmp (option_string, "ms", 2))
+    {
+      // FIXME: ignore this option until PR 20699 is fixed.
+      // _Jv_SetInitialHeapSize (option_string + 2);
+    }
+  else if (! strncmp (option_string, "mx", 2))
+    _Jv_SetMaximumHeapSize (option_string + 2);
+  else if (! strcmp (option_string, "prof"))
+    {
+      // FIXME: enable profiling of program running in vm
+    }
+  else if (! strncmp (option_string, "runhprof:", 9))
+    {
+      // FIXME: enable specific type of vm profiling.  add a
+      // parse_runhprof_arg function
+    }
+  else if (! strcmp (option_string, "rs"))
+    {
+      // FIXME: reduced system signal usage.  disable thread dumps,
+      // only terminate in response to user-initiated calls,
+      // e.g. System.exit()
+    }
+  else if (! strncmp (option_string, "ss", 2))
+    {
+      // FIXME: set thread stack size
+    }
+  else if (! strcmp (option_string, "X:+UseAltSigs"))
+    {
+      // FIXME: use signals other than SIGUSR1 and SIGUSR2
+    }
+  else if (! strcmp (option_string, "share:off"))
+    {
+      // FIXME: don't share class data
+    }
+  else if (! strcmp (option_string, "share:auto"))
+    {
+      // FIXME: share class data where possible
+    }
+  else if (! strcmp (option_string, "share:on"))
+    {
+      // FIXME: fail if impossible to share class data
+    }
+
+  return 0;
 }
 
 static jint
 parse_verbose_args (char* option_string,
-		    bool ignore_unrecognized)
+                    bool ignore_unrecognized)
 {
-  size_t len = sizeof ("-verbose");
+  size_t len = sizeof ("-verbose") - 1;
 
   if (strlen (option_string) < len)
     return -1;
@@ -921,69 +1080,72 @@ parse_verbose_args (char* option_string,
       && option_string[len + 1] != '\0')
     {
       char* verbose_args = option_string + len + 1;
-      size_t last = 0;
 
       do
 	{
 	  if (! strncmp (verbose_args,
-			 "gc", (last = sizeof ("gc")) - 1)
-	      && (verbose_args[last] == '\0'
-		  || verbose_args[last] == ','))
-	    {
-	      // FIXME: we should add functions to boehm-gc that
-	      // toggle GC_print_stats, GC_PRINT_ADDRESS_MAP and
-	      // GC_print_back_height.
-
-	    }
+			 "gc", sizeof ("gc") - 1))
+            {
+              if (verbose_args[sizeof ("gc") - 1] == '\0'
+                  || verbose_args[sizeof ("gc") - 1] == ',')
+                {
+                  // FIXME: we should add functions to boehm-gc that
+                  // toggle GC_print_stats, GC_PRINT_ADDRESS_MAP and
+                  // GC_print_back_height.
+                  verbose_args += sizeof ("gc") - 1;
+                }
+              else
+                {
+                verbose_arg_err:
+                  fprintf (stderr, "libgcj: unknown verbose option: %s\n",
+                           option_string);
+                  return -1;
+                }
+            }
 	  else if (! strncmp (verbose_args,
 			      "class",
-			      (last = sizeof ("class")) - 1)
-		   && (verbose_args[last] == '\0'
-		       || verbose_args[last] == ','))
-	    {
-	      gcj::verbose_class_flag = true;
-	    }
+			      sizeof ("class") - 1))
+            {
+              if (verbose_args[sizeof ("class") - 1] == '\0'
+                  || verbose_args[sizeof ("class") - 1] == ',')
+                {
+                  gcj::verbose_class_flag = true;
+                  verbose_args += sizeof ("class") - 1;
+                }
+              else
+                goto verbose_arg_err;
+            }
 	  else if (! strncmp (verbose_args, "jni",
-			      (last = sizeof ("jni")) - 1)
-		   && (verbose_args[last] == '\0'
-		       || verbose_args[last] == ','))
-	    {
-	      // FIXME: enable JNI messages.
-	    }
+			      sizeof ("jni") - 1))
+            {
+              if (verbose_args[sizeof ("jni") - 1] == '\0'
+                  || verbose_args[sizeof ("jni") - 1] == ',')
+                {
+                  // FIXME: enable JNI messages.
+                  verbose_args += sizeof ("jni") - 1;
+                }
+              else
+                goto verbose_arg_err;
+            }
 	  else if (ignore_unrecognized
 		   && verbose_args[0] == 'X')
 	    {
 	      // ignore unrecognized non-standard verbose option
-	      last = 0;
-	      while (verbose_args[last] != '\0'
-		     && verbose_args[last++] != ',');
+	      while (verbose_args[0] != '\0'
+		     && verbose_args[0] != ',')
+                verbose_args++;
 	    }
+          else if (verbose_args[0] == ',')
+            {
+              verbose_args++;
+            }
+          else
+            goto verbose_arg_err;
 
-	  if (strlen (verbose_args) >= last)
-	    {
-	      if (verbose_args[last] == ',')
-		{
-		  if (verbose_args[last + 1] == '\0')
-		    // trailing comma
-		    return -1;
-		  else
-		    {
-		      verbose_args = verbose_args + last + 1;
-		      last = 0;
-		    }
-		}
-	      // here verbose_args[last] is either '\0' or
-	      // the first character in the next verbose
-	      // argument.
-	    }
-	  else
-	    // partial option
-	    return -1;
-
-	  // verbose_args[last] will be '\0' here if we're
-	  // done.
+          if (verbose_args[0] == ',')
+            verbose_args++;
 	}
-      while (verbose_args[last] != '\0');
+      while (verbose_args[0] != '\0');
     }
   else if (option_string[len] == 'g'
 	   && option_string[len + 1] == 'c'
@@ -1044,7 +1206,7 @@ parse_init_args (JvVMInitArgs* vm_args)
 			  "-verbose", sizeof ("-verbose") - 1))
 	{
 	  jint result = parse_verbose_args (option_string,
-					    vm_args->ignoreUnrecognized);
+                                            vm_args->ignoreUnrecognized);
 	  if (result < 0)
 	    return result;
 	}
@@ -1060,11 +1222,20 @@ parse_init_args (JvVMInitArgs* vm_args)
 	  continue;
 	}
       else if (vm_args->ignoreUnrecognized)
-	{
-	  if (option_string[0] == '_'
-	      || ! strncmp (option_string, "-X", 2))
-	    continue;
+        {
+          if (option_string[0] == '_')
+            parse_x_arg (option_string + 1);
+          else if (! strncmp (option_string, "-X", 2))
+            parse_x_arg (option_string + 2);
+          else
+            {
+            unknown_option:
+              fprintf (stderr, "libgcj: unknown option: %s\n", option_string);
+              return -1;
+            }
 	}
+      else
+        goto unknown_option;
     }
   return 0;
 }
@@ -1130,8 +1301,9 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
   // of VMClassLoader.
   _Jv_InitClass (&java::lang::ClassLoader::class$);
 
-  // Set up the system class loader.
-  gnu::gcj::runtime::VMClassLoader::initialize();
+  // Set up the system class loader and the bootstrap class loader.
+  gnu::gcj::runtime::ExtensionClassLoader::initialize();
+  java::lang::VMClassLoader::initialize(JvNewStringLatin1(TOOLEXECLIBDIR));
 
   _Jv_RegisterBootstrapPackages();
 
@@ -1165,8 +1337,8 @@ _Jv_CreateJavaVM (JvVMInitArgs* vm_args)
 }
 
 void
-_Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, 
-	     bool is_jar)
+_Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
+             const char **argv, bool is_jar)
 {
 #ifndef DISABLE_MAIN_ARGS
   _Jv_SetArgs (argc, argv);
@@ -1176,12 +1348,7 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
 
   try
     {
-      // Set this very early so that it is seen when java.lang.System
-      // is initialized.
-      if (is_jar)
-	_Jv_Jar_Class_Path = strdup (name);
-
-      if (_Jv_CreateJavaVM (NULL) < 0)
+      if (_Jv_CreateJavaVM (vm_args) < 0)
 	{
 	  fprintf (stderr, "libgcj: couldn't create virtual machine\n");
 	  exit (1);
@@ -1209,7 +1376,10 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
       java::lang::System::err->println (JvNewStringLatin1 
         ("Exception during runtime initialization"));
       t->printStackTrace();
-      runtime->exit (1);
+      if (runtime)
+	runtime->exit (1);
+      // In case the runtime creation failed.
+      ::exit (1);
     }
 
   _Jv_AttachCurrentThread (main_thread);
@@ -1218,6 +1388,13 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
 
   int status = (int) java::lang::ThreadGroup::had_uncaught_exception;
   runtime->exit (status);
+}
+
+void
+_Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, 
+	     bool is_jar)
+{
+  _Jv_RunMain (NULL, klass, name, argc, argv, is_jar);
 }
 
 void

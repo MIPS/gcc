@@ -306,7 +306,7 @@ create_edge_and_update_destination_phis (struct redirection_data *rd)
   for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
     {
       int indx = rd->outgoing_edge->dest_idx;
-      add_phi_arg (phi, PHI_ARG_DEF_TREE (phi, indx), e);
+      add_phi_arg (phi, PHI_ARG_DEF (phi, indx), e);
     }
 }
 
@@ -648,8 +648,8 @@ redirect_edges (void **slot, void *data)
    the appropriate duplicate of BB.
 
    BB and its duplicates will have assignments to the same set of
-   SSA_NAMEs.  Right now, we just call into rewrite_ssa_into_ssa
-   to update the SSA graph for those names.
+   SSA_NAMEs.  Right now, we just call into update_ssa to update the
+   SSA graph for those names.
 
    We are also going to experiment with a true incremental update
    scheme for the duplicated resources.  One of the interesting
@@ -811,7 +811,8 @@ thread_through_all_blocks (void)
 
   FOR_EACH_BB (bb)
     {
-      if (bb_ann (bb)->incoming_edge_threaded)
+      if (bb_ann (bb)->incoming_edge_threaded
+	  && EDGE_COUNT (bb->preds) > 0)
 	{
 	  retval |= thread_block (bb);
 	  bb_ann (bb)->incoming_edge_threaded = false;

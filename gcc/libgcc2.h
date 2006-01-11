@@ -58,17 +58,25 @@ extern short int __get_eh_table_version (struct exception_descriptor *);
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE LONG_DOUBLE_TYPE_SIZE
 #endif
 
+#ifndef LIBGCC2_HAS_SF_MODE
+#define LIBGCC2_HAS_SF_MODE (BITS_PER_UNIT == 8)
+#endif
+
 #ifndef LIBGCC2_HAS_DF_MODE
 #define LIBGCC2_HAS_DF_MODE \
-  (LIBGCC2_DOUBLE_TYPE_SIZE == 64 || LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 64)
+  (BITS_PER_UNIT == 8 \
+   && (LIBGCC2_DOUBLE_TYPE_SIZE == 64 \
+       || LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 64))
 #endif
 
 #ifndef LIBGCC2_HAS_XF_MODE
-#define LIBGCC2_HAS_XF_MODE (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80)
+#define LIBGCC2_HAS_XF_MODE \
+  (BITS_PER_UNIT == 8 && LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 80)
 #endif
 
 #ifndef LIBGCC2_HAS_TF_MODE
-#define LIBGCC2_HAS_TF_MODE (LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
+#define LIBGCC2_HAS_TF_MODE \
+  (BITS_PER_UNIT == 8 && LIBGCC2_LONG_DOUBLE_TYPE_SIZE == 128)
 #endif
 
 #ifndef MIN_UNITS_PER_WORD
@@ -104,11 +112,10 @@ typedef unsigned int UTItype	__attribute__ ((mode (TI)));
 #endif
 #endif
 
-#if BITS_PER_UNIT == 8
-
+#if LIBGCC2_HAS_SF_MODE
 typedef 	float SFtype	__attribute__ ((mode (SF)));
 typedef _Complex float SCtype	__attribute__ ((mode (SC)));
-
+#endif
 #if LIBGCC2_HAS_DF_MODE
 typedef		float DFtype	__attribute__ ((mode (DF)));
 typedef _Complex float DCtype	__attribute__ ((mode (DC)));
@@ -121,29 +128,6 @@ typedef _Complex float XCtype	__attribute__ ((mode (XC)));
 typedef		float TFtype	__attribute__ ((mode (TF)));
 typedef _Complex float TCtype	__attribute__ ((mode (TC)));
 #endif
-
-#else /* BITS_PER_UNIT != 8 */
-
-/* On dsp's there are usually qf/hf/tqf modes used instead of the above.
-   For now we don't support them in libgcc2.c.  */
-
-#undef L_fixdfdi
-#undef L_fixsfdi
-#undef L_fixtfdi
-#undef L_fixunsdfdi
-#undef L_fixunsdfsi
-#undef L_fixunssfdi
-#undef L_fixunssfsi
-#undef L_fixunstfdi
-#undef L_fixunsxfdi
-#undef L_fixunsxfsi
-#undef L_fixxfdi
-#undef L_floatdidf
-#undef L_floatdisf
-#undef L_floatditf
-#undef L_floatdixf
-
-#endif /* BITS_PER_UNIT != 8 */
 
 typedef int word_type __attribute__ ((mode (__word__)));
 
@@ -330,21 +314,22 @@ extern SItype __mulvsi3 (SItype, SItype);
 extern SItype __negvsi2 (SItype);
 #endif /* COMPAT_SIMODE_TRAPPING_ARITHMETIC */
 
-#if BITS_PER_UNIT == 8
+#undef int
+#if LIBGCC2_HAS_SF_MODE
 extern DWtype __fixsfdi (SFtype);
 extern SFtype __floatdisf (DWtype);
 extern UWtype __fixunssfSI (SFtype);
 extern DWtype __fixunssfDI (SFtype);
-extern SFtype __powisf2 (SFtype, Wtype);
+extern SFtype __powisf2 (SFtype, int);
 extern SCtype __divsc3 (SFtype, SFtype, SFtype, SFtype);
 extern SCtype __mulsc3 (SFtype, SFtype, SFtype, SFtype);
-
+#endif
 #if LIBGCC2_HAS_DF_MODE
 extern DWtype __fixdfdi (DFtype);
 extern DFtype __floatdidf (DWtype);
 extern UWtype __fixunsdfSI (DFtype);
 extern DWtype __fixunsdfDI (DFtype);
-extern DFtype __powidf2 (DFtype, Wtype);
+extern DFtype __powidf2 (DFtype, int);
 extern DCtype __divdc3 (DFtype, DFtype, DFtype, DFtype);
 extern DCtype __muldc3 (DFtype, DFtype, DFtype, DFtype);
 #endif
@@ -354,7 +339,7 @@ extern DWtype __fixxfdi (XFtype);
 extern DWtype __fixunsxfDI (XFtype);
 extern XFtype __floatdixf (DWtype);
 extern UWtype __fixunsxfSI (XFtype);
-extern XFtype __powixf2 (XFtype, Wtype);
+extern XFtype __powixf2 (XFtype, int);
 extern XCtype __divxc3 (XFtype, XFtype, XFtype, XFtype);
 extern XCtype __mulxc3 (XFtype, XFtype, XFtype, XFtype);
 #endif
@@ -363,11 +348,11 @@ extern XCtype __mulxc3 (XFtype, XFtype, XFtype, XFtype);
 extern DWtype __fixunstfDI (TFtype);
 extern DWtype __fixtfdi (TFtype);
 extern TFtype __floatditf (DWtype);
-extern TFtype __powitf2 (TFtype, Wtype);
+extern TFtype __powitf2 (TFtype, int);
 extern TCtype __divtc3 (TFtype, TFtype, TFtype, TFtype);
 extern TCtype __multc3 (TFtype, TFtype, TFtype, TFtype);
 #endif
-#endif /* BITS_PER_UNIT == 8 */
+#define int bogus_type
 
 /* DWstructs are pairs of Wtype values in the order determined by
    LIBGCC2_WORDS_BIG_ENDIAN.  */

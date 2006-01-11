@@ -306,7 +306,7 @@ new_class_binding (tree name, tree value, tree type, cxx_scope *scope)
     {
       cp_class_binding *old_base;
       old_base = VEC_index (cp_class_binding, scope->class_shadowed, 0);
-      if (VEC_reserve (cp_class_binding, scope->class_shadowed, -1))
+      if (VEC_reserve (cp_class_binding, gc, scope->class_shadowed, 1))
 	{
 	  /* Fixup the current bindings, as they might have moved.  */
 	  size_t i;
@@ -325,7 +325,7 @@ new_class_binding (tree name, tree value, tree type, cxx_scope *scope)
       cb = VEC_quick_push (cp_class_binding, scope->class_shadowed, NULL);
     }
   else
-    cb = VEC_safe_push (cp_class_binding, scope->class_shadowed, NULL);
+    cb = VEC_safe_push (cp_class_binding, gc, scope->class_shadowed, NULL);
   
   cb->identifier = name;
   binding = &cb->base;
@@ -546,7 +546,7 @@ add_decl_to_level (tree decl, cxx_scope *b)
 	     && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
 	    || (TREE_CODE (decl) == FUNCTION_DECL
 		&& (!TREE_PUBLIC (decl) || DECL_DECLARED_INLINE_P (decl))))
-	  VARRAY_PUSH_TREE (b->static_decls, decl);
+	  VEC_safe_push (tree, gc, b->static_decls, decl);
     }
 }
 
@@ -894,7 +894,7 @@ pushdecl (tree x)
 		/* OK */;
 	      else
 		{
-		  warning ("extern declaration of %q#D doesn't match", x);
+		  warning (0, "extern declaration of %q#D doesn't match", x);
 		  cp_warning_at ("global declaration %q#D", oldglobal);
 		}
 	    }
@@ -938,8 +938,8 @@ pushdecl (tree x)
 
 	      if (warn_shadow && !err)
 		{
-		  warning ("declaration of %q#D shadows a parameter", x);
-		  warning ("%Jshadowed declaration is here", oldlocal);
+		  warning (0, "declaration of %q#D shadows a parameter", x);
+		  warning (0, "%Jshadowed declaration is here", oldlocal);
 		}
 	    }
 
@@ -963,22 +963,22 @@ pushdecl (tree x)
 	      if (member && !TREE_STATIC (member))
 		{
 		  /* Location of previous decl is not useful in this case.  */
-		  warning ("declaration of %qD shadows a member of 'this'",
+		  warning (0, "declaration of %qD shadows a member of 'this'",
 			   x);
 		}
 	      else if (oldlocal != NULL_TREE
 		       && TREE_CODE (oldlocal) == VAR_DECL)
 		{
-		  warning ("declaration of %qD shadows a previous local", x);
-		  warning ("%Jshadowed declaration is here", oldlocal);
+		  warning (0, "declaration of %qD shadows a previous local", x);
+		  warning (0, "%Jshadowed declaration is here", oldlocal);
 		}
 	      else if (oldglobal != NULL_TREE
 		       && TREE_CODE (oldglobal) == VAR_DECL)
 		/* XXX shadow warnings in outer-more namespaces */
 		{
-		  warning ("declaration of %qD shadows a global declaration",
+		  warning (0, "declaration of %qD shadows a global declaration",
 			   x);
-		  warning ("%Jshadowed declaration is here", oldglobal);
+		  warning (0, "%Jshadowed declaration is here", oldglobal);
 		}
 	    }
 	}
@@ -1092,7 +1092,7 @@ check_for_out_of_scope_variable (tree decl)
     {
       if (!DECL_ERROR_REPORTED (decl))
 	{
-	  warning ("name lookup of %qD changed", DECL_NAME (decl));
+	  warning (0, "name lookup of %qD changed", DECL_NAME (decl));
 	  cp_warning_at ("  matches this %qD under ISO standard rules",
 			 shadowed);
 	  cp_warning_at ("  matches this %qD under old rules", decl);
@@ -1264,11 +1264,11 @@ begin_scope (scope_kind kind, tree entity)
 
     case sk_namespace:
       NAMESPACE_LEVEL (entity) = scope;
-      VARRAY_TREE_INIT (scope->static_decls,
-                        DECL_NAME (entity) == std_identifier
-                        || DECL_NAME (entity) == global_scope_name
-                        ? 200 : 10,
-                        "Static declarations");
+      scope->static_decls =
+	VEC_alloc (tree, gc,
+		   DECL_NAME (entity) == std_identifier
+		   || DECL_NAME (entity) == global_scope_name
+		   ? 200 : 10);
       break;
 
     default:
@@ -1861,7 +1861,7 @@ push_overloaded_decl (tree decl, int flags)
 	  if (IS_AGGR_TYPE (t) && warn_shadow
 	      && (! DECL_IN_SYSTEM_HEADER (decl)
 		  || ! DECL_IN_SYSTEM_HEADER (old)))
-	    warning ("%q#D hides constructor for %q#T", decl, t);
+	    warning (0, "%q#D hides constructor for %q#T", decl, t);
 	  old = NULL_TREE;
 	}
       else if (is_overloaded_fn (old))
@@ -1883,6 +1883,13 @@ push_overloaded_decl (tree decl, int flags)
 	      if (duplicate_decls (decl, fn) == fn)
 		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, fn);
 	    }
+
+	  /* We don't overload implicit built-ins.  duplicate_decls()
+	     may fail to merge the decls if the new decl is e.g. a
+	     template function.  */
+	  if (TREE_CODE (old) == FUNCTION_DECL
+	      && DECL_ANTICIPATED (old))
+	    old = NULL;
 	}
       else if (old == error_mark_node)
 	/* Ignore the undefined symbol marker.  */
@@ -3200,7 +3207,7 @@ parse_using_directive (tree namespace, tree attribs)
 			   DECL_NAMESPACE_ASSOCIATIONS (namespace));
 	}
       else
-	warning ("%qD attribute directive ignored", name);
+	warning (0, "%qD attribute directive ignored", name);
     }
 }
 
@@ -4694,7 +4701,7 @@ pushtag (tree name, tree type, tag_scope scope)
 	  if (TYPE_CONTEXT (type)
 	      && TREE_CODE (TYPE_CONTEXT (type)) == FUNCTION_DECL
 	      && !processing_template_decl)
-	    VARRAY_PUSH_TREE (local_classes, type);
+	    VEC_safe_push (tree, gc, local_classes, type);
         }
       if (b->kind == sk_class
 	  && !COMPLETE_TYPE_P (current_class_type))
@@ -4741,7 +4748,7 @@ struct saved_scope *scope_chain;
    *OLD_BINDINGS.  */
 
 static void
-store_binding (tree id, VEC(cxx_saved_binding) **old_bindings)
+store_binding (tree id, VEC(cxx_saved_binding,gc) **old_bindings)
 {
   cxx_saved_binding *saved;
 
@@ -4753,7 +4760,7 @@ store_binding (tree id, VEC(cxx_saved_binding) **old_bindings)
   
   IDENTIFIER_MARKED (id) = 1;
 
-  saved = VEC_safe_push (cxx_saved_binding, *old_bindings, NULL);
+  saved = VEC_safe_push (cxx_saved_binding, gc, *old_bindings, NULL);
   saved->identifier = id;
   saved->binding = IDENTIFIER_BINDING (id);
   saved->real_type_value = REAL_IDENTIFIER_TYPE_VALUE (id);
@@ -4761,7 +4768,7 @@ store_binding (tree id, VEC(cxx_saved_binding) **old_bindings)
 }
 
 static void
-store_bindings (tree names, VEC(cxx_saved_binding) **old_bindings)
+store_bindings (tree names, VEC(cxx_saved_binding,gc) **old_bindings)
 {
   tree t;
 
@@ -4784,8 +4791,8 @@ store_bindings (tree names, VEC(cxx_saved_binding) **old_bindings)
    objects, rather than a TREE_LIST.  */
 
 static void
-store_class_bindings (VEC(cp_class_binding) *names, 
-		      VEC(cxx_saved_binding) **old_bindings)
+store_class_bindings (VEC(cp_class_binding,gc) *names, 
+		      VEC(cxx_saved_binding,gc) **old_bindings)
 {
   size_t i;
   cp_class_binding *cb;
@@ -4857,7 +4864,7 @@ push_to_top_level (void)
 
   scope_chain = s;
   current_function_decl = NULL_TREE;
-  VARRAY_TREE_INIT (current_lang_base, 10, "current_lang_base");
+  current_lang_base = VEC_alloc (tree, gc, 10);
   current_lang_name = lang_name_cplusplus;
   current_namespace = global_namespace;
   timevar_pop (TV_NAME_LOOKUP);

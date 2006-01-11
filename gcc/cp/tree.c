@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "integrate.h"
 #include "tree-inline.h"
+#include "debug.h"
 #include "target.h"
 
 static tree bot_manip (tree *, int *, void *);
@@ -111,6 +112,7 @@ lvalue_p_1 (tree ref,
     case STRING_CST:
       return clk_ordinary;
 
+    case CONST_DECL:
     case VAR_DECL:
       if (TREE_READONLY (ref) && ! TREE_STATIC (ref)
 	  && DECL_LANG_SPECIFIC (ref)
@@ -1112,9 +1114,9 @@ cxx_print_statistics (void)
 tree
 array_type_nelts_top (tree type)
 {
-  return fold (build2 (PLUS_EXPR, sizetype,
-		       array_type_nelts (type),
-		       integer_one_node));
+  return fold_build2 (PLUS_EXPR, sizetype,
+		      array_type_nelts (type),
+		      integer_one_node);
 }
 
 /* Return, as an INTEGER_CST node, the number of elements for TYPE
@@ -1129,7 +1131,7 @@ array_type_nelts_total (tree type)
   while (TREE_CODE (type) == ARRAY_TYPE)
     {
       tree n = array_type_nelts_top (type);
-      sz = fold (build2 (MULT_EXPR, sizetype, sz, n));
+      sz = fold_build2 (MULT_EXPR, sizetype, sz, n);
       type = TREE_TYPE (type);
     }
   return sz;
@@ -1459,6 +1461,7 @@ cp_tree_equal (tree t1, tree t2)
     case FUNCTION_DECL:
     case TEMPLATE_DECL:
     case IDENTIFIER_NODE:
+    case SSA_NAME:
       return false;
 
     case BASELINK:
@@ -1766,12 +1769,12 @@ handle_com_interface_attribute (tree* node,
       || !CLASS_TYPE_P (*node)
       || *node != TYPE_MAIN_VARIANT (*node))
     {
-      warning ("%qE attribute can only be applied to class definitions", name);
+      warning (0, "%qE attribute can only be applied to class definitions", name);
       return NULL_TREE;
     }
 
   if (!warned++)
-    warning ("%qE is obsolete; g++ vtables are now COM-compatible by default",
+    warning (0, "%qE is obsolete; g++ vtables are now COM-compatible by default",
 	     name);
 
   return NULL_TREE;
@@ -1834,7 +1837,7 @@ handle_init_priority_attribute (tree* node,
   if (pri <= MAX_RESERVED_INIT_PRIORITY)
     {
       warning
-	("requested init_priority is reserved for internal use");
+	(0, "requested init_priority is reserved for internal use");
     }
 
   if (SUPPORTS_INIT_PRIORITY)
@@ -1848,17 +1851,6 @@ handle_init_priority_attribute (tree* node,
       *no_add_attrs = true;
       return NULL_TREE;
     }
-}
-
-/* Return a new TINST_LEVEL for DECL at location locus.  */
-tree
-make_tinst_level (tree decl, location_t locus)
-{
-  tree tinst_level = make_node (TINST_LEVEL);
-  TREE_CHAIN (tinst_level) = NULL_TREE;
-  TINST_DECL (tinst_level) = decl;
-  TINST_LOCATION (tinst_level) = locus;
-  return tinst_level;
 }
 
 /* Return a new PTRMEM_CST of the indicated TYPE.  The MEMBER is the
@@ -2256,7 +2248,10 @@ stabilize_init (tree init, tree *initp)
       if (TREE_CODE (t) == COND_EXPR)
 	return false;
 
-      stabilize_call (t, initp);
+      /* The TARGET_EXPR might be initializing via bitwise copy from
+	 another variable; leave that alone.  */
+      if (TREE_SIDE_EFFECTS (t))
+	stabilize_call (t, initp);
     }
 
   return true;

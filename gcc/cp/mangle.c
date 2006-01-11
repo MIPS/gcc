@@ -1,5 +1,6 @@
 /* Name mangling for the 3.0 C++ ABI.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Free Software Foundation, Inc.
    Written by Alex Samuel <sameul@codesourcery.com>
 
    This file is part of GCC.
@@ -96,7 +97,7 @@ typedef struct globals GTY(())
 {
   /* An array of the current substitution candidates, in the order
      we've seen them.  */
-  varray_type substitutions;
+  VEC(tree,gc) *substitutions;
 
   /* The entity that is being mangled.  */
   tree GTY ((skip)) entity;
@@ -345,11 +346,11 @@ static void
 dump_substitution_candidates (void)
 {
   unsigned i;
+  tree el;
 
   fprintf (stderr, "  ++ substitutions  ");
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (G.substitutions); ++i)
+  for (i = 0; VEC_iterate (tree, G.substitutions, i, el); ++i)
     {
-      tree el = VARRAY_TREE (G.substitutions, i);
       const char *name = "???";
 
       if (i > 0)
@@ -413,10 +414,10 @@ add_substitution (tree node)
   /* Make sure NODE isn't already a candidate.  */
   {
     int i;
-    for (i = VARRAY_ACTIVE_SIZE (G.substitutions); --i >= 0; )
+    tree candidate;
+
+    for (i = 0; VEC_iterate (tree, G.substitutions, i, candidate); i++)
       {
-	const tree candidate = VARRAY_TREE (G.substitutions, i);
-	
 	gcc_assert (!(DECL_P (node) && node == candidate));
 	gcc_assert (!(TYPE_P (node) && TYPE_P (candidate) 
 		      && same_type_p (node, candidate)));
@@ -425,7 +426,7 @@ add_substitution (tree node)
 #endif /* ENABLE_CHECKING */
 
   /* Put the decl onto the varray of substitution candidates.  */
-  VARRAY_PUSH_TREE (G.substitutions, node);
+  VEC_safe_push (tree, gc, G.substitutions, node);
 
   if (DEBUG_MANGLE)
     dump_substitution_candidates ();
@@ -528,7 +529,7 @@ static int
 find_substitution (tree node)
 {
   int i;
-  const int size = VARRAY_ACTIVE_SIZE (G.substitutions);
+  const int size = VEC_length (tree, G.substitutions);
   tree decl;
   tree type;
 
@@ -637,7 +638,7 @@ find_substitution (tree node)
      operation.  */
   for (i = 0; i < size; ++i)
     {
-      tree candidate = VARRAY_TREE (G.substitutions, i);
+      tree candidate = VEC_index (tree, G.substitutions, i);
       /* NODE is a matched to a candidate if it's the same decl node or
 	 if it's the same type.  */
       if (decl == candidate
@@ -1249,16 +1250,16 @@ write_integer_cst (const tree cst)
       if (sign < 0)
 	{
 	  write_char ('n');
-	  n = fold (build1 (NEGATE_EXPR, type, n));
+	  n = fold_build1 (NEGATE_EXPR, type, n);
 	}
       do
 	{
-	  tree d = fold (build2 (FLOOR_DIV_EXPR, type, n, base));
-	  tree tmp = fold (build2 (MULT_EXPR, type, d, base));
+	  tree d = fold_build2 (FLOOR_DIV_EXPR, type, n, base);
+	  tree tmp = fold_build2 (MULT_EXPR, type, d, base);
 	  unsigned c;
 
 	  done = integer_zerop (d);
-	  tmp = fold (build2 (MINUS_EXPR, type, n, tmp));
+	  tmp = fold_build2 (MINUS_EXPR, type, n, tmp);
 	  c = hwint_to_ascii (TREE_INT_CST_LOW (tmp), 10, ptr,
 			      done ? 1 : chunk_digits);
 	  ptr -= c;
@@ -1436,7 +1437,7 @@ discriminator_for_local_entity (tree entity)
     {
       /* Scan the list of local classes.  */
       entity = TREE_TYPE (entity);
-      for (type = &VARRAY_TREE (local_classes, 0); *type != entity; ++type)
+      for (type = VEC_address (tree, local_classes); *type != entity; ++type)
         if (TYPE_IDENTIFIER (*type) == TYPE_IDENTIFIER (entity)
             && TYPE_CONTEXT (*type) == TYPE_CONTEXT (entity))
 	  ++discriminator;
@@ -1757,15 +1758,34 @@ write_builtin_type (tree type)
 	    {
 	      tree t = c_common_type_for_mode (TYPE_MODE (type),
 					       TYPE_UNSIGNED (type));
-	      if (type == t)
-		{
-		  gcc_assert (TYPE_PRECISION (type) == 128);
-		  write_char (TYPE_UNSIGNED (type) ? 'o' : 'n');
-		}
-	      else
+	      if (type != t)
 		{
 		  type = t;
 		  goto iagain;
+		}
+
+	      if (TYPE_PRECISION (type) == 128)
+		write_char (TYPE_UNSIGNED (type) ? 'o' : 'n');
+	      else
+		{
+		  /* Allow for cases where TYPE is not one of the shared
+		     integer type nodes and write a "vendor extended builtin
+		     type" with a name the form intN or uintN, respectively.
+		     Situations like this can happen if you have an
+		     __attribute__((__mode__(__SI__))) type and use exotic
+		     switches like '-mint8' on AVR.  Of course, this is
+		     undefined by the C++ ABI (and '-mint8' is not even
+		     Standard C conforming), but when using such special
+		     options you're pretty much in nowhere land anyway.  */
+		  const char *prefix;
+		  char prec[11];	/* up to ten digits for an unsigned */
+
+		  prefix = TYPE_UNSIGNED (type) ? "uint" : "int";
+		  sprintf (prec, "%u", (unsigned) TYPE_PRECISION (type));
+		  write_char ('u');	/* "vendor extended builtin type" */
+		  write_unsigned_number (strlen (prefix) + strlen (prec));
+		  write_string (prefix);
+		  write_string (prec);
 		}
 	    }
 	}
@@ -2479,12 +2499,12 @@ static inline const char *
 finish_mangling (const bool warn)
 {
   if (warn_abi && warn && G.need_abi_warning)
-    warning ("the mangled name of %qD will change in a future "
+    warning (0, "the mangled name of %qD will change in a future "
 	     "version of GCC",
 	     G.entity);
 
   /* Clear all the substitutions.  */
-  VARRAY_CLEAR (G.substitutions);
+  VEC_truncate (tree, G.substitutions, 0);
 
   /* Null-terminate the string.  */
   write_char ('\0');
@@ -2499,7 +2519,7 @@ init_mangle (void)
 {
   gcc_obstack_init (&name_obstack);
   name_base = obstack_alloc (&name_obstack, 0);
-  VARRAY_TREE_INIT (G.substitutions, 1, "mangling substitutions");
+  G.substitutions = NULL;
 
   /* Cache these identifiers for quick comparison when checking for
      standard substitutions.  */

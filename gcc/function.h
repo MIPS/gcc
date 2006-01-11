@@ -162,15 +162,20 @@ struct expr_status GTY(())
 struct function GTY(())
 {
   struct eh_status *eh;
+  struct eh_status *saved_eh;
   struct expr_status *expr;
   struct emit_status *emit;
   struct varasm_status *varasm;
+
+  /* The control flow graph for this function.  */
+  struct control_flow_graph *cfg;
+  struct control_flow_graph *saved_cfg;
+  bool after_inlining;
 
   /* For tree-optimize.c.  */
 
   /* Saved tree and arguments during tree optimization.  Used later for
      inlining */
-  tree saved_tree;
   tree saved_args;
   tree saved_static_chain_decl;
 
@@ -349,6 +354,20 @@ struct function GTY(())
   /* The variables unexpanded so far.  */
   tree unexpanded_var_list;
 
+  /* Assembly labels for the hot and cold text sections, to
+     be used by debugger functions for determining the size of text
+     sections.  */
+
+  const char *hot_section_label;
+  const char *cold_section_label;
+  const char *hot_section_end_label;
+  const char *cold_section_end_label;
+
+  /* String to be used for name of cold text sections, via
+     targetm.asm_out.named_section.  */
+
+  const char *unlikely_text_section_name;
+
   /* Collected bit flags.  */
 
   /* Nonzero if function being compiled needs to be given an address
@@ -380,9 +399,6 @@ struct function GTY(())
      function.  */
   unsigned int has_nonlocal_goto : 1;
 
-  /* Nonzero if function being compiled contains nested functions.  */
-  unsigned int contains_functions : 1;
-
   /* Nonzero if the current function is a thunk, i.e., a lightweight
      function implemented by the output_mi_thunk hook) that just
      adjusts one of its arguments and forwards to another
@@ -395,10 +411,6 @@ struct function GTY(())
      function, however, should be treated as throwing if any of its callees
      can throw.  */
   unsigned int all_throwers_are_sibcalls : 1;
-
-  /* Nonzero if instrumentation calls for function entry and exit should be
-     generated.  */
-  unsigned int instrument_entry_exit : 1;
 
   /* Nonzero if profiling code should be generated.  */
   unsigned int profile : 1;
@@ -430,7 +442,21 @@ struct function GTY(())
 
   /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
   unsigned int arg_pointer_save_area_init : 1;
+
+  /* Number of units of general registers that need saving in stdarg
+     function.  What unit is depends on the backend, either it is number
+     of bytes, or it can be number of registers.  */
+  unsigned int va_list_gpr_size : 8;
+
+  /* Number of units of floating point registers that need saving in stdarg
+     function.  */
+  unsigned int va_list_fpr_size : 8;
 };
+
+/* If va_list_[gf]pr_size is set to this, it means we don't know how
+   many units need to be saved.  */
+#define VA_LIST_MAX_GPR_SIZE	255
+#define VA_LIST_MAX_FPR_SIZE	255
 
 /* The function currently being compiled.  */
 extern GTY(()) struct function *cfun;
@@ -452,7 +478,6 @@ extern int trampolines_created;
 #define current_function_calls_setjmp (cfun->calls_setjmp)
 #define current_function_calls_alloca (cfun->calls_alloca)
 #define current_function_calls_eh_return (cfun->calls_eh_return)
-#define current_function_contains_functions (cfun->contains_functions)
 #define current_function_is_thunk (cfun->is_thunk)
 #define current_function_args_info (cfun->args_info)
 #define current_function_args_size (cfun->args_size)
@@ -462,7 +487,6 @@ extern int trampolines_created;
 #define current_function_stdarg (cfun->stdarg)
 #define current_function_internal_arg_pointer (cfun->internal_arg_pointer)
 #define current_function_return_rtx (cfun->return_rtx)
-#define current_function_instrument_entry_exit (cfun->instrument_entry_exit)
 #define current_function_profile (cfun->profile)
 #define current_function_funcdef_no (cfun->funcdef_no)
 #define current_function_limit_stack (cfun->limit_stack)
@@ -482,7 +506,6 @@ extern int trampolines_created;
 #define used_temp_slots (cfun->x_used_temp_slots)
 #define avail_temp_slots (cfun->x_avail_temp_slots)
 #define temp_slot_level (cfun->x_temp_slot_level)
-#define nonlocal_labels (cfun->x_nonlocal_labels)
 #define nonlocal_goto_handler_labels (cfun->x_nonlocal_goto_handler_labels)
 
 /* Given a function decl for a containing function,

@@ -33,7 +33,6 @@
 #define _GNU_SOURCE 1
 #endif
 
-#include "auto-host.h" /* For HAVE_LD_EH_FRAME_HDR.  */
 #include "tconfig.h"
 #include "tsystem.h"
 #ifndef inhibit_libc
@@ -119,8 +118,9 @@ base_from_cb_data (unsigned char encoding, struct unw_eh_callback_data *data)
       return (_Unwind_Ptr) data->tbase;
     case DW_EH_PE_datarel:
       return (_Unwind_Ptr) data->dbase;
+    default:
+      gcc_unreachable ();
     }
-  abort ();
 }
 
 static int
@@ -359,8 +359,7 @@ _Unwind_IteratePhdrCallback (struct dl_phdr_info *info, size_t size, void *ptr)
 		    break;
 		}
 
-	      if (lo >= hi)
-		__gxx_abort ();
+	      gcc_assert (lo < hi);
 	    }
 
 	  f = (fde *) (table[mid].fde + data_base);

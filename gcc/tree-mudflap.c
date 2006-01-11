@@ -497,40 +497,25 @@ mf_build_check_statement_for (tree base, tree limit,
   block_stmt_iterator bsi;
   basic_block cond_bb, then_bb, join_bb;
   edge e;
-  tree cond, t, u, v, l1, l2;
+  tree cond, t, u, v;
   tree mf_base;
   tree mf_elem;
   tree mf_limit;
 
   /* We first need to split the current basic block, and start altering
      the CFG.  This allows us to insert the statements we're about to
-     construct into the right basic blocks.  The label l1 is the label
-     of the block for the THEN clause of the conditional jump we're
-     about to construct, and l2 is the ELSE clause, which is just the
-     continuation of the old statement stream.  */
-  l1 = create_artificial_label ();
-  l2 = create_artificial_label ();
+     construct into the right basic blocks.  */
+
   cond_bb = bb_for_stmt (bsi_stmt (*instr_bsi));
   bsi = *instr_bsi;
   bsi_prev (&bsi);
   if (! bsi_end_p (bsi))
-    {
-      /* We're processing a statement in the middle of the block, so
-         we need to split the block.  This creates a new block and a new
-         fallthrough edge.  */
-      e = split_block (cond_bb, bsi_stmt (bsi));
-      cond_bb = e->src;
-      join_bb = e->dest;
-    }
+    e = split_block (cond_bb, bsi_stmt (bsi));
   else
-    {
-      /* We're processing the first statement in the block, so we need
-         to split the incoming edge.  This also creates a new block
-         and a new fallthrough edge.  */
-      join_bb = cond_bb;
-      cond_bb = split_edge (find_edge (join_bb->prev_bb, join_bb));
-    }
-  
+    e = split_block_after_labels (cond_bb);
+  cond_bb = e->src;
+  join_bb = e->dest;
+
   /* A recap at this point: join_bb is the basic block at whose head
      is the gimple statement for which this check expression is being
      built.  cond_bb is the (possibly new, synthetic) basic block the
@@ -721,7 +706,7 @@ mf_decl_eligible_p (tree decl)
           /* The decl must have its address taken.  In the case of
              arrays, this flag is also set if the indexes are not
              compile-time known valid constants.  */
-          && TREE_ADDRESSABLE (decl)
+          && TREE_ADDRESSABLE (decl)    /* XXX: not sufficient: return-by-value structs! */
           /* The type of the variable must be complete.  */
           && COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (decl))
 	  /* The decl hasn't been decomposed somehow.  */
@@ -854,7 +839,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
       break;
 
     case ARRAY_RANGE_REF:
-      warning ("mudflap checking not yet implemented for ARRAY_RANGE_REF");
+      warning (0, "mudflap checking not yet implemented for ARRAY_RANGE_REF");
       return;
 
     case BIT_FIELD_REF:
@@ -1045,7 +1030,7 @@ mx_register_decls (tree decl, tree *stmt_list)
 
           /* Add the __mf_register call at the current appending point.  */
           if (tsi_end_p (initially_stmts))
-	    warning ("mudflap cannot track %qs in stub function",
+	    warning (0, "mudflap cannot track %qs in stub function",
 		     IDENTIFIER_POINTER (DECL_NAME (decl)));
 	  else
 	    {
@@ -1163,7 +1148,7 @@ mf_marked_p (tree t)
    delayed until program finish time.  If they're still incomplete by
    then, warnings are emitted.  */
 
-static GTY (()) varray_type deferred_static_decls;
+static GTY (()) VEC(tree,gc) *deferred_static_decls;
 
 /* A list of statements for calling __mf_register() at startup time.  */
 static GTY (()) tree enqueued_call_stmt_chain;
@@ -1204,10 +1189,7 @@ mudflap_enqueue_decl (tree obj)
   if (DECL_P (obj) && DECL_EXTERNAL (obj) && DECL_ARTIFICIAL (obj))
     return;
 
-  if (! deferred_static_decls)
-    VARRAY_TREE_INIT (deferred_static_decls, 10, "deferred static list");
-
-  VARRAY_PUSH_TREE (deferred_static_decls, obj);
+  VEC_safe_push (tree, gc, deferred_static_decls, obj);
 }
 
 
@@ -1258,10 +1240,9 @@ mudflap_finish_file (void)
   if (deferred_static_decls)
     {
       size_t i;
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_static_decls); i++)
+      tree obj;
+      for (i = 0; VEC_iterate (tree, deferred_static_decls, i, obj); i++)
         {
-          tree obj = VARRAY_TREE (deferred_static_decls, i);
-
           gcc_assert (DECL_P (obj));
 
           if (mf_marked_p (obj))
@@ -1276,7 +1257,7 @@ mudflap_finish_file (void)
 
           if (! COMPLETE_TYPE_P (TREE_TYPE (obj)))
             {
-              warning ("mudflap cannot track unknown size extern %qs",
+              warning (0, "mudflap cannot track unknown size extern %qs",
                        IDENTIFIER_POINTER (DECL_NAME (obj)));
               continue;
             }
@@ -1286,7 +1267,7 @@ mudflap_finish_file (void)
                                  mf_varname_tree (obj));
         }
 
-      VARRAY_CLEAR (deferred_static_decls);
+      VEC_truncate (tree, deferred_static_decls, 0);
     }
 
   /* Append all the enqueued registration calls.  */

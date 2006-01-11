@@ -1,5 +1,5 @@
 /* Hooks for cfg representation specific functions.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -43,8 +43,8 @@ struct cfg_hooks
   edge (*redirect_edge_and_branch) (edge e, basic_block b);
 
   /* Same as the above but allows redirecting of fallthru edges.  In that case
-     newly created forwarder basic block is returned.  It aborts when called
-     on abnormal edge.  */
+     newly created forwarder basic block is returned.  The edge must
+     not be abnormal.  */
   basic_block (*redirect_edge_and_branch_force) (edge, basic_block);
 
   /* Remove statements corresponding to a given basic block.  */
@@ -108,6 +108,33 @@ struct cfg_hooks
   /* This function is called immediately before edge E is removed from
      the edge vector E->dest->preds.  */
   void (*execute_on_shrinking_pred) (edge);
+
+  /* A hook for duplicating loop in CFG, currently this is used
+     in loop versioning.  */
+  bool (*cfg_hook_duplicate_loop_to_header_edge) (struct loop *loop, edge e,
+						  struct loops *loops,
+						  unsigned int ndupl,
+						  sbitmap wont_exit,
+						  edge orig, edge *to_remove,
+						  unsigned int *n_to_remove,
+						  int flags);
+
+  /* Add conition to new basic block and update CFG used in loop
+     versioning.  */
+  void (*lv_add_condition_to_bb) (basic_block, basic_block, basic_block,
+  				  void *);
+  /* Update the PHI nodes in case of loop versioning.  */
+  void (*lv_adjust_loop_header_phi) (basic_block, basic_block,
+				     basic_block, edge);
+				    
+  /* Given a condition BB extract the true/false taken/not taken edges
+     (depending if we are on tree's or RTL). */
+  void (*extract_cond_bb_edges) (basic_block, edge *, edge *);
+
+  
+  /* Add PHI arguments queued in PENDINT_STMT list on edge E to edge
+     E->dest (only in tree-ssa loop versioning.  */
+  void (*flush_pending_stmts) (edge);
 };
 
 extern void verify_flow_info (void);
@@ -136,6 +163,20 @@ extern bool block_ends_with_condjump_p (basic_block bb);
 extern int flow_call_edges_add (sbitmap);
 extern void execute_on_growing_pred (edge);
 extern void execute_on_shrinking_pred (edge);
+extern bool cfg_hook_duplicate_loop_to_header_edge (struct loop *loop, edge,
+						    struct loops *loops,
+						    unsigned int ndupl,
+						    sbitmap wont_exit,
+						    edge orig, edge *to_remove,
+						    unsigned int *n_to_remove,
+						    int flags);
+
+extern void lv_flush_pending_stmts (edge);
+extern void extract_cond_bb_edges (basic_block, edge *, edge*);
+extern void lv_adjust_loop_header_phi (basic_block, basic_block, basic_block,
+				       edge);
+extern void lv_add_condition_to_bb (basic_block, basic_block, basic_block,
+				    void *);
 
 /* Hooks containers.  */
 extern struct cfg_hooks tree_cfg_hooks;

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  Sun 68000/68020 version.
-   Copyright (C) 2000, 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -50,6 +50,7 @@ extern void print_operand_address (FILE *, rtx);
 extern void print_operand (FILE *, rtx, int);
 extern void notice_update_cc (rtx, rtx);
 extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
+extern int valid_dbcc_comparison_p_2 (rtx, enum machine_mode);
 
 #endif /* RTX_CODE */
 

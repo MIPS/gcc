@@ -68,8 +68,6 @@ else
   LIBGFOR_IS_NATIVE=true
 fi
 
-TL_AC_GCC_VERSION([$srcdir/..])
-
 # Calculate toolexeclibdir
 # Also toolexecdir, though it's only used in toolexeclibdir
 case ${version_specific_libs} in
@@ -78,7 +76,7 @@ case ${version_specific_libs} in
     # and header files if --enable-version-specific-runtime-libs option
     # is selected.
     toolexecdir='$(libdir)/gcc/$(target_alias)'
-    toolexeclibdir='$(toolexecdir)/'${gcc_version}'$(MULTISUBDIR)'
+    toolexeclibdir='$(toolexecdir)/$(gcc_version)$(MULTISUBDIR)'
     ;;
   no)
     if test -n "$with_cross_host" &&
@@ -111,12 +109,15 @@ m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
 m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
-AC_SUBST(CFLAGS)
-
 # Add -Wall if we are using GCC.
 if test "x$GCC" = "xyes"; then
-  CFLAGS="$CFLAGS -Wall"
+  AM_FCFLAGS="-Wall"
+  ## We like to use C99 routines when available.  This makes sure that
+  ## __STDC_VERSION__ is set such that libc includes make them available.
+  AM_CFLAGS="-std=gnu99 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings"
 fi
+AC_SUBST(AM_FCFLAGS)
+AC_SUBST(AM_CFLAGS)
 
 # Find other programs we need.
 AC_CHECK_TOOL(AS, as)
@@ -140,13 +141,22 @@ FC="$GFORTRAN"
 AC_PROG_FC(gfortran)
 FCFLAGS="$FCFLAGS -Wall -fno-repack-arrays -fno-underscoring"
 
+# extra LD Flags which are required for targets
+case "${host}" in
+  *-darwin*)
+    # Darwin needs -single_module when linking libgfortran
+    extra_ldflags_libgfortran=-Wl,-single_module
+    ;;
+esac
+AC_SUBST(extra_ldflags_libgfortran)
+
 AC_SYS_LARGEFILE
 AC_FUNC_MMAP
 AC_TYPE_OFF_T
 
 # check header files
 AC_STDC_HEADERS
-AC_HAVE_HEADERS(stdlib.h stdio.h string.h stddef.h math.h unistd.h)
+AC_HAVE_HEADERS(stdlib.h stdio.h string.h stddef.h math.h unistd.h signal.h)
 AC_CHECK_HEADERS(time.h sys/params.h sys/time.h sys/times.h sys/resource.h)
 AC_CHECK_HEADERS(sys/mman.h sys/types.h sys/stat.h ieeefp.h)
 AC_CHECK_HEADER([complex.h],[AC_DEFINE([HAVE_COMPLEX_H], [1], [complex.h exists])])
@@ -159,7 +169,9 @@ AC_CHECK_MEMBERS([struct stat.st_rdev])
 AC_CHECK_LIB([m],[csin],[need_math="no"],[need_math="yes"])
 
 # Check for library functions.
-AC_CHECK_FUNCS(getrusage times mkstemp strtof snprintf)
+AC_CHECK_FUNCS(getrusage times mkstemp strtof snprintf ftruncate chsize)
+AC_CHECK_FUNCS(chdir strerror getlogin gethostname kill link symlink perror)
+AC_CHECK_FUNCS(sleep time)
 
 # Check libc for getgid, getpid, getuid
 AC_CHECK_LIB([c],[getgid],[AC_DEFINE([HAVE_GETGID],[1],[libc includes getgid])])

@@ -287,7 +287,7 @@ extern void force_single_succ_latches (struct loops *);
 extern void verify_loop_structure (struct loops *);
 
 /* Loop analysis.  */
-extern bool just_once_each_iteration_p (struct loop *, basic_block);
+extern bool just_once_each_iteration_p (const struct loop *, basic_block);
 extern unsigned expected_loop_iterations (const struct loop *);
 
 /* Loop manipulation.  */
@@ -298,11 +298,13 @@ extern bool can_duplicate_loop_p (struct loop *loop);
 
 extern struct loop * duplicate_loop (struct loops *, struct loop *,
 				     struct loop *);
-extern int duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
-					  unsigned, sbitmap, edge, edge *,
-					  unsigned *, int);
+extern bool duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
+					   unsigned, sbitmap, edge, edge *,
+					   unsigned *, int);
 extern struct loop *loopify (struct loops *, edge, edge,
 			     basic_block, edge, edge, bool);
+struct loop * loop_version (struct loops *, struct loop *, void *,
+			    basic_block *);			     
 extern bool remove_path (struct loops *, edge);
 extern edge split_loop_bb (basic_block, void *);
 

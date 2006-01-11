@@ -239,9 +239,6 @@ c_parse_init (void)
 /* A keyword.  */
 #define CPP_KEYWORD ((enum cpp_ttype) (N_TTYPES + 1))
 
-/* The number of token types, including C-specific ones.  */
-#define N_C_TTYPES ((int) (CPP_KEYWORD + 1))
-
 /* More information about the type of a CPP_NAME token.  */
 typedef enum c_id_kind {
   /* An ordinary identifier.  */
@@ -3238,7 +3235,7 @@ c_parser_compound_statement_nostart (c_parser *parser)
       location_t loc = c_parser_peek_token (parser)->location;
       if (c_parser_next_token_is (parser, CPP_EOF))
 	{
-	  parser->error = true;
+	  c_parser_error (parser, "expected declaration or statement");
 	  return;
 	}
       if (c_parser_next_token_is_keyword (parser, RID_CASE)
@@ -3580,7 +3577,8 @@ c_parser_paren_condition (c_parser *parser)
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return error_mark_node;
   loc = c_parser_peek_token (parser)->location;
-  cond = lang_hooks.truthvalue_conversion (c_parser_expression (parser).value);
+  cond = c_objc_common_truthvalue_conversion
+    (c_parser_expression (parser).value);
   if (EXPR_P (cond))
     SET_EXPR_LOCATION (cond, loc);
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
@@ -3816,7 +3814,7 @@ c_parser_for_statement (c_parser *parser)
       else
 	{
 	  tree ocond = c_parser_expression (parser).value;
-	  cond = lang_hooks.truthvalue_conversion (ocond);
+	  cond = c_objc_common_truthvalue_conversion (ocond);
 	  if (EXPR_P (cond))
 	    SET_EXPR_LOCATION (cond, loc);
 	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
@@ -3875,7 +3873,7 @@ c_parser_asm_statement (c_parser *parser)
   else if (c_parser_next_token_is_keyword (parser, RID_CONST)
 	   || c_parser_next_token_is_keyword (parser, RID_RESTRICT))
     {
-      warning ("%E qualifier ignored on asm",
+      warning (0, "%E qualifier ignored on asm",
 	       c_parser_peek_token (parser)->value);
       quals = NULL_TREE;
       c_parser_consume_token (parser);
@@ -4151,13 +4149,14 @@ c_parser_conditional_expression (c_parser *parser, struct c_expr *after)
 	pedwarn ("ISO C forbids omitting the middle term of a ?: expression");
       /* Make sure first operand is calculated only once.  */
       exp1.value = save_expr (default_conversion (cond.value));
-      cond.value = lang_hooks.truthvalue_conversion (exp1.value);
+      cond.value = c_objc_common_truthvalue_conversion (exp1.value);
       skip_evaluation += cond.value == truthvalue_true_node;
     }
   else
     {
       cond.value
-	= lang_hooks.truthvalue_conversion (default_conversion (cond.value));
+	= c_objc_common_truthvalue_conversion
+	(default_conversion (cond.value));
       skip_evaluation += cond.value == truthvalue_false_node;
       exp1 = c_parser_expression (parser);
       skip_evaluation += ((cond.value == truthvalue_true_node)
@@ -4394,12 +4393,12 @@ c_parser_binary_expression (c_parser *parser, struct c_expr *after)
       switch (ocode)
 	{
 	case TRUTH_ANDIF_EXPR:
-	  stack[sp].expr.value = lang_hooks.truthvalue_conversion
+	  stack[sp].expr.value = c_objc_common_truthvalue_conversion
 	    (default_conversion (stack[sp].expr.value));
 	  skip_evaluation += stack[sp].expr.value == truthvalue_false_node;
 	  break;
 	case TRUTH_ORIF_EXPR:
-	  stack[sp].expr.value = lang_hooks.truthvalue_conversion
+	  stack[sp].expr.value = c_objc_common_truthvalue_conversion
 	    (default_conversion (stack[sp].expr.value));
 	  skip_evaluation += stack[sp].expr.value == truthvalue_true_node;
 	  break;
@@ -4496,66 +4495,45 @@ c_parser_unary_expression (c_parser *parser)
 {
   int ext;
   struct c_expr ret;
-  ret.original_code = ERROR_MARK;
   switch (c_parser_peek_token (parser)->type)
     {
     case CPP_PLUS_PLUS:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (PREINCREMENT_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (PREINCREMENT_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_MINUS_MINUS:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (PREDECREMENT_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (PREDECREMENT_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_AND:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (ADDR_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (ADDR_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_MULT:
       c_parser_consume_token (parser);
       ret.value
 	= build_indirect_ref (c_parser_cast_expression (parser, NULL).value,
 			      "unary *");
+      ret.original_code = ERROR_MARK;
       return ret;
     case CPP_PLUS:
       c_parser_consume_token (parser);
       if (!c_dialect_objc () && warn_traditional && !in_system_header)
-	warning ("traditional C rejects the unary plus operator");
-      ret.value
-	= build_unary_op (CONVERT_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+	warning (0, "traditional C rejects the unary plus operator");
+      return parser_build_unary_op (CONVERT_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_MINUS:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (NEGATE_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (NEGATE_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_COMPL:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (BIT_NOT_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (BIT_NOT_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_NOT:
       c_parser_consume_token (parser);
-      ret.value
-	= build_unary_op (TRUTH_NOT_EXPR,
-			  c_parser_cast_expression (parser, NULL).value, 0);
-      overflow_warning (ret.value);
-      return ret;
+      return parser_build_unary_op (TRUTH_NOT_EXPR,
+				    c_parser_cast_expression (parser, NULL));
     case CPP_AND_AND:
       /* Refer to the address of a label as a pointer.  */
       c_parser_consume_token (parser);
@@ -4564,14 +4542,14 @@ c_parser_unary_expression (c_parser *parser)
 	  ret.value = finish_label_address_expr
 	    (c_parser_peek_token (parser)->value);
 	  c_parser_consume_token (parser);
-	  return ret;
 	}
       else
 	{
 	  c_parser_error (parser, "expected identifier");
 	  ret.value = error_mark_node;
-	  return ret;
 	}
+	ret.original_code = ERROR_MARK;
+	return ret;
     case CPP_KEYWORD:
       switch (c_parser_peek_token (parser)->keyword)
 	{
@@ -4587,18 +4565,14 @@ c_parser_unary_expression (c_parser *parser)
 	  return ret;
 	case RID_REALPART:
 	  c_parser_consume_token (parser);
-	  ret.value
-	    = build_unary_op (REALPART_EXPR,
-			      c_parser_cast_expression (parser, NULL).value,
-			      0);
-	  return ret;
+	  return parser_build_unary_op (REALPART_EXPR,
+					c_parser_cast_expression (parser,
+								  NULL));
 	case RID_IMAGPART:
 	  c_parser_consume_token (parser);
-	  ret.value
-	    = build_unary_op (IMAGPART_EXPR,
-			      c_parser_cast_expression (parser, NULL).value,
-			      0);
-	  return ret;
+	  return parser_build_unary_op (IMAGPART_EXPR,
+					c_parser_cast_expression (parser,
+								  NULL));
 	default:
 	  return c_parser_postfix_expression (parser);
 	}
@@ -5019,7 +4993,6 @@ c_parser_postfix_expression (c_parser *parser)
 	    tree c;
 
 	    c = fold (e1.value);
-	    STRIP_NOPS (c);
 	    if (TREE_CODE (c) != INTEGER_CST)
 	      error ("first argument to %<__builtin_choose_expr%> not"
 		     " a constant");
@@ -5792,6 +5765,8 @@ c_parser_objc_method_decl (c_parser *parser)
   tree type = NULL_TREE;
   tree sel;
   tree parms = NULL_TREE;
+  bool ellipsis = false;
+
   if (c_parser_next_token_is (parser, CPP_OPEN_PAREN))
     {
       c_parser_consume_token (parser);
@@ -5806,7 +5781,6 @@ c_parser_objc_method_decl (c_parser *parser)
     {
       tree tsel = sel;
       tree list = NULL_TREE;
-      bool ellipsis;
       while (true)
 	{
 	  tree atype = NULL_TREE, id, keyworddecl;
@@ -5836,7 +5810,6 @@ c_parser_objc_method_decl (c_parser *parser)
 	 method parameters follow the C syntax, and may include '...'
 	 to denote a variable number of arguments.  */
       parms = make_node (TREE_LIST);
-      ellipsis = false;
       while (c_parser_next_token_is (parser, CPP_COMMA))
 	{
 	  struct c_parm *parm;
@@ -5853,10 +5826,9 @@ c_parser_objc_method_decl (c_parser *parser)
 	  parms = chainon (parms,
 			   build_tree_list (NULL_TREE, grokparm (parm)));
 	}
-      TREE_OVERFLOW (parms) = ellipsis;
       sel = list;
     }
-  return objc_build_method_signature (type, sel, parms);
+  return objc_build_method_signature (type, sel, parms, ellipsis);
 }
 
 /* Parse an objc-type-name.

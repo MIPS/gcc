@@ -21,16 +21,6 @@
    Free Software Foundation, 59 Temple Place - Suite 330, Boston,
    MA 02111-1307, USA.  */
 
-/* AIX 4.3 and above support 64-bit executables.  */
-#undef  SUBSUBTARGET_SWITCHES
-#define SUBSUBTARGET_SWITCHES					\
-  {"aix64", 		MASK_64BIT | MASK_POWERPC64 | MASK_POWERPC,	\
-   N_("Compile for 64-bit pointers") },					\
-  {"aix32",		- (MASK_64BIT | MASK_POWERPC64),		\
-   N_("Compile for 32-bit pointers") },					\
-  {"pe",		0,						\
-   N_("Support message passing with the Parallel Environment") },
-
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
    `OVERRIDE_OPTIONS' to take account of this.  This macro, if
@@ -46,12 +36,12 @@ do {									\
   if (TARGET_64BIT && (target_flags & NON_POWERPC_MASKS))		\
     {									\
       target_flags &= ~NON_POWERPC_MASKS;				\
-      warning ("-maix64 and POWER architecture are incompatible");	\
+      warning (0, "-maix64 and POWER architecture are incompatible");	\
     }									\
   if (TARGET_64BIT && ! TARGET_POWERPC64)				\
     {									\
       target_flags |= MASK_POWERPC64;					\
-      warning ("-maix64 requires PowerPC64 architecture remain enabled"); \
+      warning (0, "-maix64 requires PowerPC64 architecture remain enabled"); \
     }									\
   if (TARGET_POWERPC64 && ! TARGET_64BIT)				\
     {									\
@@ -183,3 +173,6 @@ do {									\
    .set directives.  We handle this by deferring the output of .set
    directives to the end of the compilation unit.  */
 #define TARGET_DEFERRED_OUTPUT_DEFS(DECL,TARGET) true
+
+/* This target uses the aix64.opt file.  */
+#define TARGET_USES_AIX64_OPT 1

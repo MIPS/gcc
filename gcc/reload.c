@@ -528,7 +528,7 @@ clear_secondary_mem (void)
 /* Find the largest class which has at least one register valid in
    mode INNER, and which for every such register, that register number
    plus N is also valid in OUTER (if in range) and is cheap to move
-   into REGNO.  Abort if no such class exists.  */
+   into REGNO.  Such a class must exist.  */
 
 static enum reg_class
 find_valid_class (enum machine_mode outer ATTRIBUTE_UNUSED,
@@ -1316,7 +1316,17 @@ find_dummy_reload (rtx real_in, rtx real_out, rtx *inloc, rtx *outloc,
 				is a subreg, and in that case, out
 				has a real mode.  */
 			     (GET_MODE (out) != VOIDmode
-			      ? GET_MODE (out) : outmode)))
+			      ? GET_MODE (out) : outmode))
+        /* But only do all this if we can be sure, that this input
+           operand doesn't correspond with an uninitialized pseudoreg.
+           global can assign some hardreg to it, which is the same as
+	   a different pseudo also currently live (as it can ignore the
+	   conflict).  So we never must introduce writes to such hardregs,
+	   as they would clobber the other live pseudo using the same.
+	   See also PR20973.  */
+      && (ORIGINAL_REGNO (in) < FIRST_PSEUDO_REGISTER
+          || ! bitmap_bit_p (ENTRY_BLOCK_PTR->global_live_at_end,
+			     ORIGINAL_REGNO (in))))
     {
       unsigned int regno = REGNO (in) + in_offset;
       unsigned int nwords = hard_regno_nregs[regno][inmode];
@@ -1762,7 +1772,7 @@ decompose (rtx x)
     case REG:
       val.reg_flag = 1;
       val.start = true_regnum (x);
-      if (val.start < 0)
+      if (val.start < 0 || val.start >= FIRST_PSEUDO_REGISTER)
 	{
 	  /* A pseudo with no hard reg.  */
 	  val.start = REGNO (x);
@@ -1779,7 +1789,7 @@ decompose (rtx x)
 	return decompose (SUBREG_REG (x));
       val.reg_flag = 1;
       val.start = true_regnum (x);
-      if (val.start < 0)
+      if (val.start < 0 || val.start >= FIRST_PSEUDO_REGISTER)
 	return decompose (SUBREG_REG (x));
       else
 	/* A hard reg.  */
@@ -3558,14 +3568,14 @@ find_reloads_toplev (rtx x, int opnum, enum reload_type type,
 
   if (code == SUBREG && REG_P (SUBREG_REG (x)))
     {
-      /* Check for SUBREG containing a REG that's equivalent to a constant.
-	 If the constant has a known value, truncate it right now.
-	 Similarly if we are extracting a single-word of a multi-word
-	 constant.  If the constant is symbolic, allow it to be substituted
-	 normally.  push_reload will strip the subreg later.  If the
-	 constant is VOIDmode, abort because we will lose the mode of
-	 the register (this should never happen because one of the cases
-	 above should handle it).  */
+      /* Check for SUBREG containing a REG that's equivalent to a
+	 constant.  If the constant has a known value, truncate it
+	 right now.  Similarly if we are extracting a single-word of a
+	 multi-word constant.  If the constant is symbolic, allow it
+	 to be substituted normally.  push_reload will strip the
+	 subreg later.  The constant must not be VOIDmode, because we
+	 will lose the mode of the register (this should never happen
+	 because one of the cases above should handle it).  */
 
       int regno = REGNO (SUBREG_REG (x));
       rtx tem;

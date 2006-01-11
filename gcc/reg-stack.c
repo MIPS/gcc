@@ -931,8 +931,6 @@ emit_swap_insn (rtx insn, stack regstack, rtx reg)
 	  if (LABEL_P (tmp)
 	      || CALL_P (tmp)
 	      || NOTE_INSN_BASIC_BLOCK_P (tmp)
-	      || (NOTE_P (tmp)
-		  && NOTE_LINE_NUMBER (tmp) == NOTE_INSN_UNLIKELY_EXECUTED_CODE)
 	      || (NONJUMP_INSN_P (tmp)
 		  && stack_regs_mentioned (tmp)))
 	    {
@@ -1426,7 +1424,7 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	    if (pat != PATTERN (insn))
 	      {
 		/* The fix_truncdi_1 pattern wants to be able to allocate
-		   it's own scratch register.  It does this by clobbering
+		   its own scratch register.  It does this by clobbering
 		   an fp reg so that it is assured of an empty reg-stack
 		   register.  If the register is live, kill it now.
 		   Remove the DEAD/UNUSED note so we don't try to kill it
@@ -1672,6 +1670,31 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	  case UNSPEC:
 	    switch (XINT (pat_src, 1))
 	      {
+	      case UNSPEC_FIST:
+
+	      case UNSPEC_FIST_FLOOR:
+	      case UNSPEC_FIST_CEIL:
+
+		/* These insns only operate on the top of the stack.  */
+
+		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
+		emit_swap_insn (insn, regstack, *src1);
+
+		src1_note = find_regno_note (insn, REG_DEAD, REGNO (*src1));
+
+		if (STACK_REG_P (*dest))
+		  replace_reg (dest, FIRST_STACK_REG);
+
+		if (src1_note)
+		  {
+		    replace_reg (&XEXP (src1_note, 0), FIRST_STACK_REG);
+		    regstack->top--;
+		    CLEAR_HARD_REG_BIT (regstack->reg_set, REGNO (*src1));
+		  }
+
+		replace_reg (src1, FIRST_STACK_REG);
+		break;
+
 	      case UNSPEC_SIN:
 	      case UNSPEC_COS:
 	      case UNSPEC_FRNDINT:

@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "opts.h"
 
 
 /* Prototypes.  */
@@ -101,6 +102,7 @@ diagnostic_initialize (diagnostic_context *context)
   memset (context->diagnostic_count, 0, sizeof context->diagnostic_count);
   context->issue_warnings_are_errors_message = true;
   context->warning_as_error_requested = false;
+  context->show_option_requested = false;
   context->abort_on_error = false;
   context->internal_error = NULL;
   diagnostic_starter (context) = default_diagnostic_starter;
@@ -120,6 +122,7 @@ diagnostic_set_info (diagnostic_info *diagnostic, const char *msgid,
   diagnostic->message.format_spec = _(msgid);
   diagnostic->location = location;
   diagnostic->kind = kind;
+  diagnostic->option_index = 0;
 }
 
 /* Return a malloc'd string describing a location.  The caller is
@@ -141,7 +144,7 @@ diagnostic_build_prefix (diagnostic_info *diagnostic)
     (s.file == NULL
      ? build_message_string ("%s: %s", progname, text)
 #ifdef USE_MAPPED_LOCATION
-     : s.column != 0
+     : flag_show_column && s.column != 0
      ? build_message_string ("%s:%d:%d: %s", s.file, s.line, s.column, text)
 #endif
      : build_message_string ("%s:%d: %s", s.file, s.line, text));
@@ -329,10 +332,21 @@ diagnostic_report_diagnostic (diagnostic_context *context,
 	error_recursion (context);
     }
 
+  if (diagnostic->option_index
+      && ! option_enabled (diagnostic->option_index))
+    return;
+
   context->lock++;
 
   if (diagnostic_count_diagnostic (context, diagnostic))
     {
+      const char *saved_format_spec = diagnostic->message.format_spec;
+
+      if (context->show_option_requested && diagnostic->option_index)
+	diagnostic->message.format_spec
+	  = ACONCAT ((diagnostic->message.format_spec,
+		      " [", cl_options[diagnostic->option_index].opt_text, "]", NULL));
+
       pp_prepare_to_format (context->printer, &diagnostic->message,
 			    &diagnostic->location);
       (*diagnostic_starter (context)) (context, diagnostic);
@@ -340,6 +354,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       (*diagnostic_finalizer (context)) (context, diagnostic);
       pp_flush (context->printer);
       diagnostic_action_after_output (context, diagnostic);
+      diagnostic->message.format_spec = saved_format_spec;
     }
 
   context->lock--;
@@ -412,7 +427,21 @@ inform (const char *msgid, ...)
 /* A warning.  Use this for code which is correct according to the
    relevant language specification but is likely to be buggy anyway.  */
 void
-warning (const char *msgid, ...)
+warning (int opt, const char *msgid, ...)
+{
+  diagnostic_info diagnostic;
+  va_list ap;
+
+  va_start (ap, msgid);
+  diagnostic_set_info (&diagnostic, msgid, &ap, input_location, DK_WARNING);
+  diagnostic.option_index = opt;
+
+  report_diagnostic (&diagnostic);
+  va_end (ap);
+}
+
+void
+warning0 (const char *msgid, ...)
 {
   diagnostic_info diagnostic;
   va_list ap;

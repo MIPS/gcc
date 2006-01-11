@@ -38,13 +38,13 @@ exception statement from your version. */
 
 package gnu.java.security.x509.ext;
 
-import java.io.IOException;
-import java.util.Date;
-
 import gnu.java.security.OID;
 import gnu.java.security.der.DER;
 import gnu.java.security.der.DERReader;
 import gnu.java.security.der.DERValue;
+
+import java.io.IOException;
+import java.util.Date;
 
 public class PrivateKeyUsagePeriod extends Extension.Value
 {
@@ -71,14 +71,14 @@ public class PrivateKeyUsagePeriod extends Extension.Value
       val = der.read();
     if (val.getTagClass() == DER.APPLICATION || val.getTag() == 0)
       {
-        notBefore = (Date) val.getValue();
+        notBefore = (Date) val.getValueAs (DER.GENERALIZED_TIME);
         val = der.read();
       }
     else
       notBefore = null;
     if (val.getTagClass() == DER.APPLICATION || val.getTag() == 1)
       {
-        notAfter = (Date) val.getValue();
+        notAfter = (Date) val.getValueAs (DER.GENERALIZED_TIME);
       }
     else
       notAfter = null;

@@ -1,5 +1,5 @@
 ;; Generic DFA-based pipeline description for MIPS targets
-;;   Copyright (C) 2004 Free Software Foundation, Inc.
+;;   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 
@@ -48,7 +48,7 @@
   "imuldiv*3")
 
 (define_insn_reservation "generic_imul" 17
-  (eq_attr "type" "imul,imadd")
+  (eq_attr "type" "imul,imul3,imadd")
   "imuldiv*17")
 
 (define_insn_reservation "generic_idiv" 38

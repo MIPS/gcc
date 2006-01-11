@@ -104,13 +104,11 @@ compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob,
     {
       /* A hack -- there seems to be no easy generic way how to make a
 	 conditional jump from a ccmode comparison.  */
-      if (!cinsn)
-	abort ();
+      gcc_assert (cinsn);
       cond = XEXP (SET_SRC (pc_set (cinsn)), 0);
-      if (GET_CODE (cond) != comp
-	  || !rtx_equal_p (op0, XEXP (cond, 0))
-	  || !rtx_equal_p (op1, XEXP (cond, 1)))
-	abort ();
+      gcc_assert (GET_CODE (cond) == comp);
+      gcc_assert (rtx_equal_p (op0, XEXP (cond, 0)));
+      gcc_assert (rtx_equal_p (op1, XEXP (cond, 1)));
       emit_jump_insn (copy_insn (PATTERN (cinsn)));
       jump = get_last_insn ();
       JUMP_LABEL (jump) = JUMP_LABEL (cinsn);
@@ -119,8 +117,7 @@ compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob,
     }
   else
     {
-      if (cinsn)
-	abort ();
+      gcc_assert (!cinsn);
 
       op0 = force_operand (op0, NULL_RTX);
       op1 = force_operand (op1, NULL_RTX);
@@ -226,11 +223,11 @@ may_unswitch_on (basic_block bb, struct loop *loop, rtx *cinsn)
       if (at != BB_END (bb))
 	return NULL_RTX;
 
-      *cinsn = BB_END (bb);
       if (!rtx_equal_p (op[0], XEXP (test, 0))
 	  || !rtx_equal_p (op[1], XEXP (test, 1)))
 	return NULL_RTX;
 
+      *cinsn = BB_END (bb);
       return test;
     }
 
@@ -269,7 +266,7 @@ unswitch_single_loop (struct loops *loops, struct loop *loop,
   basic_block *bbs;
   struct loop *nloop;
   unsigned i;
-  rtx cond, rcond = NULL_RTX, conds, rconds, acond, cinsn = NULL_RTX;
+  rtx cond, rcond = NULL_RTX, conds, rconds, acond, cinsn;
   int repeat;
   edge e;
 
@@ -324,6 +321,7 @@ unswitch_single_loop (struct loops *loops, struct loop *loop,
   do
     {
       repeat = 0;
+      cinsn = NULL_RTX;
 
       /* Find a bb to unswitch on.  */
       bbs = get_loop_body (loop);
@@ -380,8 +378,7 @@ unswitch_single_loop (struct loops *loops, struct loop *loop,
 
   /* Unswitch the loop on this condition.  */
   nloop = unswitch_loop (loops, loop, bbs[i], cond, cinsn);
-  if (!nloop)
-  abort ();
+  gcc_assert (nloop);
 
   /* Invoke itself on modified loops.  */
   unswitch_single_loop (loops, nloop, rconds, num + 1);
@@ -413,18 +410,12 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
   rtx seq;
 
   /* Some sanity checking.  */
-  if (!flow_bb_inside_loop_p (loop, unswitch_on))
-    abort ();
-  if (EDGE_COUNT (unswitch_on->succs) != 2)
-    abort ();
-  if (!just_once_each_iteration_p (loop, unswitch_on))
-    abort ();
-  if (loop->inner)
-    abort ();
-  if (!flow_bb_inside_loop_p (loop, EDGE_SUCC (unswitch_on, 0)->dest))
-    abort ();
-  if (!flow_bb_inside_loop_p (loop, EDGE_SUCC (unswitch_on, 1)->dest))
-    abort ();
+  gcc_assert (flow_bb_inside_loop_p (loop, unswitch_on));
+  gcc_assert (EDGE_COUNT (unswitch_on->succs) == 2);
+  gcc_assert (just_once_each_iteration_p (loop, unswitch_on));
+  gcc_assert (!loop->inner);
+  gcc_assert (flow_bb_inside_loop_p (loop, EDGE_SUCC (unswitch_on, 0)->dest));
+  gcc_assert (flow_bb_inside_loop_p (loop, EDGE_SUCC (unswitch_on, 1)->dest));
 
   entry = loop_preheader_edge (loop);
 

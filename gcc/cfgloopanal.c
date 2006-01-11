@@ -33,7 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Checks whether BB is executed exactly once in each LOOP iteration.  */
 
 bool
-just_once_each_iteration_p (struct loop *loop, basic_block bb)
+just_once_each_iteration_p (const struct loop *loop, basic_block bb)
 {
   /* It must be executed at least once each iteration.  */
   if (!dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
@@ -419,7 +419,7 @@ expected_loop_iterations (const struct loop *loop)
   edge e;
   edge_iterator ei;
 
-  if (loop->header->count)
+  if (loop->latch->count || loop->header->count)
     {
       gcov_type count_in, count_latch, expected;
 
@@ -580,13 +580,10 @@ mark_loop_exit_edges (struct loops *loops)
     {
       edge_iterator ei;
 
-      /* Do not mark exits from the fake outermost loop.  */
-      if (!bb->loop_father->outer)
-	continue;
-
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
-	  if (loop_exit_edge_p (bb->loop_father, e))
+	  if (bb->loop_father->outer
+	      && loop_exit_edge_p (bb->loop_father, e))
 	    e->flags |= EDGE_LOOP_EXIT;
 	  else
 	    e->flags &= ~EDGE_LOOP_EXIT;

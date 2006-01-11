@@ -2083,7 +2083,10 @@ mark_reg_change (rtx reg, rtx setter, void *data)
 /* Classes of registers which could be early clobbered in the current
    insn.  */
 
-static varray_type earlyclobber_regclass;
+DEF_VEC_P(int);
+DEF_VEC_ALLOC_P(int,heap);
+
+static VEC(int,heap) *earlyclobber_regclass;
 
 /* This function finds and stores register classes that could be early
    clobbered in INSN.  If any earlyclobber classes are found, the function
@@ -2097,7 +2100,7 @@ check_earlyclobber (rtx insn)
 
   extract_insn (insn);
 
-  VARRAY_POP_ALL (earlyclobber_regclass);
+  VEC_truncate (int, earlyclobber_regclass, 0);
   for (opno = 0; opno < recog_data.n_operands; opno++)
     {
       char c;
@@ -2134,13 +2137,23 @@ check_earlyclobber (rtx insn)
 	    case ',':
 	      if (amp_p && class != NO_REGS)
 		{
+		  int rc;
+
 		  found = true;
-		  for (i = VARRAY_ACTIVE_SIZE (earlyclobber_regclass) - 1;
-		       i >= 0; i--)
-		    if (VARRAY_INT (earlyclobber_regclass, i) == (int) class)
-		      break;
-		  if (i < 0)
-		    VARRAY_PUSH_INT (earlyclobber_regclass, (int) class);
+		  for (i = 0;
+		       VEC_iterate (int, earlyclobber_regclass, i, rc);
+		       i++)
+		    {
+		      if (rc == (int) class)
+			goto found_rc;
+		    }
+
+		  /* We use VEC_quick_push here because
+		     earlyclobber_regclass holds no more than
+		     N_REG_CLASSES elements. */
+		  VEC_quick_push (int, earlyclobber_regclass, (int) class);
+		found_rc:
+		  ;
 		}
 	      
 	      amp_p = false;
@@ -2177,25 +2190,26 @@ mark_reg_use_for_earlyclobber (rtx *x, void *data ATTRIBUTE_UNUSED)
   basic_block bb = data;
   struct bb_info *bb_info = BB_INFO (bb);
 
-  if (GET_CODE (*x) == REG && REGNO (*x) >= FIRST_PSEUDO_REGISTER)
+  if (REG_P (*x) && REGNO (*x) >= FIRST_PSEUDO_REGISTER)
     {
+      int rc;
+
       regno = REGNO (*x);
       if (bitmap_bit_p (bb_info->killed, regno)
 	  || bitmap_bit_p (bb_info->avloc, regno))
 	return 0;
       pref_class = reg_preferred_class (regno);
       alt_class = reg_alternate_class (regno);
-      for (i = VARRAY_ACTIVE_SIZE (earlyclobber_regclass) - 1; i >= 0; i--)
-	if (reg_classes_intersect_p (VARRAY_INT (earlyclobber_regclass, i),
-				     pref_class)
-	    || (VARRAY_INT (earlyclobber_regclass, i) != NO_REGS
-		&& reg_classes_intersect_p (VARRAY_INT (earlyclobber_regclass,
-							i),
-					    alt_class)))
-	  {
-	    bitmap_set_bit (bb_info->earlyclobber, regno);
-	    break;
-	  }
+      for (i = 0; VEC_iterate (int, earlyclobber_regclass, i, rc); i++)
+	{
+	  if (reg_classes_intersect_p (rc, pref_class)
+	      || (rc != NO_REGS
+		  && reg_classes_intersect_p (rc, alt_class)))
+	    {
+	      bitmap_set_bit (bb_info->earlyclobber, regno);
+	      break;
+	    }
+	}
     }
   return 0;
 }
@@ -2217,8 +2231,9 @@ calculate_local_reg_bb_info (void)
   basic_block bb;
   rtx insn, bound;
 
-  VARRAY_INT_INIT (earlyclobber_regclass, 20,
-		   "classes of registers early clobbered in an insn");
+  /* We know that earlyclobber_regclass holds no more than
+    N_REG_CLASSES elements.  See check_earlyclobber.  */
+  earlyclobber_regclass = VEC_alloc (int, heap, N_REG_CLASSES);
   FOR_EACH_BB (bb)
     {
       bound = NEXT_INSN (BB_END (bb));
@@ -2230,6 +2245,7 @@ calculate_local_reg_bb_info (void)
 	      note_uses (&PATTERN (insn), mark_reg_use_for_earlyclobber_1, bb);
 	  }
     }
+  VEC_free (int, heap, earlyclobber_regclass);
 }
 
 /* The function sets up reverse post-order number of each basic
@@ -2261,6 +2277,9 @@ rpost_cmp (const void *bb1, const void *bb2)
 /* Temporary bitmap used for live_pavin, live_pavout calculation.  */
 static bitmap temp_bitmap;
 
+DEF_VEC_P(basic_block);
+DEF_VEC_ALLOC_P(basic_block,heap);
+
 /* The function calculates partial register availability according to
    the following equations:
 
@@ -2276,22 +2295,22 @@ calculate_reg_pav (void)
   basic_block bb, succ;
   edge e;
   int i, nel;
-  varray_type bbs, new_bbs, temp;
+  VEC(basic_block,heap) *bbs, *new_bbs, *temp;
   basic_block *bb_array;
   sbitmap wset;
 
-  VARRAY_BB_INIT (bbs, n_basic_blocks, "basic blocks");
-  VARRAY_BB_INIT (new_bbs, n_basic_blocks, "basic blocks for the next iter.");
+  bbs = VEC_alloc (basic_block, heap, n_basic_blocks);
+  new_bbs = VEC_alloc (basic_block, heap, n_basic_blocks);
   temp_bitmap = BITMAP_ALLOC (NULL);
   FOR_EACH_BB (bb)
     {
-      VARRAY_PUSH_BB (bbs, bb);
+      VEC_quick_push (basic_block, bbs, bb);
     }
   wset = sbitmap_alloc (n_basic_blocks + 1);
-  while (VARRAY_ACTIVE_SIZE (bbs))
+  while (VEC_length (basic_block, bbs))
     {
-      bb_array = &VARRAY_BB (bbs, 0);
-      nel = VARRAY_ACTIVE_SIZE (bbs);
+      bb_array = VEC_address (basic_block, bbs);
+      nel = VEC_length (basic_block, bbs);
       qsort (bb_array, nel, sizeof (basic_block), rpost_cmp);
       sbitmap_zero (wset);
       for (i = 0; i < nel; i++)
@@ -2325,7 +2344,7 @@ calculate_reg_pav (void)
 		      && !TEST_BIT (wset, succ->index))
 		    {
 		      SET_BIT (wset, succ->index);
-		      VARRAY_PUSH_BB (new_bbs, succ);
+		      VEC_quick_push (basic_block, new_bbs, succ);
 		    }
 		}
 	    }
@@ -2333,10 +2352,12 @@ calculate_reg_pav (void)
       temp = bbs;
       bbs = new_bbs;
       new_bbs = temp;
-      VARRAY_POP_ALL (new_bbs);
+      VEC_truncate (basic_block, new_bbs, 0);
     }
   sbitmap_free (wset);
   BITMAP_FREE (temp_bitmap);
+  VEC_free (basic_block, heap, new_bbs);
+  VEC_free (basic_block, heap, bbs);
 }
 
 /* The function modifies partial availability information for two

@@ -1,3 +1,101 @@
+2005-05-12  Steve Ellcey  <sje@cup.hp.com>
+
+	libiberty.h: Do not define empty basename prototype.
+
+2005-05-10  Nick Clifton  <nickc@redhat.com>
+
+	* Update the address and phone number of the FSF organization in
+	the GPL notices in the following files:
+	COPYING, ansidecl.h, bfdlink.h, bout.h, demangle.h, dis-asm.h,
+	dyn-string.h, fibheap.h, filenames.h, floatformat.h,
+	fnmatch.h, gdbm.h, getopt.h, hashtab.h, hp-symtab.h, ieee.h,
+	libiberty.h, md5.h, oasys.h, objalloc.h, obstack.h, os9k.h,
+	partition.h, progress.h, safe-ctype.h, sort.h, splay-tree.h,
+	symcat.h, ternary.h, xregex2.h, xtensa-config.h,
+	xtensa-isa-internal.h, xtensa-isa.h
+
+2005-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (unlock_std_streams): New.
+
+2005-04-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* hashtab.h, libiberty.h, objalloc.h, splay-tree.h, ternary.h:
+	Don't use the PTR macro.
+
+	* sort.h: Don't use the PARAMS macro.
+
+2005-04-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (unlock_stream): New.
+
+2005-04-13  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (fopen_unlocked, fdopen_unlocked, freopen_unlocked):
+	Remove parameter names.
+
+2005-04-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (fopen_unlocked, fdopen_unlocked, freopen_unlocked):
+	Provide prototypes for new functions.
+
+2005-03-29  Ian Lance Taylor  <ian@airs.com>
+
+	* libiberty.h: Fix indentation.
+
+2005-03-28  Ian Lance Taylor  <ian@airs.com>
+
+	* libiberty.h: Include <stdio.h>.
+	(PEX_RECORD_TIMES, PEX_USE_PIPES, PEX_SAVE_TEMPS): Define.
+	(PEX_LAST, PEX_SEARCH, PEX_SUFFIX, PEX_STDERR_TO_STDOUT): Define.
+	(PEX_BINARY_INPUT, PEX_BINARY_OUTPUT): Define.
+	(pex_init, pex_run, pex_read_output): Declare.
+	(pex_get_status, pex_get_times, pex_free, pex_one): Declare.
+	(struct pex_time): Define.
+
+2005-03-28  Mark Mitchell <mark@codesourcery.com>
+
+	* libiberty.h (ffs): Declare, if necessary.
+	
+2005-03-27  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* xregex2.h (_RE_ARGS): Remove definition and uses.
+
+2005-03-27  Gabriel Dos Reis  <gdr@integreable-solutions.net>
+
+	* ternary.h: Don't use PARAMS anymore.
+
+2005-03-27  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* partition.h: Remove use of PARAMS.
+	* obstack.h: Remove conditional prototypes __STDC__.
+	* objalloc.h:  Remove use of PARAMS.
+	* splay-tree.h: Likewise.
+
+2005-03-27  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* md5.h: Remove definition and uses of __P.
+	* dyn-string.h: Remove uses of PARAMS.
+	* fibheap.h: Likewise.
+	* floatformat.h: Likewise.
+	* hashtab.h: Likewise.
+
+2005-03-26  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* demangle.h: Remove uses of PARAMS.
+
+	* libiberty.h (ANSI_PROTOTYPES): Remove guard since
+	ANSI_PROTOTYPES is always assumed.
+	Remove uses of PARAMS throughout.
+
+2005-03-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (xstrndup): Declare.
+
+2005-03-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libiberty.h (make_relative_prefix): Add ATTRIBUTE_MALLOC.
+
 2005-03-09  Mark Mitchell  <mark@codesourcery.com>
 
 	* libiberty.h (gettimeofday): Declare.

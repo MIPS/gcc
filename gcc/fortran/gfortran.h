@@ -181,7 +181,7 @@ extern mstring intrinsic_operators[];
 /* Arithmetic results.  */
 typedef enum
 { ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW, ARITH_NAN,
-  ARITH_DIV0, ARITH_0TO0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC
+  ARITH_DIV0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC
 }
 arith;
 
@@ -292,6 +292,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_BTEST,
   GFC_ISYM_CEILING,
   GFC_ISYM_CHAR,
+  GFC_ISYM_CHDIR,
   GFC_ISYM_CMPLX,
   GFC_ISYM_COMMAND_ARGUMENT_COUNT,
   GFC_ISYM_CONJG,
@@ -317,6 +318,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_GETGID,
   GFC_ISYM_GETPID,
   GFC_ISYM_GETUID,
+  GFC_ISYM_HOSTNM,
   GFC_ISYM_IACHAR,
   GFC_ISYM_IAND,
   GFC_ISYM_IARGC,
@@ -325,15 +327,18 @@ enum gfc_generic_isym_id
   GFC_ISYM_IBSET,
   GFC_ISYM_ICHAR,
   GFC_ISYM_IEOR,
+  GFC_ISYM_IERRNO,
   GFC_ISYM_INDEX,
   GFC_ISYM_INT,
   GFC_ISYM_IOR,
   GFC_ISYM_IRAND,
   GFC_ISYM_ISHFT,
   GFC_ISYM_ISHFTC,
+  GFC_ISYM_KILL,
   GFC_ISYM_LBOUND,
   GFC_ISYM_LEN,
   GFC_ISYM_LEN_TRIM,
+  GFC_ISYM_LINK,
   GFC_ISYM_LGE,
   GFC_ISYM_LGT,
   GFC_ISYM_LLE,
@@ -359,6 +364,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_PRODUCT,
   GFC_ISYM_RAND,
   GFC_ISYM_REAL,
+  GFC_ISYM_RENAME,
   GFC_ISYM_REPEAT,
   GFC_ISYM_RESHAPE,
   GFC_ISYM_RRSPACING,
@@ -378,9 +384,12 @@ enum gfc_generic_isym_id
   GFC_ISYM_SR_KIND,
   GFC_ISYM_STAT,
   GFC_ISYM_SUM,
+  GFC_ISYM_SYMLNK,
   GFC_ISYM_SYSTEM,
   GFC_ISYM_TAN,
   GFC_ISYM_TANH,
+  GFC_ISYM_TIME,
+  GFC_ISYM_TIME8,
   GFC_ISYM_TRANSFER,
   GFC_ISYM_TRANSPOSE,
   GFC_ISYM_TRIM,
@@ -422,6 +431,9 @@ typedef struct
   /* Set if this is the master function for a procedure with multiple
      entry points.  */
   unsigned entry_master:1;
+  /* Set if this is the master function for a function with multiple
+     entry points where characteristics of the entry points differ.  */
+  unsigned mixed_entry_master:1;
 
   /* Set if a function must always be referenced by an explicit interface.  */
   unsigned always_explicit:1;
@@ -471,6 +483,8 @@ typedef struct gfc_linebuf
 #endif
   struct gfc_file *file;
   struct gfc_linebuf *next;
+
+  int truncated;
 
   char line[1];
 } gfc_linebuf;
@@ -806,7 +820,7 @@ typedef struct gfc_namespace
 
   gfc_charlen *cl_list;
 
-  int save_all, seen_save;
+  int save_all, seen_save, seen_implicit_none;
 
   /* Normally we don't need to refcount namespaces.  However when we read
      a module containing a function with multiple entry points, this
@@ -831,7 +845,7 @@ typedef struct gfc_gsymbol
 {
   BBT_HEADER(gfc_gsymbol);
 
-  char name[GFC_MAX_SYMBOL_LEN+1];
+  const char *name;
   enum { GSYM_UNKNOWN=1, GSYM_PROGRAM, GSYM_FUNCTION, GSYM_SUBROUTINE,
         GSYM_MODULE, GSYM_COMMON, GSYM_BLOCK_DATA } type;
 
@@ -1137,7 +1151,7 @@ extern gfc_logical_info gfc_logical_kinds[];
 
 typedef struct
 {
-  mpfr_t epsilon, huge, tiny;
+  mpfr_t epsilon, huge, tiny, subnormal;
   int kind, radix, digits, min_exponent, max_exponent;
   int range, precision;
 
@@ -1393,6 +1407,9 @@ typedef struct
   int warn_surprising;
   int warn_unused_labels;
 
+  int flag_default_double;
+  int flag_default_integer;
+  int flag_default_real;
   int flag_dollar_ok;
   int flag_underscoring;
   int flag_second_underscore;
@@ -1402,11 +1419,10 @@ typedef struct
   int flag_no_backend;
   int flag_pack_derived;
   int flag_repack_arrays;
+  int flag_f2c;
 
   int q_kind;
-  int r8;
-  int i8;
-  int d8;
+
   int warn_std;
   int allow_std;
   int warn_nonstd_intrinsics;

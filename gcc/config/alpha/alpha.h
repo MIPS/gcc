@@ -394,9 +394,6 @@ extern int alpha_tls_size;
 
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) 1
 
-/* Our SIMD is all done on single integer registers.  */
-#define UNITS_PER_SIMD_WORD UNITS_PER_WORD
-
 /* Standard register usage.  */
 
 /* Number of actual hardware registers.
@@ -1372,7 +1369,7 @@ do {						\
 /* This is how to output an element of a case-vector that is absolute.
    (Alpha does not use such vectors, but we must define this macro anyway.)  */
 
-#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) abort ()
+#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) gcc_unreachable ()
 
 /* This is how to output an element of a case-vector that is relative.  */
 

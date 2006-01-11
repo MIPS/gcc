@@ -1,5 +1,5 @@
 ; Options for the Java front end.
-; Copyright (C) 2003 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2005 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -18,7 +18,7 @@
 ; Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 ; 02111-1307, USA.
 
-; See c.opt for a description of this file's format.
+; See the GCC internals manual for a description of this file's format.
 
 ; Please try to keep this file in ASCII collating order.
 
@@ -175,6 +175,10 @@ Generate code for the Boehm GC
 fuse-divide-subroutine
 Java Var(flag_use_divide_subroutine) Init(1)
 Call a library routine to do integer divisions
+
+fbootstrap-classes
+Java Var(flag_bootstrap_classes)
+Generated should be loaded by bootstrap loader
 
 version
 Java

@@ -42,21 +42,19 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/../config.guess \
 	$(srcdir)/../mkinstalldirs $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
 	$(top_srcdir)/configure $(top_srcdir)/fragment.am \
-	$(top_srcdir)/scripts/check_survey.in \
-	$(top_srcdir)/scripts/testsuite_flags.in ChangeLog acconfig.h
+	$(top_srcdir)/scripts/testsuite_flags.in ChangeLog
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
-	$(top_srcdir)/linkage.m4 \
-	$(top_srcdir)/../config/no-executables.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/../config/no-executables.m4 \
 	$(top_srcdir)/../libtool.m4 $(top_srcdir)/crossconfig.m4 \
+	$(top_srcdir)/linkage.m4 $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno configure.status.lineno
 CONFIG_HEADER = config.h
-CONFIG_CLEAN_FILES = scripts/check_survey scripts/testsuite_flags
+CONFIG_CLEAN_FILES = scripts/testsuite_flags
 depcomp =
 am__depfiles_maybe =
 SOURCES =
@@ -149,10 +147,6 @@ GLIBCXX_HOSTED_TRUE = @GLIBCXX_HOSTED_TRUE@
 GLIBCXX_INCLUDES = @GLIBCXX_INCLUDES@
 GLIBCXX_TEST_ABI_FALSE = @GLIBCXX_TEST_ABI_FALSE@
 GLIBCXX_TEST_ABI_TRUE = @GLIBCXX_TEST_ABI_TRUE@
-GLIBCXX_TEST_THREAD_FALSE = @GLIBCXX_TEST_THREAD_FALSE@
-GLIBCXX_TEST_THREAD_TRUE = @GLIBCXX_TEST_THREAD_TRUE@
-GLIBCXX_TEST_WCHAR_T_FALSE = @GLIBCXX_TEST_WCHAR_T_FALSE@
-GLIBCXX_TEST_WCHAR_T_TRUE = @GLIBCXX_TEST_WCHAR_T_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
@@ -252,6 +246,9 @@ target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
 toplevel_srcdir = @toplevel_srcdir@
+
+# May be used by various substitution variables.
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 MAINT_CHARSET = latin1
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 PWD_COMMAND = $${PWDCMD-pwd}
@@ -272,6 +269,7 @@ WARN_CXXFLAGS = \
 AM_CPPFLAGS = $(GLIBCXX_INCLUDES)
 @GLIBCXX_HOSTED_TRUE@hosted_source = libmath src po testsuite
 SUBDIRS = include libsupc++ $(hosted_source)
+ACLOCAL_AMFLAGS = -I . -I .. -I ../config
 
 # Multilib support.
 MAKEOVERRIDES = 
@@ -367,15 +365,13 @@ config.h: stamp-h1
 stamp-h1: $(srcdir)/config.h.in $(top_builddir)/config.status
 	@rm -f stamp-h1
 	cd $(top_builddir) && $(SHELL) ./config.status config.h
-$(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps) $(top_srcdir)/acconfig.h
+$(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps) 
 	cd $(top_srcdir) && $(AUTOHEADER)
 	rm -f stamp-h1
 	touch $@
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
-scripts/check_survey: $(top_builddir)/config.status $(top_srcdir)/scripts/check_survey.in
-	cd $(top_builddir) && $(SHELL) ./config.status $@
 scripts/testsuite_flags: $(top_builddir)/config.status $(top_srcdir)/scripts/testsuite_flags.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 

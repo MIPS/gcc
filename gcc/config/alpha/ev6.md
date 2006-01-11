@@ -1,5 +1,5 @@
 ;; Scheduling description for Alpha EV6.
-;;   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+;;   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -53,13 +53,18 @@
 ; adjust_cost still factors in user-specified memory latency, so return 1 here.
 (define_insn_reservation "ev6_ild" 1
   (and (eq_attr "tune" "ev6")
-       (eq_attr "type" "ild,ldsym"))
+       (eq_attr "type" "ild,ldsym,ld_l"))
   "ev6_l")
 
 (define_insn_reservation "ev6_ist" 1
   (and (eq_attr "tune" "ev6")
-       (eq_attr "type" "ist"))
+       (eq_attr "type" "ist,st_c"))
   "ev6_l")
+
+(define_insn_reservation "ev6_mb" 1
+  (and (eq_attr "tune" "ev6")
+       (eq_attr "type" "mb"))
+  "ev6_l1")
 
 ; FP loads take at least 4 clocks.  adjust_cost still factors
 ; in user-specified memory latency, so return 2 here.

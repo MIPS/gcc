@@ -75,7 +75,7 @@
       else
 	return "movdqa\t{%1, %0|%0, %1}";
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
   [(set_attr "type" "sselog1,ssemov,ssemov")
@@ -161,7 +161,7 @@
       else
 	return "movapd\t{%1, %0|%0, %1}";
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
   [(set_attr "type" "sselog1,ssemov,ssemov")
@@ -710,6 +710,22 @@
   [(set_attr "type" "ssecomi")
    (set_attr "mode" "SF")])
 
+(define_expand "vcondv4sf"
+  [(set (match_operand:V4SF 0 "register_operand" "")
+        (if_then_else:V4SF
+          (match_operator 3 ""
+            [(match_operand:V4SF 4 "nonimmediate_operand" "")
+             (match_operand:V4SF 5 "nonimmediate_operand" "")])
+          (match_operand:V4SF 1 "general_operand" "")
+          (match_operand:V4SF 2 "general_operand" "")))]
+  "TARGET_SSE"
+{
+  if (ix86_expand_fp_vcond (operands))
+    DONE;
+  else
+    FAIL;
+})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Parallel single-precision floating point logical operations
@@ -769,6 +785,47 @@
 	(xor:V4SF (match_operand:V4SF 1 "nonimmediate_operand" "%0")
 		  (match_operand:V4SF 2 "nonimmediate_operand" "xm")))]
   "TARGET_SSE && ix86_binary_operator_ok (XOR, V4SFmode, operands)"
+  "xorps\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "V4SF")])
+
+;; Also define scalar versions.  These are used for abs, neg, and
+;; conditional move.  Using subregs into vector modes causes register
+;; allocation lossage.  These patterns do not allow memory operands
+;; because the native instructions read the full 128-bits.
+
+(define_insn "*andsf3"
+  [(set (match_operand:SF 0 "register_operand" "=x")
+	(and:SF (match_operand:SF 1 "register_operand" "0")
+		(match_operand:SF 2 "register_operand" "x")))]
+  "TARGET_SSE"
+  "andps\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "V4SF")])
+
+(define_insn "*nandsf3"
+  [(set (match_operand:SF 0 "register_operand" "=x")
+	(and:SF (not:SF (match_operand:SF 1 "register_operand" "0"))
+		(match_operand:SF 2 "register_operand" "x")))]
+  "TARGET_SSE"
+  "andnps\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "V4SF")])
+
+(define_insn "*iorsf3"
+  [(set (match_operand:SF 0 "register_operand" "=x")
+	(ior:SF (match_operand:SF 1 "register_operand" "0")
+		(match_operand:SF 2 "register_operand" "x")))]
+  "TARGET_SSE"
+  "orps\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "V4SF")])
+
+(define_insn "*xorsf3"
+  [(set (match_operand:SF 0 "register_operand" "=x")
+	(xor:SF (match_operand:SF 1 "register_operand" "0")
+		(match_operand:SF 2 "register_operand" "x")))]
+  "TARGET_SSE"
   "xorps\t{%2, %0|%0, %2}"
   [(set_attr "type" "sselog")
    (set_attr "mode" "V4SF")])
@@ -1607,6 +1664,22 @@
   [(set_attr "type" "ssecomi")
    (set_attr "mode" "DF")])
 
+(define_expand "vcondv2df"
+  [(set (match_operand:V2DF 0 "register_operand" "")
+        (if_then_else:V2DF
+          (match_operator 3 ""
+            [(match_operand:V2DF 4 "nonimmediate_operand" "")
+             (match_operand:V2DF 5 "nonimmediate_operand" "")])
+          (match_operand:V2DF 1 "general_operand" "")
+          (match_operand:V2DF 2 "general_operand" "")))]
+  "TARGET_SSE2"
+{
+  if (ix86_expand_fp_vcond (operands))
+    DONE;
+  else
+    FAIL;
+})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Parallel double-precision floating point logical operations
@@ -1624,7 +1697,7 @@
   [(set (match_operand:V2DF 0 "register_operand" "=x")
 	(and:V2DF (match_operand:V2DF 1 "nonimmediate_operand" "%0")
 		  (match_operand:V2DF 2 "nonimmediate_operand" "xm")))]
-  "TARGET_SSE2 && ix86_binary_operator_ok (AND, V4SFmode, operands)"
+  "TARGET_SSE2 && ix86_binary_operator_ok (AND, V2DFmode, operands)"
   "andpd\t{%2, %0|%0, %2}"
   [(set_attr "type" "sselog")
    (set_attr "mode" "V2DF")])
@@ -1666,6 +1739,47 @@
 	(xor:V2DF (match_operand:V2DF 1 "nonimmediate_operand" "%0")
 		  (match_operand:V2DF 2 "nonimmediate_operand" "xm")))]
   "TARGET_SSE2 && ix86_binary_operator_ok (XOR, V2DFmode, operands)"
+  "xorpd\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "V2DF")])
+
+;; Also define scalar versions.  These are used for abs, neg, and
+;; conditional move.  Using subregs into vector modes causes regiser
+;; allocation lossage.  These patterns do not allow memory operands
+;; because the native instructions read the full 128-bits.
+
+(define_insn "*anddf3"
+  [(set (match_operand:DF 0 "register_operand" "=x")
+	(and:DF (match_operand:DF 1 "register_operand" "0")
+		(match_operand:DF 2 "register_operand" "x")))]
+  "TARGET_SSE2"
+  "andpd\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "V2DF")])
+
+(define_insn "*nanddf3"
+  [(set (match_operand:DF 0 "register_operand" "=x")
+	(and:DF (not:DF (match_operand:DF 1 "register_operand" "0"))
+		(match_operand:DF 2 "register_operand" "x")))]
+  "TARGET_SSE2"
+  "andnpd\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "V2DF")])
+
+(define_insn "*iordf3"
+  [(set (match_operand:DF 0 "register_operand" "=x")
+	(ior:DF (match_operand:DF 1 "register_operand" "0")
+		(match_operand:DF 2 "register_operand" "x")))]
+  "TARGET_SSE2"
+  "orpd\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sselog")
+   (set_attr "mode" "V2DF")])
+
+(define_insn "*xordf3"
+  [(set (match_operand:DF 0 "register_operand" "=x")
+	(xor:DF (match_operand:DF 1 "register_operand" "0")
+		(match_operand:DF 2 "register_operand" "x")))]
+  "TARGET_SSE2"
   "xorpd\t{%2, %0|%0, %2}"
   [(set_attr "type" "sselog")
    (set_attr "mode" "V2DF")])
@@ -2278,6 +2392,50 @@
   [(set_attr "type" "sseiadd")
    (set_attr "mode" "TI")])
 
+(define_expand "mulv16qi3"
+  [(set (match_operand:V16QI 0 "register_operand" "")
+	(mult:V16QI (match_operand:V16QI 1 "register_operand" "")
+		    (match_operand:V16QI 2 "register_operand" "")))]
+  "TARGET_SSE2"
+{
+  rtx t[12], op0;
+  int i;
+
+  for (i = 0; i < 12; ++i)
+    t[i] = gen_reg_rtx (V16QImode);
+
+  /* Unpack data such that we've got a source byte in each low byte of
+     each word.  We don't care what goes into the high byte of each word.
+     Rather than trying to get zero in there, most convenient is to let
+     it be a copy of the low byte.  */
+  emit_insn (gen_sse2_punpckhbw (t[0], operands[1], operands[1]));
+  emit_insn (gen_sse2_punpckhbw (t[1], operands[2], operands[2]));
+  emit_insn (gen_sse2_punpcklbw (t[2], operands[1], operands[1]));
+  emit_insn (gen_sse2_punpcklbw (t[3], operands[2], operands[2]));
+
+  /* Multiply words.  The end-of-line annotations here give a picture of what
+     the output of that instruction looks like.  Dot means don't care; the 
+     letters are the bytes of the result with A being the most significant.  */
+  emit_insn (gen_mulv8hi3 (gen_lowpart (V8HImode, t[4]), /* .A.B.C.D.E.F.G.H */
+			   gen_lowpart (V8HImode, t[0]),
+			   gen_lowpart (V8HImode, t[1])));
+  emit_insn (gen_mulv8hi3 (gen_lowpart (V8HImode, t[5]), /* .I.J.K.L.M.N.O.P */
+			   gen_lowpart (V8HImode, t[2]),
+			   gen_lowpart (V8HImode, t[3])));
+
+  /* Extract the relevant bytes and merge them back together.  */
+  emit_insn (gen_sse2_punpckhbw (t[6], t[5], t[4]));	/* ..AI..BJ..CK..DL */
+  emit_insn (gen_sse2_punpcklbw (t[7], t[5], t[4]));	/* ..EM..FN..GO..HP */
+  emit_insn (gen_sse2_punpckhbw (t[8], t[7], t[6]));	/* ....AEIM....BFJN */
+  emit_insn (gen_sse2_punpcklbw (t[9], t[7], t[6]));	/* ....CGKO....DHLP */
+  emit_insn (gen_sse2_punpckhbw (t[10], t[9], t[8]));	/* ........ACEGIKMO */
+  emit_insn (gen_sse2_punpcklbw (t[11], t[9], t[8]));	/* ........BDFHJLNP */
+
+  op0 = operands[0];
+  emit_insn (gen_sse2_punpcklbw (op0, t[11], t[10]));	/* ABCDEFGHIJKLMNOP */
+  DONE;
+})
+
 (define_expand "mulv8hi3"
   [(set (match_operand:V8HI 0 "register_operand" "")
 	(mult:V8HI (match_operand:V8HI 1 "nonimmediate_operand" "")
@@ -2375,6 +2533,96 @@
   "pmaddwd\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseiadd")
    (set_attr "mode" "TI")])
+
+(define_expand "mulv4si3"
+  [(set (match_operand:V4SI 0 "register_operand" "")
+	(mult:V4SI (match_operand:V4SI 1 "register_operand" "")
+		   (match_operand:V4SI 2 "register_operand" "")))]
+  "TARGET_SSE2"
+{
+  rtx t1, t2, t3, t4, t5, t6, thirtytwo;
+  rtx op0, op1, op2;
+
+  op0 = operands[0];
+  op1 = operands[1];
+  op2 = operands[2];
+  t1 = gen_reg_rtx (V4SImode);
+  t2 = gen_reg_rtx (V4SImode);
+  t3 = gen_reg_rtx (V4SImode);
+  t4 = gen_reg_rtx (V4SImode);
+  t5 = gen_reg_rtx (V4SImode);
+  t6 = gen_reg_rtx (V4SImode);
+  thirtytwo = GEN_INT (32);
+
+  /* Multiply elements 2 and 0.  */
+  emit_insn (gen_sse2_umulv2siv2di3 (gen_lowpart (V2DImode, t1), op1, op2));
+
+  /* Shift both input vectors down one element, so that elements 3 and 1
+     are now in the slots for elements 2 and 0.  For K8, at least, this is
+     faster than using a shuffle.  */
+  emit_insn (gen_sse2_lshrti3 (gen_lowpart (TImode, t2),
+			       gen_lowpart (TImode, op1), thirtytwo));
+  emit_insn (gen_sse2_lshrti3 (gen_lowpart (TImode, t3),
+			       gen_lowpart (TImode, op2), thirtytwo));
+
+  /* Multiply elements 3 and 1.  */
+  emit_insn (gen_sse2_umulv2siv2di3 (gen_lowpart (V2DImode, t4), t2, t3));
+
+  /* Move the results in element 2 down to element 1; we don't care what
+     goes in elements 2 and 3.  */
+  emit_insn (gen_sse2_pshufd_1 (t5, t1, const0_rtx, const2_rtx,
+				const0_rtx, const0_rtx));
+  emit_insn (gen_sse2_pshufd_1 (t6, t4, const0_rtx, const2_rtx,
+				const0_rtx, const0_rtx));
+
+  /* Merge the parts back together.  */
+  emit_insn (gen_sse2_punpckldq (op0, t5, t6));
+  DONE;
+})
+
+(define_expand "mulv2di3"
+  [(set (match_operand:V2DI 0 "register_operand" "")
+	(mult:V2DI (match_operand:V2DI 1 "register_operand" "")
+		   (match_operand:V2DI 2 "register_operand" "")))]
+  "TARGET_SSE2"
+{
+  rtx t1, t2, t3, t4, t5, t6, thirtytwo;
+  rtx op0, op1, op2;
+
+  op0 = operands[0];
+  op1 = operands[1];
+  op2 = operands[2];
+  t1 = gen_reg_rtx (V2DImode);
+  t2 = gen_reg_rtx (V2DImode);
+  t3 = gen_reg_rtx (V2DImode);
+  t4 = gen_reg_rtx (V2DImode);
+  t5 = gen_reg_rtx (V2DImode);
+  t6 = gen_reg_rtx (V2DImode);
+  thirtytwo = GEN_INT (32);
+
+  /* Multiply low parts.  */
+  emit_insn (gen_sse2_umulv2siv2di3 (t1, gen_lowpart (V4SImode, op1),
+				     gen_lowpart (V4SImode, op2)));
+
+  /* Shift input vectors left 32 bits so we can multiply high parts.  */
+  emit_insn (gen_lshrv2di3 (t2, op1, thirtytwo));
+  emit_insn (gen_lshrv2di3 (t3, op2, thirtytwo));
+
+  /* Multiply high parts by low parts.  */
+  emit_insn (gen_sse2_umulv2siv2di3 (t4, gen_lowpart (V4SImode, op1),
+				     gen_lowpart (V4SImode, t3)));
+  emit_insn (gen_sse2_umulv2siv2di3 (t5, gen_lowpart (V4SImode, op2),
+				     gen_lowpart (V4SImode, t2)));
+
+  /* Shift them back.  */
+  emit_insn (gen_ashlv2di3 (t4, t4, thirtytwo));
+  emit_insn (gen_ashlv2di3 (t5, t5, thirtytwo));
+
+  /* Add the three parts together.  */
+  emit_insn (gen_addv2di3 (t6, t1, t4));
+  emit_insn (gen_addv2di3 (op0, t6, t5));
+  DONE;
+})
 
 (define_insn "ashr<mode>3"
   [(set (match_operand:SSEMODE24 0 "register_operand" "=x")
@@ -2519,6 +2767,38 @@
   "pcmpgt<ssevecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "ssecmp")
    (set_attr "mode" "TI")])
+
+(define_expand "vcond<mode>"
+  [(set (match_operand:SSEMODE124 0 "register_operand" "")
+        (if_then_else:SSEMODE124
+          (match_operator 3 ""
+            [(match_operand:SSEMODE124 4 "nonimmediate_operand" "")
+             (match_operand:SSEMODE124 5 "nonimmediate_operand" "")])
+          (match_operand:SSEMODE124 1 "general_operand" "")
+          (match_operand:SSEMODE124 2 "general_operand" "")))]
+  "TARGET_SSE2"
+{
+  if (ix86_expand_int_vcond (operands, false))
+    DONE;
+  else
+    FAIL;
+})
+
+(define_expand "vcondu<mode>"
+  [(set (match_operand:SSEMODE12 0 "register_operand" "")
+        (if_then_else:SSEMODE12
+          (match_operator 3 ""
+            [(match_operand:SSEMODE12 4 "nonimmediate_operand" "")
+             (match_operand:SSEMODE12 5 "nonimmediate_operand" "")])
+          (match_operand:SSEMODE12 1 "general_operand" "")
+          (match_operand:SSEMODE12 2 "general_operand" "")))]
+  "TARGET_SSE2"
+{
+  if (ix86_expand_int_vcond (operands, true))
+    DONE;
+  else
+    FAIL;
+})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

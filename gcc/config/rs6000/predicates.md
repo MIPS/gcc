@@ -34,9 +34,10 @@
   
 ;; Return 1 if op is an Altivec register.
 (define_predicate "altivec_register_operand"
-  (and (match_code "reg")
-       (match_test "ALTIVEC_REGNO_P (REGNO (op))
-		    || REGNO (op) > LAST_VIRTUAL_REGISTER")))
+   (and (match_operand 0 "register_operand")
+	(match_test "GET_CODE (op) != REG
+		     || ALTIVEC_REGNO_P (REGNO (op))
+		     || REGNO (op) > LAST_VIRTUAL_REGISTER")))
 
 ;; Return 1 if op is XER register.
 (define_predicate "xer_operand"
@@ -72,28 +73,25 @@
 
 ;; Return 1 if op is a register that is not special.
 (define_predicate "gpc_reg_operand"
-  (and (match_code "reg,subreg")
-       (and (match_operand 0 "register_operand")
-	    (match_test "GET_CODE (op) != REG
-			 || (REGNO (op) >= ARG_POINTER_REGNUM
-			     && !XER_REGNO_P (REGNO (op)))
-			 || REGNO (op) < MQ_REGNO"))))
+   (and (match_operand 0 "register_operand")
+	(match_test "GET_CODE (op) != REG
+		     || (REGNO (op) >= ARG_POINTER_REGNUM
+			 && !XER_REGNO_P (REGNO (op)))
+		     || REGNO (op) < MQ_REGNO")))
 
 ;; Return 1 if op is a register that is a condition register field.
 (define_predicate "cc_reg_operand"
-  (and (match_code "reg,subreg")
-       (and (match_operand 0 "register_operand")
-	    (match_test "GET_CODE (op) != REG
-			 || REGNO (op) > LAST_VIRTUAL_REGISTER
-			 || CR_REGNO_P (REGNO (op))"))))
+   (and (match_operand 0 "register_operand")
+	(match_test "GET_CODE (op) != REG
+		     || REGNO (op) > LAST_VIRTUAL_REGISTER
+		     || CR_REGNO_P (REGNO (op))")))
 
 ;; Return 1 if op is a register that is a condition register field not cr0.
 (define_predicate "cc_reg_not_cr0_operand"
-  (and (match_code "reg,subreg")
-       (and (match_operand 0 "register_operand")
-	    (match_test "GET_CODE (op) != REG
-			 || REGNO (op) > LAST_VIRTUAL_REGISTER
-			 || CR_REGNO_NOT_CR0_P (REGNO (op))"))))
+   (and (match_operand 0 "register_operand")
+	(match_test "GET_CODE (op) != REG
+		     || REGNO (op) > LAST_VIRTUAL_REGISTER
+		     || CR_REGNO_NOT_CR0_P (REGNO (op))")))
 
 ;; Return 1 if op is a constant integer valid for D field
 ;; or non-special register register.
@@ -180,6 +178,9 @@
 (define_predicate "easy_fp_constant"
   (match_code "const_double")
 {
+  long k[4];
+  REAL_VALUE_TYPE rv;
+
   if (GET_MODE (op) != mode
       || (GET_MODE_CLASS (mode) != MODE_FLOAT && mode != DImode))
     return 0;
@@ -200,11 +201,9 @@
     return 0;
 #endif
 
-  if (mode == TFmode)
+  switch (mode)
     {
-      long k[4];
-      REAL_VALUE_TYPE rv;
-
+    case TFmode:
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
 
@@ -212,43 +211,50 @@
 	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1
 	      && num_insns_constant_wide ((HOST_WIDE_INT) k[2]) == 1
 	      && num_insns_constant_wide ((HOST_WIDE_INT) k[3]) == 1);
-    }
 
-  else if (mode == DFmode)
-    {
-      long k[2];
-      REAL_VALUE_TYPE rv;
-
-      if (TARGET_E500_DOUBLE)
-	return 0;
+    case DFmode:
+      /* Force constants to memory before reload to utilize
+	 compress_float_constant.
+	 Avoid this when flag_unsafe_math_optimizations is enabled
+	 because RDIV division to reciprocal optimization is not able
+	 to regenerate the division.  */
+      if (TARGET_E500_DOUBLE
+          || (!reload_in_progress && !reload_completed
+	      && !flag_unsafe_math_optimizations))
+        return 0;
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
 
       return (num_insns_constant_wide ((HOST_WIDE_INT) k[0]) == 1
 	      && num_insns_constant_wide ((HOST_WIDE_INT) k[1]) == 1);
-    }
 
-  else if (mode == SFmode)
-    {
-      long l;
-      REAL_VALUE_TYPE rv;
+    case SFmode:
+      /* Force constants to memory before reload to utilize
+	 compress_float_constant.
+	 Avoid this when flag_unsafe_math_optimizations is enabled
+	 because RDIV division to reciprocal optimization is not able
+	 to regenerate the division.  */
+      if (!reload_in_progress && !reload_completed
+          && !flag_unsafe_math_optimizations)
+	return 0;
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-      REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+      REAL_VALUE_TO_TARGET_SINGLE (rv, k[0]);
 
-      return num_insns_constant_wide (l) == 1;
-    }
+      return num_insns_constant_wide (k[0]) == 1;
 
-  else if (mode == DImode)
+  case DImode:
     return ((TARGET_POWERPC64
 	     && GET_CODE (op) == CONST_DOUBLE && CONST_DOUBLE_LOW (op) == 0)
 	    || (num_insns_constant (op, DImode) <= 2));
 
-  else if (mode == SImode)
+  case SImode:
     return 1;
-  else
-    abort ();
+
+  default:
+    gcc_unreachable ();
+  }
 })
 
 ;; Return 1 if the operand is a CONST_VECTOR and can be loaded into a
@@ -325,7 +331,7 @@
 ;; Return 1 if the operand is in volatile memory.  Note that during the
 ;; RTL generation phase, memory_operand does not return TRUE for volatile
 ;; memory references.  So this function allows us to recognize volatile
-;; references where its safe.
+;; references where it's safe.
 (define_predicate "volatile_mem_operand"
   (and (and (match_code "mem")
 	    (match_test "MEM_VOLATILE_P (op)"))
@@ -341,6 +347,31 @@
        (match_test "offsettable_address_p (reload_completed
 					   || reload_in_progress,
 					   mode, XEXP (op, 0))")))
+
+;; Return 1 if the operand is an indexed or indirect memory operand.
+(define_predicate "indexed_or_indirect_operand"
+  (and (match_operand 0 "memory_operand")
+       (match_test "REG_P (XEXP (op, 0))
+		    || (GET_CODE (XEXP (op, 0)) == PLUS
+			&& REG_P (XEXP (XEXP (op, 0), 0)) 
+			&& REG_P (XEXP (XEXP (op, 0), 1)))")))
+
+;; Return 1 if the operand is a memory operand with an address divisible by 4
+(define_predicate "word_offset_memref_operand"
+  (and (match_operand 0 "memory_operand")
+       (match_test "GET_CODE (XEXP (op, 0)) != PLUS
+		    || ! REG_P (XEXP (XEXP (op, 0), 0)) 
+		    || GET_CODE (XEXP (XEXP (op, 0), 1)) != CONST_INT
+		    || INTVAL (XEXP (XEXP (op, 0), 1)) % 4 == 0")))
+
+;; Used for the destination of the fix_truncdfsi2 expander.
+;; If stfiwx will be used, the result goes to memory; otherwise,
+;; we're going to emit a store and a load of a subreg, so the dest is a
+;; register.
+(define_predicate "fix_trunc_dest_operand"
+  (if_then_else (match_test "! TARGET_E500_DOUBLE && TARGET_PPC_GFXOPT")
+   (match_operand 0 "memory_operand")
+   (match_operand 0 "gpc_reg_operand")))
 
 ;; Return 1 if the operand is either a non-special register or can be used
 ;; as the operand of a `mode' add insn.
@@ -376,8 +407,7 @@
     }
   else if (GET_CODE (op) == CONST_DOUBLE)
     {
-      if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
-	abort ();
+      gcc_assert (GET_MODE_BITSIZE (mode) > HOST_BITS_PER_WIDE_INT);
 
       opl = CONST_DOUBLE_LOW (op);
       oph = CONST_DOUBLE_HIGH (op);
@@ -499,29 +529,27 @@
 ;; Return 1 if the operand is either a non-special register or a constant
 ;; that can be used as the operand of a PowerPC64 logical AND insn.
 (define_predicate "and64_operand"
-  (if_then_else (match_code "const_int")
-    (match_operand 0 "mask64_operand")
-    (if_then_else (match_test "fixed_regs[CR0_REGNO]")
-      (match_operand 0 "gpc_reg_operand")
-      (match_operand 0 "logical_operand"))))
+  (ior (match_operand 0 "mask64_operand")
+       (if_then_else (match_test "fixed_regs[CR0_REGNO]")
+	 (match_operand 0 "gpc_reg_operand")
+	 (match_operand 0 "logical_operand"))))
 
 ;; Like and64_operand, but also match constants that can be implemented
 ;; with two rldicl or rldicr insns.
 (define_predicate "and64_2_operand"
-  (if_then_else (match_code "const_int")
-    (match_test "mask64_1or2_operand (op, mode, true)")
-    (if_then_else (match_test "fixed_regs[CR0_REGNO]")
-      (match_operand 0 "gpc_reg_operand")
-      (match_operand 0 "logical_operand"))))
+  (ior (and (match_code "const_int")
+	    (match_test "mask64_1or2_operand (op, mode, true)"))
+       (if_then_else (match_test "fixed_regs[CR0_REGNO]")
+	 (match_operand 0 "gpc_reg_operand")
+	 (match_operand 0 "logical_operand"))))
 
 ;; Return 1 if the operand is either a non-special register or a
 ;; constant that can be used as the operand of a logical AND.
 (define_predicate "and_operand"
-  (if_then_else (match_code "const_int")
-    (match_operand 0 "mask_operand")
-    (if_then_else (match_test "fixed_regs[CR0_REGNO]")
-      (match_operand 0 "gpc_reg_operand")
-      (match_operand 0 "logical_operand"))))
+  (ior (match_operand 0 "mask_operand")
+       (if_then_else (match_test "fixed_regs[CR0_REGNO]")
+	 (match_operand 0 "gpc_reg_operand")
+	 (match_operand 0 "logical_operand"))))
 
 ;; Return 1 if the operand is a general non-special register or memory operand.
 (define_predicate "reg_or_mem_operand"
@@ -577,7 +605,7 @@
   (match_code "symbol_ref,const,label_ref"))
 
 ;; Return 1 if op is a simple reference that can be loaded via the GOT,
-;; exclusing labels involving addition.
+;; excluding labels involving addition.
 (define_predicate "got_no_const_operand"
   (match_code "symbol_ref,label_ref"))
 

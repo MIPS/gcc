@@ -606,9 +606,9 @@ package body Prj.Nmsc is
       Naming  : Naming_Data)
    is
    begin
-      --  Only check if we are not using the standard naming scheme
+      --  Only check if we are not using the Default naming scheme
 
-      if Naming /= Standard_Naming_Data then
+      if Naming /= In_Tree.Private_Part.Default_Naming then
          declare
             Dot_Replacement       : constant String :=
                                      Get_Name_String
@@ -2466,32 +2466,6 @@ package body Prj.Nmsc is
                      Lib_Ref_Symbol_File.Location);
                end if;
 
-               --  Check that the reference symbol file and the symbol file
-               --  are not the same file.
-
-               if Data.Symbol_Data.Symbol_File /= No_Name then
-                  declare
-                     Symbol    : String :=
-                       Get_Name_String
-                         (Data.Symbol_Data.Symbol_File);
-
-                     Reference : String :=
-                       Get_Name_String
-                         (Data.Symbol_Data.Reference);
-
-                  begin
-                     Canonical_Case_File_Name (Symbol);
-                     Canonical_Case_File_Name (Reference);
-
-                     if Symbol = Reference then
-                        Error_Msg
-                          (Project, In_Tree,
-                           "reference symbol file and symbol file " &
-                           "cannot be the same file",
-                           Lib_Ref_Symbol_File.Location);
-                     end if;
-                  end;
-               end if;
             end if;
          end if;
       end if;

@@ -255,7 +255,7 @@ complain_wrong_lang (const char *text, const struct cl_option *option,
   bad_lang = write_langs (lang_mask);
 
   /* Eventually this should become a hard error IMO.  */
-  warning ("command line option \"%s\" is valid for %s but not for %s",
+  warning (0, "command line option \"%s\" is valid for %s but not for %s",
 	   text, ok_langs, bad_lang);
 
   free (ok_langs);
@@ -314,6 +314,14 @@ handle_option (const char **argv, unsigned int lang_mask)
 
   /* We've recognized this switch.  */
   result = 1;
+
+  /* Check to see if the option is disabled for this configuration.  */
+  if (option->flags & CL_DISABLED)
+    {
+      error ("command line option %qs"
+	     " is not supported by this configuration", opt);
+      goto done;
+    }
 
   /* Sort out any argument the switch takes.  */
   if (option->flags & CL_JOINED)
@@ -524,6 +532,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_sra = 1;
       flag_tree_copyrename = 1;
       flag_tree_fre = 1;
+      flag_tree_copy_prop = 1;
       flag_tree_sink = 1;
       flag_tree_salias = 1;
 
@@ -562,6 +571,9 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
       flag_unit_at_a_time = 1;
+      flag_tree_store_ccp = 1;
+      flag_tree_store_copy_prop = 1;
+      flag_tree_vrp = 1;
 
       if (!optimize_size)
 	{
@@ -656,7 +668,7 @@ decode_options (unsigned int argc, const char **argv)
 	 this to `2' if -Wall is used, so we can avoid giving out
 	 lots of errors for people who don't realize what -Wall does.  */
       if (warn_uninitialized == 1)
-	warning ("-Wuninitialized is not supported without -O");
+	warning (0, "-Wuninitialized is not supported without -O");
     }
 
   if (flag_really_no_inline == 2)
@@ -669,21 +681,17 @@ decode_options (unsigned int argc, const char **argv)
 
   if (flag_exceptions && flag_reorder_blocks_and_partition)
     {
-      warning 
+      inform 
 	    ("-freorder-blocks-and-partition does not work with exceptions");
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
 
-  /* The optimization to partition hot and cold basic blocks into
-     separate sections of the .o and executable files does not currently
-     work correctly with DWARF debugging turned on.  Until this is fixed
-     we will disable the optimization when DWARF debugging is set.  */
-  
-  if (flag_reorder_blocks_and_partition && write_symbols == DWARF2_DEBUG)
+  if (flag_reorder_blocks_and_partition
+      && !targetm.have_named_sections)
     {
-      warning
-	("-freorder-blocks-and-partition does not work with -g (currently)");
+      inform 
+       ("-freorder-blocks-and-partition does not work on this architecture.");
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
@@ -816,6 +824,10 @@ common_handle_option (size_t scode, const char *arg, int value)
 	  = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
       else
 	return 0;
+      break;
+
+    case OPT_fdiagnostics_show_option:
+      global_dc->show_option_requested = true;
       break;
 
     case OPT_fdump_:
@@ -984,7 +996,7 @@ common_handle_option (size_t scode, const char *arg, int value)
       else if (!strcmp (arg, "local-exec"))
 	flag_tls_default = TLS_MODEL_LOCAL_EXEC;
       else
-	warning ("unknown tls-model \"%s\"", arg);
+	warning (0, "unknown tls-model \"%s\"", arg);
       break;
 
     case OPT_ftracer:
@@ -1036,10 +1048,8 @@ common_handle_option (size_t scode, const char *arg, int value)
     default:
       /* If the flag was handled in a standard way, assume the lack of
 	 processing here is intentional.  */
-      if (cl_options[scode].flag_var)
-	break;
-
-      abort ();
+      gcc_assert (cl_options[scode].flag_var);
+      break;
     }
 
   return 1;
@@ -1157,7 +1167,7 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
 	    }
 
 	  if (write_symbols == NO_DEBUG)
-	    warning ("target system does not support debug output");
+	    warning (0, "target system does not support debug output");
 	}
     }
   else
@@ -1402,8 +1412,9 @@ wrap_help (const char *help, const char *item, unsigned int item_width)
    a simple on-off switch.  */
 
 int
-option_enabled (const struct cl_option *option)
+option_enabled (int opt_idx)
 {
+  const struct cl_option *option = &(cl_options[opt_idx]);
   if (option->flag_var)
     switch (option->var_cond)
       {

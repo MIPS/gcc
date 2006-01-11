@@ -22,16 +22,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_CP_OBJCP_COMMON
 #define GCC_CP_OBJCP_COMMON
 
-/* In cp/cp-objcp-common.c.  */
-
-extern HOST_WIDE_INT cxx_get_alias_set (tree);
-extern bool cxx_warn_unused_global_decl (tree);
-extern tree cp_expr_size (tree);
-extern size_t cp_tree_size (enum tree_code);
-extern bool cp_var_mod_type_p (tree, tree);
-extern void cxx_initialize_diagnostics (struct diagnostic_context *);
-extern int cxx_types_compatible_p (tree, tree);
-
 /* In cp/cp-lang.c and objcp/objcp-lang.c.  */
 
 extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
@@ -71,8 +61,6 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
 #define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL cxx_dup_lang_specific_decl
-#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
-#define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME mangle_decl
 #undef LANG_HOOKS_MARK_ADDRESSABLE

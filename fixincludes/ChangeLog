@@ -1,3 +1,74 @@
+2005-05-19  Eric Botcazou  <ebotcazou@libertysurf.fr>
+            Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR target/19933
+	PR target/21315
+	* inclhack.def: New fixes solaris_math_[1-9].
+	* fixincl.x: Regenerate.
+	* tests/base/iso/math_c99.h: New.
+
+2005-05-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* aclocal.m4: Remove superfluous reference to accross.m4.
+
+2005-05-15  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* fixlib.c (load_file_data): Use XRESIZVEC in lieu of xrealloc.
+	* server.c (load_data): Likewise.
+	(run_shell): Use XCNEW (char) in lieu of xcalloc (1, 1).
+	* fixincl.c: #include <sys/wait.h>
+	(run_compiles): Use XCNEWVEC instead of xcalloc.
+	(fix_with_system, start_fixer): Use XNEWVEC instead of xmalloc.
+	* fixfixes.c (FIX_PROC_HEAD, main): Likewise.
+
+2005-05-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* inclhack.def (stdio_stdarg_h, stdio_va_list): Bypass on
+	*-*-solaris2.1[0-9]*, not just *-*-solaris2.1[0-9].
+	* fixincl.x: Regenerate.
+
+2005-05-06  Bruce Korb  <bkorb@gnu.org>
+	Joseph S. Myers <joseph@codesourcery.com>
+
+	* fixinc/inclhack.def: Correct backslashes
+	* fixinc/fixincl.x: regen
+
+2005-04-19  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* system.h (fopen, fdopen, freopen): Define these to the unlocked
+	libiberty functions.
+
+2005-04-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.ac (fixincludes_UNLOCKED_FUNCS): New.
+	(AC_CHECK_FUNCS, AC_CHECK_DECLS): Check for fixincludes_UNLOCKED_FUNCS.
+	* system.h (putchar, getc, getchar, clearerr, feof, fileno,
+	fflush, fgetc, fgets, ferror, fread): Redefine to the associated
+	_unlocked function.
+	(fwrite_unlocked): Fix prototype.
+	
+	* configure, config.h.in: Regenerate.
+
+2005-03-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* Makefile.in: Set gcc_version directly, not via substitution.
+	(libsubdir): Use $(gcc_version), not $(version).
+	(mkheaders.almost): New rule.
+	(mkheaders): Generate from mkheaders.almost.
+	(clean): Also delete mkheaders.almost.
+	* aclocal.m4: Do not include ../config/gcc-version.m4.
+	* configure.ac: Do not invoke TL_AC_GCC_VERSION.  Generate
+	mkheaders.almost from mkheaders.in.
+	* configure: Regenerate.
+
+2005-03-21  Richard Guenther  <rguenth@gcc.gnu.org>
+
+	PR target/20166
+	* inclhack.def: Add fix for array of incomplete structures
+	in function prototype in pthread.h.
+	* fixincl.x: Regenerate.
+	* tests/base/pthread.h: Adjust.
+
 2005-03-15  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* inclhack.def (hpux_htonl): New fix.
@@ -115,7 +186,7 @@
 
 	* inclhack.def (stdio_va_list): Break out clients from here...
 	(stdio_va_list_clients): ...to here.  Also, don't fix if stdarg.h is
-        included or ifdef va_start.
+	included or ifdef va_start.
 	* fixincl.x: Regenerate.
 
 2004-10-28  Mike Stump  <mrs@apple.com>

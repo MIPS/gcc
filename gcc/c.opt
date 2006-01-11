@@ -18,6 +18,7 @@
 ; Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 ; 02111-1307, USA.
 
+; See the GCC internals manual for a description of this file's format.
 
 ; Please try to keep this file in ASCII collating order.
 
@@ -57,7 +58,7 @@ C ObjC C++ ObjC++ Undocumented
 
 F
 C ObjC C++ ObjC++ Joined Separate
--F <dir>	Add <dir> to the end of the main framework include path  
+-F <dir>	Add <dir> to the end of the main framework include path
 
 H
 C ObjC C++ ObjC++
@@ -118,6 +119,10 @@ Warn about things that will change when compiling with an ABI-compliant compiler
 Wall
 C ObjC C++ ObjC++
 Enable most warning messages
+
+Wassign-intercept
+ObjC ObjC++ Var(warn_assign_intercept)
+Warn whenever an Objective-C assignment is being intercepted by the garbage collector
 
 Wbad-function-cast
 C ObjC Var(warn_bad_function_cast)
@@ -225,6 +230,10 @@ Wimport
 C ObjC C++ ObjC++
 Deprecated.  This switch has no effect.
 
+Wint-to-pointer-cast
+C ObjC Var(warn_int_to_pointer_cast) Init(1)
+Warn when there is a cast to a pointer from an integer of a different size
+
 Winvalid-offsetof
 C++ ObjC++ Var(warn_invalid_offsetof) Init(1)
 Warn about invalid uses of the \"offsetof\" macro
@@ -313,6 +322,10 @@ Wpointer-arith
 C ObjC C++ ObjC++ Var(warn_pointer_arith)
 Warn about function pointer arithmetic
 
+Wpointer-to-int-cast
+C ObjC Var(warn_pointer_to_int_cast) Init(1)
+Warn when a pointer is cast to an integer of a different size
+
 Wprotocol
 ObjC ObjC++ Var(warn_protocol) Init(1)
 Warn if inherited methods are unimplemented
@@ -345,9 +358,17 @@ Wsign-promo
 C++ ObjC++ Var(warn_sign_promo)
 Warn when overload promotes from unsigned to signed
 
+Wstrict-null-sentinel
+C++ ObjC++
+Warn about uncasted NULL used as sentinel
+
 Wstrict-prototypes
 C ObjC Var(warn_strict_prototypes)
 Warn about unprototyped function declarations
+
+Wstrict-selector-match
+ObjC ObjC++ Var(warn_strict_selector_match)
+Warn if type signatures of candidate methods do not match exactly
 
 Wsynth
 C++ ObjC++ Var(warn_synth)
@@ -395,7 +416,7 @@ Warn when a pointer differs in signedness in an assignment.
 
 ansi
 C ObjC C++ ObjC++
-A synonym for -std=c89.  In a future version of GCC it will become synonymous with -std=c99 instead
+A synonym for -std=c89 (for C) or -std=c++98 (for C++).
 
 d
 C ObjC C++ ObjC++ Joined
@@ -467,7 +488,7 @@ C ObjC C++ ObjC++ Joined RejectNegative
 
 finput-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
--finput-charset=<cset>      Specify the default character set for source files.
+-finput-charset=<cset>	Specify the default character set for source files.
 
 
 fexternal-templates
@@ -551,12 +572,29 @@ C++ ObjC++
 fnonnull-objects
 C++ ObjC++
 
+; Generate special '- .cxx_construct' and '- .cxx_destruct' methods
+; to initialize any non-POD ivars in Objective-C++ classes.
+fobjc-call-cxx-cdtors
+ObjC++ Var(flag_objc_call_cxx_cdtors)
+Generate special Objective-C methods to initialize/destroy non-POD C++ ivars, if needed
+
+fobjc-direct-dispatch
+ObjC ObjC++ Var(flag_objc_direct_dispatch)
+Allow fast jumps to the message dispatcher
+
+; Nonzero means that we will allow new ObjC exception syntax (@throw,
+; @try, etc.) in source code.
 fobjc-exceptions
-ObjC ObjC++
+ObjC ObjC++ Var(flag_objc_exceptions)
 Enable Objective-C exception and synchronization syntax
 
+fobjc-gc
+ObjC ObjC++ Var(flag_objc_gc)
+Enable garbage collection (GC) in Objective-C/Objective-C++ programs
+
+; Nonzero means that we generate NeXT setjmp based exceptions.
 fobjc-sjlj-exceptions
-ObjC ObjC++
+ObjC ObjC++ Var(flag_objc_sjlj_exceptions) Init(-1)
 Enable Objective-C setjmp exception handling runtime
 
 foperator-names
@@ -606,9 +644,6 @@ fshort-wchar
 C ObjC C++ ObjC++
 Force the underlying type for \"wchar_t\" to be \"unsigned short\"
 
-fshow-column
-C ObjC C++ ObjC++
-
 fsigned-bitfields
 C ObjC C++ ObjC++
 When \"signed\" or \"unsigned\" is not given make the bitfield signed
@@ -655,7 +690,7 @@ C++ ObjC++
 Use __cxa_atexit to register destructors
 
 fvisibility-inlines-hidden
-C++
+C++ ObjC++
 Marks all inlined methods as having hidden visibility
 
 fvtable-gc
@@ -756,6 +791,10 @@ print-objc-runtime-info
 ObjC ObjC++
 Generate C header of platform-specific features
 
+print-pch-checksum
+C ObjC C++ ObjC++
+Print a checksum of the executable for PCH validity checking, and stop.
+
 remap
 C ObjC C++ ObjC++
 Remap file names when including files
@@ -794,7 +833,7 @@ Deprecated in favor of -std=gnu99
 
 std=iso9899:1990
 C ObjC
-Deprecated in favor of -std=c89
+Conform to the ISO 1990 C standard
 
 std=iso9899:199409
 C ObjC
@@ -802,11 +841,11 @@ Conform to the ISO 1990 C standard as amended in 1994
 
 std=iso9899:1999
 C ObjC
-Deprecated in favor of -std=c99
+Conform to the ISO 1999 C standard
 
 std=iso9899:199x
 C ObjC
-Deprecated in favor of -std=c99
+Deprecated in favor of -std=iso9899:1999
 
 traditional-cpp
 C ObjC C++ ObjC++

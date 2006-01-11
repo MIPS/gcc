@@ -19,8 +19,6 @@
 ### WARNING: this file contains embedded tabs.  Do not run untabify on this file.
 
 sinclude(config/acx.m4)
-sinclude(config/gcc-version.m4)
-sinclude(config/gxx-include-dir.m4)
 
 AC_INIT(move-if-change)
 AC_PREREQ(2.13)
@@ -100,22 +98,6 @@ fi
 topsrcdir=$srcpwd
 
 extra_host_args=
-
-# Define the trigger file to make sure configure will re-run whenever
-# the gcc version number changes.
-TL_AC_GCC_VERSION([$topsrcdir])
-if test -f $gcc_version_trigger ; then
-  case "$ac_configure_args" in
-    *--with-gcc-version-trigger=$gcc_version_trigger* )
-      ;;
-    * )
-      # Add to all subconfigure arguments: build, host, and target.
-      ac_configure_args="$ac_configure_args --with-gcc-version-trigger=$gcc_version_trigger"
-      ;;
-  esac
-else
-  gcc_version_trigger=
-fi
 
 ### To add a new directory to the tree, first choose whether it is a target
 ### or a host dependent tool.  Then put it into the appropriate list
@@ -499,9 +481,14 @@ case "${target}" in
     noconfigdirs="$noconfigdirs target-libstdc++-v3 target-libgloss ${libgcj} gcc gdb newlib"
     ;;
   cris-*-* | crisv32-*-*)
+    libgcj_ex_libffi=`echo ${libgcj} | sed -e 's/target-libffi//'`
     case "${target}" in
-      *-*-elf | *-*-aout)
+      *-*-aout)
 	noconfigdirs="$noconfigdirs ${libgcj}";;
+      *-*-elf)
+	noconfigdirs="$noconfigdirs ${libgcj_ex_libffi}";;
+      *-*-linux*)
+	noconfigdirs="$noconfigdirs ${libgcj_ex_libffi} target-newlib target-libgloss";;
       *)
 	noconfigdirs="$noconfigdirs ${libgcj} target-newlib target-libgloss";;
     esac
@@ -911,7 +898,6 @@ case "${host}" in
     host_makefile_frag="config/mh-cygwin"
     ;;
   *-mingw32*)
-    host_makefile_frag="config/mh-mingw32"
     ;;
   *-interix*)
     host_makefile_frag="config/mh-interix"
@@ -1245,8 +1231,8 @@ if test -d ${srcdir}/gcc; then
   missing_languages=`echo "$missing_languages" | sed -e "s/^,//" -e "s/,$//"`
   if test "x$missing_languages" != x; then
     AC_MSG_ERROR([
-The following requested languages were not found: ${missing_languages}
-The available languages are: ${potential_languages}])
+The following requested languages could not be built: ${missing_languages}
+Recognised languages are: ${potential_languages}])
   fi
 
   if test "x$new_enable_languages" != "x$enable_languages"; then
@@ -1643,30 +1629,9 @@ case "${host}" in
   ;;
 esac
 
-# If no --enable-shared nor --disable-shared is specified, we set up
-# LD_LIBRARY_PATH when we build for gcc.
-case $enable_shared in
-"")
-  if test -d ${srcdir}/gcc; then
-    set_lib_path=yes
-  else 
-    set_lib_path=no
-  fi
-  ;;
-*)
-  set_lib_path=$enable_shared
-  ;;
-esac
-
-# If --enable-shared was set, we must set LD_LIBRARY_PATH so that the
-# binutils tools will find libbfd.so.
-case "${set_lib_path}" in
-  no) SET_LIB_PATH= ;;
-  *) SET_LIB_PATH="\$(REALLY_SET_LIB_PATH)" ;;
-esac
-
 case "${host}" in
   *-*-hpux*) RPATH_ENVVAR=SHLIB_PATH ;;
+  *-*-darwin* | *-*-rhapsody* ) RPATH_ENVVAR=DYLD_LIBRARY_PATH ;;
   *) RPATH_ENVVAR=LD_LIBRARY_PATH ;;
 esac
 
@@ -1963,11 +1928,10 @@ fi
 # fixed in future.  It's still worthwhile to use a cache file for each
 # directory.  I think.
 
-# Pass the appropriate --host, --build, and --cache-file arguments.
-target_configargs="--cache-file=./config.cache --host=${target_alias} --build=${build_alias} ${target_configargs}"
-
-# provide a proper gxx_include_dir.
-TL_AC_GXX_INCLUDE_DIR
+# Pass the appropriate --build, --host, --target and --cache-file arguments.
+# We need to pass --target, as newer autoconf's requires consistency
+# for target_alias and gcc doesn't manage it consistently.
+target_configargs="--cache-file=./config.cache --build=${build_alias} --host=${target_alias} --target=${target_alias} ${target_configargs}"
 
 FLAGS_FOR_TARGET=
 case " $target_configdirs " in
@@ -2136,7 +2100,6 @@ AC_SUBST_FILE(alphaieee_frag)
 AC_SUBST_FILE(ospace_frag)
 
 # Miscellanea: directories, flags, etc.
-AC_SUBST(SET_LIB_PATH)
 AC_SUBST(RPATH_ENVVAR)
 AC_SUBST(BUILD_PREFIX)
 AC_SUBST(BUILD_PREFIX_1)
@@ -2314,25 +2277,5 @@ case ${enable_werror} in
   *) stage2_werror_flag="" ;;
 esac
 AC_SUBST(stage2_werror_flag)
-
-# If gcc is built natively with shared library enabled, set
-# $RPATH_ENVVAR to make sure the newly built gcc shared librares are
-# used.
-SET_GCC_LIB_PATH=
-if test -d ${srcdir}/gcc && test x${is_cross_compiler} = xno; then
-  case "${set_lib_path}" in
-    no) ;;
-    *)
-      eval "d=\$$RPATH_ENVVAR"
-      if test x"$d" != x; then
-	d="$pwd/gcc:$d"
-      else
-	d="$pwd/gcc"
-    fi
-    SET_GCC_LIB_PATH="\$(RPATH_ENVVAR)=$d; export \$(RPATH_ENVVAR);"
-    ;;
-  esac
-fi
-AC_SUBST(SET_GCC_LIB_PATH)
 
 AC_OUTPUT(Makefile)

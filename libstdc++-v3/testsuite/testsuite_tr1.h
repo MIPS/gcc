@@ -62,40 +62,6 @@ namespace __gnu_test
       return ret;
     }
 
-  template<template<typename> class Property,
-           typename Type>
-    bool
-    test_copy_property(bool value)
-    {
-      bool ret = true;
-      ret &= Property<Type>::value == value;
-      ret &= Property<const Type>::value == value;
-      ret &= Property<volatile Type>::value == !value;
-      ret &= Property<const volatile Type>::value == !value;
-      ret &= Property<Type>::type::value == value;
-      ret &= Property<const Type>::type::value == value;
-      ret &= Property<volatile Type>::type::value == !value;
-      ret &= Property<const volatile Type>::type::value == !value;
-      return ret;
-    }
-
-  template<template<typename> class Property,
-           typename Type>
-    bool
-    test_assign_property(bool value)
-    {
-      bool ret = true;
-      ret &= Property<Type>::value == value;
-      ret &= Property<const Type>::value == !value;
-      ret &= Property<volatile Type>::value == !value;
-      ret &= Property<const volatile Type>::value == !value;
-      ret &= Property<Type>::type::value == value;
-      ret &= Property<const Type>::type::value == !value;
-      ret &= Property<volatile Type>::type::value == !value;
-      ret &= Property<const volatile Type>::type::value == !value;
-      return ret;
-    }
-
   template<template<typename, typename> class Relationship,
            typename Type1, typename Type2>
     bool
@@ -121,18 +87,18 @@ namespace __gnu_test
   { operator int() const; };
 
   class AbstractClass
-  { 
+  {
     virtual void rotate(int) = 0;
     virtual ~AbstractClass();
   };
 
   class PolymorphicClass
-  { 
+  {
     virtual void rotate(int);
     virtual ~PolymorphicClass();
   };
 
-  class DerivedPolymorphic : public PolymorphicClass { }; 
+  class DerivedPolymorphic : public PolymorphicClass { };
 
   union UnionType { };
 
@@ -151,14 +117,14 @@ namespace __gnu_test
     {
       ++live_objects;
     }
-    
+
     ~do_truncate_float_t()
     {
       --live_objects;
     }
 
     int operator()(float x) { return (int)x; }
-    
+
     static int live_objects;
   };
 
@@ -182,21 +148,21 @@ namespace __gnu_test
     }
 
     long operator()(double x) { return (long)x; }
-    
+
     static int live_objects;
   };
-  
+
   int do_truncate_double_t::live_objects = 0;
-  
+
   struct X
   {
     int bar;
-    
+
     int foo()                   { return 1; }
     int foo_c() const           { return 2; }
     int foo_v()  volatile       { return 3; }
     int foo_cv() const volatile { return 4; }
   };
-}; // namespace __gnu_test
+} // namespace __gnu_test
 
 #endif // _GLIBCXX_TESTSUITE_TR1_H

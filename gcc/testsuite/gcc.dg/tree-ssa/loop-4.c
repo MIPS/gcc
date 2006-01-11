@@ -32,10 +32,12 @@ void xxx(void)
    -- induction variable with base 0, the memory access of form
       *(iv + &arr_base[0].y) = ...
 
-   In any case, we should not have 'arr_base.[^0].* ='  */
+   In any case, we should not have 'arr_base[.*] ='  */
 
-/* { dg-final { scan-tree-dump-times "arr_base.\[^0\]\[^\\n\\r\]*=" 0 "vars" } } */
+/* { dg-final { scan-tree-dump-times "arr_base\[.*\]\.y =" 0 "vars" } } */
 
 /* And the original induction variable should be eliminated.  */
 
 /* { dg-final { scan-tree-dump-times "iter" 0 "vars" } } */
+
+/* { dg-final { cleanup-tree-dump "vars" } } */

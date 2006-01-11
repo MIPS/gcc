@@ -1,5 +1,5 @@
 ; Options for the Fortran 95 front end.
-; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -18,7 +18,7 @@
 ; Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 ; 02111-1307, USA.
 
-; See c.opt for a description of this file's format.
+; See the GCC internals manual for a description of this file's format.
 
 ; Please try to keep this file in ASCII collating order.
 
@@ -69,9 +69,17 @@ Wunused-labels
 F95
 Warn when a label is unused
 
-d8
-F95 RejectNegative
-Set the default real and integer kinds to double precision
+fdefault-double-8
+F95
+Set the default double precision kind to an 8 byte wide type
+
+fdefault-integer-8
+F95
+Set the default integer kind to an 8 byte wide type
+
+fdefault-real-8
+F95
+Set the default real kind to an 8 byte wide type
 
 fdollar-ok
 F95
@@ -80,6 +88,10 @@ Allow dollar signs in entity names
 fdump-parse-tree
 F95
 Display the code tree after parsing.
+
+ff2c
+F95
+Use f2c calling convention.
 
 ffixed-form
 F95
@@ -133,17 +145,9 @@ frepack-arrays
 F95
 Copy array sections into a contiguous block on procedure entry
 
-i8
-F95
-Set the default integer kind to double precision
-
 qkind=
 F95 RejectNegative Joined UInteger
 -qkind=<n>	Set the kind for a real with the 'q' exponent to 'n'
-
-r8
-F95
-Set the default real kind to double precision
 
 std=f95
 F95

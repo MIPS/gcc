@@ -442,7 +442,7 @@ Please refer to the @uref{http://gcc.gnu.org/releases.html,,releases web page}
 for information on how to obtain GCC@.
 
 The full distribution includes the C, C++, Objective-C, Fortran 77, Fortran
-(in case of GCC 3.5 and later), Java, and Ada (in case of GCC 3.1 and later)
+(in case of GCC 4.0 and later), Java, and Ada (in case of GCC 3.1 and later)
 compilers.  The full distribution also includes runtime libraries for C++,
 Objective-C, Fortran 77, Fortran, and Java.  In GCC 3.0 and later versions,
 GNU compiler testsuites are also included in the full distribution.
@@ -973,12 +973,6 @@ systems that support conditional traps).
 Division by zero checks use the break instruction.
 @end table
 
-@item --enable-altivec
-Specify that the target supports AltiVec vector enhancements.  This
-option will adjust the ABI for AltiVec enhancements, as well as generate
-AltiVec code when appropriate.  This option is only available for
-PowerPC systems.
-
 @item --enable-__cxa_atexit
 Define if you want to use __cxa_atexit, rather than atexit, to
 register C++ destructors for local statics and global objects.
@@ -1041,6 +1035,13 @@ particularly useful if you intend to use several versions of GCC in
 parallel.  This is currently supported by @samp{libgfortran},
 @samp{libjava}, @samp{libmudflap}, @samp{libstdc++}, and @samp{libobjc}.
 
+@item --with-java-home=@var{dirname}
+This @samp{libjava} option overrides the default value of the
+@samp{java.home} system property.  It is also used to set
+@samp{sun.boot.class.path} to @file{@var{dirname}/lib/rt.jar}.  By
+default @samp{java.home} is set to @file{@var{prefix}} and
+@samp{sun.boot.class.path} to
+@file{@var{datadir}/java/libgcj-@var{version}.jar}.
 
 @item --enable-languages=@var{lang1},@var{lang2},@dots{}
 Specify that only a particular subset of compilers and
@@ -1051,13 +1052,15 @@ their runtime libraries should be built.  For a list of valid values for
 grep language= */config-lang.in
 @end smallexample
 Currently, you can use any of the following:
-@code{ada}, @code{c}, @code{c++}, @code{f77}, @code{f95}, @code{java},
-@code{objc}, @code{obj-c++}.
-Building the Ada compiler has special requirements, see below.@*
-If you do not pass this flag, all languages available in the @file{gcc}
-sub-tree will be configured.  Re-defining @code{LANGUAGES} when calling
-@samp{make bootstrap} @strong{does not} work anymore, as those
-language sub-directories might not have been configured!
+@code{all}, @code{ada}, @code{c}, @code{c++}, @code{f95}, @code{java},
+@code{objc}, @code{obj-c++}, @code{treelang}.
+Building the Ada compiler has special requirements, see below.
+If you do not pass this flag, or specify the option @code{all}, then all
+default languages available in the @file{gcc} sub-tree will be configured.
+Ada, Objective-C++, and treelang are not default languages; the rest are.
+Re-defining @code{LANGUAGES} when calling @samp{make bootstrap}
+@strong{does not} work anymore, as those language sub-directories might
+not have been configured!
 
 @item --disable-libada
 Specify that the run-time libraries and tools used by GNAT should not
@@ -1105,29 +1108,29 @@ controlled by the Makefiles.
 
 @item --enable-checking
 @itemx --enable-checking=@var{list}
-When you specify this option, the compiler is built to perform checking
-of tree node types when referencing fields of that node, and some other
-internal consistency checks.  This does not change the generated code,
-but adds error checking within the compiler.  This will slow down the
-compiler and may only work properly if you are building the compiler
-with GCC@.  This is on by default when building from CVS or snapshots,
-but off for releases.  More control over the checks may be had by
-specifying @var{list}; the categories of checks available are
-@samp{release}, @samp{assert}, @samp{misc}, @samp{tree}, @samp{gc},
-@samp{rtl}, @samp{rtlflag}, @samp{fold}, @samp{gcac} and
-@samp{valgrind}.  The @samp{release} category enables only those checks
-suitable for release builds, currently this is just @samp{assert}.  The
-check @samp{valgrind} requires the external @command{valgrind}
-simulator, available from @uref{http://valgrind.kde.org/}.  The checks
-@samp{rtl}, @samp{gcac} and @samp{valgrind} are very expensive.  The
-default when @var{list} is not specified is
-@samp{assert,misc,tree,gc,rtlflag}.  That is also the default for
-development builds, when @samp{--enable-checking} is not specified.  For
-release builds the default, when @samp{--enable-checking} is not given,
-is @samp{release}.  To disable all checking, @samp{--disable-checking}
-must be explicitly requested.  Disabling assertions will make the
-compiler slightly faster but increase the risk of undetected internal
-errors causing wrong code to be generated.
+When you specify this option, the compiler is built to perform internal
+consistency checks of the requested complexity.  This does not change the
+generated code, but adds error checking within the compiler.  This will
+slow down the compiler and may only work properly if you are building
+the compiler with GCC@.  This is @samp{yes} by default when building
+from CVS or snapshots, but @samp{release} for releases.  More control
+over the checks may be had by specifying @var{list}.  The categories of
+checks available are @samp{yes} (most common checks
+@samp{assert,misc,tree,gc,rtlflag,runtime}), @samp{no} (no checks at
+all), @samp{all} (all but @samp{valgrind}), @samp{release} (cheapest
+checks @samp{assert,runtime}) or @samp{none} (same as @samp{no}).
+Individual checks can be enabled with these flags @samp{assert},
+@samp{fold}, @samp{gc}, @samp{gcac} @samp{misc}, @samp{rtl},
+@samp{rtlflag}, @samp{runtime}, @samp{tree}, and @samp{valgrind}.
+
+The @samp{valgrind} check requires the external @command{valgrind}
+simulator, available from @uref{http://valgrind.kde.org/}.  The
+@samp{rtl}, @samp{gcac} and @samp{valgrind} checks are very expensive.
+To disable all checking, @samp{--disable-checking} or
+@samp{--enable-checking=none} must be explicitly requested.  Disabling
+assertions will make the compiler and runtime slightly faster but
+increase the risk of undetected internal errors causing wrong code to be
+generated.
 
 @item --enable-coverage
 @itemx --enable-coverage=@var{level}
@@ -1829,7 +1832,7 @@ testsuite at @file{libjava/testsuite/libjava.mauve/mauve}, or by
 specifying the location of that tree when invoking @samp{make}, as in
 @samp{make MAUVEDIR=~/mauve check}.
 
-@uref{http://www-124.ibm.com/developerworks/oss/cvs/jikes/~checkout~/jacks/jacks.html,,Jacks}
+@uref{http://sources.redhat.com/mauve/,,Jacks}
 is a free testsuite that tests Java compiler front ends.  This suite
 can be run as part of libgcj testing by placing the Jacks tree within
 the libjava testsuite at @file{libjava/testsuite/libjava.jacks/jacks}.
@@ -2025,8 +2028,8 @@ Free Software Foundation}, though such manuals may not be for the most
 recent version of GCC@.
 
 If you would like to generate online HTML documentation, do @samp{cd
-@var{objdir}; make html} and HTML will be generated for the manuals in
-@file{@var{objdir}/HTML}.
+@var{objdir}; make html} and HTML will be generated for the gcc manuals in
+@file{@var{objdir}/gcc/HTML}.
 
 @html
 <hr />
@@ -2166,59 +2169,61 @@ GNU Compiler Collection on your machine.
 @ifhtml
 @itemize
 @item
-@uref{#alpha*-*-*,,alpha*-*-*}
+@uref{#alpha-x-x,,alpha*-*-*}
 @item
-@uref{#alpha*-dec-osf*,,alpha*-dec-osf*}
+@uref{#alpha-dec-osf,,alpha*-dec-osf*}
 @item
-@uref{#alphaev5-cray-unicosmk*,,alphaev5-cray-unicosmk*}
+@uref{#alphaev5-cray-unicosmk,,alphaev5-cray-unicosmk*}
 @item
-@uref{#arc-*-elf,,arc-*-elf}
+@uref{#arc-x-elf,,arc-*-elf}
 @item
-@uref{#arm-*-elf,,arm-*-elf}
-@uref{#arm-*-coff,,arm-*-coff}
-@uref{#arm-*-aout,,arm-*-aout}
+@uref{#arm-x-elf,,arm-*-elf}
+@uref{#arm-x-coff,,arm-*-coff}
+@uref{#arm-x-aout,,arm-*-aout}
 @item
-@uref{#xscale-*-*,,xscale-*-*}
+@uref{#xscale-x-x,,xscale-*-*}
 @item
 @uref{#avr,,avr}
+@item
+@uref{#bfin,,Blackfin}
 @item
 @uref{#c4x,,c4x}
 @item
 @uref{#dos,,DOS}
 @item
-@uref{#*-*-freebsd*,,*-*-freebsd*}
+@uref{#x-x-freebsd,,*-*-freebsd*}
 @item
 @uref{#h8300-hms,,h8300-hms}
 @item
-@uref{#hppa*-hp-hpux*,,hppa*-hp-hpux*}
+@uref{#hppa-hp-hpux,,hppa*-hp-hpux*}
 @item
-@uref{#hppa*-hp-hpux10,,hppa*-hp-hpux10}
+@uref{#hppa-hp-hpux10,,hppa*-hp-hpux10}
 @item
-@uref{#hppa*-hp-hpux11,,hppa*-hp-hpux11}
+@uref{#hppa-hp-hpux11,,hppa*-hp-hpux11}
 @item
-@uref{#*-*-linux-gnu,,*-*-linux-gnu}
+@uref{#x-x-linux-gnu,,*-*-linux-gnu}
 @item
-@uref{#ix86-*-linux*aout,,i?86-*-linux*aout}
+@uref{#ix86-x-linuxaout,,i?86-*-linux*aout}
 @item
-@uref{#ix86-*-linux*,,i?86-*-linux*}
+@uref{#ix86-x-linux,,i?86-*-linux*}
 @item
-@uref{#ix86-*-sco3.2v5*,,i?86-*-sco3.2v5*}
+@uref{#ix86-x-sco32v5,,i?86-*-sco3.2v5*}
 @item
-@uref{#ix86-*-udk,,i?86-*-udk}
+@uref{#ix86-x-solaris210,,i?86-*-solaris2.10}
 @item
-@uref{#ix86-*-esix,,i?86-*-esix}
+@uref{#ix86-x-udk,,i?86-*-udk}
 @item
-@uref{#ia64-*-linux,,ia64-*-linux}
+@uref{#ia64-x-linux,,ia64-*-linux}
 @item
-@uref{#ia64-*-hpux*,,ia64-*-hpux*}
+@uref{#ia64-x-hpux,,ia64-*-hpux*}
 @item
-@uref{#*-ibm-aix*,,*-ibm-aix*}
+@uref{#x-ibm-aix,,*-ibm-aix*}
 @item
-@uref{#ip2k-*-elf,,ip2k-*-elf}
+@uref{#ip2k-x-elf,,ip2k-*-elf}
 @item
-@uref{#iq2000-*-elf,,iq2000-*-elf}
+@uref{#iq2000-x-elf,,iq2000-*-elf}
 @item
-@uref{#m32r-*-elf,,m32r-*-elf}
+@uref{#m32r-x-elf,,m32r-*-elf}
 @item
 @uref{#m6811-elf,,m6811-elf}
 @item
@@ -2226,63 +2231,61 @@ GNU Compiler Collection on your machine.
 @item
 @uref{#m68k-hp-hpux,,m68k-hp-hpux}
 @item
-@uref{#mips-*-*,,mips-*-*}
+@uref{#mips-x-x,,mips-*-*}
 @item
 @uref{#mips-sgi-irix5,,mips-sgi-irix5}
 @item
 @uref{#mips-sgi-irix6,,mips-sgi-irix6}
 @item
-@uref{#powerpc*-*-*,,powerpc*-*-*, powerpc-*-sysv4}
+@uref{#powerpc-x-x,,powerpc*-*-*, powerpc-*-sysv4}
 @item
-@uref{#powerpc-*-darwin*,,powerpc-*-darwin*}
+@uref{#powerpc-x-darwin,,powerpc-*-darwin*}
 @item
-@uref{#powerpc-*-elf,,powerpc-*-elf, powerpc-*-sysv4}
+@uref{#powerpc-x-elf,,powerpc-*-elf, powerpc-*-sysv4}
 @item
-@uref{#powerpc-*-linux-gnu*,,powerpc-*-linux-gnu*}
+@uref{#powerpc-x-linux-gnu,,powerpc*-*-linux-gnu*}
 @item
-@uref{#powerpc-*-netbsd*,,powerpc-*-netbsd*}
+@uref{#powerpc-x-netbsd,,powerpc-*-netbsd*}
 @item
-@uref{#powerpc-*-eabiaix,,powerpc-*-eabiaix}
+@uref{#powerpc-x-eabisim,,powerpc-*-eabisim}
 @item
-@uref{#powerpc-*-eabisim,,powerpc-*-eabisim}
+@uref{#powerpc-x-eabi,,powerpc-*-eabi}
 @item
-@uref{#powerpc-*-eabi,,powerpc-*-eabi}
+@uref{#powerpcle-x-elf,,powerpcle-*-elf, powerpcle-*-sysv4}
 @item
-@uref{#powerpcle-*-elf,,powerpcle-*-elf, powerpcle-*-sysv4}
+@uref{#powerpcle-x-eabisim,,powerpcle-*-eabisim}
 @item
-@uref{#powerpcle-*-eabisim,,powerpcle-*-eabisim}
+@uref{#powerpcle-x-eabi,,powerpcle-*-eabi}
 @item
-@uref{#powerpcle-*-eabi,,powerpcle-*-eabi}
+@uref{#s390-x-linux,,s390-*-linux*}
 @item
-@uref{#s390-*-linux*,,s390-*-linux*}
+@uref{#s390x-x-linux,,s390x-*-linux*}
 @item
-@uref{#s390x-*-linux*,,s390x-*-linux*}
+@uref{#s390x-ibm-tpf,,s390x-ibm-tpf*}
 @item
-@uref{#s390x-ibm-tpf*,,s390x-ibm-tpf*}
+@uref{#x-x-solaris2,,*-*-solaris2*}
 @item
-@uref{#*-*-solaris2*,,*-*-solaris2*}
+@uref{#sparc-sun-solaris2,,sparc-sun-solaris2*}
 @item
-@uref{#sparc-sun-solaris2*,,sparc-sun-solaris2*}
+@uref{#sparc-sun-solaris27,,sparc-sun-solaris2.7}
 @item
-@uref{#sparc-sun-solaris2.7,,sparc-sun-solaris2.7}
+@uref{#sparc-x-linux,,sparc-*-linux*}
 @item
-@uref{#sparc-*-linux*,,sparc-*-linux*}
+@uref{#sparc64-x-solaris2,,sparc64-*-solaris2*}
 @item
-@uref{#sparc64-*-solaris2*,,sparc64-*-solaris2*}
+@uref{#sparcv9-x-solaris2,,sparcv9-*-solaris2*}
 @item
-@uref{#sparcv9-*-solaris2*,,sparcv9-*-solaris2*}
-@item
-@uref{#*-*-sysv*,,*-*-sysv*}
+@uref{#x-x-sysv,,*-*-sysv*}
 @item
 @uref{#vax-dec-ultrix,,vax-dec-ultrix}
 @item
-@uref{#*-*-vxworks*,,*-*-vxworks*}
+@uref{#x-x-vxworks,,*-*-vxworks*}
 @item
-@uref{#x86_64-*-*,,x86_64-*-*, amd64-*-*}
+@uref{#x86-64-x-x,,x86_64-*-*, amd64-*-*}
 @item
-@uref{#xtensa-*-elf,,xtensa-*-elf}
+@uref{#xtensa-x-elf,,xtensa-*-elf}
 @item
-@uref{#xtensa-*-linux*,,xtensa-*-linux*}
+@uref{#xtensa-x-linux,,xtensa-*-linux*}
 @item
 @uref{#windows,,Microsoft Windows}
 @item
@@ -2293,7 +2296,7 @@ GNU Compiler Collection on your machine.
 
 @itemize
 @item
-@uref{#elf_targets,,all ELF targets} (SVR4, Solaris 2, etc.)
+@uref{#elf,,all ELF targets} (SVR4, Solaris 2, etc.)
 @end itemize
 @end ifhtml
 
@@ -2302,7 +2305,7 @@ GNU Compiler Collection on your machine.
 <!-- -------- host/target specific issues start here ---------------- -->
 <hr />
 @end html
-@heading @anchor{alpha*-*-*}alpha*-*-*
+@heading @anchor{alpha-x-x}alpha*-*-*
 
 This section contains general configuration information for all
 alpha-based platforms using ELF (in particular, ignore this section for
@@ -2317,7 +2320,7 @@ shared libraries.
 @html
 <hr />
 @end html
-@heading @anchor{alpha*-dec-osf*}alpha*-dec-osf*
+@heading @anchor{alpha-dec-osf}alpha*-dec-osf*
 Systems using processors that implement the DEC Alpha architecture and
 are running the DEC/Compaq Unix (DEC OSF/1, Digital UNIX, or Compaq
 Tru64 UNIX) operating system, for example the DEC Alpha AXP systems.
@@ -2398,7 +2401,7 @@ provide a fix shortly.
 @html
 <hr />
 @end html
-@heading @anchor{alphaev5-cray-unicosmk*}alphaev5-cray-unicosmk*
+@heading @anchor{alphaev5-cray-unicosmk}alphaev5-cray-unicosmk*
 Cray T3E systems running Unicos/Mk.
 
 This port is incomplete and has many known bugs.  We hope to improve the
@@ -2425,15 +2428,15 @@ failure.
 @html
 <hr />
 @end html
-@heading @anchor{arc-*-elf}arc-*-elf
+@heading @anchor{arc-x-elf}arc-*-elf
 Argonaut ARC processor.
 This configuration is intended for embedded systems.
 
 @html
 <hr />
 @end html
-@heading @anchor{arm-*-elf}arm-*-elf
-@heading @anchor{xscale-*-*}xscale-*-*
+@heading @anchor{arm-x-elf}arm-*-elf
+@heading @anchor{xscale-x-x}xscale-*-*
 ARM-family processors.  Subtargets that use the ELF object format
 require GNU binutils 2.13 or newer.  Such subtargets include:
 @code{arm-*-freebsd}, @code{arm-*-netbsdelf}, @code{arm-*-*linux},
@@ -2442,7 +2445,7 @@ require GNU binutils 2.13 or newer.  Such subtargets include:
 @html
 <hr />
 @end html
-@heading @anchor{arm-*-coff}arm-*-coff
+@heading @anchor{arm-x-coff}arm-*-coff
 ARM-family processors.  Note that there are two different varieties
 of PE format subtarget supported: @code{arm-wince-pe} and
 @code{arm-pe} as well as a standard COFF target @code{arm-*-coff}.
@@ -2450,7 +2453,7 @@ of PE format subtarget supported: @code{arm-wince-pe} and
 @html
 <hr />
 @end html
-@heading @anchor{arm-*-aout}arm-*-aout
+@heading @anchor{arm-x-aout}arm-*-aout
 ARM-family processors.  These targets support the AOUT file format:
 @code{arm-*-aout}, @code{arm-*-netbsd}.
 
@@ -2492,6 +2495,23 @@ The following error:
 @end smallexample
 
 indicates that you should upgrade to a newer version of the binutils.
+
+@html
+<hr />
+@end html
+@heading @anchor{bfin}Blackfin
+
+The Blackfin processor, an Analog Devices DSP.
+@ifnothtml
+@xref{Blackfin Options,, Blackfin Options, gcc, Using and Porting the GNU
+Compiler Collection (GCC)},
+@end ifnothtml
+@ifhtml
+See ``Blackfin Options'' in the main manual
+@end ifhtml
+
+More information, and a version of binutils with support for this processor,
+is available at @uref{http://blackfin.uclinux.org}
 
 @html
 <hr />
@@ -2576,7 +2596,7 @@ and includes all the necessary compilation tools and libraries.
 @html
 <hr />
 @end html
-@heading @anchor{*-*-freebsd*}*-*-freebsd*
+@heading @anchor{x-x-freebsd}*-*-freebsd*
 
 The version of binutils installed in @file{/usr/bin} probably works with
 this release of GCC@.  However, on FreeBSD 4, bootstrapping against the
@@ -2637,7 +2657,7 @@ longer a multiple of 2 bytes.
 @html
 <hr />
 @end html
-@heading @anchor{hppa*-hp-hpux*}hppa*-hp-hpux*
+@heading @anchor{hppa-hp-hpux}hppa*-hp-hpux*
 Support for HP-UX version 9 and older was discontinued in GCC 3.4.
 
 We @emph{highly} recommend using gas/binutils on all hppa platforms;
@@ -2665,7 +2685,7 @@ configuring if you want a model other than PROCESSOR_8000.  The macro
 TARGET_SCHED_DEFAULT can be defined in BOOT_CFLAGS if a different
 default scheduling model is desired.
 
-As of GCC 3.5, GCC uses the UNIX 95 namespace for HP-UX 10.10
+As of GCC 4.0, GCC uses the UNIX 95 namespace for HP-UX 10.10
 through 11.00, and the UNIX 98 namespace for HP-UX 11.11 and later.
 This namespace change might cause problems when bootstrapping with
 an earlier version of GCC or the HP compiler as essentially the same
@@ -2680,7 +2700,7 @@ More specific information to @samp{hppa*-hp-hpux*} targets follows.
 @html
 <hr />
 @end html
-@heading @anchor{hppa*-hp-hpux10}hppa*-hp-hpux10
+@heading @anchor{hppa-hp-hpux10}hppa*-hp-hpux10
 
 For hpux10.20, we @emph{highly} recommend you pick up the latest sed patch
 @code{PHCO_19798} from HP@.  HP has two sites which provide patches free of
@@ -2706,10 +2726,10 @@ the 3-stage comparison test to fail during a @samp{make bootstrap}.
 You should be able to continue by saying @samp{make all} after getting
 the failure from @samp{make bootstrap}.
 
-GCC 3.5 requires CVS binutils as of April 28, 2004 or later.  Earlier
+GCC 4.0 requires CVS binutils as of April 28, 2004 or later.  Earlier
 versions require binutils 2.8 or later.
 
-The C++ ABI has changed incompatibly in GCC 3.5.  COMDAT subspaces are
+The C++ ABI has changed incompatibly in GCC 4.0.  COMDAT subspaces are
 used for one-only code and data.  This resolves many of the previous
 problems in using C++ on this target.  However, the ABI is not compatible
 with the one implemented under HP-UX 11 using secondary definitions.
@@ -2717,7 +2737,7 @@ with the one implemented under HP-UX 11 using secondary definitions.
 @html
 <hr />
 @end html
-@heading @anchor{hppa*-hp-hpux11}hppa*-hp-hpux11
+@heading @anchor{hppa-hp-hpux11}hppa*-hp-hpux11
 
 GCC 3.0 and up support HP-UX 11.  GCC 2.95.x is not supported and cannot
 be used to compile GCC 3.0 and up.
@@ -2782,7 +2802,7 @@ This has been been reported to sometimes occur in unified builds of
 binutils and GCC@.
 
 GCC 3.0 through 3.2 require binutils 2.11 or above.  GCC 3.3 through
-GCC 3.5 require binutils 2.14 or later.
+GCC 4.0 require binutils 2.14 or later.
 
 Although the HP assembler can be used for an initial build, it shouldn't
 be used with any languages other than C and perhaps Fortran due to its
@@ -2849,7 +2869,7 @@ This port still is undergoing significant development.
 @html
 <hr />
 @end html
-@heading @anchor{*-*-linux-gnu}*-*-linux-gnu
+@heading @anchor{x-x-linux-gnu}*-*-linux-gnu
 
 Versions of libstdc++-v3 starting with 3.2.1 require bugfixes present
 in glibc 2.2.5 and later.  More information is available in the
@@ -2858,14 +2878,14 @@ libstdc++-v3 documentation.
 @html
 <hr />
 @end html
-@heading @anchor{ix86-*-linux*aout}i?86-*-linux*aout
+@heading @anchor{ix86-x-linuxaout}i?86-*-linux*aout
 Use this configuration to generate @file{a.out} binaries on Linux-based
 GNU systems.  This configuration is being superseded.
 
 @html
 <hr />
 @end html
-@heading @anchor{ix86-*-linux*}i?86-*-linux*
+@heading @anchor{ix86-x-linux}i?86-*-linux*
 
 As of GCC 3.3, binutils 2.13.1 or later is required for this platform.
 See @uref{http://gcc.gnu.org/PR10877,,bug 10877} for more information.
@@ -2877,7 +2897,7 @@ found on @uref{http://www.bitwizard.nl/sig11/,,www.bitwizard.nl}.
 @html
 <hr />
 @end html
-@heading @anchor{ix86-*-sco3.2v5*}i?86-*-sco3.2v5*
+@heading @anchor{ix86-x-sco32v5}i?86-*-sco3.2v5*
 Use this for the SCO OpenServer Release 5 family of operating systems.
 
 Unlike earlier versions of GCC, the ability to generate COFF with this
@@ -2921,7 +2941,19 @@ GCC, version 2.95.3.  It is useful for bootstrapping this version.
 @html
 <hr />
 @end html
-@heading @anchor{ix86-*-udk}i?86-*-udk
+@heading @anchor{ix86-x-solaris210}i?86-*-solaris2.10
+Use this for Solaris 10 or later on x86 and x86-64 systems.  This
+configuration is supported by GCC 4.0 and later versions only.
+
+It is recommended that you configure GCC to use the GNU assembler in
+@file{/usr/sfw/bin/gas} but the Sun linker, using the options
+@option{--with-gnu-as --with-as=/usr/sfw/bin/gas --without-gnu-ld
+--with-ld=/usr/ccs/bin/ld}.
+
+@html
+<hr />
+@end html
+@heading @anchor{ix86-x-udk}i?86-*-udk
 
 This target emulates the SCO Universal Development Kit and requires that
 package be installed.  (If it is installed, you will have a
@@ -2957,7 +2989,7 @@ have installed.
 @html
 <hr />
 @end html
-@heading @anchor{ia64-*-linux}ia64-*-linux
+@heading @anchor{ia64-x-linux}ia64-*-linux
 IA-64 processor (also known as IPF, or Itanium Processor Family)
 running GNU/Linux.
 
@@ -2977,7 +3009,7 @@ more major ABI changes are expected.
 @html
 <hr />
 @end html
-@heading @anchor{ia64-*-hpux*}ia64-*-hpux*
+@heading @anchor{ia64-x-hpux}ia64-*-hpux*
 Building GCC on this target requires the GNU Assembler.  The bundled HP
 assembler will not work.  To prevent GCC from using the wrong assembler,
 the option @option{--with-gnu-as} may be necessary.
@@ -2992,11 +3024,15 @@ removed and the system libunwind library will always be used.
 <hr />
 <!-- rs6000-ibm-aix*, powerpc-ibm-aix* -->
 @end html
-@heading @anchor{*-ibm-aix*}*-ibm-aix*
+@heading @anchor{x-ibm-aix}*-ibm-aix*
 Support for AIX version 3 and older was discontinued in GCC 3.4.
 
 AIX Make frequently has problems with GCC makefiles.  GNU Make 3.79.1 or
 newer is recommended to build on this platform.
+
+``out of memory'' bootstrap failures may indicate a problem with
+process resource limits (ulimit).  Hard limits are configured in the
+@file{/etc/security/limits} system configuration file.
 
 To speed up the configuration phases of bootstrapping and installing GCC,
 one may use GNU Bash instead of AIX @command{/bin/sh}, e.g.,
@@ -3117,7 +3153,7 @@ switch and using the configure option @option{--with-cpu-@var{cpu_type}}.
 @html
 <hr />
 @end html
-@heading @anchor{ip2k-*-elf}ip2k-*-elf
+@heading @anchor{ip2k-x-elf}ip2k-*-elf
 Ubicom IP2022 micro controller.
 This configuration is intended for embedded systems.
 There are no standard Unix configurations.
@@ -3127,14 +3163,14 @@ Use @samp{configure --target=ip2k-elf --enable-languages=c} to configure GCC@.
 @html
 <hr />
 @end html
-@heading @anchor{iq2000-*-elf}iq2000-*-elf
+@heading @anchor{iq2000-x-elf}iq2000-*-elf
 Vitesse IQ2000 processors.  These are used in embedded
 applications.  There are no standard Unix configurations.
 
 @html
 <hr />
 @end html
-@heading @anchor{m32r-*-elf}m32r-*-elf
+@heading @anchor{m32r-x-elf}m32r-*-elf
 Renesas M32R processor.
 This configuration is intended for embedded systems.
 
@@ -3208,7 +3244,7 @@ to look like:
 @html
 <hr />
 @end html
-@heading @anchor{mips-*-*}mips-*-*
+@heading @anchor{mips-x-x}mips-*-*
 If on a MIPS system you get an error message saying ``does not have gp
 sections for all it's [sic] sectons [sic]'', don't worry about it.  This
 happens whenever you use GAS with the MIPS linker, but there is not
@@ -3354,7 +3390,7 @@ information about using GCC on IRIX platforms.
 @html
 <hr />
 @end html
-@heading @anchor{powerpc*-*-*}powerpc-*-*
+@heading @anchor{powerpc-x-x}powerpc-*-*
 
 You can specify a default version for the @option{-mcpu=@var{cpu_type}}
 switch by using the configure option @option{--with-cpu-@var{cpu_type}}.
@@ -3362,7 +3398,7 @@ switch by using the configure option @option{--with-cpu-@var{cpu_type}}.
 @html
 <hr />
 @end html
-@heading @anchor{powerpc-*-darwin*}powerpc-*-darwin*
+@heading @anchor{powerpc-x-darwin}powerpc-*-darwin*
 PowerPC running Darwin (Mac OS X kernel).
 
 Pre-installed versions of Mac OS X may not include any developer tools,
@@ -3380,22 +3416,22 @@ are generally for backwards compatibility and best avoided.
 @html
 <hr />
 @end html
-@heading @anchor{powerpc-*-elf}powerpc-*-elf, powerpc-*-sysv4
+@heading @anchor{powerpc-x-elf}powerpc-*-elf, powerpc-*-sysv4
 PowerPC system in big endian mode, running System V.4.
 
 @html
 <hr />
 @end html
-@heading @anchor{powerpc-*-linux-gnu*}powerpc-*-linux-gnu*
+@heading @anchor{powerpc-x-linux-gnu}powerpc*-*-linux-gnu*
 
 You will need
-@uref{ftp://ftp.kernel.org/pub/linux/devel/binutils,,binutils 2.13.90.0.10}
+@uref{ftp://ftp.kernel.org/pub/linux/devel/binutils,,binutils 2.15}
 or newer for a working GCC@.
 
 @html
 <hr />
 @end html
-@heading @anchor{powerpc-*-netbsd*}powerpc-*-netbsd*
+@heading @anchor{powerpc-x-netbsd}powerpc-*-netbsd*
 PowerPC system in big endian mode running NetBSD@.  To build the
 documentation you will need Texinfo version 4.2 (NetBSD 1.5.1 included
 Texinfo version 3.12).
@@ -3403,51 +3439,51 @@ Texinfo version 3.12).
 @html
 <hr />
 @end html
-@heading @anchor{powerpc-*-eabisim}powerpc-*-eabisim
+@heading @anchor{powerpc-x-eabisim}powerpc-*-eabisim
 Embedded PowerPC system in big endian mode for use in running under the
 PSIM simulator.
 
 @html
 <hr />
 @end html
-@heading @anchor{powerpc-*-eabi}powerpc-*-eabi
+@heading @anchor{powerpc-x-eabi}powerpc-*-eabi
 Embedded PowerPC system in big endian mode.
 
 @html
 <hr />
 @end html
-@heading @anchor{powerpcle-*-elf}powerpcle-*-elf, powerpcle-*-sysv4
+@heading @anchor{powerpcle-x-elf}powerpcle-*-elf, powerpcle-*-sysv4
 PowerPC system in little endian mode, running System V.4.
 
 @html
 <hr />
 @end html
-@heading @anchor{powerpcle-*-eabisim}powerpcle-*-eabisim
+@heading @anchor{powerpcle-x-eabisim}powerpcle-*-eabisim
 Embedded PowerPC system in little endian mode for use in running under
 the PSIM simulator.
 
 @html
 <hr />
 @end html
-@heading @anchor{powerpcle-*-eabi}powerpcle-*-eabi
+@heading @anchor{powerpcle-x-eabi}powerpcle-*-eabi
 Embedded PowerPC system in little endian mode.
 
 @html
 <hr />
 @end html
-@heading @anchor{s390-*-linux*}s390-*-linux*
+@heading @anchor{s390-x-linux}s390-*-linux*
 S/390 system running GNU/Linux for S/390@.
 
 @html
 <hr />
 @end html
-@heading @anchor{s390x-*-linux*}s390x-*-linux*
+@heading @anchor{s390x-x-linux}s390x-*-linux*
 zSeries system (64-bit) running GNU/Linux for zSeries@.
 
 @html
 <hr />
 @end html
-@heading @anchor{s390x-ibm-tpf*}s390x-ibm-tpf*
+@heading @anchor{s390x-ibm-tpf}s390x-ibm-tpf*
 zSeries system (64-bit) running TPF@.  This platform is
 supported as cross-compilation target only.
 
@@ -3458,7 +3494,7 @@ supported as cross-compilation target only.
 @c with 2.0 until 2.6, 7, 8, etc.  Solaris 1 was a marketing name for
 @c SunOS 4 releases which we don't use to avoid confusion.  Solaris
 @c alone is too unspecific and must be avoided.
-@heading @anchor{*-*-solaris2*}*-*-solaris2*
+@heading @anchor{x-x-solaris2}*-*-solaris2*
 
 Sun does not ship a C compiler with Solaris 2.  To bootstrap and install
 GCC you first have to install a pre-built compiler, see the
@@ -3542,7 +3578,7 @@ SPARC, 117172-11 or newer for Intel) that address this problem.
 @html
 <hr />
 @end html
-@heading @anchor{sparc-sun-solaris2*}sparc-sun-solaris2*
+@heading @anchor{sparc-sun-solaris2}sparc-sun-solaris2*
 
 When GCC is configured to use binutils 2.11.2 or later the binaries
 produced are smaller than the ones produced using Sun's native tools;
@@ -3613,7 +3649,7 @@ or later system, the canonical target triplet must be specified as the
 @html
 <hr />
 @end html
-@heading @anchor{sparc-sun-solaris2.7}sparc-sun-solaris2.7
+@heading @anchor{sparc-sun-solaris27}sparc-sun-solaris2.7
 
 Sun patch 107058-01 (1999-01-13) for Solaris 7/SPARC triggers a bug in
 the dynamic linker.  This problem (Sun bug 4210064) affects GCC 2.8
@@ -3664,7 +3700,7 @@ This bug has been fixed in the final 5.0 version of the assembler.
 @html
 <hr />
 @end html
-@heading @anchor{sparc-*-linux*}sparc-*-linux*
+@heading @anchor{sparc-x-linux}sparc-*-linux*
 
 GCC versions 3.0 and higher require binutils 2.11.2 and glibc 2.2.4
 or newer on this platform.  All earlier binutils and glibc
@@ -3674,7 +3710,7 @@ releases mishandled unaligned relocations on @code{sparc-*-*} targets.
 @html
 <hr />
 @end html
-@heading @anchor{sparc64-*-solaris2*}sparc64-*-solaris2*
+@heading @anchor{sparc64-x-solaris2}sparc64-*-solaris2*
 
 The following compiler flags must be specified in the configure
 step in order to bootstrap this target with the Sun compiler:
@@ -3689,14 +3725,14 @@ specifies the SPARC-V9 architecture to the Sun linker and assembler.
 @html
 <hr />
 @end html
-@heading @anchor{sparcv9-*-solaris2*}sparcv9-*-solaris2*
+@heading @anchor{sparcv9-x-solaris2}sparcv9-*-solaris2*
 
 This is a synonym for sparc64-*-solaris2*.
 
 @html
 <hr />
 @end html
-@heading @anchor{#*-*-sysv*}*-*-sysv*
+@heading @anchor{x-x-sysv}*-*-sysv*
 On System V release 3, you may get this error message
 while linking:
 
@@ -3737,7 +3773,7 @@ in some cases (for example, when @code{alloca} is used).
 @html
 <hr />
 @end html
-@heading @anchor{*-*-vxworks*}*-*-vxworks*
+@heading @anchor{x-x-vxworks}*-*-vxworks*
 Support for VxWorks is in flux.  At present GCC supports @emph{only} the
 very recent VxWorks 5.5 (aka Tornado 2.2) release, and only on PowerPC@.
 We welcome patches for other architectures supported by VxWorks 5.5.
@@ -3772,7 +3808,7 @@ VxWorks will incorporate this module.)
 @html
 <hr />
 @end html
-@heading @anchor{x86_64-*-*}x86_64-*-*, amd64-*-*
+@heading @anchor{x86-64-x-x}x86_64-*-*, amd64-*-*
 
 GCC supports the x86-64 architecture implemented by the AMD64 processor
 (amd64-*-* is an alias for x86_64-*-*) on GNU/Linux, FreeBSD and NetBSD@.
@@ -3782,7 +3818,7 @@ both 64-bit x86-64 and 32-bit x86 code (via the @option{-m32} switch).
 @html
 <hr />
 @end html
-@heading @anchor{xtensa-*-elf}xtensa-*-elf
+@heading @anchor{xtensa-x-elf}xtensa-*-elf
 
 This target is intended for embedded Xtensa systems using the
 @samp{newlib} C library.  It uses ELF but does not support shared
@@ -3800,7 +3836,7 @@ which you can use to replace the default header file.
 @html
 <hr />
 @end html
-@heading @anchor{xtensa-*-linux*}xtensa-*-linux*
+@heading @anchor{xtensa-x-linux}xtensa-*-linux*
 
 This target is for Xtensa systems running GNU/Linux.  It supports ELF
 shared objects and the GNU C library (glibc).  It also generates
@@ -3885,7 +3921,7 @@ current GCC) is to be found in the GCC texinfo manual.
 @html
 <hr />
 @end html
-@heading @anchor{elf_targets}all ELF targets (SVR4, Solaris 2, etc.)
+@heading @anchor{elf}all ELF targets (SVR4, Solaris 2, etc.)
 
 C++ support is significantly better on ELF targets if you use the
 @uref{./configure.html#with-gnu-ld,,GNU linker}; duplicate copies of

@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Windows NT.
    Contributed by Douglas Rupp (drupp@cs.washington.edu)
-   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -71,13 +71,43 @@ ix86_handle_shared_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) != VAR_DECL)
     {
-      warning ("%qs attribute only applies to variables",
+      warning (0, "%qs attribute only applies to variables",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
   return NULL_TREE;
 }
+
+/* Handle a "selectany" attribute;
+   arguments as in struct attribute_spec.handler.  */
+tree
+ix86_handle_selectany_attribute (tree *node, tree name,
+			         tree args ATTRIBUTE_UNUSED,
+			         int flags ATTRIBUTE_UNUSED,
+				 bool *no_add_attrs)
+{
+  /* The attribute applies only to objects that are initialized and have
+     external linkage,  */	
+  if (TREE_CODE (*node) == VAR_DECL && TREE_PUBLIC (*node)
+      && (DECL_INITIAL (*node)
+          /* If an object is initialized with a ctor, the static
+	     initialization and destruction code for it is present in
+	     each unit defining the object.  The code that calls the
+	     ctor is protected by a link-once guard variable, so that
+	     the object still has link-once semantics,  */
+    	  || TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (*node))))
+    make_decl_one_only (*node);
+  else
+    {	
+      error ("%qs attribute applies only to initialized variables"
+       	     " with external linkage",  IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 
 /* Return the type that we should use to determine if DECL is
    imported or exported.  */
@@ -169,7 +199,7 @@ i386_pe_dllimport_p (tree decl)
 	{
 	   /* Don't warn about artificial methods.  */
 	  if (!DECL_ARTIFICIAL (decl))
-	    warning ("%Jfunction '%D' is defined after prior declaration "
+	    warning (0, "%Jfunction '%D' is defined after prior declaration "
 		     "as dllimport: attribute ignored", decl, decl);
 	  return 0;
 	}
@@ -180,7 +210,7 @@ i386_pe_dllimport_p (tree decl)
       else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
         {
 	  if (extra_warnings)
-	    warning ("%Jinline function '%D' is declared as dllimport: "
+	    warning (0, "%Jinline function '%D' is declared as dllimport: "
 		     "attribute ignored.", decl, decl);
 	  return 0;
 	}
@@ -243,16 +273,13 @@ i386_pe_mark_dllexport (tree decl)
   tree idp;
 
   rtlname = XEXP (DECL_RTL (decl), 0);
-  if (GET_CODE (rtlname) == SYMBOL_REF)
-    oldname = XSTR (rtlname, 0);
-  else if (GET_CODE (rtlname) == MEM
-	   && GET_CODE (XEXP (rtlname, 0)) == SYMBOL_REF)
-    oldname = XSTR (XEXP (rtlname, 0), 0);
-  else
-    abort ();
+  if (GET_CODE (rtlname) == MEM)
+    rtlname = XEXP (rtlname, 0);
+  gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
+  oldname = XSTR (rtlname, 0);
   if (i386_pe_dllimport_name_p (oldname))
     {
-      warning ("%Jinconsistent dll linkage for '%D', dllexport assumed.",
+      warning (0, "%Jinconsistent dll linkage for '%D', dllexport assumed.",
 	       decl, decl);
      /* Remove DLL_IMPORT_PREFIX.  */
       oldname += strlen (DLL_IMPORT_PREFIX);
@@ -287,13 +314,10 @@ i386_pe_mark_dllimport (tree decl)
   rtx symref;
 
   rtlname = XEXP (DECL_RTL (decl), 0);
-  if (GET_CODE (rtlname) == SYMBOL_REF)
-    oldname = XSTR (rtlname, 0);
-  else if (GET_CODE (rtlname) == MEM
-	   && GET_CODE (XEXP (rtlname, 0)) == SYMBOL_REF)
-    oldname = XSTR (XEXP (rtlname, 0), 0);
-  else
-    abort ();
+  if (GET_CODE (rtlname) == MEM)
+    rtlname = XEXP (rtlname, 0);
+  gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
+  oldname = XSTR (rtlname, 0);
   if (i386_pe_dllexport_name_p (oldname))
     {
       error ("%qs declared as both exported to and imported from a DLL",
@@ -302,14 +326,9 @@ i386_pe_mark_dllimport (tree decl)
     }
   else if (i386_pe_dllimport_name_p (oldname))
     {
-      /* Already done, but do a sanity check to prevent assembler errors.  */
-      if (!DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl))
-	{
-	  error ("%Jfailure in redeclaration of '%D': dllimport'd "
-		 "symbol lacks external linkage.", decl, decl);
-	  abort();
-	}
-      return;
+      /* Already done, but do a sanity check to prevent assembler
+	 errors.  */
+      gcc_assert (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl));
     }
 
   newname = alloca (strlen (DLL_IMPORT_PREFIX) + strlen (oldname) + 1);
@@ -444,10 +463,10 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
 	 We leave these alone for now.  */
 
       if (DECL_INITIAL (decl) || !DECL_EXTERNAL (decl))
-	warning ("%J'%D' defined locally after being "
+	warning (0, "%J'%D' defined locally after being "
 		 "referenced with dllimport linkage", decl, decl);
       else
-	warning ("%J'%D' redeclared without dllimport attribute "
+	warning (0, "%J'%D' redeclared without dllimport attribute "
 		 "after being referenced with dllimport linkage", decl, decl);
     }
 }
@@ -622,7 +641,7 @@ i386_pe_section_type_flags (tree decl, const char *name, int reloc)
 
 void
 i386_pe_asm_named_section (const char *name, unsigned int flags, 
-			   tree decl ATTRIBUTE_UNUSED)
+			   tree decl)
 {
   char flagchars[8], *f = flagchars;
 
@@ -649,10 +668,16 @@ i386_pe_asm_named_section (const char *name, unsigned int flags,
   if (flags & SECTION_LINKONCE)
     {
       /* Functions may have been compiled at various levels of
-         optimization so we can't use `same_size' here.
-         Instead, have the linker pick one.  */
+	 optimization so we can't use `same_size' here.
+	 Instead, have the linker pick one, without warning.
+	 If 'selectany' attribute has been specified,  MS compiler
+	 sets 'discard' characteristic, rather than telling linker
+	 to warn of size or content mismatch, so do the same.  */ 
+      bool discard = (flags & SECTION_CODE)
+		      || lookup_attribute ("selectany",
+					   DECL_ATTRIBUTES (decl));	 
       fprintf (asm_out_file, "\t.linkonce %s\n",
-	       (flags & SECTION_CODE ? "discard" : "same_size"));
+	       (discard  ? "discard" : "same_size"));
     }
 }
 
@@ -683,6 +708,7 @@ i386_pe_declare_function_type (FILE *file, const char *name, int public)
 struct extern_list GTY(())
 {
   struct extern_list *next;
+  tree decl;
   const char *name;
 };
 
@@ -695,12 +721,13 @@ static GTY(()) struct extern_list *extern_head;
    for it then.  */
 
 void
-i386_pe_record_external_function (const char *name)
+i386_pe_record_external_function (tree decl, const char *name)
 {
   struct extern_list *p;
 
   p = (struct extern_list *) ggc_alloc (sizeof *p);
   p->next = extern_head;
+  p->decl = decl;
   p->name = name;
   extern_head = p;
 }
@@ -749,10 +776,11 @@ i386_pe_file_end (void)
     {
       tree decl;
 
-      decl = get_identifier (p->name);
+      decl = p->decl;
 
       /* Positively ensure only one declaration for any given symbol.  */
-      if (! TREE_ASM_WRITTEN (decl) && TREE_SYMBOL_REFERENCED (decl))
+      if (! TREE_ASM_WRITTEN (decl)
+	  && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	{
 	  TREE_ASM_WRITTEN (decl) = 1;
 	  i386_pe_declare_function_type (asm_out_file, p->name,

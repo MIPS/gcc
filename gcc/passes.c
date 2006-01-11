@@ -78,7 +78,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "opts.h"
 #include "coverage.h"
 #include "value-prof.h"
-#include "alloc-pool.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
 
@@ -120,8 +119,7 @@ open_dump_file (enum tree_dump_index index, tree decl)
 
   timevar_push (TV_DUMP);
 
-  if (dump_file != NULL || dump_file_name != NULL)
-    abort ();
+  gcc_assert (!dump_file && !dump_file_name);
 
   dump_file_name = get_dump_file_name (index);
   initializing_dump = !dump_initialized_p (index);
@@ -225,7 +223,7 @@ rest_of_decl_compilation (tree decl,
 	 (see gcc.c-torture/compile/920624-1.c) */
       if ((at_end
 	   || !DECL_DEFER_OUTPUT (decl)
-	   || (flag_unit_at_a_time && DECL_INITIAL (decl)))
+	   || DECL_INITIAL (decl))
 	  && !DECL_EXTERNAL (decl))
 	{
 	  if (flag_unit_at_a_time && !cgraph_global_info_ready
@@ -252,7 +250,7 @@ rest_of_decl_compilation (tree decl,
       timevar_pop (TV_SYMOUT);
     }
 
-  /* Let cgraph know about the existance of variables.  */
+  /* Let cgraph know about the existence of variables.  */
   if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
     cgraph_varpool_node (decl);
 }
@@ -285,16 +283,14 @@ rest_of_handle_final (void)
        different from the DECL_NAME name used in the source file.  */
 
     x = DECL_RTL (current_function_decl);
-    if (!MEM_P (x))
-      abort ();
+    gcc_assert (MEM_P (x));
     x = XEXP (x, 0);
-    if (GET_CODE (x) != SYMBOL_REF)
-      abort ();
+    gcc_assert (GET_CODE (x) == SYMBOL_REF);
     fnname = XSTR (x, 0);
 
     assemble_start_function (current_function_decl, fnname);
     final_start_function (get_insns (), asm_out_file, optimize);
-    final (get_insns (), asm_out_file, optimize, 0);
+    final (get_insns (), asm_out_file, optimize);
     final_end_function ();
 
 #ifdef TARGET_UNWIND_INFO
@@ -462,7 +458,7 @@ rest_of_handle_old_regalloc (void)
       timevar_push (TV_JUMP);
 
       rebuild_jump_labels (get_insns ());
-      purge_all_dead_edges (0);
+      purge_all_dead_edges ();
       delete_unreachable_blocks ();
 
       timevar_pop (TV_JUMP);
@@ -575,24 +571,38 @@ rest_of_handle_partition_blocks (void)
 static void
 rest_of_handle_sms (void)
 {
+  basic_block bb;
+  sbitmap blocks;
+
   timevar_push (TV_SMS);
   open_dump_file (DFI_sms, current_function_decl);
 
   /* We want to be able to create new pseudos.  */
   no_new_pseudos = 0;
+  /* Collect loop information to be used in SMS.  */
+  cfg_layout_initialize (CLEANUP_UPDATE_LIFE);
   sms_schedule (dump_file);
   close_dump_file (DFI_sms, print_rtl, get_insns ());
-
 
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
-  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-				    (PROP_DEATH_NOTES
-				     | PROP_KILL_DEAD_CODE
-				     | PROP_SCAN_DEAD_CODE));
+  blocks = sbitmap_alloc (last_basic_block);
+  sbitmap_ones (blocks);
+  update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
+		    (PROP_DEATH_NOTES
+		     | PROP_REG_INFO
+		     | PROP_KILL_DEAD_CODE
+		     | PROP_SCAN_DEAD_CODE));
+
   no_new_pseudos = 1;
 
+  /* Finalize layout changes.  */
+  FOR_EACH_BB (bb)
+    if (bb->next_bb != EXIT_BLOCK_PTR)
+      bb->rbi->next = bb->next_bb;
+  cfg_layout_finalize ();
+  free_dominance_info (CDI_DOMINATORS);
   ggc_collect ();
   timevar_pop (TV_SMS);
 }
@@ -967,7 +977,7 @@ rest_of_handle_cse (void)
   tem = cse_main (get_insns (), max_reg_num (), dump_file);
   if (tem)
     rebuild_jump_labels (get_insns ());
-  if (purge_all_dead_edges (0))
+  if (purge_all_dead_edges ())
     delete_unreachable_blocks ();
 
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
@@ -1007,7 +1017,7 @@ rest_of_handle_cse2 (void)
      bypassed safely.  */
   cse_condition_code_reg ();
 
-  purge_all_dead_edges (0);
+  purge_all_dead_edges ();
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
 
   if (tem)
@@ -1050,7 +1060,7 @@ rest_of_handle_gcse (void)
       timevar_push (TV_CSE);
       reg_scan (get_insns (), max_reg_num ());
       tem2 = cse_main (get_insns (), max_reg_num (), dump_file);
-      purge_all_dead_edges (0);
+      purge_all_dead_edges ();
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
       timevar_pop (TV_CSE);
       cse_not_expected = !flag_rerun_cse_after_loop;
@@ -1201,7 +1211,7 @@ rest_of_handle_branch_target_load_optimize (void)
       && flag_branch_target_load_optimize2
       && !warned)
     {
-      warning ("branch target register load optimization is not intended "
+      warning (0, "branch target register load optimization is not intended "
 	       "to be run twice");
 
       warned = 1;
@@ -1398,7 +1408,7 @@ rest_of_handle_postreload (void)
   /* reload_cse_regs can eliminate potentially-trapping MEMs.
      Remove any EH edges associated with them.  */
   if (flag_non_call_exceptions)
-    purge_all_dead_edges (0);
+    purge_all_dead_edges ();
 
   close_dump_file (DFI_postreload, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_RELOAD_CSE_REGS);
@@ -1546,15 +1556,6 @@ rest_of_compilation (void)
 
   /* Copy any shared structure that should not be shared.  */
   unshare_all_rtl ();
-
-#ifdef SETJMP_VIA_SAVE_AREA
-  /* This must be performed before virtual register instantiation.
-     Please be aware that everything in the compiler that can look
-     at the RTL up to this point must understand that REG_SAVE_AREA
-     is just like a use of the REG contained inside.  */
-  if (current_function_calls_alloca)
-    optimize_save_area_alloca ();
-#endif
 
   /* Instantiate all virtual registers.  */
   instantiate_virtual_regs ();

@@ -498,6 +498,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	bool inner_const_flag = const_flag;
 	bool static_p = Is_Statically_Allocated (gnat_entity);
 	tree gnu_ext_name = NULL_TREE;
+	tree renamed_obj = NULL_TREE;
 
 	if (Present (Renamed_Object (gnat_entity)) && !definition)
 	  {
@@ -775,32 +776,23 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      }
 
 	    /* Otherwise, make this into a constant pointer to the object we
-	       are to rename.
-
-	       Stabilize it if we are not at the global level since in this
-	       case the renaming evaluation may directly dereference the
-	       initial value we make here instead of the pointer we will
-	       assign it to.  We don't want variables in the expression to be
-	       evaluated every time the renaming is used, since the value of
-	       these variables may change in between.
-
-	       If we are at the global level and the value is not constant,
-	       create_var_decl generates a mere elaboration assignment and
-	       does not attach the initial expression to the declaration.
-	       There is no possible direct initial-value dereference then.  */
+	       are to rename and attach the object to the pointer.  We need
+	       to stabilize too since the renaming evaluation may directly
+	       reference the renamed object instead of the pointer we will
+	       attach it to.  We don't want variables in the expression to
+	       be evaluated every time the renaming is used, since their
+	       value may change in between.  */
 	    else
 	      {
+		bool has_side_effects = TREE_SIDE_EFFECTS (gnu_expr);
 		inner_const_flag = TREE_READONLY (gnu_expr);
 		const_flag = true;
 		gnu_type = build_reference_type (gnu_type);
-		gnu_expr = build_unary_op (ADDR_EXPR, gnu_type, gnu_expr);
+		renamed_obj = gnat_stabilize_reference (gnu_expr, true);
+		gnu_expr = build_unary_op (ADDR_EXPR, gnu_type, renamed_obj);
 
 		if (!global_bindings_p ())
 		  {
-		    bool has_side_effects = TREE_SIDE_EFFECTS (gnu_expr);
-
-		    gnu_expr = gnat_stabilize_reference (gnu_expr, true);
-
 		    /* If the original expression had side effects, put a
 		       SAVE_EXPR around this whole thing.  */
 		    if (has_side_effects)
@@ -1047,7 +1039,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	  gnu_ext_name = create_concat_name (gnat_entity, 0);
 
 	/* If this is constant initialized to a static constant and the
-	   object has an aggregrate type, force it to be statically
+	   object has an aggregate type, force it to be statically
 	   allocated. */
 	if (const_flag && gnu_expr && TREE_CONSTANT (gnu_expr)
 	    && host_integerp (TYPE_SIZE_UNIT (gnu_type), 1)
@@ -1063,6 +1055,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 				    static_p, attr_list, gnat_entity);
 	DECL_BY_REF_P (gnu_decl) = used_by_ref;
 	DECL_POINTS_TO_READONLY_P (gnu_decl) = used_by_ref && inner_const_flag;
+	if (TREE_CODE (gnu_decl) == VAR_DECL && renamed_obj)
+	  {
+	    SET_DECL_RENAMED_OBJECT (gnu_decl, renamed_obj);
+	    DECL_RENAMING_GLOBAL_P (gnu_decl) = global_bindings_p ();
+	  }
 
 	/* If we have an address clause and we've made this indirect, it's
 	   not enough to merely mark the type as volatile since volatile
@@ -2887,7 +2884,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	/* If we are pointing to an incomplete type whose completion is an
 	   unconstrained array, make a fat pointer type instead of a pointer
 	   to VOID.  The two types in our fields will be pointers to VOID and
-	   will be replaced in update_pointer_to.  Similiarly, if the type
+	   will be replaced in update_pointer_to.  Similarly, if the type
 	   itself is a dummy type or an unconstrained array.  Also make
 	   a dummy TYPE_OBJECT_RECORD_TYPE in case we have any thin
 	   pointers to it.  */
@@ -3424,7 +3421,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      post_error ("unsupported mechanism for&", gnat_param);
 
 	    /* If this is either a foreign function or if the
-	       underlying type won't be passed by refererence, strip off
+	       underlying type won't be passed by reference, strip off
 	       possible padding type.  */
 	    if (TREE_CODE (gnu_param_type) == RECORD_TYPE
 		&& TYPE_IS_PADDING_P (gnu_param_type)
@@ -4351,7 +4348,7 @@ copy_alias_set (tree gnu_new_type, tree gnu_old_type)
 /* Return a TREE_LIST describing the substitutions needed to reflect
    discriminant substitutions from GNAT_SUBTYPE to GNAT_TYPE and add
    them to GNU_LIST.  If GNAT_TYPE is not specified, use the base type
-   of GNAT_SUBTYPE. The substitions can be in any order.  TREE_PURPOSE
+   of GNAT_SUBTYPE. The substitutions can be in any order.  TREE_PURPOSE
    gives the tree for the discriminant and TREE_VALUES is the replacement
    value.  They are in the form of operands to substitute_in_expr.
    DEFINITION is as in gnat_to_gnu_entity.  */
@@ -4620,7 +4617,7 @@ elaborate_expression (Node_Id gnat_expr, Entity_Id gnat_entity,
 		   && Ekind (Entity (gnat_expr)) == E_Discriminant)))
     return 0;
 
-  /* Otherwise, convert this tree to its GCC equivalant.  */
+  /* Otherwise, convert this tree to its GCC equivalent.  */
   gnu_expr
     = elaborate_expression_1 (gnat_expr, gnat_entity, gnat_to_gnu (gnat_expr),
 			      gnu_name, definition, need_debug);
@@ -5140,17 +5137,6 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
     gnu_size = validate_size (Esize (gnat_field), gnu_field_type,
 			      gnat_field, FIELD_DECL, false, true);
 
-  /* If the field's type is justified modular and the size of the packed
-     array it wraps is the same as that of the field, we can make the field
-     the type of the inner object.  Note that we may need to do so if the
-     record is packed or the field has a component clause, but these cases
-     are handled later.  */
-  if (TREE_CODE (gnu_field_type) == RECORD_TYPE
-      && TYPE_JUSTIFIED_MODULAR_P (gnu_field_type)
-      && tree_int_cst_equal (TYPE_SIZE (gnu_field_type),
-			     TYPE_ADA_SIZE (gnu_field_type)))
-    gnu_field_type = TREE_TYPE (TYPE_FIELDS (gnu_field_type));
-
   /* If we are packing this record, have a specified size that's smaller than
      that of the field type, or a position is specified, and the field type
      is also a record that's BLKmode and with a small constant size, see if
@@ -5225,7 +5211,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 	    }
 
 	  /* If Aliased, the size must match exactly the rounded size.  We
-	     used to be more accomodating here and accept greater sizes, but
+	     used to be more accommodating here and accept greater sizes, but
 	     fully supporting this case on big-endian platforms would require
 	     switching to a more involved layout for the field.  */
 	  else if (Is_Aliased (gnat_field)
@@ -5717,7 +5703,7 @@ annotate_value (tree gnu_size)
       /* For negative values, use NEGATE_EXPR of the supplied value.  */
       if (tree_int_cst_sgn (gnu_size) < 0)
 	{
-	  /* The rediculous code below is to handle the case of the largest
+	  /* The ridiculous code below is to handle the case of the largest
 	     negative integer.  */
 	  tree negative_size = size_diffop (bitsize_zero_node, gnu_size);
 	  bool adjust = false;
@@ -6416,7 +6402,6 @@ gnat_substitute_in_type (tree t, tree f, tree r)
 
     case OFFSET_TYPE:
     case METHOD_TYPE:
-    case FILE_TYPE:
     case FUNCTION_TYPE:
     case LANG_TYPE:
       /* Don't know how to do these yet.  */

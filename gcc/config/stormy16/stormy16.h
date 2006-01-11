@@ -61,13 +61,6 @@ Boston, MA 02111-1307, USA.  */
   builtin_assert ("cpu=xstormy16");     \
 } while (0)
 
-/* This declaration should be present.  */
-extern int target_flags;
-
-#define TARGET_SWITCHES					\
-  {{ "sim", 0, "Provide libraries for the simulator" },	\
-   { "", 0, "" }}
-
 #define TARGET_VERSION fprintf (stderr, " (xstormy16 cpu core)");
 
 #define CAN_DEBUG_WITHOUT_FP
@@ -809,18 +802,6 @@ do  {						\
 
 
 /* Miscellaneous Parameters.  */
-
-#define PREDICATE_CODES					\
-  {"shift_operator", {ASHIFT, ASHIFTRT, LSHIFTRT }},	\
-  {"equality_operator", {EQ, NE }},			\
-  {"inequality_operator", {GE, GT, LE, LT, GEU, GTU, LEU, LTU }}, \
-  {"xstormy16_ineqsi_operator", {LT, GE, LTU, GEU }}, \
-  {"xstormy16_below100_operand", {MEM }}, \
-  {"xstormy16_below100_or_register", {MEM, REG }}, \
-  {"xstormy16_splittable_below100_or_register", {MEM, REG }}, \
-  {"xstormy16_onebit_clr_operand", {CONST_INT }}, \
-  {"xstormy16_onebit_set_operand", {CONST_INT }}, \
-  {"nonimmediate_nonstack_operand", {REG, MEM}},
 
 #define CASE_VECTOR_MODE SImode
 

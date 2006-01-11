@@ -1,3 +1,34 @@
+2005-05-09  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-04-19  Hans-Peter Nilsson  <hp@axis.com>
+
+	* os_dep.c, include/private/gc_locks.h: Import CRIS port by
+	Simon Posnjak from gc6.4.
+	* include/private/gcconfig.h: Ditto.  Add M32R note from gc6.4.
+
+2005-04-17  David S. Miller  <davem@davemloft.net>
+
+	* include/private/gcconfig.h (sparc-linux): Use LINUX_STACKBOTTOM.
+	* os_dep.c (GC_linux_stack_base): Check for bug present in some
+	Sparc glibc variants where __libc_stack_end is erroneously set
+	to "1".  Fallback to procfs code in that case.
+
+2005-04-12  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-04-12  Richard Henderson  <rth@redhat.com>
+
+	* include/private/gcconfig.h (alpha-linux): Use LINUX_STACKBOTTOM.
+
+2005-03-23  Mike Stump  <mrs@apple.com>
+
+	* darwin_stop_world.c: Update for -m64 multilib.
+	* include/private/gcconfig.h: Likewise.
+	* powerpc_darwin_mach_dep.s: Likewise.
+
 2005-03-01  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Makefile.in, include/Makefile.in: Regenerate.

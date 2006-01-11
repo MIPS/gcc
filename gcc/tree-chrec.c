@@ -35,6 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "varray.h"
 #include "tree-chrec.h"
 #include "tree-pass.h"
+#include "params.h"
 
 
 
@@ -286,11 +287,17 @@ chrec_fold_plus_1 (enum tree_code code,
 				    build_int_cst_type (type, -1)));
 
 	default:
-	  if (tree_contains_chrecs (op0)
-	      || tree_contains_chrecs (op1))
-	    return build (code, type, op0, op1);
-	  else
-	    return fold (build (code, type, op0, op1));
+	  {
+	    int size = 0;
+	    if ((tree_contains_chrecs (op0, &size)
+		 || tree_contains_chrecs (op1, &size))
+		&& size < PARAM_VALUE (PARAM_SCEV_MAX_EXPR_SIZE))
+	      return build2 (code, type, op0, op1);
+	    else if (size < PARAM_VALUE (PARAM_SCEV_MAX_EXPR_SIZE))
+	      return fold_build2 (code, type, op0, op1);
+	    else
+	      return chrec_dont_know;
+	  }
 	}
     }
 }
@@ -374,7 +381,7 @@ chrec_fold_multiply (tree type,
 	    return op0;
 	  if (integer_zerop (op1))
 	    return build_int_cst_type (type, 0);
-	  return fold (build (MULT_EXPR, type, op0, op1));
+	  return fold_build2 (MULT_EXPR, type, op0, op1);
 	}
     }
 }
@@ -478,8 +485,8 @@ chrec_evaluate (unsigned var, tree chrec, tree n, unsigned int k)
       binomial_n_k = tree_fold_binomial (type, n, k);
       if (!binomial_n_k)
 	return chrec_dont_know;
-      arg1 = fold (build2 (MULT_EXPR, type,
-			   CHREC_LEFT (chrec), binomial_n_k));
+      arg1 = fold_build2 (MULT_EXPR, type,
+			  CHREC_LEFT (chrec), binomial_n_k);
       return chrec_fold_plus (type, arg0, arg1);
     }
 
@@ -487,7 +494,7 @@ chrec_evaluate (unsigned var, tree chrec, tree n, unsigned int k)
   if (!binomial_n_k)
     return chrec_dont_know;
   
-  return fold (build2 (MULT_EXPR, type, chrec, binomial_n_k));
+  return fold_build2 (MULT_EXPR, type, chrec, binomial_n_k);
 }
 
 /* Evaluates "CHREC (X)" when the varying variable is VAR.  
@@ -717,7 +724,7 @@ reset_evolution_in_loop (unsigned loop_num,
 {
   if (TREE_CODE (chrec) == POLYNOMIAL_CHREC
       && CHREC_VARIABLE (chrec) > loop_num)
-    return build 
+    return build2 
       (TREE_CODE (chrec), 
        build_int_cst (NULL_TREE, CHREC_VARIABLE (chrec)), 
        reset_evolution_in_loop (loop_num, CHREC_LEFT (chrec), new_evol), 
@@ -862,29 +869,34 @@ chrec_contains_undetermined (tree chrec)
     }
 }
 
-/* Determines whether the tree EXPR contains chrecs.  */
+/* Determines whether the tree EXPR contains chrecs, and increment
+   SIZE if it is not a NULL pointer by an estimation of the depth of
+   the tree.  */
 
 bool
-tree_contains_chrecs (tree expr)
+tree_contains_chrecs (tree expr, int *size)
 {
   if (expr == NULL_TREE)
     return false;
+
+  if (size)
+    (*size)++;
   
   if (tree_is_chrec (expr))
     return true;
-  
+
   switch (TREE_CODE_LENGTH (TREE_CODE (expr)))
     {
     case 3:
-      if (tree_contains_chrecs (TREE_OPERAND (expr, 2)))
+      if (tree_contains_chrecs (TREE_OPERAND (expr, 2), size))
 	return true;
       
     case 2:
-      if (tree_contains_chrecs (TREE_OPERAND (expr, 1)))
+      if (tree_contains_chrecs (TREE_OPERAND (expr, 1), size))
 	return true;
       
     case 1:
-      if (tree_contains_chrecs (TREE_OPERAND (expr, 0)))
+      if (tree_contains_chrecs (TREE_OPERAND (expr, 0), size))
 	return true;
       
     default:
@@ -1002,7 +1014,23 @@ nb_vars_in_chrec (tree chrec)
 
 
 
-/* Convert the initial condition of chrec to type.  */
+/* Convert CHREC to TYPE.  The following is rule is always true:
+   TREE_TYPE (chrec) == TREE_TYPE (CHREC_LEFT (chrec)) == TREE_TYPE
+   (CHREC_RIGHT (chrec)).  An example of what could happen when adding
+   two chrecs and the type of the CHREC_RIGHT is different than
+   CHREC_LEFT is:
+   
+   {(uint) 0, +, (uchar) 10} +
+   {(uint) 0, +, (uchar) 250}
+   
+   that would produce a wrong result if CHREC_RIGHT is not (uint):
+   
+   {(uint) 0, +, (uchar) 4}
+
+   instead of
+
+   {(uint) 0, +, (uint) 260}
+*/
 
 tree 
 chrec_convert (tree type, 
@@ -1034,9 +1062,23 @@ chrec_convert (tree type,
 	tree res = fold_convert (type, chrec);
 
 	/* Don't propagate overflows.  */
-	TREE_OVERFLOW (res) = 0;
 	if (CONSTANT_CLASS_P (res))
-	  TREE_CONSTANT_OVERFLOW (res) = 0;
+	  {
+	    TREE_CONSTANT_OVERFLOW (res) = 0;
+	    TREE_OVERFLOW (res) = 0;
+	  }
+
+	/* But reject constants that don't fit in their type after conversion.
+	   This can happen if TYPE_MIN_VALUE or TYPE_MAX_VALUE are not the
+	   natural values associated with TYPE_PRECISION and TYPE_UNSIGNED,
+	   and can cause problems later when computing niters of loops.  Note
+	   that we don't do the check before converting because we don't want
+	   to reject conversions of negative chrecs to unsigned types.  */
+	if (TREE_CODE (res) == INTEGER_CST
+	    && TREE_CODE (type) == INTEGER_TYPE
+	    && !int_fits_type_p (res, type))
+	  res = chrec_dont_know;
+
 	return res;
       }
     }

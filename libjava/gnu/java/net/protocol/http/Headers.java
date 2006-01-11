@@ -40,8 +40,8 @@ package gnu.java.net.protocol.http;
 
 import gnu.java.net.LineInputStream;
 
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.util.Collection;
@@ -323,7 +323,10 @@ public class Headers
         if (c1 == ' ' || c1 == '\t')
           {
             // Continuation
-            value.append(line.substring(0, len - 1));
+	    int last = len - 1;
+	    if (line.charAt(last) != '\r')
+	      ++last;
+            value.append(line.substring(0, last));
           }
         else
           {
@@ -340,7 +343,10 @@ public class Headers
                 di++;
               }
             while (di < len && line.charAt(di) == ' ');
-            value.append(line.substring(di, len - 1));
+	    int last = len - 1;
+	    if (line.charAt(last) != '\r')
+	      ++last;
+            value.append(line.substring(di, last));
           }
       }
   }

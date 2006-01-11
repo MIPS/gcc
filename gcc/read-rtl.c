@@ -87,6 +87,19 @@ struct ptr_loc {
   int lineno;
 };
 
+/* A structure used to pass data from read_rtx to apply_macro_traverse
+   via htab_traverse.  */
+struct macro_traverse_data {
+  /* Instruction queue.  */
+  rtx queue;
+  /* Attributes seen for modes.  */
+  struct map_value *mode_maps;
+  /* Input file.  */
+  FILE *infile;
+  /* The last unknown attribute used as a mode.  */
+  const char *unknown_mode_attr;
+};
+
 /* If CODE is the number of a code macro, return a real rtx code that
    has the same format.  Return CODE otherwise.  */
 #define BELLWETHER_CODE(CODE) \
@@ -102,7 +115,8 @@ static int find_code (const char *, FILE *);
 static bool uses_code_macro_p (rtx, int);
 static void apply_code_macro (rtx, int);
 static const char *apply_macro_to_string (const char *, struct mapping *, int);
-static rtx apply_macro_to_rtx (rtx, struct mapping *, int);
+static rtx apply_macro_to_rtx (rtx, struct mapping *, int,
+			       struct map_value *, FILE *, const char **);
 static bool uses_macro_p (rtx, struct mapping *);
 static const char *add_condition_to_string (const char *, const char *);
 static void add_condition_to_rtx (rtx, const char *);
@@ -128,7 +142,7 @@ static void validate_const_int (FILE *, const char *);
 static int find_macro (struct macro_group *, const char *, FILE *);
 static struct mapping *read_mapping (struct macro_group *, htab_t, FILE *);
 static void check_code_macro (struct mapping *, FILE *);
-static rtx read_rtx_1 (FILE *);
+static rtx read_rtx_1 (FILE *, struct map_value **);
 
 /* The mode and code macro structures.  */
 static struct macro_group modes, codes;
@@ -160,7 +174,7 @@ static struct obstack joined_conditions_obstack;
 /* The current line number for the file.  */
 int read_rtx_lineno = 1;
 
-/* The filename for aborting with file and line.  */
+/* The filename for error reporting.  */
 const char *read_rtx_filename = "<unknown>";
 
 static void
@@ -258,6 +272,105 @@ apply_code_macro (rtx x, int code)
   PUT_CODE (x, code);
 }
 
+/* Map a code or mode attribute string P to the underlying string for
+   MACRO and VALUE.  */
+
+static struct map_value *
+map_attr_string (const char *p, struct mapping *macro, int value)
+{
+  const char *attr;
+  struct mapping *m;
+  struct map_value *v;
+
+  /* If there's a "macro:" prefix, check whether the macro name matches.
+     Set ATTR to the start of the attribute name.  */
+  attr = strchr (p, ':');
+  if (attr == 0)
+    attr = p;
+  else
+    {
+      if (strncmp (p, macro->name, attr - p) != 0
+	  || macro->name[attr - p] != 0)
+	return 0;
+      attr++;
+    }
+
+  /* Find the attribute specification.  */
+  m = (struct mapping *) htab_find (macro->group->attrs, &attr);
+  if (m == 0)
+    return 0;
+
+  /* Find the attribute value for VALUE.  */
+  for (v = m->values; v != 0; v = v->next)
+    if (v->number == value)
+      break;
+
+  return v;
+}
+
+/* Given an attribute string used as a machine mode, return an index
+   to store in the machine mode to be translated by
+   apply_macro_to_rtx.  */
+
+static unsigned int
+mode_attr_index (struct map_value **mode_maps, const char *string)
+{
+  char *p;
+  struct map_value *mv;
+
+  /* Copy the attribute string into permanent storage, without the
+     angle brackets around it.  */
+  obstack_grow0 (&string_obstack, string + 1, strlen (string) - 2);
+  p = (char *) obstack_finish (&string_obstack);
+
+  mv = XNEW (struct map_value);
+  mv->number = *mode_maps == 0 ? 0 : (*mode_maps)->number + 1;
+  mv->string = p;
+  mv->next = *mode_maps;
+  *mode_maps = mv;
+
+  /* We return a code which we can map back into this string: the
+     number of machine modes + the number of mode macros + the index
+     we just used.  */
+  return MAX_MACHINE_MODE + htab_elements (modes.macros) + mv->number;
+}
+
+/* Apply MODE_MAPS to the top level of X, expanding cases where an
+   attribute is used for a mode.  MACRO is the current macro we are
+   expanding, and VALUE is the value to which we are expanding it.
+   INFILE is used for error messages.  This sets *UNKNOWN to true if
+   we find a mode attribute which has not yet been defined, and does
+   not change it otherwise.  */
+
+static void
+apply_mode_maps (rtx x, struct map_value *mode_maps, struct mapping *macro,
+		 int value, FILE *infile, const char **unknown)
+{
+  unsigned int offset;
+  int indx;
+  struct map_value *pm;
+
+  offset = MAX_MACHINE_MODE + htab_elements (modes.macros);
+  if (GET_MODE (x) < offset)
+    return;
+
+  indx = GET_MODE (x) - offset;
+  for (pm = mode_maps; pm; pm = pm->next)
+    {
+      if (pm->number == indx)
+	{
+	  struct map_value *v;
+
+	  v = map_attr_string (pm->string, macro, value);
+	  if (v)
+	    PUT_MODE (x, find_mode (v->string, infile));
+	  else
+	    *unknown = pm->string;
+	  return;
+	}
+    }
+}
+
 /* Given that MACRO is being expanded as VALUE, apply the appropriate
    string substitutions to STRING.  Return the new string if any changes
    were needed, otherwise return STRING itself.  */
@@ -265,8 +378,7 @@ apply_code_macro (rtx x, int code)
 static const char *
 apply_macro_to_string (const char *string, struct mapping *macro, int value)
 {
-  char *base, *copy, *p, *attr, *start, *end;
-  struct mapping *m;
+  char *base, *copy, *p, *start, *end;
   struct map_value *v;
 
   if (string == 0)
@@ -277,30 +389,9 @@ apply_macro_to_string (const char *string, struct mapping *macro, int value)
     {
       p = start + 1;
 
-      /* If there's a "macro:" prefix, check whether the macro name matches.
-	 Set ATTR to the start of the attribute name.  */
-      attr = strchr (p, ':');
-      if (attr == 0 || attr > end)
-	attr = p;
-      else
-	{
-	  if (strncmp (p, macro->name, attr - p) != 0
-	      || macro->name[attr - p] != 0)
-	    continue;
-	  attr++;
-	}
-
-      /* Find the attribute specification.  */
       *end = 0;
-      m = (struct mapping *) htab_find (macro->group->attrs, &attr);
+      v = map_attr_string (p, macro, value);
       *end = '>';
-      if (m == 0)
-	continue;
-
-      /* Find the attribute value for VALUE.  */
-      for (v = m->values; v != 0; v = v->next)
-	if (v->number == value)
-	  break;
       if (v == 0)
 	continue;
 
@@ -321,10 +412,15 @@ apply_macro_to_string (const char *string, struct mapping *macro, int value)
 }
 
 /* Return a copy of ORIGINAL in which all uses of MACRO have been
-   replaced by VALUE.  */
+   replaced by VALUE.  MODE_MAPS holds information about attribute
+   strings used for modes.  INFILE is used for error messages.  This
+   sets *UNKNOWN_MODE_ATTR to the value of an unknown mode attribute,
+   and does not change it otherwise.  */
 
 static rtx
-apply_macro_to_rtx (rtx original, struct mapping *macro, int value)
+apply_macro_to_rtx (rtx original, struct mapping *macro, int value,
+		    struct map_value *mode_maps, FILE *infile,
+		    const char **unknown_mode_attr)
 {
   struct macro_group *group;
   const char *format_ptr;
@@ -345,6 +441,9 @@ apply_macro_to_rtx (rtx original, struct mapping *macro, int value)
   if (group->uses_macro_p (x, macro->index + group->num_builtins))
     group->apply_macro (x, value);
 
+  if (mode_maps)
+    apply_mode_maps (x, mode_maps, macro, value, infile, unknown_mode_attr);
+
   /* Change each string and recursively change each rtx.  */
   format_ptr = GET_RTX_FORMAT (bellwether_code);
   for (i = 0; format_ptr[i] != 0; i++)
@@ -360,7 +459,9 @@ apply_macro_to_rtx (rtx original, struct mapping *macro, int value)
 	break;
 
       case 'e':
-	XEXP (x, i) = apply_macro_to_rtx (XEXP (x, i), macro, value);
+	XEXP (x, i) = apply_macro_to_rtx (XEXP (x, i), macro, value,
+					  mode_maps, infile,
+					  unknown_mode_attr);
 	break;
 
       case 'V':
@@ -370,7 +471,9 @@ apply_macro_to_rtx (rtx original, struct mapping *macro, int value)
 	    XVEC (x, i) = rtvec_alloc (XVECLEN (original, i));
 	    for (j = 0; j < XVECLEN (x, i); j++)
 	      XVECEXP (x, i, j) = apply_macro_to_rtx (XVECEXP (original, i, j),
-						      macro, value);
+						      macro, value, mode_maps,
+						      infile,
+						      unknown_mode_attr);
 	  }
 	break;
 
@@ -467,18 +570,29 @@ add_condition_to_rtx (rtx x, const char *extra)
 static int
 apply_macro_traverse (void **slot, void *data)
 {
+  struct macro_traverse_data *mtd = (struct macro_traverse_data *) data;
   struct mapping *macro;
   struct map_value *v;
   rtx elem, new_elem, original, x;
 
   macro = (struct mapping *) *slot;
-  for (elem = (rtx) data; elem != 0; elem = XEXP (elem, 1))
+  for (elem = mtd->queue; elem != 0; elem = XEXP (elem, 1))
     if (uses_macro_p (XEXP (elem, 0), macro))
       {
+	/* For each macro we expand, we set UNKNOWN_MODE_ATTR to NULL.
+	   If apply_macro_rtx finds an unknown attribute for a mode,
+	   it will set it to the attribute.  We want to know whether
+	   the attribute is unknown after we have expanded all
+	   possible macros, so setting it to NULL here gives us the
+	   right result when the hash table traversal is complete.  */
+	mtd->unknown_mode_attr = NULL;
+
 	original = XEXP (elem, 0);
 	for (v = macro->values; v != 0; v = v->next)
 	  {
-	    x = apply_macro_to_rtx (original, macro, v->number);
+	    x = apply_macro_to_rtx (original, macro, v->number,
+				    mtd->mode_maps, mtd->infile,
+				    &mtd->unknown_mode_attr);
 	    add_condition_to_rtx (x, v->string);
 	    if (v != macro->values)
 	      {
@@ -1238,6 +1352,9 @@ read_rtx (FILE *infile, rtx *x, int *lineno)
 
   if (queue_next == 0)
     {
+      struct map_value *mode_maps;
+      struct macro_traverse_data mtd;
+
       c = read_skip_spaces (infile);
       if (c == EOF)
 	return false;
@@ -1245,11 +1362,20 @@ read_rtx (FILE *infile, rtx *x, int *lineno)
 
       queue_next = queue_head;
       queue_lineno = read_rtx_lineno;
-      XEXP (queue_next, 0) = read_rtx_1 (infile);
+      mode_maps = 0;
+      XEXP (queue_next, 0) = read_rtx_1 (infile, &mode_maps);
       XEXP (queue_next, 1) = 0;
 
-      htab_traverse (modes.macros, apply_macro_traverse, queue_next);
-      htab_traverse (codes.macros, apply_macro_traverse, queue_next);
+      mtd.queue = queue_next;
+      mtd.mode_maps = mode_maps;
+      mtd.infile = infile;
+      mtd.unknown_mode_attr = mode_maps ? mode_maps->string : NULL;
+      htab_traverse (modes.macros, apply_macro_traverse, &mtd);
+      htab_traverse (codes.macros, apply_macro_traverse, &mtd);
+      if (mtd.unknown_mode_attr)
+	fatal_with_file_and_line (infile,
+				  "undefined attribute '%s' used for mode",
+				  mtd.unknown_mode_attr);
     }
 
   *x = XEXP (queue_next, 0);
@@ -1263,7 +1389,7 @@ read_rtx (FILE *infile, rtx *x, int *lineno)
    doesn't apply any macros.  */
 
 static rtx
-read_rtx_1 (FILE *infile)
+read_rtx_1 (FILE *infile, struct map_value **mode_maps)
 {
   int i;
   RTX_CODE real_code, bellwether_code;
@@ -1337,8 +1463,16 @@ read_rtx_1 (FILE *infile)
   i = read_skip_spaces (infile);
   if (i == ':')
     {
+      unsigned int mode;
+
       read_name (tmp_char, infile);
-      PUT_MODE (return_rtx, find_macro (&modes, tmp_char, infile));
+      if (tmp_char[0] != '<' || tmp_char[strlen (tmp_char) - 1] != '>')
+	mode = find_macro (&modes, tmp_char, infile);
+      else
+	mode = mode_attr_index (mode_maps, tmp_char);
+      PUT_MODE (return_rtx, mode);
+      if (GET_MODE (return_rtx) != mode)
+	fatal_with_file_and_line (infile, "mode too large");
     }
   else
     ungetc (i, infile);
@@ -1353,7 +1487,7 @@ read_rtx_1 (FILE *infile)
 
       case 'e':
       case 'u':
-	XEXP (return_rtx, i) = read_rtx_1 (infile);
+	XEXP (return_rtx, i) = read_rtx_1 (infile, mode_maps);
 	break;
 
       case 'V':
@@ -1385,7 +1519,7 @@ read_rtx_1 (FILE *infile)
 	    {
 	      ungetc (c, infile);
 	      list_counter++;
-	      obstack_ptr_grow (&vector_stack, read_rtx_1 (infile));
+	      obstack_ptr_grow (&vector_stack, read_rtx_1 (infile, mode_maps));
 	    }
 	  if (list_counter > 0)
 	    {
@@ -1487,11 +1621,7 @@ read_rtx_1 (FILE *infile)
 	break;
 
       default:
-	fprintf (stderr,
-		 "switch format wrong in rtl.read_rtx(). format was: %c.\n",
-		 format_ptr[i]);
-	fprintf (stderr, "\tfile position: %ld\n", ftell (infile));
-	abort ();
+	gcc_unreachable ();
       }
 
   c = read_skip_spaces (infile);

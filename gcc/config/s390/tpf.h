@@ -1,5 +1,5 @@
 /* Definitions for target OS TPF for GNU compiler, for IBM S/390 hardware
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by P.J. Darcy (darcypj@us.ibm.com),
                   Hartmut Penner (hpenner@de.ibm.com), and
                   Ulrich Weigand (uweigand@de.ibm.com).
@@ -100,6 +100,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* The GNU C++ standard library requires that these macros be defined.  */
 #undef CPLUSPLUS_CPP_SPEC
 #define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
+
+#undef  ASM_SPEC
+#define ASM_SPEC "%{m31&m64}%{mesa&mzarch}%{march=*}"
 
 #undef  LIB_SPEC
 #define LIB_SPEC "%{pthread:-lpthread} -lc"

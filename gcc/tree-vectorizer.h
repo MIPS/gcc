@@ -144,7 +144,8 @@ enum stmt_vec_info_type {
   load_vec_info_type,
   store_vec_info_type,
   op_vec_info_type,
-  assignment_vec_info_type
+  assignment_vec_info_type,
+  condition_vec_info_type
 };
 
 typedef struct _stmt_vec_info {
@@ -176,8 +177,13 @@ typedef struct _stmt_vec_info {
   /* Information about the data-ref (access function, etc).  */
   struct data_reference *data_ref_info;
 
-  /* Aliasing information.  */
+  /* Aliasing information.  This field represents the symbol that
+     should be aliased by a pointer holding the address of this data
+     reference.  If the original data reference was a pointer
+     dereference, then this field contains the memory tag that should
+     be used by the new vector-pointer.  */
   tree memtag;
+  struct ptr_info_def *ptr_info;
   subvar_t subvars;
 
   /** The following fields are used to store the information about 
@@ -220,7 +226,8 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_VEC_STMT(S)            (S)->vectorized_stmt
 #define STMT_VINFO_DATA_REF(S)            (S)->data_ref_info
 #define STMT_VINFO_MEMTAG(S)              (S)->memtag
-#define STMT_VINFO_SUBVARS(S)              (S)->subvars
+#define STMT_VINFO_PTR_INFO(S)            (S)->ptr_info
+#define STMT_VINFO_SUBVARS(S)             (S)->subvars
 #define STMT_VINFO_VECT_DR_BASE_ADDRESS(S)(S)->base_address
 #define STMT_VINFO_VECT_INIT_OFFSET(S)    (S)->initial_offset
 #define STMT_VINFO_VECT_STEP(S)           (S)->step
@@ -234,14 +241,14 @@ static inline void
 set_stmt_info (stmt_ann_t ann, stmt_vec_info stmt_info)
 {
   if (ann)
-    ann->common.aux = (char *) stmt_info;
+    ann->aux = (char *) stmt_info;
 }
 
 static inline stmt_vec_info
 vinfo_for_stmt (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
-  return ann ? (stmt_vec_info) ann->common.aux : NULL;
+  return ann ? (stmt_vec_info) ann->aux : NULL;
 }
 
 /*-----------------------------------------------------------------*/
@@ -271,6 +278,8 @@ known_alignment_for_access_p (struct data_reference *data_ref_info)
 extern FILE *vect_dump;
 extern enum verbosity_levels vect_verbosity_level;
 
+/* Number of loops, at the beginning of vectorization.  */
+extern unsigned int vect_loops_num;
 /*-----------------------------------------------------------------*/
 /* Function prototypes.                                            */
 /*-----------------------------------------------------------------*/
@@ -321,6 +330,7 @@ extern bool vectorizable_load (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_assignment (tree, block_stmt_iterator *, tree *);
+extern bool vectorizable_condition (tree, block_stmt_iterator *, tree *);
 /* Driver for transformation stage.  */
 extern void vect_transform_loop (loop_vec_info, struct loops *);
 

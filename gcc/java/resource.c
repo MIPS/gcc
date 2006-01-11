@@ -1,5 +1,5 @@
 /* Functions related to building resource files.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -42,6 +42,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "target.h"
 #include "expr.h"
 #include "tree-iterator.h"
+#include "cgraph.h"
 
 /* DOS brain-damage */
 #ifndef O_BINARY
@@ -93,7 +94,7 @@ compile_resource_data (const char *name, const char *buffer, int length)
   pushdecl (decl);
   rest_of_decl_compilation (decl, global_bindings_p (), 0);
   make_decl_rtl (decl);
-  assemble_variable (decl, 1, 0, 0);
+  cgraph_varpool_finalize_decl (decl);
 
   resources = tree_cons (NULL_TREE, decl, resources);
 }

@@ -54,10 +54,6 @@ Boston, MA 02111-1307, USA.  */
 /* Initial capacity for the basic block array.  */
 static const int initial_cfg_capacity = 20;
 
-/* Mapping of labels to their associated blocks.  This can greatly speed up
-   building of the CFG in code with lots of gotos.  */
-static GTY(()) varray_type label_to_block_map;
-
 /* This hash table allows us to efficiently lookup all CASE_LABEL_EXPRs
    which use a particular edge.  The CASE_LABEL_EXPRs are chained together
    via their TREE_CHAIN field, which we clear after we're done with the
@@ -114,7 +110,7 @@ static void make_goto_expr_edges (basic_block);
 static edge tree_redirect_edge_and_branch (edge, basic_block);
 static edge tree_try_redirect_by_replacing_jump (edge, basic_block);
 static void split_critical_edges (void);
-static bool remove_fallthru_edge (VEC(edge) *);
+static bool remove_fallthru_edge (VEC(edge,gc) *);
 
 /* Various helpers.  */
 static inline bool stmt_starts_bb_p (tree, tree);
@@ -136,6 +132,26 @@ static tree find_case_label_for_value (tree, tree);
 static bool phi_alternatives_equal (basic_block, edge, edge);
 static bool cleanup_forwarder_blocks (void);
 
+void
+init_empty_tree_cfg (void)
+{
+  /* Initialize the basic block array.  */
+  init_flow ();
+  profile_status = PROFILE_ABSENT;
+  n_basic_blocks = 0;
+  last_basic_block = 0;
+  VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
+
+  /* Build a mapping of labels to their associated blocks.  */
+  VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
+		  "label to block map");
+
+  ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
+  EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
+
+  create_block_annotation (ENTRY_BLOCK_PTR);
+  create_block_annotation (EXIT_BLOCK_PTR);
+}
 
 /*---------------------------------------------------------------------------
 			      Create basic blocks
@@ -150,23 +166,9 @@ build_tree_cfg (tree *tp)
   /* Register specific tree functions.  */
   tree_register_cfg_hooks ();
 
-  /* Initialize rbi_pool.  */
-  alloc_rbi_pool ();
-
-  /* Initialize the basic block array.  */
-  init_flow ();
-  profile_status = PROFILE_ABSENT;
-  n_basic_blocks = 0;
-  last_basic_block = 0;
-  VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
   memset ((void *) &cfg_stats, 0, sizeof (cfg_stats));
 
-  /* Build a mapping of labels to their associated blocks.  */
-  VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
-		  "label to block map");
-
-  ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
-  EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
+  init_empty_tree_cfg ();
 
   found_computed_goto = 0;
   make_blocks (*tp);
@@ -183,9 +185,6 @@ build_tree_cfg (tree *tp)
   if (n_basic_blocks == 0)
     create_empty_bb (ENTRY_BLOCK_PTR);
 
-  create_block_annotation (ENTRY_BLOCK_PTR);
-  create_block_annotation (EXIT_BLOCK_PTR);
-  
   /* Adjust the size of the array.  */
   VARRAY_GROW (basic_block_info, n_basic_blocks);
 
@@ -212,6 +211,10 @@ build_tree_cfg (tree *tp)
 	dump_end (TDI_vcg, dump_file);
       }
   }
+
+#ifdef ENABLE_CHECKING
+  verify_stmts ();
+#endif
 
   /* Dump a textual representation of the flowgraph.  */
   if (dump_file)
@@ -443,7 +446,7 @@ create_bb (void *h, void *e, basic_block after)
 
 /* Fold COND_EXPR_COND of each COND_EXPR.  */
 
-static void
+void
 fold_cond_expr_cond (void)
 {
   basic_block bb;
@@ -561,6 +564,8 @@ make_exit_edges (basic_block bb)
   gcc_assert (last);
   switch (TREE_CODE (last))
     {
+    case RESX_EXPR:
+      break;
     case CALL_EXPR:
       /* If this function receives a nonlocal goto, then we need to
 	 make edges from this call site to all the nonlocal goto
@@ -812,7 +817,7 @@ make_switch_expr_edges (basic_block bb)
 /* Return the basic block holding label DEST.  */
 
 basic_block
-label_to_block (tree dest)
+label_to_block_fn (struct function *ifun, tree dest)
 {
   int uid = LABEL_DECL_UID (dest);
 
@@ -828,9 +833,10 @@ label_to_block (tree dest)
       bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
       uid = LABEL_DECL_UID (dest);
     }
-  return VARRAY_BB (label_to_block_map, uid);
+  if (VARRAY_SIZE (ifun->cfg->x_label_to_block_map) <= (unsigned int)uid)
+    return NULL;
+  return VARRAY_BB (ifun->cfg->x_label_to_block_map, uid);
 }
-
 
 /* Create edges for a goto statement at block BB.  */
 
@@ -971,7 +977,7 @@ cleanup_tree_cfg_loop (void)
   /* This usually does nothing.  But sometimes parts of cfg that originally
      were inside a loop get out of it due to edge removal (since they
      become unreachable by back edges from latch).  */
-  rewrite_into_loop_closed_ssa (changed_bbs);
+  rewrite_into_loop_closed_ssa (changed_bbs, TODO_update_ssa);
 
   BITMAP_FREE (changed_bbs);
 
@@ -1255,6 +1261,7 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
 {
   tree stmt;
   block_stmt_iterator bsi;
+  tree phi;
 
   if (!single_succ_p (a))
     return false;
@@ -1282,10 +1289,19 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
       && DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
     return false;
 
-  /* There may be no phi nodes at the start of b.  Most of these degenerate
-     phi nodes should be cleaned up by kill_redundant_phi_nodes.  */
-  if (phi_nodes (b))
-    return false;
+  /* It must be possible to eliminate all phi nodes in B.  If ssa form
+     is not up-to-date, we cannot eliminate any phis.  */
+  phi = phi_nodes (b);
+  if (phi)
+    {
+      if (need_ssa_update_p ())
+	return false;
+
+      for (; phi; phi = PHI_CHAIN (phi))
+	if (!is_gimple_reg (PHI_RESULT (phi))
+	    && !may_propagate_copy (PHI_RESULT (phi), PHI_ARG_DEF (phi, 0)))
+	  return false;
+    }
 
   /* Do not remove user labels.  */
   for (bsi = bsi_start (b); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -1305,6 +1321,55 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
   return true;
 }
 
+/* Replaces all uses of NAME by VAL.  */
+
+void
+replace_uses_by (tree name, tree val)
+{
+  imm_use_iterator imm_iter;
+  use_operand_p use;
+  tree stmt;
+  edge e;
+  unsigned i;
+  VEC(tree,heap) *stmts = VEC_alloc (tree, heap, 20);
+
+  FOR_EACH_IMM_USE_SAFE (use, imm_iter, name)
+    {
+      stmt = USE_STMT (use);
+
+      SET_USE (use, val);
+
+      if (TREE_CODE (stmt) == PHI_NODE)
+	{
+	  e = PHI_ARG_EDGE (stmt, PHI_ARG_INDEX_FROM_USE (use));
+	  if (e->flags & EDGE_ABNORMAL)
+	    {
+	      /* This can only occur for virtual operands, since
+		 for the real ones SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name))
+		 would prevent replacement.  */
+	      gcc_assert (!is_gimple_reg (name));
+	      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (val) = 1;
+	    }
+	}
+      else
+	VEC_safe_push (tree, heap, stmts, stmt);
+    }
+ 
+  /* We do not update the statements in the loop above.  Consider
+     x = w * w;
+
+     If we performed the update in the first loop, the statement
+     would be rescanned after first occurrence of w is replaced,
+     the new uses would be placed to the beginning of the list,
+     and we would never process them.  */
+  for (i = 0; VEC_iterate (tree, stmts, i, stmt); i++)
+    {
+      fold_stmt_inplace (stmt);
+      update_stmt (stmt);
+    }
+
+  VEC_free (tree, heap, stmts);
+}
 
 /* Merge block B into block A.  */
 
@@ -1313,9 +1378,39 @@ tree_merge_blocks (basic_block a, basic_block b)
 {
   block_stmt_iterator bsi;
   tree_stmt_iterator last;
+  tree phi;
 
   if (dump_file)
     fprintf (dump_file, "Merging blocks %d and %d\n", a->index, b->index);
+
+  /* Remove the phi nodes.  */
+  bsi = bsi_last (a);
+  for (phi = phi_nodes (b); phi; phi = phi_nodes (b))
+    {
+      tree def = PHI_RESULT (phi), use = PHI_ARG_DEF (phi, 0);
+      tree copy;
+      
+      if (!may_propagate_copy (def, use)
+	  /* Propagating pointers might cause the set of vops for statements
+	     to be changed, and thus require ssa form update.  */
+	  || (is_gimple_reg (def)
+	      && POINTER_TYPE_P (TREE_TYPE (def))))
+	{
+	  gcc_assert (is_gimple_reg (def));
+
+	  /* Note that just emitting the copies is fine -- there is no problem
+	     with ordering of phi nodes.  This is because A is the single
+	     predecessor of B, therefore results of the phi nodes cannot
+	     appear as arguments of the phi nodes.  */
+	  copy = build2 (MODIFY_EXPR, void_type_node, def, use);
+	  bsi_insert_after (&bsi, copy, BSI_NEW_STMT);
+	  SET_PHI_RESULT (phi, NULL_TREE);
+	  SSA_NAME_DEF_STMT (def) = copy;
+	}
+      else
+	replace_uses_by (def, use);
+      remove_phi_node (phi, NULL);
+    }
 
   /* Ensure that B follows A.  */
   move_block_after (b, a);
@@ -1393,7 +1488,7 @@ remove_useless_stmts_warn_notreached (tree stmt)
       location_t loc = EXPR_LOCATION (stmt);
       if (LOCATION_LINE (loc) > 0)
 	{
-	  warning ("%Hwill never be executed", &loc);
+	  warning (0, "%Hwill never be executed", &loc);
 	  return true;
 	}
     }
@@ -1905,127 +2000,6 @@ struct tree_opt_pass pass_remove_useless_stmts =
   0					/* letter */
 };
 
-
-/* Remove obviously useless statements in basic block BB.  */
-
-static void
-cfg_remove_useless_stmts_bb (basic_block bb)
-{
-  block_stmt_iterator bsi;
-  tree stmt = NULL_TREE;
-  tree cond, var = NULL_TREE, val = NULL_TREE;
-  struct var_ann_d *ann;
-
-  /* Check whether we come here from a condition, and if so, get the
-     condition.  */
-  if (!single_pred_p (bb)
-      || !(single_pred_edge (bb)->flags
-	   & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
-    return;
-
-  cond = COND_EXPR_COND (last_stmt (single_pred (bb)));
-
-  if (TREE_CODE (cond) == VAR_DECL || TREE_CODE (cond) == PARM_DECL)
-    {
-      var = cond;
-      val = (single_pred_edge (bb)->flags & EDGE_FALSE_VALUE
-	     ? boolean_false_node : boolean_true_node);
-    }
-  else if (TREE_CODE (cond) == TRUTH_NOT_EXPR
-	   && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
-	       || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL))
-    {
-      var = TREE_OPERAND (cond, 0);
-      val = (single_pred_edge (bb)->flags & EDGE_FALSE_VALUE
-	     ? boolean_true_node : boolean_false_node);
-    }
-  else
-    {
-      if (single_pred_edge (bb)->flags & EDGE_FALSE_VALUE)
-	cond = invert_truthvalue (cond);
-      if (TREE_CODE (cond) == EQ_EXPR
-	  && (TREE_CODE (TREE_OPERAND (cond, 0)) == VAR_DECL
-	      || TREE_CODE (TREE_OPERAND (cond, 0)) == PARM_DECL)
-	  && (TREE_CODE (TREE_OPERAND (cond, 1)) == VAR_DECL
-	      || TREE_CODE (TREE_OPERAND (cond, 1)) == PARM_DECL
-	      || TREE_CONSTANT (TREE_OPERAND (cond, 1))))
-	{
-	  var = TREE_OPERAND (cond, 0);
-	  val = TREE_OPERAND (cond, 1);
-	}
-      else
-	return;
-    }
-
-  /* Only work for normal local variables.  */
-  ann = var_ann (var);
-  if (!ann
-      || ann->may_aliases
-      || TREE_ADDRESSABLE (var))
-    return;
-
-  if (! TREE_CONSTANT (val))
-    {
-      ann = var_ann (val);
-      if (!ann
-	  || ann->may_aliases
-	  || TREE_ADDRESSABLE (val))
-	return;
-    }
-
-  /* Ignore floating point variables, since comparison behaves weird for
-     them.  */
-  if (FLOAT_TYPE_P (TREE_TYPE (var)))
-    return;
-
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi);)
-    {
-      stmt = bsi_stmt (bsi);
-
-      /* If the THEN/ELSE clause merely assigns a value to a variable/parameter
-	 which is already known to contain that value, then remove the useless
-	 THEN/ELSE clause.  */
-      if (TREE_CODE (stmt) == MODIFY_EXPR
-	  && TREE_OPERAND (stmt, 0) == var
-	  && operand_equal_p (val, TREE_OPERAND (stmt, 1), 0))
-	{
-	  bsi_remove (&bsi);
-	  continue;
-	}
-
-      /* Invalidate the var if we encounter something that could modify it.
-	 Likewise for the value it was previously set to.  Note that we only
-	 consider values that are either a VAR_DECL or PARM_DECL so we
-	 can test for conflict very simply.  */
-      if (TREE_CODE (stmt) == ASM_EXPR
-	  || (TREE_CODE (stmt) == MODIFY_EXPR
-	      && (TREE_OPERAND (stmt, 0) == var
-		  || TREE_OPERAND (stmt, 0) == val)))
-	return;
-  
-      bsi_next (&bsi);
-    }
-}
-
-
-/* A CFG-aware version of remove_useless_stmts.  */
-
-void
-cfg_remove_useless_stmts (void)
-{
-  basic_block bb;
-
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-#endif
-
-  FOR_EACH_BB (bb)
-    {
-      cfg_remove_useless_stmts_bb (bb);
-    }
-}
-
-
 /* Remove PHI nodes associated with basic block BB and all edges out of BB.  */
 
 static void
@@ -2102,7 +2076,6 @@ remove_bb (basic_block bb)
         {
 	  release_defs (stmt);
 
-	  set_bb_for_stmt (stmt, NULL);
 	  bsi_remove (&i);
 	}
 
@@ -2129,11 +2102,11 @@ remove_bb (basic_block bb)
      loop above, so the last statement we process is the first statement
      in the block.  */
 #ifdef USE_MAPPED_LOCATION
-  if (warn_notreached && loc != UNKNOWN_LOCATION)
-    warning ("%Hwill never be executed", &loc);
+  if (warn_notreached && loc > BUILTINS_LOCATION)
+    warning (0, "%Hwill never be executed", &loc);
 #else
   if (warn_notreached && loc)
-    warning ("%Hwill never be executed", loc);
+    warning (0, "%Hwill never be executed", loc);
 #endif
 
   remove_phi_nodes_and_edges_for_unreachable_block (bb);
@@ -2145,7 +2118,7 @@ remove_bb (basic_block bb)
    happens, all the instructions after the call are no longer
    reachable and must be deleted as dead.  */
 
-VEC(tree) *modified_noreturn_calls;
+VEC(tree,gc) *modified_noreturn_calls;
 
 /* Try to remove superfluous control structures.  */
 
@@ -2302,7 +2275,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 /* Remove any fallthru edge from EV.  Return true if an edge was removed.  */
 
 static bool
-remove_fallthru_edge (VEC(edge) *ev)
+remove_fallthru_edge (VEC(edge,gc) *ev)
 {
   edge_iterator ei;
   edge e;
@@ -2552,7 +2525,7 @@ dump_cfg_stats (FILE *file)
 {
   static long max_num_merged_labels = 0;
   unsigned long size, total = 0;
-  int n_edges;
+  long num_edges;
   basic_block bb;
   const char * const fmt_str   = "%-30s%-13s%12s\n";
   const char * const fmt_str_1 = "%-30s%13d%11lu%c\n";
@@ -2573,12 +2546,12 @@ dump_cfg_stats (FILE *file)
   fprintf (file, fmt_str_1, "Basic blocks", n_basic_blocks,
 	   SCALE (size), LABEL (size));
 
-  n_edges = 0;
+  num_edges = 0;
   FOR_EACH_BB (bb)
-    n_edges += EDGE_COUNT (bb->succs);
-  size = n_edges * sizeof (struct edge_def);
+    num_edges += EDGE_COUNT (bb->succs);
+  size = num_edges * sizeof (struct edge_def);
   total += size;
-  fprintf (file, fmt_str_1, "Edges", n_edges, SCALE (size), LABEL (size));
+  fprintf (file, fmt_str_1, "Edges", num_edges, SCALE (size), LABEL (size));
 
   size = n_basic_blocks * sizeof (struct bb_ann_d);
   total += size;
@@ -2899,7 +2872,6 @@ delete_tree_cfg_annotations (void)
     free_blocks_annotations ();
 
   label_to_block_map = NULL;
-  free_rbi_pool ();
   FOR_EACH_BB (bb)
     bb->rbi = NULL;
 }
@@ -3023,6 +2995,24 @@ bsi_for_stmt (tree stmt)
   gcc_unreachable ();
 }
 
+/* Mark statement T as modified, and update it.  */
+static inline void
+update_modified_stmts (tree t)
+{
+  if (TREE_CODE (t) == STATEMENT_LIST)
+    {
+      tree_stmt_iterator i;
+      tree stmt;
+      for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
+        {
+	  stmt = tsi_stmt (i);
+	  update_stmt_if_modified (stmt);
+	}
+    }
+  else
+    update_stmt_if_modified (t);
+}
+
 /* Insert statement (or statement list) T before the statement
    pointed-to by iterator I.  M specifies how to update iterator I
    after insertion (see enum bsi_iterator_update).  */
@@ -3031,8 +3021,8 @@ void
 bsi_insert_before (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
+  update_modified_stmts (t);
   tsi_link_before (&i->tsi, t, m);
-  modify_stmt (t);
 }
 
 
@@ -3044,8 +3034,8 @@ void
 bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 {
   set_bb_for_stmt (t, i->bb);
+  update_modified_stmts (t);
   tsi_link_after (&i->tsi, t, m);
-  modify_stmt (t);
 }
 
 
@@ -3057,7 +3047,9 @@ bsi_remove (block_stmt_iterator *i)
 {
   tree t = bsi_stmt (*i);
   set_bb_for_stmt (t, NULL);
+  delink_stmt_imm_use (t);
   tsi_delink (&i->tsi);
+  mark_stmt_modified (t);
 }
 
 
@@ -3120,8 +3112,10 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
 	add_stmt_to_eh_region (stmt, eh_region);
     }
 
+  delink_stmt_imm_use (orig_stmt);
   *bsi_stmt_ptr (*bsi) = stmt;
-  modify_stmt (stmt);
+  mark_stmt_modified (stmt);
+  update_modified_stmts (stmt);
 }
 
 
@@ -3403,6 +3397,15 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       if (SSA_NAME_IN_FREE_LIST (t))
 	{
 	  error ("SSA name in freelist but still referenced");
+	  return *tp;
+	}
+      break;
+
+    case ASSERT_EXPR:
+      x = fold (ASSERT_EXPR_COND (t));
+      if (x == boolean_false_node)
+	{
+	  error ("ASSERT_EXPR with an always-false condition");
 	  return *tp;
 	}
       break;
@@ -3851,7 +3854,7 @@ tree_verify_flow_info (void)
 	  if (TREE_CODE (stmt) == LABEL_EXPR)
 	    {
 	      error ("Label %s in the middle of basic block %d\n",
-		     IDENTIFIER_POINTER (DECL_NAME (stmt)),
+		     IDENTIFIER_POINTER (DECL_NAME (LABEL_EXPR_LABEL (stmt))),
 		     bb->index);
 	      err = 1;
 	    }
@@ -3861,6 +3864,8 @@ tree_verify_flow_info (void)
 	continue;
 
       stmt = bsi_stmt (bsi);
+
+      err |= verify_eh_edges (stmt);
 
       if (is_ctrl_stmt (stmt))
 	{
@@ -4125,7 +4130,7 @@ tree_forwarder_block_p (basic_block bb, bool phi_wanted)
 
   /* Now walk through the statements backward.  We can ignore labels,
      anything else means this is not a forwarder block.  */
-  for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+  for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
     {
       tree stmt = bsi_stmt (bsi);
  
@@ -4799,6 +4804,7 @@ tree_can_duplicate_bb_p (basic_block bb ATTRIBUTE_UNUSED)
   return true;
 }
 
+
 /* Create a duplicate of the basic block BB.  NOTE: This does not
    preserve SSA form.  */
 
@@ -4807,47 +4813,52 @@ tree_duplicate_bb (basic_block bb)
 {
   basic_block new_bb;
   block_stmt_iterator bsi, bsi_tgt;
-  tree phi, val;
-  ssa_op_iter op_iter;
+  tree phi;
 
   new_bb = create_empty_bb (EXIT_BLOCK_PTR->prev_bb);
 
-  /* First copy the phi nodes.  We do not copy phi node arguments here,
-     since the edges are not ready yet.  Keep the chain of phi nodes in
-     the same order, so that we can add them later.  */
+  /* Copy the PHI nodes.  We ignore PHI node arguments here because
+     the incoming edges have not been setup yet.  */
   for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
     {
-      mark_for_rewrite (PHI_RESULT (phi));
-      create_phi_node (PHI_RESULT (phi), new_bb);
+      tree copy = create_phi_node (PHI_RESULT (phi), new_bb);
+      create_new_def_for (PHI_RESULT (copy), copy, PHI_RESULT_PTR (copy));
     }
+
+  /* Keep the chain of PHI nodes in the same order so that they can be
+     updated by ssa_redirect_edge.  */
   set_phi_nodes (new_bb, phi_reverse (phi_nodes (new_bb)));
 
   bsi_tgt = bsi_start (new_bb);
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
-      tree stmt = bsi_stmt (bsi);
-      tree copy;
+      def_operand_p def_p;
+      ssa_op_iter op_iter;
+      tree stmt, copy;
+      int region;
 
+      stmt = bsi_stmt (bsi);
       if (TREE_CODE (stmt) == LABEL_EXPR)
 	continue;
 
-      /* Record the definitions.  */
-      get_stmt_operands (stmt);
-
-      FOR_EACH_SSA_TREE_OPERAND (val, stmt, op_iter, SSA_OP_ALL_DEFS)
-	mark_for_rewrite (val);
-
+      /* Create a new copy of STMT and duplicate STMT's virtual
+	 operands.  */
       copy = unshare_expr (stmt);
-
-      /* Copy also the virtual operands.  */
-      get_stmt_ann (copy);
-      copy_virtual_operands (copy, stmt);
-      
       bsi_insert_after (&bsi_tgt, copy, BSI_NEW_STMT);
+      copy_virtual_operands (copy, stmt);
+      region = lookup_stmt_eh_region (stmt);
+      if (region >= 0)
+	add_stmt_to_eh_region (copy, region);
+
+      /* Create new names for all the definitions created by COPY and
+	 add replacement mappings for each new name.  */
+      FOR_EACH_SSA_DEF_OPERAND (def_p, copy, op_iter, SSA_OP_ALL_DEFS)
+	create_new_def_for (DEF_FROM_PTR (def_p), copy, def_p);
     }
 
   return new_bb;
 }
+
 
 /* Basic block BB_COPY was created by code duplication.  Add phi node
    arguments for edges going out of BB_COPY.  The blocks that were
@@ -4892,8 +4903,6 @@ add_phi_args_after_copy_bb (basic_block bb_copy)
 	   phi = phi_next, phi_copy = PHI_CHAIN (phi_copy))
 	{
 	  phi_next = PHI_CHAIN (phi);
-
-	  gcc_assert (PHI_RESULT (phi) == PHI_RESULT (phi_copy));
 	  def = PHI_ARG_DEF_FROM_EDGE (phi, e);
 	  add_phi_arg (phi_copy, def, e_copy);
 	}
@@ -4919,194 +4928,6 @@ add_phi_args_after_copy (basic_block *region_copy, unsigned n_region)
     region_copy[i]->rbi->duplicated = 0;
 }
 
-/* Maps the old ssa name FROM_NAME to TO_NAME.  */
-
-struct ssa_name_map_entry
-{
-  tree from_name;
-  tree to_name;
-};
-
-/* Hash function for ssa_name_map_entry.  */
-
-static hashval_t
-ssa_name_map_entry_hash (const void *entry)
-{
-  const struct ssa_name_map_entry *en = entry;
-  return SSA_NAME_VERSION (en->from_name);
-}
-
-/* Equality function for ssa_name_map_entry.  */
-
-static int
-ssa_name_map_entry_eq (const void *in_table, const void *ssa_name)
-{
-  const struct ssa_name_map_entry *en = in_table;
-
-  return en->from_name == ssa_name;
-}
-
-/* Allocate duplicates of ssa names in list DEFINITIONS and store the mapping
-   to MAP.  */
-
-void
-allocate_ssa_names (bitmap definitions, htab_t *map)
-{
-  tree name;
-  struct ssa_name_map_entry *entry;
-  PTR *slot;
-  unsigned ver;
-  bitmap_iterator bi;
-
-  if (!*map)
-    *map = htab_create (10, ssa_name_map_entry_hash,
-			ssa_name_map_entry_eq, free);
-  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver, bi)
-    {
-      name = ssa_name (ver);
-      slot = htab_find_slot_with_hash (*map, name, SSA_NAME_VERSION (name),
-				       INSERT);
-      if (*slot)
-	entry = *slot;
-      else
-	{
-	  entry = xmalloc (sizeof (struct ssa_name_map_entry));
-	  entry->from_name = name;
-	  *slot = entry;
-	}
-      entry->to_name = duplicate_ssa_name (name, SSA_NAME_DEF_STMT (name));
-    }
-}
-
-/* Rewrite the definition DEF in statement STMT to new ssa name as specified
-   by the mapping MAP.  */
-
-static void
-rewrite_to_new_ssa_names_def (def_operand_p def, tree stmt, htab_t map)
-{
-  tree name = DEF_FROM_PTR (def);
-  struct ssa_name_map_entry *entry;
-
-  gcc_assert (TREE_CODE (name) == SSA_NAME);
-
-  entry = htab_find_with_hash (map, name, SSA_NAME_VERSION (name));
-  if (!entry)
-    return;
-
-  SET_DEF (def, entry->to_name);
-  SSA_NAME_DEF_STMT (entry->to_name) = stmt;
-}
-
-/* Rewrite the USE to new ssa name as specified by the mapping MAP.  */
-
-static void
-rewrite_to_new_ssa_names_use (use_operand_p use, htab_t map)
-{
-  tree name = USE_FROM_PTR (use);
-  struct ssa_name_map_entry *entry;
-
-  if (TREE_CODE (name) != SSA_NAME)
-    return;
-
-  entry = htab_find_with_hash (map, name, SSA_NAME_VERSION (name));
-  if (!entry)
-    return;
-
-  SET_USE (use, entry->to_name);
-}
-
-/* Rewrite the ssa names in basic block BB to new ones as specified by the
-   mapping MAP.  */
-
-void
-rewrite_to_new_ssa_names_bb (basic_block bb, htab_t map)
-{
-  unsigned i;
-  edge e;
-  edge_iterator ei;
-  tree phi, stmt;
-  block_stmt_iterator bsi;
-  use_optype uses;
-  vuse_optype vuses;
-  def_optype defs;
-  v_may_def_optype v_may_defs;
-  v_must_def_optype v_must_defs;
-  stmt_ann_t ann;
-
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    if (e->flags & EDGE_ABNORMAL)
-      break;
-
-  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-    {
-      rewrite_to_new_ssa_names_def (PHI_RESULT_PTR (phi), phi, map);
-      if (e)
-	SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)) = 1;
-    }
-
-  for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
-    {
-      stmt = bsi_stmt (bsi);
-      get_stmt_operands (stmt);
-      ann = stmt_ann (stmt);
-
-      uses = USE_OPS (ann);
-      for (i = 0; i < NUM_USES (uses); i++)
-	rewrite_to_new_ssa_names_use (USE_OP_PTR (uses, i), map);
-
-      defs = DEF_OPS (ann);
-      for (i = 0; i < NUM_DEFS (defs); i++)
-	rewrite_to_new_ssa_names_def (DEF_OP_PTR (defs, i), stmt, map);
-
-      vuses = VUSE_OPS (ann);
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-	rewrite_to_new_ssa_names_use (VUSE_OP_PTR (vuses, i), map);
-
-      v_may_defs = V_MAY_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
-	{
-	  rewrite_to_new_ssa_names_use
-		  (V_MAY_DEF_OP_PTR (v_may_defs, i), map);
-	  rewrite_to_new_ssa_names_def
-		  (V_MAY_DEF_RESULT_PTR (v_may_defs, i), stmt, map);
-	}
-
-      v_must_defs = V_MUST_DEF_OPS (ann);
-      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
-	{
-	  rewrite_to_new_ssa_names_def
-	    (V_MUST_DEF_RESULT_PTR (v_must_defs, i), stmt, map);
-	  rewrite_to_new_ssa_names_use
-	    (V_MUST_DEF_KILL_PTR (v_must_defs, i),  map);
-	}
-    }
-
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
-      {
-	rewrite_to_new_ssa_names_use
-		(PHI_ARG_DEF_PTR_FROM_EDGE (phi, e), map);
-
-	if (e->flags & EDGE_ABNORMAL)
-	  {
-	    tree op = PHI_ARG_DEF_FROM_EDGE (phi, e);
-	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op) = 1;
-	  }
-      }
-}
-
-/* Rewrite the ssa names in N_REGION blocks REGION to the new ones as specified
-   by the mapping MAP.  */
-
-void
-rewrite_to_new_ssa_names (basic_block *region, unsigned n_region, htab_t map)
-{
-  unsigned r;
-
-  for (r = 0; r < n_region; r++)
-    rewrite_to_new_ssa_names_bb (region[r], map);
-}
-
 /* Duplicates a REGION (set of N_REGION basic blocks) with just a single
    important exit edge EXIT.  By important we mean that no SSA name defined
    inside region is live over the other exit edges of the region.  All entry
@@ -5122,16 +4943,13 @@ tree_duplicate_sese_region (edge entry, edge exit,
 			    basic_block *region, unsigned n_region,
 			    basic_block *region_copy)
 {
-  unsigned i, n_doms, ver;
+  unsigned i, n_doms;
   bool free_region_copy = false, copying_header = false;
   struct loop *loop = entry->dest->loop_father;
   edge exit_copy;
-  bitmap definitions;
-  tree phi;
   basic_block *doms;
-  htab_t ssa_name_map = NULL;
   edge redirected;
-  bitmap_iterator bi;
+  int total_freq, entry_freq;
 
   if (!can_copy_bbs_p (region, n_region))
     return false;
@@ -5140,7 +4958,6 @@ tree_duplicate_sese_region (edge entry, edge exit,
      missuses of the functions.  I.e. if you ask to copy something weird,
      it will work, but the state of structures probably will not be
      correct.  */
-
   for (i = 0; i < n_region; i++)
     {
       /* We do not handle subloops, i.e. all the blocks must belong to the
@@ -5177,15 +4994,26 @@ tree_duplicate_sese_region (edge entry, edge exit,
       free_region_copy = true;
     }
 
-  gcc_assert (!any_marked_for_rewrite_p ());
+  gcc_assert (!need_ssa_update_p ());
 
-  /* Record blocks outside the region that are duplicated by something
+  /* Record blocks outside the region that are dominated by something
      inside.  */
   doms = xmalloc (sizeof (basic_block) * n_basic_blocks);
   n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
 
+  total_freq = entry->dest->frequency;
+  entry_freq = EDGE_FREQUENCY (entry);
+  /* Fix up corner cases, to avoid division by zero or creation of negative
+     frequencies.  */
+  if (total_freq == 0)
+    total_freq = 1;
+  else if (entry_freq > total_freq)
+    entry_freq = total_freq;
+
   copy_bbs (region, n_region, region_copy, &exit, 1, &exit_copy, loop);
-  definitions = marked_ssa_names ();
+  scale_bbs_frequencies_int (region, n_region, total_freq - entry_freq,
+			     total_freq);
+  scale_bbs_frequencies_int (region_copy, n_region, entry_freq, total_freq);
 
   if (copying_header)
     {
@@ -5199,48 +5027,26 @@ tree_duplicate_sese_region (edge entry, edge exit,
   flush_pending_stmts (entry);
 
   /* Concerning updating of dominators:  We must recount dominators
-     for entry block and its copy.  Anything that is outside of the region, but
-     was dominated by something inside needs recounting as well.  */
+     for entry block and its copy.  Anything that is outside of the
+     region, but was dominated by something inside needs recounting as
+     well.  */
   set_immediate_dominator (CDI_DOMINATORS, entry->dest, entry->src);
   doms[n_doms++] = entry->dest->rbi->original;
   iterate_fix_dominators (CDI_DOMINATORS, doms, n_doms);
   free (doms);
 
-  /* Add the other phi node arguments.  */
+  /* Add the other PHI node arguments.  */
   add_phi_args_after_copy (region_copy, n_region);
 
-  /* Add phi nodes for definitions at exit.  TODO -- once we have immediate
-     uses, it should be possible to emit phi nodes just for definitions that
-     are used outside region.  */
-  EXECUTE_IF_SET_IN_BITMAP (definitions, 0, ver, bi)
-    {
-      tree name = ssa_name (ver);
-
-      phi = create_phi_node (name, exit->dest);
-      add_phi_arg (phi, name, exit);
-      add_phi_arg (phi, name, exit_copy);
-
-      SSA_NAME_DEF_STMT (name) = phi;
-    }
-
-  /* And create new definitions inside region and its copy.  TODO -- once we
-     have immediate uses, it might be better to leave definitions in region
-     unchanged, create new ssa names for phi nodes on exit, and rewrite
-     the uses, to avoid changing the copied region.  */
-  allocate_ssa_names (definitions, &ssa_name_map);
-  rewrite_to_new_ssa_names (region, n_region, ssa_name_map);
-  allocate_ssa_names (definitions, &ssa_name_map);
-  rewrite_to_new_ssa_names (region_copy, n_region, ssa_name_map);
-  htab_delete (ssa_name_map);
+  /* Update the SSA web.  */
+  update_ssa (TODO_update_ssa);
 
   if (free_region_copy)
     free (region_copy);
 
-  unmark_all_for_rewrite ();
-  BITMAP_FREE (definitions);
-
   return true;
 }
+
 
 /* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in tree.h)  */
 
@@ -5264,6 +5070,8 @@ dump_function_to_file (tree fn, FILE *file, int flags)
     }
   fprintf (file, ")\n");
 
+  if (flags & TDF_DETAILS)
+    dump_eh_tree (file, DECL_STRUCT_FUNCTION (fn));
   if (flags & TDF_RAW)
     {
       dump_node (fn, TDF_SLIM | flags, file);
@@ -5272,7 +5080,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 
   /* When GIMPLE is lowered, the variables are no longer available in
      BIND_EXPRs, so display them separately.  */
-  if (cfun && cfun->unexpanded_var_list)
+  if (cfun && cfun->decl == fn && cfun->unexpanded_var_list)
     {
       ignore_topmost_bind = true;
 
@@ -5288,7 +5096,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
 	}
     }
 
-  if (basic_block_info)
+  if (cfun && cfun->decl == fn && cfun->cfg && basic_block_info)
     {
       /* Make a CFG based dump.  */
       check_bb_profile (ENTRY_BLOCK_PTR, file);
@@ -5455,8 +5263,8 @@ tree_block_ends_with_call_p (basic_block bb)
 static bool
 tree_block_ends_with_condjump_p (basic_block bb)
 {
-  tree stmt = tsi_stmt (bsi_last (bb).tsi);
-  return (TREE_CODE (stmt) == COND_EXPR);
+  tree stmt = last_stmt (bb);
+  return (stmt && TREE_CODE (stmt) == COND_EXPR);
 }
 
 
@@ -5687,6 +5495,71 @@ tree_execute_on_shrinking_pred (edge e)
     remove_phi_args (e);
 }
 
+/*---------------------------------------------------------------------------
+  Helper functions for Loop versioning
+  ---------------------------------------------------------------------------*/
+
+/* Adjust phi nodes for 'first' basic block.  'second' basic block is a copy
+   of 'first'. Both of them are dominated by 'new_head' basic block. When
+   'new_head' was created by 'second's incoming edge it received phi arguments
+   on the edge by split_edge(). Later, additional edge 'e' was created to
+   connect 'new_head' and 'first'. Now this routine adds phi args on this 
+   additional edge 'e' that new_head to second edge received as part of edge 
+   splitting.
+*/
+
+static void
+tree_lv_adjust_loop_header_phi (basic_block first, basic_block second,
+				basic_block new_head, edge e)
+{
+  tree phi1, phi2;
+  edge e2 = find_edge (new_head, second);
+
+  /* Because NEW_HEAD has been created by splitting SECOND's incoming
+     edge, we should always have an edge from NEW_HEAD to SECOND.  */
+  gcc_assert (e2 != NULL);
+
+  /* Browse all 'second' basic block phi nodes and add phi args to
+     edge 'e' for 'first' head. PHI args are always in correct order.  */
+
+  for (phi2 = phi_nodes (second), phi1 = phi_nodes (first); 
+       phi2 && phi1; 
+       phi2 = PHI_CHAIN (phi2),  phi1 = PHI_CHAIN (phi1))
+    {
+      tree def = PHI_ARG_DEF (phi2, e2->dest_idx);
+      add_phi_arg (phi1, def, e);
+    }
+}
+
+/* Adds a if else statement to COND_BB with condition COND_EXPR.  
+   SECOND_HEAD is the destination of the THEN and FIRST_HEAD is 
+   the destination of the ELSE part.  */
+static void
+tree_lv_add_condition_to_bb (basic_block first_head, basic_block second_head,
+                            basic_block cond_bb, void *cond_e)
+{
+  block_stmt_iterator bsi;
+  tree goto1 = NULL_TREE;
+  tree goto2 = NULL_TREE;
+  tree new_cond_expr = NULL_TREE;
+  tree cond_expr = (tree) cond_e;
+  edge e0;
+
+  /* Build new conditional expr */
+  goto1 = build1 (GOTO_EXPR, void_type_node, tree_block_label (first_head));
+  goto2 = build1 (GOTO_EXPR, void_type_node, tree_block_label (second_head));
+  new_cond_expr = build3 (COND_EXPR, void_type_node, cond_expr, goto1, goto2);
+
+  /* Add new cond in cond_bb.  */ 
+  bsi = bsi_start (cond_bb); 
+  bsi_insert_after (&bsi, new_cond_expr, BSI_NEW_STMT);
+  /* Adjust edges appropriately to connect new head with first head
+     as well as second head.  */
+  e0 = single_succ_edge (cond_bb);
+  e0->flags &= ~EDGE_FALLTHRU;
+  e0->flags |= EDGE_FALSE_VALUE;
+}
+
 struct cfg_hooks tree_cfg_hooks = {
   "tree",
   tree_verify_flow_info,
@@ -5711,6 +5584,11 @@ struct cfg_hooks tree_cfg_hooks = {
   tree_flow_call_edges_add,     /* flow_call_edges_add */
   tree_execute_on_growing_pred,	/* execute_on_growing_pred */
   tree_execute_on_shrinking_pred, /* execute_on_shrinking_pred */
+  tree_duplicate_loop_to_header_edge, /* duplicate loop for trees */
+  tree_lv_add_condition_to_bb, /* lv_add_condition_to_bb */
+  tree_lv_adjust_loop_header_phi, /* lv_adjust_loop_header_phi*/
+  extract_true_false_edges_from_block, /* extract_cond_bb_edges */
+  flush_pending_stmts 		/* flush_pending_stmts */  
 };
 
 
@@ -5842,14 +5720,6 @@ execute_warn_function_return (void)
   edge e;
   edge_iterator ei;
 
-  if (warn_missing_noreturn
-      && !TREE_THIS_VOLATILE (cfun->decl)
-      && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0
-      && !lang_hooks.function.missing_noreturn_ok_p (cfun->decl))
-    warning ("%Jfunction might be possible candidate for "
-	     "attribute %<noreturn%>",
-	     cfun->decl);
-
   /* If we have a path to EXIT, then we do return.  */
   if (TREE_THIS_VOLATILE (cfun->decl)
       && EDGE_COUNT (EXIT_BLOCK_PTR->preds) > 0)
@@ -5873,11 +5743,11 @@ execute_warn_function_return (void)
 #ifdef USE_MAPPED_LOCATION
       if (location == UNKNOWN_LOCATION)
 	location = cfun->function_end_locus;
-      warning ("%H%<noreturn%> function does return", &location);
+      warning (0, "%H%<noreturn%> function does return", &location);
 #else
       if (!locus)
 	locus = &cfun->function_end_locus;
-      warning ("%H%<noreturn%> function does return", locus);
+      warning (0, "%H%<noreturn%> function does return", locus);
 #endif
     }
 
@@ -5898,12 +5768,12 @@ execute_warn_function_return (void)
 	      location = EXPR_LOCATION (last);
 	      if (location == UNKNOWN_LOCATION)
 		  location = cfun->function_end_locus;
-	      warning ("%Hcontrol reaches end of non-void function", &location);
+	      warning (0, "%Hcontrol reaches end of non-void function", &location);
 #else
 	      locus = EXPR_LOCUS (last);
 	      if (!locus)
 		locus = &cfun->function_end_locus;
-	      warning ("%Hcontrol reaches end of non-void function", locus);
+	      warning (0, "%Hcontrol reaches end of non-void function", locus);
 #endif
 	      TREE_NO_WARNING (cfun->decl) = 1;
 	      break;
@@ -5954,4 +5824,33 @@ struct tree_opt_pass pass_warn_function_return =
   0					/* letter */
 };
 
-#include "gt-tree-cfg.h"
+/* Emit noreturn warnings.  */
+
+static void
+execute_warn_function_noreturn (void)
+{
+  if (warn_missing_noreturn
+      && !TREE_THIS_VOLATILE (cfun->decl)
+      && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0
+      && !lang_hooks.function.missing_noreturn_ok_p (cfun->decl))
+    warning (0, "%Jfunction might be possible candidate for "
+	     "attribute %<noreturn%>",
+	     cfun->decl);
+}
+
+struct tree_opt_pass pass_warn_function_noreturn =
+{
+  NULL,					/* name */
+  NULL,					/* gate */
+  execute_warn_function_noreturn,	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0,					/* todo_flags_finish */
+  0					/* letter */
+};

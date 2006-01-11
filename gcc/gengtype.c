@@ -1088,7 +1088,7 @@ open_base_files (void)
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      NULL
+      "except.h", NULL
     };
     const char *const *ifp;
     outf_p gtype_desc_c;
@@ -1238,6 +1238,15 @@ get_output_file_with_visibility (const char *input_file)
     output_name = "gt-c-common.h", for_name = "c-common.c";
   else if (strcmp (basename, "c-tree.h") == 0)
     output_name = "gt-c-decl.h", for_name = "c-decl.c";
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "cp-tree.h") == 0)
+    output_name = "gt-cp-tree.h", for_name = "cp/tree.c";
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "decl.h") == 0)
+    output_name = "gt-cp-decl.h", for_name = "cp/decl.c";
+  else if (strncmp (basename, "cp", 2) == 0 && IS_DIR_SEPARATOR (basename[2])
+	   && strcmp (basename + 3, "name-lookup.h") == 0)
+    output_name = "gt-cp-name-lookup.h", for_name = "cp/name-lookup.c";
   else if (strncmp (basename, "objc", 4) == 0 && IS_DIR_SEPARATOR (basename[4])
 	   && strcmp (basename + 5, "objc-act.h") == 0)
     output_name = "gt-objc-objc-act.h", for_name = "objc/objc-act.c";
@@ -1976,6 +1985,25 @@ write_types_process_field (type_p f, const struct walk_type_data *d)
     }
 }
 
+/* A subroutine of write_func_for_structure.  Write the enum tag for S.  */
+
+static void
+output_type_enum (outf_p of, type_p s)
+{
+  if (s->kind == TYPE_PARAM_STRUCT && s->u.s.line.file != NULL)
+    {
+      oprintf (of, ", gt_e_");
+      output_mangled_typename (of, s);
+    }
+  else if (UNION_OR_STRUCT_P (s) && s->u.s.line.file != NULL)
+    {
+      oprintf (of, ", gt_ggc_e_");
+      output_mangled_typename (of, s);
+    }
+  else
+    oprintf (of, ", gt_types_enum_last");
+}
+
 /* For S, a structure that's part of ORIG_S, and using parameters
    PARAM, write out a routine that:
    - Takes a parameter, a void * but actually of type *S
@@ -2050,21 +2078,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	{
 	  oprintf (d.of, ", x, gt_%s_", wtd->param_prefix);
 	  output_mangled_typename (d.of, orig_s);
-
-	  if (orig_s->u.p->kind == TYPE_PARAM_STRUCT
-	      && orig_s->u.p->u.s.line.file != NULL)
-	    {
-	      oprintf (d.of, ", gt_e_");
-	      output_mangled_typename (d.of, orig_s);
-	    }
-	  else if (UNION_OR_STRUCT_P (orig_s)
-		   && orig_s->u.s.line.file != NULL)
-	    {
-	      oprintf (d.of, ", gt_ggc_e_");
-	      output_mangled_typename (d.of, orig_s);
-	    }
-	  else
-	    oprintf (d.of, ", gt_types_enum_last");
+	  output_type_enum (d.of, orig_s);
 	}
       oprintf (d.of, "))\n");
     }
@@ -2075,21 +2089,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	{
 	  oprintf (d.of, ", xlimit, gt_%s_", wtd->param_prefix);
 	  output_mangled_typename (d.of, orig_s);
-
-	  if (orig_s->u.p->kind == TYPE_PARAM_STRUCT
-	      && orig_s->u.p->u.s.line.file != NULL)
-	    {
-	      oprintf (d.of, ", gt_e_");
-	      output_mangled_typename (d.of, orig_s);
-	    }
-	  else if (UNION_OR_STRUCT_P (orig_s)
-		   && orig_s->u.s.line.file != NULL)
-	    {
-	      oprintf (d.of, ", gt_ggc_e_");
-	      output_mangled_typename (d.of, orig_s);
-	    }
-	  else
-	    oprintf (d.of, ", gt_types_enum_last");
+	  output_type_enum (d.of, orig_s);
 	}
       oprintf (d.of, "))\n");
       oprintf (d.of, "   xlimit = (");
@@ -2115,21 +2115,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
 	    {
 	      oprintf (d.of, ", xprev, gt_%s_", wtd->param_prefix);
 	      output_mangled_typename (d.of, orig_s);
-
-	      if (orig_s->u.p->kind == TYPE_PARAM_STRUCT
-		  && orig_s->u.p->u.s.line.file != NULL)
-		{
-		  oprintf (d.of, ", gt_e_");
-		  output_mangled_typename (d.of, orig_s);
-		}
-	      else if (UNION_OR_STRUCT_P (orig_s)
-		       && orig_s->u.s.line.file != NULL)
-		{
-		  oprintf (d.of, ", gt_ggc_e_");
-		  output_mangled_typename (d.of, orig_s);
-		}
-	      else
-		oprintf (d.of, ", gt_types_enum_last");
+	      output_type_enum (d.of, orig_s);
 	    }
 	  oprintf (d.of, ");\n");
 	  oprintf (d.of, "      }\n");

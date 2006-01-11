@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -228,11 +228,12 @@ hook_rtx_tree_int_null (tree a ATTRIBUTE_UNUSED, int b ATTRIBUTE_UNUSED)
   return NULL;
 }
 
-/* Generic hook that takes a tree and returns it as is.  */
+/* Generic hook that takes three trees and returns the last one as is.  */
 tree
-hook_tree_tree_identity (tree a)
+hook_tree_tree_tree_tree_3rd_identity (tree a ATTRIBUTE_UNUSED,
+				       tree b ATTRIBUTE_UNUSED, tree c)
 {
-  return a;
+  return c;
 }
 
 /* Generic hook that takes a tree and returns a NULL string.  */
@@ -243,7 +244,8 @@ hook_constcharptr_tree_null (tree t ATTRIBUTE_UNUSED)
 }
 
 tree
-hook_tree_tree_bool_null (tree t ATTRIBUTE_UNUSED, bool ignore ATTRIBUTE_UNUSED)
+hook_tree_tree_tree_bool_null (tree t0 ATTRIBUTE_UNUSED, tree t1 ATTRIBUTE_UNUSED,
+			       bool ignore ATTRIBUTE_UNUSED)
 {
   return NULL;
 }

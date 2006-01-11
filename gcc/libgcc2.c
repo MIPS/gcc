@@ -29,23 +29,10 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-
-/* We include auto-host.h here to get HAVE_GAS_HIDDEN.  This is
-   supposedly valid even though this is a "target" file.  */
-#include "auto-host.h"
-
-/* It is incorrect to include config.h here, because this file is being
-   compiled for the target, and hence definitions concerning only the host
-   do not apply.  */
 #include "tconfig.h"
 #include "tsystem.h"
 #include "coretypes.h"
 #include "tm.h"
-
-/* Don't use `fancy_abort' here even if config.h says to use it.  */
-#ifdef abort
-#undef abort
-#endif
 
 #ifdef HAVE_GAS_HIDDEN
 #define ATTRIBUTE_HIDDEN  __attribute__ ((__visibility__ ("hidden")))
@@ -1256,7 +1243,7 @@ __fixdfdi (DFtype a)
 }
 #endif
 
-#ifdef L_fixunssfdi
+#if defined(L_fixunssfdi) && LIBGCC2_HAS_SF_MODE
 DWtype
 __fixunssfDI (SFtype a)
 {
@@ -1320,7 +1307,7 @@ __fixunssfDI (SFtype a)
 }
 #endif
 
-#ifdef L_fixsfdi
+#if defined(L_fixsfdi) && LIBGCC2_HAS_SF_MODE
 DWtype
 __fixsfdi (SFtype a)
 {
@@ -1363,7 +1350,7 @@ __floatdidf (DWtype u)
 }
 #endif
 
-#ifdef L_floatdisf
+#if defined(L_floatdisf) && LIBGCC2_HAS_SF_MODE
 #define DI_SIZE (W_TYPE_SIZE * 2)
 #define SF_SIZE FLT_MANT_DIG
 
@@ -1495,7 +1482,7 @@ __fixunsdfSI (DFtype a)
 }
 #endif
 
-#ifdef L_fixunssfsi
+#if defined(L_fixunssfsi) && LIBGCC2_HAS_SF_MODE
 /* Reenable the normal types, in case limits.h needs them.  */
 #undef char
 #undef short
@@ -1520,7 +1507,7 @@ __fixunssfSI (SFtype a)
 /* Integer power helper used from __builtin_powi for non-constant
    exponents.  */
 
-#if defined(L_powisf2) \
+#if (defined(L_powisf2) && LIBGCC2_HAS_SF_MODE) \
     || (defined(L_powidf2) && LIBGCC2_HAS_DF_MODE) \
     || (defined(L_powixf2) && LIBGCC2_HAS_XF_MODE) \
     || (defined(L_powitf2) && LIBGCC2_HAS_TF_MODE)
@@ -1538,10 +1525,12 @@ __fixunssfSI (SFtype a)
 #  define NAME __powitf2
 # endif
 
+#undef int
+#undef unsigned
 TYPE
-NAME (TYPE x, Wtype m)
+NAME (TYPE x, int m)
 {
-  UWtype n = m < 0 ? -m : m;
+  unsigned int n = m < 0 ? -m : m;
   TYPE y = n % 2 ? x : 1;
   while (n >>= 1)
     {
@@ -1554,7 +1543,7 @@ NAME (TYPE x, Wtype m)
 
 #endif
 
-#if defined(L_mulsc3) || defined(L_divsc3) \
+#if ((defined(L_mulsc3) || defined(L_divsc3)) && LIBGCC2_HAS_SF_MODE) \
     || ((defined(L_muldc3) || defined(L_divdc3)) && LIBGCC2_HAS_DF_MODE) \
     || ((defined(L_mulxc3) || defined(L_divxc3)) && LIBGCC2_HAS_XF_MODE) \
     || ((defined(L_multc3) || defined(L_divtc3)) && LIBGCC2_HAS_TF_MODE)
@@ -1903,6 +1892,7 @@ TRANSFER_FROM_TRAMPOLINE
 #ifdef L__main
 
 #include "gbl-ctors.h"
+
 /* Some systems use __main in a way incompatible with its use in gcc, in these
    cases use the macros NAME__MAIN to give a quoted symbol and SYMBOL__MAIN to
    give the same symbol without quotes for an alternative entry point.  You
@@ -1912,7 +1902,7 @@ TRANSFER_FROM_TRAMPOLINE
 #define SYMBOL__MAIN __main
 #endif
 
-#ifdef INIT_SECTION_ASM_OP
+#if defined (INIT_SECTION_ASM_OP) || defined (INIT_ARRAY_SECTION_ASM_OP)
 #undef HAS_INIT_SECTION
 #define HAS_INIT_SECTION
 #endif

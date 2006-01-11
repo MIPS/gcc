@@ -25,15 +25,17 @@ blank lines.  Comments may appear on their own line anywhere within
 the file and are preceded by semicolons.  Whitespace is allowed before
 the semicolon.
 
-The files can contain two types of record: language definitions and
-option definitions.
+The files can contain the following types of record:
 
-A language definition record has two fields: the string
-@samp{Language} and the name of the language.  Once a language has
-been declared in this way, it can be used as an option property.
+@itemize @bullet
+@item
+A language definition record.  These records have two fields: the
+string @samp{Language} and the name of the language.  Once a language
+has been declared in this way, it can be used as an option property.
 @xref{Option properties}.
 
-An option definition record has the following fields:
+@item
+An option definition record.  These records have the following fields:
 
 @enumerate
 @item
@@ -58,6 +60,21 @@ help text contains a tab character, the text to the left of the tab is
 used instead of the option's name and the text to the right of the
 tab forms the help text.  This allows you to elaborate on what type
 of argument the option takes.
+
+@item
+A target mask record.  These records have one field of the form
+@samp{Mask(@var{x})}.  The options-processing script will automatically
+allocate a bit in @code{target_flags} (@pxref{Run-time Target}) for
+each mask name @var{x} and set the macro @code{MASK_@var{x}} to the
+appropriate bitmask.  It will also declare a @code{TARGET_@var{x}}
+macro that has the value 1 when bit @code{MASK_@var{x}} is set and
+0 otherwise.
+
+They are primarily intended to declare target masks that are not
+associated with user options, either because these masks represent
+internal switches or because the options are not available on all
+configurations and yet the masks always need to be defined.
+@end itemize
 
 @node Option properties
 @section Option properties
@@ -137,13 +154,20 @@ The variable specified by the @code{Var} property should be statically
 initialized to @var{value}.
 
 @item Mask(@var{name})
-The option is associated with a bit in the @code{target_flags} variable
-(@pxref{Run-time Target}) and is active when that bit is set.
+The option is associated with a bit in the @code{target_flags}
+variable (@pxref{Run-time Target}) and is active when that bit is set.
+You may also specify @code{Var} to select a variable other than
+@code{target_flags}.
 
-The options-processing script will automatically allocate a unique
-bit for the option and set the macro @code{MASK_@var{name}} to the
-appropriate bitmask.  It will also declare a @code{TARGET_@var{name}}
-macro that has the value 1 when the option is active and 0 otherwise.
+The options-processing script will automatically allocate a unique bit
+for the option.  If the option is attached to @samp{target_flags},
+the script will set the macro @code{MASK_@var{name}} to the appropriate
+bitmask.  It will also declare a @code{TARGET_@var{name}} macro that has
+the value 1 when the option is active and 0 otherwise.  If you use @code{Var}
+to attach the option to a different variable, the associated macros are
+called @code{OPTION_MASK_@var{name}} and @code{OPTION_@var{name}} respectively.
+
+You can disable automatic bit allocation using @code{MaskExists}.
 
 @item InverseMask(@var{othername})
 @itemx InverseMask(@var{othername}, @var{thisname})
@@ -152,10 +176,26 @@ The option is the inverse of another option that has the
 the options-processing script will declare a @code{TARGET_@var{thisname}}
 macro that is 1 when the option is active and 0 otherwise.
 
+@item MaskExists
+The mask specified by the @code{Mask} property already exists.
+No @code{MASK} or @code{TARGET} definitions should be added to
+@file{options.h} in response to this option record.
+
+The main purpose of this property is to support synonymous options.
+The first option should use @samp{Mask(@var{name})} and the others
+should use @samp{Mask(@var{name}) MaskExists}.
+
 @item Report
 The state of the option should be printed by @option{-fverbose-asm}.
 
 @item Undocumented
 The option is deliberately missing documentation and should not
 be included in the @option{--help} output.
+
+@item Condition(@var{cond})
+The option should only be accepted if preprocessor condition
+@var{cond} is true.  Note that any C declarations associated with the
+option will be present even if @var{cond} is false; @var{cond} simply
+controls whether the option is accepted and whether it is printed in
+the @option{--help} output.
 @end table

@@ -19,7 +19,7 @@
 ; Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 ; 02111-1307, USA.
 
-; See c.opt for a description of this file's format.
+; See the GCC internals manual for a description of this file's format.
 
 ; Please try to keep this file in ASCII collating order.
 
@@ -335,6 +335,10 @@ Delete useless null pointer checks
 fdiagnostics-show-location=
 Common Joined RejectNegative
 -fdiagnostics-show-location=[once|every-line]	How often to emit source location at the beginning of line-wrapped diagnostics
+
+fdiagnostics-show-option
+Common
+Amend appropriate diagnostic messages with the command line option that controls them.
 
 fdump-
 Common Joined RejectNegative
@@ -714,7 +718,7 @@ Allow premature scheduling of queued insns
 
 fsched-stalled-insns=
 Common RejectNegative Joined UInteger 
--fsched-stalled-insns=<number>       Set number of queued insns that can be prematurely scheduled
+-fsched-stalled-insns=<number>	Set number of queued insns that can be prematurely scheduled
 
 ; sched_stalled_insns_dep controls how many recently scheduled cycles will
 ; be examined for a dependency on a stalled insn that is candidate for
@@ -726,11 +730,15 @@ Set dependence distance checking in premature scheduling of queued insns
 
 fsched-stalled-insns-dep=
 Common RejectNegative Joined UInteger
--fsched-stalled-insns-dep=<number>   Set dependence distance checking in premature scheduling of queued insns
+-fsched-stalled-insns-dep=<number>	Set dependence distance checking in premature scheduling of queued insns
 
 fshared-data
 Common Report Var(flag_shared_data)
 Mark data as shared rather than private
+
+fshow-column
+Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)
+Show column numbers in diagnostics, when available.  Default on.
 
 fsignaling-nans
 Common Report Var(flag_signaling_nans)
@@ -824,6 +832,10 @@ ftree-ccp
 Common Report Var(flag_tree_ccp)
 Enable SSA-CCP optimization on trees
 
+ftree-store-ccp
+Common Report Var(flag_tree_store_ccp)
+Enable SSA-CCP optimization for stores and loads
+
 ftree-ch
 Common Report Var(flag_tree_ch)
 Enable loop header copying on trees
@@ -835,6 +847,14 @@ Coalesce memory temporaries in the SSA->normal pass
 ftree-copyrename
 Common Report Var(flag_tree_copyrename)
 Replace SSA temporaries with better names in copies.
+
+ftree-copy-prop
+Common Report Var(flag_tree_copy_prop)
+Enable copy propagation on trees
+
+ftree-store-copy-prop
+Common Report Var(flag_tree_store_copy_prop)
+Enable copy propagation for stores and loads
 
 ftree-dce
 Common Report Var(flag_tree_dce)
@@ -892,6 +912,10 @@ ftree-lrs
 Common Report Var(flag_tree_live_range_split)
 Perform live range splitting during the SSA->normal pass.
 
+ftree-vrp
+Common Report Var(flag_tree_vrp) Init(0)
+Perform Value Range Propagation on trees
+
 funit-at-a-time
 Common Report Var(flag_unit_at_a_time)
 Compile whole compilation unit at a time
@@ -930,7 +954,7 @@ Enable loop vectorization on trees
 
 ftree-vectorizer-verbose=
 Common RejectNegative Joined
--ftree-vectorizer-verbose=<number>   Set the verbosity level of the vectorizer
+-ftree-vectorizer-verbose=<number>	Set the verbosity level of the vectorizer
 
 ; -fverbose-asm causes extra commentary information to be produced in
 ; the generated assembly code (to make it more readable).  This option

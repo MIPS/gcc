@@ -57,9 +57,13 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.warn_surprising = 0;
   gfc_option.warn_unused_labels = 0;
 
+  gfc_option.flag_default_double = 0;
+  gfc_option.flag_default_integer = 0;
+  gfc_option.flag_default_real = 0;
   gfc_option.flag_dollar_ok = 0;
   gfc_option.flag_underscoring = 1;
-  gfc_option.flag_second_underscore = 1;
+  gfc_option.flag_f2c = 0;
+  gfc_option.flag_second_underscore = -1;
   gfc_option.flag_implicit_none = 0;
   gfc_option.flag_max_stack_var_size = 32768;
   gfc_option.flag_module_access_private = 0;
@@ -68,9 +72,6 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_repack_arrays = 0;
 
   gfc_option.q_kind = gfc_default_double_kind;
-  gfc_option.i8 = 0;
-  gfc_option.r8 = 0;
-  gfc_option.d8 = 0;
 
   flag_argument_noalias = 2;
   flag_errno_math = 0;
@@ -112,6 +113,12 @@ gfc_post_options (const char **pfilename)
   /* If -pedantic, warn about the use of GNU extensions.  */
   if (pedantic && (gfc_option.allow_std & GFC_STD_GNU) != 0)
     gfc_option.warn_std |= GFC_STD_GNU;
+
+  /* If the user didn't explicitly specify -f(no)-second-underscore we
+     use it if we're trying to be compatible with f2c, and not
+     otherwise.  */
+  if (gfc_option.flag_second_underscore == -1)
+    gfc_option.flag_second_underscore = gfc_option.flag_f2c;
 
   return false;
 }
@@ -214,6 +221,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.warn_unused_labels = value;
       break;
 
+    case OPT_ff2c:
+      gfc_option.flag_f2c = value;
+      break;
+
     case OPT_fdollar_ok:
       gfc_option.flag_dollar_ok = value;
       break;
@@ -285,16 +296,16 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.q_kind = value;
       break;
 
-    case OPT_i8:
-      gfc_option.i8 = value;
+    case OPT_fdefault_integer_8:
+      gfc_option.flag_default_integer = value;
       break;
 
-    case OPT_r8:
-      gfc_option.r8 = value;
+    case OPT_fdefault_real_8:
+      gfc_option.flag_default_real = value;
       break;
 
-    case OPT_d8:
-      gfc_option.d8 = value;
+    case OPT_fdefault_double_8:
+      gfc_option.flag_default_double = value;
       break;
 
     case OPT_I:

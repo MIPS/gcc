@@ -1,6 +1,6 @@
 /* Allocate registers within a basic block, for GNU compiler.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1032,9 +1032,8 @@ update_equiv_regs (void)
 		     once and used once.  (If it were only set, but not used,
 		     flow would have deleted the setting insns.)  Hence
 		     there can only be one insn in reg_equiv[REGNO].init_insns.  */
-		  if (reg_equiv[regno].init_insns == NULL_RTX
-		      || XEXP (reg_equiv[regno].init_insns, 1) != NULL_RTX)
-		    abort ();
+		  gcc_assert (reg_equiv[regno].init_insns
+			      && !XEXP (reg_equiv[regno].init_insns, 1));
 		  equiv_insn = XEXP (reg_equiv[regno].init_insns, 0);
 
 		  /* We may not move instructions that can throw, since
@@ -1089,8 +1088,9 @@ update_equiv_regs (void)
 		      REG_NOTES (new_insn) = REG_NOTES (equiv_insn);
 		      REG_NOTES (equiv_insn) = 0;
 
-		      /* Make sure this insn is recognized before reload begins,
-			 otherwise eliminate_regs_in_insn will abort.  */
+		      /* Make sure this insn is recognized before
+			 reload begins, otherwise
+			 eliminate_regs_in_insn will die.  */
 		      INSN_CODE (new_insn) = INSN_CODE (equiv_insn);
 
 		      delete_insn (equiv_insn);
@@ -1196,8 +1196,10 @@ block_alloc (int b)
   while (1)
     {
       if (!NOTE_P (insn))
-	if (++insn_count > max_uid)
-	  abort ();
+	{
+	  ++insn_count;
+	  gcc_assert (insn_count <= max_uid);
+	}
       if (insn == BB_HEAD (BASIC_BLOCK (b)))
 	break;
       insn = PREV_INSN (insn);
@@ -2117,8 +2119,7 @@ find_free_reg (enum reg_class class, enum machine_mode mode, int qtyno,
 #endif
 
   /* Validate our parameters.  */
-  if (born_index < 0 || born_index > dead_index)
-    abort ();
+  gcc_assert (born_index >= 0 && born_index <= dead_index);
 
   /* Don't let a pseudo live in a reg across a function call
      if we might get a nonlocal goto.  */

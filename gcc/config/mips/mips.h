@@ -34,8 +34,11 @@ Boston, MA 02111-1307, USA.  */
 enum processor_type {
   PROCESSOR_DEFAULT,
   PROCESSOR_4KC,
+  PROCESSOR_4KP,
   PROCESSOR_5KC,
   PROCESSOR_20KC,
+  PROCESSOR_24K,
+  PROCESSOR_24KX,
   PROCESSOR_M4K,
   PROCESSOR_R3000,
   PROCESSOR_R3900,
@@ -966,11 +969,11 @@ extern const struct mips_cpu_info *mips_tune_info;
 /* The number of bytes in a double.  */
 #define UNITS_PER_DOUBLE (TYPE_PRECISION (double_type_node) / BITS_PER_UNIT)
 
-#define UNITS_PER_SIMD_WORD (TARGET_PAIRED_SINGLE_FLOAT ? 8 : 0)
+#define UNITS_PER_SIMD_WORD (TARGET_PAIRED_SINGLE_FLOAT ? 8 : UNITS_PER_WORD)
 
 /* Set the sizes of the core types.  */
 #define SHORT_TYPE_SIZE 16
-#define INT_TYPE_SIZE (TARGET_INT64 ? 64 : 32)
+#define INT_TYPE_SIZE 32
 #define LONG_TYPE_SIZE (TARGET_LONG64 ? 64 : 32)
 #define LONG_LONG_TYPE_SIZE 64
 
@@ -2576,18 +2579,9 @@ do {									\
 	     LOCAL_LABEL_PREFIX, VALUE);				\
 } while (0)
 
-/* When generating mips16 code we want to put the jump table in the .text
-   section.  In all other cases, we want to put the jump table in the .rdata
-   section.  Unfortunately, we can't use JUMP_TABLES_IN_TEXT_SECTION, because
-   it is not conditional.  Instead, we use ASM_OUTPUT_CASE_LABEL to switch back
-   to the .text section if appropriate.  */
-#undef ASM_OUTPUT_CASE_LABEL
-#define ASM_OUTPUT_CASE_LABEL(FILE, PREFIX, NUM, INSN)			\
-do {									\
-  if (TARGET_MIPS16)							\
-    function_section (current_function_decl);				\
-  (*targetm.asm_out.internal_label) (FILE, PREFIX, NUM);		\
-} while (0)
+/* When generating MIPS16 code, we want the jump table to be in the text
+   section so that we can load its address using a PC-relative addition.  */
+#define JUMP_TABLES_IN_TEXT_SECTION TARGET_MIPS16
 
 /* This is how to output an assembler line
    that says to advance the location counter
@@ -2677,11 +2671,6 @@ while (0)
 
 #undef PTRDIFF_TYPE
 #define PTRDIFF_TYPE (POINTER_SIZE == 64 ? "long int" : "int")
-
-/* See mips_expand_prologue's use of loadgp for when this should be
-   true.  */
-
-#define DONT_ACCESS_GBLS_AFTER_EPILOGUE (TARGET_ABICALLS && !TARGET_OLDABI)
 
 #ifndef __mips16
 /* Since the bits of the _init and _fini function is spread across

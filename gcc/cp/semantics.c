@@ -139,10 +139,11 @@ typedef struct deferred_access GTY(())
   enum deferring_kind deferring_access_checks_kind;
   
 } deferred_access;
-DEF_VEC_GC_O (deferred_access);
+DEF_VEC_O (deferred_access);
+DEF_VEC_ALLOC_O (deferred_access,gc);
 
 /* Data for deferred access checking.  */
-static GTY(()) VEC (deferred_access) *deferred_access_stack;
+static GTY(()) VEC(deferred_access,gc) *deferred_access_stack;
 static GTY(()) unsigned deferred_access_no_check;
 
 /* Save the current deferred access states and start deferred
@@ -159,7 +160,7 @@ push_deferring_access_checks (deferring_kind deferring)
     {
       deferred_access *ptr;
 
-      ptr = VEC_safe_push (deferred_access, deferred_access_stack, NULL);
+      ptr = VEC_safe_push (deferred_access, gc, deferred_access_stack, NULL);
       ptr->deferred_access_checks = NULL_TREE;
       ptr->deferring_access_checks_kind = deferring;
     }
@@ -400,7 +401,7 @@ anon_aggr_type_p (tree node)
 
 /* Finish a scope.  */
 
-static tree
+tree
 do_poplevel (tree stmt_list)
 {
   tree block = NULL;
@@ -834,7 +835,7 @@ finish_for_stmt (tree for_stmt)
 tree
 finish_break_stmt (void)
 {
-  return add_stmt (build_break_stmt ());
+  return add_stmt (build_stmt (BREAK_STMT));
 }
 
 /* Finish a continue-statement.  */
@@ -842,7 +843,7 @@ finish_break_stmt (void)
 tree
 finish_continue_stmt (void)
 {
-  return add_stmt (build_continue_stmt ());
+  return add_stmt (build_stmt (CONTINUE_STMT));
 }
 
 /* Begin a switch-statement.  Returns a new SWITCH_STMT if
@@ -1523,6 +1524,9 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 {
   tree result = NULL_TREE;
 
+  if (error_operand_p (expr))
+    return error_mark_node;
+  
   if (expr)
     {
       if (!processing_template_decl && !VOID_TYPE_P (TREE_TYPE (expr)))
@@ -1830,8 +1834,17 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
 				       ? LOOKUP_NONVIRTUAL : 0));
     }
   else if (is_overloaded_fn (fn))
-    /* A call to a namespace-scope function.  */
-    result = build_new_function_call (fn, args);
+    {
+      /* If the function is an overloaded builtin, resolve it.  */
+      if (TREE_CODE (fn) == FUNCTION_DECL
+	  && (DECL_BUILT_IN_CLASS (fn) == BUILT_IN_NORMAL
+	      || DECL_BUILT_IN_CLASS (fn) == BUILT_IN_MD))
+        result = resolve_overloaded_builtin (fn, args);
+
+      if (!result)
+	/* A call to a namespace-scope function.  */
+	result = build_new_function_call (fn, args);
+    }
   else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
     {
       if (args)
@@ -1848,6 +1861,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p)
        have an overloaded `operator ()'.  */
     result = build_new_op (CALL_EXPR, LOOKUP_NORMAL, fn, args, NULL_TREE,
 			   /*overloaded_p=*/NULL);
+
   if (!result)
     /* A call where the function is unknown.  */
     result = build_function_call (fn, args);
@@ -1993,7 +2007,8 @@ finish_compound_literal (tree type, tree initializer_list)
 
 	 implies that the array has two elements.  */
       if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
-	complete_array_type (type, compound_literal, 1);
+	cp_complete_array_type (&TREE_TYPE (compound_literal),
+				compound_literal, 1);
     }
 
   return compound_literal;

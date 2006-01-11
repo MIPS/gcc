@@ -303,15 +303,6 @@ package body Ada.Tags is
       return Result (1 .. Length (Result));
    end External_Tag;
 
-   -----------------------
-   -- Get_Expanded_Name --
-   -----------------------
-
-   function Get_Expanded_Name (T : Tag) return System.Address is
-   begin
-      return To_Address (TSD (T).Expanded_Name);
-   end Get_Expanded_Name;
-
    ----------------------
    -- Get_External_Tag --
    ----------------------
@@ -320,15 +311,6 @@ package body Ada.Tags is
    begin
       return To_Address (TSD (T).External_Tag);
    end Get_External_Tag;
-
-   ---------------------------
-   -- Get_Inheritance_Depth --
-   ---------------------------
-
-   function Get_Inheritance_Depth (T : Tag) return Natural is
-   begin
-      return TSD (T).Idepth;
-   end Get_Inheritance_Depth;
 
    -------------------------
    -- Get_Prim_Op_Address --
@@ -360,18 +342,6 @@ package body Ada.Tags is
       return TSD (T).Remotely_Callable = True;
    end Get_Remotely_Callable;
 
-   -------------
-   -- Get_TSD --
-   -------------
-
-   function Get_TSD  (T : Tag) return System.Address is
-      use type System.Storage_Elements.Storage_Offset;
-      TSD_Ptr : constant Addr_Ptr :=
-                  To_Addr_Ptr (To_Address (T) - DT_Typeinfo_Ptr_Size);
-   begin
-      return TSD_Ptr.all;
-   end Get_TSD;
-
    ----------------
    -- Inherit_DT --
    ----------------
@@ -392,14 +362,13 @@ package body Ada.Tags is
    -- Inherit_TSD --
    -----------------
 
-   procedure Inherit_TSD (Old_TSD : System.Address; New_Tag : Tag) is
-      Old_TSD_Ptr  : constant Type_Specific_Data_Ptr :=
-                       To_Type_Specific_Data_Ptr (Old_TSD);
-      New_TSD_Ptr  : constant Type_Specific_Data_Ptr :=
-                       TSD (New_Tag);
+   procedure Inherit_TSD (Old_Tag : Tag; New_Tag : Tag) is
+      New_TSD_Ptr : constant Type_Specific_Data_Ptr := TSD (New_Tag);
+      Old_TSD_Ptr : Type_Specific_Data_Ptr;
 
    begin
-      if Old_TSD_Ptr /= null then
+      if Old_Tag /= null then
+         Old_TSD_Ptr        := TSD (Old_Tag);
          New_TSD_Ptr.Idepth := Old_TSD_Ptr.Idepth + 1;
          New_TSD_Ptr.Ancestor_Tags (1 .. New_TSD_Ptr.Idepth) :=
            Old_TSD_Ptr.Ancestor_Tags (0 .. Old_TSD_Ptr.Idepth);
@@ -519,18 +488,6 @@ package body Ada.Tags is
       TSD (T).External_Tag := To_Cstring_Ptr (Value);
    end Set_External_Tag;
 
-   ---------------------------
-   -- Set_Inheritance_Depth --
-   ---------------------------
-
-   procedure Set_Inheritance_Depth
-     (T     : Tag;
-      Value : Natural)
-   is
-   begin
-      TSD (T).Idepth := Value;
-   end Set_Inheritance_Depth;
-
    -------------------------
    -- Set_Prim_Op_Address --
    -------------------------
@@ -607,8 +564,11 @@ package body Ada.Tags is
    ---------
 
    function TSD (T : Tag) return Type_Specific_Data_Ptr is
+      use type System.Storage_Elements.Storage_Offset;
+      TSD_Ptr : constant Addr_Ptr :=
+                  To_Addr_Ptr (To_Address (T) - DT_Typeinfo_Ptr_Size);
    begin
-      return To_Type_Specific_Data_Ptr (Get_TSD (T));
+      return To_Type_Specific_Data_Ptr (TSD_Ptr.all);
    end TSD;
 
 end Ada.Tags;

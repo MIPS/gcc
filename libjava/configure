@@ -310,7 +310,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os build_subdir host_subdir target_subdir libgcj_basedir host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical LN_S mkinstalldirs CC ac_ct_CC EXEEXT OBJEXT CXX ac_ct_CXX CFLAGS CXXFLAGS LDFLAGS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CXXDEPMODE am__fastdepCXX_TRUE am__fastdepCXX_FALSE AS ac_ct_AS AR ac_ct_AR RANLIB ac_ct_RANLIB MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT LIBGCJ_CFLAGS LIBGCJ_CXXFLAGS LIBGCJ_JAVAFLAGS LIBGCJ_LD_SYMBOLIC INCLTDL LIBLTDL DIRLTDL LIBTOOL CXXCPP CPPFLAGS GCJ GCJFLAGS GCJDEPMODE am__fastdepGCJ_TRUE am__fastdepGCJ_FALSE subdirs TESTSUBDIR_TRUE TESTSUBDIR_FALSE ONESTEP_TRUE ONESTEP_FALSE LIBGCJDEBUG INTERPRETER LIBFFI LIBFFIINCS PLATFORM_INNER_NAT_HDRS CPP EGREP USING_WIN32_PLATFORM_TRUE USING_WIN32_PLATFORM_FALSE USING_POSIX_PLATFORM_TRUE USING_POSIX_PLATFORM_FALSE USING_ECOS_PLATFORM_TRUE USING_ECOS_PLATFORM_FALSE USING_DARWIN_CRT_TRUE USING_DARWIN_CRT_FALSE SYSTEMSPEC LIBGCJTESTSPEC ZLIBSPEC ZLIBTESTSPEC X_CFLAGS X_PRE_LIBS X_LIBS X_EXTRA_LIBS TOOLKIT XLIB_AWT_TRUE XLIB_AWT_FALSE GTK_AWT_TRUE GTK_AWT_FALSE GTK_CAIRO_TRUE GTK_CAIRO_FALSE PKG_CONFIG CAIRO_CFLAGS CAIRO_LIBS PANGOFT2_CFLAGS PANGOFT2_LIBS GCLIBS GCINCS GCDEPS GCSPEC JC1GCSPEC GCTESTSPEC USING_BOEHMGC_TRUE USING_BOEHMGC_FALSE USING_NOGC_TRUE USING_NOGC_FALSE THREADLIBS THREADINCS THREADDEPS THREADSPEC THREADLDFLAGS THREADCXXFLAGS USING_POSIX_THREADS_TRUE USING_POSIX_THREADS_FALSE USING_WIN32_THREADS_TRUE USING_WIN32_THREADS_FALSE USING_NO_THREADS_TRUE USING_NO_THREADS_FALSE HASH_SYNC_SPEC USING_GCC_TRUE USING_GCC_FALSE gcc_version_trigger gcc_version_full gcc_version tool_include_dir LIBICONV LTLIBICONV GTK_CFLAGS GTK_LIBS GLIB_CFLAGS GLIB_LIBS LIBART_CFLAGS LIBART_LIBS SUPPLY_BACKTRACE_TRUE SUPPLY_BACKTRACE_FALSE GCJH ZIP CLASSPATH_SEPARATOR ac_ct_GCJ ZLIBS SYS_ZLIBS ZINCS DIVIDESPEC CHECKREFSPEC EXCEPTIONSPEC IEEESPEC NATIVE_TRUE NATIVE_FALSE NEEDS_DATA_START_TRUE NEEDS_DATA_START_FALSE GCC_UNWIND_INCLUDE toolexecdir toolexecmainlibdir toolexeclibdir GCJVERSION gxx_include_dir libstdcxx_incdir ALLOCA PERL BACKTRACESPEC SYSDEP_SOURCES here LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os build_subdir host_subdir target_subdir libgcj_basedir host host_cpu host_vendor host_os target target_cpu target_vendor target_os target_noncanonical LN_S mkinstalldirs CC ac_ct_CC EXEEXT OBJEXT CXX ac_ct_CXX CFLAGS CXXFLAGS LDFLAGS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CXXDEPMODE am__fastdepCXX_TRUE am__fastdepCXX_FALSE AS ac_ct_AS AR ac_ct_AR RANLIB ac_ct_RANLIB MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT LIBGCJ_CFLAGS LIBGCJ_CXXFLAGS LIBGCJ_JAVAFLAGS LIBGCJ_LD_SYMBOLIC INCLTDL LIBLTDL DIRLTDL LIBTOOL CXXCPP CPPFLAGS GCJ GCJFLAGS GCJDEPMODE am__fastdepGCJ_TRUE am__fastdepGCJ_FALSE subdirs TESTSUBDIR_TRUE TESTSUBDIR_FALSE JAVA_HOME_SET_TRUE JAVA_HOME_SET_FALSE JAVA_HOME LIBGCJDEBUG INTERPRETER LIBFFI LIBFFIINCS PLATFORM_INNER_NAT_HDRS CPP EGREP USING_WIN32_PLATFORM_TRUE USING_WIN32_PLATFORM_FALSE USING_POSIX_PLATFORM_TRUE USING_POSIX_PLATFORM_FALSE USING_ECOS_PLATFORM_TRUE USING_ECOS_PLATFORM_FALSE USING_DARWIN_CRT_TRUE USING_DARWIN_CRT_FALSE SYSTEMSPEC LIBGCJTESTSPEC ZLIBSPEC ZLIBTESTSPEC X_CFLAGS X_PRE_LIBS X_LIBS X_EXTRA_LIBS TOOLKIT XLIB_AWT_TRUE XLIB_AWT_FALSE GTK_AWT_TRUE GTK_AWT_FALSE GTK_CAIRO_TRUE GTK_CAIRO_FALSE PKG_CONFIG CAIRO_CFLAGS CAIRO_LIBS PANGOFT2_CFLAGS PANGOFT2_LIBS GCLIBS GCINCS GCDEPS GCSPEC JC1GCSPEC GCTESTSPEC USING_BOEHMGC_TRUE USING_BOEHMGC_FALSE USING_NOGC_TRUE USING_NOGC_FALSE THREADLIBS THREADINCS THREADDEPS THREADSPEC THREADLDFLAGS THREADCXXFLAGS USING_POSIX_THREADS_TRUE USING_POSIX_THREADS_FALSE USING_WIN32_THREADS_TRUE USING_WIN32_THREADS_FALSE USING_NO_THREADS_TRUE USING_NO_THREADS_FALSE HASH_SYNC_SPEC USING_GCC_TRUE USING_GCC_FALSE LIBICONV LTLIBICONV GTK_CFLAGS GTK_LIBS GLIB_CFLAGS GLIB_LIBS LIBART_CFLAGS LIBART_LIBS SUPPLY_BACKTRACE_TRUE SUPPLY_BACKTRACE_FALSE GCJH ZIP CLASSPATH_SEPARATOR ac_ct_GCJ ZLIBS SYS_ZLIBS ZINCS DIVIDESPEC CHECKREFSPEC EXCEPTIONSPEC IEEESPEC NATIVE_TRUE NATIVE_FALSE NEEDS_DATA_START_TRUE NEEDS_DATA_START_FALSE GCC_UNWIND_INCLUDE toolexecdir toolexecmainlibdir toolexeclibdir GCJVERSION gxx_include_dir libstdcxx_incdir ALLOCA PERL BACKTRACESPEC SYSDEP_SOURCES here LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -865,9 +865,6 @@ Optional Features:
                           don't set system properties from GCJ_PROPERTIES
   --enable-hash-synchronization
                           use global hash table for monitor locks
-  --enable-libgcj-multifile
-                 allow compilation of several files at once
-
   --enable-libgcj-debug   enable runtime debugging code
   --enable-gc-debug       include full support for pointer backtracing etc.
   --enable-interpreter    enable interpreter
@@ -889,6 +886,8 @@ Optional Packages:
   --with-newlib           configure with newlib
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
   --with-pic              try to use only PIC/non-PIC objects default=use both
+  --with-java-home=DIRECTORY
+                          value of java.home system property
   --with-win32-nlsapi=ansi or unicows or unicode
                           native MinGW libgcj Win32 OS API (default is ansi)
   --without-libffi        don't use libffi
@@ -4433,6 +4432,67 @@ deplibs_check_method=$lt_cv_deplibs_check_method
 
 # Autoconf 2.13's AC_OBJEXT and AC_EXEEXT macros only works for C compilers!
 
+# find the maximum length of command line arguments
+echo "$as_me:$LINENO: checking the maximum length of command line arguments" >&5
+echo $ECHO_N "checking the maximum length of command line arguments... $ECHO_C" >&6
+if test "${lt_cv_sys_max_cmd_len+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+    i=0
+  teststring="ABCD"
+
+  case $build_os in
+  msdosdjgpp*)
+    # On DJGPP, this test can blow up pretty badly due to problems in libc
+    # (any single argument exceeding 2000 bytes causes a buffer overrun
+    # during glob expansion).  Even if it were fixed, the result of this
+    # check would be larger than it should be.
+    lt_cv_sys_max_cmd_len=12288;    # 12K is about right
+    ;;
+
+  cygwin* | mingw*)
+    # On Win9x/ME, this test blows up -- it succeeds, but takes
+    # about 5 minutes as the teststring grows exponentially.
+    # Worse, since 9x/ME are not pre-emptively multitasking,
+    # you end up with a "frozen" computer, even though with patience
+    # the test eventually succeeds (with a max line length of 256k).
+    # Instead, let's just punt: use the minimum linelength reported by
+    # all of the supported platforms: 8192 (on NT/2K/XP).
+    lt_cv_sys_max_cmd_len=8192;
+    ;;
+
+  amigaos*)
+    # On AmigaOS with pdksh, this test takes hours, literally.
+    # So we just punt and use a minimum line length of 8192.
+    lt_cv_sys_max_cmd_len=8192;
+    ;;
+
+  netbsd* | freebsd* | openbsd* | darwin* | dragonfly*)
+    # This has been around since 386BSD, at least.  Likely further.
+    if test -x /sbin/sysctl; then
+      lt_cv_sys_max_cmd_len=`/sbin/sysctl -n kern.argmax`
+    elif test -x /usr/sbin/sysctl; then
+      lt_cv_sys_max_cmd_len=`/usr/sbin/sysctl -n kern.argmax`
+    else
+      lt_cv_sys_max_cmd_len=65536 # usable default for *BSD
+    fi
+    # And add a safety zone
+    lt_cv_sys_max_cmd_len=`expr $lt_cv_sys_max_cmd_len \/ 4`
+    lt_cv_sys_max_cmd_len=`expr $lt_cv_sys_max_cmd_len \* 3`
+    ;;
+  esac
+
+fi
+
+if test -n "$lt_cv_sys_max_cmd_len" ; then
+  echo "$as_me:$LINENO: result: $lt_cv_sys_max_cmd_len" >&5
+echo "${ECHO_T}$lt_cv_sys_max_cmd_len" >&6
+else
+  echo "$as_me:$LINENO: result: none" >&5
+echo "${ECHO_T}none" >&6
+fi
+
+
 # Only perform the check for file, if the check method requires it
 case $deplibs_check_method in
 file_magic*)
@@ -4766,7 +4826,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4769 "configure"' > conftest.$ac_ext
+  echo '#line 4829 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -5662,29 +5722,24 @@ if test -z "$enable_hash_synchronization"; then
    enable_hash_synchronization=$enable_hash_synchronization_default
 fi
 
-# Do we allow intermodule optimizations (i.e. compiling many files at once)?
-# Check whether --enable-libgcj-multifile or --disable-libgcj-multifile was given.
-if test "${enable_libgcj_multifile+set}" = set; then
-  enableval="$enable_libgcj_multifile"
-  case "${enableval}" in
-  yes) enable_libgcj_multifile=yes ;;
-  no)  enable_libgcj_multifile=no ;;
-  *) { { echo "$as_me:$LINENO: error: bad value ${enableval} for --enable-libgcj-multifile" >&5
-echo "$as_me: error: bad value ${enableval} for --enable-libgcj-multifile" >&2;}
-   { (exit 1); exit 1; }; } ;;
-esac
+
+# Check whether --with-java-home or --without-java-home was given.
+if test "${with_java_home+set}" = set; then
+  withval="$with_java_home"
+  JAVA_HOME="${withval}"
 else
-  enable_libgcj_multifile=no
+  JAVA_HOME=""
 fi;
 
 
-if test "$enable_libgcj_multifile" = yes; then
-  ONESTEP_TRUE=
-  ONESTEP_FALSE='#'
+if test ! -z "$JAVA_HOME"; then
+  JAVA_HOME_SET_TRUE=
+  JAVA_HOME_SET_FALSE='#'
 else
-  ONESTEP_TRUE='#'
-  ONESTEP_FALSE=
+  JAVA_HOME_SET_TRUE='#'
+  JAVA_HOME_SET_FALSE=
 fi
+
 
 
 # What is the native OS API for MinGW?
@@ -5790,7 +5845,7 @@ if test "${enable_sjlj_exceptions+set}" = set; then
   :
 else
   cat > conftest.$ac_ext << EOF
-#line 5793 "configure"
+#line 5848 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -6410,11 +6465,11 @@ test -d java/lang || mkdir java/lang
           ac_config_links="$ac_config_links java/lang/natConcreteProcess.cc:java/lang/nat${PLATFORM}Process.cc"
 
 
-# Likewise for natInetAddress.cc and natNetworkInterface.cc.
+# Likewise for natInetAddress.cc and natVMNetworkInterface.cc.
 test -d java/net || mkdir java/net
           ac_config_links="$ac_config_links java/net/natInetAddress.cc:java/net/natInetAddress${PLATFORMNET}.cc"
 
-          ac_config_links="$ac_config_links java/net/natNetworkInterface.cc:java/net/natNetworkInterface${PLATFORMNET}.cc"
+          ac_config_links="$ac_config_links java/net/natVMNetworkInterface.cc:java/net/natVMNetworkInterface${PLATFORMNET}.cc"
 
 
 # Likewise for natPlainSocketImpl.cc and natPlainDatagramSocketImpl.cc.
@@ -8471,7 +8526,6 @@ fi
 
 
 
-
 if test "$GCC" = yes; then
   USING_GCC_TRUE=
   USING_GCC_FALSE='#'
@@ -8483,27 +8537,6 @@ fi
 
 # We're in the tree with gcc, and need to include some of its headers.
 GCC_UNWIND_INCLUDE='-I$(libgcj_basedir)/../gcc'
-
-
-if test "${with_gcc_version_trigger+set}" = set; then
-  gcc_version_trigger=$with_gcc_version_trigger
-else
-  gcc_version_trigger=$srcdir/../gcc/version.c
-fi
-if test -f "${gcc_version_trigger}"; then
-  gcc_version_full=`grep version_string "${gcc_version_trigger}" | sed -e 's/.*"\([^"]*\)".*/\1/'`
-else
-  gcc_version_full=`$CC -v 2>&1 | sed -n 's/^gcc version //p'`
-fi
-gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
-
-
-
-
-
-# Figure out where generated headers like libgcj-config.h get installed.
-tool_include_dir='$(libdir)/gcc/$(target_noncanonical)/'${gcc_version}/include
-
 
 if test "x${with_newlib}" = "xyes"; then
    # We are being configured with a cross compiler.  AC_REPLACE_FUNCS
@@ -13335,8 +13368,8 @@ fi
 case "${which_gcj}" in
    built)
       GCJ="$built_gcc_dir/gcj -B`${PWDCMD-pwd}`/ -B$built_gcc_dir/"
-      GCJH='$(MULTIBUILDTOP)../../$(host_subdir)/gcc/gcjh'
-      ZIP='$(MULTIBUILDTOP)../../$(host_subdir)/fastjar/fastjar'
+      GCJH='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/gcc/gcjh'
+      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/fastjar/fastjar'
    ;;
    cross)
       if test "x${with_newlib}" = "xyes"; then
@@ -13346,14 +13379,14 @@ case "${which_gcj}" in
       else
          GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
       fi
-      ZIP=jar
+      ZIP='$(target_noncanonical)-fastjar'
       GCJH='$(target_noncanonical)-gcjh'
    ;;
    path)
       GCJ="gcj -B`${PWDCMD-pwd}`/"
       ## In this case, gcj is found outside the build tree.  However, zip is
       ## found in the build tree.
-      ZIP='$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
+      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
       GCJH=gcjh
    ;;
 esac
@@ -13482,26 +13515,25 @@ fi
 
 CPPFLAGS=$GCJ_SAVE_CPPFLAGS
 
-echo "$as_me:$LINENO: checking size of void *" >&5
-echo $ECHO_N "checking size of void *... $ECHO_C" >&6
-if test "${ac_cv_sizeof_void_p+set}" = set; then
+echo "$as_me:$LINENO: checking for void *" >&5
+echo $ECHO_N "checking for void *... $ECHO_C" >&6
+if test "${ac_cv_type_void_p+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  for ac_size in 4 8 1 2 16 12  ; do # List sizes in rough order of prevalence.
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-#include "confdefs.h"
-#include <sys/types.h>
-
-
+$ac_includes_default
 int
 main ()
 {
-switch (0) case 0: case (sizeof (void *) == $ac_size):;
+if ((void * *) 0)
+  return 0;
+if (sizeof (void *))
+  return 0;
   ;
   return 0;
 }
@@ -13528,26 +13560,370 @@ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_sizeof_void_p=$ac_size
+  ac_cv_type_void_p=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
+ac_cv_type_void_p=no
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-  if test x$ac_cv_sizeof_void_p != x ; then break; fi
-done
-
 fi
+echo "$as_me:$LINENO: result: $ac_cv_type_void_p" >&5
+echo "${ECHO_T}$ac_cv_type_void_p" >&6
 
-if test x$ac_cv_sizeof_void_p = x ; then
-  { { echo "$as_me:$LINENO: error: cannot determine a size for void *" >&5
-echo "$as_me: error: cannot determine a size for void *" >&2;}
+echo "$as_me:$LINENO: checking size of void *" >&5
+echo $ECHO_N "checking size of void *... $ECHO_C" >&6
+if test "${ac_cv_sizeof_void_p+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test "$ac_cv_type_void_p" = yes; then
+  # The cast to unsigned long works around a bug in the HP C Compiler
+  # version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
+  # declarations like `int a3[[(sizeof (unsigned char)) >= 0]];'.
+  # This bug is HP SR number 8606223364.
+  if test "$cross_compiling" = yes; then
+  # Depending upon the size, compute the lo and hi bounds.
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (void *))) >= 0)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_lo=0 ac_mid=0
+  while :; do
+    cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (void *))) <= $ac_mid)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=$ac_mid; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo=`expr $ac_mid + 1`
+		    if test $ac_lo -le $ac_mid; then
+		      ac_lo= ac_hi=
+		      break
+		    fi
+		    ac_mid=`expr 2 '*' $ac_mid + 1`
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+  done
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (void *))) < 0)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=-1 ac_mid=-1
+  while :; do
+    cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (void *))) >= $ac_mid)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_lo=$ac_mid; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_hi=`expr '(' $ac_mid ')' - 1`
+		       if test $ac_mid -le $ac_hi; then
+			 ac_lo= ac_hi=
+			 break
+		       fi
+		       ac_mid=`expr 2 '*' $ac_mid`
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+  done
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo= ac_hi=
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+# Binary search between lo and hi bounds.
+while test "x$ac_lo" != "x$ac_hi"; do
+  ac_mid=`expr '(' $ac_hi - $ac_lo ')' / 2 + $ac_lo`
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (void *))) <= $ac_mid)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=$ac_mid
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo=`expr '(' $ac_mid ')' + 1`
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+done
+case $ac_lo in
+?*) ac_cv_sizeof_void_p=$ac_lo;;
+'') { { echo "$as_me:$LINENO: error: cannot compute sizeof (void *), 77
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot compute sizeof (void *), 77
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; } ;;
+esac
+else
+  if test "$cross_compiling" = yes; then
+  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&2;}
    { (exit 1); exit 1; }; }
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+long longval () { return (long) (sizeof (void *)); }
+unsigned long ulongval () { return (long) (sizeof (void *)); }
+#include <stdio.h>
+#include <stdlib.h>
+int
+main ()
+{
+
+  FILE *f = fopen ("conftest.val", "w");
+  if (! f)
+    exit (1);
+  if (((long) (sizeof (void *))) < 0)
+    {
+      long i = longval ();
+      if (i != ((long) (sizeof (void *))))
+	exit (1);
+      fprintf (f, "%ld\n", i);
+    }
+  else
+    {
+      unsigned long i = ulongval ();
+      if (i != ((long) (sizeof (void *))))
+	exit (1);
+      fprintf (f, "%lu\n", i);
+    }
+  exit (ferror (f) || fclose (f) != 0);
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_sizeof_void_p=`cat conftest.val`
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+{ { echo "$as_me:$LINENO: error: cannot compute sizeof (void *), 77
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot compute sizeof (void *), 77
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+fi
+rm -f conftest.val
+else
+  ac_cv_sizeof_void_p=0
+fi
 fi
 echo "$as_me:$LINENO: result: $ac_cv_sizeof_void_p" >&5
 echo "${ECHO_T}$ac_cv_sizeof_void_p" >&6
-
 cat >>confdefs.h <<_ACEOF
 #define SIZEOF_VOID_P $ac_cv_sizeof_void_p
 _ACEOF
@@ -13559,8 +13935,7 @@ echo $ECHO_N "checking whether byte ordering is bigendian... $ECHO_C" >&6
 if test "${ac_cv_c_bigendian+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  ac_cv_c_bigendian=unknown
-# See if sys/param.h defines the BYTE_ORDER macro.
+  # See if sys/param.h defines the BYTE_ORDER macro.
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -13569,13 +13944,14 @@ cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 #include <sys/types.h>
 #include <sys/param.h>
+
 int
 main ()
 {
-
 #if !BYTE_ORDER || !BIG_ENDIAN || !LITTLE_ENDIAN
  bogus endian macros
 #endif
+
   ;
   return 0;
 }
@@ -13611,13 +13987,14 @@ cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 #include <sys/types.h>
 #include <sys/param.h>
+
 int
 main ()
 {
-
 #if BYTE_ORDER != BIG_ENDIAN
  not big endian
 #endif
+
   ;
   return 0;
 }
@@ -13656,11 +14033,69 @@ else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
+# It does not; compile a test program.
+if test "$cross_compiling" = yes; then
+  # try to guess the endianness by grepping values into an object file
+  ac_cv_c_bigendian=unknown
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+short ascii_mm[] = { 0x4249, 0x4765, 0x6E44, 0x6961, 0x6E53, 0x7953, 0 };
+short ascii_ii[] = { 0x694C, 0x5454, 0x656C, 0x6E45, 0x6944, 0x6E61, 0 };
+void _ascii () { char *s = (char *) ascii_mm; s = (char *) ascii_ii; }
+short ebcdic_ii[] = { 0x89D3, 0xE3E3, 0x8593, 0x95C5, 0x89C4, 0x9581, 0 };
+short ebcdic_mm[] = { 0xC2C9, 0xC785, 0x95C4, 0x8981, 0x95E2, 0xA8E2, 0 };
+void _ebcdic () { char *s = (char *) ebcdic_mm; s = (char *) ebcdic_ii; }
+int
+main ()
+{
+ _ascii (); _ebcdic ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  if grep BIGenDianSyS conftest.$ac_objext >/dev/null ; then
+  ac_cv_c_bigendian=yes
+fi
+if grep LiTTleEnDian conftest.$ac_objext >/dev/null ; then
+  if test "$ac_cv_c_bigendian" = unknown; then
+    ac_cv_c_bigendian=no
+  else
+    # finding both strings is unlikely to happen, but who knows?
+    ac_cv_c_bigendian=unknown
+  fi
+fi
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-if test $ac_cv_c_bigendian = unknown; then
-if test "$cross_compiling" = yes; then
-   echo $ac_n "cross-compiling... " 2>&6
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -13668,7 +14103,9 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-main () {
+int
+main ()
+{
   /* Are we little or big endian?  From Harbison&Steele.  */
   union
   {
@@ -13702,67 +14139,26 @@ fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
 fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
 echo "$as_me:$LINENO: result: $ac_cv_c_bigendian" >&5
 echo "${ECHO_T}$ac_cv_c_bigendian" >&6
-if test $ac_cv_c_bigendian = unknown; then
-echo "$as_me:$LINENO: checking to probe for byte ordering" >&5
-echo $ECHO_N "checking to probe for byte ordering... $ECHO_C" >&6
-
-cat >conftest.c <<EOF
-short ascii_mm[] = { 0x4249, 0x4765, 0x6E44, 0x6961, 0x6E53, 0x7953, 0 };
-short ascii_ii[] = { 0x694C, 0x5454, 0x656C, 0x6E45, 0x6944, 0x6E61, 0 };
-void _ascii() { char* s = (char*) ascii_mm; s = (char*) ascii_ii; }
-short ebcdic_ii[] = { 0x89D3, 0xE3E3, 0x8593, 0x95C5, 0x89C4, 0x9581, 0 };
-short ebcdic_mm[] = { 0xC2C9, 0xC785, 0x95C4, 0x8981, 0x95E2, 0xA8E2, 0 };
-void _ebcdic() { char* s = (char*) ebcdic_mm; s = (char*) ebcdic_ii; }
-int main() { _ascii (); _ebcdic (); return 0; }
-EOF
- if test -f conftest.c ; then
-     if ${CC-cc} ${CFLAGS} -c conftest.c -o conftest.o && test -f conftest.o ; then
-        if test `grep -l BIGenDianSyS conftest.o` ; then
-           echo $ac_n ' big endian probe OK, ' 1>&6
-           ac_cv_c_bigendian=yes
-        fi
-        if test `grep -l LiTTleEnDian conftest.o` ; then
-           echo $ac_n ' little endian probe OK, ' 1>&6
-           if test $ac_cv_c_bigendian = yes ; then
-            ac_cv_c_bigendian=unknown;
-           else
-            ac_cv_c_bigendian=no
-           fi
-        fi
-        echo $ac_n 'guessing bigendian ...  ' >&6
-     fi
-  fi
-echo "$as_me:$LINENO: result: $ac_cv_c_bigendian" >&5
-echo "${ECHO_T}$ac_cv_c_bigendian" >&6
-fi
-if test $ac_cv_c_bigendian = yes; then
+case $ac_cv_c_bigendian in
+  yes)
 
 cat >>confdefs.h <<\_ACEOF
 #define WORDS_BIGENDIAN 1
 _ACEOF
-
-
-cat >>confdefs.h <<\_ACEOF
-#define HOST_WORDS_BIG_ENDIAN 1
-_ACEOF
-
-  BYTEORDER=4321
-else
-  BYTEORDER=1234
-fi
-
-cat >>confdefs.h <<_ACEOF
-#define BYTEORDER $BYTEORDER
-_ACEOF
-
-if test $ac_cv_c_bigendian = unknown; then
-  { { echo "$as_me:$LINENO: error: unknown endianess - sorry, please pre-set ac_cv_c_bigendian" >&5
-echo "$as_me: error: unknown endianess - sorry, please pre-set ac_cv_c_bigendian" >&2;}
-   { (exit 1); exit 1; }; }
-fi
+ ;;
+  no)
+     ;;
+  *)
+    { { echo "$as_me:$LINENO: error: unknown endianness
+presetting ac_cv_c_bigendian=no (or yes) will help" >&5
+echo "$as_me: error: unknown endianness
+presetting ac_cv_c_bigendian=no (or yes) will help" >&2;}
+   { (exit 1); exit 1; }; } ;;
+esac
 
 
 ZLIBS=
@@ -13814,9 +14210,9 @@ case ${version_specific_libs} in
     # Need the gcc compiler version to know where to install libraries
     # and header files if --enable-version-specific-runtime-libs option
     # is selected.
-    includedir='${libdir}/gcc/${target_noncanonical}/'$gcc_version/include/
+    includedir='$(libdir)/gcc/$(target_noncanonical)/$(gcc_version)/include/'
     toolexecdir='$(libdir)/gcc/$(target_noncanonical)'
-    toolexecmainlibdir='$(toolexecdir)/'${gcc_version}'$(MULTISUBDIR)'
+    toolexecmainlibdir='$(toolexecdir)/$(gcc_version)$(MULTISUBDIR)'
     toolexeclibdir=$toolexecmainlibdir
     ;;
   no)
@@ -13851,6 +14247,17 @@ _ACEOF
 
 
 
+cat >>confdefs.h <<\_ACEOF
+#define JV_VERSION "1.4.2"
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define JV_API_VERSION "1.4"
+_ACEOF
+
+
+
 case "${with_gxx_include_dir}" in
   yes)
     { { echo "$as_me:$LINENO: error: --with-gxx-include-dir=[dir] requires a directory" >&5
@@ -13859,10 +14266,10 @@ echo "$as_me: error: --with-gxx-include-dir=[dir] requires a directory" >&2;}
     ;;
   no | "")
     case "${enable_version_specific_runtime_libs}" in
-      yes) gxx_include_dir='${libsubdir}/include/c++' ;;
+      yes) gxx_include_dir='$(libsubdir)/include/c++' ;;
       *)
-	libstdcxx_incdir=c++/${gcc_version}
-	gxx_include_dir='${prefix}/include/'${libstdcxx_incdir} ;;
+	libstdcxx_incdir='c++/$(gcc_version)'
+	gxx_include_dir='$(prefix)/include/$(libstdcxx_incdir)' ;;
     esac ;;
   *) gxx_include_dir=${with_gxx_include_dir} ;;
 esac
@@ -15882,10 +16289,10 @@ echo "$as_me: error: conditional \"TESTSUBDIR\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
-if test -z "${ONESTEP_TRUE}" && test -z "${ONESTEP_FALSE}"; then
-  { { echo "$as_me:$LINENO: error: conditional \"ONESTEP\" was never defined.
+if test -z "${JAVA_HOME_SET_TRUE}" && test -z "${JAVA_HOME_SET_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"JAVA_HOME_SET\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
-echo "$as_me: error: conditional \"ONESTEP\" was never defined.
+echo "$as_me: error: conditional \"JAVA_HOME_SET\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -16475,7 +16882,7 @@ do
   "java/lang/ConcreteProcess.java" ) CONFIG_LINKS="$CONFIG_LINKS java/lang/ConcreteProcess.java:java/lang/${PLATFORM}Process.java" ;;
   "java/lang/natConcreteProcess.cc" ) CONFIG_LINKS="$CONFIG_LINKS java/lang/natConcreteProcess.cc:java/lang/nat${PLATFORM}Process.cc" ;;
   "java/net/natInetAddress.cc" ) CONFIG_LINKS="$CONFIG_LINKS java/net/natInetAddress.cc:java/net/natInetAddress${PLATFORMNET}.cc" ;;
-  "java/net/natNetworkInterface.cc" ) CONFIG_LINKS="$CONFIG_LINKS java/net/natNetworkInterface.cc:java/net/natNetworkInterface${PLATFORMNET}.cc" ;;
+  "java/net/natVMNetworkInterface.cc" ) CONFIG_LINKS="$CONFIG_LINKS java/net/natVMNetworkInterface.cc:java/net/natVMNetworkInterface${PLATFORMNET}.cc" ;;
   "gnu/java/net/natPlainSocketImpl.cc" ) CONFIG_LINKS="$CONFIG_LINKS gnu/java/net/natPlainSocketImpl.cc:gnu/java/net/natPlainSocketImpl${PLATFORMNET}.cc" ;;
   "gnu/java/net/natPlainDatagramSocketImpl.cc" ) CONFIG_LINKS="$CONFIG_LINKS gnu/java/net/natPlainDatagramSocketImpl.cc:gnu/java/net/natPlainDatagramSocketImpl${PLATFORMNET}.cc" ;;
   "gnu/java/nio/natPipeImpl.cc" ) CONFIG_LINKS="$CONFIG_LINKS gnu/java/nio/natPipeImpl.cc:gnu/java/nio/natPipeImpl${PLATFORM}.cc" ;;
@@ -16666,8 +17073,9 @@ s,@am__fastdepGCJ_FALSE@,$am__fastdepGCJ_FALSE,;t t
 s,@subdirs@,$subdirs,;t t
 s,@TESTSUBDIR_TRUE@,$TESTSUBDIR_TRUE,;t t
 s,@TESTSUBDIR_FALSE@,$TESTSUBDIR_FALSE,;t t
-s,@ONESTEP_TRUE@,$ONESTEP_TRUE,;t t
-s,@ONESTEP_FALSE@,$ONESTEP_FALSE,;t t
+s,@JAVA_HOME_SET_TRUE@,$JAVA_HOME_SET_TRUE,;t t
+s,@JAVA_HOME_SET_FALSE@,$JAVA_HOME_SET_FALSE,;t t
+s,@JAVA_HOME@,$JAVA_HOME,;t t
 s,@LIBGCJDEBUG@,$LIBGCJDEBUG,;t t
 s,@INTERPRETER@,$INTERPRETER,;t t
 s,@LIBFFI@,$LIBFFI,;t t
@@ -16728,10 +17136,6 @@ s,@USING_NO_THREADS_FALSE@,$USING_NO_THREADS_FALSE,;t t
 s,@HASH_SYNC_SPEC@,$HASH_SYNC_SPEC,;t t
 s,@USING_GCC_TRUE@,$USING_GCC_TRUE,;t t
 s,@USING_GCC_FALSE@,$USING_GCC_FALSE,;t t
-s,@gcc_version_trigger@,$gcc_version_trigger,;t t
-s,@gcc_version_full@,$gcc_version_full,;t t
-s,@gcc_version@,$gcc_version,;t t
-s,@tool_include_dir@,$tool_include_dir,;t t
 s,@LIBICONV@,$LIBICONV,;t t
 s,@LTLIBICONV@,$LTLIBICONV,;t t
 s,@GTK_CFLAGS@,$GTK_CFLAGS,;t t
@@ -17598,6 +18002,12 @@ case " $CONFIG_FILES " in
    ac_file=Makefile . ${libgcj_basedir}/../config-ml.in
    ;;
 esac
+for ac_multi_file in $CONFIG_FILES; do
+  case $ac_multi_file in
+  */Makefile)
+    grep "^MULTI[^ ]* =" Makefile >> "$ac_multi_file" ;;
+  esac
+done
  ;;
   esac
 done

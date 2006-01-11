@@ -1,5 +1,5 @@
 /* Configuration for an i386 running MS-DOS with DJGPP.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -169,26 +169,16 @@ Boston, MA 02111-1307, USA.  */
 /* Used to be defined in xm-djgpp.h, but moved here for cross-compilers.  */
 #define LIBSTDCXX "-lstdcxx"
 
-/* -mbnu210 is now ignored and obsolete. It was used to enable support for
-   weak symbols, and .gnu.linkonce support.  */
-#undef MASK_BNU210
-#define MASK_BNU210 (0x40000000)
-
 #define TARGET_VERSION fprintf (stderr, " (80386, MS-DOS DJGPP)"); 
-
-#undef SUBTARGET_SWITCHES
-#define SUBTARGET_SWITCHES \
-  { "no-bnu210", -MASK_BNU210, "Ignored (obsolete)" }, \
-  { "bnu210", MASK_BNU210, "Ignored (obsolete)" },
 
 /* Warn that -mbnu210 is now obsolete.  */
 #undef  SUBTARGET_OVERRIDE_OPTIONS
 #define SUBTARGET_OVERRIDE_OPTIONS \
 do \
   { \
-    if (target_flags & MASK_BNU210) \
+    if (TARGET_BNU210) \
       {	\
-        warning ("-mbnu210 is ignored (option is obsolete)"); \
+        warning (0, "-mbnu210 is ignored (option is obsolete)"); \
       }	\
   } \
 while (0)

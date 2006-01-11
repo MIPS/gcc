@@ -1,13 +1,14 @@
 ## Process this file with automake to produce Makefile.in
 
-## We like to use C99 routines when available.  This makes sure that
-## __STDC_VERSION__ is set such that libc includes make them available.
-AM_CFLAGS = -std=gnu99
+
 ACLOCAL_AMFLAGS = -I ../config
+
+## May be used by toolexeclibdir.
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
 toolexeclib_LTLIBRARIES = libgfortran.la libgfortranbegin.la
 
-libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm
+libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lm $(extra_ldflags_libgfortran)
 
 ## This should really go in the compiler lib dir, not the system lib dir.
 libgfortranbegin_la_SOURCES = fmain.c
@@ -44,6 +45,7 @@ intrinsics/abort.c \
 intrinsics/args.c \
 intrinsics/bessel.c \
 intrinsics/c99_functions.c \
+intrinsics/chdir.c \
 intrinsics/cpu_time.c \
 intrinsics/cshift0.c \
 intrinsics/date_and_time.c \
@@ -55,23 +57,34 @@ intrinsics/etime.c \
 intrinsics/exit.c \
 intrinsics/flush.c \
 intrinsics/fnum.c \
+intrinsics/gerror.c \
 intrinsics/getcwd.c \
+intrinsics/getlog.c \
 intrinsics/getXid.c \
+intrinsics/hostnm.c \
+intrinsics/kill.c \
+intrinsics/ierrno.c \
 intrinsics/ishftc.c \
+intrinsics/link.c \
 intrinsics/mvbits.c \
 intrinsics/pack_generic.c \
+intrinsics/perror.c \
 intrinsics/size.c \
+intrinsics/sleep.c \
 intrinsics/spread_generic.c \
 intrinsics/string_intrinsics.c \
 intrinsics/system.c \
 intrinsics/rand.c \
 intrinsics/random.c \
+intrinsics/rename.c \
 intrinsics/reshape_generic.c \
 intrinsics/reshape_packed.c \
 intrinsics/selected_int_kind.f90 \
 intrinsics/selected_real_kind.f90 \
 intrinsics/stat.c \
+intrinsics/symlnk.c \
 intrinsics/system_clock.c \
+intrinsics/time.c \
 intrinsics/transpose_generic.c \
 intrinsics/umask.c \
 intrinsics/unlink.c \
@@ -178,7 +191,7 @@ i_dotprod_c= \
 generated/dotprod_i4.c \
 generated/dotprod_i8.c \
 generated/dotprod_r4.c \
-generated/dotprod_r8.c 
+generated/dotprod_r8.c
 
 i_dotprodl_c= \
 generated/dotprod_l4.c \
@@ -212,7 +225,9 @@ generated/shape_i8.c
 
 i_reshape_c= \
 generated/reshape_i4.c \
-generated/reshape_i8.c
+generated/reshape_i8.c \
+generated/reshape_c4.c \
+generated/reshape_c8.c
 
 i_eoshift1_c= \
 generated/eoshift1_4.c \
@@ -379,7 +394,8 @@ foo
 gfor_specific_src= \
 $(gfor_built_specific_src) \
 $(gfor_built_specific2_src) \
-intrinsics/dprod_r8.f90
+intrinsics/dprod_r8.f90 \
+intrinsics/f2c_specifics.F90
 
 gfor_cmath_src= $(gfor_math_trig_c) $(gfor_math_exp_c) $(gfor_math_hyp_c)
 gfor_cmath_obj= $(gfor_math_trig_obj) $(gfor_math_exp_obj) \
@@ -514,4 +530,3 @@ $(gfor_built_specific2_src): m4/specific2.m4 m4/head.m4
 endif
 
 EXTRA_DIST = $(m4_files)
-

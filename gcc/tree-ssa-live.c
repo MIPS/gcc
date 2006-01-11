@@ -39,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-ssa-live.h"
 #include "errors.h"
 
-static void live_worklist (tree_live_info_p, varray_type, int);
+static void live_worklist (tree_live_info_p, int *, int);
 static tree_live_info_p new_tree_live_info (var_map);
 static inline void set_if_valid (var_map, bitmap, tree);
 static inline void add_livein_if_notdef (tree_live_info_p, bitmap,
@@ -367,7 +367,6 @@ create_ssa_var_map (int flags)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
 	  stmt = bsi_stmt (bsi);
-	  get_stmt_operands (stmt);
 
 	  /* Register USE and DEF operands in each statement.  */
 	  FOR_EACH_SSA_TREE_OPERAND (use , stmt, iter, SSA_OP_USE)
@@ -479,7 +478,7 @@ delete_tree_live_info (tree_live_info_p live)
    passed in rather than being allocated on every call.  */
 
 static void
-live_worklist (tree_live_info_p live, varray_type stack, int i)
+live_worklist (tree_live_info_p live, int *stack, int i)
 {
   unsigned b;
   tree var;
@@ -488,6 +487,7 @@ live_worklist (tree_live_info_p live, varray_type stack, int i)
   var_map map = live->map;
   edge_iterator ei;
   bitmap_iterator bi;
+  int *tos = stack;
 
   var = partition_to_var (map, i);
   if (SSA_NAME_DEF_STMT (var))
@@ -495,13 +495,12 @@ live_worklist (tree_live_info_p live, varray_type stack, int i)
 
   EXECUTE_IF_SET_IN_BITMAP (live->livein[i], 0, b, bi)
     {
-      VARRAY_PUSH_INT (stack, b);
+      *tos++ = b;
     }
 
-  while (VARRAY_ACTIVE_SIZE (stack) > 0)
+  while (tos != stack)
     {
-      b = VARRAY_TOP_INT (stack);
-      VARRAY_POP (stack);
+      b = *--tos;
 
       FOR_EACH_EDGE (e, ei, BASIC_BLOCK (b)->preds)
 	if (e->src != ENTRY_BLOCK_PTR)
@@ -512,7 +511,7 @@ live_worklist (tree_live_info_p live, varray_type stack, int i)
 	    if (!bitmap_bit_p (live->livein[i], e->src->index))
 	      {
 		bitmap_set_bit (live->livein[i], e->src->index);
-		VARRAY_PUSH_INT (stack, e->src->index);
+		*tos++ = e->src->index;
 	      }
 	  }
     }
@@ -561,7 +560,7 @@ calculate_live_on_entry (var_map map)
   tree phi, var, stmt;
   tree op;
   edge e;
-  varray_type stack;
+  int *stack;
   block_stmt_iterator bsi;
   ssa_op_iter iter;
   bitmap_iterator bi;
@@ -612,7 +611,6 @@ calculate_live_on_entry (var_map map)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
 	  stmt = bsi_stmt (bsi);
-	  get_stmt_operands (stmt);
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
 	    {
@@ -626,11 +624,12 @@ calculate_live_on_entry (var_map map)
 	}
     }
 
-  VARRAY_INT_INIT (stack, last_basic_block, "stack");
+  stack = xmalloc (sizeof (int) * last_basic_block);
   EXECUTE_IF_SET_IN_BITMAP (live->global, 0, i, bi)
     {
       live_worklist (live, stack, i);
     }
+  free (stack);
 
 #ifdef ENABLE_CHECKING
    /* Check for live on entry partitions and report those with a DEF in
@@ -796,7 +795,7 @@ tpa_init (var_map map)
   memset (tpa->partition_to_tree_map, TPA_NONE, num_partitions * sizeof (int));
 
   x = MAX (40, (num_partitions / 20));
-  VARRAY_TREE_INIT (tpa->trees, x, "trees");
+  tpa->trees = VEC_alloc (tree, heap, x);
   VARRAY_INT_INIT (tpa->first_partition, x, "first_partition");
 
   return tpa;
@@ -838,6 +837,7 @@ tpa_delete (tpa_p tpa)
   if (!tpa)
     return;
 
+  VEC_free (tree, heap, tpa->trees);
   free (tpa->partition_to_tree_map);
   free (tpa->next_partition);
   free (tpa);
@@ -871,19 +871,20 @@ tpa_compact (tpa_p tpa)
 	 of the tree list.  */
       if (tpa_next_partition (tpa, first) == NO_PARTITION)
         {
-	  swap_t = VARRAY_TREE (tpa->trees, last);
+	  swap_t = VEC_index (tree, tpa->trees, last);
 	  swap_i = VARRAY_INT (tpa->first_partition, last);
 
 	  /* Update the last entry. Since it is known to only have one
 	     partition, there is nothing else to update.  */
-	  VARRAY_TREE (tpa->trees, last) = VARRAY_TREE (tpa->trees, x);
+	  VEC_replace (tree, tpa->trees, last,
+		       VEC_index (tree, tpa->trees, x));
 	  VARRAY_INT (tpa->first_partition, last) 
 	    = VARRAY_INT (tpa->first_partition, x);
 	  tpa->partition_to_tree_map[tpa_first_partition (tpa, last)] = last;
 
 	  /* Since this list is known to have more than one partition, update
 	     the list owner entries.  */
-	  VARRAY_TREE (tpa->trees, x) = swap_t;
+	  VEC_replace (tree, tpa->trees, x, swap_t);
 	  VARRAY_INT (tpa->first_partition, x) = swap_i;
 	  for (y = tpa_first_partition (tpa, x); 
 	       y != NO_PARTITION; 
@@ -962,7 +963,7 @@ root_var_init (var_map map)
         {
 	  ann->root_var_processed = 1;
 	  VAR_ANN_ROOT_INDEX (ann) = rv->num_trees++;
-	  VARRAY_PUSH_TREE (rv->trees, t);
+	  VEC_safe_push (tree, heap, rv->trees, t);
 	  VARRAY_PUSH_INT (rv->first_partition, p);
 	}
       rv->partition_to_tree_map[p] = VAR_ANN_ROOT_INDEX (ann);
@@ -971,7 +972,7 @@ root_var_init (var_map map)
   /* Reset the out_of_ssa_tag flag on each variable for later use.  */
   for (x = 0; x < rv->num_trees; x++)
     {
-      t = VARRAY_TREE (rv->trees, x);
+      t = VEC_index (tree, rv->trees, x);
       var_ann (t)->root_var_processed = 0;
     }
 
@@ -1027,12 +1028,12 @@ type_var_init (var_map map)
 
       /* Find the list for this type.  */
       for (y = 0; y < tv->num_trees; y++)
-        if (t == VARRAY_TREE (tv->trees, y))
+        if (t == VEC_index (tree, tv->trees, y))
 	  break;
       if (y == tv->num_trees)
         {
 	  tv->num_trees++;
-	  VARRAY_PUSH_TREE (tv->trees, t);
+	  VEC_safe_push (tree, heap, tv->trees, t);
 	  VARRAY_PUSH_INT (tv->first_partition, p);
 	}
       else
@@ -1280,6 +1281,8 @@ add_conflicts_if_valid (tpa_p tpa, conflict_graph graph,
     }
 }
 
+DEF_VEC_P(int);
+DEF_VEC_ALLOC_P(int,heap);
 
 /* Return a conflict graph for the information contained in LIVE_INFO.  Only
    conflicts between items in the same TPA list are added.  If optional 
@@ -1294,7 +1297,8 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
   bitmap live;
   unsigned x, y, i;
   basic_block bb;
-  varray_type partition_link, tpa_to_clear, tpa_nodes;
+  int *partition_link, *tpa_nodes;
+  VEC(int,heap) *tpa_to_clear;
   unsigned l;
   ssa_op_iter iter;
   bitmap_iterator bi;
@@ -1307,14 +1311,15 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 
   live = BITMAP_ALLOC (NULL);
 
-  VARRAY_INT_INIT (partition_link, num_var_partitions (map) + 1, "part_link");
-  VARRAY_INT_INIT (tpa_nodes, tpa_num_trees (tpa), "tpa nodes");
-  VARRAY_INT_INIT (tpa_to_clear, 50, "tpa to clear");
+  partition_link = xcalloc (num_var_partitions (map) + 1, sizeof (int));
+  tpa_nodes = xcalloc (tpa_num_trees (tpa), sizeof (int));
+  tpa_to_clear = VEC_alloc (int, heap, 50);
 
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator bsi;
       tree phi;
+      int idx;
 
       /* Start with live on exit temporaries.  */
       bitmap_copy (live, live_on_exit (liveinfo, bb));
@@ -1323,8 +1328,6 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
         {
 	  bool is_a_copy = false;
 	  tree stmt = bsi_stmt (bsi);
-
-	  get_stmt_operands (stmt);
 
 	  /* A copy between 2 partitions does not introduce an interference 
 	     by itself.  If they did, you would never be able to coalesce 
@@ -1417,26 +1420,29 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	  i = tpa_find_tree (tpa, x);
 	  if (i != (unsigned)TPA_NONE)
 	    {
-	      int start = VARRAY_INT (tpa_nodes, i);
+	      int start = tpa_nodes[i];
 	      /* If start is 0, a new root reference list is being started.
 		 Register it to be cleared.  */
 	      if (!start)
-	        VARRAY_PUSH_INT (tpa_to_clear, i);
+		VEC_safe_push (int, heap, tpa_to_clear, i);
 
 	      /* Add interferences to other tpa members seen.  */
-	      for (y = start; y != 0; y = VARRAY_INT (partition_link, y))
+	      for (y = start; y != 0; y = partition_link[y])
 		conflict_graph_add (graph, x, y - 1);
-	      VARRAY_INT (tpa_nodes, i) = x + 1;
-	      VARRAY_INT (partition_link, x + 1) = start;
+	      tpa_nodes[i] = x + 1;
+	      partition_link[x + 1] = start;
 	    }
 	}
 
 	/* Now clear the used tpa root references.  */
-	for (l = 0; l < VARRAY_ACTIVE_SIZE (tpa_to_clear); l++)
-	  VARRAY_INT (tpa_nodes, VARRAY_INT (tpa_to_clear, l)) = 0;
-	VARRAY_POP_ALL (tpa_to_clear);
+	for (l = 0; VEC_iterate (int, tpa_to_clear, l, idx); l++)
+	  tpa_nodes[idx] = 0;
+	VEC_truncate (int, tpa_to_clear, 0);
     }
 
+  free (tpa_nodes);
+  free (partition_link);
+  VEC_free (int, heap, tpa_to_clear);
   BITMAP_FREE (live);
   return graph;
 }

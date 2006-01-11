@@ -152,9 +152,6 @@ gfc_arith_error (arith code)
     case ARITH_DIV0:
       p = "Division by zero";
       break;
-    case ARITH_0TO0:
-      p = "Indeterminate form 0 ** 0";
-      break;
     case ARITH_INCOMMENSURATE:
       p = "Array operands are incommensurate";
       break;
@@ -261,6 +258,14 @@ gfc_arith_init_1 (void)
 
       mpfr_init (real_info->tiny);
       mpfr_set (real_info->tiny, b, GFC_RND_MODE);
+
+      /* subnormal (x) = b**(emin - digit + 1) */
+      mpfr_set_ui (b, real_info->radix, GFC_RND_MODE);
+      mpfr_pow_si (b, b, real_info->min_exponent - real_info->digits + 1,
+		   GFC_RND_MODE);
+
+      mpfr_init (real_info->subnormal);
+      mpfr_set (real_info->subnormal, b, GFC_RND_MODE);
 
       /* epsilon(x) = b**(1-p) */
       mpfr_set_ui (b, real_info->radix, GFC_RND_MODE);
@@ -377,7 +382,7 @@ gfc_check_real_range (mpfr_t p, int kind)
     retval = ARITH_OK;
   else if (mpfr_cmp (q, gfc_real_kinds[i].huge) > 0)
       retval = ARITH_OVERFLOW;
-  else if (mpfr_cmp (q, gfc_real_kinds[i].tiny) < 0)
+  else if (mpfr_cmp (q, gfc_real_kinds[i].subnormal) < 0)
     retval = ARITH_UNDERFLOW;
   else
     retval = ARITH_OK;
@@ -555,21 +560,27 @@ gfc_range_check (gfc_expr * e)
 static arith
 check_result (arith rc, gfc_expr * x, gfc_expr * r, gfc_expr ** rp)
 {
-  if (rc != ARITH_OK)
-    gfc_free_expr (r);
-  else
+  arith val = rc;
+
+  if (val == ARITH_UNDERFLOW)
     {
-      if (rc == ARITH_UNDERFLOW && gfc_option.warn_underflow)
-        gfc_warning ("%s at %L", gfc_arith_error (rc), &x->where);
-
-      if (rc == ARITH_ASYMMETRIC)
-	gfc_warning ("%s at %L", gfc_arith_error (rc), &x->where);
-
-      rc = ARITH_OK;
-      *rp = r;
+      if (gfc_option.warn_underflow)
+	gfc_warning ("%s at %L", gfc_arith_error (val), &x->where);
+      val = ARITH_OK;
     }
 
-  return rc;
+  if (val == ARITH_ASYMMETRIC)
+    {
+      gfc_warning ("%s at %L", gfc_arith_error (val), &x->where);
+      val = ARITH_OK;
+    }
+
+  if (val != ARITH_OK)
+    gfc_free_expr (r);
+  else
+    *rp = r;
+
+  return val;
 }
 
 
@@ -918,33 +929,23 @@ gfc_arith_power (gfc_expr * op1, gfc_expr * op2, gfc_expr ** resultp)
   result = gfc_constant_result (op1->ts.type, op1->ts.kind, &op1->where);
 
   if (power == 0)
-    {				/* Handle something to the zeroth power */
+    {
+      /* Handle something to the zeroth power.  Since we're dealing
+	 with integral exponents, there is no ambiguity in the
+	 limiting procedure used to determine the value of 0**0.  */
       switch (op1->ts.type)
 	{
 	case BT_INTEGER:
-	  if (mpz_sgn (op1->value.integer) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    mpz_set_ui (result->value.integer, 1);
+	  mpz_set_ui (result->value.integer, 1);
 	  break;
 
 	case BT_REAL:
-	  if (mpfr_sgn (op1->value.real) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    mpfr_set_ui (result->value.real, 1, GFC_RND_MODE);
+	  mpfr_set_ui (result->value.real, 1, GFC_RND_MODE);
 	  break;
 
 	case BT_COMPLEX:
-	  if (mpfr_sgn (op1->value.complex.r) == 0
-	      && mpfr_sgn (op1->value.complex.i) == 0)
-	    rc = ARITH_0TO0;
-	  else
-	    {
-	      mpfr_set_ui (result->value.complex.r, 1, GFC_RND_MODE);
-	      mpfr_set_ui (result->value.complex.i, 0, GFC_RND_MODE);
-	    }
-
+	  mpfr_set_ui (result->value.complex.r, 1, GFC_RND_MODE);
+	  mpfr_set_ui (result->value.complex.i, 0, GFC_RND_MODE);
 	  break;
 
 	default:

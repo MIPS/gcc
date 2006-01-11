@@ -169,6 +169,8 @@ package body Sem_Res is
 
    procedure Resolve_Actuals (N : Node_Id; Nam : Entity_Id);
    --  Resolve actuals of call, and add default expressions for missing ones.
+   --  N is the Node_Id for the subprogram call, and Nam is the entity of the
+   --  called subprogram.
 
    procedure Resolve_Entry_Call (N : Node_Id; Typ : Entity_Id);
    --  Called from Resolve_Call, when the prefix denotes an entry or element
@@ -182,7 +184,7 @@ package body Sem_Res is
    --  to the corresponding predefined operator, with suitable conversions.
 
    procedure Resolve_Intrinsic_Unary_Operator (N : Node_Id; Typ : Entity_Id);
-   --  Ditto, for unary operators (only arithmetic ones).
+   --  Ditto, for unary operators (only arithmetic ones)
 
    procedure Rewrite_Operator_As_Call (N : Node_Id; Nam : Entity_Id);
    --  If an operator node resolves to a call to a user-defined operator,
@@ -371,14 +373,14 @@ package body Sem_Res is
       D    : Node_Id;
 
    begin
-      --  Any use in a default expression is legal.
+      --  Any use in a default expression is legal
 
       if In_Default_Expression then
          null;
 
       elsif Nkind (PN) = N_Range then
 
-         --  Discriminant cannot be used to constrain a scalar type.
+         --  Discriminant cannot be used to constrain a scalar type
 
          P := Parent (PN);
 
@@ -626,7 +628,6 @@ package body Sem_Res is
 
          F := First_Formal (Subp);
          A := First_Actual (N);
-
          while Present (F) and then Present (A) loop
             if not Is_Entity_Name (A)
               or else Entity (A) /= F
@@ -787,6 +788,42 @@ package body Sem_Res is
    procedure Check_Parameterless_Call (N : Node_Id) is
       Nam : Node_Id;
 
+      function Prefix_Is_Access_Subp return Boolean;
+      --  If the prefix is of an access_to_subprogram type, the node must be
+      --  rewritten as a call. Ditto if the prefix is overloaded and all its
+      --  interpretations are access to subprograms.
+
+      ---------------------------
+      -- Prefix_Is_Access_Subp --
+      ---------------------------
+
+      function Prefix_Is_Access_Subp return Boolean is
+         I   : Interp_Index;
+         It  : Interp;
+
+      begin
+         if not Is_Overloaded (N) then
+            return
+              Ekind (Etype (N)) = E_Subprogram_Type
+                and then Base_Type (Etype (Etype (N))) /= Standard_Void_Type;
+         else
+            Get_First_Interp (N, I, It);
+            while Present (It.Typ) loop
+               if Ekind (It.Typ) /= E_Subprogram_Type
+                 or else Base_Type (Etype (It.Typ)) = Standard_Void_Type
+               then
+                  return False;
+               end if;
+
+               Get_Next_Interp (I, It);
+            end loop;
+
+            return True;
+         end if;
+      end Prefix_Is_Access_Subp;
+
+   --  Start of processing for Check_Parameterless_Call
+
    begin
       --  Defend against junk stuff if errors already detected
 
@@ -832,9 +869,7 @@ package body Sem_Res is
       --  procedure or entry.
 
       or else
-        (Nkind (N) = N_Explicit_Dereference
-          and then Ekind (Etype (N)) = E_Subprogram_Type
-          and then Base_Type (Etype (Etype (N))) /= Standard_Void_Type)
+        (Nkind (N) = N_Explicit_Dereference and then Prefix_Is_Access_Subp)
 
       --  Rewrite as call if it is a selected component which is a function,
       --  this is the case of a call to a protected function (which may be
@@ -858,7 +893,7 @@ package body Sem_Res is
          then
             Nam := New_Copy (N);
 
-            --  If overloaded, overload set belongs to new copy.
+            --  If overloaded, overload set belongs to new copy
 
             Save_Interps (N, Nam);
 
@@ -1320,7 +1355,7 @@ package body Sem_Res is
       Full_Analysis := Save_Full_Analysis;
    end Pre_Analyze_And_Resolve;
 
-   --  Version without context type.
+   --  Version without context type
 
    procedure Pre_Analyze_And_Resolve (N : Node_Id) is
       Save_Full_Analysis : constant Boolean := Full_Analysis;
@@ -1534,17 +1569,9 @@ package body Sem_Res is
             Is_Remote : Boolean := True;
 
          begin
-            --  Check that Typ is a fat pointer with a reference to a RAS as
-            --  original access type.
+            --  Check that Typ is a remote access-to-subprogram type
 
-            if
-              (Ekind (Typ) = E_Access_Subprogram_Type
-                 and then Present (Equivalent_Type (Typ)))
-              or else
-                (Ekind (Typ) = E_Record_Type
-                   and then Present (Corresponding_Remote_Type (Typ)))
-
-            then
+            if Is_Remote_Access_To_Subprogram_Type (Typ) then
                --  Prefix (N) must statically denote a remote subprogram
                --  declared in a package specification.
 
@@ -1581,6 +1608,7 @@ package body Sem_Res is
                     or else Attr = Attribute_Unchecked_Access
                     or else Attr = Attribute_Unrestricted_Access)
                  and then Expander_Active
+                 and then Get_PCS_Name /= Name_No_DSA
                then
                   Check_Subtype_Conformant
                     (New_Id  => Entity (Prefix (N)),
@@ -2020,7 +2048,7 @@ package body Sem_Res is
 
                      elsif Nkind (Name (N)) = N_Selected_Component then
 
-                        --  Protected operation: retrieve operation name.
+                        --  Protected operation: retrieve operation name
 
                         Subp_Name := Selector_Name (Name (N));
                      else
@@ -2411,7 +2439,7 @@ package body Sem_Res is
             else
                Set_Parent (Actval, N);
 
-               --  See note above concerning aggregates.
+               --  See note above concerning aggregates
 
                if Nkind (Actval) = N_Aggregate
                  and then Has_Discriminants (Etype (Actval))
@@ -2522,7 +2550,6 @@ package body Sem_Res is
    begin
       A := First_Actual (N);
       F := First_Formal (Nam);
-
       while Present (F) loop
          if No (A) and then Needs_No_Actuals (Nam) then
             null;
@@ -3131,13 +3158,13 @@ package body Sem_Res is
          elsif Etype (N) = T
            and then B_Typ /= Universal_Fixed
          then
-            --  Not a mixed-mode operation. Resolve with context.
+            --  Not a mixed-mode operation, resolve with context
 
             Resolve (N, B_Typ);
 
          elsif Etype (N) = Any_Fixed then
 
-            --  N may itself be a mixed-mode operation, so use context type.
+            --  N may itself be a mixed-mode operation, so use context type
 
             Resolve (N, B_Typ);
 
@@ -4512,7 +4539,7 @@ package body Sem_Res is
 
       if Nkind (Entry_Name) = N_Selected_Component then
 
-         --  Simple entry call.
+         --  Simple entry call
 
          Nam := Entity (Selector_Name (Entry_Name));
          Obj := Prefix (Entry_Name);
@@ -4520,7 +4547,7 @@ package body Sem_Res is
 
       else pragma Assert (Nkind (Entry_Name) = N_Indexed_Component);
 
-         --  Call to member of entry family.
+         --  Call to member of entry family
 
          Nam := Entity (Selector_Name (Prefix (Entry_Name)));
          Obj := Prefix (Prefix (Entry_Name));
@@ -4803,9 +4830,11 @@ package body Sem_Res is
    ----------------------------------
 
    procedure Resolve_Explicit_Dereference (N : Node_Id; Typ : Entity_Id) is
-      P  : constant Node_Id := Prefix (N);
-      I  : Interp_Index;
-      It : Interp;
+      Loc   : constant Source_Ptr := Sloc (N);
+      New_N : Node_Id;
+      P     : constant Node_Id := Prefix (N);
+      I     : Interp_Index;
+      It    : Interp;
 
    begin
       --  Now that we know the type, check that this is not a
@@ -4831,7 +4860,39 @@ package body Sem_Res is
             Get_Next_Interp (I, It);
          end loop;
 
-         Resolve (P, It.Typ);
+         if Present (It.Typ) then
+            Resolve (P, It.Typ);
+         else
+            --  If no interpretation covers the designated type of the
+            --  prefix, this is the pathological case where not all
+            --  implementations of the prefix allow the interpretation
+            --  of the node as a call. Now that the expected type is known,
+            --  Remove other interpretations from prefix, rewrite it as
+            --  a call, and resolve again, so that the proper call node
+            --  is generated.
+
+            Get_First_Interp (P, I, It);
+            while Present (It.Typ) loop
+               if Ekind (It.Typ) /= E_Access_Subprogram_Type then
+                  Remove_Interp (I);
+               end if;
+
+               Get_Next_Interp (I, It);
+            end loop;
+
+            New_N :=
+              Make_Function_Call (Loc,
+                Name =>
+                  Make_Explicit_Dereference (Loc,
+                    Prefix => P),
+                Parameter_Associations => New_List);
+
+            Save_Interps (N, New_N);
+            Rewrite (N, New_N);
+            Analyze_And_Resolve (N, Typ);
+            return;
+         end if;
+
          Set_Etype (N, Designated_Type (It.Typ));
 
       else
@@ -4941,7 +5002,7 @@ package body Sem_Res is
          Array_Type := Designated_Type (Array_Type);
       end if;
 
-      --  If name was overloaded, set component type correctly now.
+      --  If name was overloaded, set component type correctly now
 
       Set_Etype (N, Component_Type (Array_Type));
 
@@ -5247,7 +5308,7 @@ package body Sem_Res is
          return;
       end if;
 
-      --  The null literal takes its type from the context.
+      --  The null literal takes its type from the context
 
       Set_Etype (N, Typ);
    end Resolve_Null;
@@ -5674,6 +5735,16 @@ package body Sem_Res is
                   Error_Msg_N ("value has extraneous low order digits", N);
                end if;
 
+               --  Generate a warning if literal from source
+
+               if Is_Static_Expression (N)
+                 and then Warn_On_Bad_Fixed_Value
+               then
+                  Error_Msg_N
+                    ("static fixed-point value is not a multiple of Small?",
+                     N);
+               end if;
+
                --  Replace literal by a value that is the exact representation
                --  of a value of the type, i.e. a multiple of the small value,
                --  by truncation, since Machine_Rounds is false for all GNAT
@@ -5685,6 +5756,8 @@ package body Sem_Res is
                    Realval => Small_Value (Typ) * Cint));
 
                Set_Is_Static_Expression (N, Stat);
+
+
             end if;
 
             --  In all cases, set the corresponding integer field
@@ -6347,16 +6420,18 @@ package body Sem_Res is
            and then (Etype (Right_Opnd (Operand)) = Universal_Real
                      or else Etype (Left_Opnd (Operand)) = Universal_Real)
          then
-            if Unique_Fixed_Point_Type (N) = Any_Type then
-               return;    --  expression is ambiguous.
-            else
-               --  If nothing else, the available fixed type is Duration.
+            --  Return if expression is ambiguous
 
+            if Unique_Fixed_Point_Type (N) = Any_Type then
+               return;
+
+            --  If nothing else, the available fixed type is Duration
+
+            else
                Set_Etype (Operand, Standard_Duration);
             end if;
 
-            --  Resolve the real operand with largest available precision.
-
+            --  Resolve the real operand with largest available precision
             if Etype (Right_Opnd (Operand)) = Universal_Real then
                Rop := New_Copy_Tree (Right_Opnd (Operand));
             else
@@ -6548,7 +6623,7 @@ package body Sem_Res is
       Opnd_Type : constant Entity_Id := Etype (Operand);
 
    begin
-      --  Resolve operand using its own type.
+      --  Resolve operand using its own type
 
       Resolve (Operand, Opnd_Type);
       Eval_Unchecked_Conversion (N);
@@ -6770,7 +6845,11 @@ package body Sem_Res is
       Scop : Entity_Id;
 
       procedure Fixed_Point_Error;
-      --  If true ambiguity, give details.
+      --  If true ambiguity, give details
+
+      -----------------------
+      -- Fixed_Point_Error --
+      -----------------------
 
       procedure Fixed_Point_Error is
       begin
@@ -6779,13 +6858,15 @@ package body Sem_Res is
          Error_Msg_NE ("\possible interpretation as}", N, T2);
       end Fixed_Point_Error;
 
+   --  Start of processing for Unique_Fixed_Point_Type
+
    begin
       --  The operations on Duration are visible, so Duration is always a
       --  possible interpretation.
 
       T1 := Standard_Duration;
 
-      --  Look for fixed-point types in enclosing scopes.
+      --  Look for fixed-point types in enclosing scopes
 
       Scop := Current_Scope;
       while Scop /= Standard_Standard loop
@@ -6810,7 +6891,7 @@ package body Sem_Res is
          Scop := Scope (Scop);
       end loop;
 
-      --  Look for visible fixed type declarations in the context.
+      --  Look for visible fixed type declarations in the context
 
       Item := First (Context_Items (Cunit (Current_Sem_Unit)));
       while Present (Item) loop
@@ -6896,15 +6977,15 @@ package body Sem_Res is
          Opnd_Type   : Entity_Id) return Boolean
       is
       begin
-         --  Upward conversions are allowed (RM 4.6(22)).
+         --  Upward conversions are allowed (RM 4.6(22))
 
          if Covers (Target_Type, Opnd_Type)
            or else Is_Ancestor (Target_Type, Opnd_Type)
          then
             return True;
 
-         --  Downward conversion are allowed if the operand is
-         --  is class-wide (RM 4.6(23)).
+         --  Downward conversion are allowed if the operand is class-wide
+         --  (RM 4.6(23)).
 
          elsif Is_Class_Wide_Type (Opnd_Type)
               and then Covers (Opnd_Type, Target_Type)
@@ -7217,19 +7298,16 @@ package body Sem_Res is
       elsif (Ekind (Target_Type) = E_Access_Subprogram_Type
                or else
              Ekind (Target_Type) = E_Anonymous_Access_Subprogram_Type)
+        and then No (Corresponding_Remote_Type (Opnd_Type))
         and then Conversion_Check
                    (Ekind (Base_Type (Opnd_Type)) = E_Access_Subprogram_Type,
                     "illegal operand for access subprogram conversion")
       then
          --  Check that the designated types are subtype conformant
 
-         if not Subtype_Conformant (Designated_Type (Opnd_Type),
-                                    Designated_Type (Target_Type))
-         then
-            Error_Msg_N
-              ("operand type is not subtype conformant with target type",
-               Operand);
-         end if;
+         Check_Subtype_Conformant (New_Id  => Designated_Type (Target_Type),
+                                   Old_Id  => Designated_Type (Opnd_Type),
+                                   Err_Loc => N);
 
          --  Check the static accessibility rule of 4.6(20)
 
@@ -7285,7 +7363,7 @@ package body Sem_Res is
       elsif Is_Tagged_Type (Target_Type) then
          return Valid_Tagged_Conversion (Target_Type, Opnd_Type);
 
-      --  Types derived from the same root type are convertible.
+      --  Types derived from the same root type are convertible
 
       elsif Root_Type (Target_Type) = Root_Type (Opnd_Type) then
          return True;

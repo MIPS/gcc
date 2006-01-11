@@ -70,6 +70,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Return Address::      Getting the return or frame address of a function.
 * Vector Extensions::   Using vector instructions through built-in functions.
 * Offsetof::            Special syntax for implementing @code{offsetof}.
+* Atomic Builtins::	Built-in functions for atomic memory access.
 * Other Builtins::      Other built-in functions.
 * Target Builtins::     Built-in functions specific to particular targets.
 * Target Format Checks:: Format checks specific to particular targets.
@@ -186,6 +187,29 @@ statement-expressions of this form in header files that are designed to
 work with C++.  (Note that some versions of the GNU C Library contained
 header files using statement-expression that lead to precisely this
 bug.)
+
+Jumping into a statement expression with @code{goto} or using a
+@code{switch} statement outside the statement expression with a
+@code{case} or @code{default} label inside the statement expression is
+not permitted.  Jumping into a statement expression with a computed
+@code{goto} (@pxref{Labels as Values}) yields undefined behavior.
+Jumping out of a statement expression is permitted, but if the
+statement expression is part of a larger expression then it is
+unspecified which other subexpressions of that expression have been
+evaluated except where the language definition requires certain
+subexpressions to be evaluated before or after the statement
+expression.  In any case, as with a function call the evaluation of a
+statement expression is not interleaved with the evaluation of other
+parts of the containing expression.  For example,
+
+@smallexample
+  foo (), ((@{ bar1 (); goto a; 0; @}) + bar2 ()), baz();
+@end smallexample
+
+@noindent
+will call @code{foo} and @code{bar1} and will not call @code{baz} but
+may or may not call @code{bar2}.  If @code{bar2} is called, it will be
+called after @code{foo} and before @code{bar1}
 
 @node Local Labels
 @section Locally Declared Labels
@@ -1701,6 +1725,13 @@ on data in the eight bit data area.  Note the eight bit data area is limited to
 You must use GAS and GLD from GNU binutils version 2.7 or later for
 this attribute to work correctly.
 
+@item exception_handler
+@cindex exception handler functions on the Blackfin processor
+Use this attribute on the Blackfin to indicate that the specified function
+is an exception handler.  The compiler will generate function entry and
+exit sequences suitable for use in an exception handler when this
+attribute is present.
+
 @item far
 @cindex functions which handle memory bank switching
 On 68HC11 and 68HC12 the @code{far} attribute causes the compiler to
@@ -1849,8 +1880,8 @@ that the specified function is an interrupt handler.  The compiler will
 generate function entry and exit sequences suitable for use in an
 interrupt handler when this attribute is present.
 
-Note, interrupt handlers for the m68k, H8/300, H8/300H, H8S, and SH processors
-can be specified via the @code{interrupt_handler} attribute.
+Note, interrupt handlers for the Blackfin, m68k, H8/300, H8/300H, H8S, and
+SH processors can be specified via the @code{interrupt_handler} attribute.
 
 Note, on the AVR, interrupts will be enabled inside the function.
 
@@ -1864,11 +1895,17 @@ void f () __attribute__ ((interrupt ("IRQ")));
 Permissible values for this parameter are: IRQ, FIQ, SWI, ABORT and UNDEF@.
 
 @item interrupt_handler
-@cindex interrupt handler functions on the m68k, H8/300 and SH processors
-Use this attribute on the m68k, H8/300, H8/300H, H8S, and SH to indicate that
-the specified function is an interrupt handler.  The compiler will generate
-function entry and exit sequences suitable for use in an interrupt
-handler when this attribute is present.
+@cindex interrupt handler functions on the Blackfin, m68k, H8/300 and SH processors
+Use this attribute on the Blackfin, m68k, H8/300, H8/300H, H8S, and SH to
+indicate that the specified function is an interrupt handler.  The compiler
+will generate function entry and exit sequences suitable for use in an
+interrupt handler when this attribute is present.
+
+@item kspisusp
+@cindex User stack pointer in interrupts on the Blackfin
+When used together with @code{interrupt_handler}, @code{exception_handler}
+or @code{nmi_handler}, code will be generated to load the stack pointer
+from the USP register in the function prologue.
 
 @item long_call/short_call
 @cindex indirect calls on ARM
@@ -1947,6 +1984,19 @@ On 68HC11 and 68HC12 the @code{near} attribute causes the compiler to
 use the normal calling convention based on @code{jsr} and @code{rts}.
 This attribute can be used to cancel the effect of the @option{-mlong-calls}
 option.
+
+@item nesting
+@cindex Allow nesting in an interrupt handler on the Blackfin processor.
+Use this attribute together with @code{interrupt_handler},
+@code{exception_handler} or @code{nmi_handler} to indicate that the function
+entry code should enable nested interrupts or exceptions.
+
+@item nmi_handler
+@cindex NMI handler functions on the Blackfin processor
+Use this attribute on the Blackfin to indicate that the specified function
+is an NMI handler.  The compiler will generate function entry and
+exit sequences suitable for use in an NMI handler when this
+attribute is present.
 
 @item no_instrument_function
 @cindex @code{no_instrument_function} function attribute
@@ -2102,8 +2152,8 @@ The @code{longjmp}-like counterpart of such function, if any, might need
 to be marked with the @code{noreturn} attribute.
 
 @item saveall
-@cindex save all registers on the H8/300, H8/300H, and H8S
-Use this attribute on the H8/300, H8/300H, and H8S to indicate that
+@cindex save all registers on the Blackfin, H8/300, H8/300H, and H8S
+Use this attribute on the Blackfin, H8/300, H8/300H, and H8S to indicate that
 all registers except the stack pointer should be saved in the prologue
 regardless of whether they are used or not.
 
@@ -2977,6 +3027,26 @@ struct S  __attribute__ ((vector_size (16))) foo;
 is invalid even if the size of the structure is the same as the size of
 the @code{int}.
 
+@item selectany
+The @code{selectany} attribute causes an initialized global variable to
+have link-once semantics.  When multiple definitions of the variable are
+encountered by the linker, the first is selected and the remainder are
+discarded.  Following usage by the Microsoft compiler, the linker is told
+@emph{not} to warn about size or content differences of the multiple
+definitions.
+
+Although the primary usage of this attribute is for POD types, the
+attribute can also be applied to global C++ objects that are initialized
+by a constructor.  In this case, the static initialization and destruction
+code for the object is emitted in each translation defining the object,
+but the calls to the constructor and destructor are protected by a
+link-once guard variable. 
+
+The @code{selectany} attribute is only available on Microsoft Windows
+targets.  You can use @code{__declspec (selectany)} as a synonym for
+@code{__attribute__ ((selectany))} for compatibility with other
+compilers.
+
 @item weak
 The @code{weak} attribute is described in @xref{Function Attributes}.
 
@@ -3183,7 +3253,7 @@ struct my_unpacked_struct
     int i;
  @};
 
-struct my_packed_struct __attribute__ ((__packed__))
+struct __attribute__ ((__packed__)) my_packed_struct
   @{
      char c;
      int  i;
@@ -4512,6 +4582,132 @@ is a suitable definition of the @code{offsetof} macro.  In C++, @var{type}
 may be dependent.  In either case, @var{member} may consist of a single
 identifier, or a sequence of member accesses and array references.
 
+@node Atomic Builtins
+@section Built-in functions for atomic memory access
+
+The following builtins are intended to be compatible with those described
+in the @cite{Intel Itanium Processor-specific Application Binary Interface},
+section 7.4.  As such, they depart from the normal GCC practice of using
+the ``__builtin_'' prefix, and further that they are overloaded such that
+they work on multiple types.
+
+The definition given in the Intel documentation allows only for the use of
+the types @code{int}, @code{long}, @code{long long} as well as their unsigned
+counterparts.  GCC will allow any integral scalar or pointer type that is
+1, 2, 4 or 8 bytes in length.
+
+Not all operations are supported by all target processors.  If a particular
+operation cannot be implemented on the target processor, a warning will be
+generated and a call an external function will be generated.  The external
+function will carry the same name as the builtin, with an additional suffix
+@samp{_@var{n}} where @var{n} is the size of the data type.
+
+@c ??? Should we have a mechanism to suppress this warning?  This is almost
+@c useful for implementing the operation under the control of an external
+@c mutex.
+
+In most cases, these builtins are considered a @dfn{full barrier}.  That is,
+no memory operand will be moved across the operation, either forward or
+backward.  Further, instructions will be issued as necessary to prevent the
+processor from speculating loads across the operation and from queuing stores
+after the operation.
+
+All of the routines are are described in the Intel documentation to take
+``an optional list of variables protected by the memory barrier''.  It's
+not clear what is meant by that; it could mean that @emph{only} the
+following variables are protected, or it could mean that these variables
+should in addition be protected.  At present GCC ignores this list and
+protects all variables which are globally accessible.  If in the future
+we make some use of this list, an empty list will continue to mean all
+globally accessible variables.
+
+@table @code
+@item @var{type} __sync_fetch_and_add (@var{type} *ptr, @var{type} value, ...)
+@itemx @var{type} __sync_fetch_and_sub (@var{type} *ptr, @var{type} value, ...)
+@itemx @var{type} __sync_fetch_and_or (@var{type} *ptr, @var{type} value, ...)
+@itemx @var{type} __sync_fetch_and_and (@var{type} *ptr, @var{type} value, ...)
+@itemx @var{type} __sync_fetch_and_xor (@var{type} *ptr, @var{type} value, ...)
+@itemx @var{type} __sync_fetch_and_nand (@var{type} *ptr, @var{type} value, ...)
+@findex __sync_fetch_and_add
+@findex __sync_fetch_and_sub
+@findex __sync_fetch_and_or
+@findex __sync_fetch_and_and
+@findex __sync_fetch_and_xor
+@findex __sync_fetch_and_nand
+These builtins perform the operation suggested by the name, and
+returns the value that had previously been in memory.  That is,
+
+@smallexample
+@{ tmp = *ptr; *ptr @var{op}= value; return tmp; @}
+@{ tmp = *ptr; *ptr = ~tmp & value; return tmp; @}   // nand
+@end smallexample
+
+@item @var{type} __sync_add_and_fetch (@var{type} *ptr, @var{type} value, ...)
+@itemx @var{type} __sync_sub_and_fetch (@var{type} *ptr, @var{type} value, ...)
+@itemx @var{type} __sync_or_and_fetch (@var{type} *ptr, @var{type} value, ...)
+@itemx @var{type} __sync_and_and_fetch (@var{type} *ptr, @var{type} value, ...)
+@itemx @var{type} __sync_xor_and_fetch (@var{type} *ptr, @var{type} value, ...)
+@itemx @var{type} __sync_nand_and_fetch (@var{type} *ptr, @var{type} value, ...)
+@findex __sync_add_and_fetch
+@findex __sync_sub_and_fetch
+@findex __sync_or_and_fetch
+@findex __sync_and_and_fetch
+@findex __sync_xor_and_fetch
+@findex __sync_nand_and_fetch
+These builtins perform the operation suggested by the name, and
+return the new value.  That is,
+
+@smallexample
+@{ *ptr @var{op}= value; return *ptr; @}
+@{ *ptr = ~*ptr & value; return *ptr; @}   // nand
+@end smallexample
+
+@item bool __sync_bool_compare_and_swap (@var{type} *ptr, @var{type} oldval @var{type} newval, ...)
+@itemx @var{type} __sync_val_compare_and_swap (@var{type} *ptr, @var{type} oldval @var{type} newval, ...)
+@findex __sync_bool_compare_and_swap
+@findex __sync_val_compare_and_swap
+These builtins perform an atomic compare and swap.  That is, if the current
+value of @code{*@var{ptr}} is @var{oldval}, then write @var{newval} into
+@code{*@var{ptr}}.
+
+The ``bool'' version returns true if the comparison is successful and 
+@var{newval} was written.  The ``val'' version returns the contents
+of @code{*@var{ptr}} before the operation.
+
+@item __sync_synchronize (...)
+@findex __sync_synchronize
+This builtin issues a full memory barrier.
+
+@item @var{type} __sync_lock_test_and_set (@var{type} *ptr, @var{type} value, ...)
+@findex __sync_lock_test_and_set
+This builtin, as described by Intel, is not a traditional test-and-set
+operation, but rather an atomic exchange operation.  It writes @var{value}
+into @code{*@var{ptr}}, and returns the previous contents of
+@code{*@var{ptr}}.
+
+Many targets have only minimal support for such locks, and do not support
+a full exchange operation.  In this case, a target may support reduced
+functionality here by which the @emph{only} valid value to store is the
+immediate constant 1.  The exact value actually stored in @code{*@var{ptr}}
+is implementation defined.
+
+This builtin is not a full barrier, but rather an @dfn{acquire barrier}.
+This means that references after the builtin cannot move to (or be
+speculated to) before the builtin, but previous memory stores may not
+be globally visible yet, and previous memory loads may not yet be 
+satisfied.
+
+@item void __sync_lock_release (@var{type} *ptr, ...)
+@findex __sync_lock_release
+This builtin releases the lock acquired by @code{__sync_lock_test_and_set}.
+Normally this means writing the constant 0 to @code{*@var{ptr}}.
+
+This builtin is not a full barrier, but rather a @dfn{release barrier}.
+This means that all previous memory stores are globally visible, and all
+previous memory loads have been satisfied, but following memory reads
+are not prevented from being speculated to before the barrier.
+@end table
+
 @node Other Builtins
 @section Other built-in functions provided by GCC
 @cindex built-in functions
@@ -4837,6 +5033,8 @@ identifier, or a sequence of member accesses and array references.
 @findex sqrtl
 @findex sscanf
 @findex stpcpy
+@findex stpncpy
+@findex strcasecmp
 @findex strcat
 @findex strchr
 @findex strcmp
@@ -4846,9 +5044,11 @@ identifier, or a sequence of member accesses and array references.
 @findex strfmon
 @findex strftime
 @findex strlen
+@findex strncasecmp
 @findex strncat
 @findex strncmp
 @findex strncpy
+@findex strndup
 @findex strpbrk
 @findex strrchr
 @findex strspn
@@ -4920,9 +5120,10 @@ Outside strict ISO C mode (@option{-ansi}, @option{-std=c89} or
 @code{scalb}, @code{signbit}, @code{signbitf}, @code{signbitl},
 @code{significandf}, @code{significandl}, @code{significand},
 @code{sincosf}, @code{sincosl}, @code{sincos}, @code{stpcpy},
-@code{strdup}, @code{strfmon}, @code{toascii}, @code{y0f}, @code{y0l},
-@code{y0}, @code{y1f}, @code{y1l}, @code{y1}, @code{ynf}, @code{ynl} and
-@code{yn}
+@code{stpncpy}, @code{strcasecmp}, @code{strdup}, @code{strfmon},
+@code{strncasecmp}, @code{strndup}, @code{toascii}, @code{y0f},
+@code{y0l}, @code{y0}, @code{y1f}, @code{y1l}, @code{y1}, @code{ynf},
+@code{ynl} and @code{yn}
 may be handled as built-in functions.
 All these functions have corresponding versions
 prefixed with @code{__builtin_}, which may be used even in strict C89
@@ -5261,11 +5462,11 @@ type is @code{long double}.
 @deftypefn {Built-in Function} double __builtin_inf (void)
 Similar to @code{__builtin_huge_val}, except a warning is generated
 if the target floating-point format does not support infinities.
-This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
 @end deftypefn
 
 @deftypefn {Built-in Function} float __builtin_inff (void)
 Similar to @code{__builtin_inf}, except the return type is @code{float}.
+This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
 @end deftypefn
 
 @deftypefn {Built-in Function} {long double} __builtin_infl (void)
@@ -9130,7 +9331,6 @@ test specifically for GNU C++ (@pxref{Common Predefined Macros,,
 Predefined Macros,cpp,The GNU C Preprocessor}).
 
 @menu
-* Min and Max::		C++ Minimum and maximum operators.
 * Volatiles::		What constitutes an access to a volatile object.
 * Restricted Pointers:: C99 restricted pointers and references.
 * Vague Linkage::       Where G++ puts inlines, vtables and such.
@@ -9146,51 +9346,6 @@ Predefined Macros,cpp,The GNU C Preprocessor}).
 * Deprecated Features:: Things will disappear from g++.
 * Backwards Compatibility:: Compatibilities with earlier definitions of C++.
 @end menu
-
-@node Min and Max
-@section Minimum and Maximum Operators in C++
-
-It is very convenient to have operators which return the ``minimum'' or the
-``maximum'' of two arguments.  In GNU C++ (but not in GNU C),
-
-@table @code
-@item @var{a} <? @var{b}
-@findex <?
-@cindex minimum operator
-is the @dfn{minimum}, returning the smaller of the numeric values
-@var{a} and @var{b};
-
-@item @var{a} >? @var{b}
-@findex >?
-@cindex maximum operator
-is the @dfn{maximum}, returning the larger of the numeric values @var{a}
-and @var{b}.
-@end table
-
-These operations are not primitive in ordinary C++, since you can
-use a macro to return the minimum of two things in C++, as in the
-following example.
-
-@smallexample
-#define MIN(X,Y) ((X) < (Y) ? : (X) : (Y))
-@end smallexample
-
-@noindent
-You might then use @w{@samp{int min = MIN (i, j);}} to set @var{min} to
-the minimum value of variables @var{i} and @var{j}.
-
-However, side effects in @code{X} or @code{Y} may cause unintended
-behavior.  For example, @code{MIN (i++, j++)} will fail, incrementing
-the smaller counter twice.  The GNU C @code{typeof} extension allows you
-to write safe macros that avoid this kind of problem (@pxref{Typeof}).
-However, writing @code{MIN} and @code{MAX} as macros also forces you to
-use function-call notation for a fundamental arithmetic operation.
-Using GNU C++ extensions, you can write @w{@samp{int min = i <? j;}}
-instead.
-
-Since @code{<?} and @code{>?} are built into the compiler, they properly
-handle expressions with side-effects;  @w{@samp{int min = i++ <? j++;}}
-works correctly.
 
 @node Volatiles
 @section When is a Volatile Object Accessed?
@@ -9837,6 +9992,11 @@ G++ allows a virtual function returning @samp{void *} to be overridden
 by one returning a different pointer type.  This extension to the
 covariant return type rules is now deprecated and will be removed from a
 future version.
+
+The G++ minimum and maximum operators (@samp{<?} and @samp{>?}) and
+their compound forms (@samp{<?=}) and @samp{>?=}) have been deprecated
+and will be removed in a future version.  Code using these operators
+should be modified to use @code{std::min} and @code{std::max} instead.
 
 The named return value extension has been deprecated, and is now
 removed from G++.

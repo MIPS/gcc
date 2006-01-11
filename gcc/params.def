@@ -35,6 +35,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    Be sure to add an entry to invoke.texi summarizing the parameter.  */
 
+/* The maximum number of fields in a variable with only implicit uses
+   for which structure aliasing will consider trying to track each
+   field.  The default is 5.  */
+DEFPARAM (PARAM_SALIAS_MAX_IMPLICIT_FIELDS,
+	  "salias-max-implicit-fields",
+	  "The maximum number of fields in a structure variable without direct structure accesses that GCC will attempt to track separately",
+	  5, 0, 0)
+   
 /* The maximum structure size at which the scalar replacement of
    aggregates (SRA) pass will perform block copies.  The default
    value, 0, implies that GCC will select the most appropriate size
@@ -58,10 +66,9 @@ DEFPARAM (PARAM_SRA_FIELD_STRUCTURE_RATIO,
    of a function counted in internal gcc instructions (not in
    real machine instructions) that is eligible for inlining
    by the tree inliner.
-   The default value is 500.
+   The default value is 450.
    Only functions marked inline (or methods defined in the class
-   definition for C++) are affected by this, unless you set the
-   -finline-functions (included in -O3) compiler option.
+   definition for C++) are affected by this.
    There are more restrictions to inlining: If inlined functions
    call other functions, the already inlined instructions are
    counted and once the recursive inline limit (see 
@@ -70,7 +77,7 @@ DEFPARAM (PARAM_SRA_FIELD_STRUCTURE_RATIO,
 DEFPARAM (PARAM_MAX_INLINE_INSNS_SINGLE,
 	  "max-inline-insns-single",
 	  "The maximum number of instructions in a single function eligible for inlining",
-	  500, 0, 0)
+	  450, 0, 0)
 
 /* The single function inlining limit for functions that are
    inlined by virtue of -finline-functions (-O3).
@@ -78,21 +85,21 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_SINGLE,
    that is applied to functions marked inlined (or defined in the
    class declaration in C++) given by the "max-inline-insns-single"
    parameter.
-   The default value is 150.  */
+   The default value is 90.  */
 DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO,
 	  "max-inline-insns-auto",
 	  "The maximum number of instructions when automatically inlining",
-	  120, 0, 0)
+	  90, 0, 0)
 
 DEFPARAM (PARAM_MAX_INLINE_INSNS_RECURSIVE,
 	  "max-inline-insns-recursive",
 	  "The maximum number of instructions inline function can grow to via recursive inlining",
-	  500, 0, 0)
+	  450, 0, 0)
 
 DEFPARAM (PARAM_MAX_INLINE_INSNS_RECURSIVE_AUTO,
 	  "max-inline-insns-recursive-auto",
 	  "The maximum number of instructions non-inline function can grow to via recursive inlining",
-	  500, 0, 0)
+	  450, 0, 0)
 
 DEFPARAM (PARAM_MAX_INLINE_RECURSIVE_DEPTH,
 	  "max-inline-recursive-depth",
@@ -148,7 +155,7 @@ DEFPARAM(PARAM_MAX_PENDING_LIST_LENGTH,
 DEFPARAM(PARAM_LARGE_FUNCTION_INSNS,
 	 "large-function-insns",
 	 "The size of function body to be considered large",
-	 3000, 0, 0)
+	 2700, 0, 0)
 DEFPARAM(PARAM_LARGE_FUNCTION_GROWTH,
 	 "large-function-growth",
 	 "Maximal growth due to inlining of large function (in percent)",
@@ -157,6 +164,10 @@ DEFPARAM(PARAM_INLINE_UNIT_GROWTH,
 	 "inline-unit-growth",
 	 "how much can given compilation unit grow because of the inlining (in percent)",
 	 50, 0, 0)
+DEFPARAM(PARAM_INLINE_CALL_COST,
+	 "inline-call-cost",
+	 "expense of call operation relative to ordinary arithmetic operations",
+	 16, 0, 0)
 
 /* The GCSE optimization will be disabled if it would require
    significantly more memory than this value.  */
@@ -361,6 +372,11 @@ DEFPARAM(PARAM_IV_ALWAYS_PRUNE_CAND_SET_BOUND,
 	 "If number of candidates in the set is smaller, we always try to remove unused ivs during its optimization",
 	 10, 0, 0)
 
+DEFPARAM(PARAM_SCEV_MAX_EXPR_SIZE,
+ 	 "scev-max-expr-size",
+	 "Bound on size of expressions used in the scalar evolutions analyzer",
+	 20, 0, 0)
+
 /* The product of the next two is used to decide whether or not to
    use .GLOBAL_VAR.  See tree-dfa.c.  */
 DEFPARAM(PARAM_GLOBAL_VAR_THRESHOLD,
@@ -426,6 +442,30 @@ DEFPARAM (PARAM_INTEGER_SHARE_LIMIT,
 	  "integer-share-limit",
 	  "The upper bound for sharing integer constants",
 	  256, 2, 2)
+
+/* Incremental SSA updates for virtual operands may be very slow if
+   there is a large number of mappings to process.  In those cases, it
+   is faster to rewrite the virtual symbols from scratch as if they
+   had been recently introduced.  This heuristic cannot be applied to
+   SSA mappings for real SSA names, only symbols kept in FUD chains.
+
+   PARAM_MIN_VIRTUAL_MAPPINGS specifies the minimum number of virtual
+   mappings that should be registered to trigger the heuristic.
+   
+   PARAM_VIRTUAL_MAPPINGS_TO_SYMS_RATIO specifies the ratio between
+   mappings and symbols.  If the number of virtual mappings is
+   PARAM_VIRTUAL_MAPPINGS_TO_SYMS_RATIO bigger than the number of
+   virtual symbols to be updated, then the updater switches to a full
+   update for those symbols.  */
+DEFPARAM (PARAM_MIN_VIRTUAL_MAPPINGS,
+	  "min-virtual-mappings",
+	  "Minimum number of virtual mappings to consider switching to full virtual renames",
+	  100, 0, 0)
+
+DEFPARAM (PARAM_VIRTUAL_MAPPINGS_TO_SYMS_RATIO,
+	  "virtual-mappings-ratio",
+	  "Ratio between virtual mappings and virtual symbols to do full virtual renames",
+	  3, 0, 0)
 
 /*
 Local variables:

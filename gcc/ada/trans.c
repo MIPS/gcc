@@ -348,7 +348,7 @@ Identifier_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
     }
   else
     {
-      /* Expand the type of this identitier first, in case it is an enumeral
+      /* Expand the type of this identifier first, in case it is an enumeral
 	 literal, which only get made when the type is expanded.  There is no
 	 order-of-elaboration issue here.  We want to use the Actual_Subtype if
 	 it has already been elaborated, otherwise the Etype.  Avoid using
@@ -393,7 +393,7 @@ Identifier_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
 	      && DECL_BY_COMPONENT_PTR_P (gnu_result))))
     {
       bool ro = DECL_POINTS_TO_READONLY_P (gnu_result);
-      tree initial;
+      tree renamed_obj;
 
       if (TREE_CODE (gnu_result) == PARM_DECL
 	  && DECL_BY_COMPONENT_PTR_P (gnu_result))
@@ -402,34 +402,16 @@ Identifier_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p)
 			    convert (build_pointer_type (gnu_result_type),
 				     gnu_result));
 
-      /* If the object is constant, we try to do the dereference directly
-	 through the DECL_INITIAL.  This is actually required in order to get
-	 correct aliasing information for renamed objects that are components
-	 of non-aliased aggregates, because the type of the renamed object and
-	 that of the aggregate don't alias.
-
-	 Note that we expect the initial value to have been stabilized.
-	 If it contains e.g. a variable reference, we certainly don't want
-	 to re-evaluate the variable each time the renaming is used.
-
-	 Stabilization is currently not performed at the global level but
-	 create_var_decl avoids setting DECL_INITIAL if the value is not
-	 constant then, and we get to the pointer dereference below.
-
-	 ??? Couldn't the aliasing issue show up again in this case ?
-	 There is no obvious reason why not.  */
-      else if (TREE_READONLY (gnu_result)
-	       && DECL_INITIAL (gnu_result)
-	       /* Strip possible conversion to reference type.  */
-	       && ((initial = TREE_CODE (DECL_INITIAL (gnu_result))
-		    == NOP_EXPR
-		    ? TREE_OPERAND (DECL_INITIAL (gnu_result), 0)
-		    : DECL_INITIAL (gnu_result), 1))
-	       && TREE_CODE (initial) == ADDR_EXPR
-	       && (TREE_CODE (TREE_OPERAND (initial, 0)) == ARRAY_REF
-		   || (TREE_CODE (TREE_OPERAND (initial, 0))
-		       == COMPONENT_REF)))
-	gnu_result = TREE_OPERAND (initial, 0);
+      /* If it's a renaming pointer and we are at the right binding level,
+	 we can reference the renamed object directly, since the renamed
+	 expression has been protected against multiple evaluations.  */
+      else if (TREE_CODE (gnu_result) == VAR_DECL
+	       && (renamed_obj = DECL_RENAMED_OBJECT (gnu_result)) != 0
+	       && (! DECL_RENAMING_GLOBAL_P (gnu_result)
+		   || global_bindings_p ())
+	       /* Make sure it's an lvalue like INDIRECT_REF.  */
+	       && (DECL_P (renamed_obj) || REFERENCE_CLASS_P (renamed_obj)))
+	gnu_result = renamed_obj;
       else
 	gnu_result = build_unary_op (INDIRECT_REF, NULL_TREE,
 				     fold (gnu_result));
@@ -746,8 +728,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
       if (CONTAINS_PLACEHOLDER_P (gnu_result))
 	{
 	  if (TREE_CODE (gnu_prefix) != TYPE_DECL)
-	    gnu_result = substitute_placeholder_in_expr (gnu_result,
-							 gnu_expr);
+	    gnu_result = substitute_placeholder_in_expr (gnu_result, gnu_expr);
 	  else
 	    gnu_result = max_size (gnu_result, true);
 	}
@@ -1354,7 +1335,7 @@ Subprogram_Body_to_gnu (Node_Id gnat_node)
   /* Save debug output mode in case it is reset.  */
   enum debug_info_type save_write_symbols = write_symbols;
   const struct gcc_debug_hooks *const save_debug_hooks = debug_hooks;
-  /* Definining identifier of a parameter to the subprogram.  */
+  /* Defining identifier of a parameter to the subprogram.  */
   Entity_Id gnat_param;
   /* The defining identifier for the subprogram body. Note that if a
      specification has appeared before for this body, then the identifier
@@ -3660,7 +3641,7 @@ gnat_to_gnu (Node_Id gnat_node)
 
     case N_Defining_Program_Unit_Name:
       /* For a child unit identifier go up a level to get the
-         specificaton.  We get this when we try to find the spec of
+         specification.  We get this when we try to find the spec of
 	 a child unit package that is the compilation unit being compiled. */
       gnu_result = gnat_to_gnu (Parent (gnat_node));
       break;
@@ -3988,7 +3969,7 @@ gnat_to_gnu (Node_Id gnat_node)
       /* If the result is a pointer type, see if we are either converting
          from a non-pointer or from a pointer to a type with a different
  	 alias set and warn if so.  If the result defined in the same unit as
- 	 this unchecked convertion, we can allow this because we can know to
+ 	 this unchecked conversion, we can allow this because we can know to
  	 make that type have alias set 0.  */
       {
  	tree gnu_source_type = gnat_to_gnu_type (Source_Type (gnat_node));
@@ -4011,6 +3992,27 @@ gnat_to_gnu (Node_Id gnat_node)
 	    post_error_ne
               ("\\?or use `pragma No_Strict_Aliasing (&);`",
                gnat_node, Target_Type (gnat_node));
+	  }
+
+	/* The No_Strict_Aliasing flag is not propagated to the back-end for
+	   fat pointers so unconditionally warn in problematic cases.  */
+	else if (TYPE_FAT_POINTER_P (gnu_target_type))
+	  {
+	    tree array_type
+	      = TREE_TYPE (TREE_TYPE (TYPE_FIELDS (gnu_target_type)));
+
+	    if (get_alias_set (array_type) != 0
+		&& (!TYPE_FAT_POINTER_P (gnu_source_type)
+		    || (get_alias_set (TREE_TYPE (TREE_TYPE (TYPE_FIELDS (gnu_source_type))))
+			!= get_alias_set (array_type))))
+	      {
+		post_error_ne
+		  ("?possible aliasing problem for type&",
+		   gnat_node, Target_Type (gnat_node));
+		post_error
+		  ("\\?use -fno-strict-aliasing switch for references",
+		   gnat_node);
+	      }
 	  }
       }
       gnu_result = alloc_stmt_list ();
@@ -5349,7 +5351,7 @@ addressable_p (tree gnu_expr)
 
 /* Do the processing for the declaration of a GNAT_ENTITY, a type.  If
    a separate Freeze node exists, delay the bulk of the processing.  Otherwise
-   make a GCC type for GNAT_ENTITY and set up the correspondance.  */
+   make a GCC type for GNAT_ENTITY and set up the correspondence.  */
 
 void
 process_type (Entity_Id gnat_entity)

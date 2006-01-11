@@ -305,6 +305,9 @@ static alloc_pool value_set_node_pool;
 static alloc_pool binary_node_pool;
 static alloc_pool unary_node_pool;
 static alloc_pool reference_node_pool;
+static alloc_pool comparison_node_pool;
+static alloc_pool expression_node_pool;
+static alloc_pool list_node_pool;
 static bitmap_obstack grand_bitmap_obstack;
 
 /* Set of blocks with statements that have had its EH information
@@ -842,6 +845,48 @@ debug_value_set (value_set_t set, const char *setname, int blockindex)
   print_value_set (stderr, set, setname, blockindex);
 }
 
+/* Return the folded version of T if T, when folded, is a gimple
+   min_invariant.  Otherwise, return T.  */ 
+
+static tree
+fully_constant_expression (tree t)
+{  
+  tree folded;
+  folded = fold (t);
+  if (folded && is_gimple_min_invariant (folded))
+    return folded;
+  return t;
+}
+
+/* Return a copy of a chain of nodes, chained through the TREE_CHAIN field.
+   For example, this can copy a list made of TREE_LIST nodes.  
+   Allocates the nodes in list_node_pool*/
+
+static tree
+pool_copy_list (tree list)
+{
+  tree head;
+  tree prev, next;
+
+  if (list == 0)
+    return 0;
+  head = pool_alloc (list_node_pool);
+  
+  memcpy (head, list, tree_size (list));
+  prev = head;
+  
+  next = TREE_CHAIN (list);
+  while (next)
+    {
+      TREE_CHAIN (prev) = pool_alloc (list_node_pool);
+      memcpy (TREE_CHAIN (prev), next, tree_size (next));
+      prev = TREE_CHAIN (prev);
+      next = TREE_CHAIN (next);
+    }
+  return head;
+}
+
+
 /* Translate EXPR using phis in PHIBLOCK, so that it has the values of
    the phis in PRED.  Return NULL if we can't find a leader for each
    part of the translated expression.  */
@@ -866,11 +911,95 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
   
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
+    case tcc_expression:
+      {
+	if (TREE_CODE (expr) != CALL_EXPR)
+	  return NULL;
+	else
+	  {
+	    tree oldop0 = TREE_OPERAND (expr, 0);
+	    tree oldarglist = TREE_OPERAND (expr, 1);
+	    tree oldop2 = TREE_OPERAND (expr, 2);
+	    tree newop0;
+	    tree newarglist;
+	    tree newop2 = NULL;
+	    tree oldwalker;
+	    tree newwalker;
+	    tree newexpr;
+	    bool listchanged = false;
+
+	    /* Call expressions are kind of weird because they have an
+	       argument list.  We don't want to value number the list
+	       as one value number, because that doesn't make much
+	       sense, and just breaks the support functions we call,
+	       which expect TREE_OPERAND (call_expr, 2) to be a
+	       TREE_LIST. */	      
+	    
+	    newop0 = phi_translate (find_leader (set, oldop0),
+				    set, pred, phiblock);
+	    if (newop0 == NULL)
+	      return NULL;
+	    if (oldop2)
+	      {
+		newop2 = phi_translate (find_leader (set, oldop2),
+					set, pred, phiblock);
+		if (newop2 == NULL)
+		  return NULL;
+	      }
+
+	    /* phi translate the argument list piece by piece.
+	       
+	      We could actually build the list piece by piece here,
+	      but it's likely to not be worth the memory we will save,
+	      unless you have millions of call arguments.  */
+
+	    newarglist = pool_copy_list (oldarglist);
+	    for (oldwalker = oldarglist, newwalker = newarglist;
+		 oldwalker && newwalker;
+		 oldwalker = TREE_CHAIN (oldwalker), 
+		   newwalker = TREE_CHAIN (newwalker))
+	      {
+		
+		tree oldval = TREE_VALUE (oldwalker);
+		tree newval;
+		if (oldval)
+		  {
+		    newval = phi_translate (find_leader (set, oldval),
+					    set, pred, phiblock);
+		    if (newval == NULL)
+		      return NULL;
+		    if (newval != oldval)
+		      {
+			listchanged = true;
+			TREE_VALUE (newwalker) = get_value_handle (newval);
+		      }
+		  }
+	      }
+	    if (listchanged)
+	      vn_lookup_or_add (newarglist, NULL);
+	    
+	    if (listchanged || (newop0 != oldop0) || (oldop2 != newop2))
+	      {
+		newexpr = pool_alloc (expression_node_pool);
+		memcpy (newexpr, expr, tree_size (expr));
+		TREE_OPERAND (newexpr, 0) = newop0 == oldop0 ? oldop0 : get_value_handle (newop0);
+		TREE_OPERAND (newexpr, 1) = listchanged ? newarglist : oldarglist;
+		TREE_OPERAND (newexpr, 2) = newop2 == oldop2 ? oldop2 : get_value_handle (newop2);
+		create_tree_ann (newexpr);	 
+		vn_lookup_or_add (newexpr, NULL);
+		expr = newexpr;
+		phi_trans_add (oldexpr, newexpr, pred);
+	      }
+	  }
+      }
+      return expr;
+
     case tcc_reference:
       /* XXX: Until we have PRE of loads working, none will be ANTIC.  */
       return NULL;
 
     case tcc_binary:
+    case tcc_comparison:
       {
 	tree oldop1 = TREE_OPERAND (expr, 0);
 	tree oldop2 = TREE_OPERAND (expr, 1);
@@ -888,12 +1017,22 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	  return NULL;
 	if (newop1 != oldop1 || newop2 != oldop2)
 	  {
+	    tree t;
 	    newexpr = pool_alloc (binary_node_pool);
 	    memcpy (newexpr, expr, tree_size (expr));
-	    create_tree_ann (newexpr);
 	    TREE_OPERAND (newexpr, 0) = newop1 == oldop1 ? oldop1 : get_value_handle (newop1);
 	    TREE_OPERAND (newexpr, 1) = newop2 == oldop2 ? oldop2 : get_value_handle (newop2);
-	    vn_lookup_or_add (newexpr, NULL);
+	    t = fully_constant_expression (newexpr);
+	    if (t != newexpr)
+	      {
+		pool_free (binary_node_pool, newexpr);
+		newexpr = t;
+	      }
+	    else
+	      {
+		create_tree_ann (newexpr);	 
+		vn_lookup_or_add (newexpr, NULL);
+	      }
 	    expr = newexpr;
 	    phi_trans_add (oldexpr, newexpr, pred);	    
 	  }
@@ -912,11 +1051,21 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	  return NULL;
 	if (newop1 != oldop1)
 	  {
+	    tree t;
 	    newexpr = pool_alloc (unary_node_pool);
 	    memcpy (newexpr, expr, tree_size (expr));
-	    create_tree_ann (newexpr);	 
 	    TREE_OPERAND (newexpr, 0) = get_value_handle (newop1);
-	    vn_lookup_or_add (newexpr, NULL);
+	    t = fully_constant_expression (newexpr);
+	    if (t != newexpr)
+	      {
+		pool_free (unary_node_pool, newexpr);
+		newexpr = t;
+	      }
+	    else
+	      {
+		create_tree_ann (newexpr);	 
+		vn_lookup_or_add (newexpr, NULL);
+	      }
 	    expr = newexpr;
 	    phi_trans_add (oldexpr, newexpr, pred);
 	  }
@@ -948,6 +1097,10 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
       gcc_unreachable ();
     }
 }
+
+/* For each expression in SET, translate the value handles through phi nodes
+   in PHIBLOCK using edge PHIBLOCK->PRED, and store the resulting
+   expressions in DEST.  */
 
 static void
 phi_translate_set (value_set_t dest, value_set_t set, basic_block pred,
@@ -1046,10 +1199,10 @@ find_leader (value_set_t set, tree val)
    we have a leader for each part of the expression (if it consists of
    values), or the expression is an SSA_NAME.  
 
-   NB:  We never should run into a case where we have SSA_NAME +
+   NB: We never should run into a case where we have SSA_NAME +
    SSA_NAME or SSA_NAME + value.  The sets valid_in_set is called on,
-   the ANTIC sets, will only ever have SSA_NAME's or binary value
-   expression (IE VALUE1 + VALUE2)  */
+   the ANTIC sets, will only ever have SSA_NAME's or value expressions
+   (IE VALUE1 + VALUE2, *VALUE1, VALUE1 < VALUE2)  */
 
 static bool
 valid_in_set (value_set_t set, tree expr)
@@ -1057,6 +1210,7 @@ valid_in_set (value_set_t set, tree expr)
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
     case tcc_binary:
+    case tcc_comparison:
       {
 	tree op1 = TREE_OPERAND (expr, 0);
 	tree op2 = TREE_OPERAND (expr, 1);
@@ -1068,7 +1222,31 @@ valid_in_set (value_set_t set, tree expr)
 	tree op1 = TREE_OPERAND (expr, 0);
 	return set_contains_value (set, op1);
       }
+      
+    case tcc_expression:
+      {
+	if (TREE_CODE (expr) == CALL_EXPR)
+	  {
+	    tree op0 = TREE_OPERAND (expr, 0);
+	    tree arglist = TREE_OPERAND (expr, 1);
+	    tree op2 = TREE_OPERAND (expr, 2);
 
+	    /* Check the non-list operands first.  */
+	    if (!set_contains_value (set, op0)
+		|| (op2 && !set_contains_value (set, op2)))
+	      return false;
+
+	    /* Now check the operands.  */
+	    for (; arglist; arglist = TREE_CHAIN (arglist))
+	      {
+		if (!set_contains_value (set, TREE_VALUE (arglist)))
+		  return false;
+	      }
+	    return true;
+	  }
+	return false;
+      }
+      
     case tcc_reference:
       /* XXX: Until PRE of loads works, no reference nodes are ANTIC.  */
       return false;
@@ -1076,6 +1254,10 @@ valid_in_set (value_set_t set, tree expr)
     case tcc_exceptional:
       gcc_assert (TREE_CODE (expr) == SSA_NAME);
       return true;
+
+    case tcc_declaration:
+      /* VAR_DECL and PARM_DECL are never anticipatable.  */
+      return false;
 
     default:
       /* No other cases should be encountered.  */
@@ -1102,7 +1284,8 @@ clean (value_set_t set)
     }
 }
 
-DEF_VEC_MALLOC_P (basic_block);
+DEF_VEC_P (basic_block);
+DEF_VEC_ALLOC_P (basic_block, heap);
 static sbitmap has_abnormal_preds;
 
 /* Compute the ANTIC set for BLOCK.
@@ -1145,22 +1328,22 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
      translate through.  */
   else if (single_succ_p (block))
     {
-      phi_translate_set (ANTIC_OUT, ANTIC_IN(single_succ (block)),
+      phi_translate_set (ANTIC_OUT, ANTIC_IN (single_succ (block)),
 			 block, single_succ (block));
     }
   /* If we have multiple successors, we take the intersection of all of
      them.  */
   else
     {
-      VEC (basic_block) * worklist;
+      VEC(basic_block, heap) * worklist;
       edge e;
       size_t i;
       basic_block bprime, first;
       edge_iterator ei;
 
-      worklist = VEC_alloc (basic_block, 2);
+      worklist = VEC_alloc (basic_block, heap, EDGE_COUNT (block->succs));
       FOR_EACH_EDGE (e, ei, block->succs)
-	VEC_safe_push (basic_block, worklist, e->dest);
+	VEC_quick_push (basic_block, worklist, e->dest);
       first = VEC_index (basic_block, worklist, 0);
       set_copy (ANTIC_OUT, ANTIC_IN (first));
 
@@ -1177,7 +1360,7 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
 	      node = next;
 	    }
 	}
-      VEC_free (basic_block, worklist);
+      VEC_free (basic_block, heap, worklist);
     }
 
   /* Generate ANTIC_OUT - TMP_GEN.  */
@@ -1261,7 +1444,7 @@ compute_antic (void)
     fprintf (dump_file, "compute_antic required %d iterations\n", num_iterations);
 }
 
-static VEC(tree_on_heap) *inserted_exprs;
+static VEC(tree,heap) *inserted_exprs;
 /* Find a leader for an expression, or generate one using
    create_expression_by_pieces if it's ANTIC but
    complex.  
@@ -1276,15 +1459,16 @@ find_or_generate_expression (basic_block block, tree expr, tree stmts)
 {
   tree genop = bitmap_find_leader (AVAIL_OUT (block), expr);
 
-  /* If it's still NULL, see if it is a complex expression, and if
-     so, generate it recursively, otherwise, abort, because it's
-     not really .  */
+  /* If it's still NULL, it must be a complex expression, so generate
+     it recursively.  */
   if (genop == NULL)
     {
       genop = VALUE_HANDLE_EXPR_SET (expr)->head->expr;
       gcc_assert (UNARY_CLASS_P (genop)
 		  || BINARY_CLASS_P (genop)
-		  || REFERENCE_CLASS_P (genop));
+		  || COMPARISON_CLASS_P (genop)
+		  || REFERENCE_CLASS_P (genop)
+		  || TREE_CODE (genop) == CALL_EXPR);
       genop = create_expression_by_pieces (block, genop, stmts);
     }
   return genop;
@@ -1297,7 +1481,7 @@ find_or_generate_expression (basic_block block, tree expr, tree stmts)
    EXPR is the expression to insert (in value form)
    STMTS is a statement list to append the necessary insertions into.
 
-   This function will abort if we hit some value that shouldn't be
+   This function will die if we hit some value that shouldn't be
    ANTIC but is (IE there is no leader for it, or its components).
    This function may also generate expressions that are themselves
    partially or fully redundant.  Those that are will be either made
@@ -1308,109 +1492,133 @@ find_or_generate_expression (basic_block block, tree expr, tree stmts)
 static tree
 create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 {
-  tree name = NULL_TREE;
-  tree newexpr = NULL_TREE;
+  tree temp, name;
+  tree folded, forced_stmts, newexpr;
   tree v;
-  
+  tree_stmt_iterator tsi;
+
   switch (TREE_CODE_CLASS (TREE_CODE (expr)))
     {
-    case tcc_binary:
+    case tcc_expression:
       {
-	tree_stmt_iterator tsi;
-	tree forced_stmts;
-	tree genop1, genop2;
-	tree temp;
-	tree folded;
+	tree op0, op2;
+	tree arglist;
+	tree genop0, genop2;
+	tree genarglist;
+	tree walker, genwalker;
+	
+	gcc_assert (TREE_CODE (expr) == CALL_EXPR);
+	genop2 = NULL;
+	
+	op0 = TREE_OPERAND (expr, 0);
+	arglist = TREE_OPERAND (expr, 1);
+	op2 = TREE_OPERAND (expr, 2);
+	
+	genop0 = find_or_generate_expression (block, op0, stmts);
+	genarglist = copy_list (arglist);
+	for (walker = arglist, genwalker = genarglist;
+	     genwalker && walker;
+	     genwalker = TREE_CHAIN (genwalker), walker = TREE_CHAIN (walker))
+	  {
+	    TREE_VALUE (genwalker) = find_or_generate_expression (block, 
+								  TREE_VALUE (walker), 
+								  stmts);
+	  }
+
+	if (op2)	  
+	  genop2 = find_or_generate_expression (block, op2, stmts);
+	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr),
+			      genop0, genarglist, genop2));
+	break;
+	
+	
+      }
+      break;
+      
+    case tcc_binary:
+    case tcc_comparison:
+      {
 	tree op1 = TREE_OPERAND (expr, 0);
 	tree op2 = TREE_OPERAND (expr, 1);
-	genop1 = find_or_generate_expression (block, op1, stmts);
-	genop2 = find_or_generate_expression (block, op2, stmts);
-	temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
-	add_referenced_tmp_var (temp);
-	
+	tree genop1 = find_or_generate_expression (block, op1, stmts);
+	tree genop2 = find_or_generate_expression (block, op2, stmts);
 	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
 			      genop1, genop2));
-	newexpr = force_gimple_operand (folded, &forced_stmts, false, NULL);
-	if (forced_stmts)
-	  {
-	    tsi = tsi_last (stmts);
-	    tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
-	  }
-	newexpr = build (MODIFY_EXPR, TREE_TYPE (expr),
-			 temp, newexpr);
-	NECESSARY (newexpr) = 0;
-	name = make_ssa_name (temp, newexpr);
-	TREE_OPERAND (newexpr, 0) = name;
-	tsi = tsi_last (stmts);
-	tsi_link_after (&tsi, newexpr, TSI_CONTINUE_LINKING);
-	VEC_safe_push (tree_on_heap, inserted_exprs, newexpr);
-	pre_stats.insertions++;
 	break;
       }
+
     case tcc_unary:
       {
-	tree_stmt_iterator tsi;
-	tree forced_stmts;
-	tree genop1;
-	tree temp;
-	tree folded;
 	tree op1 = TREE_OPERAND (expr, 0);
-	genop1 = find_or_generate_expression (block, op1, stmts);
-	temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
-	add_referenced_tmp_var (temp);
+	tree genop1 = find_or_generate_expression (block, op1, stmts);
 	folded = fold (build (TREE_CODE (expr), TREE_TYPE (expr), 
 			      genop1));
-	newexpr = force_gimple_operand (folded, &forced_stmts, false, NULL);
-	if (forced_stmts)
-	  {
-	    tsi = tsi_last (stmts);
-	    tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
-	  }
-	newexpr = build (MODIFY_EXPR, TREE_TYPE (expr),
-			 temp, newexpr);
-	name = make_ssa_name (temp, newexpr);
-	TREE_OPERAND (newexpr, 0) = name;
-	NECESSARY (newexpr) = 0;
-	tsi = tsi_last (stmts);
-	tsi_link_after (&tsi, newexpr, TSI_CONTINUE_LINKING);
-	VEC_safe_push (tree_on_heap, inserted_exprs, newexpr);
-	pre_stats.insertions++;
-
 	break;
       }
+
     default:
       gcc_unreachable ();
-      
     }
-  v = get_value_handle (expr);
-  vn_add (name, v, NULL);
 
-  /* The value may already exist in either NEW_SETS, or AVAIL_OUT, because
+  /* Force the generated expression to be a sequence of GIMPLE
+     statements.
+     We have to call unshare_expr because force_gimple_operand may
+     modify the tree we pass to it.  */
+  newexpr = force_gimple_operand (unshare_expr (folded), &forced_stmts, 
+                                  false, NULL);
+
+  /* If we have any intermediate expressions to the value sets, add them
+     to the value sets and chain them on in the instruction stream.  */
+  if (forced_stmts)
+    {
+      tsi = tsi_start (forced_stmts);
+      for (; !tsi_end_p (tsi); tsi_next (&tsi))
+	{
+	  tree stmt = tsi_stmt (tsi);
+	  tree forcedname = TREE_OPERAND (stmt, 0);
+	  tree forcedexpr = TREE_OPERAND (stmt, 1);
+	  tree val = vn_lookup_or_add (forcedexpr, NULL);
+	  
+	  VEC_safe_push (tree, heap, inserted_exprs, stmt);
+	  vn_add (forcedname, val, NULL);
+	  bitmap_value_replace_in_set (NEW_SETS (block), forcedname);
+	  bitmap_value_replace_in_set (AVAIL_OUT (block), forcedname);
+	}
+      tsi = tsi_last (stmts);
+      tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
+    }
+
+  /* Build and insert the assignment of the end result to the temporary
+     that we will return.  */
+  temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
+  add_referenced_tmp_var (temp);
+  newexpr = build (MODIFY_EXPR, TREE_TYPE (expr), temp, newexpr);
+  name = make_ssa_name (temp, newexpr);
+  TREE_OPERAND (newexpr, 0) = name;
+  NECESSARY (newexpr) = 0;
+  tsi = tsi_last (stmts);
+  tsi_link_after (&tsi, newexpr, TSI_CONTINUE_LINKING);
+  VEC_safe_push (tree, heap, inserted_exprs, newexpr);
+
+  /* Add a value handle to the temporary.
+     The value may already exist in either NEW_SETS, or AVAIL_OUT, because
      we are creating the expression by pieces, and this particular piece of
      the expression may have been represented.  There is no harm in replacing
      here.  */
+  v = get_value_handle (expr);
+  vn_add (name, v, NULL);
   bitmap_value_replace_in_set (NEW_SETS (block), name); 
   bitmap_value_replace_in_set (AVAIL_OUT (block), name);
+
+  pre_stats.insertions++;
   if (dump_file && (dump_flags & TDF_DETAILS))
     {				    
       fprintf (dump_file, "Inserted ");
       print_generic_expr (dump_file, newexpr, 0);
       fprintf (dump_file, " in predecessor %d\n", block->index);
     }
+
   return name;
-}
-
-/* Return the folded version of T if T, when folded, is a gimple
-   min_invariant.  Otherwise, return T.  */ 
-
-static tree
-fully_constant_expression (tree t)
-{  
-  tree folded;
-  folded = fold (t);
-  if (folded && is_gimple_min_invariant (folded))
-    return folded;
-  return t;
 }
 
 /* Insert the to-be-made-available values of NODE for each predecessor, stored
@@ -1466,7 +1674,9 @@ insert_into_preds_of_block (basic_block block, value_set_node_t node,
       bprime = pred->src;
       eprime = avail[bprime->index];
       if (BINARY_CLASS_P (eprime)
-	  || UNARY_CLASS_P (eprime))
+	  || COMPARISON_CLASS_P (eprime)
+	  || UNARY_CLASS_P (eprime)
+	  || TREE_CODE (eprime) == CALL_EXPR)
 	{
 	  builtexpr = create_expression_by_pieces (bprime,
 						   eprime,
@@ -1490,7 +1700,7 @@ insert_into_preds_of_block (basic_block block, value_set_node_t node,
   add_referenced_tmp_var (temp);
   temp = create_phi_node (temp, block);
   NECESSARY (temp) = 0; 
-  VEC_safe_push (tree_on_heap, inserted_exprs, temp);
+  VEC_safe_push (tree, heap, inserted_exprs, temp);
   FOR_EACH_EDGE (pred, ei, block->preds)
     add_phi_arg (temp, avail[pred->src->index], pred);
   
@@ -1579,7 +1789,9 @@ insert_aux (basic_block block)
 		   node = node->next)
 		{
 		  if (BINARY_CLASS_P (node->expr)
-		      || UNARY_CLASS_P (node->expr))
+		      || COMPARISON_CLASS_P (node->expr)
+		      || UNARY_CLASS_P (node->expr)
+		      || TREE_CODE (node->expr) == CALL_EXPR)
 		    {
 		      tree *avail;
 		      tree val;
@@ -1670,7 +1882,7 @@ insert_aux (basic_block block)
 		      /* If all edges produce the same value and that value is
 			 an invariant, then the PHI has the same value on all
 			 edges.  Note this.  */
-		      else if (all_same && eprime 
+		      else if (!cant_insert && all_same && eprime 
 			       && is_gimple_min_invariant (eprime)
 			       && !is_gimple_min_invariant (val))
 			{
@@ -1746,17 +1958,17 @@ is_undefined_value (tree expr)
    any). They are used when computing the hash value for EXPR.  */
 
 static inline void
-add_to_sets (tree var, tree expr, vuse_optype vuses, bitmap_set_t s1,
+add_to_sets (tree var, tree expr, tree stmt, bitmap_set_t s1,
 	     bitmap_set_t s2)
 {
-  tree val = vn_lookup_or_add (expr, vuses);
+  tree val = vn_lookup_or_add (expr, stmt);
 
   /* VAR and EXPR may be the same when processing statements for which
      we are not computing value numbers (e.g., non-assignments, or
      statements that make aliased stores).  In those cases, we are
      only interested in making VAR available as its own value.  */
   if (var != expr)
-    vn_add (var, val, NULL);
+    vn_add (var, val, NULL_TREE);
 
   if (s1)
     bitmap_insert_into_set (s1, var);
@@ -1767,48 +1979,142 @@ add_to_sets (tree var, tree expr, vuse_optype vuses, bitmap_set_t s1,
 /* Given a unary or binary expression EXPR, create and return a new
    expression with the same structure as EXPR but with its operands
    replaced with the value handles of each of the operands of EXPR.
-   Insert EXPR's operands into the EXP_GEN set for BLOCK.
 
    VUSES represent the virtual use operands associated with EXPR (if
-   any). They are used when computing the hash value for EXPR.  */
+   any). They are used when computing the hash value for EXPR.
+   Insert EXPR's operands into the EXP_GEN set for BLOCK. */
 
 static inline tree
-create_value_expr_from (tree expr, basic_block block, vuse_optype vuses)
+create_value_expr_from (tree expr, basic_block block, tree stmt)
 {
   int i;
   enum tree_code code = TREE_CODE (expr);
   tree vexpr;
+  alloc_pool pool;
 
   gcc_assert (TREE_CODE_CLASS (code) == tcc_unary
 	      || TREE_CODE_CLASS (code) == tcc_binary
-	      || TREE_CODE_CLASS (code) == tcc_reference);
+	      || TREE_CODE_CLASS (code) == tcc_comparison
+	      || TREE_CODE_CLASS (code) == tcc_reference
+	      || TREE_CODE_CLASS (code) == tcc_expression
+	      || TREE_CODE_CLASS (code) == tcc_exceptional);
 
   if (TREE_CODE_CLASS (code) == tcc_unary)
-    vexpr = pool_alloc (unary_node_pool);
+    pool = unary_node_pool;
   else if (TREE_CODE_CLASS (code) == tcc_reference)
-    vexpr = pool_alloc (reference_node_pool);
-  else
-    vexpr = pool_alloc (binary_node_pool);
+    pool = reference_node_pool;
+  else if (TREE_CODE_CLASS (code) == tcc_binary)
+    pool = binary_node_pool;
+  else if (TREE_CODE_CLASS (code) == tcc_comparison)
+    pool = comparison_node_pool;
+  else if (TREE_CODE_CLASS (code) == tcc_exceptional)
+    {
+      gcc_assert (code == TREE_LIST);
+      pool = list_node_pool;
+    }
+  else 
+    {
+      gcc_assert (code == CALL_EXPR);
+      pool = expression_node_pool;
+    }
 
+  vexpr = pool_alloc (pool);
   memcpy (vexpr, expr, tree_size (expr));
+  
+  /* This case is only for TREE_LIST's that appear as part of
+     CALL_EXPR's.  Anything else is a bug, but we can't easily verify
+     this, hence this comment.  TREE_LIST is not handled by the
+     general case below is because they don't have a fixed length, or
+     operands, so you can't access purpose/value/chain through
+     TREE_OPERAND macros.  */
+
+  if (code == TREE_LIST)
+    {
+      tree temp = NULL_TREE;
+      if (TREE_CHAIN (vexpr))
+	temp = create_value_expr_from (TREE_CHAIN (vexpr), block, stmt);      
+      TREE_CHAIN (vexpr) = temp ? temp : TREE_CHAIN (vexpr);
+      
+      /* This is the equivalent of inserting op into EXP_GEN like we
+	 do below */
+      if (!is_undefined_value (TREE_VALUE (vexpr)))
+	value_insert_into_set (EXP_GEN (block), TREE_VALUE (vexpr));      
+	  
+      TREE_VALUE (vexpr) = vn_lookup_or_add (TREE_VALUE (vexpr), NULL);
+
+      return vexpr;
+    }
 
   for (i = 0; i < TREE_CODE_LENGTH (code); i++)
     {
-      tree op = TREE_OPERAND (expr, i);
-      if (op != NULL)
+      tree val, op;
+      
+      op = TREE_OPERAND (expr, i);
+      if (op == NULL_TREE)
+	continue;
+
+      /* If OP is a constant that has overflowed, do not value number
+	 this expression.  */
+      if (CONSTANT_CLASS_P (op)
+	  && TREE_OVERFLOW (op))
 	{
-	  tree val = vn_lookup_or_add (op, vuses);
-	  if (!is_undefined_value (op))
-	    value_insert_into_set (EXP_GEN (block), op);
-	  if (TREE_CODE (val) == VALUE_HANDLE)
-	    TREE_TYPE (val) = TREE_TYPE (TREE_OPERAND (vexpr, i));
-	  TREE_OPERAND (vexpr, i) = val;
+	  pool_free (pool, vexpr);
+	  return NULL;
 	}
+
+      /* Recursively value-numberize reference ops and tree lists.  */
+      if (REFERENCE_CLASS_P (op))
+	{
+	  tree tempop = create_value_expr_from (op, block, stmt);
+	  op = tempop ? tempop : op;
+	  val = vn_lookup_or_add (op, stmt);
+	}
+      else if (TREE_CODE (op) == TREE_LIST)
+	{
+	  tree tempop;
+	  
+	  gcc_assert (TREE_CODE (expr) == CALL_EXPR);
+	  tempop = create_value_expr_from (op, block, stmt);
+	  
+	  op = tempop ? tempop : op;
+	  vn_lookup_or_add (op, NULL);
+	  /* Unlike everywhere else, we do *not* want to replace the
+	     TREE_LIST itself with a value number, because support
+	     functions we call will blow up.  */
+	  val = op;
+	}
+      else       
+	/* Create a value handle for OP and add it to VEXPR.  */
+	val = vn_lookup_or_add (op, NULL);
+
+      if (!is_undefined_value (op) && TREE_CODE (op) != TREE_LIST)
+	value_insert_into_set (EXP_GEN (block), op);
+
+      if (TREE_CODE (val) == VALUE_HANDLE)
+	TREE_TYPE (val) = TREE_TYPE (TREE_OPERAND (vexpr, i));
+
+      TREE_OPERAND (vexpr, i) = val;
     }
 
   return vexpr;
 }
 
+
+/* Return true if we can value number a call.  This is true if we have
+   a pure or constant call.  */
+static bool
+can_value_number_call (tree stmt)
+{
+  tree call = get_call_expr_in (stmt);
+
+  /* This is a temporary restriction until we translate vuses through
+     phi nodes.  */
+  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
+    return false;  
+  if (call_expr_flags (call)  & (ECF_PURE | ECF_CONST))
+    return true;
+  return false;
+}
 
 /* Compute the AVAIL set for all basic blocks.
 
@@ -1882,11 +2188,11 @@ compute_avail (void)
       for (bsi = bsi_start (block); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  stmt_ann_t ann;
-	  size_t j;
+	  ssa_op_iter iter;
+	  tree op;
 
 	  stmt = bsi_stmt (bsi);
 	  ann = stmt_ann (stmt);
-	  get_stmt_operands (stmt);
 
 	  /* We are only interested in assignments of the form
 	     X_i = EXPR, where EXPR represents an "interesting"
@@ -1899,16 +2205,38 @@ compute_avail (void)
 	    {
 	      tree lhs = TREE_OPERAND (stmt, 0);
 	      tree rhs = TREE_OPERAND (stmt, 1);
-	      vuse_optype vuses = STMT_VUSE_OPS (stmt);
 
 	      STRIP_USELESS_TYPE_CONVERSION (rhs);
-	      if (TREE_CODE (rhs) == SSA_NAME
-		  || is_gimple_min_invariant (rhs))
+	      if (UNARY_CLASS_P (rhs)
+		  || BINARY_CLASS_P (rhs)
+		  || COMPARISON_CLASS_P (rhs)
+		  || REFERENCE_CLASS_P (rhs)
+		  || (TREE_CODE (rhs) == CALL_EXPR
+		      && can_value_number_call (stmt)))
+		{
+		  /* For binary, unary, and reference expressions,
+		     create a duplicate expression with the operands
+		     replaced with the value handles of the original
+		     RHS.  */
+		  tree newt = create_value_expr_from (rhs, block, stmt);
+		  if (newt)
+		    {
+		      add_to_sets (lhs, newt, stmt, TMP_GEN (block),
+				   AVAIL_OUT (block));
+		      value_insert_into_set (EXP_GEN (block), newt);
+		      continue;
+		    }
+		}
+	      else if (TREE_CODE (rhs) == SSA_NAME
+		       || is_gimple_min_invariant (rhs)
+		       || TREE_CODE (rhs) == ADDR_EXPR
+		       || TREE_INVARIANT (rhs)
+		       || DECL_P (rhs))
 		{
 		  /* Compute a value number for the RHS of the statement
 		     and add its value to the AVAIL_OUT set for the block.
 		     Add the LHS to TMP_GEN.  */
-		  add_to_sets (lhs, rhs, vuses, TMP_GEN (block), 
+		  add_to_sets (lhs, rhs, stmt, TMP_GEN (block), 
 			       AVAIL_OUT (block));
 		  
 		  if (TREE_CODE (rhs) == SSA_NAME
@@ -1916,36 +2244,16 @@ compute_avail (void)
 		    value_insert_into_set (EXP_GEN (block), rhs);
 		  continue;
 		}	   
-	      else if (UNARY_CLASS_P (rhs) || BINARY_CLASS_P (rhs)
-		       || TREE_CODE (rhs) == INDIRECT_REF)
-		{
-		  /* For binary, unary, and reference expressions,
-		     create a duplicate expression with the operands
-		     replaced with the value handles of the original
-		     RHS.  */
-		  tree newt = create_value_expr_from (rhs, block, vuses);
-		  add_to_sets (lhs, newt, vuses, TMP_GEN (block),
-			       AVAIL_OUT (block));
-		  value_insert_into_set (EXP_GEN (block), newt);
-		  continue;
-		}
 	    }
 
 	  /* For any other statement that we don't recognize, simply
 	     make the names generated by the statement available in
 	     AVAIL_OUT and TMP_GEN.  */
-	  for (j = 0; j < NUM_DEFS (STMT_DEF_OPS (stmt)); j++)
-	    {
-	      tree def = DEF_OP (STMT_DEF_OPS (stmt), j);
-	      add_to_sets (def, def, NULL, TMP_GEN (block),
-			    AVAIL_OUT (block));
-	    }
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF)
+	    add_to_sets (op, op, NULL, TMP_GEN (block), AVAIL_OUT (block));
 
-	  for (j = 0; j < NUM_USES (STMT_USE_OPS (stmt)); j++)
-	    {
-	      tree use = USE_OP (STMT_USE_OPS (stmt), j);
-	      add_to_sets (use, use, NULL, NULL, AVAIL_OUT (block));
-	    }
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
+	    add_to_sets (op, op, NULL, NULL , AVAIL_OUT (block));
 	}
 
       /* Put the dominator children of BLOCK on the worklist of blocks
@@ -2010,11 +2318,11 @@ eliminate (void)
 		    NECESSARY (SSA_NAME_DEF_STMT (sprime)) = 1;
 		  pre_stats.eliminations++;
 		  propagate_tree_value (rhs_p, sprime);
-		  modify_stmt (stmt);
+		  update_stmt (stmt);
 
 		  /* If we removed EH side effects from the statement, clean
 		     its EH information.  */
-		  if (maybe_clean_eh_stmt (stmt))
+		  if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
 		    {
 		      bitmap_set_bit (need_eh_cleanup,
 				      bb_for_stmt (stmt)->index);
@@ -2032,10 +2340,11 @@ eliminate (void)
    this may be a bit faster, and we may want critical edges kept split.  */
 
 /* If OP's defining statement has not already been determined to be necessary,
-   mark that statement necessary. and place it on the WORKLIST.  */ 
+   mark that statement necessary. Return the stmt, if it is newly
+   necessary.  */ 
 
-static inline void
-mark_operand_necessary (tree op, VEC(tree_on_heap) **worklist)
+static inline tree
+mark_operand_necessary (tree op)
 {
   tree stmt;
 
@@ -2046,10 +2355,10 @@ mark_operand_necessary (tree op, VEC(tree_on_heap) **worklist)
 
   if (NECESSARY (stmt)
       || IS_EMPTY_STMT (stmt))
-    return;
+    return NULL;
 
   NECESSARY (stmt) = 1;
-  VEC_safe_push (tree_on_heap, *worklist, stmt);
+  return stmt;
 }
 
 /* Because we don't follow exactly the standard PRE algorithm, and decide not
@@ -2060,18 +2369,19 @@ mark_operand_necessary (tree op, VEC(tree_on_heap) **worklist)
 static void
 remove_dead_inserted_code (void)
 {
-  VEC (tree_on_heap) *worklist = NULL;
+  VEC(tree,heap) *worklist = NULL;
   int i;
   tree t;
 
-  for (i = 0; VEC_iterate (tree_on_heap, inserted_exprs, i, t); i++)
+  worklist = VEC_alloc (tree, heap, VEC_length (tree, inserted_exprs));
+  for (i = 0; VEC_iterate (tree, inserted_exprs, i, t); i++)
     {
       if (NECESSARY (t))
-	VEC_safe_push (tree_on_heap, worklist, t);
+	VEC_quick_push (tree, worklist, t);
     }
-  while (VEC_length (tree_on_heap, worklist) > 0)
+  while (VEC_length (tree, worklist) > 0)
     {
-      t = VEC_pop (tree_on_heap, worklist);
+      t = VEC_pop (tree, worklist);
       if (TREE_CODE (t) == PHI_NODE)
 	{
 	  /* PHI nodes are somewhat special in that each PHI alternative has
@@ -2081,11 +2391,17 @@ remove_dead_inserted_code (void)
 	     predecessor block associated with each PHI alternative as
 	     necessary.  */
 	  int k;
+
+	  VEC_reserve (tree, heap, worklist, PHI_NUM_ARGS (t));
 	  for (k = 0; k < PHI_NUM_ARGS (t); k++)
             {
 	      tree arg = PHI_ARG_DEF (t, k);
 	      if (TREE_CODE (arg) == SSA_NAME)
-		mark_operand_necessary (arg, &worklist);
+		{
+		  arg = mark_operand_necessary (arg);
+		  if (arg)
+		    VEC_quick_push (tree, worklist, arg);
+		}
 	    }
 	}
       else
@@ -2096,18 +2412,20 @@ remove_dead_inserted_code (void)
 	  ssa_op_iter iter;
 	  tree use;
 
-	  get_stmt_operands (t);
-
 	  /* The operands of V_MAY_DEF expressions are also needed as they
 	     represent potential definitions that may reach this
 	     statement (V_MAY_DEF operands allow us to follow def-def 
 	     links).  */
 
 	  FOR_EACH_SSA_TREE_OPERAND (use, t, iter, SSA_OP_ALL_USES)
-	    mark_operand_necessary (use, &worklist);
+	    {
+	      tree n = mark_operand_necessary (use);
+	      if (n)
+		VEC_safe_push (tree, heap, worklist, n);
+	    }
 	}
     }
-  for (i = 0; VEC_iterate (tree_on_heap, inserted_exprs, i, t); i++)
+  for (i = 0; VEC_iterate (tree, inserted_exprs, i, t); i++)
     {
       if (!NECESSARY (t))
 	{
@@ -2128,7 +2446,7 @@ remove_dead_inserted_code (void)
 	    }
 	}
     }
-  VEC_free (tree_on_heap, worklist);
+  VEC_free (tree, heap, worklist);
 }
 /* Initialize data structures used by PRE.  */
 
@@ -2175,6 +2493,12 @@ init_pre (bool do_fre)
 				       tree_code_size (NEGATE_EXPR), 30);
   reference_node_pool = create_alloc_pool ("Reference tree nodes",
 					   tree_code_size (ARRAY_REF), 30);
+  expression_node_pool = create_alloc_pool ("Expression tree nodes",
+					    tree_code_size (CALL_EXPR), 30);
+  list_node_pool = create_alloc_pool ("List tree nodes",
+				      tree_code_size (TREE_LIST), 30);  
+  comparison_node_pool = create_alloc_pool ("Comparison tree nodes",
+      					    tree_code_size (EQ_EXPR), 30);
   FOR_ALL_BB (bb)
     {
       EXP_GEN (bb) = set_new (true);
@@ -2195,7 +2519,7 @@ fini_pre (bool do_fre)
   basic_block bb;
   unsigned int i;
 
-  VEC_free (tree_on_heap, inserted_exprs);
+  VEC_free (tree, heap, inserted_exprs);
   bitmap_obstack_release (&grand_bitmap_obstack);
   free_alloc_pool (value_set_pool);
   free_alloc_pool (bitmap_set_pool);
@@ -2203,6 +2527,9 @@ fini_pre (bool do_fre)
   free_alloc_pool (binary_node_pool);
   free_alloc_pool (reference_node_pool);
   free_alloc_pool (unary_node_pool);
+  free_alloc_pool (list_node_pool);
+  free_alloc_pool (expression_node_pool);
+  free_alloc_pool (comparison_node_pool);
   htab_delete (phi_translate_table);
   remove_fake_exit_edges ();
 
@@ -2286,10 +2613,10 @@ execute_pre (bool do_fre)
 
   if (dump_file && (dump_flags & TDF_STATS))
     {
-      fprintf (dump_file, "Insertions:%d\n", pre_stats.insertions);
-      fprintf (dump_file, "New PHIs:%d\n", pre_stats.phis);
-      fprintf (dump_file, "Eliminated:%d\n", pre_stats.eliminations);
-      fprintf (dump_file, "Constified:%d\n", pre_stats.constified);
+      fprintf (dump_file, "Insertions: %d\n", pre_stats.insertions);
+      fprintf (dump_file, "New PHIs: %d\n", pre_stats.phis);
+      fprintf (dump_file, "Eliminated: %d\n", pre_stats.eliminations);
+      fprintf (dump_file, "Constified: %d\n", pre_stats.constified);
     }
   
   bsi_commit_edge_inserts ();
@@ -2328,7 +2655,8 @@ struct tree_opt_pass pass_pre =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect | TODO_verify_ssa, /* todo_flags_finish */
+  TODO_update_ssa | TODO_dump_func | TODO_ggc_collect 
+  | TODO_verify_ssa, /* todo_flags_finish */
   0					/* letter */
 };
 
@@ -2336,7 +2664,7 @@ struct tree_opt_pass pass_pre =
 /* Gate and execute functions for FRE.  */
 
 static void
-do_fre (void)
+execute_fre (void)
 {
   execute_pre (true);
 }
@@ -2351,7 +2679,7 @@ struct tree_opt_pass pass_fre =
 {
   "fre",				/* name */
   gate_fre,				/* gate */
-  do_fre,				/* execute */
+  execute_fre,				/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

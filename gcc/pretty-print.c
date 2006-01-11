@@ -1,5 +1,5 @@
 /* Various declarations for language-independent pretty-print subroutines.
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -365,14 +365,13 @@ pp_base_format_text (pretty_printer *pp, text_info *text)
 	  break;
 
 	default:
-          if (!pp_format_decoder (pp) || !(*pp_format_decoder (pp)) (pp, text))
-	    {
-	      /* Hmmm.  The client failed to install a format translator
-                 but called us with an unrecognized format.  Or, maybe, the
-                 translated string just contains an invalid format, or
-                 has formats in the wrong order.  Sorry.  */
-	      abort ();
-	    }
+	  {
+	    bool ok;
+	    
+	    gcc_assert (pp_format_decoder (pp));
+	    ok = pp_format_decoder (pp) (pp, text);
+	    gcc_assert (ok);
+	  }
 	}
       if (quoted)
 	pp_string (pp, close_quote);

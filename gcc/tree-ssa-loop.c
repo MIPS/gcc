@@ -40,7 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* The loop tree currently optimized.  */
 
-struct loops *current_loops;
+struct loops *current_loops = NULL;
 
 /* Initializes the loop structures.  DUMP is the file to that the details
    about the analysis should be dumped.  */
@@ -53,17 +53,7 @@ tree_loop_optimizer_init (FILE *dump)
   if (!loops)
     return NULL;
 
-  /* Creation of preheaders may create redundant phi nodes if the loop is
-     entered by more than one edge, but the initial value of the induction
-     variable is the same on all of them.  */
-  kill_redundant_phi_nodes ();
-  rewrite_into_ssa (false);
-  bitmap_clear (vars_to_rename);
-
-  rewrite_into_loop_closed_ssa (NULL);
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa ();
-#endif
+  rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
 
   return loops;
 }
@@ -121,7 +111,7 @@ struct tree_opt_pass pass_loop_init =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -155,7 +145,7 @@ struct tree_opt_pass pass_lim =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -189,7 +179,7 @@ struct tree_opt_pass pass_unswitch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -201,7 +191,6 @@ tree_vectorize (void)
   if (!current_loops)
     return;
 
-  bitmap_clear (vars_to_rename);
   vectorize_loops (current_loops);
 }
 
@@ -224,7 +213,7 @@ struct tree_opt_pass pass_vectorize =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
+  TODO_dump_func | TODO_update_ssa,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -259,7 +248,7 @@ struct tree_opt_pass pass_linear_transform =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0				        /* letter */	
 };
 
@@ -293,7 +282,32 @@ struct tree_opt_pass pass_iv_canon =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Propagation of constants using scev.  */
+
+static bool
+gate_scev_const_prop (void)
+{
+  return true;
+}
+
+struct tree_opt_pass pass_scev_cprop =
+{
+  "sccp",				/* name */
+  gate_scev_const_prop,			/* gate */
+  scev_const_prop,	       		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_SCEV_CONST,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -334,13 +348,16 @@ tree_complete_unroll (void)
   if (!current_loops)
     return;
 
-  tree_unroll_loops_completely (current_loops);
+  tree_unroll_loops_completely (current_loops,
+				flag_unroll_loops
+				|| flag_peel_loops
+				|| optimize >= 3);
 }
 
 static bool
 gate_tree_complete_unroll (void)
 {
-  return flag_unroll_loops != 0;
+  return true;
 }
 
 struct tree_opt_pass pass_complete_unroll =
@@ -356,7 +373,7 @@ struct tree_opt_pass pass_complete_unroll =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -390,7 +407,7 @@ struct tree_opt_pass pass_iv_optimize =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -401,10 +418,6 @@ tree_ssa_loop_done (void)
 {
   if (!current_loops)
     return;
-
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa ();
-#endif
 
   free_numbers_of_iterations_estimates (current_loops);
   scev_finalize ();
@@ -429,4 +442,3 @@ struct tree_opt_pass pass_loop_done =
   TODO_cleanup_cfg | TODO_dump_func,	/* todo_flags_finish */
   0					/* letter */
 };
-

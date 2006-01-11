@@ -401,7 +401,7 @@ match_old_style_init (const char *name)
 /* Match the stuff following a DATA statement. If ERROR_FLAG is set,
    we are matching a DATA statement and are therefore issuing an error
    if we encounter something unexpected, if not, we're trying to match 
-   an old-style intialization expression of the form INTEGER I /2/.  */
+   an old-style initialization expression of the form INTEGER I /2/.  */
 
 match
 gfc_match_data (void)
@@ -646,6 +646,30 @@ build_sym (const char *name, gfc_charlen * cl,
   return SUCCESS;
 }
 
+/* Set character constant to the given length. The constant will be padded or
+   truncated.  */
+
+void
+gfc_set_constant_character_len (int len, gfc_expr * expr)
+{
+  char * s;
+  int slen;
+
+  gcc_assert (expr->expr_type == EXPR_CONSTANT);
+  gcc_assert (expr->ts.type == BT_CHARACTER && expr->ts.kind == 1);
+
+  slen = expr->value.character.length;
+  if (len != slen)
+    {
+      s = gfc_getmem (len);
+      memcpy (s, expr->value.character.string, MIN (len, slen));
+      if (len > slen)
+	memset (&s[slen], ' ', len - slen);
+      gfc_free (expr->value.character.string);
+      expr->value.character.string = s;
+      expr->value.character.length = len;
+    }
+}
 
 /* Function called by variable_decl() that adds an initialization
    expression to a symbol.  */
@@ -710,6 +734,35 @@ add_init_expr_to_sym (const char *name, gfc_expr ** initp,
       if (sym->ts.type != BT_DERIVED && init->ts.type != BT_DERIVED
 	  && gfc_check_assign_symbol (sym, init) == FAILURE)
 	return FAILURE;
+
+      if (sym->ts.type == BT_CHARACTER && sym->ts.cl)
+	{
+	  /* Update symbol character length according initializer.  */
+	  if (sym->ts.cl->length == NULL)
+	    {
+	      if (init->expr_type == EXPR_CONSTANT)
+		sym->ts.cl->length =
+			gfc_int_expr (init->value.character.length);
+	      else if (init->expr_type == EXPR_ARRAY)
+		sym->ts.cl->length = gfc_copy_expr (init->ts.cl->length);
+	    }
+	  /* Update initializer character length according symbol.  */
+	  else if (sym->ts.cl->length->expr_type == EXPR_CONSTANT)
+	    {
+	      int len = mpz_get_si (sym->ts.cl->length->value.integer);
+	      gfc_constructor * p;
+
+	      if (init->expr_type == EXPR_CONSTANT)
+		gfc_set_constant_character_len (len, init);
+	      else if (init->expr_type == EXPR_ARRAY)
+		{
+		  gfc_free_expr (init->ts.cl->length);
+		  init->ts.cl->length = gfc_copy_expr (sym->ts.cl->length);
+		  for (p = init->value.constructor; p; p = p->next)
+		    gfc_set_constant_character_len (len, p->expr);
+		}
+	    }
+	}
 
       /* Add initializer.  Make sure we keep the ranks sane.  */
       if (sym->attr.dimension && init->rank == 0)
@@ -896,7 +949,7 @@ variable_decl (void)
 
   /* OK, we've successfully matched the declaration.  Now put the
      symbol in the current namespace, because it might be used in the
-     optional intialization expression for this symbol, e.g. this is
+     optional initialization expression for this symbol, e.g. this is
      perfectly legal:
 
      integer, parameter :: i = huge(i)
@@ -2354,8 +2407,7 @@ gfc_match_entry (void)
 	      || gfc_add_function (&entry->attr, entry->name, NULL) == FAILURE)
 	    return MATCH_ERROR;
 
-	  entry->result = proc->result;
-
+	  entry->result = entry;
 	}
       else
 	{
@@ -2370,6 +2422,8 @@ gfc_match_entry (void)
 	      || gfc_add_function (&entry->attr, result->name,
 				   NULL) == FAILURE)
 	    return MATCH_ERROR;
+
+	  entry->result = result;
 	}
 
       if (proc->attr.recursive && result == NULL)

@@ -1,5 +1,5 @@
 /* Integer matrix math routines
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>.
 
 This file is part of GCC.
@@ -401,9 +401,8 @@ lambda_matrix_inverse_hard (lambda_matrix mat, lambda_matrix inv, int n)
       row = temp[j];
       diagonal = row[j];
 
-      /* If the matrix is singular, abort.  */
-      if (diagonal == 0)
-	abort ();
+      /* The matrix must not be singular.  */
+      gcc_assert (diagonal);
 
       determinant = determinant * diagonal;
 

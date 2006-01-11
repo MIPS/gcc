@@ -273,7 +273,7 @@ static int ndead;
    (remember, we are walking backward).  This can be computed as current
    pbi->insn_num - reg_deaths[regno].
    At the end of processing each basic block, the remaining live registers
-   are inspected and liferanges are increased same way so liverange of global
+   are inspected and live ranges are increased same way so liverange of global
    registers are computed correctly.
   
    The array is maintained clear for dead registers, so it can be safely reused
@@ -760,6 +760,9 @@ free_basic_block_vars (void)
     }
   n_basic_blocks = 0;
   last_basic_block = 0;
+  n_edges = 0;
+
+  label_to_block_map = NULL;
 
   ENTRY_BLOCK_PTR->aux = NULL;
   ENTRY_BLOCK_PTR->global_live_at_end = NULL;
@@ -1689,8 +1692,12 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
 	fatal_insn ("Attempt to delete prologue/epilogue insn:", insn);
 
       /* Record sets.  Do this even for dead instructions, since they
-	 would have killed the values if they hadn't been deleted.  */
+	 would have killed the values if they hadn't been deleted.  To
+	 be consistent, we also have to emit a clobber when we delete
+	 an insn that clobbers a live register.  */
+      pbi->flags |= PROP_DEAD_INSN;
       mark_set_regs (pbi, PATTERN (insn), insn);
+      pbi->flags &= ~PROP_DEAD_INSN;
 
       /* CC0 is now known to be dead.  Either this insn used it,
 	 in which case it doesn't anymore, or clobbered it,
@@ -1795,7 +1802,6 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
     }
   else
     {
-      rtx note;
       /* Any regs live at the time of a call instruction must not go
 	 in a register clobbered by calls.  Find all regs now live and
 	 record this for them.  */
@@ -1870,10 +1876,6 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
       /* Record uses.  */
       if (! insn_is_dead)
 	mark_used_regs (pbi, PATTERN (insn), NULL_RTX, insn);
-      if ((flags & PROP_EQUAL_NOTES)
-	  && ((note = find_reg_note (insn, REG_EQUAL, NULL_RTX))
-	      || (note = find_reg_note (insn, REG_EQUIV, NULL_RTX))))
-	mark_used_regs (pbi, XEXP (note, 0), NULL_RTX, insn);
 
       /* Sometimes we may have inserted something before INSN (such as a move)
 	 when we make an auto-inc.  So ensure we will scan those insns.  */
@@ -2530,7 +2532,8 @@ invalidate_mems_from_autoinc (rtx *px, void *data)
   return 0;
 }
 
-/* EXP is a REG.  Remove any dependent entries from pbi->mem_set_list.  */
+/* EXP is a REG or MEM.  Remove any dependent entries from
+   pbi->mem_set_list.  */
 
 static void
 invalidate_mems_from_set (struct propagate_block_info *pbi, rtx exp)
@@ -2542,7 +2545,12 @@ invalidate_mems_from_set (struct propagate_block_info *pbi, rtx exp)
   while (temp)
     {
       next = XEXP (temp, 1);
-      if (reg_overlap_mentioned_p (exp, XEXP (temp, 0)))
+      if ((REG_P (exp) && reg_overlap_mentioned_p (exp, XEXP (temp, 0)))
+	  /* When we get an EXP that is a mem here, we want to check if EXP
+	     overlaps the *address* of any of the mems in the list (i.e. not
+	     whether the mems actually overlap; that's done elsewhere).  */
+	  || (MEM_P (exp)
+	      && reg_overlap_mentioned_p (exp, XEXP (XEXP (temp, 0), 0))))
 	{
 	  /* Splice this entry out of the list.  */
 	  if (prev)
@@ -2748,11 +2756,12 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
       break;
     }
 
-  /* If this set is a MEM, then it kills any aliased writes.
+  /* If this set is a MEM, then it kills any aliased writes and any
+     other MEMs which use it.
      If this set is a REG, then it kills any MEMs which use the reg.  */
   if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     {
-      if (REG_P (reg))
+      if (REG_P (reg) || MEM_P (reg))
 	invalidate_mems_from_set (pbi, reg);
 
       /* If the memory reference had embedded side effects (autoincrement
@@ -2955,6 +2964,8 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 		  }
 		CLEAR_REGNO_REG_SET (pbi->reg_live, i);
 	      }
+	  if (flags & PROP_DEAD_INSN)
+	    emit_insn_after (gen_rtx_CLOBBER (VOIDmode, reg), insn);
 	}
     }
   else if (REG_P (reg))
@@ -4329,9 +4340,10 @@ void
 recompute_reg_usage (void)
 {
   allocate_reg_life_data ();
-  /* distribute_notes in combiner fails to convert some of the REG_UNUSED notes
-   to REG_DEAD notes.  This causes CHECK_DEAD_NOTES in sched1 to abort.  To 
-   solve this update the DEATH_NOTES here.  */
+  /* distribute_notes in combiner fails to convert some of the
+     REG_UNUSED notes to REG_DEAD notes.  This causes CHECK_DEAD_NOTES
+     in sched1 to die.  To solve this update the DEATH_NOTES
+     here.  */
   update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO | PROP_DEATH_NOTES);
 }
 

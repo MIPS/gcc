@@ -60,7 +60,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "except.h"
 #include "toplev.h"
 #include "tm_p.h"
-#include "alloc-pool.h"
+#include "obstack.h"
 #include "timevar.h"
 #include "ggc.h"
 
@@ -68,44 +68,22 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 struct bitmap_obstack reg_obstack;
 
-/* Number of basic blocks in the current function.  */
-
-int n_basic_blocks;
-
-/* First free basic block number.  */
-
-int last_basic_block;
-
-/* Number of edges in the current function.  */
-
-int n_edges;
-
-/* The basic block array.  */
-
-varray_type basic_block_info;
-
-/* The special entry and exit blocks.  */
-basic_block ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR;
-
-/* Memory alloc pool for bb member rbi.  */
-static alloc_pool rbi_pool;
-
 void debug_flow_info (void);
 static void free_edge (edge);
-
-/* Indicate the presence of the profile.  */
-enum profile_status profile_status;
 
+#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
+
 /* Called once at initialization time.  */
 
 void
 init_flow (void)
 {
+  if (!cfun->cfg)
+    cfun->cfg = ggc_alloc_cleared (sizeof (struct control_flow_graph));
   n_edges = 0;
-
-  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
+  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
-  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (*EXIT_BLOCK_PTR));
+  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (struct basic_block_def));
   EXIT_BLOCK_PTR->index = EXIT_BLOCK;
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
@@ -156,24 +134,6 @@ alloc_block (void)
   return bb;
 }
 
-/* Create memory pool for rbi_pool.  */
-
-void
-alloc_rbi_pool (void)
-{
-  rbi_pool = create_alloc_pool ("rbi pool", 
-				sizeof (struct reorder_block_def),
-				n_basic_blocks + 2);
-}
-
-/* Free rbi_pool.  */
-
-void
-free_rbi_pool (void)
-{
-  free_alloc_pool (rbi_pool);
-}
-
 /* Initialize rbi (the structure containing data used by basic block
    duplication and reordering) for the given basic block.  */
 
@@ -181,8 +141,7 @@ void
 initialize_bb_rbi (basic_block bb)
 {
   gcc_assert (!bb->rbi);
-  bb->rbi = pool_alloc (rbi_pool);
-  memset (bb->rbi, 0, sizeof (struct reorder_block_def));
+  bb->rbi = ggc_alloc_cleared (sizeof (struct reorder_block_def));
 }
 
 /* Link block B to chain after AFTER.  */
@@ -248,7 +207,7 @@ expunge_block (basic_block b)
 static inline void
 connect_src (edge e)
 {
-  VEC_safe_push (edge, e->src->succs, e);
+  VEC_safe_push (edge, gc, e->src->succs, e);
 }
 
 /* Connect E to E->dest.  */
@@ -257,7 +216,7 @@ static inline void
 connect_dest (edge e)
 {
   basic_block dest = e->dest;
-  VEC_safe_push (edge, dest->preds, e);
+  VEC_safe_push (edge, gc, dest->preds, e);
   e->dest_idx = EDGE_COUNT (dest->preds) - 1;
 }
 
@@ -459,7 +418,7 @@ clear_bb_flags (void)
   basic_block bb;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
-    bb->flags = BB_PARTITION (bb);
+    bb->flags = BB_PARTITION (bb)  | (bb->flags & BB_DISABLE_SCHEDULE);
 }
 
 /* Check the consistency of profile information.  We can't do that
@@ -514,15 +473,14 @@ check_bb_profile (basic_block bb, FILE * file)
 void
 dump_flow_info (FILE *file)
 {
-  int i;
   basic_block bb;
 
   /* There are no pseudo registers after reload.  Don't dump them.  */
   if (reg_n_info && !reload_completed)
     {
-      int max_regno = max_reg_num ();
-      fprintf (file, "%d registers.\n", max_regno);
-      for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+      unsigned int i, max = max_reg_num ();
+      fprintf (file, "%d registers.\n", max);
+      for (i = FIRST_PSEUDO_REGISTER; i < max; i++)
 	if (REG_N_REFS (i))
 	  {
 	    enum reg_class class, altclass;
@@ -933,15 +891,51 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
     }
   else if (prob != REG_BR_PROB_BASE)
     {
-      int scale = REG_BR_PROB_BASE / prob;
+      int scale = 65536 * REG_BR_PROB_BASE / prob;
 
       FOR_EACH_EDGE (c, ei, bb->succs)
-	c->probability *= scale;
+	c->probability *= scale / 65536;
     }
 
-  if (bb != taken_edge->src)
-    abort ();
+  gcc_assert (bb == taken_edge->src);
   taken_edge->count -= count;
   if (taken_edge->count < 0)
     taken_edge->count = 0;
+}
+
+/* Multiply all frequencies of basic blocks in array BBS of length NBBS
+   by NUM/DEN, in int arithmetic.  May lose some accuracy.  */
+void
+scale_bbs_frequencies_int (basic_block *bbs, int nbbs, int num, int den)
+{
+  int i;
+  edge e;
+  for (i = 0; i < nbbs; i++)
+    {
+      edge_iterator ei;
+      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
+      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	e->count = (e->count * num) /den;
+    }
+}
+
+/* Multiply all frequencies of basic blocks in array BBS of length NBBS
+   by NUM/DEN, in gcov_type arithmetic.  More accurate than previous
+   function but considerably slower.  */
+void
+scale_bbs_frequencies_gcov_type (basic_block *bbs, int nbbs, gcov_type num, 
+			         gcov_type den)
+{
+  int i;
+  edge e;
+
+  for (i = 0; i < nbbs; i++)
+    {
+      edge_iterator ei;
+      bbs[i]->frequency = (bbs[i]->frequency * num) / den;
+      bbs[i]->count = RDIV (bbs[i]->count * num, den);
+      FOR_EACH_EDGE (e, ei, bbs[i]->succs)
+	e->count = (e->count * num) /den;
+    }
 }

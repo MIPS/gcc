@@ -1,3 +1,712 @@
+2005-05-18  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21127
+	* Makefile.am:  Really commit.
+	* Makefile.in:  Really commit.
+
+2005-05-18  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21127
+	* Makefile.am:  Add generated/reshape_c4.c and
+	generated/reshape_c8.c.
+	* Makefile.in:  Regenerated.
+	* m4/iparm.m4:  Define rtype_ccode to be c4 or c8 for
+	complex types, 4 or 8 otherwise.
+	* m4/reshape.m4:  Use rtype_ccode instead of rtype_kind
+	in function name.
+	* generated/reshape_c4.c: New file.
+	* generated/reshape_c8.c: New file.
+
+2005-05-16  Andreas Jaeger  <aj@suse.de>
+
+	* configure.ac: Add additional warning flags.
+	* configure: Regenerate.
+
+	* io/write.c (calculate_G_format): Remove unused parameter.
+	(output_float): Remove unused parameter.
+	(write_float): Change callers.
+	(nml_write_obj): Avoid signed warning.
+	Make variable const to support -Wwrite-strings.
+
+	* io/unix.c (fd_alloc, mmap_open, mmap_sfree, mem_sfree,
+	mem_truncate): Mark argument as unused.
+
+	* io/unit.c (get_unit): Mark argument as unused.
+	(init_units): Avoid warning about signed comparision.
+
+	* io/transfer.c (next_record_r): Remove unused parameter.
+	(next_record_w): Remove unused parameter.
+	(next_record): Change callers.
+	(iolength_transfer): Mark arguments as unused.
+
+	* io/open.c: Add initializer.
+
+	* io/list_read.c (read_character): Mark argument as unused.
+	(nml_match_name): Add const to make compile with -Wwrite-strings.
+
+	* io/format.c: Add initializer.
+
+2005-05-15  Andreas Jaeger  <aj@suse.de>
+
+	* m4/eoshift1.m4: Initialize variables to avoid warnings.
+	* m4/eoshift3.m4: Initialize variables to avoid warnings.
+	* generated/eoshift1_4.c, generated/eoshift1_8.c,
+	generated/eoshift3_4.c, generated/eoshift3_8.c: Regenerated.
+
+	* intrinsics/spread_generic.c (spread): Initialize variables to
+	avoid warnings.
+
+	* intrinsics/eoshift0.c (eoshift0): Initialize variables to avoid
+	warnings.
+	* intrinsics/eoshift2.c (eoshift2): Initialize variables to avoid
+	warnings.
+
+	* io/list_read.c (nml_get_obj_data): Initialize variables to avoid
+	warnings.
+
+	* intrinsics/pack_generic.c (pack): Remove unneeded calculation.
+
+	* m4/matmull.m4 (matmul_): Remove unneeded calculations, fix
+	pointer cast to avoid warning.
+	* generated/matmul_l4.c: Regenerated.
+	* generated/matmul_l8.c: Regenerated.
+
+	* Makefile.am: Remove AM_CFLAGS here.
+	* configure.ac: Define AM_CFLAGS and AM_FCFLAGS so that warnings
+	are set.  Set additionally -Wstrict-prototypes for CFLAGS.
+	* Makefile.in: Regenerated.
+	* aclocal.m4: Regenerated.
+	* configure: Regenerated.
+
+	* intrinsics/system_clock.c (system_clock_4, system_clock_8): Add
+	missing returns, reformat a bit.
+
+	* io/write.c (nml_write_obj): Use %d again - and cast to int,
+	st_sprintf does not handle %ld.
+
+	* io/unit.c (is_internal_unit): Add void as parameter list.
+
+	* io/transfer.c: Move prototype declarations before the functions.
+
+	* runtime/normalize.c (almostone_r4, almostone_r8): Fix parameter
+	list.
+
+	* intrinsics/random.c (KISS_DEFAULT_SEED): Remove extra semicolon.
+
+	* io/transfer.c: Do not use empty initializers for global objects.
+	Add missing initializers.
+
+	* io/lock.c: Do not use empty initializers for global objects.
+
+	* io/close.c: Add missing initializers.
+
+	* runtime/environ.c: Add missing initializers. Do not use empty
+	initializers for global object.
+	(init_string): Mark argument as unused.
+
+	* runtime/main.c (cleanup): Fix parameter list.
+
+	* io/io.h: Fix parameter lists.
+
+	* m4/transpose.m4, m4/matmul.m4: Fix pointer cast to avoid
+	warning.
+
+	* generated/transpose_c4.c, generated/transpose_c8.c,
+	generated/transpose_i4.c, generated/transpose_i8.c,
+	generated/matmul_c4.c, generated/matmul_c8.c,
+	generated/matmul_i4.c, generated/matmul_i8.c,
+	generated/matmul_r4.c, generated/matmul_r8.c: Regenerated.
+
+	* io/write.c (nml_write_obj): Fix 64-bit problem.
+
+	* io/list_read.c (nml_get_obj_data): Add missing braces around
+	initializer to avoid warnings.
+
+	* intrinsics/etime.c (etime_sub): Remove unused variable.
+
+	* intrinsics/chdir.c, intrinsics/getlog.c, intrinsics/link.c,
+	intrinsics/symlnk.c, intrinsics/perror.c: Include <string.h> for
+	prototypes.
+
+	* runtime/string.c (compare0): Remove unused variable.
+	* io/unit.c (init_units): Remove unused variables.
+	* intrinsics/getcwd.c (getcwd_i4_sub): Remove unused variable.
+	* intrinsics/unlink.c (unlink_i4_sub): Remove unused variable.
+	* intrinsics/stat.c (stat_i4_sub, fstat_i8_sub, fstat_i4_sub,
+	stat_i8_sub): Remove unused variable.
+
+2005-05-12  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21324
+	* runtime/memory.c:  Don't define GFC_CLEAR_MEMORY (it's a
+	performance hog).
+	* io/open.c (new_unit): Zero freshly allocated memory for
+	unit structure.
+	* io/unit.c (init_units):  Zero freshly allocated memory for
+	STDIN, STDOUT and STDERR.
+	* io/unix.c (open_internal):  Zero freshly allocated memory
+	for unix_stream.
+	(fd_to_stream):  Likewise.
+
+2005-05-11  Bud Davis  <bdavis@gfortran.org>
+
+	PR fortran/19478
+	* io/unix.c (fd_truncate): update positions when ftruncate
+	fails (like writing to /dev/null).
+
+2005-05-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21471
+	* open.c (new_unit): Take care of the case where POSITION_APPEND
+	is specified (sseek to the end, and set u>-endfile).
+
+2005-05-10  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/20178
+	* Makefile.am (gfor_specific_src): Add 'intrinsics/f2c_intrinsics.F90'
+	to dependencies.
+	* Makefile.in: Regenerate.
+	* intrinsics/f2c_specific.F90: New file.
+
+2005-05-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20788
+	* io/unix.c (fd_to_stream): Add an avoid_mmap argument indicating
+	we don't we to mmap this stream. Use fd_open instead of mmap_open
+	in that case.
+	(open_external): Call fd_to_stream with avoid_mmap = 0.
+	(input_stream): Call fd_to_stream with avoid_mmap = 1.
+	(output_stream): Likewise.
+	(error_stream): Likewise.
+
+2005-05-09  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-05-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19155
+	* io/read.c (read_f): Accept 'e', 'E', 'd' and 'D' as first
+	non-blank characters of a real number.
+
+2005-05-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21354
+	* m4/cshift1.m4: Change dimension of auxiliary arrays from
+	GFC_MAX_DIMENSION - 1 to GFC_MAX_DIMENSION.
+	* m4/eoshift1.m4: Likewise.
+	* m4/eoshift3.m4: Likewise.
+	* m4/ifunction.m4: Likewise.
+	* m4/in_pack.m4: Likewise.
+	* m4/in_unpack.m4: Likewise.
+	* intrinsics/cshift0.c: Likewise.
+	* intrinsics/eoshift0.c: Likewise.
+	* intrinsics/eoshift2.c: Likewise.
+	* intrinsics/random.c: Likewise.
+	* intrinsics/spread_generic.c: Likewise.
+	* intrinsics/stat.c: Likewise.
+	* generated/all_l4.c: Regenerated.
+	* generated/all_l8.c: Regenerated.
+	* generated/any_l4.c: Regenerated.
+	* generated/any_l8.c: Regenerated.
+	* generated/count_4_l4.c: Regenerated.
+	* generated/count_4_l8.c: Regenerated.
+	* generated/count_8_l4.c: Regenerated.
+	* generated/count_8_l8.c: Regenerated.
+	* generated/cshift1_4.c: Regenerated.
+	* generated/cshift1_8.c: Regenerated.
+	* generated/eoshift1_4.c: Regenerated.
+	* generated/eoshift1_8.c: Regenerated.
+	* generated/eoshift3_4.c: Regenerated.
+	* generated/eoshift3_8.c: Regenerated.
+	* generated/in_pack_i4.c: Regenerated.
+	* generated/in_pack_i8.c: Regenerated.
+	* generated/in_unpack_i4.c: Regenerated.
+	* generated/in_unpack_i8.c: Regenerated.
+	* generated/maxloc0_4_i4.c: Regenerated.
+	* generated/maxloc0_4_i8.c: Regenerated.
+	* generated/maxloc0_4_r4.c: Regenerated.
+	* generated/maxloc0_4_r8.c: Regenerated.
+	* generated/maxloc0_8_i4.c: Regenerated.
+	* generated/maxloc0_8_i8.c: Regenerated.
+	* generated/maxloc0_8_r4.c: Regenerated.
+	* generated/maxloc0_8_r8.c: Regenerated.
+	* generated/maxloc1_4_i4.c: Regenerated.
+	* generated/maxloc1_4_i8.c: Regenerated.
+	* generated/maxloc1_4_r4.c: Regenerated.
+	* generated/maxloc1_4_r8.c: Regenerated.
+	* generated/maxloc1_8_i4.c: Regenerated.
+	* generated/maxloc1_8_i8.c: Regenerated.
+	* generated/maxloc1_8_r4.c: Regenerated.
+	* generated/maxloc1_8_r8.c: Regenerated.
+	* generated/maxval_i4.c: Regenerated.
+	* generated/maxval_i8.c: Regenerated.
+	* generated/maxval_r4.c: Regenerated.
+	* generated/maxval_r8.c: Regenerated.
+	* generated/minloc0_4_i4.c: Regenerated.
+	* generated/minloc0_4_i8.c: Regenerated.
+	* generated/minloc0_4_r4.c: Regenerated.
+	* generated/minloc0_4_r8.c: Regenerated.
+	* generated/minloc0_8_i4.c: Regenerated.
+	* generated/minloc0_8_i8.c: Regenerated.
+	* generated/minloc0_8_r4.c: Regenerated.
+	* generated/minloc0_8_r8.c: Regenerated.
+	* generated/minloc1_4_i4.c: Regenerated.
+	* generated/minloc1_4_i8.c: Regenerated.
+	* generated/minloc1_4_r4.c: Regenerated.
+	* generated/minloc1_4_r8.c: Regenerated.
+	* generated/minloc1_8_i4.c: Regenerated.
+	* generated/minloc1_8_i8.c: Regenerated.
+	* generated/minloc1_8_r4.c: Regenerated.
+	* generated/minloc1_8_r8.c: Regenerated.
+	* generated/minval_i4.c: Regenerated.
+	* generated/minval_i8.c: Regenerated.
+	* generated/minval_r4.c: Regenerated.
+	* generated/minval_r8.c: Regenerated.
+	* generated/product_c4.c: Regenerated.
+	* generated/product_c8.c: Regenerated.
+	* generated/product_i4.c: Regenerated.
+	* generated/product_i8.c: Regenerated.
+	* generated/product_r4.c: Regenerated.
+	* generated/product_r8.c: Regenerated.
+	* generated/sum_c4.c: Regenerated.
+	* generated/sum_c8.c: Regenerated.
+	* generated/sum_i4.c: Regenerated.
+	* generated/sum_i8.c: Regenerated.
+	* generated/sum_r4.c: Regenerated.
+	* generated/sum_r8.c: Regenerated.
+
+2005-04-30  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/18958
+	libgfortran.h:  Change typedef of index_type from size_t
+	to ssize_t.
+
+2005-04-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR libfortran/18857
+	* generated/matmul_r8.c: Remove incorrect assertions.
+	* generated/matmul_c4.c: Regenerate
+	* generated/matmul_c8.c: Regenerate
+	* generated/matmul_i4.c: Regenerate
+	* generated/matmul_i8.c: Regenerate
+	* generated/matmul_r4.c: Regenerate
+	* generated/matmul_r8.c: Regenerate
+
+2005-04-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* configure.ac: Check for ftruncate and chsize.
+	* io/unix.c (fd_truncate): Provide chsize as alternative to
+	ftruncate.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2004-04-29  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* intrinsics/rename.c: Add missing #includes.
+
+2004-04-28  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* AUTHORS, COPYING, INSTALL, NEWS, README: Remove.
+
+2005-04-26  David Edelsohn  <edelsohn@gnu.org>
+
+	PR libfortran/20930
+	* io/rewind.c (st_rewind): Flush the stream when resetting the mode
+	from WRITING to READING.
+
+2005-04-22  Paul Thomas  <pault@gcc.gnu.org>
+	    Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* io/write.c (nml_write_obj): Provide 1 more byte for ext_name.
+	* io/list_read.c (nml_get_obj_data): Put extra brackets in get_mem
+	call for ext_name.  These fix the bug reported by Jerry DeLisle to
+	the fortran list and are based on his suggested fix.
+
+2005-04-22  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/20074
+	PR libfortran/20436
+	PR libfortran/21108
+	* m4/reshape.m4 (reshape_`'rtype_kind):  rs, rex:  New
+	variables, to be used in calculation of return array sizes.
+	Populate return array descriptor if ret->data is NULL.
+	Fix condition for early return (it used to test something
+	undefined if order was used).
+	Remove duplicate check wether pad is used.
+	* intrinsics/reshape_generic.c (reshape_generic): Likewise.
+	Fix a few places where the wrong variables were set.
+	* generated/reshape_i4.c: Regenerated.
+	* generated/reshape_i8.c: Regenerated.
+
+2005-04-18  Paul  Thomas <pault@gcc.gnu.org>
+
+	* io/list_read.c (nml_touch_nodes, nml_read_obj,
+	nml_get_obj_data): Fix memory leaks in code for derived types.
+
+2005-04-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20950
+	* io/inquire.c (inquire_via_unit): Check for the gfc_unit being
+	NULL when setting ioparm.sequential.
+
+2005-04-17  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21075
+	* m4/reshape.m4 (reshape_`'rtype_kind):  Change dimension
+	of auxiliary arrays from GFC_MAX_DIMENSIONS - 1 to
+	GFC_MAX_DIMENSIONS.
+	* intrinsics/reshape_generic.c (reshape_generic):  Likewise.
+	* generated/reshape_i4.c:  Regenerated.
+	* generated/reshape_i8.c:  Regenerated.
+
+2005-04-17 Paul Thomas <pault@gcc.gnu.org>
+
+	* io/list_read.c (eat_separator): at_eol = 1 replaced
+	(zapped at some time?).
+
+2005-04-17 Paul Thomas <pault@gcc.gnu.org>
+
+	PR libgfortran/12884
+	PR libgfortran/17285
+	PR libgfortran/18122
+	PR libgfortran/18210
+	PR libgfortran/18392
+	PR libgfortran/18591
+	PR libgfortran/18879
+	* io/io.h (nml_ls): Declare.
+	(namelist_info): Modify for arrays.
+	* io/list_read.c (namelist_read): Reduced to call to new functions.
+	(match_namelist_name): Simplified.
+	(nml_query): Handles stdin queries ? and =?. New function.
+	(nml_get_obj_data): Parses object name. New function.
+	(touch_nml_nodes): Marks objects for read. New function.
+	(untouch_nml_nodes): Resets objects. New function.
+	(parse_qualifier): Parses and checks qualifiers. New function
+	(nml_read_object): Reads and stores object data. New function.
+	(eat_separator): No new_record on '/' in namelist.
+	(finish_separator): No new_record on '/' in namelist.
+	(read_logical): Error return for namelist.
+	(read_integer): Error return for namelist.
+	(read_complex): Error return for namelist.
+	(read_real): Error return for namelist.
+	* io/lock.c (library_end): Free extended namelist_info types.
+	* io/transfer.c (st_set_nml_var): Modified for arrays.
+	(st_set_nml_var_dim): Dimension descriptors. New function.
+	* io/write.c (namelist_write): Reduced to call to new functions.
+	(nml_write_obj): Writes output for object. New function.
+	(write_integer): Suppress leading blanks for repeat counts.
+	(write_int): Suppress leading blanks for repeat counts.
+	(write_float): Suppress leading blanks for repeat counts.
+	(output_float): Suppress leading blanks for repeat counts.
+
+2005-04-15  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/18495
+	* intrinsics/spread_generic.c (spread):  Remove const from
+	return array descriptor.
+	New variables: rrank (rank of return array),  rs (for
+	calculating the size of the return array), srank (rank
+	of the source array).
+	Generate runtime error if the dim= argument is larger than
+	the rank of the return array.
+	Generate runtime error if the needed rank of the return
+	array is larger than 7.
+	If ret->data is null, populate the return array descriptor
+	and initialize the variables for the actual operation.
+	Otherwise, set ret->dim[0].stride to one if it is zero.
+	Change second, independent use of variable dim to srank.
+
+2005-04-12  Mike Stump  <mrs@apple.com>
+
+	* configure: Regenerate.
+
+2005-04-13  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/19106
+	* m4/iforeach.c (name`'rtype_qual`_'atype_code):  Add TODO
+	that setting correct strides is a front end job.
+	(`m'name`'rtype_qual`_'atype_code):  Likewise.  If mask has
+	a lowest stride of 0, adjust to 1.
+	* m4/ifunction.c (name`'rtype_qual`_'atype_code):  Add TODO
+	that setting correct strides is a front end job.
+	(`m'name`'rtype_qual`_'atype_code):  Likewise.  If mask has
+	a lowest stride of 0, adjust to 1.
+	* maxloc0_4_i4.c: Regenerated
+	* maxloc0_4_i8.c: Regenerated
+	* maxloc0_4_r4.c: Regenerated
+	* maxloc0_4_r8.c: Regenerated
+	* maxloc0_8_i4.c: Regenerated
+	* maxloc0_8_i8.c: Regenerated
+	* maxloc0_8_r4.c: Regenerated
+	* maxloc0_8_r8.c: Regenerated
+	* maxloc1_4_i4.c: Regenerated
+	* maxloc1_4_i8.c: Regenerated
+	* maxloc1_4_r4.c: Regenerated
+	* maxloc1_4_r8.c: Regenerated
+	* maxloc1_8_i4.c: Regenerated
+	* maxloc1_8_i8.c: Regenerated
+	* maxloc1_8_r4.c: Regenerated
+	* maxloc1_8_r8.c: Regenerated
+	* maxval_i4.c: Regenerated
+	* maxval_i8.c: Regenerated
+	* maxval_r4.c: Regenerated
+	* maxval_r8.c: Regenerated
+	* minloc0_4_i4.c: Regenerated
+	* minloc0_4_i8.c: Regenerated
+	* minloc0_4_r4.c: Regenerated
+	* minloc0_4_r8.c: Regenerated
+	* minloc0_8_i4.c: Regenerated
+	* minloc0_8_i8.c: Regenerated
+	* minloc0_8_r4.c: Regenerated
+	* minloc0_8_r8.c: Regenerated
+	* minloc1_4_i4.c: Regenerated
+	* minloc1_4_i8.c: Regenerated
+	* minloc1_4_r4.c: Regenerated
+	* minloc1_4_r8.c: Regenerated
+	* minloc1_8_i4.c: Regenerated
+	* minloc1_8_i8.c: Regenerated
+	* minloc1_8_r4.c: Regenerated
+	* minloc1_8_r8.c: Regenerated
+	* minval_i4.c: Regenerated
+	* minval_i8.c: Regenerated
+	* minval_r4.c: Regenerated
+	* minval_r8.c: Regenerated
+	* product_c4.c: Regenerated
+	* product_c8.c: Regenerated
+	* product_i4.c: Regenerated
+	* product_i8.c: Regenerated
+	* product_r4.c: Regenerated
+	* product_r8.c: Regenerated
+	* sum_c4.c: Regenerated
+	* sum_c8.c: Regenerated
+	* sum_i4.c: Regenerated
+	* sum_i8.c: Regenerated
+	* sum_r4.c: Regenerated
+	* sum_r8.c: Regenerated
+
+2005-04-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20788
+	* runtime/environ.c (init_unsigned_integer): Function for
+	environment variables we want to be positive.
+	(init_integer): Function to allow negative environment
+	variables (e.g. for GFORTRAN_STDIN_UNIT).
+
+2005-04-10  Thomas Koenig <Thomas.Koenig@online.de>
+
+	PR libfortran/17992
+	PR libfortran/19568
+	PR libfortran/19595
+	PR libfortran/20005
+	PR libfortran/20092
+	PR libfortran/20131
+	PR libfortran/20661
+	PR libfortran/20744
+	* io/transfer.c (top level): eor_condition: New static variable.
+	(read_sf): Remove unnecessary zeroing of buffer (there is enough
+	information in its length).
+	Return a string of length 0 (to be padded by caller) if EOR was
+	seen previously.
+	Remove erroneous special casing of EOR for standard input.
+	Set eor_condition for non-advancing I/O if an end of line was
+	detected.
+	Increment ioparm.size if necessary.
+	(formatted_transfer):  Skip the function if there is an EOR condition.
+	(data_transfer_init):  Initialize eor_condition to zero (false).
+	(next_record_r):  Clear sf_seen_eor if a \n has been seen already.
+	(finalize_transfer):  If there is an EOR condition, raise the error.
+
+2005-04-09  Bud Davis  <bdavis@gfortran.org>
+            Steven G. Kargl <kargls@comcast.net>
+
+	PR fortran/19872
+	* io/transfer.c (data_transfer_init): truncate an existing
+	file on the first write.
+
+2005-04-09  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/19106
+	PR libfortran/19014
+	* m4/ifunction.m4 (name`'rtype_qual`_'atype_code): ditto.
+	If retarray->data is NULL (i.e. the front end does not
+	know the rank and dimenson of the array), fill in its
+	properties and allocate memory.
+	Change the assertions about rank and dimension of retarray into
+	runtime errors and only check them for retarray->data != NULL.
+	Do the same for correcting the stride from 0 to 1 in retarray.
+	(`m'name`'rtype_qual`_'atype_code): Likewise.
+	* m4/iforeach.m4 (name`'rtype_qual`_'atype_code): Likewise.
+	Change assertion about rank of array to runtime error.
+	(`m'name`'rtype_qual`_'atype_code): Likewise.
+	* generated/all_l4.c: Regenerated.
+	* generated/all_l8.c: Regenerated.
+	* generated/any_l4.c: Regenerated.
+	* generated/any_l8.c: Regenerated.
+	* generated/count_4_l4.c: Regenerated.
+	* generated/count_4_l8.c: Regenerated.
+	* generated/count_8_l4.c: Regenerated.
+	* generated/count_8_l8.c: Regenerated.
+	* generated/maxloc0_4_i4.c: Regenerated.
+	* generated/maxloc0_4_i8.c: Regenerated.
+	* generated/maxloc0_4_r4.c: Regenerated.
+	* generated/maxloc0_4_r8.c: Regenerated.
+	* generated/maxloc0_8_i4.c: Regenerated.
+	* generated/maxloc0_8_i8.c: Regenerated.
+	* generated/maxloc0_8_r4.c: Regenerated.
+	* generated/maxloc0_8_r8.c: Regenerated.
+	* generated/maxloc1_4_i4.c: Regenerated.
+	* generated/maxloc1_4_i8.c: Regenerated.
+	* generated/maxloc1_4_r4.c: Regenerated.
+	* generated/maxloc1_4_r8.c: Regenerated.
+	* generated/maxloc1_8_i4.c: Regenerated.
+	* generated/maxloc1_8_i8.c: Regenerated.
+	* generated/maxloc1_8_r4.c: Regenerated.
+	* generated/maxloc1_8_r8.c: Regenerated.
+	* generated/maxval_i4.c: Regenerated.
+	* generated/maxval_i8.c: Regenerated.
+	* generated/maxval_r4.c: Regenerated.
+	* generated/maxval_r8.c: Regenerated.
+	* generated/minloc0_4_i4.c: Regenerated.
+	* generated/minloc0_4_i8.c: Regenerated.
+	* generated/minloc0_4_r4.c: Regenerated.
+	* generated/minloc0_4_r8.c: Regenerated.
+	* generated/minloc0_8_i4.c: Regenerated.
+	* generated/minloc0_8_i8.c: Regenerated.
+	* generated/minloc0_8_r4.c: Regenerated.
+	* generated/minloc0_8_r8.c: Regenerated.
+	* generated/minloc1_4_i4.c: Regenerated.
+	* generated/minloc1_4_i8.c: Regenerated.
+	* generated/minloc1_4_r4.c: Regenerated.
+	* generated/minloc1_4_r8.c: Regenerated.
+	* generated/minloc1_8_i4.c: Regenerated.
+	* generated/minloc1_8_i8.c: Regenerated.
+	* generated/minloc1_8_r4.c: Regenerated.
+	* generated/minloc1_8_r8.c: Regenerated.
+	* generated/minval_i4.c: Regenerated.
+	* generated/minval_i8.c: Regenerated.
+	* generated/minval_r4.c: Regenerated.
+	* generated/minval_r8.c: Regenerated.
+	* generated/product_c4.c: Regenerated.
+	* generated/product_c8.c: Regenerated.
+	* generated/product_i4.c: Regenerated.
+	* generated/product_i8.c: Regenerated.
+	* generated/product_r4.c: Regenerated.
+	* generated/product_r8.c: Regenerated.
+	* generated/sum_c4.c: Regenerated.
+	* generated/sum_c8.c: Regenerated.
+	* generated/sum_i4.c: Regenerated.
+	* generated/sum_i8.c: Regenerated.
+	* generated/sum_r4.c: Regenerated.
+	* generated/sum_r8.c: Regenerated.
+
+2005-04-09  Thomas Koenig <Thomas.Koenig@online.de>
+
+	PR libfortran/20163
+	* runtime/string.c (compare0): Use fstrlen() to
+	strip trailing blanks from option string.
+
+2005-04-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/13257
+	* format.c (parse_format_list): Allow an optional comma
+	between descriptors.
+
+2005-04-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* io/backspace.c (unformatted_backspace): Do not dereference
+	the pointer to the stream.
+
+2005-04-07  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR libfortran/20766
+	* configure.ac (extra_ldflags_libgfortran): Set for *-darwin* to
+	"-Wl,-single_module".
+	* configure: Regenerate.
+	* Makefile.am (libgfortran_la_LDFLAGS): Add extra_ldflags_libgfortran.
+	* Makefile.in: Regenerate.
+
+2005-04-05  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20755
+	* write.c (write_float): A G edit descriptor may locally change
+	the scale factor, but it needs to be restored afterwards.
+
+2005-04-03  Dale Ranta  <dir@lanl.gov>
+            Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20068
+	PR libfortran/20125
+	PR libfortran/20156
+	PR libfortran/20471
+	* io/backspace.c (unformatted_backspace): Fix error in arithmetic.
+	(st_backspace): When in WRITING mode, we flush and falling back
+	into READING mode. In all cases, correctly position the stream.
+
+2005-03-31  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20660
+	* io/inquire.c (inquire_via_unit): Non-opened units should still be
+	reported by an INQUIRE statement as existing.
+	* io/transfer.c (data_transfer_init): Never accept negative units.
+
+2005-03-29  Dale Ranta  <dir@lanl.gov>
+	    Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20163
+	* io/open.c (st_open): call library_end() before returning even if
+	an error arises.
+
+2005-03-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19678
+	* list_read.c (next_char, eat_separator, finish_separator, read_real)
+	(namelist_read): Add support for '\r' as well as '\n' as EOL
+	character.
+
+	PR libfortran/19679
+	* list_read.c (read_sf): Add a '\r' in a test to support DOS
+	line-endings when line length is exceeded.
+
+2005-03-25  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/15332
+	* io/format.c (parse_format_list): format node for colon edit
+	descriptor needs a repeat counter set to 1.
+
+2005-02-24  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* config.h.in: Regenerate.
+
+2005-02-23  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/18025
+	* write.c (output_float): Handling the "F0.d" format similarly as
+	commercial compilers.
+
+2005-03-22  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* Makefile.am: Added new files.
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* configure.ac: add checks for signal.h headers file, as well as
+	following functions: chdir, strerror, getlogin, gethostname, kill,
+	link, symlink, perror, sleep, time.
+	* configure: Regenerate.
+	* intrinsics/chdir.c, intrinsics/gerror.c, intrinsics/getlog.c,
+	intrinsics/hostnm.c, intrinsics/ierrno.c, intrinsics/kill.c,
+	intrinsics/link.c, intrinsics/perror.c, intrinsics/rename.c,
+	intrinsics/sleep.c, intrinsics/symlnk.c, intrinsics/time.c: Newly
+	implementend g77 intrinsics.
+
+2005-03-21  Zack Weinberg  <zack@codesourcery.com>
+
+	* configure.ac: Do not invoke TL_AC_GCC_VERSION.
+	In all substitutions, leave gcc_version to be expanded by the Makefile.
+	* aclocal.m4, configure: Regenerate.
+	* Makefile.am: Set gcc_version.
+	* Makefile.in: Regenerate.
+
 2005-03-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/20257
@@ -37,11 +746,11 @@
 	* io/write.c (output_float): Fix typo in condition.
 
 2005-02-25  Peter O'Gorman  <peter@pogma.com>
-            Toon Moene  <toon@moene.indiv.nluug.nl>
+	    Toon Moene  <toon@moene.indiv.nluug.nl>
 
 	PR libgfortran/17748
 	* runtime/environ.c: Remove references to environ.
-	(show_variables): remove GFORTRAN_UNBUFFERED_* and 
+	(show_variables): remove GFORTRAN_UNBUFFERED_* and
 	GFORTRAN_NAME_* because they require environ.
 	(pattern_scan): Remove function.
 
@@ -69,8 +778,8 @@
 
 2005-02-20  Steven G. Kargl  <kargls@comcast.net>
 
-        PR 20085
-        * intrinsic/args.c (iargc): Off by 1.
+	PR 20085
+	* intrinsic/args.c (iargc): Off by 1.
 
 2005-02-19  Steven G. Kargl  <kargls@comcast.net>
 
@@ -129,7 +838,7 @@
 
 	PR libfortran/18982
 	* io/unix.c (regular_file):  No need to change flags->action
-	if an error occurs.  Document this.  
+	if an error occurs.  Document this.
 	No need to call stat() for STATUS_OLD, open() will
 	fail anyway.
 	For ACTION_UNSPECIFIED, try open for read-write, then for
@@ -139,16 +848,16 @@
 	regular_file.
 
 2005-01-22  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
-	
+
 	PR fortran/19194
 	* io/io.h (st_parameter): Use 'GFC_INTEGER_4' instead of 'int',
 	use CHARACTER macro for definition of string valued paramters.
-	
+
 2005-01-22  Bud Davis  <bdavis9659@comcast.net>
 
 	PR fortran/19314
 	* io/inquire.c(inquire_via_unit): implement POSITION=.
-	* io/transfer.c(next_record): update position for 
+	* io/transfer.c(next_record): update position for
 	INQUIRE.
 	* io/rewind.c(st_rewind): update position for
 	INQUIRE.
@@ -460,7 +1169,7 @@
 
 2004-12-27  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
 
-	* libgfortran/libgfortran.h (GFC_UINTEGER_1, GFC_UINTEGER_2): 
+	* libgfortran/libgfortran.h (GFC_UINTEGER_1, GFC_UINTEGER_2):
 	Define.
 	* intrinsics/ishftc.c: Update copyright years.
 	(ishftc8): Change 'shift' and 'size' to GFC_INTEGER_4.
@@ -470,7 +1179,7 @@
 2004-12-23  Bud Davis  <bdavis9659@comcast.net>
 
 	PR fortran/19071
-	* io/tranfer.c (formatted_transfer): moved check for 
+	* io/tranfer.c (formatted_transfer): moved check for
 	format reversion inside the processing loop.
 
 2004-12-19  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
@@ -482,7 +1191,7 @@
 	* runtime/error.c (itoa): Same.
 
 2004-12-15  Bud Davis  <bdavis9659@comcast.net>
-            Steven G. Kargl  <kargls@comcast.net>
+	    Steven G. Kargl  <kargls@comcast.net>
 
 	PR fortran/17597
 	* io/list_read.c (read_real): do not push back a comma when
@@ -714,7 +1423,7 @@
 
 	* m4/matmul.m4: Loops reordered to improve cache behavior.
 	* generated/matmul_??.c: Regenerated.
-	
+
 2004-11-10  Paul Brook  <paul@codesourcery.com>
 
 	PR fortran/18218
@@ -831,7 +1540,7 @@
 2004-09-21  Bud Davis  <bdavis9659@comcast.net>
 
 	PR fortran/17286
-	* io/list_read.c (namelist_read): ignore spaces after 
+	* io/list_read.c (namelist_read): ignore spaces after
 	the '=' for namelist reads.
 
 2004-09-15  Aaron W. LaFramboise <aaronavay62@aaronwl.com>
@@ -983,7 +1692,7 @@
 
 2004-08-24  Bud Davis  <bdavis9659@comcast.net>
 
-	PR fortran/17143	
+	PR fortran/17143
 	* runtime/error.c (itoa): keep from overflowing during
 	mod operation by using unsigned variable.
 
@@ -1084,7 +1793,7 @@
 
 2004-07-18  Bud Davis  <bdavis9659@comcast.net>
 
-	* configure.ac: Add check for LFS support. 
+	* configure.ac: Add check for LFS support.
 	* configure: Regenerate
 
 2004-07-11  Paul Brook  <paul@codesourcery.com>
@@ -1105,7 +1814,7 @@
 	PR fortran/15472
 	* io/transfer.c(us_write): set recl for seq unform writes to max size.
 	* io/transfer.c(data_transfer_init): handle un-opened seq unform unit.
-	* io/unix.c(fd_alloc_w_at): handle requests at start, fd_flush at 
+	* io/unix.c(fd_alloc_w_at): handle requests at start, fd_flush at
 	right time.
 	* io/unix.c(is_seekable): set based upon the file/device, not the
 	method being used to access it (fd or mmap).
@@ -1202,16 +1911,16 @@
 2004-06-13  Steven G. Kargl  <kargls@comcast.net>
 	    Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
 
-	* random.c: Fix several spelling and formatting mistakes in 
+	* random.c: Fix several spelling and formatting mistakes in
 	comments.
 	(random_r8): Fix loop to make random numbers range in [0,1(.
-	
+
 
 2004-06-13  Steven G. Kargl  <kargls@comcast.net>
 
 	* random.c (random_r4): Burn a random number.
 	(random_r8): fix infinite loop.
-	
+
 2004-06-12  Bud Davis  <bdavis9659@comcast.net>
       Steve Kargl  <sgk@troutmask.apl.washington.edu>
 
@@ -1403,7 +2112,7 @@
 	* libgfortan.h,intrinsics/random.c: Made random_seed visible.
 	* runtime/main.c(init): Call random_seed as part of MAIN init.
 
-2004-05-13  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+2004-05-13  Tobias Schlter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* io/format.c: (parse_format_list): No comma is required after
 	P descriptor.
@@ -1860,7 +2569,7 @@
 	(calculate_G_format): Rewrite it to eliminate an infinte loop and set
 	the scale_factor to 0 for F editing.
 
-2003-05-11  Tobias Schlüter  <innenminister@gmx.de>
+2003-05-11  Tobias Schlter  <innenminister@gmx.de>
 
 	* libgfor.h: Only include stdint.h if it exists.
 
@@ -1875,11 +2584,11 @@
 	* libgfor.h (offsetof): Define if nobody else does.
 	* runtime/memory.c (HEADER_SIZE): Use it.
 
-2003-05-01  Tobias Schlüter  <innenminister@gmx.de>
+2003-05-01  Tobias Schlter  <innenminister@gmx.de>
 
 	* configure.in: Require autoconf 2.54.
 
-2003-04-28  Tobias Schlüter  <innenminister@gmx.de>
+2003-04-28  Tobias Schlter  <innenminister@gmx.de>
 	Paul Brook  <paul@nowt.org>
 
 	* intrinsics/reshape_generic.c: Copy the whole element, not just the
@@ -1893,7 +2602,7 @@
 	* io/format.c (parse_format_list): Allow 'X' without integer
 	prefix.  This is an extension.  Interpretation is '1X'.
 
-2003-04-18  Tobias Schlüter  <Tobias.Schlueter@physik.uni-muenchen.de>
+2003-04-18  Tobias Schlter  <Tobias.Schlueter@physik.uni-muenchen.de>
 
 	* io/format.c (parse_format_list): Allow '0P'.
 

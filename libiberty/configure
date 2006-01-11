@@ -2930,7 +2930,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 ac_c_preproc_warn_flag=yes
 
 if test x$GCC = xyes; then
-  ac_libiberty_warn_cflags='-W -Wall -Wtraditional -pedantic'
+  ac_libiberty_warn_cflags='-W -Wall -pedantic -Wwrite-strings -Wstrict-prototypes'
 fi
 
 
@@ -3217,8 +3217,7 @@ echo $ECHO_N "checking whether byte ordering is bigendian... $ECHO_C" >&6
 if test "${ac_cv_c_bigendian+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  ac_cv_c_bigendian=unknown
-# See if sys/param.h defines the BYTE_ORDER macro.
+  # See if sys/param.h defines the BYTE_ORDER macro.
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -3227,13 +3226,14 @@ cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 #include <sys/types.h>
 #include <sys/param.h>
+
 int
 main ()
 {
-
 #if !BYTE_ORDER || !BIG_ENDIAN || !LITTLE_ENDIAN
  bogus endian macros
 #endif
+
   ;
   return 0;
 }
@@ -3269,13 +3269,14 @@ cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 #include <sys/types.h>
 #include <sys/param.h>
+
 int
 main ()
 {
-
 #if BYTE_ORDER != BIG_ENDIAN
  not big endian
 #endif
+
   ;
   return 0;
 }
@@ -3314,11 +3315,69 @@ else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
+# It does not; compile a test program.
+if test "$cross_compiling" = yes; then
+  # try to guess the endianness by grepping values into an object file
+  ac_cv_c_bigendian=unknown
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+short ascii_mm[] = { 0x4249, 0x4765, 0x6E44, 0x6961, 0x6E53, 0x7953, 0 };
+short ascii_ii[] = { 0x694C, 0x5454, 0x656C, 0x6E45, 0x6944, 0x6E61, 0 };
+void _ascii () { char *s = (char *) ascii_mm; s = (char *) ascii_ii; }
+short ebcdic_ii[] = { 0x89D3, 0xE3E3, 0x8593, 0x95C5, 0x89C4, 0x9581, 0 };
+short ebcdic_mm[] = { 0xC2C9, 0xC785, 0x95C4, 0x8981, 0x95E2, 0xA8E2, 0 };
+void _ebcdic () { char *s = (char *) ebcdic_mm; s = (char *) ebcdic_ii; }
+int
+main ()
+{
+ _ascii (); _ebcdic ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  if grep BIGenDianSyS conftest.$ac_objext >/dev/null ; then
+  ac_cv_c_bigendian=yes
+fi
+if grep LiTTleEnDian conftest.$ac_objext >/dev/null ; then
+  if test "$ac_cv_c_bigendian" = unknown; then
+    ac_cv_c_bigendian=no
+  else
+    # finding both strings is unlikely to happen, but who knows?
+    ac_cv_c_bigendian=unknown
+  fi
+fi
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-if test $ac_cv_c_bigendian = unknown; then
-if test "$cross_compiling" = yes; then
-   echo $ac_n "cross-compiling... " 2>&6
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -3326,7 +3385,9 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-main () {
+int
+main ()
+{
   /* Are we little or big endian?  From Harbison&Steele.  */
   union
   {
@@ -3360,67 +3421,26 @@ fi
 rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
 fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
 echo "$as_me:$LINENO: result: $ac_cv_c_bigendian" >&5
 echo "${ECHO_T}$ac_cv_c_bigendian" >&6
-if test $ac_cv_c_bigendian = unknown; then
-echo "$as_me:$LINENO: checking to probe for byte ordering" >&5
-echo $ECHO_N "checking to probe for byte ordering... $ECHO_C" >&6
-
-cat >conftest.c <<EOF
-short ascii_mm[] = { 0x4249, 0x4765, 0x6E44, 0x6961, 0x6E53, 0x7953, 0 };
-short ascii_ii[] = { 0x694C, 0x5454, 0x656C, 0x6E45, 0x6944, 0x6E61, 0 };
-void _ascii() { char* s = (char*) ascii_mm; s = (char*) ascii_ii; }
-short ebcdic_ii[] = { 0x89D3, 0xE3E3, 0x8593, 0x95C5, 0x89C4, 0x9581, 0 };
-short ebcdic_mm[] = { 0xC2C9, 0xC785, 0x95C4, 0x8981, 0x95E2, 0xA8E2, 0 };
-void _ebcdic() { char* s = (char*) ebcdic_mm; s = (char*) ebcdic_ii; }
-int main() { _ascii (); _ebcdic (); return 0; }
-EOF
- if test -f conftest.c ; then
-     if ${CC-cc} ${CFLAGS} -c conftest.c -o conftest.o && test -f conftest.o ; then
-        if test `grep -l BIGenDianSyS conftest.o` ; then
-           echo $ac_n ' big endian probe OK, ' 1>&6
-           ac_cv_c_bigendian=yes
-        fi
-        if test `grep -l LiTTleEnDian conftest.o` ; then
-           echo $ac_n ' little endian probe OK, ' 1>&6
-           if test $ac_cv_c_bigendian = yes ; then
-            ac_cv_c_bigendian=unknown;
-           else
-            ac_cv_c_bigendian=no
-           fi
-        fi
-        echo $ac_n 'guessing bigendian ...  ' >&6
-     fi
-  fi
-echo "$as_me:$LINENO: result: $ac_cv_c_bigendian" >&5
-echo "${ECHO_T}$ac_cv_c_bigendian" >&6
-fi
-if test $ac_cv_c_bigendian = yes; then
+case $ac_cv_c_bigendian in
+  yes)
 
 cat >>confdefs.h <<\_ACEOF
 #define WORDS_BIGENDIAN 1
 _ACEOF
-
-
-cat >>confdefs.h <<\_ACEOF
-#define HOST_WORDS_BIG_ENDIAN 1
-_ACEOF
-
-  BYTEORDER=4321
-else
-  BYTEORDER=1234
-fi
-
-cat >>confdefs.h <<_ACEOF
-#define BYTEORDER $BYTEORDER
-_ACEOF
-
-if test $ac_cv_c_bigendian = unknown; then
-  { { echo "$as_me:$LINENO: error: unknown endianess - sorry, please pre-set ac_cv_c_bigendian" >&5
-echo "$as_me: error: unknown endianess - sorry, please pre-set ac_cv_c_bigendian" >&2;}
-   { (exit 1); exit 1; }; }
-fi
+ ;;
+  no)
+     ;;
+  *)
+    { { echo "$as_me:$LINENO: error: unknown endianness
+presetting ac_cv_c_bigendian=no (or yes) will help" >&5
+echo "$as_me: error: unknown endianness
+presetting ac_cv_c_bigendian=no (or yes) will help" >&2;}
+   { (exit 1); exit 1; }; } ;;
+esac
 
 
 
@@ -3540,7 +3560,8 @@ host_makefile_frag=${frag}
 
 
 
-for ac_header in sys/file.h sys/param.h limits.h stdlib.h malloc.h string.h unistd.h strings.h sys/time.h time.h sys/resource.h sys/stat.h sys/mman.h fcntl.h alloca.h sys/pstat.h sys/sysmp.h sys/sysinfo.h machine/hal_sysinfo.h sys/table.h sys/sysctl.h sys/systemcfg.h stdint.h
+
+for ac_header in sys/file.h sys/param.h limits.h stdlib.h malloc.h string.h unistd.h strings.h sys/time.h time.h sys/resource.h sys/stat.h sys/mman.h fcntl.h alloca.h sys/pstat.h sys/sysmp.h sys/sysinfo.h machine/hal_sysinfo.h sys/table.h sys/sysctl.h sys/systemcfg.h stdint.h stdio_ext.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $ac_header" >&5
@@ -4775,6 +4796,7 @@ funcs="$funcs clock"
 funcs="$funcs ffs"
 funcs="$funcs getcwd"
 funcs="$funcs getpagesize"
+funcs="$funcs gettimeofday"
 funcs="$funcs index"
 funcs="$funcs insque"
 funcs="$funcs memchr"
@@ -4797,6 +4819,7 @@ funcs="$funcs strcasecmp"
 funcs="$funcs strchr"
 funcs="$funcs strdup"
 funcs="$funcs strncasecmp"
+funcs="$funcs strndup"
 funcs="$funcs strrchr"
 funcs="$funcs strstr"
 funcs="$funcs strtod"
@@ -4816,7 +4839,7 @@ vars="sys_errlist sys_nerr sys_siglist"
 
 checkfuncs="getrusage on_exit psignal strerror strsignal sysconf times sbrk gettimeofday"
 checkfuncs="$checkfuncs realpath canonicalize_file_name pstat_getstatic pstat_getdynamic sysmp"
-checkfuncs="$checkfuncs getsysinfo table sysctl"
+checkfuncs="$checkfuncs getsysinfo table sysctl wait3 wait4 __fsetlocking"
 
 # These are neither executed nor required, but they help keep
 # autoheader happy without adding a bunch of text to acconfig.h.
@@ -4884,15 +4907,20 @@ if test "x" = "y"; then
 
 
 
+
+
+
+
+
 for ac_func in asprintf atexit basename bcmp bcopy bsearch bzero calloc clock \
-  getcwd getpagesize index insque mkstemps memchr memcmp memcpy \
+  getcwd getpagesize gettimeofday index insque mkstemps memchr memcmp memcpy \
   memmove mempcpy memset putenv random rename rindex sigsetmask \
-  strcasecmp setenv stpcpy stpncpy strchr strdup strncasecmp strrchr strstr \
+  strcasecmp setenv stpcpy stpncpy strchr strdup strncasecmp strndup strrchr strstr \
   strtod strtol strtoul tmpnam vasprintf vfprintf vprintf \
   vsprintf waitpid getrusage on_exit psignal strerror strsignal \
   sysconf times sbrk gettimeofday ffs snprintf vsnprintf \
-  pstat_getstatic pstat_getdynamic sysmp getsysinfo table sysctl \
-  realpath canonicalize_file_name
+  pstat_getstatic pstat_getdynamic sysmp getsysinfo table sysctl wait3 wait4 \
+  realpath canonicalize_file_name __fsetlocking
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -4991,6 +5019,288 @@ _ACEOF
 
 fi
 done
+
+  echo "$as_me:$LINENO: checking whether basename is declared" >&5
+echo $ECHO_N "checking whether basename is declared... $ECHO_C" >&6
+if test "${ac_cv_have_decl_basename+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+#ifndef basename
+  char *p = (char *) basename;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_have_decl_basename=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_have_decl_basename=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_have_decl_basename" >&5
+echo "${ECHO_T}$ac_cv_have_decl_basename" >&6
+if test $ac_cv_have_decl_basename = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_BASENAME 1
+_ACEOF
+
+
+else
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_BASENAME 0
+_ACEOF
+
+
+fi
+echo "$as_me:$LINENO: checking whether ffs is declared" >&5
+echo $ECHO_N "checking whether ffs is declared... $ECHO_C" >&6
+if test "${ac_cv_have_decl_ffs+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+#ifndef ffs
+  char *p = (char *) ffs;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_have_decl_ffs=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_have_decl_ffs=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_have_decl_ffs" >&5
+echo "${ECHO_T}$ac_cv_have_decl_ffs" >&6
+if test $ac_cv_have_decl_ffs = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_FFS 1
+_ACEOF
+
+
+else
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_FFS 0
+_ACEOF
+
+
+fi
+echo "$as_me:$LINENO: checking whether asprintf is declared" >&5
+echo $ECHO_N "checking whether asprintf is declared... $ECHO_C" >&6
+if test "${ac_cv_have_decl_asprintf+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+#ifndef asprintf
+  char *p = (char *) asprintf;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_have_decl_asprintf=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_have_decl_asprintf=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_have_decl_asprintf" >&5
+echo "${ECHO_T}$ac_cv_have_decl_asprintf" >&6
+if test $ac_cv_have_decl_asprintf = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_ASPRINTF 1
+_ACEOF
+
+
+else
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_ASPRINTF 0
+_ACEOF
+
+
+fi
+echo "$as_me:$LINENO: checking whether vasprintf is declared" >&5
+echo $ECHO_N "checking whether vasprintf is declared... $ECHO_C" >&6
+if test "${ac_cv_have_decl_vasprintf+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+#ifndef vasprintf
+  char *p = (char *) vasprintf;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_have_decl_vasprintf=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_have_decl_vasprintf=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_have_decl_vasprintf" >&5
+echo "${ECHO_T}$ac_cv_have_decl_vasprintf" >&6
+if test $ac_cv_have_decl_vasprintf = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_VASPRINTF 1
+_ACEOF
+
+
+else
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_VASPRINTF 0
+_ACEOF
+
+
+fi
+
 
 
 cat >>confdefs.h <<\_ACEOF
@@ -5094,9 +5404,9 @@ _ACEOF
     # dont have to check them here.
 
     # Of the functions in $checkfuncs, newlib only has strerror.
-    cat >> confdefs.h <<\EOF
+    cat >>confdefs.h <<\_ACEOF
 #define HAVE_STRERROR 1
-EOF
+_ACEOF
 
 
     setobjs=yes
@@ -5129,7 +5439,7 @@ fi;
 else
 
    # Not a target library, so we set things up to run the test suite.
-   CHECK=check-cplus-dem
+   CHECK=really-check
 
 fi
 
@@ -5138,13 +5448,13 @@ fi
 
 case "${host}" in
   *-*-cygwin* | *-*-mingw*)
-    cat >> confdefs.h <<\EOF
+    cat >>confdefs.h <<\_ACEOF
 #define HAVE_SYS_ERRLIST 1
-EOF
+_ACEOF
 
-    cat >> confdefs.h <<\EOF
+    cat >>confdefs.h <<\_ACEOF
 #define HAVE_SYS_NERR 1
-EOF
+_ACEOF
 
     ;;
 esac
@@ -5256,9 +5566,9 @@ _ACEOF
     # don't have to check them here.
 
     # Of the functions in $checkfuncs, VxWorks only has strerror.
-    cat >> confdefs.h <<\EOF
+    cat >>confdefs.h <<\_ACEOF
 #define HAVE_STRERROR 1
-EOF
+_ACEOF
 
 
     setobjs=yes
@@ -6624,6 +6934,288 @@ _ACEOF
 
 fi
 done
+
+  echo "$as_me:$LINENO: checking whether basename is declared" >&5
+echo $ECHO_N "checking whether basename is declared... $ECHO_C" >&6
+if test "${ac_cv_have_decl_basename+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+#ifndef basename
+  char *p = (char *) basename;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_have_decl_basename=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_have_decl_basename=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_have_decl_basename" >&5
+echo "${ECHO_T}$ac_cv_have_decl_basename" >&6
+if test $ac_cv_have_decl_basename = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_BASENAME 1
+_ACEOF
+
+
+else
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_BASENAME 0
+_ACEOF
+
+
+fi
+echo "$as_me:$LINENO: checking whether ffs is declared" >&5
+echo $ECHO_N "checking whether ffs is declared... $ECHO_C" >&6
+if test "${ac_cv_have_decl_ffs+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+#ifndef ffs
+  char *p = (char *) ffs;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_have_decl_ffs=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_have_decl_ffs=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_have_decl_ffs" >&5
+echo "${ECHO_T}$ac_cv_have_decl_ffs" >&6
+if test $ac_cv_have_decl_ffs = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_FFS 1
+_ACEOF
+
+
+else
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_FFS 0
+_ACEOF
+
+
+fi
+echo "$as_me:$LINENO: checking whether asprintf is declared" >&5
+echo $ECHO_N "checking whether asprintf is declared... $ECHO_C" >&6
+if test "${ac_cv_have_decl_asprintf+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+#ifndef asprintf
+  char *p = (char *) asprintf;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_have_decl_asprintf=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_have_decl_asprintf=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_have_decl_asprintf" >&5
+echo "${ECHO_T}$ac_cv_have_decl_asprintf" >&6
+if test $ac_cv_have_decl_asprintf = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_ASPRINTF 1
+_ACEOF
+
+
+else
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_ASPRINTF 0
+_ACEOF
+
+
+fi
+echo "$as_me:$LINENO: checking whether vasprintf is declared" >&5
+echo $ECHO_N "checking whether vasprintf is declared... $ECHO_C" >&6
+if test "${ac_cv_have_decl_vasprintf+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+#ifndef vasprintf
+  char *p = (char *) vasprintf;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_have_decl_vasprintf=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_have_decl_vasprintf=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_have_decl_vasprintf" >&5
+echo "${ECHO_T}$ac_cv_have_decl_vasprintf" >&6
+if test $ac_cv_have_decl_vasprintf = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_VASPRINTF 1
+_ACEOF
+
+
+else
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_VASPRINTF 0
+_ACEOF
+
+
+fi
+
 
   echo "$as_me:$LINENO: checking whether canonicalize_file_name must be declared" >&5
 echo $ECHO_N "checking whether canonicalize_file_name must be declared... $ECHO_C" >&6

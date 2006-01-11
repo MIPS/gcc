@@ -127,14 +127,14 @@ copy_loop_headers (void)
   unsigned i;
   struct loop *loop;
   basic_block header;
-  edge exit;
-  basic_block *bbs;
+  edge exit, entry;
+  basic_block *bbs, *copied_bbs;
   unsigned n_bbs;
+  unsigned bbs_size;
 
   loops = loop_optimizer_init (dump_file);
   if (!loops)
     return;
-  rewrite_into_loop_closed_ssa (NULL);
   
   /* We do not try to keep the information about irreducible regions
      up-to-date.  */
@@ -145,6 +145,8 @@ copy_loop_headers (void)
 #endif
 
   bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  copied_bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  bbs_size = n_basic_blocks;
 
   for (i = 1; i < loops->num; i++)
     {
@@ -180,6 +182,7 @@ copy_loop_headers (void)
 	  else
 	    exit = EDGE_SUCC (header, 1);
 	  bbs[n_bbs++] = header;
+	  gcc_assert (bbs_size > n_bbs);
 	  header = exit->dest;
 	}
 
@@ -196,8 +199,9 @@ copy_loop_headers (void)
       if (!single_pred_p (exit->dest))
 	exit = single_succ_edge (loop_split_edge_with (exit, NULL));
 
-      if (!tree_duplicate_sese_region (loop_preheader_edge (loop), exit,
-				       bbs, n_bbs, NULL))
+      entry = loop_preheader_edge (loop);
+
+      if (!tree_duplicate_sese_region (entry, exit, bbs, n_bbs, copied_bbs))
 	{
 	  fprintf (dump_file, "Duplication failed.\n");
 	  continue;
@@ -210,10 +214,7 @@ copy_loop_headers (void)
     }
 
   free (bbs);
-
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa ();
-#endif
+  free (copied_bbs);
 
   loop_optimizer_finalize (loops, NULL);
 }

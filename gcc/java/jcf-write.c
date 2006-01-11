@@ -2233,9 +2233,7 @@ generate_bytecode_insns (tree exp, int target, struct jcf_partial *state)
 	}
       else
 	{
-	  tree type = TREE_TYPE (exp);
 	  emit_load (arg, state);
-	  NOTE_PUSH (TYPE_IS_WIDE (type) ? 2 : 1);
 	}
       break;
     case CONVERT_EXPR:

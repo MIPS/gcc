@@ -186,11 +186,14 @@ enum optab_index
   OTI_log1p,
   /* Rounding functions */
   OTI_floor,
+  OTI_lfloor,
   OTI_ceil,
+  OTI_lceil,
   OTI_btrunc,
   OTI_round,
   OTI_nearbyint,
   OTI_rint,
+  OTI_lrint,
   /* Tangent */
   OTI_tan,
   /* Inverse tangent */
@@ -312,11 +315,14 @@ extern GTY(()) optab optab_table[OTI_MAX];
 #define log2_optab (optab_table[OTI_log2])
 #define log1p_optab (optab_table[OTI_log1p])
 #define floor_optab (optab_table[OTI_floor])
+#define lfloor_optab (optab_table[OTI_lfloor])
 #define ceil_optab (optab_table[OTI_ceil])
+#define lceil_optab (optab_table[OTI_lceil])
 #define btrunc_optab (optab_table[OTI_btrunc])
 #define round_optab (optab_table[OTI_round])
 #define nearbyint_optab (optab_table[OTI_nearbyint])
 #define rint_optab (optab_table[OTI_rint])
+#define lrint_optab (optab_table[OTI_lrint])
 #define tan_optab (optab_table[OTI_tan])
 #define atan_optab (optab_table[OTI_atan])
 #define copysign_optab (optab_table[OTI_copysign])
@@ -425,6 +431,43 @@ extern enum insn_code clrmem_optab[NUM_MACHINE_MODES];
    to perform block compares.  */
 extern enum insn_code cmpstr_optab[NUM_MACHINE_MODES];
 extern enum insn_code cmpmem_optab[NUM_MACHINE_MODES];
+
+/* Synchronization primitives.  This first set is atomic operation for
+   which we don't care about the resulting value.  */
+extern enum insn_code sync_add_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_sub_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_ior_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_and_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_xor_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_nand_optab[NUM_MACHINE_MODES];
+
+/* This second set is atomic operations in which we return the value
+   that existed in memory before the operation.  */
+extern enum insn_code sync_old_add_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_sub_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_ior_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_and_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_xor_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_old_nand_optab[NUM_MACHINE_MODES];
+
+/* This third set is atomic operations in which we return the value
+   that resulted after performing the operation.  */
+extern enum insn_code sync_new_add_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_sub_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_ior_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_and_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_xor_optab[NUM_MACHINE_MODES];
+extern enum insn_code sync_new_nand_optab[NUM_MACHINE_MODES];
+
+/* Atomic compare and swap.  */
+extern enum insn_code sync_compare_and_swap[NUM_MACHINE_MODES];
+extern enum insn_code sync_compare_and_swap_cc[NUM_MACHINE_MODES];
+
+/* Atomic exchange with acquire semantics.  */
+extern enum insn_code sync_lock_test_and_set[NUM_MACHINE_MODES];
+
+/* Atomic clear with release semantics.  */
+extern enum insn_code sync_lock_release[NUM_MACHINE_MODES];
 
 /* Define functions given in optabs.c.  */
 

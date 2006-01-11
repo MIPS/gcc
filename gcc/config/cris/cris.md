@@ -58,7 +58,13 @@
 ;; UNSPEC Usage:
 ;; 0 PLT reference from call expansion: operand 0 is the address,
 ;;   the mode is VOIDmode.  Always wrapped in CONST.
+;; 1 Stack frame deallocation barrier.
+;; 2 The address of the global offset table as a source operand.
 
+(define_constants
+  [(CRIS_UNSPEC_PLT 0)
+   (CRIS_UNSPEC_FRAME_DEALLOC 1)
+   (CRIS_UNSPEC_GOT 2)])
 
 ;; Register numbers.
 (define_constants
@@ -119,6 +125,11 @@
 
 (define_attr "cc" "none,clobber,normal" (const_string "normal"))
 
+;; At the moment, this attribute is just used to help bb-reorder do its
+;; work; the default 0 doesn't help it.  Many insns have other lengths,
+;; though none are shorter.
+(define_attr "length" "" (const_int 2))
+
 ;; A branch or return has one delay-slot.  The instruction in the
 ;; delay-slot is always executed, independent of whether the branch is
 ;; taken or not.  Note that besides setting "slottable" to "has_slot",
@@ -129,6 +140,43 @@
 
 (define_delay (eq_attr "slottable" "has_slot")
   [(eq_attr "slottable" "yes") (nil) (nil)])
+
+;; Iterator definitions.
+
+;; For the "usual" pattern size alternatives.
+(define_mode_macro BWD [SI HI QI])
+(define_mode_macro WD [SI HI])
+(define_mode_macro BW [HI QI])
+(define_mode_attr S [(SI "HI") (HI "QI")])
+(define_mode_attr s [(SI "hi") (HI "qi")])
+(define_mode_attr m [(SI ".d") (HI ".w") (QI ".b")])
+(define_mode_attr mm [(SI ".w") (HI ".b")])
+(define_mode_attr nbitsm1 [(SI "31") (HI "15") (QI "7")])
+
+;; For the sign_extend+zero_extend variants.
+(define_code_macro szext [sign_extend zero_extend])
+(define_code_attr u [(sign_extend "") (zero_extend "u")])
+(define_code_attr su [(sign_extend "s") (zero_extend "u")])
+
+;; For the shift variants.
+(define_code_macro shift [ashiftrt lshiftrt ashift])
+(define_code_macro shiftrt [ashiftrt lshiftrt])
+(define_code_attr shlr [(ashiftrt "ashr") (lshiftrt "lshr") (ashift "ashl")])
+(define_code_attr slr [(ashiftrt "asr") (lshiftrt "lsr") (ashift "lsl")])
+
+(define_code_macro ncond [eq ne gtu ltu geu leu])
+(define_code_macro ocond [gt le])
+(define_code_macro rcond [lt ge])
+(define_code_attr CC [(eq "eq") (ne "ne") (gt "gt") (gtu "hi") (lt "lt")
+		      (ltu "lo") (ge "ge") (geu "hs") (le "le") (leu "ls")])
+(define_code_attr rCC [(eq "ne") (ne "eq") (gt "le") (gtu "ls") (lt "ge")
+		       (ltu "hs") (ge "lt") (geu "lo") (le "gt") (leu "hi")])
+(define_code_attr oCC [(lt "mi") (ge "pl")])
+(define_code_attr roCC [(lt "pl") (ge "mi")])
+
+;; Operand and operator predicates.
+
+(include "predicates.md")
 
 ;; Test insns.
 
@@ -150,25 +198,11 @@
 ;; Normal named test patterns from SI on.
 ;; FIXME: Seems they should change to be in order smallest..largest.
 
-(define_insn "tstsi"
+(define_insn "tst<mode>"
   [(set (cc0)
-	(match_operand:SI 0 "nonimmediate_operand" "r,Q>,m"))]
+	(match_operand:BWD 0 "nonimmediate_operand" "r,Q>,m"))]
   ""
-  "test.d %0"
-  [(set_attr "slottable" "yes,yes,no")])
-
-(define_insn "tsthi"
-  [(set (cc0)
-	(match_operand:HI 0 "nonimmediate_operand" "r,Q>,m"))]
-  ""
-  "test.w %0"
-  [(set_attr "slottable" "yes,yes,no")])
-
-(define_insn "tstqi"
-  [(set (cc0)
-	(match_operand:QI 0 "nonimmediate_operand" "r,Q>,m"))]
-  ""
-  "test.b %0"
+  "test<m> %0"
   [(set_attr "slottable" "yes,yes,no")])
 
 ;; It seems that the position of the sign-bit and the fact that 0.0 is
@@ -218,60 +252,29 @@
 ;; These are mostly useful for compares in SImode, using 8 or 16-bit
 ;; constants, but sometimes gcc will find its way to use it for other
 ;; (memory) operands.  Avoid side-effect patterns, though (see above).
-;;
-;; FIXME: These could have an anonymous mode for operand 1.
 
-;; QImode
-
-(define_insn "*cmp_extsi"
+(define_insn "*cmp_ext<mode>"
   [(set (cc0)
 	(compare
 	 (match_operand:SI 0 "register_operand" "r,r")
 	 (match_operator:SI 2 "cris_extend_operator"
-			 [(match_operand:QI 1 "memory_operand" "Q>,m")])))]
+			 [(match_operand:BW 1 "memory_operand" "Q>,m")])))]
   ""
-  "cmp%e2.%s1 %1,%0"
-  [(set_attr "slottable" "yes,no")])
-
-;; HImode
-(define_insn "*cmp_exthi"
-  [(set (cc0)
-	(compare
-	 (match_operand:SI 0 "register_operand" "r,r")
-	 (match_operator:SI 2 "cris_extend_operator"
-			 [(match_operand:HI 1 "memory_operand" "Q>,m")])))]
-  ""
-  "cmp%e2.%s1 %1,%0"
+  "cmp%e2<m> %1,%0"
   [(set_attr "slottable" "yes,no")])
 
 ;; Swap operands; it seems the canonical look (if any) is not enforced.
 ;;
 ;; FIXME: Investigate that.
-;; FIXME: These could have an anonymous mode for operand 1.
 
-;; QImode
-
-(define_insn "*cmp_swapextqi"
+(define_insn "*cmp_swapext<mode>"
   [(set (cc0)
 	(compare
 	 (match_operator:SI 2 "cris_extend_operator"
-			    [(match_operand:QI 0 "memory_operand" "Q>,m")])
+			    [(match_operand:BW 0 "memory_operand" "Q>,m")])
 	 (match_operand:SI 1 "register_operand" "r,r")))]
   ""
-  "cmp%e2.%s0 %0,%1" ; The function cris_notice_update_cc knows about
-		     ; swapped operands to compares.
-  [(set_attr "slottable" "yes,no")])
-
-;; HImode
-
-(define_insn "*cmp_swapexthi"
-  [(set (cc0)
-	(compare
-	 (match_operator:SI 2 "cris_extend_operator"
-			    [(match_operand:HI 0 "memory_operand" "Q>,m")])
-	 (match_operand:SI 1 "register_operand" "r,r")))]
-  ""
-  "cmp%e2.%s0 %0,%1" ; The function cris_notice_update_cc knows about
+  "cmp%e2<m> %0,%1" ; The function cris_notice_update_cc knows about
 		     ; swapped operands to compares.
   [(set_attr "slottable" "yes,no")])
 
@@ -296,37 +299,21 @@
    cmp.d %0,%1"
   [(set_attr "slottable" "yes,yes,yes,yes,yes,yes,no,no,no,no")])
 
-(define_insn "cmphi"
-  [(set (cc0)
-	(compare (match_operand:HI 0 "nonimmediate_operand" "r,r, r,Q>,Q>,r,m,m")
-		 (match_operand:HI 1 "general_operand"	    "r,Q>,M,M, r, g,M,r")))]
-  ""
-  "@
-   cmp.w %1,%0
-   cmp.w %1,%0
-   test.w %0
-   test.w %0
-   cmp.w %0,%1
-   cmp.w %1,%0
-   test.w %0
-   cmp.w %0,%1"
-  [(set_attr "slottable" "yes,yes,yes,yes,yes,no,no,no")])
-
-(define_insn "cmpqi"
+(define_insn "cmp<mode>"
   [(set (cc0)
 	(compare
-	 (match_operand:QI 0 "nonimmediate_operand" "r,r, r,Q>,Q>,r,m,m")
-	 (match_operand:QI 1 "general_operand"	    "r,Q>,M,M, r, g,M,r")))]
+	 (match_operand:BW 0 "nonimmediate_operand" "r,r, r,Q>,Q>,r,m,m")
+	 (match_operand:BW 1 "general_operand"	    "r,Q>,M,M, r, g,M,r")))]
   ""
   "@
-   cmp.b %1,%0
-   cmp.b %1,%0
-   test.b %0
-   test.b %0
-   cmp.b %0,%1
-   cmp.b %1,%0
-   test.b %0
-   cmp.b %0,%1"
+   cmp<m> %1,%0
+   cmp<m> %1,%0
+   test<m> %0
+   test<m> %0
+   cmp<m> %0,%1
+   cmp<m> %1,%0
+   test<m> %0
+   cmp<m> %0,%1"
   [(set_attr "slottable" "yes,yes,yes,yes,yes,no,no,no")])
 
 ;; Pattern matching the BTST insn.
@@ -386,11 +373,34 @@
 ;; The truth has IMO is not been decided yet, so check from time to
 ;; time by disabling the movdi patterns.
 
+;; To appease testcase gcc.c-torture/execute/920501-2.c (and others) at
+;; -O0, we need a movdi as a temporary measure.  Here's how things fail:
+;;  A cmpdi RTX needs reloading (global):
+;;    (insn 185 326 186 (set (cc0)
+;;	    (compare (mem/f:DI (reg/v:SI 22) 0)
+;;		(const_int 1 [0x1]))) 4 {cmpdi} (nil)
+;;	(nil))
+;; Now, reg 22 is reloaded for input address, and the mem is also moved
+;; out of the instruction (into a register), since one of the operands
+;; must be a register.  Reg 22 is reloaded (into reg 10), and the mem is
+;; moved out and synthesized in SImode parts (reg 9, reg 10 - should be ok
+;; wrt. overlap).  The bad things happen with the synthesis in
+;; emit_move_insn_1; the location where to substitute reg 10 is lost into
+;; two new RTX:es, both still having reg 22.  Later on, the left-over reg
+;; 22 is recognized to have an equivalent in memory which is substituted
+;; straight in, and we end up with an unrecognizable insn:
+;;    (insn 325 324 326 (set (reg:SI 9 r9)
+;;    	      (mem/f:SI (mem:SI (plus:SI (reg:SI 8 r8)
+;;    			  (const_int -84 [0xffffffac])) 0) 0)) -1 (nil)
+;;    	  (nil))
+;; which is the first part of the reloaded synthesized "movdi".
+;;  The right thing would be to add equivalent replacement locations for
+;; insn with pseudos that need more reloading.  The question is where.
+
 (define_expand "movdi"
   [(set (match_operand:DI 0 "nonimmediate_operand" "")
 	(match_operand:DI 1 "general_operand" ""))]
   ""
-  "
 {
   if (GET_CODE (operands[0]) == MEM && operands[1] != const0_rtx)
     operands[1] = copy_to_mode_reg (DImode, operands[1]);
@@ -423,11 +433,11 @@
       emit_no_conflict_block (insns, op0, op1, 0, op1);
       DONE;
     }
-}")
+})
 
 (define_insn "*movdi_insn"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r,m")
-	(match_operand:DI 1 "general_operand" "r,g,rM"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,rx,m")
+	(match_operand:DI 1 "general_operand" "rx,g,rxM"))]
   "register_operand (operands[0], DImode)
    || register_operand (operands[1], DImode)
    || operands[1] == const0_rtx"
@@ -447,11 +457,9 @@
 ;; move.S1 [rx=ry+rz.S],rw avoiding when rx is ry, or rw is rx
 ;; FIXME: These could have anonymous mode for operand 0.
 
-;; QImode
-
-(define_insn "*mov_sideqi_biap"
-  [(set (match_operand:QI 0 "register_operand" "=r,r")
-	(mem:QI (plus:SI
+(define_insn "*mov_side<mode>_biap"
+  [(set (match_operand:BW 0 "register_operand" "=r,r")
+	(mem:BW (plus:SI
 		 (mult:SI (match_operand:SI 1 "register_operand" "r,r")
 			  (match_operand:SI 2 "const_int_operand" "n,n"))
 		 (match_operand:SI 3 "register_operand" "r,r"))))
@@ -462,34 +470,15 @@
   "cris_side_effect_mode_ok (MULT, operands, 4, 3, 1, 2, 0)"
   "@
    #
-   move.%s0 [%4=%3+%1%T2],%0")
-
-;; HImode
-
-(define_insn "*mov_sidehi_biap"
-  [(set (match_operand:HI 0 "register_operand" "=r,r")
-	(mem:HI (plus:SI
-		 (mult:SI (match_operand:SI 1 "register_operand" "r,r")
-			  (match_operand:SI 2 "const_int_operand" "n,n"))
-		 (match_operand:SI 3 "register_operand" "r,r"))))
-   (set (match_operand:SI 4 "register_operand" "=*3,r")
-	(plus:SI (mult:SI (match_dup 1)
-			  (match_dup 2))
-		 (match_dup 3)))]
-  "cris_side_effect_mode_ok (MULT, operands, 4, 3, 1, 2, 0)"
-  "@
-   #
-   move.%s0 [%4=%3+%1%T2],%0")
-
-;; SImode
+   move<m> [%4=%3+%1%T2],%0")
 
 (define_insn "*mov_sidesisf_biap"
-  [(set (match_operand 0 "register_operand" "=r,r")
+  [(set (match_operand 0 "register_operand" "=r,r,x,x")
 	(mem (plus:SI
-	      (mult:SI (match_operand:SI 1 "register_operand" "r,r")
-		       (match_operand:SI 2 "const_int_operand" "n,n"))
-	      (match_operand:SI 3 "register_operand" "r,r"))))
-   (set (match_operand:SI 4 "register_operand" "=*3,r")
+	      (mult:SI (match_operand:SI 1 "register_operand" "r,r,r,r")
+		       (match_operand:SI 2 "const_int_operand" "n,n,n,n"))
+	      (match_operand:SI 3 "register_operand" "r,r,r,r"))))
+   (set (match_operand:SI 4 "register_operand" "=*3,r,*3,r")
 	(plus:SI (mult:SI (match_dup 1)
 			  (match_dup 2))
 		 (match_dup 3)))]
@@ -497,26 +486,24 @@
    && cris_side_effect_mode_ok (MULT, operands, 4, 3, 1, 2, 0)"
   "@
    #
-   move.%s0 [%4=%3+%1%T2],%0")
+   move.%s0 [%4=%3+%1%T2],%0
+   #
+   move [%4=%3+%1%T2],%0")
 
 ;; move.S1 [rx=ry+i],rz
 ;; avoiding move.S1 [ry=ry+i],rz
 ;; and      move.S1 [rz=ry+i],rz
 ;; Note that "i" is allowed to be a register.
-;; FIXME: These could have anonymous mode for operand 0.
 
-;; QImode
-
-(define_insn "*mov_sideqi"
-  [(set (match_operand:QI 0 "register_operand" "=r,r,r")
-	(mem:QI
+(define_insn "*mov_side<mode>"
+  [(set (match_operand:BW 0 "register_operand" "=r,r,r")
+	(mem:BW
 	 (plus:SI (match_operand:SI 1 "cris_bdap_operand" "%r,r,r")
 		  (match_operand:SI 2 "cris_bdap_operand" "r>Rn,r,>Rn"))))
    (set (match_operand:SI 3 "register_operand" "=*1,r,r")
 	(plus:SI (match_dup 1)
 		 (match_dup 2)))]
   "cris_side_effect_mode_ok (PLUS, operands, 3, 1, 2, -1, 0)"
-  "*
 {
   if (which_alternative == 0
       && (GET_CODE (operands[2]) != CONST_INT
@@ -524,56 +511,33 @@
 	  || INTVAL (operands[2]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'J')))
-    return \"#\";
-  return \"move.%s0 [%3=%1%S2],%0\";
-}")
-
-;; HImode
-
-(define_insn "*mov_sidehi"
-  [(set (match_operand:HI 0 "register_operand" "=r,r,r")
-	(mem:HI
-	 (plus:SI (match_operand:SI 1 "cris_bdap_operand" "%r,r,r")
-		  (match_operand:SI 2 "cris_bdap_operand" "r>Rn,r,>Rn"))))
-   (set (match_operand:SI 3 "register_operand" "=*1,r,r")
-	(plus:SI (match_dup 1)
-		 (match_dup 2)))]
-  "cris_side_effect_mode_ok (PLUS, operands, 3, 1, 2, -1, 0)"
-  "*
-{
-  if (which_alternative == 0
-      && (GET_CODE (operands[2]) != CONST_INT
-	  || INTVAL (operands[2]) > 127
-	  || INTVAL (operands[2]) < -128
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'N')
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'J')))
-    return \"#\";
-  return \"move.%s0 [%3=%1%S2],%0\";
-}")
-
-;; SImode
+    return "#";
+  return "move<m> [%3=%1%S2],%0";
+})
 
 (define_insn "*mov_sidesisf"
-  [(set (match_operand 0 "register_operand" "=r,r,r")
+  [(set (match_operand 0 "register_operand" "=r,r,r,x,x,x")
 	(mem
-	 (plus:SI (match_operand:SI 1 "cris_bdap_operand" "%r,r,r")
-		  (match_operand:SI 2 "cris_bdap_operand" "r>Rn,r,>Rn"))))
-   (set (match_operand:SI 3 "register_operand" "=*1,r,r")
+	 (plus:SI
+	  (match_operand:SI 1 "cris_bdap_operand" "%r,r,r,r,r,r")
+	  (match_operand:SI 2 "cris_bdap_operand" "r>Rn,r,>Rn,r>Rn,r,>Rn"))))
+   (set (match_operand:SI 3 "register_operand" "=*1,r,r,*1,r,r")
 	(plus:SI (match_dup 1)
 		 (match_dup 2)))]
   "GET_MODE_SIZE (GET_MODE (operands[0])) == UNITS_PER_WORD
    && cris_side_effect_mode_ok (PLUS, operands, 3, 1, 2, -1, 0)"
-  "*
 {
-  if (which_alternative == 0
+  if ((which_alternative == 0 || which_alternative == 3)
       && (GET_CODE (operands[2]) != CONST_INT
 	  || INTVAL (operands[2]) > 127
 	  || INTVAL (operands[2]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'J')))
-    return \"#\";
-  return \"move.%s0 [%3=%1%S2],%0\";
-}")
+    return "#";
+  if (which_alternative < 3)
+    return "move.%s0 [%3=%1%S2],%0";
+  return "move [%3=%1%S2],%0";
+})
 
 ;; Other way around; move to memory.
 
@@ -593,16 +557,13 @@
 
 ;;
 ;; move.s rz,[ry=rx+rw.S]
-;; FIXME: These could have anonymous mode for operand 3.
 
-;; QImode
-
-(define_insn "*mov_sideqi_biap_mem"
-  [(set (mem:QI (plus:SI
+(define_insn "*mov_side<mode>_biap_mem"
+  [(set (mem:BW (plus:SI
 		 (mult:SI (match_operand:SI 0 "register_operand" "r,r,r")
 			  (match_operand:SI 1 "const_int_operand" "n,n,n"))
 		 (match_operand:SI 2 "register_operand" "r,r,r")))
-	(match_operand:QI 3 "register_operand" "r,r,r"))
+	(match_operand:BW 3 "register_operand" "r,r,r"))
    (set (match_operand:SI 4 "register_operand" "=*2,!3,r")
 	(plus:SI (mult:SI (match_dup 0)
 			  (match_dup 1))
@@ -611,35 +572,15 @@
   "@
    #
    #
-   move.%s3 %3,[%4=%2+%0%T1]")
-
-;; HImode
-
-(define_insn "*mov_sidehi_biap_mem"
-  [(set (mem:HI (plus:SI
-		 (mult:SI (match_operand:SI 0 "register_operand" "r,r,r")
-			  (match_operand:SI 1 "const_int_operand" "n,n,n"))
-		 (match_operand:SI 2 "register_operand" "r,r,r")))
-	(match_operand:HI 3 "register_operand" "r,r,r"))
-   (set (match_operand:SI 4 "register_operand" "=*2,!3,r")
-	(plus:SI (mult:SI (match_dup 0)
-			  (match_dup 1))
-		 (match_dup 2)))]
-  "cris_side_effect_mode_ok (MULT, operands, 4, 2, 0, 1, 3)"
-  "@
-   #
-   #
-   move.%s3 %3,[%4=%2+%0%T1]")
-
-;; SImode
+   move<m> %3,[%4=%2+%0%T1]")
 
 (define_insn "*mov_sidesisf_biap_mem"
   [(set (mem (plus:SI
-	      (mult:SI (match_operand:SI 0 "register_operand" "r,r,r")
-		       (match_operand:SI 1 "const_int_operand" "n,n,n"))
-	      (match_operand:SI 2 "register_operand" "r,r,r")))
-	(match_operand 3 "register_operand" "r,r,r"))
-   (set (match_operand:SI 4 "register_operand" "=*2,!3,r")
+	      (mult:SI (match_operand:SI 0 "register_operand" "r,r,r,r,r,r")
+		       (match_operand:SI 1 "const_int_operand" "n,n,n,n,n,n"))
+	      (match_operand:SI 2 "register_operand" "r,r,r,r,r,r")))
+	(match_operand 3 "register_operand" "r,r,r,x,x,x"))
+   (set (match_operand:SI 4 "register_operand" "=*2,!3,r,*2,!3,r")
 	(plus:SI (mult:SI (match_dup 0)
 			  (match_dup 1))
 		 (match_dup 2)))]
@@ -648,7 +589,10 @@
   "@
    #
    #
-   move.%s3 %3,[%4=%2+%0%T1]")
+   move.%s3 %3,[%4=%2+%0%T1]
+   #
+   #
+   move %3,[%4=%2+%0%T1]")
 
 ;; Split for the case above where we're out of luck with register
 ;; allocation (again, the condition isn't checked for that), and we end up
@@ -688,16 +632,15 @@
 
 ;; QImode
 
-(define_insn "*mov_sideqi_mem"
-  [(set (mem:QI
+(define_insn "*mov_side<mode>_mem"
+  [(set (mem:BW
 	 (plus:SI (match_operand:SI 0 "cris_bdap_operand" "%r,r,r,r")
 		  (match_operand:SI 1 "cris_bdap_operand" "r>Rn,r>Rn,r,>Rn")))
-	(match_operand:QI 2 "register_operand" "r,r,r,r"))
+	(match_operand:BW 2 "register_operand" "r,r,r,r"))
    (set (match_operand:SI 3 "register_operand" "=*0,!2,r,r")
 	(plus:SI (match_dup 0)
 		 (match_dup 1)))]
   "cris_side_effect_mode_ok (PLUS, operands, 3, 0, 1, -1, 2)"
-  "*
 {
   if (which_alternative == 0
       && (GET_CODE (operands[1]) != CONST_INT
@@ -705,62 +648,41 @@
 	  || INTVAL (operands[1]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'J')))
-    return \"#\";
+    return "#";
   if (which_alternative == 1)
-    return \"#\";
-  return \"move.%s2 %2,[%3=%0%S1]\";
-}")
-
-;; HImode
-
-(define_insn "*mov_sidehi_mem"
-  [(set (mem:HI
-	 (plus:SI (match_operand:SI 0 "cris_bdap_operand" "%r,r,r,r")
-		  (match_operand:SI 1 "cris_bdap_operand" "r>Rn,r>Rn,r,>Rn")))
-	(match_operand:HI 2 "register_operand" "r,r,r,r"))
-   (set (match_operand:SI 3 "register_operand" "=*0,!2,r,r")
-	(plus:SI (match_dup 0)
-		 (match_dup 1)))]
-  "cris_side_effect_mode_ok (PLUS, operands, 3, 0, 1, -1, 2)"
-  "*
-{
-  if (which_alternative == 0
-      && (GET_CODE (operands[1]) != CONST_INT
-	  || INTVAL (operands[1]) > 127
-	  || INTVAL (operands[1]) < -128
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'N')
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'J')))
-    return \"#\";
-  if (which_alternative == 1)
-    return \"#\";
-  return \"move.%s2 %2,[%3=%0%S1]\";
-}")
+    return "#";
+  return "move<m> %2,[%3=%0%S1]";
+})
 
 ;; SImode
 
 (define_insn "*mov_sidesisf_mem"
   [(set (mem
-	 (plus:SI (match_operand:SI 0 "cris_bdap_operand" "%r,r,r,r")
-		  (match_operand:SI 1 "cris_bdap_operand" "r>Rn,r>Rn,r,>Rn")))
-	(match_operand 2 "register_operand" "r,r,r,r"))
-   (set (match_operand:SI 3 "register_operand" "=*0,!2,r,r")
+	 (plus:SI
+	  (match_operand:SI
+	   0 "cris_bdap_operand" "%r,r,r,r,r,r,r,r")
+	  (match_operand:SI
+	   1 "cris_bdap_operand" "r>Rn,r>Rn,r,>Rn,r>Rn,r>Rn,r,>Rn")))
+	(match_operand 2 "register_operand" "r,r,r,r,x,x,x,x"))
+   (set (match_operand:SI 3 "register_operand" "=*0,!2,r,r,*0,!2,r,r")
 	(plus:SI (match_dup 0)
 		 (match_dup 1)))]
   "GET_MODE_SIZE (GET_MODE (operands[2])) == UNITS_PER_WORD
    && cris_side_effect_mode_ok (PLUS, operands, 3, 0, 1, -1, 2)"
-  "*
 {
-  if (which_alternative == 0
+  if ((which_alternative == 0 || which_alternative == 4)
       && (GET_CODE (operands[1]) != CONST_INT
 	  || INTVAL (operands[1]) > 127
 	  || INTVAL (operands[1]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'J')))
-    return \"#\";
-  if (which_alternative == 1)
-    return \"#\";
-  return \"move.%s2 %2,[%3=%0%S1]\";
-}")
+    return "#";
+  if (which_alternative == 1 || which_alternative == 5)
+    return "#";
+  if (which_alternative < 4)
+    return "move.%s2 %2,[%3=%0%S1]";
+  return "move %2,[%3=%0%S1]";
+})
 
 ;; Like the biap case, a split where the set in the side-effect gets the
 ;; same register as the input register to the main insn, since the
@@ -785,13 +707,13 @@
 ;; Clear memory side-effect patterns.  It is hard to get to the mode if
 ;; the MEM was anonymous, so there will be one for each mode.
 
-;; clear.d [ry=rx+rw.s2]
+;;  clear.[bwd] [ry=rx+rw.s2]
 
-(define_insn "*clear_sidesi_biap"
-  [(set (mem:SI (plus:SI
-		 (mult:SI (match_operand:SI 0 "register_operand" "r,r")
-			  (match_operand:SI 1 "const_int_operand" "n,n"))
-		 (match_operand:SI 2 "register_operand" "r,r")))
+(define_insn "*clear_side<mode>_biap"
+  [(set (mem:BWD (plus:SI
+		  (mult:SI (match_operand:SI 0 "register_operand" "r,r")
+			   (match_operand:SI 1 "const_int_operand" "n,n"))
+		  (match_operand:SI 2 "register_operand" "r,r")))
 	(const_int 0))
    (set (match_operand:SI 3 "register_operand" "=*2,r")
 	(plus:SI (mult:SI (match_dup 0)
@@ -800,12 +722,12 @@
   "cris_side_effect_mode_ok (MULT, operands, 3, 2, 0, 1, -1)"
   "@
    #
-   clear.d [%3=%2+%0%T1]")
+   clear<m> [%3=%2+%0%T1]")
 
-;; clear.d [ry=rz+i]
+;; clear.[bwd] [ry=rz+i]
 
-(define_insn "*clear_sidesi"
-  [(set (mem:SI
+(define_insn "*clear_side<mode>"
+  [(set (mem:BWD
 	 (plus:SI (match_operand:SI 0 "cris_bdap_operand" "%r,r,r")
 		  (match_operand:SI 1 "cris_bdap_operand" "r>Rn,r,>Rn")))
 	(const_int 0))
@@ -813,7 +735,6 @@
 	(plus:SI (match_dup 0)
 		 (match_dup 1)))]
   "cris_side_effect_mode_ok (PLUS, operands, 2, 0, 1, -1, -1)"
-  "*
 {
   if (which_alternative == 0
       && (GET_CODE (operands[1]) != CONST_INT
@@ -821,114 +742,10 @@
 	  || INTVAL (operands[1]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'J')))
-    return \"#\";
-  return \"clear.d [%2=%0%S1]\";
-}")
-
-;;  clear.w [ry=rx+rw.s2]
-
-(define_insn "*clear_sidehi_biap"
-  [(set (mem:HI (plus:SI
-		 (mult:SI (match_operand:SI 0 "register_operand" "r,r")
-			  (match_operand:SI 1 "const_int_operand" "n,n"))
-		 (match_operand:SI 2 "register_operand" "r,r")))
-	(const_int 0))
-   (set (match_operand:SI 3 "register_operand" "=*2,r")
-	(plus:SI (mult:SI (match_dup 0)
-			  (match_dup 1))
-		 (match_dup 2)))]
-  "cris_side_effect_mode_ok (MULT, operands, 3, 2, 0, 1, -1)"
-  "@
-   #
-   clear.w [%3=%2+%0%T1]")
-
-;; clear.w [ry=rz+i]
-
-(define_insn "*clear_sidehi"
-  [(set (mem:HI
-	 (plus:SI (match_operand:SI 0 "cris_bdap_operand" "%r,r,r")
-		  (match_operand:SI 1 "cris_bdap_operand" "r>Rn,r,>Rn")))
-	(const_int 0))
-   (set (match_operand:SI 2 "register_operand" "=*0,r,r")
-	(plus:SI (match_dup 0)
-		 (match_dup 1)))]
-  "cris_side_effect_mode_ok (PLUS, operands, 2, 0, 1, -1, -1)"
-  "*
-{
-  if (which_alternative == 0
-      && (GET_CODE (operands[1]) != CONST_INT
-	  || INTVAL (operands[1]) > 127
-	  || INTVAL (operands[1]) < -128
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'N')
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'J')))
-    return \"#\";
-  return \"clear.w [%2=%0%S1]\";
-}")
-
-;;  clear.b [ry=rx+rw.s2]
-
-(define_insn "*clear_sideqi_biap"
-  [(set (mem:QI (plus:SI
-		 (mult:SI (match_operand:SI 0 "register_operand" "r,r")
-			  (match_operand:SI 1 "const_int_operand" "n,n"))
-		 (match_operand:SI 2 "register_operand" "r,r")))
-	(const_int 0))
-   (set (match_operand:SI 3 "register_operand" "=*2,r")
-	(plus:SI (mult:SI (match_dup 0)
-			  (match_dup 1))
-		 (match_dup 2)))]
-  "cris_side_effect_mode_ok (MULT, operands, 3, 2, 0, 1, -1)"
-  "@
-   #
-   clear.b [%3=%2+%0%T1]")
-
-;; clear.b [ry=rz+i]
-
-(define_insn "*clear_sideqi"
-  [(set (mem:QI
-	 (plus:SI (match_operand:SI 0 "cris_bdap_operand" "%r,r,r")
-		  (match_operand:SI 1 "cris_bdap_operand" "r>Rn,r,>Rn")))
-	(const_int 0))
-   (set (match_operand:SI 2 "register_operand" "=*0,r,r")
-	(plus:SI (match_dup 0)
-		 (match_dup 1)))]
-  "cris_side_effect_mode_ok (PLUS, operands, 2, 0, 1, -1, -1)"
-  "*
-{
-  if (which_alternative == 0
-      && (GET_CODE (operands[1]) != CONST_INT
-	  || INTVAL (operands[1]) > 127
-	  || INTVAL (operands[1]) < -128
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'N')
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'J')))
-    return \"#\";
-  return \"clear.b [%2=%0%S1]\";
-}")
+    return "#";
+  return "clear<m> [%2=%0%S1]";
+})
 
-;; To appease testcase gcc.c-torture/execute/920501-2.c (and others) at
-;; -O0, we need a movdi as a temporary measure.  Here's how things fail:
-;;  A cmpdi RTX needs reloading (global):
-;;    (insn 185 326 186 (set (cc0)
-;;	    (compare (mem/f:DI (reg/v:SI 22) 0)
-;;		(const_int 1 [0x1]))) 4 {cmpdi} (nil)
-;;	(nil))
-;; Now, reg 22 is reloaded for input address, and the mem is also moved
-;; out of the instruction (into a register), since one of the operands
-;; must be a register.  Reg 22 is reloaded (into reg 10), and the mem is
-;; moved out and synthesized in SImode parts (reg 9, reg 10 - should be ok
-;; wrt. overlap).  The bad things happen with the synthesis in
-;; emit_move_insn_1; the location where to substitute reg 10 is lost into
-;; two new RTX:es, both still having reg 22.  Later on, the left-over reg
-;; 22 is recognized to have an equivalent in memory which is substituted
-;; straight in, and we end up with an unrecognizable insn:
-;;    (insn 325 324 326 (set (reg:SI 9 r9)
-;;    	      (mem/f:SI (mem:SI (plus:SI (reg:SI 8 r8)
-;;    			  (const_int -84 [0xffffffac])) 0) 0)) -1 (nil)
-;;    	  (nil))
-;; which is the first part of the reloaded synthesized "movdi".
-;;  The right thing would be to add equivalent replacement locations for
-;; insn with pseudos that need more reloading.  The question is where.
-
 ;; Normal move patterns from SI on.
 
 (define_expand "movsi"
@@ -936,7 +753,6 @@
     (match_operand:SI 0 "nonimmediate_operand" "")
     (match_operand:SI 1 "cris_general_operand_or_symbol" ""))]
   ""
-  "
 {
   /* If the output goes to a MEM, make sure we have zero or a register as
      input.  */
@@ -960,8 +776,7 @@
 	 do, and for the patterns we generate.  */
       if (! REG_S_P (operands[0]))
 	{
-	  if (no_new_pseudos)
-	    abort ();
+	  CRIS_ASSERT (!no_new_pseudos);
 	  operands[1] = force_reg (SImode, operands[1]);
 	}
       else
@@ -991,18 +806,18 @@
 	      rtx sym = get_related_value (operands[1]);
 	      HOST_WIDE_INT offs = get_integer_term (operands[1]);
 
-	      if (sym == NULL_RTX || offs == 0)
-		abort ();
+	      CRIS_ASSERT (sym != NULL_RTX && offs != 0);
+
 	      emit_move_insn (operands[0], sym);
 	      if (expand_binop (SImode, add_optab, operands[0],
 				GEN_INT (offs), operands[0], 0,
 				OPTAB_LIB_WIDEN) != operands[0])
-		abort ();
+	        internal_error ("expand_binop failed in movsi");
 	      DONE;
 	    }
 	}
     }
-}")
+})
 
 (define_insn "*movsi_internal"
   [(set
@@ -1012,7 +827,6 @@
     ;; It's a bug: an S is not a general_operand and shouldn't match g.
      "cris_general_operand_or_gotless_symbol"   "r,Q>,M,M, I,r, M,n,!S,g,r,x,  rQ>,x,gi"))]
   ""
-  "*
 {
   /* Better to have c-switch here; it is worth it to optimize the size of
      move insns.  The alternative would be to try to find more constraint
@@ -1024,59 +838,70 @@
     case 5:
     case 9:
     case 10:
-      return \"move.d %1,%0\";
+      return "move.d %1,%0";
 
     case 11:
     case 12:
     case 13:
     case 14:
-      return \"move %d1,%0\";
+      return "move %d1,%0";
 
     case 2:
     case 3:
     case 6:
-      return \"clear.d %0\";
+      return "clear.d %0";
 
       /* Constants -32..31 except 0.  */
     case 4:
-      return \"moveq %1,%0\";
+      return "moveq %1,%0";
 
       /* We can win a little on constants -32768..-33, 32..65535.  */
     case 7:
       if (INTVAL (operands[1]) > 0 && INTVAL (operands[1]) < 65536)
 	{
 	  if (INTVAL (operands[1]) < 256)
-	    return \"movu.b %1,%0\";
-	  return \"movu.w %1,%0\";
+	    return "movu.b %1,%0";
+	  return "movu.w %1,%0";
 	}
       else if (INTVAL (operands[1]) >= -32768 && INTVAL (operands[1]) < 32768)
 	{
 	  if (INTVAL (operands[1]) >= -128 && INTVAL (operands[1]) < 128)
-	    return \"movs.b %1,%0\";
-	  return \"movs.w %1,%0\";
+	    return "movs.b %1,%0";
+	  return "movs.w %1,%0";
 	}
-      return \"move.d %1,%0\";
+      return "move.d %1,%0";
 
-      case 8:
-	/* FIXME: Try and split this into pieces GCC makes better code of,
-	   than this multi-insn pattern.  Synopsis: wrap the GOT-relative
-	   symbol into an unspec, and when PIC, recognize the unspec
-	   everywhere a symbol is normally recognized.  (The PIC register
-	   should be recognized by GCC as pic_offset_table_rtx when needed
-	   and similar for PC.)  Each component can then be optimized with
-	   the rest of the code; it should be possible to have a constant
-	   term added on an unspec.  Don't forget to add a REG_EQUAL (or
-	   is it REG_EQUIV) note to the destination.  It might not be
-	   worth it.  Measure.
+    case 8:
+      /* FIXME: Try and split this into pieces GCC makes better code of,
+	 than this multi-insn pattern.  Synopsis: wrap the GOT-relative
+	 symbol into an unspec, and when PIC, recognize the unspec
+	 everywhere a symbol is normally recognized.  (The PIC register
+	 should be recognized by GCC as pic_offset_table_rtx when needed
+	 and similar for PC.)  Each component can then be optimized with
+	 the rest of the code; it should be possible to have a constant
+	 term added on an unspec.  Don't forget to add a REG_EQUAL (or
+	 is it REG_EQUIV) note to the destination.  It might not be
+	 worth it.  Measure.
 
-	   Note that the 'v' modifier makes PLT references be output as
-	   sym:PLT rather than [rPIC+sym:GOTPLT].  */
-	return \"move.d %v1,%0\;add.d %P1,%0\";
+	 Note that the 'v' modifier makes PLT references be output as
+	 sym:PLT rather than [rPIC+sym:GOTPLT].  */
+      if (GET_CODE (operands[1]) == UNSPEC
+	  && XINT (operands[1], 1) == CRIS_UNSPEC_GOT)
+	{
+	  /* We clobber cc0 rather than set it to GOT.  Should not
+             matter, though.  */
+	  CC_STATUS_INIT;
+	  CRIS_ASSERT (REGNO (operands[0]) == PIC_OFFSET_TABLE_REGNUM);
+
+	  return "move.d $pc,%0\;sub.d .:GOTOFF,%0";
+	}
+
+      return "move.d %v1,%0\;add.d %P1,%0";
 
     default:
-      return \"BOGUS: %1 to %0\";
+      return "BOGUS: %1 to %0";
     }
-}"
+}
   [(set_attr "slottable" "yes,yes,yes,yes,yes,yes,no,no,no,no,no,yes,yes,no,no")
    (set_attr "cc" "*,*,*,*,*,*,*,*,*,*,*,none,none,none,none")])
 
@@ -1107,13 +932,11 @@
    #
    mov%e5.%m5 [%4=%3+%1%T2],%0")
 
-;; QImode to SImode
-
-(define_insn "*ext_sideqisi_biap"
+(define_insn "*ext_side<mode>si_biap"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
 	(match_operator:SI
 	 5 "cris_extend_operator"
-	 [(mem:QI (plus:SI
+	 [(mem:BW (plus:SI
 		   (mult:SI (match_operand:SI 1 "register_operand" "r,r")
 			    (match_operand:SI 2 "const_int_operand" "n,n"))
 		   (match_operand:SI 3 "register_operand" "r,r")))]))
@@ -1124,26 +947,7 @@
   "cris_side_effect_mode_ok (MULT, operands, 4, 3, 1, 2, 0)"
   "@
    #
-   mov%e5.%m5 [%4=%3+%1%T2],%0")
-
-;; HImode to SImode
-
-(define_insn "*ext_sidehisi_biap"
-  [(set (match_operand:SI 0 "register_operand" "=r,r")
-	(match_operator:SI
-	 5 "cris_extend_operator"
-	 [(mem:HI (plus:SI
-		   (mult:SI (match_operand:SI 1 "register_operand" "r,r")
-			    (match_operand:SI 2 "const_int_operand" "n,n"))
-		   (match_operand:SI 3 "register_operand" "r,r")))]))
-   (set (match_operand:SI 4 "register_operand" "=*3,r")
-	(plus:SI (mult:SI (match_dup 1)
-			  (match_dup 2))
-		 (match_dup 3)))]
-  "cris_side_effect_mode_ok (MULT, operands, 4, 3, 1, 2, 0)"
-  "@
-   #
-   mov%e5.%m5 [%4=%3+%1%T2],%0")
+   mov%e5<m> [%4=%3+%1%T2],%0")
 
 ;; Same but [rx=ry+i]
 
@@ -1160,7 +964,6 @@
 	(plus:SI (match_dup 1)
 		 (match_dup 2)))]
   "cris_side_effect_mode_ok (PLUS, operands, 3, 1, 2, -1, 0)"
-  "*
 {
   if (which_alternative == 0
       && (GET_CODE (operands[2]) != CONST_INT
@@ -1168,24 +971,21 @@
 	  || INTVAL (operands[2]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'J')))
-    return \"#\";
-  return \"mov%e4.%m4 [%3=%1%S2],%0\";
-}")
+    return "#";
+  return "mov%e4.%m4 [%3=%1%S2],%0";
+})
 
-;; QImode to SImode
-
-(define_insn "*ext_sideqisi"
+(define_insn "*ext_side<mode>si"
   [(set (match_operand:SI 0 "register_operand" "=r,r,r")
 	(match_operator:SI
 	 4 "cris_extend_operator"
-	 [(mem:QI (plus:SI
+	 [(mem:BW (plus:SI
 		   (match_operand:SI 1 "cris_bdap_operand" "%r,r,r")
 		   (match_operand:SI 2 "cris_bdap_operand" "r>Rn,r,>Rn")))]))
    (set (match_operand:SI 3 "register_operand" "=*1,r,r")
 	(plus:SI (match_dup 1)
 		 (match_dup 2)))]
   "cris_side_effect_mode_ok (PLUS, operands, 3, 1, 2, -1, 0)"
-  "*
 {
   if (which_alternative == 0
       && (GET_CODE (operands[2]) != CONST_INT
@@ -1193,34 +993,9 @@
 	  || INTVAL (operands[2]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'J')))
-    return \"#\";
-  return \"mov%e4.%m4 [%3=%1%S2],%0\";
-}")
-
-;; HImode to SImode
-
-(define_insn "*ext_sidehisi"
-  [(set (match_operand:SI 0 "register_operand" "=r,r,r")
-	(match_operator:SI
-	 4 "cris_extend_operator"
-	 [(mem:HI (plus:SI
-		   (match_operand:SI 1 "cris_bdap_operand" "%r,r,r")
-		   (match_operand:SI 2 "cris_bdap_operand" "r>Rn,r,>Rn")))]))
-   (set (match_operand:SI 3 "register_operand" "=*1,r,r")
-	(plus:SI (match_dup 1)
-		 (match_dup 2)))]
-  "cris_side_effect_mode_ok (PLUS, operands, 3, 1, 2, -1, 0)"
-  "*
-{
-  if (which_alternative == 0
-      && (GET_CODE (operands[2]) != CONST_INT
-	  || INTVAL (operands[2]) > 127
-	  || INTVAL (operands[2]) < -128
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'N')
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'J')))
-    return \"#\";
-  return \"mov%e4.%m4 [%3=%1%S2],%0\";
-}")
+    return "#";
+  return "mov%e4<m> [%3=%1%S2],%0";
+})
 
 ;; FIXME: See movsi.
 
@@ -1229,7 +1004,6 @@
     (match_operand:HI 0 "nonimmediate_operand" "=r,r, r,Q>,r,Q>,r,r,r,g,g,r,r,x")
     (match_operand:HI 1 "general_operand"	"r,Q>,M,M, I,r, L,O,n,M,r,g,x,r"))]
   ""
-  "*
 {
   switch (which_alternative)
     {
@@ -1238,31 +1012,31 @@
     case 5:
     case 10:
     case 11:
-      return \"move.w %1,%0\";
+      return "move.w %1,%0";
     case 12:
     case 13:
-      return \"move %1,%0\";
+      return "move %1,%0";
     case 2:
     case 3:
     case 9:
-      return \"clear.w %0\";
+      return "clear.w %0";
     case 4:
-      return \"moveq %1,%0\";
+      return "moveq %1,%0";
     case 6:
     case 8:
       if (INTVAL (operands[1]) < 256 && INTVAL (operands[1]) >= -128)
 	{
 	  if (INTVAL (operands[1]) > 0)
-	    return \"movu.b %1,%0\";
-	  return \"movs.b %1,%0\";
+	    return "movu.b %1,%0";
+	  return "movs.b %1,%0";
 	}
-      return \"move.w %1,%0\";
+      return "move.w %1,%0";
     case 7:
-      return \"movEq %b1,%0\";
+      return "movEq %b1,%0";
     default:
-      return \"BOGUS: %1 to %0\";
+      return "BOGUS: %1 to %0";
   }
-}"
+}
   [(set_attr "slottable" "yes,yes,yes,yes,yes,yes,no,yes,no,no,no,no,yes,yes")
    (set_attr "cc" "*,*,none,none,*,none,*,clobber,*,none,none,*,none,none")])
 
@@ -1283,18 +1057,18 @@
    move.w %1,%0"
   [(set_attr "slottable" "yes,yes,yes,yes,yes,no,no,no")])
 
-(define_expand "reload_inhi"
-  [(set (match_operand:HI 2 "register_operand" "=r")
-	(match_operand:HI 1 "memory_operand" "m"))
-   (set (match_operand:HI 0 "register_operand" "=x")
+(define_expand "reload_in<mode>"
+  [(set (match_operand:BW 2 "register_operand" "=r")
+	(match_operand:BW 1 "memory_operand" "m"))
+   (set (match_operand:BW 0 "register_operand" "=x")
 	(match_dup 2))]
   ""
   "")
 
-(define_expand "reload_outhi"
-  [(set (match_operand:HI 2 "register_operand" "=r")
-	(match_operand:HI 1 "register_operand" "x"))
-   (set (match_operand:HI 0 "memory_operand" "=m")
+(define_expand "reload_out<mode>"
+  [(set (match_operand:BW 2 "register_operand" "=r")
+	(match_operand:BW 1 "register_operand" "x"))
+   (set (match_operand:BW 0 "memory_operand" "=m")
 	(match_dup 2))]
   ""
   "")
@@ -1335,22 +1109,6 @@
    move.b %1,%0"
   [(set_attr "slottable" "yes,yes,yes,yes,yes,no,no,no")])
 
-(define_expand "reload_inqi"
-  [(set (match_operand:QI 2 "register_operand" "=r")
-	(match_operand:QI 1 "memory_operand" "m"))
-   (set (match_operand:QI 0 "register_operand" "=x")
-	(match_dup 2))]
-  ""
-  "")
-
-(define_expand "reload_outqi"
-  [(set (match_operand:QI 2 "register_operand" "=r")
-	(match_operand:QI 1 "register_operand" "x"))
-   (set (match_operand:QI 0 "memory_operand" "=m")
-	(match_dup 2))]
-  ""
-  "")
-
 ;; The valid "quick" bit-patterns are, except for 0.0, denormalized
 ;; values REALLY close to 0, and some NaN:s (I think; their exponent is
 ;; all ones); the worthwhile one is "0.0".
@@ -1376,6 +1134,33 @@
    move %1,%0
    move %1,%0"
   [(set_attr "slottable" "yes,yes,yes,yes,yes,no,no,no,yes,yes,yes,no,yes,no")])
+
+;; Note that the memory layout of the registers is the reverse of that
+;; of the standard patterns "load_multiple" and "store_multiple".
+(define_insn "*cris_load_multiple"
+  [(match_parallel 0 "cris_load_multiple_op"
+		   [(set (match_operand:SI 1 "register_operand" "=r,r")
+			 (match_operand:SI 2 "memory_operand" "Q,m"))])]
+  ""
+  "movem %O0,%o0"
+  [(set_attr "cc" "none")
+   (set_attr "slottable" "yes,no")
+   ;; Not true, but setting the length to 0 causes return sequences (ret
+   ;; movem) to have the cost they had when (return) included the movem
+   ;; and reduces the performance penalty taken for needing to emit an
+   ;; epilogue (in turn copied by bb-reorder) instead of return patterns.
+   ;; FIXME: temporary change until all insn lengths are correctly
+   ;; described.  FIXME: have better target control over bb-reorder.
+   (set_attr "length" "0")])
+
+(define_insn "*cris_store_multiple"
+  [(match_parallel 0 "cris_store_multiple_op"
+		   [(set (match_operand:SI 2 "memory_operand" "=Q,m")
+			 (match_operand:SI 1 "register_operand" "r,r"))])]
+  ""
+  "movem %o0,%O0"
+  [(set_attr "cc" "none")
+   (set_attr "slottable" "yes,no")])
 
 
 ;; Sign- and zero-extend insns with standard names.
@@ -1390,30 +1175,17 @@
   ""
   "move.d %1,%M0\;smi %H0\;neg.d %H0,%H0")
 
-(define_insn "extendhidi2"
+(define_insn "extend<mode>di2"
   [(set (match_operand:DI 0 "register_operand" "=r")
-	(sign_extend:DI (match_operand:HI 1 "general_operand" "g")))]
+	(sign_extend:DI (match_operand:BW 1 "general_operand" "g")))]
   ""
-  "movs.w %1,%M0\;smi %H0\;neg.d %H0,%H0")
+  "movs<m> %1,%M0\;smi %H0\;neg.d %H0,%H0")
 
-(define_insn "extendhisi2"
+(define_insn "extend<mode>si2"
   [(set (match_operand:SI 0 "register_operand" "=r,r,r")
-	(sign_extend:SI (match_operand:HI 1 "general_operand" "r,Q>,g")))]
+	(sign_extend:SI (match_operand:BW 1 "general_operand" "r,Q>,g")))]
   ""
-  "movs.w %1,%0"
-  [(set_attr "slottable" "yes,yes,no")])
-
-(define_insn "extendqidi2"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(sign_extend:DI (match_operand:QI 1 "general_operand" "g")))]
-  ""
-  "movs.b %1,%M0\;smi %H0\;neg.d %H0,%H0")
-
-(define_insn "extendqisi2"
-  [(set (match_operand:SI 0 "register_operand" "=r,r,r")
-	(sign_extend:SI (match_operand:QI 1 "general_operand" "r,Q>,g")))]
-  ""
-  "movs.b %1,%0"
+  "movs<m> %1,%0"
   [(set_attr "slottable" "yes,yes,no")])
 
 ;; To do a byte->word extension, extend to dword, exept that the top half
@@ -1430,20 +1202,12 @@
 ;; Zero-extend.  The DImode ones are synthesized by gcc, so we don't
 ;; specify them here.
 
-(define_insn "zero_extendhisi2"
+(define_insn "zero_extend<mode>si2"
   [(set (match_operand:SI 0 "register_operand" "=r,r,r")
 	(zero_extend:SI
-	 (match_operand:HI 1 "nonimmediate_operand" "r,Q>,m")))]
+	 (match_operand:BW 1 "nonimmediate_operand" "r,Q>,m")))]
   ""
-  "movu.w %1,%0"
-  [(set_attr "slottable" "yes,yes,no")])
-
-(define_insn "zero_extendqisi2"
-  [(set (match_operand:SI 0 "register_operand" "=r,r,r")
-	(zero_extend:SI
-	 (match_operand:QI 1 "nonimmediate_operand" "r,Q>,m")))]
-  ""
-  "movu.b %1,%0"
+  "movu<m> %1,%0"
   [(set_attr "slottable" "yes,yes,no")])
 
 ;; Same comment as sign-extend QImode to HImode above applies.
@@ -1464,19 +1228,16 @@
 ;; op.S [rx=ry+I],rz; (add, sub, or, and, bound).
 ;;
 ;; [rx=ry+rz.S]
-;; FIXME: These could have anonymous mode for operand 0.
 
-;; QImode
-
-(define_insn "*op_sideqi_biap"
-  [(set (match_operand:QI 0 "register_operand" "=r,r")
-	(match_operator:QI
+(define_insn "*op_side<mode>_biap"
+  [(set (match_operand:BWD 0 "register_operand" "=r,r")
+	(match_operator:BWD
 	 6 "cris_orthogonal_operator"
-	 [(match_operand:QI 1 "register_operand" "0,0")
-	  (mem:QI (plus:SI
-		   (mult:SI (match_operand:SI 2 "register_operand" "r,r")
-			    (match_operand:SI 3 "const_int_operand" "n,n"))
-		   (match_operand:SI 4 "register_operand" "r,r")))]))
+	 [(match_operand:BWD 1 "register_operand" "0,0")
+	  (mem:BWD (plus:SI
+		    (mult:SI (match_operand:SI 2 "register_operand" "r,r")
+			     (match_operand:SI 3 "const_int_operand" "n,n"))
+		    (match_operand:SI 4 "register_operand" "r,r")))]))
    (set (match_operand:SI 5 "register_operand" "=*4,r")
 	(plus:SI (mult:SI (match_dup 2)
 			  (match_dup 3))
@@ -1484,66 +1245,22 @@
   "cris_side_effect_mode_ok (MULT, operands, 5, 4, 2, 3, 0)"
   "@
    #
-   %x6.%s0 [%5=%4+%2%T3],%0")
-
-;; HImode
-
-(define_insn "*op_sidehi_biap"
-  [(set (match_operand:HI 0 "register_operand" "=r,r")
-	(match_operator:HI
-	 6 "cris_orthogonal_operator"
-	 [(match_operand:HI 1 "register_operand" "0,0")
-	  (mem:HI (plus:SI
-		   (mult:SI (match_operand:SI 2 "register_operand" "r,r")
-			    (match_operand:SI 3 "const_int_operand" "n,n"))
-		   (match_operand:SI 4 "register_operand" "r,r")))]))
-   (set (match_operand:SI 5 "register_operand" "=*4,r")
-	(plus:SI (mult:SI (match_dup 2)
-			  (match_dup 3))
-		 (match_dup 4)))]
-  "cris_side_effect_mode_ok (MULT, operands, 5, 4, 2, 3, 0)"
-  "@
-   #
-   %x6.%s0 [%5=%4+%2%T3],%0")
-
-;; SImode
-
-(define_insn "*op_sidesi_biap"
-  [(set (match_operand:SI 0 "register_operand" "=r,r")
-	(match_operator:SI
-	 6 "cris_orthogonal_operator"
-	 [(match_operand:SI 1 "register_operand" "0,0")
-	  (mem:SI (plus:SI
-		   (mult:SI (match_operand:SI 2 "register_operand" "r,r")
-			    (match_operand:SI 3 "const_int_operand" "n,n"))
-		   (match_operand:SI 4 "register_operand" "r,r")))]))
-   (set (match_operand:SI 5 "register_operand" "=*4,r")
-	(plus:SI (mult:SI (match_dup 2)
-			  (match_dup 3))
-		 (match_dup 4)))]
-  "cris_side_effect_mode_ok (MULT, operands, 5, 4, 2, 3, 0)"
-  "@
-   #
-   %x6.%s0 [%5=%4+%2%T3],%0")
+   %x6<m> [%5=%4+%2%T3],%0")
 
 ;; [rx=ry+i] ([%4=%2+%3])
-;; FIXME: These could have anonymous mode for operand 0.
 
-;; QImode
-
-(define_insn "*op_sideqi"
-  [(set (match_operand:QI 0 "register_operand" "=r,r,r")
-	(match_operator:QI
+(define_insn "*op_side<mode>"
+  [(set (match_operand:BWD 0 "register_operand" "=r,r,r")
+	(match_operator:BWD
 	 5 "cris_orthogonal_operator"
-	 [(match_operand:QI 1 "register_operand" "0,0,0")
-	  (mem:QI (plus:SI
+	 [(match_operand:BWD 1 "register_operand" "0,0,0")
+	  (mem:BWD (plus:SI
 		   (match_operand:SI 2 "cris_bdap_operand" "%r,r,r")
 		   (match_operand:SI 3 "cris_bdap_operand" "r>Rn,r,>Rn")))]))
    (set (match_operand:SI 4 "register_operand" "=*2,r,r")
 	(plus:SI (match_dup 2)
 		 (match_dup 3)))]
   "cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
 {
   if (which_alternative == 0
       && (GET_CODE (operands[3]) != CONST_INT
@@ -1551,61 +1268,9 @@
 	  || INTVAL (operands[3]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"%x5.%s0 [%4=%2%S3],%0\";
-}")
-
-;; HImode
-
-(define_insn "*op_sidehi"
-  [(set (match_operand:HI 0 "register_operand" "=r,r,r")
-	(match_operator:HI
-	 5 "cris_orthogonal_operator"
-	 [(match_operand:HI 1 "register_operand" "0,0,0")
-	  (mem:HI (plus:SI
-		   (match_operand:SI 2 "cris_bdap_operand" "%r,r,r")
-		   (match_operand:SI 3 "cris_bdap_operand" "r>Rn,r,>Rn")))]))
-   (set (match_operand:SI 4 "register_operand" "=*2,r,r")
-	(plus:SI (match_dup 2)
-		 (match_dup 3)))]
-  "cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
-{
-  if (which_alternative == 0
-      && (GET_CODE (operands[3]) != CONST_INT
-	  || INTVAL (operands[3]) > 127
-	  || INTVAL (operands[3]) < -128
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"%x5.%s0 [%4=%2%S3],%0\";
-}")
-
-;; SImode
-
-(define_insn "*op_sidesi"
-  [(set (match_operand:SI 0 "register_operand" "=r,r,r")
-	(match_operator:SI
-	 5 "cris_orthogonal_operator"
-	 [(match_operand:SI 1 "register_operand" "0,0,0")
-	  (mem:SI (plus:SI
-		   (match_operand:SI 2 "cris_bdap_operand" "%r,r,r")
-		   (match_operand:SI 3 "cris_bdap_operand" "r>Rn,r,>Rn")))]))
-   (set (match_operand:SI 4 "register_operand" "=*2,r,r")
-	(plus:SI (match_dup 2)
-		 (match_dup 3)))]
-  "cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
-{
-  if (which_alternative == 0
-      && (GET_CODE (operands[3]) != CONST_INT
-	  || INTVAL (operands[3]) > 127
-	  || INTVAL (operands[3]) < -128
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"%x5.%s0 [%4=%2%S3],%0\";
-}")
+    return "#";
+  return "%x5<m> [%4=%2%S3],%0";
+})
 
 ;; To match all cases for commutative operations we may have to have the
 ;; following pattern for add, or & and.  I do not know really, but it does
@@ -1616,19 +1281,16 @@
 ;; op.S [rx=ry+I],rz;
 ;;
 ;; [rx=ry+rz.S]
-;; FIXME: These could have anonymous mode for operand 0.
 
-;; QImode
-
-(define_insn "*op_swap_sideqi_biap"
-  [(set (match_operand:QI 0 "register_operand" "=r,r")
-	(match_operator:QI
+(define_insn "*op_swap_side<mode>_biap"
+  [(set (match_operand:BWD 0 "register_operand" "=r,r")
+	(match_operator:BWD
 	 6 "cris_commutative_orth_op"
-	 [(mem:QI (plus:SI
+	 [(mem:BWD (plus:SI
 		   (mult:SI (match_operand:SI 2 "register_operand" "r,r")
 			    (match_operand:SI 3 "const_int_operand" "n,n"))
 		   (match_operand:SI 4 "register_operand" "r,r")))
-	  (match_operand:QI 1 "register_operand" "0,0")]))
+	  (match_operand:BWD 1 "register_operand" "0,0")]))
    (set (match_operand:SI 5 "register_operand" "=*4,r")
 	(plus:SI (mult:SI (match_dup 2)
 			  (match_dup 3))
@@ -1636,66 +1298,25 @@
   "cris_side_effect_mode_ok (MULT, operands, 5, 4, 2, 3, 0)"
   "@
    #
-   %x6.%s0 [%5=%4+%2%T3],%0")
-
-;; HImode
-
-(define_insn "*op_swap_sidehi_biap"
-  [(set (match_operand:HI 0 "register_operand" "=r,r")
-	(match_operator:HI
-	 6 "cris_commutative_orth_op"
-	 [(mem:HI (plus:SI
-		   (mult:SI (match_operand:SI 2 "register_operand" "r,r")
-			    (match_operand:SI 3 "const_int_operand" "n,n"))
-		   (match_operand:SI 4 "register_operand" "r,r")))
-	  (match_operand:HI 1 "register_operand" "0,0")]))
-   (set (match_operand:SI 5 "register_operand" "=*4,r")
-	(plus:SI (mult:SI (match_dup 2)
-			  (match_dup 3))
-		 (match_dup 4)))]
-  "cris_side_effect_mode_ok (MULT, operands, 5, 4, 2, 3, 0)"
-  "@
-   #
-   %x6.%s0 [%5=%4+%2%T3],%0")
-
-;; SImode
-
-(define_insn "*op_swap_sidesi_biap"
-  [(set (match_operand:SI 0 "register_operand" "=r,r")
-	(match_operator:SI
-	 6 "cris_commutative_orth_op"
-	 [(mem:SI (plus:SI
-		   (mult:SI (match_operand:SI 2 "register_operand" "r,r")
-			    (match_operand:SI 3 "const_int_operand" "n,n"))
-		   (match_operand:SI 4 "register_operand" "r,r")))
-	  (match_operand:SI 1 "register_operand" "0,0")]))
-   (set (match_operand:SI 5 "register_operand" "=*4,r")
-	(plus:SI (mult:SI (match_dup 2)
-			  (match_dup 3))
-		 (match_dup 4)))]
-  "cris_side_effect_mode_ok (MULT, operands, 5, 4, 2, 3, 0)"
-  "@
-   #
-   %x6.%s0 [%5=%4+%2%T3],%0")
+   %x6<m> [%5=%4+%2%T3],%0")
 
 ;; [rx=ry+i] ([%4=%2+%3])
 ;; FIXME: These could have anonymous mode for operand 0.
 
 ;; QImode
 
-(define_insn "*op_swap_sideqi"
-  [(set (match_operand:QI 0 "register_operand" "=r,r,r")
-	(match_operator:QI
+(define_insn "*op_swap_side<mode>"
+  [(set (match_operand:BWD 0 "register_operand" "=r,r,r")
+	(match_operator:BWD
 	 5 "cris_commutative_orth_op"
-	 [(mem:QI
+	 [(mem:BWD
 	   (plus:SI (match_operand:SI 2 "cris_bdap_operand" "%r,r,r")
 		    (match_operand:SI 3 "cris_bdap_operand" "r>Rn,r,>Rn")))
-	  (match_operand:QI 1 "register_operand" "0,0,0")]))
+	  (match_operand:BWD 1 "register_operand" "0,0,0")]))
    (set (match_operand:SI 4 "register_operand" "=*2,r,r")
 	(plus:SI (match_dup 2)
 		 (match_dup 3)))]
   "cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
 {
   if (which_alternative == 0
       && (GET_CODE (operands[3]) != CONST_INT
@@ -1703,61 +1324,9 @@
 	  || INTVAL (operands[3]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"%x5.%s0 [%4=%2%S3],%0\";
-}")
-
-;; HImode
-
-(define_insn "*op_swap_sidehi"
-  [(set (match_operand:HI 0 "register_operand" "=r,r,r")
-	(match_operator:HI
-	 5 "cris_commutative_orth_op"
-	 [(mem:HI
-	   (plus:SI (match_operand:SI 2 "cris_bdap_operand" "%r,r,r")
-		    (match_operand:SI 3 "cris_bdap_operand" "r>Rn,r,>Rn")))
-	  (match_operand:HI 1 "register_operand" "0,0,0")]))
-   (set (match_operand:SI 4 "register_operand" "=*2,r,r")
-	(plus:SI (match_dup 2)
-		 (match_dup 3)))]
-  "cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
-{
-  if (which_alternative == 0
-      && (GET_CODE (operands[3]) != CONST_INT
-	  || INTVAL (operands[3]) > 127
-	  || INTVAL (operands[3]) < -128
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"%x5.%s0 [%4=%2%S3],%0\";
-}")
-
-;; SImode
-
-(define_insn "*op_swap_sidesi"
-  [(set (match_operand:SI 0 "register_operand" "=r,r,r")
-	(match_operator:SI
-	 5 "cris_commutative_orth_op"
-	 [(mem:SI
-	   (plus:SI (match_operand:SI 2 "cris_bdap_operand" "%r,r,r")
-		    (match_operand:SI 3 "cris_bdap_operand" "r>Rn,r,>Rn")))
-	  (match_operand:SI 1 "register_operand" "0,0,0")]))
-   (set (match_operand:SI 4 "register_operand" "=*2,r,r")
-	(plus:SI (match_dup 2)
-		 (match_dup 3)))]
-  "cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
-{
-  if (which_alternative == 0
-      && (GET_CODE (operands[3]) != CONST_INT
-	  || INTVAL (operands[3]) > 127
-	  || INTVAL (operands[3]) < -128
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"%x5.%s0 [%4=%2%S3],%0\";
-}")
+    return "#";
+  return "%x5<m> [%4=%2%S3],%0";
+})
 
 ;; Add operations, standard names.
 
@@ -1788,45 +1357,44 @@
 ;; gcc <= 2.7.2.  FIXME: Check for gcc-2.9x
 
  ""
- "*
 {
   switch (which_alternative)
     {
     case 0:
     case 1:
-      return \"add.d %2,%0\";
+      return "add.d %2,%0";
     case 2:
-      return \"addq %2,%0\";
+      return "addq %2,%0";
     case 3:
-      return \"subq %n2,%0\";
+      return "subq %n2,%0";
     case 4:
       /* 'Known value', but not in -63..63.
 	 Check if addu/subu may be used.  */
       if (INTVAL (operands[2]) > 0)
 	{
 	  if (INTVAL (operands[2]) < 256)
-	    return \"addu.b %2,%0\";
+	    return "addu.b %2,%0";
 	  if (INTVAL (operands[2]) < 65536)
-	    return \"addu.w %2,%0\";
+	    return "addu.w %2,%0";
 	}
       else
 	{
 	  if (INTVAL (operands[2]) >= -255)
-	    return \"subu.b %n2,%0\";
+	    return "subu.b %n2,%0";
 	  if (INTVAL (operands[2]) >= -65535)
-	    return \"subu.w %n2,%0\";
+	    return "subu.w %n2,%0";
 	}
-      return \"add.d %2,%0\";
+      return "add.d %2,%0";
     case 6:
-      return \"add.d %2,%1,%0\";
+      return "add.d %2,%1,%0";
     case 5:
-      return \"add.d %2,%0\";
+      return "add.d %2,%0";
     case 7:
-      return \"add.d %1,%0\";
+      return "add.d %1,%0";
     default:
-      return \"BOGUS addsi %2+%1 to %0\";
+      return "BOGUS addsi %2+%1 to %0";
     }
-}"
+}
  [(set_attr "slottable" "yes,yes,yes,yes,no,no,no,yes")])
 
 (define_insn "addhi3"
@@ -1901,33 +1469,18 @@
    sub.d %2,%1,%0"
   [(set_attr "slottable" "yes,yes,yes,yes,no,no,no,no")])
 
-(define_insn "subhi3"
-  [(set (match_operand:HI 0 "register_operand"		"=r,r, r,r,r,r")
-	(minus:HI (match_operand:HI 1 "register_operand" "0,0, 0,0,0,r")
-		  (match_operand:HI 2 "general_operand"  "r,Q>,J,N,g,!To")))]
+(define_insn "sub<mode>3"
+  [(set (match_operand:BW 0 "register_operand"		"=r,r, r,r,r,r")
+	(minus:BW (match_operand:BW 1 "register_operand" "0,0, 0,0,0,r")
+		  (match_operand:BW 2 "general_operand"  "r,Q>,J,N,g,!To")))]
   ""
   "@
-   sub.w %2,%0
-   sub.w %2,%0
+   sub<m> %2,%0
+   sub<m> %2,%0
    subq %2,%0
    addq %n2,%0
-   sub.w %2,%0
-   sub.w %2,%1,%0"
-  [(set_attr "slottable" "yes,yes,yes,yes,no,no")
-   (set_attr "cc" "normal,normal,clobber,clobber,normal,normal")])
-
-(define_insn "subqi3"
-  [(set (match_operand:QI 0 "register_operand"		"=r,r, r,r,r,r")
-	(minus:QI (match_operand:QI 1 "register_operand" "0,0, 0,0,0,r")
-		  (match_operand:QI 2 "general_operand"  "r,Q>,J,N,g,!To")))]
-  ""
-  "@
-   sub.b %2,%0
-   sub.b %2,%0
-   subq %2,%0
-   addq %2,%0
-   sub.b %2,%0
-   sub.b %2,%1,%0"
+   sub<m> %2,%0
+   sub<m> %2,%1,%0"
   [(set_attr "slottable" "yes,yes,yes,yes,no,no")
    (set_attr "cc" "normal,normal,clobber,clobber,normal,normal")])
 
@@ -1943,7 +1496,6 @@
 ;; ADDS/SUBS/ADDU/SUBU and BOUND, which needs a check for zero_extend
 ;;
 ;; adds/subs/addu/subu bound [rx=ry+rz.S]
-;; FIXME: These could have anonymous mode for operand 0.
 
 ;; QImode to HImode
 ;; FIXME: GCC should widen.
@@ -1968,16 +1520,14 @@
    #
    %x6%e7.%m7 [%5=%4+%2%T3],%0")
 
-;; QImode to SImode
-
-(define_insn "*extopqisi_side_biap"
+(define_insn "*extop<mode>si_side_biap"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
 	(match_operator:SI
 	 6 "cris_operand_extend_operator"
 	 [(match_operand:SI 1 "register_operand" "0,0")
 	  (match_operator:SI
 	   7 "cris_extend_operator"
-	   [(mem:QI (plus:SI
+	   [(mem:BW (plus:SI
 		     (mult:SI (match_operand:SI 2 "register_operand" "r,r")
 			      (match_operand:SI 3 "const_int_operand" "n,n"))
 		     (match_operand:SI 4 "register_operand" "r,r")))])]))
@@ -1989,34 +1539,10 @@
    && cris_side_effect_mode_ok (MULT, operands, 5, 4, 2, 3, 0)"
   "@
    #
-   %x6%e7.%m7 [%5=%4+%2%T3],%0")
-
-;; HImode to SImode
-
-(define_insn "*extophisi_side_biap"
-  [(set (match_operand:SI 0 "register_operand" "=r,r")
-	(match_operator:SI
-	 6 "cris_operand_extend_operator"
-	 [(match_operand:SI 1 "register_operand" "0,0")
-	  (match_operator:SI
-	   7 "cris_extend_operator"
-	   [(mem:HI (plus:SI
-		     (mult:SI (match_operand:SI 2 "register_operand" "r,r")
-			      (match_operand:SI 3 "const_int_operand" "n,n"))
-		     (match_operand:SI 4 "register_operand" "r,r")))])]))
-   (set (match_operand:SI 5 "register_operand" "=*4,r")
-	(plus:SI (mult:SI (match_dup 2)
-			  (match_dup 3))
-		 (match_dup 4)))]
-  "(GET_CODE (operands[6]) != UMIN || GET_CODE (operands[7]) == ZERO_EXTEND)
-   && cris_side_effect_mode_ok (MULT, operands, 5, 4, 2, 3, 0)"
-  "@
-   #
-   %x6%e7.%m7 [%5=%4+%2%T3],%0")
+   %x6%e7<m> [%5=%4+%2%T3],%0")
 
 
 ;; [rx=ry+i]
-;; FIXME: These could have anonymous mode for operand 0.
 
 ;; QImode to HImode
 
@@ -2035,7 +1561,6 @@
 	(plus:SI (match_dup 2)
 		 (match_dup 3)))]
   "cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
 {
   if (which_alternative == 0
       && (GET_CODE (operands[3]) != CONST_INT
@@ -2043,51 +1568,18 @@
 	  || INTVAL (operands[3]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"%x5%e6.%m6 [%4=%2%S3],%0\";
-}")
+    return "#";
+  return "%x5%e6.%m6 [%4=%2%S3],%0";
+})
 
-;; QImode to SImode
-
-(define_insn "*extopqisi_side"
+(define_insn "*extop<mode>si_side"
   [(set (match_operand:SI 0 "register_operand" "=r,r,r")
 	(match_operator:SI
 	 5 "cris_operand_extend_operator"
 	 [(match_operand:SI 1 "register_operand" "0,0,0")
 	  (match_operator:SI
 	   6 "cris_extend_operator"
-	   [(mem:QI
-	     (plus:SI (match_operand:SI 2 "cris_bdap_operand" "%r,r,r")
-		      (match_operand:SI 3 "cris_bdap_operand" "r>Rn,r,>Rn")
-		      ))])]))
-   (set (match_operand:SI 4 "register_operand" "=*2,r,r")
-	(plus:SI (match_dup 2)
-		 (match_dup 3)))]
-
-  "(GET_CODE (operands[5]) != UMIN || GET_CODE (operands[6]) == ZERO_EXTEND)
-   && cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
-{
-  if (which_alternative == 0
-      && (GET_CODE (operands[3]) != CONST_INT
-	  || INTVAL (operands[3]) > 127
-	  || INTVAL (operands[3]) < -128
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"%x5%e6.%m6 [%4=%2%S3],%0\";
-}")
-
-;; HImode to SImode
-
-(define_insn "*extophisi_side"
-  [(set (match_operand:SI 0 "register_operand" "=r,r,r")
-	(match_operator:SI
-	 5 "cris_operand_extend_operator"
-	 [(match_operand:SI 1 "register_operand" "0,0,0")
-	  (match_operator:SI
-	   6 "cris_extend_operator"
-	   [(mem:HI
+	   [(mem:BW
 	     (plus:SI (match_operand:SI 2 "cris_bdap_operand" "%r,r,r")
 		      (match_operand:SI 3 "cris_bdap_operand" "r>Rn,r,>Rn")
 		      ))])]))
@@ -2096,7 +1588,6 @@
 		 (match_dup 3)))]
   "(GET_CODE (operands[5]) != UMIN || GET_CODE (operands[6]) == ZERO_EXTEND)
    && cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
 {
   if (which_alternative == 0
       && (GET_CODE (operands[3]) != CONST_INT
@@ -2104,9 +1595,9 @@
 	  || INTVAL (operands[3]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"%x5%e6.%m6 [%4=%2%S3],%0\";
-}")
+    return "#";
+  return "%x5%e6<m> [%4=%2%S3],%0";
+})
 
 
 ;; As with op.S we may have to add special pattern to match commuted
@@ -2136,15 +1627,13 @@
    #
    add%e6.b [%5=%4+%2%T3],%0")
 
-;; QImode to SImode
-
-(define_insn "*extopqisi_swap_side_biap"
+(define_insn "*extop<mode>si_swap_side_biap"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
 	(match_operator:SI
 	 7 "cris_plus_or_bound_operator"
 	 [(match_operator:SI
 	   6 "cris_extend_operator"
-	   [(mem:QI (plus:SI
+	   [(mem:BW (plus:SI
 		     (mult:SI (match_operand:SI 2 "register_operand" "r,r")
 			      (match_operand:SI 3 "const_int_operand" "n,n"))
 		     (match_operand:SI 4 "register_operand" "r,r")))])
@@ -2157,32 +1646,9 @@
    && cris_side_effect_mode_ok (MULT, operands, 5, 4, 2, 3, 0)"
   "@
    #
-   %x7%e6.%m6 [%5=%4+%2%T3],%0")
-
-;; HImode to SImode
-(define_insn "*extophisi_swap_side_biap"
-  [(set (match_operand:SI 0 "register_operand" "=r,r")
-	(match_operator:SI
-	 7 "cris_plus_or_bound_operator"
-	 [(match_operator:SI
-	   6 "cris_extend_operator"
-	   [(mem:HI (plus:SI
-		     (mult:SI (match_operand:SI 2 "register_operand" "r,r")
-			      (match_operand:SI 3 "const_int_operand" "n,n"))
-		     (match_operand:SI 4 "register_operand" "r,r")))])
-	  (match_operand:SI 1 "register_operand" "0,0")]))
-   (set (match_operand:SI 5 "register_operand" "=*4,r")
-	(plus:SI (mult:SI (match_dup 2)
-			  (match_dup 3))
-		 (match_dup 4)))]
-  "(GET_CODE (operands[7]) != UMIN || GET_CODE (operands[6]) == ZERO_EXTEND)
-   && cris_side_effect_mode_ok (MULT, operands, 5, 4, 2, 3, 0)"
-  "@
-   #
-   %x7%e6.%m6 [%5=%4+%2%T3],%0")
+   %x7%e6<m> [%5=%4+%2%T3],%0")
 
 ;; [rx=ry+i]
-;; FIXME: These could have anonymous mode for operand 0.
 ;; FIXME: GCC should widen.
 
 ;; QImode to HImode
@@ -2200,7 +1666,6 @@
 	(plus:SI (match_dup 2)
 		 (match_dup 3)))]
   "cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
 {
   if (which_alternative == 0
       && (GET_CODE (operands[3]) != CONST_INT
@@ -2208,19 +1673,17 @@
 	  || INTVAL (operands[3]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"add%e5.b [%4=%2%S3],%0\";
-}")
+    return "#";
+  return "add%e5.b [%4=%2%S3],%0";
+})
 
-;; QImode to SImode
-
-(define_insn "*extopqisi_swap_side"
+(define_insn "*extop<mode>si_swap_side"
   [(set (match_operand:SI 0 "register_operand" "=r,r,r")
 	(match_operator:SI
 	 6 "cris_plus_or_bound_operator"
 	 [(match_operator:SI
 	   5 "cris_extend_operator"
-	   [(mem:QI (plus:SI
+	   [(mem:BW (plus:SI
 		     (match_operand:SI 2 "cris_bdap_operand" "%r,r,r")
 		     (match_operand:SI 3 "cris_bdap_operand" "r>Rn,r,>Rn")))])
 	  (match_operand:SI 1 "register_operand" "0,0,0")]))
@@ -2229,7 +1692,6 @@
 		 (match_dup 3)))]
   "(GET_CODE (operands[6]) != UMIN || GET_CODE (operands[5]) == ZERO_EXTEND)
    && cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
 {
   if (which_alternative == 0
       && (GET_CODE (operands[3]) != CONST_INT
@@ -2237,41 +1699,11 @@
 	  || INTVAL (operands[3]) < -128
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
 	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"%x6%e5.%m5 [%4=%2%S3],%0\";
-}")
-
-;; HImode to SImode
-
-(define_insn "*extophisi_swap_side"
-  [(set (match_operand:SI 0 "register_operand" "=r,r,r")
-	(match_operator:SI
-	 6 "cris_plus_or_bound_operator"
-	 [(match_operator:SI
-	   5 "cris_extend_operator"
-	   [(mem:HI (plus:SI
-		     (match_operand:SI 2 "cris_bdap_operand" "%r,r,r")
-		     (match_operand:SI 3 "cris_bdap_operand" "r>Rn,r,>Rn")))])
-	  (match_operand:SI 1 "register_operand" "0,0,0")]))
-   (set (match_operand:SI 4 "register_operand" "=*2,r,r")
-	(plus:SI (match_dup 2)
-		 (match_dup 3)))]
-  "(GET_CODE (operands[6]) != UMIN || GET_CODE (operands[5]) == ZERO_EXTEND)
-   && cris_side_effect_mode_ok (PLUS, operands, 4, 2, 3, -1, 0)"
-  "*
-{
-  if (which_alternative == 0
-      && (GET_CODE (operands[3]) != CONST_INT
-	  || INTVAL (operands[3]) > 127
-	  || INTVAL (operands[3]) < -128
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'N')
-	  || CONST_OK_FOR_LETTER_P (INTVAL (operands[3]), 'J')))
-    return \"#\";
-  return \"%x6%e5.%m5 [%4=%2%S3],%0\";
-}")
+    return "#";
+  return "%x6%e5<m> [%4=%2%S3],%0";
+})
 
 ;; Extend versions (zero/sign) of normal add/sub (no side-effects).
-;; FIXME: These could have anonymous mode for operand 0.
 
 ;; QImode to HImode
 ;; FIXME: GCC should widen.
@@ -2296,42 +1728,22 @@
 
 ;; QImode to SImode
 
-(define_insn "*extopqisi"
+(define_insn "*extop<mode>si"
   [(set (match_operand:SI 0 "register_operand" "=r,r,r,r")
 	(match_operator:SI
 	 3 "cris_operand_extend_operator"
 	 [(match_operand:SI 1 "register_operand" "0,0,0,r")
 	  (match_operator:SI
 	   4 "cris_extend_operator"
-	   [(match_operand:QI 2 "nonimmediate_operand" "r,Q>,m,!To")])]))]
+	   [(match_operand:BW 2 "nonimmediate_operand" "r,Q>,m,!To")])]))]
   "(GET_CODE (operands[3]) != UMIN || GET_CODE (operands[4]) == ZERO_EXTEND)
    && GET_MODE_SIZE (GET_MODE (operands[0])) <= UNITS_PER_WORD
    && (operands[1] != frame_pointer_rtx || GET_CODE (operands[3]) != PLUS)"
   "@
-   %x3%e4.%m4 %2,%0
-   %x3%e4.%m4 %2,%0
-   %x3%e4.%m4 %2,%0
-   %x3%e4.%m4 %2,%1,%0"
-  [(set_attr "slottable" "yes,yes,no,no")])
-
-;; HImode to SImode
-
-(define_insn "*extophisi"
-  [(set (match_operand:SI 0 "register_operand" "=r,r,r,r")
-	(match_operator:SI
-	 3 "cris_operand_extend_operator"
-	 [(match_operand:SI 1 "register_operand" "0,0,0,r")
-	  (match_operator:SI
-	   4 "cris_extend_operator"
-	   [(match_operand:HI 2 "nonimmediate_operand" "r,Q>,m,!To")])]))]
-  "(GET_CODE (operands[3]) != UMIN || GET_CODE (operands[4]) == ZERO_EXTEND)
-   && GET_MODE_SIZE (GET_MODE (operands[0])) <= UNITS_PER_WORD
-   && (operands[1] != frame_pointer_rtx || GET_CODE (operands[3]) != PLUS)"
-  "@
-   %x3%e4.%m4 %2,%0
-   %x3%e4.%m4 %2,%0
-   %x3%e4.%m4 %2,%0
-   %x3%e4.%m4 %2,%1,%0"
+   %x3%e4<m> %2,%0
+   %x3%e4<m> %2,%0
+   %x3%e4<m> %2,%0
+   %x3%e4<m> %2,%1,%0"
   [(set_attr "slottable" "yes,yes,no,no")])
 
 
@@ -2356,42 +1768,21 @@
   [(set_attr "slottable" "yes,yes,no,no")
    (set_attr "cc" "clobber")])
 
-;; QImode to SImode
-
-(define_insn "*extopqisi_swap"
+(define_insn "*extop<mode>si_swap"
   [(set (match_operand:SI 0 "register_operand" "=r,r,r,r")
 	(match_operator:SI
 	 4 "cris_plus_or_bound_operator"
 	 [(match_operator:SI
 	   3 "cris_extend_operator"
-	   [(match_operand:QI 2 "nonimmediate_operand" "r,Q>,m,!To")])
+	   [(match_operand:BW 2 "nonimmediate_operand" "r,Q>,m,!To")])
 	  (match_operand:SI 1 "register_operand" "0,0,0,r")]))]
   "(GET_CODE (operands[4]) != UMIN || GET_CODE (operands[3]) == ZERO_EXTEND)
    && operands[1] != frame_pointer_rtx"
   "@
-   %x4%e3.%m3 %2,%0
-   %x4%e3.%m3 %2,%0
-   %x4%e3.%m3 %2,%0
-   %x4%e3.%m3 %2,%1,%0"
-  [(set_attr "slottable" "yes,yes,no,no")])
-
-;; HImode to SImode
-
-(define_insn "*extophisi_swap"
-  [(set (match_operand:SI 0 "register_operand" "=r,r,r,r")
-	(match_operator:SI
-	 4 "cris_plus_or_bound_operator"
-	 [(match_operator:SI
-	   3 "cris_extend_operator"
-	   [(match_operand:HI 2 "nonimmediate_operand" "r,Q>,m,!To")])
-	  (match_operand:SI 1 "register_operand" "0,0,0,r")]))]
-  "(GET_CODE (operands[4]) != UMIN || GET_CODE (operands[3]) == ZERO_EXTEND)
-   && operands[1] != frame_pointer_rtx"
-  "@
-   %x4%e3.%m3 %2,%0
-   %x4%e3.%m3 %2,%0
-   %x4%e3.%m3 %2,%0
-   %x4%e3.%m3 %2,%1,%0"
+   %x4%e3<m> %2,%0
+   %x4%e3<m> %2,%0
+   %x4%e3<m> %2,%0
+   %x4%e3<m> %2,%1,%0"
   [(set_attr "slottable" "yes,yes,no,no")])
 
 ;; This is the special case when we use what corresponds to the
@@ -2452,18 +1843,17 @@
    && (INTVAL (operands[2]) == 2
        || INTVAL (operands[2]) == 4 || INTVAL (operands[2]) == 3
        || INTVAL (operands[2]) == 5)"
-  "*
 {
   if (INTVAL (operands[2]) == 2)
-    return \"lslq 1,%0\";
+    return "lslq 1,%0";
   else if (INTVAL (operands[2]) == 4)
-    return \"lslq 2,%0\";
+    return "lslq 2,%0";
   else if (INTVAL (operands[2]) == 3)
-    return \"addi %0.w,%0\";
+    return "addi %0.w,%0";
   else if (INTVAL (operands[2]) == 5)
-    return \"addi %0.d,%0\";
-  return \"BAD: adr_mulsi: %0=%1*%2\";
-}"
+    return "addi %0.d,%0";
+  return "BAD: adr_mulsi: %0=%1*%2";
+}
 [(set_attr "slottable" "yes")
  ;; No flags are changed if this insn is "addi", but it does not seem
  ;; worth the trouble to distinguish that to the lslq cases.
@@ -2524,34 +1914,22 @@
   "mstep %2,%0"
   [(set_attr "slottable" "yes")])
 
-(define_insn "umulhisi3"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(mult:SI
-	 (zero_extend:SI (match_operand:HI 1 "register_operand" "%0"))
-	 (zero_extend:SI (match_operand:HI 2 "register_operand" "r"))))
+(define_insn "<u>mul<s><mode>3"
+  [(set (match_operand:WD 0 "register_operand" "=r")
+	(mult:WD
+	 (szext:WD (match_operand:<S> 1 "register_operand" "%0"))
+	 (szext:WD (match_operand:<S> 2 "register_operand" "r"))))
    (clobber (match_scratch:SI 3 "=h"))]
   "TARGET_HAS_MUL_INSNS"
-  "%!mulu.w %2,%0"
+  "%!mul<su><mm> %2,%0"
   [(set (attr "slottable")
 	(if_then_else (ne (symbol_ref "TARGET_MUL_BUG") (const_int 0))
 		      (const_string "no")
 		      (const_string "yes")))
-   ;; Just N unusable here, but let's be safe.
-   (set_attr "cc" "clobber")])
-
-(define_insn "umulqihi3"
-  [(set (match_operand:HI 0 "register_operand" "=r")
-	(mult:HI
-	 (zero_extend:HI (match_operand:QI 1 "register_operand" "%0"))
-	 (zero_extend:HI (match_operand:QI 2 "register_operand" "r"))))
-   (clobber (match_scratch:SI 3 "=h"))]
-  "TARGET_HAS_MUL_INSNS"
-  "%!mulu.b %2,%0"
-  [(set (attr "slottable")
-	(if_then_else (ne (symbol_ref "TARGET_MUL_BUG") (const_int 0))
-		      (const_string "no")
-		      (const_string "yes")))
-   ;; Not exactly sure, but let's be safe.
+   ;; For umuls.[bwd] it's just N unusable here, but let's be safe.
+   ;; For muls.b, this really extends to SImode, so cc should be
+   ;; considered clobbered.
+   ;; For muls.w, it's just N unusable here, but let's be safe.
    (set_attr "cc" "clobber")])
 
 ;; Note that gcc does not make use of such a thing as umulqisi3.  It gets
@@ -2576,60 +1954,20 @@
 
 ;; A few multiply variations.
 
-;; This really extends to SImode, so cc should be considered clobbered.
-
-(define_insn "mulqihi3"
-  [(set (match_operand:HI 0 "register_operand" "=r")
-	(mult:HI
-	 (sign_extend:HI (match_operand:QI 1 "register_operand" "%0"))
-	 (sign_extend:HI (match_operand:QI 2 "register_operand" "r"))))
-   (clobber (match_scratch:SI 3 "=h"))]
-  "TARGET_HAS_MUL_INSNS"
-  "%!muls.b %2,%0"
-  [(set (attr "slottable")
-	(if_then_else (ne (symbol_ref "TARGET_MUL_BUG") (const_int 0))
-		      (const_string "no")
-		      (const_string "yes")))
-   (set_attr "cc" "clobber")])
-
-(define_insn "mulhisi3"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(mult:SI
-	 (sign_extend:SI (match_operand:HI 1 "register_operand" "%0"))
-	 (sign_extend:SI (match_operand:HI 2 "register_operand" "r"))))
-   (clobber (match_scratch:SI 3 "=h"))]
-  "TARGET_HAS_MUL_INSNS"
-  "%!muls.w %2,%0"
-  [(set (attr "slottable")
-	(if_then_else (ne (symbol_ref "TARGET_MUL_BUG") (const_int 0))
-		      (const_string "no")
-		      (const_string "yes")))
-   ;; Just N unusable here, but let's be safe.
-   (set_attr "cc" "clobber")])
-
 ;; When needed, we can get the high 32 bits from the overflow
 ;; register.  We don't care to split and optimize these.
 ;;
 ;; Note that cc0 is still valid after the move-from-overflow-register
 ;; insn; no special precaution need to be taken in cris_notice_update_cc.
 
-(define_insn "mulsidi3"
+(define_insn "<u>mulsidi3"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(mult:DI
-	 (sign_extend:DI (match_operand:SI 1 "register_operand" "%0"))
-	 (sign_extend:DI (match_operand:SI 2 "register_operand" "r"))))
+	 (szext:DI (match_operand:SI 1 "register_operand" "%0"))
+	 (szext:DI (match_operand:SI 2 "register_operand" "r"))))
    (clobber (match_scratch:SI 3 "=h"))]
   "TARGET_HAS_MUL_INSNS"
-  "%!muls.d %2,%M0\;move $mof,%H0")
-
-(define_insn "umulsidi3"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(mult:DI
-	 (zero_extend:DI (match_operand:SI 1 "register_operand" "%0"))
-	 (zero_extend:DI (match_operand:SI 2 "register_operand" "r"))))
-   (clobber (match_scratch:SI 3 "=h"))]
-  "TARGET_HAS_MUL_INSNS"
-  "%!mulu.d %2,%M0\;move $mof,%H0")
+  "%!mul<su>.d %2,%M0\;move $mof,%H0")
 
 ;; These two patterns may be expressible by other means, perhaps by making
 ;; [u]?mulsidi3 a define_expand.
@@ -2645,39 +1983,21 @@
 ;; punished by force of one "?".  Check code from "int d (int a) {return
 ;; a / 1000;}" and unsigned.  FIXME: Comment above was for 3.2, revisit.
 
-(define_insn "smulsi3_highpart"
+(define_insn "<su>mulsi3_highpart"
   [(set (match_operand:SI 0 "nonimmediate_operand" "=h,h,?r,?r")
 	(truncate:SI
 	 (lshiftrt:DI
 	  (mult:DI
-	   (sign_extend:DI (match_operand:SI 1 "register_operand" "r,r,0,r"))
-	   (sign_extend:DI (match_operand:SI 2 "register_operand" "r,r,r,0")))
+	   (szext:DI (match_operand:SI 1 "register_operand" "r,r,0,r"))
+	   (szext:DI (match_operand:SI 2 "register_operand" "r,r,r,0")))
 	  (const_int 32))))
    (clobber (match_scratch:SI 3 "=1,2,h,h"))]
   "TARGET_HAS_MUL_INSNS"
   "@
-   %!muls.d %2,%1
-   .error 'untested assembly generated by GCC (smulsi3_highpart): muls.d %1,%2'
-   %!muls.d %2,%1\;move $mof,%0
-   %!muls.d %1,%2\;move $mof,%0"
-  [(set_attr "slottable" "yes,yes,no,no")
-   (set_attr "cc" "clobber")])
-
-(define_insn "umulsi3_highpart"
-  [(set (match_operand:SI 0 "register_operand" "=h,h,?r,?r")
-	(truncate:SI
-	 (lshiftrt:DI
-	  (mult:DI
-	   (zero_extend:DI (match_operand:SI 1 "register_operand" "r,r,0,r"))
-	   (zero_extend:DI (match_operand:SI 2 "register_operand" "r,r,r,0")))
-	  (const_int 32))))
-   (clobber (match_scratch:SI 3 "=1,2,h,h"))]
-  "TARGET_HAS_MUL_INSNS"
-  "@
-   %!mulu.d %2,%1
-   .error 'untested assembly generated by GCC (umulsi3_highpart): mulu.d %1,%2'
-   %!mulu.d %2,%1\;move $mof,%0
-   %!mulu.d %1,%2\;move $mof,%0"
+   %!mul<su>.d %2,%1
+   %!mul<su>.d %1,%2
+   %!mul<su>.d %2,%1\;move $mof,%0
+   %!mul<su>.d %1,%2\;move $mof,%0"
   [(set_attr "slottable" "yes,yes,no,no")
    (set_attr "cc" "clobber")])
 
@@ -2740,7 +2060,6 @@
 	(and:SI (match_operand:SI 1 "nonimmediate_operand" "")
 		(match_operand:SI 2 "general_operand"	 "")))]
   ""
-  "
 {
   if (! (GET_CODE (operands[2]) == CONST_INT
 	 && (((INTVAL (operands[2]) == -256
@@ -2777,7 +2096,7 @@
 
       DONE;
     }
-}")
+})
 
 ;; Some special cases of andsi3.
 
@@ -2839,7 +2158,6 @@
 	(and:HI (match_operand:HI 1 "nonimmediate_operand" "")
 		(match_operand:HI 2 "general_operand"  "")))]
   ""
-  "
 {
   if (! (GET_CODE (operands[2]) == CONST_INT
 	 && (((INTVAL (operands[2]) == -256
@@ -2867,7 +2185,7 @@
 
       DONE;
     }
-}")
+})
 
 ;; Some fast andhi3 special cases.
 
@@ -3016,6 +2334,7 @@
 ;; Exclusive-or
 
 ;; See comment about "anddi3" for xordi3 - no need for such a pattern.
+;; FIXME: Do we really need the shorter variants?
 
 (define_insn "xorsi3"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -3025,19 +2344,10 @@
   "xor %2,%0"
   [(set_attr "slottable" "yes")])
 
-(define_insn "xorhi3"
-  [(set (match_operand:HI 0 "register_operand" "=r")
-	(xor:HI (match_operand:HI 1 "register_operand" "%0")
-		(match_operand:HI 2 "register_operand" "r")))]
-  ""
-  "xor %2,%0"
-  [(set_attr "slottable" "yes")
-   (set_attr "cc" "clobber")])
-
-(define_insn "xorqi3"
-  [(set (match_operand:QI 0 "register_operand" "=r")
-	(xor:QI (match_operand:QI 1 "register_operand" "%0")
-		(match_operand:QI 2 "register_operand" "r")))]
+(define_insn "xor<mode>3"
+  [(set (match_operand:BW 0 "register_operand" "=r")
+	(xor:BW (match_operand:BW 1 "register_operand" "%0")
+		(match_operand:BW 2 "register_operand" "r")))]
   ""
   "xor %2,%0"
   [(set_attr "slottable" "yes")
@@ -3056,11 +2366,10 @@
                             "register_operand" "0")))
               (use (match_dup 2))])]
   ""
-  "
 {
   operands[2] = gen_reg_rtx (SImode);
   operands[3] = GEN_INT (1 << 31);
-}")
+})
 
 (define_insn "*expanded_negsf2"
   [(set (match_operand:SF 0 "register_operand" "=r")
@@ -3073,30 +2382,17 @@
 ;; No "negdi2" although we could make one up that may be faster than
 ;; the one in libgcc.
 
-(define_insn "negsi2"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(neg:SI (match_operand:SI 1 "register_operand" "r")))]
+(define_insn "neg<mode>2"
+  [(set (match_operand:BWD 0 "register_operand" "=r")
+	(neg:BWD (match_operand:BWD 1 "register_operand" "r")))]
   ""
-  "neg.d %1,%0"
-  [(set_attr "slottable" "yes")])
-
-(define_insn "neghi2"
-  [(set (match_operand:HI 0 "register_operand" "=r")
-	(neg:HI (match_operand:HI 1 "register_operand" "r")))]
-  ""
-  "neg.w %1,%0"
-  [(set_attr "slottable" "yes")])
-
-(define_insn "negqi2"
-  [(set (match_operand:QI 0 "register_operand" "=r")
-	(neg:QI (match_operand:QI 1 "register_operand" "r")))]
-  ""
-  "neg.b %1,%0"
+  "neg<m> %1,%0"
   [(set_attr "slottable" "yes")])
 
 ;; One-complements.
 
 ;; See comment on anddi3 - no need for a DImode pattern.
+;; See also xor comment.
 
 (define_insn "one_cmplsi2"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -3105,36 +2401,27 @@
   "not %0"
   [(set_attr "slottable" "yes")])
 
-(define_insn "one_cmplhi2"
-  [(set (match_operand:HI 0 "register_operand" "=r")
-	(not:HI (match_operand:HI 1 "register_operand" "0")))]
-  ""
-  "not %0"
-  [(set_attr "slottable" "yes")
-   (set_attr "cc" "clobber")])
-
-(define_insn "one_cmplqi2"
-  [(set (match_operand:QI 0 "register_operand" "=r")
-	(not:QI (match_operand:QI 1 "register_operand" "0")))]
+(define_insn "one_cmpl<mode>2"
+  [(set (match_operand:BW 0 "register_operand" "=r")
+	(not:BW (match_operand:BW 1 "register_operand" "0")))]
   ""
   "not %0"
   [(set_attr "slottable" "yes")
    (set_attr "cc" "clobber")])
 
-;; Arithmetic shift right.
+;; Arithmetic/Logical shift right (and SI left).
 
-(define_insn "ashrsi3"
+(define_insn "<shlr>si3"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(ashiftrt:SI (match_operand:SI 1 "register_operand" "0")
-		     (match_operand:SI 2 "nonmemory_operand" "Kr")))]
+	(shift:SI (match_operand:SI 1 "register_operand" "0")
+		  (match_operand:SI 2 "nonmemory_operand" "Kr")))]
   ""
-  "*
 {
   if (REG_S_P (operands[2]))
-    return \"asr.d %2,%0\";
+    return "<slr>.d %2,%0";
 
-  return \"asrq %2,%0\";
-}"
+  return "<slr>q %2,%0";
+}
   [(set_attr "slottable" "yes")])
 
 ;; Since gcc gets lost, and forgets to zero-extend the source (or mask
@@ -3145,237 +2432,86 @@
 
 ;; FIXME: Is this legacy or still true for gcc >= 2.7.2?
 
-(define_expand "ashrhi3"
+;; FIXME: Can't parametrize sign_extend and zero_extend (before
+;; mentioning "shiftrt"), so we need two patterns.
+(define_expand "ashr<mode>3"
   [(set (match_dup 3)
-	(sign_extend:SI (match_operand:HI 1 "nonimmediate_operand" "rm")))
+	(sign_extend:SI (match_operand:BW 1 "nonimmediate_operand" "")))
    (set (match_dup 4)
-	(zero_extend:SI (match_operand:HI 2 "nonimmediate_operand" "rm")))
+	(zero_extend:SI (match_operand:BW 2 "nonimmediate_operand" "")))
    (set (match_dup 5) (ashiftrt:SI (match_dup 3) (match_dup 4)))
-   (set (match_operand:HI 0 "general_operand" "=g")
-	(subreg:HI (match_dup 5) 0))]
+   (set (match_operand:BW 0 "general_operand" "")
+	(subreg:BW (match_dup 5) 0))]
   ""
-  "
 {
   int i;
 
   for (i = 3; i < 6; i++)
     operands[i] = gen_reg_rtx (SImode);
-}")
+})
 
-(define_insn "*expanded_ashrhi"
-  [(set (match_operand:HI 0 "register_operand" "=r")
-	(ashiftrt:HI (match_operand:HI 1 "register_operand" "0")
-		     (match_operand:HI 2 "register_operand" "r")))]
-  ""
-  "asr.w %2,%0"
-  [(set_attr "slottable" "yes")])
-
-(define_insn "*ashrhi_lowpart"
-  [(set (strict_low_part (match_operand:HI 0 "register_operand" "+r"))
-	(ashiftrt:HI (match_dup 0)
-		     (match_operand:HI 1 "register_operand" "r")))]
-  ""
-  "asr.w %1,%0"
-  [(set_attr "slottable" "yes")])
-
-;; Same comment goes as for "ashrhi3".
-
-(define_expand "ashrqi3"
+(define_expand "lshr<mode>3"
   [(set (match_dup 3)
-	(sign_extend:SI (match_operand:QI 1 "nonimmediate_operand" "g")))
+	(zero_extend:SI (match_operand:BW 1 "nonimmediate_operand" "")))
    (set (match_dup 4)
-	(zero_extend:SI (match_operand:QI 2 "nonimmediate_operand" "g")))
-   (set (match_dup 5) (ashiftrt:SI (match_dup 3) (match_dup 4)))
-   (set (match_operand:QI 0 "general_operand" "=g")
-	(subreg:QI (match_dup 5) 0))]
-  ""
-  "
-{
-  int i;
-
-  for (i = 3; i < 6; i++)
-    operands[i] = gen_reg_rtx (SImode);
-}")
-
-(define_insn "*expanded_ashrqi"
-  [(set (match_operand:QI 0 "register_operand" "=r")
-	(ashiftrt:QI (match_operand:QI 1 "register_operand" "0")
-		     (match_operand:QI 2 "register_operand" "r")))]
-  ""
-  "asr.b %2,%0"
-  [(set_attr "slottable" "yes")])
-
-;; A strict_low_part matcher.
-
-(define_insn "*ashrqi_lowpart"
-  [(set (strict_low_part (match_operand:QI 0 "register_operand" "+r"))
-	(ashiftrt:QI (match_dup 0)
-		     (match_operand:QI 1 "register_operand" "r")))]
-  ""
-  "asr.b %1,%0"
-  [(set_attr "slottable" "yes")])
-
-;; Logical shift right.
-
-(define_insn "lshrsi3"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(lshiftrt:SI (match_operand:SI 1 "register_operand" "0")
-		     (match_operand:SI 2 "nonmemory_operand" "Kr")))]
-  ""
-  "*
-{
-  if (REG_S_P (operands[2]))
-    return \"lsr.d %2,%0\";
-
-  return \"lsrq %2,%0\";
-}"
-  [(set_attr "slottable" "yes")])
-
-;; Same comments as for ashrhi3.
-
-(define_expand "lshrhi3"
-  [(set (match_dup 3)
-	(zero_extend:SI (match_operand:HI 1 "nonimmediate_operand" "g")))
-   (set (match_dup 4)
-	(zero_extend:SI (match_operand:HI 2 "nonimmediate_operand" "g")))
+	(zero_extend:SI (match_operand:BW 2 "nonimmediate_operand" "")))
    (set (match_dup 5) (lshiftrt:SI (match_dup 3) (match_dup 4)))
-   (set (match_operand:HI 0 "general_operand" "=g")
-	(subreg:HI (match_dup 5) 0))]
+   (set (match_operand:BW 0 "general_operand" "")
+	(subreg:BW (match_dup 5) 0))]
   ""
-  "
 {
   int i;
 
   for (i = 3; i < 6; i++)
     operands[i] = gen_reg_rtx (SImode);
-}")
+})
 
-(define_insn "*expanded_lshrhi"
-  [(set (match_operand:HI 0 "register_operand" "=r")
-	(lshiftrt:HI (match_operand:HI 1 "register_operand" "0")
-		     (match_operand:HI 2 "register_operand" "r")))]
+(define_insn "*expanded_<shlr><mode>"
+  [(set (match_operand:BW 0 "register_operand" "=r")
+	(shiftrt:BW (match_operand:BW 1 "register_operand" "0")
+		    (match_operand:BW 2 "register_operand" "r")))]
   ""
-  "lsr.w %2,%0"
+  "<slr><m> %2,%0"
   [(set_attr "slottable" "yes")])
 
-;; A strict_low_part matcher.
-
-(define_insn "*lshrhi_lowpart"
-  [(set (strict_low_part (match_operand:HI 0 "register_operand" "+r"))
-	(lshiftrt:HI (match_dup 0)
-		     (match_operand:HI 1 "register_operand" "r")))]
+(define_insn "*<shlr><mode>_lowpart"
+  [(set (strict_low_part (match_operand:BW 0 "register_operand" "+r"))
+	(shiftrt:BW (match_dup 0)
+		    (match_operand:BW 1 "register_operand" "r")))]
   ""
-  "lsr.w %1,%0"
-  [(set_attr "slottable" "yes")])
-
-;; Same comments as for ashrhi3.
-
-(define_expand "lshrqi3"
-  [(set (match_dup 3)
-	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "g")))
-   (set (match_dup 4)
-	(zero_extend:SI (match_operand:QI 2 "nonimmediate_operand" "g")))
-   (set (match_dup 5) (lshiftrt:SI (match_dup 3) (match_dup 4)))
-   (set (match_operand:QI 0 "general_operand" "=g")
-	(subreg:QI (match_dup 5) 0))]
-  ""
-  "
-{
-  int i;
-
-  for (i = 3; i < 6; i++)
-    operands[i] = gen_reg_rtx (SImode);
-}")
-
-(define_insn "*expanded_lshrqi"
-  [(set (match_operand:QI 0 "register_operand" "=r")
-	(lshiftrt:QI (match_operand:QI 1 "register_operand" "0")
-		     (match_operand:QI 2 "register_operand" "r")))]
-  ""
-  "lsr.b %2,%0"
-  [(set_attr "slottable" "yes")])
-
-;; A strict_low_part matcher.
-
-(define_insn "*lshrqi_lowpart"
-  [(set (strict_low_part (match_operand:QI 0 "register_operand" "+r"))
-	(lshiftrt:QI (match_dup 0)
-		     (match_operand:QI 1 "register_operand" "r")))]
-  ""
-  "lsr.b %1,%0"
+  "<slr><m> %1,%0"
   [(set_attr "slottable" "yes")])
 
 ;; Arithmetic/logical shift left.
-
-(define_insn "ashlsi3"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(ashift:SI (match_operand:SI 1 "register_operand" "0")
-		   (match_operand:SI 2 "nonmemory_operand" "Kr")))]
-  ""
-  "*
-{
-  if (REG_S_P (operands[2]))
-    return \"lsl.d %2,%0\";
-
-  return \"lslq %2,%0\";
-}"
-  [(set_attr "slottable" "yes")])
 
 ;; For narrower modes than SI, we can use lslq although it makes cc
 ;; unusable.  The win is that we do not have to reload the shift-count
 ;; into a register.
 
-(define_insn "ashlhi3"
-  [(set (match_operand:HI 0 "register_operand" "=r,r")
-	(ashift:HI (match_operand:HI 1 "register_operand" "0,0")
-		   (match_operand:HI 2 "nonmemory_operand" "r,K")))]
+(define_insn "ashl<mode>3"
+  [(set (match_operand:BW 0 "register_operand" "=r,r")
+	(ashift:BW (match_operand:BW 1 "register_operand" "0,0")
+		   (match_operand:BW 2 "nonmemory_operand" "r,K")))]
   ""
-  "*
-{
-  return
-    (GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) > 15)
-    ? \"moveq 0,%0\"
-    : (CONSTANT_P (operands[2])
-       ? \"lslq %2,%0\" : \"lsl.w %2,%0\");
-}"
-  [(set_attr "slottable" "yes")
-   (set_attr "cc" "normal,clobber")])
-
-;; A strict_low_part matcher.
-
-(define_insn "*ashlhi_lowpart"
-  [(set (strict_low_part (match_operand:HI 0 "register_operand" "+r"))
-	(ashift:HI (match_dup 0)
-		   (match_operand:HI 1 "register_operand" "r")))]
-  ""
-  "lsl.w %1,%0"
-  [(set_attr "slottable" "yes")])
-
-(define_insn "ashlqi3"
-  [(set (match_operand:QI 0 "register_operand" "=r,r")
-	(ashift:QI (match_operand:QI 1 "register_operand" "0,0")
-		   (match_operand:QI 2 "nonmemory_operand" "r,K")))]
-  ""
-  "*
 {
   return
     (GET_CODE (operands[2]) == CONST_INT
-     && INTVAL (operands[2]) > 7)
-    ? \"moveq 0,%0\"
+     && INTVAL (operands[2]) > <nbitsm1>)
+    ? "moveq 0,%0"
     : (CONSTANT_P (operands[2])
-       ? \"lslq %2,%0\" : \"lsl.b %2,%0\");
-}"
+       ? "lslq %2,%0" : "lsl<m> %2,%0");
+}
   [(set_attr "slottable" "yes")
    (set_attr "cc" "normal,clobber")])
 
 ;; A strict_low_part matcher.
 
-(define_insn "*ashlqi_lowpart"
-  [(set (strict_low_part (match_operand:QI 0 "register_operand" "+r"))
-	(ashift:QI (match_dup 0)
-		   (match_operand:QI 1 "register_operand" "r")))]
+(define_insn "*ashl<mode>_lowpart"
+  [(set (strict_low_part (match_operand:BW 0 "register_operand" "+r"))
+	(ashift:BW (match_dup 0)
+		   (match_operand:HI 1 "register_operand" "r")))]
   ""
-  "lsl.b %1,%0"
+  "lsl<m> %1,%0"
   [(set_attr "slottable" "yes")])
 
 ;; Various strange insns that gcc likes.
@@ -3398,21 +2534,12 @@
 
 ;; FIXME: GCC should be able to do these expansions itself.
 
-(define_expand "abshi2"
+(define_expand "abs<mode>2"
   [(set (match_dup 2)
-	(sign_extend:SI (match_operand:HI 1 "general_operand" "g")))
+	(sign_extend:SI (match_operand:BW 1 "general_operand" "")))
    (set (match_dup 3) (abs:SI (match_dup 2)))
-   (set (match_operand:HI 0 "register_operand" "=r")
-	(subreg:HI (match_dup 3) 0))]
-  ""
-  "operands[2] = gen_reg_rtx (SImode); operands[3] = gen_reg_rtx (SImode);")
-
-(define_expand "absqi2"
-  [(set (match_dup 2)
-	(sign_extend:SI (match_operand:QI 1 "general_operand" "g")))
-   (set (match_dup 3) (abs:SI (match_dup 2)))
-   (set (match_operand:QI 0 "register_operand" "=r")
-	(subreg:QI (match_dup 3) 0))]
+   (set (match_operand:BW 0 "register_operand" "")
+	(subreg:BW (match_dup 3) 0))]
   ""
   "operands[2] = gen_reg_rtx (SImode); operands[3] = gen_reg_rtx (SImode);")
 
@@ -3425,21 +2552,20 @@
 	(umin:SI  (match_operand:SI 1 "register_operand" "%0,0, 0,r")
 		  (match_operand:SI 2 "general_operand"   "r,Q>,g,!STo")))]
   ""
-  "*
 {
   if (GET_CODE (operands[2]) == CONST_INT)
     {
       if (INTVAL (operands[2]) < 256)
-	return \"bound.b %2,%0\";
+	return "bound.b %2,%0";
 
       if (INTVAL (operands[2]) < 65536)
-	return \"bound.w %2,%0\";
+	return "bound.w %2,%0";
     }
   else if (which_alternative == 3)
-    return \"bound.d %2,%1,%0\";
+    return "bound.d %2,%1,%0";
 
-  return \"bound.d %2,%0\";
-}"
+  return "bound.d %2,%0";
+}
  [(set_attr "slottable" "yes,yes,no,no")])
 
 ;; Jump and branch insns.
@@ -3462,69 +2588,42 @@
   "jump %0")
 
 ;; Return insn.  Used whenever the epilogue is very simple; if it is only
-;; a single ret or jump [sp+] or a contiguous sequence of movem:able saved
-;; registers.  No allocated stack space is allowed.
+;; a single ret or jump [sp+].  No allocated stack space or saved
+;; registers are allowed.
 ;; Note that for this pattern, although named, it is ok to check the
 ;; context of the insn in the test, not only compiler switches.
 
-(define_insn "return"
+(define_expand "return"
   [(return)]
   "cris_simple_epilogue ()"
-  "*
+  "cris_expand_return (cris_return_address_on_stack ()); DONE;")
+
+(define_insn "*return_expanded"
+  [(return)]
+  ""
 {
-  int i;
-
-  /* Just needs to hold a 'movem [sp+],rN'.  */
-  char rd[sizeof (\"movem [$sp+],$r99\")];
-
-  *rd = 0;
-
-  /* Start from the last call-saved register.  We know that we have a
-     simple epilogue, so we just have to find the last register in the
-     movem sequence.  */
-  for (i = 8; i >= 0; i--)
-    if (regs_ever_live[i]
-	|| (i == PIC_OFFSET_TABLE_REGNUM
-	    && current_function_uses_pic_offset_table))
-      break;
-
-  if (i >= 0)
-    sprintf (rd, \"movem [$sp+],$%s\", reg_names [i]);
-
-  if (regs_ever_live[CRIS_SRP_REGNUM]
-      || cris_return_address_on_stack ())
-    {
-      if (*rd)
-	output_asm_insn (rd, operands);
-      return \"jump [$sp+]\";
-    }
-
-  if (*rd)
-    {
-      output_asm_insn (\"reT\", operands);
-      output_asm_insn (rd, operands);
-      return \"\";
-    }
-
-  return \"ret%#\";
-}"
+  return cris_return_address_on_stack_for_return ()
+    ? "jump [$sp+]" : "ret%#";
+}
   [(set (attr "slottable")
-	(if_then_else
-	 (ne (symbol_ref
-	      "(regs_ever_live[CRIS_SRP_REGNUM]
-	        || cris_return_address_on_stack ())")
-	     (const_int 0))
-	 (const_string "no")	     ; If jump then not slottable.
-	 (if_then_else
-	  (ne (symbol_ref
-	       "(regs_ever_live[0]
-		 || (flag_pic != 0 && regs_ever_live[1])
-		 || (PIC_OFFSET_TABLE_REGNUM == 0
-		     && cris_cfun_uses_pic_table ()))")
-	      (const_int 0))
-	  (const_string "no") ; ret+movem [sp+],rx: slot already filled.
-	  (const_string "has_slot")))) ; If ret then need to fill a slot.
-   (set_attr "cc" "none")])
+ 	(if_then_else
+ 	 (ne (symbol_ref
+	      "(cris_return_address_on_stack_for_return ())")
+ 	     (const_int 0))
+ 	 (const_string "no")
+	 (const_string "has_slot")))])
+
+(define_expand "prologue"
+  [(const_int 0)]
+  "TARGET_PROLOGUE_EPILOGUE"
+  "cris_expand_prologue (); DONE;")
+
+;; Note that the (return) from the expander itself is always the last
+;; insn in the epilogue.
+(define_expand "epilogue"
+  [(const_int 0)]
+  "TARGET_PROLOGUE_EPILOGUE"
+  "cris_expand_epilogue (); DONE;")
 
 ;; Conditional branches.
 
@@ -3532,246 +2631,82 @@
 ;; e.g. m68k, so we have to check if overflow bit is set on all "signed"
 ;; conditions.
 
-(define_insn "beq"
+(define_insn "b<ncond:code>"
   [(set (pc)
-	(if_then_else (eq (cc0)
-			  (const_int 0))
+	(if_then_else (ncond (cc0)
+			     (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   ""
-  "beq %l0%#"
+  "b<CC> %l0%#"
   [(set_attr "slottable" "has_slot")])
 
-(define_insn "bne"
+(define_insn "b<ocond:code>"
   [(set (pc)
-	(if_then_else (ne (cc0)
-			  (const_int 0))
+	(if_then_else (ocond (cc0)
+			     (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   ""
-  "bne %l0%#"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "bgt"
-  [(set (pc)
-	(if_then_else (gt (cc0)
-			  (const_int 0))
-		      (label_ref (match_operand 0 "" ""))
-		      (pc)))]
-  ""
-  "*
 {
   return
     (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? 0 : \"bgt %l0%#\";
-}"
+    ? 0 : "b<CC> %l0%#";
+}
   [(set_attr "slottable" "has_slot")])
 
-(define_insn "bgtu"
+(define_insn "b<rcond:code>"
   [(set (pc)
-	(if_then_else (gtu (cc0)
-			   (const_int 0))
+	(if_then_else (rcond (cc0)
+			     (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
   ""
-  "bhi %l0%#"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "blt"
-  [(set (pc)
-	(if_then_else (lt (cc0)
-			  (const_int 0))
-		      (label_ref (match_operand 0 "" ""))
-		      (pc)))]
-  ""
-  "*
 {
   return
     (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? \"bmi %l0%#\" : \"blt %l0%#\";
-}"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "bltu"
-  [(set (pc)
-	(if_then_else (ltu (cc0)
-			   (const_int 0))
-		      (label_ref (match_operand 0 "" ""))
-		      (pc)))]
-  ""
-  "blo %l0%#"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "bge"
-  [(set (pc)
-	(if_then_else (ge (cc0)
-			  (const_int 0))
-		      (label_ref (match_operand 0 "" ""))
-		      (pc)))]
-  ""
-  "*
-{
-  return
-    (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? \"bpl %l0%#\" : \"bge %l0%#\";
-}"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "bgeu"
-  [(set (pc)
-	(if_then_else (geu (cc0)
-			   (const_int 0))
-		      (label_ref (match_operand 0 "" ""))
-		      (pc)))]
-  ""
-  "bhs %l0%#"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "ble"
-  [(set (pc)
-	(if_then_else (le (cc0)
-			  (const_int 0))
-		      (label_ref (match_operand 0 "" ""))
-		      (pc)))]
-  ""
-  "*
-{
-  return
-    (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? 0 : \"ble %l0%#\";
-}"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "bleu"
-  [(set (pc)
-	(if_then_else (leu (cc0)
-			   (const_int 0))
-		      (label_ref (match_operand 0 "" ""))
-		      (pc)))]
-  ""
-  "bls %l0%#"
+    ? "b<oCC> %l0%#" : "b<CC> %l0%#";
+}
   [(set_attr "slottable" "has_slot")])
 
 ;; Reversed anonymous patterns to the ones above, as mandated.
 
-(define_insn "*beq_reversed"
+(define_insn "*b<ncond:code>_reversed"
   [(set (pc)
-	(if_then_else (eq (cc0)
-			  (const_int 0))
+	(if_then_else (ncond (cc0)
+			     (const_int 0))
 		      (pc)
 		      (label_ref (match_operand 0 "" ""))))]
   ""
-  "bne %l0%#"
+  "b<rCC> %l0%#"
   [(set_attr "slottable" "has_slot")])
 
-(define_insn "*bne_reversed"
+(define_insn "*b<ocond:code>_reversed"
   [(set (pc)
-	(if_then_else (ne (cc0)
-			  (const_int 0))
+	(if_then_else (ocond (cc0)
+			     (const_int 0))
 		      (pc)
 		      (label_ref (match_operand 0 "" ""))))]
   ""
-  "beq %l0%#"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "*bgt_reversed"
-  [(set (pc)
-	(if_then_else (gt (cc0)
-			  (const_int 0))
-		      (pc)
-		      (label_ref (match_operand 0 "" ""))))]
-  ""
-  "*
 {
   return
     (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? 0 : \"ble %l0%#\";
-}"
+    ? 0 : "b<rCC> %l0%#";
+}
   [(set_attr "slottable" "has_slot")])
 
-(define_insn "*bgtu_reversed"
+(define_insn "*b<rcond:code>_reversed"
   [(set (pc)
-	(if_then_else (gtu (cc0)
-			   (const_int 0))
+	(if_then_else (rcond (cc0)
+			     (const_int 0))
 		      (pc)
 		      (label_ref (match_operand 0 "" ""))))]
   ""
-  "bls %l0%#"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "*blt_reversed"
-  [(set (pc)
-	(if_then_else (lt (cc0)
-			  (const_int 0))
-		      (pc)
-		      (label_ref (match_operand 0 "" ""))))]
-  ""
-  "*
 {
   return
     (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? \"bpl %l0%#\" : \"bge %l0%#\";
-}"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "*bltu_reversed"
-  [(set (pc)
-	(if_then_else (ltu (cc0)
-			   (const_int 0))
-		      (pc)
-		      (label_ref (match_operand 0 "" ""))))]
-  ""
-  "bhs %l0%#"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "*bge_reversed"
-  [(set (pc)
-	(if_then_else (ge (cc0)
-			  (const_int 0))
-		      (pc)
-		      (label_ref (match_operand 0 "" ""))))]
-  ""
-  "*
-{
-  return
-    (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? \"bmi %l0%#\" : \"blt %l0%#\";
-}"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "*bgeu_reversed"
-  [(set (pc)
-	(if_then_else (geu (cc0)
-			   (const_int 0))
-		      (pc)
-		      (label_ref (match_operand 0 "" ""))))]
-  ""
-  "blo %l0%#"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "*ble_reversed"
-  [(set (pc)
-	(if_then_else (le (cc0)
-			  (const_int 0))
-		      (pc)
-		      (label_ref (match_operand 0 "" ""))))]
-  ""
-  "*
-{
-  return
-    (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? 0 : \"bgt %l0%#\";
-}"
-  [(set_attr "slottable" "has_slot")])
-
-(define_insn "*bleu_reversed"
-  [(set (pc)
-	(if_then_else (leu (cc0)
-			   (const_int 0))
-		      (pc)
-		      (label_ref (match_operand 0 "" ""))))]
-  ""
-  "bhi %l0%#"
+    ? "b<roCC> %l0%#" : "b<rCC> %l0%#";
+}
   [(set_attr "slottable" "has_slot")])
 
 ;; Set on condition: sCC.
@@ -3779,103 +2714,35 @@
 ;; Like bCC, we have to check the overflow bit for
 ;; signed conditions.
 
-(define_insn "sgeu"
+(define_insn "s<ncond:code>"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(geu:SI (cc0) (const_int 0)))]
+	(ncond:SI (cc0) (const_int 0)))]
   ""
-  "shs %0"
+  "s<CC> %0"
   [(set_attr "slottable" "yes")
    (set_attr "cc" "none")])
 
-(define_insn "sltu"
+(define_insn "s<rcond:code>"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(ltu:SI (cc0) (const_int 0)))]
+	(rcond:SI (cc0) (const_int 0)))]
   ""
-  "slo %0"
-  [(set_attr "slottable" "yes")
-   (set_attr "cc" "none")])
-
-(define_insn "seq"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(eq:SI (cc0) (const_int 0)))]
-  ""
-  "seq %0"
-  [(set_attr "slottable" "yes")
-   (set_attr "cc" "none")])
-
-(define_insn "sge"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(ge:SI (cc0) (const_int 0)))]
-  ""
-  "*
 {
   return
     (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? \"spl %0\" : \"sge %0\";
-}"
+    ? "s<oCC> %0" : "s<CC> %0";
+}
   [(set_attr "slottable" "yes")
    (set_attr "cc" "none")])
 
-(define_insn "sgt"
+(define_insn "s<ocond:code>"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(gt:SI (cc0) (const_int 0)))]
+	(ocond:SI (cc0) (const_int 0)))]
   ""
-  "*
 {
   return
     (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? 0 : \"sgt %0\";
-}"
-  [(set_attr "slottable" "yes")
-   (set_attr "cc" "none")])
-
-(define_insn "sgtu"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(gtu:SI (cc0) (const_int 0)))]
-  ""
-  "shi %0"
-  [(set_attr "slottable" "yes")
-   (set_attr "cc" "none")])
-
-(define_insn "sle"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(le:SI (cc0) (const_int 0)))]
-  ""
-  "*
-{
-  return
-    (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? 0 : \"sle %0\";
-}"
-  [(set_attr "slottable" "yes")
-   (set_attr "cc" "none")])
-
-(define_insn "sleu"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(leu:SI (cc0) (const_int 0)))]
-  ""
-  "sls %0"
-  [(set_attr "slottable" "yes")
-   (set_attr "cc" "none")])
-
-(define_insn "slt"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(lt:SI (cc0) (const_int 0)))]
-  ""
-  "*
-{
-  return
-    (cc_prev_status.flags & CC_NO_OVERFLOW)
-    ? \"smi %0\" : \"slt %0\";
-}"
-  [(set_attr "slottable" "yes")
-   (set_attr "cc" "none")])
-
-(define_insn "sne"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(ne:SI (cc0) (const_int 0)))]
-  ""
-  "sne %0"
+    ? 0 : "s<CC> %0";
+}
   [(set_attr "slottable" "yes")
    (set_attr "cc" "none")])
 
@@ -3891,27 +2758,22 @@
 (define_expand "call"
   [(parallel [(call (match_operand:QI 0 "cris_mem_call_operand" "")
 		    (match_operand 1 "general_operand" ""))
-	      ;; 16 is the srp (can't use the symbolic name here)
-	      (clobber (reg:SI 16))])]
+	      (clobber (reg:SI CRIS_SRP_REGNUM))])]
   ""
-  "
 {
   rtx op0;
 
-  if (GET_CODE (operands[0]) != MEM)
-    abort ();
+  gcc_assert (GET_CODE (operands[0]) == MEM);
 
   if (flag_pic)
     {
       op0 = XEXP (operands[0], 0);
 
       /* It might be that code can be generated that jumps to 0 (or to a
-	 specific address).  Don't abort on that.  At least there's a
-	 testcase.  */
+	 specific address).  Don't die on that.  (There is a testcase.)  */
       if (CONSTANT_ADDRESS_P (op0) && GET_CODE (op0) != CONST_INT)
 	{
-	  if (no_new_pseudos)
-	    abort ();
+	  CRIS_ASSERT (!no_new_pseudos);
 
 	  /* For local symbols (non-PLT), get the plain symbol reference
 	     into a register.  For symbols that can be PLT, make them PLT.  */
@@ -3922,16 +2784,17 @@
 	       for the symbol cause bad recombinatorial effects?  */
 	    op0 = force_reg (Pmode,
 			     gen_rtx_CONST
-			     (VOIDmode,
+			     (Pmode,
 			      gen_rtx_UNSPEC (VOIDmode,
-					      gen_rtvec (1, op0), 0)));
+					      gen_rtvec (1, op0),
+					      CRIS_UNSPEC_PLT)));
 	  else
-	    abort ();
+	    internal_error ("Unidentifiable op0");
 
 	  operands[0] = replace_equiv_address (operands[0], op0);
 	}
     }
-}")
+})
 
 ;; Accept *anything* as operand 1.  Accept operands for operand 0 in
 ;; order of preference.
@@ -3940,7 +2803,7 @@
   [(call (mem:QI (match_operand:SI
 		  0 "cris_general_operand_or_plt_symbol" "r,Q>,g,S"))
 	 (match_operand 1 "" ""))
-   (clobber (reg:SI 16))] ;; 16 is the srp (can't use symbolic name)
+   (clobber (reg:SI CRIS_SRP_REGNUM))]
   "! TARGET_AVOID_GOTPLT"
   "jsr %0")
 
@@ -3950,7 +2813,7 @@
   [(call (mem:QI (match_operand:SI
 		  0 "cris_general_operand_or_plt_symbol" "r,Q>,g"))
 	 (match_operand 1 "" ""))
-   (clobber (reg:SI 16))] ;; 16 is the srp (can't use symbolic name)
+   (clobber (reg:SI CRIS_SRP_REGNUM))]
   "TARGET_AVOID_GOTPLT"
   "jsr %0")
 
@@ -3958,27 +2821,22 @@
   [(parallel [(set (match_operand 0 "" "")
 		   (call (match_operand:QI 1 "cris_mem_call_operand" "")
 			 (match_operand 2 "" "")))
-	      ;; 16 is the srp (can't use symbolic name)
-	      (clobber (reg:SI 16))])]
+	      (clobber (reg:SI CRIS_SRP_REGNUM))])]
   ""
-  "
 {
   rtx op1;
 
-  if (GET_CODE (operands[1]) != MEM)
-    abort ();
+  gcc_assert (GET_CODE (operands[1]) == MEM);
 
   if (flag_pic)
     {
       op1 = XEXP (operands[1], 0);
 
       /* It might be that code can be generated that jumps to 0 (or to a
-	 specific address).  Don't abort on that.  At least there's a
-	 testcase.  */
+	 specific address).  Don't die on that.  (There is a testcase.)  */
       if (CONSTANT_ADDRESS_P (op1) && GET_CODE (op1) != CONST_INT)
 	{
-	  if (no_new_pseudos)
-	    abort ();
+	  CRIS_ASSERT (!no_new_pseudos);
 
 	  if (cris_gotless_symbol (op1))
 	    op1 = force_reg (Pmode, op1);
@@ -3987,16 +2845,17 @@
 	       for the symbol cause bad recombinatorial effects?  */
 	    op1 = force_reg (Pmode,
 			     gen_rtx_CONST
-			     (VOIDmode,
+			     (Pmode,
 			      gen_rtx_UNSPEC (VOIDmode,
-					      gen_rtvec (1, op1), 0)));
+					      gen_rtvec (1, op1),
+					      CRIS_UNSPEC_PLT)));
 	  else
-	    abort ();
+	    internal_error ("Unidentifiable op0");
 
 	  operands[1] = replace_equiv_address (operands[1], op1);
 	}
     }
-}")
+})
 
 ;; Accept *anything* as operand 2.  The validity other than "general" of
 ;; operand 0 will be checked elsewhere.  Accept operands for operand 1 in
@@ -4009,7 +2868,7 @@
 	(call (mem:QI (match_operand:SI
 		       1 "cris_general_operand_or_plt_symbol" "r,Q>,g,S"))
 	      (match_operand 2 "" "")))
-   (clobber (reg:SI 16))]
+   (clobber (reg:SI CRIS_SRP_REGNUM))]
   "! TARGET_AVOID_GOTPLT"
   "Jsr %1"
   [(set_attr "cc" "clobber")])
@@ -4021,7 +2880,7 @@
 	(call (mem:QI (match_operand:SI
 		       1 "cris_general_operand_or_plt_symbol" "r,Q>,g"))
 	      (match_operand 2 "" "")))
-   (clobber (reg:SI 16))]
+   (clobber (reg:SI CRIS_SRP_REGNUM))]
   "TARGET_AVOID_GOTPLT"
   "Jsr %1"
   [(set_attr "cc" "clobber")])
@@ -4035,6 +2894,20 @@
   "nop"
   [(set_attr "cc" "none")])
 
+;; We need to stop accesses to the stack after the memory is
+;; deallocated.  Unfortunately, reorg doesn't look at naked clobbers,
+;; e.g. (insn ... (clobber (mem:BLK (stack_pointer_rtx)))) and we don't
+;; want to use a naked (unspec_volatile) as that would stop any
+;; scheduling in the epilogue.  Hence we model it as a "real" insn that
+;; sets the memory in an unspecified manner.  FIXME: Unfortunately it
+;; still has the effect of an unspec_volatile.
+(define_insn "cris_frame_deallocated_barrier"
+  [(set (mem:BLK (reg:SI CRIS_SP_REGNUM))
+	(unspec:BLK [(const_int 0)] CRIS_UNSPEC_FRAME_DEALLOC))]
+  ""
+  ""
+  [(set_attr "length" "0")])
+
 ;; We expand on casesi so we can use "bound" and "add offset fetched from
 ;; a table to pc" (adds.w [pc+%0.w],pc).
 
@@ -4062,13 +2935,12 @@
 	   (label_ref (match_operand 4 "" ""))))
      (use (label_ref (match_operand 3 "" "")))])]
   ""
-  "
 {
   operands[2] = plus_constant (operands[2], 1);
   operands[5] = gen_reg_rtx (SImode);
   operands[6] = gen_reg_rtx (SImode);
   operands[7] = gen_reg_rtx (SImode);
-}")
+})
 
 ;; Split-patterns.  Some of them have modes unspecified.  This
 ;; should always be ok; if for no other reason sparc.md has it as
@@ -4371,11 +3243,11 @@
    (set (match_dup 5) (match_dup 2))]
   "operands[5] = replace_equiv_address (operands[6], operands[3]);")
 
-;; clear.d [rx=rx+rz.S2]
+;; clear.[bwd] [rx=rx+rz.S2]
 
 (define_split
   [(parallel
-    [(set (mem:SI (plus:SI
+    [(set (mem:BWD (plus:SI
 		    (mult:SI (match_operand:SI 0 "register_operand" "")
 			     (match_operand:SI 1 "const_int_operand" ""))
 		    (match_operand:SI 2 "register_operand" "")))
@@ -4388,54 +3260,14 @@
    && REGNO (operands[3]) == REGNO (operands[2])"
   [(set (match_dup 3) (plus:SI (mult:SI (match_dup 0) (match_dup 1))
 				(match_dup 2)))
-   (set (mem:SI (match_dup 3)) (const_int 0))]
+   (set (mem:BWD (match_dup 3)) (const_int 0))]
   "")
 
-;; clear.w [rx=rx+rz.S2]
+;; clear.[bwd] [rx=rx+i]
 
 (define_split
   [(parallel
-    [(set (mem:HI (plus:SI
-		    (mult:SI (match_operand:SI 0 "register_operand" "")
-			     (match_operand:SI 1 "const_int_operand" ""))
-		    (match_operand:SI 2 "register_operand" "")))
-	   (const_int 0))
-     (set (match_operand:SI 3 "register_operand" "")
-	   (plus:SI (mult:SI (match_dup 0)
-			     (match_dup 1))
-		    (match_dup 2)))])]
-  "REG_P (operands[2]) && REG_P (operands[3])
-   && REGNO (operands[3]) == REGNO (operands[2])"
-  [(set (match_dup 3) (plus:SI (mult:SI (match_dup 0) (match_dup 1))
-				(match_dup 2)))
-   (set (mem:HI (match_dup 3)) (const_int 0))]
-  "")
-
-;; clear.b [rx=rx+rz.S2]
-
-(define_split
-  [(parallel
-    [(set (mem:QI (plus:SI
-		    (mult:SI (match_operand:SI 0 "register_operand" "")
-			     (match_operand:SI 1 "const_int_operand" ""))
-		    (match_operand:SI 2 "register_operand" "")))
-	   (const_int 0))
-     (set (match_operand:SI 3 "register_operand" "")
-	   (plus:SI (mult:SI (match_dup 0)
-			     (match_dup 1))
-		    (match_dup 2)))])]
-  "REG_P (operands[2]) && REG_P (operands[3])
-   && REGNO (operands[3]) == REGNO (operands[2])"
-  [(set (match_dup 3) (plus:SI (mult:SI (match_dup 0) (match_dup 1))
-				(match_dup 2)))
-   (set (mem:QI (match_dup 3)) (const_int 0))]
-  "")
-
-;; clear.d [rx=rx+i]
-
-(define_split
-  [(parallel
-    [(set (mem:SI
+    [(set (mem:BWD
 	   (plus:SI (match_operand:SI 0 "cris_bdap_operand" "")
 		    (match_operand:SI 1 "cris_bdap_operand" "")))
 	   (const_int 0))
@@ -4445,41 +3277,7 @@
   "(rtx_equal_p (operands[0], operands[2])
     || rtx_equal_p (operands[2], operands[1]))"
   [(set (match_dup 2) (plus:SI (match_dup 0) (match_dup 1)))
-   (set (mem:SI (match_dup 2)) (const_int 0))]
-  "")
-
-;; clear.w [rx=rx+i]
-
-(define_split
-  [(parallel
-    [(set (mem:HI
-	   (plus:SI (match_operand:SI 0 "cris_bdap_operand" "")
-		    (match_operand:SI 1 "cris_bdap_operand" "")))
-	   (const_int 0))
-     (set (match_operand:SI 2 "register_operand" "")
-	   (plus:SI (match_dup 0)
-		    (match_dup 1)))])]
-  "(rtx_equal_p (operands[0], operands[2])
-    || rtx_equal_p (operands[2], operands[1]))"
-  [(set (match_dup 2) (plus:SI (match_dup 0) (match_dup 1)))
-   (set (mem:HI (match_dup 2)) (const_int 0))]
-  "")
-
-;; clear.b [rx=rx+i]
-
-(define_split
-  [(parallel
-    [(set (mem:QI
-	   (plus:SI (match_operand:SI 0 "cris_bdap_operand" "")
-		    (match_operand:SI 1 "cris_bdap_operand" "")))
-	   (const_int 0))
-     (set (match_operand:SI 2 "register_operand" "")
-	   (plus:SI (match_dup 0)
-		    (match_dup 1)))])]
-  "(rtx_equal_p (operands[0], operands[2])
-    || rtx_equal_p (operands[2], operands[1]))"
-  [(set (match_dup 2) (plus:SI (match_dup 0) (match_dup 1)))
-   (set (mem:QI (match_dup 2)) (const_int 0))]
+   (set (mem:BWD (match_dup 2)) (const_int 0))]
   "")
 
 ;; mov(s|u).S1 [rx=rx+rz.S2],ry
@@ -4945,6 +3743,8 @@
 			  [(match_dup 3)
 			   (match_operator
 			    5 "cris_mem_op" [(match_dup 0)])]))]
+  ;; FIXME: What about DFmode?
+  ;; Change to GET_MODE_SIZE (GET_MODE (operands[3])) <= UNITS_PER_WORD?
   "GET_MODE (operands[3]) != DImode
    && REGNO (operands[0]) != REGNO (operands[3])
    && ! CONST_OK_FOR_LETTER_P (INTVAL (operands[2]), 'J')

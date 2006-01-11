@@ -296,7 +296,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 /* In builtins.c.  */
 #define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
-#define TARGET_FOLD_BUILTIN hook_tree_tree_bool_null
+#define TARGET_RESOLVE_OVERLOADED_BUILTIN NULL
+#define TARGET_FOLD_BUILTIN hook_tree_tree_tree_bool_null
 
 /* In varasm.c.  */
 #ifndef TARGET_SECTION_TYPE_FLAGS
@@ -379,11 +380,13 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_BUILTIN_SETJMP_FRAME_VALUE default_builtin_setjmp_frame_value
 
-#define TARGET_MD_ASM_CLOBBERS hook_tree_tree_identity
+#define TARGET_MD_ASM_CLOBBERS hook_tree_tree_tree_tree_3rd_identity
 
 #define TARGET_DWARF_CALLING_CONVENTION hook_int_tree_0
 
 #define TARGET_DWARF_HANDLE_FRAME_UNSPEC 0
+
+#define TARGET_STDARG_OPTIMIZE_HOOK 0
 
 #define TARGET_PROMOTE_FUNCTION_ARGS hook_bool_tree_false
 #define TARGET_PROMOTE_FUNCTION_RETURN hook_bool_tree_false
@@ -467,8 +470,16 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CXX_KEY_METHOD_MAY_BE_INLINE hook_bool_void_true
 #endif
 
-#ifndef TARGET_CXX_EXPORT_CLASS_DATA
-#define TARGET_CXX_EXPORT_CLASS_DATA hook_bool_void_false
+#ifndef TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY
+#define TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY hook_void_tree
+#endif
+
+#ifndef TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT
+#define TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT hook_bool_void_true
+#endif
+
+#ifndef TARGET_CXX_USE_AEABI_ATEXIT
+#define TARGET_CXX_USE_AEABI_ATEXIT hook_bool_void_false
 #endif
 
 #define TARGET_CXX				\
@@ -480,7 +491,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
     TARGET_CXX_IMPORT_EXPORT_CLASS,		\
     TARGET_CXX_CDTOR_RETURNS_THIS,		\
     TARGET_CXX_KEY_METHOD_MAY_BE_INLINE,	\
-    TARGET_CXX_EXPORT_CLASS_DATA		\
+    TARGET_CXX_DETERMINE_CLASS_DATA_VISIBILITY,	\
+    TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT,        \
+    TARGET_CXX_USE_AEABI_ATEXIT			\
   }
 
 /* The whole shebang.  */
@@ -503,6 +516,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
+  TARGET_RESOLVE_OVERLOADED_BUILTIN,		\
   TARGET_FOLD_BUILTIN,				\
   TARGET_MANGLE_FUNDAMENTAL_TYPE,		\
   TARGET_INIT_LIBFUNCS,				\
@@ -538,6 +552,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_MD_ASM_CLOBBERS,			\
   TARGET_DWARF_CALLING_CONVENTION,              \
   TARGET_DWARF_HANDLE_FRAME_UNSPEC,		\
+  TARGET_STDARG_OPTIMIZE_HOOK,			\
   TARGET_CALLS,					\
   TARGET_CXX,					\
   TARGET_HAVE_NAMED_SECTIONS,			\

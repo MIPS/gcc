@@ -606,7 +606,7 @@ mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
       || TREE_CODE_CLASS (code) == tcc_constant
       || code == SAVE_EXPR || code == TARGET_EXPR
       /* We can't do anything sensible with a BLOCK used as an expression,
-	 but we also can't abort when we see it because of non-expression
+	 but we also can't just die when we see it because of non-expression
 	 uses.  So just avert our eyes and cross our fingers.  Silly Java.  */
       || code == BLOCK)
     *walk_subtrees = 0;
@@ -930,7 +930,7 @@ gimplify_return_expr (tree stmt, tree *pre_p)
      returned in registers.  If we're returning values in registers, then
      we don't want to extend the lifetime of the RESULT_DECL, particularly
      across another call.  In addition, for those aggregates for which
-     hard_function_value generates a PARALLEL, we'll abort during normal
+     hard_function_value generates a PARALLEL, we'll die during normal
      expansion of structure assignments; there's special code in expand_return
      to handle this case that does not exist in expand_expr.  */
   if (!result_decl
@@ -1421,16 +1421,13 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 			tree *post_p, fallback_t fallback)
 {
   tree *p;
-  varray_type stack;
+  VEC(tree,heap) *stack;
   enum gimplify_status ret = GS_OK, tret;
   int i;
 
   /* Create a stack of the subexpressions so later we can walk them in
-     order from inner to outer.
-
-     This array is very memory consuming.  Don't even think of making
-     it VARRAY_TREE.  */
-  VARRAY_GENERIC_PTR_NOGC_INIT (stack, 10, "stack");
+     order from inner to outer.  */
+  stack = VEC_alloc (tree, heap, 10);
 
   /* We can handle anything that get_inner_reference can deal with.  */
   for (p = expr_p; ; p = &TREE_OPERAND (*p, 0))
@@ -1440,10 +1437,10 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 	*p = fold_indirect_ref (*p);
       if (!handled_component_p (*p))
 	break;
-      VARRAY_PUSH_GENERIC_PTR_NOGC (stack, *p);
+      VEC_safe_push (tree, heap, stack, *p);
     }
 
-  gcc_assert (VARRAY_ACTIVE_SIZE (stack));
+  gcc_assert (VEC_length (tree, stack));
 
   /* Now STACK is a stack of pointers to all the refs we've walked through
      and P points to the innermost expression.
@@ -1457,9 +1454,9 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
      So we do this in three steps.  First we deal with the annotations
      for any variables in the components, then we gimplify the base,
      then we gimplify any indices, from left to right.  */
-  for (i = VARRAY_ACTIVE_SIZE (stack) - 1; i >= 0; i--)
+  for (i = VEC_length (tree, stack) - 1; i >= 0; i--)
     {
-      tree t = VARRAY_GENERIC_PTR_NOGC (stack, i);
+      tree t = VEC_index (tree, stack, i);
 
       if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
 	{
@@ -1527,9 +1524,9 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 
   /* And finally, the indices and operands to BIT_FIELD_REF.  During this
      loop we also remove any useless conversions.  */
-  for (; VARRAY_ACTIVE_SIZE (stack) > 0; )
+  for (; VEC_length (tree, stack) > 0; )
     {
-      tree t = VARRAY_TOP_TREE (stack);
+      tree t = VEC_pop (tree, stack);
 
       if (TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
 	{
@@ -1565,7 +1562,6 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
 	 set which would have caused all the outer expressions in EXPR_P
 	 leading to P to also have had TREE_SIDE_EFFECTS set.  */
       recalculate_side_effects (t);
-      VARRAY_POP (stack);
     }
 
   tret = gimplify_expr (p, pre_p, post_p, is_gimple_min_lval, fallback);
@@ -1578,7 +1574,7 @@ gimplify_compound_lval (tree *expr_p, tree *pre_p,
       ret = MIN (ret, GS_OK);
     }
 
-  VARRAY_FREE (stack);
+  VEC_free (tree, heap, stack);
 
   return ret;
 }
@@ -1744,7 +1740,9 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
   decl = get_callee_fndecl (*expr_p);
   if (decl && DECL_BUILT_IN (decl))
     {
-      tree new = fold_builtin (*expr_p, !want_value);
+      tree fndecl = get_callee_fndecl (*expr_p);
+      tree arglist = TREE_OPERAND (*expr_p, 1);
+      tree new = fold_builtin (fndecl, arglist, !want_value);
 
       if (new && new != *expr_p)
 	{
@@ -1758,8 +1756,6 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
       if (DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
 	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_VA_START)
         {
-	  tree arglist = TREE_OPERAND (*expr_p, 1);
-	  
 	  if (!arglist || !TREE_CHAIN (arglist))
 	    {
 	      error ("too few arguments to function %<va_start%>");
@@ -1802,7 +1798,9 @@ gimplify_call_expr (tree *expr_p, tree *pre_p, bool want_value)
   /* Try this again in case gimplification exposed something.  */
   if (ret != GS_ERROR && decl && DECL_BUILT_IN (decl))
     {
-      tree new = fold_builtin (*expr_p, !want_value);
+      tree fndecl = get_callee_fndecl (*expr_p);
+      tree arglist = TREE_OPERAND (*expr_p, 1);
+      tree new = fold_builtin (fndecl, arglist, !want_value);
 
       if (new && new != *expr_p)
 	{
@@ -2070,10 +2068,6 @@ gimple_boolify (tree expr)
 
   if (TREE_CODE (type) == BOOLEAN_TYPE)
     return expr;
-
-  /* If this is the predicate of a COND_EXPR, it might not even be a
-     truthvalue yet.  */
-  expr = lang_hooks.truthvalue_conversion (expr);
 
   switch (TREE_CODE (expr))
     {
@@ -2895,7 +2889,7 @@ gimplify_modify_expr_rhs (tree *expr_p, tree *from_p, tree *to_p, tree *pre_p,
 
 	     ??? What about code that pulls out the temp and uses it
 	     elsewhere? I think that such code never uses the TARGET_EXPR as
-	     an initializer.  If I'm wrong, we'll abort because the temp won't
+	     an initializer.  If I'm wrong, we'll die because the temp won't
 	     have any RTL.  In that case, I guess we'll need to replace
 	     references somehow.  */
 	  tree init = TARGET_EXPR_INITIAL (*from_p);
@@ -3231,6 +3225,9 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	 builtins like __builtin_va_end).  */
       /* Caution: the silent array decomposition semantics we allow for
 	 ADDR_EXPR means we can't always discard the pair.  */
+      /* Gimplification of the ADDR_EXPR operand may drop
+	 cv-qualification conversions, so make sure we add them if
+	 needed.  */
       {
 	tree op00 = TREE_OPERAND (op0, 0);
 	tree t_expr = TREE_TYPE (expr);
@@ -3240,9 +3237,9 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 	  {
 #ifdef ENABLE_CHECKING
 	    tree t_op0 = TREE_TYPE (op0);
-	    gcc_assert (TREE_CODE (t_op0) == ARRAY_TYPE
-			&& POINTER_TYPE_P (t_expr)
-			&& cpt_same_type (TREE_TYPE (t_op0),
+	    gcc_assert (POINTER_TYPE_P (t_expr)
+			&& cpt_same_type (TREE_CODE (t_op0) == ARRAY_TYPE
+					  ? TREE_TYPE (t_op0) : t_op0,
 					  TREE_TYPE (t_expr))
 			&& POINTER_TYPE_P (t_op00)
 			&& cpt_same_type (t_op0, TREE_TYPE (t_op00)));
@@ -3812,10 +3809,28 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	case COND_EXPR:
 	  ret = gimplify_cond_expr (expr_p, pre_p, post_p, NULL_TREE,
 				    fallback);
+	  /* C99 code may assign to an array in a structure value of a
+	     conditional expression, and this has undefined behavior
+	     only on execution, so create a temporary if an lvalue is
+	     required.  */
+	  if (fallback == fb_lvalue)
+	    {
+	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	      lang_hooks.mark_addressable (*expr_p);
+	    }
 	  break;
 
 	case CALL_EXPR:
 	  ret = gimplify_call_expr (expr_p, pre_p, fallback != fb_none);
+	  /* C99 code may assign to an array in a structure returned
+	     from a function, and this has undefined behavior only on
+	     execution, so create a temporary if an lvalue is
+	     required.  */
+	  if (fallback == fb_lvalue)
+	    {
+	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+	      lang_hooks.mark_addressable (*expr_p);
+	    }
 	  break;
 
 	case TREE_LIST:
@@ -4310,7 +4325,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 #endif
       gcc_assert (fallback & fb_mayfail);
       /* If this is an asm statement, and the user asked for the
-	 impossible, don't abort.  Fail and let gimplify_asm_expr
+	 impossible, don't die.  Fail and let gimplify_asm_expr
 	 issue an error.  */
       ret = GS_ERROR;
       goto out;
@@ -4412,7 +4427,7 @@ gimplify_one_sizepos (tree *expr_p, tree *stmt_p)
 {
   /* We don't do anything if the value isn't there, is constant, or contains
      A PLACEHOLDER_EXPR.  We also don't want to do anything if it's already
-     a VAR_DECL.  If it's a VAR_DECL from another function, the gimplfier
+     a VAR_DECL.  If it's a VAR_DECL from another function, the gimplifier
      will want to replace it with a new variable, but that will cause problems
      if this type is from outside the function.  It's OK to have that here.  */
   if (*expr_p == NULL_TREE || TREE_CONSTANT (*expr_p)
@@ -4643,7 +4658,7 @@ force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
   gimple_test_f = simple ? is_gimple_val : is_gimple_reg_rhs;
 
   push_gimplify_context ();
-  gimplify_ctxp->into_ssa = true;
+  gimplify_ctxp->into_ssa = in_ssa_p;
 
   if (var)
     expr = build (MODIFY_EXPR, TREE_TYPE (var), var, expr);
@@ -4652,10 +4667,29 @@ force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
 		       gimple_test_f, fb_rvalue);
   gcc_assert (ret != GS_ERROR);
 
-  for (t = gimplify_ctxp->temps; t ; t = TREE_CHAIN (t))
-    add_referenced_tmp_var (t);
+  if (referenced_vars)
+    {
+      for (t = gimplify_ctxp->temps; t ; t = TREE_CHAIN (t))
+	add_referenced_tmp_var (t);
+    }
 
   pop_gimplify_context (NULL);
+
+  return expr;
+}
+
+/* Invokes force_gimple_operand for EXPR with parameters SIMPLE_P and VAR.  If
+   some statements are produced, emits them before BSI.  */
+
+tree
+force_gimple_operand_bsi (block_stmt_iterator *bsi, tree expr,
+			  bool simple_p, tree var)
+{
+  tree stmts;
+
+  expr = force_gimple_operand (expr, &stmts, simple_p, var);
+  if (stmts)
+    bsi_insert_before (bsi, stmts, BSI_SAME_STMT);
 
   return expr;
 }

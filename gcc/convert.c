@@ -349,6 +349,26 @@ convert_to_integer (tree type, tree expr)
       
       switch (fcode)
         {
+	case BUILT_IN_CEIL: case BUILT_IN_CEILF: case BUILT_IN_CEILL:
+	  /* Only convert in ISO C99 mode.  */
+	  if (!TARGET_C99_FUNCTIONS)
+	    break;
+	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLCEIL);
+	  else
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LCEIL);
+	  break;
+
+	case BUILT_IN_FLOOR: case BUILT_IN_FLOORF: case BUILT_IN_FLOORL:
+	  /* Only convert in ISO C99 mode.  */
+	  if (!TARGET_C99_FUNCTIONS)
+	    break;
+	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LLFLOOR);
+	  else
+	    fn = mathfn_built_in (s_intype, BUILT_IN_LFLOOR);
+	  break;
+
 	case BUILT_IN_ROUND: case BUILT_IN_ROUNDF: case BUILT_IN_ROUNDL:
 	  if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (long_long_integer_type_node))
 	    fn = mathfn_built_in (s_intype, BUILT_IN_LLROUND);
@@ -367,6 +387,13 @@ convert_to_integer (tree type, tree expr)
 	  else
             fn = mathfn_built_in (s_intype, BUILT_IN_LRINT);
 	  break;
+
+	case BUILT_IN_TRUNC: case BUILT_IN_TRUNCF: case BUILT_IN_TRUNCL:
+	  {
+	    tree arglist = TREE_OPERAND (s_expr, 1);
+	    return convert_to_integer (type, TREE_VALUE (arglist));
+	  }
+
 	default:
 	  break;
 	}

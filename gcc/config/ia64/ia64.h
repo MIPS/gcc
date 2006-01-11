@@ -168,8 +168,6 @@ extern enum processor_type ia64_tune;
 
 #define UNITS_PER_WORD 8
 
-#define UNITS_PER_SIMD_WORD UNITS_PER_WORD
-
 #define POINTER_SIZE (TARGET_ILP32 ? 32 : 64)
 
 /* A C expression whose value is zero if pointers that need to be extended
@@ -456,7 +454,7 @@ while (0)
 
 #define CALL_REALLY_USED_REGISTERS \
 { /* General registers.  */				\
-  1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1,	\
+  0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 1, 1,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
@@ -465,7 +463,7 @@ while (0)
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1,	\
   /* Floating-point registers.  */			\
-  1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
@@ -474,7 +472,7 @@ while (0)
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   /* Predicate registers.  */				\
-  1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
+  0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	\
@@ -1412,10 +1410,7 @@ do {									\
 /* A C expression that is nonzero if X is a legitimate constant for an
    immediate operand on the target machine.  */
 
-#define LEGITIMATE_CONSTANT_P(X) \
-  (GET_CODE (X) != CONST_DOUBLE || GET_MODE (X) == VOIDmode	\
-   || GET_MODE (X) == DImode || CONST_DOUBLE_OK_FOR_G (X))	\
-
+#define LEGITIMATE_CONSTANT_P(X) ia64_legitimate_constant_p (X)
 
 /* Condition Code Status */
 
@@ -1796,7 +1791,7 @@ do {									\
 /* This is how to output an element of a case-vector that is absolute.
    (Ia64 does not use such vectors, but we must define this macro anyway.)  */
 
-#define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) abort ()
+#define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) gcc_unreachable ()
 
 /* Jump tables only need 8 byte alignment.  */
 
@@ -2034,66 +2029,6 @@ struct machine_function GTY(())
   int state_num;
 };
 
-
-enum ia64_builtins
-{
-  IA64_BUILTIN_SYNCHRONIZE,
-
-  IA64_BUILTIN_FETCH_AND_ADD_SI,
-  IA64_BUILTIN_FETCH_AND_SUB_SI,
-  IA64_BUILTIN_FETCH_AND_OR_SI,
-  IA64_BUILTIN_FETCH_AND_AND_SI,
-  IA64_BUILTIN_FETCH_AND_XOR_SI,
-  IA64_BUILTIN_FETCH_AND_NAND_SI,
-
-  IA64_BUILTIN_ADD_AND_FETCH_SI,
-  IA64_BUILTIN_SUB_AND_FETCH_SI,
-  IA64_BUILTIN_OR_AND_FETCH_SI,
-  IA64_BUILTIN_AND_AND_FETCH_SI,
-  IA64_BUILTIN_XOR_AND_FETCH_SI,
-  IA64_BUILTIN_NAND_AND_FETCH_SI,
-
-  IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_SI,
-  IA64_BUILTIN_VAL_COMPARE_AND_SWAP_SI,
-
-  IA64_BUILTIN_SYNCHRONIZE_SI,
-
-  IA64_BUILTIN_LOCK_TEST_AND_SET_SI,
-
-  IA64_BUILTIN_LOCK_RELEASE_SI,
-
-  IA64_BUILTIN_FETCH_AND_ADD_DI,
-  IA64_BUILTIN_FETCH_AND_SUB_DI,
-  IA64_BUILTIN_FETCH_AND_OR_DI,
-  IA64_BUILTIN_FETCH_AND_AND_DI,
-  IA64_BUILTIN_FETCH_AND_XOR_DI,
-  IA64_BUILTIN_FETCH_AND_NAND_DI,
-
-  IA64_BUILTIN_ADD_AND_FETCH_DI,
-  IA64_BUILTIN_SUB_AND_FETCH_DI,
-  IA64_BUILTIN_OR_AND_FETCH_DI,
-  IA64_BUILTIN_AND_AND_FETCH_DI,
-  IA64_BUILTIN_XOR_AND_FETCH_DI,
-  IA64_BUILTIN_NAND_AND_FETCH_DI,
-
-  IA64_BUILTIN_BOOL_COMPARE_AND_SWAP_DI,
-  IA64_BUILTIN_VAL_COMPARE_AND_SWAP_DI,
-
-  IA64_BUILTIN_SYNCHRONIZE_DI,
-
-  IA64_BUILTIN_LOCK_TEST_AND_SET_DI,
-
-  IA64_BUILTIN_LOCK_RELEASE_DI,
-
-  IA64_BUILTIN_BSP,
-  IA64_BUILTIN_FLUSHRS
-};
-
-/* Codes for expand_compare_and_swap and expand_swap_and_compare.  */
-enum fetchop_code {
-  IA64_ADD_OP, IA64_SUB_OP, IA64_OR_OP, IA64_AND_OP, IA64_XOR_OP, IA64_NAND_OP
-};
-
 #define DONT_USE_BUILTIN_SETJMP
 
 /* Output any profiling code before the prologue.  */
@@ -2104,7 +2039,6 @@ enum fetchop_code {
 /* Initialize library function table. */
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS ia64_init_libfuncs
-
 
 
 /* Switch on code for querying unit reservations.  */

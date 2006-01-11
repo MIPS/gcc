@@ -45,6 +45,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "except.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
+#include "cgraph.h"
 
 /* DOS brain-damage */
 #ifndef O_BINARY
@@ -422,6 +423,7 @@ push_class (tree class_type, tree class_name)
 #endif
   CLASS_P (class_type) = 1;
   decl = build_decl (TYPE_DECL, class_name, class_type);
+  TYPE_DECL_SUPPRESS_DEBUG (decl) = 1;
 
   /* dbxout needs a DECL_SIZE if in gstabs mode */
   DECL_SIZE (decl) = integer_zero_node;
@@ -786,9 +788,9 @@ void
 set_constant_value (tree field, tree constant)
 {
   if (field == NULL_TREE)
-    warning ("misplaced ConstantValue attribute (not in any field)");
+    warning (0, "misplaced ConstantValue attribute (not in any field)");
   else if (DECL_INITIAL (field) != NULL_TREE)
-    warning ("duplicate ConstantValue attribute for field '%s'",
+    warning (0, "duplicate ConstantValue attribute for field '%s'",
 	     IDENTIFIER_POINTER (DECL_NAME (field)));
   else
     {
@@ -910,6 +912,7 @@ build_utf8_ref (tree name)
   layout_decl (decl, 0);
   pushdecl (decl);
   rest_of_decl_compilation (decl, global_bindings_p (), 0);
+  cgraph_varpool_mark_needed_node (cgraph_varpool_node (decl));
   utf8_decl_list = decl;
   make_decl_rtl (decl);
   ref = build1 (ADDR_EXPR, utf8const_ptr_type, decl);
@@ -1034,6 +1037,31 @@ build_class_ref (tree type)
     return build_indirect_class_ref (type);
 }
 
+/* Create a local statically allocated variable that will hold a
+   pointer to a static field.  */
+
+static tree
+build_fieldref_cache_entry (int index, tree fdecl ATTRIBUTE_UNUSED)
+{
+  tree decl, decl_name;
+  const char *name = IDENTIFIER_POINTER (mangled_classname ("_cpool_", output_class));
+  char *buf = alloca (strlen (name) + 20);
+  sprintf (buf, "%s_%d_ref", name, index);
+  decl_name = get_identifier (buf);
+  decl = IDENTIFIER_GLOBAL_VALUE (decl_name);
+  if (decl == NULL_TREE)
+    {
+      decl = build_decl (VAR_DECL, decl_name, ptr_type_node);
+      TREE_STATIC (decl) = 1;
+      TREE_PUBLIC (decl) = 0;
+      DECL_EXTERNAL (decl) = 0;
+      DECL_ARTIFICIAL (decl) = 1;
+      make_decl_rtl (decl);
+      pushdecl_top_level (decl);
+    }
+  return decl;
+}
+
 tree
 build_static_field_ref (tree fdecl)
 {
@@ -1059,59 +1087,47 @@ build_static_field_ref (tree fdecl)
 	    DECL_EXTERNAL (fdecl) = 1;
 	  make_decl_rtl (fdecl);
 	}
-      return fdecl;
     }
-
-  if (flag_indirect_dispatch)
+  else
     {
-      tree table_index 
-	= build_int_cst (NULL_TREE, get_symbol_table_index 
-			 (fdecl, &TYPE_ATABLE_METHODS (output_class)));
-      tree field_address
-	= build4 (ARRAY_REF, 
-		  TREE_TYPE (TREE_TYPE (TYPE_ATABLE_DECL (output_class))), 
-		  TYPE_ATABLE_DECL (output_class), table_index,
-		  NULL_TREE, NULL_TREE);
-      field_address = convert (build_pointer_type (TREE_TYPE (fdecl)),
-			       field_address);
-      return fold (build1 (INDIRECT_REF, TREE_TYPE (fdecl), 
-			   field_address));
-    }
-  else  
-    {
-      /* Compile as:
-       *(FTYPE*)build_class_ref(FCLASS)->fields[INDEX].info.addr */
-      tree ref = build_class_ref (fclass);
-      tree fld;
-      int field_index = 0;
-      ref = build1 (INDIRECT_REF, class_type_node, ref);
-      ref = build3 (COMPONENT_REF, field_ptr_type_node, ref,
-		    lookup_field (&class_type_node, fields_ident),
-		    NULL_TREE);
+      /* Generate a CONSTANT_FieldRef for FDECL in the constant pool
+	 and a class local static variable CACHE_ENTRY, then
+      
+      *(fdecl **)((__builtin_expect (cache_entry == null, false)) 
+		  ? cache_entry = _Jv_ResolvePoolEntry (output_class, cpool_index)
+		  : cache_entry)
 
-      for (fld = TYPE_FIELDS (fclass); ; fld = TREE_CHAIN (fld))
-	{
-	  if (fld == fdecl)
-	    break;
-	  if (fld == NULL_TREE)
-	    fatal_error ("field '%s' not found in class",
-			 IDENTIFIER_POINTER (DECL_NAME (fdecl)));
-	  if (FIELD_STATIC (fld))
-	    field_index++;
-	}
-      field_index *= int_size_in_bytes (field_type_node);
-      ref = fold (build2 (PLUS_EXPR, field_ptr_type_node,
-			  ref, build_int_cst (NULL_TREE, field_index)));
-      ref = build1 (INDIRECT_REF, field_type_node, ref);
-      ref = build3 (COMPONENT_REF, field_info_union_node,
-		    ref, lookup_field (&field_type_node, info_ident), 
-		    NULL_TREE);
-      ref = build3 (COMPONENT_REF, ptr_type_node,
-		    ref, TREE_CHAIN (TYPE_FIELDS (field_info_union_node)),
-		    NULL_TREE);
-      ref = build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (fdecl)), ref);
-      return fold (build1 (INDIRECT_REF, TREE_TYPE(fdecl), ref));
+      This can mostly be optimized away, so that the usual path is a
+      load followed by a test and branch.  _Jv_ResolvePoolEntry is
+      only called once for each constant pool entry.
+
+      There is an optimization that we don't do: at the start of a
+      method, create a local copy of CACHE_ENTRY and use that instead.
+
+      */
+
+      int cpool_index = alloc_constant_fieldref (output_class, fdecl);
+      tree cache_entry = build_fieldref_cache_entry (cpool_index, fdecl);
+      tree test 
+	= build3 (CALL_EXPR, boolean_type_node, 
+		  build_address_of (built_in_decls[BUILT_IN_EXPECT]),
+		  tree_cons (NULL_TREE, build2 (EQ_EXPR, boolean_type_node,
+						cache_entry, null_pointer_node),
+			     build_tree_list (NULL_TREE, boolean_false_node)),
+		  NULL_TREE);
+      tree cpool_index_cst = build_int_cst (NULL_TREE, cpool_index);
+      tree init
+	= build3 (CALL_EXPR, ptr_type_node,
+		  build_address_of (soft_resolvepoolentry_node),
+		  tree_cons (NULL_TREE, build_class_ref (output_class),
+			     build_tree_list (NULL_TREE, cpool_index_cst)),
+		  NULL_TREE);
+      init = build2 (MODIFY_EXPR, ptr_type_node, cache_entry, init);
+      init = build3 (COND_EXPR, ptr_type_node, test, init, cache_entry);
+      init = fold_convert (build_pointer_type (TREE_TYPE (fdecl)), init);
+      fdecl = build1 (INDIRECT_REF, TREE_TYPE (fdecl), init);
     }
+  return fdecl;
 }
 
 int
@@ -1414,7 +1430,7 @@ get_dispatch_table (tree type, tree this_class_addr)
       if (METHOD_ABSTRACT (method))
 	{
 	  if (! abstract_p)
-	    warning ("%Jabstract method in non-abstract class", method);
+	    warning (0, "%Jabstract method in non-abstract class", method);
 
 	  if (TARGET_VTABLE_USES_DESCRIPTORS)
 	    for (j = 0; j < TARGET_VTABLE_USES_DESCRIPTORS; ++j)
@@ -1904,6 +1920,7 @@ finish_class (void)
   java_expand_catch_classes (current_class);
 
   current_function_decl = NULL_TREE;
+  TYPE_DECL_SUPPRESS_DEBUG (TYPE_NAME (current_class)) = 0;
   make_class_data (current_class);
   register_class ();
   rest_of_decl_compilation (TYPE_NAME (current_class), 1, 0);
@@ -2068,7 +2085,7 @@ maybe_layout_super_class (tree super_class, tree this_class)
 					  DECL_SOURCE_LINE (this_decl), 0);
 #endif
 	    }
-	  super_class = do_resolve_class (NULL_TREE, /* FIXME? */
+	  super_class = do_resolve_class (NULL_TREE, this_class,
 					  super_class, NULL_TREE, this_wrap);
 	  if (!super_class)
 	    return NULL_TREE;	/* FIXME, NULL_TREE not checked by caller. */
@@ -2436,8 +2453,11 @@ emit_register_classes (tree *list_p)
       named_section_flags (JCR_SECTION_NAME, SECTION_WRITE);
       assemble_align (POINTER_SIZE);
       for (t = registered_class; t; t = TREE_CHAIN (t))
-	assemble_integer (XEXP (DECL_RTL (t), 0),
-			  POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+	{
+	  mark_decl_referenced (t);
+	  assemble_integer (XEXP (DECL_RTL (t), 0),
+			    POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
+	}
 #else
       /* A target has defined TARGET_USE_JCR_SECTION, but doesn't have a
 	 JCR_SECTION_NAME.  */

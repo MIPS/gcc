@@ -1,5 +1,5 @@
 /* InetAddress.java -- Class to model an Internet address
-   Copyright (C) 1998, 1999, 2002, 2004  Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004, 2005  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -115,7 +115,7 @@ public class InetAddress implements Serializable
 
   /**
    * Initializes this object's addr instance variable from the passed in
-   * int array.  Note that this constructor is protected and is called
+   * byte array.  Note that this constructor is protected and is called
    * only by static methods in this class.
    *
    * @param ipaddr The IP number of this address as an array of bytes
@@ -143,7 +143,7 @@ public class InetAddress implements Serializable
   {
     // Mask against high order bits of 1110
     if (addr.length == 4)
-      return (addr[0] & 0xF0) == 0xE0;
+      return (addr[0] & 0xf0) == 0xe0;
 
     // Mask against high order bits of 11111111
     if (addr.length == 16)
@@ -173,7 +173,7 @@ public class InetAddress implements Serializable
   {
     // This is the IPv4 implementation.
     // Any class derived from InetAddress should override this.
-    return addr[0] == 0x7F;
+    return (addr[0] & 0xff) == 0x7f;
   }
 
   /**
@@ -198,18 +198,17 @@ public class InetAddress implements Serializable
   {
     // This is the IPv4 implementation.
     // Any class derived from InetAddress should override this.
+
     // 10.0.0.0/8
-    if (addr[0] == 0x0A)
+    if ((addr[0] & 0xff) == 0x0a)
       return true;
 
-    // XXX: Suns JDK 1.4.1 (on Linux) seems to have a bug here:
-    // it says 172.16.0.0 - 172.255.255.255 are site local addresses
     // 172.16.0.0/12
-    if (addr[0] == 0xAC && (addr[1] & 0xF0) == 0x01)
+    if ((addr[0] & 0xff) == 0xac && (addr[1] & 0xf0) == 0x10)
       return true;
 
     // 192.168.0.0/16
-    if (addr[0] == 0xC0 && addr[1] == 0xA8)
+    if ((addr[0] & 0xff) == 0xc0 && (addr[1] & 0xff) == 0xa8)
       return true;
 
     // XXX: Do we need to check more addresses here ?
@@ -230,7 +229,7 @@ public class InetAddress implements Serializable
   }
 
   /**
-   * Utility reoutine to check if InetAddress is a node local multicast address
+   * Utility routine to check if InetAddress is a node local multicast address.
    *
    * @since 1.4
    */
@@ -243,7 +242,7 @@ public class InetAddress implements Serializable
   }
 
   /**
-   * Utility reoutine to check if InetAddress is a link local multicast address
+   * Utility routine to check if InetAddress is a link local multicast address.
    *
    * @since 1.4
    */
@@ -254,11 +253,13 @@ public class InetAddress implements Serializable
     if (! isMulticastAddress())
       return false;
 
-    return (addr[0] == 0xE0 && addr[1] == 0x00 && addr[2] == 0x00);
+    return ((addr[0] & 0xff) == 0xe0
+	    && (addr[1] & 0xff)  == 0x00
+	    && (addr[2] & 0xff)  == 0x00);
   }
 
   /**
-   * Utility routine to check if InetAddress is a site local multicast address
+   * Utility routine to check if InetAddress is a site local multicast address.
    *
    * @since 1.4
    */
@@ -271,8 +272,8 @@ public class InetAddress implements Serializable
   }
 
   /**
-   * Utility reoutine to check if InetAddress is a organization local
-   * multicast address
+   * Utility routine to check if InetAddress is a organization local
+   * multicast address.
    *
    * @since 1.4
    */
@@ -447,7 +448,7 @@ public class InetAddress implements Serializable
     int i = len > 4 ? len - 4 : 0;
 
     for (; i < len; i++)
-      hash = (hash << 8) | (addr[i] & 0xFF);
+      hash = (hash << 8) | (addr[i] & 0xff);
 
     return hash;
   }
@@ -495,7 +496,7 @@ public class InetAddress implements Serializable
   public String toString()
   {
     String addr = getHostAddress();
-    String host = (hostName != null) ? hostName : addr;
+    String host = (hostName != null) ? hostName : "";
     return host + "/" + addr;
   }
 
@@ -541,15 +542,33 @@ public class InetAddress implements Serializable
   }
 
   /**
-   * If host is a valid numeric IP address, return the numeric address.
+   * If hostname is a valid numeric IP address, return the numeric address.
    * Otherwise, return null.
+   *
+   * @param hostname the name of the host
    */
-  private static native byte[] aton (String host);
+  private static native byte[] aton(String hostname);
 
+  /**
+   * Looks up all addresses of a given host.
+   *
+   * @param hostname the host to lookup
+   * @param ipaddr the IP address to lookup
+   * @param all return all known addresses for one host
+   *
+   * @return an array with all found addresses
+   */
   private static native InetAddress[] lookup (String hostname,
-		                              InetAddress addr, boolean all);
+		                              InetAddress ipaddr, boolean all);
 
-  private static native int getFamily (byte[] address);
+  /**
+   * Returns tha family type of an IP address.
+   *
+   * @param addr the IP address
+   *
+   * @return the family
+   */
+  private static native int getFamily (byte[] ipaddr);
 
   /**
    * Returns an InetAddress object representing the IP address of the given

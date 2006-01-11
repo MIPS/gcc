@@ -91,9 +91,18 @@ CXX_OBJS = cp/cp-lang.o stub-objc.o $(CXX_AND_OBJCXX_OBJS)
 # Use strict warnings for this front end.
 cp-warn = $(STRICT_WARN)
 
-cc1plus$(exeext): $(CXX_OBJS) $(BACKEND) $(LIBDEPS)
+cc1plus-dummy$(exeext): $(CXX_OBJS) dummy-checksum.o $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-	      $(CXX_OBJS) $(BACKEND) $(LIBS)
+	      $(CXX_OBJS) dummy-checksum.o $(BACKEND) $(LIBS)
+
+cc1plus-checksum.c : cc1plus-dummy$(exeext) build/genchecksum$(exeext)
+	build/genchecksum$(exeext) cc1plus-dummy$(exeext) > $@
+
+cc1plus-checksum.o : cc1plus-checksum.c
+
+cc1plus$(exeext): $(CXX_OBJS) cc1plus-checksum.o $(BACKEND) $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
+	      $(CXX_OBJS) cc1plus-checksum.o $(BACKEND) $(LIBS)
 
 # Special build rules.
 $(srcdir)/cp/cfns.h: $(srcdir)/cp/cfns.gperf
@@ -243,7 +252,8 @@ cp/typeck2.o: cp/typeck2.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h output.h $(TM_
    diagnostic.h gt-cp-typeck2.h
 cp/typeck.o: cp/typeck.c $(CXX_TREE_H) $(TM_H) flags.h $(RTL_H) $(EXPR_H) toplev.h \
    diagnostic.h convert.h c-common.h
-cp/class.o: cp/class.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h $(RTL_H) $(TARGET_H) convert.h
+cp/class.o: cp/class.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h $(RTL_H) $(TARGET_H) \
+   convert.h $(CGRAPH_H)
 cp/call.o: cp/call.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h $(RTL_H) $(EXPR_H) \
      diagnostic.h intl.h gt-cp-call.h convert.h target.h
 cp/friend.o: cp/friend.c $(CXX_TREE_H) $(TM_H) flags.h $(RTL_H) toplev.h $(EXPR_H)
@@ -254,14 +264,14 @@ cp/method.o: cp/method.c $(CXX_TREE_H) $(TM_H) toplev.h $(RTL_H) $(EXPR_H) \
 cp/cvt.o: cp/cvt.c $(CXX_TREE_H) $(TM_H) cp/decl.h flags.h toplev.h convert.h
 cp/search.o: cp/search.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h $(RTL_H)
 cp/tree.o: cp/tree.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h $(RTL_H) \
-  insn-config.h integrate.h tree-inline.h real.h gt-cp-tree.h $(TARGET_H)
+  insn-config.h integrate.h tree-inline.h real.h gt-cp-tree.h $(TARGET_H) debug.h
 cp/ptree.o: cp/ptree.c $(CXX_TREE_H) $(TM_H)
 cp/rtti.o: cp/rtti.c $(CXX_TREE_H) $(TM_H) flags.h toplev.h convert.h
 cp/except.o: cp/except.c $(CXX_TREE_H) $(TM_H) flags.h $(RTL_H) except.h toplev.h \
   cp/cfns.h $(EXPR_H) libfuncs.h tree-inline.h
 cp/expr.o: cp/expr.c $(CXX_TREE_H) $(TM_H) $(RTL_H) flags.h $(EXPR_H) toplev.h \
   except.h $(TM_P_H)
-cp/pt.o: cp/pt.c $(CXX_TREE_H) $(TM_H) cp/decl.h \
+cp/pt.o: cp/pt.c $(CXX_TREE_H) $(TM_H) cp/decl.h cp/cp-objcp-common.h \
   toplev.h $(RTL_H) except.h tree-inline.h pointer-set.h gt-cp-pt.h
 cp/error.o: cp/error.c $(CXX_TREE_H) $(TM_H) toplev.h $(DIAGNOSTIC_H) \
   flags.h real.h $(LANGHOOKS_DEF_H) $(CXX_PRETTY_PRINT_H)

@@ -151,7 +151,7 @@ namespace std
       struct _Rep : _Rep_base
       {
 	// Types:
-	typedef typename _Alloc::template rebind<char>::other _Raw_bytes_alloc;
+	typedef typename _Alloc::template rebind<size_type>::other _Raw_alloc;
 
 	// (Public) Data members:
 
@@ -695,7 +695,10 @@ namespace std
       reference
       operator[](size_type __pos)
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos < size());
+        // allow pos == size() as v3 extension:
+	_GLIBCXX_DEBUG_ASSERT(__pos <= size());
+        // but be strict in pedantic mode:
+	_GLIBCXX_DEBUG_PEDASSERT(__pos < size());
 	_M_leak();
 	return _M_data()[__pos];
       }
@@ -1905,9 +1908,11 @@ namespace std
        *
        *  Returns an integer < 0 if this string is ordered before @a str, 0 if
        *  their values are equivalent, or > 0 if this string is ordered after
-       *  @a str.  If the lengths of @a str and this string are different, the
-       *  shorter one is ordered first.  If they are the same, returns the
-       *  result of traits::compare(data(),str.data(),size());
+       *  @a str.  Determines the effective length rlen of the strings to
+       *  compare as the smallest of size() and str.size().  The function
+       *  then compares the two strings by calling traits::compare(data(),
+       *  str.data(),rlen).  If the result of the comparison is nonzero returns
+       *  it, otherwise the shorter one is ordered first.
       */
       int
       compare(const basic_string& __str) const
@@ -1932,10 +1937,12 @@ namespace std
        *  Form the substring of this string from the @a n characters starting
        *  at @a pos.  Returns an integer < 0 if the substring is ordered
        *  before @a str, 0 if their values are equivalent, or > 0 if the
-       *  substring is ordered after @a str.  If the lengths @a of str and the
-       *  substring are different, the shorter one is ordered first.  If they
-       *  are the same, returns the result of
-       *  traits::compare(substring.data(),str.data(),size());
+       *  substring is ordered after @a str.  Determines the effective length
+       *  rlen of the strings to compare as the smallest of the length of the
+       *  substring and @a str.size().  The function then compares the two
+       *  strings by calling traits::compare(substring.data(),str.data(),rlen).
+       *  If the result of the comparison is nonzero returns it, otherwise the
+       *  shorter one is ordered first.
       */
       int
       compare(size_type __pos, size_type __n, const basic_string& __str) const;
@@ -1954,10 +1961,12 @@ namespace std
        *  starting at @a pos2.  Returns an integer < 0 if this substring is
        *  ordered before the substring of @a str, 0 if their values are
        *  equivalent, or > 0 if this substring is ordered after the substring
-       *  of @a str.  If the lengths of the substring of @a str and this
-       *  substring are different, the shorter one is ordered first.  If they
-       *  are the same, returns the result of
-       *  traits::compare(substring.data(),str.substr(pos2,n2).data(),size());
+       *  of @a str.  Determines the effective length rlen of the strings
+       *  to compare as the smallest of the lengths of the substrings.  The
+       *  function then compares the two strings by calling
+       *  traits::compare(substring.data(),str.substr(pos2,n2).data(),rlen).
+       *  If the result of the comparison is nonzero returns it, otherwise the
+       *  shorter one is ordered first.
       */
       int
       compare(size_type __pos1, size_type __n1, const basic_string& __str,
@@ -1970,9 +1979,12 @@ namespace std
        *
        *  Returns an integer < 0 if this string is ordered before @a s, 0 if
        *  their values are equivalent, or > 0 if this string is ordered after
-       *  @a s.  If the lengths of @a s and this string are different, the
-       *  shorter one is ordered first.  If they are the same, returns the
-       *  result of traits::compare(data(),s,size());
+       *  @a s.  Determines the effective length rlen of the strings to
+       *  compare as the smallest of size() and the length of a string
+       *  constructed from @a s.  The function then compares the two strings
+       *  by calling traits::compare(data(),s,rlen).  If the result of the
+       *  comparison is nonzero returns it, otherwise the shorter one is
+       *  ordered first.
       */
       int
       compare(const _CharT* __s) const;
@@ -1989,10 +2001,13 @@ namespace std
        *  Form the substring of this string from the @a n1 characters starting
        *  at @a pos.  Returns an integer < 0 if the substring is ordered
        *  before @a s, 0 if their values are equivalent, or > 0 if the
-       *  substring is ordered after @a s.  If the lengths of @a s and the
-       *  substring are different, the shorter one is ordered first.  If they
-       *  are the same, returns the result of
-       *  traits::compare(substring.data(),s,size());
+       *  substring is ordered after @a s.  Determines the effective length
+       *  rlen of the strings to compare as the smallest of the length of the 
+       *  substring and the length of a string constructed from @a s.  The
+       *  function then compares the two string by calling
+       *  traits::compare(substring.data(),s,rlen).  If the result of the
+       *  comparison is nonzero returns it, otherwise the shorter one is
+       *  ordered first.
       */
       int
       compare(size_type __pos, size_type __n1, const _CharT* __s) const;
@@ -2009,10 +2024,12 @@ namespace std
        *  at @a pos1.  Form a string from the first @a n2 characters of @a s.
        *  Returns an integer < 0 if this substring is ordered before the string
        *  from @a s, 0 if their values are equivalent, or > 0 if this substring
-       *  is ordered after the string from @a s. If the lengths of this
-       *  substring and @a n2 are different, the shorter one is ordered first.
-       *  If they are the same, returns the result of
-       *  traits::compare(substring.data(),s,size());
+       *  is ordered after the string from @a s.   Determines the effective
+       *  length rlen of the strings to compare as the smallest of the length
+       *  of the substring and @a n2.  The function then compares the two
+       *  strings by calling traits::compare(substring.data(),s,rlen).  If the
+       *  result of the comparison is nonzero returns it, otherwise the shorter
+       *  one is ordered first.
        *
        *  NB: s must have at least n2 characters, '\0' has no special
        *  meaning.

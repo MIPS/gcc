@@ -686,6 +686,9 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
 #define wfl_operator \
   java_global_trees[JTI_WFL_OPERATOR]
 
+/* The decl for "_Jv_ResolvePoolEntry".  */
+extern GTY(()) tree soft_resolvepoolentry_node;
+
 extern const char *cyclic_inheritance_report;
 
 struct lang_identifier GTY(())
@@ -1285,6 +1288,7 @@ extern tree get_method_index (tree decl);
 extern void make_class_data (tree);
 extern void register_class (void);
 extern int alloc_name_constant (int, tree);
+extern int alloc_constant_fieldref (tree, tree);
 extern void emit_register_classes (tree *);
 extern tree emit_symbol_table (tree, tree, tree, tree, tree, int);
 extern void lang_init_source (int);
@@ -1883,8 +1887,8 @@ enum
 #define EXPR_WFL_LINECOL(NODE) ((NODE)->exp.locus)
 #define EXPR_WFL_FILENAME(NODE) EXPR_FILENAME (NODE)
 #define EXPR_WFL_LINENO(NODE) EXPR_LINENO (NODE)
-extern tree build_expr_wfl              PARAMS ((tree, source_location));
-extern tree expr_add_location           PARAMS ((tree, source_location, bool));
+extern tree build_expr_wfl (tree, source_location);
+extern tree expr_add_location (tree, source_location, bool);
 #define build_unknown_wfl(NODE) build_expr_wfl(NODE, UNKNOWN_LOCATION)
 #else
 #define EXPR_WFL_LINECOL(NODE) (EXPR_CHECK (NODE)->exp.complexity)
@@ -1899,12 +1903,12 @@ extern tree expr_add_location           PARAMS ((tree, source_location, bool));
 #define EXPR_WFL_SET_LINECOL(NODE, LINE, COL) \
   (EXPR_WFL_LINECOL(NODE) = ((LINE) << 12) | ((COL) & 0xfff))
 
-extern tree build_expr_wfl              PARAMS ((tree, const char *, int, int));
+extern tree build_expr_wfl (tree, const char *, int, int);
 #define build_unknown_wfl(NODE) build_expr_wfl(NODE, NULL, 0, 0)
 #endif
 
-extern void java_genericize		PARAMS ((tree));
-extern int java_gimplify_expr		PARAMS ((tree *, tree *, tree *));
+extern void java_genericize (tree);
+extern int java_gimplify_expr (tree *, tree *, tree *);
 
 extern tree extract_field_decl (tree);
 

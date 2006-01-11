@@ -230,6 +230,9 @@ namespace gcj
 
   /* Print out class names as they are initialized. */
   extern bool verbose_class_flag;
+  
+  /* When true, enable the bytecode verifier and BC-ABI verification. */
+  extern bool verifyClasses;
 }
 
 // This class handles all aspects of class preparation and linking.
@@ -238,7 +241,7 @@ class _Jv_Linker
 private:
   static _Jv_Field *find_field_helper(jclass, _Jv_Utf8Const *, _Jv_Utf8Const *,
 				      jclass *);
-  static _Jv_Field *find_field(jclass, jclass, _Jv_Utf8Const *,
+  static _Jv_Field *find_field(jclass, jclass, jclass *, _Jv_Utf8Const *,
 			       _Jv_Utf8Const *);
   static void prepare_constant_time_tables(jclass);
   static jshort get_interfaces(jclass, _Jv_ifaces *);
@@ -360,6 +363,9 @@ extern "C" void JvRunMain (jclass klass, int argc, const char **argv);
 void _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, 
 		  bool is_jar);
 
+void _Jv_RunMain (struct _Jv_VMInitArgs *vm_args, jclass klass,
+                  const char *name, int argc, const char **argv, bool is_jar);
+
 // Delayed until after _Jv_AllocBytes is declared.
 //
 // Note that we allocate this as unscanned memory -- the vtables
@@ -445,7 +451,8 @@ extern void _Jv_UnregisterClass (_Jv_Utf8Const*, java::lang::ClassLoader*);
 extern jclass _Jv_FindClass (_Jv_Utf8Const *name,
 			     java::lang::ClassLoader *loader);
 extern jclass _Jv_FindClassFromSignature (char *,
-					  java::lang::ClassLoader *loader);
+					  java::lang::ClassLoader *loader,
+					  char ** = NULL);
 extern void _Jv_GetTypesFromSignature (jmethodID method,
 				       jclass declaringClass,
 				       JArray<jclass> **arg_types_out,
@@ -561,15 +568,27 @@ extern void _Jv_RegisterBootstrapPackages ();
 // This is used to find ABI versions we recognize.
 #define GCJ_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 10)
 #define GCJ_BINARYCOMPAT_ADDITION 5
+#define GCJ_BOOTSTRAP_LOADER_ADDITION 1
+
+// At present we know we are compatible with the BC ABI as used in GCC
+// 4.0.
+#define GCJ_40_BC_ABI_VERSION (4 * 10000 + 0 * 10 + GCJ_BINARYCOMPAT_ADDITION)
 
 inline bool
 _Jv_CheckABIVersion (unsigned long value)
 {
-  // For this release, recognize just our defined C++ ABI and our
-  // defined BC ABI.  (In the future we may recognize past BC ABIs as
-  // well.)
+  // Recognize our defined C++ ABIs.
   return (value == GCJ_VERSION
-	  || value == (GCJ_VERSION + GCJ_BINARYCOMPAT_ADDITION));
+	  || value == (GCJ_VERSION + GCJ_BOOTSTRAP_LOADER_ADDITION)
+	  || value == GCJ_40_BC_ABI_VERSION
+	  || value == (GCJ_40_BC_ABI_VERSION + GCJ_BOOTSTRAP_LOADER_ADDITION));
+}
+
+inline bool
+_Jv_ClassForBootstrapLoader (unsigned long value)
+{
+  return (value == (GCJ_VERSION + GCJ_BOOTSTRAP_LOADER_ADDITION)
+	  || value == (GCJ_40_BC_ABI_VERSION + GCJ_BOOTSTRAP_LOADER_ADDITION));
 }
 
 // It makes the source cleaner if we simply always define this

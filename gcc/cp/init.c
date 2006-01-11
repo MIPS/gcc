@@ -222,8 +222,8 @@ build_zero_init (tree type, tree nelts, bool static_storage_p)
       /* Iterate over the array elements, building initializations.  */
       inits = NULL_TREE;
       if (nelts)
-	max_index = fold (build2 (MINUS_EXPR, TREE_TYPE (nelts),
-				  nelts, integer_one_node));
+	max_index = fold_build2 (MINUS_EXPR, TREE_TYPE (nelts),
+				 nelts, integer_one_node);
       else
 	max_index = array_type_nelts (type);
       gcc_assert (TREE_CODE (max_index) == INTEGER_CST);
@@ -323,7 +323,7 @@ perform_member_init (tree member, tree init)
   /* Effective C++ rule 12 requires that all data members be
      initialized.  */
   if (warn_ecpp && !explicit && TREE_CODE (type) != ARRAY_TYPE)
-    warning ("%J%qD should be initialized in the member initialization "
+    warning (0, "%J%qD should be initialized in the member initialization "
 	     "list", current_function_decl, member);
 
   if (init == void_type_node)
@@ -370,7 +370,7 @@ perform_member_init (tree member, tree init)
 	    {
 	      init = build_default_init (type, /*nelts=*/NULL_TREE);
 	      if (TREE_CODE (type) == REFERENCE_TYPE)
-		warning ("%Jdefault-initialization of %q#D, "
+		warning (0, "%Jdefault-initialization of %q#D, "
 			 "which has reference type",
 			 current_function_decl, member);
 	    }
@@ -465,7 +465,7 @@ sort_mem_initializers (tree t, tree mem_inits)
   tree base, binfo, base_binfo;
   tree sorted_inits;
   tree next_subobject;
-  VEC (tree) *vbases;
+  VEC(tree,gc) *vbases;
   int i;
   int uses_unions_p;
 
@@ -525,13 +525,13 @@ sort_mem_initializers (tree t, tree mem_inits)
 	    cp_warning_at ("%qD will be initialized after",
 			   TREE_PURPOSE (next_subobject));
 	  else
-	    warning ("base %qT will be initialized after",
+	    warning (0, "base %qT will be initialized after",
 		     TREE_PURPOSE (next_subobject));
 	  if (TREE_CODE (subobject) == FIELD_DECL)
 	    cp_warning_at ("  %q#D", subobject);
 	  else
-	    warning ("  base %qT", subobject);
-	  warning ("%J  when initialized here", current_function_decl);
+	    warning (0, "  base %qT", subobject);
+	  warning (0, "%J  when initialized here", current_function_decl);
 	}
 
       /* Look again, from the beginning of the list.  */
@@ -655,6 +655,11 @@ sort_mem_initializers (tree t, tree mem_inits)
 void
 emit_mem_initializers (tree mem_inits)
 {
+  /* We will already have issued an error message about the fact that
+     the type is incomplete.  */
+  if (!COMPLETE_TYPE_P (current_class_type))
+    return;
+  
   /* Sort the mem-initializers into the order in which the
      initializations should be performed.  */
   mem_inits = sort_mem_initializers (current_class_type, mem_inits);
@@ -674,7 +679,7 @@ emit_mem_initializers (tree mem_inits)
       if (extra_warnings && !arguments 
 	  && DECL_COPY_CONSTRUCTOR_P (current_function_decl)
 	  && TYPE_NEEDS_CONSTRUCTING (BINFO_TYPE (subobject)))
-	warning ("%Jbase class %q#T should be explicitly initialized in the "
+	warning (0, "%Jbase class %q#T should be explicitly initialized in the "
 		 "copy constructor",
 		 current_function_decl, BINFO_TYPE (subobject));
 
@@ -821,9 +826,9 @@ expand_cleanup_for_base (tree binfo, tree flag)
 				    binfo,
 				    LOOKUP_NORMAL | LOOKUP_NONVIRTUAL);
   if (flag)
-    expr = fold (build3 (COND_EXPR, void_type_node,
-			 c_common_truthvalue_conversion (flag),
-			 expr, integer_zero_node));
+    expr = fold_build3 (COND_EXPR, void_type_node,
+			c_common_truthvalue_conversion (flag),
+			expr, integer_zero_node);
 
   finish_eh_cleanup (expr);
 }
@@ -1546,9 +1551,6 @@ build_offset_ref (tree type, tree name, bool address_p)
       return member;
     }
 
-  /* In member functions, the form `type::name' is no longer
-     equivalent to `this->type::name', at least not until
-     resolve_offset_ref.  */
   member = build2 (OFFSET_REF, TREE_TYPE (member), decl, member);
   PTRMEM_OK_P (member) = 1;
   return member;
@@ -1643,7 +1645,7 @@ build_new (tree placement, tree type, tree nelts, tree init,
 	pedwarn ("size in array new must have integral type");
       nelts = save_expr (cp_convert (sizetype, nelts));
       if (nelts == integer_zero_node)
-	warning ("zero size array reserves no space");
+	warning (0, "zero size array reserves no space");
     }
 
   /* ``A reference cannot be created by the new operator.  A reference
@@ -2236,9 +2238,9 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 
   tbase = create_temporary_var (ptype);
   tbase_init = build_modify_expr (tbase, NOP_EXPR,
-				  fold (build2 (PLUS_EXPR, ptype,
-						base,
-						virtual_size)));
+				  fold_build2 (PLUS_EXPR, ptype,
+					       base,
+					       virtual_size));
   DECL_REGISTER (tbase) = 1;
   controller = build3 (BIND_EXPR, void_type_node, tbase,
 		       NULL_TREE, NULL_TREE);
@@ -2303,11 +2305,11 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
     body = integer_zero_node;
   
   /* Outermost wrapper: If pointer is null, punt.  */
-  body = fold (build3 (COND_EXPR, void_type_node,
-		       fold (build2 (NE_EXPR, boolean_type_node, base,
-				     convert (TREE_TYPE (base),
-					      integer_zero_node))),
-		       body, integer_zero_node));
+  body = fold_build3 (COND_EXPR, void_type_node,
+		      fold_build2 (NE_EXPR, boolean_type_node, base,
+				   convert (TREE_TYPE (base),
+					    integer_zero_node)),
+		      body, integer_zero_node);
   body = build1 (NOP_EXPR, void_type_node, body);
 
   if (controller)
@@ -2733,7 +2735,7 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	  complete_type (type);
 	  if (!COMPLETE_TYPE_P (type))
 	    {
-	      warning ("possible problem detected in invocation of "
+	      warning (0, "possible problem detected in invocation of "
 		       "delete operator:");
 	      cxx_incomplete_type_diagnostic (addr, type, 1);
 	      inform ("neither the destructor nor the class-specific "
@@ -2865,7 +2867,7 @@ push_base_cleanups (void)
   int i;
   tree member;
   tree expr;
-  VEC (tree) *vbases;
+  VEC(tree,gc) *vbases;
 
   /* Run destructors for all virtual baseclasses.  */
   if (CLASSTYPE_VBASECLASSES (current_class_type))

@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -52,6 +52,7 @@ extern const struct cl_option cl_options[];
 extern const unsigned int cl_options_count;
 extern const char *const lang_names[];
 
+#define CL_DISABLED		(1 << 21) /* Disabled in this configuration.  */
 #define CL_TARGET		(1 << 22) /* Target-specific option.  */
 #define CL_REPORT		(1 << 23) /* Report argument with -fverbose-asm  */
 #define CL_JOINED		(1 << 24) /* If takes joined argument.  */
@@ -71,7 +72,7 @@ extern const char **in_fnames;
 extern unsigned num_in_fnames;
 
 extern void decode_options (unsigned int argc, const char **argv);
-extern int option_enabled (const struct cl_option *);
+extern int option_enabled (int opt_idx);
 extern void print_filtered_help (unsigned int);
 
 #endif

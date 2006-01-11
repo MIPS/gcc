@@ -54,16 +54,9 @@ enum processor_flags
 
 extern enum processor_type s390_tune;
 extern enum processor_flags s390_tune_flags;
-extern const char *s390_tune_string;
 
 extern enum processor_type s390_arch;
 extern enum processor_flags s390_arch_flags;
-extern const char *s390_arch_string;
-
-extern const char *s390_warn_framesize_string;
-extern const char *s390_warn_dynamicstack_string;
-extern const char *s390_stack_size_string;
-extern const char *s390_stack_guard_string;
 
 #define TARGET_CPU_IEEE_FLOAT \
 	(s390_arch_flags & PF_IEEE_FLOAT)
@@ -93,33 +86,6 @@ extern const char *s390_stack_guard_string;
     }							\
   while (0)
 
-/* Optional target features.  */
-extern int target_flags;
-
-#define MASK_HARD_FLOAT            0x01
-#define MASK_SMALL_EXEC            0x04
-#define MASK_DEBUG_ARG             0x08
-#define MASK_64BIT                 0x10
-#define MASK_ZARCH                 0x20
-#define MASK_MVCLE                 0x40
-#define MASK_TPF_PROFILING         0x80
-#define MASK_NO_FUSED_MADD         0x100
-#define MASK_BACKCHAIN             0x200
-#define MASK_PACKED_STACK          0x400
-
-#define TARGET_HARD_FLOAT          (target_flags & MASK_HARD_FLOAT)
-#define TARGET_SOFT_FLOAT          (!(target_flags & MASK_HARD_FLOAT))
-#define TARGET_SMALL_EXEC          (target_flags & MASK_SMALL_EXEC)
-#define TARGET_DEBUG_ARG           (target_flags & MASK_DEBUG_ARG)
-#define TARGET_64BIT               (target_flags & MASK_64BIT)
-#define TARGET_ZARCH               (target_flags & MASK_ZARCH)
-#define TARGET_MVCLE               (target_flags & MASK_MVCLE)
-#define TARGET_TPF_PROFILING       (target_flags & MASK_TPF_PROFILING)
-#define TARGET_NO_FUSED_MADD       (target_flags & MASK_NO_FUSED_MADD)
-#define TARGET_FUSED_MADD	   (! TARGET_NO_FUSED_MADD)
-#define TARGET_BACKCHAIN           (target_flags & MASK_BACKCHAIN)
-#define TARGET_PACKED_STACK        (target_flags & MASK_PACKED_STACK)
-
 /* ??? Once this actually works, it could be made a runtime option.  */
 #define TARGET_IBM_FLOAT           0
 #define TARGET_IEEE_FLOAT          1
@@ -129,48 +95,6 @@ extern int target_flags;
 #else
 #define TARGET_DEFAULT             MASK_HARD_FLOAT
 #endif
-
-#define TARGET_SWITCHES                                                      \
-{ { "hard-float",          1, N_("Use hardware fp")},                        \
-  { "soft-float",         -1, N_("Don't use hardware fp")},                  \
-  { "small-exec",          4, N_("Use bras for executable < 64k")},          \
-  { "no-small-exec",      -4, N_("Don't use bras")},                         \
-  { "debug",               8, N_("Additional debug prints")},                \
-  { "no-debug",           -8, N_("Don't print additional debug prints")},    \
-  { "64",                 16, N_("64 bit ABI")},                             \
-  { "31",                -16, N_("31 bit ABI")},                             \
-  { "zarch",              32, N_("z/Architecture")},                         \
-  { "esa",               -32, N_("ESA/390 architecture")},                   \
-  { "mvcle",              64, N_("mvcle use")},                              \
-  { "no-mvcle",          -64, N_("mvc&ex")},                                 \
-  { "tpf-trace",         128, N_("Enable tpf OS tracing code")},             \
-  { "no-tpf-trace",     -128, N_("Disable tpf OS tracing code")},            \
-  { "no-fused-madd",     256, N_("Disable fused multiply/add instructions")},\
-  { "fused-madd",       -256, N_("Enable fused multiply/add instructions")}, \
-  { "backchain",         512, N_("Maintain backchain pointer")},             \
-  { "no-backchain",     -512, N_("Don't maintain backchain pointer")},       \
-  { "packed-stack",     1024, N_("Use packed stack layout")},                \
-  { "no-packed-stack", -1024, N_("Don't use packed stack layout")},          \
-  { "", TARGET_DEFAULT, 0 } }
-
-#define TARGET_OPTIONS                                                         \
-{ { "tune=",            &s390_tune_string,                                     \
-    N_("Schedule code for given CPU"), 0},                                     \
-  { "arch=",            &s390_arch_string,                                     \
-    N_("Generate code for given CPU"), 0},                                     \
-  { "warn-framesize=",   &s390_warn_framesize_string,                          \
-    N_("Warn if a single function's framesize exceeds the given framesize"),   \
-       0},                                                                     \
-  { "warn-dynamicstack", &s390_warn_dynamicstack_string,                       \
-    N_("Warn if a function uses alloca or creates an array with dynamic size"),\
-       0},                                                                     \
-  { "stack-size=",       &s390_stack_size_string,                              \
-    N_("Emit extra code in the function prologue in order to trap if the stack"\
-       "size exceeds the given limit"), 0},                                    \
-  { "stack-guard=",      &s390_stack_guard_string,                             \
-    N_("Set the max. number of bytes which has to be left to stack size "      \
-       "before a trap instruction is triggered"), 0},                          \
-}
 
 /* Support for configure-time defaults.  */
 #define OPTION_DEFAULT_SPECS 					\
@@ -328,12 +252,6 @@ if (INTEGRAL_MODE_P (MODE) &&	        	    	\
 #define CC_REG_P(X)		(REG_P (X) && CC_REGNO_P (REGNO (X)))
 #define FRAME_REG_P(X)		(REG_P (X) && FRAME_REGNO_P (REGNO (X)))
 #define ACCESS_REG_P(X)		(REG_P (X) && ACCESS_REGNO_P (REGNO (X)))
-
-#define SIBCALL_REGNUM 1
-#define BASE_REGNUM 13
-#define RETURN_REGNUM 14
-#define CC_REGNUM 33
-#define TP_REGNUM 36
 
 /* Set up fixed registers and calling convention:
 
@@ -567,7 +485,8 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 #define CONST_OK_FOR_CONSTRAINT_P(VALUE, C, STR)                          \
   s390_const_ok_for_constraint_p ((VALUE), (C), (STR))
 
-#define CONST_DOUBLE_OK_FOR_CONSTRAINT_P(VALUE, C, STR)  1
+#define CONST_DOUBLE_OK_FOR_CONSTRAINT_P(VALUE, C, STR)			\
+  s390_const_double_ok_for_constraint_p ((VALUE), (C), (STR))
 
 #define EXTRA_CONSTRAINT_STR(OP, C, STR)                               	\
   s390_extra_constraint_str ((OP), (C), (STR))
@@ -1043,26 +962,6 @@ do {									\
 
 /* Miscellaneous parameters.  */
 
-/* Define the codes that are matched by predicates in aux-output.c.  */
-#define PREDICATE_CODES							\
-  {"s_operand",       { SUBREG, MEM }},					\
-  {"shift_count_operand", { REG, SUBREG, PLUS, CONST_INT }},		\
-  {"bras_sym_operand",{ SYMBOL_REF, CONST }},				\
-  {"larl_operand",    { SYMBOL_REF, CONST, CONST_INT, CONST_DOUBLE }},	\
-  {"load_multiple_operation", {PARALLEL}},			        \
-  {"store_multiple_operation", {PARALLEL}},			        \
-  {"const0_operand",  { CONST_INT, CONST_DOUBLE }},			\
-  {"consttable_operand", { SYMBOL_REF, LABEL_REF, CONST, 		\
-			   CONST_INT, CONST_DOUBLE }},			\
-  {"s390_plus_operand", { PLUS }},					\
-  {"s390_comparison",     { EQ, NE, LT, GT, LE, GE, LTU, GTU, LEU, GEU,	\
-			    UNEQ, UNLT, UNGT, UNLE, UNGE, LTGT,		\
-			    UNORDERED, ORDERED }},			\
-  {"s390_alc_comparison", { ZERO_EXTEND, SIGN_EXTEND, 			\
-			    LTU, GTU, LEU, GEU }},			\
-  {"s390_slb_comparison", { ZERO_EXTEND, SIGN_EXTEND,			\
-			    LTU, GTU, LEU, GEU }},
-
 /* Specify the machine mode that this machine uses for the index in the
    tablejump instruction.  */
 #define CASE_VECTOR_MODE (TARGET_64BIT ? DImode : SImode)
@@ -1082,5 +981,13 @@ do {									\
 /* A function address in a call instruction is a byte address (for
    indexing purposes) so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
+
+/* Machine-specific symbol_ref flags.  */
+#define SYMBOL_FLAG_ALIGN1	(SYMBOL_FLAG_MACH_DEP << 0)
+
+/* Check whether integer displacement is in range.  */
+#define DISP_IN_RANGE(d) \
+  (TARGET_LONG_DISPLACEMENT? ((d) >= -524288 && (d) <= 524287) \
+                           : ((d) >= 0 && (d) <= 4095))
 
 #endif

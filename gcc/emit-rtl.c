@@ -1330,9 +1330,10 @@ operand_subword (rtx op, unsigned int offset, int validate_address, enum machine
   return simplify_gen_subreg (word_mode, op, mode, (offset * UNITS_PER_WORD));
 }
 
-/* Similar to `operand_subword', but never return 0.  If we can't extract
-   the required subword, put OP into a register and try again.  If that fails,
-   abort.  We always validate the address in this case.
+/* Similar to `operand_subword', but never return 0.  If we can't
+   extract the required subword, put OP into a register and try again.
+   The second attempt must succeed.  We always validate the address in
+   this case.
 
    MODE is the mode of OP, in case it is CONST_INT.  */
 
@@ -1358,38 +1359,6 @@ operand_subword_force (rtx op, unsigned int offset, enum machine_mode mode)
   gcc_assert (result);
 
   return result;
-}
-
-/* Given a compare instruction, swap the operands.
-   A test instruction is changed into a compare of 0 against the operand.  */
-
-void
-reverse_comparison (rtx insn)
-{
-  rtx body = PATTERN (insn);
-  rtx comp;
-
-  if (GET_CODE (body) == SET)
-    comp = SET_SRC (body);
-  else
-    comp = SET_SRC (XVECEXP (body, 0, 0));
-
-  if (GET_CODE (comp) == COMPARE)
-    {
-      rtx op0 = XEXP (comp, 0);
-      rtx op1 = XEXP (comp, 1);
-      XEXP (comp, 0) = op1;
-      XEXP (comp, 1) = op0;
-    }
-  else
-    {
-      rtx new = gen_rtx_COMPARE (VOIDmode,
-				 CONST0_RTX (GET_MODE (comp)), comp);
-      if (GET_CODE (body) == SET)
-	SET_SRC (body) = new;
-      else
-	SET_SRC (XVECEXP (body, 0, 0)) = new;
-    }
 }
 
 /* Within a MEM_EXPR, we care about either (1) a component ref of a decl,
@@ -1610,8 +1579,8 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 		 index, then convert to sizetype and multiply by the size of
 		 the array element.  */
 	      if (! integer_zerop (low_bound))
-		index = fold (build2 (MINUS_EXPR, TREE_TYPE (index),
-				      index, low_bound));
+		index = fold_build2 (MINUS_EXPR, TREE_TYPE (index),
+				     index, low_bound);
 
 	      off_tree = size_binop (PLUS_EXPR,
 				     size_binop (MULT_EXPR, convert (sizetype,
@@ -2728,7 +2697,7 @@ get_first_nonnote_insn (void)
 	  continue;
       else
 	{
-	  if (GET_CODE (insn) == INSN
+	  if (NONJUMP_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	    insn = XVECEXP (PATTERN (insn), 0, 0);
 	}
@@ -2754,7 +2723,7 @@ get_last_nonnote_insn (void)
 	  continue;
       else
 	{
-	  if (GET_CODE (insn) == INSN
+	  if (NONJUMP_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	    insn = XVECEXP (PATTERN (insn), 0,
 			    XVECLEN (PATTERN (insn), 0) - 1);
@@ -3297,7 +3266,7 @@ make_insn_raw (rtx pattern)
 	  || (GET_CODE (insn) == SET
 	      && SET_DEST (insn) == pc_rtx)))
     {
-      warning ("ICE: emit_insn used where emit_jump_insn needed:\n");
+      warning (0, "ICE: emit_insn used where emit_jump_insn needed:\n");
       debug_rtx (insn);
     }
 #endif

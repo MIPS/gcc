@@ -1,6 +1,6 @@
 /* Read and write coverage files, and associated functionality.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+   2000, 2001, 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -120,7 +120,22 @@ static tree build_ctr_info_type (void);
 static tree build_ctr_info_value (unsigned, tree);
 static tree build_gcov_info (void);
 static void create_coverage (void);
+
+/* Return the type node for gcov_type.  */
 
+tree
+get_gcov_type (void)
+{
+  return lang_hooks.types.type_for_size (GCOV_TYPE_SIZE, false);
+}
+
+/* Return the type node for gcov_unsigned_t.  */
+
+static tree
+get_gcov_unsigned_t (void)
+{
+  return lang_hooks.types.type_for_size (32, true);
+}
 
 static hashval_t
 htab_counts_entry_hash (const void *of)
@@ -165,7 +180,7 @@ read_counts_file (void)
 
   if (!gcov_magic (gcov_read_unsigned (), GCOV_DATA_MAGIC))
     {
-      warning ("%qs is not a gcov data file", da_file_name);
+      warning (0, "%qs is not a gcov data file", da_file_name);
       gcov_close ();
       return;
     }
@@ -176,7 +191,7 @@ read_counts_file (void)
       GCOV_UNSIGNED2STRING (v, tag);
       GCOV_UNSIGNED2STRING (e, GCOV_VERSION);
 
-      warning ("%qs is version %q.*s, expected version %q.*s",
+      warning (0, "%qs is version %q.*s, expected version %q.*s",
  	       da_file_name, 4, v, 4, e);
       gcov_close ();
       return;
@@ -330,7 +345,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
   entry = htab_find (counts_hash, &elt);
   if (!entry)
     {
-      warning ("no coverage for function %qs found.", IDENTIFIER_POINTER
+      warning (0, "no coverage for function %qs found.", IDENTIFIER_POINTER
 	       (DECL_ASSEMBLER_NAME (current_function_decl)));
       return 0;
     }
@@ -377,16 +392,17 @@ coverage_counter_alloc (unsigned counter, unsigned num)
       /* We don't know the size yet; make it big enough that nobody
 	 will make any clever transformation on it.  */
       char buf[20];
+      tree gcov_type_node = get_gcov_type ();
       tree domain_tree
         = build_index_type (build_int_cst (NULL_TREE, 1000)); /* replaced later */
       tree gcov_type_array_type
-        = build_array_type (GCOV_TYPE_NODE, domain_tree);
+        = build_array_type (gcov_type_node, domain_tree);
       tree_ctr_tables[counter]
         = build_decl (VAR_DECL, NULL_TREE, gcov_type_array_type);
       TREE_STATIC (tree_ctr_tables[counter]) = 1;
       ASM_GENERATE_INTERNAL_LABEL (buf, "LPBX", counter + 1);
       DECL_NAME (tree_ctr_tables[counter]) = get_identifier (buf);
-      DECL_ALIGN (tree_ctr_tables[counter]) = TYPE_ALIGN (GCOV_TYPE_NODE);
+      DECL_ALIGN (tree_ctr_tables[counter]) = TYPE_ALIGN (gcov_type_node);
     }
   fn_b_ctrs[counter] = fn_n_ctrs[counter];
   fn_n_ctrs[counter] += num;
@@ -399,8 +415,7 @@ coverage_counter_alloc (unsigned counter, unsigned num)
 rtx
 rtl_coverage_counter_ref (unsigned counter, unsigned no)
 {
-  unsigned gcov_size = tree_low_cst (TYPE_SIZE (GCOV_TYPE_NODE), 1);
-  enum machine_mode mode = mode_for_size (gcov_size, MODE_INT, 0);
+  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
   rtx ref;
 
   gcc_assert (no < fn_n_ctrs[counter] - fn_b_ctrs[counter]);
@@ -412,7 +427,8 @@ rtl_coverage_counter_ref (unsigned counter, unsigned no)
 			       (tree_ctr_tables[counter]))));
         SYMBOL_REF_FLAGS (ctr_labels[counter]) = SYMBOL_FLAG_LOCAL;
       }
-  ref = plus_constant (ctr_labels[counter], gcov_size / BITS_PER_UNIT * no);
+  ref = plus_constant (ctr_labels[counter],
+		       GCOV_TYPE_SIZE / BITS_PER_UNIT * no);
   ref = gen_rtx_MEM (mode, ref);
   set_mem_alias_set (ref, new_alias_set ());
   MEM_NOTRAP_P (ref) = 1;
@@ -425,18 +441,19 @@ rtl_coverage_counter_ref (unsigned counter, unsigned no)
 tree
 tree_coverage_counter_ref (unsigned counter, unsigned no)
 {
+  tree gcov_type_node = get_gcov_type ();
   tree domain_type = TYPE_DOMAIN (TREE_TYPE (tree_ctr_tables[counter]));
 
   gcc_assert (no < fn_n_ctrs[counter] - fn_b_ctrs[counter]);
   no += prg_n_ctrs[counter] + fn_b_ctrs[counter];
 
   /* "no" here is an array index, scaled to bytes later.  */
-  return build4 (ARRAY_REF, GCOV_TYPE_NODE, tree_ctr_tables[counter],
+  return build4 (ARRAY_REF, gcov_type_node, tree_ctr_tables[counter],
 		 fold_convert (domain_type,
 			       build_int_cst (NULL_TREE, no)),
 		 TYPE_MIN_VALUE (domain_type),
-		 size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (GCOV_TYPE_NODE),
-			     size_int (TYPE_ALIGN_UNIT (GCOV_TYPE_NODE))));
+		 size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (gcov_type_node),
+			     size_int (TYPE_ALIGN_UNIT (gcov_type_node))));
 }
 
 /* Generate a checksum for a string.  CHKSUM is the current
@@ -564,7 +581,7 @@ coverage_end_function (void)
 
   if (bbg_file_opened > 1 && gcov_is_error ())
     {
-      warning ("error writing %qs", bbg_file_name);
+      warning (0, "error writing %qs", bbg_file_name);
       bbg_file_opened = -1;
     }
 
@@ -602,10 +619,10 @@ build_fn_info_type (unsigned int counters)
   tree array_type;
 
   /* ident */
-  fields = build_decl (FIELD_DECL, NULL_TREE, unsigned_intSI_type_node);
+  fields = build_decl (FIELD_DECL, NULL_TREE, get_gcov_unsigned_t ());
 
   /* checksum */
-  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_intSI_type_node);
+  field = build_decl (FIELD_DECL, NULL_TREE, get_gcov_unsigned_t ());
   TREE_CHAIN (field) = fields;
   fields = field;
 
@@ -636,12 +653,12 @@ build_fn_info_value (const struct function_list *function, tree type)
   tree array_value = NULL_TREE;
 
   /* ident */
-  value = tree_cons (fields, build_int_cstu (unsigned_intSI_type_node,
+  value = tree_cons (fields, build_int_cstu (get_gcov_unsigned_t (),
 					     function->ident), value);
   fields = TREE_CHAIN (fields);
 
   /* checksum */
-  value = tree_cons (fields, build_int_cstu (unsigned_intSI_type_node,
+  value = tree_cons (fields, build_int_cstu (get_gcov_unsigned_t (),
 					     function->checksum), value);
   fields = TREE_CHAIN (fields);
 
@@ -670,11 +687,11 @@ build_ctr_info_type (void)
 {
   tree type = lang_hooks.types.make_type (RECORD_TYPE);
   tree field, fields = NULL_TREE;
-  tree gcov_ptr_type = build_pointer_type (GCOV_TYPE_NODE);
+  tree gcov_ptr_type = build_pointer_type (get_gcov_type ());
   tree gcov_merge_fn_type;
 
   /* counters */
-  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_intSI_type_node);
+  field = build_decl (FIELD_DECL, NULL_TREE, get_gcov_unsigned_t ());
   TREE_CHAIN (field) = fields;
   fields = field;
 
@@ -711,7 +728,7 @@ build_ctr_info_value (unsigned int counter, tree type)
 
   /* counters */
   value = tree_cons (fields,
-		     build_int_cstu (unsigned_intSI_type_node,
+		     build_int_cstu (get_gcov_unsigned_t (),
 				     prg_n_ctrs[counter]),
 		     value);
   fields = TREE_CHAIN (fields);
@@ -785,11 +802,11 @@ build_gcov_info (void)
   const_type = build_qualified_type (type, TYPE_QUAL_CONST);
 
   /* Version ident */
-  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_intSI_type_node);
+  field = build_decl (FIELD_DECL, NULL_TREE, get_gcov_unsigned_t ());
   TREE_CHAIN (field) = fields;
   fields = field;
-  value = tree_cons (field, build_int_cstu (unsigned_intSI_type_node,
-					    GCOV_VERSION), value);
+  value = tree_cons (field, build_int_cstu (TREE_TYPE (field), GCOV_VERSION),
+		     value);
 
   /* next -- NULL */
   field = build_decl (FIELD_DECL, NULL_TREE, build_pointer_type (const_type));
@@ -798,11 +815,11 @@ build_gcov_info (void)
   value = tree_cons (field, null_pointer_node, value);
 
   /* stamp */
-  field = build_decl (FIELD_DECL, NULL_TREE, unsigned_intSI_type_node);
+  field = build_decl (FIELD_DECL, NULL_TREE, get_gcov_unsigned_t ());
   TREE_CHAIN (field) = fields;
   fields = field;
-  value = tree_cons (field, build_int_cstu (unsigned_intSI_type_node,
-					    local_tick), value);
+  value = tree_cons (field, build_int_cstu (TREE_TYPE (field), local_tick),
+		     value);
 
   /* Filename */
   string_type = build_pointer_type (build_qualified_type (char_type_node,

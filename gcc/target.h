@@ -50,6 +50,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "tm.h"
 #include "insn-modes.h"
 
+struct stdarg_info;
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -343,9 +345,15 @@ struct gcc_target
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
 
-  /* Fold a target-specific builtin.  */
-  tree (* fold_builtin) (tree exp, bool ignore);
+  /* Select a replacement for a target-specific builtin.  This is done
+     *before* regular type checking, and so allows the target to implement
+     a crude form of function overloading.  The result is a complete
+     expression that implements the operation.  */
+  tree (*resolve_overloaded_builtin) (tree decl, tree params);
 
+  /* Fold a target-specific builtin.  */
+  tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
+  
   /* For a vendor-specific fundamental TYPE, return a pointer to
      a statically-allocated string containing the C++ mangling for
      TYPE.  In all other cases, return NULL.  */
@@ -487,8 +495,8 @@ struct gcc_target
   rtx (* builtin_setjmp_frame_value) (void);
 
   /* This target hook should add STRING_CST trees for any hard regs
-     the port wishes to automatically clobber for all asms.  */
-  tree (* md_asm_clobbers) (tree);
+     the port wishes to automatically clobber for an asm.  */
+  tree (* md_asm_clobbers) (tree, tree, tree);
 
   /* This target hook allows the backend to specify a calling convention
      in the debug information.  This function actually returns an
@@ -505,6 +513,12 @@ struct gcc_target
        (set (reg) (unspec_volatile [...] UNSPECV_INDEX))
      to let the backend emit the call frame instructions.  */
   void (* dwarf_handle_frame_unspec) (const char *, rtx, int);
+
+  /* Perform architecture specific checking of statements gimplified
+     from VA_ARG_EXPR.  LHS is left hand side of MODIFY_EXPR, RHS
+     is right hand side.  Returns true if the statements doesn't need
+     to be checked for va_list references.  */
+  bool (*stdarg_optimize_hook) (struct stdarg_info *ai, tree lhs, tree rhs);
 
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
@@ -581,10 +595,23 @@ struct gcc_target
        itself.  Returning true is the behavior required by the Itanium
        C++ ABI.  */
     bool (*key_method_may_be_inline) (void);
-    /* Returns true if all class data (virtual tables, type info,
-       etc.) should be exported from the current DLL, even when the
-       associated class is not exported.  */
-    bool (*export_class_data) (void);
+    /* DECL is a virtual table, virtual table table, typeinfo object,
+       or other similar implicit class data object that will be
+       emitted with external linkage in this translation unit.  No ELF
+       visibility has been explicitly specified.  If the target needs
+       to specify a visibility other than that of the containing class,
+       use this hook to set DECL_VISIBILITY and
+       DECL_VISIBILITY_SPECIFIED.  */ 
+    void (*determine_class_data_visibility) (tree decl);
+    /* Returns true (the default) if virtual tables and other
+       similar implicit class data objects are always COMDAT if they
+       have external linkage.  If this hook returns false, then
+       class data for classes whose virtual table will be emitted in
+       only one translation unit will not be COMDAT.  */
+    bool (*class_data_always_comdat) (void);
+    /* Returns true if __aeabi_atexit should be used to register static
+       destructors.  */
+    bool (*use_aeabi_atexit) (void);
   } cxx;
 
   /* Leave the boolean fields at the end.  */

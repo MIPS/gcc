@@ -1,6 +1,6 @@
 /* Save and restore call-clobbered registers which are live across a call.
    Copyright (C) 1989, 1992, 1994, 1995, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -642,12 +642,12 @@ insert_restore (struct insn_chain *chain, int before_p, int regno,
   unsigned int numregs = 0;
   rtx mem;
 
-  /* A common failure mode if register status is not correct in the RTL
-     is for this routine to be called with a REGNO we didn't expect to
-     save.  That will cause us to write an insn with a (nil) SET_DEST
-     or SET_SRC.  Instead of doing so and causing a crash later, check
-     for this common case and abort here instead.  This will remove one
-     step in debugging such problems.  */
+  /* A common failure mode if register status is not correct in the
+     RTL is for this routine to be called with a REGNO we didn't
+     expect to save.  That will cause us to write an insn with a (nil)
+     SET_DEST or SET_SRC.  Instead of doing so and causing a crash
+     later, check for this common case here instead.  This will remove
+     one step in debugging such problems.  */
   gcc_assert (regno_save_mem[regno][1]);
 
   /* Get the pattern to emit and update our status.
@@ -713,11 +713,11 @@ insert_save (struct insn_chain *chain, int before_p, int regno,
   unsigned int numregs = 0;
   rtx mem;
 
-  /* A common failure mode if register status is not correct in the RTL
-     is for this routine to be called with a REGNO we didn't expect to
-     save.  That will cause us to write an insn with a (nil) SET_DEST
-     or SET_SRC.  Instead of doing so and causing a crash later, check
-     for this common case and abort here instead.  This will remove one
+  /* A common failure mode if register status is not correct in the
+     RTL is for this routine to be called with a REGNO we didn't
+     expect to save.  That will cause us to write an insn with a (nil)
+     SET_DEST or SET_SRC.  Instead of doing so and causing a crash
+     later, check for this common case here.  This will remove one
      step in debugging such problems.  */
   gcc_assert (regno_save_mem[regno][1]);
 

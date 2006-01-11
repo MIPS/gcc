@@ -1,5 +1,5 @@
 /* DDG - Data Dependence Graph implementation.
-   Copyright (C) 2004
+   Copyright (C) 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
@@ -187,6 +187,8 @@ create_ddg_dependence (ddg_ptr g, ddg_node_ptr src_node,
       else
 	free (e);
     }
+  else if (t == ANTI_DEP && dt == REG_DEP)
+    free (e);  /* We can fix broken anti register deps using reg-moves.  */
   else
     add_edge_to_ddg (g, e);
 }

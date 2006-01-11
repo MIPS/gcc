@@ -1,6 +1,6 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -175,6 +175,7 @@ struct resword
    _true_.  */
 #define D_EXT		0x01	/* GCC extension */
 #define D_ASM		0x02	/* in C99, but has a switch to turn it off */
+#define D_OBJC		0x04	/* Objective C++ only */
 
 CONSTRAINT(ridbits_fit, RID_LAST_MODIFIER < sizeof(unsigned long) * CHAR_BIT);
 
@@ -279,6 +280,31 @@ static const struct resword reswords[] =
   { "wchar_t",          RID_WCHAR,	0 },
   { "while",		RID_WHILE,	0 },
 
+  /* The remaining keywords are specific to Objective-C++.  NB:
+     All of them will remain _disabled_, since they are context-
+     sensitive.  */
+
+  /* These ObjC keywords are recognized only immediately after
+     an '@'.  NB: The following C++ keywords double as
+     ObjC keywords in this context: RID_CLASS, RID_PRIVATE,
+     RID_PROTECTED, RID_PUBLIC, RID_THROW, RID_TRY and RID_CATCH.  */
+  { "compatibility_alias", RID_AT_ALIAS,	D_OBJC },
+  { "defs",		RID_AT_DEFS,		D_OBJC },
+  { "encode",		RID_AT_ENCODE,		D_OBJC },
+  { "end",		RID_AT_END,		D_OBJC },
+  { "implementation",	RID_AT_IMPLEMENTATION,	D_OBJC },
+  { "interface",	RID_AT_INTERFACE,	D_OBJC },
+  { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
+  { "selector",		RID_AT_SELECTOR,	D_OBJC },
+  { "finally",		RID_AT_FINALLY,		D_OBJC },
+  { "synchronized",	RID_AT_SYNCHRONIZED,	D_OBJC },
+  /* These are recognized only in protocol-qualifier context.  */
+  { "bycopy",		RID_BYCOPY,		D_OBJC },
+  { "byref",		RID_BYREF,		D_OBJC },
+  { "in",		RID_IN,			D_OBJC },
+  { "inout",		RID_INOUT,		D_OBJC },
+  { "oneway",		RID_ONEWAY,		D_OBJC },
+  { "out",		RID_OUT,		D_OBJC },
 };
 
 void
@@ -287,6 +313,7 @@ init_reswords (void)
   unsigned int i;
   tree id;
   int mask = ((flag_no_asm ? D_ASM : 0)
+	      | D_OBJC
 	      | (flag_no_gnu_keywords ? D_EXT : 0));
 
   ridpointers = ggc_calloc ((int) RID_MAX, sizeof (tree));
@@ -312,6 +339,10 @@ init_cp_pragma (void)
   c_register_pragma ("GCC", "java_exceptions", handle_pragma_java_exceptions);
 }
 
+/* TRUE if a code represents a statement.  */
+
+bool statement_code_p[MAX_TREE_CODES];
+
 /* Initialize the C++ front end.  This function is very sensitive to
    the exact order that things are done here.  It would be nice if the
    initialization done by this routine were moved to its subroutines,
@@ -319,12 +350,18 @@ init_cp_pragma (void)
 bool
 cxx_init (void)
 {
+  unsigned int i;
   static const enum tree_code stmt_codes[] = {
-    c_common_stmt_codes,
-    cp_stmt_codes
+   CTOR_INITIALIZER,	TRY_BLOCK,	HANDLER,
+   EH_SPEC_BLOCK,	USING_STMT,	TAG_DEFN,
+   IF_STMT,		CLEANUP_STMT,	FOR_STMT,
+   WHILE_STMT,		DO_STMT,	BREAK_STMT,
+   CONTINUE_STMT,	SWITCH_STMT,	EXPR_STMT
   };
 
-  INIT_STATEMENT_CODES (stmt_codes);
+  memset (&statement_code_p, 0, sizeof (statement_code_p));
+  for (i = 0; i < ARRAY_SIZE (stmt_codes); i++)
+    statement_code_p[stmt_codes[i]] = true;
 
   /* We cannot just assign to input_filename because it has already
      been initialized and will be used later as an N_BINCL for stabs+
@@ -347,11 +384,6 @@ cxx_init (void)
   class_type_node = ridpointers[(int) RID_CLASS];
 
   cxx_init_decl_processing ();
-
-  /* Create the built-in __null node.  It is important that this is
-     not shared.  */
-  null_node = make_node (INTEGER_CST);
-  TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
 
   /* The fact that G++ uses COMDAT for many entities (inline
      functions, template instantiations, virtual tables, etc.) mean
@@ -433,7 +465,7 @@ parse_strconst_pragma (const char* name, int opt)
     {
       result = x;
       if (c_lex (&x) != CPP_EOF)
-	warning ("junk at end of #pragma %s", name);
+	warning (0, "junk at end of #pragma %s", name);
       return result;
     }
 
@@ -527,7 +559,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
 	 cookie (if any) of the filename, but this requires completing the
 	 --enable-mapped-location project first.  See PR 17577.  */
       if (cpp_included (parse_in, filename))
-	warning ("#pragma implementation for %qs appears after "
+	warning (0, "#pragma implementation for %qs appears after "
 		 "file is included", filename);
 #endif
     }
@@ -552,7 +584,7 @@ handle_pragma_java_exceptions (cpp_reader* dfile ATTRIBUTE_UNUSED )
 {
   tree x;
   if (c_lex (&x) != CPP_EOF)
-    warning ("junk at end of #pragma GCC java_exceptions");
+    warning (0, "junk at end of #pragma GCC java_exceptions");
 
   choose_personality_routine (lang_java);
 }

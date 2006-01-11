@@ -203,7 +203,7 @@ enum insn_code reload_out_optab[NUM_MACHINE_MODES];
 /* This obstack is used for allocation of rtl during register elimination.
    The allocated storage can be freed once find_reloads has processed the
    insn.  */
-struct obstack reload_obstack;
+static struct obstack reload_obstack;
 
 /* Points to the beginning of the reload_obstack.  All insn_chain structures
    are allocated first.  */
@@ -716,8 +716,20 @@ reload (rtx first, int global)
 		     that is not a legitimate memory operand.  As later
 		     stages of reload assume that all addresses found
 		     in the reg_equiv_* arrays were originally legitimate,
-		     we ignore such REG_EQUIV notes.  */
-		  if (memory_operand (x, VOIDmode))
+
+		     It can also happen that a REG_EQUIV note contains a
+		     readonly memory location.  If the destination pseudo
+		     is set from some other value (typically a different
+		     pseudo), and the destination pseudo does not get a
+		     hard reg, then reload will replace the destination
+		     pseudo with its equivalent memory location.  This
+		     is horribly bad as it creates a store to a readonly
+		     memory location and a runtime segfault.  To avoid
+		     this problem we reject readonly memory locations
+		     for equivalences.  This is overly conservative as
+		     we could find all sets of the destination pseudo
+		     and remove them as they should be redundant.  */
+		  if (memory_operand (x, VOIDmode) && ! MEM_READONLY_P (x))
 		    {
 		      /* Always unshare the equivalence, so we can
 			 substitute into this insn without touching the
@@ -1021,8 +1033,8 @@ reload (rtx first, int global)
       CLEAR_REGNO_REG_SET (bb->global_live_at_start,
 			   HARD_FRAME_POINTER_REGNUM);
 
-  /* Come here (with failure set nonzero) if we can't get enough spill regs
-     and we decide not to abort about it.  */
+  /* Come here (with failure set nonzero) if we can't get enough spill
+     regs.  */
  failed:
 
   CLEAR_REG_SET (&spilled_pseudos);
@@ -1117,6 +1129,19 @@ reload (rtx first, int global)
 	  replace_pseudos_in (& XEXP (PATTERN (insn), 0),
 			      VOIDmode, PATTERN (insn));
 
+	/* Discard obvious no-ops, even without -O.  This optimization
+	   is fast and doesn't interfere with debugging.  */
+	if (NONJUMP_INSN_P (insn)
+	    && GET_CODE (PATTERN (insn)) == SET
+	    && REG_P (SET_SRC (PATTERN (insn)))
+	    && REG_P (SET_DEST (PATTERN (insn)))
+	    && (REGNO (SET_SRC (PATTERN (insn)))
+		== REGNO (SET_DEST (PATTERN (insn)))))
+	  {
+	    delete_insn (insn);
+	    continue;
+	  }
+
 	pnote = &REG_NOTES (insn);
 	while (*pnote != 0)
 	  {
@@ -1151,10 +1176,10 @@ reload (rtx first, int global)
 
       if (size > STACK_CHECK_MAX_FRAME_SIZE)
 	{
-	  warning ("frame size too large for reliable stack checking");
+	  warning (0, "frame size too large for reliable stack checking");
 	  if (! verbose_warned)
 	    {
-	      warning ("try reducing the number of local variables");
+	      warning (0, "try reducing the number of local variables");
 	      verbose_warned = 1;
 	    }
 	}
@@ -5943,11 +5968,11 @@ reload_as_needed (int live_known)
 }
 
 /* Return nonzero if the rtx X is invariant over the current function.  */
-/* ??? Actually, the places where we use this expect exactly what
- * is tested here, and not everything that is function invariant.  In
- * particular, the frame pointer and arg pointer are special cased;
- * pic_offset_table_rtx is not, and this will cause aborts when we
- *             go to spill these things to memory.  */
+/* ??? Actually, the places where we use this expect exactly what is
+   tested here, and not everything that is function invariant.  In
+   particular, the frame pointer and arg pointer are special cased;
+   pic_offset_table_rtx is not, and we must not spill these things to
+   memory.  */
 
 static int
 function_invariant_p (rtx x)

@@ -79,7 +79,7 @@ typedef struct _elim_graph {
   int size;
 
   /* List of nodes in the elimination graph.  */
-  varray_type nodes;
+  VEC(tree,heap) *nodes;
 
   /*  The predecessor and successor edge list.  */
   varray_type edge_list;
@@ -97,7 +97,7 @@ typedef struct _elim_graph {
   edge e;
 
   /* List of constant copies to emit.  These are pushed on in pairs.  */
-  varray_type  const_copies;
+  VEC(tree,heap) *const_copies;
 } *elim_graph;
 
 
@@ -218,8 +218,8 @@ new_elim_graph (int size)
 {
   elim_graph g = (elim_graph) xmalloc (sizeof (struct _elim_graph));
 
-  VARRAY_TREE_INIT (g->nodes, 30, "Elimination Node List");
-  VARRAY_TREE_INIT (g->const_copies, 20, "Elimination Constant Copies");
+  g->nodes = VEC_alloc (tree, heap, 30);
+  g->const_copies = VEC_alloc (tree, heap, 20);
   VARRAY_INT_INIT (g->edge_list, 20, "Elimination Edge List");
   VARRAY_INT_INIT (g->stack, 30, " Elimination Stack");
   
@@ -234,7 +234,7 @@ new_elim_graph (int size)
 static inline void
 clear_elim_graph (elim_graph g)
 {
-  VARRAY_POP_ALL (g->nodes);
+  VEC_truncate (tree, g->nodes, 0);
   VARRAY_POP_ALL (g->edge_list);
 }
 
@@ -245,6 +245,8 @@ static inline void
 delete_elim_graph (elim_graph g)
 {
   sbitmap_free (g->visited);
+  VEC_free (tree, heap, g->const_copies);
+  VEC_free (tree, heap, g->nodes);
   free (g);
 }
 
@@ -254,7 +256,7 @@ delete_elim_graph (elim_graph g)
 static inline int
 elim_graph_size (elim_graph g)
 {
-  return VARRAY_ACTIVE_SIZE (g->nodes);
+  return VEC_length (tree, g->nodes);
 }
 
 
@@ -264,10 +266,12 @@ static inline void
 elim_graph_add_node (elim_graph g, tree node)
 {
   int x;
-  for (x = 0; x < elim_graph_size (g); x++)
-    if (VARRAY_TREE (g->nodes, x) == node)
+  tree t;
+
+  for (x = 0; VEC_iterate (tree, g->nodes, x, t); x++)
+    if (t == node)
       return;
-  VARRAY_PUSH_TREE (g->nodes, node);
+  VEC_safe_push (tree, heap, g->nodes, node);
 }
 
 
@@ -379,8 +383,8 @@ eliminate_build (elim_graph g, basic_block B)
         {
 	  /* Save constant copies until all other copies have been emitted
 	     on this edge.  */
-	  VARRAY_PUSH_TREE (g->const_copies, T0);
-	  VARRAY_PUSH_TREE (g->const_copies, Ti);
+	  VEC_safe_push (tree, heap, g->const_copies, T0);
+	  VEC_safe_push (tree, heap, g->const_copies, Ti);
 	}
       else
         {
@@ -491,10 +495,9 @@ eliminate_phi (edge e, elim_graph g)
   int x;
   basic_block B = e->dest;
 
-  gcc_assert (VARRAY_ACTIVE_SIZE (g->const_copies) == 0);
+  gcc_assert (VEC_length (tree, g->const_copies) == 0);
 
-  /* Abnormal edges already have everything coalesced, or the coalescer
-     would have aborted.  */
+  /* Abnormal edges already have everything coalesced.  */
   if (e->flags & EDGE_ABNORMAL)
     return;
 
@@ -504,12 +507,13 @@ eliminate_phi (edge e, elim_graph g)
 
   if (elim_graph_size (g) != 0)
     {
+      tree var;
+
       sbitmap_zero (g->visited);
       VARRAY_POP_ALL (g->stack);
 
-      for (x = 0; x < elim_graph_size (g); x++)
+      for (x = 0; VEC_iterate (tree, g->nodes, x, var); x++)
         {
-	  tree var = VARRAY_TREE (g->nodes, x);
 	  int p = var_to_partition (g->map, var);
 	  if (!TEST_BIT (g->visited, p))
 	    elim_forward (g, p);
@@ -526,13 +530,11 @@ eliminate_phi (edge e, elim_graph g)
     }
 
   /* If there are any pending constant copies, issue them now.  */
-  while (VARRAY_ACTIVE_SIZE (g->const_copies) > 0)
+  while (VEC_length (tree, g->const_copies) > 0)
     {
       tree src, dest;
-      src = VARRAY_TOP_TREE (g->const_copies);
-      VARRAY_POP (g->const_copies);
-      dest = VARRAY_TOP_TREE (g->const_copies);
-      VARRAY_POP (g->const_copies);
+      src = VEC_pop (tree, g->const_copies);
+      dest = VEC_pop (tree, g->const_copies);
       insert_copy_on_edge (e, dest, src);
     }
 }
@@ -1445,12 +1447,8 @@ add_dependance (temp_expr_table_p tab, int version, tree var)
 static bool
 check_replaceable (temp_expr_table_p tab, tree stmt)
 {
-  stmt_ann_t ann;
-  vuse_optype vuseops;
-  def_optype defs;
-  use_optype uses;
   tree var, def;
-  int num_use_ops, version;
+  int version;
   var_map map = tab->map;
   ssa_op_iter iter;
   tree call_expr;
@@ -1458,22 +1456,16 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
   
-  ann = stmt_ann (stmt);
-  defs = DEF_OPS (ann);
-
   /* Punt if there is more than 1 def, or more than 1 use.  */
-  if (NUM_DEFS (defs) != 1)
+  def = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_DEF);
+  if (!def)
     return false;
-  def = DEF_OP (defs, 0);
+
   if (version_ref_count (map, def) != 1)
     return false;
 
-  /* There must be no V_MAY_DEFS.  */
-  if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) != 0)
-    return false;
-
-  /* There must be no V_MUST_DEFS.  */
-  if (NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) != 0)
+  /* There must be no V_MAY_DEFS or V_MUST_DEFS.  */
+  if (!(ZERO_SSA_OPERANDS (stmt, (SSA_OP_VMAYDEF | SSA_OP_VMUSTDEF))))
     return false;
 
   /* Float expressions must go through memory if float-store is on.  */
@@ -1489,21 +1481,6 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
 	return false;
     }
 
-  uses = USE_OPS (ann);
-  num_use_ops = NUM_USES (uses);
-  vuseops = VUSE_OPS (ann);
-
-  /* Any expression which has no virtual operands and no real operands
-     should have been propagated if it's possible to do anything with them. 
-     If this happens here, it probably exists that way for a reason, so we 
-     won't touch it.   An example is:
-         b_4 = &tab
-     There are no virtual uses nor any real uses, so we just leave this 
-     alone to be safe.  */
-
-  if (num_use_ops == 0 && NUM_VUSES (vuseops) == 0)
-    return false;
-
   version = SSA_NAME_VERSION (def);
 
   /* Add this expression to the dependency list for each use partition.  */
@@ -1513,7 +1490,7 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
     }
 
   /* If there are VUSES, add a dependence on virtual defs.  */
-  if (NUM_VUSES (vuseops) != 0)
+  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VUSE))
     {
       add_value_to_list (tab, (value_expr_p *)&(tab->version_info[version]), 
 			 VIRTUAL_PARTITION (tab));
@@ -1688,12 +1665,8 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	  free_value_expr (tab, p);
 	}
 
-      /* A V_MAY_DEF kills any expression using a virtual operand.  */
-      if (NUM_V_MAY_DEFS (V_MAY_DEF_OPS (ann)) > 0)
-        kill_virtual_exprs (tab, true);
-	
-      /* A V_MUST_DEF kills any expression using a virtual operand.  */
-      if (NUM_V_MUST_DEFS (V_MUST_DEF_OPS (ann)) > 0)
+      /* A V_{MAY,MUST}_DEF kills any expression using a virtual operand.  */
+      if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
         kill_virtual_exprs (tab, true);
     }
 }
@@ -1744,7 +1717,8 @@ dump_replaceable_exprs (FILE *f, tree *expr)
     if (expr[x])
       {
         stmt = expr[x];
-	var = DEF_OP (STMT_DEF_OPS (stmt), 0);
+	var = SINGLE_SSA_TREE_OPERAND (stmt, SSA_OP_DEF);
+	gcc_assert (var != NULL_TREE);
 	print_generic_expr (f, var, TDF_SLIM);
 	fprintf (f, " replace with --> ");
 	print_generic_expr (f, TREE_OPERAND (stmt, 1), TDF_SLIM);
@@ -1875,62 +1849,59 @@ rewrite_trees (var_map map, tree *values)
     {
       for (si = bsi_start (bb); !bsi_end_p (si); )
 	{
-	  size_t num_uses, num_defs;
-	  use_optype uses;
-	  def_optype defs;
 	  tree stmt = bsi_stmt (si);
-	  use_operand_p use_p;
+	  use_operand_p use_p, copy_use_p;
 	  def_operand_p def_p;
-	  int remove = 0, is_copy = 0;
+	  bool remove = false, is_copy = false;
+	  int num_uses = 0;
 	  stmt_ann_t ann;
 	  ssa_op_iter iter;
 
-	  get_stmt_operands (stmt);
 	  ann = stmt_ann (stmt);
 	  changed = false;
 
 	  if (TREE_CODE (stmt) == MODIFY_EXPR 
 	      && (TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME))
-	    is_copy = 1;
+	    is_copy = true;
 
-	  uses = USE_OPS (ann);
-	  num_uses = NUM_USES (uses);
+	  copy_use_p = NULL_USE_OPERAND_P;
 	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
 	    {
 	      if (replace_use_variable (map, use_p, values))
-	        changed = true;
+		changed = true;
+	      copy_use_p = use_p;
+	      num_uses++;
 	    }
 
-	  defs = DEF_OPS (ann);
-	  num_defs = NUM_DEFS (defs);
+	  if (num_uses != 1)
+	    is_copy = false;
 
-	  /* Mark this stmt for removal if it is the list of replaceable 
-	     expressions.  */
-	  if (values && num_defs == 1)
+	  def_p = SINGLE_SSA_DEF_OPERAND (stmt, SSA_OP_DEF);
+
+	  if (def_p != NULL)
 	    {
-	      tree def = DEF_OP (defs, 0);
-	      tree val;
-	      val = values[SSA_NAME_VERSION (def)];
-	      if (val)
-		remove = 1;
-	    }
-	  if (!remove)
-	    {
-	      FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
+	      /* Mark this stmt for removal if it is the list of replaceable 
+		 expressions.  */
+	      if (values && values[SSA_NAME_VERSION (DEF_FROM_PTR (def_p))])
+		remove = true;
+	      else
 		{
 		  if (replace_def_variable (map, def_p, NULL))
 		    changed = true;
-
 		  /* If both SSA_NAMEs coalesce to the same variable,
 		     mark the now redundant copy for removal.  */
-		  if (is_copy
-		      && num_uses == 1
-		      && (DEF_FROM_PTR (def_p) == USE_OP (uses, 0)))
-		    remove = 1;
+		  if (is_copy)
+		    {
+		      gcc_assert (copy_use_p != NULL_USE_OPERAND_P);
+		      if (DEF_FROM_PTR (def_p) == USE_FROM_PTR (copy_use_p))
+			remove = true;
+		    }
 		}
-	      if (changed & !remove)
-		modify_stmt (stmt);
 	    }
+	  else
+	    FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, iter, SSA_OP_DEF)
+	      if (replace_def_variable (map, def_p, NULL))
+		changed = true;
 
 	  /* Remove any stmts marked for removal.  */
 	  if (remove)
@@ -1952,10 +1923,12 @@ rewrite_trees (var_map map, tree *values)
 }
 
 
+DEF_VEC_ALLOC_P(edge,heap);
+
 /* These are the local work structures used to determine the best place to 
    insert the copies that were placed on edges by the SSA->normal pass..  */
-static varray_type edge_leader = NULL;
-static varray_type GTY(()) stmt_list = NULL;
+static VEC(edge,heap) *edge_leader;
+static VEC(tree,heap) *stmt_list;
 static bitmap leader_has_match = NULL;
 static edge leader_match = NULL;
 
@@ -2021,6 +1994,28 @@ identical_stmt_lists_p (edge e1, edge e2)
 }
 
 
+/* Allocate data structures used in analyze_edges_for_bb.   */
+
+static void
+init_analyze_edges_for_bb (void)
+{
+  edge_leader = VEC_alloc (edge, heap, 25);
+  stmt_list = VEC_alloc (tree, heap, 25);
+  leader_has_match = BITMAP_ALLOC (NULL);
+}
+
+
+/* Free data structures used in analyze_edges_for_bb.   */
+
+static void
+fini_analyze_edges_for_bb (void)
+{
+  VEC_free (edge, heap, edge_leader);
+  VEC_free (tree, heap, stmt_list);
+  BITMAP_FREE (leader_has_match);
+}
+
+
 /* Look at all the incoming edges to block BB, and decide where the best place
    to insert the stmts on each edge are, and perform those insertions.   Output
    any debug information to DEBUG_FILE.  */
@@ -2037,6 +2032,7 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
   tree stmt;
   edge single_edge = NULL;
   bool is_label;
+  edge leader;
 
   count = 0;
 
@@ -2097,20 +2093,11 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
     }
 
   /* Ensure that we have empty worklists.  */
-  if (edge_leader == NULL)
-    {
-      VARRAY_EDGE_INIT (edge_leader, 25, "edge_leader");
-      VARRAY_TREE_INIT (stmt_list, 25, "stmt_list");
-      leader_has_match = BITMAP_ALLOC (NULL);
-    }
-  else
-    {
 #ifdef ENABLE_CHECKING
-      gcc_assert (VARRAY_ACTIVE_SIZE (edge_leader) == 0);
-      gcc_assert (VARRAY_ACTIVE_SIZE (stmt_list) == 0);
-      gcc_assert (bitmap_empty_p (leader_has_match));
+  gcc_assert (VEC_length (edge, edge_leader) == 0);
+  gcc_assert (VEC_length (tree, stmt_list) == 0);
+  gcc_assert (bitmap_empty_p (leader_has_match));
 #endif
-    }
 
   /* Find the "leader" block for each set of unique stmt lists.  Preference is
      given to FALLTHRU blocks since they would need a GOTO to arrive at another
@@ -2124,9 +2111,8 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
 	  bool found = false;
 
 	  /* Look for the same stmt list in edge leaders list.  */
-	  for (x = 0; x < VARRAY_ACTIVE_SIZE (edge_leader); x++)
+	  for (x = 0; VEC_iterate (edge, edge_leader, x, leader); x++)
 	    {
-	      edge leader = VARRAY_EDGE (edge_leader, x);
 	      if (identical_stmt_lists_p (leader, e))
 		{
 		  /* Give this edge the same stmt list pointer.  */
@@ -2141,8 +2127,8 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
 	  /* If no similar stmt list, add this edge to the leader list.  */
 	  if (!found)
 	    {
-	      VARRAY_PUSH_EDGE (edge_leader, e);
-	      VARRAY_PUSH_TREE (stmt_list, PENDING_STMT (e));
+	      VEC_safe_push (edge, heap, edge_leader, e);
+	      VEC_safe_push (tree, heap, stmt_list, PENDING_STMT (e));
 	    }
 	}
      }
@@ -2150,10 +2136,10 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
   /* If there are no similar lists, just issue the stmts.  */
   if (!have_opportunity)
     {
-      for (x = 0; x < VARRAY_ACTIVE_SIZE (edge_leader); x++)
-	bsi_commit_one_edge_insert (VARRAY_EDGE (edge_leader, x), NULL);
-      VARRAY_POP_ALL (edge_leader);
-      VARRAY_POP_ALL (stmt_list);
+      for (x = 0; VEC_iterate (edge, edge_leader, x, leader); x++)
+	bsi_commit_one_edge_insert (leader, NULL);
+      VEC_truncate (edge, edge_leader, 0);
+      VEC_truncate (tree, stmt_list, 0);
       bitmap_clear (leader_has_match);
       return;
     }
@@ -2166,30 +2152,30 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
   
   /* For each common list, create a forwarding block and issue the stmt's
      in that block.  */
-  for (x = 0 ; x < VARRAY_ACTIVE_SIZE (edge_leader); x++)
+  for (x = 0; VEC_iterate (edge, edge_leader, x, leader); x++)
     if (bitmap_bit_p (leader_has_match, x))
       {
-	edge new_edge, leader_edge;
+	edge new_edge;
 	block_stmt_iterator bsi;
 	tree curr_stmt_list;
 
-	leader_match = leader_edge = VARRAY_EDGE (edge_leader, x);
+	leader_match = leader;
 
 	/* The tree_* cfg manipulation routines use the PENDING_EDGE field
 	   for various PHI manipulations, so it gets cleared whhen calls are 
 	   made to make_forwarder_block(). So make sure the edge is clear, 
 	   and use the saved stmt list.  */
-	PENDING_STMT (leader_edge) = NULL;
-	leader_edge->aux = leader_edge;
-	curr_stmt_list = VARRAY_TREE (stmt_list, x);
+	PENDING_STMT (leader) = NULL;
+	leader->aux = leader;
+	curr_stmt_list = VEC_index (tree, stmt_list, x);
 
-        new_edge = make_forwarder_block (leader_edge->dest, same_stmt_list_p, 
+        new_edge = make_forwarder_block (leader->dest, same_stmt_list_p, 
 					 NULL);
 	bb = new_edge->dest;
 	if (debug_file)
 	  {
 	    fprintf (debug_file, "Splitting BB %d for Common stmt list.  ", 
-		     leader_edge->dest->index);
+		     leader->dest->index);
 	    fprintf (debug_file, "Original block is now BB%d.\n", bb->index);
 	    print_generic_stmt (debug_file, curr_stmt_list, TDF_VOPS);
 	  }
@@ -2202,7 +2188,7 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
 		       e->src->index, e->dest->index);
 	  }
 
-	bsi = bsi_last (leader_edge->dest);
+	bsi = bsi_last (leader->dest);
 	bsi_insert_after (&bsi, curr_stmt_list, BSI_NEW_STMT);
 
 	leader_match = NULL;
@@ -2210,15 +2196,14 @@ analyze_edges_for_bb (basic_block bb, FILE *debug_file)
       }
     else
       {
-        e = VARRAY_EDGE (edge_leader, x);
-	PENDING_STMT (e) = VARRAY_TREE (stmt_list, x);
-	bsi_commit_one_edge_insert (e, NULL);
+	PENDING_STMT (leader) = VEC_index (tree, stmt_list, x);
+	bsi_commit_one_edge_insert (leader, NULL);
       }
 
    
   /* Clear the working data structures.  */
-  VARRAY_POP_ALL (edge_leader);
-  VARRAY_POP_ALL (stmt_list);
+  VEC_truncate (edge, edge_leader, 0);
+  VEC_truncate (tree, stmt_list, 0);
   bitmap_clear (leader_has_match);
 }
 
@@ -2244,14 +2229,16 @@ perform_edge_inserts (FILE *dump_file)
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
 
+  /* Allocate data structures used in analyze_edges_for_bb.   */
+  init_analyze_edges_for_bb ();
+
   FOR_EACH_BB (bb)
     analyze_edges_for_bb (bb, dump_file);
 
   analyze_edges_for_bb (EXIT_BLOCK_PTR, dump_file);
 
-  /* Clear out any tables which were created.  */
-  edge_leader = NULL;
-  BITMAP_FREE (leader_has_match);
+  /* Free data structures used in analyze_edges_for_bb.   */
+  fini_analyze_edges_for_bb ();
 
 #ifdef ENABLE_CHECKING
   {
@@ -2370,6 +2357,9 @@ remove_ssa_form (FILE *dump, var_map map, int flags)
 	}
     }
 
+  /* we no longer maintain the SSA operand cache at this point.  */
+  fini_ssa_operands ();
+
   /* If any copies were inserted on edges, analyze and insert them now.  */
   perform_edge_inserts (dump_file);
 
@@ -2457,7 +2447,6 @@ insert_backedge_copies (void)
 		    bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
 		  else
 		    bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
-		  modify_stmt (stmt);
 		  SET_PHI_ARG_DEF (phi, i, name);
 		}
 	    }
@@ -2508,15 +2497,13 @@ rewrite_out_of_ssa (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_tree_cfg (dump_file, dump_flags & ~TDF_DETAILS);
 
-  /* Do some cleanups which reduce the amount of data the
-     tree->rtl expanders deal with.  */
-  cfg_remove_useless_stmts ();
-
   /* Flush out flow graph and SSA data.  */
   delete_var_map (map);
 
   /* Mark arrays indexed with non-constant indices with TREE_ADDRESSABLE.  */
   discover_nonconstant_array_refs ();
+
+  in_ssa_p = false;
 }
 
 

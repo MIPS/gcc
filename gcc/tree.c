@@ -347,9 +347,9 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 #endif
 
   if (code == IDENTIFIER_NODE)
-    t = ggc_alloc_zone_stat (length, &tree_id_zone PASS_MEM_STAT);
+    t = ggc_alloc_zone_pass_stat (length, &tree_id_zone);
   else
-    t = ggc_alloc_zone_stat (length, &tree_zone PASS_MEM_STAT);
+    t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, length);
 
@@ -433,7 +433,7 @@ copy_node_stat (tree node MEM_STAT_DECL)
   gcc_assert (code != STATEMENT_LIST);
 
   length = tree_size (node);
-  t = ggc_alloc_zone_stat (length, &tree_zone PASS_MEM_STAT);
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
   memcpy (t, node, length);
 
   TREE_CHAIN (t) = 0;
@@ -518,7 +518,7 @@ tree
 build_int_cst_type (tree type, HOST_WIDE_INT low)
 {
   unsigned HOST_WIDE_INT val = (unsigned HOST_WIDE_INT) low;
-  unsigned HOST_WIDE_INT hi;
+  unsigned HOST_WIDE_INT hi, mask;
   unsigned bits;
   bool signed_p;
   bool negative;
@@ -538,10 +538,12 @@ build_int_cst_type (tree type, HOST_WIDE_INT low)
       negative = ((val >> (bits - 1)) & 1) != 0;
 
       /* Mask out the bits outside of the precision of the constant.  */
+      mask = (((unsigned HOST_WIDE_INT) 2) << (bits - 1)) - 1;
+
       if (signed_p && negative)
-	val = val | ((~(unsigned HOST_WIDE_INT) 0) << bits);
+	val |= ~mask;
       else
-	val = val & ~((~(unsigned HOST_WIDE_INT) 0) << bits);
+	val &= mask;
     }
 
   /* Determine the high bits.  */
@@ -556,7 +558,8 @@ build_int_cst_type (tree type, HOST_WIDE_INT low)
       else
 	{
 	  bits -= HOST_BITS_PER_WIDE_INT;
-	  hi = hi & ~((~(unsigned HOST_WIDE_INT) 0) << bits);
+	  mask = (((unsigned HOST_WIDE_INT) 2) << (bits - 1)) - 1;
+	  hi &= mask;
 	}
     }
 
@@ -918,7 +921,7 @@ make_tree_binfo_stat (unsigned base_binfos MEM_STAT_DECL)
   tree_node_sizes[(int) binfo_kind] += length;
 #endif
 
-  t = ggc_alloc_zone_stat (length, &tree_zone PASS_MEM_STAT);
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, offsetof (struct tree_binfo, base_binfos));
 
@@ -943,7 +946,7 @@ make_tree_vec_stat (int len MEM_STAT_DECL)
   tree_node_sizes[(int) vec_kind] += length;
 #endif
 
-  t = ggc_alloc_zone_stat (length, &tree_zone PASS_MEM_STAT);
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, length);
 
@@ -1415,8 +1418,7 @@ tree_cons_stat (tree purpose, tree value, tree chain MEM_STAT_DECL)
 {
   tree node;
 
-  node = ggc_alloc_zone_stat (sizeof (struct tree_list),
-			      &tree_zone PASS_MEM_STAT);
+  node = ggc_alloc_zone_pass_stat (sizeof (struct tree_list), &tree_zone);
 
   memset (node, 0, sizeof (struct tree_common));
 
@@ -1496,9 +1498,9 @@ bit_position (tree field)
 		       DECL_FIELD_BIT_OFFSET (field));
 }
 
-/* Likewise, but return as an integer.  Abort if it cannot be represented
-   in that way (since it could be a signed value, we don't have the option
-   of returning -1 like int_size_in_byte can.  */
+/* Likewise, but return as an integer.  It must be representable in
+   that way (since it could be a signed value, we don't have the
+   option of returning -1 like int_size_in_byte can.  */
 
 HOST_WIDE_INT
 int_bit_position (tree field)
@@ -1516,9 +1518,9 @@ byte_position (tree field)
 			DECL_FIELD_BIT_OFFSET (field));
 }
 
-/* Likewise, but return as an integer.  Abort if it cannot be represented
-   in that way (since it could be a signed value, we don't have the option
-   of returning -1 like int_size_in_byte can.  */
+/* Likewise, but return as an integer.  It must be representable in
+   that way (since it could be a signed value, we don't have the
+   option of returning -1 like int_size_in_byte can.  */
 
 HOST_WIDE_INT
 int_byte_position (tree field)
@@ -1908,7 +1910,6 @@ type_contains_placeholder_1 (tree type)
     case OFFSET_TYPE:
     case REFERENCE_TYPE:
     case METHOD_TYPE:
-    case FILE_TYPE:
     case FUNCTION_TYPE:
     case VECTOR_TYPE:
       return false;
@@ -2510,7 +2511,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 
   gcc_assert (TREE_CODE_LENGTH (code) == 1);
 
-  t = ggc_alloc_zone_stat (length, &tree_zone PASS_MEM_STAT);
+  t = ggc_alloc_zone_pass_stat (length, &tree_zone);
 
   memset (t, 0, sizeof (struct tree_common));
 
@@ -2535,13 +2536,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
     TREE_SIDE_EFFECTS (t) = 1;
   else switch (code)
     {
-    case INIT_EXPR:
-    case MODIFY_EXPR:
     case VA_ARG_EXPR:
-    case PREDECREMENT_EXPR:
-    case PREINCREMENT_EXPR:
-    case POSTDECREMENT_EXPR:
-    case POSTINCREMENT_EXPR:
       /* All of these have side-effects, no matter what their
 	 operands are.  */
       TREE_SIDE_EFFECTS (t) = 1;
@@ -2808,14 +2803,30 @@ build_decl_stat (enum tree_code code, tree name, tree type MEM_STAT_DECL)
 
   return t;
 }
+
+/* Builds and returns function declaration with NAME and TYPE.  */
+
+tree
+build_fn_decl (const char *name, tree type)
+{
+  tree id = get_identifier (name);
+  tree decl = build_decl (FUNCTION_DECL, id, type);
+
+  DECL_EXTERNAL (decl) = 1;
+  TREE_PUBLIC (decl) = 1;
+  DECL_ARTIFICIAL (decl) = 1;
+  TREE_NOTHROW (decl) = 1;
+
+  return decl;
+}
+
 
 /* BLOCK nodes are used to represent the structure of binding contours
    and declarations, once those contours have been exited and their contents
    compiled.  This information is used for outputting debugging info.  */
 
 tree
-build_block (tree vars, tree tags ATTRIBUTE_UNUSED, tree subblocks,
-	     tree supercontext, tree chain)
+build_block (tree vars, tree subblocks, tree supercontext, tree chain)
 {
   tree block = make_node (BLOCK);
 
@@ -3259,7 +3270,7 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
 	}
       if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
 	{
-	  warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
+	  warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
 
@@ -3839,7 +3850,7 @@ host_integerp (tree t, int pos)
 
 /* Return the HOST_WIDE_INT least significant bits of T if it is an
    INTEGER_CST and there is no overflow.  POS is nonzero if the result must
-   be positive.  Abort if we cannot satisfy the above conditions.  */
+   be positive.  We must be able to satisfy the above conditions.  */
 
 HOST_WIDE_INT
 tree_low_cst (tree t, int pos)
@@ -5357,99 +5368,6 @@ get_file_function_name (int kind)
   return get_file_function_name_long (p);
 }
 
-/* Expand (the constant part of) a SET_TYPE CONSTRUCTOR node.
-   The result is placed in BUFFER (which has length BIT_SIZE),
-   with one bit in each char ('\000' or '\001').
-
-   If the constructor is constant, NULL_TREE is returned.
-   Otherwise, a TREE_LIST of the non-constant elements is emitted.  */
-
-tree
-get_set_constructor_bits (tree init, char *buffer, int bit_size)
-{
-  int i;
-  tree vals;
-  HOST_WIDE_INT domain_min
-    = tree_low_cst (TYPE_MIN_VALUE (TYPE_DOMAIN (TREE_TYPE (init))), 0);
-  tree non_const_bits = NULL_TREE;
-
-  for (i = 0; i < bit_size; i++)
-    buffer[i] = 0;
-
-  for (vals = TREE_OPERAND (init, 1);
-       vals != NULL_TREE; vals = TREE_CHAIN (vals))
-    {
-      if (!host_integerp (TREE_VALUE (vals), 0)
-	  || (TREE_PURPOSE (vals) != NULL_TREE
-	      && !host_integerp (TREE_PURPOSE (vals), 0)))
-	non_const_bits
-	  = tree_cons (TREE_PURPOSE (vals), TREE_VALUE (vals), non_const_bits);
-      else if (TREE_PURPOSE (vals) != NULL_TREE)
-	{
-	  /* Set a range of bits to ones.  */
-	  HOST_WIDE_INT lo_index
-	    = tree_low_cst (TREE_PURPOSE (vals), 0) - domain_min;
-	  HOST_WIDE_INT hi_index
-	    = tree_low_cst (TREE_VALUE (vals), 0) - domain_min;
-
-	  gcc_assert (lo_index >= 0);
-	  gcc_assert (lo_index < bit_size);
-	  gcc_assert (hi_index >= 0);
-	  gcc_assert (hi_index < bit_size);
-	  for (; lo_index <= hi_index; lo_index++)
-	    buffer[lo_index] = 1;
-	}
-      else
-	{
-	  /* Set a single bit to one.  */
-	  HOST_WIDE_INT index
-	    = tree_low_cst (TREE_VALUE (vals), 0) - domain_min;
-	  if (index < 0 || index >= bit_size)
-	    {
-	      error ("invalid initializer for bit string");
-	      return NULL_TREE;
-	    }
-	  buffer[index] = 1;
-	}
-    }
-  return non_const_bits;
-}
-
-/* Expand (the constant part of) a SET_TYPE CONSTRUCTOR node.
-   The result is placed in BUFFER (which is an array of bytes).
-   If the constructor is constant, NULL_TREE is returned.
-   Otherwise, a TREE_LIST of the non-constant elements is emitted.  */
-
-tree
-get_set_constructor_bytes (tree init, unsigned char *buffer, int wd_size)
-{
-  int i;
-  int set_word_size = BITS_PER_UNIT;
-  int bit_size = wd_size * set_word_size;
-  int bit_pos = 0;
-  unsigned char *bytep = buffer;
-  char *bit_buffer = alloca (bit_size);
-  tree non_const_bits = get_set_constructor_bits (init, bit_buffer, bit_size);
-
-  for (i = 0; i < wd_size; i++)
-    buffer[i] = 0;
-
-  for (i = 0; i < bit_size; i++)
-    {
-      if (bit_buffer[i])
-	{
-	  if (BYTES_BIG_ENDIAN)
-	    *bytep |= (1 << (set_word_size - 1 - bit_pos));
-	  else
-	    *bytep |= 1 << bit_pos;
-	}
-      bit_pos++;
-      if (bit_pos >= set_word_size)
-	bit_pos = 0, bytep++;
-    }
-  return non_const_bits;
-}
-
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
 /* Complain that the tree code of NODE does not match the expected 0
@@ -6048,6 +5966,16 @@ build_vector_type (tree innertype, int nunits)
   return make_vector_type (innertype, nunits, VOIDmode);
 }
 
+/* Build RESX_EXPR with given REGION_NUMBER.  */
+tree
+build_resx (int region_number)
+{
+  tree t;
+  t = build1 (RESX_EXPR, void_type_node,
+	      build_int_cst (NULL_TREE, region_number));
+  return t;
+}
+
 /* Given an initializer INIT, return TRUE if INIT is zero or some
    aggregate of zeros.  Otherwise return FALSE.  */
 bool
@@ -6505,7 +6433,7 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
 
 /* Apply FUNC to all the sub-trees of TP in a pre-order traversal.  FUNC is
    called with the DATA and the address of each sub-tree.  If FUNC returns a
-   non-NULL value, the traversal is aborted, and the value returned by FUNC
+   non-NULL value, the traversal is stopped, and the value returned by FUNC
    is returned.  If PSET is non-NULL it is used to record the nodes visited,
    and to avoid visiting a node more than once.  */
 

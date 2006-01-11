@@ -22,13 +22,18 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_OBJC_ACT_H
 #define GCC_OBJC_ACT_H
 
+/* For enum gimplify_status */
+#include "tree-gimple.h"
+
 /*** Language hooks ***/
 
 bool objc_init (void);
 const char *objc_printable_name (tree, int);
+tree objc_get_callee_fndecl (tree);
 void objc_finish_file (void);
 tree objc_fold_obj_type_ref (tree, tree);
 int objc_types_compatible_p (tree, tree);
+enum gimplify_status objc_gimplify_expr (tree *, tree *, tree *);
 
 /* NB: The remaining public functions are prototyped in c-common.h, for the
    benefit of stub-objc.c and objc-act.c.  */
@@ -47,6 +52,7 @@ int objc_types_compatible_p (tree, tree);
 #define METHOD_SEL_NAME(DECL) ((DECL)->decl.name)
 #define METHOD_SEL_ARGS(DECL) ((DECL)->decl.arguments)
 #define METHOD_ADD_ARGS(DECL) ((DECL)->decl.result)
+#define METHOD_ADD_ARGS_ELLIPSIS_P(DECL) ((DECL)->decl.lang_flag_0)
 #define METHOD_DEFINITION(DECL) ((DECL)->decl.initial)
 #define METHOD_ENCODING(DECL) ((DECL)->decl.context)
 
@@ -71,42 +77,44 @@ int objc_types_compatible_p (tree, tree);
 
 /* ObjC-specific information pertaining to RECORD_TYPEs are stored in
    the LANG_SPECIFIC structures, which may itself need allocating first.  */
+
+/* The following three macros must be overridden (in objcp/objcp-decl.h)
+   for Objective-C++.  */
 #define TYPE_OBJC_INFO(TYPE) TYPE_LANG_SPECIFIC (TYPE)->objc_info
+#define SIZEOF_OBJC_TYPE_LANG_SPECIFIC sizeof (struct lang_type)
+#define ALLOC_OBJC_TYPE_LANG_SPECIFIC(NODE)				\
+  do {									\
+    TYPE_LANG_SPECIFIC (NODE) = GGC_CNEW (struct lang_type);		\
+  } while (0)
+
 #define TYPE_HAS_OBJC_INFO(TYPE)				\
-	(TYPE_LANG_SPECIFIC (TYPE)				\
-	 && TYPE_LANG_SPECIFIC (TYPE)->objc_info)
+	(TYPE_LANG_SPECIFIC (TYPE) && TYPE_OBJC_INFO (TYPE))
 #define TYPE_OBJC_INTERFACE(TYPE) TREE_VEC_ELT (TYPE_OBJC_INFO (TYPE), 0)
 #define TYPE_OBJC_PROTOCOL_LIST(TYPE) TREE_VEC_ELT (TYPE_OBJC_INFO (TYPE), 1)
+
 
 #define INIT_TYPE_OBJC_INFO(TYPE)				\
 	do							\
 	  {							\
 	    if (!TYPE_LANG_SPECIFIC (TYPE))			\
-	      TYPE_LANG_SPECIFIC (TYPE)				\
-		= ALLOC_OBJC_TYPE_LANG_SPECIFIC;			\
-	    if (!TYPE_LANG_SPECIFIC (TYPE)->objc_info)		\
-	      TYPE_LANG_SPECIFIC (TYPE)->objc_info		\
+	      ALLOC_OBJC_TYPE_LANG_SPECIFIC(TYPE);		\
+	    if (!TYPE_OBJC_INFO (TYPE))				\
+	      TYPE_OBJC_INFO (TYPE)				\
 		= make_tree_vec (OBJC_INFO_SLOT_ELTS);		\
 	  }							\
 	while (0)
 #define DUP_TYPE_OBJC_INFO(DST, SRC)				\
 	do							\
 	  {							\
-	    TYPE_LANG_SPECIFIC (DST)				\
-	      = ALLOC_OBJC_TYPE_LANG_SPECIFIC;			\
+	    ALLOC_OBJC_TYPE_LANG_SPECIFIC(DST);			\
 	    if (TYPE_LANG_SPECIFIC (SRC))			\
 	      memcpy (TYPE_LANG_SPECIFIC (DST),			\
 		      TYPE_LANG_SPECIFIC (SRC),			\
 		      SIZEOF_OBJC_TYPE_LANG_SPECIFIC);		\
-	    TYPE_LANG_SPECIFIC (DST)->objc_info			\
+	    TYPE_OBJC_INFO (DST)				\
 	      = make_tree_vec (OBJC_INFO_SLOT_ELTS);		\
 	  }							\
 	while (0)
-
-/* The following two macros must be overridden (in objcp/objcp-decl.h)
-   for Objective-C++.  */
-#define ALLOC_OBJC_TYPE_LANG_SPECIFIC	GGC_CNEW (struct lang_type)
-#define SIZEOF_OBJC_TYPE_LANG_SPECIFIC	sizeof (struct lang_type)
 
 #define TYPED_OBJECT(TYPE)					\
 	(TREE_CODE (TYPE) == RECORD_TYPE			\
@@ -164,6 +172,7 @@ struct imp_entry GTY(())
   tree imp_template;
   tree class_decl;		/* _OBJC_CLASS_<my_name>; */
   tree meta_decl;		/* _OBJC_METACLASS_<my_name>; */
+  BOOL_BITFIELD has_cxx_cdtors : 1;
 };
 
 extern GTY(()) struct imp_entry *imp_list;
@@ -185,6 +194,7 @@ enum objc_tree_index
 
     OCTI_SELF_DECL,
     OCTI_UMSG_DECL,
+    OCTI_UMSG_FAST_DECL,
     OCTI_UMSG_SUPER_DECL,
     OCTI_UMSG_STRET_DECL,
     OCTI_UMSG_SUPER_STRET_DECL,
@@ -235,6 +245,9 @@ enum objc_tree_index
     OCTI_UUCLS_SUPER_REF,
     OCTI_METH_TEMPL,
     OCTI_IVAR_TEMPL,
+    OCTI_METH_LIST_TEMPL,
+    OCTI_METH_PROTO_LIST_TEMPL,
+    OCTI_IVAR_LIST_TEMPL,
     OCTI_SYMTAB_TEMPL,
     OCTI_MODULE_TEMPL,
     OCTI_SUPER_TEMPL,
@@ -272,6 +285,11 @@ enum objc_tree_index
     OCTI_CATCH_TYPE,
     OCTI_EXECCLASS_DECL,
 
+    OCTI_ASSIGN_IVAR_DECL,
+    OCTI_ASSIGN_IVAR_FAST_DECL,
+    OCTI_ASSIGN_GLOBAL_DECL,
+    OCTI_ASSIGN_STRONGCAST_DECL,
+
     OCTI_MAX
 };
 
@@ -291,6 +309,7 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 
 #define self_decl		objc_global_trees[OCTI_SELF_DECL]
 #define umsg_decl		objc_global_trees[OCTI_UMSG_DECL]
+#define umsg_fast_decl		objc_global_trees[OCTI_UMSG_FAST_DECL]
 #define umsg_super_decl		objc_global_trees[OCTI_UMSG_SUPER_DECL]
 #define umsg_stret_decl		objc_global_trees[OCTI_UMSG_STRET_DECL]
 #define umsg_super_stret_decl	objc_global_trees[OCTI_UMSG_SUPER_STRET_DECL]
@@ -402,8 +421,19 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 
 #define execclass_decl		objc_global_trees[OCTI_EXECCLASS_DECL]
 
+#define objc_assign_ivar_decl	objc_global_trees[OCTI_ASSIGN_IVAR_DECL]
+#define objc_assign_ivar_fast_decl		\
+				objc_global_trees[OCTI_ASSIGN_IVAR_FAST_DECL]
+#define objc_assign_global_decl	objc_global_trees[OCTI_ASSIGN_GLOBAL_DECL]
+#define objc_assign_strong_cast_decl		\
+				objc_global_trees[OCTI_ASSIGN_STRONGCAST_DECL]
+
 #define objc_method_template	objc_global_trees[OCTI_METH_TEMPL]
 #define objc_ivar_template	objc_global_trees[OCTI_IVAR_TEMPL]
+#define objc_method_list_ptr	objc_global_trees[OCTI_METH_LIST_TEMPL]
+#define objc_method_proto_list_ptr		\
+				objc_global_trees[OCTI_METH_PROTO_LIST_TEMPL]
+#define objc_ivar_list_ptr	objc_global_trees[OCTI_IVAR_LIST_TEMPL]
 #define objc_symtab_template	objc_global_trees[OCTI_SYMTAB_TEMPL]
 #define objc_module_template	objc_global_trees[OCTI_MODULE_TEMPL]
 #define objc_super_template	objc_global_trees[OCTI_SUPER_TEMPL]

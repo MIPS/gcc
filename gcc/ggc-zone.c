@@ -1228,6 +1228,8 @@ ggc_alloc_zone_stat (size_t orig_size, struct alloc_zone *zone
   /* Keep track of how many bytes are being allocated.  This
      information is used in deciding when to collect.  */
   zone->allocated += size;
+  
+  timevar_ggc_mem_total += (size + CHUNK_OVERHEAD);
 
 #ifdef GATHER_STATISTICS
   ggc_record_overhead (orig_size, size - orig_size, result PASS_MEM_STAT);
@@ -1274,16 +1276,16 @@ ggc_alloc_typed_stat (enum gt_types_enum gte, size_t size
   switch (gte)
     {
     case gt_ggc_e_14lang_tree_node:
-      return ggc_alloc_zone_stat (size, &tree_zone PASS_MEM_STAT);
+      return ggc_alloc_zone_pass_stat (size, &tree_zone);
 
     case gt_ggc_e_7rtx_def:
-      return ggc_alloc_zone_stat (size, &rtl_zone PASS_MEM_STAT);
+      return ggc_alloc_zone_pass_stat (size, &rtl_zone);
 
     case gt_ggc_e_9rtvec_def:
-      return ggc_alloc_zone_stat (size, &rtl_zone PASS_MEM_STAT);
+      return ggc_alloc_zone_pass_stat (size, &rtl_zone);
 
     default:
-      return ggc_alloc_zone_stat (size, &main_zone PASS_MEM_STAT);
+      return ggc_alloc_zone_pass_stat (size, &main_zone);
     }
 }
 
@@ -1292,7 +1294,7 @@ ggc_alloc_typed_stat (enum gt_types_enum gte, size_t size
 void *
 ggc_alloc_stat (size_t size MEM_STAT_DECL)
 {
-  return ggc_alloc_zone_stat (size, &main_zone PASS_MEM_STAT);
+  return ggc_alloc_zone_pass_stat (size, &main_zone);
 }
 
 /* Poison the chunk.  */

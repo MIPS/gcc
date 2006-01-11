@@ -189,9 +189,11 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void *env)
 	      // mark also the value pointed to.  We check for isResolved
 	      // since marking can happen before memory is allocated for
 	      // static members.
-	      if (JvFieldIsRef (field) && field->isResolved()) 
+	      // Note that field->u.addr may be null if the class c is
+	      // JV_STATE_LOADED but not JV_STATE_PREPARED (initialized).
+	      if (JvFieldIsRef (field) && p && field->isResolved()) 
 		{
-		  jobject val = *(jobject*) field->u.addr;
+		  jobject val = *(jobject*) p;
 		  p = (GC_PTR) val;
 		  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c);
 		}
@@ -246,6 +248,9 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void *env)
 	  _Jv_InterpClass* ic = (_Jv_InterpClass*) c->aux_info;
 
 	  p = (GC_PTR) ic->interpreted_methods;
+	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
+
+	  p = (GC_PTR) ic->source_file_name;
 	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic);
 
 	  for (int i = 0; i < c->method_count; i++)

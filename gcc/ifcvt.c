@@ -66,7 +66,6 @@
 #define MAX_CONDITIONAL_EXECUTE   (BRANCH_COST + 1)
 #endif
 
-#define NULL_EDGE	((edge) NULL)
 #define NULL_BLOCK	((basic_block) NULL)
 
 /* # of IF-THEN or IF-THEN-ELSE blocks we looked at  */
@@ -270,8 +269,7 @@ cond_exec_process_insns (ce_if_block_t *ce_info ATTRIBUTE_UNUSED,
       if (NOTE_P (insn))
 	goto insn_done;
 
-      if (!NONJUMP_INSN_P (insn) && !CALL_P (insn))
-	abort ();
+      gcc_assert(NONJUMP_INSN_P (insn) || CALL_P (insn));
 
       /* Remove USE insns that get in the way.  */
       if (reload_completed && GET_CODE (PATTERN (insn)) == USE)
@@ -1983,6 +1981,14 @@ noce_process_if_block (struct ce_if_block * ce_info)
   if (side_effects_p (x))
     return FALSE;
 
+  /* If x is a read-only memory, then the program is valid only if we
+     avoid the store into it.  If there are stores on both the THEN and
+     ELSE arms, then we can go ahead with the conversion; either the 
+     program is broken, or the condition is always false such that the
+     other memory is selected.  */
+  if (!set_b && MEM_P (x) && MEM_READONLY_P (x))
+    return FALSE;
+
   b = (set_b ? SET_SRC (set_b) : x);
 
   /* Only operate on register destinations, and even then avoid extending
@@ -2229,30 +2235,21 @@ merge_if_block (struct ce_if_block * ce_info)
       /* The outgoing edge for the current COMBO block should already
 	 be correct.  Verify this.  */
       if (EDGE_COUNT (combo_bb->succs) == 0)
-	{
-	  if (find_reg_note (last, REG_NORETURN, NULL))
-	    ;
-	  else if (NONJUMP_INSN_P (last)
-		   && GET_CODE (PATTERN (last)) == TRAP_IF
-		   && TRAP_CONDITION (PATTERN (last)) == const_true_rtx)
-	    ;
-	  else
-	    abort ();
-	}
+	gcc_assert (find_reg_note (last, REG_NORETURN, NULL)
+		    || (NONJUMP_INSN_P (last)
+			&& GET_CODE (PATTERN (last)) == TRAP_IF
+			&& (TRAP_CONDITION (PATTERN (last))
+			    == const_true_rtx)));
 
+      else
       /* There should still be something at the end of the THEN or ELSE
          blocks taking us to our final destination.  */
-      else if (JUMP_P (last))
-	;
-      else if (EDGE_SUCC (combo_bb, 0)->dest == EXIT_BLOCK_PTR
-	       && CALL_P (last)
-	       && SIBLING_CALL_P (last))
-	;
-      else if ((EDGE_SUCC (combo_bb, 0)->flags & EDGE_EH)
-	       && can_throw_internal (last))
-	;
-      else
-	abort ();
+	gcc_assert (JUMP_P (last)
+		    || (EDGE_SUCC (combo_bb, 0)->dest == EXIT_BLOCK_PTR
+			&& CALL_P (last)
+			&& SIBLING_CALL_P (last))
+		    || ((EDGE_SUCC (combo_bb, 0)->flags & EDGE_EH)
+			&& can_throw_internal (last)));
     }
 
   /* The JOIN block may have had quite a number of other predecessors too.
@@ -2260,7 +2257,7 @@ merge_if_block (struct ce_if_block * ce_info)
      have only one remaining edge from our if-then-else diamond.  If there
      is more than one remaining edge, it must come from elsewhere.  There
      may be zero incoming edges if the THEN block didn't actually join
-     back up (as with a call to abort).  */
+     back up (as with a call to a non-return function).  */
   else if (EDGE_COUNT (join_bb->preds) < 2
 	   && join_bb != EXIT_BLOCK_PTR)
     {
@@ -2627,7 +2624,7 @@ find_if_block (struct ce_if_block * ce_info)
      we checked the FALLTHRU flag, those are already adjacent to the last IF
      block.  */
   /* ??? As an enhancement, move the ELSE block.  Have to deal with
-     BLOCK notes, if by no other means than aborting the merge if they
+     BLOCK notes, if by no other means than backing out the merge if they
      exist.  Sticky enough I don't want to think about it now.  */
   next = then_bb;
   if (else_bb && (next = next->next_bb) != else_bb)
@@ -2865,12 +2862,13 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
      partition boundaries).  See  the comments at the top of 
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
-  if (flag_reorder_blocks_and_partition
-      && ((BB_END (then_bb) 
-	   && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
-	  || (BB_END (else_bb)
-	      && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
-				NULL_RTX))))
+  if ((BB_END (then_bb) 
+       && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (test_bb)
+	  && find_reg_note (BB_END (test_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (else_bb)
+	  && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
+			    NULL_RTX)))
     return FALSE;
 
   /* THEN has one successor.  */
@@ -2970,12 +2968,13 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
      partition boundaries).  See  the comments at the top of 
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
-  if (flag_reorder_blocks_and_partition
-      && ((BB_END (then_bb)
-	   && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
-	  || (BB_END (else_bb) 
-	      && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
-				NULL_RTX))))
+  if ((BB_END (then_bb)
+       && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (test_bb)
+	  && find_reg_note (BB_END (test_bb), REG_CROSSING_JUMP, NULL_RTX))
+      || (BB_END (else_bb) 
+	  && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP, 
+			    NULL_RTX)))
     return FALSE;
 
   /* ELSE has one successor.  */

@@ -120,7 +120,7 @@ struct lang_hooks_for_types
   /* Given a type, apply default promotions to unnamed function
      arguments and return the new type.  Return the same type if no
      change.  Required by any language that supports variadic
-     arguments.  The default hook aborts.  */
+     arguments.  The default hook dies.  */
   tree (*type_promotes_to) (tree);
 
   /* Register TYPE as a builtin type with the indicated NAME.  The
@@ -207,7 +207,7 @@ struct lang_hooks
 
   /* Determines the size of any language-specific tcc_constant or
      tcc_exceptional nodes.  Since it is called from make_node, the
-     only information available is the tree code.  Expected to abort
+     only information available is the tree code.  Expected to die
      on unrecognized codes.  */
   size_t (*tree_size) (enum tree_code);
 
@@ -276,19 +276,6 @@ struct lang_hooks
   /* Called by expand_expr to generate the definition of a decl.  Returns
      1 if handled, 0 otherwise.  */
   int (*expand_decl) (tree);
-
-  /* Prepare expr to be an argument of a TRUTH_NOT_EXPR or other logical
-     operation.
-
-     This preparation consists of taking the ordinary representation
-     of an expression expr and producing a valid tree boolean
-     expression describing whether expr is nonzero.  We could simply
-     always do build_binary_op (NE_EXPR, expr, integer_zero_node, 1),
-     but we optimize comparisons, &&, ||, and !.
-
-     The result should be an expression of boolean type (if not an
-     error_mark_node).  */
-  tree (*truthvalue_conversion) (tree);
 
   /* Hook called by safe_from_p for language-specific tree codes.  It is
      up to the language front-end to install a hook if it has any such

@@ -52,8 +52,6 @@ if test $TARGET = twoprocess; then
 		  [Define if testing and fixing are done by separate process])
 fi
 
-TL_AC_GCC_VERSION([$srcdir/..])
-
 case $host in
 	vax-dec-bsd* )
 		AC_DEFINE(exit, xexit, [Define to xexit if the host system does not support atexit])
@@ -68,10 +66,13 @@ AC_DEFINE_UNQUOTED([EXE_EXT], "$ac_exeext",
 AC_HEADER_STDC
 AC_CHECK_HEADERS([stddef.h stdlib.h strings.h unistd.h fcntl.h sys/file.h \
 	sys/stat.h])
-AC_CHECK_FUNCS(putc_unlocked fputc_unlocked fputs_unlocked \
-        fwrite_unlocked fprintf_unlocked)
-AC_CHECK_DECLS([abort, errno, putc_unlocked, fputc_unlocked,
-        fputs_unlocked, fwrite_unlocked, fprintf_unlocked])
+define(fixincludes_UNLOCKED_FUNCS, clearerr_unlocked feof_unlocked dnl
+  ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked dnl
+  fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked dnl
+  fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked dnl
+  putchar_unlocked putc_unlocked)
+AC_CHECK_FUNCS(fixincludes_UNLOCKED_FUNCS)
+AC_CHECK_DECLS(m4_split(m4_normalize(abort errno fixincludes_UNLOCKED_FUNCS)))
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -94,5 +95,5 @@ fi
 AC_SUBST(MAINT)
 
 AC_CONFIG_HEADERS(config.h, [echo timestamp > stamp-h])
-AC_CONFIG_FILES(Makefile mkheaders)
+AC_CONFIG_FILES(Makefile mkheaders.almost:mkheaders.in)
 AC_OUTPUT

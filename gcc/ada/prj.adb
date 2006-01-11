@@ -90,6 +90,7 @@ package body Prj is
       Supp_Languages                 => No_Supp_Language_Index,
       First_Referred_By              => No_Project,
       Name                           => No_Name,
+      Display_Name                   => No_Name,
       Path_Name                      => No_Name,
       Display_Path_Name              => No_Name,
       Virtual                        => False,
@@ -227,9 +228,10 @@ package body Prj is
    -------------------
 
    function Empty_Project (Tree : Project_Tree_Ref)  return Project_Data is
-      Value : Project_Data := Project_Empty;
+      Value : Project_Data;
    begin
       Prj.Initialize (Tree => No_Project_Tree);
+      Value := Project_Empty;
       Value.Naming := Tree.Private_Part.Default_Naming;
       return Value;
    end Empty_Project;
@@ -650,7 +652,7 @@ package body Prj is
    end Set;
 
    procedure Set
-     (Language_Processing : in Language_Processing_Data;
+     (Language_Processing : Language_Processing_Data;
       For_Language        : Language_Index;
       In_Project          : in out Project_Data;
       In_Tree             : Project_Tree_Ref)
@@ -672,8 +674,7 @@ package body Prj is
 
             begin
                while Supp_Index /= No_Supp_Language_Index loop
-                  Supp := In_Tree.Supp_Languages.Table
-                                                                (Supp_Index);
+                  Supp := In_Tree.Supp_Languages.Table (Supp_Index);
 
                   if Supp.Index = For_Language then
                      In_Tree.Supp_Languages.Table
@@ -755,8 +756,8 @@ package body Prj is
    -- Standard_Naming_Data --
    --------------------------
 
-   function Standard_Naming_Data (Tree : Project_Tree_Ref := No_Project_Tree)
-                                  return Naming_Data
+   function Standard_Naming_Data
+     (Tree : Project_Tree_Ref := No_Project_Tree) return Naming_Data
    is
    begin
       if Tree = No_Project_Tree then
@@ -793,8 +794,7 @@ package body Prj is
 
             begin
                while Supp_Index /= No_Supp_Language_Index loop
-                  Supp := In_Tree.Supp_Suffixes.Table
-                                                             (Supp_Index);
+                  Supp := In_Tree.Supp_Suffixes.Table (Supp_Index);
 
                   if Supp.Index = Language then
                      return Supp.Suffix;

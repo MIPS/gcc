@@ -523,7 +523,7 @@ estimate_niter_from_size_of_data (struct loop *loop,
 
 static tree
 analyze_array_indexes (struct loop *loop,
-		       varray_type *access_fns, 
+		       VEC(tree,heap) **access_fns, 
 		       tree ref, tree stmt)
 {
   tree opnd0, opnd1;
@@ -542,7 +542,7 @@ analyze_array_indexes (struct loop *loop,
   if (loop->estimated_nb_iterations == NULL_TREE)
     estimate_niter_from_size_of_data (loop, opnd0, access_fn, stmt);
   
-  VARRAY_PUSH_TREE (*access_fns, access_fn);
+  VEC_safe_push (tree, heap, *access_fns, access_fn);
   
   /* Recursively record other array access functions.  */
   if (TREE_CODE (opnd0) == ARRAY_REF)
@@ -575,7 +575,7 @@ analyze_array (tree stmt, tree ref, bool is_read)
   
   DR_STMT (res) = stmt;
   DR_REF (res) = ref;
-  VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 3, "access_fns");
+  DR_ACCESS_FNS (res) = VEC_alloc (tree, heap, 3);
   DR_BASE_NAME (res) = analyze_array_indexes 
     (loop_containing_stmt (stmt), &(DR_ACCESS_FNS (res)), ref, stmt);
   DR_IS_READ (res) = is_read;
@@ -610,9 +610,9 @@ init_data_ref (tree stmt,
   
   DR_STMT (res) = stmt;
   DR_REF (res) = ref;
-  VARRAY_TREE_INIT (DR_ACCESS_FNS (res), 5, "access_fns");
+  DR_ACCESS_FNS (res) = VEC_alloc (tree, heap, 5);
   DR_BASE_NAME (res) = base;
-  VARRAY_PUSH_TREE (DR_ACCESS_FNS (res), access_fn);
+  VEC_quick_push (tree, DR_ACCESS_FNS (res), access_fn);
   DR_IS_READ (res) = is_read;
   
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -646,7 +646,7 @@ all_chrecs_equal_p (tree chrec)
 /* Determine for each subscript in the data dependence relation DDR
    the distance.  */
 
-static void
+void
 compute_subscript_distance (struct data_dependence_relation *ddr)
 {
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
@@ -1769,7 +1769,7 @@ subscript_dependence_tester (struct data_dependence_relation *ddr)
    starting at FIRST_LOOP_DEPTH. 
    Return TRUE otherwise.  */
 
-static bool
+bool
 build_classic_dist_vector (struct data_dependence_relation *ddr, 
 			   int nb_loops, int first_loop_depth)
 {
@@ -2124,11 +2124,12 @@ static bool
 access_functions_are_affine_or_constant_p (struct data_reference *a)
 {
   unsigned int i;
-  varray_type fns = DR_ACCESS_FNS (a);
+  VEC(tree,heap) **fns = &DR_ACCESS_FNS (a);
+  tree t;
   
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (fns); i++)
-    if (!evolution_function_is_constant_p (VARRAY_TREE (fns, i))
-	&& !evolution_function_is_affine_multivariate_p (VARRAY_TREE (fns, i)))
+  for (i = 0; VEC_iterate (tree, *fns, i, t); i++)
+    if (!evolution_function_is_constant_p (t)
+	&& !evolution_function_is_affine_multivariate_p (t))
       return false;
   
   return true;
@@ -2177,6 +2178,11 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
     fprintf (dump_file, ")\n");
 }
 
+
+typedef struct data_dependence_relation *ddr_p;
+DEF_VEC_P(ddr_p);
+DEF_VEC_ALLOC_P(ddr_p,heap);
+
 /* Compute a subset of the data dependence relation graph.  Don't
    compute read-read relations, and avoid the computation of the
    opposite relation, i.e. when AB has been computed, don't compute BA.
@@ -2185,7 +2191,7 @@ compute_affine_dependence (struct data_dependence_relation *ddr)
 
 static void 
 compute_all_dependences (varray_type datarefs, 
-			 varray_type *dependence_relations)
+			 VEC(ddr_p,heap) **dependence_relations)
 {
   unsigned int i, j, N;
 
@@ -2201,7 +2207,7 @@ compute_all_dependences (varray_type datarefs,
 	b = VARRAY_GENERIC_PTR (datarefs, j);
 	ddr = initialize_data_dependence_relation (a, b);
 
-	VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
+	VEC_safe_push (ddr_p, heap, *dependence_relations, ddr);
 	compute_affine_dependence (ddr);
 	compute_subscript_distance (ddr);
       }
@@ -2217,7 +2223,6 @@ compute_all_dependences (varray_type datarefs,
 tree 
 find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 {
-  bool dont_know_node_not_inserted = true;
   basic_block bb, *bbs;
   unsigned int i;
   block_stmt_iterator bsi;
@@ -2231,32 +2236,62 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
 	  tree stmt = bsi_stmt (bsi);
-	  stmt_ann_t ann = stmt_ann (stmt);
 
-	  if (TREE_CODE (stmt) != MODIFY_EXPR)
+	  /* ASM_EXPR and CALL_EXPR may embed arbitrary side effects.
+	     Calls have side-effects, except those to const or pure
+	     functions.  */
+	  if ((TREE_CODE (stmt) == CALL_EXPR
+	       && !(call_expr_flags (stmt) & (ECF_CONST | ECF_PURE)))
+	      || (TREE_CODE (stmt) == ASM_EXPR
+		  && ASM_VOLATILE_P (stmt)))
+	    goto insert_dont_know_node;
+
+	  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
 	    continue;
 
-	  if (!VUSE_OPS (ann)
-	      && !V_MUST_DEF_OPS (ann)
-	      && !V_MAY_DEF_OPS (ann))
-	    continue;
-	  
-	  /* In the GIMPLE representation, a modify expression
-  	     contains a single load or store to memory.  */
-	  if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF)
-	    VARRAY_PUSH_GENERIC_PTR 
-		    (*datarefs, analyze_array (stmt, TREE_OPERAND (stmt, 0), 
-					       false));
-
-	  else if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ARRAY_REF)
-	    VARRAY_PUSH_GENERIC_PTR 
-		    (*datarefs, analyze_array (stmt, TREE_OPERAND (stmt, 1), 
-					       true));
-  	  else
+	  switch (TREE_CODE (stmt))
 	    {
-	      if (dont_know_node_not_inserted)
+	    case MODIFY_EXPR:
+	      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF)
+		VARRAY_PUSH_GENERIC_PTR 
+		  (*datarefs, analyze_array (stmt, TREE_OPERAND (stmt, 0),
+					     false));
+
+	      if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ARRAY_REF)
+		VARRAY_PUSH_GENERIC_PTR 
+		  (*datarefs, analyze_array (stmt, TREE_OPERAND (stmt, 1),
+					     true));
+
+	      if (TREE_CODE (TREE_OPERAND (stmt, 0)) != ARRAY_REF
+		  && TREE_CODE (TREE_OPERAND (stmt, 1)) != ARRAY_REF)
+		goto insert_dont_know_node;
+
+	      break;
+
+	    case CALL_EXPR:
+	      {
+		tree args;
+		bool one_inserted = false;
+
+		for (args = TREE_OPERAND (stmt, 1); args; args = TREE_CHAIN (args))
+		  if (TREE_CODE (TREE_VALUE (args)) == ARRAY_REF)
+		    {
+		      VARRAY_PUSH_GENERIC_PTR 
+			(*datarefs, analyze_array (stmt, TREE_VALUE (args), true));
+		      one_inserted = true;
+		    }
+
+		if (!one_inserted)
+		  goto insert_dont_know_node;
+
+		break;
+	      }
+
+	    default:
 		{
 		  struct data_reference *res;
+
+		insert_dont_know_node:;
 		  res = xmalloc (sizeof (struct data_reference));
 		  DR_STMT (res) = NULL_TREE;
 		  DR_REF (res) = NULL_TREE;
@@ -2264,13 +2299,14 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 		  DR_BASE_NAME (res) = NULL;
 		  DR_IS_READ (res) = false;
 		  VARRAY_PUSH_GENERIC_PTR (*datarefs, res);
-		  dont_know_node_not_inserted = false;
+
+		  free (bbs);
+		  return chrec_dont_know;
 		}
 	    }
 
 	  /* When there are no defs in the loop, the loop is parallel.  */
-	  if (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) > 0
-	      || NUM_V_MUST_DEFS (STMT_V_MUST_DEF_OPS (stmt)) > 0)
+	  if (!ZERO_SSA_OPERANDS (stmt, SSA_OP_VIRTUAL_DEFS))
 	    bb->loop_father->parallel_p = false;
 	}
 
@@ -2280,7 +2316,7 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 
   free (bbs);
 
-  return dont_know_node_not_inserted ? NULL_TREE : chrec_dont_know;
+  return NULL_TREE;
 }
 
 
@@ -2298,7 +2334,8 @@ compute_data_dependences_for_loop (unsigned nb_loops,
 				   varray_type *dependence_relations)
 {
   unsigned int i;
-  varray_type allrelations;
+  VEC(ddr_p,heap) *allrelations;
+  struct data_dependence_relation *ddr;
 
   /* If one of the data references is not computable, give up without
      spending time to compute other dependences.  */
@@ -2315,13 +2352,11 @@ compute_data_dependences_for_loop (unsigned nb_loops,
       return;
     }
 
-  VARRAY_GENERIC_PTR_INIT (allrelations, 1, "Data dependence relations");
+  allrelations = NULL;
   compute_all_dependences (*datarefs, &allrelations);
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (allrelations); i++)
+  for (i = 0; VEC_iterate (ddr_p, allrelations, i, ddr); i++)
     {
-      struct data_dependence_relation *ddr;
-      ddr = VARRAY_GENERIC_PTR (allrelations, i);
       if (build_classic_dist_vector (ddr, nb_loops, loop->depth))
 	{
 	  VARRAY_PUSH_GENERIC_PTR (*dependence_relations, ddr);
@@ -2461,8 +2496,7 @@ free_data_refs (varray_type datarefs)
 	VARRAY_GENERIC_PTR (datarefs, i);
       if (dr)
 	{
-	  if (DR_ACCESS_FNS (dr))
-	    varray_clear (DR_ACCESS_FNS (dr));
+	  VEC_free (tree, heap, DR_ACCESS_FNS (dr));
 	  free (dr);
 	}
     }

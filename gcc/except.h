@@ -81,6 +81,8 @@ extern void expand_eh_return (void);
 extern rtx expand_builtin_extend_pointer (tree);
 extern rtx get_exception_pointer (struct function *);
 extern rtx get_exception_filter (struct function *);
+typedef tree (*duplicate_eh_regions_map) (tree, void *);
+extern int duplicate_eh_regions (struct function *, duplicate_eh_regions_map, void *, int);
 
 extern void sjlj_emit_function_exit_after (rtx);
 
@@ -101,9 +103,15 @@ extern void foreach_reachable_handler (int, bool,
 
 extern void collect_eh_region_array (void);
 extern void expand_resx_expr (tree);
+extern void verify_eh_tree (struct function *);
+extern void dump_eh_tree (FILE *, struct function *);
 
 /* tree-eh.c */
+extern void add_stmt_to_eh_region_fn (struct function *, tree, int);
+extern bool remove_stmt_from_eh_region_fn (struct function *, tree);
+extern int lookup_stmt_eh_region_fn (struct function *, tree);
 extern int lookup_stmt_eh_region (tree);
+extern bool verify_eh_edges (tree);
 
 /* If non-NULL, this is a function that returns an expression to be
    executed if an unhandled exception is propagated out of a cleanup
@@ -155,3 +163,12 @@ extern tree (*lang_eh_runtime_type) (tree);
 #else
 # define USING_SJLJ_EXCEPTIONS		MUST_USE_SJLJ_EXCEPTIONS
 #endif
+
+struct throw_stmt_node GTY(())
+{
+  tree stmt;
+  int region_nr;
+};
+
+extern struct htab *get_eh_throw_stmt_table (struct function *);
+extern void set_eh_throw_stmt_table (struct function *, struct htab *);

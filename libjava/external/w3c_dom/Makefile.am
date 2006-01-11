@@ -2,9 +2,12 @@
 
 AUTOMAKE_OPTIONS = foreign subdir-objects
 
+# May be used by various substitution variables.
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
+
 ## The compiler with whatever flags we want for both -c and -C
 ## compiles.
-GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated -fbootclasspath=$(BOOTCLASSPATH)
+GCJ_WITH_FLAGS = $(GCJ) --encoding=UTF-8 -Wno-deprecated -fclasspath= -fbootclasspath=$(BOOTCLASSPATH)
 
 BOOTCLASSPATH = $(here)'$(CLASSPATH_SEPARATOR)'$(srcdir)'$(CLASSPATH_SEPARATOR)'$(top_srcdir)'$(CLASSPATH_SEPARATOR)'$(top_builddir)
 
@@ -17,18 +20,24 @@ AM_GCJFLAGS = \
 
 BUILT_SOURCES = classes.stamp
 
-classes.stamp:	$(libw3c_convenience_la_SOURCES)
+w3c.jar: classes.stamp
+	find org -name '*.class' -print | $(ZIP) -cfME@ $@
+
+classes.stamp:	$(source_files)
 	here=`pwd`; cd $(srcdir); \
-	$(GCJ_WITH_FLAGS) -C -d $$here $(libw3c_convenience_la_SOURCES)
+	$(GCJ_WITH_FLAGS) -C -d $$here $(source_files)
 	echo > classes.stamp
 
 mostlyclean-local:
 	-find . -name '*.class' | xargs rm
-	-rm classes.stamp
+	-rm classes.stamp w3c.jar
 
-noinst_LTLIBRARIES = libw3c_convenience.la
+noinst_LTLIBRARIES = libw3c-gcj.la
 
-libw3c_convenience_la_SOURCES =	\
+libw3c_gcj_la_SOURCES =	w3c.jar
+libw3c_gcj_la_GCJFLAGS = -findirect-dispatch -fbootstrap-classes $(AM_GCJFLAGS)
+
+source_files = \
 org/w3c/dom/xpath/XPathNamespace.java \
 org/w3c/dom/xpath/XPathResult.java \
 org/w3c/dom/xpath/XPathException.java \

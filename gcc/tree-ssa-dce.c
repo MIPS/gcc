@@ -74,7 +74,7 @@ static struct stmt_stats
   int removed_phis;
 } stats;
 
-static varray_type worklist;
+static VEC(tree,heap) *worklist;
 
 /* Vector indicating an SSA name has already been processed and marked
    as necessary.  */
@@ -235,7 +235,7 @@ mark_stmt_necessary (tree stmt, bool add_to_worklist)
 
   NECESSARY (stmt) = 1;
   if (add_to_worklist)
-    VARRAY_PUSH_TREE (worklist, stmt);
+    VEC_safe_push (tree, heap, worklist, stmt);
 }
 
 /* Mark the statement defining operand OP as necessary.  PHIONLY is true
@@ -263,7 +263,7 @@ mark_operand_necessary (tree op, bool phionly)
     return;
 
   NECESSARY (stmt) = 1;
-  VARRAY_PUSH_TREE (worklist, stmt);
+  VEC_safe_push (tree, heap, worklist, stmt);
 }
 
 
@@ -354,8 +354,6 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
       mark_stmt_necessary (stmt, true);
       return;
     }
-
-  get_stmt_operands (stmt);
 
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF)
     {
@@ -474,11 +472,10 @@ propagate_necessity (struct edge_list *el)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nProcessing worklist:\n");
 
-  while (VARRAY_ACTIVE_SIZE (worklist) > 0)
+  while (VEC_length (tree, worklist) > 0)
     {
       /* Take `i' from worklist.  */
-      i = VARRAY_TOP_TREE (worklist);
-      VARRAY_POP (worklist);
+      i = VEC_pop (tree, worklist);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -538,8 +535,6 @@ propagate_necessity (struct edge_list *el)
 	     which feed this statement's uses as necessary.  */
 	  ssa_op_iter iter;
 	  tree use;
-
-	  get_stmt_operands (i);
 
 	  /* The operands of V_MAY_DEF expressions are also needed as they
 	     represent potential definitions that may reach this
@@ -607,10 +602,9 @@ mark_really_necessary_kill_operand_phis (void)
   
   /* Mark all virtual phis still in use as necessary, and all of their
      arguments that are phis as necessary.  */
-  while (VARRAY_ACTIVE_SIZE (worklist) > 0)
+  while (VEC_length (tree, worklist) > 0)
     {
-      tree use = VARRAY_TOP_TREE (worklist);
-      VARRAY_POP (worklist);
+      tree use = VEC_pop (tree, worklist);
       
       for (i = 0; i < PHI_NUM_ARGS (use); i++)
 	mark_operand_necessary (PHI_ARG_DEF (use, i), true);
@@ -637,7 +631,10 @@ eliminate_unnecessary_stmts (void)
     {
       /* Remove dead PHI nodes.  */
       remove_dead_phis (bb);
+    }
 
+  FOR_EACH_BB (bb)
+    {
       /* Remove dead statements.  */
       for (i = bsi_start (bb); ! bsi_end_p (i) ; )
 	{
@@ -719,11 +716,12 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
      nothing to the program, then we not only remove it, but we also change
      the flow graph so that the current block will simply fall-thru to its
      immediate post-dominator.  The blocks we are circumventing will be
-     removed by cleaup_cfg if this change in the flow graph makes them
+     removed by cleaup_tree_cfg if this change in the flow graph makes them
      unreachable.  */
   if (is_ctrl_stmt (t))
     {
       basic_block post_dom_bb;
+
       /* The post dominance info has to be up-to-date.  */
       gcc_assert (dom_computed[CDI_POST_DOMINATORS] == DOM_OK);
       /* Get the immediate post dominator of bb.  */
@@ -737,9 +735,20 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	  return;
 	}
 
-      /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
-      redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
-      PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
+      /* If the post dominator block has PHI nodes, we might be unable
+	 to compute the right PHI args for them.  Since the control
+	 statement is unnecessary, all edges can be regarded as
+	 equivalent, but we have to get rid of the condition, since it
+	 might reference a variable that was determined to be
+	 unnecessary and thus removed.  */
+      if (phi_nodes (post_dom_bb))
+	post_dom_bb = EDGE_SUCC (bb, 0)->dest;
+      else
+	{
+	  /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
+	  redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
+	  PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
+	}
       EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
       EDGE_SUCC (bb, 0)->count = bb->count;
 
@@ -760,12 +769,10 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
         remove_edge (EDGE_SUCC (bb, 1));
     }
   
-  FOR_EACH_SSA_DEF_OPERAND (def_p, t, iter, 
-			    SSA_OP_VIRTUAL_DEFS | SSA_OP_VIRTUAL_KILLS)
+  FOR_EACH_SSA_DEF_OPERAND (def_p, t, iter, SSA_OP_VIRTUAL_DEFS)
     {
       tree def = DEF_FROM_PTR (def_p);
-      bitmap_set_bit (vars_to_rename,
-		      var_ann (SSA_NAME_VAR (def))->uid);
+      mark_sym_for_renaming (SSA_NAME_VAR (def));
     }
   bsi_remove (i);  
   release_defs (t); 
@@ -817,7 +824,7 @@ tree_dce_init (bool aggressive)
   processed = sbitmap_alloc (num_ssa_names + 1);
   sbitmap_zero (processed);
 
-  VARRAY_TREE_INIT (worklist, 64, "work list");
+  worklist = VEC_alloc (tree, heap, 64);
 }
 
 /* Cleanup after this pass.  */
@@ -838,6 +845,8 @@ tree_dce_done (bool aggressive)
     }
 
   sbitmap_free (processed);
+
+  VEC_free (tree, heap, worklist);
 }
 
 /* Main routine to eliminate dead code.
@@ -927,7 +936,11 @@ struct tree_opt_pass pass_dce =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_fix_def_def_chains | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_ssa,	/* todo_flags_finish */
+  TODO_dump_func 
+    | TODO_update_ssa_no_phi 
+    | TODO_cleanup_cfg
+    | TODO_ggc_collect
+    | TODO_verify_ssa,			/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -944,8 +957,12 @@ struct tree_opt_pass pass_cd_dce =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_fix_def_def_chains | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_ssa | TODO_verify_flow,
-					/* todo_flags_finish */
+  TODO_dump_func
+    | TODO_update_ssa_no_phi
+    | TODO_cleanup_cfg
+    | TODO_ggc_collect
+    | TODO_verify_ssa
+    | TODO_verify_flow,			/* todo_flags_finish */
   0					/* letter */
 };
 

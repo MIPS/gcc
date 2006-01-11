@@ -75,37 +75,17 @@ LN_S = @LN_S@
 # Miscellaneous non-standard autoconf-set variables
 # -------------------------------------------------
 
-# The file containing GCC's version number.
-gcc_version_trigger = @gcc_version_trigger@
-gcc_version = @gcc_version@
-
 # The gcc driver likes to know the arguments it was configured with.
 TOPLEVEL_CONFIGURE_ARGUMENTS=@TOPLEVEL_CONFIGURE_ARGUMENTS@
-
-gxx_include_dir = @gxx_include_dir@
-libstdcxx_incdir = @libstdcxx_incdir@
 
 tooldir = @tooldir@
 build_tooldir = @build_tooldir@
 
-# Directory in which the compiler finds executables, libraries, etc.
-libsubdir = $(libdir)/gcc/$(target_alias)/$(gcc_version)
 GDB_NLM_DEPS = 
 
 # This is the name of the environment variable used for the path to
 # the libraries.
 RPATH_ENVVAR = @RPATH_ENVVAR@
-
-# This is set by configure to REALLY_SET_LIB_PATH if --enable-shared
-# was used.
-SET_LIB_PATH = @SET_LIB_PATH@
-
-# configure.in sets SET_LIB_PATH to this if --enable-shared was used.
-# Some platforms don't like blank entries, so we remove duplicate,
-# leading and trailing colons.
-REALLY_SET_LIB_PATH = \
-  @SET_GCC_LIB_PATH@ \
-  $(RPATH_ENVVAR)=`echo "$(HOST_LIB_PATH):$(TARGET_LIB_PATH):$$$(RPATH_ENVVAR)" | sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; export $(RPATH_ENVVAR);
 
 # This is the list of directories to be built for the build system.
 BUILD_CONFIGDIRS = libiberty
@@ -113,7 +93,7 @@ BUILD_CONFIGDIRS = libiberty
 BUILD_SUBDIR = @build_subdir@
 # This is set by the configure script to the arguments to use when configuring
 # directories built for the build system.
-BUILD_CONFIGARGS = @build_configargs@
+BUILD_CONFIGARGS = @build_configargs@ --with-build-subdir="$(BUILD_SUBDIR)"
 
 # This is the list of variables to export in the environment when
 # configuring any subdirectory.  It must also be exported whenever
@@ -178,11 +158,11 @@ HOST_EXPORTS = \
 	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
 	GMPLIBS="$(HOST_GMPLIBS)"; export GMPLIBS; \
 	GMPINC="$(HOST_GMPINC)"; export GMPINC; \
-	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
-	@SET_GCC_LIB_PATH@
+	$(RPATH_ENVVAR)=`echo "$(HOST_LIB_PATH)$$$(RPATH_ENVVAR)" | sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; export $(RPATH_ENVVAR);
 
 # Similar, for later GCC stages.
-STAGE_HOST_EXPORTS = \
+POSTSTAGE1_HOST_EXPORTS = \
+	$(RPATH_ENVVAR)=`echo "$(TARGET_LIB_PATH)$$$(RPATH_ENVVAR)" | sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; export $(RPATH_ENVVAR); \
 	$(HOST_EXPORTS) \
 	CC="$(STAGE_CC_WRAPPER) $$r/$(HOST_SUBDIR)/prev-gcc/xgcc$(exeext) \
 	  -B$$r/$(HOST_SUBDIR)/prev-gcc/ -B$(build_tooldir)/bin/"; export CC; \
@@ -198,7 +178,7 @@ TARGET_CONFIGDIRS = @target_configdirs@
 TARGET_SUBDIR = @target_subdir@
 # This is set by the configure script to the arguments to use when configuring
 # directories built for the target.
-TARGET_CONFIGARGS = @target_configargs@
+TARGET_CONFIGARGS = @target_configargs@ --with-target-subdir="$(TARGET_SUBDIR)"
 # This is the list of variables to export in the environment when
 # configuring subdirectories for the host system.
 BASE_TARGET_EXPORTS = \
@@ -218,8 +198,7 @@ BASE_TARGET_EXPORTS = \
 	NM="$(NM_FOR_TARGET)"; export NM; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	WINDRES="$(WINDRES_FOR_TARGET)"; export WINDRES; \
-	SET_GCC_LIB_PATH_CMD="@SET_GCC_LIB_PATH@"; export SET_GCC_LIB_PATH_CMD; \
-	@SET_GCC_LIB_PATH@
+	$(RPATH_ENVVAR)=`echo "$(HOST_LIB_PATH)$(TARGET_LIB_PATH)$$$(RPATH_ENVVAR)" | sed 's,::*,:,g;s,^:*,,;s,:*$$,,'`; export $(RPATH_ENVVAR);
 
 RAW_CXX_TARGET_EXPORTS = \
 	$(BASE_TARGET_EXPORTS) \
@@ -325,10 +304,6 @@ RUNTEST = `if [ -f $$s/dejagnu/runtest ] ; \
 # Programs producing files for the HOST machine
 # ---------------------------------------------
 
-# This is the list of directories that may be needed in RPATH_ENVVAR
-# so that programs built for the host machine work.
-HOST_LIB_PATH = $$r/$(HOST_SUBDIR)/bfd:$$r/$(HOST_SUBDIR)/opcodes
-
 AS = @AS@
 
 AR = @AR@
@@ -358,10 +333,6 @@ PICFLAG =
 # -----------------------------------------------
 # Programs producing files for the TARGET machine
 # -----------------------------------------------
-
-# This is the list of directories that may be needed in RPATH_ENVVAR
-# so that prorgams built for the target machine work.
-TARGET_LIB_PATH = $$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs:$$r/$(TARGET_SUBDIR)/libmudflap/.libs
 
 FLAGS_FOR_TARGET = @FLAGS_FOR_TARGET@
 
@@ -509,6 +480,37 @@ PICFLAG_FOR_TARGET =
 @ospace_frag@
 @host_makefile_frag@
 ###
+
+# This is the list of directories that may be needed in RPATH_ENVVAR
+# so that prorgams built for the target machine work.
+TARGET_LIB_PATH = [+ FOR target_modules +][+
+  IF lib_path +]$(TARGET_LIB_PATH_[+module+])[+ ENDIF lib_path +][+
+  ENDFOR target_modules +]$(HOST_LIB_PATH_gcc)
+[+ FOR target_modules +][+ IF lib_path +]
+@if target-[+module+]
+TARGET_LIB_PATH_[+module+] = $$r/$(TARGET_SUBDIR)/[+module+]/[+lib_path+]:
+@endif target-[+module+]
+[+ ENDIF lib_path +][+ ENDFOR target_modules +]
+
+
+# This is the list of directories that may be needed in RPATH_ENVVAR
+# so that programs built for the host machine work.
+HOST_LIB_PATH = [+ FOR host_modules +][+
+  IF lib_path +]$(HOST_LIB_PATH_[+module+])[+ ENDIF lib_path +][+
+  ENDFOR host_modules +]
+
+# Define HOST_LIB_PATH_gcc here, for the sake of TARGET_LIB_PATH, ouch
+@if gcc
+HOST_LIB_PATH_gcc = $$r/$(HOST_SUBDIR)/gcc:$$r/$(HOST_SUBDIR)/prev-gcc:
+@endif gcc
+
+[+ FOR host_modules +][+ IF lib_path +]
+@if [+module+]
+HOST_LIB_PATH_[+module+] = \
+  $$r/$(HOST_SUBDIR)/[+module+]/[+lib_path+]:[+ IF bootstrap
+  +]$$r/$(HOST_SUBDIR)/prev-[+module+]/[+lib_path+]:[+ ENDIF bootstrap +]
+@endif [+module+]
+[+ ENDIF lib_path +][+ ENDFOR host_modules +]
 
 # Flags to pass down to all sub-makes.
 BASE_FLAGS_TO_PASS = [+ FOR flags_to_pass +]\
@@ -773,7 +775,6 @@ uninstall:
 install.all: install-no-fixedincludes
 	@if [ -f ./gcc/Makefile ] ; then \
 		r=`${PWD_COMMAND}` ; export r ; \
-		$(SET_LIB_PATH) \
 		$(HOST_EXPORTS) \
 		(cd ./gcc && \
 		$(MAKE) $(FLAGS_TO_PASS) install-headers) ; \
@@ -817,93 +818,143 @@ etags tags: TAGS
 # built are.
 TAGS: do-TAGS
 
-# --------------------------------------
-# Modules which run on the build machine
-# --------------------------------------
-[+ FOR build_modules +]
-.PHONY: configure-build-[+module+] maybe-configure-build-[+module+]
-maybe-configure-build-[+module+]:
-@if build-[+module+]
-maybe-configure-build-[+module+]: configure-build-[+module+]
-configure-build-[+module+]:
-	@test ! -f $(BUILD_SUBDIR)/[+module+]/Makefile || exit 0; \
-	$(SHELL) $(srcdir)/mkinstalldirs $(BUILD_SUBDIR)/[+module+] ; \
+# ------------------------------------
+# Macros for configure and all targets
+# ------------------------------------
+
+[+ DEFINE configure +]
+.PHONY: configure-[+prefix+][+module+] maybe-configure-[+prefix+][+module+]
+maybe-configure-[+prefix+][+module+]:
+@if [+prefix+][+module+]
+maybe-configure-[+prefix+][+module+]: configure-[+prefix+][+module+]
+configure-[+prefix+][+module+]: [+deps+]
+	@[+ IF bootstrap +]test -f stage_last && exit 0; \
+	[+ ENDIF bootstrap +]test ! -f [+subdir+]/[+module+]/Makefile || exit 0; \
+	$(SHELL) $(srcdir)/mkinstalldirs [+subdir+]/[+module+] ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(BUILD_EXPORTS) \
-	echo Configuring in $(BUILD_SUBDIR)/[+module+]; \
-	cd "$(BUILD_SUBDIR)/[+module+]" || exit 1; \
+	[+exports+] \
+	echo Configuring in [+subdir+]/[+module+]; \
+	cd "[+subdir+]/[+module+]" || exit 1; \
 	case $(srcdir) in \
 	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
-	  *) topdir=`echo $(BUILD_SUBDIR)/[+module+]/ | \
+	  *) topdir=`echo [+subdir+]/[+module+]/ | \
 		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
 	esac; \
 	srcdiroption="--srcdir=$${topdir}/[+module+]"; \
 	libsrcdir="$$s/[+module+]"; \
-	rm -f no-such-file || : ; \
-	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
-	  $(BUILD_CONFIGARGS) $${srcdiroption} \
-	  --with-build-subdir="$(BUILD_SUBDIR)" [+extra_configure_flags+] \
+	[+ IF no-config-site +]rm -f no-such-file || : ; \
+	CONFIG_SITE=no-such-file [+ ENDIF +]$(SHELL) $${libsrcdir}/configure \
+	  [+args+] $${srcdiroption} [+extra_configure_flags+] \
 	  || exit 1
-@endif build-[+module+]
+@endif [+prefix+][+module+]
 
-.PHONY: all-build-[+module+] maybe-all-build-[+module+]
-maybe-all-build-[+module+]:
-@if build-[+module+]
-TARGET-build-[+module+]=[+ IF target +][+target+][+ ELSE +]all[+ ENDIF target +]
-maybe-all-build-[+module+]: all-build-[+module+]
-all-build-[+module+]: configure-build-[+module+]
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(BUILD_EXPORTS) \
-	(cd $(BUILD_SUBDIR)/[+module+] && \
-	  $(MAKE) [+extra_make_flags+] $(TARGET-build-[+module+]))
-@endif build-[+module+]
-[+ ENDFOR build_modules +]
-
-# --------------------------------------
-# Modules which run on the host machine
-# --------------------------------------
-[+ FOR host_modules +]
-.PHONY: configure-[+module+] maybe-configure-[+module+]
-maybe-configure-[+module+]:
-@if [+module+]
-maybe-configure-[+module+]: configure-[+module+]
-configure-[+module+]:
-	@[+ IF bootstrap +]test -f stage_last && exit 0; \
-	[+ ENDIF bootstrap +]test ! -f $(HOST_SUBDIR)/[+module+]/Makefile || exit 0; \
-	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/[+module+] ; \
+[+ IF bootstrap +]
+[+ FOR bootstrap_stage +]
+.PHONY: configure-stage[+id+]-[+prefix+][+module+] maybe-configure-stage[+id+]-[+prefix+][+module+]
+maybe-configure-stage[+id+]-[+prefix+][+module+]:
+@if [+module+]-bootstrap
+maybe-configure-stage[+id+]-[+prefix+][+module+]: configure-stage[+id+]-[+prefix+][+module+]
+configure-stage[+id+]-[+prefix+][+module+]: [+deps+]
+	@$(MAKE) stage[+id+]-start
+	@[ -f [+subdir+]/[+module+]/Makefile ] && exit 0 || : ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(HOST_EXPORTS) \
-	echo Configuring in [+module+]; \
-	cd $(HOST_SUBDIR)/[+module+] || exit 1; \
+	[+exports+][+ IF prev +] \
+	[+poststage1_exports+][+ ENDIF prev +] \
+	echo Configuring stage [+id+] in [+subdir+]/[+module+] ; \
+	cd [+subdir+]/[+module+] || exit 1; \
 	case $(srcdir) in \
 	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
-	  *) topdir=`echo $(HOST_SUBDIR)/[+module+]/ | \
+	  *) topdir=`echo [+subdir+]/[+module+]/ | \
 		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
 	esac; \
 	srcdiroption="--srcdir=$${topdir}/[+module+]"; \
 	libsrcdir="$$s/[+module+]"; \
 	$(SHELL) $${libsrcdir}/configure \
-	  $(HOST_CONFIGARGS) $${srcdiroption} [+extra_configure_flags+] \
-	  || exit 1
-@endif [+module+]
+	  [+args+] $${srcdiroption} \
+	  [+stage_configure_flags+] [+extra_configure_flags+]
+@endif [+module+]-bootstrap
+[+ ENDFOR bootstrap_stage +]
+[+ ENDIF bootstrap +]
+[+ ENDDEF +]
 
-.PHONY: all-[+module+] maybe-all-[+module+]
-maybe-all-[+module+]:
-@if [+module+]
-TARGET-[+module+]=[+ IF target +][+target+][+ ELSE +]all[+ ENDIF target +]
-maybe-all-[+module+]: all-[+module+]
-all-[+module+]: configure-[+module+]
+[+ DEFINE all +]
+.PHONY: all-[+prefix+][+module+] maybe-all-[+prefix+][+module+]
+maybe-all-[+prefix+][+module+]:
+@if [+prefix+][+module+]
+TARGET-[+prefix+][+module+]=[+
+  IF target +][+target+][+ ELSE +]all[+ ENDIF target +]
+maybe-all-[+prefix+][+module+]: all-[+prefix+][+module+]
+all-[+prefix+][+module+]: configure-[+prefix+][+module+]
 	@[+ IF bootstrap +]test -f stage_last && exit 0; \
 	[+ ENDIF bootstrap +]r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
-	$(HOST_EXPORTS) \
-	(cd $(HOST_SUBDIR)/[+module+] && \
-	  $(MAKE) $(FLAGS_TO_PASS) [+extra_make_flags+] $(TARGET-[+module+]))
-@endif [+module+]
+	[+exports+] \
+	(cd [+subdir+]/[+module+] && \
+	  $(MAKE) [+args+] [+extra_make_flags+] $(TARGET-[+prefix+][+module+]))
+@endif [+prefix+][+module+]
+
+[+ IF bootstrap +]
+[+ FOR bootstrap_stage +]
+.PHONY: all-stage[+id+]-[+prefix+][+module+] maybe-all-stage[+id+]-[+prefix+][+module+]
+.PHONY: clean-stage[+id+]-[+prefix+][+module+] maybe-clean-stage[+id+]-[+prefix+][+module+]
+maybe-all-stage[+id+]-[+prefix+][+module+]:
+maybe-clean-stage[+id+]-[+prefix+][+module+]:
+@if [+module+]-bootstrap
+maybe-all-stage[+id+]-[+prefix+][+module+]: all-stage[+id+]-[+prefix+][+module+]
+all-stage[+id+]: all-stage[+id+]-[+prefix+][+module+]
+all-stage[+id+]-[+prefix+][+module+]: configure-stage[+id+]-[+prefix+][+module+]
+	@$(MAKE) stage[+id+]-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	[+exports+][+ IF prev +] \
+	[+poststage1_exports+][+ ENDIF prev +] \
+	cd [+subdir+]/[+module+] && \
+	$(MAKE) [+args+] [+ IF prev
+		+][+poststage1_args+][+ ENDIF prev
+		+] [+stage_make_flags+] [+extra_make_flags+]
+
+maybe-clean-stage[+id+]-[+prefix+][+module+]: clean-stage[+id+]-[+prefix+][+module+]
+clean-stage[+id+]: clean-stage[+id+]-[+prefix+][+module+]
+clean-stage[+id+]-[+prefix+][+module+]:
+	@[ -f [+subdir+]/[+module+]/Makefile ] || [ -f [+subdir+]/stage[+id+]-[+module+]/Makefile ] \
+	  || exit 0 ; \
+	[ -f [+subdir+]/[+module+]/Makefile ] || $(MAKE) stage[+id+]-start ; \
+	cd [+subdir+]/[+module+] && \
+	$(MAKE) [+args+] [+ IF prev +] \
+		[+poststage1_args+] [+ ENDIF prev +] \
+		[+stage_make_flags+] [+extra_make_flags+] clean
+@endif [+module+]-bootstrap
+
+[+ ENDFOR bootstrap_stage +]
+[+ ENDIF bootstrap +]
+[+ ENDDEF +]
+
+# --------------------------------------
+# Modules which run on the build machine
+# --------------------------------------
+[+ FOR build_modules +]
+[+ configure prefix="build-" subdir="$(BUILD_SUBDIR)" exports="$(BUILD_EXPORTS)"
+	     args="$(BUILD_CONFIGARGS)" no-config-site=true +]
+
+[+ all prefix="build-" subdir="$(BUILD_SUBDIR)" exports="$(BUILD_EXPORTS)" +]
+[+ ENDFOR build_module +]
+
+# --------------------------------------
+# Modules which run on the host machine
+# --------------------------------------
+[+ FOR host_modules +]
+[+ configure prefix="" subdir="$(HOST_SUBDIR)"
+	     exports="$(HOST_EXPORTS)"
+	     poststage1_exports="$(POSTSTAGE1_HOST_EXPORTS)"
+	     args="$(HOST_CONFIGARGS)" +]
+
+[+ all prefix="" subdir="$(HOST_SUBDIR)"
+       exports="$(HOST_EXPORTS)"
+       poststage1_exports="$(POSTSTAGE1_HOST_EXPORTS)"
+       args="$(FLAGS_TO_PASS)"
+       poststage1_args="$(POSTSTAGE1_FLAGS_TO_PASS)" +]
 
 .PHONY: check-[+module+] maybe-check-[+module+]
 maybe-check-[+module+]:
@@ -917,7 +968,6 @@ check-[+module+]:
 	@if [ '$(host)' = '$(target)' ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	  $(SET_LIB_PATH) \
 	  $(HOST_EXPORTS) \
 	  (cd $(HOST_SUBDIR)/[+module+] && \
 	    $(MAKE) $(FLAGS_TO_PASS) [+extra_make_flags+] check); \
@@ -926,7 +976,6 @@ check-[+module+]:
 check-[+module+]:
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/[+module+] && \
 	  $(MAKE) $(FLAGS_TO_PASS) [+extra_make_flags+] check)
@@ -943,7 +992,6 @@ install-[+module+]:
 install-[+module+]: installdirs
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
 	(cd $(HOST_SUBDIR)/[+module+] && \
 	  $(MAKE) $(FLAGS_TO_PASS) [+extra_make_flags+] install)
@@ -967,7 +1015,6 @@ maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 	@[ -f ./[+module+]/Makefile ] || exit 0; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
 	for flag in $(EXTRA_HOST_FLAGS) [+extra_make_flags+]; do \
 	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
@@ -989,65 +1036,34 @@ maybe-[+make_target+]-[+module+]: [+make_target+]-[+module+]
 # Modules which run on the target machine
 # ---------------------------------------
 [+ FOR target_modules +]
-.PHONY: configure-target-[+module+] maybe-configure-target-[+module+]
-maybe-configure-target-[+module+]:
-@if target-[+module+]
-maybe-configure-target-[+module+]: configure-target-[+module+]
 
 # There's only one multilib.out.  Cleverer subdirs shouldn't need it copied.
+@if target-[+module+]
 $(TARGET_SUBDIR)/[+module+]/multilib.out: multilib.out
 	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/[+module+] ; \
 	rm -f $(TARGET_SUBDIR)/[+module+]/Makefile || : ; \
 	cp multilib.out $(TARGET_SUBDIR)/[+module+]/multilib.out
-
-configure-target-[+module+]: $(TARGET_SUBDIR)/[+module+]/multilib.out
-	@test ! -f $(TARGET_SUBDIR)/[+module+]/Makefile || exit 0; \
-	$(SHELL) $(srcdir)/mkinstalldirs $(TARGET_SUBDIR)/[+module+] ; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \[+
-IF raw_cxx +]
-	$(RAW_CXX_TARGET_EXPORTS) \[+
-ELSE normal_cxx +]
-	$(NORMAL_TARGET_EXPORTS) \[+
-ENDIF raw_cxx +]
-	echo Configuring in $(TARGET_SUBDIR)/[+module+]; \
-	cd "$(TARGET_SUBDIR)/[+module+]" || exit 1; \
-	case $(srcdir) in \
-	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
-	  *) topdir=`echo $(TARGET_SUBDIR)/[+module+]/ | \
-		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
-	esac; \
-	srcdiroption="--srcdir=$${topdir}/[+module+]"; \
-	libsrcdir="$$s/[+module+]"; \
-	rm -f no-such-file || : ; \
-	CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
-	  $(TARGET_CONFIGARGS) $${srcdiroption} \
-	  --with-target-subdir="$(TARGET_SUBDIR)" [+extra_configure_flags+] \
-	  || exit 1
 @endif target-[+module+]
 
-.PHONY: all-target-[+module+] maybe-all-target-[+module+]
-maybe-all-target-[+module+]:
-@if target-[+module+]
-TARGET-target-[+module+]=[+ IF target +][+target+][+ ELSE +]all[+ ENDIF target +]
-maybe-all-target-[+module+]: all-target-[+module+]
-all-target-[+module+]: configure-target-[+module+]
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \[+
-IF raw_cxx +]
-	$(RAW_CXX_TARGET_EXPORTS) \[+
-ELSE normal_cxx +]
-	$(NORMAL_TARGET_EXPORTS) \[+
-ENDIF raw_cxx +]
-	(cd $(TARGET_SUBDIR)/[+module+] && \
-	  $(MAKE) $(TARGET_FLAGS_TO_PASS) [+
-	    IF raw_cxx 
-	  +] 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)' [+ 
-	    ENDIF raw_cxx 
-	  +] [+extra_make_flags+] $(TARGET-target-[+module+]))
-@endif target-[+module+]
+[+ IF raw_cxx +]
+[+ configure prefix="target-" subdir="$(TARGET_SUBDIR)"
+	     deps=(string-append "$(TARGET_SUBDIR)/" (get "module") "/multilib.out")
+	     exports="$(RAW_CXX_TARGET_EXPORTS)"
+	     args="$(TARGET_CONFIGARGS)" no-config-site=true +]
+
+[+ all prefix="target-" subdir="$(TARGET_SUBDIR)"
+       exports="$(RAW_CXX_TARGET_EXPORTS)"
+       args="$(TARGET_FLAGS_TO_PASS) 'CXX=$$(RAW_CXX_FOR_TARGET)' 'CXX_FOR_TARGET=$$(RAW_CXX_FOR_TARGET)'" +]
+[+ ELSE +]
+[+ configure prefix="target-" subdir="$(TARGET_SUBDIR)"
+	     deps=(string-append "$(TARGET_SUBDIR)/" (get "module") "/multilib.out")
+	     exports="$(NORMAL_TARGET_EXPORTS)"
+	     args="$(TARGET_CONFIGARGS)" no-config-site=true +]
+
+[+ all prefix="target-" subdir="$(TARGET_SUBDIR)"
+       exports="$(NORMAL_TARGET_EXPORTS)"
+       args="$(TARGET_FLAGS_TO_PASS)" +]
+[+ ENDIF +]
 
 .PHONY: check-target-[+module+] maybe-check-target-[+module+]
 maybe-check-target-[+module+]:
@@ -1059,8 +1075,7 @@ check-target-[+module+]:
 [+ ELSE check +]
 check-target-[+module+]:
 	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \[+
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \[+
 IF raw_cxx +]
 	$(RAW_CXX_TARGET_EXPORTS) \[+
 ELSE normal_cxx +]
@@ -1085,8 +1100,7 @@ install-target-[+module+]:
 [+ ELSE install +]
 install-target-[+module+]: installdirs
 	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \[+
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \[+
 IF raw_cxx +]
 	$(RAW_CXX_TARGET_EXPORTS) \[+
 ELSE normal_cxx +]
@@ -1113,8 +1127,7 @@ maybe-[+make_target+]-target-[+module+]: [+make_target+]-target-[+module+]
   ENDFOR depend +]
 	@[ -f $(TARGET_SUBDIR)/[+module+]/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \[+
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \[+
 IF raw_cxx +]
 	$(RAW_CXX_TARGET_EXPORTS) \[+
 ELSE normal_cxx +]
@@ -1150,9 +1163,9 @@ GCC_STRAP_TARGETS = bootstrap bootstrap-lean bootstrap2 bootstrap2-lean bootstra
 $(GCC_STRAP_TARGETS): all-prebootstrap configure-gcc
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
 	echo "Bootstrapping the compiler"; \
+	$(RPATH_ENVVAR)=`echo "$(TARGET_LIB_PATH)$$$(RPATH_ENVVAR)" | sed 's,:[ :]*,:,g;s,^[ :]*,,;s,:*$$,,'`; export $(RPATH_ENVVAR); \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) $@
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -1170,32 +1183,28 @@ $(GCC_STRAP_TARGETS): all-prebootstrap configure-gcc
 	    msg="Comparing stage2 and stage3 of the compiler"; \
 	    compare=compare ;; \
 	esac; \
-	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
 	echo "$$msg"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) $$compare
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
-	$(SET_LIB_PATH) \
 	echo "Building runtime libraries"; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
 
 profiledbootstrap: all-prebootstrap configure-gcc
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
+	$(RPATH_ENVVAR)=`echo "$(TARGET_LIB_PATH)$$$(RPATH_ENVVAR)" | sed 's,:[ :]*,:,g;s,^[ :]*,,;s,:*$$,,'`; export $(RPATH_ENVVAR); \
 	echo "Bootstrapping training compiler"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stageprofile_build
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
 	echo "Building feedback based compiler"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) stagefeedback_build
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
-	$(SET_LIB_PATH) \
 	echo "Building runtime libraries"; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
 
@@ -1203,13 +1212,11 @@ profiledbootstrap: all-prebootstrap configure-gcc
 cross: all-build all-gas all-ld
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
 	echo "Building the C and C++ compiler"; \
 	cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) LANGUAGES="c c++"
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
-	$(SET_LIB_PATH) \
 	echo "Building runtime libraries"; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) LANGUAGES="c c++" all
 @endif gcc-no-bootstrap
@@ -1220,7 +1227,6 @@ check-gcc-c++:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	  $(SET_LIB_PATH) \
 	  $(HOST_EXPORTS) \
 	  (cd gcc && $(MAKE) $(GCC_FLAGS_TO_PASS) check-c++); \
 	else \
@@ -1244,7 +1250,6 @@ gcc-no-fixedincludes:
 	  rm -f gcc/stmp-headers gcc/stmp-int-hdrs; \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
-	  $(SET_LIB_PATH) \
 	  $(HOST_EXPORTS) \
 	  (cd ./gcc && \
 	   $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
@@ -1335,7 +1340,7 @@ stage[+id+]-start::
 	@[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
 	echo stage[+id+] > stage_current ; \
 	echo stage[+id+] > stage_last; \
-	$(mkinstalldirs) $(HOST_SUBDIR)[+
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)[+
    FOR host_modules +][+ IF bootstrap +]
 @if [+ module +]
 	@cd $(HOST_SUBDIR); [ -d stage[+id+]-[+module+] ] || \
@@ -1369,70 +1374,7 @@ stage[+id+]-bubble:: [+ IF prev +]stage[+prev+]-bubble[+ ENDIF +][+IF lean +]
 	fi
 
 .PHONY: all-stage[+id+] clean-stage[+id+]
-all-stage[+id+]: [+ FOR host_modules +][+ IF bootstrap +]\
-  maybe-all-stage[+id+]-[+module+][+
-ENDIF bootstrap+] [+ ENDFOR host_modules +]
-
 do-clean: clean-stage[+id+]
-clean-stage[+id+]: [+ FOR host_modules +][+ IF bootstrap +]\
-  maybe-clean-stage[+id+]-[+module+][+
-ENDIF bootstrap+] [+ ENDFOR host_modules +]
-
-[+ FOR host_modules +][+ IF bootstrap +]
-.PHONY: configure-stage[+id+]-[+module+] maybe-configure-stage[+id+]-[+module+]
-.PHONY: all-stage[+id+]-[+module+] maybe-all-stage[+id+]-[+module+]
-.PHONY: clean-stage[+id+]-[+module+] maybe-clean-stage[+id+]-[+module+]
-
-maybe-configure-stage[+id+]-[+module+]:
-maybe-all-stage[+id+]-[+module+]:
-maybe-clean-stage[+id+]-[+module+]:
-
-@if [+module+]-bootstrap
-maybe-configure-stage[+id+]-[+module+]: configure-stage[+id+]-[+module+]
-configure-stage[+id+]-[+module+]:
-	@$(MAKE) stage[+id+]-start
-	@[ -f [+module+]/Makefile ] && exit 0 || : ; \
-	r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; [+ IF prev +] \
-	$(STAGE_HOST_EXPORTS) [+ ELSE prev +] \
-	$(HOST_EXPORTS) [+ ENDIF prev +] \
-	echo Configuring stage [+id+] in [+module+] ; \
-	cd $(HOST_SUBDIR)/[+module+] || exit 1; \
-	case $(srcdir) in \
-	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
-	  *) topdir=`echo $(HOST_SUBDIR)/[+module+]/ | \
-		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
-	esac; \
-	srcdiroption="--srcdir=$${topdir}/[+module+]"; \
-	libsrcdir="$$s/[+module+]"; \
-	$(SHELL) $${libsrcdir}/configure \
-	  $(HOST_CONFIGARGS) $${srcdiroption} \
-	  [+stage_configure_flags+] [+extra_configure_flags+]
-
-maybe-all-stage[+id+]-[+module+]: all-stage[+id+]-[+module+]
-all-stage[+id+]-[+module+]: configure-stage[+id+]-[+module+]
-	@$(MAKE) stage[+id+]-start
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; [+ IF prev +] \
-	$(STAGE_HOST_EXPORTS) [+ ELSE prev +] \
-	$(HOST_EXPORTS) [+ ENDIF prev +] \
-	cd $(HOST_SUBDIR)/[+module+] && \
-	$(MAKE) $(FLAGS_TO_PASS) [+ IF prev +] \
-		$(POSTSTAGE1_FLAGS_TO_PASS) [+ ENDIF prev +] \
-		[+stage_make_flags+] [+extra_make_flags+]
-
-maybe-clean-stage[+id+]-[+module+]: clean-stage[+id+]-[+module+]
-clean-stage[+id+]-[+module+]:
-	@[ -f [+module+]/Makefile ] || [ -f stage[+id+]-[+module+]/Makefile ] \
-	  || exit 0 ; \
-	[ -f [+module+]/Makefile ] || $(MAKE) stage[+id+]-start ; \
-	cd $(HOST_SUBDIR)/[+module+] && \
-	$(MAKE) $(FLAGS_TO_PASS) [+ IF prev +] \
-		$(POSTSTAGE1_FLAGS_TO_PASS) [+ ENDIF prev +] \
-		[+stage_make_flags+] [+extra_make_flags+] clean
-@endif [+module+]-bootstrap
-
-[+ ENDIF bootstrap +][+ ENDFOR host_modules +]
 
 # FIXME: Will not need to be conditional when toplevel bootstrap is the
 # only possibility, but now it conflicts with no-bootstrap rules
@@ -1500,18 +1442,15 @@ stagefeedback-start::
 profiledbootstrap:
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
 	echo "Bootstrapping the compiler"; \
 	$(MAKE) stageprofile-bubble distclean-stagefeedback
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
-	$(SET_LIB_PATH) \
 	echo "Building runtime libraries and training compiler"; \
 	$(MAKE) $(BASE_FLAGS_TO_PASS) $(RECURSE_FLAGS) all
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(SET_LIB_PATH) \
 	$(HOST_EXPORTS) \
 	echo "Building feedback based compiler"; \
 	$(MAKE) stagefeedback-bubble stagefeedback-end
@@ -1673,7 +1612,7 @@ $(srcdir)/Makefile.in: @MAINT@ $(srcdir)/Makefile.tpl $(srcdir)/Makefile.def
 Makefile: $(srcdir)/Makefile.in config.status
 	CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
-config.status: configure $(gcc_version_trigger)
+config.status: configure
 	CONFIG_SHELL="$(SHELL)" $(SHELL) ./config.status --recheck
 
 # Rebuilding configure.

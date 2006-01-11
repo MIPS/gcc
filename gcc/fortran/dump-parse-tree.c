@@ -1,5 +1,5 @@
 /* Parse tree dumper
-   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
 This file is part of GCC.
@@ -409,6 +409,8 @@ gfc_show_expr (gfc_expr * p)
       break;
 
     case EXPR_VARIABLE:
+      if (p->symtree->n.sym->ns && p->symtree->n.sym->ns->proc_name)
+	gfc_status ("%s:", p->symtree->n.sym->ns->proc_name->name);
       gfc_status ("%s", p->symtree->n.sym->name);
       gfc_show_ref (p->ref);
       break;
@@ -663,7 +665,12 @@ gfc_show_symbol (gfc_symbol * sym)
       gfc_status ("Formal arglist:");
 
       for (formal = sym->formal; formal; formal = formal->next)
-	gfc_status (" %s", formal->sym->name);
+        {
+          if (formal->sym != NULL)
+            gfc_status (" %s", formal->sym->name);
+          else
+            gfc_status (" [Alt Return]");
+        }
     }
 
   if (sym->formal_ns)

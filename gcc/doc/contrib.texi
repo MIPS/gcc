@@ -279,7 +279,7 @@ feeding the gcc.gnu.org box and saving its users tons of spam.
 Fred Fish for BeOS support and Ada fixes.
 
 @item
-Ivan Fontes Garcia for the Portugese translation of the GCJ FAQ@.
+Ivan Fontes Garcia for the Portuguese translation of the GCJ FAQ@.
 
 @item
 Peter Gerwinski for various bug fixes and the Pascal front end.
@@ -315,6 +315,9 @@ Ron Guilmette implemented the @command{protoize} and @command{unprotoize}
 tools, the support for Dwarf symbolic debugging information, and much of
 the support for System V Release 4.  He has also worked heavily on the
 Intel 386 and 860 support.
+
+@item
+Mostafa Hagog for Swing Modulo Scheduling (SMS) and post reload GCSE@.
 
 @item
 Bruno Haible for improvements in the runtime overhead for EH, new
@@ -973,6 +976,9 @@ description for the Tron architecture (specifically, the Gmicro).
 
 @item
 Kevin Zachmann helped port GCC to the Tahoe.
+
+@item
+Ayal Zaks for Swing Modulo Scheduling (SMS).
 
 @item
 Xiaoqiang Zhang for work on gfortran.

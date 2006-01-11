@@ -1,7 +1,5 @@
-m4_include([../config/accross.m4])
 m4_include([../config/acx.m4])
 m4_include([../config/gettext-sister.m4])
-m4_include([../config/gcc-lib-path.m4])
 m4_include([../config/iconv.m4])
 m4_include([../config/lcmessage.m4])
 m4_include([../config/lib-ld.m4])
@@ -656,3 +654,25 @@ AC_PREREQ([2.50])dnl
 # expand $ac_aux_dir to an absolute path
 am_aux_dir=`cd $ac_aux_dir && pwd`
 ])
+
+
+dnl GCC_TARGET_TEMPLATE(KEY)
+dnl ------------------------
+dnl Define KEY as a valid configure key on the target machine.
+
+m4_define([GCC_TARGET_TEMPLATE],
+[m4_define([GCC_TARGET_TEMPLATE($1)],[])])
+
+dnl AH_TEMPLATE(KEY, DESCRIPTION)
+dnl -----------------------------
+dnl Issue an autoheader template for KEY, i.e., a comment composed of
+dnl DESCRIPTION (properly wrapped), and then #undef KEY.  Redefinition
+dnl of the macro in autoheader.m4, to support definition of only a few
+dnl keys while compiling target libraries.
+
+m4_define([AH_TEMPLATE],
+[AH_VERBATIM([$1],m4_text_wrap([$2 */], [   ], [/* ])
+m4_ifdef([GCC_TARGET_TEMPLATE($1)],[],[#ifndef USED_FOR_TARGET
+])[#undef $1]m4_ifdef([GCC_TARGET_TEMPLATE($1)],[],[
+#endif
+]))])

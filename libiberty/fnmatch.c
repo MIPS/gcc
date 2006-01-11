@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street - Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifdef HAVE_CONFIG_H
 #if defined (CONFIG_BROKETS)
@@ -65,10 +65,7 @@ extern int errno;
 /* Match STRING against the filename pattern PATTERN, returning zero if
    it matches, nonzero if not.  */
 int
-fnmatch (pattern, string, flags)
-     const char *pattern;
-     const char *string;
-     int flags;
+fnmatch (const char *pattern, const char *string, int flags)
 {
   register const char *p = pattern, *n = string;
   register unsigned char c;

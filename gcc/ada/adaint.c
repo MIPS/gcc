@@ -1308,7 +1308,7 @@ __gnat_set_env_value (char *name, char *value)
 	*next = 0;
 	ile_array[i].len = strlen (curr);
 
-	/* Code 2 from lnmdef.h means its a string.  */
+	/* Code 2 from lnmdef.h means it's a string.  */
 	ile_array[i].code = 2;
 	ile_array[i].adr = curr;
 
@@ -1579,7 +1579,7 @@ __gnat_portable_spawn (char *args[])
   strcat (args[0], args_0);
   strcat (args[0], "\"");
 
-  status = spawnvp (P_WAIT, args_0, (char* const*)args);
+  status = spawnvp (P_WAIT, args_0, (const char* const*)args);
 
   /* restore previous value */
   free (args[0]);
@@ -1643,7 +1643,7 @@ __gnat_dup (int oldfd)
 }
 
 /* Make newfd be the copy of oldfd, closing newfd first if necessary.
-   Return -1 if an error occured.  */
+   Return -1 if an error occurred.  */
 
 int
 __gnat_dup2 (int oldfd, int newfd)
@@ -1927,23 +1927,6 @@ __gnat_portable_wait (int *process_status)
   return pid;
 }
 
-int
-__gnat_waitpid (int pid)
-{
-  int status = 0;
-
-#if defined (_WIN32)
-  cwait (&status, pid, _WAIT_CHILD);
-#elif defined (__EMX__) || defined (MSDOS) || defined (__vxworks)
-  /* Status is already zero, so nothing to do.  */
-#else
-  waitpid (pid, &status, 0);
-  status =  WEXITSTATUS (status);
-#endif
-
-  return status;
-}
-
 void
 __gnat_os_exit (int status)
 {
@@ -2221,18 +2204,29 @@ __gnat_to_canonical_dir_spec (char *dirspec, int prefixflag)
 }
 
 /* Translate a VMS syntax file specification into Unix syntax.
-   If no indicators of VMS syntax found, return input string.  */
+   If no indicators of VMS syntax found, check if it's an uppercase
+   alphanumeric_ name and if so try it out as an environment
+   variable (logical name). If all else fails return the
+   input string.  */
 
 char *
 __gnat_to_canonical_file_spec (char *filespec)
 {
+  char *filespec1;
+
   strncpy (new_canonical_filespec, "", MAXPATH);
 
   if (strchr (filespec, ']') || strchr (filespec, ':'))
     {
       strncpy (new_canonical_filespec,
-	       (char *) decc$translate_vms (filespec),
-	       MAXPATH);
+	       (char *) decc$translate_vms (filespec), MAXPATH);
+    }
+  else if ((strlen (filespec) == strspn (filespec,
+	    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"))
+	&& (filespec1 = getenv (filespec)))
+    {
+      strncpy (new_canonical_filespec,
+	       (char *) decc$translate_vms (filespec1), MAXPATH);
     }
   else
     {
@@ -2618,7 +2612,8 @@ get_gcc_version (void)
 }
 
 int
-__gnat_set_close_on_exec (int fd, int close_on_exec_p)
+__gnat_set_close_on_exec (int fd ATTRIBUTE_UNUSED,
+                        int close_on_exec_p ATTRIBUTE_UNUSED)
 {
 #if defined (F_GETFD) && defined (FD_CLOEXEC) && ! defined (__vxworks)
   int flags = fcntl (fd, F_GETFD, 0);

@@ -1,5 +1,5 @@
 /* BasicScrollPaneUI.java
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -53,7 +53,10 @@ import javax.swing.plaf.ScrollPaneUI;
 public class BasicScrollPaneUI extends ScrollPaneUI
   implements ScrollPaneConstants
 {
-  
+
+  /** The Scrollpane for which the UI is provided by this class. */
+  protected JScrollPane scrollpane;
+
   public static ComponentUI createUI(final JComponent c) 
   {
     return new BasicScrollPaneUI();
@@ -61,6 +64,7 @@ public class BasicScrollPaneUI extends ScrollPaneUI
 
   protected void installDefaults(JScrollPane p)
   {
+    scrollpane = p;
     UIDefaults defaults = UIManager.getLookAndFeelDefaults();
     p.setForeground(defaults.getColor("ScrollPane.foreground"));
     p.setBackground(defaults.getColor("ScrollPane.background"));
@@ -75,6 +79,7 @@ public class BasicScrollPaneUI extends ScrollPaneUI
     p.setBackground(null);
     p.setFont(null);
     p.setBorder(null);
+    scrollpane = null;
   }
     
   public void installUI(final JComponent c) 

@@ -59,7 +59,7 @@ compilation is specified by a string called a "spec".  */
 
    4. If the argument takes an argument, e.g., `--baz argument1',
    modify either DEFAULT_SWITCH_TAKES_ARG or
-   DEFAULT_WORD_SWITCH_TAKES_ARG in this file.  Omit the first `-'
+   DEFAULT_WORD_SWITCH_TAKES_ARG in gcc.h.  Omit the first `-'
    from `--baz'.
 
    5. Document the option in this file's display_help().  If the
@@ -85,13 +85,6 @@ compilation is specified by a string called a "spec".  */
 #include "prefix.h"
 #include "gcc.h"
 #include "flags.h"
-
-#ifdef HAVE_SYS_RESOURCE_H
-#include <sys/resource.h>
-#endif
-#if defined (HAVE_DECL_GETRUSAGE) && !HAVE_DECL_GETRUSAGE
-extern int getrusage (int, struct rusage *);
-#endif
 
 /* By default there is no special suffix for target executables.  */
 /* FIXME: when autoconf is fixed, remove the host check - dj */
@@ -283,12 +276,6 @@ static struct obstack obstack;
 
 static struct obstack collect_obstack;
 
-/* These structs are used to collect resource usage information for
-   subprocesses.  */
-#ifdef HAVE_GETRUSAGE
-static struct rusage rus, prus;
-#endif
-
 /* Forward declaration for prototypes.  */
 struct path_prefix;
 struct prefix_list;
@@ -341,7 +328,6 @@ static int default_arg (const char *, int);
 static void set_multilib_dir (void);
 static void print_multilib_info (void);
 static void perror_with_name (const char *);
-static void pfatal_pexecute (const char *, const char *) ATTRIBUTE_NORETURN;
 static void notice (const char *, ...) ATTRIBUTE_PRINTF_1;
 static void display_help (void);
 static void add_preprocessor_option (const char *, int);
@@ -473,6 +459,8 @@ or with constant text in a single argument.
  %l     process LINK_SPEC as a spec.
  %L     process LIB_SPEC as a spec.
  %G     process LIBGCC_SPEC as a spec.
+ %R     Output the concatenation of target_system_root and
+        target_sysroot_suffix.
  %S     process STARTFILE_SPEC as a spec.  A capital S is actually used here.
  %E     process ENDFILE_SPEC as a spec.  A capital E is actually used here.
  %C     process CPP_SPEC as a spec.
@@ -714,6 +702,10 @@ proper position among the other output files.  */
 # define STARTFILE_PREFIX_SPEC ""
 #endif
 
+#ifndef SYSROOT_SPEC
+# define SYSROOT_SPEC "--sysroot=%R"
+#endif
+
 #ifndef SYSROOT_SUFFIX_SPEC
 # define SYSROOT_SUFFIX_SPEC ""
 #endif
@@ -741,6 +733,7 @@ static const char *linker_name_spec = LINKER_NAME;
 static const char *link_command_spec = LINK_COMMAND_SPEC;
 static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
 static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
+static const char *sysroot_spec = SYSROOT_SPEC;
 static const char *sysroot_suffix_spec = SYSROOT_SUFFIX_SPEC;
 static const char *sysroot_hdrs_suffix_spec = SYSROOT_HEADERS_SUFFIX_SPEC;
 
@@ -955,7 +948,7 @@ static const struct compiler default_compilers[] =
 		cc1 %(cpp_unique_options) %(cc1_options)}}\
                 %{!fsyntax-only:%(invoke_as)}}}}}}", 0, 1, 1},
   {"-",
-   "%{!E:%e-E required when input is from standard input}\
+   "%{!E:%e-E or -x required when input is from standard input}\
     %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)", 0, 0, 0},
   {".h", "@c-header", 0, 0, 0},
   {"@c-header",
@@ -1545,6 +1538,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("md_startfile_prefix",	&md_startfile_prefix),
   INIT_STATIC_SPEC ("md_startfile_prefix_1",	&md_startfile_prefix_1),
   INIT_STATIC_SPEC ("startfile_prefix_spec",	&startfile_prefix_spec),
+  INIT_STATIC_SPEC ("sysroot_spec",             &sysroot_spec),
   INIT_STATIC_SPEC ("sysroot_suffix_spec",	&sysroot_suffix_spec),
   INIT_STATIC_SPEC ("sysroot_hdrs_suffix_spec",	&sysroot_hdrs_suffix_spec),
 };
@@ -2653,11 +2647,11 @@ execute (void)
   int i;
   int n_commands;		/* # of command.  */
   char *string;
+  struct pex_obj *pex;
   struct command
   {
     const char *prog;		/* program name.  */
     const char **argv;		/* vector of args.  */
-    int pid;			/* pid of process for this command.  */
   };
 
   struct command *commands;	/* each command buffer with above info.  */
@@ -2790,24 +2784,32 @@ execute (void)
 
   /* Run each piped subprocess.  */
 
+  pex = pex_init (PEX_USE_PIPES | (report_times ? PEX_RECORD_TIMES : 0),
+		  programname, temp_filename);
+  if (pex == NULL)
+    pfatal_with_name (_("pex_init failed"));
+
   for (i = 0; i < n_commands; i++)
     {
-      char *errmsg_fmt, *errmsg_arg;
+      const char *errmsg;
+      int err;
       const char *string = commands[i].argv[0];
 
-      /* For some bizarre reason, the second argument of execvp() is
-	 char *const *, not const char *const *.  */
-      commands[i].pid = pexecute (string, (char *const *) commands[i].argv,
-				  programname, temp_filename,
-				  &errmsg_fmt, &errmsg_arg,
-				  ((i == 0 ? PEXECUTE_FIRST : 0)
-				   | (i + 1 == n_commands ? PEXECUTE_LAST : 0)
-				   | (string == commands[i].prog
-				      ? PEXECUTE_SEARCH : 0)
-				   | (verbose_flag ? PEXECUTE_VERBOSE : 0)));
-
-      if (commands[i].pid == -1)
-	pfatal_pexecute (errmsg_fmt, errmsg_arg);
+      errmsg = pex_run (pex,
+			((i + 1 == n_commands ? PEX_LAST : 0)
+			 | (string == commands[i].prog ? PEX_SEARCH : 0)),
+			string, (char * const *) commands[i].argv,
+			NULL, NULL, &err);
+      if (errmsg != NULL)
+	{
+	  if (err == 0)
+	    fatal (errmsg);
+	  else
+	    {
+	      errno = err;
+	      pfatal_with_name (errmsg);
+	    }
+	}
 
       if (string != commands[i].prog)
 	free ((void *) string);
@@ -2815,88 +2817,76 @@ execute (void)
 
   execution_count++;
 
-  /* Wait for all the subprocesses to finish.
-     We don't care what order they finish in;
-     we know that N_COMMANDS waits will get them all.
-     Ignore subprocesses that we don't know about,
-     since they can be spawned by the process that exec'ed us.  */
+  /* Wait for all the subprocesses to finish.  */
 
   {
+    int *statuses;
+    struct pex_time *times = NULL;
     int ret_code = 0;
-#ifdef HAVE_GETRUSAGE
-    struct timeval d;
-    double ut = 0.0, st = 0.0;
-#endif
 
-    for (i = 0; i < n_commands;)
+    statuses = alloca (n_commands * sizeof (int));
+    if (!pex_get_status (pex, n_commands, statuses))
+      pfatal_with_name (_("failed to get exit status"));
+
+    if (report_times)
       {
-	int j;
-	int status;
-	int pid;
+	times = alloca (n_commands * sizeof (struct pex_time));
+	if (!pex_get_times (pex, n_commands, times))
+	  pfatal_with_name (_("failed to get process times"));
+      }
 
-	pid = pwait (commands[i].pid, &status, 0);
-	gcc_assert (pid >= 0);
+    pex_free (pex);
 
-#ifdef HAVE_GETRUSAGE
-	if (report_times)
+    for (i = 0; i < n_commands; ++i)
+      {
+	int status = statuses[i];
+
+	if (WIFSIGNALED (status))
 	  {
-	    /* getrusage returns the total resource usage of all children
-	       up to now.  Copy the previous values into prus, get the
-	       current statistics, then take the difference.  */
-
-	    prus = rus;
-	    getrusage (RUSAGE_CHILDREN, &rus);
-	    d.tv_sec = rus.ru_utime.tv_sec - prus.ru_utime.tv_sec;
-	    d.tv_usec = rus.ru_utime.tv_usec - prus.ru_utime.tv_usec;
-	    ut = (double) d.tv_sec + (double) d.tv_usec / 1.0e6;
-
-	    d.tv_sec = rus.ru_stime.tv_sec - prus.ru_stime.tv_sec;
-	    d.tv_usec = rus.ru_stime.tv_usec - prus.ru_stime.tv_usec;
-	    st = (double) d.tv_sec + (double) d.tv_usec / 1.0e6;
-	  }
-#endif
-
-	for (j = 0; j < n_commands; j++)
-	  if (commands[j].pid == pid)
-	    {
-	      i++;
-	      if (WIFSIGNALED (status))
-		{
 #ifdef SIGPIPE
-		  /* SIGPIPE is a special case.  It happens in -pipe mode
-		     when the compiler dies before the preprocessor is
-		     done, or the assembler dies before the compiler is
-		     done.  There's generally been an error already, and
-		     this is just fallout.  So don't generate another error
-		     unless we would otherwise have succeeded.  */
-		  if (WTERMSIG (status) == SIGPIPE
-		      && (signal_count || greatest_status >= MIN_FATAL_STATUS))
-		    ;
-		  else
+	    /* SIGPIPE is a special case.  It happens in -pipe mode
+	       when the compiler dies before the preprocessor is done,
+	       or the assembler dies before the compiler is done.
+	       There's generally been an error already, and this is
+	       just fallout.  So don't generate another error unless
+	       we would otherwise have succeeded.  */
+	    if (WTERMSIG (status) == SIGPIPE
+		&& (signal_count || greatest_status >= MIN_FATAL_STATUS))
+	      ;
+	    else
 #endif
-		    fatal ("\
+	      fatal ("\
 Internal error: %s (program %s)\n\
 Please submit a full bug report.\n\
 See %s for instructions.",
-			   strsignal (WTERMSIG (status)), commands[j].prog,
-			   bug_report_url);
-		  signal_count++;
-		  ret_code = -1;
-		}
-	      else if (WIFEXITED (status)
-		       && WEXITSTATUS (status) >= MIN_FATAL_STATUS)
-		{
-		  if (WEXITSTATUS (status) > greatest_status)
-		    greatest_status = WEXITSTATUS (status);
-		  ret_code = -1;
-		}
-#ifdef HAVE_GETRUSAGE
-	      if (report_times && ut + st != 0)
-		notice ("# %s %.2f %.2f\n", commands[j].prog, ut, st);
-#endif
-	      break;
-	    }
+		     strsignal (WTERMSIG (status)), commands[i].prog,
+		     bug_report_url);
+	    signal_count++;
+	    ret_code = -1;
+	  }
+	else if (WIFEXITED (status)
+		 && WEXITSTATUS (status) >= MIN_FATAL_STATUS)
+	  {
+	    if (WEXITSTATUS (status) > greatest_status)
+	      greatest_status = WEXITSTATUS (status);
+	    ret_code = -1;
+	  }
+
+	if (report_times)
+	  {
+	    struct pex_time *pt = &times[i];
+	    double ut, st;
+
+	    ut = ((double) pt->user_seconds
+		  + (double) pt->user_microseconds / 1.0e6);
+	    st = ((double) pt->system_seconds
+		  + (double) pt->system_microseconds / 1.0e6);
+
+	    if (ut + st != 0)
+	      notice ("# %s %.2f %.2f\n", commands[i].prog, ut, st);
+	  }
       }
+
     return ret_code;
   }
 }
@@ -3773,16 +3763,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	}
     }
 
-  if ((save_temps_flag || report_times) && use_pipes)
+  if (save_temps_flag && use_pipes)
     {
       /* -save-temps overrides -pipe, so that temp files are produced */
       if (save_temps_flag)
 	error ("warning: -pipe ignored because -save-temps specified");
-      /* -time overrides -pipe because we can't get correct stats when
-	 multiple children are running at once.  */
-      else if (report_times)
-	error ("warning: -pipe ignored because -time specified");
-
       use_pipes = 0;
     }
 
@@ -3956,16 +3941,12 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  infiles[n_infiles].language = "*";
 	  infiles[n_infiles++].name = argv[++i];
 	}
+      /* Xassembler and Xpreprocessor were already handled in the first argv
+	 scan, so all we need to do here is ignore them and their argument.  */
       else if (strcmp (argv[i], "-Xassembler") == 0)
-	{
-	  infiles[n_infiles].language = "*";
-	  infiles[n_infiles++].name = argv[++i];
-	}
+	i++;
       else if (strcmp (argv[i], "-Xpreprocessor") == 0)
-	{
-	  infiles[n_infiles].language = "*";
-	  infiles[n_infiles++].name = argv[++i];
-	}
+	i++;
       else if (strcmp (argv[i], "-l") == 0)
 	{ /* POSIX allows separation of -l and the lib arg;
 	     canonicalize by concatenating -l with its arg */
@@ -4381,6 +4362,7 @@ do_spec_path (struct prefix_list *pl, const char *option,
   static size_t bufsize = 0;
   static char *buffer;
   int idx;
+  bool multilib_p = false;
 
   /* Used on systems which record the specified -L dirs
      and use them to search for dynamic linking.  */
@@ -4403,6 +4385,7 @@ do_spec_path (struct prefix_list *pl, const char *option,
       strcat (buffer, machine_suffix);
       if (is_directory (buffer, dir_for_machine_suffix, 1))
 	{
+	  multilib_p = true;
 	  do_spec_1 (option, separate_options, NULL);
 	  if (separate_options)
 	    do_spec_1 (" ", 0, NULL);
@@ -4416,6 +4399,7 @@ do_spec_path (struct prefix_list *pl, const char *option,
     {
       if (is_directory (pl->prefix, dir_for_no_suffix, 1))
 	{
+	  multilib_p = true;
 	  do_spec_1 (option, separate_options, NULL);
 	  if (separate_options)
 	    do_spec_1 (" ", 0, NULL);
@@ -4426,7 +4410,7 @@ do_spec_path (struct prefix_list *pl, const char *option,
 	}
     }
 
-  if (only_subdir)
+  if (only_subdir || multilib_p)
     return;
 
   if (machine_suffix)
@@ -6014,6 +5998,9 @@ main (int argc, const char **argv)
   GCC_DRIVER_HOST_INITIALIZATION;
 #endif
 
+  /* Unlock the stdio streams.  */
+  unlock_std_streams ();
+
   gcc_init_libintl ();
 
   if (signal (SIGINT, SIG_IGN) != SIG_IGN)
@@ -6164,6 +6151,19 @@ main (int argc, const char **argv)
         target_sysroot_suffix = xstrdup (argbuf[argbuf_index -1]);
     }
 
+#ifdef HAVE_LD_SYSROOT
+  /* Pass the --sysroot option to the linker, if it supports that.  If
+     there is a sysroot_suffix_spec, it has already been processed by
+     this point, so target_system_root really is the system root we
+     should be using.  */
+  if (target_system_root)
+    {
+      obstack_grow (&obstack, "%(sysroot_spec) ", strlen ("%(sysroot_spec) "));
+      obstack_grow0 (&obstack, link_spec, strlen (link_spec));
+      set_spec ("link", obstack_finish (&obstack));
+    }
+#endif
+
   /* Process sysroot_hdrs_suffix_spec.  */
   if (*sysroot_hdrs_suffix_spec != 0
       && do_spec_2 (sysroot_hdrs_suffix_spec) == 0)
@@ -6188,10 +6188,6 @@ main (int argc, const char **argv)
      startfile_prefix_spec exclusively.  */
   else if (*cross_compile == '0' || target_system_root)
     {
-      if (*md_exec_prefix)
-	add_sysrooted_prefix (&startfile_prefixes, md_exec_prefix, "GCC",
-			      PREFIX_PRIORITY_LAST, 0, 1);
-
       if (*md_startfile_prefix)
 	add_sysrooted_prefix (&startfile_prefixes, md_startfile_prefix,
 			      "GCC", PREFIX_PRIORITY_LAST, 0, 1);
@@ -6707,24 +6703,6 @@ static void
 perror_with_name (const char *name)
 {
   error ("%s: %s", name, xstrerror (errno));
-}
-
-static void
-pfatal_pexecute (const char *errmsg_fmt, const char *errmsg_arg)
-{
-  if (errmsg_arg)
-    {
-      int save_errno = errno;
-
-      /* Space for trailing '\0' is in %s.  */
-      char *msg = xmalloc (strlen (errmsg_fmt) + strlen (errmsg_arg));
-      sprintf (msg, errmsg_fmt, errmsg_arg);
-      errmsg_fmt = msg;
-
-      errno = save_errno;
-    }
-
-  pfatal_with_name (errmsg_fmt);
 }
 
 /* Output an error message and exit.  */

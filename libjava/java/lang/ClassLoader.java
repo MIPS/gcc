@@ -260,6 +260,9 @@ public abstract class ClassLoader
     return loadClass(name, false);
   }
 
+  private native Class loadClassFromSig(String name)
+    throws ClassNotFoundException;
+
   /**
    * Load a class using this ClassLoader or its parent, possibly resolving
    * it as well using <code>resolveClass()</code>. It first tries to find
@@ -283,30 +286,37 @@ public abstract class ClassLoader
   protected synchronized Class loadClass(String name, boolean resolve)
     throws ClassNotFoundException
   {
-    // Have we already loaded this class?
-    Class c = findLoadedClass(name);
-    if (c != null)
-      return c;
-
-    // Can the class be loaded by a parent?
-    try
+    // Arrays are handled specially.
+    Class c;
+    if (name.charAt(0) == '[')
+      c = loadClassFromSig(name);
+    else
       {
-	if (parent == null)
+	// Have we already loaded this class?
+	c = findLoadedClass(name);
+	if (c == null)
 	  {
-	    c = VMClassLoader.loadClass(name, resolve);
-	    if (c != null)
-	      return c;
-	  }
-	else
-	  {
-	    return parent.loadClass(name, resolve);
+	    // Can the class be loaded by a parent?
+	    try
+	      {
+		if (parent == null)
+		  {
+		    c = VMClassLoader.loadClass(name, resolve);
+		    if (c != null)
+		      return c;
+		  }
+		else
+		  {
+		    return parent.loadClass(name, resolve);
+		  }
+	      }
+	    catch (ClassNotFoundException e)
+	      {
+	      }
+	    // Still not found, we have to do it ourself.
+	    c = findClass(name);
 	  }
       }
-    catch (ClassNotFoundException e)
-      {
-      }
-    // Still not found, we have to do it ourself.
-    c = findClass(name);
     if (resolve)
       resolveClass(c);
     return c;
@@ -486,7 +496,7 @@ public abstract class ClassLoader
     SecurityManager sm = System.getSecurityManager();
     if (sm != null)
       {
-        Class c = VMSecurityManager.getClassContext()[1];
+        Class c = VMSecurityManager.getClassContext(ClassLoader.class)[1];
         ClassLoader cl = c.getClassLoader();
 	if (cl != null && ! cl.isAncestorOf(this))
           sm.checkPermission(new RuntimePermission("getClassLoader"));
@@ -729,7 +739,7 @@ public abstract class ClassLoader
     SecurityManager sm = System.getSecurityManager();
     if (sm != null)
       {
-	Class c = VMSecurityManager.getClassContext()[1];
+	Class c = VMSecurityManager.getClassContext(ClassLoader.class)[1];
 	ClassLoader cl = c.getClassLoader();
 	if (cl != null && cl != systemClassLoader)
 	  sm.checkPermission(new RuntimePermission("getClassLoader"));

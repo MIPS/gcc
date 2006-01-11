@@ -115,14 +115,15 @@ gfc_make_safe_expr (gfc_se * se)
 }
 
 
-/* Return an expression which determines if a dummy parameter is present.  */
+/* Return an expression which determines if a dummy parameter is present.
+   Also used for arguments to procedures with multiple entry points.  */
 
 tree
 gfc_conv_expr_present (gfc_symbol * sym)
 {
   tree decl;
 
-  gcc_assert (sym->attr.dummy && sym->attr.optional);
+  gcc_assert (sym->attr.dummy);
 
   decl = gfc_get_symbol_decl (sym);
   if (TREE_CODE (decl) != PARM_DECL)
@@ -308,11 +309,43 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
     }
   else
     {
+      tree se_expr = NULL_TREE;
+
       se->expr = gfc_get_symbol_decl (sym);
 
+      /* Special case for assigning the return value of a function.
+	 Self recursive functions must have an explicit return value.  */
+      if (se->expr == current_function_decl && sym->attr.function
+	  && (sym->result == sym))
+	se_expr = gfc_get_fake_result_decl (sym);
+
+      /* Similarly for alternate entry points.  */
+      else if (sym->attr.function && sym->attr.entry
+	       && (sym->result == sym)
+	       && sym->ns->proc_name->backend_decl == current_function_decl)
+	{
+	  gfc_entry_list *el = NULL;
+
+	  for (el = sym->ns->entries; el; el = el->next)
+	    if (sym == el->sym)
+	      {
+		se_expr = gfc_get_fake_result_decl (sym);
+		break;
+	      }
+	}
+
+      else if (sym->attr.result
+	       && sym->ns->proc_name->backend_decl == current_function_decl
+	       && sym->ns->proc_name->attr.entry_master
+	       && !gfc_return_by_reference (sym->ns->proc_name))
+	se_expr = gfc_get_fake_result_decl (sym);
+
+      if (se_expr)
+	se->expr = se_expr;
+
       /* Procedure actual arguments.  */
-      if (sym->attr.flavor == FL_PROCEDURE
-	  && se->expr != current_function_decl)
+      else if (sym->attr.flavor == FL_PROCEDURE
+	       && se->expr != current_function_decl)
 	{
 	  gcc_assert (se->want_pointer);
 	  if (!sym->attr.dummy)
@@ -323,17 +356,16 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	  return;
 	}
 
-      /* Special case for assigning the return value of a function.
-         Self recursive functions must have an explicit return value.  */
-      if (se->expr == current_function_decl && sym->attr.function
-	  && (sym->result == sym))
-	{
-	  se->expr = gfc_get_fake_result_decl (sym);
-	}
-
       /* Dereference scalar dummy variables.  */
       if (sym->attr.dummy
 	  && sym->ts.type != BT_CHARACTER
+	  && !sym->attr.dimension)
+	se->expr = gfc_build_indirect_ref (se->expr);
+
+      /* Dereference scalar hidden result.  */
+      if (gfc_option.flag_f2c 
+	  && (sym->attr.function || sym->attr.result)
+	  && sym->ts.type == BT_COMPLEX
 	  && !sym->attr.dimension)
 	se->expr = gfc_build_indirect_ref (se->expr);
 
@@ -513,7 +545,7 @@ gfc_conv_powi (gfc_se * se, int n, tree * tmpvar)
       op1 = op0;
     }
 
-  tmp = fold (build2 (MULT_EXPR, TREE_TYPE (op0), op0, op1));
+  tmp = fold_build2 (MULT_EXPR, TREE_TYPE (op0), op0, op1);
   tmp = gfc_evaluate_now (tmp, &se->pre);
 
   if (n < POWI_TABLE_SIZE)
@@ -738,9 +770,8 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
   if (gfc_can_put_var_on_stack (len))
     {
       /* Create a temporary variable to hold the result.  */
-      tmp = fold (build2 (MINUS_EXPR, gfc_charlen_type_node, len,
-			  convert (gfc_charlen_type_node,
-				   integer_one_node)));
+      tmp = fold_build2 (MINUS_EXPR, gfc_charlen_type_node, len,
+			 convert (gfc_charlen_type_node, integer_one_node));
       tmp = build_range_type (gfc_array_index_type, gfc_index_zero_node, tmp);
       tmp = build_array_type (gfc_character1_type_node, tmp);
       var = gfc_create_var (tmp, "str");
@@ -797,8 +828,8 @@ gfc_conv_concat_op (gfc_se * se, gfc_expr * expr)
   len = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
   if (len == NULL_TREE)
     {
-      len = fold (build2 (PLUS_EXPR, TREE_TYPE (lse.string_length),
-			  lse.string_length, rse.string_length));
+      len = fold_build2 (PLUS_EXPR, TREE_TYPE (lse.string_length),
+			 lse.string_length, rse.string_length);
     }
 
   type = build_pointer_type (type);
@@ -990,11 +1021,11 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
   if (lop)
     {
       /* The result of logical ops is always boolean_type_node.  */
-      tmp = fold (build2 (code, type, lse.expr, rse.expr));
+      tmp = fold_build2 (code, type, lse.expr, rse.expr);
       se->expr = convert (type, tmp);
     }
   else
-    se->expr = fold (build2 (code, type, lse.expr, rse.expr));
+    se->expr = fold_build2 (code, type, lse.expr, rse.expr);
 
   /* Add the post blocks.  */
   gfc_add_block_to_block (&se->post, &rse.post);
@@ -1114,7 +1145,13 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 				      convert (gfc_charlen_type_node, len));
 	}
       else
-	gcc_unreachable ();
+	{
+	  gcc_assert (gfc_option.flag_f2c && sym->ts.type == BT_COMPLEX);
+
+	  type = gfc_get_complex_type (sym->ts.kind);
+	  var = gfc_build_addr_expr (NULL, gfc_create_var (type, "cmplx"));
+	  arglist = gfc_chainon_list (arglist, var);
+	}
     }
 
   formal = sym->formal;
@@ -1216,13 +1253,24 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   se->expr = build3 (CALL_EXPR, TREE_TYPE (fntype), se->expr,
 		     arglist, NULL_TREE);
 
+  if (sym->result)
+    sym = sym->result;
+
   /* If we have a pointer function, but we don't want a pointer, e.g.
      something like
         x = f()
      where f is pointer valued, we have to dereference the result.  */
-  if (!se->want_pointer && !byref
-      && (sym->attr.pointer || (sym->result && sym->result->attr.pointer)))
+  if (!se->want_pointer && !byref && sym->attr.pointer)
     se->expr = gfc_build_indirect_ref (se->expr);
+
+  /* f2c calling conventions require a scalar default real function to
+     return a double precision result.  Convert this back to default
+     real.  We only care about the cases that can happen in Fortran 77.
+  */
+  if (gfc_option.flag_f2c && sym->ts.type == BT_REAL
+      && sym->ts.kind == gfc_default_real_kind
+      && !sym->attr.always_explicit)
+    se->expr = fold_convert (gfc_get_real_type (sym->ts.kind), se->expr);
 
   /* A pure function may still have side-effects - it may modify its
      parameters.  */
@@ -1240,7 +1288,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
       if (!se->direct_byref)
 	{
-	  if (sym->result->attr.dimension)
+	  if (sym->attr.dimension)
 	    {
 	      if (flag_bounds_check)
 		{
@@ -1258,7 +1306,10 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	      se->string_length = len;
 	    }
 	  else
-	    gcc_unreachable ();
+	    {
+	      gcc_assert (sym->ts.type == BT_COMPLEX && gfc_option.flag_f2c);
+	      se->expr = gfc_build_indirect_ref (var);
+	    }
 	}
     }
 }

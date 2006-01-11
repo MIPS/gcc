@@ -1,5 +1,4 @@
-# Process this file with autoconf to produce a configure script, like so:
-# aclocal && autoconf && autoheader && automake
+# Process this file with autoreconf to produce a configure script.
 
 AC_PREREQ(2.59)
 AC_INIT(package-unused, version-unused,, libstdc++)
@@ -58,38 +57,36 @@ fi
 #  no-dependencies:  turns off auto dependency generation (just for now)
 #  -Wall:  turns on all automake warnings...
 #  -Wno-portability:  ...except this one, since GNU make is now required.
-AM_INIT_AUTOMAKE([1.9.1 no-define foreign no-dependencies -Wall -Wno-portability -Wno-override])
+AM_INIT_AUTOMAKE([1.9.3 no-define foreign no-dependencies -Wall -Wno-portability -Wno-override])
+AH_TEMPLATE(PACKAGE, [Name of package])
+AH_TEMPLATE(VERSION, [Version number of package])
 
 # Runs configure.host, finds CC, CXX, and assorted other critical bits.  Sets
 # up critical shell variables.
 GLIBCXX_CONFIGURE
 
-#AC_MSG_NOTICE([====== Starting libtool configuration])
 AC_LIBTOOL_DLOPEN
 AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
-#AC_MSG_NOTICE([====== Finished libtool configuration]) ; sleep 10
 
 # Possibly disable most of the library.
-## XXX Consider skipping unncessary tests altogether in this case, rather
+## TODO: Consider skipping unncessary tests altogether in this case, rather
 ## than just ignoring the results.  Faster /and/ more correct, win win.
 GLIBCXX_ENABLE_HOSTED
 
-# Check for support bits and g++ features that don't require linking.
+# Check for compiler support that doesn't require linking.
 GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
 GLIBCXX_ENABLE_PCH($is_hosted)
 
 # Enable all the variable C++ runtime options.  
-# NB: C_MBCHAR must come early.
 GLIBCXX_ENABLE_CSTDIO
 GLIBCXX_ENABLE_CLOCALE
 GLIBCXX_ENABLE_ALLOCATOR
 GLIBCXX_ENABLE_CHEADERS($c_model)  dnl c_model from configure.host
-GLIBCXX_ENABLE_C_MBCHAR([yes])
 GLIBCXX_ENABLE_C99([yes])
 GLIBCXX_ENABLE_LONG_LONG([yes])
-GLIBCXX_ENABLE_THREADS
+GLIBCXX_ENABLE_WCHAR_T([yes])
 GLIBCXX_ENABLE_CONCEPT_CHECKS([no])
 GLIBCXX_ENABLE_DEBUG_FLAGS(["-g3 -O0"])
 GLIBCXX_ENABLE_DEBUG([no])
@@ -97,6 +94,7 @@ GLIBCXX_ENABLE_CXX_FLAGS
 GLIBCXX_ENABLE_FULLY_DYNAMIC_STRING([no])
 
 # No surprises, no surprises...
+GLIBCXX_ENABLE_THREADS
 if test $atomicity_dir = cpu/generic ; then
   AC_MSG_WARN([No native atomic operations are provided for this platform.])
   if test $target_thread_file = single; then
@@ -124,7 +122,7 @@ if $GLIBCXX_IS_NATIVE; then
   GLIBCXX_CHECK_MATH_SUPPORT
   GLIBCXX_CHECK_BUILTIN_MATH_SUPPORT
   GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT
-  GLIBCXX_CHECK_WCHAR_T_SUPPORT
+  GLIBCXX_CHECK_ICONV_SUPPORT
   GLIBCXX_CHECK_STDLIB_SUPPORT
 
   # For showmanyc_helper().
@@ -225,7 +223,7 @@ else
     AC_DEFINE(HAVE_S_ISREG)
     AC_DEFINE(HAVE_S_IFREG)
   else
-    m4_include([crossconfig.m4])
+    GLIBCXX_CROSSCONFIG
   fi
 
   # At some point, we should differentiate between architectures
@@ -314,7 +312,6 @@ AC_CONFIG_FILES( \
   Makefile \
   AC_FOREACH([DIR], glibcxx_SUBDIRS, [DIR/Makefile ])
   )
-AC_CONFIG_FILES([scripts/check_survey],[chmod +x scripts/check_survey])
 AC_CONFIG_FILES([scripts/testsuite_flags],[chmod +x scripts/testsuite_flags])
 
 dnl These commands are run at the end of config.status:
