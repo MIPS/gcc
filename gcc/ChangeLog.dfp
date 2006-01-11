@@ -1,5 +1,10 @@
 2006-01-11  Ben Elliston  <bje@au.ibm.com>
 
+	* config/i386/i386.c (ix86_scalar_mode_supported_p): Return false
+	for DFP modes > 64 bits in size on 32-bit targets.
+
+2006-01-11  Ben Elliston  <bje@au.ibm.com>
+
 	* config/i386.c (ix86_must_pass_in_stack): Pass TDmode in stack.
 	(classify_argument): Treat DDmode like DImode, TImode like TDmode.
 	(function_arg_advance): Handle DDmode like DImode. Remove TDmode.

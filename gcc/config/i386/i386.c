@@ -18096,7 +18096,12 @@ static bool
 ix86_scalar_mode_supported_p (enum machine_mode mode)
 {
   if (DECIMAL_FLOAT_MODE_P (mode))
-    return true;
+    {
+      if (!TARGET_64BIT && GET_MODE_PRECISION (mode) > 64)
+	return false;
+      else
+	return true;
+    }
   return default_scalar_mode_supported_p (mode);
 }
 
