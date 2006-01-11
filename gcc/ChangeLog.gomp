@@ -1,5 +1,15 @@
 2006-01-11  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-pass.h (TDF_CHAIN): Define.
+	* diagnostic.h (debug_tree_chain): Declare.
+	* tree-pretty-print.c (debug_tree_chain): New.
+	(print_generic_expr): Handle TDF_CHAIN.
+	(dump_generic_node): Handle BLOCK.
+	Do not abort with incomplete SWITCH_EXPRs.
+	Do not dump body of an OpenMP directive if TDF_SLIM is given.
+
+2006-01-11  Diego Novillo  <dnovillo@redhat.com>
+
 	* tree-dump.h (debug_function): Declare.
 	* tree-cfg.c (set_bb_for_stmt): Do not update the
 	block-to-labels map if we are currently expanding to RTL.

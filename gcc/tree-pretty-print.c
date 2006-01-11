@@ -97,6 +97,13 @@ debug_generic_stmt (tree t)
   fprintf (stderr, "\n");
 }
 
+void
+debug_tree_chain (tree t)
+{
+  print_generic_expr (stderr, t, TDF_VOPS|TDF_UID|TDF_CHAIN);
+  fprintf (stderr, "\n");
+}
+
 /* Prints declaration DECL to the FILE with details specified by FLAGS.  */
 void
 print_generic_decl (FILE *file, tree decl, int flags)
@@ -150,21 +157,34 @@ print_generic_expr (FILE *file, tree t, int flags)
 static void
 dump_decl_name (pretty_printer *buffer, tree node, int flags)
 {
-  if (DECL_NAME (node))
-    pp_tree_identifier (buffer, DECL_NAME (node));
+  tree t = node;
 
-  if ((flags & TDF_UID)
-      || DECL_NAME (node) == NULL_TREE)
+  while (t)
     {
-      if (TREE_CODE (node) == LABEL_DECL
-	  && LABEL_DECL_UID (node) != -1)
-	pp_printf (buffer, "L." HOST_WIDE_INT_PRINT_DEC,
-		   LABEL_DECL_UID (node));
-      else
+      if (DECL_NAME (t))
+	pp_tree_identifier (buffer, DECL_NAME (t));
+
+      if ((flags & TDF_UID)
+	  || DECL_NAME (t) == NULL_TREE)
 	{
-	  char c = TREE_CODE (node) == CONST_DECL ? 'C' : 'D';
-	  pp_printf (buffer, "%c.%u", c, DECL_UID (node));
+	  if (TREE_CODE (t) == LABEL_DECL
+	      && LABEL_DECL_UID (t) != -1)
+	    pp_printf (buffer, "L." HOST_WIDE_INT_PRINT_DEC,
+		LABEL_DECL_UID (t));
+	  else
+	    {
+	      char c = TREE_CODE (t) == CONST_DECL ? 'C' : 'D';
+	      pp_printf (buffer, "%c.%u", c, DECL_UID (t));
+	    }
 	}
+
+      if (flags & TDF_CHAIN)
+	{
+	  t = TREE_CHAIN (t);
+	  pp_string (buffer, " ");
+	}
+      else
+	t = NULL_TREE;
     }
 }
 
@@ -466,10 +486,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 			       flags, false);
 	  }
       }
-      break;
-
-    case BLOCK:
-      NIY;
       break;
 
     case VOID_TYPE:
@@ -1488,7 +1504,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  if (SWITCH_BODY (node))
 	    {
 	      newline_and_indent (buffer, spc+4);
-	      dump_generic_node (buffer, SWITCH_BODY (node), spc+4, flags, true);
+	      dump_generic_node (buffer, SWITCH_BODY (node), spc+4, flags,
+		                 true);
 	    }
 	  else
 	    {
@@ -1498,10 +1515,16 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 		{
 		  tree elt = TREE_VEC_ELT (vec, i);
 		  newline_and_indent (buffer, spc+4);
-		  dump_generic_node (buffer, elt, spc+4, flags, false);
-		  pp_string (buffer, " goto ");
-		  dump_generic_node (buffer, CASE_LABEL (elt), spc+4, flags, true);
-		  pp_semicolon (buffer);
+		  if (elt)
+		    {
+		      dump_generic_node (buffer, elt, spc+4, flags, false);
+		      pp_string (buffer, " goto ");
+		      dump_generic_node (buffer, CASE_LABEL (elt), spc+4,
+					 flags, true);
+		      pp_semicolon (buffer);
+		    }
+		  else
+		    pp_string (buffer, "case ???: goto ???;");
 		}
 	    }
 	  newline_and_indent (buffer, spc+2);
@@ -1666,47 +1689,59 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case OMP_PARALLEL:
       pp_string (buffer, "#pragma omp parallel");
       dump_omp_clauses (buffer, OMP_PARALLEL_CLAUSES (node), spc, flags);
+
     dump_omp_body:
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '{');
-      newline_and_indent (buffer, spc + 4);
-      dump_generic_node (buffer, OMP_BODY (node), spc + 4, flags, false);
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '}');
+      if (!(flags & TDF_SLIM) && OMP_BODY (node))
+	{
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '{');
+	  newline_and_indent (buffer, spc + 4);
+	  dump_generic_node (buffer, OMP_BODY (node), spc + 4, flags, false);
+	  newline_and_indent (buffer, spc + 2);
+	  pp_character (buffer, '}');
+	}
       is_expr = false;
       break;
 
     case OMP_FOR:
       pp_string (buffer, "#pragma omp for");
       dump_omp_clauses (buffer, OMP_FOR_CLAUSES (node), spc, flags);
-      if (OMP_FOR_PRE_BODY (node))
+
+      if (!(flags & TDF_SLIM))
 	{
-	  newline_and_indent (buffer, spc + 2);
-	  pp_character (buffer, '{');
-	  spc += 4;
+	  if (OMP_FOR_PRE_BODY (node))
+	    {
+	      newline_and_indent (buffer, spc + 2);
+	      pp_character (buffer, '{');
+	      spc += 4;
+	      newline_and_indent (buffer, spc);
+	      dump_generic_node (buffer, OMP_FOR_PRE_BODY (node),
+		  spc, flags, false);
+	    }
 	  newline_and_indent (buffer, spc);
-	  dump_generic_node (buffer, OMP_FOR_PRE_BODY (node),
-			     spc, flags, false);
-	}
-      newline_and_indent (buffer, spc);
-      pp_string (buffer, "for (");
-      dump_generic_node (buffer, OMP_FOR_INIT (node), spc, flags, false);
-      pp_string (buffer, "; ");
-      dump_generic_node (buffer, OMP_FOR_COND (node), spc, flags, false);
-      pp_string (buffer, "; ");
-      dump_generic_node (buffer, OMP_FOR_INCR (node), spc, flags, false);
-      pp_string (buffer, ")");
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '{');
-      newline_and_indent (buffer, spc + 4);
-      dump_generic_node (buffer, OMP_FOR_BODY (node), spc + 4, flags, false);
-      newline_and_indent (buffer, spc + 2);
-      pp_character (buffer, '}');
-      if (OMP_FOR_PRE_BODY (node))
-	{
-	  spc -= 4;
-	  newline_and_indent (buffer, spc + 2);
-	  pp_character (buffer, '}');
+	  pp_string (buffer, "for (");
+	  dump_generic_node (buffer, OMP_FOR_INIT (node), spc, flags, false);
+	  pp_string (buffer, "; ");
+	  dump_generic_node (buffer, OMP_FOR_COND (node), spc, flags, false);
+	  pp_string (buffer, "; ");
+	  dump_generic_node (buffer, OMP_FOR_INCR (node), spc, flags, false);
+	  pp_string (buffer, ")");
+	  if (OMP_FOR_BODY (node))
+	    {
+	      newline_and_indent (buffer, spc + 2);
+	      pp_character (buffer, '{');
+	      newline_and_indent (buffer, spc + 4);
+	      dump_generic_node (buffer, OMP_FOR_BODY (node), spc + 4, flags,
+		  false);
+	      newline_and_indent (buffer, spc + 2);
+	      pp_character (buffer, '}');
+	    }
+	  if (OMP_FOR_PRE_BODY (node))
+	    {
+	      spc -= 4;
+	      newline_and_indent (buffer, spc + 2);
+	      pp_character (buffer, '}');
+	    }
 	}
       is_expr = false;
       break;
@@ -1772,6 +1807,64 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       pp_string (buffer, " > ");
       break;
+
+    case BLOCK:
+      {
+	tree t;
+	pp_string (buffer, "BLOCK");
+
+	if (BLOCK_ABSTRACT (node))
+	  pp_string (buffer, " [abstract]");
+
+	if (TREE_ASM_WRITTEN (node))
+	  pp_string (buffer, " [written]");
+
+	newline_and_indent (buffer, spc + 2);
+
+	if (BLOCK_SUPERCONTEXT (node))
+	  {
+	    pp_string (buffer, "SUPERCONTEXT: ");
+	    if (TREE_CODE (BLOCK_SUPERCONTEXT (node)) == BLOCK)
+	      pp_printf (buffer, "BLOCK %p",
+		         (void *)BLOCK_SUPERCONTEXT (node));
+	    else
+	      dump_generic_node (buffer, BLOCK_SUPERCONTEXT (node), 0, flags,
+				 false);
+	    newline_and_indent (buffer, spc + 2);
+	  }
+
+	if (BLOCK_SUBBLOCKS (node))
+	  {
+	    pp_string (buffer, "SUBBLOCKS: ");
+	    for (t = BLOCK_SUBBLOCKS (node); t; t = BLOCK_CHAIN (t))
+	      pp_printf (buffer, "%p ", (void *)t);
+	    newline_and_indent (buffer, spc + 2);
+	  }
+
+	if (BLOCK_VARS (node))
+	  {
+	    pp_string (buffer, "VARS: ");
+	    for (t = BLOCK_VARS (node); t; t = TREE_CHAIN (t))
+	      {
+		dump_generic_node (buffer, t, 0, flags, false);
+		pp_string (buffer, " ");
+	      }
+	    newline_and_indent (buffer, spc + 2);
+	  }
+
+	if (BLOCK_ABSTRACT_ORIGIN (node))
+	  {
+	    pp_string (buffer, "ABSTRACT_ORIGIN: ");
+	    if (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (node)) == BLOCK)
+	      pp_printf (buffer, "BLOCK %p",
+			 (void *)BLOCK_ABSTRACT_ORIGIN (node));
+	    else
+	      dump_generic_node (buffer, BLOCK_ABSTRACT_ORIGIN (node), 0, flags,
+				 false);
+	    newline_and_indent (buffer, spc + 2);
+	  }
+      }
+    break;
 
     default:
       NIY;
