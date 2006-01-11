@@ -1,3 +1,8 @@
+2006-01-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-dce.c (find_control_dependence): Do not assume that
+	ENTRY_BLOCK_PTR->next_bb == single_succ (ENTRY_BLOCK_PTR).
+
 2005-01-03  Eric Christopher  <echristo@apple.com>
 
 	* gcc.c (GOMP_SELF_SPECS): Bracket in #ifndef/#endif.
