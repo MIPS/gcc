@@ -1,0 +1,4 @@
+2006-01-07  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* gcc.dg/unsigned-long-compare.c: New test.
+

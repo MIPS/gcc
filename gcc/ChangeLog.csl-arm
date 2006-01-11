@@ -1,3 +1,8 @@
+2007-01-07  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* optabs.c (prepare_cmp_insn): If unbaised and unsigned then bias
+	the comparison routine return.
+
 2006-01-06  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	Backport from mainline:
