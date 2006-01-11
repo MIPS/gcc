@@ -1,3 +1,19 @@
+2006-01-11  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* parse.c (next_fixed): Remove superfluous string concatenation.
+
+2006-01-11  Bernhard Fischer  <rep.nop@aon.at>
+
+	PR fortran/25486
+	* scanner.c (load_line): use maxlen to determine the line-length used
+	for padding lines in fixed form.
+
+2005-01-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25730
+	* trans-types.c (copy_dt_decls_ifequal): Copy backend decl for
+	character lengths.
+
 2006-01-09  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	fortran/24936
