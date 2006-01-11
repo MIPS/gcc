@@ -1,3 +1,12 @@
+2006-01-11  Ben Elliston  <bje@au.ibm.com>
+
+	* config/i386/i386.c (TARGET_DECIMAL_FLOAT_SUPPORTED_P): Remove.
+	(override_options): Do not force SSE support on if decimal
+	floating point support is enabled.
+	(ix86_decimal_float_supported_p): Remove; use default hook.
+	* config/i386/i386.h (VALID_SSE_REG_MODE): Remove TDmode.
+	(SSE_REG_MODE_P): Likewise.
+
 2006-01-10  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/i386.md (mode): Remove SD, DD, TD values.

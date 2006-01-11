@@ -952,7 +952,6 @@ static void ix86_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 static tree ix86_gimplify_va_arg (tree, tree, tree *, tree *);
 static bool ix86_scalar_mode_supported_p (enum machine_mode);
 static bool ix86_vector_mode_supported_p (enum machine_mode);
-static bool ix86_decimal_float_supported_p (void);
 
 static int ix86_address_cost (rtx);
 static bool ix86_cannot_force_const_mem (rtx);
@@ -1182,9 +1181,6 @@ static section *x86_64_elf_select_section (tree decl, int reloc,
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
-
-#undef TARGET_DECIMAL_FLOAT_SUPPORTED_P
-#define TARGET_DECIMAL_FLOAT_SUPPORTED_P ix86_decimal_float_supported_p
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
@@ -1679,10 +1675,6 @@ override_options (void)
   /* Turn on MMX builtins for 3Dnow.  */
   if (TARGET_3DNOW)
     target_flags |= MASK_MMX;
-
-  /* Turn on SSE builtins for decimal floating point support.  */
-  if (ENABLE_DECIMAL_FLOAT)
-    target_flags |= MASK_SSE;
 
   if (TARGET_64BIT)
     {
@@ -18299,13 +18291,6 @@ ix86_stack_protect_fail (void)
   return TARGET_64BIT
 	 ? default_external_stack_protect_fail ()
 	 : default_hidden_stack_protect_fail ();
-}
-
-/* Target hook for decimal_float_supported_p.  */
-static bool
-ix86_decimal_float_supported_p (void)
-{
-  return ENABLE_DECIMAL_FLOAT && TARGET_SSE;
 }
 
 /* Select a format to encode pointers in exception handling data.  CODE

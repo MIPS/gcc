@@ -838,7 +838,7 @@ do {									\
 
 #define VALID_SSE_REG_MODE(MODE)					\
     ((MODE) == TImode || (MODE) == V4SFmode || (MODE) == V4SImode	\
-     || (MODE) == SFmode || (MODE) == TFmode || (MODE) == TDmode)
+     || (MODE) == SFmode || (MODE) == TFmode)
 
 #define VALID_MMX_REG_MODE_3DNOW(MODE) \
     ((MODE) == V2SFmode || (MODE) == SFmode)
@@ -866,7 +866,6 @@ do {									\
 /* Return true for modes passed in SSE registers.  */
 #define SSE_REG_MODE_P(MODE) \
  ((MODE) == TImode || (MODE) == V16QImode || (MODE) == TFmode		\
-   || (MODE) == TDmode							\
    || (MODE) == V8HImode || (MODE) == V2DFmode || (MODE) == V2DImode	\
    || (MODE) == V4SFmode || (MODE) == V4SImode)
 
