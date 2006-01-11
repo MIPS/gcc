@@ -2444,6 +2444,9 @@ ix86_must_pass_in_stack (enum machine_mode mode, tree type)
   if (must_pass_in_stack_var_size_or_pad (mode, type))
     return true;
 
+  if (!TARGET_64BIT && mode == TDmode)
+    return true;
+
   /* For 32-bit, we want TImode aggregates to go on the stack.  But watch out!
      The layout_type routine is crafty and tries to trick us into passing
      currently unsupported vector types on the stack by using TImode.  */
@@ -2871,6 +2874,7 @@ classify_argument (enum machine_mode mode, tree type,
   switch (mode)
     {
     case SDmode:
+    case DDmode:
     case DImode:
     case SImode:
     case HImode:
@@ -2885,6 +2889,7 @@ classify_argument (enum machine_mode mode, tree type,
       return 1;
     case CDImode:
     case TImode:
+    case TDmode:
       classes[0] = classes[1] = X86_64_INTEGER_CLASS;
       return 2;
     case CTImode:
@@ -2903,8 +2908,6 @@ classify_argument (enum machine_mode mode, tree type,
       classes[1] = X86_64_X87UP_CLASS;
       return 2;
     case TFmode:
-    case DDmode:
-    case TDmode:
       classes[0] = X86_64_SSE_CLASS;
       classes[1] = X86_64_SSEUP_CLASS;
       return 2;
@@ -3207,6 +3210,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	case HImode:
 	case QImode:
 	case SDmode:
+	case DDmode:
 	  cum->words += words;
 	  cum->nregs -= words;
 	  cum->regno += words;
@@ -3226,8 +3230,6 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    break;
 	  /* FALLTHRU */
 
-	case DDmode:
-	case TDmode:
 	case TImode:
 	case V16QImode:
 	case V8HImode:
@@ -3329,6 +3331,8 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode orig_mode,
 	/* FALLTHRU */
       case DImode:
       case SImode:
+      case SDmode:
+      case DDmode:
       case HImode:
       case QImode:
 	if (words <= cum->nregs)
@@ -3363,8 +3367,6 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode orig_mode,
       case V2DImode:
       case V4SFmode:
       case V2DFmode:
-      case DDmode:
-      case TDmode:
 	if (!type || !AGGREGATE_TYPE_P (type))
 	  {
 	    if (!TARGET_SSE && !warnedsse && cum->warn_sse)
@@ -3584,7 +3586,7 @@ ix86_function_value (tree valtype, tree fntype_or_decl,
     }
 }
 
-/* Return false iff type is returned in memory.  */
+/* Return true iff type is returned in memory.  */
 int
 ix86_return_in_memory (tree type)
 {
@@ -3620,6 +3622,9 @@ ix86_return_in_memory (tree type)
 
   if (mode == XFmode)
     return 0;
+
+  if (mode == TDmode)
+    return 1;
 
   if (size > 12)
     return 1;
@@ -3686,8 +3691,6 @@ ix86_libcall_value (enum machine_mode mode)
 	case DFmode:
 	case DCmode:
 	case TFmode:
-	case DDmode:
-	case TDmode:
 	  return gen_rtx_REG (mode, FIRST_SSE_REG);
 	case XFmode:
 	case XCmode:
@@ -3709,11 +3712,6 @@ ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
 {
   gcc_assert (!TARGET_64BIT);
 
-  if (mode == SDmode)
-    return 0;
-  else if (mode == DDmode || mode == TDmode)
-    return FIRST_SSE_REG;
-
   /* 8-byte vector modes in %mm0. See ix86_return_in_memory for where
      we prevent this case when mmx is not available.  */
   if ((VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 8))
@@ -3723,6 +3721,9 @@ ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
      we prevent this case when sse is not available.  */
   if (mode == TImode || (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 16))
     return FIRST_SSE_REG;
+
+  if (DECIMAL_FLOAT_MODE_P (mode) && mode != TDmode)
+    return 0;
 
   /* Most things go in %eax, except (unless -mno-fp-ret-in-387) fp values.  */
   if (!SCALAR_FLOAT_MODE_P (mode) || !TARGET_FLOAT_RETURNS_IN_80387)
@@ -16170,13 +16171,6 @@ ix86_register_move_cost (enum machine_mode mode, enum reg_class class1,
 bool
 ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
-  if (mode == SDmode)
-    return 1;
-  
-  /* All other decimal float modes should be held in SSE registers.  */
-  if (DECIMAL_FLOAT_MODE_P (mode))
-    return SSE_REGNO_P (regno);
-
   /* Flags and only flags can only hold CCmode values.  */
   if (CC_REGNO_P (regno))
     return GET_MODE_CLASS (mode) == MODE_CC;
@@ -16217,6 +16211,8 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     }
   /* We handle both integer and floats in the general purpose registers.  */
   else if (VALID_INT_MODE_P (mode))
+    return 1;
+  else if (DECIMAL_FLOAT_MODE_P (mode))
     return 1;
   else if (VALID_FP_MODE_P (mode))
     return 1;
