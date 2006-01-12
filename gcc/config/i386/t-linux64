@@ -20,10 +20,6 @@ EXTRA_MULTILIB_PARTS=crtbegin.o crtend.o crtbeginS.o crtendS.o \
 # section.
 CRTSTUFF_T_CFLAGS = -fno-omit-frame-pointer -fno-asynchronous-unwind-tables
 
-# On 32-bit x86 systems, we need to pass -msse to build dfp routines.
-# FIXME: there has to be a "proper" way--even if restricted to 32-bit libgcc.
-TARGET_LIBGCC2_CFLAGS += -msse
-
 # Build decimal floating point support routines.
 
 D32PBIT  = dfp32-bit.c

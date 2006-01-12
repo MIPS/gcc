@@ -1,5 +1,11 @@
 2006-01-12  Ben Elliston  <bje@au.ibm.com>
 
+	* config/i386/t-linux (TARGET_LIBGCC2_CFLAGS): Remove.
+	* config/i386/t-linux64 (TARGET_LIBGCC2_CFLAGS): Likewise.
+	* config/i386/i386.c (ALIGN_MODE_128): Include TDmode.
+
+2006-01-12  Ben Elliston  <bje@au.ibm.com>
+
 	* expr.c (emit_move_insn_1): If unable to move decimal floats via
 	integer, use a multi word move.
 
