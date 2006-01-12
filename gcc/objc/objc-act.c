@@ -4294,20 +4294,22 @@ objc_build_synchronized (location_t start_locus, tree mutex, tree body)
 
    struct _objc_exception_data
    {
-     int buf[_JBLEN];
+     int buf[JBLEN];
      void *pointers[4];
    }; */
 
 /* The following yuckiness should prevent users from having to #include
    <setjmp.h> in their code... */
 
+/* APPLE LOCAL begin radar 4404766 */
 #ifdef TARGET_POWERPC
 /* snarfed from /usr/include/ppc/setjmp.h */
-#define _JBLEN (26 + 36 + 129 + 1)
+#define JBLEN ((TARGET_64BIT) ? (26*2 + 18*2 + 129 + 1) : (26 + 18*2 + 129 + 1))
 #else
 /* snarfed from /usr/include/i386/{setjmp,signal}.h */
-#define _JBLEN 18
+#define JBLEN 18
 #endif
+/* APPLE LOCAL end radar 4404766 */
 
 static void
 build_next_objc_exception_stuff (void)
@@ -4317,9 +4319,11 @@ build_next_objc_exception_stuff (void)
   objc_exception_data_template
     = start_struct (RECORD_TYPE, get_identifier (UTAG_EXCDATA));
 
-  /* int buf[_JBLEN]; */
+  /* APPLE LOCAL begin radar 4404766 */
+  /* int buf[JBLEN]; */
 
-  index = build_index_type (build_int_cst (NULL_TREE, _JBLEN - 1));
+  index = build_index_type (build_int_cst (NULL_TREE, JBLEN - 1));
+  /* APPLE LOCAL end radar 4404766 */
   field_decl = create_field_decl (build_array_type (integer_type_node, index),
 				  "buf");
   field_decl_chain = field_decl;

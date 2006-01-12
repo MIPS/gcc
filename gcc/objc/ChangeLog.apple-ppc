@@ -1,3 +1,8 @@
+2006-01-10 Fariborz Jahanian <fjahanian@apple.com>
+ 
+       Radar 4404766
+       * objc/objc-act.c (JBLEN): define 64bit version of this macro as well.
+
 2005-10-07  Fariborz Jahanian <fjahanian@apple.com>
 
 	radar 4292010
