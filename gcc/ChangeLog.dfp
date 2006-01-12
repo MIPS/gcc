@@ -1,5 +1,9 @@
 2006-01-12  Ben Elliston  <bje@au.ibm.com>
 
+	* doc/tm.texi (Data Output): Add REAL_VALUE_TO_TARGET_DECIMAL32,
+	REAL_VALUE_TO_TARGET_DECIMAL64 and REAL_VALUE_TO_TARGET_DECIMAL128
+	macros.
+
 	* config/i386/i386.c (ix86_scalar_mode_supported): Revert patch
 	from yesterday.
 
