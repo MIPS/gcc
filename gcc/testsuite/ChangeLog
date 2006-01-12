@@ -1,3 +1,13 @@
+2006-01-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/24824
+	* g++.dg/debug/dwarf2-1.C: New.
+
+2006-01-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/25728
+	* lib/gcov.exp (verify-lines): Add "close $fd".
+
 2006-01-12  Yao Qi  <qiyaoltc@cn.ibm.com>
 	    Ben Elliston  <bje@au.ibm.com>
 
@@ -83,6 +93,7 @@
 
 2006-01-11  Nathan Sidwell  <nathan@codesourcery.com>
 
+	PR c++/25386
 	* g++.dg/ext/packed3.C: Add expected packed error.
 
 2006-01-11  Hans-Peter Nilsson  <hp@axis.com>
