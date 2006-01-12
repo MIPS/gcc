@@ -1,5 +1,8 @@
 2006-01-12  Ben Elliston  <bje@au.ibm.com>
 
+	* expr.c (emit_move_insn_1): If unable to move decimal floats via
+	integer, use a multi word move.
+
 	* doc/tm.texi (Data Output): Add REAL_VALUE_TO_TARGET_DECIMAL32,
 	REAL_VALUE_TO_TARGET_DECIMAL64 and REAL_VALUE_TO_TARGET_DECIMAL128
 	macros.

@@ -3132,7 +3132,15 @@ emit_move_insn_1 (rtx x, rtx y)
     return emit_move_complex (mode, x, y);
 
   if (GET_MODE_CLASS (mode) == MODE_DECIMAL_FLOAT)
-    return emit_move_via_integer (mode, x, y, true);
+    {
+      rtx result = emit_move_via_integer (mode, x, y, true);
+
+      /* If we can't find an integer mode, use multi words.  */
+      if (result)
+	return result;
+      else
+	return emit_move_multi_word (mode, x, y);
+    }
 
   if (GET_MODE_CLASS (mode) == MODE_CC)
     return emit_move_ccmode (mode, x, y);
