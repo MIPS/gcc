@@ -1,3 +1,12 @@
+2006-01-11  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/i386/darwin.h (SUBTARGET_ENCODE_SECTION_INFO): Define.
+
+2006-01-11  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/sh/predicates.md (sh_rep_vec): Add parallel to
+	match_code.
+
 2006-01-11  Ben Elliston  <bje@au.ibm.com>
 
 	* rtlanal.c (find_reg_note): Assert insn is not null.
@@ -59,10 +68,10 @@
 2005-01-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df-scan.c (df_hard_reg_init) Moved declaration of i outside ifdef.
-	
+
 2005-01-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 
-	* Makefile.in Removed rotted odf.c entry.
+	* Makefile.in: Removed rotted odf.c entry.
 	
 2006-01-11  Hans-Peter Nilsson  <hp@axis.com>
 
