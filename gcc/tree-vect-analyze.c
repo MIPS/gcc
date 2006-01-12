@@ -2559,7 +2559,7 @@ vect_analyze_loop_form (struct loop *loop)
     {
       if (vect_print_dump_info (REPORT_BAD_FORM_LOOPS))
         fprintf (vect_dump, "Infinite number of iterations.");
-      return false;
+      return NULL;
     }
 
   loop_vinfo = new_loop_vec_info (loop);
@@ -2656,23 +2656,12 @@ vect_analyze_loop (struct loop *loop)
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }
+
   ok = vect_determine_vectorization_factor (loop_vinfo);
   if (!ok)
     {      
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "can't determine vectorization factor.");
-      destroy_loop_vec_info (loop_vinfo);
-      return NULL;
-    }
-
-  /* Scan all the operations in the loop and make sure they are
-     vectorizable.  */
-
-  ok = vect_determine_vectorization_factor (loop_vinfo);
-  if (!ok)
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-	fprintf (vect_dump, "can't determine vectorization factor.");
       destroy_loop_vec_info (loop_vinfo);
       return NULL;
     }

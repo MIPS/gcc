@@ -1421,6 +1421,7 @@ follow_ssa_edge (struct loop *loop, tree def, tree halting_phi,
 
 
 
+#if 0
 /* A is the initial condition and B is the update edge of
    LOOP_PHI_NODE, and consequently they are either scalars or symbolic
    names.  The function returns chrec_dont_know if the unify operation
@@ -1523,6 +1524,7 @@ unify_peeled_chrec (tree loop_phi_node, tree a, tree b)
 
   return chrec_dont_know;
 }
+#endif
 
 /* Given a LOOP_PHI_NODE, this function determines the evolution
    function from LOOP_PHI_NODE to LOOP_PHI_NODE in the loop.  */
@@ -1566,6 +1568,7 @@ analyze_evolution_in_loop (tree loop_phi_node,
       else
 	res = t_false;
 	      
+#if 0
       /* When it is impossible to go back on the same loop_phi_node by
 	 following the ssa edges, the evolution can be represented by
 	 a peeled chrec, i.e. the first iteration, EV_FN has the value
@@ -1577,6 +1580,7 @@ analyze_evolution_in_loop (tree loop_phi_node,
 	 the simple chrec {0, +, 1}_3.  */
       if (res == t_false) /* != t_true in mainline */
 	ev_fn = unify_peeled_chrec (loop_phi_node, init_cond, arg);
+#endif
       
       /* When there are multiple back edges of the loop (which in fact never
 	 happens currently, but nevertheless), merge their evolutions.  */

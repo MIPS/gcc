@@ -1,3 +1,12 @@
+2006-01-12  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-analyze.c (vect_analyze_loop_form): Return NULL instead
+	of false.
+	(vect_analyze_loop): Remove redundant call to
+	vect_determine_vectorization_factor.
+	* tree-scalar-evolutions.c (unify_peeled_chrec): Disable.
+	(analyze_evolution_in_loop): Disable call to unify_peeled_chrec.
+
 2005-12-30  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* optabs.c (expand_widen_pattern_expr): Fixed typos, removed redundant
