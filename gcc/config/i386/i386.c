@@ -18097,13 +18097,9 @@ static bool
 ix86_scalar_mode_supported_p (enum machine_mode mode)
 {
   if (DECIMAL_FLOAT_MODE_P (mode))
-    {
-      if (!TARGET_64BIT && GET_MODE_PRECISION (mode) > 64)
-	return false;
-      else
-	return true;
-    }
-  return default_scalar_mode_supported_p (mode);
+    return true;
+  else
+    return default_scalar_mode_supported_p (mode);
 }
 
 /* Implements target hook vector_mode_supported_p.  */
