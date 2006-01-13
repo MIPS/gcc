@@ -3161,6 +3161,10 @@ typedef struct record_layout_info_s
   /* True if we've seen a packed field that didn't have normal
      alignment anyway.  */
   int packed_maybe_necessary;
+  /* APPLE LOCAL begin 4401223 4401224 */
+  /* True if we've seen a bitfield. Used by reverse-bitfields only. */
+  int bitfield_seen;
+  /* APPLE LOCAL end */
 } *record_layout_info;
 
 extern void set_lang_adjust_rli (void (*) (record_layout_info));

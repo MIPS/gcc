@@ -1,3 +1,14 @@
+2006-01-13  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4401223 4401224
+	* tree.h (record_layout_info_s):  Add bitfield_seen.
+	* stor-layout.c (start_record_layout):  Initialize it.
+	(place_field):  When reversing bitfields: consider
+	rli->offset when computing current alignment;
+	maintain rli->bitfield_seen; adjust rli->bitpos and
+	rli_offset after a non-bitfield, but not if we saw
+	a bitfield earlier.
+
 2006-01-03  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4392520
