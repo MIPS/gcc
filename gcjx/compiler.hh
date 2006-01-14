@@ -1,6 +1,6 @@
 // A single compilation, perhaps of multiple files.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -306,7 +306,9 @@ public:
 
   // These control aspects of code generation.
   compiler_flag target_assert;
-  compiler_flag target_debug;
+  compiler_flag target_debug_source;
+  compiler_flag target_debug_lines;
+  compiler_flag target_debug_vars;
 
   // Flags used only when compiling to bytecode.
   compiler_flag target_15;

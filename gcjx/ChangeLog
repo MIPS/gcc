@@ -1,3 +1,15 @@
+2006-01-13  Tom Tromey  <tromey@redhat.com>
+
+	* main.cc (argument_parser::parse_args): Fully handle -g.
+	(argument_parser::parse_debug_option): New method.
+	(argument_parser::help_options): Updated.
+	* bytecode/classwriter.cc (write): Handle new debug flag.
+	* bytecode/generate.cc (generate): Handle different debug flags.
+	* compiler.cc (compiler): Updated.
+	* compiler.hh (compiler::target_debug): Removed.
+	(compiler::target_debug_source, compiler::target_debug_lines,
+	compiler::target_debug_vars): New flags.
+
 2006-01-07  Tom Tromey  <tromey@redhat.com>
 
 	* model/class.cc (get_this_0): Make this$0 package-private.

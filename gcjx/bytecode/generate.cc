@@ -1,6 +1,6 @@
 // Bytecode generation.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -173,20 +173,17 @@ bytecode_generator::generate ()
       cpool->add (hand.type);
     }
 
-  if (global->get_compiler ()->target_debug ())
-    {
-      if (line_count > 0)
-	attributes.push_back (new line_table_attribute (cpool, this));
+  if (global->get_compiler ()->target_debug_lines () && line_count > 0)
+    attributes.push_back (new line_table_attribute (cpool, this));
 
-      if (vars.update ())
-	{
-	  attributes.push_back (new local_variable_table_attribute (cpool,
-								    &vars,
-								    false));
-	  if (global->get_compiler ()->target_15 ()
-	      && vars.any_parameterized_p ())
-	    attributes.push_back (new local_variable_table_attribute (cpool, &vars, true));
-	}
+  if (global->get_compiler ()->target_debug_vars () && vars.update ())
+    {
+      attributes.push_back (new local_variable_table_attribute (cpool,
+								&vars,
+								false));
+      if (global->get_compiler ()->target_15 ()
+	  && vars.any_parameterized_p ())
+	attributes.push_back (new local_variable_table_attribute (cpool, &vars, true));
     }
 }
 

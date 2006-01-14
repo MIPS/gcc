@@ -1,6 +1,6 @@
 // Main program, at least for testing.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -239,22 +239,22 @@ public:
        << std::endl
        << std::endl;
 
-    print ("-bootclasspath PATH", "set boot classpath", 3);
-    print ("-classpath PATH", "set user classpath (default '.')", 3);
-    print ("-IDIR", "append DIR to class path", 3);
+    print ("-bootclasspath PATH", "set boot classpath", 4);
+    print ("-classpath PATH", "set user classpath (default '.')", 4);
+    print ("-IDIR", "append DIR to class path", 4);
 
-    print ("-encoding NAME", "set source file encoding", 3);
-    print ("-tabs WIDTH", "set tab width (default 8)", 3);
-    print ("-d DIR", "set output directory", 3);
-    print ("-deprecation", "like -Wdeprecated (javac compatibility)", 3);
-    print ("-verbose", "be verbose", 3);
-    print ("-error", "treat all warnings as errors", 3);
-    print ("-pedantic", "be pedantically correct", 3);
-    print ("-source 1.[345]", "choose source code compatibility", 3);
-    print ("-target 1.[345]", "choose target VM compatibility", 3);
-    print ("-g", "generate debugging information", 3);
+    print ("-encoding NAME", "set source file encoding", 4);
+    print ("-tabs WIDTH", "set tab width (default 8)", 4);
+    print ("-d DIR", "set output directory", 4);
+    print ("-deprecation", "like -Wdeprecated (javac compatibility)", 4);
+    print ("-verbose", "be verbose", 4);
+    print ("-error", "treat all warnings as errors", 4);
+    print ("-pedantic", "be pedantically correct", 4);
+    print ("-source 1.[345]", "choose source code compatibility", 4);
+    print ("-target 1.[345]", "choose target VM compatibility", 4);
+    print ("-g[:lines,vars,source]", "generate debugging information", 4);
     if (concurrence::available ())
-      print ("-j N", "use N worker threads", 3);
+      print ("-j N", "use N worker threads", 4);
 
     os << std::endl;
 
@@ -392,6 +392,28 @@ public:
 	% name;
   }
 
+  void
+  parse_debug_option (const std::string &value)
+  {
+    std::string::size_type start = 0;
+    while (start < value.length ())
+      {
+	std::string::size_type end = value.find (',', start);
+	if (end == std::string::npos)
+	  end = value.length ();
+	std::string option = value.substr (start, end - start);
+	if (option == "lines")
+	  comp->target_debug_lines = true;
+	else if (option == "vars")
+	  comp->target_debug_vars = true;
+	else if (option == "source")
+	  comp->target_debug_source = true;
+	else
+	  throw make_error ("unrecognized %<-g%> argument %1") % option;
+	start = end + 1;
+      }
+  }
+
   std::deque<std::string>
   parse_args ()
   {
@@ -447,14 +469,20 @@ public:
 	  comp->warnings_are_errors = true;
         else if (arg == "-pedantic")
 	  comp->pedantic = true;
-	else if (arg.length () >= 2 && ! strncmp (arg.c_str (), "-g" , 2))
+	else if (arg == "-g:none")
 	  {
-	    // The real form is -g:none, or
-	    // -g:{lines,vars,source}.
-	    // Currently we don't differentiate this in the back end,
-	    // so we just handle all-or-nothing.
-	    comp->target_debug = (arg != "-g:none");
+	    comp->target_debug_source = false;
+	    comp->target_debug_lines = false;
+	    comp->target_debug_vars = false;
 	  }
+	else if (arg == "-g")
+	  {
+	    comp->target_debug_source = true;
+	    comp->target_debug_lines = true;
+	    comp->target_debug_vars = true;
+	  }
+	else if (arg.length () >= 2 && ! strncmp (arg.c_str (), "-g:" , 3))
+	  parse_debug_option (arg.substr (3));
         else if (arg == "-d")
 	  output = get_next_arg (it, arg);
 	else if (is_form_of (it, "-bootclasspath"))

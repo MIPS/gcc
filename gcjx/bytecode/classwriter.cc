@@ -1,6 +1,6 @@
 // Write a class file.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -229,7 +229,7 @@ class_writer::write (directory_cache &dircache)
 							sig));
     }
 
-  if (global->get_compiler ()->target_debug ())
+  if (global->get_compiler ()->target_debug_source ())
     {
       std::string filename
 	= the_class->get_compilation_unit ()->get_file_name ();

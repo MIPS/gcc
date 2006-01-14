@@ -1,6 +1,6 @@
 // A single compilation.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -142,7 +142,9 @@ compiler::compiler (const std::string &name)
     feature_varargs (false),
     feature_annotations (false),
     target_assert (true),
-    target_debug (false),
+    target_debug_source (true),
+    target_debug_lines (true),
+    target_debug_vars (false),
     target_15 (false),
     // For now this is the default.
     target_14 (true),
