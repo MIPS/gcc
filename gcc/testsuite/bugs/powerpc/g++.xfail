@@ -34,6 +34,7 @@
 4194030: g++.dg/lookup/hidden-temp-class4.C  (test for errors, line 9)
 4194030: g++.dg/lookup/hidden-temp-class6.C (test for excess errors)
 4194030: g++.dg/lookup/hidden-temp-class7.C  (test for errors, line 13)
+4285232: g++.dg/4285232.C scan-assembler-not \\$0,
 #
 # The following tests fail only when the c++ suite is run through Obj-C++.
 3904139: g++.dg/ext/fnname3.C execution test

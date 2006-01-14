@@ -1,3 +1,8 @@
+2006-01-13  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4386991
+	* gcc/cp/typeck2.c (split_nonconstant_init): Remove APPLE LOCAL 4285232.
+
 2006-01-13  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4401223 4401224
