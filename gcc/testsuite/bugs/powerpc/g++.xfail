@@ -128,6 +128,9 @@
 4157563: ./debug-1.H -O2 (test for excess errors)
 4157563: ./debug-1.H -fastcp (test for excess errors)
 4385013: g++.dg/apple-longcall-2.C scan-assembler \tjmp
+4385013: g++.dg/apple-longcall-3.C scan-assembler \tjmp
+4385013: g++.dg/apple-longcall-3.C scan-assembler \tjbsr
+4385013: g++.dg/apple-longcall-3.C scan-assembler-not \tbl[\t ]
 # and these fail only on Leopard
 4385023: g++.dg/compat/eh/unexpected1 cp_compat_x_tst.o-cp_compat_y_tst.o execute
 4385023: g++.dg/eh/unexpected1.C execution test
