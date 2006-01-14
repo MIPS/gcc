@@ -1,3 +1,9 @@
+2006-01-13  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4386531
+	* stab.def (N_OSO): New.
+	* dbxout.c (dbxout_init): Output N_OSO stab always.
+
 2006-01-13  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4386991
