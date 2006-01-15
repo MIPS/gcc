@@ -287,7 +287,7 @@ tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
      using new condition.  */
   if (!bb_with_exit_edge_p (loop, bb_for_stmt (stmt)))
     {
-      bsi_remove (bsi);
+      bsi_remove (bsi, true);
       cond = NULL_TREE;
     }
   return;
@@ -630,8 +630,8 @@ add_to_dst_predicate_list (struct loop * loop, basic_block bb,
         bsi_insert_before (bsi, tmp_stmts2, BSI_SAME_STMT);
 
       /* new_cond == prev_cond AND cond */
-      tmp = build (TRUTH_AND_EXPR, boolean_type_node,
-		   unshare_expr (prev_cond), cond);
+      tmp = build2 (TRUTH_AND_EXPR, boolean_type_node,
+		    unshare_expr (prev_cond), cond);
       tmp_stmt = ifc_temp_var (boolean_type_node, tmp);
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
       new_cond = TREE_OPERAND (tmp_stmt, 0);
@@ -792,13 +792,13 @@ replace_phi_with_cond_modify_expr (tree phi, tree cond, basic_block true_bb,
     }
 
   /* Build new RHS using selected condition and arguments.  */
-  rhs = build (COND_EXPR, TREE_TYPE (PHI_RESULT (phi)),
-	       unshare_expr (cond), unshare_expr (arg_0),
-	       unshare_expr (arg_1));
+  rhs = build3 (COND_EXPR, TREE_TYPE (PHI_RESULT (phi)),
+	        unshare_expr (cond), unshare_expr (arg_0),
+	        unshare_expr (arg_1));
 
   /* Create new MODIFY expression using RHS.  */
-  new_stmt = build (MODIFY_EXPR, TREE_TYPE (PHI_RESULT (phi)),
-		    unshare_expr (PHI_RESULT (phi)), rhs);
+  new_stmt = build2 (MODIFY_EXPR, TREE_TYPE (PHI_RESULT (phi)),
+		     unshare_expr (PHI_RESULT (phi)), rhs);
 
   /* Make new statement definition of the original phi result.  */
   SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_stmt;
@@ -934,7 +934,7 @@ combine_blocks (struct loop *loop)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
 	{
 	  if (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR)
-	    bsi_remove (&bsi);
+	    bsi_remove (&bsi, true);
 	  else
 	    {
 	      set_bb_for_stmt (bsi_stmt (bsi), merge_target_bb);
@@ -993,7 +993,7 @@ ifc_temp_var (tree type, tree exp)
   add_referenced_tmp_var (var);
 
   /* Build new statement to assign EXP to new variable.  */
-  stmt = build (MODIFY_EXPR, type, var, exp);
+  stmt = build2 (MODIFY_EXPR, type, var, exp);
 
   /* Get SSA name for the new variable and set make new statement
      its definition statement.  */

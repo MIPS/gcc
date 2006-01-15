@@ -1590,6 +1590,22 @@ instantiate_decl (rtx x)
   for_each_rtx (&XEXP (x, 0), instantiate_virtual_regs_in_rtx, NULL);
 }
 
+/* Helper for instantiate_decls called via walk_tree: Process all decls
+   in the given DECL_VALUE_EXPR.  */
+
+static tree
+instantiate_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  tree t = *tp;
+  if (! EXPR_P (t))
+    {
+      *walk_subtrees = 0;
+      if (DECL_P (t) && DECL_RTL_SET_P (t))
+	instantiate_decl (DECL_RTL (t));
+    }
+  return NULL;
+}
+
 /* Subroutine of instantiate_decls: Process all decls in the given
    BLOCK node and all its subblocks.  */
 
@@ -1599,8 +1615,15 @@ instantiate_decls_1 (tree let)
   tree t;
 
   for (t = BLOCK_VARS (let); t; t = TREE_CHAIN (t))
-    if (DECL_RTL_SET_P (t))
-      instantiate_decl (DECL_RTL (t));
+    {
+      if (DECL_RTL_SET_P (t))
+	instantiate_decl (DECL_RTL (t));
+      if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t))
+	{
+	  tree v = DECL_VALUE_EXPR (t);
+	  walk_tree (&v, instantiate_expr, NULL, NULL);
+	}
+    }
 
   /* Process all subblocks.  */
   for (t = BLOCK_SUBBLOCKS (let); t; t = TREE_CHAIN (t))
@@ -1620,6 +1643,11 @@ instantiate_decls (tree fndecl)
     {
       instantiate_decl (DECL_RTL (decl));
       instantiate_decl (DECL_INCOMING_RTL (decl));
+      if (DECL_HAS_VALUE_EXPR_P (decl))
+	{
+	  tree v = DECL_VALUE_EXPR (decl);
+	  walk_tree (&v, instantiate_expr, NULL, NULL);
+	}
     }
 
   /* Now process all variables defined in the function or its subblocks.  */
@@ -4383,14 +4411,6 @@ expand_function_end (void)
   clear_pending_stack_adjust ();
   do_pending_stack_adjust ();
 
-  /* @@@ This is a kludge.  We want to ensure that instructions that
-     may trap are not moved into the epilogue by scheduling, because
-     we don't always emit unwind information for the epilogue.
-     However, not all machine descriptions define a blockage insn, so
-     emit an ASM_INPUT to act as one.  */
-  if (flag_non_call_exceptions)
-    emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
-
   /* Mark the end of the function body.
      If control reaches this insn, the function can drop through
      without returning a value.  */
@@ -4422,10 +4442,23 @@ expand_function_end (void)
   /* Output the label for the actual return from the function.  */
   emit_label (return_label);
 
-  /* Let except.c know where it should emit the call to unregister
-     the function context for sjlj exceptions.  */
-  if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
-    sjlj_emit_function_exit_after (get_last_insn ());
+  if (USING_SJLJ_EXCEPTIONS)
+    {
+      /* Let except.c know where it should emit the call to unregister
+	 the function context for sjlj exceptions.  */
+      if (flag_exceptions)
+	sjlj_emit_function_exit_after (get_last_insn ());
+    }
+  else
+    {
+      /* @@@ This is a kludge.  We want to ensure that instructions that
+	 may trap are not moved into the epilogue by scheduling, because
+	 we don't always emit unwind information for the epilogue.
+	 However, not all machine descriptions define a blockage insn, so
+	 emit an ASM_INPUT to act as one.  */
+      if (flag_non_call_exceptions)
+	emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
+    }
 
   /* If this is an implementation of throw, do what's necessary to
      communicate between __builtin_eh_return and the epilogue.  */
@@ -5300,7 +5333,8 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	fixup_fallthru_exit_predecessor.  */
       cfg_layout_initialize (0);
       FOR_EACH_BB (cur_bb)
-	if (cur_bb->index >= 0 && cur_bb->next_bb->index >= 0)
+	if (cur_bb->index >= NUM_FIXED_BLOCKS
+	    && cur_bb->next_bb->index >= NUM_FIXED_BLOCKS)
 	  cur_bb->aux = cur_bb->next_bb;
       cfg_layout_finalize ();
     }

@@ -901,6 +901,10 @@ m32c_const_ok_for_constraint_p (HOST_WIDE_INT value,
     {
       return (-16 <= value && value && value <= 16);
     }
+  if (memcmp (str, "In6", 3) == 0)
+    {
+      return (-32 <= value && value && value <= 32);
+    }
   if (memcmp (str, "IM2", 3) == 0)
     {
       return (-65536 <= value && value && value <= -1);
@@ -1505,7 +1509,7 @@ m32c_function_arg_regno_p (int r)
    for some opcodes in R8C/M16C and for reset vectors and such.  */
 #undef TARGET_VALID_POINTER_MODE
 #define TARGET_VALID_POINTER_MODE m32c_valid_pointer_mode
-bool
+static bool
 m32c_valid_pointer_mode (enum machine_mode mode)
 {
   if (mode == HImode
@@ -1822,6 +1826,31 @@ m32c_reg_ok_for_base_p (rtx x, int strict)
     }
 }
 
+/* We have three choices for choosing fb->aN offsets.  If we choose -128,
+   we need one MOVA -128[fb],aN opcode and 16 bit aN displacements,
+   like this:
+       EB 4B FF    mova    -128[$fb],$a0
+       D8 0C FF FF mov.w:Q #0,-1[$a0]
+
+   Alternately, we subtract the frame size, and hopefully use 8 bit aN
+   displacements:
+       7B F4       stc $fb,$a0
+       77 54 00 01 sub #256,$a0
+       D8 08 01    mov.w:Q #0,1[$a0]
+
+   If we don't offset (i.e. offset by zero), we end up with:
+       7B F4       stc $fb,$a0
+       D8 0C 00 FF mov.w:Q #0,-256[$a0]
+
+   We have to subtract *something* so that we have a PLUS rtx to mark
+   that we've done this reload.  The -128 offset will never result in
+   an 8 bit aN offset, and the payoff for the second case is five
+   loads *if* those loads are within 256 bytes of the other end of the
+   frame, so the third case seems best.  Note that we subtract the
+   zero, but detect that in the addhi3 pattern.  */
+
+#define BIG_FB_ADJ 0
+
 /* Implements LEGITIMIZE_ADDRESS.  The only address we really have to
    worry about is frame base offsets, as $fb has a limited
    displacement range.  We deal with this by attempting to reload $fb
@@ -1846,10 +1875,9 @@ m32c_legitimize_address (rtx * x ATTRIBUTE_UNUSED,
 	  || INTVAL (XEXP (*x, 1)) > (128 - GET_MODE_SIZE (mode))))
     {
       /* reload FB to A_REGS */
-      rtx foo;
       rtx temp = gen_reg_rtx (Pmode);
       *x = copy_rtx (*x);
-      foo = emit_insn (gen_rtx_SET (VOIDmode, temp, XEXP (*x, 0)));
+      emit_insn (gen_rtx_SET (VOIDmode, temp, XEXP (*x, 0)));
       XEXP (*x, 0) = temp;
       return 1;
     }
@@ -1875,7 +1903,47 @@ m32c_legitimize_reload_address (rtx * x,
      *also* still trying to reload the whole address, and we'd run out
      of address registers.  So we let gcc do the naive (but safe)
      reload instead, when the above function doesn't handle it for
-     us.  */
+     us.
+
+     The code below is a second attempt at the above.  */
+
+  if (GET_CODE (*x) == PLUS
+      && GET_CODE (XEXP (*x, 0)) == REG
+      && REGNO (XEXP (*x, 0)) == FB_REGNO
+      && GET_CODE (XEXP (*x, 1)) == CONST_INT
+      && (INTVAL (XEXP (*x, 1)) < -128
+	  || INTVAL (XEXP (*x, 1)) > (128 - GET_MODE_SIZE (mode))))
+    {
+      rtx sum;
+      int offset = INTVAL (XEXP (*x, 1));
+      int adjustment = -BIG_FB_ADJ;
+
+      sum = gen_rtx_PLUS (Pmode, XEXP (*x, 0),
+			  GEN_INT (adjustment));
+      *x = gen_rtx_PLUS (Pmode, sum, GEN_INT (offset - adjustment));
+      if (type == RELOAD_OTHER)
+	type = RELOAD_FOR_OTHER_ADDRESS;
+      push_reload (sum, NULL_RTX, &XEXP (*x, 0), NULL,
+		   A_REGS, Pmode, VOIDmode, 0, 0, opnum,
+		   type);
+      return 1;
+    }
+
+  if (GET_CODE (*x) == PLUS
+      && GET_CODE (XEXP (*x, 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (*x, 0), 0)) == REG
+      && REGNO (XEXP (XEXP (*x, 0), 0)) == FB_REGNO
+      && GET_CODE (XEXP (XEXP (*x, 0), 1)) == CONST_INT
+      && GET_CODE (XEXP (*x, 1)) == CONST_INT
+      )
+    {
+      if (type == RELOAD_OTHER)
+	type = RELOAD_FOR_OTHER_ADDRESS;
+      push_reload (XEXP (*x, 0), NULL_RTX, &XEXP (*x, 0), NULL,
+		   A_REGS, Pmode, VOIDmode, 0, 0, opnum,
+		   type);
+      return 1;
+    }
 
   return 0;
 }
@@ -2386,7 +2454,7 @@ m32c_output_reg_push (FILE * s, int regno)
   if (regno == FLG_REGNO)
     fprintf (s, "\tpushc\tflg\n");
   else
-    fprintf (s, "\tpush.%c\t%s",
+    fprintf (s, "\tpush.%c\t%s\n",
 	     " bwll"[reg_push_size (regno)], reg_names[regno]);
 }
 
@@ -2397,7 +2465,7 @@ m32c_output_reg_pop (FILE * s, int regno)
   if (regno == FLG_REGNO)
     fprintf (s, "\tpopc\tflg\n");
   else
-    fprintf (s, "\tpop.%c\t%s",
+    fprintf (s, "\tpop.%c\t%s\n",
 	     " bwll"[reg_push_size (regno)], reg_names[regno]);
 }
 
@@ -2770,32 +2838,92 @@ m32c_split_move (rtx * operands, enum machine_mode mode, int split_all)
   return rv;
 }
 
+typedef rtx (*shift_gen_func)(rtx, rtx, rtx);
+
+static shift_gen_func
+shift_gen_func_for (int mode, int code)
+{
+#define GFF(m,c,f) if (mode == m && code == c) return f
+  GFF(QImode,  ASHIFT,   gen_ashlqi3_i);
+  GFF(QImode,  ASHIFTRT, gen_ashrqi3_i);
+  GFF(QImode,  LSHIFTRT, gen_lshrqi3_i);
+  GFF(HImode,  ASHIFT,   gen_ashlhi3_i);
+  GFF(HImode,  ASHIFTRT, gen_ashrhi3_i);
+  GFF(HImode,  LSHIFTRT, gen_lshrhi3_i);
+  GFF(PSImode, ASHIFT,   gen_ashlpsi3_i);
+  GFF(PSImode, ASHIFTRT, gen_ashrpsi3_i);
+  GFF(PSImode, LSHIFTRT, gen_lshrpsi3_i);
+  GFF(SImode,  ASHIFT,   TARGET_A16 ? gen_ashlsi3_16 : gen_ashlsi3_24);
+  GFF(SImode,  ASHIFTRT, TARGET_A16 ? gen_ashrsi3_16 : gen_ashrsi3_24);
+  GFF(SImode,  LSHIFTRT, TARGET_A16 ? gen_lshrsi3_16 : gen_lshrsi3_24);
+#undef GFF
+}
+
 /* The m32c only has one shift, but it takes a signed count.  GCC
    doesn't want this, so we fake it by negating any shift count when
    we're pretending to shift the other way.  */
 int
-m32c_prepare_shift (rtx * operands, int scale, int bits)
+m32c_prepare_shift (rtx * operands, int scale, int shift_code)
 {
+  enum machine_mode mode = GET_MODE (operands[0]);
+  shift_gen_func func = shift_gen_func_for (mode, shift_code);
   rtx temp;
-  if (GET_CODE (operands[2]) == CONST_INT
-      && INTVAL (operands[2]) <= (1 << (bits - 1))
-      && INTVAL (operands[2]) >= -(1 << (bits - 1)))
+
+  if (GET_CODE (operands[2]) == CONST_INT)
     {
-      operands[2] = GEN_INT (scale * INTVAL (operands[2]));
-      return 0;
+      int maxc = TARGET_A24 && (mode == PSImode || mode == SImode) ? 32 : 8;
+      int count = INTVAL (operands[2]) * scale;
+
+      while (count > maxc)
+	{
+	  temp = gen_reg_rtx (mode);
+	  emit_insn (func (temp, operands[1], GEN_INT (maxc)));
+	  operands[1] = temp;
+	  count -= maxc;
+	}
+      while (count < -maxc)
+	{
+	  temp = gen_reg_rtx (mode);
+	  emit_insn (func (temp, operands[1], GEN_INT (-maxc)));
+	  operands[1] = temp;
+	  count += maxc;
+	}
+      emit_insn (func (operands[0], operands[1], GEN_INT (count)));
+      return 1;
     }
   if (scale < 0)
     {
       temp = gen_reg_rtx (QImode);
-      if (GET_CODE (operands[2]) == CONST_INT)
-	temp = GEN_INT (-INTVAL (operands[2]));
-      else
-	emit_move_insn (temp, gen_rtx_NEG (QImode, operands[2]));
+      emit_move_insn (temp, gen_rtx_NEG (QImode, operands[2]));
     }
   else
     temp = operands[2];
   operands[2] = temp;
   return 0;
+}
+
+/* The m32c has a limited range of operations that work on PSImode
+   values; we have to expand to SI, do the math, and truncate back to
+   PSI.  Yes, this is expensive, but hopefully gcc will learn to avoid
+   those cases.  */
+void
+m32c_expand_neg_mulpsi3 (rtx * operands)
+{
+  /* operands: a = b * i */
+  rtx temp1; /* b as SI */
+  rtx temp2; /* -b as SI */
+  rtx temp3; /* -b as PSI */
+  rtx scale;
+
+  temp1 = gen_reg_rtx (SImode);
+  temp2 = gen_reg_rtx (SImode);
+  temp3 = gen_reg_rtx (PSImode);
+  scale = GEN_INT (- INTVAL (operands[2]));
+
+  emit_insn (gen_zero_extendpsisi2 (temp1, operands[1]));
+  emit_insn (gen_negsi2 (temp2, temp1));
+  emit_insn (gen_truncsipsi2 (temp3, temp2));
+  emit_insn (gen_mulpsi3 (operands[0], temp3, scale));
 }
 
 /* Pattern Output Functions */

@@ -2669,7 +2669,13 @@ push_class_level_binding (tree name, tree x)
 	      INHERITED_VALUE_BINDING_P (binding) = 0;
 	    }
 	  else
-	    old_decl = bval;
+	    {
+	      old_decl = bval;
+	      /* Any inherited type declaration is hidden by the type
+		 declaration in the derived class.  */
+	      if (TREE_CODE (x) == TYPE_DECL && DECL_ARTIFICIAL (x))
+		binding->type = NULL_TREE;
+	    }
 	}
       else if (TREE_CODE (x) == OVERLOAD && is_overloaded_fn (bval))
 	old_decl = bval;
@@ -2838,7 +2844,7 @@ set_namespace_binding (tree name, tree scope, tree val)
 void
 set_decl_namespace (tree decl, tree scope, bool friendp)
 {
-  tree old;
+  tree old, fn;
 
   /* Get rid of namespace aliases.  */
   scope = ORIGINAL_NAMESPACE (scope);
@@ -2859,13 +2865,10 @@ set_decl_namespace (tree decl, tree scope, bool friendp)
     }
 
   /* See whether this has been declared in the namespace.  */
-  old = namespace_binding (DECL_NAME (decl), scope);
+  old = lookup_qualified_name (scope, DECL_NAME (decl), false, true);
   if (!old)
     /* No old declaration at all.  */
     goto complain;
-  /* A template can be explicitly specialized in any namespace.  */
-  if (processing_explicit_instantiation)
-    return;
   if (!is_overloaded_fn (decl))
     /* Don't compare non-function decls with decls_match here, since
        it can't check for the correct constness at this
@@ -2874,6 +2877,12 @@ set_decl_namespace (tree decl, tree scope, bool friendp)
   /* Since decl is a function, old should contain a function decl.  */
   if (!is_overloaded_fn (old))
     goto complain;
+  fn = OVL_CURRENT (old);
+  if (!is_associated_namespace (scope, CP_DECL_CONTEXT (fn)))
+    goto complain;
+  /* A template can be explicitly specialized in any namespace.  */
+  if (processing_explicit_instantiation)
+    return;
   if (processing_template_decl || processing_specialization)
     /* We have not yet called push_template_decl to turn a
        FUNCTION_DECL into a TEMPLATE_DECL, so the declarations won't
@@ -3971,12 +3980,9 @@ lookup_name_real (tree name, int prefer_type, int nonclass, bool block_p,
   if (!val)
     val = unqualified_namespace_lookup (name, flags);
 
-  if (val)
-    {
-      /* If we have a single function from a using decl, pull it out.  */
-      if (TREE_CODE (val) == OVERLOAD && ! really_overloaded_fn (val))
-	val = OVL_FUNCTION (val);
-    }
+  /* If we have a single function from a using decl, pull it out.  */
+  if (val && TREE_CODE (val) == OVERLOAD && !really_overloaded_fn (val))
+    val = OVL_FUNCTION (val);
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val);
 }

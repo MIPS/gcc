@@ -508,14 +508,15 @@ char_len_param_value (gfc_expr ** expr)
 static match
 match_char_length (gfc_expr ** expr)
 {
-  int length;
+  int length, cnt;
   match m;
 
   m = gfc_match_char ('*');
   if (m != MATCH_YES)
     return m;
 
-  m = gfc_match_small_literal_int (&length);
+  /* cnt is unused, here.  */
+  m = gfc_match_small_literal_int (&length, &cnt);
   if (m == MATCH_ERROR)
     return m;
 
@@ -1279,27 +1280,40 @@ match
 gfc_match_old_kind_spec (gfc_typespec * ts)
 {
   match m;
+  int original_kind, cnt;
 
   if (gfc_match_char ('*') != MATCH_YES)
     return MATCH_NO;
 
-  m = gfc_match_small_literal_int (&ts->kind);
+  /* cnt is unsed, here.  */
+  m = gfc_match_small_literal_int (&ts->kind, &cnt);
   if (m != MATCH_YES)
     return MATCH_ERROR;
 
+  original_kind = ts->kind;
+
   /* Massage the kind numbers for complex types.  */
-  if (ts->type == BT_COMPLEX && ts->kind == 8)
-    ts->kind = 4;
-  if (ts->type == BT_COMPLEX && ts->kind == 16)
-    ts->kind = 8;
+  if (ts->type == BT_COMPLEX)
+    {
+      if (ts->kind % 2)
+        {
+          gfc_error ("Old-style type declaration %s*%d not supported at %C",
+                     gfc_basic_typename (ts->type), original_kind);
+          return MATCH_ERROR;
+        }
+      ts->kind /= 2;
+    }
 
   if (gfc_validate_kind (ts->type, ts->kind, true) < 0)
     {
-      gfc_error ("Old-style kind %d not supported for type %s at %C",
-		 ts->kind, gfc_basic_typename (ts->type));
-
+      gfc_error ("Old-style type declaration %s*%d not supported at %C",
+                 gfc_basic_typename (ts->type), original_kind);
       return MATCH_ERROR;
     }
+
+  if (gfc_notify_std (GFC_STD_GNU, "Nonstandard type declaration %s*%d at %C",
+		      gfc_basic_typename (ts->type), original_kind) == FAILURE)
+    return MATCH_ERROR;
 
   return MATCH_YES;
 }
@@ -1606,6 +1620,10 @@ match_type_spec (gfc_typespec * ts, int implicit_flag)
 
   if (gfc_match (" double complex") == MATCH_YES)
     {
+      if (gfc_notify_std (GFC_STD_GNU, "DOUBLE COMPLEX at %C does not "
+			  "conform to the Fortran 95 standard") == FAILURE)
+	return MATCH_ERROR;
+
       ts->type = BT_COMPLEX;
       ts->kind = gfc_default_double_kind;
       return MATCH_YES;
@@ -2530,7 +2548,12 @@ gfc_match_function_decl (void)
 
   m = gfc_match_formal_arglist (sym, 0, 0);
   if (m == MATCH_NO)
-    gfc_error ("Expected formal argument list in function definition at %C");
+    {
+      gfc_error ("Expected formal argument list in function "
+                "definition at %C");
+      m = MATCH_ERROR;
+      goto cleanup;
+    }
   else if (m == MATCH_ERROR)
     goto cleanup;
 

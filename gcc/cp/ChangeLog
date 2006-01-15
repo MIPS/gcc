@@ -1,3 +1,430 @@
+2006-01-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25663
+	* parser.c (cp_parser_direct_declarator): Use cp_parser_error
+	instead of error.
+
+2006-01-13  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (check_explicit_specialization): Use CP_DECL_CONTEXT even more.
+
+	* name-lookup.c (set_decl_namespace): Use CP_DECL_CONTEXT.
+	* pt.c (check_explicit_specialization): Likewise.
+
+2006-01-12  Jason Merrill  <jason@redhat.com>
+
+	PR libstdc++/24660
+	* pt.c (check_explicit_specialization): Handle namespace
+	association.
+	* name-lookup.c (set_decl_namespace): Likewise.
+
+2006-01-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/24824
+	* class.c (handle_using_decl): Pass correct scope to
+	cp_emit_debug_info_for_using.
+
+2006-01-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/25386
+	* tree.c (lvalue_p_1): Any part of a COMPONENT_REF affects
+	packedness.
+
+2006-01-06  Gabriel Dos Reis  <gdr@integrablesolutions.net>
+
+	* parser.c (cp_parser_primary_expression): Document the grammar
+	for the built-in offsetof, a GNU extension.
+
+2005-01-04  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR c++/25632
+	* init.c (constant_value_1): Unshare use of DECL_INITIAL.  Fix a typo
+	in condition.
+
+2006-01-04  Chris Lattner  <sabre@gnu.org>
+
+        * typeck2.c: update copyright to 2006
+        (split_nonconstant_init_1):  Set TREE_CONSTANT to true.
+
+2006-01-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24782
+	* parser.c (cp_parser_nested_name_specifier_opt): Preserve access
+	checks, even when parsing tentatively.
+
+2006-01-04  Richard Henderson  <rth@redhat.com>
+
+	Merge from gomp branch.
+	* lex.c (handle_pragma_java_exceptions): Fix whitespace.
+	* parser.c (struct cp_token): Add pragma_kind.
+	(eof_token): Update to match.
+	(struct cp_lexer): Add in_pragma; rearrange next for better packing.
+	(cp_parser_initial_pragma): New.
+	(cp_lexer_new_main): Use it.  Don't bother clearing
+	c_lex_return_raw_strings.
+	(cp_lexer_get_preprocessor_token): Always initialize keyword
+	and pragma_kind fields.  Handle CPP_PRAGMA.
+	(cp_lexer_consume_token): Don't allow CPP_PRAGMA_EOL when 
+	in_pragma is set.
+	(cp_lexer_handle_pragma): Remove.  Update callers to cp_parser_pragma.
+	(cp_lexer_print_token) <CPP_PRAGMA>: Don't print as a string.
+	(cp_parser_skip_to_pragma_eol): New.
+	(cp_parser_error): Use it.
+	(cp_parser_skip_to_closing_parenthesis): Stop at CPP_PRAGMA_EOL;
+	rearrange with switch statement.
+	(cp_parser_skip_to_end_of_statement): Likewise.
+	(cp_parser_skip_to_end_of_block_or_statement): Likewise.
+	(cp_parser_skip_to_closing_brace): Likewise.
+	(cp_parser_skip_until_found): Likewise.
+	(cp_parser_statement): Add in_compound argument; update callers.
+	Use it to decide how to handle pragma parsing.
+	(cp_parser_labeled_statement): Add in_compound argument; pass
+	it on to cp_parser_statement.
+	(cp_parser_statement_seq_opt): Stop at CPP_PRAGMA_EOL.
+	(cp_parser_declaration_seq_opt): Likewise.
+	(cp_parser_parameter_declaration): Likewise.
+	(cp_parser_member_specification_opt): Likewise.
+	(cp_parser_function_definition_after_decl): Likewise.
+	(cp_parser_cache_group): Handle CPP_PRAGMA/CPP_PRAGMA_EOL pairs.
+	(cp_parser_pragma): New.
+	(pragma_lex): New.
+
+2006-01-04  Dirk Mueller <dmueller@suse.com>
+
+	* decl.c (finish_constructor_body): create simple
+	compound stmt instead of a if(1) { } construct.
+
+2006-01-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25492
+	* name-lookup.c (push_class_level_binding): When a derived class
+	provides a type binding, eliminate any type binding from a base
+	class. 
+
+	PR c++/25625
+	* repo.c (repo_emit_p): Always instantiate static data members
+	initialized by constant expressions, so that there values are
+	available.
+
+2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25635
+	* class.c (add_method): Set TYPE_HAS_CONVERSION for classes with a
+	conversion operator.
+	* decl.c (grokdeclarator): Do not set TYPE_HAS_CONVERSION here.
+
+	PR c++/25638
+	* class.c (add_method): Never associate more than one destructor
+	with a single class.
+
+	PR c++/25637
+	* cp-tree.h (do_friend): Adjust prototype.
+	* decl.c (grokfndecl): Make funcdef_flag a bool, not an int.
+	(grokdeclarator): Likewise.  Refine check for invalid
+	declarations/definitions of member functions outside of their own
+	class.
+	* friend.c (do_friend): Make funcdef_flag a bool, not an int.
+
+	PR c++/25633
+	* parser.c (cp_parser_mem_initializer_list): Check result of
+	cp_parser_mem_initializer against error_mark_node, not NULL_TREE.
+	(cp_parser_mem_initializer): Return error_mark_node for failure.
+
+	PR c++/25634
+	* parser.c (cp_parser_template_parameter_list): Call
+	begin_template_parm_list and end_template_parm_list here.
+	(cp_parser_type_parameter): Not here.
+	(cp_parser_template_declaration_after_export): Or here.
+	(cp_parser_elaborated_type_specifier): Call
+	cp_parser_check_template_parameters.
+
+	* tree.c (build_target_expr_with_type): Use force_target_expr.
+
+	* decl2.c (mark_used): Fix typo in comment.
+
+2006-01-02  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* parser.c (cp_parser_using_declaration): Skip name-lookup on
+	invalid scope.
+
+2005-12-30  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cxx-pretty-print.c (pp_cxx_constant): New.  Print
+	string-literal in parens if input program says so.
+	(pp_cxx_primary_expression): Hand off constant printing to
+	pp_cxx_constant. 
+	(pp_cxx_pretty_printer_init): Set pp->c_base.constant.
+	(pp_cxx_expression): Use pp_cxx_constant for literals. 
+	* error.c (dump_expr): Use pp_constant for literals.
+
+2005-12-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* method.c (make_thunk): Don't set comdat_linkage here.
+	(use_thunk): Make thunk one only here, if thunk target is
+	DECL_ONE_ONLY.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25439
+	* decl.c (grokdeclarator): Remove dead code.
+	* ptree.c (cxx_print_xnode): Handle BASELINK.
+	* parser.c (make_id_declarator): Add sfk parameter.  
+	(cp_parser_direct_declarator): Do not pass TYPE_DECLs to
+	make_id_declarator.
+	(cp_parser_declarator_id): Simplify BASELINKs here.
+	(cp_parser_member_declaration): Adjust calls to
+	make_id_declarator.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23171, c++/23172, c++/25417.
+	* typeck.c (build_unary_op): Create temporary variables for
+	compound literals whose addresses are taken.
+	* init.c (expand_aggr_init_1): Use COMPOUND_LITERAL_P.
+	* decl.c (reshape_init_vector): Likewise.
+	(reshape_init): Give it external linkage.
+	(check_initializer): Use COMPOUND_LITERAL_P.
+	(initialize_artificial_var): Allow the initializer to be a
+	CONSTRUCTOR.
+	* call.c (make_temporary_var_for_ref_to_temp): Use
+	create_temporary_var.
+	* cp-tree.h (COMPOUND_LITERAL_P): New macro.
+	(rehape_init): Declare.
+	* typeck2.c (digest_init): Use COMPOUND_LITERAL_P.
+	* semantics.c (finish_compound_literal): Use reshape_init.
+
+2005-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24671
+	* pt.c (instantiate_template): Handle SFINAE.
+
+2005-12-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* decl.c (grokdeclarator): Improve diagnostic for friend
+	declarations of class members.
+
+2005-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25369
+	* tree.c (really_overloaded_fn): Tweak comment.
+	* pt.c (tsubst_call_declarator_parms): Remove.
+	(tsubst_copy): Call mark_used on the member referenced by an
+	OFFSET_REF.
+	* semantics.c (finish_qualified_id_expr): Simplify.
+	* decl2.c (mark_used): Accept BASELINKs.
+
+	PR c++/25364
+	* typeck.c (build_unary_op): Pass DECLs not names to
+	build_offset_refs.
+	* init.c (build_offset_ref): Do not do name lookup.  Do not call
+	mark_used.
+	* call.c (build_call): Simplify and tidy.
+	* semantics.c (finish_qualified_id_expr): Call mark_used.
+
+2005-12-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23333
+	* parser.c (cp_parser_pure_specifier): Check for PURE_ZERO to
+	identify a single '0'.
+
+2005-12-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21228
+	* decl.c (use_eh_spec_block): New function.
+	(store_parm_decls): Use it.
+	(finish_function): Likewise.
+	
+2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24278
+	* init.c (expand_member_init): Print messages about baseclasses
+	using %T rather than %D.
+
+	PR c++/24915
+	* class.c (add_method): Do not treat templates as identical unless
+	their return types are the same.
+	
+2005-12-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25300
+	* tree.c (build_qualified_name): Return error_mark_node for
+	erroneous input.
+
+2005-12-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25337 
+	* pt.c (tsubst_copy_and_build): Permit dependent types for the
+	object in a class member access expression.
+
+2005-12-10  Terry Laurenzo  <tlaurenzo@gmail.com>
+
+	PR java/9861
+	* mangle.c (write_bare_function_type): Mangle return type for
+	methods of Java classes
+
+2005-12-08  Théodore Papadopoulo <Theodore.Papadopoulo@sophia.inria.fr>
+	
+	* call.c (build_conditional_expr): Print types in error messages.
+	
+2005-12-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* expr.c (cxx_expand_expr): Call gcc_unreachable instead of abort.
+
+2005-12-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* cp-gimplify.c (gimplify_cp_loop): Use fold_build3.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in (c++.all.build, c++.install-normal): Remove.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in: Remove all dependencies on s-gtype.
+
+2005-12-06  Aldy Hernandez  <aldyh@redhat.com>
+
+       PR C++/24138
+        * decl.c (reshape_init_array_1): Handle max_index of -1.
+
+2005-12-06  Roger Sayle  <roger@eyesopen.com>
+
+	* typeck.c (build_binary_op): Issue warning if either operand of a
+	comparison operator is a string literal, except for testing equality
+	or inequality against NULL.
+
+2005-12-06  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/25263
+	* decl.c (compute_array_index_type): Check that itype is an
+	INTEGER_CST node before testing/clearing TREE_OVERFLOW.
+
+2005-12-05  Daniel Berlin  <dberlin@dberlin.org>
+
+	* ptree.c (cxx_print_decl): Update to check for decl_common
+	structure.
+
+2005-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24173
+	* decl.c (duplicate_decls): Don't rely on DECL_TEMPLATE_INFO after
+	clobbering newdecl.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* semantics.c (simplify_aggr_init_expr): Use buildN instead
+	of build.
+
+2005-12-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* parser.c (cp_lexer_new_main): Usr GGC_RESIZEVEC instead of
+	ggc_realloc. 
+	(cp_parser_template_argument_list): Use XRESIZEVEC instead of
+	xrealloc. 
+	* class.c (pushclass): Likewise.
+
+2005-12-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl2.c (get_priority_info): Use XNEW, not xmalloc.
+	* decl.c (push_switch): Likewise.
+	* lex.c (handle_pragma_implementation): Likewise.
+	* cp-objcp-common.c (decl_shadowed_for_var_insert): Use GGC_NEW,
+	not ggc_alloc.
+	(cxx_initialize_diagnostics): Use XNEW, not xmalloc.
+	* class.c (init_class_processing): Use XNEWVEC, not xmalloc.
+	* g++spec.c (lang_specific_driver): Likewise.
+	* mangle.c (save_partially_mangled_name): Likewise.
+	* parser.c (cp_lexer_new_main): Use GGC_NEWVEC, not ggc_alloc.
+	(cp_parser_template_argument_list): Use XNEWVEC, nto xmalloc.
+	(cp_parser_sizeof_operand): Likewise.
+	* repo.c (open_repo_file, open_repo_file): Likewise.
+	
+2005-12-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* parser.c (cp_parser_make_typename_type): Call make_typename_type
+	with tf_none instead of magic value 0.
+	(cp_parser_explicit_instantiation): Call do_type_instantiation
+	with tf_error instead of magic value 1.
+	(cp_parser_elaborated_type_specifier): Call make_typename_type
+	with tf_error instead of magic value 1.
+	(cp_parser_class_name): Likewise.
+	(cp_parser_lookup_name): Likewise.
+
+2005-12-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* parser.c (cp_parser_declaration): Set token2.type to CPP_EOF,
+	not RID_MAX.
+
+2005-11-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21123
+	* cp-gimplify.c (cp_genericize_r): Don't dereference invisible reference 
+	parms in a thunk.
+
+2005-11-30  Ben Elliston  <bje@au.ibm.com>
+
+	* typeck.c (build_x_unary_op): Correct spelling in error message.
+
+2005-11-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21166
+	* class.c (check_field_decls): Only set DECL_PACKED on a field
+	when its natural alignment is > BITS_PER_UNIT.
+
+2005-11-27  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/24979
+	* cp-tree.h (DECL_MAIN_P): Remove duplicate definition.
+
+2005-11-26  Richard Henderson  <rth@redhat.com>
+
+	* lex.c: Update for pragma_lex rename.
+	* parser.c: Likewise.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/9278
+	* decl.c (grokparms): Do not allow typedef-names in a '(void)'
+	parmlist.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* typeck2.c (process_init_constructor_union): Remove check for
+	unnamed union members.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* name-lookup.c (lookup_name_real): Merge two if's.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* pt.c (instantiate_class_template): Clean-up.
+
+2005-11-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* pt.c (template_class_depth_real): Remove. Move functionality to ...
+	(template_class_depth): ... here, replacing count_specializations
+	with 0.  Adjust comment.
+
+2005-11-24  Richard Guenther  <rguenther@suse.de>
+	Dirk Mueller <dmueller@suse.de>
+
+	PR c++/14024
+	* typeck.c (build_reinterpret_cast_1): Use
+	strict_aliasing_warning.
+
+2005-11-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/24235
+	* pt.c (check_instantiated_args): Reword diagnostic message about
+	template argument involving local types.
+
+2005-11-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/21667
+	* typeck.c (build_array_ref): Avoid code duplicate.  Use common
+	C/C++ diagnostic function warn_array_subscript_with_type_char. 
+
 2005-11-21  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	PR c++/22238

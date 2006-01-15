@@ -432,7 +432,7 @@ init_alias_info (void)
   tree var;
 
   bitmap_obstack_initialize (&alias_obstack);
-  ai = xcalloc (1, sizeof (struct alias_info));
+  ai = XCNEW (struct alias_info);
   ai->ssa_names_visited = sbitmap_alloc (num_ssa_names);
   sbitmap_zero (ai->ssa_names_visited);
   VARRAY_TREE_INIT (ai->processed_ptrs, 50, "processed_ptrs");
@@ -469,8 +469,8 @@ init_alias_info (void)
 	     a global variable, so we *don't* clear their call clobberedness
 	     just because they are tags, though we will clear it if they
 	     aren't for global variables.  */
-	  if (ann->mem_tag_kind == NAME_TAG 
-	      || ann->mem_tag_kind == TYPE_TAG 
+	  if (TREE_CODE (var) == NAME_MEMORY_TAG
+	      || TREE_CODE (var) == TYPE_MEMORY_TAG
 	      || !is_global_var (var))
 	    clear_call_clobbered (var);
 	}
@@ -1085,26 +1085,26 @@ group_aliases (struct alias_info *ai)
       size_t j;
       tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       tree name_tag = SSA_NAME_PTR_INFO (ptr)->name_mem_tag;
-      varray_type aliases;
+      VEC(tree,gc) *aliases;
+      tree alias;
       
       if (name_tag == NULL_TREE)
 	continue;
 
       aliases = var_ann (name_tag)->may_aliases;
-      for (j = 0; aliases && j < VARRAY_ACTIVE_SIZE (aliases); j++)
+      for (j = 0; VEC_iterate (tree, aliases, j, alias); j++)
 	{
-	  tree alias = VARRAY_TREE (aliases, j);
 	  var_ann_t ann = var_ann (alias);
 
-	  if ((ann->mem_tag_kind == NOT_A_TAG 
-	       || ann->mem_tag_kind == STRUCT_FIELD)
+	  if ((!MTAG_P (alias)
+	       || TREE_CODE (alias) == STRUCT_FIELD_TAG)
 	      && ann->may_aliases)
 	    {
 	      tree new_alias;
 
-	      gcc_assert (VARRAY_ACTIVE_SIZE (ann->may_aliases) == 1);
+	      gcc_assert (VEC_length (tree, ann->may_aliases) == 1);
 
-	      new_alias = VARRAY_TREE (ann->may_aliases, 0);
+	      new_alias = VEC_index (tree, ann->may_aliases, 0);
 	      replace_may_alias (name_tag, j, new_alias);
 	    }
 	}
@@ -1125,7 +1125,7 @@ static void
 create_alias_map_for (tree var, struct alias_info *ai)
 {
   struct alias_map_d *alias_map;
-  alias_map = xcalloc (1, sizeof (*alias_map));
+  alias_map = XCNEW (struct alias_map_d);
   alias_map->var = var;
   alias_map->set = get_alias_set (var);
   ai->addressable_vars[ai->num_addressable_vars++] = alias_map;
@@ -1171,9 +1171,8 @@ setup_pointers_and_addressables (struct alias_info *ai)
      because some TREE_ADDRESSABLE variables will be marked
      non-addressable below and only pointers with unique type tags are
      going to be added to POINTERS.  */
-  ai->addressable_vars = xcalloc (num_addressable_vars,
-				  sizeof (struct alias_map_d *));
-  ai->pointers = xcalloc (num_pointers, sizeof (struct alias_map_d *));
+  ai->addressable_vars = XCNEWVEC (struct alias_map_d *, num_addressable_vars);
+  ai->pointers = XCNEWVEC (struct alias_map_d *, num_pointers);
   ai->num_addressable_vars = 0;
   ai->num_pointers = 0;
 
@@ -1196,8 +1195,7 @@ setup_pointers_and_addressables (struct alias_info *ai)
          Structure fields, on the other hand, have to have some of this
          information processed for them, but it's pointless to mark them
          non-addressable (since they are fake variables anyway).  */
-      if (v_ann->mem_tag_kind != NOT_A_TAG
-	  && v_ann->mem_tag_kind != STRUCT_FIELD) 
+      if (MTAG_P (var) && TREE_CODE (var) != STRUCT_FIELD_TAG)
 	continue;
 
       /* Remove the ADDRESSABLE flag from every addressable variable whose
@@ -1441,7 +1439,6 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
 	     bool alias_set_only)
 {
   tree mem;
-  var_ann_t m_ann;
 
   alias_stats.alias_queries++;
   alias_stats.simple_queries++;
@@ -1477,7 +1474,7 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
 
   /* If PTR and VAR are two formal of the same function,
      their mutual aliasing is calculated by ipaa.  */
-  if (TREE_CODE (ptr) == PARM_DECL && TREE_CODE (var) == PARM_DECL)
+  if (TREE_CODE (ptr) == PARM_DECL && TREE_CODE (var) == PARM_DECL && 0)
     {
       enum alias_info_d alias = ipaa_get_aliasing_of_formals (ptr, var);
       if (alias == NON_ALIAS)
@@ -1488,9 +1485,7 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
 	}
     }
 
-  m_ann = var_ann (mem);
-
-  gcc_assert (m_ann->mem_tag_kind == TYPE_TAG);
+  gcc_assert (TREE_CODE (mem) == TYPE_MEMORY_TAG);
 
   alias_stats.tbaa_queries++;
 
@@ -1573,6 +1568,7 @@ add_may_alias (tree var, tree alias)
   size_t i;
   var_ann_t v_ann = get_var_ann (var);
   var_ann_t a_ann = get_var_ann (alias);
+  tree al;
 
   /* Don't allow self-referential aliases.  */
   gcc_assert (var != alias);
@@ -1585,11 +1581,11 @@ add_may_alias (tree var, tree alias)
 #endif
 
   if (v_ann->may_aliases == NULL)
-    VARRAY_TREE_INIT (v_ann->may_aliases, 2, "aliases");
+    v_ann->may_aliases = VEC_alloc (tree, gc, 2);
 
   /* Avoid adding duplicates.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (v_ann->may_aliases); i++)
-    if (alias == VARRAY_TREE (v_ann->may_aliases, i))
+  for (i = 0; VEC_iterate (tree, v_ann->may_aliases, i, al); i++)
+    if (alias == al)
       return;
 
   /* If VAR is a call-clobbered variable, so is its new ALIAS.
@@ -1602,7 +1598,7 @@ add_may_alias (tree var, tree alias)
   else if (is_call_clobbered (alias))
     mark_call_clobbered (var);
 
-  VARRAY_PUSH_TREE (v_ann->may_aliases, alias);
+  VEC_safe_push (tree, gc, v_ann->may_aliases, alias);
   a_ann->is_alias_tag = 1;
 }
 
@@ -1613,7 +1609,7 @@ static void
 replace_may_alias (tree var, size_t i, tree new_alias)
 {
   var_ann_t v_ann = var_ann (var);
-  VARRAY_TREE (v_ann->may_aliases, i) = new_alias;
+  VEC_replace (tree, v_ann->may_aliases, i, new_alias);
 
   /* If VAR is a call-clobbered variable, so is NEW_ALIAS.
      FIXME, call-clobbering should only depend on whether an address
@@ -1719,6 +1715,31 @@ is_escape_site (tree stmt, struct alias_info *ai)
   return false;
 }
 
+/* Create a new memory tag of type TYPE.
+   Does NOT push it into the current binding.  */
+
+static tree
+create_tag_raw (enum tree_code code, tree type, const char *prefix)
+{
+  tree tmp_var;
+  tree new_type;
+
+  /* Make the type of the variable writable.  */
+  new_type = build_type_variant (type, 0, 0);
+  TYPE_ATTRIBUTES (new_type) = TYPE_ATTRIBUTES (type);
+
+  tmp_var = build_decl (code, create_tmp_var_name (prefix),
+			type);
+  /* Make the variable writable.  */
+  TREE_READONLY (tmp_var) = 0;
+
+  /* It doesn't start out global.  */
+  MTAG_GLOBAL (tmp_var) = 0;
+  TREE_STATIC (tmp_var) = 0;
+  TREE_USED (tmp_var) = 1;
+
+  return tmp_var;
+}
 
 /* Create a new memory tag of type TYPE.  If IS_TYPE_TAG is true, the tag
    is considered to represent all the pointers whose pointed-to types are
@@ -1729,7 +1750,8 @@ static tree
 create_memory_tag (tree type, bool is_type_tag)
 {
   var_ann_t ann;
-  tree tag = create_tmp_var_raw (type, (is_type_tag) ? "TMT" : "NMT");
+  tree tag = create_tag_raw (is_type_tag ? TYPE_MEMORY_TAG : NAME_MEMORY_TAG,
+			     type, (is_type_tag) ? "TMT" : "NMT");
 
   /* By default, memory tags are local variables.  Alias analysis will
      determine whether they should be considered globals.  */
@@ -1739,7 +1761,6 @@ create_memory_tag (tree type, bool is_type_tag)
   TREE_ADDRESSABLE (tag) = 1;
 
   ann = get_var_ann (tag);
-  ann->mem_tag_kind = (is_type_tag) ? TYPE_TAG : NAME_TAG;
   ann->type_mem_tag = NULL_TREE;
 
   /* Add the tag to the symbol table.  */
@@ -1826,7 +1847,7 @@ get_tmt_for (tree ptr, struct alias_info *ai)
       /* Add PTR to the POINTERS array.  Note that we are not interested in
 	 PTR's alias set.  Instead, we cache the alias set for the memory that
 	 PTR points to.  */
-      alias_map = xcalloc (1, sizeof (*alias_map));
+      alias_map = XCNEW (struct alias_map_d);
       alias_map->var = ptr;
       alias_map->set = tag_set;
       ai->pointers[ai->num_pointers++] = alias_map;
@@ -1932,8 +1953,7 @@ dump_alias_info (FILE *file)
   
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      var_ann_t ann = var_ann (var);
-      if (ann->mem_tag_kind == TYPE_TAG)
+      if (TREE_CODE (var) == TYPE_MEMORY_TAG)
 	dump_variable (file, var);
     }
 
@@ -1959,8 +1979,7 @@ dump_alias_info (FILE *file)
   
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      var_ann_t ann = var_ann (var);
-      if (ann->mem_tag_kind == NAME_TAG)
+      if (TREE_CODE (var) == NAME_MEMORY_TAG)
 	dump_variable (file, var);
     }
 
@@ -1990,7 +2009,7 @@ get_ptr_info (tree t)
   pi = SSA_NAME_PTR_INFO (t);
   if (pi == NULL)
     {
-      pi = ggc_alloc (sizeof (*pi));
+      pi = GGC_NEW (struct ptr_info_def);
       memset ((void *)pi, 0, sizeof (*pi));
       SSA_NAME_PTR_INFO (t) = pi;
     }
@@ -2124,7 +2143,7 @@ debug_points_to_info (void)
 void
 dump_may_aliases_for (FILE *file, tree var)
 {
-  varray_type aliases;
+  VEC(tree, gc) *aliases;
   
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
@@ -2133,10 +2152,11 @@ dump_may_aliases_for (FILE *file, tree var)
   if (aliases)
     {
       size_t i;
+      tree al;
       fprintf (file, "{ ");
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
+      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
 	{
-	  print_generic_expr (file, VARRAY_TREE (aliases, i), dump_flags);
+	  print_generic_expr (file, al, dump_flags);
 	  fprintf (file, " ");
 	}
       fprintf (file, "}");
@@ -2163,7 +2183,12 @@ may_be_aliased (tree var)
 
   /* Globally visible variables can have their addresses taken by other
      translation units.  */
-  if (DECL_EXTERNAL (var) || TREE_PUBLIC (var))
+
+  if (MTAG_P (var)
+      && (MTAG_GLOBAL (var) || TREE_PUBLIC (var)))
+    return true;
+  else if (!MTAG_P (var)
+      && (DECL_EXTERNAL (var) || TREE_PUBLIC (var)))
     return true;
 
   /* Automatic variables can't have their addresses escape any other way.
@@ -2190,7 +2215,8 @@ bool
 is_aliased_with (tree tag, tree sym)
 {
   size_t i;
-  varray_type aliases;
+  VEC(tree,gc) *aliases;
+  tree al;
 
   if (var_ann (sym)->is_alias_tag)
     {
@@ -2199,8 +2225,8 @@ is_aliased_with (tree tag, tree sym)
       if (aliases == NULL)
 	return false;
 
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	if (VARRAY_TREE (aliases, i) == sym)
+      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	if (al == sym)
 	  return true;
     }
   else
@@ -2210,8 +2236,8 @@ is_aliased_with (tree tag, tree sym)
       if (aliases == NULL)
 	return false;
 
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	if (VARRAY_TREE (aliases, i) == tag)
+      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	if (al == tag)
 	  return true;
     }
 
@@ -2225,11 +2251,12 @@ is_aliased_with (tree tag, tree sym)
 void
 add_type_alias (tree ptr, tree var)
 {
-  varray_type aliases;
-  tree tag;
+  VEC(tree, gc) *aliases;
+  tree tag, al;
   var_ann_t ann = var_ann (ptr);
   subvar_t svars;
   VEC (tree, heap) *varvec = NULL;  
+  unsigned i;
 
   if (ann->type_mem_tag == NULL_TREE)
     {
@@ -2270,7 +2297,7 @@ add_type_alias (tree ptr, tree var)
 found_tag:
   /* If VAR is not already PTR's type tag, add it to the may-alias set
      for PTR's type tag.  */
-  gcc_assert (var_ann (var)->type_mem_tag == NOT_A_TAG);
+  gcc_assert (!MTAG_P (var));
   tag = ann->type_mem_tag;
 
   /* If VAR has subvars, add the subvars to the tag instead of the
@@ -2289,9 +2316,8 @@ found_tag:
   mark_sym_for_renaming (tag);
   if ((aliases = var_ann (tag)->may_aliases) != NULL)
     {
-      size_t i;
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	mark_sym_for_renaming (VARRAY_TREE (aliases, i));
+      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	mark_sym_for_renaming (al);
     }
 
   /* If we had grouped aliases, VAR may have aliases of its own.  Mark
@@ -2299,9 +2325,8 @@ found_tag:
      aliases of VAR will need to be updated.  */
   if ((aliases = var_ann (var)->may_aliases) != NULL)
     {
-      size_t i;
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	mark_sym_for_renaming (VARRAY_TREE (aliases, i));
+      for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	mark_sym_for_renaming (al);
     }
   VEC_free (tree, heap, varvec);
 }
@@ -2323,7 +2348,7 @@ new_type_alias (tree ptr, tree var)
   subvar_t svars;
 
   gcc_assert (p_ann->type_mem_tag == NULL_TREE);
-  gcc_assert (v_ann->mem_tag_kind == NOT_A_TAG);
+  gcc_assert (!MTAG_P (var));
 
   /* Add VAR to the may-alias set of PTR's new type tag.  If VAR has
      subvars, add the subvars to the tag instead of the actual var.  */
@@ -2344,14 +2369,14 @@ new_type_alias (tree ptr, tree var)
 	 same defs/uses/vdefs/vuses will be found after replacing a reference
 	 to var (or ARRAY_REF to var) with an INDIRECT_REF to ptr whose value
 	 is the address of var.  */
-      varray_type aliases = v_ann->may_aliases;
+      VEC(tree, gc) *aliases = v_ann->may_aliases;
 
       if ((aliases != NULL)
-	  && (VARRAY_ACTIVE_SIZE (aliases) == 1))
+	  && (VEC_length (tree, aliases) == 1))
 	{
-	  tree ali = VARRAY_TREE (aliases, 0);
+	  tree ali = VEC_index (tree, aliases, 0);
 
-	  if (get_var_ann (ali)->mem_tag_kind == TYPE_TAG)
+	  if (TREE_CODE (ali) == TYPE_MEMORY_TAG)
 	    {
 	      p_ann->type_mem_tag = ali;
 	      return;
@@ -2365,10 +2390,11 @@ new_type_alias (tree ptr, tree var)
 	add_may_alias (tag, var);
       else
 	{
-	  size_t i;
+	  unsigned i;
+	  tree al;
 
-	  for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	    add_may_alias (tag, VARRAY_TREE (aliases, i));
+	  for (i = 0; VEC_iterate (tree, aliases, i, al); i++)
+	    add_may_alias (tag, al);
 	}
     }    
 }
@@ -2405,7 +2431,8 @@ struct used_part_map
 static int
 used_part_map_eq (const void *va, const void *vb)
 {
-  const struct used_part_map  *a = va, *b = vb;
+  const struct used_part_map *a = (const struct used_part_map *) va;
+  const struct used_part_map *b = (const struct used_part_map *) vb;
   return (a->uid == b->uid);
 }
 
@@ -2433,7 +2460,7 @@ up_lookup (unsigned int uid)
 {
   struct used_part_map *h, in;
   in.uid = uid;
-  h = htab_find_with_hash (used_portions, &in, uid);
+  h = (struct used_part_map *) htab_find_with_hash (used_portions, &in, uid);
   if (!h)
     return NULL;
   return h->to;
@@ -2447,7 +2474,7 @@ up_insert (unsigned int uid, used_part_t to)
   struct used_part_map *h;
   void **loc;
 
-  h = xmalloc (sizeof (struct used_part_map));
+  h = XNEW (struct used_part_map);
   h->uid = uid;
   h->to = to;
   loc = htab_find_slot_with_hash (used_portions, h,
@@ -2467,7 +2494,7 @@ get_or_create_used_part_for (size_t uid)
   used_part_t up;
   if ((up = up_lookup (uid)) == NULL)
     {
-      up = xcalloc (1, sizeof (struct used_part));
+      up = XCNEW (struct used_part);
       up->minused = INT_MAX;
       up->maxused = 0;
       up->explicit_uses = false;
@@ -2478,28 +2505,28 @@ get_or_create_used_part_for (size_t uid)
 }
 
 
-/* Create and return a structure sub-variable for field FIELD of
+/* Create and return a structure sub-variable for field type FIELD of
    variable VAR.  */
 
 static tree
 create_sft (tree var, tree field)
 {
   var_ann_t ann;
-  tree subvar = create_tmp_var_raw (TREE_TYPE (field), "SFT");
+  tree subvar = create_tag_raw (STRUCT_FIELD_TAG, field, "SFT");
 
   /* We need to copy the various flags from VAR to SUBVAR, so that
      they are is_global_var iff the original variable was.  */
   DECL_CONTEXT (subvar) = DECL_CONTEXT (var);
-  DECL_EXTERNAL (subvar) = DECL_EXTERNAL (var);
+  MTAG_GLOBAL (subvar) = DECL_EXTERNAL (var);
   TREE_PUBLIC  (subvar) = TREE_PUBLIC (var);
   TREE_STATIC (subvar) = TREE_STATIC (var);
   TREE_READONLY (subvar) = TREE_READONLY (var);
 
   /* Add the new variable to REFERENCED_VARS.  */
   ann = get_var_ann (subvar);
-  ann->mem_tag_kind = STRUCT_FIELD; 
   ann->type_mem_tag = NULL;  	
   add_referenced_tmp_var (subvar);
+  SFT_PARENT_VAR (subvar) = var;
 
   return subvar;
 }
@@ -2542,9 +2569,8 @@ create_overlap_variables_for (tree var)
 
       for (i = 0; VEC_iterate (fieldoff_s, fieldstack, i, fo); i++)
 	{
-	  if (!DECL_SIZE (fo->field) 
-	      || TREE_CODE (DECL_SIZE (fo->field)) != INTEGER_CST
-	      || TREE_CODE (TREE_TYPE (fo->field)) == ARRAY_TYPE
+	  if (!fo->size
+	      || TREE_CODE (fo->size) != INTEGER_CST
 	      || fo->offset < 0)
 	    {
 	      notokay = true;
@@ -2596,8 +2622,8 @@ create_overlap_variables_for (tree var)
 	  HOST_WIDE_INT fosize;
 	  tree currfotype;
 
-	  fosize = TREE_INT_CST_LOW (DECL_SIZE (fo->field));
-	  currfotype = TREE_TYPE (fo->field);
+	  fosize = TREE_INT_CST_LOW (fo->size);
+	  currfotype = fo->type;
 
 	  /* If this field isn't in the used portion,
 	     or it has the exact same offset and size as the last
@@ -2610,11 +2636,11 @@ create_overlap_variables_for (tree var)
 		  && fosize == lastfosize
 		  && currfotype == lastfotype))
 	    continue;
-	  sv = ggc_alloc (sizeof (struct subvar));
+	  sv = GGC_NEW (struct subvar);
 	  sv->offset = fo->offset;
 	  sv->size = fosize;
 	  sv->next = *subvars;
-	  sv->var = create_sft (var, fo->field);
+	  sv->var = create_sft (var, fo->type);
 
 	  if (dump_file)
 	    {
@@ -2659,19 +2685,20 @@ find_used_portions (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
   switch (TREE_CODE (*tp))
     {
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
     case COMPONENT_REF:
+    case ARRAY_REF:
       {
 	HOST_WIDE_INT bitsize;
+	HOST_WIDE_INT bitmaxsize;
 	HOST_WIDE_INT bitpos;
-	tree offset;
-	enum machine_mode mode;
-	int unsignedp;
-	int volatilep;	
 	tree ref;
-	ref = get_inner_reference (*tp, &bitsize, &bitpos, &offset, &mode,
-				   &unsignedp, &volatilep, false);
-	if (DECL_P (ref) && offset == NULL && bitsize != -1)
-	  {	    
+	ref = get_ref_base_and_extent (*tp, &bitpos, &bitsize, &bitmaxsize);
+	if (DECL_P (ref)
+	    && var_can_have_subvars (ref)
+	    && bitmaxsize != -1)
+	  {
 	    size_t uid = DECL_UID (ref);
 	    used_part_t up;
 
@@ -2679,36 +2706,17 @@ find_used_portions (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
 	    if (bitpos <= up->minused)
 	      up->minused = bitpos;
-	    if ((bitpos + bitsize >= up->maxused))
-	      up->maxused = bitpos + bitsize;	    
+	    if ((bitpos + bitmaxsize >= up->maxused))
+	      up->maxused = bitpos + bitmaxsize;
 
-	    up->explicit_uses = true;
+	    if (bitsize == bitmaxsize)
+	      up->explicit_uses = true;
+	    else
+	      up->implicit_uses = true;
 	    up_insert (uid, up);
 
 	    *walk_subtrees = 0;
 	    return NULL_TREE;
-	  }
-	else if (DECL_P (ref))
-	  {
-	    if (DECL_SIZE (ref)
-		&& var_can_have_subvars (ref)
-		&& TREE_CODE (DECL_SIZE (ref)) == INTEGER_CST)
-	      {
-		used_part_t up;
-		size_t uid = DECL_UID (ref);
-
-		up = get_or_create_used_part_for (uid);
-
-		up->minused = 0;
-		up->maxused = TREE_INT_CST_LOW (DECL_SIZE (ref));
-
-		up->implicit_uses = true;
-
-		up_insert (uid, up);
-
-		*walk_subtrees = 0;
-		return NULL_TREE;
-	      }
 	  }
       }
       break;
@@ -2802,7 +2810,7 @@ create_structure_vars (void)
       if (var 	  
 	  && DECL_SIZE (var)
 	  && var_can_have_subvars (var)
-	  && var_ann (var)->mem_tag_kind == NOT_A_TAG
+	  && !MTAG_P (var)
 	  && TREE_CODE (DECL_SIZE (var)) == INTEGER_CST)
 	create_overlap_variables_for (var);
     }

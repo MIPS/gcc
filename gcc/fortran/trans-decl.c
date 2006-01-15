@@ -368,7 +368,7 @@ gfc_finish_cray_pointee (tree decl, gfc_symbol *sym)
 
   /* Parameters need to be dereferenced.  */
   if (sym->cp_pointer->attr.dummy) 
-    ptr_decl = gfc_build_indirect_ref (ptr_decl);
+    ptr_decl = build_fold_indirect_ref (ptr_decl);
 
   /* Check to see if we're dealing with a variable-sized array.  */
   if (sym->attr.dimension
@@ -382,7 +382,7 @@ gfc_finish_cray_pointee (tree decl, gfc_symbol *sym)
     {
       ptr_decl = convert (build_pointer_type (TREE_TYPE (decl)),
 			  ptr_decl);
-      value = gfc_build_indirect_ref (ptr_decl);
+      value = build_fold_indirect_ref (ptr_decl);
     }
 
   SET_DECL_VALUE_EXPR (decl, value);
@@ -809,7 +809,9 @@ tree
 gfc_get_symbol_decl (gfc_symbol * sym)
 {
   tree decl;
+  tree etype = NULL_TREE;
   tree length = NULL_TREE;
+  tree tmp = NULL_TREE;
   int byref;
 
   gcc_assert (sym->attr.referenced);
@@ -846,6 +848,21 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 		{
 		  gfc_finish_var_decl (length, sym);
 		  gfc_defer_symbol_init (sym);
+		}
+	    }
+
+	  /* Set the element size of automatic and assumed character length
+	     length, dummy, pointer arrays.  */
+	  if (sym->attr.pointer && sym->attr.dummy
+		&& sym->attr.dimension)
+	    {
+	      tmp = build_fold_indirect_ref (sym->backend_decl);
+	      etype = gfc_get_element_type (TREE_TYPE (tmp));
+	      if (TYPE_SIZE_UNIT (etype) == NULL_TREE)
+		{
+		  tmp = TYPE_SIZE_UNIT (gfc_character1_type_node);
+		  tmp = fold_convert (TREE_TYPE (tmp), sym->ts.cl->backend_decl);
+		  TYPE_SIZE_UNIT (etype) = tmp;
 		}
 	    }
 	}
@@ -1076,7 +1093,7 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
      sense.  */
   if (sym->attr.pure || sym->attr.elemental)
     {
-      if (sym->attr.function)
+      if (sym->attr.function && !gfc_return_by_reference (sym))
 	DECL_IS_PURE (fndecl) = 1;
       /* TODO: check if pure SUBROUTINEs don't have INTENT(OUT)
 	 parameters and don't use alternate returns (is this
@@ -1528,7 +1545,7 @@ build_entry_thunks (gfc_namespace * ns)
       args = nreverse (args);
       args = chainon (args, nreverse (string_args));
       tmp = ns->proc_name->backend_decl;
-      tmp = gfc_build_function_call (tmp, args);
+      tmp = build_function_call_expr (tmp, args);
       if (ns->proc_name->attr.mixed_entry_master)
 	{
 	  tree union_decl, field;
@@ -2541,9 +2558,6 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   trans_function_start (sym);
 
-  /* Will be created as needed.  */
-  current_fake_result_decl = NULL_TREE;
-
   gfc_start_block (&block);
 
   if (ns->entries && ns->proc_name->ts.type == BT_CHARACTER)
@@ -2565,7 +2579,9 @@ gfc_generate_function_code (gfc_namespace * ns)
   gfc_generate_contained_functions (ns);
 
   generate_local_vars (ns);
-
+  
+  /* Will be created as needed.  */
+  current_fake_result_decl = NULL_TREE;
   current_function_return_label = NULL;
 
   /* Now generate the code for the body of this function.  */
@@ -2585,7 +2601,7 @@ gfc_generate_function_code (gfc_namespace * ns)
       arglist = gfc_chainon_list (arglist,
 				  build_int_cst (gfc_int4_type_node,
 						 gfc_option.allow_std));
-      tmp = gfc_build_function_call (gfor_fndecl_set_std, arglist);
+      tmp = build_function_call_expr (gfor_fndecl_set_std, arglist);
       gfc_add_expr_to_block (&body, tmp);
     }
 
@@ -2600,7 +2616,7 @@ gfc_generate_function_code (gfc_namespace * ns)
       arglist = gfc_chainon_list (NULL_TREE,
 				  build_int_cst (gfc_c_int_type_node,
 						 gfc_option.fpe));
-      tmp = gfc_build_function_call (gfor_fndecl_set_fpe, arglist);
+      tmp = build_function_call_expr (gfor_fndecl_set_fpe, arglist);
       gfc_add_expr_to_block (&body, tmp);
     }
 
@@ -2747,7 +2763,7 @@ gfc_generate_constructors (void)
   for (; gfc_static_ctors; gfc_static_ctors = TREE_CHAIN (gfc_static_ctors))
     {
       tmp =
-	gfc_build_function_call (TREE_VALUE (gfc_static_ctors), NULL_TREE);
+	build_function_call_expr (TREE_VALUE (gfc_static_ctors), NULL_TREE);
       DECL_SAVED_TREE (fndecl) = build_stmt (EXPR_STMT, tmp);
     }
 

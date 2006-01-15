@@ -126,6 +126,8 @@ typedef struct inline_data
   bool cloning_p;
   /* Versioning function is slightly different from inlining. */
   bool versioning_p;
+  /* If set, the call_stmt of edges in clones of caller functions will
+     be updated.  */
   bool update_clones_p;
   /* Callgraph node of function we are inlining into.  */
   struct cgraph_node *node;
@@ -607,7 +609,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       else /* Else the RETURN_EXPR returns no value.  */
 	{
 	  *tp = NULL;
-	  return (void *)1;
+	  return (tree) (void *)1;
 	}
     }
   else if (TREE_CODE (*tp) == SSA_NAME)
@@ -778,7 +780,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       else if (TREE_CODE (*tp) == ADDR_EXPR)
 	{
 	  walk_tree (&TREE_OPERAND (*tp, 0), copy_body_r, id, NULL);
-	  recompute_tree_invarant_for_addr_expr (*tp);
+	  recompute_tree_invariant_for_addr_expr (*tp);
 	  *walk_subtrees = 0;
 	}
     }
@@ -798,7 +800,8 @@ copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
 
   /* create_basic_block() will append every new block to
      basic_block_info automatically.  */
-  copy_basic_block = create_basic_block (NULL, (void *) 0, bb->prev_bb->aux);
+  copy_basic_block = create_basic_block (NULL, (void *) 0,
+                                         (basic_block) bb->prev_bb->aux);
   copy_basic_block->count = bb->count * count_scale / REG_BR_PROB_BASE;
   copy_basic_block->frequency = (bb->frequency
 				     * frequency_scale / REG_BR_PROB_BASE);
@@ -908,7 +911,7 @@ copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
 static void
 copy_edges_for_bb (basic_block bb, int count_scale, basic_block exit_block_map)
 {
-  basic_block new_bb = bb->aux;
+  basic_block new_bb = (basic_block) bb->aux;
   edge_iterator ei;
   edge old_edge;
   block_stmt_iterator bsi;
@@ -927,7 +930,7 @@ copy_edges_for_bb (basic_block bb, int count_scale, basic_block exit_block_map)
 	if (old_edge->dest->index == EXIT_BLOCK && !old_edge->flags
 	    && old_edge->dest->aux != EXIT_BLOCK_PTR)
 	  flags |= EDGE_FALLTHRU;
-	new = make_edge (new_bb, old_edge->dest->aux, flags);
+	new = make_edge (new_bb, (basic_block) old_edge->dest->aux, flags);
 	new->count = old_edge->count * count_scale / REG_BR_PROB_BASE;
 	new->probability = old_edge->probability;
       }
@@ -1070,7 +1073,7 @@ copy_phis_for_bb (basic_block bb, inline_data *id)
 static tree
 remap_decl_1 (tree decl, void *data)
 {
-  return remap_decl (decl, data);
+  return remap_decl (decl, (inline_data *) data);
 }
 
 static void
@@ -1366,13 +1369,13 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
       if (def && is_gimple_reg (p))
 	{
 	  def = remap_ssa_name (def, id);
-          init_stmt = build (MODIFY_EXPR, TREE_TYPE (var), def, rhs);
+          init_stmt = build2 (MODIFY_EXPR, TREE_TYPE (var), def, rhs);
 	  SSA_NAME_DEF_STMT (def) = init_stmt;
 	  /*gcc_assert (IS_EMPTY_STMT (default_def (var)));*/
 	  set_default_def (var, NULL);
 	}
       else
-        init_stmt = build (MODIFY_EXPR, TREE_TYPE (var), var, rhs);
+        init_stmt = build2 (MODIFY_EXPR, TREE_TYPE (var), var, rhs);
 
       /* If we did not create a gimple value and we did not create a gimple
 	 cast of a gimple value, then we will need to gimplify INIT_STMTS
@@ -1508,6 +1511,10 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
 	  mark_sym_for_renaming (TREE_OPERAND (return_slot_addr, 0));
 	  var = build_fold_indirect_ref (return_slot_addr);
 	}
+      if (TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
+	  && !DECL_COMPLEX_GIMPLE_REG_P (result)
+	  && DECL_P (var))
+	DECL_COMPLEX_GIMPLE_REG_P (var) = 0;
       use = NULL;
       goto done;
     }
@@ -1874,7 +1881,7 @@ estimate_move_cost (tree type)
 static tree
 estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 {
-  int *count = data;
+  int *count = (int *) data;
   tree x = *tp;
 
   if (IS_TYPE_OR_DECL_P (x))
@@ -2327,7 +2334,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
   else
     {
       tree stmt = bsi_stmt (stmt_bsi);
-      bsi_remove (&stmt_bsi);
+      bsi_remove (&stmt_bsi, false);
       bsi_insert_after (&bsi, stmt, BSI_NEW_STMT);
     }
   stmt_bsi = bsi_start (return_block);
@@ -2462,13 +2469,13 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
 	  /* Otherwise make this variable undefined.  */
 	  else
 	    {
-	      bsi_remove (&stmt_bsi);
+	      bsi_remove (&stmt_bsi, true);
 	      set_default_def (var, name);
 	      SSA_NAME_DEF_STMT (name) = build_empty_stmt ();
 	    }
 	}
       else
-        bsi_remove (&stmt_bsi);
+        bsi_remove (&stmt_bsi, true);
     }
 
   bsi_next (&bsi);
@@ -3031,9 +3038,11 @@ tree_versionable_function_p (tree fndecl)
    respectively.  In case we want to replace a DECL 
    tree with another tree while duplicating the function's 
    body, TREE_MAP represents the mapping between these 
-   trees.  */
+   trees. If UPDATE_CLONES is set, the call_stmt fields
+   of edges of clones of the function will be updated.  */
 void
-tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map, bool update_clones)
+tree_function_versioning (tree old_decl, tree new_decl, varray_type tree_map,
+			  bool update_clones)
 {
   struct cgraph_node *old_version_node;
   struct cgraph_node *new_version_node;

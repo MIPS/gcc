@@ -62,7 +62,7 @@ static bool try_crossjump_to_edge (int, edge, edge);
 static bool try_crossjump_bb (int, basic_block);
 static bool outgoing_edges_match (int, basic_block, basic_block);
 static int flow_find_cross_jump (int, basic_block, basic_block, rtx *, rtx *);
-static bool insns_match_p (int, rtx, rtx);
+static bool old_insns_match_p (int, rtx, rtx);
 
 static void merge_blocks_move_predecessor_nojumps (basic_block, basic_block);
 static void merge_blocks_move_successor_nojumps (basic_block, basic_block);
@@ -444,7 +444,7 @@ try_forward_edges (int mode, basic_block b)
 	}
 
       target = first = e->dest;
-      counter = 0;
+      counter = NUM_FIXED_BLOCKS;
 
       /* If we are partitioning hot/cold basic_blocks, we don't want to mess
 	 up jumps that cross between hot/cold sections.
@@ -506,7 +506,7 @@ try_forward_edges (int mode, basic_block b)
 		  if (t->dest == b)
 		    break;
 
-		  gcc_assert (nthreaded_edges < n_basic_blocks);
+		  gcc_assert (nthreaded_edges < n_basic_blocks - NUM_FIXED_BLOCKS);
 		  threaded_edges[nthreaded_edges++] = t;
 
 		  new_target = t->dest;
@@ -976,7 +976,7 @@ merge_memattrs (rtx x, rtx y)
 /* Return true if I1 and I2 are equivalent and thus can be crossjumped.  */
 
 static bool
-insns_match_p (int mode ATTRIBUTE_UNUSED, rtx i1, rtx i2)
+old_insns_match_p (int mode ATTRIBUTE_UNUSED, rtx i1, rtx i2)
 {
   rtx p1, p2;
 
@@ -1130,7 +1130,7 @@ flow_find_cross_jump (int mode ATTRIBUTE_UNUSED, basic_block bb1,
       if (i1 == BB_HEAD (bb1) || i2 == BB_HEAD (bb2))
 	break;
 
-      if (!insns_match_p (mode, i1, i2))
+      if (!old_insns_match_p (mode, i1, i2))
 	break;
 
       merge_memattrs (i1, i2);
@@ -1192,6 +1192,134 @@ flow_find_cross_jump (int mode ATTRIBUTE_UNUSED, basic_block bb1,
     }
 
   return ninsns;
+}
+
+/* Return true iff the condbranches at the end of BB1 and BB2 match.  */
+bool
+condjump_equiv_p (struct equiv_info *info, bool call_init)
+{
+  basic_block bb1 = info->x_block;
+  basic_block bb2 = info->y_block;
+  edge b1 = BRANCH_EDGE (bb1);
+  edge b2 = BRANCH_EDGE (bb2);
+  edge f1 = FALLTHRU_EDGE (bb1);
+  edge f2 = FALLTHRU_EDGE (bb2);
+  bool reverse, match;
+  rtx set1, set2, cond1, cond2;
+  rtx src1, src2;
+  enum rtx_code code1, code2;
+
+  /* Get around possible forwarders on fallthru edges.  Other cases
+     should be optimized out already.  */
+  if (FORWARDER_BLOCK_P (f1->dest))
+    f1 = single_succ_edge (f1->dest);
+
+  if (FORWARDER_BLOCK_P (f2->dest))
+    f2 = single_succ_edge (f2->dest);
+
+  /* To simplify use of this function, return false if there are
+     unneeded forwarder blocks.  These will get eliminated later
+     during cleanup_cfg.  */
+  if (FORWARDER_BLOCK_P (f1->dest)
+      || FORWARDER_BLOCK_P (f2->dest)
+      || FORWARDER_BLOCK_P (b1->dest)
+      || FORWARDER_BLOCK_P (b2->dest))
+    return false;
+
+  if (f1->dest == f2->dest && b1->dest == b2->dest)
+    reverse = false;
+  else if (f1->dest == b2->dest && b1->dest == f2->dest)
+    reverse = true;
+  else
+    return false;
+
+  set1 = pc_set (BB_END (bb1));
+  set2 = pc_set (BB_END (bb2));
+  if ((XEXP (SET_SRC (set1), 1) == pc_rtx)
+      != (XEXP (SET_SRC (set2), 1) == pc_rtx))
+    reverse = !reverse;
+
+  src1 = SET_SRC (set1);
+  src2 = SET_SRC (set2);
+  cond1 = XEXP (src1, 0);
+  cond2 = XEXP (src2, 0);
+  code1 = GET_CODE (cond1);
+  if (reverse)
+    code2 = reversed_comparison_code (cond2, BB_END (bb2));
+  else
+    code2 = GET_CODE (cond2);
+
+  if (code2 == UNKNOWN)
+    return false;
+
+  if (call_init && !struct_equiv_init (STRUCT_EQUIV_START | info->mode, info))
+    gcc_unreachable ();
+  /* Make the sources of the pc sets unreadable so that when we call
+     insns_match_p it won't process them.
+     The death_notes_match_p from insns_match_p won't see the local registers
+     used for the pc set, but that could only cause missed optimizations when
+     there are actually condjumps that use stack registers.  */
+  SET_SRC (set1) = pc_rtx;
+  SET_SRC (set2) = pc_rtx;
+  /* Verify codes and operands match.  */
+  if (code1 == code2)
+    {
+      match = (insns_match_p (BB_END (bb1), BB_END (bb2), info)
+	       && rtx_equiv_p (&XEXP (cond1, 0), XEXP (cond2, 0), 1, info)
+	       && rtx_equiv_p (&XEXP (cond1, 1), XEXP (cond2, 1), 1, info));
+
+    }
+  else if (code1 == swap_condition (code2))
+    {
+      match = (insns_match_p (BB_END (bb1), BB_END (bb2), info)
+	       && rtx_equiv_p (&XEXP (cond1, 1), XEXP (cond2, 0), 1, info)
+	       && rtx_equiv_p (&XEXP (cond1, 0), XEXP (cond2, 1), 1, info));
+
+    }
+  else
+    match = false;
+  SET_SRC (set1) = src1;
+  SET_SRC (set2) = src2;
+  match &= verify_changes (0);
+
+  /* If we return true, we will join the blocks.  Which means that
+     we will only have one branch prediction bit to work with.  Thus
+     we require the existing branches to have probabilities that are
+     roughly similar.  */
+  if (match
+      && !optimize_size
+      && maybe_hot_bb_p (bb1)
+      && maybe_hot_bb_p (bb2))
+    {
+      int prob2;
+
+      if (b1->dest == b2->dest)
+	prob2 = b2->probability;
+      else
+	/* Do not use f2 probability as f2 may be forwarded.  */
+	prob2 = REG_BR_PROB_BASE - b2->probability;
+
+      /* Fail if the difference in probabilities is greater than 50%.
+	 This rules out two well-predicted branches with opposite
+	 outcomes.  */
+      if (abs (b1->probability - prob2) > REG_BR_PROB_BASE / 2)
+	{
+	  if (dump_file)
+	    fprintf (dump_file,
+		     "Outcomes of branch in bb %i and %i differ too much (%i %i)\n",
+		     bb1->index, bb2->index, b1->probability, prob2);
+
+	  match = false;
+	}
+    }
+
+  if (dump_file && match)
+    fprintf (dump_file, "Conditionals in bb %i and %i match.\n",
+	     bb1->index, bb2->index);
+
+  if (!match)
+    cancel_changes (0);
+  return match;
 }
 
 /* Return true iff outgoing edges of BB1 and BB2 match, together with
@@ -1385,7 +1513,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 		  rr.update_label_nuses = false;
 		  for_each_rtx (&BB_END (bb1), replace_label, &rr);
 
-		  match = insns_match_p (mode, BB_END (bb1), BB_END (bb2));
+		  match = old_insns_match_p (mode, BB_END (bb1), BB_END (bb2));
 		  if (dump_file && match)
 		    fprintf (dump_file,
 			     "Tablejumps in bb %i and %i match.\n",
@@ -1407,7 +1535,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 
   /* First ensure that the instructions match.  There may be many outgoing
      edges so this test is generally cheaper.  */
-  if (!insns_match_p (mode, BB_END (bb1), BB_END (bb2)))
+  if (!old_insns_match_p (mode, BB_END (bb1), BB_END (bb2)))
     return false;
 
   /* Search the outgoing edges, ensure that the counts do match, find possible
@@ -1572,11 +1700,23 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
 	}
     }
 
-  /* Avoid splitting if possible.  */
-  if (newpos2 == BB_HEAD (src2))
+  /* Avoid splitting if possible.  We must always split when SRC2 has
+     EH predecessor edges, or we may end up with basic blocks with both
+     normal and EH predecessor edges.  */
+  if (newpos2 == BB_HEAD (src2)
+      && !(EDGE_PRED (src2, 0)->flags & EDGE_EH))
     redirect_to = src2;
   else
     {
+      if (newpos2 == BB_HEAD (src2))
+	{
+	  /* Skip possible basic block header.  */
+	  if (LABEL_P (newpos2))
+	    newpos2 = NEXT_INSN (newpos2);
+	  if (NOTE_P (newpos2))
+	    newpos2 = NEXT_INSN (newpos2);
+	}
+
       if (dump_file)
 	fprintf (dump_file, "Splitting bb %i before %i insns\n",
 		 src2->index, nmatch);
@@ -1905,7 +2045,7 @@ try_optimize_cfg (int mode)
 		  /* Note that forwarder_block_p true ensures that
 		     there is a successor for this block.  */
 		  && (single_succ_edge (b)->flags & EDGE_FALLTHRU)
-		  && n_basic_blocks > 1)
+		  && n_basic_blocks > NUM_FIXED_BLOCKS + 1)
 		{
 		  if (dump_file)
 		    fprintf (dump_file,

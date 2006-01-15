@@ -87,9 +87,6 @@ lvalue_p_1 (tree ref,
     case COMPONENT_REF:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
 				    treat_class_rvalues_as_lvalues);
-      /* In an expression of the form "X.Y", the packed-ness of the
-	 expression does not depend on "X".  */
-      op1_lvalue_kind &= ~clk_packed;
       /* Look at the member designator.  */
       if (!op1_lvalue_kind
 	  /* The "field" can be a FUNCTION_DECL or an OVERLOAD in some
@@ -325,8 +322,6 @@ build_cplus_new (tree type, tree init)
 tree
 build_target_expr_with_type (tree init, tree type)
 {
-  tree slot;
-
   gcc_assert (!VOID_TYPE_P (type));
 
   if (TREE_CODE (init) == TARGET_EXPR)
@@ -342,8 +337,7 @@ build_target_expr_with_type (tree init, tree type)
        aggregate; there's no additional work to be done.  */
     return force_rvalue (init);
 
-  slot = build_local_temp (type);
-  return build_target_expr (slot, init);
+  return force_target_expr (type, init);
 }
 
 /* Like the above function, but without the checking.  This function should
@@ -817,6 +811,10 @@ tree
 build_qualified_name (tree type, tree scope, tree name, bool template_p)
 {
   tree t;
+  if (type == error_mark_node
+      || scope == error_mark_node
+      || name == error_mark_node)
+    return error_mark_node;
   t = build2 (SCOPE_REF, type, scope, name);
   QUALIFIED_NAME_IS_TEMPLATE (t) = template_p;
   return t;
@@ -839,9 +837,9 @@ is_overloaded_fn (tree x)
 int
 really_overloaded_fn (tree x)
 {
-  /* A baselink is also considered an overloaded function.  */
   if (TREE_CODE (x) == OFFSET_REF)
     x = TREE_OPERAND (x, 1);
+  /* A baselink is also considered an overloaded function.  */
   if (BASELINK_P (x))
     x = BASELINK_FUNCTIONS (x);
 

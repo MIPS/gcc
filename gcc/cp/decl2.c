@@ -2301,7 +2301,7 @@ get_priority_info (int priority)
     {
       /* Create a new priority information structure, and insert it
 	 into the map.  */
-      pi = xmalloc (sizeof (struct priority_info_s));
+      pi = XNEW (struct priority_info_s);
       pi->initializations_p = 0;
       pi->destructions_p = 0;
       splay_tree_insert (priority_info_map,
@@ -3233,13 +3233,26 @@ check_default_args (tree x)
     }
 }
 
-/* Mark DECL as "used" in the program.  If DECL is a specialization or
-   implicitly declared class member, generate the actual definition.  */
+/* Mark DECL (either a _DECL or a BASELINK) as "used" in the program.
+   If DECL is a specialization or implicitly declared class member,
+   generate the actual definition.  */
 
 void
 mark_used (tree decl)
 {
   HOST_WIDE_INT saved_processing_template_decl = 0;
+
+  /* If DECL is a BASELINK for a single function, then treat it just
+     like the DECL for the function.  Otherwise, if the BASELINK is
+     for an overloaded function, we don't know which function was
+     actually used until after overload resolution.  */
+  if (TREE_CODE (decl) == BASELINK)
+    {
+      decl = BASELINK_FUNCTIONS (decl);
+      if (really_overloaded_fn (decl))
+	return;
+      decl = OVL_CURRENT (decl);
+    }
 
   TREE_USED (decl) = 1;
   /* If we don't need a value, then we don't need to synthesize DECL.  */ 

@@ -2253,15 +2253,7 @@ build_array_ref (tree array, tree idx)
     {
       tree rval, type;
 
-      /* Subscripting with type char is likely to lose
-	 on a machine where chars are signed.
-	 So warn on any machine, but optionally.
-	 Don't warn for unsigned char since that type is safe.
-	 Don't warn for signed char because anyone who uses that
-	 must have done so deliberately.  */
-      if (warn_char_subscripts
-	  && TYPE_MAIN_VARIANT (TREE_TYPE (idx)) == char_type_node)
-	warning (0, "array subscript has type %<char%>");
+      warn_array_subscript_with_type_char (idx);
 
       if (!INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (idx)))
 	{
@@ -3097,6 +3089,10 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case NE_EXPR:
       if (warn_float_equal && (code0 == REAL_TYPE || code1 == REAL_TYPE))
 	warning (0, "comparing floating point with == or != is unsafe");
+      if ((TREE_CODE (orig_op0) == STRING_CST && !integer_zerop (op1))
+	  || (TREE_CODE (orig_op1) == STRING_CST && !integer_zerop (op0)))
+	warning (OPT_Wstring_literal_comparison,
+		 "comparison with string literal");
 
       build_type = boolean_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
@@ -3202,6 +3198,11 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case GE_EXPR:
     case LT_EXPR:
     case GT_EXPR:
+      if (TREE_CODE (orig_op0) == STRING_CST
+	  || TREE_CODE (orig_op1) == STRING_CST)
+	warning (OPT_Wstring_literal_comparison,
+		 "comparison with string literal");
+
       build_type = boolean_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE)
 	   && (code1 == INTEGER_TYPE || code1 == REAL_TYPE))
@@ -3696,7 +3697,7 @@ build_x_unary_op (enum tree_code code, tree xarg)
 	    }
 	  else
 	    {
-	      error ("parenthesis around %qE cannot be used to form a"
+	      error ("parentheses around %qE cannot be used to form a"
 		     " pointer-to-member-function",
 		     xarg);
 	      PTRMEM_OK_P (xarg) = 1;
@@ -4116,10 +4117,11 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	     is used here to remove this const from the diagnostics
 	     and the created OFFSET_REF.  */
 	  tree base = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (arg, 0)));
-	  tree name = DECL_NAME (get_first_fn (TREE_OPERAND (arg, 1)));
+	  tree fn = get_first_fn (TREE_OPERAND (arg, 1));
 
 	  if (! flag_ms_extensions)
 	    {
+	      tree name = DECL_NAME (fn);
 	      if (current_class_type
 		  && TREE_OPERAND (arg, 0) == current_class_ref)
 		/* An expression like &memfn.  */
@@ -4133,7 +4135,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 			 "  Say %<&%T::%D%>",
 			 base, name);
 	    }
-	  arg = build_offset_ref (base, name, /*address_p=*/true);
+	  arg = build_offset_ref (base, fn, /*address_p=*/true);
 	}
 
     offset_ref:
@@ -4190,75 +4192,93 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	  break;
 	}
 
-      /* Allow the address of a constructor if all the elements
-	 are constant.  */
-      if (TREE_CODE (arg) == CONSTRUCTOR && TREE_HAS_CONSTRUCTOR (arg)
-	  && TREE_CONSTANT (arg))
-	;
       /* Anything not already handled and not a true memory reference
 	 is an error.  */
-      else if (TREE_CODE (argtype) != FUNCTION_TYPE
-	       && TREE_CODE (argtype) != METHOD_TYPE
-	       && TREE_CODE (arg) != OFFSET_REF
-	       && !lvalue_or_else (arg, lv_addressof))
+      if (TREE_CODE (argtype) != FUNCTION_TYPE
+	  && TREE_CODE (argtype) != METHOD_TYPE
+	  && TREE_CODE (arg) != OFFSET_REF
+	  /* Permit users to take the address of a compound-literal
+	     with sufficient simple elements.  */
+	  && !(COMPOUND_LITERAL_P (arg) && TREE_STATIC (arg))
+	  && !lvalue_or_else (arg, lv_addressof))
 	return error_mark_node;
 
       if (argtype != error_mark_node)
 	argtype = build_pointer_type (argtype);
 
-      {
-	tree addr;
+      /* In a template, we are processing a non-dependent expression
+	 so we can just form an ADDR_EXPR with the correct type.  */
+      if (processing_template_decl)
+	{
+	  val = build_address (arg);
+	  if (TREE_CODE (arg) == OFFSET_REF)
+	    PTRMEM_OK_P (val) = PTRMEM_OK_P (arg);
+	  return val;
+	}
 
-	if (TREE_CODE (arg) != COMPONENT_REF
-	    /* Inside a template, we are processing a non-dependent
-	       expression so we can just form an ADDR_EXPR with the
-	       correct type.  */
-	    || processing_template_decl)
-	  {
-	    addr = build_address (arg);
-	    if (TREE_CODE (arg) == OFFSET_REF)
-	      PTRMEM_OK_P (addr) = PTRMEM_OK_P (arg);
-	  }
-	else if (TREE_CODE (TREE_OPERAND (arg, 1)) == BASELINK)
-	  {
-	    tree fn = BASELINK_FUNCTIONS (TREE_OPERAND (arg, 1));
+      /* If the user has taken the address of the compound literal,
+	 create a variable to contain the value of the literal and
+	 then return the address of that variable.  */
+      if (COMPOUND_LITERAL_P (arg))
+	{
+	  tree var;
+	  gcc_assert (TREE_STATIC (arg));
+	  var = create_temporary_var (TREE_TYPE (arg));
+	  TREE_STATIC (var) = 1;
+	  set_compound_literal_name (var); 
+	  initialize_artificial_var (var, arg);
+	  arg = pushdecl (var);
+	  /* Since each compound literal is unique, pushdecl should
+	     never find a pre-existing variable with the same
+	     name.  */
+	  gcc_assert (arg == var);
+	}
+      
+      if (TREE_CODE (arg) != COMPONENT_REF)
+	{
+	  val = build_address (arg);
+	  if (TREE_CODE (arg) == OFFSET_REF)
+	    PTRMEM_OK_P (val) = PTRMEM_OK_P (arg);
+	}
+      else if (TREE_CODE (TREE_OPERAND (arg, 1)) == BASELINK)
+	{
+	  tree fn = BASELINK_FUNCTIONS (TREE_OPERAND (arg, 1));
 
-	    /* We can only get here with a single static member
-	       function.  */
-	    gcc_assert (TREE_CODE (fn) == FUNCTION_DECL
-			&& DECL_STATIC_FUNCTION_P (fn));
-	    mark_used (fn);
-	    addr = build_address (fn);
-	    if (TREE_SIDE_EFFECTS (TREE_OPERAND (arg, 0)))
-	      /* Do not lose object's side effects.  */
-	      addr = build2 (COMPOUND_EXPR, TREE_TYPE (addr),
-			     TREE_OPERAND (arg, 0), addr);
-	  }
-	else if (DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
-	  {
-	    error ("attempt to take address of bit-field structure member %qD",
-		   TREE_OPERAND (arg, 1));
-	    return error_mark_node;
-	  }
-	else
-	  {
-	    tree object = TREE_OPERAND (arg, 0);
-	    tree field = TREE_OPERAND (arg, 1);
-	    gcc_assert (same_type_ignoring_top_level_qualifiers_p
-			(TREE_TYPE (object), decl_type_context (field)));
-	    addr = build_address (arg);
-	  }
+	  /* We can only get here with a single static member
+	     function.  */
+	  gcc_assert (TREE_CODE (fn) == FUNCTION_DECL
+		      && DECL_STATIC_FUNCTION_P (fn));
+	  mark_used (fn);
+	  val = build_address (fn);
+	  if (TREE_SIDE_EFFECTS (TREE_OPERAND (arg, 0)))
+	    /* Do not lose object's side effects.  */
+	    val = build2 (COMPOUND_EXPR, TREE_TYPE (val),
+			  TREE_OPERAND (arg, 0), val);
+	}
+      else if (DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
+	{
+	  error ("attempt to take address of bit-field structure member %qD",
+		 TREE_OPERAND (arg, 1));
+	  return error_mark_node;
+	}
+      else
+	{
+	  tree object = TREE_OPERAND (arg, 0);
+	  tree field = TREE_OPERAND (arg, 1);
+	  gcc_assert (same_type_ignoring_top_level_qualifiers_p
+		      (TREE_TYPE (object), decl_type_context (field)));
+	  val = build_address (arg);
+	}
 
-	if (TREE_CODE (argtype) == POINTER_TYPE
-	    && TREE_CODE (TREE_TYPE (argtype)) == METHOD_TYPE)
-	  {
-	    build_ptrmemfunc_type (argtype);
-	    addr = build_ptrmemfunc (argtype, addr, 0,
-				     /*c_cast_p=*/false);
-	  }
+      if (TREE_CODE (argtype) == POINTER_TYPE
+	  && TREE_CODE (TREE_TYPE (argtype)) == METHOD_TYPE)
+	{
+	  build_ptrmemfunc_type (argtype);
+	  val = build_ptrmemfunc (argtype, val, 0,
+				  /*c_cast_p=*/false);
+	}
 
-	return addr;
-      }
+      return val;
 
     default:
       break;
@@ -5019,6 +5039,8 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
   else if ((TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (intype))
 	   || (TYPE_PTROBV_P (type) && TYPE_PTROBV_P (intype)))
     {
+      tree sexpr = expr;
+
       if (!c_cast_p)
 	check_for_casting_away_constness (intype, type, error,
 					  "reinterpret_cast");
@@ -5032,6 +5054,11 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	warning (0, "cast from %qT to %qT increases required alignment of "
 		 "target type",
 		 intype, type);
+
+      /* We need to strip nops here, because the frontend likes to
+	 create (int *)&a for array-to-pointer decay, instead of &a[0].  */
+      STRIP_NOPS (sexpr);
+      strict_aliasing_warning (intype, type, sexpr);
 
       return fold_if_not_in_template (build_nop (type, expr));
     }

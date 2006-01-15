@@ -381,15 +381,14 @@ verify_flow_insensitive_alias_info (void)
     {
       size_t j;
       var_ann_t ann;
-      varray_type may_aliases;
+      VEC(tree,gc) *may_aliases;
+      tree alias;
 
       ann = var_ann (var);
       may_aliases = ann->may_aliases;
 
-      for (j = 0; may_aliases && j < VARRAY_ACTIVE_SIZE (may_aliases); j++)
+      for (j = 0; VEC_iterate (tree, may_aliases, j, alias); j++)
 	{
-	  tree alias = VARRAY_TREE (may_aliases, j);
-
 	  bitmap_set_bit (visited, DECL_UID (alias));
 
 	  if (!may_be_aliased (alias))
@@ -406,7 +405,7 @@ verify_flow_insensitive_alias_info (void)
       var_ann_t ann;
       ann = var_ann (var);
 
-      if (ann->mem_tag_kind == NOT_A_TAG
+      if (!MTAG_P (var)
 	  && ann->is_alias_tag
 	  && !bitmap_bit_p (visited, DECL_UID (var)))
 	{
@@ -545,13 +544,12 @@ verify_name_tags (void)
       if (tmt)
 	{
 	  size_t i;
-	  varray_type aliases = var_ann (tmt)->may_aliases;
+	  VEC(tree,gc) *aliases = var_ann (tmt)->may_aliases;
+	  tree alias;
+
 	  bitmap_clear (type_aliases);
-	  for (i = 0; aliases && i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	    {
-	      tree alias = VARRAY_TREE (aliases, i);
-	      bitmap_set_bit (type_aliases, DECL_UID (alias));
-	    }
+	  for (i = 0; VEC_iterate (tree, aliases, i, alias); i++)
+	    bitmap_set_bit (type_aliases, DECL_UID (alias));
 
 	  /* When grouping, we may have added PTR's type tag into the
 	     alias set of PTR's name tag.  To prevent a false
@@ -634,7 +632,7 @@ verify_ssa (bool check_modified_stmt)
 {
   size_t i;
   basic_block bb;
-  basic_block *definition_block = xcalloc (num_ssa_names, sizeof (basic_block));
+  basic_block *definition_block = XCNEWVEC (basic_block, num_ssa_names);
   ssa_op_iter iter;
   tree op;
   enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
@@ -730,15 +728,6 @@ verify_ssa (bool check_modified_stmt)
 		}
 	    }
 
-
-	  if (stmt_ann (stmt)->makes_aliased_stores 
-	      && ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF))
-	    {
-	      error ("statement makes aliased stores, but has no V_MAY_DEFS");
-	      print_generic_stmt (stderr, stmt, TDF_VOPS);
-	      goto err;
-	    }
-
 	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
 	                            SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
 	    {
@@ -781,7 +770,8 @@ err:
 int
 int_tree_map_eq (const void *va, const void *vb)
 {
-  const struct int_tree_map  *a = va, *b = vb;
+  const struct int_tree_map *a = (const struct int_tree_map *) va;
+  const struct int_tree_map *b = (const struct int_tree_map *) vb;
   return (a->uid == b->uid);
 }
 
@@ -860,7 +850,7 @@ delete_tree_ssa (void)
 	 annotations is currently local.  We need to separate out the global
 	 info and probably kill annotations after early passes and rebuild
 	 before late so they don't consume memory during IPA.  */
-      if (!TREE_STATIC (var) && !DECL_EXTERNAL (var))
+      if (MTAG_P (var) || (!TREE_STATIC (var) && !DECL_EXTERNAL (var)))
 	{
 	  ggc_free (var->common.ann);
 	  var->common.ann = NULL;

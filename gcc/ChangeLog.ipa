@@ -1,3 +1,7 @@
+2006-01-15  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline
+
 2005-11-29  Jan Hubicka  <jh@suse.cz>
 
 	* ipa-type-escape.c (look_for_casts): Use get_base_var.

@@ -72,6 +72,7 @@ enum rid
   RID_ASM,       RID_TYPEOF,   RID_ALIGNOF,  RID_ATTRIBUTE,  RID_VA_ARG,
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
   RID_TYPES_COMPATIBLE_P,
+  RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128,
 
   /* Too many ways of getting the name of a function as a string */
   RID_FUNCTION_NAME, RID_PRETTY_FUNCTION_NAME, RID_C99_FUNCTION_NAME,
@@ -649,6 +650,7 @@ extern void binary_op_error (enum tree_code);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
+extern void strict_aliasing_warning(tree, tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
@@ -676,6 +678,8 @@ extern void c_common_nodes_and_builtins (void);
 extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
 
 extern void disable_builtin_function (const char *);
+
+extern void set_compound_literal_name (tree decl);
 
 extern tree build_va_arg (tree, tree);
 
@@ -836,6 +840,8 @@ extern int complete_array_type (tree *, tree, bool);
 
 extern tree builtin_type_for_size (int, bool);
 
+extern void warn_array_subscript_with_type_char (tree);
+
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
 extern int c_gimplify_expr (tree *, tree *, tree *);
@@ -848,7 +854,7 @@ extern void c_common_read_pch (cpp_reader *pfile, const char *name, int fd,
 			       const char *orig);
 extern void c_common_write_pch (void);
 extern void c_common_no_more_pch (void);
-extern void c_common_pch_pragma (cpp_reader *pfile);
+extern void c_common_pch_pragma (cpp_reader *pfile, const char *);
 extern void c_common_print_pch_checksum (FILE *f);
 
 /* In *-checksum.c */

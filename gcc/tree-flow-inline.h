@@ -78,7 +78,8 @@ static inline tree
 first_referenced_var (referenced_var_iterator *iter)
 {
   struct int_tree_map *itm;
-  itm = first_htab_element (&iter->hti, referenced_vars);
+  itm = (struct int_tree_map *) first_htab_element (&iter->hti,
+                                                    referenced_vars);
   if (!itm) 
     return NULL;
   return itm->to;
@@ -100,7 +101,7 @@ static inline tree
 next_referenced_var (referenced_var_iterator *iter)
 {
   struct int_tree_map *itm;
-  itm = next_htab_element (&iter->hti);
+  itm = (struct int_tree_map *) next_htab_element (&iter->hti);
   if (!itm) 
     return NULL;
   return itm->to;
@@ -125,6 +126,7 @@ var_ann (tree t)
 {
   gcc_assert (t);
   gcc_assert (DECL_P (t));
+  gcc_assert (TREE_CODE (t) != FUNCTION_DECL);
   gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
 
   return (var_ann_t) t->common.ann;
@@ -137,6 +139,27 @@ get_var_ann (tree var)
 {
   var_ann_t ann = var_ann (var);
   return (ann) ? ann : create_var_ann (var);
+}
+
+/* Return the function annotation for T, which must be a FUNCTION_DECL node.
+   Return NULL if the function annotation doesn't already exist.  */
+static inline function_ann_t
+function_ann (tree t)
+{
+  gcc_assert (t);
+  gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
+  gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
+
+  return (function_ann_t) t->common.ann;
+}
+
+/* Return the function annotation for T, which must be a FUNCTION_DECL node.
+   Create the function annotation if it doesn't exist.  */
+static inline function_ann_t
+get_function_ann (tree var)
+{
+  function_ann_t ann = function_ann (var);
+  return (ann) ? ann : create_function_ann (var);
 }
 
 /* Return the statement annotation for T, which must be a statement
@@ -181,7 +204,7 @@ bb_for_stmt (tree t)
 
 /* Return the may_aliases varray for variable VAR, or NULL if it has
    no may aliases.  */
-static inline varray_type
+static inline VEC(tree, gc) *
 may_aliases (tree var)
 {
   var_ann_t ann = var_ann (var);
@@ -702,7 +725,7 @@ bsi_start (basic_block bb)
     bsi.tsi = tsi_start (bb->stmt_list);
   else
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }
@@ -723,7 +746,7 @@ bsi_after_labels (basic_block bb)
 
   if (!bb->stmt_list)
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
       return bsi;
@@ -756,7 +779,7 @@ bsi_last (basic_block bb)
     bsi.tsi = tsi_last (bb->stmt_list);
   else
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }
@@ -828,13 +851,12 @@ is_call_clobbered (tree var)
 static inline void
 mark_call_clobbered (tree var)
 {
-  var_ann_t ann = var_ann (var);
   /* If VAR is a memory tag, then we need to consider it a global
      variable.  This is because the pointer that VAR represents has
      been found to point to either an arbitrary location or to a known
      location in global memory.  */
-  if (ann->mem_tag_kind != NOT_A_TAG && ann->mem_tag_kind != STRUCT_FIELD)
-    DECL_EXTERNAL (var) = 1;
+  if (MTAG_P (var) && TREE_CODE (var) != STRUCT_FIELD_TAG)
+    MTAG_GLOBAL (var) = 1;
   bitmap_set_bit (cfun->ssa->call_clobbered_vars, DECL_UID (var));
   ssa_call_clobbered_cache_valid_for = NULL;
   ssa_ro_call_cache_valid_for = NULL;
@@ -844,9 +866,8 @@ mark_call_clobbered (tree var)
 static inline void
 clear_call_clobbered (tree var)
 {
-  var_ann_t ann = var_ann (var);
-  if (ann->mem_tag_kind != NOT_A_TAG && ann->mem_tag_kind != STRUCT_FIELD)
-    DECL_EXTERNAL (var) = 0;
+  if (MTAG_P (var) && TREE_CODE (var) != STRUCT_FIELD_TAG)
+    MTAG_GLOBAL (var) = 0;
   bitmap_clear_bit (cfun->ssa->call_clobbered_vars, DECL_UID (var));
   ssa_call_clobbered_cache_valid_for = NULL;
   ssa_ro_call_cache_valid_for = NULL;
@@ -1387,6 +1408,10 @@ unmodifiable_var_p (tree var)
 {
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
+
+  if (MTAG_P (var))
+    return TREE_READONLY (var) && (TREE_STATIC (var) || MTAG_GLOBAL (var));
+
   return TREE_READONLY (var) && (TREE_STATIC (var) || DECL_EXTERNAL (var));
 }
 
@@ -1464,14 +1489,27 @@ get_subvar_at (tree var, unsigned HOST_WIDE_INT offset)
 }
 
 /* Return true if V is a tree that we can have subvars for.
-   Normally, this is any aggregate type, however, due to implementation
-   limitations ATM, we exclude array types as well.  */
+   Normally, this is any aggregate type.  Also complex
+   types which are not gimple registers can have subvars.  */
 
 static inline bool
 var_can_have_subvars (tree v)
 {
-  return (AGGREGATE_TYPE_P (TREE_TYPE (v)) &&
-	  TREE_CODE (TREE_TYPE (v)) != ARRAY_TYPE);
+  /* Non decls or memory tags can never have subvars.  */
+  if (!DECL_P (v) || MTAG_P (v))
+    return false;
+
+  /* Aggregates can have subvars.  */
+  if (AGGREGATE_TYPE_P (TREE_TYPE (v)))
+    return true;
+
+  /* Complex types variables which are not also a gimple register can
+    have subvars. */
+  if (TREE_CODE (TREE_TYPE (v)) == COMPLEX_TYPE
+      && !DECL_COMPLEX_GIMPLE_REG_P (v))
+    return true;
+
+  return false;
 }
 
   

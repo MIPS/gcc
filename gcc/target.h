@@ -52,6 +52,21 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 struct stdarg_info;
 
+/* The struct used by the secondary_reload target hook.  */
+typedef struct secondary_reload_info
+{
+  /* icode is actually an enum insn_code, but we don't want to force every
+     file that includes target.h to include optabs.h .  */
+  int icode;
+  int extra_cost; /* Cost for using (a) scratch register(s) to be taken
+		     into account by copy_cost.  */
+  /* The next two members are for the use of the backward
+     compatibility hook.  */
+  struct secondary_reload_info *prev_sri;
+  int t_icode; /* Actually an enum insn_code - see above.  */
+} secondary_reload_info;
+
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -87,6 +102,10 @@ struct gcc_target
        this is only a placeholder for an omitted FDE.  */
     void (* unwind_label) (FILE *, tree, int, int);
 
+    /* Output code that will emit a label to divide up the exception
+       table.  */
+    void (* except_table_label) (FILE *);
+
     /* Emit any directives required to unwind this instruction.  */
     void (* unwind_emit) (FILE *, rtx);
 
@@ -112,35 +131,31 @@ struct gcc_target
     /* Output the assembler code for function exit.  */
     void (* function_epilogue) (FILE *, HOST_WIDE_INT);
 
+    /* Initialize target-specific sections.  */
+    void (* init_sections) (void);
+
     /* Tell assembler to change to section NAME with attributes FLAGS.
        If DECL is non-NULL, it is the VAR_DECL or FUNCTION_DECL with
        which this section is associated.  */
     void (* named_section) (const char *name, unsigned int flags, tree decl);
 
-    /* Switch to the section that holds the exception table.  */
-    void (* exception_section) (void);
+    /* Return a section for EXP.  It may be a DECL or a constant.  RELOC
+       is nonzero if runtime relocations must be applied; bit 1 will be
+       set if the runtime relocations require non-local name resolution.
+       ALIGN is the required alignment of the data.  */
+    section *(* select_section) (tree, int, unsigned HOST_WIDE_INT);
 
-    /* Switch to the section that holds the exception frames.  */
-    void (* eh_frame_section) (void);
-
-    /* Select and switch to a section for EXP.  It may be a DECL or a
-       constant.  RELOC is nonzero if runtime relocations must be applied;
-       bit 1 will be set if the runtime relocations require non-local
-       name resolution.  ALIGN is the required alignment of the data.  */
-    void (* select_section) (tree, int, unsigned HOST_WIDE_INT);
-
-    /* Select and switch to a section for X with MODE.  ALIGN is
-       the desired alignment of the data.  */
-    void (* select_rtx_section) (enum machine_mode, rtx,
-				 unsigned HOST_WIDE_INT);
+    /* Return a section for X.  MODE is X's mode and ALIGN is its
+       alignment in bits.  */
+    section *(* select_rtx_section) (enum machine_mode, rtx,
+				     unsigned HOST_WIDE_INT);
 
     /* Select a unique section name for DECL.  RELOC is the same as
        for SELECT_SECTION.  */
     void (* unique_section) (tree, int);
 
-    /* Tell assembler to switch to the readonly data section associated
-       with function DECL.  */
-    void (* function_rodata_section) (tree);
+    /* Return the readonly data section associated with function DECL.  */
+    section *(* function_rodata_section) (tree);
 
     /* Output a constructor for a symbol with a given priority.  */
     void (* constructor) (rtx, int);
@@ -341,6 +356,9 @@ struct gcc_target
      Microsoft Visual C++ bitfield layout rules.  */
   bool (* ms_bitfield_layout_p) (tree record_type);
 
+  /* True if the target supports decimal floating point.  */
+  bool (* decimal_float_supported_p) (void);
+
   /* Return true if anonymous bitfields affect structure alignment.  */
   bool (* align_anon_bitfield) (void);
 
@@ -359,7 +377,7 @@ struct gcc_target
 
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
-  
+
   /* For a vendor-specific fundamental TYPE, return a pointer to
      a statically-allocated string containing the C++ mangling for
      TYPE.  In all other cases, return NULL.  */
@@ -421,6 +439,11 @@ struct gcc_target
   /* If shift optabs for MODE are known to always truncate the shift count,
      return the mask that they apply.  Return 0 otherwise.  */
   unsigned HOST_WIDE_INT (* shift_truncation_mask) (enum machine_mode mode);
+
+  /* Return the number of divisions in the given MODE that should be present,
+     so that it is profitable to turn the division into a multiplication by
+     the reciprocal.  */
+  unsigned int (* min_divisions_for_recip_mul) (enum machine_mode mode);
 
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) (enum machine_mode mode);
@@ -555,7 +578,7 @@ struct gcc_target
      specified.  Use this hook if the target needs to add extra validation
      checks to  handle_dll_attribute ().  */
   bool (* valid_dllimport_attribute_p) (tree decl);
-    
+
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
     bool (*promote_function_args) (tree fntype);
@@ -606,7 +629,7 @@ struct gcc_target
 
     /* Return the diagnostic message string if function without a prototype
        is not allowed for this 'val' argument; NULL otherwise. */
-    const char *(*invalid_arg_for_unprototyped_fn) (tree typelist, 
+    const char *(*invalid_arg_for_unprototyped_fn) (tree typelist,
 					     	    tree funcdecl, tree val);
 
     /* Return an rtx for the return value location of the function
@@ -626,6 +649,11 @@ struct gcc_target
   /* Return the diagnostic message string if the binary operation OP
      is not permitted on TYPE1 and TYPE2, NULL otherwise.  */
   const char *(*invalid_binary_op) (int op, tree type1, tree type2);
+
+  /* Return the class for a secondary reload, and fill in extra information.  */
+  enum reg_class (*secondary_reload) (bool, rtx, enum reg_class,
+				      enum machine_mode,
+				      struct secondary_reload_info *);
 
   /* Functions specific to the C++ frontend.  */
   struct cxx {
@@ -654,7 +682,7 @@ struct gcc_target
        visibility has been explicitly specified.  If the target needs
        to specify a visibility other than that of the containing class,
        use this hook to set DECL_VISIBILITY and
-       DECL_VISIBILITY_SPECIFIED.  */ 
+       DECL_VISIBILITY_SPECIFIED.  */
     void (*determine_class_data_visibility) (tree decl);
     /* Returns true (the default) if virtual tables and other
        similar implicit class data objects are always COMDAT if they
@@ -668,7 +696,7 @@ struct gcc_target
     /* TYPE is a C++ class (i.e., RECORD_TYPE or UNION_TYPE) that
        has just been defined.  Use this hook to make adjustments to the
        class  (eg, tweak visibility or perform any other required
-       target modifications).  */  
+       target modifications).  */
     void (*adjust_class_at_definition) (tree type);
   } cxx;
 

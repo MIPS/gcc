@@ -1508,8 +1508,13 @@ finish_qualified_id_expr (tree qualifying_class,
 			  bool template_p,
 			  bool template_arg_p)
 {
+  gcc_assert (TYPE_P (qualifying_class));
+
   if (error_operand_p (expr))
     return error_mark_node;
+
+  if (DECL_P (expr) || BASELINK_P (expr))
+    mark_used (expr);
 
   if (template_p)
     check_template_keyword (expr);
@@ -2000,12 +2005,12 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 
   /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
   compound_literal = build_constructor (NULL_TREE, initializer_list);
-  /* Mark it as a compound-literal.  */
   if (processing_template_decl)
     TREE_TYPE (compound_literal) = type;
   else
     {
       /* Check the initialization.  */
+      compound_literal = reshape_init (type, compound_literal);
       compound_literal = digest_init (type, compound_literal);
       /* If the TYPE was an array type with an unknown bound, then we can
 	 figure out the dimension now.  For example, something like:
@@ -2018,7 +2023,9 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 				compound_literal, 1);
     }
 
+  /* Mark it as a compound-literal.  */
   TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
+
   return compound_literal;
 }
 
@@ -2931,7 +2938,7 @@ simplify_aggr_init_expr (tree *tp)
       call_expr = build_aggr_init (slot, call_expr,
 				   DIRECT_BIND | LOOKUP_ONLYCONVERTING);
       pop_deferring_access_checks ();
-      call_expr = build (COMPOUND_EXPR, TREE_TYPE (slot), call_expr, slot);
+      call_expr = build2 (COMPOUND_EXPR, TREE_TYPE (slot), call_expr, slot);
     }
 
   *tp = call_expr;

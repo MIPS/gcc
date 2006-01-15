@@ -148,9 +148,9 @@ tree_ssa_phiopt (void)
      outer ones, and also that we do not try to visit a removed
      block.  */
   bb_order = blocks_in_phiopt_order ();
-  n = n_basic_blocks;
+  n = n_basic_blocks - NUM_FIXED_BLOCKS;
 
-  for (i = 0; i < n; i++)
+  for (i = 0; i < n; i++) 
     {
       tree cond_expr;
       tree phi;
@@ -247,12 +247,13 @@ static basic_block *
 blocks_in_phiopt_order (void)
 {
   basic_block x, y;
-  basic_block *order = xmalloc (sizeof (basic_block) * n_basic_blocks);
-  unsigned n = n_basic_blocks, np, i;
-  sbitmap visited = sbitmap_alloc (last_basic_block + 2);
+  basic_block *order = XNEWVEC (basic_block, n_basic_blocks);
+  unsigned n = n_basic_blocks - NUM_FIXED_BLOCKS; 
+  unsigned np, i;
+  sbitmap visited = sbitmap_alloc (last_basic_block); 
 
-#define MARK_VISITED(BB) (SET_BIT (visited, (BB)->index + 2))
-#define VISITED_P(BB) (TEST_BIT (visited, (BB)->index + 2))
+#define MARK_VISITED(BB) (SET_BIT (visited, (BB)->index)) 
+#define VISITED_P(BB) (TEST_BIT (visited, (BB)->index)) 
 
   sbitmap_zero (visited);
 
@@ -350,7 +351,7 @@ replace_phi_edge_with_variable (basic_block cond_block,
 
   /* Eliminate the COND_EXPR at the end of COND_BLOCK.  */
   bsi = bsi_last (cond_block);
-  bsi_remove (&bsi);
+  bsi_remove (&bsi, true);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file,

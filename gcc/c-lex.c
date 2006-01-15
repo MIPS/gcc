@@ -333,6 +333,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
   static bool no_more_pch;
   const cpp_token *tok;
   enum cpp_ttype type;
+  unsigned char add_flags = 0;
 
   timevar_push (TV_CPP);
  retry:
@@ -366,6 +367,10 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
 	    break;
 
 	  case CPP_N_INTEGER:
+	    /* C++ uses '0' to mark virtual functions as pure.
+	       Set PURE_ZERO to pass this information to the C++ parser.  */
+	    if (tok->val.str.len == 1 && *tok->val.str.text == '0')
+	      add_flags = PURE_ZERO;
 	    *value = interpret_integer (tok, flags);
 	    break;
 
@@ -453,11 +458,11 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
 	  type = lex_string (tok, value, false);
 	  break;
 	}
-      
-      /* FALLTHROUGH */
-
-    case CPP_PRAGMA:
       *value = build_string (tok->val.str.len, (char *) tok->val.str.text);
+      break;
+      
+    case CPP_PRAGMA:
+      *value = build_int_cst (NULL, tok->val.pragma);
       break;
 
       /* These tokens should not be visible outside cpplib.  */
@@ -472,7 +477,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
     }
 
   if (cpp_flags)
-    *cpp_flags = tok->flags;
+    *cpp_flags = tok->flags | add_flags;
 
   if (!no_more_pch)
     {
@@ -483,13 +488,6 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
   timevar_pop (TV_CPP);
   
   return type;
-}
-
-enum cpp_ttype
-c_lex (tree *value)
-{
-  location_t loc;
-  return c_lex_with_flags (value, &loc, NULL);
 }
 
 /* Returns the narrowest C-visible unsigned type, starting with the
@@ -640,43 +638,45 @@ interpret_float (const cpp_token *token, unsigned int flags)
   REAL_VALUE_TYPE real;
   char *copy;
   size_t copylen;
-  const char *type_name;
 
-  /* FIXME: make %T work in error/warning, then we don't need type_name.  */
-  if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
-    {
-      type = long_double_type_node;
-      type_name = "long double";
-    }
-  else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL
-	   || flag_single_precision_constant)
-    {
-      type = float_type_node;
-      type_name = "float";
-    }
+  /* Decode type based on width and properties. */
+  if (flags & CPP_N_DFLOAT)
+    if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
+      type = dfloat128_type_node;
+    else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
+      type = dfloat32_type_node;
+    else
+      type = dfloat64_type_node;
   else
-    {
+    if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
+      type = long_double_type_node;
+    else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL
+	     || flag_single_precision_constant)
+      type = float_type_node;
+    else
       type = double_type_node;
-      type_name = "double";
-    }
 
   /* Copy the constant to a nul-terminated buffer.  If the constant
      has any suffixes, cut them off; REAL_VALUE_ATOF/ REAL_VALUE_HTOF
      can't handle them.  */
   copylen = token->val.str.len;
-  if ((flags & CPP_N_WIDTH) != CPP_N_MEDIUM)
-    /* Must be an F or L suffix.  */
-    copylen--;
-  if (flags & CPP_N_IMAGINARY)
-    /* I or J suffix.  */
-    copylen--;
+  if (flags & CPP_N_DFLOAT) 
+    copylen -= 2;
+  else 
+    {
+      if ((flags & CPP_N_WIDTH) != CPP_N_MEDIUM)
+	/* Must be an F or L suffix.  */
+	copylen--;
+      if (flags & CPP_N_IMAGINARY)
+	/* I or J suffix.  */
+	copylen--;
+    }
 
   copy = (char *) alloca (copylen + 1);
   memcpy (copy, token->val.str.text, copylen);
   copy[copylen] = '\0';
 
-  real_from_string (&real, copy);
-  real_convert (&real, TYPE_MODE (type), &real);
+  real_from_string3 (&real, copy, TYPE_MODE (type));
 
   /* Both C and C++ require a diagnostic for a floating constant
      outside the range of representable values of its type.  Since we
@@ -684,7 +684,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
      appropriate for this to be a mandatory pedwarn rather than
      conditioned on -pedantic.  */
   if (REAL_VALUE_ISINF (real) && pedantic)
-    pedwarn ("floating constant exceeds range of %<%s%>", type_name);
+    pedwarn ("floating constant exceeds range of %qT", type);
 
   /* Create a node with determined type and value.  */
   value = build_real (type, real);

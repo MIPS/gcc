@@ -75,10 +75,6 @@ struct _Jv_VTable
   static _Jv_VTable *new_vtable (int count);
 };
 
-// Number of virtual methods on object.  FIXME: it sucks that we have
-// to keep this up to date by hand.
-#define NUM_OBJECT_METHODS 5
-
 union _Jv_word
 {
   jobject o;
@@ -442,6 +438,10 @@ extern "C" void _Jv_ThrowBadArrayIndex (jint bad_index)
   __attribute__((noreturn));
 extern "C" void _Jv_ThrowNullPointerException (void)
   __attribute__((noreturn));
+extern "C" void _Jv_ThrowNoSuchMethodError (void)
+  __attribute__((noreturn));
+extern "C" void _Jv_ThrowNoSuchFieldError (int)
+  __attribute__((noreturn));
 extern "C" jobject _Jv_NewArray (jint type, jint size)
   __attribute__((__malloc__));
 extern "C" jobject _Jv_NewMultiArray (jclass klass, jint dims, ...)
@@ -458,6 +458,8 @@ extern "C" void _Jv_RegisterClasses_Counted (const jclass *classes,
 					     size_t count);
 extern "C" void _Jv_RegisterResource (void *vptr);
 extern void _Jv_UnregisterClass (_Jv_Utf8Const*, java::lang::ClassLoader*);
+
+extern "C" jobject _Jv_UnwrapJNIweakReference (jobject);
 
 extern jclass _Jv_FindClass (_Jv_Utf8Const *name,
 			     java::lang::ClassLoader *loader);

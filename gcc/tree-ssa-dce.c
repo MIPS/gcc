@@ -799,7 +799,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       tree def = DEF_FROM_PTR (def_p);
       mark_sym_for_renaming (SSA_NAME_VAR (def));
     }
-  bsi_remove (i);  
+  bsi_remove (i, true);  
   release_defs (t); 
 }
 
@@ -837,8 +837,7 @@ tree_dce_init (bool aggressive)
     {
       int i;
 
-      control_dependence_map 
-	= xmalloc (last_basic_block * sizeof (bitmap));
+      control_dependence_map = XNEWVEC (bitmap, last_basic_block);
       for (i = 0; i < last_basic_block; ++i)
 	control_dependence_map[i] = BITMAP_ALLOC (NULL);
 
@@ -980,7 +979,8 @@ struct tree_opt_pass pass_dce =
     | TODO_update_ssa
     | TODO_cleanup_cfg
     | TODO_ggc_collect
-    | TODO_verify_ssa,			/* todo_flags_finish */
+    | TODO_verify_ssa
+    | TODO_remove_unused_locals,	/* todo_flags_finish */
   0					/* letter */
 };
 

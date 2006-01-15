@@ -296,6 +296,9 @@ mark_all_vars_used_1 (tree *tp, int *walk_subtrees,
 {
   tree t = *tp;
 
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
+
   /* Ignore TREE_ORIGINAL for TARGET_MEM_REFS, as well as other
      fields that do not contain vars.  */
   if (TREE_CODE (t) == TARGET_MEM_REF)
@@ -325,6 +328,72 @@ static inline void
 mark_all_vars_used (tree *expr_p)
 {
   walk_tree (expr_p, mark_all_vars_used_1, NULL, NULL);
+}
+
+
+/* Remove local variables that are not referenced in the IL.  */
+
+void
+remove_unused_locals (void)
+{
+  basic_block bb;
+  tree t, *cell;
+
+  /* Assume all locals are unused.  */
+  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
+    {
+      tree var = TREE_VALUE (t);
+      if (TREE_CODE (var) != FUNCTION_DECL
+	  && var_ann (var))
+	var_ann (var)->used = false;
+    }
+
+  /* Walk the CFG marking all referenced symbols.  */
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator bsi;
+      tree phi, def;
+
+      /* Walk the statements.  */
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	mark_all_vars_used (bsi_stmt_ptr (bsi));
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+        {
+          use_operand_p arg_p;
+          ssa_op_iter i;
+
+	  /* No point processing globals.  */
+	  if (is_global_var (SSA_NAME_VAR (PHI_RESULT (phi))))
+	    continue;
+
+          def = PHI_RESULT (phi);
+          mark_all_vars_used (&def);
+
+          FOR_EACH_PHI_ARG (arg_p, phi, i, SSA_OP_ALL_USES)
+            {
+	      tree arg = USE_FROM_PTR (arg_p);
+	      mark_all_vars_used (&arg);
+            }
+        }
+    }
+
+  /* Remove unmarked vars and clear used flag.  */
+  for (cell = &cfun->unexpanded_var_list; *cell; )
+    {
+      tree var = TREE_VALUE (*cell);
+      var_ann_t ann;
+
+      if (TREE_CODE (var) != FUNCTION_DECL
+	  && (!(ann = var_ann (var))
+	      || !ann->used))
+	{
+	  *cell = TREE_CHAIN (*cell);
+	  continue;
+	}
+
+      cell = &TREE_CHAIN (*cell);
+    }
 }
 
 /* This function looks through the program and uses FLAGS to determine what 
@@ -362,6 +431,7 @@ create_ssa_var_map (int flags)
   FOR_EACH_BB (bb)
     {
       tree phi, arg;
+
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  int i;
@@ -639,7 +709,7 @@ calculate_live_on_entry (var_map map)
 	}
     }
 
-  stack = xmalloc (sizeof (int) * last_basic_block);
+  stack = XNEWVEC (int, last_basic_block);
   EXECUTE_IF_SET_IN_BITMAP (live->global, 0, i, bi)
     {
       live_worklist (live, stack, i);
@@ -1224,7 +1294,7 @@ sort_coalesce_list (coalesce_list_p cl)
   /* Only call qsort if there are more than 2 items.  */
   if (num > 2)
     {
-      list = xmalloc (sizeof (partition_pair_p) * num);
+      list = XNEWVEC (partition_pair_p, num);
       count = 0;
       for (p = chain; p != NULL; p = p->next)
 	list[count++] = p;
@@ -1345,8 +1415,8 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 
   live = BITMAP_ALLOC (NULL);
 
-  partition_link = xcalloc (num_var_partitions (map) + 1, sizeof (int));
-  tpa_nodes = xcalloc (tpa_num_trees (tpa), sizeof (int));
+  partition_link = XCNEWVEC (int, num_var_partitions (map) + 1);
+  tpa_nodes = XCNEWVEC (int, tpa_num_trees (tpa));
   tpa_to_clear = VEC_alloc (int, heap, 50);
 
   FOR_EACH_BB (bb)

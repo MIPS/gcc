@@ -100,6 +100,14 @@ extern const enum tree_code_class tree_code_type[];
 #define DECL_P(CODE)\
         (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
 
+/* Nonzero if CODE represents a memory tag.  */
+
+#define MTAG_P(CODE) \
+  (TREE_CODE (CODE) == STRUCT_FIELD_TAG		\
+   || TREE_CODE (CODE) == NAME_MEMORY_TAG	\
+   || TREE_CODE (CODE) == TYPE_MEMORY_TAG)
+        
+
 /* Nonzero if DECL represents a VAR_DECL or FUNCTION_DECL.  */
 
 #define VAR_OR_FUNCTION_DECL_P(DECL)\
@@ -234,6 +242,9 @@ extern const char * built_in_names[(int) END_BUILTINS];
 
 #define BUILTIN_ROOT_P(FN) (BUILTIN_SQRT_P (FN) || BUILTIN_CBRT_P (FN))
 
+#define CASE_FLT_FN(FN) case FN: case FN##F: case FN##L
+#define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL
+
 /* An array of _DECL trees for the above.  */
 extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
 extern GTY(()) tree implicit_built_in_decls[(int) END_BUILTINS];
@@ -332,7 +343,6 @@ struct tree_common GTY(())
 
        TREE_OVERFLOW in
            INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
-	   ??? and other expressions?
        TREE_PUBLIC in
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        ASM_VOLATILE_P in
@@ -582,8 +592,8 @@ enum tree_node_structure_enum {
 #define NON_TYPE_CHECK(T) __extension__					\
 ({  const tree __t = (T);						\
     if (TYPE_P (__t))							\
-      tree_class_check_failed (__t, tcc_type, __FILE__, __LINE__,	\
-			       __FUNCTION__);				\
+      tree_not_class_check_failed (__t, tcc_type, __FILE__, __LINE__,	\
+				   __FUNCTION__);			\
     __t; })
 
 #define TREE_VEC_ELT_CHECK(T, I) __extension__				\
@@ -650,6 +660,10 @@ extern void tree_not_check_failed (const tree, const char *, int, const char *,
 extern void tree_class_check_failed (const tree, const enum tree_code_class,
 				     const char *, int, const char *)
     ATTRIBUTE_NORETURN;
+extern void tree_not_class_check_failed (const tree,
+					 const enum tree_code_class,
+					 const char *, int, const char *)
+    ATTRIBUTE_NORETURN;
 extern void tree_vec_elt_check_failed (int, int, const char *,
 				       int, const char *)
     ATTRIBUTE_NORETURN;
@@ -690,6 +704,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 #define TYPE_CHECK(T)		TREE_CLASS_CHECK (T, tcc_type)
 #define DECL_MINIMAL_CHECK(T)   CONTAINS_STRUCT_CHECK (T, TS_DECL_MINIMAL)
+#define TREE_MEMORY_TAG_CHECK(T)       CONTAINS_STRUCT_CHECK (T, TS_MEMORY_TAG)
 #define DECL_COMMON_CHECK(T)    CONTAINS_STRUCT_CHECK (T, TS_DECL_COMMON)
 #define DECL_WRTL_CHECK(T)      CONTAINS_STRUCT_CHECK (T, TS_DECL_WRTL)
 #define DECL_WITH_VIS_CHECK(T)  CONTAINS_STRUCT_CHECK (T, TS_DECL_WITH_VIS)
@@ -904,11 +919,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding, and no warning has been issued
    for this subexpression.  TREE_OVERFLOW implies TREE_CONSTANT_OVERFLOW,
-   but not vice versa.
+   but not vice versa.  */
 
-   ??? Apparently, lots of code assumes this is defined in all
-   expressions.  */
-#define TREE_OVERFLOW(NODE) ((NODE)->common.public_flag)
+#define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->common.public_flag)
 
 /* In a VAR_DECL or FUNCTION_DECL,
    nonzero means name is to be accessible from outside this module.
@@ -1972,14 +1985,16 @@ struct tree_binfo GTY (())
 /* Define fields and accessors for nodes representing declared names.  */
 
 /* Nonzero if DECL represents a variable for the SSA passes.  */
-#define SSA_VAR_P(DECL) \
-	(TREE_CODE (DECL) == VAR_DECL	\
-	 || TREE_CODE (DECL) == PARM_DECL \
-	 || TREE_CODE (DECL) == RESULT_DECL \
-	 || (TREE_CODE (DECL) == SSA_NAME \
-	     && (TREE_CODE (SSA_NAME_VAR (DECL)) == VAR_DECL \
-		 || TREE_CODE (SSA_NAME_VAR (DECL)) == PARM_DECL \
-		 || TREE_CODE (SSA_NAME_VAR (DECL)) == RESULT_DECL)))
+#define SSA_VAR_P(DECL)							\
+	(TREE_CODE (DECL) == VAR_DECL					\
+	 || TREE_CODE (DECL) == PARM_DECL				\
+	 || TREE_CODE (DECL) == RESULT_DECL				\
+	 || MTAG_P (DECL)						\
+	 || (TREE_CODE (DECL) == SSA_NAME				\
+	     && (TREE_CODE (SSA_NAME_VAR (DECL)) == VAR_DECL		\
+		 || TREE_CODE (SSA_NAME_VAR (DECL)) == PARM_DECL	\
+		 || TREE_CODE (SSA_NAME_VAR (DECL)) == RESULT_DECL	\
+		 || MTAG_P (SSA_NAME_VAR (DECL)))))
 
 
 
@@ -2037,6 +2052,24 @@ struct tree_decl_minimal GTY(())
   tree name;
   tree context;
 };
+
+/* When computing aliasing information, we represent the memory pointed-to
+   by pointers with artificial variables called "memory tags" (MT).  There
+   are two kinds of tags: type and name.  Type tags (TMT) are used in
+   type-based alias analysis, they represent all the pointed-to locations
+   and variables of the same alias set class.  Name tags (NMT) are used in
+   flow-sensitive points-to alias analysis, they represent the variables
+   and memory locations pointed-to by a specific SSA_NAME pointer.  */
+
+struct tree_memory_tag GTY(())
+{
+  struct tree_decl_minimal common;
+  tree parent_var;
+  unsigned int is_global:1;
+};
+
+#define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
+#define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->mtag.parent_var)
 
 /* For any sort of a ..._DECL node, this points to the original (abstract)
    decl node which this decl is an instance of, or else it is NULL indicating
@@ -2115,7 +2148,12 @@ struct tree_decl_minimal GTY(())
 #define DECL_LANG_SPECIFIC(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.lang_specific)
 
 /* In a VAR_DECL or FUNCTION_DECL, nonzero means external reference:
-   do not allocate storage, and refer to a definition elsewhere.  */
+   do not allocate storage, and refer to a definition elsewhere.  Note that
+   this does not necessarily imply the entity represented by NODE
+   has no program source-level definition in this translation unit.  For
+   example, for a FUNCTION_DECL, DECL_SAVED_TREE may be non-NULL and
+   DECL_EXTERNAL may be true simultaneously; that can be the case for
+   a C99 "extern inline" function.  */
 #define DECL_EXTERNAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.decl_flag_2)
 
 /* In a VAR_DECL for a RECORD_TYPE, sets number for non-init_priority
@@ -2780,6 +2818,9 @@ struct tree_statement_list
 #define VALUE_HANDLE_EXPR_SET(NODE)	\
   (VALUE_HANDLE_CHECK (NODE)->value_handle.expr_set)
 
+#define VALUE_HANDLE_VUSES(NODE)        \
+  (VALUE_HANDLE_CHECK (NODE)->value_handle.vuses)
+
 /* Defined and used in tree-ssa-pre.c.  */
 struct value_set;
 
@@ -2794,6 +2835,9 @@ struct tree_value_handle GTY(())
      conveniently dense form starting at 0, so that we can make
      bitmaps of value handles.  */
   unsigned int id;
+
+  /* Set of virtual uses represented by this handle.  */
+  VEC (tree, gc) *vuses;
 };
 
 /* Define the overall contents of a tree node.
@@ -2834,6 +2878,7 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
   struct tree_value_handle GTY ((tag ("TS_VALUE_HANDLE"))) value_handle;
   struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
+  struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;
 };
 
 /* Standard named or nameless data types of the C compiler.  */
@@ -2897,6 +2942,13 @@ enum tree_index
   TI_VA_LIST_FPR_COUNTER_FIELD,
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
+
+  TI_DFLOAT32_TYPE,
+  TI_DFLOAT64_TYPE,
+  TI_DFLOAT128_TYPE,
+  TI_DFLOAT32_PTR_TYPE,
+  TI_DFLOAT64_PTR_TYPE,
+  TI_DFLOAT128_PTR_TYPE,
 
   TI_VOID_LIST_NODE,
 
@@ -2969,6 +3021,14 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define boolean_type_node		global_trees[TI_BOOLEAN_TYPE]
 #define boolean_false_node		global_trees[TI_BOOLEAN_FALSE]
 #define boolean_true_node		global_trees[TI_BOOLEAN_TRUE]
+
+/* The decimal floating point types. */
+#define dfloat32_type_node              global_trees[TI_DFLOAT32_TYPE]
+#define dfloat64_type_node              global_trees[TI_DFLOAT64_TYPE]
+#define dfloat128_type_node             global_trees[TI_DFLOAT128_TYPE]
+#define dfloat32_ptr_type_node          global_trees[TI_DFLOAT32_PTR_TYPE]
+#define dfloat64_ptr_type_node          global_trees[TI_DFLOAT64_PTR_TYPE]
+#define dfloat128_ptr_type_node         global_trees[TI_DFLOAT128_PTR_TYPE]
 
 /* The node that should be placed at the end of a parameter list to
    indicate that the function does not take a variable number of
@@ -3137,20 +3197,7 @@ extern tree maybe_get_identifier (const char *);
 
 /* Construct various types of nodes.  */
 
-extern tree build (enum tree_code, tree, ...);
 extern tree build_nt (enum tree_code, ...);
-
-#if GCC_VERSION >= 3000 || __STDC_VERSION__ >= 199901L
-/* Use preprocessor trickery to map "build" to "buildN" where N is the
-   expected number of arguments.  This is used for both efficiency (no
-   varargs), and checking (verifying number of passed arguments).  */
-#define build(code, ...) \
-  _buildN1(build, _buildC1(__VA_ARGS__))(code, __VA_ARGS__)
-#define _buildN1(BASE, X)	_buildN2(BASE, X)
-#define _buildN2(BASE, X)	BASE##X
-#define _buildC1(...)		_buildC2(__VA_ARGS__,9,8,7,6,5,4,3,2,1,0,0)
-#define _buildC2(x,a1,a2,a3,a4,a5,a6,a7,a8,a9,c,...) c
-#endif
 
 extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
 #define build0(c,t) build0_stat (c,t MEM_STAT_INFO)
@@ -3930,7 +3977,7 @@ extern void expand_function_end (void);
 extern void expand_function_start (tree);
 extern void stack_protect_prologue (void);
 extern void stack_protect_epilogue (void);
-extern void recompute_tree_invarant_for_addr_expr (tree);
+extern void recompute_tree_invariant_for_addr_expr (tree);
 extern bool is_global_var (tree t);
 extern bool needs_to_live_in_memory (tree);
 extern tree reconstruct_complex_type (tree, tree);

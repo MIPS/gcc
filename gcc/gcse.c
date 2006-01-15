@@ -660,7 +660,7 @@ static bool is_too_expensive (const char *);
    F is the first instruction in the function.  Return nonzero if a
    change is mode.  */
 
-int
+static int
 gcse_main (rtx f ATTRIBUTE_UNUSED, FILE *file)
 {
   int changed, pass;
@@ -691,7 +691,8 @@ gcse_main (rtx f ATTRIBUTE_UNUSED, FILE *file)
     dump_flow_info (file);
 
   /* Return if there's nothing to do, or it is too expensive.  */
-  if (n_basic_blocks <= 1 || is_too_expensive (_("GCSE disabled")))
+  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1
+      || is_too_expensive (_("GCSE disabled")))
     return 0;
 
   gcc_obstack_init (&gcse_obstack);
@@ -1700,10 +1701,15 @@ hash_scan_set (rtx pat, rtx insn, struct hash_table *table)
       unsigned int regno = REGNO (dest);
       rtx tmp;
 
-      /* If this is a single set and we are doing constant propagation,
-	 see if a REG_NOTE shows this equivalent to a constant.  */
-      if (table->set_p && (note = find_reg_equal_equiv_note (insn)) != 0
-	  && gcse_constant_p (XEXP (note, 0)))
+      /* See if a REG_NOTE shows this equivalent to a simpler expression.
+	 This allows us to do a single GCSE pass and still eliminate
+	 redundant constants, addresses or other expressions that are
+	 constructed with multiple instructions.  */
+      note = find_reg_equal_equiv_note (insn);
+      if (note != 0
+	  && (table->set_p
+	      ? gcse_constant_p (XEXP (note, 0))
+	      : want_to_gcse_p (XEXP (note, 0))))
 	src = XEXP (note, 0), pat = gen_rtx_SET (VOIDmode, dest, src);
 
       /* Only record sets of pseudo-regs in the hash table.  */
@@ -1724,8 +1730,7 @@ hash_scan_set (rtx pat, rtx insn, struct hash_table *table)
 	     REG_EQUIV notes and if the argument slot is used somewhere
 	     explicitly, it means address of parameter has been taken,
 	     so we should not extend the lifetime of the pseudo.  */
-	  && ((note = find_reg_note (insn, REG_EQUIV, NULL_RTX)) == 0
-	      || ! MEM_P (XEXP (note, 0))))
+	  && (note == NULL_RTX || ! MEM_P (XEXP (note, 0))))
 	{
 	  /* An expression is not anticipatable if its operands are
 	     modified before this insn or if this is not the only SET in
@@ -4214,7 +4219,7 @@ pre_insert_copy_insn (struct expr *expr, rtx insn)
   int regno = REGNO (reg);
   int indx = expr->bitmap_index;
   rtx pat = PATTERN (insn);
-  rtx set, new_insn;
+  rtx set, first_set, new_insn;
   rtx old_reg;
   int i;
 
@@ -4228,17 +4233,29 @@ pre_insert_copy_insn (struct expr *expr, rtx insn)
     case PARALLEL:
       /* Search through the parallel looking for the set whose
 	 source was the expression that we're interested in.  */
+      first_set = NULL_RTX;
       set = NULL_RTX;
       for (i = 0; i < XVECLEN (pat, 0); i++)
 	{
 	  rtx x = XVECEXP (pat, 0, i);
-	  if (GET_CODE (x) == SET
-	      && expr_equiv_p (SET_SRC (x), expr->expr))
+	  if (GET_CODE (x) == SET)
 	    {
-	      set = x;
-	      break;
+	      /* If the source was a REG_EQUAL or REG_EQUIV note, we
+		 may not find an equivalent expression, but in this
+		 case the PARALLEL will have a single set.  */
+	      if (first_set == NULL_RTX)
+		first_set = x;
+	      if (expr_equiv_p (SET_SRC (x), expr->expr))
+	        {
+	          set = x;
+	          break;
+	        }
 	    }
 	}
+
+      gcc_assert (first_set);
+      if (set == NULL_RTX)
+        set = first_set;
       break;
 
     default:
@@ -5647,6 +5664,14 @@ find_moveable_store (rtx insn, int *regs_set_before, int *regs_set_after)
   if (find_reg_note (insn, REG_EH_REGION, NULL_RTX))
     return;
 
+  /* Make sure that the SET_SRC of this store insns can be assigned to
+     a register, or we will fail later on in replace_store_insn, which
+     assumes that we can do this.  But sometimes the target machine has
+     oddities like MEM read-modify-write instruction.  See for example
+     PR24257.  */
+  if (!can_assign_to_reg_p (SET_SRC (set)))
+    return;
+
   ptr = ldst_entry (dest);
   if (!ptr->pattern_regs)
     ptr->pattern_regs = extract_mentioned_regs (dest);
@@ -6493,7 +6518,7 @@ store_motion (void)
 
 /* Entry point for jump bypassing optimization pass.  */
 
-int
+static int
 bypass_jumps (FILE *file)
 {
   int changed;
@@ -6515,7 +6540,8 @@ bypass_jumps (FILE *file)
     dump_flow_info (file);
 
   /* Return if there's nothing to do, or it is too expensive.  */
-  if (n_basic_blocks <= 1 || is_too_expensive (_ ("jump bypassing disabled")))
+  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1
+      || is_too_expensive (_ ("jump bypassing disabled")))
     return 0;
 
   gcc_obstack_init (&gcse_obstack);

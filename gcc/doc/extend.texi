@@ -1,5 +1,6 @@
-@c Copyright (C) 1988,1989,1992,1993,1994,1996,1998,1999,2000,2001,2002,2003,2004,2005
-@c Free Software Foundation, Inc.
+@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000,
+@c 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -32,6 +33,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Conditionals::        Omitting the middle operand of a @samp{?:} expression.
 * Long Long::		Double-word integers---@code{long long int}.
 * Complex::             Data types for complex numbers.
+* Decimal Float::	Decimal Floating Point. 
 * Hex Floats::          Hexadecimal floating-point constants.
 * Zero Length::         Zero-length arrays.
 * Variable Length::     Arrays whose length is computed at run time.
@@ -813,6 +815,42 @@ If the variable's actual name is @code{foo}, the two fictitious
 variables are named @code{foo$real} and @code{foo$imag}.  You can
 examine and set these two fictitious variables with your debugger.
 
+@node Decimal Float
+@section Decimal Floating Point
+@cindex decimal floating point
+@cindex @code{_Decimal32} data type
+@cindex @code{_Decimal64} data type
+@cindex @code{_Decimal128} data type
+@cindex @code{df} integer suffix
+@cindex @code{dd} integer suffix
+@cindex @code{dl} integer suffix
+@cindex @code{DF} integer suffix
+@cindex @code{DD} integer suffix
+@cindex @code{DL} integer suffix
+
+GNU C supports decimal floating point types in addition to the
+standard floating-point types.  This extension supports decimal
+floating-point arithmetic as defined in IEEE-754R, the proposed
+revision of IEEE-754.  The C language extension is defined in ISO/IEC
+DTR 24732, Draft 5.  Support for this functionality will change when
+it is accepted into the C standard and might change for new drafts
+of the proposal.  Calling conventions for any target might also change.
+Not all targets support decimal floating point.
+
+Support for decimal floating point includes the arithmetic operators
+add, subtract, multiply, divide; unary arithmetic operators;
+relational operators; equality operators; and conversions to and from
+integer and other floating-point types.  Use a suffix @samp{df} or
+@samp{DF} in a literal constant of type @code{_Decimal32}, @samp{dd}
+or @samp{DD} for @code{_Decimal64}, and @samp{dl} or @samp{DL} for
+@code{_Decimal128}.
+
+Passing a decimal floating-point value as an argument to a function
+without a prototype is undefined.
+
+Types @code{_Decimal32}, @code{_Decimal64}, and @code{_Decimal128}
+are supported by the DWARF2 debug information format.
+
 @node Hex Floats
 @section Hex Floats
 @cindex hex floats
@@ -1554,7 +1592,7 @@ void __f () @{ /* @r{Do something.} */; @}
 void f () __attribute__ ((weak, alias ("__f")));
 @end smallexample
 
-declares @samp{f} to be a weak alias for @samp{__f}.  In C++, the
+defines @samp{f} to be a weak alias for @samp{__f}.  In C++, the
 mangled name for the target must be used.  It is an error if @samp{__f}
 is not defined in the same translation unit.
 
@@ -2376,12 +2414,12 @@ implicitly marks the declaration as @code{weak}.  Without a
 @code{weakref} is equivalent to @code{weak}.
 
 @smallexample
-extern int x() __attribute__ ((weakref ("y")));
+static int x() __attribute__ ((weakref ("y")));
 /* is equivalent to... */
-extern int x() __attribute__ ((weak, weakref, alias ("y")));
+static int x() __attribute__ ((weak, weakref, alias ("y")));
 /* and to... */
-extern int x() __attribute__ ((weakref));
-extern int x() __attribute__ ((alias ("y")));
+static int x() __attribute__ ((weakref));
+static int x() __attribute__ ((alias ("y")));
 @end smallexample
 
 A weak reference is an alias that does not by itself require a
@@ -2395,6 +2433,9 @@ The effect is equivalent to moving all references to the alias to a
 separate translation unit, renaming the alias to the aliased symbol,
 declaring it as weak, compiling the two separate translation units and
 performing a reloadable link on them.
+
+At present, a declaration to which @code{weakref} is attached can
+only be @code{static}.
 
 @item externally_visible
 @cindex @code{externally_visible} attribute.
@@ -5658,6 +5699,18 @@ Similar to @code{__builtin_huge_val}, except a warning is generated
 if the target floating-point format does not support infinities.
 @end deftypefn
 
+@deftypefn {Built-in Function} _Decimal32 __builtin_infd32 (void)
+Similar to @code{__builtin_inf}, except the return type is @code{_Decimal32}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal64 __builtin_infd64 (void)
+Similar to @code{__builtin_inf}, except the return type is @code{_Decimal64}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal128 __builtin_infd128 (void)
+Similar to @code{__builtin_inf}, except the return type is @code{_Decimal128}.
+@end deftypefn
+
 @deftypefn {Built-in Function} float __builtin_inff (void)
 Similar to @code{__builtin_inf}, except the return type is @code{float}.
 This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
@@ -5682,6 +5735,18 @@ forced to be a quiet NaN@.
 
 This function, if given a string literal, is evaluated early enough
 that it is considered a compile-time constant.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal32 __builtin_nand32 (const char *str)
+Similar to @code{__builtin_nan}, except the return type is @code{_Decimal32}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal64 __builtin_nand64 (const char *str)
+Similar to @code{__builtin_nan}, except the return type is @code{_Decimal64}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal128 __builtin_nand128 (const char *str)
+Similar to @code{__builtin_nan}, except the return type is @code{_Decimal128}.
 @end deftypefn
 
 @deftypefn {Built-in Function} float __builtin_nanf (const char *str)
@@ -9799,7 +9864,7 @@ Predefined Macros,cpp,The GNU C Preprocessor}).
 * Bound member functions:: You can extract a function pointer to the
                         method denoted by a @samp{->*} or @samp{.*} expression.
 * C++ Attributes::      Variable, function, and type attributes for C++ only.
-* Strong Using::      Strong using-directives for namespace composition.
+* Namespace Association:: Strong using-directives for namespace association.
 * Java Exceptions::     Tweaking exception handling to work with Java.
 * Deprecated Features:: Things will disappear from g++.
 * Backwards Compatibility:: Compatibilities with earlier definitions of C++.
@@ -10337,28 +10402,32 @@ interface table mechanism, instead of regular virtual table dispatch.
 
 @end table
 
-See also @xref{Strong Using}.
+See also @xref{Namespace Association}.
 
-@node Strong Using
-@section Strong Using
+@node Namespace Association
+@section Namespace Association
 
 @strong{Caution:} The semantics of this extension are not fully
 defined.  Users should refrain from using this extension as its
 semantics may change subtly over time.  It is possible that this
-extension wil be removed in future versions of G++.
+extension will be removed in future versions of G++.
 
 A using-directive with @code{__attribute ((strong))} is stronger
 than a normal using-directive in two ways:
 
 @itemize @bullet
 @item
-Templates from the used namespace can be specialized as though they were members of the using namespace.
+Templates from the used namespace can be specialized and explicitly
+instantiated as though they were members of the using namespace.
 
 @item
 The using namespace is considered an associated namespace of all
 templates in the used namespace for purposes of argument-dependent
 name lookup.
 @end itemize
+
+The used namespace must be nested within the using namespace so that
+normal unqualified lookup works properly.
 
 This is useful for composing a namespace transparently from
 implementation namespaces.  For example:

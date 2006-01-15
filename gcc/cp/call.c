@@ -284,18 +284,28 @@ build_call (tree function, tree parms)
 
   function = build_addr_func (function);
 
-  if (TYPE_PTRMEMFUNC_P (TREE_TYPE (function)))
-    {
-      sorry ("unable to call pointer to member function here");
-      return error_mark_node;
-    }
-
+  gcc_assert (TYPE_PTR_P (TREE_TYPE (function)));
   fntype = TREE_TYPE (TREE_TYPE (function));
+  gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE
+	      || TREE_CODE (fntype) == METHOD_TYPE);
   result_type = TREE_TYPE (fntype);
 
   if (TREE_CODE (function) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (function, 0)) == FUNCTION_DECL)
-    decl = TREE_OPERAND (function, 0);
+    {
+      decl = TREE_OPERAND (function, 0);
+      if (!TREE_USED (decl))
+	{
+	  /* We invoke build_call directly for several library
+	     functions.  These may have been declared normally if
+	     we're building libgcc, so we can't just check
+	     DECL_ARTIFICIAL.  */
+	  gcc_assert (DECL_ARTIFICIAL (decl)
+		      || !strncmp (IDENTIFIER_POINTER (DECL_NAME (decl)),
+				   "__", 2));
+	  mark_used (decl);
+	}
+    }
   else
     decl = NULL_TREE;
 
@@ -313,17 +323,6 @@ build_call (tree function, tree parms)
 
   if (decl && DECL_CONSTRUCTOR_P (decl))
     is_constructor = 1;
-
-  if (decl && ! TREE_USED (decl))
-    {
-      /* We invoke build_call directly for several library functions.
-	 These may have been declared normally if we're building libgcc,
-	 so we can't just check DECL_ARTIFICIAL.  */
-      gcc_assert (DECL_ARTIFICIAL (decl)
-		  || !strncmp (IDENTIFIER_POINTER (DECL_NAME (decl)),
-			       "__", 2));
-      mark_used (decl);
-    }
 
   /* Don't pass empty class objects by value.  This is useful
      for tags in STL, which are used to control overload resolution.
@@ -3278,7 +3277,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	  || (conv2 && conv2->kind == ck_ambig)
 	  || (conv3 && conv3->kind == ck_ambig))
 	{
-	  error ("operands to ?: have different types");
+	  error ("operands to ?: have different types %qT and %qT",
+             arg2_type, arg3_type);
 	  result = error_mark_node;
 	}
       else if (conv2 && !conv2->bad_p)
@@ -3488,7 +3488,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 
   if (!result_type)
     {
-      error ("operands to ?: have different types");
+	  error ("operands to ?: have different types %qT and %qT",
+             arg2_type, arg3_type);
       return error_mark_node;
     }
 
@@ -6429,10 +6430,7 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
   tree var;
 
   /* Create the variable.  */
-  var = build_decl (VAR_DECL, NULL_TREE, type);
-  DECL_ARTIFICIAL (var) = 1;
-  DECL_IGNORED_P (var) = 1;
-  TREE_USED (var) = 1;
+  var = create_temporary_var (type);
 
   /* Register the variable.  */
   if (TREE_STATIC (decl))
@@ -6447,12 +6445,8 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
       var = pushdecl_top_level (var);
     }
   else
-    {
-      /* Create a new cleanup level if necessary.  */
-      maybe_push_cleanup_level (type);
-      /* Don't push unnamed temps.  Do set DECL_CONTEXT, though.  */
-      DECL_CONTEXT (var) = current_function_decl;
-    }
+    /* Create a new cleanup level if necessary.  */
+    maybe_push_cleanup_level (type);
 
   return var;
 }

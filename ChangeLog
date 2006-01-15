@@ -1,3 +1,179 @@
+2006-01-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* Makefile.tpl (clean-stage[+id+]-[+prefix+][+module+]): Remove
+	@ from continuation.
+	* Makefile.in: Rebuilt.
+
+2006-01-04  Chris Lattner  <sabre@gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-01-04  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/24252
+
+	* Makefile.def (flags_to_pass): Add STAGE1_CFLAGS and STAGE1_LANGUAGES.
+	* Makefile.tpl (OBJDUMP): New.
+	(EXTRA_HOST_FLAGS): Add it.
+	(EXTRA_GCC_FLAGS): Remove flags already specified in flags_to_pass.
+
+        * Makefile.tpl (stage[+id+]-start, stage[+id+]-end): Do not try
+        to use symbolic links between directories.  Avoid race conditions
+        or make them harmless.
+        * configure.in: Do not try to use symbolic links between directories.
+
+	* Makefile.def (LEAN): Pass.
+	* Makefile.tpl (LEAN): Define.
+	(stage[+id+]-start): Accept that the previous directory does not
+	exist, if the bootstrap is lean.
+	(stage[+id+]-bubble): Invoke lean bootstrap commands after
+	stage[+id+]-start.  Use a makefile variable and an `if' instead of a
+	configure substitution.
+	([+compare-target+]): Likewise.
+	([+bootstrap-target+]-lean): New.
+	* configure.in: Remove lean bootstrap support from here.
+
+        * Makefile.in: Regenerate.
+        * configure: Regenerate.
+
+2006-01-04  Ben Elliston  <bje@au.ibm.com>
+
+	* MAINTAINERS (libdecnumber): Add myself.
+
+2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* libtool-ldflags: New script.
+
+2006-01-02  Andreas Schwab  <schwab@suse.de>
+
+	* configure.in: When reconfiguring remove Makefile in
+	all stage directories.
+	* configure: Regenerate.
+
+2005-12-27  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* MAINTAINERS: Update my email address.
+
+2005-12-20  Paolo Bonzini  <bonzini@gnu.org>
+
+	Revert Ada-related part of the previous change.
+
+	* Makefile.def (ADAFLAGS, BOOT_ADAFLAGS, ADAFLAGS_FOR_TARGET):
+	Do not pass.
+	* Makefile.tpl (BOOT_ADAFLAGS): Do not define.
+	* Makefile.in: Regenerate.
+	* configure.in: Do not include mt-ppc-aix target fragment.
+	* configure: Regenerate.
+
+2005-12-19  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Select appropriate fragments for PowerPC/AIX.
+	* configure: Regenerate.
+
+	* Makefile.def (flags_to_pass): Add ADAFLAGS, BOOT_ADAFLAGS,
+	BOOT_CFLAGS, BOOT_LDFLAGS.
+	* Makefile.tpl (POSTSTAGE1_FLAGS_TO_PASS): Handle BOOT_ADAFLAGS,
+	BOOT_CFLAGS, BOOT_LDFLAGS.
+	(TARGET_FLAGS_TO_PASS): Handle ADAFLAGS_FOR_TARGET.
+	(stage[+id+]-bubble): Pass flags recursively to the comparison target.
+	(stage): Fail if we cannot complete the work.
+	* Makefile.in: Regenerate.
+
+2005-12-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* configure.in: Replace ms1 with mt.
+	* configure: Rebuilt.
+
+2005-12-15  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* MAINTAINERS: Update my email address.
+
+2005-12-15  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (all, do-[+make_target+], do-check, install,
+	install-host-nogcc): Don't invoke $(stage) at the end.
+	* Makefile.in: Regenerate.
+
+2005-12-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in: Flip the top-level bootstrap switch.
+	* configure: Regenerate.
+
+2005-12-14  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* Makefile.tpl: Throughout the file, use : $(MAKE) along with
+	$(stage) and $(unstage).
+	(EXTRA_TARGET_FLAGS): Correct double-quoting.
+	(all): Remove stray semicolon.
+	(local-distclean): Don't handle multilib.tmp and multilib.out.
+	(install.all): Set $s for consistency.
+	(configure-[+prefix+][+module+]): Instead of [+deps+], handle
+	check_multilibs setting.  Always make the install directory.
+	(configure-stage[+id+]-[+prefix+][+module+]): Likewise.
+	Correct @if/@endif.
+	(all-stage[+id+]-[+prefix+][+module+]): Correct @if/@endif.
+	($(TARGET_SUBDIR)/[+module+]/multilib.out): Remove.
+	(stage[+id+]-start, stage[+id+]-end): Stage $(TARGET_SUBDIR).
+	(multilib.out): Remove.
+	* Makefile.in: Regenerated.
+
+2005-12-12  Carlos O'Donell <carlos@codesourcery.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2005-12-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* MAINTAINERS: Add myself as mt maintainer.
+
+	* config.sub: Replace ms1 with mt.  Allow ms1 as an alias.
+
+2005-12-06  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* MAINTAINERS: Change email address.
+
+2005-12-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in (CONFIGURED_BISON, CONFIGURED_YACC, CONFIGURED_M4,
+	CONFIGURED_FLEX, CONFIGURED_LEX, CONFIGURED_MAKEINFO): Remove
+	"CONFIGURED_" from the AC_CHECK_PROGS invocation.  Move below.
+	Find in-tree tools if available.
+	(EXPECT, RUNTEST, LIPO, STRIP): Find them and substitute them.
+	(CONFIGURED_*_FOR_TARGET): Don't set nor substitute.
+	(*_FOR_TARGET): Set them with GCC_TARGET_TOOL.
+	(COMPILER_*_FOR_TARGET): New.
+	* Makefile.tpl (HOST_EXPORTS): Add *_FOR_TARGET symbols that gcc needs.
+	(BASE_TARGET_EXPORTS): Use COMPILER_*_FOR_TARGET symbols.
+	(CONFIGURED_*, USUAL_*): Remove.
+	(BISON, YACC, FLEX, LEX, M4, MAKEINFO, EXPECT, RUNTEST, LIPO,
+	STRIP): Use autoconf substitutions.
+	(COMPILER_AS_FOR_TARGET, COMPILER_LD_FOR_TARGET,
+	COMPILER_NM_FOR_TARGET): New.
+	(EXTRA_HOST_FLAGS): Pass LIPO and STRIP.
+
+	(all): Make all-host and all-target in parallel.
+	(do-[+make_target+], do-check, install, [+compare-target+]): Ensure
+	that $$r and $$s are set before invoking a recursive make.
+	(stage[+id+]-bubble): Likewise, and invoke the comparison at the end.
+	([+bootstrap-target+]): Inline most of the `all' target.
+
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
+	* Makefile.tpl (clean-target-libgcc): Invoke clean-target-libgcc
+	from the gcc build directory.
+	* Makefile.in: Regenerate.
+
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
+	* Makefile.def: Add new libdecnumber host_module.  Make all-gcc
+	depend on all-libdecnumber.
+	* configure.in (host_libs): Include libdecnumber.
+	* Makefile.in: Regenerate.
+	* configure: Likewise.
+
+2005-11-29  Ben Elliston  <bje@au.ibm.com>
+
+	* libdecnumber: Import decNumber sources from the dfp-branch.
+
 2005-11-21  Kean Johnston  <jkj@sco.com>
 
 	* config.sub, config.guess: Sync from upstream sources.
@@ -74,7 +250,7 @@
 	(USUAL_OBJDUMP_FOR_TARGET): New.
 	(EXTRA_TARGET_FLAGS): Add OBJDUMP.
 	* configure.in: Check for $OBJDUMP_FOR_TARGET.
-	* configure, Makefile: Regenerated.
+	* configure, Makefile.in: Regenerated.
 
 2005-10-05  Paolo Bonzini  <bonzini@gnu.org>
 

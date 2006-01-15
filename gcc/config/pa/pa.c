@@ -107,7 +107,8 @@ static void pa_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static int pa_adjust_cost (rtx, rtx, rtx, int);
 static int pa_adjust_priority (rtx, int);
 static int pa_issue_rate (void);
-static void pa_select_section (tree, int, unsigned HOST_WIDE_INT)
+static void pa_som_asm_init_sections (void) ATTRIBUTE_UNUSED;
+static section *pa_select_section (tree, int, unsigned HOST_WIDE_INT)
      ATTRIBUTE_UNUSED;
 static void pa_encode_section_info (tree, rtx, int);
 static const char *pa_strip_name_encoding (const char *);
@@ -150,7 +151,15 @@ static bool pa_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 static int pa_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				 tree, bool);
 static struct machine_function * pa_init_machine_status (void);
+static enum reg_class pa_secondary_reload (bool, rtx, enum reg_class,
+					   enum machine_mode,
+					   secondary_reload_info *);
 
+
+/* The following extra sections are only used for SOM.  */
+static GTY(()) section *som_readonly_data_section;
+static GTY(()) section *som_one_only_readonly_data_section;
+static GTY(()) section *som_one_only_data_section;
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -298,6 +307,9 @@ static size_t n_deferred_plabels = 0;
 
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM pa_tls_referenced_p
+
+#undef TARGET_SECONDARY_RELOAD
+#define TARGET_SECONDARY_RELOAD pa_secondary_reload
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -495,8 +507,10 @@ static void
 pa_init_builtins (void)
 {
 #ifdef DONT_HAVE_FPUTC_UNLOCKED
-  built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED] = NULL_TREE;
-  implicit_built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED] = NULL_TREE;
+  built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED] =
+    built_in_decls[(int) BUILT_IN_PUTC_UNLOCKED];
+  implicit_built_in_decls[(int) BUILT_IN_FPUTC_UNLOCKED]
+    = implicit_built_in_decls[(int) BUILT_IN_PUTC_UNLOCKED];
 #endif
 }
 
@@ -2194,6 +2208,25 @@ output_move_double (rtx *operands)
   /* Check for the cases that the operand constraints are not
      supposed to allow to happen.  */
   gcc_assert (optype0 == REGOP || optype1 == REGOP);
+
+  /* Handle copies between general and floating registers.  */
+
+  if (optype0 == REGOP && optype1 == REGOP
+      && FP_REG_P (operands[0]) ^ FP_REG_P (operands[1]))
+    {
+      if (FP_REG_P (operands[0]))
+	{
+	  output_asm_insn ("{stws|stw} %1,-16(%%sp)", operands);
+	  output_asm_insn ("{stws|stw} %R1,-12(%%sp)", operands);
+	  return "{fldds|fldd} -16(%%sp),%0";
+	}
+      else
+	{
+	  output_asm_insn ("{fstds|fstd} %1,-16(%%sp)", operands);
+	  output_asm_insn ("{ldws|ldw} -16(%%sp),%0", operands);
+	  return "{ldws|ldw} -12(%%sp),%R0";
+	}
+    }
 
    /* Handle auto decrementing and incrementing loads and stores
      specifically, since the structure of the function doesn't work
@@ -3920,7 +3953,8 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       /* We done with this subspace except possibly for some additional
 	 debug information.  Forget that we are in this subspace to ensure
 	 that the next function is output in its own subspace.  */
-      forget_section ();
+      in_section = NULL;
+      cfun->machine->in_nsubspa = 2;
     }
 
   if (INSN_ADDRESSES_SET_P ())
@@ -4141,7 +4175,7 @@ output_deferred_profile_counters (void)
   if (VEC_empty (int, funcdef_nos))
    return;
 
-  data_section ();
+  switch_to_section (data_section);
   align = MIN (BIGGEST_ALIGNMENT, LONG_TYPE_SIZE);
   ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
 
@@ -5286,12 +5320,13 @@ static void
 output_deferred_plabels (void)
 {
   size_t i;
-  /* If we have deferred plabels, then we need to switch into the data
-     section and align it to a 4 byte boundary before we output the
-     deferred plabels.  */
+
+  /* If we have some deferred plabels, then we need to switch into the
+     data or readonly data section, and align it to a 4 byte boundary
+     before outputting the deferred plabels.  */
   if (n_deferred_plabels)
     {
-      data_section ();
+      switch_to_section (flag_pic ? data_section : readonly_data_section);
       ASM_OUTPUT_ALIGN (asm_out_file, TARGET_64BIT ? 3 : 2);
     }
 
@@ -5342,6 +5377,8 @@ pa_hpux_init_libfuncs (void)
 
   set_conv_libfunc (sfloat_optab, TFmode, SImode, "_U_Qfcnvxf_sgl_to_quad");
   set_conv_libfunc (sfloat_optab, TFmode, DImode, "_U_Qfcnvxf_dbl_to_quad");
+  set_conv_libfunc (ufloat_optab, TFmode, SImode, "_U_Qfcnvxf_usgl_to_quad");
+  set_conv_libfunc (ufloat_optab, TFmode, DImode, "_U_Qfcnvxf_udbl_to_quad");
 }
 #endif
 
@@ -5565,49 +5602,48 @@ output_arg_descriptor (rtx call_insn)
   fputc ('\n', asm_out_file);
 }
 
-/* Return the class of any secondary reload register that is needed to
-   move IN into a register in class CLASS using mode MODE.
-
-   Profiling has showed this routine and its descendants account for
-   a significant amount of compile time (~7%).  So it has been
-   optimized to reduce redundant computations and eliminate useless
-   function calls.
-
-   It might be worthwhile to try and make this a leaf function too.  */
-
-enum reg_class
-pa_secondary_reload_class (enum reg_class class, enum machine_mode mode, rtx in)
+static enum reg_class
+pa_secondary_reload (bool in_p, rtx x, enum reg_class class,
+		     enum machine_mode mode, secondary_reload_info *sri)
 {
-  int regno, is_symbolic;
+  int is_symbolic, regno;
 
-  /* Trying to load a constant into a FP register during PIC code
-     generation will require %r1 as a scratch register.  */
-  if (flag_pic
-      && GET_MODE_CLASS (mode) == MODE_INT
-      && FP_REG_CLASS_P (class)
-      && (GET_CODE (in) == CONST_INT || GET_CODE (in) == CONST_DOUBLE))
-    return R1_REGS;
+  /* Handle the easy stuff first.  */
+  if (class == R1_REGS)
+    return NO_REGS;
 
-  /* Profiling showed the PA port spends about 1.3% of its compilation
-     time in true_regnum from calls inside pa_secondary_reload_class.  */
-
-  if (GET_CODE (in) == REG)
+  if (REG_P (x))
     {
-      regno = REGNO (in);
-      if (regno >= FIRST_PSEUDO_REGISTER)
-	regno = true_regnum (in);
+      regno = REGNO (x);
+      if (class == BASE_REG_CLASS && regno < FIRST_PSEUDO_REGISTER)
+	return NO_REGS;
     }
-  else if (GET_CODE (in) == SUBREG)
-    regno = true_regnum (in);
   else
     regno = -1;
 
   /* If we have something like (mem (mem (...)), we can safely assume the
      inner MEM will end up in a general register after reloading, so there's
      no need for a secondary reload.  */
-  if (GET_CODE (in) == MEM
-      && GET_CODE (XEXP (in, 0)) == MEM)
+  if (GET_CODE (x) == MEM && GET_CODE (XEXP (x, 0)) == MEM)
     return NO_REGS;
+
+  /* Trying to load a constant into a FP register during PIC code
+     generation requires %r1 as a scratch register.  */
+  if (flag_pic
+      && GET_MODE_CLASS (mode) == MODE_INT
+      && FP_REG_CLASS_P (class)
+      && (GET_CODE (x) == CONST_INT || GET_CODE (x) == CONST_DOUBLE))
+    {
+      gcc_assert (mode == SImode || mode == DImode);
+      sri->icode = (mode == SImode ? CODE_FOR_reload_insi_r1
+		    : CODE_FOR_reload_indi_r1);
+      return NO_REGS;
+    }
+
+  /* Profiling showed the PA port spends about 1.3% of its compilation
+     time in true_regnum from calls inside pa_secondary_reload_class.  */
+  if (regno >= FIRST_PSEUDO_REGISTER || GET_CODE (x) == SUBREG)
+    regno = true_regnum (x);
 
   /* Handle out of range displacement for integer mode loads/stores of
      FP registers.  */
@@ -5615,50 +5651,59 @@ pa_secondary_reload_class (enum reg_class class, enum machine_mode mode, rtx in)
        && GET_MODE_CLASS (mode) == MODE_INT
        && FP_REG_CLASS_P (class))
       || (class == SHIFT_REGS && (regno <= 0 || regno >= 32)))
-    return GENERAL_REGS;
+    {
+      sri->icode = in_p ? reload_in_optab[mode] : reload_out_optab[mode];
+      return NO_REGS;
+    }
 
   /* A SAR<->FP register copy requires a secondary register (GPR) as
      well as secondary memory.  */
   if (regno >= 0 && regno < FIRST_PSEUDO_REGISTER
       && ((REGNO_REG_CLASS (regno) == SHIFT_REGS && FP_REG_CLASS_P (class))
-	  || (class == SHIFT_REGS && FP_REG_CLASS_P (REGNO_REG_CLASS (regno)))))
-    return GENERAL_REGS;
+	  || (class == SHIFT_REGS
+	      && FP_REG_CLASS_P (REGNO_REG_CLASS (regno)))))
+    {
+      sri->icode = in_p ? reload_in_optab[mode] : reload_out_optab[mode];
+      return NO_REGS;
+    }
 
-  if (GET_CODE (in) == HIGH)
-    in = XEXP (in, 0);
+  /* Secondary reloads of symbolic operands require %r1 as a scratch
+     register when we're generating PIC code and the operand isn't
+     readonly.  */
+  if (GET_CODE (x) == HIGH)
+    x = XEXP (x, 0);
 
   /* Profiling has showed GCC spends about 2.6% of its compilation
      time in symbolic_operand from calls inside pa_secondary_reload_class.
-
-     We use an inline copy and only compute its return value once to avoid
-     useless work.  */
-  switch (GET_CODE (in))
+     So, we use an inline copy to avoid useless work.  */
+  switch (GET_CODE (x))
     {
-      rtx tmp;
+      rtx op;
 
       case SYMBOL_REF:
+        is_symbolic = !SYMBOL_REF_TLS_MODEL (x);
+        break;
       case LABEL_REF:
         is_symbolic = 1;
         break;
       case CONST:
-	tmp = XEXP (in, 0);
-	is_symbolic = ((GET_CODE (XEXP (tmp, 0)) == SYMBOL_REF
-			|| GET_CODE (XEXP (tmp, 0)) == LABEL_REF)
-		       && GET_CODE (XEXP (tmp, 1)) == CONST_INT);
+	op = XEXP (x, 0);
+	is_symbolic = (((GET_CODE (XEXP (op, 0)) == SYMBOL_REF
+			 && !SYMBOL_REF_TLS_MODEL (XEXP (op, 0)))
+			|| GET_CODE (XEXP (op, 0)) == LABEL_REF)
+		       && GET_CODE (XEXP (op, 1)) == CONST_INT);
         break;
-
       default:
         is_symbolic = 0;
         break;
     }
 
-  if (!flag_pic
-      && is_symbolic
-      && read_only_operand (in, VOIDmode))
-    return NO_REGS;
-
-  if (class != R1_REGS && is_symbolic)
-    return R1_REGS;
+  if (is_symbolic && (flag_pic || !read_only_operand (x, VOIDmode)))
+    {
+      gcc_assert (mode == SImode || mode == DImode);
+      sri->icode = (mode == SImode ? CODE_FOR_reload_insi_r1
+		    : CODE_FOR_reload_indi_r1);
+    }
 
   return NO_REGS;
 }
@@ -5837,20 +5882,20 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
       /* Args grow down.  Not handled by generic routines.  */
 
       u = fold_convert (valist_type, size_in_bytes (type));
-      t = build (MINUS_EXPR, valist_type, valist, u);
+      t = build2 (MINUS_EXPR, valist_type, valist, u);
 
       /* Copied from va-pa.h, but we probably don't need to align to
 	 word size, since we generate and preserve that invariant.  */
       u = build_int_cst (valist_type, (size > 4 ? -8 : -4));
-      t = build (BIT_AND_EXPR, valist_type, t, u);
+      t = build2 (BIT_AND_EXPR, valist_type, t, u);
 
-      t = build (MODIFY_EXPR, valist_type, valist, t);
+      t = build2 (MODIFY_EXPR, valist_type, valist, t);
 
       ofs = (8 - size) % 4;
       if (ofs != 0)
 	{
 	  u = fold_convert (valist_type, size_int (ofs));
-	  t = build (PLUS_EXPR, valist_type, t, u);
+	  t = build2 (PLUS_EXPR, valist_type, t, u);
 	}
 
       t = fold_convert (ptr, t);
@@ -5900,6 +5945,9 @@ pa_scalar_mode_supported_p (enum machine_mode mode)
 	return true;
       if (precision == LONG_DOUBLE_TYPE_SIZE)
 	return true;
+      return false;
+
+    case MODE_DECIMAL_FLOAT:
       return false;
 
     default:
@@ -7775,15 +7823,22 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 
   fprintf (file, "\t.EXIT\n\t.PROCEND\n");
 
+  if (TARGET_SOM && TARGET_GAS)
+    {
+      /* We done with this subspace except possibly for some additional
+	 debug information.  Forget that we are in this subspace to ensure
+	 that the next function is output in its own subspace.  */
+      in_section = NULL;
+      cfun->machine->in_nsubspa = 2;
+    }
+
   if (TARGET_SOM && flag_pic && TREE_PUBLIC (function))
     {
-      data_section ();
+      switch_to_section (data_section);
       output_asm_insn (".align 4", xoperands);
       ASM_OUTPUT_LABEL (file, label);
       output_asm_insn (".word P'%0", xoperands);
     }
-  else if (TARGET_SOM && TARGET_GAS)
-    forget_section ();
 
   current_thunk_number++;
   nbytes = ((nbytes + FUNCTION_BOUNDARY / BITS_PER_UNIT - 1)
@@ -7959,7 +8014,7 @@ pa_asm_output_aligned_bss (FILE *stream,
 			   unsigned HOST_WIDE_INT size,
 			   unsigned int align)
 {
-  bss_section ();
+  switch_to_section (bss_section);
   fprintf (stream, "\t.align %u\n", align / BITS_PER_UNIT);
 
 #ifdef ASM_OUTPUT_TYPE_DIRECTIVE
@@ -7999,7 +8054,7 @@ pa_asm_output_aligned_common (FILE *stream,
       align = max_common_align;
     }
 
-  bss_section ();
+  switch_to_section (bss_section);
 
   assemble_name (stream, name);
   fprintf (stream, "\t.comm "HOST_WIDE_INT_PRINT_UNSIGNED"\n",
@@ -8019,7 +8074,7 @@ pa_asm_output_aligned_local (FILE *stream,
 			     unsigned HOST_WIDE_INT size,
 			     unsigned int align)
 {
-  bss_section ();
+  switch_to_section (bss_section);
   fprintf (stream, "\t.align %u\n", align / BITS_PER_UNIT);
 
 #ifdef LOCAL_ASM_OP
@@ -9011,17 +9066,16 @@ pa_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 }
 
 
-/* Return a string to output before text in the current function.
+/* A get_unnamed_section callback for switching to the text section.
 
    This function is only used with SOM.  Because we don't support
    named subspaces, we can only create a new subspace or switch back
    to the default text subspace.  */
-const char *
-som_text_section_asm_op (void)
-{
-  if (!TARGET_SOM)
-    return "";
 
+static void
+som_output_text_section_asm_op (const void *data ATTRIBUTE_UNUSED)
+{
+  gcc_assert (TARGET_SOM);
   if (TARGET_GAS)
     {
       if (cfun && !cfun->machine->in_nsubspa)
@@ -9035,24 +9089,92 @@ som_text_section_asm_op (void)
 	  if (cfun->decl
 	      && DECL_ONE_ONLY (cfun->decl)
 	      && !DECL_WEAK (cfun->decl))
-	    return
- "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,SORT=24,COMDAT";
-
-	  return "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$";
+	    {
+	      output_section_asm_op ("\t.SPACE $TEXT$\n"
+				     "\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,"
+				     "ACCESS=44,SORT=24,COMDAT");
+	      return;
+	    }
 	}
       else
 	{
 	  /* There isn't a current function or the body of the current
 	     function has been completed.  So, we are changing to the
-	     text section to output debugging information.  Do this in
-	     the default text section.  We need to forget that we are
-	     in the text section so that the function text_section in
-	     varasm.c will call us the next time around.  */
-	  forget_section ();
+	     text section to output debugging information.  Thus, we
+	     need to forget that we are in the text section so that
+	     varasm.c will call us when text_section is selected again.  */
+	  gcc_assert (!cfun || cfun->machine->in_nsubspa == 2);
+	  in_section = NULL;
 	}
+      output_section_asm_op ("\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$");
+      return;
     }
+  output_section_asm_op ("\t.SPACE $TEXT$\n\t.SUBSPA $CODE$");
+}
 
-  return "\t.SPACE $TEXT$\n\t.SUBSPA $CODE$";
+/* A get_unnamed_section callback for switching to comdat data
+   sections.  This function is only used with SOM.  */
+
+static void
+som_output_comdat_data_section_asm_op (const void *data)
+{
+  in_section = NULL;
+  output_section_asm_op (data);
+}
+
+/* Implement TARGET_ASM_INITIALIZE_SECTIONS  */
+
+static void
+pa_som_asm_init_sections (void)
+{
+  text_section
+    = get_unnamed_section (0, som_output_text_section_asm_op, NULL);
+
+  /* SOM puts readonly data in the default $LIT$ subspace when PIC code
+     is not being generated.  */
+  som_readonly_data_section
+    = get_unnamed_section (0, output_section_asm_op,
+			   "\t.SPACE $TEXT$\n\t.SUBSPA $LIT$");
+
+  /* When secondary definitions are not supported, SOM makes readonly
+     data one-only by creating a new $LIT$ subspace in $TEXT$ with
+     the comdat flag.  */
+  som_one_only_readonly_data_section
+    = get_unnamed_section (0, som_output_comdat_data_section_asm_op,
+			   "\t.SPACE $TEXT$\n"
+			   "\t.NSUBSPA $LIT$,QUAD=0,ALIGN=8,"
+			   "ACCESS=0x2c,SORT=16,COMDAT");
+
+
+  /* When secondary definitions are not supported, SOM makes data one-only
+     by creating a new $DATA$ subspace in $PRIVATE$ with the comdat flag.  */
+  som_one_only_data_section
+    = get_unnamed_section (SECTION_WRITE,
+			   som_output_comdat_data_section_asm_op,
+			   "\t.SPACE $PRIVATE$\n"
+			   "\t.NSUBSPA $DATA$,QUAD=1,ALIGN=8,"
+			   "ACCESS=31,SORT=24,COMDAT");
+
+  /* FIXME: HPUX ld generates incorrect GOT entries for "T" fixups
+     which reference data within the $TEXT$ space (for example constant
+     strings in the $LIT$ subspace).
+
+     The assemblers (GAS and HP as) both have problems with handling
+     the difference of two symbols which is the other correct way to
+     reference constant data during PIC code generation.
+
+     So, there's no way to reference constant data which is in the
+     $TEXT$ space during PIC generation.  Instead place all constant
+     data into the $PRIVATE$ subspace (this reduces sharing, but it
+     works correctly).  */
+  readonly_data_section = flag_pic ? data_section : som_readonly_data_section;
+
+  /* We must not have a reference to an external symbol defined in a
+     shared library in a readonly section, else the SOM linker will
+     complain.
+
+     So, we force exception information into the data section.  */
+  exception_section = data_section;
 }
 
 /* On hpux10, the linker will give an error if we have a reference
@@ -9060,7 +9182,7 @@ som_text_section_asm_op (void)
    library.  Therefore, expressions that might require a reloc can
    not be placed in the read-only data section.  */
 
-static void
+static section *
 pa_select_section (tree exp, int reloc,
 		   unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
@@ -9075,19 +9197,19 @@ pa_select_section (tree exp, int reloc,
       if (TARGET_SOM
 	  && DECL_ONE_ONLY (exp)
 	  && !DECL_WEAK (exp))
-	som_one_only_readonly_data_section ();
+	return som_one_only_readonly_data_section;
       else
-	readonly_data_section ();
+	return readonly_data_section;
     }
   else if (CONSTANT_CLASS_P (exp) && !reloc)
-    readonly_data_section ();
+    return readonly_data_section;
   else if (TARGET_SOM
 	   && TREE_CODE (exp) == VAR_DECL
 	   && DECL_ONE_ONLY (exp)
 	   && !DECL_WEAK (exp))
-    som_one_only_data_section ();
+    return som_one_only_data_section;
   else
-    data_section ();
+    return data_section;
 }
 
 static void

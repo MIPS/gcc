@@ -1,6 +1,6 @@
 /* Routines for manipulation of expression nodes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software 
+   Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1365,7 +1365,7 @@ not_numeric:
    this problem here.  */
 
 static try
-check_inquiry (gfc_expr * e)
+check_inquiry (gfc_expr * e, int not_restricted)
 {
   const char *name;
 
@@ -1378,6 +1378,10 @@ check_inquiry (gfc_expr * e)
   };
 
   int i;
+
+  /* An undeclared parameter will get us here (PR25018).  */
+  if (e->symtree == NULL)
+    return FAILURE;
 
   name = e->symtree->n.sym->name;
 
@@ -1406,6 +1410,15 @@ check_inquiry (gfc_expr * e)
 
       e->ts = e->symtree->n.sym->ts;
     }
+
+  /* Assumed character length will not reduce to a constant expression
+     with LEN, as required by the standard.  */
+  if (i == 4 && not_restricted
+	&& e->symtree->n.sym->ts.type == BT_CHARACTER
+	&& e->symtree->n.sym->ts.cl->length == NULL)
+    gfc_notify_std (GFC_STD_GNU, "assumed character length "
+		    "variable '%s' in constant expression at %L",
+		    e->symtree->n.sym->name, &e->where);
 
   return SUCCESS;
 }
@@ -1440,7 +1453,7 @@ check_init_expr (gfc_expr * e)
     case EXPR_FUNCTION:
       t = SUCCESS;
 
-      if (check_inquiry (e) != SUCCESS)
+      if (check_inquiry (e, 1) != SUCCESS)
 	{
 	  t = SUCCESS;
 	  for (ap = e->value.function.actual; ap; ap = ap->next)
@@ -1478,7 +1491,8 @@ check_init_expr (gfc_expr * e)
 	  break;
 	}
 
-      gfc_error ("Variable '%s' at %L cannot appear in an initialization "
+      gfc_error ("Parameter '%s' at %L has not been declared or is "
+		 "a variable, which does not reduce to a constant "
 		 "expression", e->symtree->n.sym->name, &e->where);
       t = FAILURE;
       break;
@@ -1557,8 +1571,14 @@ gfc_match_init_expr (gfc_expr ** result)
       return MATCH_ERROR;
     }
 
-  if (!gfc_is_constant_expr (expr))
-    gfc_internal_error ("Initialization expression didn't reduce %C");
+  /* Not all inquiry functions are simplified to constant expressions
+     so it is necessary to call check_inquiry again.  */ 
+  if (!gfc_is_constant_expr (expr)
+	&& check_inquiry (expr, 1) == FAILURE)
+    {
+      gfc_error ("Initialization expression didn't reduce %C");
+      return MATCH_ERROR;
+    }
 
   *result = expr;
 
@@ -1637,7 +1657,7 @@ static try
 restricted_intrinsic (gfc_expr * e)
 {
   /* TODO: Check constraints on inquiry functions.  7.1.6.2 (7).  */
-  if (check_inquiry (e) == SUCCESS)
+  if (check_inquiry (e, 0) == SUCCESS)
     return SUCCESS;
 
   return restricted_args (e->value.function.actual);
@@ -1748,6 +1768,8 @@ check_restricted (gfc_expr * e)
 try
 gfc_specification_expr (gfc_expr * e)
 {
+  if (e == NULL)
+    return SUCCESS;
 
   if (e->ts.type != BT_INTEGER)
     {
@@ -2088,3 +2110,73 @@ gfc_get_variable_expr (gfc_symtree * var)
   return e;
 }
 
+
+/* Traverse expr, marking all EXPR_VARIABLE symbols referenced.  */
+
+void
+gfc_expr_set_symbols_referenced (gfc_expr * expr)
+{
+  gfc_actual_arglist *arg;
+  gfc_constructor *c;
+  gfc_ref *ref;
+  int i;
+
+  if (!expr) return;
+
+  switch (expr->expr_type)
+    {
+    case EXPR_OP:
+      gfc_expr_set_symbols_referenced (expr->value.op.op1);
+      gfc_expr_set_symbols_referenced (expr->value.op.op2);
+      break;
+
+    case EXPR_FUNCTION:
+      for (arg = expr->value.function.actual; arg; arg = arg->next)
+        gfc_expr_set_symbols_referenced (arg->expr);
+      break;
+
+    case EXPR_VARIABLE:
+      gfc_set_sym_referenced (expr->symtree->n.sym);
+      break;
+
+    case EXPR_CONSTANT:
+    case EXPR_NULL:
+    case EXPR_SUBSTRING:
+      break;
+
+    case EXPR_STRUCTURE:
+    case EXPR_ARRAY:
+      for (c = expr->value.constructor; c; c = c->next)
+        gfc_expr_set_symbols_referenced (c->expr);
+      break;
+
+    default:
+      gcc_unreachable ();
+      break;
+    }
+
+    for (ref = expr->ref; ref; ref = ref->next)
+      switch (ref->type)
+        {
+        case REF_ARRAY:
+          for (i = 0; i < ref->u.ar.dimen; i++)
+            {
+              gfc_expr_set_symbols_referenced (ref->u.ar.start[i]);
+              gfc_expr_set_symbols_referenced (ref->u.ar.end[i]);
+              gfc_expr_set_symbols_referenced (ref->u.ar.stride[i]);
+            }
+          break;
+           
+        case REF_COMPONENT:
+          break;
+           
+        case REF_SUBSTRING:
+          gfc_expr_set_symbols_referenced (ref->u.ss.start);
+          gfc_expr_set_symbols_referenced (ref->u.ss.end);
+          break;
+           
+        default:
+          gcc_unreachable ();
+          break;
+        }
+}

@@ -187,7 +187,7 @@ dnl safe (like an empty string).
 dnl
 dnl Defines:
 dnl  SECTION_LDFLAGS='-Wl,--gc-sections' if possible
-dnl  OPT_LDFLAGS='-Wl,-O1' if possible
+dnl  OPT_LDFLAGS='-Wl,-O1' and '-z,relro' if possible
 dnl  LD (as a side effect of testing)
 dnl Sets:
 dnl  with_gnu_ld
@@ -230,7 +230,7 @@ AC_DEFUN([GLIBCXX_CHECK_LINKER_FEATURES], [
          $AWK -F. '{ if (NF<3) [$]3=0; print ([$]1*100+[$]2)*100+[$]3 }'`
 
   # Set --gc-sections.
-  if test "$with_gnu_ld" = "notbroken"; then
+  if test x"$with_gnu_ld" = x"yes"; then
     # GNU ld it is!  Joy and bunny rabbits!
 
     # All these tests are for C++; save the language and the compiler flags.
@@ -240,14 +240,9 @@ AC_DEFUN([GLIBCXX_CHECK_LINKER_FEATURES], [
     CFLAGS='-x c++  -Wl,--gc-sections'
 
     # Check for -Wl,--gc-sections
-    # XXX This test is broken at the moment, as symbols required for linking
-    # are now in libsupc++ (not built yet).  In addition, this test has
-    # cored on solaris in the past.  In addition, --gc-sections doesn't
-    # really work at the moment (keeps on discarding used sections, first
-    # .eh_frame and now some of the glibc sections for iconv).
-    # Bzzzzt.  Thanks for playing, maybe next time.
+    # Note: It's supposed to work now, so ease off until proven wrong...
     AC_MSG_CHECKING([for ld that supports -Wl,--gc-sections])
-    AC_TRY_RUN([
+    AC_TRY_COMPILE([
      int main(void)
      {
        try { throw 1; }
@@ -265,6 +260,19 @@ AC_DEFUN([GLIBCXX_CHECK_LINKER_FEATURES], [
       SECTION_LDFLAGS="-Wl,--gc-sections $SECTION_LDFLAGS"
     fi
     AC_MSG_RESULT($ac_sectionLDflags)
+  fi
+
+  # Set -z,relro.
+  # Note this is only for shared objects.
+  ac_ld_relro=no
+  if test x"$with_gnu_ld" = x"yes"; then
+    AC_MSG_CHECKING([for ld that supports -Wl,-z,relro])
+    cxx_z_relo=`$LD -v --help 2>/dev/null | grep "z relro"`
+    if test -n "$cxx_z_relo"; then
+      OPT_LDFLAGS="-Wl,-z,relro"
+      ac_ld_relro=yes
+    fi
+    AC_MSG_RESULT($ac_ld_relro)
   fi
 
   # Set linker optimization flags.
@@ -577,7 +585,7 @@ AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
   fi
   
   # Export file names for ABI checking.
-  baseline_dir="$glibcxx_srcdir/config/abi/${abi_baseline_pair}\$(MULTISUBDIR)"
+  baseline_dir="$glibcxx_srcdir/config/abi/post/${abi_baseline_pair}\$(MULTISUBDIR)"
   AC_SUBST(baseline_dir)
 ])
 
@@ -1685,7 +1693,7 @@ AC_DEFUN([GLIBCXX_ENABLE_SYMVERS], [
 
 GLIBCXX_ENABLE(symvers,$1,[=STYLE],
   [enables symbol versioning of the shared library],
-  [permit yes|no|gnu|darwin-export])
+  [permit yes|no|gnu|gnu-versioned-namespace|darwin|darwin-export])
 
 # If we never went through the GLIBCXX_CHECK_LINKER_FEATURES macro, then we
 # don't know enough about $LD to do tricks...
@@ -1693,26 +1701,29 @@ AC_REQUIRE([GLIBCXX_CHECK_LINKER_FEATURES])
 
 # Turn a 'yes' into a suitable default.
 if test x$enable_symvers = xyes ; then
-  if test $enable_shared = no ||
-     test "x$LD" = x ; then
+  if test $enable_shared = no || test "x$LD" = x ; then
     enable_symvers=no
-  elif test $with_gnu_ld = yes ; then
-    enable_symvers=gnu
   else
-    case ${target_os} in
-      darwin*)
-	enable_symvers=darwin-export ;;
-      *)
-      AC_MSG_WARN([=== You have requested some kind of symbol versioning, but])
-      AC_MSG_WARN([=== you are not using a supported linker.])
-      AC_MSG_WARN([=== Symbol versioning will be disabled.])
-	enable_symvers=no ;;
-    esac
+    if test $with_gnu_ld = yes ; then
+      enable_symvers=gnu
+    else
+      case ${target_os} in
+        darwin*)
+	  enable_symvers=darwin ;;
+        *)
+          enable_symvers=no ;;
+      esac
+    fi
   fi
 fi
 
+# Check to see if 'darwin' or 'darwin-export' can win.
+if test x$enable_symvers = xdarwin-export ; then
+    enable_symvers=darwin
+fi
+
 # Check to see if 'gnu' can win.
-if test $enable_symvers = gnu; then
+if test $enable_symvers = gnu || test $enable_symvers = gnu-versioned-namespace; then
   # Check to see if libgcc_s exists, indicating that shared libgcc is possible.
   AC_MSG_CHECKING([for shared libgcc])
   ac_save_CFLAGS="$CFLAGS"
@@ -1768,18 +1779,39 @@ fi
 # Everything parsed; figure out what file to use.
 case $enable_symvers in
   no)
-    SYMVER_MAP=config/linker-map.dummy
+    SYMVER_FILE=config/abi/pre/none.ver
     ;;
   gnu)
-    SYMVER_MAP=config/linker-map.gnu
-    AC_DEFINE(_GLIBCXX_SYMVER, 1, 
-              [Define to use GNU symbol versioning in the shared library.])
+    SYMVER_FILE=config/abi/pre/gnu.ver
+    AC_DEFINE(_GLIBCXX_SYMVER_GNU, 1, 
+              [Define to use GNU versioning in the shared library.])
     ;;
-  darwin-export)
-    SYMVER_MAP=config/linker-map.gnu
+  gnu-versioned-namespace)
+    SYMVER_FILE=config/abi/pre/gnu-versioned-namespace.ver
+    AC_DEFINE(_GLIBCXX_SYMVER_GNU_NAMESPACE, 1, 
+              [Define to use GNU namespace versioning in the shared library.])
+    ;;
+  darwin)
+    SYMVER_FILE=config/abi/pre/gnu.ver
+    AC_DEFINE(_GLIBCXX_SYMVER_DARWIN, 1, 
+              [Define to use darwin versioning in the shared library.])
     ;;
 esac
 
+if test x$enable_symvers != xno ; then
+  AC_DEFINE(_GLIBCXX_SYMVER, 1,
+	 [Define to use symbol versioning in the shared library.])
+fi
+
+AC_SUBST(SYMVER_FILE)
+AC_SUBST(port_specific_symbol_files)
+GLIBCXX_CONDITIONAL(ENABLE_SYMVERS, test $enable_symvers != no)
+GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_GNU, test $enable_symvers = gnu)
+GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_GNU_NAMESPACE, test $enable_symvers = gnu-versioned-namespace)
+GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_DARWIN, test $enable_symvers = darwin)
+AC_MSG_NOTICE(versioning on shared library symbols is $enable_symvers)
+
+# Now, set up compatibility support, if any.
 # In addition, need this to deal with std::size_t mangling in
 # src/compatibility.cc.  In a perfect world, could use
 # typeid(std::size_t).name()[0] to do direct substitution.
@@ -1804,13 +1836,6 @@ if test "$glibcxx_ptrdiff_t_is_i" = yes; then
   AC_DEFINE(_GLIBCXX_PTRDIFF_T_IS_INT, 1, [Define if ptrdiff_t is int.])
 fi
 AC_MSG_RESULT([$glibcxx_ptrdiff_t_is_i])
-
-AC_SUBST(SYMVER_MAP)
-AC_SUBST(port_specific_symbol_files)
-GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_GNU, test $enable_symvers = gnu)
-GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_DARWIN_EXPORT, dnl
-  test $enable_symvers = darwin-export)
-AC_MSG_NOTICE(versioning on shared library symbols is $enable_symvers)
 ])
 
 

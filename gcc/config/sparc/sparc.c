@@ -1900,8 +1900,10 @@ select_cc_mode (enum rtx_code op, rtx x, rtx y ATTRIBUTE_UNUSED)
    return the rtx for the cc reg in the proper mode.  */
 
 rtx
-gen_compare_reg (enum rtx_code code, rtx x, rtx y)
+gen_compare_reg (enum rtx_code code)
 {
+  rtx x = sparc_compare_op0;
+  rtx y = sparc_compare_op1;
   enum machine_mode mode = SELECT_CC_MODE (code, x, y);
   rtx cc_reg;
 
@@ -1990,22 +1992,20 @@ gen_compare_reg (enum rtx_code code, rtx x, rtx y)
 int
 gen_v9_scc (enum rtx_code compare_code, register rtx *operands)
 {
-  rtx temp, op0, op1;
-
   if (! TARGET_ARCH64
       && (GET_MODE (sparc_compare_op0) == DImode
 	  || GET_MODE (operands[0]) == DImode))
     return 0;
 
-  op0 = sparc_compare_op0;
-  op1 = sparc_compare_op1;
-
   /* Try to use the movrCC insns.  */
   if (TARGET_ARCH64
-      && GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
-      && op1 == const0_rtx
+      && GET_MODE_CLASS (GET_MODE (sparc_compare_op0)) == MODE_INT
+      && sparc_compare_op1 == const0_rtx
       && v9_regcmp_p (compare_code))
     {
+      rtx op0 = sparc_compare_op0;
+      rtx temp;
+
       /* Special case for op0 != 0.  This can be done with one instruction if
 	 operands[0] == sparc_compare_op0.  */
 
@@ -2048,7 +2048,7 @@ gen_v9_scc (enum rtx_code compare_code, register rtx *operands)
     }
   else
     {
-      operands[1] = gen_compare_reg (compare_code, op0, op1);
+      operands[1] = gen_compare_reg (compare_code);
 
       switch (GET_MODE (operands[1]))
 	{
@@ -3287,7 +3287,7 @@ emit_pic_helper (void)
   const char *pic_name = reg_names[REGNO (pic_offset_table_rtx)];
   int align;
 
-  text_section ();
+  switch_to_section (text_section);
 
   align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
   if (align > 0)
@@ -7477,7 +7477,7 @@ sparc_output_deferred_case_vectors (void)
     return;
 
   /* Align to cache line in the function's code section.  */
-  current_function_section (current_function_decl);
+  switch_to_section (current_function_section ());
 
   align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
   if (align > 0)
@@ -7707,12 +7707,14 @@ sparc_init_libfuncs (void)
       set_conv_libfunc (sfix_optab,   SImode, TFmode, "_Q_qtoi");
       set_conv_libfunc (ufix_optab,   SImode, TFmode, "_Q_qtou");
       set_conv_libfunc (sfloat_optab, TFmode, SImode, "_Q_itoq");
+      set_conv_libfunc (ufloat_optab, TFmode, SImode, "_Q_utoq");
 
       if (DITF_CONVERSION_LIBFUNCS)
 	{
 	  set_conv_libfunc (sfix_optab,   DImode, TFmode, "_Q_qtoll");
 	  set_conv_libfunc (ufix_optab,   DImode, TFmode, "_Q_qtoull");
 	  set_conv_libfunc (sfloat_optab, TFmode, DImode, "_Q_lltoq");
+	  set_conv_libfunc (ufloat_optab, TFmode, DImode, "_Q_ulltoq");
 	}
 
       if (SUN_CONVERSION_LIBFUNCS)
@@ -8706,6 +8708,108 @@ sparc_file_end (void)
 
   if (NEED_INDICATE_EXEC_STACK)
     file_end_indicate_exec_stack ();
+}
+
+/* Expand code to perform a 8 or 16-bit compare and swap by doing 32-bit
+   compare and swap on the word containing the byte or half-word.  */
+
+void
+sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
+{
+  rtx addr1 = force_reg (Pmode, XEXP (mem, 0));
+  rtx addr = gen_reg_rtx (Pmode);
+  rtx off = gen_reg_rtx (SImode);
+  rtx oldv = gen_reg_rtx (SImode);
+  rtx newv = gen_reg_rtx (SImode);
+  rtx oldvalue = gen_reg_rtx (SImode);
+  rtx newvalue = gen_reg_rtx (SImode);
+  rtx res = gen_reg_rtx (SImode);
+  rtx resv = gen_reg_rtx (SImode);
+  rtx memsi, val, mask, end_label, loop_label, cc;
+
+  emit_insn (gen_rtx_SET (VOIDmode, addr,
+			  gen_rtx_AND (Pmode, addr1, GEN_INT (-4))));
+
+  if (Pmode != SImode)
+    addr1 = gen_lowpart (SImode, addr1);
+  emit_insn (gen_rtx_SET (VOIDmode, off,
+			  gen_rtx_AND (SImode, addr1, GEN_INT (3))));
+
+  memsi = gen_rtx_MEM (SImode, addr);
+  MEM_VOLATILE_P (memsi) = MEM_VOLATILE_P (mem);
+
+  val = force_reg (SImode, memsi);
+
+  emit_insn (gen_rtx_SET (VOIDmode, off,
+			  gen_rtx_XOR (SImode, off,
+				       GEN_INT (GET_MODE (mem) == QImode
+						? 3 : 2))));
+
+  emit_insn (gen_rtx_SET (VOIDmode, off,
+			  gen_rtx_ASHIFT (SImode, off, GEN_INT (3))));
+
+  if (GET_MODE (mem) == QImode)
+    mask = force_reg (SImode, GEN_INT (0xff));
+  else
+    mask = force_reg (SImode, GEN_INT (0xffff));
+
+  emit_insn (gen_rtx_SET (VOIDmode, mask,
+			  gen_rtx_ASHIFT (SImode, mask, off)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, val,
+			  gen_rtx_AND (SImode, gen_rtx_NOT (SImode, mask),
+				       val)));
+
+  oldval = gen_lowpart (SImode, oldval);
+  emit_insn (gen_rtx_SET (VOIDmode, oldv,
+			  gen_rtx_ASHIFT (SImode, oldval, off)));
+
+  newval = gen_lowpart_common (SImode, newval);
+  emit_insn (gen_rtx_SET (VOIDmode, newv,
+			  gen_rtx_ASHIFT (SImode, newval, off)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, oldv,
+			  gen_rtx_AND (SImode, oldv, mask)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, newv,
+			  gen_rtx_AND (SImode, newv, mask)));
+
+  end_label = gen_label_rtx ();
+  loop_label = gen_label_rtx ();
+  emit_label (loop_label);
+
+  emit_insn (gen_rtx_SET (VOIDmode, oldvalue,
+			  gen_rtx_IOR (SImode, oldv, val)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, newvalue,
+			  gen_rtx_IOR (SImode, newv, val)));
+
+  emit_insn (gen_sync_compare_and_swapsi (res, memsi, oldvalue, newvalue));
+
+  emit_cmp_and_jump_insns (res, oldvalue, EQ, NULL, SImode, 0, end_label);
+
+  emit_insn (gen_rtx_SET (VOIDmode, resv,
+			  gen_rtx_AND (SImode, gen_rtx_NOT (SImode, mask),
+				       res)));
+
+  sparc_compare_op0 = resv;
+  sparc_compare_op1 = val;
+  cc = gen_compare_reg (NE);
+
+  emit_insn (gen_rtx_SET (VOIDmode, val, resv));
+
+  sparc_compare_emitted = cc;
+  emit_jump_insn (gen_bne (loop_label));
+
+  emit_label (end_label);
+
+  emit_insn (gen_rtx_SET (VOIDmode, res,
+			  gen_rtx_AND (SImode, res, mask)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, res,
+			  gen_rtx_LSHIFTRT (SImode, res, off)));
+
+  emit_move_insn (result, gen_lowpart (GET_MODE (result), res));
 }
 
 #include "gt-sparc.h"

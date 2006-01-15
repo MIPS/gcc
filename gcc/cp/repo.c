@@ -132,7 +132,7 @@ open_repo_file (const char *filename)
   if (! p)
     p = s + strlen (s);
 
-  repo_name = xmalloc (p - s + 5);
+  repo_name = XNEWVEC (char, p - s + 5);
   memcpy (repo_name, s, p - s);
   memcpy (repo_name + (p - s), ".rpo", 5);
 
@@ -297,6 +297,12 @@ repo_emit_p (tree decl)
       if (!DECL_TEMPLATE_INSTANTIATION (decl)
 	  && (!TYPE_LANG_SPECIFIC (type)
 	      || !CLASSTYPE_TEMPLATE_INSTANTIATION (type)))
+	return 2;
+      /* Static data members initialized by constant expressions must
+	 be processed where needed so that their definitions are
+	 available.  */
+      if (DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)
+	  && DECL_CLASS_SCOPE_P (decl))
 	return 2;
     }
   else if (!DECL_TEMPLATE_INSTANTIATION (decl))

@@ -527,28 +527,19 @@ extern struct rtx_def *hppa_pic_save_rtx (void);
    in some cases it is preferable to use a more restrictive class.  */
 #define PREFERRED_RELOAD_CLASS(X,CLASS) (CLASS)
 
-/* Return the register class of a scratch register needed to copy
-   IN into a register in CLASS in MODE, or a register in CLASS in MODE
-   to IN.  If it can be done directly NO_REGS is returned. 
-
-  Avoid doing any work for the common case calls.  */
-#define SECONDARY_RELOAD_CLASS(CLASS,MODE,IN) \
-  ((CLASS == BASE_REG_CLASS && GET_CODE (IN) == REG		\
-    && REGNO (IN) < FIRST_PSEUDO_REGISTER)			\
-   ? NO_REGS : pa_secondary_reload_class (CLASS, MODE, IN))
-
 #define MAYBE_FP_REG_CLASS_P(CLASS) \
   reg_classes_intersect_p ((CLASS), FP_REGS)
 
 /* On the PA it is not possible to directly move data between
-   GENERAL_REGS and FP_REGS.  */
-#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)		\
-  (MAYBE_FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2)	\
-   || MAYBE_FP_REG_CLASS_P (CLASS2) != FP_REG_CLASS_P (CLASS1))
-
-/* Return the stack location to use for secondary memory needed reloads.  */
-#define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
-  gen_rtx_MEM (MODE, gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (-16)))
+   GENERAL_REGS and FP_REGS.  On the 32-bit port, we use the
+   location at SP-16.  We don't expose this location in the RTL to
+   avoid scheduling related problems.  For example, the store and
+   load could be separated by a call to a pure or const function
+   which has no frame and uses SP-16.  */
+#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)			\
+  (TARGET_64BIT								\
+   && (MAYBE_FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2)		\
+       || MAYBE_FP_REG_CLASS_P (CLASS2) != FP_REG_CLASS_P (CLASS1)))
 
 
 /* Stack layout; function entry, exit and calling.  */
@@ -1577,72 +1568,6 @@ do { 									\
 #define IN_NAMED_SECTION_P(DECL) \
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
    && DECL_SECTION_NAME (DECL) != NULL_TREE)
-
-/* The following extra sections and extra section functions are only used
-   for SOM, but they must be provided unconditionally because pa.c's calls
-   to the functions might not get optimized out when other object formats
-   are in use.  */
-
-#define EXTRA_SECTIONS							\
-  in_som_readonly_data,							\
-  in_som_one_only_readonly_data,					\
-  in_som_one_only_data
-
-#define EXTRA_SECTION_FUNCTIONS						\
-  SOM_READONLY_DATA_SECTION_FUNCTION					\
-  SOM_ONE_ONLY_READONLY_DATA_SECTION_FUNCTION				\
-  SOM_ONE_ONLY_DATA_SECTION_FUNCTION					\
-  FORGET_SECTION_FUNCTION
-
-/* SOM puts readonly data in the default $LIT$ subspace when PIC code
-   is not being generated.  */
-#define SOM_READONLY_DATA_SECTION_FUNCTION				\
-void									\
-som_readonly_data_section (void)					\
-{									\
-  if (!TARGET_SOM)							\
-    return;								\
-  if (in_section != in_som_readonly_data)				\
-    {									\
-      in_section = in_som_readonly_data;				\
-      fputs ("\t.SPACE $TEXT$\n\t.SUBSPA $LIT$\n", asm_out_file);	\
-    }									\
-}
-
-/* When secondary definitions are not supported, SOM makes readonly data one
-   only by creating a new $LIT$ subspace in $TEXT$ with the comdat flag.  */
-#define SOM_ONE_ONLY_READONLY_DATA_SECTION_FUNCTION			\
-void									\
-som_one_only_readonly_data_section (void)				\
-{									\
-  if (!TARGET_SOM)							\
-    return;								\
-  in_section = in_som_one_only_readonly_data;				\
-  fputs ("\t.SPACE $TEXT$\n"						\
-	 "\t.NSUBSPA $LIT$,QUAD=0,ALIGN=8,ACCESS=0x2c,SORT=16,COMDAT\n",\
-	 asm_out_file);							\
-}
-
-/* When secondary definitions are not supported, SOM makes data one only by
-   creating a new $DATA$ subspace in $PRIVATE$ with the comdat flag.  */
-#define SOM_ONE_ONLY_DATA_SECTION_FUNCTION				\
-void									\
-som_one_only_data_section (void)					\
-{									\
-  if (!TARGET_SOM)							\
-    return;								\
-  in_section = in_som_one_only_data;					\
-  fputs ("\t.SPACE $PRIVATE$\n"						\
-	 "\t.NSUBSPA $DATA$,QUAD=1,ALIGN=8,ACCESS=31,SORT=24,COMDAT\n",	\
-	 asm_out_file);							\
-}
-
-#define FORGET_SECTION_FUNCTION						\
-void									\
-forget_section (void)							\
-{									\
-  in_section = no_section;						\
-}
 
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or

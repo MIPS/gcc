@@ -1471,21 +1471,25 @@ gfc_get_component_attr (symbol_attribute * attr, gfc_component * c)
    occurs.  */
 
 void
-gfc_free_st_label (gfc_st_label * l)
+gfc_free_st_label (gfc_st_label * label)
 {
 
-  if (l == NULL)
+  if (label == NULL)
     return;
 
-  if (l->prev)
-    (l->prev->next = l->next);
+  if (label->prev)
+    label->prev->next = label->next;
 
-  if (l->next)
-    (l->next->prev = l->prev);
+  if (label->next)
+    label->next->prev = label->prev;
 
-  if (l->format != NULL)
-    gfc_free_expr (l->format);
-  gfc_free (l);
+  if (gfc_current_ns->st_labels == label)
+    gfc_current_ns->st_labels = label->next;
+
+  if (label->format != NULL)
+    gfc_free_expr (label->format);
+
+  gfc_free (label);
 }
 
 /* Free a whole list of gfc_st_label structures.  */
@@ -2305,6 +2309,21 @@ free_sym_tree (gfc_symtree * sym_tree)
 }
 
 
+/* Free a derived type list.  */
+
+static void
+gfc_free_dt_list (gfc_dt_list * dt)
+{
+  gfc_dt_list *n;
+
+  for (; dt; dt = n)
+    {
+      n = dt->next;
+      gfc_free (dt);
+    }
+}
+
+
 /* Free a namespace structure and everything below it.  Interface
    lists associated with intrinsic operators are not freed.  These are
    taken care of when a specific name is freed.  */
@@ -2340,6 +2359,8 @@ gfc_free_namespace (gfc_namespace * ns)
   free_st_labels (ns->st_labels);
 
   gfc_free_equiv (ns->equiv);
+
+  gfc_free_dt_list (ns->derived_types);
 
   for (i = GFC_INTRINSIC_BEGIN; i != GFC_INTRINSIC_END; i++)
     gfc_free_interface (ns->operator[i]);

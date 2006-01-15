@@ -1,6 +1,6 @@
 /* gfortran header file
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software 
+   Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -491,17 +491,17 @@ typedef struct
   ENUM_BITFIELD (ifsrc) if_source:2;
 
   ENUM_BITFIELD (procedure_type) proc:3;
-  
+
   /* Special attributes for Cray pointers, pointees.  */
-  unsigned cray_pointer:1, cray_pointee:1;    
+  unsigned cray_pointer:1, cray_pointee:1;
 
 }
 symbol_attribute;
 
 
 /* The following three structures are used to identify a location in
-   the sources. 
-   
+   the sources.
+
    gfc_file is used to maintain a tree of the source files and how
    they include each other
 
@@ -509,17 +509,17 @@ symbol_attribute;
    which file it resides in
 
    locus point to the sourceline and the character in the source
-   line.  
+   line.
 */
 
-typedef struct gfc_file 
+typedef struct gfc_file
 {
   struct gfc_file *included_by, *next, *up;
   int inclusion_line, line;
   char *filename;
 } gfc_file;
 
-typedef struct gfc_linebuf 
+typedef struct gfc_linebuf
 {
 #ifdef USE_MAPPED_LOCATION
   source_location location;
@@ -536,7 +536,7 @@ typedef struct gfc_linebuf
 
 #define gfc_linebuf_header_size (offsetof (gfc_linebuf, line))
 
-typedef struct 
+typedef struct
 {
   char *nextc;
   gfc_linebuf *lb;
@@ -570,6 +570,8 @@ typedef struct gfc_charlen
   struct gfc_expr *length;
   struct gfc_charlen *next;
   tree backend_decl;
+
+  int resolved;
 }
 gfc_charlen;
 
@@ -785,7 +787,7 @@ typedef struct gfc_common_head
   int use_assoc, saved;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   struct gfc_symbol *head;
-} 
+}
 gfc_common_head;
 
 #define gfc_get_common_head() gfc_getmem(sizeof(gfc_common_head))
@@ -832,6 +834,16 @@ typedef struct gfc_symtree
 }
 gfc_symtree;
 
+/* A linked list of derived types in the namespace.  */
+typedef struct gfc_dt_list
+{
+  struct gfc_symbol *derived;
+  struct gfc_dt_list *next;
+}
+gfc_dt_list;
+
+#define gfc_get_dt_list() gfc_getmem(sizeof(gfc_dt_list))
+
 
 /* A namespace describes the contents of procedure, module or
    interface block.  */
@@ -844,7 +856,7 @@ typedef struct gfc_namespace
   /* Tree containing all the user-defined operators in the namespace.  */
   gfc_symtree *uop_root;
   /* Tree containing all the common blocks.  */
-  gfc_symtree *common_root;	
+  gfc_symtree *common_root;
 
   /* If set_flag[letter] is set, an implicit type has been set for letter.  */
   int set_flag[GFC_LETTERS];
@@ -890,6 +902,9 @@ typedef struct gfc_namespace
 
   /* A list of all alternate entry points to this procedure (or NULL).  */
   gfc_entry_list *entries;
+
+  /* A list of all derived types in this procedure (or NULL).  */
+  gfc_dt_list *derived_types;
 
   /* Set to 1 if namespace is a BLOCK DATA program unit.  */
   int is_block_data;
@@ -1128,6 +1143,9 @@ typedef struct gfc_expr
 
   /* True if it is converted from Hollerith constant.  */
   unsigned int from_H : 1;
+  /* True if the expression is a call to a function that returns an array,
+     and if we have decided not to allocate temporary data for that array.  */
+  unsigned int inline_noncopying_intrinsic : 1;
 
   union
   {
@@ -1308,7 +1326,7 @@ gfc_alloc;
 typedef struct
 {
   gfc_expr *unit, *file, *status, *access, *form, *recl,
-    *blank, *position, *action, *delim, *pad, *iostat, *iomsg;
+    *blank, *position, *action, *delim, *pad, *iostat, *iomsg, *convert;
   gfc_st_label *err;
 }
 gfc_open;
@@ -1335,7 +1353,7 @@ typedef struct
   gfc_expr *unit, *file, *iostat, *exist, *opened, *number, *named,
     *name, *access, *sequential, *direct, *form, *formatted,
     *unformatted, *recl, *nextrec, *blank, *position, *action, *read,
-    *write, *readwrite, *delim, *pad, *iolength, *iomsg;
+    *write, *readwrite, *delim, *pad, *iolength, *iomsg, *convert;
 
   gfc_st_label *err;
 
@@ -1352,7 +1370,7 @@ typedef struct
   gfc_st_label *format_label;
   gfc_st_label *err, *end, *eor;
 
-  locus eor_where, end_where;
+  locus eor_where, end_where, err_where;
 }
 gfc_dt;
 
@@ -1414,7 +1432,7 @@ typedef struct gfc_code
   ext;		/* Points to additional structures required by statement */
 
   /* Backend_decl is used for cycle and break labels in do loops, and
-   * probably for other constructs as well, once we translate them.  */
+     probably for other constructs as well, once we translate them.  */
   tree backend_decl;
 }
 gfc_code;
@@ -1459,7 +1477,20 @@ typedef struct
 {
   char *module_dir;
   gfc_source_form source_form;
-  int fixed_line_length;
+  /* When fixed_line_length or free_line_length are 0, the whole line is used.
+
+     Default is -1, the maximum line length mandated by the respective source
+     form is used:
+     for FORM_FREE GFC_MAX_LINE (132)
+     else 72.
+
+     If fixed_line_length or free_line_length is not 0 nor -1 then the user has
+     requested a specific line-length.
+
+     If the user requests a fixed_line_length <7 then gfc_init_options()
+     emits a fatal error.  */
+  int fixed_line_length; /* maximum line length in fixed-form.  */
+  int free_line_length; /* maximum line length in free-form.  */
   int max_identifier_length;
   int verbose;
 
@@ -1822,6 +1853,7 @@ try gfc_check_assign_symbol (gfc_symbol *, gfc_expr *);
 gfc_expr *gfc_default_initializer (gfc_typespec *);
 gfc_expr *gfc_get_variable_expr (gfc_symtree *);
 
+void gfc_expr_set_symbols_referenced (gfc_expr * expr);
 
 /* st.c */
 extern gfc_code new_st;
@@ -1878,6 +1910,7 @@ int gfc_is_compile_time_shape (gfc_array_spec *);
 
 /* interface.c -- FIXME: some of these should be in symbol.c */
 void gfc_free_interface (gfc_interface *);
+int gfc_compare_derived_types (gfc_symbol *, gfc_symbol *);
 int gfc_compare_types (gfc_typespec *, gfc_typespec *);
 void gfc_check_interfaces (gfc_namespace *);
 void gfc_procedure_use (gfc_symbol *, gfc_actual_arglist **, locus *);

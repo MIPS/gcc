@@ -230,6 +230,13 @@ init_ttree (void)
   tree_contains_struct[TRANSLATION_UNIT_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[LABEL_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[FIELD_DECL][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[STRUCT_FIELD_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[NAME_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[TYPE_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+
+  tree_contains_struct[STRUCT_FIELD_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[NAME_MEMORY_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[TYPE_MEMORY_TAG][TS_MEMORY_TAG] = 1;
 
   tree_contains_struct[VAR_DECL][TS_DECL_WITH_VIS] = 1;
   tree_contains_struct[FUNCTION_DECL][TS_DECL_WITH_VIS] = 1;
@@ -288,6 +295,10 @@ tree_code_size (enum tree_code code)
 	    return sizeof (struct tree_type_decl);
 	  case FUNCTION_DECL:
 	    return sizeof (struct tree_function_decl);
+	  case NAME_MEMORY_TAG:
+	  case TYPE_MEMORY_TAG:
+	  case STRUCT_FIELD_TAG:
+	    return sizeof (struct tree_memory_tag);
 	  default:
 	    return sizeof (struct tree_decl_non_common);
 	  }
@@ -479,13 +490,16 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
       break;
 
     case tcc_declaration:
-      if (code != FUNCTION_DECL)
-	DECL_ALIGN (t) = 1;
-      DECL_USER_ALIGN (t) = 0;
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
 	DECL_IN_SYSTEM_HEADER (t) = in_system_header;
-      /* We have not yet computed the alias set for this declaration.  */
-      DECL_POINTER_ALIAS_SET (t) = -1;
+      if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
+	{
+	  if (code != FUNCTION_DECL)
+	    DECL_ALIGN (t) = 1;
+	  DECL_USER_ALIGN (t) = 0;	  
+	  /* We have not yet computed the alias set for this declaration.  */
+	  DECL_POINTER_ALIAS_SET (t) = -1;
+	}
       DECL_SOURCE_LOCATION (t) = input_location;
       DECL_UID (t) = next_decl_uid++;
 
@@ -1194,9 +1208,11 @@ integer_all_onesp (tree expr)
     return 0;
 
   uns = TYPE_UNSIGNED (TREE_TYPE (expr));
+  if (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
+      && TREE_INT_CST_HIGH (expr) == -1)
+    return 1;
   if (!uns)
-    return (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
-	    && TREE_INT_CST_HIGH (expr) == -1);
+    return 0;
 
   /* Note that using TYPE_PRECISION here is wrong.  We care about the
      actual bits, not the (arbitrary) range of the type.  */
@@ -1979,6 +1995,10 @@ tree_node_structure (tree t)
 	    return TS_TYPE_DECL;
 	  case FUNCTION_DECL:
 	    return TS_FUNCTION_DECL;
+	  case TYPE_MEMORY_TAG:
+	  case NAME_MEMORY_TAG:
+	  case STRUCT_FIELD_TAG:
+	    return TS_MEMORY_TAG;
 	  default:
 	    return TS_DECL_NON_COMMON;
 	  }
@@ -2602,7 +2622,7 @@ stabilize_reference_1 (tree e)
    TREE_INVARIANT, and TREE_SIDE_EFFECTS for an ADDR_EXPR.  */
 
 void
-recompute_tree_invarant_for_addr_expr (tree t)
+recompute_tree_invariant_for_addr_expr (tree t)
 {
   tree node;
   bool tc = true, ti = true, se = false;
@@ -2691,9 +2711,7 @@ do { tree _node = (NODE); \
    Constants, decls, types and misc nodes cannot be.
 
    We define 5 non-variadic functions, from 0 to 4 arguments.  This is
-   enough for all extant tree codes.  These functions can be called
-   directly (preferably!), but can also be obtained via GCC preprocessor
-   magic within the build macro.  */
+   enough for all extant tree codes.  */
 
 tree
 build0_stat (enum tree_code code, tree tt MEM_STAT_DECL)
@@ -2779,7 +2797,7 @@ build1_stat (enum tree_code code, tree type, tree node MEM_STAT_DECL)
 
     case ADDR_EXPR:
       if (node)
-	recompute_tree_invarant_for_addr_expr (t);
+	recompute_tree_invariant_for_addr_expr (t);
       break;
 
     default:
@@ -2951,61 +2969,6 @@ build7_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
 
   TREE_SIDE_EFFECTS (t) = side_effects;
   TREE_THIS_VOLATILE (t) = 0;
-
-  return t;
-}
-
-/* Backup definition for non-gcc build compilers.  */
-
-tree
-(build) (enum tree_code code, tree tt, ...)
-{
-  tree t, arg0, arg1, arg2, arg3, arg4, arg5, arg6;
-  int length = TREE_CODE_LENGTH (code);
-  va_list p;
-
-  va_start (p, tt);
-  switch (length)
-    {
-    case 0:
-      t = build0 (code, tt);
-      break;
-    case 1:
-      arg0 = va_arg (p, tree);
-      t = build1 (code, tt, arg0);
-      break;
-    case 2:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      t = build2 (code, tt, arg0, arg1);
-      break;
-    case 3:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      t = build3 (code, tt, arg0, arg1, arg2);
-      break;
-    case 4:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      arg3 = va_arg (p, tree);
-      t = build4 (code, tt, arg0, arg1, arg2, arg3);
-      break;
-    case 7:
-      arg0 = va_arg (p, tree);
-      arg1 = va_arg (p, tree);
-      arg2 = va_arg (p, tree);
-      arg3 = va_arg (p, tree);
-      arg4 = va_arg (p, tree);
-      arg5 = va_arg (p, tree);
-      arg6 = va_arg (p, tree);
-      t = build7 (code, tt, arg0, arg1, arg2, arg3, arg4, arg5, arg6);
-      break;
-    default:
-      gcc_unreachable ();
-    }
-  va_end (p);
 
   return t;
 }
@@ -4755,8 +4718,8 @@ iterative_hash_expr (tree t, hashval_t val)
 
       if (class == tcc_declaration)
 	{
-	  /* Otherwise, we can just compare decls by pointer.  */
-	  val = iterative_hash_pointer (t, val);
+	  /* DECL's have a unique ID */
+	  val = iterative_hash_host_wide_int (DECL_UID (t), val);
 	}
       else
 	{
@@ -6049,6 +6012,21 @@ tree_class_check_failed (const tree node, const enum tree_code_class cl,
      TREE_CODE_CLASS_STRING (TREE_CODE_CLASS (TREE_CODE (node))),
      tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
 }
+
+/* Similar to tree_check_failed, except that we check that a tree does
+   not have the specified code, given in CL.  */
+
+void
+tree_not_class_check_failed (const tree node, const enum tree_code_class cl,
+			     const char *file, int line, const char *function)
+{
+  internal_error
+    ("tree check: did not expect class %qs, have %qs (%s) in %s, at %s:%d",
+     TREE_CODE_CLASS_STRING (cl),
+     TREE_CODE_CLASS_STRING (TREE_CODE_CLASS (TREE_CODE (node))),
+     tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
+}
+
 #undef DEFTREESTRUCT
 #define DEFTREESTRUCT(VAL, NAME) NAME,
 
@@ -6295,6 +6273,25 @@ build_common_tree_nodes_2 (int short_double)
   double_ptr_type_node = build_pointer_type (double_type_node);
   long_double_ptr_type_node = build_pointer_type (long_double_type_node);
   integer_ptr_type_node = build_pointer_type (integer_type_node);
+
+  /* Decimal float types. */
+  dfloat32_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (dfloat32_type_node) = DECIMAL32_TYPE_SIZE; 
+  layout_type (dfloat32_type_node);
+  TYPE_MODE (dfloat32_type_node) = SDmode;
+  dfloat32_ptr_type_node = build_pointer_type (dfloat32_type_node);
+
+  dfloat64_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (dfloat64_type_node) = DECIMAL64_TYPE_SIZE;
+  layout_type (dfloat64_type_node);
+  TYPE_MODE (dfloat64_type_node) = DDmode;
+  dfloat64_ptr_type_node = build_pointer_type (dfloat64_type_node);
+
+  dfloat128_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (dfloat128_type_node) = DECIMAL128_TYPE_SIZE; 
+  layout_type (dfloat128_type_node);
+  TYPE_MODE (dfloat128_type_node) = TDmode;
+  dfloat128_ptr_type_node = build_pointer_type (dfloat128_type_node);
 
   complex_integer_type_node = make_node (COMPLEX_TYPE);
   TREE_TYPE (complex_integer_type_node) = integer_type_node;
@@ -6687,7 +6684,10 @@ in_array_bounds_p (tree ref)
 bool
 is_global_var (tree t)
 {
-  return (TREE_STATIC (t) || DECL_EXTERNAL (t));
+  if (MTAG_P (t))
+    return (TREE_STATIC (t) || MTAG_GLOBAL (t));
+  else
+    return (TREE_STATIC (t) || DECL_EXTERNAL (t));
 }
 
 /* Return true if T (assumed to be a DECL) must be assigned a memory
@@ -6785,11 +6785,11 @@ tree_fold_gcd (tree a, tree b)
 
   if (tree_int_cst_sgn (a) == -1)
     a = fold_build2 (MULT_EXPR, type, a,
-		     convert (type, integer_minus_one_node));
+		     build_int_cst (type, -1));
 
   if (tree_int_cst_sgn (b) == -1)
     b = fold_build2 (MULT_EXPR, type, b,
-		     convert (type, integer_minus_one_node));
+		     build_int_cst (type, -1));
 
   while (1)
     {
@@ -6809,6 +6809,8 @@ tree_fold_gcd (tree a, tree b)
 tree
 unsigned_type_for (tree type)
 {
+  if (POINTER_TYPE_P (type))
+    return size_type_node;
   return lang_hooks.types.unsigned_type (type);
 }
 

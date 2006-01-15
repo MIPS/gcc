@@ -604,7 +604,6 @@
 8.5-inheritance-2
 8.5-inheritance-3
 8.5-inheritance-6
-8.5.2-accessible-static-member-usage-3
 8.5.2-non-static-member-usage-4
 8.5.2-non-static-member-usage-5
 8.6-abrupt-1
@@ -658,7 +657,7 @@
 9.4.1-conflict-2
 non-jls-argument-expansion-11
 non-jls-argument-expansion-12
-non-jls-argument-expansion-13
+non-jls-argument-expansion-error-1
 non-jls-argument-expansion-error-2
 non-jls-argument-expansion-tokens-1
 non-jls-jsr41.2-clash-1

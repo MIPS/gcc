@@ -47,7 +47,14 @@ DEFPARAM (PARAM_SALIAS_MAX_IMPLICIT_FIELDS,
 	  "salias-max-implicit-fields",
 	  "The maximum number of fields in a structure variable without direct structure accesses that GCC will attempt to track separately",
 	  5, 0, 0)
-   
+
+/* The maximum number of array elements structure aliasing will decompose
+   an array for.  The default is 4.  */
+DEFPARAM (PARAM_SALIAS_MAX_ARRAY_ELEMENTS,
+	  "salias-max-array-elements",
+	  "The maximum number of elements in an array for wich we track its elements separately",
+	  4, 0, 0)
+
 /* The maximum structure size at which the scalar replacement of
    aggregates (SRA) pass will perform block copies.  The default
    value, 0, implies that GCC will select the most appropriate size
@@ -321,7 +328,7 @@ DEFPARAM(HOT_BB_FREQUENCY_FRACTION,
    the other loops cold that is not usually the case.  So we need to artificially
    flatten the profile.  
 
-   We need to cut the maximal predicted iterations to large enought iterations
+   We need to cut the maximal predicted iterations to large enough iterations
    so the loop appears important, but safely within HOT_BB_COUNT_FRACTION
    range.  */
 

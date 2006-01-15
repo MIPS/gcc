@@ -1,6 +1,6 @@
 /* Output routines for GCC for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -500,6 +500,9 @@ static int hard_regs_intersect_p (HARD_REG_SET *, HARD_REG_SET *);
 #define TARGET_ADJUST_UNROLL_MAX sh_adjust_unroll_max
 #endif
 
+#undef TARGET_SECONDARY_RELOAD
+#define TARGET_SECONDARY_RELOAD sh_secondary_reload
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Implement TARGET_HANDLE_OPTION.  */
@@ -973,34 +976,37 @@ print_operand (FILE *stream, rtx x, int code)
 
 	case CONST:
 	  if (TARGET_SHMEDIA
-	      && GET_CODE (XEXP (x, 0)) == SIGN_EXTEND
+	      && (GET_CODE (XEXP (x, 0)) == SIGN_EXTEND
+		  || GET_CODE (XEXP (x, 0)) == ZERO_EXTEND)
 	      && (GET_MODE (XEXP (x, 0)) == DImode
 		  || GET_MODE (XEXP (x, 0)) == SImode)
 	      && GET_CODE (XEXP (XEXP (x, 0), 0)) == TRUNCATE
 	      && GET_MODE (XEXP (XEXP (x, 0), 0)) == HImode)
 	    {
 	      rtx val = XEXP (XEXP (XEXP (x, 0), 0), 0);
+	      rtx val2 = val;
+	      bool nested_expr = false;
 
 	      fputc ('(', stream);
 	      if (GET_CODE (val) == ASHIFTRT)
 		{
 		  fputc ('(', stream);
-		  if (GET_CODE (XEXP (val, 0)) == CONST)
-		    fputc ('(', stream);
-		  output_addr_const (stream, XEXP (val, 0));
-		  if (GET_CODE (XEXP (val, 0)) == CONST)
-		    fputc (')', stream);
+		  val2 = XEXP (val, 0);
+		}
+	      if (GET_CODE (val2) == CONST
+		  || GET_RTX_CLASS (GET_CODE (val2)) != RTX_OBJ)
+		{
+		  fputc ('(', stream);
+		  nested_expr = true;
+		}
+	      output_addr_const (stream, val2);
+	      if (nested_expr)
+		fputc (')', stream);
+	      if (GET_CODE (val) == ASHIFTRT)
+		{
 		  fputs (" >> ", stream);
 		  output_addr_const (stream, XEXP (val, 1));
 		  fputc (')', stream);
-		}
-	      else
-		{
-		  if (GET_CODE (val) == CONST)
-		    fputc ('(', stream);
-		  output_addr_const (stream, val);
-		  if (GET_CODE (val) == CONST)
-		    fputc (')', stream);
 		}
 	      fputs (" & 65535)", stream);
 	      break;
@@ -1782,7 +1788,7 @@ sh_file_start (void)
   else
     /* Switch to the data section so that the coffsem symbol
        isn't in the text section.  */
-    data_section ();
+    switch_to_section (data_section);
 
   if (TARGET_LITTLE_ENDIAN)
     fputs ("\t.little\n", asm_out_file);
@@ -1968,12 +1974,12 @@ andcosts (rtx x)
 
   if (TARGET_SHMEDIA)
     {
-      if ((GET_CODE (XEXP (x, 1)) == CONST_INT
-	   && CONST_OK_FOR_I16 (INTVAL (XEXP (x, 1))))
-	  || EXTRA_CONSTRAINT_C16 (XEXP (x, 1)))
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT
+	  && (CONST_OK_FOR_I10 (INTVAL (XEXP (x, 1)))
+	      || CONST_OK_FOR_J16 (INTVAL (XEXP (x, 1)))))
 	return 1;
       else
-	return 2;
+	return 1 + rtx_cost (XEXP (x, 1), AND);
     }
 
   /* These constants are single cycle extu.[bw] instructions.  */
@@ -2093,9 +2099,9 @@ sh_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  else if (CONST_OK_FOR_I16 (INTVAL (x) >> 16))
 	    *total = COSTS_N_INSNS ((outer_code != SET) + 1);
 	  else if (CONST_OK_FOR_I16 ((INTVAL (x) >> 16) >> 16))
-	    *total = COSTS_N_INSNS (3);
+	    *total = COSTS_N_INSNS ((outer_code != SET) + 2);
           else
-	    *total = COSTS_N_INSNS (4);
+	    *total = COSTS_N_INSNS ((outer_code != SET) + 3);
 	  return true;
         }
       if (CONST_OK_FOR_I08 (INTVAL (x)))
@@ -6655,20 +6661,20 @@ sh_va_start (tree valist, rtx nextarg)
   f_next_fp_limit = TREE_CHAIN (f_next_fp);
   f_next_stack = TREE_CHAIN (f_next_fp_limit);
 
-  next_o = build (COMPONENT_REF, TREE_TYPE (f_next_o), valist, f_next_o,
-		  NULL_TREE);
-  next_o_limit = build (COMPONENT_REF, TREE_TYPE (f_next_o_limit),
-			valist, f_next_o_limit, NULL_TREE);
-  next_fp = build (COMPONENT_REF, TREE_TYPE (f_next_fp), valist, f_next_fp,
+  next_o = build3 (COMPONENT_REF, TREE_TYPE (f_next_o), valist, f_next_o,
 		   NULL_TREE);
-  next_fp_limit = build (COMPONENT_REF, TREE_TYPE (f_next_fp_limit),
-			 valist, f_next_fp_limit, NULL_TREE);
-  next_stack = build (COMPONENT_REF, TREE_TYPE (f_next_stack),
-		      valist, f_next_stack, NULL_TREE);
+  next_o_limit = build3 (COMPONENT_REF, TREE_TYPE (f_next_o_limit),
+			 valist, f_next_o_limit, NULL_TREE);
+  next_fp = build3 (COMPONENT_REF, TREE_TYPE (f_next_fp), valist, f_next_fp,
+		    NULL_TREE);
+  next_fp_limit = build3 (COMPONENT_REF, TREE_TYPE (f_next_fp_limit),
+			  valist, f_next_fp_limit, NULL_TREE);
+  next_stack = build3 (COMPONENT_REF, TREE_TYPE (f_next_stack),
+		       valist, f_next_stack, NULL_TREE);
 
   /* Call __builtin_saveregs.  */
   u = make_tree (ptr_type_node, expand_builtin_saveregs ());
-  t = build (MODIFY_EXPR, ptr_type_node, next_fp, u);
+  t = build2 (MODIFY_EXPR, ptr_type_node, next_fp, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -6677,13 +6683,13 @@ sh_va_start (tree valist, rtx nextarg)
     nfp = 8 - nfp;
   else
     nfp = 0;
-  u = fold (build (PLUS_EXPR, ptr_type_node, u,
-		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nfp)));
-  t = build (MODIFY_EXPR, ptr_type_node, next_fp_limit, u);
+  u = fold_build2 (PLUS_EXPR, ptr_type_node, u,
+		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nfp));
+  t = build2 (MODIFY_EXPR, ptr_type_node, next_fp_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  t = build (MODIFY_EXPR, ptr_type_node, next_o, u);
+  t = build2 (MODIFY_EXPR, ptr_type_node, next_o, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -6692,14 +6698,14 @@ sh_va_start (tree valist, rtx nextarg)
     nint = 4 - nint;
   else
     nint = 0;
-  u = fold (build (PLUS_EXPR, ptr_type_node, u,
-		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nint)));
-  t = build (MODIFY_EXPR, ptr_type_node, next_o_limit, u);
+  u = fold_build2 (PLUS_EXPR, ptr_type_node, u,
+		   build_int_cst (NULL_TREE, UNITS_PER_WORD * nint));
+  t = build2 (MODIFY_EXPR, ptr_type_node, next_o_limit, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   u = make_tree (ptr_type_node, nextarg);
-  t = build (MODIFY_EXPR, ptr_type_node, next_stack, u);
+  t = build2 (MODIFY_EXPR, ptr_type_node, next_stack, u);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -6758,16 +6764,16 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
       f_next_fp_limit = TREE_CHAIN (f_next_fp);
       f_next_stack = TREE_CHAIN (f_next_fp_limit);
 
-      next_o = build (COMPONENT_REF, TREE_TYPE (f_next_o), valist, f_next_o,
-		      NULL_TREE);
-      next_o_limit = build (COMPONENT_REF, TREE_TYPE (f_next_o_limit),
-			    valist, f_next_o_limit, NULL_TREE);
-      next_fp = build (COMPONENT_REF, TREE_TYPE (f_next_fp),
-		       valist, f_next_fp, NULL_TREE);
-      next_fp_limit = build (COMPONENT_REF, TREE_TYPE (f_next_fp_limit),
-			     valist, f_next_fp_limit, NULL_TREE);
-      next_stack = build (COMPONENT_REF, TREE_TYPE (f_next_stack),
-			  valist, f_next_stack, NULL_TREE);
+      next_o = build3 (COMPONENT_REF, TREE_TYPE (f_next_o), valist, f_next_o,
+		       NULL_TREE);
+      next_o_limit = build3 (COMPONENT_REF, TREE_TYPE (f_next_o_limit),
+			     valist, f_next_o_limit, NULL_TREE);
+      next_fp = build3 (COMPONENT_REF, TREE_TYPE (f_next_fp),
+		        valist, f_next_fp, NULL_TREE);
+      next_fp_limit = build3 (COMPONENT_REF, TREE_TYPE (f_next_fp_limit),
+			      valist, f_next_fp_limit, NULL_TREE);
+      next_stack = build3 (COMPONENT_REF, TREE_TYPE (f_next_stack),
+			   valist, f_next_stack, NULL_TREE);
 
       /* Structures with a single member with a distinct mode are passed
 	 like their member.  This is relevant if the latter has a REAL_TYPE
@@ -6826,19 +6832,19 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 	  if (size > 4 && !is_double)
 	    tmp = build2 (PLUS_EXPR, TREE_TYPE (tmp), tmp,
 			  fold_convert (TREE_TYPE (tmp), size_int (4 - size)));
-	  tmp = build (GE_EXPR, boolean_type_node, next_fp_tmp, tmp);
-	  cmp = build (COND_EXPR, void_type_node, tmp,
-		       build (GOTO_EXPR, void_type_node, lab_false),
-		       NULL);
+	  tmp = build2 (GE_EXPR, boolean_type_node, next_fp_tmp, tmp);
+	  cmp = build3 (COND_EXPR, void_type_node, tmp,
+		        build1 (GOTO_EXPR, void_type_node, lab_false),
+		        NULL_TREE);
 	  if (!is_double)
 	    gimplify_and_add (cmp, pre_p);
 
 	  if (TYPE_ALIGN (type) > BITS_PER_WORD || (is_double || size == 16))
 	    {
 	      tmp = fold_convert (ptr_type_node, size_int (UNITS_PER_WORD));
-	      tmp = build (BIT_AND_EXPR, ptr_type_node, next_fp_tmp, tmp);
-	      tmp = build (PLUS_EXPR, ptr_type_node, next_fp_tmp, tmp);
-	      tmp = build (MODIFY_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      tmp = build2 (BIT_AND_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      tmp = build2 (PLUS_EXPR, ptr_type_node, next_fp_tmp, tmp);
+	      tmp = build2 (MODIFY_EXPR, ptr_type_node, next_fp_tmp, tmp);
 	      gimplify_and_add (tmp, pre_p);
 	    }
 	  if (is_double)
@@ -6858,19 +6864,19 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
 		= std_gimplify_va_arg_expr (next_fp_tmp, subtype, pre_p, NULL);
 	      real = get_initialized_tmp_var (real, pre_p, NULL);
 
-	      result = build (COMPLEX_EXPR, type, real, imag);
+	      result = build2 (COMPLEX_EXPR, type, real, imag);
 	      result = get_initialized_tmp_var (result, pre_p, NULL);
 	    }
 #endif /* FUNCTION_ARG_SCmode_WART */
 
-	  tmp = build (GOTO_EXPR, void_type_node, lab_over);
+	  tmp = build1 (GOTO_EXPR, void_type_node, lab_over);
 	  gimplify_and_add (tmp, pre_p);
 
-	  tmp = build (LABEL_EXPR, void_type_node, lab_false);
+	  tmp = build1 (LABEL_EXPR, void_type_node, lab_false);
 	  gimplify_and_add (tmp, pre_p);
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_stack);
-	  tmp = build (MODIFY_EXPR, void_type_node, addr, tmp);
+	  tmp = build2 (MODIFY_EXPR, void_type_node, addr, tmp);
 	  gimplify_and_add (tmp, pre_p);
 	  tmp = build2 (MODIFY_EXPR, ptr_type_node, next_fp_tmp, valist);
 	  gimplify_and_add (tmp, pre_p);
@@ -6882,37 +6888,37 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
       else
 	{
 	  tmp = fold_convert (ptr_type_node, size_int (rsize));
-	  tmp = build (PLUS_EXPR, ptr_type_node, next_o, tmp);
-	  tmp = build (GT_EXPR, boolean_type_node, tmp, next_o_limit);
-	  tmp = build (COND_EXPR, void_type_node, tmp,
-		       build (GOTO_EXPR, void_type_node, lab_false),
-		       NULL);
+	  tmp = build2 (PLUS_EXPR, ptr_type_node, next_o, tmp);
+	  tmp = build2 (GT_EXPR, boolean_type_node, tmp, next_o_limit);
+	  tmp = build3 (COND_EXPR, void_type_node, tmp,
+		        build1 (GOTO_EXPR, void_type_node, lab_false),
+		        NULL_TREE);
 	  gimplify_and_add (tmp, pre_p);
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_o);
-	  tmp = build (MODIFY_EXPR, void_type_node, addr, tmp);
+	  tmp = build2 (MODIFY_EXPR, void_type_node, addr, tmp);
 	  gimplify_and_add (tmp, pre_p);
 
-	  tmp = build (GOTO_EXPR, void_type_node, lab_over);
+	  tmp = build1 (GOTO_EXPR, void_type_node, lab_over);
 	  gimplify_and_add (tmp, pre_p);
 
-	  tmp = build (LABEL_EXPR, void_type_node, lab_false);
+	  tmp = build1 (LABEL_EXPR, void_type_node, lab_false);
 	  gimplify_and_add (tmp, pre_p);
 
 	  if (size > 4 && ! TARGET_SH4)
 	    {
-	      tmp = build (MODIFY_EXPR, ptr_type_node, next_o, next_o_limit);
+	      tmp = build2 (MODIFY_EXPR, ptr_type_node, next_o, next_o_limit);
 	      gimplify_and_add (tmp, pre_p);
 	    }
 
 	  tmp = build1 (ADDR_EXPR, pptr_type_node, next_stack);
-	  tmp = build (MODIFY_EXPR, void_type_node, addr, tmp);
+	  tmp = build2 (MODIFY_EXPR, void_type_node, addr, tmp);
 	  gimplify_and_add (tmp, pre_p);
 	}
 
       if (!result)
 	{
-	  tmp = build (LABEL_EXPR, void_type_node, lab_over);
+	  tmp = build1 (LABEL_EXPR, void_type_node, lab_over);
 	  gimplify_and_add (tmp, pre_p);
 	}
     }
@@ -6923,10 +6929,10 @@ sh_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p,
   tmp = std_gimplify_va_arg_expr (valist, type, pre_p, NULL);
   if (result)
     {
-      tmp = build (MODIFY_EXPR, void_type_node, result, tmp);
+      tmp = build2 (MODIFY_EXPR, void_type_node, result, tmp);
       gimplify_and_add (tmp, pre_p);
 
-      tmp = build (LABEL_EXPR, void_type_node, lab_over);
+      tmp = build1 (LABEL_EXPR, void_type_node, lab_over);
       gimplify_and_add (tmp, pre_p);
     }
   else
@@ -10276,10 +10282,10 @@ sh_adjust_unroll_max (struct loop * loop, int insn_count,
 			  if (TREE_CODE (type) != ARRAY_TYPE
 			      || ! TYPE_SIZE (type) || ! TYPE_SIZE_UNIT (type))
 			    break;
-			  size_tree = fold (build (TRUNC_DIV_EXPR,
+			  size_tree = fold_build2 (TRUNC_DIV_EXPR,
 						   bitsizetype,
 						   TYPE_SIZE (type),
-						   TYPE_SIZE_UNIT (type)));
+						   TYPE_SIZE_UNIT (type));
 			  if (TREE_CODE (size_tree) == INTEGER_CST
 			      && ! TREE_INT_CST_HIGH (size_tree)
 			      && TREE_INT_CST_LOW  (size_tree) < max_iterations)
@@ -10670,6 +10676,106 @@ shmedia_prepare_call_address (rtx fnaddr, int is_sibcall)
   else if (! target_reg_operand (fnaddr, Pmode))
     fnaddr = copy_to_mode_reg (Pmode, fnaddr);
   return fnaddr;
+}
+
+enum reg_class
+sh_secondary_reload (bool in_p, rtx x, enum reg_class class,
+		     enum machine_mode mode, secondary_reload_info *sri)
+{
+  if (in_p)
+    {
+      if (REGCLASS_HAS_FP_REG (class)
+	  && ! TARGET_SHMEDIA
+	  && immediate_operand ((x), mode)
+	  && ! ((fp_zero_operand (x) || fp_one_operand (x))
+		&& mode == SFmode && fldi_ok ()))
+	switch (mode)
+	  {
+	  case SFmode:
+	    sri->icode = CODE_FOR_reload_insf__frn;
+	    return NO_REGS;
+	  case DFmode:
+	    sri->icode = CODE_FOR_reload_indf__frn;
+	    return NO_REGS;
+	  case SImode:
+	    /* ??? If we knew that we are in the appropriate mode -
+	       single precision - we could use a reload pattern directly.  */
+	    return FPUL_REGS;
+	  default:
+	    abort ();
+	  }
+      if (class == FPUL_REGS
+          && ((GET_CODE (x) == REG
+               && (REGNO (x) == MACL_REG || REGNO (x) == MACH_REG
+                   || REGNO (x) == T_REG))
+              || GET_CODE (x) == PLUS))
+        return GENERAL_REGS;
+      if (class == FPUL_REGS && immediate_operand (x, mode))
+	{
+	  if (GET_CODE (x) == CONST_INT && CONST_OK_FOR_I08 (INTVAL (x)))
+	    return GENERAL_REGS;
+	  sri->icode = CODE_FOR_reload_insi__i_fpul;
+	  return NO_REGS;
+	}
+      if (class == FPSCR_REGS
+          && ((GET_CODE (x) == REG && REGNO (x) >= FIRST_PSEUDO_REGISTER)
+              || (GET_CODE (x) == MEM && GET_CODE (XEXP (x, 0)) == PLUS)))
+        return GENERAL_REGS;
+      if (REGCLASS_HAS_FP_REG (class)
+          && TARGET_SHMEDIA
+          && immediate_operand (x, mode)
+          && x != CONST0_RTX (GET_MODE (x))
+          && GET_MODE (x) != V4SFmode)
+        return GENERAL_REGS;
+      if ((mode == QImode || mode == HImode)
+          && TARGET_SHMEDIA && inqhi_operand (x, mode))
+	{
+	  sri->icode = ((mode == QImode)
+			? CODE_FOR_reload_inqi : CODE_FOR_reload_inhi);
+	  return NO_REGS;
+	}
+      if (TARGET_SHMEDIA && class == GENERAL_REGS
+          && (GET_CODE (x) == LABEL_REF || PIC_DIRECT_ADDR_P (x)))
+        return TARGET_REGS;
+    } /* end of input-only processing.  */
+
+  if (((REGCLASS_HAS_FP_REG (class)
+	&& (GET_CODE (x) == REG
+	    && (GENERAL_OR_AP_REGISTER_P (REGNO (x))
+		|| (FP_REGISTER_P (REGNO (x)) && mode == SImode
+		    && TARGET_FMOVD))))
+       || (REGCLASS_HAS_GENERAL_REG (class)
+	   && GET_CODE (x) == REG
+	   && FP_REGISTER_P (REGNO (x))))
+      && ! TARGET_SHMEDIA
+      && (mode == SFmode || mode == SImode))
+    return FPUL_REGS;
+  if ((class == FPUL_REGS
+       || (REGCLASS_HAS_FP_REG (class)
+           && ! TARGET_SHMEDIA && mode == SImode))
+      && (GET_CODE (x) == MEM
+          || (GET_CODE (x) == REG
+              && (REGNO (x) >= FIRST_PSEUDO_REGISTER
+                  || REGNO (x) == T_REG
+                  || system_reg_operand (x, VOIDmode)))))
+    {
+      if (class == FPUL_REGS)
+	return GENERAL_REGS;
+      return FPUL_REGS;
+    }
+  if ((class == TARGET_REGS
+       || (TARGET_SHMEDIA && class == SIBCALL_REGS))
+      && !EXTRA_CONSTRAINT_Csy (x)
+      && (GET_CODE (x) != REG || ! GENERAL_REGISTER_P (REGNO (x))))
+    return GENERAL_REGS;
+  if ((class == MAC_REGS || class == PR_REGS)
+      && GET_CODE (x) == REG && ! GENERAL_REGISTER_P (REGNO (x))
+      && class != REGNO_REG_CLASS (REGNO (x)))
+    return GENERAL_REGS;
+  if (class != GENERAL_REGS && GET_CODE (x) == REG
+      && TARGET_REGISTER_P (REGNO (x)))
+    return GENERAL_REGS;
+  return NO_REGS;
 }
 
 enum sh_divide_strategy_e sh_div_strategy = SH_DIV_STRATEGY_DEFAULT;

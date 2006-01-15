@@ -129,14 +129,21 @@ init_empty_tree_cfg (void)
   /* Initialize the basic block array.  */
   init_flow ();
   profile_status = PROFILE_ABSENT;
-  n_basic_blocks = 0;
-  last_basic_block = 0;
-  VARRAY_BB_INIT (basic_block_info, initial_cfg_capacity, "basic_block_info");
+  n_basic_blocks = NUM_FIXED_BLOCKS;
+  last_basic_block = NUM_FIXED_BLOCKS;
+  basic_block_info = VEC_alloc (basic_block, gc, initial_cfg_capacity);
+  VEC_safe_grow (basic_block, gc, basic_block_info, initial_cfg_capacity);
+  memset (VEC_address (basic_block, basic_block_info), 0,
+	  sizeof (basic_block) * initial_cfg_capacity);
 
   /* Build a mapping of labels to their associated blocks.  */
-  VARRAY_BB_INIT (label_to_block_map, initial_cfg_capacity,
-		  "label to block map");
+  label_to_block_map = VEC_alloc (basic_block, gc, initial_cfg_capacity);
+  VEC_safe_grow (basic_block, gc, label_to_block_map, initial_cfg_capacity);
+  memset (VEC_address (basic_block, label_to_block_map),
+	  0, sizeof (basic_block) * initial_cfg_capacity);
 
+  SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
+  SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
   ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
   EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
 }
@@ -170,11 +177,19 @@ build_tree_cfg (tree *tp)
     factor_computed_gotos ();
 
   /* Make sure there is always at least one block, even if it's empty.  */
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     create_empty_bb (ENTRY_BLOCK_PTR);
 
   /* Adjust the size of the array.  */
-  VARRAY_GROW (basic_block_info, n_basic_blocks);
+  if (VEC_length (basic_block, basic_block_info) < (size_t) n_basic_blocks)
+    {
+      size_t old_size = VEC_length (basic_block, basic_block_info);
+      basic_block *p;
+      VEC_safe_grow (basic_block, gc, basic_block_info, n_basic_blocks);
+      p = VEC_address (basic_block, basic_block_info);
+      memset (&p[old_size], 0,
+	      sizeof (basic_block) * (n_basic_blocks - old_size));
+    }
 
   /* To speed up statement iterator walks, we first purge dead labels.  */
   cleanup_dead_labels ();
@@ -298,8 +313,8 @@ factor_computed_gotos (void)
 	    }
 
 	  /* Copy the original computed goto's destination into VAR.  */
-	  assignment = build (MODIFY_EXPR, ptr_type_node,
-			      var, GOTO_DESTINATION (last));
+	  assignment = build2 (MODIFY_EXPR, ptr_type_node,
+			       var, GOTO_DESTINATION (last));
 	  bsi_insert_before (&bsi, assignment, BSI_SAME_STMT);
 
 	  /* And re-vector the computed goto to the new destination.  */
@@ -372,20 +387,24 @@ create_bb (void *h, void *e, basic_block after)
 
   bb->index = last_basic_block;
   bb->flags = BB_NEW;
-  bb->stmt_list = h ? h : alloc_stmt_list ();
+  bb->stmt_list = h ? (tree) h : alloc_stmt_list ();
 
   /* Add the new block to the linked list of blocks.  */
   link_block (bb, after);
 
   /* Grow the basic block array if needed.  */
-  if ((size_t) last_basic_block == VARRAY_SIZE (basic_block_info))
+  if ((size_t) last_basic_block == VEC_length (basic_block, basic_block_info))
     {
+      size_t old_size = VEC_length (basic_block, basic_block_info);
       size_t new_size = last_basic_block + (last_basic_block + 3) / 4;
-      VARRAY_GROW (basic_block_info, new_size);
+      basic_block *p;
+      VEC_safe_grow (basic_block, gc, basic_block_info, new_size);
+      p = VEC_address (basic_block, basic_block_info);
+      memset (&p[old_size], 0, sizeof (basic_block) * (new_size - old_size));
     }
 
   /* Add the newly created block to the array.  */
-  BASIC_BLOCK (last_basic_block) = bb;
+  SET_BASIC_BLOCK (last_basic_block, bb);
 
   n_basic_blocks++;
   last_basic_block++;
@@ -430,7 +449,7 @@ make_edges (void)
 
   /* Create an edge from entry to the first block with executable
      statements in it.  */
-  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
+  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (NUM_FIXED_BLOCKS), EDGE_FALLTHRU);
 
   /* Traverse the basic block array placing edges.  */
   FOR_EACH_BB (bb)
@@ -638,7 +657,7 @@ edge_to_cases_eq (const void *p1, const void *p2)
 static void
 edge_to_cases_cleanup (void *p)
 {
-  struct edge_to_cases_elt *elt = p;
+  struct edge_to_cases_elt *elt = (struct edge_to_cases_elt *) p;
   tree t, next;
 
   for (t = elt->case_labels; t; t = next)
@@ -689,7 +708,7 @@ record_switch_edge (edge e, tree case_label)
 
   /* Build a hash table element so we can see if E is already
      in the table.  */
-  elt = xmalloc (sizeof (struct edge_to_cases_elt));
+  elt = XNEW (struct edge_to_cases_elt);
   elt->e = e;
   elt->case_labels = case_label;
 
@@ -794,16 +813,18 @@ label_to_block_fn (struct function *ifun, tree dest)
      and undefined variable warnings quite right.  */
   if ((errorcount || sorrycount) && uid < 0)
     {
-      block_stmt_iterator bsi = bsi_start (BASIC_BLOCK (0));
+      block_stmt_iterator bsi = 
+	bsi_start (BASIC_BLOCK (NUM_FIXED_BLOCKS));
       tree stmt;
 
       stmt = build1 (LABEL_EXPR, void_type_node, dest);
       bsi_insert_before (&bsi, stmt, BSI_NEW_STMT);
       uid = LABEL_DECL_UID (dest);
     }
-  if (VARRAY_SIZE (ifun->cfg->x_label_to_block_map) <= (unsigned int)uid)
+  if (VEC_length (basic_block, ifun->cfg->x_label_to_block_map)
+      <= (unsigned int) uid)
     return NULL;
-  return VARRAY_BB (ifun->cfg->x_label_to_block_map, uid);
+  return VEC_index (basic_block, ifun->cfg->x_label_to_block_map, uid);
 }
 
 /* Create edges for a goto statement at block BB.  */
@@ -837,7 +858,7 @@ make_goto_expr_edges (basic_block bb)
 #else
 	  e->goto_locus = EXPR_LOCUS (goto_t);
 #endif
-	  bsi_remove (&last);
+	  bsi_remove (&last, true);
 	  return;
 	}
 
@@ -939,7 +960,7 @@ void
 cleanup_dead_labels (void)
 {
   basic_block bb;
-  label_for_bb = xcalloc (last_basic_block, sizeof (tree));
+  label_for_bb = XCNEWVEC (tree, last_basic_block);
 
   /* Find a suitable label for each block.  We use the first user-defined
      label if there is one, or otherwise just the first label we see.  */
@@ -1058,7 +1079,7 @@ cleanup_dead_labels (void)
 	      || DECL_NONLOCAL (label))
 	    bsi_next (&i);
 	  else
-	    bsi_remove (&i);
+	    bsi_remove (&i, true);
 	}
     }
 
@@ -1270,7 +1291,7 @@ replace_uses_by (tree name, tree val)
 
       rhs = get_rhs (stmt);
       if (TREE_CODE (rhs) == ADDR_EXPR)
-	recompute_tree_invarant_for_addr_expr (rhs);
+	recompute_tree_invariant_for_addr_expr (rhs);
 
       /* If the statement could throw and now cannot, we need to prune cfg.  */
       if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
@@ -1356,7 +1377,7 @@ tree_merge_blocks (basic_block a, basic_block b)
 	{
 	  tree label = bsi_stmt (bsi);
 
-	  bsi_remove (&bsi);
+	  bsi_remove (&bsi, false);
 	  /* Now that we can thread computed gotos, we might have
 	     a situation where we have a forced label in block B
 	     However, the label at the start of block B might still be
@@ -1381,6 +1402,30 @@ tree_merge_blocks (basic_block a, basic_block b)
   tsi_link_after (&last, b->stmt_list, TSI_NEW_STMT);
   b->stmt_list = NULL;
 }
+
+
+/* Return the one of two successors of BB that is not reachable by a
+   reached by a complex edge, if there is one.  Else, return BB.  We use
+   this in optimizations that use post-dominators for their heuristics,
+   to catch the cases in C++ where function calls are involved.  */
+    
+basic_block
+single_noncomplex_succ (basic_block bb)  
+{
+  edge e0, e1;
+  if (EDGE_COUNT (bb->succs) != 2)
+    return bb;
+   
+  e0 = EDGE_SUCC (bb, 0);
+  e1 = EDGE_SUCC (bb, 1);
+  if (e0->flags & EDGE_COMPLEX)
+    return e1->dest;
+  if (e1->flags & EDGE_COMPLEX)
+    return e0->dest;
+   
+  return bb;
+}       
+        
 
 
 /* Walk the function tree removing unnecessary statements.
@@ -2018,7 +2063,7 @@ remove_bb (basic_block bb)
 	  	  
 	  new_bb = bb->prev_bb;
 	  new_bsi = bsi_start (new_bb);
-	  bsi_remove (&i);
+	  bsi_remove (&i, false);
 	  bsi_insert_before (&new_bsi, stmt, BSI_NEW_STMT);
 	}
       else
@@ -2030,7 +2075,7 @@ remove_bb (basic_block bb)
 	  if (in_ssa_p)
 	    release_defs (stmt);
 
-	  bsi_remove (&i);
+	  bsi_remove (&i, true);
 	}
 
       /* Don't warn for removed gotos.  Gotos are often removed due to
@@ -2578,7 +2623,7 @@ disband_implicit_edges (void)
 	  if (bb->next_bb == EXIT_BLOCK_PTR
 	      && !TREE_OPERAND (stmt, 0))
 	    {
-	      bsi_remove (&last);
+	      bsi_remove (&last, true);
 	      single_succ_edge (bb)->flags |= EDGE_FALLTHRU;
 	    }
 	  continue;
@@ -2711,15 +2756,26 @@ set_bb_for_stmt (tree t, basic_block bb)
 	  uid = LABEL_DECL_UID (t);
 	  if (uid == -1)
 	    {
+	      unsigned old_len = VEC_length (basic_block, label_to_block_map);
 	      LABEL_DECL_UID (t) = uid = cfun->last_label_uid++;
-	      if (VARRAY_SIZE (label_to_block_map) <= (unsigned) uid)
-		VARRAY_GROW (label_to_block_map, 3 * uid / 2);
+	      if (old_len <= (unsigned) uid)
+		{
+		  basic_block *addr;
+		  unsigned new_len = 3 * uid / 2;
+
+		  VEC_safe_grow (basic_block, gc, label_to_block_map,
+				 new_len);
+		  addr = VEC_address (basic_block, label_to_block_map);
+		  memset (&addr[old_len],
+			  0, sizeof (basic_block) * (new_len - old_len));
+		}
 	    }
 	  else
 	    /* We're moving an existing label.  Make sure that we've
 		removed it from the old block.  */
-	    gcc_assert (!bb || !VARRAY_BB (label_to_block_map, uid));
-	  VARRAY_BB (label_to_block_map, uid) = bb;
+	    gcc_assert (!bb
+			|| !VEC_index (basic_block, label_to_block_map, uid));
+	  VEC_replace (basic_block, label_to_block_map, uid, bb);
 	}
     }
 }
@@ -2783,16 +2839,25 @@ bsi_insert_after (block_stmt_iterator *i, tree t, enum bsi_iterator_update m)
 
 
 /* Remove the statement pointed to by iterator I.  The iterator is updated
-   to the next statement.  */
+   to the next statement. 
+
+   When REMOVE_EH_INFO is true we remove the statement pointed to by
+   iterator I from the EH tables.  Otherwise we do not modify the EH
+   tables.
+
+   Generally, REMOVE_EH_INFO should be true when the statement is going to
+   be removed from the IL and not reinserted elsewhere.  */
 
 void
-bsi_remove (block_stmt_iterator *i)
+bsi_remove (block_stmt_iterator *i, bool remove_eh_info)
 {
   tree t = bsi_stmt (*i);
   set_bb_for_stmt (t, NULL);
   delink_stmt_imm_use (t);
   tsi_delink (&i->tsi);
   mark_stmt_modified (t);
+  if (remove_eh_info)
+    remove_stmt_from_eh_region (t);
 }
 
 
@@ -2802,7 +2867,7 @@ void
 bsi_move_after (block_stmt_iterator *from, block_stmt_iterator *to)
 {
   tree stmt = bsi_stmt (*from);
-  bsi_remove (from);
+  bsi_remove (from, false);
   bsi_insert_after (to, stmt, BSI_SAME_STMT);
 } 
 
@@ -2813,7 +2878,7 @@ void
 bsi_move_before (block_stmt_iterator *from, block_stmt_iterator *to)
 {
   tree stmt = bsi_stmt (*from);
-  bsi_remove (from);
+  bsi_remove (from, false);
   bsi_insert_before (to, stmt, BSI_SAME_STMT);
 }
 
@@ -2834,11 +2899,12 @@ bsi_move_to_bb_end (block_stmt_iterator *from, basic_block bb)
 
 
 /* Replace the contents of the statement pointed to by iterator BSI
-   with STMT.  If PRESERVE_EH_INFO is true, the exception handling
-   information of the original statement is preserved.  */
+   with STMT.  If UPDATE_EH_INFO is true, the exception handling
+   information of the original statement is moved to the new statement.  */
+  
 
 void
-bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
+bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool update_eh_info)
 {
   int eh_region;
   tree orig_stmt = bsi_stmt (*bsi);
@@ -2848,11 +2914,14 @@ bsi_replace (const block_stmt_iterator *bsi, tree stmt, bool preserve_eh_info)
 
   /* Preserve EH region information from the original statement, if
      requested by the caller.  */
-  if (preserve_eh_info)
+  if (update_eh_info)
     {
       eh_region = lookup_stmt_eh_region (orig_stmt);
       if (eh_region >= 0)
-	add_stmt_to_eh_region (stmt, eh_region);
+	{
+	  remove_stmt_from_eh_region (orig_stmt);
+	  add_stmt_to_eh_region (stmt, eh_region);
+	}
     }
 
   delink_stmt_imm_use (orig_stmt);
@@ -3193,7 +3262,7 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	old_constant = TREE_CONSTANT (t);
 	old_side_effects = TREE_SIDE_EFFECTS (t);
 
-	recompute_tree_invarant_for_addr_expr (t);
+	recompute_tree_invariant_for_addr_expr (t);
 	new_invariant = TREE_INVARIANT (t);
 	new_side_effects = TREE_SIDE_EFFECTS (t);
 	new_constant = TREE_CONSTANT (t);
@@ -3450,7 +3519,7 @@ verify_node_sharing (tree * tp, int *walk_subtrees, void *data)
 
   slot = htab_find_slot (htab, *tp, INSERT);
   if (*slot)
-    return *slot;
+    return (tree) *slot;
   *slot = *tp;
 
   return NULL;
@@ -3949,7 +4018,7 @@ tree_try_redirect_by_replacing_jump (edge e, basic_block target)
   if (TREE_CODE (stmt) == COND_EXPR
       || TREE_CODE (stmt) == SWITCH_EXPR)
     {
-      bsi_remove (&b);
+      bsi_remove (&b, true);
       e = ssa_redirect_edge (e, target);
       e->flags = EDGE_FALLTHRU;
       return e;
@@ -4046,7 +4115,7 @@ tree_redirect_edge_and_branch (edge e, basic_block dest)
       }
 
     case RETURN_EXPR:
-      bsi_remove (&bsi);
+      bsi_remove (&bsi, true);
       e->flags |= EDGE_FALLTHRU;
       break;
 
@@ -4122,7 +4191,7 @@ tree_split_block (basic_block bb, void *stmt)
   while (!bsi_end_p (bsi))
     {
       act = bsi_stmt (bsi);
-      bsi_remove (&bsi);
+      bsi_remove (&bsi, false);
       bsi_insert_after (&bsi_tgt, act, BSI_NEW_STMT);
     }
 
@@ -4340,7 +4409,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   if (!region_copy)
     {
-      region_copy = xmalloc (sizeof (basic_block) * n_region);
+      region_copy = XNEWVEC (basic_block, n_region);
       free_region_copy = true;
     }
 
@@ -4348,7 +4417,7 @@ tree_duplicate_sese_region (edge entry, edge exit,
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
-  doms = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  doms = XNEWVEC (basic_block, n_basic_blocks);
   initialize_original_copy_tables ();
 
   n_doms = get_dominated_by_region (CDI_DOMINATORS, region, n_region, doms);
@@ -4607,7 +4676,7 @@ print_loop_ir (FILE *file)
 {
   basic_block bb;
   
-  bb = BASIC_BLOCK (0);
+  bb = BASIC_BLOCK (NUM_FIXED_BLOCKS);
   if (bb && bb->loop_father)
     print_loop (file, bb->loop_father, 0);
 }
@@ -4689,7 +4758,7 @@ tree_flow_call_edges_add (sbitmap blocks)
   int last_bb = last_basic_block;
   bool check_last_block = false;
 
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return 0;
 
   if (! blocks)
@@ -4717,7 +4786,7 @@ tree_flow_call_edges_add (sbitmap blocks)
       if (!bsi_end_p (bsi))
 	t = bsi_stmt (bsi);
 
-      if (need_fake_edge_p (t))
+      if (t && need_fake_edge_p (t))
 	{
 	  edge e;
 
@@ -5025,7 +5094,7 @@ gimplify_val (block_stmt_iterator *bsi, tree type, tree exp)
     return exp;
 
   t = make_rename_temp (type, NULL);
-  new_stmt = build (MODIFY_EXPR, type, t, exp);
+  new_stmt = build2 (MODIFY_EXPR, type, t, exp);
 
   orig_stmt = bsi_stmt (*bsi);
   SET_EXPR_LOCUS (new_stmt, EXPR_LOCUS (orig_stmt));

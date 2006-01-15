@@ -1,5 +1,5 @@
 /* Header for code translation functions
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -268,6 +268,9 @@ void gfc_make_safe_expr (gfc_se * se);
 /* Makes sure se is suitable for passing as a function string parameter.  */
 void gfc_conv_string_parameter (gfc_se * se);
 
+/* Compare two strings.  */
+tree gfc_build_compare_string (tree, tree, tree, tree);
+
 /* Add an item to the end of TREE_LIST.  */
 tree gfc_chainon_list (tree, tree);
 
@@ -345,14 +348,8 @@ tree gfc_get_extern_function_decl (gfc_symbol *);
 /* Return the decl for a function.  */
 tree gfc_get_function_decl (gfc_symbol *);
 
-/* Build a CALL_EXPR.  */
-tree gfc_build_function_call (tree, tree);
-
 /* Build an ADDR_EXPR.  */
 tree gfc_build_addr_expr (tree, tree);
-
-/* Build an INDIRECT_REF.  */
-tree gfc_build_indirect_ref (tree);
 
 /* Build an ARRAY_REF.  */
 tree gfc_build_array_ref (tree, tree);
@@ -576,7 +573,7 @@ struct lang_decl		GTY(())
 #define gfc_todo_error(args...) fatal_error("gfc_todo: Not Implemented: " args)
 
 /* Build an expression with void type.  */
-#define build1_v(code, arg) build(code, void_type_node, arg)
+#define build1_v(code, arg) build1(code, void_type_node, arg)
 #define build2_v(code, arg1, arg2) build2(code, void_type_node, \
                                           arg1, arg2)
 #define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \

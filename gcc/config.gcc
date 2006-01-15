@@ -984,7 +984,6 @@ i[34567]86-sequent-ptx4* | i[34567]86-sequent-sysv4*)
 	then
 		tm_file="${tm_file} usegas.h"
 	fi
-	xm_defines="SMALL_ARG_MAX"
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h ptx4.h i386/ptx4-i.h"
 	tmake_file=t-svr4
 	extra_parts="crtbegin.o crtend.o"
@@ -1115,7 +1114,6 @@ i[34567]86-*-sco3.2v5*)	# 80386 running SCO Open Server 5
 	use_fixproto=yes
 	;;
 i[34567]86-*-solaris2*)
-	xm_defines="SMALL_ARG_MAX"
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h i386/sysv4.h sol2.h"
 	case ${target} in
 	*-*-solaris2.[0-6] | *-*-solaris2.[0-6].*)
@@ -1182,7 +1180,6 @@ i[34567]86-*-sysv5*)           # Intel x86 on System V Release 5
 	use_fixproto=yes
        ;;
 i[34567]86-*-sysv4*)		# Intel 80386's running system V.4
-	xm_defines="SMALL_ARG_MAX"
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h svr4.h i386/sysv4.h i386/sysv4-cpp.h"
 	if test x$stabs = xyes
 	then
@@ -1382,7 +1379,6 @@ m68020-*-elf* | m68k-*-elf*)
 	tm_defines="MOTOROLA USE_GAS"
 	tmake_file=m68k/t-m68kelf
 	extra_parts="crtbegin.o crtend.o"
-	use_fixproto=yes
 	;;
 m68010-*-netbsdelf* | m68k*-*-netbsdelf*)
 	tm_file="${tm_file} dbxelf.h elfos.h netbsd.h netbsd-elf.h m68k/netbsd-elf.h"
@@ -1586,9 +1582,9 @@ mn10300-*-*)
 	use_collect2=no
 	use_fixproto=yes
 	;;
-ms1-*-elf)
+mt-*-elf)
         tm_file="dbxelf.h elfos.h svr4.h ${tm_file}"
-        tmake_file="${tmake_file} ms1/t-ms1"
+        tmake_file="${tmake_file} mt/t-mt"
         ;;
 ns32k-*-netbsdelf*)
 	echo "GCC does not yet support the ${target} target"; exit 1
@@ -2673,6 +2669,25 @@ case "${target}" in
 		esac
 		;;
 
+	mt-*-*)
+		supported_defaults="arch"
+
+		case "$with_arch" in
+		"" \
+		| ms1-64-001 \
+		| ms1-16-002 \
+		| ms1-16-003 \
+		| ms2 \
+		| "")
+			# OK
+			;;
+		*)
+			echo "Unknown arch used in --with-arch=$with_arch" 1>&2
+			exit 1
+			;;
+		esac
+		;;
+
 	powerpc*-*-* | rs6000-*-*)
 		supported_defaults="cpu float tune"
 
@@ -2927,6 +2942,7 @@ do
 			;;
 		*)
 			echo "This target does not support --with-$option." 2>&1
+			echo "Valid --with options are: $supported_defaults" 2>&1
 			exit 1
 			;;
 		esac

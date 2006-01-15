@@ -45,6 +45,7 @@
 #include "recog.h"
 #include "ggc.h"
 #include "integrate.h"
+#include "cgraph.h"
 #include "langhooks.h"
 #include "bfin-protos.h"
 #include "tm-preds.h"
@@ -863,10 +864,19 @@ expand_interrupt_handler_epilogue (rtx spreg, e_funkind fkind)
 /* Used while emitting the prologue to generate code to load the correct value
    into the PIC register, which is passed in DEST.  */
 
-static void
+static rtx
 bfin_load_pic_reg (rtx dest)
 {
+  struct cgraph_local_info *i = NULL;
   rtx addr, insn;
+ 
+  if (flag_unit_at_a_time)
+    i = cgraph_local_info (current_function_decl);
+ 
+  /* Functions local to the translation unit don't need to reload the
+     pic reg, since the caller always passes a usable one.  */
+  if (i && i->local)
+    return pic_offset_table_rtx;
       
   if (bfin_lib_id_given)
     addr = plus_constant (pic_offset_table_rtx, -4 - bfin_library_id * 4);
@@ -876,6 +886,7 @@ bfin_load_pic_reg (rtx dest)
 					 UNSPEC_LIBRARY_OFFSET));
   insn = emit_insn (gen_movsi (dest, gen_rtx_MEM (Pmode, addr)));
   REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD, const0_rtx, NULL);
+  return dest;
 }
 
 /* Generate RTL for the prologue of the current function.  */
@@ -908,11 +919,10 @@ bfin_expand_prologue (void)
 	  if (TARGET_ID_SHARED_LIBRARY)
 	    {
 	      rtx p1reg = gen_rtx_REG (Pmode, REG_P1);
-	      rtx r3reg = gen_rtx_REG (Pmode, REG_R3);
 	      rtx val;
-	      pic_reg_loaded = p2reg;
-	      bfin_load_pic_reg (pic_reg_loaded);
-	      val = legitimize_pic_address (stack_limit_rtx, p1reg, p2reg);
+	      pic_reg_loaded = bfin_load_pic_reg (p2reg);
+	      val = legitimize_pic_address (stack_limit_rtx, p1reg,
+					    pic_reg_loaded);
 	      emit_move_insn (p1reg, val);
 	      frame_related_constant_load (p2reg, offset, FALSE);
 	      emit_insn (gen_addsi3 (p2reg, p2reg, p1reg));
@@ -1714,9 +1724,9 @@ bfin_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
    CLASS requires an extra scratch register.  Return the class needed for the
    scratch register.  */
 
-enum reg_class
-secondary_input_reload_class (enum reg_class class, enum machine_mode mode,
-			      rtx x)
+static enum reg_class
+bfin_secondary_reload (bool in_p, rtx x, enum reg_class class,
+		     enum machine_mode mode, secondary_reload_info *sri)
 {
   /* If we have HImode or QImode, we can only use DREGS as secondary registers;
      in most other cases we can also use PREGS.  */
@@ -1750,11 +1760,13 @@ secondary_input_reload_class (enum reg_class class, enum machine_mode mode,
 	return NO_REGS;
       /* If destination is a DREG, we can do this without a scratch register
 	 if the constant is valid for an add instruction.  */
-      if (class == DREGS || class == DPREGS)
-	return large_constant_p ? PREGS : NO_REGS;
+      if ((class == DREGS || class == DPREGS)
+	  && ! large_constant_p)
+	return NO_REGS;
       /* Reloading to anything other than a DREG?  Use a PREG scratch
 	 register.  */
-      return PREGS;
+      sri->icode = CODE_FOR_reload_insi;
+      return NO_REGS;
     }
 
   /* Data can usually be moved freely between registers of most classes.
@@ -1782,15 +1794,6 @@ secondary_input_reload_class (enum reg_class class, enum machine_mode mode,
     if (! reg_class_subset_p (class, default_class))
       return default_class;
   return NO_REGS;
-}
-
-/* Like secondary_input_reload_class; and all we do is call that function.  */
-
-enum reg_class
-secondary_output_reload_class (enum reg_class class, enum machine_mode mode,
-			       rtx x)
-{
-  return secondary_input_reload_class (class, mode, x);
 }
 
 /* Implement TARGET_HANDLE_OPTION.  */
@@ -3007,5 +3010,8 @@ bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
 
 #undef TARGET_DEFAULT_TARGET_FLAGS
 #define TARGET_DEFAULT_TARGET_FLAGS TARGET_DEFAULT
+
+#undef TARGET_SECONDARY_RELOAD
+#define TARGET_SECONDARY_RELOAD bfin_secondary_reload
 
 struct gcc_target targetm = TARGET_INITIALIZER;

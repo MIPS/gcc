@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005 Free Software Foundation, Inc.
+;; Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -195,6 +195,9 @@
       && mode != DImode)
     return 1;
 
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return 0;
+
   /* If we are using V.4 style PIC, consider all constants to be hard.  */
   if (flag_pic && DEFAULT_ABI == ABI_V4)
     return 0;
@@ -353,25 +356,6 @@
 					   || reload_in_progress,
 					   mode, XEXP (op, 0))")))
 
-;; Return 1 if the operand is an indexed or indirect memory operand.
-(define_predicate "indexed_or_indirect_operand"
-  (match_operand 0 "memory_operand")
-{
-  rtx tmp = XEXP (op, 0);
-
-  if (TARGET_ALTIVEC
-      && ALTIVEC_VECTOR_MODE (mode)
-      && GET_CODE (tmp) == AND
-      && GET_CODE (XEXP (tmp, 1)) == CONST_INT
-      && INTVAL (XEXP (tmp, 1)) == -16)
-    tmp = XEXP (tmp, 0);
-
-    return REG_P (tmp)
-		  || (GET_CODE (tmp) == PLUS
-		      && REG_P (XEXP (tmp, 0)) 
-		      && REG_P (XEXP (tmp, 1)));
-})
-
 ;; Return 1 if the operand is a memory operand with an address divisible by 4
 (define_predicate "word_offset_memref_operand"
   (and (match_operand 0 "memory_operand")
@@ -380,13 +364,28 @@
 		    || GET_CODE (XEXP (XEXP (op, 0), 1)) != CONST_INT
 		    || INTVAL (XEXP (XEXP (op, 0), 1)) % 4 == 0")))
 
+;; Return 1 if the operand is an indexed or indirect memory operand.
+(define_predicate "indexed_or_indirect_operand"
+  (match_code "mem")
+{
+  op = XEXP (op, 0);
+  if (TARGET_ALTIVEC
+      && ALTIVEC_VECTOR_MODE (mode)
+      && GET_CODE (op) == AND
+      && GET_CODE (XEXP (op, 1)) == CONST_INT
+      && INTVAL (XEXP (op, 1)) == -16)
+    op = XEXP (op, 0);
+
+  return indexed_or_indirect_address (op, mode);
+})
+
 ;; Return 1 if the operand is an indexed or indirect address.
-(define_predicate "indexed_or_indirect_address"
-  (and (match_operand 0 "address_operand")
-       (match_test "REG_P (op)
+(define_special_predicate "indexed_or_indirect_address"
+  (and (match_test "REG_P (op)
 		    || (GET_CODE (op) == PLUS
-			&& REG_P (XEXP (op, 0)) 
-			&& REG_P (XEXP (op, 1)))")))
+			/* Omit testing REG_P (XEXP (op, 0)).  */
+			&& REG_P (XEXP (op, 1)))")
+       (match_operand 0 "address_operand")))
 
 ;; Used for the destination of the fix_truncdfsi2 expander.
 ;; If stfiwx will be used, the result goes to memory; otherwise,
@@ -411,15 +410,12 @@
        (match_test "!CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')
 		    && !CONST_OK_FOR_LETTER_P (INTVAL (op), 'L')")))
 
-;; Return 1 if the operand is a non-special register or a constant that
-;; can be used as the operand of an OR or XOR.
-(define_predicate "logical_operand"
-  (match_code "reg,subreg,const_int,const_double")
+;; Return 1 if the operand is a constant that can be used as the operand
+;; of an OR or XOR.
+(define_predicate "logical_const_operand"
+  (match_code "const_int,const_double")
 {
   HOST_WIDE_INT opl, oph;
-
-  if (gpc_reg_operand (op, mode))
-    return 1;
 
   if (GET_CODE (op) == CONST_INT)
     {
@@ -444,6 +440,12 @@
   return ((opl & ~ (unsigned HOST_WIDE_INT) 0xffff) == 0
 	  || (opl & ~ (unsigned HOST_WIDE_INT) 0xffff0000) == 0);
 })
+
+;; Return 1 if the operand is a non-special register or a constant that
+;; can be used as the operand of an OR or XOR.
+(define_predicate "logical_operand"
+  (ior (match_operand 0 "gpc_reg_operand")
+       (match_operand 0 "logical_const_operand")))
 
 ;; Return 1 if op is a constant that is not a logical operand, but could
 ;; be split into one.

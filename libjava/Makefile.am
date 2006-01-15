@@ -190,10 +190,6 @@ if USING_NOGC
 libgcj_la_SOURCES += nogc.cc
 endif
 
-if SUPPLY_BACKTRACE
-libgcj_la_SOURCES += sysdep/dwarf2-backtrace.cc
-endif
-
 if USING_POSIX_PLATFORM
 libgcj_la_SOURCES += posix.cc
 endif
@@ -566,7 +562,7 @@ install-data-local:
 ## FIXME: the obvious approach using lib_DATA doesn't work with
 ## automake 1.4.
 	$(mkinstalldirs) $(DESTDIR)$(secdir)
-	@for f in classpath.security libgcj.security; do \
+	@for f in libgcj.security; do \
 	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
 	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
 	done

@@ -881,18 +881,16 @@ static tree
 determine_biv_step (tree phi)
 {
   struct loop *loop = bb_for_stmt (phi)->loop_father;
-  tree name = PHI_RESULT (phi), base, step;
+  tree name = PHI_RESULT (phi);
+  affine_iv iv;
 
   if (!is_gimple_reg (name))
     return NULL_TREE;
 
-  if (!simple_iv (loop, phi, name, &base, &step, true))
+  if (!simple_iv (loop, phi, name, &iv, true))
     return NULL_TREE;
 
-  if (zero_p (step))
-    return NULL_TREE;
-
-  return step;
+  return (zero_p (iv.step) ? NULL_TREE : iv.step);
 }
 
 /* Returns true if EXP is a ssa name that occurs in an abnormal phi node.  */
@@ -1044,17 +1042,16 @@ mark_bivs (struct ivopts_data *data)
 }
 
 /* Checks whether STMT defines a linear induction variable and stores its
-   parameters to BASE and STEP.  */
+   parameters to IV.  */
 
 static bool
-find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
-			tree *base, tree *step)
+find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt, affine_iv *iv)
 {
   tree lhs;
   struct loop *loop = data->current_loop;
 
-  *base = NULL_TREE;
-  *step = NULL_TREE;
+  iv->base = NULL_TREE;
+  iv->step = NULL_TREE;
 
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
@@ -1063,12 +1060,12 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  if (!simple_iv (loop, stmt, TREE_OPERAND (stmt, 1), base, step, true))
+  if (!simple_iv (loop, stmt, TREE_OPERAND (stmt, 1), iv, true))
     return false;
-  *base = expand_simple_operations (*base);
+  iv->base = expand_simple_operations (iv->base);
 
-  if (contains_abnormal_ssa_name_p (*base)
-      || contains_abnormal_ssa_name_p (*step))
+  if (contains_abnormal_ssa_name_p (iv->base)
+      || contains_abnormal_ssa_name_p (iv->step))
     return false;
 
   return true;
@@ -1079,12 +1076,12 @@ find_givs_in_stmt_scev (struct ivopts_data *data, tree stmt,
 static void
 find_givs_in_stmt (struct ivopts_data *data, tree stmt)
 {
-  tree base, step;
+  affine_iv iv;
 
-  if (!find_givs_in_stmt_scev (data, stmt, &base, &step))
+  if (!find_givs_in_stmt_scev (data, stmt, &iv))
     return;
 
-  set_iv (data, TREE_OPERAND (stmt, 0), base, step);
+  set_iv (data, TREE_OPERAND (stmt, 0), iv.base, iv.step);
 }
 
 /* Finds general ivs in basic block BB.  */
@@ -5326,7 +5323,7 @@ remove_statement (tree stmt, bool including_defined_name)
     {
       block_stmt_iterator bsi = bsi_for_stmt (stmt);
 
-      bsi_remove (&bsi);
+      bsi_remove (&bsi, true);
     }
 }
 
@@ -5490,10 +5487,21 @@ unshare_and_remove_ssa_names (tree ref)
    and extracts this single useful piece of information.  */
 
 static tree
-get_ref_tag (tree ref)
+get_ref_tag (tree ref, tree orig)
 {
   tree var = get_base_address (ref);
-  tree tag;
+  tree aref = NULL_TREE, tag, sv;
+  HOST_WIDE_INT offset, size, maxsize;
+
+  for (sv = orig; handled_component_p (sv); sv = TREE_OPERAND (sv, 0))
+    {
+      aref = get_ref_base_and_extent (sv, &offset, &size, &maxsize);
+      if (ref)
+	break;
+    }
+
+  if (aref && SSA_VAR_P (aref) && get_subvars_for_var (aref))
+    return unshare_expr (sv);
 
   if (!var)
     return NULL_TREE;
@@ -5540,8 +5548,8 @@ copy_ref_info (tree new_ref, tree old_ref)
     copy_mem_ref_info (new_ref, old_ref);
   else
     {
-      TMR_TAG (new_ref) = get_ref_tag (old_ref);
       TMR_ORIGINAL (new_ref) = unshare_and_remove_ssa_names (old_ref);
+      TMR_TAG (new_ref) = get_ref_tag (old_ref, TMR_ORIGINAL (new_ref));
     }
 }
 
@@ -5814,7 +5822,7 @@ rewrite_use (struct ivopts_data *data,
       default:
 	gcc_unreachable ();
     }
-  update_stmt (use->stmt);
+  mark_new_vars_to_rename (use->stmt);
 }
 
 /* Rewrite the uses using the selected induction variables.  */

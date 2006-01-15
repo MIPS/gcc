@@ -982,9 +982,10 @@ add_method (tree type, tree method, tree using_decl)
       for (fns = current_fns; fns; fns = OVL_NEXT (fns))
 	{
 	  tree fn = OVL_CURRENT (fns);
+	  tree fn_type;
+	  tree method_type;
 	  tree parms1;
 	  tree parms2;
-	  bool same = 1;
 
 	  if (TREE_CODE (fn) != TREE_CODE (method))
 	    continue;
@@ -999,8 +1000,10 @@ add_method (tree type, tree method, tree using_decl)
 	     functions in the derived class override and/or hide member
 	     functions with the same name and parameter types in a base
 	     class (rather than conflicting).  */
-	  parms1 = TYPE_ARG_TYPES (TREE_TYPE (fn));
-	  parms2 = TYPE_ARG_TYPES (TREE_TYPE (method));
+	  fn_type = TREE_TYPE (fn);
+	  method_type = TREE_TYPE (method);
+	  parms1 = TYPE_ARG_TYPES (fn_type);
+	  parms2 = TYPE_ARG_TYPES (method_type);
 
 	  /* Compare the quals on the 'this' parm.  Don't compare
 	     the whole types, as used functions are treated as
@@ -1009,23 +1012,26 @@ add_method (tree type, tree method, tree using_decl)
 	      && ! DECL_STATIC_FUNCTION_P (method)
 	      && (TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms1)))
 		  != TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms2)))))
-	    same = 0;
+	    continue;
 
-	  /* For templates, the template parms must be identical.  */
+	  /* For templates, the return type and template parameters
+	     must be identical.  */
 	  if (TREE_CODE (fn) == TEMPLATE_DECL
-	      && !comp_template_parms (DECL_TEMPLATE_PARMS (fn),
-				       DECL_TEMPLATE_PARMS (method)))
-	    same = 0;
+	      && (!same_type_p (TREE_TYPE (fn_type),
+				TREE_TYPE (method_type))
+		  || !comp_template_parms (DECL_TEMPLATE_PARMS (fn),
+					   DECL_TEMPLATE_PARMS (method))))
+	    continue;
 
 	  if (! DECL_STATIC_FUNCTION_P (fn))
 	    parms1 = TREE_CHAIN (parms1);
 	  if (! DECL_STATIC_FUNCTION_P (method))
 	    parms2 = TREE_CHAIN (parms2);
 
-	  if (same && compparms (parms1, parms2)
+	  if (compparms (parms1, parms2)
 	      && (!DECL_CONV_FN_P (fn)
-		  || same_type_p (TREE_TYPE (TREE_TYPE (fn)),
-				  TREE_TYPE (TREE_TYPE (method)))))
+		  || same_type_p (TREE_TYPE (fn_type),
+				  TREE_TYPE (method_type))))
 	    {
 	      if (using_decl)
 		{
@@ -1053,10 +1059,16 @@ add_method (tree type, tree method, tree using_decl)
 	}
     }
 
+  /* A class should never have more than one destructor.  */ 
+  if (current_fns && DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (method))
+    return false;
+
   /* Add the new binding.  */
   overload = build_overload (method, current_fns);
 
-  if (!conv_p && slot >= CLASSTYPE_FIRST_CONVERSION_SLOT && !complete_p)
+  if (conv_p)
+    TYPE_HAS_CONVERSION (type) = 1;
+  else if (slot >= CLASSTYPE_FIRST_CONVERSION_SLOT && !complete_p)
     push_class_level_binding (DECL_NAME (method), overload);
 
   if (insert_p)
@@ -1147,7 +1159,7 @@ handle_using_decl (tree using_decl, tree t)
 	old_value = NULL_TREE;
     }
 
-  cp_emit_debug_info_for_using (decl, current_class_type);
+  cp_emit_debug_info_for_using (decl, USING_DECL_SCOPE (using_decl));
 
   if (is_overloaded_fn (decl))
     flist = decl;
@@ -2801,7 +2813,7 @@ check_field_decls (tree t, tree *access_decls,
 		  (0,
 		   "ignoring packed attribute on unpacked non-POD field %q+#D",
 		   x);
-	      else
+	      else if (TYPE_ALIGN (TREE_TYPE (x)) > BITS_PER_UNIT)
 		DECL_PACKED (x) = 1;
 	    }
 
@@ -5334,7 +5346,7 @@ init_class_processing (void)
   current_class_depth = 0;
   current_class_stack_size = 10;
   current_class_stack
-    = xmalloc (current_class_stack_size * sizeof (struct class_stack_node));
+    = XNEWVEC (struct class_stack_node, current_class_stack_size);
   local_classes = VEC_alloc (tree, gc, 8);
   sizeof_biggest_empty_class = size_zero_node;
 
@@ -5382,9 +5394,8 @@ pushclass (tree type)
     {
       current_class_stack_size *= 2;
       current_class_stack
-	= xrealloc (current_class_stack,
-		    current_class_stack_size
-		    * sizeof (struct class_stack_node));
+	= XRESIZEVEC (struct class_stack_node, current_class_stack,
+                      current_class_stack_size);
     }
 
   /* Insert a new entry on the class stack.  */

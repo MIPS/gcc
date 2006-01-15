@@ -45,8 +45,8 @@
 #include <locale>
 #include <ostream> // For flush()
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>::sentry::
     sentry(basic_istream<_CharT, _Traits>& __in, bool __noskip) : _M_ok(false)
@@ -110,310 +110,27 @@ namespace std
     }
 
   template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(bool& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(short& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      long __l;
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __l);
-	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-	      // 118. basic_istream uses nonexistent num_get member functions.
-	      if (!(__err & ios_base::failbit)
-		  && (numeric_limits<short>::min() <= __l
-		      && __l <= numeric_limits<short>::max()))
-		__n = __l;
-	      else
-                __err |= ios_base::failbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(unsigned short& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(int& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      long __l;
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __l);
-	      // _GLIBCXX_RESOLVE_LIB_DEFECTS
-	      // 118. basic_istream uses nonexistent num_get member functions.
-	      if (!(__err & ios_base::failbit)
-		  && (numeric_limits<int>::min() <= __l
-		      && __l <= numeric_limits<int>::max()))
-		__n = __l;
-	      else
-                __err |= ios_base::failbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(unsigned int& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(long& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(unsigned long& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-#ifdef _GLIBCXX_USE_LONG_LONG
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(long long& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(unsigned long long& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-#endif
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(float& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(double& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(long double& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_istream<_CharT, _Traits>&
-    basic_istream<_CharT, _Traits>::
-    operator>>(void*& __n)
-    {
-      sentry __cerb(*this, false);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
-	      __ng.get(*this, 0, *this, __err, __n);
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
+    template<typename _ValueT>
+      basic_istream<_CharT, _Traits>&
+      basic_istream<_CharT, _Traits>::
+      _M_extract(_ValueT& __v)
+      {
+	sentry __cerb(*this, false);
+	if (__cerb)
+	  {
+	    ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	    try
+	      {
+		const __num_get_type& __ng = __check_facet(this->_M_num_get);
+		__ng.get(*this, 0, *this, __err, __v);
+	      }
+	    catch(...)
+	      { this->_M_setstate(ios_base::badbit); }
+	    if (__err)
+	      this->setstate(__err);
+	  }
+	return *this;
+      }
 
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>&
@@ -1281,6 +998,7 @@ namespace std
   extern template class basic_iostream<wchar_t>;
 #endif
 #endif
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

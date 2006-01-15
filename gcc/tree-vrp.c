@@ -528,12 +528,14 @@ compare_values (tree val1, tree val2)
   if (!is_gimple_min_invariant (val1) || !is_gimple_min_invariant (val2))
     return -2;
 
-  /* We cannot compare overflowed values.  */
-  if (TREE_OVERFLOW (val1) || TREE_OVERFLOW (val2))
-    return -2;
-
   if (!POINTER_TYPE_P (TREE_TYPE (val1)))
-    return tree_int_cst_compare (val1, val2);
+    {
+      /* We cannot compare overflowed values.  */
+      if (TREE_OVERFLOW (val1) || TREE_OVERFLOW (val2))
+	return -2;
+
+      return tree_int_cst_compare (val1, val2);
+    }
   else
     {
       tree t;
@@ -1165,6 +1167,7 @@ static void
 extract_range_from_binary_expr (value_range_t *vr, tree expr)
 {
   enum tree_code code = TREE_CODE (expr);
+  enum value_range_type type;
   tree op0, op1, min, max;
   int cmp;
   value_range_t vr0 = { VR_UNDEFINED, NULL_TREE, NULL_TREE, NULL };
@@ -1182,6 +1185,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       && code != ROUND_DIV_EXPR
       && code != MIN_EXPR
       && code != MAX_EXPR
+      && code != BIT_AND_EXPR
       && code != TRUTH_ANDIF_EXPR
       && code != TRUTH_ORIF_EXPR
       && code != TRUTH_AND_EXPR
@@ -1217,14 +1221,22 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       return;
     }
 
+  /* The type of the resulting value range defaults to VR0.TYPE.  */
+  type = vr0.type;
+
   /* Refuse to operate on VARYING ranges, ranges of different kinds
-     and symbolic ranges.  TODO, we may be able to derive anti-ranges
-     in some cases.  */
-  if (vr0.type == VR_VARYING
-      || vr1.type == VR_VARYING
-      || vr0.type != vr1.type
-      || symbolic_range_p (&vr0)
-      || symbolic_range_p (&vr1))
+     and symbolic ranges.  As an exception, we allow BIT_AND_EXPR
+     because we may be able to derive a useful range even if one of
+     the operands is VR_VARYING or symbolic range.  TODO, we may be
+     able to derive anti-ranges in some cases.  */
+  if (code != BIT_AND_EXPR
+      && code != TRUTH_AND_EXPR
+      && code != TRUTH_OR_EXPR
+      && (vr0.type == VR_VARYING
+	  || vr1.type == VR_VARYING
+	  || vr0.type != vr1.type
+	  || symbolic_range_p (&vr0)
+	  || symbolic_range_p (&vr1)))
     {
       set_value_range_to_varying (vr);
       return;
@@ -1267,9 +1279,47 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       || code == TRUTH_OR_EXPR
       || code == TRUTH_XOR_EXPR)
     {
-      /* Boolean expressions cannot be folded with int_const_binop.  */
-      min = fold_binary (code, TREE_TYPE (expr), vr0.min, vr1.min);
-      max = fold_binary (code, TREE_TYPE (expr), vr0.max, vr1.max);
+      /* If one of the operands is zero, we know that the whole
+	 expression evaluates zero.  */
+      if (code == TRUTH_AND_EXPR
+	  && ((vr0.type == VR_RANGE
+	       && integer_zerop (vr0.min)
+	       && integer_zerop (vr0.max))
+	      || (vr1.type == VR_RANGE
+		  && integer_zerop (vr1.min)
+		  && integer_zerop (vr1.max))))
+	{
+	  type = VR_RANGE;
+	  min = max = build_int_cst (TREE_TYPE (expr), 0);
+	}
+      /* If one of the operands is one, we know that the whole
+	 expression evaluates one.  */
+      else if (code == TRUTH_OR_EXPR
+	       && ((vr0.type == VR_RANGE
+		    && integer_onep (vr0.min)
+		    && integer_onep (vr0.max))
+		   || (vr1.type == VR_RANGE
+		       && integer_onep (vr1.min)
+		       && integer_onep (vr1.max))))
+	{
+	  type = VR_RANGE;
+	  min = max = build_int_cst (TREE_TYPE (expr), 1);
+	}
+      else if (vr0.type != VR_VARYING
+	       && vr1.type != VR_VARYING
+	       && vr0.type == vr1.type
+	       && !symbolic_range_p (&vr0)
+	       && !symbolic_range_p (&vr1))
+	{
+	  /* Boolean expressions cannot be folded with int_const_binop.  */
+	  min = fold_binary (code, TREE_TYPE (expr), vr0.min, vr1.min);
+	  max = fold_binary (code, TREE_TYPE (expr), vr0.max, vr1.max);
+	}
+      else
+	{
+	  set_value_range_to_varying (vr);
+	  return;
+	}
     }
   else if (code == PLUS_EXPR
 	   || code == MIN_EXPR
@@ -1404,6 +1454,31 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       min = vrp_int_const_binop (code, vr0.min, vr1.max);
       max = vrp_int_const_binop (code, vr0.max, vr1.min);
     }
+  else if (code == BIT_AND_EXPR)
+    {
+      if (vr0.type == VR_RANGE
+	  && vr0.min == vr0.max
+	  && tree_expr_nonnegative_p (vr0.max)
+	  && TREE_CODE (vr0.max) == INTEGER_CST)
+	{
+	  min = build_int_cst (TREE_TYPE (expr), 0);
+	  max = vr0.max;
+	}
+      else if (vr1.type == VR_RANGE
+	  && vr1.min == vr1.max
+	  && tree_expr_nonnegative_p (vr1.max)
+	  && TREE_CODE (vr1.max) == INTEGER_CST)
+	{
+	  type = VR_RANGE;
+	  min = build_int_cst (TREE_TYPE (expr), 0);
+	  max = vr1.max;
+	}
+      else
+	{
+	  set_value_range_to_varying (vr);
+	  return;
+	}
+    }
   else
     gcc_unreachable ();
 
@@ -1424,7 +1499,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       set_value_range_to_varying (vr);
     }
   else
-    set_value_range (vr, vr0.type, min, max, NULL);
+    set_value_range (vr, type, min, max, NULL);
 }
 
 
@@ -2162,21 +2237,21 @@ build_assert_expr_for (tree cond, tree v)
 
   if (COMPARISON_CLASS_P (cond))
     {
-      tree a = build (ASSERT_EXPR, TREE_TYPE (v), v, cond); 
-      assertion = build (MODIFY_EXPR, TREE_TYPE (v), n, a);
+      tree a = build2 (ASSERT_EXPR, TREE_TYPE (v), v, cond); 
+      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, a);
     }
   else if (TREE_CODE (cond) == TRUTH_NOT_EXPR)
     {
       /* Given !V, build the assignment N = false.  */
       tree op0 = TREE_OPERAND (cond, 0);
       gcc_assert (op0 == v);
-      assertion = build (MODIFY_EXPR, TREE_TYPE (v), n, boolean_false_node);
+      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, boolean_false_node);
     }
   else if (TREE_CODE (cond) == SSA_NAME)
     {
       /* Given V, build the assignment N = true.  */
       gcc_assert (v == cond);
-      assertion = build (MODIFY_EXPR, TREE_TYPE (v), n, boolean_true_node);
+      assertion = build2 (MODIFY_EXPR, TREE_TYPE (v), n, boolean_true_node);
     }
   else
     gcc_unreachable ();
@@ -2779,7 +2854,7 @@ process_assert_insertions_for (tree name, assert_locus_t loc)
   edge_iterator ei;
   edge e;
 
-  cond = build (loc->comp_code, boolean_type_node, name, loc->val);
+  cond = build2 (loc->comp_code, boolean_type_node, name, loc->val);
   assert_expr = build_assert_expr_for (cond, name);
 
   if (loc->e)
@@ -2991,7 +3066,7 @@ remove_range_assertions (void)
 	      }
 
 	    /* And finally, remove the copy, it is not needed.  */
-	    bsi_remove (&si);
+	    bsi_remove (&si, true);
 	  }
 	else
 	  bsi_next (&si);
@@ -3955,7 +4030,7 @@ simplify_cond_using_ranges (tree stmt)
 		}
 
 	      COND_EXPR_COND (stmt)
-		= build (EQ_EXPR, boolean_type_node, op0, new);
+		= build2 (EQ_EXPR, boolean_type_node, op0, new);
 	      update_stmt (stmt);
 
 	      if (dump_file)
@@ -3983,7 +4058,7 @@ simplify_cond_using_ranges (tree stmt)
 		}
 
 	      COND_EXPR_COND (stmt)
-		= build (NE_EXPR, boolean_type_node, op0, new);
+		= build2 (NE_EXPR, boolean_type_node, op0, new);
 	      update_stmt (stmt);
 
 	      if (dump_file)

@@ -1,6 +1,6 @@
 // Short-string-optimized versatile string base -*- C++ -*-
 
-// Copyright (C) 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,8 +36,8 @@
 #ifndef _SSO_STRING_BASE_H
 #define _SSO_STRING_BASE_H 1
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     class __sso_string_base
     : protected __vstring_utility<_CharT, _Traits, _Alloc>
@@ -45,7 +45,6 @@ namespace __gnu_cxx
     public:
       typedef _Traits					    traits_type;
       typedef typename _Traits::char_type		    value_type;
-      typedef _Alloc					    allocator_type;
 
       typedef __vstring_utility<_CharT, _Traits, _Alloc>    _Util_Base;
       typedef typename _Util_Base::_CharT_alloc_type        _CharT_alloc_type;
@@ -67,7 +66,8 @@ namespace __gnu_cxx
 			      / sizeof(_CharT)) - 1) / 4) };
 
       // Data Members (private):
-      typename _Util_Base::template _Alloc_hider<_Alloc>    _M_dataplus;
+      typename _Util_Base::template _Alloc_hider<_CharT_alloc_type>
+                                                            _M_dataplus;
       size_type                                             _M_string_length;
 
       enum { _S_local_capacity = 15 };
@@ -102,7 +102,7 @@ namespace __gnu_cxx
       _M_dispose()
       {
 	if (!_M_is_local())
-	  _M_destroy(_M_allocated_capacity + 1);
+	  _M_destroy(_M_allocated_capacity);
       }
 
       void
@@ -202,7 +202,11 @@ namespace __gnu_cxx
       ~__sso_string_base()
       { _M_dispose(); }
 
-      const allocator_type&
+      _CharT_alloc_type&
+      _M_get_allocator()
+      { return _M_dataplus; }
+
+      const _CharT_alloc_type&
       _M_get_allocator() const
       { return _M_dataplus; }
 
@@ -216,22 +220,32 @@ namespace __gnu_cxx
       _M_reserve(size_type __res);
 
       void
-      _M_mutate(size_type __pos, size_type __len1, size_type __len2);
+      _M_mutate(size_type __pos, size_type __len1, const _CharT* __s,
+		size_type __len2);
+
+      void
+      _M_erase(size_type __pos, size_type __n);
+
+      bool
+      _M_compare(const __sso_string_base&) const
+      { return false; }
     };
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
     __sso_string_base<_CharT, _Traits, _Alloc>::
     _M_destroy(size_type __size) throw()
-    { _CharT_alloc_type(_M_get_allocator()).deallocate(_M_data(), __size); }
+    { _M_dataplus._CharT_alloc_type::deallocate(_M_data(), __size + 1); }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
     __sso_string_base<_CharT, _Traits, _Alloc>::
     _M_swap(__sso_string_base& __rcs)
     {
-      // NB: Implement Option 3 of DR 431 (see N1599).
-      _M_dataplus._M_alloc_swap(__rcs._M_dataplus);
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 431. Swapping containers with unequal allocators.
+      std::__alloc_swap<_CharT_alloc_type>::_S_do_it(_M_get_allocator(),
+						     __rcs._M_get_allocator());
 
       if (_M_is_local())
 	if (__rcs._M_is_local())
@@ -315,7 +329,7 @@ namespace __gnu_cxx
 
       // NB: Need an array of char_type[__capacity], plus a terminating
       // null char_type() element.
-      return _CharT_alloc_type(_M_get_allocator()).allocate(__capacity + 1);
+      return _M_dataplus._CharT_alloc_type::allocate(__capacity + 1);
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -447,22 +461,22 @@ namespace __gnu_cxx
     {
       if (this != &__rcs)
 	{
-	  size_type __size = __rcs._M_length();
+	  const size_type __rsize = __rcs._M_length();
+	  const size_type __capacity = _M_capacity();
 
-	  _CharT* __tmp = _M_local_data;
-	  if (__size > size_type(_S_local_capacity))
-	    __tmp = _M_create(__size, size_type(0));
+	  if (__rsize > __capacity)
+	    {
+	      size_type __new_capacity = __rsize;
+	      _CharT* __tmp = _M_create(__new_capacity, __capacity);
+	      _M_dispose();
+	      _M_data(__tmp);
+	      _M_capacity(__new_capacity);
+	    }
 
-	  _M_dispose();
-	  _M_data(__tmp);
+	  if (__rsize)
+	    _S_copy(_M_data(), __rcs._M_data(), __rsize);
 
-	  if (__size)
-	    _S_copy(_M_data(), __rcs._M_data(), __size);
-
-	  if (!_M_is_local())
-	    _M_capacity(__size);
-
-	  _M_set_length(__size);
+	  _M_set_length(__rsize);
 	}
     }
 
@@ -471,70 +485,91 @@ namespace __gnu_cxx
     __sso_string_base<_CharT, _Traits, _Alloc>::
     _M_reserve(size_type __res)
     {
+      // Make sure we don't shrink below the current size.
+      if (__res < _M_length())
+	__res = _M_length();
+
       const size_type __capacity = _M_capacity();
       if (__res != __capacity)
 	{
-	  // Make sure we don't shrink below the current size.
-	  if (__res < _M_length())
-	    __res = _M_length();
-
 	  if (__res > __capacity
 	      || __res > size_type(_S_local_capacity))
 	    {
 	      _CharT* __tmp = _M_create(__res, __capacity);
-	      if (_M_length())
-		_S_copy(__tmp, _M_data(), _M_length());
+	      _S_copy(__tmp, _M_data(), _M_length() + 1);
 	      _M_dispose();
 	      _M_data(__tmp);
 	      _M_capacity(__res);
 	    }
 	  else if (!_M_is_local())
 	    {
-	      const size_type __tmp_capacity = _M_allocated_capacity;
-	      if (_M_length())
-		_S_copy(_M_local_data, _M_data(), _M_length());
-	      _M_destroy(__tmp_capacity + 1);
+	      _S_copy(_M_local_data, _M_data(), _M_length() + 1);
+	      _M_destroy(__capacity);
 	      _M_data(_M_local_data);
-	    }	  
-	  
-	  _M_set_length(_M_length());
+	    }
 	}
     }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     void
     __sso_string_base<_CharT, _Traits, _Alloc>::
-    _M_mutate(size_type __pos, size_type __len1, size_type __len2)
+    _M_mutate(size_type __pos, size_type __len1, const _CharT* __s,
+	      const size_type __len2)
     {
-      const size_type __old_size = _M_length();
-      const size_type __new_size = __old_size + __len2 - __len1;
-      const size_type __how_much = __old_size - __pos - __len1;
+      const size_type __how_much = _M_length() - __pos - __len1;
       
-      if (__new_size > _M_capacity())
-	{
-	  // Must reallocate.
-	  size_type __new_capacity = __new_size;
-	  _CharT* __r = _M_create(__new_capacity, _M_capacity());
+      size_type __new_capacity = _M_length() + __len2 - __len1;
+      _CharT* __r = _M_create(__new_capacity, _M_capacity());
 
-	  if (__pos)
-	    _S_copy(__r, _M_data(), __pos);
-	  if (__how_much)
-	    _S_copy(__r + __pos + __len2,
-		    _M_data() + __pos + __len1, __how_much);
-
-	  _M_dispose();
-	  _M_data(__r);
-	  _M_capacity(__new_capacity);
-	}
-      else if (__how_much && __len1 != __len2)
-	{
-	  // Work in-place.
-	  _S_move(_M_data() + __pos + __len2,
-		  _M_data() + __pos + __len1, __how_much);
-	}
-
-      _M_set_length(__new_size);
+      if (__pos)
+	_S_copy(__r, _M_data(), __pos);
+      if (__s && __len2)
+	_S_copy(__r + __pos, __s, __len2);
+      if (__how_much)
+	_S_copy(__r + __pos + __len2,
+		_M_data() + __pos + __len1, __how_much);
+      
+      _M_dispose();
+      _M_data(__r);
+      _M_capacity(__new_capacity);
     }
-} // namespace __gnu_cxx
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    void
+    __sso_string_base<_CharT, _Traits, _Alloc>::
+    _M_erase(size_type __pos, size_type __n)
+    {
+      const size_type __how_much = _M_length() - __pos - __n;
+
+      if (__how_much && __n)
+	_S_move(_M_data() + __pos, _M_data() + __pos + __n,
+		__how_much);
+
+      _M_set_length(_M_length() - __n);
+    }
+
+  template<>
+    inline bool
+    __sso_string_base<char, std::char_traits<char>,
+		      std::allocator<char> >::
+    _M_compare(const __sso_string_base& __rcs) const
+    {
+      if (this == &__rcs)
+	return true;
+      return false;
+    }
+
+  template<>
+    inline bool
+    __sso_string_base<wchar_t, std::char_traits<wchar_t>,
+		      std::allocator<wchar_t> >::
+    _M_compare(const __sso_string_base& __rcs) const
+    {
+      if (this == &__rcs)
+	return true;
+      return false;
+    }
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _SSO_STRING_BASE_H */

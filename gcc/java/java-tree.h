@@ -386,6 +386,7 @@ enum java_tree_index
   JTI_SOFT_BADARRAYINDEX_NODE,
   JTI_SOFT_NULLPOINTER_NODE,
   JTI_SOFT_ABSTRACTMETHOD_NODE,
+  JTI_SOFT_NOSUCHFIELD_NODE,
   JTI_SOFT_CHECKARRAYSTORE_NODE,
   JTI_SOFT_MONITORENTER_NODE,
   JTI_SOFT_MONITOREXIT_NODE,
@@ -394,6 +395,7 @@ enum java_tree_index
   JTI_SOFT_LOOKUPJNIMETHOD_NODE,
   JTI_SOFT_GETJNIENVNEWFRAME_NODE,
   JTI_SOFT_JNIPOPSYSTEMFRAME_NODE,
+  JTI_SOFT_UNWRAPJNI_NODE,
   JTI_SOFT_FMOD_NODE,
   JTI_SOFT_IDIV_NODE,
   JTI_SOFT_IREM_NODE,
@@ -647,6 +649,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_NULLPOINTER_NODE]
 #define soft_abstractmethod_node \
   java_global_trees[JTI_SOFT_ABSTRACTMETHOD_NODE]
+#define soft_nosuchfield_node \
+  java_global_trees[JTI_SOFT_NOSUCHFIELD_NODE]
 #define soft_checkarraystore_node \
   java_global_trees[JTI_SOFT_CHECKARRAYSTORE_NODE]
 #define soft_monitorenter_node \
@@ -663,6 +667,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_GETJNIENVNEWFRAME_NODE]
 #define soft_jnipopsystemframe_node \
   java_global_trees[JTI_SOFT_JNIPOPSYSTEMFRAME_NODE]
+#define soft_unwrapjni_node \
+  java_global_trees[JTI_SOFT_UNWRAPJNI_NODE]
 #define soft_fmod_node \
   java_global_trees[JTI_SOFT_FMOD_NODE]
 #define soft_idiv_node \

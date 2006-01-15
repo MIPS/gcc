@@ -62,6 +62,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_ASM_EMIT_UNWIND_LABEL default_emit_unwind_label
 #endif
 
+#ifndef TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL
+#define TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL default_emit_except_table_label
+#endif
+
 #ifndef TARGET_UNWIND_EMIT
 #define TARGET_UNWIND_EMIT default_unwind_emit
 #endif
@@ -136,6 +140,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 # endif
 #endif
 
+#ifndef TARGET_ASM_INIT_SECTIONS
+#define TARGET_ASM_INIT_SECTIONS hook_void_void
+#endif
+
 #ifdef TARGET_ASM_NAMED_SECTION
 #define TARGET_HAVE_NAMED_SECTIONS true
 #else
@@ -168,14 +176,6 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #endif
 
 #define TARGET_DWARF_REGISTER_SPAN hook_rtx_rtx_null
-
-#ifndef TARGET_ASM_EXCEPTION_SECTION
-#define TARGET_ASM_EXCEPTION_SECTION default_exception_section
-#endif
-
-#ifndef TARGET_ASM_EH_FRAME_SECTION
-#define TARGET_ASM_EH_FRAME_SECTION default_eh_frame_section
-#endif
 
 #ifndef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START default_file_start
@@ -225,6 +225,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 			TARGET_ASM_INTEGER,			\
 			TARGET_ASM_GLOBALIZE_LABEL,		\
                         TARGET_ASM_EMIT_UNWIND_LABEL,           \
+			TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL,	\
 			TARGET_UNWIND_EMIT,			\
 			TARGET_ASM_INTERNAL_LABEL,		\
 			TARGET_ASM_TTYPE,			\
@@ -233,9 +234,8 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 			TARGET_ASM_FUNCTION_END_PROLOGUE,	\
 			TARGET_ASM_FUNCTION_BEGIN_EPILOGUE,	\
 			TARGET_ASM_FUNCTION_EPILOGUE,		\
+			TARGET_ASM_INIT_SECTIONS,		\
 			TARGET_ASM_NAMED_SECTION,		\
-			TARGET_ASM_EXCEPTION_SECTION,		\
-			TARGET_ASM_EH_FRAME_SECTION,		\
 			TARGET_ASM_SELECT_SECTION,		\
 			TARGET_ASM_SELECT_RTX_SECTION,		\
 			TARGET_ASM_UNIQUE_SECTION,		\
@@ -336,12 +336,20 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_SHIFT_TRUNCATION_MASK default_shift_truncation_mask
 #endif
 
+#ifndef TARGET_MIN_DIVISIONS_FOR_RECIP_MUL
+#define TARGET_MIN_DIVISIONS_FOR_RECIP_MUL default_min_divisions_for_recip_mul
+#endif
+
 #ifndef TARGET_VALID_POINTER_MODE
 #define TARGET_VALID_POINTER_MODE default_valid_pointer_mode
 #endif
 
 #ifndef TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P default_scalar_mode_supported_p
+#endif
+
+#ifndef TARGET_DECIMAL_FLOAT_SUPPORTED_P
+#define TARGET_DECIMAL_FLOAT_SUPPORTED_P default_decimal_float_supported_p
 #endif
 
 #ifndef TARGET_VECTOR_MODE_SUPPORTED_P
@@ -478,6 +486,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_HANDLE_PRAGMA_EXTERN_PREFIX 0
 #endif
 
+#ifndef TARGET_SECONDARY_RELOAD
+#define TARGET_SECONDARY_RELOAD default_secondary_reload
+#endif
+
 
 /* C++ specific.  */
 #ifndef TARGET_CXX_GUARD_TYPE
@@ -556,6 +568,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_INSERT_ATTRIBUTES,			\
   TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P,	\
   TARGET_MS_BITFIELD_LAYOUT_P,			\
+  TARGET_DECIMAL_FLOAT_SUPPORTED_P,		\
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
@@ -577,6 +590,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_ENCODE_SECTION_INFO,			\
   TARGET_STRIP_NAME_ENCODING,			\
   TARGET_SHIFT_TRUNCATION_MASK,			\
+  TARGET_MIN_DIVISIONS_FOR_RECIP_MUL,		\
   TARGET_VALID_POINTER_MODE,                    \
   TARGET_SCALAR_MODE_SUPPORTED_P,		\
   TARGET_VECTOR_MODE_SUPPORTED_P,               \
@@ -607,6 +621,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_INVALID_CONVERSION,			\
   TARGET_INVALID_UNARY_OP,			\
   TARGET_INVALID_BINARY_OP,			\
+  TARGET_SECONDARY_RELOAD,			\
   TARGET_CXX,					\
   TARGET_UNWIND_TABLES_DEFAULT,			\
   TARGET_HAVE_NAMED_SECTIONS,			\

@@ -103,7 +103,8 @@ static int shift_cost[NUM_MACHINE_MODES][MAX_BITS_PER_WORD];
 static int shiftadd_cost[NUM_MACHINE_MODES][MAX_BITS_PER_WORD];
 static int shiftsub_cost[NUM_MACHINE_MODES][MAX_BITS_PER_WORD];
 static int mul_cost[NUM_MACHINE_MODES];
-static int div_cost[NUM_MACHINE_MODES];
+static int sdiv_cost[NUM_MACHINE_MODES];
+static int udiv_cost[NUM_MACHINE_MODES];
 static int mul_widen_cost[NUM_MACHINE_MODES];
 static int mul_highpart_cost[NUM_MACHINE_MODES];
 
@@ -115,11 +116,12 @@ init_expmed (void)
     struct rtx_def reg;		rtunion reg_fld[2];
     struct rtx_def plus;	rtunion plus_fld1;
     struct rtx_def neg;
-    struct rtx_def udiv;	rtunion udiv_fld1;
     struct rtx_def mult;	rtunion mult_fld1;
-    struct rtx_def div;		rtunion div_fld1;
-    struct rtx_def mod;		rtunion mod_fld1;
+    struct rtx_def sdiv;	rtunion sdiv_fld1;
+    struct rtx_def udiv;	rtunion udiv_fld1;
     struct rtx_def zext;
+    struct rtx_def sdiv_32;	rtunion sdiv_32_fld1;
+    struct rtx_def smod_32;	rtunion smod_32_fld1;
     struct rtx_def wide_mult;	rtunion wide_mult_fld1;
     struct rtx_def wide_lshr;	rtunion wide_lshr_fld1;
     struct rtx_def wide_trunc;
@@ -155,21 +157,25 @@ init_expmed (void)
   PUT_CODE (&all.neg, NEG);
   XEXP (&all.neg, 0) = &all.reg;
 
-  PUT_CODE (&all.udiv, UDIV);
-  XEXP (&all.udiv, 0) = &all.reg;
-  XEXP (&all.udiv, 1) = &all.reg;
-
   PUT_CODE (&all.mult, MULT);
   XEXP (&all.mult, 0) = &all.reg;
   XEXP (&all.mult, 1) = &all.reg;
 
-  PUT_CODE (&all.div, DIV);
-  XEXP (&all.div, 0) = &all.reg;
-  XEXP (&all.div, 1) = 32 < MAX_BITS_PER_WORD ? cint[32] : GEN_INT (32);
+  PUT_CODE (&all.sdiv, DIV);
+  XEXP (&all.sdiv, 0) = &all.reg;
+  XEXP (&all.sdiv, 1) = &all.reg;
 
-  PUT_CODE (&all.mod, MOD);
-  XEXP (&all.mod, 0) = &all.reg;
-  XEXP (&all.mod, 1) = XEXP (&all.div, 1);
+  PUT_CODE (&all.udiv, UDIV);
+  XEXP (&all.udiv, 0) = &all.reg;
+  XEXP (&all.udiv, 1) = &all.reg;
+
+  PUT_CODE (&all.sdiv_32, DIV);
+  XEXP (&all.sdiv_32, 0) = &all.reg;
+  XEXP (&all.sdiv_32, 1) = 32 < MAX_BITS_PER_WORD ? cint[32] : GEN_INT (32);
+
+  PUT_CODE (&all.smod_32, MOD);
+  XEXP (&all.smod_32, 0) = &all.reg;
+  XEXP (&all.smod_32, 1) = XEXP (&all.sdiv_32, 1);
 
   PUT_CODE (&all.zext, ZERO_EXTEND);
   XEXP (&all.zext, 0) = &all.reg;
@@ -205,10 +211,11 @@ init_expmed (void)
       PUT_MODE (&all.reg, mode);
       PUT_MODE (&all.plus, mode);
       PUT_MODE (&all.neg, mode);
-      PUT_MODE (&all.udiv, mode);
       PUT_MODE (&all.mult, mode);
-      PUT_MODE (&all.div, mode);
-      PUT_MODE (&all.mod, mode);
+      PUT_MODE (&all.sdiv, mode);
+      PUT_MODE (&all.udiv, mode);
+      PUT_MODE (&all.sdiv_32, mode);
+      PUT_MODE (&all.smod_32, mode);
       PUT_MODE (&all.wide_trunc, mode);
       PUT_MODE (&all.shift, mode);
       PUT_MODE (&all.shift_mult, mode);
@@ -217,11 +224,14 @@ init_expmed (void)
 
       add_cost[mode] = rtx_cost (&all.plus, SET);
       neg_cost[mode] = rtx_cost (&all.neg, SET);
-      div_cost[mode] = rtx_cost (&all.udiv, SET);
       mul_cost[mode] = rtx_cost (&all.mult, SET);
+      sdiv_cost[mode] = rtx_cost (&all.sdiv, SET);
+      udiv_cost[mode] = rtx_cost (&all.udiv, SET);
 
-      sdiv_pow2_cheap[mode] = (rtx_cost (&all.div, SET) <= 2 * add_cost[mode]);
-      smod_pow2_cheap[mode] = (rtx_cost (&all.mod, SET) <= 4 * add_cost[mode]);
+      sdiv_pow2_cheap[mode] = (rtx_cost (&all.sdiv_32, SET)
+			       <= 2 * add_cost[mode]);
+      smod_pow2_cheap[mode] = (rtx_cost (&all.smod_32, SET)
+			       <= 4 * add_cost[mode]);
 
       wider_mode = GET_MODE_WIDER_MODE (mode);
       if (wider_mode != VOIDmode)
@@ -2836,6 +2846,17 @@ choose_mult_variant (enum machine_mode mode, HOST_WIDE_INT val,
   struct mult_cost limit;
   int op_cost;
 
+  /* Fail quickly for impossible bounds.  */
+  if (mult_cost < 0)
+    return false;
+
+  /* Ensure that mult_cost provides a reasonable upper bound.
+     Any constant multiplication can be performed with less
+     than 2 * bits additions.  */
+  op_cost = 2 * GET_MODE_BITSIZE (mode) * add_cost[mode];
+  if (mult_cost > op_cost)
+    mult_cost = op_cost;
+
   *variant = basic_variant;
   limit.cost = mult_cost;
   limit.latency = mult_cost;
@@ -3362,6 +3383,8 @@ extract_high_half (enum machine_mode mode, rtx op)
   if (mode == word_mode)
     return gen_highpart (mode, op);
 
+  gcc_assert (!SCALAR_FLOAT_MODE_P (mode));
+
   wider_mode = GET_MODE_WIDER_MODE (mode);
   op = expand_shift (RSHIFT_EXPR, wider_mode, op,
 		     build_int_cst (NULL_TREE, GET_MODE_BITSIZE (mode)), 0, 1);
@@ -3380,6 +3403,8 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
   optab moptab;
   rtx tem;
   int size;
+
+  gcc_assert (!SCALAR_FLOAT_MODE_P (mode));
 
   wider_mode = GET_MODE_WIDER_MODE (mode);
   size = GET_MODE_BITSIZE (mode);
@@ -3491,6 +3516,7 @@ expand_mult_highpart (enum machine_mode mode, rtx op0, rtx op1,
   struct algorithm alg;
   rtx tem;
 
+  gcc_assert (!SCALAR_FLOAT_MODE_P (mode));
   /* We can't support modes wider than HOST_BITS_PER_INT.  */
   gcc_assert (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT);
 
@@ -3900,11 +3926,10 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
   /* Only deduct something for a REM if the last divide done was
      for a different constant.   Then set the constant of the last
      divide.  */
-  max_cost = div_cost[compute_mode]
-    - (rem_flag && ! (last_div_const != 0 && op1_is_constant
-		      && INTVAL (op1) == last_div_const)
-       ? mul_cost[compute_mode] + add_cost[compute_mode]
-       : 0);
+  max_cost = unsignedp ? udiv_cost[compute_mode] : sdiv_cost[compute_mode];
+  if (rem_flag && ! (last_div_const != 0 && op1_is_constant
+		     && INTVAL (op1) == last_div_const))
+    max_cost -= mul_cost[compute_mode] + add_cost[compute_mode];
 
   last_div_const = ! rem_flag && op1_is_constant ? INTVAL (op1) : 0;
 
