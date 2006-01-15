@@ -1,3 +1,151 @@
+2006-01-14  Ian Lance Taylor  <ian@airs.com>
+
+	* ifcvt.c (noce_init_if_info): New static function, broken out of
+	noce_process_if_block.
+	(noce_process_if_block): Call noce_init_if_info.
+	(check_cond_move_block): New static function.
+	(cond_move_process_if_block): New static function.
+	(process_if_block): Call cond_move_process_if_block.
+
+2006-01-15  Kazu Hirata  <kazu@codesourcery.com>
+
+	* cselib.c (hash_table): Rename to cselib_hash_table.
+	(cselib_clear_table, discard_useless_values,
+	remove_useless_values, cselib_lookup_mem, cselib_lookup,
+	cselib_init, cselib_finish): Adjust uses of hash_table.
+
+2006-01-14  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25485
+	* tree-vrp.c (extract_range_from_binary_expr): Handle cases
+	where one of the operands of TRUTH_AND_EXPR and TRUTH_OR_EXPR
+	is known to be false and true, respectively.
+
+2006-01-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/22548
+	PR tree-optimization/22555
+	PR tree-optimization/22501
+	* Makefile.in (tree-ssa-structalias.o): Depend on $(PARAMS_H).
+	* params.def (salias-max-array-elements): New parameter.
+	* params.h (SALIAS_MAX_ARRAY_ELEMENTS): Define.
+	* doc/invoke.texi (salias-max-array-elements): Document.
+	* tree-flow-inline.h (var_can_have_subvars): We also handle
+	arrays now.
+	* tree-ssa-alias.c (find_used_portions): Handle ARRAY_REF like
+	COMPONENT_REF.
+	* tree-ssa-structalias.c (params.h): Include.
+	(push_fields_onto_fieldstack): Handle ARRAY_TYPE.
+	(find_func_aliases): Handle multiple constraints from ARRAY_REF.
+	(get_constraint_for): For ADDR_EXPR operating on something
+	containing an ARRAY_REF, add all subvars to the solution.
+	(handle_ptr_arith): Handle ARRAY_TYPE like RECORD_TYPE types.
+	* tree-ssa-operands.c (parse_ssa_operands): Handle ARRAY_REF
+	for creating MUST_DEFs.
+	(get_expr_operands): Treat ARRAY_REF like COMPONENT_REF wrt subvars.
+
+2006-01-14  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop-niter.c (number_of_iterations_cond): Split into several
+	functions.
+	(number_of_iterations_ne, number_of_iterations_lt_to_ne,
+	assert_no_overflow_lt, assert_loop_rolls_lt, number_of_iterations_lt,
+	number_of_iterations_le): New functions.
+	(number_of_iterations_special): Removed.
+	(number_of_iterations_exit): Do not use number_of_iterations_special.
+	* tree.c (unsigned_type_for): Always return integer type.
+
+2006-01-14  Steven Bosscher  <stevenb.gcc@gmail.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/24257
+	* gcse.c (find_moveable_store): Only consider a store movable
+	when the SET_SRC of the insn can be assigned to a register.
+
+2006-01-14  Ian Lance Taylor  <ian@airs.com>
+
+	* tree.c (tree_not_class_check_failed): New function.
+	* tree.h (NON_TYPE_CHECK): Call tree_not_class_check_failed.
+	(tree_not_class_check_failed): Declare.
+
+2006-01-13  Ian Lance Taylor  <ian@airs.com>
+
+	* reload1.c (do_output_reload): Add assertion rejecting a
+	CALL_INSN.
+
+2006-01-13  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* combine.c (struct reg_stat): Add new fields truncation_label and
+	truncated_to_mode.
+	(record_value_for_reg): Reset truncated_to_mode.
+	(record_truncated_value): New function.
+	(check_promoted_subreg): Call it.  Rename to check_conversions.
+	(combine_instructions): Rename check_promoted_subreg to
+	check_conversions.
+	(reg_truncated_to_mode): New function.
+	(make_extraction): Use it.  Check TRULY_NOOP_TRUNCATION.
+	(gen_lowpart_or_truncate): New function.
+	(force_to_mode): Use it instead of gen_lowpart.
+
+2006-01-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-alias.c (add_type_alias): Fix typo.  Test whether
+	VAR is a tag, not its type tag.
+
+2006-01-13  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/i386/sse.md (*vec_extractv2di_1_sse2): Reorder
+	alternatives to match style of other entries.
+	(*vec_extractv2di_1_sse): Likewise.  Fix mode attr.
+
+2006-01-13  Daniel Berlin  <dberlin@dberlin.org>
+
+	PR tree-optimization/25771
+	* tree-ssa-pre.c (insert_extra_phis): Don't insert merges of abnormal
+	SSA_NAMES.
+
+2006-01-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/24365
+	* tree-inline.c (declare_return_variable): If the return variable
+	was marked as a non gimple complex, set the return slot variable
+	to be a non gimple comple variable.
+
+2006-01-13  Richard Guenther  <rguenther@suse.de>
+
+	* builtins.c (expand_builtin_sincos): New function.
+	(expand_builtin_mathfn_3): Remove dead code, sin and cos
+	do not set errno.
+	(expand_builtin): Expand sincos using expand_builtin_sincos.
+
+2006-01-12  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/shift.md: Rewrite: Allow arbitrary operands for
+	shift counts, separate SI shifts for m32c vs m16c, pass shift type
+	so that constant shifts can be split.
+	* config/m32c/m32c.c (m32c_const_ok_for_constraint_p): Add In6.
+	(m32c_valid_pointer_mode): Make static.
+	(shift_gen_func_for): New.
+	(m32c_prepare_shift): Use it.  Split large const shifts into
+	multiple shifts.
+	* config/m32c/predicates.md (shiftcount_operand): Allow more
+	general operands.
+	(longshiftcount_operand): New.
+	* doc/md.texi (Machine Constraints): Document In6.
+
+2006-01-13  Ben Elliston  <bje@au.ibm.com>
+
+	* doc/tm.texi (Data Output): Add REAL_VALUE_TO_TARGET_DECIMAL32,
+	REAL_VALUE_TO_TARGET_DECIMAL64 and REAL_VALUE_TO_TARGET_DECIMAL128
+	documentation.
+
+2006-01-12  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-operands.c (add_call_clobber_ops): Use SFT_PARENT_VAR
+	to try to avoid clobbering pieces of structures when we know
+	something about the whole structure.
+	* tree-ssa-alias.c (create_sft): Set SFT_PARENT_VAR
+
 2006-01-13  Ben Elliston  <bje@au.ibm.com>
 
 	* doc/rtl.texi (Insns): Remove statement that libcalls cannot

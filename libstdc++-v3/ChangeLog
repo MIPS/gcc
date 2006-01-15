@@ -1,3 +1,54 @@
+2006-01-15  Paolo Carlini  <pcarlini@suse.de>
+	    Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR libstdc++/25626
+	* include/std/std_valarray.h (valarray(const slice_array<>&),
+	valarray(const gslice_array<>&), valarray(const mask_array<>&),
+	valarray(const indirect_array<>&), valarray(const _Expr<>&)):
+	Forward to __valarray_copy_construct, not __valarray_copy.
+	* include/bits/valarray_array.h
+	(__valarray_copy_construct(_Array<>, _Array<>, _Array<>, size_t),
+	__valarray_copy_construct(_Array<>, size_t, size_t, _Array<>)):
+	New.
+
+2006-01-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/8_c_compatibility/complex/overloads_int.cc:
+	Fix norm test, use casts everywhere.
+
+2006-01-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/testsuite_tr1.h: Add missing include; use std::__are_same.
+
+2006-01-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/8_c_compatibility/complex/overloads_int.cc:
+	Fix wrong test (don't pick by mistake the (const complex<>&, int)
+	overload); add some.
+
+2006-01-13  Paolo Carlini  <pcarlini@suse.de>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	* include/tr1/complex (arg, conj, imag, norm, polar, pow, real):
+	Add, implementing TR1, 8.1.9.
+	(__promote_2): New.
+	* include/tr1/common.h: New, provides __promote, __promote_2.
+	* include/Makefile.am: Add.
+	* include/Makefile.in: Regenerate.
+	* testsuite/testsuite_tr1.h (check_ret_type): New.
+	* testsuite/tr1/8_c_compatibility/complex/overloads_int.cc: New.
+	* testsuite/tr1/8_c_compatibility/complex/overloads_float.cc: New.
+
+2006-01-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4(GLIBCXX_CHECK_LINKER_FEATURES): Enable
+	--gc-sections in more cases.	
+	* configure: Regenerate.
+	* scripts/testsuite_flags.in: Remove SECTION_LDFLAGS.
+	* scripts/testsuite_flags.in (cxxldflags): New.
+	* testsuite/lib/libstdc++.exp (v3_target_compile): Add cxxldflags.
+	(libstdc++_init ): Same.
+		
 2006-01-12  Jan Beulich  <jbeulich@novell.com>
 
 	* crossconfig.m4: Add AC_DEFINE-s for HAVE_HYPOT, HAVE_ISINF, and
@@ -6,7 +57,8 @@
 
 2006-01-11  Benjamin Kosnik  <bkoz@redhat.com>
 
-	* acinclude.m4: Use -Wl,-z,relro if possible.
+	* acinclude.m4(GLIBCXX_CHECK_LINKER_FEATURES): Use -Wl,-z,relro if
+	possible.  
 	* configure: Regenerate.
 
 2006-01-10  Paolo Carlini  <pcarlini@suse.de>

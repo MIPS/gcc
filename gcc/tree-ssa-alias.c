@@ -2307,7 +2307,7 @@ add_type_alias (tree ptr, tree var)
 found_tag:
   /* If VAR is not already PTR's type tag, add it to the may-alias set
      for PTR's type tag.  */
-  gcc_assert (!MTAG_P (var_ann (var)->type_mem_tag));
+  gcc_assert (!MTAG_P (var));
   tag = ann->type_mem_tag;
 
   /* If VAR has subvars, add the subvars to the tag instead of the
@@ -2536,6 +2536,7 @@ create_sft (tree var, tree field)
   ann = get_var_ann (subvar);
   ann->type_mem_tag = NULL;  	
   add_referenced_tmp_var (subvar);
+  SFT_PARENT_VAR (subvar) = var;
 
   return subvar;
 }
@@ -2697,6 +2698,7 @@ find_used_portions (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
     case REALPART_EXPR:
     case IMAGPART_EXPR:
     case COMPONENT_REF:
+    case ARRAY_REF:
       {
 	HOST_WIDE_INT bitsize;
 	HOST_WIDE_INT bitmaxsize;

@@ -1,3 +1,81 @@
+2006-01-15  Ian Lance Taylor  <ian@airs.com>
+
+	PR testsuite/25796
+	* gcc.target/i386/cmov6.c: Use -march=k8.
+
+2006-01-15  Andreas Jaeger  <aj@suse.de>
+
+	* g++.dg/abi/mangle25.C: Only run on 64-bit systems since 32-bit
+	x86 does not have __float128.
+
+2006-01-14  Ian Lance Taylor  <ian@airs.com>
+
+	* gcc.target/i386/cmov6.c: New test.
+
+2006-01-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25663
+	* g++.dg/template/ctor6.C: New test.
+
+2006-01-14  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25485
+	* gcc.dg/tree-ssa/pr25485.c: New.
+
+2006-01-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/22548
+	PR tree-optimization/22555
+	PR tree-optimization/22501
+	* gcc.dg/tree-ssa/alias-4.c: New testcase.
+	* gcc.dg/tree-ssa/alias-5.c: Likewise.
+	* gcc.dg/tree-ssa/alias-6.c: Likewise.
+	* gcc.dg/tree-ssa/alias-7.c: Likewise.
+	* gcc.dg/tree-ssa/alias-8.c: Likewise.
+	* gcc.dg/tree-ssa/alias-9.c: Likewise.
+	* gcc.dg/tree-ssa/alias-10.c: Likewise.
+	* gcc.dg/tree-ssa/alias-11.c: Likewise.
+	* gcc.dg/tree-ssa/alias-12.c: Likewise.
+
+2005-01-14  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/pr19210-1.c: Update outcome.  Add new test loop.
+	* gcc.dg/tree-ssa/pr19210-2.c: Ditto.
+
+2006-01-14  Steven Bosscher  <stevenb.gcc@gmail.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/24257
+	* gcc.dg/torture/pr24257.c: New testcase.
+
+2006-01-13  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.c-torture/execute/20060110-1.c: New test.
+	* gcc.c-torture/execute/20060110-2.c: New test.
+
+2006-01-13  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.c-torture/compile/pr25310.c: Disable test on 16-bit targets.
+
+2006-01-13  Bernhard Fischer  <rep.nop@aon.at>
+
+	PR fortran/25756
+	* gfortran.dg/label_3.f90: New test.
+
+2006-01-13 Daniel Berlin  <dberlin@dberlin.org>
+
+	PR tree-optimization/25771
+	* g++.dg/tree-ssa/pr25771.C: New test
+
+2006-01-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/24365
+	* g++.dg/opt/complex5.C: New test.
+
+2006-01-13  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.target/i386/387-9.c: New testcase.
+
 2006-01-12  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/24824
