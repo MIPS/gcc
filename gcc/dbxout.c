@@ -1538,6 +1538,7 @@ dbxout_finish (const char *filename ATTRIBUTE_UNUSED)
 	fatal_error ("error closing %s: %m", asm_file_name);
     }
   /* APPLE LOCAL end ss2 */
+  /* APPLE LOCAL too many changes */
 }
 
 /* APPLE LOCAL begin dbxout_type rewrite.  */
