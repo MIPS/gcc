@@ -1,3 +1,8 @@
+2006-01-15  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* builtins.cc (tree_builtins::add): Set TREE_STATIC for static
+	fields.
+
 2005-12-14  Tom Tromey  <tromey@redhat.com>
 
 	* tree.cc (visit_field_ref): Don't annotate variable.

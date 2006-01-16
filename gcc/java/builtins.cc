@@ -1,6 +1,6 @@
 // Various built-in functions.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -187,6 +187,7 @@ tree_builtins::add (tree context, model_field *field)
     }
   else
     {
+      TREE_STATIC (result) = 1;
       // We clear this later if we compile the field's declaring
       // class.
       DECL_EXTERNAL (result) = 1;
