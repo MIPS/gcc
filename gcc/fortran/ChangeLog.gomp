@@ -1,3 +1,7 @@
+2006-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-decl.c (gfc_get_symbol_decl): Fix a merge glitch.
+
 2006-01-13  Diego Novillo  <dnovillo@redhat.com>
 
 	* trans.c (gfc_add_expr_to_block): Do not fold tcc_statement
