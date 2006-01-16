@@ -96,6 +96,7 @@ static bool sched_is_disabled_for_current_region_p (void);
 typedef struct
 {
   int rgn_nr_blocks;		/* Number of blocks in region.  */
+  int rgn_nr_insns;		/* Number of instructions in region.  */
   int *rgn_blocks;		/* Region blocks */
 }
 region;
@@ -119,13 +120,14 @@ static int *block_to_bb;
 static int *containing_rgn;
 
 #define RGN_NR_BLOCKS(rgn) (rgn_table[rgn].rgn_nr_blocks)
+#define RGN_NR_INSNS(rgn) (rgn_table[rgn].rgn_nr_insns)
 #define RGN_BLOCKS(rgn) (rgn_table[rgn].rgn_blocks)
 #define BLOCK_TO_BB(block) (block_to_bb[block])
 #define CONTAINING_RGN(block) (containing_rgn[block])
 
 void debug_treegions (void);
+void debug_treegion (int trgn);
 static void find_treegions (void);
-
 
 extern void debug_live (int, int);
 
@@ -274,21 +276,55 @@ static void concat_insn_mem_list (rtx, rtx, rtx *, rtx *);
 static void propagate_deps (int, struct deps *);
 static void free_pending_lists (void);
 
+/* Tail duplication data structures */
+
+/* Types of tail duplication candidates */
+typedef enum{td_type_undef = 0, td_type_1, td_type_2, td_type_3, td_type_4} 
+td_type_t;
+
+typedef struct
+{
+  td_type_t type;
+  int ctrgn, ptrgn, ptrgn2; /* candidate and parent treegions */
+  edge pc_edge;             /* edge between parent and candidate */
+  edge p2c_edge;            /* edge between parent2 and candidate */
+  float efficiency;         /* instantaneous code size efficiency */
+}
+td_candidate;
+
+/* Tail duplication functions by Chad Rosier */
+static int td_treegions (void);
+static int td_candidate_p (int trgn);
+static void td_classify_candidate (td_candidate *c);
+static void td_candidate_efficiency (td_candidate *c);
+static void td_build_DDG (int trgn);
+static void td_free_DDG (int trgn);
+static float td_treegion_exec_time (int trgn, edge *false_edges, int nr_false_edges);
+static float path_res_bound (basic_block *blocks, int nr_blocks, float prob);
+static float path_dd_bound (basic_block *blocks, int nr_blocks, float prob);
+static int td_treegion (td_candidate c);
+static bool sched_treegion_too_large_p (int trgn);
+
+/* Tail duplication candidate list */
+td_candidate *td_candidates;
+int nr_td_candidates;
+
 /* Variables used to limit code expansion due to tail duplication */
 static float max_code_growth;
 static float orig_insn_count;
 static float curr_insn_count;
- 
+
 static float nr_insns_function (void);
- 
+static float nr_insns_region (int trgn);
+
 /* Number of instructions in function */
 static float
 nr_insns_function(void)
 {
-  double ret = 0;
+  float ret = 0;
   basic_block bb;
   rtx insn;
-   
+  
   FOR_EACH_BB(bb)
     {
       FOR_BB_INSNS(bb, insn)
@@ -297,6 +333,19 @@ nr_insns_function(void)
 	    ret += 1.0;
 	}
     }
+  return ret;
+}
+
+/* Number of instructions in a treegion */
+static float
+nr_insns_region(int trgn)
+{
+  int i;
+  float ret = 0;
+
+  for(i = 0; i < RGN_NR_BLOCKS (trgn); i++)
+    ret += RGN_NR_INSNS (trgn);
+
   return ret;
 }
  
@@ -348,6 +397,63 @@ debug_treegions (void)
 
       fprintf (sched_dump, "\n\n");
     }
+}
+
+void
+debug_treegion (int rgn)
+{
+  int bb;
+  int *rgn_blocks;
+
+  edge e;
+  edge_iterator ei;
+
+  fprintf (sched_dump, ";;\trgn %d nr_blocks %d:\n", rgn,
+	   rgn_table[rgn].rgn_nr_blocks);
+
+  fprintf (sched_dump, ";;\tbb/block: ");
+
+  rgn_blocks = RGN_BLOCKS (rgn);  
+  for (bb = 0; bb < rgn_table[rgn].rgn_nr_blocks; bb++)
+    fprintf (sched_dump, " %d/%d ", bb, BASIC_BLOCK(rgn_blocks[bb])->index);
+
+  putc ('\n', sched_dump);
+
+  for (bb = 0; bb < rgn_table[rgn].rgn_nr_blocks; bb++)
+    {
+      fprintf (sched_dump, ";; basic block %d, loop depth %d\n",
+	       BASIC_BLOCK(rgn_blocks[bb])->index, 
+	       BASIC_BLOCK(rgn_blocks[bb])->loop_depth);
+
+      fprintf (sched_dump, ";; pred:      ");
+      FOR_EACH_EDGE (e, ei, BASIC_BLOCK(rgn_blocks[bb])->preds)
+	dump_edge_info (sched_dump, e, 0);
+      putc ('\n', sched_dump);
+
+      fprintf (sched_dump, ";; succ:      ");
+      FOR_EACH_EDGE (e, ei, BASIC_BLOCK(rgn_blocks[bb])->succs)
+	dump_edge_info (sched_dump, e, 1);
+      putc ('\n', sched_dump);
+    }
+
+  fprintf (sched_dump, "\n\n");
+}
+
+/* Limit region size based on the number of blocks/insns in a region.
+   If true is returned then this region is not scheduled. */
+
+static bool
+sched_treegion_too_large_p (int trgn)
+{
+  /* Region includes too many blocks */
+  if(RGN_NR_BLOCKS (trgn) > PARAM_VALUE (PARAM_MAX_SCHED_REGION_BLOCKS))
+    return true;
+
+  /* Region includes too many insns */
+  if(RGN_NR_INSNS (trgn) > PARAM_VALUE (PARAM_MAX_SCHED_REGION_INSNS))
+    return true;
+      
+  return false;
 }
 
 /* Update_loop_relations(blk, hdr): Check if the loop headed by max_hdr[blk]
@@ -1740,10 +1846,14 @@ schedule_treegion (int rgn)
   int bb;
   int rgn_n_insns = 0;
   int sched_rgn_n_insns = 0;
-  
+
   /* Set variables for the current region.  */
   current_nr_blocks = RGN_NR_BLOCKS (rgn);
   current_blocks = RGN_BLOCKS (rgn);
+  
+  /* Don't schedule region that is too large */
+  if (sched_treegion_too_large_p (rgn))
+    return;
   
   /* Don't schedule region that is marked by
      NOTE_DISABLE_SCHED_OF_BLOCK.  */
@@ -1924,6 +2034,773 @@ schedule_treegion (int rgn)
     }
 }
 
+/* Single path data dependence bound */
+static float 
+path_dd_bound (basic_block *blocks, int nr_blocks, float prob){
+
+  int bb;
+  int idx, dep_idx;
+  int nr_insns, nr_dep_insns, first_dep_insn;
+  rtx insn, *insn_list;
+  int height, *insn_height_list, *max_pred_height;
+
+  if(prob < 0.001)
+    return 0.0;
+
+  /* Find the number of instructions */
+  nr_insns = 0;
+  first_dep_insn = 0;
+  for (bb = 0; bb < nr_blocks; bb++)
+    FOR_BB_INSNS(blocks[bb], insn)
+      if(INSN_P(insn))
+	{
+	  nr_insns++;
+	  if(INSN_DEP_COUNT (insn) == 0)
+	    first_dep_insn++;
+	}
+
+  /* Allocate instruction list and height list */
+  insn_list = xmalloc(sizeof(rtx) * nr_insns);
+  insn_height_list = xmalloc(sizeof(int) * nr_insns);
+
+  nr_dep_insns = nr_insns - first_dep_insn;
+  max_pred_height = xmalloc(sizeof(int) * nr_dep_insns);
+
+  /* Build list */
+  idx = 0;
+  dep_idx = first_dep_insn;
+  for (bb = 0; bb < nr_blocks; bb++)
+    FOR_BB_INSNS(blocks[bb], insn)
+      if(INSN_P(insn))
+	{
+	  if(INSN_DEP_COUNT (insn) == 0)
+	    {
+	      gcc_assert(idx < first_dep_insn);
+	      insn_list[idx] = insn;
+	      insn_height_list[idx++] = 0;
+	    }
+	  else
+	    {
+	      gcc_assert(dep_idx < nr_insns);
+	      insn_list[dep_idx] = insn;
+	      max_pred_height[dep_idx - first_dep_insn] = 0;
+	      insn_height_list[dep_idx++] = 0;
+	    }
+	}
+  gcc_assert(idx == first_dep_insn);
+  gcc_assert(dep_idx == nr_insns);
+
+  /* Propagate height to dependent instructions */
+  idx = 0;
+  height = 0;
+  for (idx = 0; idx < nr_insns; idx++)
+    {
+      rtx link;
+
+      /* If you're a dependent instruction then make your height the same 
+	 as the height of the tallest predecessor you're depended upon. */
+      if(idx >= first_dep_insn)
+	insn_height_list[idx] = max_pred_height[idx - first_dep_insn];
+
+      /* Add your latency to the height */
+      insn_height_list[idx] += insn_cost(insn_list[idx], 0, 0);
+
+      /* Update the height variable */
+      if(height < insn_height_list[idx])
+	height = insn_height_list[idx];
+
+      /* This instruction has a height of zero so it can't 
+	 increase the height of any dependent successor */
+      if(insn_height_list[idx] == 0)
+	continue;
+
+      /* Propage your height to the instructions that dependent on you. */
+      for (link = INSN_DEPEND (insn_list[idx]); link; link = XEXP (link, 1))
+	{
+	  dep_idx = (first_dep_insn > idx) ? first_dep_insn : idx + 1;
+	  for( ; dep_idx < nr_insns; dep_idx++)
+	    {
+	      /* Is this the dependent instruction? */
+	      if(INSN_UID(insn_list[dep_idx]) == INSN_UID (XEXP (link, 0)))
+		if(max_pred_height[dep_idx - first_dep_insn] < insn_height_list[idx])
+		  max_pred_height[dep_idx - first_dep_insn] = insn_height_list[idx];
+	    }
+	}
+    }
+  return ((height * 1.0) * prob);
+}
+
+
+/* Single path resource bound */
+static float
+path_res_bound (basic_block *blocks, int nr_blocks, float prob){
+  int i, issue_rate;
+  float nr_insns = 0;
+
+  if (targetm.sched.issue_rate)
+    {
+      int temp = reload_completed;
+
+      reload_completed = 1;
+      issue_rate = (*targetm.sched.issue_rate) ();
+      reload_completed = temp;
+    }
+  else
+    issue_rate = 1;
+
+  for(i = 0; i < nr_blocks; i++)
+    {
+      rtx insn;
+
+      FOR_BB_INSNS(blocks[i], insn)
+	if(INSN_P(insn))
+	  nr_insns += 1;
+    }
+
+  return ((nr_insns / issue_rate) * prob);
+}
+
+
+/* Build the DDG */
+static void
+td_build_DDG (int trgn)
+{
+  int bb, idx;
+
+  current_blocks = RGN_BLOCKS (trgn);
+  current_nr_blocks = RGN_NR_BLOCKS (trgn);
+
+  sched_init (NULL);
+  current_sched_info = &treegion_sched_info;
+
+  init_deps_global ();
+
+  /* Initializations for region data dependence analysis.  */
+  bb_deps = xmalloc (sizeof (struct deps) * current_nr_blocks);
+  for (idx = 0; idx < current_nr_blocks; idx++)
+    init_deps (bb_deps + idx);
+
+  /* Compute LOG_LINKS.  */
+  for (bb = 0; bb < current_nr_blocks; bb++)
+    compute_block_backward_dependences (bb);
+
+  /* Compute INSN_DEPEND.  */
+  for (bb = current_nr_blocks - 1; bb >= 0; bb--)
+    {
+      rtx head, tail;
+      get_block_head_tail (BB_TO_BLOCK (bb), &head, &tail);
+      
+      compute_forward_dependences (head, tail);
+      
+      if (targetm.sched.dependencies_evaluation_hook)
+	targetm.sched.dependencies_evaluation_hook (head, tail);
+    }
+}
+
+/* Build the DDG */
+static void
+td_free_DDG (int trgn)
+{
+  int i;
+  gcc_assert (current_blocks == RGN_BLOCKS (trgn));
+
+  free_pending_lists ();
+  finish_deps_global ();
+  free (bb_deps);
+
+  /* ia64.c assert...*/
+  for(i = 0; i < RGN_NR_BLOCKS (trgn); i++)
+    {
+      rtx insn;
+      basic_block bb = BASIC_BLOCK (BB_TO_BLOCK(i));
+      
+      FOR_BB_INSNS(bb, insn)
+	if(INSN_P(insn))
+	  SCHED_GROUP_P (insn) = 0;
+    }
+  sched_finish ();
+}
+
+/* Estimate the expected execution time of a region. The execution 
+   time is the max of the data dependence bound (i.e., true data 
+   dependence height) and the resource bound. 
+*/
+
+static float
+td_treegion_exec_time (int trgn, edge *false_edges, int nr_false_edges)
+{
+  int i, node, child, sp;
+  float res_bound, dd_bound, path_prob, bound;
+
+  edge e;
+  edge_iterator ei, current_edge, *stack;
+  basic_block bb, *path_blocks;
+
+  /* Build the data dependence graph */
+  td_build_DDG (trgn);
+
+#if 0
+  fprintf(stderr,"td_treegion_exec_time - enter\n");
+
+  if(false_edges)
+    {
+      fprintf(stderr,"td_treegion_exec_time - false_edges\n");
+      for(i = 0; i < nr_false_edges; i++)
+	{
+	  fprintf(stderr,"%d -> %d\n",
+		  false_edges[i]->src->index,
+		  false_edges[i]->dest->index);
+	}
+    }
+
+  debug_treegion (trgn);
+#endif
+
+  current_blocks = RGN_BLOCKS (trgn);
+  current_nr_blocks = RGN_NR_BLOCKS (trgn);
+
+#if 0
+  trgn_debug_dependencies ();
+#endif
+
+  /* Allocate and initialize variables for DFS traversal.  */
+  path_blocks = xmalloc ((current_nr_blocks) * sizeof (basic_block));
+  stack = xmalloc (current_nr_blocks * sizeof (edge_iterator));
+
+  FOR_EACH_BB (bb)
+    {
+      if(CONTAINING_RGN (bb->index) != trgn)
+	continue;
+      
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	e->passed = 0;
+    }
+
+  /* These edges won't exist after tail duplication so
+     we mark them as passed so we don't traverse them. */
+  for(i = 0; i < nr_false_edges; i++)
+    false_edges[i]->passed = 1;
+
+  #define EDGE_PASSED(E) (ei_end_p ((E)) || ei_edge ((E))->passed)
+  #define SET_EDGE_PASSED(E) (ei_edge ((E))->passed = 1)
+
+  current_edge = ei_start (BASIC_BLOCK(current_blocks[0])->succs);
+  sp = -1;
+
+  /* Perform a DFS traversal of the cfg finding all possible 
+     paths through the treegion. For each path calculate the 
+     data dependence and resource bounds. */
+
+  bound = 0;
+  while (1)
+    {
+      if (EDGE_PASSED (current_edge))
+	{
+	  /* We have reached a leaf node. Pop edges off the stack until we find
+	     an edge that has not yet been processed.  */
+
+	  while (sp >= 0 && EDGE_PASSED (current_edge))
+	    {
+	      /* Pop entry off the stack.  */
+	      current_edge = stack[sp--];
+	      node = ei_edge (current_edge)->src->index;
+	      gcc_assert (node != ENTRY_BLOCK);
+	      child = ei_edge (current_edge)->dest->index;
+	      gcc_assert (child != EXIT_BLOCK);
+	      ei_next (&current_edge);
+	    }
+
+	  /* See if have finished the DFS tree traversal.  */
+	  if (sp < 0 && EDGE_PASSED (current_edge))
+	    break;
+
+	  /* Nope, continue the traversal with the popped node.  */
+	  continue;
+	}
+
+      /* Process a node.  */
+      node = ei_edge (current_edge)->src->index;
+      gcc_assert (node != ENTRY_BLOCK);
+      gcc_assert (node != EXIT_BLOCK);
+
+      child = ei_edge (current_edge)->dest->index;
+
+      /* Is this the end of a path? */
+      if ((CONTAINING_RGN(child) != trgn) || 
+	  (ei_edge (current_edge)->flags & EDGE_DFS_BACK))
+	{
+	  path_prob = 1.0;
+	  
+	  /* Get path and path probability info from stack */
+	  for(i = 0; i <= sp; i++)
+	    {
+	      path_blocks[i] = ei_edge (stack[i])->src;	      
+	      path_prob = path_prob * 
+		(ei_edge (stack[i])->probability * 1.0 / REG_BR_PROB_BASE);
+	    }
+	  
+	  /* Add path and path probability info from current edge  */
+	  path_blocks[i] = ei_edge (current_edge)->src;
+	  path_prob = path_prob * 
+	    (ei_edge (current_edge)->probability * 1.0 / REG_BR_PROB_BASE);
+
+#if 0
+	  { /* DEBUG */
+	    int j;
+	    fprintf(stderr,"td_treegion_exec_time - path: ");
+	    for(j = 0; j < i+1; j++)
+	      fprintf(stderr, "%d ", path_blocks[j]->index);
+	    fprintf(stderr, "(%f) ", path_prob);
+	  }
+#endif
+
+	  /* Find the resource/data dependence bounds */
+	  res_bound = path_res_bound (path_blocks, i+1, path_prob);
+	  dd_bound = path_dd_bound (path_blocks, i+1, path_prob);
+
+#if 0
+	  {
+	    fprintf(stderr, "  res_bound: %f dd_bound: %f\n", 
+		    res_bound, dd_bound);
+	  }
+#endif
+
+	  if(res_bound > dd_bound)
+	    bound += res_bound;
+	  else
+	    bound += dd_bound;
+	  	  
+	  /* We've reached a leaf node so don't continue down this path */
+	  SET_EDGE_PASSED (current_edge);
+	  ei_next (&current_edge);
+	  continue;
+	}
+
+      /* Push an entry on the stack and continue DFS traversal.  */
+      stack[++sp] = current_edge;
+      SET_EDGE_PASSED (current_edge);
+      current_edge = ei_start (ei_edge (current_edge)->dest->succs);
+    }
+  
+  free (stack);
+  free (path_blocks);
+
+  /* Free the data dependence graph */
+  td_free_DDG (trgn);
+
+#if 0
+  fprintf(stderr,"td_treegion_exec_time - exit\n");
+#endif
+
+  return bound;
+}
+
+/* Determine the efficiency (ICSE) of tail duplication.
+   
+   ICSE = 
+
+         (IPC_after_td - IPC_before_td)
+    ------------------------------------------
+    (CODE_SIZE_after_td - CODE_SIZE_before_td)
+*/
+static void 
+td_candidate_efficiency (td_candidate *c)
+{
+  int i, j;
+  float ave_p, ave_c, ave_p2, ave_pc, ave_p2c;
+
+  /* Variables for making parent-candidate treegion */
+  int nr_false_edges;
+  edge e, *false_edges;
+  edge_iterator ei;
+  region orig_rgn, new_rgn;
+
+  gcc_assert(c->type != td_type_undef);
+
+  /* Clear expected execution times */
+  ave_p = ave_c = ave_p2 = ave_pc = ave_p2c = 0;
+  c->efficiency = 0;
+
+  ave_p = td_treegion_exec_time (c->ptrgn, NULL, 0);
+  ave_c = td_treegion_exec_time (c->ctrgn, NULL, 0);
+
+  /* Form new treegion from parent and candidate */
+  nr_false_edges = 0;
+  false_edges = xmalloc (EDGE_COUNT(c->pc_edge->dest->preds) * sizeof (edge));
+  FOR_EACH_EDGE(e, ei, c->pc_edge->dest->preds)
+    {
+      if(e != c->pc_edge)
+	{
+	  false_edges[nr_false_edges] = e;
+	  nr_false_edges++;
+	}
+    }
+
+  new_rgn.rgn_nr_blocks = RGN_NR_BLOCKS (c->ptrgn) + RGN_NR_BLOCKS(c->ctrgn);
+  new_rgn.rgn_nr_insns = RGN_NR_INSNS (c->ptrgn) + RGN_NR_INSNS(c->ctrgn);
+  new_rgn.rgn_blocks = xmalloc ((new_rgn.rgn_nr_blocks) * sizeof (int));
+  
+  for(i = 0; i < RGN_NR_BLOCKS (c->ptrgn); i++)
+    new_rgn.rgn_blocks[i] = (RGN_BLOCKS (c->ptrgn))[i];
+
+  for(j = 0; j < RGN_NR_BLOCKS (c->ctrgn); j++, i++)
+    new_rgn.rgn_blocks[i] = (RGN_BLOCKS (c->ctrgn))[j];
+
+  /* Update the containing and block_to_bb structures */
+  for(i = 0; i < RGN_NR_BLOCKS (c->ctrgn); i++)
+    {
+      CONTAINING_RGN ((RGN_BLOCKS (c->ctrgn))[i]) = c->ptrgn;
+      BLOCK_TO_BB ((RGN_BLOCKS (c->ctrgn))[i]) = RGN_NR_BLOCKS (c->ptrgn) + i;
+    }
+    
+  /* Swap parent treegion with new treegion */
+  orig_rgn = rgn_table[c->ptrgn];
+  rgn_table[c->ptrgn] = new_rgn;
+
+  /* Calculate estimated execution time */
+  ave_pc = td_treegion_exec_time (c->ptrgn, false_edges, nr_false_edges);
+
+  /* Repair parent treegion */
+  free (false_edges);
+  free(rgn_table[c->ptrgn].rgn_blocks);
+  rgn_table[c->ptrgn] = orig_rgn;
+
+  /* Repair the candidate containing_rgn and block_to_bb structures */
+  for(i = 0; i < RGN_NR_BLOCKS (c->ctrgn); i++)
+    {
+      CONTAINING_RGN ((RGN_BLOCKS (c->ctrgn))[i]) = c->ctrgn;
+      BLOCK_TO_BB ((RGN_BLOCKS (c->ctrgn))[i]) = i;
+    }
+
+  if(c->type == td_type_2 || c->type == td_type_4)
+    ave_c = ave_c * (c->pc_edge->probability * 1.0 / REG_BR_PROB_BASE);
+
+  if(c->type == td_type_3)
+    {
+      ave_p2 = td_treegion_exec_time (c->ptrgn2, NULL, 0);
+
+      /* Form new treegion from parent and candidate */
+      nr_false_edges = 0;
+      false_edges = xmalloc (EDGE_COUNT(c->p2c_edge->dest->preds) * sizeof (edge));
+      FOR_EACH_EDGE(e, ei, c->p2c_edge->dest->preds)
+	{
+	  if(e != c->p2c_edge)
+	    {
+	      false_edges[nr_false_edges] = e;
+	      nr_false_edges++;
+	    }
+	}
+
+      new_rgn.rgn_nr_blocks = RGN_NR_BLOCKS (c->ptrgn2) + RGN_NR_BLOCKS(c->ctrgn);
+      new_rgn.rgn_nr_insns = RGN_NR_INSNS (c->ptrgn2) + RGN_NR_INSNS(c->ctrgn);
+      new_rgn.rgn_blocks = xmalloc ((new_rgn.rgn_nr_blocks) * sizeof (int));
+      
+      for(i = 0; i < RGN_NR_BLOCKS (c->ptrgn2); i++)
+	new_rgn.rgn_blocks[i] = (RGN_BLOCKS (c->ptrgn2))[i];
+
+      for(j = 0; j < RGN_NR_BLOCKS (c->ctrgn); j++, i++)
+	new_rgn.rgn_blocks[i] = (RGN_BLOCKS (c->ctrgn))[j];
+    
+      /* Update the containing and block_to_bb structures */
+      for(i = 0; i < RGN_NR_BLOCKS (c->ctrgn); i++)
+	{
+	  CONTAINING_RGN ((RGN_BLOCKS (c->ctrgn))[i]) = c->ptrgn2;
+	  BLOCK_TO_BB ((RGN_BLOCKS (c->ctrgn))[i]) = RGN_NR_BLOCKS (c->ptrgn2) + i;
+	}
+    
+      /* Swap parent treegion with new treegion */
+      orig_rgn = rgn_table[c->ptrgn2];
+      rgn_table[c->ptrgn2] = new_rgn;
+    
+      ave_p2c = td_treegion_exec_time (c->ptrgn2, false_edges, nr_false_edges);
+    
+      /* Repair parent treegion */
+      free (false_edges);
+      free(rgn_table[c->ptrgn2].rgn_blocks);
+      rgn_table[c->ptrgn2] = orig_rgn;
+    
+      /* Repair the candidate containing_rgn and block_to_bb structures */
+      for(i = 0; i < RGN_NR_BLOCKS (c->ctrgn); i++)
+	{
+	  CONTAINING_RGN ((RGN_BLOCKS (c->ctrgn))[i]) = c->ctrgn;
+	  BLOCK_TO_BB ((RGN_BLOCKS (c->ctrgn))[i]) = i;
+	}
+    
+      ave_pc = ave_pc * (c->pc_edge->probability * 1.0 / REG_BR_PROB_BASE);
+      ave_p2c = ave_p2c * (c->p2c_edge->probability * 1.0 / REG_BR_PROB_BASE);
+    }
+  else
+    {
+      ave_p2 = 0;
+      ave_p2c = 0;
+    }
+
+  c->efficiency = 
+    (ave_p + ave_c + ave_p2 - (ave_pc + ave_p2c)) / nr_insns_region(c->ctrgn);
+
+  /*
+  fprintf(stderr," Efficiency: %f\n", c->efficiency);
+  */
+}
+
+/*
+  We define 4 types of possible tail duplicate candidates
+   1: parent tree doms cand tree and cand tree has 2 predecessors
+   2: parent tree doms cand tree and cand tree has 3 or more predecessors
+   3: parent tree doesn't dom cand tree and cand tree has 2 predecessors
+   4: parent tree doesn't dom cand tree and cand tree has 3 or more predecessors
+   Instantaneous code side efficiency is calculated based on type 
+*/
+static void 
+td_classify_candidate (td_candidate *c)
+{
+  int single_parent;
+  int *parent_rgns, edge_count;
+  edge e, *parent_edges;
+  edge_iterator ei;
+  
+  basic_block cand_root = c->pc_edge->dest;
+
+  parent_rgns = xmalloc (EDGE_COUNT(cand_root->preds) * sizeof (int));
+  parent_edges = xmalloc (EDGE_COUNT(cand_root->preds) * sizeof (edge));
+  
+  single_parent = 1;
+  edge_count = 0;
+  
+  FOR_EACH_EDGE (e, ei, cand_root->preds)
+    {
+      
+      parent_rgns[edge_count] = CONTAINING_RGN(e->src->index);
+      parent_edges[edge_count] = e;
+      
+      /* Check for multiple parents */
+      if(edge_count > 0)
+	if(parent_rgns[edge_count-1] != parent_rgns[edge_count])
+	  single_parent = 0;
+      
+      edge_count++;
+    }
+
+  gcc_assert(edge_count > 1);
+  
+  c->type = td_type_undef;
+  
+  /* Type 1/3 */
+  if(edge_count == 2)
+    {
+      if(single_parent)
+	{
+	  gcc_assert(c->ptrgn == parent_rgns[0]);
+	  c->type = td_type_1;
+	}
+      else
+	{
+	  if(c->ptrgn == parent_rgns[0])
+	    {
+	      c->ptrgn2 = parent_rgns[1];
+	      c->p2c_edge = parent_edges[1];
+	    }
+	  else
+	    {
+	      c->ptrgn2 = parent_rgns[0];
+	      c->p2c_edge = parent_edges[0];
+	    }
+	  c->type = td_type_3;
+	}
+    }
+  else  /* Type 2/4 */
+    {
+      if(single_parent)
+	{
+	  gcc_assert(c->ptrgn == parent_rgns[0]);
+	  c->type = td_type_2;
+	}
+      else
+	c->type = td_type_4;
+    }
+  
+  free (parent_rgns);
+  free (parent_edges);
+}
+
+/* Is this treegion a candidate for duplication? */
+
+static int
+td_candidate_p(int trgn)
+{
+  int i;
+  edge e;
+  edge_iterator ei;
+
+  current_blocks = RGN_BLOCKS(trgn);
+  current_nr_blocks = RGN_NR_BLOCKS(trgn); 
+
+  /* Check to see if this trgn's parent is the ENTRY_BLOCK */
+  e = find_edge(ENTRY_BLOCK_PTR, BASIC_BLOCK(BB_TO_BLOCK(0)));
+  if(e)
+    return 0;
+
+  /* Treegion must have at least two incoming edges */
+  gcc_assert(EDGE_COUNT((BASIC_BLOCK(BB_TO_BLOCK(0)))->preds) > 1);
+
+  /* Check for backedge/complex edges into treegion */
+  FOR_EACH_EDGE(e, ei, BASIC_BLOCK(BB_TO_BLOCK(0))->preds)
+    if(e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
+      return 0;
+
+  /* Check to make sure all blocks can be replicated.
+     Also check for successor complex edges. */
+  for(i = 0; i < current_nr_blocks; i++)
+    {
+      if(!can_duplicate_block_p (BASIC_BLOCK(BB_TO_BLOCK(i))))
+	return 0;
+
+      FOR_EACH_EDGE(e, ei, BASIC_BLOCK(BB_TO_BLOCK(i))->succs)
+	if(e->flags & EDGE_COMPLEX)
+	  return 0;
+    }
+
+  /* Don't duplicate a region that can't be scheduled */
+  if(sched_is_disabled_for_current_region_p ())
+    return 0;
+
+  /* Exceeds our maximum code expansion */
+  if (max_code_growth)
+    {
+      if ((curr_insn_count + nr_insns_region(trgn)) > 
+	  (max_code_growth * orig_insn_count))
+	return 0;
+    }
+
+  return 1;
+}
+
+/* Duplicate a block within a treegion */
+
+static void
+td_block(basic_block bb, edge redirect_e, int trgn)
+{
+  edge e;
+  edge_iterator ei;
+  basic_block new_bb;
+
+  gcc_assert(EDGE_COUNT (bb->preds) > 1);
+  
+  new_bb = duplicate_block (bb, redirect_e, NULL);
+  gcc_assert(new_bb);
+
+  new_bb->aux = bb->aux;
+  bb->aux = new_bb;
+
+  /* Replicate successors that are in this trgn */
+  FOR_EACH_EDGE (e, ei, new_bb->succs)
+    if(CONTAINING_RGN(e->dest->index) == trgn)
+      td_block (e->dest, e, trgn);
+}
+
+/* Duplicate candidate treegion */
+
+static int
+td_treegion(td_candidate c)
+{
+#if 0
+  fprintf(stderr, "\n-- td_treegion -- ctrgn: %d (%d) ptrgn: %d (%d)\n\n",
+	  c.ctrgn, c.pc_edge->dest->index, c.ptrgn, c.pc_edge->src->index);
+#endif
+  gcc_assert(c.ctrgn != c.ptrgn);
+  gcc_assert(!(c.pc_edge->flags & EDGE_DFS_BACK));
+
+  /* Duplicate candidate treegion */
+  td_block (c.pc_edge->dest, c.pc_edge, c.ctrgn);
+
+  /* Tail duplication was successful so update the code size */
+  curr_insn_count += nr_insns_region (c.ctrgn);
+
+  return 1;
+}
+
+/* Tail duplicate treegions -
+   Return non-zero if we should continue tail duplicating
+   Returning zero stops tail duplication
+*/
+
+static int
+td_treegions (void)
+{
+  int i, ctrgn, ptrgn, best;
+  edge e;
+  edge_iterator ei;
+
+  /* Nothing to duplicate */
+  if(nr_regions == 1)
+    return 0;
+
+  nr_td_candidates = 0;
+  td_candidates = xrealloc (td_candidates, (n_edges) * sizeof (td_candidate));
+  gcc_assert(td_candidates);
+
+  /* Find all possible tail duplication candidates.
+     ctrgn is the candidate treegion for duplication. */
+  for(ctrgn = 0; ctrgn < nr_regions; ctrgn++)
+    {
+      if(td_candidate_p(ctrgn))
+	{
+	  current_blocks = RGN_BLOCKS (ctrgn);
+	  
+	  FOR_EACH_EDGE(e, ei, BASIC_BLOCK(BB_TO_BLOCK(0))->preds) 
+	    {
+	      ptrgn = CONTAINING_RGN(e->src->index);
+
+	      if(td_candidate_p(ptrgn))
+		continue;
+
+	      /* The parent-child region would include too many blocks */
+	      if((RGN_NR_BLOCKS (ptrgn) + RGN_NR_BLOCKS (ctrgn))
+		 > (PARAM_VALUE (PARAM_MAX_SCHED_REGION_BLOCKS)))
+		continue;
+	      
+	      /* The parent-child region would include too many insns */
+	      if((RGN_NR_INSNS (ptrgn) + RGN_NR_INSNS (ctrgn))
+		 > (PARAM_VALUE (PARAM_MAX_SCHED_REGION_INSNS)))
+		continue;
+
+	      td_candidates[nr_td_candidates].ptrgn = ptrgn;
+	      td_candidates[nr_td_candidates].ctrgn = ctrgn;
+	      td_candidates[nr_td_candidates].pc_edge = e;
+	      td_candidates[nr_td_candidates].efficiency = 0;
+	      
+	      nr_td_candidates++;
+	    }
+	}
+    }
+
+  /* Calculate the efficiency of each candidate */
+  best = 0;
+  for(i = 0; i < nr_td_candidates; i++)
+    {
+
+      /* Classify the tail duplicate candidate */
+      td_classify_candidate (&td_candidates[i]);
+
+      /* Calculate the efficiency */
+      td_candidate_efficiency (&td_candidates[i]);
+      
+      /* Update the best candidate */
+      /* FIX ME - This can be both negative and positive */
+      if(td_candidates[best].efficiency < td_candidates[i].efficiency)
+	best = i;
+    }
+
+  /* Tail duplicate the best candidate */
+  if(nr_td_candidates > 0)
+    {
+      td_treegion(td_candidates[best]);
+      return 1;
+    }
+  
+  return 0;
+}
+
 /* Find natural treegions (i.e., treegions without tail duplication)
    Author: Chad Rosier
 */
@@ -1931,6 +2808,9 @@ schedule_treegion (int rgn)
 static void
 find_treegions (void)
 {
+  rtx insn;
+  basic_block bb;
+
   int *rgn_blocks, *copy_blocks;
   int num_bbs, idx, node, head, tail;
   edge_iterator current_ei, *ei_list;
@@ -1946,10 +2826,6 @@ find_treegions (void)
   rgn_table = xrealloc (rgn_table, (n_basic_blocks) * sizeof (region));
   block_to_bb = xrealloc (block_to_bb, (last_basic_block) * sizeof (int));
   containing_rgn = xrealloc (containing_rgn, (last_basic_block) * sizeof (int));
-  gcc_assert(rgn_table);    
-  gcc_assert(rgn_blocks);
-  gcc_assert(block_to_bb);  
-  gcc_assert(containing_rgn);
 
   ei_list = xmalloc (n_edges * sizeof (edge_iterator));
 
@@ -1980,10 +2856,20 @@ find_treegions (void)
 
       /* Move sapling node into treegion */
       rgn_blocks[idx++] = node;
-      BLOCK_TO_BB (node) = num_bbs;
-      RGN_NR_BLOCKS (nr_regions) = ++num_bbs;
+      BLOCK_TO_BB (node) = num_bbs;      
       CONTAINING_RGN (node) = nr_regions;
       SET_BIT (in_treegion, node);
+
+      /* Set number of block/insns in region */
+      RGN_NR_BLOCKS (nr_regions) = ++num_bbs;
+      RGN_NR_INSNS (nr_regions) = 0;
+      bb = BASIC_BLOCK (node);
+      FOR_BB_INSNS(bb, insn)
+	{
+	  if(INSN_P(insn))
+	    RGN_NR_INSNS (nr_regions) = 
+	      RGN_NR_INSNS (nr_regions) + 1;
+	}
 
       /* BFS traversal to build treegion */
       head = tail = 0;
@@ -2031,10 +2917,19 @@ find_treegions (void)
 	      /* Move successor into treegion */
 	      rgn_blocks[idx++] = ei_edge (current_ei)->dest->index;
 	      BLOCK_TO_BB (ei_edge (current_ei)->dest->index) = num_bbs;
-	      RGN_NR_BLOCKS (nr_regions) = ++num_bbs;
 	      CONTAINING_RGN (ei_edge (current_ei)->dest->index) = nr_regions;
 	      SET_BIT (in_treegion, ei_edge (current_ei)->dest->index);
 
+	      /* Set number of block/insns in region */
+	      RGN_NR_BLOCKS (nr_regions) = ++num_bbs;
+	      bb = ei_edge (current_ei)->dest;
+	      RGN_NR_INSNS (nr_regions) = 0;
+	      FOR_BB_INSNS(bb, insn)
+		{
+		  if(INSN_P(insn))
+		    RGN_NR_INSNS (nr_regions) = 
+		      RGN_NR_INSNS (nr_regions) + 1;
+		}
 	      
 	      /* Add successor to BFS edge list */
 	      if(EDGE_COUNT(ei_edge (current_ei)->dest->succs) > 0)
@@ -2081,6 +2976,7 @@ init_treegions (void)
   rgn_table = (region *)NULL;
   block_to_bb = (int *)NULL;
   containing_rgn = (int *)NULL;
+  td_candidates = (td_candidate *)NULL;
 
   max_code_growth = PARAM_VALUE (PARAM_MAX_CODE_GROWTH) / 100.0;
 
@@ -2098,7 +2994,7 @@ init_treegions (void)
   change = 1;
   while(change){
     find_treegions ();
-    change = 0;
+    change = td_treegions ();
   }
 
   cfg_layout_finalize();
@@ -2147,7 +3043,7 @@ schedule_treegions (FILE *dump_file)
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return;
 
   nr_inter = 0;

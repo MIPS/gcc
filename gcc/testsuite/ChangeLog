@@ -1,3 +1,199 @@
+2006-01-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/25734
+	* gcc.dg/tree-ssa/pr25734.c: New testcase.
+
+2006-01-10  Bernhard Fischer  <rep.nop@aon.at>
+
+	PR fortran/25486
+	* gfortran.dg/literal_character_constant_1_x.F: New test.
+	* gfortran.dg/literal_character_constant_1_y.F: Ditto.
+	* gfortran.dg/literal_character_constant_1_z.F: Ditto.
+	* gfortran.dg/literal_character_constant_1.inc: Helper for new tests.
+
+2006-01-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/ext/packed3.C: Add expected packed error.
+
+2006-01-11  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/25706
+	* gcc.dg/torture/pr25706-1.c: New test.
+
+2006-01-11  Paolo Bonzini  <bonzini@gnu.org>
+        
+        PR tree-optimization/23109
+        PR tree-optimization/23948
+        PR tree-optimization/24123
+
+        * gcc.dg/tree-ssa/recip-3.c, gcc.dg/tree-ssa/recip-4.c,
+        gcc.dg/tree-ssa/recip-5.c, gcc.dg/tree-ssa/recip-6.c,
+        gcc.dg/tree-ssa/recip-7.c, gcc.dg/tree-ssa/pr23109.c,
+        g++.dg/tree-ssa/pr23948.C: New testcases.
+        * gcc.dg/tree-ssa/recip-2.c, gcc.dg/tree-ssa/pr23234.c: Provide
+	three divisions in order to do the optimization.
+
+2005-01-11  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR c++/25632
+	* g++.dg/other/pr25632.C: New test.
+
+2006-01-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25730
+	* gfortran.dg/used_types_1.f90: New test.
+
+2006-01-10  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/25718
+	* gcc.dg/torture/pr25718-1.c: New test.
+
+2006-01-10  Bernhard Fischer  <rep.nop@aon.at>
+
+	* gfortran.dg/list_read_2.f90: Fix typo in description.
+
+2006-01-10  Jan Beulich  <jbeulich@novell.com>
+
+	* lib/target-supports.exp (check_visibility_available): Simplify test
+	for *-*-netware*.
+	(check_profiling_available): Fail for *-*-netware*.
+	* g++.old-deja/g++.law/profile1.C: Remove dg-bogus for *-*-netware*.
+	* gcc.dg/20021014-1.c: Likewise.
+	* gcc.dg/nest.c: Likewise.
+
+2006-01-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	fortran/24936
+	* gfortran.dg/forall_3.f90: New test.
+
+2006-01-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/21977
+	* gfortran.dg/nesting_2.f90: New test.
+	* gfortran.dg/nesting_3.f90: New test.
+
+2006-01-09  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/Wpadded.c: Gate alignment warning on ! default_packed.
+	Fix typo in comment.
+
+2006-01-09  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.dg/single_char_string.f90: New test.
+
+2006-01-09  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.dg/ichar_2.f90: New test.
+
+2005-01-08  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25093
+	* gfortran.dg/private_type_4.f90: New.
+
+2005-01-07  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/loop-15.c: Use optimized dump.
+
+2005-01-07  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.dg/func_decl_1.f90: New.
+	* gfortran.dg/array_alloc_1.f90: Fix wrong function declaration.
+	* gfortran.dg/array_alloc_2.f90: Likewise.
+	* gfortran.dg/char_result_8.f90: Likewise.
+	* gfortran.dg/dup_save_1.f90: Likewise.
+	* gfortran.dg/dup_save_2.f90: Likewise.
+	* gfortran.dg/f2c_6.f90: Likewise.
+	* gfortran.dg/f2c_7.f90: Likewise.
+	* gfortran.dg/func_result_2.f90: Likewise.
+	* gfortran.fortran-torture/execute/pr23373-2.f90: Likewise.
+
+2006-01-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/22146
+	* gfortran.dg/elemental_subroutine_1.f90: New test.
+	* gfortran.dg/elemental_subroutine_2.f90: New test.
+
+	PR fortran/25029
+	PR fortran/21256
+	* gfortran.dg/assumed_size_refs_1.f90: New test.
+
+	PR fortran/20868
+	PR fortran/20870
+	* gfortran.dg/assumed_size_refs_2.f90: New test.
+	* gfortran.dg/initialization_1.f90: Change warning message.
+
+2005-01-06  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-15.c: New test.
+
+2005-01-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25598
+	* gfortran.dg/backspace_3.f: New test.
+	* gfortran.dg/backspace_4.f: New test.
+
+2005-01-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/24268
+	* gfortran.dg/fmt_white.f: Update test.
+
+2006-01-05  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* gcc.dg/cast-1.c: Add new warning.
+	* gcc.dg/cast-2.c: Likewise.
+	* gcc.dg/cast-3.c: Likewise.
+	* gcc.dg/format/cast-1.c: Likewise.
+	* gcc.dg/cast-4.c: New testcase.
+
+2006-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/22555
+	* gcc.dg/tree-ssa/alias-3.c: New testcase.
+
+2006-01-05  Richard Guenther  <rguenther@suse.de>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/loop-11.c: Deal with removed vars pass.
+	* gcc.dg/tree-ssa/loop-8.c: Likewise.
+	* gcc.dg/tree-ssa/loop-1.c: Likewise.
+	* gcc.dg/tree-ssa/pr23294.c: Likewise.
+	* gcc.dg/tree-ssa/pr21985.c: Likewise.
+	* gcc.dg/tree-ssa/loop-14.c: Likewise.
+	* gcc.dg/tree-ssa/loop-2.c: Likewise.
+	* gcc.dg/tree-ssa/loop-3.c: Likewise.
+	* gcc.dg/tree-ssa/loop-4.c: Likewise.
+	* gcc.dg/tree-ssa/pr21171.c: Likewise.
+	* gcc.dg/tree-ssa/loop-5.c: Likewise.
+	* gcc.dg/tree-ssa/loop-10.c: Likewise.
+	* gcc.dg/tree-ssa/loop-6.c: Likewise.
+	* treelang/compile/extravar.tree: Likewise.
+	* g++.dg/tree-ssa/ssa-cast-1.C: Likewise.
+	* g++.dg/tree-ssa/pointer-reference-alias.C: Likewise.
+	* g++.dg/tree-ssa/ssa-sra-1.C: Likewise.
+	* g++.dg/tree-ssa/ssa-sra-2.C: Likewise.
+	* gcc.dg/tree-ssa/20031106-6.c: Disable SRA.
+
+2006-01-05  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* g++.dg/abi/thunk3.C, g++.dg/abi/thunk4.C: Revert unnecessary fix
+	for 64-bit fix.
+
+2006-01-05  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/23675
+	gfortran.dg/char_result_11.f90: New.
+
+2006-01-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24782
+	* g++.dg/parse/access9.C: New test.
+	* g++.dg/tc1/dr52.C: Tweak error markers.
+
+2006-01-04  Richard Henderson  <rth@redhat.com>
+
+	Merge from gomp branch.
+	* g++.dg/parse/pragma2.C: Update expected error lines.
+
 2006-01-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/other/i386-2.C: New test.

@@ -1,5 +1,6 @@
 /* Perform type resolution on the various stuctures.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, 
+   Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -695,6 +696,69 @@ procedure_kind (gfc_symbol * sym)
   return PTYPE_UNKNOWN;
 }
 
+/* Check references to assumed size arrays.  The flag need_full_assumed_size
+   is non-zero when matching actual arguments.  */
+
+static int need_full_assumed_size = 0;
+
+static bool
+check_assumed_size_reference (gfc_symbol * sym, gfc_expr * e)
+{
+  gfc_ref * ref;
+  int dim;
+  int last = 1;
+
+  if (need_full_assumed_size
+	|| !(sym->as && sym->as->type == AS_ASSUMED_SIZE))
+      return false;
+
+  for (ref = e->ref; ref; ref = ref->next)
+    if (ref->type == REF_ARRAY)
+      for (dim = 0; dim < ref->u.ar.as->rank; dim++)
+	last = (ref->u.ar.end[dim] == NULL) && (ref->u.ar.type == DIMEN_ELEMENT);
+
+  if (last)
+    {
+      gfc_error ("The upper bound in the last dimension must "
+		 "appear in the reference to the assumed size "
+		 "array '%s' at %L.", sym->name, &e->where);
+      return true;
+    }
+  return false;
+}
+
+
+/* Look for bad assumed size array references in argument expressions
+  of elemental and array valued intrinsic procedures.  Since this is
+  called from procedure resolution functions, it only recurses at
+  operators.  */
+
+static bool
+resolve_assumed_size_actual (gfc_expr *e)
+{
+  if (e == NULL)
+   return false;
+
+  switch (e->expr_type)
+    {
+    case EXPR_VARIABLE:
+      if (e->symtree
+	    && check_assumed_size_reference (e->symtree->n.sym, e))
+	return true;
+      break;
+
+    case EXPR_OP:
+      if (resolve_assumed_size_actual (e->value.op.op1)
+	    || resolve_assumed_size_actual (e->value.op.op2))
+	return true;
+      break;
+
+    default:
+      break;
+    }
+  return false;
+}
+
 
 /* Resolve an actual argument list.  Most of the time, this is just
    resolving the expressions in the list.
@@ -1091,9 +1155,17 @@ resolve_function (gfc_expr * expr)
   gfc_actual_arglist *arg;
   const char *name;
   try t;
+  int temp;
+
+  /* Switch off assumed size checking and do this again for certain kinds
+     of procedure, once the procedure itself is resolved.  */
+  need_full_assumed_size++;
 
   if (resolve_actual_arglist (expr->value.function.actual) == FAILURE)
     return FAILURE;
+
+  /* Resume assumed_size checking. */
+  need_full_assumed_size--;
 
 /* See if function is already resolved.  */
 
@@ -1132,6 +1204,9 @@ resolve_function (gfc_expr * expr)
   if (expr->expr_type != EXPR_FUNCTION)
     return t;
 
+  temp = need_full_assumed_size;
+  need_full_assumed_size = 0;
+
   if (expr->value.function.actual != NULL
       && ((expr->value.function.esym != NULL
 	   && expr->value.function.esym->attr.elemental)
@@ -1139,7 +1214,6 @@ resolve_function (gfc_expr * expr)
 	      && expr->value.function.isym->elemental)))
     {
       /* The rank of an elemental is the rank of its array argument(s).  */
-
       for (arg = expr->value.function.actual; arg; arg = arg->next)
 	{
 	  if (arg->expr != NULL && arg->expr->rank > 0)
@@ -1148,7 +1222,44 @@ resolve_function (gfc_expr * expr)
 	      break;
 	    }
 	}
+
+      /* Being elemental, the last upper bound of an assumed size array
+	 argument must be present.  */
+      for (arg = expr->value.function.actual; arg; arg = arg->next)
+	{
+	  if (arg->expr != NULL
+		&& arg->expr->rank > 0
+		&& resolve_assumed_size_actual (arg->expr))
+	    return FAILURE;
+	}
     }
+
+  else if (expr->value.function.actual != NULL
+      && expr->value.function.isym != NULL
+      && strcmp (expr->value.function.isym->name, "lbound"))
+    {
+      /* Array instrinsics must also have the last upper bound of an
+	 asumed size array argument.  UBOUND and SIZE have to be
+	 excluded from the check if the second argument is anything
+	 than a constant.  */
+      int inquiry;
+      inquiry = strcmp (expr->value.function.isym->name, "ubound") == 0
+		  || strcmp (expr->value.function.isym->name, "size") == 0;
+	    
+      for (arg = expr->value.function.actual; arg; arg = arg->next)
+	{
+	  if (inquiry && arg->next != NULL && arg->next->expr
+		&& arg->next->expr->expr_type != EXPR_CONSTANT)
+	    break;
+	  
+	  if (arg->expr != NULL
+		&& arg->expr->rank > 0
+		&& resolve_assumed_size_actual (arg->expr))
+	    return FAILURE;
+	}
+    }
+
+  need_full_assumed_size = temp;
 
   if (!pure_function (expr, &name))
     {
@@ -1165,6 +1276,16 @@ resolve_function (gfc_expr * expr)
 		     "procedure within a PURE procedure", name, &expr->where);
 	  t = FAILURE;
 	}
+    }
+
+  /* Character lengths of use associated functions may contains references to
+     symbols not referenced from the current program unit otherwise.  Make sure
+     those symbols are marked as referenced.  */
+
+  if (expr->ts.type == BT_CHARACTER && expr->value.function.esym 
+      && expr->value.function.esym->attr.use_assoc)
+    {
+      gfc_expr_set_symbols_referenced (expr->ts.cl->length);
     }
 
   if (t == SUCCESS)
@@ -1389,8 +1510,16 @@ resolve_call (gfc_code * c)
 {
   try t;
 
+  /* Switch off assumed size checking and do this again for certain kinds
+     of procedure, once the procedure itself is resolved.  */
+  need_full_assumed_size++;
+
   if (resolve_actual_arglist (c->ext.actual) == FAILURE)
     return FAILURE;
+
+  /* Resume assumed_size checking. */
+  need_full_assumed_size--;
+
 
   t = SUCCESS;
   if (c->resolved_sym == NULL)
@@ -1411,6 +1540,21 @@ resolve_call (gfc_code * c)
       default:
 	gfc_internal_error ("resolve_subroutine(): bad function type");
       }
+
+  if (c->ext.actual != NULL
+      && c->symtree->n.sym->attr.elemental)
+    {
+      gfc_actual_arglist * a;
+      /* Being elemental, the last upper bound of an assumed size array
+	 argument must be present.  */
+      for (a = c->ext.actual; a; a = a->next)
+	{
+	  if (a->expr != NULL
+		&& a->expr->rank > 0
+		&& resolve_assumed_size_actual (a->expr))
+	    return FAILURE;
+	}
+    }
 
   if (t == SUCCESS)
     find_noncopying_intrinsics (c->resolved_sym, c->ext.actual);
@@ -2337,6 +2481,9 @@ resolve_variable (gfc_expr * e)
 	return FAILURE;
       e->ts = sym->ts;
     }
+
+  if (check_assumed_size_reference (sym, e))
+    return FAILURE;
 
   return SUCCESS;
 }
@@ -5477,6 +5624,15 @@ resolve_fntype (gfc_namespace * ns)
       gfc_error ("Function '%s' at %L has no IMPLICIT type",
 		 sym->name, &sym->declared_at);
       sym->attr.untyped = 1;
+    }
+
+  if (sym->ts.type == BT_DERIVED && !sym->ts.derived->attr.use_assoc
+      && !gfc_check_access (sym->ts.derived->attr.access,
+                            sym->ts.derived->ns->default_access)
+      && gfc_check_access (sym->attr.access, sym->ns->default_access))
+    {
+      gfc_error ("PUBLIC function '%s' at %L cannot be of PRIVATE type '%s'",
+                 sym->name, &sym->declared_at, sym->ts.derived->name);
     }
 
   if (ns->entries)
