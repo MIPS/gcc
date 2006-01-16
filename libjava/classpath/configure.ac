@@ -6,7 +6,7 @@ dnl -----------------------------------------------------------
 dnl define([AC_CACHE_LOAD], )dnl
 dnl define([AC_CACHE_SAVE], )dnl
 
-AC_INIT([GNU Classpath],[0.20-pre],[classpath@gnu.org],[classpath])
+AC_INIT([GNU Classpath],[0.20],[classpath@gnu.org],[classpath])
 AC_CONFIG_SRCDIR(java/lang/System.java)
 
 AC_CANONICAL_TARGET
@@ -112,7 +112,9 @@ AC_ARG_ENABLE([alsa],
                 no) COMPILE_ALSA=no ;;
                 *) COMPILE_ALSA=yes ;;
               esac],
-	      [AC_CHECK_HEADERS([alsa/asoundlib.h],COMPILE_ALSA=yes,COMPILE_ALSA=no)])
+	      [AC_CHECK_HEADERS([alsa/asoundlib.h],
+				[AC_CHECK_LIB([asound], [snd_seq_open], COMPILE_ALSA=yes,COMPILE_ALSA=no)],
+				COMPILE_ALSA=no)])
 AM_CONDITIONAL(CREATE_ALSA_LIBRARIES, test "x${COMPILE_ALSA}" = xyes)
 
 dnl -----------------------------------------------------------
@@ -268,7 +270,8 @@ if test "x${COMPILE_JNI}" = xyes; then
 		  localtime_r \
 		  strerror_r \
                   fcntl \
-		  mmap munmap mincore msync madvise getpagesize sysconf])
+		  mmap munmap mincore msync madvise getpagesize sysconf \
+		  isnan])
 
   AC_HEADER_TIME
   AC_STRUCT_TM
@@ -364,7 +367,7 @@ if test "x${COMPILE_JNI}" = xyes; then
 
   dnl Check for AWT related Qt4
   if test "x${COMPILE_QT_PEER}" = xyes; then
-    PKG_CHECK_MODULES(QT, QtGui >= 4.0.1, HAVE_QT4="yes", HAVE_QT4="no")
+    PKG_CHECK_MODULES(QT, QtCore QtGui >= 4.1.0, HAVE_QT4="yes", HAVE_QT4="no")
     if test "x$HAVE_QT4" = "xyes"; then
       dnl Check needed because in some cases the QtGui includedir
       dnl doesn't contain the subsystem dir.
@@ -553,6 +556,8 @@ AC_ARG_ENABLE([portable-native-sync],
                      ;;
               esac],
               [])
+
+AX_CREATE_STDINT_H([include/config-int.h])
 
 dnl -----------------------------------------------------------
 dnl output files
