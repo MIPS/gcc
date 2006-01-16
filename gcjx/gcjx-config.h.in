@@ -3,6 +3,9 @@
 /* Default -bootclasspath */
 #undef BOOTCLASSPATH
 
+/* enable llvm */
+#undef ENABLE_LLVM_BACKEND
+
 /* Define to 1 if you have the `iconv' library (-liconv). */
 #undef HAVE_LIBICONV
 

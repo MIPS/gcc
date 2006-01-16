@@ -42,6 +42,8 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = gcjx$(EXEEXT)
+@ENABLE_LLVM_TRUE@am__append_1 = $(llvm_libs)
+@ENABLE_LLVM_TRUE@am__append_2 = $(llvm_sources) 
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/../compile \
 	$(srcdir)/../config.guess $(srcdir)/../config.sub \
 	$(srcdir)/../depcomp $(srcdir)/../install-sh \
@@ -70,6 +72,59 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)"
 libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libgcjx_la_LIBADD =
+am__libgcjx_la_SOURCES_DIST = access.cc classcache.cc compiler.cc \
+	conversions.cc defassign.cc directory.cc dump.cc factory.cc \
+	fold.cc init.cc location.cc name.cc owner.cc scope.cc unify.cc \
+	util.cc warnings.cc model/annotation.cc model/annomember.cc \
+	model/annotype.cc model/annovalue.cc model/arrayinit.cc \
+	model/arrayref.cc model/arraytype.cc model/assert.cc \
+	model/assign.cc model/binary.cc model/block.cc \
+	model/blockscope.cc model/break.cc model/bytecode.cc \
+	model/cast.cc model/catch.cc model/class.cc model/classinst.cc \
+	model/classref.cc model/cond.cc model/constructor.cc \
+	model/continue.cc model/declstmt.cc model/do.cc model/empty.cc \
+	model/enum.cc model/enumconst.cc model/expr.cc \
+	model/exprstmt.cc model/field.cc model/fieldinit.cc \
+	model/fieldref.cc model/for.cc model/forenhanced.cc \
+	model/fwdtype.cc model/iannotatable.cc model/identifier.cc \
+	model/if.cc model/import.cc model/imodifiable.cc model/init.cc \
+	model/instanceof.cc model/intersect.cc model/invoke.cc \
+	model/javadoc.cc model/label.cc model/literal.cc \
+	model/memberref.cc model/method.cc model/modifier.cc \
+	model/newarray.cc model/new.cc model/null.cc model/package.cc \
+	model/parameters.cc model/primitive.cc model/raw.cc \
+	model/return.cc model/stmt.cc model/switch.cc \
+	model/synchronized.cc model/this.cc model/throw.cc \
+	model/throwsclause.cc model/try.cc model/type.cc \
+	model/typemap.cc model/typevar.cc model/unary.cc model/unit.cc \
+	model/value.cc model/variable.cc model/varref.cc \
+	model/varstmt.cc model/void.cc model/while.cc \
+	model/wildcard.cc reader/classbytes.cc reader/fdreader.cc \
+	reader/zereader.cc reader/zebuffer.cc reader/mmapbuffer.cc \
+	reader/readbuffer.cc reader/source.cc source/iconv.cc \
+	source/lex.cc source/parse.cc source/tstream.cc source/ucs2.cc \
+	format/format.cc bytecode/attribute.cc bytecode/block.cc \
+	bytecode/bridge.cc bytecode/bytegen.cc bytecode/classreader.cc \
+	bytecode/classwriter.cc bytecode/cpool.cc bytecode/generate.cc \
+	bytecode/glue.cc bytecode/locals.cc bytecode/outpool.cc \
+	bytecode/outstream.cc bytecode/poolreader.cc \
+	bytecode/relocation.cc bytecode/signature.cc \
+	bytecode/verify.cc header/cni.cc header/jni.cc \
+	header/jnistub.cc fdlibm/dtoa.c fdlibm/e_acos.c \
+	fdlibm/e_asin.c fdlibm/e_atan2.c fdlibm/e_exp.c \
+	fdlibm/e_fmod.c fdlibm/e_log.c fdlibm/e_pow.c \
+	fdlibm/e_remainder.c fdlibm/e_rem_pio2.c fdlibm/e_scalb.c \
+	fdlibm/e_sqrt.c fdlibm/k_cos.c fdlibm/k_rem_pio2.c \
+	fdlibm/k_sin.c fdlibm/k_tan.c fdlibm/mprec.c fdlibm/s_atan.c \
+	fdlibm/s_ceil.c fdlibm/s_copysign.c fdlibm/s_cos.c \
+	fdlibm/s_fabs.c fdlibm/sf_fabs.c fdlibm/s_floor.c \
+	fdlibm/sf_rint.c fdlibm/s_rint.c fdlibm/s_scalbn.c \
+	fdlibm/s_sin.c fdlibm/s_tan.c fdlibm/strtod.c fdlibm/w_acos.c \
+	fdlibm/w_asin.c fdlibm/w_atan2.c fdlibm/w_exp.c \
+	fdlibm/w_fmod.c fdlibm/w_log.c fdlibm/w_pow.c \
+	fdlibm/w_remainder.c fdlibm/w_sqrt.c fdlibm/classpath.cc \
+	aot/aotclass.cc aot/aotfactory.cc aot/mangle.cc \
+	llvm/llvmgen.cc
 am__objects_1 = access.lo classcache.lo compiler.lo conversions.lo \
 	defassign.lo directory.lo dump.lo factory.lo fold.lo init.lo \
 	location.lo name.lo owner.lo scope.lo unify.lo util.lo \
@@ -129,16 +184,23 @@ am__objects_8 = fdlibm/dtoa.lo fdlibm/e_acos.lo fdlibm/e_asin.lo \
 	fdlibm/w_pow.lo fdlibm/w_remainder.lo fdlibm/w_sqrt.lo
 am__objects_9 = fdlibm/classpath.lo
 am__objects_10 = aot/aotclass.lo aot/aotfactory.lo aot/mangle.lo
+am__objects_11 = llvm/llvmgen.lo
+@ENABLE_LLVM_TRUE@am__objects_12 = $(am__objects_11)
 am_libgcjx_la_OBJECTS = $(am__objects_1) $(am__objects_2) \
 	$(am__objects_3) $(am__objects_4) $(am__objects_5) \
 	$(am__objects_6) $(am__objects_7) $(am__objects_8) \
-	$(am__objects_9) $(am__objects_10)
+	$(am__objects_9) $(am__objects_10) $(am__objects_12)
 libgcjx_la_OBJECTS = $(am_libgcjx_la_OBJECTS)
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
 am_gcjx_OBJECTS = main.$(OBJEXT)
 gcjx_OBJECTS = $(am_gcjx_OBJECTS)
-gcjx_DEPENDENCIES = libgcjx.la
+am__DEPENDENCIES_1 = $(LLVMLIBPATH)/LLVMCBackend.o \
+	$(LLVMLIBPATH)/LLVMBCReader.o $(LLVMLIBPATH)/LLVMBCWriter.o \
+	$(LLVMLIBPATH)/LLVMbzip2.o $(LLVMLIBPATH)/LLVMSelectionDAG.o \
+	$(LLVMLIBPATH)/LLVMCodeGen.o $(LLVMLIBPATH)/LLVMCore.o
+@ENABLE_LLVM_TRUE@am__DEPENDENCIES_2 = $(am__DEPENDENCIES_1)
+gcjx_DEPENDENCIES = libgcjx.la $(am__DEPENDENCIES_2)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I.
 depcomp = $(SHELL) $(top_srcdir)/../depcomp
 am__depfiles_maybe = depfiles
@@ -159,7 +221,7 @@ CXXLD = $(CXX)
 CXXLINK = $(LIBTOOL) --mode=link $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(libgcjx_la_SOURCES) $(gcjx_SOURCES)
-DIST_SOURCES = $(libgcjx_la_SOURCES) $(gcjx_SOURCES)
+DIST_SOURCES = $(am__libgcjx_la_SOURCES_DIST) $(gcjx_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -181,6 +243,7 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
+BUILDMODE = @BUILDMODE@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -195,6 +258,8 @@ DEPDIR = @DEPDIR@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
+ENABLE_LLVM_FALSE = @ENABLE_LLVM_FALSE@
+ENABLE_LLVM_TRUE = @ENABLE_LLVM_TRUE@
 EXEEXT = @EXEEXT@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -204,6 +269,8 @@ LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LLVMBASELIBPATH = @LLVMBASELIBPATH@
+LLVM_BUILDMODE = @LLVM_BUILDMODE@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
@@ -269,12 +336,11 @@ AUTOMAKE_OPTIONS = subdir-objects foreign
 
 ################################################################
 gcjx_SOURCES = main.cc
-gcjx_LDADD = libgcjx.la -lpthread
+gcjx_LDADD = libgcjx.la -lpthread $(am__append_1)
 libgcjx_la_SOURCES = $(dot_sources) $(model_sources) $(reader_sources) \
-$(source_sources) $(format_sources) $(bytecode_sources)	\
-$(header_sources) $(fdlibm_c_sources) $(fdlibm_cc_sources) \
-$(aot_sources)
-
+	$(source_sources) $(format_sources) $(bytecode_sources) \
+	$(header_sources) $(fdlibm_c_sources) $(fdlibm_cc_sources) \
+	$(aot_sources) $(am__append_2)
 BUILT_SOURCES = source/keyword.h source/chartables.h typedefs.hh.gch
 EXTRA_DIST = source/keyword.gperf source/gen-table.pl
 WARNINGS = -Wall -Winvalid-pch -Wreturn-type
@@ -376,6 +442,27 @@ fdlibm/w_sqrt.c
 
 fdlibm_cc_sources = fdlibm/classpath.cc
 aot_sources = aot/aotclass.cc aot/aotfactory.cc aot/mangle.cc
+llvm_cppflags = -I$(LLVMBASELIBPATH)/include -D__STDC_LIMIT_MACROS
+LLVMLIBPATH = $(LLVMBASELIBPATH)/$(LLVM_BUILDMODE)/lib
+llvm_libs = -L$(LLVMLIBPATH) \
+    $(LLVMLIBPATH)/LLVMCBackend.o \
+    $(LLVMLIBPATH)/LLVMBCReader.o \
+    $(LLVMLIBPATH)/LLVMBCWriter.o \
+    $(LLVMLIBPATH)/LLVMbzip2.o \
+    -lLLVMipa \
+    -lLLVMTransforms \
+    -lLLVMScalarOpts \
+    -lLLVMTransformUtils \
+    -lLLVMAnalysis \
+    $(LLVMLIBPATH)/LLVMSelectionDAG.o \
+    $(LLVMLIBPATH)/LLVMCodeGen.o \
+    -lLLVMTarget \
+    $(LLVMLIBPATH)/LLVMCore.o \
+    -lLLVMSupport \
+    -lLLVMSystem \
+    -ldl
+
+llvm_sources = llvm/llvmgen.cc
 all: $(BUILT_SOURCES) gcjx-config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
@@ -767,6 +854,13 @@ aot/$(DEPDIR)/$(am__dirstamp):
 aot/aotclass.lo: aot/$(am__dirstamp) aot/$(DEPDIR)/$(am__dirstamp)
 aot/aotfactory.lo: aot/$(am__dirstamp) aot/$(DEPDIR)/$(am__dirstamp)
 aot/mangle.lo: aot/$(am__dirstamp) aot/$(DEPDIR)/$(am__dirstamp)
+llvm/$(am__dirstamp):
+	@$(mkdir_p) llvm
+	@: > llvm/$(am__dirstamp)
+llvm/$(DEPDIR)/$(am__dirstamp):
+	@$(mkdir_p) llvm/$(DEPDIR)
+	@: > llvm/$(DEPDIR)/$(am__dirstamp)
+llvm/llvmgen.lo: llvm/$(am__dirstamp) llvm/$(DEPDIR)/$(am__dirstamp)
 libgcjx.la: $(libgcjx_la_OBJECTS) $(libgcjx_la_DEPENDENCIES) 
 	$(CXXLINK) -rpath $(libdir) $(libgcjx_la_LDFLAGS) $(libgcjx_la_OBJECTS) $(libgcjx_la_LIBADD) $(LIBS)
 install-binPROGRAMS: $(bin_PROGRAMS)
@@ -929,6 +1023,8 @@ mostlyclean-compile:
 	-rm -f header/jni.lo
 	-rm -f header/jnistub.$(OBJEXT)
 	-rm -f header/jnistub.lo
+	-rm -f llvm/llvmgen.$(OBJEXT)
+	-rm -f llvm/llvmgen.lo
 	-rm -f model/annomember.$(OBJEXT)
 	-rm -f model/annomember.lo
 	-rm -f model/annotation.$(OBJEXT)
@@ -1192,6 +1288,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@header/$(DEPDIR)/cni.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@header/$(DEPDIR)/jni.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@header/$(DEPDIR)/jnistub.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@llvm/$(DEPDIR)/llvmgen.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/annomember.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/annotation.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@model/$(DEPDIR)/annotype.Plo@am__quote@
@@ -1340,6 +1437,7 @@ clean-libtool:
 	-rm -rf fdlibm/.libs fdlibm/_libs
 	-rm -rf format/.libs format/_libs
 	-rm -rf header/.libs header/_libs
+	-rm -rf llvm/.libs llvm/_libs
 	-rm -rf model/.libs model/_libs
 	-rm -rf reader/.libs reader/_libs
 	-rm -rf source/.libs source/_libs
@@ -1564,6 +1662,8 @@ distclean-generic:
 	-rm -f format/$(am__dirstamp)
 	-rm -f header/$(DEPDIR)/$(am__dirstamp)
 	-rm -f header/$(am__dirstamp)
+	-rm -f llvm/$(DEPDIR)/$(am__dirstamp)
+	-rm -f llvm/$(am__dirstamp)
 	-rm -f model/$(DEPDIR)/$(am__dirstamp)
 	-rm -f model/$(am__dirstamp)
 	-rm -f reader/$(DEPDIR)/$(am__dirstamp)
@@ -1582,7 +1682,7 @@ clean-am: clean-binPROGRAMS clean-generic clean-libLTLIBRARIES \
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf ./$(DEPDIR) aot/$(DEPDIR) bytecode/$(DEPDIR) fdlibm/$(DEPDIR) format/$(DEPDIR) header/$(DEPDIR) model/$(DEPDIR) reader/$(DEPDIR) source/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) aot/$(DEPDIR) bytecode/$(DEPDIR) fdlibm/$(DEPDIR) format/$(DEPDIR) header/$(DEPDIR) llvm/$(DEPDIR) model/$(DEPDIR) reader/$(DEPDIR) source/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-hdr distclean-libtool distclean-tags
@@ -1610,7 +1710,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf ./$(DEPDIR) aot/$(DEPDIR) bytecode/$(DEPDIR) fdlibm/$(DEPDIR) format/$(DEPDIR) header/$(DEPDIR) model/$(DEPDIR) reader/$(DEPDIR) source/$(DEPDIR)
+	-rm -rf ./$(DEPDIR) aot/$(DEPDIR) bytecode/$(DEPDIR) fdlibm/$(DEPDIR) format/$(DEPDIR) header/$(DEPDIR) llvm/$(DEPDIR) model/$(DEPDIR) reader/$(DEPDIR) source/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 

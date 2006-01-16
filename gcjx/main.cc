@@ -21,6 +21,9 @@
 
 #include "typedefs.hh"
 #include "bytecode/bytegen.hh"
+#ifdef ENABLE_LLVM_BACKEND
+#include "llvm/llvmgen.hh"
+#endif
 #include "header/jni.hh"
 #include "header/jnistub.hh"
 #include "header/cni.hh"
@@ -512,6 +515,11 @@ public:
 	    else if (otype == "jnistub")
 	      comp->add_code_generator (new jni_stub_generator (comp,
 							        comp->get_directory_cache ()));
+#ifdef ENABLE_LLVM_BACKEND
+	    else if (otype == "llvm")
+	      comp->add_code_generator (new llvm_code_generator (comp,
+							        comp->get_directory_cache ()));
+#endif
 	    else if (otype == "none")
 	      {
 		// Nothing.

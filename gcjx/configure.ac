@@ -18,6 +18,30 @@ AC_ARG_ENABLE([gcjx-debugging],
     AC_DEFINE(_GLIBCXX_DEBUG, 1, [enable libstdc++ checking])
   fi])
 
+# begin LLVM changed to llvmgen to differ from gcc llvm backend
+AC_ARG_WITH([llvm],
+AC_HELP_STRING([--with-llvm=PATH],[enable the LLVM backend installed in path]),
+	LLVMBASELIBPATH=$withval
+	LLVM_BUILDMODE=Debug
+    AC_DEFINE(ENABLE_LLVM_BACKEND, 1, [enable llvm])
+)
+AM_CONDITIONAL(ENABLE_LLVM, test x$with_llvm = xyes)
+AC_SUBST(LLVMBASELIBPATH)
+AC_SUBST(LLVM_BUILDMODE)
+
+
+AC_ARG_ENABLE(llvmdebug,
+AS_HELP_STRING([--enable-llvmdebug],[use debug version of llvm ]),
+[case ${enableval} in
+  yes) LLVM_BUILDMODE=Debug;;
+  *) LLVM_BUILDMODE=Release;;
+esac])
+AC_SUBST(BUILDMODE)
+
+
+# end LLVM
+
+
 # Checks for programs.
 AC_PROG_CXX
 AC_PROG_CC

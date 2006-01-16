@@ -10,10 +10,18 @@ AUTOMAKE_OPTIONS = subdir-objects foreign
 gcjx_SOURCES = main.cc
 gcjx_LDADD = libgcjx.la -lpthread
 
+if ENABLE_LLVM
+gcjx_LDADD += $(llvm_libs)
+endif
+
 libgcjx_la_SOURCES = $(dot_sources) $(model_sources) $(reader_sources) \
 $(source_sources) $(format_sources) $(bytecode_sources)	\
 $(header_sources) $(fdlibm_c_sources) $(fdlibm_cc_sources) \
 $(aot_sources)
+
+if ENABLE_LLVM
+libgcjx_la_SOURCES += $(llvm_sources) 
+endif
 
 BUILT_SOURCES = source/keyword.h source/chartables.h typedefs.hh.gch
 
@@ -137,3 +145,27 @@ fdlibm/w_sqrt.c
 fdlibm_cc_sources = fdlibm/classpath.cc
 
 aot_sources = aot/aotclass.cc aot/aotfactory.cc aot/mangle.cc
+
+llvm_cppflags=-I$(LLVMBASELIBPATH)/include -D__STDC_LIMIT_MACROS
+LLVMLIBPATH = $(LLVMBASELIBPATH)/$(LLVM_BUILDMODE)/lib
+
+
+llvm_libs = -L$(LLVMLIBPATH) \
+    $(LLVMLIBPATH)/LLVMCBackend.o \
+    $(LLVMLIBPATH)/LLVMBCReader.o \
+    $(LLVMLIBPATH)/LLVMBCWriter.o \
+    $(LLVMLIBPATH)/LLVMbzip2.o \
+    -lLLVMipa \
+    -lLLVMTransforms \
+    -lLLVMScalarOpts \
+    -lLLVMTransformUtils \
+    -lLLVMAnalysis \
+    $(LLVMLIBPATH)/LLVMSelectionDAG.o \
+    $(LLVMLIBPATH)/LLVMCodeGen.o \
+    -lLLVMTarget \
+    $(LLVMLIBPATH)/LLVMCore.o \
+    -lLLVMSupport \
+    -lLLVMSystem \
+    -ldl
+
+llvm_sources = llvm/llvmgen.cc

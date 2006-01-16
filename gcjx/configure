@@ -274,7 +274,7 @@ PACKAGE_STRING='gcjx 0.1'
 PACKAGE_BUGREPORT='tromey@redhat.com'
 
 ac_unique_file="name.cc"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT CXX CXXFLAGS LDFLAGS CPPFLAGS ac_ct_CXX EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CXXDEPMODE am__fastdepCXX_TRUE am__fastdepCXX_FALSE CC CFLAGS ac_ct_CC CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE build build_cpu build_vendor build_os host host_cpu host_vendor host_os LN_S RANLIB ac_ct_RANLIB LIBTOOL CXXCPP LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM mkdir_p AWK SET_MAKE am__leading_dot AMTAR am__tar am__untar MAINTAINER_MODE_TRUE MAINTAINER_MODE_FALSE MAINT ENABLE_LLVM_TRUE ENABLE_LLVM_FALSE LLVMBASELIBPATH LLVM_BUILDMODE BUILDMODE CXX CXXFLAGS LDFLAGS CPPFLAGS ac_ct_CXX EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CXXDEPMODE am__fastdepCXX_TRUE am__fastdepCXX_FALSE CC CFLAGS ac_ct_CC CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE build build_cpu build_vendor build_os host host_cpu host_vendor host_os LN_S RANLIB ac_ct_RANLIB LIBTOOL CXXCPP LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -827,6 +827,7 @@ Optional Features:
   --enable-maintainer-mode  enable make rules and dependencies not useful
 			  (and sometimes confusing) to the casual installer
   --with-gcjx-debugging   enable debugging code
+  --enable-llvmdebug      use debug version of llvm
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
   --enable-shared=PKGS  build shared libraries default=yes
@@ -839,6 +840,7 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-booclasspath=PATH
                           set default boot classpath
+  --with-llvm=PATH        enable the LLVM backend installed in path
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
   --with-pic              try to use only PIC/non-PIC objects default=use both
 
@@ -1789,6 +1791,48 @@ _ACEOF
 
   fi
 fi;
+
+# begin LLVM changed to llvmgen to differ from gcc llvm backend
+
+# Check whether --with-llvm or --without-llvm was given.
+if test "${with_llvm+set}" = set; then
+  withval="$with_llvm"
+  LLVMBASELIBPATH=$withval
+	LLVM_BUILDMODE=Debug
+
+cat >>confdefs.h <<\_ACEOF
+#define ENABLE_LLVM_BACKEND 1
+_ACEOF
+
+
+fi;
+
+
+if test x$with_llvm = xyes; then
+  ENABLE_LLVM_TRUE=
+  ENABLE_LLVM_FALSE='#'
+else
+  ENABLE_LLVM_TRUE='#'
+  ENABLE_LLVM_FALSE=
+fi
+
+
+
+
+
+# Check whether --enable-llvmdebug or --disable-llvmdebug was given.
+if test "${enable_llvmdebug+set}" = set; then
+  enableval="$enable_llvmdebug"
+  case ${enableval} in
+  yes) LLVM_BUILDMODE=Debug;;
+  *) LLVM_BUILDMODE=Release;;
+esac
+fi;
+
+
+
+# end LLVM
+
 
 # Checks for programs.
 ac_ext=cc
@@ -4148,7 +4192,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 4151 "configure"' > conftest.$ac_ext
+  echo '#line 4195 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -5353,6 +5397,13 @@ echo "$as_me: error: conditional \"MAINTAINER_MODE\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
+if test -z "${ENABLE_LLVM_TRUE}" && test -z "${ENABLE_LLVM_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"ENABLE_LLVM\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"ENABLE_LLVM\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 if test -z "${AMDEP_TRUE}" && test -z "${AMDEP_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"AMDEP\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
@@ -5931,6 +5982,11 @@ s,@am__untar@,$am__untar,;t t
 s,@MAINTAINER_MODE_TRUE@,$MAINTAINER_MODE_TRUE,;t t
 s,@MAINTAINER_MODE_FALSE@,$MAINTAINER_MODE_FALSE,;t t
 s,@MAINT@,$MAINT,;t t
+s,@ENABLE_LLVM_TRUE@,$ENABLE_LLVM_TRUE,;t t
+s,@ENABLE_LLVM_FALSE@,$ENABLE_LLVM_FALSE,;t t
+s,@LLVMBASELIBPATH@,$LLVMBASELIBPATH,;t t
+s,@LLVM_BUILDMODE@,$LLVM_BUILDMODE,;t t
+s,@BUILDMODE@,$BUILDMODE,;t t
 s,@CXX@,$CXX,;t t
 s,@CXXFLAGS@,$CXXFLAGS,;t t
 s,@LDFLAGS@,$LDFLAGS,;t t
