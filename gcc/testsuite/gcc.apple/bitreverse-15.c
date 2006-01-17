@@ -38,7 +38,7 @@ typedef struct _S4
         unsigned short sbf2 : 8;
         unsigned short sbf3 : 8;
         unsigned short sbf4 : 8;
-        unsigned long l;
+        unsigned int l;
 } S4;
 #pragma pack(pop)
 

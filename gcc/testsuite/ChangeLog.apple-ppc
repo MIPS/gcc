@@ -1,3 +1,9 @@
+2006-01-13  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4401223 4401224
+	* gcc.apple/bitreverse-15.c:  Fix for 64-bit.
+	* gcc.apple/bitreverse-16.c:  Ditto.
+
 2006-01-13  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4386991

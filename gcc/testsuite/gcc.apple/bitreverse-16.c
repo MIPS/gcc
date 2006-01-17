@@ -8,10 +8,10 @@ extern void abort();
 typedef struct _S5
 {
         unsigned short s;
-        unsigned long lbf1 : 8;
-        unsigned long lbf2 : 8;
-        unsigned long lbf3 : 8;
-        unsigned long lbf4 : 8;
+        unsigned int lbf1 : 8;
+        unsigned int lbf2 : 8;
+        unsigned int lbf3 : 8;
+        unsigned int lbf4 : 8;
 } S5;
 #pragma pack(pop)
 
@@ -57,10 +57,10 @@ void TestS5_2(void)
 
 typedef struct _S6
 {
-        unsigned long lbf1 : 8;
-        unsigned long lbf2 : 8;
-        unsigned long lbf3 : 8;
-        unsigned long lbf4 : 8;
+        unsigned int lbf1 : 8;
+        unsigned int lbf2 : 8;
+        unsigned int lbf3 : 8;
+        unsigned int lbf4 : 8;
 } S6;
 
 #pragma pack(pop)
