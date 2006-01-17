@@ -1,3 +1,73 @@
+2006-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (dbexecdir): New substituted var.
+	* configure: Rebuilt.
+	* Makefile.am (dbexecdir): Remove.
+	* Makefile.in: Rebuilt.
+
+2006-01-08  Chris Burdess  <dog@gnu.org>
+
+	* java/lang/Character.java (toChars,toCodePoint): Correct these
+	  methods to use algorithms from Unicode specification.
+
+2006-01-09  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21637:
+	* gnu/java/net/protocol/jar/Connection.java (getInputStream):
+	Throw FileNotFoundException if jar entry not found.
+
+2006-01-08  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/StringBuilder.java (appendCodePoint): New method.
+	(insert): New overloads.
+	* java/lang/StringBuffer.java (StringBuffer): New constructor.
+	(charAt): Remerged javadoc.
+	(codePointAt, codePointBefore): New methods.
+	(appendCodePoint): New method.
+	(append): New overloads.
+	(insert): Likewise.
+	(trimToSize, codePointCount, offsetByCodePoints): New methods.
+	* java/lang/Float.java (SIZE): New field.
+	(valueOf): New method.
+	* java/lang/natDouble.cc (initIDs): Removed.
+	* java/lang/Double.java (static initializer): Removed.
+	(SIZE): New field.
+	(valueOf): New method.
+	(initIDs): Removed.
+
+2006-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgcj/24940
+	* shlibpath.m4: Replace $SED with sed.
+	* configure: Rebuilt.
+
+2006-01-06  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Character.java (SIZE, MAX_CACHE, charCache,
+	MIN_SURROGATE, MAX_SURROGATE): New fields from Classpath.
+	(MIN_HIGH_SURROGATE, MAX_HIGH_SURROGATE, MIN_LOW_SURROGATE,
+	MAX_LOW_SURROGATE): Javadoc fixes.
+	(valueOf, reverseBytes, isHighSurrogate, isLowSurrogate,
+	isSurrogatePair, toCodePoint, codePointAt, codePointBefore): New
+	methods from Classpath.
+	* java/lang/String.java (codePointAt, codePointBefore,
+	codePointCount, contains, replace): New methods from Classpath.
+	(contentEquals): Declare.
+	* java/lang/natString.cc (contentEquals): New method.
+
+2005-12-26  Anthony Green  <green@redhat.com>
+
+	* gnu/java/nio/SocketChannelImpl.java (read): Compute the right amount
+	of data to read (dst.remaining()).
+	* gnu/java/nio/DatagramChannelImpl.java (receive): Ditto.
+
+2005-11-11  Mark Wielaard  <mark@klomp.org>
+
+	Reported by john.zigman@anu.edu.au as bug #24608.
+	* gnu/java/nio/SocketChannelImpl.java (read): Put readBytes in
+	destination ByteBuffer when it doesn't have an array instead of len
+	bytes.
+
 2006-01-05  Tom Tromey  <tromey@redhat.com>
 
 	* java/lang/natThread.cc (finish_): Don't clear 'group'.

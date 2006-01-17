@@ -1,3 +1,27 @@
+2006-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/25682
+	* decl.c (compute_array_index_type): After issuing not an integral
+	constant-expression error, set size to 1 to avoid ICEs later on.
+
+2006-01-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25663
+	* parser.c (cp_parser_direct_declarator): Use cp_parser_error
+	instead of error.
+
+2006-01-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/24824
+	* class.c (handle_using_decl): Pass correct scope to
+	cp_emit_debug_info_for_using.
+
+2006-01-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/25386
+	* tree.c (lvalue_p_1): Any part of a COMPONENT_REF affects
+	packedness.
+
 2005-01-04  Zdenek Dvorak <dvorakz@suse.cz>
 
 	PR c++/25632

@@ -1,3 +1,106 @@
+2006-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/25682
+	* c-typeck.c (build_unary_op): Fold offsetof-like expressions
+	even when the pointer is not NULL.
+
+2006-01-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.md: Disparage copies between general and floating-point registers
+	in 32-bit move patterns.
+
+2006-01-16  Steven Bosscher  <stevenb.gcc@gmail.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/24257
+	* gcse.c (find_moveable_store): Only consider a store movable
+	when the SET_SRC of the insn can be assigned to a register.
+
+2006-01-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/25168
+	* tree.c (get_file_function_name_long): Concatenate the first global
+	object name with a string derived from the input filename of the object
+	for type "F".
+
+2006-01-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/24365
+	* tree-inline.c (declare_return_variable): If the return variable
+	was marked as a non gimple complex, set the return slot variable
+	to be a non gimple comple variable.
+
+2006-01-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/23109
+	PR tree-optimization/23948
+	PR tree-optimization/24123
+
+	* Makefile.in (tree-ssa-math-opts.o): Adjust dependencies.
+        * tree-cfg.c (single_noncomplex_succ): New.
+        * tree-flow.h (single_noncomplex_succ): Declare it.
+        * tree-ssa-math-opts.c (enum place_reciprocal): Remove.
+        * tree-ssa-math-opts.c (enum place_reciprocal): Remove.
+        (struct occurrence, occ_head, occ_pool, is_divide_by, compute_merit,
+	insert_bb, register_division_in, insert_reciprocals,
+	replace_reciprocal, free_bb): New.
+        (execute_cse_reciprocals_1): Rewritten.
+        (execute_cse_reciprocals): Adjust calls to execute_cse_reciprocals_1.
+        Do not commit any edge insertion.  Always compute dominators and
+        create the allocation pool.
+        * target-def.h (TARGET_MIN_DIVISIONS_FOR_RECIP_MUL): New.
+	* target.h (struct gcc_target): Add min_divistions_for_recip_mul.
+	* targhooks.c (default_min_divistions_for_recip_mul): New.
+	* targhooks.h (default_min_divistions_for_recip_mul): New prototype.
+        * passes.c (init_optimization_passes): Run recip after tree loop
+        optimizations.
+        * doc/tm.texi (Misc): Document TARGET_MIN_DIVISIONS_FOR_RECIP_MUL.
+
+2006-01-11  Jan Hubicka  <jh@suse.cz>
+
+	PR target/25042
+	* i386.c (ix86_init_mmx_sse_builtins): Do not delcare float128
+
+2006-01-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/20754
+	* config/pa/pa.md: Create separate 32 and 64-bit move patterns
+	for SI, DI, SF and DF modes.  Add alternatives to copy between
+	general and floating point registers to the 32-bit patterns.
+	* config/pa/pa-64.h (SECONDARY_MEMORY_NEEDED_RTX): Delete undefine.
+	* config/pa/pa.h (SECONDARY_MEMORY_NEEDED_RTX): Delete define.
+	(SECONDARY_MEMORY_NEEDED): Secondary memory is only needed when
+	generating 64-bit code.
+	* config/pa/pa.c (output_move_double): Handle copies between general
+	and floating registers.
+
+2006-01-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/25367
+	* config/sparc/sparc.h (HARD_REGNO_RENAME_OK): New macro.
+
+2006-01-10  Jan Beulich  <jbeulich@novell.com>
+
+	* config/i386/netware.h (TARGET_SUBTARGET_DEFAULT): Include
+	MASK_ALIGN_DOUBLE.
+	* config/i386/nwld.h (LINK_SPEC): Add --extensions:GNU option.
+	* config/i386/t-nwld (SHLIB_LINK): Insert spaces between expr
+	arguments.
+
+2006-01-09  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25125
+	* convert.c (convert_to_integer): Don't narrow the type of a
+	PLUX_EXPR or MINUS_EXPR if !flag_wrapv and the unwidened type
+	is signed.
+
+2006-01-08  Ian Lance Taylor  <ian@airs.com>
+            David Edelsohn  <edelsohn@gnu.org>
+
+        PR rtl-optimization/25662
+        * optabs.c (simplify_expand_binop): Use simplify_binary_operation
+        for constant operands instead of simplify_gen_binary.
+
 2006-01-05  Richard Henderson  <rth@redhat.com>
 
 	* c-parser.c (c_parser_objc_methodprotolist): Handle CPP_PRAGMA.

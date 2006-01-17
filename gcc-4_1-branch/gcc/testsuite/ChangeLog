@@ -1,3 +1,166 @@
+2006-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/25682
+	* gcc.dg/pr25682.c: New test.
+	* g++.dg/parse/array-size2.C: New test.
+
+2006-01-16  Ian Lance Taylor  <ian@airs.com>
+
+	* consistency.vlad: Remove entire directory, 1652 files.
+
+2006-01-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+        PR testsuite/25777
+        * ada/acats/run_acats (LD_LIBRARY_PATH): Add BASE
+        to LD_LIBRARY_PATH.
+
+2006-01-16  Steven Bosscher  <stevenb.gcc@gmail.com>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/24257
+	* gcc.dg/torture/pr24257.c: New testcase.
+
+2006-01-15  Andreas Jaeger  <aj@suse.de>
+
+	* g++.dg/abi/mangle25.C: Only run on 64-bit systems since 32-bit
+	x86 does not have __float128.
+
+2006-01-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25663
+	* g++.dg/template/ctor6.C: New test.
+
+2006-01-14  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/22146
+	* gfortran.dg/elemental_subroutine_1.f90: New test.
+	* gfortran.dg/elemental_subroutine_2.f90: New test.
+
+	PR fortran/25029
+	PR fortran/21256
+	* gfortran.dg/assumed_size_refs_1.f90: New test.
+
+	PR fortran/20868
+	PR fortran/20870
+	* gfortran.dg/assumed_size_refs_2.f90: New test.
+	* gfortran.dg/initialization_1.f90: Change warning message.
+	* gfortran.dg/pr15140.f90: Add bound to assumed size reference.
+
+2006-01-13  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc.c-torture/compile/pr25310.c: Disable test on 16-bit targets.
+
+2006-01-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/24365
+	* g++.dg/opt/complex5.C: New test.
+
+2006-01-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/24824
+	* g++.dg/debug/dwarf2-1.C: New.
+
+2006-01-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/25728
+	* lib/gcov.exp (verify-lines): Add "close $fd".
+
+2006-01-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/25386
+	* g++.dg/ext/packed3.C: Add expected packed error.
+
+2006-01-10  Bernhard Fischer  <rep.nop@aon.at>
+
+	PR fortran/25486
+	* gfortran.dg/literal_character_constant_1_x.F: New test.
+	* gfortran.dg/literal_character_constant_1_y.F: Ditto.
+	* gfortran.dg/literal_character_constant_1_z.F: Ditto.
+	* gfortran.dg/literal_character_constant_1.inc: Helper for new tests.
+
+2006-01-11  Paolo Bonzini  <bonzini@gnu.org>
+        
+        PR tree-optimization/23109
+        PR tree-optimization/23948
+        PR tree-optimization/24123
+
+        * gcc.dg/tree-ssa/recip-3.c, gcc.dg/tree-ssa/recip-4.c,
+        gcc.dg/tree-ssa/recip-5.c, gcc.dg/tree-ssa/recip-6.c,
+        gcc.dg/tree-ssa/recip-7.c, gcc.dg/tree-ssa/pr23109.c,
+        g++.dg/tree-ssa/pr23948.C: New testcases.
+        * gcc.dg/tree-ssa/recip-2.c, gcc.dg/tree-ssa/pr23234.c: Provide
+	three divisions in order to do the optimization.
+
+2006-01-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25730
+	* gfortran.dg/used_types_1.f90: New test.
+
+2006-01-10  Jan Beulich  <jbeulich@novell.com>
+
+	* lib/target-supports.exp (check_visibility_available): Simplify test
+	for *-*-netware*.
+	(check_profiling_available): Fail for *-*-netware*.
+	* g++.old-deja/g++.law/profile1.C: Remove dg-bogus for *-*-netware*.
+	* gcc.dg/20021014-1.c: Likewise.
+	* gcc.dg/nest.c: Likewise.
+
+2006-01-10   David Billinghurst  (David.Billinghurst@riotinto.com)
+
+	* lib/fortran-torture.exp: Catch remaining uses of
+	remote_file build delete.
+	
+2006-01-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	fortran/24936
+	* gfortran.dg/forall_3.f90: New test.
+
+2006-01-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/21977
+	* gfortran.dg/nesting_2.f90: New test.
+	* gfortran.dg/nesting_3.f90: New test.
+
+2005-01-09  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25093
+	* gfortran.dg/private_type_4.f90: New.
+
+2006-01-09  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR tree-optimization/25125
+	* gcc.dg/vect/vect-7.c, gcc.dg/vect/vect-reduc-2char.c,
+	gcc.dg/vect/vect-reduc-2short.c: XFAIL.
+	* gcc.c-torture/execute/pr25125.c: New.
+
+2006-01-09  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/12456
+	* gfortran.dg/single_char_string.f90: New test.
+
+2006-01-09  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* gfortran.dg/ichar2.f90: New test.
+
+2005-01-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25598
+	* gfortran.dg/backspace_3.f: New test.
+	* gfortran.dg/backspace_4.f: New test.
+
+2005-01-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/24268
+	* gfortran.dg/fmt_white.f: Update test.
+
+2006-01-06  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/25101
+	* gfortran.dg/forall_2.f90: New test.
+
+	PR fortran/24640
+	* gfortran.dg/label_2.f90: New test.
+
 2006-01-05  Erik Edelmann  <eedelman@gcc.gnu.org>
 
 	PR fortran/23675
