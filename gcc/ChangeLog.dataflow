@@ -1,5 +1,15 @@
 2005-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
+	PR dataflow/25799
+	* df-problems.c (df_ru_confluence_n, df_rd_confluence_n):
+	Corrected confluence operator to remove bits from op2 before oring
+	with op1 rather than removing bits from op1.
+	* (df_ru_transfer_function): Corrected test on wrong bitmap which
+	caused infinite loop.    
+
+
+2005-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* df-scan.c (df_scan_free_bb_info): Added basic block parameter to
 	be able to clean out basic block when not necessary.
 	(df_scan_free): Fixed to properly delete information if df is
