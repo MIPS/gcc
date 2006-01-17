@@ -319,14 +319,15 @@ Objective-C and Objective-C++ Dialects}.
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
 -funsafe-math-optimizations  -funsafe-loop-optimizations  -ffinite-math-only @gol
--fno-trapping-math  -fno-zero-initialized-in-bss @gol
+-fno-toplevel-reorder -fno-trapping-math  -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
 -foptimize-sibling-calls  -fprefetch-loop-arrays @gol
 -fprofile-generate -fprofile-use @gol
 -fregmove  -frename-registers @gol
 -freorder-blocks  -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
--frounding-math -fschedule-insns  -fschedule-insns2 @gol
+-frounding-math -frtl-abstract-sequences @gol
+-fschedule-insns  -fschedule-insns2 @gol
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
 -fsched-spec-load-dangerous  @gol
 -fsched-stalled-insns=@var{n} -fsched-stalled-insns-dep=@var{n} @gol
@@ -5335,14 +5336,16 @@ Enabled at levels @option{-O2}, @option{-O3}.
 Parse the whole compilation unit before starting to produce code.
 This allows some extra optimizations to take place but consumes
 more memory (in general).  There are some compatibility issues
-with @emph{unit-at-at-time} mode:
+with @emph{unit-at-a-time} mode:
 @itemize @bullet
 @item
 enabling @emph{unit-at-a-time} mode may change the order
 in which functions, variables, and top-level @code{asm} statements
 are emitted, and will likely break code relying on some particular
 ordering.  The majority of such top-level @code{asm} statements,
-though, can be replaced by @code{section} attributes.
+though, can be replaced by @code{section} attributes.  The
+@option{fno-toplevel-reorder} option may be used to keep the ordering
+used in the input file, at the cost of some optimizations.
 
 @item
 @emph{unit-at-a-time} mode removes unreferenced static variables
@@ -5363,6 +5366,14 @@ As a temporary workaround, @option{-fno-unit-at-a-time} can be used,
 but this scheme may not be supported by future releases of GCC@.
 
 Enabled at levels @option{-O2}, @option{-O3}.
+
+@item -fno-toplevel-reorder
+Do not reorder top-level functions, variables, and @code{asm}
+statements.  Output them in the same order that they appear in the
+input file.  When this option is used, unreferenced static variables
+will not be removed.  This option is intended to support existing code
+which relies on a particular ordering.  For new code, it is better to
+use attributes.
 
 @item -fweb
 @opindex fweb
@@ -5529,6 +5540,14 @@ disable all GCC optimizations that are affected by rounding mode.
 Future versions of GCC may provide finer control of this setting
 using C99's @code{FENV_ACCESS} pragma.  This command line option
 will be used to specify the default state for @code{FENV_ACCESS}.
+
+@item -frtl-abstract-sequences
+@opindex frtl-abstract-sequences
+It is a size optimization method. This option is to find identical
+sequences of code, which can be turned into pseudo-procedures  and
+then  replace  all  occurrences with  calls to  the  newly created
+subroutine. It is kind of an opposite of @option{-finline-functions}.
+This optimization runs at RTL level.
 
 @item -fsignaling-nans
 @opindex fsignaling-nans
@@ -5743,6 +5762,10 @@ In each case, the @var{value} is an integer.  The allowable choices for
 The maximum number of fields in a variable without direct
 structure accesses for which structure aliasing will consider trying 
 to track each field.  The default is 5
+
+@item salias-max-array-elements
+The maximum number of elements an array can have and its elements
+still be tracked individually by structure aliasing. The default is 4
 
 @item sra-max-structure-size
 The maximum structure size, in bytes, at which the scalar replacement

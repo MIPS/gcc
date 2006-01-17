@@ -6541,15 +6541,19 @@ of @code{ASM_OUTPUT_DOUBLE} and the like:
 @defmac REAL_VALUE_TO_TARGET_SINGLE (@var{x}, @var{l})
 @defmacx REAL_VALUE_TO_TARGET_DOUBLE (@var{x}, @var{l})
 @defmacx REAL_VALUE_TO_TARGET_LONG_DOUBLE (@var{x}, @var{l})
-These translate @var{x}, of type @code{REAL_VALUE_TYPE}, to the target's
-floating point representation, and store its bit pattern in the variable
-@var{l}.  For @code{REAL_VALUE_TO_TARGET_SINGLE}, this variable should
-be a simple @code{long int}.  For the others, it should be an array of
-@code{long int}.  The number of elements in this array is determined by
-the size of the desired target floating point data type: 32 bits of it
-go in each @code{long int} array element.  Each array element holds 32
-bits of the result, even if @code{long int} is wider than 32 bits on the
-host machine.
+@defmacx REAL_VALUE_TO_TARGET_DECIMAL32 (@var{x}, @var{l})
+@defmacx REAL_VALUE_TO_TARGET_DECIMAL64 (@var{x}, @var{l})
+@defmacx REAL_VALUE_TO_TARGET_DECIMAL128 (@var{x}, @var{l})
+These translate @var{x}, of type @code{REAL_VALUE_TYPE}, to the
+target's floating point representation, and store its bit pattern in
+the variable @var{l}.  For @code{REAL_VALUE_TO_TARGET_SINGLE} and
+@code{REAL_VALUE_TO_TARGET_DECIMAL32}, this variable should be a
+simple @code{long int}.  For the others, it should be an array of
+@code{long int}.  The number of elements in this array is determined
+by the size of the desired target floating point data type: 32 bits of
+it go in each @code{long int} array element.  Each array element holds
+32 bits of the result, even if @code{long int} is wider than 32 bits
+on the host machine.
 
 The array element values are designed so that you can print them out
 using @code{fprintf} in the order they should appear in the target
@@ -8892,6 +8896,15 @@ Define this macro if the same instructions that convert a floating
 point number to a signed fixed point number also convert validly to an
 unsigned one.
 @end defmac
+
+@deftypefn {Target Hook} int TARGET_MIN_DIVISIONS_FOR_RECIP_MUL (enum machine_mode @var{mode})
+When @option{-ffast-math} is in effect, GCC tries to optimize
+divisions by the same divisor, by turning them into multiplications by
+the reciprocal.  This target hook specifies the minimum number of divisions
+that should be there for GCC to perform the optimization for a variable
+of mode @var{mode}.  The default implementation returns 3 if the machine
+has an instruction for the division, and 2 if it does not.
+@end deftypefn
 
 @defmac MOVE_MAX
 The maximum number of bytes that a single instruction can move quickly

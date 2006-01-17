@@ -3126,5 +3126,3 @@ df_reg_lifetime (struct df *df, rtx reg)
     (struct df_ri_problem_data *) dflow->problem_data;
   return problem_data->lifetime[REGNO (reg)];
 }
-
-

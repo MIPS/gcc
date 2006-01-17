@@ -4578,7 +4578,7 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 
   if (TREE_CODE (decl) == CONST_DECL)
     {
-      gcc_assert (TREE_CODE (decl) != REFERENCE_TYPE);
+      gcc_assert (TREE_CODE (type) != REFERENCE_TYPE);
 
       DECL_INITIAL (decl) = init;
 
@@ -6343,6 +6343,7 @@ compute_array_index_type (tree name, tree size)
 	       name);
       else
 	error ("size of array is not an integral constant-expression");
+      size = integer_one_node;
     }
   else if (pedantic)
     {

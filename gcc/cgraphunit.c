@@ -748,7 +748,8 @@ verify_cgraph_node (struct cgraph_node *node)
 			    debug_generic_stmt (stmt);
 			    error_found = true;
 			  }
-			if (e->callee->decl != cgraph_node (decl)->decl)
+			if (e->callee->decl != cgraph_node (decl)->decl
+			    && e->inline_failed)
 			  {
 			    error ("edge points to wrong declaration:");
 			    debug_tree (e->callee->decl);
@@ -806,6 +807,34 @@ verify_cgraph (void)
     verify_cgraph_node (node);
 }
 
+/* Output one variable, if necessary.  Return whether we output it.  */
+static bool
+cgraph_varpool_assemble_decl (struct cgraph_varpool_node *node)
+{
+  tree decl = node->decl;
+
+  if (!TREE_ASM_WRITTEN (decl)
+      && !node->alias
+      && !DECL_EXTERNAL (decl)
+      && (TREE_CODE (decl) != VAR_DECL || !DECL_HAS_VALUE_EXPR_P (decl)))
+    {
+      assemble_variable (decl, 0, 1, 0);
+      /* Local static variables are never seen by check_global_declarations
+	 so we need to output debug info by hand.  */
+      if (DECL_CONTEXT (decl) 
+	  && (TREE_CODE (DECL_CONTEXT (decl)) == BLOCK
+	      || TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL)
+	  && errorcount == 0 && sorrycount == 0)
+	{
+	  timevar_push (TV_SYMOUT);
+	  (*debug_hooks->global_decl) (decl);
+	  timevar_pop (TV_SYMOUT);
+	}
+      return true;
+    }
+
+  return false;
+}
 
 /* Output all variables enqueued to be assembled.  */
 bool
@@ -823,29 +852,29 @@ cgraph_varpool_assemble_pending_decls (void)
 
   while (cgraph_varpool_nodes_queue)
     {
-      tree decl = cgraph_varpool_nodes_queue->decl;
       struct cgraph_varpool_node *node = cgraph_varpool_nodes_queue;
 
       cgraph_varpool_nodes_queue = cgraph_varpool_nodes_queue->next_needed;
-      if (!TREE_ASM_WRITTEN (decl) && !node->alias && !DECL_EXTERNAL (decl))
-	{
-	  assemble_variable (decl, 0, 1, 0);
-	  /* Local static variables are never seen by check_global_declarations
-	     so we need to output debug info by hand.  */
-	  if (DECL_CONTEXT (decl) 
-	      && (TREE_CODE (DECL_CONTEXT (decl)) == BLOCK
-	          || TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL)
-	      && errorcount == 0 && sorrycount == 0)
-	    {
-	      timevar_push (TV_SYMOUT);
-	      (*debug_hooks->global_decl) (decl);
-	      timevar_pop (TV_SYMOUT);
-	    }
-	  changed = true;
-	}
+      if (cgraph_varpool_assemble_decl (node))
+	changed = true;
       node->next_needed = NULL;
     }
   return changed;
+}
+
+/* Output all asm statements we have stored up to be output.  */
+
+static void
+cgraph_output_pending_asms (void)
+{
+  struct cgraph_asm_node *can;
+
+  if (errorcount || sorrycount)
+    return;
+
+  for (can = cgraph_asm_nodes; can; can = can->next)
+    assemble_asm (can->asm_str);
+  cgraph_asm_nodes = NULL;
 }
 
 /* Analyze the function scheduled to be output.  */
@@ -891,6 +920,7 @@ cgraph_finalize_compilation_unit (void)
 
   if (!flag_unit_at_a_time)
     {
+      cgraph_output_pending_asms ();
       cgraph_assemble_pending_functions ();
       return;
     }
@@ -1124,6 +1154,97 @@ cgraph_expand_all_functions (void)
   free (order);
 }
 
+/* This is used to sort the node types by the cgraph order number.  */
+
+struct cgraph_order_sort
+{
+  enum { ORDER_UNDEFINED = 0, ORDER_FUNCTION, ORDER_VAR, ORDER_ASM } kind;
+  union
+  {
+    struct cgraph_node *f;
+    struct cgraph_varpool_node *v;
+    struct cgraph_asm_node *a;
+  } u;
+};
+
+/* Output all functions, variables, and asm statements in the order
+   according to their order fields, which is the order in which they
+   appeared in the file.  This implements -fno-toplevel-reorder.  In
+   this mode we may output functions and variables which don't really
+   need to be output.  */
+
+static void
+cgraph_output_in_order (void)
+{
+  int max;
+  size_t size;
+  struct cgraph_order_sort *nodes;
+  int i;
+  struct cgraph_node *pf;
+  struct cgraph_varpool_node *pv;
+  struct cgraph_asm_node *pa;
+
+  max = cgraph_order;
+  size = max * sizeof (struct cgraph_order_sort);
+  nodes = (struct cgraph_order_sort *) alloca (size);
+  memset (nodes, 0, size);
+
+  cgraph_varpool_analyze_pending_decls ();
+
+  for (pf = cgraph_nodes; pf; pf = pf->next)
+    {
+      if (pf->output)
+	{
+	  i = pf->order;
+	  gcc_assert (nodes[i].kind == ORDER_UNDEFINED);
+	  nodes[i].kind = ORDER_FUNCTION;
+	  nodes[i].u.f = pf;
+	}
+    }
+
+  for (pv = cgraph_varpool_nodes_queue; pv; pv = pv->next_needed)
+    {
+      i = pv->order;
+      gcc_assert (nodes[i].kind == ORDER_UNDEFINED);
+      nodes[i].kind = ORDER_VAR;
+      nodes[i].u.v = pv;
+    }
+
+  for (pa = cgraph_asm_nodes; pa; pa = pa->next)
+    {
+      i = pa->order;
+      gcc_assert (nodes[i].kind == ORDER_UNDEFINED);
+      nodes[i].kind = ORDER_ASM;
+      nodes[i].u.a = pa;
+    }
+  cgraph_asm_nodes = NULL;
+
+  for (i = 0; i < max; ++i)
+    {
+      switch (nodes[i].kind)
+	{
+	case ORDER_FUNCTION:
+	  nodes[i].u.f->output = 0;
+	  cgraph_expand_function (nodes[i].u.f);
+	  break;
+
+	case ORDER_VAR:
+	  cgraph_varpool_assemble_decl (nodes[i].u.v);
+	  break;
+
+	case ORDER_ASM:
+	  assemble_asm (nodes[i].u.a->asm_str);
+	  break;
+
+	case ORDER_UNDEFINED:
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+}
+
 /* Mark visibility of all functions.
    
    A local function is one whose calls can occur only in the current
@@ -1202,9 +1323,6 @@ bool
 cgraph_preserve_function_body_p (tree decl)
 {
   struct cgraph_node *node;
-  /* Keep the body; we're going to dump it.  */
-  if (dump_enabled_p (TDI_tree_all))
-    return true;
   if (!cgraph_global_info_ready)
     return (DECL_INLINE (decl) && !flag_really_no_inline);
   /* Look if there is any clone around.  */
@@ -1234,6 +1352,7 @@ cgraph_optimize (void)
 #endif
   if (!flag_unit_at_a_time)
     {
+      cgraph_output_pending_asms ();
       cgraph_varpool_assemble_pending_decls ();
       return;
     }
@@ -1273,12 +1392,20 @@ cgraph_optimize (void)
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
-  
-  cgraph_mark_functions_to_output ();
-  cgraph_expand_all_functions ();
-  cgraph_varpool_remove_unreferenced_decls ();
 
-  cgraph_varpool_assemble_pending_decls ();
+  cgraph_mark_functions_to_output ();
+
+  if (!flag_toplevel_reorder)
+    cgraph_output_in_order ();
+  else
+    {
+      cgraph_output_pending_asms ();
+
+      cgraph_expand_all_functions ();
+      cgraph_varpool_remove_unreferenced_decls ();
+
+      cgraph_varpool_assemble_pending_decls ();
+    }
 
   if (cgraph_dump_file)
     {
@@ -1504,7 +1631,7 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
 				     redirect_callers);
 
   /* Copy the OLD_VERSION_NODE function tree to the new version.  */
-  tree_function_versioning (old_decl, new_decl, tree_map);
+  tree_function_versioning (old_decl, new_decl, tree_map, false);
   /* Update the call_expr on the edges to call the new version node. */
   update_call_expr (new_version_node);
 
@@ -1521,3 +1648,57 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
   new_version_node->lowered = true;
   return new_version_node;
 }
+
+/* Produce separate function body for inline clones so the offline copy can be
+   modified without affecting them.  */
+struct cgraph_node *
+save_inline_function_body (struct cgraph_node *node)
+{
+  struct cgraph_node *first_clone;
+
+  gcc_assert (node == cgraph_node (node->decl));
+
+  cgraph_lower_function (node);
+
+  /* In non-unit-at-a-time we construct full fledged clone we never output to
+     assembly file.  This clone is pointed out by inline_decl of orginal function
+     and inlining infrastructure knows how to deal with this.  */
+  if (!flag_unit_at_a_time)
+    {
+      struct cgraph_edge *e;
+
+      first_clone = cgraph_clone_node (node, node->count, 0, false);
+      first_clone->needed = 0;
+      first_clone->reachable = 1;
+      /* Recursively clone all bodies.  */
+      for (e = first_clone->callees; e; e = e->next_callee)
+	if (!e->inline_failed)
+	  cgraph_clone_inlined_nodes (e, true, false);
+    }
+  else
+    first_clone = node->next_clone;
+
+  first_clone->decl = copy_node (node->decl);
+  node->next_clone = NULL;
+  if (!flag_unit_at_a_time)
+    node->inline_decl = first_clone->decl;
+  first_clone->prev_clone = NULL;
+  cgraph_insert_node_to_hashtable (first_clone);
+  gcc_assert (first_clone == cgraph_node (first_clone->decl));
+
+  /* Copy the OLD_VERSION_NODE function tree to the new version.  */
+  tree_function_versioning (node->decl, first_clone->decl, NULL, true);
+
+  DECL_EXTERNAL (first_clone->decl) = 0;
+  DECL_ONE_ONLY (first_clone->decl) = 0;
+  TREE_PUBLIC (first_clone->decl) = 0;
+  DECL_COMDAT (first_clone->decl) = 0;
+
+  for (node = first_clone->next_clone; node; node = node->next_clone)
+    node->decl = first_clone->decl;
+#ifdef ENABLE_CHECKING
+  verify_cgraph_node (first_clone);
+#endif
+  return first_clone;
+}
+

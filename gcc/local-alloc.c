@@ -339,7 +339,7 @@ alloc_qty (int regno, enum machine_mode mode, int size, int birth)
 
 /* Main entry point of this file.  */
 
-int
+static int
 local_alloc (void)
 {
   int i;

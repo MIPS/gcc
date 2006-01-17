@@ -1462,6 +1462,7 @@ extern rtx emit_note (int);
 extern rtx emit_note_copy (rtx);
 extern rtx emit_line_note (location_t);
 extern rtx make_insn_raw (rtx);
+extern rtx make_jump_insn_raw (rtx);
 extern void add_function_usage_to (rtx, rtx);
 extern rtx last_call_insn (void);
 extern rtx previous_insn (rtx);
@@ -1891,7 +1892,6 @@ extern int rtx_to_tree_code (enum rtx_code);
 /* In cse.c */
 extern int delete_trivially_dead_insns (rtx, int);
 extern int cse_main (rtx, int, FILE *);
-extern void cse_condition_code_reg (void);
 extern int exp_equiv_p (rtx, rtx, int, bool);
 extern unsigned hash_rtx (rtx x, enum machine_mode, int *, int *, bool);
 
@@ -1973,7 +1973,6 @@ extern bool validate_subreg (enum machine_mode, enum machine_mode,
 			     rtx, unsigned int);
 
 /* In combine.c */
-extern int combine_instructions (rtx, unsigned int);
 extern unsigned int extended_count (rtx, enum machine_mode, int);
 extern rtx remove_death (unsigned int, rtx);
 extern void dump_combine_stats (FILE *);
@@ -2002,7 +2001,6 @@ extern void print_inline_rtx (FILE *, rtx, int);
 
 /* In loop.c */
 extern void init_loop (void);
-extern void loop_optimize (rtx, FILE *, int);
 
 /* In bt-load.c */
 extern void branch_target_load_optimize (bool);
@@ -2045,7 +2043,6 @@ extern void gcse_after_reload_main (rtx);
 
 /* In global.c */
 extern void mark_elimination (int, int);
-extern int global_alloc (FILE *);
 extern void dump_global_regs (FILE *);
 #ifdef HARD_CONST
 /* Yes, this ifdef is silly, but HARD_REG_SET is not always defined.  */
@@ -2084,7 +2081,6 @@ extern void dbr_schedule (rtx, FILE *);
 
 /* In local-alloc.c */
 extern void dump_local_alloc (FILE *);
-extern int local_alloc (void);
 
 /* In reload1.c */
 extern int function_invariant_p (rtx);
@@ -2158,9 +2154,6 @@ extern GTY(()) rtx stack_limit_rtx;
 /* In regrename.c */
 extern void regrename_optimize (void);
 extern void copyprop_hardreg_forward (void);
-
-/* In ifcvt.c */
-extern void if_convert (int);
 
 /* In predict.c */
 extern void invert_br_probabilities (rtx);

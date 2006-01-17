@@ -1174,6 +1174,7 @@ free_inv_motion_data (void)
       inv = DF_REF_DATA (ref);
       if (!inv)
 	continue;
+
       def = inv->def;
       gcc_assert (def != NULL);
 

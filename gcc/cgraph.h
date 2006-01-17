@@ -144,6 +144,8 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   gcov_type count;
   /* Unique id of the node.  */
   int uid;
+  /* Ordering of all cgraph nodes.  */
+  int order;
   /* Set when function must be output - it is externally visible
      or its address is taken.  */
   bool needed;
@@ -161,6 +163,11 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool externally_visible;
   /* Set for aliases once they got through assemble_alias.  */
   bool alias;
+
+  /* In non-unit-at-a-time mode the function body of inline candidates is saved
+     into clone before compiling so the function in original form can be
+     inlined later.  This pointer points to the clone.  */
+  tree inline_decl;
 };
 
 struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller")))
@@ -192,6 +199,8 @@ struct cgraph_varpool_node GTY(())
   struct cgraph_varpool_node *next;
   /* Pointer to the next function in cgraph_varpool_nodes_queue.  */
   struct cgraph_varpool_node *next_needed;
+  /* Ordering of all cgraph nodes.  */
+  int order;
 
   /* Set when function must be output - it is externally visible
      or its address is taken.  */
@@ -212,6 +221,18 @@ struct cgraph_varpool_node GTY(())
   bool alias;
 };
 
+/* Every top level asm statement is put into a cgraph_asm_node.  */
+
+struct cgraph_asm_node GTY(())
+{
+  /* Next asm node.  */
+  struct cgraph_asm_node *next;
+  /* String for this asm node.  */
+  tree asm_str;
+  /* Ordering of all cgraph nodes.  */
+  int order;
+};
+
 extern GTY(()) struct cgraph_node *cgraph_nodes;
 extern GTY(()) int cgraph_n_nodes;
 extern GTY(()) int cgraph_max_uid;
@@ -221,10 +242,13 @@ extern GTY(()) struct cgraph_node *cgraph_nodes_queue;
 
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_first_unanalyzed_node;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
+extern GTY(()) struct cgraph_asm_node *cgraph_asm_nodes;
+extern GTY(()) int cgraph_order;
 
 /* In cgraph.c  */
 void dump_cgraph (FILE *);
 void dump_cgraph_node (FILE *, struct cgraph_node *);
+void cgraph_insert_node_to_hashtable (struct cgraph_node *node);
 void dump_varpool (FILE *);
 void dump_cgraph_varpool_node (FILE *, struct cgraph_varpool_node *);
 void cgraph_remove_edge (struct cgraph_edge *);
@@ -251,6 +275,8 @@ struct cgraph_varpool_node *cgraph_varpool_node_for_asm (tree asmname);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 void cgraph_redirect_edge_callee (struct cgraph_edge *, struct cgraph_node *);
+
+struct cgraph_asm_node *cgraph_add_asm_node (tree);
 
 bool cgraph_function_possibly_inlined_p (tree);
 void cgraph_unnest_node (struct cgraph_node *);
@@ -281,6 +307,7 @@ void cgraph_reset_static_var_maps (void);
 void init_cgraph (void);
 struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
                                                 varray_type, varray_type);
+struct cgraph_node *save_inline_function_body (struct cgraph_node *);
 
 /* In ipa.c  */
 bool cgraph_remove_unreachable_nodes (bool, FILE *);

@@ -580,12 +580,12 @@ init_optimization_passes (void)
      we add may_alias right after fold builtins
      which can create arbitrary GIMPLE.  */
   NEXT_PASS (pass_may_alias);
-  NEXT_PASS (pass_cse_reciprocals);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_sink_code);
   NEXT_PASS (pass_tree_loop);
+  NEXT_PASS (pass_cse_reciprocals);
   NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_dominator);
 
@@ -705,6 +705,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_gcse2);
   NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_flow2);
+  NEXT_PASS (pass_rtl_seqabstr);
   NEXT_PASS (pass_stack_adjustments);
   NEXT_PASS (pass_peephole2);
 

@@ -2844,7 +2844,7 @@ set_namespace_binding (tree name, tree scope, tree val)
 void
 set_decl_namespace (tree decl, tree scope, bool friendp)
 {
-  tree old;
+  tree old, fn;
 
   /* Get rid of namespace aliases.  */
   scope = ORIGINAL_NAMESPACE (scope);
@@ -2865,13 +2865,10 @@ set_decl_namespace (tree decl, tree scope, bool friendp)
     }
 
   /* See whether this has been declared in the namespace.  */
-  old = namespace_binding (DECL_NAME (decl), scope);
+  old = lookup_qualified_name (scope, DECL_NAME (decl), false, true);
   if (!old)
     /* No old declaration at all.  */
     goto complain;
-  /* A template can be explicitly specialized in any namespace.  */
-  if (processing_explicit_instantiation)
-    return;
   if (!is_overloaded_fn (decl))
     /* Don't compare non-function decls with decls_match here, since
        it can't check for the correct constness at this
@@ -2880,6 +2877,12 @@ set_decl_namespace (tree decl, tree scope, bool friendp)
   /* Since decl is a function, old should contain a function decl.  */
   if (!is_overloaded_fn (old))
     goto complain;
+  fn = OVL_CURRENT (old);
+  if (!is_associated_namespace (scope, CP_DECL_CONTEXT (fn)))
+    goto complain;
+  /* A template can be explicitly specialized in any namespace.  */
+  if (processing_explicit_instantiation)
+    return;
   if (processing_template_decl || processing_specialization)
     /* We have not yet called push_template_decl to turn a
        FUNCTION_DECL into a TEMPLATE_DECL, so the declarations won't
@@ -3516,84 +3519,6 @@ remove_hidden_names (tree fns)
     }
 
   return fns;
-}
-
-/* Look up NAME in the NAMESPACE.  */
-
-tree
-lookup_namespace_name (tree namespace, tree name)
-{
-  tree val;
-  tree template_id = NULL_TREE;
-  struct scope_binding binding = EMPTY_SCOPE_BINDING;
-
-  timevar_push (TV_NAME_LOOKUP);
-  gcc_assert (TREE_CODE (namespace) == NAMESPACE_DECL);
-
-  if (TREE_CODE (name) == NAMESPACE_DECL)
-    /* This happens for A::B<int> when B is a namespace.  */
-    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, name);
-  else if (TREE_CODE (name) == TEMPLATE_DECL)
-    {
-      /* This happens for A::B where B is a template, and there are no
-	 template arguments.  */
-      error ("invalid use of %qD", name);
-      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
-    }
-
-  namespace = ORIGINAL_NAMESPACE (namespace);
-
-  if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
-    {
-      template_id = name;
-      name = TREE_OPERAND (name, 0);
-      if (TREE_CODE (name) == OVERLOAD)
-	name = DECL_NAME (OVL_CURRENT (name));
-      else if (DECL_P (name))
-	name = DECL_NAME (name);
-    }
-
-  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
-
-  if (!qualified_lookup_using_namespace (name, namespace, &binding, 0))
-    POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
-
-  if (binding.value)
-    {
-      val = binding.value;
-
-      if (template_id)
-	{
-	  if (DECL_CLASS_TEMPLATE_P (val))
-	    val = lookup_template_class (val,
-					 TREE_OPERAND (template_id, 1),
-					 /*in_decl=*/NULL_TREE,
-					 /*context=*/NULL_TREE,
-					 /*entering_scope=*/0,
-					 tf_error | tf_warning);
-	  else if (DECL_FUNCTION_TEMPLATE_P (val)
-		   || TREE_CODE (val) == OVERLOAD)
-	    val = lookup_template_function (val,
-					    TREE_OPERAND (template_id, 1));
-	  else
-	    {
-	      error ("%<%D::%D%> is not a template", namespace, name);
-	      POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
-	    }
-	}
-
-      /* If we have a single function from a using decl, pull it out.  */
-      if (TREE_CODE (val) == OVERLOAD && ! really_overloaded_fn (val))
-	val = OVL_FUNCTION (val);
-
-      /* Ignore built-in functions and friends that haven't been declared
-	 yet.  */
-      if (!val || !hidden_name_p (val))
-	POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, val);
-    }
-
-  error ("%qD undeclared in namespace %qD", name, namespace);
-  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 }
 
 /* Select the right _DECL from multiple choices.  */
