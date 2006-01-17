@@ -1,3 +1,12 @@
+2006-01-17  Ian Lance Taylor <ian@airs.com>
+	
+	* combine.c (combine_instructions): Pass instruction
+        to note_stores and set_nonzero_bits_and_sign_copies.
+	(set_nonzero_bits_and_sign_copies): We can't assume
+        anything about non-zero bits for registers initialized with
+	themselves if the register is not live on entry to the block.
+
+
 2005-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	PR dataflow/25799

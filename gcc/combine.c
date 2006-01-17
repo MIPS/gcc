@@ -708,14 +708,14 @@ combine_instructions (rtx f, unsigned int nregs)
       if (INSN_P (insn))
 	{
 	  note_stores (PATTERN (insn), set_nonzero_bits_and_sign_copies,
-		       NULL);
+		       insn);
 	  record_dead_and_set_regs (insn);
 
 #ifdef AUTO_INC_DEC
 	  for (links = REG_NOTES (insn); links; links = XEXP (links, 1))
 	    if (REG_NOTE_KIND (links) == REG_INC)
 	      set_nonzero_bits_and_sign_copies (XEXP (links, 0), NULL_RTX,
-						NULL);
+						insn);
 #endif
 
 	  /* Record the current insn_rtx_cost of this instruction.  */
@@ -977,9 +977,9 @@ setup_incoming_promotions (void)
    by any set of X.  */
 
 static void
-set_nonzero_bits_and_sign_copies (rtx x, rtx set,
-				  void *data ATTRIBUTE_UNUSED)
+set_nonzero_bits_and_sign_copies (rtx x, rtx set, void *data)
 {
+  rtx insn = (rtx) data;
   unsigned int num;
 
   if (REG_P (x)
@@ -995,6 +995,40 @@ set_nonzero_bits_and_sign_copies (rtx x, rtx set,
 	  reg_stat[REGNO (x)].nonzero_bits = GET_MODE_MASK (GET_MODE (x));
 	  reg_stat[REGNO (x)].sign_bit_copies = 1;
 	  return;
+	}
+
+      /* If this register is being initialized using itself, and the
+	 register is uninitialized in this basic block, and there are
+	 no LOG_LINKS which set the register, then part of the
+	 register is uninitialized.  In that case we can't assume
+	 anything about the number of nonzero bits.
+
+	 ??? We could do better if we checked this in
+	 reg_{nonzero_bits,num_sign_bit_copies}_for_combine.  Then we
+	 could avoid making assumptions about the insn which initially
+	 sets the register, while still using the information in other
+	 insns.  We would have to be careful to check every insn
+	 involved in the combination.  */
+
+      if (insn
+	  && reg_referenced_p (x, PATTERN (insn))
+	  && !REGNO_REG_SET_P (DF_LIVE_IN (rtl_df,
+					   BLOCK_FOR_INSN (insn)),
+			       REGNO (x)))
+	{
+	  rtx link;
+
+	  for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
+	    {
+	      if (dead_or_set_p (XEXP (link, 0), x))
+		break;
+	    }
+	  if (!link)
+	    {
+	      reg_stat[REGNO (x)].nonzero_bits = GET_MODE_MASK (GET_MODE (x));
+	      reg_stat[REGNO (x)].sign_bit_copies = 1;
+	      return;
+	    }
 	}
 
       /* If this is a complex assignment, see if we can convert it into a
