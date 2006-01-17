@@ -1,3 +1,204 @@
+2006-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/25682
+	* decl.c (compute_array_index_type): After issuing not an integral
+	constant-expression error, set size to 1 to avoid ICEs later on.
+
+2006-01-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25663
+	* parser.c (cp_parser_direct_declarator): Use cp_parser_error
+	instead of error.
+
+2006-01-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/24824
+	* class.c (handle_using_decl): Pass correct scope to
+	cp_emit_debug_info_for_using.
+
+2006-01-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/25386
+	* tree.c (lvalue_p_1): Any part of a COMPONENT_REF affects
+	packedness.
+
+2005-01-04  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR c++/25632
+	* init.c (constant_value_1): Unshare use of DECL_INITIAL.  Fix a typo
+	in condition.
+
+2006-01-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24782
+	* parser.c (cp_parser_nested_name_specifier_opt): Preserve access
+	checks, even when parsing tentatively.
+
+2006-01-03  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25492
+	* name-lookup.c (push_class_level_binding): When a derived class
+	provides a type binding, eliminate any type binding from a base
+	class. 
+
+	PR c++/25625
+	* repo.c (repo_emit_p): Always instantiate static data members
+	initialized by constant expressions, so that there values are
+	available.
+
+2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25635
+	* class.c (add_method): Set TYPE_HAS_CONVERSION for classes with a
+	conversion operator.
+	* decl.c (grokdeclarator): Do not set TYPE_HAS_CONVERSION here.
+
+	PR c++/25638
+	* class.c (add_method): Never associate more than one destructor
+	with a single class.
+
+	PR c++/25637
+	* decl.c (grokdeclarator): Refine check for invalid
+	declarations/definitions of member functions outside of their own
+	class.
+
+	PR c++/25633
+	* parser.c (cp_parser_mem_initializer_list): Check result of
+	cp_parser_mem_initializer against error_mark_node, not NULL_TREE.
+	(cp_parser_mem_initializer): Return error_mark_node for failure.
+
+	PR c++/25634
+	* parser.c (cp_parser_elaborated_type_specifier): Call
+	cp_parser_check_template_parameters.
+
+2006-01-02  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* parser.c (cp_parser_using_declaration): Skip name-lookup on
+	invalid scope.
+
+2006-01-02  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* decl.c (grokdeclarator): Improve diagnostic for friend
+	declarations of class members.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23171, c++/23172, c++/25417.
+	* typeck.c (build_unary_op): Create temporary variables for
+	compound literals whose addresses are taken.
+	* init.c (expand_aggr_init_1): Use COMPOUND_LITERAL_P.
+	* decl.c (reshape_init_vector): Likewise.
+	(reshape_init): Give it external linkage.
+	(check_initializer): Use COMPOUND_LITERAL_P.
+	(initialize_artificial_var): Allow the initializer to be a
+	CONSTRUCTOR.
+	* call.c (make_temporary_var_for_ref_to_temp): Use
+	create_temporary_var.
+	* cp-tree.h (COMPOUND_LITERAL_P): New macro.
+	(rehape_init): Declare.
+	* typeck2.c (digest_init): Use COMPOUND_LITERAL_P.
+	* semantics.c (finish_compound_literal): Use reshape_init.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25439
+	* decl.c (grokdeclarator): Remove dead code.
+	* ptree.c (cxx_print_xnode): Handle BASELINK.
+	* parser.c (make_id_declarator): Add sfk parameter.  
+	(cp_parser_direct_declarator): Do not pass TYPE_DECLs to
+	make_id_declarator.
+	(cp_parser_declarator_id): Simplify BASELINKs here.
+	(cp_parser_member_declaration): Adjust calls to
+	make_id_declarator.
+
+2005-12-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24671
+	* pt.c (instantiate_template): Handle SFINAE.
+
+2005-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25369
+	* pt.c (tsubst_copy): Call mark_used on the member referenced by an
+	OFFSET_REF.
+	* decl2.c (mark_used): Accept BASELINKs.
+
+2005-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25364
+	* semantics.c (finish_qualified_id_expr): Call mark_used.
+
+2005-12-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/21228
+	* decl.c (use_eh_spec_block): New function.
+	(store_parm_decls): Use it.
+	(finish_function): Likewise.
+	
+2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24278
+	* init.c (expand_member_init): Print messages about baseclasses
+	using %T rather than %D.
+
+2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24915
+	* class.c (add_method): Do not treat templates as identical unless
+	their return types are the same.
+
+2005-12-13  Petr Machata  <machata@post.cz>
+
+	PR c++/24907
+	* parser.c (cp_parser_simple_declaration): Require comma at the
+	beginning of processing second and later declarators, instead of
+	allowing the comma at the end of each iteration.
+
+2005-12-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25300
+	* tree.c (build_qualified_name): Return error_mark_node for
+	erroneous input.
+
+2005-12-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25337 
+	* pt.c (tsubst_copy_and_build): Permit dependent types for the
+	object in a class member access expression.
+
+2005-12-08  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2005-11-24  Richard Guenther  <rguenther@suse.de>
+		Dirk Mueller <dmueller@suse.de>
+
+	PR c++/14024
+	* typeck.c (build_reinterpret_cast_1): Use
+	strict_aliasing_warning.
+
+2005-12-07  Aldy Hernandez  <aldyh@redhat.com>
+
+       PR C++/24138
+        * decl.c (reshape_init_array_1): Handle max_index of -1.
+
+2005-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24173
+	* decl.c (duplicate_decls): Don't rely on DECL_TEMPLATE_INFO after
+	clobbering newdecl.
+
+2005-11-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21123
+	* cp-gimplify.c (cp_genericize_r): Don't dereference invisible 
+	reference parms in a thunk.
+
+2005-11-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21166
+	* class.c (check_field_decls): Only set DECL_PACKED on a field
+	when its natural alignment is > BITS_PER_UNIT.
+
 2005-11-21  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	PR c++/22238

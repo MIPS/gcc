@@ -114,8 +114,15 @@ unformatted_backspace (st_parameter_filepos *fpp, gfc_unit *u)
   if (p == NULL)
     goto io_error;
 
-  memcpy (&m, p, sizeof (gfc_offset));
-  new = file_position (u->s) - m - 2*length;
+  /* Only CONVERT_NATIVE and CONVERT_SWAP are valid here.  */
+  if (u->flags.convert == CONVERT_NATIVE)
+    memcpy (&m, p, sizeof (gfc_offset));
+  else
+    reverse_memcpy (&m, p, sizeof (gfc_offset));
+
+  if ((new = file_position (u->s) - m - 2*length) < 0)
+    new = 0;
+
   if (sseek (u->s, new) == FAILURE)
     goto io_error;
 
@@ -174,6 +181,7 @@ st_backspace (st_parameter_filepos *fpp)
 
       u->endfile = NO_ENDFILE;
       u->current_record = 0;
+      u->bytes_left = 0;
     }
 
  done:
@@ -250,6 +258,7 @@ st_rewind (st_parameter_filepos *fpp)
 
 	  u->endfile = NO_ENDFILE;
 	  u->current_record = 0;
+	  u->bytes_left = 0;
 	  test_endfile (u);
 	}
       /* Update position for INQUIRE.  */

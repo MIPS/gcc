@@ -1194,9 +1194,11 @@ integer_all_onesp (tree expr)
     return 0;
 
   uns = TYPE_UNSIGNED (TREE_TYPE (expr));
+  if (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
+      && TREE_INT_CST_HIGH (expr) == -1)
+    return 1;
   if (!uns)
-    return (TREE_INT_CST_LOW (expr) == ~(unsigned HOST_WIDE_INT) 0
-	    && TREE_INT_CST_HIGH (expr) == -1);
+    return 0;
 
   /* Note that using TYPE_PRECISION here is wrong.  We care about the
      actual bits, not the (arbitrary) range of the type.  */
@@ -5904,7 +5906,26 @@ get_file_function_name_long (const char *type)
   char *q;
 
   if (first_global_object_name)
-    p = first_global_object_name;
+    {
+      p = first_global_object_name;
+
+      /* For type 'F', the generated name must be unique not only to this
+	 translation unit but also to any given link.  Since global names
+	 can be overloaded, we concatenate the first global object name
+	 with a string derived from the file name of this object.  */
+      if (!strcmp (type, "F"))
+	{
+	  const char *file = main_input_filename;
+
+	  if (! file)
+	    file = input_filename;
+
+	  q = alloca (strlen (p) + 10);
+	  sprintf (q, "%s_%08X", p, crc32_string (0, file));
+
+	  p = q;
+	}
+    }
   else
     {
       /* We don't have anything that we know to be unique to this translation

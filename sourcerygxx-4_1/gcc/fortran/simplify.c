@@ -1,6 +1,6 @@
 /* Simplify intrinsic functions at compile-time.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+   Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -662,7 +662,7 @@ gfc_simplify_char (gfc_expr * e, gfc_expr * k)
   if (e->expr_type != EXPR_CONSTANT)
     return NULL;
 
-  if (gfc_extract_int (e, &c) != NULL || c < 0 || c > 255)
+  if (gfc_extract_int (e, &c) != NULL || c < 0 || c > UCHAR_MAX)
     {
       gfc_error ("Bad character in CHAR function at %L", &e->where);
       return &gfc_bad_expr;
@@ -920,11 +920,13 @@ gfc_expr *
 gfc_simplify_dim (gfc_expr * x, gfc_expr * y)
 {
   gfc_expr *result;
+  int kind;
 
   if (x->expr_type != EXPR_CONSTANT || y->expr_type != EXPR_CONSTANT)
     return NULL;
 
-  result = gfc_constant_result (x->ts.type, x->ts.kind, &x->where);
+  kind = x->ts.kind > y->ts.kind ? x->ts.kind : y->ts.kind;
+  result = gfc_constant_result (x->ts.type, kind, &x->where);
 
   switch (x->ts.type)
     {
@@ -1346,6 +1348,9 @@ gfc_simplify_ibset (gfc_expr * x, gfc_expr * y)
   result = gfc_copy_expr (x);
 
   mpz_setbit (result->value.integer, pos);
+
+  twos_complement (result->value.integer, gfc_integer_kinds[k].bit_size);
+
   return range_check (result, "IBSET");
 }
 
@@ -1365,9 +1370,9 @@ gfc_simplify_ichar (gfc_expr * e)
       return &gfc_bad_expr;
     }
 
-  index = (int) e->value.character.string[0];
+  index = (unsigned char) e->value.character.string[0];
 
-  if (index < CHAR_MIN || index > CHAR_MAX)
+  if (index < 0 || index > UCHAR_MAX)
     {
       gfc_error ("Argument of ICHAR at %L out of range of this processor",
 		 &e->where);
@@ -2250,11 +2255,13 @@ gfc_simplify_mod (gfc_expr * a, gfc_expr * p)
 {
   gfc_expr *result;
   mpfr_t quot, iquot, term;
+  int kind;
 
   if (a->expr_type != EXPR_CONSTANT || p->expr_type != EXPR_CONSTANT)
     return NULL;
 
-  result = gfc_constant_result (a->ts.type, a->ts.kind, &a->where);
+  kind = a->ts.kind > p->ts.kind ? a->ts.kind : p->ts.kind;
+  result = gfc_constant_result (a->ts.type, kind, &a->where);
 
   switch (a->ts.type)
     {
@@ -2278,7 +2285,7 @@ gfc_simplify_mod (gfc_expr * a, gfc_expr * p)
 	  return &gfc_bad_expr;
 	}
 
-      gfc_set_model_kind (a->ts.kind);
+      gfc_set_model_kind (kind);
       mpfr_init (quot);
       mpfr_init (iquot);
       mpfr_init (term);
@@ -2306,11 +2313,13 @@ gfc_simplify_modulo (gfc_expr * a, gfc_expr * p)
 {
   gfc_expr *result;
   mpfr_t quot, iquot, term;
+  int kind;
 
   if (a->expr_type != EXPR_CONSTANT || p->expr_type != EXPR_CONSTANT)
     return NULL;
 
-  result = gfc_constant_result (a->ts.type, a->ts.kind, &a->where);
+  kind = a->ts.kind > p->ts.kind ? a->ts.kind : p->ts.kind;
+  result = gfc_constant_result (a->ts.type, kind, &a->where);
 
   switch (a->ts.type)
     {
@@ -2336,7 +2345,7 @@ gfc_simplify_modulo (gfc_expr * a, gfc_expr * p)
 	  return &gfc_bad_expr;
 	}
 
-      gfc_set_model_kind (a->ts.kind);
+      gfc_set_model_kind (kind);
       mpfr_init (quot);
       mpfr_init (iquot);
       mpfr_init (term);
@@ -2507,6 +2516,8 @@ gfc_simplify_not (gfc_expr * e)
 
   mpz_and (result->value.integer, result->value.integer,
 	   gfc_integer_kinds[i].max_int);
+
+  twos_complement (result->value.integer, gfc_integer_kinds[i].bit_size);
 
   return range_check (result, "NOT");
 }

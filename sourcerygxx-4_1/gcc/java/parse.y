@@ -9584,8 +9584,15 @@ resolve_expression_name (tree id, tree *orig)
 
 	      /* If we're processing an inner class and we're trying
 		 to access a field belonging to an outer class, build
-		 the access to the field.  */
-	      if (nested_member_access_p (current_class, decl))
+		 the access to the field.
+		 As usual, we have to treat initialized static final
+		 variables as a special case.  */
+              if (nested_member_access_p (current_class, decl)
+                  && ! (JDECL_P (decl) && CLASS_FINAL_VARIABLE_P (decl)
+                        && DECL_INITIAL (decl) != NULL_TREE
+			&& (JSTRING_TYPE_P (TREE_TYPE (decl))
+			    || JNUMERIC_TYPE_P (TREE_TYPE (decl)))
+			&& TREE_CONSTANT (DECL_INITIAL (decl))))
 		{
 		  if (!fs && CLASS_STATIC (TYPE_NAME (current_class)))
 		    {
@@ -11204,6 +11211,17 @@ lookup_method_invoke (int lc, tree cl, tree class, tree name, tree arg_list)
       /* And promoted */
       if (TREE_CODE (current_arg) == RECORD_TYPE)
         current_arg = promote_type (current_arg);
+      /* If we're building an anonymous constructor call, and one of
+	 the arguments has array type, cast it to a size-less array
+	 type.  This prevents us from getting a strange gcj-specific
+	 "sized array" signature in the constructor's signature.  */
+      if (lc && ANONYMOUS_CLASS_P (class)
+	  && TREE_CODE (current_arg) == POINTER_TYPE
+	  && TYPE_ARRAY_P (TREE_TYPE (current_arg)))
+	{
+	  tree elt = TYPE_ARRAY_ELEMENT (TREE_TYPE (current_arg));
+	  current_arg = build_pointer_type (build_java_array_type (elt, -1));
+	}
       atl = tree_cons (NULL_TREE, current_arg, atl);
     }
 

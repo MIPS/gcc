@@ -649,6 +649,7 @@ extern void binary_op_error (enum tree_code);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
+extern void strict_aliasing_warning(tree, tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
@@ -676,6 +677,8 @@ extern void c_common_nodes_and_builtins (void);
 extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
 
 extern void disable_builtin_function (const char *);
+
+extern void set_compound_literal_name (tree decl);
 
 extern tree build_va_arg (tree, tree);
 

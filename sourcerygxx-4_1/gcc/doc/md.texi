@@ -1858,7 +1858,7 @@ Constant suitable as a 32-bit mask operand
 System V Release 4 small data area reference
 @end table
 
-@item MorphoRISC family---@file{ms1.h}
+@item MorphoTech family---@file{mt.h}
 @table @code
 @item I
 Constant for an arithmetic insn (16-bit signed integer).
@@ -4204,7 +4204,7 @@ These patterns emit code for an atomic operation on memory.
 Operand 0 is the memory on which the atomic operation is performed.
 Operand 1 is the second operand to the binary operator.
 
-The ``nand'' operation is @code{op0 & ~op1}.
+The ``nand'' operation is @code{~op0 & op1}.
 
 This pattern must issue any memory barrier instructions such that all
 memory operations before the atomic operation occur before the atomic

@@ -1,6 +1,173 @@
+2006-01-16  Roger Sayle  <roger@eyesopen.com>
+
+	* intrinsics/c99_functions.c: Add function prototypes to avoid
+	warnings from -Wstrict-prototypes -Wmissing-prototypes.  On Tru64
+	work around a brain-dead libm by redirecting calls to cabs{,f,l}
+	to a local __gfc_cabs{,f,l}.
+
+2006-01-11  Janne Blomqvist  <jb@gcc.gnu.org>
+
+        * configure.ac: Remove check for sys/mman.h.
+        * configure: Regenerated.
+        * Makefile.in: Regenerated.
+        * config.h.in: Regenerated.
+        * aclocal.m4: Regenerated.
+
+2006-01-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25598
+	* io/file_pos.c (unformatted_backspace): Assure the new file position
+	to seek is not less than zero.
+	(st_backspace): Set unit bytes_left to zero.
+	* io/transfer.c (next_record_r): Fix line lengths, no functional change.
+
+2005-12-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25594
+	PR libgfortran/25419
+	* io/list_read.c (list_formatted_read_scalar): Test for comma to return
+	a null value (default). Revert patch of 25419 on 2005-12-28.
+
+2005-12-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25550
+	* io/file_pos.c (st_rewind): Reset bytes left so no error occurs in
+	next_record_r.
+
+2005-12-31  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25139
+	* io/unix.c (fd_truncate): Set s->active to zero.
+	PR libgfortran/25510
+	* libgfortran.h: Add ERROR_INTERNAL and ERROR_INTERNAL_UNIT.
+	* runtime/error.c (translate_error): Add messages for new errors.
+	* io/list_read.c (next_char): Use new errors.
+	* io/transfer.c (next_record_r) (next_record_w): Use new errors.
+
+2005-12-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25307
+	* io/list_read.c (next_char): Handle end-of-file conditions for
+	internal units and add support for internal character array units.
+
+2005-12-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25463
+	* io/transfer.c (finalize_transfer): Fix execution order so that
+	next_record is set to zero in all cases.
+
+2005-12-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25264
+	PR libgfortran/25349
+	* io/unit.c (get_unit): Delete code that cleared the string when the
+	unit was opened, which is too soon.
+	* io/transfer.c (next_record_w): Pass done flag in.  Change logic for
+	setting max_pos.  Add code to position unit and pad record as needed.
+
+2005-12-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25039
+	* io/io.h: Create a new flag sf_read_comma to control comma
+	separators in numeric reads.
+	* io/transfer.c (formatted_transfer_scalar): Initialize the flag.
+	(read_sf): Check for commas coming in and if the flag is set,
+	shortcut the read.
+	* io/read.c (read_a) (read_x): Clear the flag for character reads and
+	reset it after the reads.
+
+2005-12-13  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/23815
+	* io/file_pos.c (unformatted_backspace):  If flags.convert
+	does not equal CONVERT_NATIVE, reverse the record marker.
+	* io/open.c:  Add convert_opt[].
+	(st_open):  If no convert option is given, set CONVERT_NATIVE.
+	If CONVERT_BIG or CONVERT_LITTLE are given, set flags.convert to
+	CONVERT_NATIVE or CONVERT_SWAP (depending on wether we have
+	a big- or little-endian system).
+	* io/transfer.c (unformatted_read):  Remove unused attribute
+	from arguments.
+	If we need to reverse
+	bytes, break up large transfers into a loop.  Split complex
+	numbers into its two parts.
+	(unformatted_write):  Likewise.
+	(us_read):  If flags.convert does not equal CONVERT_NATIVE,
+	reverse the record marker.
+	(next_record_w): Likewise.
+	(reverse_memcpy):  New function.
+	* io/inquire.c (inquire_via_unit):  Implement convert.
+	* io/io.h (top level):  Add enum unit_convert.
+	Add convert to st_parameter_open and st_parameter_inquire.
+	Define IOPARM_OPEN_HAS_CONVERT and IOPARM_INQUIRE_HAS_CONVERT.
+	Increase padding for st_parameter_dt.
+	Declare reverse_memcpy().
+
+2005-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libfortran/24991
+	* acinclude.m4: Include acx.m4 and no-executables.m4.
+	* configure.ac: Add GCC_TOPLEVEL_SUBDIRS.
+	* configure: Rebuilt.
+	* Makefile.am (AM_CPPFLAGS): Use $(host_subdir) in build dir
+	path.
+	* Makefile.in: Rebuilt.
+
+2005-12-09  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/25116
+	* io/transfer.c (data_transfer_init): Don't set the default for
+	namelist I/O on preconnected files to UNFORMATTED.
+
+2005-12-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/format.c: Removing unused code.
+	* intrinsics/random.c: Likewise.
+
+2005-12-02  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24919
+	* io/list_read.c (eat_separator, finish_separator,
+	read_character): Handle CRLF separators correctly during reads.
+	(nml_query): Use the HAVE_CRLF macro to print adequate newlines.
+	* io/io.h (st_parameter_dt): Add comment about the possible
+	values for sf_seen_eor.
+	* io/unix.c (tempfile, regular_file): HAVE_CRLF doesn't imply
+	that O_BINARY is defined, so we add that condition.
+	(stream_at_bof): Fix typo in comment.
+	* io/transfer.c (read_sf): Handle correctly CRLF, setting
+	sf_seen_eor value to 2 instead of 1.
+	(formatted_transfer_scalar): Use the sf_seen_eor value to
+	handle CRLF the right way.
+	* io/write.c (nml_write_obj, namelist_write): Use CRLF as newline
+	when HAVE_CRLF is defined.
+
+2005-12-01  Steven G. Kargl  <kargls@comcast.net>
+
+	PR libgfortran/25149
+	* intrinsics/abort.c: Add external abort_ to allow linking when 
+	invoking -std=f95 in testsuite.
+
+2005-11-30  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* libgfortran.h (ILP32 typedefs): Define _UINT8_T, _UINT32_T and
+	_UINT64_T on Solaris.
+
+2005-11-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25109
+	* io/unit.c (init_units): Set default flag to BLANK_NULL per
+	requirement of F95 standard.  Set PAD_YES for stdin.
+
+2005-11-29  David Edelsohn  <edelsohn@gnu.org>
+
+	* intrinsics/random.c: Include config.h
+	* io/size_from_kind.c: Include config.h and libgfortran.h
+	* io/io.h: Revert 2005-11-25 change.
+
 2005-11-28  Jakub Jelinek  <jakub@redhat.com>
 
-	libfortran/24991
+	PR libfortran/24991
 	* acinclude.m4 (LIBGFOR_CHECK_PRAGMA_WEAK): Rename to...
 	(LIBGFOR_GTHREAD_WEAK): ... this.  Define SUPPORTS_WEAK rather
 	than HAVE_PRAGMA_WEAK.  Define GTHREAD_USE_WEAK to 0 on hosts

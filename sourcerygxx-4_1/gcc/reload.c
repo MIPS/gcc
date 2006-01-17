@@ -2937,11 +2937,15 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	  int constmemok = 0;
 	  int earlyclobber = 0;
 
+#ifndef KEEP_UNARY_OPERATORS_AT_CONSTRAINT_CHECKING
+	  /* See comment at similar #ifndef in recog.c.  */
+
 	  /* If the predicate accepts a unary operator, it means that
 	     we need to reload the operand, but do not do this for
 	     match_operator and friends.  */
 	  if (UNARY_P (operand) && *p != 0)
 	    operand = XEXP (operand, 0);
+#endif
 
 	  /* If the operand is a SUBREG, extract
 	     the REG or MEM (or maybe even a constant) within.
@@ -5966,7 +5970,7 @@ find_reloads_subreg_address (rtx x, int force_replace, int opnum,
 	      /* If this was a paradoxical subreg that we replaced, the
 		 resulting memory must be sufficiently aligned to allow
 		 us to widen the mode of the memory.  */
-	      if (outer_size > inner_size && STRICT_ALIGNMENT)
+	      if (outer_size > inner_size)
 		{
 		  rtx base;
 
@@ -6278,7 +6282,8 @@ refers_to_regno_for_reload_p (unsigned int regno, unsigned int endregno,
 						 reg_equiv_memory_loc[r],
 						 (rtx*) 0);
 
-	  gcc_assert (reg_equiv_constant[r]);
+	  gcc_assert (reg_equiv_constant[r]
+		      || (reg_equiv_invariant[r] && reg_equiv_init[r]));
 	  return 0;
 	}
 

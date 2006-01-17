@@ -1,6 +1,6 @@
 /* Main parser.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, 
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -309,7 +309,7 @@ static gfc_statement
 next_free (void)
 {
   match m;
-  int c, d;
+  int c, d, cnt;
 
   gfc_gobble_whitespace ();
 
@@ -318,29 +318,30 @@ next_free (void)
   if (ISDIGIT (c))
     {
       /* Found a statement label?  */
-      m = gfc_match_st_label (&gfc_statement_label, 0);
+      m = gfc_match_st_label (&gfc_statement_label);
 
       d = gfc_peek_char ();
       if (m != MATCH_YES || !gfc_is_whitespace (d))
 	{
+	  gfc_match_small_literal_int (&c, &cnt);
+
+	  if (cnt > 5)
+	    gfc_error_now ("Too many digits in statement label at %C");
+	  
+	  if (c == 0)
+	    gfc_error_now ("Statement label at %C is zero");
+
 	  do
-	    {
-	      /* Skip the bad statement label.  */
-	      gfc_warning_now ("Ignoring bad statement label at %C");
-	      c = gfc_next_char ();
-	    }
-	  while (ISDIGIT (c));
+	    c = gfc_next_char ();
+	  while (ISDIGIT(c));
+
+	  if (!gfc_is_whitespace (c))
+	    gfc_error_now ("Non-numeric character in statement label at %C");
+
 	}
       else
 	{
 	  label_locus = gfc_current_locus;
-
-	  if (gfc_statement_label->value == 0)
-	    {
-	      gfc_warning_now ("Ignoring statement label of zero at %C");
-	      gfc_free_st_label (gfc_statement_label);
-	      gfc_statement_label = NULL;
-	    }
 
 	  gfc_gobble_whitespace ();
 
@@ -1671,7 +1672,7 @@ parse_where_block (void)
 
 	case ST_WHERE_BLOCK:
 	  parse_where_block ();
-	  /* Fall through */
+          break;
 
 	case ST_ASSIGNMENT:
 	case ST_WHERE:
