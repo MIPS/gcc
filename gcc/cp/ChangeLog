@@ -1,3 +1,21 @@
+2006-01-17  Kazu Hirata  <kazu@codesourcery.com>
+
+	* name-lookup.c (lookup_namespace_name): Remove.
+	* name-lookup.h: Remove the prototype for
+	lookup_namespace_name.
+
+2006-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/25682
+	* decl.c (compute_array_index_type): After issuing not an integral
+	constant-expression error, set size to 1 to avoid ICEs later on.
+
+2006-01-16  Ian Lance Taylor  <ian@airs.com>
+
+	* parser.c: Include "cgraph.h".
+	(cp_parser_asm_definition): Call cgraph_add_asm_node rather than
+	assemble_asm.
+
 2006-01-16  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
 
 	* g++spec.c (lang_specific_spec_functions): Remove.
@@ -43,7 +61,7 @@
 	* parser.c (cp_parser_primary_expression): Document the grammar
 	for the built-in offsetof, a GNU extension.
 
-2005-01-04  Zdenek Dvorak <dvorakz@suse.cz>
+2006-01-04  Zdenek Dvorak <dvorakz@suse.cz>
 
 	PR c++/25632
 	* init.c (constant_value_1): Unshare use of DECL_INITIAL.  Fix a typo

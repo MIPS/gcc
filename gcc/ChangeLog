@@ -1,3 +1,52 @@
+2006-01-18  Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Reject
+	decimal float modes for all floating point registers.
+
+	* config/rs6000/predicates.md (reg_or_mem_operand): Pair up
+	match_code "mem" with match_test "macho_lo_sum_memory_operand".
+
+2006-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/25682
+	* c-typeck.c (build_unary_op): Fold offsetof-like expressions
+	even when the pointer is not NULL.
+
+2006-01-16  Ian Lance Taylor  <ian@airs.com>
+
+	* common.opt (ftoplevel-reorder): New option.
+	* cgraph.c (cgraph_asm_nodes): New global variable.
+	(cgraph_asm_last_node): New static variable.
+	(cgraph_order): New global variable.
+	(cgraph_create_node): Set new order field.
+	(cgraph_varpool_node): Likewise.
+	(decide_is_variable_needed): Return true if not
+	flag_toplevel_reorder.
+	(cgraph_add_asm_node): New function.
+	* cgraph.h (struct cgraph_node): Add order field.
+	(struct cgraph_varpool_node): Add order field.
+	(struct cgraph_asm_node): Define.
+	(cgraph_asm_nodes, cgraph_order): Declare.
+	(cgraph_add_asm_node): Declare.
+	* cgraphunit.c (cgraph_varpool_assemble_decl): New static
+	function.
+	(cgraph_varpool_assemble_pending_decls): Call it.
+	(cgraph_output_pending_asms): New static function.
+	(cgraph_finalize_compilation_unit): Call it.
+	(struct cgraph_order_sort): Define.
+	(cgraph_output_in_order): New static function.
+	(cgraph_optimize): Call cgraph_output_pending_asms.  Add code for
+	!flag_toplevel_reorder case.
+	* c-parser.c: Include "cgraph.h".
+	(c_parser_asm_definition): Call cgraph_add_asm_node rather than
+	assemble_asm.
+	* Makefile.in (CRTSTUFF_CFLAGS): Use -fno-toplevel-reorder rather
+	than -fno-unit-at-a-time.
+	* doc/invoke.texi (Option Summary): Mention
+	-fno-toplevel-reorder.
+	(Optimize Options): Document -fno-toplevel-reorder.  Mention it in
+	-funit-at-a-time documentation.
+
 2006-01-17  Hans-Peter Nilsson  <hp@axis.com>
 	    Kazu Hirata  <kazu@codesourcery.com>
 
@@ -120,9 +169,9 @@
 	* config/m68k/m68k.c (output_move_const_into_data_reg):
 	Output correct mnemonic for mvz and mvs.
 
-2006-01-16  Gabor Loki <loki@gcc.gnu.org>
+2006-01-16  Gabor Loki  <loki@gcc.gnu.org>
 
-	* rtl-factoring.c : Add sequence abstraction algorithm.
+	* rtl-factoring.c: Add sequence abstraction algorithm.
 	* cfgcleanup.c (outgoing_edges_match): Extra checks.
 	(try_crossjump_to_edge): Avoid deleting preserve label when redirecting
 	ABNORMAL edges.
