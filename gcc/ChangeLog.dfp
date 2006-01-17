@@ -1,3 +1,9 @@
+2006-01-16  Ben Elliston  <bje@au.ibm.com>
+
+	* config/rs6000/predicates.md (reg_or_mem_operand): Pair up
+	match_code "mem" with match_test "macho_lo_sum_memory_operand" so
+	that subreg'ed mem expressions are not rejected by this predicate.
+
 2006-01-12  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/t-linux (TARGET_LIBGCC2_CFLAGS): Remove.
