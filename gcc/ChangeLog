@@ -1,3 +1,126 @@
+2006-01-16  Kazu Hirata  <kazu@codesourcery.com>
+
+	* ifcvt.c (if_convert): Make it static.
+	* rtl.h: Remove the prototype for if_convert.
+
+	* local-alloc.c (local_alloc): Make it static.
+	* rtl.h: Remove the prototype for local_alloc.
+
+	* loop.c (loop_optimize): Make it static.
+	* cfgloop.h: Remove the prototype for loop_optimize.
+	* rtl.h: Likewise.
+
+2006-01-16  DJ Delorie  <dj@redhat.com>
+
+	* reload.c (reg_overlap_mentioned_for_reload_p): Handle subregs of
+	mems.
+
+2006-01-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa.md: Disparage copies between general and floating-point registers
+	in 32-bit move patterns.
+
+2006-01-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/25741
+	* Makefile.in (check-%): Depend on site.exp instead of
+	$(TESTSUITEDIR)/site.exp. Run "runtest" in separate language
+	directories.
+
+2006-01-16  Kazu Hirata  <kazu@codesourcery.com>
+
+	* global.c (global_alloc): Make it static.
+	* rtl.h: Remove the prototype for global_alloc.
+
+2006-01-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (struct used_part): Add write_only field.
+	(get_or_create_used_part_for): Initialize it to true.
+	(create_overlap_variables_for): Don't create structure variables
+	for structures that only are written to.
+	(find_used_portions): Handle MODIFY_EXPR to track whether a
+	structure is only written to.
+
+2006-01-16  Kazu Hirata  <kazu@codesourcery.com>
+
+	* bb-reorder.c (partition_hot_cold_basic_blocks): Make it
+	static.
+	* basic-block.h: Remove the prototype for
+	partition_hot_cold_basic_blocks.
+
+2006-01-16  Rafael Å√Åvila de EspÅ√Å≠ndola <rafael.espindola@gmail.com>
+
+	* cppspec.c (lang_specific_spec_functions): remove
+	* gcc.c (lookup_spec_function): use static_spec_functions directelly
+	* gcc.h (lang_specific_spec_functions): remove
+	* gccspec.c (lang_specific_spec_functions): remove
+
+2005-01-16  Paolo Bonzini  <bonzini@gnu.org>
+
+	* combine.c (record_value_for_reg): Invalidate registers
+	if INSN is null.
+	(record_dead_and_set_regs_1): Likewise, by passing them to
+	record_value_for_reg.
+	(record_dead_and_set_regs): Invalidate stores made by a
+	call.  We do not combine across a call, but we still
+	relied on equivalences.
+
+2006-01-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-vrp.c (extract_range_from_binary_expr): Cope with
+	vrp_int_const_binop returning non-constant nodes.
+
+2006-01-16  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.c (output_move_const_into_data_reg):
+	Output correct mnemonic for mvz and mvs.
+
+2006-01-16  Gabor Loki <loki@gcc.gnu.org>
+
+	* rtl-factoring.c : Add sequence abstraction algorithm.
+	* cfgcleanup.c (outgoing_edges_match): Extra checks.
+	(try_crossjump_to_edge): Avoid deleting preserve label when redirecting
+	ABNORMAL edges.
+	(block_has_preserve_label): New function.
+	* common.opt: Register new pass.
+	* Makefile.in: Ditto.
+	* passes.c: Ditto.
+	* timevar.def: Ditto.
+	* tree-pass.h: Ditto.
+	* emit-rtl.c (make_jump_insn_raw): Remove forward decl.
+	* rtl.h (make_jump_insn_raw): Add forward decl.
+	* doc/invoke.texi: Add documentation for -frtl-abstract-sequences.
+
+2006-01-16  Eric Botcazou  <ebotcazou@adacore.com>
+            Roger Sayle  <roger@eyesopen.com> 
+
+	* fold-const.c (fold_minmax): New static function.
+	(fold_binary) <MIN_EXPR>: Call it.
+	<MAX_EXPR>: Likewise.
+	* stor-layout.c (place_field): Use DECL_SIZE consistently
+	in the computation of the new record size.
+
+2006-01-16  Kazu Hirata  <kazu@codesourcery.com>
+
+	* cse.c (cse_condition_code_reg): Make it static.
+	* rtl.h: Remove the prototype for cse_condition_code_reg.
+
+	* combine.c (combine_instructions): Make it static.
+	* rtl.h: Remove the prototype for combine_instructions.
+
+2006-01-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/25168
+	* tree.c (get_file_function_name_long): Concatenate the first global
+	object name with a string derived from the input filename of the object
+	for type "F".
+
+2006-01-16  Ben Elliston  <bje@au.ibm.com>
+
+	* config/i386/winnt-stubs.c: Update FSF address.
+	* config/xtensa/ieee754-df.S: Ditto.
+	* config/xtensa/ieee754-sf.S: Ditto.
+
 2006-01-14  Ian Lance Taylor  <ian@airs.com>
 
 	* ifcvt.c (noce_init_if_info): New static function, broken out of
