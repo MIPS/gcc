@@ -2,7 +2,9 @@
    since %gs:0 memory load was not exposed to the compiler
    as memory load and mem to mem moves are not possible
    on IA-32.  */
-/* { dg-do link } */
+/* ARM uClibc does not support TLS.  */
+/* { dg-do link { xfail arm-wrs-linux-gnueabi } } */
+/* { dg-excess-errors "" { xfail arm-wrs-linux-gnueabi } } */
 /* { dg-options "-O2 -ftls-model=initial-exec" } */
 /* { dg-options "-O2 -ftls-model=initial-exec -march=i686" { target i?86-*-* } } */
 

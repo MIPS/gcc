@@ -1,4 +1,6 @@
-/* { dg-do link } */
+/* ARM uClibc does not support TLS.  */
+/* { dg-do link { xfail arm-wrs-linux-gnueabi } } */
+/* { dg-excess-errors "" { xfail arm-wrs-linux-gnueabi } } */
 /* { dg-warning "visibility" "unsupported" { target sparc*-sun-solaris2.* } 22 } */
 /* Test that encode_section_info handles the change from externally
    defined to locally defined (via hidden).   Extracted from glibc.  */

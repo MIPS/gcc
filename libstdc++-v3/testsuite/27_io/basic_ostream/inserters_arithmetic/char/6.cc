@@ -19,6 +19,9 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
+// Fails with uClibc (inaccurate conversions).
+// { dg-do run { xfail arm-wrs-linux-gnueabi mips-wrs-linux-gnu } }
+
 #include <cmath> // for abs
 #include <cfloat> // for DBL_EPSILON
 #include <sstream>

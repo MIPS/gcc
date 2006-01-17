@@ -20,6 +20,9 @@
 
 // 27.6.1.2.2 arithmetic extractors
 
+// Fails with uClibc (inaccurate conversions).
+// { dg-do run { xfail arm-wrs-linux-gnueabi mips-wrs-linux-gnu } }
+
 #include <istream>
 #include <sstream>
 #include <locale>

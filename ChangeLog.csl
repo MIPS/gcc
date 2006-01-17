@@ -1,3 +1,13 @@
+2006-01-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/wchar_t-1.c,
+	gcc/testsuite/gcc.dg/wint_t-1.c,
+	gcc/testsuite/gcc.dg/tls/alias-1.c,
+	gcc/testsuite/gcc.dg/tls/opt-2.c,
+	libstdc++-v3/testsuite/27_io/basic_istream/extractors_arithmetic/char/09.cc,
+	libstdc++-v3/testsuite/27_io/basic_ostream/inserters_arithmetic/char/6.cc:
+	XFAIL where appropriate for targets supporting uClibc.
+
 2006-01-06  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/cppdefault.h (struct default_include): Add multilib flag.
