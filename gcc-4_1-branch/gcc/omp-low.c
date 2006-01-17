@@ -306,7 +306,9 @@ build_outer_var_ref (tree var, omp_context *ctx)
 {
   tree x;
 
-  if (is_variable_sized (var))
+  if (is_global_var (var))
+    x = var;
+  else if (is_variable_sized (var))
     {
       x = TREE_OPERAND (DECL_VALUE_EXPR (var), 0);
       x = build_outer_var_ref (x, ctx);
@@ -320,7 +322,7 @@ build_outer_var_ref (tree var, omp_context *ctx)
   else if (ctx->outer)
     x = lookup_decl (var, ctx->outer);
   else
-    x = var;
+    gcc_unreachable ();
 
   if (is_reference (var))
     x = build_fold_indirect_ref (x);

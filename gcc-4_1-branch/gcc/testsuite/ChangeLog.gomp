@@ -1,3 +1,7 @@
+2006-01-16  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/gomp/static.c: New.
+
 2005-12-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/25246
