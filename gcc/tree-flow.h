@@ -449,7 +449,7 @@ static inline void bsi_prev (block_stmt_iterator *);
 static inline tree bsi_stmt (block_stmt_iterator);
 static inline tree * bsi_stmt_ptr (block_stmt_iterator);
 
-extern void bsi_remove (block_stmt_iterator *);
+extern void bsi_remove (block_stmt_iterator *, bool);
 extern void bsi_move_before (block_stmt_iterator *, block_stmt_iterator *);
 extern void bsi_move_after (block_stmt_iterator *, block_stmt_iterator *);
 extern void bsi_move_to_bb_end (block_stmt_iterator *, basic_block);
@@ -487,6 +487,7 @@ extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
 extern bool computed_goto_p (tree);
 extern bool simple_goto_p (tree);
+extern basic_block single_noncomplex_succ (basic_block bb);
 extern void tree_dump_bb (basic_block, FILE *, int);
 extern void debug_tree_bb (basic_block);
 extern basic_block debug_tree_bb_n (int);
@@ -806,7 +807,8 @@ bool multiplier_allowed_in_address_p (HOST_WIDE_INT);
 unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
 
 /* In tree-ssa-threadupdate.c.  */
-extern bool thread_through_all_blocks (bitmap);
+extern bool thread_through_all_blocks (void);
+extern void register_jump_thread (edge, edge);
 
 /* In gimplify.c  */
 tree force_gimple_operand (tree, tree *, bool, tree);
@@ -814,6 +816,9 @@ tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);
+
+/* In tree-ssa-live.c */
+extern void remove_unused_locals (void);
 
 /* In tree-ssa-address.c  */
 
@@ -863,7 +868,9 @@ tree maybe_fold_tmr (tree);
 
 struct fieldoff
 {
-  tree field;
+  tree type;
+  tree size;
+  tree decl;
   HOST_WIDE_INT offset;  
 };
 typedef struct fieldoff fieldoff_s;

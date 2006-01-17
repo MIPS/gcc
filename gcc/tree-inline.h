@@ -105,7 +105,7 @@ void push_cfun (struct function *new_cfun);
 void pop_cfun (void);
 int estimate_num_insns (tree expr);
 bool tree_versionable_function_p (tree);
-void tree_function_versioning (tree, tree, varray_type);
+void tree_function_versioning (tree, tree, varray_type, bool);
 
 extern tree remap_decl (tree decl, copy_body_data *id);
 extern tree remap_type (tree type, copy_body_data *id);

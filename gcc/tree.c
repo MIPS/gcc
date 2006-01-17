@@ -4746,8 +4746,8 @@ iterative_hash_expr (tree t, hashval_t val)
 
       if (class == tcc_declaration)
 	{
-	  /* Otherwise, we can just compare decls by pointer.  */
-	  val = iterative_hash_pointer (t, val);
+	  /* DECL's have a unique ID */
+	  val = iterative_hash_host_wide_int (DECL_UID (t), val);
 	}
       else
 	{
@@ -5895,7 +5895,26 @@ get_file_function_name_long (const char *type)
   char *q;
 
   if (first_global_object_name)
-    p = first_global_object_name;
+    {
+      p = first_global_object_name;
+
+      /* For type 'F', the generated name must be unique not only to this
+	 translation unit but also to any given link.  Since global names
+	 can be overloaded, we concatenate the first global object name
+	 with a string derived from the file name of this object.  */
+      if (!strcmp (type, "F"))
+	{
+	  const char *file = main_input_filename;
+
+	  if (! file)
+	    file = input_filename;
+
+	  q = alloca (strlen (p) + 10);
+	  sprintf (q, "%s_%08X", p, crc32_string (0, file));
+
+	  p = q;
+	}
+    }
   else
     {
       /* We don't have anything that we know to be unique to this translation
@@ -6073,6 +6092,21 @@ tree_range_check_failed (const tree node, const char *file, int line,
   internal_error ("tree check: %s, have %s in %s, at %s:%d",
 		  buffer, tree_code_name[TREE_CODE (node)],
 		  function, trim_filename (file), line);
+}
+
+
+/* Similar to tree_check_failed, except that we check that a tree does
+   not have the specified code, given in CL.  */
+
+void
+tree_not_class_check_failed (const tree node, const enum tree_code_class cl,
+			     const char *file, int line, const char *function)
+{
+  internal_error
+    ("tree check: did not expect class %qs, have %qs (%s) in %s, at %s:%d",
+     TREE_CODE_CLASS_STRING (cl),
+     TREE_CODE_CLASS_STRING (TREE_CODE_CLASS (TREE_CODE (node))),
+     tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
 }
 
 #undef DEFTREESTRUCT
@@ -6857,6 +6891,8 @@ tree_fold_gcd (tree a, tree b)
 tree
 unsigned_type_for (tree type)
 {
+  if (POINTER_TYPE_P (type))
+    return size_type_node;
   return lang_hooks.types.unsigned_type (type);
 }
 

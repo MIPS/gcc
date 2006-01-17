@@ -436,6 +436,9 @@ Boston, MA 02110-1301, USA.  */
    emit a label for an empty FDE. */
 #define TARGET_ASM_EMIT_UNWIND_LABEL darwin_emit_unwind_label
 
+/* Emit a label to separate the exception table.  */
+#define TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL darwin_emit_except_table_label
+
 /* Our profiling scheme doesn't LP labels and counter words.  */
 
 #define NO_PROFILE_COUNTERS	1

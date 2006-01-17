@@ -1,6 +1,6 @@
 /* RTL simplification functions for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -114,15 +114,15 @@ simplify_gen_binary (enum rtx_code code, enum machine_mode mode, rtx op0,
 {
   rtx tem;
 
-  /* Put complex operands first and constants second if commutative.  */
-  if (GET_RTX_CLASS (code) == RTX_COMM_ARITH
-      && swap_commutative_operands_p (op0, op1))
-    tem = op0, op0 = op1, op1 = tem;
-
   /* If this simplifies, do it.  */
   tem = simplify_binary_operation (code, mode, op0, op1);
   if (tem)
     return tem;
+
+  /* Put complex operands first and constants second if commutative.  */
+  if (GET_RTX_CLASS (code) == RTX_COMM_ARITH
+      && swap_commutative_operands_p (op0, op1))
+    tem = op0, op0 = op1, op1 = tem;
 
   return gen_rtx_fmt_ee (code, mode, op0, op1);
 }

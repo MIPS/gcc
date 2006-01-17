@@ -1901,11 +1901,20 @@ check_explicit_specialization (tree declarator,
 
 	      /* Find the namespace binding, using the declaration
 		 context.  */
-	      fns = namespace_binding (dname, CP_DECL_CONTEXT (decl));
+	      fns = lookup_qualified_name (CP_DECL_CONTEXT (decl), dname,
+					   false, true);
 	      if (!fns || !is_overloaded_fn (fns))
 		{
 		  error ("%qD is not a template function", dname);
 		  fns = error_mark_node;
+		}
+	      else
+		{
+		  tree fn = OVL_CURRENT (fns);
+		  if (!is_associated_namespace (CP_DECL_CONTEXT (decl),
+						CP_DECL_CONTEXT (fn)))
+		    error ("%qD is not declared in %qD",
+			   decl, current_namespace);
 		}
 	    }
 

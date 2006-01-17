@@ -2150,8 +2150,7 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
 	  vn_add (forcedname, val);
 	  bitmap_value_replace_in_set (NEW_SETS (block), forcedname);
 	  bitmap_value_replace_in_set (AVAIL_OUT (block), forcedname);
-	  update_stmt (stmt);
-	  mark_new_vars_to_rename (tsi_stmt (tsi));
+	  mark_new_vars_to_rename (stmt);
 	}
       tsi = tsi_last (stmts);
       tsi_link_after (&tsi, forced_stmts, TSI_CONTINUE_LINKING);
@@ -2179,7 +2178,6 @@ create_expression_by_pieces (basic_block block, tree expr, tree stmts)
   tsi = tsi_last (stmts);
   tsi_link_after (&tsi, newexpr, TSI_CONTINUE_LINKING);
   VEC_safe_push (tree, heap, inserted_exprs, newexpr);
-  update_stmt (newexpr);
   mark_new_vars_to_rename (newexpr);
 
   /* Add a value handle to the temporary.
@@ -2769,6 +2767,9 @@ insert_extra_phis (basic_block block, basic_block dom)
 	      tree name = ssa_name (i);
 	      tree val = get_value_handle (name);
 	      tree temp;
+
+	      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name))
+		continue;
 
 	      if (!mergephitemp
 		  || TREE_TYPE (name) != TREE_TYPE (mergephitemp))
@@ -3409,7 +3410,7 @@ remove_dead_inserted_code (void)
 	  else
 	    {
 	      bsi = bsi_for_stmt (t);
-	      bsi_remove (&bsi);
+	      bsi_remove (&bsi, true);
 	      release_defs (t);
 	    }
 	}

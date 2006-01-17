@@ -1940,7 +1940,7 @@ rewrite_trees (var_map map, tree *values)
 
 	  /* Remove any stmts marked for removal.  */
 	  if (remove)
-	    bsi_remove (&si);
+	    bsi_remove (&si, true);
 	  else
 	    bsi_next (&si);
 	}
@@ -2556,6 +2556,8 @@ struct tree_opt_pass pass_del_ssa =
   PROP_ssa,				/* properties_destroyed */
   TODO_verify_ssa | TODO_verify_flow
     | TODO_verify_stmts,		/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect,	/* todo_flags_finish */
+  TODO_dump_func
+  | TODO_ggc_collect
+  | TODO_remove_unused_locals,		/* todo_flags_finish */
   0					/* letter */
 };

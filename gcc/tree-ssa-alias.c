@@ -2307,7 +2307,7 @@ add_type_alias (tree ptr, tree var)
 found_tag:
   /* If VAR is not already PTR's type tag, add it to the may-alias set
      for PTR's type tag.  */
-  gcc_assert (!MTAG_P (var_ann (var)->type_mem_tag));
+  gcc_assert (!MTAG_P (var));
   tag = ann->type_mem_tag;
 
   /* If VAR has subvars, add the subvars to the tag instead of the
@@ -2424,6 +2424,8 @@ typedef struct used_part
      variable.  Implicit uses occur when we can't tell what part we
      are referencing, and have to make conservative assumptions.  */
   bool implicit_uses;
+  /* True if the structure is only written to or taken its address.  */
+  bool write_only;
 } *used_part_t;
 
 /* An array of used_part structures, indexed by variable uid.  */
@@ -2509,20 +2511,21 @@ get_or_create_used_part_for (size_t uid)
       up->maxused = 0;
       up->explicit_uses = false;
       up->implicit_uses = false;
+      up->write_only = true;
     }
 
   return up;
 }
 
 
-/* Create and return a structure sub-variable for field FIELD of
+/* Create and return a structure sub-variable for field type FIELD of
    variable VAR.  */
 
 static tree
 create_sft (tree var, tree field)
 {
   var_ann_t ann;
-  tree subvar = create_tag_raw (STRUCT_FIELD_TAG, TREE_TYPE (field), "SFT");
+  tree subvar = create_tag_raw (STRUCT_FIELD_TAG, field, "SFT");
 
   /* We need to copy the various flags from VAR to SUBVAR, so that
      they are is_global_var iff the original variable was.  */
@@ -2536,6 +2539,7 @@ create_sft (tree var, tree field)
   ann = get_var_ann (subvar);
   ann->type_mem_tag = NULL;  	
   add_referenced_tmp_var (subvar);
+  SFT_PARENT_VAR (subvar) = var;
 
   return subvar;
 }
@@ -2551,10 +2555,11 @@ create_overlap_variables_for (tree var)
   used_part_t up;
   size_t uid = DECL_UID (var);
 
-  if (!up_lookup (uid))
+  up = up_lookup (uid);
+  if (!up
+      || up->write_only)
     return;
 
-  up = up_lookup (uid);
   push_fields_onto_fieldstack (TREE_TYPE (var), &fieldstack, 0, NULL);
   if (VEC_length (fieldoff_s, fieldstack) != 0)
     {
@@ -2578,9 +2583,8 @@ create_overlap_variables_for (tree var)
 
       for (i = 0; VEC_iterate (fieldoff_s, fieldstack, i, fo); i++)
 	{
-	  if (!DECL_SIZE (fo->field) 
-	      || TREE_CODE (DECL_SIZE (fo->field)) != INTEGER_CST
-	      || TREE_CODE (TREE_TYPE (fo->field)) == ARRAY_TYPE
+	  if (!fo->size
+	      || TREE_CODE (fo->size) != INTEGER_CST
 	      || fo->offset < 0)
 	    {
 	      notokay = true;
@@ -2632,8 +2636,8 @@ create_overlap_variables_for (tree var)
 	  HOST_WIDE_INT fosize;
 	  tree currfotype;
 
-	  fosize = TREE_INT_CST_LOW (DECL_SIZE (fo->field));
-	  currfotype = TREE_TYPE (fo->field);
+	  fosize = TREE_INT_CST_LOW (fo->size);
+	  currfotype = fo->type;
 
 	  /* If this field isn't in the used portion,
 	     or it has the exact same offset and size as the last
@@ -2650,7 +2654,7 @@ create_overlap_variables_for (tree var)
 	  sv->offset = fo->offset;
 	  sv->size = fosize;
 	  sv->next = *subvars;
-	  sv->var = create_sft (var, fo->field);
+	  sv->var = create_sft (var, fo->type);
 
 	  if (dump_file)
 	    {
@@ -2691,11 +2695,19 @@ create_overlap_variables_for (tree var)
    entire structure.  */
 
 static tree
-find_used_portions (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+find_used_portions (tree *tp, int *walk_subtrees, void *lhs_p)
 {
   switch (TREE_CODE (*tp))
     {
+    case MODIFY_EXPR:
+      /* Recurse manually here to track whether the use is in the
+	 LHS of an assignment.  */
+      find_used_portions (&TREE_OPERAND (*tp, 0), walk_subtrees, tp);
+      return find_used_portions (&TREE_OPERAND (*tp, 1), walk_subtrees, NULL);
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
     case COMPONENT_REF:
+    case ARRAY_REF:
       {
 	HOST_WIDE_INT bitsize;
 	HOST_WIDE_INT bitmaxsize;
@@ -2720,6 +2732,8 @@ find_used_portions (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      up->explicit_uses = true;
 	    else
 	      up->implicit_uses = true;
+	    if (!lhs_p)
+	      up->write_only = false;
 	    up_insert (uid, up);
 
 	    *walk_subtrees = 0;

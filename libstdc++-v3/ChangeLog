@@ -1,3 +1,263 @@
+2006-01-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/25797
+	* acinclude.m4 (GLIBCXX_CHECK_LINKER_FEATURES): Add -Werror to
+	CFLAGS for --gc-sections test.  Correct compile test.
+	* configure: Regenerated.
+	
+2006-01-15  Paolo Carlini  <pcarlini@suse.de>
+	    Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR libstdc++/25626
+	* include/std/std_valarray.h (valarray(const slice_array<>&),
+	valarray(const gslice_array<>&), valarray(const mask_array<>&),
+	valarray(const indirect_array<>&), valarray(const _Expr<>&)):
+	Forward to __valarray_copy_construct, not __valarray_copy.
+	* include/bits/valarray_array.h
+	(__valarray_copy_construct(_Array<>, _Array<>, _Array<>, size_t),
+	__valarray_copy_construct(_Array<>, size_t, size_t, _Array<>)):
+	New.
+
+2006-01-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/8_c_compatibility/complex/overloads_int.cc:
+	Fix norm test, use casts everywhere.
+
+2006-01-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/testsuite_tr1.h: Add missing include; use std::__are_same.
+
+2006-01-14  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/8_c_compatibility/complex/overloads_int.cc:
+	Fix wrong test (don't pick by mistake the (const complex<>&, int)
+	overload); add some.
+
+2006-01-13  Paolo Carlini  <pcarlini@suse.de>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	* include/tr1/complex (arg, conj, imag, norm, polar, pow, real):
+	Add, implementing TR1, 8.1.9.
+	(__promote_2): New.
+	* include/tr1/common.h: New, provides __promote, __promote_2.
+	* include/Makefile.am: Add.
+	* include/Makefile.in: Regenerate.
+	* testsuite/testsuite_tr1.h (check_ret_type): New.
+	* testsuite/tr1/8_c_compatibility/complex/overloads_int.cc: New.
+	* testsuite/tr1/8_c_compatibility/complex/overloads_float.cc: New.
+
+2006-01-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4(GLIBCXX_CHECK_LINKER_FEATURES): Enable
+	--gc-sections in more cases.	
+	* configure: Regenerate.
+	* scripts/testsuite_flags.in: Remove SECTION_LDFLAGS.
+	* scripts/testsuite_flags.in (cxxldflags): New.
+	* testsuite/lib/libstdc++.exp (v3_target_compile): Add cxxldflags.
+	(libstdc++_init ): Same.
+		
+2006-01-12  Jan Beulich  <jbeulich@novell.com>
+
+	* crossconfig.m4: Add AC_DEFINE-s for HAVE_HYPOT, HAVE_ISINF, and
+	HAVE_ISNAN for *-*-netware*.
+	* configure: Refresh.
+
+2006-01-11  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4(GLIBCXX_CHECK_LINKER_FEATURES): Use -Wl,-z,relro if
+	possible.  
+	* configure: Regenerate.
+
+2006-01-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/complex: New file, hosts the additions to header
+	<complex> described in TR1, Chapter 8 [tr.c99].
+	* include/Makefile.am: Add.
+	* include/Makefile.in: Regenerate.
+	* testsuite/tr1/8_c_compatibility/complex/functions.cc: New.
+
+2006-01-09  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/25658
+	* testsuite/23_containers/deque/cons/assign/1.cc: Divide
+	sizes by 10.
+
+2006-01-08  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/22102 (insert as close to hint as possible)
+	* include/bits/stl_tree.h (_Rb_tree<>::_M_insert_lower,
+	_M_insert_equal_lower): New.
+	(_M_insert_equal(iterator, const _Val&),
+	_M_insert_equal(const_iterator, const _Val&)): Use the above.
+	* docs/html/ext/howto.html: Add an entry for DR 233.
+	* testsuite/23_containers/multiset/modifiers/insert/22102.cc: New.
+	* testsuite/23_containers/multimap/modifiers/insert/22102.cc: New.
+
+	* testsuite/23_containers/set/insert/: Move...
+	* testsuite/23_containers/set/modifiers/insert/: ...here.
+	* testsuite/23_containers/map/insert/: Move...
+	* testsuite/23_containers/map/modifiers/insert/: ...here.
+	* testsuite/23_containers/multiset/insert/: Move...
+	* testsuite/23_containers/multiset/modifiers/insert/: ...here.
+
+2006-01-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_tree.h (_Rb_tree<>::insert_unique): Rename
+	to _M_insert_unique.
+	(_Rb_tree<>::insert_equal): Rename to _M_insert_equal.
+	* include/bits/stl_map.h (class map<>): Update callers.
+	* include/bits/stl_set.h (class set<>): Likewise.
+	* include/bits/stl_multimap.h (class multimap<>): Likewise.
+	* include/bits/stl_multiset.h (class multiset<>): Likewise.
+
+2006-01-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_bvector.h (vector<bool>::erase(iterator,
+	iterator)): Just use _M_erase_at_end.
+
+2006-01-06  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_bvector.h (class vector<bool>): Move all the
+	helpers under protected access mode, consistently with the primary
+	vector template.
+	(vector<bool>::_M_erase_at_end): Add.
+	(erase(iterator, iterator), clear, resize, _M_fill_assign,
+	_M_assign_aux): Use it.
+	* testsuite/23_containers/vector/bool/modifiers/erase/1.cc: New.
+
+2006-01-06  Paolo Carlini  <pcarlini@suse.de>
+
+	Implement Option 3 of DR 431 for vector<bool>.
+	* include/bits/stl_bvector.h (class _Bvector_base): Change to
+	a struct, consistently with the primary vector template.
+	(class vector<bool>): Adjust to protected inheritance, tidy
+	typedefs.
+	(_Bvector_base<>::_M_get_Bit_allocator): Add.
+	(vector<bool>::vector(const vector&)): Use it.
+	(_Bvector_base<>::get_allocator): Tidy.
+	(vector<bool>::swap): Use __alloc_swap.
+	* testsuite/23_containers/vector/bool/modifiers/swap/1.cc: New.
+	* testsuite/23_containers/vector/bool/modifiers/swap/2.cc: New.
+
+2006-01-05  Paolo Carlini  <pcarlini@suse.de>
+	
+	* testsuite/testsuite_hooks.h (test_tm(unsigned)): Change to
+	take all the tm members.
+	* testsuite/testsuite_hooks.cc (test_tm): Adjust.
+	* testsuite/22_locale/time_put/put/wchar_t/10.cc: Update.
+	* testsuite/22_locale/time_put/put/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/6.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/7.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/8.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/9.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/17038.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/10.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/6.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/7.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/8.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/9.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/17038.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/4.cc: Likewise.
+
+2006-01-05  Paolo Carlini  <pcarlini@suse.de>
+	
+	* testsuite/testsuite_hooks.h (test_tm(unsigned)): New.
+	* testsuite/testsuite_hooks.cc (test_tm(unsigned)): Define.
+	* testsuite/22_locale/time_put/put/wchar_t/10.cc: Use it.
+	* testsuite/22_locale/time_put/put/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/6.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/7.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/8.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/9.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/17038.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/10.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/6.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/7.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/8.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/9.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/17038.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/4.cc: Likewise.
+
 2006-01-04  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/ext/sso_string_base.h (__sso_string_base<>::_M_dataplus):

@@ -56,6 +56,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "c-common.h"
 #include "vec.h"
 #include "target.h"
+#include "cgraph.h"
 
 
 /* Miscellaneous data and functions needed for the parser.  */
@@ -1416,12 +1417,8 @@ static void
 c_parser_asm_definition (c_parser *parser)
 {
   tree asm_str = c_parser_simple_asm_expr (parser);
-  /* ??? This only works sensibly in the presence of
-     -fno-unit-at-a-time; file-scope asms really need to be passed to
-     cgraph which needs to preserve the order of functions and
-     file-scope asms.  */
   if (asm_str)
-    assemble_asm (asm_str);
+    cgraph_add_asm_node (asm_str);
   c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 }
 
@@ -5949,6 +5946,9 @@ c_parser_objc_methodprotolist (c_parser *parser)
 	case CPP_PLUS:
 	case CPP_MINUS:
 	  c_parser_objc_methodproto (parser);
+	  break;
+	case CPP_PRAGMA:
+	  c_parser_pragma (parser, pragma_external);
 	  break;
 	case CPP_EOF:
 	  return;

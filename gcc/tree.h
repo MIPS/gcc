@@ -603,8 +603,8 @@ enum tree_node_structure_enum {
 #define NON_TYPE_CHECK(T) __extension__					\
 ({  const tree __t = (T);						\
     if (TYPE_P (__t))							\
-      tree_class_check_failed (__t, tcc_type, __FILE__, __LINE__,	\
-			       __FUNCTION__);				\
+      tree_not_class_check_failed (__t, tcc_type, __FILE__, __LINE__,	\
+				   __FUNCTION__);			\
     __t; })
 
 #define TREE_VEC_ELT_CHECK(T, I) __extension__				\
@@ -674,6 +674,10 @@ extern void tree_class_check_failed (const tree, const enum tree_code_class,
 extern void tree_range_check_failed (const tree, const char *, int,
 				     const char *, enum tree_code,
 				     enum tree_code);
+extern void tree_not_class_check_failed (const tree,
+					 const enum tree_code_class,
+					 const char *, int, const char *)
+    ATTRIBUTE_NORETURN;
 extern void tree_vec_elt_check_failed (int, int, const char *,
 				       int, const char *)
     ATTRIBUTE_NORETURN;

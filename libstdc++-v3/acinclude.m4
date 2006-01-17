@@ -187,7 +187,7 @@ dnl safe (like an empty string).
 dnl
 dnl Defines:
 dnl  SECTION_LDFLAGS='-Wl,--gc-sections' if possible
-dnl  OPT_LDFLAGS='-Wl,-O1' if possible
+dnl  OPT_LDFLAGS='-Wl,-O1' and '-z,relro' if possible
 dnl  LD (as a side effect of testing)
 dnl Sets:
 dnl  with_gnu_ld
@@ -230,41 +230,44 @@ AC_DEFUN([GLIBCXX_CHECK_LINKER_FEATURES], [
          $AWK -F. '{ if (NF<3) [$]3=0; print ([$]1*100+[$]2)*100+[$]3 }'`
 
   # Set --gc-sections.
-  if test "$with_gnu_ld" = "notbroken"; then
+  if test x"$with_gnu_ld" = x"yes"; then
     # GNU ld it is!  Joy and bunny rabbits!
 
-    # All these tests are for C++; save the language and the compiler flags.
-    # Need to do this so that g++ won't try to link in libstdc++
+    # All these tests are for C++, but run with the "C" compiler driver.
+    # Need to do this so that g++ won't try to link in libstdc++/libsupc++.
     ac_test_CFLAGS="${CFLAGS+set}"
     ac_save_CFLAGS="$CFLAGS"
-    CFLAGS='-x c++  -Wl,--gc-sections'
+    CFLAGS='-x c++  -Werror -Wl,--gc-sections'
 
     # Check for -Wl,--gc-sections
-    # XXX This test is broken at the moment, as symbols required for linking
-    # are now in libsupc++ (not built yet).  In addition, this test has
-    # cored on solaris in the past.  In addition, --gc-sections doesn't
-    # really work at the moment (keeps on discarding used sections, first
-    # .eh_frame and now some of the glibc sections for iconv).
-    # Bzzzzt.  Thanks for playing, maybe next time.
     AC_MSG_CHECKING([for ld that supports -Wl,--gc-sections])
-    AC_TRY_RUN([
-     int main(void)
-     {
-       try { throw 1; }
-       catch (...) { };
-       return 0;
-     }
-    ], [ac_sectionLDflags=yes],[ac_sectionLDflags=no], [ac_sectionLDflags=yes])
+    AC_TRY_LINK([ int one(void) { return 1; }
+     int two(void) { return 2; }
+	], [ two(); ] , [ac_gcsections=yes], [ac_gcsections=no])
+    if test "$ac_gcsections" = "yes"; then
+      SECTION_LDFLAGS="-Wl,--gc-sections $SECTION_LDFLAGS"
+    fi
+    AC_MSG_RESULT($ac_gcsections)
+
     if test "$ac_test_CFLAGS" = set; then
       CFLAGS="$ac_save_CFLAGS"
     else
       # this is the suspicious part
       CFLAGS=''
     fi
-    if test "$ac_sectionLDflags" = "yes"; then
-      SECTION_LDFLAGS="-Wl,--gc-sections $SECTION_LDFLAGS"
+  fi
+
+  # Set -z,relro.
+  # Note this is only for shared objects.
+  ac_ld_relro=no
+  if test x"$with_gnu_ld" = x"yes"; then
+    AC_MSG_CHECKING([for ld that supports -Wl,-z,relro])
+    cxx_z_relo=`$LD -v --help 2>/dev/null | grep "z relro"`
+    if test -n "$cxx_z_relo"; then
+      OPT_LDFLAGS="-Wl,-z,relro"
+      ac_ld_relro=yes
     fi
-    AC_MSG_RESULT($ac_sectionLDflags)
+    AC_MSG_RESULT($ac_ld_relro)
   fi
 
   # Set linker optimization flags.

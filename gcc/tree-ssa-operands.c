@@ -732,11 +732,8 @@ parse_ssa_operands (tree stmt)
 	if (TREE_CODE (lhs) == VIEW_CONVERT_EXPR)
 	  lhs = TREE_OPERAND (lhs, 0);
 
-	if (TREE_CODE (lhs) != ARRAY_REF
-	    && TREE_CODE (lhs) != ARRAY_RANGE_REF
-	    && TREE_CODE (lhs) != BIT_FIELD_REF
-	    && TREE_CODE (lhs) != REALPART_EXPR
-	    && TREE_CODE (lhs) != IMAGPART_EXPR)
+	if (TREE_CODE (lhs) != ARRAY_RANGE_REF
+	    && TREE_CODE (lhs) != BIT_FIELD_REF)
 	  lhs_flags |= opf_kill_def;
 
         get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), lhs_flags);
@@ -1040,12 +1037,11 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
   switch (code)
     {
     case ADDR_EXPR:
-      /* We could have the address of a component, array member,
-	 etc which has interesting variable references.  */
       /* Taking the address of a variable does not represent a
 	 reference to it, but the fact that the stmt takes its address will be
 	 of interest to some passes (e.g. alias resolution).  */
-      add_stmt_operand (expr_p, s_ann, 0);
+      add_to_addressable_set (TREE_OPERAND (expr, 0),
+			      &s_ann->addresses_taken);
 
       /* If the address is invariant, there may be no interesting variable
 	 references inside.  */
@@ -1065,10 +1061,13 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case STRUCT_FIELD_TAG:
     case TYPE_MEMORY_TAG:
     case NAME_MEMORY_TAG:
+
+     add_stmt_operand (expr_p, s_ann, flags);
+     return;
+
     case VAR_DECL:
     case PARM_DECL:
     case RESULT_DECL:
-    case CONST_DECL:
       {
 	subvar_t svars;
 	
@@ -1101,31 +1100,27 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       get_tmr_operands (stmt, expr, flags);
       return;
 
-    case ARRAY_REF:
     case ARRAY_RANGE_REF:
       /* Treat array references as references to the virtual variable
 	 representing the array.  The virtual variable for an ARRAY_REF
 	 is the VAR_DECL for the array.  */
 
       /* Add the virtual variable for the ARRAY_REF to VDEFS or VUSES
-	 according to the value of IS_DEF.  Recurse if the LHS of the
-	 ARRAY_REF node is not a regular variable.  */
-      if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
-	add_stmt_operand (expr_p, s_ann, flags);
-      else
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
-
+	 according to the value of IS_DEF.  */
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_none);
       return;
 
+    case ARRAY_REF:
     case COMPONENT_REF:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
       {
 	tree ref;
 	HOST_WIDE_INT offset, size, maxsize;
+	bool none = true;
  	/* This component ref becomes an access to all of the subvariables
 	   it can touch,  if we can determine that, but *NOT* the real one.
 	   If we can't determine which fields we could touch, the recursion
@@ -1143,22 +1138,34 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 		if (overlap_subvar (offset, maxsize, sv, &exact))
 		  {
 	            int subvar_flags = flags;
+		    none = false;
 		    if (!exact
 			|| size != maxsize)
 		      subvar_flags &= ~opf_kill_def;
 		    add_stmt_operand (&sv->var, s_ann, subvar_flags);
 		  }
 	      }
+	    if (!none)
+	      flags |= opf_no_vops;
 	  }
-	else
-	  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), 
-			     flags & ~opf_kill_def);
+
+	/* Even if we found subvars above we need to ensure to see
+	   immediate uses for d in s.a[d].  In case of s.a having
+	   a subvar we'd miss it otherwise.  */
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), 
+			   flags & ~opf_kill_def);
 	
 	if (code == COMPONENT_REF)
 	  {
 	    if (s_ann && TREE_THIS_VOLATILE (TREE_OPERAND (expr, 1)))
 	      s_ann->has_volatile_ops = true; 
 	    get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+	  }
+	else if (code == ARRAY_REF)
+	  {
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
+            get_expr_operands (stmt, &TREE_OPERAND (expr, 3), opf_none);
 	  }
 	return;
       }
@@ -1190,8 +1197,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	op = TREE_OPERAND (expr, 0);
 	if (TREE_CODE (op) == WITH_SIZE_EXPR)
 	  op = TREE_OPERAND (expr, 0);
-	if (TREE_CODE (op) == ARRAY_REF
-	    || TREE_CODE (op) == ARRAY_RANGE_REF
+	if (TREE_CODE (op) == ARRAY_RANGE_REF
 	    || TREE_CODE (op) == REALPART_EXPR
 	    || TREE_CODE (op) == IMAGPART_EXPR)
 	  subflags = opf_is_def;
@@ -1250,6 +1256,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case EXC_PTR_EXPR:
     case FILTER_EXPR:
     case LABEL_DECL:
+    case CONST_DECL:
       /* Expressions that make no memory references.  */
       return;
 
@@ -1432,26 +1439,6 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 	s_ann->has_volatile_ops = true;
       return;
     }
-
-  /* Everything else *should* have been folded elsewhere, but users
-     are smarter than we in finding ways to write invalid code.  We
-     cannot just assert here.  If we were absolutely certain that we
-     do handle all valid cases, then we could just do nothing here.
-     That seems optimistic, so attempt to do something logical... */
-  else if ((TREE_CODE (ptr) == PLUS_EXPR || TREE_CODE (ptr) == MINUS_EXPR)
-	   && TREE_CODE (TREE_OPERAND (ptr, 0)) == ADDR_EXPR
-	   && TREE_CODE (TREE_OPERAND (ptr, 1)) == INTEGER_CST)
-    {
-      /* Make sure we know the object is addressable.  */
-      pptr = &TREE_OPERAND (ptr, 0);
-      add_stmt_operand (pptr, s_ann, 0);
-
-      /* Mark the object itself with a VUSE.  */
-      pptr = &TREE_OPERAND (*pptr, 0);
-      get_expr_operands (stmt, pptr, flags);
-      return;
-    }
-
   /* Ok, this isn't even is_gimple_min_invariant.  Something's broke.  */
   else
     gcc_unreachable ();
@@ -1568,26 +1555,12 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
   var_ann_t v_ann;
 
   var = *var_p;
-  STRIP_NOPS (var);
+  gcc_assert (SSA_VAR_P (var));
 
-  /* If the operand is an ADDR_EXPR, add its operand to the list of
-     variables that have had their address taken in this statement.  */
-  if (TREE_CODE (var) == ADDR_EXPR && s_ann)
-    {
-      add_to_addressable_set (TREE_OPERAND (var, 0), &s_ann->addresses_taken);
-      return;
-    }
-
-  /* If the original variable is not a scalar, it will be added to the list
-     of virtual operands.  In that case, use its base symbol as the virtual
-     variable representing it.  */
   is_real_op = is_gimple_reg (var);
-  if (!is_real_op && !DECL_P (var))
-    var = get_virtual_var (var);
-
-  /* If VAR is not a variable that we care to optimize, do nothing.  */
-  if (var == NULL_TREE || !SSA_VAR_P (var))
-    return;
+  /* If this is a real operand, the operand is either ssa name or decl.
+     Virtual operands may only be decls.  */
+  gcc_assert (is_real_op || DECL_P (var));
 
   sym = (TREE_CODE (var) == SSA_NAME ? SSA_NAME_VAR (var) : var);
   v_ann = var_ann (sym);
@@ -1809,14 +1782,25 @@ add_call_clobber_ops (tree stmt, tree callee)
   EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
     {
       tree var = referenced_var (u);
+      unsigned int uid = u;
+
       if (unmodifiable_var_p (var))
 	add_stmt_operand (&var, &empty_ann, opf_none);
       else
 	{
-	  bool not_read
-	    = not_read_b ? bitmap_bit_p (not_read_b, u) : false;
-	  bool not_written
-	    = not_written_b ? bitmap_bit_p (not_written_b, u) : false;
+	  bool not_read;
+	  bool not_written;
+	  
+	  /* Not read and not written are computed on regular vars, not
+	     subvars, so look at the parent var if this is an SFT. */
+	  
+	  if (TREE_CODE (var) == STRUCT_FIELD_TAG)
+	    uid = DECL_UID (SFT_PARENT_VAR (var));
+
+	  not_read = 
+	    not_read_b ? bitmap_bit_p (not_read_b, uid) : false;
+	  not_written = 
+	    not_written_b ? bitmap_bit_p (not_written_b, uid) : false;
 
 	  if (not_written)
 	    {

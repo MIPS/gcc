@@ -1,3 +1,145 @@
+2006-01-16  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* gfortranspec.c (lang_specific_spec_functions): Remove.
+
+2006-01-16  Richard Guenther  <rguenther@suse.de>
+
+	* trans-stmt.c (gfc_trans_if_1): Use fold_buildN and build_int_cst.
+	(gfc_trans_arithmetic_if): Likewise.
+	(gfc_trans_simple_do): Likewise.
+	(gfc_trans_do): Likewise.
+	(gfc_trans_do_while): Likewise.
+	(gfc_trans_logical_select): Likewise.
+	(gfc_trans_forall_loop): Likewise.
+	(generate_loop_for_temp_to_lhs): Likewise.
+	(generate_loop_for_rhs_to_temp): Likewise.
+	(gfc_trans_allocate): Likewise.
+	* trans.c (gfc_add_expr_to_block): Do not fold expr again.
+
+2006-01-16  Richard Guenther  <rguenther@suse.de>
+
+	* trans-expr.c (gfc_conv_function_call): Use fold_build2.
+	* trans-stmt.c (gfc_trans_goto): Likewise.  Use build_int_cst.
+	* trans.c (gfc_trans_runtime_check): Don't fold the condition
+	again.
+
+2006-01-13  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/25756
+	* symbol.c (gfc_free_st_label): Give variable meaningful name. Remove
+	unneeded parenthesis. Fix-up the head of the list (2 lines gleaned
+	from g95).
+
+2006-01-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* trans.c (gfc_add_expr_to_block): Do not fold tcc_statement
+	nodes.
+
+2006-01-11  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* parse.c (next_fixed): Remove superfluous string concatenation.
+
+2006-01-11  Bernhard Fischer  <rep.nop@aon.at>
+
+	PR fortran/25486
+	* scanner.c (load_line): use maxlen to determine the line-length used
+	for padding lines in fixed form.
+
+2005-01-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25730
+	* trans-types.c (copy_dt_decls_ifequal): Copy backend decl for
+	character lengths.
+
+2006-01-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	fortran/24936
+	* trans-stmt.c (gfc_trans_pointer_assign_need_temp): Use fold_convert
+	to avoid type mismatch.
+
+2006-01-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/21977
+	* trans-decl.c (gfc_generate_function_code): Move the NULLing of
+	current_fake_result_decl down to below generate_local_vars.
+
+2006-01-09  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/12456
+	* trans-expr.c (gfc_to_single_character): New function that converts
+	string to single character if its length is 1.
+	(gfc_build_compare_string):New function that compare string and handle
+	single character specially.
+	(gfc_conv_expr_op): Use gfc_build_compare_string.
+	(gfc_trans_string_copy): Use gfc_to_single_character.
+	* trans-intrinsic.c (gfc_conv_intrinsic_strcmp): Use
+	gfc_build_compare_string.
+	* trans.h (gfc_build_compare_string): Add prototype.
+
+2006-01-09  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* simplify.c (gfc_simplify_char): Use UCHAR_MAX instead of literal
+	constant.
+	(gfc_simplify_ichar): Get the result from unsinged char and in the
+	range 0 to UCHAR_MAX instead of CHAR_MIN to CHAR_MAX.
+
+2005-01-08  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25093
+	* resolve.c (resolve_fntype): Check that PUBLIC functions
+	aren't of PRIVATE type.
+
+2005-01-07  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* decl.c (gfc_match_function_decl): Correctly error out in case of
+	omitted function argument list.
+
+2006-01-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/22146
+	* trans-array.c (gfc_reverse_ss): Remove static attribute.
+	(gfc_walk_elemental_function_args): Replace gfc_expr * argument for
+	the function call with the corresponding gfc_actual_arglist*.  Change
+	code accordingly.
+	(gfc_walk_function_expr): Call to gfc_walk_elemental_function_args
+	now requires the actual argument list instead of the expression for
+	the function call.
+	* trans-array.h: Modify the prototype for gfc_walk_elemental_function_args
+	and provide a prototype for gfc_reverse_ss.
+	* trans-stmt.h (gfc_trans_call): Add the scalarization code for the case
+	where an elemental subroutine has array valued actual arguments.
+
+	PR fortran/25029
+	PR fortran/21256
+	PR fortran/20868
+	PR fortran/20870
+	* resolve.c (check_assumed_size_reference): New function to check for upper
+	bound in assumed size array references.
+	(resolve_assumed_size_actual): New function to do a very restricted scan
+	of actual argument expressions of those procedures for which incomplete
+	assumed size array references are not allowed.
+	(resolve_function, resolve_call): Switch off assumed size checking of
+	actual arguments, except for elemental procedures and intrinsic
+	inquiry functions, in some circumstances.
+	(resolve_variable): Call check_assumed_size_reference.
+
+2006-01-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/24268
+	* io.c (next_char_not_space): New function that returns the next
+	character that is not white space.
+	(format_lex): Use the new function to skip whitespace within
+	a format string.
+
+2006-01-05  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/23675
+	* expr.c (gfc_expr_set_symbols_referenced): New function.
+	* gfortran.h: Add a function prototype for it.
+	* resolve.c (resolve_function): Use it for
+	use associated character functions lengths.
+	* expr.c, gfortran.h, resolve.c: Updated copyright years.
+
 2006-01-03  Steven G. Kargl  <kargls@comcast.net>
 
 	PR fortran/25101

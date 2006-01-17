@@ -1,6 +1,7 @@
 /* Build expressions with type checking for C compiler.
    Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3005,8 +3006,13 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	 when we have proper support for integer constant expressions.  */
       val = get_base_address (arg);
       if (val && TREE_CODE (val) == INDIRECT_REF
-	  && integer_zerop (TREE_OPERAND (val, 0)))
-	return fold_convert (argtype, fold_offsetof (arg));
+          && TREE_CONSTANT (TREE_OPERAND (val, 0)))
+	{
+	  tree op0 = fold_convert (argtype, fold_offsetof (arg)), op1;
+
+	  op1 = fold_convert (argtype, TREE_OPERAND (val, 0));
+	  return fold_build2 (PLUS_EXPR, argtype, op0, op1);
+	}
 
       val = build1 (ADDR_EXPR, argtype, arg);
 
@@ -3511,8 +3517,12 @@ build_c_cast (tree type, tree expr)
 
       if (TREE_CODE (type) == INTEGER_TYPE
 	  && TREE_CODE (otype) == POINTER_TYPE
-	  && TYPE_PRECISION (type) != TYPE_PRECISION (otype)
-	  && !TREE_CONSTANT (value))
+	  && TYPE_PRECISION (type) != TYPE_PRECISION (otype))
+      /* Unlike conversion of integers to pointers, where the 
+         warning is disabled for converting constants because 
+         of cases such as SIG_*, warn about converting constant 
+         pointers to integers. In some cases it may cause unwanted 
+         sign extension, and a warning is appropriate.  */
 	warning (OPT_Wpointer_to_int_cast,
 		 "cast from pointer to integer of different size");
 
