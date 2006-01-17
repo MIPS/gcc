@@ -1,3 +1,8 @@
+2006-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/25219
+	* testsuite/libgomp.fortran/pr25219.f90: New test.
+
 2005-12-05  Uros Bizjak  <uros@kss-loka.si>
 
 	* testsuite/libgomp.c/pr24455.c, testsuite/libgomp.c/copyin-1.c,
