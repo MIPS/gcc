@@ -1,0 +1,81 @@
+2006-01-03  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Use jmp, not jsr.
+
+2005-12-30  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.md: Convert define_peephole to define_peephole2.
+	(UNSPEC_MOVEQ_MEM): New constant.
+	(movsi_smallconst): New pattern.
+	* config/m68k/m68k.h (HARD_FP_REG_P): Define.
+
+2005-12-30  Paul Brook  <paul@codesourcery.com>
+
+	PR target/23482
+	* doc/md.texi: Document m68k Q, S, T and U constraints.
+	* config/m68k/m68k.h (EXTRA_CONSTRAINTS): Restrict U to 16-bit
+	offsets.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.h (RETURN_ADDR_RTX): Define.
+	* config/m68k/m68k.c (m68k_initial_elimination_offset): Remove FIXME.
+	Include offset due to FIRST_PARM_OFFSET.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/lb1sf68.asm (__cmpdf2): Fix typo in immediate mask.
+	Create wrapper and rename body...
+	(__cmpdf2_internal): ... to this.  Return correct value for unordered
+	result.
+	(__cmpsf2): Create wrapper and rename body...
+	(__cmpsf2_internal): ... to this.  Return corerct value for unordered
+	result.
+	(__eqdf2, __nedf2, __gtdf2, __gedf2, __ltdf2, __ledf2): Use
+	__cmpdf2_internal.
+	(__eqsf2, __nesf2, __gtsf2, __gesf2, __ltsf2, __lesf2): Use
+	__cmpsf2_internal.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/fpgnulib.c (__extendsfdf2): Handle negative zero.
+	(__truncdfsf2): Ditto.
+	(__extenddfxf2): Ditto.
+	(__truncxfdf2): Ditto.
+	* config/m68k/lb1sf68.asm (__addsf3): Return -0.0 for -0.0 + -0.0.
+	(__adddf3): Ditto.
+
+2005-12-29  Daniel Jacobowitz  <dan@codesourcery.com>
+	Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (m68k_output_pic_call): Don't use bsr.l for
+	!TARGET_68020.
+	* gcc/config/m68k/t-m68kelf (EXTRA_PARTS): Remove.
+	(EXTRA_MULTILIB_PARTS): Set.
+	* gcc/config/m68k/t-uclinux (EXTRA_PARTS): Remove.
+	(EXTRA_MULTILIB_PARTS): Set.
+
+2005-12-21  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/pr19340.c: Skip on m68k targets.
+
+2005-12-20  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/testsuite/lib/target-supports.exp (check_profiling_available):
+	Add m68k-*-elf.
+
+2005-12-17  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/m68k/m68k.md (m68k_output_function_prologue): Always call
+	dwarf2out_def_cfa. Only add space for frame pointer to cfa_offset
+	when frame_pointer_needed. 
+
+2005-12-02  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/fpgnulib.c (__unordsf2, __unorddf2, __unordxf2,
+	__floatunsidf, __floatunsisf, __floatunsixf): New functions.
+
+2005-11-28  Paul Brook  <paul@codesourcery.com>
+
+	* config.gcc: Don't use fixproto on m68k-elf.
+
