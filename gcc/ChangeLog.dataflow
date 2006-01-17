@@ -1,3 +1,29 @@
+2005-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-scan.c (df_scan_free_bb_info): Added basic block parameter to
+	be able to clean out basic block when not necessary.
+	(df_scan_free): Fixed to properly delete information if df is
+	unused before calling df_finish.
+	(df_scan_alloc, df_rescan_blocks, df_reg_chain_unlink,
+	df_insn_create_insn_record, df_bb_refs_record): Fixed formatting
+	or comment typos.
+	(df_bb_refs_delete): New function.
+	(df_refs_delete): Moved per block code to df_bb_refs_delete.
+	* df-core.c (df_set_blocks): Added code to properly clean out
+	unused blocks if they are not part of the blocks to consider.
+	(df_compact_blocks): Added basic block parameter to free_bb_fun to
+	be able to clean out basic block when not necessary
+	* df.h (df_free_bb_function): Ditto.
+	(df_bb_refs_delete): New function.
+	* df-problems.c (df_ru_free_bb_info, df_rd_set_bb_info,
+	df_lr_set_bb_info, df_ur_free_bb_info, df_urec_free_bb_info):Added
+	basic block parameter to be able to clean out basic block when not
+	necessary.
+	(df_ru_alloc, df_rd_alloc): Fixed dyslexic overflow test.
+	(df_ru_free, df_rd_free, df_lr_free, df_ur_free, df_urec_free):
+	Fixed to properly delete information if df is unused before
+	calling df_finish.
+
 2006-01-06  Daniel Berlin  <dberlin@dberlin.org>
   	    Kenneth Zadeck <zadeck@naturalbridge.com>
 
