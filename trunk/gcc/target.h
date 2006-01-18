@@ -85,6 +85,12 @@ struct gcc_target
        this is only a placeholder for an omitted FDE.  */
     void (* unwind_label) (FILE *, tree, int, int);
 
+    /* APPLE LOCAL begin mainline */
+    /* Output code that will emit a label to divide up the exception
+       table.  */
+    void (* except_table_label) (FILE *);
+
+    /* APPLE LOCAL end mainline */
     /* Emit any directives required to unwind this instruction.  */
     void (* unwind_emit) (FILE *, rtx);
 

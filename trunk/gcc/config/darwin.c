@@ -1662,7 +1662,19 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
 
   free (lab);
 }
+/* APPLE LOCAL begin mainline */
+static GTY(()) unsigned long except_table_label_num;
 
+void
+darwin_emit_except_table_label (FILE *file)
+{
+  char section_start_label[30];
+
+  ASM_GENERATE_INTERNAL_LABEL (section_start_label, "GCC_except_table",
+			       except_table_label_num++);
+  ASM_OUTPUT_LABEL (file, section_start_label);
+}
+/* APPLE LOCAL end mainline */
 /* Generate a PC-relative reference to a Mach-O non-lazy-symbol.  */ 
 
 void
@@ -1729,6 +1741,64 @@ darwin_asm_output_dwarf_delta (FILE *file, int size,
   if (islocaldiff)
     fprintf (file, "\n\t%s L$set$%d", directive, darwin_dwarf_label_counter++);
 }
+
+/* APPLE LOCAL begin dwarf 4383509 */
+/* Output labels for the start of the DWARF sections if necessary.  */
+void
+darwin_file_start (void)
+{
+  if (write_symbols == DWARF2_DEBUG)
+    {
+      static const char * const debugnames[] = 
+	{
+	  DEBUG_FRAME_SECTION,
+	  DEBUG_INFO_SECTION,
+	  DEBUG_ABBREV_SECTION,
+	  DEBUG_ARANGES_SECTION,
+	  DEBUG_MACINFO_SECTION,
+	  DEBUG_LINE_SECTION,
+	  DEBUG_LOC_SECTION,
+	  DEBUG_PUBNAMES_SECTION,
+	  DEBUG_STR_SECTION,
+	  DEBUG_RANGES_SECTION
+	};
+      size_t i;
+
+      for (i = 0; i < ARRAY_SIZE (debugnames); i++)
+	{
+	  int namelen;
+
+	  named_section_flags (debugnames[i], SECTION_DEBUG);
+	  
+	  gcc_assert (strncmp (debugnames[i], "__DWARF,", 8) == 0);
+	  gcc_assert (strchr (debugnames[i] + 8, ','));
+	  
+	  namelen = strchr (debugnames[i] + 8, ',') - (debugnames[i] + 8);
+	  fprintf (asm_out_file, "Lsection%.*s:\n", namelen, debugnames[i] + 8);
+	}
+    }
+}
+
+/* Output an offset in a DWARF section on Darwin.  On Darwin, DWARF section
+   offsets are not represented using relocs in .o files; either the
+   section never leaves the .o file, or the linker or other tool is
+   responsible for parsing the DWARF and updating the offsets.  */
+
+void
+darwin_asm_output_dwarf_offset (FILE *file, int size, const char * lab,
+				const char *base)
+{
+  char sname[64];
+  int namelen;
+  
+  gcc_assert (strncmp (base, "__DWARF,", 8) == 0);
+  gcc_assert (strchr (base + 8, ','));
+
+  namelen = strchr (base + 8, ',') - (base + 8);
+  sprintf (sname, "*Lsection%.*s", namelen, base + 8);
+  darwin_asm_output_dwarf_delta (file, size, lab, sname);
+}
+/* APPLE LOCAL end dwarf 4383509 */
 
 void
 darwin_file_end (void)

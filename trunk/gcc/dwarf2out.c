@@ -1,6 +1,8 @@
 /* Output Dwarf2 format symbol table information from GCC.
+   APPLE LOCAL begin dwarf 4383509
    Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   APPLE LOCAL end dwarf 4383509
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -2361,7 +2363,8 @@ output_call_frame_info (int for_eh)
 	dw2_asm_output_delta (4, l1, section_start_label, "FDE CIE offset");
       else
 	dw2_asm_output_offset (DWARF_OFFSET_SIZE, section_start_label,
-			       "FDE CIE offset");
+			       /* APPLE LOCAL dwarf 4383509 */
+			       DEBUG_FRAME_SECTION, "FDE CIE offset");
 
       if (for_eh)
 	{
@@ -2613,8 +2616,11 @@ enum dw_val_class
   dw_val_class_die_ref,
   dw_val_class_fde_ref,
   dw_val_class_lbl_id,
-  dw_val_class_lbl_offset,
-  dw_val_class_str
+/* APPLE LOCAL begin dwarf 4383509 */
+  dw_val_class_lineptr,
+  dw_val_class_str,
+  dw_val_class_macptr
+/* APPLE LOCAL end dwarf 4383509 */
 };
 
 /* Describe a double word constant value.  */
@@ -3796,6 +3802,11 @@ static GTY(()) unsigned line_info_table_allocated;
 /* Number of elements in line_info_table currently in use.  */
 static GTY(()) unsigned line_info_table_in_use;
 
+/* APPLE LOCAL begin mainline 4.2 2006-01-02 4386366 */
+/* True if the compilation unit places functions in more than one section.  */
+static GTY(()) bool have_multiple_function_sections = false;
+
+/* APPLE LOCAL end mainline 4.2 2006-01-02 4386366 */
 /* A pointer to the base of a table that contains line information
    for each source code line outside of .text in the compilation unit.  */
 static GTY ((length ("separate_line_info_table_allocated")))
@@ -3852,7 +3863,8 @@ static GTY(()) unsigned ranges_table_in_use;
 #define RANGES_TABLE_INCREMENT 64
 
 /* Whether we have location lists that need outputting */
-static GTY(()) unsigned have_location_lists;
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+static GTY(()) bool have_location_lists;
 
 /* Unique label counter.  */
 static GTY(()) unsigned int loclabel_num;
@@ -3918,7 +3930,10 @@ static inline dw_loc_list_ref AT_loc_list (dw_attr_ref);
 static void add_AT_addr (dw_die_ref, enum dwarf_attribute, rtx);
 static inline rtx AT_addr (dw_attr_ref);
 static void add_AT_lbl_id (dw_die_ref, enum dwarf_attribute, const char *);
-static void add_AT_lbl_offset (dw_die_ref, enum dwarf_attribute, const char *);
+/* APPLE LOCAL begin dwarf 4383509 */
+static void add_AT_lineptr (dw_die_ref, enum dwarf_attribute, const char *);
+static void add_AT_macptr (dw_die_ref, enum dwarf_attribute, const char *);
+/* APPLE LOCAL end dwarf 4383509 */
 static void add_AT_offset (dw_die_ref, enum dwarf_attribute,
 			   unsigned HOST_WIDE_INT);
 static void add_AT_range_list (dw_die_ref, enum dwarf_attribute,
@@ -5067,7 +5082,8 @@ add_AT_loc_list (dw_die_ref die, enum dwarf_attribute attr_kind, dw_loc_list_ref
   attr->dw_attr_val.val_class = dw_val_class_loc_list;
   attr->dw_attr_val.v.val_loc_list = loc_list;
   add_dwarf_attr (die, attr);
-  have_location_lists = 1;
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+  have_location_lists = true;
 }
 
 static inline dw_loc_list_ref
@@ -5112,20 +5128,42 @@ add_AT_lbl_id (dw_die_ref die, enum dwarf_attribute attr_kind, const char *lbl_i
   add_dwarf_attr (die, attr);
 }
 
-/* Add a section offset attribute value to a DIE.  */
+/* APPLE LOCAL begin dwarf 4383509 */
+/* Add a section offset attribute value to a DIE, an offset into the
+   debug_line section.  */
 
 static inline void
-add_AT_lbl_offset (dw_die_ref die, enum dwarf_attribute attr_kind, const char *label)
+add_AT_lineptr (dw_die_ref die, enum dwarf_attribute attr_kind,
+		const char *label)
 {
   dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_lbl_offset;
+  attr->dw_attr_val.val_class = dw_val_class_lineptr;
+/* APPLE LOCAL end dwarf 4383509 */
   attr->dw_attr_val.v.val_lbl_id = xstrdup (label);
   add_dwarf_attr (die, attr);
 }
 
+/* APPLE LOCAL begin dwarf 4383509 */
+/* Add a section offset attribute value to a DIE, an offset into the
+   debug_macinfo section.  */
+
+static inline void
+add_AT_macptr (dw_die_ref die, enum dwarf_attribute attr_kind,
+	       const char *label)
+{
+  dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
+
+  attr->dw_attr_next = NULL;
+  attr->dw_attr = attr_kind;
+  attr->dw_attr_val.val_class = dw_val_class_macptr;
+  attr->dw_attr_val.v.val_lbl_id = xstrdup (label);
+  add_dwarf_attr (die, attr);
+}
+
+/* APPLE LOCAL end dwarf 4383509 */
 /* Add an offset attribute value to a DIE.  */
 
 static inline void
@@ -5160,7 +5198,10 @@ static inline const char *
 AT_lbl (dw_attr_ref a)
 {
   gcc_assert (a && (AT_class (a) == dw_val_class_lbl_id
-		    || AT_class (a) == dw_val_class_lbl_offset));
+/* APPLE LOCAL begin dwarf 4383509 */
+		    || AT_class (a) == dw_val_class_lineptr
+		    || AT_class (a) == dw_val_class_macptr));
+/* APPLE LOCAL end dwarf 4383509 */
   return a->dw_attr_val.v.val_lbl_id;
 }
 
@@ -5676,7 +5717,10 @@ print_die (dw_die_ref die, FILE *outfile)
 	    fprintf (outfile, "die -> <null>");
 	  break;
 	case dw_val_class_lbl_id:
-	case dw_val_class_lbl_offset:
+/* APPLE LOCAL begin dwarf 4383509 */
+	case dw_val_class_lineptr:
+	case dw_val_class_macptr:
+/* APPLE LOCAL end dwarf 4383509 */
 	  fprintf (outfile, "label: %s", AT_lbl (a));
 	  break;
 	case dw_val_class_str:
@@ -5890,7 +5934,10 @@ attr_checksum (dw_attr_ref at, struct md5_ctx *ctx, int *mark)
 
     case dw_val_class_fde_ref:
     case dw_val_class_lbl_id:
-    case dw_val_class_lbl_offset:
+/* APPLE LOCAL begin dwarf 4383509 */
+    case dw_val_class_lineptr:
+    case dw_val_class_macptr:
+/* APPLE LOCAL end dwarf 4383509 */
       break;
 
     default:
@@ -5991,7 +6038,10 @@ same_dw_val_p (dw_val_node *v1, dw_val_node *v2, int *mark)
 
     case dw_val_class_fde_ref:
     case dw_val_class_lbl_id:
-    case dw_val_class_lbl_offset:
+/* APPLE LOCAL begin dwarf 4383509 */
+    case dw_val_class_lineptr:
+    case dw_val_class_macptr:
+/* APPLE LOCAL end dwarf 4383509 */
       return 1;
 
     default:
@@ -6565,7 +6615,10 @@ size_of_die (dw_die_ref die)
 	case dw_val_class_lbl_id:
 	  size += DWARF2_ADDR_SIZE;
 	  break;
-	case dw_val_class_lbl_offset:
+/* APPLE LOCAL begin dwarf 4383509 */
+	case dw_val_class_lineptr:
+	case dw_val_class_macptr:
+/* APPLE LOCAL end dwarf 4383509 */
 	  size += DWARF_OFFSET_SIZE;
 	  break;
 	case dw_val_class_str:
@@ -6757,7 +6810,10 @@ value_format (dw_attr_ref a)
       return DW_FORM_data;
     case dw_val_class_lbl_id:
       return DW_FORM_addr;
-    case dw_val_class_lbl_offset:
+/* APPLE LOCAL begin dwarf 4383509 */
+    case dw_val_class_lineptr:
+    case dw_val_class_macptr:
+/* APPLE LOCAL end dwarf 4383509 */
       return DW_FORM_data;
     case dw_val_class_str:
       return AT_string_form (a);
@@ -6885,7 +6941,8 @@ output_loc_list (dw_loc_list_ref list_head)
   for (curr = list_head; curr != NULL; curr = curr->dw_loc_next)
     {
       unsigned long size;
-      if (separate_line_info_table_in_use == 0)
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+      if (!have_multiple_function_sections)
 	{
 	  dw2_asm_output_delta (DWARF2_ADDR_SIZE, curr->begin, curr->section,
 				"Location list begin address (%s)",
@@ -6960,7 +7017,8 @@ output_die (dw_die_ref die)
 	    sprintf (p, "+" HOST_WIDE_INT_PRINT_HEX,
 		     a->dw_attr_val.v.val_offset);
 	    dw2_asm_output_offset (DWARF_OFFSET_SIZE, ranges_section_label,
-				   "%s", name);
+				   /* APPLE LOCAL dwarf 4383509 */
+				   DEBUG_RANGES_SECTION, "%s", name);
 	    *p = '\0';
 	  }
 	  break;
@@ -7042,7 +7100,10 @@ output_die (dw_die_ref die)
 	    char *sym = AT_loc_list (a)->ll_symbol;
 
 	    gcc_assert (sym);
-	    dw2_asm_output_offset (DWARF_OFFSET_SIZE, sym, "%s", name);
+/* APPLE LOCAL begin dwarf 4383509 */
+	    dw2_asm_output_offset (DWARF_OFFSET_SIZE, sym, DEBUG_LOC_SECTION,
+				   "%s", name);
+/* APPLE LOCAL end dwarf 4383509 */
 	  }
 	  break;
 
@@ -7052,7 +7113,10 @@ output_die (dw_die_ref die)
 	      char *sym = AT_ref (a)->die_symbol;
 
 	      gcc_assert (sym);
-	      dw2_asm_output_offset (DWARF2_ADDR_SIZE, sym, "%s", name);
+/* APPLE LOCAL begin dwarf 4383509 */
+	      dw2_asm_output_offset (DWARF2_ADDR_SIZE, sym, DEBUG_INFO_SECTION,
+				     "%s", name);
+/* APPLE LOCAL end dwarf 4383509 */
 	    }
 	  else
 	    {
@@ -7068,7 +7132,10 @@ output_die (dw_die_ref die)
 
 	    ASM_GENERATE_INTERNAL_LABEL (l1, FDE_LABEL,
 					 a->dw_attr_val.v.val_fde_index * 2);
-	    dw2_asm_output_offset (DWARF_OFFSET_SIZE, l1, "%s", name);
+/* APPLE LOCAL begin dwarf 4383509 */
+	    dw2_asm_output_offset (DWARF_OFFSET_SIZE, l1, DEBUG_FRAME_SECTION,
+				   "%s", name);
+/* APPLE LOCAL end dwarf 4383509 */
 	  }
 	  break;
 
@@ -7076,14 +7143,27 @@ output_die (dw_die_ref die)
 	  dw2_asm_output_addr (DWARF2_ADDR_SIZE, AT_lbl (a), "%s", name);
 	  break;
 
-	case dw_val_class_lbl_offset:
-	  dw2_asm_output_offset (DWARF_OFFSET_SIZE, AT_lbl (a), "%s", name);
+/* APPLE LOCAL begin dwarf 4383509 */
+	case dw_val_class_lineptr:
+	  dw2_asm_output_offset (DWARF_OFFSET_SIZE, AT_lbl (a),
+				 DEBUG_LINE_SECTION, "%s", name);
+/* APPLE LOCAL end dwarf 4383509 */
 	  break;
 
+/* APPLE LOCAL begin dwarf 4383509 */
+	case dw_val_class_macptr:
+	  dw2_asm_output_offset (DWARF_OFFSET_SIZE, AT_lbl (a),
+				 DEBUG_MACINFO_SECTION, "%s", name);
+	  break;
+
+/* APPLE LOCAL end dwarf 4383509 */
 	case dw_val_class_str:
 	  if (AT_string_form (a) == DW_FORM_strp)
 	    dw2_asm_output_offset (DWARF_OFFSET_SIZE,
 				   a->dw_attr_val.v.val_str->label,
+/* APPLE LOCAL begin dwarf 4383509 */
+				   DEBUG_STR_SECTION,
+/* APPLE LOCAL end dwarf 4383509 */
 				   "%s: \"%s\"", name, AT_string (a));
 	  else
 	    dw2_asm_output_nstring (AT_string (a), -1, "%s", name);
@@ -7117,6 +7197,8 @@ output_compilation_unit_header (void)
 		       "Length of Compilation Unit Info");
   dw2_asm_output_data (2, DWARF_VERSION, "DWARF version number");
   dw2_asm_output_offset (DWARF_OFFSET_SIZE, abbrev_section_label,
+			 /* APPLE LOCAL dwarf 4383509 */
+			 DEBUG_ABBREV_SECTION,
 			 "Offset Into Abbrev. Section");
   dw2_asm_output_data (1, DWARF2_ADDR_SIZE, "Pointer Size (in bytes)");
 }
@@ -7224,6 +7306,8 @@ output_pubnames (void)
 		       "Length of Public Names Info");
   dw2_asm_output_data (2, DWARF_VERSION, "DWARF Version");
   dw2_asm_output_offset (DWARF_OFFSET_SIZE, debug_info_section_label,
+			 /* APPLE LOCAL dwarf 4383509 */
+			 DEBUG_INFO_SECTION,
 			 "Offset of Compilation Unit Info");
   dw2_asm_output_data (DWARF_OFFSET_SIZE, next_die_offset,
 		       "Compilation Unit Length");
@@ -7282,6 +7366,8 @@ output_aranges (void)
 		       "Length of Address Ranges Info");
   dw2_asm_output_data (2, DWARF_VERSION, "DWARF Version");
   dw2_asm_output_offset (DWARF_OFFSET_SIZE, debug_info_section_label,
+			 /* APPLE LOCAL dwarf 4383509 */
+			 DEBUG_INFO_SECTION,
 			 "Offset of Compilation Unit Info");
   dw2_asm_output_data (1, DWARF2_ADDR_SIZE, "Size of Address");
   dw2_asm_output_data (1, 0, "Size of Segment Descriptor");
@@ -7387,7 +7473,8 @@ output_ranges (void)
 	  /* If all code is in the text section, then the compilation
 	     unit base address defaults to DW_AT_low_pc, which is the
 	     base of the text section.  */
-	  if (separate_line_info_table_in_use == 0)
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+	  if (!have_multiple_function_sections)
 	    {
 	      dw2_asm_output_delta (DWARF2_ADDR_SIZE, blabel,
 				    text_section_label,
@@ -13282,15 +13369,20 @@ dwarf2out_var_location (rtx loc_note)
   add_var_loc_to_decl (decl, newloc);
 }
 
+/* APPLE LOCAL begin mainline 4.2 2006-01-02 4386366 */
 /* We need to reset the locations at the beginning of each
    function. We can't do this in the end_function hook, because the
-   declarations that use the locations won't have been outputted when
-   that hook is called.  */
+   declarations that use the locations won't have been output when
+   that hook is called.  Also compute have_multiple_function_sections here.  */
 
 static void
-dwarf2out_begin_function (tree unused ATTRIBUTE_UNUSED)
+dwarf2out_begin_function (tree fun)
 {
   htab_empty (decl_loc_table);
+  
+  if (DECL_WEAK (fun) || DECL_SECTION_NAME (fun))
+    have_multiple_function_sections = true;
+/* APPLE LOCAL end mainline 4.2 2006-01-02 4386366 */
 }
 
 /* Output a label to mark the beginning of a source code line entry
@@ -13321,12 +13413,13 @@ dwarf2out_source_line (unsigned int line, const char *filename)
 
 	  /* Indicate that line number info exists.  */
 	  line_info_table_in_use++;
-
-	  /* Indicate that multiple line number tables exist.  */
-	  if (DECL_SECTION_NAME (current_function_decl))
-	    separate_line_info_table_in_use++;
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+/* Don't set separate_line_info_table_in_use.  */
 	}
-      else if (DECL_SECTION_NAME (current_function_decl))
+/* APPLE LOCAL begin mainline 4.2 2006-01-02 4386366 */
+      else if (DECL_WEAK (current_function_decl) 
+	       || DECL_SECTION_NAME (current_function_decl))
+/* APPLE LOCAL end mainline 4.2 2006-01-02 4386366 */
 	{
 	  dw_separate_line_info_ref line_info;
 	  targetm.asm_out.internal_label (asm_out_file, SEPARATE_LINE_CODE_LABEL,
@@ -13874,21 +13967,12 @@ dwarf2out_finish (const char *filename)
       output_line_info ();
     }
 
-  /* Output location list section if necessary.  */
-  if (have_location_lists)
-    {
-      /* Output the location lists info.  */
-      named_section_flags (DEBUG_LOC_SECTION, SECTION_DEBUG);
-      ASM_GENERATE_INTERNAL_LABEL (loc_section_label,
-				   DEBUG_LOC_SECTION_LABEL, 0);
-      ASM_OUTPUT_LABEL (asm_out_file, loc_section_label);
-      output_location_lists (die);
-      have_location_lists = 0;
-    }
-
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+/* Don't output location list here.  */
   /* We can only use the low/high_pc attributes if all of the code was
      in .text.  */
-  if (separate_line_info_table_in_use == 0)
+/* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
+  if (!have_multiple_function_sections)
     {
       add_AT_lbl_id (comp_unit_die, DW_AT_low_pc, text_section_label);
       add_AT_lbl_id (comp_unit_die, DW_AT_high_pc, text_end_label);
@@ -13899,12 +13983,28 @@ dwarf2out_finish (const char *filename)
   else if (have_location_lists || ranges_table_in_use)
     add_AT_addr (comp_unit_die, DW_AT_entry_pc, const0_rtx);
 
+/* APPLE LOCAL begin mainline 4.2 2006-01-02 4386366 */
+  /* Output location list section if necessary.  */
+  if (have_location_lists)
+    {
+      /* Output the location lists info.  */
+      named_section_flags (DEBUG_LOC_SECTION, SECTION_DEBUG);
+      ASM_GENERATE_INTERNAL_LABEL (loc_section_label,
+				   DEBUG_LOC_SECTION_LABEL, 0);
+      ASM_OUTPUT_LABEL (asm_out_file, loc_section_label);
+      output_location_lists (die);
+    }
+
+/* APPLE LOCAL end mainline 4.2 2006-01-02 4386366 */
   if (debug_info_level >= DINFO_LEVEL_NORMAL)
-    add_AT_lbl_offset (comp_unit_die, DW_AT_stmt_list,
-		       debug_line_section_label);
+/* APPLE LOCAL begin dwarf 4383509 */
+    add_AT_lineptr (comp_unit_die, DW_AT_stmt_list,
+		    debug_line_section_label);
+/* APPLE LOCAL end dwarf 4383509 */
 
   if (debug_info_level >= DINFO_LEVEL_VERBOSE)
-    add_AT_lbl_offset (comp_unit_die, DW_AT_macro_info, macinfo_section_label);
+/* APPLE LOCAL dwarf 4383509 */
+    add_AT_macptr (comp_unit_die, DW_AT_macro_info, macinfo_section_label);
 
   /* Output all of the compilation units.  We put the main one last so that
      the offsets are available to output_pubnames.  */

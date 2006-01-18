@@ -547,6 +547,8 @@ start_record_layout (tree t)
   rli->prev_field = 0;
   rli->pending_statics = 0;
   rli->packed_maybe_necessary = 0;
+  /* APPLE LOCAL 4401223 4401224 */
+  rli->bitfield_seen = 0;
 
   return rli;
 }
@@ -867,8 +869,14 @@ place_field (record_layout_info rli, tree field)
   /* Work out the known alignment so far.  Note that A & (-A) is the
      value of the least-significant bit in A that is one.  */
   if (! integer_zerop (rli->bitpos))
-    known_align = (tree_low_cst (rli->bitpos, 1)
-		   & - tree_low_cst (rli->bitpos, 1));
+    /* APPLE LOCAL begin 4401223 4401224 */
+    {
+      int realoffset = tree_low_cst (rli->bitpos, 1);
+      if (targetm.reverse_bitfields_p (rli->t))
+	realoffset += tree_low_cst (rli->offset, 1) * BITS_PER_UNIT;
+      known_align = realoffset & -realoffset;
+    }
+    /* APPLE LOCAL end 4401223 4401224 */
   else if (integer_zerop (rli->offset))
     known_align = BIGGEST_ALIGNMENT;
   else if (host_integerp (rli->offset, 1))
@@ -1206,6 +1214,8 @@ place_field (record_layout_info rli, tree field)
       DECL_FIELD_BIT_OFFSET (field) = size_binop (MINUS_EXPR, 
 	    size_binop (MINUS_EXPR, tsize, fsize),
 	    rli->bitpos);
+      /* APPLE LOCAL 4401223 4401224 */
+      rli->bitfield_seen = true;
       /* APPLE LOCAL end bitfield reversal 4317709 */
     }
   else
@@ -1262,6 +1272,26 @@ place_field (record_layout_info rli, tree field)
     {
       rli->bitpos = size_binop (PLUS_EXPR, rli->bitpos, DECL_SIZE (field));
       normalize_rli (rli);
+      /* APPLE LOCAL begin 4401223 4401224 */
+      if (targetm.reverse_bitfields_p (rli->t) && !DECL_BIT_FIELD_TYPE (field)
+	  && !rli->bitfield_seen)
+	{
+	  tree tsize = TYPE_SIZE (TREE_TYPE (field));
+	  /* If we've gone into the next word, move "offset" forward and
+	     adjust "bitpos" to compensate.  This must be done here for
+	     non-bitfields to get following bitfields laid out correctly.
+	     However, if we've already seen a bitfield earlier in the 
+	     struct, don't do this compensation.  This makes no sense
+	     and results in overlapping fields, but is what CW does.  */
+	  while (! INT_CST_LT_UNSIGNED (rli->bitpos, tsize))
+	    {
+	      rli->offset = size_binop (PLUS_EXPR, rli->offset, 
+					TYPE_SIZE_UNIT (TREE_TYPE (field)));
+	      rli->bitpos = size_binop (MINUS_EXPR, rli->bitpos,
+					tsize);
+	    }
+	}
+      /* APPLE LOCAL end 4401223 4401224 */
     }
 }
 

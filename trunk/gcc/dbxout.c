@@ -1161,6 +1161,11 @@ dbxout_init (const char *input_file_name)
       targetm.asm_out.internal_label (dbx_out_file, "Ltext", 0);
     }
 
+  /* APPLE LOCAL begin symbol separation, dwarf 4386531 */
+  dbxout_begin_empty_stabs (N_OSO);
+  dbxout_stab_value_zero ();
+  /* APPLE LOCAL end symbol separation, dwarf 4386531 */
+
   /* Emit an N_OPT stab to indicate that this file was compiled by GCC.
      The string used is historical.  */
 #ifndef NO_DBX_GCC_MARKER
@@ -1533,6 +1538,7 @@ dbxout_finish (const char *filename ATTRIBUTE_UNUSED)
 	fatal_error ("error closing %s: %m", asm_file_name);
     }
   /* APPLE LOCAL end ss2 */
+  /* APPLE LOCAL too many changes */
 }
 
 /* APPLE LOCAL begin dbxout_type rewrite.  */

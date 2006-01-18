@@ -25,11 +25,43 @@
 2005-12-06  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4360146
-
         * c-common.h (objc_v2_build_ivar_ref): New declaration.
         * stub-objc.c (objc_v2_build_ivar_ref): New stub.
 	* c-typeck.c (build_component_ref): Generate the new ivar reference
 	tree.
+
+2006-01-18  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4405429
+	* gcc/global.c (find_tied_stack_pseudo): Insist on a valid
+	memory address (no pseudos).
+
+2006-01-13  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4386531
+	* stab.def (N_OSO): New.
+	* dbxout.c (dbxout_init): Output N_OSO stab always.
+
+2006-01-13  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4386991
+	* gcc/cp/typeck2.c (split_nonconstant_init): Remove APPLE LOCAL 4285232.
+
+2006-01-13  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4401223 4401224
+	* tree.h (record_layout_info_s):  Add bitfield_seen.
+	* stor-layout.c (start_record_layout):  Initialize it.
+	(place_field):  When reversing bitfields: consider
+	rli->offset when computing current alignment;
+	maintain rli->bitfield_seen; adjust rli->bitpos and
+	rli_offset after a non-bitfield, but not if we saw
+	a bitfield earlier.
+
+2006-01-03  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4392520
+	* config/darwin.h (FRAME_BEGIN_LABEL): Use Lname if not for EH.
 
 2005-12-22  Dale Johannesen  <dalej@apple.com>
 

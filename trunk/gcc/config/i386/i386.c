@@ -16856,6 +16856,11 @@ static void
 x86_file_start (void)
 {
   default_file_start ();
+/* APPLE LOCAL begin dwarf 4383509 */
+#if TARGET_MACHO
+  darwin_file_start ();
+#endif
+/* APPLE LOCAL end dwarf 4383509 */
   if (X86_FILE_START_VERSION_DIRECTIVE)
     fputs ("\t.version\t\"01.01\"\n", asm_out_file);
   if (X86_FILE_START_FLTUSED)

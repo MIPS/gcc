@@ -613,12 +613,17 @@ do {					\
 /* We need to use a nonlocal label for the start of an EH frame: the
    Darwin linker requires that a coalesced section start with a label. */
 #undef FRAME_BEGIN_LABEL
-#define FRAME_BEGIN_LABEL "EH_frame"
+/* APPLE LOCAL dwarf2 4392520 */
+#define FRAME_BEGIN_LABEL (for_eh ? "EH_frame" : "Lframe")
 
 /* Emit a label for the FDE corresponding to DECL.  EMPTY means 
    emit a label for an empty FDE. */
 #define TARGET_ASM_EMIT_UNWIND_LABEL darwin_emit_unwind_label
 
+/* APPLE LOCAL begin mainline */
+/* Emit a label to separate the exception table.  */
+#define TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL darwin_emit_except_table_label
+/* APPLE LOCAL end mainline */
 /* Our profiling scheme doesn't LP labels and counter words.  */
 
 #define NO_PROFILE_COUNTERS	1
@@ -1299,6 +1304,11 @@ enum machopic_addr_class {
 #define ASM_OUTPUT_DWARF_DELTA(FILE,SIZE,LABEL1,LABEL2)  \
   darwin_asm_output_dwarf_delta (FILE, SIZE, LABEL1, LABEL2)
 
+/* APPLE LOCAL begin dwarf 4383509 */
+#define ASM_OUTPUT_DWARF_OFFSET(FILE,SIZE,LABEL,BASE)  \
+  darwin_asm_output_dwarf_offset (FILE, SIZE, LABEL, BASE)
+
+/* APPLE LOCAL end dwarf 4383509 */
 #define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(ASM_OUT_FILE, ENCODING, SIZE, ADDR, DONE)	\
       if (ENCODING == ASM_PREFERRED_EH_DATA_FORMAT (2, 1)) {				\
 	darwin_non_lazy_pcrel (ASM_OUT_FILE, ADDR);					\

@@ -407,7 +407,7 @@ rm -rf * || exit 1
 
 # Save executables and libraries.
 cd $DEST_DIR || exit 1
-find . \( -perm -0111 -or -name \*.a \) -type f -print \
+find . \( -perm -0111 -or -name \*.a -or -name \*.dylib \) -type f -print \
   | cpio -pdml $SYM_DIR || exit 1
 # Save source files.
 mkdir $SYM_DIR/src || exit 1

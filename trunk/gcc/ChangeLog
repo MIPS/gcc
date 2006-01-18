@@ -1,3 +1,34 @@
+2006-01-06  Eric Christopher  <echristo@apple.com>
+
+        * doc/tm.texi (TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL): Document.
+        (TARGET_UNWIND_EMIT): Fix spelling.
+        * target.h (gcc_target): Add except_table_label.
+        * except.c (output_function_exception_table): Use.
+        * varasm.c (default_emit_except_table_label): New.
+        * target-def.h (TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL): New default
+        define.
+        (asm_out): Add here.
+        * output.h (default_emit_except_table_label): Prototype.
+        * config/darwin-protos.h (darwin_emit_except_table_label): Ditto.
+        * config/darwin.c (darwin_emit_except_table_label): Define.
+        * config/darwin.h (TARGET_ASM_EMIT_EXCEPT_TABLE): Ditto.
+
+2006-01-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* dwarf2out.c (have_switched_text_section): Delete.
+	(have_multiple_function_sections): New.
+	(have_location_lists): Make 'bool'.
+	(add_AT_loc_list): Use 'true' not '1'.
+	(dwarf2out_switch_text_section): Set have_multiple_function_sections.
+	(output_loc_list): Use have_multiple_function_sections.
+	(output_ranges): Likewise.
+	(dwarf2out_begin_function): Set have_multiple_function_sections if
+	necessary.
+	(dwarf2out_source_line): Don't fake separate_line_info_table_in_use.
+	Check function_section rather than DECL_SECTION_NAME.
+	(dwarf2out_finish): Use have_multiple_function_sections.
+	Don't clear have_location_lists.
+
 2005-12-06  Geoffrey Keating  <geoffk@apple.com>
 
 	* config/darwin.h (TARGET_CXX_CLASS_DATA_ALWAYS_COMDAT): New.
@@ -6,7 +37,7 @@
 
 	* config/darwin.c (machopic_select_section): It's not defined
 	as weak if it's only marked as weak_import.
-	
+
 	* config/rs6000/host-darwin.c (segv_handler): Unblock SEGV so
 	we don't go into an infinite loop.
 
@@ -73,7 +104,7 @@
 	* config/rs6000/t-darwin (SHLIB_VERPFX): Define.
 
 2005-09-01  Richard Henderson  <rth@redhat.com>
-       
+
         PR 23668
 	Radar 4232562
         * config/i386/i386.c (ix86_expand_vector_init_one_var): Restore
@@ -138,8 +169,8 @@
 
 2005-08-31  Fariborz Jahanian <fjahanian@apple.com>
 
-        * expr.c (expand_expr_real_1): Compare size of address 
-        mode to target's address mode size in deciding expansion of 
+        * expr.c (expand_expr_real_1): Compare size of address
+        mode to target's address mode size in deciding expansion of
         the constant address.
 
 2005-07-19  Richard Henderson  <rth@redhat.com>
