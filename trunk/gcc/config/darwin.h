@@ -856,6 +856,10 @@ FUNCTION (void)								\
   /* APPLE LOCAL begin ObjC new abi  */					\
   in_objc_classlist_section,						\
   in_objc_message_refs_section,						\
+  in_objc_classrefs_section,						\
+  in_objc_categorylist_section,						\
+  in_objc_nonlazy_class_section,					\
+  in_objc_nonlazy_category_section,					\
   /* APPLE LOCAL end ObjC new abi  */					\
   num_sections
 
@@ -1046,6 +1050,18 @@ SECTION_FUNCTION (objc_data_section,					\
 SECTION_FUNCTION (objc_message_refs_section,				\
 		  in_objc_message_refs_section,				\
 		  ".section __OBJC2, __message_refs, regular, no_dead_strip", 1)	\
+SECTION_FUNCTION (objc_categorylist_section,				\
+		  in_objc_categorylist_section,				\
+		  ".section __OBJC2, __category_list, regular, no_dead_strip", 1)	\
+SECTION_FUNCTION (objc_classrefs_section,				\
+		  in_objc_classrefs_section,				\
+		  ".section __OBJC2, __class_refs, regular, no_dead_strip", 1) 	\
+SECTION_FUNCTION (objc_nonlazy_class_section,				\
+		  in_objc_nonlazy_class_section,				\
+		  ".section __OBJC2, __nonlazy_class, regular, no_dead_strip", 1) 	\
+SECTION_FUNCTION (objc_nonlazy_category_section,				\
+		  in_objc_nonlazy_category_section,				\
+		  ".section __OBJC2, __nonlazy_catgry, regular, no_dead_strip", 1) 	\
 /* APPLE LOCAL end ObjC new abi */					\
 \
 static void					\
@@ -1079,13 +1095,17 @@ objc_section_init (void)			\
       objc_module_info_section ();		\
       objc_symbols_section ();			\
       /* APPLE LOCAL begin ObjC abi v2 */	\
-      if (flag_objc_abi == 2)			\
-        {					\
-          objc_data_section ();			\
-          objc_classlist_section ();		\
-	}					\
       if (flag_objc_abi >= 2)			\
         objc_message_refs_section ();		\
+      if (flag_objc_abi == 2)			\
+        {					\
+	  objc_classrefs_section ();		\
+          objc_data_section ();			\
+          objc_classlist_section ();		\
+	  objc_categorylist_section ();		\
+	  objc_nonlazy_class_section ();	\
+	  objc_nonlazy_category_section ();	\
+	}					\
       /* APPLE LOCAL end ObjC abi v2 */		\
     }						\
 }

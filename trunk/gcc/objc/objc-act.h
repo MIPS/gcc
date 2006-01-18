@@ -86,8 +86,10 @@ void objc_detect_field_duplicates (tree);
 #define PROTOCOL_NST_METHODS(CLASS) ((CLASS)->type.minval)
 #define PROTOCOL_CLS_METHODS(CLASS) ((CLASS)->type.maxval)
 #define PROTOCOL_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 1)
-/* APPLE LOCAL ObjC abi v2 */
+/* APPLE LOCAL begin ObjC abi v2 */
 #define PROTOCOL_V2_FORWARD_DECL(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 2) 
+#define CLASS_OR_CATEGORY_HAS_LOAD_IMPL(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 6)
+/* APPLE LOCAL end ObjC abi v2 */
 #define PROTOCOL_DEFINED(CLASS) TREE_USED (CLASS)
 
 /* ObjC-specific information pertaining to RECORD_TYPEs are stored in
@@ -341,6 +343,10 @@ enum objc_tree_index
     OCTI_V2_VTABLE_DECL,
     OCTI_V2_PROTO_TEMPL,
     OCTI_CLASSLIST_REF_CHAIN,
+    OCTI_CLASS_LIST_CHAIN,
+    OCTI_CATEGORY_LIST_CHAIN,
+    OCTI_NONLAZY_CLASS_LIST_CHAIN,
+    OCTI_NONLAZY_CATEGORY_LIST_CHAIN,
     OCTI_MESSAGE_REF_TEMPL,
     OCTI_SUPER_MESSAGE_REF_TEMPL,
     CTI_MESSAGE_SELECTOR_TYPE,
@@ -556,6 +562,12 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_v2_ivar_template	objc_global_trees[OCTI_V2_IVAR_TEMPL]
 /* classes referenced.  */
 #define classlist_ref_chain	       objc_global_trees[OCTI_CLASSLIST_REF_CHAIN]
+/* classes @implemented and whose meta-data address must be added to __class_list section. */
+#define class_list_chain	objc_global_trees[OCTI_CLASS_LIST_CHAIN]
+/* categories @implemented and whose meta-data address must be added to __category_list section. */
+#define category_list_chain	objc_global_trees[OCTI_CATEGORY_LIST_CHAIN]
+#define nonlazy_class_list_chain	objc_global_trees[OCTI_NONLAZY_CLASS_LIST_CHAIN]
+#define nonlazy_category_list_chain	objc_global_trees[OCTI_NONLAZY_CATEGORY_LIST_CHAIN]
 /* struct message_ref_t */
 #define objc_v2_message_ref_template objc_global_trees[OCTI_MESSAGE_REF_TEMPL]      
 /* struct super_message_ref_t */

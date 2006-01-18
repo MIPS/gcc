@@ -1,4 +1,13 @@
-2005-01-02  Fariborz Jahanian <fjahanian@apple.com>
+2006-01-18  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4391705
+	* config/darwin-protos.h: New declarations for new sections.
+	* config/darwin.c: Generate new symbols in OBJC2 segment in 
+	new sections __category_list, __class_refs, __nonlazy_class 
+	and __nonlazy_catgry.
+	* config/darwin.h: Define and initialize the above new sections.
+
+2006-01-02  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4391705
 	* config/darwin.h: Change segment and section name of class meta 

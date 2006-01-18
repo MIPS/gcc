@@ -1,3 +1,41 @@
+2006-01-18 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4360146
+	* objc/objc-act.c (objc_add_to_class_list_chain,
+	build_class_list_address_table, objc_add_to_category_list_chain,
+	build_category_list_address_table, 
+	objc_add_to_nonlazy_category_list_chain, 
+	objc_add_to_nonlazy_class_list_chain): New functions.
+	(objc_start_method_definition): Insert declaration of class 
+	method "load" in one of the __nonlazy_class or __nonlazy_category 
+	lists.
+	(forward_declare_categories): Change name of category meta-data so
+	it ends up in its correct section.
+	(synth_forward_declarations): Comment changed.
+	(generate_v2_dispatch_tables): Correct name of meta-data
+	table for category methods.
+	(generate_v2_category): Add to list of pointers in 
+	__category_list section.
+	(generate_v2_shared_structures): Fix the bug whereby offset of 
+	first ivar was not computed correctly. 
+	(synth_id_with_class_suffix): Fix the problem with duplicate category 
+	symbol names.
+	(finish_objc): Generate various new symbol lists. 
+	* objc/objc-act.h: Assortment of new global declarations.
+		
+2006-01-17 Fariborz Jahanian <fjahanian@apple.com>
+
+       Radar 4407151
+       * objc/objc-act.c (objc_is_class_name): template parameter is not
+       an objective class name.
+       (objc_generate_cxx_cdtors): Check for the null 
+	objc_implementation_context.	
+
+2006-01-10 Fariborz Jahanian <fjahanian@apple.com>
+
+       Radar 4404766
+       * objc/objc-act.c (JBLEN): define 64bit version of this macro as well.
+
 2005-12-22  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4360146

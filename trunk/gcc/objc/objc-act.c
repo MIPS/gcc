@@ -255,6 +255,12 @@ static tree objc_v2_get_class_reference (tree);
 static char* objc_build_internal_classname (tree);
 static void build_v2_category_template (void);
 static void generate_v2_category (tree, struct imp_entry*);
+static void objc_add_to_class_list_chain (tree);
+static void build_class_list_address_table (bool);
+static void objc_add_to_category_list_chain (tree);
+static void build_category_list_address_table (bool);
+static void objc_add_to_nonlazy_category_list_chain (tree);
+static void objc_add_to_nonlazy_class_list_chain (tree);
 /* APPLE LOCAL end ObjC new abi */
 
 /* APPLE LOCAL end mainline */
@@ -974,6 +980,21 @@ objc_start_method_definition (tree decl)
 		   decl,
 		   objc_inherit_code == CLASS_METHOD_DECL);
   start_method_def (decl);
+
+  /* APPLE LOCAL begin ObjC abi v2 */
+  if (flag_objc_abi == 2 && objc_inherit_code == CLASS_METHOD_DECL)
+    {
+      /* Insert declaration of class method "load" in one of the __nonlazy_class
+         or __nonlazy_category lists. */
+      tree id = DECL_NAME (decl);
+      if (id && TREE_CODE (id) == IDENTIFIER_NODE)
+        {
+          const char *name = IDENTIFIER_POINTER (id);
+	  if (!strcmp (name, "load"))
+	    CLASS_OR_CATEGORY_HAS_LOAD_IMPL (objc_implementation_context) = decl;
+	}
+    }
+  /* APPLE LOCAL end ObjC abi v2 */
 }
 
 void
@@ -2780,8 +2801,8 @@ forward_declare_categories (void)
 	  /* APPLE LOCAL begin new ObjC abi v2 */
 	  if (flag_objc_abi == 2)
 	    {
-	      /* extern struct category_t _OBJC_CATEGORY_$_<name>; */
-	      impent->class_v2_decl = build_metadata_decl ("_OBJC_CATEGORY_$",
+	      /* extern struct category_t _OBJC_$_CATEGORY_<name>; */
+	      impent->class_v2_decl = build_metadata_decl ("_OBJC_$_CATEGORY",
 						           objc_v2_category_template); 
 	    }
 	  else
@@ -3165,6 +3186,76 @@ build_classlist_translation_table (void)
 	}
       finish_var_decl (decl, expr);
     }
+}
+
+/* Build the __class_list section table containing address of all @implemented class 
+   meta-data. */
+
+static void
+build_class_list_address_table (bool nonlazy)
+{
+  tree chain;
+  int count=0;
+  tree type;
+  tree initlist = NULL_TREE;
+  tree decl;
+  tree expr;
+  tree list_chain = nonlazy ? nonlazy_class_list_chain : class_list_chain;
+  const char *label_name = nonlazy ? "_OBJC_LABEL_NONLAZY_CLASS_$" 
+			     	   : "_OBJC_LABEL_CLASS_$";
+
+  for (chain = list_chain; chain; chain = TREE_CHAIN (chain))
+    {
+      tree purpose = NULL_TREE;
+      expr = TREE_VALUE (chain);
+      expr = convert (objc_class_type, build_fold_addr_expr (expr));
+#ifndef OBJCPLUS
+      purpose = build_int_cst (NULL_TREE, count);
+#endif
+      ++count;
+      initlist = tree_cons (purpose, expr, initlist);
+    }
+  gcc_assert (count > 0);
+  type = build_array_type (objc_class_type, 
+			   build_index_type (build_int_cst (NULL_TREE, count - 1)));
+  decl = start_var_decl (type, label_name);
+  expr = objc_build_constructor (type, nreverse (initlist));
+  finish_var_decl (decl, expr);
+}
+
+/* Build the __category_list (NONLAZY is false) or __nonlazy_category (NONLAZY is true)
+   section table containing address of all @implemented category meta-data. */
+
+static void
+build_category_list_address_table (bool nonlazy)
+{
+  tree chain;
+  int count=0;
+  tree type;
+  tree initlist = NULL_TREE;
+  tree decl;
+  tree expr;
+  tree list_chain = nonlazy ? nonlazy_category_list_chain : category_list_chain;
+  const char * label_name = nonlazy ? "_OBJC_LABEL_NONLAZY_CATEGORY_$" 
+			      	    : "_OBJC_LABEL_CATEGORY_$";
+
+  for (chain = list_chain; chain; chain = TREE_CHAIN (chain))
+    {
+      tree purpose = NULL_TREE;
+      expr = TREE_VALUE (chain);
+      expr = convert (objc_class_type, build_fold_addr_expr (expr));
+#ifndef OBJCPLUS
+      purpose = build_int_cst (NULL_TREE, count);
+#endif
+      ++count;
+      initlist = tree_cons (purpose, expr, initlist);
+    }
+  gcc_assert (count > 0);
+  type = build_array_type (objc_class_type,
+			   build_index_type (build_int_cst (NULL_TREE, count - 1)));
+  decl = start_var_decl (type, label_name);
+  expr = objc_build_constructor (type, nreverse (initlist));
+  finish_var_decl (decl, expr);
 }
 /* APPLE LOCAL end ObjC new abi */
 
@@ -3794,7 +3885,14 @@ objc_is_class_name (tree ident)
     ident = OBJC_TYPE_NAME (ident);
 #ifdef OBJCPLUS
   if (ident && TREE_CODE (ident) == TYPE_DECL)
-    ident = DECL_NAME (ident);
+    /* APPLE LOCAL begin radar 4407151 */
+    {
+      tree type = TREE_TYPE (ident);
+      if (type && TREE_CODE (type) == TEMPLATE_TYPE_PARM)
+        return NULL_TREE;
+      ident = DECL_NAME (ident);
+    }
+    /* APPLE LOCAL end radar 4407151 */
 #endif
   if (!ident || TREE_CODE (ident) != IDENTIFIER_NODE)
     return NULL_TREE;
@@ -5025,20 +5123,22 @@ objc_build_synchronized (location_t start_locus, tree mutex, tree body)
 
    struct _objc_exception_data
    {
-     int buf[_JBLEN];
+     int buf[JBLEN];
      void *pointers[4];
    }; */
 
 /* The following yuckiness should prevent users from having to #include
    <setjmp.h> in their code... */
 
+/* APPLE LOCAL begin radar 4404766 */
 #ifdef TARGET_POWERPC
 /* snarfed from /usr/include/ppc/setjmp.h */
-#define _JBLEN (26 + 36 + 129 + 1)
+#define JBLEN ((TARGET_64BIT) ? (26*2 + 18*2 + 129 + 1) : (26 + 18*2 + 129 + 1))
 #else
 /* snarfed from /usr/include/i386/{setjmp,signal}.h */
-#define _JBLEN 18
+#define JBLEN 18
 #endif
+/* APPLE LOCAL end radar 4404766 */
 
 static void
 build_next_objc_exception_stuff (void)
@@ -5048,9 +5148,11 @@ build_next_objc_exception_stuff (void)
   objc_exception_data_template
     = start_struct (RECORD_TYPE, get_identifier (UTAG_EXCDATA));
 
-  /* int buf[_JBLEN]; */
+  /* APPLE LOCAL begin radar 4404766 */
+  /* int buf[JBLEN]; */
 
-  index = build_index_type (build_int_cst (NULL_TREE, _JBLEN - 1));
+  index = build_index_type (build_int_cst (NULL_TREE, JBLEN - 1));
+  /* APPLE LOCAL end radar 4404766 */
   field_decl = create_field_decl (build_array_type (integer_type_node, index),
 				  "buf");
   field_decl_chain = field_decl;
@@ -5678,6 +5780,12 @@ objc_generate_cxx_cdtors (void)
   bool need_ctor = false, need_dtor = false;
   tree ivar;
 
+  /* APPLE LOCAL begin radar 4407151 */
+  /* Error case, due to possibly an extra @end. */
+  if (!objc_implementation_context)
+    return;
+  /* APPLE LOCAL begin radar 4407151 */
+
   /* We do not want to do this for categories, since they do not have
      their own ivars.  */
 
@@ -6296,11 +6404,11 @@ synth_forward_declarations (void)
 static void
 synth_v2_forward_declarations (void)
 {
-  /* static struct class_t _OBJC_CLASS_$_<my_name>; */
+  /* struct class_t OBJC_CLASS_$_<my_name>; */
   UOBJC_V2_CLASS_decl = build_metadata_decl ("OBJC_CLASS_$",
                                              objc_v2_class_template);
 
- /* static struct class_t _OBJC_METACLASS_$_<my_name>; */
+ /* struct class_t OBJC_METACLASS_$_<my_name>; */
  UOBJC_V2_METACLASS_decl = build_metadata_decl ("OBJC_METACLASS_$",
                                                 objc_v2_class_template);
 }
@@ -7234,7 +7342,7 @@ generate_v2_dispatch_tables (void)
 				   ((TREE_CODE (objc_implementation_context)
 				     == CLASS_IMPLEMENTATION_TYPE)
 				    ? "_OBJC_$_CLASS_METHODS"
-				    : "_OBJC_CATEGORY_CLASS_METHODS_$"),
+				    : "_OBJC_$_CATEGORY_CLASS_METHODS"),
 				   size, initlist, true);
     }
   else
@@ -7730,6 +7838,11 @@ generate_v2_category (tree cat, struct imp_entry *impent)
 					 protocol_decl);
 
   finish_var_decl (decl, initlist);
+  
+  /* Add to list of pointers in __category_list section */
+  objc_add_to_category_list_chain (decl);
+  if (CLASS_OR_CATEGORY_HAS_LOAD_IMPL (objc_implementation_context) != NULL_TREE)
+    objc_add_to_nonlazy_category_list_chain (decl);
 }
 
 /* Build the name for object of type struct class_ro_t */
@@ -7853,6 +7966,50 @@ build_class_ro_t_initializer (tree type, tree superclass, tree name,
   return objc_build_constructor (type, nreverse (initlist));
 }
 
+/* Add the global class meta-data declaration to the list which later on ends up 
+   in the __nonlazy_class section. */
+
+void objc_add_to_nonlazy_class_list_chain (tree global_class_decl)
+{
+  tree *chain;
+  for (chain = &nonlazy_class_list_chain; *chain; chain = &TREE_CHAIN (*chain))
+    ;
+  *chain = tree_cons (NULL_TREE, global_class_decl, NULL_TREE);
+}
+
+/* Add the global class meta-data declaration to the list which later on ends up 
+   in the __class_list section. */
+
+void objc_add_to_class_list_chain (tree global_class_decl)
+{
+  tree *chain;
+  for (chain = &class_list_chain; *chain; chain = &TREE_CHAIN (*chain))
+    ;
+  *chain = tree_cons (NULL_TREE, global_class_decl, NULL_TREE);
+}
+
+/* Add the category meta-data declaration to the list which later on ends up 
+   in the __nonlazy_category section. */
+
+void objc_add_to_nonlazy_category_list_chain (tree global_category_decl)
+{
+  tree *chain;
+  for (chain = &nonlazy_category_list_chain; *chain; chain = &TREE_CHAIN (*chain))
+    ;
+  *chain = tree_cons (NULL_TREE, global_category_decl, NULL_TREE);
+}
+
+/* Add the category meta-data declaration to the list which later on ends up 
+   in the __category_list section. */
+
+void objc_add_to_category_list_chain (tree global_category_decl)
+{
+  tree *chain;
+  for (chain = &category_list_chain; *chain; chain = &TREE_CHAIN (*chain))
+    ;
+  *chain = tree_cons (NULL_TREE, global_category_decl, NULL_TREE);
+}
+
 /* Routine to build object of struct class_ro_t { ... }; */
 
 static void
@@ -7865,7 +8022,7 @@ generate_v2_shared_structures (int cls_flags)
   unsigned int instanceStart, instanceSize;
   unsigned char *ivarLayout = 0;
   tree metaclass_decl, class_decl;
-  tree field;
+  tree field, firstIvar;
   tree class_superclass_expr, metaclass_superclass_expr;
   unsigned int flags = 0x1; /* Start with CLS_META */
 
@@ -7980,6 +8137,8 @@ generate_v2_shared_structures (int cls_flags)
   if (my_super_id && field && TREE_CHAIN (field))
     field = TREE_CHAIN (field);
 
+  firstIvar = field;
+
   /* Compute instanceSize */
   while (field && TREE_CHAIN (field)
          && TREE_CODE (TREE_CHAIN (field)) == FIELD_DECL)
@@ -7993,7 +8152,7 @@ generate_v2_shared_structures (int cls_flags)
 
   /* If the class has no ivars, instanceStart should be set to the superclass's 
      instanceSize */
-  instanceStart = UOBJC_INSTANCE_VARIABLES_decl ? int_byte_position (field) : instanceSize;
+  instanceStart = UOBJC_V2_INSTANCE_VARIABLES_decl ? int_byte_position (firstIvar) : instanceSize;
 
   decl = start_var_decl (objc_v2_class_ro_template,
                          newabi_append_ro (IDENTIFIER_POINTER
@@ -8014,6 +8173,9 @@ generate_v2_shared_structures (int cls_flags)
                                         build_fold_addr_expr (UOBJC_V2_VTABLE_decl)); 
 
   finish_var_decl (class_decl, initlist);
+  objc_add_to_class_list_chain (class_decl);
+  if (CLASS_OR_CATEGORY_HAS_LOAD_IMPL (objc_implementation_context) != NULL_TREE)
+    objc_add_to_nonlazy_class_list_chain (class_decl);
 }
 /* APPLE LOCAL end ObjC new abi */
 
@@ -8142,7 +8304,12 @@ synth_id_with_class_suffix (const char *preamble, tree ctxt)
 	= IDENTIFIER_POINTER (CLASS_NAME (objc_implementation_context));
       const char *const class_super_name
 	= IDENTIFIER_POINTER (CLASS_SUPER_NAME (objc_implementation_context));
-      sprintf (string, "%s_%s_%s", preamble, class_name, class_super_name);
+      /* APPLE LOCAL begin ObjC abi v2 */
+      if (flag_objc_abi == 2)
+        sprintf (string, "%s_%s_$_%s", preamble, class_name, class_super_name);
+      else
+        sprintf (string, "%s_%s_%s", preamble, class_name, class_super_name);
+      /* APPLE LOCAL end ObjC abi v2 */
     }
   else if (TREE_CODE (ctxt) == PROTOCOL_INTERFACE_TYPE)
     {
@@ -11988,6 +12155,14 @@ finish_objc (void)
       else
         generate_protocols ();
     }
+  if (class_list_chain)
+    build_class_list_address_table (false);
+  if (category_list_chain)
+    build_category_list_address_table (false);
+  if (nonlazy_class_list_chain)
+    build_class_list_address_table (true);
+  if (nonlazy_category_list_chain)
+    build_category_list_address_table (true);
   /* APPLE LOCAL end ObjC abi v2 */
 
   /* APPLE LOCAL mainline */

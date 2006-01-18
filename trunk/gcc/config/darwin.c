@@ -1268,13 +1268,21 @@ machopic_select_section (tree exp, int reloc,
       else if (!strncmp (name, "_OBJC_CLASS_REFERENCES", 22))
 	objc_cls_refs_section ();
       /* APPLE LOCAL begin ObjC new abi */
-      else if (!strncmp (name, "_OBJC_CLASSLIST_", 16))
-	objc_classlist_section ();
+      else if (!strncmp (name, "_OBJC_CLASSLIST_REFERENCES_", 27))
+	objc_classrefs_section ();
       else if (!strncmp (name, "_OBJC_CLASS_RO_$", 16) 
 	       || !strncmp (name, "_OBJC_METACLASS_RO_$", 20))
 	objc_data_section ();
       else if (!strncmp (name, "_OBJC_MESSAGE_REF", 17))
 	objc_message_refs_section ();
+      else if (!strncmp (name, "_OBJC_LABEL_CLASS_", 18))
+        objc_classlist_section ();
+      else if (!strncmp (name, "_OBJC_LABEL_CATEGORY_", 21))
+        objc_categorylist_section ();
+      else if (!strncmp (name, "_OBJC_LABEL_NONLAZY_CLASS_", 26))
+	objc_nonlazy_class_section ();
+      else if (!strncmp (name, "_OBJC_LABEL_NONLAZY_CATEGORY_", 29))
+	objc_nonlazy_category_section ();
       /* APPLE LOCAL end ObjC new abi */
       else if (!strncmp (name, "_OBJC_CLASS_", 12))
 	objc_class_section ();
