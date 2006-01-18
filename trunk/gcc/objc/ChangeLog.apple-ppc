@@ -1,3 +1,15 @@
+2006-01-18  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4294910
+	* objc/objc-act.c (build_objc_fast_enum_state_type, 
+	objc_create_named_tmp_var, objc_finish_foreach_loop, 
+	objc_build_foreach_components): New functions.
+	(objc_build_component_ref): Made global.
+	(synth_module_prologue): Define 'struct __objcFastEnumerationState'
+	type and objc_enumerationMutation functions.
+	* objc/objc-act.h (objc_fast_enum_state_type, 
+	objc_enum_mutation_decl): New declarations.
+	
 2006-01-18 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4360146

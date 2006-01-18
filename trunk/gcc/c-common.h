@@ -788,6 +788,13 @@ extern void finish_file	(void);
 #define DO_COND(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 0)
 #define DO_BODY(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 1)
 
+/* APPLE LOCAL begin C* language */
+/* Used as a flag to indicate synthesized inner do-while loop of a 
+   foreach statement.  Used for generation of break/continue statement 
+   of the loop. */
+#define DO_FOREACH(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 2)
+/* APPLE LOCAL end C* language */
+
 /* EXPR_STMT accessor. This gives the expression associated with an
    expression statement.  */
 #define EXPR_STMT_EXPR(NODE)    TREE_OPERAND (EXPR_STMT_CHECK (NODE), 0)
@@ -1045,7 +1052,6 @@ extern void objc_add_instance_variable (tree);
 extern tree objc_build_keyword_decl (tree, tree, tree);
 extern tree objc_build_throw_stmt (tree);
 extern void objc_begin_try_stmt (location_t, tree);
-/* APPLE LOCAL mainline */
 extern tree objc_finish_try_stmt (void);
 extern void objc_begin_catch_clause (tree);
 extern void objc_finish_catch_clause (void);
@@ -1056,6 +1062,13 @@ extern int objc_static_init_needed_p (void);
 extern tree objc_generate_static_init_call (tree);
 /* APPLE LOCAL mainline */
 extern tree objc_generate_write_barrier (tree, enum tree_code, tree);
+
+/* APPLE LOCAL begin C* language */
+void objc_finish_foreach_loop (location_t, tree, tree, tree, tree);
+tree objc_build_component_ref (tree, tree);
+tree objc_build_foreach_components (tree, tree*, tree*, tree*, 
+				    tree*, tree*, tree*);
+/* APPLE LOCAL end C* language */
 
 /* APPLE LOCAL ObjC new abi */
 extern tree objc_v2_build_ivar_ref (tree datum, tree component);

@@ -206,7 +206,9 @@ static tree objc_build_struct (tree, tree, tree);
 static bool objc_derived_from_p (tree, tree);
 #define DERIVED_FROM_P(PARENT, CHILD) objc_derived_from_p (PARENT, CHILD)
 #endif
-static tree objc_build_component_ref (tree, tree);
+/* APPLE LOCAL begin C* language */
+/* code removed */
+/* APPLE LOCAL end C* language */
 static tree objc_copy_binfo (tree);
 static void objc_xref_basetypes (tree, tree);
 static bool objc_lookup_protocol (tree, tree, tree, bool);
@@ -262,6 +264,10 @@ static void build_category_list_address_table (bool);
 static void objc_add_to_nonlazy_category_list_chain (tree);
 static void objc_add_to_nonlazy_class_list_chain (tree);
 /* APPLE LOCAL end ObjC new abi */
+/* APPLE LOCAL begin C* language */
+static void build_objc_fast_enum_state_type (void);
+static tree objc_create_named_tmp_var (tree);
+/* APPLE LOCAL end C* language */
 
 /* APPLE LOCAL end mainline */
 static tree build_ivar_template (void);
@@ -1594,7 +1600,7 @@ objc_derived_from_p (tree parent, tree child)
 }
 #endif
 
-static tree
+tree
 objc_build_component_ref (tree datum, tree component)
 {
   /* If COMPONENT is NULL, the caller is referring to the anonymous
@@ -2118,6 +2124,18 @@ synth_module_prologue (void)
 	  TREE_NOTHROW (umsg_id_super2_stret_fixup_decl) = 0;
 	}
       /* APPLE LOCAL end ObjC new abi */
+
+      /* APPLE LOCAL begin C* language */
+      build_objc_fast_enum_state_type ();
+
+      /* void objc_enumerationMutation (id) */
+      type = build_function_type (void_type_node, 
+				  tree_cons (NULL_TREE, objc_object_type, NULL_TREE));
+      objc_enum_mutation_decl = builtin_function (
+				  "objc_enumerationMutation",
+				  type, 0, NOT_BUILT_IN, 0, NULL_TREE);
+      TREE_NOTHROW (objc_enum_mutation_decl) = 0;
+      /* APPLE LOCAL end C* language */
 
 /* APPLE LOCAL begin mainline 2005-10-20 4308031 */
       /* These can throw, because the function that gets called can throw
@@ -12498,5 +12516,279 @@ objc_get_callee_fndecl (tree call_expr)
   return 0;
 }
 /* APPLE LOCAL end mainline */
+
+/* APPLE LOCAL begin C* language */
+
+/* This routine builds the following type.
+struct __objcFastEnumerationState {
+       unsigned long state;
+       id *itemsPtr;
+       unsigned long *mutationsPtr;
+       unsigned long extra[5];
+};
+*/
+
+static void
+build_objc_fast_enum_state_type (void)
+{
+  tree field_decl, field_decl_chain;
+  objc_fast_enum_state_type = start_struct (RECORD_TYPE, 
+					    get_identifier ("__objcFastEnumerationState"));
+
+  /* unsigned long state; */
+  field_decl = create_field_decl (long_unsigned_type_node, "state");
+  field_decl_chain = field_decl;
+
+  /* id *itemsPtr; */
+  field_decl = create_field_decl (build_pointer_type (objc_object_type), "itemsPtr");
+  chainon (field_decl_chain, field_decl);
+ 
+  /* unsigned long *mutationsPtr; */
+  field_decl = create_field_decl (build_pointer_type (
+				  long_unsigned_type_node), "mutationsPtr");
+  chainon (field_decl_chain, field_decl);
+
+  /* unsigned long extra[5]; */
+  field_decl = create_field_decl (build_array_type
+                                  (long_unsigned_type_node,
+                                   build_index_type
+                                   (build_int_cst (NULL_TREE, 5 - 1))),
+                                   "extra");
+  chainon (field_decl_chain, field_decl);
+
+  finish_struct (objc_fast_enum_state_type, field_decl_chain, NULL_TREE);
+}
+
+/* This routine creates a named temporary local variable. */
+
+static tree
+objc_create_named_tmp_var (tree type)
+{
+  tree decl = create_tmp_var_raw (type, "cstar");
+  DECL_CONTEXT (decl) = current_function_decl;
+  return decl;
+}
+
+/* This routine builds and returns an assortment of objc components needed in
+   synthesis of the foreach statement; including:
+   __objcFastEnumerationState enumState = { 0 };
+   id items[16];
+   unsigned int limit; 
+   unsigned long startMutations;
+   unsigned int counter;
+   [collection countByEnumeratingWithState:&enumState objects:items count:16];
+
+   it returns expression for:
+     objc_enumerationMutation (self)
+*/
+
+tree
+objc_build_foreach_components (tree receiver, tree *enumState_decl, 
+		               tree *items_decl, 
+			       tree *limit_decl,
+			       tree *startMutations_decl,
+			       tree *counter_decl,
+			       tree *countByEnumeratingWithState)
+{
+  tree constructor_fields, initlist, init;
+  tree type, exp;
+  tree sel_name, method_params;
+
+  gcc_assert (objc_fast_enum_state_type != NULL_TREE);
+  constructor_fields = TYPE_FIELDS (objc_fast_enum_state_type);
+  /* __objcFastEnumerationState enumState = { 0 }; */
+  *enumState_decl = objc_create_named_tmp_var (objc_fast_enum_state_type);
+  initlist = build_tree_list (constructor_fields, build_int_cst (NULL_TREE, 0));
+  init = objc_build_constructor (objc_fast_enum_state_type, initlist);
+  DECL_INITIAL (*enumState_decl) = init;
+
+  /* id items[16]; */
+  type = build_array_type (objc_object_type,
+			   build_index_type (build_int_cst (NULL_TREE, 16 - 1)));
+  *items_decl = objc_create_named_tmp_var (type);
+
+  /* unsigned int limit */
+  *limit_decl = objc_create_named_tmp_var (unsigned_type_node);
+
+  /* unsigned long startMutations */
+  *startMutations_decl = objc_create_named_tmp_var (long_unsigned_type_node);
+
+  /* unsigned int counter */
+  *counter_decl = objc_create_named_tmp_var (unsigned_type_node);
+
+  /* [collection countByEnumeratingWithState:&enumState objects:items count:16] */
+  sel_name = get_identifier ("countByEnumeratingWithState:objects:count:");
+  exp = build_fold_addr_expr (*enumState_decl);
+  method_params = build_tree_list (NULL_TREE, exp);
+  chainon (method_params,
+           build_tree_list (NULL_TREE, *items_decl));
+  chainon (method_params,
+           build_tree_list (NULL_TREE, build_int_cst (NULL_TREE, 16)));
+
+  exp = objc_finish_message_expr (receiver, sel_name, method_params);
+  *countByEnumeratingWithState = exp;
+
+  /* objc_enumerationMutation (self) */
+  exp = build_function_call (objc_enum_mutation_decl,
+                             build_tree_list (NULL_TREE, save_expr (receiver)));
+
+  return exp;
+}
+
+#ifndef OBJCPLUS
+/*
+  Synthesizer routine for C*'s feareach statement. 
+
+  It synthesizes:
+  for ( type elem in collection) { stmts; }
+
+  Into:
+    {
+    type elem;
+    __objcFastEnumerationState enumState = { 0 };
+    id items[16];
+
+    unsigned long limit = [collection countByEnumeratingWithState:&enumState objects:items count:16];
+    if (limit) {
+      unsigned long startMutations = *enumState.mutationsPtr;
+      do {
+         unsigned long counter = 0;
+         do {
+           if (startMutations != *enumState.mutationsPtr) objc_enumerationMutation(collection);
+           elem = enumState.itemsPtr[counter++];
+           stmts;
+         } while (counter < limit);
+     } while (limit = [collection countByEnumeratingWithState:&enumState objects:items count:16]);
+  }
+
+*/
+
+void
+objc_finish_foreach_loop (location_t location, tree cond, tree for_body, tree blab, tree clab)
+{
+  tree enumState_decl, items_decl, limit_decl, limit_decl_assign_expr; 
+  tree startMutations_decl, counter_decl;
+  tree enumerationMutation_call_exp, countByEnumeratingWithState;
+  tree exp;
+  tree receiver, elem_decl;
+  tree bind;
+  tree if_condition, do_condition;
+  tree outer_if_body, inner_if_body;
+  tree outer_if_block_start, inner_if_block_start;
+  tree outer_do_body, inner_do_body;
+  tree inner_do_block_start, outer_do_block_start;
+  tree body;
+
+  receiver = TREE_VALUE (cond);
+  elem_decl = TREE_PURPOSE (cond);
+
+  if (!objc_compare_types (TREE_TYPE (elem_decl), TREE_TYPE (receiver), -4, NULL_TREE))
+    {
+      error ("One or both selection variable and expression are not valid objective C type");
+      return;
+    }
+
+  enumerationMutation_call_exp = objc_build_foreach_components  (receiver, &enumState_decl,
+                                                                 &items_decl, &limit_decl,
+                                                                 &startMutations_decl, &counter_decl,
+                                                                 &countByEnumeratingWithState);
+
+  /* __objcFastEnumerationState enumState = { 0 }; */
+  exp = build_stmt (DECL_EXPR, enumState_decl);
+  bind = build (BIND_EXPR, void_type_node, enumState_decl, exp, NULL);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  add_stmt (bind);
+
+  /* id items[16]; */
+  bind = build (BIND_EXPR, void_type_node, items_decl, NULL, NULL);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  add_stmt (bind);
+  
+  /* Generate this statement and add it to the list. */
+  /* limit = [collection countByEnumeratingWithState:&enumState objects:items count:16] */
+  limit_decl_assign_expr = build (MODIFY_EXPR, TREE_TYPE (limit_decl), limit_decl, 
+				  countByEnumeratingWithState);
+  bind = build (BIND_EXPR, void_type_node, limit_decl, NULL, NULL);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  add_stmt (bind);
+
+  outer_if_block_start = c_begin_compound_stmt (true);
+  /* if (limit) { */
+  outer_if_body = c_begin_compound_stmt (true);
+
+  /* unsigned long startMutations = *enumState.mutationsPtr; */
+  exp = objc_build_component_ref (enumState_decl, get_identifier("mutationsPtr"));
+  exp = build_indirect_ref (exp, "unary *");
+  exp = build (MODIFY_EXPR, void_type_node, startMutations_decl, exp);
+  bind = build (BIND_EXPR, void_type_node, startMutations_decl, exp, NULL);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  add_stmt (bind);
+
+  outer_do_block_start = c_begin_compound_stmt (true);
+  /* do { */
+  outer_do_body = c_begin_compound_stmt (true);
+
+  /* unsigned int counter = 0; */
+  exp = build (MODIFY_EXPR, void_type_node, counter_decl, 
+	       fold_convert (TREE_TYPE (counter_decl), integer_zero_node)); 
+  bind = build (BIND_EXPR, void_type_node, counter_decl, exp, NULL);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  add_stmt (bind);
+ 
+  inner_do_block_start = c_begin_compound_stmt (true);
+  /*   do { */
+  inner_do_body = c_begin_compound_stmt (true);
+  
+  inner_if_block_start = c_begin_compound_stmt (true);
+  /* if (startMutations != *enumState.mutationsPtr) objc_enumerationMutation (collection); */
+  inner_if_body = c_begin_compound_stmt (true);
+  exp = objc_build_component_ref (enumState_decl, get_identifier("mutationsPtr"));
+  exp = build_indirect_ref (exp, "unary *");
+  if_condition = build_binary_op (NE_EXPR, startMutations_decl, exp, 1);
+  body = build_function_call (objc_enum_mutation_decl, 
+  			      build_tree_list (NULL_TREE, save_expr (receiver)));
+  add_stmt (body);
+  inner_if_body = c_end_compound_stmt (inner_if_body, true);
+  c_finish_if_stmt (location, if_condition, inner_if_body, NULL, false);
+  add_stmt (c_end_compound_stmt (inner_if_block_start, true));
+
+  /* elem = enumState.itemsPtr [counter]; */
+  exp = objc_build_component_ref (enumState_decl, get_identifier("itemsPtr")); 
+  exp = build_array_ref (exp, counter_decl);
+  add_stmt (build (MODIFY_EXPR, void_type_node, elem_decl, exp));
+
+  /* counter++; */
+  exp = build2 (PLUS_EXPR, TREE_TYPE (counter_decl), counter_decl, 
+		build_int_cst (NULL_TREE, 1));
+  add_stmt (build (MODIFY_EXPR, void_type_node, counter_decl, exp)); 
+
+  /* stmts; */
+  add_stmt (for_body);
+
+  /*   } while (counter < limit ); */
+  do_condition  = build_binary_op (LT_EXPR, counter_decl, limit_decl, 1); 
+  inner_do_body = c_end_compound_stmt (inner_do_body, true);
+  c_finish_loop (location, do_condition, NULL, inner_do_body, NULL_TREE, NULL_TREE, false); 
+  add_stmt (c_end_compound_stmt (inner_do_block_start, true));
+
+  /* } while (limit = [collection countByEnumeratingWithState:&enumState objects:items count:16]);  */
+  exp = unshare_expr (limit_decl_assign_expr);
+  do_condition  = build_binary_op (NE_EXPR, exp, 
+				   fold_convert (TREE_TYPE (limit_decl), integer_zero_node), 
+				   1); 
+  outer_do_body = c_end_compound_stmt (outer_do_body, true);
+  c_finish_loop (location, do_condition, NULL, outer_do_body, blab, clab, false); 
+  add_stmt (c_end_compound_stmt (outer_do_block_start, true));
+
+  /* } */
+  if_condition = unshare_expr (do_condition);
+  outer_if_body = c_end_compound_stmt (outer_if_body, true);
+  c_finish_if_stmt (location, if_condition, outer_if_body, NULL, false);
+  add_stmt (c_end_compound_stmt (outer_if_block_start, true));
+  return;
+}
+#endif
+
+/* APPLE LOCAL end C* language */
 
 #include "gt-objc-objc-act.h"

@@ -248,6 +248,29 @@ gimplify_expr_stmt (tree *stmt_p)
   return GS_OK;
 }
 
+/* APPLE LOCAL begin C* language */
+/* This routine reuses the break/continue label of the outer
+   do-while statement for use in the current (inner) do-while
+   statement. This is to implement break/continue statement of
+   the objective-c's foreach statement. */
+
+static tree 
+obj_reuse_bc_block (enum bc_t bc)
+{
+  tree label;
+  tree target_name = ctxp->bc_id[bc];
+
+  /* Look for the appropriate type of label.  */
+  for (label = ctxp->current_bc_label;
+       label;
+       label = TREE_CHAIN (label))
+    if (DECL_NAME (label) == target_name)
+      return label;
+  gcc_assert (false);
+  return NULL_TREE;
+}
+/* APPLE LOCAL end C* language */
+
 /* Begin a scope which can be exited by a break or continue statement.  BC
    indicates which.
 
@@ -331,8 +354,10 @@ build_bc_goto (enum bc_t bc)
    evaluated before the loop body as in while and for loops, or after the
    loop body as in do-while loops.  */
 
+/* APPLE LOCAL begin C* language */
 static tree
-gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first)
+gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first, 
+		 tree inner_foreach)
 {
   tree top, entry, exit, cont_block, break_block, stmt_list, t;
   location_t stmt_locus;
@@ -341,8 +366,18 @@ gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first)
   stmt_list = NULL_TREE;
   entry = NULL_TREE;
 
-  break_block = begin_bc_block (bc_break);
-  cont_block = begin_bc_block (bc_continue);
+  gcc_assert (inner_foreach == NULL_TREE 
+	      || inner_foreach == integer_zero_node);
+  if (!inner_foreach)
+    {
+      break_block = begin_bc_block (bc_break);
+      cont_block = begin_bc_block (bc_continue);
+    }
+  else
+    {
+      break_block = obj_reuse_bc_block (bc_break);
+      cont_block = obj_reuse_bc_block (bc_continue);
+    }
 
   /* If condition is zero don't generate a loop construct.  */
   if (cond && integer_zerop (cond))
@@ -391,7 +426,8 @@ gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first)
   gimplify_stmt (&body);
   gimplify_stmt (&incr);
 
-  body = finish_bc_block (cont_block, body);
+  if (!inner_foreach)
+    body = finish_bc_block (cont_block, body);
 
   append_to_statement_list (top, &stmt_list);
   append_to_statement_list (body, &stmt_list);
@@ -401,8 +437,10 @@ gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first)
 
   annotate_all_with_locus (&stmt_list, stmt_locus);
 
-  return finish_bc_block (break_block, stmt_list);
+  return (!inner_foreach) ? finish_bc_block (break_block, stmt_list)
+			  : stmt_list;;
 }
+/* APPLE LOCAL end C* language */
 
 /* Gimplify a FOR_STMT node.  Move the stuff in the for-init-stmt into the
    prequeue and hand off to gimplify_c_loop.  */
@@ -416,7 +454,8 @@ gimplify_for_stmt (tree *stmt_p, tree *pre_p)
     gimplify_and_add (FOR_INIT_STMT (stmt), pre_p);
 
   *stmt_p = gimplify_c_loop (FOR_COND (stmt), FOR_BODY (stmt),
-			     FOR_EXPR (stmt), 1);
+  			     /* APPLE LOCAL C* language */
+			     FOR_EXPR (stmt), 1, NULL_TREE);
 
   return GS_ALL_DONE;
 }
@@ -428,7 +467,8 @@ gimplify_while_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
   *stmt_p = gimplify_c_loop (WHILE_COND (stmt), WHILE_BODY (stmt),
-			     NULL_TREE, 1);
+			     /* APPLE LOCAL C* language */
+			     NULL_TREE, 1, NULL_TREE);
   return GS_ALL_DONE;
 }
 
@@ -439,7 +479,8 @@ gimplify_do_stmt (tree *stmt_p)
 {
   tree stmt = *stmt_p;
   *stmt_p = gimplify_c_loop (DO_COND (stmt), DO_BODY (stmt),
-			     NULL_TREE, 0);
+			     /* APPLE LOCAL C* language */
+			     NULL_TREE, 0, DO_FOREACH (stmt));
   return GS_ALL_DONE;
 }
 

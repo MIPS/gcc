@@ -327,6 +327,26 @@ objc_is_public (tree ARG_UNUSED (expr), tree ARG_UNUSED (identifier))
   return 1;
 }
 
+/* APPLE LOCAL begin C* language */
+tree
+objc_build_component_ref (tree ARG_UNUSED (datum), tree ARG_UNUSED (component))
+{
+  return 0;
+}
+
+tree
+objc_build_foreach_components (tree ARG_UNUSED (receiver),
+			       tree *ARG_UNUSED (enumState_decl),
+			       tree *ARG_UNUSED (items_decl),
+			       tree *ARG_UNUSED (limit_decl),
+			       tree *ARG_UNUSED (startMutations_decl),
+			       tree *ARG_UNUSED (counter_decl),
+			       tree *ARG_UNUSED (countByEnumeratingWithState))
+{
+  return 0;
+}
+/* APPLE LOCAL end C* language */
+
 /* APPLE LOCAL begin mainline */
 tree
 objc_build_throw_stmt (tree ARG_UNUSED (expr))

@@ -42,6 +42,8 @@
 #include "c-common.h"
 /* APPLE LOCAL pascal strings */
 #include "../../libcpp/internal.h"
+/* APPLE LOCAL C* language */
+#include "tree-iterator.h"
 
 
 /* The lexer.  */
@@ -155,6 +157,11 @@ typedef struct cp_lexer_file
   struct cp_lexer_file *next;
 } cp_lexer_file;
 
+/* APPLE LOCAL begin C* language */
+static bool objc_foreach_context;
+static bool objc_is_foreach_stmt;
+static void objc_finish_foreach_stmt (tree);
+/* APPLE LOCAL end C* language */
 static cp_lexer_file *cp_lexer_file_stack;
 static cp_lexer_file *last_cp_lexer_file;
 
@@ -1624,7 +1631,10 @@ static tree cp_parser_constant_expression
   (cp_parser *, bool, bool *);
 static tree cp_parser_builtin_offsetof
   (cp_parser *);
-
+/* APPLE LOCAL begin C* language */
+static void objc_foreach_stmt 
+  (cp_parser *, tree);
+/* APPLE LOCAL end C* language */
 /* Statements [gram.stmt.stmt]  */
 
 static void cp_parser_statement
@@ -7057,8 +7067,20 @@ cp_parser_iteration_statement (cp_parser* parser)
 	statement = begin_for_stmt ();
 	/* Look for the `('.  */
 	cp_parser_require (parser, CPP_OPEN_PAREN, "`('");
+        /* APPLE LOCAL C* language */
+        objc_foreach_context = true;
+	objc_is_foreach_stmt = false;
 	/* Parse the initialization.  */
 	cp_parser_for_init_statement (parser);
+        /* APPLE LOCAL begin C* language */
+        objc_foreach_context = false;
+        if (objc_is_foreach_stmt)
+	  {
+	    objc_is_foreach_stmt = false;
+	    objc_foreach_stmt (parser, statement);
+	    break;
+	  }
+        /* APPLE LOCAL end C* language */
 	finish_for_init_stmt (statement);
 
 	/* If there's a condition, process it.  */
@@ -7674,7 +7696,8 @@ cp_parser_simple_declaration (cp_parser* parser,
       if (token->type == CPP_COMMA)
 	cp_lexer_consume_token (parser->lexer);
       /* If it's a `;', we are done.  */
-      else if (token->type == CPP_SEMICOLON)
+      /* APPLE LOCAL C* language */
+      else if (token->type == CPP_SEMICOLON || objc_is_foreach_stmt)
 	break;
       /* Anything else is an error.  */
       else
@@ -7711,8 +7734,13 @@ cp_parser_simple_declaration (cp_parser* parser,
       perform_deferred_access_checks ();
     }
 
-  /* Consume the `;'.  */
-  cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  /* APPLE LOCAL begin C* language */
+  if (objc_is_foreach_stmt)
+    cp_lexer_consume_token (parser->lexer);
+  else    
+    /* Consume the `;'.  */
+    cp_parser_require (parser, CPP_SEMICOLON, "`;'");
+  /* APPLE LOCAL end C* language */
 
   /* APPLE LOCAL begin CW asm blocks */
   if (flag_cw_asm_blocks)
@@ -11385,12 +11413,37 @@ cp_parser_init_declarator (cp_parser* parser,
       return error_mark_node;
     }
 
+  /* APPLE LOCAL begin C* language */
+  if (c_dialect_objc () 
+      && objc_foreach_context && token->type == CPP_NAME)
+    {
+      tree node = token->value;
+      if (node && TREE_CODE (node) == IDENTIFIER_NODE 
+	  && node == ridpointers [(int) RID_IN]) 
+	{
+	  enum cpp_ttype nt = cp_lexer_peek_nth_token (parser->lexer, 2)->type;
+	  switch (nt)
+            {
+              case CPP_NAME:
+              case CPP_OPEN_PAREN:
+              case CPP_MULT:
+              case CPP_PLUS: case CPP_PLUS_PLUS:
+              case CPP_MINUS: case CPP_MINUS_MINUS:
+                objc_is_foreach_stmt = true;
+              default:
+               break;
+	    }
+	}
+    }
+  /* APPLE LOCAL end C* language */
   /* An `=' or an `(' indicates an initializer.  */
   is_initialized = (token->type == CPP_EQ
 		     || token->type == CPP_OPEN_PAREN);
   /* If the init-declarator isn't initialized and isn't followed by a
      `,' or `;', it's not a valid init-declarator.  */
   if (!is_initialized
+      /* APPLE LOCAL C* language */
+      && !objc_is_foreach_stmt
       && token->type != CPP_COMMA
       && token->type != CPP_SEMICOLON)
     {
@@ -18840,6 +18893,187 @@ cp_parser_objc_statement (cp_parser * parser) {
   return error_mark_node;
 }
 /* APPLE LOCAL end mainline */
+
+/* APPLE LOCAL begin C* language */
+/* Routine closes up the C*'s foreach statement.
+*/
+
+static void
+objc_finish_foreach_stmt (tree for_stmt)
+{
+  if (flag_new_for_scope > 0)
+    {
+      tree scope = TREE_CHAIN (for_stmt);
+      TREE_CHAIN (for_stmt) = NULL;
+      add_stmt (do_poplevel (scope));
+    }
+
+  finish_stmt (); 
+}
+
+/*
+  Synthesizer routine for C*'s feareach statement.
+  
+  It synthesizes:
+  for ( type elem in collection) { stmts; }
+  
+  Into:
+    {
+    type elem;
+    __objcFastEnumerationState enumState = { 0 };
+    id items[16];
+
+    unsigned long limit = [collection countByEnumeratingWithState:&enumState objects:items count:16];
+    if (limit) {
+      unsigned long startMutations = *enumState.mutationsPtr;
+      do {
+         unsigned long counter = 0;
+         do {
+           if (startMutations != *enumState.mutationsPtr) objc_enumerationMutation(collection);
+           elem = enumState.itemsPtr[counter++];
+           stmts;
+         } while (counter < limit);
+     } while (limit = [collection countByEnumeratingWithState:&enumState objects:items count:16]);
+  }
+
+*/
+
+static void
+objc_foreach_stmt (cp_parser* parser, tree statement)
+{
+  bool in_iteration_statement_p;
+  tree enumerationMutation_call_exp;
+  tree countByEnumeratingWithState;
+  tree receiver;
+  tree exp, bind;
+  tree enumState_decl, items_decl;
+  tree limit_decl, limit_decl_assign_expr;
+  tree outer_if_stmt,  inner_if_stmt, if_condition, startMutations_decl;
+  tree outer_do_stmt, inner_do_stmt, do_condition;
+  tree counter_decl;
+  tree_stmt_iterator i = tsi_start (TREE_CHAIN (statement));
+  tree t = tsi_stmt (i);
+  tree elem_decl = DECL_EXPR_DECL (t);
+
+  receiver  = cp_parser_condition (parser);
+  cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
+
+  if (!objc_compare_types (TREE_TYPE (elem_decl), TREE_TYPE (receiver), -4, NULL_TREE))
+    {
+      error ("One or both selection variable and expression are not valid objective C type");
+      return;
+    }
+
+  enumerationMutation_call_exp = objc_build_foreach_components  (receiver, &enumState_decl, 
+								 &items_decl, &limit_decl, 
+								 &startMutations_decl, &counter_decl,
+							         &countByEnumeratingWithState);
+
+  /* __objcFastEnumerationState enumState = { 0 }; */
+  exp = build_stmt (DECL_EXPR, enumState_decl);
+  bind = build (BIND_EXPR, void_type_node, enumState_decl, exp, NULL);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  add_stmt (bind);
+
+  /* id items[16]; */
+  bind = build (BIND_EXPR, void_type_node, items_decl, NULL, NULL);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  add_stmt (bind);
+
+  /* Generate this statement and add it to the list. */
+  /* limit = [collection countByEnumeratingWithState:&enumState objects:items count:16] */
+  limit_decl_assign_expr = build (MODIFY_EXPR, TREE_TYPE (limit_decl), limit_decl, 
+				  countByEnumeratingWithState);
+  bind = build (BIND_EXPR, void_type_node, limit_decl, NULL, NULL);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  add_stmt (bind);
+
+  /* if (limit) { */
+  outer_if_stmt = begin_if_stmt ();
+  if_condition = build_binary_op (NE_EXPR, countByEnumeratingWithState,
+                                  fold_convert (TREE_TYPE (limit_decl), integer_zero_node),
+                                  1);
+
+  finish_if_stmt_cond (if_condition, outer_if_stmt);
+
+  /* unsigned long startMutations = *enumState.mutationsPtr; */
+  exp = objc_build_component_ref (enumState_decl, get_identifier("mutationsPtr"));
+  exp = build_indirect_ref (exp, "unary *");
+  exp = build (MODIFY_EXPR, void_type_node, startMutations_decl, exp);
+  bind = build (BIND_EXPR, void_type_node, startMutations_decl, exp, NULL);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  add_stmt (bind);
+ 
+  /* do { */
+  outer_do_stmt = begin_do_stmt ();
+
+  /* Body of the outer do-while loop */
+  /* unsigned int counter = 0; */
+  exp = build (MODIFY_EXPR, void_type_node, counter_decl,
+               fold_convert (TREE_TYPE (counter_decl), integer_zero_node));
+  bind = build (BIND_EXPR, void_type_node, counter_decl, exp, NULL);
+  TREE_SIDE_EFFECTS (bind) = 1;
+  add_stmt (bind);
+
+  /*   do { */
+  inner_do_stmt = begin_do_stmt ();
+
+  /* Body of the inner do-while loop */
+  
+  /* if (startMutations != *enumState.mutationsPtr) objc_enumerationMutation (collection); */
+  inner_if_stmt = begin_if_stmt ();
+  exp = objc_build_component_ref (enumState_decl, get_identifier("mutationsPtr"));
+  exp = build_indirect_ref (exp, "unary *");
+  if_condition = build_binary_op (NE_EXPR, startMutations_decl, exp, 1);
+  finish_if_stmt_cond (if_condition, inner_if_stmt);
+
+  add_stmt (enumerationMutation_call_exp);
+  finish_then_clause (inner_if_stmt);
+  finish_if_stmt (inner_if_stmt);
+
+  /* elem = enumState.itemsPtr [counter]; */
+  exp = objc_build_component_ref (enumState_decl, get_identifier("itemsPtr"));
+  exp = build_array_ref (exp, counter_decl);
+  add_stmt (build (MODIFY_EXPR, void_type_node, elem_decl, exp));
+
+  /* counter++; */
+  exp = build2 (PLUS_EXPR, TREE_TYPE (counter_decl), counter_decl,
+                build_int_cst (NULL_TREE, 1));
+  add_stmt (build (MODIFY_EXPR, void_type_node, counter_decl, exp));
+
+  /* ADD << stmts >> from the foreach loop. */
+  /* Parse the body of the for-statement.  */
+  in_iteration_statement_p = parser->in_iteration_statement_p;
+  parser->in_iteration_statement_p = true;
+  cp_parser_already_scoped_statement (parser);
+  parser->in_iteration_statement_p = in_iteration_statement_p;
+
+  finish_do_body (inner_do_stmt);
+
+  /*   } while (counter < limit ); */
+  do_condition  = build_binary_op (LT_EXPR, counter_decl, limit_decl, 1);
+  finish_do_stmt (do_condition, inner_do_stmt);
+  DO_FOREACH (inner_do_stmt) = integer_zero_node;
+
+  finish_do_body (outer_do_stmt);
+
+  /* } while (limit = [collection countByEnumeratingWithState:&enumState objects:items count:16]);  */
+ 
+  exp = unshare_expr (limit_decl_assign_expr);
+  do_condition  = build_binary_op (NE_EXPR, exp,
+                                   fold_convert (TREE_TYPE (limit_decl), integer_zero_node),
+                                   1);
+  finish_do_stmt (do_condition, outer_do_stmt);
+
+
+  finish_then_clause (outer_if_stmt);
+
+  /* } */
+  finish_if_stmt (outer_if_stmt);
+
+  objc_finish_foreach_stmt (statement);
+}
+/* APPLE LOCAL end C* language */
 
 /* The parser.  */
 

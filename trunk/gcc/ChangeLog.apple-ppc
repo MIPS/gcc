@@ -1,5 +1,19 @@
 2006-01-18  Fariborz Jahanian <fjahanian@apple.com>
 
+        Radar 4294910
+	* c-parse.in: Add grammar supprt for the foreach initialization
+	part.
+	* c-gimplify.c (obj_reuse_bc_block): New function.
+	(gimplify_c_loop): Has a new argument to recgognize nested 
+	do-while statement part of foreach-statement synthesis. Use
+	existing continue/break labels for this loop.
+	* c-common.h (DO_FOREACH): New field for a do-while statement.
+	(objc_finish_foreach_loop, objc_build_component_ref, 
+	objc_build_foreach_components): New declarations.
+	* stub-objc.c: New stubs.
+	
+2006-01-18  Fariborz Jahanian <fjahanian@apple.com>
+
 	Radar 4391705
 	* config/darwin-protos.h: New declarations for new sections.
 	* config/darwin.c: Generate new symbols in OBJC2 segment in 

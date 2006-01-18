@@ -1,3 +1,15 @@
+2006-01-18  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4294910
+	* cp/parser.c (objc_foreach_stmt, objc_finish_foreach_stmt): New 
+	functions.
+	(cp_parser_iteration_statement): Check for a parsed
+	foreach statement initialization and call objc_foreach_stmt instead.
+	(cp_parser_simple_declaration): Take evasive action for a
+	foreach initialization part.
+	(cp_parser_init_declarator): Parse and recognize a foreach
+	initialization part.
+
 2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4229905

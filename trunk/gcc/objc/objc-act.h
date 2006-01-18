@@ -369,6 +369,10 @@ enum objc_tree_index
     OCTI_V2_IVAR_OFFSET_REF_CHAIN,
     OCTI_V2_CAT_TEMPL,
     /* APPLE LOCAL end ObjC new abi */
+    /* APPLE LOCAL begin C* language */
+    OCTI_FAST_ENUM_STATE_TEMP,
+    OCTI_ENUM_MUTATION_DECL,
+    /* APPLE LOCAL end C* language */
 
     OCTI_MAX
 };
@@ -595,4 +599,8 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define ivar_offset_ref_chain		objc_global_trees[OCTI_V2_IVAR_OFFSET_REF_CHAIN]
 #define objc_v2_category_template  	objc_global_trees[OCTI_V2_CAT_TEMPL]
 /* APPLE LOCAL end ObjC new abi */
+/* APPLE LOCAL begin C* language */
+#define objc_fast_enum_state_type	objc_global_trees[OCTI_FAST_ENUM_STATE_TEMP]
+#define objc_enum_mutation_decl		objc_global_trees[OCTI_ENUM_MUTATION_DECL]
+/* APPLE LOCAL end C* language */
 #endif /* GCC_OBJC_ACT_H */

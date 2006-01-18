@@ -190,6 +190,8 @@ do {									\
 %token AT_CLASS AT_ALIAS
 %token AT_THROW AT_TRY AT_CATCH AT_FINALLY AT_SYNCHRONIZED
 %token OBJC_STRING
+/* APPLE LOCAL C* language */
+%token AT_IN
 
 %type <code> unop
 %type <ttype> ENUM STRUCT UNION IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
@@ -278,6 +280,8 @@ do {									\
 %type <ttype> optparmlist optparms reservedwords objcselectorexpr
 %type <ttype> selectorarg keywordnamelist keywordname objcencodeexpr
 %type <ttype> non_empty_protocolrefs protocolrefs identifier_list objcprotocolexpr
+/* APPLE LOCAL C* language */
+%type <ttype> for_objc_collection
 
 %type <ttype> CLASSNAME OBJC_STRING OBJC_TYPE_QUAL
 
@@ -372,6 +376,10 @@ static int objc_need_raw_identifier;
 
 #define YYPRINT(FILE,YYCHAR,YYLVAL) yyprint(FILE,YYCHAR,YYLVAL)
 
+/* APPLE LOCAL begin C* language */
+/* For checking for 'foreach' context. */
+static int objc_foreach_context = 0;
+/* APPLE LOCAL end C* language */
 static void yyprint (FILE *, int, YYSTYPE);
 static void yyerror (const char *);
 static int yylexname (void);
@@ -2427,12 +2435,14 @@ xexpr:
 		{ $$ = $1.value; }
 	;
 
+/* APPLE LOCAL begin C* language */
 for_init_stmt:
 	  xexpr ';'
-		{ c_finish_expr_stmt ($1); }
+		{ objc_foreach_context = 0; c_finish_expr_stmt ($1); }
 	| decl
-		{ check_for_loop_decls (); }
+		{ objc_foreach_context = 0; check_for_loop_decls (); }
 	;
+/* APPLE LOCAL end C* language */
 
 for_cond_expr: save_location xexpr
 		{ if ($2)
@@ -2450,15 +2460,50 @@ for_incr_expr: xexpr
 		{ $$ = c_process_expr_stmt ($1); }
 	;
 
+/* APPLE LOCAL begin C* language */
+@@ifobjc
+for_objc_collection: 
+		declspecs_ts setspecs  declarator maybeasm maybe_attribute AT_IN 
+			{ objc_foreach_context = 0;
+			  $<ttype>$ = start_decl ($3, current_declspecs, true,
+						  chainon ($5, all_prefix_attributes));
+			  if (!$<ttype>$)
+			    $<ttype>$ = error_mark_node;
+			  start_init ($<ttype>$, $4, global_bindings_p ()); }
+		init
+			{  finish_init ();
+			   $$ = build_tree_list ($<ttype>7, $8.value);
+			   POP_DECLSPEC_STACK; 
+			   check_for_loop_decls ();
+			}
+	;
+@@end_ifobjc
+
+for_keyword : FOR
+	{objc_foreach_context = 1;}
+	;
+
 for_statement:
-	FOR c99_block_start '(' for_init_stmt
+	for_keyword c99_block_start '(' for_init_stmt
+/* APPLE LOCAL end C* language */
 	save_location for_cond_expr ';' for_incr_expr ')'
 	start_break start_continue c99_block_lineno_labeled_stmt
 		{ c_finish_loop ($5, $6, $8, $12, c_break_label,
 				 c_cont_label, true);
 		  add_stmt (c_end_compound_stmt ($2, flag_isoc99));
 		  c_break_label = $10; c_cont_label = $11; }
+
+/* APPLE LOCAL begin C* language */
+@@ifobjc
+	| for_keyword c99_block_start '(' for_objc_collection save_location ')'
+	  start_break start_continue c99_block_lineno_labeled_stmt
+	    { objc_finish_foreach_loop ($5, $4,  $9, c_break_label, c_cont_label);
+	      add_stmt (c_end_compound_stmt ($2, flag_isoc99));
+	      c_break_label = $7; c_cont_label = $8;
+	    }
+@@end_ifobjc
 	;
+/* APPLE LOCAL end C* language */
 
 switch_statement:
 	SWITCH c99_block_start '(' expr ')'
@@ -3832,6 +3877,31 @@ yylexname (void)
 	return yycode;
 	return rid_to_yy[(int) rid_code];
       }
+/* APPLE LOCAL begin C* language */
+@@ifobjc
+      else if (c_dialect_objc () &&
+	       objc_foreach_context && rid_code == RID_IN)
+	{
+	  tree next_tok;
+          /* Take a sneak peek at the next token in the stream.  */
+          enum cpp_ttype next_tok_type = c_lex (&next_tok);
+          /* Now put it back.  */
+          _cpp_backup_tokens (parse_in, 1);
+	  switch (next_tok_type)
+	    {
+	      case CPP_NAME:
+	      case CPP_OPEN_PAREN:
+	      case CPP_MULT:
+	      case CPP_PLUS: case CPP_PLUS_PLUS:
+	      case CPP_MINUS: case CPP_MINUS_MINUS:
+	       return AT_IN;
+
+	      default:
+	       break;
+	    }
+	}
+@@end_ifobjc
+/* APPLE LOCAL end C* language */
     }
 
   decl = lookup_name (yylval.ttype);
