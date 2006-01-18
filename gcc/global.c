@@ -1989,8 +1989,11 @@ find_tied_stack_pseudo (int r)
       if (!CONFLICTP(i, j) 
 	  && reg_renumber[allocno[j].reg] < 0
 	  && reg_equiv_memory_loc[allocno[j].reg] != 0
+	  /* APPLE LOCAL begin 4405429 */
 	  && PSEUDO_REGNO_BYTES (allocno[j].reg)
-	      == PSEUDO_REGNO_BYTES (allocno[i].reg))
+	      == PSEUDO_REGNO_BYTES (allocno[i].reg)
+	  && strict_memory_address_p (VOIDmode, reg_equiv_memory_loc[allocno[j].reg]))
+	  /* APPLE LOCAL end 4405429 */
 	return copy_rtx (reg_equiv_memory_loc[allocno[j].reg]);
     });
   return 0;
