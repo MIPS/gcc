@@ -1,3 +1,10 @@
+2006-01-18  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-scalar-evolutions.c (unify_peeled_chrec): Enable (revert last 
+	patch).
+	(analyze_evolution_in_loop): Enable call to unify_peeled_chrec (revert
+	last patch).
+
 2006-01-12  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-analyze.c (vect_analyze_loop_form): Return NULL instead
