@@ -1,3 +1,22 @@
+2006-01-18  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch
+	2005-03-10  Julian Brown  <julian@codesourcery.com>
+	* libstdc++configure.ac (LIBSUPCXX_PRONLY): New AM_CONDITIONAL: yes
+	if we are compiling for SymbianOS on ARM.
+	* libstdc++include/Makefile.am: Don't install C++ headers if
+	LIBSUPCXX_PRONLY is true.
+	* libstdc++libsupc++/Makefile.am: Include only eh_personality.cc
+	in libsupc++ if LIBSUPCXX_PRONLY is true.
+	* libstdc++Makefile.in: Regenerate.
+	* libstdc++configure: Regenerate.
+	* libstdc++include/Makefile.in: Regenerate.
+	* libstdc++libmath/Makefile.in: Regenerate.
+	* libstdc++libsupc++/Makefile.in: Regenerate.
+	* libstdc++po/Makefile.in: Regenerate.
+	* libstdc++src/Makefile.in: Regenerate.
+	* libstdc++testsuite/Makefile.in: Regenerate.
+
 2005-01-17  Paul Brook  <paul@codesourcery.com>
 
 	Backport from mainline.

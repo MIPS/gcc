@@ -127,6 +127,8 @@ LIBMATHOBJS = @LIBMATHOBJS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBSUPCXX_PICFLAGS = @LIBSUPCXX_PICFLAGS@
+LIBSUPCXX_PRONLY_FALSE = @LIBSUPCXX_PRONLY_FALSE@
+LIBSUPCXX_PRONLY_TRUE = @LIBSUPCXX_PRONLY_TRUE@
 LIBTOOL = @LIBTOOL@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -1270,7 +1272,10 @@ ${pch_input}: ${allstamped} ${host_builddir}/c++config.h ${pch_source}
 # the rest are taken from the original source tree.
 
 @GLIBCXX_HOSTED_TRUE@install-data-local: install-headers ${pch_install}
-@GLIBCXX_HOSTED_FALSE@install-data-local: install-freestanding-headers
+# Don't install any headers if we're only putting eh_personality in
+# libsupc++ (e.g. on SymbianOS)
+@GLIBCXX_HOSTED_FALSE@@LIBSUPCXX_PRONLY_TRUE@install-data-local:
+@GLIBCXX_HOSTED_FALSE@@LIBSUPCXX_PRONLY_FALSE@install-data-local: install-freestanding-headers
 
 # This is a subset of the full install-headers rule.  We only need <cstddef>,
 # <limits>, <cstdlib>, <cstdarg>, <new>, <typeinfo>, <exception>, and any

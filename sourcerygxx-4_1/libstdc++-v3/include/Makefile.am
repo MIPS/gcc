@@ -897,7 +897,13 @@ ${pch_input}: ${allstamped} ${host_builddir}/c++config.h ${pch_source}
 if GLIBCXX_HOSTED
 install-data-local: install-headers ${pch_install}
 else
+if LIBSUPCXX_PRONLY
+# Don't install any headers if we're only putting eh_personality in
+# libsupc++ (e.g. on SymbianOS)
+install-data-local:
+else
 install-data-local: install-freestanding-headers
+endif
 endif
 
 # This is a subset of the full install-headers rule.  We only need <cstddef>,

@@ -296,13 +296,22 @@ AC_SUBST(CPU_DEFINES_SRCDIR)
 AC_SUBST(ABI_TWEAKS_SRCDIR)
 AC_SUBST(OS_INC_SRCDIR)
 
+# For SymbianOS, we use a highly cut-down libsupc++. This lets us
+# conditionalise libsupc++'s Makefile.am to include only the necessary sources.
+case "$target" in
+  *arm*-symbianelf)
+  LIBSUPCXX_PRONLY=yes;;
+  *);;
+esac
+AM_CONDITIONAL(LIBSUPCXX_PRONLY, test $LIBSUPCXX_PRONLY = yes)
+
 # Determine cross-compile flags and AM_CONDITIONALs.
 #AC_SUBST(GLIBCXX_IS_NATIVE)
 #AM_CONDITIONAL(CANADIAN, test $CANADIAN = yes)
 # from GLIBCXX_CHECK_COMPLEX_MATH_SUPPORT:
 #AM_CONDITIONAL(GLIBCXX_BUILD_LIBMATH,  test $need_libmath = yes)
 GLIBCXX_EVALUATE_CONDITIONALS
- 
+
 AC_CACHE_SAVE
 
 if test ${multilib} = yes; then
