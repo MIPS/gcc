@@ -1,3 +1,14 @@
+2006-01-18  Ben Elliston  <bje@au.ibm.com>
+
+	* config/i386/i386.h (ALIGN_MODE_128): Remove TDmode.
+	* config/i386/i386.c (classify_argument): Omit decimal modes.
+	(function_arg_advance): Do not handle SDmode, DDmode.
+	(function_arg): Likewise, do not handle SDmode, DDmode.
+	(ix86_return_in_memory): No special treatment for TDmode.
+	(ix86_value_regno): Tidy.
+	(print_operand): Omit SDmode handling.
+	(ix86_hard_regno_mode_ok): Remove decimal float mode handling.
+
 2006-01-17  Ben Elliston  <bje@au.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Reject

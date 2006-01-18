@@ -2442,9 +2442,6 @@ ix86_must_pass_in_stack (enum machine_mode mode, tree type)
   if (must_pass_in_stack_var_size_or_pad (mode, type))
     return true;
 
-  if (!TARGET_64BIT && mode == TDmode)
-    return true;
-
   /* For 32-bit, we want TImode aggregates to go on the stack.  But watch out!
      The layout_type routine is crafty and tries to trick us into passing
      currently unsupported vector types on the stack by using TImode.  */
@@ -2871,8 +2868,6 @@ classify_argument (enum machine_mode mode, tree type,
   /* Classification of atomic types.  */
   switch (mode)
     {
-    case SDmode:
-    case DDmode:
     case DImode:
     case SImode:
     case HImode:
@@ -2887,7 +2882,6 @@ classify_argument (enum machine_mode mode, tree type,
       return 1;
     case CDImode:
     case TImode:
-    case TDmode:
       classes[0] = classes[1] = X86_64_INTEGER_CLASS;
       return 2;
     case CTImode:
@@ -3207,8 +3201,6 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	case SImode:
 	case HImode:
 	case QImode:
-	case SDmode:
-	case DDmode:
 	  cum->words += words;
 	  cum->nregs -= words;
 	  cum->regno += words;
@@ -3329,8 +3321,6 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode orig_mode,
 	/* FALLTHRU */
       case DImode:
       case SImode:
-      case SDmode:
-      case DDmode:
       case HImode:
       case QImode:
 	if (words <= cum->nregs)
@@ -3720,7 +3710,8 @@ ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
   if (mode == TImode || (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 16))
     return FIRST_SSE_REG;
 
-  if (DECIMAL_FLOAT_MODE_P (mode) && mode != TDmode)
+  /* Decimal floating point values can go in %eax, unlike other float modes.  */
+  if (DECIMAL_FLOAT_MODE_P (mode))
     return 0;
 
   /* Most things go in %eax, except (unless -mno-fp-ret-in-387) fp values.  */
@@ -7497,19 +7488,6 @@ print_operand (FILE *file, rtx x, int code)
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, x);
       REAL_VALUE_TO_TARGET_SINGLE (r, l);
-
-      if (ASSEMBLER_DIALECT == ASM_ATT)
-	putc ('$', file);
-      fprintf (file, "0x%08lx", l);
-    }
-
-  else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == SDmode)
-    {
-      REAL_VALUE_TYPE r;
-      long l;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-      REAL_VALUE_TO_TARGET_DECIMAL32 (r, l);
 
       if (ASSEMBLER_DIALECT == ASM_ATT)
 	putc ('$', file);
@@ -16236,8 +16214,6 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     }
   /* We handle both integer and floats in the general purpose registers.  */
   else if (VALID_INT_MODE_P (mode))
-    return 1;
-  else if (DECIMAL_FLOAT_MODE_P (mode))
     return 1;
   else if (VALID_FP_MODE_P (mode))
     return 1;
