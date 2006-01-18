@@ -120,6 +120,8 @@ extern tree darwin_handle_odd_attribute (tree *, tree, tree, int, bool *);
 /* APPLE LOCAL ObjC GC */
 extern tree darwin_handle_objc_gc_attribute (tree *, tree, tree, int, bool *);
 
+/* APPLE LOCAL dwarf 4383509 */
+extern void darwin_file_start (void);
 extern void darwin_file_end (void);
 
 extern void darwin_mark_decl_preserved (const char *);
@@ -185,6 +187,10 @@ extern void darwin_globalize_label (FILE *, const char *);
 extern void darwin_assemble_visibility (tree, int);
 extern void darwin_asm_output_dwarf_delta (FILE *, int, const char *,
 					   const char *);
+/* APPLE LOCAL begin dwarf 4383509 */
+extern void darwin_asm_output_dwarf_offset (FILE *, int, const char *,
+					    const char *);
+/* APPLE LOCAL end dwarf 4383509 */
 /* APPLE LOCAL begin mainline 2005-09-01 3449986 */
 extern void darwin_cpp_builtins (struct cpp_reader *);
 /* APPLE LOCAL end mainline 2005-09-01 3449986 */
