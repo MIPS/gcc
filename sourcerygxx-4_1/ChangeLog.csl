@@ -1,6 +1,20 @@
 2005-01-17  Paul Brook  <paul@codesourcery.com>
 
 	Backport from mainline.
+	2005-12-13  Carlos O'Donell <carlos@codesourcery.com>
+	* gcc/c-cppbuiltin.c (builtin_define_float_constants): Add
+	fp_cast parameter, pass to builtin_define_with_hex_fp_value.
+	Define __FLT_HAS_DENORM__, __DBL_HAS_DENORM__, __LDBL_HAS_DENORM__.
+	(builtin_define_with_hex_fp_value): Use fp_cast when building macro.
+	(c_cpp_builtins): If flag_single_precision_constant then set fp_cast
+	to "((double)%sL)" otherwise "%s".
+	* gcc/testsuite/gcc.dg/single-precision-constant.c: New test.
+	* libstdc++-v3/include/std/std_limits.h (struct numeric_limits):
+	Use __DBL_HAS_DENORM__, __FLT_HAS_DENORM__, __LDBL_HAS_DENORM__.
+
+2005-01-17  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
 	2005-12-15  Richard Sandiford  <richard@codesourcery.com>
 	* gcc/config/arm/predicates.md (call_memory_operand): New.
 	* gcc/config/arm/arm.md (*call_mem, *call_value_mem): Use it.
