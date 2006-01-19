@@ -1,3 +1,7 @@
+2006-01-18  Eric Christopher  <echristo@apple.com>
+
+	* g++.dg/eh/table.C: New.
+
 2006-01-17  Eric Christopher  <echristo@apple.com>
 
 	* g++.old-deja/g++.warn/impint.C: Add -Wconversion.
@@ -131,7 +135,7 @@
 
 	PR fortran/21912
 	* gfortran.dg/array_constructor_4.f90: New test.
-	
+
 	* gfortran.dg/forall_1.f90: Set previously uninitialized variable.
 
 2005-06-05  Mark Mitchell  <mark@codesourcery.com>
@@ -226,7 +230,7 @@
 	* gfortran.dg/implicit_5.f90: New test.
 
 2005-06-01  Feng Wang  <fengwang@nudt.edu.cn>
- 
+
 	PR fortran/20883
 	* gfortran/assign_4.f90: New test.
 	* gfortran/assign_2.f90: Change compile to run.
