@@ -1,3 +1,9 @@
+2006-01-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* trans.h (build4_v): Define.
+	* trans-openmp.c: Call build4_v to create OMP_PARALLEL nodes.
+	Call build3_v to create OMP_SECTIONS nodes.
+
 2006-01-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-decl.c (gfc_get_symbol_decl): Fix a merge glitch.

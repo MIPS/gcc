@@ -1027,7 +1027,7 @@ gfc_trans_omp_parallel (gfc_code *code)
   omp_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
 				       code->loc);
   stmt = gfc_trans_omp_code (code->block->next, true);
-  stmt = build2_v (OMP_PARALLEL, stmt, omp_clauses);
+  stmt = build4_v (OMP_PARALLEL, stmt, omp_clauses, NULL, NULL);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -1065,7 +1065,7 @@ gfc_trans_omp_parallel_do (gfc_code *code)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
   else
     poplevel (0, 0, 0);
-  stmt = build2_v (OMP_PARALLEL, stmt, omp_clauses);
+  stmt = build4_v (OMP_PARALLEL, stmt, omp_clauses, NULL, NULL);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -1089,7 +1089,7 @@ gfc_trans_omp_parallel_sections (gfc_code *code)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
   else
     poplevel (0, 0, 0);
-  stmt = build2_v (OMP_PARALLEL, stmt, omp_clauses);
+  stmt = build4_v (OMP_PARALLEL, stmt, omp_clauses, NULL, NULL);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -1113,7 +1113,7 @@ gfc_trans_omp_parallel_workshare (gfc_code *code)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0, 0));
   else
     poplevel (0, 0, 0);
-  stmt = build2_v (OMP_PARALLEL, stmt, omp_clauses);
+  stmt = build4_v (OMP_PARALLEL, stmt, omp_clauses, NULL, NULL);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -1144,7 +1144,7 @@ gfc_trans_omp_sections (gfc_code *code, gfc_omp_clauses *clauses)
     }
   stmt = gfc_finish_block (&body);
 
-  stmt = build2_v (OMP_SECTIONS, stmt, omp_clauses);
+  stmt = build3_v (OMP_SECTIONS, stmt, omp_clauses, NULL);
   gfc_add_expr_to_block (&block, stmt);
 
   return gfc_finish_block (&block);

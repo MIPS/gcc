@@ -591,6 +591,8 @@ struct lang_decl		GTY(())
                                           arg1, arg2)
 #define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
                                                 arg1, arg2, arg3)
+#define build4_v(code, arg1, arg2, arg3, arg4) build4(code, void_type_node, \
+						      arg1, arg2, arg3, arg4)
 
 /* This group of functions allows a caller to evaluate an expression from
    the callee's interface.  It establishes a mapping between the interface's
