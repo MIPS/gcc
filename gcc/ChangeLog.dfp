@@ -1,3 +1,8 @@
+2006-01-19  Ben Elliston  <bje@au.ibm.com>
+
+	* dfp.c (dfp_byte_swap): Make param a uint32_t. Return uint32_t.
+	* varasm.c (assemble_real): Initialise data array.
+
 2006-01-18  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/i386.h (ALIGN_MODE_128): Remove TDmode.
