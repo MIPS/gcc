@@ -1,7 +1,7 @@
 /* This file contains the definitions and documentation for the
    tree codes used in GCC.
-   Copyright (C) 1987, 1988, 1993, 1995, 1997, 1998, 2000, 2001, 2004, 2005
-   Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1993, 1995, 1997, 1998, 2000, 2001, 2004, 2005, 
+   2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -65,7 +65,6 @@ DEFTREECODE (TREE_VEC, "tree_vec", tcc_exceptional, 0)
      For a block which represents the outermost scope of a function, it
      points to the FUNCTION_DECL node.
    BLOCK_VARS points to a chain of decl nodes.
-   BLOCK_TYPE_TAGS points to a chain of types which have their own names.
    BLOCK_CHAIN points to the next BLOCK at the same level.
    BLOCK_ABSTRACT_ORIGIN points to the original (abstract) tree node which
    this block is an instance of, or else is NULL to indicate that this
@@ -957,8 +956,15 @@ DEFTREECODE (TARGET_MEM_REF, "target_mem_ref", tcc_reference, 7)
    exposed to TREE_RANGE_CHECK.  */
 /* OpenMP - #pragma omp parallel [clause1 ... clauseN]
    Operand 0: OMP_PARALLEL_BODY: Code to be executed by all threads.
-   Operand 1: OMP_PARALLEL_CLAUSES: List of clauses.  */
-DEFTREECODE (OMP_PARALLEL, "omp_parallel", tcc_statement, 2)
+   Operand 1: OMP_PARALLEL_CLAUSES: List of clauses.
+   Operand 2: OMP_PARALLEL_FN: FUNCTION_DECL used when outlining the
+	      body of the parallel region.  Only valid after
+	      pass_lower_omp.
+   Operand 3: OMP_PARALLEL_DATA_ARG: Local variable in the parent
+	      function containing data to be shared with the child
+	      function.  */
+
+DEFTREECODE (OMP_PARALLEL, "omp_parallel", tcc_statement, 4)
 
 /* OpenMP - #pragma omp for [clause1 ... clauseN]
    Operand 0: OMP_FOR_BODY: Loop body.
@@ -983,8 +989,11 @@ DEFTREECODE (OMP_FOR, "omp_for", tcc_statement, 6)
 
 /* OpenMP - #pragma omp sections [clause1 ... clauseN]
    Operand 0: OMP_SECTIONS_BODY: Sections body.
-   Operand 1: OMP_SECTIONS_CLAUSES: List of clauses.  */
-DEFTREECODE (OMP_SECTIONS, "omp_sections", tcc_statement, 2)
+   Operand 1: OMP_SECTIONS_CLAUSES: List of clauses.
+   Operand 2: OMP_SECTIONS_SECTIONS: Vector of the different sections
+	      in the body.  Only valid after lowering and destroyed
+	      after the CFG has been built.  */
+DEFTREECODE (OMP_SECTIONS, "omp_sections", tcc_statement, 3)
 
 /* OpenMP - #pragma omp single
    Operand 0: OMP_SINGLE_BODY: Single section body.
@@ -1063,6 +1072,9 @@ DEFTREECODE (OMP_CLAUSE_ORDERED, "ordered", tcc_expression, 0)
 /* OpenMP clause: default.  */
 DEFTREECODE (OMP_CLAUSE_DEFAULT, "default", tcc_expression, 0)
 
+/* Return from an OpenMP directive.  */
+DEFTREECODE (OMP_RETURN_EXPR, "omp_return", tcc_statement, 0)
+
 /* Reduction operations. 
    Operations that take a vector of elements and "reduce" it to a scalar
    result (e.g. summing the elements of the vector, finding the minimum over
@@ -1072,6 +1084,33 @@ DEFTREECODE (OMP_CLAUSE_DEFAULT, "default", tcc_expression, 0)
 DEFTREECODE (REDUC_MAX_EXPR, "reduc_max_expr", tcc_unary, 1)
 DEFTREECODE (REDUC_MIN_EXPR, "reduc_min_expr", tcc_unary, 1)
 DEFTREECODE (REDUC_PLUS_EXPR, "reduc_plus_expr", tcc_unary, 1)
+
+/* Widenning dot-product.
+   The first two arguments are of type t1.
+   The third argument and the result are of type t2, such that t2 is at least
+   twice the size of t1. DOT_PROD_EXPR(arg1,arg2,arg3) is equivalent to:
+   	tmp = WIDEN_MULT_EXPR(arg1, arg2);
+   	arg3 = PLUS_EXPR (tmp, arg3);
+   or: 
+	tmp = WIDEN_MULT_EXPR(arg1, arg2);
+        arg3 = WIDEN_SUM_EXPR (tmp, arg3);		 */
+DEFTREECODE (DOT_PROD_EXPR, "dot_prod_expr", tcc_expression, 3)
+
+/* Widenning summation.
+   The first argument is of type t1.
+   The second argument is of type t2, such that t2 is at least twice
+   the size of t1. The type of the entire expression is also t2.
+   WIDEN_SUM_EXPR is equivalent to first widening (promoting)
+   the first argument from type t1 to type t2, and then summing it
+   with the second argument.  */
+DEFTREECODE (WIDEN_SUM_EXPR, "widen_sum_expr", tcc_binary, 2)
+   
+/* Widenning multiplication. 
+   The two arguments are of type t1.
+   The result is of type t2, such that t2 is at least twice
+   the size of t1. WIDEN_MULT_EXPR is equivalent to first widening (promoting)
+   the arguments from type t1 to type t2, and then multiplying them.  */
+DEFTREECODE (WIDEN_MULT_EXPR, "widen_mult_expr", tcc_binary, 2)
 
 /* Whole vector left/right shift in bits.
    Operand 0 is a vector to be shifted.
