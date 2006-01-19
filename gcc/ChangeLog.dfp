@@ -1,5 +1,9 @@
 2006-01-19  Ben Elliston  <bje@au.ibm.com>
 
+	* config/i386/i386.c (classify_argument): Pass SDmode, DDmode and
+	TDmode values in XMM registers.
+	(ix86_libcall_value): Return values in XMM registers.
+
 	* dfp.c (dfp_byte_swap): Make param a uint32_t. Return uint32_t.
 	* varasm.c (assemble_real): Initialise data array.
 
