@@ -1,3 +1,7 @@
+2006-01-18  Paul Brook  <paul@codesourcery.com>
+
+	* doc/invoke.texi: Document Arm -march=armv6t2 and -mcpu1156t2.
+
 2007-01-07  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* optabs.c (prepare_cmp_insn): If unbaised and unsigned then bias
