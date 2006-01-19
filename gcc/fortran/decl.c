@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -508,15 +508,14 @@ char_len_param_value (gfc_expr ** expr)
 static match
 match_char_length (gfc_expr ** expr)
 {
-  int length, cnt;
+  int length;
   match m;
 
   m = gfc_match_char ('*');
   if (m != MATCH_YES)
     return m;
 
-  /* cnt is unused, here.  */
-  m = gfc_match_small_literal_int (&length, &cnt);
+  m = gfc_match_small_literal_int (&length, NULL);
   if (m == MATCH_ERROR)
     return m;
 
@@ -1280,13 +1279,12 @@ match
 gfc_match_old_kind_spec (gfc_typespec * ts)
 {
   match m;
-  int original_kind, cnt;
+  int original_kind;
 
   if (gfc_match_char ('*') != MATCH_YES)
     return MATCH_NO;
 
-  /* cnt is unsed, here.  */
-  m = gfc_match_small_literal_int (&ts->kind, &cnt);
+  m = gfc_match_small_literal_int (&ts->kind, NULL);
   if (m != MATCH_YES)
     return MATCH_ERROR;
 
@@ -3154,6 +3152,12 @@ attr_decl1 (void)
 	goto cleanup;
     }
 
+  if (gfc_add_attribute (&sym->attr, &var_locus) == FAILURE)
+    {
+      m = MATCH_ERROR;
+      goto cleanup;
+    }
+
   if ((current_attr.external || current_attr.intrinsic)
       && sym->attr.flavor != FL_PROCEDURE
       && gfc_add_flavor (&sym->attr, FL_PROCEDURE, sym->name, NULL) == FAILURE)
@@ -3361,7 +3365,7 @@ gfc_match_external (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_external (&current_attr, NULL);
+  current_attr.external = 1;
 
   return attr_decl ();
 }
@@ -3378,7 +3382,7 @@ gfc_match_intent (void)
     return MATCH_ERROR;
 
   gfc_clear_attr (&current_attr);
-  gfc_add_intent (&current_attr, intent, NULL);	/* Can't fail */
+  current_attr.intent = intent;
 
   return attr_decl ();
 }
@@ -3389,7 +3393,7 @@ gfc_match_intrinsic (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_intrinsic (&current_attr, NULL);
+  current_attr.intrinsic = 1;
 
   return attr_decl ();
 }
@@ -3400,7 +3404,7 @@ gfc_match_optional (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_optional (&current_attr, NULL);
+  current_attr.optional = 1;
 
   return attr_decl ();
 }
@@ -3423,7 +3427,7 @@ gfc_match_pointer (void)
   else
     {
       gfc_clear_attr (&current_attr);
-      gfc_add_pointer (&current_attr, NULL);
+      current_attr.pointer = 1;
     
       return attr_decl ();
     }
@@ -3435,7 +3439,7 @@ gfc_match_allocatable (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_allocatable (&current_attr, NULL);
+  current_attr.allocatable = 1;
 
   return attr_decl ();
 }
@@ -3446,7 +3450,7 @@ gfc_match_dimension (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_dimension (&current_attr, NULL, NULL);
+  current_attr.dimension = 1;
 
   return attr_decl ();
 }
@@ -3457,7 +3461,7 @@ gfc_match_target (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_target (&current_attr, NULL);
+  current_attr.target = 1;
 
   return attr_decl ();
 }

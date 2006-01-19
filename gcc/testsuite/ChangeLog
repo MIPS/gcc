@@ -1,3 +1,62 @@
+2006-01-18  DJ Delorie  <dj@redhat.com>
+
+	* gcc.dg/Werror-1.c, gcc.dg/Werror-2.c, gcc.dg/Werror-3.c,
+	gcc.dg/Werror-4.c, gcc.dg/Werror-5.c, gcc.dg/Werror-6.c,
+	gcc.dg/Werror-7.c, gcc.dg/Werror-8.c, gcc.dg/Werror-9.c,
+	gcc.dg/Werror-10.c, gcc.dg/Werror-11.c, gcc.dg/Werror-12: New.
+
+2006-01-18  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/execute/930529-1.x: Use -fwrapv as test depends
+	on wrapping on overflow semantics.
+
+	* gcc.dg/tree-ssa/pr23109.c: Remove the .lim file too.
+
+	* gcc.gc/tree-ssa/vrp23.c: New test.
+	* gcc.gc/tree-ssa/vrp24.c: New test.
+
+2006-01-18  Richard Henderson  <rth@redhat.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+	    Diego Novillo  <dnovillo@redhat.com>
+	    Uros Bizjak  <uros@kss-loka.si>
+
+	* testsuite/gcc.dg/gomp: New directory.
+
+2006-01-18  Paul Thomas  <pault@gcc.gnu.org>
+	    Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20869
+	* gfortran.dg/intrinsic_external_1.f90: New test.
+
+	PR fortran/20875.
+	* gfortran.dg/elemental_pointer_1.f90: New test.
+
+	PR fortran/25024
+	* gfortran.dg/external_procedures_1.f90: New test.
+
+	PR fortran/25785
+	gfortran.dg/assumed_present.f90: New test.
+
+2006-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/parse/lookup5.C: New test.
+
+2006-01-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25697
+	* gfortran.dg/read_eof.f90: New test.
+
+2006-01-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/torture/fp-int-convert-float128.c: Fix dg-do line,
+	add a closing brace.
+
+2006-01-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25631
+	* gfortran.dg/fmt_tl.f: New test.
+
 2006-01-17  Eric Christopher  <echristo@apple.com>
 
 	* g++.old-deja/g++.warn/impint.C: Add -Wconversion.
@@ -140,7 +199,7 @@
 	* gcc.dg/tree-ssa/alias-11.c: Likewise.
 	* gcc.dg/tree-ssa/alias-12.c: Likewise.
 
-2005-01-14  Zdenek Dvorak <dvorakz@suse.cz>
+2006-01-14  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* gcc.dg/tree-ssa/pr19210-1.c: Update outcome.  Add new test loop.
 	* gcc.dg/tree-ssa/pr19210-2.c: Ditto.
@@ -295,7 +354,7 @@
         * gcc.dg/tree-ssa/recip-2.c, gcc.dg/tree-ssa/pr23234.c: Provide
 	three divisions in order to do the optimization.
 
-2005-01-11  Zdenek Dvorak <dvorakz@suse.cz>
+2006-01-11  Zdenek Dvorak <dvorakz@suse.cz>
 
 	PR c++/25632
 	* g++.dg/other/pr25632.C: New test.
@@ -347,16 +406,16 @@
 
 	* gfortran.dg/ichar_2.f90: New test.
 
-2005-01-08  Erik Edelmann  <eedelman@gcc.gnu.org>
+2006-01-08  Erik Edelmann  <eedelman@gcc.gnu.org>
 
 	PR fortran/25093
 	* gfortran.dg/private_type_4.f90: New.
 
-2005-01-07  Richard Guenther  <rguenther@suse.de>
+2006-01-07  Richard Guenther  <rguenther@suse.de>
 
 	* gcc.dg/tree-ssa/loop-15.c: Use optimized dump.
 
-2005-01-07  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+2006-01-07  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* gfortran.dg/func_decl_1.f90: New.
 	* gfortran.dg/array_alloc_1.f90: Fix wrong function declaration.
@@ -384,17 +443,17 @@
 	* gfortran.dg/assumed_size_refs_2.f90: New test.
 	* gfortran.dg/initialization_1.f90: Change warning message.
 
-2005-01-06  Zdenek Dvorak <dvorakz@suse.cz>
+2006-01-06  Zdenek Dvorak <dvorakz@suse.cz>
 
 	* gcc.dg/tree-ssa/loop-15.c: New test.
 
-2005-01-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+2006-01-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/25598
 	* gfortran.dg/backspace_3.f: New test.
 	* gfortran.dg/backspace_4.f: New test.
 
-2005-01-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+2006-01-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/24268
 	* gfortran.dg/fmt_white.f: Update test.

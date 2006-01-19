@@ -1,3 +1,17 @@
+2006-01-18  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (_Jv_CompileMethod): Add declaration.
+	(class _Jv_InterpMethod): Add _Jv_CompileMethod as a friend.
+	* interpret.cc (_Jv_CompileMethod): New function.
+	(run): 	Massage code to allow for NULL args.
+	Update comments to explain NULL args.
+	Return if compiling the method and args is NULL.
+
+2006-01-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libgcj/25840
+	* include/x86_64-signal.h (RESTORE2): Add ".text\n".
+
 2006-01-17  Tom Tromey  <tromey@redhat.com>
 
 	PR classpath/20198:
