@@ -1,6 +1,6 @@
 // A constant pool being generated.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -67,7 +67,7 @@ outgoing_constant_pool::check (std::map<T, int> &the_map, T the_value)
 template<typename T>
 int
 outgoing_constant_pool::check_qual (std::map<T, type_map_type> &the_map,
-				  model_type *the_type, T the_value)
+				    model_type *the_type, T the_value)
 {
   typename std::map<T, type_map_type>::iterator iter
     = the_map.find (the_value);
@@ -268,7 +268,12 @@ outgoing_constant_pool::add (jlong val)
 int
 outgoing_constant_pool::add (jfloat val)
 {
-  jint w = float_to_word (val);
+  // Use Java's canonical NaN value.
+  jint w;
+  if (isnan (val))
+    w = 0x7fc00000;
+  else
+    w = float_to_word (val);
   int index = check (float_map, w);
   if (index < 0)
     {
@@ -286,7 +291,16 @@ int
 outgoing_constant_pool::add (jdouble val)
 {
   jint words[2];
-  double_to_words (words, val);
+
+  // Use Java's canonical NaN value.
+  if (isnan (val))
+    {
+      words[0] = 0x7ff80000;
+      words[1] = 0;
+    }
+  else
+    double_to_words (words, val);
+
   // Note that order of words here doesn't matter, since this
   // representation is for internal use only.
   jlong lval = words_to_long (words[0], words[1]);

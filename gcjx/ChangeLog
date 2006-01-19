@@ -1,3 +1,9 @@
+2006-01-19  Tom Tromey  <tromey@redhat.com>
+
+	* bytecode/outpool.cc (add(jdouble)): Use canonical NaN
+	representation.
+	(add(jfloat)): Likewise.
+
 2006-01-17  Mike Emmel  <mike.emmel@gmail.com>
 
 	* llvm/llvmgen.hh, llvm/llvmfunction.cc, llvm/llvmclass.cc,
