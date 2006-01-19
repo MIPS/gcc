@@ -81,6 +81,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Pragmas::             Pragmas accepted by GCC.
 * Unnamed Fields::      Unnamed struct/union fields within structs/unions.
 * Thread-Local::        Per-thread variables.
+* Reflection::          Compile-time reflection support.
 @end menu
 
 @node Statement Exprs
@@ -9852,6 +9853,36 @@ test for the GNU compiler the same way as for C programs: check for a
 predefined macro @code{__GNUC__}.  You can also use @code{__GNUG__} to
 test specifically for GNU C++ (@pxref{Common Predefined Macros,,
 Predefined Macros,cpp,The GNU C Preprocessor}).
+
+
+@node Reflection
+@section List of Enumerators
+@cindex enumerator list
+
+In GNU C++, the list of enumerators appearing in an enumeration
+definition can be obtained with the @code{__constants__} operator.  
+
+@smallexample
+enum Day {
+   Monday, Tuesday, Wednesday, Thursday, Firday, Saturday, Sunday
+};
+
+const Day week[] = __constants__ (Day);
+@end smallexample
+
+The expression acts ``as if'' written in the form of a brace-enclosed
+initializer-list:
+
+@smallexample
+const Day week[] = {
+  Monday, Tuesday, Wednesday, Thursday, Firday, Saturday, Sunday
+};
+@end smallexample
+
+The enumerators appear in the same order as in the definition of
+their enumeration.  In particular, if there is no enumerator then the
+brace-enclosed initializer is an empty list.
+
 
 @menu
 * Volatiles::		What constitutes an access to a volatile object.

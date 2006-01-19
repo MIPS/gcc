@@ -3223,6 +3223,51 @@ finalize_nrv (tree *tp, tree var, tree result)
   htab_delete (data.visited);
 }
 
+
+/*  Evaluate __constants__ (t).  The result is meaninful only
+    when T is an enumeration; an error_mark_mode is returned otherwise.
+    The value of the evaluation is the list of enumerators in the
+    definition of the enumeration T, in a brace-enclosed initializer
+    form.  The order of the enumerators is the same as in the input
+    source program.  */
+
+tree
+get_symbolic_constants (tree t)
+{
+  VEC(constructor_elt, gc)* values;
+  tree enumerators;
+
+  if (TREE_CODE (t) == TYPE_DECL)
+    t = TREE_TYPE (t);
+
+  if (!TYPE_P (t))
+    {
+      error ("%qE does not name a type", t);
+      return error_mark_node;
+    }
+
+  if (dependent_type_p (t))
+    return build1 (SYMBOLIC_CONSTANTS, NULL, t);
+
+  if (TREE_CODE (t) != ENUMERAL_TYPE)
+    {
+      error ("%qT is not an enumeration", t);
+      return error_mark_node;
+    }
+
+  enumerators = TYPE_VALUES (t);
+  values = VEC_alloc (constructor_elt, gc, list_length (enumerators));
+  for (; enumerators != NULL; enumerators = TREE_CHAIN (enumerators))
+    {
+      constructor_elt *elt = VEC_quick_push (constructor_elt, values, NULL);
+      elt->index = NULL;
+      elt->value = TREE_VALUE (enumerators);
+    }
+
+  return build_constructor (NULL, values);
+}
+
+
 /* Perform initialization related to this module.  */
 
 void

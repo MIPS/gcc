@@ -1,3 +1,16 @@
+2006-01-19  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Add initial support for __constants__.
+	* cp-tree.def (SYMBOLIC_CONSTANTS): New tree code.
+	* cp-tree.h (get_symbolic_constants): Declare.
+	* lex.c (reswords): Record "__constants__" as keyword.
+	* parser.c (cp_parser_primary_expression): Call
+	cp_parser_constants on RID_SYMBOLIC_CONSTANTS.
+	(cp_parser_constants): New function.
+	* semantics.c (get_symbolic_constants): Define.
+	* pt.c (tsubst_copy): Handle SYMBOLIC_CONSTANTS.
+	(tsubst_copy_and_build): Likewise.
+
 2005-01-04  Zdenek Dvorak <dvorakz@suse.cz>
 
 	PR c++/25632

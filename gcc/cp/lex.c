@@ -196,6 +196,7 @@ static const struct resword reswords[] =
   { "__complex__",	RID_COMPLEX,	0 },
   { "__const",		RID_CONST,	0 },
   { "__const__",	RID_CONST,	0 },
+  { "__constants__",    RID_SYMBOLIC_CONSTANTS, 0},
   { "__extension__",	RID_EXTENSION,	0 },
   { "__func__",		RID_C99_FUNCTION_NAME,	0 },
   { "__imag",		RID_IMAGPART,	0 },

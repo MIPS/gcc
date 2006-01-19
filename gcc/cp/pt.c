@@ -7862,6 +7862,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case TYPEID_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
+    case SYMBOLIC_CONSTANTS:
       return build1
 	(code, tsubst (TREE_TYPE (t), args, complain, in_decl),
 	 tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl));
@@ -8582,6 +8583,9 @@ tsubst_copy_and_build (tree t,
     case REALPART_EXPR:
     case IMAGPART_EXPR:
       return build_x_unary_op (TREE_CODE (t), RECUR (TREE_OPERAND (t, 0)));
+
+    case SYMBOLIC_CONSTANTS:
+      return get_symbolic_constants (RECUR (TREE_OPERAND (t, 0)));
 
     case ADDR_EXPR:
       op1 = TREE_OPERAND (t, 0);

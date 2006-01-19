@@ -1443,6 +1443,7 @@ static tree cp_parser_constant_expression
   (cp_parser *, bool, bool *);
 static tree cp_parser_builtin_offsetof
   (cp_parser *);
+static tree cp_parser_constants (cp_parser *);
 
 /* Statements [gram.stmt.stmt]  */
 
@@ -2747,6 +2748,7 @@ cp_parser_translation_unit (cp_parser* parser)
    primary-expression:
      ( compound-statement )
      __builtin_va_arg ( assignment-expression , type-id )
+     __constants__ ( type-id )
 
    Objective-C++ Extension:
 
@@ -2977,6 +2979,10 @@ cp_parser_primary_expression (cp_parser *parser,
 
 	case RID_OFFSETOF:
 	  return cp_parser_builtin_offsetof (parser);
+
+          /* C++ reflection extensions.  */
+        case RID_SYMBOLIC_CONSTANTS:
+          return cp_parser_constants (parser);
 
 	  /* Objective-C++ expressions.  */
 	case RID_AT_ENCODE:
@@ -4743,6 +4749,23 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
      checking that it matches the first type-name.  */
   *type = cp_parser_type_name (parser);
 }
+
+/* We've seen a RID_SYMBOLIC_CONSTANTS and are asked to parse
+   __constants__ (t)  */
+
+static tree
+cp_parser_constants (cp_parser *parser)
+{
+  /* Eat the RID_SYMBOLIC_CONSTANTS token */
+  cp_lexer_consume_token (parser->lexer);
+
+  /* Parse the type-id.  Note:  cp_parser_sizeof_operand accepts
+     expressions too.  We deal that erroneous case when in
+     evaluate_enum_values.  */
+  return get_symbolic_constants
+     (cp_parser_sizeof_operand (parser, RID_SYMBOLIC_CONSTANTS));
+}
+
 
 /* Parse a unary-expression.
 

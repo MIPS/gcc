@@ -1,3 +1,9 @@
+2006-01-19  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	Add initial support for __constants__
+	* c-common.h (RID_SYMBOLIC_CONSTANTS): New enumerator.
+	* doc/extend.texi (Reflection): New. Document __constants__.
+
 2006-01-05  Richard Henderson  <rth@redhat.com>
 
 	* c-parser.c (c_parser_objc_methodprotolist): Handle CPP_PRAGMA.

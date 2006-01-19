@@ -342,6 +342,10 @@ DEFTREECODE (STMT_EXPR, "stmt_expr", tcc_expression, 1)
    is applied.  */
 DEFTREECODE (UNARY_PLUS_EXPR, "unary_plus_expr", tcc_unary, 1)
 
+/* A SYMBOLIC_CONSTANTS represents the sequence of enumerators in an
+   enumeration definition.  */
+DEFTREECODE (SYMBOLIC_CONSTANTS, "symbolic_constants", tcc_expression, 1)
+
 /*
 Local variables:
 mode:c

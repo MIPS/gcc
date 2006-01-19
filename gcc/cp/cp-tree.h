@@ -4228,6 +4228,7 @@ extern tree finish_qualified_id_expr		(tree, tree, bool, bool,
 extern void simplify_aggr_init_expr		(tree *);
 extern void finalize_nrv			(tree *, tree, tree);
 extern void note_decl_for_pch			(tree);
+extern tree get_symbolic_constants (tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,
