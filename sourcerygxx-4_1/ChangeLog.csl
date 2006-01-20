@@ -1,5 +1,11 @@
 2006-01-20  Julian Brown  <julian@codesourcery.com>
 
+	Merge from csl-gxxpro-3_4-branch:
+	2005-09-14  Mark Mitchell  <mark@codesourcery.com>
+	* gcc/config/vx-common.h (DBX_DEBUGGING_INFO): Define to 1.
+
+2006-01-20  Julian Brown  <julian@codesourcery.com>
+
 	Backport from mainline.
 	2005-11-23  Mark Mitchell  <mark@codesourcery.com>
 	* gcc/doc/invoke.texi: For man pages, include gcc-vers.texi.
