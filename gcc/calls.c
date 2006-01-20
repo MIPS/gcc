@@ -3780,7 +3780,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
      no impact, so we pretend it is unknown.  */
 
   emit_call_1 (fun, NULL,
-	       get_identifier (XSTR (orgfun, 0)),
+	       SYMBOL_REF_DECL (orgfun),
 	       build_function_type (tfom, NULL_TREE),
 	       original_args_size.constant, args_size.constant,
 	       struct_value_size,

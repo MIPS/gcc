@@ -1,3 +1,8 @@
+2006-01-20  Ben Elliston  <bje@au.ibm.com>
+
+	* calls.c (emit_library_call_value_1): Use SYMBOL_REF_DECL to pass
+	the function decl, not get_identifier.
+
 2006-01-19  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/i386.c (classify_argument): Pass SDmode, DDmode and
