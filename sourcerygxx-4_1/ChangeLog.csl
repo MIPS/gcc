@@ -1,3 +1,14 @@
+2006-01-20  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-09-21  Kazu Hirata  <kazu@codesourcery.com>
+	* gcc/config/arm/arm.md (movdi): Force operands[1] to a register
+	if we have a non-register source.
+	(*arm_movdi, *movdf_soft_insn): Require that one of the
+	operands be a register.
+	* gcc/config/arm/iwmmxt.md (*iwmmxt_arm_movdi): Likewise.
+	* gcc/config/arm/vfp.md (*arm_movdi_vfp, *movdf_vfp): Likewise.
+
 2006-01-20  Joseph S. Myers  <joseph@codesourcery.com>
 
 	PR libstdc++/25524
