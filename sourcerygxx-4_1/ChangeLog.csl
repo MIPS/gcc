@@ -1,3 +1,16 @@
+2006-01-20  Julian Brown  <julian@codesourcery.com>
+
+	Backport from mainline.
+	2005-11-23  Mark Mitchell  <mark@codesourcery.com>
+	* gcc/doc/invoke.texi: For man pages, include gcc-vers.texi.
+	List @file in the option summary.  Include the libiberty documentation
+	for @file.
+	* gcc/gcc.c (main): Call expandargv.
+	* gcc/Makefile.in (gcc-vers.texi): Define srcdir.
+
+	2005-11-23  Mark Mitchell  <mark@codesourcery.com>
+	* maintainer-scripts/update_web_docs_svn: Set @srcdir in gcc-vers.texi.
+
 2006-01-20  Paul Brook  <paul@codesourcery.com>
 
 	Merge from csl-arm-branch.
