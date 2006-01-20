@@ -389,6 +389,9 @@ rtx arm_compare_op0, arm_compare_op1;
 /* The processor for which instructions should be scheduled.  */
 enum processor_type arm_tune = arm_none;
 
+/* The default processor used if not overriden by commandline.  */
+static enum processor_type arm_default_cpu = arm_none;
+
 /* Which floating point model to use.  */
 enum arm_fp_model arm_fp_model;
 
@@ -1011,8 +1014,9 @@ arm_override_options (void)
 	  insn_flags = sel->flags;
 	}
       sprintf (arm_arch_name, "__ARM_ARCH_%s__", sel->arch);
+      arm_default_cpu = (enum processor_type) (sel - all_cores);
       if (arm_tune == arm_none)
-	arm_tune = (enum processor_type) (sel - all_cores);
+	arm_tune = arm_default_cpu;
     }
 
   /* The processor for which we should tune should now have been

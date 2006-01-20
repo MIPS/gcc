@@ -2,6 +2,14 @@
 
 	Merge from csl-arm-branch.
 	2005-10-20  Paul Brook  <paul@codesourcery.com>
+	* config/arm/arm.c (arm_default_cpu): New.
+	(arm_override_options): Set arm_default_cpu.
+	(arm_file_start): Output EABI attribute directives.
+
+2006-01-20  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-10-20  Paul Brook  <paul@codesourcery.com>
 	* config/arm/arm.c (arm_elf_asm_constructor): Remove ATTRIBUTE_UNUSED
 	from priority argument.  Use different section names for non-default
 	priority.
