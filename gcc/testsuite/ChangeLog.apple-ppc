@@ -1,3 +1,11 @@
+2006-01-20  Mike Stump  <mrs@apple.com>
+
+	Radar 4381918
+	* gcc.apple/asm-function-19.c: Add.
+	* gcc.apple/asm-function-20.c: Add.
+	* g++.dg/asm-function-19.C: Add.
+	* g++.dg/asm-function-20.C: Add.
+
 2006-01-13  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4401223 4401224

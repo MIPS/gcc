@@ -3211,10 +3211,6 @@ assign_parms (tree fndecl)
 
   current_function_args_info = all.args_so_far;
 
-  /* APPLE LOCAL begin CW asm blocks */
-  if (cfun->cw_asm_function)
-   return;
-  /* APPLE LOCAL end CW asm blocks */
   /* Set the rtx used for the function return value.  Put this in its
      own variable so any optimizers that need this information don't have
      to include tree.h.  Do this here so it gets done when an inlined
@@ -4203,7 +4199,8 @@ expand_function_start (tree subr)
 	  SET_DECL_RTL (DECL_RESULT (subr), x);
 	}
     }
-  else if (DECL_MODE (DECL_RESULT (subr)) == VOIDmode)
+  else if (DECL_MODE (DECL_RESULT (subr)) == VOIDmode
+	   || cfun->cw_asm_function)
     /* If return mode is void, this decl rtl should not be used.  */
     SET_DECL_RTL (DECL_RESULT (subr), NULL_RTX);
   else
@@ -4445,6 +4442,11 @@ expand_function_end (void)
   clear_pending_stack_adjust ();
   do_pending_stack_adjust ();
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (cfun->cw_asm_function)
+    expand_naked_return ();
+  /* APPLE LOCAL end CW asm blocks */ 
+
   /* @@@ This is a kludge.  We want to ensure that instructions that
      may trap are not moved into the epilogue by scheduling, because
      we don't always emit unwind information for the epilogue.
@@ -4489,10 +4491,6 @@ expand_function_end (void)
   if (flag_exceptions && USING_SJLJ_EXCEPTIONS)
     sjlj_emit_function_exit_after (get_last_insn ());
 
-  /* APPLE LOCAL begin CW asm blocks */
-  if (cfun->cw_asm_function)
-    return;
-  /* APPLE LOCAL end CW asm blocks */ 
   /* If scalar return value was computed in a pseudo-reg, or was a named
      return value that got dumped to the stack, copy that to the hard
      return register.  */

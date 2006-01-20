@@ -10398,6 +10398,8 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
     {
       cw_asm_state = cw_asm_decls;
       cw_asm_in_decl = 0;
+      current_function_returns_abnormally = 1;
+      TREE_NO_WARNING (current_function_decl) = 1;
     }
   /* APPLE LOCAL end CW asm blocks */
 

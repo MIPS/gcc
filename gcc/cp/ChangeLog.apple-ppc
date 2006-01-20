@@ -1,3 +1,9 @@
+2006-01-20  Mike Stump  <mrs@apple.com>
+
+	Radar 4381918
+	* decl.c (start_preparsed_function): Avoid warnings about lack of return
+	in asm functions.
+
 2005-12-14  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4278774

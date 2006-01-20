@@ -1,3 +1,22 @@
+2006-01-20  Mike Stump  <mrs@apple.com>
+
+	Radar 4381918
+	* c-decl.c (start_function): Avoid warnings about lack of return
+	in asm functions.
+	* config/i386/i386.c (ix86_save_reg): Don't save any registers for
+	asm functions.
+	(ix86_expand_prologue): Don't adjust the stack for asm functions.
+	(ix86_expand_epilogue): Don't generate most of the epilogue for an
+	asm function, but do generate a ret.
+	* function.c (assign_parms): Don't avoid doing work for asm
+	functions.
+	(expand_function_start): We don't need DECL_RTL for asm functions.
+	(expand_function_end): Use a naked return for asm functions.
+	(expand_function_end): 
+	* gimple-low.c (lower_function_body): Don't generate a return; for
+	asm functions.
+	* tree-inline.c (inline_forbidden_p): Don't inline asm functions on ppc.
+
 2006-01-18  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4405429
