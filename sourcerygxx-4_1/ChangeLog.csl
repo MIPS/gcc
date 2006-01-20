@@ -1,5 +1,19 @@
 2006-01-20  Julian Brown  <julian@codesourcery.com>
 
+	Backport from mainline.
+	2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+	* libstdc++-v3/src/Makefile.am (LTLDFLAGS): New variable.
+	(CXXLINK): Use LTLDFLAGS.
+	* libstdc++-v3/src/Makefile.in: Regenerated.
+	* libstdc++-v3/libsupc++/Makefile.am (LTLDFLAGS): New variable.
+	(CXXLINK): Use LTLDFLAGS.
+	* libstdc++-v3/libsupc++/Makefile.in: Regenerated.
+
+	2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+	* libtool-ldflags: New script.
+
+2006-01-20  Julian Brown  <julian@codesourcery.com>
+
 	Merge from csl-gxxpro-3_4-branch:
 	2005-09-14  Mark Mitchell  <mark@codesourcery.com>
 	* gcc/config/vx-common.h (DBX_DEBUGGING_INFO): Define to 1.
