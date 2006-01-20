@@ -1,3 +1,8 @@
+2006-01-20  Ben Elliston  <bje@au.ibm.com>
+
+	* config/i386/i386.c (ix86_function_regparm): Libcalls pass
+	IDENTIFIER_NODE as a decl, so skip libcalls.
+
 2006-01-19  Ben Elliston  <bje@au.ibm.com>
 
 	* config/i386/i386.c (classify_argument): Pass SDmode, DDmode and
