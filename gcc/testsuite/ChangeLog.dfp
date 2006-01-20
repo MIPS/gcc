@@ -1,3 +1,8 @@
+2006-01-20  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Unconditionally
+	include -Os. No further need to pass -mpreferred-stack-boundary=4.
+
 2006-01-16  Janis Johnson  <janis187@us.ibm.com>
 
 	* lib/target-supports.exp (check_effective_target_dfp_nocache,
