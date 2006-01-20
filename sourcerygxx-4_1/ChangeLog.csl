@@ -1,3 +1,12 @@
+2006-01-20  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-10-20  Paul Brook  <paul@codesourcery.com>
+	* config/arm/arm.c (arm_elf_asm_constructor): Remove ATTRIBUTE_UNUSED
+	from priority argument.  Use different section names for non-default
+	priority.
+	* config/arm/elf.h: Remove definition of SUPPORTS_INIT_PRIORITY.
+
 2006-01-18  Paul Brook  <paul@codesourcery.com>
 
 	Merge from csl-arm-branch.
