@@ -1,3 +1,25 @@
+2006-01-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR libstdc++/25524
+	* gcc/cppdefault.h (struct default_include): Add multilib flag.
+	* gcc/cppdefault.c (cpp_include_defaults): Set it.
+	* gcc/c.opt (-imultilib): New option.
+	* gcc/c-opts.c (imultilib): New.
+	(c_common_handle_option): Handle -imultilib.
+	(c_common_post_options): Likewise.
+	* gcc/c-incpath.c (add_standard_paths, register_include_chains):
+	Likewise.
+	* gcc/c-incpath.h (register_include_chains): Add extra parameter.
+	* gcc/gcc.c (do_spec_1): Generate -imultilib option.
+	(The Specs Language): Update %I description.
+	(process_command): Update copyright notice.
+	* gcc/doc/cppopts.texi (-imultilib): Document.
+	* gcc/doc/invoke.texi (-imultilib): Include in option summary.
+	(%I): Update specs documentation.
+	* libstdc++-v3/include/Makefile.am: Install host-specific headers
+	in multilib subdirectory.
+	* libstdc++-v3/include/Makefile.in: Regenerate.
+
 2006-01-20  Julian Brown  <julian@codesourcery.com>
 
 	Merge from csl-gxxpro-3_4-branch.
