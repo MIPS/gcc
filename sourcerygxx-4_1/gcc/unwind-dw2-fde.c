@@ -42,17 +42,31 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "gthr.h"
 #endif
 
+#if defined (__MINGW32__ ) || defined (__CYGWIN__)
+#include "config/i386/w32-shared-ptr.h"
+#endif
+
 /* The unseen_objects list contains objects that have been registered
    but not yet categorized in any way.  The seen_objects list has had
    it's pc_begin and count fields initialized at minimum, and is sorted
    by decreasing value of pc_begin.  */
+
+#if ! (defined (__MINGW32__ ) || defined (__CYGWIN__))
 static struct object *unseen_objects;
 static struct object *seen_objects;
+#else
+#define unseen_objects  (*(struct object**)(&__w32_sharedptr->dw2_unseen_objects))
+#define seen_objects    (*(struct object**)(&__w32_sharedptr->dw2_seen_objects))
+#endif
 
+#if !(defined (__MINGW32__ ) || defined (__CYGWIN__))
 #ifdef __GTHREAD_MUTEX_INIT
 static __gthread_mutex_t object_mutex = __GTHREAD_MUTEX_INIT;
 #else
 static __gthread_mutex_t object_mutex;
+#endif
+#else
+#define object_mutex  (__w32_sharedptr->dw2_object_mutex)
 #endif
 
 #ifdef __GTHREAD_MUTEX_INIT_FUNCTION
@@ -65,8 +79,15 @@ init_object_mutex (void)
 static void
 init_object_mutex_once (void)
 {
+#if !(defined (__MINGW32__ ) || defined (__CYGWIN__))
   static __gthread_once_t once = __GTHREAD_ONCE_INIT;
+#else
+#define once  (__w32_sharedptr->dw2_once)
+#endif
   __gthread_once (&once, init_object_mutex);
+#if (defined (__MINGW32__ ) || defined (__CYGWIN__))
+#undef once
+#endif
 }
 #else
 #define init_object_mutex_once()
@@ -432,9 +453,13 @@ static inline void
 fde_split (struct object *ob, fde_compare_t fde_compare,
 	   struct fde_vector *linear, struct fde_vector *erratic)
 {
-  static const fde *marker;
-  size_t count = linear->count;
+#if !(defined (__MINGW32__ ) || defined (__CYGWIN__))
+  static fde *marker;
+#else
+#define marker  (*(const fde **)&__w32_sharedptr->dw2_marker)
+#endif
   const fde **chain_end = &marker;
+  size_t count = linear->count;
   size_t i, j, k;
 
   /* This should optimize out, but it is wise to make sure this assumption
@@ -467,6 +492,9 @@ fde_split (struct object *ob, fde_compare_t fde_compare,
       erratic->array[k++] = linear->array[i];
   linear->count = j;
   erratic->count = k;
+#if (defined (__MINGW32__ ) || defined (__CYGWIN__))
+#undef marker
+#endif
 }
 
 #define SWAP(x,y) do { const fde * tmp = x; x = y; y = tmp; } while (0)
