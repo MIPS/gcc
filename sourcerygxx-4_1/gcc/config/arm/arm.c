@@ -153,6 +153,7 @@ static void arm_encode_section_info (tree, rtx, int);
 #endif
 
 static void arm_file_end (void);
+static void arm_file_start (void);
 
 #ifdef AOF_ASSEMBLER
 static void aof_globalize_label (FILE *, const char *);
@@ -200,6 +201,9 @@ static bool arm_tls_symbol_p (rtx x);
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE arm_attribute_table
+
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START arm_file_start
 
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END arm_file_end
@@ -14353,6 +14357,57 @@ arm_asm_output_labelref (FILE *stream, const char *name)
     fputs (name, stream);
   else
     asm_fprintf (stream, "%U%s", name);
+}
+
+static void
+arm_file_start (void)
+{
+  if (TARGET_BPABI)
+    {
+      const char *fpu_name;
+      if (arm_select[0].string)
+	asm_fprintf (asm_out_file, "\t.cpu %s\n", arm_select[0].string);
+      else if (arm_select[1].string)
+	asm_fprintf (asm_out_file, "\t.arch %s\n", arm_select[1].string);
+      else
+	asm_fprintf (asm_out_file, "\t.cpu %s\n",
+		     all_cores[arm_default_cpu].name);
+
+      if (TARGET_SOFT_FLOAT)
+	{
+	  if (TARGET_VFP)
+	    fpu_name = "softvfp";
+	  else
+	    fpu_name = "softfpa";
+	}
+      else
+	{
+	  switch (arm_fpu_arch)
+	    {
+	    case FPUTYPE_FPA:
+	      fpu_name = "fpa";
+	      break;
+	    case FPUTYPE_FPA_EMU2:
+	      fpu_name = "fpe2";
+	      break;
+	    case FPUTYPE_FPA_EMU3:
+	      fpu_name = "fpe3";
+	      break;
+	    case FPUTYPE_MAVERICK:
+	      fpu_name = "maverick";
+	      break;
+	    case FPUTYPE_VFP:
+	      if (TARGET_HARD_FLOAT_ABI)
+		asm_fprintf (asm_out_file, "\t.eabi_attribute 28, 1\n");
+	      fpu_name = "vfp";
+	      break;
+	    default:
+	      abort();
+	    }
+	}
+      asm_fprintf (asm_out_file, "\t.fpu %s\n", fpu_name);
+    }
+  default_file_start();
 }
 
 static void
