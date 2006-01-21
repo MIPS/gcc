@@ -1,3 +1,19 @@
+2006-01-20  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/security/x509/X509Certificate.java (parse):
+	Unconditionally read value; for version==1 case when reading
+	algorithm ID.
+
+2006-01-20  Chris Burdess  <dog@gnu.org>
+
+	* gnu/java/net/protocol/http/HTTPURLConnection.java: Don't follow
+	  redirects on 304.
+
+2006-01-20  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/net/protocol/http/HTTPURLConnection.java (connect):
+	Read response body for redirect.
+
 2006-01-16  Anthony Green  <green@redhat.com>
 
 	PR classpath/25803

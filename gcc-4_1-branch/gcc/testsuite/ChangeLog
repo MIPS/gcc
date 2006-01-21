@@ -1,3 +1,70 @@
+2006-01-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25697
+	* gfortran.dg/read_eof.f90: New test.
+
+2006-01-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22136
+	* g++.dg/template/using10.C: New test.
+	* g++.dg/temlpate/using11.C: Likewise.
+	* g++.dg/inherit/using5.C: Tweak error messages.
+
+2006-01-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/25854
+	* g++.dg/template/spec28.C: New test.
+
+2006-01-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/16829
+	* g++.dg/other/default2.C: New test.
+	* g++.dg/other/default3.C: New test.
+
+2006-01-19  Richard Sandiford  <richard@codesourcery.com>
+
+	PR c/25805
+	* gcc.dg/pr25805.c: New file.
+
+2006-01-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25836
+	* g++.dg/template/init6.C: New test.
+
+2006-01-18  Paul Thomas  <pault@gcc.gnu.org>
+	    Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20869
+	* gfortran.dg/intrinsic_external_1.f90: New test.
+
+	PR fortran/20875.
+	* gfortran.dg/elemental_pointer_1.f90: New test.
+
+	PR fortran/25024
+	* gfortran.dg/external_procedures_1.f90: New test.
+
+	PR fortran/25785
+	gfortran.dg/assumed_present.f90: New test.
+
+2006-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/parse/lookup5.C: New test.
+
+2006-01-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25631
+	* gfortran.dg/fmt_tl.f: New test.
+
+2006-01-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/abi/mangle25.C: Fix dg-do line, add a closing brace.
+
+2006-01-17  Andreas Jaeger  <aj@suse.de>
+	    Janis Johnson <janis187@us.ibm.com>
+
+	* g++.dg/abi/mangle25.C: Run always on ia64 but only on x86/x86-64
+	in 64-bit.
+
 2006-01-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/25682
