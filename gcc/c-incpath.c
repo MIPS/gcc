@@ -43,6 +43,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 # define INO_T_COPY(DEST, SRC) (DEST) = (SRC)
 #endif
 
+static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
+
 static void add_env_var_paths (const char *, int);
 static void add_standard_paths (const char *, const char *, const char *, int);
 static void free_path (struct cpp_dir *, int);
@@ -142,7 +144,7 @@ add_standard_paths (const char *sysroot, const char *iprefix,
 		{
 		  char *str = concat (iprefix, p->fname + len, NULL);
 		  if (p->multilib && imultilib)
-		    str = concat (str, "/", imultilib, NULL);
+		    str = concat (str, dir_separator_str, imultilib, NULL);
 		  add_path (str, SYSTEM, p->cxx_aware);
 		}
 	    }
@@ -162,7 +164,7 @@ add_standard_paths (const char *sysroot, const char *iprefix,
 	    str = update_path (p->fname, p->component);
 
 	  if (p->multilib && imultilib)
-	    str = concat (str, "/", imultilib, NULL);
+	    str = concat (str, dir_separator_str, imultilib, NULL);
 
 	  add_path (str, SYSTEM, p->cxx_aware);
 	}

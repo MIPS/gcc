@@ -192,6 +192,15 @@ proc check_profiling_available { test_what } {
 	return 0
     }
 
+    # uClibc does not have gcrt1.o.
+    if { [istarget *-wrs-linux*] } {
+	set target [target_info name]
+	set multilib_flags " [board_info $target multilib_flags] "
+	if [string match "* -muclibc *" $multilib_flags] {
+	    return 0
+	}
+    }
+
     # Now examine the cache variable.
     if {![info exists profiling_available_saved]} {
 	# Some targets don't have any implementation of __bb_init_func or are

@@ -1,3 +1,11 @@
+2006-01-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/c-incpath.c (dir_separator_str): New.
+	(add_standard_paths): Use it instead of hardcoding "/".
+	* gcc/testsuite/lib/target-supports.exp
+	(check_profiling_available): Check for -muclibc.
+	* gcc/testsuite/gcc.c-torture/execute/20030125-1.x: Likewise.
+
 2006-01-16  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/testsuite/gcc.dg/wchar_t-1.c,
