@@ -1,0 +1,251 @@
+2006-01-20  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-09-21  Kazu Hirata  <kazu@codesourcery.com>
+	* gcc/config/arm/arm.md (movdi): Force operands[1] to a register
+	if we have a non-register source.
+	(*arm_movdi, *movdf_soft_insn): Require that one of the
+	operands be a register.
+	* gcc/config/arm/iwmmxt.md (*iwmmxt_arm_movdi): Likewise.
+	* gcc/config/arm/vfp.md (*arm_movdi_vfp, *movdf_vfp): Likewise.
+
+2006-01-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR libstdc++/25524
+	* gcc/cppdefault.h (struct default_include): Add multilib flag.
+	* gcc/cppdefault.c (cpp_include_defaults): Set it.
+	* gcc/c.opt (-imultilib): New option.
+	* gcc/c-opts.c (imultilib): New.
+	(c_common_handle_option): Handle -imultilib.
+	(c_common_post_options): Likewise.
+	* gcc/c-incpath.c (add_standard_paths, register_include_chains):
+	Likewise.
+	* gcc/c-incpath.h (register_include_chains): Add extra parameter.
+	* gcc/gcc.c (do_spec_1): Generate -imultilib option.
+	(The Specs Language): Update %I description.
+	(process_command): Update copyright notice.
+	* gcc/doc/cppopts.texi (-imultilib): Document.
+	* gcc/doc/invoke.texi (-imultilib): Include in option summary.
+	(%I): Update specs documentation.
+	* libstdc++-v3/include/Makefile.am: Install host-specific headers
+	in multilib subdirectory.
+	* libstdc++-v3/include/Makefile.in: Regenerate.
+
+2006-01-20  Julian Brown  <julian@codesourcery.com>
+
+	Merge from csl-gxxpro-3_4-branch.
+	2005-11-28  Mark Mitchell  <mark@codesourcery.com>
+	Backport:
+	2004-10-28  Pascal Obry  <obry@act-europe.fr>
+	* unwind-dw2-fde.c: Import from MingW build for ZCX support.
+	* unwind-sjlj.c: Idem.
+	* config/i386/cygming.h: Idem.
+	* config/i386/mingw32.h: Idem.
+	* config/i386/t-cygming: Idem.
+	* config/i386/t-mingw32: Idem.
+	* config/i386/win32-ehfb.c: New file to support unwinding through
+	signals on Windows.
+	Provides support for ZCX on Windows platforms. This set of patch
+	comes from the MingW compiler (Danny Smith) adapted and enhanced to
+	support unwinding through signals for example.
+	2005-07-29  Pascal Obry  <obry@act-europe.fr>
+	Support for crtbegin/crtend.o on MingW.
+	* config.gcc: Add crtbegin.o and crtend.o as extra_parts on MingW.
+	* crtstuff.c: Add support for MingW.
+	Provides support for ZCX on Windows platforms. This set of patch
+	comes from the MingW compiler (Danny Smith) adapted to GCC 3.4.
+
+2006-01-20  Julian Brown  <julian@codesourcery.com>
+
+	Backport from mainline.
+	2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+	* libstdc++-v3/src/Makefile.am (LTLDFLAGS): New variable.
+	(CXXLINK): Use LTLDFLAGS.
+	* libstdc++-v3/src/Makefile.in: Regenerated.
+	* libstdc++-v3/libsupc++/Makefile.am (LTLDFLAGS): New variable.
+	(CXXLINK): Use LTLDFLAGS.
+	* libstdc++-v3/libsupc++/Makefile.in: Regenerated.
+
+	2006-01-02  Mark Mitchell  <mark@codesourcery.com>
+	* libtool-ldflags: New script.
+
+2006-01-20  Julian Brown  <julian@codesourcery.com>
+
+	Merge from csl-gxxpro-3_4-branch:
+	2005-09-14  Mark Mitchell  <mark@codesourcery.com>
+	* gcc/config/vx-common.h (DBX_DEBUGGING_INFO): Define to 1.
+
+2006-01-20  Julian Brown  <julian@codesourcery.com>
+
+	Backport from mainline.
+	2005-11-23  Mark Mitchell  <mark@codesourcery.com>
+	* gcc/doc/invoke.texi: For man pages, include gcc-vers.texi.
+	List @file in the option summary.  Include the libiberty documentation
+	for @file.
+	* gcc/gcc.c (main): Call expandargv.
+	* gcc/Makefile.in (gcc-vers.texi): Define srcdir.
+
+	2005-11-23  Mark Mitchell  <mark@codesourcery.com>
+	* maintainer-scripts/update_web_docs_svn: Set @srcdir in gcc-vers.texi.
+
+2006-01-20  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-10-20  Paul Brook  <paul@codesourcery.com>
+	* config/arm/arm.c (arm_default_cpu): New.
+	(arm_override_options): Set arm_default_cpu.
+	(arm_file_start): Output EABI attribute directives.
+
+2006-01-20  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-10-20  Paul Brook  <paul@codesourcery.com>
+	* config/arm/arm.c (arm_elf_asm_constructor): Remove ATTRIBUTE_UNUSED
+	from priority argument.  Use different section names for non-default
+	priority.
+	* config/arm/elf.h: Remove definition of SUPPORTS_INIT_PRIORITY.
+
+2006-01-18  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-03-14  Julian Brown  <julian@codesourcery.com>
+	* gcc/config/arm/lib1funcs.asm (ashldi3): Don't define on SymbianOS.
+	(aeabi_llsl): Likewise.
+	(ashrdi3): Likewise.
+	(aeabi_lasr): Likewise.
+	(lshrdi3): Likewise.
+	(aeabi_llsr): Likewise. 
+	2005-03-10  Julian Brown  <julian@codesourcery.com>
+	* gcc/config.gcc: Disable shared libgcc for SymbianOS.
+	* gcc/config/arm/t-symbian (LIB2ADDEH): Include config/arm/pr-support.c.
+
+2006-01-18  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch
+	2005-03-10  Julian Brown  <julian@codesourcery.com>
+	* libstdc++configure.ac (LIBSUPCXX_PRONLY): New AM_CONDITIONAL: yes
+	if we are compiling for SymbianOS on ARM.
+	* libstdc++include/Makefile.am: Don't install C++ headers if
+	LIBSUPCXX_PRONLY is true.
+	* libstdc++libsupc++/Makefile.am: Include only eh_personality.cc
+	in libsupc++ if LIBSUPCXX_PRONLY is true.
+	* libstdc++Makefile.in: Regenerate.
+	* libstdc++configure: Regenerate.
+	* libstdc++include/Makefile.in: Regenerate.
+	* libstdc++libmath/Makefile.in: Regenerate.
+	* libstdc++libsupc++/Makefile.in: Regenerate.
+	* libstdc++po/Makefile.in: Regenerate.
+	* libstdc++src/Makefile.in: Regenerate.
+	* libstdc++testsuite/Makefile.in: Regenerate.
+
+2005-01-17  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	2005-12-13  Carlos O'Donell <carlos@codesourcery.com>
+	* gcc/c-cppbuiltin.c (builtin_define_float_constants): Add
+	fp_cast parameter, pass to builtin_define_with_hex_fp_value.
+	Define __FLT_HAS_DENORM__, __DBL_HAS_DENORM__, __LDBL_HAS_DENORM__.
+	(builtin_define_with_hex_fp_value): Use fp_cast when building macro.
+	(c_cpp_builtins): If flag_single_precision_constant then set fp_cast
+	to "((double)%sL)" otherwise "%s".
+	* gcc/testsuite/gcc.dg/single-precision-constant.c: New test.
+	* libstdc++-v3/include/std/std_limits.h (struct numeric_limits):
+	Use __DBL_HAS_DENORM__, __FLT_HAS_DENORM__, __LDBL_HAS_DENORM__.
+
+2005-01-17  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	2005-12-15  Richard Sandiford  <richard@codesourcery.com>
+	* gcc/config/arm/predicates.md (call_memory_operand): New.
+	* gcc/config/arm/arm.md (*call_mem, *call_value_mem): Use it.
+	* gcc/testsuite/gcc.dg/20051215-1.c: New file.
+
+	* gcc/config/arm/arm.md: Provide a big-endian version of the
+	(zero_extend:SI (subreg:QI ...)) splitter.
+
+2006-01-16  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.c (output_move_const_into_data_reg):
+	Output correct mnemonic for mvz and mvs.
+
+2006-01-03  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.c (m68k_output_mi_thunk): Use jmp, not jsr.
+
+2005-12-30  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.md: Convert define_peephole to define_peephole2.
+	(UNSPEC_MOVEQ_MEM): New constant.
+	(movsi_smallconst): New pattern.
+	* config/m68k/m68k.h (HARD_FP_REG_P): Define.
+
+2005-12-30  Paul Brook  <paul@codesourcery.com>
+
+	PR target/23482
+	* doc/md.texi: Document m68k Q, S, T and U constraints.
+	* config/m68k/m68k.h (EXTRA_CONSTRAINTS): Restrict U to 16-bit
+	offsets.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/m68k.h (RETURN_ADDR_RTX): Define.
+	* config/m68k/m68k.c (m68k_initial_elimination_offset): Remove FIXME.
+	Include offset due to FIRST_PARM_OFFSET.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/lb1sf68.asm (__cmpdf2): Fix typo in immediate mask.
+	Create wrapper and rename body...
+	(__cmpdf2_internal): ... to this.  Return correct value for unordered
+	result.
+	(__cmpsf2): Create wrapper and rename body...
+	(__cmpsf2_internal): ... to this.  Return corerct value for unordered
+	result.
+	(__eqdf2, __nedf2, __gtdf2, __gedf2, __ltdf2, __ledf2): Use
+	__cmpdf2_internal.
+	(__eqsf2, __nesf2, __gtsf2, __gesf2, __ltsf2, __lesf2): Use
+	__cmpsf2_internal.
+
+2005-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/fpgnulib.c (__extendsfdf2): Handle negative zero.
+	(__truncdfsf2): Ditto.
+	(__extenddfxf2): Ditto.
+	(__truncxfdf2): Ditto.
+	* config/m68k/lb1sf68.asm (__addsf3): Return -0.0 for -0.0 + -0.0.
+	(__adddf3): Ditto.
+
+2005-12-29  Daniel Jacobowitz  <dan@codesourcery.com>
+	Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (m68k_output_pic_call): Don't use bsr.l for
+	!TARGET_68020.
+	* gcc/config/m68k/t-m68kelf (EXTRA_PARTS): Remove.
+	(EXTRA_MULTILIB_PARTS): Set.
+	* gcc/config/m68k/t-uclinux (EXTRA_PARTS): Remove.
+	(EXTRA_MULTILIB_PARTS): Set.
+
+2005-12-21  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/pr19340.c: Skip on m68k targets.
+
+2005-12-20  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/testsuite/lib/target-supports.exp (check_profiling_available):
+	Add m68k-*-elf.
+
+2005-12-17  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/m68k/m68k.md (m68k_output_function_prologue): Always call
+	dwarf2out_def_cfa. Only add space for frame pointer to cfa_offset
+	when frame_pointer_needed. 
+
+2005-12-02  Paul Brook  <paul@codesourcery.com>
+
+	* config/m68k/fpgnulib.c (__unordsf2, __unorddf2, __unordxf2,
+	__floatunsidf, __floatunsisf, __floatunsixf): New functions.
+
+2005-11-28  Paul Brook  <paul@codesourcery.com>
+
+	* config.gcc: Don't use fixproto on m68k-elf.
+

@@ -1,0 +1,128 @@
+2006-01-06  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23499:
+	* lib/Makefile.in: Rebuilt.
+	* lib/Makefile.am (glibj_DATA): Commented out.
+
+2005-12-15  Caolan McNamara  <caolanm@redhat.com>
+
+	PR classpath/25426:
+	* gnu/xml/dom/DomNode.java (detach): Check whether current is
+	already null.
+
+2005-12-08  Matthias Klose  <doko@debian.org>
+
+	2005-11-20  Chris Burdess  <dog@gnu.org>
+        * gnu/xml/transform/TransformerImpl.java: Ensure that output stream
+	is not closed if provided in the StreamResult.
+
+2005-12-01  Anthony Green  <green@redhat.com>
+
+        PR bootstrap/25207
+        * configure.ac: Make sure we have an alsa library in addition to
+        the headers.  This extra test is required for systems with
+        multilibs.
+        * configure: Rebuilt.
+
+2005-10-03  Tom Tromey  <tromey@redhat.com>
+
+	* native/jawt/Makefile.in: Rebuilt.
+	* native/jawt/Makefile.am (noinst_LTLIBRARIES): Renamed.
+	* native/jni/xmlj/Makefile.in: Rebuilt.
+	* native/jni/xmlj/Makefile.am (noinst_LTLIBRARIES): Renamed.
+	* native/jni/qt-peer/Makefile.in: Rebuilt.
+	* native/jni/qt-peer/Makefile.am (noinst_LTLIBRARIES): Renamed.
+	* native/jni/gtk-peer/Makefile.in: Rebuilt.
+	* native/jni/gtk-peer/Makefile.am (noinst_LTLIBRARIES): Renamed.
+
+2005-10-03  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24057:
+	* include/Makefile.in: Rebuilt.
+	* include/Makefile.am: Don't install headers.
+
+2005-09-30  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24051:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ACLOCAL_AMFLAGS): Added -I ../../config
+	* configure: Rebuilt.
+	* configure.ac: Use GCC_NO_EXECUTABLES
+
+2005-09-23  Tom Tromey  <tromey@redhat.com>
+
+	* native/jawt/.cvsignore: Likewise.
+	* native/jni/qt-peer/.cvsignore
+	* native/jawt/Makefile.in: Added.
+	* native/jni/qt-peer/Makefile.in: Likewise.
+
+2005-09-23  Tom Tromey  <tromey@redhat.com>
+
+	Imported Classpath 0.18.
+
+2005-08-23  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.ac: Fixed typo.
+
+2005-08-22  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23498:
+	* doc/Makefile.am (info_TEXINFOS): Commented out.
+	* doc/Makefile.in: Rebuilt.
+
+2005-08-22  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.am (ACLOCAL_AMFLAGS): New.
+	* Makefile.in: Regenerate.
+	
+2005-08-22  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23498:
+	* doc/Makefile.am (info_TEXINFOS): Commented out.
+	* doc/Makefile.in: Rebuilt.
+
+2005-08-11  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* lib/split-for-gcj.sh: Don't use unportable %{parameter%word}.
+	Don't use unportable !.
+
+2005-07-15  Tom Tromey  <tromey@redhat.com>
+
+	* ChangeLog.gcj, Makefile.in, aclocal.m4, config.guess,
+	config.sub, configure, ltmain.sh, doc/Makefile.in,
+	doc/api/Makefile.in, examples/Makefile.in, external/Makefile.in,
+	external/sax/Makefile.in, external/w3c_dom/Makefile.in,
+	include/Makefile.in, include/config.h.in, include/jni.h,
+	lib/Makefile.in, native/Makefile.in, native/fdlibm/Makefile.in,
+	native/jni/Makefile.in, native/jni/classpath/Makefile.in,
+	native/jni/gtk-peer/Makefile.in, native/jni/java-io/Makefile.in,
+	native/jni/java-lang/Makefile.in, native/jni/java-net/Makefile.in,
+	native/jni/java-nio/Makefile.in, native/jni/java-util/Makefile.in,
+	native/jni/xmlj/Makefile.in, native/target/Makefile.in,
+	native/target/Linux/Makefile.in,
+	native/target/generic/Makefile.in, resource/Makefile.in,
+	scripts/Makefile.in: Added.
+	* native/fdlibm/.cvsignore, native/jni/xmlj/.cvsignore,
+	native/jni/java-util/.cvsignore, native/jni/classpath/.cvsignore,
+	native/jni/java-net/.cvsignore, native/jni/java-io/.cvsignore,
+	native/jni/.cvsignore, native/jni/java-lang/.cvsignore,
+	native/jni/gtk-peer/.cvsignore, native/jni/java-nio/.cvsignore,
+	native/testsuite/.cvsignore, native/.cvsignore,
+	native/vmi/.cvsignore, native/target/.cvsignore,
+	native/target/generic/.cvsignore, native/target/Linux/.cvsignore,
+	include/.cvsignore, doc/api/.cvsignore,
+	doc/www.gnu.org/faq/.cvsignore,
+	doc/www.gnu.org/downloads/.cvsignore,
+	doc/www.gnu.org/docs/.cvsignore, doc/www.gnu.org/.cvsignore,
+	doc/www.gnu.org/events/.cvsignore,
+	doc/www.gnu.org/announce/.cvsignore, doc/.cvsignore,
+	resource/.cvsignore, external/w3c_dom/.cvsignore,
+	external/sax/.cvsignore, external/.cvsignore,
+	java/util/.cvsignore, .cvsignore, test/java.net/.cvsignore,
+	test/java.io/.cvsignore, test/.cvsignore,
+	test/java.util/.cvsignore, test/gnu.java.lang.reflect/.cvsignore,
+	test/java.lang.reflect/.cvsignore, examples/.cvsignore,
+	lib/.cvsignore, gnu/classpath/.cvsignore, gnu/test/.cvsignore,
+	compat/java.net/.cvsignore, compat/.cvsignore, vm/.cvsignore,
+	vm/reference/.cvsignore, scripts/.cvsignore: Updated.
