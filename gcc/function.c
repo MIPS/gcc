@@ -4199,8 +4199,10 @@ expand_function_start (tree subr)
 	  SET_DECL_RTL (DECL_RESULT (subr), x);
 	}
     }
+  /* APPLE LOCAL begin CW asm blocks */
   else if (DECL_MODE (DECL_RESULT (subr)) == VOIDmode
 	   || cfun->cw_asm_function)
+  /* APPLE LOCAL end CW asm blocks */
     /* If return mode is void, this decl rtl should not be used.  */
     SET_DECL_RTL (DECL_RESULT (subr), NULL_RTX);
   else

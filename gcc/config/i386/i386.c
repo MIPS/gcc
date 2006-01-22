@@ -4796,11 +4796,13 @@ ix86_expand_prologue (void)
   if (allocate == 0)
     ;
   else if (! TARGET_STACK_PROBE || allocate < CHECK_STACK_LIMIT)
+  /* APPLE LOCAL begin CW asm blocks */
     {
       if (! cfun->cw_asm_function)
 	pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
 				   GEN_INT (-allocate), -1);
     }
+  /* APPLE LOCAL end CW asm blocks */
   else
     {
       /* Only valid for Win32.  */
