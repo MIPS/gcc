@@ -1,4 +1,4 @@
-2005-01-22  Paul Brook  <paul@codesourcery.com>
+2006-01-22  Paul Brook  <paul@codesourcery.com>
 	Peter Barada  <peter@the-baradas.com>
 
 	* gcc/config/m68k/m68k.md: Add Coldfire FPU support.
