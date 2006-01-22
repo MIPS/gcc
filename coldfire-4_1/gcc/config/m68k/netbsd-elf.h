@@ -307,11 +307,7 @@ while (0)
 
 #undef FUNCTION_VALUE
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
-  (TREE_CODE (VALTYPE) == REAL_TYPE && TARGET_68881			\
-   ? gen_rtx_REG (TYPE_MODE (VALTYPE), 16)				\
-   : (POINTER_TYPE_P (VALTYPE)						\
-      ? gen_rtx_REG (TYPE_MODE (VALTYPE), 8)				\
-      : gen_rtx_REG (TYPE_MODE (VALTYPE), 0)))
+  m68k_function_value (VALTYPE, FUNC)
 
 
 /* For compatibility with the large body of existing code which does
@@ -339,10 +335,7 @@ while (0)
 
 #undef LIBCALL_VALUE
 #define LIBCALL_VALUE(MODE)						\
-  ((((MODE) == SFmode || (MODE) == DFmode || (MODE) == XFmode)		\
-    && TARGET_68881)							\
-   ? gen_rtx_REG (MODE, 16)						\
-   : gen_rtx_REG (MODE, 0))
+  m68k_libcall_value (MODE)
 
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.

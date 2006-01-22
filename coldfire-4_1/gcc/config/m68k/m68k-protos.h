@@ -51,6 +51,9 @@ extern void print_operand (FILE *, rtx, int);
 extern void notice_update_cc (rtx, rtx);
 extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
 extern int valid_dbcc_comparison_p_2 (rtx, enum machine_mode);
+extern rtx m68k_libcall_value (enum machine_mode);
+extern rtx m68k_function_value (tree, tree);
+extern int emit_move_sequence (rtx *, enum machine_mode, rtx);
 
 #endif /* RTX_CODE */
 

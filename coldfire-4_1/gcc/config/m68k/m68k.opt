@@ -39,6 +39,10 @@ m5407
 Target RejectNegative Mask(CFV4)
 Generate code for a 5407
 
+mcfv4e
+Target RejectNegative Mask(CFV4E)
+Generate code for a ColdFire v4e
+
 m68000
 Target RejectNegative
 Generate code for a 68000
