@@ -1,3 +1,74 @@
+2006-01-22  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/10891
+	* g++.dg/rtti/no-rtti.C: New.
+
+2006-01-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25895
+	* g++.dg/inherit/conv2.C: New test.
+
+	PR c++/25856
+	* g++.dg/parse/dtor7.C: New test.
+
+	PR c++/25858
+	* g++.dg/template/crash44.C: New test.
+
+2005-01-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25124
+	PR fortran/25625
+	* gfortran.dg/internal_references_1.f90: New test.
+	  PR fortran/20881
+	PR fortran/23308
+	PR fortran/25538
+	PR fortran/25710
+	* gfortran.dg/global_references_1.f90: New test.
+	* gfortran.dg/g77/19990905-1.f: Restore the error that
+	there is a clash between the common block name and
+	the name of a subroutine reference.
+
+	PR fortran/PR24276
+	* gfortran.dg/aliasing_dummy_1.f90: New test.
+
+2006-01-21  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.dg/vmx/1b-01.c: Warning fix.
+	* gcc.dg/vmx/1c-02.c: Likewise.
+	* gcc.dg/vmx/gcc-bug-4.c: Likewise.
+
+2006-01-20  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/24962
+	* gcc.target/ia64/20030811-1.c: Change 'long' to 'long long'.
+
+2006-01-20  Richard Guenther  <rguenther@suse.de>
+	Steven Bosscher <stevenb.gcc@gmail.com>
+
+	PR rtl-optimization/24626
+	* gcc.dg/torture/pr24626-1.c: New testcase.
+	* gcc.dg/torture/pr24626-2.c: Likewise.
+	* gcc.dg/torture/pr24626-3.c: Likewise.
+	* gcc.dg/torture/pr24626-4.c: Likewise.
+
+2006-01-20  Dirk Mueller  <dmueller@suse.com>
+
+        PR c++/5520
+        * g++.dg/warn/empty-body.C: New.
+
+2006-01-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22136
+	* g++.dg/template/using10.C: New test.
+	* g++.dg/temlpate/using11.C: Likewise.
+	* g++.dg/inherit/using5.C: Tweak error messages.
+
+2006-01-20  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.target/powerpc/rs6000-ldouble-1.c: Tweak powerpc linux
+	target test.
+	* gcc.target/powerpc/rs6000-ldouble-2.c: Likewise.
+
 2006-01-19  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.target/i386/lea.c: Test pentiumpro, not i686.

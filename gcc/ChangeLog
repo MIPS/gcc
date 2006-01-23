@@ -1,3 +1,255 @@
+2006-01-22  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix.h (STACK_BOUNDARY): Define.
+
+2006-01-22  Paul Brook  <paul@codesourcery.com>
+	Peter Barada  <peter@the-baradas.com>
+
+	* config/m68k/m68k.md: Add Coldfire FPU support.
+	Define FP mode macro and associated attributes.
+	Use it for float mode patterns.
+	* config/m68k/linux.h (FUNCTION_VALUE): Use m68k_function_value.
+	(LIBCALL_VALUE): Use m68k_libcall_value.
+	* config/m68k/m68k-protos.h (m68k_libcall_value): Add prototype.
+	(m68k_function_value): Ditto.
+	(emit_move_sequence): Ditto.
+	* config/m68k/m68kemb.h (LIBCALL_VALUE): Use m68k_libcall_value.
+	* config/m68k/m68k-none.h (ASM_SPEC): Add mcfv4e.
+	* config/m68k/t-m68kelf (MULTILIB_OPTIONS): Add mcfv4e.
+	(MULTILIB_EXCEPTIONS): Ditto.
+	* config/m68k/m68k.opt: Add mcfv4e.
+	* config/m68k/m68k.c (m68k_handle_option): Handle OPT_mcfv4e.
+	(m68k_compute_frame_layout): Include space for ColdFire FPU regs.
+	(m68k_output_function_prologue): Save ColdFire FPU registers.
+	(m68k_output_function_epilogue): Restore ColdFire FPU registers.
+	(force_mode, fp_reg_operand, emit_move_sequence): New functions.
+	(m68k_regno_mode_ok): Don't allow types larget than 8 bytes in
+	ColdFire FPU registers.
+	(m68k_libcall_value, m68k_function_value): New functions.
+	* config/m68k/netbsd-elf.h (FUNCTION_VALUE): Use m68k_function_value.
+	(LIBCALL_VALUE): Use m68k_libcall_value.
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Define __mcfv4e__.
+	(MASK_COLDFIRE): Add MASK_CFV4E.
+	(TARGET_COLDFIRE_FPU, TARGET_HARD_FLOAT, TARGET_FP_REG_SIZE): New.
+	(MODES_TIEABLE_P): Use TARGET_HARD_FLOAT.
+	(REG_CLASS_FROM_LETTER, PREFERRED_RELOAD_CLASS): Ditto.
+	(GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS): Define.
+	(GO_IF_LEGITIMATE_ADDRESS): Use it.
+	(LEGITIMIZE_ADDRESS): Handle ColdFire FPU addresses.
+	* doc/invoke.tex: Document -mcfv4e on m68k.
+
+2006-01-22  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* doc/contribute.texi: Change CVS to SVN and update the corresponding
+	URL.
+
+2006-01-21  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/16190
+	* c-opts.c (c_common_handle_option): Don't include
+	-Wnon-virtual-dtor in -Wall; enable if -Weffc++.
+	* doc/invoke.texi (C++ Dialect Options): Document that
+	-Wnon-virtual-dtor is no longer included in -Wall.
+
+2006-01-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcov.c (print_version), gcov-dump.c (print_version),
+	mips-tdump.c (main), mips-tfile.c (main): Update copyright notice
+	dates.
+
+2005-01-21  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-scan.c (problem_SCAN): Added NULL reset function.
+	(df_scan_reset_blocks): Added code to call reset block function
+	(df_bb_refs_delete) Fixed comment.
+	(df_insn_refs_delete): Made tolerant of deleting non existent info
+	for dataflow problems that need to be reset.
+	* df-core.c (df_set_blocks): Ditto.
+	* df.h (struct df_problem): Added reset_fun.
+	* df-problems.c (problem_RU, problem_RD, problem_LR, problem_UR,
+	problem_UREC, problem_CHAIN, problem_RI): Initialized reset_fun field.
+	(df_chain_insn_reset, df_chain_bb_reset, df_chain_reset): New
+	functions to clear out all references to def-use or use-def chains.
+
+2006-01-21  Ben Elliston  <bje@au.ibm.com>
+
+	* varasm.c (assemble_real): Initialise data array.
+
+2006-01-20  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl-arm-branch.
+	2005-09-21  Kazu Hirata  <kazu@codesourcery.com>
+	* config/arm/arm.md (movdi): Force operands[1] to a register
+	if we have a non-register source.
+	(*arm_movdi, *movdf_soft_insn): Require that one of the
+	operands be a register.
+	* config/arm/iwmmxt.md (*iwmmxt_arm_movdi): Likewise.
+	* config/arm/vfp.md (*arm_movdi_vfp, *movdf_vfp): Likewise.
+
+2006-01-20  DJ Delorie  <dj@redhat.com>
+
+	* varasm.c (initialize_constant_valid_p): Allow pointers
+	initialized from integer constants of lesser precision.
+	(output_constant): Allow non-int-sized pointer modes to be
+	initialized from integer constants.
+
+2006-01-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR libstdc++/25524
+	* cppdefault.h (struct default_include): Add multilib flag.
+	* cppdefault.c (cpp_include_defaults): Set it.
+	* c.opt (-imultilib): New option.
+	* c-opts.c (imultilib): New.
+	(c_common_handle_option): Handle -imultilib.
+	(c_common_post_options): Likewise.
+	* c-incpath.c (add_standard_paths, register_include_chains):
+	Likewise.
+	* c-incpath.h (register_include_chains): Add extra parameter.
+	* gcc.c (do_spec_1): Generate -imultilib option.
+	(The Specs Language): Update %I description.
+	(process_command): Update copyright notice.
+	* doc/cppopts.texi (-imultilib): Document.
+	* doc/invoke.texi (-imultilib): Include in option summary.
+	(%I): Update specs documentation.
+
+2006-01-20  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* loop-iv.c (iv_analysis_loop_init): Use df in more conservative way.
+
+2006-01-20  Richard Sandiford  <richard@codesourcery.com>
+
+	* stmt.c (case_bit_test_cmp): Stabilize the sort using code
+	label numbers.
+
+2006-01-20  Richard Guenther  <rguenther@suse.de>
+	Steven Bosscher <stevenb.gcc@gmail.com>
+
+	PR rtl-optimization/24626
+	* cfgloopmanip.c (lv_adjust_loop_entry_edge): Don't set
+	EDGE_TRUE_VALUE if in RTL mode.
+
+	Revert
+	2005-03-30 Mostafa Hagog <mustafa@il.ibm.com>
+	* cfgrtl.c (rtl_verify_flow_info_1): Fix.
+
+2006-01-20  Dirk Mueller  <dmueller@suse.com>
+
+        PR c++/5520
+        * c-parser.c (c_parser_if_body): Use build_empty_stmt()
+        instead of a special NOP marker.
+        * c-typeck.c (c_finish_if_stmt): Remove obsoleted special
+        NOP marker handling.
+        * c-common.h (empty_body_warning): Add forward declaration.
+        * c-common.c (empty_body_warning): Add (from c_finish_if_stmt).
+        Now uses IS_EMPTY_STMT() instead of special NOP markers.
+
+2005-01-20  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.in (lang_checks): Keep going if mkdir fails.
+
+2005-01-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-scan.c (df_scan_free_bb_info): Added basic block parameter to
+	be able to clean out basic block when not necessary.
+	(df_scan_free): Fixed to properly delete information if df is
+	unused before calling df_finish.
+	(df_scan_alloc, df_rescan_blocks, df_reg_chain_unlink,
+	df_insn_create_insn_record, df_bb_refs_record): Fixed formatting
+	or comment typos.
+	(df_bb_refs_delete): New function.
+	(df_refs_delete): Moved per block code to df_bb_refs_delete.
+	* df-core.c (df_set_blocks): Added code to properly clean out
+	unused blocks if they are not part of the blocks to consider.
+	Added additional null check.
+	(df_compact_blocks): Added basic block parameter to free_bb_fun to
+	be able to clean out basic block when not necessary
+	* df.h (df_free_bb_function): Ditto.
+	(df_bb_refs_delete): New function.
+	* df-problems.c (df_ru_free_bb_info, df_rd_set_bb_info,
+	df_lr_set_bb_info, df_ur_free_bb_info, df_urec_free_bb_info):Added
+	basic block parameter to be able to clean out basic block when not
+	necessary.
+	(df_ru_alloc, df_rd_alloc): Fixed dyslexic overflow test.
+	(df_ru_free, df_rd_free, df_lr_free, df_ur_free, df_urec_free):
+	Fixed to properly delete information if df is unused before
+	calling df_finish.
+
+2005-01-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	PR rtl-optimization/25799 
+	* df-problems.c (df_ru_confluence_n, df_rd_confluence_n):
+	Corrected confluence operator to remove bits from op2 before oring
+	with op1 rather than removing bits from op1.
+        (df_ru_transfer_function): Corrected test on wrong bitmap which
+	caused infinite loop.  Both of these problems were introduced in
+	the dataflow rewrite.
+
+2006-01-19  DJ Delorie  <dj@redhat.com>
+
+	* reload1.c (find_reload_regs): Note the details of reload
+	failures in the dump file.
+	(spill_failure): Likewise.
+
+2006-01-20  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* loop-iv.c: Include df.h and hashtab.h.
+	(enum iv_grd_result): New enum.
+	(DF_REF_IV, DF_REF_IV_SET): New macros.
+	(struct biv_entry): New.
+	(df, bivs): New global variables.
+	(struct insn_info, insn_info, last_def, bivs, max_insn_no, max_reg_no,
+	assign_luids, mark_sets, kill_sets, mark_single_set, simple_set_p):
+	Removed.
+	(clear_iv_info, latch_dominating_def, record_iv, iv_analyze_expr,
+	iv_analyze_result, iv_analyze_def, biv_hash, biv_eq,
+	analyzed_for_bivness_p, record_biv): New functions.
+	(iv_analysis_loop_init, iv_get_reaching_def, simple_reg_p,
+	get_biv_step_1, get_biv_step, iv_analyze_biv, iv_analyze_op,
+	iv_analyze, biv_p, iv_analysis_done): Work with df representation of
+	UD chains.
+	(iv_constant, iv_subreg, iv_extend, iv_mult, iv_shift): Do not set
+	analysed.
+	(iv_number_of_iterations): Use new interface to iv analysis.
+	* loop-unroll.c: Do not include varray.h.
+	(analyze_iv_to_split_insn): Use new interface to iv
+	analysis.
+	* loop-unswitch.c (may_unswitch_on): Ditto.
+	* df.c (df_bitmaps_free): Only work for bbs for that structures are
+	allocated.
+	(df_bb_modify): Realloc tables to the new index.
+	(df_find_use): New function.
+	* df.h (df_find_use): Declare.
+	* optabs.c (expand_unop): Make the mode of the REG_EQUAL node be
+	outmode.
+	* cfgloop.h (struct rtx_iv): Remove analysed field.
+	(iv_get_reaching_def): Removed.
+	(iv_analyze_result, iv_analyze_expr, iv_current_loop_df): Declare.
+	* Makefile.in (loop-unroll.o): Remove VARRAY_H dependency.
+	(loop-iv.o): Add df.h and hashtab.h dependency.
+	* df-problems.c (df_ru_alloc, df_rd_alloc): Fix memory reallocation.
+
+2006-01-20  Alan Modra  <amodra@bigpond.net.au>
+
+	* libgcc2.c (__floatdisf, __floatdidf): Don't use IBM Extended
+	Double TFmode.
+	(__floatundisf, __floatundidf): Likewise.
+	* libgcc2.h (IS_IBM_EXTENDED): Define.
+
+2006-01-19  DJ Delorie  <dj@redhat.com>
+
+	* config/m32c/m32c.h (REG_ALLOC_ORDER): Define.
+
+2006-01-19  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/arm.c (arm_compute_func_type): Treat all functions
+	as nothrow when unwinding tables are disabled.
+
+2006-01-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/25171
+	* c-decl.c (check_bitfield_type_and_width): Don't issue pedwarn "type
+	of bit-field" when in system header.
+
 2006-01-19  DJ Delorie  <dj@redhat.com>
 
 	* config/m32c/m32c.c (m32c_prepare_shift): Add code to deal with
@@ -1104,7 +1356,7 @@
 	* basic-block.h: Remove the prototype for
 	partition_hot_cold_basic_blocks.
 
-2006-01-16  Rafael ÅÅ√Åvila de EspÅÅ√ÅÅ≠ndola <rafael.espindola@gmail.com>
+2006-01-16  Rafael √vila de Esp√≠ndola <rafael.espindola@gmail.com>
 
 	* cppspec.c (lang_specific_spec_functions): remove
 	* gcc.c (lookup_spec_function): use static_spec_functions directelly

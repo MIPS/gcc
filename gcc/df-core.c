@@ -292,6 +292,8 @@ are write-only operations.
 static struct df *ddf = NULL;
 struct df *shared_df = NULL;
 
+static void * df_get_bb_info (struct dataflow *, unsigned int);
+static void df_set_bb_info (struct dataflow *, unsigned int, void *);
 /*----------------------------------------------------------------------------
   Functions to create, destroy and manipulate an instance of df.
 ----------------------------------------------------------------------------*/
@@ -354,8 +356,69 @@ df_set_blocks (struct df *df, bitmap blocks)
 {
   if (blocks)
     {
-      if (!df->blocks_to_analyze)
-	df->blocks_to_analyze = BITMAP_ALLOC (NULL);
+      if (df->blocks_to_analyze)
+	{
+	  int p;
+	  bitmap diff = BITMAP_ALLOC (NULL);
+	  bitmap all = BITMAP_ALLOC (NULL);
+	  bitmap_and_compl (diff, df->blocks_to_analyze, blocks);
+	  for (p = df->num_problems_defined - 1; p >= 0 ;p--)
+	    {
+	      struct dataflow *dflow = df->problems_in_order[p];
+	      if (*dflow->problem->reset_fun)
+		(*dflow->problem->reset_fun) (dflow, df->blocks_to_analyze);
+	      else if (*dflow->problem->free_bb_fun)
+		{
+		  bitmap_iterator bi;
+		  unsigned int bb_index;
+		  
+		  EXECUTE_IF_SET_IN_BITMAP (diff, 0, bb_index, bi)
+		    {
+		      basic_block bb = BASIC_BLOCK (bb_index);
+		      if (bb)
+			{
+			  (*dflow->problem->free_bb_fun) 
+			    (dflow, bb, df_get_bb_info (dflow, bb_index));
+			  df_set_bb_info (dflow, bb_index, NULL); 
+			}
+		    }
+		}
+	    }
+
+	  BITMAP_FREE (all);
+	  BITMAP_FREE (diff);
+	}
+      else
+	{
+	  /* If we have not actually run scanning before, do not try
+	     to clear anything.  */
+	  struct dataflow *scan_dflow = df->problems_by_index [DF_SCAN];
+	  if (scan_dflow->problem_data)
+	    {
+	      bitmap blocks_to_reset = NULL;
+	      int p;
+	      for (p = df->num_problems_defined - 1; p >= 0 ;p--)
+		{
+		  struct dataflow *dflow = df->problems_in_order[p];
+		  if (*dflow->problem->reset_fun)
+		    {
+		      if (!blocks_to_reset)
+			{
+			  basic_block bb;
+			  blocks_to_reset = BITMAP_ALLOC (NULL);
+			  FOR_ALL_BB(bb)
+			    {
+			      bitmap_set_bit (blocks_to_reset, bb->index); 
+			    }
+			}
+		      (*dflow->problem->reset_fun) (dflow, blocks_to_reset);
+		    }
+		}
+	      if (blocks_to_reset)
+		BITMAP_FREE (blocks_to_reset);
+	    }
+	  df->blocks_to_analyze = BITMAP_ALLOC (NULL);
+	}
       bitmap_copy (df->blocks_to_analyze, blocks);
     }
   else
@@ -781,8 +844,10 @@ df_compact_blocks (struct df *df)
 	     These are from orphaned blocks.  */
 	  for (i = NUM_FIXED_BLOCKS; i < last_basic_block; i++)
 	    {
-	      if (problem_temps[i])
-		(*dflow->problem->free_bb_fun) (dflow, problem_temps[i]);
+	      basic_block bb = BASIC_BLOCK (i); 
+	      if (problem_temps[i] && bb)
+		(*dflow->problem->free_bb_fun) 
+		  (dflow, bb, problem_temps[i]);
 	    }
 	}
     }

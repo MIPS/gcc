@@ -32,7 +32,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 /* This array manages threads spawned from the top level, which will
    return to the idle loop once the current PARALLEL construct ends.  */
 static struct gomp_thread **gomp_threads;
@@ -266,7 +265,8 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 	}
     }
 
-  start_data = alloca (sizeof (struct gomp_thread_start_data) * (nthreads-i));
+  start_data = gomp_alloca (sizeof (struct gomp_thread_start_data)
+			    * (nthreads-i));
 
   /* Launch new threads.  */
   for (; i < nthreads; ++i, ++start_data)
