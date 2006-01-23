@@ -1,5 +1,12 @@
 2006-01-23  Julian Brown  <julian@codesourcery.com>
 
+	Backport from mainline.
+	2006-01-23  Kazu Hirata  <kazu@codesourcery.com>
+	PR testsuite/25590
+	* gcc.dg/tree-ssa/gen-vect-11.c: Add -fwrapv.
+
+2006-01-23  Julian Brown  <julian@codesourcery.com>
+
 	* gcc/config/m68k/netbsd-elf.h (LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Make
 	64-bit on Coldfire.
 	* gcc/config/m68k/m68k.h (LONG_DOUBLE_TYPE_SIZE): Likewise.
