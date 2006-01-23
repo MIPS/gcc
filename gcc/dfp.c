@@ -42,7 +42,7 @@ dfp_byte_swap (uint32_t in)
   uint32_t out = 0;
   unsigned char *p = (unsigned char *) &out;
   union {
-    unsigned long i;
+    uint32_t i;
     unsigned char b[4];
   } u;
 

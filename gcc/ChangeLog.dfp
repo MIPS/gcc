@@ -1,3 +1,7 @@
+2006-01-23  Ben Elliston  <bje@au.ibm.com>
+
+	* dfp.c (dfp_byte_swap): Change type of u.i to uint32_t.
+
 2006-01-20  Ben Elliston  <bje@au.ibm.com>
 
 	* calls.c (emit_library_call_value_1): Use SYMBOL_REF_DECL to pass
