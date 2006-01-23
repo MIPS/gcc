@@ -1,5 +1,12 @@
 2006-01-23  Julian Brown  <julian@codesourcery.com>
 
+	* gcc/config/m68k/netbsd-elf.h (LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Make
+	64-bit on Coldfire.
+	* gcc/config/m68k/m68k.h (LONG_DOUBLE_TYPE_SIZE): Likewise.
+	(LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Likewise. 
+
+2006-01-23  Julian Brown  <julian@codesourcery.com>
+
 	* Merge from csl/sourcerygxx-4_1 branch, revision 110050.
 
 2006-01-22  Paul Brook  <paul@codesourcery.com>
