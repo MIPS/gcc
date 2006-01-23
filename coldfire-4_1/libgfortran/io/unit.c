@@ -384,15 +384,13 @@ get_unit (st_parameter_dt *dtp, int do_create)
       internal_unit.maxrec=0;
       internal_unit.current_record=0;
 
-      if (dtp->u.p.mode==WRITING && !is_array_io (dtp))
-        empty_internal_buffer (internal_unit.s);
-
       /* Set flags for the internal unit */
 
       internal_unit.flags.access = ACCESS_SEQUENTIAL;
       internal_unit.flags.action = ACTION_READWRITE;
       internal_unit.flags.form = FORM_FORMATTED;
       internal_unit.flags.delim = DELIM_NONE;
+      internal_unit.flags.pad = PAD_YES;
 
       return &internal_unit;
     }
@@ -453,7 +451,8 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_UNSPECIFIED;
+      u->flags.blank = BLANK_NULL;
+      u->flags.pad = PAD_YES;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;
@@ -472,7 +471,7 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_UNSPECIFIED;
+      u->flags.blank = BLANK_NULL;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;
@@ -491,7 +490,7 @@ init_units (void)
       u->flags.access = ACCESS_SEQUENTIAL;
       u->flags.form = FORM_FORMATTED;
       u->flags.status = STATUS_OLD;
-      u->flags.blank = BLANK_UNSPECIFIED;
+      u->flags.blank = BLANK_NULL;
       u->flags.position = POSITION_ASIS;
 
       u->recl = options.default_recl;

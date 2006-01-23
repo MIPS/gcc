@@ -33,11 +33,6 @@ Boston, MA 02110-1301, USA.  */
 #include <setjmp.h>
 #include "libgfortran.h"
 
-#ifdef _AIX
-#undef _LARGE_FILES
-#define _LARGE_FILE_API
-#endif
-
 #include <gthr.h>
 
 #define DEFAULT_TEMPDIR "/tmp"
@@ -211,6 +206,10 @@ typedef enum
 {READING, WRITING}
 unit_mode;
 
+typedef enum
+{ CONVERT_NATIVE, CONVERT_SWAP, CONVERT_BIG, CONVERT_LITTLE }
+unit_convert;
+
 #define CHARACTER1(name) \
 	      char * name; \
 	      gfc_charlen_type name ## _len
@@ -252,6 +251,7 @@ st_parameter_common;
 #define IOPARM_OPEN_HAS_ACTION		(1 << 14)
 #define IOPARM_OPEN_HAS_DELIM		(1 << 15)
 #define IOPARM_OPEN_HAS_PAD		(1 << 16)
+#define IOPARM_OPEN_HAS_CONVERT		(1 << 17)
 
 typedef struct
 {
@@ -266,6 +266,7 @@ typedef struct
   CHARACTER2 (action);
   CHARACTER1 (delim);
   CHARACTER2 (pad);
+  CHARACTER1 (convert);
 }
 st_parameter_open;
 
@@ -306,6 +307,7 @@ st_parameter_filepos;
 #define IOPARM_INQUIRE_HAS_READ		(1 << 26)
 #define IOPARM_INQUIRE_HAS_WRITE	(1 << 27)
 #define IOPARM_INQUIRE_HAS_READWRITE	(1 << 28)
+#define IOPARM_INQUIRE_HAS_CONVERT	(1 << 29)
 
 typedef struct
 {
@@ -328,6 +330,7 @@ typedef struct
   CHARACTER2 (read);
   CHARACTER1 (write);
   CHARACTER2 (readwrite);
+  CHARACTER1 (convert);
 }
 st_parameter_inquire;
 
@@ -375,12 +378,16 @@ typedef struct st_parameter_dt
 	  int skips;
 	  /* Number of spaces to be done for T and X-editing.  */
 	  int pending_spaces;
+	  /* Whether an EOR condition was encountered. Value is:
+	       0 if no EOR was encountered
+	       1 if an EOR was encountered due to a 1-byte marker (LF)
+	       2 if an EOR was encountered due to a 2-bytes marker (CRLF) */
+	  int sf_seen_eor;
 	  unit_advance advance_status;
 
 	  unsigned reversion_flag : 1; /* Format reversion has occurred.  */
 	  unsigned first_item : 1;
 	  unsigned seen_dollar : 1;
-	  unsigned sf_seen_eor : 1;
 	  unsigned eor_condition : 1;
 	  unsigned no_leading_blank : 1;
 	  unsigned char_flag : 1;
@@ -395,7 +402,11 @@ typedef struct st_parameter_dt
 	     to flag read errors and return, so that an attempt can be
 	     made to read a new object name.  */
 	  unsigned nml_read_error : 1;
-	  /* 20 unused bits.  */
+	  /* A sequential formatted read specific flag used to signal that a
+	     character string is being read so don't use commas to shorten a
+	     formatted field width.  */
+	  unsigned sf_read_comma : 1;
+	  /* 19 unused bits.  */
 
 	  char last_char;
 	  char nml_delim;
@@ -416,7 +427,7 @@ typedef struct st_parameter_dt
 	     kind.  */
 	  char value[32];
 	} p;
-      char pad[16 * sizeof (char *) + 32 * sizeof (int)];
+      char pad[16 * sizeof (char *) + 34 * sizeof (int)];
     } u;
 }
 st_parameter_dt;
@@ -435,6 +446,7 @@ typedef struct
   unit_position position;
   unit_status status;
   unit_pad pad;
+  unit_convert convert;
 }
 unit_flags;
 
@@ -734,6 +746,9 @@ internal_proto(init_loop_spec);
 
 extern void next_record (st_parameter_dt *, int);
 internal_proto(next_record);
+
+extern void reverse_memcpy (void *, const void *, size_t);
+internal_proto (reverse_memcpy);
 
 /* read.c */
 

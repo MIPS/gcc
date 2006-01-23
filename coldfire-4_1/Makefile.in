@@ -133,7 +133,8 @@ HOST_CONFIGARGS = @host_configargs@
 # with srcdir=..
 HOST_SUBDIR = @host_subdir@
 # This is the list of variables to export in the environment when
-# configuring subdirectories for the host system.
+# configuring subdirectories for the host system.  We need to pass
+# some to the GCC configure because of its hybrid host/target nature.
 HOST_EXPORTS = \
 	$(BASE_EXPORTS) \
 	CC="$(CC)"; export CC; \
@@ -152,6 +153,13 @@ HOST_EXPORTS = \
 	WINDRES="$(WINDRES)"; export WINDRES; \
 	OBJCOPY="$(OBJCOPY)"; export OBJCOPY; \
 	OBJDUMP="$(OBJDUMP)"; export OBJDUMP; \
+	AR_FOR_TARGET="$(AR_FOR_TARGET)"; export AR_FOR_TARGET; \
+	AS_FOR_TARGET="$(AS_FOR_TARGET)"; export AS_FOR_TARGET; \
+	GCC_FOR_TARGET="$(GCC_FOR_TARGET)"; export GCC_FOR_TARGET; \
+	LD_FOR_TARGET="$(LD_FOR_TARGET)"; export LD_FOR_TARGET; \
+	NM_FOR_TARGET="$(NM_FOR_TARGET)"; export NM_FOR_TARGET; \
+	OBJDUMP_FOR_TARGET="$(OBJDUMP_FOR_TARGET)"; export OBJDUMP_FOR_TARGET; \
+	RANLIB_FOR_TARGET="$(RANLIB_FOR_TARGET)"; export RANLIB_FOR_TARGET; \
 	TOPLEVEL_CONFIGURE_ARGUMENTS="$(TOPLEVEL_CONFIGURE_ARGUMENTS)"; export TOPLEVEL_CONFIGURE_ARGUMENTS; \
 	GMPLIBS="$(HOST_GMPLIBS)"; export GMPLIBS; \
 	GMPINC="$(HOST_GMPINC)"; export GMPINC; \
@@ -183,7 +191,7 @@ TARGET_CONFIGARGS = @target_configargs@ --with-target-subdir="$(TARGET_SUBDIR)"
 BASE_TARGET_EXPORTS = \
 	$(BASE_EXPORTS) \
 	AR="$(AR_FOR_TARGET)"; export AR; \
-	AS="$(AS_FOR_TARGET)"; export AS; \
+	AS="$(COMPILER_AS_FOR_TARGET)"; export AS; \
 	CC="$(CC_FOR_TARGET)"; export CC; \
 	CFLAGS="$(CFLAGS_FOR_TARGET)"; export CFLAGS; \
 	CONFIG_SHELL="$(SHELL)"; export CONFIG_SHELL; \
@@ -192,10 +200,10 @@ BASE_TARGET_EXPORTS = \
 	GCJ="$(GCJ_FOR_TARGET)"; export GCJ; \
 	GFORTRAN="$(GFORTRAN_FOR_TARGET)"; export GFORTRAN; \
 	DLLTOOL="$(DLLTOOL_FOR_TARGET)"; export DLLTOOL; \
-	LD="$(LD_FOR_TARGET)"; export LD; \
+	LD="$(COMPILER_LD_FOR_TARGET)"; export LD; \
 	LDFLAGS="$(LDFLAGS_FOR_TARGET)"; export LDFLAGS; \
 	LIPO="$(LIPO_FOR_TARGET)"; export LIPO; \
-	NM="$(NM_FOR_TARGET)"; export NM; \
+	NM="$(COMPILER_NM_FOR_TARGET)"; export NM; \
 	OBJDUMP="$(OBJDUMP_FOR_TARGET)"; export OBJDUMP; \
 	RANLIB="$(RANLIB_FOR_TARGET)"; export RANLIB; \
 	STRIP="$(STRIP_FOR_TARGET)"; export STRIP; \
@@ -245,47 +253,14 @@ BUILD_PREFIX_1 = @BUILD_PREFIX_1@
 # here so that they can be overridden by Makefile fragments.
 BOOT_CFLAGS= -g -O2
 
-CONFIGURED_BISON = @CONFIGURED_BISON@
-BISON = `if [ -f $$r/$(BUILD_SUBDIR)/bison/tests/bison ] ; then \
-	    echo $$r/$(BUILD_SUBDIR)/bison/tests/bison ; \
-	 else \
-	    echo ${CONFIGURED_BISON} ; \
-	 fi`
-
-CONFIGURED_YACC = @CONFIGURED_YACC@
-YACC = `if [ -f $$r/$(BUILD_SUBDIR)/bison/tests/bison ] ; then \
-	    echo $$r/$(BUILD_SUBDIR)/bison/tests/bison -y ; \
-	elif [ -f $$r/$(BUILD_SUBDIR)/byacc/byacc ] ; then \
-	    echo $$r/$(BUILD_SUBDIR)/byacc/byacc ; \
-	else \
-	    echo ${CONFIGURED_YACC} ; \
-	fi`
-
-CONFIGURED_FLEX = @CONFIGURED_FLEX@
-FLEX = `if [ -f $$r/$(BUILD_SUBDIR)/flex/flex ] ; \
-	then echo $$r/$(BUILD_SUBDIR)/flex/flex ; \
-	else echo ${CONFIGURED_FLEX} ; fi`
-
-CONFIGURED_LEX = @CONFIGURED_LEX@
-LEX = `if [ -f $$r/$(BUILD_SUBDIR)/flex/flex ] ; \
-	then echo $$r/$(BUILD_SUBDIR)/flex/flex ; \
-	else echo ${CONFIGURED_LEX} ; fi`
-
-CONFIGURED_M4 = @CONFIGURED_M4@
-M4 = `if [ -f $$r/$(BUILD_SUBDIR)/m4/m4 ] ; \
-	then echo $$r/$(BUILD_SUBDIR)/m4/m4 ; \
-	else echo ${CONFIGURED_M4} ; fi`
-
-# For an installed makeinfo, we require it to be from texinfo 4.2 or
-# higher, else we use the "missing" dummy.  We also pass the subdirectory
-# makeinfo even if only the Makefile is there, because Texinfo builds its
-# manual when made, and it requires its own version.
-CONFIGURED_MAKEINFO = @CONFIGURED_MAKEINFO@
-MAKEINFO = `if [ -f $$r/$(BUILD_SUBDIR)/texinfo/makeinfo/Makefile ] ; \
-	then echo $$r/$(BUILD_SUBDIR)/texinfo/makeinfo/makeinfo ; \
-	else if (${CONFIGURED_MAKEINFO} --version \
-	  | egrep 'texinfo[^0-9]*([1-3][0-9]|4\.[2-9]|[5-9])') >/dev/null 2>&1; \
-        then echo ${CONFIGURED_MAKEINFO}; else echo $$s/missing makeinfo; fi; fi`
+BISON = @BISON@
+YACC = @YACC@
+FLEX = @FLEX@
+LEX = @LEX@
+M4 = @M4@
+MAKEINFO = @MAKEINFO@
+EXPECT = @EXPECT@
+RUNTEST = @RUNTEST@
 
 # This just becomes part of the MAKEINFO definition passed down to
 # sub-makes.  It lets flags be given on the command line while still
@@ -293,43 +268,28 @@ MAKEINFO = `if [ -f $$r/$(BUILD_SUBDIR)/texinfo/makeinfo/Makefile ] ; \
 # (Default to avoid splitting info files by setting the threshold high.)
 MAKEINFOFLAGS = --split-size=5000000
 
-# FIXME: expect may become a build tool?
-EXPECT = `if [ -f $$r/$(HOST_SUBDIR)/expect/expect ] ; \
-	then echo $$r/$(HOST_SUBDIR)/expect/expect ; \
-	else echo expect ; fi`
-
-RUNTEST = `if [ -f $$s/dejagnu/runtest ] ; \
-	then echo $$s/dejagnu/runtest ; \
-	else echo runtest ; fi`
-
 # ---------------------------------------------
 # Programs producing files for the HOST machine
 # ---------------------------------------------
 
 AS = @AS@
-
 AR = @AR@
 AR_FLAGS = rc
-
 CC = @CC@
-CFLAGS = @CFLAGS@
-LIBCFLAGS = $(CFLAGS)
-
 CXX = @CXX@
-CXXFLAGS = @CXXFLAGS@
-LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates
-
 DLLTOOL = @DLLTOOL@
-
-NM = @NM@
-
 LD = @LD@
-LDFLAGS = 
-
+LIPO = @LIPO@
+NM = @NM@
 RANLIB = @RANLIB@
-
+STRIP = @STRIP@
 WINDRES = @WINDRES@
 
+CFLAGS = @CFLAGS@
+LDFLAGS = 
+LIBCFLAGS = $(CFLAGS)
+CXXFLAGS = @CXXFLAGS@
+LIBCXXFLAGS = $(CXXFLAGS) -fno-implicit-templates
 PICFLAG = 
 
 # -----------------------------------------------
@@ -339,45 +299,31 @@ PICFLAG =
 FLAGS_FOR_TARGET = @FLAGS_FOR_TARGET@
 
 AR_FOR_TARGET=@AR_FOR_TARGET@
-CONFIGURED_AR_FOR_TARGET=@CONFIGURED_AR_FOR_TARGET@
-USUAL_AR_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/binutils/ar ] ; then \
-    echo $$r/$(HOST_SUBDIR)/binutils/ar ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      echo $(AR); \
-    else \
-      echo $(CONFIGURED_AR_FOR_TARGET) ; \
-    fi; \
-  fi`
-
 AS_FOR_TARGET=@AS_FOR_TARGET@
-CONFIGURED_AS_FOR_TARGET=@CONFIGURED_AS_FOR_TARGET@
-USUAL_AS_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/gas/as-new ] ; then \
-    echo $$r/$(HOST_SUBDIR)/gas/as-new ; \
-  elif [ -f $$r/$(HOST_SUBDIR)/gcc/as ]; then \
-    echo $$r/$(HOST_SUBDIR)/gcc/as ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      echo $(AS); \
-    else \
-      echo $(CONFIGURED_AS_FOR_TARGET) ; \
-    fi; \
-  fi`
-
 CC_FOR_TARGET=$(STAGE_CC_WRAPPER) @CC_FOR_TARGET@ $(FLAGS_FOR_TARGET)
-CONFIGURED_CC_FOR_TARGET=@CONFIGURED_CC_FOR_TARGET@
-USUAL_CC_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/gcc/xgcc ] ; then \
-    echo $$r/$(HOST_SUBDIR)/gcc/xgcc -B$$r/$(HOST_SUBDIR)/gcc/ ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      echo $(CC); \
-    else \
-      echo $(CONFIGURED_CC_FOR_TARGET) ; \
-    fi; \
-  fi`
+
+# If GCC_FOR_TARGET is not overriden on the command line, then this
+# variable is passed down to the gcc Makefile, where it is used to
+# build libgcc2.a.  We define it here so that it can itself be
+# overridden on the command line.
+GCC_FOR_TARGET=$(STAGE_CC_WRAPPER) @GCC_FOR_TARGET@ $(FLAGS_FOR_TARGET)
+CXX_FOR_TARGET=$(STAGE_CC_WRAPPER) @CXX_FOR_TARGET@ $(FLAGS_FOR_TARGET)
+RAW_CXX_FOR_TARGET=$(STAGE_CC_WRAPPER) @RAW_CXX_FOR_TARGET@ $(FLAGS_FOR_TARGET)
+GCJ_FOR_TARGET=$(STAGE_CC_WRAPPER) @GCJ_FOR_TARGET@ $(FLAGS_FOR_TARGET)
+GFORTRAN_FOR_TARGET=$(STAGE_CC_WRAPPER) @GFORTRAN_FOR_TARGET@ $(FLAGS_FOR_TARGET)
+DLLTOOL_FOR_TARGET=@DLLTOOL_FOR_TARGET@
+LD_FOR_TARGET=@LD_FOR_TARGET@
+
+LIPO_FOR_TARGET=@LIPO_FOR_TARGET@
+NM_FOR_TARGET=@NM_FOR_TARGET@
+OBJDUMP_FOR_TARGET=@OBJDUMP_FOR_TARGET@
+RANLIB_FOR_TARGET=@RANLIB_FOR_TARGET@
+STRIP_FOR_TARGET=@STRIP_FOR_TARGET@
+WINDRES_FOR_TARGET=@WINDRES_FOR_TARGET@
+
+COMPILER_AS_FOR_TARGET=@COMPILER_AS_FOR_TARGET@
+COMPILER_LD_FOR_TARGET=@COMPILER_LD_FOR_TARGET@
+COMPILER_NM_FOR_TARGET=@COMPILER_NM_FOR_TARGET@
 
 # During gcc bootstrap, if we use some random cc for stage1 then
 # CFLAGS will be just -g.  We want to ensure that TARGET libraries
@@ -385,196 +331,10 @@ USUAL_CC_FOR_TARGET = ` \
 # prepend -O2 when setting CFLAGS_FOR_TARGET.
 CFLAGS_FOR_TARGET = -O2 $(CFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET)
 SYSROOT_CFLAGS_FOR_TARGET = @SYSROOT_CFLAGS_FOR_TARGET@
-
-# If GCC_FOR_TARGET is not overriden on the command line, then this
-# variable is passed down to the gcc Makefile, where it is used to
-# build libgcc2.a.  We define it here so that it can itself be
-# overridden on the command line.
-GCC_FOR_TARGET=@GCC_FOR_TARGET@
-CONFIGURED_GCC_FOR_TARGET=@CONFIGURED_GCC_FOR_TARGET@
-USUAL_GCC_FOR_TARGET = $(STAGE_CC_WRAPPER) \
-  $$r/$(HOST_SUBDIR)/gcc/xgcc -B$$r/$(HOST_SUBDIR)/gcc/ $(FLAGS_FOR_TARGET)
-LIBCFLAGS_FOR_TARGET = $(CFLAGS_FOR_TARGET)
-
-CXX_FOR_TARGET=$(STAGE_CC_WRAPPER) @CXX_FOR_TARGET@ $(FLAGS_FOR_TARGET)
-CONFIGURED_CXX_FOR_TARGET=@CONFIGURED_CXX_FOR_TARGET@
-USUAL_CXX_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/gcc/g++ ] ; then \
-    (echo $$r/$(HOST_SUBDIR)/gcc/g++ -B$$r/$(HOST_SUBDIR)/gcc -nostdinc++; \
-    test ! -f $$r/$(TARGET_SUBDIR)/libstdc++-v3/scripts/testsuite_flags || $(SHELL) $$r/$(TARGET_SUBDIR)/libstdc++-v3/scripts/testsuite_flags --build-includes; \
-    echo -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs) | tr '\015\012' '  '; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      echo $(CXX); \
-    else \
-      echo $(CONFIGURED_CXX_FOR_TARGET) ; \
-    fi; \
-  fi`
-
-RAW_CXX_FOR_TARGET=$(STAGE_CC_WRAPPER) @RAW_CXX_FOR_TARGET@ $(FLAGS_FOR_TARGET)
-USUAL_RAW_CXX_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/gcc/xgcc ] ; then \
-    echo $$r/$(HOST_SUBDIR)/gcc/xgcc -shared-libgcc -B$$r/$(HOST_SUBDIR)/gcc -nostdinc++ -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src -L$$r/$(TARGET_SUBDIR)/libstdc++-v3/src/.libs; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      echo $(CXX); \
-    else \
-      echo $(CONFIGURED_CXX_FOR_TARGET) ; \
-    fi; \
-  fi`
-
 CXXFLAGS_FOR_TARGET = $(CXXFLAGS) $(SYSROOT_CFLAGS_FOR_TARGET)
+LIBCFLAGS_FOR_TARGET = $(CFLAGS_FOR_TARGET)
 LIBCXXFLAGS_FOR_TARGET = $(CXXFLAGS_FOR_TARGET) -fno-implicit-templates
-
-GCJ_FOR_TARGET=$(STAGE_CC_WRAPPER) @GCJ_FOR_TARGET@ $(FLAGS_FOR_TARGET)
-CONFIGURED_GCJ_FOR_TARGET=@CONFIGURED_GCJ_FOR_TARGET@
-USUAL_GCJ_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/gcc/gcj ] ; then \
-    echo $$r/$(HOST_SUBDIR)/gcc/gcj -B$$r/$(HOST_SUBDIR)/gcc ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      echo $(GCJ); \
-    else \
-      echo $(CONFIGURED_GCJ_FOR_TARGET) ; \
-    fi; \
-  fi`
-
-GFORTRAN_FOR_TARGET=$(STAGE_CC_WRAPPER) @GFORTRAN_FOR_TARGET@ $(FLAGS_FOR_TARGET)
-CONFIGURED_GFORTRAN_FOR_TARGET=@CONFIGURED_GFORTRAN_FOR_TARGET@
-USUAL_GFORTRAN_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/gcc/gfortran ] ; then \
-    echo $$r/$(HOST_SUBDIR)/gcc/gfortran -B$$r/$(HOST_SUBDIR)/gcc ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      echo $(GFORTRAN); \
-    else \
-      echo $(CONFIGURED_GFORTRAN_FOR_TARGET) ; \
-    fi; \
-  fi`
-
-
-DLLTOOL_FOR_TARGET=@DLLTOOL_FOR_TARGET@
-CONFIGURED_DLLTOOL_FOR_TARGET=@CONFIGURED_DLLTOOL_FOR_TARGET@
-USUAL_DLLTOOL_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/binutils/dlltool ] ; then \
-    echo $$r/$(HOST_SUBDIR)/binutils/dlltool ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      echo $(DLLTOOL); \
-    else \
-      echo $(CONFIGURED_DLLTOOL_FOR_TARGET) ; \
-    fi; \
-  fi`
-
-LD_FOR_TARGET=@LD_FOR_TARGET@
-CONFIGURED_LD_FOR_TARGET=@CONFIGURED_LD_FOR_TARGET@
-USUAL_LD_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/ld/ld-new ] ; then \
-    echo $$r/$(HOST_SUBDIR)/ld/ld-new ; \
-  elif [ -f $$r/$(HOST_SUBDIR)/gcc/collect-ld ]; then \
-    echo $$r/$(HOST_SUBDIR)/gcc/collect-ld ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      echo $(LD); \
-    else \
-      echo $(CONFIGURED_LD_FOR_TARGET) ; \
-    fi; \
-  fi`
-
 LDFLAGS_FOR_TARGET = 
-
-LIPO_FOR_TARGET=@LIPO_FOR_TARGET@
-CONFIGURED_LIPO_FOR_TARGET=@CONFIGURED_LIPO_FOR_TARGET@
-USUAL_LIPO_FOR_TARGET = ` \
-  if [ '$(host)' = '$(target)' ] ; then \
-    if [ x'$(LIPO)' != x ]; then \
-       echo $(LIPO); \
-    else \
-       echo lipo; \
-    fi; \
-  else \
-    echo $(CONFIGURED_LIPO_FOR_TARGET) ; \
-  fi`
-
-NM_FOR_TARGET=@NM_FOR_TARGET@
-CONFIGURED_NM_FOR_TARGET=@CONFIGURED_NM_FOR_TARGET@
-USUAL_NM_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/binutils/nm-new ] ; then \
-    echo $$r/$(HOST_SUBDIR)/binutils/nm-new ; \
-  elif [ -f $$r/$(HOST_SUBDIR)/gcc/nm ]; then \
-    echo $$r/$(HOST_SUBDIR)/gcc/nm ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      echo $(NM); \
-    else \
-      echo $(CONFIGURED_NM_FOR_TARGET) ; \
-    fi; \
-  fi`
-
-OBJDUMP_FOR_TARGET=@OBJDUMP_FOR_TARGET@
-CONFIGURED_OBJDUMP_FOR_TARGET=@CONFIGURED_OBJDUMP_FOR_TARGET@
-USUAL_OBJDUMP_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/binutils/objdump ] ; then \
-    echo $$r/$(HOST_SUBDIR)/binutils/objdump ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      if [ x'$(OBJDUMP)' != x ]; then \
-         echo $(OBJDUMP); \
-      else \
-         echo objdump; \
-      fi; \
-    else \
-      echo $(CONFIGURED_OBJDUMP_FOR_TARGET) ; \
-    fi; \
-  fi`
-
-RANLIB_FOR_TARGET=@RANLIB_FOR_TARGET@
-CONFIGURED_RANLIB_FOR_TARGET=@CONFIGURED_RANLIB_FOR_TARGET@
-USUAL_RANLIB_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/binutils/ranlib ] ; then \
-    echo $$r/$(HOST_SUBDIR)/binutils/ranlib ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      if [ x'$(RANLIB)' != x ]; then \
-         echo $(RANLIB); \
-      else \
-         echo ranlib; \
-      fi; \
-    else \
-      echo $(CONFIGURED_RANLIB_FOR_TARGET) ; \
-    fi; \
-  fi`
-
-STRIP_FOR_TARGET=@STRIP_FOR_TARGET@
-CONFIGURED_STRIP_FOR_TARGET=@CONFIGURED_STRIP_FOR_TARGET@
-USUAL_STRIP_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/binutils/strip ] ; then \
-    echo $$r/$(HOST_SUBDIR)/binutils/strip ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      if [ x'$(STRIP)' != x ]; then \
-         echo $(STRIP); \
-      else \
-         echo strip; \
-      fi; \
-    else \
-      echo $(CONFIGURED_STRIP_FOR_TARGET) ; \
-    fi; \
-  fi`
-
-WINDRES_FOR_TARGET=@WINDRES_FOR_TARGET@
-CONFIGURED_WINDRES_FOR_TARGET=@CONFIGURED_WINDRES_FOR_TARGET@
-USUAL_WINDRES_FOR_TARGET = ` \
-  if [ -f $$r/$(HOST_SUBDIR)/binutils/windres ] ; then \
-    echo $$r/$(HOST_SUBDIR)/binutils/windres ; \
-  else \
-    if [ '$(host)' = '$(target)' ] ; then \
-      echo $(WINDRES); \
-    else \
-      echo $(CONFIGURED_WINDRES_FOR_TARGET) ; \
-    fi; \
-  fi`
-
 PICFLAG_FOR_TARGET = 
 
 # ------------------------------------
@@ -712,8 +472,10 @@ EXTRA_HOST_FLAGS = \
 	'CXX=$(CXX)' \
 	'DLLTOOL=$(DLLTOOL)' \
 	'LD=$(LD)' \
+	'LIPO=$(LIPO)' \
 	'NM=$(NM)' \
 	'RANLIB=$(RANLIB)' \
+	'STRIP=$(STRIP)' \
 	'WINDRES=$(WINDRES)'
 
 FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS)
@@ -732,20 +494,21 @@ X11_FLAGS_TO_PASS = \
 
 # Flags to pass down to makes which are built with the target environment.
 # The double $ decreases the length of the command line; the variables
-# are set in BASE_FLAGS_TO_PASS, and the sub-make will expand them.
+# are set in BASE_FLAGS_TO_PASS, and the sub-make will expand them.  The
+# COMPILER_ prefixed variables are not passed down so we expand them here.
 EXTRA_TARGET_FLAGS = \
 	'AR=$$(AR_FOR_TARGET)' \
-	'AS=$$(AS_FOR_TARGET)' \
+	'AS=$(COMPILER_AS_FOR_TARGET)' \
 	'CC=$$(CC_FOR_TARGET)' \
 	'CFLAGS=$$(CFLAGS_FOR_TARGET)' \
 	'CXX=$$(CXX_FOR_TARGET)' \
 	'CXXFLAGS=$$(CXXFLAGS_FOR_TARGET)' \
 	'DLLTOOL=$$(DLLTOOL_FOR_TARGET)' \
-	'LD=$$(LD_FOR_TARGET)' \
+	'LD=$(COMPILER_LD_FOR_TARGET)' \
 	'LDFLAGS=$$(LDFLAGS_FOR_TARGET)' \
 	'LIBCFLAGS=$$(LIBCFLAGS_FOR_TARGET)' \
 	'LIBCXXFLAGS=$$(LIBCXXFLAGS_FOR_TARGET)' \
-	'NM=$$(NM_FOR_TARGET)' \
+	'NM=$(COMPILER_NM_FOR_TARGET)' \
 	'OBJDUMP=$$(OBJDUMP_FOR_TARGET)' \
 	'RANLIB=$$(RANLIB_FOR_TARGET)' \
 	'WINDRES=$$(WINDRES_FOR_TARGET)'
@@ -869,29 +632,20 @@ configure-target:  \
 .PHONY: all
 all:
 @if gcc-bootstrap
+	[ -f stage_final ] || echo stage3 > stage_final
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	if [ ! -f stage_last ]; then \
-	  $(MAKE) $(RECURSE_FLAGS_TO_PASS) bootstrap; \
-	fi
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) `cat stage_final`-bubble
 @endif gcc-bootstrap
-	@$(unstage)
-@if gcc-no-bootstrap
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all-prebootstrap
-@endif gcc-no-bootstrap
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	if [ -f stage_last ]; then \
-	  $(MAKE) $(TARGET_FLAGS_TO_PASS) all-host; \
+	  $(MAKE) $(TARGET_FLAGS_TO_PASS) all-host all-target; \
 	else \
-	  $(MAKE) $(RECURSE_FLAGS_TO_PASS) all-host; \
+	  $(MAKE) $(RECURSE_FLAGS_TO_PASS) all-host all-target; \
 	fi
-	@r=`${PWD_COMMAND}`; export r; \
-	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 .PHONY: all-build
 all-build:  \
@@ -1000,12 +754,12 @@ all-target:  \
 
 .PHONY: do-info
 do-info:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) info-host \
 	  info-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 
 .PHONY: info-host
@@ -1102,12 +856,12 @@ info-target:  \
 
 .PHONY: do-dvi
 do-dvi:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) dvi-host \
 	  dvi-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 
 .PHONY: dvi-host
@@ -1204,12 +958,12 @@ dvi-target:  \
 
 .PHONY: do-html
 do-html:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) html-host \
 	  html-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 
 .PHONY: html-host
@@ -1306,12 +1060,12 @@ html-target:  \
 
 .PHONY: do-TAGS
 do-TAGS:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) TAGS-host \
 	  TAGS-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 
 .PHONY: TAGS-host
@@ -1408,12 +1162,12 @@ TAGS-target:  \
 
 .PHONY: do-install-info
 do-install-info:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) install-info-host \
 	  install-info-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 
 .PHONY: install-info-host
@@ -1510,12 +1264,12 @@ install-info-target:  \
 
 .PHONY: do-installcheck
 do-installcheck:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) installcheck-host \
 	  installcheck-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 
 .PHONY: installcheck-host
@@ -1612,12 +1366,12 @@ installcheck-target:  \
 
 .PHONY: do-mostlyclean
 do-mostlyclean:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) mostlyclean-host \
 	  mostlyclean-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 
 .PHONY: mostlyclean-host
@@ -1714,12 +1468,12 @@ mostlyclean-target:  \
 
 .PHONY: do-clean
 do-clean:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) clean-host \
 	  clean-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 
 .PHONY: clean-host
@@ -1816,12 +1570,12 @@ clean-target:  \
 
 .PHONY: do-distclean
 do-distclean:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) distclean-host \
 	  distclean-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 
 .PHONY: distclean-host
@@ -1918,12 +1672,12 @@ distclean-target:  \
 
 .PHONY: do-maintainer-clean
 do-maintainer-clean:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) maintainer-clean-host \
 	  maintainer-clean-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 
 .PHONY: maintainer-clean-host
@@ -2177,11 +1931,11 @@ check-target:  \
     maybe-check-target-libada
 
 do-check:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) check-host check-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 # Automated reporting of test results.
 
@@ -2208,11 +1962,11 @@ mail-report-with-warnings.log: warning.log
 
 .PHONY: install uninstall
 install:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(MAKE) $(RECURSE_FLAGS_TO_PASS) installdirs install-host install-target
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 .PHONY: install-host-nogcc
 install-host-nogcc:  \
@@ -2831,7 +2585,7 @@ maybe-check-ash:
 maybe-check-ash: check-ash
 
 check-ash:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -2846,7 +2600,7 @@ maybe-install-ash:
 maybe-install-ash: install-ash
 
 install-ash: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -3168,7 +2922,7 @@ maybe-check-autoconf:
 maybe-check-autoconf: check-autoconf
 
 check-autoconf:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -3183,7 +2937,7 @@ maybe-install-autoconf:
 maybe-install-autoconf: install-autoconf
 
 install-autoconf: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -3505,7 +3259,7 @@ maybe-check-automake:
 maybe-check-automake: check-automake
 
 check-automake:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -3520,7 +3274,7 @@ maybe-install-automake:
 maybe-install-automake: install-automake
 
 install-automake: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -3842,7 +3596,7 @@ maybe-check-bash:
 maybe-check-bash: check-bash
 
 check-bash:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -3857,7 +3611,7 @@ maybe-install-bash:
 maybe-install-bash: install-bash
 
 install-bash: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -4516,7 +4270,7 @@ maybe-check-bfd:
 maybe-check-bfd: check-bfd
 
 check-bfd:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -4531,7 +4285,7 @@ maybe-install-bfd:
 maybe-install-bfd: install-bfd
 
 install-bfd: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -5180,7 +4934,7 @@ maybe-check-opcodes:
 maybe-check-opcodes: check-opcodes
 
 check-opcodes:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -5195,7 +4949,7 @@ maybe-install-opcodes:
 maybe-install-opcodes: install-opcodes
 
 install-opcodes: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -5844,7 +5598,7 @@ maybe-check-binutils:
 maybe-check-binutils: check-binutils
 
 check-binutils:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -5859,7 +5613,7 @@ maybe-install-binutils:
 maybe-install-binutils: install-binutils
 
 install-binutils: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -6172,7 +5926,7 @@ maybe-check-bison: check-bison
 
 # This module is only tested in a native toolchain.
 check-bison:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@if [ '$(host)' = '$(target)' ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -6189,7 +5943,7 @@ maybe-install-bison:
 maybe-install-bison: install-bison
 
 install-bison: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -6512,7 +6266,7 @@ maybe-check-byacc: check-byacc
 
 # This module is only tested in a native toolchain.
 check-byacc:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@if [ '$(host)' = '$(target)' ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -6529,7 +6283,7 @@ maybe-install-byacc:
 maybe-install-byacc: install-byacc
 
 install-byacc: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -6851,7 +6605,7 @@ maybe-check-bzip2:
 maybe-check-bzip2: check-bzip2
 
 check-bzip2:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -6866,7 +6620,7 @@ maybe-install-bzip2:
 maybe-install-bzip2: install-bzip2
 
 install-bzip2: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -7188,7 +6942,7 @@ maybe-check-dejagnu:
 maybe-check-dejagnu: check-dejagnu
 
 check-dejagnu:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -7203,7 +6957,7 @@ maybe-install-dejagnu:
 maybe-install-dejagnu: install-dejagnu
 
 install-dejagnu: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -7525,7 +7279,7 @@ maybe-check-diff:
 maybe-check-diff: check-diff
 
 check-diff:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -7540,7 +7294,7 @@ maybe-install-diff:
 maybe-install-diff: install-diff
 
 install-diff: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -7871,7 +7625,7 @@ maybe-install-dosutils:
 maybe-install-dosutils: install-dosutils
 
 install-dosutils: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -8193,7 +7947,7 @@ maybe-check-etc:
 maybe-check-etc: check-etc
 
 check-etc:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -8208,7 +7962,7 @@ maybe-install-etc:
 maybe-install-etc: install-etc
 
 install-etc: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -8531,7 +8285,7 @@ maybe-check-fastjar: check-fastjar
 
 # This module is only tested in a native toolchain.
 check-fastjar:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@if [ '$(host)' = '$(target)' ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -8548,7 +8302,7 @@ maybe-install-fastjar:
 maybe-install-fastjar: install-fastjar
 
 install-fastjar: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -8870,7 +8624,7 @@ maybe-check-fileutils:
 maybe-check-fileutils: check-fileutils
 
 check-fileutils:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -8885,7 +8639,7 @@ maybe-install-fileutils:
 maybe-install-fileutils: install-fileutils
 
 install-fileutils: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -9207,7 +8961,7 @@ maybe-check-findutils:
 maybe-check-findutils: check-findutils
 
 check-findutils:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -9222,7 +8976,7 @@ maybe-install-findutils:
 maybe-install-findutils: install-findutils
 
 install-findutils: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -9544,7 +9298,7 @@ maybe-check-find:
 maybe-check-find: check-find
 
 check-find:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -9559,7 +9313,7 @@ maybe-install-find:
 maybe-install-find: install-find
 
 install-find: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -9881,7 +9635,7 @@ maybe-check-fixincludes:
 maybe-check-fixincludes: check-fixincludes
 
 check-fixincludes:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -9896,7 +9650,7 @@ maybe-install-fixincludes:
 maybe-install-fixincludes: install-fixincludes
 
 install-fixincludes: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -10138,7 +9892,7 @@ maybe-check-flex: check-flex
 
 # This module is only tested in a native toolchain.
 check-flex:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@if [ '$(host)' = '$(target)' ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -10155,7 +9909,7 @@ maybe-install-flex:
 maybe-install-flex: install-flex
 
 install-flex: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -10814,7 +10568,7 @@ maybe-check-gas:
 maybe-check-gas: check-gas
 
 check-gas:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -10829,7 +10583,7 @@ maybe-install-gas:
 maybe-install-gas: install-gas
 
 install-gas: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -11478,7 +11232,7 @@ maybe-check-gcc:
 maybe-check-gcc: check-gcc
 
 check-gcc:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -11493,7 +11247,7 @@ maybe-install-gcc:
 maybe-install-gcc: install-gcc
 
 install-gcc: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -11805,7 +11559,7 @@ maybe-check-gawk:
 maybe-check-gawk: check-gawk
 
 check-gawk:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -11820,7 +11574,7 @@ maybe-install-gawk:
 maybe-install-gawk: install-gawk
 
 install-gawk: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -12142,7 +11896,7 @@ maybe-check-gettext:
 maybe-check-gettext: check-gettext
 
 check-gettext:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -12157,7 +11911,7 @@ maybe-install-gettext:
 maybe-install-gettext: install-gettext
 
 install-gettext: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -12479,7 +12233,7 @@ maybe-check-gnuserv:
 maybe-check-gnuserv: check-gnuserv
 
 check-gnuserv:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -12494,7 +12248,7 @@ maybe-install-gnuserv:
 maybe-install-gnuserv: install-gnuserv
 
 install-gnuserv: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -12816,7 +12570,7 @@ maybe-check-gprof:
 maybe-check-gprof: check-gprof
 
 check-gprof:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -12831,7 +12585,7 @@ maybe-install-gprof:
 maybe-install-gprof: install-gprof
 
 install-gprof: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -13153,7 +12907,7 @@ maybe-check-gzip:
 maybe-check-gzip: check-gzip
 
 check-gzip:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -13168,7 +12922,7 @@ maybe-install-gzip:
 maybe-install-gzip: install-gzip
 
 install-gzip: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -13490,7 +13244,7 @@ maybe-check-hello:
 maybe-check-hello: check-hello
 
 check-hello:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -13505,7 +13259,7 @@ maybe-install-hello:
 maybe-install-hello: install-hello
 
 install-hello: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -13827,7 +13581,7 @@ maybe-check-indent:
 maybe-check-indent: check-indent
 
 check-indent:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -13842,7 +13596,7 @@ maybe-install-indent:
 maybe-install-indent: install-indent
 
 install-indent: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -14501,7 +14255,7 @@ maybe-check-intl:
 maybe-check-intl: check-intl
 
 check-intl:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -14516,7 +14270,7 @@ maybe-install-intl:
 maybe-install-intl: install-intl
 
 install-intl: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -14828,7 +14582,7 @@ maybe-check-tcl:
 maybe-check-tcl: check-tcl
 
 check-tcl:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -14843,7 +14597,7 @@ maybe-install-tcl:
 maybe-install-tcl: install-tcl
 
 install-tcl: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -15150,7 +14904,7 @@ maybe-check-itcl:
 maybe-check-itcl: check-itcl
 
 check-itcl:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -15165,7 +14919,7 @@ maybe-install-itcl:
 maybe-install-itcl: install-itcl
 
 install-itcl: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -15824,7 +15578,7 @@ maybe-check-ld:
 maybe-check-ld: check-ld
 
 check-ld:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -15839,7 +15593,7 @@ maybe-install-ld:
 maybe-install-ld: install-ld
 
 install-ld: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -16488,7 +16242,7 @@ maybe-check-libcpp:
 maybe-check-libcpp: check-libcpp
 
 check-libcpp:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -16503,7 +16257,7 @@ maybe-install-libcpp:
 maybe-install-libcpp: install-libcpp
 
 install-libcpp: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -16815,7 +16569,7 @@ maybe-check-libgui:
 maybe-check-libgui: check-libgui
 
 check-libgui:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -16830,7 +16584,7 @@ maybe-install-libgui:
 maybe-install-libgui: install-libgui
 
 install-libgui: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -17489,7 +17243,7 @@ maybe-check-libiberty:
 maybe-check-libiberty: check-libiberty
 
 check-libiberty:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -17504,7 +17258,7 @@ maybe-install-libiberty:
 maybe-install-libiberty: install-libiberty
 
 install-libiberty: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -17816,7 +17570,7 @@ maybe-check-libtool:
 maybe-check-libtool: check-libtool
 
 check-libtool:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -17831,7 +17585,7 @@ maybe-install-libtool:
 maybe-install-libtool: install-libtool
 
 install-libtool: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -18153,7 +17907,7 @@ maybe-check-m4:
 maybe-check-m4: check-m4
 
 check-m4:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -18168,7 +17922,7 @@ maybe-install-m4:
 maybe-install-m4: install-m4
 
 install-m4: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -18490,7 +18244,7 @@ maybe-check-make:
 maybe-check-make: check-make
 
 check-make:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -18505,7 +18259,7 @@ maybe-install-make:
 maybe-install-make: install-make
 
 install-make: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -18836,7 +18590,7 @@ maybe-install-mmalloc:
 maybe-install-mmalloc: install-mmalloc
 
 install-mmalloc: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -19158,7 +18912,7 @@ maybe-check-patch:
 maybe-check-patch: check-patch
 
 check-patch:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -19173,7 +18927,7 @@ maybe-install-patch:
 maybe-install-patch: install-patch
 
 install-patch: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -19495,7 +19249,7 @@ maybe-check-perl:
 maybe-check-perl: check-perl
 
 check-perl:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -19510,7 +19264,7 @@ maybe-install-perl:
 maybe-install-perl: install-perl
 
 install-perl: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -19832,7 +19586,7 @@ maybe-check-prms:
 maybe-check-prms: check-prms
 
 check-prms:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -19847,7 +19601,7 @@ maybe-install-prms:
 maybe-install-prms: install-prms
 
 install-prms: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -20169,7 +19923,7 @@ maybe-check-rcs:
 maybe-check-rcs: check-rcs
 
 check-rcs:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -20184,7 +19938,7 @@ maybe-install-rcs:
 maybe-install-rcs: install-rcs
 
 install-rcs: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -20506,7 +20260,7 @@ maybe-check-readline:
 maybe-check-readline: check-readline
 
 check-readline:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -20521,7 +20275,7 @@ maybe-install-readline:
 maybe-install-readline: install-readline
 
 install-readline: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -21168,7 +20922,7 @@ maybe-check-recode:
 maybe-check-recode: check-recode
 
 check-recode:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -21183,7 +20937,7 @@ maybe-install-recode:
 maybe-install-recode: install-recode
 
 install-recode: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -21505,7 +21259,7 @@ maybe-check-sed:
 maybe-check-sed: check-sed
 
 check-sed:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -21520,7 +21274,7 @@ maybe-install-sed:
 maybe-install-sed: install-sed
 
 install-sed: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -21842,7 +21596,7 @@ maybe-check-send-pr:
 maybe-check-send-pr: check-send-pr
 
 check-send-pr:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -21857,7 +21611,7 @@ maybe-install-send-pr:
 maybe-install-send-pr: install-send-pr
 
 install-send-pr: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -22179,7 +21933,7 @@ maybe-check-shellutils:
 maybe-check-shellutils: check-shellutils
 
 check-shellutils:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -22194,7 +21948,7 @@ maybe-install-shellutils:
 maybe-install-shellutils: install-shellutils
 
 install-shellutils: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -22516,7 +22270,7 @@ maybe-check-sid:
 maybe-check-sid: check-sid
 
 check-sid:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -22531,7 +22285,7 @@ maybe-install-sid:
 maybe-install-sid: install-sid
 
 install-sid: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -22853,7 +22607,7 @@ maybe-check-sim:
 maybe-check-sim: check-sim
 
 check-sim:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -22868,7 +22622,7 @@ maybe-install-sim:
 maybe-install-sim: install-sim
 
 install-sim: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -23190,7 +22944,7 @@ maybe-check-tar:
 maybe-check-tar: check-tar
 
 check-tar:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -23205,7 +22959,7 @@ maybe-install-tar:
 maybe-install-tar: install-tar
 
 install-tar: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -23527,7 +23281,7 @@ maybe-check-texinfo:
 maybe-check-texinfo: check-texinfo
 
 check-texinfo:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -23858,7 +23612,7 @@ maybe-check-textutils:
 maybe-check-textutils: check-textutils
 
 check-textutils:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -23873,7 +23627,7 @@ maybe-install-textutils:
 maybe-install-textutils: install-textutils
 
 install-textutils: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -24195,7 +23949,7 @@ maybe-check-time:
 maybe-check-time: check-time
 
 check-time:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -24210,7 +23964,7 @@ maybe-install-time:
 maybe-install-time: install-time
 
 install-time: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -24532,7 +24286,7 @@ maybe-check-uudecode:
 maybe-check-uudecode: check-uudecode
 
 check-uudecode:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -24547,7 +24301,7 @@ maybe-install-uudecode:
 maybe-install-uudecode: install-uudecode
 
 install-uudecode: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -24869,7 +24623,7 @@ maybe-check-wdiff:
 maybe-check-wdiff: check-wdiff
 
 check-wdiff:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -24884,7 +24638,7 @@ maybe-install-wdiff:
 maybe-install-wdiff: install-wdiff
 
 install-wdiff: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -25207,7 +24961,7 @@ maybe-check-zip: check-zip
 
 # This module is only tested in a native toolchain.
 check-zip:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@if [ '$(host)' = '$(target)' ] ; then \
 	  r=`${PWD_COMMAND}`; export r; \
 	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -25224,7 +24978,7 @@ maybe-install-zip:
 maybe-install-zip: install-zip
 
 install-zip: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -26198,7 +25952,7 @@ maybe-check-gdb:
 maybe-check-gdb: check-gdb
 
 check-gdb:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -26213,7 +25967,7 @@ maybe-install-gdb:
 maybe-install-gdb: install-gdb
 
 install-gdb: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -26535,7 +26289,7 @@ maybe-check-expect:
 maybe-check-expect: check-expect
 
 check-expect:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -26550,7 +26304,7 @@ maybe-install-expect:
 maybe-install-expect: install-expect
 
 install-expect: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -26872,7 +26626,7 @@ maybe-check-guile:
 maybe-check-guile: check-guile
 
 check-guile:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -26887,7 +26641,7 @@ maybe-install-guile:
 maybe-install-guile: install-guile
 
 install-guile: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -27209,7 +26963,7 @@ maybe-check-tk:
 maybe-check-tk: check-tk
 
 check-tk:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -27224,7 +26978,7 @@ maybe-install-tk:
 maybe-install-tk: install-tk
 
 install-tk: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -27555,7 +27309,7 @@ maybe-install-libtermcap:
 maybe-install-libtermcap: install-libtermcap
 
 install-libtermcap: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -27826,7 +27580,7 @@ maybe-install-utils:
 maybe-install-utils: install-utils
 
 install-utils: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -28148,7 +27902,7 @@ maybe-check-gnattools:
 maybe-check-gnattools: check-gnattools
 
 check-gnattools:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -28163,7 +27917,7 @@ maybe-install-gnattools:
 maybe-install-gnattools: install-gnattools
 
 install-gnattools: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS) \
@@ -28502,7 +28256,7 @@ maybe-check-target-libstdc++-v3:
 maybe-check-target-libstdc++-v3: check-target-libstdc++-v3
 
 check-target-libstdc++-v3:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(RAW_CXX_TARGET_EXPORTS) \
@@ -28517,7 +28271,7 @@ maybe-install-target-libstdc++-v3:
 maybe-install-target-libstdc++-v3: install-target-libstdc++-v3
 
 install-target-libstdc++-v3: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(RAW_CXX_TARGET_EXPORTS) \
@@ -28535,7 +28289,7 @@ maybe-info-target-libstdc++-v3: info-target-libstdc++-v3
 
 info-target-libstdc++-v3: \
     configure-target-libstdc++-v3 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28561,7 +28315,7 @@ maybe-dvi-target-libstdc++-v3: dvi-target-libstdc++-v3
 
 dvi-target-libstdc++-v3: \
     configure-target-libstdc++-v3 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28587,7 +28341,7 @@ maybe-html-target-libstdc++-v3: html-target-libstdc++-v3
 
 html-target-libstdc++-v3: \
     configure-target-libstdc++-v3 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28613,7 +28367,7 @@ maybe-TAGS-target-libstdc++-v3: TAGS-target-libstdc++-v3
 
 TAGS-target-libstdc++-v3: \
     configure-target-libstdc++-v3 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28640,7 +28394,7 @@ maybe-install-info-target-libstdc++-v3: install-info-target-libstdc++-v3
 install-info-target-libstdc++-v3: \
     configure-target-libstdc++-v3 \
     info-target-libstdc++-v3 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28666,7 +28420,7 @@ maybe-installcheck-target-libstdc++-v3: installcheck-target-libstdc++-v3
 
 installcheck-target-libstdc++-v3: \
     configure-target-libstdc++-v3 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28691,7 +28445,7 @@ maybe-mostlyclean-target-libstdc++-v3:
 maybe-mostlyclean-target-libstdc++-v3: mostlyclean-target-libstdc++-v3
 
 mostlyclean-target-libstdc++-v3: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28716,7 +28470,7 @@ maybe-clean-target-libstdc++-v3:
 maybe-clean-target-libstdc++-v3: clean-target-libstdc++-v3
 
 clean-target-libstdc++-v3: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28741,7 +28495,7 @@ maybe-distclean-target-libstdc++-v3:
 maybe-distclean-target-libstdc++-v3: distclean-target-libstdc++-v3
 
 distclean-target-libstdc++-v3: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28766,7 +28520,7 @@ maybe-maintainer-clean-target-libstdc++-v3:
 maybe-maintainer-clean-target-libstdc++-v3: maintainer-clean-target-libstdc++-v3
 
 maintainer-clean-target-libstdc++-v3: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28851,7 +28605,7 @@ maybe-check-target-libmudflap:
 maybe-check-target-libmudflap: check-target-libmudflap
 
 check-target-libmudflap:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -28866,7 +28620,7 @@ maybe-install-target-libmudflap:
 maybe-install-target-libmudflap: install-target-libmudflap
 
 install-target-libmudflap: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -28884,7 +28638,7 @@ maybe-info-target-libmudflap: info-target-libmudflap
 
 info-target-libmudflap: \
     configure-target-libmudflap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28910,7 +28664,7 @@ maybe-dvi-target-libmudflap: dvi-target-libmudflap
 
 dvi-target-libmudflap: \
     configure-target-libmudflap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28936,7 +28690,7 @@ maybe-html-target-libmudflap: html-target-libmudflap
 
 html-target-libmudflap: \
     configure-target-libmudflap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28962,7 +28716,7 @@ maybe-TAGS-target-libmudflap: TAGS-target-libmudflap
 
 TAGS-target-libmudflap: \
     configure-target-libmudflap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -28989,7 +28743,7 @@ maybe-install-info-target-libmudflap: install-info-target-libmudflap
 install-info-target-libmudflap: \
     configure-target-libmudflap \
     info-target-libmudflap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29015,7 +28769,7 @@ maybe-installcheck-target-libmudflap: installcheck-target-libmudflap
 
 installcheck-target-libmudflap: \
     configure-target-libmudflap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29040,7 +28794,7 @@ maybe-mostlyclean-target-libmudflap:
 maybe-mostlyclean-target-libmudflap: mostlyclean-target-libmudflap
 
 mostlyclean-target-libmudflap: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29065,7 +28819,7 @@ maybe-clean-target-libmudflap:
 maybe-clean-target-libmudflap: clean-target-libmudflap
 
 clean-target-libmudflap: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29090,7 +28844,7 @@ maybe-distclean-target-libmudflap:
 maybe-distclean-target-libmudflap: distclean-target-libmudflap
 
 distclean-target-libmudflap: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29115,7 +28869,7 @@ maybe-maintainer-clean-target-libmudflap:
 maybe-maintainer-clean-target-libmudflap: maintainer-clean-target-libmudflap
 
 maintainer-clean-target-libmudflap: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libmudflap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29200,7 +28954,7 @@ maybe-check-target-libssp:
 maybe-check-target-libssp: check-target-libssp
 
 check-target-libssp:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -29215,7 +28969,7 @@ maybe-install-target-libssp:
 maybe-install-target-libssp: install-target-libssp
 
 install-target-libssp: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -29233,7 +28987,7 @@ maybe-info-target-libssp: info-target-libssp
 
 info-target-libssp: \
     configure-target-libssp 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libssp/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29259,7 +29013,7 @@ maybe-dvi-target-libssp: dvi-target-libssp
 
 dvi-target-libssp: \
     configure-target-libssp 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libssp/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29285,7 +29039,7 @@ maybe-html-target-libssp: html-target-libssp
 
 html-target-libssp: \
     configure-target-libssp 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libssp/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29311,7 +29065,7 @@ maybe-TAGS-target-libssp: TAGS-target-libssp
 
 TAGS-target-libssp: \
     configure-target-libssp 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libssp/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29338,7 +29092,7 @@ maybe-install-info-target-libssp: install-info-target-libssp
 install-info-target-libssp: \
     configure-target-libssp \
     info-target-libssp 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libssp/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29364,7 +29118,7 @@ maybe-installcheck-target-libssp: installcheck-target-libssp
 
 installcheck-target-libssp: \
     configure-target-libssp 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libssp/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29389,7 +29143,7 @@ maybe-mostlyclean-target-libssp:
 maybe-mostlyclean-target-libssp: mostlyclean-target-libssp
 
 mostlyclean-target-libssp: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libssp/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29414,7 +29168,7 @@ maybe-clean-target-libssp:
 maybe-clean-target-libssp: clean-target-libssp
 
 clean-target-libssp: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libssp/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29439,7 +29193,7 @@ maybe-distclean-target-libssp:
 maybe-distclean-target-libssp: distclean-target-libssp
 
 distclean-target-libssp: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libssp/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29464,7 +29218,7 @@ maybe-maintainer-clean-target-libssp:
 maybe-maintainer-clean-target-libssp: maintainer-clean-target-libssp
 
 maintainer-clean-target-libssp: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libssp/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29549,7 +29303,7 @@ maybe-check-target-newlib:
 maybe-check-target-newlib: check-target-newlib
 
 check-target-newlib:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -29564,7 +29318,7 @@ maybe-install-target-newlib:
 maybe-install-target-newlib: install-target-newlib
 
 install-target-newlib: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -29582,7 +29336,7 @@ maybe-info-target-newlib: info-target-newlib
 
 info-target-newlib: \
     configure-target-newlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/newlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29608,7 +29362,7 @@ maybe-dvi-target-newlib: dvi-target-newlib
 
 dvi-target-newlib: \
     configure-target-newlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/newlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29634,7 +29388,7 @@ maybe-html-target-newlib: html-target-newlib
 
 html-target-newlib: \
     configure-target-newlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/newlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29660,7 +29414,7 @@ maybe-TAGS-target-newlib: TAGS-target-newlib
 
 TAGS-target-newlib: \
     configure-target-newlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/newlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29687,7 +29441,7 @@ maybe-install-info-target-newlib: install-info-target-newlib
 install-info-target-newlib: \
     configure-target-newlib \
     info-target-newlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/newlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29713,7 +29467,7 @@ maybe-installcheck-target-newlib: installcheck-target-newlib
 
 installcheck-target-newlib: \
     configure-target-newlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/newlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29738,7 +29492,7 @@ maybe-mostlyclean-target-newlib:
 maybe-mostlyclean-target-newlib: mostlyclean-target-newlib
 
 mostlyclean-target-newlib: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/newlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29763,7 +29517,7 @@ maybe-clean-target-newlib:
 maybe-clean-target-newlib: clean-target-newlib
 
 clean-target-newlib: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/newlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29788,7 +29542,7 @@ maybe-distclean-target-newlib:
 maybe-distclean-target-newlib: distclean-target-newlib
 
 distclean-target-newlib: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/newlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29813,7 +29567,7 @@ maybe-maintainer-clean-target-newlib:
 maybe-maintainer-clean-target-newlib: maintainer-clean-target-newlib
 
 maintainer-clean-target-newlib: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/newlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29898,7 +29652,7 @@ maybe-check-target-libgfortran:
 maybe-check-target-libgfortran: check-target-libgfortran
 
 check-target-libgfortran:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -29913,7 +29667,7 @@ maybe-install-target-libgfortran:
 maybe-install-target-libgfortran: install-target-libgfortran
 
 install-target-libgfortran: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -29931,7 +29685,7 @@ maybe-info-target-libgfortran: info-target-libgfortran
 
 info-target-libgfortran: \
     configure-target-libgfortran 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgfortran/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29957,7 +29711,7 @@ maybe-dvi-target-libgfortran: dvi-target-libgfortran
 
 dvi-target-libgfortran: \
     configure-target-libgfortran 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgfortran/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -29983,7 +29737,7 @@ maybe-html-target-libgfortran: html-target-libgfortran
 
 html-target-libgfortran: \
     configure-target-libgfortran 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgfortran/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30009,7 +29763,7 @@ maybe-TAGS-target-libgfortran: TAGS-target-libgfortran
 
 TAGS-target-libgfortran: \
     configure-target-libgfortran 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgfortran/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30036,7 +29790,7 @@ maybe-install-info-target-libgfortran: install-info-target-libgfortran
 install-info-target-libgfortran: \
     configure-target-libgfortran \
     info-target-libgfortran 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgfortran/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30062,7 +29816,7 @@ maybe-installcheck-target-libgfortran: installcheck-target-libgfortran
 
 installcheck-target-libgfortran: \
     configure-target-libgfortran 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgfortran/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30087,7 +29841,7 @@ maybe-mostlyclean-target-libgfortran:
 maybe-mostlyclean-target-libgfortran: mostlyclean-target-libgfortran
 
 mostlyclean-target-libgfortran: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgfortran/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30112,7 +29866,7 @@ maybe-clean-target-libgfortran:
 maybe-clean-target-libgfortran: clean-target-libgfortran
 
 clean-target-libgfortran: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgfortran/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30137,7 +29891,7 @@ maybe-distclean-target-libgfortran:
 maybe-distclean-target-libgfortran: distclean-target-libgfortran
 
 distclean-target-libgfortran: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgfortran/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30162,7 +29916,7 @@ maybe-maintainer-clean-target-libgfortran:
 maybe-maintainer-clean-target-libgfortran: maintainer-clean-target-libgfortran
 
 maintainer-clean-target-libgfortran: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgfortran/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30247,7 +30001,7 @@ maybe-check-target-libobjc:
 maybe-check-target-libobjc: check-target-libobjc
 
 check-target-libobjc:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -30262,7 +30016,7 @@ maybe-install-target-libobjc:
 maybe-install-target-libobjc: install-target-libobjc
 
 install-target-libobjc: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -30280,7 +30034,7 @@ maybe-info-target-libobjc: info-target-libobjc
 
 info-target-libobjc: \
     configure-target-libobjc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libobjc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30306,7 +30060,7 @@ maybe-dvi-target-libobjc: dvi-target-libobjc
 
 dvi-target-libobjc: \
     configure-target-libobjc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libobjc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30332,7 +30086,7 @@ maybe-html-target-libobjc: html-target-libobjc
 
 html-target-libobjc: \
     configure-target-libobjc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libobjc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30358,7 +30112,7 @@ maybe-TAGS-target-libobjc: TAGS-target-libobjc
 
 TAGS-target-libobjc: \
     configure-target-libobjc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libobjc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30385,7 +30139,7 @@ maybe-install-info-target-libobjc: install-info-target-libobjc
 install-info-target-libobjc: \
     configure-target-libobjc \
     info-target-libobjc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libobjc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30411,7 +30165,7 @@ maybe-installcheck-target-libobjc: installcheck-target-libobjc
 
 installcheck-target-libobjc: \
     configure-target-libobjc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libobjc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30436,7 +30190,7 @@ maybe-mostlyclean-target-libobjc:
 maybe-mostlyclean-target-libobjc: mostlyclean-target-libobjc
 
 mostlyclean-target-libobjc: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libobjc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30461,7 +30215,7 @@ maybe-clean-target-libobjc:
 maybe-clean-target-libobjc: clean-target-libobjc
 
 clean-target-libobjc: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libobjc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30486,7 +30240,7 @@ maybe-distclean-target-libobjc:
 maybe-distclean-target-libobjc: distclean-target-libobjc
 
 distclean-target-libobjc: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libobjc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30511,7 +30265,7 @@ maybe-maintainer-clean-target-libobjc:
 maybe-maintainer-clean-target-libobjc: maintainer-clean-target-libobjc
 
 maintainer-clean-target-libobjc: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libobjc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30606,7 +30360,7 @@ maybe-install-target-libtermcap:
 maybe-install-target-libtermcap: install-target-libtermcap
 
 install-target-libtermcap: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -30624,7 +30378,7 @@ maybe-info-target-libtermcap: info-target-libtermcap
 
 info-target-libtermcap: \
     configure-target-libtermcap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libtermcap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30650,7 +30404,7 @@ maybe-dvi-target-libtermcap: dvi-target-libtermcap
 
 dvi-target-libtermcap: \
     configure-target-libtermcap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libtermcap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30676,7 +30430,7 @@ maybe-html-target-libtermcap: html-target-libtermcap
 
 html-target-libtermcap: \
     configure-target-libtermcap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libtermcap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30702,7 +30456,7 @@ maybe-TAGS-target-libtermcap: TAGS-target-libtermcap
 
 TAGS-target-libtermcap: \
     configure-target-libtermcap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libtermcap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30729,7 +30483,7 @@ maybe-install-info-target-libtermcap: install-info-target-libtermcap
 install-info-target-libtermcap: \
     configure-target-libtermcap \
     info-target-libtermcap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libtermcap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30755,7 +30509,7 @@ maybe-installcheck-target-libtermcap: installcheck-target-libtermcap
 
 installcheck-target-libtermcap: \
     configure-target-libtermcap 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libtermcap/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30880,7 +30634,7 @@ maybe-check-target-winsup:
 maybe-check-target-winsup: check-target-winsup
 
 check-target-winsup:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -30895,7 +30649,7 @@ maybe-install-target-winsup:
 maybe-install-target-winsup: install-target-winsup
 
 install-target-winsup: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -30913,7 +30667,7 @@ maybe-info-target-winsup: info-target-winsup
 
 info-target-winsup: \
     configure-target-winsup 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/winsup/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30939,7 +30693,7 @@ maybe-dvi-target-winsup: dvi-target-winsup
 
 dvi-target-winsup: \
     configure-target-winsup 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/winsup/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30965,7 +30719,7 @@ maybe-html-target-winsup: html-target-winsup
 
 html-target-winsup: \
     configure-target-winsup 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/winsup/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -30991,7 +30745,7 @@ maybe-TAGS-target-winsup: TAGS-target-winsup
 
 TAGS-target-winsup: \
     configure-target-winsup 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/winsup/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31018,7 +30772,7 @@ maybe-install-info-target-winsup: install-info-target-winsup
 install-info-target-winsup: \
     configure-target-winsup \
     info-target-winsup 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/winsup/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31044,7 +30798,7 @@ maybe-installcheck-target-winsup: installcheck-target-winsup
 
 installcheck-target-winsup: \
     configure-target-winsup 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/winsup/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31069,7 +30823,7 @@ maybe-mostlyclean-target-winsup:
 maybe-mostlyclean-target-winsup: mostlyclean-target-winsup
 
 mostlyclean-target-winsup: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/winsup/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31094,7 +30848,7 @@ maybe-clean-target-winsup:
 maybe-clean-target-winsup: clean-target-winsup
 
 clean-target-winsup: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/winsup/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31119,7 +30873,7 @@ maybe-distclean-target-winsup:
 maybe-distclean-target-winsup: distclean-target-winsup
 
 distclean-target-winsup: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/winsup/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31144,7 +30898,7 @@ maybe-maintainer-clean-target-winsup:
 maybe-maintainer-clean-target-winsup: maintainer-clean-target-winsup
 
 maintainer-clean-target-winsup: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/winsup/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31239,7 +30993,7 @@ maybe-install-target-libgloss:
 maybe-install-target-libgloss: install-target-libgloss
 
 install-target-libgloss: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -31257,7 +31011,7 @@ maybe-info-target-libgloss: info-target-libgloss
 
 info-target-libgloss: \
     configure-target-libgloss 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgloss/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31283,7 +31037,7 @@ maybe-dvi-target-libgloss: dvi-target-libgloss
 
 dvi-target-libgloss: \
     configure-target-libgloss 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgloss/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31309,7 +31063,7 @@ maybe-html-target-libgloss: html-target-libgloss
 
 html-target-libgloss: \
     configure-target-libgloss 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgloss/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31335,7 +31089,7 @@ maybe-TAGS-target-libgloss: TAGS-target-libgloss
 
 TAGS-target-libgloss: \
     configure-target-libgloss 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgloss/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31362,7 +31116,7 @@ maybe-install-info-target-libgloss: install-info-target-libgloss
 install-info-target-libgloss: \
     configure-target-libgloss \
     info-target-libgloss 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgloss/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31388,7 +31142,7 @@ maybe-installcheck-target-libgloss: installcheck-target-libgloss
 
 installcheck-target-libgloss: \
     configure-target-libgloss 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgloss/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31413,7 +31167,7 @@ maybe-mostlyclean-target-libgloss:
 maybe-mostlyclean-target-libgloss: mostlyclean-target-libgloss
 
 mostlyclean-target-libgloss: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgloss/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31438,7 +31192,7 @@ maybe-clean-target-libgloss:
 maybe-clean-target-libgloss: clean-target-libgloss
 
 clean-target-libgloss: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgloss/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31463,7 +31217,7 @@ maybe-distclean-target-libgloss:
 maybe-distclean-target-libgloss: distclean-target-libgloss
 
 distclean-target-libgloss: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgloss/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31488,7 +31242,7 @@ maybe-maintainer-clean-target-libgloss:
 maybe-maintainer-clean-target-libgloss: maintainer-clean-target-libgloss
 
 maintainer-clean-target-libgloss: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libgloss/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31573,7 +31327,7 @@ maybe-check-target-libiberty:
 maybe-check-target-libiberty: check-target-libiberty
 
 check-target-libiberty:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -31588,7 +31342,7 @@ maybe-install-target-libiberty:
 maybe-install-target-libiberty: install-target-libiberty
 
 install-target-libiberty: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -31606,7 +31360,7 @@ maybe-info-target-libiberty: info-target-libiberty
 
 info-target-libiberty: \
     configure-target-libiberty 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libiberty/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31632,7 +31386,7 @@ maybe-dvi-target-libiberty: dvi-target-libiberty
 
 dvi-target-libiberty: \
     configure-target-libiberty 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libiberty/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31658,7 +31412,7 @@ maybe-html-target-libiberty: html-target-libiberty
 
 html-target-libiberty: \
     configure-target-libiberty 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libiberty/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31684,7 +31438,7 @@ maybe-TAGS-target-libiberty: TAGS-target-libiberty
 
 TAGS-target-libiberty: \
     configure-target-libiberty 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libiberty/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31711,7 +31465,7 @@ maybe-install-info-target-libiberty: install-info-target-libiberty
 install-info-target-libiberty: \
     configure-target-libiberty \
     info-target-libiberty 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libiberty/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31737,7 +31491,7 @@ maybe-installcheck-target-libiberty: installcheck-target-libiberty
 
 installcheck-target-libiberty: \
     configure-target-libiberty 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libiberty/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31762,7 +31516,7 @@ maybe-mostlyclean-target-libiberty:
 maybe-mostlyclean-target-libiberty: mostlyclean-target-libiberty
 
 mostlyclean-target-libiberty: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libiberty/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31787,7 +31541,7 @@ maybe-clean-target-libiberty:
 maybe-clean-target-libiberty: clean-target-libiberty
 
 clean-target-libiberty: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libiberty/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31812,7 +31566,7 @@ maybe-distclean-target-libiberty:
 maybe-distclean-target-libiberty: distclean-target-libiberty
 
 distclean-target-libiberty: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libiberty/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31837,7 +31591,7 @@ maybe-maintainer-clean-target-libiberty:
 maybe-maintainer-clean-target-libiberty: maintainer-clean-target-libiberty
 
 maintainer-clean-target-libiberty: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libiberty/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31922,7 +31676,7 @@ maybe-check-target-gperf:
 maybe-check-target-gperf: check-target-gperf
 
 check-target-gperf:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -31937,7 +31691,7 @@ maybe-install-target-gperf:
 maybe-install-target-gperf: install-target-gperf
 
 install-target-gperf: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -31955,7 +31709,7 @@ maybe-info-target-gperf: info-target-gperf
 
 info-target-gperf: \
     configure-target-gperf 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/gperf/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -31981,7 +31735,7 @@ maybe-dvi-target-gperf: dvi-target-gperf
 
 dvi-target-gperf: \
     configure-target-gperf 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/gperf/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32007,7 +31761,7 @@ maybe-html-target-gperf: html-target-gperf
 
 html-target-gperf: \
     configure-target-gperf 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/gperf/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32033,7 +31787,7 @@ maybe-TAGS-target-gperf: TAGS-target-gperf
 
 TAGS-target-gperf: \
     configure-target-gperf 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/gperf/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32060,7 +31814,7 @@ maybe-install-info-target-gperf: install-info-target-gperf
 install-info-target-gperf: \
     configure-target-gperf \
     info-target-gperf 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/gperf/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32086,7 +31840,7 @@ maybe-installcheck-target-gperf: installcheck-target-gperf
 
 installcheck-target-gperf: \
     configure-target-gperf 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/gperf/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32111,7 +31865,7 @@ maybe-mostlyclean-target-gperf:
 maybe-mostlyclean-target-gperf: mostlyclean-target-gperf
 
 mostlyclean-target-gperf: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/gperf/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32136,7 +31890,7 @@ maybe-clean-target-gperf:
 maybe-clean-target-gperf: clean-target-gperf
 
 clean-target-gperf: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/gperf/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32161,7 +31915,7 @@ maybe-distclean-target-gperf:
 maybe-distclean-target-gperf: distclean-target-gperf
 
 distclean-target-gperf: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/gperf/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32186,7 +31940,7 @@ maybe-maintainer-clean-target-gperf:
 maybe-maintainer-clean-target-gperf: maintainer-clean-target-gperf
 
 maintainer-clean-target-gperf: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/gperf/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32294,7 +32048,7 @@ maybe-info-target-examples: info-target-examples
 
 info-target-examples: \
     configure-target-examples 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/examples/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32320,7 +32074,7 @@ maybe-dvi-target-examples: dvi-target-examples
 
 dvi-target-examples: \
     configure-target-examples 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/examples/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32346,7 +32100,7 @@ maybe-html-target-examples: html-target-examples
 
 html-target-examples: \
     configure-target-examples 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/examples/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32372,7 +32126,7 @@ maybe-TAGS-target-examples: TAGS-target-examples
 
 TAGS-target-examples: \
     configure-target-examples 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/examples/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32399,7 +32153,7 @@ maybe-install-info-target-examples: install-info-target-examples
 install-info-target-examples: \
     configure-target-examples \
     info-target-examples 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/examples/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32425,7 +32179,7 @@ maybe-installcheck-target-examples: installcheck-target-examples
 
 installcheck-target-examples: \
     configure-target-examples 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/examples/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32450,7 +32204,7 @@ maybe-mostlyclean-target-examples:
 maybe-mostlyclean-target-examples: mostlyclean-target-examples
 
 mostlyclean-target-examples: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/examples/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32475,7 +32229,7 @@ maybe-clean-target-examples:
 maybe-clean-target-examples: clean-target-examples
 
 clean-target-examples: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/examples/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32500,7 +32254,7 @@ maybe-distclean-target-examples:
 maybe-distclean-target-examples: distclean-target-examples
 
 distclean-target-examples: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/examples/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32525,7 +32279,7 @@ maybe-maintainer-clean-target-examples:
 maybe-maintainer-clean-target-examples: maintainer-clean-target-examples
 
 maintainer-clean-target-examples: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/examples/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32610,7 +32364,7 @@ maybe-check-target-libffi:
 maybe-check-target-libffi: check-target-libffi
 
 check-target-libffi:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -32625,7 +32379,7 @@ maybe-install-target-libffi:
 maybe-install-target-libffi: install-target-libffi
 
 install-target-libffi: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -32643,7 +32397,7 @@ maybe-info-target-libffi: info-target-libffi
 
 info-target-libffi: \
     configure-target-libffi 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32669,7 +32423,7 @@ maybe-dvi-target-libffi: dvi-target-libffi
 
 dvi-target-libffi: \
     configure-target-libffi 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32695,7 +32449,7 @@ maybe-html-target-libffi: html-target-libffi
 
 html-target-libffi: \
     configure-target-libffi 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32721,7 +32475,7 @@ maybe-TAGS-target-libffi: TAGS-target-libffi
 
 TAGS-target-libffi: \
     configure-target-libffi 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32748,7 +32502,7 @@ maybe-install-info-target-libffi: install-info-target-libffi
 install-info-target-libffi: \
     configure-target-libffi \
     info-target-libffi 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32774,7 +32528,7 @@ maybe-installcheck-target-libffi: installcheck-target-libffi
 
 installcheck-target-libffi: \
     configure-target-libffi 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32799,7 +32553,7 @@ maybe-mostlyclean-target-libffi:
 maybe-mostlyclean-target-libffi: mostlyclean-target-libffi
 
 mostlyclean-target-libffi: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32824,7 +32578,7 @@ maybe-clean-target-libffi:
 maybe-clean-target-libffi: clean-target-libffi
 
 clean-target-libffi: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32849,7 +32603,7 @@ maybe-distclean-target-libffi:
 maybe-distclean-target-libffi: distclean-target-libffi
 
 distclean-target-libffi: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32874,7 +32628,7 @@ maybe-maintainer-clean-target-libffi:
 maybe-maintainer-clean-target-libffi: maintainer-clean-target-libffi
 
 maintainer-clean-target-libffi: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libffi/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -32959,7 +32713,7 @@ maybe-check-target-libjava:
 maybe-check-target-libjava: check-target-libjava
 
 check-target-libjava:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(RAW_CXX_TARGET_EXPORTS) \
@@ -32974,7 +32728,7 @@ maybe-install-target-libjava:
 maybe-install-target-libjava: install-target-libjava
 
 install-target-libjava: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(RAW_CXX_TARGET_EXPORTS) \
@@ -32992,7 +32746,7 @@ maybe-info-target-libjava: info-target-libjava
 
 info-target-libjava: \
     configure-target-libjava 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libjava/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33018,7 +32772,7 @@ maybe-dvi-target-libjava: dvi-target-libjava
 
 dvi-target-libjava: \
     configure-target-libjava 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libjava/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33044,7 +32798,7 @@ maybe-html-target-libjava: html-target-libjava
 
 html-target-libjava: \
     configure-target-libjava 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libjava/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33070,7 +32824,7 @@ maybe-TAGS-target-libjava: TAGS-target-libjava
 
 TAGS-target-libjava: \
     configure-target-libjava 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libjava/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33097,7 +32851,7 @@ maybe-install-info-target-libjava: install-info-target-libjava
 install-info-target-libjava: \
     configure-target-libjava \
     info-target-libjava 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libjava/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33123,7 +32877,7 @@ maybe-installcheck-target-libjava: installcheck-target-libjava
 
 installcheck-target-libjava: \
     configure-target-libjava 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libjava/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33148,7 +32902,7 @@ maybe-mostlyclean-target-libjava:
 maybe-mostlyclean-target-libjava: mostlyclean-target-libjava
 
 mostlyclean-target-libjava: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libjava/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33173,7 +32927,7 @@ maybe-clean-target-libjava:
 maybe-clean-target-libjava: clean-target-libjava
 
 clean-target-libjava: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libjava/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33198,7 +32952,7 @@ maybe-distclean-target-libjava:
 maybe-distclean-target-libjava: distclean-target-libjava
 
 distclean-target-libjava: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libjava/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33223,7 +32977,7 @@ maybe-maintainer-clean-target-libjava:
 maybe-maintainer-clean-target-libjava: maintainer-clean-target-libjava
 
 maintainer-clean-target-libjava: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libjava/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33308,7 +33062,7 @@ maybe-check-target-zlib:
 maybe-check-target-zlib: check-target-zlib
 
 check-target-zlib:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -33323,7 +33077,7 @@ maybe-install-target-zlib:
 maybe-install-target-zlib: install-target-zlib
 
 install-target-zlib: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -33341,7 +33095,7 @@ maybe-info-target-zlib: info-target-zlib
 
 info-target-zlib: \
     configure-target-zlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/zlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33367,7 +33121,7 @@ maybe-dvi-target-zlib: dvi-target-zlib
 
 dvi-target-zlib: \
     configure-target-zlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/zlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33393,7 +33147,7 @@ maybe-html-target-zlib: html-target-zlib
 
 html-target-zlib: \
     configure-target-zlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/zlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33419,7 +33173,7 @@ maybe-TAGS-target-zlib: TAGS-target-zlib
 
 TAGS-target-zlib: \
     configure-target-zlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/zlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33446,7 +33200,7 @@ maybe-install-info-target-zlib: install-info-target-zlib
 install-info-target-zlib: \
     configure-target-zlib \
     info-target-zlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/zlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33472,7 +33226,7 @@ maybe-installcheck-target-zlib: installcheck-target-zlib
 
 installcheck-target-zlib: \
     configure-target-zlib 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/zlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33497,7 +33251,7 @@ maybe-mostlyclean-target-zlib:
 maybe-mostlyclean-target-zlib: mostlyclean-target-zlib
 
 mostlyclean-target-zlib: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/zlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33522,7 +33276,7 @@ maybe-clean-target-zlib:
 maybe-clean-target-zlib: clean-target-zlib
 
 clean-target-zlib: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/zlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33547,7 +33301,7 @@ maybe-distclean-target-zlib:
 maybe-distclean-target-zlib: distclean-target-zlib
 
 distclean-target-zlib: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/zlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33572,7 +33326,7 @@ maybe-maintainer-clean-target-zlib:
 maybe-maintainer-clean-target-zlib: maintainer-clean-target-zlib
 
 maintainer-clean-target-zlib: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/zlib/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33657,7 +33411,7 @@ maybe-check-target-boehm-gc:
 maybe-check-target-boehm-gc: check-target-boehm-gc
 
 check-target-boehm-gc:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -33672,7 +33426,7 @@ maybe-install-target-boehm-gc:
 maybe-install-target-boehm-gc: install-target-boehm-gc
 
 install-target-boehm-gc: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -33690,7 +33444,7 @@ maybe-info-target-boehm-gc: info-target-boehm-gc
 
 info-target-boehm-gc: \
     configure-target-boehm-gc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33716,7 +33470,7 @@ maybe-dvi-target-boehm-gc: dvi-target-boehm-gc
 
 dvi-target-boehm-gc: \
     configure-target-boehm-gc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33742,7 +33496,7 @@ maybe-html-target-boehm-gc: html-target-boehm-gc
 
 html-target-boehm-gc: \
     configure-target-boehm-gc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33768,7 +33522,7 @@ maybe-TAGS-target-boehm-gc: TAGS-target-boehm-gc
 
 TAGS-target-boehm-gc: \
     configure-target-boehm-gc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33795,7 +33549,7 @@ maybe-install-info-target-boehm-gc: install-info-target-boehm-gc
 install-info-target-boehm-gc: \
     configure-target-boehm-gc \
     info-target-boehm-gc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33821,7 +33575,7 @@ maybe-installcheck-target-boehm-gc: installcheck-target-boehm-gc
 
 installcheck-target-boehm-gc: \
     configure-target-boehm-gc 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33846,7 +33600,7 @@ maybe-mostlyclean-target-boehm-gc:
 maybe-mostlyclean-target-boehm-gc: mostlyclean-target-boehm-gc
 
 mostlyclean-target-boehm-gc: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33871,7 +33625,7 @@ maybe-clean-target-boehm-gc:
 maybe-clean-target-boehm-gc: clean-target-boehm-gc
 
 clean-target-boehm-gc: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33896,7 +33650,7 @@ maybe-distclean-target-boehm-gc:
 maybe-distclean-target-boehm-gc: distclean-target-boehm-gc
 
 distclean-target-boehm-gc: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -33921,7 +33675,7 @@ maybe-maintainer-clean-target-boehm-gc:
 maybe-maintainer-clean-target-boehm-gc: maintainer-clean-target-boehm-gc
 
 maintainer-clean-target-boehm-gc: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34006,7 +33760,7 @@ maybe-check-target-qthreads:
 maybe-check-target-qthreads: check-target-qthreads
 
 check-target-qthreads:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -34021,7 +33775,7 @@ maybe-install-target-qthreads:
 maybe-install-target-qthreads: install-target-qthreads
 
 install-target-qthreads: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -34039,7 +33793,7 @@ maybe-info-target-qthreads: info-target-qthreads
 
 info-target-qthreads: \
     configure-target-qthreads 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/qthreads/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34065,7 +33819,7 @@ maybe-dvi-target-qthreads: dvi-target-qthreads
 
 dvi-target-qthreads: \
     configure-target-qthreads 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/qthreads/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34091,7 +33845,7 @@ maybe-html-target-qthreads: html-target-qthreads
 
 html-target-qthreads: \
     configure-target-qthreads 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/qthreads/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34117,7 +33871,7 @@ maybe-TAGS-target-qthreads: TAGS-target-qthreads
 
 TAGS-target-qthreads: \
     configure-target-qthreads 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/qthreads/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34144,7 +33898,7 @@ maybe-install-info-target-qthreads: install-info-target-qthreads
 install-info-target-qthreads: \
     configure-target-qthreads \
     info-target-qthreads 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/qthreads/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34170,7 +33924,7 @@ maybe-installcheck-target-qthreads: installcheck-target-qthreads
 
 installcheck-target-qthreads: \
     configure-target-qthreads 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/qthreads/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34195,7 +33949,7 @@ maybe-mostlyclean-target-qthreads:
 maybe-mostlyclean-target-qthreads: mostlyclean-target-qthreads
 
 mostlyclean-target-qthreads: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/qthreads/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34220,7 +33974,7 @@ maybe-clean-target-qthreads:
 maybe-clean-target-qthreads: clean-target-qthreads
 
 clean-target-qthreads: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/qthreads/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34245,7 +33999,7 @@ maybe-distclean-target-qthreads:
 maybe-distclean-target-qthreads: distclean-target-qthreads
 
 distclean-target-qthreads: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/qthreads/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34270,7 +34024,7 @@ maybe-maintainer-clean-target-qthreads:
 maybe-maintainer-clean-target-qthreads: maintainer-clean-target-qthreads
 
 maintainer-clean-target-qthreads: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/qthreads/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34355,7 +34109,7 @@ maybe-check-target-rda:
 maybe-check-target-rda: check-target-rda
 
 check-target-rda:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -34370,7 +34124,7 @@ maybe-install-target-rda:
 maybe-install-target-rda: install-target-rda
 
 install-target-rda: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -34388,7 +34142,7 @@ maybe-info-target-rda: info-target-rda
 
 info-target-rda: \
     configure-target-rda 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/rda/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34414,7 +34168,7 @@ maybe-dvi-target-rda: dvi-target-rda
 
 dvi-target-rda: \
     configure-target-rda 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/rda/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34440,7 +34194,7 @@ maybe-html-target-rda: html-target-rda
 
 html-target-rda: \
     configure-target-rda 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/rda/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34466,7 +34220,7 @@ maybe-TAGS-target-rda: TAGS-target-rda
 
 TAGS-target-rda: \
     configure-target-rda 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/rda/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34493,7 +34247,7 @@ maybe-install-info-target-rda: install-info-target-rda
 install-info-target-rda: \
     configure-target-rda \
     info-target-rda 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/rda/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34519,7 +34273,7 @@ maybe-installcheck-target-rda: installcheck-target-rda
 
 installcheck-target-rda: \
     configure-target-rda 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/rda/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34544,7 +34298,7 @@ maybe-mostlyclean-target-rda:
 maybe-mostlyclean-target-rda: mostlyclean-target-rda
 
 mostlyclean-target-rda: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/rda/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34569,7 +34323,7 @@ maybe-clean-target-rda:
 maybe-clean-target-rda: clean-target-rda
 
 clean-target-rda: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/rda/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34594,7 +34348,7 @@ maybe-distclean-target-rda:
 maybe-distclean-target-rda: distclean-target-rda
 
 distclean-target-rda: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/rda/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34619,7 +34373,7 @@ maybe-maintainer-clean-target-rda:
 maybe-maintainer-clean-target-rda: maintainer-clean-target-rda
 
 maintainer-clean-target-rda: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/rda/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34704,7 +34458,7 @@ maybe-check-target-libada:
 maybe-check-target-libada: check-target-libada
 
 check-target-libada:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -34719,7 +34473,7 @@ maybe-install-target-libada:
 maybe-install-target-libada: install-target-libada
 
 install-target-libada: installdirs
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(NORMAL_TARGET_EXPORTS) \
@@ -34737,7 +34491,7 @@ maybe-info-target-libada: info-target-libada
 
 info-target-libada: \
     configure-target-libada 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libada/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34763,7 +34517,7 @@ maybe-dvi-target-libada: dvi-target-libada
 
 dvi-target-libada: \
     configure-target-libada 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libada/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34789,7 +34543,7 @@ maybe-html-target-libada: html-target-libada
 
 html-target-libada: \
     configure-target-libada 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libada/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34815,7 +34569,7 @@ maybe-TAGS-target-libada: TAGS-target-libada
 
 TAGS-target-libada: \
     configure-target-libada 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libada/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34842,7 +34596,7 @@ maybe-install-info-target-libada: install-info-target-libada
 install-info-target-libada: \
     configure-target-libada \
     info-target-libada 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libada/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34868,7 +34622,7 @@ maybe-installcheck-target-libada: installcheck-target-libada
 
 installcheck-target-libada: \
     configure-target-libada 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libada/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34893,7 +34647,7 @@ maybe-mostlyclean-target-libada:
 maybe-mostlyclean-target-libada: mostlyclean-target-libada
 
 mostlyclean-target-libada: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libada/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34918,7 +34672,7 @@ maybe-clean-target-libada:
 maybe-clean-target-libada: clean-target-libada
 
 clean-target-libada: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libada/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34943,7 +34697,7 @@ maybe-distclean-target-libada:
 maybe-distclean-target-libada: distclean-target-libada
 
 distclean-target-libada: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libada/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -34968,7 +34722,7 @@ maybe-maintainer-clean-target-libada:
 maybe-maintainer-clean-target-libada: maintainer-clean-target-libada
 
 maintainer-clean-target-libada: 
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 	@[ -f $(TARGET_SUBDIR)/libada/Makefile ] || exit 0 ; \
 	r=`${PWD_COMMAND}`; export r; \
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
@@ -35115,14 +34869,14 @@ stage = :
 
 @if gcc-bootstrap
 unstage = [ -f stage_current ] || $(MAKE) `cat stage_last`-start
-stage = $(MAKE) `cat stage_current`-end
+stage = [ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
 @endif gcc-bootstrap
 
 .PHONY: unstage stage
 unstage:
-	@$(unstage)
+	@: $(MAKE); $(unstage)
 stage:
-	@$(stage)
+	@: $(MAKE); $(stage)
 
 # We name the build directories for the various stages "stage1-gcc",
 # "stage2-gcc","stage3-gcc", etc.
@@ -35170,7 +34924,7 @@ POSTSTAGE1_FLAGS_TO_PASS = \
 .PHONY: stage1-start stage1-end
 
 stage1-start::
-	@[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
+	@: $(MAKE); $(stage); \
 	echo stage1 > stage_current ; \
 	echo stage1 > stage_last; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR) $(TARGET_SUBDIR)
@@ -35306,7 +35060,7 @@ do-clean: clean-stage1
 
 .PHONY: distclean-stage1
 distclean-stage1::
-	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
+	@: $(MAKE); $(stage)
 	rm -rf stage1-* 
 
 
@@ -35316,7 +35070,7 @@ distclean-stage1::
 .PHONY: stage2-start stage2-end
 
 stage2-start::
-	@[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
+	@: $(MAKE); $(stage); \
 	echo stage2 > stage_current ; \
 	echo stage2 > stage_last; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR) $(TARGET_SUBDIR)
@@ -35488,15 +35242,23 @@ do-clean: clean-stage2
 
 
 .PHONY: bootstrap2
-bootstrap2: stage2-bubble
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
+bootstrap2:
+	echo stage2 > stage_final
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) stage2-bubble
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(TARGET_FLAGS_TO_PASS) all-host all-target
+	@: $(MAKE); $(stage)
 
 
 # Rules to wipe a stage and all the following ones, also used for cleanstrap
 distclean-stage1:: distclean-stage2 
 .PHONY: distclean-stage2
 distclean-stage2::
-	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
+	@: $(MAKE); $(stage)
 	rm -rf stage2-* 
 
 
@@ -35506,7 +35268,7 @@ distclean-stage2::
 .PHONY: stage3-start stage3-end
 
 stage3-start::
-	@[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
+	@: $(MAKE); $(stage); \
 	echo stage3 > stage_current ; \
 	echo stage3 > stage_last; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR) $(TARGET_SUBDIR)
@@ -35668,6 +35430,7 @@ stage3-bubble:: stage2-bubble
 	  $(MAKE) stage3-start; \
 	  $(MAKE) $(RECURSE_FLAGS_TO_PASS) all-stage3; \
 	fi
+	$(MAKE) compare
 
 .PHONY: all-stage3 clean-stage3
 do-clean: clean-stage3
@@ -35683,7 +35446,7 @@ compare:
 	  echo Cannot compare object files as stage 2 was deleted. ; \
 	  exit 0 ; \
 	fi; \
-	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
+	$(stage); \
 	rm -f .bad_compare ; \
 	cd stage3-gcc; \
 	files=`find . -name "*$(objext)" -print` ; \
@@ -35713,16 +35476,23 @@ compare:
 
 
 .PHONY: bootstrap
-bootstrap: stage3-bubble
-	$(MAKE) compare
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
+bootstrap:
+	echo stage3 > stage_final
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) stage3-bubble
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(TARGET_FLAGS_TO_PASS) all-host all-target
+	@: $(MAKE); $(stage)
 
 
 # Rules to wipe a stage and all the following ones, also used for cleanstrap
 distclean-stage2:: distclean-stage3 
 .PHONY: distclean-stage3
 distclean-stage3::
-	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
+	@: $(MAKE); $(stage)
 	rm -rf stage3-* compare 
 
 
@@ -35735,7 +35505,7 @@ cleanstrap: distclean bootstrap
 .PHONY: stage4-start stage4-end
 
 stage4-start::
-	@[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
+	@: $(MAKE); $(stage); \
 	echo stage4 > stage_current ; \
 	echo stage4 > stage_last; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR) $(TARGET_SUBDIR)
@@ -35897,6 +35667,7 @@ stage4-bubble:: stage3-bubble
 	  $(MAKE) stage4-start; \
 	  $(MAKE) $(RECURSE_FLAGS_TO_PASS) all-stage4; \
 	fi
+	$(MAKE) compare3
 
 .PHONY: all-stage4 clean-stage4
 do-clean: clean-stage4
@@ -35912,7 +35683,7 @@ compare3:
 	  echo Cannot compare object files as stage 3 was deleted. ; \
 	  exit 0 ; \
 	fi; \
-	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
+	$(stage); \
 	rm -f .bad_compare ; \
 	cd stage4-gcc; \
 	files=`find . -name "*$(objext)" -print` ; \
@@ -35942,16 +35713,23 @@ compare3:
 
 
 .PHONY: bootstrap4
-bootstrap4: stage4-bubble
-	$(MAKE) compare3
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
+bootstrap4:
+	echo stage4 > stage_final
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) stage4-bubble
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(TARGET_FLAGS_TO_PASS) all-host all-target
+	@: $(MAKE); $(stage)
 
 
 # Rules to wipe a stage and all the following ones, also used for cleanstrap
 distclean-stage3:: distclean-stage4 
 .PHONY: distclean-stage4
 distclean-stage4::
-	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
+	@: $(MAKE); $(stage)
 	rm -rf stage4-* compare3 
 
 
@@ -35961,7 +35739,7 @@ distclean-stage4::
 .PHONY: stageprofile-start stageprofile-end
 
 stageprofile-start::
-	@[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
+	@: $(MAKE); $(stage); \
 	echo stageprofile > stage_current ; \
 	echo stageprofile > stage_last; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR) $(TARGET_SUBDIR)
@@ -36137,7 +35915,7 @@ do-clean: clean-stageprofile
 distclean-stage1:: distclean-stageprofile 
 .PHONY: distclean-stageprofile
 distclean-stageprofile::
-	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
+	@: $(MAKE); $(stage)
 	rm -rf stageprofile-* 
 
 
@@ -36147,7 +35925,7 @@ distclean-stageprofile::
 .PHONY: stagefeedback-start stagefeedback-end
 
 stagefeedback-start::
-	@[ -f stage_current ] && $(MAKE) `cat stage_current`-end || : ; \
+	@: $(MAKE); $(stage); \
 	echo stagefeedback > stage_current ; \
 	echo stagefeedback > stage_last; \
 	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR) $(TARGET_SUBDIR)
@@ -36319,15 +36097,23 @@ do-clean: clean-stagefeedback
 
 
 .PHONY: profiledbootstrap
-profiledbootstrap: stagefeedback-bubble
-	$(MAKE) $(RECURSE_FLAGS_TO_PASS) all
+profiledbootstrap:
+	echo stagefeedback > stage_final
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(RECURSE_FLAGS_TO_PASS) stagefeedback-bubble
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(MAKE) $(TARGET_FLAGS_TO_PASS) all-host all-target
+	@: $(MAKE); $(stage)
 
 
 # Rules to wipe a stage and all the following ones, also used for cleanstrap
 distclean-stageprofile:: distclean-stagefeedback 
 .PHONY: distclean-stagefeedback
 distclean-stagefeedback::
-	[ -f stage_current ] && $(MAKE) `cat stage_current`-end || :
+	@: $(MAKE); $(stage)
 	rm -rf stagefeedback-* 
 
 

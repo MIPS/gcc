@@ -3500,6 +3500,16 @@
   ""
 )
 
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(zero_extend:SI (subreg:QI (match_operand:SI 1 "" "") 3)))
+   (clobber (match_operand:SI 2 "s_register_operand" ""))]
+  "TARGET_ARM && (GET_CODE (operands[1]) != MEM) && BYTES_BIG_ENDIAN"
+  [(set (match_dup 2) (match_dup 1))
+   (set (match_dup 0) (and:SI (match_dup 2) (const_int 255)))]
+  ""
+)
+
 (define_insn "*compareqi_eq0"
   [(set (reg:CC_Z CC_REGNUM)
 	(compare:CC_Z (match_operand:QI 0 "s_register_operand" "r")
@@ -4082,13 +4092,10 @@
 	(match_operand:DI 1 "general_operand" ""))]
   "TARGET_EITHER"
   "
-  if (TARGET_THUMB)
+  if (!no_new_pseudos)
     {
-      if (!no_new_pseudos)
-        {
-          if (GET_CODE (operands[0]) != REG)
-	    operands[1] = force_reg (DImode, operands[1]);
-        }
+      if (GET_CODE (operands[0]) != REG)
+	operands[1] = force_reg (DImode, operands[1]);
     }
   "
 )
@@ -4097,8 +4104,10 @@
   [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r, r, r, r, m")
 	(match_operand:DI 1 "di_operand"              "rDa,Db,Dc,mi,r"))]
   "TARGET_ARM
-  && !(TARGET_HARD_FLOAT && (TARGET_MAVERICK || TARGET_VFP))
-  && !TARGET_IWMMXT"
+   && !(TARGET_HARD_FLOAT && (TARGET_MAVERICK || TARGET_VFP))
+   && !TARGET_IWMMXT
+   && (   register_operand (operands[0], DImode)
+       || register_operand (operands[1], DImode))"
   "*
   switch (which_alternative)
     {
@@ -5261,7 +5270,8 @@
   [(set (match_operand:DF 0 "nonimmediate_soft_df_operand" "=r,r,r,r,m")
 	(match_operand:DF 1 "soft_df_operand" "rDa,Db,Dc,mF,r"))]
   "TARGET_ARM && TARGET_SOFT_FLOAT
-  "
+   && (   register_operand (operands[0], DFmode)
+       || register_operand (operands[1], DFmode))"
   "*
   switch (which_alternative)
     {
@@ -7551,7 +7561,7 @@
 )
 
 (define_insn "*call_mem"
-  [(call (mem:SI (match_operand:SI 0 "memory_operand" "m"))
+  [(call (mem:SI (match_operand:SI 0 "call_memory_operand" "m"))
 	 (match_operand 1 "" ""))
    (use (match_operand 2 "" ""))
    (clobber (reg:SI LR_REGNUM))]
@@ -7645,7 +7655,7 @@
 
 (define_insn "*call_value_mem"
   [(set (match_operand 0 "" "")
-	(call (mem:SI (match_operand:SI 1 "memory_operand" "m"))
+	(call (mem:SI (match_operand:SI 1 "call_memory_operand" "m"))
 	      (match_operand 2 "" "")))
    (use (match_operand 3 "" ""))
    (clobber (reg:SI LR_REGNUM))]

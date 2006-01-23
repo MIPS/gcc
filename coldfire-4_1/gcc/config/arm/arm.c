@@ -153,6 +153,7 @@ static void arm_encode_section_info (tree, rtx, int);
 #endif
 
 static void arm_file_end (void);
+static void arm_file_start (void);
 
 #ifdef AOF_ASSEMBLER
 static void aof_globalize_label (FILE *, const char *);
@@ -200,6 +201,9 @@ static bool arm_tls_symbol_p (rtx x);
 
 #undef  TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE arm_attribute_table
+
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START arm_file_start
 
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END arm_file_end
@@ -388,6 +392,9 @@ rtx arm_compare_op0, arm_compare_op1;
 
 /* The processor for which instructions should be scheduled.  */
 enum processor_type arm_tune = arm_none;
+
+/* The default processor used if not overriden by commandline.  */
+static enum processor_type arm_default_cpu = arm_none;
 
 /* Which floating point model to use.  */
 enum arm_fp_model arm_fp_model;
@@ -1011,8 +1018,9 @@ arm_override_options (void)
 	  insn_flags = sel->flags;
 	}
       sprintf (arm_arch_name, "__ARM_ARCH_%s__", sel->arch);
+      arm_default_cpu = (enum processor_type) (sel - all_cores);
       if (arm_tune == arm_none)
-	arm_tune = (enum processor_type) (sel - all_cores);
+	arm_tune = arm_default_cpu;
     }
 
   /* The processor for which we should tune should now have been
@@ -11292,7 +11300,7 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
 /* Add a function to the list of static constructors.  */
 
 static void
-arm_elf_asm_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
+arm_elf_asm_constructor (rtx symbol, int priority)
 {
   if (!TARGET_AAPCS_BASED)
     {
@@ -11301,7 +11309,14 @@ arm_elf_asm_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
     }
 
   /* Put these in the .init_array section, using a special relocation.  */
-  ctors_section ();
+  if (priority != DEFAULT_INIT_PRIORITY)
+    {
+      char buf[18];
+      sprintf (buf, ".init_array.%.5u", priority);
+      named_section_flags (buf, SECTION_WRITE);
+    }
+  else
+    ctors_section ();
   assemble_align (POINTER_SIZE);
   fputs ("\t.word\t", asm_out_file);
   output_addr_const (asm_out_file, symbol);
@@ -14342,6 +14357,57 @@ arm_asm_output_labelref (FILE *stream, const char *name)
     fputs (name, stream);
   else
     asm_fprintf (stream, "%U%s", name);
+}
+
+static void
+arm_file_start (void)
+{
+  if (TARGET_BPABI)
+    {
+      const char *fpu_name;
+      if (arm_select[0].string)
+	asm_fprintf (asm_out_file, "\t.cpu %s\n", arm_select[0].string);
+      else if (arm_select[1].string)
+	asm_fprintf (asm_out_file, "\t.arch %s\n", arm_select[1].string);
+      else
+	asm_fprintf (asm_out_file, "\t.cpu %s\n",
+		     all_cores[arm_default_cpu].name);
+
+      if (TARGET_SOFT_FLOAT)
+	{
+	  if (TARGET_VFP)
+	    fpu_name = "softvfp";
+	  else
+	    fpu_name = "softfpa";
+	}
+      else
+	{
+	  switch (arm_fpu_arch)
+	    {
+	    case FPUTYPE_FPA:
+	      fpu_name = "fpa";
+	      break;
+	    case FPUTYPE_FPA_EMU2:
+	      fpu_name = "fpe2";
+	      break;
+	    case FPUTYPE_FPA_EMU3:
+	      fpu_name = "fpe3";
+	      break;
+	    case FPUTYPE_MAVERICK:
+	      fpu_name = "maverick";
+	      break;
+	    case FPUTYPE_VFP:
+	      if (TARGET_HARD_FLOAT_ABI)
+		asm_fprintf (asm_out_file, "\t.eabi_attribute 28, 1\n");
+	      fpu_name = "vfp";
+	      break;
+	    default:
+	      abort();
+	    }
+	}
+      asm_fprintf (asm_out_file, "\t.fpu %s\n", fpu_name);
+    }
+  default_file_start();
 }
 
 static void

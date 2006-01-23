@@ -121,6 +121,7 @@ static char
 next_char (st_parameter_dt *dtp)
 {
   int length;
+  gfc_offset record;
   char c, *p;
 
   if (dtp->u.p.last_char != '\0')
@@ -133,26 +134,64 @@ next_char (st_parameter_dt *dtp)
 
   length = 1;
 
-  p = salloc_r (dtp->u.p.current_unit->s, &length);
-  if (p == NULL)
+  /* Handle the end-of-record condition for internal array unit */
+  if (is_array_io(dtp) && dtp->u.p.current_unit->bytes_left == 0)
     {
-      generate_error (&dtp->common, ERROR_OS, NULL);
-      return '\0';
+      c = '\n';
+      record = next_array_record (dtp, dtp->u.p.current_unit->ls);
+
+      /* Check for "end-of-file condition */      
+      if (record == 0)
+        longjmp (*dtp->u.p.eof_jump, 1);
+
+      record *= dtp->u.p.current_unit->recl;
+      
+      if (sseek (dtp->u.p.current_unit->s, record) == FAILURE)
+	longjmp (*dtp->u.p.eof_jump, 1);
+
+      dtp->u.p.current_unit->bytes_left = dtp->u.p.current_unit->recl;
+      goto done;
     }
 
-  if (length == 0)
+  /* Get the next character and handle end-of-record conditions */
+  p = salloc_r (dtp->u.p.current_unit->s, &length);
+
+  if (is_internal_unit(dtp))
     {
-      /* For internal files return a newline instead of signalling EOF.  */
-      /* ??? This isn't quite right, but we don't handle internal files
-	 with multiple records.  */
-      if (is_internal_unit (dtp))
-	c = '\n';
+      if (is_array_io(dtp))
+	{
+	  /* End of record is handled in the next pass through, above.  The
+	     check for NULL here is cautionary. */
+	  if (p == NULL)
+	    {
+	      generate_error (&dtp->common, ERROR_INTERNAL_UNIT, NULL);
+	      return '\0';
+	    }
+
+	  dtp->u.p.current_unit->bytes_left--;
+	  c = *p;
+	}
       else
-	longjmp (*dtp->u.p.eof_jump, 1);
+	{
+	  if (p == NULL)
+	    longjmp (*dtp->u.p.eof_jump, 1);
+	  if (length == 0)
+	    c = '\n';
+	  else
+	    c = *p;
+	}
     }
   else
-    c = *p;
-
+    {
+      if (p == NULL)
+	{
+	  generate_error (&dtp->common, ERROR_OS, NULL);
+	  return '\0';
+	}
+      if (length == 0)
+	longjmp (*dtp->u.p.eof_jump, 1);
+      c = *p;
+    }
 done:
   dtp->u.p.at_eol = (c == '\n' || c == '\r');
   return c;
@@ -201,7 +240,7 @@ eat_spaces (st_parameter_dt *dtp)
 static void
 eat_separator (st_parameter_dt *dtp)
 {
-  char c;
+  char c, n;
 
   eat_spaces (dtp);
   dtp->u.p.comma_flag = 0;
@@ -218,8 +257,18 @@ eat_separator (st_parameter_dt *dtp)
       dtp->u.p.input_complete = 1;
       break;
 
-    case '\n':
     case '\r':
+      n = next_char(dtp);
+      if (n == '\n')
+	dtp->u.p.at_eol = 1;
+      else
+        {
+	  unget_char (dtp, n);
+	  unget_char (dtp, c);
+        } 
+      break;
+
+    case '\n':
       dtp->u.p.at_eol = 1;
       break;
 
@@ -263,7 +312,7 @@ finish_separator (st_parameter_dt *dtp)
       else
 	{
 	  c = eat_spaces (dtp);
-	  if (c == '\n')
+	  if (c == '\n' || c == '\r')
 	    goto restart;
 	}
 
@@ -796,7 +845,7 @@ read_character (st_parameter_dt *dtp, int length __attribute__ ((unused)))
 	      goto done;
 	    }
 
-	  if (c != '\n')
+	  if (c != '\n' && c != '\r')
 	    push_char (dtp, c);
 	  break;
 
@@ -1304,9 +1353,15 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
 	{			/* Found a null value.  */
 	  eat_separator (dtp);
 	  dtp->u.p.repeat_count = 0;
+
+	  /* eat_separator sets this flag if the separator was a comma */
+	  if (dtp->u.p.comma_flag)
+	    goto cleanup;
+
+	  /* eat_separator sets this flag if the separator was a \n or \r */
 	  if (dtp->u.p.at_eol)
 	    finish_separator (dtp);
-          else
+	  else
 	    goto cleanup;
 	}
 
@@ -1741,32 +1796,56 @@ nml_query (st_parameter_dt *dtp, char c)
 	  /* "&namelist_name\n"  */
 
 	  len = dtp->namelist_name_len;
+#ifdef HAVE_CRLF
+	  p = write_block (dtp, len + 3);
+#else
 	  p = write_block (dtp, len + 2);
+#endif
 	  if (!p)
 	    goto query_return;
 	  memcpy (p, "&", 1);
 	  memcpy ((char*)(p + 1), dtp->namelist_name, len);
+#ifdef HAVE_CRLF
+	  memcpy ((char*)(p + len + 1), "\r\n", 2);
+#else
 	  memcpy ((char*)(p + len + 1), "\n", 1);
+#endif
 	  for (nl = dtp->u.p.ionml; nl; nl = nl->next)
 	    {
 
 	      /* " var_name\n"  */
 
 	      len = strlen (nl->var_name);
+#ifdef HAVE_CRLF
+	      p = write_block (dtp, len + 3);
+#else
 	      p = write_block (dtp, len + 2);
+#endif
 	      if (!p)
 		goto query_return;
 	      memcpy (p, " ", 1);
 	      memcpy ((char*)(p + 1), nl->var_name, len);
+#ifdef HAVE_CRLF
+	      memcpy ((char*)(p + len + 1), "\r\n", 2);
+#else
 	      memcpy ((char*)(p + len + 1), "\n", 1);
+#endif
 	    }
 
 	  /* "&end\n"  */
 
+#ifdef HAVE_CRLF
+	  p = write_block (dtp, 6);
+#else
 	  p = write_block (dtp, 5);
+#endif
 	  if (!p)
 	    goto query_return;
+#ifdef HAVE_CRLF
+	  memcpy (p, "&end\r\n", 6);
+#else
 	  memcpy (p, "&end\n", 5);
+#endif
 	}
 
       /* Flush the stream to force immediate output.  */

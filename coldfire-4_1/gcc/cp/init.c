@@ -1019,11 +1019,11 @@ expand_member_init (tree name)
       if (!direct_binfo && !virtual_binfo)
 	{
 	  if (CLASSTYPE_VBASECLASSES (current_class_type))
-	    error ("type %qD is not a direct or virtual base of %qT",
-		   name, current_class_type);
+	    error ("type %qT is not a direct or virtual base of %qT",
+		   basetype, current_class_type);
 	  else
-	    error ("type %qD is not a direct base of %qT",
-		   name, current_class_type);
+	    error ("type %qT is not a direct base of %qT",
+		   basetype, current_class_type);
 	  return NULL_TREE;
 	}
 
@@ -1271,11 +1271,10 @@ expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags)
      as TARGET_EXPRs.  */
 
   if (init && TREE_CODE (exp) == VAR_DECL
-      && TREE_CODE (init) == CONSTRUCTOR
-      && TREE_HAS_CONSTRUCTOR (init))
+      && COMPOUND_LITERAL_P (init))
     {
       /* If store_init_value returns NULL_TREE, the INIT has been
-	 record in the DECL_INITIAL for EXP.  That means there's
+	 recorded as the DECL_INITIAL for EXP.  That means there's
 	 nothing more we have to do.  */
       init = store_init_value (exp, init);
       if (init)
@@ -1597,7 +1596,7 @@ constant_value_1 (tree decl, bool integral_p)
 	  mark_used (decl);
 	  init = DECL_INITIAL (decl);
 	}
-      if (!(init || init == error_mark_node)
+      if (!init || init == error_mark_node
 	  || !TREE_TYPE (init)
 	  || (integral_p
 	      ? !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (init))
@@ -1610,7 +1609,7 @@ constant_value_1 (tree decl, bool integral_p)
 		 || TREE_CODE (init) == CONSTRUCTOR
 		 || TREE_CODE (init) == STRING_CST)))
 	break;
-      decl = init;
+      decl = unshare_expr (init);
     }
   return decl;
 }

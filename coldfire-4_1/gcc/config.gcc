@@ -714,7 +714,7 @@ arm*-*-eabi* | arm*-*-symbianelf* )
 	  tm_file="${tm_file} arm/symbian.h"
 	  # We do not include t-bpabi for Symbian OS because the system
 	  # provides its own implementation of the BPABI functions.
-	  tmake_file="${tmake_file} t-slibgcc-elf-ver arm/t-symbian"
+	  tmake_file="${tmake_file} arm/t-symbian"
 	  ;;
 	esac
 	tm_file="${tm_file} arm/aout.h arm/arm.h"
@@ -1226,6 +1226,7 @@ i[34567]86-*-mingw32*)
 	target_gtfiles="\$(srcdir)/config/i386/winnt.c"
 	extra_options="${extra_options} i386/cygming.opt"
 	extra_objs="winnt.o winnt-stubs.o"
+	extra_parts="crtbegin.o crtend.o"
 	cxx_target_objs=winnt-cxx.o
 	case ${enable_threads} in
 	  "" | yes | win32) thread_file='win32' ;;
@@ -1585,9 +1586,9 @@ mn10300-*-*)
 	use_collect2=no
 	use_fixproto=yes
 	;;
-ms1-*-elf)
+mt-*-elf)
         tm_file="dbxelf.h elfos.h svr4.h ${tm_file}"
-        tmake_file="${tmake_file} ms1/t-ms1"
+        tmake_file="${tmake_file} mt/t-mt"
         ;;
 ns32k-*-netbsdelf*)
 	echo "GCC does not yet support the ${target} target"; exit 1

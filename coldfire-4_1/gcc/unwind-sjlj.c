@@ -35,6 +35,10 @@
 #include "unwind.h"
 #include "gthr.h"
 
+#if defined (__MINGW32__ ) || defined (__CYGWIN__)
+#include "config/i386/w32-shared-ptr.h"
+#endif
+
 #ifdef __USING_SJLJ_EXCEPTIONS__
 
 #ifdef DONT_USE_BUILTIN_SETJMP
@@ -95,12 +99,21 @@ typedef struct
 
 /* Manage the chain of registered function contexts.  */
 
+#if !(defined (__MINGW32__ ) || defined (__CYGWIN__))
 /* Single threaded fallback chain.  */
 static struct SjLj_Function_Context *fc_static;
+#else
+#define fc_static  (*(struct SjLj_Function_Context**)&__w32_sharedptr->sjlj_fc_static)
+#endif
 
 #if __GTHREADS
+#if !(defined (__MINGW32__ ) || defined (__CYGWIN__))
 static __gthread_key_t fc_key;
 static int use_fc_key = -1;
+#else
+#define fc_key      (__w32_sharedptr->sjlj_fc_key)
+#define use_fc_key  (__w32_sharedptr->sjlj_use_fc_key)
+#endif
 
 static void
 fc_key_init (void)
@@ -111,15 +124,26 @@ fc_key_init (void)
 static void
 fc_key_init_once (void)
 {
+#if !(defined (__MINGW32__ ) || defined (__CYGWIN__))
   static __gthread_once_t once = __GTHREAD_ONCE_INIT;
+#else
+#define once (__w32_sharedptr->sjlj_once)
+#endif
   if (__gthread_once (&once, fc_key_init) != 0 || use_fc_key < 0)
     use_fc_key = 0;
+#if defined (__MINGW32__ ) || defined (__CYGWIN__)
+#undef once
+#endif
 }
 #endif
 
 void
 _Unwind_SjLj_Register (struct SjLj_Function_Context *fc)
 {
+#if defined (__MINGW32__ ) || defined (__CYGWIN__)
+  W32_SHAREDPTR_INITIALIZE ();
+#endif
+
 #if __GTHREADS
   if (use_fc_key < 0)
     fc_key_init_once ();
@@ -140,6 +164,10 @@ _Unwind_SjLj_Register (struct SjLj_Function_Context *fc)
 static inline struct SjLj_Function_Context *
 _Unwind_SjLj_GetContext (void)
 {
+#if defined (__MINGW32__ ) || defined (__CYGWIN__)
+  W32_SHAREDPTR_INITIALIZE ();
+#endif
+
 #if __GTHREADS
   if (use_fc_key < 0)
     fc_key_init_once ();
@@ -153,6 +181,10 @@ _Unwind_SjLj_GetContext (void)
 static inline void
 _Unwind_SjLj_SetContext (struct SjLj_Function_Context *fc)
 {
+#if defined (__MINGW32__ ) || defined (__CYGWIN__)
+  W32_SHAREDPTR_INITIALIZE ();
+#endif
+
 #if __GTHREADS
   if (use_fc_key < 0)
     fc_key_init_once ();

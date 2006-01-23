@@ -1,6 +1,6 @@
 /* Expand the basic unary and binary arithmetic operations, for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -427,9 +427,14 @@ simplify_expand_binop (enum machine_mode mode, optab binoptab,
 		       enum optab_methods methods)
 {
   if (CONSTANT_P (op0) && CONSTANT_P (op1))
-    return simplify_gen_binary (binoptab->code, mode, op0, op1);
-  else
-    return expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods);
+    {
+      rtx x = simplify_binary_operation (binoptab->code, mode, op0, op1);
+
+      if (x)
+	return x;
+    }
+
+  return expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods);
 }
 
 /* Like simplify_expand_binop, but always put the result in TARGET.
@@ -1399,7 +1404,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
       && ashl_optab->handlers[(int) word_mode].insn_code != CODE_FOR_nothing
       && lshr_optab->handlers[(int) word_mode].insn_code != CODE_FOR_nothing)
     {
-      rtx insns, equiv_value;
+      rtx insns;
       rtx into_target, outof_target;
       rtx into_input, outof_input;
       rtx inter;
@@ -1499,20 +1504,7 @@ expand_binop (enum machine_mode mode, optab binoptab, rtx op0, rtx op1,
 
       if (inter != 0)
 	{
-	  if (binoptab->code != UNKNOWN)
-	    equiv_value = gen_rtx_fmt_ee (binoptab->code, mode, op0, op1);
-	  else
-	    equiv_value = 0;
-
-	  /* We can't make this a no conflict block if this is a word swap,
-	     because the word swap case fails if the input and output values
-	     are in the same register.  */
-	  if (shift_count != BITS_PER_WORD)
-	    emit_no_conflict_block (insns, target, op0, op1, equiv_value);
-	  else
-	    emit_insn (insns);
-
-
+	  emit_insn (insns);
 	  return target;
 	}
     }
@@ -5524,13 +5516,13 @@ expand_vec_cond_expr (tree vec_cond_expr, rtx target)
   cc_op1 = XEXP (comparison, 1);
   /* Expand both operands and force them in reg, if required.  */
   rtx_op1 = expand_expr (TREE_OPERAND (vec_cond_expr, 1),
-			 NULL_RTX, VOIDmode, 1);
+			 NULL_RTX, VOIDmode, EXPAND_NORMAL);
   if (!insn_data[icode].operand[1].predicate (rtx_op1, mode)
       && mode != VOIDmode)
     rtx_op1 = force_reg (mode, rtx_op1);
 
   rtx_op2 = expand_expr (TREE_OPERAND (vec_cond_expr, 2),
-			 NULL_RTX, VOIDmode, 1);
+			 NULL_RTX, VOIDmode, EXPAND_NORMAL);
   if (!insn_data[icode].operand[2].predicate (rtx_op2, mode)
       && mode != VOIDmode)
     rtx_op2 = force_reg (mode, rtx_op2);

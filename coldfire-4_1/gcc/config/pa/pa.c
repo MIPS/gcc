@@ -2195,6 +2195,25 @@ output_move_double (rtx *operands)
      supposed to allow to happen.  */
   gcc_assert (optype0 == REGOP || optype1 == REGOP);
 
+  /* Handle copies between general and floating registers.  */
+
+  if (optype0 == REGOP && optype1 == REGOP
+      && FP_REG_P (operands[0]) ^ FP_REG_P (operands[1]))
+    {
+      if (FP_REG_P (operands[0]))
+	{
+	  output_asm_insn ("{stws|stw} %1,-16(%%sp)", operands);
+	  output_asm_insn ("{stws|stw} %R1,-12(%%sp)", operands);
+	  return "{fldds|fldd} -16(%%sp),%0";
+	}
+      else
+	{
+	  output_asm_insn ("{fstds|fstd} %1,-16(%%sp)", operands);
+	  output_asm_insn ("{ldws|ldw} -16(%%sp),%0", operands);
+	  return "{ldws|ldw} -12(%%sp),%R0";
+	}
+    }
+
    /* Handle auto decrementing and incrementing loads and stores
      specifically, since the structure of the function doesn't work
      for them without major modification.  Do it better when we learn
@@ -9037,19 +9056,17 @@ som_text_section_asm_op (void)
 	      && !DECL_WEAK (cfun->decl))
 	    return
  "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,SORT=24,COMDAT";
-
-	  return "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$";
 	}
       else
 	{
 	  /* There isn't a current function or the body of the current
 	     function has been completed.  So, we are changing to the
-	     text section to output debugging information.  Do this in
-	     the default text section.  We need to forget that we are
-	     in the text section so that the function text_section in
-	     varasm.c will call us the next time around.  */
+	     text section to output debugging information.  We need to
+	     forget that we are in the text section so that the function
+	     text_section in varasm.c will call us the next time around.  */
 	  forget_section ();
 	}
+      return "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$";
     }
 
   return "\t.SPACE $TEXT$\n\t.SUBSPA $CODE$";

@@ -30,6 +30,11 @@ toolexeclib_LTLIBRARIES = libsupc++.la
 # 2) integrated libsupc++convenience.la that is to be a part of libstdc++.a
 noinst_LTLIBRARIES = libsupc++convenience.la
 
+if LIBSUPCXX_PRONLY
+sources = \
+	eh_personality.cc
+
+else
 
 headers = \
 	exception new typeinfo cxxabi.h exception_defines.h
@@ -68,6 +73,7 @@ sources = \
 	tinfo2.cc \
 	vec.cc \
 	vterminate.cc
+endif
 
 libsupc___la_SOURCES = $(sources) $(c_sources)
 libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
@@ -138,6 +144,8 @@ LTCXXCOMPILE = $(LIBTOOL) --tag CXX --tag disable-shared \
 	       --mode=compile $(CXX) $(TOPLEVEL_INCLUDES) \
 	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS)
 
+LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
+
 # 3) We'd have a problem when building the shared libstdc++ object if
 # the rules automake generates would be used.  We cannot allow g++ to
 # be used since this would add -lstdc++ to the link line which of
@@ -146,7 +154,7 @@ LTCXXCOMPILE = $(LIBTOOL) --tag CXX --tag disable-shared \
 # compilation driver.
 CXXLINK = $(LIBTOOL) --tag CXX --tag disable-shared \
 	  --mode=link $(CXX) \
-	  $(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LDFLAGS) -o $@
+	  $(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
 
 # We have to have rules modified from the default to counteract SUN make
 # prepending each of $(glibcxxinstall_HEADERS) with VPATH below.

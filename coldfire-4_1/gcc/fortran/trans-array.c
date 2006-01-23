@@ -4173,7 +4173,9 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
 
   gfc_init_block (&fnblock);
 
-  gcc_assert (TREE_CODE (sym->backend_decl) == VAR_DECL);
+  gcc_assert (TREE_CODE (sym->backend_decl) == VAR_DECL
+                || TREE_CODE (sym->backend_decl) == PARM_DECL);
+
   if (sym->ts.type == BT_CHARACTER
       && !INTEGER_CST_P (sym->ts.cl->backend_decl))
     gfc_trans_init_string_length (sym->ts.cl, &fnblock);
@@ -4438,7 +4440,7 @@ gfc_walk_op_expr (gfc_ss * ss, gfc_expr * expr)
 
 /* Reverse a SS chain.  */
 
-static gfc_ss *
+gfc_ss *
 gfc_reverse_ss (gfc_ss * ss)
 {
   gfc_ss *next;
@@ -4464,10 +4466,9 @@ gfc_reverse_ss (gfc_ss * ss)
 /* Walk the arguments of an elemental function.  */
 
 gfc_ss *
-gfc_walk_elemental_function_args (gfc_ss * ss, gfc_expr * expr,
+gfc_walk_elemental_function_args (gfc_ss * ss, gfc_actual_arglist *arg,
 				  gfc_ss_type type)
 {
-  gfc_actual_arglist *arg;
   int scalar;
   gfc_ss *head;
   gfc_ss *tail;
@@ -4476,7 +4477,7 @@ gfc_walk_elemental_function_args (gfc_ss * ss, gfc_expr * expr,
   head = gfc_ss_terminator;
   tail = NULL;
   scalar = 1;
-  for (arg = expr->value.function.actual; arg; arg = arg->next)
+  for (; arg; arg = arg->next)
     {
       if (!arg->expr)
 	continue;
@@ -4553,7 +4554,8 @@ gfc_walk_function_expr (gfc_ss * ss, gfc_expr * expr)
   /* Walk the parameters of an elemental function.  For now we always pass
      by reference.  */
   if (sym->attr.elemental)
-    return gfc_walk_elemental_function_args (ss, expr, GFC_SS_REFERENCE);
+    return gfc_walk_elemental_function_args (ss, expr->value.function.actual,
+					     GFC_SS_REFERENCE);
 
   /* Scalar functions are OK as these are evaluated outside the scalarization
      loop.  Pass back and let the caller deal with it.  */

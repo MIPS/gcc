@@ -2314,10 +2314,20 @@ constrain_operands (int strict)
 
 	  earlyclobber[opno] = 0;
 
+#ifndef KEEP_UNARY_OPERATORS_AT_CONSTRAINT_CHECKING
+	  /* This macro and the code within is slated for removal in
+	     4.2, hence not documented further than in this comment.
+	     It only makes a difference if both an insn operand
+	     predicate is absent or allows unary operators and its
+	     constraints are present.  See gcc-patches mailing list
+	     thread starting at
+	     <URL:http://gcc.gnu.org/ml/gcc-patches/2005-10/msg00940.html>.  */
+
 	  /* A unary operator may be accepted by the predicate, but it
 	     is irrelevant for matching constraints.  */
 	  if (UNARY_P (op))
 	    op = XEXP (op, 0);
+#endif
 
 	  if (GET_CODE (op) == SUBREG)
 	    {
@@ -2389,12 +2399,16 @@ constrain_operands (int strict)
 		      rtx op1 = recog_data.operand[match];
 		      rtx op2 = recog_data.operand[opno];
 
+#ifndef KEEP_UNARY_OPERATORS_AT_CONSTRAINT_CHECKING
+		      /* See comment at similar #ifndef above.  */
+
 		      /* A unary operator may be accepted by the predicate,
 			 but it is irrelevant for matching constraints.  */
 		      if (UNARY_P (op1))
 			op1 = XEXP (op1, 0);
 		      if (UNARY_P (op2))
 			op2 = XEXP (op2, 0);
+#endif
 
 		      val = operands_match_p (op1, op2);
 		    }
@@ -3104,8 +3118,18 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 	      propagate_one_insn (pbi, insn);
 	      COPY_REG_SET (peep2_insn_data[peep2_current].live_before, live);
 
-	      /* Match the peephole.  */
-	      try = peephole2_insns (PATTERN (insn), insn, &match_len);
+	      if (RTX_FRAME_RELATED_P (insn))
+		{
+		  /* If an insn has RTX_FRAME_RELATED_P set, peephole
+		     substitution would lose the
+		     REG_FRAME_RELATED_EXPR that is attached.  */
+		  peep2_current_count = 0;
+		  try = NULL;
+		}
+	      else
+		/* Match the peephole.  */
+		try = peephole2_insns (PATTERN (insn), insn, &match_len);
+
 	      if (try != NULL)
 		{
 		  /* If we are splitting a CALL_INSN, look for the CALL_INSN
@@ -3553,3 +3577,4 @@ struct tree_opt_pass pass_split_before_regstack =
   TODO_dump_func,                       /* todo_flags_finish */
   0                                     /* letter */
 };
+

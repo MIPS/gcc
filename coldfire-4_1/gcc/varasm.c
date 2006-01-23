@@ -3665,18 +3665,24 @@ initializer_constant_valid_p (tree value, tree endtype)
     case ADDR_EXPR:
     case FDESC_EXPR:
       value = staticp (TREE_OPERAND (value, 0));
-      /* "&(*a).f" is like unto pointer arithmetic.  If "a" turns out to
-	 be a constant, this is old-skool offsetof-like nonsense.  */
-      if (value
-	  && TREE_CODE (value) == INDIRECT_REF
-	  && TREE_CONSTANT (TREE_OPERAND (value, 0)))
-	return null_pointer_node;
-      /* Taking the address of a nested function involves a trampoline.  */
-      if (value
-	  && TREE_CODE (value) == FUNCTION_DECL
-	  && ((decl_function_context (value) && !DECL_NO_STATIC_CHAIN (value))
-	      || DECL_DLLIMPORT_P (value)))
-	return NULL_TREE;
+      if (value)
+	{
+	  /* "&(*a).f" is like unto pointer arithmetic.  If "a" turns out to
+	     be a constant, this is old-skool offsetof-like nonsense.  */
+	  if (TREE_CODE (value) == INDIRECT_REF
+	      && TREE_CONSTANT (TREE_OPERAND (value, 0)))
+	    return null_pointer_node;
+	  /* Taking the address of a nested function involves a trampoline.  */
+	  if (TREE_CODE (value) == FUNCTION_DECL
+	      && ((decl_function_context (value) 
+		   && !DECL_NO_STATIC_CHAIN (value))
+		  || DECL_DLLIMPORT_P (value)))
+	    return NULL_TREE;
+	  /* "&{...}" requires a temporary to hold the constructed
+	     object.  */
+	  if (TREE_CODE (value) == CONSTRUCTOR)
+	    return NULL_TREE;
+	}
       return value;
 
     case VIEW_CONVERT_EXPR:
@@ -5477,11 +5483,20 @@ default_unique_section_1 (tree decl, int reloc, int shlib)
       prefix = one_only ? ".gnu.linkonce.s2." : ".sdata2.";
       break;
     case SECCAT_DATA:
-    case SECCAT_DATA_REL:
-    case SECCAT_DATA_REL_LOCAL:
-    case SECCAT_DATA_REL_RO:
-    case SECCAT_DATA_REL_RO_LOCAL:
       prefix = one_only ? ".gnu.linkonce.d." : ".data.";
+      break;
+    case SECCAT_DATA_REL:
+      prefix = one_only ? ".gnu.linkonce.d.rel." : ".data.rel.";
+      break;
+    case SECCAT_DATA_REL_LOCAL:
+      prefix = one_only ? ".gnu.linkonce.d.rel.local." : ".data.rel.local.";
+      break;
+    case SECCAT_DATA_REL_RO:
+      prefix = one_only ? ".gnu.linkonce.d.rel.ro." : ".data.rel.ro.";
+      break;
+    case SECCAT_DATA_REL_RO_LOCAL:
+      prefix = one_only ? ".gnu.linkonce.d.rel.ro.local."
+	       : ".data.rel.ro.local.";
       break;
     case SECCAT_SDATA:
       prefix = one_only ? ".gnu.linkonce.s." : ".sdata.";

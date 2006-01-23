@@ -809,7 +809,9 @@ tree
 gfc_get_symbol_decl (gfc_symbol * sym)
 {
   tree decl;
+  tree etype = NULL_TREE;
   tree length = NULL_TREE;
+  tree tmp = NULL_TREE;
   int byref;
 
   gcc_assert (sym->attr.referenced);
@@ -846,6 +848,21 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 		{
 		  gfc_finish_var_decl (length, sym);
 		  gfc_defer_symbol_init (sym);
+		}
+	    }
+
+	  /* Set the element size of automatic and assumed character length
+	     length, dummy, pointer arrays.  */
+	  if (sym->attr.pointer && sym->attr.dummy
+		&& sym->attr.dimension)
+	    {
+	      tmp = gfc_build_indirect_ref (sym->backend_decl);
+	      etype = gfc_get_element_type (TREE_TYPE (tmp));
+	      if (TYPE_SIZE_UNIT (etype) == NULL_TREE)
+		{
+		  tmp = TYPE_SIZE_UNIT (gfc_character1_type_node);
+		  tmp = fold_convert (TREE_TYPE (tmp), sym->ts.cl->backend_decl);
+		  TYPE_SIZE_UNIT (etype) = tmp;
 		}
 	    }
 	}
@@ -1076,7 +1093,7 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
      sense.  */
   if (sym->attr.pure || sym->attr.elemental)
     {
-      if (sym->attr.function)
+      if (sym->attr.function && !gfc_return_by_reference (sym))
 	DECL_IS_PURE (fndecl) = 1;
       /* TODO: check if pure SUBROUTINEs don't have INTENT(OUT)
 	 parameters and don't use alternate returns (is this
@@ -2366,7 +2383,8 @@ gfc_create_module_variable (gfc_symbol * sym)
     return;
 
   /* Equivalenced variables arrive here after creation.  */
-  if (sym->backend_decl && sym->equiv_built)
+  if (sym->backend_decl
+	&& (sym->equiv_built || sym->attr.in_equivalence))
       return;
 
   if (sym->backend_decl)
@@ -2540,9 +2558,6 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   trans_function_start (sym);
 
-  /* Will be created as needed.  */
-  current_fake_result_decl = NULL_TREE;
-
   gfc_start_block (&block);
 
   if (ns->entries && ns->proc_name->ts.type == BT_CHARACTER)
@@ -2564,7 +2579,9 @@ gfc_generate_function_code (gfc_namespace * ns)
   gfc_generate_contained_functions (ns);
 
   generate_local_vars (ns);
-
+  
+  /* Will be created as needed.  */
+  current_fake_result_decl = NULL_TREE;
   current_function_return_label = NULL;
 
   /* Now generate the code for the body of this function.  */

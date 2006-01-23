@@ -144,7 +144,8 @@ sources = \
 	concept-inst.cc \
 	fstream-inst.cc \
 	ext-inst.cc \
-	io-inst.cc \
+	ios-inst.cc \
+	iostream-inst.cc \
 	istream-inst.cc \
 	istream.cc \
 	locale-inst.cc \
@@ -223,6 +224,8 @@ AM_CXXFLAGS = \
 LTCXXCOMPILE = $(LIBTOOL) --tag CXX --mode=compile $(CXX) $(INCLUDES) \
 	       $(AM_CPPFLAGS) $(CPPFLAGS) $(CXXFLAGS) $(AM_CXXFLAGS)
 
+LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
+
 # 3) We'd have a problem when building the shared libstdc++ object if
 # the rules automake generates would be used.  We cannot allow g++ to
 # be used since this would add -lstdc++ to the link line which of
@@ -230,7 +233,7 @@ LTCXXCOMPILE = $(LIBTOOL) --tag CXX --mode=compile $(CXX) $(INCLUDES) \
 # directory to configure libstdc++-v3 to use gcc as the C++
 # compilation driver.
 CXXLINK = $(LIBTOOL) --tag CXX --mode=link $(CXX) \
-	  $(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LDFLAGS) -o $@
+	  $(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
 
 
 # Added bits to build debug library.

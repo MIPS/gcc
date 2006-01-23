@@ -1,3 +1,393 @@
+2006-01-12  Jan Beulich  <jbeulich@novell.com>
+
+	* crossconfig.m4: Add AC_DEFINE-s for HAVE_HYPOT, HAVE_ISINF, and
+	HAVE_ISNAN for *-*-netware*.
+	* configure: Refresh.
+
+2006-01-10  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* include/bits/valarray_after.h (_Expr<>::operator[](slice)):
+	Don't assume the closure implements general indexing, as a matter
+	of fact, most of them don't.
+	(_Expr<>::operator[](const gslice&)): Likewise.
+	(_Expr<>::operator[](const valarray<bool>&)): Likewise.
+	(_Expr<>::operator[](const valarray<size_t>&)): Likewise.
+	(_Expr<>::shift): Fix thinko.
+	(_Expr<>::cshift): Likewise.
+	(_Expr<>::apply): Likewise.
+
+2006-01-10  Benjamin Kosnik  <bkoz@redhat.com>
+            Ulrich Drepper  <drepper@redhat.com>
+
+	PR libstdc++/23591
+	* scripts/create_testsuite_files: Support for "C" test files.
+	* testsuite/lib/libstdc++.exp: Same.
+	* testsuite/libstdc++-dg/normal.exp: Same.
+	* testsuite/ext/mt_allocator/22309_thread.cc: Update names.
+	* testsuite/19_diagnostics/23591_thread-1.c: New.
+	* testsuite/testsuite_shared.cc: Add tests, rename existing functions.
+	* libsupc++/eh_globals.cc: Make global thread local if possible.
+	* configure.ac: Use GCC_CHECK_TLS.
+	* acinclude.m4: Include tls.m4.
+	* configure: Regenerate.
+	* config.h.in: Same.
+
+2006-01-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/25472
+	* include/c_std/std_cstdlib.h: Fix for freestanding.
+
+2006-01-09  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/io-inst.cc: Separate instantiations into...
+	* src/ios-inst.cc: .. this.
+	* src/iostream-inst.cc: ... and this.
+	* src/Makefile.am (sources): Update.
+	* src/Makefile.in: Regenerate.
+
+2006-01-08  Paolo Carlini  <pcarlini@suse.de>
+	
+	* testsuite/testsuite_hooks.h (test_tm): New.
+	* testsuite/testsuite_hooks.cc (test_tm)): Define.
+	* testsuite/22_locale/time_put/put/wchar_t/10.cc: Use it.
+	* testsuite/22_locale/time_put/put/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/6.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/7.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/8.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/9.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/17038.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/10.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/1.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/6.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/7.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/8.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/9.cc: Likewise.
+	* testsuite/22_locale/time_put/put/char/17038.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_year/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_monthname/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_weekday/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/12750.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_date/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/1.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/2.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/3.cc: Likewise.
+	* testsuite/22_locale/time_get/get_time/char/4.cc: Likewise.
+
+2006-01-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_stringstream/str/char/1.cc: Initialize vars.
+	* testsuite/27_io/basic_stringstream/str/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_istringstream/str/char/1.cc: Likewise, tidy.
+	* testsuite/27_io/basic_istringstream/str/wchar_t/1.cc: Likewise.
+
+2005-12-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/25_algorithms/heap/heap.cc (test01): Always enable
+	complexity checks.
+	* testsuite/18_support/numeric_limits/specialization.cc: Avoid
+	unused parameter warning.
+	* testsuite/18_support/numeric_limits/traps.cc: Acoid unused variable
+	warning.
+	* testsuite/ext/malloc_allocator/deallocate_global.cc: Fix format
+	string.
+	* testsuite/ext/malloc_allocator/deallocate_local.cc: Likewise.
+	* testsuite/ext/array_allocator/2.cc: Remove unused variable.
+	* testsuite/tr1/3_function_objects/mem_fn.cc: Avoid unused variable
+	warnings.
+	* testsuite/tr1/6_containers/unordered/instantiate/set.cc: Just
+	instantiate.
+	* testsuite/tr1/6_containers/unordered/instantiate/map.cc: Likewise.
+	* testsuite/tr1/6_containers/unordered/instantiate/hash.cc: Likewise.
+	* testsuite/tr1/6_containers/unordered/instantiate/multiset.cc:
+	Likewise.
+	* testsuite/tr1/6_containers/unordered/instantiate/multimap.cc:
+	Likewise.
+	* testsuite/tr1/6_containers/array/cons/aggregate_initialization.cc:
+	Avoid unused variable warnings.
+	* testsuite/tr1/6_containers/array/requirements/zero_sized_arrays.cc:
+	Likewise.
+	* testsuite/thread/18185.cc: Likewise.
+	* testsuite/27_io/ios_base/storage/11584.cc: Likewise; avoid comparison
+	between signed and unsigned warning.
+	* testsuite/27_io/types/1.cc: Avoid unused variable warnings.
+	* testsuite/testsuite_allocator.h (check_new): Likewise.
+	(check_deallocate_null): Adjust return type.
+	* testsuite/testsuite_hooks.h (bitmask_operators): Avoid unused
+	variable warnings.
+	* testsuite/21_strings/c_strings/wchar_t/24559.cc: Avoid unused
+	variable warning.
+
+2005-12-28  Chris Jefferson  <chris@bubblescope.net>
+
+	* testsuite/tr1/6_containers/unordered/insert/multiset_range.cc
+	(test01): Add static cast.
+	* testsuite/tr1/6_containers/unordered/insert/set_range.cc
+	(test01): Likewise.
+	* testsuite/testsuite_allocator.h (check_deallocate_null): Return
+	true.
+	* testsuite/testsuite_hooks.h (operator==(NonDefaultConstructible,
+	NonDefaultConstructible), operator<(NonDefaultConstructible,
+	NonDefaultConstrictible)): Avoid unused parameter warning.
+
+2005-12-26  Chris Jefferson  <chris@bubblescope.net>
+
+	* include/ext/mt_allocator.h (__mt_alloc::__mt_alloc): Remove
+	name of unused parameter.
+	* include/bits/stream_iterator.h (istream_iterator::istream_iterator):
+	Construct _M_value.
+	* include/debug/functions.h (__check_valid_range): Add
+	__attribute__((unused)).
+	* include/tr1/hashtable (hashtable::end): Remove name of unused
+	parameter.
+	* include/tr1/tuple_iterate.h (tuple::tuple): Likewise.
+	(tuple::operator=): Add __attribute__((unused)).
+	* include/tr1/functional (Fnv_hash<4>::hash): Add static_cast.
+	(Fnv_hash<8>::hash): Likewise.
+
+	* testsuite/25_algorithms/iter_swap/20577.cc (swap): Remove name of
+	unused parameter.
+	* testsuite/25_algorithms/unique_copy/check_type.cc (S2::S2,X2::X2):
+	Likewise.
+	* testsuite/22_locale/ctype/narrow/char/19955.cc (do_narrow): Likewise.
+	* testsuite/22_locale/ctype/is/char/9858.cc (Derived::do_is, 
+	Derived::do_scan_is, Derived::do_scan_not, Derived2::do_is,
+	Derived2::do_scan_is, Derived2::do_scan_not): Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/12439_1.cc (TP::do_put):
+	Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/12439_3.cc (TP::do_put):
+	Likewise.
+	* testsuite/22_locale/time_put/put/char/12439_1.cc (TP::do_put):
+	Likewise.
+	* testsuite/22_locale/time_put/put/char/12439_3.cc (TP::do_put):
+	Likewise.
+	* testsuite/testsuite_io.h (fail_num_get::do_get, fail_num_put::do_put):
+	Likewise.
+	* testsuite/25_algorithms/find/17441.cc (find): Likewise.
+	* testsuite/23_containers/vector/cons/clear_allocator.cc
+	(clear_alloc::clear_alloc): Likewise.
+	* testsuite/23_containers/vector/bool/clear_allocator.cc
+	(clear_alloc::clear_alloc): Likewise.
+	* testsuite/23_containers/list/cons/clear_allocator.cc
+	(clear_alloc::clear_alloc): Likewise.
+	* testsuite/23_containers/set/modifiers/16728.cc (test_container):
+	Likewise.
+	* testsuite/27_io/basic_ios/cons/char/3.cc (char_traits::to_char_type,
+	to_int_type): Likewise.
+	* testsuite/27_io/basic_filebuf/imbue/12206.cc (codecvt::do_out, do_in,
+	do_unshift, do_length): Likewise.
+	* testsuite/21_strings/basic_string/capacity/1.cc 
+	(operator==(A<T>,A<T>), operator<(A<T>,A<T>),
+	char_traits::to_char_type, char_traits::to_int_type): Likewise
+	* testsuite/testsuite_character.h (ctype::do_is, ctype::do_scan_is,
+	ctype::do_scan_not, do_toupper, do_tolower): Likewise.
+	* testsuite/25_algorithms/replace_copy/check_type.cc (Z::operator=):
+	Add missing return statement.
+	* testsuite/25_algorithms/replace_copy_if/check_type.cc (Z::operator=):
+	Likewise.
+	* testsuite/testsuite_iterators.h (output_iterator_wrapper::operator=,
+	random_access_iterator_wrapper::operator==): Likewise.
+	* testsuite/20_util/functional/binders/1.cc (s::f_int_int_const,
+	s::f_int_int, s::f_int_void_const, s::f_int_void): Likewise.
+	* testsuite/27_io/types/1.cc (test01): Likewise.
+	* testsuite/27_io/basic_ostream/write/wchar_t/1.cc (test01): Likewise.
+	* testsuite/27_io/basic_ostream/write/char/1.cc (test01): Likewise.
+	* testsuite/21_strings/c_strings/wchar_t/24559.cc (main): Likewise.
+	* testsuite/27_io/basic_istream/ignore/wchar_t/2.cc (check): Add static
+	cast.
+	* testsuite/27_io/basic_istream/ignore/char/2.cc (check): Likewise.
+	* testsuite/27_io/basic_istream/getline/wchar_t/5.cc (check): Likewise.
+	* testsuite/27_io/basic_istream/getline/char/5.cc (check): Likewise.
+	* testsuite/testsuite_allocator.h (check_new): Likewise.
+	(check_deallocate_null): Add missing return value.
+	* testsuite/ext/pool_allocator/allocate_chunk.cc (test01):
+	Make variable unsigned.
+	* testsuite/26_numerics/valarray/valarray_subset_assignment.cc
+	(check_array): Likewise.
+	(main): Removed unused variable.
+	* testsuite/27_io/basic_streambuf/in_avail/wchar_t/1.cc (test05):
+	Removed unused variable.
+	* testsuite/27_io/basic_ostream/flush/wchar_t/1.cc (test01): Likewise.
+	* testsuite/27_io/basic_ostream/flush/char/1.cc (test01): Likewise.
+	* testsuite/27_io/basic_ostream/endl/wchar_t/1.cc (test01): Likewise.
+	* testsuite/27_io/basic_ostream/endl/char/1.cc (test01): Likewise.
+	* testsuite/27_io/basic_ostream/ends/wchar_t/1.cc (test01): Likewise.
+	* testsuite/27_io/basic_ostream/ends/char/1.cc (test01): Likewise.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/
+	assign/shared_ptr.cc (test01): Correct return type.	
+	* testsuite/27_io/basic_filebuf/close/char/2.cc (test_02):
+	Add default value to close_num.
+
+2005-12-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/4_metaprogramming/type_properties/is_empty/is_empty.cc:
+	Fix class NonEmptyClassTwo.
+
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_vector.h (vector<>::_M_get_Tp_allocator): Change
+	to return by ref and add non const version.
+	* include/bits/stl_deque.h (deque<>::_M_get_Tp_allocator): Likewise.
+
+2005-12-15  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/25421
+	* config/locale/gnu/c_locale.cc (_S_destroy_c_locale): Check
+	for null argument.
+	* testsuite/22_locale/facet/25421.cc: New.
+
+2005-12-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_compare):
+	Add, specialized for char and wchar_t to immediately return true
+	when a string is compared to itself.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_compare):
+	Likewise, for the same _Rep.
+	* include/ext/vstring.h (compare(const string&)): Use it.
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_destroy):
+	Deallocate passed size + 1.
+	(_M_dispose, _M_reserve): Adjust.
+
+2005-12-08  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2005-11-23  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/24975 (basic_string)
+	* include/bits/basic_string.h (_Rep::_S_empty_rep): Avoid
+	strict-aliasing warnings.
+
+2005-12-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/configopts.html ([--enable-libstdcxx-allocator]):
+	Mention the SGI pooled allocator.
+
+2005-12-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_assign):
+	Simplify, avoid pointless reallocations.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_reserve):
+	Simplify.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.h (__versa_string<>::operator+, all
+	versions): Move out of line...
+	* include/ext/vstring.tcc (__versa_string<>::operator+): ...
+	here; consistently use reserve for the benefit of sso_string_base;
+	prefer push_back to single-char append when appropriate.
+
+	* include/ext/vstring.h (__versa_string<>::push_back): Don't
+	call _M_reserve, _M_mutate instead.
+	(reserve): Just forward to _M_reserve.
+	* include/ext/vstring.tcc (__versa_string<>::_M_reserve): Remove.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_reserve): Also
+	do the initial checks (first on length, in case __res == capacity).
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_reserve:
+	Likewise; don't call _M_set_length unnecessarily.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.h (__versa_string<>::_M_append): New.
+	(append(const __versa_string&), append(const __versa_string&,
+	size_type, size_type), append(const _CharT*, size_type),
+	append(const _CharT*)): Use it.
+	(append(size_type, _CharT)): Delegate to _M_replace_aux.
+	(assign(const __versa_string&, size_type, size_type),
+	assign(const _CharT*), replace(size_type, size_type,
+	const _CharT*, size_type)): Forward to _M_replace.
+	* include/ext/vstring.tcc (__versa_string<>::_M_append):
+	Define, core append functionality.
+	(_M_replace): Simplify, move __s == 0 case to _M_replace_aux.
+	(_M_replace_aux): Reorganize, don't call _M_replace.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.tcc (__versa_string<>::_M_replace):
+	Perform _M_check_length at the beginning and remove it from ...
+	(replace, _M_replace_dispatch, _M_replace_aux, assign): ... here.
+	(assign): Now move inline.
+	(resize): Don't call _M_check_length redundantly, append does.
+
+2005-12-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_get_allocator):
+	Add non const version.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_get_allocator):
+	Likewise.
+	
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_erase): Add.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_erase): Likewise.
+	(_M_leak_hard): Use it.
+	* include/ext/vstring.h (__versa_string<>::clear, erase, all
+	versions): Use it.
+	* include/ext/vstring.tcc (__versa_string<>::resize): Likewise.
+
+	* include/ext/vstring.h (__versa_string<>::_M_replace_safe):
+	Remove.
+	* include/ext/vstring.h (__versa_string<>::_M_replace): New, does
+	the in-place work or delegates to _M_mutate in case of reallocation.
+	* include/ext/vstring.tcc (__versa_string<>::_M_replace_safe):
+	Remove.
+	* include/ext/vstring.tcc (__versa_string<>::_M_replace): Define.
+	(assign, replace, _M_replace_dispatch, _M_replace_aux): Use it.
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_mutate):
+	Change to manage only reallocations.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_mutate):
+	Likewise.
+
+	* include/ext/vstring.h (__versa_string<>::insert(size_type,
+	const __versa_string&), insert(size_type, const __versa_string&,
+	size_type, size_type), insert(size_type, const _CharT*, size_type),
+	insert(size_type, const _CharT*)): Delegate to replace.
+
+	* include/ext/vstring.h (__versa_string<>::reserve): Move out of
+	line.
+	* include/ext/vstring.tcc (__versa_string<>::reserve): Do the
+	checks and call _M_reserve.
+	* include/ext/vstring.h (__versa_string<>::append): Call _M_reserve
+	instead of reserve.
+	* include/ext/vstring.tcc (__versa_string<>::append, all versions):
+	Likewise.
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_reserve):
+	Adjust.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_reserve):
+	Likewise.
+
 2005-11-22  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/24975

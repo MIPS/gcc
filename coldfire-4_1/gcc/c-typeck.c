@@ -2923,8 +2923,13 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	 when we have proper support for integer constant expressions.  */
       val = get_base_address (arg);
       if (val && TREE_CODE (val) == INDIRECT_REF
-	  && integer_zerop (TREE_OPERAND (val, 0)))
-	return fold_convert (argtype, fold_offsetof (arg));
+          && TREE_CONSTANT (TREE_OPERAND (val, 0)))
+	{
+	  tree op0 = fold_convert (argtype, fold_offsetof (arg)), op1;
+
+	  op1 = fold_convert (argtype, TREE_OPERAND (val, 0));
+	  return fold_build2 (PLUS_EXPR, argtype, op0, op1);
+	}
 
       val = build1 (ADDR_EXPR, argtype, arg);
 
@@ -3447,33 +3452,7 @@ build_c_cast (tree type, tree expr)
 	warning (OPT_Wint_to_pointer_cast, "cast to pointer from integer "
 		 "of different size");
 
-      if (flag_strict_aliasing && warn_strict_aliasing
-	  && TREE_CODE (type) == POINTER_TYPE
-	  && TREE_CODE (otype) == POINTER_TYPE
-	  && TREE_CODE (expr) == ADDR_EXPR
-	  && (DECL_P (TREE_OPERAND (expr, 0))
-	      || TREE_CODE (TREE_OPERAND (expr, 0)) == COMPONENT_REF)
-	  && !VOID_TYPE_P (TREE_TYPE (type)))
-	{
-	  /* Casting the address of an object to non void pointer. Warn
-	     if the cast breaks type based aliasing.  */
-	  if (!COMPLETE_TYPE_P (TREE_TYPE (type)))
-	    warning (OPT_Wstrict_aliasing, "type-punning to incomplete type "
-		     "might break strict-aliasing rules");
-	  else
-	    {
-	      HOST_WIDE_INT set1 = get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0)));
-	      HOST_WIDE_INT set2 = get_alias_set (TREE_TYPE (type));
-
-	      if (!alias_sets_conflict_p (set1, set2))
-		warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
-			 "pointer will break strict-aliasing rules");
-	      else if (warn_strict_aliasing > 1
-		       && !alias_sets_might_conflict_p (set1, set2))
-		warning (OPT_Wstrict_aliasing, "dereferencing type-punned "
-			 "pointer might break strict-aliasing rules");
-	    }
-	}
+      strict_aliasing_warning (otype, type, expr);
 
       /* If pedantic, warn for conversions between function and object
 	 pointer types, except for converting a null pointer constant

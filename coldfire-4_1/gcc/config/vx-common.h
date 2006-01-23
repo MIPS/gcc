@@ -63,9 +63,14 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define DWARF2_DEBUGGING_INFO 1
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
+/* Some of the VxWorks 5.5 tools (including VisionClick) do not deal
+   well with the DWARF-2 output produced by GCC.  Using STABS provides
+   a work-around.  */
+#undef DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
+
 /* None of these other formats is supported.  */
 #undef DWARF_DEBUGGING_INFO
-#undef DBX_DEBUGGING_INFO
 #undef SDB_DEBUGGING_INFO
 #undef XCOFF_DEBUGGING_INFO
 #undef VMS_DEBUGGING_INFO
