@@ -1577,7 +1577,6 @@ extern int rtx_varies_p (rtx, int);
 extern int rtx_addr_varies_p (rtx, int);
 extern HOST_WIDE_INT get_integer_term (rtx);
 extern rtx get_related_value (rtx);
-extern int global_reg_mentioned_p (rtx);
 extern int reg_mentioned_p (rtx, rtx);
 extern int count_occurrences (rtx, rtx, int);
 extern rtx *find_occurrence (rtx *, rtx);
@@ -2024,7 +2023,6 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 
 /* In flow.c */
 extern void recompute_reg_usage (void);
-extern int initialize_uninitialized_subregs (void);
 extern void delete_dead_jumptables (void);
 extern void print_rtl_with_bb (FILE *, rtx);
 extern void dump_flow_info (FILE *);
@@ -2037,9 +2035,6 @@ extern void expand_dec (rtx, rtx);
 /* In gcse.c */
 extern bool can_copy_p (enum machine_mode);
 extern rtx fis_get_condition (rtx);
-
-/* In postreload-gcse.c */
-extern void gcse_after_reload_main (rtx);
 
 /* In global.c */
 extern void mark_elimination (int, int);
@@ -2072,10 +2067,6 @@ extern void cannot_change_mode_set_regs (HARD_REG_SET *,
 extern bool invalid_mode_change_p (unsigned int, enum reg_class,
 				   enum machine_mode);
 
-/* In regmove.c */
-extern void regmove_optimize (rtx, int, FILE *);
-extern void combine_stack_adjustments (void);
-
 /* In reorg.c */
 extern void dbr_schedule (rtx, FILE *);
 
@@ -2084,9 +2075,6 @@ extern void dump_local_alloc (FILE *);
 
 /* In reload1.c */
 extern int function_invariant_p (rtx);
-
-/* In reg-stack.c */
-extern bool reg_to_stack (FILE *);
 
 /* In calls.c */
 enum libcall_type
@@ -2151,10 +2139,6 @@ extern int stack_regs_mentioned (rtx insn);
 /* In toplev.c */
 extern GTY(()) rtx stack_limit_rtx;
 
-/* In regrename.c */
-extern void regrename_optimize (void);
-extern void copyprop_hardreg_forward (void);
-
 /* In predict.c */
 extern void invert_br_probabilities (rtx);
 extern bool expensive_function_p (int);
@@ -2175,12 +2159,6 @@ extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
 /* In loop-iv.c  */
 extern rtx canon_condition (rtx);
 extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
-
-/* In ra.c.  */
-extern void reg_alloc (void);
-
-/* In modulo-sched.c.  */
-extern void sms_schedule (FILE *);
 
 struct rtl_hooks
 {

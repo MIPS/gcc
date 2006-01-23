@@ -171,7 +171,6 @@ static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
 static tree record_reference (tree *, int *, void *);
-static void cgraph_analyze_function (struct cgraph_node *node);
 
 /* Records tree nodes seen in record_reference.  Simply using
    walk_tree_without_duplicates doesn't guarantee each node is visited
@@ -354,8 +353,22 @@ cgraph_assemble_pending_functions (void)
 	}
     }
 
+  /* Process CGRAPH_EXPAND_QUEUE, these are functions created during
+     the expansion process.  Note that this queue may grow as its
+     being processed, as the new functions may generate new ones.  */
+  while (cgraph_expand_queue)
+    {
+      struct cgraph_node *n = cgraph_expand_queue;
+      cgraph_expand_queue = cgraph_expand_queue->next_needed;
+      n->next_needed = NULL;
+      cgraph_finalize_function (n->decl, false);
+      output = true;
+    }
+
   return output;
 }
+
+
 /* As an GCC extension we allow redefinition of the function.  The
    semantics when both copies of bodies differ is not well defined.
    We replace the old body with new body so in unit at a time mode
@@ -408,6 +421,15 @@ cgraph_reset_node (struct cgraph_node *node)
       if (!n)
 	node->reachable = 0;
     }
+}
+
+static void
+cgraph_lower_function (struct cgraph_node *node)
+{
+  if (node->lowered)
+    return;
+  tree_lowering_passes (node->decl);
+  node->lowered = true;
 }
 
 /* DECL has been parsed.  Take it, queue it, compile it at the whim of the
@@ -463,15 +485,6 @@ cgraph_finalize_function (tree decl, bool nested)
   /* Possibly warn about unused parameters.  */
   if (warn_unused_parameter)
     do_warn_unused_parameter (decl);
-}
-
-void
-cgraph_lower_function (struct cgraph_node *node)
-{
-  if (node->lowered)
-    return;
-  tree_lowering_passes (node->decl);
-  node->lowered = true;
 }
 
 /* Walk tree and record all calls.  Called via walk_tree.  */
@@ -878,7 +891,7 @@ cgraph_output_pending_asms (void)
 }
 
 /* Analyze the function scheduled to be output.  */
-static void
+void
 cgraph_analyze_function (struct cgraph_node *node)
 {
   tree decl = node->decl;
@@ -1151,7 +1164,21 @@ cgraph_expand_all_functions (void)
 	  cgraph_expand_function (node);
 	}
     }
+
   free (order);
+
+  /* Process CGRAPH_EXPAND_QUEUE, these are functions created during
+     the expansion process.  Note that this queue may grow as its
+     being processed, as the new functions may generate new ones.  */
+  while (cgraph_expand_queue)
+    {
+      node = cgraph_expand_queue;
+      cgraph_expand_queue = cgraph_expand_queue->next_needed;
+      node->next_needed = NULL;
+      node->output = 0;
+      node->lowered = DECL_STRUCT_FUNCTION (node->decl)->cfg != NULL;
+      cgraph_expand_function (node);
+    }
 }
 
 /* This is used to sort the node types by the cgraph order number.  */

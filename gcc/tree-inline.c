@@ -1,5 +1,5 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -1598,6 +1598,29 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case LOOP_EXPR:
     case PHI_NODE:
     case WITH_SIZE_EXPR:
+    case OMP_PARALLEL:
+    case OMP_FOR:
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+    case OMP_SECTION:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+    case OMP_ATOMIC:
+    case OMP_CLAUSE_PRIVATE:
+    case OMP_CLAUSE_SHARED:
+    case OMP_CLAUSE_FIRSTPRIVATE:
+    case OMP_CLAUSE_LASTPRIVATE:
+    case OMP_CLAUSE_REDUCTION:
+    case OMP_CLAUSE_COPYIN:
+    case OMP_CLAUSE_COPYPRIVATE:
+    case OMP_CLAUSE_IF:
+    case OMP_CLAUSE_NUM_THREADS:
+    case OMP_CLAUSE_SCHEDULE:
+    case OMP_CLAUSE_NOWAIT:
+    case OMP_CLAUSE_ORDERED:
+    case OMP_CLAUSE_DEFAULT:
+    case OMP_RETURN_EXPR:
       break;
 
     /* We don't account constants for now.  Assume that the cost is amortized
@@ -1728,6 +1751,10 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case REDUC_MAX_EXPR:
     case REDUC_MIN_EXPR:
     case REDUC_PLUS_EXPR:
+    case WIDEN_SUM_EXPR:
+    case DOT_PROD_EXPR: 
+
+    case WIDEN_MULT_EXPR:
 
     case RESX_EXPR:
       *count += 1;
@@ -2281,7 +2308,22 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
       /* Now, restore the chain, if appropriate.  That will cause
 	 walk_tree to walk into the chain as well.  */
-      if (code == PARM_DECL || code == TREE_LIST)
+      if (code == PARM_DECL
+	  || code == TREE_LIST
+	  /* OpenMP clauses are linked through TREE_CHAIN.  */
+	  || code == OMP_CLAUSE_PRIVATE
+	  || code == OMP_CLAUSE_SHARED
+	  || code == OMP_CLAUSE_FIRSTPRIVATE
+	  || code == OMP_CLAUSE_LASTPRIVATE
+	  || code == OMP_CLAUSE_REDUCTION
+	  || code == OMP_CLAUSE_COPYIN
+	  || code == OMP_CLAUSE_COPYPRIVATE
+	  || code == OMP_CLAUSE_IF
+	  || code == OMP_CLAUSE_NUM_THREADS
+	  || code == OMP_CLAUSE_SCHEDULE
+	  || code == OMP_CLAUSE_NOWAIT
+	  || code == OMP_CLAUSE_ORDERED
+	  || code == OMP_CLAUSE_DEFAULT)
 	TREE_CHAIN (*tp) = chain;
 
       /* For now, we don't update BLOCKs when we make copies.  So, we

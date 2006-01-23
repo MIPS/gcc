@@ -61,10 +61,6 @@
 #define OUTPUT_LABEL(INDENT_STRING, LABEL_NUMBER) \
   printf("%sL%d: ATTRIBUTE_UNUSED_LABEL\n", (INDENT_STRING), (LABEL_NUMBER))
 
-/* Holds an array of names indexed by insn_code_number.  */
-static char **insn_name_ptr = 0;
-static int insn_name_ptr_size = 0;
-
 /* A listhead of decision trees.  The alternatives to a node are kept
    in a doubly-linked list so we can easily add nodes to the proper
    place when merging.  */
@@ -274,7 +270,15 @@ compute_predicate_codes (rtx exp, char codes[NUM_RTX_CODE])
       break;
 
     case MATCH_CODE:
-      /* MATCH_CODE allows a specified list of codes.  */
+      /* MATCH_CODE allows a specified list of codes.  However, if it
+	 does not apply to the top level of the expression, it does not
+	 constrain the set of codes for the top level.  */
+      if (XSTR (exp, 1)[0] != '\0')
+	{
+	  memset (codes, Y, NUM_RTX_CODE);
+	  break;
+	}
+
       memset (codes, N, NUM_RTX_CODE);
       {
 	const char *next_code = XSTR (exp, 0);
@@ -472,9 +476,6 @@ static struct decision_head make_insn_sequence
   (rtx, enum routine_type);
 static void process_tree
   (struct decision_head *, enum routine_type);
-
-static void record_insn_name
-  (int, const char *);
 
 static void debug_decision_0
   (struct decision *, int, int);
@@ -2189,7 +2190,7 @@ write_action (struct decision *p, struct decision_test *test,
 		    indent, test->u.insn.num_clobbers_to_add);
 	  printf ("%sreturn %d;  /* %s */\n", indent,
 		  test->u.insn.code_number,
-		  insn_name_ptr[test->u.insn.code_number]);
+		  get_insn_name (test->u.insn.code_number));
 	  break;
 
 	case SPLIT:
@@ -2548,8 +2549,6 @@ make_insn_sequence (rtx insn, enum routine_type type)
   /* We should never see an insn whose C test is false at compile time.  */
   gcc_assert (truth);
 
-  record_insn_name (next_insn_code, (type == RECOG ? XSTR (insn, 0) : NULL));
-
   c_test_pos[0] = '\0';
   if (type == PEEPHOLE2)
     {
@@ -2796,47 +2795,6 @@ main (int argc, char **argv)
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);
-}
-
-/* Define this so we can link with print-rtl.o to get debug_rtx function.  */
-const char *
-get_insn_name (int code)
-{
-  if (code < insn_name_ptr_size)
-    return insn_name_ptr[code];
-  else
-    return NULL;
-}
-
-static void
-record_insn_name (int code, const char *name)
-{
-  static const char *last_real_name = "insn";
-  static int last_real_code = 0;
-  char *new;
-
-  if (insn_name_ptr_size <= code)
-    {
-      int new_size;
-      new_size = (insn_name_ptr_size ? insn_name_ptr_size * 2 : 512);
-      insn_name_ptr = xrealloc (insn_name_ptr, sizeof(char *) * new_size);
-      memset (insn_name_ptr + insn_name_ptr_size, 0,
-	      sizeof(char *) * (new_size - insn_name_ptr_size));
-      insn_name_ptr_size = new_size;
-    }
-
-  if (!name || name[0] == '\0')
-    {
-      new = xmalloc (strlen (last_real_name) + 10);
-      sprintf (new, "%s+%d", last_real_name, code - last_real_code);
-    }
-  else
-    {
-      last_real_name = new = xstrdup (name);
-      last_real_code = code;
-    }
-
-  insn_name_ptr[code] = new;
 }
 
 static void

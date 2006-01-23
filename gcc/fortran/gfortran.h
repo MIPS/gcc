@@ -436,6 +436,9 @@ typedef enum gfc_generic_isym_id gfc_generic_isym_id;
 
 /************************* Structures *****************************/
 
+/* Used for keeping things in balanced binary trees.  */
+#define BBT_HEADER(self) int priority; struct self *left, *right
+
 /* Symbol attribute structure.  */
 typedef struct
 {
@@ -676,6 +679,8 @@ gfc_namelist;
 /* TODO: Make format/statement specifics a union.  */
 typedef struct gfc_st_label
 {
+  BBT_HEADER(gfc_st_label);
+
   int value;
 
   gfc_sl_type defined, referenced;
@@ -685,8 +690,6 @@ typedef struct gfc_st_label
   tree backend_decl;
 
   locus where;
-
-  struct gfc_st_label *prev, *next;
 }
 gfc_st_label;
 
@@ -816,8 +819,6 @@ gfc_entry_list;
    are linked together in a balanced binary tree.  There can be
    several symtrees pointing to the same symbol node via USE
    statements.  */
-
-#define BBT_HEADER(self) int priority; struct self *left, *right
 
 typedef struct gfc_symtree
 {
@@ -1700,6 +1701,7 @@ void gfc_get_component_attr (symbol_attribute *, gfc_component *);
 
 void gfc_set_sym_referenced (gfc_symbol * sym);
 
+try gfc_add_attribute (symbol_attribute *, locus *, uint);
 try gfc_add_allocatable (symbol_attribute *, locus *);
 try gfc_add_dimension (symbol_attribute *, const char *, locus *);
 try gfc_add_external (symbol_attribute *, locus *);
@@ -1960,5 +1962,6 @@ void gfc_show_namespace (gfc_namespace *);
 
 /* parse.c */
 try gfc_parse_file (void);
+void global_used (gfc_gsymbol *, locus *);
 
 #endif /* GCC_GFORTRAN_H  */

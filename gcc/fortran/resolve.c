@@ -885,6 +885,36 @@ find_noncopying_intrinsics (gfc_symbol * fnsym, gfc_actual_arglist * actual)
       ap->expr->inline_noncopying_intrinsic = 1;
 }
 
+/* This function does the checking of references to global procedures
+   as defined in sections 18.1 and 14.1, respectively, of the Fortran
+   77 and 95 standards.  It checks for a gsymbol for the name, making
+   one if it does not already exist.  If it already exists, then the
+   reference being resolved must correspond to the type of gsymbol.
+   Otherwise, the new symbol is equipped with the attributes of the 
+   reference.  The corresponding code that is called in creating
+   global entities is parse.c.  */
+
+static void
+resolve_global_procedure (gfc_symbol *sym, locus *where, int sub)
+{
+  gfc_gsymbol * gsym;
+  uint type;
+
+  type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
+
+  gsym = gfc_get_gsymbol (sym->name);
+
+  if ((gsym->type != GSYM_UNKNOWN && gsym->type != type))
+    global_used (gsym, where);
+
+  if (gsym->type == GSYM_UNKNOWN)
+    {
+      gsym->type = type;
+      gsym->where = *where;
+    }
+
+  gsym->used = 1;
+}
 
 /************* Function resolution *************/
 
@@ -1157,6 +1187,14 @@ resolve_function (gfc_expr * expr)
   try t;
   int temp;
 
+  /* If the procedure is not internal or module, it must be external and
+     should be checked for usage.  */
+  if (expr->symtree && expr->symtree->n.sym
+	&& !expr->symtree->n.sym->attr.dummy
+	&& !expr->symtree->n.sym->attr.contained
+	&& !expr->symtree->n.sym->attr.use_assoc)
+    resolve_global_procedure (expr->symtree->n.sym, &expr->where, 0);
+
   /* Switch off assumed size checking and do this again for certain kinds
      of procedure, once the procedure itself is resolved.  */
   need_full_assumed_size++;
@@ -1235,16 +1273,17 @@ resolve_function (gfc_expr * expr)
     }
 
   else if (expr->value.function.actual != NULL
-      && expr->value.function.isym != NULL
-      && strcmp (expr->value.function.isym->name, "lbound"))
+	     && expr->value.function.isym != NULL
+	     && expr->value.function.isym->generic_id != GFC_ISYM_LBOUND
+	     && expr->value.function.isym->generic_id != GFC_ISYM_PRESENT)
     {
       /* Array instrinsics must also have the last upper bound of an
 	 asumed size array argument.  UBOUND and SIZE have to be
 	 excluded from the check if the second argument is anything
 	 than a constant.  */
       int inquiry;
-      inquiry = strcmp (expr->value.function.isym->name, "ubound") == 0
-		  || strcmp (expr->value.function.isym->name, "size") == 0;
+      inquiry = expr->value.function.isym->generic_id == GFC_ISYM_UBOUND
+		  || expr->value.function.isym->generic_id == GFC_ISYM_SIZE;
 	    
       for (arg = expr->value.function.actual; arg; arg = arg->next)
 	{
@@ -1509,6 +1548,14 @@ static try
 resolve_call (gfc_code * c)
 {
   try t;
+
+  /* If the procedure is not internal or module, it must be external and
+     should be checked for usage.  */
+  if (c->symtree && c->symtree->n.sym
+	&& !c->symtree->n.sym->attr.dummy
+	&& !c->symtree->n.sym->attr.contained
+	&& !c->symtree->n.sym->attr.use_assoc)
+    resolve_global_procedure (c->symtree->n.sym, &c->loc, 1);
 
   /* Switch off assumed size checking and do this again for certain kinds
      of procedure, once the procedure itself is resolved.  */
@@ -3579,9 +3626,12 @@ resolve_branch (gfc_st_label * label, gfc_code * code)
 
   if (found == NULL)
     {
-      /* still nothing, so illegal.  */
-      gfc_error_now ("Label at %L is not in the same block as the "
-		     "GOTO statement at %L", &lp->where, &code->loc);
+      /* The label is not in an enclosing block, so illegal.  This was
+	 allowed in Fortran 66, so we allow it as extension.  We also 
+	 forego further checks if we run into this.  */
+      gfc_notify_std (GFC_STD_LEGACY,
+		      "Label at %L is not in the same block as the "
+		      "GOTO statement at %L", &lp->where, &code->loc);
       return;
     }
 
@@ -4801,6 +4851,18 @@ resolve_symbol (gfc_symbol * sym)
 	}
       break;
 
+    case FL_PROCEDURE:
+      /* An external symbol may not have an intializer because it is taken to be
+	 a procedure.  */
+      if (sym->attr.external && sym->value)
+	{
+	  gfc_error ("External object '%s' at %L may not have an initializer",
+		     sym->name, &sym->declared_at);
+	  return;
+	}
+
+      break;
+
     case FL_DERIVED:
       /* Add derived type to the derived type list.  */
       {
@@ -4813,14 +4875,6 @@ resolve_symbol (gfc_symbol * sym)
       break;
 
     default:
-
-      /* An external symbol falls through to here if it is not referenced.  */
-      if (sym->attr.external && sym->value)
-	{
-	  gfc_error ("External object '%s' at %L may not have an initializer",
-		     sym->name, &sym->declared_at);
-	  return;
-	}
 
       break;
     }
@@ -5216,38 +5270,33 @@ gfc_elemental (gfc_symbol * sym)
 /* Warn about unused labels.  */
 
 static void
-warn_unused_label (gfc_namespace * ns)
+warn_unused_label (gfc_st_label * label)
 {
-  gfc_st_label *l;
-
-  l = ns->st_labels;
-  if (l == NULL)
+  if (label == NULL)
     return;
 
-  while (l->next)
-    l = l->next;
+  warn_unused_label (label->left);
 
-  for (; l; l = l->prev)
+  if (label->defined == ST_LABEL_UNKNOWN)
+    return;
+
+  switch (label->referenced)
     {
-      if (l->defined == ST_LABEL_UNKNOWN)
-	continue;
+    case ST_LABEL_UNKNOWN:
+      gfc_warning ("Label %d at %L defined but not used", label->value,
+		   &label->where);
+      break;
 
-      switch (l->referenced)
-	{
-	case ST_LABEL_UNKNOWN:
-	  gfc_warning ("Label %d at %L defined but not used", l->value,
-		       &l->where);
-	  break;
+    case ST_LABEL_BAD_TARGET:
+      gfc_warning ("Label %d at %L defined but cannot be used",
+		   label->value, &label->where);
+      break;
 
-	case ST_LABEL_BAD_TARGET:
-	  gfc_warning ("Label %d at %L defined but cannot be used", l->value,
-		       &l->where);
-	  break;
-
-	default:
-	  break;
-	}
+    default:
+      break;
     }
+
+  warn_unused_label (label->right);
 }
 
 
@@ -5712,7 +5761,7 @@ gfc_resolve (gfc_namespace * ns)
 
   /* Warn about unused labels.  */
   if (gfc_option.warn_unused_labels)
-    warn_unused_label (ns);
+    warn_unused_label (ns->st_labels);
 
   gfc_current_ns = old_ns;
 }

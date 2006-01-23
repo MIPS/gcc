@@ -222,28 +222,46 @@ AC_DEFUN([GLIBCXX_CHECK_LINKER_FEATURES], [
 
   # Start by getting the version number.  I think the libtool test already
   # does some of this, but throws away the result.
+  AC_MSG_CHECKING([for ld version])
   changequote(,)
   ldver=`$LD --version 2>/dev/null | head -1 | \
          sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
   changequote([,])
   glibcxx_gnu_ld_version=`echo $ldver | \
          $AWK -F. '{ if (NF<3) [$]3=0; print ([$]1*100+[$]2)*100+[$]3 }'`
+  AC_MSG_RESULT($glibcxx_gnu_ld_version)
 
   # Set --gc-sections.
-  if test x"$with_gnu_ld" = x"yes"; then
-    # GNU ld it is!  Joy and bunny rabbits!
+  glibcxx_gcsections_min_ld=21602
+  if test x"$with_gnu_ld" = x"yes" && 
+	test $glibcxx_gnu_ld_version -gt $glibcxx_gcsections_min_ld ; then
+
+    # Sufficiently young GNU ld it is!  Joy and bunny rabbits!
+    # NB: This flag only works reliably after 2.16.1. Configure tests
+    # for this are difficult, so hard wire a value that should work.
 
     # All these tests are for C++, but run with the "C" compiler driver.
     # Need to do this so that g++ won't try to link in libstdc++/libsupc++.
     ac_test_CFLAGS="${CFLAGS+set}"
     ac_save_CFLAGS="$CFLAGS"
-    CFLAGS='-x c++  -Werror -Wl,--gc-sections'
+    CFLAGS='-x c++ -Wl,--gc-sections'
 
     # Check for -Wl,--gc-sections
     AC_MSG_CHECKING([for ld that supports -Wl,--gc-sections])
     AC_TRY_LINK([ int one(void) { return 1; }
      int two(void) { return 2; }
 	], [ two(); ] , [ac_gcsections=yes], [ac_gcsections=no])
+    if test "$ac_gcsections" = "yes"; then
+      rm -f conftest.c
+      touch conftest.c
+      if $CC -c conftest.c; then
+	if $LD --gc-sections -o conftest conftest.o 2>&1 | \
+	   grep "Warning: gc-sections option ignored" > /dev/null; then
+	  ac_gcsections=no
+	fi
+      fi
+      rm -f conftest.c conftest.o conftest
+    fi
     if test "$ac_gcsections" = "yes"; then
       SECTION_LDFLAGS="-Wl,--gc-sections $SECTION_LDFLAGS"
     fi

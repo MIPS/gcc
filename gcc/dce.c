@@ -549,6 +549,7 @@ static struct df_problem reaching_stores_problem =
   0,                          /* Problem id.  */
   DF_FORWARD,                 /* Direction.  */
   NULL,                       /* Allocate the problem specific data.  */
+  NULL,                       /* Reset global information.  */
   NULL,                       /* Delete the basic block data.  */
   NULL,                       /* Local compute function.  */
   rs_init,                    /* Init the solution specific data.  */
