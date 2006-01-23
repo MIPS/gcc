@@ -1,6 +1,6 @@
 // Tree generation.
 
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -123,8 +123,11 @@ tree
 tree_generator::make_block ()
 {
   tree b = make_node (BLOCK);
-  // This determines 
+
+  // This determines whether the debug output routines generate
+  // information for the variables in that block.
   TREE_USED (b) = 1;
+
   return b;
 }
 

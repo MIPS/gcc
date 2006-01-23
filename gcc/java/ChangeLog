@@ -1,3 +1,8 @@
+2006-01-23  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* tree.cc (tree_generator::make_block): Complete comment about
+	setting the TREE_USED flag on a block.
+
 2006-01-15  Ranjit Mathew  <rmathew@gcc.gnu.org>
 
 	* builtins.cc (tree_builtins::add): Set TREE_STATIC for static
