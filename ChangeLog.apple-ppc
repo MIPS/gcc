@@ -1,3 +1,8 @@
+2006-01-23  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4332100
+	* build_gcc (CONFIGFLAGS): Add --with-slibdir.
+
 2006-01-17  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4396225

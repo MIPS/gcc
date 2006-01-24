@@ -106,6 +106,7 @@ CONFIGFLAGS="--disable-checking -enable-werror \
   --enable-languages=c,objc,c++,obj-c++ \
   --program-transform-name=/^[cg][^.-]*$/s/$/-$MAJ_VERS/ \
   --with-gxx-include-dir=\${prefix}/include/c++/$LIBSTDCXX_VERSION \
+  --with-slibdir=/usr/lib \
   --build=$BUILD-apple-darwin$DARWIN_VERS"
 
 # Figure out how many make processes to run.
