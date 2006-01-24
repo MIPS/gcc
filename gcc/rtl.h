@@ -1462,6 +1462,7 @@ extern rtx emit_note (int);
 extern rtx emit_note_copy (rtx);
 extern rtx emit_line_note (location_t);
 extern rtx make_insn_raw (rtx);
+extern rtx make_jump_insn_raw (rtx);
 extern void add_function_usage_to (rtx, rtx);
 extern rtx last_call_insn (void);
 extern rtx previous_insn (rtx);
@@ -1576,7 +1577,6 @@ extern int rtx_varies_p (rtx, int);
 extern int rtx_addr_varies_p (rtx, int);
 extern HOST_WIDE_INT get_integer_term (rtx);
 extern rtx get_related_value (rtx);
-extern int global_reg_mentioned_p (rtx);
 extern int reg_mentioned_p (rtx, rtx);
 extern int count_occurrences (rtx, rtx, int);
 extern int reg_referenced_p (rtx, rtx);
@@ -1890,7 +1890,6 @@ extern int rtx_to_tree_code (enum rtx_code);
 /* In cse.c */
 extern int delete_trivially_dead_insns (rtx, int);
 extern int cse_main (rtx, int, FILE *);
-extern void cse_condition_code_reg (void);
 extern int exp_equiv_p (rtx, rtx, int, bool);
 extern unsigned hash_rtx (rtx x, enum machine_mode, int *, int *, bool);
 
@@ -1972,7 +1971,6 @@ extern bool validate_subreg (enum machine_mode, enum machine_mode,
 			     rtx, unsigned int);
 
 /* In combine.c */
-extern int combine_instructions (rtx, unsigned int);
 extern unsigned int extended_count (rtx, enum machine_mode, int);
 extern rtx remove_death (unsigned int, rtx);
 extern void dump_combine_stats (FILE *);
@@ -2001,7 +1999,6 @@ extern void print_inline_rtx (FILE *, rtx, int);
 
 /* In loop.c */
 extern void init_loop (void);
-extern void loop_optimize (rtx, FILE *, int);
 
 /* In bt-load.c */
 extern void branch_target_load_optimize (bool);
@@ -2025,7 +2022,6 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 
 /* In flow.c */
 extern void recompute_reg_usage (void);
-extern int initialize_uninitialized_subregs (void);
 extern void delete_dead_jumptables (void);
 extern void print_rtl_with_bb (FILE *, rtx);
 extern void dump_flow_info (FILE *);
@@ -2039,12 +2035,8 @@ extern void expand_dec (rtx, rtx);
 extern bool can_copy_p (enum machine_mode);
 extern rtx fis_get_condition (rtx);
 
-/* In postreload-gcse.c */
-extern void gcse_after_reload_main (rtx);
-
 /* In global.c */
 extern void mark_elimination (int, int);
-extern int global_alloc (FILE *);
 extern void dump_global_regs (FILE *);
 #ifdef HARD_CONST
 /* Yes, this ifdef is silly, but HARD_REG_SET is not always defined.  */
@@ -2074,22 +2066,14 @@ extern void cannot_change_mode_set_regs (HARD_REG_SET *,
 extern bool invalid_mode_change_p (unsigned int, enum reg_class,
 				   enum machine_mode);
 
-/* In regmove.c */
-extern void regmove_optimize (rtx, int, FILE *);
-extern void combine_stack_adjustments (void);
-
 /* In reorg.c */
 extern void dbr_schedule (rtx, FILE *);
 
 /* In local-alloc.c */
 extern void dump_local_alloc (FILE *);
-extern int local_alloc (void);
 
 /* In reload1.c */
 extern int function_invariant_p (rtx);
-
-/* In reg-stack.c */
-extern bool reg_to_stack (FILE *);
 
 /* In calls.c */
 enum libcall_type
@@ -2154,13 +2138,6 @@ extern int stack_regs_mentioned (rtx insn);
 /* In toplev.c */
 extern GTY(()) rtx stack_limit_rtx;
 
-/* In regrename.c */
-extern void regrename_optimize (void);
-extern void copyprop_hardreg_forward (void);
-
-/* In ifcvt.c */
-extern void if_convert (int);
-
 /* In predict.c */
 extern void invert_br_probabilities (rtx);
 extern bool expensive_function_p (int);
@@ -2181,12 +2158,6 @@ extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
 /* In loop-iv.c  */
 extern rtx canon_condition (rtx);
 extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
-
-/* In ra.c.  */
-extern void reg_alloc (void);
-
-/* In modulo-sched.c.  */
-extern void sms_schedule (FILE *);
 
 struct rtl_hooks
 {

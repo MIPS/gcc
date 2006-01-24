@@ -1031,10 +1031,12 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (INT_REGNO_P (regno))
     return INT_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1);
 
-  /* The float registers can only hold floating modes and DImode.  */
+  /* The float registers can only hold floating modes and DImode.
+     This also excludes decimal float modes.  */
   if (FP_REGNO_P (regno))
     return
       (SCALAR_FLOAT_MODE_P (mode)
+       && !DECIMAL_FLOAT_MODE_P (mode)
        && FP_REGNO_P (regno + HARD_REGNO_NREGS (regno, mode) - 1))
       || (GET_MODE_CLASS (mode) == MODE_INT
 	  && GET_MODE_SIZE (mode) == UNITS_PER_FP_WORD);
@@ -10836,7 +10838,7 @@ rs6000_assemble_integer (rtx x, unsigned int size, int aligned_p)
       if (TARGET_RELOCATABLE
 	  && in_section != toc_section
 	  && in_section != text_section
-	  && unlikely_text_section_p (in_section)
+	  && !unlikely_text_section_p (in_section)
 	  && !recurse
 	  && GET_CODE (x) != CONST_INT
 	  && GET_CODE (x) != CONST_DOUBLE

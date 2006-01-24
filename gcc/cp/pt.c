@@ -678,8 +678,12 @@ check_explicit_instantiation_namespace (tree spec)
 void
 maybe_process_partial_specialization (tree type)
 {
-  /* TYPE maybe an ERROR_MARK_NODE.  */
-  tree context = TYPE_P (type) ? TYPE_CONTEXT (type) : NULL_TREE;
+  tree context;
+
+  if (type == error_mark_node)
+    return;
+
+  context = TYPE_CONTEXT (type);
 
   if (CLASS_TYPE_P (type) && CLASSTYPE_USE_TEMPLATE (type))
     {
@@ -3353,7 +3357,7 @@ fold_non_dependent_expr (tree expr)
    initializers can maintain a syntactic rather than semantic form
    (even if they are non-dependent, for access-checking purposes).  */
 
-tree
+static tree
 fold_decl_constant_value (tree expr)
 {
   tree const_expr = expr;

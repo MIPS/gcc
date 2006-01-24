@@ -1,5 +1,5 @@
 ;; Predicate definitions for IA-32 and x86-64.
-;; Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -467,6 +467,15 @@
   (and (match_code "symbol_ref")
        (match_test "SYMBOL_REF_TLS_MODEL (op) != 0")))
 
+(define_predicate "tls_modbase_operand"
+  (and (match_code "symbol_ref")
+       (match_test "op == ix86_tls_module_base ()")))
+
+(define_predicate "tp_or_register_operand"
+  (ior (match_operand 0 "register_operand")
+       (and (match_code "unspec")
+	    (match_test "XINT (op, 1) == UNSPEC_TP"))))
+
 ;; Test for a pc-relative call operand
 (define_predicate "constant_call_address_operand"
   (ior (match_code "symbol_ref")
@@ -619,7 +628,7 @@
 {
   /* On Pentium4, the inc and dec operations causes extra dependency on flag
      registers, since carry flag is not set.  */
-  if ((TARGET_PENTIUM4 || TARGET_NOCONA) && !optimize_size)
+  if (!TARGET_USE_INCDEC && !optimize_size)
     return 0;
   return op == const1_rtx || op == constm1_rtx;
 })
@@ -697,6 +706,11 @@
   /* Registers and immediate operands are always "aligned".  */
   if (GET_CODE (op) != MEM)
     return 1;
+
+  /* All patterns using aligned_operand on memory operands ends up
+     in promoting memory operand to 64bit and thus causing memory mismatch.  */
+  if (TARGET_MEMORY_MISMATCH_STALL && !optimize_size)
+    return 0;
 
   /* Don't even try to do any aligned optimizations with volatiles.  */
   if (MEM_VOLATILE_P (op))
@@ -917,21 +931,16 @@
 ;; ??? It seems likely that this will only work because cmpsi is an
 ;; expander, and no actual insns use this.
 
-(define_predicate "cmpsi_operand_1"
-  (match_code "and")
-{
-  return (GET_MODE (op) == SImode
-	  && GET_CODE (XEXP (op, 0)) == ZERO_EXTRACT
-	  && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT
-	  && GET_CODE (XEXP (XEXP (op, 0), 2)) == CONST_INT
-	  && INTVAL (XEXP (XEXP (op, 0), 1)) == 8
-	  && INTVAL (XEXP (XEXP (op, 0), 2)) == 8
-	  && GET_CODE (XEXP (op, 1)) == CONST_INT);
-})
-
 (define_predicate "cmpsi_operand"
   (ior (match_operand 0 "nonimmediate_operand")
-       (match_operand 0 "cmpsi_operand_1")))
+       (and (match_code "and")
+	    (match_code "zero_extract" "0")
+	    (match_code "const_int"    "1")
+	    (match_code "const_int"    "01")
+	    (match_code "const_int"    "02")
+	    (match_test "INTVAL (XEXP (XEXP (op, 0), 1)) == 8")
+	    (match_test "INTVAL (XEXP (XEXP (op, 0), 2)) == 8")
+       )))
 
 (define_predicate "compare_operator"
   (match_code "compare"))

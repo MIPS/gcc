@@ -1,6 +1,6 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
    Inc.
 
 This file is part of GCC.
@@ -352,6 +352,7 @@ static const char *if_exists_spec_function (int, const char **);
 static const char *if_exists_else_spec_function (int, const char **);
 static const char *replace_outfile_spec_function (int, const char **);
 static const char *version_compare_spec_function (int, const char **);
+static const char *include_spec_function (int, const char **);
 
 /* The Specs Language
 
@@ -440,8 +441,8 @@ or with constant text in a single argument.
 	SUFFIX characters following %O as they would following, for
 	example, `.o'.
  %I	Substitute any of -iprefix (made from GCC_EXEC_PREFIX), -isysroot
-	(made from TARGET_SYSTEM_ROOT), and -isystem (made from COMPILER_PATH
-	and -B options) as necessary.
+	(made from TARGET_SYSTEM_ROOT), -isystem (made from COMPILER_PATH
+	and -B options) and -imultilib as necessary.
  %s     current argument is the name of a library or startup file of some sort.
         Search for that file in a standard list of directories
 	and substitute the full name found.
@@ -698,7 +699,8 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(mfwrap) %(link_libgcc) %o %(mflib)\
+    %{static:} %{L*} %(mfwrap) %{fopenmp:%:include(libgomp.spec)%(link_gomp)}\
+    %(link_libgcc) %o %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
@@ -737,6 +739,7 @@ static const char *link_spec = LINK_SPEC;
 static const char *lib_spec = LIB_SPEC;
 static const char *mfwrap_spec = MFWRAP_SPEC;
 static const char *mflib_spec = MFLIB_SPEC;
+static const char *link_gomp_spec = "";
 static const char *libgcc_spec = LIBGCC_SPEC;
 static const char *endfile_spec = ENDFILE_SPEC;
 static const char *startfile_spec = STARTFILE_SPEC;
@@ -835,7 +838,15 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 #define DRIVER_SELF_SPECS ""
 #endif
 
-static const char *const driver_self_specs[] = { DRIVER_SELF_SPECS };
+/* Adding -fopenmp should imply pthreads.  This is particularly important
+   for targets that use different start files and suchlike.  */
+#ifndef GOMP_SELF_SPECS
+#define GOMP_SELF_SPECS "%{fopenmp: -pthread}"
+#endif
+
+static const char *const driver_self_specs[] = {
+  DRIVER_SELF_SPECS, GOMP_SELF_SPECS
+};
 
 #ifndef OPTION_DEFAULT_SPECS
 #define OPTION_DEFAULT_SPECS { "", "" }
@@ -1534,6 +1545,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("lib",			&lib_spec),
   INIT_STATIC_SPEC ("mfwrap",			&mfwrap_spec),
   INIT_STATIC_SPEC ("mflib",			&mflib_spec),
+  INIT_STATIC_SPEC ("link_gomp",		&link_gomp_spec),
   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
   INIT_STATIC_SPEC ("switches_need_spaces",	&switches_need_spaces),
@@ -1581,6 +1593,7 @@ static const struct spec_function static_spec_functions[] =
   { "if-exists-else",		if_exists_else_spec_function },
   { "replace-outfile",		replace_outfile_spec_function },
   { "version-compare",		version_compare_spec_function },
+  { "include",			include_spec_function },
   { 0, 0 }
 };
 
@@ -3281,11 +3294,11 @@ process_command (int argc, const char **argv)
     }
 
   /* If there is a -V or -b option (or both), process it now, before
-     trying to interpret the rest of the command line. 
+     trying to interpret the rest of the command line.
      Use heuristic that all configuration names must have at least
      one dash '-'. This allows us to pass options starting with -b.  */
   if (argc > 1 && argv[1][0] == '-'
-      && (argv[1][1] == 'V' || 
+      && (argv[1][1] == 'V' ||
 	 ((argv[1][1] == 'b') && (NULL != strchr(argv[1] + 2,'-')))))
     {
       const char *new_version = DEFAULT_TARGET_VERSION;
@@ -3522,7 +3535,7 @@ process_command (int argc, const char **argv)
 	{
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s (GCC) %s\n"), programname, version_string);
-	  printf ("Copyright %s 2005 Free Software Foundation, Inc.\n",
+	  printf ("Copyright %s 2006 Free Software Foundation, Inc.\n",
 		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
@@ -4934,6 +4947,15 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    {
 	      struct spec_path_info info;
 
+	      if (multilib_dir)
+		{
+		  do_spec_1 ("-imultilib", 1, NULL);
+		  /* Make this a separate argument.  */
+		  do_spec_1 (" ", 0, NULL);
+		  do_spec_1 (multilib_dir, 1, NULL);
+		  do_spec_1 (" ", 0, NULL);
+		}
+
 	      if (gcc_exec_prefix)
 		{
 		  do_spec_1 ("-iprefix", 1, NULL);
@@ -5353,20 +5375,11 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 static const struct spec_function *
 lookup_spec_function (const char *name)
 {
-  static const struct spec_function * const spec_function_tables[] =
-  {
-    static_spec_functions,
-    lang_specific_spec_functions,
-  };
   const struct spec_function *sf;
-  unsigned int i;
 
-  for (i = 0; i < ARRAY_SIZE (spec_function_tables); i++)
-    {
-      for (sf = spec_function_tables[i]; sf->name != NULL; sf++)
-	if (strcmp (sf->name, name) == 0)
-	  return sf;
-    }
+  for (sf = static_spec_functions; sf->name != NULL; sf++)
+    if (strcmp (sf->name, name) == 0)
+      return sf;
 
   return NULL;
 }
@@ -5527,10 +5540,10 @@ input_suffix_matches (const char *atom, const char *end_atom)
 	  && input_suffix[end_atom - atom] == '\0');
 }
 
-/* Inline subroutine of handle_braces.  Returns true if a switch
+/* Subroutine of handle_braces.  Returns true if a switch
    matching the atom bracketed by ATOM and END_ATOM appeared on the
    command line.  */
-static inline bool
+static bool
 switch_matches (const char *atom, const char *end_atom, int starred)
 {
   int i;
@@ -6467,7 +6480,7 @@ main (int argc, char **argv)
   if (combine_flag)
     combine_inputs = true;
   else
-    combine_inputs = false;  
+    combine_inputs = false;
 
   for (i = 0; (int) i < n_infiles; i++)
     {
@@ -6498,7 +6511,7 @@ main (int argc, char **argv)
       infiles[i].compiled = false;
       infiles[i].preprocessed = false;
     }
-    
+
   if (!combine_inputs && have_c && have_o && lang_n_infiles > 1)
    fatal ("cannot specify -o with -c or -S with multiple files");
 
@@ -7788,4 +7801,23 @@ version_compare_spec_function (int argc, const char **argv)
     return NULL;
 
   return argv[nargs + 2];
+}
+
+/* %:include builtin spec function.  This differs from %include in that it
+   can be nested inside a spec, and thus be conditionalized.  It takes
+   one argument, the filename, and looks for it in the startfile path.
+   The result is always NULL, i.e. an empty expansion.  */
+
+static const char *
+include_spec_function (int argc, const char **argv)
+{
+  char *file;
+
+  if (argc != 1)
+    abort ();
+
+  file = find_a_file (&startfile_prefixes, argv[0], R_OK, 0);
+  read_specs (file ? file : argv[0], FALSE);
+
+  return NULL;
 }

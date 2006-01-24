@@ -1385,7 +1385,14 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
     {
       /* Only variables can be thread-local, and all declarations must
 	 agree on this property.  */
-      if (DECL_THREAD_LOCAL_P (newdecl) != DECL_THREAD_LOCAL_P (olddecl))
+      if (C_DECL_THREADPRIVATE_P (olddecl) && !DECL_THREAD_LOCAL_P (newdecl))
+	{
+	  /* Nothing to check.  Since OLDDECL is marked threadprivate
+	     and NEWDECL does not have a thread-local attribute, we
+	     will merge the threadprivate attribute into NEWDECL.  */
+	  ;
+	}
+      else if (DECL_THREAD_LOCAL_P (newdecl) != DECL_THREAD_LOCAL_P (olddecl))
 	{
 	  if (DECL_THREAD_LOCAL_P (newdecl))
 	    error ("thread-local declaration of %q+D follows "
@@ -1671,6 +1678,13 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   /* Merge the initialization information.  */
    if (DECL_INITIAL (newdecl) == 0)
     DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
+
+  /* Merge the threadprivate attribute.  */
+  if (TREE_CODE (olddecl) == VAR_DECL && C_DECL_THREADPRIVATE_P (olddecl))
+    {
+      DECL_TLS_MODEL (newdecl) = DECL_TLS_MODEL (olddecl);
+      C_DECL_THREADPRIVATE_P (newdecl) = 1;
+    }
 
    if (CODE_CONTAINS_STRUCT (TREE_CODE (olddecl), TS_DECL_WITH_VIS))
      {
@@ -3054,6 +3068,33 @@ set_array_declarator_inner (struct c_declarator *decl,
     error ("static or type qualifiers in abstract declarator");
   return decl;
 }
+
+/* INIT is a constructor that forms DECL's initializer.  If the final
+   element initializes a flexible array field, add the size of that
+   initializer to DECL's size.  */
+
+static void
+add_flexible_array_elts_to_size (tree decl, tree init)
+{
+  tree elt, type;
+
+  if (VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (init)))
+    return;
+
+  elt = VEC_last (constructor_elt, CONSTRUCTOR_ELTS (init))->value;
+  type = TREE_TYPE (elt);
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && TYPE_SIZE (type) == NULL_TREE
+      && TYPE_DOMAIN (type) != NULL_TREE
+      && TYPE_MAX_VALUE (TYPE_DOMAIN (type)) == NULL_TREE)
+    {
+      complete_array_type (&type, elt, false);
+      DECL_SIZE (decl)
+	= size_binop (PLUS_EXPR, DECL_SIZE (decl), TYPE_SIZE (type));
+      DECL_SIZE_UNIT (decl)
+	= size_binop (PLUS_EXPR, DECL_SIZE_UNIT (decl), TYPE_SIZE_UNIT (type));
+    }
+}
 
 /* Decode a "typename", such as "int **", returning a ..._TYPE node.  */
 
@@ -3353,6 +3394,9 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 
   if (TREE_CODE (decl) == VAR_DECL)
     {
+      if (init && TREE_CODE (init) == CONSTRUCTOR)
+	add_flexible_array_elts_to_size (decl, init);
+
       if (DECL_SIZE (decl) == 0 && TREE_TYPE (decl) != error_mark_node
 	  && COMPLETE_TYPE_P (TREE_TYPE (decl)))
 	layout_decl (decl, 0);
@@ -3740,6 +3784,7 @@ check_bitfield_type_and_width (tree *type, tree *width, const char *orig_name)
 
   type_mv = TYPE_MAIN_VARIANT (*type);
   if (pedantic
+      && !in_system_header
       && type_mv != integer_type_node
       && type_mv != unsigned_type_node
       && type_mv != boolean_type_node)
@@ -6454,21 +6499,25 @@ store_parm_decls (void)
   cfun->x_dont_save_pending_sizes_p = 1;
 }
 
-/* Handle attribute((warn_unused_result)) on FNDECL and all its nested
-   functions.  */
+/* Emit diagnostics that require gimple input for detection.  Operate on
+   FNDECL and all its nested functions.  */
 
 static void
-c_warn_unused_result_recursively (tree fndecl)
+c_gimple_diagnostics_recursively (tree fndecl)
 {
   struct cgraph_node *cgn;
 
   /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
   c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
 
+  /* Notice when OpenMP structured block constraints are violated.  */
+  if (flag_openmp)
+    diagnose_omp_structured_block_errors (fndecl);
+
   /* Finalize all nested functions now.  */
   cgn = cgraph_node (fndecl);
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
-    c_warn_unused_result_recursively (cgn->decl);
+    c_gimple_diagnostics_recursively (cgn->decl);
 }
 
 /* Finish up a function declaration and compile that function
@@ -6596,7 +6645,7 @@ finish_function (void)
       if (!decl_function_context (fndecl))
         {
           c_genericize (fndecl);
-          c_warn_unused_result_recursively (fndecl);
+          c_gimple_diagnostics_recursively (fndecl);
 
 	  /* ??? Objc emits functions after finalizing the compilation unit.
 	     This should be cleaned up later and this conditional removed.  */
@@ -6650,11 +6699,15 @@ c_expand_body (tree fndecl)
 }
 
 /* Check the declarations given in a for-loop for satisfying the C99
-   constraints.  */
-void
+   constraints.  If exactly one such decl is found, return it.  */
+
+tree
 check_for_loop_decls (void)
 {
   struct c_binding *b;
+  tree one_decl = NULL_TREE;
+  int n_decls = 0;
+
 
   if (!flag_isoc99)
     {
@@ -6662,7 +6715,7 @@ check_for_loop_decls (void)
 	 the C99 for loop scope.  This doesn't make much sense, so don't
 	 allow it.  */
       error ("%<for%> loop initial declaration used outside C99 mode");
-      return;
+      return NULL_TREE;
     }
   /* C99 subclause 6.8.5 paragraph 3:
 
@@ -6713,7 +6766,12 @@ check_for_loop_decls (void)
 	  error ("declaration of non-variable %q+D in %<for%> loop "
 		 "initial declaration", decl);
 	}
+
+      n_decls++;
+      one_decl = decl;
     }
+
+  return n_decls == 1 ? one_decl : NULL_TREE;
 }
 
 /* Save and reinitialize the variables

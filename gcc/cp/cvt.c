@@ -1,6 +1,6 @@
 /* Language-level data type conversion for GNU C++.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1058,7 +1058,7 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   if (expr == null_node
       && (desires & WANT_INT)
       && !(desires & WANT_NULL))
-    warning (0, "converting NULL to non-pointer type");
+    warning (OPT_Wconversion, "converting NULL to non-pointer type");
 
   basetype = TREE_TYPE (expr);
 

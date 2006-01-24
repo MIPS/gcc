@@ -22,6 +22,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_FUNCTION_H
 #define GCC_FUNCTION_H
 
+#include "tree.h"
+
 struct var_refs_queue GTY(())
 {
   rtx modified;
@@ -553,7 +555,6 @@ extern void use_return_register (void);
 extern rtx get_arg_pointer_save_area (struct function *);
 
 extern void init_virtual_regs (struct emit_status *);
-extern void instantiate_virtual_regs (void);
 
 /* Returns the name of the current function.  */
 extern const char *current_function_name (void);

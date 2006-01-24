@@ -7178,6 +7178,49 @@ fold_unary (enum tree_code code, tree type, tree op0)
 }
 
 /* Fold a binary expression of code CODE and type TYPE with operands
+   OP0 and OP1, containing either a MIN-MAX or a MAX-MIN combination.
+   Return the folded expression if folding is successful.  Otherwise,
+   return NULL_TREE.  */
+
+static tree
+fold_minmax (enum tree_code code, tree type, tree op0, tree op1)
+{
+  enum tree_code compl_code;
+
+  if (code == MIN_EXPR)
+    compl_code = MAX_EXPR;
+  else if (code == MAX_EXPR)
+    compl_code = MIN_EXPR;
+  else
+    gcc_unreachable ();
+
+  /* MIN (MAX (a, b), b) == b.  */
+  if (TREE_CODE (op0) == compl_code
+      && operand_equal_p (TREE_OPERAND (op0, 1), op1, 0))
+    return omit_one_operand (type, op1, TREE_OPERAND (op0, 0));
+
+  /* MIN (MAX (b, a), b) == b.  */
+  if (TREE_CODE (op0) == compl_code
+      && operand_equal_p (TREE_OPERAND (op0, 0), op1, 0)
+      && reorder_operands_p (TREE_OPERAND (op0, 1), op1))
+    return omit_one_operand (type, op1, TREE_OPERAND (op0, 1));
+
+  /* MIN (a, MAX (a, b)) == a.  */
+  if (TREE_CODE (op1) == compl_code
+      && operand_equal_p (op0, TREE_OPERAND (op1, 0), 0)
+      && reorder_operands_p (op0, TREE_OPERAND (op1, 1)))
+    return omit_one_operand (type, op0, TREE_OPERAND (op1, 1));
+
+  /* MIN (a, MAX (b, a)) == a.  */
+  if (TREE_CODE (op1) == compl_code
+      && operand_equal_p (op0, TREE_OPERAND (op1, 1), 0)
+      && reorder_operands_p (op0, TREE_OPERAND (op1, 0)))
+    return omit_one_operand (type, op0, TREE_OPERAND (op1, 0));
+
+  return NULL_TREE;
+}
+
+/* Fold a binary expression of code CODE and type TYPE with operands
    OP0 and OP1.  Return the folded expression if folding is
    successful.  Otherwise, return NULL_TREE.  */
 
@@ -8715,6 +8758,9 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
       if (INTEGRAL_TYPE_P (type)
 	  && operand_equal_p (arg1, TYPE_MIN_VALUE (type), OEP_ONLY_CONST))
 	return omit_one_operand (type, arg1, arg0);
+      tem = fold_minmax (MIN_EXPR, type, arg0, arg1);
+      if (tem)
+	return tem;
       goto associate;
 
     case MAX_EXPR:
@@ -8724,6 +8770,9 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 	  && TYPE_MAX_VALUE (type)
 	  && operand_equal_p (arg1, TYPE_MAX_VALUE (type), OEP_ONLY_CONST))
 	return omit_one_operand (type, arg1, arg0);
+      tem = fold_minmax (MAX_EXPR, type, arg0, arg1);
+      if (tem)
+	return tem;
       goto associate;
 
     case TRUTH_ANDIF_EXPR:
@@ -10240,6 +10289,26 @@ fold_ternary (enum tree_code code, tree type, tree op0, tree op1, tree op2)
 	  && TREE_CODE (TREE_OPERAND (op0, 0)) == FUNCTION_DECL
 	  && DECL_BUILT_IN (TREE_OPERAND (op0, 0)))
 	return fold_builtin (TREE_OPERAND (op0, 0), op1, false);
+      /* Check for resolvable OBJ_TYPE_REF.  The only sorts we can resolve
+         here are when we've propagated the address of a decl into the
+         object slot.  */
+      if (TREE_CODE (op0) == OBJ_TYPE_REF
+	  && lang_hooks.fold_obj_type_ref
+	  && TREE_CODE (OBJ_TYPE_REF_OBJECT (op0)) == ADDR_EXPR
+	  && DECL_P (TREE_OPERAND (OBJ_TYPE_REF_OBJECT (op0), 0)))
+	{
+	  tree t;
+
+	  /* ??? Caution: Broken ADDR_EXPR semantics means that
+             looking at the type of the operand of the addr_expr
+             can yield an array type.  See silly exception in
+             check_pointer_types_r.  */
+
+	  t = TREE_TYPE (TREE_TYPE (OBJ_TYPE_REF_OBJECT (op0)));
+	  t = lang_hooks.fold_obj_type_ref (op0, t);
+	  if (t)
+	   return fold_build3 (code, type, t, op1, op2);
+	}
       return NULL_TREE;
 
     case BIT_FIELD_REF:

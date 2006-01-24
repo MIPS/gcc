@@ -144,13 +144,15 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   gcov_type count;
   /* Unique id of the node.  */
   int uid;
+  /* Ordering of all cgraph nodes.  */
+  int order;
   /* Set when function must be output - it is externally visible
      or its address is taken.  */
   bool needed;
   /* Set when function is reachable by call from other function
      that is either reachable or needed.  */
   bool reachable;
-  /* Set once the function is lowered (ie it's CFG is built).  */
+  /* Set once the function is lowered (i.e. its CFG is built).  */
   bool lowered;
   /* Set once the function has been instantiated and its callee
      lists created.  */
@@ -197,6 +199,8 @@ struct cgraph_varpool_node GTY(())
   struct cgraph_varpool_node *next;
   /* Pointer to the next function in cgraph_varpool_nodes_queue.  */
   struct cgraph_varpool_node *next_needed;
+  /* Ordering of all cgraph nodes.  */
+  int order;
 
   /* Set when function must be output - it is externally visible
      or its address is taken.  */
@@ -217,15 +221,30 @@ struct cgraph_varpool_node GTY(())
   bool alias;
 };
 
+/* Every top level asm statement is put into a cgraph_asm_node.  */
+
+struct cgraph_asm_node GTY(())
+{
+  /* Next asm node.  */
+  struct cgraph_asm_node *next;
+  /* String for this asm node.  */
+  tree asm_str;
+  /* Ordering of all cgraph nodes.  */
+  int order;
+};
+
 extern GTY(()) struct cgraph_node *cgraph_nodes;
 extern GTY(()) int cgraph_n_nodes;
 extern GTY(()) int cgraph_max_uid;
 extern bool cgraph_global_info_ready;
 extern bool cgraph_function_flags_ready;
 extern GTY(()) struct cgraph_node *cgraph_nodes_queue;
+extern GTY(()) struct cgraph_node *cgraph_expand_queue;
 
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_first_unanalyzed_node;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
+extern GTY(()) struct cgraph_asm_node *cgraph_asm_nodes;
+extern GTY(()) int cgraph_order;
 
 /* In cgraph.c  */
 void dump_cgraph (FILE *);
@@ -258,6 +277,8 @@ void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 void cgraph_redirect_edge_callee (struct cgraph_edge *, struct cgraph_node *);
 
+struct cgraph_asm_node *cgraph_add_asm_node (tree);
+
 bool cgraph_function_possibly_inlined_p (tree);
 void cgraph_unnest_node (struct cgraph_node *);
 void cgraph_varpool_enqueue_needed_node (struct cgraph_varpool_node *);
@@ -268,12 +289,12 @@ enum availability cgraph_function_body_availability (struct cgraph_node *);
 enum availability cgraph_variable_initializer_availability (struct cgraph_varpool_node *);
 bool cgraph_is_master_clone (struct cgraph_node *);
 struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
+void cgraph_add_new_function (tree);
 
 /* In cgraphunit.c  */
 bool cgraph_assemble_pending_functions (void);
 bool cgraph_varpool_assemble_pending_decls (void);
 void cgraph_finalize_function (tree, bool);
-void cgraph_lower_function (struct cgraph_node *);
 void cgraph_finalize_compilation_unit (void);
 void cgraph_optimize (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
@@ -287,6 +308,7 @@ void cgraph_reset_static_var_maps (void);
 void init_cgraph (void);
 struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
                                                 varray_type, varray_type);
+void cgraph_analyze_function (struct cgraph_node *);
 struct cgraph_node *save_inline_function_body (struct cgraph_node *);
 void rebuild_cgraph_edges (void);
 

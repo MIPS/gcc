@@ -64,8 +64,6 @@ secdir = $(libdir)/security
 ## Where to install default logging property file.
 propdir = $(libdir)
 
-## Where the standard .db file is found.
-dbexecdir = $(libdir)/gcj-$(gcc_version)
 ## Name of the default .db.
 db_name = classmap.db
 ## Compiler specific component of the .db file
@@ -154,6 +152,7 @@ LIBFFIINCS = @LIBFFIINCS@
 AM_CPPFLAGS = -I$(top_srcdir) \
 	-Iinclude -I$(top_srcdir)/include \
 	-I$(top_srcdir)/classpath/include \
+	-Iclasspath/include \
 	-I$(top_srcdir)/classpath/native/fdlibm \
 	$(GCINCS) $(THREADINCS) $(INCLTDL) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)

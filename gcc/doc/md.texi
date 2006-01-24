@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000, 2001,
-@c 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+@c 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -898,9 +898,27 @@ limitations in @command{genrecog}, you can only refer to generic
 predicates and predicates that have already been defined.
 
 @item MATCH_CODE
-This expression has one operand, a string constant containing a
-comma-separated list of RTX code names (in lower case).  It evaluates
-to true if @var{op} has any of the listed codes.
+This expression evaluates to true if @var{op} or a specified
+subexpression of @var{op} has one of a given list of RTX codes.
+
+The first operand of this expression is a string constant containing a
+comma-separated list of RTX code names (in lower case).  These are the
+codes for which the @code{MATCH_CODE} will be true.
+
+The second operand is a string constant which indicates what
+subexpression of @var{op} to examine.  If it is absent or the empty
+string, @var{op} itself is examined.  Otherwise, the string constant
+must be a sequence of digits and/or lowercase letters.  Each character
+indicates a subexpression to extract from the current expression; for
+the first character this is @var{op}, for the second and subsequent
+characters it is the result of the previous character.  A digit
+@var{n} extracts @samp{@w{XEXP (@var{e}, @var{n})}}; a letter @var{l}
+extracts @samp{@w{XVECEXP (@var{e}, 0, @var{n})}} where @var{n} is the
+alphabetic ordinal of @var{l} (0 for `a', 1 for 'b', and so on).  The
+@code{MATCH_CODE} then examines the RTX code of the subexpression
+extracted by the complete string.  It is not possible to extract
+components of an @code{rtvec} that is not at position 0 within its RTX
+object.
 
 @item MATCH_TEST
 This expression has one operand, a string constant containing a C
@@ -915,7 +933,10 @@ evaluates to true if the C expression evaluates to a nonzero value.
 @itemx IF_THEN_ELSE
 The basic @samp{MATCH_} expressions can be combined using these
 logical operators, which have the semantics of the C operators
-@samp{&&}, @samp{||}, @samp{!}, and @samp{@w{? :}} respectively.
+@samp{&&}, @samp{||}, @samp{!}, and @samp{@w{? :}} respectively.  As
+in Common Lisp, you may give an @code{AND} or @code{IOR} expression an
+arbitrary number of arguments; this has exactly the same effect as
+writing a chain of two-argument @code{AND} or @code{IOR} expressions.
 @end table
 
 @item
@@ -3098,6 +3119,25 @@ and the scalar result is stored in the least significant bits of operand 0
 Compute the sum of the unsigned elements of a vector. The vector is operand 1,
 and the scalar result is stored in the least significant bits of operand 0
 (also a vector). The output and input vector should have the same modes.
+
+@cindex @code{sdot_prod@var{m}} instruction pattern
+@item @samp{sdot_prod@var{m}}
+@cindex @code{udot_prod@var{m}} instruction pattern
+@item @samp{udot_prod@var{m}}
+Compute the sum of the products of two signed/unsigned elements. 
+Operand 1 and operand 2 are of the same mode. Their product, which is of a 
+wider mode, is computed and added to operand 3. Operand 3 is of a mode equal or 
+wider than the mode of the product. The result is placed in operand 0, which
+is of the same mode as operand 3. 
+
+@cindex @code{ssum_widen@var{m3}} instruction pattern
+@item @samp{ssum_widen@var{m3}}
+@cindex @code{usum_widen@var{m3}} instruction pattern
+@item @samp{usum_widen@var{m3}}
+Operands 0 and 2 are of the same mode, which is wider than the mode of 
+operand 1. Add operand 1 to operand 2 and place the widened result in
+operand 0. (This is used express accumulation of elements into an accumulator
+of a wider mode.)
 
 @cindex @code{vec_shl_@var{m}} instruction pattern
 @cindex @code{vec_shr_@var{m}} instruction pattern

@@ -4578,7 +4578,7 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 
   if (TREE_CODE (decl) == CONST_DECL)
     {
-      gcc_assert (TREE_CODE (decl) != REFERENCE_TYPE);
+      gcc_assert (TREE_CODE (type) != REFERENCE_TYPE);
 
       DECL_INITIAL (decl) = init;
 
@@ -5138,7 +5138,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
    had been seen.  Used to create compiler-generated global
    variables.  */
 
-tree
+static tree
 declare_global_var (tree name, tree type)
 {
   tree decl;
@@ -6343,6 +6343,7 @@ compute_array_index_type (tree name, tree size)
 	       name);
       else
 	error ("size of array is not an integral constant-expression");
+      size = integer_one_node;
     }
   else if (pedantic)
     {
@@ -10216,6 +10217,8 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
      you declare a function, these types can be incomplete, but they
      must be complete when you define the function.  */
   check_function_type (decl1, current_function_parms);
+  /* Make sure no default arg is missing.  */
+  check_default_args (decl1);
 
   /* Build the return declaration for the function.  */
   restype = TREE_TYPE (fntype);
@@ -10282,8 +10285,6 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	  /* We need to set the DECL_CONTEXT.  */
 	  if (!DECL_CONTEXT (decl1) && DECL_TEMPLATE_INFO (decl1))
 	    DECL_CONTEXT (decl1) = DECL_CONTEXT (DECL_TI_TEMPLATE (decl1));
-	  /* And make sure we have enough default args.  */
-	  check_default_args (decl1);
 	}
       fntype = TREE_TYPE (decl1);
     }
@@ -10627,18 +10628,23 @@ begin_destructor_body (void)
 {
   tree compound_stmt;
 
-  compound_stmt = begin_compound_stmt (0);
-
-  /* Make all virtual function table pointers in non-virtual base
-     classes point to CURRENT_CLASS_TYPE's virtual function
-     tables.  */
-  initialize_vtbl_ptrs (current_class_ptr);
-
-  finish_compound_stmt (compound_stmt);
-
-  /* And insert cleanups for our bases and members so that they
-     will be properly destroyed if we throw.  */
-  push_base_cleanups ();
+  /* If the CURRENT_CLASS_TYPE is incomplete, we will have already
+     issued an error message.  We still want to try to process the
+     body of the function, but initialize_vtbl_ptrs will crash if
+     TYPE_BINFO is NULL.  */
+  if (COMPLETE_TYPE_P (current_class_type))
+    {
+      compound_stmt = begin_compound_stmt (0);
+      /* Make all virtual function table pointers in non-virtual base
+	 classes point to CURRENT_CLASS_TYPE's virtual function
+	 tables.  */
+      initialize_vtbl_ptrs (current_class_ptr);
+      finish_compound_stmt (compound_stmt);
+      
+      /* And insert cleanups for our bases and members so that they
+	 will be properly destroyed if we throw.  */
+      push_base_cleanups ();
+    }
 }
 
 /* At the end of every destructor we generate code to delete the object if
