@@ -133,11 +133,7 @@ char *util_firstobj;
    module descriptor.  */
 
 /* APPLE LOCAL mainline */
-/* APPLE LOCAL begin ObjC abi v2 */
-/* APPLE LOCAL mainline */
-#define OBJC_VERSION    (flag_next_runtime ? \
-                         ((flag_objc_abi == 2) ? 10 : 6) : 8)
-/* APPLE LOCAL end ObjC abi v2 */
+#define OBJC_VERSION    (flag_next_runtime ? 6 : 8)
 #define PROTOCOL_VERSION 2
 
 /* (Decide if these can ever be validly changed.) */
@@ -227,7 +223,7 @@ static tree create_global_decl (tree, const char *);
 static tree create_hidden_decl (tree, const char *);
 static void build_v2_protocol_template (void);
 static tree build_classlist_reference_decl (void);
-static void build_classlist_translation_table (void);
+static void build_classlist_translation_table (bool);
 static void build_message_ref_template (void);
 static tree build_v2_build_objc_method_call (int, tree, tree, tree, tree, bool);
 static tree build_selector_messenger_reference (tree, tree);
@@ -252,9 +248,9 @@ static void generate_v2_method_descriptors (tree);
 static tree objc_is_ivar (tree, tree, tree*);
 static void create_ivar_offset_name (char *, tree, tree);
 static void synth_v2_forward_declarations (void);
-static tree init_v2_def_list (tree);
 static tree objc_v2_get_class_reference (tree);
-static char* objc_build_internal_classname (tree);
+static tree objc_v2_get_metaclass_reference (tree);
+static char* objc_build_internal_classname (tree, bool);
 static void build_v2_category_template (void);
 static void generate_v2_category (tree, struct imp_entry*);
 static void objc_add_to_class_list_chain (tree);
@@ -263,6 +259,7 @@ static void objc_add_to_category_list_chain (tree);
 static void build_category_list_address_table (bool);
 static void objc_add_to_nonlazy_category_list_chain (tree);
 static void objc_add_to_nonlazy_class_list_chain (tree);
+static tree build_v2_method_list_template (tree, int);
 /* APPLE LOCAL end ObjC new abi */
 /* APPLE LOCAL begin C* language */
 static void build_objc_fast_enum_state_type (void);
@@ -2031,7 +2028,7 @@ synth_module_prologue (void)
   /* APPLE LOCAL end mainline */
 
   /* APPLE LOCAL begin ObjC new abi */
-  if (flag_objc_abi == 2)
+  if (flag_objc_abi == 2 || flag_objc_abi == 3)
     objc_v2_ivar_list_ptr = build_pointer_type (
 				  xref_tag (RECORD_TYPE, 
 					    get_identifier ("ivar_list_t")));
@@ -2264,7 +2261,7 @@ synth_module_prologue (void)
     = builtin_function (TAG_GETMETACLASS, type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
 
   /* APPLE LOCAL begin ObjC new abi */
-  if (flag_objc_abi == 2)
+  if (flag_objc_abi == 2 || flag_objc_abi == 3)
     {
       build_v2_class_template ();
       UOBJC_V2_CACHE_decl = create_extern_decl (ptr_type_node, "_objc_empty_cache");
@@ -2276,7 +2273,7 @@ synth_module_prologue (void)
   build_class_template ();
   build_super_template ();
   /* APPLE LOCAL begin ObjC new abi */
-  if (flag_objc_abi == 2)
+  if (flag_objc_abi == 2 || flag_objc_abi == 3)
     {
       build_v2_protocol_template ();
       build_v2_category_template ();
@@ -2649,44 +2646,10 @@ build_objc_symtab_template (void)
   finish_struct (objc_symtab_template, field_decl_chain, NULL_TREE);
 }
 
-/* APPLE LOCAL begin ObjC abi v2 */
 /* Create the initial value for the `defs' field of _objc_symtab.
    This is a CONSTRUCTOR.  */
 
 static tree
-init_v2_def_list (tree type)
-{
-  tree expr, initlist = NULL_TREE;
-  struct imp_entry *impent;
-
-  if (imp_count)
-    for (impent = imp_list; impent; impent = impent->next)
-      {
-        if (TREE_CODE (impent->imp_context) == CLASS_IMPLEMENTATION_TYPE)
-          {
-            expr = build_fold_addr_expr (impent->class_v2_decl);
-            initlist = tree_cons (NULL_TREE, expr, initlist);
-          }
-      }
-
-  if (cat_count)
-    for (impent = imp_list; impent; impent = impent->next)
-      {
-        if (TREE_CODE (impent->imp_context) == CATEGORY_IMPLEMENTATION_TYPE)
-          {
-            expr = build_fold_addr_expr (impent->class_v2_decl);
-            initlist = tree_cons (NULL_TREE, expr, initlist);
-          }
-      }
-
-  return objc_build_constructor (type, nreverse (initlist));
-}
-
-/* Create the initial value for the `defs' field of _objc_symtab.
-   This is a CONSTRUCTOR.  */
-
-static tree
-/* APPLE LOCAL end ObjC abi v2 */
 init_def_list (tree type)
 {
   tree expr, initlist = NULL_TREE;
@@ -2774,11 +2737,7 @@ init_objc_symtab (tree type)
       tree field = TYPE_FIELDS (type);
       field = TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (field))));
 
-      /* APPLE LOCAL begin ObjC abi v2 */
-      initlist = tree_cons (NULL_TREE, (flag_objc_abi == 2)
-                                        ? init_v2_def_list (TREE_TYPE (field))
-                                        : init_def_list (TREE_TYPE (field)),
-      /* APPLE LOCAL end ObjC abi v2 */
+      initlist = tree_cons (NULL_TREE, init_def_list (TREE_TYPE (field)),
 			    initlist);
     }
 
@@ -2817,11 +2776,15 @@ forward_declare_categories (void)
 	  /* Set an invisible arg to synth_id_with_class_suffix.  */
 	  objc_implementation_context = impent->imp_context;
 	  /* APPLE LOCAL begin new ObjC abi v2 */
-	  if (flag_objc_abi == 2)
+	  if (flag_objc_abi == 2 || flag_objc_abi == 3)
 	    {
 	      /* extern struct category_t _OBJC_$_CATEGORY_<name>; */
 	      impent->class_v2_decl = build_metadata_decl ("_OBJC_$_CATEGORY",
 						           objc_v2_category_template); 
+	      if (flag_objc_abi == 3) 
+	        /* extern struct objc_category _OBJC_CATEGORY_<name>; */
+	        impent->class_decl = build_metadata_decl ("_OBJC_CATEGORY",
+						          objc_category_template);
 	    }
 	  else
 	    {
@@ -2846,7 +2809,7 @@ generate_objc_symtab_decl (void)
     forward_declare_categories ();
 
   /* APPLE LOCAL begin new ObjC abi v2 */
-  if (!(flag_objc_abi == 2))
+  if (!(flag_objc_abi == 2 || flag_objc_abi == 3))
     {
       build_objc_symtab_template ();
       UOBJC_SYMBOLS_decl = start_var_decl (objc_symtab_template, "_OBJC_SYMBOLS");
@@ -3176,21 +3139,25 @@ build_classlist_reference_decl (void)
 /* Routine builds name of Interface's main meta-data of type class_t. */
 
 static char*
-objc_build_internal_classname (tree ident)
+objc_build_internal_classname (tree ident, bool metaclass)
 {
   static char string[BUFSIZE];
-  sprintf (string, "%s_%s", "OBJC_CLASS_$", IDENTIFIER_POINTER (ident));
+  sprintf (string, "%s_%s", !metaclass ? "OBJC_CLASS_$" 
+				       : "OBJC_METACLASS_$", 
+			    IDENTIFIER_POINTER (ident));
   return string;
 }
 
 /* Build decl = initializer; for each externally visible class reference. */
 
 static void
-build_classlist_translation_table (void)
+build_classlist_translation_table (bool metaclass_chain)
 {
   tree chain;
 
-  for (chain = classlist_ref_chain; chain; chain = TREE_CHAIN (chain))
+  for (chain = !metaclass_chain ? classlist_ref_chain 
+			        : metaclasslist_ref_chain; 
+       chain; chain = TREE_CHAIN (chain))
     {
       tree expr = TREE_VALUE (chain);
       tree decl = TREE_PURPOSE (chain);
@@ -3199,7 +3166,7 @@ build_classlist_translation_table (void)
       if (TREE_CODE (expr) == IDENTIFIER_NODE)
         {
           expr = create_global_decl (objc_v2_class_template,
-				     objc_build_internal_classname (expr));
+				     objc_build_internal_classname (expr, metaclass_chain));
 	  expr = convert (objc_class_type, build_fold_addr_expr (expr));
 	}
       finish_var_decl (decl, expr);
@@ -3660,6 +3627,29 @@ objc_v2_get_class_reference (tree ident)
   *chain = tree_cons (decl, ident, NULL_TREE);
   return decl;
 }
+
+/* This routine is similar to objc_v2_get_class_reference and builds the meta-class
+   reference chain. */
+
+static tree
+objc_v2_get_metaclass_reference (tree ident)
+{
+  tree *chain;
+  tree decl;
+
+  for (chain = &metaclasslist_ref_chain; *chain; chain = &TREE_CHAIN (*chain))
+    if (TREE_VALUE (*chain) == ident)
+      {
+        if (! TREE_PURPOSE (*chain))
+          TREE_PURPOSE (*chain) = build_classlist_reference_decl ();
+
+        return TREE_PURPOSE (*chain);
+      }
+
+  decl = build_classlist_reference_decl ();
+  *chain = tree_cons (decl, ident, NULL_TREE);
+  return decl;
+}
 /* APPLE LOCAL end ObjC abi v2 */
 
 /* Get a class reference, creating it if necessary.  Also create the
@@ -3703,7 +3693,7 @@ objc_get_class_reference (tree ident)
     }
 
   /* APPLE LOCAL begin ObjC abi v2 */
-  if (flag_objc_abi == 2 && !flag_zero_link)
+  if ((flag_objc_abi == 2 || flag_objc_abi == 3) && !flag_zero_link)
     return objc_v2_get_class_reference (ident);
   /* APPLE LOCAL end ObjC abi v2 */
   if (flag_next_runtime && !flag_zero_link)
@@ -4323,7 +4313,7 @@ objc_v2_build_ivar_ref (tree datum, tree component)
   tree field, ref, class_name, offset, ftype, expr;
   char var_offset_name[512];
 
-  if (!(flag_objc_abi == 2 
+  if (!((flag_objc_abi == 2 || flag_objc_abi == 3)
         && (field = objc_is_ivar (datum, component, &class_name))))
     return NULL_TREE;
 
@@ -5307,7 +5297,7 @@ build_private_template (tree class)
 	TREE_USED (TYPE_STUB_DECL (record)) = 1;
       /* APPLE LOCAL end mainline */
       /* APPLE LOCAL begin ObjC new abi */
-      if (flag_objc_abi == 2)
+      if (flag_objc_abi == 2 || flag_objc_abi == 3)
         CLASS_TYPE (class) = record;
       /* APPLE LOCAL end ObjC new abi */
     }
@@ -5802,7 +5792,7 @@ objc_generate_cxx_cdtors (void)
   /* Error case, due to possibly an extra @end. */
   if (!objc_implementation_context)
     return;
-  /* APPLE LOCAL begin radar 4407151 */
+  /* APPLE LOCAL end radar 4407151 */
 
   /* We do not want to do this for categories, since they do not have
      their own ivars.  */
@@ -6591,7 +6581,7 @@ build_super_template (void)
   field_decl_chain = field_decl;
 
   /* APPLE LOCAL begin ObjC abi v2 */
-  if (flag_objc_abi == 2)
+  if (flag_objc_abi == 2 || flag_objc_abi == 3)
     {
       /* Class cls; */
       field_decl = create_field_decl (objc_class_type, "cls");
@@ -6768,9 +6758,38 @@ build_ivar_list_template (tree list_type, int size)
      uint32_t method_count;
      struct objc_method method_list[method_count];
    };  */
-/* APPLE LOCAL end ObjC new abi */
 
 static tree
+build_v2_method_list_template (tree list_type, int size)
+{
+  tree method_list_t_record;
+  tree field_decl, field_decl_chain;
+
+  method_list_t_record = start_struct (RECORD_TYPE, NULL_TREE);
+
+  /* uint32_t const entsize */
+  field_decl = create_field_decl (integer_type_node, "entsize");
+
+  field_decl_chain = field_decl;
+
+  /* int method_count; */
+  field_decl = create_field_decl (integer_type_node, "method_count");
+  chainon (field_decl_chain, field_decl);
+
+  /* struct objc_method method_list[]; */
+  field_decl = create_field_decl (build_array_type
+				  (list_type,
+				   build_index_type
+				   (build_int_cst (NULL_TREE, size - 1))),
+				  "method_list");
+  chainon (field_decl_chain, field_decl);
+
+  finish_struct (method_list_t_record, field_decl_chain, NULL_TREE);
+
+  return method_list_t_record;
+}
+static tree
+/* APPLE LOCAL end ObjC new abi */
 build_method_list_template (tree list_type, int size)
 {
   tree objc_ivar_list_record;
@@ -6778,16 +6797,10 @@ build_method_list_template (tree list_type, int size)
 
   objc_ivar_list_record = start_struct (RECORD_TYPE, NULL_TREE);
 
-  /* APPLE LOCAL begin ObjC new abi */
-  if (flag_objc_abi == 2)
-    /* uint32_t const entsize */
-    field_decl = create_field_decl (integer_type_node, "entsize");
-  else
-    /* struct _objc__method_prototype_list *method_next; */
-    /* APPLE LOCAL mainline */
-    field_decl = create_field_decl (objc_method_proto_list_ptr,
-				    "method_next");
-  /* APPLE LOCAL end ObjC new abi */
+  /* struct _objc__method_prototype_list *method_next; */
+  /* APPLE LOCAL mainline */
+  field_decl = create_field_decl (objc_method_proto_list_ptr,
+				  "method_next");
   field_decl_chain = field_decl;
 
   /* int method_count; */
@@ -7351,7 +7364,7 @@ generate_v2_dispatch_tables (void)
       size = list_length (chain);
 
       method_list_template
-	= build_method_list_template (objc_method_template, size);
+	= build_v2_method_list_template (objc_method_template, size);
       initlist
 	= build_dispatch_table_initializer (objc_method_template, chain);
 
@@ -7372,7 +7385,7 @@ generate_v2_dispatch_tables (void)
       size = list_length (chain);
 
       method_list_template
-	= build_method_list_template (objc_method_template, size);
+	= build_v2_method_list_template (objc_method_template, size);
       initlist
 	= build_dispatch_table_initializer (objc_method_template, chain);
 
@@ -7512,7 +7525,7 @@ generate_v2_method_descriptors (tree protocol)
       size = list_length (chain);
 
       method_list_template
-	= build_method_list_template (objc_method_template, size);
+	= build_v2_method_list_template (objc_method_template, size);
 
       initlist
 	= build_v2_descriptor_table_initializer (objc_method_template, chain);
@@ -7531,7 +7544,7 @@ generate_v2_method_descriptors (tree protocol)
       size = list_length (chain);
 
       method_list_template
-	= build_method_list_template (objc_method_template, size);
+	= build_v2_method_list_template (objc_method_template, size);
       initlist
 	= build_v2_descriptor_table_initializer (objc_method_template, chain);
 
@@ -7833,7 +7846,7 @@ generate_v2_category (tree cat, struct imp_entry *impent)
 
   class_name_expr = create_global_decl (objc_v2_class_template,
 				        objc_build_internal_classname (
-					  CLASS_NAME (cat)));
+					  CLASS_NAME (cat), false));
   class_name_expr = build_fold_addr_expr (class_name_expr);
 
   category = lookup_category (implementation_template,
@@ -8323,7 +8336,7 @@ synth_id_with_class_suffix (const char *preamble, tree ctxt)
       const char *const class_super_name
 	= IDENTIFIER_POINTER (CLASS_SUPER_NAME (objc_implementation_context));
       /* APPLE LOCAL begin ObjC abi v2 */
-      if (flag_objc_abi == 2)
+      if (flag_objc_abi == 2 || flag_objc_abi == 3)
         sprintf (string, "%s_%s_$_%s", preamble, class_name, class_super_name);
       else
         sprintf (string, "%s_%s_%s", preamble, class_name, class_super_name);
@@ -8632,7 +8645,7 @@ receiver_is_class_object (tree receiver, int self, int super)
       if (TREE_CODE (receiver) == VAR_DECL && IS_CLASS (TREE_TYPE (receiver)))
         /* Look up the identifier.  */
   	/* APPLE LOCAL begin ObjC abi v2 */
-	for (chain = (flag_objc_abi == 2) 
+	for (chain = (flag_objc_abi == 2 || flag_objc_abi == 3) 
 		      ? classlist_ref_chain 
 		      : cls_ref_chain; chain; chain = TREE_CHAIN (chain))
   	/* APPLE LOCAL end ObjC abi v2 */
@@ -9345,7 +9358,7 @@ objc_build_protocol_expr (tree protoname)
     }
 
   /* APPLE LOCAL begin ObjC abi v2 */
-  if (flag_objc_abi == 2)
+  if (flag_objc_abi == 2 || flag_objc_abi == 3)
     {
       if (!PROTOCOL_V2_FORWARD_DECL (p))
     	build_v2_protocol_reference (p);
@@ -10435,11 +10448,17 @@ continue_class (tree class)
       imp_entry->imp_template = implementation_template;
 
       /* APPLE LOCAL begin ObjC new abi */
-      if (flag_objc_abi == 2)
+      if (flag_objc_abi == 2 || flag_objc_abi == 3)
 	{
 	  synth_v2_forward_declarations ();
       	  imp_entry->class_v2_decl = UOBJC_V2_CLASS_decl;
       	  imp_entry->meta_v2_decl = UOBJC_V2_METACLASS_decl;
+	  if (flag_objc_abi == 3)
+	    {
+              synth_forward_declarations ();
+              imp_entry->class_decl = UOBJC_CLASS_decl;
+              imp_entry->meta_decl = UOBJC_METACLASS_decl;
+	    }
 	}
       else
 	{
@@ -11605,12 +11624,18 @@ get_super_receiver (void)
       if (TREE_CODE (objc_implementation_context) == CLASS_IMPLEMENTATION_TYPE)
 	{
           /* APPLE LOCAL begin ObjC abi v2 */
-          if (flag_objc_abi == 2)
+          if (flag_objc_abi == 2 || flag_objc_abi == 3)
             {
               /* For new ObjC abi, "cls" is loaded from a __class_refs table entry. */
+	      /* For super call in class method, must have super_t.cls point to its
+		 metaclass. */
               tree class_expr;
-              class_expr = objc_v2_get_class_reference (
-			     CLASS_NAME (objc_implementation_context));
+	      if (TREE_CODE (objc_method_context) == INSTANCE_METHOD_DECL)
+                class_expr = objc_v2_get_class_reference (
+			       CLASS_NAME (objc_implementation_context));
+	      else
+                class_expr = objc_v2_get_metaclass_reference (
+			       CLASS_NAME (objc_implementation_context));
               super_expr = build_modify_expr (super_expr, NOP_EXPR, class_expr);
             }
           else
@@ -11644,7 +11669,7 @@ get_super_receiver (void)
 	  if (flag_next_runtime && !flag_zero_link)
 	    {
               /* APPLE LOCAL begin ObjC abi v2 */
-              super_class = objc_get_class_reference ((flag_objc_abi == 2)
+              super_class = objc_get_class_reference ((flag_objc_abi == 2 || flag_objc_abi == 3)
                                                       ? CLASS_NAME (implementation_template)
                                                       : super_name);
               /* APPLE LOCAL end ObjC abi v2 */
@@ -12089,10 +12114,15 @@ finish_objc (void)
       implementation_template = impent->imp_template;
 
       /* APPLE LOCAL begin ObjC new abi */
-      if (flag_objc_abi == 2)
+      if (flag_objc_abi == 2 || flag_objc_abi == 3)
 	{
       	  UOBJC_V2_CLASS_decl = impent->class_v2_decl;
       	  UOBJC_V2_METACLASS_decl = impent->meta_v2_decl;
+	  if (flag_objc_abi == 3)
+	    {
+              UOBJC_CLASS_decl = impent->class_decl;
+              UOBJC_METACLASS_decl = impent->meta_decl;
+	    }
 	}
       else
 	{
@@ -12115,13 +12145,21 @@ finish_objc (void)
 	  /* all of the following reference the string pool...  */
 
 	  /* APPLE LOCAL begin ObjC abi v2 */
-	  if (flag_objc_abi == 2)
+	  if (flag_objc_abi == 2 || flag_objc_abi == 3)
 	    {
 	      generate_v2_ivar_lists ();
 	      generate_v2_dispatch_tables ();
 	      generate_v2_shared_structures (impent->has_cxx_cdtors
 					     ? CLS_HAS_CXX_STRUCTORS
 					     : 0);
+	      if (flag_objc_abi == 3)
+		{
+                  generate_ivar_lists ();
+                  generate_dispatch_tables ();
+                  generate_shared_structures (impent->has_cxx_cdtors
+                                              ? CLS_HAS_CXX_STRUCTORS
+                                              : 0);
+		}
 	    }
           else
             {
@@ -12139,10 +12177,16 @@ finish_objc (void)
       else
 	{
 	  /* APPLE LOCAL begin ObjC abi v2 */
-	  if (flag_objc_abi == 2)
+	  if (flag_objc_abi == 2 || flag_objc_abi == 3)
 	    {
 	      generate_v2_dispatch_tables ();
 	      generate_v2_category (objc_implementation_context, impent);
+	      if (flag_objc_abi == 3)
+		{
+	          generate_dispatch_tables ();
+	          /* APPLE LOCAL radar 4349690 */
+	          generate_category (objc_implementation_context, impent);
+		}
 	    }
 	  else
 	    {
@@ -12163,13 +12207,19 @@ finish_objc (void)
   if (message_ref_chain)
     build_message_ref_translation_table ();
   if (classlist_ref_chain)
-    build_classlist_translation_table ();
+    build_classlist_translation_table (false);
+  if (metaclasslist_ref_chain)
+    build_classlist_translation_table (true);
   if (ivar_offset_ref_chain)
     generate_v2_ivar_offset_ref_lists ();
   if (protocol_chain)
     {
-      if (flag_objc_abi == 2)
-        generate_v2_protocols ();
+      if (flag_objc_abi == 2 || flag_objc_abi == 3)
+	{
+          generate_v2_protocols ();
+	  if (flag_objc_abi == 3)
+	    generate_protocols ();
+	}
       else
         generate_protocols ();
     }
@@ -12192,7 +12242,7 @@ finish_objc (void)
       || meth_var_names_chain || meth_var_types_chain || sel_ref_chain)
     {
       /* APPLE LOCAL begin ObjC abi v2 */
-      if (!(flag_objc_abi == 2))
+      if (!(flag_objc_abi == 2 || flag_objc_abi == 3))
         build_module_descriptor ();
       /* APPLE LOCAL end ObjC abi v2 */
 
@@ -12684,7 +12734,7 @@ objc_finish_foreach_loop (location_t location, tree cond, tree for_body, tree bl
 
   if (!objc_compare_types (TREE_TYPE (elem_decl), TREE_TYPE (receiver), -4, NULL_TREE))
     {
-      error ("One or both selection variable and expression are not valid objective C type");
+      error ("one or both selection variable and expression are not valid objective C types");
       return;
     }
 
@@ -12788,7 +12838,5 @@ objc_finish_foreach_loop (location_t location, tree cond, tree for_body, tree bl
   return;
 }
 #endif
-
 /* APPLE LOCAL end C* language */
-
 #include "gt-objc-objc-act.h"

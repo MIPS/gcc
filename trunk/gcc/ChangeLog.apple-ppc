@@ -1,3 +1,14 @@
+2006-01-23  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4391705
+        * config/darwin-protos.h 
+	(objc_v2_selector_refs_section): New declaration.
+	* config/darwin.c: use section __OBJC2,__selector_refs for
+	@selector expressions in new-ABI and hybrid-ABI.
+	* config/darwin.h: Initialization of __OBJC2,__selector_refs
+	section and inclusion of hybrid abi for __OBJC2 sections
+	initializations.
+
 2006-01-18  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4294910

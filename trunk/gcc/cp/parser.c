@@ -18960,7 +18960,7 @@ objc_foreach_stmt (cp_parser* parser, tree statement)
 
   if (!objc_compare_types (TREE_TYPE (elem_decl), TREE_TYPE (receiver), -4, NULL_TREE))
     {
-      error ("One or both selection variable and expression are not valid objective C type");
+      error ("one or both selection variable and expression are not valid objective C types");
       return;
     }
 

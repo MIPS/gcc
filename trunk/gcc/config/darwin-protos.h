@@ -169,6 +169,7 @@ extern void objc_message_refs_section (void);
 extern void objc_classrefs_section (void);
 extern void objc_nonlazy_class_section (void);
 extern void objc_nonlazy_category_section (void);
+extern void objc_v2_selector_refs_section (void);
 /* APPLE LOCAL end ObjC new abi */
 extern void objc_string_object_section (void);
 extern void objc_constant_string_object_section (void);

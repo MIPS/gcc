@@ -1,6 +1,11 @@
 2006-01-18  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4294910
+	*  cp/parser.c (objc_foreach_stmt): Fix typo in diagnostic.
+
+2006-01-18  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4294910
 	* cp/parser.c (objc_foreach_stmt, objc_finish_foreach_stmt): New 
 	functions.
 	(cp_parser_iteration_statement): Check for a parsed

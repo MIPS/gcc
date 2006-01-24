@@ -1291,7 +1291,11 @@ machopic_select_section (tree exp, int reloc,
       else if (!strncmp (name, "_OBJC_CATEGORY_", 15))
 	objc_category_section ();
       else if (!strncmp (name, "_OBJC_SELECTOR_REFERENCES", 25))
-	objc_selector_refs_section ();
+      /* APPLE LOCAL begin ObjC abi v2 */
+	(flag_objc_abi == 2 || flag_objc_abi == 3) 
+	  ?  objc_v2_selector_refs_section () 
+	  : objc_selector_refs_section ();
+      /* APPLE LOCAL end ObjC abi v2 */
       else if (!strncmp (name, "_OBJC_SELECTOR_FIXUP", 20))
 	objc_selector_fixup_section ();
       else if (!strncmp (name, "_OBJC_SYMBOLS", 13))

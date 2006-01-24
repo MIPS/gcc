@@ -343,6 +343,7 @@ enum objc_tree_index
     OCTI_V2_VTABLE_DECL,
     OCTI_V2_PROTO_TEMPL,
     OCTI_CLASSLIST_REF_CHAIN,
+    OCTI_METACLASSLIST_REF_CHAIN,
     OCTI_CLASS_LIST_CHAIN,
     OCTI_CATEGORY_LIST_CHAIN,
     OCTI_NONLAZY_CLASS_LIST_CHAIN,
@@ -566,6 +567,7 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_v2_ivar_template	objc_global_trees[OCTI_V2_IVAR_TEMPL]
 /* classes referenced.  */
 #define classlist_ref_chain	       objc_global_trees[OCTI_CLASSLIST_REF_CHAIN]
+#define metaclasslist_ref_chain	       objc_global_trees[OCTI_METACLASSLIST_REF_CHAIN]
 /* classes @implemented and whose meta-data address must be added to __class_list section. */
 #define class_list_chain	objc_global_trees[OCTI_CLASS_LIST_CHAIN]
 /* categories @implemented and whose meta-data address must be added to __category_list section. */

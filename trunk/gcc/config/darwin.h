@@ -865,6 +865,7 @@ FUNCTION (void)								\
   in_objc_categorylist_section,						\
   in_objc_nonlazy_class_section,					\
   in_objc_nonlazy_category_section,					\
+  in_objc_v2_selector_refs_section,					\
   /* APPLE LOCAL end ObjC new abi  */					\
   num_sections
 
@@ -1067,6 +1068,9 @@ SECTION_FUNCTION (objc_nonlazy_class_section,				\
 SECTION_FUNCTION (objc_nonlazy_category_section,				\
 		  in_objc_nonlazy_category_section,				\
 		  ".section __OBJC2, __nonlazy_catgry, regular, no_dead_strip", 1) 	\
+SECTION_FUNCTION (objc_v2_selector_refs_section,				\
+		  in_objc_v2_selector_refs_section,				\
+		  ".section __OBJC2, __selector_refs, regular, no_dead_strip", 1) 	\
 /* APPLE LOCAL end ObjC new abi */					\
 \
 static void					\
@@ -1102,12 +1106,13 @@ objc_section_init (void)			\
       /* APPLE LOCAL begin ObjC abi v2 */	\
       if (flag_objc_abi >= 2)			\
         objc_message_refs_section ();		\
-      if (flag_objc_abi == 2)			\
+      if (flag_objc_abi == 2 || flag_objc_abi == 3) \
         {					\
 	  objc_classrefs_section ();		\
           objc_data_section ();			\
           objc_classlist_section ();		\
 	  objc_categorylist_section ();		\
+	  objc_v2_selector_refs_section ();	\
 	  objc_nonlazy_class_section ();	\
 	  objc_nonlazy_category_section ();	\
 	}					\
