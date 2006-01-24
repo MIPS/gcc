@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -104,10 +104,9 @@ namespace __gnu_test
   // bitmask_operators
   template<typename bitmask_type>
     void
-    bitmask_operators()
+    bitmask_operators(bitmask_type a = bitmask_type(),
+		      bitmask_type b = bitmask_type())
     {
-      bitmask_type a;
-      bitmask_type b;
       a | b;
       a & b;
       a ^ b;
@@ -167,13 +166,13 @@ namespace __gnu_test
   };
  
   inline bool
-  operator==(const NonDefaultConstructible& lhs,
-	     const NonDefaultConstructible& rhs)
+  operator==(const NonDefaultConstructible&,
+	     const NonDefaultConstructible&)
   { return false; }
 
   inline bool
-  operator<(const NonDefaultConstructible& lhs,
-	    const NonDefaultConstructible& rhs)
+  operator<(const NonDefaultConstructible&,
+	    const NonDefaultConstructible&)
   { return false; }
 
 
@@ -385,6 +384,11 @@ namespace __gnu_test
 
     pid_t pid_;
   };
+
+  // For use in 22_locale/time_get and time_put.
+  tm test_tm(int sec, int min, int hour, int mday, int mon,
+	     int year, int wday, int yday, int isdst);
+
 } // namespace __gnu_test
 
 #endif // _GLIBCXX_TESTSUITE_HOOKS_H

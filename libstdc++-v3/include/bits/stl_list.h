@@ -1,6 +1,7 @@
 // List implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -951,12 +952,18 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  The elements of @a x are inserted in constant time in front of
        *  the element referenced by @a position.  @a x becomes an empty
        *  list.
+       *
+       *  Requires this != @a x.
        */
       void
       splice(iterator __position, list& __x)
       {
 	if (!__x.empty())
-	  this->_M_transfer(__position, __x.begin(), __x.end());
+	  {
+	    _M_check_equal_allocators(__x);
+
+	    this->_M_transfer(__position, __x.begin(), __x.end());
+	  }
       }
 
       /**
@@ -969,12 +976,16 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  inserts it into the current list before @a position.
        */
       void
-      splice(iterator __position, list&, iterator __i)
+      splice(iterator __position, list& __x, iterator __i)
       {
 	iterator __j = __i;
 	++__j;
 	if (__position == __i || __position == __j)
 	  return;
+
+	if (this != &__x)
+	  _M_check_equal_allocators(__x);
+
 	this->_M_transfer(__position, __i, __j);
       }
 
@@ -991,10 +1002,15 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  Undefined if @a position is in [first,last).
        */
       void
-      splice(iterator __position, list&, iterator __first, iterator __last)
+      splice(iterator __position, list& __x, iterator __first, iterator __last)
       {
 	if (__first != __last)
-	  this->_M_transfer(__position, __first, __last);
+	  {
+	    if (this != &__x)
+	      _M_check_equal_allocators(__x);
+
+	    this->_M_transfer(__position, __first, __last);
+	  }
       }
 
       /**
@@ -1023,8 +1039,8 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  responsibilty.
        */
       template<typename _Predicate>
-      void
-      remove_if(_Predicate);
+        void
+        remove_if(_Predicate);
 
       /**
        *  @brief  Remove consecutive duplicate elements.
@@ -1187,6 +1203,14 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
         _Node* __n = static_cast<_Node*>(__position._M_node);
         _M_get_Tp_allocator().destroy(&__n->_M_data);
         _M_put_node(__n);
+      }
+
+      // To implement the splice (and merge) bits of N1599.
+      void
+      _M_check_equal_allocators(list& __x)
+      {
+	if (_M_get_Node_allocator() != __x._M_get_Node_allocator())
+	  __throw_runtime_error(__N("list::_M_check_equal_allocators"));
       }
     };
 

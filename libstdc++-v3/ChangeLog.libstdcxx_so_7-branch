@@ -1,3 +1,10 @@
+2006-01-23  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at revision 110135.
+	
+	(adjusted include/c_std/cmath.tcc vs _GLIBCXX_BEGIN_NAMESPACE;
+	roughly merged in gnu.ver symbols)
+
 2006-01-03  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Set default versioning to
