@@ -1,3 +1,8 @@
+2006-01-26  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (remap_ssa_name): Fix imroperly resolved merging
+	conflict.
+
 2006-01-24  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline (revision 110160).

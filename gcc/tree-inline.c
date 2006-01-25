@@ -162,7 +162,7 @@ remap_ssa_name (tree name, copy_body_data *id)
       /* Forcingly coalesce all SSA names for return values so we don't need to
          construct PHI node for possibly multiple return statements by hand.  */
       && (TREE_CODE (SSA_NAME_VAR (name)) != RESULT_DECL
-	  || id->transform_return_to_modify))
+	  || !id->transform_return_to_modify))
     {
       new = make_ssa_name (new, NULL);
       insert_decl_map (id, name, new);
