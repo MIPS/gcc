@@ -1122,6 +1122,21 @@ objc_build_struct (tree class, tree fields, tree super_name)
       TYPE_OBJC_INTERFACE (t) = class;
     }
 
+  /* APPLE LOCAL begin radar 4310884 */
+  /* Above hack in saving and restoring of objc_info has the nasty side-effect of
+     moving the protocol conformance info (e.g., 'NSObject <MyProtocol>') to current
+     type that is being formed. This is because, finish_struct makes all variants' 
+     TYPE_LANG_SPECIFIC point to main variant's TYPE_LANG_SPECIFIC. So, we just 
+     build and initialize a new TYPE_LANG_SPECIFIC object for the current class 
+     being formed. */
+  if (TYPE_MAIN_VARIANT (s) == s && TYPE_NEXT_VARIANT (s))
+    {
+      TYPE_LANG_SPECIFIC (s) = (struct lang_type *)0;
+      INIT_TYPE_OBJC_INFO (s);
+      TYPE_OBJC_INTERFACE (s) = class;
+    }
+  /* APPLE LOCAL end radar 4310884 */
+
   /* Use TYPE_BINFO structures to point at the super class, if any.  */
   objc_xref_basetypes (s, super);
 
