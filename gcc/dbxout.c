@@ -1210,6 +1210,7 @@ dbxout_init (const char *input_file_name)
       preinit_symbols = 0;
     }
   /* APPLE LOCAL dbxout_type rewrite.  */
+  dbxout_queue_type (void_type_node);
   dbxout_flush_type_queue ();
   /* APPLE LOCAL 4215975 */
   anon_place_holder = get_identifier ("__anon__");
