@@ -1,3 +1,9 @@
+2006-01-26  Devang Patel  <dpatel@apple.com>
+
+	Radar 4388369
+	* dbxout.c (dbxout_complete_type): Handle internally volatized 
+	types for Objective-C EH mechanism.
+
 2006-01-23  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4391705

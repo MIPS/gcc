@@ -2266,7 +2266,14 @@ dbxout_complete_type (tree type, tree main_variant)
       tree ttype;
 
       stabstr_C ('=');
-      stabstr_C ('B');
+
+      /* In Objective-C, EH handling mechanism volatizes variables.
+	 It is implementation detail and no need to put that info
+	 into stabs. This is true for Objective-C++ also. strncmp 
+	 check validates both languages.  */
+      if (strncmp (lang_hooks.name, "GNU Objective-C", 15)
+	  || !lookup_attribute ("objc_volatilized", TYPE_ATTRIBUTES (type)))
+	stabstr_C ('B');
       ttype = build_type_variant (type, 0, TYPE_READONLY (type)); /* ??? */
 
       dbxout_next_type_number (ttype);      

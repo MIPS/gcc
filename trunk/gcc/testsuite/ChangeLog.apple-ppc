@@ -1,3 +1,8 @@
+2006-01-26  Devang Patel  <dpatel@apple.com>
+
+	Radar 4388369
+	* objc.dg/stabs-4388360.m: New.
+	
 2006-01-24  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4310884
