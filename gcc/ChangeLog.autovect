@@ -1,3 +1,17 @@
+2006-01-26  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Don't handle 
+	interleaved data-refs here.
+	(vect_transform_strided_store): New function.
+	(vectorizable_store): Handle interleaved data-refs and multiple types 
+	together, call vect_transform_strided_store for interleaved data-refs.
+	(vect_permute_load_chain): Fix argument name.
+	(vect_transform_strided_load): New function.
+	(vect_transform_strided_unaligned_load): Likewise.
+	(vectorizable_load): Handle interleaved data-refs and multiple types 
+	together, call vect_transform_strided_load and 
+	vect_transform_strided_unaligned_load for interleaved data-refs.
+
 2006-01-18  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-scalar-evolutions.c (unify_peeled_chrec): Enable (revert last 
