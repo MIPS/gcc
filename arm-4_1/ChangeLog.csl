@@ -1,3 +1,144 @@
+2006-01-26  Paul Brook  <paul@codesourcery.com>
+
+	Thumb-2 support.
+	* gcc/doc/invoke.texi: Document -cpu=arm1156t2-s and -march=armv6t2
+	Document that -mthumb may enable Thumb-2.
+	* gcc/config/arm/aof.h (ASM_OUTPUT_ADDR_DIFF_ELT,
+	ASM_OUTPUT_ADDR_VEC_ELT): Set Thumb bit on Thumb-2 addresses.
+	* gcc/config/arm/out.h (ASM_OUTPUT_ADDR_DIFF_ELT,
+	ASM_OUTPUT_ADDR_VEC_ELT): Ditto.
+	* gcc/config/arm/arm-cores.def: Add arm1156t2-s.
+	* gcc/config/arm/arm-protos.h: Update and add function prototypes.
+	* gcc/config/arm/arm-tune.md: Regenerate.
+	* gcc/config/arm/arm.c (TARGET_ASM_FILE_START, FL_THUMB2,
+	FL_FOR_ARCH6T2): Define.
+	(arm_arch_thumb2, arm_condexec_count, arm_condexec_mask,
+	arm_condexec_masklen): New variables.
+	(ARM_LSL_NAME): Define.
+	(THUMB2_WORK_REGS): Define.
+	(all_architectures): Add 6T2.
+	(arm_override_options): Set arm_arch_thumb2. Allow use of 
+	coprocessors in Thumb-2.
+	(use_return_insn): Only use StrongARM workaround in Arm mode.
+	(const_ok_for_arm): Handle Thumb-2 constants.
+	(arm_gen_constant): Ditto.
+	(legitimize_pic_address): Add Thumb-2.
+	(arm_load_pic_register): Generate Thumb-2 sequence.
+	(arm_call_tls_get_addr): Ditto.
+	(legitimize_tls_address): Ditto.
+	(thumb2_legitimate_address_p): New function.
+	(thumb2_index_mul_operand): New function.
+	(thumb2_legitimate_index_p): New function.
+	(thumb_base_register_rtx_p, thumb_index_register_rtx_p,
+	thumb_legitimate_address_p, thumb_rtx_costs,
+	thumb_compute_save_reg_mask, thumb_final_prescan_insn,
+	thumb_expand_prologue, thumb_expand_epilogue,
+	thumb_output_function_prologue, thumb_cmp_operand,
+	thumb_cmpneg_operand): Rename ...
+	(thumb1_base_register_rtx_p, thumb1_index_register_rtx_p,
+	thumb1_legitimate_address_p, thumb1_rtx_costs,
+	thumb1_compute_save_reg_mask, thumb1_final_prescan_insn,
+	thumb1_expand_prologue, thumb1_expand_epilogue,
+	thumb1_output_function_prologue, thumb1_cmp_operand,
+	thumb1_cmpneg_operand): ... to this.  Update callers.
+	(arm_address_cost): Use arm routine for Thumb-2.
+	(load_multiple_sequence): Only allow ldmib and ldmda in Arm mode.
+	(emit_ldm_seq): Output unified assembly.
+	(emit_stm_seq): Ditto.
+	(arm_select_cc_mode): Treat Thumb-2 like Arm.
+	(print_multi_reg): Don't print comma.
+	(output_mov_long_double_fpa_from_arm): Output unified assebly.
+	(output_mov_double_arm_from_fpa): Ditto.
+	(output_move_double): Ditto.  Disallow Arm specific addressing modes
+	in Thumb-2 mode.
+	(arm_shift_nmem): New function.
+	(arithmetic_instr, shift_op): Use it.  Use ARM_LSL_NAME.
+	(arm_compute_save_reg0_reg12_mask): Handle Thumb-2 frames.
+	(arm_compute_save_reg_mask): Don't create apcs frame for Thumb-2.
+	Create scratch register if needed for PIC.
+	(output_return_instruction): Only use StrongARM workaround in Arm mode.
+	(arm_output_function_prologue): Threat Thumb-2 like Arm.
+	(arm_output_epilogue): Implement Thumb-2.
+	(arm_output_function_epilogue): Treat Thumb-2 like Arm.
+	(arm_get_frame_offsets): Ditto.
+	(arm_save_coproc_regs, thumb_set_frame_pointer): New function.
+	(arm_expand_prologue): Use them.  Handle Thumb-2.
+	(arm_print_condition): New function.
+	(arm_print_operand): Use it.  Implement '(', ')', '.', '!' and 'L'.
+	(thumb2_final_prescan_insn): New function.
+	(thumb2_asm_output_opcode): New function.
+	(arm_hard_regno_mode_ok): Treat Thumb-2 like Arm.
+	(arm_regno_class): Implement thumb2 classes.
+	(arm_file_start): New function.
+	(arm_output_mi_thunk): Treat Thumb-2 like Arm.
+	(thumb_set_return_address): Implement Thumb-2.
+	(arm_output_shift): New function.
+	* gcc/config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Add __thumb2__.
+	(TARGET_THUMB1, TARGET_THUMB2, TARGET_32BIT, TARGET_UNIFIED_ASM):
+	Define.
+	(arm_arch_thumb2): Declare;
+	(CONDITIONAL_REGISTER_USAGE): Enable coprocessor registers on Thumb-2.
+	(STATIC_CHAIN_REGNUM, HARD_REGNO_NREGS, MODE_BASE_REG_CLASS,
+	SMALL_REGISTER_CLASSES, CONST_DOUBLE_OK_FOR_LETTER_P,
+	EXTRA_CONSTRAINT_STR, SECONDARY_OUTPUT_RELOAD_CLASS,
+	SECONDARY_INPUT_RELOAD_CLASS, REGISTER_MOVE_COST, LIBCALL_VALUE,
+	FUNCTION_VALUE_REGNO_P, REGNO_MODE_OK_FOR_BASE_P,
+	LEGITIMATE_CONSTANT_P, REG_MODE_OK_FOR_BASE_P, REG_OK_FOR_INDEX_P,
+	GO_IF_MODE_DEPENDENT_ADDRESS, MEMORY_MOVE_COST, BRANCH_COST,
+	(HAVE_PRE_INCREMENT, HAVE_POST_DECREMENT, HAVE_PRE_DECREMENT,
+	HAVE_PRE_MODIFY_DISP, HAVE_POST_MODIFY_DISP, HAVE_PRE_MODIFY_REG,
+	HAVE_POST_MODIFY_REG, PRINT_OPERAND_ADDRESS): Treat Thumb-2 like Arm.
+	(CONST_OK_FOR_THUMB2_LETTER): Define.
+	(CONST_OK_FOR_THUMB_LETTER, THUMB_TRAMPOLINE_TEMPLATE,
+	THUMB_REGNO_MODE_OK_FOR_BASE_P, THUMB_REG_MODE_OK_FOR_BASE_P,
+	THUMB_REG_MODE_OK_FOR_BASE_P, THUMB_REG_OK_FOR_INDEX_P,
+	THUMB_GO_IF_LEGITIMATE_ADDRESS): Rename ...
+	(CONST_OK_FOR_THUMB1_LETTER, THUMB_TRAMPOLINE_TEMPLATE,
+	THUMB1_REGNO_MODE_OK_FOR_BASE_P, THUMB1_REG_MODE_OK_FOR_BASE_P,
+	THUMB1_REG_MODE_OK_FOR_BASE_P, THUMB1_REG_OK_FOR_INDEX_P,
+	THUMB1_GO_IF_LEGITIMATE_ADDRESS): ... to this.
+	(CONST_OK_FOR_LETTER_P, TRAMPOLINE_TEMPLATE, TRAMPOLINE_SIZE,
+	INITIALIZE_TRAMPOLINE, GO_IF_LEGITIMATE_ADDRESS, LEGITIMIZE_ADDRESS,
+	ASM_APP_OFF, ARM_DECLARE_FUNCTION_NAME): Handle Thumb-2.
+	(THUMB2_TRAMPOLINE_TEMPLATE): Define.
+	(TRAMPOLINE_ADJUST_ADDRESS, ASM_OUTPUT_OPCODE,
+	THUMB2_GO_IF_LEGITIMATE_ADDRESS, THUMB2_LEGITIMIZE_ADDRESS,
+	ADJUST_INSN_LENGTH): Define.
+	(PRINT_OPERAND_PUNCT_VALID_P): Add '(', ')', '.' and '!'.
+	(PREFERRED_RELOAD_CLASS): Prefer LO_REGS for core integer reg
+	classes.
+	* gcc/config/arm/arm.md: Rename thumb_* thumb1_*.  Make 16-bit thumb
+	patterns conditional on TARGET_THUMB1. Replace '%?' with
+	'%(', '%)' and '%.' as appropriate for unified assembly syntax.
+	Enable many Arm patterns/expanders for Thumb-2.
+	Add new "ce_count" attribute.
+	Include thumb2.md
+	(incscc, decscc, smaxsi3, sminsi3, umaxsi3, sminsi3, zero_extendsidi2,
+	zero_extendqidi2, extendsidi2): Divide into
+	define_expand and define_insn.
+	(ne_zeroextractsi, minmax_arithsi): Insert IT instructions for Thumb-2.
+	(arm_shiftsi3, shiftsi3_compare0, shiftsi3_compare0_scratch): Use
+	arm_output_shift.
+	(movhi, indirect_jump): Handle thumb2.
+	(push_multi): Use push and pop for thumb2.
+	(nop): Output "nop" in unified assembly.
+	* gcc/config/arm/cirrus.md: Enable arithmetic patterns for Thumb-2.
+	(cirrus_thumb2_movdi, cirrus_thumb2_movsi_insn,
+	thumb2_cirrus_movsf_hard_insn, thumb2_cirrus_movdf_hard_insn): New.
+	* gcc/config/arm/fpa.md: Enable arithmetic patterns for Thumb-2.
+	(thumb2_movsf_fpa, thumb2_movdf_fpa, thumb2_movxf_fpa): New.
+	(thumb2_movsfcc_fpa, thumb2_movdfcc_fpa): New.
+	* gcc/config/arm/vfp.md: Enable arithmetic patterns for Thumb-2.
+	(thumb2_movsi_vfp, thumb2_movdi_vfp, thumb2_movsf_vfp,
+	thumb2_movdf_vfp, thumb2_movsfcc_vfp, thumb2_movdfcc_vfp): New.
+	* gcc/config/arm/predicates.md (low_register_operand): New predicate.
+	(low_reg_or_int_operand, thumb_16bit_operator): New predicates.
+	(thumb_cmp_operand, thumb_cmpneg_operand): Rename...
+	(thumb1_cmp_operand, thumb1_cmpneg_operand): ... to this.
+	* gcc/config/arm/lib1funcs.asm: Add __ARM_ARCH_6T2__.
+	* gcc/config/arm/t-arm (MD_INCLUDES): Add thumb2.md
+	* gcc/config/arm/thumb2.md: New file.
+
 2006-01-20  Paul Brook  <paul@codesourcery.com>
 
 	Merge from csl-arm-branch.
