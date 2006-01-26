@@ -1,3 +1,22 @@
+2006-01-24  Archit Shah  <ashah@redhat.com>
+	    Tom Tromey  <tromey@redhat.com>
+
+	* prims.cc (next_property_value): Never return NULL.
+	(process_gcj_properties): Copy 'props' before using it.
+
+2006-01-23  Keith Seitz  <keiths@redhat.com>
+
+	* java/lang/Class.h (_Jv_FindInterpreterMethod): Add new declaration.
+	* java/lang/natClass.cc (_Jv_FindInterpreterMethod): New function.
+
+2006-01-23  David Daney  <ddaney@avtrex.com>
+
+	* configure.host (disable_dladdr): Remove variable and its
+	documentation.
+	* configure.ac: Do not test for disable_dladdr.
+	* configure: Regenerate.
+	* include/config.h.in: Regenerate.
+
 2006-01-18  Tom Tromey  <tromey@redhat.com>
 
 	* jni.cc (_Jv_JNI_AttachCurrentThread): Return environment if it

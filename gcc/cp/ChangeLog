@@ -1,3 +1,123 @@
+2006-01-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Revert:
+	* cp-tree.h (do_poplevel): Remove prototype.
+	* semantics.c (do_poplevel): Add prototype.  Make static.
+
+	Revert:
+	* cp-tree.h (default_conversion): Remove prototype.
+	* typeck.c (default_conversion): Make static.
+
+2006-01-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* cp-tree.h (get_primary_binfo): Remove prototype.
+	(push_using_decl): Likewise.
+	(current_template_args): Likewise.
+	(more_specialized_class): Likewise.
+	(mark_class_instantiated): Likewise.
+	(default_conversion): Likewise.
+	(pfn_from_ptrmemfunc): Likewise.
+	* class.c (get_primary_binfo): Add prototype, make static, simplify.
+	* name-lookup.c (push_using_decl): Make static.
+	* pt.c (current_template_args): Likewise.
+	(more_specialized_class): Likewise.
+	(mark_class_instantiated): Likewise.
+	* typeck.c (default_conversion): Make static.
+	(pfn_from_ptrmemfunc): Add prototype, make static.
+
+2006-01-24  Dirk Mueller  <dmueller@suse.de>
+	
+	* typeck.c (build_binary_op): Use OPT_Wfloat_equal in warning().
+
+2006-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/25552
+	* parser.c (cp_parser_unqualified_id): Check that destructor name
+	and scope match.
+	* call.c (check_dtor_name): Do not expect a BIT_NOT_EXPR.
+	Adjust comment.  Return early if possible.
+	Use same_type_p to compare types.
+	* typeck.c (lookup_destructor): Adjust call to check_dtor_name.
+
+2006-01-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* semantics.c: Remove outdated comment.
+
+2006-01-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* cp-tree.h (do_poplevel): Remove prototype.
+	* semantics.c (do_poplevel): Add prototype.  Make static.
+
+	* cp-tree.h (original_type): Remove prototype.
+	* typeck.c (original_type): Make static.
+
+	* cp-tree.h (declare_global_var): Remove prototype.
+	* decl.c (declare_global_var): Make static.
+
+	* cp-tree.h (implicitly_declare_fn): Remove prototype.
+	* method.c (implicitly_declare_fn): Make static.
+
+	* cp-tree.h (fold_decl_constant_value): Remove prototype.
+	* pt.c (fold_decl_constant_value): Make static.
+
+	* cp-tree.h (build_x_delete): Remove prototype.
+	* init.c (build_vec_delete_1): Call build_op_delete_call directly
+	and not via build_x_delete.
+	(build_x_delete): Remove.
+
+	* cp-tree.h (get_vtt_name): Remove prototype.
+	* class.c (get_vtt_name): Remove.
+	(build_vtt): Call mangle_vtt_for_type instead of get_vtt_name.
+
+2006-01-22  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* rtti.c (build_dynamic_cast): Fix comment.
+
+2006-01-22  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/10891
+	* rtti.c (build_dynamic_cast): Reject dynamic_cast use if
+	-fno-rtti. 
+
+2006-01-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25895
+	* class.c (build_base_path): Generate a NOP_EXPR instead of a
+	COMPONENT_REF if the base and derived classes are at the same
+	address.
+
+	PR c++/25856
+	* decl.c (begin_destructor_body): Robustify.
+
+	PR c++/25858 
+	* parser.c (cp_parser_direct_declarator): Robustify.
+	
+2006-01-20  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* parser.c (cp_lexer_next_token_is_keyword): Simplify.
+
+	* parser.c (clear_decl_specs): Remove prototype.
+
+	* parser.c (cp_parser_expression_fn): Remove.
+
+	* call.c (add_builtin_candidates): Remove superfluous return.
+	* name-lookup.c (do_toplevel_using_decl): Likewise.
+	* parser.c (cp_parser_type_specifier_seq): Likewise.
+	(cp_parser_save_default_args): Likewise.
+
+2006-01-20  Dirk Mueller  <dmueller@suse.com>
+
+        PR c++/5520
+        * semantics.c (finish_if_stmt): Call empty_body_warning.
+        * parser.c (cp_parser_implicitly_scoped_statement):
+        Mark empty statement with an empty stmt.
+
+2006-01-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22136
+	* name-lookup.c (do_class_using_decl): Don't try to look up base
+	classes in templates with dependent base types.
+
 2006-01-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/25854

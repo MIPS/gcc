@@ -167,6 +167,7 @@ static tree dfs_find_final_overrider_pre (tree, void *);
 static tree dfs_find_final_overrider_post (tree, void *);
 static tree find_final_overrider (tree, tree, tree);
 static int make_new_vtable (tree, tree);
+static tree get_primary_binfo (tree);
 static int maybe_indent_hierarchy (FILE *, int, int);
 static tree dump_class_hierarchy_r (FILE *, int, tree, tree, int);
 static void dump_class_hierarchy (tree);
@@ -289,13 +290,23 @@ build_base_path (enum tree_code code,
 
   offset = BINFO_OFFSET (binfo);
   fixed_type_p = resolves_to_fixed_type_p (expr, &nonnull);
+  target_type = code == PLUS_EXPR ? BINFO_TYPE (binfo) : BINFO_TYPE (d_binfo);
 
   /* Do we need to look in the vtable for the real offset?  */
   virtual_access = (v_binfo && fixed_type_p <= 0);
 
   /* Do we need to check for a null pointer?  */
-  if (want_pointer && !nonnull && (virtual_access || !integer_zerop (offset)))
-    null_test = error_mark_node;
+  if (want_pointer && !nonnull)
+    {
+      /* If we know the conversion will not actually change the value
+	 of EXPR, then we can avoid testing the expression for NULL.
+	 We have to avoid generating a COMPONENT_REF for a base class
+	 field, because other parts of the compiler know that such
+	 expressions are always non-NULL.  */
+      if (!virtual_access && integer_zerop (offset))
+	return build_nop (build_pointer_type (target_type), expr);
+      null_test = error_mark_node;
+    }
 
   /* Protect against multiple evaluation if necessary.  */
   if (TREE_SIDE_EFFECTS (expr) && (null_test || virtual_access))
@@ -375,8 +386,6 @@ build_base_path (enum tree_code code,
       else
 	offset = v_offset;
     }
-
-  target_type = code == PLUS_EXPR ? BINFO_TYPE (binfo) : BINFO_TYPE (d_binfo);
 
   target_type = cp_build_qualified_type
     (target_type, cp_type_quals (TREE_TYPE (TREE_TYPE (expr))));
@@ -630,15 +639,6 @@ static tree
 get_vtable_name (tree type)
 {
   return mangle_vtbl_for_type (type);
-}
-
-/* Return an IDENTIFIER_NODE for the name of the virtual table table
-   for TYPE.  */
-
-tree
-get_vtt_name (tree type)
-{
-  return mangle_vtt_for_type (type);
 }
 
 /* DECL is an entity associated with TYPE, like a virtual table or an
@@ -6363,18 +6363,16 @@ get_vtbl_decl_for_binfo (tree binfo)
    BINFO in the complete object.  Check BINFO_PRIMARY_P or
    BINFO_LOST_PRIMARY_P to be sure.  */
 
-tree
+static tree
 get_primary_binfo (tree binfo)
 {
   tree primary_base;
-  tree result;
 
   primary_base = CLASSTYPE_PRIMARY_BINFO (BINFO_TYPE (binfo));
   if (!primary_base)
     return NULL_TREE;
 
-  result = copied_binfo (primary_base, binfo);
-  return result;
+  return copied_binfo (primary_base, binfo);
 }
 
 /* If INDENTED_P is zero, indent to INDENT. Return nonzero.  */
@@ -6717,7 +6715,7 @@ build_vtt (tree t)
   type = build_cplus_array_type (const_ptr_type_node, type);
 
   /* Now, build the VTT object itself.  */
-  vtt = build_vtable (t, get_vtt_name (t), type);
+  vtt = build_vtable (t, mangle_vtt_for_type (t), type);
   initialize_artificial_var (vtt, inits);
   /* Add the VTT to the vtables list.  */
   TREE_CHAIN (vtt) = TREE_CHAIN (CLASSTYPE_VTABLES (t));

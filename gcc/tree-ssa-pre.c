@@ -1159,7 +1159,8 @@ phi_translate (tree expr, value_set_t set, basic_block pred,
 	VEC (tree, gc) * oldvuses = NULL;
 	VEC (tree, gc) * newvuses = NULL;
 
-	if (TREE_CODE (expr) != INDIRECT_REF)
+	if (TREE_CODE (expr) != INDIRECT_REF
+	    || AGGREGATE_TYPE_P (TREE_TYPE (expr)))
 	  return NULL;
 
 	newop1 = phi_translate (find_leader (set, oldop1),
@@ -2745,6 +2746,10 @@ insert_extra_phis (basic_block block, basic_block dom)
 
       FOR_EACH_EDGE (e, ei, block->preds)
 	{
+	  /* We cannot handle abnormal incomming edges correctly.  */
+	  if (e->flags & EDGE_ABNORMAL)
+	    return;
+
 	  if (first)
 	    {
 	      bitmap_set_copy (tempset, AVAIL_OUT (e->src));

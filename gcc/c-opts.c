@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -78,6 +78,9 @@ static const char *deps_file;
 
 /* The prefix given by -iprefix, if any.  */
 static const char *iprefix;
+
+/* The multilib directory given by -imultilib, if any.  */
+static const char *imultilib;
 
 /* The system root, if any.  Overridden by -isysroot.  */
 static const char *sysroot = TARGET_SYSTEM_ROOT;
@@ -406,7 +409,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       else
 	{
 	  /* C++-specific warnings.  */
-	  warn_nonvdtor = value;
 	  warn_reorder = value;
 	  warn_nontemplate_friend = value;
 	}
@@ -534,6 +536,12 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	flag_const_strings = value;
       else
 	warn_write_strings = value;
+      break;
+
+    case OPT_Weffc__:
+      warn_ecpp = value;
+      if (value)
+        warn_nonvdtor = true;
       break;
 
     case OPT_ansi:
@@ -815,6 +823,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       defer_opt (code, arg);
       break;
 
+    case OPT_imultilib:
+      imultilib = arg;
+      break;
+
     case OPT_iprefix:
       iprefix = arg;
       break;
@@ -967,7 +979,7 @@ c_common_post_options (const char **pfilename)
 
   sanitize_cpp_opts ();
 
-  register_include_chains (parse_in, sysroot, iprefix,
+  register_include_chains (parse_in, sysroot, iprefix, imultilib,
 			   std_inc, std_cxx_inc && c_dialect_cxx (), verbose);
 
   flag_inline_trees = 1;

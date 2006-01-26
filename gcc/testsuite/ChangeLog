@@ -1,3 +1,185 @@
+2006-01-26  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/compat/struct-layout-1.exp: Pass -e to generator program
+	on short-enum targets.
+	* gcc.dg/compat/struct-layout-1_generate.c (short_enums): New
+	variable.
+	(generate_fields): Use short_enums.
+	(main): Set short_enums.  Document -e.
+	* g++.dg/compat/struct-layout-1.exp: Pass -e to generator program
+	on short-enum targets.
+	* g++.dg/compat/struct-layout-1_generate.c (short_enums): New
+	variable.
+	(generate_fields): Use short_enums.
+	(main): Set short_enums.  Document -e.
+	* lib/target-supports.exp (check_effective_target_short_enums): New.
+
+2006-01-26  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/25947
+	* gcc.dg/torture/pr25947-1.c: New test.
+
+2006-01-25  Jan Hubicka  <jh@suse.cz>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/25703
+	* gcc.target/i386/20060125-1.c: New test case.
+	* gcc.target/i386/20060125-2.c: New test case.
+
+2006-01-25  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18540
+	* gfortran.dg/goto_1.f: New.
+
+2006-01-25  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25716
+	* gfortran.dg/char_result_11.f90: Make it sensitive to PR
+	25716 on 32-bit systems too.
+
+2006-01-25  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR testsuite/25590
+	* gcc.dg/tree-ssa/gen-vect-11.c: Add -fwrapv.
+
+2006-01-25  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/gen-vect-33.c: New.
+
+2006-01-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25835
+	* gfortran.dg/read_eof.f90: Delete, renamed.
+	* gfortran.dg/read_eof_1.f90: Rename from read_eof.f90.
+	* gfortran.dg/read_eof_2.f90: New test.
+	* gfortran.dg/read_eof_3.f90: New test.
+	
+2006-01-24  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/25860
+	* gcc.c-torture/compile/pr25860.c: New test.
+
+2006-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/25552
+	* g++.dg/parse/dtor8.C: New test.
+
+2006-01-24  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR testsuite/25891
+	* lib/target-supports.exp (check_effective_target_fopenmp): New proc.
+	* gcc.dg/gomp/gomp.exp: Return without testing anything if
+	check_effective_target_fopenmp returns 0.
+
+2006-01-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/20548
+	* ada/acats/norun.lst: Add c52103x, c52104x and c52104y.
+	* ada/acats/stackcheck.lst: New file, add c52103x, c52104x and c52104y.
+	* ada/acats/run_all.sh: Pass -fstack-check for tests in stackcheck.lst.
+
+2006-01-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/25857
+	* g++.dg/opt/pr25857.C: New test.
+
+2006-01-23  Steven Bosscher  <stevenb.gcc@gmail.com>
+	Jan Hubicka  <jh@suse.cz>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/25654
+	* gcc.dg/torture/pr25654.c: New testcase.
+	* gcc.target/i386/pr25654.c: Likewise.
+
+2005-01-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25901
+	* gfortran.dg/internal references_2.f90: New test.
+
+	Fix regression in testing of admissability of attributes.
+	* gfortran.dg/intent_used_1.f90: New test.
+
+2006-01-23  Ben Elliston  <bje@au.ibm.com>
+
+	* gcc.misc-tests/dectest.exp (TORTURE_OPTIONS): Include -Os.
+	Remove target conditional torture options for i?86 and x86_64
+	GNU/Linux.
+
+2006-01-22  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/10891
+	* g++.dg/rtti/no-rtti.C: New.
+
+2006-01-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25895
+	* g++.dg/inherit/conv2.C: New test.
+
+	PR c++/25856
+	* g++.dg/parse/dtor7.C: New test.
+
+	PR c++/25858
+	* g++.dg/template/crash44.C: New test.
+
+2005-01-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25124
+	PR fortran/25625
+	* gfortran.dg/internal_references_1.f90: New test.
+	  PR fortran/20881
+	PR fortran/23308
+	PR fortran/25538
+	PR fortran/25710
+	* gfortran.dg/global_references_1.f90: New test.
+	* gfortran.dg/g77/19990905-1.f: Restore the error that
+	there is a clash between the common block name and
+	the name of a subroutine reference.
+
+	PR fortran/PR24276
+	* gfortran.dg/aliasing_dummy_1.f90: New test.
+
+2006-01-21  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.dg/vmx/1b-01.c: Warning fix.
+	* gcc.dg/vmx/1c-02.c: Likewise.
+	* gcc.dg/vmx/gcc-bug-4.c: Likewise.
+
+2006-01-20  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/24962
+	* gcc.target/ia64/20030811-1.c: Change 'long' to 'long long'.
+
+2006-01-20  Richard Guenther  <rguenther@suse.de>
+	Steven Bosscher <stevenb.gcc@gmail.com>
+
+	PR rtl-optimization/24626
+	* gcc.dg/torture/pr24626-1.c: New testcase.
+	* gcc.dg/torture/pr24626-2.c: Likewise.
+	* gcc.dg/torture/pr24626-3.c: Likewise.
+	* gcc.dg/torture/pr24626-4.c: Likewise.
+
+2006-01-20  Dirk Mueller  <dmueller@suse.com>
+
+        PR c++/5520
+        * g++.dg/warn/empty-body.C: New.
+
+2006-01-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22136
+	* g++.dg/template/using10.C: New test.
+	* g++.dg/temlpate/using11.C: Likewise.
+	* g++.dg/inherit/using5.C: Tweak error messages.
+
+2006-01-20  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.target/powerpc/rs6000-ldouble-1.c: Tweak powerpc linux
+	target test.
+	* gcc.target/powerpc/rs6000-ldouble-2.c: Likewise.
+
+2006-01-19  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.target/i386/lea.c: Test pentiumpro, not i686.
+
 2006-01-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/25854

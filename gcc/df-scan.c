@@ -181,11 +181,14 @@ df_scan_set_bb_info (struct dataflow *dflow, unsigned int index,
 /* Free basic block info.  */
 
 static void
-df_scan_free_bb_info (struct dataflow *dflow, void *vbb_info)
+df_scan_free_bb_info (struct dataflow *dflow, basic_block bb, void *vbb_info)
 {
   struct df_scan_bb_info *bb_info = (struct df_scan_bb_info *) vbb_info;
   if (bb_info)
-    pool_free (dflow->block_pool, bb_info);
+    {
+      df_bb_refs_delete (dflow, bb->index);
+      pool_free (dflow->block_pool, bb_info);
+    }
 }
 
 
@@ -222,7 +225,6 @@ df_scan_alloc (struct dataflow *dflow, bitmap blocks_to_rescan)
   problem_data->insn_pool 
     = create_alloc_pool ("df_scan_insn pool", 
 			 sizeof (struct df_insn_info), block_size);
-
   problem_data->reg_pool 
     = create_alloc_pool ("df_scan_reg pool", 
 			 sizeof (struct df_reg_info), block_size);
@@ -261,14 +263,18 @@ df_scan_free (struct dataflow *dflow)
 {
   struct df *df = dflow->df;
   
-  df_scan_free_internal (dflow);
+  if (dflow->problem_data)
+    {
+      df_scan_free_internal (dflow);
+      free (dflow->problem_data);
+    }
+
   if (df->blocks_to_scan)
     BITMAP_FREE (df->blocks_to_scan);
   
   if (df->blocks_to_analyze)
     BITMAP_FREE (df->blocks_to_analyze);
 
-  free (dflow->problem_data);
   free (dflow);
 }
 
@@ -298,6 +304,7 @@ static struct df_problem problem_SCAN =
   DF_SCAN,                    /* Problem id.  */
   DF_NONE,                    /* Direction.  */
   df_scan_alloc,              /* Allocate the problem specific data.  */
+  NULL,                       /* Reset global information.  */
   df_scan_free_bb_info,       /* Free basic block info.  */
   NULL,                       /* Local compute function.  */
   NULL,                       /* Init the solution specific data.  */
@@ -412,7 +419,7 @@ df_rescan_blocks (struct df *df, bitmap blocks)
 {
   bitmap local_blocks_to_scan = BITMAP_ALLOC (NULL);
 
-  struct dataflow *dflow = df->problems_by_index [DF_SCAN];
+  struct dataflow *dflow = df->problems_by_index[DF_SCAN];
   basic_block bb;
 
   df->def_info.refs_organized = false;
@@ -420,6 +427,8 @@ df_rescan_blocks (struct df *df, bitmap blocks)
 
   if (blocks)
     {
+      int i;
+
       /* Need to assure that there are space in all of the tables.  */
       unsigned int insn_num = get_max_uid () + 1;
       insn_num += insn_num / 4;
@@ -436,6 +445,24 @@ df_rescan_blocks (struct df *df, bitmap blocks)
       bitmap_copy (local_blocks_to_scan, blocks);
       df->def_info.add_refs_inline = true;
       df->use_info.add_refs_inline = true;
+
+      for (i = df->num_problems_defined; i; i--)
+	{
+	  bitmap blocks_to_reset = NULL;
+	  if (*dflow->problem->reset_fun)
+	    {
+	      if (!blocks_to_reset)
+		{
+		  blocks_to_reset = BITMAP_ALLOC (NULL);
+		  bitmap_copy (blocks_to_reset, local_blocks_to_scan);
+		  if (df->blocks_to_scan)
+		    bitmap_ior_into (blocks_to_reset, df->blocks_to_scan);
+		}
+	      (*dflow->problem->reset_fun) (dflow, blocks_to_reset);
+	    }
+	  if (blocks_to_reset)
+	    BITMAP_FREE (blocks_to_reset);
+	}
 
       df_refs_delete (dflow, local_blocks_to_scan);
 
@@ -655,7 +682,7 @@ df_reg_chain_unlink (struct dataflow *dflow, struct df_ref *ref)
 void
 df_ref_remove (struct df *df, struct df_ref *ref)
 {
-  struct dataflow *dflow = df->problems_by_index [DF_SCAN];
+  struct dataflow *dflow = df->problems_by_index[DF_SCAN];
   if (DF_REF_REG_DEF_P (ref))
     {
       if (DF_REF_FLAGS (ref) & DF_REF_ARTIFICIAL)
@@ -713,17 +740,21 @@ df_insn_create_insn_record (struct dataflow *dflow, rtx insn)
   return insn_rec;
 }
 
-/* Delete all of the refs information from BLOCKS.  */
+
+/* Delete all of the refs information from INSN.  */
 
 void 
 df_insn_refs_delete (struct dataflow *dflow, rtx insn)
 {
   struct df *df = dflow->df;
   unsigned int uid = INSN_UID (insn);
-  struct df_insn_info *insn_info = DF_INSN_UID_GET (df, uid);
+  struct df_insn_info *insn_info = NULL;
   struct df_ref *ref;
   struct df_scan_problem_data *problem_data =
     (struct df_scan_problem_data *) dflow->problem_data;
+
+  if (uid < df->insns_size)
+    insn_info = DF_INSN_UID_GET (df, uid);
 
   if (insn_info)
     {
@@ -741,6 +772,42 @@ df_insn_refs_delete (struct dataflow *dflow, rtx insn)
 }
 
 
+/* Delete all of the refs information from basic_block with BB_INDEX.  */
+
+void
+df_bb_refs_delete (struct dataflow *dflow, int bb_index)
+{
+  struct df_ref *def;
+  struct df_ref *use;
+
+  struct df_scan_bb_info *bb_info 
+    = df_scan_get_bb_info (dflow, bb_index);
+  rtx insn;
+  basic_block bb = BASIC_BLOCK (bb_index);
+  FOR_BB_INSNS (bb, insn)
+    {
+      if (INSN_P (insn))
+	{
+	  /* Record defs within INSN.  */
+	  df_insn_refs_delete (dflow, insn);
+	}
+    }
+  
+  /* Get rid of any artifical uses or defs.  */
+  if (bb_info)
+    {
+      def = bb_info->artificial_defs;
+      while (def)
+	def = df_reg_chain_unlink (dflow, def);
+      bb_info->artificial_defs = NULL;
+      use = bb_info->artificial_uses;
+      while (use)
+	use = df_reg_chain_unlink (dflow, use);
+      bb_info->artificial_uses = NULL;
+    }
+}
+
+
 /* Delete all of the refs information from BLOCKS.  */
 
 void 
@@ -748,36 +815,10 @@ df_refs_delete (struct dataflow *dflow, bitmap blocks)
 {
   bitmap_iterator bi;
   unsigned int bb_index;
-  struct df_ref *def;
-  struct df_ref *use;
 
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, bb_index, bi)
     {
-      struct df_scan_bb_info *bb_info 
-	= df_scan_get_bb_info (dflow, bb_index);
-      rtx insn;
-      basic_block bb = BASIC_BLOCK (bb_index);
-      FOR_BB_INSNS (bb, insn)
-	{
-	  if (INSN_P (insn))
-	    {
-	      /* Record defs within INSN.  */
-	      df_insn_refs_delete (dflow, insn);
-	    }
-	}
-
-      /* Get rid of any artifical uses.  */
-      if (bb_info)
-	{
-	  def = bb_info->artificial_defs;
-	  while (def)
-	    def = df_reg_chain_unlink (dflow, def);
-	  bb_info->artificial_defs = NULL;
-	  use = bb_info->artificial_uses;
-	  while (use)
-	    use = df_reg_chain_unlink (dflow, use);
-	  bb_info->artificial_uses = NULL;
-	}
+      df_bb_refs_delete (dflow, bb_index);
     }
 }
 
@@ -1568,7 +1609,7 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
 	  
 	  /* Any reference to any pseudo before reload is a potential
 	     reference of the frame pointer.  */
-	  df_uses_record (dflow, &regno_reg_rtx [FRAME_POINTER_REGNUM],
+	  df_uses_record (dflow, &regno_reg_rtx[FRAME_POINTER_REGNUM],
 			  DF_REF_REG_USE, bb, NULL, DF_REF_ARTIFICIAL);
 	  
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM

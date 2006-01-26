@@ -38,6 +38,7 @@
 #define LIBGOMP_H 1
 
 #include "config.h"
+#include "gstdint.h"
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -249,6 +250,10 @@ extern unsigned gomp_run_sched_chunk;
 extern void *gomp_malloc (size_t) __attribute__((malloc));
 extern void *gomp_malloc_cleared (size_t) __attribute__((malloc));
 extern void *gomp_realloc (void *, size_t);
+
+/* Avoid conflicting prototypes of alloca() in system headers by using
+   GCC's builtin alloca().  */
+#define gomp_alloca(x)  __builtin_alloca(x)
 
 /* error.c */
 

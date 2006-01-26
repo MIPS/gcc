@@ -222,28 +222,46 @@ AC_DEFUN([GLIBCXX_CHECK_LINKER_FEATURES], [
 
   # Start by getting the version number.  I think the libtool test already
   # does some of this, but throws away the result.
+  AC_MSG_CHECKING([for ld version])
   changequote(,)
   ldver=`$LD --version 2>/dev/null | head -1 | \
          sed -e 's/GNU ld version \([0-9.][0-9.]*\).*/\1/'`
   changequote([,])
   glibcxx_gnu_ld_version=`echo $ldver | \
          $AWK -F. '{ if (NF<3) [$]3=0; print ([$]1*100+[$]2)*100+[$]3 }'`
+  AC_MSG_RESULT($glibcxx_gnu_ld_version)
 
   # Set --gc-sections.
-  if test x"$with_gnu_ld" = x"yes"; then
-    # GNU ld it is!  Joy and bunny rabbits!
+  glibcxx_gcsections_min_ld=21602
+  if test x"$with_gnu_ld" = x"yes" && 
+	test $glibcxx_gnu_ld_version -gt $glibcxx_gcsections_min_ld ; then
+
+    # Sufficiently young GNU ld it is!  Joy and bunny rabbits!
+    # NB: This flag only works reliably after 2.16.1. Configure tests
+    # for this are difficult, so hard wire a value that should work.
 
     # All these tests are for C++, but run with the "C" compiler driver.
     # Need to do this so that g++ won't try to link in libstdc++/libsupc++.
     ac_test_CFLAGS="${CFLAGS+set}"
     ac_save_CFLAGS="$CFLAGS"
-    CFLAGS='-x c++  -Werror -Wl,--gc-sections'
+    CFLAGS='-x c++ -Wl,--gc-sections'
 
     # Check for -Wl,--gc-sections
     AC_MSG_CHECKING([for ld that supports -Wl,--gc-sections])
     AC_TRY_LINK([ int one(void) { return 1; }
      int two(void) { return 2; }
 	], [ two(); ] , [ac_gcsections=yes], [ac_gcsections=no])
+    if test "$ac_gcsections" = "yes"; then
+      rm -f conftest.c
+      touch conftest.c
+      if $CC -c conftest.c; then
+	if $LD --gc-sections -o conftest conftest.o 2>&1 | \
+	   grep "Warning: gc-sections option ignored" > /dev/null; then
+	  ac_gcsections=no
+	fi
+      fi
+      rm -f conftest.c conftest.o conftest
+    fi
     if test "$ac_gcsections" = "yes"; then
       SECTION_LDFLAGS="-Wl,--gc-sections $SECTION_LDFLAGS"
     fi
@@ -1026,6 +1044,101 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
 
   AC_MSG_CHECKING([for fully enabled ISO C99 support])
   AC_MSG_RESULT($enable_c99)
+])
+
+
+dnl
+dnl Check for ISO/IEC 9899:1999 "C99" support to ISO/IEC DTR 19768 "TR1"
+dnl facilities in Chapter 8, "C compatibility".
+dnl
+AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
+
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+
+  # Check for the existence of <complex.h> complex math functions used
+  # by tr1/complex.
+  AC_CHECK_HEADERS(complex.h, ac_has_complex_h=yes, ac_has_complex_h=no)
+  ac_c99_complex_tr1=no;
+  if test x"$ac_has_complex_h" = x"yes"; then
+    AC_MSG_CHECKING([for ISO C99 support to TR1 in <complex.h>])
+    AC_TRY_COMPILE([#include <complex.h>],
+	           [typedef __complex__ float float_type; float_type tmpf;
+	            cacosf(tmpf);
+	            casinf(tmpf);
+	            catanf(tmpf);
+	            cacoshf(tmpf);
+	            casinhf(tmpf);
+	            catanhf(tmpf);
+		    typedef __complex__ double double_type; double_type tmpd;
+	            cacos(tmpd);
+	            casin(tmpd);
+	            catan(tmpd);
+	            cacosh(tmpd);
+	            casinh(tmpd);
+	            catanh(tmpd);
+		    typedef __complex__ long double ld_type; ld_type tmpld;
+	            cacosl(tmpld);
+	            casinl(tmpld);
+	            catanl(tmpld);
+	            cacoshl(tmpld);
+	            casinhl(tmpld);
+	            catanhl(tmpld);
+		   ],[ac_c99_complex_tr1=yes], [ac_c99_complex_tr1=no])
+  fi
+  AC_MSG_RESULT($ac_c99_complex_tr1)
+  if test x"$ac_c99_complex_tr1" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_C99_COMPLEX_TR1, 1,
+              [Define if C99 functions in <complex.h> should be used in
+              <tr1/complex>. Using compiler builtins for these functions
+	      requires corresponding C99 library functions to be present.])
+  fi
+
+  # Check for the existence of <ctype.h> functions.
+  AC_MSG_CHECKING([for ISO C99 support to TR1 in <ctype.h>])
+  AC_CACHE_VAL(ac_c99_ctype_tr1, [
+  AC_TRY_COMPILE([#include <ctype.h>],
+	         [int ch;
+	          isblank(ch);
+		 ],[ac_c99_ctype_tr1=yes], [ac_c99_ctype_tr1=no])
+  ])
+  AC_MSG_RESULT($ac_c99_ctype_tr1)
+  if test x"$ac_c99_ctype_tr1" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_C99_CTYPE_TR1, 1,
+              [Define if C99 functions in <ctype.h> should be imported in
+	      <tr1/cctype> in namespace std::tr1.])
+  fi
+
+  # Check for the existence of <fenv.h> functions.
+  AC_CHECK_HEADERS(fenv.h, ac_has_fenv_h=yes, ac_has_fenv_h=no)
+  ac_c99_fenv_tr1=no;
+  if test x"$ac_has_fenv_h" = x"yes"; then
+    AC_MSG_CHECKING([for ISO C99 support to TR1 in <fenv.h>])
+    AC_TRY_COMPILE([#include <fenv.h>],
+	           [int except, mode;
+	            fexcept_t* pflag;
+                    fenv_t* penv;
+	            feclearexcept(except);
+                    fegetexceptflag(pflag, except);
+	            feraiseexcept(except);
+	            fesetexceptflag(pflag, except);
+	            fetestexcept(except);
+	            fegetround();
+	            fesetround(mode);
+	            fegetenv(penv);
+	            feholdexcept(penv);
+	            fesetenv(penv);
+	            feupdateenv(penv);
+		   ],[ac_c99_fenv_tr1=yes], [ac_c99_fenv_tr1=no])
+  fi
+  AC_MSG_RESULT($ac_c99_fenv_tr1)
+  if test x"$ac_c99_fenv_tr1" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_C99_FENV_TR1, 1,
+              [Define if C99 functions in <fenv.h> should be imported in
+	      <tr1/cfenv> in namespace std::tr1.])
+  fi
+
+  AC_LANG_RESTORE
 ])
 
 

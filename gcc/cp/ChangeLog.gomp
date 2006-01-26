@@ -1,3 +1,12 @@
+2006-01-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* cp-tree.h (CP_OMP_CLAUSE_INFO): Use TREE_TYPE instead
+	of TREE_BLOCK.
+	* pt.c: Use OMP_CLAUSE_CODE and OMP_CLAUSE_OPERAND
+	instead of TREE_CODE/TREE_OPERAND.
+	* semantics.c: Likewise.
+	* parser.c: Likewise.
+
 2005-11-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* parser.c (cp_parser_omp_threadprivate): Emit diagnostic if

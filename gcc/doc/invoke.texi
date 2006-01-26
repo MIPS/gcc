@@ -9,8 +9,8 @@
 @c man end
 
 @c man begin COPYRIGHT
-Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2 or
@@ -358,7 +358,7 @@ Objective-C and Objective-C++ Dialects}.
 -include @var{file}  -imacros @var{file} @gol
 -iprefix @var{file}  -iwithprefix @var{dir} @gol
 -iwithprefixbefore @var{dir}  -isystem @var{dir} @gol
--isysroot @var{dir} @gol
+-imultilib @var{dir} -isysroot @var{dir} @gol
 -M  -MM  -MF  -MG  -MP  -MQ  -MT  -nostdinc  @gol
 -P  -fworking-directory  -remap @gol
 -trigraphs  -undef  -U@var{macro}  -Wp,@var{option} @gol
@@ -565,7 +565,8 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{M680x0 Options}
 @gccoptlist{-m68000  -m68020  -m68020-40  -m68020-60  -m68030  -m68040 @gol
--m68060  -mcpu32  -m5200  -m68881  -mbitfield  -mc68000  -mc68020   @gol
+-m68060  -mcpu32  -m5200  -mcfv4e -m68881  -mbitfield  @gol
+-mc68000  -mc68020   @gol
 -mnobitfield  -mrtd  -mshort  -msoft-float  -mpcrel @gol
 -malign-int  -mstrict-align  -msep-data  -mno-sep-data @gol
 -mshared-library-id=n  -mid-shared-library  -mno-id-shared-library}
@@ -1736,8 +1737,8 @@ public static member functions.
 @item -Wnon-virtual-dtor @r{(C++ only)}
 @opindex Wnon-virtual-dtor
 Warn when a class appears to be polymorphic, thereby requiring a virtual
-destructor, yet it declares a non-virtual one.
-This warning is enabled by @option{-Wall}.
+destructor, yet it declares a non-virtual one.  This warning is also
+enabled if -Weffc++ is specified.
 
 @item -Wreorder @r{(C++ only)}
 @opindex Wreorder
@@ -6862,9 +6863,9 @@ C@.
 
 @item %I
 Substitute any of @option{-iprefix} (made from @env{GCC_EXEC_PREFIX}),
-@option{-isysroot} (made from @env{TARGET_SYSTEM_ROOT}), and
+@option{-isysroot} (made from @env{TARGET_SYSTEM_ROOT}),
 @option{-isystem} (made from @env{COMPILER_PATH} and @option{-B} options)
-as necessary.
+and @option{-imultilib} as necessary.
 
 @item %s
 Current argument is the name of a library or startup file of some sort.
@@ -9906,6 +9907,10 @@ when the compiler is configured for 520X-based systems.
 Use this option for microcontroller with a 5200 core, including
 the MCF5202, MCF5203, MCF5204 and MCF5202.
 
+@item -mcfv4e
+@opindex mcfv4e
+Generate output for a ColdFire V4e family cpu (e.g.@: 547x/548x).
+This includes use of hardware floating point instructions.
 
 @item -m68020-40
 @opindex m68020-40

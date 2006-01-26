@@ -1775,7 +1775,7 @@ void gfc_get_component_attr (symbol_attribute *, gfc_component *);
 
 void gfc_set_sym_referenced (gfc_symbol * sym);
 
-try gfc_add_attribute (symbol_attribute *, locus *);
+try gfc_add_attribute (symbol_attribute *, locus *, uint);
 try gfc_add_allocatable (symbol_attribute *, locus *);
 try gfc_add_dimension (symbol_attribute *, const char *, locus *);
 try gfc_add_external (symbol_attribute *, locus *);
@@ -1846,6 +1846,7 @@ int gfc_symbols_could_alias (gfc_symbol *, gfc_symbol *);
 
 void gfc_undo_symbols (void);
 void gfc_commit_symbols (void);
+void gfc_commit_symbol (gfc_symbol * sym);
 void gfc_free_namespace (gfc_namespace *);
 
 void gfc_symbol_init_2 (void);
@@ -2045,5 +2046,6 @@ void gfc_show_namespace (gfc_namespace *);
 
 /* parse.c */
 try gfc_parse_file (void);
+void global_used (gfc_gsymbol *, locus *);
 
 #endif /* GCC_GFORTRAN_H  */

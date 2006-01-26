@@ -1,3 +1,10 @@
+2006-01-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* trans-openmp.c: Call build_omp_clause instead of
+	make_node when creating OMP_CLAUSE_* trees.
+	(gfc_trans_omp_reduction_list): Remove argument 'code'.
+	Adjust all callers.
+
 2006-01-19  Diego Novillo  <dnovillo@redhat.com>
 
 	* trans.h (build4_v): Define.

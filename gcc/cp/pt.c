@@ -2451,7 +2451,7 @@ end_template_decl (void)
 /* Given a template argument vector containing the template PARMS.
    The innermost PARMS are given first.  */
 
-tree
+static tree
 current_template_args (void)
 {
   tree header;
@@ -3357,7 +3357,7 @@ fold_non_dependent_expr (tree expr)
    initializers can maintain a syntactic rather than semantic form
    (even if they are non-dependent, for access-checking purposes).  */
 
-tree
+static tree
 fold_decl_constant_value (tree expr)
 {
   tree const_expr = expr;
@@ -8113,7 +8113,7 @@ tsubst_omp_clauses (tree clauses, tree args, tsubst_flags_t complain,
       OMP_CLAUSE_CHAIN (nc) = new_clauses;
       new_clauses = nc;
 
-      switch (TREE_CODE (nc))
+      switch (OMP_CLAUSE_CODE (nc))
 	{
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_SHARED:
@@ -8125,8 +8125,8 @@ tsubst_omp_clauses (tree clauses, tree args, tsubst_flags_t complain,
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
-	  TREE_OPERAND (nc, 0)
-	    = tsubst_expr (TREE_OPERAND (oc, 0), args, complain, in_decl);
+	  OMP_CLAUSE_OPERAND (nc, 0)
+	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 0), args, complain, in_decl);
 	  break;
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
@@ -10829,7 +10829,7 @@ more_specialized_fn (tree pat1, tree pat2, int len)
    FULL_ARGS is the full set of template arguments that triggers this
    partial ordering.  */
 
-int
+static int
 more_specialized_class (tree pat1, tree pat2, tree full_args)
 {
   tree targs;
@@ -11257,7 +11257,7 @@ do_decl_instantiation (tree decl, tree storage)
 		      /*expl_inst_class_mem_p=*/false);
 }
 
-void
+static void
 mark_class_instantiated (tree t, int extern_p)
 {
   SET_CLASSTYPE_EXPLICIT_INSTANTIATION (t);

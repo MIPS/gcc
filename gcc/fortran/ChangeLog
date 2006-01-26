@@ -1,3 +1,87 @@
+2005-01-25  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25716
+	* symbol.c (free_old_symbol): New function.
+	(gfc_commit_symbols): Use it.
+	(gfc_commit_symbol): New function.
+	(gfc_use_derived): Use it.
+	* gfortran.h: Add prototype for gfc_commit_symbol.
+	* intrinsic.c (gfc_find_function): Search in 'conversion'
+	if not found in 'functions'.
+	(gfc_convert_type_warn): Add a symtree to the new
+	expression node, and commit the new symtree->n.sym.
+	* resolve.c (gfc_resolve_index): Make sure typespec is
+	properly initialized.
+
+2005-01-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25901
+	* decl.c (get_proc_name): Replace subroutine and function attributes
+	in "already defined" test by the formal arglist pointer being non-NULL.
+
+	Fix regression in testing of admissability of attributes.
+	* symbol.c (gfc_add_attribute): If the current_attr has non-zero
+	intent, do not do the check for a dummy being used.
+	* decl.c (attr_decl1): Add current_attr.intent as the third argument
+	in the call to gfc_add_attribute.
+	* gfortran.h: Add the third argument to the prototype for
+	gfc_add_attribute.
+
+2006-01-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gfortranspec.c (lang_specific_driver): Update copyright notice
+	date.
+
+2005-01-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25124
+	PR fortran/25625
+	* decl.c (get_proc_name): If there is an existing
+	symbol in the encompassing namespace, call errors
+	if it is a procedure of the same name or the kind
+	field is set, indicating a type declaration.
+
+	PR fortran/20881
+	PR fortran/23308
+	PR fortran/25538
+	PR fortran/25710
+	* decl.c (add_global_entry): New function to check
+	for existing global symbol with this name and to
+	create new one if none exists.
+	(gfc_match_entry): Call add_global_entry before
+	matching argument lists for subroutine and function
+	entries.
+	* gfortran.h: Prototype for existing function,
+	global_used.
+	* resolve.c (resolve_global_procedure): New function
+	to check global symbols for procedures.
+	(resolve_call, resolve_function): Calls to this
+	new function for non-contained and non-module
+	procedures.
+	* match.c (match_common): Add check for existing
+	global symbol, creat one if none exists and emit
+	error if there is a clash.
+	* parse.c (global_used): Remove static and use the
+	gsymbol name rather than the new_block name, so that
+	the function can be called from resolve.c.
+	(parse_block_data, parse_module, add_global_procedure):
+	Improve checks for existing gsymbols.  Emit error if
+	already defined or if references were to another type.
+	Set defined flag.
+
+	PR fortran/PR24276
+	* trans-expr.c (gfc_conv_aliased_arg): New function called by 
+	gfc_conv_function_call that coverts an expression for an aliased
+	component reference to a derived type array into a temporary array
+	of the same type as the component.  The temporary is passed as an
+	actual argument for the procedure call and is copied back to the
+	derived type after the call.
+	(is_aliased_array): New function that detects an array reference
+	that is followed by a component reference.
+	(gfc_conv_function_call): Detect an aliased actual argument with
+	is_aliased_array and convert it to a temporary and back again
+	using gfc_conv_aliased_arg.
+
 2006-01-19  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* gfortranspec.c: Update copyright years.
@@ -18,6 +102,9 @@
 	* io.c (format_asterisk): Adapt initializer.
 	* resolve.c (resolve_branch): Allow FORTRAN 66 cross-block GOTOs
 	as extension.
+	(warn_unused_label): Take gfc_st_label label as argument, adapt to
+	new data structure.
+	(gfc_resolve): Adapt call to warn_unused_label.
 	* symbol.c (compare_st_labels): New function.
 	(gfc_free_st_label, free_st_labels, gfc_get_st_label): Convert to
 	using balanced binary tree.

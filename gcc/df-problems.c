@@ -324,7 +324,9 @@ df_ru_set_bb_info (struct dataflow *dflow, unsigned int index,
 /* Free basic block info.  */
 
 static void
-df_ru_free_bb_info (struct dataflow *dflow, void *vbb_info)
+df_ru_free_bb_info (struct dataflow *dflow, 
+		    basic_block bb ATTRIBUTE_UNUSED, 
+		    void *vbb_info)
 {
   struct df_ru_bb_info *bb_info = (struct df_ru_bb_info *) vbb_info;
   if (bb_info)
@@ -369,12 +371,12 @@ df_ru_alloc (struct dataflow *dflow, bitmap blocks_to_rescan)
 	    }
 	}
       
-      if (problem_data->use_sites_size > reg_size)
+      if (problem_data->use_sites_size < reg_size)
 	{
 	  problem_data->use_sites 
-	    = xrealloc (problem_data->use_sites, reg_size *sizeof (bitmap));
-	  memset (problem_data->use_sites, 0,
-		  (reg_size - problem_data->use_sites_size) *sizeof (bitmap));
+	    = xrealloc (problem_data->use_sites, reg_size * sizeof (bitmap));
+	  memset (problem_data->use_sites + problem_data->use_sites_size, 0,
+		  (reg_size - problem_data->use_sites_size) * sizeof (bitmap));
 	  problem_data->use_sites_size = reg_size;
 	}
 
@@ -616,13 +618,19 @@ df_ru_confluence_n (struct dataflow *dflow, edge e)
       struct df *df = dflow->df;
       bitmap_iterator bi;
       unsigned int regno;
-      bitmap_ior_and_compl_into (op1, op2, dense_invalidated);
+      bitmap tmp = BITMAP_ALLOC (NULL);
+
+      bitmap_copy (tmp, op2);
+      bitmap_and_compl_into (tmp, dense_invalidated);
+
       EXECUTE_IF_SET_IN_BITMAP (sparse_invalidated, 0, regno, bi)
 	{
- 	  bitmap_clear_range (op1, 
+ 	  bitmap_clear_range (tmp, 
  			      DF_REG_USE_GET (df, regno)->begin, 
  			      DF_REG_USE_GET (df, regno)->n_refs);
 	}
+      bitmap_ior_into (op1, tmp);
+      BITMAP_FREE (tmp);
     }
   else
     bitmap_ior_into (op1, op2);
@@ -659,7 +667,7 @@ df_ru_transfer_function (struct dataflow *dflow, int bb_index)
 	}
       bitmap_and_compl_into (tmp, kill);
       bitmap_ior_into (tmp, gen);
-      changed = !bitmap_equal_p (tmp, out);
+      changed = !bitmap_equal_p (tmp, in);
       if (changed)
 	{
 	  BITMAP_FREE (out);
@@ -681,35 +689,38 @@ df_ru_free (struct dataflow *dflow)
   struct df_ru_problem_data *problem_data =
     (struct df_ru_problem_data *) dflow->problem_data;
 
-  for (i = 0; i < dflow->block_info_size; i++)
+  if (problem_data)
     {
-      struct df_ru_bb_info *bb_info = df_ru_get_bb_info (dflow, i);
-      if (bb_info)
+      for (i = 0; i < dflow->block_info_size; i++)
 	{
-	  BITMAP_FREE (bb_info->kill);
-	  BITMAP_FREE (bb_info->sparse_kill);
-	  BITMAP_FREE (bb_info->gen);
-	  BITMAP_FREE (bb_info->in);
-	  BITMAP_FREE (bb_info->out);
+	  struct df_ru_bb_info *bb_info = df_ru_get_bb_info (dflow, i);
+	  if (bb_info)
+	    {
+	      BITMAP_FREE (bb_info->kill);
+	      BITMAP_FREE (bb_info->sparse_kill);
+	      BITMAP_FREE (bb_info->gen);
+	      BITMAP_FREE (bb_info->in);
+	      BITMAP_FREE (bb_info->out);
+	    }
 	}
+      
+      free_alloc_pool (dflow->block_pool);
+      
+      for (i = 0; i < problem_data->use_sites_size; i++)
+	{
+	  bitmap bm = problem_data->use_sites[i];
+	  if (bm)
+	    BITMAP_FREE (bm);
+	}
+      
+      free (problem_data->use_sites);
+      BITMAP_FREE (problem_data->sparse_invalidated_by_call);
+      BITMAP_FREE (problem_data->dense_invalidated_by_call);
+      
+      dflow->block_info_size = 0;
+      free (dflow->block_info);
+      free (dflow->problem_data);
     }
-
-  free_alloc_pool (dflow->block_pool);
-
-  for (i = 0; i < problem_data->use_sites_size; i++)
-    {
-      bitmap bm = problem_data->use_sites[i];
-      if (bm)
-	BITMAP_FREE (bm);
-    }
-
-  free (problem_data->use_sites);
-  BITMAP_FREE (problem_data->sparse_invalidated_by_call);
-  BITMAP_FREE (problem_data->dense_invalidated_by_call);
-
-  dflow->block_info_size = 0;
-  free (dflow->block_info);
-  free (dflow->problem_data);
   free (dflow);
 }
 
@@ -766,6 +777,7 @@ static struct df_problem problem_RU =
   DF_RU,                      /* Problem id.  */
   DF_BACKWARD,                /* Direction.  */
   df_ru_alloc,                /* Allocate the problem specific data.  */
+  NULL,                       /* Reset global information.  */
   df_ru_free_bb_info,         /* Free basic block info.  */
   df_ru_local_compute,        /* Local compute function.  */
   df_ru_init_solution,        /* Init the solution specific data.  */
@@ -831,7 +843,9 @@ df_rd_set_bb_info (struct dataflow *dflow, unsigned int index,
 /* Free basic block info.  */
 
 static void
-df_rd_free_bb_info (struct dataflow *dflow, void *vbb_info)
+df_rd_free_bb_info (struct dataflow *dflow, 
+		    basic_block bb ATTRIBUTE_UNUSED, 
+		    void *vbb_info)
 {
   struct df_rd_bb_info *bb_info = (struct df_rd_bb_info *) vbb_info;
   if (bb_info)
@@ -876,11 +890,11 @@ df_rd_alloc (struct dataflow *dflow, bitmap blocks_to_rescan)
 	    }
 	}
       
-      if (problem_data->def_sites_size > reg_size)
+      if (problem_data->def_sites_size < reg_size)
 	{
 	  problem_data->def_sites 
 	    = xrealloc (problem_data->def_sites, reg_size *sizeof (bitmap));
-	  memset (problem_data->def_sites, 0,
+	  memset (problem_data->def_sites + problem_data->def_sites_size, 0,
 		  (reg_size - problem_data->def_sites_size) *sizeof (bitmap));
 	  problem_data->def_sites_size = reg_size;
 	}
@@ -1097,13 +1111,19 @@ df_rd_confluence_n (struct dataflow *dflow, edge e)
       struct df *df = dflow->df;
       bitmap_iterator bi;
       unsigned int regno;
-      bitmap_ior_and_compl_into (op1, op2, dense_invalidated);
+      bitmap tmp = BITMAP_ALLOC (NULL);
+
+      bitmap_copy (tmp, op2);
+      bitmap_and_compl_into (tmp, dense_invalidated);
+
       EXECUTE_IF_SET_IN_BITMAP (sparse_invalidated, 0, regno, bi)
  	{
- 	  bitmap_clear_range (op1, 
+ 	  bitmap_clear_range (tmp, 
  			      DF_REG_DEF_GET (df, regno)->begin, 
  			      DF_REG_DEF_GET (df, regno)->n_refs);
 	}
+      bitmap_ior_into (op1, tmp);
+      BITMAP_FREE (tmp);
     }
   else
     bitmap_ior_into (op1, op2);
@@ -1162,35 +1182,38 @@ df_rd_free (struct dataflow *dflow)
   struct df_rd_problem_data *problem_data =
     (struct df_rd_problem_data *) dflow->problem_data;
 
-  for (i = 0; i < dflow->block_info_size; i++)
+  if (problem_data)
     {
-      struct df_rd_bb_info *bb_info = df_rd_get_bb_info (dflow, i);
-      if (bb_info)
+      for (i = 0; i < dflow->block_info_size; i++)
 	{
-	  BITMAP_FREE (bb_info->kill);
-	  BITMAP_FREE (bb_info->sparse_kill);
-	  BITMAP_FREE (bb_info->gen);
-	  BITMAP_FREE (bb_info->in);
-	  BITMAP_FREE (bb_info->out);
+	  struct df_rd_bb_info *bb_info = df_rd_get_bb_info (dflow, i);
+	  if (bb_info)
+	    {
+	      BITMAP_FREE (bb_info->kill);
+	      BITMAP_FREE (bb_info->sparse_kill);
+	      BITMAP_FREE (bb_info->gen);
+	      BITMAP_FREE (bb_info->in);
+	      BITMAP_FREE (bb_info->out);
+	    }
 	}
+      
+      free_alloc_pool (dflow->block_pool);
+      
+      for (i = 0; i < problem_data->def_sites_size; i++)
+	{
+	  bitmap bm = problem_data->def_sites[i];
+	  if (bm)
+	    BITMAP_FREE (bm);
+	}
+      
+      free (problem_data->def_sites);
+      BITMAP_FREE (problem_data->sparse_invalidated_by_call);
+      BITMAP_FREE (problem_data->dense_invalidated_by_call);
+      
+      dflow->block_info_size = 0;
+      free (dflow->block_info);
+      free (dflow->problem_data);
     }
-
-  free_alloc_pool (dflow->block_pool);
-
-  for (i = 0; i < problem_data->def_sites_size; i++)
-    {
-      bitmap bm = problem_data->def_sites[i];
-      if (bm)
-	BITMAP_FREE (bm);
-    }
-
-  free (problem_data->def_sites);
-  BITMAP_FREE (problem_data->sparse_invalidated_by_call);
-  BITMAP_FREE (problem_data->dense_invalidated_by_call);
-
-  dflow->block_info_size = 0;
-  free (dflow->block_info);
-  free (dflow->problem_data);
   free (dflow);
 }
 
@@ -1247,6 +1270,7 @@ static struct df_problem problem_RD =
   DF_RD,                      /* Problem id.  */
   DF_FORWARD,                 /* Direction.  */
   df_rd_alloc,                /* Allocate the problem specific data.  */
+  NULL,                       /* Reset global information.  */
   df_rd_free_bb_info,         /* Free basic block info.  */
   df_rd_local_compute,        /* Local compute function.  */
   df_rd_init_solution,        /* Init the solution specific data.  */
@@ -1303,7 +1327,9 @@ df_lr_set_bb_info (struct dataflow *dflow, unsigned int index,
 /* Free basic block info.  */
 
 static void
-df_lr_free_bb_info (struct dataflow *dflow, void *vbb_info)
+df_lr_free_bb_info (struct dataflow *dflow, 
+		    basic_block bb ATTRIBUTE_UNUSED, 
+		    void *vbb_info)
 {
   struct df_lr_bb_info *bb_info = (struct df_lr_bb_info *) vbb_info;
   if (bb_info)
@@ -1574,22 +1600,25 @@ df_lr_transfer_function (struct dataflow *dflow, int bb_index)
 static void
 df_lr_free (struct dataflow *dflow)
 {
-  unsigned int i;
-  for (i = 0; i < dflow->block_info_size; i++)
+  if (dflow->block_info)
     {
-      struct df_lr_bb_info *bb_info = df_lr_get_bb_info (dflow, i);
-      if (bb_info)
+      unsigned int i;
+      for (i = 0; i < dflow->block_info_size; i++)
 	{
-	  BITMAP_FREE (bb_info->use);
-	  BITMAP_FREE (bb_info->def);
-	  BITMAP_FREE (bb_info->in);
-	  BITMAP_FREE (bb_info->out);
+	  struct df_lr_bb_info *bb_info = df_lr_get_bb_info (dflow, i);
+	  if (bb_info)
+	    {
+	      BITMAP_FREE (bb_info->use);
+	      BITMAP_FREE (bb_info->def);
+	      BITMAP_FREE (bb_info->in);
+	      BITMAP_FREE (bb_info->out);
+	    }
 	}
+      free_alloc_pool (dflow->block_pool);
+      
+      dflow->block_info_size = 0;
+      free (dflow->block_info);
     }
-  free_alloc_pool (dflow->block_pool);
-
-  dflow->block_info_size = 0;
-  free (dflow->block_info);
   free (dflow);
 }
 
@@ -1628,6 +1657,7 @@ static struct df_problem problem_LR =
   DF_LR,                      /* Problem id.  */
   DF_BACKWARD,                /* Direction.  */
   df_lr_alloc,                /* Allocate the problem specific data.  */
+  NULL,                       /* Reset global information.  */
   df_lr_free_bb_info,         /* Free basic block info.  */
   df_lr_local_compute,        /* Local compute function.  */
   df_lr_init,                 /* Init the solution specific data.  */
@@ -1683,7 +1713,9 @@ df_ur_set_bb_info (struct dataflow *dflow, unsigned int index,
 /* Free basic block info.  */
 
 static void
-df_ur_free_bb_info (struct dataflow *dflow, void *vbb_info)
+df_ur_free_bb_info (struct dataflow *dflow, 
+		    basic_block bb ATTRIBUTE_UNUSED, 
+		    void *vbb_info)
 {
   struct df_ur_bb_info *bb_info = (struct df_ur_bb_info *) vbb_info;
   if (bb_info)
@@ -1903,23 +1935,26 @@ df_ur_transfer_function (struct dataflow *dflow, int bb_index)
 static void
 df_ur_free (struct dataflow *dflow)
 {
-  unsigned int i;
-
-  for (i = 0; i < dflow->block_info_size; i++)
+  if (dflow->block_info)
     {
-      struct df_ur_bb_info *bb_info = df_ur_get_bb_info (dflow, i);
-      if (bb_info)
+      unsigned int i;
+      
+      for (i = 0; i < dflow->block_info_size; i++)
 	{
-	  BITMAP_FREE (bb_info->gen);
-	  BITMAP_FREE (bb_info->kill);
-	  BITMAP_FREE (bb_info->in);
-	  BITMAP_FREE (bb_info->out);
+	  struct df_ur_bb_info *bb_info = df_ur_get_bb_info (dflow, i);
+	  if (bb_info)
+	    {
+	      BITMAP_FREE (bb_info->gen);
+	      BITMAP_FREE (bb_info->kill);
+	      BITMAP_FREE (bb_info->in);
+	      BITMAP_FREE (bb_info->out);
+	    }
 	}
+      
+      free_alloc_pool (dflow->block_pool);
+      dflow->block_info_size = 0;
+      free (dflow->block_info);
     }
-
-  free_alloc_pool (dflow->block_pool);
-  dflow->block_info_size = 0;
-  free (dflow->block_info);
   free (dflow);
 }
 
@@ -1959,6 +1994,7 @@ static struct df_problem problem_UR =
   DF_UR,                      /* Problem id.  */
   DF_FORWARD,                 /* Direction.  */
   df_ur_alloc,                /* Allocate the problem specific data.  */
+  NULL,                       /* Reset global information.  */
   df_ur_free_bb_info,         /* Free basic block info.  */
   df_ur_local_compute,        /* Local compute function.  */
   df_ur_init,                 /* Init the solution specific data.  */
@@ -2027,7 +2063,9 @@ df_urec_set_bb_info (struct dataflow *dflow, unsigned int index,
 /* Free basic block info.  */
 
 static void
-df_urec_free_bb_info (struct dataflow *dflow, void *vbb_info)
+df_urec_free_bb_info (struct dataflow *dflow, 
+		      basic_block bb ATTRIBUTE_UNUSED, 
+		      void *vbb_info)
 {
   struct df_urec_bb_info *bb_info = (struct df_urec_bb_info *) vbb_info;
   if (bb_info)
@@ -2517,26 +2555,29 @@ df_urec_transfer_function (struct dataflow *dflow, int bb_index)
 static void
 df_urec_free (struct dataflow *dflow)
 {
-  unsigned int i;
-
-  for (i = 0; i < dflow->block_info_size; i++)
+  if (dflow->block_info)
     {
-      struct df_urec_bb_info *bb_info = df_urec_get_bb_info (dflow, i);
-      if (bb_info)
+      unsigned int i;
+      
+      for (i = 0; i < dflow->block_info_size; i++)
 	{
-	  BITMAP_FREE (bb_info->gen);
-	  BITMAP_FREE (bb_info->kill);
-	  BITMAP_FREE (bb_info->in);
-	  BITMAP_FREE (bb_info->out);
-	  BITMAP_FREE (bb_info->earlyclobber);
+	  struct df_urec_bb_info *bb_info = df_urec_get_bb_info (dflow, i);
+	  if (bb_info)
+	    {
+	      BITMAP_FREE (bb_info->gen);
+	      BITMAP_FREE (bb_info->kill);
+	      BITMAP_FREE (bb_info->in);
+	      BITMAP_FREE (bb_info->out);
+	      BITMAP_FREE (bb_info->earlyclobber);
+	    }
 	}
+      
+      free_alloc_pool (dflow->block_pool);
+      
+      dflow->block_info_size = 0;
+      free (dflow->block_info);
+      free (dflow->problem_data);
     }
-
-  free_alloc_pool (dflow->block_pool);
-  
-  dflow->block_info_size = 0;
-  free (dflow->block_info);
-  free (dflow->problem_data);
   free (dflow);
 }
 
@@ -2578,6 +2619,7 @@ static struct df_problem problem_UREC =
   DF_UREC,                    /* Problem id.  */
   DF_FORWARD,                 /* Direction.  */
   df_urec_alloc,              /* Allocate the problem specific data.  */
+  NULL,                       /* Reset global information.  */
   df_urec_free_bb_info,       /* Free basic block info.  */
   df_urec_local_compute,      /* Local compute function.  */
   df_urec_init,               /* Init the solution specific data.  */
@@ -2662,6 +2704,114 @@ df_chain_alloc (struct dataflow *dflow,
 	  DF_REF_CHAIN (ref) = NULL;
 	}
     }
+}
+
+
+/* Reset all def_use and use_def chains in INSN.  */
+
+static void 
+df_chain_insn_reset (struct dataflow *dflow, rtx insn)
+{
+  struct df *df = dflow->df;
+  struct df_chain_problem_data *problem_data =
+    (struct df_chain_problem_data *) dflow->problem_data;
+  unsigned int uid = INSN_UID (insn);
+  struct df_insn_info *insn_info = NULL;
+  struct df_ref *ref;
+
+  if (uid < df->insns_size)
+    insn_info = DF_INSN_UID_GET (df, uid);
+
+  if (insn_info)
+    {
+      if (problem_data->flags & DF_DU_CHAIN)
+	{
+	  ref = insn_info->defs;
+	  while (ref)
+	    {
+	      ref->chain = NULL;
+	      ref = ref->next_ref;
+	    }
+	}
+
+      if (problem_data->flags & DF_UD_CHAIN)
+	{
+	  ref = insn_info->uses;
+	  while (ref) 
+	    {
+	      ref->chain = NULL;
+	      ref = ref->next_ref;
+	    }
+	}
+    }
+}
+
+
+/* Reset all def_use and use_def chains in basic block.  */
+
+static void 
+df_chain_bb_reset (struct dataflow *dflow, unsigned int bb_index)
+{
+  struct df *df = dflow->df; 
+  struct df_chain_problem_data *problem_data =
+    (struct df_chain_problem_data *) dflow->problem_data;
+  rtx insn;
+  basic_block bb = BASIC_BLOCK (bb_index);
+
+  /* Some one deleted the basic block out from under us.  */
+  if (!bb)
+    return;
+
+  FOR_BB_INSNS (bb, insn)
+    {
+      if (INSN_P (insn))
+	{
+	  /* Record defs within INSN.  */
+	  df_chain_insn_reset (dflow, insn);
+	}
+    }
+  
+  /* Get rid of any chains in artifical uses or defs.  */
+  if (problem_data->flags & DF_DU_CHAIN)
+    {
+      struct df_ref *def;
+      def = df_get_artificial_defs (df, bb_index);
+      while (def)
+	{
+	  def->chain = NULL;
+	  def = def->next_ref;
+	}
+    }
+
+  if (problem_data->flags & DF_UD_CHAIN)
+    {
+      struct df_ref *use;
+      use = df_get_artificial_uses (df, bb_index);
+      while (use)
+	{
+	  use->chain = NULL;
+	  use = use->next_ref;
+	}
+    }
+}
+
+
+/* Reset all of the chains when the set of basic blocks changes.  */
+
+
+static void
+df_chain_reset (struct dataflow *dflow, bitmap blocks_to_clear)
+{
+  bitmap_iterator bi;
+  unsigned int bb_index;
+  
+  EXECUTE_IF_SET_IN_BITMAP (blocks_to_clear, 0, bb_index, bi)
+    {
+      df_chain_bb_reset (dflow, bb_index);
+    }
+
+  free_alloc_pool (dflow->block_pool);
+  dflow->block_pool = NULL;
 }
 
 
@@ -2880,6 +3030,7 @@ static struct df_problem problem_CHAIN =
   DF_CHAIN,                   /* Problem id.  */
   DF_NONE,                    /* Direction.  */
   df_chain_alloc,             /* Allocate the problem specific data.  */
+  df_chain_reset,             /* Reset global information.  */
   NULL,                       /* Free basic block info.  */
   NULL,                       /* Local compute function.  */
   NULL,                       /* Init the solution specific data.  */
@@ -3055,6 +3206,7 @@ static struct df_problem problem_RI =
   DF_RI,                      /* Problem id.  */
   DF_NONE,                    /* Direction.  */
   df_ri_alloc,                /* Allocate the problem specific data.  */
+  NULL,                       /* Reset global information.  */
   NULL,                       /* Free basic block info.  */
   df_ri_compute,              /* Local compute function.  */
   NULL,                       /* Init the solution specific data.  */
