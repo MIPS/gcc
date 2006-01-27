@@ -509,6 +509,7 @@ extern struct df *df_init (int);
 extern struct dataflow *df_add_problem (struct df *, struct df_problem *);
 extern void df_set_blocks (struct df*, bitmap);
 extern void df_finish1 (struct df *);
+extern void df_analyze_problem (struct dataflow *, bitmap, bitmap, bitmap, int *, int, bool);
 extern void df_analyze (struct df *);
 extern void df_analyze_simple_change_some_blocks (struct df *, int *, int);
 extern void df_analyze_simple_change_one_block (struct df *, basic_block);

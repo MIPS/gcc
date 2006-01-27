@@ -1,5 +1,31 @@
 2005-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
+	* df-core.c (df_iterative_dataflow): Added debugging assert.
+	(df_insn_uid_debug): New debugging function.
+	(df_insn_debug): Changed to used df_insn_uid_debug.
+	(df_analyze_problem): Made public.
+	* df.h (df_analyze_problem): Ditto.
+	* cfgcleanup.c (cleanup_cfg): Now calls run_fsst_dce.
+	* flow.c (update_life_info): Ditto.  
+	* dce.c (init_dce, mark_insn,
+	mark_nonreg_stores, prescan_insns_for_dce): Added parameter so
+	that they could be called from both handle_rest_of_dce and
+	handle_rest_of_fast_dce.
+	(marked_insn_p): Added code to be tolerant of artifical defs,
+	which do not have insns.
+	(mark_nonreg_stores_2): New function.
+	(mark_artificial_uses, mark_reg_dependencies, store_base_local,
+	mark_escaping_stores, mark_dependent_stores,
+	prescan_insns_for_dse): Added parameter to mark_insn.
+	(rest_of_handle_dce): Added parameter to prescan_insns_for_dce.
+	(record_stores): Added parameter to mark_non_reg_stores.
+	(dce_process_block, rest_of_handle_fast_dce, gate_fast_dce,
+	run_fast_dce): New functions to do dce faster.
+	(rest_of_handle_dse) Added parameter to init_dce.
+	* dce.h (run_fast_dce): Added declaration.
+	
+2005-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+
 	* df-scan.c (df_hard_reg_init): Moved declaration of i outside macro.
 
 2006-01-17  Ian Lance Taylor <ian@airs.com>

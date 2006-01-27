@@ -19,3 +19,4 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
 extern bool run_dce (void);
+extern bool run_fast_dce (void);

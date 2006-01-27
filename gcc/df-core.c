@@ -591,6 +591,8 @@ df_iterative_dataflow (struct dataflow *dataflow,
   sbitmap_zero (pending);
   sbitmap_zero (considered);
 
+  gcc_assert (dataflow->problem->dir);
+
   EXECUTE_IF_SET_IN_BITMAP (blocks_to_consider, 0, idx, bi)
     {
       SET_BIT (considered, idx);
@@ -693,7 +695,7 @@ df_prune_to_subcfg (int list[], unsigned len, bitmap blocks)
    small fixup     fringe                sub               sub
 */
 
-static void
+void
 df_analyze_problem (struct dataflow *dflow, 
 		    bitmap blocks_to_consider, 
 		    bitmap blocks_to_init,
@@ -1177,14 +1179,11 @@ df_regs_chain_dump (struct df *df ATTRIBUTE_UNUSED, struct df_ref *ref,  FILE *f
   fprintf (file, "}");
 }
 
-
-void
-df_insn_debug (struct df *df, rtx insn, bool follow_chain, FILE *file)
+static void 
+df_insn_uid_debug (struct df *df, unsigned int uid, 
+		   bool follow_chain, FILE *file)
 {
-  unsigned int uid;
   int bbi;
-
-  uid = INSN_UID (insn);
 
   if (DF_INSN_UID_DEFS (df, uid))
     bbi = DF_REF_BBNO (DF_INSN_UID_DEFS (df, uid));
@@ -1194,12 +1193,19 @@ df_insn_debug (struct df *df, rtx insn, bool follow_chain, FILE *file)
     bbi = -1;
 
   fprintf (file, "insn %d bb %d luid %d defs ",
-	   uid, bbi, DF_INSN_LUID (df, insn));
+	   uid, bbi, DF_INSN_UID_LUID (df, uid));
 
   df_refs_chain_dump (df, DF_INSN_UID_DEFS (df, uid), follow_chain, file);
   fprintf (file, " defs ");
   df_refs_chain_dump (df, DF_INSN_UID_USES (df, uid), follow_chain, file);
   fprintf (file, "\n");
+}
+
+
+void
+df_insn_debug (struct df *df, rtx insn, bool follow_chain, FILE *file)
+{
+  df_insn_uid_debug (df, INSN_UID (insn), follow_chain, file);
 }
 
 void

@@ -585,7 +585,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   ndead = 0;
 
   if (prop_flags & PROP_KILL_DEAD_CODE)
-    run_dce ();
+    run_fast_dce ();
   if ((prop_flags & PROP_REG_INFO) && !reg_deaths)
     reg_deaths = xcalloc (sizeof (*reg_deaths), max_regno);
 

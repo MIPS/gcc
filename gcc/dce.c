@@ -40,6 +40,7 @@ DEF_VEC_ALLOC_P(rtx,heap);
 DEF_VEC_I(int);
 DEF_VEC_ALLOC_I(int,heap);
 
+
 /* -------------------------------------------------------------------------
    Core mark/delete routines
    ------------------------------------------------------------------------- */
@@ -56,37 +57,6 @@ static VEC(rtx,heap) *worklist;
 
 static bitmap marked = NULL;
 
-/* Initialize global variables for a new DCE pass.  */
-
-static void
-init_dce (void)
-{
-  dce_df = df_init (DF_HARD_REGS);
-  df_chain_add_problem (dce_df, DF_UD_CHAIN);
-
-  marked = BITMAP_ALLOC (NULL);
-  df_analyze (dce_df);
-  if (dump_file)
-    df_dump (dce_df, dump_file);
-
-}
-
-/* Free the data allocated by init_dce.  */
-
-static void
-end_dce (void)
-{
-  BITMAP_FREE (marked);
-  df_finish (dce_df);
-  dce_df = NULL;
-
-  /* People who call dce expect the core data flow to be updated.  */
-  if (rtl_df)
-    {
-      df_rescan_blocks (rtl_df, NULL);
-      df_analyze (rtl_df);
-    }
-}
 
 /* Return true if INSN a normal instruction that can be deleted by the
    DCE pass.  */
@@ -122,31 +92,40 @@ deletable_insn_p (rtx insn)
       return true;
     }
 }
+
+
 /* Return true if INSN has not been marked as needed.  */
 
 static inline bool
 marked_insn_p (rtx insn)
 {
-  return bitmap_bit_p (marked, INSN_UID (insn));
-/*   return GET_MODE (insn) == SImode; */
+  if (insn)
+    return bitmap_bit_p (marked, INSN_UID (insn));
+  else 
+    /* Artificial defs are always needed and they do not have an
+       insn.  */
+    return true;
 }
 
+/* Flag to keep recursive walk of libcall from going south (assuming
+   the stack grows downward).  */
 static bool in_libcall = 0;
+
+
 /* If INSN has not yet been marked as needed, mark it now, and add it to
    the worklist.  */
 
 static void
-mark_insn (rtx insn)
+mark_insn (rtx insn, bool fast)
 {
   if (!marked_insn_p (insn))
     {
       unsigned int id = INSN_UID (insn);
-      VEC_safe_push (rtx, heap, worklist, insn);
+      if (!fast)
+	VEC_safe_push (rtx, heap, worklist, insn);
       bitmap_set_bit (marked, INSN_UID (insn));
-/*       PUT_MODE (insn, SImode); */
       if (dump_file)
-	fprintf (dump_file, "  Adding insn %d to worklist\n",
-		 id);
+	fprintf (dump_file, "  Adding insn %d to worklist\n", id);
 
       /* The skeptical programmer may wonder what happens if one of
 	 the middle instructions is the one that needs to be marked
@@ -155,11 +134,12 @@ mark_insn (rtx insn)
 	{
 	  in_libcall = 1;
 	  if (dump_file)
-	    fprintf (dump_file, "Marking rest of libcall starting at insn %d\n", id);
+	    fprintf (dump_file, 
+		     "Marking rest of libcall starting at insn %d\n", id);
 	  while (!find_reg_note (insn, REG_RETVAL, NULL_RTX))
 	    {
 	      insn = NEXT_INSN (insn);
-	      mark_insn (insn);
+	      mark_insn (insn, fast);
 	    }
 	  in_libcall = 0;
 	}
@@ -167,16 +147,18 @@ mark_insn (rtx insn)
 	{
 	  in_libcall = 1;
 	  if (dump_file)
-	    fprintf (dump_file, "Marking rest of libcall ending at insn %d\n", id);
+	    fprintf (dump_file, 
+		     "Marking rest of libcall ending at insn %d\n", id);
 	  while (!find_reg_note (insn, REG_LIBCALL, NULL_RTX))
 	    {
 	      insn = PREV_INSN (insn);
-	      mark_insn (insn);
+	      mark_insn (insn, fast);
 	    }
 	  in_libcall = 0;
 	}
     }
 }
+
 
 /* A note_stores callback used by mark_nonreg_stores.  DATA is the
    instruction containing DEST.  */
@@ -185,17 +167,76 @@ static void
 mark_nonreg_stores_1 (rtx dest, rtx pattern, void *data)
 {
   if (GET_CODE (pattern) != CLOBBER && !REG_P (dest))
-
-    mark_insn ((rtx) data);
+    mark_insn ((rtx) data, true);
 }
+
+
+/* A note_stores callback used by mark_nonreg_stores.  DATA is the
+   instruction containing DEST.  */
+
+static void
+mark_nonreg_stores_2 (rtx dest, rtx pattern, void *data)
+{
+  if (GET_CODE (pattern) != CLOBBER && !REG_P (dest))
+    mark_insn ((rtx) data, false);
+}
+
 
 /* Mark INSN if BODY stores to a non-register destination.  */
 
 static void
-mark_nonreg_stores (rtx body, rtx insn)
+mark_nonreg_stores (rtx body, rtx insn, bool fast)
 {
-  note_stores (body, mark_nonreg_stores_1, insn);
+  if (fast)
+    note_stores (body, mark_nonreg_stores_1, insn);
+  else
+    note_stores (body, mark_nonreg_stores_2, insn);
 }
+
+
+/* Go through the instructions and mark those whose necessity is not
+   dependent on inter-instruction information.  Make sure all other
+   instructions are not marked.  */
+
+static void
+prescan_insns_for_dce (bool fast)
+{
+  basic_block bb;
+  rtx insn;
+  
+  if (dump_file)
+    fprintf (dump_file, "Finding needed instructions:\n");
+  
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+    if (INSN_P (insn))
+      {
+	if (deletable_insn_p (insn))
+	  mark_nonreg_stores (PATTERN (insn), insn, fast);
+	else
+	  mark_insn (insn, fast);
+      }
+}
+
+
+/* Initialize global variables for a new DCE pass.  */
+
+static void
+init_dce (bool fast)
+{
+  dce_df = df_init (DF_HARD_REGS);
+  if (fast)
+    df_lr_add_problem (dce_df);
+  else
+    df_chain_add_problem (dce_df, DF_UD_CHAIN);
+
+  df_analyze (dce_df);
+
+  marked = BITMAP_ALLOC (NULL);
+  if (dump_file)
+    df_dump (dce_df, dump_file);
+}
+
 
 /* Delete every instruction that hasn't been marked.  */
 
@@ -218,9 +259,30 @@ delete_unmarked_insns (void)
 	}
 }
 
+
+/* Free the data allocated by init_dce.  */
+
+static void
+end_dce (void)
+{
+  BITMAP_FREE (marked);
+
+  df_finish (dce_df);
+  dce_df = NULL;
+
+  /* People who call dce expect the core data flow to be updated.  */
+  if (rtl_df)
+    {
+      df_rescan_blocks (rtl_df, NULL);
+      df_analyze (rtl_df);
+    }
+}
+
+
 /* -------------------------------------------------------------------------
    Code for handling register dependencies
    ------------------------------------------------------------------------- */
+
 
 /* Mark instructions that define artifically-used registers, such as
    the frame pointer and the stack pointer.  */
@@ -237,7 +299,7 @@ mark_artificial_uses (void)
       for (use = df_get_artificial_uses (dce_df, bb->index); 
 	   use; use = use->next_ref)
 	for (defs = DF_REF_CHAIN (use); defs; defs = defs->next)
-	  mark_insn (DF_REF_INSN (defs->ref));
+	  mark_insn (DF_REF_INSN (defs->ref), false);
     }
 }
 
@@ -247,7 +309,7 @@ static void
 mark_reg_dependencies (rtx insn)
 {
   struct df_link *defs;
-  struct df_ref * use;
+  struct df_ref *use;
 
   for (use = DF_INSN_USES (dce_df, insn); use; use = use->next_ref)
     {
@@ -258,52 +320,29 @@ mark_reg_dependencies (rtx insn)
 	  fprintf (dump_file, " in insn %d:\n", INSN_UID (insn));
 	}
       for (defs = DF_REF_CHAIN (use); defs; defs = defs->next)
-	mark_insn (DF_REF_INSN (defs->ref));
+	mark_insn (DF_REF_INSN (defs->ref), false);
     }
 }
 
 /* -------------------------------------------------------------------------
-   DCE pass functions
+   Regular DCE pass functions
    ------------------------------------------------------------------------- */
-
-/* Go through the instructions and mark those whose necessity is not
-   dependent on inter-instruction information.  Make sure all other
-   instructions are not marked.  */
-
-static void
-prescan_insns_for_dce (void)
-{
-  basic_block bb;
-  rtx insn;
-  
-  if (dump_file)
-    fprintf (dump_file, "Finding needed instructions:\n");
-  
-  FOR_EACH_BB (bb)
-    FOR_BB_INSNS (bb, insn)
-    if (INSN_P (insn))
-      {
-	PUT_MODE (insn, VOIDmode);
-	if (!deletable_insn_p (insn))
-	  mark_insn (insn);
-	else
-	  mark_nonreg_stores (PATTERN (insn), insn);
-      }
-}
 
 /* Callback for running pass_rtl_dce.  */
 
 static void
 rest_of_handle_dce (void)
 {
-  init_dce ();
+  init_dce (false);
   
-  prescan_insns_for_dce ();
+  prescan_insns_for_dce (false);
+
   mark_artificial_uses ();
   while (VEC_length (rtx, worklist) > 0)
     mark_reg_dependencies (VEC_pop (rtx, worklist));
+
   delete_unmarked_insns ();
-  
+
   end_dce ();
 }
 
@@ -326,6 +365,229 @@ struct tree_opt_pass pass_rtl_dce =
   "dce",                                /* name */
   gate_dce,                             /* gate */
   rest_of_handle_dce,                   /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_DCE,                               /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'w'                                   /* letter */
+};
+
+/* -------------------------------------------------------------------------
+   Fast DCE functions
+   ------------------------------------------------------------------------- */
+
+/* Process basic block BB.  Return true if the live_in set has
+   changed.  */
+
+static bool
+dce_process_block (struct dataflow * dflow, basic_block bb, bool redo_out)
+{
+  bitmap local_live = BITMAP_ALLOC (NULL);
+  rtx insn;
+  bool block_changed;
+  struct df_ref *def, *use;
+  unsigned int bb_index = bb->index;
+
+  if (redo_out)
+    {
+      /* Need to redo the live_out set if when one of the succs was
+	 done its live in change.  */
+      edge e;
+      edge_iterator ei;
+      df_confluence_function_n con_fun_n = dflow->problem->con_fun_n;
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	(*con_fun_n) (dflow, e);
+    }
+
+  bitmap_copy (local_live, DF_UPWARD_LIVE_OUT (dce_df, bb));
+
+  /* Process the artificial defs and uses at the bottom of the block.  */
+  for (def = df_get_artificial_defs (dce_df, bb_index); 
+       def; def = def->next_ref)
+    if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
+      bitmap_clear_bit (local_live, DF_REF_REGNO (def));
+
+  for (use = df_get_artificial_uses (dce_df, bb_index); 
+       use; use = use->next_ref)
+    if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
+      bitmap_set_bit (local_live, DF_REF_REGNO (use));
+
+  FOR_BB_INSNS_REVERSE (bb, insn)
+    if (INSN_P (insn))
+      {
+	if (!marked_insn_p (insn))
+	  {
+	    bool needed = false;
+	    for (def = DF_INSN_GET (dce_df, insn)->defs; 
+		 def; def = def->next_ref)
+	      if (bitmap_bit_p (local_live, DF_REF_REGNO (def)))
+		{
+		  needed = true;
+		  break;
+		}
+	    
+	    if (needed)
+	      mark_insn (insn, true);
+	  }
+	
+	/* No matter if the instruction is needed or not, we
+	   remove any regno in the defs from the live set.  */
+	for (def = DF_INSN_GET (dce_df, insn)->defs; def; def = def->next_ref)
+	  {
+	    unsigned int regno = DF_REF_REGNO (def);
+	    bitmap_clear_bit (local_live, regno);
+	  }
+	if (marked_insn_p (insn))
+	  for (use = DF_INSN_GET (dce_df, insn)->uses; 
+	       use; use = use->next_ref)
+	    {
+	      unsigned int regno = DF_REF_REGNO (use);
+	      bitmap_set_bit (local_live, regno);
+	    }
+      }
+  
+  for (def = df_get_artificial_defs (dce_df, bb_index); def; def = def->next_ref)
+    if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+      bitmap_clear_bit (local_live, DF_REF_REGNO (def));
+
+#ifdef EH_USES
+  /* Process the uses that are live into an exception handler.  */
+  for (use = df_get_artificial_uses (dce_df, bb_index); use; use = use->next_ref)
+    /* Add use to set of uses in this BB.  */
+    if (DF_REF_FLAGS (use) & DF_REF_AT_TOP)
+      bitmap_set_bit (local_live, DF_REF_REGNO (use));
+#endif
+
+  block_changed = !bitmap_equal_p (local_live, DF_UPWARD_LIVE_IN (dce_df, bb));
+  if (block_changed)
+    {
+      BITMAP_FREE (DF_UPWARD_LIVE_IN (dce_df, bb));
+      DF_UPWARD_LIVE_IN (dce_df, bb) = local_live;
+    }
+  else
+    BITMAP_FREE (local_live);
+
+  return block_changed;
+}
+
+/* Callback for running pass_rtl_dce.  */
+
+static void
+rest_of_handle_fast_dce (void)
+{
+  int *postorder = xmalloc (sizeof (int) *last_basic_block);
+  int i;
+  bitmap processed = BITMAP_ALLOC (NULL);
+  bitmap changed = BITMAP_ALLOC (NULL);
+  bitmap redo_out = BITMAP_ALLOC (NULL);
+  bitmap all_blocks = BITMAP_ALLOC (NULL);
+  struct dataflow *dflow;
+  bool global_changed = true;
+  int n_blocks;
+  int loop_count = 0;
+
+  init_dce (true);
+
+  prescan_insns_for_dce (true);
+
+  dflow = dce_df->problems_by_index[DF_LR];
+
+  n_blocks = post_order_compute (postorder, true);
+  if (n_blocks != n_basic_blocks)
+    delete_unreachable_blocks ();
+
+  for (i = 0; i < n_blocks; i++)
+    bitmap_set_bit (all_blocks, postorder[i]);
+
+  while (global_changed)
+    {
+      global_changed = false;
+      for (i = 0; i < n_blocks; i++)
+	{
+	  int index = postorder [i];
+	  basic_block bb = BASIC_BLOCK (index);
+	  bool local_changed 
+	    = dce_process_block (dflow, bb, bitmap_bit_p (redo_out, index));
+	  bitmap_set_bit (processed, index);
+	  
+	  if (local_changed)
+	    {
+	      edge e;
+	      edge_iterator ei;
+	      bitmap_set_bit (changed, index);
+	      FOR_EACH_EDGE (e, ei, bb->preds)
+		if (bitmap_bit_p (processed, e->src->index))
+		  /* Be very tricky about when we need to iterate the
+		     analysis.  We only have redo the analysis if we
+		     delete an instrution from a block that used
+		     something that was live on entry to the block and
+		     we have already processed the pred of that block.
+
+		     Since we are processing the blocks postorder,
+		     that will only happen if the block is at the top
+		     of a loop and the pred is inside the loop.  */
+		  global_changed = true;
+		else
+		  bitmap_set_bit (redo_out, e->src->index);
+	    }
+	}
+      
+      if (global_changed)
+	{
+	  /* So something was deleted that requires a redo.  Do it on
+	     the cheap.  */
+	  delete_unmarked_insns ();
+	  bitmap_clear (marked);
+	  
+	  /* We do not need to rescan any instructions.  We only need
+	     to redo the dataflow equations for the blocks that had a
+	     change at the top of the block.  Then we need to redo the
+	     iteration.  */ 
+	  df_analyze_problem (dflow, all_blocks, all_blocks, 
+			      changed, postorder, n_blocks, false);
+	  prescan_insns_for_dce (true);
+	}
+      loop_count++;
+    }
+
+  delete_unmarked_insns ();
+
+  BITMAP_FREE (processed);
+  BITMAP_FREE (changed);
+  BITMAP_FREE (redo_out);
+  BITMAP_FREE (all_blocks);
+  end_dce ();
+}
+
+
+static bool
+gate_fast_dce (void)
+{
+  return optimize > 0 && flag_new_dce;
+}
+
+
+/* Run a fast DCE pass and return true if any instructions were
+   deleted.  */
+
+bool
+run_fast_dce (void)
+{
+  return gate_fast_dce () && (rest_of_handle_fast_dce (), something_changed);
+}
+
+
+struct tree_opt_pass pass_fast_rtl_dce =
+{
+  "dce",                                /* name */
+  gate_fast_dce,                        /* gate */
+  rest_of_handle_fast_dce,              /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -860,11 +1122,11 @@ record_stores (store_group_info *group, rtx insn)
     for (i = 0; i < XVECLEN (body, 0); i++)
       {
 	if (!record_store (group, XVECEXP (body, 0, i), insn))
-	  mark_nonreg_stores (XVECEXP (body, 0, i), insn);
+	  mark_nonreg_stores (XVECEXP (body, 0, i), insn, false);
       }
   else
     if (!record_store (group, body, insn))
-      mark_nonreg_stores (body, insn);
+      mark_nonreg_stores (body, insn, false);
 }
 
 /* A qsort callback used to sort store_offset_info structures into
@@ -936,7 +1198,7 @@ store_base_local (void **slot, void *data)
 	  /* A varying address.  We can't treat STOREJ as a candidate
 	     store if it reaches the end of the block.  */
 	  if (storej->max_gen_luid == INT_MAX)
-	    mark_insn (storej->insn);
+	    mark_insn (storej->insn, false);
 	  else
 	    VEC_safe_push (store_info, heap, stores.stores, storej);
 	}
@@ -1088,7 +1350,7 @@ mark_escaping_stores (void)
     fprintf (dump_file, "Marking stores that are needed after"
 	     " the function has exited:\n");
   EXECUTE_IF_SET_IN_BITMAP (needed, 0, i, bi)
-    mark_insn (VEC_index (store_info, stores.stores, i)->insn);
+    mark_insn (VEC_index (store_info, stores.stores, i)->insn, false);
 
   BITMAP_FREE (needed);
 }
@@ -1183,7 +1445,7 @@ mark_dependent_stores (rtx insn)
 	       && luid <= store->max_gen_luid))
 	  && insn_might_read_mem_p (insn, store->mem))
 	{
-	  mark_insn (store->insn);
+	  mark_insn (store->insn, false);
 	  VEC_unordered_remove (int, unmarked_stores, i);
 	  i--;
 	}
@@ -1218,7 +1480,7 @@ prescan_insns_for_dse (void)
 	    {
 	      PUT_MODE (insn, VOIDmode);
 	      if (!deletable_insn_p (insn))
-		mark_insn (insn);
+		mark_insn (insn, false);
 	      else
 		record_stores (&group, insn);
 	    }
@@ -1238,7 +1500,7 @@ rest_of_handle_dse (void)
 {
   rtx insn;
 
-  init_dce ();
+  init_dce (false);
   init_alias_analysis ();
   init_dse ();
 

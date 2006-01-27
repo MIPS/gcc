@@ -504,6 +504,7 @@ df_rescan_blocks (struct df *df, bitmap blocks)
   BITMAP_FREE (local_blocks_to_scan);
 }
 
+
 /* Create a new ref of type DF_REF_TYPE for register REG at address
    LOC within INSN of BB.  */
 
@@ -872,10 +873,6 @@ df_reorganize_refs (struct df_ref_info *ref_info)
 }
 
 
-/* Local miscellaneous routines.  */
-
-/* Local routines for recording refs.  */
-
 /* Set where we are in the compilation.  */
 
 void 

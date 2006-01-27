@@ -2279,12 +2279,10 @@ cleanup_cfg (int mode)
 	  /* Cleaning up CFG introduces more opportunities for dead code
 	     removal that in turn may introduce more opportunities for
 	     cleaning up the CFG.  */
-	  if (!run_dce ()
+	  if (!run_fast_dce ()
 	      && !(update_life_info_in_dirty_blocks
 		   (UPDATE_LIFE_GLOBAL_RM_NOTES,
 		    PROP_DEATH_NOTES
-		    | PROP_SCAN_DEAD_CODE
-		    | PROP_KILL_DEAD_CODE
 		    | (mode & CLEANUP_LOG_LINKS) ? PROP_LOG_LINKS : 0)))
 	    break;
 	}
