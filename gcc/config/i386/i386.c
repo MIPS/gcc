@@ -8604,6 +8604,328 @@ ix86_unary_operator_ok (enum rtx_code code ATTRIBUTE_UNUSED,
   return TRUE;
 }
 
+/* APPLE LOCAL begin 4176531 */
+static void
+ix86_expand_vector_move2 (enum machine_mode mode, rtx op0, rtx op1)
+{
+  rtx operands[2];
+  operands[0] = op0;
+  operands[1] = op1;
+  return ix86_expand_vector_move (mode, operands);
+}
+
+static rtvec
+gen_2_4_rtvec (int scalars_per_vector, rtx val, enum machine_mode mode)
+{
+  rtvec rval;
+  switch (scalars_per_vector)
+    {
+    case 2: rval = gen_rtvec (2, val, CONST0_RTX (mode));
+      break;
+    case 4: rval = gen_rtvec (4, val, CONST0_RTX (mode),
+			      CONST0_RTX (mode), CONST0_RTX (mode));
+      break;
+    default: abort ();
+    }
+  return rval;
+}
+
+/* Convert a DFmode value in an SSE register into an unsigned DImode.
+   When -fpmath=387, this is done with an x87 st(0)_FP->signed-int-64
+   conversion, and ignoring the upper 32 bits of the result.  On
+   x86_64, there is an equivalent SSE %xmm->signed-int-64 conversion.
+   On x86_32, we don't have the instruction, nor the 64-bit
+   destination register it requires.  Do the conversion inline in the
+   SSE registers.  For x86_32, -mfpmath=sse only.  */
+const char *
+ix86_expand_convert_DF2SI_sse (rtx operands[])
+{
+  rtx int_zero_as_fp, int_maxval_as_fp, int_two31_as_fp;
+  REAL_VALUE_TYPE rvt_zero, rvt_int_maxval, rvt_int_two31;
+  rtx int_zero_as_xmm, int_maxval_as_xmm;
+  rtx fp_value = operands[1];
+  rtx target = operands[0];
+  rtx large_xmm;
+  rtx large_xmm_v2di;
+  rtx le_op;
+  rtx zero_or_two31_xmm;
+  rtx clamped_result_rtx;
+  rtx final_result_rtx;
+  rtx v_rtx;
+
+  cfun->uses_vector = 1;
+
+  real_from_integer (&rvt_zero, DFmode, 0ULL, 0ULL, 1);
+  int_zero_as_fp = const_double_from_real_value (rvt_zero, DFmode);
+
+  real_from_integer (&rvt_int_maxval, DFmode, 0xffffffffULL, 0ULL, 1);
+  int_maxval_as_fp = const_double_from_real_value (rvt_int_maxval, DFmode);
+
+  real_from_integer (&rvt_int_two31, DFmode, 0x80000000ULL, 0ULL, 1);
+  int_two31_as_fp = const_double_from_real_value (rvt_int_two31, DFmode);
+
+  fp_value = gen_reg_rtx (V2DFmode);
+  ix86_expand_vector_move2 (V2DFmode, fp_value, gen_rtx_SUBREG (V2DFmode, operands[1], 0));
+  large_xmm = gen_reg_rtx (V2DFmode);
+  
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_two31_as_fp, DFmode));
+  ix86_expand_vector_move2 (DFmode, large_xmm, v_rtx);
+  le_op = gen_rtx_fmt_ee (LE, V2DFmode, gen_rtx_SUBREG (V2DFmode, fp_value, 0), large_xmm);
+  /* large_xmm = (fp_value >= 2**31) ? -1 : 0 ; */
+  emit_insn (gen_sse2_vmmaskcmpv2df3 (large_xmm, large_xmm, fp_value, le_op));
+
+  int_maxval_as_xmm = gen_reg_rtx (V2DFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_maxval_as_fp, DFmode));
+  ix86_expand_vector_move2 (DFmode, int_maxval_as_xmm, v_rtx);
+
+  emit_insn (gen_sse2_vmsminv2df3 (fp_value, fp_value, int_maxval_as_xmm));
+
+  int_zero_as_xmm = gen_reg_rtx (V2DFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_zero_as_fp, DFmode));
+
+  ix86_expand_vector_move2 (DFmode, int_zero_as_xmm, v_rtx);
+
+  emit_insn (gen_sse2_vmsmaxv2df3 (fp_value, fp_value, int_zero_as_xmm));
+
+  zero_or_two31_xmm = gen_reg_rtx (V2DFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_two31_as_fp, DFmode));
+  ix86_expand_vector_move2 (DFmode, zero_or_two31_xmm, v_rtx);  
+
+  /* zero_or_two31 = (large_xmm) ? 2**31 : 0; */
+  emit_insn (gen_andv2df3 (zero_or_two31_xmm, zero_or_two31_xmm, large_xmm));
+  /* if (large_xmm) fp_value -= 2**31;  */
+  emit_insn (gen_subv2df3 (fp_value, fp_value, zero_or_two31_xmm));
+  /* assert (0 <= fp_value && fp_value < 2**31);
+     int_result = trunc (fp_value); */
+  clamped_result_rtx = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_cvttpd2dq (clamped_result_rtx, fp_value));
+  final_result_rtx = gen_reg_rtx (V2DImode);
+  emit_move_insn (final_result_rtx,
+		  gen_rtx_SUBREG (V2DImode, clamped_result_rtx, 0));
+
+  large_xmm_v2di = gen_reg_rtx (V2DImode);
+  emit_move_insn (large_xmm_v2di, gen_rtx_SUBREG (V2DImode, large_xmm, 0));
+  emit_insn (gen_ashlv2di3 (large_xmm_v2di, large_xmm_v2di, gen_rtx_CONST_INT (SImode, 31)));
+
+  emit_insn (gen_xorv2di3 (final_result_rtx, final_result_rtx, large_xmm_v2di));
+  if (!rtx_equal_p (target, final_result_rtx))
+    emit_move_insn (target, gen_rtx_SUBREG (SImode, final_result_rtx, 0));
+  return "";
+}
+
+/* Convert a SFmode value in an SSE register into an unsigned DImode.
+   When -fpmath=387, this is done with an x87 st(0)_FP->signed-int-64
+   conversion, and subsequently ignoring the upper 32 bits of the
+   result.  On x86_64, there is an equivalent SSE %xmm->signed-int-64
+   conversion.  On x86_32, we don't have the instruction, nor the
+   64-bit destination register it requires.  Do the conversion inline
+   in the SSE registers.  For x86_32, -mfpmath=sse only.  */
+const char *
+ix86_expand_convert_SF2SI_sse (rtx operands[])
+{
+  rtx int_zero_as_fp, int_two31_as_fp, int_two32_as_fp;
+  REAL_VALUE_TYPE rvt_zero, rvt_int_two31, rvt_int_two32;
+  rtx int_zero_as_xmm;
+  rtx fp_value = operands[1];
+  rtx target = operands[0];
+  rtx large_xmm;
+  rtx two31_xmm, two32_xmm;
+  rtx above_two31_xmm, above_two32_xmm;
+  rtx zero_or_two31_SI_xmm;
+  rtx le_op;
+  rtx zero_or_two31_SF_xmm;
+  rtx int_result_xmm;
+  rtx v_rtx;
+
+  cfun->uses_vector = 1;
+
+  real_from_integer (&rvt_zero, SFmode, 0ULL, 0ULL, 1);
+  int_zero_as_fp = const_double_from_real_value (rvt_zero, SFmode);
+
+  real_from_integer (&rvt_int_two31, SFmode, 0x80000000ULL, 0ULL, 1);
+  int_two31_as_fp = const_double_from_real_value (rvt_int_two31, SFmode);
+
+  real_from_integer (&rvt_int_two32, SFmode, (HOST_WIDE_INT)0x100000000ULL, 0ULL, 1);
+  int_two32_as_fp = const_double_from_real_value (rvt_int_two32, SFmode);
+
+  fp_value = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (V4SFmode, fp_value, gen_rtx_SUBREG (V4SFmode, operands[1], 0));
+  large_xmm = gen_reg_rtx (V4SFmode);
+  
+  /* fp_value = MAX (fp_value, 0.0); */
+  /* Preclude negative values; truncate at zero.  */
+  int_zero_as_xmm = gen_reg_rtx (V4SFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V4SFmode,
+				gen_2_4_rtvec (4, int_zero_as_fp, SFmode));
+  ix86_expand_vector_move2 (SFmode, int_zero_as_xmm, v_rtx);
+  emit_insn (gen_sse_vmsmaxv4sf3 (fp_value, fp_value, int_zero_as_xmm));
+
+  /* two31_xmm = 0x8000000; */
+  two31_xmm = gen_reg_rtx (V4SFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V4SFmode,
+				gen_2_4_rtvec (4, int_two31_as_fp, SFmode));
+  ix86_expand_vector_move2 (SFmode, two31_xmm, v_rtx);
+
+  /* zero_or_two31_xmm = 0x8000000; */
+  zero_or_two31_SF_xmm = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (SFmode, zero_or_two31_SF_xmm, two31_xmm);
+
+  /* above_two31_xmm = (fp_value >= 2**31) ? 0xffff_ffff : 0 ; */
+  above_two31_xmm = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (SFmode, above_two31_xmm, two31_xmm);
+  le_op = gen_rtx_fmt_ee (LE, V4SFmode, above_two31_xmm, gen_rtx_SUBREG (V4SFmode, two31_xmm, 0));
+  emit_insn (gen_sse_vmmaskcmpv4sf3 (above_two31_xmm, above_two31_xmm, fp_value, le_op));
+
+  /* two32_xmm = 0x1_0000_0000; */
+  two32_xmm = gen_reg_rtx (V4SFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V4SFmode,
+				gen_2_4_rtvec (4, int_two32_as_fp, SFmode));
+  ix86_expand_vector_move2 (SFmode, two32_xmm, v_rtx);
+
+  /* above_two32_xmm = (fp_value >= 2**32) ? 0xffff_ffff : 0 ; */
+  above_two32_xmm = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (SFmode, above_two32_xmm, two32_xmm);
+  le_op = gen_rtx_fmt_ee (LE, V4SFmode, above_two32_xmm, gen_rtx_SUBREG (V4SFmode, two32_xmm, 0));
+  emit_insn (gen_sse_vmmaskcmpv4sf3 (above_two32_xmm, above_two32_xmm, fp_value, le_op));
+
+  /* zero_or_two31_SF_xmm = (above_two31_xmm) ? 2**31 : 0; */
+  emit_insn (gen_andv4sf3 (zero_or_two31_SF_xmm, zero_or_two31_SF_xmm, above_two31_xmm));
+
+  /* zero_or_two31_SI_xmm = (above_two31_xmm & 0x8000_0000); */
+  zero_or_two31_SI_xmm = gen_reg_rtx (V4SImode);
+  emit_move_insn (zero_or_two31_SI_xmm, gen_rtx_SUBREG (V4SImode, above_two31_xmm, 0));
+  emit_insn (gen_ashlv4si3 (zero_or_two31_SI_xmm, zero_or_two31_SI_xmm, gen_rtx_CONST_INT (SImode, 31)));
+
+  /* zero_or_two31_SI_xmm = (above_two_31_xmm << 31); */
+  zero_or_two31_SI_xmm = gen_reg_rtx (V4SImode);
+  emit_move_insn (zero_or_two31_SI_xmm, gen_rtx_SUBREG (V4SImode, above_two31_xmm, 0));
+  emit_insn (gen_ashlv4si3 (zero_or_two31_SI_xmm, zero_or_two31_SI_xmm, gen_rtx_CONST_INT (SImode, 31)));
+
+  /* if (above_two31_xmm) fp_value -= 2**31;  */
+  /* If the input FP value is greater than 2**31, subtract that amount
+     from the FP value before conversion.  We'll re-add that amount as
+     an integer after the conversion.  */
+  emit_insn (gen_subv4sf3 (fp_value, fp_value, zero_or_two31_SF_xmm));
+
+  /* assert (0.0 <= fp_value && fp_value < 2**31);
+     int_result_xmm = trunc (fp_value); */
+  /* Apply the SSE double -> signed_int32 conversion to our biased, clamped SF value.  */
+  int_result_xmm = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_cvttps2dq (int_result_xmm, fp_value));
+
+  /* int_result_xmm += zero_or_two_31_SI_xmm; */
+  /* Restore the 2**31 bias we may have subtracted earlier.  If the
+     input FP value was between 2**31 and 2**32, this will unbias the
+     result.
+
+     input_fp_value < 2**31: this won't change the value
+     2**31 <= input_fp_value < 2**32: this will restore the 2**31 bias we subtracted earler
+     input_fp_value >= 2**32: this insn doesn't matter; the next insn will clobber this result
+  */
+  emit_insn (gen_addv4si3 (int_result_xmm, int_result_xmm, zero_or_two31_SI_xmm));
+
+  /* int_result_xmm |= above_two32_xmm; */
+  /* If the input value was greater than 2**32, force the integral
+     result to 0xffff_ffff.  */
+  emit_insn (gen_iorv4si3 (int_result_xmm, int_result_xmm, gen_rtx_SUBREG (V4SImode, above_two32_xmm, 0)));
+
+  if (!rtx_equal_p (target, int_result_xmm))
+    emit_move_insn (target, gen_rtx_SUBREG (SImode, int_result_xmm, 0));
+  return "";
+}
+
+/* Convert an unsigned DImode value into a DFmode, using only SSE.
+   Expects the 64-bit DImode to be supplied as two 32-bit parts in two
+   SSE %xmm registers; result returned in an %xmm register.  For
+   x86_32, -mfpmath=sse, !optimize_size only.  */
+const char *
+ix86_expand_convert_DI2DF_sse (rtx operands[])
+{
+  REAL_VALUE_TYPE bias_lo_rvt, bias_hi_rvt;
+  rtx bias_lo_rtx, bias_hi_rtx;
+  rtx target = operands[0];
+  rtx fp_value = operands[1];
+  rtx fp_value_hi, fp_value_lo;
+  rtx fp_value_hi_xmm, fp_value_lo_xmm;
+  rtx int_xmm;
+  rtx final_result_xmm, result_lo_xmm;
+  rtx biases, exponents;
+  rtvec biases_rtvec, exponents_rtvec;
+
+  cfun->uses_vector = 1;
+
+  /* Get the DImode value into an XMM register.  */
+  switch (GET_CODE (fp_value))
+    {
+    case MEM:	/* Load it into an SSE register.  */
+      ix86_expand_vector_move2 (V4SImode, int_xmm, fp_value);
+      break;
+    case REG:
+      fp_value_lo = gen_rtx_SUBREG (SImode, fp_value, 0);
+      fp_value_lo_xmm = gen_reg_rtx (V4SImode);
+      emit_insn (gen_sse2_loadld (fp_value_lo_xmm, CONST0_RTX (V4SImode), fp_value_lo));
+
+      fp_value_hi = gen_rtx_SUBREG (SImode, fp_value, 4);
+      fp_value_hi_xmm = gen_reg_rtx (V4SImode);
+      emit_insn (gen_sse2_loadld (fp_value_hi_xmm, CONST0_RTX (V4SImode), fp_value_hi));
+
+      int_xmm = gen_reg_rtx (V4SImode);
+      ix86_expand_vector_move2 (V4SImode, int_xmm, fp_value_hi_xmm);
+      emit_insn (gen_sse2_punpckldq (int_xmm, int_xmm, fp_value_lo_xmm));
+      break;
+    default:
+      error ("ix86_expand_convert_DI2DF_sse(): expected register or memory operand");
+      break;
+    }
+
+  exponents_rtvec = gen_rtvec (4, GEN_INT (0x45300000UL),
+			       GEN_INT (0x43300000UL),
+			       CONST0_RTX (SImode), CONST0_RTX (SImode));
+  exponents = validize_mem (force_const_mem (V4SImode,
+					     gen_rtx_CONST_VECTOR (V4SImode,
+								   exponents_rtvec)));
+  emit_insn (gen_sse2_punpckldq (int_xmm, int_xmm, exponents));
+
+  final_result_xmm = gen_reg_rtx (V2DFmode);
+  ix86_expand_vector_move2 (V2DFmode, final_result_xmm,
+			    gen_rtx_SUBREG (V2DFmode, int_xmm, 0));
+
+  /* Integral versions of the DFmode 'exponents' above.  */
+  REAL_VALUE_FROM_INT (bias_lo_rvt, 0x00000000000000ULL, 0x100000ULL, DFmode);
+  REAL_VALUE_FROM_INT (bias_hi_rvt, 0x10000000000000ULL, 0x000000ULL, DFmode);
+  bias_lo_rtx = CONST_DOUBLE_FROM_REAL_VALUE (bias_lo_rvt, DFmode);
+  bias_hi_rtx = CONST_DOUBLE_FROM_REAL_VALUE (bias_hi_rvt, DFmode);
+  biases_rtvec = gen_rtvec (2, bias_lo_rtx, bias_hi_rtx);
+  biases = validize_mem (force_const_mem (V2DFmode,
+					  gen_rtx_CONST_VECTOR (V2DFmode,
+								biases_rtvec)));
+  emit_insn (gen_subv2df3 (final_result_xmm, final_result_xmm, biases));
+
+  if (TARGET_SSE3)
+    {
+      emit_insn (gen_sse3_haddv2df3 (final_result_xmm, final_result_xmm,
+				     final_result_xmm));
+    }
+  else
+    {
+      result_lo_xmm = gen_reg_rtx (V2DFmode);
+      ix86_expand_vector_move2 (V2DFmode, result_lo_xmm, final_result_xmm);
+      emit_insn (gen_sse2_unpckhpd (final_result_xmm, final_result_xmm,
+				    final_result_xmm));
+      emit_insn (gen_addv2df3 (final_result_xmm, final_result_xmm, result_lo_xmm));
+    }
+
+  if (!rtx_equal_p (target, final_result_xmm))
+    emit_move_insn (target, gen_rtx_SUBREG (DFmode, final_result_xmm, 0));
+
+  return "";
+}
+/* APPLE LOCAL end 4176531 */
+
 /* A subroutine of ix86_expand_fp_absneg_operator and copysign expanders.
    Create a mask for the sign bit in MODE for an SSE register.  If VECT is
    true, then replicate the mask for all elements of the vector register.
@@ -17177,6 +17499,16 @@ x86_emit_floatuns (rtx operands[2])
   if (inmode != SImode
       && inmode != DImode)
     abort ();
+
+  /* APPLE LOCAL begin 4176531 */
+  /* This initial implementation for x86_32 supports only unsigned-DI
+     => DF.  Not used when 'optimize_size' is on.  */
+  if (!TARGET_64BIT && inmode == DImode && !optimize_size)
+    {
+      ix86_expand_convert_DI2DF_sse (operands);
+      return;
+    }
+  /* APPLE LOCAL end 4176531 */
 
   out = operands[0];
   in = force_reg (inmode, operands[1]);
