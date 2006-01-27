@@ -1,3 +1,7 @@
+2006-01-27  Paul Brook  <paul@codesourcery.com>
+
+	* version.c: Mark as CodeSourcery build.
+
 2006-01-24  Joseph Myers  <joseph@codesourcery.com>
 
 	Backport from mainline.
