@@ -918,7 +918,10 @@ place_field (record_layout_info rli, tree field)
 
       /* If the alignment is still within offset_align, just align
 	 the bit position.  */
-      if (desired_align < rli->offset_align)
+      /* APPLE LOCAL begin 4420068 */
+      if (desired_align < rli->offset_align
+	  && (!targetm.reverse_bitfields_p (rli->t) || rli->bitfield_seen))
+      /* APPLE LOCAL end 4420068 */
 	rli->bitpos = round_up (rli->bitpos, desired_align);
       else
 	{
@@ -1272,9 +1275,9 @@ place_field (record_layout_info rli, tree field)
     {
       rli->bitpos = size_binop (PLUS_EXPR, rli->bitpos, DECL_SIZE (field));
       normalize_rli (rli);
-      /* APPLE LOCAL begin 4401223 4401224 */
+      /* APPLE LOCAL begin 4401223 4401224 4420068 */
       if (targetm.reverse_bitfields_p (rli->t) && !DECL_BIT_FIELD_TYPE (field)
-	  && !rli->bitfield_seen)
+	  && !rli->bitfield_seen && !integer_zerop (TYPE_SIZE (TREE_TYPE (field))))
 	{
 	  tree tsize = TYPE_SIZE (TREE_TYPE (field));
 	  /* If we've gone into the next word, move "offset" forward and
@@ -1282,7 +1285,10 @@ place_field (record_layout_info rli, tree field)
 	     non-bitfields to get following bitfields laid out correctly.
 	     However, if we've already seen a bitfield earlier in the 
 	     struct, don't do this compensation.  This makes no sense
-	     and results in overlapping fields, but is what CW does.  */
+	     and results in overlapping fields, but is what CW does.
+	     (If this field has a 0-sized type, we have not advanced from the
+	     previous field, so there's no need to do anything.  Conveniently,
+	     this avoids an infinite loop here.) */
 	  while (! INT_CST_LT_UNSIGNED (rli->bitpos, tsize))
 	    {
 	      rli->offset = size_binop (PLUS_EXPR, rli->offset, 
@@ -1291,7 +1297,7 @@ place_field (record_layout_info rli, tree field)
 					tsize);
 	    }
 	}
-      /* APPLE LOCAL end 4401223 4401224 */
+      /* APPLE LOCAL end 4401223 4401224 4420068 */
     }
 }
 

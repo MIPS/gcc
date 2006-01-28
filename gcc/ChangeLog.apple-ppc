@@ -1,3 +1,10 @@
+2006-01-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4420068
+	* stor-layout.c (place_field): don't adjust
+	rli->bitpos and rli->offset after a non-bitfield
+	whose type is zero-sized.
+
 2006-01-27  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4176531

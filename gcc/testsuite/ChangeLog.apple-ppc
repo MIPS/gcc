@@ -1,3 +1,8 @@
+2006-01-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4420068
+	* gcc.apple/bitreverse-17.c:  New.
+
 2006-01-27  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4176531
