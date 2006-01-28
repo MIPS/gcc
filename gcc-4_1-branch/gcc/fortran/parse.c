@@ -2901,7 +2901,7 @@ done:
 /* Come here to complain about a global symbol already in use as
    something else.  */
 
-static void
+void
 global_used (gfc_gsymbol *sym, locus *where)
 {
   const char *name;
@@ -2935,7 +2935,7 @@ global_used (gfc_gsymbol *sym, locus *where)
     }
 
   gfc_error("Global name '%s' at %L is already being used as a %s at %L",
-           gfc_new_block->name, where, name, &sym->where);
+	      sym->name, where, name, &sym->where);
 }
 
 
@@ -2966,12 +2966,13 @@ parse_block_data (void)
   else
     {
       s = gfc_get_gsymbol (gfc_new_block->name);
-      if (s->type != GSYM_UNKNOWN)
+      if (s->defined || (s->type != GSYM_UNKNOWN && s->type != GSYM_BLOCK_DATA))
        global_used(s, NULL);
       else
        {
          s->type = GSYM_BLOCK_DATA;
          s->where = gfc_current_locus;
+	 s->defined = 1;
        }
     }
 
@@ -2996,12 +2997,13 @@ parse_module (void)
   gfc_gsymbol *s;
 
   s = gfc_get_gsymbol (gfc_new_block->name);
-  if (s->type != GSYM_UNKNOWN)
+  if (s->defined || (s->type != GSYM_UNKNOWN && s->type != GSYM_MODULE))
     global_used(s, NULL);
   else
     {
       s->type = GSYM_MODULE;
       s->where = gfc_current_locus;
+      s->defined = 1;
     }
 
   st = parse_spec (ST_NONE);
@@ -3040,12 +3042,14 @@ add_global_procedure (int sub)
 
   s = gfc_get_gsymbol(gfc_new_block->name);
 
-  if (s->type != GSYM_UNKNOWN)
+  if (s->defined
+	|| (s->type != GSYM_UNKNOWN && s->type != (sub ? GSYM_SUBROUTINE : GSYM_FUNCTION)))
     global_used(s, NULL);
   else
     {
       s->type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
       s->where = gfc_current_locus;
+      s->defined = 1;
     }
 }
 
@@ -3061,12 +3065,13 @@ add_global_program (void)
     return;
   s = gfc_get_gsymbol (gfc_new_block->name);
 
-  if (s->type != GSYM_UNKNOWN)
+  if (s->defined || (s->type != GSYM_UNKNOWN && s->type != GSYM_PROGRAM))
     global_used(s, NULL);
   else
     {
       s->type = GSYM_PROGRAM;
       s->where = gfc_current_locus;
+      s->defined = 1;
     }
 }
 

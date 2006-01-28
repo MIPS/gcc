@@ -1,3 +1,23 @@
+2006-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/install.html ([Tools you will need beforehand]):
+	Clarify that the de_DE locale is used by configure; clarify
+	that missing localedata leads to skipped tests, not fails.
+
+2006-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/tr1.html: Add note.
+	* docs/html/faq/index.html: Fix link to tr1.html text; fix
+	formatting.
+	* docs/html/faq/index.txt: Update.
+
+2006-01-25  Ed Smith-Rowland  <3dw4rd@verizon.net>
+	
+	* docs/html/faq/index.html ([5.2]): Mention TR1 and point to
+	paragraph [5.5], describing it.
+	([5.5]): New.
+	* docs/html/ext/tr1.html: New.
+
 2006-01-20  Perry Smith  <pedz@easesoftware.net>
 
 	PR libstdc++/25823

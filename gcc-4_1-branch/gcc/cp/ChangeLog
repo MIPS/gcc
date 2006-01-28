@@ -1,3 +1,26 @@
+2006-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/25552
+	* parser.c (cp_parser_unqualified_id): Check that destructor name
+	and scope match.
+	* call.c (check_dtor_name): Do not expect a BIT_NOT_EXPR.
+	Adjust comment.  Use same_type_p to compare types.
+	* typeck.c (lookup_destructor): Adjust call to check_dtor_name.
+	* init.c (build_offset_ref): Adjust call to check_dtor_name.
+
+2006-01-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25895
+	* class.c (build_base_path): Generate a NOP_EXPR instead of a
+	COMPONENT_REF if the base and derived classes are at the same
+	address.
+
+	PR c++/25856
+	* decl.c (begin_destructor_body): Robustify.
+
+	PR c++/25858 
+	* parser.c (cp_parser_direct_declarator): Robustify.
+	
 2006-01-19  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/22136
