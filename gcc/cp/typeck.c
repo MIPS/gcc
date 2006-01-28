@@ -43,6 +43,7 @@ Boston, MA 02110-1301, USA.  */
 #include "convert.h"
 #include "c-common.h"
 
+static tree pfn_from_ptrmemfunc (tree);
 static tree convert_for_assignment (tree, tree, const char *, tree, int);
 static tree cp_pointer_int_sum (enum tree_code, tree, tree);
 static tree rationalize_conditional_expr (enum tree_code, tree);
@@ -1828,7 +1829,7 @@ lookup_destructor (tree object, tree scope, tree dtor_name)
   tree dtor_type = TREE_OPERAND (dtor_name, 0);
   tree expr;
 
-  if (scope && !check_dtor_name (scope, dtor_name))
+  if (scope && !check_dtor_name (scope, dtor_type))
     {
       error ("qualified type %qT does not match destructor name ~%qT",
 	     scope, dtor_type);
@@ -3087,8 +3088,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
     case EQ_EXPR:
     case NE_EXPR:
-      if (warn_float_equal && (code0 == REAL_TYPE || code1 == REAL_TYPE))
-	warning (0, "comparing floating point with == or != is unsafe");
+      if (code0 == REAL_TYPE || code1 == REAL_TYPE)
+	warning (OPT_Wfloat_equal, 
+                 "comparing floating point with == or != is unsafe");
       if ((TREE_CODE (orig_op0) == STRING_CST && !integer_zerop (op1))
 	  || (TREE_CODE (orig_op1) == STRING_CST && !integer_zerop (op0)))
 	warning (OPT_Wstring_literal_comparison,
@@ -5962,7 +5964,7 @@ expand_ptrmemfunc_cst (tree cst, tree *delta, tree *pfn)
 /* Return an expression for PFN from the pointer-to-member function
    given by T.  */
 
-tree
+static tree
 pfn_from_ptrmemfunc (tree t)
 {
   if (TREE_CODE (t) == PTRMEM_CST)

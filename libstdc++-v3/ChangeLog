@@ -1,3 +1,69 @@
+2006-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_bitset.h (bitset<>::_M_copy_to_string):
+	Call the internal _Unchecked_set(size_t) instead of set.
+
+2006-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/install.html ([Tools you will need beforehand]):
+	Clarify that the de_DE locale is used by configure; clarify
+	that missing localedata leads to skipped tests, not fails.
+
+2006-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cfenv: New.
+	* include/Makefile.am: Add.
+	* testsuite/tr1/8_c_compatibility/cfenv/functions.cc: New.
+	* testsuite/tr1/8_c_compatibility/cfenv/types.cc: Likewise.
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): Add <fenv.h> checks.
+	* docs/html/ext/tr1.html: Update; add note.
+	* include/Makefile.in: Regenerate.
+	* config.h.in: Likewise.
+	* configure: Likewise.	
+
+	* testsuite/tr1/8_c_compatibility/complex/functions.cc: Tweak.
+	* testsuite/tr1/8_c_compatibility/cctype/functions.cc: Likewise.
+
+	* docs/html/faq/index.html: Fix link to tr1.html text; fix
+	formatting.
+
+2006-01-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cctype: New.
+	* include/Makefile.am: Add.
+	* testsuite/tr1/8_c_compatibility/cctype/functions.cc: New.
+	* include/Makefile.in: Regenerate.
+
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): New, check for C99
+	support to TR1, Chapter 8.
+	* configure.ac: Use it.
+	* include/tr1/complex: Adjust.
+	* config.h.in: Regenerate.
+	* configure: Likewise.
+
+2006-01-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/configopts.html: Tweak docs.
+
+	* libsupc++/eh_personality.cc: Fix typos.
+
+2006-01-24  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/25649
+	* include/std/std_istream.h (operator>>(short&), operator>>(int&)):
+	Move out of line...
+	* include/bits/istream.tcc: ... here.
+	* include/std/std_ostream.h (operator<<(short), operator<<(int)):
+	Move out of line...
+	* include/bits/ostream.tcc: ... here.
+
+2006-01-24  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	* docs/html/faq/index.html ([5.2]): Mention TR1 and point to
+	paragraph [5.5], describing it.
+	([5.5]): New.
+	* docs/html/ext/tr1.html: New.
+
 2006-01-20  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* acinclude.m4 (GLIBCXX_CHECK_LINKER_FEATURES): Verbose ld version

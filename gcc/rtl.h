@@ -171,6 +171,7 @@ union rtunion_def
   struct basic_block_def *rt_bb;
   mem_attrs *rt_mem;
   reg_attrs *rt_reg;
+  struct constant_descriptor_rtx *rt_constant;
 };
 typedef union rtunion_def rtunion;
 
@@ -630,6 +631,7 @@ extern void rtl_check_failed_flag (const char *, rtx, const char *,
 #define X0CSELIB(RTX, N)   (RTL_CHECK1 (RTX, N, '0').rt_cselib)
 #define X0MEMATTR(RTX, N)  (RTL_CHECKC1 (RTX, N, MEM).rt_mem)
 #define X0REGATTR(RTX, N)  (RTL_CHECKC1 (RTX, N, REG).rt_reg)
+#define X0CONSTANT(RTX, N) (RTL_CHECK1 (RTX, N, '0').rt_constant)
 
 /* Access a '0' field with any type.  */
 #define X0ANY(RTX, N)	   RTL_CHECK1 (RTX, N, '0')
@@ -1193,8 +1195,26 @@ do {						\
 #define SYMBOL_REF_WEAK(RTX)						\
   (RTL_FLAG_CHECK1("SYMBOL_REF_WEAK", (RTX), SYMBOL_REF)->return_val)
 
+/* A pointer attached to the SYMBOL_REF; either SYMBOL_REF_DECL or
+   SYMBOL_REF_CONSTANT.  */
+#define SYMBOL_REF_DATA(RTX) X0ANY ((RTX), 2)
+
+/* Set RTX's SYMBOL_REF_DECL to DECL.  RTX must not be a constant
+   pool symbol.  */
+#define SET_SYMBOL_REF_DECL(RTX, DECL) \
+  (gcc_assert (!CONSTANT_POOL_ADDRESS_P (RTX)), X0TREE ((RTX), 2) = (DECL))
+
 /* The tree (decl or constant) associated with the symbol, or null.  */
-#define SYMBOL_REF_DECL(RTX)	X0TREE ((RTX), 2)
+#define SYMBOL_REF_DECL(RTX) \
+  (CONSTANT_POOL_ADDRESS_P (RTX) ? NULL : X0TREE ((RTX), 2))
+
+/* Set RTX's SYMBOL_REF_CONSTANT to C.  RTX must be a constant pool symbol.  */
+#define SET_SYMBOL_REF_CONSTANT(RTX, C) \
+  (gcc_assert (CONSTANT_POOL_ADDRESS_P (RTX)), X0CONSTANT ((RTX), 2) = (C))
+
+/* The rtx constant pool entry for a symbol, or null.  */
+#define SYMBOL_REF_CONSTANT(RTX) \
+  (CONSTANT_POOL_ADDRESS_P (RTX) ? X0CONSTANT ((RTX), 2) : NULL)
 
 /* A set of flags on a symbol_ref that are, in some respects, redundant with
    information derivable from the tree decl associated with this symbol.
@@ -1417,7 +1437,6 @@ struct function;
 extern rtx get_pool_constant (rtx);
 extern rtx get_pool_constant_mark (rtx, bool *);
 extern enum machine_mode get_pool_mode (rtx);
-extern rtx get_pool_constant_for_function (struct function *, rtx);
 extern rtx simplify_subtraction (rtx);
 
 /* In function.c  */
@@ -1976,6 +1995,11 @@ extern unsigned int extended_count (rtx, enum machine_mode, int);
 extern rtx remove_death (unsigned int, rtx);
 extern void dump_combine_stats (FILE *);
 extern void dump_combine_total_stats (FILE *);
+
+/* In sched-vis.c.  */
+extern void print_rtl_slim_with_bb (FILE *, rtx, int);
+extern void dump_insn_slim (FILE *f, rtx x);
+extern void debug_insn_slim (rtx x);
 
 /* In sched-rgn.c.  */
 extern void schedule_insns (FILE *);

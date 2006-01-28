@@ -1,3 +1,83 @@
+2005-01-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25964
+	* resolve.c (resolve_function): Add GFC_ISYM_LOC to the list of
+	generic_ids exempted from assumed size checking.
+
+2006-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/25324
+	* Make-lang.in (fortran/scanner.o): Depend on toplev.h.
+	* lang.opt (fpreprocessed): New option.
+	* scanner.c: Include toplev.h.
+	(gfc_src_file, gfc_src_preprocessor_lines): New variables.
+	(preprocessor_line): Unescape filename if there were any
+	backslashes.
+	(load_file): If initial and gfc_src_file is not NULL,
+	use it rather than opening the file.  If gfc_src_preprocessor_lines
+	has non-NULL elements, pass it to preprocessor_line.
+	(unescape_filename, gfc_read_orig_filename): New functions.
+	* gfortran.h (gfc_option_t): Add flag_preprocessed.
+	(gfc_read_orig_filename): New prototype.
+	* options.c (gfc_init_options): Clear flag_preprocessed.
+	(gfc_post_options): If flag_preprocessed, call
+	gfc_read_orig_filename.
+	(gfc_handle_option): Handle OPT_fpreprocessed.
+	* lang-specs.h: Pass -fpreprocessed to f951 if preprocessing
+	sources.
+
+2005-01-27  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	* symbol.c (free_old_symbol): Fix confusing comment, and add code
+	  to free old_symbol->formal.
+
+2005-01-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25964
+	* resolve.c (resolve_function): Exclude statement functions from
+	global reference checking.
+
+	PR fortran/25084
+	PR fortran/20852
+	PR fortran/25085
+	PR fortran/25086
+	* resolve.c (resolve_function): Declare a gfc_symbol to replace the
+	references through the symtree to the symbol associated with the
+	function expresion. Give error on reference to an assumed character
+	length function is defined in an interface or an external function
+	that is not a dummy argument.
+	(resolve_symbol): Give error if an assumed character length function
+	is array-valued, pointer-valued, pure or recursive. Emit warning
+	that character(*) value functions are obsolescent in F95.
+
+	PR fortran/25416
+	* trans-expr.c (gfc_conv_function_call): The above patch to resolve.c
+	prevents any assumed character length function call from getting here
+	except intrinsics such as SPREAD. In this case, ensure that no
+	segfault occurs from referencing non-existent charlen->length->
+	expr_type and provide a backend_decl for the charlen from the charlen
+	of the first actual argument.
+
+	Cure temp name confusion.
+	* trans-expr.c (gfc_get_interface_mapping_array): Change name of
+	temporary from "parm" to "ifm" to avoid clash with temp coming from
+	trans-array.c.
+
+2005-01-25  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25716
+	* symbol.c (free_old_symbol): New function.
+	(gfc_commit_symbols): Use it.
+	(gfc_commit_symbol): New function.
+	(gfc_use_derived): Use it.
+	* gfortran.h: Add prototype for gfc_commit_symbol.
+	* intrinsic.c (gfc_find_function): Search in 'conversion'
+	if not found in 'functions'.
+	(gfc_convert_type_warn): Add a symtree to the new
+	expression node, and commit the new symtree->n.sym.
+	* resolve.c (gfc_resolve_index): Make sure typespec is
+	properly initialized.
+
 2005-01-23  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/25901
@@ -87,6 +167,9 @@
 	* io.c (format_asterisk): Adapt initializer.
 	* resolve.c (resolve_branch): Allow FORTRAN 66 cross-block GOTOs
 	as extension.
+	(warn_unused_label): Take gfc_st_label label as argument, adapt to
+	new data structure.
+	(gfc_resolve): Adapt call to warn_unused_label.
 	* symbol.c (compare_st_labels): New function.
 	(gfc_free_st_label, free_st_labels, gfc_get_st_label): Convert to
 	using balanced binary tree.

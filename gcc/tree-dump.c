@@ -653,6 +653,14 @@ dequeue_and_dump (dump_info_p di)
       	  dump_child ("labl", TREE_OPERAND (t,2));
         }
       break;
+    case OMP_CLAUSE:
+      {
+	int i;
+	fprintf (di->stream, "%s\n", omp_clause_code_name[OMP_CLAUSE_CODE (t)]);
+	for (i = 0; i < omp_clause_num_ops[OMP_CLAUSE_CODE (t)]; i++)
+	  dump_child ("op: ", OMP_CLAUSE_OPERAND (t, i));
+      }
+      break;
     default:
       /* There are no additional fields to print.  */
       break;
@@ -926,24 +934,25 @@ dump_end (enum tree_dump_index phase ATTRIBUTE_UNUSED, FILE *stream)
 static int
 dump_enable_all (int flags, int letter)
 {
+  int ir_type = (flags & (TDF_TREE | TDF_RTL | TDF_IPA));
   int n = 0;
   size_t i;
 
   for (i = TDI_none + 1; i < (size_t) TDI_end; i++)
-    if ((dump_files[i].flags & flags)
+    if ((dump_files[i].flags & ir_type)
 	&& (letter == 0 || letter == dump_files[i].letter))
       {
         dump_files[i].state = -1;
-        dump_files[i].flags = flags;
+        dump_files[i].flags |= flags;
         n++;
       }
 
   for (i = 0; i < extra_dump_files_in_use; i++)
-    if ((extra_dump_files[i].flags & flags)
+    if ((extra_dump_files[i].flags & ir_type)
 	&& (letter == 0 || letter == extra_dump_files[i].letter))
       {
         extra_dump_files[i].state = -1;
-        extra_dump_files[i].flags = flags;
+        extra_dump_files[i].flags |= flags;
 	n++;
       }
 

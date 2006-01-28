@@ -122,6 +122,8 @@ AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
 
+AM_MAINTAINER_MODE
+
 # We need gfortran to compile parts of the library
 # We can't use AC_PROG_FC because it expects a fully working gfortran.
 #AC_PROG_FC(gfortran)
@@ -139,6 +141,8 @@ AC_HEADER_TIME
 AC_CHECK_HEADERS(unistd.h semaphore.h sys/loadavg.h sys/time.h)
 AC_CHECK_HEADER([pthread.h],[],
   [AC_MSG_ERROR([Pthreads are required to build libgomp])])
+
+GCC_HEADER_STDINT(gstdint.h)
 
 # Check to see if -pthread or -lpthread is needed.  Prefer the former.
 XPCFLAGS=""
@@ -216,5 +220,46 @@ AC_SUBST(link_gomp)
 
 AM_CONDITIONAL([USE_FORTRAN], [test "$ac_cv_fc_compiler_gnu" = yes])
 
+# ??? 2006-01-24: Paulo committed to asking autoconf folk to document
+# and export AC_COMPUTE_INT.  If that happens, then we'll need to remove
+# the underscore here and update the PREREQ.  If it doesn't, then we'll
+# need to copy this macro to our acinclude.m4.
+save_CFLAGS="$CFLAGS"
+for i in $config_path; do
+  if test -f $srcdir/config/$i/omp-lock.h; then
+    CFLAGS="$CFLAGS -include $srcdir/config/$i/omp-lock.h"
+    break
+  fi
+done
+
+_AC_COMPUTE_INT([sizeof (omp_lock_t)], [OMP_LOCK_SIZE],,
+  [AC_MSG_ERROR([unsupported system, cannot find sizeof (omp_lock_t)])])
+_AC_COMPUTE_INT([__alignof (omp_lock_t)], [OMP_LOCK_ALIGN])
+_AC_COMPUTE_INT([sizeof (omp_nest_lock_t)], [OMP_NEST_LOCK_SIZE])
+_AC_COMPUTE_INT([__alignof (omp_nest_lock_t)], [OMP_NEST_LOCK_ALIGN])
+
+# If the lock fits in an integer, then arrange for Fortran to use that
+# integer.  If it doesn't, then arrange for Fortran to use a pointer.
+# Except that we don't have a way at present to multi-lib the installed
+# Fortran modules, so we assume 8 bytes for pointers, regardless of the
+# actual target.
+OMP_LOCK_KIND=$OMP_LOCK_SIZE
+OMP_NEST_LOCK_KIND=$OMP_NEST_LOCK_SIZE
+if test $OMP_LOCK_SIZE -gt 8 || test $OMP_LOCK_ALIGN -gt $OMP_LOCK_SIZE; then
+  OMP_LOCK_KIND=8
+fi
+if test $OMP_NEST_LOCK_SIZE -gt 8 || test $OMP_NEST_LOCK_ALIGN -gt $OMP_NEST_LOCK_SIZE; then
+  OMP_NEST_LOCK_KIND=8
+fi
+
+AC_SUBST(OMP_LOCK_SIZE)
+AC_SUBST(OMP_LOCK_ALIGN)
+AC_SUBST(OMP_NEST_LOCK_SIZE)
+AC_SUBST(OMP_NEST_LOCK_ALIGN)
+AC_SUBST(OMP_LOCK_KIND)
+AC_SUBST(OMP_NEST_LOCK_KIND)
+CFLAGS="$save_CFLAGS"
+
+AC_CONFIG_FILES(omp.h omp_lib.h omp_lib.f90 libgomp_f.h)
 AC_CONFIG_FILES(Makefile testsuite/Makefile libgomp.spec)
 AC_OUTPUT

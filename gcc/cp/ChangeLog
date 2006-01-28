@@ -1,3 +1,54 @@
+2006-01-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/16021
+	* name-lookup.c (parse_using_directive): Require strong using to
+	name a nested namespace.
+
+2006-01-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Revert:
+	* cp-tree.h (do_poplevel): Remove prototype.
+	* semantics.c (do_poplevel): Add prototype.  Make static.
+
+	Revert:
+	* cp-tree.h (default_conversion): Remove prototype.
+	* typeck.c (default_conversion): Make static.
+
+2006-01-25  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* cp-tree.h (get_primary_binfo): Remove prototype.
+	(push_using_decl): Likewise.
+	(current_template_args): Likewise.
+	(more_specialized_class): Likewise.
+	(mark_class_instantiated): Likewise.
+	(default_conversion): Likewise.
+	(pfn_from_ptrmemfunc): Likewise.
+	* class.c (get_primary_binfo): Add prototype, make static, simplify.
+	* name-lookup.c (push_using_decl): Make static.
+	* pt.c (current_template_args): Likewise.
+	(more_specialized_class): Likewise.
+	(mark_class_instantiated): Likewise.
+	* typeck.c (default_conversion): Make static.
+	(pfn_from_ptrmemfunc): Add prototype, make static.
+
+2006-01-24  Dirk Mueller  <dmueller@suse.de>
+	
+	* typeck.c (build_binary_op): Use OPT_Wfloat_equal in warning().
+
+2006-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/25552
+	* parser.c (cp_parser_unqualified_id): Check that destructor name
+	and scope match.
+	* call.c (check_dtor_name): Do not expect a BIT_NOT_EXPR.
+	Adjust comment.  Return early if possible.
+	Use same_type_p to compare types.
+	* typeck.c (lookup_destructor): Adjust call to check_dtor_name.
+
+2006-01-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* semantics.c: Remove outdated comment.
+
 2006-01-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* cp-tree.h (do_poplevel): Remove prototype.

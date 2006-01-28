@@ -1,3 +1,25 @@
+2006-01-25  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* darwin_stop_world.c: Change inline asm instruction to ld as ldz
+	is wrong.
+
+	* Makefile.am (asm_libgcjgc_sources): Rename to asm_libgcjgc_sources.
+	* Makefile.in: Regenerate.
+
+2006-01-25  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* include/private/gcconfig.h: Revert to GC 6.6 version, removing
+	all local changes.
+
+2006-01-24  Bryce McKinlay  <mckinlay@redhat.com>
+
+	Import Boehm GC version 6.6.
+
+2006-01-24  David Ayers  <d.ayers@inode.at>
+
+	PR libobjc/13946
+	* include/gc.h: Fix prototype declarations for bootstrap.
+
 2005-11-01  Bryce McKinlay  <mckinlay@redhat.com>
 
 	* include/private/gc_priv.h: Increase MAX_ROOT_SETS to 1024.

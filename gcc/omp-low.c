@@ -50,14 +50,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    re-gimplifing things when variables have been replaced with complex
    expressions.
 
-   Lowering of a parallel statement results in the contents of the 
-   parallel being moved to a new function, to be invoked by the thread
-   library.  The variable remapping process is complex enough that only
-   one level of parallel statement is handled at one time.  If there are
-   nested parallel statements, those nested statements are handled when
-   the new function is lowered and optimized.  The result is not 100%
-   optimal, but lexically nested parallels effectively only happens in
-   test suites.  */
+   Final code generation is done by pass_expand_omp.  The flowgraph is
+   scanned for parallel regions which are then moved to a new
+   function, to be invoked by the thread library.  */
 
 /* Parallel region information.  Every parallel and workshare
    directive is enclosed between two markers, the OMP_* directive
@@ -159,7 +154,7 @@ static tree
 find_omp_clause (tree clauses, enum tree_code kind)
 {
   for (; clauses ; clauses = OMP_CLAUSE_CHAIN (clauses))
-    if (TREE_CODE (clauses) == kind)
+    if (OMP_CLAUSE_CODE (clauses) == kind)
       return clauses;
 
   return NULL_TREE;
@@ -247,7 +242,7 @@ extract_omp_for_data (tree for_stmt, struct omp_for_data *fd)
   fd->chunk_size = NULL_TREE;
 
   for (t = OMP_FOR_CLAUSES (for_stmt); t ; t = OMP_CLAUSE_CHAIN (t))
-    switch (TREE_CODE (t))
+    switch (OMP_CLAUSE_CODE (t))
       {
       case OMP_CLAUSE_NOWAIT:
 	fd->have_nowait = true;
@@ -948,7 +943,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
     {
       bool by_ref;
 
-      switch (TREE_CODE (c))
+      switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_PRIVATE:
 	  decl = OMP_CLAUSE_DECL (c);
@@ -971,7 +966,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      break;
 	    }
 	  /* We don't need to copy const scalar vars back.  */
-	  TREE_SET_CODE (c, OMP_CLAUSE_FIRSTPRIVATE);
+	  OMP_CLAUSE_SET_CODE (c, OMP_CLAUSE_FIRSTPRIVATE);
 	  goto do_private;
 
 	case OMP_CLAUSE_LASTPRIVATE:
@@ -1014,7 +1009,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
 	  if (ctx->outer)
-	    scan_omp (&TREE_OPERAND (c, 0), ctx->outer);
+	    scan_omp (&OMP_CLAUSE_OPERAND (c, 0), ctx->outer);
 	  break;
 
 	case OMP_CLAUSE_NOWAIT:
@@ -1028,7 +1023,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
   for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     {
-      switch (TREE_CODE (c))
+      switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_LASTPRIVATE:
 	  /* Let the corresponding firstprivate clause create
@@ -1044,9 +1039,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  if (is_variable_sized (decl))
 	    install_var_local (decl, ctx);
 	  fixup_remapped_decl (decl, ctx,
-			       TREE_CODE (c) == OMP_CLAUSE_PRIVATE
+			       OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
 			       && OMP_CLAUSE_PRIVATE_DEBUG (c));
-	  if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 	      && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	    scan_array_reductions = true;
 	  break;
@@ -1073,7 +1068,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
   if (scan_array_reductions)
     for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-      if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 	  && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	{
 	  scan_omp (&OMP_CLAUSE_REDUCTION_INIT (c), ctx);
@@ -1530,7 +1525,7 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
     {
       for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
 	{
-	  enum tree_code c_kind = TREE_CODE (c);
+	  enum omp_clause_code c_kind = OMP_CLAUSE_CODE (c);
 	  tree var, new_var;
 	  bool by_ref;
 
@@ -1624,7 +1619,7 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	  else if (pass != 0)
 	    continue;
 
-	  switch (TREE_CODE (c))
+	  switch (OMP_CLAUSE_CODE (c))
 	    {
 	    case OMP_CLAUSE_SHARED:
 	      /* Set up the DECL_VALUE_EXPR for shared variables now.  This
@@ -1758,7 +1753,7 @@ lower_lastprivate_clauses (tree clauses, tree predicate, tree *stmt_list,
     {
       tree var, new_var;
 
-      if (TREE_CODE (c) != OMP_CLAUSE_LASTPRIVATE)
+      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_LASTPRIVATE)
 	continue;
 
       var = OMP_CLAUSE_DECL (c);
@@ -1791,7 +1786,7 @@ lower_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
   /* First see if there is exactly one reduction clause.  Use OMP_ATOMIC
      update in that case, otherwise use a lock.  */
   for (c = clauses; c && count < 2; c = OMP_CLAUSE_CHAIN (c))
-    if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION)
+    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
       {
 	if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	  {
@@ -1810,7 +1805,7 @@ lower_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
       tree var, ref, new_var;
       enum tree_code code;
 
-      if (TREE_CODE (c) != OMP_CLAUSE_REDUCTION)
+      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_REDUCTION)
 	continue;
 
       var = OMP_CLAUSE_DECL (c);
@@ -1883,7 +1878,7 @@ lower_copyprivate_clauses (tree clauses, tree *slist, tree *rlist,
       tree var, ref, x;
       bool by_ref;
 
-      if (TREE_CODE (c) != OMP_CLAUSE_COPYPRIVATE)
+      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_COPYPRIVATE)
 	continue;
 
       var = OMP_CLAUSE_DECL (c);
@@ -1920,7 +1915,7 @@ lower_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
       tree val, ref, x, var;
       bool by_ref, do_in = false, do_out = false;
 
-      switch (TREE_CODE (c))
+      switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYIN:
@@ -1939,7 +1934,7 @@ lower_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
 	continue;
       by_ref = use_pointer_for_field (val, false);
 
-      switch (TREE_CODE (c))
+      switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYIN:

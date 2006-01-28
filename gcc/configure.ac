@@ -679,6 +679,17 @@ AC_ARG_ENABLE(threads,
   --enable-threads=LIB    use LIB thread package for target GCC],,
 [enable_threads=''])
 
+AC_ARG_ENABLE(tls,
+[  --enable-tls            enable or disable generation of tls code
+                          overriding the assembler check for tls support],
+[
+  case $enable_tls in
+    yes | no) ;;
+    *) AC_MSG_ERROR(['$enable_tls' is an invalid value for --enable-tls.
+Valid choices are 'yes' and 'no'.]) ;;
+  esac
+], [enable_tls=''])
+
 AC_ARG_ENABLE(objc-gc,
 [  --enable-objc-gc	  enable the use of Boehm's garbage collector with
 			  the GNU Objective-C runtime],
@@ -1802,22 +1813,38 @@ esac
 # If build != host, and we aren't building gas in-tree, we identify a
 # build->target assembler and hope that it will have the same features
 # as the host->target assembler we'll be using.
-in_tree_gas=no
-gcc_cv_as=
 gcc_cv_gas_major_version=
 gcc_cv_gas_minor_version=
 gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
+
+m4_pattern_allow([AS_FOR_TARGET])dnl
+AS_VAR_SET_IF(gcc_cv_as,, [
 if test -x "$DEFAULT_ASSEMBLER"; then
 	gcc_cv_as="$DEFAULT_ASSEMBLER"
 elif test -f $gcc_cv_as_gas_srcdir/configure.in \
      && test -f ../gas/Makefile \
      && test x$build = x$host; then
+	gcc_cv_as=../gas/as-new$build_exeext
+elif test -x as$build_exeext; then
+	# Build using assembler in the current directory.
+	gcc_cv_as=./as$build_exeext
+elif test -x $AS_FOR_TARGET; then
+        gcc_cv_as="$AS_FOR_TARGET"
+else
+        AC_PATH_PROG(gcc_cv_as, $AS_FOR_TARGET)
+fi])
+
+ORIGINAL_AS_FOR_TARGET=$gcc_cv_as
+AC_SUBST(ORIGINAL_AS_FOR_TARGET)
+
+AC_MSG_CHECKING(what assembler to use)
+if test "$gcc_cv_as" = ../gas/as-new$build_exeext; then
   # Single tree build which includes gas.  We want to prefer it
   # over whatever linker top-level may have detected, since
   # we'll use what we're building after installation anyway.
+  AC_MSG_RESULT(newly built gas)
   in_tree_gas=yes
   _gcc_COMPUTE_GAS_VERSION
-  gcc_cv_as=../gas/as-new$build_exeext
   in_tree_gas_is_elf=no
   if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
      || (grep 'obj_format = multi' ../gas/Makefile \
@@ -1825,22 +1852,10 @@ elif test -f $gcc_cv_as_gas_srcdir/configure.in \
   then
     in_tree_gas_is_elf=yes
   fi
-m4_pattern_allow([AS_FOR_TARGET])dnl
-elif test -x as$build_exeext; then
-	# Build using assembler in the current directory.
-	gcc_cv_as=./as$build_exeext
+else
+  AC_MSG_RESULT($gcc_cv_as)
+  in_tree_gas=no
 fi
-
-gcc_AC_CHECK_TOOL(gcc_cv_as, as, ORIGINAL_AS_FOR_TARGET, AS_FOR_TARGET, AS)
-AC_MSG_CHECKING(what assembler to use)
-case $in_tree_gas in
-  yes)
-    AC_MSG_RESULT("newly built gas")
-    ;;
-  no)
-    AC_MSG_RESULT($gcc_cv_as)
-    ;;
-esac
 
 # Identify the linker which will work hand-in-glove with the newly
 # built GCC, so that we can examine its features.  This is the linker
@@ -1849,20 +1864,36 @@ esac
 # If build != host, and we aren't building gas in-tree, we identify a
 # build->target linker and hope that it will have the same features
 # as the host->target linker we'll be using.
-in_tree_ld=no
-gcc_cv_ld=
 gcc_cv_gld_major_version=
 gcc_cv_gld_minor_version=
 gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
 gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
+
+AS_VAR_SET_IF(gcc_cv_ld,, [
 if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
 elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
      && test -f ../ld/Makefile \
      && test x$build = x$host; then
+	gcc_cv_ld=../ld/ld-new$build_exeext
+elif test -x collect-ld$build_exeext; then
+	# Build using linker in the current directory.
+	gcc_cv_ld=./collect-ld$build_exeext
+elif test -x $LD_FOR_TARGET; then
+        gcc_cv_ld="$LD_FOR_TARGET"
+else
+        AC_PATH_PROG(gcc_cv_ld, $LD_FOR_TARGET)
+fi])
+
+ORIGINAL_LD_FOR_TARGET=$gcc_cv_ld
+AC_SUBST(ORIGINAL_LD_FOR_TARGET)
+
+AC_MSG_CHECKING(what linker to use)
+if test "$gcc_cv_ld" = ../ld/ld-new$build_exeext; then
 	# Single tree build which includes ld.  We want to prefer it
 	# over whatever linker top-level may have detected, since
 	# we'll use what we're building after installation anyway.
+	AC_MSG_RESULT(newly built ld)
 	in_tree_ld=yes
 	in_tree_ld_is_elf=no
 	if (grep 'EMUL = .*elf' ../ld/Makefile \
@@ -1874,71 +1905,68 @@ elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
 	do
 changequote(,)dnl
 		gcc_cv_gld_version=`sed -n -e 's/^[ 	]*\(VERSION=[0-9]*\.[0-9]*.*\)/\1/p' < $f`
-changequote([,])dnl
 		if test x$gcc_cv_gld_version != x; then
 			break
 		fi
 	done
-changequote(,)dnl
 	gcc_cv_gld_major_version=`expr "$gcc_cv_gld_version" : "VERSION=\([0-9]*\)"`
 	gcc_cv_gld_minor_version=`expr "$gcc_cv_gld_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
 changequote([,])dnl
-	gcc_cv_ld=../ld/ld-new$build_exeext
-elif test -x collect-ld$build_exeext; then
-	# Build using linker in the current directory.
-	gcc_cv_ld=./collect-ld$build_exeext
+else
+	AC_MSG_RESULT($gcc_cv_ld)
+	in_tree_ld=no
 fi
-
-gcc_AC_CHECK_TOOL(gcc_cv_ld, ld, ORIGINAL_LD_FOR_TARGET, LD_FOR_TARGET, LD)
-AC_MSG_CHECKING(what linker to use)
-case $in_tree_ld in
-  yes)
-    AC_MSG_RESULT("newly built ld")
-    ;;
-  no)
-    AC_MSG_RESULT($gcc_cv_ld)
-    ;;
-esac
 
 # Figure out what nm we will be using.
 gcc_cv_binutils_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/binutils
-in_tree_nm=no
-gcc_cv_nm=
+AS_VAR_SET_IF(gcc_cv_nm,, [
 if test -f $gcc_cv_binutils_srcdir/configure.in \
      && test -f ../binutils/Makefile; then
-	# Single tree build which includes binutils.
-	in_tree_nm=yes
 	gcc_cv_nm=../binutils/nm-new$build_exeext
 elif test -x nm$build_exeext; then
 	gcc_cv_nm=./nm$build_exeext
+elif test -x $NM_FOR_TARGET; then
+        gcc_cv_nm="$NM_FOR_TARGET"
+else
+        AC_PATH_PROG(gcc_cv_nm, $NM_FOR_TARGET)
+fi])
+
+AC_MSG_CHECKING(what nm to use)
+if test "$gcc_cv_nm" = ../binutils/nm-new$build_exeext; then
+	# Single tree build which includes binutils.
+	AC_MSG_RESULT(newly built nm)
+	in_tree_nm=yes
+else
+	AC_MSG_RESULT($gcc_cv_nm)
+	in_tree_nm=no
 fi
 
-gcc_AC_CHECK_TOOL(gcc_cv_nm, nm, ORIGINAL_NM_FOR_TARGET, NM_FOR_TARGET, NM)
-AC_MSG_CHECKING(what nm to use)
-case $in_tree_nm in
-  yes) AC_MSG_RESULT("newly built nm") ;;
-  no)  AC_MSG_RESULT($gcc_cv_nm) ;;
-esac
+ORIGINAL_NM_FOR_TARGET=$gcc_cv_nm
+AC_SUBST(ORIGINAL_NM_FOR_TARGET)
 
 # Figure out what objdump we will be using.
-in_tree_objdump=no
-gcc_cv_objdump=
+AS_VAR_SET_IF(gcc_cv_objdump,, [
 if test -f $gcc_cv_binutils_srcdir/configure.in \
      && test -f ../binutils/Makefile; then
 	# Single tree build which includes binutils.
-	in_tree_objdump=yes
 	gcc_cv_objdump=../binutils/objdump$build_exeext
 elif test -x objdump$build_exeext; then
 	gcc_cv_objdump=./objdump$build_exeext
-fi
+elif test -x $OBJDUMP_FOR_TARGET; then
+        gcc_cv_objdump="$OBJDUMP_FOR_TARGET"
+else
+        AC_PATH_PROG(gcc_cv_objdump, $OBJDUMP_FOR_TARGET)
+fi])
 
-gcc_AC_CHECK_TOOL(gcc_cv_objdump, objdump, ORIGINAL_OBJDUMP_FOR_TARGET,
-		  OBJDUMP_FOR_TARGET, OBJDUMP)
 AC_MSG_CHECKING(what objdump to use)
-case $in_tree_objdump in
-  yes) AC_MSG_RESULT("newly built objdump") ;;
-  no)  AC_MSG_RESULT($gcc_cv_objdump) ;;
-esac
+if test "$gcc_cv_objdump" = ../binutils/objdump$build_exeext; then
+	# Single tree build which includes binutils.
+	AC_MSG_RESULT(newly built objdump)
+elif test x$gcc_cv_objdump = x; then
+	AC_MSG_RESULT(not found)
+else
+	AC_MSG_RESULT($gcc_cv_objdump)
+fi
 
 # Figure out what assembler alignment features are present.
 gcc_GAS_CHECK_FEATURE([.balign and .p2align], gcc_cv_as_balign_and_p2align,
@@ -2531,13 +2559,21 @@ foo:	.long	25
 	;;
 changequote([,])dnl
 esac
-if test -z "$tls_first_major"; then
+set_have_as_tls=no
+if test "x$enable_tls" = xno ; then
+  : # TLS explicitly disabled.
+elif test "x$enable_tls" = xyes ; then
+  set_have_as_tls=yes # TLS explicitly enabled.
+elif test -z "$tls_first_major"; then
   : # If we don't have a check, assume no support.
 else
   gcc_GAS_CHECK_FEATURE(thread-local storage support, gcc_cv_as_tls,
   [$tls_first_major,$tls_first_minor,0], [$tls_as_opt], [$conftest_s],,
-  [AC_DEFINE(HAVE_AS_TLS, 1,
-	    [Define if your assembler supports thread-local storage.])])
+  [set_have_as_tls=yes])
+fi
+if test $set_have_as_tls = yes ; then
+  AC_DEFINE(HAVE_AS_TLS, 1,
+	    [Define if your assembler supports thread-local storage.])
 fi
 
 # Target-specific assembler checks.
