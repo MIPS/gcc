@@ -182,7 +182,7 @@ find_control_dependence (struct edge_list *el, int edge_index)
   gcc_assert (INDEX_EDGE_PRED_BB (el, edge_index) != EXIT_BLOCK_PTR);
 
   if (INDEX_EDGE_PRED_BB (el, edge_index) == ENTRY_BLOCK_PTR)
-    ending_block = ENTRY_BLOCK_PTR->next_bb;
+    ending_block = single_succ (ENTRY_BLOCK_PTR);
   else
     ending_block = find_pdom (INDEX_EDGE_PRED_BB (el, edge_index));
 
@@ -799,7 +799,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       tree def = DEF_FROM_PTR (def_p);
       mark_sym_for_renaming (SSA_NAME_VAR (def));
     }
-  bsi_remove (i);  
+  bsi_remove (i, true);  
   release_defs (t); 
 }
 

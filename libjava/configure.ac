@@ -901,13 +901,8 @@ else
    AC_CHECK_FUNCS(inet_aton inet_addr, break)
    AC_CHECK_HEADERS(execinfo.h unistd.h dlfcn.h) 
    AC_CHECK_LIB(dl, dladdr, [
-     if test "x${disable_dladdr}" = "xyes"; then
-       #Broken dladdr().
-       true
-     else
-       AC_DEFINE(HAVE_DLADDR, 1, [Define if you have dladdr()])
-     fi
-   ])
+       AC_DEFINE(HAVE_DLADDR, 1, [Define if you have dladdr()])])
+
    if test x"$build" = x"$host"; then
      AC_CHECK_FILES(/proc/self/exe, [
        AC_DEFINE(HAVE_PROC_SELF_EXE, 1, [Define if you have /proc/self/exe])])
@@ -1238,6 +1233,14 @@ esac
 AC_SUBST(toolexecdir)
 AC_SUBST(toolexecmainlibdir)
 AC_SUBST(toolexeclibdir)
+
+# Determine where the standard .db file is found.
+multi_os_directory=`$CC -print-multi-os-directory`
+case $multi_os_directory in
+  .) dbexecdir='$(libdir)/gcj-$(gcc_version)' ;; # Avoid /.
+  *) dbexecdir='$(libdir)/'$multi_os_directory'/gcj-$(gcc_version)' ;;
+esac
+AC_SUBST(dbexecdir)
 
 # Determine gcj version number.
 gcjversion=`$GCJ -v 2>&1 | sed -n 's/^.*version \([[^ ]]*\).*$/\1/p'`

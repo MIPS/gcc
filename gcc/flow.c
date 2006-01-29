@@ -814,8 +814,10 @@ delete_noop_moves (void)
 	    }
 	}
     }
+
   if (nnoops && dump_file)
-    fprintf (dump_file, "deleted %i noop moves", nnoops);
+    fprintf (dump_file, "deleted %i noop moves\n", nnoops);
+
   return nnoops;
 }
 
@@ -1494,7 +1496,7 @@ find_regno_partial (rtx *ptr, void *data)
    registers whose value is unknown, and may contain some kind of sticky
    bits we don't want.  */
 
-int
+static int
 initialize_uninitialized_subregs (void)
 {
   rtx insn;

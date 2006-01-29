@@ -52,22 +52,6 @@ static void unloop (struct loops *, struct loop *);
 
 #define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
-/* Splits basic block BB after INSN, returns created edge.  Updates loops
-   and dominators.  */
-edge
-split_loop_bb (basic_block bb, void *insn)
-{
-  edge e;
-
-  /* Split the block.  */
-  e = split_block (bb, insn);
-
-  /* Add dest to loop.  */
-  add_bb_to_loop (e->dest, e->src->loop_father);
-
-  return e;
-}
-
 /* Checks whether basic block BB is dominated by DATA.  */
 static bool
 rpe_enum_p (basic_block bb, void *data)
@@ -1419,7 +1403,8 @@ lv_adjust_loop_entry_edge (basic_block first_head,
   lv_add_condition_to_bb (first_head, second_head, new_head,
 			  cond_expr);
 
-  e1 = make_edge (new_head, first_head, EDGE_TRUE_VALUE);
+  /* Don't set EDGE_TRUE_VALUE in RTL mode, as it's invalid there.  */
+  e1 = make_edge (new_head, first_head, ir_type () ? EDGE_TRUE_VALUE : 0);
   set_immediate_dominator (CDI_DOMINATORS, first_head, new_head);
   set_immediate_dominator (CDI_DOMINATORS, second_head, new_head);
 

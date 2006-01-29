@@ -245,7 +245,6 @@ extern void create_loop_notes (void);
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);
 extern void flow_loop_tree_node_remove (struct loop *);
-extern bool flow_loop_outside_edge_p (const struct loop *, edge);
 extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
@@ -311,7 +310,6 @@ extern struct loop *loopify (struct loops *, edge, edge,
 struct loop * loop_version (struct loops *, struct loop *, void *,
 			    basic_block *, bool);
 extern bool remove_path (struct loops *, edge);
-extern edge split_loop_bb (basic_block, void *);
 
 /* Induction variable analysis.  */
 
@@ -351,9 +349,6 @@ struct rtx_iv
 
   /* The mode the variable iterates in.  */
   enum machine_mode mode;
-
-  /* Whether we have already filled the remaining fields.  */
-  unsigned analysed : 1;
 
   /* Whether the first iteration needs to be handled specially.  */
   unsigned first_special : 1;
@@ -404,12 +399,14 @@ struct niter_desc
 };
 
 extern void iv_analysis_loop_init (struct loop *);
-extern rtx iv_get_reaching_def (rtx, rtx);
 extern bool iv_analyze (rtx, rtx, struct rtx_iv *);
+extern bool iv_analyze_result (rtx, rtx, struct rtx_iv *);
+extern bool iv_analyze_expr (rtx, rtx, enum machine_mode, struct rtx_iv *);
 extern rtx get_iv_value (struct rtx_iv *, rtx);
 extern bool biv_p (rtx, rtx);
 extern void find_simple_exit (struct loop *, struct niter_desc *);
 extern void iv_analysis_done (void);
+extern struct df *iv_current_loop_df (void);
 
 extern struct niter_desc *get_simple_loop_desc (struct loop *loop);
 extern void free_simple_loop_desc (struct loop *loop);
@@ -459,7 +456,5 @@ extern void record_estimate (struct loop *, tree, tree, tree);
 
 /* Flags passed to loop_optimize.  */
 #define LOOP_PREFETCH 1
-
-extern void loop_optimize (rtx, FILE *, int);
 
 #endif /* GCC_CFGLOOP_H */

@@ -1,5 +1,6 @@
 /* Code translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -308,8 +309,6 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   tree tmp;
   tree args;
 
-  cond = fold (cond);
-
   if (integer_zerop (cond))
     return;
 
@@ -360,9 +359,6 @@ gfc_add_expr_to_block (stmtblock_t * block, tree expr)
 
   if (expr == NULL_TREE || IS_EMPTY_STMT (expr))
     return;
-
-  if (TREE_CODE (expr) != STATEMENT_LIST)
-    expr = fold (expr);
 
   if (block->head)
     {

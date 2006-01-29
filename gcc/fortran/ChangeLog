@@ -1,10 +1,346 @@
-2006-01-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+2006-01-28  Paul Thomas  <pault@gcc.gnu.org>
 
-	PR libgfortran/25598
-	* io/file_pos.c (unformatted_backspace): Assure the new file position
-	to seek is not less than zero.
-	(st_backspace): Set unit bytes_left to zero.
-	* io/transfer.c (next_record_r): Fix line lengths, no functional change.
+	PR fortran/17911
+	* expr.c (gfc_check_assign, gfc_check_pointer_assign): Emit error if
+	the lvalue is a use associated procedure.
+
+	PR fortran/20895
+	PR fortran/25030
+	* expr.c (gfc_check_pointer_assign): Emit error if lvalue and rvalue
+	character lengths are not the same.  Use gfc_dep_compare_expr for the
+	comparison.
+	* gfortran.h: Add prototype for gfc_dep_compare_expr.
+	* dependency.h: Remove prototype for gfc_dep_compare_expr.
+
+2005-01-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25964
+	* resolve.c (resolve_function): Add GFC_ISYM_LOC to the list of
+	generic_ids exempted from assumed size checking.
+
+2006-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/25324
+	* Make-lang.in (fortran/scanner.o): Depend on toplev.h.
+	* lang.opt (fpreprocessed): New option.
+	* scanner.c: Include toplev.h.
+	(gfc_src_file, gfc_src_preprocessor_lines): New variables.
+	(preprocessor_line): Unescape filename if there were any
+	backslashes.
+	(load_file): If initial and gfc_src_file is not NULL,
+	use it rather than opening the file.  If gfc_src_preprocessor_lines
+	has non-NULL elements, pass it to preprocessor_line.
+	(unescape_filename, gfc_read_orig_filename): New functions.
+	* gfortran.h (gfc_option_t): Add flag_preprocessed.
+	(gfc_read_orig_filename): New prototype.
+	* options.c (gfc_init_options): Clear flag_preprocessed.
+	(gfc_post_options): If flag_preprocessed, call
+	gfc_read_orig_filename.
+	(gfc_handle_option): Handle OPT_fpreprocessed.
+	* lang-specs.h: Pass -fpreprocessed to f951 if preprocessing
+	sources.
+
+2005-01-27  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	* symbol.c (free_old_symbol): Fix confusing comment, and add code
+	  to free old_symbol->formal.
+
+2005-01-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25964
+	* resolve.c (resolve_function): Exclude statement functions from
+	global reference checking.
+
+	PR fortran/25084
+	PR fortran/20852
+	PR fortran/25085
+	PR fortran/25086
+	* resolve.c (resolve_function): Declare a gfc_symbol to replace the
+	references through the symtree to the symbol associated with the
+	function expresion. Give error on reference to an assumed character
+	length function is defined in an interface or an external function
+	that is not a dummy argument.
+	(resolve_symbol): Give error if an assumed character length function
+	is array-valued, pointer-valued, pure or recursive. Emit warning
+	that character(*) value functions are obsolescent in F95.
+
+	PR fortran/25416
+	* trans-expr.c (gfc_conv_function_call): The above patch to resolve.c
+	prevents any assumed character length function call from getting here
+	except intrinsics such as SPREAD. In this case, ensure that no
+	segfault occurs from referencing non-existent charlen->length->
+	expr_type and provide a backend_decl for the charlen from the charlen
+	of the first actual argument.
+
+	Cure temp name confusion.
+	* trans-expr.c (gfc_get_interface_mapping_array): Change name of
+	temporary from "parm" to "ifm" to avoid clash with temp coming from
+	trans-array.c.
+
+2005-01-25  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25716
+	* symbol.c (free_old_symbol): New function.
+	(gfc_commit_symbols): Use it.
+	(gfc_commit_symbol): New function.
+	(gfc_use_derived): Use it.
+	* gfortran.h: Add prototype for gfc_commit_symbol.
+	* intrinsic.c (gfc_find_function): Search in 'conversion'
+	if not found in 'functions'.
+	(gfc_convert_type_warn): Add a symtree to the new
+	expression node, and commit the new symtree->n.sym.
+	* resolve.c (gfc_resolve_index): Make sure typespec is
+	properly initialized.
+
+2005-01-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25901
+	* decl.c (get_proc_name): Replace subroutine and function attributes
+	in "already defined" test by the formal arglist pointer being non-NULL.
+
+	Fix regression in testing of admissability of attributes.
+	* symbol.c (gfc_add_attribute): If the current_attr has non-zero
+	intent, do not do the check for a dummy being used.
+	* decl.c (attr_decl1): Add current_attr.intent as the third argument
+	in the call to gfc_add_attribute.
+	* gfortran.h: Add the third argument to the prototype for
+	gfc_add_attribute.
+
+2006-01-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gfortranspec.c (lang_specific_driver): Update copyright notice
+	date.
+
+2005-01-21  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25124
+	PR fortran/25625
+	* decl.c (get_proc_name): If there is an existing
+	symbol in the encompassing namespace, call errors
+	if it is a procedure of the same name or the kind
+	field is set, indicating a type declaration.
+
+	PR fortran/20881
+	PR fortran/23308
+	PR fortran/25538
+	PR fortran/25710
+	* decl.c (add_global_entry): New function to check
+	for existing global symbol with this name and to
+	create new one if none exists.
+	(gfc_match_entry): Call add_global_entry before
+	matching argument lists for subroutine and function
+	entries.
+	* gfortran.h: Prototype for existing function,
+	global_used.
+	* resolve.c (resolve_global_procedure): New function
+	to check global symbols for procedures.
+	(resolve_call, resolve_function): Calls to this
+	new function for non-contained and non-module
+	procedures.
+	* match.c (match_common): Add check for existing
+	global symbol, creat one if none exists and emit
+	error if there is a clash.
+	* parse.c (global_used): Remove static and use the
+	gsymbol name rather than the new_block name, so that
+	the function can be called from resolve.c.
+	(parse_block_data, parse_module, add_global_procedure):
+	Improve checks for existing gsymbols.  Emit error if
+	already defined or if references were to another type.
+	Set defined flag.
+
+	PR fortran/PR24276
+	* trans-expr.c (gfc_conv_aliased_arg): New function called by 
+	gfc_conv_function_call that coverts an expression for an aliased
+	component reference to a derived type array into a temporary array
+	of the same type as the component.  The temporary is passed as an
+	actual argument for the procedure call and is copied back to the
+	derived type after the call.
+	(is_aliased_array): New function that detects an array reference
+	that is followed by a component reference.
+	(gfc_conv_function_call): Detect an aliased actual argument with
+	is_aliased_array and convert it to a temporary and back again
+	using gfc_conv_aliased_arg.
+
+2006-01-19  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortranspec.c: Update copyright years.
+	* trans.c: Likewise.
+	* trans-array.c: Likewise.
+	* trans-array.h: Likewise.
+	* trans-decl.c: Likewise.
+	* trans-stmt.c: Likewise.
+	* trans-stmt.h: Likewise.
+	* trans-types.c: Likewise.
+
+2006-01-18  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18540
+	PR fortran/18937
+	* gfortran.h (BBT_HEADER): Move definition up.
+	(gfc_st_label): Add BBT_HEADER, remove 'prev' and 'next'.
+	* io.c (format_asterisk): Adapt initializer.
+	* resolve.c (resolve_branch): Allow FORTRAN 66 cross-block GOTOs
+	as extension.
+	(warn_unused_label): Take gfc_st_label label as argument, adapt to
+	new data structure.
+	(gfc_resolve): Adapt call to warn_unused_label.
+	* symbol.c (compare_st_labels): New function.
+	(gfc_free_st_label, free_st_labels, gfc_get_st_label): Convert to
+	using balanced binary tree.
+	* decl.c (match_char_length, gfc_match_old_kind_spec): Do away
+	with 'cnt'.
+	(warn_unused_label): Adapt to binary tree.
+	* match.c (gfc_match_small_literal_int): Only set cnt if non-NULL.
+	* primary.c (match_kind_param): Do away with cnt.
+
+2006-01-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/20869
+	PR fortran/20875
+	PR fortran/25024
+	* symbol.c (check_conflict): Add pointer valued elemental
+	functions and internal procedures with the external attribute
+	to the list of conflicts.
+	(gfc_add_attribute): New catch-all function to perform the
+	checking of symbol attributes for attribute declaration
+	statements.
+	* decl.c (attr_decl1): Call gfc_add_attribute for each of -
+	(gfc_match_external, gfc_match_intent, gfc_match_intrinsic,
+	gfc_match_pointer, gfc_match_dimension, gfc_match_target):
+	Remove spurious calls to checks in symbol.c.  Set the
+	attribute directly and use the call to attr_decl() for
+	checking.
+	* gfortran.h:  Add prototype for gfc_add_attribute.
+
+	PR fortran/25785
+	* resolve.c (resolve_function): Exclude PRESENT from assumed size
+	argument checking. Replace strcmp's with comparisons with generic
+	codes.
+
+2006-01-16  Rafael Å¡vila de EspÅÌndola  <rafael.espindola@gmail.com>
+
+	* gfortranspec.c (lang_specific_spec_functions): Remove.
+
+2006-01-16  Richard Guenther  <rguenther@suse.de>
+
+	* trans-stmt.c (gfc_trans_if_1): Use fold_buildN and build_int_cst.
+	(gfc_trans_arithmetic_if): Likewise.
+	(gfc_trans_simple_do): Likewise.
+	(gfc_trans_do): Likewise.
+	(gfc_trans_do_while): Likewise.
+	(gfc_trans_logical_select): Likewise.
+	(gfc_trans_forall_loop): Likewise.
+	(generate_loop_for_temp_to_lhs): Likewise.
+	(generate_loop_for_rhs_to_temp): Likewise.
+	(gfc_trans_allocate): Likewise.
+	* trans.c (gfc_add_expr_to_block): Do not fold expr again.
+
+2006-01-16  Richard Guenther  <rguenther@suse.de>
+
+	* trans-expr.c (gfc_conv_function_call): Use fold_build2.
+	* trans-stmt.c (gfc_trans_goto): Likewise.  Use build_int_cst.
+	* trans.c (gfc_trans_runtime_check): Don't fold the condition
+	again.
+
+2006-01-13  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/25756
+	* symbol.c (gfc_free_st_label): Give variable meaningful name. Remove
+	unneeded parenthesis. Fix-up the head of the list (2 lines gleaned
+	from g95).
+
+2006-01-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* trans.c (gfc_add_expr_to_block): Do not fold tcc_statement
+	nodes.
+
+2006-01-11  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* parse.c (next_fixed): Remove superfluous string concatenation.
+
+2006-01-11  Bernhard Fischer  <rep.nop@aon.at>
+
+	PR fortran/25486
+	* scanner.c (load_line): use maxlen to determine the line-length used
+	for padding lines in fixed form.
+
+2005-01-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25730
+	* trans-types.c (copy_dt_decls_ifequal): Copy backend decl for
+	character lengths.
+
+2006-01-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	fortran/24936
+	* trans-stmt.c (gfc_trans_pointer_assign_need_temp): Use fold_convert
+	to avoid type mismatch.
+
+2006-01-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR fortran/21977
+	* trans-decl.c (gfc_generate_function_code): Move the NULLing of
+	current_fake_result_decl down to below generate_local_vars.
+
+2006-01-09  Feng Wang  <fengwang@nudt.edu.cn>
+
+	PR fortran/12456
+	* trans-expr.c (gfc_to_single_character): New function that converts
+	string to single character if its length is 1.
+	(gfc_build_compare_string):New function that compare string and handle
+	single character specially.
+	(gfc_conv_expr_op): Use gfc_build_compare_string.
+	(gfc_trans_string_copy): Use gfc_to_single_character.
+	* trans-intrinsic.c (gfc_conv_intrinsic_strcmp): Use
+	gfc_build_compare_string.
+	* trans.h (gfc_build_compare_string): Add prototype.
+
+2006-01-09  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* simplify.c (gfc_simplify_char): Use UCHAR_MAX instead of literal
+	constant.
+	(gfc_simplify_ichar): Get the result from unsinged char and in the
+	range 0 to UCHAR_MAX instead of CHAR_MIN to CHAR_MAX.
+
+2005-01-08  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25093
+	* resolve.c (resolve_fntype): Check that PUBLIC functions
+	aren't of PRIVATE type.
+
+2005-01-07  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* decl.c (gfc_match_function_decl): Correctly error out in case of
+	omitted function argument list.
+
+2006-01-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/22146
+	* trans-array.c (gfc_reverse_ss): Remove static attribute.
+	(gfc_walk_elemental_function_args): Replace gfc_expr * argument for
+	the function call with the corresponding gfc_actual_arglist*.  Change
+	code accordingly.
+	(gfc_walk_function_expr): Call to gfc_walk_elemental_function_args
+	now requires the actual argument list instead of the expression for
+	the function call.
+	* trans-array.h: Modify the prototype for gfc_walk_elemental_function_args
+	and provide a prototype for gfc_reverse_ss.
+	* trans-stmt.h (gfc_trans_call): Add the scalarization code for the case
+	where an elemental subroutine has array valued actual arguments.
+
+	PR fortran/25029
+	PR fortran/21256
+	PR fortran/20868
+	PR fortran/20870
+	* resolve.c (check_assumed_size_reference): New function to check for upper
+	bound in assumed size array references.
+	(resolve_assumed_size_actual): New function to do a very restricted scan
+	of actual argument expressions of those procedures for which incomplete
+	assumed size array references are not allowed.
+	(resolve_function, resolve_call): Switch off assumed size checking of
+	actual arguments, except for elemental procedures and intrinsic
+	inquiry functions, in some circumstances.
+	(resolve_variable): Call check_assumed_size_reference.
 
 2006-01-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 

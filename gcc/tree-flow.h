@@ -92,6 +92,9 @@ struct ptr_info_def GTY(())
      pointer will be represented by this memory tag, instead of the type
      tag computed by TBAA.  */
   tree name_mem_tag;
+
+  /* Mask of reasons this pointer's value escapes the function  */
+  unsigned int escape_mask;
 };
 
 
@@ -213,6 +216,10 @@ struct var_ann_d GTY(())
   /* If this variable is a structure, this fields holds a list of
      symbols representing each of the fields of the structure.  */
   subvar_t subvars;
+
+  /* Mask of values saying the reasons why this variable has escaped
+     the function.  */
+  unsigned int escape_mask;
 };
 
 struct function_ann_d GTY(())
@@ -449,7 +456,7 @@ static inline void bsi_prev (block_stmt_iterator *);
 static inline tree bsi_stmt (block_stmt_iterator);
 static inline tree * bsi_stmt_ptr (block_stmt_iterator);
 
-extern void bsi_remove (block_stmt_iterator *);
+extern void bsi_remove (block_stmt_iterator *, bool);
 extern void bsi_move_before (block_stmt_iterator *, block_stmt_iterator *);
 extern void bsi_move_after (block_stmt_iterator *, block_stmt_iterator *);
 extern void bsi_move_to_bb_end (block_stmt_iterator *, basic_block);
@@ -487,6 +494,7 @@ extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
 extern bool computed_goto_p (tree);
 extern bool simple_goto_p (tree);
+extern basic_block single_noncomplex_succ (basic_block bb);
 extern void tree_dump_bb (basic_block, FILE *, int);
 extern void debug_tree_bb (basic_block);
 extern basic_block debug_tree_bb_n (int);
@@ -532,6 +540,8 @@ extern void fold_cond_expr_cond (void);
 extern void replace_uses_by (tree, tree);
 extern void start_recording_case_labels (void);
 extern void end_recording_case_labels (void);
+extern basic_block move_sese_region_to_fn (struct function *, basic_block,
+				           basic_block);
 
 /* In tree-cfgcleanup.c  */
 extern bool cleanup_tree_cfg (void);
@@ -572,8 +582,9 @@ extern void remove_phi_node (tree, tree);
 extern tree phi_reverse (tree);
 
 /* In gimple-low.c  */
+extern void record_vars_into (tree, tree);
 extern void record_vars (tree);
-extern bool block_may_fallthru (tree block);
+extern bool block_may_fallthru (tree);
 
 /* In tree-ssa-alias.c  */
 extern void dump_may_aliases_for (FILE *, tree);
@@ -750,9 +761,27 @@ enum move_pos
   };
 extern enum move_pos movement_possibility (tree);
 
+/* The reasons a variable may escape a function.  */
+enum escape_type 
+  {
+    NO_ESCAPE = 0, /* Doesn't escape.  */
+    ESCAPE_STORED_IN_GLOBAL = 1 << 1,
+    ESCAPE_TO_ASM = 1 << 2,  /* Passed by address to an assembly
+				statement.  */
+    ESCAPE_TO_CALL = 1 << 3,  /* Escapes to a function call.  */
+    ESCAPE_BAD_CAST = 1 << 4, /* Cast from pointer to integer */
+    ESCAPE_TO_RETURN = 1 << 5, /* Returned from function.  */
+    ESCAPE_TO_PURE_CONST = 1 << 6, /* Escapes to a pure or constant
+				      function call.  */
+    ESCAPE_IS_GLOBAL = 1 << 7,  /* Is a global variable.  */
+    ESCAPE_IS_PARM = 1 << 8, /* Is an incoming function parameter.  */
+    ESCAPE_UNKNOWN = 1 << 9 /* We believe it escapes for some reason
+			       not enumerated above.  */
+  };
+
 /* In tree-flow-inline.h  */
 static inline bool is_call_clobbered (tree);
-static inline void mark_call_clobbered (tree);
+static inline void mark_call_clobbered (tree, unsigned int);
 static inline void set_is_used (tree);
 static inline bool unmodifiable_var_p (tree);
 
@@ -806,7 +835,8 @@ bool multiplier_allowed_in_address_p (HOST_WIDE_INT);
 unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
 
 /* In tree-ssa-threadupdate.c.  */
-extern bool thread_through_all_blocks (bitmap);
+extern bool thread_through_all_blocks (void);
+extern void register_jump_thread (edge, edge);
 
 /* In gimplify.c  */
 tree force_gimple_operand (tree, tree *, bool, tree);
@@ -859,6 +889,7 @@ tree create_mem_ref (block_stmt_iterator *, tree,
 rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
+
 /* This structure is simply used during pushing fields onto the fieldstack
    to track the offset of the field, since bitpos_of_field gives it relative
    to its immediate containing type, and we want it relative to the ultimate

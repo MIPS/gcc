@@ -2332,6 +2332,31 @@
    (set_attr "mode" "DI")
    (set_attr "length" "8,*")])
 
+;; Combine is not allowed to convert this insn into a zero_extendsidi2
+;; because of TRULY_NOOP_TRUNCATION.
+
+(define_insn_and_split "*clear_upper32"
+  [(set (match_operand:DI 0 "register_operand" "=d,d")
+        (and:DI (match_operand:DI 1 "nonimmediate_operand" "d,o")
+		(const_int 4294967295)))]
+  "TARGET_64BIT"
+{
+  if (which_alternative == 0)
+    return "#";
+
+  operands[1] = gen_lowpart (SImode, operands[1]);
+  return "lwu\t%0,%1";
+}
+  "&& reload_completed && REG_P (operands[1])"
+  [(set (match_dup 0)
+        (ashift:DI (match_dup 1) (const_int 32)))
+   (set (match_dup 0)
+        (lshiftrt:DI (match_dup 0) (const_int 32)))]
+  ""
+  [(set_attr "type" "multi,load")
+   (set_attr "mode" "DI")
+   (set_attr "length" "8,*")])
+
 (define_expand "zero_extend<SHORT:mode><GPR:mode>2"
   [(set (match_operand:GPR 0 "register_operand")
         (zero_extend:GPR (match_operand:SHORT 1 "nonimmediate_operand")))]
@@ -4291,9 +4316,9 @@
 (define_insn "*branch_zero<mode>"
   [(set (pc)
 	(if_then_else
-	 (match_operator:GPR 0 "comparison_operator"
-			     [(match_operand:GPR 2 "register_operand" "d")
-			      (const_int 0)])
+	 (match_operator 0 "comparison_operator"
+			 [(match_operand:GPR 2 "register_operand" "d")
+			  (const_int 0)])
 	 (label_ref (match_operand 1 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
@@ -4311,9 +4336,9 @@
 (define_insn "*branch_zero<mode>_inverted"
   [(set (pc)
 	(if_then_else
-	 (match_operator:GPR 0 "comparison_operator"
-			     [(match_operand:GPR 2 "register_operand" "d")
-			      (const_int 0)])
+	 (match_operator 0 "comparison_operator"
+			 [(match_operand:GPR 2 "register_operand" "d")
+			  (const_int 0)])
 	 (pc)
 	 (label_ref (match_operand 1 "" ""))))]
   "!TARGET_MIPS16"
@@ -4333,9 +4358,9 @@
 (define_insn "*branch_equality<mode>"
   [(set (pc)
 	(if_then_else
-	 (match_operator:GPR 0 "equality_operator"
-			     [(match_operand:GPR 2 "register_operand" "d")
-			      (match_operand:GPR 3 "register_operand" "d")])
+	 (match_operator 0 "equality_operator"
+			 [(match_operand:GPR 2 "register_operand" "d")
+			  (match_operand:GPR 3 "register_operand" "d")])
 	 (label_ref (match_operand 1 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
@@ -4353,9 +4378,9 @@
 (define_insn "*branch_equality<mode>_inverted"
   [(set (pc)
 	(if_then_else
-	 (match_operator:GPR 0 "equality_operator"
-			     [(match_operand:GPR 2 "register_operand" "d")
-			      (match_operand:GPR 3 "register_operand" "d")])
+	 (match_operator 0 "equality_operator"
+			 [(match_operand:GPR 2 "register_operand" "d")
+			  (match_operand:GPR 3 "register_operand" "d")])
 	 (pc)
 	 (label_ref (match_operand 1 "" ""))))]
   "!TARGET_MIPS16"
@@ -4375,9 +4400,9 @@
 (define_insn "*branch_equality<mode>_mips16"
   [(set (pc)
 	(if_then_else
-	 (match_operator:GPR 0 "equality_operator"
-			     [(match_operand:GPR 1 "register_operand" "d,t")
-			      (const_int 0)])
+	 (match_operator 0 "equality_operator"
+			 [(match_operand:GPR 1 "register_operand" "d,t")
+			  (const_int 0)])
 	 (match_operand 2 "pc_or_label_operand" "")
 	 (match_operand 3 "pc_or_label_operand" "")))]
   "TARGET_MIPS16"

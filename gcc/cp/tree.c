@@ -46,7 +46,6 @@ static cp_lvalue_kind lvalue_p_1 (tree, int);
 static tree build_target_expr (tree, tree);
 static tree count_trees_r (tree *, int *, void *);
 static tree verify_stmt_tree_r (tree *, int *, void *);
-static tree find_tree_r (tree *, int *, void *);
 static tree build_local_temp (tree);
 
 static tree handle_java_interface_attribute (tree *, tree, tree, int, bool *);
@@ -87,9 +86,6 @@ lvalue_p_1 (tree ref,
     case COMPONENT_REF:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
 				    treat_class_rvalues_as_lvalues);
-      /* In an expression of the form "X.Y", the packed-ness of the
-	 expression does not depend on "X".  */
-      op1_lvalue_kind &= ~clk_packed;
       /* Look at the member designator.  */
       if (!op1_lvalue_kind
 	  /* The "field" can be a FUNCTION_DECL or an OVERLOAD in some
@@ -760,7 +756,7 @@ hash_tree_cons (tree purpose, tree value, tree chain)
   /* If not, create a new node.  */
   if (!*slot)
     *slot = tree_cons (purpose, value, chain);
-  return *slot;
+  return (tree) *slot;
 }
 
 /* Constructor for hashed lists.  */
@@ -1038,27 +1034,6 @@ verify_stmt_tree (tree t)
   statements = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
   walk_tree (&t, verify_stmt_tree_r, &statements, NULL);
   htab_delete (statements);
-}
-
-/* Called from find_tree via walk_tree.  */
-
-static tree
-find_tree_r (tree* tp,
-	     int* walk_subtrees ATTRIBUTE_UNUSED ,
-	     void* data)
-{
-  if (*tp == (tree) data)
-    return (tree) data;
-
-  return NULL_TREE;
-}
-
-/* Returns X if X appears in the tree structure rooted at T.  */
-
-tree
-find_tree (tree t, tree x)
-{
-  return walk_tree_without_duplicates (&t, find_tree_r, x);
 }
 
 /* Check if the type T depends on a type with no linkage and if so, return

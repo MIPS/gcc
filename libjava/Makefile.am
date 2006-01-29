@@ -64,8 +64,6 @@ secdir = $(libdir)/security
 ## Where to install default logging property file.
 propdir = $(libdir)
 
-## Where the standard .db file is found.
-dbexecdir = $(libdir)/gcj-$(gcc_version)
 ## Name of the default .db.
 db_name = classmap.db
 ## Compiler specific component of the .db file
@@ -154,6 +152,7 @@ LIBFFIINCS = @LIBFFIINCS@
 AM_CPPFLAGS = -I$(top_srcdir) \
 	-Iinclude -I$(top_srcdir)/include \
 	-I$(top_srcdir)/classpath/include \
+	-Iclasspath/include \
 	-I$(top_srcdir)/classpath/native/fdlibm \
 	$(GCINCS) $(THREADINCS) $(INCLTDL) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
@@ -562,7 +561,7 @@ install-data-local:
 ## FIXME: the obvious approach using lib_DATA doesn't work with
 ## automake 1.4.
 	$(mkinstalldirs) $(DESTDIR)$(secdir)
-	@for f in classpath.security libgcj.security; do \
+	@for f in libgcj.security; do \
 	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
 	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
 	done

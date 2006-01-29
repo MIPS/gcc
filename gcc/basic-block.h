@@ -367,7 +367,7 @@ struct control_flow_graph GTY(())
   basic_block x_exit_block_ptr;
 
   /* Index by basic block number, get basic block struct info.  */
-  varray_type x_basic_block_info;
+  VEC(basic_block,gc) *x_basic_block_info;
 
   /* Number of basic blocks in this flow graph.  */
   int x_n_basic_blocks;
@@ -399,7 +399,7 @@ struct control_flow_graph GTY(())
 #define label_to_block_map_for_function(FN)  ((FN)->cfg->x_label_to_block_map)
 
 #define BASIC_BLOCK_FOR_FUNCTION(FN,N) \
-  (VARRAY_BB (basic_block_info_for_function(FN), (N)))
+  (VEC_index (basic_block, basic_block_info_for_function(FN), (N)))
 
 /* Defines for textual backward source compatibility.  */
 #define ENTRY_BLOCK_PTR		(cfun->cfg->x_entry_block_ptr)
@@ -411,7 +411,8 @@ struct control_flow_graph GTY(())
 #define label_to_block_map	(cfun->cfg->x_label_to_block_map)
 #define profile_status		(cfun->cfg->x_profile_status)
 
-#define BASIC_BLOCK(N)		(VARRAY_BB (basic_block_info, (N)))
+#define BASIC_BLOCK(N)		(VEC_index (basic_block, basic_block_info, (N)))
+#define SET_BASIC_BLOCK(N,BB)	(VEC_replace (basic_block, basic_block_info, (N), (BB)))
 
 /* TRUE if we should re-run loop discovery after threading jumps, FALSE
    otherwise.  */
@@ -513,6 +514,7 @@ extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(basic_block, void *),
 			       basic_block *, int, void *);
 extern void compute_dominance_frontiers (bitmap *);
+extern void dump_bb_info (basic_block, bool, bool, int, const char *, FILE *);
 extern void dump_edge_info (FILE *, edge, int);
 extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
@@ -871,7 +873,6 @@ extern struct edge_list *pre_edge_rev_lcm (FILE *, int, sbitmap *,
 					   sbitmap *, sbitmap **,
 					   sbitmap **);
 extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
-extern int optimize_mode_switching (FILE *);
 
 /* In predict.c */
 extern void estimate_probability (struct loops *);
@@ -953,7 +954,6 @@ extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
 extern void reorder_basic_blocks (unsigned int);
-extern void partition_hot_cold_basic_blocks (void);
 
 /* In dominance.c */
 

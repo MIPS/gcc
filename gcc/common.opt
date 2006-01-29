@@ -1,6 +1,6 @@
 ; Options for the language- and target-independent parts of the compiler.
 
-; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -80,6 +80,10 @@ Warn when an optimization pass is disabled
 Werror
 Common Var(warnings_are_errors)
 Treat all warnings as errors
+
+Werror=
+Common Joined
+Treat specified warning as error
 
 Wextra
 Common
@@ -783,6 +787,10 @@ fsched-stalled-insns-dep=
 Common RejectNegative Joined UInteger
 -fsched-stalled-insns-dep=<number>	Set dependence distance checking in premature scheduling of queued insns
 
+frtl-abstract-sequences
+Common Report Var(flag_rtl_seqabstr)
+Perform sequence abstraction optimization on RTL
+
 fshared-data
 Common Report Var(flag_shared_data)
 Mark data as shared rather than private
@@ -863,6 +871,10 @@ Report the time taken by each compiler pass
 ftls-model=
 Common Joined RejectNegative
 -ftls-model=[global-dynamic|local-dynamic|initial-exec|local-exec]	Set the default thread-local storage code generation model
+
+ftoplevel-reorder
+Common Report Var(flag_toplevel_reorder) Init(1)
+Reorder top level functions, variables, and asms
 
 ftracer
 Common Report Var(flag_tracer)

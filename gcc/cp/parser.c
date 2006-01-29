@@ -36,6 +36,7 @@
 #include "toplev.h"
 #include "output.h"
 #include "target.h"
+#include "cgraph.h"
 #include "c-common.h"
 
 
@@ -496,12 +497,7 @@ cp_lexer_next_token_is_not (cp_lexer* lexer, enum cpp_ttype type)
 static inline bool
 cp_lexer_next_token_is_keyword (cp_lexer* lexer, enum rid keyword)
 {
-  cp_token *token;
-
-  /* Peek at the next token.  */
-  token = cp_lexer_peek_token (lexer);
-  /* Check to see if it is the indicated keyword.  */
-  return token->keyword == keyword;
+  return cp_lexer_peek_token (lexer)->keyword == keyword;
 }
 
 /* Return a pointer to the Nth token in the token stream.  If N is 1,
@@ -755,9 +751,6 @@ cp_token_cache_new (cp_token *first, cp_token *last)
 
 
 /* Decl-specifiers.  */
-
-static void clear_decl_specs
-  (cp_decl_specifier_seq *);
 
 /* Set *DECL_SPECS to represent an empty decl-specifier-seq.  */
 
@@ -1350,9 +1343,6 @@ typedef struct cp_parser GTY(())
      current declaration.  */
   unsigned num_template_parameter_lists;
 } cp_parser;
-
-/* The type of a function that parses some kind of expression.  */
-typedef tree (*cp_parser_expression_fn) (cp_parser *);
 
 /* Prototypes.  */
 
@@ -2747,6 +2737,7 @@ cp_parser_translation_unit (cp_parser* parser)
    primary-expression:
      ( compound-statement )
      __builtin_va_arg ( assignment-expression , type-id )
+     __builtin_offsetof ( type-id , offsetof-expression )
 
    Objective-C++ Extension:
 
@@ -3442,6 +3433,15 @@ cp_parser_unqualified_id (cp_parser* parser,
 	  return build_nt (BIT_NOT_EXPR, scope);
 	else if (type_decl == error_mark_node)
 	  return error_mark_node;
+
+	/* Check that destructor name and scope match.  */
+	if (declarator_p && scope && !check_dtor_name (scope, type_decl))
+	  {
+	    if (!cp_parser_uncommitted_to_tentative_parse_p (parser))
+	      error ("declaration of %<~%T%> as member of %qT",
+		     type_decl, scope);
+	    return error_mark_node;
+	  }
 
 	/* [class.dtor]
 
@@ -6825,8 +6825,17 @@ cp_parser_implicitly_scoped_statement (cp_parser* parser)
 {
   tree statement;
 
+  /* Mark if () ; with a special NOP_EXPR.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+    {
+      cp_lexer_consume_token (parser->lexer);
+      statement = add_stmt (build_empty_stmt ());
+    }
+  /* if a compound is opened, we simply parse the statement directly.  */
+  else if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
+    statement = cp_parser_compound_statement (parser, NULL, false);
   /* If the token is not a `{', then we must take special action.  */
-  if (cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_BRACE))
+  else
     {
       /* Create a compound-statement.  */
       statement = begin_compound_stmt (0);
@@ -6835,9 +6844,6 @@ cp_parser_implicitly_scoped_statement (cp_parser* parser)
       /* Finish the dummy compound-statement.  */
       finish_compound_stmt (statement);
     }
-  /* Otherwise, we simply parse the statement directly.  */
-  else
-    statement = cp_parser_compound_statement (parser, NULL, false);
 
   /* Return the statement.  */
   return statement;
@@ -10740,7 +10746,7 @@ cp_parser_asm_definition (cp_parser* parser)
 	}
     }
   else
-    assemble_asm (string);
+    cgraph_add_asm_node (string);
 }
 
 /* Declarators [gram.dcl.decl] */
@@ -11482,29 +11488,31 @@ cp_parser_direct_declarator (cp_parser* parser,
 
 	      if (TREE_CODE (unqualified_name) == TYPE_DECL)
 		{
-		  if (qualifying_scope 
-		      && CLASSTYPE_USE_TEMPLATE (TREE_TYPE (unqualified_name)))
+		  tree name_type = TREE_TYPE (unqualified_name);
+		  if (class_type && same_type_p (name_type, class_type))
 		    {
-		      error ("invalid use of constructor as a template");
-		      inform ("use %<%T::%D%> instead of %<%T::%T%> to name "
-			      "the constructor in a qualified name",
-			      class_type,
-			      DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
-			      class_type, class_type);
-		      declarator = cp_error_declarator;
-		      break;
+		      if (qualifying_scope
+			  && CLASSTYPE_USE_TEMPLATE (name_type))
+			{
+			  error ("invalid use of constructor as a template");
+			  inform ("use %<%T::%D%> instead of %<%T::%D%> to "
+				  "name the constructor in a qualified name",
+				  class_type,
+				  DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
+				  class_type, name_type);
+			  declarator = cp_error_declarator;
+			  break;
+			}
+		      else
+			unqualified_name = constructor_name (class_type);
 		    }
-		  else if (class_type
-			   && same_type_p (TREE_TYPE (unqualified_name),
-					   class_type))
-		    unqualified_name = constructor_name (class_type);
 		  else
 		    {
 		      /* We do not attempt to print the declarator
 			 here because we do not have enough
 			 information about its original syntactic
 			 form.  */
-		      error ("invalid declarator");
+		      cp_parser_error (parser, "invalid declarator");
 		      declarator = cp_error_declarator;
 		      break;
 		    }
@@ -11885,8 +11893,6 @@ cp_parser_type_specifier_seq (cp_parser* parser,
       if (is_condition && !is_cv_qualifier)
 	flags |= CP_PARSER_FLAGS_NO_USER_DEFINED_TYPES;
     }
-
-  return;
 }
 
 /* Parse a parameter-declaration-clause.
@@ -15758,7 +15764,6 @@ cp_parser_save_default_args (cp_parser* parser, tree decl)
 		       TREE_PURPOSE (parser->unparsed_functions_queues));
 	break;
       }
-  return;
 }
 
 /* FN is a FUNCTION_DECL which may contains a parameter with an
@@ -15830,6 +15835,9 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
       /* Revert to the main lexer.  */
       cp_parser_pop_lexer (parser);
     }
+
+  /* Make sure no default arg is missing.  */
+  check_default_args (fn);
 
   /* Restore the state of local_variables_forbidden_p.  */
   parser->local_variables_forbidden_p = saved_local_variables_forbidden_p;

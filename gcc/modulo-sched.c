@@ -1,5 +1,5 @@
 /* Swing Modulo Scheduling implementation.
-   Copyright (C) 2004, 2005
+   Copyright (C) 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
@@ -157,9 +157,9 @@ struct undo_replace_buff_elem
 
 
   
-partial_schedule_ptr create_partial_schedule (int ii, ddg_ptr, int history);
-void free_partial_schedule (partial_schedule_ptr);
-void reset_partial_schedule (partial_schedule_ptr, int new_ii);
+static partial_schedule_ptr create_partial_schedule (int ii, ddg_ptr, int history);
+static void free_partial_schedule (partial_schedule_ptr);
+static void reset_partial_schedule (partial_schedule_ptr, int new_ii);
 void print_partial_schedule (partial_schedule_ptr, FILE *);
 static int kernel_number_of_cycles (rtx first_insn, rtx last_insn);
 static ps_insn_ptr ps_add_node_check_conflicts (partial_schedule_ptr,
@@ -934,7 +934,7 @@ build_loops_structure (FILE *dumpfile)
 
 /* Main entry point, perform SMS scheduling on the loops of the function
    that consist of single basic blocks.  */
-void
+static void
 sms_schedule (FILE *dump_file)
 {
   static int passes = 0;
@@ -976,8 +976,11 @@ sms_schedule (FILE *dump_file)
   sched_init (NULL);
 
   /* Init Data Flow analysis, to be used in interloop dep calculation.  */
-  df = df_init ();
-  df_analyze (df, 0, DF_ALL);
+  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
+  df_rd_add_problem (df);
+  df_ru_add_problem (df);
+  df_chain_add_problem (df, DF_DU_CHAIN | DF_UD_CHAIN);
+  df_analyze (df);
 
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
@@ -1091,6 +1094,7 @@ sms_schedule (FILE *dump_file)
 
   /* Release Data Flow analysis data structures.  */
   df_finish (df);
+  df = NULL;
 
   /* We don't want to perform SMS on new loops - created by versioning.  */
   num_loops = loops->num;
@@ -2029,7 +2033,8 @@ order_nodes_in_scc (ddg_ptr g, sbitmap nodes_ordered, sbitmap scc,
    modulo scheduling.  */
 
 /* Create a partial schedule and allocate a memory to hold II rows.  */
-partial_schedule_ptr
+
+static partial_schedule_ptr
 create_partial_schedule (int ii, ddg_ptr g, int history)
 {
   partial_schedule_ptr ps = (partial_schedule_ptr)
@@ -2065,7 +2070,8 @@ free_ps_insns (partial_schedule_ptr ps)
 }
 
 /* Free all the memory allocated to the partial schedule.  */
-void
+
+static void
 free_partial_schedule (partial_schedule_ptr ps)
 {
   if (!ps)
@@ -2077,7 +2083,8 @@ free_partial_schedule (partial_schedule_ptr ps)
 
 /* Clear the rows array with its PS_INSNs, and create a new one with
    NEW_II rows.  */
-void
+
+static void
 reset_partial_schedule (partial_schedule_ptr ps, int new_ii)
 {
   if (!ps)
@@ -2536,7 +2543,6 @@ rest_of_handle_sms (void)
 {
 #ifdef INSN_SCHEDULING
   basic_block bb;
-  sbitmap blocks;
 
   /* We want to be able to create new pseudos.  */
   no_new_pseudos = 0;
@@ -2547,9 +2553,7 @@ rest_of_handle_sms (void)
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
-  blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_ones (blocks);
-  update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
                     (PROP_DEATH_NOTES
                      | PROP_REG_INFO
                      | PROP_KILL_DEAD_CODE

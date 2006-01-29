@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -805,7 +805,7 @@ slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
   bsi_insert_before (&loop_cond_bsi, cond_stmt, BSI_SAME_STMT);
 
   /* Remove old loop exit test:  */
-  bsi_remove (&loop_cond_bsi);
+  bsi_remove (&loop_cond_bsi, true);
 
   loop_loc = find_loop_location (loop);
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1361,6 +1361,8 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_LIVE_P (res) = 0;
   STMT_VINFO_VECTYPE (res) = NULL;
   STMT_VINFO_VEC_STMT (res) = NULL;
+  STMT_VINFO_IN_PATTERN_P (res) = false;
+  STMT_VINFO_RELATED_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
   if (TREE_CODE (stmt) == PHI_NODE)
     STMT_VINFO_DEF_TYPE (res) = vect_unknown_def_type;

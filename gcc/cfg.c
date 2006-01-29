@@ -62,6 +62,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tm_p.h"
 #include "obstack.h"
 #include "timevar.h"
+#include "tree-pass.h"
 #include "ggc.h"
 #include "hashtab.h"
 #include "alloc-pool.h"
@@ -163,13 +164,13 @@ compact_blocks (void)
   int i;
   basic_block bb;
 
-  BASIC_BLOCK (ENTRY_BLOCK) = ENTRY_BLOCK_PTR;
-  BASIC_BLOCK (EXIT_BLOCK) = EXIT_BLOCK_PTR;
+  SET_BASIC_BLOCK (ENTRY_BLOCK, ENTRY_BLOCK_PTR);
+  SET_BASIC_BLOCK (EXIT_BLOCK, EXIT_BLOCK_PTR);
 
   i = NUM_FIXED_BLOCKS;
   FOR_EACH_BB (bb) 
     {
-      BASIC_BLOCK (i) = bb;
+      SET_BASIC_BLOCK (i, bb);
       bb->index = i;
       i++;
     }
@@ -177,7 +178,7 @@ compact_blocks (void)
   gcc_assert (i == n_basic_blocks);
 
   for (; i < last_basic_block; i++)
-    BASIC_BLOCK (i) = NULL;
+    SET_BASIC_BLOCK (i, NULL);
 
   last_basic_block = n_basic_blocks;
 }
@@ -188,7 +189,7 @@ void
 expunge_block (basic_block b)
 {
   unlink_block (b);
-  BASIC_BLOCK (b->index) = NULL;
+  SET_BASIC_BLOCK (b->index, NULL);
   n_basic_blocks--;
   /* We should be able to ggc_free here, but we are not.
      The dead SSA_NAMES are left pointing to dead statements that are pointing
@@ -467,10 +468,74 @@ check_bb_profile (basic_block bb, FILE * file)
     }
 }
 
+/* Emit basic block information for BB.  HEADER is true if the user wants
+   the generic information and the predecessors, FOOTER is true if they want
+   the successors.  FLAGS is the dump flags of interest; TDF_DETAILS emit
+   global register liveness information.  PREFIX is put in front of every
+   line.  The output is emitted to FILE.  */
+void
+dump_bb_info (basic_block bb, bool header, bool footer, int flags,
+	      const char *prefix, FILE *file)
+{
+  edge e;
+  edge_iterator ei;
+
+  if (header)
+    {
+      fprintf (file, "\n%sBasic block %d ", prefix, bb->index);
+      if (bb->prev_bb)
+        fprintf (file, ", prev %d", bb->prev_bb->index);
+      if (bb->next_bb)
+        fprintf (file, ", next %d", bb->next_bb->index);
+      fprintf (file, ", loop_depth %d, count ", bb->loop_depth);
+      fprintf (file, HOST_WIDEST_INT_PRINT_DEC, bb->count);
+      fprintf (file, ", freq %i", bb->frequency);
+      if (maybe_hot_bb_p (bb))
+	fprintf (file, ", maybe hot");
+      if (probably_never_executed_bb_p (bb))
+	fprintf (file, ", probably never executed");
+      fprintf (file, ".\n");
+
+      fprintf (file, "%sPredecessors: ", prefix);
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	dump_edge_info (file, e, 0);
+   }
+
+  if (footer)
+    {
+      fprintf (file, "\n%sSuccessors: ", prefix);
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	dump_edge_info (file, e, 1);
+   }
+
+  if ((flags & TDF_DETAILS)
+      && (bb->flags & BB_RTL))
+    {
+      if (bb->il.rtl->global_live_at_start && header)
+	{
+	  fprintf (file, "\n%sRegisters live at start:", prefix);
+	  dump_regset (bb->il.rtl->global_live_at_start, file);
+	}
+
+      if (bb->il.rtl->global_live_at_end && footer)
+	{
+	  fprintf (file, "\n%sRegisters live at end:", prefix);
+	  dump_regset (bb->il.rtl->global_live_at_end, file);
+	}
+   }
+
+  putc ('\n', file);
+}
+
 void
 dump_flow_info (FILE *file)
 {
   basic_block bb;
+
+  if (file == dump_file
+      && (dump_flags & TDF_SLIM)
+      && !(dump_flags & TDF_DETAILS))
+    return;
 
   /* There are no pseudo registers after reload.  Don't dump them.  */
   if (reg_n_info && !reload_completed)
@@ -524,45 +589,7 @@ dump_flow_info (FILE *file)
   fprintf (file, "\n%d basic blocks, %d edges.\n", n_basic_blocks, n_edges);
   FOR_EACH_BB (bb)
     {
-      edge e;
-      edge_iterator ei;
-
-      fprintf (file, "\nBasic block %d ", bb->index);
-      fprintf (file, "prev %d, next %d, ",
-	       bb->prev_bb->index, bb->next_bb->index);
-      fprintf (file, "loop_depth %d, count ", bb->loop_depth);
-      fprintf (file, HOST_WIDEST_INT_PRINT_DEC, bb->count);
-      fprintf (file, ", freq %i", bb->frequency);
-      if (maybe_hot_bb_p (bb))
-	fprintf (file, ", maybe hot");
-      if (probably_never_executed_bb_p (bb))
-	fprintf (file, ", probably never executed");
-      fprintf (file, ".\n");
-
-      fprintf (file, "Predecessors: ");
-      FOR_EACH_EDGE (e, ei, bb->preds)
-	dump_edge_info (file, e, 0);
-
-      fprintf (file, "\nSuccessors: ");
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	dump_edge_info (file, e, 1);
-
-      if (bb->flags & BB_RTL)
-	{
-	  if (bb->il.rtl->global_live_at_start)
-	    {
-	      fprintf (file, "\nRegisters live at start:");
-	      dump_regset (bb->il.rtl->global_live_at_start, file);
-	    }
-
-	  if (bb->il.rtl->global_live_at_end)
-	    {
-	      fprintf (file, "\nRegisters live at end:");
-	      dump_regset (bb->il.rtl->global_live_at_end, file);
-	    }
-	}
-
-      putc ('\n', file);
+      dump_bb_info (bb, true, true, TDF_DETAILS, "", file);
       check_bb_profile (bb, file);
     }
 

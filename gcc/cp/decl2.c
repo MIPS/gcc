@@ -2683,7 +2683,7 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
 static int
 generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
 {
-  location_t *locus = data;
+  location_t *locus = (location_t *) data;
   int priority = (int) n->key;
   priority_info pi = (priority_info) n->value;
 
@@ -3228,7 +3228,7 @@ check_default_args (tree x)
       else if (saw_def)
 	{
 	  error ("default argument missing for parameter %P of %q+#D", i, x);
-	  break;
+	  TREE_PURPOSE (arg) = error_mark_node;
 	}
     }
 }

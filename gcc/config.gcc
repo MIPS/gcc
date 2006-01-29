@@ -714,7 +714,7 @@ arm*-*-eabi* | arm*-*-symbianelf* )
 	  tm_file="${tm_file} arm/symbian.h"
 	  # We do not include t-bpabi for Symbian OS because the system
 	  # provides its own implementation of the BPABI functions.
-	  tmake_file="${tmake_file} t-slibgcc-elf-ver arm/t-symbian"
+	  tmake_file="${tmake_file} arm/t-symbian"
 	  ;;
 	esac
 	tm_file="${tm_file} arm/aout.h arm/arm.h"
@@ -846,10 +846,11 @@ hppa*-*-linux* | parisc*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h pa/pa-linux.h \
 		 pa/pa32-regs.h pa/pa32-linux.h"
 	tmake_file="${tmake_file} pa/t-linux"
-	# if not configured with --enable-sjlj-exceptions, bump the
-	# libgcc version number
-	if test x$sjlj != x1; then
-	    tmake_file="$tmake_file pa/t-slibgcc-elf-ver"
+	# Set the libgcc version number
+	if test x$sjlj = x1; then
+	    tmake_file="$tmake_file pa/t-slibgcc-sjlj-ver"
+	else
+	    tmake_file="$tmake_file pa/t-slibgcc-dwarf-ver"
 	fi
 	;;
 # port not yet contributed.
@@ -900,8 +901,11 @@ hppa[12]*-*-hpux10*)
 	    tmake_file="${tmake_file} pa/t-dce-thr"
 	    ;;
 	esac
-	if test x$sjlj != x1; then
-	    tmake_file="$tmake_file pa/t-slibgcc-elf-ver"
+	# Set the libgcc version number
+	if test x$sjlj = x1; then
+	    tmake_file="$tmake_file pa/t-slibgcc-sjlj-ver"
+	else
+	    tmake_file="$tmake_file pa/t-slibgcc-dwarf-ver"
 	fi
 	use_collect2=yes
 	use_fixproto=yes
@@ -935,8 +939,11 @@ hppa*64*-*-hpux11*)
 		       pa/pa-hpux1010.opt pa/pa64-hpux.opt"
 	need_64bit_hwint=yes
 	tmake_file="pa/t-pa64 pa/t-pa-hpux pa/t-hpux-shlib"
-	if test x$sjlj != x1; then
-	    tmake_file="$tmake_file pa/t-slibgcc-elf-ver"
+	# Set the libgcc version number
+	if test x$sjlj = x1; then
+	    tmake_file="$tmake_file pa/t-slibgcc-sjlj-ver"
+	else
+	    tmake_file="$tmake_file pa/t-slibgcc-dwarf-ver"
 	fi
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	case x${enable_threads} in
@@ -961,8 +968,11 @@ hppa[12]*-*-hpux11*)
 		;;
 	esac
 	tmake_file="pa/t-pa pa/t-pa-hpux pa/t-hpux-shlib"
-	if test x$sjlj != x1; then
-	    tmake_file="$tmake_file pa/t-slibgcc-elf-ver"
+	# Set the libgcc version number
+	if test x$sjlj = x1; then
+	    tmake_file="$tmake_file pa/t-slibgcc-sjlj-ver"
+	else
+	    tmake_file="$tmake_file pa/t-slibgcc-dwarf-ver"
 	fi
 	case x${enable_threads} in
 	xyes | xposix )
@@ -2356,6 +2366,9 @@ if test x$with_cpu = x ; then
       # A Cirrus ARM variant.
       with_cpu="ep9312"
       ;;
+    i386-*-*)
+      with_cpu=i386
+      ;;
     i486-*-*)
       with_cpu=i486
       ;;
@@ -2407,13 +2420,26 @@ if test x$with_cpu = x ; then
         pentium_m-*)
           with_cpu=pentium-m
           ;;
-        *)
+        pentiumpro-*)
           with_cpu=pentiumpro
+          ;;
+        *)
+          with_cpu=generic
           ;;
       esac
       ;;
     x86_64-*-*)
-      with_cpu=k8
+      case ${target_noncanonical} in
+        k8-*|opteron-*|athlon_64-*)
+          with_cpu=k8
+          ;;
+        nocona-*)
+          with_cpu=nocona
+          ;;
+        *)
+          with_cpu=generic
+          ;;
+      esac
       ;;
     alphaev6[78]*-*-*)
       with_cpu=ev67
@@ -2619,13 +2645,21 @@ case "${target}" in
 		for which in arch cpu tune; do
 			eval "val=\$with_$which"
 			case ${val} in
-			"" | i386 | i486 \
+			i386 | i486 \
 			| i586 | pentium | pentium-mmx | winchip-c6 | winchip2 \
 			| c3 | c3-2 | i686 | pentiumpro | pentium2 | pentium3 \
 			| pentium4 | k6 | k6-2 | k6-3 | athlon | athlon-tbird \
-			| athlon-4 | athlon-xp | athlon-mp | k8 | opteron \
-			| athlon64 | athlon-fx | prescott | pentium-m \
-			| pentium4m | pentium3m| nocona)
+			| athlon-4 | athlon-xp | athlon-mp \
+			| prescott | pentium-m | pentium4m | pentium3m)
+				case "${target}" in
+				  x86_64-*-*)
+				      echo "CPU given in --with-$which=$val doesn't support 64bit mode." 1>&2
+				      exit 1
+				      ;;
+				esac
+				# OK
+				;;
+			"" | k8 | opteron | athlon64 | athlon-fx | nocona | generic)
 				# OK
 				;;
 			*)

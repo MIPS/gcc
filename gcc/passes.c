@@ -462,6 +462,7 @@ init_optimization_passes (void)
   p = &all_lowering_passes;
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
+  NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
@@ -480,6 +481,7 @@ init_optimization_passes (void)
   p = &all_passes;
   NEXT_PASS (pass_fixup_cfg);
   NEXT_PASS (pass_init_datastructures);
+  NEXT_PASS (pass_expand_omp);
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_mudflap_2);
@@ -551,12 +553,12 @@ init_optimization_passes (void)
      we add may_alias right after fold builtins
      which can create arbitrary GIMPLE.  */
   NEXT_PASS (pass_may_alias);
-  NEXT_PASS (pass_cse_reciprocals);
   NEXT_PASS (pass_split_crit_edges);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_sink_code);
   NEXT_PASS (pass_tree_loop);
+  NEXT_PASS (pass_cse_reciprocals);
   NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_dominator);
 
@@ -667,6 +669,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_postreload_cse);
   NEXT_PASS (pass_gcse2);
   NEXT_PASS (pass_flow2);
+  NEXT_PASS (pass_rtl_seqabstr);
   NEXT_PASS (pass_stack_adjustments);
   NEXT_PASS (pass_peephole2);
   NEXT_PASS (pass_if_after_reload);
@@ -745,16 +748,20 @@ execute_todo (struct tree_opt_pass *pass, unsigned int flags, bool use_required)
       if (properties & PROP_trees)
         dump_function_to_file (current_function_decl,
                                dump_file, dump_flags);
-      else if (properties & PROP_cfg)
+      else
 	{
-	  print_rtl_with_bb (dump_file, get_insns ());
+	  if (dump_flags & TDF_SLIM)
+	    print_rtl_slim_with_bb (dump_file, get_insns (), dump_flags);
+	  else if (properties & PROP_cfg)
+	    print_rtl_with_bb (dump_file, get_insns ());
+          else
+	    print_rtl (dump_file, get_insns ());
 
-	  if (graph_dump_format != no_graph
+	  if (properties & PROP_cfg
+	      && graph_dump_format != no_graph
 	      && (dump_flags & TDF_GRAPH))
 	    print_rtl_graph_with_bb (dump_file_name, get_insns ());
 	}
-      else
-        print_rtl (dump_file, get_insns ());
 
       /* Flush the file.  If verification fails, we won't be able to
 	 close the file before aborting.  */

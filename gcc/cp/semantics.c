@@ -51,11 +51,7 @@
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
    during template instantiation, which may be regarded as a
-   degenerate form of parsing.  Since the current g++ parser is
-   lacking in several respects, and will be reimplemented, we are
-   attempting to move most code that is not directly related to
-   parsing into this file; that will make implementing the new parser
-   much easier since it will be able to make use of these routines.  */
+   degenerate form of parsing.  */
 
 static tree maybe_convert_cond (tree);
 static tree simplify_aggr_init_exprs_r (tree *, int *, void *);
@@ -670,6 +666,7 @@ finish_if_stmt (tree if_stmt)
   TREE_CHAIN (if_stmt) = NULL;
   add_stmt (do_poplevel (scope));
   finish_stmt ();
+  empty_body_warning (THEN_CLAUSE (if_stmt), ELSE_CLAUSE (if_stmt));
 }
 
 /* Begin a while-statement.  Returns a newly created WHILE_STMT if

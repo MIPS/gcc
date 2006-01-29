@@ -85,7 +85,6 @@ extern int constrain_operands (int);
 extern int constrain_operands_cached (int);
 extern int memory_address_p (enum machine_mode, rtx);
 extern int strict_memory_address_p (enum machine_mode, rtx);
-extern int validate_replace_rtx_subexp (rtx, rtx, rtx, rtx *);
 extern int validate_replace_rtx (rtx, rtx, rtx);
 extern void validate_replace_rtx_group (rtx, rtx, rtx);
 extern void validate_replace_src_group (rtx, rtx, rtx);
@@ -119,7 +118,6 @@ extern int peep2_reg_dead_p (int, rtx);
 extern rtx peep2_find_free_register (int, int, const char *,
 				     enum machine_mode, HARD_REG_SET *);
 #endif
-extern void peephole2_optimize (FILE *);
 extern rtx peephole2_insns (rtx, rtx, int *);
 
 extern int store_data_bypass_p (rtx, rtx);

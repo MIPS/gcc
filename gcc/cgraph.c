@@ -113,6 +113,11 @@ struct cgraph_node *cgraph_nodes;
 /* Queue of cgraph nodes scheduled to be lowered.  */
 struct cgraph_node *cgraph_nodes_queue;
 
+/* Queue of cgraph nodes scheduled to be expanded.  This is a
+   secondary queue used during optimization to accomodate passes that
+   may generate new functions that need to be optimized and expanded.  */
+struct cgraph_node *cgraph_expand_queue;
+
 /* Number of nodes in existence.  */
 int cgraph_n_nodes;
 
@@ -131,12 +136,22 @@ static GTY((param_is (struct cgraph_varpool_node))) htab_t cgraph_varpool_hash;
 /* Queue of cgraph nodes scheduled to be lowered and output.  */
 struct cgraph_varpool_node *cgraph_varpool_nodes_queue, *cgraph_varpool_first_unanalyzed_node;
 
-
 /* The linked list of cgraph varpool nodes.  */
 static GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes;
 
 /* End of the varpool queue.  Needs to be QTYed to work with PCH.  */
 static GTY(()) struct cgraph_varpool_node *cgraph_varpool_last_needed_node;
+
+/* Linked list of cgraph asm nodes.  */
+struct cgraph_asm_node *cgraph_asm_nodes;
+
+/* Last node in cgraph_asm_nodes.  */
+static GTY(()) struct cgraph_asm_node *cgraph_asm_last_node;
+
+/* The order index of the next cgraph node to be created.  This is
+   used so that we can sort the cgraph nodes in order by when we saw
+   them, to support -fno-toplevel-reorder.  */
+int cgraph_order;
 
 static hashval_t hash_node (const void *);
 static int eq_node (const void *, const void *);
@@ -169,6 +184,7 @@ cgraph_create_node (void)
   node = GGC_CNEW (struct cgraph_node);
   node->next = cgraph_nodes;
   node->uid = cgraph_max_uid++;
+  node->order = cgraph_order++;
   if (cgraph_nodes)
     cgraph_nodes->previous = node;
   node->previous = NULL;
@@ -212,6 +228,19 @@ cgraph_node (tree decl)
       node->master_clone = node;
     }
   return node;
+}
+
+/* Insert already constructed node into hashtable.  */
+
+void
+cgraph_insert_node_to_hashtable (struct cgraph_node *node)
+{
+  struct cgraph_node **slot;
+
+  slot = (struct cgraph_node **) htab_find_slot (cgraph_hash, node, INSERT);
+
+  gcc_assert (!*slot);
+  *slot = node;
 }
 
 /* Compare ASMNAME with the DECL_ASSEMBLER_NAME of DECL.  */
@@ -732,6 +761,7 @@ cgraph_varpool_node (tree decl)
     return *slot;
   node = GGC_CNEW (struct cgraph_varpool_node);
   node->decl = decl;
+  node->order = cgraph_order++;
   node->next = cgraph_varpool_nodes;
   cgraph_varpool_nodes = node;
   *slot = node;
@@ -834,11 +864,10 @@ decide_is_variable_needed (struct cgraph_varpool_node *node, tree decl)
   if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     return true;
 
-  if (flag_unit_at_a_time)
+  /* When not reordering top level variables, we have to assume that
+     we are going to keep everything.  */
+  if (flag_unit_at_a_time && flag_toplevel_reorder)
     return false;
-
-  /* If not doing unit at a time, then we'll only defer this function
-     if its marked for inlining.  Otherwise we want to emit it now.  */
 
   /* We want to emit COMDAT variables only when absolutely necessary.  */
   if (DECL_COMDAT (decl))
@@ -874,6 +903,25 @@ cgraph_varpool_finalize_decl (tree decl)
     cgraph_varpool_mark_needed_node (node);
   if (cgraph_global_info_ready || !flag_unit_at_a_time)
     cgraph_varpool_assemble_pending_decls ();
+}
+
+/* Add a top-level asm statement to the list.  */
+
+struct cgraph_asm_node *
+cgraph_add_asm_node (tree asm_str)
+{
+  struct cgraph_asm_node *node;
+
+  node = GGC_CNEW (struct cgraph_asm_node);
+  node->asm_str = asm_str;
+  node->order = cgraph_order++;
+  node->next = NULL;
+  if (cgraph_asm_nodes == NULL)
+    cgraph_asm_nodes = node;
+  else
+    cgraph_asm_last_node->next = node;
+  cgraph_asm_last_node = node;
+  return node;
 }
 
 /* Return true when the DECL can possibly be inlined.  */
@@ -1046,6 +1094,26 @@ cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
   if (!(*targetm.binds_local_p) (node->decl) && !DECL_COMDAT (node->decl))
     return AVAIL_OVERWRITABLE;
   return AVAIL_AVAILABLE;
+}
+
+
+/* Add the function FNDECL to the call graph.  FNDECL is assumed to be
+   in low GIMPLE form and ready to be processed by cgraph_finalize_function.
+
+   When operating in unit-at-a-time, a new callgraph node is added to
+   CGRAPH_EXPAND_QUEUE, which is processed after all the original
+   functions in the call graph .
+
+   When not in unit-at-a-time, the new callgraph node is added to
+   CGRAPH_NODES_QUEUE for cgraph_assemble_pending_functions to
+   process.  */
+
+void
+cgraph_add_new_function (tree fndecl)
+{
+  struct cgraph_node *n = cgraph_node (fndecl);
+  n->next_needed = cgraph_expand_queue;
+  cgraph_expand_queue = n;
 }
 
 #include "gt-cgraph.h"

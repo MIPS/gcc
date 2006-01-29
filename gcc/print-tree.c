@@ -506,6 +506,10 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 		   (void *) DECL_STRUCT_FUNCTION (node));
 	}
 
+      if ((TREE_CODE (node) == VAR_DECL || TREE_CODE (node) == PARM_DECL)
+	  && DECL_HAS_VALUE_EXPR_P (node))
+	print_node (file, "value-expr", DECL_VALUE_EXPR (node), indent + 4);
+
       /* Print the decl chain only if decl is at second level.  */
       if (indent == 4)
 	print_node (file, "chain", TREE_CHAIN (node), indent + 4);
@@ -818,6 +822,20 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 			 (void *) SSA_NAME_VALUE (node));
 	      if (SSA_NAME_AUX (node))
 		fprintf (file, " aux %p", SSA_NAME_AUX (node));
+	    }
+	  break;
+
+	case OMP_CLAUSE:
+	    {
+	      int i;
+	      fprintf (file, " %s",
+		       omp_clause_code_name[OMP_CLAUSE_CODE (node)]);
+	      for (i = 0; i < omp_clause_num_ops[OMP_CLAUSE_CODE (node)]; i++)
+		{
+		  indent_to (file, indent + 4);
+		  fprintf (file, "op %d:", i);
+		  print_node_brief (file, "", OMP_CLAUSE_OPERAND (node, i), 0);
+		}
 	    }
 	  break;
 

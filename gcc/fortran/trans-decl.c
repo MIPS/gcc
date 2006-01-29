@@ -1,5 +1,6 @@
 /* Backend function setup
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -2558,9 +2559,6 @@ gfc_generate_function_code (gfc_namespace * ns)
 
   trans_function_start (sym);
 
-  /* Will be created as needed.  */
-  current_fake_result_decl = NULL_TREE;
-
   gfc_start_block (&block);
 
   if (ns->entries && ns->proc_name->ts.type == BT_CHARACTER)
@@ -2582,7 +2580,9 @@ gfc_generate_function_code (gfc_namespace * ns)
   gfc_generate_contained_functions (ns);
 
   generate_local_vars (ns);
-
+  
+  /* Will be created as needed.  */
+  current_fake_result_decl = NULL_TREE;
   current_function_return_label = NULL;
 
   /* Now generate the code for the body of this function.  */

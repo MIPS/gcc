@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -93,11 +93,7 @@ extern const struct processor_costs *ix86_cost;
 /* configure can arrange to make this 2, to force a 486.  */
 
 #ifndef TARGET_CPU_DEFAULT
-#ifdef TARGET_64BIT_DEFAULT
-#define TARGET_CPU_DEFAULT TARGET_CPU_DEFAULT_k8
-#else
-#define TARGET_CPU_DEFAULT 0
-#endif
+#define TARGET_CPU_DEFAULT TARGET_CPU_DEFAULT_generic
 #endif
 
 #ifndef TARGET_FPMATH_DEFAULT
@@ -140,6 +136,9 @@ extern const struct processor_costs *ix86_cost;
 #define TARGET_K8 (ix86_tune == PROCESSOR_K8)
 #define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
 #define TARGET_NOCONA (ix86_tune == PROCESSOR_NOCONA)
+#define TARGET_GENERIC32 (ix86_tune == PROCESSOR_GENERIC32)
+#define TARGET_GENERIC64 (ix86_tune == PROCESSOR_GENERIC64)
+#define TARGET_GENERIC (TARGET_GENERIC32 || TARGET_GENERIC64)
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
@@ -163,6 +162,8 @@ extern const int x86_use_ffreep;
 extern const int x86_inter_unit_moves, x86_schedule;
 extern const int x86_use_bt;
 extern const int x86_cmpxchg, x86_cmpxchg8b, x86_cmpxchg16b, x86_xadd;
+extern const int x86_use_incdec;
+extern const int x86_pad_returns;
 extern int x86_prefetch_sse;
 
 #define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
@@ -209,7 +210,6 @@ extern int x86_prefetch_sse;
 #define TARGET_MEMORY_MISMATCH_STALL (x86_memory_mismatch_stall & TUNEMASK)
 #define TARGET_PROLOGUE_USING_MOVE (x86_prologue_using_move & TUNEMASK)
 #define TARGET_EPILOGUE_USING_MOVE (x86_epilogue_using_move & TUNEMASK)
-#define TARGET_DECOMPOSE_LEA (x86_decompose_lea & TUNEMASK)
 #define TARGET_PREFETCH_SSE (x86_prefetch_sse)
 #define TARGET_SHIFT1 (x86_shift1 & TUNEMASK)
 #define TARGET_USE_FFREEP (x86_use_ffreep & TUNEMASK)
@@ -218,6 +218,8 @@ extern int x86_prefetch_sse;
 #define TARGET_FOUR_JUMP_LIMIT (x86_four_jump_limit & TUNEMASK)
 #define TARGET_SCHEDULE (x86_schedule & TUNEMASK)
 #define TARGET_USE_BT (x86_use_bt & TUNEMASK)
+#define TARGET_USE_INCDEC (x86_use_incdec & TUNEMASK)
+#define TARGET_PAD_RETURNS (x86_pad_returns & TUNEMASK)
 
 #define ASSEMBLER_DIALECT (ix86_asm_dialect)
 
@@ -226,6 +228,8 @@ extern int x86_prefetch_sse;
 			     && (ix86_fpmath & FPMATH_387))
 
 #define TARGET_GNU_TLS (ix86_tls_dialect == TLS_DIALECT_GNU)
+#define TARGET_GNU2_TLS (ix86_tls_dialect == TLS_DIALECT_GNU2)
+#define TARGET_ANY_GNU_TLS (TARGET_GNU_TLS || TARGET_GNU2_TLS)
 #define TARGET_SUN_TLS (ix86_tls_dialect == TLS_DIALECT_SUN)
 
 #define TARGET_CMPXCHG (x86_cmpxchg & (1 << ix86_arch))
@@ -463,12 +467,14 @@ extern int x86_prefetch_sse;
 #define TARGET_CPU_DEFAULT_pentium_m 14
 #define TARGET_CPU_DEFAULT_prescott 15
 #define TARGET_CPU_DEFAULT_nocona 16
+#define TARGET_CPU_DEFAULT_generic 17
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
 				  "pentium4", "k6", "k6-2", "k6-3",\
 				  "athlon", "athlon-4", "k8", \
-				  "pentium-m", "prescott", "nocona"}
+				  "pentium-m", "prescott", "nocona", \
+				  "generic"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -2118,6 +2124,8 @@ enum processor_type
   PROCESSOR_PENTIUM4,
   PROCESSOR_K8,
   PROCESSOR_NOCONA,
+  PROCESSOR_GENERIC32,
+  PROCESSOR_GENERIC64,
   PROCESSOR_max
 };
 
@@ -2135,6 +2143,7 @@ extern enum fpmath_unit ix86_fpmath;
 enum tls_dialect
 {
   TLS_DIALECT_GNU,
+  TLS_DIALECT_GNU2,
   TLS_DIALECT_SUN
 };
 
@@ -2276,11 +2285,30 @@ struct machine_function GTY(())
   /* Number of saved registers USE_FAST_PROLOGUE_EPILOGUE has been computed
      for.  */
   int use_fast_prologue_epilogue_nregs;
+  /* If true, the current function needs the default PIC register, not
+     an alternate register (on x86) and must not use the red zone (on
+     x86_64), even if it's a leaf function.  We don't want the
+     function to be regarded as non-leaf because TLS calls need not
+     affect register allocation.  This flag is set when a TLS call
+     instruction is expanded within a function, and never reset, even
+     if all such instructions are optimized away.  Use the
+     ix86_current_function_calls_tls_descriptor macro for a better
+     approximation.  */
+  int tls_descriptor_call_expanded_p;
 };
 
 #define ix86_stack_locals (cfun->machine->stack_locals)
 #define ix86_save_varrargs_registers (cfun->machine->save_varrargs_registers)
 #define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
+#define ix86_tls_descriptor_calls_expanded_in_cfun \
+  (cfun->machine->tls_descriptor_call_expanded_p)
+/* Since tls_descriptor_call_expanded is not cleared, even if all TLS
+   calls are optimized away, we try to detect cases in which it was
+   optimized away.  Since such instructions (use (reg REG_SP)), we can
+   verify whether there's any such instruction live by testing that
+   REG_SP is live.  */
+#define ix86_current_function_calls_tls_descriptor \
+  (ix86_tls_descriptor_calls_expanded_in_cfun && regs_ever_live[SP_REG])
 
 /* Control behavior of x86_file_start.  */
 #define X86_FILE_START_VERSION_DIRECTIVE false

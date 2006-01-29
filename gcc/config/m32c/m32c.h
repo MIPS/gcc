@@ -218,6 +218,13 @@ machine_function;
 #endif
 #define PC_REGNUM PC_REGNO
 
+/* Order of Allocation of Registers */
+
+#define REG_ALLOC_ORDER { \
+	0, 1, 2, 3, 4, 5, /* r0..r3, a0, a1 */ \
+	12, 13, 14, 15, 16, 17, 18, /* mem0..mem7 */  \
+	6, 7, 8, 9, 10, 11 /* sb, fb, sp, pc, flg, ap */ }
+
 /* How Values Fit in Registers */
 
 #define HARD_REGNO_NREGS(R,M) m32c_hard_regno_nregs (R, M)
@@ -574,6 +581,15 @@ typedef struct m32c_cumulative_args
 #define TEXT_SECTION_ASM_OP ".text"
 #define DATA_SECTION_ASM_OP ".data"
 #define BSS_SECTION_ASM_OP ".bss"
+
+#define CTOR_LIST_BEGIN
+#define CTOR_LIST_END
+#define DTOR_LIST_BEGIN
+#define DTOR_LIST_END
+#define CTORS_SECTION_ASM_OP "\t.section\t.init_array,\"aw\",%init_array"
+#define DTORS_SECTION_ASM_OP "\t.section\t.fini_array,\"aw\",%fini_array"
+#define INIT_ARRAY_SECTION_ASM_OP "\t.section\t.init_array,\"aw\",%init_array"
+#define FINI_ARRAY_SECTION_ASM_OP "\t.section\t.fini_array,\"aw\",%fini_array"
 
 /* The Overall Framework of an Assembler File */
 

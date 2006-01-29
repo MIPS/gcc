@@ -436,6 +436,9 @@ typedef enum gfc_generic_isym_id gfc_generic_isym_id;
 
 /************************* Structures *****************************/
 
+/* Used for keeping things in balanced binary trees.  */
+#define BBT_HEADER(self) int priority; struct self *left, *right
+
 /* Symbol attribute structure.  */
 typedef struct
 {
@@ -676,6 +679,8 @@ gfc_namelist;
 /* TODO: Make format/statement specifics a union.  */
 typedef struct gfc_st_label
 {
+  BBT_HEADER(gfc_st_label);
+
   int value;
 
   gfc_sl_type defined, referenced;
@@ -685,8 +690,6 @@ typedef struct gfc_st_label
   tree backend_decl;
 
   locus where;
-
-  struct gfc_st_label *prev, *next;
 }
 gfc_st_label;
 
@@ -816,8 +819,6 @@ gfc_entry_list;
    are linked together in a balanced binary tree.  There can be
    several symtrees pointing to the same symbol node via USE
    statements.  */
-
-#define BBT_HEADER(self) int priority; struct self *left, *right
 
 typedef struct gfc_symtree
 {
@@ -1515,6 +1516,7 @@ typedef struct
   int flag_no_backend;
   int flag_pack_derived;
   int flag_repack_arrays;
+  int flag_preprocessed;
   int flag_f2c;
   int flag_automatic;
   int flag_backslash;
@@ -1595,6 +1597,7 @@ int gfc_peek_char (void);
 void gfc_error_recovery (void);
 void gfc_gobble_whitespace (void);
 try gfc_new_file (void);
+const char * gfc_read_orig_filename (const char *, const char **);
 
 extern gfc_source_form gfc_current_form;
 extern const char *gfc_source_file;
@@ -1700,6 +1703,7 @@ void gfc_get_component_attr (symbol_attribute *, gfc_component *);
 
 void gfc_set_sym_referenced (gfc_symbol * sym);
 
+try gfc_add_attribute (symbol_attribute *, locus *, uint);
 try gfc_add_allocatable (symbol_attribute *, locus *);
 try gfc_add_dimension (symbol_attribute *, const char *, locus *);
 try gfc_add_external (symbol_attribute *, locus *);
@@ -1769,6 +1773,7 @@ int gfc_symbols_could_alias (gfc_symbol *, gfc_symbol *);
 
 void gfc_undo_symbols (void);
 void gfc_commit_symbols (void);
+void gfc_commit_symbol (gfc_symbol * sym);
 void gfc_free_namespace (gfc_namespace *);
 
 void gfc_symbol_init_2 (void);
@@ -1960,5 +1965,9 @@ void gfc_show_namespace (gfc_namespace *);
 
 /* parse.c */
 try gfc_parse_file (void);
+void global_used (gfc_gsymbol *, locus *);
+
+/* dependency.c */
+int gfc_dep_compare_expr (gfc_expr *, gfc_expr *);
 
 #endif /* GCC_GFORTRAN_H  */

@@ -696,6 +696,69 @@ procedure_kind (gfc_symbol * sym)
   return PTYPE_UNKNOWN;
 }
 
+/* Check references to assumed size arrays.  The flag need_full_assumed_size
+   is non-zero when matching actual arguments.  */
+
+static int need_full_assumed_size = 0;
+
+static bool
+check_assumed_size_reference (gfc_symbol * sym, gfc_expr * e)
+{
+  gfc_ref * ref;
+  int dim;
+  int last = 1;
+
+  if (need_full_assumed_size
+	|| !(sym->as && sym->as->type == AS_ASSUMED_SIZE))
+      return false;
+
+  for (ref = e->ref; ref; ref = ref->next)
+    if (ref->type == REF_ARRAY)
+      for (dim = 0; dim < ref->u.ar.as->rank; dim++)
+	last = (ref->u.ar.end[dim] == NULL) && (ref->u.ar.type == DIMEN_ELEMENT);
+
+  if (last)
+    {
+      gfc_error ("The upper bound in the last dimension must "
+		 "appear in the reference to the assumed size "
+		 "array '%s' at %L.", sym->name, &e->where);
+      return true;
+    }
+  return false;
+}
+
+
+/* Look for bad assumed size array references in argument expressions
+  of elemental and array valued intrinsic procedures.  Since this is
+  called from procedure resolution functions, it only recurses at
+  operators.  */
+
+static bool
+resolve_assumed_size_actual (gfc_expr *e)
+{
+  if (e == NULL)
+   return false;
+
+  switch (e->expr_type)
+    {
+    case EXPR_VARIABLE:
+      if (e->symtree
+	    && check_assumed_size_reference (e->symtree->n.sym, e))
+	return true;
+      break;
+
+    case EXPR_OP:
+      if (resolve_assumed_size_actual (e->value.op.op1)
+	    || resolve_assumed_size_actual (e->value.op.op2))
+	return true;
+      break;
+
+    default:
+      break;
+    }
+  return false;
+}
+
 
 /* Resolve an actual argument list.  Most of the time, this is just
    resolving the expressions in the list.
@@ -822,6 +885,36 @@ find_noncopying_intrinsics (gfc_symbol * fnsym, gfc_actual_arglist * actual)
       ap->expr->inline_noncopying_intrinsic = 1;
 }
 
+/* This function does the checking of references to global procedures
+   as defined in sections 18.1 and 14.1, respectively, of the Fortran
+   77 and 95 standards.  It checks for a gsymbol for the name, making
+   one if it does not already exist.  If it already exists, then the
+   reference being resolved must correspond to the type of gsymbol.
+   Otherwise, the new symbol is equipped with the attributes of the 
+   reference.  The corresponding code that is called in creating
+   global entities is parse.c.  */
+
+static void
+resolve_global_procedure (gfc_symbol *sym, locus *where, int sub)
+{
+  gfc_gsymbol * gsym;
+  uint type;
+
+  type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
+
+  gsym = gfc_get_gsymbol (sym->name);
+
+  if ((gsym->type != GSYM_UNKNOWN && gsym->type != type))
+    global_used (gsym, where);
+
+  if (gsym->type == GSYM_UNKNOWN)
+    {
+      gsym->type = type;
+      gsym->where = *where;
+    }
+
+  gsym->used = 1;
+}
 
 /************* Function resolution *************/
 
@@ -1090,25 +1183,70 @@ static try
 resolve_function (gfc_expr * expr)
 {
   gfc_actual_arglist *arg;
+  gfc_symbol * sym;
   const char *name;
   try t;
+  int temp;
+
+  sym = NULL;
+  if (expr->symtree)
+    sym = expr->symtree->n.sym;
+
+  /* If the procedure is not internal, a statement function or a module
+     procedure,it must be external and should be checked for usage.  */
+  if (sym && !sym->attr.dummy && !sym->attr.contained
+	&& sym->attr.proc != PROC_ST_FUNCTION
+	&& !sym->attr.use_assoc)
+    resolve_global_procedure (sym, &expr->where, 0);
+
+  /* Switch off assumed size checking and do this again for certain kinds
+     of procedure, once the procedure itself is resolved.  */
+  need_full_assumed_size++;
 
   if (resolve_actual_arglist (expr->value.function.actual) == FAILURE)
     return FAILURE;
+
+  /* Resume assumed_size checking. */
+  need_full_assumed_size--;
+
+  if (sym && sym->ts.type == BT_CHARACTER
+	  && sym->ts.cl && sym->ts.cl->length == NULL)
+    {
+      if (sym->attr.if_source == IFSRC_IFBODY)
+	{
+	  /* This follows from a slightly odd requirement at 5.1.1.5 in the
+	     standard that allows assumed character length functions to be
+	     declared in interfaces but not used.  Picking up the symbol here,
+	     rather than resolve_symbol, accomplishes that.  */
+	  gfc_error ("Function '%s' can be declared in an interface to "
+		     "return CHARACTER(*) but cannot be used at %L",
+		     sym->name, &expr->where);
+	  return FAILURE;
+	}
+
+      /* Internal procedures are taken care of in resolve_contained_fntype.  */
+      if (!sym->attr.dummy && !sym->attr.contained)
+	{
+	  gfc_error ("Function '%s' is declared CHARACTER(*) and cannot "
+		     "be used at %L since it is not a dummy argument",
+		     sym->name, &expr->where);
+	  return FAILURE;
+	}
+    }
 
 /* See if function is already resolved.  */
 
   if (expr->value.function.name != NULL)
     {
       if (expr->ts.type == BT_UNKNOWN)
-	expr->ts = expr->symtree->n.sym->ts;
+	expr->ts = sym->ts;
       t = SUCCESS;
     }
   else
     {
       /* Apply the rules of section 14.1.2.  */
 
-      switch (procedure_kind (expr->symtree->n.sym))
+      switch (procedure_kind (sym))
 	{
 	case PTYPE_GENERIC:
 	  t = resolve_generic_f (expr);
@@ -1133,6 +1271,9 @@ resolve_function (gfc_expr * expr)
   if (expr->expr_type != EXPR_FUNCTION)
     return t;
 
+  temp = need_full_assumed_size;
+  need_full_assumed_size = 0;
+
   if (expr->value.function.actual != NULL
       && ((expr->value.function.esym != NULL
 	   && expr->value.function.esym->attr.elemental)
@@ -1140,7 +1281,6 @@ resolve_function (gfc_expr * expr)
 	      && expr->value.function.isym->elemental)))
     {
       /* The rank of an elemental is the rank of its array argument(s).  */
-
       for (arg = expr->value.function.actual; arg; arg = arg->next)
 	{
 	  if (arg->expr != NULL && arg->expr->rank > 0)
@@ -1149,7 +1289,46 @@ resolve_function (gfc_expr * expr)
 	      break;
 	    }
 	}
+
+      /* Being elemental, the last upper bound of an assumed size array
+	 argument must be present.  */
+      for (arg = expr->value.function.actual; arg; arg = arg->next)
+	{
+	  if (arg->expr != NULL
+		&& arg->expr->rank > 0
+		&& resolve_assumed_size_actual (arg->expr))
+	    return FAILURE;
+	}
     }
+
+  else if (expr->value.function.actual != NULL
+	     && expr->value.function.isym != NULL
+	     && expr->value.function.isym->generic_id != GFC_ISYM_LBOUND
+	     && expr->value.function.isym->generic_id != GFC_ISYM_LOC
+	     && expr->value.function.isym->generic_id != GFC_ISYM_PRESENT)
+    {
+      /* Array instrinsics must also have the last upper bound of an
+	 asumed size array argument.  UBOUND and SIZE have to be
+	 excluded from the check if the second argument is anything
+	 than a constant.  */
+      int inquiry;
+      inquiry = expr->value.function.isym->generic_id == GFC_ISYM_UBOUND
+		  || expr->value.function.isym->generic_id == GFC_ISYM_SIZE;
+	    
+      for (arg = expr->value.function.actual; arg; arg = arg->next)
+	{
+	  if (inquiry && arg->next != NULL && arg->next->expr
+		&& arg->next->expr->expr_type != EXPR_CONSTANT)
+	    break;
+	  
+	  if (arg->expr != NULL
+		&& arg->expr->rank > 0
+		&& resolve_assumed_size_actual (arg->expr))
+	    return FAILURE;
+	}
+    }
+
+  need_full_assumed_size = temp;
 
   if (!pure_function (expr, &name))
     {
@@ -1400,8 +1579,24 @@ resolve_call (gfc_code * c)
 {
   try t;
 
+  /* If the procedure is not internal or module, it must be external and
+     should be checked for usage.  */
+  if (c->symtree && c->symtree->n.sym
+	&& !c->symtree->n.sym->attr.dummy
+	&& !c->symtree->n.sym->attr.contained
+	&& !c->symtree->n.sym->attr.use_assoc)
+    resolve_global_procedure (c->symtree->n.sym, &c->loc, 1);
+
+  /* Switch off assumed size checking and do this again for certain kinds
+     of procedure, once the procedure itself is resolved.  */
+  need_full_assumed_size++;
+
   if (resolve_actual_arglist (c->ext.actual) == FAILURE)
     return FAILURE;
+
+  /* Resume assumed_size checking. */
+  need_full_assumed_size--;
+
 
   t = SUCCESS;
   if (c->resolved_sym == NULL)
@@ -1422,6 +1617,21 @@ resolve_call (gfc_code * c)
       default:
 	gfc_internal_error ("resolve_subroutine(): bad function type");
       }
+
+  if (c->ext.actual != NULL
+      && c->symtree->n.sym->attr.elemental)
+    {
+      gfc_actual_arglist * a;
+      /* Being elemental, the last upper bound of an assumed size array
+	 argument must be present.  */
+      for (a = c->ext.actual; a; a = a->next)
+	{
+	  if (a->expr != NULL
+		&& a->expr->rank > 0
+		&& resolve_assumed_size_actual (a->expr))
+	    return FAILURE;
+	}
+    }
 
   if (t == SUCCESS)
     find_noncopying_intrinsics (c->resolved_sym, c->ext.actual);
@@ -1908,6 +2118,7 @@ gfc_resolve_index (gfc_expr * index, int check_scalar)
   if (index->ts.kind != gfc_index_integer_kind
       || index->ts.type != BT_INTEGER)
     {
+      gfc_clear_ts (&ts);
       ts.type = BT_INTEGER;
       ts.kind = gfc_index_integer_kind;
 
@@ -2348,6 +2559,9 @@ resolve_variable (gfc_expr * e)
 	return FAILURE;
       e->ts = sym->ts;
     }
+
+  if (check_assumed_size_reference (sym, e))
+    return FAILURE;
 
   return SUCCESS;
 }
@@ -3443,9 +3657,12 @@ resolve_branch (gfc_st_label * label, gfc_code * code)
 
   if (found == NULL)
     {
-      /* still nothing, so illegal.  */
-      gfc_error_now ("Label at %L is not in the same block as the "
-		     "GOTO statement at %L", &lp->where, &code->loc);
+      /* The label is not in an enclosing block, so illegal.  This was
+	 allowed in Fortran 66, so we allow it as extension.  We also 
+	 forego further checks if we run into this.  */
+      gfc_notify_std (GFC_STD_LEGACY,
+		      "Label at %L is not in the same block as the "
+		      "GOTO statement at %L", &lp->where, &code->loc);
       return;
     }
 
@@ -4665,6 +4882,58 @@ resolve_symbol (gfc_symbol * sym)
 	}
       break;
 
+    case FL_PROCEDURE:
+      /* An external symbol may not have an intializer because it is taken to be
+	 a procedure.  */
+      if (sym->attr.external && sym->value)
+	{
+	  gfc_error ("External object '%s' at %L may not have an initializer",
+		     sym->name, &sym->declared_at);
+	  return;
+	}
+
+      /* 5.1.1.5 of the Standard: A function name declared with an asterisk
+	 char-len-param shall not be array-valued, pointer-valued, recursive
+	 or pure.  ....snip... A character value of * may only be used in the
+	 following ways: (i) Dummy arg of procedure - dummy associates with
+	 actual length; (ii) To declare a named constant; or (iii) External
+	 function - but length must be declared in calling scoping unit.  */
+      if (sym->attr.function
+	    && sym->ts.type == BT_CHARACTER
+	    && sym->ts.cl && sym->ts.cl->length == NULL)
+	{
+	  if ((sym->as && sym->as->rank) || (sym->attr.pointer)
+		 || (sym->attr.recursive) || (sym->attr.pure))
+	    {
+	      if (sym->as && sym->as->rank)
+		gfc_error ("CHARACTER(*) function '%s' at %L cannot be "
+			   "array-valued", sym->name, &sym->declared_at);
+
+	      if (sym->attr.pointer)
+		gfc_error ("CHARACTER(*) function '%s' at %L cannot be "
+			   "pointer-valued", sym->name, &sym->declared_at);
+
+	      if (sym->attr.pure)
+		gfc_error ("CHARACTER(*) function '%s' at %L cannot be "
+			   "pure", sym->name, &sym->declared_at);
+
+	      if (sym->attr.recursive)
+		gfc_error ("CHARACTER(*) function '%s' at %L cannot be "
+			   "recursive", sym->name, &sym->declared_at);
+
+	      return;
+	    }
+
+	  /* Appendix B.2 of the standard.  Contained functions give an
+	     error anyway.  Fixed-form is likely to be F77/legacy.  */
+	  if (!sym->attr.contained && gfc_current_form != FORM_FIXED)
+	    gfc_notify_std (GFC_STD_F95_OBS, "CHARACTER(*) function "
+			    "'%s' at %L is obsolescent in fortran 95",
+			    sym->name, &sym->declared_at);
+	}
+
+      break;
+
     case FL_DERIVED:
       /* Add derived type to the derived type list.  */
       {
@@ -4677,14 +4946,6 @@ resolve_symbol (gfc_symbol * sym)
       break;
 
     default:
-
-      /* An external symbol falls through to here if it is not referenced.  */
-      if (sym->attr.external && sym->value)
-	{
-	  gfc_error ("External object '%s' at %L may not have an initializer",
-		     sym->name, &sym->declared_at);
-	  return;
-	}
 
       break;
     }
@@ -5080,38 +5341,33 @@ gfc_elemental (gfc_symbol * sym)
 /* Warn about unused labels.  */
 
 static void
-warn_unused_label (gfc_namespace * ns)
+warn_unused_label (gfc_st_label * label)
 {
-  gfc_st_label *l;
-
-  l = ns->st_labels;
-  if (l == NULL)
+  if (label == NULL)
     return;
 
-  while (l->next)
-    l = l->next;
+  warn_unused_label (label->left);
 
-  for (; l; l = l->prev)
+  if (label->defined == ST_LABEL_UNKNOWN)
+    return;
+
+  switch (label->referenced)
     {
-      if (l->defined == ST_LABEL_UNKNOWN)
-	continue;
+    case ST_LABEL_UNKNOWN:
+      gfc_warning ("Label %d at %L defined but not used", label->value,
+		   &label->where);
+      break;
 
-      switch (l->referenced)
-	{
-	case ST_LABEL_UNKNOWN:
-	  gfc_warning ("Label %d at %L defined but not used", l->value,
-		       &l->where);
-	  break;
+    case ST_LABEL_BAD_TARGET:
+      gfc_warning ("Label %d at %L defined but cannot be used",
+		   label->value, &label->where);
+      break;
 
-	case ST_LABEL_BAD_TARGET:
-	  gfc_warning ("Label %d at %L defined but cannot be used", l->value,
-		       &l->where);
-	  break;
-
-	default:
-	  break;
-	}
+    default:
+      break;
     }
+
+  warn_unused_label (label->right);
 }
 
 
@@ -5490,6 +5746,15 @@ resolve_fntype (gfc_namespace * ns)
       sym->attr.untyped = 1;
     }
 
+  if (sym->ts.type == BT_DERIVED && !sym->ts.derived->attr.use_assoc
+      && !gfc_check_access (sym->ts.derived->attr.access,
+                            sym->ts.derived->ns->default_access)
+      && gfc_check_access (sym->attr.access, sym->ns->default_access))
+    {
+      gfc_error ("PUBLIC function '%s' at %L cannot be of PRIVATE type '%s'",
+                 sym->name, &sym->declared_at, sym->ts.derived->name);
+    }
+
   if (ns->entries)
     for (el = ns->entries->next; el; el = el->next)
       {
@@ -5567,7 +5832,7 @@ gfc_resolve (gfc_namespace * ns)
 
   /* Warn about unused labels.  */
   if (gfc_option.warn_unused_labels)
-    warn_unused_label (ns);
+    warn_unused_label (ns->st_labels);
 
   gfc_current_ns = old_ns;
 }

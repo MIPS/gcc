@@ -1,5 +1,5 @@
 ;; GCC machine description for SSE instructions
-;; Copyright (C) 2005
+;; Copyright (C) 2005, 2006
 ;; Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
@@ -2700,6 +2700,48 @@
   DONE;
 })
 
+(define_expand "sdot_prodv8hi"
+  [(match_operand:V4SI 0 "register_operand" "")
+   (match_operand:V8HI 1 "nonimmediate_operand" "")
+   (match_operand:V8HI 2 "nonimmediate_operand" "")
+   (match_operand:V4SI 3 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  rtx t = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_pmaddwd (t, operands[1], operands[2]));
+  emit_insn (gen_addv4si3 (operands[0], operands[3], t));
+  DONE;
+})
+
+(define_expand "udot_prodv4si"
+  [(match_operand:V2DI 0 "register_operand" "") 
+   (match_operand:V4SI 1 "register_operand" "") 
+   (match_operand:V4SI 2 "register_operand" "")
+   (match_operand:V2DI 3 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  rtx t1, t2, t3, t4;
+
+  t1 = gen_reg_rtx (V2DImode);
+  emit_insn (gen_sse2_umulv2siv2di3 (t1, operands[1], operands[2]));
+  emit_insn (gen_addv2di3 (t1, t1, operands[3]));
+
+  t2 = gen_reg_rtx (V4SImode);
+  t3 = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_lshrti3 (gen_lowpart (TImode, t2),
+                               gen_lowpart (TImode, operands[1]),
+                               GEN_INT (32)));
+  emit_insn (gen_sse2_lshrti3 (gen_lowpart (TImode, t3),
+                               gen_lowpart (TImode, operands[2]),
+                               GEN_INT (32)));
+
+  t4 = gen_reg_rtx (V2DImode);
+  emit_insn (gen_sse2_umulv2siv2di3 (t4, t2, t3));
+
+  emit_insn (gen_addv2di3 (operands[0], t1, t4));
+  DONE;
+})
+
 (define_insn "ashr<mode>3"
   [(set (match_operand:SSEMODE24 0 "register_operand" "=x")
 	(ashiftrt:SSEMODE24
@@ -3463,6 +3505,34 @@
 {
   operands[1] = gen_rtx_REG (DImode, REGNO (operands[1]));
 })
+
+(define_insn "*vec_extractv2di_1_sse2"
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x")
+	(vec_select:DI
+	  (match_operand:V2DI 1 "nonimmediate_operand" "x,0,o")
+	  (parallel [(const_int 1)])))]
+  "TARGET_SSE2 && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   movhps\t{%1, %0|%0, %1}
+   psrldq\t{$4, %0|%0, 4}
+   movq\t{%H1, %0|%0, %H1}"
+  [(set_attr "type" "ssemov,sseishft,ssemov")
+   (set_attr "mode" "V2SF,TI,TI")])
+
+;; Not sure this is ever used, but it doesn't hurt to have it. -aoliva
+(define_insn "*vec_extractv2di_1_sse"
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x")
+	(vec_select:DI
+	  (match_operand:V2DI 1 "nonimmediate_operand" "x,x,o")
+	  (parallel [(const_int 1)])))]
+  "!TARGET_SSE2 && TARGET_SSE
+   && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   movhps\t{%1, %0|%0, %1}
+   movhlps\t{%1, %0|%0, %1}
+   movlps\t{%H1, %0|%0, %H1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "mode" "V2SF,V4SF,V2SF")])
 
 (define_insn "*vec_dupv4si"
   [(set (match_operand:V4SI 0 "register_operand" "=Y,x")

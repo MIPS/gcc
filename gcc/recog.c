@@ -688,17 +688,6 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
     }
 }
 
-/* Try replacing every occurrence of FROM in subexpression LOC of INSN
-   with TO.  After all changes have been made, validate by seeing
-   if INSN is still valid.  */
-
-int
-validate_replace_rtx_subexp (rtx from, rtx to, rtx insn, rtx *loc)
-{
-  validate_replace_rtx_1 (loc, from, to, insn);
-  return apply_change_group ();
-}
-
 /* Try replacing every occurrence of FROM in INSN with TO.  After all
    changes have been made, validate by seeing if INSN is still valid.  */
 
@@ -1991,6 +1980,7 @@ extract_insn_cached (rtx insn)
   extract_insn (insn);
   recog_data.insn = insn;
 }
+
 /* Do cached extract_insn, constrain_operands and complain about failures.
    Used by insn_attrtab.  */
 void
@@ -2001,6 +1991,7 @@ extract_constrain_insn_cached (rtx insn)
       && !constrain_operands (reload_completed))
     fatal_insn_not_found (insn);
 }
+
 /* Do cached constrain_operands and complain about failures.  */
 int
 constrain_operands_cached (int strict)
@@ -3031,7 +3022,7 @@ peep2_find_free_register (int from, int to, const char *class_str,
 
 /* Perform the peephole2 optimization pass.  */
 
-void
+static void
 peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 {
   rtx insn, prev;

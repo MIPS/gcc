@@ -135,7 +135,6 @@ static tree tsubst_template_arg (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_template_args (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_template_parms (tree, tree, tsubst_flags_t);
 static void regenerate_decl_from_template (tree, tree);
-static tree most_specialized (tree, tree, tree);
 static tree most_specialized_class (tree, tree);
 static tree tsubst_aggr_type (tree, tree, tsubst_flags_t, tree, int);
 static tree tsubst_arg_types (tree, tree, tsubst_flags_t, tree);
@@ -678,8 +677,12 @@ check_explicit_instantiation_namespace (tree spec)
 void
 maybe_process_partial_specialization (tree type)
 {
-  /* TYPE maybe an ERROR_MARK_NODE.  */
-  tree context = TYPE_P (type) ? TYPE_CONTEXT (type) : NULL_TREE;
+  tree context;
+
+  if (type == error_mark_node)
+    return;
+
+  context = TYPE_CONTEXT (type);
 
   if (CLASS_TYPE_P (type) && CLASSTYPE_USE_TEMPLATE (type))
     {
@@ -896,8 +899,8 @@ retrieve_specialization (tree tmpl, tree args,
 static tree
 retrieve_local_specialization (tree tmpl)
 {
-  tree spec = htab_find_with_hash (local_specializations, tmpl,
-				   htab_hash_pointer (tmpl));
+  tree spec = (tree) htab_find_with_hash (local_specializations, tmpl,
+                                          htab_hash_pointer (tmpl));
   return spec ? TREE_PURPOSE (spec) : NULL_TREE;
 }
 
@@ -1339,6 +1342,11 @@ determine_specialization (tree template_id,
   tree targs;
   tree explicit_targs;
   tree candidates = NULL_TREE;
+  /* A TREE_LIST of templates of which DECL may be a specialization.
+     The TREE_VALUE of each node is a TEMPLATE_DECL.  The
+     corresponding TREE_PURPOSE is the set of template arguments that,
+     when used to instantiate the template, would produce a function
+     with the signature of DECL.  */
   tree templates = NULL_TREE;
   int header_count;
   struct cp_binding_level *b;
@@ -1543,12 +1551,12 @@ determine_specialization (tree template_id,
 	 the EDG front-end has that behavior, and John Spicer claims
 	 that the committee simply forgot to delete the wording in
 	 [temp.expl.spec].  */
-     tree tmpl = most_specialized (templates, decl, explicit_targs);
-     if (tmpl && tmpl != error_mark_node)
-       {
-	 targs = get_bindings (tmpl, decl, explicit_targs, /*check_ret=*/true);
-	 templates = tree_cons (targs, tmpl, NULL_TREE);
-       }
+      tree tmpl = most_specialized_instantiation (templates);
+      if (tmpl != error_mark_node)
+	{
+	  templates = tmpl;
+	  TREE_CHAIN (templates) = NULL_TREE;
+	}
     }
 
   if (templates == NULL_TREE && candidates == NULL_TREE)
@@ -1901,11 +1909,20 @@ check_explicit_specialization (tree declarator,
 
 	      /* Find the namespace binding, using the declaration
 		 context.  */
-	      fns = namespace_binding (dname, CP_DECL_CONTEXT (decl));
+	      fns = lookup_qualified_name (CP_DECL_CONTEXT (decl), dname,
+					   false, true);
 	      if (!fns || !is_overloaded_fn (fns))
 		{
 		  error ("%qD is not a template function", dname);
 		  fns = error_mark_node;
+		}
+	      else
+		{
+		  tree fn = OVL_CURRENT (fns);
+		  if (!is_associated_namespace (CP_DECL_CONTEXT (decl),
+						CP_DECL_CONTEXT (fn)))
+		    error ("%qD is not declared in %qD",
+			   decl, current_namespace);
 		}
 	    }
 
@@ -2438,7 +2455,7 @@ end_template_decl (void)
 /* Given a template argument vector containing the template PARMS.
    The innermost PARMS are given first.  */
 
-tree
+static tree
 current_template_args (void)
 {
   tree header;
@@ -2618,10 +2635,10 @@ process_partial_specialization (tree decl)
 
      or some such would have been OK.  */
   tpd.level = TMPL_PARMS_DEPTH (current_template_parms);
-  tpd.parms = alloca (sizeof (int) * ntparms);
+  tpd.parms = (int *) alloca (sizeof (int) * ntparms);
   memset (tpd.parms, 0, sizeof (int) * ntparms);
 
-  tpd.arg_uses_template_parms = alloca (sizeof (int) * nargs);
+  tpd.arg_uses_template_parms = (int *) alloca (sizeof (int) * nargs);
   memset (tpd.arg_uses_template_parms, 0, sizeof (int) * nargs);
   for (i = 0; i < nargs; ++i)
     {
@@ -2692,11 +2709,11 @@ process_partial_specialization (tree decl)
 		{
 		  /* We haven't yet initialized TPD2.  Do so now.  */
 		  tpd2.arg_uses_template_parms
-		    = alloca (sizeof (int) * nargs);
+		    = (int *) alloca (sizeof (int) * nargs);
 		  /* The number of parameters here is the number in the
 		     main template, which, as checked in the assertion
 		     above, is NARGS.  */
-		  tpd2.parms = alloca (sizeof (int) * nargs);
+		  tpd2.parms = (int *) alloca (sizeof (int) * nargs);
 		  tpd2.level =
 		    TMPL_PARMS_DEPTH (DECL_TEMPLATE_PARMS (maintmpl));
 		}
@@ -3344,7 +3361,7 @@ fold_non_dependent_expr (tree expr)
    initializers can maintain a syntactic rather than semantic form
    (even if they are non-dependent, for access-checking purposes).  */
 
-tree
+static tree
 fold_decl_constant_value (tree expr)
 {
   tree const_expr = expr;
@@ -4106,7 +4123,7 @@ mangle_class_name_for_template (const char* name, tree parms, tree arglist)
     gcc_obstack_init (&scratch_obstack);
   else
     obstack_free (&scratch_obstack, scratch_firstobj);
-  scratch_firstobj = obstack_alloc (&scratch_obstack, 1);
+  scratch_firstobj = (char *) obstack_alloc (&scratch_obstack, 1);
 
 #define ccat(C)	obstack_1grow (&scratch_obstack, (C));
 #define cat(S)	obstack_grow (&scratch_obstack, (S), strlen (S))
@@ -5964,7 +5981,7 @@ tsubst_template_args (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
   int len = TREE_VEC_LENGTH (t);
   int need_new = 0, i;
-  tree *elts = alloca (len * sizeof (tree));
+  tree *elts = (tree *) alloca (len * sizeof (tree));
 
   for (i = 0; i < len; i++)
     {
@@ -10697,7 +10714,7 @@ more_specialized_fn (tree pat1, tree pat2, int len)
    FULL_ARGS is the full set of template arguments that triggers this
    partial ordering.  */
 
-int
+static int
 more_specialized_class (tree pat1, tree pat2, tree full_args)
 {
   tree targs;
@@ -10813,25 +10830,26 @@ get_class_bindings (tree tparms, tree parms, tree args)
   return vec;
 }
 
-/* In INSTANTIATIONS is a list of <INSTANTIATION, TEMPLATE> pairs.
-   Pick the most specialized template, and return the corresponding
-   instantiation, or if there is no corresponding instantiation, the
-   template itself.  If there is no most specialized template,
-   error_mark_node is returned.  If there are no templates at all,
-   NULL_TREE is returned.  */
+/* TEMPLATES is a TREE_LIST.  Each TREE_VALUE is a TEMPLATE_DECL.
+   Return the TREE_LIST node with the most specialized template, if
+   any.  If there is no most specialized template, the error_mark_node
+   is returned.
+
+   Note that this function does not look at, or modify, the
+   TREE_PURPOSE or TREE_TYPE of any of the nodes.  Since the node
+   returned is one of the elements of INSTANTIATIONS, callers may
+   store information in the TREE_PURPOSE or TREE_TYPE of the nodes,
+   and retrieve it from the value returned.  */
 
 tree
-most_specialized_instantiation (tree instantiations)
+most_specialized_instantiation (tree templates)
 {
   tree fn, champ;
 
-  if (!instantiations)
-    return NULL_TREE;
-
   ++processing_template_decl;
 
-  champ = instantiations;
-  for (fn = TREE_CHAIN (instantiations); fn; fn = TREE_CHAIN (fn))
+  champ = templates;
+  for (fn = TREE_CHAIN (templates); fn; fn = TREE_CHAIN (fn))
     {
       int fate = 0;
 
@@ -10852,6 +10870,7 @@ most_specialized_instantiation (tree instantiations)
 	  /* Equally specialized, move to next function.  If there
 	     is no next function, nothing's most specialized.  */
 	  fn = TREE_CHAIN (fn);
+	  champ = fn;
 	  if (!fn)
 	    break;
 	}
@@ -10860,7 +10879,7 @@ most_specialized_instantiation (tree instantiations)
   if (champ)
     /* Now verify that champ is better than everything earlier in the
        instantiation list.  */
-    for (fn = instantiations; fn != champ; fn = TREE_CHAIN (fn))
+    for (fn = templates; fn != champ; fn = TREE_CHAIN (fn))
       if (get_bindings (TREE_VALUE (champ),
 			DECL_TEMPLATE_RESULT (TREE_VALUE (fn)),
 			NULL_TREE, /*check_ret=*/false)
@@ -10877,29 +10896,7 @@ most_specialized_instantiation (tree instantiations)
   if (!champ)
     return error_mark_node;
 
-  return TREE_PURPOSE (champ) ? TREE_PURPOSE (champ) : TREE_VALUE (champ);
-}
-
-/* Return the most specialized of the list of templates in FNS that can
-   produce an instantiation matching DECL, given the explicit template
-   arguments EXPLICIT_ARGS.  */
-
-static tree
-most_specialized (tree fns, tree decl, tree explicit_args)
-{
-  tree candidates = NULL_TREE;
-  tree fn, args;
-
-  for (fn = fns; fn; fn = TREE_CHAIN (fn))
-    {
-      tree candidate = TREE_VALUE (fn);
-
-      args = get_bindings (candidate, decl, explicit_args, /*check_ret=*/true);
-      if (args)
-	candidates = tree_cons (NULL_TREE, candidate, candidates);
-    }
-
-  return most_specialized_instantiation (candidates);
+  return champ;
 }
 
 /* If DECL is a specialization of some template, return the most
@@ -11125,7 +11122,7 @@ do_decl_instantiation (tree decl, tree storage)
 		      /*expl_inst_class_mem_p=*/false);
 }
 
-void
+static void
 mark_class_instantiated (tree t, int extern_p)
 {
   SET_CLASSTYPE_EXPLICIT_INSTANTIATION (t);

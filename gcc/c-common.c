@@ -844,7 +844,6 @@ fix_string_type (tree value)
 {
   const int wchar_bytes = TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT;
   const int wide_flag = TREE_TYPE (value) == wchar_array_type_node;
-  const int nchars_max = flag_isoc99 ? 4095 : 509;
   int length = TREE_STRING_LENGTH (value);
   int nchars;
   tree e_type, i_type, a_type;
@@ -852,11 +851,24 @@ fix_string_type (tree value)
   /* Compute the number of elements, for the array type.  */
   nchars = wide_flag ? length / wchar_bytes : length;
 
-  if (pedantic && nchars - 1 > nchars_max && !c_dialect_cxx ())
-    pedwarn ("string length %qd is greater than the length %qd ISO C%d compilers are required to support",
-	     nchars - 1, nchars_max, flag_isoc99 ? 99 : 89);
+  /* C89 2.2.4.1, C99 5.2.4.1 (Translation limits).  The analogous
+     limit in C++98 Annex B is very large (65536) and is not normative,
+     so we do not diagnose it (warn_overlength_strings is forced off
+     in c_common_post_options).  */
+  if (warn_overlength_strings)
+    {
+      const int nchars_max = flag_isoc99 ? 4095 : 509;
+      const int relevant_std = flag_isoc99 ? 99 : 90;
+      if (nchars - 1 > nchars_max)
+	/* Translators: The %d after 'ISO C' will be 90 or 99.  Do not
+	   separate the %d from the 'C'.  'ISO' should not be
+	   translated, but it may be moved after 'C%d' in languages
+	   where modifiers follow nouns.  */
+	pedwarn ("string length %qd is greater than the length %qd "
+		 "ISO C%d compilers are required to support",
+		 nchars - 1, nchars_max, relevant_std);
+    }
 
-  e_type = wide_flag ? wchar_type_node : char_type_node;
   /* Create the array type for the string constant.  flag_const_strings
      says make the string constant an array of const char so that
      copying it to a non-const pointer will get a warning.  For C++,
@@ -868,6 +880,7 @@ fix_string_type (tree value)
      construct the matching unqualified array type first.  The C front
      end does not require this, but it does no harm, so we do it
      unconditionally.  */
+  e_type = wide_flag ? wchar_type_node : char_type_node;
   i_type = build_index_type (build_int_cst (NULL_TREE, nchars - 1));
   a_type = build_array_type (e_type, i_type);
   if (flag_const_strings)
@@ -994,6 +1007,36 @@ strict_aliasing_warning(tree otype, tree type, tree expr)
     }
 }
 
+
+/* Print a warning about if (); or if () .. else; constructs
+   via the special empty statement node that we create.  INNER_THEN
+   and INNER_ELSE are the statement lists of the if and the else
+   block.  */
+
+void
+empty_body_warning (tree inner_then, tree inner_else)
+{
+  if (extra_warnings)
+    {
+      if (TREE_CODE (inner_then) == STATEMENT_LIST
+	  && STATEMENT_LIST_TAIL (inner_then))
+	inner_then = STATEMENT_LIST_TAIL (inner_then)->stmt;
+
+      if (inner_else && TREE_CODE (inner_else) == STATEMENT_LIST
+	  && STATEMENT_LIST_TAIL (inner_else))
+	inner_else = STATEMENT_LIST_TAIL (inner_else)->stmt;
+
+      if (IS_EMPTY_STMT (inner_then) && !inner_else)
+	warning (OPT_Wextra, "%Hempty body in an if-statement",
+		 EXPR_LOCUS (inner_then));
+
+      if (inner_else && IS_EMPTY_STMT (inner_else))
+	warning (OPT_Wextra, "%Hempty body in an else-statement",
+		 EXPR_LOCUS (inner_else));
+   }
+}
+
+  
 /* Nonzero if constant C has a value that is permissible
    for type TYPE (an INTEGER_TYPE).  */
 
@@ -2426,25 +2469,26 @@ c_common_truthvalue_conversion (tree expr)
 
     case ADDR_EXPR:
       {
-	if (DECL_P (TREE_OPERAND (expr, 0))
-	    && !DECL_WEAK (TREE_OPERAND (expr, 0)))
+ 	tree inner = TREE_OPERAND (expr, 0);
+	if (DECL_P (inner)
+	    && (TREE_CODE (inner) == PARM_DECL || !DECL_WEAK (inner)))
 	  {
 	    /* Common Ada/Pascal programmer's mistake.  We always warn
 	       about this since it is so bad.  */
 	    warning (OPT_Walways_true, "the address of %qD, will always evaluate as %<true%>",
-		     TREE_OPERAND (expr, 0));
+		     inner);
 	    return truthvalue_true_node;
 	  }
 
 	/* If we are taking the address of an external decl, it might be
 	   zero if it is weak, so we cannot optimize.  */
-	if (DECL_P (TREE_OPERAND (expr, 0))
-	    && DECL_EXTERNAL (TREE_OPERAND (expr, 0)))
+	if (DECL_P (inner)
+	    && DECL_EXTERNAL (inner))
 	  break;
 
-	if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 0)))
+	if (TREE_SIDE_EFFECTS (inner))
 	  return build2 (COMPOUND_EXPR, truthvalue_type_node,
-			 TREE_OPERAND (expr, 0), truthvalue_true_node);
+			 inner, truthvalue_true_node);
 	else
 	  return truthvalue_true_node;
       }

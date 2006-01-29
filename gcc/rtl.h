@@ -171,6 +171,7 @@ union rtunion_def
   struct basic_block_def *rt_bb;
   mem_attrs *rt_mem;
   reg_attrs *rt_reg;
+  struct constant_descriptor_rtx *rt_constant;
 };
 typedef union rtunion_def rtunion;
 
@@ -630,6 +631,7 @@ extern void rtl_check_failed_flag (const char *, rtx, const char *,
 #define X0CSELIB(RTX, N)   (RTL_CHECK1 (RTX, N, '0').rt_cselib)
 #define X0MEMATTR(RTX, N)  (RTL_CHECKC1 (RTX, N, MEM).rt_mem)
 #define X0REGATTR(RTX, N)  (RTL_CHECKC1 (RTX, N, REG).rt_reg)
+#define X0CONSTANT(RTX, N) (RTL_CHECK1 (RTX, N, '0').rt_constant)
 
 /* Access a '0' field with any type.  */
 #define X0ANY(RTX, N)	   RTL_CHECK1 (RTX, N, '0')
@@ -1193,8 +1195,26 @@ do {						\
 #define SYMBOL_REF_WEAK(RTX)						\
   (RTL_FLAG_CHECK1("SYMBOL_REF_WEAK", (RTX), SYMBOL_REF)->return_val)
 
+/* A pointer attached to the SYMBOL_REF; either SYMBOL_REF_DECL or
+   SYMBOL_REF_CONSTANT.  */
+#define SYMBOL_REF_DATA(RTX) X0ANY ((RTX), 2)
+
+/* Set RTX's SYMBOL_REF_DECL to DECL.  RTX must not be a constant
+   pool symbol.  */
+#define SET_SYMBOL_REF_DECL(RTX, DECL) \
+  (gcc_assert (!CONSTANT_POOL_ADDRESS_P (RTX)), X0TREE ((RTX), 2) = (DECL))
+
 /* The tree (decl or constant) associated with the symbol, or null.  */
-#define SYMBOL_REF_DECL(RTX)	X0TREE ((RTX), 2)
+#define SYMBOL_REF_DECL(RTX) \
+  (CONSTANT_POOL_ADDRESS_P (RTX) ? NULL : X0TREE ((RTX), 2))
+
+/* Set RTX's SYMBOL_REF_CONSTANT to C.  RTX must be a constant pool symbol.  */
+#define SET_SYMBOL_REF_CONSTANT(RTX, C) \
+  (gcc_assert (CONSTANT_POOL_ADDRESS_P (RTX)), X0CONSTANT ((RTX), 2) = (C))
+
+/* The rtx constant pool entry for a symbol, or null.  */
+#define SYMBOL_REF_CONSTANT(RTX) \
+  (CONSTANT_POOL_ADDRESS_P (RTX) ? X0CONSTANT ((RTX), 2) : NULL)
 
 /* A set of flags on a symbol_ref that are, in some respects, redundant with
    information derivable from the tree decl associated with this symbol.
@@ -1417,7 +1437,6 @@ struct function;
 extern rtx get_pool_constant (rtx);
 extern rtx get_pool_constant_mark (rtx, bool *);
 extern enum machine_mode get_pool_mode (rtx);
-extern rtx get_pool_constant_for_function (struct function *, rtx);
 extern rtx simplify_subtraction (rtx);
 
 /* In function.c  */
@@ -1462,6 +1481,7 @@ extern rtx emit_note (int);
 extern rtx emit_note_copy (rtx);
 extern rtx emit_line_note (location_t);
 extern rtx make_insn_raw (rtx);
+extern rtx make_jump_insn_raw (rtx);
 extern void add_function_usage_to (rtx, rtx);
 extern rtx last_call_insn (void);
 extern rtx previous_insn (rtx);
@@ -1576,7 +1596,6 @@ extern int rtx_varies_p (rtx, int);
 extern int rtx_addr_varies_p (rtx, int);
 extern HOST_WIDE_INT get_integer_term (rtx);
 extern rtx get_related_value (rtx);
-extern int global_reg_mentioned_p (rtx);
 extern int reg_mentioned_p (rtx, rtx);
 extern int count_occurrences (rtx, rtx, int);
 extern int reg_referenced_p (rtx, rtx);
@@ -1890,7 +1909,6 @@ extern int rtx_to_tree_code (enum rtx_code);
 /* In cse.c */
 extern int delete_trivially_dead_insns (rtx, int);
 extern int cse_main (rtx, int, FILE *);
-extern void cse_condition_code_reg (void);
 extern int exp_equiv_p (rtx, rtx, int, bool);
 extern unsigned hash_rtx (rtx x, enum machine_mode, int *, int *, bool);
 
@@ -1972,11 +1990,15 @@ extern bool validate_subreg (enum machine_mode, enum machine_mode,
 			     rtx, unsigned int);
 
 /* In combine.c */
-extern int combine_instructions (rtx, unsigned int);
 extern unsigned int extended_count (rtx, enum machine_mode, int);
 extern rtx remove_death (unsigned int, rtx);
 extern void dump_combine_stats (FILE *);
 extern void dump_combine_total_stats (FILE *);
+
+/* In sched-vis.c.  */
+extern void print_rtl_slim_with_bb (FILE *, rtx, int);
+extern void dump_insn_slim (FILE *f, rtx x);
+extern void debug_insn_slim (rtx x);
 
 /* In sched-rgn.c.  */
 extern void schedule_insns (FILE *);
@@ -2001,7 +2023,6 @@ extern void print_inline_rtx (FILE *, rtx, int);
 
 /* In loop.c */
 extern void init_loop (void);
-extern void loop_optimize (rtx, FILE *, int);
 
 /* In bt-load.c */
 extern void branch_target_load_optimize (bool);
@@ -2025,7 +2046,6 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 
 /* In flow.c */
 extern void recompute_reg_usage (void);
-extern int initialize_uninitialized_subregs (void);
 extern void delete_dead_jumptables (void);
 extern void print_rtl_with_bb (FILE *, rtx);
 extern void dump_flow_info (FILE *);
@@ -2039,12 +2059,8 @@ extern void expand_dec (rtx, rtx);
 extern bool can_copy_p (enum machine_mode);
 extern rtx fis_get_condition (rtx);
 
-/* In postreload-gcse.c */
-extern void gcse_after_reload_main (rtx);
-
 /* In global.c */
 extern void mark_elimination (int, int);
-extern int global_alloc (FILE *);
 extern void dump_global_regs (FILE *);
 #ifdef HARD_CONST
 /* Yes, this ifdef is silly, but HARD_REG_SET is not always defined.  */
@@ -2074,22 +2090,14 @@ extern void cannot_change_mode_set_regs (HARD_REG_SET *,
 extern bool invalid_mode_change_p (unsigned int, enum reg_class,
 				   enum machine_mode);
 
-/* In regmove.c */
-extern void regmove_optimize (rtx, int, FILE *);
-extern void combine_stack_adjustments (void);
-
 /* In reorg.c */
 extern void dbr_schedule (rtx, FILE *);
 
 /* In local-alloc.c */
 extern void dump_local_alloc (FILE *);
-extern int local_alloc (void);
 
 /* In reload1.c */
 extern int function_invariant_p (rtx);
-
-/* In reg-stack.c */
-extern bool reg_to_stack (FILE *);
 
 /* In calls.c */
 enum libcall_type
@@ -2137,7 +2145,6 @@ extern int canon_true_dependence (rtx, enum machine_mode, rtx, rtx,
 extern int read_dependence (rtx, rtx);
 extern int anti_dependence (rtx, rtx);
 extern int output_dependence (rtx, rtx);
-extern void mark_constant_function (void);
 extern void init_alias_once (void);
 extern void init_alias_analysis (void);
 extern void end_alias_analysis (void);
@@ -2153,13 +2160,6 @@ extern int stack_regs_mentioned (rtx insn);
 
 /* In toplev.c */
 extern GTY(()) rtx stack_limit_rtx;
-
-/* In regrename.c */
-extern void regrename_optimize (void);
-extern void copyprop_hardreg_forward (void);
-
-/* In ifcvt.c */
-extern void if_convert (int);
 
 /* In predict.c */
 extern void invert_br_probabilities (rtx);
@@ -2181,12 +2181,6 @@ extern rtx compare_and_jump_seq (rtx, rtx, enum rtx_code, rtx, int, rtx);
 /* In loop-iv.c  */
 extern rtx canon_condition (rtx);
 extern void simplify_using_condition (rtx, rtx *, struct bitmap_head_def *);
-
-/* In ra.c.  */
-extern void reg_alloc (void);
-
-/* In modulo-sched.c.  */
-extern void sms_schedule (FILE *);
 
 struct rtl_hooks
 {
