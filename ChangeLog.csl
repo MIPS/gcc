@@ -1,5 +1,9 @@
 2006-01-29  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gcc/Makefile.in (AR_FOR_TARGET, RANLIB_FOR_TARGET,
+	NM_FOR_TARGET): Protect sed invokation from empty
+	program_transform_name.
+
 	* gcc/mklibdir.in: Use GCC_FOR_TARGET rather than xgcc.
 	* gcc/Makefile.in (libgcc.mk): Pass GCC_FOR_TARGET.
 
