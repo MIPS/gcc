@@ -305,7 +305,7 @@ AR_FOR_TARGET = ` \
     if [ "$(host)" = "$(target)" ] ; then \
       echo ar; \
     else \
-       t='$(program_transform_name)'; echo ar | sed -e $$t ; \
+       echo ar | sed -e '$(program_transform_name)';  \
     fi; \
   fi`
 AR_FLAGS_FOR_TARGET =
@@ -318,7 +318,7 @@ RANLIB_FOR_TARGET = ` \
     if [ "$(host)" = "$(target)" ] ; then \
       echo $(RANLIB); \
     else \
-       t='$(program_transform_name)'; echo ranlib | sed -e $$t ; \
+       echo ranlib | sed -e '$(program_transform_name)' ; \
     fi; \
   fi`
 NM_FOR_TARGET = ` \
@@ -330,7 +330,7 @@ NM_FOR_TARGET = ` \
     if [ "$(host)" = "$(target)" ] ; then \
       echo nm; \
     else \
-       t='$(program_transform_name)'; echo nm | sed -e $$t ; \
+       echo nm | sed -e '$(program_transform_name)' ; \
     fi; \
   fi`
 

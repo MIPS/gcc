@@ -493,8 +493,8 @@ EOF
       shlib_slibdir_qual=
       if [ -n "$MULTILIB_OSDIRNAMES" ]; then
 	if [ "$dir" != . ]; then
-	  gcc_multilib_dir=`./xgcc -B./ $flags --print-multi-directory`
-	  os_multilib_dir=`./xgcc -B./ $flags --print-multi-os-directory`
+	  gcc_multilib_dir=`$GCC_FOR_TARGET $flags --print-multi-directory`
+	  os_multilib_dir=`$GCC_FOR_TARGET $flags --print-multi-os-directory`
 	  shlib_dir="$dir"/
 	  gcc_multilib_sup=`echo $gcc_multilib_dir | sed 's~^[^/]*/~~'`
 	  os_multilib_base=`echo $os_multilib_dir | sed -n "s~/${gcc_multilib_sup}\$~~p"`
@@ -682,8 +682,8 @@ for ml in $MULTILIBS; do
       shlib_dir=
       shlib_slibdir_qual=
       if [ -n "$MULTILIB_OSDIRNAMES" ]; then
-	gcc_multilib_dir=`./xgcc -B./ $flags --print-multi-directory`
-	os_multilib_dir=`./xgcc -B./ $flags --print-multi-os-directory`
+	gcc_multilib_dir=`$GCC_FOR_TARGET $flags --print-multi-directory`
+	os_multilib_dir=`$GCC_FOR_TARGET $flags --print-multi-os-directory`
 	if [ "$dir" != . ]; then
 	  shlib_dir="$dir"/
 	fi
