@@ -1,3 +1,8 @@
+2006-01-29  Victor Kaplansky  <victork@il.ibm.com>
+
+	* tree-vectorizer.c (vect_is_simple_use): removes redundant check for
+	what it is in EMPTY_STMT since it can never fail.
+
 2006-01-26  Ira Rosen  <irar@il.ibm.com>
 
 	* tree-vect-transform.c (vect_create_data_ref_ptr): Don't handle 

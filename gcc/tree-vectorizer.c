@@ -1668,17 +1668,9 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
      (Otherwise - we expect a phi_node or a modify_expr).  */
   if (IS_EMPTY_STMT (*def_stmt))
     {
-      tree arg = TREE_OPERAND (*def_stmt, 0);
-      if (TREE_CODE (arg) == INTEGER_CST || TREE_CODE (arg) == REAL_CST)
-        {
-          *def = operand;
-          *dt = vect_invariant_def;
-          return true;
-        }
-
-      if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "Unexpected empty stmt.");
-      return false;
+      *def = operand;
+      *dt = vect_invariant_def;
+      return true;
     }
 
   bb = bb_for_stmt (*def_stmt);
