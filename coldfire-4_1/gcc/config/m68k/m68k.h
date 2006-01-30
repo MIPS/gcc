@@ -1087,6 +1087,41 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
+/* CPU/architecture selection bits.  */
+
+enum uarch_type
+{
+  u68000,
+  u68010,
+  u68020,
+  u68030,
+  u68040,
+  u68060,
+  ucfv2,
+  ucfv2m,
+  ucfv3,
+  ucfv4,
+  ucfv4e,
+  ucfv5,
+  unk_arch
+};
+
+enum processor_type
+{
+#define M68K_CORE(NAME,IDENT,MICROARCH,ISA,FLAGS) \
+  IDENT,
+#include "m68k-cores.def"
+#undef M68K_CORE
+  unk_proc
+};
+
+enum fpu_type
+{
+  FPUTYPE_NONE,
+  FPUTYPE_68881,
+  FPUTYPE_COLDFIRE
+};
+
 /* Variables in m68k.c */
 extern const char *m68k_library_id_string;
 extern int m68k_last_compare_had_fp_operands;

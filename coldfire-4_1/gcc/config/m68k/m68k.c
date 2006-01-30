@@ -201,6 +201,152 @@ static const struct attribute_spec m68k_attribute_table[] =
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+
+/* Bit values used by m68k-cores.def to identify processor capabilities.  */
+#define FL_NOPIC     (1 << 0)    /* PIC is *not* supported.  */
+#define FL_BITFIELD  (1 << 1)    /* Support bitfield instructions.  */
+#define FL_68881     (1 << 2)    /* (Default) support for 68881/2.  */
+#define FL_COLDFIRE  (1 << 3)    /* ColdFire processor.  */
+#define FL_CF_HWDIV  (1 << 4)    /* ColdFire hardware divide supported.  */
+#define FL_CF_MAC    (1 << 5)    /* ColdFire MAC unit supported.  */
+#define FL_CF_EMAC   (1 << 6)    /* ColdFire eMAC unit supported.  */
+#define FL_CF_EMAC_B (1 << 7)    /* ColdFire eMAC-B unit supported.  */
+#define FL_CF_USP    (1 << 8)    /* ColdFire User Stack Pointer supported.  */
+#define FL_CF_FPU    (1 << 9)    /* ColdFire FPU supported.  */
+#define FL_ISA_68000 (1 << 10)
+#define FL_ISA_68020 (1 << 11)
+#define FL_ISA_68040 (1 << 12)
+#define FL_ISA_68060 (1 << 13)
+#define FL_ISA_A     (1 << 14)
+#define FL_ISA_APLUS (1 << 15)
+#define FL_ISA_B     (1 << 16)
+#define FL_ISA_C     (1 << 17)
+
+/* Base flags for 68k ISAs.  */
+#define FL_FOR_isa_00    FL_ISA_68000
+#define FL_FOR_isa_20    FL_ISA_68020
+#define FL_FOR_isa_40    FL_ISA_68040
+#define FL_FOR_isa_60    FL_ISA_68060
+#define FL_FOR_isa_20_40 (FL_ISA_68020 | FL_ISA_68040)
+#define FL_FOR_isa_20_60 (FL_ISA_68020 | FL_ISA_68060)
+
+/* Base flags for ColdFire ISAs.  */
+#define FL_FOR_isa_a     (FL_COLDFIRE | FL_ISA_A)
+#define FL_FOR_isa_aplus (FL_COLDFIRE | FL_ISA_A | FL_ISA_APLUS | FL_CF_USP)
+/* Note ISA_B doesn't necessarily include USP (user stack pointer) support.  */
+#define FL_FOR_isa_b     (FL_COLDFIRE | FL_ISA_A | FL_ISA_B | FL_CF_HWDIV)
+#define FL_FOR_isa_c     (FL_COLDFIRE | FL_ISA_A | FL_ISA_B | FL_ISA_C \
+                          | FL_CF_USP | FL_CF_HWDIV)
+
+enum m68k_isa
+{
+  /* Traditional 68000 instruction sets.  */
+  isa_00,
+  isa_20,
+  isa_40,
+  isa_60,
+  isa_20_40,
+  isa_20_60,
+  /* ColdFire instruction set variants.  */
+  isa_a,
+  isa_aplus,
+  isa_b,
+  isa_c,
+  isa_max
+};
+
+struct processors
+{
+  const char *const name;
+  enum processor_type core;
+  enum uarch_type microarch;
+  enum m68k_isa isa;
+  const unsigned long flags;
+};
+
+static const struct processors all_cores[] =
+{
+  /* m68k cores.  */
+#define M68K_CORE(NAME,IDENT,MICROARCH,ISA,FLAGS) \
+  { NAME, IDENT, u##MICROARCH, ISA, FLAGS | FL_FOR_##ISA },
+#include "m68k-cores.def"
+#undef M68K_CORE
+  { 0, unk_proc, 0, isa_max, 0 }
+};
+
+/* Note that arch settings specify the minimum set of flags to enable running
+   on any CPU implementing that architecture. This may be non-optimal in many
+   cases.  */
+
+static const struct processors all_architectures[] =
+{
+  { "68000",    m68000,    u68000,  isa_00,    FL_ISA_68000 | FL_NOPIC },
+  { "68010",    m68010,    u68000,  isa_00,    FL_ISA_68000 | FL_NOPIC },
+  { "68020",    m68020,    u68020,  isa_20,    FL_ISA_68020 | FL_BITFIELD },
+  { "68030",    m68030,    u68020,  isa_20,    FL_ISA_68020 | FL_BITFIELD },
+  { "68040",    m68040,    u68040,  isa_40,    FL_ISA_68040 | FL_BITFIELD
+                                               | FL_68881 },
+  { "68060",    m68060,    u68060,  isa_60,    FL_ISA_68060 | FL_BITFIELD
+                                               | FL_68881 },
+  { "68020-40", m68020_40, u68020,  isa_20_40, FL_ISA_68020 | FL_ISA_68040
+    					       | FL_68881 | FL_BITFIELD },
+  { "68020-60", m68020_60, u68020,  isa_20_60, FL_ISA_68020 | FL_ISA_68060
+    					       | FL_BITFIELD | FL_68881 },
+  { "cpu32",    cpu32,     u68020,  isa_20,    FL_ISA_68020 },
+  { "cfv2",     mcf5206,   ucfv2,   isa_a,     FL_COLDFIRE | FL_ISA_A },
+  { "cfv2m",    mcf5206e,  ucfv2m,  isa_a,     FL_COLDFIRE | FL_ISA_A
+                                               | FL_CF_HWDIV | FL_CF_MAC },
+  { "cfv3",     mcf5307,   ucfv3,   isa_a,     FL_COLDFIRE | FL_ISA_A
+                                               | FL_CF_HWDIV },
+  { "cfv4",     mcf5407,   ucfv4,   isa_b,     FL_COLDFIRE | FL_ISA_B
+    					       | FL_CF_HWDIV },
+  { "cfv4e",    mcf547x,   ucfv4e,  isa_b,     FL_COLDFIRE | FL_ISA_B
+    					       | FL_CF_HWDIV | FL_CF_EMAC
+					       | FL_CF_FPU | FL_CF_USP },
+  { "isaa",     mcf5206,   ucfv2,   isa_a,     FL_COLDFIRE | FL_ISA_A },
+  { "isaaplus", mcf5271,   ucfv2,   isa_aplus, FL_COLDFIRE | FL_ISA_A
+  					       | FL_ISA_APLUS },
+  { "isab",     mcf5407,   ucfv4,   isa_b,     FL_COLDFIRE | FL_ISA_B
+                                               | FL_CF_HWDIV },
+  /* FIXME: The below line is slightly bogus.  */
+  { "isac",     unk_proc,  ucfv4,   isa_c,     FL_COLDFIRE | FL_ISA_C
+                                               | FL_CF_HWDIV | FL_CF_USP
+   					       | FL_CF_FPU | FL_CF_EMAC },
+  { NULL,       unk_proc,  unk_arch,isa_max,   0 }
+};
+
+struct m68k_cpu_select
+{
+  const char *              string;
+  const char *              name;
+  const struct processors * processors;
+};
+
+static struct m68k_cpu_select m68k_select[] =
+{
+  { NULL, "-mtune=", all_cores },
+  { NULL, "-march=", all_architectures },
+  { NULL, "-mcpu=",  all_cores }
+};
+
+struct fpu_impl
+{
+  const char * name;
+  enum fpu_type fpu;
+};
+
+static struct fpu_impl fpu_select[] =
+{
+  { "none",     FPUTYPE_NONE },
+  { "68881",    FPUTYPE_68881 },
+  { "coldfire", FPUTYPE_COLDFIRE }
+};
+
+/* Defines representing indices into the above table.  */
+#define M68K_OPT_SET_TUNE 0
+#define M68K_OPT_SET_ARCH 1
+#define M68K_OPT_SET_CPU 2
+
 /* These bits are controlled by all CPU selection options.  Many options
    also control MASK_68881, but some (notably -m68020) leave it alone.  */
 
@@ -215,6 +361,18 @@ m68k_handle_option (size_t code, const char *arg, int value)
 {
   switch (code)
     {
+    case OPT_march_:
+      m68k_select[M68K_OPT_SET_ARCH].string = arg;
+      return true;
+
+    case OPT_mcpu_:
+      m68k_select[M68K_OPT_SET_CPU].string = arg;
+      return true;
+
+    case OPT_mtune_:
+      m68k_select[M68K_OPT_SET_TUNE].string = arg;
+      return true;
+
     case OPT_m5200:
       target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881);
       target_flags |= MASK_5200;
@@ -319,6 +477,179 @@ m68k_handle_option (size_t code, const char *arg, int value)
 void
 override_options (void)
 {
+  unsigned int i;
+  enum processor_type target_cpu = unk_proc;
+  enum uarch_type uarch = unk_arch;
+  unsigned long flags = 0;
+
+  /* User can choose:
+       -mcpu=
+       -march=
+       -mtune=
+     -mcpu should override -march. Tune should not affect CPU/arch, but should
+     tweak costs, etc., unless no other CPU/arch is specified, in which case
+     it should pick sensible defaults for them.
+     -march (without -mcpu) should enable code to run on any processor
+     implementing that architecture, without requiring any extensions.
+  */
+
+  for (i = 0; i < ARRAY_SIZE (m68k_select); i++)
+    {
+      struct m68k_cpu_select * ptr = m68k_select + i;
+
+      if (ptr->string != NULL && ptr->string[0] != '\0')
+        {
+	  const struct processors * sel;
+	  
+	  for (sel = ptr->processors; sel->name != NULL; sel++)
+	    if (strcmp (ptr->string, sel->name) == 0)
+	      {
+		if (i != M68K_OPT_SET_TUNE)
+		  {
+		    /* FIXME: We complain if the arch provides a flag that the
+		       CPU doesn't. This might not be sufficient.  */
+		    if ((flags != 0 && (flags & ~sel->flags))
+		        || (uarch != unk_arch && uarch != sel->microarch))
+		      warning (0, "switch -mcpu=%s conflicts with -march= "
+			       "switch", ptr->string);
+		    flags = sel->flags;
+		    uarch = sel->microarch;
+		    target_cpu = sel->core;
+		  }
+
+		break;
+	      }
+
+	  if (sel->name == NULL)
+	    error ("bad value (%s) for %s switch", ptr->string, ptr->name);
+	}
+    }
+
+  /* FIXME: Convert flags to old-style target flags. This will be overhauled
+     later.  */
+  if (flags != 0)
+    {
+      /* If 68881 was set previously by other (legacy) means.  */
+      unsigned long used_68881 = target_flags & MASK_68881;
+
+      target_flags &= ~(MASK_ALL_CPU_BITS | MASK_68881 | MASK_5200 | MASK_528x
+	                | MASK_CFV3 | MASK_CFV4 | MASK_CFV4E);
+
+      if (flags & FL_NOPIC)
+	/* Unimplemented.  */
+	;
+
+      if (flags & FL_BITFIELD)
+	target_flags |= MASK_BITFIELD;
+
+      if (flags & FL_68881)
+	target_flags |= MASK_68881;
+
+      if (flags & FL_COLDFIRE)
+	/* Do not do this: MASK_COLDFIRE is a set of other target flags.  */
+	/* target_flags |= MASK_COLDFIRE; */
+	;
+
+      if (flags & FL_CF_HWDIV)
+	target_flags |= MASK_CF_HWDIV;
+
+      if (flags & FL_CF_MAC)
+	/* Unimplemented.  */
+	;
+
+      if (flags & FL_CF_EMAC)
+	/* Unimplemented.  */
+	;
+
+      if (flags & FL_CF_EMAC_B)
+	/* Unimplemented.  */
+	;
+
+      if (flags & FL_CF_USP)
+	/* Unimplemented.  */
+	;
+
+      /* FIXME: This is pretty bogus, since other processors will have FPU
+	 units too.  */
+      if (flags & FL_CF_FPU)
+	target_flags |= MASK_CFV4E;
+
+      if (flags & FL_ISA_68000)
+	/* No-op.  */
+	;
+
+      if (flags & FL_ISA_68020)
+	target_flags |= MASK_68020 | used_68881;
+
+      if (flags & FL_ISA_68040)
+	target_flags |= MASK_68020 | MASK_68040;
+
+      if (flags & FL_ISA_68060)
+	target_flags |= MASK_68020 | MASK_68060;
+
+      if ((flags & FL_ISA_68040) && !(flags & FL_ISA_68020))
+	target_flags |= MASK_68040_ONLY;
+
+      if (flags & FL_ISA_68060)
+        {
+	  if (flags & FL_ISA_68020)
+	    target_flags |= MASK_68040;
+	  else
+	    target_flags |= MASK_68040_ONLY;
+	}
+    }  
+
+  /* For 68k series processors, no extra microarch handling is necessary.  */
+  switch (uarch)
+    {
+    case ucfv3:
+      target_flags |= MASK_CFV3;
+      break;
+
+    case ucfv4:
+      target_flags |= MASK_CFV4;
+      break;
+
+    case ucfv4e:
+      target_flags |= MASK_CFV4E | MASK_CFV4;
+      break;
+
+    default:
+      ;
+    }
+
+  /* More legacy target flag setting, to be removed later.  */
+  switch (target_cpu)
+    {
+    case m68030:
+      /* 68030 is basically the same as 68020, AFAICT.  */
+      target_flags |= MASK_68030;
+      break;
+
+    case cpu32:
+      /* cpu32 claims FL_ISA_68020, which by default does not affect the
+	 hardware-float (68881) target flag. Switch it off here.  */
+      target_flags &= ~MASK_68881;
+      break;
+
+    case mcf5206:
+      target_flags |= MASK_5200;
+      break;
+
+    case mcf5206e:
+      target_flags |= MASK_5200 | MASK_CF_HWDIV;
+      break;
+
+    case mcf5280:
+    case mcf5281:
+    case mcf5282:
+      target_flags |= MASK_528x | MASK_CF_HWDIV;
+      break;
+
+    default:
+      ;
+    }
+
   /* Sanity check to ensure that msep-data and mid-sahred-library are not
    * both specified together.  Doing so simply doesn't make sense.
    */

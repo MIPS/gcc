@@ -1,0 +1,86 @@
+/* m68k CPU Cores
+   Copyright (C) 2005 Free Software Foundation, Inc.
+   Written by CodeSourcery
+
+   This file is part of GCC.
+    
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   GCC is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to the Free
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
+
+/* Flags to use:
+    - coldfire
+    - 68881
+    - hwdiv
+    - bitfield
+    - coldfire fpu
+    - MAC
+    - EMAC
+
+   These instructions can have different costs:
+    - MULL
+    - MULW
+    - DIVW
+
+   Fields mean:
+     M68K_CORE(CORE_NAME, CORE_IDENT, MICROARCH, ISA, FLAGS)
+
+   Note that isa_* implies certain default base flags: see m68k.c.
+*/
+
+/* 680x0 series processors.  */
+M68K_CORE("68000",    m68000,    68000,    isa_00,    FL_NOPIC)
+M68K_CORE("68010",    m68010,    68000,    isa_00,    FL_NOPIC)
+M68K_CORE("68020",    m68020,    68020,    isa_20,    FL_BITFIELD)
+M68K_CORE("68030",    m68030,    68020,    isa_20,    FL_BITFIELD)
+M68K_CORE("68040",    m68040,    68040,    isa_40,    FL_BITFIELD | FL_68881)
+M68K_CORE("68020-40", m68020_40, 68020,    isa_20_40, FL_BITFIELD)
+M68K_CORE("68020-60", m68020_60, 68020,    isa_20_60, FL_BITFIELD)
+M68K_CORE("68060",    m68060,    68060,    isa_60,    FL_BITFIELD | FL_68881)
+M68K_CORE("68302",    m68302,    68000,    isa_00,    0)
+M68K_CORE("68332",    m68332,    68020,    isa_20,    0)
+M68K_CORE("cpu32",    cpu32,     68020,    isa_20,    0)
+
+/* Coldfire CFV2 processors.  */
+/* FIXME: This information was extracted from several different processor
+   manuals, and may be inaccurate.  */
+M68K_CORE("5206",     mcf5206,   cfv2,     isa_a,     0)
+M68K_CORE("5206e",    mcf5206e,  cfv2,     isa_a,     FL_CF_HWDIV | FL_CF_MAC)
+M68K_CORE("5207",     mcf5207,   cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
+M68K_CORE("5208",     mcf5208,   cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
+M68K_CORE("5211",     mcf5211,   cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_MAC)
+M68K_CORE("5212",     mcf5212,   cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_MAC)
+M68K_CORE("5213",     mcf5213,   cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_MAC)
+M68K_CORE("5214",     mcf5214,   cfv2,     isa_aplus, FL_CF_EMAC)
+M68K_CORE("5216",     mcf5216,   cfv2,     isa_aplus, FL_CF_EMAC)
+M68K_CORE("523x",     mcf523x,   cfv2,     isa_aplus, FL_CF_EMAC)
+M68K_CORE("5249",     mcf5249,   cfv2,     isa_a,     FL_CF_HWDIV | FL_CF_EMAC)
+M68K_CORE("5270",     mcf5270,   cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
+M68K_CORE("5271",     mcf5271,   cfv2,     isa_aplus, 0)
+M68K_CORE("5272",     mcf5272,   cfv2,     isa_a,     FL_CF_HWDIV | FL_CF_MAC)
+M68K_CORE("5274",     mcf5274,   cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
+M68K_CORE("5275",     mcf5275,   cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
+M68K_CORE("5280",     mcf5280,   cfv2,     isa_aplus, FL_CF_EMAC)
+M68K_CORE("5281",     mcf5281,   cfv2,     isa_aplus, FL_CF_EMAC)
+M68K_CORE("5282",     mcf5282,   cfv2,     isa_aplus, FL_CF_EMAC)
+
+/* CFV3 processors.  */
+M68K_CORE("5307",     mcf5307,   cfv3,     isa_a,     FL_CF_HWDIV | FL_CF_MAC)
+M68K_CORE("532x",     mcf532x,   cfv3,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
+M68K_CORE("537x",     mcf537x,   cfv3,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
+
+/* CFV4/CFV4e processors.  */
+M68K_CORE("5407",     mcf5407,   cfv4,     isa_b,     FL_CF_MAC)
+M68K_CORE("547x",     mcf547x,   cfv4e,    isa_b,     FL_CF_USP | FL_CF_EMAC | FL_CF_FPU)
+M68K_CORE("548x",     mcf548x,   cfv4e,    isa_b,     FL_CF_USP | FL_CF_EMAC | FL_CF_FPU)

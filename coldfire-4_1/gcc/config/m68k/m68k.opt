@@ -151,3 +151,20 @@ Generate code with library calls for floating point
 mstrict-align
 Target Report Mask(STRICT_ALIGNMENT)
 Do not use unaligned memory references
+
+mcpu=
+Target RejectNegative Joined
+Specify the target CPU
+
+march=
+Target RejectNegative Joined
+Specify the name of the target architecture
+
+mtune=
+Target RejectNegative Joined
+Tune for the specified target CPU or architecture
+
+mfpu=
+Target RejectNegative Joined Var(target_fpu_name)
+Specify the name of the target floating-point implementation
+

@@ -1,3 +1,35 @@
+2006-01-30  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/m68k-cores.def: New file. Define various 68k/ColdFire
+	cores.
+	* gcc/config/m68k/m68k.opt (-mcpu, -march, -mtune, -mfpu): New
+	options.
+	* gcc/config/m68k/m68k.c (FL_NOPIC, FL_BITFIELD, FL_68881, FL_COLDFIRE)
+	(FL_CF_HWDIV, FL_CF_MAC, FL_CF_EMAC, FL_CF_EMAC_B, FL_CF_USP)
+	(FL_CF_FPU, FL_ISA_68000, FL_ISA_68020, FL_ISA_68040, FL_ISA_68060)
+	(FL_ISA_A, FL_ISA_APLUS, FL_ISA_B, FL_ISA_C): Define flags for
+	m68k-cores.def.
+	(FL_FOR_isa_00, FL_FOR_isa_20, FL_FOR_isa_40, FL_FOR_isa_60)
+	(FL_FOR_isa_20_40, FL_FOR_isa_20_60, FL_FOR_isa_a, FL_FOR_isa_aplus)
+	(FL_FOR_isa_b, FL_FOR_isa_c): Define base flags for ISAs.
+	(m68k_isa): New enumerated type for instruction-set architectures.
+	(processors): New type for processors.
+	(all_cores): New array. All m68k cores, read from m68k-cores.def.
+	(all_architectures): New array. All m68k architectures.
+	(m68k_cpu_select): New type for selecting cpu/arch.
+	(m68k_select): New array for selecting cpu/arch/tuning.
+	(fpu_impl): New type for floating-point units.
+	(fpu_select): New array for selecting FPU.
+	(M68K_OPT_SET_TUNE, M68K_OPT_SET_ARCH, M68K_OPT_SET_CPU): New defines
+	for indices into m68k_select array.
+	(m68k_handle_option): Handle -mcpu=, -march=, -mtune=.
+	(override_options): Handle new -mcpu, -march options. Translate to old
+	target flags.
+	* gcc/config/m68k/m68k.h (uarch_type): New enumeration for
+	microarchitecture types.
+	(processor_type): New enumeration for processor core identifications.
+	(fpu_type): New enumeration for FPU types.
+
 2006-01-27  Paul Brook  <paul@codesourcery.com>
 
 	* version.c: Mark as CodeSourcery build.
