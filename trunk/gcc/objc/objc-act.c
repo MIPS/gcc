@@ -313,9 +313,18 @@ static const char *objc_demangle (const char *);
 hash *nst_method_hash_list = 0;
 hash *cls_method_hash_list = 0;
 
+/* APPLE LOCAL begin radar 4345837 */
+hash *cls_name_hash_list = 0;
+hash *als_name_hash_list = 0;
+/* APPLE LOCAL end radar 4345837 */
+
 static size_t hash_func (tree);
 static void hash_init (void);
 static void hash_enter (hash *, tree);
+/* APPLE LOCAL begin radar 4345837 */
+static void hash_class_name_enter (hash *, tree, tree);
+static hash hash_class_name_lookup (hash *, tree);
+/* APPLE LOCAL end radar 4345837 */
 static hash hash_lookup (hash *, tree);
 static void hash_add_attr (hash, tree);
 static tree lookup_method (tree, tree);
@@ -3843,7 +3852,10 @@ objc_declare_alias (tree alias_ident, tree class_ident)
 #ifdef OBJCPLUS
       pop_lang_context ();
 #endif
-      alias_chain = tree_cons (underlying_class, alias_ident, alias_chain);
+      /* APPLE LOCAL begin radar 4345837 */
+      hash_class_name_enter (als_name_hash_list, alias_ident, 
+			     underlying_class);
+      /* APPLE LOCAL end radar 4345837 */
     }
     /* APPLE LOCAL end mainline */
 }
@@ -3888,7 +3900,8 @@ objc_declare_class (tree ident_list)
 	  record = xref_tag (RECORD_TYPE, ident);
 	  INIT_TYPE_OBJC_INFO (record);
 	  TYPE_OBJC_INTERFACE (record) = ident;
-	  class_chain = tree_cons (NULL_TREE, ident, class_chain);
+	  /* APPLE LOCAL radar 4345837 */
+	  hash_class_name_enter (cls_name_hash_list, ident, NULL_TREE);
 	}
     }
 }
@@ -3896,7 +3909,8 @@ objc_declare_class (tree ident_list)
 tree
 objc_is_class_name (tree ident)
 {
-  tree chain;
+  /* APPLE LOCAL radar 4345837 */
+  hash target;
 
   if (ident && TREE_CODE (ident) == IDENTIFIER_NODE
       && identifier_global_value (ident))
@@ -3922,18 +3936,18 @@ objc_is_class_name (tree ident)
 
   if (lookup_interface (ident))
     return ident;
+  /* APPLE LOCAL begin radar 4345837 */
+  target = hash_class_name_lookup (cls_name_hash_list, ident);
+  if (target)
+    return target->key;
 
-  for (chain = class_chain; chain; chain = TREE_CHAIN (chain))
+  target = hash_class_name_lookup (als_name_hash_list, ident);
+  if (target)
     {
-      if (ident == TREE_VALUE (chain))
-	return ident;
+      gcc_assert (target->list && target->list->value);
+      return target->list->value;
     }
-
-  for (chain = alias_chain; chain; chain = TREE_CHAIN (chain))
-    {
-      if (ident == TREE_VALUE (chain))
-	return TREE_PURPOSE (chain);
-    }
+  /* APPLE LOCAL end radar 4345837 */
 
   return 0;
 }
@@ -9558,6 +9572,13 @@ hash_init (void)
   cls_method_hash_list
     = (hash *) ggc_alloc_cleared (SIZEHASHTABLE * sizeof (hash));
 
+  /* APPLE LOCAL begin radar 4345837 */
+  cls_name_hash_list
+    = (hash *) ggc_alloc_cleared (SIZEHASHTABLE * sizeof (hash));
+  als_name_hash_list
+    = (hash *) ggc_alloc_cleared (SIZEHASHTABLE * sizeof (hash));
+  /* APPLE LOCAL end radar 4345837 */
+
   /* Initialize the hash table used to hold the constant string objects.  */
   string_htab = htab_create_ggc (31, string_hash,
 				   string_eq, NULL);
@@ -9565,6 +9586,56 @@ hash_init (void)
   /* code removed */
   /* APPLE LOCAL end radar 4204796 */
 }
+
+/* APPLE LOCAL begin radar 4345837 */
+/* This routine adds sel_name to the hash list. sel_name  is a class or alias
+   name for the class. If alias name, then value is its underlying class.
+   If class, the value is NULL_TREE. */
+
+static void
+hash_class_name_enter (hash *hashlist, tree sel_name, tree value)
+{
+  hash obj;
+  int slot = hash_func (sel_name) % SIZEHASHTABLE;
+
+  obj = (hash) ggc_alloc (sizeof (struct hashed_entry));
+  if (value != NULL_TREE)
+    {
+      /* Save the underlying class for the 'alias' in the hash table */
+      attr obj_attr = (attr) ggc_alloc (sizeof (struct hashed_attribute));
+      obj_attr->value = value;
+      obj->list = obj_attr;
+    }
+  else
+    obj->list = 0;
+  obj->next = hashlist[slot];
+  obj->key = sel_name;
+
+  hashlist[slot] = obj;         /* append to front */
+
+}
+
+/*
+   Searches in the hash table looking for a match for class or alias name.
+*/
+
+static hash
+hash_class_name_lookup (hash *hashlist, tree sel_name)
+{
+  hash target;
+
+  target = hashlist[hash_func (sel_name) % SIZEHASHTABLE];
+
+  while (target)
+    {
+      if (sel_name == target->key)
+	return target;
+
+      target = target->next;
+    }
+  return 0;
+}
+/* APPLE LOCAL end radar 4345837 */
 
 /* WARNING!!!!  hash_enter is called with a method, and will peek
    inside to find its selector!  But hash_lookup is given a selector

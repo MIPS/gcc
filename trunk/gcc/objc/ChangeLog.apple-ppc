@@ -1,3 +1,15 @@
+2006-01-27 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4345837
+	* objc/objc-act.c (hash_class_name_enter): New.
+	(hash_class_name_lookup): New.
+	(objc_declare_alias): Enter alias name into hash table.
+	(objc_declare_class): Enter class name into hash table.
+	(objc_is_class_name): Do a hash look up of class name.
+	(hash_init): Initialize the two new hash tables.
+	* objc-act.h: Added cls_name_hash_list and als_name_hash_list 
+	declarations, removed class_chain and alias_chain.
+
 2006-01-24 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4310884
