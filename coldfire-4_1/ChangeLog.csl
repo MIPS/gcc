@@ -1,3 +1,7 @@
+2006-01-31  Nathan Sidwell  <nathan@voldemort.voldemort.codesourcery.com>
+
+	* gcc/config/m68k/lb1sf68.asm: Use moveq to load small constants.
+
 2006-01-30  Julian Brown  <julian@codesourcery.com>
 
 	* gcc/config/m68k/m68k-cores.def: New file. Define various 68k/ColdFire
