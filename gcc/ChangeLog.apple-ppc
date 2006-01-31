@@ -1,3 +1,9 @@
+2006-01-30  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4176531
+	* gcc/config/i386/i386.c (ix86_expand_convert_DF2SI_sse):
+	Fixes for -Werror.
+
 2006-01-28  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4420068

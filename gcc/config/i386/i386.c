@@ -8611,7 +8611,7 @@ ix86_expand_vector_move2 (enum machine_mode mode, rtx op0, rtx op1)
   rtx operands[2];
   operands[0] = op0;
   operands[1] = op1;
-  return ix86_expand_vector_move (mode, operands);
+  ix86_expand_vector_move (mode, operands);
 }
 
 static rtvec
@@ -8858,6 +8858,8 @@ ix86_expand_convert_DI2DF_sse (rtx operands[])
 
   cfun->uses_vector = 1;
 
+  int_xmm = gen_reg_rtx (V4SImode);
+
   /* Get the DImode value into an XMM register.  */
   switch (GET_CODE (fp_value))
     {
@@ -8873,7 +8875,6 @@ ix86_expand_convert_DI2DF_sse (rtx operands[])
       fp_value_hi_xmm = gen_reg_rtx (V4SImode);
       emit_insn (gen_sse2_loadld (fp_value_hi_xmm, CONST0_RTX (V4SImode), fp_value_hi));
 
-      int_xmm = gen_reg_rtx (V4SImode);
       ix86_expand_vector_move2 (V4SImode, int_xmm, fp_value_hi_xmm);
       emit_insn (gen_sse2_punpckldq (int_xmm, int_xmm, fp_value_lo_xmm));
       break;
