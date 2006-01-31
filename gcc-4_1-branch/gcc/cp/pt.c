@@ -11024,6 +11024,7 @@ most_specialized_instantiation (tree instantiations)
 	  /* Equally specialized, move to next function.  If there
 	     is no next function, nothing's most specialized.  */
 	  fn = TREE_CHAIN (fn);
+	  champ = fn;
 	  if (!fn)
 	    break;
 	}
