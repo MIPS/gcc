@@ -1,3 +1,15 @@
+2006-01-31  Devang Patel  <dpatel@apple.com>
+
+	Radar 4382844
+	* tree-data-ref.c (analyze_array, init_data_ref, 
+	find_data_references_in_loop): Set DR_TYPE.
+	* tree-data-ref.h (data_ref_type): New.
+	(struct data_reference): New member, data reference type.
+	(DR_TYPE): New.
+	* tree-vect-analyze.c (record_ptr_differ_p, 
+	vect_base_object_differ_p): New.
+	(vect_base_addr_differ_p): Check base objects.
+
 2006-01-30  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4176531

@@ -1,3 +1,8 @@
+2006-01-31  Devang Patel  <dpatel@apple.com>
+
+	Radar 4382844
+	* g++.dg/vect/R4382844.cc: New.
+
 2006-01-28  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4420068
