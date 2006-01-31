@@ -92,6 +92,11 @@ void objc_detect_field_duplicates (tree);
 /* APPLE LOCAL end ObjC abi v2 */
 #define PROTOCOL_DEFINED(CLASS) TREE_USED (CLASS)
 
+/* APPLE LOCAL begin C* language */
+#define CLASS_OPTIONAL_CLS_METHODS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 5)
+#define CLASS_OPTIONAL_NST_METHODS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 6)
+/* APPLE LOCAL end C* language */
+
 /* ObjC-specific information pertaining to RECORD_TYPEs are stored in
    the LANG_SPECIFIC structures, which may itself need allocating first.  */
 

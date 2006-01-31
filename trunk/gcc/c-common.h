@@ -101,6 +101,8 @@ enum rid
   RID_AT_THROW,	   RID_AT_TRY,       RID_AT_CATCH,
   RID_AT_FINALLY,  RID_AT_SYNCHRONIZED,
   RID_AT_INTERFACE,
+  /* APPLE LOCAL C* language */
+  RID_AT_OPTIONAL, RID_AT_REQUIRED,
   RID_AT_IMPLEMENTATION,
 
   RID_MAX,
@@ -1064,6 +1066,7 @@ extern tree objc_generate_static_init_call (tree);
 extern tree objc_generate_write_barrier (tree, enum tree_code, tree);
 
 /* APPLE LOCAL begin C* language */
+extern void objc_set_method_opt (int);
 void objc_finish_foreach_loop (location_t, tree, tree, tree, tree);
 tree objc_build_component_ref (tree, tree);
 tree objc_build_foreach_components (tree, tree*, tree*, tree*, 

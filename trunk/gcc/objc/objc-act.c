@@ -172,7 +172,8 @@ static void objc_start_function (tree, tree, tree, struct c_arg_info *);
 #endif
 static tree start_protocol (enum tree_code, tree, tree);
 static tree build_method_decl (enum tree_code, tree, tree, tree);
-static tree objc_add_method (tree, tree, int);
+/* APPLE LOCAL C* language */
+static tree objc_add_method (tree, tree, int, int);
 static tree add_instance_variable (tree, int, tree);
 static tree build_ivar_reference (tree);
 static tree is_ivar (tree, tree);
@@ -587,6 +588,8 @@ int cat_count = 0;	/* `@category' */
 enum tree_code objc_inherit_code;
 int objc_public_flag;
 
+/* APPLE LOCAL C* language */
+static int objc_method_optional_flag = 0;
 /* Use to generate method labels.  */
 static int method_slot = 0;
 
@@ -885,6 +888,8 @@ objc_start_protocol (tree name, tree protos)
 {
   objc_interface_context
     = start_protocol (PROTOCOL_INTERFACE_TYPE, name, protos);
+  /* APPLE LOCAL C* language */
+  objc_method_optional_flag = 0;
 }
 
 void
@@ -899,6 +904,8 @@ objc_finish_interface (void)
 {
   finish_class (objc_interface_context);
   objc_interface_context = NULL_TREE;
+  /* APPLE LOCAL C* language */
+  objc_method_optional_flag = 0;
 }
 
 void
@@ -952,7 +959,20 @@ objc_set_visibility (int visibility)
   objc_public_flag = visibility;
 }
 
+/* APPLE LOCAL begin C* language */
 void
+objc_set_method_opt (int optional)
+{
+  objc_method_optional_flag = optional;
+  if (!objc_interface_context 
+      || TREE_CODE (objc_interface_context) != PROTOCOL_INTERFACE_TYPE)
+    {
+      error ("@optional/@required is allowed in @protocol context only.");
+      objc_method_optional_flag = 0;
+    }
+}
+void
+/* APPLE LOCAL end C* language */
 objc_set_method_type (enum tree_code type)
 {
   objc_inherit_code = (type == PLUS_EXPR
@@ -972,9 +992,12 @@ objc_add_method_declaration (tree decl)
   if (!objc_interface_context)
     fatal_error ("method declaration not in @interface context");
 
+  /* APPLE LOCAL begin C* language */
   objc_add_method (objc_interface_context,
 		   decl,
-		   objc_inherit_code == CLASS_METHOD_DECL);
+		   objc_inherit_code == CLASS_METHOD_DECL,
+		   objc_method_optional_flag);
+  /* APPLE LOCAL end C* language */
 }
 
 void
@@ -990,7 +1013,8 @@ objc_start_method_definition (tree decl)
 
   objc_add_method (objc_implementation_context,
 		   decl,
-		   objc_inherit_code == CLASS_METHOD_DECL);
+		   /* APPLE LOCAL C* language */
+		   objc_inherit_code == CLASS_METHOD_DECL, 0);
   start_method_def (decl);
 
   /* APPLE LOCAL begin ObjC abi v2 */
@@ -9808,10 +9832,34 @@ add_method_to_hash_list (hash *hash_list, tree method)
 }
 
 static tree
-objc_add_method (tree class, tree method, int is_class)
+/* APPLE LOCAL C* language */
+objc_add_method (tree class, tree method, int is_class, int is_optional)
 {
   tree mth;
 
+  /* APPLE LOCAL begin C* language */
+  /* @optional methods are added to protocol's OPTIONAL list */
+  if (is_optional)
+    {
+      gcc_assert (TREE_CODE (class) == PROTOCOL_INTERFACE_TYPE);
+      if (!(mth = lookup_method (is_class
+                                ? CLASS_OPTIONAL_CLS_METHODS (class)
+                                : CLASS_OPTIONAL_NST_METHODS (class), method)))
+      {
+        if (is_class)
+	  {
+	    TREE_CHAIN (method) = CLASS_OPTIONAL_CLS_METHODS (class);
+	    CLASS_OPTIONAL_CLS_METHODS (class) = method;
+	  }
+        else
+	  {
+	    TREE_CHAIN (method) = CLASS_OPTIONAL_NST_METHODS (class);
+	    CLASS_OPTIONAL_NST_METHODS (class) = method;
+	  }
+      }
+    }
+  else
+  /* APPLE LOCAL end C* language */
   if (!(mth = lookup_method (is_class
 			     ? CLASS_CLS_METHODS (class)
 			     : CLASS_NST_METHODS (class), method)))
@@ -11663,7 +11711,8 @@ really_start_method (tree method,
 
 	  if (interface)
 	    objc_add_method (interface, copy_node (method),
-			     TREE_CODE (method) == CLASS_METHOD_DECL);
+			     /* APPLE LOCAL C* language */
+			     TREE_CODE (method) == CLASS_METHOD_DECL, 0);
 	}
     }
 }

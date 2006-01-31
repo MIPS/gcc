@@ -190,8 +190,9 @@ do {									\
 %token AT_CLASS AT_ALIAS
 %token AT_THROW AT_TRY AT_CATCH AT_FINALLY AT_SYNCHRONIZED
 %token OBJC_STRING
-/* APPLE LOCAL C* language */
-%token AT_IN
+/* APPLE LOCAL begin C* language */
+%token AT_IN AT_OPTIONAL AT_REQUIRED
+/* APPLE LOCAL end C* language */
 
 %type <code> unop
 %type <ttype> ENUM STRUCT UNION IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
@@ -3274,6 +3275,11 @@ semi_or_error:
 	;
 
 methodproto:
+	/* APPLE LOCAL begin C* language */
+	AT_REQUIRED { objc_set_method_opt (0); }
+	| AT_OPTIONAL { objc_set_method_opt (1); }
+	|
+	/* APPLE LOCAL end C* language */
 	  methodtype
 		{
 		  objc_set_method_type ($1);
@@ -3635,6 +3641,10 @@ static const struct resword reswords[] =
   { "end",		RID_AT_END,		D_OBJC },
   { "implementation",	RID_AT_IMPLEMENTATION,	D_OBJC },
   { "interface",	RID_AT_INTERFACE,	D_OBJC },
+  /* APPLE LOCAL begin C* language */
+  { "optional",		RID_AT_OPTIONAL,	D_OBJC },
+  { "required",		RID_AT_REQUIRED,	D_OBJC },
+  /* APPLE LOCAL end C* language */
   { "private",		RID_AT_PRIVATE,		D_OBJC },
   { "protected",	RID_AT_PROTECTED,	D_OBJC },
   { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
@@ -3788,6 +3798,10 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_AT_FINALLY */		AT_FINALLY,
   /* RID_AT_SYNCHRONIZED */	AT_SYNCHRONIZED,
   /* RID_AT_INTERFACE */	AT_INTERFACE,
+  /* APPLE LOCAL begin C* language */
+  /* RID_AT_OPTIONAL */		AT_OPTIONAL,
+  /* RID_AT_REQUIRED */		AT_REQUIRED,
+  /* APPLE LOCAL end C* language */
   /* RID_AT_IMPLEMENTATION */	AT_IMPLEMENTATION
 };
 

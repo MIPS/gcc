@@ -300,6 +300,10 @@ static const struct resword reswords[] =
   { "end",		RID_AT_END,		D_OBJC },
   { "implementation",	RID_AT_IMPLEMENTATION,	D_OBJC },
   { "interface",	RID_AT_INTERFACE,	D_OBJC },
+  /* APPLE LOCAL beginc C* language */
+  { "optional",         RID_AT_OPTIONAL,        D_OBJC },
+  { "required",         RID_AT_REQUIRED,        D_OBJC },
+  /* APPLE LOCAL end C* language */
   { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
   { "selector",		RID_AT_SELECTOR,	D_OBJC },
   { "finally",		RID_AT_FINALLY,		D_OBJC },

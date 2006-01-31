@@ -1,3 +1,11 @@
+2006-01-30  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4386773
+	* c-common.h (RID_AT_OPTIONAL, RID_AT_REQUIRED): Two new
+	objective-c keywords.
+	(objc_set_method_opt): New declaration.
+	* stub-objc.c (objc_set_method_opt): New stub.
+
 2006-01-26  Devang Patel  <dpatel@apple.com>
 
 	Radar 4388369

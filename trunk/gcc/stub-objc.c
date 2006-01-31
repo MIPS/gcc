@@ -328,6 +328,11 @@ objc_is_public (tree ARG_UNUSED (expr), tree ARG_UNUSED (identifier))
 }
 
 /* APPLE LOCAL begin C* language */
+void
+objc_set_method_opt (int ARG_UNUSED (opt))
+{
+}
+
 tree
 objc_build_component_ref (tree ARG_UNUSED (datum), tree ARG_UNUSED (component))
 {

@@ -1,3 +1,11 @@
+2006-01-30  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4386773
+	* cp/lex.c (reswords): Add two new entries for @optional
+	and @required keywords.
+	* cp/parser.c (cp_parser_objc_interstitial_code): For
+	@optional/@required set the optional/required flag.
+
 2006-01-18  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4294910
