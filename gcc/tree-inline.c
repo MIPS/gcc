@@ -1053,6 +1053,8 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count, int frequ
   /* Register specific tree functions.  */
   tree_register_cfg_hooks ();
   *new_cfun = *DECL_STRUCT_FUNCTION (callee_fndecl);
+  new_cfun->funcdef_no = get_last_funcdef_no ();
+  new_cfun->unexpanded_var_list = NULL;
   new_cfun->cfg = NULL;
   new_cfun->decl = new_fndecl /*= copy_node (callee_fndecl)*/;
   new_cfun->ib_boundaries_block = (varray_type) 0;

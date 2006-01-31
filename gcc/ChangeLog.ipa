@@ -1,3 +1,10 @@
+2006-01-31  Razya Ladelsky  <razya@il.ibm.com>
+ 
+        * function.c (get_last_funcdef_no): New function.
+        (allocate_struct_function) : Use the new function.            
+        * function.h (get_last_funcdef_no): New declaration.
+        * tree-inline.c (initialize_cfun): Add initializations.
+
 2006-01-26  Jan Hubicka  <jh@suse.cz>
 
 	* tree-inline.c (remap_ssa_name): Fix imroperly resolved merging

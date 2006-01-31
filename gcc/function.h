@@ -566,4 +566,6 @@ extern bool pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 extern bool reference_callee_copied (CUMULATIVE_ARGS *, enum machine_mode,
 				     tree, bool);
 
+extern int get_last_funcdef_no (void);
+
 #endif  /* GCC_FUNCTION_H */

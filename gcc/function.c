@@ -3829,7 +3829,7 @@ allocate_struct_function (tree fndecl)
   cfun->stack_alignment_needed = STACK_BOUNDARY;
   cfun->preferred_stack_boundary = STACK_BOUNDARY;
 
-  current_function_funcdef_no = funcdef_no++;
+  current_function_funcdef_no = get_last_funcdef_no ();
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
 
@@ -5614,6 +5614,16 @@ rest_of_handle_check_leaf_regs (void)
   current_function_uses_only_leaf_regs
     = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
 #endif
+}
+
+int
+get_last_funcdef_no (void)
+{
+  int temp;
+  
+  temp = funcdef_no;
+  funcdef_no++;
+  return temp;
 }
 
 struct tree_opt_pass pass_leaf_regs =
