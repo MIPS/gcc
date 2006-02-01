@@ -1,3 +1,8 @@
+2006-02-01  Devang Patel  <dpatel@apple.com>
+
+	Radar 4208007
+	* tree-vectorizer.c (vect_print_dump_info): Add vect_dump check.
+
 2006-01-31  Devang Patel  <dpatel@apple.com>
 
 	Radar 4382844
