@@ -1,4 +1,4 @@
-/* APPLE LOCAL FILE Radar 4382844 */
+/* APPLE LOCAL file Radar 4382844 */
 /* { dg-do compile } */
 
 #include <vector>
