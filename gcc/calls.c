@@ -659,8 +659,7 @@ precompute_register_parameters (int num_actuals, struct arg_data *args,
 	if (args[i].value == 0)
 	  {
 	    push_temp_slots ();
-	    args[i].value = expand_expr (args[i].tree_value, NULL_RTX,
-					 VOIDmode, 0);
+	    args[i].value = expand_normal (args[i].tree_value);
 	    preserve_temp_slots (args[i].value);
 	    pop_temp_slots ();
 	  }
@@ -843,7 +842,7 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 	      = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 	  }
 
-	args[i].aligned_regs = xmalloc (sizeof (rtx) * args[i].n_aligned_regs);
+	args[i].aligned_regs = XNEWVEC (rtx, args[i].n_aligned_regs);
 
 	/* Structures smaller than a word are normally aligned to the
 	   least significant byte.  On a BYTES_BIG_ENDIAN machine,
@@ -1250,7 +1249,7 @@ precompute_arguments (int flags, int num_actuals, struct arg_data *args)
       gcc_assert (!TREE_ADDRESSABLE (TREE_TYPE (args[i].tree_value)));
 
       args[i].initial_value = args[i].value
-	= expand_expr (args[i].tree_value, NULL_RTX, VOIDmode, 0);
+	= expand_normal (args[i].tree_value);
 
       mode = TYPE_MODE (TREE_TYPE (args[i].tree_value));
       if (mode != args[i].mode)
@@ -1433,7 +1432,7 @@ rtx_for_function_call (tree fndecl, tree addr)
     /* Generate an rtx (probably a pseudo-register) for the address.  */
     {
       push_temp_slots ();
-      funexp = expand_expr (addr, NULL_RTX, VOIDmode, 0);
+      funexp = expand_normal (addr);
       pop_temp_slots ();	/* FUNEXP can't be BLKmode.  */
     }
   return funexp;
@@ -2370,7 +2369,7 @@ expand_call (tree exp, rtx target, int ignore)
 #endif
 		  if (stack_usage_map_buf)
 		    free (stack_usage_map_buf);
-		  stack_usage_map_buf = xmalloc (highest_outgoing_arg_in_use);
+		  stack_usage_map_buf = XNEWVEC (char, highest_outgoing_arg_in_use);
 		  stack_usage_map = stack_usage_map_buf;
 
 		  if (initial_highest_arg_in_use)
@@ -2478,7 +2477,7 @@ expand_call (tree exp, rtx target, int ignore)
 		  /* Make a new map for the new argument list.  */
 		  if (stack_usage_map_buf)
 		    free (stack_usage_map_buf);
-		  stack_usage_map_buf = xmalloc (highest_outgoing_arg_in_use);
+		  stack_usage_map_buf = XNEWVEC (char, highest_outgoing_arg_in_use);
 		  stack_usage_map = stack_usage_map_buf;
 		  memset (stack_usage_map, 0, highest_outgoing_arg_in_use);
 		  highest_outgoing_arg_in_use = 0;
@@ -2545,8 +2544,7 @@ expand_call (tree exp, rtx target, int ignore)
       precompute_register_parameters (num_actuals, args, &reg_parm_seen);
 
       if (TREE_OPERAND (exp, 2))
-	static_chain_value = expand_expr (TREE_OPERAND (exp, 2),
-					  NULL_RTX, VOIDmode, 0);
+	static_chain_value = expand_normal (TREE_OPERAND (exp, 2));
       else
 	static_chain_value = 0;
 
@@ -3541,7 +3539,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       highest_outgoing_arg_in_use = MAX (initial_highest_arg_in_use,
 					 needed);
 #endif
-      stack_usage_map_buf = xmalloc (highest_outgoing_arg_in_use);
+      stack_usage_map_buf = XNEWVEC (char, highest_outgoing_arg_in_use);
       stack_usage_map = stack_usage_map_buf;
 
       if (initial_highest_arg_in_use)

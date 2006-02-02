@@ -171,6 +171,7 @@ static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
 static tree record_reference (tree *, int *, void *);
+static void cgraph_output_pending_asms (void);
 
 /* Records tree nodes seen in record_reference.  Simply using
    walk_tree_without_duplicates doesn't guarantee each node is visited
@@ -337,6 +338,8 @@ cgraph_assemble_pending_functions (void)
 
   if (flag_unit_at_a_time)
     return false;
+
+  cgraph_output_pending_asms ();
 
   while (cgraph_nodes_queue)
     {
@@ -1140,8 +1143,7 @@ static void
 cgraph_expand_all_functions (void)
 {
   struct cgraph_node *node;
-  struct cgraph_node **order =
-    xcalloc (cgraph_n_nodes, sizeof (struct cgraph_node *));
+  struct cgraph_node **order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
   int order_pos = 0, new_order_pos = 0;
   int i;
 

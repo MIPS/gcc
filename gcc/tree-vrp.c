@@ -255,7 +255,7 @@ get_value_range (tree var)
     return vr;
 
   /* Create a default value range.  */
-  vr_value[ver] = vr = xmalloc (sizeof (*vr));
+  vr_value[ver] = vr = XNEW (value_range_t);
   memset (vr, 0, sizeof (*vr));
 
   /* Allocate an equivalence set.  */
@@ -1059,7 +1059,8 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	     1. The VR_ANTI_RANGE range is competely within the 
 		VR_RANGE and the endpoints of the ranges are
 		different.  In that case the resulting range
-		should be the VR_ANTI_RANGE.
+		should be whichever range is more precise.
+		Typically that will be the VR_RANGE.
 
 	     2. The VR_ANTI_RANGE is completely disjoint from
 		the VR_RANGE.  In this case the resulting range
@@ -1100,8 +1101,8 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	  if (compare_values (anti_max, real_max) == -1
 	      && compare_values (anti_min, real_min) == 1)
 	    {
-	      set_value_range (vr_p, VR_ANTI_RANGE, anti_min,
-			       anti_max, vr_p->equiv);
+	      set_value_range (vr_p, VR_RANGE, real_min,
+			       real_max, vr_p->equiv);
 	    }
 	  /* Case 2, VR_ANTI_RANGE completely disjoint from
 	     VR_RANGE.  */
@@ -1918,12 +1919,21 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
     {
       /* For VARYING or UNDEFINED ranges, just about anything we get
 	 from scalar evolutions should be better.  */
+      tree min = TYPE_MIN_VALUE (TREE_TYPE (init));
+      tree max = TYPE_MAX_VALUE (TREE_TYPE (init));
+
       if (init_is_max)
-	set_value_range (vr, VR_RANGE, TYPE_MIN_VALUE (TREE_TYPE (init)),
-	                 init, vr->equiv);
+	max = init;
       else
-	set_value_range (vr, VR_RANGE, init, TYPE_MAX_VALUE (TREE_TYPE (init)),
-	                 vr->equiv);
+	min = init;
+
+      /* If we would create an invalid range, then just assume we
+	 know absolutely nothing.  This may be over-conservative,
+	 but it's clearly safe.  */
+      if (compare_values (min, max) == 1)
+	return;
+
+      set_value_range (vr, VR_RANGE, min, max, vr->equiv);
     }
   else if (vr->type == VR_RANGE)
     {
@@ -2599,7 +2609,7 @@ register_new_assert_for (tree name,
   /* If we didn't find an assertion already registered for
      NAME COMP_CODE VAL, add a new one at the end of the list of
      assertions associated with NAME.  */
-  n = xmalloc (sizeof (*n));
+  n = XNEW (struct assert_locus_d);
   n->bb = dest_bb;
   n->e = e;
   n->si = si;
@@ -3071,7 +3081,7 @@ insert_range_assertions (void)
   sbitmap_zero (blocks_visited);
 
   need_assert_for = BITMAP_ALLOC (NULL);
-  asserts_for = xmalloc (num_ssa_names * sizeof (assert_locus_t));
+  asserts_for = XNEWVEC (assert_locus_t, num_ssa_names);
   memset (asserts_for, 0, num_ssa_names * sizeof (assert_locus_t));
 
   calculate_dominance_info (CDI_DOMINATORS);
@@ -3202,7 +3212,7 @@ vrp_initialize (void)
 {
   basic_block bb;
 
-  vr_value = xmalloc (num_ssa_names * sizeof (value_range_t *));
+  vr_value = XNEWVEC (value_range_t *, num_ssa_names);
   memset (vr_value, 0, num_ssa_names * sizeof (value_range_t *));
 
   FOR_EACH_BB (bb)
@@ -4217,7 +4227,7 @@ vrp_finalize (void)
   /* We may have ended with ranges that have exactly one value.  Those
      values can be substituted as any other copy/const propagated
      value using substitute_and_fold.  */
-  single_val_range = xmalloc (num_ssa_names * sizeof (*single_val_range));
+  single_val_range = XNEWVEC (prop_value_t, num_ssa_names);
   memset (single_val_range, 0, num_ssa_names * sizeof (*single_val_range));
 
   do_value_subst_p = false;

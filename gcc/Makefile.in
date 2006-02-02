@@ -173,11 +173,14 @@ coverageexts = .{gcda,gcno}
 # with other compilers.  This is partially controlled by configure in
 # stage1, as not all versions of gcc understand -Wno-long-long or
 # -Wno-variadic-macros.
+# CXX_COMPAT_WARN are C++ source compatibility warnings.
 LOOSE_WARN = -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes
 STRICT_WARN = @strict1_warn@
 WERROR_FLAGS = @WERROR@
 STRICT2_WARN = -pedantic -Wno-long-long -Wno-variadic-macros \
-  -Wold-style-definition -Wmissing-format-attribute $(WERROR_FLAGS)
+  -Wno-overlength-strings -Wold-style-definition -Wmissing-format-attribute \
+  $(WERROR_FLAGS)
+CXX_COMPAT_WARN = @cxx_compat_warn@
 
 # This is set by --enable-checking.  The idea is to catch forgotten
 # "extern" tags in header files.
@@ -195,10 +198,8 @@ VALGRIND_DRIVER_DEFINES = @valgrind_path_defines@
 build-warn = $(STRICT_WARN)
 GCC_WARN_CFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 
-# These files are to have -Werror bypassed in stage2:
-# These are very hard to completely clean due to target complexities.
-gcc.o-warn = -Wno-error
-build/gencondmd.o-warn = -Wno-error
+# These files are to have specific diagnostics suppressed, or are not to
+# be subject to -Werror:
 # Bison-1.75 output often yields (harmless) -Wtraditional warnings
 build/gengtype-yacc.o-warn = -Wno-error
 # flex output may yield harmless "no previous prototype" warnings
@@ -2336,9 +2337,9 @@ df-problems.o : df-problems.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    hard-reg-set.h $(BASIC_BLOCK_H) $(DF_H) bitmap.h sbitmap.h $(TM_P_H) \
    $(FLAGS_H) output.h
 df-scan.o : df-scan.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
-   insn-config.h $(RECOG_H) $(FUNCTION_H) $(REGS_H) alloc-pool.h hard-reg-set.h \
-   $(BASIC_BLOCK_H) $(DF_H) bitmap.h sbitmap.h $(TM_P_H) $(FLAGS_H) \
-   output.h
+   insn-config.h $(RECOG_H) $(FUNCTION_H) $(REGS_H) alloc-pool.h \
+   hard-reg-set.h $(BASIC_BLOCK_H) $(DF_H) bitmap.h sbitmap.h $(TM_P_H) \
+   $(FLAGS_H) $(TARGET_H) $(TARGET_DEF_H) $(TREE_H) output.h tree-pass.h 
 var-tracking.o : var-tracking.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(TREE_H) hard-reg-set.h insn-config.h reload.h $(FLAGS_H) \
    $(BASIC_BLOCK_H) output.h sbitmap.h alloc-pool.h $(FIBHEAP_H) $(HASHTAB_H) \
@@ -2640,7 +2641,8 @@ insn-attrtab.o : insn-attrtab.c $(CONFIG_H) $(SYSTEM_H) coretypes.h	\
   $(TM_H) $(RTL_H) $(REGS_H) real.h output.h $(INSN_ATTR_H)		\
   insn-config.h toplev.h $(RECOG_H) $(TM_P_H) $(FLAGS_H)
 insn-automata.o : insn-automata.c $(CONFIG_H) $(SYSTEM_H) coretypes.h	\
-  $(TM_H) $(RTL_H) $(INSN_ATTR_H)
+  $(TM_H) $(RTL_H) $(REGS_H) real.h output.h $(INSN_ATTR_H)		\
+  insn-config.h toplev.h $(RECOG_H) $(TM_P_H) $(FLAGS_H)
 insn-emit.o : insn-emit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H)	\
   $(RTL_H) $(EXPR_H) real.h output.h insn-config.h $(OPTABS_H)		\
   reload.h $(RECOG_H) toplev.h $(FUNCTION_H) $(FLAGS_H) hard-reg-set.h	\
@@ -2898,10 +2900,10 @@ build/rtl.o: rtl.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H)	\
   $(RTL_H) real.h $(GGC_H) errors.h
 build/vec.o : vec.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) coretypes.h vec.h \
    $(GGC_H) toplev.h
-build/gencondmd.o : build/gencondmd.c $(CONFIG_H) $(SYSTEM_H) $(GTM_H)	\
-  $(RTL_H) $(TM_P_H) $(REGS_H) $(FUNCTION_H) $(RECOG_H) real.h output.h	\
-  $(FLAGS_H) hard-reg-set.h $(RESOURCE_H) toplev.h reload.h		\
-  gensupport.h insn-constants.h coretypes.h
+build/gencondmd.o : build/gencondmd.c $(BCONFIG_H) $(SYSTEM_H)		\
+  coretypes.h $(GTM_H) insn-constants.h $(RTL_H) $(TM_P_H)		\
+  $(FUNCTION_H) $(REGS_H) $(RECOG_H) real.h output.h $(FLAGS_H)		\
+  $(RESOURCE_H) toplev.h reload.h except.h
 
 # ...these are the programs themselves.
 build/genattr.o : genattr.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\

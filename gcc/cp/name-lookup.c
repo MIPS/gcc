@@ -1893,6 +1893,7 @@ push_overloaded_decl (tree decl, int flags, bool is_friend)
 	  for (tmp = old; tmp; tmp = OVL_NEXT (tmp))
 	    {
 	      tree fn = OVL_CURRENT (tmp);
+	      tree dup;
 
 	      if (TREE_CODE (tmp) == OVERLOAD && OVL_USED (tmp)
 		  && !(flags & PUSH_USING)
@@ -1902,8 +1903,11 @@ push_overloaded_decl (tree decl, int flags, bool is_friend)
 		error ("%q#D conflicts with previous using declaration %q#D",
 		       decl, fn);
 
-	      if (duplicate_decls (decl, fn, is_friend) == fn)
-		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, fn);
+	      dup = duplicate_decls (decl, fn, is_friend);
+	      /* If DECL was a redeclaration of FN -- even an invalid
+		 one -- pass that information along to our caller.  */
+	      if (dup == fn || dup == error_mark_node)
+		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, dup);
 	    }
 
 	  /* We don't overload implicit built-ins.  duplicate_decls()
@@ -3296,9 +3300,14 @@ parse_using_directive (tree namespace, tree attribs)
 	  if (!toplevel_bindings_p ())
 	    error ("strong using only meaningful at namespace scope");
 	  else if (namespace != error_mark_node)
-	    DECL_NAMESPACE_ASSOCIATIONS (namespace)
-	      = tree_cons (current_namespace, 0,
-			   DECL_NAMESPACE_ASSOCIATIONS (namespace));
+	    {
+	      if (!is_ancestor (current_namespace, namespace))
+		error ("current namespace %qD does not enclose strongly used namespace %qD",
+		       current_namespace, namespace);
+	      DECL_NAMESPACE_ASSOCIATIONS (namespace)
+		= tree_cons (current_namespace, 0,
+			     DECL_NAMESPACE_ASSOCIATIONS (namespace));
+	    }
 	}
       else
 	warning (OPT_Wattributes, "%qD attribute directive ignored", name);

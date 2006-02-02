@@ -1,3 +1,12 @@
+2006-02-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* decl.c (pop_labels_1): Use appropriate pointer casting.
+	(poplevel_named_label_1): Likewise.
+	(named_label_entry_hash): Likewise.
+	(named_label_entry_eq): Likewise.
+	(check_goto): Likewise.
+	(define_label): Likewise.
+
 2006-01-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* cp-tree.h (CP_OMP_CLAUSE_INFO): Use TREE_TYPE instead

@@ -1180,15 +1180,11 @@ build_constraint_graph (void)
   int i = 0;
   constraint_t c;
 
-  graph = xmalloc (sizeof (struct constraint_graph));
-  graph->succs = xcalloc (VEC_length (varinfo_t, varmap) + 1,
-			  sizeof (*graph->succs));
-  graph->preds = xcalloc (VEC_length (varinfo_t, varmap) + 1,
-			  sizeof (*graph->preds));
-  graph->zero_weight_succs = xcalloc (VEC_length (varinfo_t, varmap) + 1,
-			  sizeof (*graph->zero_weight_succs));
-  graph->zero_weight_preds = xcalloc (VEC_length (varinfo_t, varmap) + 1,
-			  sizeof (*graph->zero_weight_preds));
+  graph = XNEW (struct constraint_graph);
+  graph->succs = XCNEWVEC (VEC(constraint_edge_t,heap) *, VEC_length (varinfo_t, varmap) + 1);
+  graph->preds = XCNEWVEC (VEC(constraint_edge_t,heap) *, VEC_length (varinfo_t, varmap) + 1);
+  graph->zero_weight_succs = XCNEWVEC (bitmap, VEC_length (varinfo_t, varmap) + 1);
+  graph->zero_weight_preds = XCNEWVEC (bitmap, VEC_length (varinfo_t, varmap) + 1);
 
   for (i = 0; VEC_iterate (constraint_t, constraints, i, c); i++)
     {
@@ -1466,7 +1462,7 @@ static struct topo_info *
 init_topo_info (void)
 {
   size_t size = VEC_length (varinfo_t, varmap);
-  struct topo_info *ti = xmalloc (sizeof (struct topo_info));
+  struct topo_info *ti = XNEW (struct topo_info);
   ti->visited = sbitmap_alloc (size);
   sbitmap_zero (ti->visited);
   ti->topo_order = VEC_alloc (unsigned, heap, 1);
@@ -1757,7 +1753,7 @@ do_complex_constraint (constraint_graph_t graph, constraint_t c, bitmap delta)
 static struct scc_info *
 init_scc_info (void)
 {
-  struct scc_info *si = xmalloc (sizeof (struct scc_info));
+  struct scc_info *si = XNEW (struct scc_info);
   size_t size = VEC_length (varinfo_t, varmap);
 
   si->current_index = 0;
@@ -1765,7 +1761,7 @@ init_scc_info (void)
   sbitmap_zero (si->visited);
   si->in_component = sbitmap_alloc (size);
   sbitmap_ones (si->in_component);
-  si->visited_index = xcalloc (sizeof (unsigned int), size + 1);
+  si->visited_index = XCNEWVEC (unsigned int, size + 1);
   si->scc_stack = VEC_alloc (unsigned, heap, 1);
   si->unification_queue = VEC_alloc (unsigned, heap, 1);
   return si;
@@ -2141,7 +2137,7 @@ insert_id_for_tree (tree t, int id)
   finder.t = t;
   slot = htab_find_slot (id_for_tree, &finder, INSERT);
   gcc_assert (*slot == NULL);
-  new_pair = xmalloc (sizeof (struct tree_id));
+  new_pair = XNEW (struct tree_id);
   new_pair->t = t;
   new_pair->id = id;
   *slot = (void *)new_pair;
@@ -4032,7 +4028,8 @@ intra_create_variable_infos (void)
 {
   tree t;
 
-  /* For each incoming argument arg, ARG = &ANYTHING */
+  /* For each incoming argument arg, ARG = &ANYTHING or a dummy variable if
+     flag_argument_noalias > 1. */
   for (t = DECL_ARGUMENTS (current_function_decl); t; t = TREE_CHAIN (t))
     {
       struct constraint_expr lhs;
@@ -4041,11 +4038,43 @@ intra_create_variable_infos (void)
       lhs.offset = 0;
       lhs.type = SCALAR;
       lhs.var  = create_variable_info_for (t, alias_get_name (t));
-      
-      for (p = get_varinfo (lhs.var); p; p = p->next)
-	make_constraint_to_anything (p);
-    }	
 
+      /* With flag_argument_noalias greater than one means that the incomming
+         argument cannot alias anything except for itself so create a HEAP
+         variable.  */
+      if (POINTER_TYPE_P (TREE_TYPE (t))
+	  && flag_argument_noalias > 1)
+	{
+	  varinfo_t vi;
+	  struct constraint_expr rhs;
+	  tree heapvar = heapvar_lookup (t);
+	  unsigned int id;
+	  if (heapvar == NULL_TREE)
+	    {
+	      heapvar = create_tmp_var_raw (TREE_TYPE (TREE_TYPE (t)), "PARM_NOALIAS");
+	      DECL_EXTERNAL (heapvar) = 1;
+	      add_referenced_tmp_var (heapvar);
+	      heapvar_insert (t, heapvar);
+	    }
+	  id = create_variable_info_for (heapvar,
+					 alias_get_name (heapvar));
+	  vi = get_varinfo (id);
+	  vi->is_artificial_var = 1;
+	  vi->is_heap_var = 1;
+	  rhs.var = id;
+	  rhs.type = ADDRESSOF;
+	  rhs.offset = 0;
+          for (p = get_varinfo (lhs.var); p; p = p->next)
+	    {
+	      struct constraint_expr temp = lhs;
+	      temp.var = p->id;
+	      process_constraint (new_constraint (temp, rhs));
+	    }
+	}
+      else      
+	for (p = get_varinfo (lhs.var); p; p = p->next)
+	  make_constraint_to_anything (p);
+    }	
 }
 
 /* Set bits in INTO corresponding to the variable uids in solution set
@@ -4105,11 +4134,19 @@ bool
 find_what_p_points_to (tree p)
 {
   unsigned int id = 0;
+  tree lookup_p = p;
 
   if (!have_alias_info)
     return false;
 
-  if (lookup_id_for_tree (p, &id))
+  /* For parameters, get at the points-to set for the actual parm
+     decl.  */
+  if (TREE_CODE (p) == SSA_NAME 
+      && TREE_CODE (SSA_NAME_VAR (p)) == PARM_DECL 
+      && default_def (SSA_NAME_VAR (p)) == p)
+    lookup_p = SSA_NAME_VAR (p);
+
+  if (lookup_id_for_tree (lookup_p, &id))
     {
       varinfo_t vi = get_varinfo (id);
       

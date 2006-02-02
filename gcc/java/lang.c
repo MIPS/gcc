@@ -401,7 +401,7 @@ put_decl_string (const char *str, int len)
       if (decl_buf == NULL)
 	{
 	  decl_buflen = len + 100;
-	  decl_buf = xmalloc (decl_buflen);
+	  decl_buf = XNEWVEC (char, decl_buflen);
 	}
       else
 	{
@@ -574,6 +574,10 @@ java_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   /* Java requires left-to-right evaluation of subexpressions.  */
   flag_evaluation_order = 1;
 
+  /* Unit at a time is disabled for Java because it is considered
+     too expensive.  */
+  no_unit_at_a_time_default = 1;
+
   jcf_path_init ();
 
   return CL_Java;
@@ -631,7 +635,7 @@ java_post_options (const char **pfilename)
 		error ("couldn't determine target name for dependency tracking");
 	      else
 		{
-		  char *buf = xmalloc (dot - filename +
+		  char *buf = XNEWVEC (char, dot - filename +
 				       3 + sizeof (TARGET_OBJECT_SUFFIX));
 		  strncpy (buf, filename, dot - filename);
 

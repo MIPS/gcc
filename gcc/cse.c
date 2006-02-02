@@ -867,8 +867,7 @@ init_cse_reg_info (unsigned int nregs)
       /* Reallocate the table with NEW_SIZE entries.  */
       if (cse_reg_info_table)
 	free (cse_reg_info_table);
-      cse_reg_info_table = xmalloc (sizeof (struct cse_reg_info)
-				     * new_size);
+      cse_reg_info_table = XNEWVEC (struct cse_reg_info, new_size);
       cse_reg_info_table_size = new_size;
       cse_reg_info_table_first_uninitialized = 0;
     }
@@ -1511,7 +1510,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
   if (elt)
     free_element_chain = elt->next_same_hash;
   else
-    elt = xmalloc (sizeof (struct table_elt));
+    elt = XNEW (struct table_elt);
 
   elt->exp = x;
   elt->canon_exp = NULL_RTX;
@@ -3982,6 +3981,57 @@ fold_rtx (rtx x, rtx insn)
 	     comparison.  */
 	  if (const_arg0 == 0 || const_arg1 == 0)
 	    {
+	      if (const_arg1 != NULL)
+		{
+		  rtx cheapest_simplification;
+		  int cheapest_cost;
+		  rtx simp_result;
+		  struct table_elt *p;
+
+		  /* See if we can find an equivalent of folded_arg0
+		     that gets us a cheaper expression, possibly a
+		     constant through simplifications.  */
+		  p = lookup (folded_arg0, SAFE_HASH (folded_arg0, mode_arg0),
+			      mode_arg0);
+		  
+		  if (p != NULL)
+		    {
+		      cheapest_simplification = x;
+		      cheapest_cost = COST (x);
+
+		      for (p = p->first_same_value; p != NULL; p = p->next_same_value)
+			{
+			  int cost;
+
+			  /* If the entry isn't valid, skip it.  */
+			  if (! exp_equiv_p (p->exp, p->exp, 1, false))
+			    continue;
+
+			  /* Try to simplify using this equivalence.  */
+			  simp_result
+			    = simplify_relational_operation (code, mode,
+							     mode_arg0,
+							     p->exp,
+							     const_arg1);
+
+			  if (simp_result == NULL)
+			    continue;
+
+			  cost = COST (simp_result);
+			  if (cost < cheapest_cost)
+			    {
+			      cheapest_cost = cost;
+			      cheapest_simplification = simp_result;
+			    }
+			}
+
+		      /* If we have a cheaper expression now, use that
+			 and try folding it further, from the top.  */
+		      if (cheapest_simplification != x)
+			return fold_rtx (cheapest_simplification, insn);
+		    }
+		}
+
 	      /* Some addresses are known to be nonzero.  We don't know
 		 their sign, but equality comparisons are known.  */
 	      if (const_arg1 == const0_rtx
@@ -6761,8 +6811,7 @@ cse_main (rtx f, int nregs, FILE *file)
 
   init_cse_reg_info (nregs);
 
-  val.path = xmalloc (sizeof (struct branch_path)
-		      * PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
+  val.path = XNEWVEC (struct branch_path, PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
 
   cse_jumps_altered = 0;
   recorded_label_ref = 0;
@@ -6774,12 +6823,12 @@ cse_main (rtx f, int nregs, FILE *file)
   init_recog ();
   init_alias_analysis ();
 
-  reg_eqv_table = xmalloc (nregs * sizeof (struct reg_eqv_elem));
+  reg_eqv_table = XNEWVEC (struct reg_eqv_elem, nregs);
 
   /* Find the largest uid.  */
 
   max_uid = get_max_uid ();
-  uid_cuid = xcalloc (max_uid + 1, sizeof (int));
+  uid_cuid = XCNEWVEC (int, max_uid + 1);
 
   /* Compute the mapping from uids to cuids.
      CUIDs are numbers assigned to insns, like uids,
@@ -6884,7 +6933,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
   int no_conflict = 0;
 
   /* Allocate the space needed by qty_table.  */
-  qty_table = xmalloc (max_qty * sizeof (struct qty_table_elem));
+  qty_table = XNEWVEC (struct qty_table_elem, max_qty);
 
   new_basic_block ();
 
@@ -7047,8 +7096,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	     following branches in this case.  */
 	  to_usage = 0;
 	  val.path_size = 0;
-	  val.path = xmalloc (sizeof (struct branch_path)
-			      * PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
+	  val.path = XNEWVEC (struct branch_path, PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
 	  cse_end_of_basic_block (insn, &val, 0, 0);
 	  free (val.path);
 
@@ -7351,7 +7399,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
   /* First count the number of times each register is used.  */
-  counts = xcalloc (nreg, sizeof (int));
+  counts = XCNEWVEC (int, nreg);
   for (insn = insns; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       count_reg_usage (insn, counts, NULL_RTX, 1);

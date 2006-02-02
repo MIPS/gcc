@@ -238,7 +238,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wmain  -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-format-attribute  -Wmissing-include-dirs @gol
 -Wmissing-noreturn @gol
--Wno-multichar  -Wnonnull  -Wpacked  -Wpadded @gol
+-Wno-multichar  -Wnonnull  -Woverlength-strings  -Wpacked  -Wpadded @gol
 -Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
@@ -256,7 +256,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
 -Wmissing-prototypes  -Wnested-externs  -Wold-style-definition @gol
 -Wstrict-prototypes  -Wtraditional @gol
--Wdeclaration-after-statement -Wno-pointer-sign}
+-Wdeclaration-after-statement -Wpointer-sign}
 
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
@@ -528,7 +528,7 @@ Objective-C and Objective-C++ Dialects}.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse  -msse2 -msse3 -m3dnow @gol
+-mmmx  -msse  -msse2 -msse3 -m3dnow -msselibm @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
@@ -3402,11 +3402,13 @@ effectively.  Often, the problem is that your code is too big or too
 complex; GCC will refuse to optimize programs when the optimization
 itself is likely to take inordinate amounts of time.
 
-@item -Wno-pointer-sign
+@item -Wpointer-sign
+@opindex Wpointer-sign
 @opindex Wno-pointer-sign
-Don't warn for pointer argument passing or assignment with different signedness.
-Only useful in the negative form since this warning is enabled by default.
-This option is only supported for C and Objective-C@.
+Warn for pointer argument passing or assignment with different signedness.
+This option is only supported for C and Objective-C@.  It is implied by
+@option{-Wall} and by @option{-pedantic}, which can be disabled with
+@option{-Wno-pointer-sign}.
 
 @item -Werror
 @opindex Werror
@@ -3442,6 +3444,21 @@ even when intentional, result in unspecified behavior and are not portable.
 Usually these warnings alert that the programmer intended to use
 @code{strcmp}.  This warning is enabled by @option{-Wall}.
 
+@item -Woverlength-strings
+@opindex Woverlength-strings
+Warn about string constants which are longer than the ``minimum
+maximum'' length specified in the C standard.  Modern compilers
+generally allow string constants which are much longer than the
+standard's minimum limit, but very portable programs should avoid
+using longer strings.
+
+The limit applies @emph{after} string constant concatenation, and does
+not count the trailing NUL@.  In C89, the limit was 509 characters; in
+C99, it was raised to 4095.  C++98 does not specify a normative
+minimum maximum, so we do not diagnose overlength strings in C++@.
+
+This option is implied by @option{-pedantic}, and can be disabled with
+@option{-Wno-overlength-strings}.
 @end table
 
 @node Debugging Options
@@ -9420,6 +9437,12 @@ supported architecture, using the appropriate flags.  In particular,
 the file containing the CPU detection code should be compiled without
 these options.
 
+@item -msselibm
+@opindex msselibm
+Use special versions of certain libm routines that come with an SSE
+ABI and an SSE implementation.  Useful together with @option{-mfpmath=sse}
+to avoid moving values between SSE registers and the x87 FP stack.
+
 @item -mpush-args
 @itemx -mno-push-args
 @opindex mpush-args
@@ -11116,16 +11139,6 @@ enhancements.
 @opindex mno-vrsave
 Generate VRSAVE instructions when generating AltiVec code.
 
-@item -mabi=spe
-@opindex mabi=spe
-Extend the current ABI with SPE ABI extensions.  This does not change
-the default ABI, instead it adds the SPE ABI extensions to the current
-ABI@.
-
-@item -mabi=no-spe
-@opindex mabi=no-spe
-Disable Booke SPE ABI extensions for the current ABI@.
-
 @item -msecure-plt
 @opindex msecure-plt
 Generate code that allows ld and ld.so to build executables and shared
@@ -11488,7 +11501,27 @@ SVR4 ABI)@.
 @opindex mabi
 Extend the current ABI with a particular extension, or remove such extension.
 Valid values are @var{altivec}, @var{no-altivec}, @var{spe},
-@var{no-spe}@.
+@var{no-spe}, @var{ibmlongdouble}, @var{ieeelongdouble}@.
+
+@item -mabi=spe
+@opindex mabi=spe
+Extend the current ABI with SPE ABI extensions.  This does not change
+the default ABI, instead it adds the SPE ABI extensions to the current
+ABI@.
+
+@item -mabi=no-spe
+@opindex mabi=no-spe
+Disable Booke SPE ABI extensions for the current ABI@.
+
+@item -mabi=ibmlongdouble
+@opindex mabi=ibmlongdouble
+Change the current ABI to use IBM extended precision long double.
+This is a PowerPC 32-bit SYSV ABI option.
+
+@item -mabi=ieeelongdouble
+@opindex mabi=ieeelongdouble
+Change the current ABI to use IEEE extended precision long double.
+This is a PowerPC 32-bit Linux ABI option.
 
 @item -mprototype
 @itemx -mno-prototype

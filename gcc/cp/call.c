@@ -468,7 +468,7 @@ static conversion *
 alloc_conversion (conversion_kind kind)
 {
   conversion *c;
-  c = conversion_obstack_alloc (sizeof (conversion));
+  c = (conversion *) conversion_obstack_alloc (sizeof (conversion));
   c->kind = kind;
   return c;
 }
@@ -493,7 +493,7 @@ validate_conversion_obstack (void)
 static conversion **
 alloc_conversions (size_t n)
 {
-  return conversion_obstack_alloc (n * sizeof (conversion *));
+  return (conversion **) conversion_obstack_alloc (n * sizeof (conversion *));
 }
 
 static conversion *
@@ -1269,8 +1269,8 @@ add_candidate (struct z_candidate **candidates,
 	       tree access_path, tree conversion_path,
 	       int viable)
 {
-  struct z_candidate *cand
-    = conversion_obstack_alloc (sizeof (struct z_candidate));
+  struct z_candidate *cand = (struct z_candidate *)
+    conversion_obstack_alloc (sizeof (struct z_candidate));
 
   cand->fn = fn;
   cand->args = args;
@@ -2442,7 +2442,7 @@ print_z_candidates (struct z_candidate *candidates)
       /* Indent successive candidates by the width of the translation
 	 of the above string.  */
       size_t len = gcc_gettext_width (str) + 1;
-      char *spaces = alloca (len);
+      char *spaces = (char *) alloca (len);
       memset (spaces, ' ', len-1);
       spaces[len - 1] = '\0';
 
@@ -5931,9 +5931,8 @@ source_type (conversion *t)
 static void
 add_warning (struct z_candidate *winner, struct z_candidate *loser)
 {
-  candidate_warning *cw;
-
-  cw = conversion_obstack_alloc (sizeof (candidate_warning));
+  candidate_warning *cw = (candidate_warning *)
+    conversion_obstack_alloc (sizeof (candidate_warning));
   cw->loser = loser;
   cw->next = winner->warnings;
   winner->warnings = cw;
@@ -6029,9 +6028,9 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 
 	      if (warn)
 		{
-		  warning (0, "passing %qT chooses %qT over %qT",
-			      type, type1, type2);
-		  warning (0, "  in call to %qD", w->fn);
+		  warning (OPT_Wsign_promo, "passing %qT chooses %qT over %qT",
+                           type, type1, type2);
+		  warning (OPT_Wsign_promo, "  in call to %qD", w->fn);
 		}
 	      else
 		add_warning (w, l);
@@ -6088,10 +6087,10 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 	  tree source = source_type (w->convs[0]);
 	  if (! DECL_CONSTRUCTOR_P (w->fn))
 	    source = TREE_TYPE (source);
-	  warning (0, "choosing %qD over %qD", w->fn, l->fn);
-	  warning (0, "  for conversion from %qT to %qT",
+	  warning (OPT_Wconversion, "choosing %qD over %qD", w->fn, l->fn);
+	  warning (OPT_Wconversion, "  for conversion from %qT to %qT",
 		   source, w->second_conv->type);
-	  warning (0, "  because conversion sequence for the argument is better");
+	  inform ("  because conversion sequence for the argument is better");
 	}
       else
 	add_warning (w, l);

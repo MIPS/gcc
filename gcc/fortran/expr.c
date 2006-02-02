@@ -1821,7 +1821,7 @@ gfc_check_conformance (const char *optype_msgid,
 
       if (op1_flag && op2_flag && mpz_cmp (op1_size, op2_size) != 0)
 	{
-	  gfc_error ("%s at %L has different shape on dimension %d (%d/%d)",
+	  gfc_error ("different shape for %s at %L on dimension %d (%d/%d)",
 		     _(optype_msgid), &op1->where, d + 1,
 		     (int) mpz_get_si (op1_size),
 		     (int) mpz_get_si (op2_size));
@@ -1858,6 +1858,14 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
 		 sym->name, &lvalue->where);
       return FAILURE;
     }
+
+  if (sym->attr.flavor == FL_PROCEDURE && sym->attr.use_assoc)
+    {
+      gfc_error ("'%s' in the assignment at %L cannot be an l-value "
+		 "since it is a procedure", sym->name, &lvalue->where);
+      return FAILURE;
+    }
+
 
   if (rvalue->rank != 0 && lvalue->rank != rvalue->rank)
     {
@@ -1944,6 +1952,15 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
       return FAILURE;
     }
 
+  if (lvalue->symtree->n.sym->attr.flavor == FL_PROCEDURE
+	&& lvalue->symtree->n.sym->attr.use_assoc)
+    {
+      gfc_error ("'%s' in the pointer assignment at %L cannot be an "
+		 "l-value since it is a procedure",
+		 lvalue->symtree->n.sym->name, &lvalue->where);
+      return FAILURE;
+    }
+
   attr = gfc_variable_attr (lvalue, NULL);
   if (!attr.pointer)
     {
@@ -1976,6 +1993,16 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
   if (lvalue->ts.kind != rvalue->ts.kind)
     {
       gfc_error ("Different kind type parameters in pointer "
+		 "assignment at %L", &lvalue->where);
+      return FAILURE;
+    }
+
+  if (lvalue->ts.type == BT_CHARACTER
+	&& lvalue->ts.cl->length && rvalue->ts.cl->length
+	&& abs (gfc_dep_compare_expr (lvalue->ts.cl->length,
+				      rvalue->ts.cl->length)) == 1)
+    {
+      gfc_error ("Different character lengths in pointer "
 		 "assignment at %L", &lvalue->where);
       return FAILURE;
     }
