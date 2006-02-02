@@ -1,3 +1,18 @@
+2006-02-01  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4429317
+	(SWB regressions; back out patch for Radar 4176531.)
+	* gcc/config/i386/i386.md (fixuns_trunc<mode>si2,
+	fixuns_truncdfhi2, fixuns_truncsfhi2): Remove.
+	(floatunsdidf2): Restore to previous.
+	* gcc/config/i386/i386-protos.h
+	(ix86_expand_convert_DF2SI_sse, ix86_expand_convert_SF2SI_sse,
+	ix86_expand_convert_DI2DF_sse): Remove.
+	* gcc/config/i386/i386.c (ix86_expand_vector_move2,
+	gen_2_4_rtvec, ix86_expand_convert_DF2SI_sse,
+	ix86_expand_convert_SF2SI_sse, ix86_expand_convert_DI2DF_sse): Remove.
+	(x86_emit_floatuns): Remove call to ix86_expand_convert_DI2DF_sse.
+
 2006-02-01  Devang Patel  <dpatel@apple.com>
 
 	Radar 4208007
