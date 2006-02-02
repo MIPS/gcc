@@ -58,3 +58,8 @@ do {						\
 #define LINK_EH_SPEC ""
 
 #define MD_UNWIND_SUPPORT "config/ia64/linux-unwind.h"
+
+#ifdef TARGET_LIBC_PROVIDES_SSP
+/* IA-64 glibc provides __stack_chk_guard in [r13-8].  */
+#define TARGET_THREAD_SSP_OFFSET	-8
+#endif

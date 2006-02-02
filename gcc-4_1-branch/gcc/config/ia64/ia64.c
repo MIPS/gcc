@@ -2512,6 +2512,9 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
   else
     pretend_args_size = current_function_pretend_args_size;
 
+  if (FRAME_GROWS_DOWNWARD)
+    size = IA64_STACK_ALIGN (size);
+
   total_size = (spill_size + extra_spill_size + size + pretend_args_size
 		+ current_function_outgoing_args_size);
   total_size = IA64_STACK_ALIGN (total_size);
@@ -2536,32 +2539,19 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
 HOST_WIDE_INT
 ia64_initial_elimination_offset (int from, int to)
 {
-  HOST_WIDE_INT offset;
+  HOST_WIDE_INT offset, size = get_frame_size ();
 
-  ia64_compute_frame_size (get_frame_size ());
+  ia64_compute_frame_size (size);
   switch (from)
     {
     case FRAME_POINTER_REGNUM:
-      switch (to)
-	{
-	case HARD_FRAME_POINTER_REGNUM:
-	  if (current_function_is_leaf)
-	    offset = -current_frame_info.total_size;
-	  else
-	    offset = -(current_frame_info.total_size
-		       - current_function_outgoing_args_size - 16);
-	  break;
-
-	case STACK_POINTER_REGNUM:
-	  if (current_function_is_leaf)
-	    offset = 0;
-	  else
-	    offset = 16 + current_function_outgoing_args_size;
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
+      offset = FRAME_GROWS_DOWNWARD ? IA64_STACK_ALIGN (size) : 0;
+      if (!current_function_is_leaf)
+	offset += 16 + current_function_outgoing_args_size;
+      if (to == HARD_FRAME_POINTER_REGNUM)
+	offset -= current_frame_info.total_size;
+      else
+	gcc_assert (to == STACK_POINTER_REGNUM);
       break;
 
     case ARG_POINTER_REGNUM:

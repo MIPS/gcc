@@ -1,3 +1,15 @@
+2005-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/ia64.h (FRAME_GROWS_DOWNWARD): Define to 1 if
+	-fstack-protect.
+	* config/ia64/ia64.c (ia64_compute_frame_size): Make sure
+	size is a multiple of 16 if FRAME_GROWS_DOWNWARD.
+	(ia64_initial_elimination_offset): Support FRAME_GROWS_DOWNWARD
+	layout.
+	* config/ia64/linux.h (TARGET_LIBC_PROVIDES_SSP): Define.
+	* config/ia64/ia64.md (stack_protect_set, stack_protect_test): New
+	expanders.
+
 2006-01-19  Jan Hubicka  <jh@suse.cz>
             H.J. Lu  <hongjiu.lu@intel.com>
 	    Evandro Menezes <evandro.menezes@amd.com>
