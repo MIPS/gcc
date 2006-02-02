@@ -1017,6 +1017,7 @@ add_method (tree type, tree method)
       for (fns = current_fns; fns; fns = OVL_NEXT (fns))
 	{
 	  tree fn = OVL_CURRENT (fns);
+	  /* APPLE LOCAL begin mainline 2005-12-19 4407995 */
 	  tree fn_type;
 	  tree method_type;
 	  tree parms1;
@@ -1066,6 +1067,7 @@ add_method (tree type, tree method)
 	      && (!DECL_CONV_FN_P (fn) 
 		  || same_type_p (TREE_TYPE (fn_type),
 				  TREE_TYPE (method_type))))
+	  /* APPLE LOCAL end mainline 2005-12-19 4407995 */
 	    {
 	      if (using && DECL_CONTEXT (fn) == type)
 		/* Defer to the local function.  */
