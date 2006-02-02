@@ -14,6 +14,11 @@
 
 	* g++.dg/debug/debug9.C: New.
 
+2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+       PR c++/24915
+       * g++.dg/template/overload8.C: New test.
+
 2005-12-05  Geoffrey Keating  <geoffk@apple.com>
 
 	* gcc.dg/darwin-weakimport-3.c: New.
