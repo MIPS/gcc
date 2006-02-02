@@ -3247,7 +3247,7 @@ finish_omp_clauses (tree clauses)
     {
       bool remove = false;
 
-      switch (TREE_CODE (c))
+      switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_SHARED:
 	  name = "shared";
@@ -3373,7 +3373,7 @@ finish_omp_clauses (tree clauses)
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
-      enum tree_code c_kind = TREE_CODE (c);
+      enum tree_code c_kind = OMP_CLAUSE_CODE (c);
       bool remove = false;
       bool need_complete_non_reference = false;
       bool need_default_ctor = false;

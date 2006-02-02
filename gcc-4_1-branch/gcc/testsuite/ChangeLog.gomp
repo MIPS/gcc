@@ -1,3 +1,18 @@
+2006-01-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* g++.dg/gomp/pr25874.C: New test.
+	* gcc.dg/gomp/pr25874.c: New test.
+
+2006-01-19  Diego Novillo  <dnovillo@redhat.com>
+
+	* g++.dg/gomp/for-4.C: Use -fdump-tree-ompexp.
+	* g++.dg/gomp/for-6.C: Likewise.
+	* g++.dg/gomp/for-8.C: Likewise.
+	* g++.dg/gomp/for-10.C: Likewise.
+	* g++.dg/gomp/for-5.C: Likewise.
+	* g++.dg/gomp/for-7.C: Likewise.
+	* g++.dg/gomp/for-9.C: Likewise.
+
 2006-01-16  Aldy Hernandez  <aldyh@redhat.com>
 
 	* gcc.dg/gomp/static.c: New.

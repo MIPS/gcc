@@ -1616,6 +1616,17 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case LOOP_EXPR:
     case PHI_NODE:
     case WITH_SIZE_EXPR:
+    case OMP_PARALLEL:
+    case OMP_FOR:
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+    case OMP_SECTION:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+    case OMP_ATOMIC:
+    case OMP_CLAUSE:
+    case OMP_RETURN_EXPR:
       break;
 
     /* We don't account constants for now.  Assume that the cost is amortized
@@ -2370,7 +2381,8 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
       || code == TREE_LIST
       || code == TREE_VEC
-      || code == TYPE_DECL)
+      || code == TYPE_DECL
+      || code == OMP_CLAUSE)
     {
       /* Because the chain gets clobbered when we make a copy, we save it
 	 here.  */
@@ -2388,7 +2400,9 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
       /* Now, restore the chain, if appropriate.  That will cause
 	 walk_tree to walk into the chain as well.  */
-      if (code == PARM_DECL || code == TREE_LIST)
+      if (code == PARM_DECL
+	  || code == TREE_LIST
+	  || code == OMP_CLAUSE)
 	TREE_CHAIN (*tp) = chain;
 
       /* For now, we don't update BLOCKs when we make copies.  So, we

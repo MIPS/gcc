@@ -1,3 +1,16 @@
+2006-01-29  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 25874
+	* omp-low.c (execute_expand_omp): Move CFG cleanup code ...
+	(expand_omp): ... here.
+	(expand_omp_parallel): Only remove barriers for combined
+	parallel+workshare constructs.
+
+2006-01-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (move_block_to_fn): Call
+	remove_stmt_from_eh_region for each moved statement.
+
 2006-01-16  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (build_outer_var_ref): Handle globals.

@@ -2972,8 +2972,8 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    hold code (or code fragments) related to ctors, dtors, and op=.
    See semantics.c for details.  */
 #define CP_OMP_CLAUSE_INFO(NODE) \
-  TREE_BLOCK (TREE_RANGE_CHECK (NODE, OMP_CLAUSE_PRIVATE, \
-				OMP_CLAUSE_COPYPRIVATE))
+  TREE_TYPE (OMP_CLAUSE_RANGE_CHECK (NODE, OMP_CLAUSE_PRIVATE, \
+			             OMP_CLAUSE_COPYPRIVATE))
 
 /* These macros provide convenient access to the various _STMT nodes
    created when parsing template declarations.  */

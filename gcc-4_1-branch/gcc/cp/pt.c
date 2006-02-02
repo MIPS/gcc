@@ -8154,7 +8154,7 @@ tsubst_omp_clauses (tree clauses, tree args, tsubst_flags_t complain,
       OMP_CLAUSE_CHAIN (nc) = new_clauses;
       new_clauses = nc;
 
-      switch (TREE_CODE (nc))
+      switch (OMP_CLAUSE_CODE (nc))
 	{
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_SHARED:
@@ -8166,8 +8166,8 @@ tsubst_omp_clauses (tree clauses, tree args, tsubst_flags_t complain,
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
-	  TREE_OPERAND (nc, 0)
-	    = tsubst_expr (TREE_OPERAND (oc, 0), args, complain, in_decl);
+	  OMP_CLAUSE_OPERAND (nc, 0)
+	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 0), args, complain, in_decl);
 	  break;
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
