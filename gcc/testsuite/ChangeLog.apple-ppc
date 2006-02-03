@@ -8,6 +8,7 @@
 
 	Radar 4399388
 	* gcc.apple/asm-block-37.c: Add.
+	* gcc.apple/asm-block-38.c: Add.
 	* g++.dg/asm-block-37.C: Add.
 
 2006-02-01  Devang Patel  <dpatel@apple.com>

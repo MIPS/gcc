@@ -9,7 +9,6 @@ void X2_Interpolate2DNoPinFourCol(const char *sPtr,
   int rowfraclo[2];
   asm {
     movd [rowfraclo+4], mm6
-    // mov esi, edx
     movzx ebx, byte ptr [esi + eax]
     movq mm2, [edx+32]
     mov ecx, ecx

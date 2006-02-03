@@ -1,6 +1,6 @@
 /* APPLE LOCAL file CW asm blocks */
 /* { dg-do assemble { target i?86*-*-darwin* } } */
-/* { dg-options { -fasm-blocks -msse3 -O1 } } */
+/* { dg-options { -fasm-blocks -msse3 } } */
 /* Radar 4399388 */
 
 void X2_Interpolate2DNoPinFourCol(const char *sPtr,
