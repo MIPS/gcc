@@ -1,3 +1,11 @@
+2006-02-02  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4426814
+	* objc.dg/objc-gc-weak-1.m: New.
+	* objc.dg/objc-gc-weak-2.m: New.
+	* obj-c++.dg/objc-gc-weak-1.mm: New.
+	* obj-c++.dg/objc-gc-weak-2.mm: New.
+
 2006-01-30  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4386773

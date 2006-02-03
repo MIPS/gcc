@@ -5357,6 +5357,15 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   if (lhs == error_mark_node || rhs == error_mark_node)
     return error_mark_node;
 
+  /* APPLE LOCAL begin radar 4426814 */
+  if (c_dialect_objc () && flag_objc_gc)
+    {
+      objc_remove_weak_read (&lhs);
+      lhstype = TREE_TYPE (lhs);
+      olhstype = lhstype;
+    }
+  /* APPLE LOCAL end radar 4426814 */
+
   /* Handle control structure constructs used as "lvalues".  */
   switch (TREE_CODE (lhs))
     {

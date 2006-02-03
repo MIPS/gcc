@@ -401,6 +401,18 @@ objc_generate_write_barrier (tree ARG_UNUSED (lhs),
 }  
 /* APPLE LOCAL end mainline */
 
+/* APPLE LOCAL begin radar 4426814 */
+tree
+objc_generate_weak_read (tree expr)
+{
+  return expr;
+}
+
+void objc_remove_weak_read (tree* ARG_UNUSED (expr))
+{
+}
+/* APPLE LOCAL end radar 4426814 */
+
 /* APPLE LOCAL begin ObjC new abi */
 tree
 objc_v2_build_ivar_ref (tree ARG_UNUSED (datum), tree ARG_UNUSED (component))

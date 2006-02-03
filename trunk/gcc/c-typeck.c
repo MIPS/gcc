@@ -3535,6 +3535,15 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   tree lhstype = TREE_TYPE (lhs);
   tree olhstype = lhstype;
 
+  /* APPLE LOCAL begin radar 4426814 */
+  if (c_dialect_objc () && flag_objc_gc)
+    {
+      objc_remove_weak_read (&lhs);
+      lhstype = TREE_TYPE (lhs);
+      olhstype = lhstype;
+    }
+  /* APPLE LOCAL end radar 4426814 */
+
   /* Types that aren't fully specified cannot be used in assignments.  */
   lhs = require_complete_type (lhs);
 

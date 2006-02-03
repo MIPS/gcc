@@ -1,3 +1,18 @@
+006-02-02   Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4426814
+	* objc/objc-act.h (objc_assign_weak_decl, objc_read_weak_decl): New globals
+	for two weak function calls; objc_read_weak and objc_assign_weak.
+	* objc/objc-act.c (objc_build_weak_read, objc_build_weak_read,
+	objc_generate_weak_read, objc_remove_weak_read): New functions defs.
+	(objc_build_global_assignment): Takes an added argument for generation
+	of 'strong' or 'weak' assignment calls.
+	(objc_is_gcable_type): Now returns 1(strong), -1(weak) or 0(neither).
+	(objc_is_strong_p): Now returns 1(strong), -1(weak) or 0(neither).
+	(objc_generate_write_barrier): Is not capable of generating both
+	weak and strong write barriers.
+	(build_next_objc_exception_stuff): Declare the new functions.
+
 2006-01-30  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4386773

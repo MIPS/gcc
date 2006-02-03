@@ -256,7 +256,8 @@ c_objc_common_truthvalue_conversion (tree expr)
       break;
     }
 
-  return c_common_truthvalue_conversion (expr);
+  /* APPLE LOCAL radar 4426814 */
+  return c_common_truthvalue_conversion (objc_generate_weak_read (expr));
 }
 
 /* In C and ObjC, all decls have "C" linkage.  */

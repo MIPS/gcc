@@ -5814,13 +5814,22 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p)
 
 	  /* Perform the cast.  */
 	  expr = build_c_cast (type, expr);
-	  return expr;
+          /* APPLE LOCAL begin radar 4426814 */
+	  return (c_dialect_objc() && flag_objc_gc) 
+		  ? objc_generate_weak_read (expr) : expr;
+	  /* APPLE LOCAL end radar 4426814 */
 	}
     }
 
   /* If we get here, then it's not a cast, so it must be a
      unary-expression.  */
-  return cp_parser_unary_expression (parser, address_p, cast_p);
+  /* APPLE LOCAL begin radar 4426814 */
+  if (c_dialect_objc() && flag_objc_gc)
+    return objc_generate_weak_read (
+	    cp_parser_unary_expression (parser, address_p, cast_p));
+  else
+    return cp_parser_unary_expression (parser, address_p, cast_p);
+  /* APPLE LOCAL end radar 4426814 */
 }
 
 /* Parse a binary expression of the general form:

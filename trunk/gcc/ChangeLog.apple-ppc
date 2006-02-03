@@ -1,3 +1,15 @@
+006-02-02   Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4426814
+	* c-parse.in (cast_expr): generate objc_read_weak call on
+	each __weak object in the expession.
+	* c-typeck.c (build_modify_expr): Undo the call to objc_read_weak
+	on LHS expression.
+	* c-objc-common.c (c_objc_common_truthvalue_conversion): Generate 
+	objc_read_weak call before generating tree for !exp, etc.
+	* c-common.h (objc_generate_weak_read, objc_remove_weak_read): New decl.
+	* stub-objc.c (objc_generate_weak_read, objc_remove_weak_read): New stubs.
+	 
 2006-01-30  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4386773

@@ -1,3 +1,11 @@
+006-02-02   Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4426814
+	* typeck.c (build_modify_expr): Undo call to objc_read_weak
+	on LHS of the assignment.
+	* parser.c (cp_parser_cast_expression): Central place to add
+	objc_read_weak call on expressions of __weak objects.
+
 2006-01-30  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4386773

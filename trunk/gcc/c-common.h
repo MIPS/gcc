@@ -1064,6 +1064,10 @@ extern int objc_static_init_needed_p (void);
 extern tree objc_generate_static_init_call (tree);
 /* APPLE LOCAL mainline */
 extern tree objc_generate_write_barrier (tree, enum tree_code, tree);
+/* APPLE LOCAL begin radar 4426814 */
+extern tree objc_generate_weak_read (tree);
+extern void objc_remove_weak_read (tree*);
+/* APPLE LOCAL end radar 4426814 */
 
 /* APPLE LOCAL begin C* language */
 extern void objc_set_method_opt (int);

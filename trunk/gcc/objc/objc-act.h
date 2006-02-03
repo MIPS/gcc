@@ -342,6 +342,10 @@ enum objc_tree_index
     OCTI_ASSIGN_GLOBAL_DECL,
     OCTI_ASSIGN_STRONGCAST_DECL,
     /* APPLE LOCAL end mainline */
+    /* APPLE LOCAL begin radar 4426814 */
+    OCTI_ASSIGN_WEAK_DECL,
+    OCTI_READ_WEAK_DECL,
+    /* APPLE LOCAL end radar 4426814 */
 
     /* APPLE LOCAL begin ObjC new abi */
     OCTI_V2_CLS_TEMPL,
@@ -529,6 +533,11 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_assign_strong_cast_decl		\
 				objc_global_trees[OCTI_ASSIGN_STRONGCAST_DECL]
 /* APPLE LOCAL end mainline */
+
+/* APPLE LOCAL begin radar 4426814 */
+#define objc_assign_weak_decl	objc_global_trees[OCTI_ASSIGN_WEAK_DECL]
+#define objc_read_weak_decl	objc_global_trees[OCTI_READ_WEAK_DECL]
+/* APPLE LOCAL end radar 4426814 */
 
 #define objc_method_template	objc_global_trees[OCTI_METH_TEMPL]
 #define objc_ivar_template	objc_global_trees[OCTI_IVAR_TEMPL]

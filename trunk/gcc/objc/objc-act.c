@@ -188,7 +188,10 @@ static int objc_is_gcable_type (tree);
 /* APPLE LOCAL begin mainline */
 static tree objc_substitute_decl (tree, tree, tree);
 static tree objc_build_ivar_assignment (tree, tree, tree);
-static tree objc_build_global_assignment (tree, tree);
+/* APPLE LOCAL begin radar 4426814 */
+static tree objc_build_global_assignment (tree, tree, int);
+static tree objc_build_weak_read (tree);
+/* APPLE LOCAL end radar 4426814 */
 static tree objc_build_strong_cast_assignment (tree, tree);
 /* APPLE LOCAL ObjC GC */
 static int objc_is_strong_p (tree);
@@ -546,6 +549,11 @@ static const char *default_constant_string_class_name;
 #define UTAG_EXCDATA			"_objc_exception_data"
 /* APPLE LOCAL radar 4280641 */
 #define TAG_MSGSEND_FPRET		"objc_msgSend_fpret"
+
+/* APPLE LOCAL begin radar 4426814 */
+#define TAG_ASSIGN_WEAK			"objc_assign_weak"
+#define TAG_READ_WEAK			"objc_read_weak"
+/* APPLE LOCAL end radar 4426814 */
 
 /* APPLE LOCAL begin mainline */
 #define TAG_ASSIGNIVAR			"objc_assign_ivar"
@@ -4018,11 +4026,11 @@ objc_is_object_ptr (tree type)
 }
 
 /* APPLE LOCAL begin ObjC GC */
-/* Return 1 if TYPE should be garbage collected, and 0 otherwise.  Types
-   marked with the '__strong' attribute are GC-able, whereas those marked with
-   __weak' are not.  Types marked with neither attribute are GC-able if
-   (a) they are Objective-C pointer types or (b) they are pointers to types
-   that are themselves GC-able.  */
+/* Return 1 if TYPE should be garbage collected, -1 if has __weak attribut
+   and 0 otherwise.  Types marked with the '__strong' attribute are GC-able, 
+   whereas those marked with __weak' are not.  Types marked with neither 
+   attribute are GC-able if (a) they are Objective-C pointer types or (b) 
+   they are pointers to types that are themselves GC-able.  */
 
 /* APPLE LOCAL end ObjC GC */
 /* APPLE LOCAL begin mainline */
@@ -4041,8 +4049,10 @@ objc_is_gcable_type (tree type)
       /* The '__strong' and '__weak' keywords trump all.  */
       int strong = objc_is_strong_p (type);
 
+      /* APPLE LOCAL begin radar 4426814 */
       if (strong)
-	return (strong == 1 ? 1 : 0);
+	return strong;
+      /* APPLE LOCAL end radar 4426814 */
 
       /* Function pointers are not GC-able.  */
       if (TREE_CODE (type) == FUNCTION_TYPE)
@@ -4051,7 +4061,8 @@ objc_is_gcable_type (tree type)
       /* Objective-C objects are GC-able, unless they were tagged with
 	 '__weak'.  */
       if (objc_is_object_ptr (type))
-	return (objc_is_strong_p (TREE_TYPE (type)) >= 0);
+ 	/* APPLE LOCAL radar 4426814 */
+	return (objc_is_strong_p (TREE_TYPE (type)) >= 0 ? 1 : -1);
 
       type = TREE_TYPE (type);
     }
@@ -4118,17 +4129,110 @@ objc_build_ivar_assignment (tree outervar, tree lhs, tree rhs)
 }
 
 static tree
-objc_build_global_assignment (tree lhs, tree rhs)
+/* APPLE LOCAL radar 4426814 */
+objc_build_global_assignment (tree lhs, tree rhs, int strong)
 {
   tree func_params = tree_cons (NULL_TREE,
 	convert (objc_object_type, rhs),
 	    tree_cons (NULL_TREE, convert (build_pointer_type (objc_object_type),
 		      build_unary_op (ADDR_EXPR, lhs, 0)),
 		    NULL_TREE));
+  /* APPLE LOCAL begin radar 4426814 */
+  tree func = (strong == 1) ? objc_assign_global_decl : objc_assign_weak_decl;
 
-  assemble_external (objc_assign_global_decl);
-  return build_function_call (objc_assign_global_decl, func_params);
+  assemble_external (func);
+  return build_function_call (func, func_params);
+  /* APPLE LOCAL end radar 4426814 */
 }
+
+/* APPLE LOCAL begin radar 4426814 */
+
+/* This routine generates call to objc_read_weak (EXPR);
+*/
+
+static tree
+objc_build_weak_read (tree expr)
+{
+  tree func_params = tree_cons (NULL_TREE, 
+				convert (objc_object_type, expr), NULL_TREE);
+
+  assemble_external (objc_read_weak_decl);
+  return build_function_call (objc_read_weak_decl, func_params);
+}
+
+/* Main routine to decide if a call to objc_read_weak must be generated.
+   If so, it generates call to id objc_read_weak (id) for such __weak objects.
+*/
+
+tree
+objc_generate_weak_read (tree expr)
+{
+  tree t;
+  int strong;
+
+  if (skip_evaluation)
+    return expr;
+
+  strong = objc_is_gcable_p (expr);
+  if (strong != -1)
+    return expr;
+  /* Don't generate the call if it is already done once. */
+  t = expr;
+  STRIP_NOPS(t);
+  while (t && TREE_CODE (t) == NOP_EXPR)
+    t = TREE_OPERAND (t,0);
+  if (t && TREE_CODE (t) == CALL_EXPR)
+    {
+      tree addr = TREE_OPERAND (t, 0);
+      STRIP_NOPS (addr);
+      if (TREE_CODE (addr) == ADDR_EXPR
+          && TREE_OPERAND (addr, 0) == objc_read_weak_decl)
+	return expr;
+    } 
+  /* Also, never generate the call for an assignment used in an expression. */
+  if (t && TREE_CODE (t) == MODIFY_EXPR)
+    return expr;
+
+  t = TREE_TYPE (expr);
+  expr = objc_build_weak_read (expr);
+  expr = convert (t, expr);
+  return expr;
+}
+
+/*
+  Routine to remove call to objc_read_weak and replacing it with its 
+  only argument.
+*/
+
+void 
+objc_remove_weak_read (tree *ref)
+{
+  tree expr = *ref;
+  tree t = TREE_TYPE (expr);
+  
+  while (expr && TREE_CODE (expr) == NOP_EXPR)
+    expr = TREE_OPERAND (expr, 0);
+  if (expr && TREE_CODE (expr) == CALL_EXPR)
+    {
+      tree addr = TREE_OPERAND (expr, 0);
+      STRIP_NOPS (addr);
+      if (TREE_CODE (addr) == ADDR_EXPR
+	  && TREE_OPERAND (addr, 0) == objc_read_weak_decl)
+	{
+	  tree arg = TREE_OPERAND (expr, 1);
+	  expr = TREE_VALUE (arg);
+	  if (TREE_CODE (expr) == NOP_EXPR)
+	    expr = TREE_OPERAND (expr, 0);
+	  /* When call to 'id objc_read_weak(id)' was initially generated,
+	     argument to call was typecast to objc_object_type. Here we need 
+	     to typecast the argument back to its original type to preserve 
+	     its type. */
+	  *ref = convert (t, expr);
+	}
+    }
+}
+/* APPLE LOCAL end radar 4426814 */
+
 
 static tree
 objc_build_strong_cast_assignment (tree lhs, tree rhs)
@@ -4171,8 +4275,9 @@ objc_is_strong_p (tree expr)
   return 0;
 }
 
-/* Return 1 if a call to a write-barrier should be generated when assigning
-   to EXPR.  */
+/* Return 1 (__strong) if a call to a write-barrier should be generated when assigning
+   to EXPR.  Return -1 if a call to objc_assign_weak should be generated when assigning
+   to  EXPR with a __weak attribute; 0 otherwise. */
 
 /* APPLE LOCAL end ObjC GC */
 static int
@@ -4183,8 +4288,10 @@ objc_is_gcable_p (tree expr)
   /* The '__strong' and '__weak' keywords trump all.  */
   int strong = objc_is_strong_p (t);
 
+  /* APPLE LOCAL begin radar 4426814 */
   if (strong)
-    return (strong == 1 ? 1 : 0);
+    return strong;
+  /* APPLE LOCAL end radar 4426814 */
 
   /* Discard lvalue casts, if any.  */
   while (TREE_CODE (expr) == INDIRECT_REF
@@ -4234,11 +4341,14 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
   tree outer;
   int indirect_p = 0;
   /* APPLE LOCAL end ObjC GC */
+  /* APPLE LOCAL radar 4426814 */
+  int strong;
 
   /* APPLE LOCAL begin ObjC GC */
   /* the lhs must be of a suitable type, regardless of its underlying
      structure.  Furthermore, __weak must not have been used.  */
-  if (!objc_is_gcable_p (lhs))
+  /* APPLE LOCAL radar 4426814 */
+  if ((strong = objc_is_gcable_p (lhs)) == 0)
     return NULL_TREE;
   /* APPLE LOCAL end ObjC GC */
 
@@ -4291,8 +4401,12 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
       if (warn_assign_intercept)
 	warning ("instance variable assignment has been intercepted");
 
+      /* APPLE LOCAL begin radar 4426814 */
       /* APPLE LOCAL ObjC GC */
-      return objc_build_ivar_assignment (outer, lhs, rhs);
+      return strong == 1 
+		? objc_build_ivar_assignment (outer, lhs, rhs)
+		: objc_build_global_assignment (lhs, rhs, strong);
+      /* APPLE LOCAL end radar 4426814 */
     }
 
   /* Likewise, intercept assignment to global/static variables if their type is
@@ -4305,9 +4419,15 @@ objc_generate_write_barrier (tree lhs, enum tree_code modifycode, tree rhs)
       if (warn_assign_intercept)
 	warning ("global/static variable assignment has been intercepted");
 
+      /* APPLE LOCAL begin radar 4426814 */
       /* APPLE LOCAL ObjC GC */
-      return objc_build_global_assignment (lhs, rhs);
+      return objc_build_global_assignment (lhs, rhs, strong);
+      /* APPLE LOCAL end radar 4426814 */
     }
+  /* APPLE LOCAL begin radar 4426814 */
+  if (strong == -1)
+    return NULL_TREE;
+  /* APPLE LOCAL end radar 4426814 */
 
   /* APPLE LOCAL begin ObjC GC */
   /* Use the strong-cast write barrier as a last resort.  */
@@ -5300,6 +5420,15 @@ build_next_objc_exception_stuff (void)
   objc_assign_strong_cast_decl
 	= builtin_function (TAG_ASSIGNSTRONGCAST, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
   /* APPLE LOCAL end mainline */
+  /* APPLE LOCAL begin radar 4426814 */
+  /* id objc_assign_weak (id, id *); */
+  objc_assign_weak_decl
+	= builtin_function (TAG_ASSIGN_WEAK, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+  /* id objc_weak_read (id); */
+  temp_type = build_function_type (objc_object_type, tree_cons (NULL_TREE, objc_object_type, OBJC_VOID_AT_END));
+  objc_read_weak_decl
+	= builtin_function (TAG_READ_WEAK, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+  /* APPLE LOCAL end radar 4426814 */
 }
 
 static void
