@@ -2421,56 +2421,60 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 					     TYPE_UNSIGNED (sizetype)), intop);
 
   /* APPLE LOCAL begin CW asm blocks */
-  /* We want to canonicalize PLUS_EXPR into ARRAY_REF for data
-     pointers as ARRAY_REFs can be converted into RTL code without
-     introducing additional temporaries when not optimizing, which is
-     useful as otherwise when all registers are in use by the
-     assembly code, we can run reload out of registers.  */
+  {
+    tree array = ptrop;
+    STRIP_NOPS (array);
 
-  if (inside_cw_asm_block
-      && flag_ms_asms
-      && resultcode == PLUS_EXPR
-      && TREE_CODE (ptrop) == ADDR_EXPR
-      && !(TREE_CODE (TREE_TYPE (TREE_TYPE (ptrop))) == FUNCTION_TYPE
-	   || TREE_CODE (TREE_TYPE (TREE_TYPE (ptrop))) == METHOD_TYPE))
-    {
-      tree type;
-      tree array = ptrop;
-      tree r;
-      tree new_i;
+    /* We want to canonicalize PLUS_EXPR into ARRAY_REF for data
+       pointers as ARRAY_REFs can be converted into RTL code without
+       introducing additional temporaries when not optimizing, which
+       is useful as otherwise when all registers are in use by the
+       assembly code, we can run reload out of registers.  */
 
-      size_exp = convert (TREE_TYPE (intop), size_exp);
+    if (inside_cw_asm_block
+	&& flag_ms_asms
+	&& resultcode == PLUS_EXPR
+	&& TREE_CODE (array) == ADDR_EXPR
+	&& !(TREE_CODE (TREE_TYPE (TREE_TYPE (array))) == FUNCTION_TYPE
+	     || TREE_CODE (TREE_TYPE (TREE_TYPE (array))) == METHOD_TYPE))
+      {
+	tree type;
+	tree r;
+	tree new_i;
 
-      /* We have to ensure that when ARRAY_REF is used, it will
-	 calculate the offset correctly as it is element based, and we
-	 are byte based.  */
-      new_i = fold (build_binary_op (CEIL_DIV_EXPR, intop, size_exp, 1));
-      if (build_binary_op (MULT_EXPR, new_i, size_exp, 1) == intop)
-	{
-	  array = TREE_OPERAND (array, 0);
-	  type = TREE_TYPE (TREE_TYPE (array));
-	  if (TREE_CODE (type) != ARRAY_TYPE)
-	    type = TYPE_MAIN_VARIANT (type);
-	  r = build4 (ARRAY_REF, type, array, new_i, NULL_TREE, NULL_TREE);
-	  TREE_READONLY (r)
-	    |= (TYPE_READONLY (TREE_TYPE (TREE_TYPE (array)))
-		| TREE_READONLY (array));
-	  TREE_SIDE_EFFECTS (r)
-	    |= (TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (array)))
-		| TREE_SIDE_EFFECTS (array));
-	  TREE_THIS_VOLATILE (r)
-	    |= (TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (array)))
-		/* This was added by rms on 16 Nov 91.
-		   It fixes  vol struct foo *a;  a->elts[1]
-		   in an inline function.
-		   Hope it doesn't break something else.  */
-		| TREE_THIS_VOLATILE (array));
-	  r = fold (r);
-	  r = build1 (ADDR_EXPR, result_type, r);
-	  r = fold (r);
-	  return r;
-	}
-    }
+	size_exp = convert (TREE_TYPE (intop), size_exp);
+
+	/* We have to ensure that when ARRAY_REF is used, it will
+	   calculate the offset correctly as it is element based, and we
+	   are byte based.  */
+	new_i = fold (build_binary_op (CEIL_DIV_EXPR, intop, size_exp, 1));
+	if (build_binary_op (MULT_EXPR, new_i, size_exp, 1) == intop)
+	  {
+	    array = TREE_OPERAND (array, 0);
+	    type = TREE_TYPE (TREE_TYPE (array));
+	    if (TREE_CODE (type) != ARRAY_TYPE)
+	      type = TYPE_MAIN_VARIANT (type);
+	    r = build4 (ARRAY_REF, type, array, new_i, NULL_TREE, NULL_TREE);
+	    TREE_READONLY (r)
+	      |= (TYPE_READONLY (TREE_TYPE (TREE_TYPE (array)))
+		  | TREE_READONLY (array));
+	    TREE_SIDE_EFFECTS (r)
+	      |= (TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (array)))
+		  | TREE_SIDE_EFFECTS (array));
+	    TREE_THIS_VOLATILE (r)
+	      |= (TYPE_VOLATILE (TREE_TYPE (TREE_TYPE (array)))
+		  /* This was added by rms on 16 Nov 91.
+		     It fixes  vol struct foo *a;  a->elts[1]
+		     in an inline function.
+		     Hope it doesn't break something else.  */
+		  | TREE_THIS_VOLATILE (array));
+	    r = fold (r);
+	    r = build1 (ADDR_EXPR, result_type, r);
+	    r = fold (r);
+	    return r;
+	  }
+      }
+  }
 
   /* foo+4 is &(char*)foo + 4 in MS asm land, not foo + 4*(elt size).  */
   if (inside_cw_asm_block && flag_ms_asms)

@@ -13,6 +13,7 @@
 	pointer types through to optimizer and print_operand.
 	(cw_print_op): Likewise.
 	* config/asm.h (cw_asm_get_register_var): Add.
+	* c-common.c (pointer_int_sum): Strip NOPs for C++.
 
 2006-02-01  Stuart Hastings  <stuart@apple.com>
 
