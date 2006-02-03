@@ -18540,6 +18540,14 @@ cw_canonicalize_bracket (tree arg)
   if (TREE_OPERAND (arg, 1) == NULL_TREE)
     {
       tree arg0 = TREE_OPERAND (arg, 0);
+      /* Let the normal operand printer output this without trying to
+	 decompose it into parts so that things like (%esp + 20) + 4
+	 can be output as 24(%esp) by the optimizer instead of 4(%0)
+	 and burning an "R" with (%esp + 20).  */
+      if (TREE_TYPE (arg0)
+	  && POINTER_TYPE_P (TREE_TYPE (arg0)))
+	return;
+
       if (TREE_CODE (arg0) == PLUS_EXPR)
 	{
 	  if (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
@@ -18581,7 +18589,8 @@ cw_canonicalize_bracket (tree arg)
       tree arg0 = TREE_OPERAND (arg, 0);
       tree arg1 = TREE_OPERAND (arg, 1);
 
-      while ((TREE_CODE (arg1) == PLUS_EXPR || TREE_CODE (arg1) == MINUS_EXPR)
+      while (arg1
+	     && (TREE_CODE (arg1) == PLUS_EXPR || TREE_CODE (arg1) == MINUS_EXPR)
 	     && cw_is_offset (TREE_OPERAND (arg1, 1)))
 	{
 	  tree swp = TREE_OPERAND (arg1, 0);
@@ -18810,6 +18819,24 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	    op0 = NULL_TREE;
 	  }
 
+	if (op1 == NULL_TREE
+	    && op3 == NULL_TREE
+	    && op2
+	    && TREE_TYPE (op2)
+	    && POINTER_TYPE_P (TREE_TYPE (op2)))
+	  {
+	    /* Let the normal operand printer output this without trying to
+	       decompose it into parts so that things like (%esp + 20) + 4
+	       can be output as 24(%esp) by the optimizer instead of 4(%0)
+	       and burning an "R" with (%esp + 20).  */
+	    cw_force_constraint ("m", e);
+	    op2 = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (op2)), op2);
+	    op2 = fold (op2);
+	    cw_asm_get_register_var (op2, "", buf, argnum, must_be_reg, e);
+	    cw_force_constraint (0, e);
+	    break;
+	  }
+
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "[");
 
@@ -18893,6 +18920,7 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	  }
 	else
 	  strcat (buf, "0");
+
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "]");
 	if (ASSEMBLER_DIALECT == ASM_INTEL)

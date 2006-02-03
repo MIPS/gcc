@@ -1,3 +1,9 @@
+2006-02-02  Mike Stump  <mrs@apple.com>
+
+	Radar 4399388
+	* gcc.apple/asm-block-37.c: Add.
+	* g++.dg/asm-block-37.C: Add.
+
 2006-02-01  Devang Patel  <dpatel@apple.com>
 
 	Radar 4208007
