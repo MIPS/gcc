@@ -192,6 +192,8 @@ static tree objc_build_ivar_assignment (tree, tree, tree);
 static tree objc_build_global_assignment (tree, tree, int);
 static tree objc_build_weak_read (tree);
 /* APPLE LOCAL end radar 4426814 */
+/* APPLE LOCAL radar 4431864 */
+static void objc_set_global_decl_fields (tree);
 static tree objc_build_strong_cast_assignment (tree, tree);
 /* APPLE LOCAL ObjC GC */
 static int objc_is_strong_p (tree);
@@ -1888,11 +1890,20 @@ create_field_decl (tree type, const char *name)
 /* Create a global, static declaration for variable NAME of a given TYPE.  The
    finish_var_decl() routine will need to be called on it afterwards.  */
 
+/* APPLE LOCAL begin radar 4431864 */
 static tree
 start_var_decl (tree type, const char *name)
 {
   tree var = build_decl (VAR_DECL, get_identifier (name), type);
+  objc_set_global_decl_fields (var);
+  return var;
+}
 
+/* Utility routine to set global flags for a global, static declaration. */
+
+static void 
+objc_set_global_decl_fields (tree var)
+{
   TREE_STATIC (var) = 1;
   DECL_INITIAL (var) = error_mark_node;  /* A real initializer is coming... */
   DECL_IGNORED_P (var) = 1;
@@ -1901,9 +1912,8 @@ start_var_decl (tree type, const char *name)
 #ifdef OBJCPLUS
   DECL_THIS_STATIC (var) = 1; /* squash redeclaration errors */
 #endif
-
-  return var;
 }
+/* APPLE LOCAL end radar 4431864 */
 
 /* APPLE LOCAL begin ObjC new abi */
 /* Create a globally visible definition for variable NAME of a given TYPE. The
@@ -1912,7 +1922,18 @@ start_var_decl (tree type, const char *name)
 static tree
 create_global_decl (tree type, const char *name)
 {
-  tree var = start_var_decl (type, name);
+  /* APPLE LOCAL begin radar 4431864 */
+  tree id = get_identifier (name);
+  tree var = lookup_name (id);
+  if (var)
+    {
+      DECL_EXTERNAL (var) = 0;
+      /* APPLE LOCAL radar 4431864 */
+      objc_set_global_decl_fields (var);
+    }
+  else
+    var = start_var_decl (type, name);
+  /* APPLE LOCAL end radar 4431864 */
   TREE_PUBLIC (var) = 1;
   return var;
 }

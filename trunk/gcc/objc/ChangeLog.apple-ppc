@@ -1,3 +1,12 @@
+006-02-3   Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4431864
+	* objc/objc-act.c (objc_set_global_decl_fields): New routine to set 
+	the flags for a new global declaration.
+	(start_var_decl): Call objc_set_global_decl_fields to set the global flags.
+	(create_global_decl): Use the pre-existinig extern declaration, if one 
+	exists, to declare the new global declaration.
+
 006-02-02   Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4426814
