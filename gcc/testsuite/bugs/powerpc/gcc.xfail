@@ -100,6 +100,9 @@
 4271531: gcc.dg/trampoline-1.c execution test
 4366412: gcc.dg/trampoline-1.c (test for excess errors)
 4385002: gcc.dg/vect/vect-align-1.c scan-tree-dump-times Inappropriate alignment 1
+4176531: gcc.dg/4176531.c (test for excess errors)
+4176531: gcc.dg/4176531.c scan-assembler-not fild
+4176531: gcc.dg/4176531.c scan-assembler-not fist
 #
 # the following failures occur only when the tests are being run through ObjC
 3904213: gcc.dg/20040813-1.c scan-assembler .stabs.*100,0,2
