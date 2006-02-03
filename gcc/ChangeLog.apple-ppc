@@ -94,6 +94,22 @@
 	* gcc/global.c (find_tied_stack_pseudo): Insist on a valid
 	memory address (no pseudos).
 
+2006-01-17  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4383509
+	* dwarf2out.c (debug_frame_section): New.
+	(output_call_frame_info): Use debug_frame_section.  Pass it to
+	dw2_asm_output_offset.
+	(output_die): Pass appropriate section to dw2_asm_output_offset.
+	(output_compilation_unit_header): Likewise.
+	(output_pubnames): Likewise.
+	(output_aranges): Likewise.
+	* dwarf2asm.h (dw2_asm_output_offset): Add section parameter.
+	* dwarf2asm.c (dw2_asm_output_offset): Add base section parameter.
+	Pass to ASM_OUTPUT_DWARF_OFFSET.
+	* doc/tm.texi (SDB and DWARF): Add extra parameter to
+	ASM_OUTPUT_DWARF_OFFSET.  Use @var to indicate metavariables.
+	
 2006-01-13  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4386531
