@@ -278,13 +278,21 @@ static void free_pending_lists (void);
 
 /* Tail duplication data structures */
 
-/* Types of tail duplication candidates */
+
+/* Types of tail duplication candidates
+
+  We define 4 types of possible tail duplicate candidates
+   1: parent tree doms cand tree and cand tree has 2 predecessors
+   2: parent tree doms cand tree and cand tree has 3 or more predecessors
+   3: parent tree doesn't dom cand tree and cand tree has 2 predecessors
+   4: parent tree doesn't dom cand tree and cand tree has 3 or more predecessors
+*/
 typedef enum{td_type_undef = 0, td_type_1, td_type_2, td_type_3, td_type_4} 
 td_type_t;
 
 typedef struct
 {
-  td_type_t type;
+  td_type_t type;           /* tail duplication type */
   int ctrgn, ptrgn, ptrgn2; /* candidate and parent treegions */
   edge pc_edge;             /* edge between parent and candidate */
   edge p2c_edge;            /* edge between parent2 and candidate */
@@ -292,22 +300,27 @@ typedef struct
 }
 td_candidate;
 
+td_candidate *td_candidates;
+int max_td_candidates, nr_td_candidates;
+sbitmap free_candidate_bitmap;
+
 /* Tail duplication functions by Chad Rosier */
-static int td_treegions (void);
+static void td_treegions (void);
+static int td_treegion (td_candidate c);
+static void td_reform_treegions (td_candidate c);
 static int td_candidate_p (int trgn);
+static int td_init_candidates (void);
+static int td_add_candidates (int ctrgn, int best);
+static void td_free_candidates (void);
 static void td_classify_candidate (td_candidate *c);
+static int td_update_candidates (int dup);
 static void td_candidate_efficiency (td_candidate *c);
 static void td_build_DDG (int trgn);
 static void td_free_DDG (int trgn);
 static float td_treegion_exec_time (int trgn, edge *false_edges, int nr_false_edges);
-static float path_res_bound (basic_block *blocks, int nr_blocks, float prob);
-static float path_dd_bound (basic_block *blocks, int nr_blocks, float prob);
-static int td_treegion (td_candidate c);
+static float td_path_res_bound (basic_block *blocks, int nr_blocks, float prob);
+static float td_path_dd_bound (basic_block *blocks, int nr_blocks, float prob);
 static bool sched_treegion_too_large_p (int trgn);
-
-/* Tail duplication candidate list */
-td_candidate *td_candidates;
-int nr_td_candidates;
 
 /* Variables used to limit code expansion due to tail duplication */
 static float max_code_growth;
@@ -2036,7 +2049,7 @@ schedule_treegion (int rgn)
 
 /* Single path data dependence bound */
 static float 
-path_dd_bound (basic_block *blocks, int nr_blocks, float prob){
+td_path_dd_bound (basic_block *blocks, int nr_blocks, float prob){
 
   int bb;
   int idx, dep_idx;
@@ -2133,7 +2146,7 @@ path_dd_bound (basic_block *blocks, int nr_blocks, float prob){
 
 /* Single path resource bound */
 static float
-path_res_bound (basic_block *blocks, int nr_blocks, float prob){
+td_path_res_bound (basic_block *blocks, int nr_blocks, float prob){
   int i, issue_rate;
   float nr_insns = 0;
 
@@ -2239,29 +2252,8 @@ td_treegion_exec_time (int trgn, edge *false_edges, int nr_false_edges)
   /* Build the data dependence graph */
   td_build_DDG (trgn);
 
-#if 0
-  fprintf(stderr,"td_treegion_exec_time - enter\n");
-
-  if(false_edges)
-    {
-      fprintf(stderr,"td_treegion_exec_time - false_edges\n");
-      for(i = 0; i < nr_false_edges; i++)
-	{
-	  fprintf(stderr,"%d -> %d\n",
-		  false_edges[i]->src->index,
-		  false_edges[i]->dest->index);
-	}
-    }
-
-  debug_treegion (trgn);
-#endif
-
   current_blocks = RGN_BLOCKS (trgn);
   current_nr_blocks = RGN_NR_BLOCKS (trgn);
-
-#if 0
-  trgn_debug_dependencies ();
-#endif
 
   /* Allocate and initialize variables for DFS traversal.  */
   path_blocks = xmalloc ((current_nr_blocks) * sizeof (basic_block));
@@ -2344,26 +2336,9 @@ td_treegion_exec_time (int trgn, edge *false_edges, int nr_false_edges)
 	  path_prob = path_prob * 
 	    (ei_edge (current_edge)->probability * 1.0 / REG_BR_PROB_BASE);
 
-#if 0
-	  { /* DEBUG */
-	    int j;
-	    fprintf(stderr,"td_treegion_exec_time - path: ");
-	    for(j = 0; j < i+1; j++)
-	      fprintf(stderr, "%d ", path_blocks[j]->index);
-	    fprintf(stderr, "(%f) ", path_prob);
-	  }
-#endif
-
 	  /* Find the resource/data dependence bounds */
-	  res_bound = path_res_bound (path_blocks, i+1, path_prob);
-	  dd_bound = path_dd_bound (path_blocks, i+1, path_prob);
-
-#if 0
-	  {
-	    fprintf(stderr, "  res_bound: %f dd_bound: %f\n", 
-		    res_bound, dd_bound);
-	  }
-#endif
+	  res_bound = td_path_res_bound (path_blocks, i+1, path_prob);
+	  dd_bound = td_path_dd_bound (path_blocks, i+1, path_prob);
 
 	  if(res_bound > dd_bound)
 	    bound += res_bound;
@@ -2387,10 +2362,6 @@ td_treegion_exec_time (int trgn, edge *false_edges, int nr_false_edges)
 
   /* Free the data dependence graph */
   td_free_DDG (trgn);
-
-#if 0
-  fprintf(stderr,"td_treegion_exec_time - exit\n");
-#endif
 
   return bound;
 }
@@ -2568,8 +2539,7 @@ td_classify_candidate (td_candidate *c)
   edge_count = 0;
   
   FOR_EACH_EDGE (e, ei, cand_root->preds)
-    {
-      
+    {      
       parent_rgns[edge_count] = CONTAINING_RGN(e->src->index);
       parent_edges[edge_count] = e;
       
@@ -2634,6 +2604,9 @@ td_candidate_p(int trgn)
 
   current_blocks = RGN_BLOCKS(trgn);
   current_nr_blocks = RGN_NR_BLOCKS(trgn); 
+
+  if(current_nr_blocks == 0)
+    return 0;
 
   /* Check to see if this trgn's parent is the ENTRY_BLOCK */
   e = find_edge(ENTRY_BLOCK_PTR, BASIC_BLOCK(BB_TO_BLOCK(0)));
@@ -2703,10 +2676,15 @@ td_block(basic_block bb, edge redirect_e, int trgn)
 static int
 td_treegion(td_candidate c)
 {
+  int nr_blocks = n_basic_blocks;
+  int nr_new_blocks = RGN_NR_BLOCKS (c.ctrgn);
 #if 0
-  fprintf(stderr, "\n-- td_treegion -- ctrgn: %d (%d) ptrgn: %d (%d)\n\n",
-	  c.ctrgn, c.pc_edge->dest->index, c.ptrgn, c.pc_edge->src->index);
+  fprintf(stderr, "\n-- td_treegion -- type: %d ptrgn: %d (%d) ctrgn: %d (%d)\n\n",
+	  c.type,
+	  c.ptrgn, c.pc_edge->src->index, 
+	  c.ctrgn, c.pc_edge->dest->index);
 #endif
+
   gcc_assert(c.ctrgn != c.ptrgn);
   gcc_assert(!(c.pc_edge->flags & EDGE_DFS_BACK));
 
@@ -2716,94 +2694,401 @@ td_treegion(td_candidate c)
   /* Tail duplication was successful so update the code size */
   curr_insn_count += nr_insns_region (c.ctrgn);
 
+  gcc_assert((nr_blocks + nr_new_blocks) == n_basic_blocks);
+
   return 1;
 }
 
-/* Tail duplicate treegions -
-   Return non-zero if we should continue tail duplicating
-   Returning zero stops tail duplication
-*/
+/* Update the candidate list after tail duplication.
+   Return the index of the best candidate for duplication. */
 
 static int
-td_treegions (void)
+td_update_candidates (int dup)
 {
-  int i, ctrgn, ptrgn, best;
-  edge e;
-  edge_iterator ei;
+  bool invalid;
+  int i, best;
 
-  /* Nothing to duplicate */
-  if(nr_regions == 1)
-    return 0;
+  td_candidate duped = td_candidates[dup];
 
-  nr_td_candidates = 0;
-  td_candidates = xrealloc (td_candidates, (n_edges) * sizeof (td_candidate));
-  gcc_assert(td_candidates);
+  /* Invalidate the just duplicated candidate. */
+  td_candidates[dup].type = td_type_undef;
+  nr_td_candidates--;
 
-  /* Find all possible tail duplication candidates.
-     ctrgn is the candidate treegion for duplication. */
-  for(ctrgn = 0; ctrgn < nr_regions; ctrgn++)
-    {
-      if(td_candidate_p(ctrgn))
-	{
-	  current_blocks = RGN_BLOCKS (ctrgn);
-	  
-	  FOR_EACH_EDGE(e, ei, BASIC_BLOCK(BB_TO_BLOCK(0))->preds) 
-	    {
-	      ptrgn = CONTAINING_RGN(e->src->index);
-
-	      if(td_candidate_p(ptrgn))
-		continue;
-
-	      /* The parent-child region would include too many blocks */
-	      if((RGN_NR_BLOCKS (ptrgn) + RGN_NR_BLOCKS (ctrgn))
-		 > (PARAM_VALUE (PARAM_MAX_SCHED_REGION_BLOCKS)))
-		continue;
-	      
-	      /* The parent-child region would include too many insns */
-	      if((RGN_NR_INSNS (ptrgn) + RGN_NR_INSNS (ctrgn))
-		 > (PARAM_VALUE (PARAM_MAX_SCHED_REGION_INSNS)))
-		continue;
-
-	      td_candidates[nr_td_candidates].ptrgn = ptrgn;
-	      td_candidates[nr_td_candidates].ctrgn = ctrgn;
-	      td_candidates[nr_td_candidates].pc_edge = e;
-	      td_candidates[nr_td_candidates].efficiency = 0;
-	      
-	      nr_td_candidates++;
-	    }
-	}
-    }
-
-  /* Calculate the efficiency of each candidate */
+  /* Remove any invalid candidates after tail duplicating candidate duped. */
   best = 0;
-  for(i = 0; i < nr_td_candidates; i++)
+  for(i = 0; i < max_td_candidates; i++)
     {
+      /* Skip invalid candidates. */
+      if(td_candidates[i].type == td_type_undef)
+	{
+	  SET_BIT (free_candidate_bitmap, i);
+	  continue;
+	}
 
-      /* Classify the tail duplicate candidate */
-      td_classify_candidate (&td_candidates[i]);
+      invalid = false;
+      if((td_candidates[i].ptrgn == duped.ptrgn) ||
+	 (td_candidates[i].ctrgn == duped.ptrgn) ||
+	 (td_candidates[i].type == td_type_3 &&
+	  td_candidates[i].ptrgn2 == duped.ptrgn))
+	invalid = true;
 
-      /* Calculate the efficiency */
-      td_candidate_efficiency (&td_candidates[i]);
-      
-      /* Update the best candidate */
-      /* FIX ME - This can be both negative and positive */
-      if(td_candidates[best].efficiency < td_candidates[i].efficiency)
+      if((td_candidates[i].ptrgn == duped.ctrgn) ||
+	 (td_candidates[i].ctrgn == duped.ctrgn) ||
+	 (td_candidates[i].type == td_type_3 &&
+	  td_candidates[i].ptrgn2 == duped.ctrgn))
+	invalid = true;
+
+      if(duped.type == td_type_3)
+	if((td_candidates[i].ptrgn == duped.ptrgn2) ||
+	   (td_candidates[i].ctrgn == duped.ptrgn2) ||
+	   (td_candidates[i].type == td_type_3 &&
+	    td_candidates[i].ptrgn2 == duped.ptrgn2))
+	  invalid = true;
+
+      if(invalid)
+	{
+	  td_candidates[i].type = td_type_undef;
+	  SET_BIT (free_candidate_bitmap, i);
+	  nr_td_candidates--;
+	  continue;
+	}
+
+      if((td_candidates[best].type == td_type_undef) ||
+	 (td_candidates[best].efficiency < td_candidates[i].efficiency))
 	best = i;
     }
 
-  /* Tail duplicate the best candidate */
-  if(nr_td_candidates > 0)
-    {
-      td_treegion(td_candidates[best]);
-      return 1;
-    }
-  
-  return 0;
+  /* Add new candidates resulting from tail duplicating candidate duped. */
+  best = td_add_candidates (duped.ptrgn, best);
+  best = td_add_candidates (duped.ctrgn, best);
+
+  if(duped.type == td_type_3)
+    best = td_add_candidates (duped.ptrgn2, best);
+
+  return best;
 }
 
-/* Find natural treegions (i.e., treegions without tail duplication)
-   Author: Chad Rosier
-*/
+/* For a single treegion (trgn) add new candidates to the candidate list.  
+   best is the current best candidate. Return the (new) best candidate. */
+
+static int
+td_add_candidates (int ctrgn, int best)
+{
+  int ptrgn, idx;
+  edge e;
+  edge_iterator ei;
+
+  /* Is the candidate treegion a candidate for duplication */
+  if(!td_candidate_p(ctrgn))
+    return best;
+	  
+  current_blocks = RGN_BLOCKS (ctrgn);
+  FOR_EACH_EDGE(e, ei, BASIC_BLOCK(BB_TO_BLOCK(0))->preds) 
+    {
+      /* Is the parent treegion a candidate for duplication */
+      ptrgn = CONTAINING_RGN(e->src->index);
+      if(!td_candidate_p(ptrgn))
+	continue;
+      
+      /* The parent-child region would include too many blocks */
+      if((RGN_NR_BLOCKS (ptrgn) + RGN_NR_BLOCKS (ctrgn))
+	 > (PARAM_VALUE (PARAM_MAX_SCHED_REGION_BLOCKS)))
+	continue;
+      
+      /* The parent-child region would include too many insns */
+      if((RGN_NR_INSNS (ptrgn) + RGN_NR_INSNS (ctrgn))
+	 > (PARAM_VALUE (PARAM_MAX_SCHED_REGION_INSNS)))
+	continue;
+      
+      /* Found a candidate. */
+      idx = sbitmap_first_set_bit(free_candidate_bitmap);
+      RESET_BIT(free_candidate_bitmap, idx);
+
+      td_candidates[idx].ctrgn = ctrgn;
+      td_candidates[idx].ptrgn = ptrgn; 
+      td_candidates[idx].ptrgn2 = 0;
+      td_candidates[idx].pc_edge = e;
+      td_candidates[idx].p2c_edge = NULL;
+      td_candidates[idx].efficiency = 0;	  
+      
+      /* Classify the candidate */
+      td_classify_candidate (&td_candidates[idx]);
+      
+      /* Calculate the efficiency */
+      td_candidate_efficiency (&td_candidates[idx]);
+
+      if((nr_td_candidates == 0) ||
+	 (td_candidates[best].efficiency 
+	  < td_candidates[idx].efficiency))
+	best = idx;
+      
+      gcc_assert(td_candidates[best].type != td_type_undef);
+
+      nr_td_candidates++;
+
+      /* Candidate list if full.  Resize. */
+      if(nr_td_candidates == max_td_candidates)
+	{
+	  sbitmap new_free_candidate_bitmap;
+
+	  gcc_assert(0); /* REMOVE ME LATER */
+
+	  /* Allocate new bitmap. */
+	  new_free_candidate_bitmap = sbitmap_alloc (n_edges);
+	  sbitmap_ones (free_candidate_bitmap);
+
+	  /* Copy old free candidate bitmap to new bitmap. */
+	  memcpy (new_free_candidate_bitmap->elms, 
+		  free_candidate_bitmap->elms, 
+		  sizeof (SBITMAP_ELT_TYPE) * free_candidate_bitmap->size);
+
+	  /* Free old free candidate bitmap. */
+	  sbitmap_free (free_candidate_bitmap);
+	  free_candidate_bitmap = new_free_candidate_bitmap;
+
+	  /* Reallocate candidate list. */
+	  max_td_candidates = n_edges;
+	  td_candidates = 
+	    xrealloc (td_candidates,
+		      max_td_candidates * sizeof (td_candidate));	  
+	}
+
+    }
+  return best;
+}
+
+
+/* Initialize the tail duplication candidate list. 
+   Return the index of the best candidate for duplication. */
+
+static int
+td_init_candidates (void)
+{
+  int i, best, ctrgn;
+
+  best = 0;
+  nr_td_candidates = 0;
+  max_td_candidates = n_edges;
+
+  /* Allocate free candidate bitmap. Set all slots as free. */
+  free_candidate_bitmap = sbitmap_alloc (max_td_candidates);
+  sbitmap_ones (free_candidate_bitmap);
+
+  /* Allocate tail duplication candidate list. */
+  td_candidates = xmalloc (max_td_candidates * sizeof (td_candidate));
+
+  for(ctrgn = 0; ctrgn < nr_regions; ctrgn++)
+    best = td_add_candidates (ctrgn, best);
+
+  /* Invalidate any remaining td_candidates entries by setting 
+     td_type to td_type_undef. */
+  for(i = nr_td_candidates; i < max_td_candidates; i++)
+    td_candidates[i].type = td_type_undef;
+
+  return best;
+}
+
+/* Free the tail duplication candidate list. */
+
+static void
+td_free_candidates (void)
+{
+  gcc_assert (td_candidates);
+  free(td_candidates);
+}
+
+
+/* Reform (update) treegion data structures after tail duplication.
+   We also remove tail duplication candidate (e->aux) that no longer
+   exist due to tail duplication. */
+
+static void
+td_reform_treegions (td_candidate c)
+{
+  rtx insn;
+  basic_block bb;
+
+  int i, j, *rgn_blocks, *copy_blocks, curr_trgn;
+  int num_bbs, idx, node, head, tail;
+  edge_iterator current_ei, *ei_list;
+  
+  sbitmap zero_bitmap; /* Zero bitmap used to check for empty queue */
+  sbitmap saplings;    /* Saplings queue */
+
+#if 0
+  fprintf(stderr, "td_reform_treegions: ptrgn: %d ctrgn: %d\n",
+	  c.ptrgn, c.ctrgn);
+#endif  
+
+  mark_dfs_back_edges ();
+  
+  zero_bitmap = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (zero_bitmap);
+  
+  saplings = sbitmap_alloc (last_basic_block);
+  sbitmap_zero (saplings);
+  
+  /* Set the sapling bits for all treegions that need to be reformed */  
+  SET_BIT (saplings, rgn_table[c.ptrgn].rgn_blocks[0]);
+
+  if(c.type == td_type_3)
+    SET_BIT (saplings, rgn_table[c.ptrgn2].rgn_blocks[0]);
+
+  rgn_blocks = xmalloc ((n_basic_blocks) * sizeof (int));
+  ei_list = xmalloc (n_edges * sizeof (edge_iterator));
+  
+  while(!sbitmap_equal(saplings, zero_bitmap))
+    {
+      
+      /* Get a sapling to start a new treegion */
+      node = sbitmap_first_set_bit(saplings);
+      gcc_assert(node != ENTRY_BLOCK);
+      RESET_BIT(saplings, node);
+
+      /* Make a new empty treegion */
+      idx = 0;
+      num_bbs = 0;
+      curr_trgn = CONTAINING_RGN (node);
+      gcc_assert(curr_trgn < nr_regions);
+
+      /* Move sapling node into treegion */
+      rgn_blocks[idx++] = node;
+      RGN_NR_BLOCKS (curr_trgn) = ++num_bbs;
+      RGN_NR_INSNS (curr_trgn) = 0;
+      bb = BASIC_BLOCK (node);
+      FOR_BB_INSNS(bb, insn)
+	{
+	  if(INSN_P(insn))
+	    RGN_NR_INSNS (curr_trgn) = RGN_NR_INSNS (curr_trgn) + 1;
+	}
+
+      /* BFS traversal to build treegion */
+      head = tail = 0;
+      if(EDGE_COUNT(BASIC_BLOCK(node)->succs) > 0)
+	ei_list[tail++] = ei_start (BASIC_BLOCK(node)->succs);
+  
+      while(head != tail)
+	{
+	  current_ei = ei_list[head++];
+	  
+	  while(!ei_end_p(current_ei))
+	    {
+	      
+	      /* Don't traverse backedges */
+	      if(ei_edge (current_ei)->flags & EDGE_DFS_BACK)
+		{
+		  ei_next (&current_ei);
+		  continue;
+		}
+	      
+	      /* Skip Exit block */
+	      if (ei_edge (current_ei)->dest == EXIT_BLOCK_PTR)
+		{
+		  ei_next (&current_ei);
+		  continue;
+		}
+	      
+	      /* Skip merge points */
+	      if(EDGE_COUNT(ei_edge (current_ei)->dest->preds) > 1)
+		{
+		  ei_next (&current_ei);
+		  continue;
+		}
+	      
+	      /* Move successor into treegion */
+	      rgn_blocks[idx++] = ei_edge (current_ei)->dest->index;
+	      RGN_NR_BLOCKS (curr_trgn) = ++num_bbs;
+	      bb = ei_edge (current_ei)->dest;
+	      FOR_BB_INSNS(bb, insn)
+		{
+		  if(INSN_P(insn))
+		    RGN_NR_INSNS (curr_trgn) = RGN_NR_INSNS (curr_trgn) + 1;
+		}
+	  
+	      /* Add successor to BFS edge list */
+	      if(EDGE_COUNT(ei_edge (current_ei)->dest->succs) > 0)
+		ei_list[tail++] = ei_start (ei_edge (current_ei)->dest->succs);
+	      
+	      ei_next (&current_ei);
+	    }
+	}
+      
+      /* Allocate the blocks for the region */
+      copy_blocks = xmalloc ((num_bbs) * sizeof (int));
+      memcpy(copy_blocks, rgn_blocks, (num_bbs) * sizeof (int));
+      gcc_assert(copy_blocks);
+      
+      /* Copy blocks to region */
+      gcc_assert (RGN_BLOCKS (curr_trgn));
+      free (RGN_BLOCKS (curr_trgn));
+      RGN_BLOCKS(curr_trgn) = copy_blocks;
+      copy_blocks = NULL;
+      
+    }
+
+  free (ei_list);
+  sbitmap_free (zero_bitmap);
+  sbitmap_free (saplings);
+
+  /* For type 1/3 tail duplication remove the candidate treegion from 
+     the rgn_table. It has now been merged into the parent treegion */
+
+  if(c.type == td_type_1 || c.type == td_type_3)
+    {
+      RGN_NR_BLOCKS (c.ctrgn) = 0;
+      RGN_NR_INSNS (c.ctrgn) = 0;
+      gcc_assert (RGN_BLOCKS (c.ctrgn));
+      free (RGN_BLOCKS (c.ctrgn));
+      RGN_BLOCKS (c.ctrgn) = NULL;
+    }
+
+  /* Resize and update block_to_bb and containing_rgn arrays */
+  block_to_bb = xrealloc (block_to_bb, (last_basic_block) * sizeof (int));
+  containing_rgn = xrealloc (containing_rgn, (last_basic_block) * sizeof (int));
+
+  num_bbs = 0;
+  for(i = 0; i < nr_regions; i++)
+    {
+      rgn_blocks = RGN_BLOCKS(i);
+      for(j = 0; j < RGN_NR_BLOCKS (i); j++)
+	{
+	  BLOCK_TO_BB (rgn_blocks[j]) = j;
+	  CONTAINING_RGN (rgn_blocks[j]) = i;
+	}
+      num_bbs += RGN_NR_BLOCKS (i);
+    }
+
+  gcc_assert(num_bbs == (n_basic_blocks - NUM_FIXED_BLOCKS));
+}
+
+/* Tail duplicate treegions */
+
+static void
+td_treegions (void)
+{
+  int best;
+
+  /* Nothing to duplicate */
+  if(nr_regions == 1)
+    return;
+
+  /* Initialize all candidate data structures and find all 
+     possible tail duplication candidates. */
+  best = td_init_candidates ();
+
+  /* Tail duplicate the best candidate */
+  while(nr_td_candidates > 0)
+    {
+      td_treegion (td_candidates[best]);
+      td_reform_treegions (td_candidates[best]);
+      best = td_update_candidates (best);
+    }
+
+  /* Free candidate structures */
+  td_free_candidates ();
+}
+
+/* Find natural treegions (i.e., treegions without tail duplication) */
 
 static void
 find_treegions (void)
@@ -2898,7 +3183,6 @@ find_treegions (void)
 		}
 
 	      /* Skip if already in treegion */
-	      /* Why, TEST_BIT wouldn't like a -2 or -1 index */
 	      if(TEST_BIT (in_treegion, ei_edge (current_ei)->dest->index))
 		{
 		  ei_next (&current_ei);
@@ -2920,10 +3204,12 @@ find_treegions (void)
 	      CONTAINING_RGN (ei_edge (current_ei)->dest->index) = nr_regions;
 	      SET_BIT (in_treegion, ei_edge (current_ei)->dest->index);
 
+	      /* Clear the aux pointer. Later used during tail duplication */
+	      ei_edge (current_ei)->aux = NULL;
+
 	      /* Set number of block/insns in region */
 	      RGN_NR_BLOCKS (nr_regions) = ++num_bbs;
 	      bb = ei_edge (current_ei)->dest;
-	      RGN_NR_INSNS (nr_regions) = 0;
 	      FOR_BB_INSNS(bb, insn)
 		{
 		  if(INSN_P(insn))
@@ -2967,7 +3253,7 @@ static int *deaths_in_region;
 static void
 init_treegions (void)
 {
-  int rgn, change;
+  int rgn;
   basic_block bb;
   sbitmap blocks;
   
@@ -2991,11 +3277,11 @@ init_treegions (void)
     if (bb->next_bb != EXIT_BLOCK_PTR)
       bb->aux = bb->next_bb;
 
-  change = 1;
-  while(change){
-    find_treegions ();
-    change = td_treegions ();
-  }
+  /* Find natural treegions */
+  find_treegions ();
+
+  /* Tail duplication */
+  td_treegions ();
 
   cfg_layout_finalize();
   cleanup_cfg(CLEANUP_EXPENSIVE);
