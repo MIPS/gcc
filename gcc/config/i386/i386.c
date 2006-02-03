@@ -18725,7 +18725,16 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 
   /* movzx isn't part of the AT&T syntax, they spell it movz.  */
   if (strcasecmp (opcode, "movzx") == 0)
-    opcode = "movz";
+    {
+      /* Silly extention of the day, A zero extended move that has the
+	 same before and after size is accepted and it just a normal
+	 move.  */
+      if (argnum == 2
+	  && e->mod[0] == e->mod[1])
+	opcode = "mov";
+      else
+	opcode = "movz";
+    }
 
   if (strncasecmp (opcode, "f", 1) == 0 &&
       (!(strcasecmp (opcode, "fldcw") == 0)))

@@ -1,3 +1,9 @@
+2006-02-03  Mike Stump  <mrs@apple.com>
+
+	Radar 4432782
+	* config/i386/i386.c (x86_canonicalize_operands): A movz with 2
+	operands of the same size is converted to a normal mov.
+
 2006-02-02  Mike Stump  <mrs@apple.com>
 
 	Radar 4399388
