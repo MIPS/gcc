@@ -1,3 +1,13 @@
+2006-02-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am (src.zip): Update src.zip file search to look in
+	classpath directory.
+	* Makefile.in: Regenerate.
+
+2006-01-31  Mark Wielaard  <mark@klomp.org>
+
+	* NEWS: Add 4.1 updates.
+
 2005-06-09  Archit Shah  <ashah@redhat.com>
 
 	* gnu/java/rmi/rmic/CompilerProcess.java (computeTypicalArguments):

@@ -1,3 +1,116 @@
+2006-02-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/25926
+	* pa/x-ada (X_ADA_CFLAGS): Define _X_HPUX10 on HP-UX 10.
+	* pa/t-pa (TARGET_LIBGCC2_CFLAGS): Define _T_HPUX10 on HP-UX 10.
+
+2006-02-03  Richard Henderson  <rth@redhat.com>
+
+	PR target/26090
+	* config/ia64/sysv4.h (TARGET_ASM_SELECT_RTX_SECTION,
+	TARGET_ASM_SELECT_SECTION, TARGET_ASM_UNIQUE_SECTION,
+	TARGET_ASM_SELECT_RTX_SECTION, TARGET_RWRELOC): Copy from
+	the hpux definition.
+
+2006-02-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/25979
+	* gimplify.c (gimplify_modify_expr_rhs): Disable *& optimization for now.
+
+	PR middle-end/25977
+	* gimplify.c (gimplify_modify_expr_rhs): It's not always safe to do RVO
+	on the return slot if it's an NRV.
+
+2006-01-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/26001
+	* expr.c (expand_expr_real_1) <case ARRAY_REF>:
+	Use the corrected index for the character
+	out of the string constant.
+
+2006-02-03  Steve Ellcey  <sje@cup.hp.com>
+
+	PR middle-end/24901
+	* fold-const.c (fold_checksum_tree): Change type of buf.
+
+2006-02-03  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/25960
+	* config/rs6000/darwin-ldouble.c (__gcc_qadd): Preserve -0.0 result.
+
+2006-02-03  Andreas Krebbel  <krebbel1@de.ibm.com>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/25864
+	* config/s390/2084.md ("x_fsimptf", "x_fmultf", "x_fdivtf",
+	"x_floadtf", "x_ftrunctf", "x_ftruncdf"): New insn reservations.
+	* config/s390/fixdfdi.h (__fixunstfdi, __fixtfdi): New functions.
+	* config/s390/s390.c (struct processor_costs): Add mxbr, sqxbr, dxbr 
+	and dxr fields.
+	(z900_cost, z990_cost, z9_109_cost): Values for the new fields added.
+	(s390_rtx_costs): Use the new fields to calculate rtx costs.
+	(s390_secondary_input_reload_class, s390_secondary_output_reload_class):
+	Define secondary reloads for TFmode moves.
+	(constant_modes): Add TFmode.
+	(NR_C_MODES): Set to 8.
+	* config/s390/s390.h (TARGET_CPU_CPP_BUILTINS): Add __LONG_DOUBLE_128__
+	builtin define.
+	(LONG_DOUBLE_TYPE_SIZE): Set to 128 or 64.
+	(LIBGCC2_LONG_DOUBLE_TYPE_SIZE, WIDEST_HARDWARE_FP_SIZE): Define.
+	(HARD_REGNO_NREGS, HARD_REGNO_MODE_OK, CLASS_MAX_NREGS, 
+	CANNOT_CHANGE_MODE_CLASS): Consider TFmode.
+	* config/s390/s390.md ("type" attribute): Add fsimptf, floadtf, fmultf, 
+	fdivtf, fsqrttf, ftrunctf, ftruncdf as possible values.
+	(FPR mode macro): Add TFmode.
+	(DSF mode macro): New.
+	(<de>, <dee> mode attributes): Removed.
+	(<xde>, <xdee>, <RRe>, <RXe>, <Rf> mode attributes): New.
+	("*cmp<mode>_ccs_0", "*cmp<mode>_ccs_0_ibm", "*cmp<mode>_ccs", 
+	"*cmp<mode>_ccs_ibm", "fix_trunc<FPR:mode><GPR:mode>2_ieee", 
+	"floatdi<mode>2", "floatsi<mode>2_ieee", "*add<mode>3", 
+	"*add<mode>3_cc", "*add<mode>3_cconly", "*add<mode>3_ibm", 
+	"*sub<mode>3", "*sub<mode>3_cc", "*sub<mode>3_cconly", 
+	"*sub<mode>3_ibm", "*mul<mode>3_ibm", "*fmadd<mode>", "*fmsub<mode>",
+	"*div<mode>3", "*div<mode>3_ibm", "*neg<mode>2_cc", 
+	"*neg<mode>2_cconly", "*neg<mode>2", "*neg<mode>2_ibm", 
+	"*abs<mode>2_cc", "*abs<mode>2_cconly", "*abs<mode>2",
+	"*abs<mode>2_ibm", "*negabs<mode>2_cc", "*negabs<mode>2_cconly", 
+	"*negabs<mode>2", "sqrt<mode>2"):
+	Changed <de> to <xde>. R constraint replaced by <Rf>.
+	("*mul<mode>3"): Changed <dee> to <xdee>. R constraint replaced by 
+	<Rf>.
+	("fix_trunc<FPR:mode>di2"): 'FPR:' removed.
+	("*fmadd<mode>", "*fmsub<mode>"): FPR mode replaced by DSF.
+	("*movtf_64", "*movtf_31"): New insn definitions followed by 5 
+	splitters.
+	("movtf", "reload_outtf", "reload_intf", "trunctfdf2", "trunctfsf2", 
+	"extenddftf2", "extendsftf2"): New expanders.
+	("*trunctfdf2_ieee", "*trunctfdf2_ibm", "*trunctfsf2_ieee", 
+	"*trunctfsf2_ibm", "*extenddftf2_ieee", "*extenddftf2_ibm",
+	"*extendsftf2_ieee", "*extendsftf2_ibm"): New insn patterns.
+	* config/s390/s390.opt (mlong-double-128, mlong-double-64):
+	New options.
+	* config/s390/t-crtstuff (TARGET_LIBGCC2_CFLAGS): Macro defined.
+	* config/s390/libgcc-glibc.ver (__divtc3, __multc3, __powitf2, 
+	__fixtfti, __fixunstfti, __floattitf, __fixtfdi, __fixunstfdi,
+	__floatditf): Add a GCC_4.1.0 symbol version tag.
+	* doc/invoke.texi (-mlong-double-128, -mlong-double-64): Document
+	the new options.
+
+2006-01-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/s390/s390.c (init_alignment_context): Set
+	ALIAS_SET_MEMORY_BARRIER on the MEM.
+
+2006-01-31  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* optabs.c (prepare_cmp_insn): If unbiased and unsigned then bias
+	the comparison routine return.
+
+2006-01-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/lb1sf68.asm: Use moveq to load small constants.
+
 2006-01-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/sparc/sparc.c (sparc_expand_compare_and_swap_12): Set
@@ -549,24 +662,24 @@
 	PR tree-optimization/24123
 
 	* Makefile.in (tree-ssa-math-opts.o): Adjust dependencies.
-        * tree-cfg.c (single_noncomplex_succ): New.
-        * tree-flow.h (single_noncomplex_succ): Declare it.
-        * tree-ssa-math-opts.c (enum place_reciprocal): Remove.
-        * tree-ssa-math-opts.c (enum place_reciprocal): Remove.
-        (struct occurrence, occ_head, occ_pool, is_divide_by, compute_merit,
+	* tree-cfg.c (single_noncomplex_succ): New.
+	* tree-flow.h (single_noncomplex_succ): Declare it.
+	* tree-ssa-math-opts.c (enum place_reciprocal): Remove.
+	* tree-ssa-math-opts.c (enum place_reciprocal): Remove.
+	(struct occurrence, occ_head, occ_pool, is_divide_by, compute_merit,
 	insert_bb, register_division_in, insert_reciprocals,
 	replace_reciprocal, free_bb): New.
-        (execute_cse_reciprocals_1): Rewritten.
-        (execute_cse_reciprocals): Adjust calls to execute_cse_reciprocals_1.
-        Do not commit any edge insertion.  Always compute dominators and
-        create the allocation pool.
-        * target-def.h (TARGET_MIN_DIVISIONS_FOR_RECIP_MUL): New.
+	(execute_cse_reciprocals_1): Rewritten.
+	(execute_cse_reciprocals): Adjust calls to execute_cse_reciprocals_1.
+	Do not commit any edge insertion.  Always compute dominators and
+	create the allocation pool.
+	* target-def.h (TARGET_MIN_DIVISIONS_FOR_RECIP_MUL): New.
 	* target.h (struct gcc_target): Add min_divistions_for_recip_mul.
 	* targhooks.c (default_min_divistions_for_recip_mul): New.
 	* targhooks.h (default_min_divistions_for_recip_mul): New prototype.
-        * passes.c (init_optimization_passes): Run recip after tree loop
-        optimizations.
-        * doc/tm.texi (Misc): Document TARGET_MIN_DIVISIONS_FOR_RECIP_MUL.
+	* passes.c (init_optimization_passes): Run recip after tree loop
+	optimizations.
+	* doc/tm.texi (Misc): Document TARGET_MIN_DIVISIONS_FOR_RECIP_MUL.
 
 2006-01-11  Jan Hubicka  <jh@suse.cz>
 
@@ -607,11 +720,11 @@
 	is signed.
 
 2006-01-08  Ian Lance Taylor  <ian@airs.com>
-            David Edelsohn  <edelsohn@gnu.org>
+	    David Edelsohn  <edelsohn@gnu.org>
 
-        PR rtl-optimization/25662
-        * optabs.c (simplify_expand_binop): Use simplify_binary_operation
-        for constant operands instead of simplify_gen_binary.
+	PR rtl-optimization/25662
+	* optabs.c (simplify_expand_binop): Use simplify_binary_operation
+	for constant operands instead of simplify_gen_binary.
 
 2006-01-05  Richard Henderson  <rth@redhat.com>
 
@@ -782,11 +895,11 @@
 2005-12-19  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR target/25180
-        * config/rs6000/predicates.md (logical_const_operand): Split
-        out of logical_operand.
-        (logical_operand): Use it.
-        * config/rs6000/rs6000.md (cmp -> xor peephole2): Use
-        logical_const_operand.
+	* config/rs6000/predicates.md (logical_const_operand): Split
+	out of logical_operand.
+	(logical_operand): Use it.
+	* config/rs6000/rs6000.md (cmp -> xor peephole2): Use
+	logical_const_operand.
 
 2005-12-19  Nathan Sidwell  <nathan@codesourcery.com>
 
@@ -1114,7 +1227,7 @@
 	* c-typeck.c (build_c_cast): ... here.
 
 2005-12-08  Andreas Krebbel  <krebbel1@de.ibm.com>
-            Jakub Jelinek  <jakub@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/25268
 	* config/s390/s390.c (s390_decompose_shift_count): Remove BITS
@@ -1165,9 +1278,9 @@
 2005-12-07  Aldy Hernandez  <aldyh@redhat.com>
 
        PR C++/24138
-        * tree.c (integer_all_onesp): Always return true if all bits on.
+	* tree.c (integer_all_onesp): Always return true if all bits on.
 
-        * testsuite/g++.dg/init/array0.C: New.
+	* testsuite/g++.dg/init/array0.C: New.
 
 2005-12-06  Andreas Schwab  <schwab@suse.de>
 
@@ -1212,7 +1325,7 @@
 	* optabs.c (expand_vec_cond_expr): Use EXPAND_NORMAL.
 
 2005-11-30  Dale Johannesen  <dalej@apple.com>
-            Andrew Pinski  <pinskia@physics.uc.edu>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR rtl-opt/24930
 	* combine.c (find_split_point):  Sign extend bitmask
