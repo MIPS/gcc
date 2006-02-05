@@ -6,7 +6,7 @@
 
 2006-02-02  Mike Stump  <mrs@apple.com>
 
-	Radar 4399388
+	Radar 4433955
 	* c-common.c (cw_asm_get_register_var): Remove static.
 	(pointer_int_sum): Build up ARRAY_REFs when possible.
 	* config/i386/i386.c (cw_canonicalize_bracket): Let forms with
