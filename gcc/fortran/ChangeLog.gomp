@@ -1,3 +1,7 @@
+2006-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-decl.c (create_function_arglist): Handle dummy functions.
+
 2006-01-26  Diego Novillo  <dnovillo@redhat.com>
 
 	* trans-openmp.c: Call build_omp_clause instead of
