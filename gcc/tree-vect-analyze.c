@@ -315,6 +315,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 		    || vectorizable_operation (stmt, NULL, NULL)
 		    || vectorizable_assignment (stmt, NULL, NULL)
 		    || vectorizable_load (stmt, NULL, NULL)
+		    || vectorizable_strided_load (stmt, NULL, NULL)
 		    || vectorizable_store (stmt, NULL, NULL, &dummy)
 		    || vectorizable_condition (stmt, NULL, NULL));
 
@@ -803,7 +804,7 @@ vect_check_interleaving (struct data_reference *dra,
   /* Check:
      1. data-refs are of the same type
      2. their steps are equal
-     3. the step is smaller than the difference between data-refs' offsets
+     3. the step is greater than the difference between data-refs' inits
   */
   type_size_a = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra)));
   type_size_b = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb)));
@@ -1737,7 +1738,7 @@ vect_analyze_data_ref_access (struct data_reference *dr)
   /* Consecutive?  */
   if (!tree_int_cst_compare (step, TYPE_SIZE_UNIT (scalar_type)))
     {
-      /* Not interleaving.  */
+      /* Mark that it is not interleaving.  */
       DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt)) = NULL_TREE;
       return true;
     }
@@ -1749,20 +1750,23 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	 element of the group that is accessed in the loop.  */
       struct data_reference *data_ref = STMT_VINFO_DATA_REF (vinfo_for_stmt (
 								       stmt));      
+      /* STRIDE is STEP counted in elements.  */
       tree stride = fold_build2 (TRUNC_DIV_EXPR, TREE_TYPE (step), step,
 				 TYPE_SIZE_UNIT (scalar_type));
+      unsigned int size = TREE_INT_CST_LOW (stride);
 
       /* Gaps are supported only for loads. STEP must be a multiple of the type
-	 size.  */
+	 size.  The size of the group must be a power of 2.  */
       if (DR_IS_READ (data_ref) 
 	  && !tree_int_cst_compare (fold_build2 (TRUNC_MOD_EXPR, 
 						 TREE_TYPE (step), step,
 						 TYPE_SIZE_UNIT (scalar_type)), 
 				    ssize_int (0))
-	  && tree_int_cst_compare (stride, ssize_int (0)) > 0)
+	  && tree_int_cst_compare (stride, ssize_int (0)) > 0
+	  && exact_log2 (size) != -1)
 	{
 	  DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt)) = stmt;
-	  DR_GROUP_SIZE (vinfo_for_stmt (stmt)) = TREE_INT_CST_LOW (stride);
+	  DR_GROUP_SIZE (vinfo_for_stmt (stmt)) = size;
 	  if (vect_print_dump_info (REPORT_DR_DETAILS))
 	    {
 	      fprintf (vect_dump, "Detected single element interleaving %d ", 
@@ -1785,8 +1789,8 @@ vect_analyze_data_ref_access (struct data_reference *dr)
       tree prev = stmt;
       struct data_reference *data_ref = STMT_VINFO_DATA_REF (vinfo_for_stmt (
 								       stmt));
-      unsigned int count = 1;
-      tree next_step, stride;
+      unsigned int count = 1, size;
+      tree next_step, stride, count_in_bytes;
       tree prev_init = DR_INIT (data_ref);
       tree diff;
 
@@ -1816,7 +1820,7 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	     gap in the access, DR_GROUP_GAP is always 1.  */
 	  DR_GROUP_GAP (vinfo_for_stmt (next)) = TREE_INT_CST_LOW (diff); 
 
-	  /* Check that all tha accesses have the same STEP.  */
+	  /* Check that all the accesses have the same STEP.  */
 	  next_step = DR_STEP (STMT_VINFO_DATA_REF (vinfo_for_stmt (next)));
 	  if (tree_int_cst_compare (step, next_step))
 	    {
@@ -1831,11 +1835,11 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	}
 
       /* COUNT is the number of accesses found, we multiply it by the size of 
-	 the type and check that it is equal to STEP.  If STRIDE is not equal to
-	 STEP we have gaps.  */
-      stride = fold_build2 (MULT_EXPR, TREE_TYPE (step), ssize_int (count),
-                            TYPE_SIZE_UNIT (scalar_type));
-      if (tree_int_cst_compare (step, stride)
+	 the type and check that the result, COUNT_IN_BYTES, it is equal to STEP,
+	 otherwise we have gaps.  */
+      count_in_bytes = fold_build2 (MULT_EXPR, TREE_TYPE (step), ssize_int (count),
+				    TYPE_SIZE_UNIT (scalar_type));
+      if (tree_int_cst_compare (step, count_in_bytes)
 	  && !DR_IS_READ (STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt))))
         {
 	  /* Gaps are supported only for loads.  */
@@ -1851,8 +1855,8 @@ vect_analyze_data_ref_access (struct data_reference *dr)
           return false;
         }
 
-      /* Check the stride of the interleaving is not greater than STEP.  */
-      if (tree_int_cst_compare (step, stride) < 0) 
+      /* Check the size of the interleaving is not greater than STEP.  */
+      if (tree_int_cst_compare (step, count_in_bytes) < 0) 
 	{
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    {
@@ -1879,18 +1883,19 @@ vect_analyze_data_ref_access (struct data_reference *dr)
 	  return false;
 	}
 
+      /* STRIDE is STEP counted in elements.  */
       stride = fold_build2 (TRUNC_DIV_EXPR, TREE_TYPE (step), step,
 			    TYPE_SIZE_UNIT (scalar_type));
-      count = TREE_INT_CST_LOW (stride);
+      size = TREE_INT_CST_LOW (stride);
 
       /* FORNOW: we handle only interleaving that is a power of 2.  */
-      if (exact_log2 (count) == -1)
+      if (exact_log2 (size) == -1)
 	{
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    fprintf (vect_dump, "interleaving is not a power of 2");
 	  return false;
 	}
-      DR_GROUP_SIZE (vinfo_for_stmt (stmt)) = count;
+      DR_GROUP_SIZE (vinfo_for_stmt (stmt)) = size;
     }
   return true;
 }

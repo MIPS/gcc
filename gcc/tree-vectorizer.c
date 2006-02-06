@@ -1371,7 +1371,6 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_SAME_ALIGN_REFS (res) = VEC_alloc (dr_p, heap, 5);
   DR_GROUP_FIRST_DR (res) = NULL_TREE;
   DR_GROUP_NEXT_DR (res) = NULL_TREE;
-  DR_GROUP_VECTORIZED (res) = false;          
   DR_GROUP_SIZE (res) = 0;               
   DR_GROUP_SAME_DR_STMT (res) = NULL_TREE;
   DR_GROUP_GAP (res) = 0;

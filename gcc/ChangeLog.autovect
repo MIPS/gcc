@@ -1,3 +1,27 @@
+2006-02-06  Ira Rosen  <irar@il.ibm.com>
+
+        * tree-vectorizer.h (struct _stmt_vec_info): Remove field vectorized.
+        Remove macros for its access.
+        (vectorizable_strided_load): Declare.
+        * tree-vectorizer.c (new_stmt_vec_info): Remove initialization of the
+        above.
+        * tree-vect-analyze.c (vect_analyze_operations): Call
+        vectorizable_strided_load.
+        (vect_check_interleaving): Fix documentation.
+        (vect_analyze_data_ref_access): Fix and add documentation. Add check
+        that the group size is power of 2 for single element interleaving.
+        Change names of variables.
+        * tree-vect-transform.c (vect_permute_store_chain): Use two vectors.
+        (vectorizable_store): Don't set vectorized field of _stmt_vec_info.
+        (vect_perm_load_chain): Use two vectors. Don't create loads here.
+        (vect_transform_strided_load): Don't check vectorized field of
+        _stmt_vec_info. Don't create data-ref ptr. Cleanup. Fix documentation.
+        (vect_transform_strided_unaligned_load): Likewise.
+        (vectorizable_load): Don't handle interleaving here.
+        (vectorizable_strided_load): New.
+        (vect_transform_stmt): Call vectorizable_strided_load. Use
+        STMT_VINFO_VEC_STMT instead of vectorized field of _stmt_vec_info.
+
 2006-02-06  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-scalar-evolution.c (unify_peeled_chrec): Removed.

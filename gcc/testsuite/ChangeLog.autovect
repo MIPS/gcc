@@ -1,3 +1,9 @@
+2006-02-06  Ira Rosen  <irar@il.ibm.com>
+
+	* lib/target-supports.exp (vect_short_mult): Define.
+	* gcc.dg/vect/vect-10.c: Vectorizable on targets that support 
+	vect_short_mult.
+
 2006-01-26  Ira Rosen  <irar@il.ibm.com>
 
 	* gcc.dg/vect/vect-strided-a-mult.c: New.
