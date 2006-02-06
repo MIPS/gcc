@@ -4592,11 +4592,12 @@ resolve_symbol (gfc_symbol * sym)
   int formal_ns_save, check_constant, mp_flag;
   int i, flag;
   gfc_namelist *nl;
-  gfc_symtree * symtree;
-  gfc_symtree * this_symtree;
-  gfc_namespace * ns;
-  gfc_component * c;
-  gfc_formal_arglist * arg;
+  gfc_symtree *symtree;
+  gfc_symtree *this_symtree;
+  gfc_namespace *ns;
+  gfc_component *c;
+  gfc_formal_arglist *arg;
+  gfc_expr *constructor_expr;
 
   if (sym->attr.flavor == FL_UNKNOWN)
     {
@@ -4935,6 +4936,27 @@ resolve_symbol (gfc_symbol * sym)
 	  else
 	    gfc_error ("Automatic array '%s' at %L cannot have an initializer",
 		       sym->name, &sym->declared_at);
+	  return;
+	}
+
+     /* 4th constraint in section 11.3:  "If an object of a type for which
+	component-initialization is specified (R429) appears in the
+	specification-part of a module and does not have the ALLOCATABLE
+	or POINTER attribute, the object shall have the SAVE attribute."  */
+
+      constructor_expr = NULL;
+      if (sym->ts.type == BT_DERIVED && !(sym->value || flag))
+        constructor_expr = gfc_default_initializer (&sym->ts);
+
+      if (sym->ns->proc_name
+	  && sym->ns->proc_name->attr.flavor == FL_MODULE
+	  && constructor_expr
+	  && !sym->ns->save_all && !sym->attr.save
+	  && !sym->attr.pointer && !sym->attr.allocatable)
+	{
+	  gfc_error("Object '%s' at %L must have the SAVE attribute %s",
+ 	 	     sym->name, &sym->declared_at,
+		     "for default initialization of a component");
 	  return;
 	}
 
@@ -5860,21 +5882,20 @@ resolve_fntype (gfc_namespace * ns)
 }
 
 
-/* This function is called after a complete program unit has been compiled.
-   Its purpose is to examine all of the expressions associated with a program
-   unit, assign types to all intermediate expressions, make sure that all
-   assignments are to compatible types and figure out which names refer to
-   which functions or subroutines.  */
+/* Examine all of the expressions associated with a program unit,
+   assign types to all intermediate expressions, make sure that all
+   assignments are to compatible types and figure out which names
+   refer to which functions or subroutines.  It doesn't check code
+   block, which is handled by resolve_code.  */
 
-void
-gfc_resolve (gfc_namespace * ns)
+static void
+resolve_types (gfc_namespace * ns)
 {
-  gfc_namespace *old_ns, *n;
+  gfc_namespace *n;
   gfc_charlen *cl;
   gfc_data *d;
   gfc_equiv *eq;
 
-  old_ns = gfc_current_ns;
   gfc_current_ns = ns;
 
   resolve_entries (ns);
@@ -5892,7 +5913,7 @@ gfc_resolve (gfc_namespace * ns)
 		   "also be PURE", n->proc_name->name,
 		   &n->proc_name->declared_at);
 
-      gfc_resolve (n);
+      resolve_types (n);
     }
 
   forall_flag = 0;
@@ -5916,12 +5937,43 @@ gfc_resolve (gfc_namespace * ns)
   for (eq = ns->equiv; eq; eq = eq->next)
     resolve_equivalence (eq);
 
-  cs_base = NULL;
-  resolve_code (ns->code, ns);
-
   /* Warn about unused labels.  */
   if (gfc_option.warn_unused_labels)
     warn_unused_label (ns->st_labels);
+}
+
+
+/* Call resolve_code recursively.  */
+
+static void
+resolve_codes (gfc_namespace * ns)
+{
+  gfc_namespace *n;
+
+  for (n = ns->contained; n; n = n->sibling)
+    resolve_codes (n);
+
+  gfc_current_ns = ns;
+  cs_base = NULL;
+  resolve_code (ns->code, ns);
+}
+
+
+/* This function is called after a complete program unit has been compiled.
+   Its purpose is to examine all of the expressions associated with a program
+   unit, assign types to all intermediate expressions, make sure that all
+   assignments are to compatible types and figure out which names refer to
+   which functions or subroutines.  */
+
+void
+gfc_resolve (gfc_namespace * ns)
+{
+  gfc_namespace *old_ns;
+
+  old_ns = gfc_current_ns;
+
+  resolve_types (ns);
+  resolve_codes (ns);
 
   gfc_current_ns = old_ns;
 }

@@ -1190,13 +1190,10 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
 	           [intmax_t i, numer, denom, base;
 	            const char* s;
 	            char** endptr;
-	            intmax_t ret;
-	            uintmax_t uret;
-	            imaxdiv_t dret;
-	            ret = imaxabs(i);
-	            dret = imaxdiv(numer, denom);
+	            intmax_t ret = imaxabs(i);
+	            imaxdiv_t dret = imaxdiv(numer, denom);
 	            ret = strtoimax(s, endptr, base);
-	            uret = strtoumax(s, endptr, base);
+	            uintmax_t uret = strtoumax(s, endptr, base);
         	   ],[ac_c99_inttypes_tr1=yes], [ac_c99_inttypes_tr1=no])
   fi
   AC_MSG_RESULT($ac_c99_inttypes_tr1)

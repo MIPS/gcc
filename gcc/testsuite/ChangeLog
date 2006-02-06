@@ -1,3 +1,136 @@
+2006-02-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* gcc.dg/tree-ssa/loadpre10.c: New test.
+	* gcc.dg/tree-ssa/loadpre11.c: Ditto.
+	* gcc.dg/tree-ssa/loadpre6.c: Expect one more elimination.
+	* gcc.dg/tree-ssa/loadpre4.c: This should pass now.
+
+2006-02-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24685
+	* gfortran.dg/large_real_kind_form_io_2.f90: New test.
+
+2006-02-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/25251
+	* gfortran.dg/assign_7.f: New test.
+
+2006-02-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR fortran/26041
+	PR fortran/26064
+	* gfortran.dg/sibling_dummy_procedure_1.f90: New file.
+	* gfortran.dg/sibling_dummy_procedure_2.f90: Likewise.
+	* gfortran.dg/sibling_dummy_procedure_3.f90: Likewise.
+
+2006-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/pr25990.c: Use __SIZE_TYPE__ instead of unsigned int
+	in size_t typedef.
+
+2006-02-05  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* g++.dg/charset/extern2.cc (foo): Declare as of type cost char*.
+	* g++.dg/charset/string.c (foo): Likewise.
+	* g++.dg/ext/builtin1.C (printf): Change first parameter type to
+	const char*
+	* g++.dg/ext/builtin2.C (printf): Likewise.
+	* g++.dg/init/new15.C (printf): Likewise.
+	* g++.dg/opt/pr17697-1.C (foo): Likewise.
+	* g++.dg/opt/pr17697-2.C (foo): Likewise.
+	* g++.dg/opt/pr17697-3.C (foo): Likewise.
+	* g++.dg/template/non-dependent4.C (temp): Likewise.
+	* g++.dg/opt/strength-reduce.C (C::a): Change type to const char*.
+	* g++.old-deja/g++.brendan/crash66.C (getopt): Change last
+	parameter type to const char*.
+	* g++.old-deja/g++.brendan/ptolemy1.C (InterpTableEntry::name):
+	Change type to const char*.
+	* g++.old-deja/g++.brendan/ptolemy2.C (InterpTableEntry::name):
+	Likewise. 
+	* g++.old-deja/g++.jason/default2.C (bar::memberfunction): Change
+	second parameter type to const char*.
+	* g++.old-deja/g++.jason/opeq.C (X::X): Likewise.
+	(Y::Y): Change parameter type to const char*.
+	* g++.old-deja/g++.jason/ref12.C (f): Likewise.
+	* g++.old-deja/g++.jason/report.C: Apply const correctness.
+	* g++.old-deja/g++.jason/rfg6.C (single, array): Likewise.
+	* g++.old-deja/g++.jason/rvalue1.C (main): Cast string literal to
+	(char*).
+	* g++.old-deja/g++.jason/scoping4.C (A::Ptr): Make a typedef to
+	const char*.
+	* g++.old-deja/g++.law/ctors17.C (X::X): Change last parameter
+	type to const char*.
+	* g++.old-deja/g++.law/ctors7.C (base_t::name, d1_t, d2_t): Change
+	return type to const char*.
+	* g++.old-deja/g++.law/dtors2.C (bla::bla): Change parameter type
+	to const char*.
+	* g++.old-deja/g++.law/operators3.C: Adjust for const correctness.
+	* g++.old-deja/g++.law/refs1.C: Likewise.
+	* g++.old-deja/g++.law/visibility1.C: Likewise.
+	* g++.old-deja/g++.law/visibility2.C: Likewise.
+	* g++.old-deja/g++.law/union1.C (op_to_charp::s): Change type to
+	const char*.
+	* g++.old-deja/g++.mike/bool2.C: Adjust for const correctness..
+	* g++.old-deja/g++.mike/net48.C: Likewise.
+	* g++.old-deja/g++.mike/p646.C: Likewise.
+	* g++.old-deja/g++.mike/p6746.C: Likewise.
+	* g++.old-deja/g++.mike/p700.C (mystrcpy): Change last parameter
+	type to const char*.
+	* g++.old-deja/g++.mike/p811.C (X::stringify): Match for
+	deprecated conversion warning.
+	* g++.old-deja/g++.other/init15.C (A::name): Change type to const
+	char*. 
+	* g++.old-deja/g++.other/inline12.C: Adjust for const correctness.
+	* g++.old-deja/g++.other/sibcall1.C (foo): Likewise.
+	* g++.old-deja/g++.pt/explicit8.C: Likewise.
+	* g++.old-deja/g++.pt/m6.C (xx): Likewise.
+	* g++.old-deja/g++.pt/m7.C (xx): Likewise.
+	* g++.old-deja/g++.pt/nontype3.C: Likewise.
+	* g++.old-deja/g++.pt/t39.C: Likewise.
+	* g++.old-deja/g++.robertl/eb106.C: Likewise.
+	* g++.old-deja/g++.robertl/ice990323-2.C: Likewise.
+
+2006-02-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/25075
+	intrinsic_argument_conformance_1.f90:  New test.
+
+2006-02-03  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20845
+	* gfortran.dg/char_result_11.f90: Add SAVE.
+	* gfortran.dg/der_pointer_4.f90: Ditto.
+	* gfortran.dg/default_initialization.f90: New test.
+
+2006-02-03  Jeff Law  <law@redhat.com>
+
+        * lib/gcc-dg.exp (cleanup-rtl-dump): Fix dump file regexp to
+        handle more than 100 dump files.
+        (cleanup-tree-dump, cleanup-ipa-dump): Likewise.
+        * lib/scantree.exp (scan-tree-dump): Likewise.
+        (scan-tree-dump-times, scan-tree-dump-not): Likewise.
+        (scan-tree-dump-dem, scan-tree-dump-dem-not): Likewise.
+        * lib/scanipa.exp (scan-ipa-dump): Likewise.
+        (scan-ipa-dump-times, scan-ipa-dump-not): Likewise.
+        (scan-ipa-dump-dem, scan-ipa-dump-dem-not): Likewise.
+
+2006-02-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/gomp/pr25990.c: Replace with pre-processed version.
+
+2006-02-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/using12.C: New test.
+
+2006-02-03  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.target/powerpc/pr25960.c: New test.
+
+2006-02-02  Steven G. Kargl  <kargls@comcast>
+
+	PR fortran/24958
+        gfortran.dg/nullify_2.f90: New test.
+
 2006-02-02  Diego Novillo  <dnovillo@redhat.com>
 
 	PR 25990

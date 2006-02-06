@@ -30629,13 +30629,10 @@ main ()
 intmax_t i, numer, denom, base;
 	            const char* s;
 	            char** endptr;
-	            intmax_t ret;
-	            uintmax_t uret;
-	            imaxdiv_t dret;
-	            ret = imaxabs(i);
-	            dret = imaxdiv(numer, denom);
+	            intmax_t ret = imaxabs(i);
+	            imaxdiv_t dret = imaxdiv(numer, denom);
 	            ret = strtoimax(s, endptr, base);
-	            uret = strtoumax(s, endptr, base);
+	            uintmax_t uret = strtoumax(s, endptr, base);
 
   ;
   return 0;

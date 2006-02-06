@@ -1,3 +1,302 @@
+2006-02-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/s390/s390.c (TARGET_MANGLE_FUNDAMENTAL_TYPE): Define.
+	(s390_mangle_fundamental_type): New.
+	* config/s390/linux.h (TARGET_ALTERNATE_LONG_DOUBLE_MANGLING):
+	Define.
+
+	* config/alpha/alpha.c (TARGET_MANGLE_FUNDAMENTAL_TYPE): Define.
+	(alpha_mangle_fundamental_type): New.
+	* config/alpha/linux.h (TARGET_ALTERNATE_LONG_DOUBLE_MANGLING):
+	Define.
+
+	* config/sparc/linux.h (TARGET_ALTERNATE_LONG_DOUBLE_MANGLING):
+	Define.
+	* config/sparc/linux64.h (TARGET_ALTERNATE_LONG_DOUBLE_MANGLING):
+	Define.
+	* config/sparc/sparc.c (TARGET_MANGLE_FUNDAMENTAL_TYPE): Define.
+	(sparc_mangle_fundamental_type): New.
+
+2006-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* config.gcc (s390-*-linux*): Add s390/t-linux to tmake_file.
+	(s390x-*-linux*): Likewise.
+	* config/s390/t-linux64 (SHLIB_MAPFILES): Removed.
+	* config/s390/t-linux: New file.
+
+2006-02-02  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/i386/sync.md (sync_add<mode>, sync_sub<mode>, sync_ior<mode>,
+	sync_and<mode>, sync_xor<mode>): Operand 0 is in-out.
+
+2006-02-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (bb_value_sets_t): Add antic_safe_loads.
+	(ANTIC_SAFE_LOADS): New macro.
+	(find_or_generate_expression): Add prototype.
+	(set_contains_value): Allow null set for sake of not always having
+	to allocate ANTIC_SAFE_LOADS.
+	(phi_translate): Move placement of AGGREGATE_TYPE_P check.
+	Allow COMPONENT_REF too.
+	(valid_in_set): Allow COMPONENT_REF.
+	Check ANTIC_SAFE_LOADS too.
+	(compute_antic_aux): Print out ANTIC_SAFE_LOADS.
+	(compute_rvuse_and_antic_safe): Add ANTIC_SAFE computation, and
+	rename.
+	(can_PRE_operation): Add COMPONENT_REF.
+	(create_component_ref_by_pieces): New function.
+	(create_expression_by_pieces): Use create_component_ref_by_pieces.
+	(insert_aux): Move AGGREGATE_TYPE_P check here.
+	(compute_avail): Set bb local stmt uids.
+	(pass_pre): Use TODO_update_ssa_only_virtuals.
+	
+2006-02-06  Ben Elliston  <bje@au.ibm.com>
+
+	* configure.ac: Unconditionally disable decimal float by default.
+	* configure: Regenerate.
+
+2006-02-06  Ben Elliston  <bje@au.ibm.com>
+
+	* read-rtl.c (read_name): Terminate reading on EOF.
+
+2006-02-06  Ben Elliston  <bje@au.ibm.com>
+
+	* dfp.c (decimal_real_arithmetic): Change second argument type
+	from int to enum tree_code. Do not always return true, but now
+	return result of any call to decimal_do helper functions.
+	* dfp.h (decimal_real_arithmetic): Update prototype.
+
+2006-02-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sol2-bi.h (SPARC_DEFAULT_CMODEL): Set to CM_MEDMID.
+
+2006-02-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/25251
+	* tree-cfg.c (cleanup_dead_labels): Also don't remove
+	forced labels.
+
+2006-02-04  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-vrp.c (cfg_loops): Removed.
+	(adjust_range_with_scev, vrp_visit_assignment, execute_vrp):
+	Use current_loops instead of cfg_loops.  Pass flags to
+	loop_optimizer_init.
+	* cfgloopmanip.c (fix_loop_structure): Update only available
+	information.
+	* tree-ssa-loop-ch.c (copy_loop_headers): Pass flags to
+	loop_optimizer_init.
+	* modulo-sched.c (build_loops_structure): Removed.
+	(sms_schedule): Use loop_optimizer_init.
+	* loop-init.c (loop_optimizer_init): Use flags to determine
+	which properties of loops to prepare.
+	(rtl_loop_init): Pass flags to loop_optimizer_init.
+	* tree-ssa-sink.c (execute_sink_code): Ditto.
+	* tree-ssa-loop.c (tree_loop_optimizer_init): Ditto.
+	* tree-ssa-pre.c (init_pre): Ditto.
+	* cfgloop.h (LOOPS_NORMAL): New.
+	(loop_optimizer_init): Declaration changed.
+
+2006-02-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa/x-ada-hpux10, pa/t-pa-hpux10, pa/t-pa-hpux11: New files.
+	* config.gcc (hppa[12]*-*-hpux10*): Use pa/t-pa-hpux10 instead of
+	pa/t-pa.
+	* config.gcc (hppa[12]*-*-hpux11*): Use pa/t-pa-hpux11 instead of
+	pa/t-pa.
+	* config.host (hppa*-*-hpux10*): Use pa/x-ada-hpux10 instead of
+	pa/x-ada.
+	* pa/t-pa-hpux: Add lib2funcs.asm and quadlib.c rules.
+	* pa/t-pa64: Delete quadlib.c rule.
+	* pa/x-ada: Revert last change.
+	* pa/t-pa: Revert last change.  Delete quadlib.c rule.
+
+2006-02-04  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR rtl-optimization/26087
+	* rtlanal.c (canonicalize_condition): Do not cross basic block
+	boundaries.
+
+2006-02-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/24444
+	* config/ia64/ia64.c: Include debug.h.
+	(MAX_ARTIFICIAL_LABEL_BYTES): New.
+	(ia64_label_after_insn, ia64_dwarf2out_def_steady_cfa): New.
+	(IA64_CHANGE_CFA_IN_EPILOGUE): Define to 0.
+	(process_epilogue, process_set, process_for_unwind_directive):
+	Output unwind info only if requested.  Add CFA info if requested.
+	Add new arguments as needed.  Adjust callers.
+	* config/ia64/ia64.h (ARG_POINTER_CFA_OFFSET): Override
+	incorrect default.
+	(DWARF2_FRAME_INFO): Define to zero.
+	* config/ia64/unwind-ia64.c: Remove code that compensated for
+	the CFA offset error fixed above.
+	* config/ia64/t-ia64 (ia64.o): Depend on debug.h.
+	* dwarf2out.c (DWARF2_FRAME_INFO): Define default.
+	(dwarf2out_do_frame): Require nonzero DWARF2_UNWIND_INFO for
+	-funwind-tables and -fexceptions to enable frame info.
+	(dwarf2out_frame_init): Define initial CFA even if
+	DWARF2_UNWIND_INFO is disabled.  Call initial_return_save if
+	DWARF2_UNWIND_INFO is nonzero, not just defined.
+	(dwarf2out_frame_finish): Output non-EH call frame info only
+	if DWARF2_FRAME_INFO is nonzero.
+	(convert_cfa_to_loc_list,
+	compute_frame_pointer_to_cfa_displacement): Define even if
+	unwind info is not supported.
+	(gen_subprogram_die): Use the above unconditionally.  Remove
+	legacy alternate code.
+	* toplev.c (compile_file): Compile in call to
+	dwarf2out_frame_finish if DWARF2_DEBUGGING_INFO is defined.
+	(lang_dependent_init): Ditto for dwarf2out_frame_init.
+
+2006-02-04  David Edelsohn  <edelsohn@gnu.org>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_mangle_fundamental_type): Mangle
+	IBM extended float format long double as "g" on powerpc*-linux.
+
+2006-02-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/25926
+	* pa/x-ada (X_ADA_CFLAGS): Define _X_HPUX10 on HP-UX 10.
+	* pa/t-pa (TARGET_LIBGCC2_CFLAGS): Define _T_HPUX10 on HP-UX 10.
+
+2006-02-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/25979
+	* gimplify.c (gimplify_modify_expr_rhs): Disable *& optimization for now.
+
+	PR middle-end/25977
+	* gimplify.c (gimplify_modify_expr_rhs): It's not always safe to do RVO
+	on the return slot if it's an NRV.
+
+2006-02-03  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop-ivopts.c (enum use_type): Remove USE_OUTER.
+	(dump_use, add_derived_ivs_candidates, determine_use_iv_cost,
+	rewrite_use): Do not handle USE_OUTER.
+	(find_interesting_uses_outer_or_nonlin, find_interesting_uses_outer,
+	add_iv_outer_candidates, may_replace_final_value,
+	determine_use_iv_cost_outer, rewrite_use_outer): Removed.
+	(find_interesting_uses_op): Functionality of
+	find_interesting_uses_outer_or_nonlin moved here.
+	(find_interesting_uses_outside): Use find_interesting_uses_op.
+
+2006-02-03  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/25960
+	* config/rs6000/darwin-ldouble.c (__gcc_qadd): Preserve -0.0 result.
+
+2006-02-03  Andreas Krebbel  <krebbel1@de.ibm.com>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/25864
+	* config/s390/2084.md ("x_fsimptf", "x_fmultf", "x_fdivtf",
+	"x_floadtf", "x_ftrunctf", "x_ftruncdf"): New insn reservations.
+	* config/s390/fixdfdi.h (__fixunstfdi, __fixtfdi): New functions.
+	* config/s390/s390.c (struct processor_costs): Add mxbr, sqxbr, dxbr 
+	and dxr fields.
+	(z900_cost, z990_cost, z9_109_cost): Values for the new fields added.
+	(s390_rtx_costs): Use the new fields to calculate rtx costs.
+	(s390_secondary_input_reload_class, s390_secondary_output_reload_class):
+	Define secondary reloads for TFmode moves.
+	(constant_modes): Add TFmode.
+	(NR_C_MODES): Set to 8.
+	* config/s390/s390.h (TARGET_CPU_CPP_BUILTINS): Add __LONG_DOUBLE_128__
+	builtin define.
+	(LONG_DOUBLE_TYPE_SIZE): Set to 128 or 64.
+	(LIBGCC2_LONG_DOUBLE_TYPE_SIZE, WIDEST_HARDWARE_FP_SIZE): Define.
+	(HARD_REGNO_NREGS, HARD_REGNO_MODE_OK, CLASS_MAX_NREGS, 
+	CANNOT_CHANGE_MODE_CLASS): Consider TFmode.
+	* config/s390/s390.md ("type" attribute): Add fsimptf, floadtf, fmultf, 
+	fdivtf, fsqrttf, ftrunctf, ftruncdf as possible values.
+	(FPR mode macro): Add TFmode.
+	(DSF mode macro): New.
+	(<de>, <dee> mode attributes): Removed.
+	(<xde>, <xdee>, <RRe>, <RXe>, <Rf> mode attributes): New.
+	("*cmp<mode>_ccs_0", "*cmp<mode>_ccs_0_ibm", "*cmp<mode>_ccs", 
+	"*cmp<mode>_ccs_ibm", "fix_trunc<FPR:mode><GPR:mode>2_ieee", 
+	"floatdi<mode>2", "floatsi<mode>2_ieee", "*add<mode>3", 
+	"*add<mode>3_cc", "*add<mode>3_cconly", "*add<mode>3_ibm", 
+	"*sub<mode>3", "*sub<mode>3_cc", "*sub<mode>3_cconly", 
+	"*sub<mode>3_ibm", "*mul<mode>3_ibm", "*fmadd<mode>", "*fmsub<mode>",
+	"*div<mode>3", "*div<mode>3_ibm", "*neg<mode>2_cc", 
+	"*neg<mode>2_cconly", "*neg<mode>2", "*neg<mode>2_ibm", 
+	"*abs<mode>2_cc", "*abs<mode>2_cconly", "*abs<mode>2",
+	"*abs<mode>2_ibm", "*negabs<mode>2_cc", "*negabs<mode>2_cconly", 
+	"*negabs<mode>2", "sqrt<mode>2"):
+	Changed <de> to <xde>. R constraint replaced by <Rf>.
+	("*mul<mode>3"): Changed <dee> to <xdee>. R constraint replaced by 
+	<Rf>.
+	("fix_trunc<FPR:mode>di2"): 'FPR:' removed.
+        ("*fmadd<mode>", "*fmsub<mode>"): FPR mode replaced by DSF.
+	("*movtf_64", "*movtf_31"): New insn definitions followed by 5 
+	splitters.
+	("movtf", "reload_outtf", "reload_intf", "trunctfdf2", "trunctfsf2", 
+	"extenddftf2", "extendsftf2"): New expanders.
+	("*trunctfdf2_ieee", "*trunctfdf2_ibm", "*trunctfsf2_ieee", 
+	"*trunctfsf2_ibm", "*extenddftf2_ieee", "*extenddftf2_ibm",
+	"*extendsftf2_ieee", "*extendsftf2_ibm"): New insn patterns.
+	* config/s390/s390.opt (mlong-double-128, mlong-double-64):
+	New options.
+	* config/s390/t-crtstuff (TARGET_LIBGCC2_CFLAGS): Macro defined.
+	* config/s390/libgcc-glibc.ver (__divtc3, __multc3, __powitf2, 
+	__fixtfti, __fixunstfti, __floattitf, __fixtfdi, __fixunstfdi,
+	__floatditf): Add a GCC_4.1.0 symbol version tag.
+	* doc/invoke.texi (-mlong-double-128, -mlong-double-64): Document
+	the new options.
+
+2006-02-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/25377
+	* config/i386/i386.c (ix86_function_ok_for_sibcall):
+	Use targetm.binds_local_p instead of TREE_PUBLIC.
+
+2006-02-02  Roger Sayle  <roger@eyesopen.com>
+
+	* tree.h (TYPE_STRING_FLAG): Document that this field may be used
+	on INTEGER_TYPEs to indicate that it denotes a character type.
+	* tree.c (build_common_tree_nodes): Set TYPE_STRING_FLAG on
+	signed_char_type_node, unsigned_char_type_node and char_type_node.
+	* dwarf2out.c (base_type_die): Treat CHAR_TYPE identically to
+	INTEGER_TYPE.  Use TYPE_STRING_FLAG to decide whether to emit
+	a DW_ATE_[un]signed_char instead of a DW_ATE_[un]signed.
+
+2006-02-02  Zdenek Dvorak <dvorakz@suse.cz>
+	    Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-tailcall.c (arg_needs_copy_p): New function.
+	(eliminate_tail_call): Use arg_needs_copy_p.
+	(tree_optimize_tail_calls_1): Ditto. Also call add_virtual_phis.
+	(add_virtual_phis): New function.
+
+2006-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/sparc.c (sparc_output_scratch_registers): Use
+	#ignore instead of #scratch for %g7 .register directive.
+
+2006-02-02  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* config/sparc/freebsd.h (ENDFILE_SPEC): Add space to separate
+	object files.
+
+2006-02-02  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* flow.c (calculate_global_regs_live): Assert that there aren't any
+	EDGE_FAKE edges.
+
+2006-02-02  Paolo Bonzini  <bonzini@gnu.org>
+
+	* tree-flow-inline.h (bsi_after_labels): Rewrite, return
+	what its name says.
+	* lambda-code.c (perfect_nestify): Use bsi_insert_before on
+	bsi_after_labels iterator.
+	* tree-if-conv.c (find_phi_replacement_condition,
+	replace_phi_with_cond_modify_expr): Likewise.
+	* tree-scalar-evolution.c (scev_const_prop): Likewise.
+	* tree-ssa-loop-ivopts.c (compute_phi_arg_on_exit): Likewise.
+
 2006-02-02  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-inline.c (copy_tree_r): Also copy OMP_CLAUSE nodes.
@@ -703,11 +1002,11 @@
 
 	PR ada/25900
 	* tree-vrp.c (extract_range_from_assert): When merging a VR_RANGE
-	with a VR_ANTI_RANGE and the VR_ANTI_RANGEis completely contained
+	with a VR_ANTI_RANGE and the VR_ANTI_RANGE is completely contained
 	within the VR_RANGE, use the VR_RANGE as the result, not the
 	VR_ANTI_RANGE.
-	(adjust_range_with_scev): Reject ranges from SCEV which are out
-	of bounds for the type.
+	(adjust_range_with_scev): Reject ranges from SCEV which are out of
+	bounds for the type.
 
 2006-01-26  Daniel Berlin  <dberlin@dberlin.org>
 
@@ -1435,6 +1734,7 @@
 
 2006-01-20  Alan Modra  <amodra@bigpond.net.au>
 
+	PR target/25668
 	* libgcc2.c (__floatdisf, __floatdidf): Don't use IBM Extended
 	Double TFmode.
 	(__floatundisf, __floatundidf): Likewise.

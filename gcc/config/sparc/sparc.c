@@ -368,6 +368,9 @@ static int sparc_arg_partial_bytes (CUMULATIVE_ARGS *,
 static void sparc_dwarf_handle_frame_unspec (const char *, rtx, int);
 static void sparc_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void sparc_file_end (void);
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+static const char *sparc_mangle_fundamental_type (tree);
+#endif
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 const struct attribute_spec sparc_attribute_table[];
 #endif
@@ -526,6 +529,11 @@ static bool fpu_option_set = false;
 
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END sparc_file_end
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE sparc_mangle_fundamental_type
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3693,7 +3701,10 @@ sparc_output_scratch_registers (FILE *file ATTRIBUTE_UNUSED)
 	  && ! sparc_hard_reg_printed [i])
 	{
 	  sparc_hard_reg_printed [i] = 1;
-	  fprintf (file, "\t.register\t%%g%d, #scratch\n", i);
+	  /* %g7 is used as TLS base register, use #ignore
+	     for it instead of #scratch.  */
+	  fprintf (file, "\t.register\t%%g%d, #%s\n", i,
+		   i == 7 ? "ignore" : "scratch");
 	}
       if (i == 3) i = 5;
     }
@@ -8709,6 +8720,22 @@ sparc_file_end (void)
   if (NEED_INDICATE_EXEC_STACK)
     file_end_indicate_exec_stack ();
 }
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+
+static const char *
+sparc_mangle_fundamental_type (tree type)
+{
+  if (!TARGET_64BIT
+      && TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_LONG_DOUBLE_128)
+    return "g";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+#endif
 
 /* Expand code to perform a 8 or 16-bit compare and swap by doing 32-bit
    compare and swap on the word containing the byte or half-word.  */
