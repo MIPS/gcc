@@ -1,5 +1,22 @@
-2005-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
-
+2006-02-06  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* doc/rtl.texi: Document REG_LIBCALL_ID.
+	* optabs.c (libcall_id): New variable.
+	(emit_no_conflict_block): Use it to emit
+	REG_LIBCALL_ID.
+	(emit_libcall_block): Ditto.
+	* combine.c (distribute_notes): Deal with
+	REG_LIBCALL_ID.
+	* reg-notes.def (LIBCALL_ID): New note.
+	* dce.c (marked_libcalls): New variable.
+	(in_libcall): Removed.
+	(mark_insn): Mark which libcalls we need to fully mark.
+	(mark_libcall_insns): New function.
+	(end_dce): Free marked_libcalls.
+	(init_dce): Allocate marked_libcalls.
+	Call mark_libcall_insns.
+	
+2006-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* df-core.c (df_iterative_dataflow): Added debugging assert.
 	(df_insn_uid_debug): New debugging function.
 	(df_insn_debug): Changed to used df_insn_uid_debug.
@@ -24,7 +41,7 @@
 	(rest_of_handle_dse) Added parameter to init_dce.
 	* dce.h (run_fast_dce): Added declaration.
 	
-2005-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+2006-01-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* df-scan.c (df_hard_reg_init): Moved declaration of i outside macro.
 

@@ -56,7 +56,7 @@ static bool something_changed;
 static VEC(rtx,heap) *worklist;
 
 static bitmap marked = NULL;
-
+static bitmap marked_libcalls = NULL;
 
 /* Return true if INSN a normal instruction that can be deleted by the
    DCE pass.  */
@@ -107,10 +107,6 @@ marked_insn_p (rtx insn)
     return true;
 }
 
-/* Flag to keep recursive walk of libcall from going south (assuming
-   the stack grows downward).  */
-static bool in_libcall = 0;
-
 
 /* If INSN has not yet been marked as needed, mark it now, and add it to
    the worklist.  */
@@ -121,40 +117,20 @@ mark_insn (rtx insn, bool fast)
   if (!marked_insn_p (insn))
     {
       unsigned int id = INSN_UID (insn);
+      rtx note;
+
       if (!fast)
 	VEC_safe_push (rtx, heap, worklist, insn);
       bitmap_set_bit (marked, INSN_UID (insn));
       if (dump_file)
 	fprintf (dump_file, "  Adding insn %d to worklist\n", id);
 
-      /* The skeptical programmer may wonder what happens if one of
-	 the middle instructions is the one that needs to be marked
-	 live.  The answer is that this should never happen.  */
-      if (!in_libcall && find_reg_note (insn, REG_LIBCALL, NULL_RTX))
+      if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
 	{
-	  in_libcall = 1;
 	  if (dump_file)
-	    fprintf (dump_file, 
-		     "Marking rest of libcall starting at insn %d\n", id);
-	  while (!find_reg_note (insn, REG_RETVAL, NULL_RTX))
-	    {
-	      insn = NEXT_INSN (insn);
-	      mark_insn (insn, fast);
-	    }
-	  in_libcall = 0;
-	}
-      else if (!in_libcall && find_reg_note (insn, REG_RETVAL, NULL_RTX))
-	{
-	  in_libcall = 1;
-	  if (dump_file)
-	    fprintf (dump_file, 
-		     "Marking rest of libcall ending at insn %d\n", id);
-	  while (!find_reg_note (insn, REG_LIBCALL, NULL_RTX))
-	    {
-	      insn = PREV_INSN (insn);
-	      mark_insn (insn, fast);
-	    }
-	  in_libcall = 0;
+	    fprintf (dump_file, "Marking libcall " HOST_WIDE_INT_PRINT_DEC "\n",
+ 		     INTVAL (XEXP (note, 0)));
+	  bitmap_set_bit (marked_libcalls, INTVAL (XEXP (note, 0)));
 	}
     }
 }
@@ -233,6 +209,7 @@ init_dce (bool fast)
   df_analyze (dce_df);
 
   marked = BITMAP_ALLOC (NULL);
+  marked_libcalls = BITMAP_ALLOC (NULL);
   if (dump_file)
     df_dump (dce_df, dump_file);
 }
@@ -259,6 +236,28 @@ delete_unmarked_insns (void)
 	}
 }
 
+/* Mark each instruction belonging to a libcall whose id is in
+   marked_libcalls.  */
+
+static void
+mark_libcall_insns (void)
+{
+  basic_block bb;
+  rtx insn;
+
+  if (bitmap_empty_p (marked_libcalls))
+    return;
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      {
+	rtx note;
+	if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
+	  {
+	    if (bitmap_bit_p (marked_libcalls, INTVAL (XEXP (note, 0))))
+	      mark_insn (insn, false);
+	  }
+      }
+}
 
 /* Free the data allocated by init_dce.  */
 
@@ -266,6 +265,7 @@ static void
 end_dce (void)
 {
   BITMAP_FREE (marked);
+  BITMAP_FREE (marked_libcalls);
 
   df_finish (dce_df);
   dce_df = NULL;
@@ -338,6 +338,11 @@ rest_of_handle_dce (void)
   prescan_insns_for_dce (false);
 
   mark_artificial_uses ();
+  while (VEC_length (rtx, worklist) > 0)
+    mark_reg_dependencies (VEC_pop (rtx, worklist));
+
+  mark_libcall_insns ();
+
   while (VEC_length (rtx, worklist) > 0)
     mark_reg_dependencies (VEC_pop (rtx, worklist));
 

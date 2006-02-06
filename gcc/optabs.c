@@ -125,6 +125,10 @@ static rtx expand_parity (enum machine_mode, rtx, rtx);
 static enum rtx_code get_rtx_code (enum tree_code, bool);
 static rtx vector_compare_rtx (tree, bool, enum insn_code);
 
+/* Current libcall id.  It doesn't matter what these are, as long
+   as they are unique to each libcall that is emitted.  */
+static HOST_WIDE_INT libcall_id = 0;
+
 #ifndef HAVE_conditional_trap
 #define HAVE_conditional_trap 0
 #define gen_conditional_trap(a,b) (gcc_unreachable (), NULL_RTX)
@@ -3351,6 +3355,13 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
 					 REG_NOTES (first));
   REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first, REG_NOTES (last));
 
+  next = NEXT_INSN (last);
+  for (insn = first; insn != next; insn = NEXT_INSN (insn))
+    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_LIBCALL_ID,
+					  GEN_INT (libcall_id),
+					  REG_NOTES (insn));
+  libcall_id++;
+
   return last;
 }
 
@@ -3378,7 +3389,6 @@ emit_no_conflict_block (rtx insns, rtx target, rtx op0, rtx op1, rtx equiv)
 
    Except for the first group of insns (the ones setting pseudos), the
    block is delimited by REG_RETVAL and REG_LIBCALL notes.  */
-
 void
 emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
 {
@@ -3525,6 +3535,12 @@ emit_libcall_block (rtx insns, rtx target, rtx result, rtx equiv)
 						 REG_NOTES (first));
 	  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
 						REG_NOTES (last));
+	  next = NEXT_INSN (last);
+	  for (insn = first; insn != next; insn = NEXT_INSN (insn))
+	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_LIBCALL_ID,
+	    				          GEN_INT (libcall_id),
+						  REG_NOTES (insn));
+	  libcall_id++;
 	}
     }
 }
