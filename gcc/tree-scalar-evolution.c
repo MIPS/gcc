@@ -285,7 +285,6 @@ tree chrec_dont_know;
 tree chrec_known;
 
 static bitmap already_instantiated;
-static bitmap already_unified;
 
 static htab_t scalar_evolution_info;
 
@@ -1421,109 +1420,6 @@ follow_ssa_edge (struct loop *loop, tree def, tree halting_phi,
 
 
 
-/* A is the initial condition and B is the update edge of
-   LOOP_PHI_NODE, and consequently they are either scalars or symbolic
-   names.  The function returns chrec_dont_know if the unify operation
-   fails, otherwise returns the unification of the scalar value A to
-   the beginning of the scalar evolution B.  For example, it is
-   possible to unify 0 with {1, +, 1}_3, into {0, +, 1}_3.  */
-
-static tree
-unify_peeled_chrec (tree loop_phi_node, tree a, tree b)
-{
-  tree chrec_b, extrapolate, difference, type;
-  struct loop *loop = loop_containing_stmt (loop_phi_node);
-
-  if (a == NULL_TREE 
-      || b == NULL_TREE || TREE_CODE (b) != SSA_NAME
-      || bitmap_bit_p (already_unified, SSA_NAME_VERSION (b)))
-    return chrec_dont_know;
-
-  if (TREE_CODE (a) == SSA_NAME)
-    {
-      tree chrec_a;
-
-      if (bitmap_bit_p (already_unified, SSA_NAME_VERSION (a)))
-	return chrec_dont_know;
-
-      bitmap_set_bit (already_unified, SSA_NAME_VERSION (a));
-      chrec_a = instantiate_parameters (loop, analyze_scalar_evolution (loop, a));
-      bitmap_clear_bit (already_unified, SSA_NAME_VERSION (a));
-      a = chrec_a;
-    }
-  
-  if (TREE_CODE (a) != INTEGER_CST)
-    /* FIXME: The multivariate case is not handled yet.  */
-    return chrec_dont_know;
-
-  bitmap_set_bit (already_unified, SSA_NAME_VERSION (b));
-  chrec_b = instantiate_parameters (loop, analyze_scalar_evolution (loop, b));
-  bitmap_clear_bit (already_unified, SSA_NAME_VERSION (b));
-  
-  if (chrec_b == NULL_TREE 
-      || TREE_CODE (chrec_b) != POLYNOMIAL_CHREC
-      || TREE_CODE (CHREC_LEFT (chrec_b)) != INTEGER_CST
-      || TREE_CODE (CHREC_RIGHT (chrec_b)) != INTEGER_CST)
-    return chrec_dont_know;
-
-  type = chrec_type (chrec_b);
-  a = fold_convert (type, a);
-
-  extrapolate = fold (build2 (MINUS_EXPR, type, CHREC_LEFT (chrec_b),
-			      CHREC_RIGHT (chrec_b)));
-  difference = fold (build2 (MINUS_EXPR, integer_type_node, a, extrapolate));
-
-  if (integer_zerop (difference))
-    {
-      /* Because ivopts is disturbed by not seeing a real induction
-	 variable, we generate the code here, as illustrated by the
-	 following example: suppose that we start with the following
-	 code, where "x" is the peeled evolution that can be unified.
-
-	 x = loop-phi (0, z)
-	 z = loop-phi (1, z + 1)
-	 
-	 Then we would like to express "x" independently of "z" such
-	 that ivopts is not disturbed by seeing ghost evolutions like
-	 {0, +, 1} for "x".  For this we generate a new induction
-	 variable "y" as in the following code:
-	 
-	 y = loop-phi (0, y + 1)
-	 x = y 
-
-	 finally, return the unified chrec: {0, +, 1} for "x".  */
-      tree stmt, var;
-      block_stmt_iterator incr_at;
-      bool insert_after;
-      basic_block bb;
-
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "UNIFIED_one_more\n");
-
-      standard_iv_increment_position (loop, &incr_at, &insert_after);
-      create_iv (a, CHREC_RIGHT (chrec_b), NULL, loop, &incr_at, insert_after, 
-		 &var, NULL);
-
-      stmt = build2 (MODIFY_EXPR, void_type_node, PHI_RESULT (loop_phi_node), 
-		     var);
-
-      bb = bb_for_stmt (loop_phi_node);
-      incr_at = bsi_start (bb);
-      bsi_insert_after (&incr_at, stmt, BSI_NEW_STMT);
-      SSA_NAME_DEF_STMT (PHI_RESULT (loop_phi_node)) = stmt;
-      /* Prevent the ssa name defined by the loop_phi_node from being
-	 removed.  */
-      SET_PHI_RESULT (loop_phi_node, NULL);
-      remove_phi_node (loop_phi_node, NULL_TREE);
-
-      return build_polynomial_chrec (CHREC_VARIABLE (chrec_b), 
-				     a,
-				     CHREC_RIGHT (chrec_b));
-    }
-
-  return chrec_dont_know;
-}
-
 /* Given a LOOP_PHI_NODE, this function determines the evolution
    function from LOOP_PHI_NODE to LOOP_PHI_NODE in the loop.  */
 
@@ -1566,17 +1462,14 @@ analyze_evolution_in_loop (tree loop_phi_node,
       else
 	res = t_false;
 	      
-      /* When it is impossible to go back on the same loop_phi_node by
-	 following the ssa edges, the evolution can be represented by
-	 a peeled chrec, i.e. the first iteration, EV_FN has the value
-	 INIT_COND, then all the other iterations it has the value of
-	 ARG.  For the moment, PEELED_CHREC nodes are not built.  We
-	 try to produce a simple chrec by unifying the initial value
-	 to the rest of the evolution function.  This is possible when
-	 for example we have to unify 0 with {1, +, 1}_3, that gives
-	 the simple chrec {0, +, 1}_3.  */
-      if (res == t_false) /* != t_true in mainline */
-	ev_fn = unify_peeled_chrec (loop_phi_node, init_cond, arg);
+      /* When it is impossible to go back on the same
+	 loop_phi_node by following the ssa edges, the
+	 evolution is represented by a peeled chrec, i.e. the
+	 first iteration, EV_FN has the value INIT_COND, then
+	 all the other iterations it has the value of ARG.  
+	 For the moment, PEELED_CHREC nodes are not built.  */
+      if (res != t_true)
+	ev_fn = chrec_dont_know;
       
       /* When there are multiple back edges of the loop (which in fact never
 	 happens currently, but nevertheless), merge their evolutions.  */
@@ -2664,7 +2557,6 @@ scev_initialize (struct loops *loops)
   scalar_evolution_info = htab_create (100, hash_scev_info,
 				       eq_scev_info, del_scev_info);
   already_instantiated = BITMAP_ALLOC (NULL);
-  already_unified = BITMAP_ALLOC (NULL);
   
   initialize_scalar_evolutions_analyzer ();
 
@@ -2770,7 +2662,6 @@ scev_finalize (void)
 {
   htab_delete (scalar_evolution_info);
   BITMAP_FREE (already_instantiated);
-  BITMAP_FREE (already_unified);
 }
 
 /* Returns true if EXPR looks expensive.  */

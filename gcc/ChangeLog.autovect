@@ -1,3 +1,10 @@
+2006-02-06  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-scalar-evolution.c (unify_peeled_chrec): Removed.
+	(analyze_evolution_in_loop): Removed call to unify_peeled_chrec.
+	(scev_initialize): Removed already_unified initialization.
+	(scev_finalize): Removed already_unified deallocation.
+
 2006-01-29  Victor Kaplansky  <victork@il.ibm.com>
 
 	* tree-vectorizer.c (vect_is_simple_use): removes redundant check for
