@@ -1422,7 +1422,10 @@ create_function_arglist (gfc_symbol * sym)
 		gfc_create_string_length (f->sym);
 
 	      /* Make sure PARM_DECL type doesn't point to incomplete type.  */
-	      type = gfc_sym_type (f->sym);
+	      if (f->sym->attr.flavor == FL_PROCEDURE)
+		type = build_pointer_type (gfc_get_function_type (f->sym));
+	      else
+		type = gfc_sym_type (f->sym);
 	    }
 	}
 
@@ -1434,7 +1437,12 @@ create_function_arglist (gfc_symbol * sym)
 	  && GFC_ARRAY_TYPE_P (type)
 	  && f->sym->as->type != AS_ASSUMED_SIZE
 	  && ! COMPLETE_TYPE_P (TREE_TYPE (type)))
-	type = gfc_sym_type (f->sym);
+	{
+	  if (f->sym->attr.flavor == FL_PROCEDURE)
+	    type = build_pointer_type (gfc_get_function_type (f->sym));
+	  else
+	    type = gfc_sym_type (f->sym);
+	}
 
       /* Build a the argument declaration.  */
       parm = build_decl (PARM_DECL, gfc_sym_identifier (f->sym), type);
