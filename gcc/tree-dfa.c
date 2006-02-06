@@ -31,7 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "output.h"
-#include "errors.h"
 #include "timevar.h"
 #include "expr.h"
 #include "ggc.h"
@@ -185,7 +184,6 @@ create_stmt_ann (tree t)
 
   return ann;
 }
-
 
 /* Create a new annotation for a tree T.  */
 

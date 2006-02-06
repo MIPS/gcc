@@ -83,34 +83,6 @@ struct ptr_info_def GTY(())
 };
 
 
-/* Types of value ranges.  */
-enum value_range_type { VR_UNDEFINED, VR_RANGE, VR_ANTI_RANGE, VR_VARYING };
-
-
-/* Ranges of values that can be associated with an SSA_NAME after VRP
-   has executed.  */
-struct value_range_def GTY(())
-{
-  /* Lattice value represented by this range.  */
-  enum value_range_type type;
-
-  /* Minimum and maximum values represented by this range.  These
-     values are _CST nodes that should be interpreted as follows:
-
-     	- If TYPE == VR_UNDEFINED then MIN and MAX must be NULL.
-
-	- If TYPE == VR_RANGE then MIN holds the minimum value and
-	  MAX holds the maximum value of the range [MIN, MAX].
-
-	- If TYPE == ANTI_RANGE the variable is known to NOT
-	  take any values in the range [MIN, MAX].  */
-  tree min;
-  tree max;
-};
-
-typedef struct value_range_def value_range;
-
-
 /*---------------------------------------------------------------------------
 		   Tree annotations stored in tree_common.ann
 ---------------------------------------------------------------------------*/
@@ -120,6 +92,10 @@ struct tree_ann_common_d GTY(())
 {
   /* Annotation type.  */
   enum tree_ann_type type;
+
+ /* Auxiliary info specific to a pass.  At all times, this
+    should either point to valid data or be NULL.  */ 
+  PTR GTY ((skip (""))) aux; 
 
   /* The value handle for this expression.  Used by GVN-PRE.  */
   tree GTY((skip)) value_handle;
@@ -308,7 +284,7 @@ struct stmt_ann_d GTY(())
   unsigned makes_clobbering_call : 1;
 
   /* Basic block that contains this statement.  */
-  basic_block GTY ((skip (""))) bb;
+  basic_block bb;
 
   /* Operand cache for stmt.  */
   struct stmt_operands_d GTY ((skip (""))) operands;
@@ -320,10 +296,6 @@ struct stmt_ann_d GTY(())
      by each pass on an as-needed basis in any order convenient for the
      pass which needs statement UIDs.  */
   unsigned int uid;
-
- /* Auxiliary info specific to a pass.  At all times, this
-    should either point to valid data or be NULL.  */
-  PTR GTY ((skip (""))) aux;
 
   /* Linked list of histograms for value-based profiling.  This is really a
      struct histogram_value*.  We use void* to avoid having to export that
@@ -377,28 +349,7 @@ struct edge_prediction GTY((chain_next ("%h.next")))
   int probability;
 };
 
-/*---------------------------------------------------------------------------
-		  Block annotations stored in basic_block.tree_annotations
----------------------------------------------------------------------------*/
-struct bb_ann_d GTY(())
-{
-  /* Chain of PHI nodes for this block.  */
-  tree phi_nodes;
-
-  /* Nonzero if this block contains an escape point (see is_escape_site).  */
-  unsigned has_escape_site : 1;
-
-  /* Nonzero if one or more incoming edges to this block should be threaded
-     to an outgoing edge of this block.  */
-  unsigned incoming_edge_threaded : 1;
-
-  struct edge_prediction *predictions;
-};
-
-typedef struct bb_ann_d *bb_ann_t;
-
 /* Accessors for basic block annotations.  */
-static inline bb_ann_t bb_ann (basic_block);
 static inline tree phi_nodes (basic_block);
 static inline void set_phi_nodes (basic_block, tree);
 
@@ -510,8 +461,6 @@ extern void debug_loop_ir (void);
 extern void print_loop_ir (FILE *);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels (void);
-extern bool cleanup_tree_cfg (void);
-extern void cleanup_tree_cfg_loop (void);
 extern tree first_stmt (basic_block);
 extern tree last_stmt (basic_block);
 extern tree *last_stmt_ptr (basic_block);
@@ -544,6 +493,12 @@ extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
 extern void init_empty_tree_cfg (void);
 extern void fold_cond_expr_cond (void);
 extern void replace_uses_by (tree, tree);
+extern void start_recording_case_labels (void);
+extern void end_recording_case_labels (void);
+
+/* In tree-cfgcleanup.c  */
+extern bool cleanup_tree_cfg (void);
+extern void cleanup_tree_cfg_loop (void);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -587,6 +542,7 @@ extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void add_type_alias (tree, tree);
+extern void new_type_alias (tree, tree);
 extern void count_uses_and_derefs (tree, tree, unsigned *, unsigned *, bool *);
 static inline subvar_t get_subvars_for_var (tree);
 static inline bool ref_contains_array_ref (tree);
@@ -635,12 +591,8 @@ bool fold_stmt_inplace (tree);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-vrp.c  */
-value_range *get_value_range (tree);
-void dump_value_range (FILE *, value_range *);
-void debug_value_range (value_range *);
-void dump_all_value_ranges (FILE *);
-void debug_all_value_ranges (void);
 bool expr_computes_nonzero (tree);
+tree vrp_evaluate_conditional (tree, bool);
 
 /* In tree-ssa-dom.c  */
 extern void dump_dominator_optimization_stats (FILE *);
@@ -706,7 +658,8 @@ tree find_loop_niter (struct loop *, edge *);
 tree loop_niter_by_eval (struct loop *, edge);
 tree find_loop_niter_by_eval (struct loop *, edge *);
 void estimate_numbers_of_iterations (struct loops *);
-tree can_count_iv_in_wider_type (struct loop *, tree, tree, tree, tree);
+bool scev_probably_wraps_p (tree, tree, tree, tree, struct loop *, bool *);
+tree convert_step (struct loop *, tree, tree, tree, tree);
 void free_numbers_of_iterations_estimates (struct loops *);
 void rewrite_into_loop_closed_ssa (bitmap, unsigned);
 void verify_loop_closed_ssa (void);
@@ -727,6 +680,7 @@ bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 				    basic_block *);
 tree expand_simple_operations (tree);
+void substitute_in_loop_info (struct loop *, tree, tree);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */
@@ -783,11 +737,78 @@ void insert_edge_copies (tree, basic_block);
 extern void linear_transform_loops (struct loops *);
 
 /* In tree-ssa-loop-ivopts.c  */
-extern bool expr_invariant_in_loop_p (struct loop *, tree);
+bool expr_invariant_in_loop_p (struct loop *, tree);
+bool multiplier_allowed_in_address_p (HOST_WIDE_INT);
+unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
+
+/* In tree-ssa-threadupdate.c.  */
+extern bool thread_through_all_blocks (bitmap);
 
 /* In gimplify.c  */
 tree force_gimple_operand (tree, tree *, bool, tree);
 tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree);
+
+/* In tree-ssa-structalias.c */
+bool find_what_p_points_to (tree);
+
+/* In tree-ssa-address.c  */
+
+/* Affine combination of trees.  We keep track of at most MAX_AFF_ELTS elements
+   to make things simpler; this is sufficient in most cases.  */
+
+#define MAX_AFF_ELTS 8
+
+struct affine_tree_combination
+{
+  /* Type of the result of the combination.  */
+  tree type;
+
+  /* Mask modulo that the operations are performed.  */
+  unsigned HOST_WIDE_INT mask;
+
+  /* Constant offset.  */
+  unsigned HOST_WIDE_INT offset;
+
+  /* Number of elements of the combination.  */
+  unsigned n;
+
+  /* Elements and their coefficients.  */
+  tree elts[MAX_AFF_ELTS];
+  unsigned HOST_WIDE_INT coefs[MAX_AFF_ELTS];
+
+  /* Remainder of the expression.  */
+  tree rest;
+};
+
+/* Description of a memory address.  */
+
+struct mem_address
+{
+  tree symbol, base, index, step, offset;
+};
+
+tree create_mem_ref (block_stmt_iterator *, tree, 
+		     struct affine_tree_combination *);
+rtx addr_for_mem_ref (struct mem_address *, bool);
+void get_address_description (tree, struct mem_address *);
+tree maybe_fold_tmr (tree);
+/* This structure is simply used during pushing fields onto the fieldstack
+   to track the offset of the field, since bitpos_of_field gives it relative
+   to its immediate containing type, and we want it relative to the ultimate
+   containing object.  */
+
+struct fieldoff
+{
+  tree field;
+  HOST_WIDE_INT offset;  
+};
+typedef struct fieldoff fieldoff_s;
+
+DEF_VEC_O(fieldoff_s);
+DEF_VEC_ALLOC_O(fieldoff_s,heap);
+int push_fields_onto_fieldstack (tree, VEC(fieldoff_s,heap) **,
+				 HOST_WIDE_INT, bool *);
+void sort_fieldstack (VEC(fieldoff_s,heap) *);
 
 #include "tree-flow-inline.h"
 

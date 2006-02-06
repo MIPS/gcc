@@ -64,18 +64,6 @@ enum m32r_sdata m32r_sdata = M32R_SDATA_DEFAULT;
 /* For string literals, etc.  */
 #define LIT_NAME_P(NAME) ((NAME)[0] == '*' && (NAME)[1] == '.')
 
-/* Cache-flush support. Cache-flush is used at trampoline.
-   Default cache-flush is "trap 12".
-    default cache-flush function is "_flush_cache"  (CACHE_FLUSH_FUNC)
-    default cache-flush trap-interrupt number is 12 (CACHE_FLUSH_TRAP)
-   You can change how to generate code of cache-flush with following options.
-   -mflush-func=FLUSH-FUNC-NAME
-   -mno-flush-func              (sets m32r_cache_flush_func to NULL)
-   -mfluch-trap=TRAP-NUMBER
-   -mno-flush-trap.             (sets m32r_cache_flush_trap to -1).  */
-const char *m32r_cache_flush_func = CACHE_FLUSH_FUNC;
-int m32r_cache_flush_trap = CACHE_FLUSH_TRAP;
-
 /* Forward declaration.  */
 static bool  m32r_handle_option (size_t, const char *, int);
 static void  init_reg_tables (void);
@@ -188,17 +176,12 @@ m32r_handle_option (size_t code, const char *arg, int value)
 	return false;
       return true;
 
-    case OPT_mflush_func_:
-      m32r_cache_flush_func = arg;
-      return true;
-
     case OPT_mno_flush_func:
       m32r_cache_flush_func = NULL;
       return true;
 
     case OPT_mflush_trap_:
-      m32r_cache_flush_trap = value;
-      return m32r_cache_flush_trap <= 15;
+      return value <= 15;
 
     case OPT_mno_flush_trap:
       m32r_cache_flush_trap = -1;
@@ -387,7 +370,7 @@ m32r_handle_model_attribute (tree *node ATTRIBUTE_UNUSED, tree name,
       && arg != large_ident1
       && arg != large_ident2)
     {
-      warning (0, "invalid argument of %qs attribute",
+      warning (OPT_Wattributes, "invalid argument of %qs attribute",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -2201,9 +2184,11 @@ block_move_call (rtx dest_reg, rtx src_reg, rtx bytes_rtx)
    operands[0] is the pointer to the destination.
    operands[1] is the pointer to the source.
    operands[2] is the number of bytes to move.
-   operands[3] is the alignment.  */
+   operands[3] is the alignment.
 
-void
+   Returns 1 upon success, 0 otherwise.  */
+
+int
 m32r_expand_block_move (rtx operands[])
 {
   rtx           orig_dst  = operands[0];
@@ -2218,7 +2203,7 @@ m32r_expand_block_move (rtx operands[])
   rtx           dst_reg;
 
   if (constp && bytes <= 0)
-    return;
+    return 1;
 
   /* Move the address into scratch registers.  */
   dst_reg = copy_addr_to_reg (XEXP (orig_dst, 0));
@@ -2233,7 +2218,7 @@ m32r_expand_block_move (rtx operands[])
   if (optimize_size || ! constp || align != UNITS_PER_WORD)
     {
       block_move_call (dst_reg, src_reg, bytes_rtx);
-      return;
+      return 0;
     }
 
   leftover = bytes % MAX_MOVE_BYTES;
@@ -2290,6 +2275,7 @@ m32r_expand_block_move (rtx operands[])
     emit_insn (gen_movmemsi_internal (dst_reg, src_reg, GEN_INT (leftover),
 				      gen_reg_rtx (SImode),
 				      gen_reg_rtx (SImode)));
+  return 1;
 }
 
 

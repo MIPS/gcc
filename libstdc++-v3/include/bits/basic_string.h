@@ -109,17 +109,19 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     class basic_string
     {
+      typedef typename _Alloc::template rebind<_CharT>::other _CharT_alloc_type;
+
       // Types:
     public:
       typedef _Traits					    traits_type;
       typedef typename _Traits::char_type		    value_type;
       typedef _Alloc					    allocator_type;
-      typedef typename _Alloc::size_type		    size_type;
-      typedef typename _Alloc::difference_type		    difference_type;
-      typedef typename _Alloc::reference		    reference;
-      typedef typename _Alloc::const_reference		    const_reference;
-      typedef typename _Alloc::pointer			    pointer;
-      typedef typename _Alloc::const_pointer		    const_pointer;
+      typedef typename _CharT_alloc_type::size_type	    size_type;
+      typedef typename _CharT_alloc_type::difference_type   difference_type;
+      typedef typename _CharT_alloc_type::reference	    reference;
+      typedef typename _CharT_alloc_type::const_reference   const_reference;
+      typedef typename _CharT_alloc_type::pointer	    pointer;
+      typedef typename _CharT_alloc_type::const_pointer	    const_pointer;
       typedef __gnu_cxx::__normal_iterator<pointer, basic_string>  iterator;
       typedef __gnu_cxx::__normal_iterator<const_pointer, basic_string>
                                                             const_iterator;
@@ -151,7 +153,7 @@ namespace std
       struct _Rep : _Rep_base
       {
 	// Types:
-	typedef typename _Alloc::template rebind<size_type>::other _Raw_alloc;
+	typedef typename _Alloc::template rebind<char>::other _Raw_bytes_alloc;
 
 	// (Public) Data members:
 
@@ -198,7 +200,8 @@ namespace std
 	{ 
 	  this->_M_set_sharable();  // One reference.
 	  this->_M_length = __n;
-	  this->_M_refdata()[__n] = _S_terminal; // grrr. (per 21.3.4)
+	  traits_type::assign(this->_M_refdata()[__n], _S_terminal);
+	  // grrr. (per 21.3.4)
 	  // You cannot leave those LWG people alone for a second.
 	}
 

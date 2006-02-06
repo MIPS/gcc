@@ -207,10 +207,10 @@ f95.install-common: installdirs
 
 install-info:: $(DESTDIR)$(infodir)/gfortran.info
 
-f95.install-man: installdirs \
-	$(DESTDIR)$(man1dir)/$(GFORTRAN_INSTALL_NAME)$(man1ext)
+f95.install-man: $(DESTDIR)$(man1dir)/$(GFORTRAN_INSTALL_NAME)$(man1ext)
 
-$(DESTDIR)$(man1dir)/$(GFORTRAN_INSTALL_NAME)$(man1ext): doc/gfortran.1
+$(DESTDIR)$(man1dir)/$(GFORTRAN_INSTALL_NAME)$(man1ext): doc/gfortran.1 \
+		installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@
@@ -284,7 +284,7 @@ fortran/f95-lang.o: $(GFORTRAN_TRANS_DEPS) fortran/mathbuiltins.def \
 fortran/convert.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans.o: $(GFORTRAN_TRANS_DEPS)
 fortran/trans-decl.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-decl.h \
-  cgraph.h $(TARGET_H) function.h errors.h $(FLAGS_H) tree-gimple.h \
+  cgraph.h $(TARGET_H) function.h $(FLAGS_H) tree-gimple.h \
   tree-dump.h
 fortran/trans-types.o: $(GFORTRAN_TRANS_DEPS) gt-fortran-trans-types.h \
   real.h toplev.h $(TARGET_H)

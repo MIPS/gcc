@@ -117,7 +117,7 @@ init_operators (void)
 	 : &operator_name_info[(int) CODE]);				    \
   oni->identifier = identifier;						    \
   oni->name = NAME;							    \
-  oni->mangled_name = MANGLING;                                             \
+  oni->mangled_name = MANGLING;						    \
   oni->arity = ARITY;
 
 #include "operators.def"
@@ -145,7 +145,7 @@ init_operators (void)
   operator_name_info [(int) TRUTH_AND_EXPR].name = "strict &&";
   operator_name_info [(int) TRUTH_OR_EXPR].name = "strict ||";
   operator_name_info [(int) RANGE_EXPR].name = "...";
-  operator_name_info [(int) CONVERT_EXPR].name = "+";
+  operator_name_info [(int) UNARY_PLUS_EXPR].name = "+";
 
   assignment_operator_name_info [(int) EXACT_DIV_EXPR].name
     = "(exact /=)";
@@ -184,7 +184,7 @@ static const struct resword reswords[] =
   { "_Complex",		RID_COMPLEX,	0 },
   { "__FUNCTION__",	RID_FUNCTION_NAME, 0 },
   { "__PRETTY_FUNCTION__", RID_PRETTY_FUNCTION_NAME, 0 },
-  { "__alignof", 	RID_ALIGNOF,	0 },
+  { "__alignof",	RID_ALIGNOF,	0 },
   { "__alignof__",	RID_ALIGNOF,	0 },
   { "__asm",		RID_ASM,	0 },
   { "__asm__",		RID_ASM,	0 },
@@ -277,7 +277,7 @@ static const struct resword reswords[] =
   { "virtual",		RID_VIRTUAL,	0 },
   { "void",		RID_VOID,	0 },
   { "volatile",		RID_VOLATILE,	0 },
-  { "wchar_t",          RID_WCHAR,	0 },
+  { "wchar_t",		RID_WCHAR,	0 },
   { "while",		RID_WHILE,	0 },
 
   /* The remaining keywords are specific to Objective-C++.  NB:
@@ -553,7 +553,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
       filename = ggc_strdup (TREE_STRING_POINTER (fname));
 #if 0
       /* We currently cannot give this diagnostic, as we reach this point
-         only after cpplib has scanned the entire translation unit, so
+	 only after cpplib has scanned the entire translation unit, so
 	 cpp_included always returns true.  A plausible fix is to compare
 	 the current source-location cookie with the first source-location
 	 cookie (if any) of the filename, but this requires completing the
@@ -633,16 +633,16 @@ unqualified_fn_lookup_error (tree name)
 	 declaration of "f" is available.  Historically, G++ and most
 	 other compilers accepted that usage since they deferred all name
 	 lookup until instantiation time rather than doing unqualified
-	 name lookup at template definition time; explain to the user what 
+	 name lookup at template definition time; explain to the user what
 	 is going wrong.
 
 	 Note that we have the exact wording of the following message in
 	 the manual (trouble.texi, node "Name lookup"), so they need to
 	 be kept in synch.  */
       pedwarn ("there are no arguments to %qD that depend on a template "
-	       "parameter, so a declaration of %qD must be available", 
+	       "parameter, so a declaration of %qD must be available",
 	       name, name);
-      
+
       if (!flag_permissive)
 	{
 	  static bool hint;
@@ -670,7 +670,7 @@ build_lang_decl (enum tree_code code, tree name, tree type)
 
   /* All nesting of C++ functions is lexical; there is never a "static
      chain" in the sense of GNU C nested functions.  */
-  if (code == FUNCTION_DECL) 
+  if (code == FUNCTION_DECL)
     DECL_NO_STATIC_CHAIN (t) = 1;
 
   return t;

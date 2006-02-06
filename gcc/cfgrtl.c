@@ -59,11 +59,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "cfgloop.h"
 
-/* The labels mentioned in non-jump rtl.  Valid during find_basic_blocks.  */
-/* ??? Should probably be using LABEL_NUSES instead.  It would take a
-   bit of surgery to be able to use or co-opt the routines in jump.  */
-rtx label_value_list;
-
 static int can_delete_note_p (rtx);
 static int can_delete_label_p (rtx);
 static void commit_one_edge_insertion (edge, int);
@@ -103,8 +98,7 @@ can_delete_label_p (rtx label)
   return (!LABEL_PRESERVE_P (label)
 	  /* User declared labels must be preserved.  */
 	  && LABEL_NAME (label) == 0
-	  && !in_expr_list_p (forced_labels, label)
-	  && !in_expr_list_p (label_value_list, label));
+	  && !in_expr_list_p (forced_labels, label));
 }
 
 /* Delete INSN by patching it out.  Return the next insn.  */
@@ -1190,7 +1184,7 @@ rtl_tidy_fallthru_edge (edge e)
 
   /* ??? In a late-running flow pass, other folks may have deleted basic
      blocks by nopping out blocks, leaving multiple BARRIERs between here
-     and the target label. They ought to be chastized and fixed.
+     and the target label. They ought to be chastised and fixed.
 
      We can also wind up with a sequence of undeletable labels between
      one block and the next.
@@ -2141,6 +2135,12 @@ rtl_verify_flow_info (void)
     {
       edge e;
       edge_iterator ei;
+
+      if (bb->predictions)
+	{
+	  error ("bb prediction set for block %i, but it is not used in RTL land", bb->index);
+	  err = 1;
+	}
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->flags & EDGE_FALLTHRU)

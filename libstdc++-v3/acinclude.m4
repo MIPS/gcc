@@ -797,14 +797,10 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
               in <cmath> in namespace std.])
   fi
 
-  # Check for the existence of <complex.h> complex functions.
+  # Check for the existence of <complex.h> complex math functions.
   # This is necessary even though libstdc++ uses the builtin versions
   # of these functions, because if the builtin cannot be used, a reference
   # to the library function is emitted.
-  # In addition, need to explicitly specify "C" compilation for this
-  # one, or else the backwards C++ <complex.h> include will be selected.
-  save_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS -x c"
   AC_CHECK_HEADERS(complex.h, ac_has_complex_h=yes, ac_has_complex_h=no)
   ac_c99_complex=no;
   if test x"$ac_has_complex_h" = x"yes"; then
@@ -816,6 +812,7 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
 		    ccosf(tmpf);
   		    ccoshf(tmpf);
 		    cexpf(tmpf);
+	            clogf(tmpf);
 		    csinf(tmpf);
 		    csinhf(tmpf);
 		    csqrtf(tmpf);
@@ -828,6 +825,7 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
 		    ccos(tmpd);
   		    ccosh(tmpd);
 		    cexp(tmpd);
+	            clog(tmpd);
 		    csin(tmpd);
 		    csinh(tmpd);
 		    csqrt(tmpd);
@@ -840,6 +838,7 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
 		    ccosl(tmpld);
   		    ccoshl(tmpld);
 		    cexpl(tmpld);
+	            clogl(tmpld);
 		    csinl(tmpld);
 		    csinhl(tmpld);
 		    csqrtl(tmpld);
@@ -848,7 +847,6 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
 		    cpowl(tmpld, tmpld);
 		   ],[ac_c99_complex=yes], [ac_c99_complex=no])
   fi
-  CXXFLAGS="$save_CXXFLAGS"
   AC_MSG_RESULT($ac_c99_complex)
   if test x"$ac_c99_complex" = x"yes"; then
     AC_DEFINE(_GLIBCXX_USE_C99_COMPLEX, 1,
@@ -879,12 +877,14 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
   AC_MSG_CHECKING([for ISO C99 support in <stdlib.h>])
   AC_CACHE_VAL(ac_c99_stdlib, [
   AC_TRY_COMPILE([#include <stdlib.h>],
-                 [char* tmp; 
-	    	  strtof("gnu", &tmp); 
+                 [char* tmp;
+	    	  strtof("gnu", &tmp);
 		  strtold("gnu", &tmp);
-                  llabs(10); 
-		  lldiv(10,1); 
-		  atoll("10"); 
+	          strtoll("gnu", &tmp, 10);
+	          strtoull("gnu", &tmp, 10);
+	          llabs(10);
+		  lldiv(10,1);
+		  atoll("10");
 		  _Exit(0);
 		  lldiv_t mydivt;],[ac_c99_stdlib=yes], [ac_c99_stdlib=no])
   ])

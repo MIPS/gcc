@@ -57,6 +57,10 @@ Waggregate-return
 Common Var(warn_aggregate_return)
 Warn about returning structures, unions or arrays
 
+Wattributes
+Common Var(warn_attributes) Init(1)
+Warn about inappropriate attribute usage
+
 Wcast-align
 Common Var(warn_cast_align)
 Warn about pointer casts which increase alignment
@@ -230,7 +234,6 @@ Common RejectNegative Joined UInteger
 ;   global variables.
 ; 2 if pointer arguments may not alias each other and may not
 ;   alias global variables.  True in Fortran.
-;   The value is ignored if flag_alias_check is 0.
 fargument-alias
 Common Report Var(flag_argument_noalias,0)
 Specify that arguments may alias each other and globals
@@ -483,6 +486,10 @@ Instrument function entry and exit with profiling calls
 fivopts
 Common Report Var(flag_ivopts) Init(1)
 Optimize induction variables on trees
+
+fjump-tables
+Common Var(flag_jump_tables) Init(1)
+Use jump tables for sufficiently large switch statements
 
 fkeep-inline-functions
 Common Report Var(flag_keep_inline_functions)

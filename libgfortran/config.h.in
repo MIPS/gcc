@@ -168,6 +168,9 @@
 /* libm includes roundf */
 #undef HAVE_ROUNDF
 
+/* libm includes scalbn */
+#undef HAVE_SCALBN
+
 /* libm includes scalbnf */
 #undef HAVE_SCALBNF
 
@@ -263,6 +266,12 @@
 
 /* Define to 1 if you have the <time.h> header file. */
 #undef HAVE_TIME_H
+
+/* libm includes trunc */
+#undef HAVE_TRUNC
+
+/* libm includes truncf */
+#undef HAVE_TRUNCF
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H

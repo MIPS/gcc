@@ -137,6 +137,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_HAVE_NAMED_SECTIONS false
 #endif
 
+#ifndef TARGET_INVALID_WITHIN_DOLOOP
+#define TARGET_INVALID_WITHIN_DOLOOP default_invalid_within_doloop
+#endif
+
 #ifndef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS false
 #endif
@@ -187,6 +191,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ASM_MARK_DECL_PRESERVED hook_void_constcharptr
 #endif
 
+#ifndef TARGET_ASM_OUTPUT_DWARF_DTPREL
+#define TARGET_ASM_OUTPUT_DWARF_DTPREL NULL
+#endif
+
 #define TARGET_ASM_ALIGNED_INT_OP				\
 		       {TARGET_ASM_ALIGNED_HI_OP,		\
 			TARGET_ASM_ALIGNED_SI_OP,		\
@@ -228,7 +236,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
                         TARGET_ASM_FILE_START,                  \
                         TARGET_ASM_FILE_END,			\
 			TARGET_ASM_EXTERNAL_LIBCALL,            \
-                        TARGET_ASM_MARK_DECL_PRESERVED}
+                        TARGET_ASM_MARK_DECL_PRESERVED,		\
+			TARGET_ASM_OUTPUT_DWARF_DTPREL}
 
 /* Scheduler hooks.  All of these default to null pointers, which
    haifa-sched.c looks for and handles.  */
@@ -375,6 +384,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #define TARGET_GET_PCH_VALIDITY default_get_pch_validity
 #define TARGET_PCH_VALID_P default_pch_valid_p
+#define TARGET_CHECK_PCH_TARGET_FLAGS NULL
 
 #define TARGET_DEFAULT_SHORT_ENUMS hook_bool_void_false
 
@@ -547,12 +557,14 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_GIMPLIFY_VA_ARG_EXPR,			\
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
+  TARGET_CHECK_PCH_TARGET_FLAGS,		\
   TARGET_DEFAULT_SHORT_ENUMS,			\
   TARGET_BUILTIN_SETJMP_FRAME_VALUE,		\
   TARGET_MD_ASM_CLOBBERS,			\
   TARGET_DWARF_CALLING_CONVENTION,              \
   TARGET_DWARF_HANDLE_FRAME_UNSPEC,		\
   TARGET_STDARG_OPTIMIZE_HOOK,			\
+  TARGET_INVALID_WITHIN_DOLOOP,			\
   TARGET_CALLS,					\
   TARGET_CXX,					\
   TARGET_HAVE_NAMED_SECTIONS,			\

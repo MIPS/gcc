@@ -207,7 +207,7 @@ extern int dot_symbols;
 #endif
 
 /* We use glibc _mcount for profiling.  */
-#define NO_PROFILE_COUNTERS TARGET_64BIT
+#define NO_PROFILE_COUNTERS 1
 #define PROFILE_HOOK(LABEL) \
   do { if (TARGET_64BIT) output_profile_hook (LABEL); } while (0)
 
@@ -228,13 +228,11 @@ extern int dot_symbols;
    the first field is an FP double, only if in power alignment mode.  */
 #undef  ROUND_TYPE_ALIGN
 #define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
-  ((TARGET_ALTIVEC && TREE_CODE (STRUCT) == VECTOR_TYPE)		\
-   ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)				\
-   : (TARGET_64BIT							\
-      && (TREE_CODE (STRUCT) == RECORD_TYPE				\
-	  || TREE_CODE (STRUCT) == UNION_TYPE				\
-	  || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)			\
-      && TARGET_ALIGN_NATURAL == 0)					\
+  ((TARGET_64BIT							\
+    && (TREE_CODE (STRUCT) == RECORD_TYPE				\
+	|| TREE_CODE (STRUCT) == UNION_TYPE				\
+	|| TREE_CODE (STRUCT) == QUAL_UNION_TYPE)			\
+    && TARGET_ALIGN_NATURAL == 0)					\
    ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
    : MAX ((COMPUTED), (SPECIFIED)))
 

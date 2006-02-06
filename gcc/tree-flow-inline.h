@@ -66,7 +66,6 @@ get_stmt_ann (tree stmt)
   return (ann) ? ann : create_stmt_ann (stmt);
 }
 
-
 /* Return the annotation type for annotation ANN.  */
 static inline enum tree_ann_type
 ann_type (tree_ann_t ann)
@@ -238,7 +237,7 @@ set_ssa_use_from_ptr (use_operand_p use, tree val)
   link_imm_use (use, val);
 }
 
-/* Link ssa_imm_use node LINKNODE into the chain for DEF, with use occuring 
+/* Link ssa_imm_use node LINKNODE into the chain for DEF, with use occurring 
    in STMT.  */
 static inline void
 link_imm_use_stmt (ssa_use_operand_t *linknode, tree def, tree stmt)
@@ -267,7 +266,7 @@ relink_imm_use (ssa_use_operand_t *node, ssa_use_operand_t *old)
     }
 }
 
-/* Relink ssa_imm_use node LINKNODE into the chain for OLD, with use occuring 
+/* Relink ssa_imm_use node LINKNODE into the chain for OLD, with use occurring 
    in STMT.  */
 static inline void
 relink_imm_use_stmt (ssa_use_operand_t *linknode, ssa_use_operand_t *old, tree stmt)
@@ -494,19 +493,12 @@ addresses_taken (tree stmt)
   return ann ? ann->addresses_taken : NULL;
 }
 
-/* Return the basic_block annotation for BB.  */
-static inline bb_ann_t
-bb_ann (basic_block bb)
-{
-  return (bb_ann_t)bb->tree_annotations;
-}
-
 /* Return the PHI nodes for basic block BB, or NULL if there are no
    PHI nodes.  */
 static inline tree
 phi_nodes (basic_block bb)
 {
-  return bb_ann (bb)->phi_nodes;
+  return bb->phi_nodes;
 }
 
 /* Set list of phi nodes of a basic block BB to L.  */
@@ -516,7 +508,7 @@ set_phi_nodes (basic_block bb, tree l)
 {
   tree phi;
 
-  bb_ann (bb)->phi_nodes = l;
+  bb->phi_nodes = l;
   for (phi = l; phi; phi = PHI_CHAIN (phi))
     set_bb_for_stmt (phi, bb);
 }

@@ -59,7 +59,7 @@ static tree handle_init_priority_attribute (tree *, tree, tree, int, bool *);
 
 static cp_lvalue_kind
 lvalue_p_1 (tree ref,
-            int treat_class_rvalues_as_lvalues)
+	    int treat_class_rvalues_as_lvalues)
 {
   cp_lvalue_kind op1_lvalue_kind = clk_none;
   cp_lvalue_kind op2_lvalue_kind = clk_none;
@@ -93,9 +93,9 @@ lvalue_p_1 (tree ref,
       /* Look at the member designator.  */
       if (!op1_lvalue_kind
 	  /* The "field" can be a FUNCTION_DECL or an OVERLOAD in some
-  	     situations.  */
- 	  || TREE_CODE (TREE_OPERAND (ref, 1)) != FIELD_DECL)
- 	;
+	     situations.  */
+	  || TREE_CODE (TREE_OPERAND (ref, 1)) != FIELD_DECL)
+	;
       else if (DECL_C_BIT_FIELD (TREE_OPERAND (ref, 1)))
 	{
 	  /* Clear the ordinary bit.  If this object was a class
@@ -225,9 +225,7 @@ builtin_valid_in_constant_expr_p (tree decl)
 {
   /* At present BUILT_IN_CONSTANT_P is the only builtin we're allowing
      in constant-expressions.  We may want to add other builtins later. */
-  return TREE_CODE (decl) == FUNCTION_DECL
-    && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
-    && DECL_FUNCTION_CODE (decl) == BUILT_IN_CONSTANT_P;
+  return DECL_IS_BUILTIN_CONSTANT_P (decl);
 }
 
 /* Build a TARGET_EXPR, initializing the DECL with the VALUE.  */
@@ -435,8 +433,8 @@ build_cplus_array_type (tree elt_type, tree index_type)
 
 tree
 cp_build_qualified_type_real (tree type,
-                              int type_quals,
-                              tsubst_flags_t complain)
+			      int type_quals,
+			      tsubst_flags_t complain)
 {
   tree result;
   int bad_quals = TYPE_UNQUALIFIED;
@@ -530,17 +528,17 @@ cp_build_qualified_type_real (tree type,
   else
     {
       if (complain & tf_ignore_bad_quals)
- 	/* We're not going to warn about constifying things that can't
- 	   be constified.  */
- 	bad_quals &= ~TYPE_QUAL_CONST;
+	/* We're not going to warn about constifying things that can't
+	   be constified.  */
+	bad_quals &= ~TYPE_QUAL_CONST;
       if (bad_quals)
- 	{
- 	  tree bad_type = build_qualified_type (ptr_type_node, bad_quals);
+	{
+	  tree bad_type = build_qualified_type (ptr_type_node, bad_quals);
 
- 	  if (!(complain & tf_ignore_bad_quals))
- 	    error ("%qV qualifiers cannot be applied to %qT",
+	  if (!(complain & tf_ignore_bad_quals))
+	    error ("%qV qualifiers cannot be applied to %qT",
 		   bad_type, type);
- 	}
+	}
     }
 
   /* Retrieve (or create) the appropriately qualified variant.  */
@@ -901,7 +899,7 @@ build_exception_variant (tree type, tree raises)
 
   for (; v; v = TYPE_NEXT_VARIANT (v))
     if (check_qualified_type (v, type, type_quals)
-        && comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1))
+	&& comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (v), 1))
       return v;
 
   /* Need to build a new variant.  */
@@ -967,8 +965,8 @@ count_trees (tree t)
 
 static tree
 verify_stmt_tree_r (tree* tp,
-                    int* walk_subtrees ATTRIBUTE_UNUSED ,
-                    void* data)
+		    int* walk_subtrees ATTRIBUTE_UNUSED ,
+		    void* data)
 {
   tree t = *tp;
   htab_t *statements = (htab_t *) data;
@@ -1004,8 +1002,8 @@ verify_stmt_tree (tree t)
 
 static tree
 find_tree_r (tree* tp,
-             int* walk_subtrees ATTRIBUTE_UNUSED ,
-             void* data)
+	     int* walk_subtrees ATTRIBUTE_UNUSED ,
+	     void* data)
 {
   if (*tp == (tree) data)
     return (tree) data;
@@ -1148,8 +1146,8 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
   if (!TYPE_P (t) && TREE_CONSTANT (t))
     {
       /* There can't be any TARGET_EXPRs or their slot variables below
-         this point.  We used to check !TREE_SIDE_EFFECTS, but then we
-         failed to copy an ADDR_EXPR of the slot VAR_DECL.  */
+	 this point.  We used to check !TREE_SIDE_EFFECTS, but then we
+	 failed to copy an ADDR_EXPR of the slot VAR_DECL.  */
       *walk_subtrees = 0;
       return NULL_TREE;
     }
@@ -1195,8 +1193,8 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
 
 static tree
 bot_replace (tree* t,
-             int* walk_subtrees ATTRIBUTE_UNUSED ,
-             void* data)
+	     int* walk_subtrees ATTRIBUTE_UNUSED ,
+	     void* data)
 {
   splay_tree target_remap = ((splay_tree) data);
 
@@ -1644,8 +1642,8 @@ maybe_dummy_object (tree type, tree* binfop)
 
   if (current_class_ref && context == current_class_type
       /* Kludge: Make sure that current_class_type is actually
-         correct.  It might not be if we're in the middle of
-         tsubst_default_argument.  */
+	 correct.  It might not be if we're in the middle of
+	 tsubst_default_argument.  */
       && same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (current_class_ref)),
 		      current_class_type))
     decl = current_class_ref;
@@ -1724,17 +1722,17 @@ const struct attribute_spec cxx_attribute_table[] =
   { "java_interface", 0, 0, false, false, false, handle_java_interface_attribute },
   { "com_interface",  0, 0, false, false, false, handle_com_interface_attribute },
   { "init_priority",  1, 1, true,  false, false, handle_init_priority_attribute },
-  { NULL,             0, 0, false, false, false, NULL }
+  { NULL,	      0, 0, false, false, false, NULL }
 };
 
 /* Handle a "java_interface" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
 handle_java_interface_attribute (tree* node,
-                                 tree name,
-                                 tree args ATTRIBUTE_UNUSED ,
-                                 int flags,
-                                 bool* no_add_attrs)
+				 tree name,
+				 tree args ATTRIBUTE_UNUSED ,
+				 int flags,
+				 bool* no_add_attrs)
 {
   if (DECL_P (*node)
       || !CLASS_TYPE_P (*node)
@@ -1756,10 +1754,10 @@ handle_java_interface_attribute (tree* node,
    struct attribute_spec.handler.  */
 static tree
 handle_com_interface_attribute (tree* node,
-                                tree name,
-                                tree args ATTRIBUTE_UNUSED ,
-                                int flags ATTRIBUTE_UNUSED ,
-                                bool* no_add_attrs)
+				tree name,
+				tree args ATTRIBUTE_UNUSED ,
+				int flags ATTRIBUTE_UNUSED ,
+				bool* no_add_attrs)
 {
   static int warned;
 
@@ -1769,7 +1767,8 @@ handle_com_interface_attribute (tree* node,
       || !CLASS_TYPE_P (*node)
       || *node != TYPE_MAIN_VARIANT (*node))
     {
-      warning (0, "%qE attribute can only be applied to class definitions", name);
+      warning (OPT_Wattributes, "%qE attribute can only be applied "
+	       "to class definitions", name);
       return NULL_TREE;
     }
 
@@ -1784,10 +1783,10 @@ handle_com_interface_attribute (tree* node,
    struct attribute_spec.handler.  */
 static tree
 handle_init_priority_attribute (tree* node,
-                                tree name,
-                                tree args,
-                                int flags ATTRIBUTE_UNUSED ,
-                                bool* no_add_attrs)
+				tree name,
+				tree args,
+				int flags ATTRIBUTE_UNUSED ,
+				bool* no_add_attrs)
 {
   tree initp_expr = TREE_VALUE (args);
   tree decl = *node;
@@ -1820,7 +1819,7 @@ handle_init_priority_attribute (tree* node,
       || current_function_decl)
     {
       error ("can only use %qE attribute on file-scope definitions "
-             "of objects of class type", name);
+	     "of objects of class type", name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
@@ -1922,7 +1921,7 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
     case TYPEOF_TYPE:
     case BASELINK:
       /* None of these have subtrees other than those already walked
-         above.  */
+	 above.  */
       *walk_subtrees_p = 0;
       break;
 
@@ -2267,7 +2266,14 @@ fold_if_not_in_template (tree expr)
      "fold".  We will call fold later when actually instantiating the
      template.  Integral constant expressions in templates will be
      evaluated via fold_non_dependent_expr, as necessary.  */
-  return (processing_template_decl ? expr : fold (expr));
+  if (processing_template_decl)
+    return expr;
+
+  /* Fold C++ front-end specific tree codes.  */
+  if (TREE_CODE (expr) == UNARY_PLUS_EXPR)
+    return fold_convert (TREE_TYPE (expr), TREE_OPERAND (expr, 0));
+
+  return fold (expr);
 }
 
 

@@ -6719,7 +6719,7 @@ valid_initial_value_p (rtx x, rtx insn, int call_seen, rtx loop_start)
      some machines, don't use any hard registers at all.  */
   if (REGNO (x) < FIRST_PSEUDO_REGISTER
       && (SMALL_REGISTER_CLASSES
-	  || (call_used_regs[REGNO (x)] && call_seen)))
+	  || (call_seen && call_used_regs[REGNO (x)])))
     return 0;
 
   /* Don't use registers that have been clobbered before the start of the

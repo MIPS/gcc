@@ -2996,7 +2996,6 @@ new_loc_descr (enum dwarf_location_atom op, unsigned HOST_WIDE_INT oprnd1,
   return descr;
 }
 
-
 /* Add a location description term to a location description expression.  */
 
 static inline void
@@ -3262,13 +3261,15 @@ output_loc_operands (dw_loc_descr_ref loc)
       break;
 
     case INTERNAL_DW_OP_tls_addr:
-#ifdef ASM_OUTPUT_DWARF_DTPREL
-      ASM_OUTPUT_DWARF_DTPREL (asm_out_file, DWARF2_ADDR_SIZE,
-			       val1->v.val_addr);
-      fputc ('\n', asm_out_file);
-#else
-      gcc_unreachable ();
-#endif
+      if (targetm.asm_out.output_dwarf_dtprel)
+	{
+	  targetm.asm_out.output_dwarf_dtprel (asm_out_file,
+					       DWARF2_ADDR_SIZE,
+					       val1->v.val_addr);
+	  fputc ('\n', asm_out_file);
+	}
+      else
+	gcc_unreachable ();
       break;
 
     default:
@@ -3972,6 +3973,7 @@ static dw_die_ref subrange_type_die (tree, dw_die_ref);
 static dw_die_ref modified_type_die (tree, int, int, dw_die_ref);
 static int type_is_enum (tree);
 static unsigned int dbx_reg_number (rtx);
+static void add_loc_descr_op_piece (dw_loc_descr_ref *, int);
 static dw_loc_descr_ref reg_loc_descriptor (rtx);
 static dw_loc_descr_ref one_reg_loc_descriptor (unsigned int);
 static dw_loc_descr_ref multiple_reg_loc_descriptor (rtx, rtx);
@@ -8408,6 +8410,26 @@ dbx_reg_number (rtx rtl)
   return DBX_REGISTER_NUMBER (regno);
 }
 
+/* Optionally add a DW_OP_piece term to a location description expression.
+   DW_OP_piece is only added if the location description expression already
+   doesn't end with DW_OP_piece.  */
+
+static void
+add_loc_descr_op_piece (dw_loc_descr_ref *list_head, int size)
+{
+  dw_loc_descr_ref loc;
+
+  if (*list_head != NULL)
+    {
+      /* Find the end of the chain.  */
+      for (loc = *list_head; loc->dw_loc_next != NULL; loc = loc->dw_loc_next)
+	;
+
+      if (loc->dw_loc_opc != DW_OP_piece)
+	loc->dw_loc_next = new_loc_descr (DW_OP_piece, size, 0);
+    }
+}
+
 /* Return a location descriptor that designates a machine register or
    zero if there is none.  */
 
@@ -8467,7 +8489,7 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
 
 	  t = one_reg_loc_descriptor (reg);
 	  add_loc_descr (&loc_result, t);
-	  add_loc_descr (&loc_result, new_loc_descr (DW_OP_piece, size, 0));
+	  add_loc_descr_op_piece (&loc_result, size);
 	  ++reg;
 	}
       return loc_result;
@@ -8487,7 +8509,7 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs)
       t = one_reg_loc_descriptor (REGNO (XVECEXP (regs, 0, i)));
       add_loc_descr (&loc_result, t);
       size = GET_MODE_SIZE (GET_MODE (XVECEXP (regs, 0, 0)));
-      add_loc_descr (&loc_result, new_loc_descr (DW_OP_piece, size, 0));
+      add_loc_descr_op_piece (&loc_result, size);
     }
   return loc_result;
 }
@@ -8790,14 +8812,10 @@ concat_loc_descriptor (rtx x0, rtx x1)
     return 0;
 
   cc_loc_result = x0_ref;
-  add_loc_descr (&cc_loc_result,
-		 new_loc_descr (DW_OP_piece,
-				GET_MODE_SIZE (GET_MODE (x0)), 0));
+  add_loc_descr_op_piece (&cc_loc_result, GET_MODE_SIZE (GET_MODE (x0)));
 
   add_loc_descr (&cc_loc_result, x1_ref);
-  add_loc_descr (&cc_loc_result,
-		 new_loc_descr (DW_OP_piece,
-				GET_MODE_SIZE (GET_MODE (x1)), 0));
+  add_loc_descr_op_piece (&cc_loc_result, GET_MODE_SIZE (GET_MODE (x1)));
 
   return cc_loc_result;
 }
@@ -8862,8 +8880,7 @@ loc_descriptor (rtx rtl, bool can_use_fbreg)
 	loc_result = loc_descriptor (XEXP (RTVEC_ELT (par_elems, 0), 0),
 				     can_use_fbreg);
 	mode = GET_MODE (XEXP (RTVEC_ELT (par_elems, 0), 0));
-	add_loc_descr (&loc_result,
-		       new_loc_descr (DW_OP_piece, GET_MODE_SIZE (mode), 0));
+	add_loc_descr_op_piece (&loc_result, GET_MODE_SIZE (mode));
 	for (i = 1; i < num_elem; i++)
 	  {
 	    dw_loc_descr_ref temp;
@@ -8872,9 +8889,7 @@ loc_descriptor (rtx rtl, bool can_use_fbreg)
 				   can_use_fbreg);
 	    add_loc_descr (&loc_result, temp);
 	    mode = GET_MODE (XEXP (RTVEC_ELT (par_elems, i), 0));
-	    add_loc_descr (&loc_result,
-			   new_loc_descr (DW_OP_piece,
-					  GET_MODE_SIZE (mode), 0));
+	    add_loc_descr_op_piece (&loc_result, GET_MODE_SIZE (mode));
 	  }
       }
       break;
@@ -8939,10 +8954,9 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	{
 	  rtx rtl;
 
-#ifndef ASM_OUTPUT_DWARF_DTPREL
 	  /* If this is not defined, we have no way to emit the data.  */
-	  return 0;
-#endif
+	  if (!targetm.asm_out.output_dwarf_dtprel)
+	    return 0;
 
 	  /* The way DW_OP_GNU_push_tls_address is specified, we can only
 	     look up addresses of objects in the current module.  */
@@ -8972,8 +8986,9 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       /* FALLTHRU */
 
     case PARM_DECL:
-      if (DECL_VALUE_EXPR (loc))
-	return loc_descriptor_from_tree_1 (DECL_VALUE_EXPR (loc), want_address);
+      if (DECL_HAS_VALUE_EXPR_P (loc))
+	return loc_descriptor_from_tree_1 (DECL_VALUE_EXPR (loc),
+					   want_address);
       /* FALLTHRU */
 
     case RESULT_DECL:
@@ -12508,6 +12523,11 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
 	  
 	  if (die != NULL && die->die_parent == NULL)
 	    add_child_die (context_die, die);
+	  /* Do not produce debug information for static variables since
+	     these might be optimized out.  We are called for these later
+	     in cgraph_varpool_analyze_pending_decls. */
+	  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+	    ;
 	  else
 	    gen_decl_die (decl, context_die);
 	}
@@ -13055,6 +13075,10 @@ dwarf2out_decl (tree decl)
       if (DECL_EXTERNAL (decl) && !TREE_USED (decl))
 	return;
 
+      /* For local statics lookup proper context die.  */
+      if (TREE_STATIC (decl) && decl_function_context (decl))
+	context_die = lookup_decl_die (DECL_CONTEXT (decl));
+
       /* If we are in terse mode, don't generate any DIEs to represent any
 	 variable declarations or definitions.  */
       if (debug_info_level <= DINFO_LEVEL_TERSE)
@@ -13283,7 +13307,7 @@ dwarf2out_var_location (rtx loc_note)
   last_insn = loc_note;
   last_label = newloc->label;
   decl = NOTE_VAR_LOCATION_DECL (loc_note);
-  if (DECL_DEBUG_EXPR (decl) && DECL_DEBUG_EXPR_IS_FROM (decl)
+  if (DECL_DEBUG_EXPR_IS_FROM (decl) && DECL_DEBUG_EXPR (decl) 
       && DECL_P (DECL_DEBUG_EXPR (decl)))
     decl = DECL_DEBUG_EXPR (decl); 
   add_var_loc_to_decl (decl, newloc);

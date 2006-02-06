@@ -418,6 +418,31 @@ static tree grokdeclarator (const struct c_declarator *,
 static tree grokparms (struct c_arg_info *, bool);
 static void layout_array_type (tree);
 
+/* T is a statement.  Add it to the statement-tree.  This is the
+   C/ObjC version--C++ has a slightly different version of this
+   function.  */
+
+tree
+add_stmt (tree t)
+{
+  enum tree_code code = TREE_CODE (t);
+
+  if (EXPR_P (t) && code != LABEL_EXPR)
+    {
+      if (!EXPR_HAS_LOCATION (t))
+	SET_EXPR_LOCATION (t, input_location);
+    }
+
+  if (code == LABEL_EXPR || code == CASE_LABEL_EXPR)
+    STATEMENT_LIST_HAS_LABEL (cur_stmt_list) = 1;
+
+  /* Add T to the statement-tree.  Non-side-effect statements need to be
+     recorded during statement expressions.  */
+  append_to_statement_list_force (t, &cur_stmt_list);
+
+  return t;
+}
+
 /* States indicating how grokdeclarator() should handle declspecs marked
    with __attribute__((deprecated)).  An object declared as
    __attribute__((deprecated)) suppresses warnings of uses of other
@@ -566,25 +591,7 @@ objc_mark_locals_volatile (void *enclosing_blk)
        scope = scope->outer)
     {
       for (b = scope->bindings; b; b = b->prev)
-	{
-	  tree decl = b->decl;
-
-	  /* Do not mess with variables that are 'static' or (already)
-	     'volatile'.  */
-	  if (!TREE_THIS_VOLATILE (decl) && !TREE_STATIC (decl)
-	      && (TREE_CODE (decl) == VAR_DECL
-		  || TREE_CODE (decl) == PARM_DECL))
-	    {
-	      TREE_TYPE (decl)
-		= build_qualified_type (TREE_TYPE (decl),
-					(TYPE_QUALS (TREE_TYPE (decl))
-					 | TYPE_QUAL_VOLATILE));
-	      TREE_THIS_VOLATILE (decl) = 1;
-	      TREE_SIDE_EFFECTS (decl) = 1;
-	      DECL_REGISTER (decl) = 0;
-	      C_DECL_REGISTER (decl) = 0;
-	    }
-	}
+	objc_volatilize_decl (b->decl);
 
       /* Do not climb up past the current function.  */
       if (scope->function_body)
@@ -1124,11 +1131,11 @@ locate_old_decl (tree decl, void (*diag)(const char *, ...))
   if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
     ;
   else if (DECL_INITIAL (decl))
-    diag (N_("%Jprevious definition of %qD was here"), decl, decl);
+    diag (G_("%Jprevious definition of %qD was here"), decl, decl);
   else if (C_DECL_IMPLICIT (decl))
-    diag (N_("%Jprevious implicit declaration of %qD was here"), decl, decl);
+    diag (G_("%Jprevious implicit declaration of %qD was here"), decl, decl);
   else
-    diag (N_("%Jprevious declaration of %qD was here"), decl, decl);
+    diag (G_("%Jprevious declaration of %qD was here"), decl, decl);
 }
 
 /* Subroutine of duplicate_decls.  Compare NEWDECL to OLDDECL.
@@ -1172,9 +1179,9 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       else if (TREE_PUBLIC (newdecl))
 	warning (0, "%Jbuilt-in function %qD declared as non-function",
 		 newdecl, newdecl);
-      else if (warn_shadow)
-	warning (0, "%Jdeclaration of %qD shadows a built-in function",
-		 newdecl, newdecl);
+      else
+	warning (OPT_Wshadow, "%Jdeclaration of %qD shadows "
+		 "a built-in function", newdecl, newdecl);
       return false;
     }
 
@@ -1288,9 +1295,8 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	      || (DECL_INITIAL (newdecl)
 		  && !TYPE_ARG_TYPES (TREE_TYPE (newdecl)))))
 	{
-	  if (warn_shadow)
-	    warning (0, "%Jdeclaration of %qD shadows a built-in function",
-		     newdecl, newdecl);
+	  warning (OPT_Wshadow, "%Jdeclaration of %qD shadows "
+		   "a built-in function", newdecl, newdecl);
 	  /* Discard the old built-in function.  */
 	  return false;
 	}
@@ -1499,15 +1505,15 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       if (DECL_DECLARED_INLINE_P (newdecl)
 	  && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  warning (0, "%Jinline declaration of %qD follows "
+	  warning (OPT_Wattributes, "%Jinline declaration of %qD follows "
 		   "declaration with attribute noinline", newdecl, newdecl);
 	  warned = true;
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  warning (0, "%Jdeclaration of %qD with attribute noinline follows "
-		   "inline declaration ", newdecl, newdecl);
+	  warning (OPT_Wattributes, "%Jdeclaration of %qD with attribute "
+		   "noinline follows inline declaration ", newdecl, newdecl);
 	  warned = true;
 	}
 
@@ -2286,7 +2292,7 @@ implicit_decl_warning (tree id, tree olddecl)
     default: gcc_unreachable ();
     }
 
-  diag (N_("implicit declaration of function %qE"), id);
+  diag (G_("implicit declaration of function %qE"), id);
   if (olddecl)
     locate_old_decl (olddecl, diag);
 }
@@ -2561,9 +2567,9 @@ define_label (location_t location, tree name)
 	    /*invisible=*/false, /*nested=*/false);
     }
 
-  if (warn_traditional && !in_system_header && lookup_name (name))
-    warning (0, "%Htraditional C lacks a separate namespace for labels, "
-             "identifier %qE conflicts", &location, name);
+  if (!in_system_header && lookup_name (name))
+    warning (OPT_Wtraditional, "%Htraditional C lacks a separate namespace "
+             "for labels, identifier %qE conflicts", &location, name);
 
   nlist_se = XOBNEW (&parser_obstack, struct c_label_list);
   nlist_se->next = label_context_stack_se->labels_def;
@@ -3217,7 +3223,8 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
-    warning (0, "%Jinline function %qD given attribute noinline", decl, decl);
+    warning (OPT_Wattributes, "%Jinline function %qD given attribute noinline",
+	     decl, decl);
 
   /* Add this decl to the current scope.
      TEM may equal DECL or it may be a previous decl of the same name.  */
@@ -4289,8 +4296,9 @@ grokdeclarator (const struct c_declarator *declarator,
 		   them for noreturn functions.  */
 		if (VOID_TYPE_P (type) && really_funcdef)
 		  pedwarn ("function definition has qualified void return type");
-		else if (warn_return_type)
-		  warning (0, "type qualifiers ignored on function return type");
+		else
+		  warning (OPT_Wreturn_type,
+			   "type qualifiers ignored on function return type");
 		
 		type = c_build_qualified_type (type, type_quals);
 	      }
@@ -4451,7 +4459,8 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	    /* We don't yet implement attributes in this context.  */
 	    if (array_ptr_attrs != NULL_TREE)
-	      warning (0, "attributes in parameter array declarator ignored");
+	      warning (OPT_Wattributes,
+		       "attributes in parameter array declarator ignored");
 
 	    size_varies = 0;
 	  }
@@ -5793,14 +5802,19 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
   if (decl1 == 0)
-    return 0;
+    {
+      label_context_stack_se = label_context_stack_se->next;
+      label_context_stack_vm = label_context_stack_vm->next;
+      return 0;
+    }
 
   decl_attributes (&decl1, attributes, 0);
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && DECL_UNINLINABLE (decl1)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl1)))
-    warning (0, "%Jinline function %qD given attribute noinline", decl1, decl1);
+    warning (OPT_Wattributes, "%Jinline function %qD given attribute noinline",
+	     decl1, decl1);
 
   announce_function (decl1);
 
@@ -6097,7 +6111,8 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 #endif
 
   if (!in_system_header)
-    warning (OPT_Wold_style_definition, "%Jold-style function definition", fndecl);
+    warning (OPT_Wold_style_definition, "%Jold-style function definition",
+	     fndecl);
 
   /* Match each formal parameter name with its declaration.  Save each
      decl in the appropriate TREE_PURPOSE slot of the parmids chain.  */
@@ -6730,16 +6745,6 @@ c_dup_lang_specific_decl (tree decl)
    function at once processing in the C front end. Currently these
    functions are not called from anywhere in the C front end, but as
    these changes continue, that will change.  */
-
-/* Returns nonzero if the current statement is a full expression,
-   i.e. temporaries created during that statement should be destroyed
-   at the end of the statement.  */
-
-int
-stmts_are_full_exprs_p (void)
-{
-  return 0;
-}
 
 /* Returns the stmt_tree (if any) to which statements are currently
    being added.  If there is no active statement-tree, NULL is

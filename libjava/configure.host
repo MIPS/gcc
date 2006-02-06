@@ -32,6 +32,7 @@
 #                       (i.e it is broken).
 #   fallback_backtrace_h  Header to use for fallback backtrace implementation
 #			  (only for targets that don't support DWARF2 unwind)
+#   descriptor_h	Header to use for looking past function descriptors
 
 libgcj_flags=
 libgcj_cflags=
@@ -68,6 +69,7 @@ echo "$target"
 DIVIDESPEC=-fuse-divide-subroutine
 EXCEPTIONSPEC=-fnon-call-exceptions
 CHECKREFSPEC=
+BACKTRACESPEC=
 
 # This case statement supports per-CPU defaults.
 case "${host}" in
@@ -93,17 +95,18 @@ case "${host}" in
 	;;
   i686-*|i586-*|i486-*|i386-*)
 	sysdeps_dir=i386
-	libgcj_flags="${libgcj_flags} -ffloat-store -fno-omit-frame-pointer"
+	libgcj_flags="${libgcj_flags} -ffloat-store"
 	libgcj_interpreter=yes
 	libgcj_cxxflags=
 	libgcj_cflags=
 	DIVIDESPEC=-fno-use-divide-subroutine
+	BACKTRACESPEC=-fomit-frame-pointer
 	enable_hash_synchronization_default=yes
 	slow_pthread_self=yes
 	;;
   x86_64-*)
 	sysdeps_dir=x86-64
-	libgcj_flags="${libgcj_flags} -ffloat-store -fno-omit-frame-pointer"
+	libgcj_flags="${libgcj_flags} -ffloat-store"
 	libgcj_cxxflags=
 	libgcj_cflags=
 	DIVIDESPEC=-f%{m32:no-}use-divide-subroutine
@@ -228,6 +231,10 @@ EOF
 	  rm -f conftest conftest.c
 	fi
 	;;
+  i[34567]86-*-solaris2.1[0-9]* )
+	sysdeps_dir=x86-64
+	DIVIDESPEC=-f%{m32:no-}%{!m32:%{!m64:no-}}%{m64:}use-divide-subroutine
+	;;
   mips*-*-linux* )
   	sysdeps_dir=mips
   	can_unwind_signal=yes
@@ -265,9 +272,24 @@ esac
 case "${host}" in
   *-cygwin* | *-mingw*)
 	fallback_backtrace_h=sysdep/i386/backtrace.h  
+	# We need a frame pointer on Windows, so override BACKTRACESPEC
+  	BACKTRACESPEC=
   ;;
 esac
 
+case "${host}" in
+  ia64-* | hppa*-*)
+	descriptor_h=sysdep/descriptor-y.h
+	;;
+
+  rs6000-* | powerpc*-*)
+	descriptor_h=sysdep/powerpc/descriptor.h
+	;;
+
+  *)
+	descriptor_h=sysdep/descriptor-n.h
+	;;
+esac
 
 libgcj_cflags="${libgcj_cflags} ${libgcj_flags}"
 libgcj_cxxflags="${libgcj_cxxflags} ${libgcj_flags}"

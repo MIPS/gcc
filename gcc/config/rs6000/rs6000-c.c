@@ -31,7 +31,7 @@
 #include "c-common.h"
 #include "c-pragma.h"
 #include "c-tree.h"
-#include "errors.h"
+#include "toplev.h"
 #include "tm_p.h"
 #include "target.h"
 #include "langhooks.h"
@@ -50,8 +50,8 @@ static tree altivec_resolve_overloaded_builtin (tree, tree);
    whether or not new function declarations receive a longcall
    attribute by default.  */
 
-#define SYNTAX_ERROR(msgid) do {			\
-  warning (0, msgid);					\
+#define SYNTAX_ERROR(gmsgid) do {			\
+  warning (0, gmsgid);					\
   warning (0, "ignoring malformed #pragma longcall");	\
   return;						\
 } while (0)
@@ -139,6 +139,10 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
     default:
       break;
     }
+
+  /* Let the compiled code know if 'f' class registers will not be available.  */
+  if (TARGET_SOFT_FLOAT || !TARGET_FPRS)
+    builtin_define ("__NO_FPRS__");
 
   targetm.resolve_overloaded_builtin = altivec_resolve_overloaded_builtin;
 }

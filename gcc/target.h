@@ -180,6 +180,9 @@ struct gcc_target
 	linker to not dead code strip this symbol.  */
     void (*mark_decl_preserved) (const char *);
 
+    /* Output a DTP-relative reference to a TLS symbol.  */
+    void (*output_dwarf_dtprel) (FILE *file, int size, rtx x);
+
   } asm_out;
 
   /* Functions relating to instruction scheduling.  */
@@ -485,6 +488,11 @@ struct gcc_target
   void * (* get_pch_validity) (size_t *);
   const char * (* pch_valid_p) (const void *, size_t);
 
+  /* If nonnull, this function checks whether a PCH file with the
+     given set of target flags can be used.  It returns NULL if so,
+     otherwise it returns an error message.  */
+  const char *(*check_pch_target_flags) (int);
+
   /* True if the compiler should give an enum type only as many
      bytes as it takes to represent the range of possible values of
      that type.  */
@@ -520,6 +528,10 @@ struct gcc_target
      to be checked for va_list references.  */
   bool (*stdarg_optimize_hook) (struct stdarg_info *ai, tree lhs, tree rhs);
 
+  /* Returns NULL if target supports the insn within a doloop block,
+     otherwise it returns an error message.  */
+  const char * (*invalid_within_doloop) (rtx);
+    
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
     bool (*promote_function_args) (tree fntype);

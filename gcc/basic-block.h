@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "predict.h"
 #include "vec.h"
-#include "errors.h"
 #include "function.h"
 
 /* Head of register set linked list.  */
@@ -183,7 +182,7 @@ struct loop;
 struct loops;
 
 /* Declared in tree-flow.h.  */
-struct bb_ann_d;
+struct edge_prediction;
 
 /* A basic block is a sequence of instructions with only entry and
    only one exit.  If any one of the instructions are executed, they
@@ -246,8 +245,11 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   /* The data used by basic block copying and reordering functions.  */
   struct reorder_block_def * rbi;
 
-  /* Annotations used at the tree level.  */
-  struct bb_ann_d *tree_annotations;
+  /* Chain of PHI nodes for this block.  */
+  tree phi_nodes;
+
+  /* A list of predictions.  */
+  struct edge_prediction *predictions;
 
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
@@ -263,9 +265,6 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
 
   /* Various flags.  See BB_* below.  */
   int flags;
-
-  /* Which section block belongs in, when partitioning basic blocks.  */
-  int partition;
 };
 
 typedef struct basic_block_def *basic_block;
@@ -279,16 +278,6 @@ struct reorder_block_def GTY(())
   rtx footer;
 
   basic_block next;
-
-  /* These pointers may be unreliable as the first is only used for
-     debugging (and should probably be removed, and the second is only
-     used by copying.  The basic blocks pointed to may be removed and
-     that leaves these pointers pointing to garbage.  */
-  basic_block GTY ((skip (""))) original;
-  basic_block GTY ((skip (""))) copy;
-
-  int duplicated;
-  int copy_number;
 
   /* This field is used by the bb-reorder and tracer passes.  */
   int visited;
@@ -333,7 +322,10 @@ enum
   BB_HOT_PARTITION = 64,
 
   /* Set on blocks that should be put in a cold section.  */
-  BB_COLD_PARTITION = 128
+  BB_COLD_PARTITION = 128,
+
+  /* Set on block that was duplicated.  */
+  BB_DUPLICATED = 256
 };
 
 /* Dummy flag for convenience in the hot/cold partitioning code.  */
@@ -446,10 +438,6 @@ extern bool rediscover_loops_after_threading;
 
 #define FOR_ALL_BB_FN(BB, FN) \
   for (BB = ENTRY_BLOCK_PTR_FOR_FUNCTION (FN); BB; BB = BB->next_bb)
-
-/* Special labels found during CFG build.  */
-
-extern GTY(()) rtx label_value_list;
 
 extern bitmap_obstack reg_obstack;
 
@@ -870,6 +858,7 @@ extern void tree_predict_edge (edge, enum br_predictor, int);
 extern void rtl_predict_edge (edge, enum br_predictor, int);
 extern void predict_edge_def (edge, enum br_predictor, enum prediction);
 extern void guess_outgoing_edge_probabilities (basic_block);
+extern void remove_predictions_associated_with_edge (edge);
 
 /* In flow.c */
 extern void init_flow (void);
@@ -987,6 +976,13 @@ extern edge try_redirect_by_replacing_jump (edge, basic_block, bool);
 extern void break_superblocks (void);
 extern void check_bb_profile (basic_block, FILE *);
 extern void update_bb_profile_for_threading (basic_block, int, gcov_type, edge);
+
+extern void initialize_original_copy_tables (void);
+extern void free_original_copy_tables (void);
+extern void set_bb_original (basic_block, basic_block);
+extern basic_block get_bb_original (basic_block);
+extern void set_bb_copy (basic_block, basic_block);
+extern basic_block get_bb_copy (basic_block);
 
 #include "cfghooks.h"
 

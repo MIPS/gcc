@@ -97,6 +97,7 @@ The varpool data structure:
 #include "varray.h"
 #include "output.h"
 #include "intl.h"
+#include "tree-gimple.h"
 
 static void cgraph_node_remove_callers (struct cgraph_node *node);
 static inline void cgraph_edge_remove_caller (struct cgraph_edge *e);
@@ -169,6 +170,7 @@ cgraph_create_node (void)
   if (cgraph_nodes)
     cgraph_nodes->previous = node;
   node->previous = NULL;
+  node->global.estimated_growth = INT_MIN;
   cgraph_nodes = node;
   cgraph_n_nodes++;
   return node;
@@ -190,7 +192,12 @@ cgraph_node (tree decl)
   slot = (struct cgraph_node **) htab_find_slot (cgraph_hash, &key, INSERT);
 
   if (*slot)
-    return *slot;
+    {
+      node = *slot;
+      if (!node->master_clone)
+	node->master_clone = node;
+      return node;
+    }
 
   node = cgraph_create_node ();
   node->decl = decl;
@@ -200,6 +207,7 @@ cgraph_node (tree decl)
       node->origin = cgraph_node (DECL_CONTEXT (decl));
       node->next_nested = node->origin->nested;
       node->origin->nested = node;
+      node->master_clone = node;
     }
   return node;
 }
@@ -254,9 +262,9 @@ cgraph_node_for_asm (tree asmname)
   return NULL;
 }
 
-/* Return callgraph edge representing CALL_EXPR.  */
+/* Return callgraph edge representing CALL_EXPR statement.  */
 struct cgraph_edge *
-cgraph_edge (struct cgraph_node *node, tree call_expr)
+cgraph_edge (struct cgraph_node *node, tree call_stmt)
 {
   struct cgraph_edge *e;
 
@@ -266,7 +274,7 @@ cgraph_edge (struct cgraph_node *node, tree call_expr)
      because we want to make possible having multiple cgraph nodes representing
      different clones of the same body before the body is actually cloned.  */
   for (e = node->callees; e; e= e->next_callee)
-    if (e->call_expr == call_expr)
+    if (e->call_stmt == call_stmt)
       break;
   return e;
 }
@@ -275,17 +283,17 @@ cgraph_edge (struct cgraph_node *node, tree call_expr)
 
 struct cgraph_edge *
 cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
-		    tree call_expr, gcov_type count, int nest)
+		    tree call_stmt, gcov_type count, int nest)
 {
   struct cgraph_edge *edge = ggc_alloc (sizeof (struct cgraph_edge));
 #ifdef ENABLE_CHECKING
   struct cgraph_edge *e;
 
   for (e = caller->callees; e; e = e->next_callee)
-    gcc_assert (e->call_expr != call_expr);
+    gcc_assert (e->call_stmt != call_stmt);
 #endif
 
-  gcc_assert (TREE_CODE (call_expr) == CALL_EXPR);
+  gcc_assert (get_call_expr_in (call_stmt));
 
   if (!DECL_SAVED_TREE (callee->decl))
     edge->inline_failed = N_("function body not available");
@@ -301,7 +309,7 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
 
   edge->caller = caller;
   edge->callee = callee;
-  edge->call_expr = call_expr;
+  edge->call_stmt = call_stmt;
   edge->prev_caller = NULL;
   edge->next_caller = callee->callers;
   if (callee->callers)
@@ -434,7 +442,14 @@ cgraph_remove_node (struct cgraph_node *node)
     {
       if (node->next_clone)
       {
-	*slot = node->next_clone;
+	struct cgraph_node *new_node = node->next_clone;
+	struct cgraph_node *n;
+
+	/* Make the next clone be the master clone */
+	for (n = new_node; n; n = n->next_clone) 
+	  n->master_clone = new_node;
+	
+	*slot = new_node;
 	node->next_clone->prev_clone = NULL;
       }
       else
@@ -551,6 +566,10 @@ cgraph_varpool_node_name (struct cgraph_varpool_node *node)
   return lang_hooks.decl_printable_name (node->decl, 2);
 }
 
+/* Names used to print out the availability enum.  */
+static const char * const availability_names[] = 
+  {"unset", "not_available", "overwrittable", "available", "local"};
+
 /* Dump given cgraph node.  */
 void
 dump_cgraph_node (FILE *f, struct cgraph_node *node)
@@ -561,6 +580,11 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " (inline copy in %s/%i)",
 	     cgraph_node_name (node->global.inlined_to),
 	     node->global.inlined_to->uid);
+  if (cgraph_function_flags_ready)
+    fprintf (f, " availability:%s", 
+	     availability_names [cgraph_function_body_availability (node)]);
+  if (node->master_clone && node->master_clone->uid != node->uid)
+    fprintf (f, "(%i)", node->master_clone->uid);
   if (node->count)
     fprintf (f, " executed "HOST_WIDEST_INT_PRINT_DEC"x",
 	     (HOST_WIDEST_INT)node->count);
@@ -580,10 +604,16 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " output");
   if (node->local.local)
     fprintf (f, " local");
+  if (node->local.externally_visible)
+    fprintf (f, " externally_visible");
+  if (node->local.finalized)
+    fprintf (f, " finalized");
   if (node->local.disregard_inline_limits)
     fprintf (f, " always_inline");
   else if (node->local.inlinable)
     fprintf (f, " inlinable");
+  if (node->local.redefined_extern_inline)
+    fprintf (f, " redefined_extern_inline");
   if (TREE_ASM_WRITTEN (node->decl))
     fprintf (f, " asm_written");
 
@@ -606,6 +636,11 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 	       edge->callee->uid);
       if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
+      if (edge->count)
+	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
+		 (HOST_WIDEST_INT)edge->count);
+      if (edge->loop_nest)
+	fprintf (f, "(nested in %i loops) ", edge->loop_nest);
     }
   fprintf (f, "\n");
 }
@@ -627,6 +662,7 @@ void
 dump_cgraph_varpool_node (FILE *f, struct cgraph_varpool_node *node)
 {
   fprintf (f, "%s:", cgraph_varpool_node_name (node));
+  fprintf (f, " availability:%s", availability_names [cgraph_variable_initializer_availability (node)]);
   if (DECL_INITIAL (node->decl))
     fprintf (f, " initialized");
   if (node->needed)
@@ -637,6 +673,8 @@ dump_cgraph_varpool_node (FILE *f, struct cgraph_varpool_node *node)
     fprintf (f, " finalized");
   if (node->output)
     fprintf (f, " output");
+  if (node->externally_visible)
+    fprintf (f, " externally_visible");
   fprintf (f, "\n");
 }
 
@@ -784,8 +822,8 @@ decide_is_variable_needed (struct cgraph_varpool_node *node, tree decl)
   if (node->needed)
     return true;
 
-  /* Externally visible functions must be output.  The exception is
-     COMDAT functions that must be output only when they are needed.  */
+  /* Externally visible variables must be output.  The exception is
+     COMDAT variables that must be output only when they are needed.  */
   if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     return true;
 
@@ -822,6 +860,11 @@ cgraph_varpool_finalize_decl (tree decl)
 
   if (decide_is_variable_needed (node, decl))
     cgraph_varpool_mark_needed_node (node);
+  /* Since we reclaim unreachable nodes at the end of every language
+     level unit, we need to be conservative about possible entry points
+     there.  */
+  if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
+    cgraph_varpool_mark_needed_node (node);
   if (cgraph_global_info_ready || !flag_unit_at_a_time)
     cgraph_varpool_assemble_pending_decls ();
 }
@@ -838,11 +881,11 @@ cgraph_function_possibly_inlined_p (tree decl)
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
 struct cgraph_edge *
 cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
-		   tree call_expr, int count_scale, int loop_nest)
+		   tree call_stmt, int count_scale, int loop_nest)
 {
   struct cgraph_edge *new;
 
-  new = cgraph_create_edge (n, e->callee, call_expr,
+  new = cgraph_create_edge (n, e->callee, call_stmt,
                             e->count * count_scale / REG_BR_PROB_BASE,
 		            e->loop_nest + loop_nest);
 
@@ -871,6 +914,7 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int loop_nest)
   new->local = n->local;
   new->global = n->global;
   new->rtl = n->rtl;
+  new->master_clone = n->master_clone;
   new->count = count;
   if (n->count)
     count_scale = new->count * REG_BR_PROB_BASE / n->count;
@@ -879,7 +923,7 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int loop_nest)
   n->count -= count;
 
   for (e = n->callees;e; e=e->next_callee)
-    cgraph_clone_edge (e, new, e->call_expr, count_scale, loop_nest);
+    cgraph_clone_edge (e, new, e->call_stmt, count_scale, loop_nest);
 
   new->next_clone = n->next_clone;
   new->prev_clone = n;
@@ -888,6 +932,28 @@ cgraph_clone_node (struct cgraph_node *n, gcov_type count, int loop_nest)
     new->next_clone->prev_clone = new;
 
   return new;
+}
+
+/* Return true if N is an master_clone, (see cgraph_master_clone).  */
+
+bool
+cgraph_is_master_clone (struct cgraph_node *n)
+{
+  return (n == cgraph_master_clone (n));
+}
+
+struct cgraph_node *
+cgraph_master_clone (struct cgraph_node *n)
+{
+  enum availability avail = cgraph_function_body_availability (n);
+   
+  if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITABLE)
+    return NULL;
+
+  if (!n->master_clone) 
+    n->master_clone = cgraph_node (n->decl);
+  
+  return n->master_clone;
 }
 
 /* NODE is no longer nested function; update cgraph accordingly.  */
@@ -902,4 +968,60 @@ cgraph_unnest_node (struct cgraph_node *node)
   *node2 = node->next_nested;
   node->origin = NULL;
 }
+
+/* Return function availability.  See cgraph.h for description of individual
+   return values.  */
+enum availability
+cgraph_function_body_availability (struct cgraph_node *node)
+{
+  enum availability avail;
+  gcc_assert (cgraph_function_flags_ready);
+  if (!node->local.finalized)
+    avail = AVAIL_NOT_AVAILABLE;
+  else if (node->local.local)
+    avail = AVAIL_LOCAL;
+  else if (node->local.externally_visible)
+    avail = AVAIL_AVAILABLE;
+
+  /* If the function can be overwritten, return OVERWRITABLE.  Take
+     care at least of two notable extensions - the COMDAT functions
+     used to share template instantiations in C++ (this is symmetric
+     to code cp_cannot_inline_tree_fn and probably shall be shared and
+     the inlinability hooks completely eliminated).
+
+     ??? Does the C++ one definition rule allow us to always return
+     AVAIL_AVAILABLE here?  That would be good reason to preserve this
+     hook Similarly deal with extern inline functions - this is again
+     necessary to get C++ shared functions having keyed templates
+     right and in the C extension documentation we probably should
+     document the requirement of both versions of function (extern
+     inline and offline) having same side effect characteristics as
+     good optimization is what this optimization is about.  */
+  
+  else if (!(*targetm.binds_local_p) (node->decl)
+	   && !DECL_COMDAT (node->decl) && !DECL_EXTERNAL (node->decl))
+    avail = AVAIL_OVERWRITABLE;
+  else avail = AVAIL_AVAILABLE;
+
+  return avail;
+}
+
+/* Return variable availability.  See cgraph.h for description of individual
+   return values.  */
+enum availability
+cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
+{
+  gcc_assert (cgraph_function_flags_ready);
+  if (!node->finalized)
+    return AVAIL_NOT_AVAILABLE;
+  if (!TREE_PUBLIC (node->decl))
+    return AVAIL_AVAILABLE;
+  /* If the variable can be overwritten, return OVERWRITABLE.  Takes
+     care of at least two notable extensions - the COMDAT variables
+     used to share template instantiations in C++.  */
+  if (!(*targetm.binds_local_p) (node->decl) && !DECL_COMDAT (node->decl))
+    return AVAIL_OVERWRITABLE;
+  return AVAIL_AVAILABLE;
+}
+
 #include "gt-cgraph.h"

@@ -1106,7 +1106,7 @@
   rtx set1, set2;
   rtx replacements[4];
 
-  /* We want to replace occurences of operands[0] with operands[1] and
+  /* We want to replace occurrences of operands[0] with operands[1] and
      operands[2] with operands[0] in operands[4]/operands[5].
      Doing just two replace_rtx calls naively would result in the second
      replacement undoing all that the first did if operands[1] and operands[2]
@@ -11613,7 +11613,7 @@ mov.l\\t1f,r0\\n\\
   "TARGET_SHMEDIA && INTVAL (operands[3]) + INTVAL (operands[4]) == 64"
   "*
 {
-  static char templ[16];
+  static char templ[21];
 
   sprintf (templ, \"mextr%d\\t%%N1, %%N2, %%0\",
 	   (int) INTVAL (operands[3]) >> 3);
@@ -11630,7 +11630,7 @@ mov.l\\t1f,r0\\n\\
   "TARGET_SHMEDIA && INTVAL (operands[3]) + INTVAL (operands[4]) == 64"
   "*
 {
-  static char templ[16];
+  static char templ[21];
 
   sprintf (templ, \"mextr%d\\t%%N2, %%N1, %%0\",
 	   (int) INTVAL (operands[4]) >> 3);

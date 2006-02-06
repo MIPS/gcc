@@ -1,3 +1,479 @@
+2005-06-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable: Trivial formatting fixes.
+	* include/tr1/unordered_map: Likewise.
+	* include/tr1/unordered_set: Likewise.
+
+2005-06-14  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/19877:
+	* configure, aclocal.m4: Rebuilt.
+	* Makefile.in, include/Makefile.in, libmath/Makefile.in,
+	libsupc++/Makefile.in, po/Makefile.in, src/Makefile.in,
+	testsuite/Makefile.in: Likewise.
+
+2005-06-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/21955
+	* include/std/std_sstream.h (basic_stringbuf::showmanyc): Add.
+	Remove unnecessary this->_M_mode decoration.
+	* include/bits/fstream.tcc: Adjust line spacing.	
+	* testsuite/27_io/basic_streambuf/in_avail/char/1.cc: New, test
+	base class behavior.
+	* testsuite/27_io/basic_streambuf/in_avail/wchar_t/1.cc: Same.
+	* testsuite/27_io/basic_stringbuf/in_avail/char/21955.cc: New.
+	* testsuite/27_io/basic_stringbuf/in_avail/char/1.cc: Match
+	filebuf behavior.
+	* testsuite/27_io/basic_stringbuf/in_avail/wchar_t/1.cc: Same.
+	* testsuite/27_io/basic_stringbuf/str/wchar_t/1.cc: Same.
+	* testsuite/27_io/basic_stringbuf/str/char/1.cc: Same.
+	* testsuite/27_io/basic_streambuf/in_avail/char/9701-3.cc: Move...
+	* testsuite/27_io/basic_filebuf/in_avail/char/9701-3.cc: ...here.
+	
+2005-06-07  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Use C++ compiler for complex
+	tests.
+	* configure: Regenerated.
+
+2005-06-07  Adrian Straetling  <straetling@de.ibm.com>
+
+	* config/cpu/s390/atomicity.h: (__exchange_and_add, 
+	__atomic_add): Use the builtins for atomic memory operations.
+
+2005-06-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21770 (cont: __gnu_debug::string)
+	* include/debug/string: Use _Base typedefs for pointer, const_pointer,
+	reference, const_reference, size_type, difference_type.
+	* testsuite/21_strings/basic_string/2.cc: New.
+
+2005-06-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21770 (cont: debug-mode)
+	* include/debug/deque: Use _Base typedefs for pointer, const_pointer,
+	reference, const_reference.
+	* include/debug/list: Likewise.
+	* include/debug/map.h: Likewise.
+	* include/debug/multimap.h: Likewise.
+	* include/debug/multiset.h: Likewise.
+	* include/debug/set.h: Likewise.
+	* include/debug/vector: Likewise.
+
+2005-06-06  Paolo Carlini  <pcarlini@suse.de>
+
+        Port from libstdcxx_so_7-branch:
+	2004-09-24  Paolo Carlini  <pcarlini@suse.de>
+		    Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/bits/stl_list.h (list::list(size_type, value_type,
+	const allocator_type&): Implement according to the letter of the
+	standard, i.e., don't use two overloads, not equivalent in case
+	of non default constructible T.
+	(list::resize(size_type, const value_type&)): Fix the signature:
+	according to the standard the second argument is by value; also,
+	don't use two overloads.
+	* include/bits/list.tcc (list::resize(size_type, const value_type&)):
+	Adjust consistently the signature.
+	* include/bits/stl_deque.h (deque::deque(size_type, value_type,
+	const allocator_type&)): Likewise.
+	(deque::resize(size_type, const value_type&)): Likewise.
+	* include/bits/stl_vector.h (vector::vector(size_type, value_type,
+	const allocator_type&)): Likewise.
+	(vector::resize(size_type, const value_type&)): Likewise.
+	* testsuite/testsuite_hooks.h: Add NonDefaultConstructible test type.
+	* testsuite/23_containers/deque/explicit_instantiation/2.cc: New.
+	* testsuite/23_containers/list/explicit_instantiation/2.cc: New.
+	* testsuite/23_containers/map/explicit_instantiation/2.cc: New.
+	* testsuite/23_containers/multimap/explicit_instantiation/2.cc: New.
+	* testsuite/23_containers/multiset/explicit_instantiation/2.cc: New.
+	* testsuite/23_containers/set/explicit_instantiation/2.cc: New.
+	* testsuite/23_containers/vector/explicit_instantiation/2.cc: New.
+
+	* include/bits/deque.tcc: Minor formatting fix.
+
+2005-06-06  Peter Doerfler  <doerfler@techinfo.rwth-aachen.de>
+
+	* include/bits/stl_function.h: ... and another one.
+
+2005-06-06  Peter Doerfler  <doerfler@techinfo.rwth-aachen.de>
+
+	* include/bits/stl_function.h: Fix typo in comment.
+
+2005-06-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* acinclude.m4 ([GLIBCXX_ENABLE_C99]): Check clog, clogf, clogl
+	too for ac_c99_complex.
+	* configure: Regenerate.
+
+2005-06-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21770
+	* include/bits/stl_deque.h: Add concept-check. In class _Deque_base
+	rebind _Alloc to  _Tp_alloc_type, change _Deque_impl to inherit from
+	the latter and add _M_get_Tp_allocator() which returns it. Use
+	everywhere _M_get_Tp_allocator() instead of get_allocator().
+	* include/bits/deque.tcc: Likewise, use _M_get_Tp_allocator().
+	* include/bits/stl_list.h: Add concept-check. In class _List_base
+	rebind _Alloc to _Tp_alloc_type and add _M_get_Tp_allocator(), which
+	returns the allocator (of type _Node_alloc_type) converted to
+	_Tp_alloc_type. Use everywhere _M_get_Tp_allocator() instead of
+	get_allocator().
+	* include/bits/list.tcc: Likewise, use _M_get_Tp_allocator().
+	* include/bits/stl_vector.h: Add concept-check. In class _Vector_base
+	rebind _Alloc to _Tp_alloc_type, change _Vector_impl to inherit from
+	the latter and add _M_get_Tp_allocator() which returns it. Use
+	everywhere _M_get_Tp_allocator() instead of get_allocator().
+	* include/bits/vector.tcc: Likewise, use _M_get_Tp_allocator().
+	* include/bits/stl_map.h: Add concept-check. Rebind _Alloc to
+	_Pair_alloc_type and use it for _Rb_tree.
+	* include/bits/stl_multimap.h: Likewise.
+	* include/bits/stl_multiset.h: Add concept-check. Rebind _Alloc to
+	_Key_alloc_type and use it for _Rb_tree.
+	* include/bits/stl_set.h: Likewise.
+	* include/bits/basic_string.h: Rebind _Alloc to _CharT_alloc_type and
+	use it for the allocator typedefs.
+	* testsuite/21_strings/basic_string/1.cc: New.
+	* testsuite/23_containers/deque/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/deque/explicit_instantiation/1.cc: ... here.
+	* testsuite/23_containers/deque/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/list/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/list/explicit_instantiation/1.cc: ... here.
+	* testsuite/23_containers/list/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/map/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/map/explicit_instantiation/1.cc: ... here.
+	* testsuite/23_containers/map/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/multimap/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/multimap/explicit_instantiation/1.cc: .. here.
+	* testsuite/23_containers/multimap/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/multiset/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/multiset/explicit_instantiation/1.cc: .. here.
+	* testsuite/23_containers/multiset/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/set/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/set/explicit_instantiation/1.cc: .. here.
+	* testsuite/23_containers/set/explicit_instantiation/3.cc: New.
+	* testsuite/23_containers/vector/explicit_instantiation.cc: Move to...
+	* testsuite/23_containers/vector/explicit_instantiation/1.cc: ... here.
+	* testsuite/23_containers/vector/explicit_instantiation/3.cc: New.
+
+2005-06-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21280
+	* testsuite/27_io/ios_base/cons/assign_neg.cc: Adjust expected errors.
+	* testsuite/27_io/ios_base/cons/copy_neg.cc: Likewise.
+
+2005-05-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/20534 (contd)
+	* include/debug/macros.h: Add _GLIBCXX_DEBUG_ABORT, using
+	__gnu_debug::__fancy_abort.
+	* src/debug.cc: Define the latter.
+	* include/debug/debug.h: Use _GLIBCXX_DEBUG_ABORT instead of
+	assert.
+	* config/linker-map.gnu (__gnu_debug::__fancy_abort): Add.
+
+2005-05-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_complex.h (log(const complex<_Tp>&)): When
+	_GLIBCXX_USE_C99_COMPLEX, forward to __builtin_clog/clogf/clogl.
+
+2005-05-28  Paolo Carlini  <pcarlini@suse.de>
+
+	Revert:
+	2005-05-18  Paolo Carlini  <pcarlini@suse.de>
+		    Nathan Myers  <ncm@cantrip.org>
+
+	PR libstdc++/19495
+	* include/bits/basic_string.h (_Raw_bytes_alloc): Rebind to
+	size_type instead of char and rename to _Raw_alloc.
+	* include/bits/basic_string.tcc (_Rep::_M_destroy, _Rep::_S_create):
+	Use the above.
+	* src/bitmap_allocator.cc: Add instantiation for size_type.
+	* src/mt_allocator.cc: Likewise.
+	* src/pool_allocator.cc: Likewise.
+	* include/ext/array_allocator.h: Tweak slightly, avoid assuming
+	the existence of an _Array::begin() and size() members.
+	* testsuite/ext/array_allocator/2.cc: Tweak to use an allocator
+	of size_type, instead of char, thus avoiding problems with
+	rebinds, not treated correctly by array_allocator.
+
+2005-05-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/abi.html: Mention 3.4.0 as the current baseline; add
+	a notice about the configure options.
+
+2005-05-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* docs/html/test.html: Mention PCH_CXXFLAGS.
+	* testsuite/lib/libstdc++.exp: Set PCH_CXXFLAGS by probing for an
+	available stcd++.h PCH.
+	* testsuite/libstdc++-dg/normal.exp: Use PCH_CXXFLAGS.
+
+2005-05-27  Theodore Papadopoulo  <Theodore.Papadopoulo@sophia.inria.fr>
+
+	* src/misc-inst.cc: Remove unnecessary included files.
+
+2005-05-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/21674
+	* include/bits/c++config: Remove extern template use when in debug
+	mode, disable for non-weak systems.
+	
+2005-05-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/20534 
+	* include/debug/debug.h: Forwarding header, that pulls in details
+	only if in debug mode.
+	* include/debug/macros.h: ...transfer all the internal macros here.
+	* include/debug/functions.h: ...transfer all the functions here.
+	* include/debug/safe_iterator.h: Add functions.h, macros.h includes.
+	* include/debug/safe_sequence.h: Same.
+	* include/debug/vector: Tweak.
+	* include/Makefile.am (debug_headers): Add new includes.
+	* include/Makefile.in: Regenerate.
+	* testsuite/17_intro/no_assert_neg.cc: Add.
+
+	* include/ext/hash_set: Add debug mode include.
+	* include/ext/hash_map: Same.
+	* include/debug/hash_map: Fix included files to match actual files.
+	* include/debug/hash_set: Same.
+		
+2005-05-26  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/13943
+	* include/c_std/std_cstdlib.h: Do not open code llabs and lldiv,
+	available when _GLIBCXX_USE_C99 is defined.
+	* testsuite/26_numerics/cstdlib/13943.cc: New.
+
+	* acinclude.m4 ([GLIBCXX_ENABLE_C99]): For completeness, check
+	also strtoll and strtoull for ac_c99_stdlib.
+	* configure: Regenerate.
+
+2005-05-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/linker-map.gnu: Add linkage support for no extern templates.
+	(std::ios_base::_M_call_callbacks): Add.
+	(std::ios_base::_M_dispose_callbacks): Add.
+	(std::locale::facet::_S_get_c_name): Add.
+	(std::__copy_streambufs): Add.
+	* configure.ac (libtool_VERSION): To 6:5:0.
+	* configure: Regenerate.
+	* testsuite/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.5.
+	
+2005-05-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/basic_string.h (_Rep::_M_set_length_and_sharable):
+	Use, consistently, traits_type::assign.
+
+2005-05-25  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/cpu/alpha/atomicity.h: Use the builtins for
+	atomic memory operations.
+	* config/cpu/powerpc/atomicity.h: Likewise.
+	* config/cpu/ia64/atomicity.h: Do not include ia64intrin.h.
+
+2005-05-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/25_algorithms/equal.cc: Move to...
+	* testsuite/25_algorithms/equal: ... here.
+	* testsuite/25_algorithms/lower_bound.cc: Move to...
+	* testsuite/25_algorithms/lower_bound: ... here.
+
+2005-05-24  Paolo Carlini  <pcarlini@suse.de>
+
+        Port from libstdcxx_so_7-branch:
+	2005-20-05  Chris Jefferson  <chris@bubblescope.net>
+
+	* testsuite/25_algorithms/heap.cc: Move to...
+	* testsuite/25_algorithms/heap/heap.cc: ...here.
+	* testsuite/25_algorithms/partition.cc: Move to...
+	* testsuite/25_algorithms/partition/partition.cc: ...here.
+
+	2005-03-29  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/25_algorithms/includes/1.cc: Add tests.
+	* testsuite/25_algorithms/search/1.cc: Likewise.
+	* testsuite/25_algorithms/unique_copy/1.cc: Likewise.
+	* testsuite/25_algorithms/swap_ranges/1.cc: New.
+	* testsuite/25_algorithms/swap_ranges/check_type.cc: New.
+	* testsuite/25_algorithms/rotate.cc: Move to...
+	* testsuite/25_algorithms/rotate/rotate.cc: ... here.
+	* testsuite/25_algorithms/rotate/1.cc: New.
+	* testsuite/25_algorithms/rotate/check_type.cc: New.
+	* testsuite/25_algorithms/search_n/iterator.cc: Fix typo.
+
+	2005-03-14  Christopher Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (replace_copy, replace_copy_if):
+	Don't assume that __new_value and *__first are convertible to
+	each other.	
+
+	* testsuite/25_algorithms/find/1.cc: New.
+	* testsuite/25_algorithms/find/check_type.cc: New.
+	* testsuite/25_algorithms/find_if/1.cc: New.
+	* testsuite/25_algorithms/find_if/check_type.cc: New.
+	* testsuite/25_algorithms/replace/1.cc: New.
+	* testsuite/25_algorithms/replace/check_type.cc: New.
+	* testsuite/25_algorithms/replace_if/1.cc: New.
+	* testsuite/25_algorithms/replace_if/check_type.cc: New.
+	* testsuite/25_algorithms/replace_copy/1.cc: New.
+	* testsuite/25_algorithms/replace_copy/check_type.cc: New.
+	* testsuite/25_algorithms/replace_copy_if/1.cc: New.
+	* testsuite/25_algorithms/replace_copy_if/check_type.cc: New.
+	* testsuite/25_algorithms/remove/1.cc: New.
+	* testsuite/25_algorithms/remove/check_type.cc: New.
+	* testsuite/25_algorithms/remove_if/1.cc: New.
+	* testsuite/25_algorithms/remove_if/check_type.cc: New.
+	* testsuite/25_algorithms/count/1.cc: New.
+	* testsuite/25_algorithms/count/check_type.cc: New.
+	* testsuite/25_algorithms/count_if/1.cc: New.
+	* testsuite/25_algorithms/count_if/check_type.cc: New.
+
+	2005-02-27  Christopher Jefferson  <chris@bubblescope.net>
+        	    Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/ext/is_heap/check_type.cc: New.
+	
+	2005-02-27  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/ext/is_heap/1.cc: New.
+
+	2005-02-01  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/ext/median.cc: New.
+	* testsuite/25_algorithms/adjacent_find/1.cc: New.
+	* testsuite/25_algorithms/adjacent_find/check_type.cc: New.
+	* testsuite/25_algorithms/search/1.cc: New.
+	* testsuite/25_algorithms/search/check_type.cc: New.
+	* testsuite/25_algorithms/unique_copy/1.cc: New.
+	* testsuite/25_algorithms/unique_copy/check_type.cc: New.
+	* testsuite/25_algorithms/partial_sort/1.cc: New.
+	* testsuite/25_algorithms/partial_sort/check_type.cc: New.
+	* testsuite/25_algorithms/partial_sort_copy/1.cc: New.
+	* testsuite/25_algorithms/partial_sort_copy/check_type.cc: New.
+	* testsuite/25_algorithms/lower_bound/1.cc: New.
+	* testsuite/25_algorithms/lower_bound/check_type.cc: New.
+	* testsuite/25_algorithms/upper_bound/1.cc: New.
+	* testsuite/25_algorithms/upper_bound/check_type.cc: New.
+	* testsuite/25_algorithms/merge/1.cc: New.
+	* testsuite/25_algorithms/merge/check_type.cc: New.
+	* testsuite/25_algorithms/inplace_merge/1.cc: New.
+	* testsuite/25_algorithms/inplace_merge/check_type.cc: New.
+	* testsuite/25_algorithms/stable_sort/1.cc: New.
+	* testsuite/25_algorithms/stable_sort/check_type.cc: New.
+	* testsuite/25_algorithms/nth_element/1.cc: New.
+	* testsuite/25_algorithms/nth_element/check_type.cc: New.
+	* testsuite/25_algorithms/equal_range/1.cc: New.
+	* testsuite/25_algorithms/equal_range/check_type.cc: New.
+	* testsuite/25_algorithms/binary_search/1.cc: New.
+	* testsuite/25_algorithms/binary_search/check_type.cc: New.
+	* testsuite/25_algorithms/includes/1.cc: New.
+	* testsuite/25_algorithms/includes/check_type.cc: New.
+	* testsuite/25_algorithms/set_union/1.cc: New.
+	* testsuite/25_algorithms/set_union/check_type.cc: New.
+	* testsuite/25_algorithms/set_intersection/1.cc: New.
+	* testsuite/25_algorithms/set_intersection/check_type.cc: New.
+	* testsuite/25_algorithms/set_difference/1.cc: New.
+	* testsuite/25_algorithms/set_difference/check_type.cc: New.
+	* testsuite/25_algorithms/set_symmetric_difference/1.cc: New.
+	* testsuite/25_algorithms/set_symmetric_difference/check_type.cc: New.	
+	* testsuite/25_algorithms/min_element/1.cc: New.
+	* testsuite/25_algorithms/min_element/check_type.cc: New.
+	* testsuite/25_algorithms/max_element/1.cc: New.
+	* testsuite/25_algorithms/max_element/check_type.cc: New.
+	* testsuite/25_algorithms/prev_permutation/1.cc: New.
+	* testsuite/25_algorithms/prev_permutation/check_type.cc: New.
+	* testsuite/25_algorithms/next_permutation/1.cc: New.
+	* testsuite/25_algorithms/next_permutation/check_type.cc: New.
+	* testsuite/25_algorithms/find_first_of/1.cc: New.
+	* testsuite/25_algorithms/find_first_of/check_type.cc: New.
+	* testsuite/25_algorithms/find_end/1.cc: New.
+	* testsuite/25_algorithms/find_end/check_type.cc: New.
+	* testsuite/25_algorithms/equal/check_type.cc: Insert iterator type.
+	* testsuite/25_algorithms/lexicographical_compare/check_type.cc:
+	Likewise.
+
+	2005-01-10  Christopher Jefferson <chris@bubblescope.net>
+
+	* testsuite/25_algorithms/lexicographical_compare/check_type.cc: New.
+	* testsuite/25_algorithms/lexicographical_compare/1.cc: Likewise.
+	* testsuite/25_algorithms/mismatch/check_type.cc: Likewise.
+	* testsuite/25_algorithms/mismatch/1.cc: Likewise.
+	* testsuite/25_algorithms/equal/check_type.cc: New.
+	* testsuite/25_algorithms/equal/1.cc: New.
+
+2005-05-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/allocator.h: Change ___glibcxx_base_allocator to
+	__glibcxx_base_allocator.
+	* config/allocator/bitmap_allocator_base.h: Same.
+	* config/allocator/malloc_allocator_base.h: Same.
+	* config/allocator/mt_allocator_base.h: Same.
+	* config/allocator/new_allocator_base.h: Same.
+	* config/allocator/pool_allocator_base.h: Same.
+
+2005-05-24  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* include/debug/string (class basic_string): Add missing
+	default template arguments; provide typedefs for char
+	and wchar_t.
+	(operator[]): Allow s[s.size()] in debug mode, but not
+	pedantic mode.
+
+2005-05-24  Paolo Carlini  <pcarlini@suse.de>
+
+	Port from libstdcxx_so_7-branch:
+	2005-04-25  Christopher Jefferson  <chris@bubblescope.net>
+
+	* include/bits/stl_algo.h (count): Correct concept checks.
+	(search_n) : Likewise.
+	* testsuite/25_algorithms/search_n/check_type.cc: New.
+
+	* testsuite/testsuite_iterators.h
+	(random_access_iterator_wrapper::operator+): Move out of
+	class to external function, and add symmetric version.
+
+	2005-03-14  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/testsuite_iterators.h (WritableObject::WritableObject):
+	Add const.
+	
+	2005-02-01  Christopher Jefferson  <chris@bubblescope.net>
+
+	* testsuite/testsuite_iterators.h (random_access_iterator_wrapper::
+	operator--): Fix typo.
+	(OutputContainer::OutputContainer): Correct zeroing array.
+	(WritableObject::operator==): Fix typo.
+        (WritableObject::operator=): make operator= templated 
+	to allow differing types to be assigned.
+	(WritableObject::operator++): Fix checking if iterator is
+	written to multiple times.
+	(random_access_iterator_wrapper::operator+): Add const.
+	(random_access_iterator_wrapper::operator-): Likewise.
+	(random_access_iterator_wrapper::operator[]): Add dereference.
+
+2005-05-23  Jonathan Wakely  <redi@gcc.gnu.org>
+
+	* docs/html/debug.html: Explain that _GLIBXX_DEBUG_PEDANTIC
+	had to be defined for pedantic mode in 3.4 and 4.0.0.
+
+2005-05-20  Jan Beulich  <jbeulich@novell.com>
+
+	* libmath/stubs.c: Also implement fabsf/fabsl if not present in the
+	system libraries.
+
+2005-05-20  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/stl_algo.h (__rotate<_RandomAccessIterator>):
+	Don't qualify __tmp as const, _ValueType is not necessarily
+	Assignable.
+	* include/bits/stl_algobase.h (swap, __iter_swap<false>):
+	Likewise, as an harmless extension.
+
+2005-05-19  Richard Henderson  <rth@redhat.com>
+
+	* libsupc++/unwind-cxx.h: Revert gcc_unreachable change.
+
 2005-05-19  Jonathan Wakely  <redi@gcc.gnu.org>
 
 	* include/bits/basic_string.h (operator[]): Allow s[s.size()] in

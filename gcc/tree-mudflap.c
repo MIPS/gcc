@@ -22,7 +22,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 
 #include "config.h"
-#include "errors.h"
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
@@ -45,6 +44,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "ggc.h"
 #include "cgraph.h"
+#include "toplev.h"
 
 /* Internal function decls */
 
@@ -528,14 +528,11 @@ mf_build_check_statement_for (tree base, tree limit,
   make_edge (cond_bb, then_bb, EDGE_TRUE_VALUE);
   make_single_succ_edge (then_bb, join_bb, EDGE_FALLTHRU);
 
-  /* We expect that the conditional jump we will construct will not
-     be taken very often as it basically is an exception condition.  */
-  predict_edge_def (single_pred_edge (then_bb), PRED_MUDFLAP, NOT_TAKEN);
-
   /* Mark the pseudo-fallthrough edge from cond_bb to join_bb.  */
   e = find_edge (cond_bb, join_bb);
   e->flags = EDGE_FALSE_VALUE;
-  predict_edge_def (e, PRED_MUDFLAP, TAKEN);
+  e->count = cond_bb->count;
+  e->probability = REG_BR_PROB_BASE;
 
   /* Update dominance info.  Note that bb_join's data was
      updated by split_block.  */
@@ -710,7 +707,7 @@ mf_decl_eligible_p (tree decl)
           /* The type of the variable must be complete.  */
           && COMPLETE_OR_VOID_TYPE_P (TREE_TYPE (decl))
 	  /* The decl hasn't been decomposed somehow.  */
-	  && DECL_VALUE_EXPR (decl) == NULL);
+	  && !DECL_HAS_VALUE_EXPR_P (decl));
 }
 
 
@@ -836,6 +833,14 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
       limit = fold (build (MINUS_EXPR, ptr_type_node,
                            fold (build (PLUS_EXPR, ptr_type_node, base, size)),
                            integer_one_node));
+      break;
+
+    case TARGET_MEM_REF:
+      addr = tree_mem_ref_addr (ptr_type_node, t);
+      base = addr;
+      limit = fold_build2 (MINUS_EXPR, ptr_type_node,
+			   fold_build2 (PLUS_EXPR, ptr_type_node, base, size),
+			   build_int_cst_type (ptr_type_node, 1));
       break;
 
     case ARRAY_RANGE_REF:
@@ -1252,7 +1257,7 @@ mudflap_finish_file (void)
              Perform registration for non-static objects regardless of
              TREE_USED or TREE_ADDRESSABLE, because they may be used
              from other compilation units.  */
-          if (TREE_STATIC (obj) && ! TREE_ADDRESSABLE (obj))
+          if (! TREE_PUBLIC (obj) && ! TREE_ADDRESSABLE (obj))
             continue;
 
           if (! COMPLETE_TYPE_P (TREE_TYPE (obj)))

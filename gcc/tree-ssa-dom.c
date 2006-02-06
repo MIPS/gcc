@@ -31,7 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "output.h"
-#include "errors.h"
 #include "expr.h"
 #include "function.h"
 #include "diagnostic.h"
@@ -141,6 +140,10 @@ static VEC(tree,heap) *const_and_copies_stack;
    know their exact value.  */
 static bitmap nonzero_vars;
 
+/* Bitmap of blocks that are scheduled to be threaded through.  This
+   is used to communicate with thread_through_blocks.  */
+static bitmap threaded_blocks;
+
 /* Stack of SSA_NAMEs which need their NONZERO_VARS property cleared
    when the current block is finalized. 
 
@@ -224,12 +227,17 @@ struct vrp_element
    with useful information is very low.  */
 static htab_t vrp_data;
 
+typedef struct vrp_element *vrp_element_p;
+
+DEF_VEC_P(vrp_element_p);
+DEF_VEC_ALLOC_P(vrp_element_p,heap);
+
 /* An entry in the VRP_DATA hash table.  We record the variable and a
    varray of VRP_ELEMENT records associated with that variable.  */
 struct vrp_hash_elt
 {
   tree var;
-  varray_type records;
+  VEC(vrp_element_p,heap) *records;
 };
 
 /* Array of variables which have their values constrained by operations
@@ -264,8 +272,7 @@ static void record_cond (tree, tree);
 static void record_const_or_copy (tree, tree);
 static void record_equality (tree, tree);
 static tree update_rhs_and_lookup_avail_expr (tree, tree, bool);
-static tree simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *,
-						tree, int);
+static tree simplify_rhs_and_lookup_avail_expr (tree, int);
 static tree simplify_cond_and_lookup_avail_expr (tree, stmt_ann_t, int);
 static tree simplify_switch_and_lookup_avail_expr (tree, int);
 static tree find_equivalent_equality_comparison (tree);
@@ -273,8 +280,7 @@ static void record_range (tree, basic_block);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
 static void record_equivalences_from_phis (basic_block);
 static void record_equivalences_from_incoming_edge (basic_block);
-static bool eliminate_redundant_computations (struct dom_walk_data *,
-					      tree, stmt_ann_t);
+static bool eliminate_redundant_computations (tree, stmt_ann_t);
 static void record_equivalences_from_stmt (tree, int, stmt_ann_t);
 static void thread_across_edge (struct dom_walk_data *, edge);
 static void dom_opt_finalize_block (struct dom_walk_data *, basic_block);
@@ -346,6 +352,18 @@ free_all_edge_infos (void)
     }
 }
 
+/* Free an instance of vrp_hash_elt.  */
+
+static void
+vrp_free (void *data)
+{
+  struct vrp_hash_elt *elt = data;
+  struct VEC(vrp_element_p,heap) **vrp_elt = &elt->records;
+
+  VEC_free (vrp_element_p, heap, *vrp_elt);
+  free (elt);
+}
+
 /* Jump threading, redundancy elimination and const/copy propagation. 
 
    This pass may expose new symbols that need to be renamed into SSA.  For
@@ -363,13 +381,15 @@ tree_ssa_dominator_optimize (void)
 
   /* Create our hash tables.  */
   avail_exprs = htab_create (1024, real_avail_expr_hash, avail_expr_eq, free);
-  vrp_data = htab_create (ceil_log2 (num_ssa_names), vrp_hash, vrp_eq, free);
+  vrp_data = htab_create (ceil_log2 (num_ssa_names), vrp_hash, vrp_eq,
+			  vrp_free);
   avail_exprs_stack = VEC_alloc (tree, heap, 20);
   const_and_copies_stack = VEC_alloc (tree, heap, 20);
   nonzero_vars_stack = VEC_alloc (tree, heap, 20);
   vrp_variables_stack = VEC_alloc (tree, heap, 20);
   stmts_to_rescan = VEC_alloc (tree, heap, 20);
   nonzero_vars = BITMAP_ALLOC (NULL);
+  threaded_blocks = BITMAP_ALLOC (NULL);
   need_eh_cleanup = BITMAP_ALLOC (NULL);
 
   /* Setup callbacks for the generic dominator tree walker.  */
@@ -423,15 +443,6 @@ tree_ssa_dominator_optimize (void)
       /* Recursively walk the dominator tree optimizing statements.  */
       walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
 
-      /* If we exposed any new variables, go ahead and put them into
-	 SSA form now, before we handle jump threading.  This simplifies
-	 interactions between rewriting of _DECL nodes into SSA form
-	 and rewriting SSA_NAME nodes into SSA form after block
-	 duplication and CFG manipulation.  */
-      update_ssa (TODO_update_ssa);
-
-      free_all_edge_infos ();
-
       {
 	block_stmt_iterator bsi;
 	basic_block bb;
@@ -444,8 +455,17 @@ tree_ssa_dominator_optimize (void)
 	  }
       }
 
+      /* If we exposed any new variables, go ahead and put them into
+	 SSA form now, before we handle jump threading.  This simplifies
+	 interactions between rewriting of _DECL nodes into SSA form
+	 and rewriting SSA_NAME nodes into SSA form after block
+	 duplication and CFG manipulation.  */
+      update_ssa (TODO_update_ssa);
+
+      free_all_edge_infos ();
+
       /* Thread jumps, creating duplicate blocks as needed.  */
-      cfg_altered |= thread_through_all_blocks ();
+      cfg_altered |= thread_through_all_blocks (threaded_blocks);
 
       /* Removal of statements may make some EH edges dead.  Purge
 	 such edges from the CFG as needed.  */
@@ -480,6 +500,7 @@ tree_ssa_dominator_optimize (void)
 
       /* Reinitialize the various tables.  */
       bitmap_clear (nonzero_vars);
+      bitmap_clear (threaded_blocks);
       htab_empty (avail_exprs);
       htab_empty (vrp_data);
 
@@ -523,6 +544,7 @@ tree_ssa_dominator_optimize (void)
 
   /* Free nonzero_vars.  */
   BITMAP_FREE (nonzero_vars);
+  BITMAP_FREE (threaded_blocks);
   BITMAP_FREE (need_eh_cleanup);
   
   VEC_free (tree, heap, avail_exprs_stack);
@@ -830,7 +852,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	      else
 		edge_info = allocate_edge_info (e);
 	      edge_info->redirection_target = taken_edge;
-	      bb_ann (e->dest)->incoming_edge_threaded = true;
+	      bitmap_set_bit (threaded_blocks, e->dest->index);
 	    }
 	}
     }
@@ -1109,7 +1131,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	 the array backwards popping off records associated with our
 	 block.  Once we hit a record not associated with our block
 	 we are done.  */
-      varray_type var_vrp_records;
+      VEC(vrp_element_p,heap) **var_vrp_records;
 
       if (var == NULL)
 	break;
@@ -1120,17 +1142,17 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
       slot = htab_find_slot (vrp_data, &vrp_hash_elt, NO_INSERT);
 
       vrp_hash_elt_p = (struct vrp_hash_elt *) *slot;
-      var_vrp_records = vrp_hash_elt_p->records;
+      var_vrp_records = &vrp_hash_elt_p->records;
 
-      while (VARRAY_ACTIVE_SIZE (var_vrp_records) > 0)
+      while (VEC_length (vrp_element_p, *var_vrp_records) > 0)
 	{
 	  struct vrp_element *element
-	    = (struct vrp_element *)VARRAY_TOP_GENERIC_PTR (var_vrp_records);
+	    = VEC_last (vrp_element_p, *var_vrp_records);
 
 	  if (element->bb != bb)
 	    break;
   
-	  VARRAY_POP (var_vrp_records);
+	  VEC_pop (vrp_element_p, *var_vrp_records);
 	}
     }
 
@@ -1691,8 +1713,7 @@ simple_iv_increment_p (tree stmt)
    the hash table and return the result.  Otherwise return NULL.  */
 
 static tree
-simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
-				    tree stmt, int insert)
+simplify_rhs_and_lookup_avail_expr (tree stmt, int insert)
 {
   tree rhs = TREE_OPERAND (stmt, 1);
   enum tree_code rhs_code = TREE_CODE (rhs);
@@ -1816,127 +1837,6 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
  dont_fold_assoc:;
     }
 
-  /* Transform TRUNC_DIV_EXPR and TRUNC_MOD_EXPR into RSHIFT_EXPR
-     and BIT_AND_EXPR respectively if the first operand is greater
-     than zero and the second operand is an exact power of two.  */
-  if ((rhs_code == TRUNC_DIV_EXPR || rhs_code == TRUNC_MOD_EXPR)
-      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (rhs, 0)))
-      && integer_pow2p (TREE_OPERAND (rhs, 1)))
-    {
-      tree val;
-      tree op = TREE_OPERAND (rhs, 0);
-
-      if (TYPE_UNSIGNED (TREE_TYPE (op)))
-	{
-	  val = integer_one_node;
-	}
-      else
-	{
-	  tree dummy_cond = walk_data->global_data;
-
-	  if (! dummy_cond)
-	    {
-	      dummy_cond = build (GT_EXPR, boolean_type_node,
-				  op, integer_zero_node);
-	      dummy_cond = build (COND_EXPR, void_type_node,
-				  dummy_cond, NULL, NULL);
-	      walk_data->global_data = dummy_cond;
-	    }
-          else
-	    {
-	      TREE_SET_CODE (COND_EXPR_COND (dummy_cond), GT_EXPR);
-	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 0) = op;
-	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 1)
-		= integer_zero_node;
-	    }
-	  val = simplify_cond_and_lookup_avail_expr (dummy_cond, NULL, false);
-	}
-
-      if (val && integer_onep (val))
-	{
-	  tree t;
-	  tree op0 = TREE_OPERAND (rhs, 0);
-	  tree op1 = TREE_OPERAND (rhs, 1);
-
-	  if (rhs_code == TRUNC_DIV_EXPR)
-	    t = build (RSHIFT_EXPR, TREE_TYPE (op0), op0,
-		       build_int_cst (NULL_TREE, tree_log2 (op1)));
-	  else
-	    t = build (BIT_AND_EXPR, TREE_TYPE (op0), op0,
-		       local_fold (build (MINUS_EXPR, TREE_TYPE (op1),
-					  op1, integer_one_node)));
-
-	  result = update_rhs_and_lookup_avail_expr (stmt, t, insert);
-	}
-    }
-
-  /* Transform ABS (X) into X or -X as appropriate.  */
-  if (rhs_code == ABS_EXPR
-      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (rhs, 0))))
-    {
-      tree val;
-      tree op = TREE_OPERAND (rhs, 0);
-      tree type = TREE_TYPE (op);
-
-      if (TYPE_UNSIGNED (type))
-	{
-	  val = integer_zero_node;
-	}
-      else
-	{
-	  tree dummy_cond = walk_data->global_data;
-
-	  if (! dummy_cond)
-	    {
-	      dummy_cond = build (LE_EXPR, boolean_type_node,
-				  op, integer_zero_node);
-	      dummy_cond = build (COND_EXPR, void_type_node,
-				  dummy_cond, NULL, NULL);
-	      walk_data->global_data = dummy_cond;
-	    }
-	  else
-	    {
-	      TREE_SET_CODE (COND_EXPR_COND (dummy_cond), LE_EXPR);
-	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 0) = op;
-	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 1)
-		= build_int_cst (type, 0);
-	    }
-	  val = simplify_cond_and_lookup_avail_expr (dummy_cond, NULL, false);
-
-	  if (!val)
-	    {
-	      TREE_SET_CODE (COND_EXPR_COND (dummy_cond), GE_EXPR);
-	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 0) = op;
-	      TREE_OPERAND (COND_EXPR_COND (dummy_cond), 1)
-		= build_int_cst (type, 0);
-
-	      val = simplify_cond_and_lookup_avail_expr (dummy_cond,
-							 NULL, false);
-
-	      if (val)
-		{
-		  if (integer_zerop (val))
-		    val = integer_one_node;
-		  else if (integer_onep (val))
-		    val = integer_zero_node;
-		}
-	    }
-	}
-
-      if (val
-	  && (integer_onep (val) || integer_zerop (val)))
-	{
-	  tree t;
-
-	  if (integer_onep (val))
-	    t = build1 (NEGATE_EXPR, TREE_TYPE (op), op);
-	  else
-	    t = op;
-
-	  result = update_rhs_and_lookup_avail_expr (stmt, t, insert);
-	}
-    }
-
   /* Optimize *"foo" into 'f'.  This is done here rather than
      in fold to avoid problems with stuff like &*"foo".  */
   if (TREE_CODE (rhs) == INDIRECT_REF || TREE_CODE (rhs) == ARRAY_REF)
@@ -2034,7 +1934,7 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 	  int limit;
 	  tree low, high, cond_low, cond_high;
 	  int lowequal, highequal, swapped, no_overlap, subset, cond_inverted;
-	  varray_type vrp_records;
+	  VEC(vrp_element_p,heap) **vrp_records;
 	  struct vrp_element *element;
 	  struct vrp_hash_elt vrp_hash_elt, *vrp_hash_elt_p;
 	  void **slot;
@@ -2087,11 +1987,9 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 	    return NULL;
 
 	  vrp_hash_elt_p = (struct vrp_hash_elt *) *slot;
-	  vrp_records = vrp_hash_elt_p->records;
-	  if (vrp_records == NULL)
-	    return NULL;
+	  vrp_records = &vrp_hash_elt_p->records;
 
-	  limit = VARRAY_ACTIVE_SIZE (vrp_records);
+	  limit = VEC_length (vrp_element_p, *vrp_records);
 
 	  /* If we have no value range records for this variable, or we are
 	     unable to extract a range for this condition, then there is
@@ -2123,8 +2021,7 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 	     conditional into the current range. 
 
 	     These properties also help us avoid unnecessary work.  */
-	   element
-	     = (struct vrp_element *)VARRAY_GENERIC_PTR (vrp_records, limit - 1);
+	   element = VEC_last (vrp_element_p, *vrp_records);
 
 	  if (element->high && element->low)
 	    {
@@ -2163,8 +2060,7 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 		{
 		  /* Get the high/low value from the previous element.  */
 		  struct vrp_element *prev
-		    = (struct vrp_element *)VARRAY_GENERIC_PTR (vrp_records,
-								limit - 2);
+		    = VEC_index (vrp_element_p, *vrp_records, limit - 2);
 		  low = prev->low;
 		  high = prev->high;
 
@@ -2402,7 +2298,7 @@ record_edge_info (basic_block bb)
 	    {
 	      tree labels = SWITCH_LABELS (stmt);
 	      int i, n_labels = TREE_VEC_LENGTH (labels);
-	      tree *info = xcalloc (n_basic_blocks, sizeof (tree));
+	      tree *info = xcalloc (last_basic_block, sizeof (tree));
 	      edge e;
 	      edge_iterator ei;
 
@@ -2582,8 +2478,7 @@ propagate_to_outgoing_edges (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
    table.  */
 
 static bool
-eliminate_redundant_computations (struct dom_walk_data *walk_data,
-				  tree stmt, stmt_ann_t ann)
+eliminate_redundant_computations (tree stmt, stmt_ann_t ann)
 {
   tree *expr_p, def = NULL_TREE;
   bool insert = true;
@@ -2612,7 +2507,7 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
      then try to simplify the RHS and lookup the new RHS in the
      hash table.  */
   if (! cached_lhs && TREE_CODE (stmt) == MODIFY_EXPR)
-    cached_lhs = simplify_rhs_and_lookup_avail_expr (walk_data, stmt, insert);
+    cached_lhs = simplify_rhs_and_lookup_avail_expr (stmt, insert);
   /* Similarly if this is a COND_EXPR and we did not find its
      expression in the hash table, simplify the condition and
      try again.  */
@@ -2908,19 +2803,11 @@ cprop_into_stmt (tree stmt)
   bool may_have_exposed_new_symbols = false;
   use_operand_p op_p;
   ssa_op_iter iter;
-  tree rhs;
 
   FOR_EACH_SSA_USE_OPERAND (op_p, stmt, iter, SSA_OP_ALL_USES)
     {
       if (TREE_CODE (USE_FROM_PTR (op_p)) == SSA_NAME)
 	may_have_exposed_new_symbols |= cprop_operand (stmt, op_p);
-    }
-
-  if (may_have_exposed_new_symbols)
-    {
-      rhs = get_rhs (stmt);
-      if (rhs && TREE_CODE (rhs) == ADDR_EXPR)
-	recompute_tree_invarant_for_addr_expr (rhs);
     }
 
   return may_have_exposed_new_symbols;
@@ -2943,8 +2830,8 @@ cprop_into_stmt (tree stmt)
       the variable in the LHS in the CONST_AND_COPIES table.  */
 
 static void
-optimize_stmt (struct dom_walk_data *walk_data, basic_block bb,
-	       block_stmt_iterator si)
+optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
+	       basic_block bb, block_stmt_iterator si)
 {
   stmt_ann_t ann;
   tree stmt, old_stmt;
@@ -2971,6 +2858,8 @@ optimize_stmt (struct dom_walk_data *walk_data, basic_block bb,
      fold its RHS before checking for redundant computations.  */
   if (ann->modified)
     {
+      tree rhs;
+
       /* Try to fold the statement making sure that STMT is kept
 	 up to date.  */
       if (fold_stmt (bsi_stmt_ptr (si)))
@@ -2984,6 +2873,10 @@ optimize_stmt (struct dom_walk_data *walk_data, basic_block bb,
 	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
 	    }
 	}
+
+      rhs = get_rhs (stmt);
+      if (rhs && TREE_CODE (rhs) == ADDR_EXPR)
+	recompute_tree_invarant_for_addr_expr (rhs);
 
       /* Constant/copy propagation above may change the set of 
 	 virtual operands associated with this statement.  Folding
@@ -3008,7 +2901,7 @@ optimize_stmt (struct dom_walk_data *walk_data, basic_block bb,
 
   if (may_optimize_p)
     may_have_exposed_new_symbols
-      |= eliminate_redundant_computations (walk_data, stmt, ann);
+      |= eliminate_redundant_computations (stmt, ann);
 
   /* Record any additional equivalences created by this statement.  */
   if (TREE_CODE (stmt) == MODIFY_EXPR)
@@ -3306,7 +3199,7 @@ record_range (tree cond, basic_block bb)
     {
       struct vrp_hash_elt *vrp_hash_elt;
       struct vrp_element *element;
-      varray_type *vrp_records_p;
+      VEC(vrp_element_p,heap) **vrp_records_p;
       void **slot;
 
 
@@ -3318,7 +3211,7 @@ record_range (tree cond, basic_block bb)
       if (*slot == NULL)
 	*slot = (void *) vrp_hash_elt;
       else
-	free (vrp_hash_elt);
+	vrp_free (vrp_hash_elt);
 
       vrp_hash_elt = (struct vrp_hash_elt *) *slot;
       vrp_records_p = &vrp_hash_elt->records;
@@ -3329,10 +3222,7 @@ record_range (tree cond, basic_block bb)
       element->cond = cond;
       element->bb = bb;
 
-      if (*vrp_records_p == NULL)
-	VARRAY_GENERIC_PTR_INIT (*vrp_records_p, 2, "vrp records");
-      
-      VARRAY_PUSH_GENERIC_PTR (*vrp_records_p, element);
+      VEC_safe_push (vrp_element_p, heap, *vrp_records_p, element);
       VEC_safe_push (tree, heap, vrp_variables_stack, TREE_OPERAND (cond, 0));
     }
 }

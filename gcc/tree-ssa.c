@@ -31,7 +31,6 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "output.h"
-#include "errors.h"
 #include "expr.h"
 #include "function.h"
 #include "diagnostic.h"
@@ -45,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
+#include "toplev.h"
 
 /* Remove the corresponding arguments from the PHI nodes in E's
    destination block and redirect it to DEST.  Return redirected edge.
@@ -849,8 +849,8 @@ delete_tree_ssa (void)
 }
 
 
-/* Return true if EXPR is a useless type conversion, otherwise return
-   false.  */
+/* Return true if the conversion from INNER_TYPE to OUTER_TYPE is a
+   useless type conversion, otherwise return false.  */
 
 bool
 tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
@@ -881,8 +881,9 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
 	   && TREE_CODE (TREE_TYPE (outer_type)) == VOID_TYPE)
     return true;
 
-  /* Pointers and references are equivalent once we get to GENERIC,
-     so strip conversions that just switch between them.  */
+  /* Pointers/references are equivalent if their pointed to types
+     are effectively the same.  This allows to strip conversions between
+     pointer types with different type qualifiers.  */
   else if (POINTER_TYPE_P (inner_type)
            && POINTER_TYPE_P (outer_type)
 	   && TYPE_REF_CAN_ALIAS_ALL (inner_type)
@@ -901,7 +902,9 @@ tree_ssa_useless_type_conversion_1 (tree outer_type, tree inner_type)
   else if (INTEGRAL_TYPE_P (inner_type)
            && INTEGRAL_TYPE_P (outer_type)
 	   && TYPE_UNSIGNED (inner_type) == TYPE_UNSIGNED (outer_type)
-	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
+	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type)
+	   && simple_cst_equal (TYPE_MAX_VALUE (inner_type), TYPE_MAX_VALUE (outer_type))
+	   && simple_cst_equal (TYPE_MIN_VALUE (inner_type), TYPE_MIN_VALUE (outer_type)))
     {
       bool first_boolean = (TREE_CODE (inner_type) == BOOLEAN_TYPE);
       bool second_boolean = (TREE_CODE (outer_type) == BOOLEAN_TYPE);
@@ -1079,7 +1082,7 @@ walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
    warning text is in MSGID and LOCUS may contain a location or be null.  */
 
 static void
-warn_uninit (tree t, const char *msgid, void *data)
+warn_uninit (tree t, const char *gmsgid, void *data)
 {
   tree var = SSA_NAME_VAR (t);
   tree def = SSA_NAME_DEF_STMT (t);
@@ -1107,7 +1110,7 @@ warn_uninit (tree t, const char *msgid, void *data)
   locus = (context != NULL && EXPR_HAS_LOCATION (context)
 	   ? EXPR_LOCUS (context)
 	   : &DECL_SOURCE_LOCATION (var));
-  warning (0, msgid, locus, var);
+  warning (0, gmsgid, locus, var);
   TREE_NO_WARNING (var) = 1;
 }
    

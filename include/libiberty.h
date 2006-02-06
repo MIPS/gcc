@@ -156,7 +156,7 @@ extern char *libiberty_concat_ptr;
    strings.  Allocates memory using alloca.  The arguments are
    evaluated twice!  */
 #define ACONCAT(ACONCAT_PARAMS) \
-  (libiberty_concat_ptr = alloca (concat_length ACONCAT_PARAMS + 1), \
+  (libiberty_concat_ptr = (char *) alloca (concat_length ACONCAT_PARAMS + 1), \
    concat_copy2 ACONCAT_PARAMS)
 
 /* Check whether two file descriptors refer to the same file.  */
@@ -326,7 +326,7 @@ extern double physmem_available (void);
 /* Type-safe obstack allocator.  */
 
 #define XOBNEW(O, T)		((T *) obstack_alloc ((O), sizeof (T)))
-
+#define XOBFINISH(O, T)         ((T) obstack_finish ((O)))
 
 /* hex character manipulation routines */
 
@@ -527,8 +527,17 @@ extern int asprintf (char **, const char *, ...) ATTRIBUTE_PRINTF_2;
 /* Like vsprintf but provides a pointer to malloc'd storage, which
    must be freed by the caller.  */
 
-extern int vasprintf (char **, const char *, va_list)
-  ATTRIBUTE_PRINTF(2,0);
+extern int vasprintf (char **, const char *, va_list) ATTRIBUTE_PRINTF(2,0);
+#endif
+
+#if defined(HAVE_DECL_SNPRINTF) && !HAVE_DECL_SNPRINTF
+/* Like sprintf but prints at most N characters.  */
+extern int snprintf (char *, size_t, const char *, ...) ATTRIBUTE_PRINTF_3;
+#endif
+
+#if defined(HAVE_DECL_VSNPRINTF) && !HAVE_DECL_VSNPRINTF
+/* Like vsprintf but prints at most N characters.  */
+extern int vsnprintf (char *, size_t, const char *, va_list) ATTRIBUTE_PRINTF(3,0);
 #endif
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))

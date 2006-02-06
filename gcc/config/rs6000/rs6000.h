@@ -136,7 +136,7 @@
 #define TARGET_MFCRF 0
 #endif
 
-/* Define TARGET_POPCNTB if the target assembler does not suppport the
+/* Define TARGET_POPCNTB if the target assembler does not support the
    popcount byte instruction.  */
 
 #ifndef HAVE_AS_POPCNTB
@@ -144,14 +144,11 @@
 #define TARGET_POPCNTB 0
 #endif
 
-#define TARGET_32BIT		(! TARGET_64BIT)
-
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#ifdef HAVE_AS_TLS
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  rs6000_output_dwarf_dtprel (FILE, SIZE, X)
+#ifndef TARGET_SECURE_PLT
+#define TARGET_SECURE_PLT 0
 #endif
+
+#define TARGET_32BIT		(! TARGET_64BIT)
 
 #ifndef HAVE_AS_TLS
 #define HAVE_AS_TLS 0
@@ -267,7 +264,6 @@ extern struct rs6000_cpu_select rs6000_select[];
 
 /* Debug support */
 extern const char *rs6000_debug_name;	/* Name for -mdebug-xxxx option */
-extern const char *rs6000_abi_string;	/* for -mabi={sysv,darwin,eabi,aix,altivec} */
 extern int rs6000_debug_stack;		/* debug stack applications */
 extern int rs6000_debug_arg;		/* debug argument handling */
 
@@ -278,17 +274,11 @@ extern const char *rs6000_traceback_name; /* Type of traceback table.  */
 
 /* These are separate from target_flags because we've run out of bits
    there.  */
-extern const char *rs6000_long_double_size_string;
 extern int rs6000_long_double_type_size;
 extern int rs6000_altivec_abi;
 extern int rs6000_spe_abi;
-extern int rs6000_isel;
-extern int rs6000_spe;
 extern int rs6000_float_gprs;
-extern const char* rs6000_alignment_string;
 extern int rs6000_alignment_flags;
-extern const char *rs6000_sched_restricted_insns_priority_str;
-extern int rs6000_sched_restricted_insns_priority;
 extern const char *rs6000_sched_insert_nops_str;
 extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 
@@ -1109,14 +1099,14 @@ enum reg_class
 #define EXTRA_CONSTRAINT(OP, C)						\
   ((C) == 'Q' ? GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == REG	\
    : (C) == 'R' ? legitimate_constant_pool_address_p (OP)		\
-   : (C) == 'S' ? mask64_operand (OP, DImode)				\
+   : (C) == 'S' ? mask_operand (OP, DImode)				\
    : (C) == 'T' ? mask_operand (OP, SImode)				\
    : (C) == 'U' ? (DEFAULT_ABI == ABI_V4				\
 		   && small_data_operand (OP, GET_MODE (OP)))		\
    : (C) == 't' ? (mask64_2_operand (OP, DImode)			\
 		   && (fixed_regs[CR0_REGNO]				\
 		       || !logical_operand (OP, DImode))		\
-		   && !mask64_operand (OP, DImode))			\
+		   && !mask_operand (OP, DImode))			\
    : (C) == 'W' ? (easy_vector_constant (OP, GET_MODE (OP)))		\
    : (C) == 'Y' ? (word_offset_memref_operand (OP, GET_MODE (OP)))      \
    : (C) == 'Z' ? (indexed_or_indirect_operand (OP, GET_MODE (OP)))	\

@@ -353,6 +353,8 @@ static rtx frv_struct_value_rtx			(tree, int);
 static bool frv_must_pass_in_stack (enum machine_mode mode, tree type);
 static int frv_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, bool);
+static void frv_output_dwarf_dtprel		(FILE *, int, rtx)
+  ATTRIBUTE_UNUSED;
 
 /* Allow us to easily change the default for -malloc-cc.  */
 #ifndef DEFAULT_NO_ALLOC_CC
@@ -425,6 +427,11 @@ static int frv_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_SETUP_INCOMING_VARARGS frv_setup_incoming_varargs
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG frv_reorg
+
+#if HAVE_AS_TLS
+#undef TARGET_ASM_OUTPUT_DWARF_DTPREL
+#define TARGET_ASM_OUTPUT_DWARF_DTPREL frv_output_dwarf_dtprel
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3415,7 +3422,7 @@ frv_legitimate_address_p (enum machine_mode mode,
 static rtx
 gen_inlined_tls_plt (rtx addr)
 {
-  rtx mem, retval, dest;
+  rtx retval, dest;
   rtx picreg = get_hard_reg_initial_val (Pmode, FDPIC_REG);
 
 
@@ -8197,7 +8204,7 @@ frv_int_to_acc (enum insn_code icode, int opnum, rtx opval)
   rtx reg;
   int i;
 
-  /* ACCs and ACCGs are implicity global registers if media intrinsics
+  /* ACCs and ACCGs are implicit global registers if media intrinsics
      are being used.  We set up this lazily to avoid creating lots of
      unnecessary call_insn rtl in non-media code.  */
   for (i = 0; i <= ACC_MASK; i++)
@@ -8292,7 +8299,7 @@ frv_read_iacc_argument (enum machine_mode mode, tree *arglistptr)
       op = const0_rtx;
     }
 
-  /* IACCs are implicity global registers.  We set up this lazily to
+  /* IACCs are implicit global registers.  We set up this lazily to
      avoid creating lots of unnecessary call_insn rtl when IACCs aren't
      being used.  */
   regno = INTVAL (op) + IACC_FIRST;
@@ -8622,7 +8629,7 @@ frv_expand_mdpackh_builtin (tree arglist, rtx target)
   op0 = gen_reg_rtx (DImode);
   op1 = gen_reg_rtx (DImode);
 
-  /* The high half of each word is not explicitly initialised, so indicate
+  /* The high half of each word is not explicitly initialized, so indicate
      that the input operands are not live before this point.  */
   emit_insn (gen_rtx_CLOBBER (DImode, op0));
   emit_insn (gen_rtx_CLOBBER (DImode, op1));
@@ -9098,10 +9105,10 @@ frv_struct_value_rtx (tree fntype ATTRIBUTE_UNUSED,
 
 #define TLS_BIAS (2048 - 16)
 
-/* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
+/* This is called from dwarf2out.c via TARGET_ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
 
-void
+static void
 frv_output_dwarf_dtprel (FILE *file, int size, rtx x)
 {
   gcc_assert (size == 4);

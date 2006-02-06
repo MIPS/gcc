@@ -374,20 +374,7 @@ enum float_abi_type arm_float_abi;
 /* Which ABI to use.  */
 enum arm_abi_type arm_abi;
 
-/* Set by the -mfpu=... option.  */
-static const char * target_fpu_name = NULL;
-
-/* Set by the -mfpe=... option.  */
-static const char * target_fpe_name = NULL;
-
-/* Set by the -mfloat-abi=... option.  */
-static const char * target_float_abi_name = NULL;
-
-/* Set by the -mabi=... option.  */
-static const char * target_abi_name = NULL;
-
 /* Used to parse -mstructure_size_boundary command line option.  */
-static const char * structure_size_string = NULL;
 int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
 
 /* Used for Thumb call_via trampolines.  */
@@ -498,7 +485,6 @@ int arm_cpp_interwork = 0;
 enum machine_mode output_memory_reference_mode;
 
 /* The register number to be used for the PIC offset register.  */
-static const char * arm_pic_register_string = NULL;
 int arm_pic_register = INVALID_REGNUM;
 
 /* Set to 1 when a return insn is output, this means that the epilogue
@@ -801,10 +787,6 @@ arm_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
 {
   switch (code)
     {
-    case OPT_mabi_:
-      target_abi_name = arg;
-      return true;
-
     case OPT_march_:
       arm_select[1].string = arg;
       return true;
@@ -813,33 +795,12 @@ arm_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
       arm_select[0].string = arg;
       return true;
 
-    case OPT_mfloat_abi_:
-      target_float_abi_name = arg;
-      return true;
-
-    case OPT_mfp_:
-    case OPT_mfpe_:
-      target_fpe_name = arg;
-      return true;
-
-    case OPT_mfpu_:
-      target_fpu_name = arg;
-      return true;
-
     case OPT_mhard_float:
       target_float_abi_name = "hard";
       return true;
 
-    case OPT_mpic_register_:
-      arm_pic_register_string = arg;
-      return true;
-
     case OPT_msoft_float:
       target_float_abi_name = "soft";
-      return true;
-
-    case OPT_mstructure_size_boundary_:
-      structure_size_string = arg;
       return true;
 
     case OPT_mtune_:
@@ -2812,7 +2773,7 @@ arm_handle_fndecl_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      warning (0, "%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -2830,7 +2791,7 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
     {
       if (TREE_CODE (*node) != FUNCTION_DECL)
 	{
-	  warning (0, "%qs attribute only applies to functions",
+	  warning (OPT_Wattributes, "%qs attribute only applies to functions",
 		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
@@ -2844,7 +2805,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	{
 	  if (arm_isr_value (args) == ARM_FT_UNKNOWN)
 	    {
-	      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+	      warning (OPT_Wattributes, "%qs attribute ignored",
+		       IDENTIFIER_POINTER (name));
 	      *no_add_attrs = true;
 	    }
 	}
@@ -2871,7 +2833,8 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	    }
 	  else
 	    {
-	      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+	      warning (OPT_Wattributes, "%qs attribute ignored",
+		       IDENTIFIER_POINTER (name));
 	    }
 	}
     }
@@ -7013,7 +6976,7 @@ add_minipool_forward_ref (Mfix *fix)
   /* If this fix's address is greater than the address of the first
      entry, then we can't put the fix in this pool.  We subtract the
      size of the current fix to ensure that if the table is fully
-     packed we still have enough room to insert this value by suffling
+     packed we still have enough room to insert this value by shuffling
      the other fixes forwards.  */
   if (minipool_vector_head &&
       fix->address >= minipool_vector_head->max_address - fix->fix_size)
@@ -13529,7 +13492,7 @@ thumb_output_function_prologue (FILE *f, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       asm_fprintf (f, "\tmov\t%r, %r\t\t%@ Backtrace structure created\n",
 		   ARM_HARD_FRAME_POINTER_REGNUM, work_register);
     }
-  /* Optimisation:  If we are not pushing any low registers but we are going
+  /* Optimization:  If we are not pushing any low registers but we are going
      to push some high registers then delay our first push.  This will just
      be a push of LR and we can combine it with the push of the first high
      register.  */
@@ -14473,7 +14436,7 @@ arm_cxx_guard_type (void)
 }
 
 
-/* The EABI says test the least significan bit of a guard variable.  */
+/* The EABI says test the least significant bit of a guard variable.  */
 
 static bool
 arm_cxx_guard_mask_bit (void)

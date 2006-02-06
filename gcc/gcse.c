@@ -507,11 +507,11 @@ static int gcse_subst_count;
 static int gcse_create_count;
 /* Number of local constants propagated.  */
 static int local_const_prop_count;
-/* Number of local copys propagated.  */
+/* Number of local copies propagated.  */
 static int local_copy_prop_count;
 /* Number of global constants propagated.  */
 static int global_const_prop_count;
-/* Number of global copys propagated.  */
+/* Number of global copies propagated.  */
 static int global_copy_prop_count;
 
 /* For available exprs */
@@ -1370,6 +1370,11 @@ static int
 load_killed_in_block_p (basic_block bb, int uid_limit, rtx x, int avail_p)
 {
   rtx list_entry = modify_mem_list[bb->index];
+
+  /* If this is a readonly then we aren't going to be changing it.  */
+  if (MEM_READONLY_P (x))
+    return 0;
+
   while (list_entry)
     {
       rtx setter;
@@ -2462,51 +2467,53 @@ compute_transp (rtx x, int indx, sbitmap *bmap, int set_p)
       return;
 
     case MEM:
-      {
-	bitmap_iterator bi;
-	unsigned bb_index;
+      if (! MEM_READONLY_P (x))
+	{
+	  bitmap_iterator bi;
+	  unsigned bb_index;
 
-	/* First handle all the blocks with calls.  We don't need to
-	   do any list walking for them.  */
-	EXECUTE_IF_SET_IN_BITMAP (blocks_with_calls, 0, bb_index, bi)
-	  {
-	    if (set_p)
-	      SET_BIT (bmap[bb_index], indx);
-	    else
-	      RESET_BIT (bmap[bb_index], indx);
-	  }
+	  /* First handle all the blocks with calls.  We don't need to
+	     do any list walking for them.  */
+	  EXECUTE_IF_SET_IN_BITMAP (blocks_with_calls, 0, bb_index, bi)
+	    {
+	      if (set_p)
+		SET_BIT (bmap[bb_index], indx);
+	      else
+		RESET_BIT (bmap[bb_index], indx);
+	    }
 
-	/* Now iterate over the blocks which have memory modifications
-	   but which do not have any calls.  */
-	EXECUTE_IF_AND_COMPL_IN_BITMAP (modify_mem_list_set, blocks_with_calls,
-					0, bb_index, bi)
-	  {
-	    rtx list_entry = canon_modify_mem_list[bb_index];
-
-	    while (list_entry)
+	    /* Now iterate over the blocks which have memory modifications
+	       but which do not have any calls.  */
+	    EXECUTE_IF_AND_COMPL_IN_BITMAP (modify_mem_list_set, 
+					    blocks_with_calls,
+					    0, bb_index, bi)
 	      {
-		rtx dest, dest_addr;
+		rtx list_entry = canon_modify_mem_list[bb_index];
 
-		/* LIST_ENTRY must be an INSN of some kind that sets memory.
-		   Examine each hunk of memory that is modified.  */
-
-		dest = XEXP (list_entry, 0);
-		list_entry = XEXP (list_entry, 1);
-		dest_addr = XEXP (list_entry, 0);
-
-		if (canon_true_dependence (dest, GET_MODE (dest), dest_addr,
-					   x, rtx_addr_varies_p))
+		while (list_entry)
 		  {
-		    if (set_p)
-		      SET_BIT (bmap[bb_index], indx);
-		    else
-		      RESET_BIT (bmap[bb_index], indx);
-		    break;
-		  }
-		list_entry = XEXP (list_entry, 1);
+		    rtx dest, dest_addr;
+
+		    /* LIST_ENTRY must be an INSN of some kind that sets memory.
+		       Examine each hunk of memory that is modified.  */
+
+		    dest = XEXP (list_entry, 0);
+		    list_entry = XEXP (list_entry, 1);
+		    dest_addr = XEXP (list_entry, 0);
+
+		    if (canon_true_dependence (dest, GET_MODE (dest), dest_addr,
+					       x, rtx_addr_varies_p))
+		      {
+			if (set_p)
+			  SET_BIT (bmap[bb_index], indx);
+			else
+			  RESET_BIT (bmap[bb_index], indx);
+			break;
+		      }
+		    list_entry = XEXP (list_entry, 1);
+	          }
 	      }
-	  }
-      }
+	}
 
       x = XEXP (x, 0);
       goto repeat;
@@ -6529,9 +6536,9 @@ is_too_expensive (const char *pass)
      graceful degradation.  */
   if (n_edges > 20000 + n_basic_blocks * 4)
     {
-      if (warn_disabled_optimization)
-	warning (0, "%s: %d basic blocks and %d edges/basic block",
-		 pass, n_basic_blocks, n_edges / n_basic_blocks);
+      warning (OPT_Wdisabled_optimization,
+	       "%s: %d basic blocks and %d edges/basic block",
+	       pass, n_basic_blocks, n_edges / n_basic_blocks);
 
       return true;
     }
@@ -6542,9 +6549,9 @@ is_too_expensive (const char *pass)
        * SBITMAP_SET_SIZE (max_reg_num ())
        * sizeof (SBITMAP_ELT_TYPE)) > MAX_GCSE_MEMORY)
     {
-      if (warn_disabled_optimization)
-	warning (0, "%s: %d basic blocks and %d registers",
-		 pass, n_basic_blocks, max_reg_num ());
+      warning (OPT_Wdisabled_optimization,
+	       "%s: %d basic blocks and %d registers",
+	       pass, n_basic_blocks, max_reg_num ());
 
       return true;
     }

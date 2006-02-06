@@ -1,3 +1,145 @@
+2005-06-15  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21950
+	* intrinsics/c99_functions.c (scalbn): Provide fallback
+	implementation for scalbn.
+	* c99_protos.h: Prototype for scalbn.
+	* configure.ac: Add check for scalbn.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
+2005-06-14  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* intrinsics/eoshift0.c:  Removed prototype for eoshift0.
+	* intrinsics/eoshift2.c:  Removed prototype for eoshift2.
+
+2005-06-14  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/19877:
+	* configure, aclocal.m4, Makefile.in: Rebuilt.
+
+2005-06-12  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21594
+	* intrinsics/eoshift0.c:  Add prototype for eoshift0.
+	* intrinsics/eoshift2.c:  Add prototype for eoshift2.
+
+2005-06-12  Steven G. Kargl <kargls@comcast.net>
+	    Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/PR21797
+	* m4/cexp.m4 (csqrt`'q):  Add type qualifyer to
+	sqrt and fabs.
+	* generated/exp_c4.c:  Regenerated.
+
+2005-06-12  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/19155
+	* io/read.c (read_f): Take care of spaces after initial sign.
+
+2005-06-11  Thomas Koenig  <Thomas.Koenig@onlinde.de>
+
+	PR libfortran/21333
+	* Makefile.am: Add in_pack_c4.c, in_pack_c8.c, in_unpack_c4.c
+	and in_unpack_c8.c.
+	* Makefile.in: Regenerate.
+	* libgfortran.h:  Declare internal_pack_c4, internal_pack_c8,
+	internal_unpack_c4 and internal_unpack_c8.
+	* m4/in_pack.m4: Use rtype_ccode insteald of rtype_kind
+	in function name.
+	Use sizeof (rtype_name) as size for memory allocation.
+	* m4/in_unpack.m4: Use rtype_ccode insteald of rtype_kind
+	in function name.
+	Use sizeof (rtype_name) for calculation of sizes for memcpy.
+	* runtime/in_pack_generic.c:  For real, integer and logical
+	call internal_pack_4 if size==4 and internal_pack_8 if
+	size==8.
+	For complex, call internal_pack_c4 if size==8 and
+	internal_pack_c8 if size==16.
+	* runtime/in_unpack_generic.c: For real, integer and logical
+	call internal_unpack_4 if size==4 and internal_unpack_8 if
+	size==8.
+	For complex, call internal_unpack_c4 if size==8 and
+	internal_unpack_c8 if size==16.
+	* generated/in_pack_i4.c:  Regenerated.
+	* generated/in_pack_i8.c:  Regenerated.
+	* generated/in_unpack_i4.c:  Regenerated.
+	* generated/in_unpack_i8.c:  Regenerated.
+	* generated/in_pack_c4.c:  New file.
+	* generated/in_pack_c8.c:  New file.
+	* generated/in_unpack_c4.c:  New file.
+	* generated/in_unpack_c8.c:  New file.
+
+2005-06-09  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21480
+	* m4/reshape.m4:  Use sizeof (rtype_name) for sizes to be passed
+	to reshape_packed.
+	* generated/reshape_c4.c:  Regenerated.
+	* generated/reshape_c8.c:  Regenerated.
+	* generated/reshape_i4.c:  Regenerated.
+	* generated/reshape_i8.c:  Regenerated.
+
+2005-06-07  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/21926
+	* m4/matmul.m4:  Correct zeroing of result for non-packed
+	arrays with lowest stride is one.
+	* generated/matmul_c4.c:  Regenerated.
+	* generated/matmul_c8.c:  Regenerated.
+	* generated/matmul_i4.c:  Regenerated.
+	* generated/matmul_i8.c:  Regenerated.
+	* generated/matmul_r4.c:  Regenerated.
+	* generated/matmul_r8.c:  Regenerated.
+
+2005-05-30  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20179
+	* io/unix.c (fd_close): Add test so that we don't close()
+	stdout and stderr.
+
+2005-05-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/20006
+	* io/format.c (parse_format_list): Set repeat count of $ format
+	node to 1.
+	* io/transfer.c (read_sf): Add g.seen_dollar to the test
+	concerning advancing I/O.
+	(data_transfer_init): Likewise.
+	(finalize_transfer): Likewise.
+	
+2005-05-27  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	* runtime/in_pack_generic.c:  Adjust copyright years.
+	(in_pack_generic):  Change dimension of auxiliary arrays from
+	GFC_MAX_DIMENSION - 1 to GFC_MAX_DIMENSION.
+	* runtime/in_unpack_generic.c:  Adjust copyright years.
+	(in_unpack_generic):  Change dimension of auxiliary arrays from
+	GFC_MAX_DIMENSION - 1 to GFC_MAX_DIMENSION.
+
+2005-05-26  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/17283
+	* intrinsics/unpack_generic.c:  Fix name of routine
+	on top.  Update copyright years.
+	(unpack1):  Remove const from return array descriptor.
+	rs:  New variable, for calculating return sizes.
+	Populate return array descriptor if ret->data is NULL.
+
+2005-05-22  Peter Wainwright  <prw@ceiriog1.demon.co.uk>
+
+	PR libfortran/21376
+	* io/write.c (output_float): Rework logic to avoid call to log10
+	with argument equal to zero.
+
+2005-05-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* configure.ac: Check for trunc and truncf in libm.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+	* intrinsics/c99_functions.c (trunc, truncf): New functions.
+	* c99_protos.h (trunc, truncf): Declare them.
+
 2005-05-18  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	PR libfortran/21127

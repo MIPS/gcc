@@ -639,7 +639,9 @@ combine_instructions (rtx f, unsigned int nregs)
   rtx prev;
 #endif
   int i;
+  unsigned int j;
   rtx links, nextlinks;
+  sbitmap_iterator sbi;
 
   int new_direct_jump_p = 0;
 
@@ -884,8 +886,8 @@ combine_instructions (rtx f, unsigned int nregs)
     }
   clear_bb_flags ();
 
-  EXECUTE_IF_SET_IN_SBITMAP (refresh_blocks, 0, i,
-			     BASIC_BLOCK (i)->flags |= BB_DIRTY);
+  EXECUTE_IF_SET_IN_SBITMAP (refresh_blocks, 0, j, sbi)
+    BASIC_BLOCK (j)->flags |= BB_DIRTY;
   new_direct_jump_p |= purge_all_dead_edges ();
   delete_noop_moves ();
 
@@ -2385,8 +2387,8 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	      || GET_MODE (*split) == VOIDmode
 	      || (REGNO (i2dest) < FIRST_PSEUDO_REGISTER
 		  && HARD_REGNO_MODE_OK (REGNO (i2dest), GET_MODE (*split))
-		  && (HARD_REGNO_NREGS (REGNO (i2dest), GET_MODE (i2dest))
-		      == HARD_REGNO_NREGS (REGNO (i2dest), GET_MODE (*split))))
+		  && (hard_regno_nregs[REGNO (i2dest)][GET_MODE (i2dest)]
+		      == hard_regno_nregs[REGNO (i2dest)][GET_MODE (*split)]))
 	      || (REGNO (i2dest) >= FIRST_PSEUDO_REGISTER
 		  && REG_N_SETS (REGNO (i2dest)) == 1 && ! added_sets_2
 		  && ! REG_USERVAR_P (i2dest)))

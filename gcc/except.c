@@ -139,8 +139,7 @@ struct eh_region GTY(())
     ERT_CATCH,
     ERT_ALLOWED_EXCEPTIONS,
     ERT_MUST_NOT_THROW,
-    ERT_THROW,
-    ERT_FIXUP
+    ERT_THROW
   } type;
 
   /* Holds the action to perform based on the preceding type.  */
@@ -150,8 +149,6 @@ struct eh_region GTY(())
     struct eh_region_u_try {
       struct eh_region *catch;
       struct eh_region *last_catch;
-      struct eh_region *prev_try;
-      rtx continue_label;
     } GTY ((tag ("ERT_TRY"))) try;
 
     /* The list through the catch handlers, the list of type objects
@@ -180,13 +177,6 @@ struct eh_region GTY(())
     struct eh_region_u_cleanup {
       struct eh_region *prev_try;
     } GTY ((tag ("ERT_CLEANUP"))) cleanup;
-
-    /* The real region (by expression and by pointer) that fixup code
-       should live in.  */
-    struct eh_region_u_fixup {
-      struct eh_region *real_region;
-      bool resolved;
-    } GTY ((tag ("ERT_FIXUP"))) fixup;
   } GTY ((desc ("%0.type"))) u;
 
   /* Entry point for this region's handler before landing pads are built.  */
@@ -572,6 +562,7 @@ expand_resx_expr (tree exp)
   int region_nr = TREE_INT_CST_LOW (TREE_OPERAND (exp, 0));
   struct eh_region *reg = cfun->eh->region_array[region_nr];
 
+  gcc_assert (!reg->resume);
   reg->resume = emit_jump_insn (gen_rtx_RESX (VOIDmode, region_nr));
   emit_barrier ();
 }
@@ -2430,7 +2421,6 @@ reachable_next_level (struct eh_region *region, tree type_thrown,
 	return RNL_BLOCKED;
 
     case ERT_THROW:
-    case ERT_FIXUP:
     case ERT_UNKNOWN:
       /* Shouldn't see these here.  */
       gcc_unreachable ();
@@ -2539,7 +2529,7 @@ reachable_handlers (rtx insn)
    within the function.  */
 
 bool
-can_throw_internal_1 (int region_number)
+can_throw_internal_1 (int region_number, bool is_resx)
 {
   struct eh_region *region;
   tree type_thrown;
@@ -2547,7 +2537,9 @@ can_throw_internal_1 (int region_number)
   region = cfun->eh->region_array[region_number];
 
   type_thrown = NULL_TREE;
-  if (region->type == ERT_THROW)
+  if (is_resx)
+    region = region->outer;
+  else if (region->type == ERT_THROW)
     {
       type_thrown = region->u.throw.type;
       region = region->outer;
@@ -2579,7 +2571,7 @@ can_throw_internal (rtx insn)
   if (JUMP_P (insn)
       && GET_CODE (PATTERN (insn)) == RESX
       && XINT (PATTERN (insn), 0) > 0)
-    return can_throw_internal_1 (XINT (PATTERN (insn), 0));
+    return can_throw_internal_1 (XINT (PATTERN (insn), 0), true);
 
   if (NONJUMP_INSN_P (insn)
       && GET_CODE (PATTERN (insn)) == SEQUENCE)
@@ -2590,14 +2582,14 @@ can_throw_internal (rtx insn)
   if (!note || INTVAL (XEXP (note, 0)) <= 0)
     return false;
 
-  return can_throw_internal_1 (INTVAL (XEXP (note, 0)));
+  return can_throw_internal_1 (INTVAL (XEXP (note, 0)), false);
 }
 
 /* Determine if the given INSN can throw an exception that is
    visible outside the function.  */
 
 bool
-can_throw_external_1 (int region_number)
+can_throw_external_1 (int region_number, bool is_resx)
 {
   struct eh_region *region;
   tree type_thrown;
@@ -2605,7 +2597,9 @@ can_throw_external_1 (int region_number)
   region = cfun->eh->region_array[region_number];
 
   type_thrown = NULL_TREE;
-  if (region->type == ERT_THROW)
+  if (is_resx)
+    region = region->outer;
+  else if (region->type == ERT_THROW)
     {
       type_thrown = region->u.throw.type;
       region = region->outer;
@@ -2628,6 +2622,11 @@ can_throw_external (rtx insn)
   if (! INSN_P (insn))
     return false;
 
+  if (JUMP_P (insn)
+      && GET_CODE (PATTERN (insn)) == RESX
+      && XINT (PATTERN (insn), 0) > 0)
+    return can_throw_external_1 (XINT (PATTERN (insn), 0), true);
+
   if (NONJUMP_INSN_P (insn)
       && GET_CODE (PATTERN (insn)) == SEQUENCE)
     insn = XVECEXP (PATTERN (insn), 0, 0);
@@ -2647,7 +2646,7 @@ can_throw_external (rtx insn)
   if (INTVAL (XEXP (note, 0)) <= 0)
     return false;
 
-  return can_throw_external_1 (INTVAL (XEXP (note, 0)));
+  return can_throw_external_1 (INTVAL (XEXP (note, 0)), false);
 }
 
 /* Set TREE_NOTHROW and cfun->all_throwers_are_sibcalls.  */
@@ -3605,7 +3604,7 @@ dump_eh_tree (FILE *out, struct function *fun)
   int depth = 0;
   static const char * const type_name[] = {"unknown", "cleanup", "try", "catch",
 					   "allowed_exceptions", "must_not_throw",
-					   "throw", "fixup"};
+					   "throw"};
 
   i = fun->eh->region_tree;
   if (! i)

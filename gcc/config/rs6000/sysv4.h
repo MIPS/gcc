@@ -59,6 +59,11 @@ extern enum rs6000_sdata_type rs6000_sdata;
 #define	TARGET_NO_TOC		(! TARGET_TOC)
 #define	TARGET_NO_EABI		(! TARGET_EABI)
 
+#ifdef HAVE_AS_REL16
+#undef TARGET_SECURE_PLT
+#define TARGET_SECURE_PLT	secure_plt
+#endif
+
 extern const char *rs6000_abi_name;
 extern const char *rs6000_sdata_name;
 extern const char *rs6000_tls_size_string; /* For -mtls-size= */
@@ -205,6 +210,11 @@ do {									\
       error ("-mcall-aixdesc must be big endian");			\
     }									\
 									\
+  if (TARGET_SECURE_PLT != secure_plt)					\
+    {									\
+      error ("-msecure-plt not supported by your assembler");		\
+    }									\
+									\
   /* Treat -fPIC the same as -mrelocatable.  */				\
   if (flag_pic > 1 && DEFAULT_ABI != ABI_AIX)				\
     target_flags |= MASK_RELOCATABLE | MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC; \
@@ -324,15 +334,6 @@ do {									\
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED)				      \
 	((TARGET_ALTIVEC && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE)     \
 	 ? 128 : COMPUTED)
-
-/* Define this macro as an expression for the alignment of a type
-   (given by TYPE as a tree node) if the alignment computed in the
-   usual way is COMPUTED and the alignment explicitly specified was
-   SPECIFIED.  */
-#define ROUND_TYPE_ALIGN(TYPE, COMPUTED, SPECIFIED)			\
-	((TARGET_ALTIVEC  && TREE_CODE (TYPE) == VECTOR_TYPE)		\
-	 ? MAX (MAX ((COMPUTED), (SPECIFIED)), 128)			\
-	 : MAX (COMPUTED, SPECIFIED))
 
 #undef  BIGGEST_FIELD_ALIGNMENT
 
@@ -750,6 +751,10 @@ extern int fixuplabelno;
 
 #define	CC1_ENDIAN_DEFAULT_SPEC "%(cc1_endian_big)"
 
+#ifndef CC1_SECURE_PLT_DEFAULT_SPEC
+#define CC1_SECURE_PLT_DEFAULT_SPEC ""
+#endif
+
 /* Pass -G xxx to the compiler and set correct endian mode.  */
 #define	CC1_SPEC "%{G*} \
 %{mlittle|mlittle-endian: %(cc1_endian_little);           \
@@ -762,7 +767,6 @@ extern int fixuplabelno;
   mcall-gnu             : -mbig %(cc1_endian_big);        \
   mcall-i960-old        : -mlittle %(cc1_endian_little);  \
                         : %(cc1_endian_default)}          \
-%{mno-sdata: -msdata=none } \
 %{meabi: %{!mcall-*: -mcall-sysv }} \
 %{!meabi: %{!mno-eabi: \
     %{mrelocatable: -meabi } \
@@ -774,6 +778,7 @@ extern int fixuplabelno;
     %{mcall-openbsd: -mno-eabi }}} \
 %{msdata: -msdata=default} \
 %{mno-sdata: -msdata=none} \
+%{!mbss-plt: %{!msecure-plt: %(cc1_secure_plt_default)}} \
 %{profile: -p}"
 
 /* Don't put -Y P,<path> for cross compilers.  */
@@ -1214,6 +1219,7 @@ ncrtn.o%s"
   { "cc1_endian_big",		CC1_ENDIAN_BIG_SPEC },			\
   { "cc1_endian_little",	CC1_ENDIAN_LITTLE_SPEC },		\
   { "cc1_endian_default",	CC1_ENDIAN_DEFAULT_SPEC },		\
+  { "cc1_secure_plt_default",	CC1_SECURE_PLT_DEFAULT_SPEC },		\
   { "cpp_os_ads",		CPP_OS_ADS_SPEC },			\
   { "cpp_os_yellowknife",	CPP_OS_YELLOWKNIFE_SPEC },		\
   { "cpp_os_mvme",		CPP_OS_MVME_SPEC },			\

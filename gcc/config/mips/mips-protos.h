@@ -184,7 +184,7 @@ extern void mips_declare_common_object (FILE *, const char *,
 					const char *, unsigned HOST_WIDE_INT,
 					unsigned int, bool);
 extern void mips_declare_object (FILE *, const char *, const char *,
-				 const char *, ...);
+				 const char *, ...) ATTRIBUTE_PRINTF_4;
 extern void mips_declare_object_name (FILE *, const char *, tree);
 extern void mips_finish_declare_object (FILE *, tree, int, int);
 
@@ -222,5 +222,6 @@ extern rtx mips_prefetch_cookie (rtx, rtx);
 extern void irix_asm_output_align (FILE *, unsigned);
 extern const char *current_section_name (void);
 extern unsigned int current_section_flags (void);
+extern bool mips_use_ins_ext_p (rtx, rtx, rtx);
 
 #endif /* ! GCC_MIPS_PROTOS_H */

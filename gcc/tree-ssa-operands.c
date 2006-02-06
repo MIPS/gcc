@@ -26,12 +26,12 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "function.h"
 #include "diagnostic.h"
-#include "errors.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "ggc.h"
 #include "timevar.h"
+#include "toplev.h"
 
 #include "langhooks.h"
 
@@ -152,6 +152,7 @@ static void note_addressable (tree, stmt_ann_t);
 static void get_expr_operands (tree, tree *, int);
 static void get_asm_expr_operands (tree);
 static void get_indirect_ref_operands (tree, tree, int);
+static void get_tmr_operands (tree, tree, int);
 static void get_call_expr_operands (tree, tree);
 static inline void append_def (tree *);
 static inline void append_use (tree *);
@@ -1289,6 +1290,10 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       get_indirect_ref_operands (stmt, expr, flags);
       return;
 
+    case TARGET_MEM_REF:
+      get_tmr_operands (stmt, expr, flags);
+      return;
+
     case ARRAY_REF:
     case ARRAY_RANGE_REF:
       /* Treat array references as references to the virtual variable
@@ -1672,6 +1677,30 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
   get_expr_operands (stmt, pptr, opf_none);
 }
 
+/* A subroutine of get_expr_operands to handle TARGET_MEM_REF.  */
+
+static void
+get_tmr_operands (tree stmt, tree expr, int flags)
+{
+  tree tag = TMR_TAG (expr);
+
+  /* First record the real operands.  */
+  get_expr_operands (stmt, &TMR_BASE (expr), opf_none);
+  get_expr_operands (stmt, &TMR_INDEX (expr), opf_none);
+
+  /* MEM_REFs should never be killing.  */
+  flags &= ~opf_kill_def;
+
+  if (TMR_SYMBOL (expr))
+    note_addressable (TMR_SYMBOL (expr), stmt_ann (stmt));
+
+  if (tag)
+    add_stmt_operand (&tag, stmt_ann (stmt), flags);
+  else
+    /* Something weird, so ensure that we will be careful.  */
+    stmt_ann (stmt)->has_volatile_ops = true;
+}
+
 /* A subroutine of get_expr_operands to handle CALL_EXPR.  */
 
 static void
@@ -1759,7 +1788,7 @@ add_stmt_operand (tree *var_p, stmt_ann_t s_ann, int flags)
 
   /* If the variable cannot be modified and this is a V_MAY_DEF change
      it into a VUSE.  This happens when read-only variables are marked
-     call-clobbered and/or aliased to writeable variables.  So we only
+     call-clobbered and/or aliased to writable variables.  So we only
      check that this only happens on non-specific stores.
 
      Note that if this is a specific store, i.e. associated with a

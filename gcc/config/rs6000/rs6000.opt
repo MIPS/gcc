@@ -123,6 +123,10 @@ mxl-compat
 Target Report Var(TARGET_XL_COMPAT)
 Conform more closely to IBM XLC semantics
 
+mswdiv
+Target Report Var(swdiv)
+Generate software floating point divide for better throughput
+
 mno-fp-in-toc
 Target Report RejectNegative Mask(NO_FP_IN_TOC)
 Do not place floating point constants in TOC
@@ -227,5 +231,5 @@ Target RejectNegative Joined
 Specify alignment of structure fields default/natural
 
 mprioritize-restricted-insns=
-Target RejectNegative Joined Uinteger Var(rs6000_sched_restricted_insns_priority)
+Target RejectNegative Joined UInteger Var(rs6000_sched_restricted_insns_priority)
 Specify scheduling priority for dispatch slot restricted insns

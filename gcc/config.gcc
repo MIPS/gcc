@@ -740,12 +740,17 @@ bfin*-elf*)
 	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h"
         tmake_file=bfin/t-bfin-elf
         use_collect2=no
-        ;;  
+        ;;
+bfin*-uclinux*)
+	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h bfin/uclinux.h"
+        tmake_file=bfin/t-bfin-elf
+        use_collect2=no
+        ;;
 bfin*-*)
 	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h"
         tmake_file=bfin/t-bfin
         use_collect2=no
-        ;;  
+        ;;
 c4x-*-rtems* | tic4x-*-rtems*)
 	tmake_file="c4x/t-c4x t-rtems c4x/t-rtems"
 	tm_file="c4x/c4x.h c4x/rtems.h rtems.h"
@@ -1581,6 +1586,9 @@ powerpc64-*-linux*)
 	test x$with_cpu != x || cpu_is_64bit=yes
 	test x$cpu_is_64bit != xyes || tm_file="${tm_file} rs6000/default64.h"
 	tm_file="rs6000/biarch64.h ${tm_file} rs6000/linux64.h"
+	if test x${enable_secureplt} = xyes; then
+		tm_file="rs6000/secureplt.h ${tm_file}"
+	fi
 	extra_options="${extra_options} rs6000/sysv4.opt rs6000/linux64.opt"
 	tmake_file="rs6000/t-fprules ${tmake_file} rs6000/t-ppccomm rs6000/t-linux64"
 	;;
@@ -1690,6 +1698,9 @@ powerpc-*-linux*)
 		tm_file="${tm_file} rs6000/linux.h"
 		;;
 	esac
+	if test x${enable_secureplt} = xyes; then
+		tm_file="rs6000/secureplt.h ${tm_file}"
+	fi
 	;;
 powerpc-*-gnu-gnualtivec*)
 	tm_file="${cpu_type}/${cpu_type}.h elfos.h svr4.h freebsd-spec.h gnu.h rs6000/sysv4.h rs6000/linux.h rs6000/linuxaltivec.h rs6000/gnu.h"
@@ -2010,13 +2021,14 @@ sparc-*-rtems*)
 	extra_parts="crti.o crtn.o crtbegin.o crtend.o"
 	;;
 sparc64-*-solaris2* | sparcv9-*-solaris2*)
-	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sol2.h sparc/sol2.h sparc/sol2-64.h sparc/sol2-bi.h tm-dwarf2.h"
+	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sol2.h sparc/sol2.h sparc/sol2-64.h sparc/sol2-bi.h"
 	if test x$gnu_ld = xyes; then
 		tm_file="${tm_file} sparc/sol2-gld.h sparc/sol2-gld-bi.h"
 	fi
 	if test x$gas = xyes; then
 		tm_file="${tm_file} sparc/sol2-gas.h sparc/sol2-gas-bi.h"
 	fi
+	tm_file="${tm_file} tm-dwarf2.h"
 	tmake_file="t-sol2 sparc/t-sol2 sparc/t-sol2-64 sparc/t-crtfm"
 	if test x$gnu_ld = xyes; then
 		tmake_file="$tmake_file t-slibgcc-elf-ver"
@@ -2060,13 +2072,14 @@ sparc-*-solaris2*)
 		fi
 		;;
 	*-*-solaris2.[789] | *-*-solaris2.1[0-9]*)
-		tm_file="sparc/biarch64.h ${tm_file} sparc/sol2-bi.h tm-dwarf2.h"
+		tm_file="sparc/biarch64.h ${tm_file} sparc/sol2-bi.h"
 		if test x$gnu_ld = xyes; then
 			tm_file="${tm_file} sparc/sol2-gld-bi.h"
 		fi
 		if test x$gas = xyes; then
 			tm_file="${tm_file} sparc/sol2-gas-bi.h"
 		fi
+		tm_file="${tm_file} tm-dwarf2.h"
 		tmake_file="$tmake_file sparc/t-sol2-64"
 		need_64bit_hwint=yes
 		;;

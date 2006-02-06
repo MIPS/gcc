@@ -163,6 +163,10 @@ static int s390_sr_alias_set = 0;
    emitted.  */
 rtx s390_compare_op0, s390_compare_op1;
 
+/* Save the result of a compare_and_swap  until the branch or scc is
+   emitted.  */
+rtx s390_compare_emitted = NULL_RTX;
+
 /* Structure used to hold the components of a S/390 memory
    address.  A legitimate address on S/390 is of the general
    form
@@ -186,7 +190,6 @@ enum processor_flags s390_tune_flags;
 /* Which instruction set architecture to use.  */
 enum processor_type s390_arch;
 enum processor_flags s390_arch_flags;
-static const char *s390_arch_string;
 
 HOST_WIDE_INT s390_warn_framesize = 0;
 HOST_WIDE_INT s390_stack_size = 0;
@@ -254,6 +257,11 @@ struct machine_function GTY(())
   (1 << (BITNUM)))
 #define cfun_fpr_bit_p(BITNUM) (!!(cfun->machine->frame_layout.fpr_bitmap &    \
   (1 << (BITNUM))))
+
+/* Number of GPRs and FPRs used for argument passing.  */
+#define GP_ARG_NUM_REG 5
+#define FP_ARG_NUM_REG (TARGET_64BIT? 4 : 2)
+
 
 /* Return true if SET either doesn't set the CC register, or else
    the source and destination have matching CC modes and that
@@ -605,10 +613,21 @@ rtx
 s390_emit_compare (enum rtx_code code, rtx op0, rtx op1)
 {
   enum machine_mode mode = s390_select_ccmode (code, op0, op1);
-  rtx cc = gen_rtx_REG (mode, CC_REGNUM);
+  rtx ret = NULL_RTX;
 
-  emit_insn (gen_rtx_SET (VOIDmode, cc, gen_rtx_COMPARE (mode, op0, op1)));
-  return gen_rtx_fmt_ee (code, VOIDmode, cc, const0_rtx);
+  /* Do not output a redundant compare instruction if a compare_and_swap
+     pattern already computed the result and the machine modes match.  */
+  if (s390_compare_emitted && GET_MODE (s390_compare_emitted) == mode)
+    ret = gen_rtx_fmt_ee (code, VOIDmode, s390_compare_emitted, const0_rtx); 
+  else
+    {
+      rtx cc = gen_rtx_REG (mode, CC_REGNUM);
+      
+      emit_insn (gen_rtx_SET (VOIDmode, cc, gen_rtx_COMPARE (mode, op0, op1)));
+      ret = gen_rtx_fmt_ee (code, VOIDmode, cc, const0_rtx); 
+    }
+  s390_compare_emitted = NULL_RTX;
+  return ret;
 }
 
 /* Emit a jump instruction to TARGET.  If COND is NULL_RTX, emit an
@@ -1123,7 +1142,6 @@ s390_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
   switch (code)
     {
     case OPT_march_:
-      s390_arch_string = arg;
       return s390_handle_arch_option (arg, &s390_arch, &s390_arch_flags);
 
     case OPT_mstack_guard_:
@@ -3543,10 +3561,12 @@ s390_expand_addcc (enum rtx_code cmp_code, rtx cmp_op0, rtx cmp_op1,
 }
 
 
-/* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
+/* This is called from dwarf2out.c via TARGET_ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
 
-void
+static void s390_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
+
+static void
 s390_output_dwarf_dtprel (FILE *file, int size, rtx x)
 {
   switch (size)
@@ -4669,15 +4689,12 @@ s390_add_execute (struct constant_pool *pool, rtx insn)
 
   if (c == NULL)
     {
-      rtx label = s390_execute_label (insn);
-      gcc_assert (label);
-
       c = (struct constant *) xmalloc (sizeof *c);
       c->value = insn;
-      c->label = label == const0_rtx ? gen_label_rtx () : XEXP (label, 0);
+      c->label = gen_label_rtx ();
       c->next = pool->execute;
       pool->execute = c;
-      pool->size += label == const0_rtx ? 6 : 0;
+      pool->size += 6;
     }
 }
 
@@ -4727,28 +4744,6 @@ s390_execute_target (rtx insn)
     }
 
   return pattern;
-}
-
-/* Dump out the out-of-pool execute template insns in POOL
-   at the end of the instruction stream.  */
-
-static void
-s390_dump_execute (struct constant_pool *pool)
-{
-  struct constant *c;
-  rtx insn;
-
-  for (c = pool->execute; c; c = c->next)
-    {
-      if (s390_execute_label (c->value) == const0_rtx)
-	continue;
-
-      insn = emit_label (c->label);
-      INSN_ADDRESSES_NEW (insn, -1);
-
-      insn = emit_insn (s390_execute_target (c->value));
-      INSN_ADDRESSES_NEW (insn, -1);
-    }
 }
 
 /* Indicate that INSN cannot be duplicated.  This is the case for
@@ -4826,9 +4821,6 @@ s390_dump_pool (struct constant_pool *pool, bool remote_label)
   /* Output in-pool execute template insns.  */
   for (c = pool->execute; c; c = c->next)
     {
-      if (s390_execute_label (c->value) != const0_rtx)
-	continue;
-
       insn = emit_label_after (c->label, insn);
       INSN_ADDRESSES_NEW (insn, -1);
 
@@ -4848,9 +4840,6 @@ s390_dump_pool (struct constant_pool *pool, bool remote_label)
 
   /* Remove placeholder insn.  */
   remove_insn (pool->pool_insn);
-
-  /* Output out-of-pool execute template isns.  */
-  s390_dump_execute (pool);
 }
 
 /* Free all memory used by POOL.  */
@@ -4900,7 +4889,7 @@ s390_mainpool_start (void)
 	  pool->pool_insn = insn;
 	}
 
-      if (s390_execute_label (insn))
+      if (!TARGET_CPU_ZARCH && s390_execute_label (insn))
 	{
 	  s390_add_execute (pool, insn);
 	}
@@ -4945,9 +4934,6 @@ s390_mainpool_finish (struct constant_pool *pool)
   /* If the pool is empty, we're done.  */
   if (pool->size == 0)
     {
-      /* However, we may have out-of-pool execute templates.  */
-      s390_dump_execute (pool);
-
       /* We don't actually need a base register after all.  */
       cfun->machine->base_reg = NULL_RTX;
 
@@ -5100,7 +5086,7 @@ s390_chunkify_start (void)
 	    }
 	}
 
-      if (s390_execute_label (insn))
+      if (!TARGET_CPU_ZARCH && s390_execute_label (insn))
 	{
 	  if (!curr_pool)
 	    curr_pool = s390_start_pool (&pool_list, insn);
@@ -5659,18 +5645,40 @@ s390_register_info (int live_regs[])
   if (current_function_stdarg)
     {
       /* Varargs functions need to save gprs 2 to 6.  */
-      if (cfun_frame_layout.first_save_gpr == -1
-          || cfun_frame_layout.first_save_gpr > 2)
-        cfun_frame_layout.first_save_gpr = 2;
+      if (cfun->va_list_gpr_size
+	  && current_function_args_info.gprs < GP_ARG_NUM_REG)
+	{
+	  int min_gpr = current_function_args_info.gprs;
+	  int max_gpr = min_gpr + cfun->va_list_gpr_size;
+	  if (max_gpr > GP_ARG_NUM_REG)
+	    max_gpr = GP_ARG_NUM_REG;
 
-      if (cfun_frame_layout.last_save_gpr == -1
-          || cfun_frame_layout.last_save_gpr < 6)
-        cfun_frame_layout.last_save_gpr = 6;
+	  if (cfun_frame_layout.first_save_gpr == -1
+	      || cfun_frame_layout.first_save_gpr > 2 + min_gpr)
+	    cfun_frame_layout.first_save_gpr = 2 + min_gpr;
+
+	  if (cfun_frame_layout.last_save_gpr == -1
+	      || cfun_frame_layout.last_save_gpr < 2 + max_gpr - 1)
+	    cfun_frame_layout.last_save_gpr = 2 + max_gpr - 1;
+	}
 
       /* Mark f0, f2 for 31 bit and f0-f4 for 64 bit to be saved.  */
-      if (TARGET_HARD_FLOAT)
-	for (i = 0; i < (TARGET_64BIT ? 4 : 2); i++)
-	  cfun_set_fpr_bit (i);
+      if (TARGET_HARD_FLOAT && cfun->va_list_fpr_size
+	  && current_function_args_info.fprs < FP_ARG_NUM_REG)
+	{
+	  int min_fpr = current_function_args_info.fprs;
+	  int max_fpr = min_fpr + cfun->va_list_fpr_size;
+	  if (max_fpr > FP_ARG_NUM_REG)
+	    max_fpr = FP_ARG_NUM_REG;
+
+	  /* ??? This is currently required to ensure proper location
+	     of the fpr save slots within the va_list save area.  */
+	  if (TARGET_PACKED_STACK)
+	    min_fpr = 0;
+
+	  for (i = min_fpr; i < max_fpr; i++)
+	    cfun_set_fpr_bit (i);
+	}
     }
 
   if (!TARGET_64BIT)
@@ -6714,7 +6722,7 @@ s390_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 {
   if (s390_function_arg_float (mode, type))
     {
-      if (cum->fprs + 1 > (TARGET_64BIT? 4 : 2))
+      if (cum->fprs + 1 > FP_ARG_NUM_REG)
 	return 0;
       else
 	return gen_rtx_REG (mode, cum->fprs + 16);
@@ -6724,7 +6732,7 @@ s390_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
       int size = s390_function_arg_size (mode, type);
       int n_gprs = (size + UNITS_PER_WORD-1) / UNITS_PER_WORD;
 
-      if (cum->gprs + n_gprs > 5)
+      if (cum->gprs + n_gprs > GP_ARG_NUM_REG)
 	return 0;
       else
 	return gen_rtx_REG (mode, cum->gprs + 2);
@@ -6832,6 +6840,9 @@ s390_build_builtin_va_list (void)
   f_sav = build_decl (FIELD_DECL, get_identifier ("__reg_save_area"),
 		      ptr_type_node);
 
+  va_list_gpr_counter_field = f_gpr;
+  va_list_fpr_counter_field = f_fpr;
+
   DECL_FIELD_CONTEXT (f_gpr) = record;
   DECL_FIELD_CONTEXT (f_fpr) = record;
   DECL_FIELD_CONTEXT (f_ovf) = record;
@@ -6887,39 +6898,53 @@ s390_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   n_gpr = current_function_args_info.gprs;
   n_fpr = current_function_args_info.fprs;
 
-  t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
-	     build_int_cst (NULL_TREE, n_gpr));
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  if (cfun->va_list_gpr_size)
+    {
+      t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
+	         build_int_cst (NULL_TREE, n_gpr));
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
 
-  t = build (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
-	     build_int_cst (NULL_TREE, n_fpr));
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+  if (cfun->va_list_fpr_size)
+    {
+      t = build (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
+	         build_int_cst (NULL_TREE, n_fpr));
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
 
   /* Find the overflow area.  */
-  t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
+  if (n_gpr + cfun->va_list_gpr_size > GP_ARG_NUM_REG
+      || n_fpr + cfun->va_list_fpr_size > FP_ARG_NUM_REG)
+    {
+      t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
 
-  off = INTVAL (current_function_arg_offset_rtx);
-  off = off < 0 ? 0 : off;
-  if (TARGET_DEBUG_ARG)
-    fprintf (stderr, "va_start: n_gpr = %d, n_fpr = %d off %d\n",
-	     (int)n_gpr, (int)n_fpr, off);
+      off = INTVAL (current_function_arg_offset_rtx);
+      off = off < 0 ? 0 : off;
+      if (TARGET_DEBUG_ARG)
+	fprintf (stderr, "va_start: n_gpr = %d, n_fpr = %d off %d\n",
+		 (int)n_gpr, (int)n_fpr, off);
 
-  t = build (PLUS_EXPR, TREE_TYPE (ovf), t, build_int_cst (NULL_TREE, off));
+      t = build (PLUS_EXPR, TREE_TYPE (ovf), t, build_int_cst (NULL_TREE, off));
 
-  t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+      t = build (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
 
   /* Find the register save area.  */
-  t = make_tree (TREE_TYPE (sav), return_address_pointer_rtx);
-  t = build (PLUS_EXPR, TREE_TYPE (sav), t,
-	     build_int_cst (NULL_TREE, -RETURN_REGNUM * UNITS_PER_WORD));
+  if ((cfun->va_list_gpr_size && n_gpr < GP_ARG_NUM_REG)
+      || (cfun->va_list_fpr_size && n_fpr < FP_ARG_NUM_REG))
+    {
+      t = make_tree (TREE_TYPE (sav), return_address_pointer_rtx);
+      t = build (PLUS_EXPR, TREE_TYPE (sav), t,
+	         build_int_cst (NULL_TREE, -RETURN_REGNUM * UNITS_PER_WORD));
   
-  t = build (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
-  TREE_SIDE_EFFECTS (t) = 1;
-  expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+      t = build (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
 }
 
 /* Implement va_arg by updating the va_list structure
@@ -6987,7 +7012,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
       sav_ofs = 2 * UNITS_PER_WORD;
       sav_scale = UNITS_PER_WORD;
       size = UNITS_PER_WORD;
-      max_reg = 4;
+      max_reg = GP_ARG_NUM_REG - n_reg;
     }
   else if (s390_function_arg_float (TYPE_MODE (type), type))
     {
@@ -7003,8 +7028,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
       n_reg = 1;
       sav_ofs = 16 * UNITS_PER_WORD;
       sav_scale = 8;
-      /* TARGET_64BIT has up to 4 parameter in fprs */
-      max_reg = TARGET_64BIT ? 3 : 1;
+      max_reg = FP_ARG_NUM_REG - n_reg;
     }
   else
     {
@@ -7028,10 +7052,7 @@ s390_gimplify_va_arg (tree valist, tree type, tree *pre_p,
 	sav_ofs += UNITS_PER_WORD - size;
 
       sav_scale = UNITS_PER_WORD;
-      if (n_reg > 1)
-	max_reg = 3;
-      else
-	max_reg = 4;
+      max_reg = GP_ARG_NUM_REG - n_reg;
     }
 
   /* Pull the value out of the saved registers ...  */
@@ -7951,6 +7972,10 @@ s390_optimize_prologue (void)
 
 	  if (GET_CODE (base) != REG || off < 0)
 	    continue;
+	  if (cfun_frame_layout.first_save_gpr != -1
+	      && (cfun_frame_layout.first_save_gpr < first
+		  || cfun_frame_layout.last_save_gpr > last))
+	    continue;
 	  if (REGNO (base) != STACK_POINTER_REGNUM
 	      && REGNO (base) != HARD_FRAME_POINTER_REGNUM)
 	    continue;
@@ -7972,7 +7997,8 @@ s390_optimize_prologue (void)
 	  continue;
 	}
 
-      if (GET_CODE (PATTERN (insn)) == SET
+      if (cfun_frame_layout.first_save_gpr == -1
+	  && GET_CODE (PATTERN (insn)) == SET
 	  && GET_CODE (SET_SRC (PATTERN (insn))) == REG
 	  && (REGNO (SET_SRC (PATTERN (insn))) == BASE_REGNUM
 	      || (!TARGET_CPU_ZARCH
@@ -7990,16 +8016,6 @@ s390_optimize_prologue (void)
 	  if (REGNO (base) != STACK_POINTER_REGNUM
 	      && REGNO (base) != HARD_FRAME_POINTER_REGNUM)
 	    continue;
-	  if (cfun_frame_layout.first_save_gpr != -1)
-	    {
-	      new_insn = save_gprs (base, 
-				    off + (cfun_frame_layout.first_save_gpr 
-					   - first) * UNITS_PER_WORD, 
-				    cfun_frame_layout.first_save_gpr,
-				    cfun_frame_layout.last_save_gpr);
-	      new_insn = emit_insn_before (new_insn, insn);
-	      INSN_ADDRESSES_NEW (new_insn, -1);
-	    }
 
 	  remove_insn (insn);
 	  continue;
@@ -8016,6 +8032,10 @@ s390_optimize_prologue (void)
 	  off = INTVAL (offset);
 
 	  if (GET_CODE (base) != REG || off < 0)
+	    continue;
+	  if (cfun_frame_layout.first_restore_gpr != -1
+	      && (cfun_frame_layout.first_restore_gpr < first
+		  || cfun_frame_layout.last_restore_gpr > last))
 	    continue;
 	  if (REGNO (base) != STACK_POINTER_REGNUM
 	      && REGNO (base) != HARD_FRAME_POINTER_REGNUM)
@@ -8038,7 +8058,8 @@ s390_optimize_prologue (void)
 	  continue;
 	}
 
-      if (GET_CODE (PATTERN (insn)) == SET
+      if (cfun_frame_layout.first_restore_gpr == -1
+	  && GET_CODE (PATTERN (insn)) == SET
 	  && GET_CODE (SET_DEST (PATTERN (insn))) == REG
 	  && (REGNO (SET_DEST (PATTERN (insn))) == BASE_REGNUM
 	      || (!TARGET_CPU_ZARCH
@@ -8056,16 +8077,6 @@ s390_optimize_prologue (void)
 	  if (REGNO (base) != STACK_POINTER_REGNUM
 	      && REGNO (base) != HARD_FRAME_POINTER_REGNUM)
 	    continue;
-	  if (cfun_frame_layout.first_restore_gpr != -1)
-	    {
-	      new_insn = restore_gprs (base, 
-				       off + (cfun_frame_layout.first_restore_gpr 
-					      - first) * UNITS_PER_WORD,
-				       cfun_frame_layout.first_restore_gpr,
-				       cfun_frame_layout.last_restore_gpr);
-	      new_insn = emit_insn_before (new_insn, insn);
-	      INSN_ADDRESSES_NEW (new_insn, -1);
-	    }
 
 	  remove_insn (insn);
 	  continue;
@@ -8160,6 +8171,28 @@ s390_reorg (void)
       break;
     }
 
+  /* Generate out-of-pool execute target insns.  */
+  if (TARGET_CPU_ZARCH)
+    {
+      rtx insn, label, target;
+
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+	{
+	  label = s390_execute_label (insn);
+	  if (!label)
+	    continue;
+
+	  gcc_assert (label != const0_rtx);
+
+	  target = emit_label (XEXP (label, 0));
+	  INSN_ADDRESSES_NEW (target, -1);
+
+	  target = emit_insn (s390_execute_target (insn));
+	  INSN_ADDRESSES_NEW (target, -1);
+	}
+    }
+
+  /* Try to optimize prologue and epilogue further.  */
   s390_optimize_prologue ();
 }
 
@@ -8250,6 +8283,14 @@ s390_reorg (void)
 
 #undef TARGET_CC_MODES_COMPATIBLE
 #define TARGET_CC_MODES_COMPATIBLE s390_cc_modes_compatible
+
+#undef TARGET_INVALID_WITHIN_DOLOOP
+#define TARGET_INVALID_WITHIN_DOLOOP hook_constcharptr_rtx_null
+
+#ifdef HAVE_AS_TLS
+#undef TARGET_ASM_OUTPUT_DWARF_DTPREL
+#define TARGET_ASM_OUTPUT_DWARF_DTPREL s390_output_dwarf_dtprel
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

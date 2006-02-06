@@ -68,7 +68,6 @@ extern void ia64_print_operand (FILE *, rtx, int);
 extern enum reg_class ia64_preferred_reload_class (rtx, enum reg_class);
 extern enum reg_class ia64_secondary_reload_class (enum reg_class,
 						   enum machine_mode, rtx);
-extern void ia64_output_dwarf_dtprel (FILE*, int, rtx);
 extern void process_for_unwind_directive (FILE *, rtx);
 extern const char *get_bundle_name (int);
 #endif /* RTX_CODE */
@@ -114,3 +113,4 @@ extern enum direction ia64_hpux_function_arg_padding (enum machine_mode, tree);
 #endif /* ARGS_SIZE_RTX */
 
 extern void ia64_hpux_handle_builtin_pragma (struct cpp_reader *);
+extern void ia64_output_function_profiler (FILE *, int);

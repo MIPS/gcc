@@ -171,8 +171,8 @@ rtl_predicted_by_p (basic_block bb, enum br_predictor predictor)
 bool
 tree_predicted_by_p (basic_block bb, enum br_predictor predictor)
 {
-  struct edge_prediction *i = bb_ann (bb)->predictions;
-  for (i = bb_ann (bb)->predictions; i; i = i->next)
+  struct edge_prediction *i;
+  for (i = bb->predictions; i; i = i->next)
     if (i->predictor == predictor)
       return true;
   return false;
@@ -231,13 +231,36 @@ rtl_predict_edge (edge e, enum br_predictor predictor, int probability)
 void
 tree_predict_edge (edge e, enum br_predictor predictor, int probability)
 {
-  struct edge_prediction *i = ggc_alloc (sizeof (struct edge_prediction));
+  gcc_assert (profile_status != PROFILE_GUESSED);
+  if ((e->src != ENTRY_BLOCK_PTR && EDGE_COUNT (e->src->succs) > 1)
+      && flag_guess_branch_prob && optimize)
+    {
+      struct edge_prediction *i = ggc_alloc (sizeof (struct edge_prediction));
 
-  i->next = bb_ann (e->src)->predictions;
-  bb_ann (e->src)->predictions = i;
-  i->probability = probability;
-  i->predictor = predictor;
-  i->edge = e;
+      i->next = e->src->predictions;
+      e->src->predictions = i;
+      i->probability = probability;
+      i->predictor = predictor;
+      i->edge = e;
+    }
+}
+
+/* Remove all predictions on given basic block that are attached
+   to edge E.  */
+void
+remove_predictions_associated_with_edge (edge e)
+{
+  if (e->src->predictions)
+    {
+      struct edge_prediction **prediction = &e->src->predictions;
+      while (*prediction)
+	{
+	  if ((*prediction)->edge == e)
+	    *prediction = (*prediction)->next;
+	  else
+	    prediction = &((*prediction)->next);
+	}
+    }
 }
 
 /* Return true when we can store prediction on insn INSN.
@@ -488,7 +511,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
     {
       if (!bb->count)
 	set_even_probabilities (bb);
-      bb_ann (bb)->predictions = NULL;
+      bb->predictions = NULL;
       if (file)
 	fprintf (file, "%i edges in bb %i predicted to even probabilities\n",
 		 nedges, bb->index);
@@ -500,7 +523,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
 
   /* We implement "first match" heuristics and use probability guessed
      by predictor with smallest index.  */
-  for (pred = bb_ann (bb)->predictions; pred; pred = pred->next)
+  for (pred = bb->predictions; pred; pred = pred->next)
     {
       int predictor = pred->predictor;
       int probability = pred->probability;
@@ -546,7 +569,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
     combined_probability = best_probability;
   dump_prediction (file, PRED_COMBINED, combined_probability, bb, true);
 
-  for (pred = bb_ann (bb)->predictions; pred; pred = pred->next)
+  for (pred = bb->predictions; pred; pred = pred->next)
     {
       int predictor = pred->predictor;
       int probability = pred->probability;
@@ -556,7 +579,7 @@ combine_predictions_for_bb (FILE *file, basic_block bb)
       dump_prediction (file, predictor, probability, bb,
 		       !first_match || best_predictor == predictor);
     }
-  bb_ann (bb)->predictions = NULL;
+  bb->predictions = NULL;
 
   if (!bb->count)
     {
@@ -1904,11 +1927,16 @@ choose_function_section (void)
 		    UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
 }
 
+static bool
+gate_estimate_probability (void)
+{
+  return flag_guess_branch_prob;
+}
 
 struct tree_opt_pass pass_profile = 
 {
   "profile",				/* name */
-  NULL,					/* gate */
+  gate_estimate_probability,		/* gate */
   tree_estimate_probability,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */

@@ -262,6 +262,30 @@ default_scalar_mode_supported_p (enum machine_mode mode)
     }
 }
 
+/* NULL if INSN insn is valid within a low-overhead loop, otherwise returns
+   an error message.
+  
+   This function checks whether a given INSN is valid within a low-overhead
+   loop.  If INSN is invalid it returns the reason for that, otherwise it
+   returns NULL. A called function may clobber any special registers required
+   for low-overhead looping. Additionally, some targets (eg, PPC) use the count
+   register for branch on table instructions. We reject the doloop pattern in
+   these cases.  */
+
+const char *
+default_invalid_within_doloop (rtx insn)
+{
+  if (CALL_P (insn))
+    return "Function call in loop.";
+  
+  if (JUMP_P (insn)
+      && (GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
+	  || GET_CODE (PATTERN (insn)) == ADDR_VEC))
+    return "Computed branch in the loop.";
+  
+  return NULL;
+}
+
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,

@@ -707,6 +707,7 @@ AM_CONDITIONAL(USING_NO_THREADS, test "$THREADS" = none)
 if test -d sysdep; then true; else mkdir sysdep; fi
 AC_CONFIG_LINKS(sysdep/locks.h:sysdep/$sysdeps_dir/locks.h)
 AC_CONFIG_LINKS(sysdep/backtrace.h:$fallback_backtrace_h)
+AC_CONFIG_LINKS(sysdep/descriptor.h:$descriptor_h)
 
 HASH_SYNC_SPEC=
 # Hash synchronization is only useful with posix threads right now.
@@ -1147,6 +1148,7 @@ AC_SUBST(ZINCS)
 AC_SUBST(DIVIDESPEC)
 AC_SUBST(CHECKREFSPEC)
 AC_SUBST(EXCEPTIONSPEC)
+AC_SUBST(BACKTRACESPEC)
 AC_SUBST(IEEESPEC)
 
 AM_CONDITIONAL(NATIVE, test "$NATIVE" = yes)
@@ -1343,15 +1345,6 @@ if test "$enable_sjlj_exceptions" = yes; then
    SIGNAL_HANDLER=include/default-signal.h
    SIGNAL_HANDLER_AUX=
 fi
-
-# Define here any compiler flags that you need in order to make backtrace() work.
-BACKTRACESPEC=
-case "${host}" in
- x86_64*-*-linux*|i?86-*)
-    BACKTRACESPEC=-fno-omit-frame-pointer
-    ;;
-esac
-AC_SUBST(BACKTRACESPEC)
 
 AC_SUBST(SYSDEP_SOURCES)
 

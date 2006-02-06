@@ -121,7 +121,6 @@
    RPTS blocks interrupts.  */
 
 
-extern int c4x_rpts_cycles;	        /* Max cycles for RPTS.  */
 extern int c4x_cpu_version;		/* Cpu version C30/31/32/33/40/44.  */
 
 #define TARGET_INLINE		(! optimize_size) /* Inline MPYI.  */
@@ -1700,8 +1699,7 @@ if (final_sequence != NULL_RTX)				\
   {"any_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
   {"par_ind_operand", {MEM}},					\
   {"parallel_operand", {SUBREG, REG, MEM}},			\
-  {"symbolic_address_operand", {SYMBOL_REF, LABEL_REF, CONST}},	\
-  {"mem_operand", {MEM}},					
+  {"symbolic_address_operand", {SYMBOL_REF, LABEL_REF, CONST}},
 
 
 /* Define the intrinsic functions for the c3x/c4x.  */

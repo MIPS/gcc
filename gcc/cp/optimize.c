@@ -1,5 +1,5 @@
 /* Perform optimizations on tree structure.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005
    Free Software Foundation, Inc.
    Written by Mark Michell (mark@codesourcery.com).
 
@@ -62,12 +62,13 @@ update_cloned_parm (tree parm, tree cloned_parm)
 
   /* The definition might have different constness.  */
   TREE_READONLY (cloned_parm) = TREE_READONLY (parm);
-  
+
   TREE_USED (cloned_parm) = TREE_USED (parm);
-  
+
   /* The name may have changed from the declaration.  */
   DECL_NAME (cloned_parm) = DECL_NAME (parm);
   DECL_SOURCE_LOCATION (cloned_parm) = DECL_SOURCE_LOCATION (parm);
+  TREE_TYPE (cloned_parm) = TREE_TYPE (parm);
 }
 
 /* FN is a function that has a complete body.  Clone the body as

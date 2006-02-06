@@ -146,7 +146,7 @@ extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
 extern const int x86_use_bit_test, x86_cmove, x86_fisttp, x86_deep_branch;
 extern const int x86_branch_hints, x86_unroll_strlen;
 extern const int x86_double_with_add, x86_partial_reg_stall, x86_movx;
-extern const int x86_use_loop, x86_use_himode_fiop, x86_use_simode_fiop;
+extern const int x86_use_himode_fiop, x86_use_simode_fiop;
 extern const int x86_use_mov0, x86_use_cltd, x86_read_modify_write;
 extern const int x86_read_modify, x86_split_long_moves;
 extern const int x86_promote_QImode, x86_single_stringop, x86_fast_prefix;
@@ -180,7 +180,6 @@ extern int x86_prefetch_sse;
 #define TARGET_USE_SAHF ((x86_use_sahf & TUNEMASK) && !TARGET_64BIT)
 #define TARGET_MOVX (x86_movx & TUNEMASK)
 #define TARGET_PARTIAL_REG_STALL (x86_partial_reg_stall & TUNEMASK)
-#define TARGET_USE_LOOP (x86_use_loop & TUNEMASK)
 #define TARGET_USE_HIMODE_FIOP (x86_use_himode_fiop & TUNEMASK)
 #define TARGET_USE_SIMODE_FIOP (x86_use_simode_fiop & TUNEMASK)
 #define TARGET_USE_MOV0 (x86_use_mov0 & TUNEMASK)
@@ -2072,13 +2071,6 @@ do {									\
 #define JUMP_TABLES_IN_TEXT_SECTION \
   (!TARGET_64BIT && flag_pic && !HAVE_AS_GOTOFF_IN_DATA)
 
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#ifdef HAVE_AS_TLS
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  i386_output_dwarf_dtprel (FILE, SIZE, X)
-#endif
-
 /* Switch to init or fini section via SECTION_OP, emit a call to FUNC,
    and switch back.  For x86 we do this only to save a few bytes that
    would otherwise be unused in the text section.  */
@@ -2132,10 +2124,7 @@ enum processor_type
 };
 
 extern enum processor_type ix86_tune;
-extern const char *ix86_tune_string;
-
 extern enum processor_type ix86_arch;
-extern const char *ix86_arch_string;
 
 enum fpmath_unit
 {
@@ -2200,11 +2189,31 @@ extern rtx ix86_compare_emitted;
    Post-reload pass may be later used to eliminate the redundant fildcw if
    needed.  */
 
+enum ix86_entity
+{
+  I387_TRUNC = 0,
+  I387_FLOOR,
+  I387_CEIL,
+  I387_MASK_PM,
+  MAX_386_ENTITIES
+};
+
+enum ix86_stack_slot 
+{
+  SLOT_TEMP = 0,
+  SLOT_CW_STORED,
+  SLOT_CW_TRUNC,
+  SLOT_CW_FLOOR,
+  SLOT_CW_CEIL,
+  SLOT_CW_MASK_PM,
+  MAX_386_STACK_LOCALS
+};
 
 /* Define this macro if the port needs extra instructions inserted
    for mode switching in an optimizing compilation.  */
 
-#define OPTIMIZE_MODE_SWITCHING(ENTITY) ix86_optimize_mode_switching
+#define OPTIMIZE_MODE_SWITCHING(ENTITY) \
+   ix86_optimize_mode_switching[(ENTITY)]
 
 /* If you define `OPTIMIZE_MODE_SWITCHING', you have to define this as
    initializer for an array of integers.  Each initializer element N
@@ -2214,27 +2223,16 @@ extern rtx ix86_compare_emitted;
    starting counting at zero - determines the integer that is used to
    refer to the mode-switched entity in question.  */
 
-#define NUM_MODES_FOR_MODE_SWITCHING { I387_CW_ANY }
+#define NUM_MODES_FOR_MODE_SWITCHING \
+   { I387_CW_ANY, I387_CW_ANY, I387_CW_ANY, I387_CW_ANY }
 
 /* ENTITY is an integer specifying a mode-switched entity.  If
    `OPTIMIZE_MODE_SWITCHING' is defined, you must define this macro to
    return an integer value not larger than the corresponding element
    in `NUM_MODES_FOR_MODE_SWITCHING', to denote the mode that ENTITY
-   must be switched into prior to the execution of INSN. 
-   
-   The mode UNINITIALIZED is used to force re-load of possibly previously
-   stored control word after function call.  The mode ANY specify that
-   function has no requirements on the control word and make no changes
-   in the bits we are interested in.  */
+   must be switched into prior to the execution of INSN. */
 
-#define MODE_NEEDED(ENTITY, I)						\
-  (GET_CODE (I) == CALL_INSN						\
-   || (GET_CODE (I) == INSN && (asm_noperands (PATTERN (I)) >= 0 	\
-				|| GET_CODE (PATTERN (I)) == ASM_INPUT))\
-   ? I387_CW_UNINITIALIZED						\
-   : recog_memoized (I) < 0						\
-   ? I387_CW_ANY 							\
-   : get_attr_i387_cw (I))
+#define MODE_NEEDED(ENTITY, I) ix86_mode_needed ((ENTITY), (I))
 
 /* This macro specifies the order in which modes for ENTITY are
    processed.  0 is the highest priority.  */
@@ -2247,10 +2245,9 @@ extern rtx ix86_compare_emitted;
 
 #define EMIT_MODE_SET(ENTITY, MODE, HARD_REGS_LIVE) 			\
   ((MODE) != I387_CW_ANY && (MODE) != I387_CW_UNINITIALIZED		\
-   ? emit_i387_cw_initialization (assign_386_stack_local (HImode, 1),	\
-				  assign_386_stack_local (HImode, 2),   \
-				  MODE), 0				\
+   ? emit_i387_cw_initialization (MODE), 0				\
    : 0)
+
 
 /* Avoid renaming of stack registers, as doing so in combination with
    scheduling just increases amount of live registers at time and in
@@ -2272,7 +2269,7 @@ struct machine_function GTY(())
   const char *some_ld_name;
   int save_varrargs_registers;
   int accesses_prev_frame;
-  int optimize_mode_switching;
+  int optimize_mode_switching[MAX_386_ENTITIES];
   /* Set by ix86_compute_frame_layout and used by prologue/epilogue expander to
      determine the style used.  */
   int use_fast_prologue_epilogue;

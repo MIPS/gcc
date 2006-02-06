@@ -49,7 +49,7 @@ fr30 port		Nick Clifton		nickc@redhat.com
 frv port		Aldy Hernandez		aldyh@redhat.com
 frv port		Alexandre Oliva		aoliva@redhat.com
 h8 port			Jeff Law		law@redhat.com
-h8 port			Kazu Hirata		kazu@cs.umass.edu
+h8 port			Kazu Hirata		kazu@codesourcery.com
 hppa port		Jeff Law		law@redhat.com
 hppa port		Dave Anglin		dave.anglin@nrc.ca
 i386 port		Richard Henderson	rth@redhat.com
@@ -60,10 +60,11 @@ iq2000 port		Nick Clifton		nickc@redhat.com
 m32r port		Nick Clifton		nickc@redhat.com
 m68hc11 port		Stephane Carrez		stcarrez@nerim.fr
 m68k port (?)		Jeff Law		law@redhat.com
+m68k port		Andreas Schwab		schwab@suse.de
 m68k-motorola-sysv port	Philippe De Muyter	phdm@macqel.be
 mcore port		Nick Clifton		nickc@redhat.com
 mips port               Eric Christopher        echristo@redhat.com
-mips port		Richard Sandiford	rsandifo@redhat.com
+mips port		Richard Sandiford	richard@codesourcery.com
 mmix port		Hans-Peter Nilsson	hp@bitrange.com
 mn10300 port		Jeff Law		law@redhat.com
 mn10300 port		Alexandre Oliva		aoliva@redhat.com
@@ -223,12 +224,13 @@ Steve Chamberlain				sac@transmeta.com
 Michael Chastain				mec.gnu@mindspring.com
 Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
+Josh Conner					jconner@apple.com
 R. Kelley Cook					kcook@gcc.gnu.org
 Christian Cornelssen				ccorn@cs.tu-berlin.de
 François-Xavier Coudert				coudert@clipper.ens.fr
 David Daney					ddaney@avtrex.com
 Bud Davis					bdavis9659@comcast.net
-Chris Demetriou					cgd@broadcom.com
+Jerry DeLisle					jvdelisle@verizon.net
 Zdenek Dvorak					dvorakz@suse.cz
 Steve Ellcey					sje@cup.hp.com
 Mohan Embar					gnustuff@thisiscool.com
@@ -277,6 +279,7 @@ Gabor Loki					loki@inf.u-szeged.hu
 Dave Love					d.love@dl.ac.uk
 Martin v. Löwis					loewis@informatik.hu-berlin.de
 HJ Lu						hjl@lucon.org
+Ziga Mahkovec					ziga.mahkovec@klika.si
 Ranjit Mathew					rmathew@hotmail.com
 Michael Matz					matz@suse.de
 Greg McGary					gkm@gnu.org
@@ -307,7 +310,6 @@ Douglas Rupp					rupp@gnat.com
 Matthew Sachs					msachs@apple.com
 Alex Samuel					samuel@codesourcery.com
 Tobias Schlüter					tobias.schlueter@physik.uni-muenchen.de
-Andreas Schwab					schwab@suse.de
 Svein Seldal                                    svein@dev.seldal.com
 Franz Sirl					franz.sirl-kernel@lauterbach.com
 Michael Sokolov					msokolov@ivan.Harhan.ORG

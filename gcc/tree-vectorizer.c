@@ -124,7 +124,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 #include "tree.h"
 #include "target.h"
@@ -321,8 +320,11 @@ slpeel_update_phis_for_duplicate_loop (struct loop *orig_loop,
 
       new_ssa_name = get_current_def (def);
       if (!new_ssa_name)
-        /* Something defined outside of the loop.  */
-        continue;
+	{
+	  /* This only happens if there are no definitions
+	     inside the loop. use the phi_result in this case.  */
+	  new_ssa_name = PHI_RESULT (phi_new);
+	}
 
       /* An ordinary ssa name defined in the loop.  */
       add_phi_arg (phi_new, new_ssa_name, loop_latch_edge (new_loop));
@@ -566,7 +568,12 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
       else
         {
           current_new_name = get_current_def (loop_arg);
-          gcc_assert (current_new_name);
+	  /* current_def is not available only if the variable does not
+	     change inside the loop, in which case we also don't care
+	     about recording a current_def for it because we won't be
+	     trying to create loop-exit-phis for it.  */
+	  if (!current_new_name)
+	    continue;
         }
 #ifdef ENABLE_CHECKING
       gcc_assert (get_current_def (current_new_name) == NULL_TREE);
@@ -987,7 +994,7 @@ slpeel_verify_cfg_after_peeling (struct loop *first_loop,
   /* 1. Verify that one of the successors of first_loopt->exit is the preheader
         of second_loop.  */
    
-  /* The preheader of new_loop is expected to have two predessors:
+  /* The preheader of new_loop is expected to have two predecessors:
      first_loop->exit and the block that precedes first_loop.  */
 
   gcc_assert (EDGE_COUNT (loop2_entry_bb->preds) == 2 
@@ -1331,9 +1338,14 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_STMT (res) = stmt;
   STMT_VINFO_LOOP_VINFO (res) = loop_vinfo;
   STMT_VINFO_RELEVANT_P (res) = 0;
+  STMT_VINFO_LIVE_P (res) = 0;
   STMT_VINFO_VECTYPE (res) = NULL;
   STMT_VINFO_VEC_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
+  if (TREE_CODE (stmt) == PHI_NODE)
+    STMT_VINFO_DEF_TYPE (res) = vect_unknown_def_type;
+  else
+    STMT_VINFO_DEF_TYPE (res) = vect_loop_def;
   STMT_VINFO_MEMTAG (res) = NULL;
   STMT_VINFO_PTR_INFO (res) = NULL;
   STMT_VINFO_SUBVARS (res) = NULL;
@@ -1368,13 +1380,21 @@ new_loop_vec_info (struct loop *loop)
   for (i = 0; i < loop->num_nodes; i++)
     {
       basic_block bb = bbs[i];
+      tree phi;
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+        {
+          tree_ann_t ann = get_tree_ann (phi);
+          set_stmt_info (ann, new_stmt_vec_info (phi, res));
+        }
+
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  tree stmt = bsi_stmt (si);
 	  stmt_ann_t ann;
 
 	  ann = stmt_ann (stmt);
-	  set_stmt_info (ann, new_stmt_vec_info (stmt, res));
+	  set_stmt_info ((tree_ann_t)ann, new_stmt_vec_info (stmt, res));
 	}
     }
 
@@ -1421,13 +1441,30 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo)
   for (j = 0; j < nbbs; j++)
     {
       basic_block bb = bbs[j];
+      tree phi;
+      stmt_vec_info stmt_info;
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+        {
+          tree_ann_t ann = get_tree_ann (phi);
+
+          stmt_info = vinfo_for_stmt (phi);
+          free (stmt_info);
+          set_stmt_info (ann, NULL);
+        }
+
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  tree stmt = bsi_stmt (si);
 	  stmt_ann_t ann = stmt_ann (stmt);
 	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-	  free (stmt_info);
-	  set_stmt_info (ann, NULL);
+
+	  if (stmt_info)
+	    {
+	      VEC_free (dr_p, heap, STMT_VINFO_SAME_ALIGN_REFS (stmt_info));
+	      free (stmt_info);
+	      set_stmt_info ((tree_ann_t)ann, NULL);
+	    }
 	}
     }
 
@@ -1589,64 +1626,148 @@ vect_supportable_dr_alignment (struct data_reference *dr)
    in reduction/induction computations).  */
 
 bool
-vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def)
+vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
+		    tree *def, enum vect_def_type *dt)
 { 
-  tree def_stmt;
   basic_block bb;
+  stmt_vec_info stmt_vinfo;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
 
-  if (def)
-    *def = NULL_TREE;
-
+  *def_stmt = NULL_TREE;
+  *def = NULL_TREE;
+  
+  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+    {
+      fprintf (vect_dump, "vect_is_simple_use: operand ");
+      print_generic_expr (vect_dump, operand, TDF_SLIM);
+    }
+    
   if (TREE_CODE (operand) == INTEGER_CST || TREE_CODE (operand) == REAL_CST)
-    return true;
-
+    {
+      *dt = vect_constant_def;
+      return true;
+    }
+    
   if (TREE_CODE (operand) != SSA_NAME)
-    return false;
-
-  def_stmt = SSA_NAME_DEF_STMT (operand);
-  if (def_stmt == NULL_TREE )
+    {
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+        fprintf (vect_dump, "not ssa-name.");
+      return false;
+    }
+    
+  *def_stmt = SSA_NAME_DEF_STMT (operand);
+  if (*def_stmt == NULL_TREE )
     {
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
         fprintf (vect_dump, "no def_stmt.");
       return false;
     }
 
+  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+    {
+      fprintf (vect_dump, "def_stmt: ");
+      print_generic_expr (vect_dump, *def_stmt, TDF_SLIM);
+    }
+
   /* empty stmt is expected only in case of a function argument.
      (Otherwise - we expect a phi_node or a modify_expr).  */
-  if (IS_EMPTY_STMT (def_stmt))
+  if (IS_EMPTY_STMT (*def_stmt))
     {
-      tree arg = TREE_OPERAND (def_stmt, 0);
+      tree arg = TREE_OPERAND (*def_stmt, 0);
       if (TREE_CODE (arg) == INTEGER_CST || TREE_CODE (arg) == REAL_CST)
-	return true;
+        {
+          *def = operand;
+          *dt = vect_invariant_def;
+          return true;
+        }
+
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-	{
-	  fprintf (vect_dump, "Unexpected empty stmt: ");
-	  print_generic_expr (vect_dump, def_stmt, TDF_SLIM);
-	}
-      return false;  
+        fprintf (vect_dump, "Unexpected empty stmt.");
+      return false;
     }
 
-  /* phi_node inside the loop indicates an induction/reduction pattern.
-     This is not supported yet.  */
-  bb = bb_for_stmt (def_stmt);
-  if (TREE_CODE (def_stmt) == PHI_NODE && flow_bb_inside_loop_p (loop, bb))
+  bb = bb_for_stmt (*def_stmt);
+  if (!flow_bb_inside_loop_p (loop, bb))
+    *dt = vect_invariant_def;
+  else
+    {
+      stmt_vinfo = vinfo_for_stmt (*def_stmt);
+      *dt = STMT_VINFO_DEF_TYPE (stmt_vinfo);
+    }
+
+  if (*dt == vect_unknown_def_type)
     {
       if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
-	fprintf (vect_dump, "reduction/induction - unsupported.");
-      return false; /* FORNOW: not supported yet.  */
+        fprintf (vect_dump, "Unsupported pattern.");
+      return false;
     }
 
-  /* Expecting a modify_expr or a phi_node.  */
-  if (TREE_CODE (def_stmt) == MODIFY_EXPR
-      || TREE_CODE (def_stmt) == PHI_NODE)
+  /* stmts inside the loop that have been identified as performing
+     a reduction operation cannot have uses in the loop.  */
+  if (*dt == vect_reduction_def && TREE_CODE (*def_stmt) != PHI_NODE)
     {
-      if (def)
-        *def = def_stmt; 	
-      return true;
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+        fprintf (vect_dump, "reduction used in loop.");
+      return false;
     }
 
-  return false;
+  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+    fprintf (vect_dump, "type of def: %d.",*dt);
+
+  switch (TREE_CODE (*def_stmt))
+    {
+    case PHI_NODE:
+      *def = PHI_RESULT (*def_stmt);
+      gcc_assert (*dt == vect_induction_def || *dt == vect_reduction_def
+                  || *dt == vect_invariant_def);
+      break;
+
+    case MODIFY_EXPR:
+      *def = TREE_OPERAND (*def_stmt, 0);
+      gcc_assert (*dt == vect_loop_def || *dt == vect_invariant_def);
+      break;
+
+    default:
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+        fprintf (vect_dump, "unsupported defining stmt: ");
+      return false;
+    }
+
+  if (*dt == vect_induction_def)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+        fprintf (vect_dump, "induction not supported.");
+      return false;
+    }
+
+  return true;
+}
+
+
+/* Function vect_is_simple_reduction
+
+   TODO:
+   Detect a cross-iteration def-use cucle that represents a simple
+   reduction computation. We look for the following pattern:
+
+   loop_header:
+     a1 = phi < a0, a2 >
+     a3 = ...
+     a2 = operation (a3, a1)
+  
+   such that:
+   1. operation is...
+   2. no uses for a2 in the loop (elsewhere)  */
+
+tree
+vect_is_simple_reduction (struct loop *loop ATTRIBUTE_UNUSED, 
+			  tree phi ATTRIBUTE_UNUSED)
+{
+  /* FORNOW */
+  if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
+    fprintf (vect_dump, "reduction: unknown pattern.");
+
+  return NULL_TREE;
 }
 
 

@@ -799,7 +799,7 @@ do {									\
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  Note that we can't use "rtx" here
    since it hasn't been defined!  */
-extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
+extern struct rtx_def *s390_compare_op0, *s390_compare_op1, *s390_compare_emitted;
 
 
 /* Relative costs of operations.  */
@@ -917,13 +917,6 @@ extern int flag_pic;
   "%f8",  "%f10", "%f12", "%f14", "%f9",  "%f11", "%f13", "%f15",	\
   "%ap",  "%cc",  "%fp",  "%rp",  "%a0",  "%a1"				\
 }
-
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#ifdef HAVE_AS_TLS
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  s390_output_dwarf_dtprel (FILE, SIZE, X)
-#endif
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.  */
 #define PRINT_OPERAND(FILE, X, CODE) print_operand (FILE, X, CODE)

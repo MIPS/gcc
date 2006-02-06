@@ -466,19 +466,27 @@ convert_move (rtx to, rtx from, int unsignedp)
     }
   if (GET_MODE_CLASS (from_mode) == MODE_PARTIAL_INT)
     {
+      rtx new_from;
       enum machine_mode full_mode
 	= smallest_mode_for_size (GET_MODE_BITSIZE (from_mode), MODE_INT);
 
       gcc_assert (sext_optab->handlers[full_mode][from_mode].insn_code
 		  != CODE_FOR_nothing);
 
-      emit_unop_insn (sext_optab->handlers[full_mode][from_mode].insn_code,
-		      to, from, UNKNOWN);
       if (to_mode == full_mode)
-	return;
+	{
+	  emit_unop_insn (sext_optab->handlers[full_mode][from_mode].insn_code,
+			  to, from, UNKNOWN);
+	  return;
+	}
+
+      new_from = gen_reg_rtx (full_mode);
+      emit_unop_insn (sext_optab->handlers[full_mode][from_mode].insn_code,
+		      new_from, from, UNKNOWN);
 
       /* else proceed to integer conversions below.  */
       from_mode = full_mode;
+      from = new_from;
     }
 
   /* Now both modes are integers.  */
@@ -6108,7 +6116,7 @@ expand_var (tree var)
       ? !TREE_ASM_WRITTEN (var)
       : !DECL_RTL_SET_P (var))
     {
-      if (TREE_CODE (var) == VAR_DECL && DECL_VALUE_EXPR (var))
+      if (TREE_CODE (var) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (var))
 	/* Should be ignored.  */;
       else if (lang_hooks.expand_decl (var))
 	/* OK.  */;
@@ -6854,7 +6862,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
     case INDIRECT_REF:
       {
 	tree exp1 = TREE_OPERAND (exp, 0);
-	tree orig;
 
 	if (modifier != EXPAND_WRITE)
 	  {
@@ -6877,10 +6884,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	temp = gen_rtx_MEM (mode, op0);
 
-	orig = REF_ORIGINAL (exp);
-	if (!orig)
-	  orig = exp;
-	set_mem_attributes (temp, orig, 0);
+	set_mem_attributes (temp, exp, 0);
 
 	/* Resolve the misalignment now, so that we don't have to remember
 	   to resolve it later.  Of course, this only works for reads.  */
@@ -6911,6 +6915,18 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	return temp;
       }
+
+    case TARGET_MEM_REF:
+      {
+	struct mem_address addr;
+
+	get_address_description (exp, &addr);
+	op0 = addr_for_mem_ref (&addr, true);
+	op0 = memory_address (mode, op0);
+	temp = gen_rtx_MEM (mode, op0);
+	set_mem_attributes (temp, TMR_ORIGINAL (exp), 0);
+      }
+      return temp;
 
     case ARRAY_REF:
 
@@ -7747,7 +7763,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  optab other_optab = zextend_p ? smul_widen_optab : umul_widen_optab;
 	  this_optab = zextend_p ? umul_widen_optab : smul_widen_optab;
 
-	  if (mode == GET_MODE_WIDER_MODE (innermode))
+	  if (mode == GET_MODE_2XWIDER_MODE (innermode))
 	    {
 	      if (this_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
 		{
@@ -8721,8 +8737,7 @@ do_store_flag (tree exp, rtx target, enum machine_mode mode, int only_cheap)
       if ((code == LT && integer_zerop (arg1))
 	  || (! only_cheap && code == GE && integer_zerop (arg1)))
 	;
-      else if (BRANCH_COST >= 0
-	       && ! only_cheap && (code == NE || code == EQ)
+      else if (! only_cheap && (code == NE || code == EQ)
 	       && TREE_CODE (type) != REAL_TYPE
 	       && ((abs_optab->handlers[(int) operand_mode].insn_code
 		    != CODE_FOR_nothing)

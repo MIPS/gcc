@@ -251,8 +251,8 @@ gfc_saved_var;
 /* Advance the SS chain to the next term.  */
 void gfc_advance_se_ss_chain (gfc_se *);
 
-/* Call this to initialise a gfc_se structure before use
-   first parameter is structure to initialise, second is
+/* Call this to initialize a gfc_se structure before use
+   first parameter is structure to initialize, second is
    parent to get scalarization data from, or NULL.  */
 void gfc_init_se (gfc_se *, gfc_se *);
 
@@ -301,7 +301,7 @@ void gfc_conv_intrinsic_function (gfc_se *, gfc_expr *);
 int gfc_is_intrinsic_libcall (gfc_expr *);
 
 /* Also used to CALL subroutines.  */
-void gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *);
+int gfc_conv_function_call (gfc_se *, gfc_symbol *, gfc_actual_arglist *);
 /* gfc_trans_* shouldn't call push/poplevel, use gfc_push/pop_scope */
 
 /* Generate code for a scalar assignment.  */
@@ -574,7 +574,4 @@ struct lang_decl		GTY(())
                                           arg1, arg2)
 #define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
                                                 arg1, arg2, arg3)
-
-/* flag for alternative return labels.  */
-extern int has_alternate_specifier;  /* for caller */
 #endif /* GFC_TRANS_H */

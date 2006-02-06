@@ -275,6 +275,7 @@ Boston, MA 02111-1307, USA.  */
    %{Zseg_addr_table*: -seg_addr_table %*} \
    %{Zseg_addr_table_filename*:-seg_addr_table_filename %*} \
    %{sub_library*} %{sub_umbrella*} \
+   %{isysroot*:-syslibroot %*} \
    %{twolevel_namespace} %{twolevel_namespace_hints} \
    %{umbrella*} \
    %{undefined*} \
@@ -532,6 +533,8 @@ Boston, MA 02111-1307, USA.  */
 	   else if (len > 7 && !strcmp ("$stub\"", xname + len - 6))	     \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   else if (len > 14 && !strcmp ("$non_lazy_ptr", xname + len - 13)) \
+	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
+	   else if (len > 15 && !strcmp ("$non_lazy_ptr\"", xname + len - 14)) \
 	     machopic_validate_stub_or_non_lazy_ptr (xname);		     \
 	   if (xname[1] != '"' && name_needs_quotes (&xname[1]))	     \
 	     fprintf (FILE, "\"%s\"", &xname[1]);			     \

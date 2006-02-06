@@ -199,7 +199,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "basic-block.h"
 #include "output.h"
-#include "errors.h"
 #include "expr.h"
 #include "function.h"
 #include "diagnostic.h"
@@ -228,7 +227,7 @@ typedef enum
    (i.e., a V_MAY_DEF or V_MUST_DEF), CONST_VAL[I].MEM_REF will
    contain the actual memory reference used to store (i.e., the LHS of
    the assignment doing the store).  */
-prop_value_t *const_val;
+static prop_value_t *const_val;
 
 /* True if we are also propagating constants in stores and loads.  */
 static bool do_store_ccp;
@@ -581,7 +580,7 @@ static void
 ccp_finalize (void)
 {
   /* Perform substitutions based on the known constant values.  */
-  substitute_and_fold (const_val);
+  substitute_and_fold (const_val, false);
 
   free (const_val);
 }
@@ -849,27 +848,7 @@ ccp_fold (tree stmt)
 	    op0 = get_value (op0, true)->value;
 	}
 
-      retval = fold_unary_to_constant (code, TREE_TYPE (rhs), op0);
-
-      /* If we folded, but did not create an invariant, then we can not
-	 use this expression.  */
-      if (retval && ! is_gimple_min_invariant (retval))
-	return NULL;
-
-      /* If we could not fold the expression, but the arguments are all
-         constants and gimple values, then build and return the new
-	 expression. 
-
-	 In some cases the new expression is still something we can
-	 use as a replacement for an argument.  This happens with
-	 NOP conversions of types for example.
-
-	 In other cases the new expression can not be used as a
-	 replacement for an argument (as it would create non-gimple
-	 code).  But the new expression can still be used to derive
-	 other constants.  */
-      if (! retval && is_gimple_min_invariant (op0))
-	return build1 (code, TREE_TYPE (rhs), op0);
+      return fold_unary (code, TREE_TYPE (rhs), op0);
     }
 
   /* Binary and comparison operators.  We know one or both of the
@@ -900,29 +879,7 @@ ccp_fold (tree stmt)
 	    op1 = val->value;
 	}
 
-      retval = fold_binary_to_constant (code, TREE_TYPE (rhs), op0, op1);
-
-      /* If we folded, but did not create an invariant, then we can not
-	 use this expression.  */
-      if (retval && ! is_gimple_min_invariant (retval))
-	return NULL;
-      
-      /* If we could not fold the expression, but the arguments are all
-         constants and gimple values, then build and return the new
-	 expression. 
-
-	 In some cases the new expression is still something we can
-	 use as a replacement for an argument.  This happens with
-	 NOP conversions of types for example.
-
-	 In other cases the new expression can not be used as a
-	 replacement for an argument (as it would create non-gimple
-	 code).  But the new expression can still be used to derive
-	 other constants.  */
-      if (! retval
-	  && is_gimple_min_invariant (op0)
-	  && is_gimple_min_invariant (op1))
-	return build (code, TREE_TYPE (rhs), op0, op1);
+      return fold_binary (code, TREE_TYPE (rhs), op0, op1);
     }
 
   /* We may be able to fold away calls to builtin functions if their
@@ -1917,7 +1874,6 @@ maybe_fold_stmt_addition (tree expr)
   return t;
 }
 
-
 /* Subroutine of fold_stmt called via walk_tree.  We perform several
    simplifications of EXPR_P, mostly having to do with pointer arithmetic.  */
 
@@ -1989,6 +1945,10 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
 	    TREE_OPERAND (expr, 1) = expr_field;
 	  }
       }
+      break;
+
+    case TARGET_MEM_REF:
+      t = maybe_fold_tmr (expr);
       break;
 
     default:

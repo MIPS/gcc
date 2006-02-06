@@ -1,3 +1,14 @@
+2005-06-15  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* os_dep.c: Add FreeBSD/PowerPC bits.
+	(GC_SysVGetDataStart): Likewise.
+	* include/private/gcconfig.h: Likewise.
+
+2005-05-25  Andrew Haley  <aph@redhat.com>
+
+	* include/private/gcconfig.h (HBLKSIZE): Define to 4096 on
+	powerpc64-linux.
+
 2005-05-09  Mike Stump  <mrs@apple.com>
 
 	* configure: Regenerate.

@@ -110,8 +110,10 @@ static void complain_wrong_lang (const char *, const struct cl_option *,
 				 unsigned int lang_mask);
 static void handle_options (unsigned int, const char **, unsigned int);
 static void wrap_help (const char *help, const char *item, unsigned int);
+static void print_target_help (void);
 static void print_help (void);
 static void print_param_help (void);
+static void print_filtered_help (unsigned int);
 static unsigned int print_switch (const char *text, unsigned int indent);
 static void set_debug_level (enum debug_info_type type, int extended,
 			     const char *arg);
@@ -294,16 +296,7 @@ handle_option (const char **argv, unsigned int lang_mask)
     }
 
   if (opt_index == cl_options_count)
-    {
-#if defined (TARGET_OPTIONS) || defined (TARGET_SWITCHES)
-      if (opt[1] == 'm')
-	{
-	  set_target_switch (argv[0] + 2);
-	  result = 1;
-	}
-#endif
-      goto done;
-    }
+    goto done;
 
   option = &cl_options[opt_index];
 
@@ -379,24 +372,30 @@ handle_option (const char **argv, unsigned int lang_mask)
     }
 
   if (option->flag_var)
-    switch (option->var_cond)
+    switch (option->var_type)
       {
       case CLVC_BOOLEAN:
-	*option->flag_var = value;
+	*(int *) option->flag_var = value;
 	break;
 
       case CLVC_EQUAL:
-	*option->flag_var = value ? option->var_value : !option->var_value;
+	*(int *) option->flag_var = (value
+				     ? option->var_value
+				     : !option->var_value);
 	break;
 
       case CLVC_BIT_CLEAR:
       case CLVC_BIT_SET:
-	if ((value != 0) == (option->var_cond == CLVC_BIT_SET))
-	  *option->flag_var |= option->var_value;
+	if ((value != 0) == (option->var_type == CLVC_BIT_SET))
+	  *(int *) option->flag_var |= option->var_value;
 	else
-	  *option->flag_var &= ~option->var_value;
+	  *(int *) option->flag_var &= ~option->var_value;
 	if (option->flag_var == &target_flags)
 	  target_flags_explicit |= option->var_value;
+	break;
+
+      case CLVC_STRING:
+	*(const char **) option->flag_var = arg;
 	break;
       }
   
@@ -627,7 +626,6 @@ decode_options (unsigned int argc, const char **argv)
   /* Initialize target_flags before OPTIMIZATION_OPTIONS so the latter can
      modify it.  */
   target_flags = targetm.default_target_flags;
-  set_target_switch ("");
 
   /* Unwind tables are always present when a target has ABI-specified unwind
      tables, so the default should be ON.  */
@@ -668,7 +666,8 @@ decode_options (unsigned int argc, const char **argv)
 	 this to `2' if -Wall is used, so we can avoid giving out
 	 lots of errors for people who don't realize what -Wall does.  */
       if (warn_uninitialized == 1)
-	warning (0, "-Wuninitialized is not supported without -O");
+	warning (OPT_Wuninitialized,
+		 "-Wuninitialized is not supported without -O");
     }
 
   if (flag_really_no_inline == 2)
@@ -719,7 +718,7 @@ common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT__target_help:
-      display_target_options ();
+      print_target_help ();
       exit_after_options = true;
       break;
 
@@ -920,7 +919,7 @@ common_handle_option (size_t scode, const char *arg, int value)
         else if (!strcmp(arg, "protected"))
           default_visibility = VISIBILITY_PROTECTED;
         else
-          error ("unrecognised visibility value \"%s\"", arg);
+          error ("unrecognized visibility value \"%s\"", arg);
       }
       break;
 
@@ -1196,6 +1195,27 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg)
     }
 }
 
+/* Display help for target options.  */
+static void
+print_target_help (void)
+{
+  unsigned int i;
+  static bool displayed = false;
+
+  /* Avoid double printing for --help --target-help.  */
+  if (displayed)
+    return;
+
+  displayed = true;
+  for (i = 0; i < cl_options_count; i++)
+    if ((cl_options[i].flags & (CL_TARGET | CL_UNDOCUMENTED)) == CL_TARGET)
+      {
+	printf (_("\nTarget specific options:\n"));
+	print_filtered_help (CL_TARGET);
+	break;
+      }
+}
+
 /* Output --help text.  */
 static void
 print_help (void)
@@ -1222,8 +1242,7 @@ print_help (void)
 	      lang_names[i]);
       print_filtered_help (1U << i);
     }
-
-  display_target_options ();
+  print_target_help ();
 }
 
 /* Print the help for --param.  */
@@ -1252,7 +1271,7 @@ print_param_help (void)
 }
 
 /* Print help for a specific front-end, etc.  */
-void
+static void
 print_filtered_help (unsigned int flag)
 {
   unsigned int i, len, filter, indent = 0;
@@ -1416,19 +1435,56 @@ option_enabled (int opt_idx)
 {
   const struct cl_option *option = &(cl_options[opt_idx]);
   if (option->flag_var)
-    switch (option->var_cond)
+    switch (option->var_type)
       {
       case CLVC_BOOLEAN:
-	return *option->flag_var != 0;
+	return *(int *) option->flag_var != 0;
 
       case CLVC_EQUAL:
-	return *option->flag_var == option->var_value;
+	return *(int *) option->flag_var == option->var_value;
 
       case CLVC_BIT_CLEAR:
-	return (*option->flag_var & option->var_value) == 0;
+	return (*(int *) option->flag_var & option->var_value) == 0;
 
       case CLVC_BIT_SET:
-	return (*option->flag_var & option->var_value) != 0;
+	return (*(int *) option->flag_var & option->var_value) != 0;
+
+      case CLVC_STRING:
+	break;
       }
   return -1;
+}
+
+/* Fill STATE with the current state of option OPTION.  Return true if
+   there is some state to store.  */
+
+bool
+get_option_state (int option, struct cl_option_state *state)
+{
+  if (cl_options[option].flag_var == 0)
+    return false;
+
+  switch (cl_options[option].var_type)
+    {
+    case CLVC_BOOLEAN:
+    case CLVC_EQUAL:
+      state->data = cl_options[option].flag_var;
+      state->size = sizeof (int);
+      break;
+
+    case CLVC_BIT_CLEAR:
+    case CLVC_BIT_SET:
+      state->ch = option_enabled (option);
+      state->data = &state->ch;
+      state->size = 1;
+      break;
+
+    case CLVC_STRING:
+      state->data = *(const char **) cl_options[option].flag_var;
+      if (state->data == 0)
+	state->data = "";
+      state->size = strlen (state->data) + 1;
+      break;
+    }
+  return true;
 }

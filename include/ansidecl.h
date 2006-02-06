@@ -258,11 +258,11 @@ So instead we use the macro below and test it against specific values.  */
 
 /* Attributes on labels were valid as of gcc 2.93. */
 #ifndef ATTRIBUTE_UNUSED_LABEL
-# if (GCC_VERSION >= 2093)
+# if (!defined (__cplusplus) && GCC_VERSION >= 2093)
 #  define ATTRIBUTE_UNUSED_LABEL ATTRIBUTE_UNUSED
 # else
 #  define ATTRIBUTE_UNUSED_LABEL
-# endif /* GNUC >= 2.93 */
+# endif /* !__cplusplus && GNUC >= 2.93 */
 #endif /* ATTRIBUTE_UNUSED_LABEL */
 
 #ifndef ATTRIBUTE_UNUSED
@@ -311,6 +311,22 @@ So instead we use the macro below and test it against specific values.  */
 #define ATTRIBUTE_PRINTF_4 ATTRIBUTE_PRINTF(4, 5)
 #define ATTRIBUTE_PRINTF_5 ATTRIBUTE_PRINTF(5, 6)
 #endif /* ATTRIBUTE_PRINTF */
+
+/* Use ATTRIBUTE_FPTR_PRINTF when the format attribute is to be set on
+   a function pointer.  Format attributes were allowed on function
+   pointers as of gcc 3.1.  */
+#ifndef ATTRIBUTE_FPTR_PRINTF
+# if (GCC_VERSION >= 3001)
+#  define ATTRIBUTE_FPTR_PRINTF(m, n) ATTRIBUTE_PRINTF(m, n)
+# else
+#  define ATTRIBUTE_FPTR_PRINTF(m, n)
+# endif /* GNUC >= 3.1 */
+# define ATTRIBUTE_FPTR_PRINTF_1 ATTRIBUTE_FPTR_PRINTF(1, 2)
+# define ATTRIBUTE_FPTR_PRINTF_2 ATTRIBUTE_FPTR_PRINTF(2, 3)
+# define ATTRIBUTE_FPTR_PRINTF_3 ATTRIBUTE_FPTR_PRINTF(3, 4)
+# define ATTRIBUTE_FPTR_PRINTF_4 ATTRIBUTE_FPTR_PRINTF(4, 5)
+# define ATTRIBUTE_FPTR_PRINTF_5 ATTRIBUTE_FPTR_PRINTF(5, 6)
+#endif /* ATTRIBUTE_FPTR_PRINTF */
 
 /* Use ATTRIBUTE_NULL_PRINTF when the format specifier may be NULL.  A
    NULL format specifier was allowed as of gcc 3.3.  */

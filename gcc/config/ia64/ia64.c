@@ -98,10 +98,6 @@ static const char * const ia64_local_reg_names[80] =
 static const char * const ia64_output_reg_names[8] =
 { "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7" };
 
-/* Determines whether we use adds, addl, or movl to generate our
-   TLS immediate offsets.  */
-int ia64_tls_size = 22;
-
 /* Which cpu are we scheduling for.  */
 enum processor_type ia64_tune = PROCESSOR_ITANIUM2;
 
@@ -236,6 +232,8 @@ static void ia64_file_start (void);
 
 static void ia64_select_rtx_section (enum machine_mode, rtx,
 				     unsigned HOST_WIDE_INT);
+static void ia64_output_dwarf_dtprel (FILE *, int, rtx)
+     ATTRIBUTE_UNUSED;
 static void ia64_rwreloc_select_section (tree, int, unsigned HOST_WIDE_INT)
      ATTRIBUTE_UNUSED;
 static void ia64_rwreloc_unique_section (tree, int)
@@ -373,6 +371,11 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef  TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS  ia64_section_type_flags
 
+#ifdef HAVE_AS_TLS
+#undef TARGET_ASM_OUTPUT_DWARF_DTPREL
+#define TARGET_ASM_OUTPUT_DWARF_DTPREL ia64_output_dwarf_dtprel
+#endif
+
 /* ??? ABI doesn't allow us to define this.  */
 #if 0
 #undef TARGET_PROMOTE_FUNCTION_ARGS
@@ -484,7 +487,7 @@ ia64_handle_model_attribute (tree *node, tree name, tree args,
     }
   else
     {
-      warning (0, "invalid argument of %qs attribute",
+      warning (OPT_Wattributes, "invalid argument of %qs attribute",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -516,7 +519,8 @@ ia64_handle_model_attribute (tree *node, tree name, tree args,
       break;
 
     default:
-      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
       break;
     }
@@ -2011,7 +2015,7 @@ mark_reg_gr_used_mask (rtx reg, void *data ATTRIBUTE_UNUSED)
   unsigned int regno = REGNO (reg);
   if (regno < 32)
     {
-      unsigned int i, n = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+      unsigned int i, n = hard_regno_nregs[regno][GET_MODE (reg)];
       for (i = 0; i < n; ++i)
 	current_frame_info.gr_used_mask |= 1 << (regno + i);
     }
@@ -4154,10 +4158,10 @@ ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
     }
 }
 
-/* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
+/* This is called from dwarf2out.c via TARGET_ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
 
-void
+static void
 ia64_output_dwarf_dtprel (FILE *file, int size, rtx x)
 {
   gcc_assert (size == 8);
@@ -4821,7 +4825,7 @@ fix_range (const char *const_str)
 /* Implement TARGET_HANDLE_OPTION.  */
 
 static bool
-ia64_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
+ia64_handle_option (size_t code, const char *arg, int value)
 {
   switch (code)
     {
@@ -4830,15 +4834,9 @@ ia64_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
       return true;
 
     case OPT_mtls_size_:
-      {
-	char *end;
-	unsigned long tmp = strtoul (arg, &end, 10);
-	if (*end || (tmp != 14 && tmp != 22 && tmp != 64))
-	  error ("bad value %<%s%> for -mtls-size= switch", arg);
-	else
-	  ia64_tls_size = tmp;
-	return true;
-      }
+      if (value != 14 && value != 22 && value != 64)
+	error ("bad value %<%s%> for -mtls-size= switch", arg);
+      return true;
 
     case OPT_mtune_:
       {
@@ -4874,7 +4872,7 @@ ia64_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
     }
 }
 
-/* Handle TARGET_OPTIONS switches.  */
+/* Implement OVERRIDE_OPTIONS.  */
 
 void
 ia64_override_options (void)
@@ -5170,25 +5168,19 @@ update_set_flags (rtx x, struct reg_flags *pflags)
       return;
 
     case IF_THEN_ELSE:
-      if (SET_DEST (x) == pc_rtx)
-	/* X is a conditional branch.  */
-	return;
-      else
-	{
-	  /* X is a conditional move.  */
-	  rtx cond = XEXP (src, 0);
-	  cond = XEXP (cond, 0);
-
-	  /* We always split conditional moves into COND_EXEC patterns, so the
-	     only pattern that can reach here is doloop_end_internal.  We don't
-	     need to do anything special for this pattern.  */
-	  gcc_assert (GET_CODE (cond) == REG && REGNO (cond) == AR_LC_REGNUM);
-	  return;
-	}
+      /* There are three cases here:
+	 (1) The destination is (pc), in which case this is a branch,
+	 nothing here applies.
+	 (2) The destination is ar.lc, in which case this is a
+	 doloop_end_internal,
+	 (3) The destination is an fp register, in which case this is
+	 an fselect instruction.
+	 In all cases, nothing we do in this function applies.  */
+      return;
 
     default:
       if (COMPARISON_P (src)
-	  && GET_MODE_CLASS (GET_MODE (XEXP (src, 0))) == MODE_FLOAT)
+	  && SCALAR_FLOAT_MODE_P (GET_MODE (XEXP (src, 0))))
 	/* Set pflags->is_fp to 1 so that we know we're dealing
 	   with a floating point comparison when processing the
 	   destination of the SET.  */
@@ -7422,7 +7414,9 @@ emit_predicate_relation_info (void)
 	  && NOTE_LINE_NUMBER (NEXT_INSN (head)) == NOTE_INSN_BASIC_BLOCK)
 	head = NEXT_INSN (head);
 
-      for (r = PR_REG (0); r < PR_REG (64); r += 2)
+      /* Skip p0, which may be thought to be live due to (reg:DI p0)
+	 grabbing the entire block of predicate registers.  */
+      for (r = PR_REG (2); r < PR_REG (64); r += 2)
 	if (REGNO_REG_SET_P (bb->global_live_at_start, r))
 	  {
 	    rtx p = gen_rtx_REG (BImode, r);
@@ -8549,6 +8543,40 @@ ia64_vector_mode_supported_p (enum machine_mode mode)
     default:
       return false;
     }
+}
+
+void
+ia64_output_function_profiler (FILE *file, int labelno)
+{
+  if (TARGET_GNU_AS)
+    fputs ("\t.prologue 4, r40\n", file);
+  else
+    fputs ("\t.prologue\n\t.save ar.pfs, r40\n", file);
+  fputs ("\talloc out0 = ar.pfs, 8, 0, 4, 0\n", file);
+
+  if (NO_PROFILE_COUNTERS)
+    fputs ("\tmov out3 = r0\n\t;;\n", file);
+  else
+    {
+      char buf[20];
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
+
+      if (TARGET_AUTO_PIC)
+	fputs ("\tmovl out3 = @gprel(", file);
+      else
+	fputs ("\taddl out3 = @ltoff(", file);
+      assemble_name (file, buf);
+      if (TARGET_AUTO_PIC)
+	fputs (")\n\t;;\n", file);
+      else
+	fputs ("), r1\n\t;;\n", file);
+    }
+
+  fputs ("\t.save rp, r42\n", file);
+  fputs ("\tmov out2 = b0\n", file);
+  fputs ("\t.body\n", file);
+  fputs ("\tmov out1 = r1\n", file);
+  fputs ("\tbr.call.sptk.many b0 = _mcount\n\t;;\n", file);
 }
 
 #include "gt-ia64.h"

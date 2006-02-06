@@ -756,8 +756,8 @@ duplicate_block (basic_block bb, edge e)
       new_bb->frequency = bb->frequency;
     }
 
-  new_bb->rbi->original = bb;
-  bb->rbi->copy = new_bb;
+  set_bb_original (new_bb, bb);
+  set_bb_copy (bb, new_bb);
 
   return new_bb;
 }
@@ -825,7 +825,7 @@ execute_on_shrinking_pred (edge e)
 }
 
 /* This is used inside loop versioning when we want to insert 
-   stmts/insns on the edges, which have a different behaviour 
+   stmts/insns on the edges, which have a different behavior 
    in tree's and in RTL, so we made a CFG hook.  */
 void
 lv_flush_pending_stmts (edge e)

@@ -67,7 +67,6 @@ extern unsigned int ia64_section_threshold;
 #define TARGET_HAVE_TLS true
 #endif
 
-extern int ia64_tls_size;
 #define TARGET_TLS14		(ia64_tls_size == 14)
 #define TARGET_TLS22		(ia64_tls_size == 22)
 #define TARGET_TLS64		(ia64_tls_size == 64)
@@ -506,9 +505,7 @@ while (0)
 #define LOCAL_REGNO(REGNO) \
   (IN_REGNO_P (REGNO) || LOC_REGNO_P (REGNO))
 
-/* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
-   return the mode to be used for the comparison.  Must be defined if
-   EXTRA_CC_MODES is defined.  */
+/* We define CCImode in ia64-modes.def so we need a selector.  */
 
 #define SELECT_CC_MODE(OP,X,Y)  CCmode
 
@@ -1268,24 +1265,11 @@ do {									\
    call the profiling subroutine `mcount'.  */
 
 #undef FUNCTION_PROFILER
-#define FUNCTION_PROFILER(FILE, LABELNO)				\
-do {									\
-  char buf[20];								\
-  ASM_GENERATE_INTERNAL_LABEL (buf, "LP", LABELNO);			\
-  fputs ("\talloc out0 = ar.pfs, 8, 0, 4, 0\n", FILE);			\
-  if (TARGET_AUTO_PIC)							\
-    fputs ("\tmovl out3 = @gprel(", FILE);				\
-  else									\
-    fputs ("\taddl out3 = @ltoff(", FILE);				\
-  assemble_name (FILE, buf);						\
-  if (TARGET_AUTO_PIC)							\
-    fputs (");;\n", FILE);						\
-  else									\
-    fputs ("), r1;;\n", FILE);						\
-  fputs ("\tmov out1 = r1\n", FILE);					\
-  fputs ("\tmov out2 = b0\n", FILE);					\
-  fputs ("\tbr.call.sptk.many b0 = _mcount;;\n", FILE);			\
-} while (0)
+#define FUNCTION_PROFILER(FILE, LABELNO) \
+  ia64_output_function_profiler(FILE, LABELNO)
+
+/* Neither hpux nor linux use profile counters.  */
+#define NO_PROFILE_COUNTERS 1
 
 /* Trampolines for Nested Functions.  */
 
@@ -1735,13 +1719,6 @@ do {									\
   { "loc78", LOC_REG (78) }, 						\
   { "loc79", LOC_REG (79) }, 						\
 }
-
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#ifdef HAVE_AS_TLS
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  ia64_output_dwarf_dtprel (FILE, SIZE, X)
-#endif
 
 /* A C compound statement to output to stdio stream STREAM the assembler syntax
    for an instruction operand X.  X is an RTL expression.  */

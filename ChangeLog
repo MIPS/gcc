@@ -1,6 +1,86 @@
+2005-06-13  Richard Sandiford  <richard@codesourcery.com>
+
+	* MAINTAINERS: Update my email address.
+
+2005-06-13  Zack Weinberg  <zack@codesourcery.com>
+
+	* depcomp: Update from automake CVS.  Add 'ia64hp' stanza.
+	In 'cpp' stanza, support '#line' as well as '# '.
+
+2005-06-08  Andreas Schwab  <schwab@suse.de>
+
+	* MAINTAINERS: Move myself from 'Write After Approval' to
+	'CPU Port Maintainers' section as m68k maintainer.
+
+2005-06-07  Hans-Peter Nilsson  <hp@axis.com>
+
+	* configure.in (unsupported_languages): New macro.
+	<mmix-knuth-mmixware>: Set unsupported_languages.  Name explicit
+	non-ported target libraries in noconfigdirs.
+	<cris-*, crisv32-*> Ditto, except for non-aout, non-elf,
+	non-linux-gnu.  Remove libgcj_ex_libffi.
+ 	<lang_frag loop>: Set add_this_lang=no if the language is in
+	unsupported_languages.
+	* configure: Regenerate.
+
+2005-06-04  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* configure.in: Fix typo in handling of --with-mpfr-dir.
+	* configure: Regenerate.
+
+2005-06-04  Richard Sandiford  <rsandifo@nildram.co.uk>
+
+	* MAINTAINERS: Update my email address.
+
+2005-06-02  Jim Blandy  <jimb@redhat.com>
+
+	* config.sub: Add cases for the Renesas m32c.  (This patch has been
+	accepted into the master sources.)
+
+2005-06-02  Aldy Hernandez  <aldyh@redhat.com>
+	    Michael Snyder  <msnyder@redhat.com>
+	    Stan Cox  <scox@redhat.com>
+
+	* configure.in: Set noconfigdirs for ms1.
+
+	* configure: Regenerate.
+
+2005-06-01  Jerry DeLisle  <jvdelisle@verizon.net>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2005-06-01  Josh Conner  <jconner@apple.com>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2005-06-01  Kazu Hirata  <kazu@codesourcery.com>
+
+	* MAINTAINERS: Update my email address.
+
+2005-05-27  Ziga Mahkovec  <ziga.mahkovec@klika.si>
+
+	* MAINTAINERS (Write After Approval): Add self.
+
+2005-05-26  Chris Demetriou  <cgd@broadcom.com>
+
+	* MAINTAINERS (Write After Approval): Remove self.
+
+2005-05-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.tpl (stage[+id+]-start): Iterate over target module as well.
+	(Dependencies): Consider target modules for bootstrap dependencies.
+	Make target bootstrap modules depend on each stage's gcc.
+	* Makefile.in: Regenerate.
+
+2005-05-20  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (configure-gcc): Depend on binutils having been built.
+	(all-gcc): No need to do it here.
+	* Makefile.in: Regenerate.
+
 2005-05-19  Paul Brook  <paul@codesourcery.com>
 
-	* configure.in: Rewrite misleading error message when requested 
+	* configure.in: Rewrite misleading error message when requested
 	language cannot be built.
 	* configure: Regenerate.
 
@@ -16,7 +96,7 @@
 
 	* libtool.m4 (AC_LIBTOOL_SYS_MAX_CMD_LEN): Use quotes on
 	lt_cv_sys_max_cmd_len for now.
-	
+
 2005-05-09  Stan Cox  <scox@redhat.com>
 
 	* MAINTAINERS: Remove self, add Nick Clifton as iq2000 maintainer.
@@ -93,7 +173,7 @@
 
 2005-04-06  Paolo Bonzini  <bonzini@gnu.org>
 
-        * Makefile.tpl (BUILD_CONFIGARGS): Include --with-build-subdir.
+	* Makefile.tpl (BUILD_CONFIGARGS): Include --with-build-subdir.
 	(TARGET_CONFIGARGS): Include --with-target-subdir.
 	(configure, all): New macros.  Use them throughout.
 	* Makefile.in: Regenerate.
@@ -101,7 +181,7 @@
 2005-04-04  Jon Grimm  <jgrimm2@us.ibm.com>
 
 	* MAINTAINERS (Write After Approval): Add myself.
-	
+
 2005-03-31  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* MAINTAINERS: Remove 'loop unrolling' maintainer.

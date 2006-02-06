@@ -37,7 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-dump.h"
 #include "tree-ssa-live.h"
-#include "errors.h"
+#include "toplev.h"
 
 static void live_worklist (tree_live_info_p, int *, int);
 static tree_live_info_p new_tree_live_info (var_map);
@@ -185,7 +185,8 @@ void
 compact_var_map (var_map map, int flags)
 {
   sbitmap used;
-  int x, limit, count, tmp, root, root_i;
+  int tmp, root, root_i;
+  unsigned int x, limit, count;
   tree var;
   root_var_p rv = NULL;
 
@@ -238,10 +239,12 @@ compact_var_map (var_map map, int flags)
   /* Build a compacted partitioning.  */
   if (count != limit)
     {
+      sbitmap_iterator sbi;
+
       map->compact_to_partition = (int *)xmalloc (count * sizeof (int));
       count = 0;
       /* SSA renaming begins at 1, so skip 0 when compacting.  */
-      EXECUTE_IF_SET_IN_SBITMAP (used, 1, x,
+      EXECUTE_IF_SET_IN_SBITMAP (used, 1, x, sbi)
 	{
 	  map->partition_to_compact[x] = count;
 	  map->compact_to_partition[count] = x;
@@ -249,7 +252,7 @@ compact_var_map (var_map map, int flags)
 	  if (TREE_CODE (var) != SSA_NAME)
 	    change_partition_var (map, var, count);
 	  count++;
-	});
+	}
     }
   else
     {
@@ -408,9 +411,11 @@ create_ssa_var_map (int flags)
     sbitmap_a_and_b (both, used_in_real_ops, used_in_virtual_ops);
     if (sbitmap_first_set_bit (both) >= 0)
       {
-	EXECUTE_IF_SET_IN_SBITMAP (both, 0, i,
+	sbitmap_iterator sbi;
+
+	EXECUTE_IF_SET_IN_SBITMAP (both, 0, i, sbi)
 	  fprintf (stderr, "Variable %s used in real and virtual operands\n",
-		   get_name (referenced_var (i))));
+		   get_name (referenced_var (i)));
 	internal_error ("SSA corruption");
       }
 
@@ -1281,8 +1286,8 @@ add_conflicts_if_valid (tpa_p tpa, conflict_graph graph,
     }
 }
 
-DEF_VEC_P(int);
-DEF_VEC_ALLOC_P(int,heap);
+DEF_VEC_I(int);
+DEF_VEC_ALLOC_I(int,heap);
 
 /* Return a conflict graph for the information contained in LIVE_INFO.  Only
    conflicts between items in the same TPA list are added.  If optional 

@@ -243,7 +243,7 @@ uses_mode_macro_p (rtx x, int mode)
 static void
 apply_mode_macro (rtx x, int mode)
 {
-  PUT_MODE (x, mode);
+  PUT_MODE (x, (enum machine_mode) mode);
 }
 
 /* Implementations of the macro_group callbacks for codes.  */
@@ -269,7 +269,7 @@ uses_code_macro_p (rtx x, int code)
 static void
 apply_code_macro (rtx x, int code)
 {
-  PUT_CODE (x, code);
+  PUT_CODE (x, (enum rtx_code) code);
 }
 
 /* Map a code or mode attribute string P to the underlying string for
@@ -321,7 +321,7 @@ mode_attr_index (struct map_value **mode_maps, const char *string)
   /* Copy the attribute string into permanent storage, without the
      angle brackets around it.  */
   obstack_grow0 (&string_obstack, string + 1, strlen (string) - 2);
-  p = (char *) obstack_finish (&string_obstack);
+  p = XOBFINISH (&string_obstack, char *);
 
   mv = XNEW (struct map_value);
   mv->number = *mode_maps == 0 ? 0 : (*mode_maps)->number + 1;
@@ -363,7 +363,7 @@ apply_mode_maps (rtx x, struct map_value *mode_maps, struct mapping *macro,
 
 	  v = map_attr_string (pm->string, macro, value);
 	  if (v)
-	    PUT_MODE (x, find_mode (v->string, infile));
+	    PUT_MODE (x, (enum machine_mode) find_mode (v->string, infile));
 	  else
 	    *unknown = pm->string;
 	  return;
@@ -404,7 +404,7 @@ apply_macro_to_string (const char *string, struct mapping *macro, int value)
   if (base != copy)
     {
       obstack_grow (&string_obstack, base, strlen (base) + 1);
-      copy = obstack_finish (&string_obstack);
+      copy = XOBFINISH (&string_obstack, char *);
       copy_rtx_ptr_loc (copy, string);
       return copy;
     }
@@ -785,7 +785,7 @@ join_c_conditions (const char *cond1, const char *cond2)
   obstack_ptr_grow (&joined_conditions_obstack, result);
   obstack_ptr_grow (&joined_conditions_obstack, cond1);
   obstack_ptr_grow (&joined_conditions_obstack, cond2);
-  entry = obstack_finish (&joined_conditions_obstack);
+  entry = XOBFINISH (&joined_conditions_obstack, const void **);
   *htab_find_slot (joined_conditions, entry, INSERT) = entry;
   return result;
 }
@@ -798,7 +798,7 @@ join_c_conditions (const char *cond1, const char *cond2)
 void
 print_c_condition (const char *cond)
 {
-  const void **halves = htab_find (joined_conditions, &cond);
+  const char **halves = (const char **) htab_find (joined_conditions, &cond);
   if (halves != 0)
     {
       printf ("(");
@@ -998,7 +998,7 @@ read_quoted_string (FILE *infile)
     }
 
   obstack_1grow (&string_obstack, 0);
-  return (char *) obstack_finish (&string_obstack);
+  return XOBFINISH (&string_obstack, char *);
 }
 
 /* Read a braced string (a la Tcl) onto the string obstack.  Caller
@@ -1036,7 +1036,7 @@ read_braced_string (FILE *infile)
     }
 
   obstack_1grow (&string_obstack, 0);
-  return (char *) obstack_finish (&string_obstack);
+  return XOBFINISH (&string_obstack, char *);
 }
 
 /* Read some kind of string constant.  This is the high-level routine
@@ -1311,7 +1311,7 @@ check_code_macro (struct mapping *macro, FILE *infile)
   struct map_value *v;
   enum rtx_code bellwether;
 
-  bellwether = macro->values->number;
+  bellwether = (enum rtx_code) macro->values->number;
   for (v = macro->values->next; v != 0; v = v->next)
     if (strcmp (GET_RTX_FORMAT (bellwether), GET_RTX_FORMAT (v->number)) != 0)
       fatal_with_file_and_line (infile, "code macro `%s' combines "
@@ -1449,7 +1449,7 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
       check_code_macro (read_mapping (&codes, codes.macros, infile), infile);
       goto again;
     }
-  real_code = find_macro (&codes, tmp_char, infile);
+  real_code = (enum rtx_code) find_macro (&codes, tmp_char, infile);
   bellwether_code = BELLWETHER_CODE (real_code);
 
   /* If we end up with an insn expression then we free this space below.  */
@@ -1470,7 +1470,7 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
 	mode = find_macro (&modes, tmp_char, infile);
       else
 	mode = mode_attr_index (mode_maps, tmp_char);
-      PUT_MODE (return_rtx, mode);
+      PUT_MODE (return_rtx, (enum machine_mode) mode);
       if (GET_MODE (return_rtx) != mode)
 	fatal_with_file_and_line (infile, "mode too large");
     }
@@ -1581,7 +1581,7 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
 	      obstack_grow (&string_obstack, fn, strlen (fn));
 	      sprintf (line_name, ":%d", read_rtx_lineno);
 	      obstack_grow (&string_obstack, line_name, strlen (line_name)+1);
-	      stringbuf = (char *) obstack_finish (&string_obstack);
+	      stringbuf = XOBFINISH (&string_obstack, char *);
 	    }
 
 	  if (star_if_braced)

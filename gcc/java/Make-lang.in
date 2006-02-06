@@ -340,7 +340,7 @@ java/lang.o: java/lang.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h input.h \
   toplev.h $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(EXPR_H) diagnostic.h \
   langhooks.h $(LANGHOOKS_DEF_H) gt-java-lang.h opts.h options.h
 java/mangle.o: java/mangle.c $(CONFIG_H) java/jcf.h $(JAVA_TREE_H) $(SYSTEM_H) \
-  coretypes.h $(TM_H) toplev.h $(GGC_H) gt-java-mangle.h
+  coretypes.h $(TM_H) toplev.h $(GGC_H) gt-java-mangle.h $(LANGHOOKS_DEF_H)
 java/mangle_name.o: java/mangle_name.c $(CONFIG_H) java/jcf.h $(JAVA_TREE_H) \
   $(SYSTEM_H) coretypes.h $(TM_H) toplev.h $(GGC_H)
 java/resource.o: java/resource.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -353,7 +353,7 @@ java/verify.o: java/verify.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h \
   java/javaop.h java/java-opcodes.h java/java-except.h toplev.h $(SYSTEM_H) \
   coretypes.h $(TM_H)
 java/verify-glue.o: java/verify-glue.c $(CONFIG_H) $(SYSTEM_H) $(JAVA_TREE_H) \
-  coretypes.h $(TM_H) java/verify.h
+  coretypes.h $(TM_H) java/verify.h toplev.h
 java/verify-impl.o: java/verify-impl.c $(CONFIG_H) java/verify.h $(SYSTEM_H) \
   coretypes.h  java/jcf.h $(JAVA_TREE_H)
 java/zextract.o: java/zextract.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -453,7 +453,7 @@ java.install-man: installdirs \
 	  chmod a-x $$man_name ; \
 	done
 
-$(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext): doc/gcj.1
+$(DESTDIR)$(man1dir)/$(JAVA_INSTALL_NAME)$(man1ext): doc/gcj.1 installdirs
 	-rm -f $@
 	-$(INSTALL_DATA) $< $@
 	-chmod a-x $@

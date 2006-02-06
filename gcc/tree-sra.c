@@ -25,7 +25,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "ggc.h"
 #include "tree.h"
 
@@ -1095,7 +1094,7 @@ build_element_name (struct sra_elt *elt)
 {
   build_element_name_1 (elt);
   obstack_1grow (&sra_obstack, '\0');
-  return obstack_finish (&sra_obstack);
+  return XOBFINISH (&sra_obstack, char *);
 }
 
 /* Instantiate an element as an independent variable.  */
@@ -1126,9 +1125,9 @@ instantiate_element (struct sra_elt *elt)
       DECL_NAME (var) = get_identifier (pretty_name);
       obstack_free (&sra_obstack, pretty_name);
 
-      DECL_DEBUG_EXPR (var) = generate_element_ref (elt);
+      SET_DECL_DEBUG_EXPR (var, generate_element_ref (elt));
       DECL_DEBUG_EXPR_IS_FROM (var) = 1;
-
+      
       DECL_IGNORED_P (var) = 0;
       TREE_NO_WARNING (var) = TREE_NO_WARNING (base);
     }

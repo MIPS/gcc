@@ -328,7 +328,7 @@ the 1.9.x series, which is currently 1.9.3.  When regenerating a directory
 to a newer version, please update all the directories using an older 1.9.x
 to the latest released version.
 
-@item gettext version 0.12 (or later)
+@item gettext version 0.14.5 (or later)
 
 Needed to regenerate @file{gcc.pot}.
 
@@ -1071,6 +1071,27 @@ do a @samp{make -C gcc gnatlib_and_tools}.
 @item --with-dwarf2
 Specify that the compiler should
 use DWARF 2 debugging information as the default.
+
+@item --enable-targets=all
+@itemx --enable-targets=@var{target_list}
+Some GCC targets, e.g.@: powerpc64-linux, build bi-arch compilers.
+These are compilers that are able to generate either 64-bit or 32-bit
+code.  Typically, the corresponding 32-bit target, e.g.@:
+powerpc-linux for powerpc64-linux, only generates 32-bit code.  This
+option enables the 32-bit target to be a bi-arch compiler, which is
+useful when you want a bi-arch compiler that defaults to 32-bit, and
+you are building a bi-arch or multi-arch binutils in a combined tree.
+Currently, this option only affects powerpc-linux.
+
+@item --enable-secureplt
+This option enables @option{-msecure-plt} by default for powerpc-linux.
+@ifnothtml
+@xref{RS/6000 and PowerPC Options,, RS/6000 and PowerPC Options, gcc,
+Using the GNU Compiler Collection (GCC)},
+@end ifnothtml
+@ifhtml
+See ``RS/6000 and PowerPC Options'' in the main manual
+@end ifhtml
 
 @item --enable-win32-registry
 @itemx --enable-win32-registry=@var{key}
@@ -2465,7 +2486,7 @@ ARM-family processors.  These targets support the AOUT file format:
 ATMEL AVR-family micro controllers.  These are used in embedded
 applications.  There are no standard Unix configurations.
 @ifnothtml
-@xref{AVR Options,, AVR Options, gcc, Using and Porting the GNU Compiler
+@xref{AVR Options,, AVR Options, gcc, Using the GNU Compiler
 Collection (GCC)},
 @end ifnothtml
 @ifhtml
@@ -2503,8 +2524,8 @@ indicates that you should upgrade to a newer version of the binutils.
 
 The Blackfin processor, an Analog Devices DSP.
 @ifnothtml
-@xref{Blackfin Options,, Blackfin Options, gcc, Using and Porting the GNU
-Compiler Collection (GCC)},
+@xref{Blackfin Options,, Blackfin Options, gcc, Using the GNU Compiler
+Collection (GCC)},
 @end ifnothtml
 @ifhtml
 See ``Blackfin Options'' in the main manual
@@ -2522,8 +2543,8 @@ Texas Instruments TMS320C3x and TMS320C4x Floating Point Digital Signal
 Processors.  These are used in embedded applications.  There are no
 standard Unix configurations.
 @ifnothtml
-@xref{TMS320C3x/C4x Options,, TMS320C3x/C4x Options, gcc, Using and
-Porting the GNU Compiler Collection (GCC)},
+@xref{TMS320C3x/C4x Options,, TMS320C3x/C4x Options, gcc, Using the
+GNU Compiler Collection (GCC)},
 @end ifnothtml
 @ifhtml
 See ``TMS320C3x/C4x Options'' in the main manual
@@ -2552,7 +2573,7 @@ CRIS is the CPU architecture in Axis Communications ETRAX system-on-a-chip
 series.  These are used in embedded applications.
 
 @ifnothtml
-@xref{CRIS Options,, CRIS Options, gcc, Using and Porting the GNU Compiler
+@xref{CRIS Options,, CRIS Options, gcc, Using the GNU Compiler
 Collection (GCC)},
 @end ifnothtml
 @ifhtml
@@ -3623,11 +3644,11 @@ failure in form of a miscompilation of the stage1 compiler by the Sun
 compiler.  This is Sun bug 4974440.  This is fixed with patch 112760-07.
 
 GCC 3.4 changed the default debugging format from STABS to DWARF-2 for
-32-bit code on Solaris 7 and later.  If you are using the Sun
-assembler, this change apparently runs afoul of Sun bug 4910101, for
-which (as of 2004-05-23) there is no fix.  A symptom of the problem is
-that you cannot compile C++ programs like @command{groff} 1.19.1
-without getting messages similar to the following:
+32-bit code on Solaris 7 and later.  If you use the Sun assembler, this
+change apparently runs afoul of Sun bug 4910101 (which is referenced as
+a x86-only problem by Sun, probably because they do not use DWARF-2).
+A symptom of the problem is that you cannot compile C++ programs like
+@command{groff} 1.19.1 without getting messages similar to the following:
 
 @smallexample
 ld: warning: relocation error: R_SPARC_UA32: @dots{}
@@ -3696,6 +3717,17 @@ ld: fatal: relocation error: R_SPARC_32: file libgcc/sparcv9/_muldi3.o:
 @end smallexample
 
 This bug has been fixed in the final 5.0 version of the assembler.
+
+A similar problem was reported for version Sun WorkShop 6 99/08/18 of the
+Sun assembler, which causes a bootstrap failure with GCC 4.0.0:
+
+@smallexample
+ld: fatal: relocation error: R_SPARC_DISP32:
+  file .libs/libstdc++.lax/libsupc++convenience.a/vterminate.o:
+    symbol <unknown>: offset 0xfccd33ad is non-aligned
+@end smallexample
+
+This bug has been fixed in more recent revisions of the assembler.
 
 @html
 <hr />

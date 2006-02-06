@@ -269,74 +269,35 @@ static struct sched_info sms_sched_info =
 };
 
 
-/* Return the register decremented and tested or zero if it is not a decrement
-   and branch jump insn (similar to doloop_condition_get).  */
+/* Return the register decremented and tested in INSN,
+   or zero if it is not a decrement-and-branch insn.  */
+
 static rtx
-doloop_register_get (rtx insn, rtx *comp)
+doloop_register_get (rtx insn ATTRIBUTE_UNUSED)
 {
-  rtx pattern, cmp, inc, reg, condition;
+#ifdef HAVE_doloop_end
+  rtx pattern, reg, condition;
 
-  if (!JUMP_P (insn))
+  if (! JUMP_P (insn))
     return NULL_RTX;
+
   pattern = PATTERN (insn);
-
-  /* The canonical doloop pattern we expect is:
-
-     (parallel [(set (pc) (if_then_else (condition)
-					(label_ref (label))
-					(pc)))
-		(set (reg) (plus (reg) (const_int -1)))
-		(additional clobbers and uses)])
-
-    where condition is further restricted to be
-      (ne (reg) (const_int 1)).  */
-
-  if (GET_CODE (pattern) != PARALLEL)
+  condition = doloop_condition_get (pattern);
+  if (! condition)
     return NULL_RTX;
 
-  cmp = XVECEXP (pattern, 0, 0);
-  inc = XVECEXP (pattern, 0, 1);
-  /* Return the compare rtx.  */
-  *comp = cmp;
+  if (REG_P (XEXP (condition, 0)))
+    reg = XEXP (condition, 0);
+  else if (GET_CODE (XEXP (condition, 0)) == PLUS
+	   && REG_P (XEXP (XEXP (condition, 0), 0)))
+    reg = XEXP (XEXP (condition, 0), 0);
+  else
+    gcc_unreachable ();
 
-  /* Check for (set (reg) (something)).  */
-  if (GET_CODE (inc) != SET || ! REG_P (SET_DEST (inc)))
-    return NULL_RTX;
-
-  /* Extract loop counter register.  */
-  reg = SET_DEST (inc);
-
-  /* Check if something = (plus (reg) (const_int -1)).  */
-  if (GET_CODE (SET_SRC (inc)) != PLUS
-      || XEXP (SET_SRC (inc), 0) != reg
-      || XEXP (SET_SRC (inc), 1) != constm1_rtx)
-    return NULL_RTX;
-
-  /* Check for (set (pc) (if_then_else (condition)
-				       (label_ref (label))
-				       (pc))).  */
-  if (GET_CODE (cmp) != SET
-      || SET_DEST (cmp) != pc_rtx
-      || GET_CODE (SET_SRC (cmp)) != IF_THEN_ELSE
-      || GET_CODE (XEXP (SET_SRC (cmp), 1)) != LABEL_REF
-      || XEXP (SET_SRC (cmp), 2) != pc_rtx)
-    return NULL_RTX;
-
-  /* Extract loop termination condition.  */
-  condition = XEXP (SET_SRC (cmp), 0);
-
-  /* Check if condition = (ne (reg) (const_int 1)), which is more
-     restrictive than the check in doloop_condition_get:
-     if ((GET_CODE (condition) != GE && GET_CODE (condition) != NE)
-	 || GET_CODE (XEXP (condition, 1)) != CONST_INT).  */
-  if (GET_CODE (condition) != NE
-      || XEXP (condition, 1) != const1_rtx)
-    return NULL_RTX;
-
-  if (XEXP (condition, 0) == reg)
-    return reg;
-
+  return reg;
+#else
   return NULL_RTX;
+#endif
 }
 
 /* Check if COUNT_REG is set to a constant in the PRE_HEADER block, so
@@ -538,9 +499,10 @@ generate_reg_moves (partial_schedule_ptr ps)
 
       for (i_reg_move = 0; i_reg_move < nreg_moves; i_reg_move++)
 	{
-	  int i_use;
+	  unsigned int i_use;
 	  rtx new_reg = gen_reg_rtx (GET_MODE (prev_reg));
 	  rtx reg_move = gen_move_insn (new_reg, prev_reg);
+	  sbitmap_iterator sbi;
 
 	  add_insn_before (reg_move, last_reg_move);
 	  last_reg_move = reg_move;
@@ -548,7 +510,7 @@ generate_reg_moves (partial_schedule_ptr ps)
 	  if (!SCHED_FIRST_REG_MOVE (u))
 	    SCHED_FIRST_REG_MOVE (u) = reg_move;
 
-	  EXECUTE_IF_SET_IN_SBITMAP (uses_of_defs[i_reg_move], 0, i_use,
+	  EXECUTE_IF_SET_IN_SBITMAP (uses_of_defs[i_reg_move], 0, i_use, sbi)
 	    {
 	      struct undo_replace_buff_elem *rep;
 
@@ -567,7 +529,7 @@ generate_reg_moves (partial_schedule_ptr ps)
 		}
 
 	      replace_rtx (g->nodes[i_use].insn, old_reg, new_reg);
-	    });
+	    }
 
 	  prev_reg = new_reg;
 	}
@@ -597,6 +559,7 @@ undo_generate_reg_moves (partial_schedule_ptr ps,
 	  delete_insn (crr);
 	  crr = prev;
 	}
+      SCHED_FIRST_REG_MOVE (u) = NULL_RTX;
     }
 
   while (reg_move_replaces)
@@ -1024,7 +987,7 @@ sms_schedule (FILE *dump_file)
   for (i = 0; i < loops->num; i++)
     {
       rtx head, tail;
-      rtx count_reg, comp;
+      rtx count_reg;
       struct loop *loop = loops->parray[i];
 
       /* For debugging.  */
@@ -1087,7 +1050,7 @@ sms_schedule (FILE *dump_file)
         }
 
       /* Make sure this is a doloop.  */
-      if ( !(count_reg = doloop_register_get (tail, &comp)))
+      if ( !(count_reg = doloop_register_get (tail)))
 	continue;
 
       /* Don't handle BBs with calls or barriers, or !single_set insns.  */
@@ -1133,7 +1096,7 @@ sms_schedule (FILE *dump_file)
   for (i = 0; i < num_loops; i++)
     {
       rtx head, tail;
-      rtx count_reg, count_init, comp;
+      rtx count_reg, count_init;
       int mii, rec_mii;
       unsigned stage_count = 0;
       HOST_WIDEST_INT loop_count = 0;
@@ -1185,7 +1148,7 @@ sms_schedule (FILE *dump_file)
       /* In case of th loop have doloop register it gets special
 	 handling.  */
       count_init = NULL_RTX;
-      if ((count_reg = doloop_register_get (tail, &comp)))
+      if ((count_reg = doloop_register_get (tail)))
 	{
 	  basic_block pre_header;
 
@@ -1283,7 +1246,7 @@ sms_schedule (FILE *dump_file)
 	      /* SMS is not profitable so undo the permutation and reg move generation
 	         and return the kernel to its original state.  */
 	      if (dump_file)
-		fprintf (dump_file, "Undoing SMS becuase it is not profitable.\n");
+		fprintf (dump_file, "Undoing SMS because it is not profitable.\n");
 
 	    }
 	  else
@@ -1880,11 +1843,12 @@ calculate_order_params (ddg_ptr g, int mii ATTRIBUTE_UNUSED)
 static int
 find_max_asap (ddg_ptr g, sbitmap nodes)
 {
-  int u;
+  unsigned int u;
   int max_asap = -1;
   int result = -1;
+  sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u,
+  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u, sbi)
     {
       ddg_node_ptr u_node = &g->nodes[u];
 
@@ -1893,19 +1857,20 @@ find_max_asap (ddg_ptr g, sbitmap nodes)
 	  max_asap = ASAP (u_node);
 	  result = u;
 	}
-    });
+    }
   return result;
 }
 
 static int
 find_max_hv_min_mob (ddg_ptr g, sbitmap nodes)
 {
-  int u;
+  unsigned int u;
   int max_hv = -1;
   int min_mob = INT_MAX;
   int result = -1;
+  sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u,
+  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u, sbi)
     {
       ddg_node_ptr u_node = &g->nodes[u];
 
@@ -1921,19 +1886,20 @@ find_max_hv_min_mob (ddg_ptr g, sbitmap nodes)
 	  min_mob = MOB (u_node);
 	  result = u;
 	}
-    });
+    }
   return result;
 }
 
 static int
 find_max_dv_min_mob (ddg_ptr g, sbitmap nodes)
 {
-  int u;
+  unsigned int u;
   int max_dv = -1;
   int min_mob = INT_MAX;
   int result = -1;
+  sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u,
+  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u, sbi)
     {
       ddg_node_ptr u_node = &g->nodes[u];
 
@@ -1949,7 +1915,7 @@ find_max_dv_min_mob (ddg_ptr g, sbitmap nodes)
 	  min_mob = MOB (u_node);
 	  result = u;
 	}
-    });
+    }
   return result;
 }
 

@@ -23,7 +23,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "errors.h"
 #include "tree.h"
 #include "diagnostic.h"
 #include "real.h"
@@ -442,6 +441,64 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case METHOD_TYPE:
       dump_decl_name (buffer, TYPE_NAME (TYPE_METHOD_BASETYPE (node)), flags);
       pp_string (buffer, "::");
+      break;
+
+    case TARGET_MEM_REF:
+      {
+	const char *sep = "";
+	tree tmp;
+
+	pp_string (buffer, "MEM[");
+
+	tmp = TMR_SYMBOL (node);
+	if (tmp)
+	  {
+	    pp_string (buffer, sep);
+	    sep = ", ";
+	    pp_string (buffer, "symbol: ");
+	    dump_generic_node (buffer, tmp, spc, flags, false);
+	  }
+	tmp = TMR_BASE (node);
+	if (tmp)
+	  {
+	    pp_string (buffer, sep);
+	    sep = ", ";
+	    pp_string (buffer, "base: ");
+	    dump_generic_node (buffer, tmp, spc, flags, false);
+	  }
+	tmp = TMR_INDEX (node);
+	if (tmp)
+	  {
+	    pp_string (buffer, sep);
+	    sep = ", ";
+	    pp_string (buffer, "index: ");
+	    dump_generic_node (buffer, tmp, spc, flags, false);
+	  }
+	tmp = TMR_STEP (node);
+	if (tmp)
+	  {
+	    pp_string (buffer, sep);
+	    sep = ", ";
+	    pp_string (buffer, "step: ");
+	    dump_generic_node (buffer, tmp, spc, flags, false);
+	  }
+	tmp = TMR_OFFSET (node);
+	if (tmp)
+	  {
+	    pp_string (buffer, sep);
+	    sep = ", ";
+	    pp_string (buffer, "offset: ");
+	    dump_generic_node (buffer, tmp, spc, flags, false);
+	  }
+	pp_string (buffer, "]");
+	if (flags & TDF_DETAILS)
+	  {
+	    pp_string (buffer, "{");
+	    dump_generic_node (buffer, TMR_ORIGINAL (node), spc, flags,
+			       false);
+	    pp_string (buffer, "}");
+	  }
+      }
       break;
 
     case ARRAY_TYPE:
@@ -2341,8 +2398,7 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
 
   dump_bb_header (buffer, bb, indent, flags);
 
-  if (bb_ann (bb))
-    dump_phi_nodes (buffer, bb, indent, flags);
+  dump_phi_nodes (buffer, bb, indent, flags);
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {

@@ -1171,10 +1171,6 @@ struct tree_vec GTY(())
 #define TREE_OPERAND(NODE, I) TREE_OPERAND_CHECK (NODE, I)
 #define TREE_COMPLEXITY(NODE) (EXPR_CHECK (NODE)->exp.complexity)
 
-/* In INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF.  */
-#define REF_ORIGINAL(NODE) TREE_CHAIN (TREE_CHECK3 (NODE, 	\
-	INDIRECT_REF, ALIGN_INDIRECT_REF, MISALIGNED_INDIRECT_REF))
-
 /* In a LOOP_EXPR node.  */
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND_CHECK_CODE (NODE, LOOP_EXPR, 0)
 
@@ -1239,6 +1235,15 @@ struct tree_vec GTY(())
 #define CASE_LOW(NODE)          	TREE_OPERAND (CASE_LABEL_EXPR_CHECK (NODE), 0)
 #define CASE_HIGH(NODE)         	TREE_OPERAND (CASE_LABEL_EXPR_CHECK (NODE), 1)
 #define CASE_LABEL(NODE)		TREE_OPERAND (CASE_LABEL_EXPR_CHECK (NODE), 2)
+
+/* The operands of a TARGET_MEM_REF.  */
+#define TMR_SYMBOL(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 0))
+#define TMR_BASE(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 1))
+#define TMR_INDEX(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 2))
+#define TMR_STEP(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 3))
+#define TMR_OFFSET(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 4))
+#define TMR_ORIGINAL(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 5))
+#define TMR_TAG(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 6))
 
 /* The operands of a BIND_EXPR.  */
 #define BIND_EXPR_VARS(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 0))
@@ -1338,17 +1343,12 @@ struct tree_exp GTY(())
 #define SSA_NAME_VALUE(N) \
    SSA_NAME_CHECK (N)->ssa_name.value_handle
 
-/* Range information for SSA_NAMEs.  */
-#define SSA_NAME_VALUE_RANGE(N) \
-    SSA_NAME_CHECK (N)->ssa_name.value_range
-
 /* Auxiliary pass-specific data.  */
 #define SSA_NAME_AUX(N) \
    SSA_NAME_CHECK (N)->ssa_name.aux
 
 #ifndef _TREE_FLOW_H
 struct ptr_info_def;
-struct value_range_def;
 #endif
 
 
@@ -1385,9 +1385,6 @@ struct tree_ssa_name GTY(())
      this field; in the future we will allow VALUE_HANDLEs to persist
      as well.  */
   tree value_handle;
-
-  /* Value range information.  */
-  struct value_range_def *value_range;
 
   /* Auxiliary information stored with the ssa name.  */
   PTR GTY((skip)) aux;
@@ -2053,10 +2050,17 @@ struct tree_binfo GTY (())
    writing debugging information about vfield and vbase decls for C++.  */
 #define DECL_FCONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->decl.vindex)
 
+extern tree decl_debug_expr_lookup (tree);
+extern void decl_debug_expr_insert (tree, tree);
+
 /* For VAR_DECL, this is set to either an expression that it was split
    from (if DECL_DEBUG_EXPR_IS_FROM is true), otherwise a tree_list of
    subexpressions that it was split into.  */
-#define DECL_DEBUG_EXPR(NODE) (DECL_CHECK (NODE)->decl.vindex)
+#define DECL_DEBUG_EXPR(NODE) \
+  (decl_debug_expr_lookup (VAR_DECL_CHECK (NODE)))
+
+#define SET_DECL_DEBUG_EXPR(NODE, VAL) \
+  (decl_debug_expr_insert (VAR_DECL_CHECK (NODE), (VAL)))
 
 #define DECL_DEBUG_EXPR_IS_FROM(NODE) \
   (DECL_CHECK (NODE)->decl.debug_expr_is_from)
@@ -2188,12 +2192,19 @@ struct tree_binfo GTY (())
    entire function.  */
 #define DECL_SAVED_TREE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.saved_tree)
 
+extern tree decl_value_expr_lookup (tree);
+extern void decl_value_expr_insert (tree, tree);
+
 /* In a VAR_DECL or PARM_DECL, the location at which the value may be found,
    if transformations have made this more complicated than evaluating the
    decl itself.  This should only be used for debugging; once this field has
    been set, the decl itself may not legitimately appear in the function.  */
+#define DECL_HAS_VALUE_EXPR_P(NODE) \
+  (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl.has_value_expr)
 #define DECL_VALUE_EXPR(NODE) \
-  (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl.saved_tree)
+  (decl_value_expr_lookup (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)))
+#define SET_DECL_VALUE_EXPR(NODE, VAL)			\
+  (decl_value_expr_insert (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL), VAL))
 
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as if it were a malloc, meaning it returns a pointer that is
@@ -2342,6 +2353,14 @@ struct tree_binfo GTY (())
 #define DECL_GIMPLE_FORMAL_TEMP_P(DECL) \
   DECL_CHECK (DECL)->decl.gimple_formal_temp
 
+/* For function local variables of COMPLEX type, indicates that the
+   variable is not aliased, and that all modifications to the variable
+   have been adjusted so that they are killing assignments.  Thus the
+   variable may now be treated as a GIMPLE register, and use real
+   instead of virtual ops in SSA form.  */
+#define DECL_COMPLEX_GIMPLE_REG_P(DECL) \
+  DECL_CHECK (DECL)->decl.gimple_reg_flag
+
 /* Enumerate visibility settings.  */
 #ifndef SYMBOL_VISIBILITY_DEFINED
 #define SYMBOL_VISIBILITY_DEFINED
@@ -2413,7 +2432,9 @@ struct tree_decl GTY(())
   unsigned returns_twice_flag : 1;
   unsigned seen_in_bind_expr : 1;
   unsigned novops_flag : 1;
-  /* 9 unused bits.  */
+  unsigned has_value_expr : 1;
+  unsigned gimple_reg_flag : 1;
+  /* 7 unused bits.  */
 
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
@@ -2890,6 +2911,10 @@ extern tree build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
 extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
 			 tree MEM_STAT_DECL);
 #define build4(c,t1,t2,t3,t4,t5) build4_stat (c,t1,t2,t3,t4,t5 MEM_STAT_INFO)
+extern tree build7_stat (enum tree_code, tree, tree, tree, tree, tree,
+			 tree, tree, tree MEM_STAT_DECL);
+#define build7(c,t1,t2,t3,t4,t5,t6,t7,t8) \
+  build7_stat (c,t1,t2,t3,t4,t5,t6,t7,t8 MEM_STAT_INFO)
 
 extern tree build_int_cst (tree, HOST_WIDE_INT);
 extern tree build_int_cst_type (tree, HOST_WIDE_INT);
@@ -3532,6 +3557,7 @@ extern tree fold_convert (tree, tree);
 extern tree fold_single_bit_test (enum tree_code, tree, tree, tree);
 extern tree fold_ignored_result (tree);
 extern tree fold_abs_const (tree, tree);
+extern tree fold_indirect_ref_1 (tree, tree);
 
 extern tree force_fit_type (tree, int, bool, bool);
 
@@ -3593,6 +3619,7 @@ extern bool tree_swap_operands_p (tree, tree, bool);
 extern enum tree_code swap_tree_comparison (enum tree_code);
 
 extern bool ptr_difference_const (tree, tree, HOST_WIDE_INT *);
+extern enum tree_code invert_tree_comparison (enum tree_code, bool);
 
 /* In builtins.c */
 extern tree fold_builtin (tree, tree, bool);
@@ -3651,7 +3678,7 @@ extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_range_type (tree, tree, tree);
 extern HOST_WIDE_INT int_cst_value (tree);
 extern tree tree_fold_gcd (tree, tree);
-extern tree build_addr (tree);
+extern tree build_addr (tree, tree);
 
 extern bool fields_compatible_p (tree, tree);
 extern tree find_compatible_field (tree, tree);
@@ -3975,13 +4002,14 @@ extern int tree_node_sizes[];
    restricted to creating gimple expressions.  */
 extern bool in_gimple_form;
 
-/* In tree-ssa-threadupdate.c.  */
-extern bool thread_through_all_blocks (void);
-
 /* In tree-gimple.c.  */
 extern tree get_base_address (tree t);
 
 /* In tree-vectorizer.c.  */
 extern void vect_set_verbosity_level (const char *);
+
+/* In tree-ssa-address.c.  */
+extern tree tree_mem_ref_addr (tree, tree);
+extern void copy_mem_ref_info (tree, tree);
 
 #endif  /* GCC_TREE_H  */

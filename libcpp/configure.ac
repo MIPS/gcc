@@ -29,6 +29,10 @@ ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long])
 # corrected.
 ACX_PROG_CC_WARNINGS_ARE_ERRORS([manual])
 
+# Dependency checking.
+ZW_CREATE_DEPDIR
+ZW_PROG_COMPILER_DEPENDENCIES([CC])
+
 # Checks for header files.
 AC_HEADER_TIME
 ACX_HEADER_STRING
@@ -50,7 +54,8 @@ define(libcpp_UNLOCKED_FUNCS, clearerr_unlocked feof_unlocked dnl
   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked dnl
   putchar_unlocked putc_unlocked)
 AC_CHECK_FUNCS(libcpp_UNLOCKED_FUNCS)
-AC_CHECK_DECLS(m4_split(m4_normalize(abort basename errno getopt libcpp_UNLOCKED_FUNCS)))
+AC_CHECK_DECLS(m4_split(m4_normalize(abort asprintf basename errno getopt \
+  libcpp_UNLOCKED_FUNCS vasprintf)))
 
 # Checks for library functions.
 AC_FUNC_ALLOCA

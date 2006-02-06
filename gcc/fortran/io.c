@@ -491,9 +491,13 @@ format_item_1:
 
     case FMT_DOLLAR:
       t = format_lex ();
+
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: $ descriptor at %C")
+          == FAILURE)
+        return FAILURE;
       if (t != FMT_RPAREN || level > 0)
 	{
-	  error = "$ must the last specifier";
+	  error = "$ must be the last specifier";
 	  goto syntax;
 	}
 
@@ -970,8 +974,9 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
       /* Format label can be integer varibale.  */
       if (tag != &tag_format || e->ts.type != BT_INTEGER)
         {
-          gfc_error ("%s tag at %L must be of type %s", tag->name, &e->where,
-		     gfc_basic_typename (tag->type));
+          gfc_error ("%s tag at %L must be of type %s or %s", tag->name,
+		&e->where, gfc_basic_typename (tag->type),
+		gfc_basic_typename (BT_INTEGER));
           return FAILURE;
         }
     }
@@ -2359,12 +2364,15 @@ gfc_match_inquire (void)
   gfc_inquire *inquire;
   gfc_code *code;
   match m;
+  locus loc;
 
   m = gfc_match_char ('(');
   if (m == MATCH_NO)
     return m;
 
   inquire = gfc_getmem (sizeof (gfc_inquire));
+
+  loc = gfc_current_locus;
 
   m = match_inquire_element (inquire);
   if (m == MATCH_ERROR)
@@ -2430,6 +2438,20 @@ gfc_match_inquire (void)
 
   if (gfc_match_eos () != MATCH_YES)
     goto syntax;
+
+  if (inquire->unit != NULL && inquire->file != NULL)
+    {
+      gfc_error ("INQUIRE statement at %L cannot contain both FILE and"
+		 " UNIT specifiers", &loc);
+      goto cleanup;
+    }
+
+  if (inquire->unit == NULL && inquire->file == NULL)
+    {
+      gfc_error ("INQUIRE statement at %L requires either FILE or"
+		     " UNIT specifier", &loc);
+      goto cleanup;
+    }
 
   if (gfc_pure (NULL))
     {

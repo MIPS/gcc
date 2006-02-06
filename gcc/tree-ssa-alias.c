@@ -642,7 +642,6 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 
   FOR_EACH_BB (bb)
     {
-      bb_ann_t block_ann = bb_ann (bb);
       block_stmt_iterator si;
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
@@ -665,9 +664,6 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 		if (stmt_escapes_p)
 		  mark_call_clobbered (var);
 	      }
-
-	  if (stmt_escapes_p)
-	    block_ann->has_escape_site = 1;
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
 	    {
@@ -878,7 +874,16 @@ static void
 compute_flow_sensitive_aliasing (struct alias_info *ai)
 {
   size_t i;
-
+  
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
+    {
+      tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
+      struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+      if (pi->pt_anything || pi->pt_vars == NULL)
+	{
+	  find_what_p_points_to (ptr);
+	}
+    }
   create_name_tags (ai);
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
@@ -1077,12 +1082,13 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 
 	  if (sbitmap_first_set_bit (may_aliases2) >= 0)
 	    {
-	      size_t k;
+	      unsigned int k;
+	      sbitmap_iterator sbi;
 
 	      /* Add all the aliases for TAG2 into TAG1's alias set.
 		 FIXME, update grouping heuristic counters.  */
-	      EXECUTE_IF_SET_IN_SBITMAP (may_aliases2, 0, k,
-		  add_may_alias (tag1, referenced_var (k)));
+	      EXECUTE_IF_SET_IN_SBITMAP (may_aliases2, 0, k, sbi)
+		add_may_alias (tag1, referenced_var (k));
 	      sbitmap_a_or_b (may_aliases1, may_aliases1, may_aliases2);
 	    }
 	  else
@@ -1137,11 +1143,12 @@ total_alias_vops_cmp (const void *p, const void *q)
 static void
 group_aliases_into (tree tag, sbitmap tag_aliases, struct alias_info *ai)
 {
-  size_t i;
+  unsigned int i;
   var_ann_t tag_ann = var_ann (tag);
   size_t num_tag_refs = VARRAY_UINT (ai->num_references, tag_ann->uid);
+  sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (tag_aliases, 0, i,
+  EXECUTE_IF_SET_IN_SBITMAP (tag_aliases, 0, i, sbi)
     {
       tree var = referenced_var (i);
       var_ann_t ann = var_ann (var);
@@ -1161,7 +1168,7 @@ group_aliases_into (tree tag, sbitmap tag_aliases, struct alias_info *ai)
 	 itself won't be removed.  We will merely replace them with
 	 references to TAG.  */
       ai->total_alias_vops -= num_tag_refs;
-    });
+    }
 
   /* We have reduced the number of virtual operands that TAG makes on
      behalf of all the variables formerly aliased with it.  However,
@@ -2780,80 +2787,71 @@ found_tag:
 }
 
 
-/* This structure is simply used during pushing fields onto the fieldstack
-   to track the offset of the field, since bitpos_of_field gives it relative
-   to its immediate containing type, and we want it relative to the ultimate
-   containing object.  */
+/* Create a new type tag for PTR.  Construct the may-alias list of this type
+   tag so that it has the aliasing of VAR. 
 
-typedef struct fieldoff
+   Note, the set of aliases represented by the new type tag are not marked
+   for renaming.  */
+
+void
+new_type_alias (tree ptr, tree var)
 {
-  tree field;
-  HOST_WIDE_INT offset;  
-} fieldoff_s;
+  var_ann_t p_ann = var_ann (ptr);
+  tree tag_type = TREE_TYPE (TREE_TYPE (ptr));
+  var_ann_t v_ann = var_ann (var);
+  tree tag;
+  subvar_t svars;
 
-DEF_VEC_O (fieldoff_s);
-DEF_VEC_ALLOC_O(fieldoff_s,heap);
+  gcc_assert (p_ann->type_mem_tag == NULL_TREE);
+  gcc_assert (v_ann->mem_tag_kind == NOT_A_TAG);
 
-/* Return the position, in bits, of FIELD_DECL from the beginning of its
-   structure. 
-   Return -1 if the position is conditional or otherwise non-constant
-   integer.  */
+  /* Add VAR to the may-alias set of PTR's new type tag.  If VAR has
+     subvars, add the subvars to the tag instead of the actual var.  */
+  if (var_can_have_subvars (var)
+      && (svars = get_subvars_for_var (var)))
+    {
+      subvar_t sv;
 
-static HOST_WIDE_INT
-bitpos_of_field (const tree fdecl)
-{
+      tag = create_memory_tag (tag_type, true);
+      p_ann->type_mem_tag = tag;
 
-  if (TREE_CODE (DECL_FIELD_OFFSET (fdecl)) != INTEGER_CST
-      || TREE_CODE (DECL_FIELD_BIT_OFFSET (fdecl)) != INTEGER_CST)
-    return -1;
+      for (sv = svars; sv; sv = sv->next)
+        add_may_alias (tag, sv->var);
+    }
+  else
+    {
+      /* The following is based on code in add_stmt_operand to ensure that the
+	 same defs/uses/vdefs/vuses will be found after replacing a reference
+	 to var (or ARRAY_REF to var) with an INDIRECT_REF to ptr whose value
+	 is the address of var.  */
+      varray_type aliases = v_ann->may_aliases;
 
-  return (tree_low_cst (DECL_FIELD_OFFSET (fdecl), 1) * 8) 
-    + tree_low_cst (DECL_FIELD_BIT_OFFSET (fdecl), 1);
+      if ((aliases != NULL)
+	  && (VARRAY_ACTIVE_SIZE (aliases) == 1))
+	{
+	  tree ali = VARRAY_TREE (aliases, 0);
+
+	  if (get_var_ann (ali)->mem_tag_kind == TYPE_TAG)
+	    {
+	      p_ann->type_mem_tag = ali;
+	      return;
+	    }
+	}
+
+      tag = create_memory_tag (tag_type, true);
+      p_ann->type_mem_tag = tag;
+
+      if (aliases == NULL)
+	add_may_alias (tag, var);
+      else
+	{
+	  size_t i;
+
+	  for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
+	    add_may_alias (tag, VARRAY_TREE (aliases, i));
+	}
+    }    
 }
-
-/* Given a TYPE, and a vector of field offsets FIELDSTACK, push all the fields
-   of TYPE onto fieldstack, recording their offsets along the way.
-   OFFSET is used to keep track of the offset in this entire structure, rather
-   than just the immediately containing structure.  Returns the number
-   of fields pushed. */
-
-static int
-push_fields_onto_fieldstack (tree type, VEC(fieldoff_s,heap) **fieldstack, 
-			     HOST_WIDE_INT offset)
-{
-  tree field;
-  int count = 0;
-
-  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
-    if (TREE_CODE (field) == FIELD_DECL)
-      {
-	bool push = false;
-      
-	if (!var_can_have_subvars (field))
-	  push = true;
-	else if (!(push_fields_onto_fieldstack
-		   (TREE_TYPE (field), fieldstack,
-		    offset + bitpos_of_field (field)))
-		 && DECL_SIZE (field)
-		 && !integer_zerop (DECL_SIZE (field)))
-	  /* Empty structures may have actual size, like in C++. So
-	     see if we didn't push any subfields and the size is
-	     nonzero, push the field onto the stack */
-	  push = true;
-	
-	if (push)
-	  {
-	    fieldoff_s *pair;
-
-	    pair = VEC_safe_push (fieldoff_s, heap, *fieldstack, NULL);
-	    pair->field = field;
-	    pair->offset = offset + bitpos_of_field (field);
-	    count++;
-	  }
-      }
-  return count;
-}
-
 
 /* This represents the used range of a variable.  */
 
@@ -2894,22 +2892,6 @@ get_or_create_used_part_for (size_t uid)
   return up;
 }
 
-/* qsort comparison function for two fieldoff's PA and PB */
-
-static int 
-fieldoff_compare (const void *pa, const void *pb)
-{
-  const fieldoff_s *foa = (const fieldoff_s *)pa;
-  const fieldoff_s *fob = (const fieldoff_s *)pb;
-  HOST_WIDE_INT foasize, fobsize;
-  
-  if (foa->offset != fob->offset)
-    return foa->offset - fob->offset;
-
-  foasize = TREE_INT_CST_LOW (DECL_SIZE (foa->field));
-  fobsize = TREE_INT_CST_LOW (DECL_SIZE (fob->field));
-  return foasize - fobsize;
-}
 
 /* Given an aggregate VAR, create the subvariables that represent its
    fields.  */
@@ -2925,7 +2907,7 @@ create_overlap_variables_for (tree var)
     return;
 
   up = used_portions[uid];
-  push_fields_onto_fieldstack (TREE_TYPE (var), &fieldstack, 0);
+  push_fields_onto_fieldstack (TREE_TYPE (var), &fieldstack, 0, NULL);
   if (VEC_length (fieldoff_s, fieldstack) != 0)
     {
       subvar_t *subvars;
@@ -2993,10 +2975,7 @@ create_overlap_variables_for (tree var)
       /* Otherwise, create the variables.  */
       subvars = lookup_subvars_for_var (var);
       
-      qsort (VEC_address (fieldoff_s, fieldstack), 
-	     VEC_length (fieldoff_s, fieldstack), 
-	     sizeof (fieldoff_s),
-	     fieldoff_compare);
+      sort_fieldstack (fieldstack);
 
       for (i = VEC_length (fieldoff_s, fieldstack);
 	   VEC_iterate (fieldoff_s, fieldstack, --i, fo);)

@@ -71,7 +71,7 @@ struct JCF;
       IS_CRAFTED_STRING_BUFFER_P (in CALL_EXPR)
       IS_INIT_CHECKED (in SAVE_EXPR)
    6: CAN_COMPLETE_NORMALLY (in statement nodes)
-      OUTER_FIELD_ACCESS_IDENTIFIER_P (in IDENTIFIER_NODE)
+      NESTED_FIELD_ACCESS_IDENTIFIER_P (in IDENTIFIER_NODE)
 
    Usage of TYPE_LANG_FLAG_?:
    0: CLASS_ACCESS0_GENERATED_P (in RECORD_TYPE)
@@ -234,6 +234,12 @@ extern int always_initialize_class_p;
 
 extern int flag_verify_invocations;
 
+/* Largest pc so far in this method that has been passed to lookup_label. */
+extern int highest_label_pc_this_method;
+
+/* Base value for this method to add to pc to get generated label. */
+extern int start_label_pc_this_method;
+
 typedef struct CPool constant_pool;
 
 #define CONSTANT_ResolvedFlag 16
@@ -386,6 +392,7 @@ enum java_tree_index
   JTI_SOFT_MULTIANEWARRAY_NODE,
   JTI_SOFT_BADARRAYINDEX_NODE,
   JTI_SOFT_NULLPOINTER_NODE,
+  JTI_SOFT_ABSTRACTMETHOD_NODE,
   JTI_SOFT_CHECKARRAYSTORE_NODE,
   JTI_SOFT_MONITORENTER_NODE,
   JTI_SOFT_MONITOREXIT_NODE,
@@ -645,6 +652,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_BADARRAYINDEX_NODE]
 #define soft_nullpointer_node \
   java_global_trees[JTI_SOFT_NULLPOINTER_NODE]
+#define soft_abstractmethod_node \
+  java_global_trees[JTI_SOFT_ABSTRACTMETHOD_NODE]
 #define soft_checkarraystore_node \
   java_global_trees[JTI_SOFT_CHECKARRAYSTORE_NODE]
 #define soft_monitorenter_node \
@@ -818,6 +827,9 @@ union lang_tree_node
 #define DECL_FIXED_CONSTRUCTOR_P(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->u.f.fixed_ctor)
 
+#define DECL_LOCAL_CNI_METHOD_P(NODE) \
+    (DECL_LANG_SPECIFIC (NODE)->u.f.local_cni)
+
 /* A constructor that calls this. */
 #define DECL_INIT_CALLS_THIS(DECL) \
   (DECL_LANG_SPECIFIC(DECL)->u.f.init_calls_this)
@@ -893,16 +905,16 @@ union lang_tree_node
 #define DECL_LOCAL_START_PC(NODE)  (DECL_LANG_SPECIFIC (NODE)->u.v.start_pc)
 /* The end (bytecode) pc for the valid range of this local variable. */
 #define DECL_LOCAL_END_PC(NODE)    (DECL_LANG_SPECIFIC (NODE)->u.v.end_pc)
-/* For a VAR_DECLor PARM_DECL, used to chain decls with the same
+/* For a VAR_DECL or PARM_DECL, used to chain decls with the same
    slot_number in decl_map. */
 #define DECL_LOCAL_SLOT_CHAIN(NODE) (DECL_LANG_SPECIFIC(NODE)->u.v.slot_chain)
 /* For a FIELD_DECL, holds the name of the access method. Used to
-   read/write the content of the field from an inner class.  */
-#define FIELD_INNER_ACCESS(DECL) \
+   read/write the content of the field across nested class boundaries.  */
+#define FIELD_NESTED_ACCESS(DECL) \
   (DECL_LANG_SPECIFIC (VAR_OR_FIELD_CHECK (DECL))->u.v.am)
-/* Safely tests whether FIELD_INNER_ACCESS exists or not. */
-#define FIELD_INNER_ACCESS_P(DECL) \
-  DECL_LANG_SPECIFIC (DECL) && FIELD_INNER_ACCESS (DECL)
+/* Safely tests whether FIELD_NESTED_ACCESS exists or not.  */
+#define FIELD_NESTED_ACCESS_P(DECL) \
+  DECL_LANG_SPECIFIC (DECL) && FIELD_NESTED_ACCESS (DECL)
 /* True if a final field was initialized upon its declaration
    or in an initializer.  Set after definite assignment.  */
 #define DECL_FIELD_FINAL_IUD(NODE)  (DECL_LANG_SPECIFIC (NODE)->u.v.final_iud)
@@ -931,6 +943,12 @@ union lang_tree_node
     (DECL_LANG_SPECIFIC (NODE)->u.v.freed)
 #define LOCAL_SLOT_P(NODE) \
     (DECL_LANG_SPECIFIC (NODE)->u.v.local_slot)
+
+#define DECL_CLASS_FIELD_P(NODE) \
+    (DECL_LANG_SPECIFIC (NODE)->u.v.class_field)
+#define DECL_VTABLE_P(NODE) \
+    (DECL_LANG_SPECIFIC (NODE)->u.v.vtable)
+
 /* Create a DECL_LANG_SPECIFIC if necessary. */
 #define MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC(T)			\
   if (DECL_LANG_SPECIFIC (T) == NULL)				\
@@ -993,7 +1011,8 @@ struct lang_decl_func GTY(())
   unsigned int invisible : 1;	/* Set for methods we generate
 				   internally but which shouldn't be
 				   written to the .class file.  */
-  unsigned int dummy:1;		
+  unsigned int dummy : 1;
+  unsigned int local_cni : 1;	/* Decl needs mangle_local_cni_method.  */
 };
 
 struct treetreehash_entry GTY(())
@@ -1037,6 +1056,8 @@ struct lang_decl_var GTY(())
   unsigned int cif : 1;		/* True: decl is a class initialization flag */
   unsigned int freed : 1;		/* Decl is no longer in scope.  */
   unsigned int local_slot : 1;	/* Decl is a temporary in the stack frame.  */
+  unsigned int class_field : 1; /* Decl needs mangle_class_field.  */
+  unsigned int vtable : 1;	/* Decl needs mangle_vtable.  */
 };
 
 /* This is what 'lang_decl' really points to.  */
@@ -1286,7 +1307,6 @@ extern tree build_result_decl (tree);
 extern void set_method_index (tree decl, tree method_index);
 extern tree get_method_index (tree decl);
 extern void make_class_data (tree);
-extern void register_class (void);
 extern int alloc_name_constant (int, tree);
 extern int alloc_constant_fieldref (tree, tree);
 extern void emit_register_classes (tree *);
@@ -1294,7 +1314,6 @@ extern tree emit_symbol_table (tree, tree, tree, tree, tree, int);
 extern void lang_init_source (int);
 extern void write_classfile (tree);
 extern char *print_int_node (tree);
-extern void parse_error_context (tree cl, const char *msgid, ...);
 extern void finish_class (void);
 extern void java_layout_seen_class_methods (void);
 extern void check_for_initialization (tree, tree);
@@ -1368,7 +1387,7 @@ extern void init_jcf_parse (void);
 extern void init_src_parse (void);
 
 extern int cxx_keyword_p (const char *, int);
-extern tree java_mangle_decl (struct obstack *, tree);
+extern void java_mangle_decl (tree);
 extern tree java_mangle_class_field (struct obstack *, tree);
 extern tree java_mangle_vtable (struct obstack *, tree);
 extern void append_gpp_mangled_name (const char *, int);
@@ -1678,9 +1697,9 @@ extern tree *type_map;
 /* True if NODE (a statement) can complete normally. */
 #define CAN_COMPLETE_NORMALLY(NODE) TREE_LANG_FLAG_6 (NODE)
 
-/* True if NODE (an IDENTIFIER) bears the name of a outer field from
-   inner class access function.  */
-#define OUTER_FIELD_ACCESS_IDENTIFIER_P(NODE) \
+/* True if NODE (an IDENTIFIER) bears the name of an outer field from
+   inner class (or vice versa) access function.  */
+#define NESTED_FIELD_ACCESS_IDENTIFIER_P(NODE) \
   TREE_LANG_FLAG_6 (IDENTIFIER_NODE_CHECK (NODE))
 
 /* True if NODE belongs to an inner class TYPE_DECL node.

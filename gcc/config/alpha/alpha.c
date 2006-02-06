@@ -79,19 +79,6 @@ enum alpha_fp_rounding_mode alpha_fprm;
 
 enum alpha_fp_trap_mode alpha_fptm;
 
-/* Specify bit size of immediate TLS offsets.  */
-
-int alpha_tls_size = 32;
-
-/* Strings decoded into the above options.  */
-
-static const char *alpha_cpu_string;	/* -mcpu= */
-static const char *alpha_tune_string;	/* -mtune= */
-static const char *alpha_tp_string;	/* -mtrap-precision=[p|s|i] */
-static const char *alpha_fprm_string;	/* -mfp-rounding-mode=[n|m|c|d] */
-static const char *alpha_fptm_string;	/* -mfp-trap-mode=[n|u|su|sui] */
-static const char *alpha_mlat_string;	/* -mmemory-latency= */
-
 /* Save information from a "cmpxx" operation until the branch or scc is
    emitted.  */
 
@@ -239,38 +226,8 @@ alpha_handle_option (size_t code, const char *arg, int value)
       target_flags |= MASK_IEEE_CONFORMANT;
       break;
 
-    case OPT_mcpu_:
-      alpha_cpu_string = arg;
-      break;
-
-    case OPT_mtune_:
-      alpha_tune_string = arg;
-      break;
-
-    case OPT_mfp_rounding_mode_:
-      alpha_fprm_string = arg;
-      break;
-
-    case OPT_mfp_trap_mode_:
-      alpha_fptm_string = arg;
-      break;
-
-    case OPT_mtrap_precision_:
-      alpha_tp_string = arg;
-      break;
-
-    case OPT_mmemory_latency_:
-      alpha_mlat_string = arg;
-      break;
-
     case OPT_mtls_size_:
-      if (strcmp (arg, "16") == 0)
-	alpha_tls_size = 16;
-      else if (strcmp (arg, "32") == 0)
-	alpha_tls_size = 32;
-      else if (strcmp (arg, "64") == 0)
-	alpha_tls_size = 64;
-      else
+      if (value != 16 && value != 32 && value != 64)
 	error ("bad value %qs for -mtls-size switch", arg);
       break;
     }
@@ -4448,6 +4405,48 @@ alpha_expand_builtin_vector_binop (rtx (*gen) (rtx, rtx, rtx),
   emit_insn ((*gen) (op0, op1, op2));
 }
 
+/* A subroutine of the atomic operation splitters.  Jump to LABEL if
+   COND is true.  Mark the jump as unlikely to be taken.  */
+
+static void
+emit_unlikely_jump (rtx cond, rtx label)
+{
+  rtx very_unlikely = GEN_INT (REG_BR_PROB_BASE / 100 - 1);
+  rtx x;
+
+  x = gen_rtx_IF_THEN_ELSE (VOIDmode, cond, label, pc_rtx);
+  x = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, x));
+  REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_BR_PROB, very_unlikely, NULL_RTX);
+}
+
+/* A subroutine of the atomic operation splitters.  Emit a load-locked
+   instruction in MODE.  */
+
+static void
+emit_load_locked (enum machine_mode mode, rtx reg, rtx mem)
+{
+  rtx (*fn) (rtx, rtx) = NULL;
+  if (mode == SImode)
+    fn = gen_load_locked_si;
+  else if (mode == DImode)
+    fn = gen_load_locked_di;
+  emit_insn (fn (reg, mem));
+}
+
+/* A subroutine of the atomic operation splitters.  Emit a store-conditional
+   instruction in MODE.  */
+
+static void
+emit_store_conditional (enum machine_mode mode, rtx res, rtx mem, rtx val)
+{
+  rtx (*fn) (rtx, rtx, rtx) = NULL;
+  if (mode == SImode)
+    fn = gen_store_conditional_si;
+  else if (mode == DImode)
+    fn = gen_store_conditional_di;
+  emit_insn (fn (res, mem, val));
+}
+
 /* Expand an an atomic fetch-and-operate pattern.  CODE is the binary operation
    to perform.  MEM is the memory on which to operate.  VAL is the second 
    operand of the binary operator.  BEFORE and AFTER are optional locations to
@@ -4459,8 +4458,7 @@ alpha_split_atomic_op (enum rtx_code code, rtx mem, rtx val,
 		       rtx before, rtx after, rtx scratch)
 {
   enum machine_mode mode = GET_MODE (mem);
-  rtx label, cond, x;
-  rtx very_unlikely = GEN_INT (REG_BR_PROB_BASE / 100 - 1);
+  rtx label, x, cond = gen_rtx_REG (DImode, REGNO (scratch));
 
   emit_insn (gen_memory_barrier ());
 
@@ -4470,40 +4468,81 @@ alpha_split_atomic_op (enum rtx_code code, rtx mem, rtx val,
 
   if (before == NULL)
     before = scratch;
-
-  if (mode == SImode)
-    emit_insn (gen_load_locked_si (before, mem));
-  else if (mode == DImode)
-    emit_insn (gen_load_locked_di (before, mem));
-  else
-    gcc_unreachable ();
+  emit_load_locked (mode, before, mem);
 
   if (code == NOT)
-    {
-      x = gen_rtx_NOT (mode, before);
-      x = gen_rtx_AND (mode, x, val);
-    }
+    x = gen_rtx_AND (mode, gen_rtx_NOT (mode, before), val);
   else
     x = gen_rtx_fmt_ee (code, mode, before, val);
-
   if (after)
     emit_insn (gen_rtx_SET (VOIDmode, after, copy_rtx (x)));
   emit_insn (gen_rtx_SET (VOIDmode, scratch, x));
 
-  cond = gen_rtx_REG (DImode, REGNO (scratch));
-  if (mode == SImode)
-    emit_insn (gen_store_conditional_si (cond, mem, scratch));
-  else if (mode == DImode)
-    emit_insn (gen_store_conditional_di (cond, mem, scratch));
-  else
-    gcc_unreachable ();
+  emit_store_conditional (mode, cond, mem, scratch);
 
   x = gen_rtx_EQ (DImode, cond, const0_rtx);
-  x = gen_rtx_IF_THEN_ELSE (VOIDmode, x, label, pc_rtx);
-  x = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, x));
-  REG_NOTES (x) = gen_rtx_EXPR_LIST (REG_BR_PROB, very_unlikely, NULL_RTX);
+  emit_unlikely_jump (x, label);
 
   emit_insn (gen_memory_barrier ());
+}
+
+/* Expand a compare and swap operation.  */
+
+void
+alpha_split_compare_and_swap (rtx retval, rtx mem, rtx oldval, rtx newval,
+			      rtx scratch)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  rtx label1, label2, x, cond = gen_lowpart (DImode, scratch);
+
+  emit_insn (gen_memory_barrier ());
+
+  label1 = gen_rtx_LABEL_REF (DImode, gen_label_rtx ());
+  label2 = gen_rtx_LABEL_REF (DImode, gen_label_rtx ());
+  emit_label (XEXP (label1, 0));
+
+  emit_load_locked (mode, retval, mem);
+
+  x = gen_lowpart (DImode, retval);
+  if (oldval == const0_rtx)
+    x = gen_rtx_NE (DImode, x, const0_rtx);
+  else
+    {
+      x = gen_rtx_EQ (DImode, x, oldval);
+      emit_insn (gen_rtx_SET (VOIDmode, cond, x));
+      x = gen_rtx_EQ (DImode, cond, const0_rtx);
+    }
+  emit_unlikely_jump (x, label2);
+
+  emit_move_insn (scratch, newval);
+  emit_store_conditional (mode, cond, mem, scratch);
+
+  x = gen_rtx_EQ (DImode, cond, const0_rtx);
+  emit_unlikely_jump (x, label1);
+
+  emit_insn (gen_memory_barrier ());
+  emit_label (XEXP (label2, 0));
+}
+
+/* Expand an atomic exchange operation.  */
+
+void
+alpha_split_lock_test_and_set (rtx retval, rtx mem, rtx val, rtx scratch)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  rtx label, x, cond = gen_lowpart (DImode, scratch);
+
+  emit_insn (gen_memory_barrier ());
+
+  label = gen_rtx_LABEL_REF (DImode, gen_label_rtx ());
+  emit_label (XEXP (label, 0));
+
+  emit_load_locked (mode, retval, mem);
+  emit_move_insn (scratch, val);
+  emit_store_conditional (mode, cond, mem, scratch);
+
+  x = gen_rtx_EQ (DImode, cond, const0_rtx);
+  emit_unlikely_jump (x, label);
 }
 
 /* Adjust the cost of a scheduling dependency.  Return the new cost of
@@ -4882,6 +4921,20 @@ print_operand (FILE *file, rtx x, int code)
       }
       break;
 
+    case 'j':
+      {
+	const char *lituse;
+
+#ifdef HAVE_AS_JSRDIRECT_RELOCS
+	lituse = "lituse_jsrdirect";
+#else
+	lituse = "lituse_jsr";
+#endif
+
+	gcc_assert (INTVAL (x) != 0);
+	fprintf (file, "\t\t!%s!%d", lituse, (int) INTVAL (x));
+      }
+      break;
     case 'r':
       /* If this operand is the constant zero, write it as "$31".  */
       if (GET_CODE (x) == REG)
@@ -8921,7 +8974,7 @@ alpha_align_insns (unsigned int max_align,
   unsigned int align;
   /* OFS is the offset of the current insn in the insn group.  */
   int ofs;
-  int prev_in_use, in_use, len;
+  int prev_in_use, in_use, len, ldgp;
   rtx i, next;
 
   /* Let shorten branches care for assigning alignments to code labels.  */
@@ -8938,6 +8991,8 @@ alpha_align_insns (unsigned int max_align,
   i = get_insns ();
   if (GET_CODE (i) == NOTE)
     i = next_nonnote_insn (i);
+
+  ldgp = alpha_function_needs_gp ? 8 : 0;
 
   while (i)
     {
@@ -8993,6 +9048,10 @@ alpha_align_insns (unsigned int max_align,
 	      ofs = 0;
 	    }
 	}
+
+      /* We may not insert padding inside the initial ldgp sequence.  */
+      else if (ldgp > 0)
+	ldgp -= len;
 
       /* If the group won't fit in the same INT16 as the previous,
 	 we need to add padding to keep the group together.  Rather

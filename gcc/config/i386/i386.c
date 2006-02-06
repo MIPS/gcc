@@ -535,7 +535,6 @@ const int x86_deep_branch = m_PPRO | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
 const int x86_branch_hints = 0;
 const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA;
 const int x86_partial_reg_stall = m_PPRO;
-const int x86_use_loop = m_K6;
 const int x86_use_himode_fiop = m_386 | m_486 | m_K6;
 const int x86_use_simode_fiop = ~(m_PPRO | m_ATHLON_K8 | m_PENT);
 const int x86_use_mov0 = m_K6;
@@ -733,7 +732,6 @@ rtx ix86_compare_op0 = NULL_RTX;
 rtx ix86_compare_op1 = NULL_RTX;
 rtx ix86_compare_emitted = NULL_RTX;
 
-#define MAX_386_STACK_LOCALS 3
 /* Size of the register save area.  */
 #define X86_64_VARARGS_SIZE (REGPARM_MAX * UNITS_PER_WORD + SSE_REGPARM_MAX * 16)
 
@@ -787,15 +785,11 @@ struct ix86_frame
   bool save_regs_using_mov;
 };
 
-/* Code model option as passed by user.  */
-static const char *ix86_cmodel_string;
-/* Parsed value.  */
+/* Code model option.  */
 enum cmodel ix86_cmodel;
 /* Asm dialect.  */
-static const char *ix86_asm_string;
 enum asm_dialect ix86_asm_dialect = ASM_ATT;
 /* TLS dialext.  */
-static const char *ix86_tls_dialect_string;
 enum tls_dialect ix86_tls_dialect = TLS_DIALECT_GNU;
 
 /* Which unit we are generating floating point math for.  */
@@ -806,40 +800,17 @@ enum processor_type ix86_tune;
 /* Which instruction set architecture to use.  */
 enum processor_type ix86_arch;
 
-/* Strings to hold which cpu and instruction set architecture  to use.  */
-const char *ix86_tune_string;		/* for -mtune=<xxx> */
-const char *ix86_arch_string;		/* for -march=<xxx> */
-static const char *ix86_fpmath_string;	/* for -mfpmath=<xxx> */
-
-/* # of registers to use to pass arguments.  */
-static const char *ix86_regparm_string;
-
 /* true if sse prefetch instruction is not NOOP.  */
 int x86_prefetch_sse;
 
 /* ix86_regparm_string as a number */
 static int ix86_regparm;
 
-/* Alignment to use for loops and jumps:  */
-
-/* Power of two alignment for loops.  */
-static const char *ix86_align_loops_string;
-
-/* Power of two alignment for non-loop jumps.  */
-static const char *ix86_align_jumps_string;
-
-/* Power of two alignment for stack boundary in bytes.  */
-static const char *ix86_preferred_stack_boundary_string;
-
 /* Preferred alignment for stack boundary in bits.  */
 unsigned int ix86_preferred_stack_boundary;
 
 /* Values 1-5: see jump.c */
 int ix86_branch_cost;
-static const char *ix86_branch_cost_string;
-
-/* Power of two alignment for functions.  */
-static const char *ix86_align_funcs_string;
 
 /* Prefix built by ASM_GENERATE_INTERNAL_LABEL.  */
 char internal_label_prefix[16];
@@ -894,6 +865,8 @@ static bool ix86_vector_mode_supported_p (enum machine_mode);
 static int ix86_address_cost (rtx);
 static bool ix86_cannot_force_const_mem (rtx);
 static rtx ix86_delegitimize_address (rtx);
+
+static void i386_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 
 struct builtin_description;
 static rtx ix86_expand_sse_comi (const struct builtin_description *,
@@ -1036,6 +1009,11 @@ static void init_ext_80387_constants (void);
 #undef TARGET_MS_BITFIELD_LAYOUT_P
 #define TARGET_MS_BITFIELD_LAYOUT_P ix86_ms_bitfield_layout_p
 
+#if TARGET_MACHO
+#undef TARGET_BINDS_LOCAL_P
+#define TARGET_BINDS_LOCAL_P darwin_binds_local_p
+#endif
+
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK x86_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
@@ -1090,6 +1068,11 @@ static void init_ext_80387_constants (void);
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
 
+#ifdef HAVE_AS_TLS
+#undef TARGET_ASM_OUTPUT_DWARF_DTPREL
+#define TARGET_ASM_OUTPUT_DWARF_DTPREL i386_output_dwarf_dtprel
+#endif
+
 #ifdef SUBTARGET_INSERT_ATTRIBUTES
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES SUBTARGET_INSERT_ATTRIBUTES
@@ -1107,7 +1090,7 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 /* Implement TARGET_HANDLE_OPTION.  */
 
 static bool
-ix86_handle_option (size_t code, const char *arg, int value)
+ix86_handle_option (size_t code, const char *arg ATTRIBUTE_UNUSED, int value)
 {
   switch (code)
     {
@@ -1119,52 +1102,12 @@ ix86_handle_option (size_t code, const char *arg, int value)
 	}
       return true;
 
-    case OPT_malign_functions_:
-      ix86_align_funcs_string = arg;
-      return true;
-
-    case OPT_malign_jumps_:
-      ix86_align_jumps_string = arg;
-      return true;
-
-    case OPT_malign_loops_:
-      ix86_align_loops_string = arg;
-      return true;
-
-    case OPT_march_:
-      ix86_arch_string = arg;
-      return true;
-
-    case OPT_masm_:
-      ix86_asm_string = arg;
-      return true;
-
-    case OPT_mbranch_cost_:
-      ix86_branch_cost_string = arg;
-      return true;
-
-    case OPT_mcmodel_:
-      ix86_cmodel_string = arg;
-      return true;
-
-    case OPT_mfpmath_:
-      ix86_fpmath_string = arg;
-      return true;
-
     case OPT_mmmx:
       if (!value)
 	{
 	  target_flags &= ~(MASK_3DNOW | MASK_3DNOW_A);
 	  target_flags_explicit |= MASK_3DNOW | MASK_3DNOW_A;
 	}
-      return true;
-
-    case OPT_mpreferred_stack_boundary_:
-      ix86_preferred_stack_boundary_string = arg;
-      return true;
-
-    case OPT_mregparm_:
-      ix86_regparm_string = arg;
       return true;
 
     case OPT_msse:
@@ -1181,14 +1124,6 @@ ix86_handle_option (size_t code, const char *arg, int value)
 	  target_flags &= ~MASK_SSE3;
 	  target_flags_explicit |= MASK_SSE3;
 	}
-      return true;
-
-    case OPT_mtls_dialect_:
-      ix86_tls_dialect_string = arg;
-      return true;
-
-    case OPT_mtune_:
-      ix86_tune_string = arg;
       return true;
 
     default:
@@ -1586,7 +1521,7 @@ override_options (void)
     target_flags &= ~MASK_NO_FANCY_MATH_387;
 
   /* Likewise, if the target doesn't have a 387, or we've specified
-     software floating point, don't use 387 inline instrinsics.  */
+     software floating point, don't use 387 inline intrinsics.  */
   if (!TARGET_80387)
     target_flags |= MASK_NO_FANCY_MATH_387;
 
@@ -1700,6 +1635,11 @@ optimization_options (int level, int size ATTRIBUTE_UNUSED)
   if (level > 1)
     flag_schedule_insns = 0;
 #endif
+
+  if (TARGET_MACHO)
+    /* The Darwin libraries never set errno, so we might as well
+       avoid calling them when that's the only reason we would.  */
+    flag_errno_math = 0;
 
   /* The default values of these switches depend on the TARGET_64BIT
      that is not known at this moment.  Mark these values with 2 and
@@ -1815,7 +1755,7 @@ ix86_handle_cdecl_attribute (tree *node, tree name,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (0, "%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -1843,7 +1783,8 @@ ix86_handle_cdecl_attribute (tree *node, tree name,
 
   if (TARGET_64BIT)
     {
-      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
@@ -1861,7 +1802,7 @@ ix86_handle_regparm_attribute (tree *node, tree name, tree args,
       && TREE_CODE (*node) != FIELD_DECL
       && TREE_CODE (*node) != TYPE_DECL)
     {
-      warning (0, "%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -1872,13 +1813,14 @@ ix86_handle_regparm_attribute (tree *node, tree name, tree args,
       cst = TREE_VALUE (args);
       if (TREE_CODE (cst) != INTEGER_CST)
 	{
-	  warning (0, "%qs attribute requires an integer constant argument",
+	  warning (OPT_Wattributes,
+		   "%qs attribute requires an integer constant argument",
 		   IDENTIFIER_POINTER (name));
 	  *no_add_attrs = true;
 	}
       else if (compare_tree_int (cst, REGPARM_MAX) > 0)
 	{
-	  warning (0, "argument to %qs attribute larger than %d",
+	  warning (OPT_Wattributes, "argument to %qs attribute larger than %d",
 		   IDENTIFIER_POINTER (name), REGPARM_MAX);
 	  *no_add_attrs = true;
 	}
@@ -1920,7 +1862,7 @@ ix86_comp_type_attributes (tree type1, tree type2)
   return 1;
 }
 
-/* Return the regparm value for a fuctio with the indicated TYPE and DECL.
+/* Return the regparm value for a function with the indicated TYPE and DECL.
    DECL may be NULL when calling function indirectly
    or considering a libcall.  */
 
@@ -3162,6 +3104,7 @@ ix86_function_value_regno_p (int regno)
     {
       return ((regno) == 0
 	      || ((regno) == FIRST_FLOAT_REG && TARGET_FLOAT_RETURNS_IN_80387)
+	      || ((regno) == FIRST_MMX_REG && TARGET_MMX)
 	      || ((regno) == FIRST_SSE_REG && TARGET_SSE));
     }
   return ((regno) == 0 || (regno) == FIRST_FLOAT_REG
@@ -3217,10 +3160,10 @@ ix86_return_in_memory (tree type)
       if (size < 8)
 	return 0;
 
-      /* MMX/3dNow values are returned on the stack, since we've
-	 got to EMMS/FEMMS before returning.  */
+      /* MMX/3dNow values are returned in MM0,
+	 except when it doesn't exits.  */
       if (size == 8)
-	return 1;
+	return (TARGET_MMX ? 0 : 1);
 
       /* SSE values are returned in XMM0, except when it doesn't exist.  */
       if (size == 16)
@@ -3249,18 +3192,32 @@ ix86_return_in_memory (tree type)
 static rtx
 ix86_struct_value_rtx (tree type, int incoming ATTRIBUTE_UNUSED)
 {
-  static bool warned;
+  static bool warnedsse, warnedmmx;
 
-  if (!TARGET_SSE && type && !warned)
+  if (type)
     {
       /* Look at the return type of the function, not the function type.  */
       enum machine_mode mode = TYPE_MODE (TREE_TYPE (type));
 
-      if (mode == TImode
-	  || (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 16))
+      if (!TARGET_SSE && !warnedsse)
 	{
-	  warned = true;
-	  warning (0, "SSE vector return without SSE enabled changes the ABI");
+	  if (mode == TImode
+	      || (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 16))
+	    {
+	      warnedsse = true;
+	      warning (0, "SSE vector return without SSE enabled "
+		       "changes the ABI");
+	    }
+	}
+
+      if (!TARGET_MMX && !warnedmmx)
+	{
+	  if (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 8)
+	    {
+	      warnedmmx = true;
+	      warning (0, "MMX vector return without MMX enabled "
+		       "changes the ABI");
+	    }
 	}
     }
 
@@ -3301,6 +3258,11 @@ static int
 ix86_value_regno (enum machine_mode mode, tree func)
 {
   gcc_assert (!TARGET_64BIT);
+
+  /* 8-byte vector modes in %mm0. See ix86_return_in_memory for where
+     we prevent this case when mmx is not available.  */
+  if ((VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 8))
+    return FIRST_MMX_REG;
 
   /* 16-byte vector modes in %xmm0.  See ix86_return_in_memory for where
      we prevent this case when sse is not available.  */
@@ -6182,10 +6144,10 @@ output_pic_addr_const (FILE *file, rtx x, int code)
     }
 }
 
-/* This is called from dwarf2out.c via ASM_OUTPUT_DWARF_DTPREL.
+/* This is called from dwarf2out.c via TARGET_ASM_OUTPUT_DWARF_DTPREL.
    We need to emit DTP-relative relocations.  */
 
-void
+static void
 i386_output_dwarf_dtprel (FILE *file, int size, rtx x)
 {
   fputs (ASM_LONG, file);
@@ -7395,41 +7357,103 @@ output_387_binary_op (rtx insn, rtx *operands)
   return buf;
 }
 
+/* Return needed mode for entity in optimize_mode_switching pass.  */
+
+int
+ix86_mode_needed (int entity, rtx insn)
+{
+  enum attr_i387_cw mode;
+
+  /* The mode UNINITIALIZED is used to store control word after a
+     function call or ASM pattern.  The mode ANY specify that function
+     has no requirements on the control word and make no changes in the
+     bits we are interested in.  */
+
+  if (CALL_P (insn)
+      || (NONJUMP_INSN_P (insn)
+	  && (asm_noperands (PATTERN (insn)) >= 0
+	      || GET_CODE (PATTERN (insn)) == ASM_INPUT)))
+    return I387_CW_UNINITIALIZED;
+
+  if (recog_memoized (insn) < 0)
+    return I387_CW_ANY;
+
+  mode = get_attr_i387_cw (insn);
+
+  switch (entity)
+    {
+    case I387_TRUNC:
+      if (mode == I387_CW_TRUNC)
+	return mode;
+      break;
+
+    case I387_FLOOR:
+      if (mode == I387_CW_FLOOR)
+	return mode;
+      break;
+
+    case I387_CEIL:
+      if (mode == I387_CW_CEIL)
+	return mode;
+      break;
+
+    case I387_MASK_PM:
+      if (mode == I387_CW_MASK_PM)
+	return mode;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return I387_CW_ANY;
+}
+
 /* Output code to initialize control word copies used by trunc?f?i and
    rounding patterns.  CURRENT_MODE is set to current control word,
    while NEW_MODE is set to new control word.  */
 
 void
-emit_i387_cw_initialization (rtx current_mode, rtx new_mode, int mode)
+emit_i387_cw_initialization (int mode)
 {
+  rtx stored_mode = assign_386_stack_local (HImode, SLOT_CW_STORED);
+  rtx new_mode;
+
+  int slot;
+
   rtx reg = gen_reg_rtx (HImode);
 
-  emit_insn (gen_x86_fnstcw_1 (current_mode));
-  emit_move_insn (reg, current_mode);
+  emit_insn (gen_x86_fnstcw_1 (stored_mode));
+  emit_move_insn (reg, stored_mode);
 
-  if (!TARGET_PARTIAL_REG_STALL && !optimize_size
-      && !TARGET_64BIT)
+  if (TARGET_64BIT || TARGET_PARTIAL_REG_STALL || optimize_size)
     {
       switch (mode)
 	{
+	case I387_CW_TRUNC:
+	  /* round toward zero (truncate) */
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0c00)));
+	  slot = SLOT_CW_TRUNC;
+	  break;
+
 	case I387_CW_FLOOR:
 	  /* round down toward -oo */
-	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0x4)));
+	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0400)));
+	  slot = SLOT_CW_FLOOR;
 	  break;
 
 	case I387_CW_CEIL:
 	  /* round up toward +oo */
-	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0x8)));
+	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
+	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0800)));
+	  slot = SLOT_CW_CEIL;
 	  break;
 
-	case I387_CW_TRUNC:
-	  /* round toward zero (truncate) */
-	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0xc)));
-	  break;
- 
 	case I387_CW_MASK_PM:
 	  /* mask precision exception for nearbyint() */
 	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
+	  slot = SLOT_CW_MASK_PM;
 	  break;
 
 	default:
@@ -7440,26 +7464,28 @@ emit_i387_cw_initialization (rtx current_mode, rtx new_mode, int mode)
     {
       switch (mode)
 	{
+	case I387_CW_TRUNC:
+	  /* round toward zero (truncate) */
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0xc)));
+	  slot = SLOT_CW_TRUNC;
+	  break;
+
 	case I387_CW_FLOOR:
 	  /* round down toward -oo */
-	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
-	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0400)));
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0x4)));
+	  slot = SLOT_CW_FLOOR;
 	  break;
 
 	case I387_CW_CEIL:
 	  /* round up toward +oo */
-	  emit_insn (gen_andhi3 (reg, reg, GEN_INT (~0x0c00)));
-	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0800)));
+	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0x8)));
+	  slot = SLOT_CW_CEIL;
 	  break;
-
-	case I387_CW_TRUNC:
-	  /* round toward zero (truncate) */
-	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0c00)));
-	  break;
-
+ 
 	case I387_CW_MASK_PM:
 	  /* mask precision exception for nearbyint() */
 	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
+	  slot = SLOT_CW_MASK_PM;
 	  break;
 
 	default:
@@ -7467,6 +7493,9 @@ emit_i387_cw_initialization (rtx current_mode, rtx new_mode, int mode)
 	}
     }
 
+  gcc_assert (slot < MAX_386_STACK_LOCALS);
+
+  new_mode = assign_386_stack_local (HImode, slot);
   emit_move_insn (new_mode, reg);
 }
 
@@ -12160,11 +12189,11 @@ ix86_init_machine_status (void)
    which slot to use.  */
 
 rtx
-assign_386_stack_local (enum machine_mode mode, int n)
+assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
 {
   struct stack_local_entry *s;
 
-  gcc_assert (n >= 0 && n < MAX_386_STACK_LOCALS);
+  gcc_assert (n < MAX_386_STACK_LOCALS);
 
   for (s = ix86_stack_locals; s; s = s->next)
     if (s->mode == mode && s->n == n)
@@ -14794,13 +14823,13 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_LDMXCSR:
       op0 = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
-      target = assign_386_stack_local (SImode, 0);
+      target = assign_386_stack_local (SImode, SLOT_TEMP);
       emit_move_insn (target, op0);
       emit_insn (gen_sse_ldmxcsr (target));
       return 0;
 
     case IX86_BUILTIN_STMXCSR:
-      target = assign_386_stack_local (SImode, 0);
+      target = assign_386_stack_local (SImode, SLOT_TEMP);
       emit_insn (gen_sse_stmxcsr (target));
       return copy_to_mode_reg (SImode, target);
 
@@ -15338,7 +15367,7 @@ ix86_cannot_change_mode_class (enum machine_mode from, enum machine_mode to,
   if (from == to)
     return false;
 
-  /* x87 registers can't do subreg at all, as all values are reformated
+  /* x87 registers can't do subreg at all, as all values are reformatted
      to extended precision.  */
   if (MAYBE_FLOAT_CLASS_P (class))
     return true;
@@ -16054,7 +16083,8 @@ ix86_handle_struct_attribute (tree *node, tree name,
   if (!(type && (TREE_CODE (*type) == RECORD_TYPE
 		 || TREE_CODE (*type) == UNION_TYPE)))
     {
-      warning (0, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+      warning (OPT_Wattributes, "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
@@ -16063,7 +16093,7 @@ ix86_handle_struct_attribute (tree *node, tree name,
 	   || ((is_attribute_p ("gcc_struct", name)
 		&& lookup_attribute ("ms_struct", TYPE_ATTRIBUTES (*type)))))
     {
-      warning (0, "%qs incompatible attribute ignored",
+      warning (OPT_Wattributes, "%qs incompatible attribute ignored",
                IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }

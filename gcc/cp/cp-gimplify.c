@@ -409,7 +409,7 @@ cp_gimplify_init_expr (tree *expr_p, tree *pre_p, tree *post_p)
       *expr_p = from;
 
       /* The initialization is now a side-effect, so the container can
-         become void.  */
+	 become void.  */
       if (from != sub)
 	TREE_TYPE (from) = void_type_node;
     }
@@ -557,6 +557,16 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       ret = GS_OK;
       break;
 
+    case UNARY_PLUS_EXPR:
+      {
+	tree arg = TREE_OPERAND (*expr_p, 0);
+	tree type = TREE_TYPE (*expr_p);
+	*expr_p = (TREE_TYPE (arg) != type) ? fold_convert (type, arg)
+					    : arg;
+	ret = GS_OK;
+      }
+      break;
+
     default:
       ret = c_gimplify_expr (expr_p, pre_p, post_p);
       break;
@@ -625,7 +635,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 		      CLEANUP_EXPR (stmt));
 
   pointer_set_insert (p_set, *stmt_p);
-  
+
   return NULL;
 }
 

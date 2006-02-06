@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
    the cpu attribute in the mips.md machine description.  */
 
 enum processor_type {
-  PROCESSOR_DEFAULT,
+  PROCESSOR_R3000,
   PROCESSOR_4KC,
   PROCESSOR_4KP,
   PROCESSOR_5KC,
@@ -40,7 +40,6 @@ enum processor_type {
   PROCESSOR_24K,
   PROCESSOR_24KX,
   PROCESSOR_M4K,
-  PROCESSOR_R3000,
   PROCESSOR_R3900,
   PROCESSOR_R6000,
   PROCESSOR_R4000,
@@ -58,7 +57,25 @@ enum processor_type {
   PROCESSOR_R8000,
   PROCESSOR_R9000,
   PROCESSOR_SB1,
-  PROCESSOR_SR71000
+  PROCESSOR_SR71000,
+  PROCESSOR_MAX
+};
+
+/* Costs of various operations on the different architectures.  */
+
+struct mips_rtx_cost_data
+{
+  unsigned short fp_add;
+  unsigned short fp_mult_sf;
+  unsigned short fp_mult_df;
+  unsigned short fp_div_sf;
+  unsigned short fp_div_df;
+  unsigned short int_mult_si;
+  unsigned short int_mult_di;
+  unsigned short int_div_si;
+  unsigned short int_div_di;
+  unsigned short branch_cost;
+  unsigned short memory_latency;
 };
 
 /* Which ABI to use.  ABI_32 (original 32, or o32), ABI_N32 (n32),
@@ -105,10 +122,10 @@ extern enum processor_type mips_tune;   /* which cpu to schedule for */
 extern int mips_isa;			/* architectural level */
 extern int mips_abi;			/* which ABI to use */
 extern int mips16_hard_float;		/* mips16 without -msoft-float */
-extern const char *mips_cache_flush_func;/* for -mflush-func= and -mno-flush-func */
 extern const struct mips_cpu_info mips_cpu_info_table[];
 extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
+extern const struct mips_rtx_cost_data *mips_cost;
 
 /* Macros to silence warnings about numbers being signed in traditional
    C and unsigned in ISO C when compiled on 32-bit hosts.  */
@@ -151,8 +168,10 @@ extern const struct mips_cpu_info *mips_tune_info;
    We therefore disable GP-relative switch tables for n64 on IRIX targets.  */
 #define TARGET_GPWORD (TARGET_ABICALLS && !(mips_abi == ABI_64 && TARGET_IRIX))
 
-					/* Generate mips16 code */
+/* Generate mips16 code */
 #define TARGET_MIPS16		((target_flags & MASK_MIPS16) != 0)
+/* Generate mips16e code. Default 16bit ASE for mips32/mips32r2/mips64 */
+#define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
 
 /* Generic ISA defines.  */
 #define ISA_MIPS1		    (mips_isa == 1)
@@ -668,6 +687,11 @@ extern const struct mips_cpu_info *mips_tune_info;
 
 /* ISA includes the MIPS32r2 seb and seh instructions.  */
 #define ISA_HAS_SEB_SEH         (!TARGET_MIPS16                        \
+                                 && (ISA_MIPS32R2                      \
+                                     ))
+
+/* ISA includes the MIPS32/64 rev 2 ext and ins instructions.  */
+#define ISA_HAS_EXT_INS         (!TARGET_MIPS16                        \
                                  && (ISA_MIPS32R2                      \
                                      ))
 
@@ -2295,9 +2319,8 @@ typedef struct mips_args {
 #define REGISTER_MOVE_COST(MODE, FROM, TO)				\
   mips_register_move_cost (MODE, FROM, TO)
 
-/* ??? Fix this to be right for the R8000.  */
 #define MEMORY_MOVE_COST(MODE,CLASS,TO_P) \
-  (((TUNE_MIPS4000 || TUNE_MIPS6000) ? 6 : 4) \
+  (mips_cost->memory_latency	      		\
    + memory_move_secondary_cost ((MODE), (CLASS), (TO_P)))
 
 /* Define if copies to/from condition code registers should be avoided.
@@ -2310,11 +2333,8 @@ typedef struct mips_args {
 /* A C expression for the cost of a branch instruction.  A value of
    1 is the default; other values are interpreted relative to that.  */
 
-/* ??? Fix this to be right for the R8000.  */
-#define BRANCH_COST							\
-  ((! TARGET_MIPS16							\
-    && (TUNE_MIPS4000 || TUNE_MIPS6000))				\
-   ? 2 : 1)
+#define BRANCH_COST mips_cost->branch_cost
+#define LOGICAL_OP_NON_SHORT_CIRCUIT 0
 
 /* If defined, modifies the length assigned to instruction INSN as a
    function of the context in which it is used.  LENGTH is an lvalue

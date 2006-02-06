@@ -67,8 +67,6 @@ const char *byte_reg_names[]   =  BYTE_REGISTER_NAMES;
 
 static int arg_regs[] = FUNCTION_ARG_REGISTERS;
 
-/* The value passed to -mshared-library-id=.  */
-static int bfin_library_id;
 /* Nonzero if -mshared-library-id was given.  */
 static int bfin_lib_id_given;
 
@@ -1272,18 +1270,8 @@ bfin_return_in_memory (tree type)
   if (mode == BLKmode)
     return 1;
   size = int_size_in_bytes (type);	
-  if (VECTOR_MODE_P (mode) || mode == TImode)
-    {
-      /* User-created vectors small enough to fit in REG.  */
-      if (size < 8)
-        return 0;
-      if (size == 8 || size == 16)
-	return 1;
-    }
 
-  if (size > 12)
-    return 1;
-  return 0;
+  return size > 8;
 }
 
 /* Register in which address to store a structure value
@@ -1722,8 +1710,6 @@ bfin_handle_option (size_t code, const char *arg, int value)
       if (value > MAX_LIBRARY_ID)
 	error ("-mshared-library-id=%s is not between 0 and %d",
 	       arg, MAX_LIBRARY_ID);
-      else
-	bfin_library_id = value;
       bfin_lib_id_given = 1;
       return true;
 
@@ -2470,7 +2456,7 @@ bfin_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
    which perform the memory reference, are allowed to execute before the
    jump condition is evaluated.
    Therefore, we must insert additional instructions in all places where this
-   could lead to incorrect behaviour.  The manual recommends CSYNC, while
+   could lead to incorrect behavior.  The manual recommends CSYNC, while
    VDSP seems to use NOPs (even though its corresponding compiler option is
    named CSYNC).
 
@@ -2558,7 +2544,7 @@ handle_int_attribute (tree *node, tree name,
 
   if (TREE_CODE (x) != FUNCTION_TYPE)
     {
-      warning (0, "%qs attribute only applies to functions",
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
@@ -2685,6 +2671,67 @@ bfin_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
     output_asm_insn ("jump.l\t%P0", xops);
 }
 
+/* Codes for all the Blackfin builtins.  */
+enum bfin_builtins
+{
+  BFIN_BUILTIN_CSYNC,
+  BFIN_BUILTIN_SSYNC,
+  BFIN_BUILTIN_MAX
+};
+
+#define def_builtin(NAME, TYPE, CODE)				\
+do {								\
+  builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
+		    NULL, NULL_TREE);				\
+} while (0)
+
+/* Set up all builtin functions for this target.  */
+static void
+bfin_init_builtins (void)
+{
+  tree void_ftype_void
+    = build_function_type (void_type_node, void_list_node);
+
+  /* Add the remaining MMX insns with somewhat more complicated types.  */
+  def_builtin ("__builtin_bfin_csync", void_ftype_void, BFIN_BUILTIN_CSYNC);
+  def_builtin ("__builtin_bfin_ssync", void_ftype_void, BFIN_BUILTIN_SSYNC);
+}
+
+/* Expand an expression EXP that calls a built-in function,
+   with result going to TARGET if that's convenient
+   (and in mode MODE if that's convenient).
+   SUBTARGET may be used as the target for computing one of EXP's operands.
+   IGNORE is nonzero if the value is to be ignored.  */
+
+static rtx
+bfin_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
+		     rtx subtarget ATTRIBUTE_UNUSED,
+		     enum machine_mode mode ATTRIBUTE_UNUSED,
+		     int ignore ATTRIBUTE_UNUSED)
+{
+  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+
+  switch (fcode)
+    {
+    case BFIN_BUILTIN_CSYNC:
+      emit_insn (gen_csync ());
+      return 0;
+    case BFIN_BUILTIN_SSYNC:
+      emit_insn (gen_ssync ());
+      return 0;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+#undef TARGET_INIT_BUILTINS
+#define TARGET_INIT_BUILTINS bfin_init_builtins
+
+#undef TARGET_EXPAND_BUILTIN
+#define TARGET_EXPAND_BUILTIN bfin_expand_builtin
+
 #undef TARGET_ASM_GLOBALIZE_LABEL
 #define TARGET_ASM_GLOBALIZE_LABEL bfin_globalize_label 
 

@@ -22,7 +22,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_OPTS_H
 
 /* Specifies how a switch's VAR_VALUE relates to its FLAG_VAR.  */
-enum cl_var_cond {
+enum cl_var_type {
   /* The switch is enabled when FLAG_VAR is nonzero.  */
   CLVC_BOOLEAN,
 
@@ -33,7 +33,11 @@ enum cl_var_cond {
   CLVC_BIT_CLEAR,
 
   /* The switch is enabled when VAR_VALUE is set in FLAG_VAR.  */
-  CLVC_BIT_SET
+  CLVC_BIT_SET,
+
+  /* The switch takes a string argument and FLAG_VAR points to that
+     argument.  */
+  CLVC_STRING
 };
 
 struct cl_option
@@ -43,9 +47,17 @@ struct cl_option
   unsigned short back_chain;
   unsigned char opt_len;
   unsigned int flags;
-  int *flag_var;
-  enum cl_var_cond var_cond;
+  void *flag_var;
+  enum cl_var_type var_type;
   int var_value;
+};
+
+/* Records that the state of an option consists of SIZE bytes starting
+   at DATA.  DATA might point to CH in some cases.  */
+struct cl_option_state {
+  const void *data;
+  size_t size;
+  char ch;
 };
 
 extern const struct cl_option cl_options[];
@@ -73,6 +85,6 @@ extern unsigned num_in_fnames;
 
 extern void decode_options (unsigned int argc, const char **argv);
 extern int option_enabled (int opt_idx);
-extern void print_filtered_help (unsigned int);
+extern bool get_option_state (int, struct cl_option_state *);
 
 #endif

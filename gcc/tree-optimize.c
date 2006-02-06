@@ -375,13 +375,14 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_lower_cf); 
   NEXT_PASS (pass_lower_eh); 
   NEXT_PASS (pass_build_cfg); 
-  NEXT_PASS (pass_pre_expand);
+  NEXT_PASS (pass_lower_complex_O0);
+  NEXT_PASS (pass_lower_vector);
   NEXT_PASS (pass_warn_function_return);
+  NEXT_PASS (pass_tree_profile);
   *p = NULL;
 
   p = &all_passes;
   NEXT_PASS (pass_fixup_cfg);
-  NEXT_PASS (pass_tree_profile);
   NEXT_PASS (pass_init_datastructures);
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_warn_function_noreturn);
@@ -395,7 +396,9 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_create_structure_vars);
   NEXT_PASS (pass_build_ssa);
+  NEXT_PASS (pass_build_pta);  
   NEXT_PASS (pass_may_alias);
+  NEXT_PASS (pass_del_pta);  
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_early_warn_uninitialized);
 
@@ -411,11 +414,14 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_dominator);
 
   NEXT_PASS (pass_phiopt);
+  NEXT_PASS (pass_build_pta);  
   NEXT_PASS (pass_may_alias);
+  NEXT_PASS (pass_del_pta);  
   NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_ch);
   NEXT_PASS (pass_stdarg);
+  NEXT_PASS (pass_lower_complex);
   NEXT_PASS (pass_sra);
   /* FIXME: SRA may generate arbitrary gimple code, exposing new
      aliased and call-clobbered variables.  As mentioned below,
@@ -438,6 +444,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_cse_reciprocals);
   NEXT_PASS (pass_split_crit_edges);
+  NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_sink_code);
   NEXT_PASS (pass_loop);
@@ -478,6 +485,9 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
+  /* NEXT_PASS (pass_may_alias) cannot be done again because the
+     vectorizer creates alias relations that are not supported by
+     pass_may_alias.  */
   NEXT_PASS (pass_lower_vector_ssa);
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_iv_optimize);
@@ -682,7 +692,9 @@ tree_lowering_passes (tree fn)
 void
 ipa_passes (void)
 {
-   execute_pass_list (all_ipa_passes);
+  bitmap_obstack_initialize (NULL);
+  execute_pass_list (all_ipa_passes);
+  bitmap_obstack_release (NULL);
 }
 
 
