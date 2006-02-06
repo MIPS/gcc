@@ -1,3 +1,10 @@
+2006-02-06  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-transform.c (bump_vector_ptr): New function.
+	(vect_transform_strided_store, vectorizable_store): Replace code that 
+	was factored out into bump_vector_ptr with a call to bump_vector_ptr.
+	(vect_transform_strided_load, vectorizable_load): Likewise.
+
 2006-02-06  Ira Rosen  <irar@il.ibm.com>
 
         * tree-vectorizer.h (struct _stmt_vec_info): Remove field vectorized.
