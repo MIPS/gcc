@@ -950,8 +950,8 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 
 	      if (warn_shadow && !err)
 		{
-		  warning (0, "declaration of %q#D shadows a parameter", x);
-		  warning (0, "%Jshadowed declaration is here", oldlocal);
+		  warning (OPT_Wshadow, "declaration of %q#D shadows a parameter", x);
+		  warning (OPT_Wshadow, "%Jshadowed declaration is here", oldlocal);
 		}
 	    }
 
@@ -975,22 +975,22 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	      if (member && !TREE_STATIC (member))
 		{
 		  /* Location of previous decl is not useful in this case.  */
-		  warning (0, "declaration of %qD shadows a member of 'this'",
+		  warning (OPT_Wshadow, "declaration of %qD shadows a member of 'this'",
 			   x);
 		}
 	      else if (oldlocal != NULL_TREE
 		       && TREE_CODE (oldlocal) == VAR_DECL)
 		{
-		  warning (0, "declaration of %qD shadows a previous local", x);
-		  warning (0, "%Jshadowed declaration is here", oldlocal);
+		  warning (OPT_Wshadow, "declaration of %qD shadows a previous local", x);
+		  warning (OPT_Wshadow, "%Jshadowed declaration is here", oldlocal);
 		}
 	      else if (oldglobal != NULL_TREE
 		       && TREE_CODE (oldglobal) == VAR_DECL)
 		/* XXX shadow warnings in outer-more namespaces */
 		{
-		  warning (0, "declaration of %qD shadows a global declaration",
+		  warning (OPT_Wshadow, "declaration of %qD shadows a global declaration",
 			   x);
-		  warning (0, "%Jshadowed declaration is here", oldglobal);
+		  warning (OPT_Wshadow, "%Jshadowed declaration is here", oldglobal);
 		}
 	    }
 	}
@@ -1892,6 +1892,7 @@ push_overloaded_decl (tree decl, int flags, bool is_friend)
 	  for (tmp = old; tmp; tmp = OVL_NEXT (tmp))
 	    {
 	      tree fn = OVL_CURRENT (tmp);
+	      tree dup;
 
 	      if (TREE_CODE (tmp) == OVERLOAD && OVL_USED (tmp)
 		  && !(flags & PUSH_USING)
@@ -1901,8 +1902,11 @@ push_overloaded_decl (tree decl, int flags, bool is_friend)
 		error ("%q#D conflicts with previous using declaration %q#D",
 		       decl, fn);
 
-	      if (duplicate_decls (decl, fn, is_friend) == fn)
-		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, fn);
+	      dup = duplicate_decls (decl, fn, is_friend);
+	      /* If DECL was a redeclaration of FN -- even an invalid
+		 one -- pass that information along to our caller.  */
+	      if (dup == fn || dup == error_mark_node)
+		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, dup);
 	    }
 
 	  /* We don't overload implicit built-ins.  duplicate_decls()
@@ -2764,7 +2768,7 @@ do_class_using_decl (tree scope, tree name)
 
   scope_dependent_p = dependent_type_p (scope);
   name_dependent_p = (scope_dependent_p 
-		      || (IDENTIFIER_OPNAME_P (name)
+		      || (IDENTIFIER_TYPENAME_P (name)
 			  && dependent_type_p (TREE_TYPE (name))));
 
   bases_dependent_p = false;

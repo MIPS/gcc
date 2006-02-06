@@ -158,7 +158,7 @@ do {							\
 /* Convert the implicit sum in a `struct args_size' into an rtx.  */
 #define ARGS_SIZE_RTX(SIZE)					\
 ((SIZE).var == 0 ? GEN_INT ((SIZE).constant)			\
- : expand_expr (ARGS_SIZE_TREE (SIZE), NULL_RTX, VOIDmode, 0))
+ : expand_normal (ARGS_SIZE_TREE (SIZE)))
 
 /* Supply a default definition for FUNCTION_ARG_PADDING:
    usually pad upward, but pad short args downward on
@@ -338,6 +338,7 @@ extern rtx expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern tree std_build_builtin_va_list (void);
 extern void std_expand_builtin_va_start (tree, rtx);
 extern rtx default_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
+extern rtx default_expand_library_builtin (tree, rtx, rtx, enum machine_mode, int);
 extern void expand_builtin_setjmp_setup (rtx, rtx);
 extern void expand_builtin_setjmp_receiver (rtx);
 extern rtx expand_builtin_saveregs (void);
@@ -491,6 +492,12 @@ expand_expr (tree exp, rtx target, enum machine_mode mode,
 	     enum expand_modifier modifier)
 {
   return expand_expr_real (exp, target, mode, modifier, NULL);
+}
+
+static inline rtx
+expand_normal (tree exp)
+{
+  return expand_expr_real (exp, NULL_RTX, VOIDmode, EXPAND_NORMAL, NULL);
 }
 
 extern void expand_var (tree);
@@ -722,7 +729,6 @@ extern rtx extract_bit_field (rtx, unsigned HOST_WIDE_INT,
 			      unsigned HOST_WIDE_INT, int, rtx,
 			      enum machine_mode, enum machine_mode);
 extern rtx expand_mult (enum machine_mode, rtx, rtx, rtx, int);
-extern bool const_mult_add_overflow_p (rtx, rtx, rtx, enum machine_mode, int);
 extern rtx expand_mult_add (rtx, rtx, rtx, rtx,enum machine_mode, int);
 extern rtx expand_mult_highpart_adjust (enum machine_mode, rtx, rtx, rtx, rtx, int);
 

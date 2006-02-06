@@ -280,7 +280,7 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
     }
 
   if (type_unknown_p (expr))
-    return instantiate_type (type, expr, tf_error | tf_warning);
+    return instantiate_type (type, expr, tf_warn_or_error);
 
   error ("cannot convert %qE from type %qT to type %qT",
 	 expr, intype, type);
@@ -451,7 +451,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
       && TREE_TYPE (expr) == unknown_type_node)
     expr = instantiate_type (type, expr,
 			     (flags & LOOKUP_COMPLAIN)
-			     ? tf_error | tf_warning : tf_none);
+			     ? tf_warn_or_error : tf_none);
 
   if (expr == error_mark_node)
     return error_mark_node;
@@ -918,7 +918,7 @@ convert_to_void (tree expr, const char *implicit)
 	  /* The middle end does not warn about expressions that have
 	     been explicitly cast to void, so we must do so here.  */
 	  if (!TREE_SIDE_EFFECTS (expr))
-	    warning (0, "%s has no effect", implicit);
+	    warning (OPT_Wunused_value, "%s has no effect", implicit);
 	  else
 	    {
 	      tree e;
@@ -950,7 +950,7 @@ convert_to_void (tree expr, const char *implicit)
 			    || code == PREINCREMENT_EXPR
 			    || code == POSTDECREMENT_EXPR
 			    || code == POSTINCREMENT_EXPR)))
-		warning (0, "value computed is not used");
+		warning (OPT_Wunused_value, "value computed is not used");
 	    }
 	}
       expr = build1 (CONVERT_EXPR, void_type_node, expr);

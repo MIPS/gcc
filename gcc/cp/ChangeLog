@@ -1,3 +1,148 @@
+2006-02-04  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cp-tree.h (tf_warn_or_error): New substituion flag.
+	(cp_build_qualified_type): Use it.
+	* call.c (convert_like_real): Likewise.
+	* cvt.c (cp_convert_to_pointer): Likewise.
+	(convert_to_reference): Likewise.
+	* decl.c (make_typename_type): Likewise.
+	(grokdeclarator): Likewise.
+	* pt.c (tsubst_friend_function): Likewise.
+	(tsubst_friend_class): Likewise.
+	(instantiate_class_template): Likewise.
+	(tsubst_default_argument): Likewise.
+	(instantiate_decl): Likewise.
+	(tsubst_initializer_list): Likewise.
+	(tsubst_enum): Likewise.
+	* semantics.c (finish_template_type): Likewise.
+	* typeck.c (build_ptrmemfunc): Likewise.
+	(convert_for_assignment): Likewise.
+
+2006-02-03  Lee Millward  <lee.millward@gmail.com>
+
+       * typeck.c (string_conv_p): Pass appropiate
+       OPT_Wxxxx values when calling warning().
+       (build_array_ref, cxx_mark_addressable): Likewise.
+       (check_return_expr): Likewise.
+
+       * init.c (perform_member_init): Likewise.
+       (sort_mem_initializers, emit_mem_initializers): Likewise.
+
+       * class.c (check_field_decls): Likewise.
+       (warn_about_ambiguous_bases): Likewise.
+
+       * decl.c (pop_label, poplevel): Likewise.
+       (duplicate_decls, grok_op_properties): Likewise.
+       (start_preparsed_function, finish_function): Likewise.
+
+       * name-lookup.c (pushdecl_maybe_friend): Likewise.
+       (pushdecl_maybe_friend): Likewise.
+
+       * parser.c (cp_parser_warn_min_max): Likewise.
+       (cp_parser_cast_expression): Likewise.
+
+       * method.c (lazily_declare_fn): Likewise.
+       * cvt.c (convert_to_void): Likewise.
+       * mangle.c (finish_mangling): Likewise.
+       * cp-gimplify.c (gimplify_expr_stmt): Likewise.
+
+2006-02-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* name-lookup.c (do_class_using_decl): Use IDENTIFIER_TYPENAME_P,
+	not IDENTIFIER_OPNAME_P.
+
+2006-01-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25342
+	* cp-tree.h (DECL_TEMPLATE_SPECIALIZATIONS): Revise
+	documentation.
+	* pt.c (determine_specialization): Use INNERMOST_TEMPLATE_PARMS,
+	not TREE_VALUE.
+	(instantiate_class_template): Simplify.
+	(verify_class_unification): Remove.
+	(unify): Document parameters.  Use INNERMOST_TEMPLATE_ARGS to
+	permit multiple levels of template arguments.
+	(more_specialized_class): Simplify.
+	(get_class_bindings): Pass full arguments to unify.  Fold
+	verify_class_unification into this function.  Return full
+	arguments.
+	(most_specialized_class): Adjust for changes to
+	get_class_bindings.  Issue errors here for ambiguity.  Return the
+	fully deduced arguments for the most specialized class, in
+	addition to the partial specialization.
+
+2006-01-31  Ben Elliston  <bje@au.ibm.com>
+
+	* mangle.c: Comment fix.
+
+2006-01-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* Make-lang.in (cp-warn): Include CXX_COMPAT_WARN.
+	* repo.c (extract_string, afgets): Use cast when converting from
+	void *. 
+
+2006-01-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* call.c (alloc_conversion): Use cast when converting from void *.
+	(alloc_conversions): Likewise.
+	(add_candidate): Likewise.
+	(print_z_candidates): Likewise.
+	(add_warning): Likewise.
+	* pt.c (retrieve_local_specialization): Likewise.
+	(process_partial_specialization): Likewise.
+	(mangle_class_name_for_template): Likewise.
+	(tsubst_template_args): Likewise.
+	* typeck2.c (pat_calc_hash): Likewise.
+	(pat_compare): Likewise.
+	(abstract_virtuals_error): Likewise.
+	* class.c (method_name_cmp): Likewise.
+	(resort_method_name_cmp): Likewise.
+	(get_vfield_name): Likewise.
+	* decl2.c (generate_ctor_and_dtor_functions_for_priority): Likewise.
+	* lex.c (init_reswords): Likewise.
+	* rtti.c (create_pseudo_type_info): Likewise.
+	* search.c (dfs_lookup_base): Likewise.
+	(dfs_dcast_hint_pre): Likewise.
+	(dfs_dcast_hint_post): Likewise.
+	* tree.c (hash_tree_cons): Likewise.
+	* repo.c (extract_string): Likewise.
+	(afgets): Likewise.
+	* cp-objcp-common.c (decl_shadowed_for_var_lookup): Likewise.
+	* g++spec.c (lang_specific_driver): Likewise.
+
+2006-01-28  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* call.c (joust): Pass option code to warning.  Use inform for
+	explanation. 
+	* class.c (check_bases): Likewise.
+	(maybe_warn_about_overly_private_class): Likewise.
+	(check_field_decls): Likewise.
+	(layout_empty_base): Likewise.
+	(layout_virtual_bases): Likewise.
+	(layout_class_type): Likewise.
+
+2006-01-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25999
+	* decl.c (start_preparsed_function): Call maybe_apply_pragma_weak
+	here, not ...
+	(start_function): ... here.
+
+2006-01-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25855
+	* class.c (resolve_address_of_overloaded_function): Adjust use of
+	return value from most_specialized_instantiation.
+	* pt.c (determine_specialization): Avoid multiple calls to
+	get_bindings.
+	(most_specialized_instantiation): When a tie occurs, set the
+	current presumed champion to the next template.  Return the
+	TREE_LIST node containing the template, rather than the template
+	itself.
+	(most_specialized): Remove.
+	* name-lookup.c (push_overloaded_decl): When duplicate_decls
+	indicates a failed redeclaration, report that to callers.
+
 2006-01-26  Jason Merrill  <jason@redhat.com>
 
 	PR c++/16021
@@ -189,7 +334,7 @@
 	(cp_parser_asm_definition): Call cgraph_add_asm_node rather than
 	assemble_asm.
 
-2006-01-16  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+2006-01-16  Rafael ï¿½ila de Espï¿½dola  <rafael.espindola@gmail.com>
 
 	* g++spec.c (lang_specific_spec_functions): Remove.
 
@@ -461,7 +606,7 @@
 	* mangle.c (write_bare_function_type): Mangle return type for
 	methods of Java classes
 
-2005-12-08  Théodore Papadopoulo <Theodore.Papadopoulo@sophia.inria.fr>
+2005-12-08  Thï¿½dore Papadopoulo <Theodore.Papadopoulo@sophia.inria.fr>
 
 	* call.c (build_conditional_expr): Print types in error messages.
 
@@ -473,11 +618,11 @@
 
 	* cp-gimplify.c (gimplify_cp_loop): Use fold_build3.
 
-2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+2005-12-07  Rafael ï¿½ila de Espï¿½dola  <rafael.espindola@gmail.com>
 
 	* Make-lang.in (c++.all.build, c++.install-normal): Remove.
 
-2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+2005-12-07  Rafael ï¿½ila de Espï¿½dola  <rafael.espindola@gmail.com>
 
 	* Make-lang.in: Remove all dependencies on s-gtype.
 

@@ -1,6 +1,7 @@
 /* Data flow analysis for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -587,7 +588,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   if (prop_flags & PROP_KILL_DEAD_CODE)
     run_fast_dce ();
   if ((prop_flags & PROP_REG_INFO) && !reg_deaths)
-    reg_deaths = xcalloc (sizeof (*reg_deaths), max_regno);
+    reg_deaths = XCNEWVEC (int, max_regno);
 
   timevar_push ((extent == UPDATE_LIFE_LOCAL || blocks)
 		? TV_LIFE_UPDATE : TV_LIFE);
@@ -1023,7 +1024,7 @@ allocate_reg_life_data (void)
 
   max_regno = max_reg_num ();
   gcc_assert (!reg_deaths);
-  reg_deaths = xcalloc (sizeof (*reg_deaths), max_regno);
+  reg_deaths = XCNEWVEC (int, max_regno);
 
   /* Recalculate the register space, in case it has grown.  Old style
      vector oriented regsets would set regset_{size,bytes} here also.  */
@@ -1395,7 +1396,7 @@ struct propagate_block_info *
 init_propagate_block_info (basic_block bb, regset live, regset local_set,
 			   regset cond_local_set, int flags)
 {
-  struct propagate_block_info *pbi = xmalloc (sizeof (*pbi));
+  struct propagate_block_info *pbi = XNEW (struct propagate_block_info);
 
   pbi->bb = bb;
   pbi->reg_live = live;
@@ -1408,7 +1409,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
   pbi->insn_num = 0;
 
   if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
-    pbi->reg_next_use = xcalloc (max_reg_num (), sizeof (rtx));
+    pbi->reg_next_use = XCNEWVEC (rtx, max_reg_num ());
   else
     pbi->reg_next_use = NULL;
 
@@ -1501,8 +1502,9 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 		  rtx cond;
 		  bool true_in;
 
-		  true_in = REGNO_REG_SET_P (df_get_live_in (rtl_df, bb_true), i);
-		  if (true_in)
+		  rcli = XNEW (struct reg_cond_life_info);
+
+		  if (REGNO_REG_SET_P (df_get_live_in (rtl_df, bb_true) i))
 		    cond = cond_false;
 		  else
 		    cond = cond_true;
@@ -2514,7 +2516,7 @@ mark_regno_cond_dead (struct propagate_block_info *pbi, int regno, rtx cond)
 	  /* The register was unconditionally live previously.
 	     Record the current condition as the condition under
 	     which it is dead.  */
-	  rcli = xmalloc (sizeof (*rcli));
+	  rcli = XNEW (struct reg_cond_life_info);
 	  rcli->condition = cond;
 	  rcli->stores = cond;
 	  rcli->orig_condition = const0_rtx;
@@ -3317,7 +3319,7 @@ mark_used_reg (struct propagate_block_info *pbi, rtx reg,
 	    {
 	      /* The register was not previously live at all.  Record
 		 the condition under which it is still dead.  */
-	      rcli = xmalloc (sizeof (*rcli));
+	      rcli = XNEW (struct reg_cond_life_info);
 	      rcli->condition = not_reg_cond (cond);
 	      rcli->stores = const0_rtx;
 	      rcli->orig_condition = const0_rtx;

@@ -1,7 +1,688 @@
+2006-02-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa/x-ada-hpux10, pa/t-pa-hpux10, pa/t-pa-hpux11: New files.
+	* config.gcc (hppa[12]*-*-hpux10*): Use pa/t-pa-hpux10 instead of
+	pa/t-pa.
+	* config.gcc (hppa[12]*-*-hpux11*): Use pa/t-pa-hpux11 instead of
+	pa/t-pa.
+	* config.host (hppa*-*-hpux10*): Use pa/x-ada-hpux10 instead of
+	pa/x-ada.
+	* pa/t-pa-hpux: Add lib2funcs.asm and quadlib.c rules.
+	* pa/t-pa64: Delete quadlib.c rule.
+	* pa/x-ada: Revert last change.
+	* pa/t-pa: Revert last change.  Delete quadlib.c rule.
+
+2006-02-04  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR rtl-optimization/26087
+	* rtlanal.c (canonicalize_condition): Do not cross basic block
+	boundaries.
+
+2006-02-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/24444
+	* config/ia64/ia64.c: Include debug.h.
+	(MAX_ARTIFICIAL_LABEL_BYTES): New.
+	(ia64_label_after_insn, ia64_dwarf2out_def_steady_cfa): New.
+	(IA64_CHANGE_CFA_IN_EPILOGUE): Define to 0.
+	(process_epilogue, process_set, process_for_unwind_directive):
+	Output unwind info only if requested.  Add CFA info if requested.
+	Add new arguments as needed.  Adjust callers.
+	* config/ia64/ia64.h (ARG_POINTER_CFA_OFFSET): Override
+	incorrect default.
+	(DWARF2_FRAME_INFO): Define to zero.
+	* config/ia64/unwind-ia64.c: Remove code that compensated for
+	the CFA offset error fixed above.
+	* config/ia64/t-ia64 (ia64.o): Depend on debug.h.
+	* dwarf2out.c (DWARF2_FRAME_INFO): Define default.
+	(dwarf2out_do_frame): Require nonzero DWARF2_UNWIND_INFO for
+	-funwind-tables and -fexceptions to enable frame info.
+	(dwarf2out_frame_init): Define initial CFA even if
+	DWARF2_UNWIND_INFO is disabled.  Call initial_return_save if
+	DWARF2_UNWIND_INFO is nonzero, not just defined.
+	(dwarf2out_frame_finish): Output non-EH call frame info only
+	if DWARF2_FRAME_INFO is nonzero.
+	(convert_cfa_to_loc_list,
+	compute_frame_pointer_to_cfa_displacement): Define even if
+	unwind info is not supported.
+	(gen_subprogram_die): Use the above unconditionally.  Remove
+	legacy alternate code.
+	* toplev.c (compile_file): Compile in call to
+	dwarf2out_frame_finish if DWARF2_DEBUGGING_INFO is defined.
+	(lang_dependent_init): Ditto for dwarf2out_frame_init.
+
+2006-02-04  David Edelsohn  <edelsohn@gnu.org>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_mangle_fundamental_type): Mangle
+	IBM extended float format long double as "g" on powerpc*-linux.
+
+2006-02-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/25926
+	* pa/x-ada (X_ADA_CFLAGS): Define _X_HPUX10 on HP-UX 10.
+	* pa/t-pa (TARGET_LIBGCC2_CFLAGS): Define _T_HPUX10 on HP-UX 10.
+
+2006-02-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/25979
+	* gimplify.c (gimplify_modify_expr_rhs): Disable *& optimization for now.
+
+	PR middle-end/25977
+	* gimplify.c (gimplify_modify_expr_rhs): It's not always safe to do RVO
+	on the return slot if it's an NRV.
+
+2006-02-03  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-loop-ivopts.c (enum use_type): Remove USE_OUTER.
+	(dump_use, add_derived_ivs_candidates, determine_use_iv_cost,
+	rewrite_use): Do not handle USE_OUTER.
+	(find_interesting_uses_outer_or_nonlin, find_interesting_uses_outer,
+	add_iv_outer_candidates, may_replace_final_value,
+	determine_use_iv_cost_outer, rewrite_use_outer): Removed.
+	(find_interesting_uses_op): Functionality of
+	find_interesting_uses_outer_or_nonlin moved here.
+	(find_interesting_uses_outside): Use find_interesting_uses_op.
+
+2006-02-03  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/25960
+	* config/rs6000/darwin-ldouble.c (__gcc_qadd): Preserve -0.0 result.
+
+2006-02-03  Andreas Krebbel  <krebbel1@de.ibm.com>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/25864
+	* config/s390/2084.md ("x_fsimptf", "x_fmultf", "x_fdivtf",
+	"x_floadtf", "x_ftrunctf", "x_ftruncdf"): New insn reservations.
+	* config/s390/fixdfdi.h (__fixunstfdi, __fixtfdi): New functions.
+	* config/s390/s390.c (struct processor_costs): Add mxbr, sqxbr, dxbr 
+	and dxr fields.
+	(z900_cost, z990_cost, z9_109_cost): Values for the new fields added.
+	(s390_rtx_costs): Use the new fields to calculate rtx costs.
+	(s390_secondary_input_reload_class, s390_secondary_output_reload_class):
+	Define secondary reloads for TFmode moves.
+	(constant_modes): Add TFmode.
+	(NR_C_MODES): Set to 8.
+	* config/s390/s390.h (TARGET_CPU_CPP_BUILTINS): Add __LONG_DOUBLE_128__
+	builtin define.
+	(LONG_DOUBLE_TYPE_SIZE): Set to 128 or 64.
+	(LIBGCC2_LONG_DOUBLE_TYPE_SIZE, WIDEST_HARDWARE_FP_SIZE): Define.
+	(HARD_REGNO_NREGS, HARD_REGNO_MODE_OK, CLASS_MAX_NREGS, 
+	CANNOT_CHANGE_MODE_CLASS): Consider TFmode.
+	* config/s390/s390.md ("type" attribute): Add fsimptf, floadtf, fmultf, 
+	fdivtf, fsqrttf, ftrunctf, ftruncdf as possible values.
+	(FPR mode macro): Add TFmode.
+	(DSF mode macro): New.
+	(<de>, <dee> mode attributes): Removed.
+	(<xde>, <xdee>, <RRe>, <RXe>, <Rf> mode attributes): New.
+	("*cmp<mode>_ccs_0", "*cmp<mode>_ccs_0_ibm", "*cmp<mode>_ccs", 
+	"*cmp<mode>_ccs_ibm", "fix_trunc<FPR:mode><GPR:mode>2_ieee", 
+	"floatdi<mode>2", "floatsi<mode>2_ieee", "*add<mode>3", 
+	"*add<mode>3_cc", "*add<mode>3_cconly", "*add<mode>3_ibm", 
+	"*sub<mode>3", "*sub<mode>3_cc", "*sub<mode>3_cconly", 
+	"*sub<mode>3_ibm", "*mul<mode>3_ibm", "*fmadd<mode>", "*fmsub<mode>",
+	"*div<mode>3", "*div<mode>3_ibm", "*neg<mode>2_cc", 
+	"*neg<mode>2_cconly", "*neg<mode>2", "*neg<mode>2_ibm", 
+	"*abs<mode>2_cc", "*abs<mode>2_cconly", "*abs<mode>2",
+	"*abs<mode>2_ibm", "*negabs<mode>2_cc", "*negabs<mode>2_cconly", 
+	"*negabs<mode>2", "sqrt<mode>2"):
+	Changed <de> to <xde>. R constraint replaced by <Rf>.
+	("*mul<mode>3"): Changed <dee> to <xdee>. R constraint replaced by 
+	<Rf>.
+	("fix_trunc<FPR:mode>di2"): 'FPR:' removed.
+        ("*fmadd<mode>", "*fmsub<mode>"): FPR mode replaced by DSF.
+	("*movtf_64", "*movtf_31"): New insn definitions followed by 5 
+	splitters.
+	("movtf", "reload_outtf", "reload_intf", "trunctfdf2", "trunctfsf2", 
+	"extenddftf2", "extendsftf2"): New expanders.
+	("*trunctfdf2_ieee", "*trunctfdf2_ibm", "*trunctfsf2_ieee", 
+	"*trunctfsf2_ibm", "*extenddftf2_ieee", "*extenddftf2_ibm",
+	"*extendsftf2_ieee", "*extendsftf2_ibm"): New insn patterns.
+	* config/s390/s390.opt (mlong-double-128, mlong-double-64):
+	New options.
+	* config/s390/t-crtstuff (TARGET_LIBGCC2_CFLAGS): Macro defined.
+	* config/s390/libgcc-glibc.ver (__divtc3, __multc3, __powitf2, 
+	__fixtfti, __fixunstfti, __floattitf, __fixtfdi, __fixunstfdi,
+	__floatditf): Add a GCC_4.1.0 symbol version tag.
+	* doc/invoke.texi (-mlong-double-128, -mlong-double-64): Document
+	the new options.
+
+2006-02-02  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/25377
+	* config/i386/i386.c (ix86_function_ok_for_sibcall):
+	Use targetm.binds_local_p instead of TREE_PUBLIC.
+
+2006-02-02  Roger Sayle  <roger@eyesopen.com>
+
+	* tree.h (TYPE_STRING_FLAG): Document that this field may be used
+	on INTEGER_TYPEs to indicate that it denotes a character type.
+	* tree.c (build_common_tree_nodes): Set TYPE_STRING_FLAG on
+	signed_char_type_node, unsigned_char_type_node and char_type_node.
+	* dwarf2out.c (base_type_die): Treat CHAR_TYPE identically to
+	INTEGER_TYPE.  Use TYPE_STRING_FLAG to decide whether to emit
+	a DW_ATE_[un]signed_char instead of a DW_ATE_[un]signed.
+
+2006-02-02  Zdenek Dvorak <dvorakz@suse.cz>
+	    Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-tailcall.c (arg_needs_copy_p): New function.
+	(eliminate_tail_call): Use arg_needs_copy_p.
+	(tree_optimize_tail_calls_1): Ditto. Also call add_virtual_phis.
+	(add_virtual_phis): New function.
+
+2006-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/sparc/sparc.c (sparc_output_scratch_registers): Use
+	#ignore instead of #scratch for %g7 .register directive.
+
+2006-02-02  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* config/sparc/freebsd.h (ENDFILE_SPEC): Add space to separate
+	object files.
+
+2006-02-02  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* flow.c (calculate_global_regs_live): Assert that there aren't any
+	EDGE_FAKE edges.
+
+2006-02-02  Paolo Bonzini  <bonzini@gnu.org>
+
+	* tree-flow-inline.h (bsi_after_labels): Rewrite, return
+	what its name says.
+	* lambda-code.c (perfect_nestify): Use bsi_insert_before on
+	bsi_after_labels iterator.
+	* tree-if-conv.c (find_phi_replacement_condition,
+	replace_phi_with_cond_modify_expr): Likewise.
+	* tree-scalar-evolution.c (scev_const_prop): Likewise.
+	* tree-ssa-loop-ivopts.c (compute_phi_arg_on_exit): Likewise.
+
+2006-02-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-inline.c (copy_tree_r): Also copy OMP_CLAUSE nodes.
+
+2006-02-02  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 25990
+	* tree-cfg.c (move_block_to_fn): Clear out the basic block
+	array after growing it.
+
+2006-02-01  Steve Ellcey  <sje@cup.hp.com>
+
+	PR middle-end/24901
+	* fold-const.c (fold_checksum_tree): Change type of buf.
+
+2006-02-01  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* reload.c (push_secondary_reload): Initialize t_icode.
+
+2006-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): For
+	-msoft-float -mlong-double-128 only issue a warning, but don't
+	swich to DFmode long double.
+
+2006-02-01  Hans-Peter Nilsson  <hp@axis.com>
+
+	* cse.c (fold_rtx) <case RTX_COMM_COMPARE, RTX_COMPARE>: When arg1
+	has a constant equivalent, iterate over equivalents for arg0,
+	calling simplify_relational_operation and if there's a result
+	cheaper than X, apply fold_rtx and return the result.
+
+2006-02-01  Jan Hubicka  <jh@suse.cz>
+
+	* opts.c (no_unit_at_a_time_default): New global variable.
+	(decode_options): Use it.
+	* opts.h (no_unit_at_a_time_default): Declare.
+
+2006-02-01  Paul Brook  <paul@codesourcery.com>
+
+	* function.c (assign_parm_setup_reg): Use function argument promotion
+	rules.
+	* expr.c (expand_expr_real_1): Use function argument promotion rules
+	for PARM_DECLs.
+
+2006-02-01  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc.c (process_command): Change j to 'unsigned int'.
+
+2006-01-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/26001
+	* expr.c (expand_expr_real_1) <case ARRAY_REF>:
+	Use the corrected index for the character
+	out of the string constant.
+
+2006-01-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* mode-switching.c (optimize_mode_switching): Fix size
+	allocated for bb_info[n_entities].
+
+2006-01-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c (main): Correct type that is allocated for
+	explicit_link_files.
+
+2006-01-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/s390/s390.c (init_alignment_context): Set
+	ALIAS_SET_MEMORY_BARRIER on the MEM.
+	* config/sparc/sparc.c (sparc_expand_compare_and_swap_12): Likewise.
+
+2006-01-31  Uttam Pawar  <uttamp@us.ibm.com>
+
+	PR middle-end/25933
+	* loop-unroll.c (unroll_loop_runtime_iterations): Free
+	dom_bbs pointer.
+	* tree-ssa-live.c (type_var_init): Allocate bitmap after
+	call to tpa_init.
+
+2006-01-31  Marcin Dalecki  <martin@dalecki.de>
+
+	* tree-vrp.c: Use XNEW/XCNEW allocation wrappers.
+	* regrename.c: Ditto.
+	* tree-ssa-loop-im.c: Ditto.
+	* tree-dump.c: Ditto.
+	* tree-complex.c: Ditto.
+	* genrecog.c: Ditto.
+	* tree-ssa-threadupdate.c: Ditto.
+	* tracer.c: Ditto.
+	* java/class.c: Ditto.
+	* java/jcf-parse.c: Ditto.
+	* java/resource.c: Ditto.
+	* java/except.c: Ditto.
+	* java/jvspec.c: Ditto.
+	* java/jcf-write.c: Ditto.
+	* java/jcf-path.c: Ditto.
+	* java/gjavah.c: Ditto.
+	* java/zextract.c: Ditto.
+	* java/jcf-io.c: Ditto.
+	* java/jcf.h: Ditto.
+	* java/buffer.c: Ditto.
+	* java/lang.c: Ditto.
+	* java/parse-scan.y: Ditto.
+	* java/lex.c: Ditto.
+	* java/lex.h: Ditto.
+	* cfgloopmanip.c: Ditto.
+	* postreload-gcse.c: Ditto.
+	* tree-ssa-loop-manip.c: Ditto.
+	* postreload.c: Ditto.
+	* tree-ssa-loop-ch.c: Ditto.
+	* loop.c: Ditto.
+	* ipa-cp.c: Ditto.
+	* cppspec.c: Ditto.
+	* diagnostic.c: Ditto.
+	* final.c: Ditto.
+	* genoutput.c: Ditto.
+	* gcc.c: Ditto.
+	* cfghooks.c: Ditto.
+	* cfgloopanal.c: Ditto.
+	* objc/objc-act.c: Ditto.
+	* gcov.c: Ditto.
+	* genextract.c: Ditto.
+	* genautomata.c: Ditto.
+	* pretty-print.c: Ditto.
+	* genemit.c: Ditto.
+	* cgraphunit.c: Ditto.
+	* flow.c: Ditto.
+	* df-scan.c: Ditto.
+	* haifa-sched.c: Ditto.
+	* dominance.c: Ditto.
+	* dbxout.c: Ditto.
+	* tree-ssa-loop-ivopts.c: Ditto.
+	* df-core.c: Ditto.
+	* mode-switching.c: Ditto.
+	* modulo-sched.c: Ditto.
+	* graph.c: Ditto.
+	* ipa-pure-const.c: Ditto.
+	* cse.c: Ditto.
+	* fix-header.c: Ditto.
+	* web.c: Ditto.
+	* tree-stdarg.c: Ditto.
+	* ipa-utils.c: Ditto.
+	* loop-init.c: Ditto.
+	* ipa-inline.c: Ditto.
+	* cfganal.c: Ditto.
+	* global.c: Ditto.
+	* alloc-pool.c: Ditto.
+	* dwarf2out.c: Ditto.
+	* opts.c: Ditto.
+	* genattrtab.c: Ditto.
+	* tree-ssa-loop-ivcanon.c: Ditto.
+	* predict.c: Ditto.
+	* timevar.c: Ditto.
+	* lcm.c: Ditto.
+	* fortran/gfortranspec.c: Ditto.
+	* regmove.c: Ditto.
+	* local-alloc.c: Ditto.
+	* langhooks.c: Ditto.
+	* function.c: Ditto.
+	* tree-vectorizer.c: Ditto.
+	* gcse.c: Ditto.
+	* ipa-type-escape.c: Ditto.
+	* alias.c: Ditto.
+	* tree-if-conv.c: Ditto.
+	* profile.c: Ditto.
+	* ipa.c: Ditto.
+	* tree-data-ref.c: Ditto.
+	* loop-unroll.c: Ditto.
+	* treelang/treetree.c: Ditto.
+	* calls.c: Ditto.
+	* bt-load.c: Ditto.
+	* ggc-common.c: Ditto.
+	* except.c: Ditto.
+	* coverage.c: Ditto.
+	* cselib.c: Ditto.
+	* tree-cfgcleanup.c: Ditto.
+	* tree-ssa-pre.c: Ditto.
+	* cfgcleanup.c: Ditto.
+	* loop-invariant.c: Ditto.
+	* loop-iv.c: Ditto.
+	* ipa-prop.c: Ditto.
+	* print-tree.c: Ditto.
+	* conflict.c: Ditto.
+	* ggc-page.c: Ditto.
+	* sched-deps.c: Ditto.
+	* regclass.c: Ditto.
+	* tree-object-size.c: Ditto.
+	* combine.c: Ditto.
+	* bb-reorder.c: Ditto.
+	* resource.c: Ditto.
+	* var-tracking.c: Ditto.
+	* cfgloop.c: Ditto.
+	* df-problems.c: Ditto.
+	* reg-stack.c: Ditto.
+	* tlink.c: Ditto.
+	* gccspec.c: Ditto.
+	* sched-rgn.c: Ditto.
+	* tree-ssa-structalias.c: Ditto.
+	* tree-ssa-reassoc.c: Ditto.
+	* config/darwin-c.c: Ditto.
+	* config/darwin.c: Ditto.
+	* config/arm/arm.c: Ditto.
+	* cfgrtl.c: Ditto.
+	* collect2.c: Ditto.
+	* reload1.c: Ditto.
+
+2006-01-31  Nicolas Pitre  <nico@cam.org>
+
+	* arm.md (smaxsi3): Make aware of smax_m1.
+	(smax_m1): New.
+
+2006-01-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/lb1sf68.asm: Use moveq to load small constants.
+
+2006-01-31  Richard Guenther  <rguenther@suse.de>
+
+	* doc/invoke.texi (-msselibm): Document.
+	* target.h (expand_library_builtin): New target hook.
+	* builtins.c (expand_builtin): Use expand_library_builtin.
+	(default_expand_library_builtin): New function.
+	* gcc.c (LINK_GCC_MATH_SPEC): Define.
+	(LINK_COMMAND_SPEC): Handle %(link_gcc_math).
+	(link_gcc_math_spec): Declare.
+	(static_specs): Add link_gcc_math_spec.
+	* expr.h (default_expand_library_builtin): Declare.
+	* target-def.h (TARGET_EXPAND_LIBRARY_BUILTIN): Define.
+	(TARGET_INITIALIZER): Add TARGET_EXPAND_LIBRARY_BUILTIN.
+	* config/i386/i386.h: Provide LINK_GCC_MATH_SPEC.
+	* config/i386/i386.opt (msselibm): New target option.
+	* config/i386/i386.c (ix86_builtin_function_variants): New array.
+	(ix86_init_sse_abi_builtins): New function.
+	(ix86_expand_library_builtin): Likewise.
+	(TARGET_EXPAND_LIBRARY_BUILTIN): Define.
+	(override_options): Handle error conditions wrt -msselibm.
+	(ix86_builtins): Add function codes for SSE2 ABI builtins.
+	(ix86_init_builtins): Call ix86_init_sse_abi_builtins.
+	* doc/extend.texi (__builtin_sse2_*): Document new target specific
+	builtins.
+
+2006-01-31  Richard Guenther  <rguenther@suse.de>
+	Paolo Bonzini  <bonzini@gnu.org>
+
+	* doc/install.texi (--disable-libgcc-math): Document.
+
+2006-01-30  Marcin Dalecki  <martin@dalecki.de>
+
+	* expr.h (expand_normal): new inline function.
+	* builtins.c: use it, use EXPAND_NORMAL explicitely.
+	* dojump.c: use it.
+	* dwarf2out.c: use it.
+	* expr.c: use it.
+	* calls.c: use it.
+	* expmed.c: use it.
+	* except.c: use it.
+	* config/sparc/sparc.c: use it.
+	* config/i386/i386.c: use it.
+	* config/rs6000/rs6000.c: use it.
+	* config/arm/arm.c: use it.
+	* config/mips/mips.c: use it.
+	* stmt.c: use it, use EXPAND_NORMAL explicitely.
+
+2006-01-30  Roger Sayle  <roger@eyesopen.com>
+
+	* config/i386/cygwin.h (GCC_DRIVER_HOST_INITIALIZATION): Cast
+	argv to the appropriate type.
+
+2006-01-30  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary): Remove
+	unreachable code.
+
+2006-01-30  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/26018
+	* config/s390/s390.c (struct machine_function): New flag
+	decomposed_literal_pool_addresses_ok_p.
+	(s390_reorg): Set it before final stage of literal pool transforms.
+	(s390_decompose_address): Only accept displacements of the form
+	(minus (label_ref ...) (label_ref ...)) if that flag is set.
+
+2006-01-30  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* optabs.c (prepare_cmp_insn): If unbaised and unsigned then bias
+	the comparison routine return.
+
+2006-01-30  Michael Matz  <matz@suse.de>
+
+	* global.c (find_reg): Only evict for global regs.
+	Take n_refs into account and dump more info.
+
+2006-01-30  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR target/14798:
+	* sh.c (pragma_interrupt, trap_exit, sp_switch): Remove variable.
+	(pragma_trap, pragma_nosave_low_regs): Likewise.
+	(current_function_anonymous_args): Likewise.
+	(sh_deferred_function_attributes): New variable.
+	(sh_deferred_function_attributes_tail): Likewise.
+	(print_operand): For '@', look up trap_exit attribute.
+	(calc_live_regs): Look up trapa_handler attribute.  For trapa
+	handlers, save/restore fpscr, but don't do any other
+	interrupt-specific saves.
+	Don't save r0..r7 if the nosave_low_regs attribute is in effect.
+	Fix check for partially saved registers to check for SHmedia.
+	(sh_expand_prologue, sh_expand_epilogue): Look up sp_switch attribute.
+	(sh_output_function_epilogue): Don't clear any of the removed
+	variables.
+	(sh_insert_attributes): Don't check pragma_interrupt.
+	Insert deferred attributes.  Check that interrupt attribute is
+	present for other attributes that require its presence.
+	(sh_attribute_table): Add new attributes trapa_handler and
+	nosave_low_regs.
+	(sh_handle_sp_switch_attribute, sh_handle_trap_exit_attribute):
+	Don't check for pragma_interrupt.  Don't store argument.
+	* sh.h (pragma_interrupt, sp_switch): Don't declare.
+	(sh_deferred_function_attributes): Declare.
+	(sh_deferred_function_attributes_tail): Likewise.
+	* sh.md (sp_switch_1): Add operand.  Change generator caller.
+	(sh_pr_interrupt, sh_pr_trapa, sh_pr_nosave_low_regs): Remove.
+	(*return_i): Don't use when trap_exit attribute is in effect.
+	(*return_trapa): New insn pattern.
+	* sh-c.c: New file.
+	* config.gcc (sh[123456ble]*-* | sh-*-*): New trailer stanza,
+	setting c_target_objs and cxx_target_objs.
+	* t-sh: Add rule for sh-c.o.
+
+2006-01-30  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/23372
+	* gimplify.c (gimplify_target_expr): Handle easy cases
+	without creating a temporary.
+
+2006-01-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* vec.h (safe_grow): Remove duplicated line.
+
+2006-01-29  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 25874
+	* omp-low.c (execute_expand_omp): Move CFG cleanup code ...
+	(expand_omp): ... here.
+	(expand_omp_parallel): Only remove barriers for combined
+	parallel+workshare constructs.
+
+2006-01-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Revert
+
+	2005-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+	* tree.c (build_qualified_type): Chain the new type to the original
+	type's TYPE_NEXT_PTR_TO or TYPE_NEXT_REF_TO linked lists if it is
+	a POINTER_TYPE or a REFERENCE_TYPE respectively.
+	(build_pointer_type_for_mode): Only return unqualified types.
+	(build_reference_type_for_mode): Likewise.
+
+2006-01-29  Gabriel Dos Reis  <gdr@integgrable-solutions.net>
+
+	* configure.ac (cxx_compat_warn): Set if -Wc++-compat is supported.
+	* Makefile.in (CXX_COMPAT_WARN): Define.
+	* configure: Regenerate.
+
+2006-01-29  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-opt/25911
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Change assert
+	to an if check.
+
+2006-01-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* toplev.c: Fix thinko.
+
+2006-01-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+	    Marcin Dalecki  <martin@dalecki.de>
+
+	* toplev.c (floor_log2, exact_log2): Don't define if __cplusplus.
+	(push_srcloc): Use XNEW.
+	(init_asm_output, default_get_pch_validity): Use XNEWVEC.
+
+2006-01-29  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* df-core.c (df_set_blocks): Deleted all variable.
+
+2006-01-28  Ian Lance Taylor  <ian@airs.com>
+
+	* cgraphunit.c (cgraph_assemble_pending_functions): Call
+	cgraph_output_pending_asms.
+
+2006-01-28  Zack Weinberg  <zackw@panix.com>
+
+	* c.opt: Add -W(no-)overlength-strings.
+	* doc/invoke.texi: Document it.
+	* c-opts.c (c_common_handle_option): -pedantic implies
+	-Woverlength-strings, if not explicitly disabled already.
+	(c_common_post_options): -Woverlength-strings defaults to off, and
+	is always off for C++.
+	* c-common.c (fix_string_type): Issue warning about strings longer
+	than is portable only if warn_overlength_strings.  Rearrange code
+	a little for clarity.
+	* configure.in: Check for -Wno-overlength-strings as well before
+	enabling -pedantic in stage 1.
+	* Makefile.in (STRICT2_WARN): Add -Wno-overlength-strings.
+	(gcc.o-warn, insn-automata.o-warn, build/gencondmd.o-warn): Delete.
+
+	* genconditions.c (write_header, write_one_condition)
+	(write_conditions, write_writer): Consolidate very long strings
+	that were broken up to fit in C89 portable limit.  Don't use
+	printf when fputs will do.
+
+2006-01-28  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* combine.c (simplify_comparison <AND>): Check
+	TRULY_NOOP_TRUNCATION before start using a subreg.
+
+	* config/mips/mips.md (*branch_zero<mode>,
+	*branch_zero<mode>_inverted, *branch_equality<mode>,
+	*branch_equality<mode>_inverted, *branch_equality<mode>_mips16):
+	Remove mode check from comparisons.
+
+2006-01-28  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* config/mips/mips-protos.h (mips_set_live_on_entry): Deleted.
+
+2006-01-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	* expmed.c (const_mult_add_overflow_p): Remove.
+	* expr.h: Remove the prototype for const_mult_add_overflow_p.
+
+	* recog.c (validate_replace_rtx_subexp): Remove.
+	* recog.h: Remove the prototype for
+	validate_replace_rtx_subexp.
+
+	* integrate.h: Remove the prototype for
+	copy_decl_for_inlining.
+	* rtl.h: Remove the prototype for mark_constant_function.
+	* tree-vectorizer.h: Remove the prototype for
+	vect_strip_conversion.
+
+	* modulo-sched.c (create_partial_schedule,
+	free_partial_schedule, reset_partial_schedule): Make them
+	static.
+
+	* hooks.c (hook_bool_rtx_int_false): Remove.
+	* hooks.h: Remove the prototype for hook_bool_rtx_int_false.
+
+2006-01-28  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix43.h (SUBTARGET_OVERRIDE_OPTIONS): -msoft-float
+	and -mlong-double-128 are incompatible.
+	* config/rs6000/aix52.h (SUBTARGET_OVERRIDE_OPTIONS): Same.
+	* config/rs6000/t-aix43 (LIB2FUNCS_EXTRA): Add ppc64-fp.c.
+	(TARGET_LIBGCC2_CFLAGS): Define.
+	* config/rs6000/t-aix52 (LIB2FUNCS_EXTRA): Same.
+	(TARGET_LIBGCC2_CFLAGS): Same.
+	* config/rs6000/ppc64-fp.c: Compile for 64-bit AIX.
+
+2006-01-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR c/19606.
+	* c-typeck.c (build_binary_op): Perform implicit casts of
+	operands before shortening them.
+
+	* cfgloopmanip.c (split_loop_bb): Remove.
+	* cfgloop.h: Remove the prototype for split_loop_bb.
+
+	* cfgloop.c (flow_loop_outside_edge_p): Remove.
+	* cfgloop.h: Remove the prototype for
+	flow_loop_outside_edge_p.
+
+	* emit-rtl.c (init_virtual_regs): Make it static.
+	* function.h: Remove the prototype for init_virtual_regs.
+
+	* recog.c (peephole2_optimize): Make it static.
+	* recog.h: Remove the prototype for peephole2_optimize.
+
+2006-01-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* df-scan.c (df_record_entry_block_defs): Check if
+	INCOMING_RETURN_ADDR_RTX is defined.
+
 2006-01-27  Daniel Berlin  <dberlin@dberlin.org>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
 
-	PR rtl-optimization/24762 
+	PR rtl-optimization/24762
 	* doc/tm.texi: Added TARGET_EXTRA_LIVE_ON_ENTRY.
 	* targhooks.c (hook_void_bitmap): New hook prototype.
 	* targhoohs.h (hook_void_bitmap): Ditto.
@@ -954,6 +1635,7 @@
 
 2006-01-20  Alan Modra  <amodra@bigpond.net.au>
 
+	PR target/25668
 	* libgcc2.c (__floatdisf, __floatdidf): Don't use IBM Extended
 	Double TFmode.
 	(__floatundisf, __floatundidf): Likewise.

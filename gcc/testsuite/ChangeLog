@@ -1,3 +1,230 @@
+2006-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/pr25990.c: Use __SIZE_TYPE__ instead of unsigned int
+	in size_t typedef.
+
+2006-02-05  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* g++.dg/charset/extern2.cc (foo): Declare as of type cost char*.
+	* g++.dg/charset/string.c (foo): Likewise.
+	* g++.dg/ext/builtin1.C (printf): Change first parameter type to
+	const char*
+	* g++.dg/ext/builtin2.C (printf): Likewise.
+	* g++.dg/init/new15.C (printf): Likewise.
+	* g++.dg/opt/pr17697-1.C (foo): Likewise.
+	* g++.dg/opt/pr17697-2.C (foo): Likewise.
+	* g++.dg/opt/pr17697-3.C (foo): Likewise.
+	* g++.dg/template/non-dependent4.C (temp): Likewise.
+	* g++.dg/opt/strength-reduce.C (C::a): Change type to const char*.
+	* g++.old-deja/g++.brendan/crash66.C (getopt): Change last
+	parameter type to const char*.
+	* g++.old-deja/g++.brendan/ptolemy1.C (InterpTableEntry::name):
+	Change type to const char*.
+	* g++.old-deja/g++.brendan/ptolemy2.C (InterpTableEntry::name):
+	Likewise. 
+	* g++.old-deja/g++.jason/default2.C (bar::memberfunction): Change
+	second parameter type to const char*.
+	* g++.old-deja/g++.jason/opeq.C (X::X): Likewise.
+	(Y::Y): Change parameter type to const char*.
+	* g++.old-deja/g++.jason/ref12.C (f): Likewise.
+	* g++.old-deja/g++.jason/report.C: Apply const correctness.
+	* g++.old-deja/g++.jason/rfg6.C (single, array): Likewise.
+	* g++.old-deja/g++.jason/rvalue1.C (main): Cast string literal to
+	(char*).
+	* g++.old-deja/g++.jason/scoping4.C (A::Ptr): Make a typedef to
+	const char*.
+	* g++.old-deja/g++.law/ctors17.C (X::X): Change last parameter
+	type to const char*.
+	* g++.old-deja/g++.law/ctors7.C (base_t::name, d1_t, d2_t): Change
+	return type to const char*.
+	* g++.old-deja/g++.law/dtors2.C (bla::bla): Change parameter type
+	to const char*.
+	* g++.old-deja/g++.law/operators3.C: Adjust for const correctness.
+	* g++.old-deja/g++.law/refs1.C: Likewise.
+	* g++.old-deja/g++.law/visibility1.C: Likewise.
+	* g++.old-deja/g++.law/visibility2.C: Likewise.
+	* g++.old-deja/g++.law/union1.C (op_to_charp::s): Change type to
+	const char*.
+	* g++.old-deja/g++.mike/bool2.C: Adjust for const correctness..
+	* g++.old-deja/g++.mike/net48.C: Likewise.
+	* g++.old-deja/g++.mike/p646.C: Likewise.
+	* g++.old-deja/g++.mike/p6746.C: Likewise.
+	* g++.old-deja/g++.mike/p700.C (mystrcpy): Change last parameter
+	type to const char*.
+	* g++.old-deja/g++.mike/p811.C (X::stringify): Match for
+	deprecated conversion warning.
+	* g++.old-deja/g++.other/init15.C (A::name): Change type to const
+	char*. 
+	* g++.old-deja/g++.other/inline12.C: Adjust for const correctness.
+	* g++.old-deja/g++.other/sibcall1.C (foo): Likewise.
+	* g++.old-deja/g++.pt/explicit8.C: Likewise.
+	* g++.old-deja/g++.pt/m6.C (xx): Likewise.
+	* g++.old-deja/g++.pt/m7.C (xx): Likewise.
+	* g++.old-deja/g++.pt/nontype3.C: Likewise.
+	* g++.old-deja/g++.pt/t39.C: Likewise.
+	* g++.old-deja/g++.robertl/eb106.C: Likewise.
+	* g++.old-deja/g++.robertl/ice990323-2.C: Likewise.
+
+2006-02-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/25075
+	intrinsic_argument_conformance_1.f90:  New test.
+
+2006-02-03  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20845
+	* gfortran.dg/char_result_11.f90: Add SAVE.
+	* gfortran.dg/der_pointer_4.f90: Ditto.
+	* gfortran.dg/default_initialization.f90: New test.
+
+2006-02-03  Jeff Law  <law@redhat.com>
+
+        * lib/gcc-dg.exp (cleanup-rtl-dump): Fix dump file regexp to
+        handle more than 100 dump files.
+        (cleanup-tree-dump, cleanup-ipa-dump): Likewise.
+        * lib/scantree.exp (scan-tree-dump): Likewise.
+        (scan-tree-dump-times, scan-tree-dump-not): Likewise.
+        (scan-tree-dump-dem, scan-tree-dump-dem-not): Likewise.
+        * lib/scanipa.exp (scan-ipa-dump): Likewise.
+        (scan-ipa-dump-times, scan-ipa-dump-not): Likewise.
+        (scan-ipa-dump-dem, scan-ipa-dump-dem-not): Likewise.
+
+2006-02-03  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/gomp/pr25990.c: Replace with pre-processed version.
+
+2006-02-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/using12.C: New test.
+
+2006-02-03  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.target/powerpc/pr25960.c: New test.
+
+2006-02-02  Steven G. Kargl  <kargls@comcast>
+
+	PR fortran/24958
+        gfortran.dg/nullify_2.f90: New test.
+
+2006-02-02  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 25990
+	* gcc.dg/gomp/pr25990.c: New test.
+
+2006-01-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25342
+	* g++.gd/template/partial4.C: New test.
+
+2006-01-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/26001
+	* gfortran.dg/data_char_2.f90: New.
+
+2006-01-31  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/26039
+	maxval_maxloc_conformance_1.f90:  New test.
+
+2006-01-31  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.target/i386/sselibm-1.c: New testcase.
+	* gcc.target/i386/sselibm-2.c: Likewise.
+	* gcc.target/i386/sselibm-3.c: Likewise.
+	* gcc.target/i386/sselibm-4.c: Likewise.
+	* gcc.target/i386/sselibm-5.c: Likewise.
+
+2005-01-30  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/24266
+	* gfortran.dg/arrayio_derived_2.f90: New.
+
+2006-01-30  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* gcc.dg/unsigned-long-compare.c: New test.
+
+2006-01-30  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/25318
+	* lib/target-supports.exp (check_effective_target_freorder):
+	Check to see if target supports -freorder-blocks-and-partition.
+	* g++.dg/other/pr22003.C: Use "dg-require-effective-target freorder"
+	instead of "dg-require-named-sections".
+
+2006-01-30  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR target/14798:
+	* gcc.dg/pragma-isr.c: Added target sh[1234ble]*-*-*.
+	* gcc.dg/pragma-isr2.c, gcc.dg/pragma-isr-trapa.c: New tests.
+	* gcc.dg/pragma-isr-trapa2.c: Likewise.
+	* gcc.dg/pragma-isr-nosave_low_regs.c: Likewise.
+	* gcc.dg/pragma-isr-trap_exit.c: Likewise.
+	* gcc.dg/attr-isr.c, gcc.dg/attr-isr-trapa.c: Likewise.
+	* gcc.dg/attr-isr-trap_exit.c: Likewise.
+	* gcc.dg/attr-isr-nosave_low_regs.c: Likewise.
+
+2006-01-30  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/23372
+	* gcc.dg/pr23372-1.C: New testcase.
+
+2006-01-29  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/gomp/pr25874.c: New test.
+
+2006-01-29  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-opt/25911
+	* gcc.dg/vect/fast-math-vect-pr25911.c: New.
+
+2006-01-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18578
+	PR fortran/18579
+	PR fortran/20857
+	PR fortran/20885
+	* gfortran.dg/intent_out_1.f90: New test.
+
+2006-01-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/17911
+	* gfortran.dg/procedure_lvalue.f90: New test.
+
+	PR fortran/20895
+	PR fortran/25030
+	* gfortran.dg/char_pointer_assign_2.f90: New test.
+	* gfortran.dg/char_result_1.f90: Correct unequal charlen pointer
+	assignment to be consistent with standard.
+	* gfortran.dg/char_result_2.f90: The same.
+	* gfortran.dg/char_result_8.f90: The same.
+
+2006-01-28  Zack Weinberg  <zackw@panix.com>
+
+	* gcc.dg/Woverlength-strings.c
+	* gcc.dg/Woverlength-strings-pedantic-c89.c
+	* gcc.dg/Woverlength-strings-pedantic-c89-no.c
+	* gcc.dg/Woverlength-strings-pedantic-c99.c
+	* gcc.dg/Woverlength-strings-pedantic-c99-no.c: New tests.
+
+2006-01-28  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* gcc.c-torture/execute/20060127-1.c: New test.
+
+2006-01-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25999
+	* g++.dg/ext/pragmaweak1.C: New test.
+
+2006-01-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25855
+	* g++.dg/template/spec29.C: New test.
+
+2006-01-28  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR c/19606.
+	* gcc.c-torture/execute/pr19606.c: New.
+
 2006-01-27  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* gcc.dg/pragma-re-4.c: New test.
@@ -13,12 +240,12 @@
 
 2006-01-26  Laurent GUERBY <laurent@guerby.net>
 
-        PR ada/21317
-        * ada/acats/support/impdef.a: Add One_Long_Second.
-        * ada/acats/tests/c9/c94025.a: Use One_Long_Second.
-        * ada/acats/tests/c9/c94026.a: Likewise.
-        * ada/acats/tests/c9/c97305c.ada: Likewise.
-        * ada/acats/tests/c9/c99004a.ada: Likewise.
+	PR ada/21317
+	* ada/acats/support/impdef.a: Add One_Long_Second.
+	* ada/acats/tests/c9/c94025.a: Use One_Long_Second.
+	* ada/acats/tests/c9/c94026.a: Likewise.
+	* ada/acats/tests/c9/c97305c.ada: Likewise.
+	* ada/acats/tests/c9/c99004a.ada: Likewise.
 
 2005-01-26  Paul Thomas  <pault@gcc.gnu.org>
 
@@ -49,7 +276,7 @@
 
 	PR C/25861
 	* gcc.c-torture/compile/pr25861.c: New test.
-	
+
 2006-01-26  Paul Brook  <paul@codesourcery.com>
 
 	* gcc.dg/compat/struct-layout-1.exp: Pass -e to generator program
@@ -105,7 +332,7 @@
 	* gfortran.dg/read_eof_1.f90: Rename from read_eof.f90.
 	* gfortran.dg/read_eof_2.f90: New test.
 	* gfortran.dg/read_eof_3.f90: New test.
-	
+
 2006-01-24  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR tree-opt/25860
@@ -212,8 +439,8 @@
 
 2006-01-20  Dirk Mueller  <dmueller@suse.com>
 
-        PR c++/5520
-        * g++.dg/warn/empty-body.C: New.
+	PR c++/5520
+	* g++.dg/warn/empty-body.C: New.
 
 2006-01-19  Mark Mitchell  <mark@codesourcery.com>
 
@@ -463,7 +690,7 @@
 	to LD_LIBRARY_PATH.
 
 2006-01-16  Eric Botcazou  <ebotcazou@adacore.com>
-            Andrew Pinski  <pinskia@physics.uc.edu>
+	    Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* gcc.dg/minmax-1.c: New test.
 
@@ -655,15 +882,15 @@
 
 2006-01-11  Paolo Bonzini  <bonzini@gnu.org>
 
-        PR tree-optimization/23109
-        PR tree-optimization/23948
-        PR tree-optimization/24123
+	PR tree-optimization/23109
+	PR tree-optimization/23948
+	PR tree-optimization/24123
 
-        * gcc.dg/tree-ssa/recip-3.c, gcc.dg/tree-ssa/recip-4.c,
-        gcc.dg/tree-ssa/recip-5.c, gcc.dg/tree-ssa/recip-6.c,
-        gcc.dg/tree-ssa/recip-7.c, gcc.dg/tree-ssa/pr23109.c,
-        g++.dg/tree-ssa/pr23948.C: New testcases.
-        * gcc.dg/tree-ssa/recip-2.c, gcc.dg/tree-ssa/pr23234.c: Provide
+	* gcc.dg/tree-ssa/recip-3.c, gcc.dg/tree-ssa/recip-4.c,
+	gcc.dg/tree-ssa/recip-5.c, gcc.dg/tree-ssa/recip-6.c,
+	gcc.dg/tree-ssa/recip-7.c, gcc.dg/tree-ssa/pr23109.c,
+	g++.dg/tree-ssa/pr23948.C: New testcases.
+	* gcc.dg/tree-ssa/recip-2.c, gcc.dg/tree-ssa/pr23234.c: Provide
 	three divisions in order to do the optimization.
 
 2006-01-11  Zdenek Dvorak <dvorakz@suse.cz>

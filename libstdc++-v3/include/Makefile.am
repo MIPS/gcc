@@ -486,23 +486,41 @@ tr1_headers = \
 	${tr1_srcdir}/boost_shared_ptr.h \
 	${tr1_srcdir}/cctype \
 	${tr1_srcdir}/cfenv \
+	${tr1_srcdir}/cfloat \
+	${tr1_srcdir}/cinttypes \
+	${tr1_srcdir}/climits \
 	${tr1_srcdir}/common.h \
 	${tr1_srcdir}/complex \
+	${tr1_srcdir}/cstdarg \
+	${tr1_srcdir}/cstdint \
+	${tr1_srcdir}/cstdio \
+	${tr1_srcdir}/ctype.h \
+	${tr1_srcdir}/cwchar \
+	${tr1_srcdir}/cwctype \
+	${tr1_srcdir}/fenv.h \
+	${tr1_srcdir}/float.h \
 	${tr1_srcdir}/functional \
 	${tr1_srcdir}/functional_iterate.h \
 	${tr1_srcdir}/hashtable \
+	${tr1_srcdir}/inttypes.h \
+	${tr1_srcdir}/limits.h \
 	${tr1_srcdir}/memory \
 	${tr1_srcdir}/mu_iterate.h \
 	${tr1_srcdir}/ref_fwd.h \
 	${tr1_srcdir}/ref_wrap_iterate.h \
 	${tr1_srcdir}/repeat.h \
+	${tr1_srcdir}/stdarg.h \
+	${tr1_srcdir}/stdint.h \
+	${tr1_srcdir}/stdio.h \
 	${tr1_srcdir}/tuple \
 	${tr1_srcdir}/tuple_iterate.h \
 	${tr1_srcdir}/type_traits \
 	${tr1_srcdir}/type_traits_fwd.h \
 	${tr1_srcdir}/unordered_set \
 	${tr1_srcdir}/unordered_map \
-	${tr1_srcdir}/utility
+	${tr1_srcdir}/utility \
+	${tr1_srcdir}/wchar.h \
+	${tr1_srcdir}/wctype.h
 
 
 # This is the common subset of files that all three "C" header models use.

@@ -335,7 +335,7 @@ java_handle_option (size_t scode, const char *arg, int value)
     default:
       if (cl_options[code].flags & CL_Java)
 	break;
-      abort();
+      gcc_unreachable ();
     }
 
   return 1;
@@ -401,7 +401,7 @@ put_decl_string (const char *str, int len)
       if (decl_buf == NULL)
 	{
 	  decl_buflen = len + 100;
-	  decl_buf = xmalloc (decl_buflen);
+	  decl_buf = XNEWVEC (char, decl_buflen);
 	}
       else
 	{
@@ -574,6 +574,10 @@ java_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   /* Java requires left-to-right evaluation of subexpressions.  */
   flag_evaluation_order = 1;
 
+  /* Unit at a time is disabled for Java because it is considered
+     too expensive.  */
+  no_unit_at_a_time_default = 1;
+
   jcf_path_init ();
 
   return CL_Java;
@@ -631,7 +635,7 @@ java_post_options (const char **pfilename)
 		error ("couldn't determine target name for dependency tracking");
 	      else
 		{
-		  char *buf = xmalloc (dot - filename +
+		  char *buf = XNEWVEC (char, dot - filename +
 				       3 + sizeof (TARGET_OBJECT_SUFFIX));
 		  strncpy (buf, filename, dot - filename);
 
@@ -777,8 +781,7 @@ merge_init_test_initialization (void **entry, void *x)
   /* See if we have remapped this declaration.  If we haven't there's
      a bug in the inliner.  */
   n = splay_tree_lookup (decl_map, (splay_tree_key) ite->value);
-  if (! n)
-    abort ();
+  gcc_assert (n);
 
   /* Create a new entry for the class and its remapped boolean
      variable.  If we already have a mapping for this class we've

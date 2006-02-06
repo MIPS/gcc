@@ -1,3 +1,139 @@
+2006-02-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cstdio: New.
+	* include/tr1/stdio.h: Likewise.
+	* include/Makefile.am: Add.
+	* testsuite/tr1/8_c_compatibility/cstdio/functions.cc: New.
+	* testsuite/tr1/headers.cc: Update.	
+	* docs/html/ext/tr1.html: Update.
+
+	* include/tr1/cwchar: Simplify, use _GLIBCXX_USE_C99, consistently
+	with the facilities in std::.
+	* include/tr1/cwctype: Likewise.
+	* testsuite/tr1/8_c_compatibility/cwchar/functions.cc: Tweak.
+	* testsuite/tr1/8_c_compatibility/cwctype/functions.cc: Likewise.
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): Remove <wchar.h> and
+	<wctype.h> checks.
+
+	* include/Makefile.in: Regenerate.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+
+2006-02-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/tr1/8_c_compatibility/cwchar/functions.cc: Fix.
+
+2006-02-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_stringbuf/in_avail/char/21955.cc: Avoid
+	warning on string constant.
+
+2006-02-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cwchar: New.
+	* include/tr1/cwctype: Likewise.
+	* include/tr1/wchar.h: Likewise.
+	* include/tr1/wctype.h: Likewise.
+	* include/Makefile.am: Add.
+	* testsuite/tr1/8_c_compatibility/cwchar/functions.cc: New.
+	* testsuite/tr1/8_c_compatibility/cwctype/functions.cc: Likewise.
+	* testsuite/tr1/headers.cc: Update.
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): Add <wchar.h> and
+	<wctype.h> checks.
+	* docs/html/ext/tr1.html: Update.
+	* include/Makefile.in: Regenerate.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+
+	* testsuite/tr1/8_c_compatibility/cctype/functions.cc: Cosmetic tweak.
+
+2006-02-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cfloat: New.
+	* include/tr1/climits: Likewise.		
+	* include/tr1/cstdarg: Likewise.
+	* include/tr1/ctype.h: Likewise.
+	* include/tr1/fenv.h: Likewise.
+	* include/tr1/float.h: Likewise.
+	* include/tr1/inttypes.h: Likewise.
+	* include/tr1/limits.h: Likewise.
+	* include/tr1/stdint.h: Likewise.
+	* include/tr1/stdarg.h: Likewise.
+	* include/Makefile.am: Add.
+	* include/Makefile.in: Regenerate.
+	* docs/html/ext/tr1.html: Update.
+	* testsuite/tr1/headers.cc: New.
+
+	* include/tr1/cctype: Include <cctype> instead.
+
+2006-01-31  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21554
+	* include/tr1/array (array<>::_M_instance): Maximally align.
+	* testsuite/ext/array_allocator/2.cc: Do not xfail for powerpc.
+
+2006-01-31  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	* docs/html/faq/index.html ([1.0]): Replace references to CVS
+	with appropriate references to SVN.
+	([1.3]): Likewise.
+	([1.4]): Likewise.
+	([2.3]): Likewise.
+	* docs/html/faq/index.txt: Regenerated.
+
+2006-01-30  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* include/bits/valarray_array.h (__valarray_default_construct):
+	Replace use __is_fundamental with __is_pod.
+	(__valarray_fill_construct): Likewise.
+	(__valarray_copy_construct): Likewise.
+	(__valarray_destroy_elements): Likewise.
+	(__valarray_copy): Likewise.
+
+2006-01-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): Do the <inttypes.h>
+	checks only if the <stdint.h> checks are successful.
+	* configure: Regenerate.
+
+2006-01-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cinttypes: New.
+	* include/Makefile.am: Add.
+	* testsuite/tr1/8_c_compatibility/cinttypes/functions: New.	
+	* testsuite/tr1/8_c_compatibility/cinttypes/types: Likewise.
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): Add <inttypes.h> checks.
+	* docs/html/ext/tr1.html: Update.
+	* include/Makefile.in: Regenerate.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+
+	* testsuite/tr1/8_c_compatibility/cfenv/functions.cc: Cosmetic tweak.
+	* testsuite/tr1/8_c_compatibility/cfenv/types.cc: Likewise.
+
+	* testsuite/tr1/8_c_compatibility/cstdint/types.cc: Fix, check in
+	std::tr1.
+
+2006-01-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cstdint: New.
+	* include/Makefile.am: Add.
+	* testsuite/tr1/8_c_compatibility/cstdint/types: New.
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): Add <stdint.h> checks.
+	* docs/html/ext/tr1.html: Update.
+	* include/Makefile.in: Regenerate.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+
+	* testsuite/tr1/8_c_compatibility/cfenv/types.cc: Cosmetic tweak.
+
+2006-01-29  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26006
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): Tighten <ctype.h> and
+	<fenv.h> checks.
+	* configure: Regenerate.
+
 2006-01-26  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/std/std_bitset.h (bitset<>::_M_copy_to_string):

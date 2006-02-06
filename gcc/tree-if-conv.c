@@ -737,8 +737,7 @@ find_phi_replacement_condition (struct loop *loop,
       tree new_stmt;
 
       new_stmt = ifc_temp_var (TREE_TYPE (*cond), unshare_expr (*cond));
-      bsi_insert_after (bsi, new_stmt, BSI_SAME_STMT);
-      bsi_next (bsi);
+      bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
       *cond = TREE_OPERAND (new_stmt, 0);
     }
 
@@ -804,9 +803,7 @@ replace_phi_with_cond_modify_expr (tree phi, tree cond, basic_block true_bb,
   SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_stmt;
 
   /* Insert using iterator.  */
-  bsi_insert_after (bsi, new_stmt, BSI_SAME_STMT);
-  bsi_next (bsi);
-
+  bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
   update_stmt (new_stmt);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1038,7 +1035,7 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
   gcc_assert (loop->num_nodes);
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
-  blocks = xcalloc (loop->num_nodes, sizeof (basic_block));
+  blocks = XCNEWVEC (basic_block, loop->num_nodes);
   visited = BITMAP_ALLOC (NULL);
 
   blocks_in_bfs_order = get_loop_body_in_bfs_order (loop);

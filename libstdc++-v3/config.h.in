@@ -707,9 +707,17 @@
    namespace std::tr1. */
 #undef _GLIBCXX_USE_C99_FENV_TR1
 
+/* Define if C99 functions in <inttypes.h> should be imported in
+   <tr1/cinttypes> in namespace std::tr1. */
+#undef _GLIBCXX_USE_C99_INTTYPES_TR1
+
 /* Define if C99 functions or macros in <math.h> should be imported in <cmath>
    in namespace std. */
 #undef _GLIBCXX_USE_C99_MATH
+
+/* Define if C99 types in <stdint.h> should be imported in <tr1/cstdint> in
+   namespace std::tr1. */
+#undef _GLIBCXX_USE_C99_STDINT_TR1
 
 /* Define if iconv and related functions exist and are usable. */
 #undef _GLIBCXX_USE_ICONV

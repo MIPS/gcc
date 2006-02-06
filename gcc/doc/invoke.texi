@@ -238,7 +238,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wmain  -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-format-attribute  -Wmissing-include-dirs @gol
 -Wmissing-noreturn @gol
--Wno-multichar  -Wnonnull  -Wpacked  -Wpadded @gol
+-Wno-multichar  -Wnonnull  -Woverlength-strings  -Wpacked  -Wpadded @gol
 -Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
@@ -528,7 +528,7 @@ Objective-C and Objective-C++ Dialects}.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse  -msse2 -msse3 -m3dnow @gol
+-mmmx  -msse  -msse2 -msse3 -m3dnow -msselibm @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
@@ -674,8 +674,8 @@ See RS/6000 and PowerPC Options.
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
--mhard-float  -msoft-float  -mbackchain  -mno-backchain @gol
--mpacked-stack  -mno-packed-stack @gol
+-mhard-float  -msoft-float -mlong-double-64 -mlong-double-128 @gol
+-mbackchain  -mno-backchain -mpacked-stack  -mno-packed-stack @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
 -mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd @gol
@@ -3444,6 +3444,21 @@ even when intentional, result in unspecified behavior and are not portable.
 Usually these warnings alert that the programmer intended to use
 @code{strcmp}.  This warning is enabled by @option{-Wall}.
 
+@item -Woverlength-strings
+@opindex Woverlength-strings
+Warn about string constants which are longer than the ``minimum
+maximum'' length specified in the C standard.  Modern compilers
+generally allow string constants which are much longer than the
+standard's minimum limit, but very portable programs should avoid
+using longer strings.
+
+The limit applies @emph{after} string constant concatenation, and does
+not count the trailing NUL@.  In C89, the limit was 509 characters; in
+C99, it was raised to 4095.  C++98 does not specify a normative
+minimum maximum, so we do not diagnose overlength strings in C++@.
+
+This option is implied by @option{-pedantic}, and can be disabled with
+@option{-Wno-overlength-strings}.
 @end table
 
 @node Debugging Options
@@ -9422,6 +9437,12 @@ supported architecture, using the appropriate flags.  In particular,
 the file containing the CPU detection code should be compiled without
 these options.
 
+@item -msselibm
+@opindex msselibm
+Use special versions of certain libm routines that come with an SSE
+ABI and an SSE implementation.  Useful together with @option{-mfpmath=sse}
+to avoid moving values between SSE registers and the x87 FP stack.
+
 @item -mpush-args
 @itemx -mno-push-args
 @opindex mpush-args
@@ -11689,6 +11710,14 @@ for floating-point operations.  When @option{-msoft-float} is specified,
 functions in @file{libgcc.a} will be used to perform floating-point
 operations.  When @option{-mhard-float} is specified, the compiler
 generates IEEE floating-point instructions.  This is the default.
+
+@item -mlong-double-64
+@itemx -mlong-double-128
+@opindex mlong-double-64
+@opindex mlong-double-128
+These switches control the size of @code{long double} type. A size
+of 64bit makes the @code{long double} type equivalent to the @code{double}
+type. This is the default.
 
 @item -mbackchain
 @itemx -mno-backchain

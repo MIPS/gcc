@@ -449,14 +449,14 @@ global_alloc (FILE *file)
   /* Establish mappings from register number to allocation number
      and vice versa.  In the process, count the allocnos.  */
 
-  reg_allocno = xmalloc (max_regno * sizeof (int));
+  reg_allocno = XNEWVEC (int, max_regno);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     reg_allocno[i] = -1;
 
   /* Initialize the shared-hard-reg mapping
      from the list of pairs that may share.  */
-  reg_may_share = xcalloc (max_regno, sizeof (int));
+  reg_may_share = XCNEWVEC (int, max_regno);
   for (x = regs_may_share; x; x = XEXP (XEXP (x, 1), 1))
     {
       int r1 = REGNO (XEXP (x, 0));
@@ -487,7 +487,7 @@ global_alloc (FILE *file)
     else
       reg_allocno[i] = -1;
 
-  allocno = xcalloc (max_allocno, sizeof (struct allocno));
+  allocno = XCNEWVEC (struct allocno, max_allocno);
 
   for (i = FIRST_PSEUDO_REGISTER; i < (size_t) max_regno; i++)
     if (reg_allocno[i] >= 0)
@@ -535,9 +535,9 @@ global_alloc (FILE *file)
   /* We used to use alloca here, but the size of what it would try to
      allocate would occasionally cause it to exceed the stack limit and
      cause unpredictable core dumps.  Some examples were > 2Mb in size.  */
-  conflicts = xcalloc (max_allocno * allocno_row_words, sizeof (INT_TYPE));
+  conflicts = XCNEWVEC (INT_TYPE, max_allocno * allocno_row_words);
 
-  allocnos_live = xmalloc (allocno_row_words * sizeof (INT_TYPE));
+  allocnos_live = XNEWVEC (INT_TYPE, allocno_row_words);
 
   /* If there is work to be done (at least one reg to allocate),
      perform global conflict analysis and allocate the regs.  */
@@ -574,7 +574,7 @@ global_alloc (FILE *file)
 
       /* Determine the order to allocate the remaining pseudo registers.  */
 
-      allocno_order = xmalloc (max_allocno * sizeof (int));
+      allocno_order = XNEWVEC (int, max_allocno);
       for (i = 0; i < (size_t) max_allocno; i++)
 	allocno_order[i] = i;
 
@@ -685,9 +685,9 @@ global_conflicts (void)
   int *block_start_allocnos;
 
   /* Make a vector that mark_reg_{store,clobber} will store in.  */
-  regs_set = xmalloc (max_parallel * sizeof (rtx) * 2);
+  regs_set = XNEWVEC (rtx, max_parallel * 2);
 
-  block_start_allocnos = xmalloc (max_allocno * sizeof (int));
+  block_start_allocnos = XNEWVEC (int, max_allocno);
 
   FOR_EACH_BB (b)
     {
@@ -956,7 +956,7 @@ prune_preferences (void)
 {
   int i;
   int num;
-  int *allocno_to_order = xmalloc (max_allocno * sizeof (int));
+  int *allocno_to_order = XNEWVEC (int, max_allocno);
 
   /* Scan least most important to most important.
      For each allocno, remove from preferences registers that cannot be used,
@@ -1248,7 +1248,8 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
      so we can use it instead.  */
   if (best_reg < 0 && !retrying
       /* Let's not bother with multi-reg allocnos.  */
-      && allocno[num].size == 1)
+      && allocno[num].size == 1
+      && REG_BASIC_BLOCK (allocno[num].reg) == REG_BLOCK_GLOBAL)
     {
       /* Count from the end, to find the least-used ones first.  */
       for (i = FIRST_PSEUDO_REGISTER - 1; i >= 0; i--)
@@ -1285,9 +1286,9 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 		 variables so as to avoid excess precision problems that occur
 		 on an i386-unknown-sysv4.2 (unixware) host.  */
 
-	      double tmp1 = ((double) local_reg_freq[regno]
+	      double tmp1 = ((double) local_reg_freq[regno] * local_reg_n_refs[regno]
 			    / local_reg_live_length[regno]);
-	      double tmp2 = ((double) allocno[num].freq
+	      double tmp2 = ((double) allocno[num].freq * allocno[num].n_refs
 			     / allocno[num].live_length);
 
 	      if (tmp1 < tmp2)
@@ -1295,6 +1296,19 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 		  /* Hard reg REGNO was used less in total by local regs
 		     than it would be used by this one allocno!  */
 		  int k;
+		  if (dump_file)
+		    {
+		      fprintf (dump_file, "Regno %d better for global %d, ",
+		      	       regno, allocno[num].reg);
+		      fprintf (dump_file, "fr:%d, ll:%d, nr:%d ",
+			       allocno[num].freq, allocno[num].live_length,
+			       allocno[num].n_refs);
+		      fprintf (dump_file, "(was: fr:%d, ll:%d, nr:%d)\n",
+			       local_reg_freq[regno],
+			       local_reg_live_length[regno],
+			       local_reg_n_refs[regno]);
+		    }
+
 		  for (k = 0; k < max_regno; k++)
 		    if (reg_renumber[k] >= 0)
 		      {
@@ -1303,7 +1317,12 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 			  = r + hard_regno_nregs[r][PSEUDO_REGNO_MODE (k)];
 
 			if (regno >= r && regno < endregno)
-			  reg_renumber[k] = -1;
+			  {
+			    if (dump_file)
+			      fprintf (dump_file,
+				       "Local Reg %d now on stack\n", k);
+			    reg_renumber[k] = -1;
+			  }
 		      }
 
 		  best_reg = regno;

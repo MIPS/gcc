@@ -28,8 +28,8 @@ void test01()
 {
 #if _GLIBCXX_USE_C99_CTYPE_TR1
 
-  int ch = 0, r;
-  r = std::tr1::isblank(ch);
+  int ch = 0, ret;
+  ret = std::tr1::isblank(ch);
 
 #endif
 }

@@ -219,7 +219,7 @@ df_scan_alloc (struct dataflow *dflow, bitmap blocks_to_rescan)
 			 sizeof (struct df_scan_bb_info), 
 			 block_size);
 
-  problem_data = xmalloc (sizeof (struct df_scan_problem_data));
+  problem_data = XNEW (struct df_scan_problem_data);
   dflow->problem_data = problem_data;
 
   problem_data->ref_pool 
@@ -1747,8 +1747,10 @@ df_record_entry_block_defs (struct dataflow * dflow)
     }
   else
     {
+#ifdef INCOMING_RETURN_ADDR_RTX
       if (REG_P (INCOMING_RETURN_ADDR_RTX))
 	bitmap_set_bit (df->entry_block_defs, REGNO (INCOMING_RETURN_ADDR_RTX));
+#endif
             
       /* If STATIC_CHAIN_INCOMING_REGNUM == STATIC_CHAIN_REGNUM
 	 only STATIC_CHAIN_REGNUM is defined.  If they are different,

@@ -1,3 +1,78 @@
+2006-02-05  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-stmt.c (gfc_evaluate_where_mask): Use LOGICAL*1 for WHERE
+	masks instead of LOGICAL*4.
+
+2006-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* resolve.c (resolve_symbol): Initialize constructor_expr to NULL.
+
+2006-02-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/25075
+	check.c (identical_dimen_shape):  New function.
+	(check_dot_product):  Use identical_dimen_shape() to check sizes
+	for dot_product.
+	(gfc_check_matmul):  Likewise.
+	(gfc_check_merge):  Check conformance between tsource and fsource
+	and between tsource and mask.
+	(gfc_check_pack):  Check conformance between array and mask.
+
+2006-02-03  Steven G. Kargl  <kargls@comcast>
+	    Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/20845
+	* resolve.c (resolve_symbol): Default initialization of derived type
+	component reguires the SAVE attribute.
+
+2006-02-02  Steven G. Kargl  <kargls@comcast>
+
+	PR fortran/24958
+	match.c (gfc_match_nullify):  Free the list from head not tail.
+
+	PR fortran/25072
+	* match.c (match_forall_header): Fix internal error caused by bogus
+	gfc_epxr pointers.
+
+
+2006-01-31  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/26039
+	expr.c (gfc_check_conformance):  Reorder error message
+	to avoid plural.
+	check.c(gfc_check_minloc_maxloc):  Call gfc_check_conformance
+	for checking arguments array and mask.
+	(check_reduction):  Likewise.
+
+2005-01-30  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/24266
+	* trans-io.c (set_internal_unit): Check the rank of the
+	expression node itself instead of its symbol.
+
+2006-01-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18578
+	PR fortran/18579
+	PR fortran/20857
+	PR fortran/20885
+	* interface.c (compare_actual_formal): Error for INTENT(OUT or INOUT)
+	if actual argument is not a variable.
+
+2006-01-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/17911
+	* expr.c (gfc_check_assign, gfc_check_pointer_assign): Emit error if
+	the lvalue is a use associated procedure.
+
+	PR fortran/20895
+	PR fortran/25030
+	* expr.c (gfc_check_pointer_assign): Emit error if lvalue and rvalue
+	character lengths are not the same.  Use gfc_dep_compare_expr for the
+	comparison.
+	* gfortran.h: Add prototype for gfc_dep_compare_expr.
+	* dependency.h: Remove prototype for gfc_dep_compare_expr.
+
 2005-01-27  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/25964
