@@ -1,5 +1,5 @@
 /* APPLE LOCAL file 4333194 */
-/* { dg-require-effective-target vect_long } */
+/* { dg-require-effective-target vect_int } */
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -8,11 +8,11 @@
 #define N 16
 
 struct foo {
-  int x;
-  unsigned long long y[N];
+  char x;
+  int y[N];
 } __attribute__((packed));
 
-unsigned long long x[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+int x[N] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
 int
 main1 (struct foo *p)
 {
@@ -44,4 +44,4 @@ int main (void)
 }
 
 /* { dg-final { scan-tree-dump-times "vectorized 0 loops" 1 "vect" } } */
-/* { dg-final { scan-tree-dump-times "Inappropriate alignment" 1 "vect" } } */
+

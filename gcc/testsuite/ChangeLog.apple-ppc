@@ -1,3 +1,8 @@
+2006-02-06  Devang Patel  <dpatel@apple.com>
+	
+       Radar 4385002
+       * gcc.dg/vect/vect-align-1.c: Update.
+
 2006-02-03  Mike Stump  <mrs@apple.com>
 
 	Radar 4432782
