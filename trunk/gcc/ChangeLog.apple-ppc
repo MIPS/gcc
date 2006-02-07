@@ -1,3 +1,8 @@
+006-02-07   Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4426814
+	* c-parse.in (cast_expr): Minor fix.
+
 006-02-02   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4426814

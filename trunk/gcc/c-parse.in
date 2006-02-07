@@ -619,7 +619,7 @@ expr_no_commas:
 	  /* APPLE LOCAL begin radar 4426814 */
 		{ 
 		  if (c_dialect_objc() && flag_objc_gc) 
-		    $1.value = objc_generate_weak_read ($1.value); }
+		    $$.value = objc_generate_weak_read ($1.value); }
 	  /* APPLE LOCAL end radar 4426814 */
 	| expr_no_commas '+' expr_no_commas
 		{ $$ = parser_build_binary_op ($2, $1, $3); }
