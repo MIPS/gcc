@@ -2023,7 +2023,7 @@ all_chrecs_equal_p (tree chrec)
 /* Determine for each subscript in the data dependence relation DDR
    the distance.  */
 
-void
+static void
 compute_subscript_distance (struct data_dependence_relation *ddr)
 {
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
@@ -3576,6 +3576,7 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
 	}
       fprintf (dump_file, ")\n");
     }
+
   return true;
 }
 
@@ -3844,6 +3845,10 @@ access_functions_are_affine_or_constant_p (struct data_reference *a)
   return true;
 }
 
+typedef struct loop *loop_p;
+DEF_VEC_P(loop_p);
+DEF_VEC_ALLOC_P (loop_p, heap);
+
 /* Initializes an equation using the information contained in the ACCESS_FUN.
    Returns true when the operation succeeded.
 
@@ -3855,7 +3860,7 @@ access_functions_are_affine_or_constant_p (struct data_reference *a)
 static bool
 init_csys_eq_with_af (csys cy, unsigned eq, 
 		      unsigned int offset, tree access_fun, 
-		      varray_type vloops)
+		      VEC (loop_p, heap) *vloops)
 {
   switch (TREE_CODE (access_fun))
     {
@@ -3865,22 +3870,21 @@ init_csys_eq_with_af (csys cy, unsigned eq,
 	tree right = CHREC_RIGHT (access_fun);
 	int var = CHREC_VARIABLE (access_fun);
 	unsigned var_idx;
+	struct loop *loopi;
 
 	if (TREE_CODE (right) != INTEGER_CST)
 	  return false;
 
 	/* Find the index of the current variable VAR_IDX in the
 	   VLOOPS array.  */
-	for (var_idx = 0; var_idx < VARRAY_ACTIVE_SIZE (vloops); var_idx++)
-	  {
-	    struct loop *loop = VARRAY_GENERIC_PTR (vloops, var_idx);
-	    if (loop->num == var)
-	      break;
-	  }
+	for (var_idx = 0; VEC_iterate (loop_p, vloops, var_idx, loopi);
+	     var_idx++)
+	  if (loopi->num == var)
+	    break;
 
 	CSYS_VEC (cy, eq, offset + var_idx) = int_cst_value (right);
 	if (offset == 0)
-	  CSYS_VEC (cy, eq, var_idx + VARRAY_ACTIVE_SIZE (vloops)) 
+	  CSYS_VEC (cy, eq, var_idx + VEC_length (loop_p, vloops))
 	    += int_cst_value (right);
 
 	switch (TREE_CODE (left))
@@ -3906,19 +3910,83 @@ init_csys_eq_with_af (csys cy, unsigned eq,
     }
 }
 
+/* Initializes an equation for an OMEGA problem using the information
+   contained in the ACCESS_FUN.  Returns true when the operation
+   succeeded.
+
+   PB is the omega constraint system.
+   EQ is the number of the equation to be initialized.
+   OFFSET is used for shifting the variables names in the constraints:
+   a constrain is composed of 2 * the number of variables surrounding
+   dependence accesses (ie. VLOOPS).  OFFSET is set either to 0 for
+   the first n variables, then it is set to n.
+   ACCESS_FUN is expected to be an affine chrec.  */
+static bool
+init_omega_eq_with_af (omega_pb pb, unsigned eq, 
+		       unsigned int offset, tree access_fun, 
+		       VEC (loop_p, heap) *vloops)
+{
+  switch (TREE_CODE (access_fun))
+    {
+    case POLYNOMIAL_CHREC:
+      {
+	tree left = CHREC_LEFT (access_fun);
+	tree right = CHREC_RIGHT (access_fun);
+	int var = CHREC_VARIABLE (access_fun);
+	unsigned var_idx;
+	struct loop *loopi;
+
+	if (TREE_CODE (right) != INTEGER_CST)
+	  return false;
+
+	/* Find the index of the current variable VAR_IDX in the
+	   VLOOPS array.  */
+	for (var_idx = 0; VEC_iterate (loop_p, vloops, var_idx, loopi);
+	     var_idx++)
+	  if (loopi->num == var)
+	    break;
+
+	pb->eqs[eq].coef[offset + var_idx + 1] = int_cst_value (right);
+	if (offset == 0)
+	  pb->eqs[eq].coef[var_idx + VEC_length (loop_p, vloops) + 1]
+	    += int_cst_value (right);
+
+	switch (TREE_CODE (left))
+	  {
+	  case POLYNOMIAL_CHREC:
+	    return init_omega_eq_with_af (pb, eq, offset, left, vloops);
+
+	  case INTEGER_CST:
+	    pb->eqs[eq].coef[0] += int_cst_value (left);
+	    return true;
+
+	  default:
+	    return false;
+	  }
+      }
+
+    case INTEGER_CST:
+      pb->eqs[eq].coef[0] += int_cst_value (access_fun);
+      return true;
+
+    default:
+      return false;
+    }
+}
+
 /* Initialize VLOOPS with all the loops surrounding LOOP and inner to
    STOP.  */
 
 static void
 find_loops_surrounding (struct loop *loop, struct loop *stop, 
-			varray_type *vloops)
+			VEC (loop_p, heap) *vloops)
 {
   if (loop == stop
       || loop == NULL
       || loop->outer == NULL)
     return;
 
-  VARRAY_PUSH_GENERIC_PTR (*vloops, loop);
+  VEC_safe_push (loop_p, heap, vloops, loop);
   find_loops_surrounding (loop->outer, stop, vloops);
 }
 
@@ -3963,7 +4031,7 @@ find_loops_surrounding (struct loop *loop, struct loop *stop,
    other solvers are fine with both representations, we just build the
    constraint system using the following layout: 
 
-   "is_eq | distance vars | index vars | cst".
+   "is_geq | distance vars | index vars | cst".
 */
 
 static bool
@@ -3974,10 +4042,11 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
   struct data_reference *dra = DDR_A (ddr);
   struct data_reference *drb = DDR_B (ddr);
   struct loop *loop_a, *loop_b, *common_loop;
-  varray_type vloops;
+  VEC (loop_p, heap) *vloops = VEC_alloc (loop_p, heap, 3);
   unsigned nb_eqs, nb_loops, dimension;
   unsigned eq, ineq;
   csys cy;
+  struct loop *loopi;
 
   *maybe_dependent = true;
 
@@ -3987,20 +4056,19 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
      nb_eqs = nb_subscripts
      nb_ineqs = nb_loops * 4
   */
-  VARRAY_GENERIC_PTR_INIT (vloops, 3, "vloops");
   loop_a = bb_for_stmt (DR_STMT (dra))->loop_father;
   loop_b = bb_for_stmt (DR_STMT (dra))->loop_father;
   common_loop = find_common_loop (loop_a, loop_b);
 
   if (common_loop != loop_a || common_loop != loop_b)
     {
-      find_loops_surrounding (loop_a, common_loop, &vloops);
-      find_loops_surrounding (loop_b, common_loop, &vloops);
+      find_loops_surrounding (loop_a, common_loop, vloops);
+      find_loops_surrounding (loop_b, common_loop, vloops);
     }
-  find_loops_surrounding (common_loop, NULL, &vloops);
+  find_loops_surrounding (common_loop, NULL, vloops);
 
   nb_eqs = DDR_NUM_SUBSCRIPTS (ddr);
-  nb_loops = VARRAY_ACTIVE_SIZE (vloops);
+  nb_loops = VEC_length (loop_p, vloops);
   dimension = 2 * nb_loops;
   cy = csys_new (dimension, nb_eqs, 4 * nb_loops + nb_eqs);
 
@@ -4022,7 +4090,7 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
 	      /* There is no dependence.  */
 	      DDR_ARE_DEPENDENT (ddr) = chrec_known;
 	      *maybe_dependent = false;
-	      varray_clear (vloops);
+	      VEC_free (loop_p, heap, vloops);
 	      return true;
 	    }
 	}
@@ -4035,7 +4103,7 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
 	{
 	  /* There is probably a dependence, but the system of
 	     constraints cannot be built: answer "don't know".  */
-	  varray_clear (vloops);
+	  VEC_free (loop_p, heap, vloops);
 	  return false;
 	}
 
@@ -4046,7 +4114,7 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
 	  /* There is no dependence.  */
 	  DDR_ARE_DEPENDENT (ddr) = chrec_known;
 	  *maybe_dependent = false;
-	  varray_clear (vloops);
+	  VEC_free (loop_p, heap, vloops);
 	  return true;
 	}
     }
@@ -4058,10 +4126,9 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
   /* Insert the constraints corresponding to the iteration domain:
      i.e. the loops surrounding the references "loop_x" and the
      distance variables "dx".  */
-  for (i = 0, ineq = eq; i < VARRAY_ACTIVE_SIZE (vloops); i++)
+  for (i = 0, ineq = eq; VEC_iterate (loop_p, vloops, i, loopi); i++)
     {
-      struct loop *loop = VARRAY_GENERIC_PTR (vloops, i);
-      tree nb_iters = get_number_of_iters_for_loop (loop->num);
+      tree nb_iters = get_number_of_iters_for_loop (loopi->num);
 
       /* 0 <= loop_x */
       CSYS_VEC (cy, ineq, i + nb_loops) = 1;
@@ -4092,7 +4159,190 @@ init_csys_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
 
   DDR_CSYS (ddr) = cy;
 
-  varray_clear (vloops);
+  VEC_free (loop_p, heap, vloops);
+  return true;
+}
+
+/* Sets up the Omega dependence problem for the data dependence
+   relation DDR.  Returns false when the constraint system cannot be
+   built, ie. when the test answers "don't know".  Returns true
+   otherwise, and when independence has been proved (using one of the
+   trivial dependence test), set MAYBE_DEPENDENT to false and the
+   DDR_CSYS is not initialized, otherwise set MAYBE_DEPENDENT to true.
+
+   Example: for setting up the dependence system corresponding to the
+   conflicting accesses 
+
+   loop_x
+     A[i] = ...
+     ... A[i+M]
+   endloop_x
+   
+   the following constraints come from the iteration domain: 
+
+   0 <= i <= N
+   0 <= i + di <= N
+
+   where di is the distance variable.  The conflicting elements
+   constraint inserted in the constraint system is:
+
+   i = i + di + M  
+
+   that gets simplified into 
+   
+   di + M = 0
+
+   Finally the constraint system initialized by the following function
+   looks like:
+
+   di + M = 0
+   0 <= i <= N
+   0 <= i + di <= N
+
+   The Omega solver expects the distance variables ("di" in the
+   previous example) to come first in the constraint system (as
+   variables to be protected, or "safe" variables), the constraint
+   system is built using the following layout:
+
+   "cst | distance vars | index vars".
+*/
+
+static bool
+init_omega_for_ddr (struct data_dependence_relation *ddr, bool *maybe_dependent)
+{
+  unsigned i;
+  struct data_reference *dra = DDR_A (ddr);
+  struct data_reference *drb = DDR_B (ddr);
+  struct loop *loop_a, *loop_b, *common_loop;
+  VEC (loop_p, heap) *vloops = VEC_alloc (loop_p, heap, 3);
+  unsigned nb_eqs, nb_loops, dimension;
+  unsigned eq, ineq;
+  omega_pb pb;
+  struct loop *loopi;
+
+  *maybe_dependent = true;
+
+  /* Compute the size of the constraint system.
+     nb_loops = number of loops surrounding both references
+     dimension = 2 * nb_loops
+     nb_eqs = nb_subscripts
+     nb_ineqs = nb_loops * 4
+  */
+  loop_a = bb_for_stmt (DR_STMT (dra))->loop_father;
+  loop_b = bb_for_stmt (DR_STMT (dra))->loop_father;
+  common_loop = find_common_loop (loop_a, loop_b);
+
+  if (common_loop != loop_a || common_loop != loop_b)
+    {
+      find_loops_surrounding (loop_a, common_loop, vloops);
+      find_loops_surrounding (loop_b, common_loop, vloops);
+    }
+  find_loops_surrounding (common_loop, NULL, vloops);
+
+  nb_eqs = DDR_NUM_SUBSCRIPTS (ddr);
+  nb_loops = VEC_length (loop_p, vloops);
+  DDR_SIZE_VECT (ddr) = nb_loops;
+  dimension = 2 * nb_loops;
+
+  if (nb_loops == 0)
+    return false;
+
+  /* Omega expects the protected variables (those that have to be kept
+     after elimination) to appear first in the constraint system.
+     These variables are the distance variables.  In the following
+     initialization we declare NB_LOOPS safe variables, and the total
+     number of variables for the constraint system is DIMENSION.  */
+  pb = omega_alloc_problem (dimension, nb_loops);
+
+  /* For each subscript, insert an equality for representing the
+     conflicts.  */
+  for (eq = 0; eq < DDR_NUM_SUBSCRIPTS (ddr); eq++)
+    {
+      tree access_fun_a = DR_ACCESS_FN (dra, eq);
+      tree access_fun_b = DR_ACCESS_FN (drb, eq);
+
+      /* ZIV test.  */
+      if (ziv_subscript_p (access_fun_a, access_fun_b))
+	{
+	  tree difference = chrec_fold_minus (integer_type_node, access_fun_a,
+					      access_fun_b);
+	  if (TREE_CODE (difference) == INTEGER_CST
+	      && !integer_zerop (difference))
+	    {
+	      /* There is no dependence.  */
+	      DDR_ARE_DEPENDENT (ddr) = chrec_known;
+	      *maybe_dependent = false;
+	      VEC_free (loop_p, heap, vloops);
+	      omega_free_problem (pb);
+	      return true;
+	    }
+	}
+
+      access_fun_b = chrec_fold_multiply (chrec_type (access_fun_b),
+					  access_fun_b, integer_minus_one_node);
+
+      if (!init_omega_eq_with_af (pb, eq, nb_loops, access_fun_a, vloops)
+	  || !init_omega_eq_with_af (pb, eq, 0, access_fun_b, vloops))
+	{
+	  /* There is probably a dependence, but the system of
+	     constraints cannot be built: answer "don't know".  */
+	  VEC_free (loop_p, heap, vloops);
+	  omega_free_problem (pb);
+	  return false;
+	}
+
+      /* Quickly perform the GCD test.  */
+      
+      if (dimension && pb->eqs[eq].coef[0] && !int_divides_p 
+	  (lambda_vector_gcd ((lambda_vector) &(pb->eqs[eq].coef[1]),
+			      dimension), pb->eqs[eq].coef[0]))
+	{
+	  /* There is no dependence.  */
+	  DDR_ARE_DEPENDENT (ddr) = chrec_known;
+	  *maybe_dependent = false;
+	  VEC_free (loop_p, heap, vloops);
+	  omega_free_problem (pb);
+	  return true;
+	}
+    }
+
+  /* Insert the constraints corresponding to the iteration domain:
+     i.e. the loops surrounding the references "loop_x" and the
+     distance variables "dx".  */
+  for (i = 0, ineq = 0; VEC_iterate (loop_p, vloops, i, loopi); i++)
+    {
+      tree nb_iters = get_number_of_iters_for_loop (loopi->num);
+
+      /* 0 <= loop_x */
+      pb->geqs[ineq].coef[i + nb_loops + 1] = 1;
+      ineq++;
+
+      /* 0 <= loop_x + dx */
+      pb->geqs[ineq].coef[i + nb_loops + 1] = 1;
+      pb->geqs[ineq].coef[i + 1] = 1;
+      ineq++;
+
+      if (nb_iters != NULL_TREE
+	  && TREE_CODE (nb_iters) == INTEGER_CST)
+	{
+	  int nbi = int_cst_value (nb_iters);
+
+	  /* loop_x <= nb_iters */
+	  pb->geqs[ineq].coef[i + nb_loops + 1] = -1;
+	  pb->geqs[ineq].coef[0] = nbi;
+	  ineq++;
+
+	  /* loop_x + dx <= nb_iters */
+	  pb->geqs[ineq].coef[i + nb_loops + 1] = -1;
+	  pb->geqs[ineq].coef[i + 1] = -1;
+	  pb->geqs[ineq].coef[0] = nbi;
+	  ineq++;
+	}
+    }
+
+  /* Attach the Omega problem to the data dependence relation.  */
+  DDR_OMEGA (ddr) = pb;
+  VEC_free (loop_p, heap, vloops);
   return true;
 }
 
@@ -4131,11 +4381,8 @@ static void
 omega_compute_classic_representations (struct data_dependence_relation *ddr)
 {
   int i;
-  lambda_vector dir_v, dist_v;
-  DDR_SIZE_VECT (ddr) = CSYS_DIMENSION (DDR_CSYS (ddr)) / 2;
-
-  dist_v = lambda_vector_new (DDR_SIZE_VECT (ddr));
-  dir_v = lambda_vector_new (DDR_SIZE_VECT (ddr));
+  lambda_vector dist_v = lambda_vector_new (DDR_SIZE_VECT (ddr));
+  lambda_vector dir_v = lambda_vector_new (DDR_SIZE_VECT (ddr));
 
   for (i = 0; i < DDR_SIZE_VECT (ddr); i++)
     {
@@ -4150,7 +4397,19 @@ omega_compute_classic_representations (struct data_dependence_relation *ddr)
 	dir = dir_positive;
       else if (dist < 0)
 	dir = dir_negative;
-      
+
+#if 0
+      if (0)
+	{
+	  int dd_lt = 1, dd_eq = 2, dd_gt = 4;
+
+	  result = omega_query_variable_signs (DDR_OMEGA (ddr), i, 
+					       dd_lt, dd_eq, dd_gt, 
+					       lower_bound, upper_bound,
+					       &dist_known, dist);
+	}
+#endif
+
       dist_v[i] = dist;
       dir_v[i] = dir;
     }
@@ -4171,13 +4430,8 @@ omega_dependence_tester (struct data_dependence_relation *ddr)
     {
       fprintf (dump_file, "(omega_dependence_tester \n");
       dump_data_dependence_relation (dump_file, ddr);
-      csys_print (dump_file, DDR_CSYS (ddr));
+      omega_pretty_print_problem (dump_file, DDR_OMEGA (ddr));
     }
-
-  DDR_OMEGA (ddr) = csys_to_omega (DDR_CSYS (ddr));
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    omega_pretty_print_problem (dump_file, DDR_OMEGA (ddr));
 
   res = omega_simplify_problem (DDR_OMEGA (ddr));
 
@@ -4186,6 +4440,7 @@ omega_dependence_tester (struct data_dependence_relation *ddr)
      dep/indep/unknown.  Have to better document the return value for
      omega_solve_problem.  For the moment systematically initialize
      dist/dir.  */
+
   omega_compute_classic_representations (ddr);
   dependence_stats.num_dependence_dependent++;
 
@@ -4227,15 +4482,39 @@ check_ddr (FILE *outf,
 {
   unsigned int i;
 
+  /* If dump_file is set, output there.  */
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    outf = dump_file;
+
   if (VEC_length (lambda_vector, dist_vects) != DDR_NUM_DIST_VECTS (ddr))
     {
-      fprintf (outf, "Number of distance vectors differ.\n");
+      lambda_vector a_dist_v, b_dist_v;
+      fprintf (outf, "Number of distance vectors differ: %d != %d\n",
+	       VEC_length (lambda_vector, dist_vects),
+	       DDR_NUM_DIST_VECTS (ddr));
+
+      for (i = 0; VEC_iterate (lambda_vector, dist_vects, i, b_dist_v); i++)
+	{
+	  fprintf (outf, "Banerjee dist vectors:\n");
+	  print_lambda_vector (outf, b_dist_v, VEC_length (lambda_vector,
+							   dist_vects));
+	}
+
+      for (i = 0; i < DDR_NUM_DIST_VECTS (ddr); i++)
+	{
+	  a_dist_v = DDR_DIST_VECT (ddr, i);
+	  fprintf (outf, "Omega dist vectors:\n");
+	  print_lambda_vector (outf, a_dist_v, DDR_SIZE_VECT (ddr));
+	}
+
       return;
     }
 
   if (VEC_length (lambda_vector, dir_vects) != DDR_NUM_DIR_VECTS (ddr))
     {
-      fprintf (outf, "Number of direction vectors differ.\n");
+      fprintf (outf, "Number of direction vectors differ: %d != %d.\n",
+	       VEC_length (lambda_vector, dir_vects),
+	       DDR_NUM_DIR_VECTS (ddr));
       return;
     }
 
@@ -4270,6 +4549,8 @@ check_ddr (FILE *outf,
 	  dump_data_dependence_relation (outf, ddr);
 	}
     }
+
+  return;  
 }
 
 /* This computes the affine dependence relation between A and B.
@@ -4310,35 +4591,52 @@ compute_affine_dependence (struct data_dependence_relation *ddr,
 	    {
 	      /* Compute the dependences using the first algorithm.  */
 	      subscript_dependence_tester (ddr, loop_nest_depth);
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, "\n\nBanerjee Analyzer\n");
+		  dump_data_dependence_relation (dump_file, ddr);
+		}
 
 	      if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
 		{
 		  bool maybe_dependent;
 		  VEC (lambda_vector, heap) *dir_vects, *dist_vects;
 
-		  /* Save the classic representations for the first DD
-		     analyzer.  */
+		  /* Save the result of the first DD analyzer.  */
 		  dist_vects = ddr->dist_vects;
 		  dir_vects = ddr->dir_vects;
+
+		  /* Reset the information.  */
 		  ddr->dist_vects = NULL;
 		  ddr->dir_vects = NULL;
 
-		  if (!init_csys_for_ddr (ddr, &maybe_dependent))
-		    /* FIXME: Why is this edge taken?  Because we have
-		       already computed the dependence, the problem
-		       should be simple enough.  */
+		  /* Set up the problem for the second DD analyzer.  */
+		  if (!init_omega_for_ddr (ddr, &maybe_dependent))
 		    goto csys_dont_know;
 
 		  if (maybe_dependent)
 		    {
 		      /* Compute the same information using Omega.  */
 		      omega_dependence_tester (ddr);
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+			{
+			  fprintf (dump_file, "Omega Analyzer\n");
+			  dump_data_dependence_relation (dump_file, ddr);
+			}
+
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+			fprintf (dump_file, "(diff\n");
 
 		      /* Check that we get the same information.  */
 		      check_ddr (stderr, ddr, dist_vects, dir_vects);
+
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+			fprintf (dump_file, ")\n");
 		    }
 		}
 	    }
+	  
+	  /* FIXME: polyhedra_dependence_tester is disabled for the moment.  */
 	  else if (0)
 	    {
 	      bool maybe_dependent;
@@ -4347,13 +4645,9 @@ compute_affine_dependence (struct data_dependence_relation *ddr,
 		goto csys_dont_know;
 
 	      if (maybe_dependent)
-		{
-  		  if (0)
-		    polyhedra_dependence_tester (ddr);
-		  else
-		    omega_dependence_tester (ddr);
-		}
+		polyhedra_dependence_tester (ddr);
 	    }
+
 	  else
 	    subscript_dependence_tester (ddr, loop_nest_depth);
 	}
@@ -4801,8 +5095,10 @@ free_dependence_relation (struct data_dependence_relation *ddr)
 
   if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE && DDR_SUBSCRIPTS (ddr))
     varray_clear (DDR_SUBSCRIPTS (ddr));
+
   if (DDR_OMEGA (ddr))
-    free (DDR_OMEGA (ddr));
+    omega_free_problem (DDR_OMEGA (ddr));
+
   free (ddr);
 }
 

@@ -5968,6 +5968,30 @@ optimization when a new iv is added to the set.
 Bound on size of expressions used in the scalar evolutions analyzer.
 Large expressions slow the analyzer.
 
+@item omega-max-vars
+The maximum number of variables in an Omega constraint system.
+The default value is 128.
+
+@item omega-max-geqs
+The maximum number of inequalities in an Omega constraint system.
+The default value is 256.
+
+@item omega-max-eqs
+The maximum number of equalities in an Omega constraint system.
+The default value is 128.
+
+@item omega-max-wild-cards
+The maximum number of wildcard variables that the Omega solver will
+be able to insert.  The default value is 18.
+
+@item omega-hash-table-size
+The size of the hash table in the Omega solver.  The default value is
+550.
+
+@item omega-max-keys
+The maximal number of keys used by the Omega solver.  The default
+value is 500.
+
 @item vect-max-version-checks
 The maximum number of runtime checks that can be performed when doing
 loop versioning in the vectorizer.  See option ftree-vect-loop-version

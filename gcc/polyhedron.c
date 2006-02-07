@@ -204,21 +204,18 @@ omega_pb
 csys_to_omega (csys cy)
 {
   int i, j;
-  int nb_protected_vars = CSYS_DIMENSION (cy) / 2;
-  omega_pb res = (omega_pb) xmalloc (sizeof (struct omega_pb));
-
-  omega_initialize ();
 
   /* Omega expects the protected variables (those that have to be kept
      after elimination) to appear first in the constraint system.
      These variables are the distance variables.  */
-  init_problem (res, CSYS_DIMENSION (cy), nb_protected_vars);
+  int nb_protected_vars = CSYS_DIMENSION (cy) / 2;
+  omega_pb res = omega_alloc_problem (CSYS_DIMENSION (cy), nb_protected_vars);
 
   for (i = 0; i < CSYS_NB_CONSTRAINTS (cy); i++)
     {
       if (CSYS_IS_EQ (cy, i))
 	{
-	  unsigned idx = prob_add_zero_eq (res, omega_black);
+	  unsigned idx = omega_add_zero_eq (res, omega_black);
 
 	  for (j = 1; j <= CSYS_DIMENSION (cy); j++)
 	    res->eqs[idx].coef[j] = CSYS_ELT (cy, i, j);
@@ -226,7 +223,7 @@ csys_to_omega (csys cy)
 	}
       else
 	{
-	  unsigned idx = prob_add_zero_geq (res, omega_black);
+	  unsigned idx = omega_add_zero_geq (res, omega_black);
 
 	  for (j = 1; j <= CSYS_DIMENSION (cy); j++)
 	    res->geqs[idx].coef[j] = CSYS_ELT (cy, i, j);

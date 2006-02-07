@@ -1,3 +1,56 @@
+2006-02-07  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* doc/invoke.texi (omega-max-vars, omega-max-geqs, omega-max-eqs,
+	omega-max-wild-cards, omega-hash-table-size, omega-max-keys): Document.
+	* tree-ssa-loop-niter.c (find_loop_niter_by_omega): Allocate the
+	omega_pb.
+	* omega.c: Added more comments for documenting some functions.
+	Indent some portions of code to fit in the first 78 columns.
+	Rename some variables following the coding conventions.
+	(MAX_WILD_CARDS, HASH_TABLE_SIZE, MAX_KEYS): Define in function of
+	PARAM_OMEGA_MAX_WILD_CARDS, PARAM_OMEGA_HASH_TABLE_SIZE, and
+	PARAM_OMEGA_MAX_KEYS.
+	(EQ_type, GEQ_type): Removed.
+	(hash_master, packing): Allocated on the heap now.
+	(abs): Removed.
+	(omega_var_to_str): New from omega_variable_to_str.  Print a name
+	from wild_name instead of aborting on variables out of the defined
+	range.
+	(omega_initialize_variables, omega_copy_problem): Moved to omega.h.
+	(omega_initialize_problem): Renamed omega_initialize_statics.
+	(omega_sprint_eqn): Move the code to omega_print_eqn.  Rewrite the
+	code to directly output to a file.
+	(printVars): Renamed omega_print_vars.
+	(omega_pretty_print_problem): Allocate arrays on the heap.	
+	(setup_packing, omega_substitute_red_1): New helper functions used in
+	omega_substitute and omega_substitute_red.
+	(fastLookup, fastLookupRed): Renamed fast_lookup, fast_lookup_red, and
+	allocate these on the heap.
+	(divide_eqn_by_gcd, bswap, omega_unprotect_1,
+	omega_problem_has_no_solution): New.
+	(omega_solve_geq): Re-indent.
+	(omega_initialize): Initialize static arrays.
+	* omega.h: Depend on params.h.  Add more comments.
+	(max_vars, max_geqs, max_eqs): Renamed OMEGA_MAX_{VARS,GEQS,EQS}.
+	Defined in function of PARAM_OMEGA_MAX_{VARS,GEQS,EQS}.
+	(struct omega_pb, struct eqn): Transform arrays to pointers.
+	(omega_wildcard_p, omega_safe_var_p, omega_alloc_eqns,
+	omega_free_eqns, omega_alloc_problem, omega_free_problem): New.
+	* polyhedron.c (csys_to_omega): Update call names.
+	* tree-data-ref.c: Define a VEC for loop pointers.
+	(compute_subscript_distance): Static now.
+	(init_csys_eq_with_af, init_csys_for_ddr): Use a VEC instead of VARRAY.
+	(init_omega_eq_with_af, init_omega_for_ddr): New.  Directly build the
+	omega_pb instead of building a csys and then translating csys to omega.
+	* tree-data-ref.h (compute_subscript_distance): Removed.
+	* lambda-code.c (lambda_compute_target_space): Correct indentation.
+	* Makefile.in (POLYHEDRON_H): Removed.
+	(TREE_DATA_REF_H): Depends on omega.h and polyhedron.h.
+	Replace dependences on tree-data-ref.h with TREE_DATA_REF_H.
+	* params.def (PARAM_OMEGA_MAX_VARS, PARAM_OMEGA_MAX_GEQS,
+	PARAM_OMEGA_MAX_EQS, PARAM_OMEGA_MAX_WILD_CARDS,
+	PARAM_OMEGA_HASH_TABLE_SIZE, PARAM_OMEGA_MAX_KEYS): New.
+
 2006-02-07  Dorit Nuzman  <dorit@il.ibm.com>
 
         * tree-vect-transform.c (vect_setup_realignment): New function.

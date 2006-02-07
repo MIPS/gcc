@@ -1385,7 +1385,7 @@ find_loop_niter_by_omega (struct loop *loop, edge *exit)
   unsigned n_exits, i;
   edge *exits = get_loop_exit_edges (loop, &n_exits);
   tree niter = NULL_TREE, aniter;
-  omega_pb pb = (omega_pb) xmalloc (sizeof (struct omega_pb));  
+  omega_pb pb;
 
   /* Initialize an omega problem.  For the moment, only solve
      univariate problems of the form: (N * 3 + 2) mod modulo >= (N
@@ -1394,7 +1394,7 @@ find_loop_niter_by_omega (struct loop *loop, edge *exit)
      factor K is just a helper variable, so we want it to be
      eliminated by Omega.  */
   omega_initialize ();
-  init_problem (pb, 2, 1);
+  pb = omega_alloc_problem (2, 1);
 
   *exit = NULL;
   for (i = 0; i < n_exits; i++)
@@ -1453,7 +1453,10 @@ find_loop_niter_by_omega (struct loop *loop, edge *exit)
 	  if (diff != NULL_TREE
 	      && TREE_CODE (diff) == INTEGER_CST
 	      && !integer_zerop (diff))
-	    return fold_convert (type, integer_zero_node);
+	    {
+	      omega_free_problem (pb);
+	      return fold_convert (type, integer_zero_node);
+	    }
 	  else
 	    {
 	      /* Determine the minimal N >= 0 that verifies:
@@ -1477,10 +1480,13 @@ find_loop_niter_by_omega (struct loop *loop, edge *exit)
 	      if (TREE_CODE (diff_s) != INTEGER_CST
 		  || TREE_CODE (diff) != INTEGER_CST
 		  || !TYPE_UNSIGNED (type))
-		return chrec_dont_know;
+		{
+		  omega_free_problem (pb);
+		  return chrec_dont_know;
+		}
 
 	      modulo = TYPE_MAX_VALUE (type);
-	      idx = prob_add_zero_eq (pb, 0);
+	      idx = omega_add_zero_eq (pb, 0);
 
 	      pb->eqs[idx].coef[0] = int_cst_value (diff);
 	      pb->eqs[idx].coef[1] = int_cst_value (diff_s);
@@ -1497,7 +1503,10 @@ find_loop_niter_by_omega (struct loop *loop, edge *exit)
 	  if (diff != NULL_TREE
 	      && TREE_CODE (diff) == INTEGER_CST
 	      && integer_zerop (diff))
-	    return fold_convert (type, integer_zero_node);
+	    {
+	      omega_free_problem (pb);
+	      return fold_convert (type, integer_zero_node);
+	    }
 	  else
 	    {
 	      /* Determine the minimal N >= 0 that verifies:
@@ -1519,10 +1528,13 @@ find_loop_niter_by_omega (struct loop *loop, edge *exit)
 	      if (TREE_CODE (diff_s) != INTEGER_CST
 		  || TREE_CODE (diff) != INTEGER_CST
 		  || !TYPE_UNSIGNED (type))
-		return chrec_dont_know;
+		{
+		  omega_free_problem (pb);
+		  return chrec_dont_know;
+		}
 
 	      modulo = TYPE_MAX_VALUE (type);
-	      idx = prob_add_zero_eq (pb, 0);
+	      idx = omega_add_zero_eq (pb, 0);
 
 	      pb->eqs[idx].coef[0] = int_cst_value (diff);
 	      pb->eqs[idx].coef[1] = int_cst_value (diff_s);
@@ -1531,10 +1543,11 @@ find_loop_niter_by_omega (struct loop *loop, edge *exit)
 	}
 	
 
-      /* prob_add_zero_geq (pb, 0);
+      /* omega_add_zero_geq (pb, 0);
        */
     }
   free (exits);
+  omega_free_problem (pb);
 
   /* Solve the system of equalities and inequalities.  */
   

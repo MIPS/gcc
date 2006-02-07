@@ -874,7 +874,7 @@ lambda_compute_target_space (lambda_loopnest auxillary_nest,
 	     at the tree level.  */
 	  gcd1 = lambda_vector_gcd (LLE_COEFFICIENTS (target_expr), depth);
 	  gcd2 = lambda_vector_gcd (LLE_INVARIANT_COEFFICIENTS (target_expr),
-			     invariants);
+				    invariants);
 	  gcd1 = gcd (gcd1, gcd2);
 	  gcd1 = gcd (gcd1, LLE_CONSTANT (target_expr));
 	  gcd1 = gcd (gcd1, LLE_DENOMINATOR (target_expr));
@@ -930,7 +930,7 @@ lambda_compute_target_space (lambda_loopnest auxillary_nest,
 	     tree level.  */
 	  gcd1 = lambda_vector_gcd (LLE_COEFFICIENTS (target_expr), depth);
 	  gcd2 = lambda_vector_gcd (LLE_INVARIANT_COEFFICIENTS (target_expr),
-			     invariants);
+				    invariants);
 	  gcd1 = gcd (gcd1, gcd2);
 	  gcd1 = gcd (gcd1, LLE_CONSTANT (target_expr));
 	  gcd1 = gcd (gcd1, LLE_DENOMINATOR (target_expr));

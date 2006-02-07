@@ -5,7 +5,7 @@
    This code has no license restrictions, and is considered public
    domain.
 
-   Changes copyright (C) 2005 Free Software Foundation, Inc.
+   Changes copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,14 +24,15 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-#include <config.h>
+#include "config.h"
+#include "params.h"
 
 #ifndef GCC_OMEGA_H
 #define GCC_OMEGA_H
 
-#define max_vars 128
-#define max_geqs 256
-#define max_eqs 128
+#define OMEGA_MAX_VARS PARAM_VALUE (PARAM_OMEGA_MAX_VARS)
+#define OMEGA_MAX_GEQS PARAM_VALUE (PARAM_OMEGA_MAX_GEQS)
+#define OMEGA_MAX_EQS PARAM_VALUE (PARAM_OMEGA_MAX_EQS)
 
 #define pos_infinity (0x7ffffff)
 #define neg_infinity (-0x7ffffff)
@@ -66,8 +67,12 @@ typedef struct eqn
   /* Private (not used outside the solver).  */
   enum omega_eqn_color color;
 
-  /* Array of coefficients for the equation.  */
-  int coef[max_vars + 1];
+  /* Array of coefficients for the equation.  The layout of the data
+     is as follows: coef[0] is the constant, coef[i] for 1 <= i <=
+     OMEGA_MAX_VARS, are the coefficients for each dimension.  Examples:
+     the equation 0 = 9 + x + 0y + 5z is encoded as [9 1 0 5], the
+     inequality 0 <= -8 + x + 2y + 3z is encoded as [-8 1 2 3].  */
+  int *coef;
 } *eqn;
 
 typedef struct omega_pb
@@ -76,55 +81,54 @@ typedef struct omega_pb
   int num_vars;
   
   /* Safe variables are not eliminated during the Fourier-Motzkin
-     simplification of the system.  */
+     simplification of the system.  Safe variables are all those
+     variables that are placed at the beginning of the array of
+     variables: PB->var[1, ..., SAFE_VARS].  PB->var[0] is not used,
+     as PB->eqs[x]->coef[0] represents the constant of the equation.  */
   int safe_vars;
 
-  /* Number of equalities: number of elements in eqs[].  */
+  /* Number of elements in eqs[].  */
   int num_eqs;
-
-  /* Number of inequalities: number of elements in geqs[].  */
+  /* Number of elements in geqs[].  */
   int num_geqs;
-
-  /* Number of variables that were substituted: number of elements in
-     subs[].  */
+  /* Number of elements in subs[].  */
   int num_subs;
 
   /* Private (not used outside the solver).  */
   int hash_version;
   /* Private (not used outside the solver).  */
-  int variables_initialized;
+  bool variables_initialized;
   /* Private (not used outside the solver).  */
-  int variables_freed;
+  bool variables_freed;
 
-  /* Index of variables.  */
-  int var[max_vars + 2];
+  /* Index or name of variables.  Negative integers are reserved for
+     wildcard variables.  */
+  int *var;
 
-  /* Private (not used outside the solver).  */
-  int forwarding_address[max_vars + 2];
+  /* */
+  int *forwarding_address;
 
   /* Inequalities in the system of constraints.  */
-  struct eqn geqs[max_geqs];
+  eqn geqs;
 
   /* Equations in the system of constraints.  */
-  struct eqn eqs[max_eqs];
+  eqn eqs;
 
-  /* Variables that were substituted.  */
-  struct eqn subs[max_vars + 1];
+  /* A map of substituted variables.  */
+  eqn subs;
 } *omega_pb;
 
 extern bool omega_reduce_with_subs;
 extern bool omega_verify_simplification;
 
 extern void omega_initialize (void);
-extern void omega_initialize_problem (omega_pb);
-extern void omega_initialize_variables (omega_pb);
+extern void omega_initialize_statics (omega_pb);
 extern enum omega_result omega_solve_problem (omega_pb, enum omega_result);
 extern enum omega_result omega_simplify_problem (omega_pb);
 extern enum omega_result omega_simplify_approximate (omega_pb);
-extern enum omega_result omega_constrain_variable_sign (omega_pb, int, int,
-							int);
-
-extern void omega_copy_problem (omega_pb, omega_pb);
+extern enum omega_result omega_constrain_variable_sign (omega_pb,
+							enum omega_eqn_color,
+							int, int);
 extern void omega_print_problem (FILE *, omega_pb);
 extern void omega_print_red_equations (FILE *, omega_pb);
 extern int omega_count_red_equations (omega_pb);
@@ -132,25 +136,43 @@ extern void omega_pretty_print_problem (FILE *, omega_pb);
 extern void omega_unprotect_variable (omega_pb, int var);
 extern void omega_negate_geq (omega_pb, int);
 extern void omega_convert_eq_to_geqs (omega_pb, int eq);
-extern void omega_print_eqn (FILE *, omega_pb, eqn, int, int);
-extern void omega_sprint_eqn (char *, omega_pb, eqn, int, int);
+extern void omega_print_eqn (FILE *, omega_pb, eqn, bool, int);
 extern bool omega_problem_has_red_equations (omega_pb);
-extern int omega_eliminate_redundant (omega_pb, bool);
+extern enum omega_result omega_eliminate_redundant (omega_pb, bool);
 extern void omega_eliminate_red (omega_pb, bool);
-extern void omega_constrain_variable_value (omega_pb, int, int, int);
-extern int omega_query_variable (omega_pb, int, int *, int *);
+extern void omega_constrain_variable_value (omega_pb, enum omega_eqn_color,
+					    int, int);
+extern bool omega_query_variable (omega_pb, int, int *, int *);
 extern int omega_query_variable_signs (omega_pb, int, int, int, int,
 				       int, int, bool *, int *);
-extern int omega_query_variable_bounds (omega_pb, int, int *, int *);
+extern bool omega_query_variable_bounds (omega_pb, int, int *, int *);
 extern void (*omega_when_reduced) (omega_pb);
 extern void omega_no_procedure (omega_pb);
+
+/* Return true when variable I in problem PB is a wildcard.  */
+
+static inline bool
+omega_wildcard_p (omega_pb pb, int i)
+{
+  return (pb->var[i] < 0);
+}
+
+/* Return true when variable I in problem PB is a safe variable.  */
+
+static inline bool
+omega_safe_var_p (omega_pb pb, int i)
+{
+  /* The constant of an equation is not a variable.  */
+  gcc_assert (0 < i);
+  return (i <= pb->safe_vars);
+}
 
 /* Print to FILE equality E from PB.  */
 
 static inline void
 omega_print_eq (FILE *file, omega_pb pb, eqn e)
 {
-  omega_print_eqn (file, pb, e, 0, 0);
+  omega_print_eqn (file, pb, e, false, 0);
 }
 
 /* Print to FILE inequality E from PB.  */
@@ -158,7 +180,7 @@ omega_print_eq (FILE *file, omega_pb pb, eqn e)
 static inline void
 omega_print_geq (FILE *file, omega_pb pb, eqn e)
 {
-  omega_print_eqn (file, pb, e, 1, 0);
+  omega_print_eqn (file, pb, e, true, 0);
 }
 
 /* Print to FILE inequality E from PB.  */
@@ -166,23 +188,19 @@ omega_print_geq (FILE *file, omega_pb pb, eqn e)
 static inline void
 omega_print_geq_extra (FILE *file, omega_pb pb, eqn e)
 {
-  omega_print_eqn (file, pb, e, 1, 1);
+  omega_print_eqn (file, pb, e, true, 1);
 }
 
-/* FIXME: What is this used for?  */
-#define headerWords 3
-
-/* Copy equations: E1 = E2.  Equations contain S variables.  */
+/* E1 = E2, make a copy of E2 into E1.  Equations contain S variables.  */
 
 static inline void
 omega_copy_eqn (eqn e1, eqn e2, int s)
 {
-  int *p00, *q00, *r00;
-  p00 = (int *) e1;
-  q00 = (int *) e2;
-  r00 = &p00[headerWords + 1 + s];
-  while (p00 < r00)
-    *p00++ = *q00++;
+  e1->key = e2->key;
+  e1->touched = e2->touched;
+  e1->color = e2->color;
+
+  memcpy (e1->coef, e2->coef, (s + 1) * sizeof (int));
 }
 
 /* Intialize E = 0.  Equation E contains S variables.  */
@@ -190,77 +208,171 @@ omega_copy_eqn (eqn e1, eqn e2, int s)
 static inline void
 omega_init_eqn_zero (eqn e, int s)
 {
-  int *p00, *r00;
-  p00 = (int *) e;
-  r00 = &p00[headerWords + 1 + s];
-  while (p00 < r00)
-    *p00++ = 0;
+  e->key = 0;
+  e->touched = 0;
+  e->color = omega_black;
+
+  memset (e->coef, 0, (s + 1) * sizeof (int));
 }
 
-#undef headerWords
+/* Allocate N equations with S variables.  */
 
-/* Returns true when E is an inequality that contains a single
-   variable.  */
+static inline eqn
+omega_alloc_eqns (int s, int n)
+{
+  int i;
+  eqn res = (eqn) (xcalloc (n, sizeof (struct eqn)));
+
+  for (i = n - 1; i >= 0; i--)
+    {
+      res[i].coef = (int *) (xcalloc (OMEGA_MAX_VARS + 1, sizeof (int)));
+      omega_init_eqn_zero (&res[i], s);
+    }
+
+  return res;
+}
+
+/* Free N equations from array EQ.  */
+
+static inline void
+omega_free_eqns (eqn eq, int n)
+{
+  int i;
+
+  for (i = n - 1; i >= 0; i--)
+    free (eq[i].coef);
+
+  free (eq);
+}
+
+/* Returns true when E is an inequality with a single variable.  */
 
 static inline bool
-single_var_geq (struct eqn e, int nv ATTRIBUTE_UNUSED)
+single_var_geq (eqn e, int nv ATTRIBUTE_UNUSED)
 {
-  return (e.key != 0 && -max_vars <= e.key && e.key <= max_vars);
+  return (e->key != 0
+	  && -OMEGA_MAX_VARS <= e->key && e->key <= OMEGA_MAX_VARS);
 }
 
-#define cant_do_omega abort
+/* Allocate a new equality with all coefficients 0, and tagged with
+   COLOR.  Return the index of this equality in problem PB.  */
 
-/* Initialize P as an Omega problem with NVARS variables and NPROT
+static inline int
+omega_add_zero_eq (omega_pb pb, enum omega_eqn_color color)
+{
+  int idx = pb->num_eqs++;
+
+  gcc_assert (pb->num_eqs <= OMEGA_MAX_EQS);
+  omega_init_eqn_zero (&pb->eqs[idx], pb->num_vars);
+  pb->eqs[idx].color = color;
+  return idx;
+}
+
+/* Allocate a new inequality with all coefficients 0, and tagged with
+   COLOR.  Return the index of this inequality in problem PB.  */
+
+static inline int
+omega_add_zero_geq (omega_pb pb, enum omega_eqn_color color)
+{
+  int idx = pb->num_geqs;
+
+  pb->num_geqs++;
+  gcc_assert (pb->num_geqs <= OMEGA_MAX_GEQS);
+  omega_init_eqn_zero (&pb->geqs[idx], pb->num_vars);
+  pb->geqs[idx].touched = true;
+  pb->geqs[idx].color = color;
+  return idx;
+}
+
+/* Initialize variables for problem PB.  */
+
+static inline void
+omega_initialize_variables (omega_pb pb)
+{
+  int i;
+
+  for (i = pb->num_vars; i >= 0; i--)
+    pb->forwarding_address[i] = pb->var[i] = i;
+
+  pb->variables_initialized = true;
+}
+
+/* Initialize PB as an Omega problem with NVARS variables and NPROT
    safe variables.  Safe variables are not eliminated during the
    Fourier-Motzkin elimination.  Safe variables are all those
    variables that are placed at the beginning of the array of
    variables: P->var[0, ..., NPROT - 1].  */
 
+static inline omega_pb
+omega_alloc_problem (int nvars, int nprot)
+{
+  omega_pb pb;
+
+  gcc_assert (nvars <= OMEGA_MAX_VARS);
+  omega_initialize ();
+
+  /* Allocate and initialize PB.  */
+  pb = (omega_pb) xcalloc (1, sizeof (struct omega_pb));
+  pb->var = (int *) xcalloc (OMEGA_MAX_VARS + 2, sizeof (int));
+  pb->forwarding_address = (int *) xcalloc (OMEGA_MAX_VARS + 2, sizeof (int));
+  pb->geqs = omega_alloc_eqns (0, OMEGA_MAX_GEQS);
+  pb->eqs = omega_alloc_eqns (0, OMEGA_MAX_EQS);
+  pb->subs = omega_alloc_eqns (0, OMEGA_MAX_VARS + 1);
+
+  omega_initialize_statics (pb);
+  pb->num_vars = nvars;
+  pb->safe_vars = nprot;
+  pb->variables_initialized = false;
+  pb->variables_freed = false;
+  pb->num_eqs = 0;
+  pb->num_geqs = 0;
+  pb->num_subs = 0;
+  return pb;
+}
+
+/* Free problem PB.  */
+
 static inline void
-init_problem (omega_pb p, unsigned nvars, unsigned nprot)
+omega_free_problem (omega_pb pb)
 {
-  omega_initialize_problem (p);
-
-  if (nvars > max_vars)
-    cant_do_omega ();
-
-  p->num_vars = nvars;
-  p->safe_vars = nprot;
-  p->num_eqs = 0;
-  p->num_geqs = 0;
+  free (pb->var);
+  free (pb->forwarding_address);
+  omega_free_eqns (pb->geqs, OMEGA_MAX_GEQS);
+  omega_free_eqns (pb->eqs, OMEGA_MAX_EQS);
+  omega_free_eqns (pb->subs, OMEGA_MAX_VARS + 1);
+  free (pb);
 }
 
-/* Allocate a new equality with all coefficients 0.  */
+/* Copy omega problems: P1 = P2.  */
 
-static inline int
-prob_add_zero_eq (omega_pb p, int color)
+static inline void
+omega_copy_problem (omega_pb p1, omega_pb p2)
 {
-  int c = p->num_eqs;
+  int e, i;
 
-  if (++p->num_eqs > max_eqs)
-    cant_do_omega ();
+  p1->num_vars = p2->num_vars;
+  p1->hash_version = p2->hash_version;
+  p1->variables_initialized = p2->variables_initialized;
+  p1->variables_freed = p2->variables_freed;
+  p1->safe_vars = p2->safe_vars;
+  p1->num_eqs = p2->num_eqs;
+  p1->num_subs = p2->num_subs;
+  p1->num_geqs = p2->num_geqs;
 
-  omega_init_eqn_zero (&p->eqs[c], p->num_vars);
-  p->eqs[c].color = color;
+  for (e = p2->num_eqs - 1; e >= 0; e--)
+    omega_copy_eqn (&(p1->eqs[e]), &(p2->eqs[e]), p2->num_vars);
 
-  return c;
-}
+  for (e = p2->num_geqs - 1; e >= 0; e--)
+    omega_copy_eqn (&(p1->geqs[e]), &(p2->geqs[e]), p2->num_vars);
 
-/* Allocate a new inequality with all coefficients 0.  */
+  for (e = p2->num_subs - 1; e >= 0; e--)
+    omega_copy_eqn (&(p1->subs[e]), &(p2->subs[e]), p2->num_vars);
 
-static inline int
-prob_add_zero_geq (omega_pb p, int color)
-{
-  int c = p->num_geqs;
+  for (i = p2->num_vars; i >= 0; i--)
+    p1->var[i] = p2->var[i];
 
-  if (++p->num_geqs > max_geqs)
-    cant_do_omega ();
-
-  omega_init_eqn_zero (&p->geqs[c], p->num_vars);
-  p->geqs[c].touched = 1;
-  p->geqs[c].color = color;
-
-  return c;
+  for (i = OMEGA_MAX_VARS; i >= 0; i--)
+    p1->forwarding_address[i] = p2->forwarding_address[i];
 }
 
 #endif /* GCC_OMEGA_H */
