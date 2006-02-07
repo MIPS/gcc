@@ -1,3 +1,9 @@
+2006-02-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4219590
+	* objc/objc-act.c (objc_start_method_definition): Initialize break/continue
+	labels.
+
 2005-11-29  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4349690

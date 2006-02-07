@@ -1,3 +1,8 @@
+2005-02-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4219590
+	* objc.dg/break-in-ifstmt.m: New.
+
 2006-02-06  Devang Patel  <dpatel@apple.com>
 	
        Radar 4385002
