@@ -52,6 +52,7 @@ static tree vect_create_destination_var (tree, tree);
 static tree vect_create_data_ref_ptr 
   (tree, block_stmt_iterator *, tree, tree *, tree *, bool); 
 static tree vect_create_addr_base_for_vector_ref (tree, tree *, tree);
+static tree vect_setup_realignment (tree, block_stmt_iterator *, tree *);
 static tree bump_vector_ptr (tree, tree, block_stmt_iterator *, tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree, tree *);
@@ -468,6 +469,116 @@ bump_vector_ptr (tree dataref_ptr, tree ptr_incr, block_stmt_iterator *bsi,
 
   return new_dataref_ptr;
 }
+
+
+/* Function vect_realign_load 
+  
+   This function is called when vectorizing an unaligned load using
+   the dr_unaligned_software_pipeline scheme.
+   This function generates the following code at the loop prolog:
+
+      p = initial_addr;
+      msq_init = *(floor(p));	# prolog load
+      realignment_token = call target_builtin; 
+    loop:
+      msq = phi (msq_init, ---)
+
+   The code above sets up a new (vector) pointer, pointing to the first 
+   location accessed by STMT, and a "floor-aligned" load using that pointer.
+   It also generates code to compute the "realignment-token" (if the relevant
+   target hook was defined), and creates a phi-node at the loop-header bb
+   whose arguments are the result of the prolog-load (created by this
+   function) and the result of a load that takes place in the loop (to be
+   created by the caller to this function).
+   The caller to this function uses the phi-result (msq) to create the 
+   realignment code inside the loop, and sets up the missing phi argument,
+   as follows:
+
+    loop: 
+      msq = phi (msq_init, lsq)
+      lsq = *(floor(p'));        # load in loop
+      result = realign_load (msq, lsq, realignment_token);
+
+   Input:
+   STMT - (scalar) load stmt to be vectorized. This load accesses
+	  a memory location that may be unaligned.
+   BSI - place where new code is to be inserted.
+   
+   Output:
+   REALIGNMENT_TOKEN - the result of a call to the builtin_mask_for_load
+	               target hook, if defined.
+   Return value - the result of the loop-header phi node.
+*/
+  
+static tree
+vect_setup_realignment (tree stmt, block_stmt_iterator *bsi, 
+			tree *realignment_token)
+{ 
+  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+  tree vectype = STMT_VINFO_VECTYPE (stmt_info);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  edge pe = loop_preheader_edge (loop);
+  tree scalar_dest = TREE_OPERAND (stmt, 0);
+  tree vec_dest;
+  tree init_addr;
+  tree ptr;
+  tree data_ref; 
+  tree new_stmt;
+  basic_block new_bb;
+  tree msq_init; 
+  tree new_temp;
+  tree phi_stmt;
+  tree msq;
+
+  /* <1> Create msq_init = *(floor(p1)) in the loop preheader  */
+  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+  ptr = vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, &init_addr, NULL, true);
+  data_ref = build1 (ALIGN_INDIRECT_REF, vectype, ptr);
+  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
+  new_temp = make_ssa_name (vec_dest, new_stmt);
+  TREE_OPERAND (new_stmt, 0) = new_temp;
+  new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
+  gcc_assert (!new_bb);
+  msq_init = TREE_OPERAND (new_stmt, 0);
+  copy_virtual_operands (new_stmt, stmt);
+  update_vuses_to_preheader (new_stmt, loop);
+
+  /* <2> */
+  if (targetm.vectorize.builtin_mask_for_load)
+    {
+      /* Create permutation mask, if required, in loop preheader.  */
+      tree builtin_decl;
+      tree params = build_tree_list (NULL_TREE, init_addr);
+
+      vec_dest = vect_create_destination_var (scalar_dest, vectype);
+      builtin_decl = targetm.vectorize.builtin_mask_for_load ();
+      new_stmt = build_function_call_expr (builtin_decl, params);
+      new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
+      new_temp = make_ssa_name (vec_dest, new_stmt);
+      TREE_OPERAND (new_stmt, 0) = new_temp;
+      new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
+      gcc_assert (!new_bb);
+      *realignment_token = TREE_OPERAND (new_stmt, 0);
+
+      /* The result of the CALL_EXPR to this builtin is determined from
+         the value of the parameter and no global variables are touched
+         which makes the builtin a "const" function.  Requiring the
+         builtin to have the "const" attribute makes it unnecessary
+         to call mark_call_clobbered.  */
+      gcc_assert (TREE_READONLY (builtin_decl));
+    }
+
+  /* <3> Create msq = phi <msq_init, lsq> in loop  */
+  vec_dest = vect_create_destination_var (scalar_dest, vectype);
+  msq = make_ssa_name (vec_dest, NULL_TREE);
+  phi_stmt = create_phi_node (msq, loop->header);
+  SSA_NAME_DEF_STMT (msq) = phi_stmt;
+  add_phi_arg (phi_stmt, msq_init, loop_preheader_edge (loop));
+
+  return msq;
+}
+
 
 /* Function vect_create_destination_var.
 
@@ -3350,19 +3461,20 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   tree new_temp;
   int mode;
-  tree init_addr;
   tree new_stmt;
   tree dummy;
-  basic_block new_bb;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  edge pe = loop_preheader_edge (loop);
   enum dr_alignment_support alignment_support_cheme;
   tree dataref_ptr = NULL_TREE;
   tree ptr_incr;
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
   int j;
+  tree msq = NULL_TREE, lsq;
+  tree offset = NULL_TREE;
+  tree realignment_token = NULL_TREE;
+  tree phi_stmt = NULL_TREE;
 
   gcc_assert (ncopies >= 1);
 
@@ -3453,175 +3565,112 @@ vectorizable_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
      See in documentation in vectorizable_operation for how the information
      we recorded in RELATED_STMT field is used to vectorize stmt S2.  */
 
+  /*
   if (alignment_support_cheme == dr_aligned
       || alignment_support_cheme == dr_unaligned_supported)
     {
-      /* Create:
+      Create:
          p = initial_addr;
          indx = 0;
          loop {
+           p = p + indx * vectype_size;
            vec_dest = *(p);
            indx = indx + 1;
          }
-      */
-      prev_stmt_info = NULL;
-      for (j = 0; j < ncopies; j++)
-	{
-	  if (j == 0)
-	    dataref_ptr = vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, 
-				&dummy, &ptr_incr, false);
-	  else
-	    dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt);
-
-	  if (aligned_access_p (dr))
-	    data_ref = build_fold_indirect_ref (dataref_ptr);
-	  else
-	    {
-	      int mis = DR_MISALIGNMENT (dr);
-	      
-	      tree tmis = (mis == -1 ? size_zero_node : size_int (mis));
-	      tmis = size_binop (MULT_EXPR, tmis, size_int (BITS_PER_UNIT));
-	      data_ref = 
-		build2 (MISALIGNED_INDIRECT_REF, vectype, dataref_ptr, tmis);
-	    }
-
-	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
-	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
-	  new_temp = make_ssa_name (vec_dest, new_stmt);
-	  TREE_OPERAND (new_stmt, 0) = new_temp;
-	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
-	  copy_virtual_operands (new_stmt, stmt);
-	  mark_new_vars_to_rename (new_stmt);
-
-	  if (j == 0)
-	    STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
-	  else
-	    {
-	      gcc_assert (prev_stmt_info);
-	      STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt; 
-	    }
-	  prev_stmt_info = vinfo_for_stmt (new_stmt);
-	}      
-    }
   else if (alignment_support_cheme == dr_unaligned_software_pipeline)
     {
-      /* Create:
-	 p1 = initial_addr;
-	 msq_init = *(floor(p1))
-	 p2 = initial_addr + VS - 1;
-	 magic = have_builtin ? builtin_result : initial_address;
-	 indx = 0;
-	 loop {
-	   p2' = p2 + indx * vectype_size
-	   lsq = *(floor(p2'))
-	   vec_dest = realign_load (msq, lsq, magic)
-	   indx = indx + 1;
-	   msq = lsq;
-	 }
-      */
+      Create:
+         p1 = initial_addr;
+      >> msq_init = *(floor(p1))
+         p2 = initial_addr + VS - 1;
+      >> realignment_token = call target_builtin;
+         indx = 0;
+         loop {
+           p2 = p2 + indx * vectype_size
+           lsq = *(floor(p2))
+      >>   vec_dest = realign_load (msq, lsq, realignment_token)
+           indx = indx + 1;
+      >>   msq = lsq;
+         }
+   }
+  */
 
-      tree offset;
-      tree magic = NULL_TREE;
-      tree phi_stmt;
-      tree msq_init;
-      tree msq, lsq;
-      tree params;
+  if (alignment_support_cheme == dr_unaligned_software_pipeline)
+    {
+      msq = vect_setup_realignment (stmt, bsi, &realignment_token);
+      phi_stmt = SSA_NAME_DEF_STMT (msq);
+      offset = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
+    }
+  
+  prev_stmt_info = NULL;
+  for (j = 0; j < ncopies; j++)
+    {
+      /* 1. Create the vector pointer update chain.  */
+      if (j == 0)
+	dataref_ptr = vect_create_data_ref_ptr (stmt, bsi, offset, 
+						&dummy, &ptr_incr, false);
+      else
+	dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt);
 
-      /* <1> Create msq_init = *(floor(p1)) in the loop preheader  */
+      /* 2. Create the vector-load in the loop.  */
+      switch (alignment_support_cheme)
+      {
+      case dr_aligned: 
+	gcc_assert (aligned_access_p (dr));
+	data_ref = build_fold_indirect_ref (dataref_ptr);
+	break;
+      case dr_unaligned_supported:
+	{
+	  int mis = DR_MISALIGNMENT (dr);
+	  tree tmis = (mis == -1 ? size_zero_node : size_int (mis));
+
+	  gcc_assert (!aligned_access_p (dr));
+	  tmis = size_binop (MULT_EXPR, tmis, size_int(BITS_PER_UNIT));
+	  data_ref = 
+		build2 (MISALIGNED_INDIRECT_REF, vectype, dataref_ptr, tmis);
+	  break;
+	}
+      case dr_unaligned_software_pipeline:
+	gcc_assert (!aligned_access_p (dr));
+	data_ref = build1 (ALIGN_INDIRECT_REF, vectype, dataref_ptr);
+	break;
+      default:
+	gcc_unreachable ();
+      }
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
-      data_ref = vect_create_data_ref_ptr (stmt, bsi, NULL_TREE, 
-					   &init_addr, NULL, true);
-      data_ref = build1 (ALIGN_INDIRECT_REF, vectype, data_ref);
       new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
       new_temp = make_ssa_name (vec_dest, new_stmt);
       TREE_OPERAND (new_stmt, 0) = new_temp;
-      new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
-      gcc_assert (!new_bb);
-      msq_init = TREE_OPERAND (new_stmt, 0);
+      vect_finish_stmt_generation (stmt, new_stmt, bsi);
       copy_virtual_operands (new_stmt, stmt);
-      update_vuses_to_preheader (new_stmt, loop);
       mark_new_vars_to_rename (new_stmt);
 
-      /* <2> */
-      if (targetm.vectorize.builtin_mask_for_load)
-	{
-	  /* Create permutation mask, if required, in loop preheader.  */
-	  tree builtin_decl;
-	  params = build_tree_list (NULL_TREE, init_addr);
-	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
-	  builtin_decl = targetm.vectorize.builtin_mask_for_load ();
-	  new_stmt = build_function_call_expr (builtin_decl, params);
-	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
-	  new_temp = make_ssa_name (vec_dest, new_stmt);
-	  TREE_OPERAND (new_stmt, 0) = new_temp;
-	  new_bb = bsi_insert_on_edge_immediate (pe, new_stmt);
-	  gcc_assert (!new_bb);
-	  magic = TREE_OPERAND (new_stmt, 0);
-
-	  /* The result of the CALL_EXPR to this builtin is determined from
-	     the value of the parameter and no global variables are touched
-	     which makes the builtin a "const" function.  Requiring the
-	     builtin to have the "const" attribute makes it unnecessary
-	     to call mark_call_clobbered_vars_to_rename.  */
-	  gcc_assert (TREE_READONLY (builtin_decl));
-	}
-
-      /* <3> Create msq = phi <msq_init, lsq> in loop  */
-      vec_dest = vect_create_destination_var (scalar_dest, vectype);
-      msq = make_ssa_name (vec_dest, NULL_TREE);
-      phi_stmt = create_phi_node (msq, loop->header);
-      SSA_NAME_DEF_STMT (msq) = phi_stmt;
-      add_phi_arg (phi_stmt, msq_init, loop_preheader_edge (loop));
-
-      /* <4> Create code in the loop:  */
-      prev_stmt_info = NULL;
-      for (j = 0; j < ncopies; j++)
-	{
-	  /* <4.1> Create lsq = *(floor(p2')) in the loop  */
-	  offset = size_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
-
-	  if (j == 0)
-	    dataref_ptr = vect_create_data_ref_ptr (stmt, bsi, offset, &dummy, 
-							&ptr_incr, false);
-	  else
-	    dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, bsi, stmt);
-	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
-	  data_ref = build1 (ALIGN_INDIRECT_REF, vectype, dataref_ptr);
-	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, data_ref);
-	  new_temp = make_ssa_name (vec_dest, new_stmt);
-	  TREE_OPERAND (new_stmt, 0) = new_temp;
-	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
+      /* 3. Handle explicit realignment if necessary/supported.  */
+      if (alignment_support_cheme == dr_unaligned_software_pipeline)
+	{ 
+	  /* Create in loop: 
+	     <vec_dest = realign_load (msq, lsq, realignment_token)>  */
 	  lsq = TREE_OPERAND (new_stmt, 0);
-	  copy_virtual_operands (new_stmt, stmt);
-	  mark_new_vars_to_rename (new_stmt);
-
-	  /* <4.2> Create <vec_dest = realign_load (msq, lsq, magic)>  */
-	  /* Use current address instead of init_addr for reduced reg 
-	     pressure.  */
-	  if (!targetm.vectorize.builtin_mask_for_load)
-            magic = dataref_ptr;
+	  if (!realignment_token)
+	    realignment_token = dataref_ptr;
 	  vec_dest = vect_create_destination_var (scalar_dest, vectype);
-	  new_stmt = build3 (REALIGN_LOAD_EXPR, vectype, msq, lsq, magic);
+	  new_stmt = 
+	    build3 (REALIGN_LOAD_EXPR, vectype, msq, lsq, realignment_token);
 	  new_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, new_stmt);
 	  new_temp = make_ssa_name (vec_dest, new_stmt);
 	  TREE_OPERAND (new_stmt, 0) = new_temp;
 	  vect_finish_stmt_generation (stmt, new_stmt, bsi);
-
-	  /* <4.3> next msq <-- prev lsq */
-	  if (j == ncopies - 1)
+          if (j == ncopies - 1)
 	    add_phi_arg (phi_stmt, lsq, loop_latch_edge (loop));
-	  else
-	    msq = lsq; 
-
-	  if (j == 0)
-	    STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
-	  if (prev_stmt_info)
-	    STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
-	  prev_stmt_info = vinfo_for_stmt (new_stmt);
+          msq = lsq;
 	}
+
+      if (j == 0)
+	STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
+      if (prev_stmt_info)
+	STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
+      prev_stmt_info = vinfo_for_stmt (new_stmt);
     }
-  else
-    gcc_unreachable ();
 
   *vec_stmt = NULL_TREE;
   return true;

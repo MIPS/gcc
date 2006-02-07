@@ -1,3 +1,10 @@
+2006-02-07  Dorit Nuzman  <dorit@il.ibm.com>
+
+        * tree-vect-transform.c (vect_setup_realignment): New function.
+	(vectorizable_load): Replace code that was factored out into
+	vect_setup_realignment with a call to vect_setup_realignment.
+	Unify handling of alignd and unaligned load.
+
 2006-02-06  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-transform.c (bump_vector_ptr): New function.
