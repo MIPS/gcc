@@ -6697,10 +6697,7 @@ grokdeclarator (const cp_declarator *declarator,
 		else if (TREE_CODE (qualifying_scope) == NAMESPACE_DECL)
 		  in_namespace = qualifying_scope;
 	      }
-	    if (TREE_CODE (decl) == BASELINK)
-	      decl = BASELINK_FUNCTIONS (decl);
-	    if (decl == error_mark_node)
-	      return error_mark_node;
+	    /* APPLE LOCAL begin mainline 2005-12-27 4431091 */
 	    switch (TREE_CODE (decl))
 	      {
 	      case BIT_NOT_EXPR:
@@ -6764,11 +6761,7 @@ grokdeclarator (const cp_declarator *declarator,
 		  }
 		break;
 
-	      case TYPE_DECL:
-		dname = constructor_name (TREE_TYPE (decl));
-		name = IDENTIFIER_POINTER (dname);
-		break;
-
+              /* APPLE LOCAL end mainline 2005-12-27 4431091 */
 	      default:
 		gcc_unreachable ();
 	      }
@@ -7246,8 +7239,7 @@ grokdeclarator (const cp_declarator *declarator,
   else
     {
       unqualified_id = id_declarator->u.id.unqualified_name;
-      if (TREE_CODE (unqualified_id) == BASELINK)
-	unqualified_id = BASELINK_FUNCTIONS (unqualified_id);
+      /* APPLE LOCAL begin mainline 2005-12-27 4431091 */
       switch (TREE_CODE (unqualified_id))
 	{
 	case BIT_NOT_EXPR:
@@ -7255,11 +7247,7 @@ grokdeclarator (const cp_declarator *declarator,
 	    = constructor_name (TREE_OPERAND (unqualified_id, 0));
 	  break;
 
-	case TYPE_DECL:
-	  unqualified_id
-	    = constructor_name (TREE_TYPE (unqualified_id));
-	  break;
-
+        /* APPLE LOCAL end mainline 2005-12-27 4431091 */
 	case IDENTIFIER_NODE:
 	case TEMPLATE_ID_EXPR:
 	  break;
