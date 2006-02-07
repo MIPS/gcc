@@ -71,36 +71,42 @@ ARM_FUNC_ALIAS aeabi_fadd addsf3
 
 1:	@ Look for zeroes, equal values, INF, or NAN.
 	movs	r2, r0, lsl #1
-	movnes	r3, r1, lsl #1
+	itttt	ne
+	movsne	r3, r1, lsl #1
 	teqne	r2, r3
-	mvnnes	ip, r2, asr #24
-	mvnnes	ip, r3, asr #24
+	mvnsne	ip, r2, asr #24
+	mvnsne	ip, r3, asr #24
 	beq	LSYM(Lad_s)
 
 	@ Compute exponent difference.  Make largest exponent in r2,
 	@ corresponding arg in r0, and positive exponent difference in r3.
 	mov	r2, r2, lsr #24
 	rsbs	r3, r2, r3, lsr #24
+	itttt	gt
 	addgt	r2, r2, r3
 	eorgt	r1, r0, r1
 	eorgt	r0, r1, r0
 	eorgt	r1, r0, r1
+	it	lt
 	rsblt	r3, r3, #0
 
 	@ If exponent difference is too large, return largest argument
 	@ already in r0.  We need up to 25 bit to handle proper rounding
 	@ of 0x1p25 - 1.1.
 	cmp	r3, #25
+	it	hi
 	RETc(hi)
 
 	@ Convert mantissa to signed integer.
 	tst	r0, #0x80000000
 	orr	r0, r0, #0x00800000
 	bic	r0, r0, #0xff000000
+	it	ne
 	rsbne	r0, r0, #0
 	tst	r1, #0x80000000
 	orr	r1, r1, #0x00800000
 	bic	r1, r1, #0xff000000
+	it	ne
 	rsbne	r1, r1, #0
 
 	@ If exponent == difference, one or both args were denormalized.
@@ -114,15 +120,21 @@ LSYM(Lad_x):
 
 	@ Shift and add second arg to first arg in r0.
 	@ Keep leftover bits into r1.
-	adds	r0, r0, r1, asr r3
+	shiftop adds r0 r0 r1 asr r3 ip
 	rsb	r3, r3, #32
-	mov	r1, r1, lsl r3
+	lsl	r1, r1, r3
 
 	@ Keep absolute value in r0-r1, sign in r3 (the n bit was set above)
 	and	r3, r0, #0x80000000
 	bpl	LSYM(Lad_p)
+#if defined(__thumb2__)
+	mov	ip, #0
+	negs	r1, r1
+	sbc	r0, ip, r0
+#else
 	rsbs	r1, r1, #0
 	rsc	r0, r0, #0
+#endif
 
 	@ Determine how to normalize the result.
 LSYM(Lad_p):
@@ -147,6 +159,7 @@ LSYM(Lad_p):
 LSYM(Lad_e):
 	cmp	r1, #0x80000000
 	adc	r0, r0, r2, lsl #23
+	it	eq
 	biceq	r0, r0, #1
 	orr	r0, r0, r3
 	RET
@@ -185,16 +198,23 @@ LSYM(Lad_l):
 	clz	ip, r0
 	sub	ip, ip, #8
 	subs	r2, r2, ip
-	mov	r0, r0, lsl ip
+	lsl	r0, r0, ip
 
 #endif
 
 	@ Final result with sign
 	@ If exponent negative, denormalize result.
+	itet	ge
 	addge	r0, r0, r2, lsl #23
 	rsblt	r2, r2, #0
 	orrge	r0, r0, r3
+#if defined(__thumb2__)
+	itt	lt
+	lsrlt	r0, r0, r2
+	orrlt	r0, r3, r0
+#else
 	orrlt	r0, r3, r0, lsr r2
+#endif
 	RET
 
 	@ Fixup and adjust bit position for denormalized arguments.
@@ -202,6 +222,7 @@ LSYM(Lad_l):
 LSYM(Lad_d):
 	teq	r2, #0
 	eor	r1, r1, #0x00800000
+	itte	eq
 	eoreq	r0, r0, #0x00800000
 	addeq	r2, r2, #1
 	subne	r3, r3, #1
@@ -211,7 +232,8 @@ LSYM(Lad_s):
 	mov	r3, r1, lsl #1
 
 	mvns	ip, r2, asr #24
-	mvnnes	ip, r3, asr #24
+	it	ne
+	mvnsne	ip, r3, asr #24
 	beq	LSYM(Lad_i)
 
 	teq	r2, r3
@@ -219,12 +241,14 @@ LSYM(Lad_s):
 
 	@ Result is x + 0.0 = x or 0.0 + y = y.
 	teq	r2, #0
+	it	eq
 	moveq	r0, r1
 	RET
 
 1:	teq	r0, r1
 
 	@ Result is x - x = 0.
+	itt	ne
 	movne	r0, #0
 	RETc(ne)
 
@@ -232,9 +256,11 @@ LSYM(Lad_s):
 	tst	r2, #0xff000000
 	bne	2f
 	movs	r0, r0, lsl #1
+	it	cs
 	orrcs	r0, r0, #0x80000000
 	RET
 2:	adds	r2, r2, #(2 << 24)
+	itt	cc
 	addcc	r0, r0, #(1 << 23)
 	RETc(cc)
 	and	r3, r0, #0x80000000
@@ -253,11 +279,13 @@ LSYM(Lad_o):
 	@   otherwise return r0 (which is INF or -INF)
 LSYM(Lad_i):
 	mvns	r2, r2, asr #24
+	itet	ne
 	movne	r0, r1
-	mvneqs	r3, r3, asr #24
+	mvnseq	r3, r3, asr #24
 	movne	r1, r0
 	movs	r2, r0, lsl #9
-	moveqs	r3, r1, lsl #9
+	itte	eq
+	movseq	r3, r1, lsl #9
 	teqeq	r0, r1
 	orrne	r0, r0, #0x00400000	@ quiet NAN
 	RET
@@ -278,9 +306,11 @@ ARM_FUNC_START floatsisf
 ARM_FUNC_ALIAS aeabi_i2f floatsisf
 	
 	ands	r3, r0, #0x80000000
+	it	mi
 	rsbmi	r0, r0, #0
 
 1:	movs	ip, r0
+	it	eq
 	RETc(eq)
 
 	@ Add initial exponent to sign
@@ -302,7 +332,10 @@ ARM_FUNC_ALIAS aeabi_ul2f floatundisf
 
 	orrs	r2, r0, r1
 #if !defined (__VFP_FP__) && !defined(__SOFTFP__)
+	itt	eq
 	mvfeqs	f0, #0.0
+#else
+	it	eq
 #endif
 	RETc(eq)
 
@@ -314,14 +347,23 @@ ARM_FUNC_ALIAS aeabi_l2f floatdisf
 
 	orrs	r2, r0, r1
 #if !defined (__VFP_FP__) && !defined(__SOFTFP__)
+	itt	eq
 	mvfeqs	f0, #0.0
+#else
+	it	eq
 #endif
 	RETc(eq)
 
 	ands	r3, ah, #0x80000000	@ sign bit in r3
 	bpl	1f
+#if defined(__thumb2__)
+	movs	r2, #0
+	negs	al, al
+	sbc	ah, r2, ah
+#else
 	rsbs	al, al, #0
 	rsc	ah, ah, #0
+#endif
 1:
 #if !defined (__VFP_FP__) && !defined(__SOFTFP__)
 	@ For hard FPA code we want to return via the tail below so that
@@ -332,12 +374,14 @@ ARM_FUNC_ALIAS aeabi_l2f floatdisf
 #endif
 
 	movs	ip, ah
+	ittt	eq
 	moveq	ip, al
 	moveq	ah, al
 	moveq	al, #0
 
 	@ Add initial exponent to sign
 	orr	r3, r3, #((127 + 23 + 32) << 23)
+	it	eq
 	subeq	r3, r3, #(32 << 23)
 2:	sub	r3, r3, #(1 << 23)
 
@@ -345,15 +389,19 @@ ARM_FUNC_ALIAS aeabi_l2f floatdisf
 
 	mov	r2, #23
 	cmp	ip, #(1 << 16)
+	itt	hs
 	movhs	ip, ip, lsr #16
 	subhs	r2, r2, #16
 	cmp	ip, #(1 << 8)
+	itt	hs
 	movhs	ip, ip, lsr #8
 	subhs	r2, r2, #8
 	cmp	ip, #(1 << 4)
+	itt	hs
 	movhs	ip, ip, lsr #4
 	subhs	r2, r2, #4
 	cmp	ip, #(1 << 2)
+	ite	hs
 	subhs	r2, r2, #2
 	sublo	r2, r2, ip, lsr #1
 	subs	r2, r2, ip, lsr #3
@@ -368,19 +416,21 @@ ARM_FUNC_ALIAS aeabi_l2f floatdisf
 	sub	r3, r3, r2, lsl #23
 	blt	3f
 
-	add	r3, r3, ah, lsl r2
-	mov	ip, al, lsl r2
+	shiftop add r3 r3 ah lsl r2 ip
+	lsl	ip, al, r2
 	rsb	r2, r2, #32
 	cmp	ip, #0x80000000
-	adc	r0, r3, al, lsr r2
+	shiftop adc r0 r3 al lsr r2 r2
+	it	eq
 	biceq	r0, r0, #1
 	RET
 
 3:	add	r2, r2, #32
-	mov	ip, ah, lsl r2
+	lsl	ip, ah, r2
 	rsb	r2, r2, #32
 	orrs	al, al, ip, lsl #1
-	adc	r0, r3, ah, lsr r2
+	shiftop adc r0 r3 ah lsr r2 r2
+	it	eq
 	biceq	r0, r0, ip, lsr #31
 	RET
 
@@ -408,7 +458,8 @@ ARM_FUNC_ALIAS aeabi_fmul mulsf3
 	@ Mask out exponents, trap any zero/denormal/INF/NAN.
 	mov	ip, #0xff
 	ands	r2, ip, r0, lsr #23
-	andnes	r3, ip, r1, lsr #23
+	ittt	ne
+	andsne	r3, ip, r1, lsr #23
 	teqne	r2, ip
 	teqne	r3, ip
 	beq	LSYM(Lml_s)
@@ -424,7 +475,8 @@ LSYM(Lml_x):
 	@ If power of two, branch to a separate path.
 	@ Make up for final alignment.
 	movs	r0, r0, lsl #9
-	movnes	r1, r1, lsl #9
+	it	ne
+	movsne	r1, r1, lsl #9
 	beq	LSYM(Lml_1)
 	mov	r3, #0x08000000
 	orr	r0, r3, r0, lsr #5
@@ -436,7 +488,7 @@ LSYM(Lml_x):
 	and	r3, ip, #0x80000000
 
 	@ Well, no way to make it shorter without the umull instruction.
-	stmfd	sp!, {r3, r4, r5}
+	push	{r3, r4, r5}
 	mov	r4, r0, lsr #16
 	mov	r5, r1, lsr #16
 	bic	r0, r0, r4, lsl #16
@@ -447,7 +499,7 @@ LSYM(Lml_x):
 	mla	r0, r4, r1, r0
 	adds	r3, r3, r0, lsl #16
 	adc	r1, ip, r0, lsr #16
-	ldmfd	sp!, {r0, r4, r5}
+	pop	{r0, r4, r5}
 
 #else
 
@@ -461,6 +513,7 @@ LSYM(Lml_x):
 
 	@ Adjust result upon the MSB position.
 	cmp	r1, #(1 << 23)
+	ittt	cc
 	movcc	r1, r1, lsl #1
 	orrcc	r1, r1, r3, lsr #31
 	movcc	r3, r3, lsl #1
@@ -476,6 +529,7 @@ LSYM(Lml_x):
 	@ Round the result, merge final exponent.
 	cmp	r3, #0x80000000
 	adc	r0, r0, r2, lsl #23
+	it	eq
 	biceq	r0, r0, #1
 	RET
 
@@ -483,11 +537,13 @@ LSYM(Lml_x):
 LSYM(Lml_1):
 	teq	r0, #0
 	and	ip, ip, #0x80000000
+	it	eq
 	moveq	r1, r1, lsl #9
 	orr	r0, ip, r0, lsr #9
 	orr	r0, r0, r1, lsr #9
 	subs	r2, r2, #127
-	rsbgts	r3, r2, #255
+	ittt	gt
+	rsbsgt	r3, r2, #255
 	orrgt	r0, r0, r2, lsl #23
 	RETc(gt)
 
@@ -502,18 +558,20 @@ LSYM(Lml_u):
 
 	@ Check if denormalized result is possible, otherwise return signed 0.
 	cmn	r2, #(24 + 1)
+	itt	le
 	bicle	r0, r0, #0x7fffffff
 	RETc(le)
 
 	@ Shift value right, round, etc.
 	rsb	r2, r2, #0
 	movs	r1, r0, lsl #1
-	mov	r1, r1, lsr r2
+	lsr	r1, r1, r2
 	rsb	r2, r2, #32
-	mov	ip, r0, lsl r2
+	lsl	ip, r0, r2
 	movs	r0, r1, rrx
 	adc	r0, r0, #0
 	orrs	r3, r3, ip, lsl #1
+	it	eq
 	biceq	r0, r0, ip, lsr #31
 	RET
 
@@ -522,14 +580,16 @@ LSYM(Lml_u):
 LSYM(Lml_d):
 	teq	r2, #0
 	and	ip, r0, #0x80000000
-1:	moveq	r0, r0, lsl #1
+1:	ittt	eq
+	moveq	r0, r0, lsl #1
 	tsteq	r0, #0x00800000
 	subeq	r2, r2, #1
 	beq	1b
 	orr	r0, r0, ip
 	teq	r3, #0
 	and	ip, r1, #0x80000000
-2:	moveq	r1, r1, lsl #1
+2:	ittt	eq
+	moveq	r1, r1, lsl #1
 	tsteq	r1, #0x00800000
 	subeq	r3, r3, #1
 	beq	2b
@@ -540,12 +600,14 @@ LSYM(Lml_s):
 	@ Isolate the INF and NAN cases away
 	and	r3, ip, r1, lsr #23
 	teq	r2, ip
+	it	ne
 	teqne	r3, ip
 	beq	1f
 
 	@ Here, one or more arguments are either denormalized or zero.
 	bics	ip, r0, #0x80000000
-	bicnes	ip, r1, #0x80000000
+	it	ne
+	bicsne	ip, r1, #0x80000000
 	bne	LSYM(Lml_d)
 
 	@ Result is 0, but determine sign anyway.
@@ -556,6 +618,7 @@ LSYM(Lml_z):
 
 1:	@ One or both args are INF or NAN.
 	teq	r0, #0x0
+	itett	ne
 	teqne	r0, #0x80000000
 	moveq	r0, r1
 	teqne	r1, #0x0
@@ -568,6 +631,7 @@ LSYM(Lml_z):
 1:	teq	r3, ip
 	bne	LSYM(Lml_i)
 	movs	r3, r1, lsl #9
+	it	ne
 	movne	r0, r1
 	bne	LSYM(Lml_n)		@ <anything> * NAN -> NAN
 
@@ -597,7 +661,8 @@ ARM_FUNC_ALIAS aeabi_fdiv divsf3
 	@ Mask out exponents, trap any zero/denormal/INF/NAN.
 	mov	ip, #0xff
 	ands	r2, ip, r0, lsr #23
-	andnes	r3, ip, r1, lsr #23
+	ittt	ne
+	andsne	r3, ip, r1, lsr #23
 	teqne	r2, ip
 	teqne	r3, ip
 	beq	LSYM(Ldv_s)
@@ -624,25 +689,31 @@ LSYM(Ldv_x):
 	@ Ensure result will land to known bit position.
 	@ Apply exponent bias accordingly.
 	cmp	r3, r1
+	it	cc
 	movcc	r3, r3, lsl #1
 	adc	r2, r2, #(127 - 2)
 
 	@ The actual division loop.
 	mov	ip, #0x00800000
 1:	cmp	r3, r1
+	itt	cs
 	subcs	r3, r3, r1
 	orrcs	r0, r0, ip
 	cmp	r3, r1, lsr #1
+	itt	cs
 	subcs	r3, r3, r1, lsr #1
 	orrcs	r0, r0, ip, lsr #1
 	cmp	r3, r1, lsr #2
+	itt	cs
 	subcs	r3, r3, r1, lsr #2
 	orrcs	r0, r0, ip, lsr #2
 	cmp	r3, r1, lsr #3
+	itt	cs
 	subcs	r3, r3, r1, lsr #3
 	orrcs	r0, r0, ip, lsr #3
 	movs	r3, r3, lsl #4
-	movnes	ip, ip, lsr #4
+	it	ne
+	movsne	ip, ip, lsr #4
 	bne	1b
 
 	@ Check exponent for under/overflow.
@@ -652,6 +723,7 @@ LSYM(Ldv_x):
 	@ Round the result, merge final exponent.
 	cmp	r3, r1
 	adc	r0, r0, r2, lsl #23
+	it	eq
 	biceq	r0, r0, #1
 	RET
 
@@ -660,7 +732,8 @@ LSYM(Ldv_1):
 	and	ip, ip, #0x80000000
 	orr	r0, ip, r0, lsr #9
 	adds	r2, r2, #127
-	rsbgts	r3, r2, #255
+	ittt	gt
+	rsbsgt	r3, r2, #255
 	orrgt	r0, r0, r2, lsl #23
 	RETc(gt)
 
@@ -674,14 +747,16 @@ LSYM(Ldv_1):
 LSYM(Ldv_d):
 	teq	r2, #0
 	and	ip, r0, #0x80000000
-1:	moveq	r0, r0, lsl #1
+1:	ittt	eq
+	moveq	r0, r0, lsl #1
 	tsteq	r0, #0x00800000
 	subeq	r2, r2, #1
 	beq	1b
 	orr	r0, r0, ip
 	teq	r3, #0
 	and	ip, r1, #0x80000000
-2:	moveq	r1, r1, lsl #1
+2:	ittt	eq
+	moveq	r1, r1, lsl #1
 	tsteq	r1, #0x00800000
 	subeq	r3, r3, #1
 	beq	2b
@@ -707,7 +782,8 @@ LSYM(Ldv_s):
 	b	LSYM(Lml_n)		@ <anything> / NAN -> NAN
 2:	@ If both are nonzero, we need to normalize and resume above.
 	bics	ip, r0, #0x80000000
-	bicnes	ip, r1, #0x80000000
+	it	ne
+	bicsne	ip, r1, #0x80000000
 	bne	LSYM(Ldv_d)
 	@ One or both arguments are zero.
 	bics	r2, r0, #0x80000000
@@ -759,18 +835,24 @@ ARM_FUNC_ALIAS eqsf2 cmpsf2
 	mov	r2, r0, lsl #1
 	mov	r3, r1, lsl #1
 	mvns	ip, r2, asr #24
-	mvnnes	ip, r3, asr #24
+	it	ne
+	mvnsne	ip, r3, asr #24
 	beq	3f
 
 	@ Compare values.
 	@ Note that 0.0 is equal to -0.0.
 2:	orrs	ip, r2, r3, lsr #1	@ test if both are 0, clear C flag
+	it	ne
 	teqne	r0, r1			@ if not 0 compare sign
-	subpls	r0, r2, r3		@ if same sign compare values, set r0
+	it	pl
+	subspl	r0, r2, r3		@ if same sign compare values, set r0
 
 	@ Result:
+	it	hi
 	movhi	r0, r1, asr #31
+	it	lo
 	mvnlo	r0, r1, asr #31
+	it	ne
 	orrne	r0, r0, #1
 	RET
 
@@ -806,14 +888,15 @@ ARM_FUNC_ALIAS aeabi_cfcmple aeabi_cfcmpeq
 
 	@ The status-returning routines are required to preserve all
 	@ registers except ip, lr, and cpsr.
-6:	stmfd	sp!, {r0, r1, r2, r3, lr}
+6:	push	{r0, r1, r2, r3, lr}
 	ARM_CALL cmpsf2
 	@ Set the Z flag correctly, and the C flag unconditionally.
-	cmp	 r0, #0
+	cmp	r0, #0
 	@ Clear the C flag if the return value was -1, indicating
 	@ that the first operand was smaller than the second.
-	cmnmi	 r0, #0
-	RETLDM  "r0, r1, r2, r3"
+	it	mi
+	cmnmi	r0, #0
+	RETLDM	"r0, r1, r2, r3"
 
 	FUNC_END aeabi_cfcmple
 	FUNC_END aeabi_cfcmpeq
@@ -823,6 +906,7 @@ ARM_FUNC_START	aeabi_fcmpeq
 
 	str	lr, [sp, #-8]!
 	ARM_CALL aeabi_cfcmple
+	ite	eq
 	moveq	r0, #1	@ Equal to.
 	movne	r0, #0	@ Less than, greater than, or unordered.
 	RETLDM
@@ -833,6 +917,7 @@ ARM_FUNC_START	aeabi_fcmplt
 
 	str	lr, [sp, #-8]!
 	ARM_CALL aeabi_cfcmple
+	ite	cc
 	movcc	r0, #1	@ Less than.
 	movcs	r0, #0	@ Equal to, greater than, or unordered.
 	RETLDM
@@ -843,6 +928,7 @@ ARM_FUNC_START	aeabi_fcmple
 
 	str	lr, [sp, #-8]!
 	ARM_CALL aeabi_cfcmple
+	ite	ls
 	movls	r0, #1  @ Less than or equal to.
 	movhi	r0, #0	@ Greater than or unordered.
 	RETLDM
@@ -853,6 +939,7 @@ ARM_FUNC_START	aeabi_fcmpge
 
 	str	lr, [sp, #-8]!
 	ARM_CALL aeabi_cfrcmple
+	ite	ls
 	movls	r0, #1	@ Operand 2 is less than or equal to operand 1.
 	movhi	r0, #0	@ Operand 2 greater than operand 1, or unordered.
 	RETLDM
@@ -863,6 +950,7 @@ ARM_FUNC_START	aeabi_fcmpgt
 
 	str	lr, [sp, #-8]!
 	ARM_CALL aeabi_cfrcmple
+	ite	cc
 	movcc	r0, #1	@ Operand 2 is less than operand 1.
 	movcs	r0, #0  @ Operand 2 is greater than or equal to operand 1,
 			@ or they are unordered.
@@ -914,7 +1002,8 @@ ARM_FUNC_ALIAS aeabi_f2iz fixsfsi
 	mov	r3, r0, lsl #8
 	orr	r3, r3, #0x80000000
 	tst	r0, #0x80000000		@ the sign bit
-	mov	r0, r3, lsr r2
+	lsr	r0, r3, r2
+	it	ne
 	rsbne	r0, r0, #0
 	RET
 
@@ -926,6 +1015,7 @@ ARM_FUNC_ALIAS aeabi_f2iz fixsfsi
 	movs	r2, r0, lsl #9
 	bne	4f			@ r0 is NAN.
 3:	ands	r0, r0, #0x80000000	@ the sign bit
+	it	eq
 	moveq	r0, #0x7fffffff		@ the maximum signed positive si
 	RET
 
@@ -954,7 +1044,7 @@ ARM_FUNC_ALIAS aeabi_f2uiz fixunssfsi
 	@ scale the value
 	mov	r3, r0, lsl #8
 	orr	r3, r3, #0x80000000
-	mov	r0, r3, lsr r2
+	lsr	r0, r3, r2
 	RET
 
 1:	mov	r0, #0

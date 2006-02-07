@@ -1,3 +1,13 @@
+2006-02-07  Paul Brook  <paul@codesourcery.com>
+
+	* config/gcc/arm/lib1funcs.asm: Use unified assembly syntax.
+	Assemble "Arm" code as Thumb-2 where appropriate.
+	* config/gcc/arm/ieee754-df.S: Use unified assembly syntax for Arm
+	code.  Add Thumb-2 code.
+	* config/gcc/arm/ieee754-df.S: Ditto.
+	* config/gcc/arm/libunwind.S: Ditto.
+	* config/gcc/arm/bpabi.S: Ditto.
+
 2006-01-27  Paul Brook  <paul@codesourcery.com>
 
 	* version.c: Mark as CodeSourcery build.
