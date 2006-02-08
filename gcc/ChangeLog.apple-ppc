@@ -1,3 +1,9 @@
+2006-02-08  Mike Stump  <mrs@apple.com>
+
+	Radar 4407059
+	* c-lex.c (c_lex_with_flags): Only recognize "offset" when doing
+	x86 assembly.
+	
 2006-02-03  Mike Stump  <mrs@apple.com>
 
 	Radar 4432782

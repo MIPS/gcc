@@ -5349,6 +5349,7 @@ cp_parser_unary_operator (cp_token* token)
       /* APPLE LOCAL begin CW asm blocks */
     case CPP_NAME:
       if (cw_asm_state >= cw_asm_decls
+	  && flag_ms_asms
 	  && strcasecmp (IDENTIFIER_POINTER (token->value), "offset") == 0)
 	return ADDR_EXPR;
       /* APPLE LOCAL end CW asm blocks */
