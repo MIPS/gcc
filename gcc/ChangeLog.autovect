@@ -1,3 +1,16 @@
+2006-02-08  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* tree-vect-transform.c (vect_align_data_ref): Removed.
+	(vect_transform_strided_store, vectorizable_store): Remove call to 
+	vect_align_data_ref.
+
+	(vect_setup_realignment): Fix comment.
+
+	(vect_get_vec_def_for_stmt_copy): New function.
+	(vectorizable_reduction, vectorizable_operation, vectorizable_store): 
+	(vectorizable_type_demotion, vectorizable_type_promotion): Replace code 
+	that was factored out into vect_get_vec_def_for_stmt_copy with a call.
+
 2006-02-07  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* doc/invoke.texi (omega-max-vars, omega-max-geqs, omega-max-eqs,

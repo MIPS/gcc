@@ -47,7 +47,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 /* Utility functions for the code transformation.  */
 static bool vect_transform_stmt (tree, block_stmt_iterator *, bool *);
-static void vect_align_data_ref (tree);
 static tree vect_create_destination_var (tree, tree);
 static tree vect_create_data_ref_ptr 
   (tree, block_stmt_iterator *, tree, tree *, tree *, bool); 
@@ -56,6 +55,7 @@ static tree vect_setup_realignment (tree, block_stmt_iterator *, tree *);
 static tree bump_vector_ptr (tree, tree, block_stmt_iterator *, tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree, tree *);
+static tree vect_get_vec_def_for_stmt_copy (enum vect_def_type, tree);
 static tree vect_init_vector (tree, tree);
 static void vect_finish_stmt_generation 
   (tree stmt, tree vec_stmt, block_stmt_iterator *bsi);
@@ -217,25 +217,6 @@ vect_create_addr_base_for_vector_ref (tree stmt,
       print_generic_expr (vect_dump, vec_stmt, TDF_SLIM);
     }
   return new_temp;
-}
-
-
-/* Function vect_align_data_ref.
-
-   Handle misalignment of a memory accesses.
-
-   FORNOW: Can't handle misaligned accesses. 
-   Make sure that the dataref is aligned.  */
-
-static void
-vect_align_data_ref (tree stmt)
-{
-  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
-
-  /* FORNOW: can't handle misaligned accesses; 
-             all accesses expected to be aligned.  */
-  gcc_assert (aligned_access_p (dr));
 }
 
 
@@ -471,7 +452,7 @@ bump_vector_ptr (tree dataref_ptr, tree ptr_incr, block_stmt_iterator *bsi,
 }
 
 
-/* Function vect_realign_load 
+/* Function vect_setup_realignment
   
    This function is called when vectorizing an unaligned load using
    the dr_unaligned_software_pipeline scheme.
@@ -777,6 +758,37 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
       gcc_unreachable ();
     }
 }
+
+
+/* Function vect_get_vec_def_for_stmt_copy
+
+   For the j'th copy, get the vectorized def for operand0 from
+   the vector stmt recorded in the STMT_VINFO_RELATED_STMT field
+   of the j-1 copy of the vector stmt that defines operand0
+   (denoted VEC_STMT_FOR_OPERAND).  */
+
+static tree
+vect_get_vec_def_for_stmt_copy (enum vect_def_type dt, tree vec_oprnd)
+{ 
+  tree vec_stmt_for_operand;
+  stmt_vec_info def_stmt_info;
+
+  if (dt == vect_invariant_def || dt == vect_constant_def)
+    {
+      /* Do nothing; can reuse same def.  */ ;
+      return vec_oprnd;
+    }
+
+  vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd);
+  def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
+  gcc_assert (def_stmt_info);
+  vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
+  gcc_assert (vec_stmt_for_operand);
+  vec_oprnd = TREE_OPERAND (vec_stmt_for_operand, 0);
+
+  return vec_oprnd;
+}
+
 
 /* Function vect_finish_stmt_generation.
 
@@ -1373,9 +1385,7 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   int i;
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
-  tree vec_stmt_for_operand;
   stmt_vec_info prev_stmt_info;
-  stmt_vec_info def_stmt_info;
   tree reduc_def;
   tree new_stmt = NULL_TREE;
   int j; 
@@ -1584,30 +1594,15 @@ vectorizable_reduction (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	      loop_vec_def1 = vect_get_vec_def_for_operand (op, stmt, NULL);
 	    }
 
+	  /* Get the vector def for the reduction variable from the phi node */
 	  reduc_def = PHI_RESULT (new_phi);
         }
       else
         {
-	  /* For the j'th copy, get the vectorized def for operand0 from 
-	     the vector stmt recorded in the STMT_VINFO_RELATED_STMT field 
-	     of the j-1 copy of the vector stmt that defines operand0
-	     (denoted VEC_STMT_FOR_OPERAND).  */
-	  vec_stmt_for_operand = SSA_NAME_DEF_STMT (loop_vec_def0);
-	  def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
-	  gcc_assert (def_stmt_info);
-	  vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
-	  gcc_assert (vec_stmt_for_operand);
-	  loop_vec_def0 = TREE_OPERAND (vec_stmt_for_operand, 0);
+	  enum vect_def_type dt = vect_unknown_def_type; /* Dummy */
+	  loop_vec_def0 = vect_get_vec_def_for_stmt_copy (dt, loop_vec_def0);
 	  if (op_type == ternary_op)
-	    {
-	      /* Similarly for operand1  */
-	      vec_stmt_for_operand = SSA_NAME_DEF_STMT (loop_vec_def1);
-	      def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
-	      gcc_assert (def_stmt_info);
-	      vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
-	      gcc_assert (vec_stmt_for_operand);
-	      loop_vec_def1 = TREE_OPERAND (vec_stmt_for_operand, 0);
-	    }
+	    loop_vec_def1 = vect_get_vec_def_for_stmt_copy (dt, loop_vec_def1);
 
 	  /* Get the vector def for the reduction variable from the vectorized
 	     reduction operation generated in the previous iteration (j-1)  */
@@ -1775,12 +1770,10 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   enum vect_def_type dt0, dt1;
   tree new_stmt;
   stmt_vec_info prev_stmt_info;
-  stmt_vec_info def_stmt_info;
   int nunits_in = TYPE_VECTOR_SUBPARTS (vectype);
   int nunits_out;
   tree vectype_out;
   int ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_in;
-  tree vec_stmt_for_operand;
   int j;
 
   gcc_assert (ncopies >= 1);
@@ -1990,38 +1983,9 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
 	}
       else
 	{
-	  if (dt0 == vect_invariant_def || dt0 == vect_constant_def)
-            /* Do nothing; can reuse same def.  */ ;
-	  else	
-	    {
-	      /* For the j'th copy, get the vectorized def for operand0 from
-	         the vector stmt recorded in the STMT_VINFO_RELATED_STMT field
-	         of the j-1 copy of the vector stmt that defines operand0
-	         (denoted VEC_STMT_FOR_OPERAND).  */
-
-	      vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd0);
-	      def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
-	      gcc_assert (def_stmt_info);
-	      vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
-	      gcc_assert (vec_stmt_for_operand);
-	      vec_oprnd0 = TREE_OPERAND (vec_stmt_for_operand, 0);
-	    }
-
+	  vec_oprnd0 = vect_get_vec_def_for_stmt_copy (dt0, vec_oprnd0); 
 	  if (op_type == binary_op)
-	    {
-	      if (dt1 == vect_invariant_def || dt1 == vect_constant_def)
-		/* Do nothing; can reuse same def.  */ ;
-	      else	
-		{
-		  /* Similarly for operand1  */
-		  vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd1);
-		  def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
-		  gcc_assert (def_stmt_info);
-	          vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
-		  gcc_assert (vec_stmt_for_operand);
-		  vec_oprnd1 = TREE_OPERAND (vec_stmt_for_operand, 0);
-		}
-	    }
+	    vec_oprnd1 = vect_get_vec_def_for_stmt_copy (dt1, vec_oprnd1); 
 	}
 
       /* Arguments are ready. create the new vector stmt.  */
@@ -2076,12 +2040,10 @@ vectorizable_type_demotion (tree stmt, block_stmt_iterator *bsi,
   enum vect_def_type dt0;
   tree new_stmt;
   stmt_vec_info prev_stmt_info;
-  stmt_vec_info def_stmt_info;
   int nunits_in;
   int nunits_out;
   tree vectype_out;
   int ncopies;
-  tree vec_stmt_for_operand;
   int j;
   tree expr;
   tree vectype_in;
@@ -2174,43 +2136,17 @@ vectorizable_type_demotion (tree stmt, block_stmt_iterator *bsi,
       /* Handle uses.  */
       if (j == 0)
 	{
+	  enum vect_def_type dt = vect_unknown_def_type; /* Dummy */
           vec_oprnd0 = vect_get_vec_def_for_operand (op0, stmt, NULL);
-
-          vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd0);
-          def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
-          gcc_assert (def_stmt_info);
-          vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
-          gcc_assert (vec_stmt_for_operand);
-	  vec_oprnd1 = TREE_OPERAND (vec_stmt_for_operand, 0);
+	  vec_oprnd1 = vect_get_vec_def_for_stmt_copy (dt, vec_oprnd0);
 	}
       else
         {
-          if (dt0 == vect_invariant_def || dt0 == vect_constant_def)
-            /* Do nothing; can reuse same def.  */ ;
-          else
-            {
-              /* For the j'th copy, get the vectorized def for operand0 from
-                 the vector stmt recorded in the STMT_VINFO_RELATED_STMT field
-                 of the j-1 copy of the vector stmt that defines operand0
-                 (denoted VEC_STMT_FOR_OPERAND).  */
-              vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd1);
-              def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
-              gcc_assert (def_stmt_info);
-              vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
-              gcc_assert (vec_stmt_for_operand);
-              vec_oprnd0 = TREE_OPERAND (vec_stmt_for_operand, 0);
-
-              vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd0);
-              def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
-              gcc_assert (def_stmt_info);
-              vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
-              gcc_assert (vec_stmt_for_operand);
-              vec_oprnd1 = TREE_OPERAND (vec_stmt_for_operand, 0);
-            }
+	  vec_oprnd0 = vect_get_vec_def_for_stmt_copy (dt0, vec_oprnd1);
+	  vec_oprnd1 = vect_get_vec_def_for_stmt_copy (dt0, vec_oprnd0);
         }
 
       /* Arguments are ready. Create the new vector stmt.  */
-
       expr = build2 (code, vectype_out, vec_oprnd0, vec_oprnd1);
       new_stmt = build2 (MODIFY_EXPR, vectype_out, vec_dest, expr);
       new_temp = make_ssa_name (vec_dest, new_stmt);
@@ -2260,12 +2196,10 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
   enum vect_def_type dt0, dt1;
   tree new_stmt;
   stmt_vec_info prev_stmt_info;
-  stmt_vec_info def_stmt_info;
   int nunits_in;
   int nunits_out;
   tree vectype_out;
   int ncopies;
-  tree vec_stmt_for_operand;
   int j;
   tree vec_params;
   tree expr;
@@ -2369,38 +2303,9 @@ vectorizable_type_promotion (tree stmt, block_stmt_iterator *bsi,
         }
       else
         {
-          if (dt0 == vect_invariant_def || dt0 == vect_constant_def)
-            /* Do nothing; can reuse same def.  */ ;
-          else
-            {
-              /* For the j'th copy, get the vectorized def for operand0 from
-                 the vector stmt recorded in the STMT_VINFO_RELATED_STMT field
-                 of the j-1 copy of the vector stmt that defines operand0
-                 (denoted VEC_STMT_FOR_OPERAND).  */
-              vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd0);
-              def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
-              gcc_assert (def_stmt_info);
-              vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
-              gcc_assert (vec_stmt_for_operand);
-              vec_oprnd0 = TREE_OPERAND (vec_stmt_for_operand, 0);
-            }
-
+	  vec_oprnd0 = vect_get_vec_def_for_stmt_copy (dt0, vec_oprnd0);
           if (op_type == binary_op)
-            {
-              if (dt1 == vect_invariant_def || dt1 == vect_constant_def)
-                /* Do nothing; can reuse same def.  */ ;
-              else
-                {
-                  /* Similarly for opernad1  */
-                  vec_stmt_for_operand = SSA_NAME_DEF_STMT (vec_oprnd1);
-                  def_stmt_info = vinfo_for_stmt (vec_stmt_for_operand);
-                  gcc_assert (def_stmt_info);
-                  vec_stmt_for_operand = 
-				STMT_VINFO_RELATED_STMT (def_stmt_info);
-                  gcc_assert (vec_stmt_for_operand);
-                  vec_oprnd1 = TREE_OPERAND (vec_stmt_for_operand, 0);
-                }
-            }
+	    vec_oprnd1 = vect_get_vec_def_for_stmt_copy (dt1, vec_oprnd1);
         }
 
       /* Arguments are ready. Create the new vector stmt.  We are creating 
@@ -2628,8 +2533,6 @@ vect_transform_strided_store (tree first_data_ref, tree *ptr_incr, tree stmt,
     return false;
 
   /* Handle def.  */
-  /* FORNOW: make sure the data reference is aligned.  */
-  vect_align_data_ref (first_stmt);
   if (!first_data_ref)
     first_data_ref = vect_create_data_ref_ptr (first_stmt, bsi, NULL_TREE, 
 					       &dummy, ptr_incr, false);
@@ -2850,26 +2753,9 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
       if (j == 0)
 	vec_oprnd = vect_get_vec_def_for_operand (op, stmt, NULL);
       else 
-	if (dt == vect_invariant_def || dt == vect_constant_def)
-	  /* Do nothing; can reuse same def.  */ ;
-	else
-	  {
-	    /* For the j'th copy, get the vectorized def from the vector stmt 
-	       recorded in the STMT_VINFO_RELATED_STMT field of the j-1 copy 
-	       of the vector stmt that defines the operand
-	       (denoted VEC_STMT_FOR_OPERAND).  */
-	    def_stmt_info = vinfo_for_stmt (SSA_NAME_DEF_STMT (vec_oprnd));
-	    gcc_assert (def_stmt_info);
-	    vec_stmt_for_operand = STMT_VINFO_RELATED_STMT (def_stmt_info);
-	    gcc_assert (vec_stmt_for_operand);
-	    vec_oprnd = TREE_OPERAND (vec_stmt_for_operand, 0);
-	  }
+	vec_oprnd = vect_get_vec_def_for_stmt_copy (dt, vec_oprnd);
 
       /* Handle def.  */
-
-      /* FORNOW: make sure the data reference is aligned.  */
-      vect_align_data_ref (first_stmt);
-
       if (j == 0)
 	{
 	  /* Interleaving.  */
@@ -2943,24 +2829,22 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
       new_stmt = build2 (MODIFY_EXPR, vectype, data_ref, vec_oprnd);
       vect_finish_stmt_generation (stmt, new_stmt, bsi);
 
-      /* Copy the V_MAY_DEFS representing the aliasing of the original array
-	 element's definition to the vector's definition then update the
-	 defining statement.  The original is being deleted so the same
-	 SSA_NAMEs can be used.  */
-      /* If this virtual def has a use outside the loop and a loop peel is 
-	 performed then the def may be renamed by the peel.  Mark it for 
-	 renaming so the later use will also be renamed.  */
+      /* Set the V_MAY_DEFS for the vector pointer. If this virtual def has a 
+        use outside the loop and a loop peel is performed then the def may be 
+        renamed by the peel.  Mark it for renaming so the later use will also 
+        be renamed.  */
       copy_virtual_operands (new_stmt, stmt);
-
       if (j == 0)
 	{
-	  /* The original is being deleted so the same SSA_NAMEs 
-	     can be used.  */
+	  /* The original store is deleted so the same SSA_NAMEs can be used.  
+	   */
 	  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMAYDEF)
 	    {
 	      SSA_NAME_DEF_STMT (def) = new_stmt;
 	      mark_sym_for_renaming (SSA_NAME_VAR (def));
 	    }
+
+	  STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
 	}
       else
 	{
@@ -2971,15 +2855,10 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt,
 	      create_new_def_for (DEF_FROM_PTR (def_p), new_stmt, def_p);
 	      mark_sym_for_renaming (SSA_NAME_VAR (DEF_FROM_PTR (def_p)));
 	    }
-	}
 
-      if (j == 0)
-	STMT_VINFO_VEC_STMT (stmt_info) = new_stmt;
-      else
-	{
-	  gcc_assert (prev_stmt_info);
 	  STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
 	}
+
       prev_stmt_info = vinfo_for_stmt (new_stmt);
     }
 

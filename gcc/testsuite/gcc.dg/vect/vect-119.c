@@ -25,7 +25,7 @@ int main1 (int n)
 {
   int i;
 
-  /* Multiple types with different sizes, used in idependent
+  /* Multiple types with different sizes, used in independent
      copmutations. Vectorizable.  */
   for (i = 0; i < n; i++)
     {

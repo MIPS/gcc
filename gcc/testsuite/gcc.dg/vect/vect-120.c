@@ -17,7 +17,7 @@ int main1 ()
   signed char cb[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45,0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
 
   /* Multiple types with different sizes, used in independent
-     cmputations. Vectorizable.  */
+     computations. Vectorizable.  */
   for (i = 0; i < N; i++)
     {
       ia[i] = ib[i] + ic[i];
