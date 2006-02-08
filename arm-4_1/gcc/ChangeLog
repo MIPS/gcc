@@ -1,3 +1,224 @@
+2006-01-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/s390/s390.c (init_alignment_context): Set
+	ALIAS_SET_MEMORY_BARRIER on the MEM.
+
+2006-01-31  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* optabs.c (prepare_cmp_insn): If unbiased and unsigned then bias
+	the comparison routine return.
+
+2006-01-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/lb1sf68.asm: Use moveq to load small constants.
+
+2006-01-31  Richard Guenther  <rguenther@suse.de>
+
+	Backport
+	2006-01-03  Adrian Straetling  <straetling@de.ibm.com>
+
+	* gcc/builtins.c (get_builtin_sync_mem): New function.
+	(expand_builtin_sync_operation, expand_builtin_compare_and_swap,
+	expand_builtin_lock_test_and_set, expand_builtin_lock_release):
+	Call get_builtin_sync_mem to generate mem rtx.
+
+	2006-01-25  Richard Henderson <rth@redhat.com>
+
+	* alias.h (ALIAS_SET_MEMORY_BARRIER): New.
+	* alias.c (true_dependence): Respect it.
+	(canon_true_dependence, write_dependence_p): Likewise.
+	* builtins.c (get_builtin_sync_mem): Set it.
+
+2006-01-30  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/26018
+	* config/s390/s390.c (struct machine_function): New flag
+	decomposed_literal_pool_addresses_ok_p.
+	(s390_reorg): Set it before final stage of literal pool transforms.
+	(s390_decompose_address): Only accept displacements of the form
+	(minus (label_ref ...) (label_ref ...)) if that flag is set.
+
+2006-01-30  J"orn Rennecke <joern.rennecke@st.com>
+
+	Merged from mainline r107469:
+	* caller-save.c: (this_insn_sets): Move into:
+	(save_call_clobbered_regs).
+	(mark_set_regs): Get this_insn_sets from data.
+
+	(save_call_clobbered_regs): Take sets of the return value by
+	sibcalls into account.
+
+2006-01-30  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR target/14798:
+	* sh.c (pragma_interrupt, trap_exit, sp_switch): Remove variable.
+	(pragma_trap, pragma_nosave_low_regs): Likewise.
+	(current_function_anonymous_args): Likewise.
+	(sh_deferred_function_attributes): New variable.
+	(sh_deferred_function_attributes_tail): Likewise.
+	(print_operand): For '@', look up trap_exit attribute.
+	(calc_live_regs): Look up trapa_handler attribute.  For trapa
+	handlers, save/restore fpscr, but don't do any other
+	interrupt-specific saves.
+	Don't save r0..r7 if the nosave_low_regs attribute is in effect.
+	Fix check for partially saved registers to check for SHmedia.
+	(sh_expand_prologue, sh_expand_epilogue): Look up sp_switch attribute.
+	(sh_output_function_epilogue): Don't clear any of the removed
+	variables.
+	(sh_insert_attributes): Don't check pragma_interrupt.
+	Insert deferred attributes.  Check that interrupt attribute is
+	present for other attributes that require its presence.
+	(sh_attribute_table): Add new attributes trapa_handler and
+	nosave_low_regs.
+	(sh_handle_sp_switch_attribute, sh_handle_trap_exit_attribute):
+	Don't check for pragma_interrupt.  Don't store argument.
+	* sh.h (pragma_interrupt, sp_switch): Don't declare.
+	(sh_deferred_function_attributes): Declare.
+	(sh_deferred_function_attributes_tail): Likewise.
+	* sh.md (sp_switch_1): Add operand.  Change generator caller.
+	(sh_pr_interrupt, sh_pr_trapa, sh_pr_nosave_low_regs): Remove.
+	(*return_i): Don't use when trap_exit attribute is in effect.
+	(*return_trapa): New insn pattern.
+	* sh-c.c: New file.
+	* config.gcc (sh[123456ble]*-* | sh-*-*): New trailer stanza,
+	setting c_target_objs and cxx_target_objs.
+	* t-sh: Add rule for sh-c.o.
+
+	* config/sh/sh.c (sh_cfun_trap_exit_p): New function.
+	* sh-protos.h (sh_cfun_trap_exit_p): Declare.
+
+2006-01-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Revert
+
+	2005-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+	* tree.c (build_qualified_type): Chain the new type to the original
+	type's TYPE_NEXT_PTR_TO or TYPE_NEXT_REF_TO linked lists if it is
+	a POINTER_TYPE or a REFERENCE_TYPE respectively.
+	(build_pointer_type_for_mode): Only return unqualified types.
+	(build_reference_type_for_mode): Likewise.
+
+2006-01-28  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/25706
+	* config/cris/cris.md ("*extopqihi_side", "*extop<mode>si_side")
+	("*extop<mode>si_swap_side_biap", "*extop<mode>si_swap_side",
+	("*extopqihi", "*extop<mode>si", "*extop<mode>si_swap"): Use %E
+	output pattern modifier, not %e.
+	* config/cris/cris.c (cris_op_str): Update comment about pattern
+	modifier.
+	(cris_print_operand) <case 'e'>: Clear cris_output_insn_is_bound
+	before falling through into...
+	<case 'E'>: Redefined from old 'e' case.
+
+	PR target/25718
+	* config/cris/cris.md ("uminsi3"): Don't use 8- or 16-bit sizes
+	for a negative bound.
+
+	PR target/25947
+	* config/cris/cris.c (cris_order_for_addsi3): New function.
+	* config/cris/cris-protos.h: Prototype it.
+	* config/cris/cris.md (split for "move.S1 [rx=rx+i],ry")
+	(split for "move.S1 ry,[rx=rx+i]", split for "clear.[bwd] [rx=rx+i]")
+	(split for "mov(s|u).S1 [rx=rx+i],ry", split for "op.S1 [rx=rx+i],ry")
+	(split for "op.S1 [rx=rx+i],ry (swapped)")
+	(split for "op(s|u).S1 [rx=rx+i],ry")
+	(split for "op(s|u).S1 [rx=rx+i],ry (swapped, plus or bound)"):
+	Apply cris_order_for_addsi3 when generating addsi3 insns.
+
+2006-01-26 Alexandre Oliva  <aoliva@redhat.com>
+
+	PR other/24829
+	PR target/24831
+	* gthr-dce.h: Do not gthrw-ify pthread_once_init,
+	pthread_key_delete.  From John David Anglin.  gthrw-ify
+	pthread_getunique_np only if it it's not a macro.  Delete
+	UNUSED macro.
+	(__gthread_objc_condition_allocate, __gthread_objc_condition_deallocate,
+	__gthread_objc_condition_wait, __gthread_objc_condition_broadcast,
+	__gthread_objc_condition_signal, __gthread_key_delete): Add
+	"__attribute__ ((__unused__))" to unused arguments.
+	(__gthread_recursive_mutex_init_function): Add missing return.
+	* gthr-dce.h, gthr-tpf.h, gthr-solaris.h, gthr-posix.h,
+	gthr-posix95.h: Use macro-based approach for name redirection
+	on targets missing weakref.
+
+2006-01-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c/25892
+	* c.opt (Wpointer-sign): Init to -1.
+	* c-opts.c (c_common_handle_option): Set to 1 on OPT_Wall and
+	OPT_pedantic, to 0 otherwise.
+	* doc/invoke.texi: Update.
+
+2006-01-24  David Daney  <ddaney@avtrex.com>
+
+	PR java/25816
+	* configure.ac (enable_tls): New enable option.
+	(HAVE_AS_TLS): Don't do assembler check if enable_tls set.
+	* configure: Regenerate.
+	* doc/install.texi (--enable-tls): Document new option.
+	(--disable-tls): Ditto.
+
+2006-01-23  Richard Guenther  <rguenther@suse.de>
+	Steven Bosscher <stevenb.gcc@gmail.com>
+
+	PR rtl-optimization/24626
+	* cfgloopmanip.c (lv_adjust_loop_entry_edge): Don't set
+	EDGE_TRUE_VALUE if in RTL mode.
+
+	Revert
+	2005-03-30 Mostafa Hagog <mustafa@il.ibm.com>
+	* cfgrtl.c (rtl_verify_flow_info_1): Fix.
+
+2006-01-23  Steven Bosscher  <stevenb.gcc@gmail.com>
+	Jan Hubicka  <jh@suse.cz>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/25654
+	* cfgexpand.c (aggregate_contains_union_type): New function.
+	(add_alias_set_conflicts): Call it.  Make sure to add conflicts
+	for structure variables that contain a union type.
+
+2006-01-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.c (process_command), gcov.c (print_version), gcov-dump.c
+	(print_version), mips-tdump.c (main), mips-tfile.c (main): Update
+	copyright notice dates.
+
+2006-01-19  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/arm.c (arm_compute_func_type): Treat all functions
+	as nothrow when unwinding tables are disabled.
+
+2006-01-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/25171
+	* c-decl.c (check_bitfield_type_and_width): Don't issue pedwarn "type
+	of bit-field" when in system header.
+
+2006-01-19  Richard Sandiford  <richard@codesourcery.com>
+
+	PR c/25805
+	* c-decl.c (add_flexible_array_elts_to_size): New function.
+	(finish_decl): Use it.
+
+2006-01-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/25731
+	* config.gcc (hppa*-*-linux*, hppa[12]*-*-hpux10*, hppa*64*-*-hpux11*,
+	hppa[12]*-*-hpux11*): Override default shared libgcc version for both
+	sjlj and dwarf2 exception handling.
+	* pa/t-hpux-shlib (SHLIB_SOVERSION): New make variable.
+	Rework to allow overriding SHLIB_EXT and SHLIB_SOVERSION.
+	* pa/pa.c (function_value): Treat complex and vector types as
+	aggregates.
+	(function_arg): Likewise.  Only pass scalar floats in the floating
+	point argument registers.
+	* pa/t-slibgcc-dwarf-ver: New file.
+	* pa/t-slibgcc-sjlj-ver: New file.
+	* pa/t-slibgcc-elf-ver: Delete file.
+
 2006-01-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/25682

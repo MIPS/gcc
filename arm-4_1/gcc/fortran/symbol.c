@@ -311,11 +311,20 @@ check_conflict (symbol_attribute * attr, const char * name, locus * where)
   conf (pointer, target);
   conf (pointer, external);
   conf (pointer, intrinsic);
+  conf (pointer, elemental);
+
   conf (target, external);
   conf (target, intrinsic);
   conf (external, dimension);   /* See Fortran 95's R504.  */
 
   conf (external, intrinsic);
+    
+  if (attr->if_source || attr->contained)
+    {
+      conf (external, subroutine);
+      conf (external, function);
+    }
+
   conf (allocatable, pointer);
   conf (allocatable, dummy);	/* TODO: Allowed in Fortran 200x.  */
   conf (allocatable, function);	/* TODO: Allowed in Fortran 200x.  */
@@ -583,6 +592,18 @@ duplicate_attr (const char *attr, locus * where)
   gfc_error ("Duplicate %s attribute specified at %L", attr, where);
 }
 
+/* Called from decl.c (attr_decl1) to check attributes, when declared separately.  */
+
+try
+gfc_add_attribute (symbol_attribute * attr, locus * where, uint attr_intent)
+{
+
+  if (check_used (attr, NULL, where)
+	|| (attr_intent == 0 && check_done (attr, where)))
+    return FAILURE;
+
+  return check_conflict (attr, NULL, where);
+}
 
 try
 gfc_add_allocatable (symbol_attribute * attr, locus * where)
@@ -1324,7 +1345,7 @@ switch_types (gfc_symtree * st, gfc_symbol * from, gfc_symbol * to)
 gfc_symbol *
 gfc_use_derived (gfc_symbol * sym)
 {
-  gfc_symbol *s, *p;
+  gfc_symbol *s;
   gfc_typespec *t;
   gfc_symtree *st;
   int i;
@@ -1358,15 +1379,7 @@ gfc_use_derived (gfc_symbol * sym)
   s->refs++;
 
   /* Unlink from list of modified symbols.  */
-  if (changed_syms == sym)
-    changed_syms = sym->tlink;
-  else
-    for (p = changed_syms; p; p = p->tlink)
-      if (p->tlink == sym)
-	{
-	  p->tlink = sym->tlink;
-	  break;
-	}
+  gfc_commit_symbol (sym);
 
   switch_types (sym->ns->sym_root, sym, s);
 
@@ -2206,6 +2219,32 @@ gfc_undo_symbols (void)
 }
 
 
+/* Free sym->old_symbol. sym->old_symbol is mostly a shallow copy of sym; the
+   components of old_symbol that might need deallocation are the "allocatables"
+   that are restored in gfc_undo_symbols(), with two exceptions: namelist and
+   namelist_tail.  In case these differ between old_symbol and sym, it's just
+   because sym->namelist has gotten a few more items.  */
+
+static void
+free_old_symbol (gfc_symbol * sym)
+{
+  if (sym->old_symbol == NULL)
+    return;
+
+  if (sym->old_symbol->as != sym->as) 
+    gfc_free_array_spec (sym->old_symbol->as);
+
+  if (sym->old_symbol->value != sym->value) 
+    gfc_free_expr (sym->old_symbol->value);
+
+  if (sym->old_symbol->formal != sym->formal)
+    gfc_free_formal_arglist (sym->old_symbol->formal);
+
+  gfc_free (sym->old_symbol);
+  sym->old_symbol = NULL;
+}
+
+
 /* Makes the changes made in the current statement permanent-- gets
    rid of undo information.  */
 
@@ -2221,14 +2260,37 @@ gfc_commit_symbols (void)
       p->mark = 0;
       p->new = 0;
 
-      if (p->old_symbol != NULL)
-	{
-	  gfc_free (p->old_symbol);
-	  p->old_symbol = NULL;
-	}
+      free_old_symbol (p);
+    }
+  changed_syms = NULL;
+}
+
+
+/* Makes the changes made in one symbol permanent -- gets rid of undo
+   information.  */
+
+void
+gfc_commit_symbol (gfc_symbol * sym)
+{
+  gfc_symbol *p;
+
+  if (changed_syms == sym)
+    changed_syms = sym->tlink;
+  else
+    {
+      for (p = changed_syms; p; p = p->tlink)
+        if (p->tlink == sym)
+          {
+            p->tlink = sym->tlink;
+            break;
+          }
     }
 
-  changed_syms = NULL;
+  sym->tlink = NULL;
+  sym->mark = 0;
+  sym->new = 0;
+
+  free_old_symbol (sym);
 }
 
 

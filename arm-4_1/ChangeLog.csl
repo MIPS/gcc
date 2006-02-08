@@ -1,3 +1,24 @@
+2006-02-08  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl/sourcerygxx-4_1
+	2006-02-01  Paul Brook  <paul@codesourcery.com>
+	Backport from mainline.
+	* gcc/function.c (assign_parm_setup_reg): Use function argument
+	promotion rules.
+	* gcc/expr.c (expand_expr_real_1): Use function argument promotion
+	rules for PARM_DECLs.
+
+	2006-01-27  Paul Brook  <paul@codesourcery.com>
+	* version.c: Mark as CodeSourcery build.
+
+	2006-01-23  Adam Nemet  <anemet@caviumnetworks.com>
+	* fix-header.c (read_scan_file): Add new parameter imultilib when
+	calling register_include_chains.
+
+	2006-01-23  Kazu Hirata  <kazu@codesourcery.com>
+	PR testsuite/25590
+	* gcc/testsuite/gcc.dg/tree-ssa/gen-vect-11.c: Add -fwrapv.
+
 2006-02-07  Paul Brook  <paul@codesourcery.com>
 
 	* config/gcc/arm/lib1funcs.asm: Use unified assembly syntax.
