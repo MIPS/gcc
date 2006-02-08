@@ -4962,9 +4962,9 @@ build_private_template (tree class)
       /* APPLE LOCAL begin ObjC new abi */
       if (flag_objc_abi == 2)
         CLASS_TYPE (class) = record;
-      /* APPLE LOCAL end ObjC new abi */
     }
 }
+      /* APPLE LOCAL end ObjC new abi */
 
 /* APPLE LOCAL begin ObjC new abi */
 /* struct protocol_t {
