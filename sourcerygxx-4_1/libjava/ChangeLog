@@ -1,3 +1,37 @@
+2006-01-31  Mark Wielaard  <mark@klomp.org>
+
+	* NEWS: Add 4.1 updates.
+
+2006-01-24  Archit Shah  <ashah@redhat.com>
+	    Tom Tromey  <tromey@redhat.com>
+
+	* prims.cc (next_property_value): Never return NULL.
+	(process_gcj_properties): Copy 'props' before using it.
+
+2006-01-23  David Daney  <ddaney@avtrex.com>
+
+	* configure.host (disable_dladdr): Remove variable and its
+	documentation.
+	* configure.ac: Do not test for disable_dladdr.
+	* configure: Regenerate.
+
+2006-01-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libgcj/25840
+	* include/x86_64-signal.h (RESTORE2): Add ".text\n".
+
+2006-01-18  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNI_AttachCurrentThread): Return environment if it
+	already exists.
+
+2006-01-17  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/20198:
+	* java/net/URLClassLoader.java (FileURLLoader): Added argument.
+	(JarURLLoader): Likewise.
+	(addURLImpl): Canonicalize file URLs.
+
 2006-01-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.ac (dbexecdir): New substituted var.

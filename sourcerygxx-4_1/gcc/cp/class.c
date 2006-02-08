@@ -60,6 +60,10 @@ typedef struct class_stack_node {
 
   /* If were defining TYPE, the names used in this class.  */
   splay_tree names_used;
+
+  /* Nonzero if this class is no longer open, because of a call to
+     push_to_top_level.  */
+  size_t hidden;
 }* class_stack_node_t;
 
 typedef struct vtbl_init_data_s
@@ -285,13 +289,23 @@ build_base_path (enum tree_code code,
 
   offset = BINFO_OFFSET (binfo);
   fixed_type_p = resolves_to_fixed_type_p (expr, &nonnull);
+  target_type = code == PLUS_EXPR ? BINFO_TYPE (binfo) : BINFO_TYPE (d_binfo);
 
   /* Do we need to look in the vtable for the real offset?  */
   virtual_access = (v_binfo && fixed_type_p <= 0);
 
   /* Do we need to check for a null pointer?  */
-  if (want_pointer && !nonnull && (virtual_access || !integer_zerop (offset)))
-    null_test = error_mark_node;
+  if (want_pointer && !nonnull)
+    {
+      /* If we know the conversion will not actually change the value
+	 of EXPR, then we can avoid testing the expression for NULL.
+	 We have to avoid generating a COMPONENT_REF for a base class
+	 field, because other parts of the compiler know that such
+	 expressions are always non-NULL.  */
+      if (!virtual_access && integer_zerop (offset))
+	return build_nop (build_pointer_type (target_type), expr);
+      null_test = error_mark_node;
+    }
 
   /* Protect against multiple evaluation if necessary.  */
   if (TREE_SIDE_EFFECTS (expr) && (null_test || virtual_access))
@@ -371,8 +385,6 @@ build_base_path (enum tree_code code,
       else
 	offset = v_offset;
     }
-
-  target_type = code == PLUS_EXPR ? BINFO_TYPE (binfo) : BINFO_TYPE (d_binfo);
 
   target_type = cp_build_qualified_type
     (target_type, cp_type_quals (TREE_TYPE (TREE_TYPE (expr))));
@@ -5387,6 +5399,8 @@ restore_class_cache (void)
 void
 pushclass (tree type)
 {
+  class_stack_node_t csn;
+
   type = TYPE_MAIN_VARIANT (type);
 
   /* Make sure there is enough room for the new entry on the stack.  */
@@ -5400,10 +5414,12 @@ pushclass (tree type)
     }
 
   /* Insert a new entry on the class stack.  */
-  current_class_stack[current_class_depth].name = current_class_name;
-  current_class_stack[current_class_depth].type = current_class_type;
-  current_class_stack[current_class_depth].access = current_access_specifier;
-  current_class_stack[current_class_depth].names_used = 0;
+  csn = current_class_stack + current_class_depth;
+  csn->name = current_class_name;
+  csn->type = current_class_type;
+  csn->access = current_access_specifier;
+  csn->names_used = 0;
+  csn->hidden = 0;
   current_class_depth++;
 
   /* Now set up the new type.  */
@@ -5460,6 +5476,24 @@ popclass (void)
     splay_tree_delete (current_class_stack[current_class_depth].names_used);
 }
 
+/* Mark the top of the class stack as hidden.  */
+
+void
+push_class_stack (void)
+{
+  if (current_class_depth)
+    ++current_class_stack[current_class_depth - 1].hidden;
+}
+
+/* Mark the top of the class stack as un-hidden.  */
+
+void
+pop_class_stack (void)
+{
+  if (current_class_depth)
+    --current_class_stack[current_class_depth - 1].hidden;
+}
+
 /* Returns 1 if current_class_type is either T or a nested type of T.
    We start looking from 1 because entry 0 is from global scope, and has
    no type.  */
@@ -5470,10 +5504,14 @@ currently_open_class (tree t)
   int i;
   if (current_class_type && same_type_p (t, current_class_type))
     return 1;
-  for (i = 1; i < current_class_depth; ++i)
-    if (current_class_stack[i].type
-	&& same_type_p (current_class_stack [i].type, t))
-      return 1;
+  for (i = current_class_depth - 1; i > 0; --i)
+    {
+      if (current_class_stack[i].hidden)
+	break;
+      if (current_class_stack[i].type
+	  && same_type_p (current_class_stack [i].type, t))
+	return 1;
+    }
   return 0;
 }
 
@@ -5497,8 +5535,12 @@ currently_open_derived_class (tree t)
     return current_class_type;
 
   for (i = current_class_depth - 1; i > 0; --i)
-    if (DERIVED_FROM_P (t, current_class_stack[i].type))
-      return current_class_stack[i].type;
+    {
+      if (current_class_stack[i].hidden)
+	break;
+      if (DERIVED_FROM_P (t, current_class_stack[i].type))
+	return current_class_stack[i].type;
+    }
 
   return NULL_TREE;
 }

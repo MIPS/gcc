@@ -1,3 +1,63 @@
+2006-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/install.html ([Tools you will need beforehand]):
+	Clarify that the de_DE locale is used by configure; clarify
+	that missing localedata leads to skipped tests, not fails.
+
+2006-01-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/tr1.html: Add note.
+	* docs/html/faq/index.html: Fix link to tr1.html text; fix
+	formatting.
+	* docs/html/faq/index.txt: Update.
+
+2006-01-25  Ed Smith-Rowland  <3dw4rd@verizon.net>
+	
+	* docs/html/faq/index.html ([5.2]): Mention TR1 and point to
+	paragraph [5.5], describing it.
+	([5.5]): New.
+	* docs/html/ext/tr1.html: New.
+
+2006-01-20  Perry Smith  <pedz@easesoftware.net>
+
+	PR libstdc++/25823
+	PR libstdc++/25824
+	* libsupc++/eh_alloc.cc: Fix return type of memset declaration.
+	* libsupc++/eh_globals.cc: If !_GLIBCXX_HOSTED declare malloc and free.
+
+2006-01-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4: Use -Wl,-z,relro if possible.
+	* configure: Regenerate.
+
+2006-01-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_dataplus):
+	Use _CharT_alloc_type as base class.
+	(_M_get_allocator, _M_swap, _M_create, _M_destroy): Adjust.
+	* include/ext/vstring.h (get_allocator): Tidy.
+
+	* include/ext/vstring_util.h (struct __alloc_swap<>): Add, swaps
+	allocators, optimized to nothing in case they are empty.
+	(__vstring_utility<>::_Alloc_hider): Clean-up.
+	* include/ext/rc_string_base.h (__rc_string_base<>::_M_swap): Call
+	__alloc_swap<>::_S_do_it.
+	* include/ext/sso_string_base.h (__sso_string_base<>::_M_swap): Same.
+
+2006-01-18  Paul Brook  <paul@codesourcery.com>
+
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION): Use std::abort.
+
+2006-01-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/pb_assoc/detail/value_type_adapter/
+	value_type_adapter.hpp: Include <tr1/type_traits>.
+	* include/ext/pb_assoc/detail/value_type_adapter/
+	it_value_type_traits.hpp (it_value_type_traits_<>::value_type_holder):
+	Use tr1::aligned_storage and tr1::alignment_of.
+	(it_value_type_traits_<>::buf_t): Remove.
+	(it_value_type_traits_<>::make_valid, recast): Adjust.
+
 2006-01-12  Jan Beulich  <jbeulich@novell.com>
 
 	* crossconfig.m4: Add AC_DEFINE-s for HAVE_HYPOT, HAVE_ISINF, and

@@ -3426,6 +3426,15 @@ cp_parser_unqualified_id (cp_parser* parser,
 	else if (type_decl == error_mark_node)
 	  return error_mark_node;
 
+	/* Check that destructor name and scope match.  */
+	if (declarator_p && scope && !check_dtor_name (scope, type_decl))
+	  {
+	    if (!cp_parser_uncommitted_to_tentative_parse_p (parser))
+	      error ("declaration of %<~%T%> as member of %qT",
+		     type_decl, scope);
+	    return error_mark_node;
+	  }
+
 	/* [class.dtor]
 
 	   A typedef-name that names a class shall not be used as the
@@ -11440,22 +11449,24 @@ cp_parser_direct_declarator (cp_parser* parser,
 
 	      if (TREE_CODE (unqualified_name) == TYPE_DECL)
 		{
-		  if (qualifying_scope 
-		      && CLASSTYPE_USE_TEMPLATE (TREE_TYPE (unqualified_name)))
+		  tree name_type = TREE_TYPE (unqualified_name);
+		  if (class_type && same_type_p (name_type, class_type))
 		    {
-		      error ("invalid use of constructor as a template");
-		      inform ("use %<%T::%D%> instead of %<%T::%T%> to name "
-			      "the constructor in a qualified name",
-			      class_type,
-			      DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
-			      class_type, class_type);
-		      declarator = cp_error_declarator;
-		      break;
+		      if (qualifying_scope
+			  && CLASSTYPE_USE_TEMPLATE (name_type))
+			{
+			  error ("invalid use of constructor as a template");
+			  inform ("use %<%T::%D%> instead of %<%T::%D%> to "
+				  "name the constructor in a qualified name",
+				  class_type,
+				  DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
+				  class_type, name_type);
+			  declarator = cp_error_declarator;
+			  break;
+			}
+		      else
+			unqualified_name = constructor_name (class_type);
 		    }
-		  else if (class_type
-			   && same_type_p (TREE_TYPE (unqualified_name),
-					   class_type))
-		    unqualified_name = constructor_name (class_type);
 		  else
 		    {
 		      /* We do not attempt to print the declarator
@@ -15787,6 +15798,9 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
       /* Revert to the main lexer.  */
       cp_parser_pop_lexer (parser);
     }
+
+  /* Make sure no default arg is missing.  */
+  check_default_args (fn);
 
   /* Restore the state of local_variables_forbidden_p.  */
   parser->local_variables_forbidden_p = saved_local_variables_forbidden_p;

@@ -604,17 +604,42 @@ get_proc_name (const char *name, gfc_symbol ** result)
   int rc;
 
   if (gfc_current_ns->parent == NULL)
-    return gfc_get_symbol (name, NULL, result);
+    rc = gfc_get_symbol (name, NULL, result);
+  else
+    rc = gfc_get_symbol (name, gfc_current_ns->parent, result);
 
-  rc = gfc_get_symbol (name, gfc_current_ns->parent, result);
-  if (*result == NULL)
+  sym = *result;
+
+  if (sym && !sym->new && gfc_current_state () != COMP_INTERFACE)
+    {
+      /* Trap another encompassed procedure with the same name.  All
+	 these conditions are necessary to avoid picking up an entry
+	 whose name clashes with that of the encompassing procedure;
+	 this is handled using gsymbols to register unique,globally
+	 accessible names.  */
+      if (sym->attr.flavor != 0
+	    && sym->attr.proc != 0
+	    && sym->formal)
+	gfc_error_now ("Procedure '%s' at %C is already defined at %L",
+		       name, &sym->declared_at);
+
+      /* Trap declarations of attributes in encompassing scope.  The
+	 signature for this is that ts.kind is set.  Legitimate
+	 references only set ts.type.  */
+      if (sym->ts.kind != 0
+	    && sym->attr.proc == 0
+	    && gfc_current_ns->parent != NULL
+	    && sym->attr.access == 0)
+	gfc_error_now ("Procedure '%s' at %C has an explicit interface"
+		       " and must not have attributes declared at %L",
+		       name, &sym->declared_at);
+    }
+
+  if (gfc_current_ns->parent == NULL || *result == NULL)
     return rc;
-
-  /* ??? Deal with ENTRY problem */
 
   st = gfc_new_symtree (&gfc_current_ns->sym_root, name);
 
-  sym = *result;
   st->n.sym = sym;
   sym->refs++;
 
@@ -2603,6 +2628,29 @@ cleanup:
   return m;
 }
 
+/* This is mostly a copy of parse.c(add_global_procedure) but modified to pass the
+   name of the entry, rather than the gfc_current_block name, and to return false
+   upon finding an existing global entry.  */
+
+static bool
+add_global_entry (const char * name, int sub)
+{
+  gfc_gsymbol *s;
+
+  s = gfc_get_gsymbol(name);
+
+  if (s->defined
+	|| (s->type != GSYM_UNKNOWN && s->type != (sub ? GSYM_SUBROUTINE : GSYM_FUNCTION)))
+    global_used(s, NULL);
+  else
+    {
+      s->type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
+      s->where = gfc_current_locus;
+      s->defined = 1;
+      return true;
+    }
+  return false;
+}
 
 /* Match an ENTRY statement.  */
 
@@ -2694,6 +2742,9 @@ gfc_match_entry (void)
   if (state == COMP_SUBROUTINE)
     {
       /* An entry in a subroutine.  */
+      if (!add_global_entry (name, 1))
+	return MATCH_ERROR;
+
       m = gfc_match_formal_arglist (entry, 0, 1);
       if (m != MATCH_YES)
 	return MATCH_ERROR;
@@ -2713,6 +2764,9 @@ gfc_match_entry (void)
             ENTRY f() RESULT (r)
          can't be written as
             ENTRY f RESULT (r).  */
+      if (!add_global_entry (name, 0))
+	return MATCH_ERROR;
+
       old_loc = gfc_current_locus;
       if (gfc_match_eos () == MATCH_YES)
 	{
@@ -3149,6 +3203,12 @@ attr_decl1 (void)
 	goto cleanup;
     }
 
+  if (gfc_add_attribute (&sym->attr, &var_locus, current_attr.intent) == FAILURE)
+    {
+      m = MATCH_ERROR;
+      goto cleanup;
+    }
+
   if ((current_attr.external || current_attr.intrinsic)
       && sym->attr.flavor != FL_PROCEDURE
       && gfc_add_flavor (&sym->attr, FL_PROCEDURE, sym->name, NULL) == FAILURE)
@@ -3356,7 +3416,7 @@ gfc_match_external (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_external (&current_attr, NULL);
+  current_attr.external = 1;
 
   return attr_decl ();
 }
@@ -3373,7 +3433,7 @@ gfc_match_intent (void)
     return MATCH_ERROR;
 
   gfc_clear_attr (&current_attr);
-  gfc_add_intent (&current_attr, intent, NULL);	/* Can't fail */
+  current_attr.intent = intent;
 
   return attr_decl ();
 }
@@ -3384,7 +3444,7 @@ gfc_match_intrinsic (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_intrinsic (&current_attr, NULL);
+  current_attr.intrinsic = 1;
 
   return attr_decl ();
 }
@@ -3395,7 +3455,7 @@ gfc_match_optional (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_optional (&current_attr, NULL);
+  current_attr.optional = 1;
 
   return attr_decl ();
 }
@@ -3418,7 +3478,7 @@ gfc_match_pointer (void)
   else
     {
       gfc_clear_attr (&current_attr);
-      gfc_add_pointer (&current_attr, NULL);
+      current_attr.pointer = 1;
     
       return attr_decl ();
     }
@@ -3430,7 +3490,7 @@ gfc_match_allocatable (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_allocatable (&current_attr, NULL);
+  current_attr.allocatable = 1;
 
   return attr_decl ();
 }
@@ -3441,7 +3501,7 @@ gfc_match_dimension (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_dimension (&current_attr, NULL, NULL);
+  current_attr.dimension = 1;
 
   return attr_decl ();
 }
@@ -3452,7 +3512,7 @@ gfc_match_target (void)
 {
 
   gfc_clear_attr (&current_attr);
-  gfc_add_target (&current_attr, NULL);
+  current_attr.target = 1;
 
   return attr_decl ();
 }

@@ -10215,6 +10215,8 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
      you declare a function, these types can be incomplete, but they
      must be complete when you define the function.  */
   check_function_type (decl1, current_function_parms);
+  /* Make sure no default arg is missing.  */
+  check_default_args (decl1);
 
   /* Build the return declaration for the function.  */
   restype = TREE_TYPE (fntype);
@@ -10281,10 +10283,19 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	  /* We need to set the DECL_CONTEXT.  */
 	  if (!DECL_CONTEXT (decl1) && DECL_TEMPLATE_INFO (decl1))
 	    DECL_CONTEXT (decl1) = DECL_CONTEXT (DECL_TI_TEMPLATE (decl1));
-	  /* And make sure we have enough default args.  */
-	  check_default_args (decl1);
 	}
       fntype = TREE_TYPE (decl1);
+
+      /* If #pragma weak applies, mark the decl appropriately now.
+	 The pragma only applies to global functions.  Because
+	 determining whether or not the #pragma applies involves
+	 computing the mangled name for the declaration, we cannot
+	 apply the pragma until after we have merged this declaration
+	 with any previous declarations; if the original declaration
+	 has a linkage specification, that specification applies to
+	 the definition as well, and may affect the mangled name.  */
+      if (!DECL_CONTEXT (decl1))
+	maybe_apply_pragma_weak (decl1);
     }
 
   /* Determine the ELF visibility attribute for the function.  We must
@@ -10456,10 +10467,6 @@ start_function (cp_decl_specifier_seq *declspecs,
   if (decl1 == NULL_TREE || TREE_CODE (decl1) != FUNCTION_DECL)
     return 0;
 
-  /* If #pragma weak was used, mark the decl weak now.  */
-  if (global_scope_p (current_binding_level))
-    maybe_apply_pragma_weak (decl1);
-
   if (DECL_MAIN_P (decl1))
     /* main must return int.  grokfndecl should have corrected it
        (and issued a diagnostic) if the user got it wrong.  */
@@ -10626,6 +10633,13 @@ begin_destructor_body (void)
 {
   tree if_stmt;
   tree compound_stmt;
+
+  /* If the CURRENT_CLASS_TYPE is incomplete, we will have already
+     issued an error message.  We still want to try to process the
+     body of the function, but initialize_vtbl_ptrs will crash if
+     TYPE_BINFO is NULL.  */
+  if (!COMPLETE_TYPE_P (current_class_type))
+    return;
 
   /* If the dtor is empty, and we know there is not any possible
      way we could use any vtable entries, before they are possibly

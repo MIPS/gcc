@@ -1,3 +1,289 @@
+2006-01-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25342
+	* g++.gd/template/partial4.C: New test.
+
+2006-01-30  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* gcc.dg/unsigned-long-compare.c: New test.
+
+2005-01-31  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/24266
+	* gfortran.dg/arrayio_derived_2.f90: New.
+
+2006-01-30  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/25318
+	* lib/target-supports.exp (check_effective_target_freorder):
+	Check to see if target supports -freorder-blocks-and-partition.
+	* g++.dg/other/pr22003.C: Use "dg-require-effective-target freorder"
+	instead of "dg-require-named-sections".
+
+2006-01-30  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR target/14798:
+	* gcc.dg/pragma-isr.c: Added target sh[1234ble]*-*-*.
+	* gcc.dg/pragma-isr2.c, gcc.dg/pragma-isr-trapa.c: New tests.
+	* gcc.dg/pragma-isr-trapa2.c: Likewise.
+	* gcc.dg/pragma-isr-nosave_low_regs.c: Likewise.
+	* gcc.dg/pragma-isr-trap_exit.c: Likewise.
+	* gcc.dg/attr-isr.c, gcc.dg/attr-isr-trapa.c: Likewise.
+	* gcc.dg/attr-isr-trap_exit.c: Likewise.
+	* gcc.dg/attr-isr-nosave_low_regs.c: Likewise.
+
+2006-01-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/18578
+	PR fortran/18579
+	PR fortran/20857
+	PR fortran/20885
+	* gfortran.dg/intent_out_1.f90: New test.
+
+	PR fortran/17911
+	* gfortran.dg/procedure_lvalue.f90: New test.
+
+	PR fortran/20895
+	PR fortran/25030
+	* gfortran.dg/char_pointer_assign_2.f90: New test.
+	* gfortran.dg/char_result_1.f90: Correct unequal charlen pointer
+	assignment to be consistent with standard.
+	* gfortran.dg/char_result_2.f90: The same.
+	* gfortran.dg/char_result_8.f90: The same.
+
+2006-01-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25835
+	* gfortran.dg/read_eof.f90: Delete, renamed.
+	* gfortran.dg/read_eof_1.f90: Rename from read_eof.f90.
+	* gfortran.dg/read_eof_2.f90: New test.
+	* gfortran.dg/read_eof_3.f90: New test.
+	
+2006-01-28  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/25706
+	* gcc.dg/torture/pr25706-1.c: New test.
+
+	PR target/25718
+	* gcc.dg/torture/pr25718-1.c: New test.
+
+	PR target/25947
+	* gcc.dg/torture/pr25947-1.c: New test.
+
+2006-01-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25999
+	* g++.dg/ext/pragmaweak1.C: New test.
+
+	PR c++/25855
+	* g++.dg/template/spec29.C: New test.
+	* g++.dg/template/crash39.C: Tweak error markers.
+
+2005-01-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25124
+	PR fortran/25625
+	* gfortran.dg/internal_references_1.f90: New test.
+
+	PR fortran/25901
+	* gfortran.dg/internal references_2.f90: New test.
+
+	PR fortran/20881
+	PR fortran/23308
+	PR fortran/25538
+	PR fortran/25710
+	* gfortran.dg/global_references_1.f90: New test.
+	* gfortran.dg/g77/19990905-1.f: Restore the error that
+	there is a clash between the common block name and
+	the name of a subroutine reference.
+
+	PR fortran/25964
+	* gfortran.dg/global_references_2.f90: New test.
+
+	PR fortran/24276
+	* gfortran.dg/aliasing_dummy_1.f90: New test.
+
+	PR fortran/25084
+	PR fortran/20852
+	PR fortran/25085
+	PR fortran/25086
+	* gfortran.dg/assumed_charlen_function_1.f90: New test.
+	* gfortran.dg/assumed_charlen_function_3.f90: New test.
+
+	PR fortran/25416
+	* gfortran.dg/assumed_charlen_function_2.f90: New test.
+
+	PR fortran/25964
+	* gfortran.dg/assumed_size_refs_3.f90: New test.
+
+2005-01-27  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25716
+	* gfortran.dg/char_result_11.f90: Make it sensitive to PR
+	25716 on 32-bit systems too.
+
+2006-01-26  Steve Ellcey  <sje@cup.hp.com>
+
+	PR testsuite/24962
+	* gcc.target/ia64/20030811-1.c: Change 'long' to 'long long'.
+
+2006-01-26  Laurent GUERBY <laurent@guerby.net>
+
+        PR ada/21317
+        * ada/acats/support/impdef.a: Add One_Long_Second.
+        * ada/acats/tests/c9/c94025.a: Use One_Long_Second.
+        * ada/acats/tests/c9/c94026.a: Likewise.
+        * ada/acats/tests/c9/c97305c.ada: Likewise.
+        * ada/acats/tests/c9/c99004a.ada: Likewise.
+
+2006-01-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR c/25892
+	* gcc.dg/Wpointer-sign.c: New.
+	* gcc.dg/Wpointer-sign-Wall.c: New.
+	* gcc.dg/Wpointer-sign-Wall-no.c: New.
+	* gcc.dg/Wpointer-sign-pedantic.c: New.
+	* gcc.dg/Wpointer-sign-pedantic-no.c: New.
+	* gcc.dg/conv-2.c: Use -Wpointer-sign.
+
+2006-01-26  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/compat/struct-layout-1.exp: Pass -e to generator program
+	on short-enum targets.
+	* gcc.dg/compat/struct-layout-1_generate.c (short_enums): New
+	variable.
+	(generate_fields): Use short_enums.
+	(main): Set short_enums.  Document -e.
+	* g++.dg/compat/struct-layout-1.exp: Pass -e to generator program
+	on short-enum targets.
+	* g++.dg/compat/struct-layout-1_generate.c (short_enums): New
+	variable.
+	(generate_fields): Use short_enums.
+	(main): Set short_enums.  Document -e.
+	* lib/target-supports.exp (check_effective_target_short_enums): New.
+
+2006-01-25  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/18540
+	* gfortran.dg/goto_1.f: New.
+
+2006-01-25  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR testsuite/25590
+	* gcc.dg/tree-ssa/gen-vect-11.c: Add -fwrapv.
+
+2006-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/25552
+	* g++.dg/parse/dtor8.C: New test.
+
+2006-01-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/20548
+	* ada/acats/norun.lst: Add c52103x, c52104x and c52104y.
+	* ada/acats/stackcheck.lst: New file, add c52103x, c52104x and c52104y.
+	* ada/acats/run_all.sh: Pass -fstack-check for tests in stackcheck.lst.
+
+2006-01-23  Richard Guenther  <rguenther@suse.de>
+	Steven Bosscher <stevenb.gcc@gmail.com>
+
+	PR rtl-optimization/24626
+	* gcc.dg/torture/pr24626-1.c: New testcase.
+	* gcc.dg/torture/pr24626-2.c: Likewise.
+	* gcc.dg/torture/pr24626-3.c: Likewise.
+	* gcc.dg/torture/pr24626-4.c: Likewise.
+
+2006-01-23  Steven Bosscher  <stevenb.gcc@gmail.com>
+	Jan Hubicka  <jh@suse.cz>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/25654
+	* gcc.dg/torture/pr25654.c: New testcase.
+	* gcc.target/i386/pr25654.c: Likewise.
+
+2005-01-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	Fix regression in testing of admissability of attributes.
+	* gfortran.dg/intent_used_1.f90: New test.
+
+2006-01-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25895
+	* g++.dg/inherit/conv2.C: New test.
+
+	PR c++/25856
+	* g++.dg/parse/dtor7.C: New test.
+
+	PR c++/25858
+	* g++.dg/template/crash44.C: New test.
+
+2006-01-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25697
+	* gfortran.dg/read_eof.f90: New test.
+
+2006-01-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22136
+	* g++.dg/template/using10.C: New test.
+	* g++.dg/temlpate/using11.C: Likewise.
+	* g++.dg/inherit/using5.C: Tweak error messages.
+
+2006-01-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/25854
+	* g++.dg/template/spec28.C: New test.
+
+2006-01-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/16829
+	* g++.dg/other/default2.C: New test.
+	* g++.dg/other/default3.C: New test.
+
+2006-01-19  Richard Sandiford  <richard@codesourcery.com>
+
+	PR c/25805
+	* gcc.dg/pr25805.c: New file.
+
+2006-01-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25836
+	* g++.dg/template/init6.C: New test.
+
+2006-01-18  Paul Thomas  <pault@gcc.gnu.org>
+	    Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20869
+	* gfortran.dg/intrinsic_external_1.f90: New test.
+
+	PR fortran/20875.
+	* gfortran.dg/elemental_pointer_1.f90: New test.
+
+	PR fortran/25024
+	* gfortran.dg/external_procedures_1.f90: New test.
+
+	PR fortran/25785
+	gfortran.dg/assumed_present.f90: New test.
+
+2006-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/parse/lookup5.C: New test.
+
+2006-01-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25631
+	* gfortran.dg/fmt_tl.f: New test.
+
+2006-01-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/abi/mangle25.C: Fix dg-do line, add a closing brace.
+
+2006-01-17  Andreas Jaeger  <aj@suse.de>
+	    Janis Johnson <janis187@us.ibm.com>
+
+	* g++.dg/abi/mangle25.C: Run always on ia64 but only on x86/x86-64
+	in 64-bit.
+
 2006-01-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/25682
