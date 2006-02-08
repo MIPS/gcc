@@ -762,11 +762,54 @@ vect_get_vec_def_for_operand (tree op, tree stmt, tree *scalar_def)
 
 /* Function vect_get_vec_def_for_stmt_copy
 
-   For the j'th copy, get the vectorized def for operand0 from
-   the vector stmt recorded in the STMT_VINFO_RELATED_STMT field
-   of the j-1 copy of the vector stmt that defines operand0
-   (denoted VEC_STMT_FOR_OPERAND).  */
+   Return a vector-def for an operand. This function is used when the 
+   vectorized stmt to be created (by the caller to this function) is a "copy" 
+   created in case the vectorized result cannot fit in one vector, and several 
+   copies of the vector-stmt are required. In this case the vector-def is 
+   retrieved from the vector stmt recorded in the STMT_VINFO_RELATED_STMT field 
+   of the stmt that defines VEC_OPRND. 
+   DT is the type of the vector def VEC_OPRND.
 
+   Context:
+	In case the vectorization factor (VF) is bigger than the number
+   of elements that can fit in a vectype (nunits), we have to generate
+   more than one vector stmt to vectorize the scalar stmt. This situation
+   arises when there are multiple data-types operated upon in the loop; the 
+   smallest data-type determines the VF, and as a result, when vectorizing
+   stmts operating on wider types we need to create 'VF/nunits' "copies" of the
+   vector stmt (each computing a vector of 'nunits' results, and together
+   computing 'VF' results in each iteration).  This function is called when 
+   vectorizing such a stmt (e.g. vectorizing S2 in the illusration below):
+
+   scalar stmt:         vectorized into:        STMT_VINFO_RELATED_STMT
+ 
+   S1: x = load         VS1.0:  vx.0 = memref0      VS1.1
+                        VS1.1:  vx.1 = memref1      VS1.2
+                        VS1.2:  vx.2 = memref2      VS1.3
+                        VS1.3:  vx.3 = memref3 
+
+   S2: z = x + ...      VSnew.0:  vz0 = vx.0 + ...  VSnew.1
+                        VSnew.1:  vz1 = vx.1 + ...  VSnew.2
+                        VSnew.2:  vz2 = vx.2 + ...  VSnew.3
+                        VSnew.3:  vz3 = vx.3 + ...
+
+	To create the first vector-stmt (out of the 'VF/nunits' copies) - 
+   denoted VSnew.0 - the function 'vect_get_vec_def_for_operand' is called to 
+   get the relevant vector-def for each operand (e.g. 'vx.0').
+	To create the remaining copies of the vector-stmt (VSnew.j), this 
+   function is called to get the relevant vector-def for each operand.  It is 
+   obtained from the respective VS1.j stmt, which is recorded in the 
+   STMT_VINFO_RELATED_STMT field of the stmt that defines VEC_OPRND.
+	For example, to obtain the vector-def 'vx.1' in order to create the 
+   vector stmt 'VSnew.1', this function is called with VEC_OPRND='vx.0'. 
+   Given 'vx0' we obtain the stmt that defines it ('VS1.0'); from the 
+   STMT_VINFO_RELATED_STMT field of 'VS1.0' we obtain the next copy - 'VS1.1', 
+   and return its def ('vx.1').
+   Overall to create the above sequence this function will be called 3 times:
+	vx.1 = vect_get_vec_def_for_stmt_copy (dt, vx.0);
+	vx.2 = vect_get_vec_def_for_stmt_copy (dt, vx.1);
+	vx.3 = vect_get_vec_def_for_stmt_copy (dt, vx.2);  */
+   
 static tree
 vect_get_vec_def_for_stmt_copy (enum vect_def_type dt, tree vec_oprnd)
 { 
@@ -1906,7 +1949,7 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
      more than one vector stmt - i.e - we need to "unroll" the
      vector stmt by a factor VF/nunits. In doing so, we record a pointer
      from one copy of the vector stmt to the next, in the field
-     STMT_VINFO_RELATED_STMT. This is necessary in oder to allow following
+     STMT_VINFO_RELATED_STMT. This is necessary in order to allow following
      stages to find the correct vector defs to be used when vectorizing
      stmts that use the defs of the current stmt. The example below illustrates
      the vectorization process when VF=16 and nunits=4 (i.e - we need to create
@@ -1932,7 +1975,7 @@ vectorizable_operation (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
         def for the first operand 'x'. This is, as usual, obtained from
         the vector stmt recorded in the STMT_VINFO_VEC_STMT of the stmt
         that defines 'x' (S1). This way we find the stmt VS1_0, and the
-        relevant vector def 'vx0'. Having found 'vx0' we can generated
+        relevant vector def 'vx0'. Having found 'vx0' we can generate
         the vector stmt VS2_0, and as usual, record it in the
         STMT_VINFO_VEC_STMT of stmt S2.
         When creating the second copy (VS2_1), we obtain the relevant vector

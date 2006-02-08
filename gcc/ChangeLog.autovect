@@ -1,5 +1,11 @@
 2006-02-08  Dorit Nuzman  <dorit@il.ibm.com>
 
+	* tree-vect-transform.c (vect_get_vec_def_for_stmt_copy): Add 
+	documentation.
+	(vectorizable_operation): Fix typos.
+
+2006-02-08  Dorit Nuzman  <dorit@il.ibm.com>
+
 	* tree-vect-transform.c (vect_align_data_ref): Removed.
 	(vect_transform_strided_store, vectorizable_store): Remove call to 
 	vect_align_data_ref.
