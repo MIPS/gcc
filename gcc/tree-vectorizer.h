@@ -206,6 +206,9 @@ typedef struct _stmt_vec_info {
   /* The vectorized version of the stmt.  */
   tree vectorized_stmt;
 
+  /* The epilog stmt of the loop. Set for stmts that define values that
+     are used after the loop.  */
+  tree epilog_stmt;
 
   /** The following is relevant only for stmts that contain a non-scalar
      data-ref (array/pointer/struct access). A GIMPLE stmt is expected to have 
@@ -270,6 +273,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_LIVE_P(S)              (S)->live
 #define STMT_VINFO_VECTYPE(S)             (S)->vectype
 #define STMT_VINFO_VEC_STMT(S)            (S)->vectorized_stmt
+#define STMT_VINFO_EPILOG_STMT(S)         (S)->epilog_stmt
 #define STMT_VINFO_DATA_REF(S)            (S)->data_ref_info
 #define STMT_VINFO_IN_PATTERN_P(S)        (S)->in_pattern_p
 #define STMT_VINFO_RELATED_STMT(S)        (S)->related_stmt
@@ -376,6 +380,8 @@ extern void slpeel_verify_cfg_after_peeling (struct loop *, struct loop *);
 /** In tree-vectorizer.c **/
 extern tree vect_strip_conversion (tree);
 extern tree get_vectype_for_scalar_type (tree);
+extern bool vect_is_simple_live_use (tree, loop_vec_info, tree *, tree *,
+				enum vect_def_type *);
 extern bool vect_is_simple_use (tree, loop_vec_info, tree *, tree *,
 				enum vect_def_type *);
 extern bool vect_is_simple_iv_evolution (unsigned, tree, tree *, tree *);

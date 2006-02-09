@@ -1,3 +1,27 @@
+2006-02-09  Dorit Nuzman  <dorit@il.ibm.com>
+	    Victor Kaplansky  <victork@il.ibm.com>
+
+	* tree-vectorizer.c (new_stmt_vec_info): Initialize new field.
+	(vect_is_simple_live_use): New function, similar to old
+	vect_is_simple_use, but permits induction variables.
+	(vect_is_simple_use): Changed to use new vect_is_simple_live_use.
+	* tree-vectorizer.h: (struct _stmt_vec_info): New field,
+	epilog_stmt and macro for its access.
+	(vect_is_simple_live_use): New function declaration.
+	* tree-vect-analyze.c (vect_analyze_operations): Do not return false
+	if vectorizable_live_operation returns true.
+	(vect_mark_stmts_to_be_vectorized): Mark statement to be vectorized
+	if it is simple live use.
+	* tree-vect-transform.c (vect_get_epilog_def_for_operand): New
+	function.
+	(vectorizable_live_operation): Enhance code to insert calculation
+	of final value of simple use ivs before epilog. Replace uses
+	of PHI_RESULT in relevant exit_phi with the newly created def.
+	(vect_transform_stmt): Takes additional argument.
+	(advance_iv_by_n): New function.
+	(vect_update_ivs_after_vectorizer): Factor out into advance_iv_by_n
+	with a call to advance_iv_by_n.
+
 2006-02-08  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* tree-vect-transform.c (vect_get_vec_def_for_stmt_copy): Add 

@@ -259,13 +259,16 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
 	  gcc_assert (stmt_info);
 
-	  if (STMT_VINFO_LIVE_P (stmt_info))
+	  if (STMT_VINFO_LIVE_P (stmt_info)
+	      && !vectorizable_live_operation (phi, NULL, NULL))
 	    {
-	      /* FORNOW: not yet supported.  */
 	      if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
-		fprintf (vect_dump, "not vectorized: value used after loop.");
-	    return false;
-	  }
+		{
+		  fprintf (vect_dump,  "not vectorized: live phi not supported: ");
+		  print_generic_expr (vect_dump, phi, TDF_SLIM);
+	        }
+	      return false;
+	    }
 
 	  if (STMT_VINFO_RELEVANT_P (stmt_info))
 	    {
@@ -2306,7 +2309,8 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	  if (!exist_non_indexing_operands_for_use_p (use, stmt))
 	    continue;
 
-	  if (!vect_is_simple_use (use, loop_vinfo, &def_stmt, &def, &dt))
+	  if ((live_p && !vect_is_simple_live_use (use, loop_vinfo, &def_stmt, &def, &dt))
+	        || (relevant && !vect_is_simple_use (use, loop_vinfo, &def_stmt, &def, &dt)))
             {
               if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
                 fprintf (vect_dump, "not vectorized: unsupported use in stmt.");

@@ -46,7 +46,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "real.h"
 
 /* Utility functions for the code transformation.  */
-static bool vect_transform_stmt (tree, block_stmt_iterator *, bool *);
+static bool vect_transform_stmt 
+  (tree, block_stmt_iterator *, block_stmt_iterator *, bool *);
 static tree vect_create_destination_var (tree, tree);
 static tree vect_create_data_ref_ptr 
   (tree, block_stmt_iterator *, tree, tree *, tree *, bool); 
@@ -55,6 +56,7 @@ static tree vect_setup_realignment (tree, block_stmt_iterator *, tree *);
 static tree bump_vector_ptr (tree, tree, block_stmt_iterator *, tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree, tree *);
+static tree vect_get_epilog_def_for_operand (tree, tree, block_stmt_iterator *);
 static tree vect_get_vec_def_for_stmt_copy (enum vect_def_type, tree);
 static tree vect_init_vector (tree, tree);
 static void vect_finish_stmt_generation 
@@ -87,6 +89,7 @@ static void vect_generate_tmps_on_preheader
 static tree vect_build_loop_niters (loop_vec_info);
 static void vect_update_ivs_after_vectorizer (loop_vec_info, tree, edge); 
 static tree vect_gen_niters_for_prolog_loop (loop_vec_info, tree);
+static tree advance_iv_by_n (struct loop *, tree, tree, block_stmt_iterator *);
 static void vect_update_init_of_dr (struct data_reference *, tree niters);
 static void vect_update_inits_of_drs (loop_vec_info, tree);
 static void vect_do_peeling_for_alignment (loop_vec_info, struct loops *);
@@ -3979,60 +3982,205 @@ vectorizable_strided_load (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   return true;
 }
 
+/* Function vect_get_epilog_def_for_operand
+
+   STMT defines a value that is used after the loop.  OP is an operand
+   in STMT.  This function returns a def that will be used in the
+   "epilog-stmt" for STMT (see vectorizable_live_operation).
+
+   In the case that OP is an SSA_NAME which is defined in the loop, then
+   STMT_VINFO_EPILOG_STMT of the defining stmt holds the relevant def.
+
+   In case OP is an invariant or constant, the same OP can be used.
+
+   In case STMT is a phi-node that represents a simple induction-variable,
+   a code that computes the value of the induction variable after the
+   loop is generated.
+*/
+
+static tree
+vect_get_epilog_def_for_operand (tree op, tree stmt,
+				 block_stmt_iterator * bsi)
+{
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
+  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
+  enum vect_def_type dt;
+  tree def;
+  tree def_stmt;
+  bool is_simple_use;
+  tree epilog_stmt;
+
+  is_simple_use =
+    vect_is_simple_live_use (op, loop_vinfo, &def_stmt, &def, &dt);
+
+  gcc_assert (is_simple_use);
+
+  switch (dt)
+    {
+      /* Case 1: operand is constant or invariant.  */
+    case vect_constant_def:
+    case vect_invariant_def:
+      return op;
+
+      /* Case 2: operand is defined inside the loop.  */
+    case vect_loop_def:
+      {
+	/* Get the def from the respective epilog stmt.  */
+	stmt_vec_info def_stmt_info = vinfo_for_stmt (def_stmt);
+	epilog_stmt = STMT_VINFO_EPILOG_STMT (def_stmt_info);
+
+	gcc_assert (epilog_stmt);
+	return TREE_OPERAND (epilog_stmt, 0);
+      }
+
+      /* Case 3: operand is defined by loop-header phi - induction.  */
+    case vect_induction_def:
+      {
+	tree niters = unshare_expr (LOOP_VINFO_NITERS (loop_vinfo));
+	tree type = TREE_TYPE (niters);
+
+	gcc_assert (TREE_CODE (def_stmt) == PHI_NODE);
+	niters = build2 (MINUS_EXPR, type, niters,
+			 fold_convert (type, integer_one_node));
+	return advance_iv_by_n (loop, def_stmt, niters, bsi);
+      }
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 
 /* Function vectorizable_live_operation.
 
-   STMT computes a value that is used outside the loop. Check if 
-   it can be supported.  */
+   STMT computes a value that is used outside the loop.  Check if it can
+   be supported.  "Vectorize" it by generating the appropriate (scalar)
+   computation at the loop epilog.  Record the newly generated epilog-code
+   in STMT_VINFO_EPILOG_STMT.  */
 
 bool
 vectorizable_live_operation (tree stmt,
-                             block_stmt_iterator *bsi ATTRIBUTE_UNUSED,
-                             tree *vec_stmt ATTRIBUTE_UNUSED)
+                             block_stmt_iterator *bsi,
+                             tree *epilog_stmt)
 {
   tree operation;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   int i;
   enum tree_code code;
   int op_type;
-  tree op;
+  tree op, op0, op1;
   tree def, def_stmt;
   enum vect_def_type dt; 
+  tree type;
+  tree epilog_oprnd0, epilog_oprnd1 = NULL_TREE;
+  imm_use_iterator imm_iter;
+  use_operand_p use_p;
+  tree expr;
+  tree new_stmt;
+  tree new_temp;
+  tree dest_var, dest_name;
+  tree exit_phi;
 
   if (!STMT_VINFO_LIVE_P (stmt_info))
     return false;
 
-  if (TREE_CODE (stmt) != MODIFY_EXPR)
-    return false;
+  if (TREE_CODE (stmt) == PHI_NODE)
+    {
+      tree name = PHI_RESULT (stmt);
 
-  if (TREE_CODE (TREE_OPERAND (stmt, 0)) != SSA_NAME)
-    return false;
+      if (!vect_is_simple_live_use (name, loop_vinfo, &def_stmt, &def, &dt))
+        return false;
+      if (dt != vect_induction_def)
+        return false;
+      return true;
+    }
+
+  gcc_assert (TREE_CODE (stmt) == MODIFY_EXPR);
 
   operation = TREE_OPERAND (stmt, 1);
   code = TREE_CODE (operation);
-
   op_type = TREE_CODE_LENGTH (code);
 
-  /* FORNOW: support only if all uses are invariant. This means
-     that the scalar operations can remain in place, unvectorized.
-     The original last scalar value that they compute will be used.  */
+  if (op_type != unary_op && op_type != binary_op)
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+        fprintf (vect_dump, "num. args = %d (not unary/binary op).", op_type);
+      return false;
+    }
 
   for (i = 0; i < op_type; i++)
     {
       op = TREE_OPERAND (operation, i);
-      if (!vect_is_simple_use (op, loop_vinfo, &def_stmt, &def, &dt))
-        {
-          if (vect_print_dump_info (REPORT_DETAILS))
-            fprintf (vect_dump, "use not simple.");
-          return false;
-        }
+      if (!vect_is_simple_live_use (op, loop_vinfo, &def_stmt, &def, &dt))
+	return false;
+      if (dt != vect_invariant_def && dt != vect_constant_def
+	  && dt != vect_induction_def && dt != vect_loop_def)
+         return false;
+     }
 
-      if (dt != vect_invariant_def && dt != vect_constant_def)
-        return false;
+  if (!epilog_stmt) /* transformation not required.  */
+    return true;
+
+  /** Transform.  **/
+
+  if (vect_print_dump_info (REPORT_DETAILS))
+    fprintf (vect_dump, "transform live operation.");
+
+  /* Prepare uses */
+  op0 = TREE_OPERAND (operation, 0);
+  epilog_oprnd0 = vect_get_epilog_def_for_operand (op0, stmt, bsi);
+  if (vect_print_dump_info (REPORT_DETAILS))
+    print_generic_expr (vect_dump, epilog_oprnd0, TDF_SLIM); 
+  if (op_type == binary_op)
+    {
+      op1 = TREE_OPERAND (operation, 1);
+      epilog_oprnd1 = vect_get_epilog_def_for_operand (op1, stmt, bsi);
+      if (vect_print_dump_info (REPORT_DETAILS))
+        print_generic_expr (vect_dump, epilog_oprnd1, TDF_SLIM); 
     }
 
-  /* No transformation is required for the cases we currently support.  */
+  /* Arguments are ready, create the new vector stmt.  */
+  type = TREE_TYPE (operation);
+  if (op_type == unary_op)
+    expr = build1 (code, type, epilog_oprnd0);
+  else
+    expr = build2 (code, type, epilog_oprnd0, epilog_oprnd1);
+  if (vect_print_dump_info (REPORT_DETAILS))
+    print_generic_expr (vect_dump, expr, TDF_SLIM); 
+
+  dest_name = TREE_OPERAND (stmt, 0);
+  dest_var = vect_create_destination_var (dest_name, type);
+  new_stmt = build2 (MODIFY_EXPR, type, dest_var, expr);
+  new_temp = make_ssa_name (dest_var, new_stmt);
+  TREE_OPERAND (new_stmt, 0) = new_temp;
+  bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
+
+  STMT_VINFO_EPILOG_STMT (stmt_info) = new_stmt;
+
+  /* Find relevant loop-closed-exit-phi to update  */
+  exit_phi = NULL;
+  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, dest_name)
+    {
+      if (!flow_bb_inside_loop_p (loop, bb_for_stmt (USE_STMT (use_p))))
+        {
+          exit_phi = USE_STMT (use_p);
+          break;
+        }
+    }
+
+  if (exit_phi)
+    {
+      /* Replace uses of the PHI_RESULT of exit_phi with the newly created 
+         def of new_stmt  */
+      tree orig_name = PHI_RESULT (exit_phi);
+
+      FOR_EACH_IMM_USE_SAFE (use_p, imm_iter, orig_name)
+        SET_USE (use_p, new_temp);
+    }
+
   return true;
 }
 
@@ -4205,7 +4353,8 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
    Create a vectorized stmt to replace STMT, and insert it at BSI.  */
 
 static bool
-vect_transform_stmt (tree stmt, block_stmt_iterator *bsi, bool *interleaving)
+vect_transform_stmt (tree stmt, block_stmt_iterator *bsi, 
+		     block_stmt_iterator *exit_bsi, bool *interleaving)
 {
   bool is_store = false;
   bool is_load = false;
@@ -4317,7 +4466,7 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi, bool *interleaving)
 		      break;
 		  
 		    default:
-		      done = vectorizable_live_operation (next_stmt, bsi, 
+		      done = vectorizable_live_operation (next_stmt, exit_bsi, 
 							  &vec_stmt);
 		      gcc_assert (done);
 		    }
@@ -4346,7 +4495,7 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi, bool *interleaving)
 	      break;
 	      
 	    default:
-	      done = vectorizable_live_operation (stmt, bsi, &vec_stmt);
+	      done = vectorizable_live_operation (stmt, exit_bsi, &vec_stmt);
 	      gcc_assert (done);
 	    }
 
@@ -4529,6 +4678,59 @@ update_vuses_to_preheader (tree stmt, struct loop *loop)
 }
 
 
+/* Function advance_iv_by_n
+
+   LOOP: A loop that has an induction variable (IV) represented by IV_PHI.
+   IV_PHI: A phi node (typically at the header-bb of LOOP)
+   NITERS: number of iterations (steps) to advance the IV. 
+
+   This function advances the IV by NITERS, by generating the following
+   code at the exit-bb of LOOP:
+	new_iv = iv_initial_condition + iv_step * NITERS;
+*/
+
+static tree
+advance_iv_by_n (struct loop *loop, tree iv_phi, tree niters, block_stmt_iterator *bsi)
+{
+  tree access_fn = NULL;
+  tree evolution_part;
+  tree init_expr;
+  tree step_expr;
+  tree var, stmt, ni, ni_name;
+
+  access_fn = analyze_scalar_evolution (loop, PHI_RESULT (iv_phi));
+  gcc_assert (access_fn);
+  if (vect_print_dump_info (REPORT_DETAILS))
+    {
+      fprintf (vect_dump, "accesses funcion for phi: ");
+      print_generic_expr (vect_dump, access_fn, TDF_SLIM);
+    }
+
+  evolution_part =
+	unshare_expr (evolution_part_in_loop_num (access_fn, loop->num));
+  gcc_assert (evolution_part != NULL_TREE);
+
+  /* FORNOW: We do not support IVs whose evolution function is a polynomial
+     of degree >= 2 or exponential.  */
+  gcc_assert (!tree_is_chrec (evolution_part));
+
+  step_expr = evolution_part;
+  init_expr = 
+	unshare_expr (initial_condition_in_loop_num (access_fn, loop->num));
+  ni = build2 (PLUS_EXPR, TREE_TYPE (init_expr),
+	build2 (MULT_EXPR, TREE_TYPE (niters), niters, step_expr), init_expr);
+  var = create_tmp_var (TREE_TYPE (init_expr), "tmp");
+  add_referenced_tmp_var (var);
+  ni_name = force_gimple_operand (ni, &stmt, false, var);
+
+  /* Insert stmt.  */
+  if (stmt)
+    bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
+
+  return ni_name;
+}
+
+
 /*   Function vect_update_ivs_after_vectorizer.
 
      "Advance" the induction variables of LOOP to the value they should take
@@ -4575,25 +4777,21 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
 				  edge update_e)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  basic_block exit_bb = loop->single_exit->dest;
   tree phi, phi1;
   basic_block update_bb = update_e->dest;
-
-  /* gcc_assert (vect_can_advance_ivs_p (loop_vinfo)); */
+  basic_block exit_bb = loop->single_exit->dest;
+  block_stmt_iterator bsi = bsi_last (exit_bb);
 
   /* Make sure there exists a single-predecessor exit bb:  */
   gcc_assert (EDGE_COUNT (exit_bb->preds) == 1);
+
+  /* gcc_assert (vect_can_advance_ivs_p (loop_vinfo)); */
 
   for (phi = phi_nodes (loop->header), phi1 = phi_nodes (update_bb); 
        phi && phi1; 
        phi = PHI_CHAIN (phi), phi1 = PHI_CHAIN (phi1))
     {
-      tree access_fn = NULL;
-      tree evolution_part;
-      tree init_expr;
-      tree step_expr;
-      tree var, stmt, ni, ni_name;
-      block_stmt_iterator last_bsi;
+      tree ni_name;
 
       if (vect_print_dump_info (REPORT_DETAILS))
         {
@@ -4614,43 +4812,11 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
         { 
           if (vect_print_dump_info (REPORT_DETAILS))
             fprintf (vect_dump, "reduc phi. skip.");
+
           continue;
         } 
 
-      access_fn = analyze_scalar_evolution (loop, PHI_RESULT (phi)); 
-      gcc_assert (access_fn);
-
-      if (vect_print_dump_info (REPORT_DETAILS))
-	{
-	  fprintf (vect_dump, "accesses funcion for phi: ");
-	  print_generic_expr (vect_dump, access_fn, TDF_SLIM);
-	}
-
-      evolution_part =
-	 unshare_expr (evolution_part_in_loop_num (access_fn, loop->num));
-      gcc_assert (evolution_part != NULL_TREE);
-      
-      /* FORNOW: We do not support IVs whose evolution function is a polynomial
-         of degree >= 2 or exponential.  */
-      gcc_assert (!tree_is_chrec (evolution_part));
-
-      step_expr = evolution_part;
-      init_expr = unshare_expr (initial_condition_in_loop_num (access_fn, 
-							       loop->num));
-
-      ni = build2 (PLUS_EXPR, TREE_TYPE (init_expr),
-		  build2 (MULT_EXPR, TREE_TYPE (niters),
-		       niters, step_expr), init_expr);
-
-      var = create_tmp_var (TREE_TYPE (init_expr), "tmp");
-      add_referenced_tmp_var (var);
-
-      ni_name = force_gimple_operand (ni, &stmt, false, var);
-      
-      /* Insert stmt into exit_bb.  */
-      last_bsi = bsi_last (exit_bb);
-      if (stmt)
-        bsi_insert_before (&last_bsi, stmt, BSI_SAME_STMT);   
+      ni_name = advance_iv_by_n (loop, phi, niters, &bsi);
 
       /* Fix phi expressions in the successor bb.  */
       SET_PHI_ARG_DEF (phi1, update_e->dest_idx, ni_name);
@@ -5084,6 +5250,8 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   bitmap_iterator bi;
   unsigned int j;
   bool interleaving;
+  basic_block exit_bb;
+  block_stmt_iterator exit_si;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vec_transform_loop ===");
@@ -5177,6 +5345,10 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   if (EDGE_COUNT (loop_preheader_edge (loop)->src->succs) != 1)
     loop_split_edge_with (loop_preheader_edge (loop), NULL);
 
+  exit_bb = loop->single_exit->dest;
+  exit_si = bsi_after_labels (exit_bb);
+  if (TREE_CODE (bsi_stmt (exit_si)) == LABEL_EXPR)
+    bsi_next (&exit_si);
 
   /* FORNOW: the vectorizer supports only loops which body consist
      of one basic block (header + empty latch). When the vectorizer will 
@@ -5217,7 +5389,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
 	    fprintf (vect_dump, "transform statement.");
 
 	  interleaving = false;
-	  is_store = vect_transform_stmt (stmt, &si, &interleaving);
+	  is_store = vect_transform_stmt (stmt, &si, &exit_si, &interleaving);
 	  if (is_store)
 	    {
 	      stmt_ann_t ann;

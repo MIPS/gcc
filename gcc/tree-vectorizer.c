@@ -1361,6 +1361,7 @@ new_stmt_vec_info (tree stmt, loop_vec_info loop_vinfo)
   STMT_VINFO_LIVE_P (res) = false;
   STMT_VINFO_VECTYPE (res) = NULL;
   STMT_VINFO_VEC_STMT (res) = NULL;
+  STMT_VINFO_EPILOG_STMT (res) = NULL;
   STMT_VINFO_DATA_REF (res) = NULL;
   STMT_VINFO_IN_PATTERN_P (res) = false;
   STMT_VINFO_RELATED_STMT (res) = NULL;
@@ -1606,21 +1607,19 @@ vect_supportable_dr_alignment (struct data_reference *dr)
 }
 
 
-/* Function vect_is_simple_use.
+/* Function vect_is_simple_live_use.
 
    Input:
    LOOP - the loop that is being vectorized.
    OPERAND - operand of a stmt in LOOP.
    DEF - the defining stmt in case OPERAND is an SSA_NAME.
 
-   Returns whether a stmt with OPERAND can be vectorized.
-   Supportable operands are constants, loop invariants, and operands that are
-   defined by the current iteration of the loop. Unsupportable operands are 
-   those that are defined by a previous iteration of the loop (as is the case
-   in reduction/induction computations).  */
+   Returns whether a stmt with OPERAND can be vectorized.  Supportable
+   operands are constants, loop invariants, and operands that are defined
+   by the current iteration of the loop and induction variables. */
 
 bool
-vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
+vect_is_simple_live_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
 		    tree *def, enum vect_def_type *dt)
 { 
   basic_block bb;
@@ -1719,10 +1718,34 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree *def_stmt,
       return false;
     }
 
+  return true;
+}
+
+
+/* Function vect_is_simple_use.
+
+   Input:
+   LOOP - the loop that is being vectorized.
+   OPERAND - operand of a stmt in LOOP.
+   DEF - the defining stmt in case OPERAND is an SSA_NAME.
+
+   Returns whether a stmt with OPERAND can be vectorized.  This function
+   is currently similar to vect_is_simple_live_use, but in addition
+   filters out operands which are induction variables.  This restriction
+   will be relaxed in the future. */
+
+bool
+vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree * def_stmt,
+		    tree * def, enum vect_def_type *dt)
+{
+
+  if (!vect_is_simple_live_use (operand, loop_vinfo, def_stmt, def, dt))
+    return false;
+
   if (*dt == vect_induction_def)
     {
       if (vect_print_dump_info (REPORT_DETAILS))
-        fprintf (vect_dump, "induction not supported.");
+	fprintf (vect_dump, "induction not supported.");
       return false;
     }
 
