@@ -204,6 +204,9 @@ Common Joined UInteger Var(flag_abi_version) Init(2)
 ; APPLE LOCAL begin ObjC new abi
 fobjc-abi-version=
 Common Joined UInteger Var(flag_objc_abi) Init(1)
+
+fobjc-nilcheck
+Common Report Var(flag_objc_nilcheck,1)
 ; APPLE LOCAL end ObjC new abi
 
 falign-functions

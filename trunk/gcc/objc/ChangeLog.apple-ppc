@@ -1,3 +1,13 @@
+006-02-08   Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4437670 (new abi stuff)
+	* objc/objc-act.c: Use internale names for pre-defined types
+	for the new abi.
+	(synth_module_prologue): Declare new builtin function objc_getProtocol.
+	(objc_finish_message_expr): Use the new API for @protocol usage.
+	(generate_v2_protocol_list): Use correct protocol list name.
+	(build_v2_protocol_reference): Ue correct protocol reference name.
+	
 006-02-3   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4431864

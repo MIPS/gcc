@@ -866,6 +866,7 @@ FUNCTION (void)								\
   in_objc_nonlazy_class_section,					\
   in_objc_nonlazy_category_section,					\
   in_objc_v2_selector_refs_section,					\
+  in_objc_v2_protocol_section,						\
   /* APPLE LOCAL end ObjC new abi  */					\
   num_sections
 
@@ -1071,6 +1072,9 @@ SECTION_FUNCTION (objc_nonlazy_category_section,				\
 SECTION_FUNCTION (objc_v2_selector_refs_section,				\
 		  in_objc_v2_selector_refs_section,				\
 		  ".section __OBJC2, __selector_refs, regular, no_dead_strip", 1) 	\
+SECTION_FUNCTION (objc_v2_protocol_section,					\
+		  in_objc_v2_protocol_section,					\
+		  ".section __OBJC2, __protocol, regular, no_dead_strip", 1) 	\
 /* APPLE LOCAL end ObjC new abi */					\
 \
 static void					\
@@ -1113,6 +1117,7 @@ objc_section_init (void)			\
           objc_classlist_section ();		\
 	  objc_categorylist_section ();		\
 	  objc_v2_selector_refs_section ();	\
+	  objc_v2_protocol_section ();		\
 	  objc_nonlazy_class_section ();	\
 	  objc_nonlazy_category_section ();	\
 	}					\

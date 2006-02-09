@@ -1283,6 +1283,8 @@ machopic_select_section (tree exp, int reloc,
 	objc_nonlazy_class_section ();
       else if (!strncmp (name, "_OBJC_LABEL_NONLAZY_CATEGORY_", 29))
 	objc_nonlazy_category_section ();
+      else if (!strncmp (name, "_OBJC_$_PROTOCOL_", 17))
+	objc_v2_protocol_section ();
       /* APPLE LOCAL end ObjC new abi */
       else if (!strncmp (name, "_OBJC_CLASS_", 12))
 	objc_class_section ();

@@ -504,8 +504,8 @@ static void generate_objc_image_info (void);
 /* APPLE LOCAL begin ObjC new abi */
 #define UTAG_V2_CLASS			"_class_t"
 #define UTAG_V2_CLASS_RO			"_class_ro_t"
-#define UTAG_V2_PROTOCOL_LIST		"protocol_list_t"
-#define UTAG_V2_PROTOCOL			"protocol_t"
+#define UTAG_V2_PROTOCOL_LIST		"_protocol_list_t"
+#define UTAG_V2_PROTOCOL			"_protocol_t"
 /* APPLE LOCAL end ObjC new abi */
 
 static const char *TAG_GETCLASS;
@@ -2108,7 +2108,7 @@ synth_module_prologue (void)
   if (flag_objc_abi == 2 || flag_objc_abi == 3)
     objc_v2_ivar_list_ptr = build_pointer_type (
 				  xref_tag (RECORD_TYPE, 
-					    get_identifier ("ivar_list_t")));
+					    get_identifier ("_ivar_list_t")));
 
   /* typedef id (*IMP)(id, SEL, ...); */
   objc_imp_type
@@ -2196,6 +2196,15 @@ synth_module_prologue (void)
 						    	      type, 0, NOT_BUILT_IN, 0,
 						              NULL_TREE);
 	  TREE_NOTHROW (umsg_id_super2_stret_fixup_decl) = 0;
+
+	  /* Protocol *objc_getProtocol (const char *) */
+	  type = build_function_type (objc_protocol_type,
+                                      tree_cons (NULL_TREE,
+                                                 const_string_type_node,
+                                                 OBJC_VOID_AT_END));
+	  objc_v2_getprotocol_decl = builtin_function ("objc_getProtocol", type, 0, 
+						       NOT_BUILT_IN, NULL, NULL_TREE);
+	  TREE_NOTHROW (objc_v2_getprotocol_decl) = 0;
 	}
       /* APPLE LOCAL end ObjC new abi */
 
@@ -6818,7 +6827,7 @@ build_v2_ivar_t_template (void)
   tree objc_ivar_id, objc_ivar_record;
   tree field_decl, field_decl_chain;
 
-  objc_ivar_id = get_identifier ("ivar_t");
+  objc_ivar_id = get_identifier ("_ivar_t");
   objc_ivar_record = start_struct (RECORD_TYPE, objc_ivar_id);
 
   /* uint32_t *offset */
@@ -7652,7 +7661,7 @@ generate_v2_protocol_list (tree i_or_p)
   /* static struct protocol_list_t *list[size]; */
 
   if (TREE_CODE (i_or_p) == PROTOCOL_INTERFACE_TYPE)
-    ref_name = synth_id_with_class_suffix ("_OBJC_PROTOCOL_REFS_$", i_or_p);
+    ref_name = synth_id_with_class_suffix ("_OBJC_$_PROTOCOL_REFS", i_or_p);
   else if (TREE_CODE (i_or_p) == CLASS_INTERFACE_TYPE)
     ref_name = synth_id_with_class_suffix ("_OBJC_CLASS_PROTOCOLS_$", i_or_p);
   else if (TREE_CODE (i_or_p) == CATEGORY_INTERFACE_TYPE)
@@ -7663,7 +7672,7 @@ generate_v2_protocol_list (tree i_or_p)
   refs_decl = start_var_decl
 	      (build_array_type
 	       (build_pointer_type (objc_v2_protocol_template),
-		build_index_type (build_int_cst (NULL_TREE, size + 2))),
+		build_index_type (build_int_cst (NULL_TREE, size))),
 	       ref_name);
 
   finish_var_decl (refs_decl, objc_build_constructor (TREE_TYPE (refs_decl),
@@ -9202,7 +9211,7 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
     {
       tree ret_type;
       tree message_func_decl;
-      bool check_for_nil = true;
+      bool check_for_nil = flag_objc_nilcheck;
 
       ret_type = (method_prototype ? 
 	      	    TREE_VALUE (TREE_TYPE (method_prototype)) : 
@@ -9448,7 +9457,7 @@ build_v2_protocol_reference (tree p)
 
   /* static struct protocol_t  _OBJC_PROTOCOL_$<mumble>; */
 
-  proto_name = synth_id_with_class_suffix ("_OBJC_PROTOCOL_$", p);
+  proto_name = synth_id_with_class_suffix ("_OBJC_$_PROTOCOL", p);
   decl = start_var_decl (objc_v2_protocol_template, proto_name);
 
   PROTOCOL_V2_FORWARD_DECL (p) = decl;
@@ -9563,10 +9572,16 @@ objc_build_protocol_expr (tree protoname)
   /* APPLE LOCAL begin ObjC abi v2 */
   if (flag_objc_abi == 2 || flag_objc_abi == 3)
     {
+      tree params;
       if (!PROTOCOL_V2_FORWARD_DECL (p))
     	build_v2_protocol_reference (p);
 
-      expr = build_unary_op (ADDR_EXPR, PROTOCOL_V2_FORWARD_DECL (p), 0);
+      params = build_tree_list (NULL_TREE,
+                                my_build_string (IDENTIFIER_LENGTH (protoname) + 1,
+                                                 IDENTIFIER_POINTER (protoname)));
+      gcc_assert (objc_v2_getprotocol_decl);
+      assemble_external (objc_v2_getprotocol_decl);
+      return build_function_call (objc_v2_getprotocol_decl, params);
     }
   else
     {
