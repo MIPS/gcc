@@ -1,3 +1,70 @@
+2006-02-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/25251
+	* tree-cfg.c (cleanup_dead_labels): Also don't remove
+	forced labels.
+
+2006-02-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* tree-flow-inline.h (var_can_have_subvars): 
+	Volatile variables should not have subvariables.
+
+2006-02-09  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 26180
+	* tree-vrp.c (vrp_int_const_binop): Detect overflow when
+	multiplying unsigned values.
+	Tidy comments.
+
+2006-02-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (tls_call_delay): Fix oversight.
+
+2006-02-07  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/26109
+	* pa.c (attr_length_indirect_call): Don't return length 8 for distances
+	>= 240000 when generating code for SOM runtime.
+	(output_indirect_call): Don't use "b,l" instruction for indirect calls
+	to $$dyncall when generating code for SOM runtime..
+
+2006-02-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sol26.h (CPP_SUBTARGET_SPEC): Accept -pthread.
+	* config/sol2.h (CPP_SUBTARGET_SPEC): Likewise.
+	(LIB_SPEC): Likewise.
+	* doc/invoke.texi (SPARC options): Document -pthread.
+
+2006-02-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* configure.ac (TLS assembler check): Do not enable TLS by
+	default on SPARC/Solaris before version 10.
+	* configure: Regenerate.
+
+2006-02-07  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/24444
+	* config/ia64/unwind-ia64.c: Revert last change.
+	* config/ia64/ia64.h (ARG_POINTER_CFA_OFFSET): Removed.
+	(INCOMING_FRAME_SP_OFFSET): Define.
+
+2006-02-06  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* config/sparc/freebsd.h (ENDFILE_SPEC): Add space to separate
+	object files.
+
+2006-02-06  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/23359
+	* config/i386/i386.md (trap): Use ASM_SHORT instead of .word.
+
+2006-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* config.gcc (s390-*-linux*): Add s390/t-linux to tmake_file.
+	(s390x-*-linux*): Likewise.
+	* config/s390/t-linux64 (SHLIB_MAPFILES): Removed.
+	* config/s390/t-linux: New file.
+
 2006-02-05  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* config/sparc/sol2-bi.h (SPARC_DEFAULT_CMODEL): Set to CM_MEDMID.

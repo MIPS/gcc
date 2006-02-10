@@ -6875,6 +6875,7 @@ grokdeclarator (const cp_declarator *declarator,
 
 		  type = TREE_OPERAND (decl, 0);
 		  name = IDENTIFIER_POINTER (constructor_name (type));
+		  dname = decl;
 		}
 		break;
 
@@ -7259,6 +7260,7 @@ grokdeclarator (const cp_declarator *declarator,
   if (virtualp && staticp == 2)
     {
       error ("member %qD cannot be declared both virtual and static", dname);
+      storage_class = sc_none;
       staticp = 0;
     }
   friendp = !! declspecs->specs[(int)ds_friend];
