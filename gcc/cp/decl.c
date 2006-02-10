@@ -10584,6 +10584,14 @@ begin_destructor_body (void)
 {
   tree if_stmt;
   tree compound_stmt;
+  /* APPLE LOCAL begin mainline 2006-01-22 4416452 */
+  /* If the CURRENT_CLASS_TYPE is incomplete, we will have already
+     issued an error message. ÊWe still want to try to process the
+     body of the function, but initialize_vtbl_ptrs will crash if
+     TYPE_BINFO is NULL. Ê*/
+  if (!COMPLETE_TYPE_P (current_class_type))
+    return;
+  /* APPLE LOCAL end mainline 2006-01-22 4416452 */
 
   /* If the dtor is empty, and we know there is not any possible
      way we could use any vtable entries, before they are possibly
