@@ -1,3 +1,13 @@
+2006-02-09  Mike Stump  <mrs@apple.com>
+	
+	Radar 4399388
+	* config/i386/i386.c (cw_canonicalize_bracket_1): Add.
+	(cw_canonicalize_bracket): Improve.
+	(cw_is_offset): Add NEGATE_EXPR support.
+	(cw_print_op): Improve BRACKET_EXPR handling.
+	* c-common.c (print_cw_asm_operand): Add parens around
+	NEGATE_EXPR.
+
 2006-02-08  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4176531 (revised version of 27jan06 patch)

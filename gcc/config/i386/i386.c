@@ -18855,8 +18855,99 @@ cw_is_offset (tree v)
       && cw_is_offset (TREE_OPERAND (v, 0))
       && cw_is_offset (TREE_OPERAND (v, 1)))
     return true;
-    
+  if (TREE_CODE (v) == NEGATE_EXPR
+      && cw_is_offset (TREE_OPERAND (v, 0)))
+    return true;
+
   return false;
+}
+
+/* We canonicalize the inputs form of bracket expressions as the input
+   forms are less constrained than what the assembler will accept.
+
+   TOP is the top of the canonical tree we're generating and
+   TREE_OPERAND (, 0) is the offset portion of the expression.  ARGP
+   points to the current part of the tree we're walking.
+
+   Thee tranformations we do:
+
+   (A+O) ==> A
+   (A-O) ==> A
+   (O+A) ==> A
+
+   where O are offset expressions.  */
+
+static void
+cw_canonicalize_bracket_1 (tree* argp, tree top)
+{
+  tree arg = *argp;
+  tree offset = TREE_OPERAND (top, 0);
+  tree arg0, arg1;
+
+  switch (TREE_CODE (arg))
+    {
+    case BRACKET_EXPR:
+    case PLUS_EXPR:
+      arg0 = TREE_OPERAND (arg, 0);
+      arg1 = TREE_OPERAND (arg, 1);
+
+      if (cw_is_offset (arg0))
+	{
+	  if (offset != integer_zero_node)
+	    arg0 = build2 (PLUS_EXPR, void_type_node, arg0, offset);
+	  TREE_OPERAND (top, 0) = arg0;
+
+	  *argp = arg1;
+	  if (arg1)
+	    cw_canonicalize_bracket_1 (argp, top);
+	}
+      else if (arg1 && cw_is_offset (arg1))
+	{
+	  if (offset != integer_zero_node)
+	    arg1 = build2 (PLUS_EXPR, void_type_node, arg1, offset);
+	  TREE_OPERAND (top, 0) = arg1;
+	  *argp = arg0;
+	  cw_canonicalize_bracket_1 (argp, top);
+	}
+      else
+	{
+	  cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top);
+	  if (arg1)
+	    cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), top);
+	  if (TREE_OPERAND (arg, 0) == NULL_TREE)
+	    {
+	      if (TREE_OPERAND (arg, 1))
+		{
+		  TREE_OPERAND (arg, 0) = TREE_OPERAND (arg, 1);
+		  TREE_OPERAND (arg, 1) = NULL_TREE;
+		}
+	      else
+		*argp = NULL_TREE;
+	    }
+	}
+      break;
+
+    case MINUS_EXPR:
+      cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top);
+      arg0 = TREE_OPERAND (arg, 0);
+      arg1 = TREE_OPERAND (arg, 1);
+      if (cw_is_offset (arg1))
+	{
+	  offset = TREE_OPERAND (top, 0);
+	  if (offset == integer_zero_node)
+	    arg1 = fold (build1 (NEGATE_EXPR,
+				 TREE_TYPE (arg1),
+				 arg1));
+	  else
+	    arg1 = build2 (MINUS_EXPR, void_type_node, offset, arg1);
+	  TREE_OPERAND (top, 0) = arg1;
+	  *argp = arg0;
+	  cw_canonicalize_bracket_1 (argp, top);
+	}
+      break;
+    default:
+      break;
+    }
 }
 
 /* We canonicalize the inputs form of bracket expressions as the input
@@ -18865,71 +18956,40 @@ cw_is_offset (tree v)
 static void
 cw_canonicalize_bracket (tree arg)
 {
-  if (TREE_OPERAND (arg, 1) == NULL_TREE)
-    {
-      tree arg0 = TREE_OPERAND (arg, 0);
-      /* Let the normal operand printer output this without trying to
-	 decompose it into parts so that things like (%esp + 20) + 4
-	 can be output as 24(%esp) by the optimizer instead of 4(%0)
-	 and burning an "R" with (%esp + 20).  */
-      if (TREE_TYPE (arg0)
-	  && POINTER_TYPE_P (TREE_TYPE (arg0)))
-	return;
+  gcc_assert (TREE_CODE (arg) == BRACKET_EXPR);
 
-      if (TREE_CODE (arg0) == PLUS_EXPR)
-	{
-	  if (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
-	    {
-	      tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
-	      TREE_OPERAND (arg, 0) = op1;
-	      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-	    }
-	  else
-	    {
-	      tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
-	      TREE_OPERAND (arg, 0) = op1;
-	      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-	    }
-	}
-      else if (TREE_CODE (arg0) == MINUS_EXPR)
-	{
-	  tree val = TREE_OPERAND (arg0, 1);
-	  if (TREE_CODE (val) == INTEGER_CST)
-	    {
-	      val = fold (build1 (NEGATE_EXPR,
-				  TREE_TYPE (val),
-				  val));
-	      TREE_OPERAND (arg, 0) = cw_build_bracket (val, NULL_TREE);
-	      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-	    }
-	}
-    }
-
-  if (TREE_CODE (arg) != BRACKET_EXPR)
+  /* Let the normal operand printer output this without trying to
+     decompose it into parts so that things like (%esp + 20) + 4 can
+     be output as 24(%esp) by the optimizer instead of 4(%0) and
+     burning an "R" with (%esp + 20).  */
+  if (TREE_OPERAND (arg, 1) == NULL_TREE
+      && TREE_TYPE (TREE_OPERAND (arg, 0))
+      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg, 0))))
     return;
 
-  if (cw_is_offset (TREE_OPERAND (arg, 0)))
-    TREE_OPERAND (arg, 0) = cw_build_bracket (TREE_OPERAND (arg, 0), NULL_TREE);
-
-  if (TREE_CODE (TREE_OPERAND (arg, 0)) == BRACKET_EXPR
-      && cw_is_offset (TREE_OPERAND (TREE_OPERAND (arg, 0), 0)))
+  /* Ensure that 0 is an offset */
+  if (TREE_OPERAND (arg, 0)
+      && cw_is_offset (TREE_OPERAND (arg, 0)))
     {
-      tree arg0 = TREE_OPERAND (arg, 0);
-      tree arg1 = TREE_OPERAND (arg, 1);
-
-      while (arg1
-	     && (TREE_CODE (arg1) == PLUS_EXPR || TREE_CODE (arg1) == MINUS_EXPR)
-	     && cw_is_offset (TREE_OPERAND (arg1, 1)))
-	{
-	  tree swp = TREE_OPERAND (arg1, 0);
-	  TREE_OPERAND (arg1, 0) = TREE_OPERAND (arg0, 0);
-	  TREE_OPERAND (arg0, 0) = arg1;
-	  TREE_OPERAND (arg, 1) = swp;
-
-	  arg0 = TREE_OPERAND (arg, 0);
-	  arg1 = TREE_OPERAND (arg, 1);
-	}
+      /* we win if 0 is an offset already. */
     }
+  else if (TREE_OPERAND (arg, 1) == NULL_TREE)
+    {
+      /* Move 0 to 1, if 1 is empty and 0 isn't already an offset */
+      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg, 0);
+      TREE_OPERAND (arg, 0) = integer_zero_node;
+    }
+  else
+    {
+      tree swp;
+      /* Just have to force it now */
+      swp = cw_build_bracket (TREE_OPERAND (arg, 0), TREE_OPERAND (arg, 1));
+      TREE_OPERAND (arg, 0) = integer_zero_node;
+      TREE_OPERAND (arg, 1) = swp;
+    }
+    
+  if (TREE_OPERAND (arg, 1))
+    cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), arg);
 }
 
 /* We canonicalize the instruction by swapping operands and rewritting
@@ -19132,19 +19192,35 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
     {
     case BRACKET_EXPR:
       {
-	tree op2 = TREE_OPERAND (arg, 0);
-	tree op3 = TREE_OPERAND (arg, 1);
-	tree op0 = NULL_TREE, op1 = NULL_TREE;
+	tree op1 = TREE_OPERAND (arg, 0);
+	tree op2 = TREE_OPERAND (arg, 1);
+	tree op0 = NULL_TREE, op3 = NULL_TREE;
 	tree scale = NULL_TREE;
+
+	if (op2 == NULL_TREE
+	    && TREE_TYPE (op1)
+	    && POINTER_TYPE_P (TREE_TYPE (op1)))
+	  {
+	    /* Let the normal operand printer output this without trying to
+	       decompose it into parts so that things like (%esp + 20) + 4
+	       can be output as 24(%esp) by the optimizer instead of 4(%0)
+	       and burning an "R" with (%esp + 20).  */
+	    cw_force_constraint ("m", e);
+	    op1 = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (op1)), op1);
+	    op1 = fold (op1);
+	    cw_asm_get_register_var (op1, "", buf, argnum, must_be_reg, e);
+	    cw_force_constraint (0, e);
+	    break;
+	  }
 
 	if (TREE_CODE (op2) == BRACKET_EXPR)
 	  {
-	    op1 = TREE_OPERAND (op2, 0);
-	    op2 = TREE_OPERAND (op2, 1);
-	    if (TREE_CODE (op1) == BRACKET_EXPR)
+	    op3 = TREE_OPERAND (op2, 1);
+	    op2 = TREE_OPERAND (op2, 0);
+	    if (TREE_CODE (op2) == BRACKET_EXPR)
 	      {
-		op0 = TREE_OPERAND (op1, 1);
-		op1 = TREE_OPERAND (op1, 0);
+		op0 = TREE_OPERAND (op2, 1);
+		op2 = TREE_OPERAND (op2, 0);
 	      }
 	  }
 	if (op0)
@@ -19156,40 +19232,9 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	    op0 = NULL_TREE;
 	  }
 
-	if (op1 == NULL_TREE
-	    && op3 == NULL_TREE
-	    && op2
-	    && TREE_TYPE (op2)
-	    && POINTER_TYPE_P (TREE_TYPE (op2)))
-	  {
-	    /* Let the normal operand printer output this without trying to
-	       decompose it into parts so that things like (%esp + 20) + 4
-	       can be output as 24(%esp) by the optimizer instead of 4(%0)
-	       and burning an "R" with (%esp + 20).  */
-	    cw_force_constraint ("m", e);
-	    op2 = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (op2)), op2);
-	    op2 = fold (op2);
-	    cw_asm_get_register_var (op2, "", buf, argnum, must_be_reg, e);
-	    cw_force_constraint (0, e);
-	    break;
-	  }
-
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "[");
 
-	if (op3 && cw_is_offset (op3))
-	  {
-	    tree tmp = op1;
-	    op1 = op3;
-	    op3 = tmp;
-	  }
-	else if (cw_is_offset (op2))
-	  {
-	    tree tmp = op1;
-	    op1 = op2;
-	    op2 = op3;
-	    op3 = tmp;
-	  }
 	if (op3 == NULL_TREE
 	    && op2 && TREE_CODE (op2) == PLUS_EXPR)
 	  {
@@ -19202,33 +19247,6 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	    t = op3;
 	    op3 = op2;
 	    op2 = t;
-	  }
-	if (op1 == NULL_TREE)
-	  {
-	    if (op2 && TREE_CODE (op2) == PLUS_EXPR
-		&& cw_is_offset (TREE_OPERAND (op2, 0)))
-	      {
-		op1 = TREE_OPERAND (op2, 0);
-		op2 = TREE_OPERAND (op2, 1);
-	      }
-	    else if (op2 && TREE_CODE (op2) == PLUS_EXPR
-		     && cw_is_offset (TREE_OPERAND (op2, 1)))
-	      {
-		op1 = TREE_OPERAND (op2, 1);
-		op2 = TREE_OPERAND (op2, 0);
-	      }
-	    else if (op3 && TREE_CODE (op3) == PLUS_EXPR
-		&& cw_is_offset (TREE_OPERAND (op3, 0)))
-	      {
-		op1 = TREE_OPERAND (op3, 0);
-		op3 = TREE_OPERAND (op3, 1);
-	      }
-	    else if (op3 && TREE_CODE (op3) == PLUS_EXPR
-		     && cw_is_offset (TREE_OPERAND (op3, 1)))
-	      {
-		op1 = TREE_OPERAND (op3, 1);
-		op3 = TREE_OPERAND (op3, 0);
-	      }
 	  }
 
 	/* Crack out the scaling, if any.  */
@@ -19248,15 +19266,10 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	      }
 	  }
 
-	if (op1)
-	  {
-	    e->as_immediate = true;
-	    print_cw_asm_operand (buf, op1, argnum, uses,
-				  must_be_reg, must_not_be_reg, e);
-	    e->as_immediate = false;
-	  }
-	else
-	  strcat (buf, "0");
+	e->as_immediate = true;
+	print_cw_asm_operand (buf, op1, argnum, uses,
+			      must_be_reg, must_not_be_reg, e);
+	e->as_immediate = false;
 
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "]");
