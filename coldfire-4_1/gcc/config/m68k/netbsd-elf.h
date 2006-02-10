@@ -81,7 +81,7 @@ Boston, MA 02110-1301, USA.  */
 #endif
 
 
-#if TARGET_DEFAULT & MASK_68881
+#if TARGET_DEFAULT & MASK_HARDFP
 #define CPP_FPU_SPEC "%{!msoft-float:-D__HAVE_68881__ -D__HAVE_FPU__}"
 #else
 #define CPP_FPU_SPEC "%{m68881:-D__HAVE_68881__ -D__HAVE_FPU__}"
@@ -289,7 +289,7 @@ while (0)
 
 #undef FUNCTION_VALUE_REGNO_P
 #define FUNCTION_VALUE_REGNO_P(N)					\
-  ((N) == 0 || (N) == 8 || (TARGET_68881 && (N) == 16))
+  ((N) == 0 || (N) == 8 || (TARGET_HARDFP && (N) == 16))
 
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for

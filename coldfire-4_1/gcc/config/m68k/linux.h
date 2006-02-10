@@ -29,7 +29,7 @@ Boston, MA 02110-1301, USA.  */
 #ifdef TARGET_CPU_DEFAULT
 #define TARGET_DEFAULT TARGET_CPU_DEFAULT
 #else
-#define TARGET_DEFAULT (MASK_BITFIELD|MASK_68881|MASK_68020)
+#define TARGET_DEFAULT (MASK_BITFIELD|MASK_HARDFP|MASK_68020)
 #endif
 
 /* for 68k machines this only needs to be TRUE for the 68000 */
@@ -92,7 +92,7 @@ Boston, MA 02110-1301, USA.  */
   while (0)
 
 #undef CPP_SPEC
-#if TARGET_DEFAULT & MASK_68881
+#if TARGET_DEFAULT & MASK_HARDFP
 #define CPP_SPEC \
   "%{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__} %{!msoft-float:-D__HAVE_68881__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 #else
@@ -207,7 +207,7 @@ Boston, MA 02110-1301, USA.  */
 
 #undef FUNCTION_VALUE_REGNO_P
 #define FUNCTION_VALUE_REGNO_P(N) \
-  ((N) == 0 || (N) == 8 || (TARGET_68881 && (N) == 16))
+  ((N) == 0 || (N) == 8 || (TARGET_HARDFP && (N) == 16))
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
    more than one register.  */

@@ -25,12 +25,14 @@ Boston, MA 02110-1301, USA.  */
 
 /* These are values set by the configure script in TARGET_CPU_DEFAULT.
    They are (sequential integer + (desired value for TARGET_DEFAULT) << 4).  */
-#define M68K_CPU_m68k	(0 + ((MASK_68020|MASK_68881|MASK_BITFIELD)<<4))
+
+/* FIXME: I broke the default setting of MASK_68881.  */
+#define M68K_CPU_m68k	(0 + ((MASK_68020|MASK_HARDFP|MASK_BITFIELD)<<4))
 #define M68K_CPU_m68000 (1 + (0 << 4))
 #define M68K_CPU_m68010 (1 + (0 << 4)) /* make same as m68000 */
-#define M68K_CPU_m68020 (2 + ((MASK_68020|MASK_68881|MASK_BITFIELD) << 4))
-#define M68K_CPU_m68030 (3 + ((MASK_68030|MASK_68020|MASK_68881|MASK_BITFIELD) << 4))
-#define M68K_CPU_m68040 (4 + ((MASK_68040_ONLY|MASK_68020|MASK_68881|MASK_BITFIELD) << 4))
+#define M68K_CPU_m68020 (2 + ((MASK_68020|MASK_HARDFP|MASK_BITFIELD) << 4))
+#define M68K_CPU_m68030 (3 + ((MASK_68030|MASK_68020|MASK_HARDFP|MASK_BITFIELD) << 4))
+#define M68K_CPU_m68040 (4 + ((MASK_68040_ONLY|MASK_68020|MASK_HARDFP|MASK_BITFIELD) << 4))
 #define M68K_CPU_m68302 (5 + (0 << 4))
 #define M68K_CPU_m68332 (6 + (MASK_68020 << 4))
 
@@ -115,16 +117,16 @@ Unrecognized value in TARGET_CPU_DEFAULT.
    The default is m68k 99.9% of the time anyway.  */
 
 #if TARGET_CPU_DEFAULT == M68K_CPU_m68k || TARGET_CPU_DEFAULT == M68K_CPU_m68020
-#if TARGET_DEFAULT & MASK_68881
-#define MULTILIB_DEFAULTS { "m68020", "m68881" }
+#if TARGET_DEFAULT & MASK_HARDFP
+#define MULTILIB_DEFAULTS { "m68020", "mhard-float" }
 #else
 #define MULTILIB_DEFAULTS { "m68020", "msoft-float" }
 #endif
 #endif
 
 #if TARGET_CPU_DEFAULT == M68K_CPU_m68000 || TARGET_CPU_DEFAULT == M68K_CPU_m68302
-#if TARGET_DEFAULT & MASK_68881
-#define MULTILIB_DEFAULTS { "m68000", "m68881" }
+#if TARGET_DEFAULT & MASK_HARDFP
+#define MULTILIB_DEFAULTS { "m68000", "mhard-float" }
 #else
 #define MULTILIB_DEFAULTS { "m68000", "msoft-float" }
 #endif

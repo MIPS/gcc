@@ -32,80 +32,11 @@ Boston, MA 02110-1301, USA.  */
 # define MOTOROLA 0  /* Use the MIT assembly syntax.  */
 #endif
 
+
 /* Note that some other tm.h files include this one and then override
    many of the definitions that relate to assembler syntax.  */
 
-#define TARGET_CPU_CPP_BUILTINS()		\
-  do						\
-    {						\
-      builtin_define ("__m68k__");		\
-      builtin_define_std ("mc68000");		\
-      if (TARGET_68040_ONLY)			\
-	{					\
-	  if (TARGET_68060)			\
-	    builtin_define_std ("mc68060");	\
-	  else					\
-	    builtin_define_std ("mc68040");	\
-	}					\
-      else if (TARGET_68060) /* -m68020-60 */	\
-	{					\
-	  builtin_define_std ("mc68060");	\
-	  builtin_define_std ("mc68040");	\
-	  builtin_define_std ("mc68030");	\
-	  builtin_define_std ("mc68020");	\
-	}					\
-      else if (TARGET_68040) /* -m68020-40 */	\
-	{					\
-	  builtin_define_std ("mc68040");	\
-	  builtin_define_std ("mc68030");	\
-	  builtin_define_std ("mc68020");	\
-	}					\
-      else if (TARGET_68030)			\
-	builtin_define_std ("mc68030");		\
-      else if (TARGET_68020)			\
-	builtin_define_std ("mc68020");		\
-      if (TARGET_68881)				\
-	builtin_define ("__HAVE_68881__");	\
-      if (TARGET_CPU32)				\
-	{					\
-	  builtin_define_std ("mc68332");	\
-	  builtin_define_std ("mcpu32");	\
-	}					\
-      if (TARGET_COLDFIRE)			\
-	builtin_define ("__mcoldfire__");	\
-      if (TARGET_5200)				\
-	builtin_define ("__mcf5200__");		\
-      if (TARGET_528x)				\
-	{					\
-	  builtin_define ("__mcf528x__");	\
-	  builtin_define ("__mcf5200__");	\
-	}					\
-      if (TARGET_CFV3)				\
-	{					\
-	  builtin_define ("__mcf5300__");	\
-	  builtin_define ("__mcf5307__");	\
-	}					\
-      if (TARGET_CFV4)				\
-	{					\
-	  builtin_define ("__mcf5400__");	\
-	  builtin_define ("__mcf5407__");	\
-	}					\
-      if (TARGET_CFV4E)				\
-	{					\
-	  builtin_define ("__mcfv4e__");	\
-	}					\
-      if (TARGET_CF_HWDIV)			\
-	builtin_define ("__mcfhwdiv__");	\
-      if (flag_pic)				\
-	{					\
-	  builtin_define ("__pic__");		\
-	  if (flag_pic > 1)			\
-	    builtin_define ("__PIC__");		\
-	}					\
-      builtin_assert ("cpu=m68k");		\
-      builtin_assert ("machine=m68k");		\
-    }						\
-  while (0)
+#define TARGET_CPU_CPP_BUILTINS() m68k_cpu_cpp_builtins (pfile)
 
 /* Classify the groups of pseudo-ops used to assemble QI, HI and SI
    quantities.  */
@@ -117,18 +48,16 @@ Boston, MA 02110-1301, USA.  */
 /* Set the default.  */
 #define INT_OP_GROUP INT_OP_DOT_WORD
 
-/* Compile for a CPU32.  A 68020 without bitfields is a good
-   heuristic for a CPU32.  */
-#define TARGET_CPU32	(TARGET_68020 && !TARGET_BITFIELD)
-
 /* Is the target a ColdFire?  */
-#define MASK_COLDFIRE \
-  (MASK_5200 | MASK_528x | MASK_CFV3 | MASK_CFV4 | MASK_CFV4E)
-#define TARGET_COLDFIRE	((target_flags & MASK_COLDFIRE) != 0)
+#define TARGET_COLDFIRE		m68k_arch_coldfire
 
-#define TARGET_COLDFIRE_FPU	TARGET_CFV4E
+/* FIXME: Use non-TARGET name.  */
+#define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
 
-#define TARGET_HARD_FLOAT	(TARGET_68881 || TARGET_COLDFIRE_FPU)
+/* FIXME: Use non-TARGET name.  */
+#define TARGET_68881		(m68k_fpu == FPUTYPE_68881)
+
+#define TARGET_HARD_FLOAT	(m68k_fpu != FPUTYPE_NONE)
 /* Size (in bytes) of FPU registers.  */
 #define TARGET_FP_REG_SIZE	(TARGET_COLDFIRE ? 8 : 12)
 
@@ -155,7 +84,7 @@ Boston, MA 02110-1301, USA.  */
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using 68040 fp
    instructions, we get proper intermediate rounding, otherwise we
    get extended precision results.  */
-#define TARGET_FLT_EVAL_METHOD ((TARGET_68040_ONLY || ! TARGET_68881) ? 0 : 2)
+#define TARGET_FLT_EVAL_METHOD ((m68k_arch_68040 || ! TARGET_68881) ? 0 : 2)
 
 #define BITS_BIG_ENDIAN 1
 #define BYTES_BIG_ENDIAN 1
@@ -729,7 +658,7 @@ __transfer_from_trampoline ()					\
    || (GET_CODE (X) == PLUS						\
        && LEGITIMATE_BASE_REG_P (XEXP (X, 0))				\
        && GET_CODE (XEXP (X, 1)) == CONST_INT				\
-       && (TARGET_68020							\
+       && (m68k_arch_68020						\
 	   || ((unsigned) INTVAL (XEXP (X, 1)) + 0x8000) < 0x10000))	\
    || (GET_CODE (X) == PLUS && XEXP (X, 0) == pic_offset_table_rtx 	\
        && flag_pic && GET_CODE (XEXP (X, 1)) == SYMBOL_REF)		\
@@ -760,10 +689,10 @@ __transfer_from_trampoline ()					\
 { GO_IF_INDEXING (X, ADDR);						\
   if (GET_CODE (X) == PLUS)						\
     { if (GET_CODE (XEXP (X, 1)) == CONST_INT				\
-	  && (TARGET_68020 || (unsigned) INTVAL (XEXP (X, 1)) + 0x80 < 0x100))		\
+	  && (m68k_arch_68020 || (unsigned) INTVAL (XEXP (X, 1)) + 0x80 < 0x100))		\
 	{ rtx go_temp = XEXP (X, 0); GO_IF_INDEXING (go_temp, ADDR); }	\
       if (GET_CODE (XEXP (X, 0)) == CONST_INT				\
-	  && (TARGET_68020 || (unsigned) INTVAL (XEXP (X, 0)) + 0x80 < 0x100))		\
+	  && (m68k_arch_68020 || (unsigned) INTVAL (XEXP (X, 0)) + 0x80 < 0x100))		\
 	{ rtx go_temp = XEXP (X, 1); GO_IF_INDEXING (go_temp, ADDR); } } }
 
 /* ColdFire/5200 does not allow HImode index registers.  */
@@ -780,13 +709,13 @@ __transfer_from_trampoline ()					\
 
 #define LEGITIMATE_INDEX_P(X)   \
    (LEGITIMATE_INDEX_REG_P (X)				\
-    || ((TARGET_68020 || TARGET_COLDFIRE) && GET_CODE (X) == MULT \
+    || ((m68k_arch_68020 || TARGET_COLDFIRE) && GET_CODE (X) == MULT \
 	&& LEGITIMATE_INDEX_REG_P (XEXP (X, 0))		\
 	&& GET_CODE (XEXP (X, 1)) == CONST_INT		\
 	&& (INTVAL (XEXP (X, 1)) == 2			\
 	    || INTVAL (XEXP (X, 1)) == 4		\
 	    || (INTVAL (XEXP (X, 1)) == 8		\
-		&& (TARGET_CFV4E || !TARGET_COLDFIRE)))))
+		&& (TARGET_COLDFIRE_FPU || !TARGET_COLDFIRE)))))
 
 /* Coldfire FPU only accepts addressing modes 2-5 */
 #define GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\
@@ -834,7 +763,7 @@ __transfer_from_trampoline ()					\
 	{ COPY_ONCE (X); XEXP (X, 1) = force_operand (XEXP (X, 1), 0);}	\
       if (ch && GET_CODE (XEXP (X, 1)) == REG				\
 	  && GET_CODE (XEXP (X, 0)) == REG)				\
-	{ if (TARGET_CFV4E && GET_MODE_CLASS (MODE) == MODE_FLOAT)	\
+	{ if (TARGET_COLDFIRE_FPU && GET_MODE_CLASS (MODE) == MODE_FLOAT) \
 	    { COPY_ONCE (X); X = force_operand (X, 0);}			\
 	  goto WIN; }							\
       if (ch) { GO_IF_LEGITIMATE_ADDRESS (MODE, X, WIN); }		\
@@ -1094,11 +1023,10 @@ enum uarch_type
   u68000,
   u68010,
   u68020,
-  u68030,
   u68040,
   u68060,
+  ucpu32,
   ucfv2,
-  ucfv2m,
   ucfv3,
   ucfv4,
   ucfv4e,
@@ -1122,6 +1050,55 @@ enum fpu_type
   FPUTYPE_COLDFIRE
 };
 
+#define TUNE_68000	(m68k_tune == u68000)
+#define TUNE_68020	(m68k_tune == u68020)
+#define TUNE_68040	(m68k_tune == u68040)
+#define TUNE_68060	(m68k_tune == u68060)
+#define TUNE_68040_60	(TUNE_68040 || TUNE_68060)
+#define TUNE_CPU32	(m68k_tune == ucpu32)
+#define TUNE_CFV2	(m68k_tune == ucfv2)
+#define TUNE_CFV3	(m68k_tune == ucfv3)
+#define TUNE_CFV4	(m68k_tune == ucfv4)
+
 /* Variables in m68k.c */
 extern const char *m68k_library_id_string;
 extern int m68k_last_compare_had_fp_operands;
+
+/* Which CPU we are generating code for.  */
+extern enum processor_type m68k_cpu;
+
+/* Nonzero if 68020 instructions are supported.  */
+extern int m68k_arch_68020;
+
+/* Nonzero if 68040 instructions are supported.  */
+extern int m68k_arch_68040;
+
+/* Nonzero if 68060 instructions are supported.  */
+extern int m68k_arch_68060;
+
+/* Nonzero if this is a ColdFire processor.  */
+extern int m68k_arch_coldfire;
+
+/* Nonzero if ISA_A+ instructions are supported.  */
+extern int m68k_arch_isaaplus;
+
+/* Nonzero if ISA_B instructions are supported.  */
+extern int m68k_arch_isab;
+
+/* Nonzero if ISA_C instructions are supported.  */
+extern int m68k_arch_isac;
+
+/* Which microarchitecture to tune for.  */
+extern enum uarch_type m68k_tune;
+
+/* Which FPU to use.  */
+extern enum fpu_type m68k_fpu;
+
+/* Nonzero if hardware bitfield instructions are supported.  */
+extern int m68k_bitfield;
+
+/* Nonzero if hardware divide is supported.  */
+extern int m68k_cf_hwdiv;
+
+/* Nonzero if user-stack pointer is available.  */
+extern int m68k_cf_usp;

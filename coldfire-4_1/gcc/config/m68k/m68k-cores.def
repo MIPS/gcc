@@ -45,12 +45,10 @@ M68K_CORE("68010",    m68010,    68000,    isa_00,    FL_NOPIC)
 M68K_CORE("68020",    m68020,    68020,    isa_20,    FL_BITFIELD)
 M68K_CORE("68030",    m68030,    68020,    isa_20,    FL_BITFIELD)
 M68K_CORE("68040",    m68040,    68040,    isa_40,    FL_BITFIELD | FL_68881)
-M68K_CORE("68020-40", m68020_40, 68020,    isa_20_40, FL_BITFIELD)
-M68K_CORE("68020-60", m68020_60, 68020,    isa_20_60, FL_BITFIELD)
 M68K_CORE("68060",    m68060,    68060,    isa_60,    FL_BITFIELD | FL_68881)
 M68K_CORE("68302",    m68302,    68000,    isa_00,    0)
-M68K_CORE("68332",    m68332,    68020,    isa_20,    0)
-M68K_CORE("cpu32",    cpu32,     68020,    isa_20,    0)
+M68K_CORE("68332",    m68332,    cpu32,    isa_20,    0)
+M68K_CORE("cpu32",    cpu32,     cpu32,    isa_20,    0)
 
 /* Coldfire CFV2 processors.  */
 /* FIXME: This information was extracted from several different processor

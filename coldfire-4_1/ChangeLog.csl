@@ -1,3 +1,81 @@
+2006-02-10  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/m68k.md: Replace uses of TARGET_68020, TARGET_68040,
+	TARGET_68060, TARGET_68040_ONLY, TARGET_CPU32, TARGET_CFV4 with
+	TUNE_68000, TUNE_68020, TUNE_68040, TUNE_CFV4, m68k_arch_68020,
+	m68k_arch_68040, m68k_arch_68060, m68k_arch_isab as appropriate,
+	throughout.
+	* gcc/config/m68k/linux.h (MASK_68881): Change spelling to MASK_HARDFP.
+	* gcc/config/m68k/m68k-cores.def (68020-40, 68020-60): Remove CPU
+	names.
+	(68332, cpu32): Use cpu32 as microarchitecture.
+	* gcc/config/m68k/m68k-protos.h (m68k_cpu_cpp_builtins): Add prototype.
+	* gcc/config/m68k/m68k-none.h (MASK_68881): Change spelling to
+	MASK_HARDFP. Use -mhard-float instead of -m68881.
+	* gcc/config/m68k/m68k.opt (-m5200, -m5206e, -m528x, -m5307, -m5407)
+	(-mcfv4e, -m68881): Don't use target flags to handle legacy options.
+	(-mhard-float): Add option to enable ColdFire FPU or 68881 depending
+	on context.
+	(-msoft-float): Negation of above.
+	(-mhwdiv): Enable/disable ColdFire hardware divide instructions
+	(unimplemented).
+	* gcc/config/m68k/m68k.c (m68k_cpu, m68k_arch_68020, m68k_arch_68040)
+	(m68k_arch_68060, m68k_arch_coldfire, m68k_arch_isaaplus)
+	(m68k_arch_isab, m68k_arch_isac, m68k_tune, m68k_fpu, m68k_bitfield)
+	(m68k_cf_hwdiv, m68k_cf_usp): New variables describing target
+	capabilities.
+	(FL_FOR_isa_40, FL_FOR_isa_60): Alter definitions.
+	(FL_FOR_isa_20_40, FL_FOR_isa_20_60): Remove.
+	(m68k_isa): Remove isa_20_40 and isa_20_60.
+	(all_cores): Alter last entry.
+	(all_architectures): Reformat. Update various fields. Remove 68020-40
+	and 68020-60. Remove cfvX entries.
+	(all_tunings): New array. Describe different tuning options.
+	(m68k_select): Tune for microarch not CPU.
+	(MASK_ALL_CPU_BITS): Remove.
+	(m68k_handle_option): Handle legacy options using new CPU/tuning
+	selection code. Add support for -mhard-float and fix support for
+	-msoft-float, -m68881.
+	(override_options): Add tuning support. Remove legacy target flag
+	support.
+	(m68k_cpu_cpp_builtins): New function (from TARGET_CPU_CPP_BUILTINS
+	in m68k.h). Handle legacy defines, and support new __mcfisaX__ and
+	__mcfvX__ defines to be used in new code.
+	(m68k_output_function_prologue): Use TUNE_* macros and m68k_arch_*
+	predicates.
+	(m68k_output_function_epilogue): Likewise.
+	(m68k_output_pic_call): Likewise.
+	(output_scc_di): Likewise.
+	(const_method): Likewise.
+	(m68k_rtx_costs): Likewise.
+	(output_move_simode_const): Likewise.
+	(output_move_himode): Likewise.
+	(output_move_qimode): Likewise.
+	(output_move_stricthi): Likewise.
+	(output_move_strictqi): Likewise.
+	(output_addsi3): Likewise.
+	(standard_68881_constant_p): Likewise.
+	(print_operand): Likewise.
+	(m68k_output_mi_thunk): Likewise.
+	* gcc/config/m68k/netbsd-elf.h (MASK_68881): Spell MASK_HARDFP.
+	* gcc/config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Implement as
+	function call to m68k_cpu_cpp_builtins.
+	(TARGET_CPU32): Remove.
+	(TARGET_COLDFIRE): Define as m68k_arch_coldfire.
+	(TARGET_COLDFIRE_FPU, TARGET_68881, TARGET_HARD_FLOAT): Define in terms
+	of m68k_fpu.
+	(TARGET_FLT_EVAL_METHOD): Use m68k_arch_68040.
+	(CONST_OK_FOR_LETTER_P): Add 'R' constraint.
+	(INDIRECTABLE_1_ADDRESS_P, GO_IF_INDEXED_ADDRESS, LEGITIMATE_INDEX_P):
+	Use m68k_arch_68020.
+	(uarch_type): Remove u68030, ucfv2m. Add ucpu32.
+	(TUNE_68000, TUNE_68020, TUNE_68040, TUNE_68060, TUNE_68040_60)
+	(TUNE_CPU32, TUNE_CFV2, TUNE_CFV3, TUNE_CFV4): Add tuning macros.
+	(m68k_cpu, m68k_arch_68020, m68k_arch_68040, m68k_arch_68060)
+	(m68k_arch_coldfire, m68k_arch_isaaplus, m68k_arch_isab)
+	(m68k_arch_isac, m68k_tune, m68k_fpu, m68k_bitfield, m68k_cf_hwdiv)
+	(m68k_cf_usp): Declare extern variables describing target capabilities.
+
 2006-02-01  Nathan Sidwell  <nathan@voldemort.voldemort.codesourcery.com>
 
 	* gcc/config/m68k/lb1sf68.asm (__divsf3, __divdf3, __mulsf3,
