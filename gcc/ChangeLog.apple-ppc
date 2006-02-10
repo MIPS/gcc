@@ -1,3 +1,12 @@
+2006-02-10  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4430139 4431497
+	* tree.h: Remove reversed_flag.
+	(record_layout_info_s):  Add among_reversed_bitfields,
+	reversed_bitfield_type_size, reversed_bitfield_bitpos.
+	* stor-layout.c (place_field):  Rewrite
+	reversed-bitfield logic to use them.
+
 2006-02-09  Devang Patel  <dpatel@apple.com>
 
 	Radar 4435472

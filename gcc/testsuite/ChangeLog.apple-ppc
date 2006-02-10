@@ -1,3 +1,19 @@
+2006-02-10  Dale Johannesen  <dalej@apple.com>
+	
+	Radar 4430139 4431497
+	* gcc.apple/bitreverse-10.c:  Return from main.
+	* gcc.apple/bitreverse-18.c:  New.
+	* gcc.apple/bitreverse-19.c:  New.
+	* gcc.apple/bitreverse-20.c:  New.
+	* gcc.apple/bitreverse-21.c:  New.
+	* gcc.apple/bitreverse-22.c:  New.
+	* gcc.apple/bitreverse-24.c:  New.
+	* gcc.apple/bitreverse-25.c:  New.
+	* gcc.apple/bitreverse-26.c:  New.
+	* gcc.apple/bitreverse-27.c:  New.
+	* g++.dg/bitreverse-10.C:  Return from main.
+	* g++.dg/bitreverse-23.C:  New.
+
 2006-02-09  Mike Stump  <mrs@apple.com>
 
 	Radar 4399388
