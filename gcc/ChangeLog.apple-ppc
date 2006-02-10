@@ -1,3 +1,8 @@
+2006-02-09  Devang Patel  <dpatel@apple.com>
+
+	Radar 4435472
+	* config/darwin-driver.c (main.c): Check --save-temps.
+
 2006-02-09  Mike Stump  <mrs@apple.com>
 	
 	Radar 4399388
