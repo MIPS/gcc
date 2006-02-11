@@ -1,3 +1,8 @@
+2006-02-10  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4439051
+	* config/i386/darwin.h (DBX_REGISTER_NUMBER): Define.
+
 2006-02-07  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4430041

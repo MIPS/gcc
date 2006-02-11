@@ -255,3 +255,15 @@ extern int flag_cw_asm_blocks;
 /* APPLE LOCAL begin CW asm blocks */
 #define CW_ASM_REGISTER_NAME(STR, BUF) i386_cw_asm_register_name (STR, BUF)
 /* APPLE LOCAL end CW asm blocks */
+
+/* APPLE LOCAL begin mainline 2006-02-10 4439051 */
+/* Darwin uses the standard DWARF register numbers but the default
+   register numbers for STABS.  Fortunately for 64-bit code the
+   default and the standard are the same.  */
+#undef DBX_REGISTER_NUMBER
+#define DBX_REGISTER_NUMBER(n) (TARGET_64BIT			\
+				? dbx64_register_map[n]		\
+				: write_symbols == DWARF2_DEBUG	\
+				? svr4_dbx_register_map[n]	\
+				: dbx_register_map[n])
+/* APPLE LOCAL end mainline 2006-02-10 4439051 */
