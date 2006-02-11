@@ -266,7 +266,8 @@
 4157563: gcc.dg/stabs-4232445.c (test for excess errors)
 4331438: gcc.apple/asm-test-nofralloc.c execution test
 4331439: gcc.apple/longcall-1.c (test for excess errors)
-4331447: gcc.apple/fix-and-continue-1.c (test for excess errors)
+#4331447: gcc.apple/fix-and-continue-1.c (test for excess errors)
+4440905: gcc.dg/range-test-1.c (test for excess errors)
 #
 # the following failures are for x86 only
 3846097: gcc.c-torture/execute/builtins/strcat.c execution,  -fast
