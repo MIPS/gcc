@@ -1,5 +1,10 @@
 2006-02-10  Dale Johannesen  <dalej@apple.com>
 
+        Radar 4420531
+	* doc/invoke.texi:  Warn that -ftree-loop-linear is buggy.
+
+2006-02-10  Dale Johannesen  <dalej@apple.com>
+
 	Radar 4430139 4431497
 	* tree.h: Remove reversed_flag.
 	(record_layout_info_s):  Add among_reversed_bitfields,
