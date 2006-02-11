@@ -5287,7 +5287,7 @@ This flag is disabled by default.
 Perform loop optimizations on trees.  This flag is enabled by default
 at @option{-O} and higher.
 
-@item -ftree-loop-linear 
+@item -ftree-loop-linear
 Perform linear loop transformations on tree.  This flag can improve cache
 performance and allow further loop optimizations to take place.
 @c APPLE LOCAL begin buggy opt 4420531 3950497 3984937 4013797

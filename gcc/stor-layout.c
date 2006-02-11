@@ -547,10 +547,11 @@ start_record_layout (tree t)
   rli->prev_field = 0;
   rli->pending_statics = 0;
   rli->packed_maybe_necessary = 0;
-  /* APPLE LOCAL 4401223 4401224 */
+  /* APPLE LOCAL begin bitfield reversal */
   rli->among_reversed_bitfields = 0;
   rli->reversed_bitfield_type_size = 0;
   rli->reversed_bitfield_bitpos = 0;
+  /* APPLE LOCAL end bitfield reversal */
 
   return rli;
 }
@@ -824,7 +825,7 @@ excess_unit_span (HOST_WIDE_INT byte_offset, HOST_WIDE_INT bit_offset,
 }
 #endif
 
-/* APPLE LOCAL bitfield reversal */
+/* APPLE LOCAL begin bitfield reversal */
 /* 4401223 4401224 4420068 4317709 4431497 4433004 4430139 4436477 */
 /* RLI contains information about the layout of a RECORD_TYPE.  FIELD
    is a FIELD_DECL to be added after those fields already present in

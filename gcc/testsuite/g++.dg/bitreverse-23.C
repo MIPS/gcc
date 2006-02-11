@@ -1,4 +1,4 @@
-/* APPLE LOCAL 4430139 */
+/* APPLE LOCAL file 4430139 */
 extern "C" void abort();
 /* { dg-do run { target powerpc*-*-darwin* } } */
 /* Check that layout works in presence of things other than
