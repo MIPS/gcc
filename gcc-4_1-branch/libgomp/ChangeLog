@@ -3,6 +3,17 @@
 	* testsuite/libgomp.fortran/vla7.f90: Add -w to options.
 	Remove tests for returning assumed character length arrays.
 
+2006-02-12  Roger Sayle  <roger@eyesopen.com>
+	    John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	PR libgomp/25936
+	* configure.tgt: Link against -lrt for sem_init on HPUX v11 systems.
+ 
+2006-02-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* testsuite/lib/libgomp-dg.exp (libgomp_init): Compute multilib related
+	part of LD_LIBRARY_PATH manually.
+
 2006-02-03  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR libgomp/25852
