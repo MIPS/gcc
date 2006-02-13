@@ -1,17 +1,8 @@
 ! { dg-do run }
+! { dg-options "-w" }
 
   character (6) :: c, f2
   character (6) :: d(2)
-  interface
-    function f4 (n)
-      integer :: n
-      character (n), dimension (2) :: f4
-    end function f4
-    function f6 (n)
-      integer :: n
-      character (n), dimension (n - 4) :: f6
-    end function f6
-  end interface
   c = f1 (6)
   if (c .ne. 'opqrst') call abort
   c = f2 (6)
@@ -19,11 +10,7 @@
   d = f3 (6)
   if (d(1) .ne. 'opqrst' .or. d(2) .ne. 'a') call abort
   d = f4 (6)
-  if (d(1) .ne. '_/!!/_' .or. d(2) .ne. '-') call abort
-  d = f5 (6)
   if (d(1) .ne. 'Opqrst' .or. d(2) .ne. 'A') call abort
-  d = f6 (6)
-  if (d(1) .ne. '-/!!/_' .or. d(2) .ne. '?') call abort
 contains
   function f1 (n)
     use omp_lib
@@ -88,40 +75,40 @@ contains
     f3(1) = 'opqrst'
     f3(2) = 'a'
   end function f3
-  function f5 (n)
+  function f4 (n)
     use omp_lib
-    character (n), dimension (n - 4) :: f5
+    character (n), dimension (n - 4) :: f4
     logical :: l
-    f5 = 'abcdef'
+    f4 = 'abcdef'
     l = .false.
-!$omp parallel firstprivate (f5) reduction (.or.:l) num_threads (2)
-    l = any (f5 .ne. 'abcdef')
-    if (omp_get_thread_num () .eq. 0) f5 = 'ijklmn'
-    if (omp_get_thread_num () .eq. 1) f5 = 'IJKLMN'
+!$omp parallel firstprivate (f4) reduction (.or.:l) num_threads (2)
+    l = any (f4 .ne. 'abcdef')
+    if (omp_get_thread_num () .eq. 0) f4 = 'ijklmn'
+    if (omp_get_thread_num () .eq. 1) f4 = 'IJKLMN'
 !$omp barrier
-    l = l .or. (omp_get_thread_num () .eq. 0 .and. any (f5 .ne. 'ijklmn'))
-    l = l .or. (omp_get_thread_num () .eq. 1 .and. any (f5 .ne. 'IJKLMN'))
-    l = l .or. size (f5) .ne. 2
+    l = l .or. (omp_get_thread_num () .eq. 0 .and. any (f4 .ne. 'ijklmn'))
+    l = l .or. (omp_get_thread_num () .eq. 1 .and. any (f4 .ne. 'IJKLMN'))
+    l = l .or. size (f4) .ne. 2
 !$omp end parallel
-    f5 = 'zZzz_z'
-!$omp parallel shared (f5) reduction (.or.:l) num_threads (2)
-    l = l .or. any (f5 .ne. 'zZzz_z')
+    f4 = 'zZzz_z'
+!$omp parallel shared (f4) reduction (.or.:l) num_threads (2)
+    l = l .or. any (f4 .ne. 'zZzz_z')
 !$omp barrier
 !$omp master
-    f5 = 'abc'
+    f4 = 'abc'
 !$omp end master
 !$omp barrier
-    l = l .or. any (f5 .ne. 'abc')
+    l = l .or. any (f4 .ne. 'abc')
 !$omp barrier
-    if (omp_get_thread_num () .eq. 1) f5 = 'def'
+    if (omp_get_thread_num () .eq. 1) f4 = 'def'
 !$omp barrier
-    l = l .or. any (f5 .ne. 'def')
-    l = l .or. size (f5) .ne. 2
+    l = l .or. any (f4 .ne. 'def')
+    l = l .or. size (f4) .ne. 2
 !$omp end parallel
     if (l) call abort
-    f5(1) = 'Opqrst'
-    f5(2) = 'A'
-  end function f5
+    f4(1) = 'Opqrst'
+    f4(2) = 'A'
+  end function f4
 end
 function f2 (n)
   use omp_lib
@@ -154,74 +141,3 @@ function f2 (n)
   if (l) call abort
   f2 = '_/!!/_'
 end function f2
-function f4 (n)
-  use omp_lib
-  character (*), dimension (2) :: f4
-  logical :: l
-  f4 = 'abcdef'
-  l = .false.
-!$omp parallel firstprivate (f4) reduction (.or.:l) num_threads (2)
-  l = any (f4 .ne. 'abcdef')
-  if (omp_get_thread_num () .eq. 0) f4 = 'ijklmn'
-  if (omp_get_thread_num () .eq. 1) f4 = 'IJKLMN'
-!$omp barrier
-  l = l .or. (omp_get_thread_num () .eq. 0 .and. f4(1) .ne. 'ijklmn')
-  l = l .or. (omp_get_thread_num () .eq. 0 .and. f4(2) .ne. 'ijklmn')
-  l = l .or. (omp_get_thread_num () .eq. 1 .and. f4(1) .ne. 'IJKLMN')
-  l = l .or. (omp_get_thread_num () .eq. 1 .and. f4(2) .ne. 'IJKLMN')
-!$omp end parallel
-  f4 = 'zZzz_z'
-!$omp parallel shared (f4) reduction (.or.:l) num_threads (2)
-  l = l .or. any (f4 .ne. 'zZzz_z')
-!$omp barrier
-!$omp master
-  f4 = 'abc'
-!$omp end master
-!$omp barrier
-  l = l .or. any (f4 .ne. 'abc')
-!$omp barrier
-  if (omp_get_thread_num () .eq. 1) f4 = 'def'
-!$omp barrier
-  l = l .or. any (f4 .ne. 'def')
-  l = l .or. size (f4) .ne. 2
-!$omp end parallel
-  if (l) call abort
-  f4(1) = '_/!!/_'
-  f4(2) = '-'
-end function f4
-function f6 (n)
-  use omp_lib
-  character (*), dimension (n - 4) :: f6
-  logical :: l
-  f6 = 'abcdef'
-  l = .false.
-!$omp parallel firstprivate (f6) reduction (.or.:l) num_threads (2)
-  l = any (f6 .ne. 'abcdef')
-  if (omp_get_thread_num () .eq. 0) f6 = 'ijklmn'
-  if (omp_get_thread_num () .eq. 1) f6 = 'IJKLMN'
-!$omp barrier
-  l = l .or. (omp_get_thread_num () .eq. 0 .and. f6(1) .ne. 'ijklmn')
-  l = l .or. (omp_get_thread_num () .eq. 0 .and. f6(2) .ne. 'ijklmn')
-  l = l .or. (omp_get_thread_num () .eq. 1 .and. f6(1) .ne. 'IJKLMN')
-  l = l .or. (omp_get_thread_num () .eq. 1 .and. f6(2) .ne. 'IJKLMN')
-  l = l .or. size (f6) .ne. 2
-!$omp end parallel
-  f6 = 'zZzz_z'
-!$omp parallel shared (f6) reduction (.or.:l) num_threads (2)
-  l = l .or. any (f6 .ne. 'zZzz_z')
-!$omp barrier
-!$omp master
-  f6 = 'abc'
-!$omp end master
-!$omp barrier
-  l = l .or. any (f6 .ne. 'abc')
-!$omp barrier
-  if (omp_get_thread_num () .eq. 1) f6 = 'def'
-!$omp barrier
-  l = l .or. any (f6 .ne. 'def')
-  l = l .or. size (f6) .ne. 2
-!$omp end parallel
-  if (l) call abort
-  f6(1) = '-/!!/_'
-  f6(2) = '?'
-end function f6
