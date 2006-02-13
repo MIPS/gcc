@@ -1,3 +1,42 @@
+2006-02-11  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	Backport r110819 and r110840 from the trunk
+	PR fortran/14771
+	* gfortran.h (gfc_intrinsic_op): Add INTRINSIC_PARENTHESES.
+	* dump-parse-tree (gfc_show_expr): Handle INTRINSIC_PARENTHESES.
+	* expr.c (simplify_intrinsic_op): Treat INTRINSIC_PARENTHESES as
+	if it were INTRINSIC_UPLUS.
+	* resolve.c (resolve_operator): Handle INTRINSIC_PARENTHESES.
+	* match.c (intrinsic_operators): Add INTRINSIC_PARENTHESES.
+	* matchexp.c (match_primary): Record parentheses surrounding
+	numeric expressions.
+	* module.c (intrinsics): Add INTRINSIC_PARENTHESES for module
+	dumping.
+	* trans-expr.c (gfc_conv_expr_op): Handle INTRINSIC_PARENTHESES.
+
+	PR fortran/14771
+	* arith.c (eval_intrinsic): Accept INTRINSIC_PARENTHESES.
+	* expr.c (check_intrinsic_op): Likewise.
+	* module.c (mio_expr): Likewise.
+	
+2006-02-10  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/25756
+	* symbol.c (gfc_free_st_label): Give variable meaningful name. Remove
+	unneeded parenthesis. Fix-up the head of the list (2 lines gleaned
+	from g95).
+
+2006-02-10  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/20858
+	*decl.c (variable_decl): Improve error message.  Remove initialization
+	typespec.  Wrap long line.
+	*expr.c (gfc_check_pointer_assign): Permit checking of type, kind type,
+	and rank.
+	*simplify.c (gfc_simplify_null): Ensure type, kind type, and rank
+	are set.
+
+
 2005-02-08  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	PR libfortran/23815

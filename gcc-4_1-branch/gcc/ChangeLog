@@ -1,3 +1,153 @@
+2006-02-11  Jason Merrill  <jason@redhat.com>
+
+	PR tree-opt/24365
+	* tree-inline.c (declare_return_variable): Just don't use the
+	modify target if it's a gimple complex reg and the return slot
+	isn't.
+
+2006-02-11  David Edelsohn  <edelsohn@gnu.org>
+
+	* doc/invoke.texi (xl-compat): Document conversion and support
+	routine names.
+
+2006-02-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/contrib.texi: Update my entry.
+
+2006-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/25864
+	Backport from mainline
+
+	2006-02-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/s390/s390.c (TARGET_MANGLE_FUNDAMENTAL_TYPE): Define.
+	(s390_mangle_fundamental_type): New.
+	* config/s390/linux.h (TARGET_ALTERNATE_LONG_DOUBLE_MANGLING):
+	Define.
+
+	* config/alpha/alpha.c (TARGET_MANGLE_FUNDAMENTAL_TYPE): Define.
+	(alpha_mangle_fundamental_type): New.
+	* config/alpha/linux.h (TARGET_ALTERNATE_LONG_DOUBLE_MANGLING):
+	Define.
+
+	* config/sparc/linux.h (TARGET_ALTERNATE_LONG_DOUBLE_MANGLING):
+	Define.
+	* config/sparc/linux64.h (TARGET_ALTERNATE_LONG_DOUBLE_MANGLING):
+	Define.
+	* config/sparc/sparc.c (TARGET_MANGLE_FUNDAMENTAL_TYPE): Define.
+	(sparc_mangle_fundamental_type): New.
+
+2006-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/25864
+	Backport from mainline
+
+	2006-02-04  David Edelsohn  <edelsohn@gnu.org>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_mangle_fundamental_type): Mangle
+	IBM extended float format long double as "g" on powerpc*-linux.
+
+	2006-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): For
+	-msoft-float -mlong-double-128 only issue a warning, but don't
+	swich to DFmode long double.
+
+	2006-01-28  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/aix43.h (SUBTARGET_OVERRIDE_OPTIONS): -msoft-float
+	and -mlong-double-128 are incompatible.
+	* config/rs6000/aix52.h (SUBTARGET_OVERRIDE_OPTIONS): Same.
+	* config/rs6000/t-aix43 (LIB2FUNCS_EXTRA): Add ppc64-fp.c.
+	(TARGET_LIBGCC2_CFLAGS): Define.
+	* config/rs6000/t-aix52 (LIB2FUNCS_EXTRA): Same.
+	(TARGET_LIBGCC2_CFLAGS): Same.
+	* config/rs6000/ppc64-fp.c: Compile for 64-bit AIX.
+
+	2006-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgcc-std.ver: Add GCC_4.1.0 symbol version.
+	* config/rs6000/t-linux64 (TARGET_LIBGCC2_CFLAGS): Only append
+	-mno-minimal-toc to previous content.
+	(bispecs): Remove goal.
+	* config/rs6000/ppc64-fp.c: Define TMODES before including fp-bit.h.
+	* config/rs6000/darwin-ldouble.c: Don't provide _xlq*@GCC_3.4
+	compatibility aliases on powerpc-*-*gnu*.
+	* config/rs6000/libgcc-ppc-glibc.ver: New file.
+	* config/rs6000/t-ppccomm (SHLIB_MAPFILES): Append
+	libgcc-ppc-glibc.ver on powerpc*-*-*gnu*.
+	(TARGET_LIBGCC2_CFLAGS): Append -specs=ldblspecs.
+	(ldblspecs): New goal.
+	* config/rs6000/t-linux64 (SHLIB_MAPFILES): Removed.
+	* mklibgcc.in: If $TPBIT is empty, don't compile _sf_to_tf and
+	_df_to_tf.
+	* config/fp-bit.h (TMODES): Don't define if none of TFLOAT,
+	L_sf_to_tf or L_df_to_tf is defined.
+
+	2006-01-27  David Edelsohn  <edelsohn@gnu.org>
+		    Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux.h (POWERPC_LINUX): Define.
+	* config/rs6000/linux64.h (POWERPC_LINUX): Define.
+	* config/rs6000/darwin-ldouble.c: Build on 32-bit PowerPC.
+	* config/rs6000/darwin.h (TARGET_IEEEQUAD): Define to zero.
+	* config/rs6000/aix.h (TARGET_IEEEQUAD): Define to zero.
+	* config/rs6000/rs6000.c (rs6000_ieeequad): New variable.
+	(rs6000_override_options): Initialize rs6000_ieeequad.
+	Initialize TFmode format to ibm_extended_format if not
+	TARGET_IEEEQUAD.
+	(rs6000_handle_option): Accept -mabi= ibmlongdouble and
+	ieeelongdouble.
+	(rs6000_emit_move): Move !TARGET_IEEEQUAD as two parts.
+	(rs6000_return_in_memory): Only return IEEEQUAD in memory.
+	(function_arg_advance): IBM long double passed in two FPRs, not
+	split.
+	(function_arg): IBM long double passed in FPRs.
+	(rs6000_pass_by_reference): Only IEEEQUAD passed by reference.
+	(rs6000_gimplify_va_arg): IBM long double passed in two FPRs.
+	Only multireg GPR aligned.
+	(rs6000_init_libfuncs): Enable IBM long double functions if not
+	IEEEQUAD.
+	(rs6000_generate_compare): Use IBM long double compare if not
+	TARGET_IEEEQUAD.
+	* config/rs6000/rs6000.h (rs6000_ieeequad): Declare.
+	(TARGET_IEEEQUAD): Define.
+	(CANNOT_CHANGE_MODE_CLASS): Any mode larger than doubleword if
+	not TARGET_IEEEQUAD.
+	* config/rs6000/rs6000.md: Enable TFmode patterns if
+	!TARGET_IEEEQUAD.
+	* config/rs6000/t-ppccomm (LIB2FUNCS_EXTRA): Add darwin-ldouble.c.
+	* config/rs6000/svr4.h (SUBTARGET_OVERRIDE_OPTIONS): -msoft-float
+	and -mlong-double-128 are incompatible.
+	* doc/invoke.texi (-mabi): Collect options together.  Add
+	ibmlongdouble and ieeelongdouble.
+
+2006-02-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/25979
+	* tree.def: Elaborate on difference from MODIFY_EXPR.
+	* doc/c-tree.texi (INIT_EXPR): Likewise.
+	* gimplify.c (internal_get_tmp_var): Use INIT_EXPR.
+	(gimplify_decl_expr, gimplify_init_ctor_eval): Likewise.
+	(gimplify_target_expr): Likewise.
+	(gimplify_cond_expr): Remove target handling.
+	(gimplify_modify_expr): Don't clobber INIT_EXPR code here.
+	(gimplify_expr): Clobber it here.
+	(gimplify_modify_expr_rhs): Push assignment into COND_EXPR here.
+	Do return slot optimization if we have an INIT_EXPR.
+
+	PR tree-opt/24365
+	* tree-inline.c (declare_return_variable): Also clear 
+	DECL_COMPLEX_GIMPLE_REG_P as needed in the modify_dest case.
+
+	PR c++/16405
+	* gimplify.c (gimplify_modify_expr_rhs): Re-enable *& handling.
+
+	PR middle-end/22439
+	* gimplify.c (gimplify_one_sizepos): Fix typo.
+
 2006-02-09  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR tree-opt/25251
