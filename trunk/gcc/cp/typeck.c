@@ -1607,7 +1607,8 @@ build_class_member_access_expr (tree object, tree member,
   gcc_assert (DECL_P (member) || BASELINK_P (member));
 
   /* APPLE LOCAL begin ObjC new abi */
-  if ((result = objc_v2_build_ivar_ref (object, DECL_NAME (member))))
+  if (DECL_P (member) 
+      && (result = objc_v2_build_ivar_ref (object, DECL_NAME (member))))
     return result;
   /* APPLE LOCAL end ObjC new abi */
 

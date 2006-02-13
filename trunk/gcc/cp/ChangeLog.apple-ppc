@@ -1,3 +1,10 @@
+006-02-13   Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4442245
+	* typeck.c (build_class_member_access_expr):
+	Check for a valid member declaration before calling
+	objc_v2_build_ivar_ref.
+
 006-02-02   Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4426814
