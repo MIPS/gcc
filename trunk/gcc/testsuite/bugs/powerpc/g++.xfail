@@ -140,6 +140,9 @@
 4385023: g++.old-deja/g++.mike/eh33.C execution test
 4385023: g++.old-deja/g++.mike/eh50.C execution test
 4385023: g++.old-deja/g++.mike/eh51.C execution test
+4440880: g++.dg/opt/pr17697-1.C execution test
+4440880: g++.dg/opt/pr17697-2.C execution test
+4440880: g++.dg/opt/pr17697-3.C execution test
 #
 # The following tests fail only when the c++ suite is run on x86
 4241732: g++.dg/asm-block-11.C (test for excess errors)

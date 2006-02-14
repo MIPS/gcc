@@ -4420,6 +4420,13 @@ ix86_select_alt_pic_regnum (void)
 static int
 ix86_save_reg (unsigned int regno, int maybe_eh_return)
 {
+  /* APPLE LOCAL begin CW asm blocks */
+  /* For an asm function, we don't save any registers, instead, the
+     user is responsible.  */
+  if (cfun->cw_asm_function)
+    return 0;
+  /* APPLE LOCAL end CW asm blocks */
+
   if (pic_offset_table_rtx
       && regno == REAL_PIC_OFFSET_TABLE_REGNUM
       && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
@@ -4789,8 +4796,13 @@ ix86_expand_prologue (void)
   if (allocate == 0)
     ;
   else if (! TARGET_STACK_PROBE || allocate < CHECK_STACK_LIMIT)
-    pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
-			       GEN_INT (-allocate), -1);
+  /* APPLE LOCAL begin CW asm blocks */
+    {
+      if (! cfun->cw_asm_function)
+	pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
+				   GEN_INT (-allocate), -1);
+    }
+  /* APPLE LOCAL end CW asm blocks */
   else
     {
       /* Only valid for Win32.  */
@@ -4920,6 +4932,15 @@ ix86_expand_epilogue (int style)
   if (current_function_calls_eh_return && style != 2)
     offset -= 2;
   offset *= -UNITS_PER_WORD;
+
+  /* APPLE LOCAL begin CW asm blocks */
+  /* For an asm function, don't generate an epilogue. */
+  if (cfun->cw_asm_function)
+    {
+      emit_jump_insn (gen_return_internal ());
+      return;
+    }
+  /* APPLE LOCAL end CW asm blocks */
 
   /* If we're only restoring one register and sp is not valid then
      using a move instruction to restore the register since it's
@@ -6616,17 +6637,16 @@ ix86_delegitimize_address (rtx orig_x)
       return x;
     }
 
-  /* APPLE LOCAL begin radar 4168635 */
+  /* APPLE LOCAL begin mainline 4.2 2006-02-07 4430041 */
   if (TARGET_MACHO && darwin_local_data_pic (x)
-      && GET_CODE (XEXP (x, 0)) == SYMBOL_REF
-      && CONSTANT_POOL_ADDRESS_P (XEXP (x, 0))
       && GET_CODE (orig_x) != MEM)
     {
+      x = XEXP (x, 0);
       if (y)
-        return orig_x;
-      return XEXP (x, 0);
+	return gen_rtx_PLUS (Pmode, y, x);
+      return x;
     }
-  /* APPLE LOCAL end radar 4168635 */
+  /* APPLE LOCAL end mainline 4.2 2006-02-07 4430041 */
 
   return orig_x;
 }
@@ -8582,6 +8602,325 @@ ix86_unary_operator_ok (enum rtx_code code ATTRIBUTE_UNUSED,
     return FALSE;
   return TRUE;
 }
+
+/* APPLE LOCAL begin 4176531 */
+static void
+ix86_expand_vector_move2 (enum machine_mode mode, rtx op0, rtx op1)
+{
+  rtx operands[2];
+  operands[0] = op0;
+  operands[1] = op1;
+  ix86_expand_vector_move (mode, operands);
+}
+
+static rtvec
+gen_2_4_rtvec (int scalars_per_vector, rtx val, enum machine_mode mode)
+{
+  rtvec rval;
+  switch (scalars_per_vector)
+    {
+    case 2: rval = gen_rtvec (2, val, CONST0_RTX (mode));
+      break;
+    case 4: rval = gen_rtvec (4, val, CONST0_RTX (mode),
+			      CONST0_RTX (mode), CONST0_RTX (mode));
+      break;
+    default: abort ();
+    }
+  return rval;
+}
+
+/* Convert a DFmode value in an SSE register into an unsigned DImode.
+   When -fpmath=387, this is done with an x87 st(0)_FP->signed-int-64
+   conversion, and ignoring the upper 32 bits of the result.  On
+   x86_64, there is an equivalent SSE %xmm->signed-int-64 conversion.
+   On x86_32, we don't have the instruction, nor the 64-bit
+   destination register it requires.  Do the conversion inline in the
+   SSE registers.  For x86_32, -mfpmath=sse only.  */
+const char *
+ix86_expand_convert_DF2SI_sse (rtx operands[])
+{
+  rtx int_zero_as_fp, int_maxval_as_fp, int_two31_as_fp;
+  REAL_VALUE_TYPE rvt_zero, rvt_int_maxval, rvt_int_two31;
+  rtx int_zero_as_xmm, int_maxval_as_xmm;
+  rtx fp_value = operands[1];
+  rtx target = operands[0];
+  rtx large_xmm;
+  rtx large_xmm_v2di;
+  rtx le_op;
+  rtx zero_or_two31_xmm;
+  rtx clamped_result_rtx;
+  rtx final_result_rtx;
+  rtx v_rtx;
+  rtx incoming_value;
+
+  cfun->uses_vector = 1;
+
+  real_from_integer (&rvt_zero, DFmode, 0ULL, 0ULL, 1);
+  int_zero_as_fp = const_double_from_real_value (rvt_zero, DFmode);
+
+  real_from_integer (&rvt_int_maxval, DFmode, 0xffffffffULL, 0ULL, 1);
+  int_maxval_as_fp = const_double_from_real_value (rvt_int_maxval, DFmode);
+
+  real_from_integer (&rvt_int_two31, DFmode, 0x80000000ULL, 0ULL, 1);
+  int_two31_as_fp = const_double_from_real_value (rvt_int_two31, DFmode);
+
+  incoming_value = force_reg (GET_MODE (operands[1]), operands[1]);
+
+  fp_value = gen_reg_rtx (V2DFmode);
+  ix86_expand_vector_move2 (V2DFmode, fp_value, gen_rtx_SUBREG (V2DFmode, incoming_value, 0));
+  large_xmm = gen_reg_rtx (V2DFmode);
+  
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_two31_as_fp, DFmode));
+  ix86_expand_vector_move2 (DFmode, large_xmm, v_rtx);
+  le_op = gen_rtx_fmt_ee (LE, V2DFmode, gen_rtx_SUBREG (V2DFmode, fp_value, 0), large_xmm);
+  /* large_xmm = (fp_value >= 2**31) ? -1 : 0 ; */
+  emit_insn (gen_sse2_vmmaskcmpv2df3 (large_xmm, large_xmm, fp_value, le_op));
+
+  int_maxval_as_xmm = gen_reg_rtx (V2DFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_maxval_as_fp, DFmode));
+  ix86_expand_vector_move2 (DFmode, int_maxval_as_xmm, v_rtx);
+
+  emit_insn (gen_sse2_vmsminv2df3 (fp_value, fp_value, int_maxval_as_xmm));
+
+  int_zero_as_xmm = gen_reg_rtx (V2DFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_zero_as_fp, DFmode));
+
+  ix86_expand_vector_move2 (DFmode, int_zero_as_xmm, v_rtx);
+
+  emit_insn (gen_sse2_vmsmaxv2df3 (fp_value, fp_value, int_zero_as_xmm));
+
+  zero_or_two31_xmm = gen_reg_rtx (V2DFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_two31_as_fp, DFmode));
+  ix86_expand_vector_move2 (DFmode, zero_or_two31_xmm, v_rtx);  
+
+  /* zero_or_two31 = (large_xmm) ? 2**31 : 0; */
+  emit_insn (gen_andv2df3 (zero_or_two31_xmm, zero_or_two31_xmm, large_xmm));
+  /* if (large_xmm) fp_value -= 2**31;  */
+  emit_insn (gen_subv2df3 (fp_value, fp_value, zero_or_two31_xmm));
+  /* assert (0 <= fp_value && fp_value < 2**31);
+     int_result = trunc (fp_value); */
+  clamped_result_rtx = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_cvttpd2dq (clamped_result_rtx, fp_value));
+  final_result_rtx = gen_reg_rtx (V2DImode);
+  emit_move_insn (final_result_rtx,
+		  gen_rtx_SUBREG (V2DImode, clamped_result_rtx, 0));
+
+  large_xmm_v2di = gen_reg_rtx (V2DImode);
+  emit_move_insn (large_xmm_v2di, gen_rtx_SUBREG (V2DImode, large_xmm, 0));
+  emit_insn (gen_ashlv2di3 (large_xmm_v2di, large_xmm_v2di, gen_rtx_CONST_INT (SImode, 31)));
+
+  emit_insn (gen_xorv2di3 (final_result_rtx, final_result_rtx, large_xmm_v2di));
+  if (!rtx_equal_p (target, final_result_rtx))
+    emit_move_insn (target, gen_rtx_SUBREG (SImode, final_result_rtx, 0));
+  return "";
+}
+
+/* Convert a SFmode value in an SSE register into an unsigned DImode.
+   When -fpmath=387, this is done with an x87 st(0)_FP->signed-int-64
+   conversion, and subsequently ignoring the upper 32 bits of the
+   result.  On x86_64, there is an equivalent SSE %xmm->signed-int-64
+   conversion.  On x86_32, we don't have the instruction, nor the
+   64-bit destination register it requires.  Do the conversion inline
+   in the SSE registers.  For x86_32, -mfpmath=sse only.  */
+const char *
+ix86_expand_convert_SF2SI_sse (rtx operands[])
+{
+  rtx int_zero_as_fp, int_two31_as_fp, int_two32_as_fp;
+  REAL_VALUE_TYPE rvt_zero, rvt_int_two31, rvt_int_two32;
+  rtx int_zero_as_xmm;
+  rtx fp_value = operands[1];
+  rtx target = operands[0];
+  rtx large_xmm;
+  rtx two31_xmm, two32_xmm;
+  rtx above_two31_xmm, above_two32_xmm;
+  rtx zero_or_two31_SI_xmm;
+  rtx le_op;
+  rtx zero_or_two31_SF_xmm;
+  rtx int_result_xmm;
+  rtx v_rtx;
+  rtx incoming_value;
+
+  cfun->uses_vector = 1;
+
+  real_from_integer (&rvt_zero, SFmode, 0ULL, 0ULL, 1);
+  int_zero_as_fp = const_double_from_real_value (rvt_zero, SFmode);
+
+  real_from_integer (&rvt_int_two31, SFmode, 0x80000000ULL, 0ULL, 1);
+  int_two31_as_fp = const_double_from_real_value (rvt_int_two31, SFmode);
+
+  real_from_integer (&rvt_int_two32, SFmode, (HOST_WIDE_INT)0x100000000ULL, 0ULL, 1);
+  int_two32_as_fp = const_double_from_real_value (rvt_int_two32, SFmode);
+
+  incoming_value = force_reg (GET_MODE (operands[1]), operands[1]);
+
+  fp_value = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (V4SFmode, fp_value, gen_rtx_SUBREG (V4SFmode, incoming_value, 0));
+  large_xmm = gen_reg_rtx (V4SFmode);
+  
+  /* fp_value = MAX (fp_value, 0.0); */
+  /* Preclude negative values; truncate at zero.  */
+  int_zero_as_xmm = gen_reg_rtx (V4SFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V4SFmode,
+				gen_2_4_rtvec (4, int_zero_as_fp, SFmode));
+  ix86_expand_vector_move2 (SFmode, int_zero_as_xmm, v_rtx);
+  emit_insn (gen_sse_vmsmaxv4sf3 (fp_value, fp_value, int_zero_as_xmm));
+
+  /* two31_xmm = 0x8000000; */
+  two31_xmm = gen_reg_rtx (V4SFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V4SFmode,
+				gen_2_4_rtvec (4, int_two31_as_fp, SFmode));
+  ix86_expand_vector_move2 (SFmode, two31_xmm, v_rtx);
+
+  /* zero_or_two31_xmm = 0x8000000; */
+  zero_or_two31_SF_xmm = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (SFmode, zero_or_two31_SF_xmm, two31_xmm);
+
+  /* above_two31_xmm = (fp_value >= 2**31) ? 0xffff_ffff : 0 ; */
+  above_two31_xmm = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (SFmode, above_two31_xmm, two31_xmm);
+  le_op = gen_rtx_fmt_ee (LE, V4SFmode, above_two31_xmm, gen_rtx_SUBREG (V4SFmode, two31_xmm, 0));
+  emit_insn (gen_sse_vmmaskcmpv4sf3 (above_two31_xmm, above_two31_xmm, fp_value, le_op));
+
+  /* two32_xmm = 0x1_0000_0000; */
+  two32_xmm = gen_reg_rtx (V4SFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V4SFmode,
+				gen_2_4_rtvec (4, int_two32_as_fp, SFmode));
+  ix86_expand_vector_move2 (SFmode, two32_xmm, v_rtx);
+
+  /* above_two32_xmm = (fp_value >= 2**32) ? 0xffff_ffff : 0 ; */
+  above_two32_xmm = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (SFmode, above_two32_xmm, two32_xmm);
+  le_op = gen_rtx_fmt_ee (LE, V4SFmode, above_two32_xmm, gen_rtx_SUBREG (V4SFmode, two32_xmm, 0));
+  emit_insn (gen_sse_vmmaskcmpv4sf3 (above_two32_xmm, above_two32_xmm, fp_value, le_op));
+
+  /* zero_or_two31_SF_xmm = (above_two31_xmm) ? 2**31 : 0; */
+  emit_insn (gen_andv4sf3 (zero_or_two31_SF_xmm, zero_or_two31_SF_xmm, above_two31_xmm));
+
+  /* zero_or_two31_SI_xmm = (above_two31_xmm & 0x8000_0000); */
+  zero_or_two31_SI_xmm = gen_reg_rtx (V4SImode);
+  emit_move_insn (zero_or_two31_SI_xmm, gen_rtx_SUBREG (V4SImode, above_two31_xmm, 0));
+  emit_insn (gen_ashlv4si3 (zero_or_two31_SI_xmm, zero_or_two31_SI_xmm, gen_rtx_CONST_INT (SImode, 31)));
+
+  /* zero_or_two31_SI_xmm = (above_two_31_xmm << 31); */
+  zero_or_two31_SI_xmm = gen_reg_rtx (V4SImode);
+  emit_move_insn (zero_or_two31_SI_xmm, gen_rtx_SUBREG (V4SImode, above_two31_xmm, 0));
+  emit_insn (gen_ashlv4si3 (zero_or_two31_SI_xmm, zero_or_two31_SI_xmm, gen_rtx_CONST_INT (SImode, 31)));
+
+  /* if (above_two31_xmm) fp_value -= 2**31;  */
+  /* If the input FP value is greater than 2**31, subtract that amount
+     from the FP value before conversion.  We'll re-add that amount as
+     an integer after the conversion.  */
+  emit_insn (gen_subv4sf3 (fp_value, fp_value, zero_or_two31_SF_xmm));
+
+  /* assert (0.0 <= fp_value && fp_value < 2**31);
+     int_result_xmm = trunc (fp_value); */
+  /* Apply the SSE double -> signed_int32 conversion to our biased, clamped SF value.  */
+  int_result_xmm = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_cvttps2dq (int_result_xmm, fp_value));
+
+  /* int_result_xmm += zero_or_two_31_SI_xmm; */
+  /* Restore the 2**31 bias we may have subtracted earlier.  If the
+     input FP value was between 2**31 and 2**32, this will unbias the
+     result.
+
+     input_fp_value < 2**31: this won't change the value
+     2**31 <= input_fp_value < 2**32: this will restore the 2**31 bias we subtracted earler
+     input_fp_value >= 2**32: this insn doesn't matter; the next insn will clobber this result
+  */
+  emit_insn (gen_addv4si3 (int_result_xmm, int_result_xmm, zero_or_two31_SI_xmm));
+
+  /* int_result_xmm |= above_two32_xmm; */
+  /* If the input value was greater than 2**32, force the integral
+     result to 0xffff_ffff.  */
+  emit_insn (gen_iorv4si3 (int_result_xmm, int_result_xmm, gen_rtx_SUBREG (V4SImode, above_two32_xmm, 0)));
+
+  if (!rtx_equal_p (target, int_result_xmm))
+    emit_move_insn (target, gen_rtx_SUBREG (SImode, int_result_xmm, 0));
+  return "";
+}
+
+/* Convert an unsigned DImode value into a DFmode, using only SSE.
+   Expects the 64-bit DImode to be supplied as two 32-bit parts in two
+   SSE %xmm registers; result returned in an %xmm register.  For
+   x86_32, -mfpmath=sse, !optimize_size only.  */
+const char *
+ix86_expand_convert_DI2DF_sse (rtx operands[])
+{
+  REAL_VALUE_TYPE bias_lo_rvt, bias_hi_rvt;
+  rtx bias_lo_rtx, bias_hi_rtx;
+  rtx target = operands[0];
+  rtx fp_value = operands[1];
+  rtx fp_value_hi, fp_value_lo;
+  rtx fp_value_hi_xmm, fp_value_lo_xmm;
+  rtx int_xmm;
+  rtx final_result_xmm, result_lo_xmm;
+  rtx biases, exponents;
+  rtvec biases_rtvec, exponents_rtvec;
+
+  cfun->uses_vector = 1;
+
+  int_xmm = gen_reg_rtx (V4SImode);
+
+  fp_value = force_reg (GET_MODE (operands[1]), operands[1]);
+
+  fp_value_lo = gen_rtx_SUBREG (SImode, fp_value, 0);
+  fp_value_lo_xmm = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_loadld (fp_value_lo_xmm, CONST0_RTX (V4SImode), fp_value_lo));
+
+  fp_value_hi = gen_rtx_SUBREG (SImode, fp_value, 4);
+  fp_value_hi_xmm = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_loadld (fp_value_hi_xmm, CONST0_RTX (V4SImode), fp_value_hi));
+
+  ix86_expand_vector_move2 (V4SImode, int_xmm, fp_value_hi_xmm);
+  emit_insn (gen_sse2_punpckldq (int_xmm, int_xmm, fp_value_lo_xmm));
+
+  exponents_rtvec = gen_rtvec (4, GEN_INT (0x45300000UL),
+			       GEN_INT (0x43300000UL),
+			       CONST0_RTX (SImode), CONST0_RTX (SImode));
+  exponents = validize_mem (force_const_mem (V4SImode,
+					     gen_rtx_CONST_VECTOR (V4SImode,
+								   exponents_rtvec)));
+  emit_insn (gen_sse2_punpckldq (int_xmm, int_xmm, exponents));
+
+  final_result_xmm = gen_reg_rtx (V2DFmode);
+  ix86_expand_vector_move2 (V2DFmode, final_result_xmm,
+			    gen_rtx_SUBREG (V2DFmode, int_xmm, 0));
+
+  /* Integral versions of the DFmode 'exponents' above.  */
+  REAL_VALUE_FROM_INT (bias_lo_rvt, 0x00000000000000ULL, 0x100000ULL, DFmode);
+  REAL_VALUE_FROM_INT (bias_hi_rvt, 0x10000000000000ULL, 0x000000ULL, DFmode);
+  bias_lo_rtx = CONST_DOUBLE_FROM_REAL_VALUE (bias_lo_rvt, DFmode);
+  bias_hi_rtx = CONST_DOUBLE_FROM_REAL_VALUE (bias_hi_rvt, DFmode);
+  biases_rtvec = gen_rtvec (2, bias_lo_rtx, bias_hi_rtx);
+  biases = validize_mem (force_const_mem (V2DFmode,
+					  gen_rtx_CONST_VECTOR (V2DFmode,
+								biases_rtvec)));
+  emit_insn (gen_subv2df3 (final_result_xmm, final_result_xmm, biases));
+
+  if (TARGET_SSE3)
+    {
+      emit_insn (gen_sse3_haddv2df3 (final_result_xmm, final_result_xmm,
+				     final_result_xmm));
+    }
+  else
+    {
+      result_lo_xmm = gen_reg_rtx (V2DFmode);
+      ix86_expand_vector_move2 (V2DFmode, result_lo_xmm, final_result_xmm);
+      emit_insn (gen_sse2_unpckhpd (final_result_xmm, final_result_xmm,
+				    final_result_xmm));
+      emit_insn (gen_addv2df3 (final_result_xmm, final_result_xmm, result_lo_xmm));
+    }
+
+  if (!rtx_equal_p (target, final_result_xmm))
+    emit_move_insn (target, gen_rtx_SUBREG (DFmode, final_result_xmm, 0));
+
+  return "";
+}
+/* APPLE LOCAL end 4176531 */
 
 /* A subroutine of ix86_expand_fp_absneg_operator and copysign expanders.
    Create a mask for the sign bit in MODE for an SSE register.  If VECT is
@@ -17157,6 +17496,16 @@ x86_emit_floatuns (rtx operands[2])
       && inmode != DImode)
     abort ();
 
+  /* APPLE LOCAL begin 4176531 */
+  /* This initial implementation for x86_32 supports only unsigned-DI
+     => DF.  Not used when 'optimize_size' is on.  */
+  if (!TARGET_64BIT && inmode == DImode && !optimize_size)
+    {
+      ix86_expand_convert_DI2DF_sse (operands);
+      return;
+    }
+  /* APPLE LOCAL end 4176531 */
+
   out = operands[0];
   in = force_reg (inmode, operands[1]);
   mode = GET_MODE (out);
@@ -18506,8 +18855,99 @@ cw_is_offset (tree v)
       && cw_is_offset (TREE_OPERAND (v, 0))
       && cw_is_offset (TREE_OPERAND (v, 1)))
     return true;
-    
+  if (TREE_CODE (v) == NEGATE_EXPR
+      && cw_is_offset (TREE_OPERAND (v, 0)))
+    return true;
+
   return false;
+}
+
+/* We canonicalize the inputs form of bracket expressions as the input
+   forms are less constrained than what the assembler will accept.
+
+   TOP is the top of the canonical tree we're generating and
+   TREE_OPERAND (, 0) is the offset portion of the expression.  ARGP
+   points to the current part of the tree we're walking.
+
+   Thee tranformations we do:
+
+   (A+O) ==> A
+   (A-O) ==> A
+   (O+A) ==> A
+
+   where O are offset expressions.  */
+
+static void
+cw_canonicalize_bracket_1 (tree* argp, tree top)
+{
+  tree arg = *argp;
+  tree offset = TREE_OPERAND (top, 0);
+  tree arg0, arg1;
+
+  switch (TREE_CODE (arg))
+    {
+    case BRACKET_EXPR:
+    case PLUS_EXPR:
+      arg0 = TREE_OPERAND (arg, 0);
+      arg1 = TREE_OPERAND (arg, 1);
+
+      if (cw_is_offset (arg0))
+	{
+	  if (offset != integer_zero_node)
+	    arg0 = build2 (PLUS_EXPR, void_type_node, arg0, offset);
+	  TREE_OPERAND (top, 0) = arg0;
+
+	  *argp = arg1;
+	  if (arg1)
+	    cw_canonicalize_bracket_1 (argp, top);
+	}
+      else if (arg1 && cw_is_offset (arg1))
+	{
+	  if (offset != integer_zero_node)
+	    arg1 = build2 (PLUS_EXPR, void_type_node, arg1, offset);
+	  TREE_OPERAND (top, 0) = arg1;
+	  *argp = arg0;
+	  cw_canonicalize_bracket_1 (argp, top);
+	}
+      else
+	{
+	  cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top);
+	  if (arg1)
+	    cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), top);
+	  if (TREE_OPERAND (arg, 0) == NULL_TREE)
+	    {
+	      if (TREE_OPERAND (arg, 1))
+		{
+		  TREE_OPERAND (arg, 0) = TREE_OPERAND (arg, 1);
+		  TREE_OPERAND (arg, 1) = NULL_TREE;
+		}
+	      else
+		*argp = NULL_TREE;
+	    }
+	}
+      break;
+
+    case MINUS_EXPR:
+      cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top);
+      arg0 = TREE_OPERAND (arg, 0);
+      arg1 = TREE_OPERAND (arg, 1);
+      if (cw_is_offset (arg1))
+	{
+	  offset = TREE_OPERAND (top, 0);
+	  if (offset == integer_zero_node)
+	    arg1 = fold (build1 (NEGATE_EXPR,
+				 TREE_TYPE (arg1),
+				 arg1));
+	  else
+	    arg1 = build2 (MINUS_EXPR, void_type_node, offset, arg1);
+	  TREE_OPERAND (top, 0) = arg1;
+	  *argp = arg0;
+	  cw_canonicalize_bracket_1 (argp, top);
+	}
+      break;
+    default:
+      break;
+    }
 }
 
 /* We canonicalize the inputs form of bracket expressions as the input
@@ -18516,62 +18956,40 @@ cw_is_offset (tree v)
 static void
 cw_canonicalize_bracket (tree arg)
 {
-  if (TREE_OPERAND (arg, 1) == NULL_TREE)
-    {
-      tree arg0 = TREE_OPERAND (arg, 0);
-      if (TREE_CODE (arg0) == PLUS_EXPR)
-	{
-	  if (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
-	    {
-	      tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
-	      TREE_OPERAND (arg, 0) = op1;
-	      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-	    }
-	  else
-	    {
-	      tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
-	      TREE_OPERAND (arg, 0) = op1;
-	      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-	    }
-	}
-      else if (TREE_CODE (arg0) == MINUS_EXPR)
-	{
-	  tree val = TREE_OPERAND (arg0, 1);
-	  if (TREE_CODE (val) == INTEGER_CST)
-	    {
-	      val = fold (build1 (NEGATE_EXPR,
-				  TREE_TYPE (val),
-				  val));
-	      TREE_OPERAND (arg, 0) = cw_build_bracket (val, NULL_TREE);
-	      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-	    }
-	}
-    }
+  gcc_assert (TREE_CODE (arg) == BRACKET_EXPR);
 
-  if (TREE_CODE (arg) != BRACKET_EXPR)
+  /* Let the normal operand printer output this without trying to
+     decompose it into parts so that things like (%esp + 20) + 4 can
+     be output as 24(%esp) by the optimizer instead of 4(%0) and
+     burning an "R" with (%esp + 20).  */
+  if (TREE_OPERAND (arg, 1) == NULL_TREE
+      && TREE_TYPE (TREE_OPERAND (arg, 0))
+      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg, 0))))
     return;
 
-  if (cw_is_offset (TREE_OPERAND (arg, 0)))
-    TREE_OPERAND (arg, 0) = cw_build_bracket (TREE_OPERAND (arg, 0), NULL_TREE);
-
-  if (TREE_CODE (TREE_OPERAND (arg, 0)) == BRACKET_EXPR
-      && cw_is_offset (TREE_OPERAND (TREE_OPERAND (arg, 0), 0)))
+  /* Ensure that 0 is an offset */
+  if (TREE_OPERAND (arg, 0)
+      && cw_is_offset (TREE_OPERAND (arg, 0)))
     {
-      tree arg0 = TREE_OPERAND (arg, 0);
-      tree arg1 = TREE_OPERAND (arg, 1);
-
-      while ((TREE_CODE (arg1) == PLUS_EXPR || TREE_CODE (arg1) == MINUS_EXPR)
-	     && cw_is_offset (TREE_OPERAND (arg1, 1)))
-	{
-	  tree swp = TREE_OPERAND (arg1, 0);
-	  TREE_OPERAND (arg1, 0) = TREE_OPERAND (arg0, 0);
-	  TREE_OPERAND (arg0, 0) = arg1;
-	  TREE_OPERAND (arg, 1) = swp;
-
-	  arg0 = TREE_OPERAND (arg, 0);
-	  arg1 = TREE_OPERAND (arg, 1);
-	}
+      /* we win if 0 is an offset already. */
     }
+  else if (TREE_OPERAND (arg, 1) == NULL_TREE)
+    {
+      /* Move 0 to 1, if 1 is empty and 0 isn't already an offset */
+      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg, 0);
+      TREE_OPERAND (arg, 0) = integer_zero_node;
+    }
+  else
+    {
+      tree swp;
+      /* Just have to force it now */
+      swp = cw_build_bracket (TREE_OPERAND (arg, 0), TREE_OPERAND (arg, 1));
+      TREE_OPERAND (arg, 0) = integer_zero_node;
+      TREE_OPERAND (arg, 1) = swp;
+    }
+    
+  if (TREE_OPERAND (arg, 1))
+    cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), arg);
 }
 
 /* We canonicalize the instruction by swapping operands and rewritting
@@ -18695,7 +19113,16 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 
   /* movzx isn't part of the AT&T syntax, they spell it movz.  */
   if (strcasecmp (opcode, "movzx") == 0)
-    opcode = "movz";
+    {
+      /* Silly extention of the day, A zero extended move that has the
+	 same before and after size is accepted and it just a normal
+	 move.  */
+      if (argnum == 2
+	  && e->mod[0] == e->mod[1])
+	opcode = "mov";
+      else
+	opcode = "movz";
+    }
 
   if (strncasecmp (opcode, "f", 1) == 0 &&
       (!(strcasecmp (opcode, "fldcw") == 0)))
@@ -18765,19 +19192,35 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
     {
     case BRACKET_EXPR:
       {
-	tree op2 = TREE_OPERAND (arg, 0);
-	tree op3 = TREE_OPERAND (arg, 1);
-	tree op0 = NULL_TREE, op1 = NULL_TREE;
+	tree op1 = TREE_OPERAND (arg, 0);
+	tree op2 = TREE_OPERAND (arg, 1);
+	tree op0 = NULL_TREE, op3 = NULL_TREE;
 	tree scale = NULL_TREE;
+
+	if (op2 == NULL_TREE
+	    && TREE_TYPE (op1)
+	    && POINTER_TYPE_P (TREE_TYPE (op1)))
+	  {
+	    /* Let the normal operand printer output this without trying to
+	       decompose it into parts so that things like (%esp + 20) + 4
+	       can be output as 24(%esp) by the optimizer instead of 4(%0)
+	       and burning an "R" with (%esp + 20).  */
+	    cw_force_constraint ("m", e);
+	    op1 = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (op1)), op1);
+	    op1 = fold (op1);
+	    cw_asm_get_register_var (op1, "", buf, argnum, must_be_reg, e);
+	    cw_force_constraint (0, e);
+	    break;
+	  }
 
 	if (TREE_CODE (op2) == BRACKET_EXPR)
 	  {
-	    op1 = TREE_OPERAND (op2, 0);
-	    op2 = TREE_OPERAND (op2, 1);
-	    if (TREE_CODE (op1) == BRACKET_EXPR)
+	    op3 = TREE_OPERAND (op2, 1);
+	    op2 = TREE_OPERAND (op2, 0);
+	    if (TREE_CODE (op2) == BRACKET_EXPR)
 	      {
-		op0 = TREE_OPERAND (op1, 1);
-		op1 = TREE_OPERAND (op1, 0);
+		op0 = TREE_OPERAND (op2, 1);
+		op2 = TREE_OPERAND (op2, 0);
 	      }
 	  }
 	if (op0)
@@ -18792,19 +19235,6 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "[");
 
-	if (op3 && cw_is_offset (op3))
-	  {
-	    tree tmp = op1;
-	    op1 = op3;
-	    op3 = tmp;
-	  }
-	else if (cw_is_offset (op2))
-	  {
-	    tree tmp = op1;
-	    op1 = op2;
-	    op2 = op3;
-	    op3 = tmp;
-	  }
 	if (op3 == NULL_TREE
 	    && op2 && TREE_CODE (op2) == PLUS_EXPR)
 	  {
@@ -18817,33 +19247,6 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	    t = op3;
 	    op3 = op2;
 	    op2 = t;
-	  }
-	if (op1 == NULL_TREE)
-	  {
-	    if (op2 && TREE_CODE (op2) == PLUS_EXPR
-		&& cw_is_offset (TREE_OPERAND (op2, 0)))
-	      {
-		op1 = TREE_OPERAND (op2, 0);
-		op2 = TREE_OPERAND (op2, 1);
-	      }
-	    else if (op2 && TREE_CODE (op2) == PLUS_EXPR
-		     && cw_is_offset (TREE_OPERAND (op2, 1)))
-	      {
-		op1 = TREE_OPERAND (op2, 1);
-		op2 = TREE_OPERAND (op2, 0);
-	      }
-	    else if (op3 && TREE_CODE (op3) == PLUS_EXPR
-		&& cw_is_offset (TREE_OPERAND (op3, 0)))
-	      {
-		op1 = TREE_OPERAND (op3, 0);
-		op3 = TREE_OPERAND (op3, 1);
-	      }
-	    else if (op3 && TREE_CODE (op3) == PLUS_EXPR
-		     && cw_is_offset (TREE_OPERAND (op3, 1)))
-	      {
-		op1 = TREE_OPERAND (op3, 1);
-		op3 = TREE_OPERAND (op3, 0);
-	      }
 	  }
 
 	/* Crack out the scaling, if any.  */
@@ -18863,15 +19266,11 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	      }
 	  }
 
-	if (op1)
-	  {
-	    e->as_immediate = true;
-	    print_cw_asm_operand (buf, op1, argnum, uses,
-				  must_be_reg, must_not_be_reg, e);
-	    e->as_immediate = false;
-	  }
-	else
-	  strcat (buf, "0");
+	e->as_immediate = true;
+	print_cw_asm_operand (buf, op1, argnum, uses,
+			      must_be_reg, must_not_be_reg, e);
+	e->as_immediate = false;
+
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "]");
 	if (ASSEMBLER_DIALECT == ASM_INTEL)

@@ -1021,6 +1021,15 @@ objc_start_method_definition (tree decl)
     return;
   /* APPLE LOCAL end radar 4290840 */
 
+  /* APPLE LOCAL begin radar 4219590 */
+#ifndef OBJCPLUS
+  /* Indicate no valid break/continue context by setting these variables
+     to some non-null, non-label value.  We'll notice and emit the proper
+     error message in c_finish_bc_stmt.  */
+  c_break_label = c_cont_label = size_zero_node;
+#endif
+  /* APPLE LOCAL end radar 4219590 */
+
   objc_add_method (objc_implementation_context,
 		   decl,
 		   /* APPLE LOCAL C* language */
@@ -5511,9 +5520,9 @@ build_private_template (tree class)
       /* APPLE LOCAL begin ObjC new abi */
       if (flag_objc_abi == 2 || flag_objc_abi == 3)
         CLASS_TYPE (class) = record;
-      /* APPLE LOCAL end ObjC new abi */
     }
 }
+      /* APPLE LOCAL end ObjC new abi */
 
 /* APPLE LOCAL begin ObjC new abi */
 /* struct protocol_t {

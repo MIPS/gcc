@@ -139,6 +139,11 @@ extern void ix86_expand_binary_operator (enum rtx_code,
 extern int ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern void ix86_expand_unary_operator (enum rtx_code, enum machine_mode,
 					rtx[]);
+/* APPLE LOCAL begin 4176531 */
+extern const char *ix86_expand_convert_DF2SI_sse (rtx *);
+extern const char *ix86_expand_convert_SF2SI_sse (rtx *);
+extern const char *ix86_expand_convert_DI2DF_sse (rtx *);
+/* APPLE LOCAL end 4176531 */
 extern rtx ix86_build_signbit_mask (enum machine_mode, bool, bool);
 extern void ix86_expand_fp_absneg_operator (enum rtx_code, enum machine_mode,
 					    rtx[]);

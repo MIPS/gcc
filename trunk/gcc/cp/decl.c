@@ -6697,10 +6697,7 @@ grokdeclarator (const cp_declarator *declarator,
 		else if (TREE_CODE (qualifying_scope) == NAMESPACE_DECL)
 		  in_namespace = qualifying_scope;
 	      }
-	    if (TREE_CODE (decl) == BASELINK)
-	      decl = BASELINK_FUNCTIONS (decl);
-	    if (decl == error_mark_node)
-	      return error_mark_node;
+	    /* APPLE LOCAL begin mainline 2005-12-27 4431091 */
 	    switch (TREE_CODE (decl))
 	      {
 	      case BIT_NOT_EXPR:
@@ -6764,11 +6761,7 @@ grokdeclarator (const cp_declarator *declarator,
 		  }
 		break;
 
-	      case TYPE_DECL:
-		dname = constructor_name (TREE_TYPE (decl));
-		name = IDENTIFIER_POINTER (dname);
-		break;
-
+              /* APPLE LOCAL end mainline 2005-12-27 4431091 */
 	      default:
 		gcc_unreachable ();
 	      }
@@ -7246,8 +7239,7 @@ grokdeclarator (const cp_declarator *declarator,
   else
     {
       unqualified_id = id_declarator->u.id.unqualified_name;
-      if (TREE_CODE (unqualified_id) == BASELINK)
-	unqualified_id = BASELINK_FUNCTIONS (unqualified_id);
+      /* APPLE LOCAL begin mainline 2005-12-27 4431091 */
       switch (TREE_CODE (unqualified_id))
 	{
 	case BIT_NOT_EXPR:
@@ -7255,11 +7247,7 @@ grokdeclarator (const cp_declarator *declarator,
 	    = constructor_name (TREE_OPERAND (unqualified_id, 0));
 	  break;
 
-	case TYPE_DECL:
-	  unqualified_id
-	    = constructor_name (TREE_TYPE (unqualified_id));
-	  break;
-
+        /* APPLE LOCAL end mainline 2005-12-27 4431091 */
 	case IDENTIFIER_NODE:
 	case TEMPLATE_ID_EXPR:
 	  break;
@@ -10398,6 +10386,8 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
     {
       cw_asm_state = cw_asm_decls;
       cw_asm_in_decl = 0;
+      current_function_returns_abnormally = 1;
+      TREE_NO_WARNING (current_function_decl) = 1;
     }
   /* APPLE LOCAL end CW asm blocks */
 
@@ -10594,6 +10584,14 @@ begin_destructor_body (void)
 {
   tree if_stmt;
   tree compound_stmt;
+  /* APPLE LOCAL begin mainline 2006-01-22 4416452 */
+  /* If the CURRENT_CLASS_TYPE is incomplete, we will have already
+     issued an error message. ÊWe still want to try to process the
+     body of the function, but initialize_vtbl_ptrs will crash if
+     TYPE_BINFO is NULL. Ê*/
+  if (!COMPLETE_TYPE_P (current_class_type))
+    return;
+  /* APPLE LOCAL end mainline 2006-01-22 4416452 */
 
   /* If the dtor is empty, and we know there is not any possible
      way we could use any vtable entries, before they are possibly

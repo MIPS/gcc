@@ -1,3 +1,21 @@
+2006-02-13  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4433453
+	* dwarf2out.c (base_type_die): Don't add AT_name here.
+	(subrange_type_die): Don't add AT_name here.
+	(modified_type_die): Rearrange code flow.  Do add AT_name here.
+
+2006-02-10  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4439051
+	* config/i386/darwin.h (DBX_REGISTER_NUMBER): Define.
+
+2006-02-07  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4430041
+	* config/i386/i386.c (ix86_delegitimize_address): Support Darwin
+	PIC addresses.
+
 2006-01-06  Eric Christopher  <echristo@apple.com>
 
         * doc/tm.texi (TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL): Document.

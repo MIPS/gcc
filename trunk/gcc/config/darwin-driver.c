@@ -1245,7 +1245,8 @@ main (int argc, const char **argv)
 	{
 	  new_argv[new_argc++] = argv[i];
 	}
-      else if (! strcmp (argv[i], "-save-temps"))
+      else if (! strcmp (argv[i], "-save-temps")
+	       || ! strcmp (argv[i], "--save-temps"))
 	{
 	  new_argv[new_argc++] = argv[i];
 	  save_temps_seen = 1;

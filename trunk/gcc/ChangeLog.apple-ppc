@@ -94,12 +94,189 @@
 	* c-typeck.c (build_component_ref): Generate the new ivar reference
 	tree.
 
+2006-02-13  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4408439
+	* opts.c (set_debug_level): DWARF is now best for GDB.
+
+2006-02-10  Dale Johannesen  <dalej@apple.com>
+
+        Radar 4420531
+	* doc/invoke.texi:  Warn that -ftree-loop-linear is buggy.
+
+2006-02-10  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4430139 4431497
+	* tree.h: Remove reversed_flag.
+	(record_layout_info_s):  Add among_reversed_bitfields,
+	reversed_bitfield_type_size, reversed_bitfield_bitpos.
+	* stor-layout.c (place_field):  Rewrite
+	reversed-bitfield logic to use them.
+
+2006-02-09  Devang Patel  <dpatel@apple.com>
+
+	Radar 4435472
+	* config/darwin-driver.c (main.c): Check --save-temps.
+
+2006-02-09  Mike Stump  <mrs@apple.com>
+	
+	Radar 4399388
+	* config/i386/i386.c (cw_canonicalize_bracket_1): Add.
+	(cw_canonicalize_bracket): Improve.
+	(cw_is_offset): Add NEGATE_EXPR support.
+	(cw_print_op): Improve BRACKET_EXPR handling.
+	* c-common.c (print_cw_asm_operand): Add parens around
+	NEGATE_EXPR.
+
+2006-02-08  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4176531 (revised version of 27jan06 patch)
+	* gcc/config/i386/i386.md (fixuns_trunc<mode>si2,
+	fixuns_truncdfhi2, fixuns_truncsfhi2): New.
+	(floatunsdidf2): Allow for 32-bit when optimize_size is off.
+	* gcc/config/i386/i386-protos.h
+	(ix86_expand_convert_DF2SI_sse, ix86_expand_convert_SF2SI_sse,
+	ix86_expand_convert_DI2DF_sse): New.
+	* gcc/config/i386/i386.c (ix86_expand_vector_move2,
+	gen_2_4_rtvec, ix86_expand_convert_DF2SI_sse,
+	ix86_expand_convert_SF2SI_sse, ix86_expand_convert_DI2DF_sse): New.
+	(x86_emit_floatuns): Call ix86_expand_convert_DI2DF_sse.
+
+2006-02-08  Mike Stump  <mrs@apple.com>
+
+	Radar 4407059
+	* c-lex.c (c_lex_with_flags): Only recognize "offset" when doing
+	x86 assembly.
+	
+2006-02-03  Mike Stump  <mrs@apple.com>
+
+	Radar 4432782
+	* config/i386/i386.c (x86_canonicalize_operands): A movz with 2
+	operands of the same size is converted to a normal mov.
+
+2006-02-02  Mike Stump  <mrs@apple.com>
+
+	Radar 4433955
+	* c-common.c (cw_asm_get_register_var): Remove static.
+	(pointer_int_sum): Build up ARRAY_REFs when possible.
+	* config/i386/i386.c (cw_canonicalize_bracket): Let forms with
+	pointer types through to optimizer and print_operand.
+	(cw_print_op): Likewise.
+	* config/asm.h (cw_asm_get_register_var): Add.
+	* c-common.c (pointer_int_sum): Strip NOPs for C++.
+
+2006-02-01  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4429317
+	(SWB regressions; back out patch for Radar 4176531.)
+	* gcc/config/i386/i386.md (fixuns_trunc<mode>si2,
+	fixuns_truncdfhi2, fixuns_truncsfhi2): Remove.
+	(floatunsdidf2): Restore to previous.
+	* gcc/config/i386/i386-protos.h
+	(ix86_expand_convert_DF2SI_sse, ix86_expand_convert_SF2SI_sse,
+	ix86_expand_convert_DI2DF_sse): Remove.
+	* gcc/config/i386/i386.c (ix86_expand_vector_move2,
+	gen_2_4_rtvec, ix86_expand_convert_DF2SI_sse,
+	ix86_expand_convert_SF2SI_sse, ix86_expand_convert_DI2DF_sse): Remove.
+	(x86_emit_floatuns): Remove call to ix86_expand_convert_DI2DF_sse.
+
+2006-02-01  Devang Patel  <dpatel@apple.com>
+
+	Radar 4208007
+	* tree-vectorizer.c (vect_print_dump_info): Add vect_dump check.
+
+2006-01-31  Devang Patel  <dpatel@apple.com>
+
+	Radar 4382844
+	* tree-data-ref.c (analyze_array, init_data_ref, 
+	find_data_references_in_loop): Set DR_TYPE.
+	* tree-data-ref.h (data_ref_type): New.
+	(struct data_reference): New member, data reference type.
+	(DR_TYPE): New.
+	* tree-vect-analyze.c (record_ptr_differ_p, 
+	vect_base_object_differ_p): New.
+	(vect_base_addr_differ_p): Check base objects.
+
+2006-01-30  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4176531
+	* gcc/config/i386/i386.c (ix86_expand_convert_DF2SI_sse):
+	Fixes for -Werror.
+
+2006-01-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4420068
+	* stor-layout.c (place_field): don't adjust
+	rli->bitpos and rli->offset after a non-bitfield
+	whose type is zero-sized.
+
+2006-01-27  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4176531
+	* gcc/config/i386/i386.md (fixuns_trunc<mode>si2,
+	fixuns_truncdfhi2, fixuns_truncsfhi2): New.
+	(floatunsdidf2): Allow for 32-bit when optimize_size is off.
+	* gcc/config/i386/i386-protos.h
+	(ix86_expand_convert_DF2SI_sse, ix86_expand_convert_SF2SI_sse,
+	ix86_expand_convert_DI2DF_sse): New.
+	* gcc/config/i386/i386.c (ix86_expand_vector_move2,
+	gen_2_4_rtvec, ix86_expand_convert_DF2SI_sse,
+	ix86_expand_convert_SF2SI_sse, ix86_expand_convert_DI2DF_sse): New.
+	(x86_emit_floatuns): Call ix86_expand_convert_DI2DF_sse.
+
+2006-01-23  Devang Patel  <dpatel@apple.com>
+
+        Radar 4334498
+        * dbxout.c (dbxout_init): Queue void type.
+
+2006-01-23  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4390273
+	* cfgloopmanip.c (create_loop_notes):  Handle case
+	where we move a block outside the loop into the loop,
+	but the preceding block (the latch) was not moved.
+
+2006-01-20  Mike Stump  <mrs@apple.com>
+
+	Radar 4381918
+	* c-decl.c (start_function): Avoid warnings about lack of return
+	in asm functions.
+	* config/i386/i386.c (ix86_save_reg): Don't save any registers for
+	asm functions.
+	(ix86_expand_prologue): Don't adjust the stack for asm functions.
+	(ix86_expand_epilogue): Don't generate most of the epilogue for an
+	asm function, but do generate a ret.
+	* function.c (assign_parms): Don't avoid doing work for asm
+	functions.
+	(expand_function_start): We don't need DECL_RTL for asm functions.
+	(expand_function_end): Use a naked return for asm functions.
+	(expand_function_end): 
+	* gimple-low.c (lower_function_body): Don't generate a return; for
+	asm functions.
+	* tree-inline.c (inline_forbidden_p): Don't inline asm functions on ppc.
+
 2006-01-18  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4405429
 	* gcc/global.c (find_tied_stack_pseudo): Insist on a valid
 	memory address (no pseudos).
 
+2006-01-17  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4383509
+	* dwarf2out.c (debug_frame_section): New.
+	(output_call_frame_info): Use debug_frame_section.  Pass it to
+	dw2_asm_output_offset.
+	(output_die): Pass appropriate section to dw2_asm_output_offset.
+	(output_compilation_unit_header): Likewise.
+	(output_pubnames): Likewise.
+	(output_aranges): Likewise.
+	* dwarf2asm.h (dw2_asm_output_offset): Add section parameter.
+	* dwarf2asm.c (dw2_asm_output_offset): Add base section parameter.
+	Pass to ASM_OUTPUT_DWARF_OFFSET.
+	* doc/tm.texi (SDB and DWARF): Add extra parameter to
+	ASM_OUTPUT_DWARF_OFFSET.  Use @var to indicate metavariables.
+	
 2006-01-13  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4386531

@@ -269,6 +269,12 @@
         (build_ivar_reference): For ivar references call objc_v2_build_ivar_ref
         to generate ivar references using ivar offset variable.
 
+2006-02-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4219590
+	* objc/objc-act.c (objc_start_method_definition): Initialize break/continue
+	labels.
+
 2005-11-29  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4349690

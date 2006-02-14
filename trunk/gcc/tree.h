@@ -290,8 +290,6 @@ struct tree_common GTY(())
   unsigned visited : 1;
   /* APPLE LOCAL "unavailable" attribute (Radar 2809697) --ilr */
   unsigned unavailable_flag : 1;
-  /* APPLE LOCAL bitfield reversal 4228294 */
-  unsigned reversed_flag : 1;
 };
 
 /* The following table lists the uses of each of the above flags and
@@ -3161,10 +3159,11 @@ typedef struct record_layout_info_s
   /* True if we've seen a packed field that didn't have normal
      alignment anyway.  */
   int packed_maybe_necessary;
-  /* APPLE LOCAL begin 4401223 4401224 */
-  /* True if we've seen a bitfield. Used by reverse-bitfields only. */
-  int bitfield_seen;
-  /* APPLE LOCAL end */
+  /* APPLE LOCAL begin bitfield reversal */
+  int among_reversed_bitfields;
+  unsigned int reversed_bitfield_type_size;
+  unsigned int reversed_bitfield_bitpos;
+  /* APPLE LOCAL end bitfield reversal */
 } *record_layout_info;
 
 extern void set_lang_adjust_rli (void (*) (record_layout_info));

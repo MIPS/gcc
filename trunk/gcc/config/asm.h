@@ -75,4 +75,6 @@ extern bool cw_is_prefix (tree);
 extern void cw_skip_to_eol (void);
 extern void cw_force_constraint (const char *c, cw_md_extra_info *e);
 extern tree cw_ptr_conv (tree type, tree exp);
+extern void cw_asm_get_register_var (tree var, const char *modifier, char *buf,
+				     unsigned argnum, bool must_be_reg, cw_md_extra_info *e);
 #endif

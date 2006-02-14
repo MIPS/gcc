@@ -1013,12 +1013,16 @@ make_declarator (cp_declarator_kind kind)
   return declarator;
 }
 
-/* Make a declarator for a generalized identifier.  If non-NULL, the
-   identifier is QUALIFYING_SCOPE::UNQUALIFIED_NAME; otherwise, it is
-   just UNQUALIFIED_NAME.  */
+/* APPLE LOCAL begin mainline 2005-12-27 4431091 */
+/* Make a declarator for a generalized identifier.  If
+   QUALIFYING_SCOPE is non-NULL, the identifier is
+   QUALIFYING_SCOPE::UNQUALIFIED_NAME; otherwise, it is just
+   UNQUALIFIED_NAME.  SFK indicates the kind of special function this
+   is, if any.   */
 
 static cp_declarator *
-make_id_declarator (tree qualifying_scope, tree unqualified_name)
+make_id_declarator (tree qualifying_scope, tree unqualified_name,
+                    special_function_kind sfk)
 {
   cp_declarator *declarator;
 
@@ -1035,13 +1039,18 @@ make_id_declarator (tree qualifying_scope, tree unqualified_name)
   if (qualifying_scope && TYPE_P (qualifying_scope))
     qualifying_scope = TYPE_MAIN_VARIANT (qualifying_scope);
 
+  gcc_assert (TREE_CODE (unqualified_name) == IDENTIFIER_NODE
+           || TREE_CODE (unqualified_name) == BIT_NOT_EXPR
+           || TREE_CODE (unqualified_name) == TEMPLATE_ID_EXPR);
+
   declarator = make_declarator (cdk_id);
   declarator->u.id.qualifying_scope = qualifying_scope;
   declarator->u.id.unqualified_name = unqualified_name;
-  declarator->u.id.sfk = sfk_none;
+  declarator->u.id.sfk = sfk;
 
   return declarator;
 }
+/* APPLE LOCAL end mainline 2005-12-27 4431091 */
 
 /* Make a declarator for a pointer to TARGET.  CV_QUALIFIERS is a list
    of modifiers such as const or volatile to apply to the pointer
@@ -5350,6 +5359,7 @@ cp_parser_unary_operator (cp_token* token)
       /* APPLE LOCAL begin CW asm blocks */
     case CPP_NAME:
       if (cw_asm_state >= cw_asm_decls
+	  && flag_ms_asms
 	  && strcasecmp (IDENTIFIER_POINTER (token->value), "offset") == 0)
 	return ADDR_EXPR;
       /* APPLE LOCAL end CW asm blocks */
@@ -11948,6 +11958,9 @@ cp_parser_direct_declarator (cp_parser* parser,
 	{
 	  tree qualifying_scope;
 	  tree unqualified_name;
+      /* APPLE LOCAL begin mainline 2005-12-27 4431091 */
+      special_function_kind sfk;
+      /* APPLE LOCAL end mainline 2005-12-27 4431091 */
 
 	  /* Parse a declarator-id */
 	  if (dcl_kind == CP_PARSER_DECLARATOR_EITHER)
@@ -12005,8 +12018,8 @@ cp_parser_direct_declarator (cp_parser* parser,
 	      qualifying_scope = type;
 	    }
 
-	  declarator = make_id_declarator (qualifying_scope, 
-					   unqualified_name);
+      /* APPLE LOCAL begin mainline 2005-12-27 4431091 */
+      sfk = sfk_none;
 	  if (unqualified_name)
 	    {
 	      tree class_type;
@@ -12017,39 +12030,65 @@ cp_parser_direct_declarator (cp_parser* parser,
 	      else
 		class_type = current_class_type;
 
-	      if (class_type)
+	      if (TREE_CODE (unqualified_name) == TYPE_DECL)
 		{
-		  if (TREE_CODE (unqualified_name) == BIT_NOT_EXPR)
-		    declarator->u.id.sfk = sfk_destructor;
-		  else if (IDENTIFIER_TYPENAME_P (unqualified_name))
-		    declarator->u.id.sfk = sfk_conversion;
-		  else if (/* There's no way to declare a constructor
-			      for an anonymous type, even if the type
-			      got a name for linkage purposes.  */
-			   !TYPE_WAS_ANONYMOUS (class_type)
-			   && (constructor_name_p (unqualified_name,
-						   class_type)
-			       || (TREE_CODE (unqualified_name) == TYPE_DECL
-				   && (same_type_p 
-				       (TREE_TYPE (unqualified_name),
-					class_type)))))
-		    declarator->u.id.sfk = sfk_constructor;
-
-		  if (ctor_dtor_or_conv_p && declarator->u.id.sfk != sfk_none)
-		    *ctor_dtor_or_conv_p = -1;
+		  /* APPLE LOCAL begin mainline 2006-01-22 4416452 */
+		  tree name_type = TREE_TYPE (unqualified_name);
+		  if (class_type && same_type_p (name_type, class_type))
+		    {
 		  if (qualifying_scope
-		      && TREE_CODE (unqualified_name) == TYPE_DECL
-		      && CLASSTYPE_USE_TEMPLATE (TREE_TYPE (unqualified_name)))
+		      && CLASSTYPE_USE_TEMPLATE (name_type))
 		    {
 		      error ("invalid use of constructor as a template");
-		      inform ("use %<%T::%D%> instead of %<%T::%T%> to name "
-                              "the constructor in a qualified name",
+		      inform ("use %<%T::%D%> instead of %<%T::%D%> to "
+                              "name the constructor in a qualified name",
                               class_type,
 			      DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
-			      class_type, class_type);
+			      class_type, name_type);
+		      declarator = cp_error_declarator;
+		      break;
+		    }
+		  else
+		    unqualified_name = constructor_name (class_type);
+		    }
+		  /* APPLE LOCAL end mainline 2006-01-22 4416452 */
+		  else
+		    {
+		      /* We do not attempt to print the declarator
+		         here because we do not have enough
+		         information about its original syntactic
+		         form.  */
+		      cp_parser_error (parser, "invalid declarator"); /* PR 25663 */
+		      declarator = cp_error_declarator;
+		      break;
 		    }
 		}
+		
+		if (class_type)
+		  {
+		    if (TREE_CODE (unqualified_name) == BIT_NOT_EXPR)
+		      sfk = sfk_destructor;
+		    else if (IDENTIFIER_TYPENAME_P (unqualified_name))
+		      sfk = sfk_conversion;
+		    else if (/* There's no way to declare a constructor
+		                for an anonymous type, even if the type
+		                got a name for linkage purposes.  */
+		              !TYPE_WAS_ANONYMOUS (class_type)
+		              && constructor_name_p (unqualified_name,
+		                                     class_type))
+		    {
+		      unqualified_name = constructor_name (class_type);
+		      sfk = sfk_constructor;
+	            }
+
+		    if (ctor_dtor_or_conv_p && sfk != sfk_none)
+		      *ctor_dtor_or_conv_p = -1;
+		  }
 	    }
+	  declarator = make_id_declarator (qualifying_scope,
+	                                   unqualified_name,
+	                                   sfk);
+      /* APPLE LOCAL end mainline 2005-12-27 4431091 */
 
 	handle_declarator:;
 	  scope = get_scope_of_declarator (declarator);
@@ -12259,6 +12298,8 @@ cp_parser_cv_qualifier_seq_opt (cp_parser* parser)
 static tree
 cp_parser_declarator_id (cp_parser* parser)
 {
+  /* APPLE LOCAL begin mainline 2005-12-27 4431091 */
+  tree id;
   /* The expression must be an id-expression.  Assume that qualified
      names are the names of types so that:
 
@@ -12273,11 +12314,15 @@ cp_parser_declarator_id (cp_parser* parser)
        int S<T>::R<T>::i = 3;
 
      will work, too.  */
-  return cp_parser_id_expression (parser,
+  id = cp_parser_id_expression (parser,
 				  /*template_keyword_p=*/false,
 				  /*check_dependency_p=*/false,
 				  /*template_p=*/NULL,
 				  /*declarator_p=*/true);
+  if (BASELINK_P (id))
+    id = BASELINK_FUNCTIONS (id);
+  return id;
+  /* APPLE LOCAL end mainline 2005-12-27 4431091 */
 }
 
 /* Parse a type-id.
@@ -14032,13 +14077,16 @@ cp_parser_member_declaration (cp_parser* parser)
 	      /* Combine the attributes.  */
 	      attributes = chainon (prefix_attributes, attributes);
 
+	      /* APPLE LOCAL begin mainline 2005-12-27 4431091 */
 	      /* Create the bitfield declaration.  */
 	      decl = grokbitfield (identifier
 				   ? make_id_declarator (NULL_TREE,
-							 identifier)
+							 identifier,
+							 sfk_none)
 				   : NULL,
 				   &decl_specifiers,
 				   width);
+	      /* APPLE LOCAL end mainline 2005-12-27 4431091 */
 	      /* Apply the attributes.  */
 	      cplus_decl_attributes (&decl, attributes, /*flags=*/0);
 	    }
@@ -18574,9 +18622,12 @@ cp_parser_objc_class_ivars (cp_parser* parser)
 	      && (cp_lexer_peek_nth_token (parser->lexer, 2)->type
 		  == CPP_COLON))
 	    {
+	      /* APPLE LOCAL begin 2005-12-27 4431091 */
 	      /* Get the name of the bitfield.  */
 	      declarator = make_id_declarator (NULL_TREE,
-					       cp_parser_identifier (parser));
+					       cp_parser_identifier (parser),
+					       sfk_none);
+	      /* APPLE LOCAL end 2005-12-27 4431091 */
 
 	     eat_colon:
 	      cp_lexer_consume_token (parser->lexer);  /* Eat ':'.  */

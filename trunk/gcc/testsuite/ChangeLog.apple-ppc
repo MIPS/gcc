@@ -40,6 +40,102 @@
 	Radar 4229905
 	* obj-c++.dg/warn5.mm: New
 
+2006-02-10  Dale Johannesen  <dalej@apple.com>
+	
+	Radar 4430139 4431497
+	* gcc.apple/bitreverse-10.c:  Return from main.
+	* gcc.apple/bitreverse-18.c:  New.
+	* gcc.apple/bitreverse-19.c:  New.
+	* gcc.apple/bitreverse-20.c:  New.
+	* gcc.apple/bitreverse-21.c:  New.
+	* gcc.apple/bitreverse-22.c:  New.
+	* gcc.apple/bitreverse-24.c:  New.
+	* gcc.apple/bitreverse-25.c:  New.
+	* gcc.apple/bitreverse-26.c:  New.
+	* gcc.apple/bitreverse-27.c:  New.
+	* g++.dg/bitreverse-10.C:  Return from main.
+	* g++.dg/bitreverse-23.C:  New.
+
+2006-02-09  Mike Stump  <mrs@apple.com>
+
+	Radar 4399388
+	* gcc.apple/asm-block-42.c: Add.
+	* g++.dg/asm-block-42.C: Add.
+
+2006-02-08  Mike Stump  <mrs@apple.com>
+
+	Radar 4429851
+	* gcc.apple/asm-block-41.c: Add.
+	* g++.dg/asm-block-41.C: Add.
+
+2006-02-08  Mike Stump  <mrs@apple.com>
+
+	Radar 4407059
+	* gcc.apple/asm-block-40.c: Add.
+	* g++.dg/asm-block-40.C: Add.
+
+2005-02-07  Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4219590
+	* objc.dg/break-in-ifstmt.m: New.
+
+2006-02-06  Devang Patel  <dpatel@apple.com>
+	
+       Radar 4385002
+       * gcc.dg/vect/vect-align-1.c: Update.
+
+2006-02-03  Mike Stump  <mrs@apple.com>
+
+	Radar 4432782
+	* gcc.apple/asm-block-39.c: Add.
+	* g++.dg/asm-block-39.C: Add.
+
+2006-02-02  Mike Stump  <mrs@apple.com>
+
+	Radar 4433955
+	* gcc.apple/asm-block-37.c: Add.
+	* gcc.apple/asm-block-38.c: Add.
+	* g++.dg/asm-block-37.C: Add.
+	* g++.dg/asm-block-38.C: Add.
+
+2006-02-01  Devang Patel  <dpatel@apple.com>
+
+	Radar 4208007
+	* gcc.dg/R4208007.c: New.
+	
+2006-01-31  Devang Patel  <dpatel@apple.com>
+
+	Radar 4382844
+	* g++.dg/vect/R4382844.cc: New.
+
+2006-01-28  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4420068
+	* gcc.apple/bitreverse-17.c:  New.
+
+2006-01-27  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4176531
+	* testsuite/gcc.dg/4176531.c: New.
+
+2006-01-23  Devang Patel  <dpatel@apple.com>
+
+        Radar 4334498
+        * g++.dg/stab-4334498.C: New.
+
+2006-01-20  Eric Christopher  <echristo@apple.com>
+
+	* g++.old-deja/g++.other/warn4.C: Compile
+	with -Wconversion.
+
+2006-01-20  Mike Stump  <mrs@apple.com>
+
+	Radar 4381918
+	* gcc.apple/asm-function-19.c: Add.
+	* gcc.apple/asm-function-20.c: Add.
+	* g++.dg/asm-function-19.C: Add.
+	* g++.dg/asm-function-20.C: Add.
+
 2006-01-13  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4401223 4401224
