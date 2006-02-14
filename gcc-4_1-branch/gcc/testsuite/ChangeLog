@@ -1,8 +1,50 @@
+2006-02-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26258
+	* gcc.dg/torture/pr26258.c: New testcase.
+
+2006-02-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26074
+	PR fortran/25103
+	* gfortran.dg/module_parameter_array_refs_1.f90: New test.
+	* gfortran.dg/bad_automatic_objects_1.f90: New test.
+	* gfortran.dg/automatic_module_variable.f90: Change error message.
+
+	PR fortran/20861
+	* gfortran.dg/internal_dummy_1.f90: New test.
+
+	PR fortran/20871
+	* gfortran.dg/elemental_non_intrinsic_dummy_1.f90: New test.
+
+
+	PR fortran/25083
+	* gfortran.dg/uncommon_block_data_1.f90: New test.
+	* gfortran.dg/equiv_constraint_7.f90: Correct non-compliance of test
+	with standard.
+
+	PR fortran/25088
+	* gfortran.dg/typed_subroutine_1.f90: New test.
+
 2006-02-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/26246
 	* gfortran.dg/pr26246_1.f90: New test.
 	* gfortran.dg/pr26246_2.f90: New test.
+
+	PR middle-end/26092
+	* gcc.c-torture/compile/20060208-1.c: New test.
+
+2006-02-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26038
+	* gfortran.dg/allocate_char_star_scalar_1.f90: New test.
+
+	PR fortran/25059
+	* gfortran.dg/impure_assignment_1.f90: New test.
+
+	PR fortran/25070
+	* gfortran.dg/assumed_shape_ranks_1.f90: New test.
 
 2006-02-11  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
 
