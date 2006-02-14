@@ -18762,10 +18762,34 @@ ix86_darwin_handle_regparmandstackparm (tree fndecl)
 /* APPLE LOCAL end regparmandstackparm */
 
 /* APPLE LOCAL begin CW asm blocks */
+#include <ctype.h>
 #include "config/asm.h"
 #define CTI_MAX c_CTI_MAX
 #include "c-common.h"
 #undef CTI_MAX
+
+/* Addition register names accepted for inliine assembly that would
+   otherwise not be registers.  This table must be sorted for
+   bsearch.  */
+static const char *additional_names[] = {
+  "AH", "AL", "AX", "BH", "BL", "BP", "BX", "CH", "CL", "CX", "DH",
+  "DI", "DL", "DX", "EAX", "EBP", "EBX", "ECX", "EDI", "EDX", "ESI",
+  "ESP", "MM0", "MM1", "MM2", "MM3", "MM4", "MM5", "MM6", "MM7", "R10",
+  "R11", "R12", "R13", "R14", "R15", "R8", "R9", "RAX", "RBP", "RBX",
+  "RCX", "RDI", "RDX", "RSI", "RSP", "SI", "SP", "ST", "ST(1)", "ST(2)",
+  "ST(3)", "ST(4)", "ST(5)", "ST(6)", "ST(7)", "XMM0", "XMM1", "XMM10",
+  "XMM11", "XMM12", "XMM13", "XMM14", "XMM15", "XMM2", "XMM3", "XMM4",
+  "XMM5", "XMM6", "XMM7", "XMM8", "XMM9" };
+
+/* Comparison function for bsearch to find additional register names.  */
+static int
+cw_reg_comp (const void *a, const void *b)
+{
+  char *const*x = a;
+  char *const*y = b;
+  int c = strcmp (*x, *y);
+  return c;
+}
 
 /* Translate some register names seen in CW asm into GCC standard
    forms.  */
@@ -18773,6 +18797,9 @@ ix86_darwin_handle_regparmandstackparm (tree fndecl)
 const char *
 i386_cw_asm_register_name (const char *regname, char *buf)
 {
+  const char **r;
+
+  /* If we can find the named register, return it.  */
   if (decode_reg_name (regname) >= 0)
     {
       if (ASSEMBLER_DIALECT == ASM_INTEL)
@@ -18780,6 +18807,27 @@ i386_cw_asm_register_name (const char *regname, char *buf)
       sprintf (buf, "%%%s", regname);
       return buf;
     }
+
+  /* If we can find a lower case version of any registers in
+     additional_names, return it.  */
+  r = bsearch (&regname, additional_names,
+	       sizeof (additional_names) / sizeof (additional_names[0]),
+	       sizeof (additional_names[0]), cw_reg_comp);
+  if (r)
+    {
+      char *p;
+      const char *q;
+      q = regname = *r;
+      p = buf;
+      if (ASSEMBLER_DIALECT != ASM_INTEL)
+	*p++ = '%';
+      regname = p;
+      while ((*p++ = tolower (*q++)))
+	;
+      if (decode_reg_name (regname) >= 0)
+	return buf;
+    }
+
   return NULL;
 }
 

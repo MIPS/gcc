@@ -1,3 +1,11 @@
+2006-02-14  Mike Stump  <mrs@apple.com>
+
+	Radar 4415216
+	* config/i386/i386.c: (additional_names): Add.
+	(cw_reg_comp): Add.
+	(i386_cw_asm_register_name): Add support for upper case register
+	names.
+
 2006-02-14  Josh Conner  <jconner@apple.com>
 
 	Radar 4373419
