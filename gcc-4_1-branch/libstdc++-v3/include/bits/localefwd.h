@@ -129,10 +129,12 @@ namespace std
     class codecvt_byname;
 
   // 22.2.2 and 22.2.3 numeric
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
   template<typename _CharT, typename _InIter = istreambuf_iterator<_CharT> >
     class num_get;
   template<typename _CharT, typename _OutIter = ostreambuf_iterator<_CharT> >
     class num_put;
+_GLIBCXX_END_LDBL_NAMESPACE
   template<typename _CharT> class numpunct;
   template<typename _CharT> class numpunct_byname;
 
@@ -155,10 +157,12 @@ namespace std
 
   // 22.2.6 money
   class money_base;
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
   template<typename _CharT, typename _InIter =  istreambuf_iterator<_CharT> >
     class money_get;
   template<typename _CharT, typename _OutIter = ostreambuf_iterator<_CharT> >
     class money_put;
+_GLIBCXX_END_LDBL_NAMESPACE
   template<typename _CharT, bool _Intl = false>
     class moneypunct;
   template<typename _CharT, bool _Intl = false>
