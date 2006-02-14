@@ -423,8 +423,7 @@ void vect_pattern_recog (loop_vec_info);
 
 /** In tree-vect-transform.c  **/
 extern bool vectorizable_load (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_strided_load (tree, block_stmt_iterator *, tree *);
-extern bool vectorizable_store (tree, block_stmt_iterator *, tree *, bool *);
+extern bool vectorizable_store (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_operation (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_type_promotion (tree, block_stmt_iterator *, tree *);
 extern bool vectorizable_type_demotion (tree, block_stmt_iterator *, tree *);

@@ -1,3 +1,7 @@
+2006-02-14  Ira Rosen  <irar@il.ibm.com>
+
+        * gcc.dg/vect/vect-strided-mult-char.c: New.
+ 
 2006-02-09  Victor Kaplansky <victork@il.ibm.com>
 
 	* gcc.dg/vect/vect-ivs-after-loop-1.c: New test.

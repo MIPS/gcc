@@ -1,3 +1,31 @@
+2006-02-14  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-vectorizer.h (vectorizable_strided_load): Remove.
+	(vectorizable_store): Remove parameter.
+	* tree-vect-analyze.c (vect_analyze_operations): Remove call to
+	vectorizable_strided_load.
+	* tree-vect-transform.c (vect_strided_store_supported): New.
+	(vect_permute_store_chain): Add documentation. Call 
+	vect_strided_store_supported.
+	(vect_transform_strided_store): Remove.
+	(vectorizable_store): Remove parameter. Call 
+	vect_strided_store_supported. Cleanup, rename variables. Add
+	documentation. Rearrange the code - unify interleaving with regular
+        case. Don't call vect_transform_strided_store.
+	(vect_strided_load_supported): New.
+	(vect_permute_load_chain): Add documentation. Call 
+	vect_strided_load_supported.
+	(vect_transform_strided_load): Remove parameters. Remove load stmts
+	creation (move it to vectorizable_load).
+	(vect_transform_strided_unaligned_load): Remove (unify with 
+	vect_transform_strided_load and vectorizable_load). 
+        (vectorizable_load): Handle interleaving here (unify with 
+	vectorizable_strided_load). Add documentation. 
+	(vectorizable_strided_load): Remove (unify with vectorizable_load).
+	(vect_transform_stmt): Don't call vectorizable_strided_load. Call
+	vectorizable_store with correct parameters. Add documentation.
+	(vect_transform_loop): Add documentation.
+
 2006-02-14  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* genopinit.c (vec_pack_usat_optab): Fixed to vec_pack_ssat_optab.

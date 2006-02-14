@@ -236,7 +236,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
   bool ok;
   tree phi;
   stmt_vec_info stmt_info;
-  bool need_to_vectorize = false, dummy;
+  bool need_to_vectorize = false;
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "=== vect_analyze_operations ===");
@@ -318,8 +318,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 		    || vectorizable_operation (stmt, NULL, NULL)
 		    || vectorizable_assignment (stmt, NULL, NULL)
 		    || vectorizable_load (stmt, NULL, NULL)
-		    || vectorizable_strided_load (stmt, NULL, NULL)
-		    || vectorizable_store (stmt, NULL, NULL, &dummy)
+		    || vectorizable_store (stmt, NULL, NULL)
 		    || vectorizable_condition (stmt, NULL, NULL));
 
               if (!ok)
