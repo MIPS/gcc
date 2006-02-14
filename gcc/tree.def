@@ -1016,7 +1016,7 @@ DEFTREECODE (VEC_RSHIFT_EXPR, "vec_rshift_expr", tcc_binary, 2)
 
 /* Widening vector multiplication.
    The two operands are vectors with N elements of size S. Multiplying the 
-   elements of the two vectors will results in N producs of size 2*S.
+   elements of the two vectors will result in N products of size 2*S.
    VEC_WIDEN_MULT_HI_EXPR computes the N/2 high products.
    VEC_WIDEN_MULT_LO_EXPR computes the N/2 low products.  */
 DEFTREECODE (VEC_WIDEN_MULT_HI_EXPR, "widen_mult_hi_expr", tcc_binary, 2)

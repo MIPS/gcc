@@ -1757,16 +1757,12 @@ vect_is_simple_use (tree operand, loop_vec_info loop_vinfo, tree * def_stmt,
 
    Check whether an operation represented by the code CODE is a 
    widening operation that is supported by the target platform in 
-   vector form - i.e., if operating on arguments of type VECTYPE.
+   vector form (i.e., when operating on arguments of type VECTYPE).
 
-   STMT is either the stmt that performs the operation in question,
-   or the last stmt in a sequence that eas detected as a pattern
-   that performs the operation in question.
-
-   The two kind of widening operations we currently support are
+   The two kinds of widening operations we currently support are
    NOP and WIDEN_MULT. This function checks if these oprations
-   are supported by the target platform either via vector tree-codes,
-   or via target builtins.
+   are supported by the target platform either directly (via vector 
+   tree-codes), or via target builtins.
 
    Output:
    - CODE1 and CODE2 are codes of vector operations to be used when 
@@ -1800,7 +1796,7 @@ supportable_widening_operation (enum tree_code code, tree stmt, tree vectype,
 
      However, in the special case that the result of the widening operation is 
      used in a reduction copmutation only, the order doesn't matter (because 
-     when vectorizing a reduction we change the oreder of the computation). 
+     when vectorizing a reduction we change the order of the computation). 
      Some targets can take advatage of this and generate more efficient code. 
      For example, targets like Altivec, that support widen_mult using a sequence
      of {mult_even,mult_odd} generate the following vectors:

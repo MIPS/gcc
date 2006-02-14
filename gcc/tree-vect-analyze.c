@@ -2285,11 +2285,16 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
              the def_stmt of these uses we want to set liveness/relevance
              as follows:
                STMT_VINFO_LIVE_P (DEF_STMT_info) <-- false
-               STMT_VINFO_RELEVANT (DEF_STMT_info) <-- true
+               STMT_VINFO_RELEVANT (DEF_STMT_info) <-- vect_used_by_reduction
              because even though STMT is classified as live (since it defines a
              value that is used across loop iterations) and irrelevant (since it
              is not used inside the loop), it will be vectorized, and therefore
-             the corresponding DEF_STMTs need to marked as relevant.
+             the corresponding DEF_STMTs need to marked as relevant. 
+	     We distinguish between two kinds of relevant stmts - those that are
+	     used by a reduction conputation, and those that are (also) used by 
+	     a regular computation. This allows us later on to identify stmts 
+	     that are used solely by a reduction, and therefore the order of 
+	     the results that they produce does not have to be kept.
        */
 
       /* case 2.2:  */
@@ -2309,8 +2314,10 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	  if (!exist_non_indexing_operands_for_use_p (use, stmt))
 	    continue;
 
-	  if ((live_p && !vect_is_simple_live_use (use, loop_vinfo, &def_stmt, &def, &dt))
-	        || (relevant && !vect_is_simple_use (use, loop_vinfo, &def_stmt, &def, &dt)))
+	  if ((live_p && 
+	       !vect_is_simple_live_use (use, loop_vinfo, &def_stmt, &def, &dt))
+	      || (relevant && 
+		  !vect_is_simple_use (use, loop_vinfo, &def_stmt, &def, &dt)))
             {
               if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS))
                 fprintf (vect_dump, "not vectorized: unsupported use in stmt.");

@@ -1,3 +1,20 @@
+2006-02-14  Dorit Nuzman  <dorit@il.ibm.com>
+
+	* genopinit.c (vec_pack_usat_optab): Fixed to vec_pack_ssat_optab.
+	* tree-vectorizer.c (supportable_widening_operation): Fix typos.
+	* tree-vect-analyze.c (vect_mark_stmts_to_be_vectorized): Fix 
+	documentation and 80 column overflow.
+	* tree.def (VEC_WIDEN_MULT_HI_EXPR): Fix typos in documentation.
+	* tree-vect-transform.c (vect_gen_widened_results_half): New function
+	(factored out code from vectorizable_type_promotion).
+	(vectorizable_type_promotion): Call vect_gen_widened_results_half 
+	instead of code that was factored out.
+	(vectorizable_reduction): Remove redundant assert. vec_stmt is not set 
+	to NULL.
+	(vect_transform_stmt): No need to set STMT_VINFO_VEC_STMT after call to
+	vectorizable_reduction.
+	(vectorizable_load): Change 'if' to 'else' of previous 'if'.
+
 2006-02-09  Dorit Nuzman  <dorit@il.ibm.com>
 	    Victor Kaplansky  <victork@il.ibm.com>
 

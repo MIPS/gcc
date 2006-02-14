@@ -229,7 +229,7 @@ static const char * const optabs[] =
   "vec_unpacku_hi_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacku_hi_$a$)",
   "vec_unpacku_lo_optab->handlers[$A].insn_code = CODE_FOR_$(vec_unpacku_lo_$a$)",
   "vec_pack_mod_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_mod_$a$)",
-  "vec_pack_usat_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_ssat_$a$)",
+  "vec_pack_ssat_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_ssat_$a$)",
   "vec_pack_usat_optab->handlers[$A].insn_code = CODE_FOR_$(vec_pack_usat_$a$)"
 };
 
