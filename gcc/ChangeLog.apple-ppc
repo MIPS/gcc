@@ -1,3 +1,8 @@
+2006-02-13  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4408439
+	* opts.c (set_debug_level): DWARF is now best for GDB.
+
 2006-02-10  Dale Johannesen  <dalej@apple.com>
 
         Radar 4420531
