@@ -1,3 +1,10 @@
+2006-02-14  Josh Conner  <jconner@apple.com>
+
+	Radar 4373419
+	PR target/25376
+	* varasm.c (function_section): Don't call select_section if a
+	section name is present.
+
 2006-02-13  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4408439
