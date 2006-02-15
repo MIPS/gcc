@@ -19181,7 +19181,9 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	e->mod[1] = 's';
     }
 
-  if (strcasecmp (opcode, "out") == 0)
+  if (strcasecmp (opcode, "out") == 0
+      || strcasecmp (opcode, "movntq") == 0
+      || strcasecmp (opcode, "movq") == 0)
     e->mod[0] = 0;
   else if (strcasecmp (opcode, "rcr") == 0
 	   || strcasecmp (opcode, "rcl") == 0
