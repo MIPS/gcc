@@ -1,4 +1,20 @@
-006-02-08   Fariborz Jahanian <fjahanian@apple.com>
+2006-02-14   Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4441049
+	* objc/objc-act.h: ivar_offset_hash_list new decl.
+	* objc/objc-act.c (hash_name_enter, hash_name_lookup): New functions.
+	(create_global_decl, create_extern_decl): Use the hash tables for looking
+	up the global/extern variables used to represent various meta-data.
+	(build_classlist_translation_table, generate_v2_category): Create a 
+	new extern variable not global.
+	(objc_generate_weak_read): For C++ template expressions type
+	is NULL. Ignore such expressions.
+	(objc_v2_build_ivar_ref): This routine cannot handle bitfields.
+	(build_v2_ivar_t_template, ivar_offset_ref): Use correct type for
+	field offsets which match that of the middle-end.
+	(hash_init): New hash table initialization.	
+
+2006-02-08   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4437670 (new abi stuff)
 	* objc/objc-act.c: Use internale names for pre-defined types
@@ -8,7 +24,7 @@
 	(generate_v2_protocol_list): Use correct protocol list name.
 	(build_v2_protocol_reference): Ue correct protocol reference name.
 	
-006-02-3   Fariborz Jahanian <fjahanian@apple.com>
+2006-02-3   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4431864
 	* objc/objc-act.c (objc_set_global_decl_fields): New routine to set 
@@ -17,7 +33,7 @@
 	(create_global_decl): Use the pre-existinig extern declaration, if one 
 	exists, to declare the new global declaration.
 
-006-02-02   Fariborz Jahanian <fjahanian@apple.com>
+2006-02-02   Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4426814
 	* objc/objc-act.h (objc_assign_weak_decl, objc_read_weak_decl): New globals

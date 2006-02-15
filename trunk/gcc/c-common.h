@@ -1080,6 +1080,9 @@ tree objc_build_foreach_components (tree, tree*, tree*, tree*,
 /* APPLE LOCAL ObjC new abi */
 extern tree objc_v2_build_ivar_ref (tree datum, tree component);
 
+/* APPLE LOCAL radar 4441049 */
+tree objc_v2_component_ref_field_offset (tree);
+
 /* The following are provided by the C and C++ front-ends, and called by
    ObjC/ObjC++.  */
 extern void *objc_get_current_scope (void);

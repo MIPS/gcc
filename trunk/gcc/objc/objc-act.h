@@ -199,6 +199,9 @@ extern GTY ((length ("SIZEHASHTABLE"))) hash *cls_name_hash_list;
 extern GTY ((length ("SIZEHASHTABLE"))) hash *als_name_hash_list;
 /* APPLE LOCAL end radar 4345837 */
 
+/* APPLE LOCAL radar 4441049 */
+extern GTY ((length ("SIZEHASHTABLE"))) hash *ivar_offset_hash_list;
+
 #define SIZEHASHTABLE		257
 
 /* Objective-C/Objective-C++ @implementation list.  */

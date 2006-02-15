@@ -1,4 +1,15 @@
-006-02-08   Fariborz Jahanian <fjahanian@apple.com>
+2006-02-14   Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4441049
+	* c-common.h (objc_v2_component_ref_field_offset): New decl.
+	* stub-objc.c (objc_v2_component_ref_field_offset): New stub.
+	* expr.c (component_ref_field_offset): May get the bitfield
+	byte-offset from a variable for the new objc abi.
+	* expr.h (objc_v2_component_ref_field_offset): New decl.
+	* config/darwin.c (machopic_select_section): Explicitly use .data
+	section for global class/metaclass metadata.
+
+2006-02-08   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4437670 (new abi stuff)
 	* common.opt: New -fobjc-nilcheck option.
@@ -6,12 +17,12 @@
 	* config/darwin.c: Ditto.
 	* config/darwin.h: Ditto.
 	
-006-02-07   Fariborz Jahanian <fjahanian@apple.com>
+2006-02-07   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4426814
 	* c-parse.in (cast_expr): Minor fix.
 
-006-02-02   Fariborz Jahanian <fjahanian@apple.com>
+2006-02-02   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4426814
 	* c-parse.in (cast_expr): generate objc_read_weak call on

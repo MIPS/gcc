@@ -1317,6 +1317,21 @@ machopic_select_section (tree exp, int reloc,
       else
 	base_function ();
     }
+  /* APPE LOCAL begin ObjC abi v2 */
+  else if (TREE_CODE (exp) == VAR_DECL &&
+           DECL_NAME (exp) &&
+           TREE_CODE (DECL_NAME (exp)) == IDENTIFIER_NODE &&
+           IDENTIFIER_POINTER (DECL_NAME (exp)) &&
+	   !strncmp (IDENTIFIER_POINTER (DECL_NAME (exp)), "OBJC_", 5))
+    {
+      const char *name = IDENTIFIER_POINTER (DECL_NAME (exp));
+      if (!strncmp (name, "OBJC_CLASS_$", 12)
+	  || !strncmp (name, "OBJC_METACLASS_$", 16))
+	objc_data_section();
+      else
+	base_function ();
+    }
+  /* APPLE LOCAL end ObjC abi v2 */
   /* APPLE LOCAL coalescing */
   /* Removed special handling of '::operator new' and '::operator delete'.  */
   /* APPLE LOCAL begin darwin_set_section_for_var_p  */

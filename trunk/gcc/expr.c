@@ -5606,7 +5606,12 @@ component_ref_field_offset (tree exp)
 {
   tree aligned_offset = TREE_OPERAND (exp, 2);
   tree field = TREE_OPERAND (exp, 1);
+  /* APPLE LOCAL begin radar 4441049 */
+  tree offset = objc_v2_component_ref_field_offset (exp);
 
+  if (offset)
+    return offset;
+  /* APPLE LOCAL end radar 4441049 */
   /* If an offset was specified in the COMPONENT_REF, it's the offset measured
      in units of DECL_OFFSET_ALIGN / BITS_PER_UNIT.  So multiply by that
      value.  */

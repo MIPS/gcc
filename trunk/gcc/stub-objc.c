@@ -421,3 +421,10 @@ objc_v2_build_ivar_ref (tree ARG_UNUSED (datum), tree ARG_UNUSED (component))
 }
 /* APPLE LOCAL end ObjC new abi */
 
+/* APPLE LOCAL begin radar 4441049 */
+tree
+objc_v2_component_ref_field_offset (tree ARG_UNUSED (exp))
+{
+  return 0;
+}
+/* APPLE LOCAL end radar 4441049 */ 

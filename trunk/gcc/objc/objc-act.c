@@ -266,6 +266,10 @@ static void build_category_list_address_table (bool);
 static void objc_add_to_nonlazy_category_list_chain (tree);
 static void objc_add_to_nonlazy_class_list_chain (tree);
 static tree build_v2_method_list_template (tree, int);
+/* APPLE LOCAL begin radar 4441049 */
+static void hash_name_enter (hash *, tree);
+static tree hash_name_lookup (hash *, tree);
+/* APPLE LOCAL end radar 4441049 */
 /* APPLE LOCAL end ObjC new abi */
 /* APPLE LOCAL begin C* language */
 static void build_objc_fast_enum_state_type (void);
@@ -323,6 +327,9 @@ hash *cls_method_hash_list = 0;
 hash *cls_name_hash_list = 0;
 hash *als_name_hash_list = 0;
 /* APPLE LOCAL end radar 4345837 */
+
+/* APPLE LOCAL radar 4441049 */
+hash *ivar_offset_hash_list = 0;
 
 static size_t hash_func (tree);
 static void hash_init (void);
@@ -1933,7 +1940,8 @@ create_global_decl (tree type, const char *name)
 {
   /* APPLE LOCAL begin radar 4431864 */
   tree id = get_identifier (name);
-  tree var = lookup_name (id);
+  /* APPLE LOCAL radar 4441049 */
+  tree var = hash_name_lookup (ivar_offset_hash_list, id);
   if (var)
     {
       DECL_EXTERNAL (var) = 0;
@@ -1941,7 +1949,12 @@ create_global_decl (tree type, const char *name)
       objc_set_global_decl_fields (var);
     }
   else
-    var = start_var_decl (type, name);
+  /* APPLE LOCAL begin radar 4441049 */
+    {
+      var = start_var_decl (type, name);
+      hash_name_enter (ivar_offset_hash_list, var);
+    }
+  /* APPLE LOCAL end radar 4441049 */
   /* APPLE LOCAL end radar 4431864 */
   TREE_PUBLIC (var) = 1;
   return var;
@@ -1965,7 +1978,8 @@ static tree
 create_extern_decl (tree type, const char *name)
 {
   tree id = get_identifier (name);
-  tree var = lookup_name (id);
+  /* APPLE LOCAL radar 4441049 */
+  tree var = hash_name_lookup (ivar_offset_hash_list, id);
   if (var)
     return var;
   /* Name not already declared. */
@@ -1977,6 +1991,8 @@ create_extern_decl (tree type, const char *name)
      variables holding ivar offsets in the new abi. */
   pushdecl_top_level (var);
   rest_of_decl_compilation (var, 0, 0);
+  /* APPLE LOCAL radar 4441049 */
+  hash_name_enter (ivar_offset_hash_list, var);
   return var;
 }
 /* APPLE LOCAL end ObjC new abi */
@@ -3260,7 +3276,7 @@ build_classlist_translation_table (bool metaclass_chain)
 	 used. Need to generate a full address-of tree for it here. */
       if (TREE_CODE (expr) == IDENTIFIER_NODE)
         {
-          expr = create_global_decl (objc_v2_class_template,
+          expr = create_extern_decl (objc_v2_class_template,
 				     objc_build_internal_classname (expr, metaclass_chain));
 	  expr = convert (objc_class_type, build_fold_addr_expr (expr));
 	}
@@ -4209,7 +4225,7 @@ objc_generate_weak_read (tree expr)
   tree t;
   int strong;
 
-  if (skip_evaluation)
+  if (skip_evaluation || TREE_TYPE (expr) == NULL_TREE)
     return expr;
 
   strong = objc_is_gcable_p (expr);
@@ -4513,6 +4529,44 @@ objc_is_ivar (tree expr, tree component, tree *class)
   return field;
 } 
 
+/* APPLE LOCAL begin radar 4441049 */
+/* This routine creates an OFFSET_IVAR variable for COMPONENT_REF EXP
+   and returns it. This routine is for bitfield ivars only.
+*/
+tree
+objc_v2_component_ref_field_offset (tree exp)
+{
+  char var_offset_name[512];
+  tree class_name, offset;
+  tree datum = TREE_OPERAND (exp, 0);
+  tree field = TREE_OPERAND (exp, 1);
+  tree component = DECL_NAME (field);
+
+  /* unnamed bitfields are not user ivars. */
+  if (!component)
+    return NULL_TREE;
+
+  if (!((flag_objc_abi == 2 || flag_objc_abi == 3)
+        && (field = objc_is_ivar (datum, component, &class_name))))
+    return NULL_TREE;
+
+  /* This routine must only be called for bitfield ivars. */
+  /* DECL_INITIAL macro is set to width of bitfield and can be relied on to
+     check for bitfield ivars. Note that I cannot rely on DECL_BIT_FIELD macro
+     because it is only set when the whole struct is seen (at finish_struct) 
+     and not when the ivar chain is built. */
+  gcc_assert (DECL_INITIAL (field));
+
+  create_ivar_offset_name (var_offset_name, CLASS_NAME (class_name), 
+			   field);
+  /* NOTE! type of variable for ivar offset MUST match type of offset assumed
+     by the front-end. Otherwise, FE asserts when attempting to do futher
+     math on the tree whose one operand is one of these offsets. */
+  offset = create_extern_decl (TREE_TYPE (size_zero_node), var_offset_name);
+  return offset;
+}
+/* APPLE LOCAL end radar 4441049 */
+
 /* This routine generates new abi's ivar reference tree. It amounts to generating
    *(TYPE*)((char*)pObj + OFFSET_IVAR) when we normally generate pObj->IVAR
    OFFSET_IVAR is an 'extern' variable holding the offset for 'IVAR' field. TYPE
@@ -4529,9 +4583,20 @@ objc_v2_build_ivar_ref (tree datum, tree component)
         && (field = objc_is_ivar (datum, component, &class_name))))
     return NULL_TREE;
 
+  /* APPLE LOCAL begin radar 4441049 */
+  /* This routine only handles non-bitfield fields */
+  /* DECL_INITIAL macro is set to width of bitfield and can be relied on to
+     check for bitfield ivars. Note that I cannot rely on DECL_BIT_FIELD macro
+     because it is only set when the whole struct is seen (at finish_struct) 
+     and not when the ivar chain is built. */
+  if (DECL_INITIAL (field))
+    return NULL_TREE;
+  /* APPLE LOCAL end radar 4441049 */
+
   create_ivar_offset_name (var_offset_name, CLASS_NAME (class_name), 
 			   field);
-  offset = create_extern_decl (integer_type_node, var_offset_name);
+  /* APPLE LOCAL radar 4441049 */
+  offset = create_extern_decl (TREE_TYPE (size_zero_node), var_offset_name);
 
   ftype = TREE_TYPE (field);
 
@@ -6822,7 +6887,7 @@ build_super_template (void)
 /* APPLE LOCAL begin ObjC new abi */
 
 /* struct ivar_t {
-     uint32_t *offset;
+     unsigned long int *offset;
      char *name;
      char *type;
      uint32_t alignment;
@@ -6841,7 +6906,8 @@ build_v2_ivar_t_template (void)
 
   /* uint32_t *offset */
   field_decl = create_field_decl (
-		 build_pointer_type (integer_type_node), "offset");
+		 /* APPLE LOCAL radar 4441049 */
+		 build_pointer_type (TREE_TYPE (size_zero_node)), "offset");
   field_decl_chain = field_decl;
 
   /* char *name; */
@@ -7083,15 +7149,22 @@ ivar_offset_ref (tree class_name, tree field_decl)
   /* An existing offset symbol not found. Create a new one and add to the chain. */
   chain = &ivar_offset_ref_chain;
   global_var = (TREE_PUBLIC (field_decl) || TREE_PROTECTED (field_decl));
+  /* APPLE LOCAL begin radar 4441049 */
   if (global_var)
-    decl = create_global_decl (integer_type_node, buf);
+    decl = create_global_decl (TREE_TYPE (size_zero_node), buf);
   else
-    decl = create_hidden_decl (integer_type_node, buf);
+    decl = create_hidden_decl (TREE_TYPE (size_zero_node), buf);
+  /* APPLE LOCAL end radar 4441049 */
 
   while (*chain)
     chain = &TREE_CHAIN (*chain);
 
-  *chain = tree_cons (decl, byte_position (field_decl), NULL_TREE);
+  /* APPLE LOCAL begin radar 4441049 */
+  *chain = tree_cons (decl, 
+		      DECL_BIT_FIELD_TYPE (field_decl) 
+			? DECL_FIELD_OFFSET (field_decl) 
+			: byte_position (field_decl), NULL_TREE);
+  /* APPLE LOCAL end radar 4441049 */
   
   return decl;
 }
@@ -8065,7 +8138,7 @@ generate_v2_category (tree cat, struct imp_entry *impent)
 
   (void)objc_v2_get_class_reference (CLASS_NAME (cat));
 
-  class_name_expr = create_global_decl (objc_v2_class_template,
+  class_name_expr = create_extern_decl (objc_v2_class_template,
 				        objc_build_internal_classname (
 					  CLASS_NAME (cat), false));
   class_name_expr = build_fold_addr_expr (class_name_expr);
@@ -9777,6 +9850,11 @@ hash_init (void)
     = (hash *) ggc_alloc_cleared (SIZEHASHTABLE * sizeof (hash));
   /* APPLE LOCAL end radar 4345837 */
 
+  /* APPLE LOCAL begin radar 4441049 */
+  ivar_offset_hash_list
+    = (hash *) ggc_alloc_cleared (SIZEHASHTABLE * sizeof (hash));
+  /* APPLE LOCAL end radar 4441049 */
+
   /* Initialize the hash table used to hold the constant string objects.  */
   string_htab = htab_create_ggc (31, string_hash,
 				   string_eq, NULL);
@@ -9834,6 +9912,47 @@ hash_class_name_lookup (hash *hashlist, tree sel_name)
   return 0;
 }
 /* APPLE LOCAL end radar 4345837 */
+
+/* APPLE LOCAL begin radar 4441049 */
+/* This routine is given an extern variable and enters it in its hash table.
+   Note that hashing is done on its inner IDENTIFIER_NODE node.
+*/
+
+static void 
+hash_name_enter (hash *hashlist, tree ivar)
+{
+  hash obj;
+  int slot = hash_func (DECL_NAME (ivar)) % SIZEHASHTABLE;
+
+  obj = (hash) ggc_alloc (sizeof (struct hashed_entry));
+  obj->list = 0;
+  obj->next = hashlist[slot];
+  obj->key = ivar;
+
+  hashlist[slot] = obj;		/* append to front */
+}
+
+/* This routine is given a name and returns a matching extern variable if 
+   one is found. 
+*/
+
+static tree
+hash_name_lookup (hash *hashlist, tree ivar_name)
+{
+  hash target;
+
+  target = hashlist[hash_func (ivar_name) % SIZEHASHTABLE];
+
+  while (target)
+    {
+      if (ivar_name == DECL_NAME (target->key))
+	return target->key;
+
+      target = target->next;
+    }
+  return 0;
+}
+/* APPLE LOCAL end radar 4441049 */
 
 /* WARNING!!!!  hash_enter is called with a method, and will peek
    inside to find its selector!  But hash_lookup is given a selector
