@@ -1,3 +1,14 @@
+2006-02-14  Eric Christopher  <echristo@apple.com>
+
+	Radar 4385016 4331438
+	* gcc.apple/altivec-maltivec-1.c: xfail for 64bit.
+	* gcc.apple/altivec-faltivec-1.c: Ditto.
+	* gcc.apple/altivec-faltivec-2.c: Ditto.
+	* gcc.apple/default-cpu-1.c: Skip for 64bit.
+	* gcc.apple/default-cpu-2.c: Ditto.
+	* gcc.apple/align-test-5c: Ditto.
+	* gcc.apple/asm-test-nofralloc.c: Ditto.
+
 2006-02-14  Mike Stump  <mrs@apple.com>
 
 	Radar 4415216

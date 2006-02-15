@@ -113,7 +113,7 @@ do {									\
 	darwin_fix_and_continue = (base[0] != 'n');			\
       }									\
     /* APPLE LOCAL begin longcall */					\
-    if (TARGET_64BIT)							\
+    if (TARGET_64BIT && TARGET_MACHO)					\
       rs6000_longcall_switch = (char *)0;				\
     /* APPLE LOCAL end longcall */					\
   }									\

@@ -1,3 +1,11 @@
+2006-02-14  Eric Christopher  <echristo@apple.com>
+
+	Radar 4331439
+	* config/rs6000/rs6000.c (rs6000_handle_longcall_attribute):
+	Disable for 64-bit Mach-O.
+	* config/rs6000/darwin.h (SUBTARGET_OPTIONS): Disable longcall
+	only for Mach-O.
+
 2006-02-14  Mike Stump  <mrs@apple.com>
 
 	Radar 4415216

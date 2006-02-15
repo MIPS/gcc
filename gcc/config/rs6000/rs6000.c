@@ -19604,6 +19604,10 @@ rs6000_handle_longcall_attribute (tree *node, tree name,
 	       IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
+  /* APPLE LOCAL begin longcall */
+  else if (TARGET_64BIT && TARGET_MACHO)
+    *no_add_attrs = true;
+  /* APPLE LOCAL end longcall */
 
   return NULL_TREE;
 }
