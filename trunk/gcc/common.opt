@@ -209,6 +209,11 @@ fobjc-nilcheck
 Common Report Var(flag_objc_nilcheck,1)
 ; APPLE LOCAL end ObjC new abi
 
+; APPLE LOCAL begin C* warnings to easy porting to new abi 
+Wobjc2
+Common Report Var(flag_objc2_check)
+; APPLE LOCAL end C* warnings to easy porting to new abi 
+
 falign-functions
 Common Report Var(align_functions,0)
 Align the start of functions

@@ -1,3 +1,9 @@
+2006-02-15   Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4441551
+	* parser.c (cp_parser_member_declaration): Warning on @defs as needed.
+	* typeck.c (build_c_cast): Call diagnose_selector_cast.
+
 006-02-13   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4442245

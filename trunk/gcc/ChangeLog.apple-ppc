@@ -1,3 +1,14 @@
+2006-02-15   Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4441551
+	* c-parse.in (component_decl_list2): Issue warning for @defs as needed.
+	* c-typeck.c (build_c_cast): Call diagnose_selector_cast.
+	* common.opt: New -Wobjc2 option.
+	* c-common.h (diagnose_selector_cast): New decl.
+	* stub-objc.c (diagnose_selector_cast): New stub.
+	* config/darwin-c.c (darwin_cpp_builtins): Define __OBJC2__ for
+	objc's new abi.
+	
 2006-02-14   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4441049

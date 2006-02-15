@@ -1815,7 +1815,15 @@ component_decl_list2:	/* empty */
 @@ifobjc
 	/* foo(sizeof(struct{ @defs(ClassName)})); */
 	| AT_DEFS '(' CLASSNAME ')'
-		{ $$ = nreverse (objc_get_class_ivars ($3)); }
+		/* APPLE LOCAL begin C* warnings to easy porting to new abi */
+		{ $$ = nreverse (objc_get_class_ivars ($3)); 
+		  if (flag_objc_abi == 3
+		      || (flag_objc2_check && flag_objc_abi == 1))
+		    warning ("@defs will not be supported in future");
+		  else if (flag_objc_abi == 2)
+		    error ("@defs will not be supported in future");
+		}
+		/* APPLE LOCAL end C* warnings to easy porting to new abi */
 @@end_ifobjc
 	;
 

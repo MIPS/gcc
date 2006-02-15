@@ -420,6 +420,12 @@ objc_v2_build_ivar_ref (tree ARG_UNUSED (datum), tree ARG_UNUSED (component))
   return 0;
 }
 /* APPLE LOCAL end ObjC new abi */
+/* APPLE LOCAL begin C* warnings to easy porting to new abi */
+void
+diagnose_selector_cast (tree ARG_UNUSED (cast_type), tree ARG_UNUSED (sel_exp))
+{
+}
+/* APPLE LOCAL end C* warnings to easy porting to new abi */
 
 /* APPLE LOCAL begin radar 4441049 */
 tree

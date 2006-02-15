@@ -13938,6 +13938,13 @@ cp_parser_member_declaration (cp_parser* parser)
 	  TREE_CHAIN (member) = NULL_TREE;
 	  finish_member_declaration (member);
 	}
+      /* APPLE LOCAL begin C* warnings to easy porting to new abi */
+      if (flag_objc_abi == 3
+          || (flag_objc2_check && flag_objc_abi == 1))
+        warning ("@defs will not be supported in future");
+      else if (flag_objc_abi == 2)
+        error ("@defs will not be supported in future");
+      /* APPLE LOCAL end C* warnings to easy porting to new abi */
       return;
     }
   /* APPLE LOCAL end mainline */

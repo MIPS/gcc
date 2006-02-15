@@ -13267,4 +13267,21 @@ objc_finish_foreach_loop (location_t location, tree cond, tree for_body, tree bl
 }
 #endif
 /* APPLE LOCAL end C* language */
+/* APPLE LOCAL begin  C* warnings to easy porting to new abi */
+/* This routine issues a diagnostic if a @selector expression is
+   type cast to anothing other than SEL. */
+void
+diagnose_selector_cast (tree cast_type, tree sel_exp)
+{
+  tree type = TREE_TYPE (sel_exp);
+  if (type)
+    {
+      if (type == objc_selector_type && cast_type != objc_selector_type)
+	/* @selector expression type cast to something other than a 
+     	   matching type. */
+	if (flag_objc_abi >= 2 || flag_objc2_check)
+	  warning ("type-cast of @selector expression won't be supported in future");
+    }
+}
+/* APPLE LOCAL end C* warnings to easy porting to new abi */
 #include "gt-objc-objc-act.h"

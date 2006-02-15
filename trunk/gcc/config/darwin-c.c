@@ -996,6 +996,10 @@ darwin_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__weak=");
     }
   /* APPLE LOCAL end ObjC GC */
+  /* APPLE LOCAL begin C* warnings to easy porting to new abi */
+  if (flag_objc_abi >= 2)
+    builtin_define ("__OBJC2__");
+  /* APPLE LOCAL end C* warnings to easy porting to new abi */
   /* APPLE LOCAL begin radar 4224728 */
   if (flag_pic)
     builtin_define ("__PIC__");

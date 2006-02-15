@@ -3288,6 +3288,9 @@ build_c_cast (tree type, tree expr)
   if (objc_is_object_ptr (type) && objc_is_object_ptr (TREE_TYPE (expr)))
     return build1 (NOP_EXPR, type, expr);
 
+  /* APPLE LOCAL C* warnings to easy porting to new abi */
+  diagnose_selector_cast (type, expr);
+
   type = TYPE_MAIN_VARIANT (type);
 
   if (TREE_CODE (type) == ARRAY_TYPE)

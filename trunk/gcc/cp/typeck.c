@@ -5263,6 +5263,9 @@ build_c_cast (tree type, tree expr)
       && objc_is_object_ptr (TREE_TYPE (expr)))
     return build_nop (type, expr);
 
+  /* APPLE LOCAL C* warnings to easy porting to new abi */
+  diagnose_selector_cast (type, expr);
+
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
      Strip such NOP_EXPRs if VALUE is being used in non-lvalue context.  */
   if (TREE_CODE (type) != REFERENCE_TYPE
