@@ -1,6 +1,10 @@
-2006-02-08  Paul Brook  <paul@codesourcery.com>
+2005-02-16  Paul Brook  <paul@codesourcery.com>
 
 	Merge from csl/sourcerygxx-4_1
+	2005-02-16  Paul Brook  <paul@codesourcery.com>
+	* reload1.c (emit_reload_insns): Invalidate dead input registers used
+	for reloads.
+
 	2006-02-01  Paul Brook  <paul@codesourcery.com>
 	Backport from mainline.
 	* gcc/function.c (assign_parm_setup_reg): Use function argument
