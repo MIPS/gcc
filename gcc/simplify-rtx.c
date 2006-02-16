@@ -609,12 +609,13 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 	return simplify_gen_unary (GET_CODE (op), mode,
 				   XEXP (XEXP (op, 0), 0), mode);
 
-      /* (truncate:SI (subreg:DI (truncate:SI X) 0)) is
-	 (truncate:SI x).  */
+      /* (truncate:A (subreg:B (truncate:C X) 0)) is
+	 (truncate:A X).  */
       if (GET_CODE (op) == SUBREG
 	  && GET_CODE (SUBREG_REG (op)) == TRUNCATE
 	  && subreg_lowpart_p (op))
-	return SUBREG_REG (op);
+	return simplify_gen_unary (TRUNCATE, mode, XEXP (SUBREG_REG (op), 0),
+				   GET_MODE (XEXP (SUBREG_REG (op), 0)));
 
       /* If we know that the value is already truncated, we can
          replace the TRUNCATE with a SUBREG if TRULY_NOOP_TRUNCATION
@@ -4424,6 +4425,14 @@ simplify_subreg (enum machine_mode outermode, rtx op,
         return gen_rtx_SUBREG (outermode, SUBREG_REG (op), final_offset);
       return NULL_RTX;
     }
+
+  /* Merge implicit and explicit truncations.  */
+
+  if (GET_CODE (op) == TRUNCATE
+      && GET_MODE_SIZE (outermode) < GET_MODE_SIZE (innermode)
+      && subreg_lowpart_offset (outermode, innermode) == byte)
+    return simplify_gen_unary (TRUNCATE, outermode, XEXP (op, 0),
+			       GET_MODE (XEXP (op, 0)));
 
   /* SUBREG of a hard register => just change the register number
      and/or mode.  If the hard register is not valid in that mode,

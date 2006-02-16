@@ -207,11 +207,11 @@ build_tree_cfg (tree *tp)
   /* Write the flowgraph to a VCG file.  */
   {
     int local_dump_flags;
-    FILE *dump_file = dump_begin (TDI_vcg, &local_dump_flags);
-    if (dump_file)
+    FILE *vcg_file = dump_begin (TDI_vcg, &local_dump_flags);
+    if (vcg_file)
       {
-	tree_cfg2vcg (dump_file);
-	dump_end (TDI_vcg, dump_file);
+	tree_cfg2vcg (vcg_file);
+	dump_end (TDI_vcg, vcg_file);
       }
   }
 
@@ -1347,10 +1347,7 @@ replace_uses_by (tree name, tree val)
       if (TREE_CODE (rhs) == ADDR_EXPR)
 	recompute_tree_invariant_for_addr_expr (rhs);
 
-      /* If the statement could throw and now cannot, we need to prune cfg.  */
-      if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
-	tree_purge_dead_eh_edges (bb_for_stmt (stmt));
-
+      maybe_clean_or_replace_eh_stmt (stmt, stmt);
       mark_new_vars_to_rename (stmt);
     }
 

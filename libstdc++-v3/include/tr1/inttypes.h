@@ -36,11 +36,4 @@
 
 #include <tr1/cinttypes>
 
-#if _GLIBCXX_USE_C99_INTTYPES_TR1
-
-using std::tr1::abs;
-using std::tr1::div;
-
-#endif
-
 #endif

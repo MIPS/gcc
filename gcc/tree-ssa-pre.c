@@ -2161,6 +2161,7 @@ create_component_ref_by_pieces (basic_block block, tree expr, tree stmts)
       break;
     case VAR_DECL:
     case PARM_DECL:
+    case RESULT_DECL:
     case SSA_NAME:
       return genop;
     default:
@@ -3614,7 +3615,7 @@ init_pre (bool do_fre)
 
   vn_init ();
   if (!do_fre)
-    current_loops = loop_optimizer_init (dump_file, LOOPS_NORMAL);
+    current_loops = loop_optimizer_init (LOOPS_NORMAL);
 
   connect_infinite_loops_to_exit ();
   memset (&pre_stats, 0, sizeof (pre_stats));
@@ -3729,7 +3730,7 @@ fini_pre (bool do_fre)
     }
   if (!do_fre && current_loops)
     {
-      loop_optimizer_finalize (current_loops, dump_file);
+      loop_optimizer_finalize (current_loops);
       current_loops = NULL;
     }
 }

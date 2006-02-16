@@ -89,6 +89,7 @@ tree gfor_fndecl_select_string;
 tree gfor_fndecl_runtime_error;
 tree gfor_fndecl_set_fpe;
 tree gfor_fndecl_set_std;
+tree gfor_fndecl_set_convert;
 tree gfor_fndecl_ctime;
 tree gfor_fndecl_fdate;
 tree gfor_fndecl_ttynam;
@@ -879,7 +880,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	  if (TREE_CODE (length) == VAR_DECL
 	      && DECL_CONTEXT (length) == NULL_TREE)
 	    {
-	      gfc_finish_var_decl (length, sym);
+	      gfc_add_decl_to_function (length);
 	      gfc_defer_symbol_init (sym);
 	    }
 	}
@@ -1791,7 +1792,7 @@ gfc_get_fake_result_decl (gfc_symbol * sym)
 	length = sym->ts.cl->backend_decl;
       if (TREE_CODE (length) == VAR_DECL
 	  && DECL_CONTEXT (length) == NULL_TREE)
-	gfc_finish_var_decl (length, sym);
+	gfc_add_decl_to_function (length);
     }
 
   if (gfc_return_by_reference (sym))
@@ -2239,9 +2240,14 @@ gfc_build_builtin_function_decls (void)
   gfor_fndecl_set_std =
     gfc_build_library_function_decl (get_identifier (PREFIX("set_std")),
 				    void_type_node,
-				    2,
+				    3,
+				    gfc_int4_type_node,
 				    gfc_int4_type_node,
 				    gfc_int4_type_node);
+
+  gfor_fndecl_set_convert =
+    gfc_build_library_function_decl (get_identifier (PREFIX("set_convert")),
+				     void_type_node, 1, gfc_c_int_type_node);
 
   gfor_fndecl_in_pack = gfc_build_library_function_decl (
         get_identifier (PREFIX("internal_pack")),
@@ -2826,10 +2832,10 @@ gfc_generate_function_code (gfc_namespace * ns)
   /* Now generate the code for the body of this function.  */
   gfc_init_block (&body);
 
-  /* If this is the main program and we compile with -pedantic, add a call
-     to set_std to set up the runtime library Fortran language standard
-     parameters.  */
-  if (sym->attr.is_main_program && pedantic)
+  /* If this is the main program, add a call to set_std to set up the
+     runtime library Fortran language standard parameters.  */
+
+  if (sym->attr.is_main_program)
     {
       tree arglist, gfc_int4_type_node;
 
@@ -2840,6 +2846,9 @@ gfc_generate_function_code (gfc_namespace * ns)
       arglist = gfc_chainon_list (arglist,
 				  build_int_cst (gfc_int4_type_node,
 						 gfc_option.allow_std));
+      arglist = gfc_chainon_list (arglist,
+				  build_int_cst (gfc_int4_type_node,
+						 pedantic));
       tmp = build_function_call_expr (gfor_fndecl_set_std, arglist);
       gfc_add_expr_to_block (&body, tmp);
     }
@@ -2858,6 +2867,22 @@ gfc_generate_function_code (gfc_namespace * ns)
       tmp = build_function_call_expr (gfor_fndecl_set_fpe, arglist);
       gfc_add_expr_to_block (&body, tmp);
     }
+
+  /* If this is the main program and an -fconvert option was provided,
+     add a call to set_convert.  */
+
+  if (sym->attr.is_main_program && gfc_option.convert != CONVERT_NATIVE)
+    {
+      tree arglist, gfc_c_int_type_node;
+
+      gfc_c_int_type_node = gfc_get_int_type (gfc_c_int_kind);
+      arglist = gfc_chainon_list (NULL_TREE,
+				  build_int_cst (gfc_c_int_type_node,
+						 gfc_option.convert));
+      tmp = build_function_call_expr (gfor_fndecl_set_convert, arglist);
+      gfc_add_expr_to_block (&body, tmp);
+    }
+
 
   if (TREE_TYPE (DECL_RESULT (fndecl)) != void_type_node
       && sym->attr.subroutine)

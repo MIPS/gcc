@@ -292,6 +292,8 @@ hash_invariant_expr_1 (rtx insn, rtx x)
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    val ^= hash_invariant_expr_1 (insn, XVECEXP (x, i, j));
 	}
+      else if (fmt[i] == 'i' || fmt[i] == 'n')
+	val ^= XINT (x, i);
     }
 
   return val;
@@ -373,6 +375,14 @@ invariant_expr_equal_p (rtx insn1, rtx e1, rtx insn2, rtx e2)
 		return false;
 	    }
 	}
+      else if (fmt[i] == 'i' || fmt[i] == 'n')
+	{
+	  if (XINT (e1, i) != XINT (e2, i))
+	    return false;
+	}
+      /* Unhandled type of subexpression, we fail conservatively.  */
+      else
+	return false;
     }
 
   return true;
@@ -582,7 +592,9 @@ find_exits (struct loop *loop, basic_block *body,
 static bool
 may_assign_reg_p (rtx x)
 {
-  return (can_copy_p (GET_MODE (x))
+  return (GET_MODE (x) != VOIDmode
+	  && GET_MODE (x) != BLKmode
+	  && can_copy_p (GET_MODE (x))
 	  && (!REG_P (x)
 	      || !HARD_REGISTER_P (x)
 	      || REGNO_REG_CLASS (REGNO (x)) != NO_REGS));
@@ -729,6 +741,12 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
       || find_reg_note (insn, REG_LIBCALL, NULL_RTX)
       || find_reg_note (insn, REG_NO_CONFLICT, NULL_RTX))
     return;
+
+#ifdef HAVE_cc0
+  /* We can't move a CC0 setter without the user.  */
+  if (sets_cc0_p (insn))
+    return;
+#endif
 
   set = single_set (insn);
   if (!set)
@@ -1068,7 +1086,7 @@ move_invariant_reg (struct loop *loop, unsigned invno)
   struct invariant *repr = VEC_index (invariant_p, invariants, inv->eqto);
   unsigned i;
   basic_block preheader = loop_preheader_edge (loop)->src;
-  rtx reg, set;
+  rtx reg, set, seq, op;
   struct use *use;
   bitmap_iterator bi;
 
@@ -1108,7 +1126,14 @@ move_invariant_reg (struct loop *loop, unsigned invno)
 	}
       else
 	{
-	  emit_insn_after (gen_move_insn (reg, SET_SRC (set)), BB_END (preheader));
+	  start_sequence ();
+	  op = force_operand (SET_SRC (set), reg);
+	  if (op != reg)
+	    emit_move_insn (reg, op);
+	  seq = get_insns ();
+	  end_sequence ();
+
+	  emit_insn_after (seq, BB_END (preheader));
 	  delete_insn (inv->insn);
 	}
     }

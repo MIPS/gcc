@@ -1,7 +1,7 @@
 /* Handle modules, which amounts to loading and saving symbols and
    their attendant structures.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, 
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free
+   Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -2461,6 +2461,7 @@ static const mstring intrinsics[] =
     minit ("LT", INTRINSIC_LT),
     minit ("LE", INTRINSIC_LE),
     minit ("NOT", INTRINSIC_NOT),
+    minit ("PARENTHESES", INTRINSIC_PARENTHESES),
     minit (NULL, -1)
 };
 
@@ -2519,6 +2520,7 @@ mio_expr (gfc_expr ** ep)
 	case INTRINSIC_UPLUS:
 	case INTRINSIC_UMINUS:
 	case INTRINSIC_NOT:
+	case INTRINSIC_PARENTHESES:
 	  mio_expr (&e->value.op.op1);
 	  break;
 

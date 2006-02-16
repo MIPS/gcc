@@ -175,7 +175,7 @@ in the following sections.
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
 @gccoptlist{-fabi-version=@var{n}  -fno-access-control  -fcheck-new @gol
--fconserve-space  -ffriend-injection  -fno-const-strings @gol
+-fconserve-space  -ffriend-injection @gol
 -fno-elide-constructors @gol
 -fno-enforce-eh-specs @gol
 -ffor-scope  -fno-for-scope  -fno-gnu-keywords @gol
@@ -315,13 +315,13 @@ Objective-C and Objective-C++ Dialects}.
 -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
 -fmodulo-sched -fno-branch-count-reg @gol
--fno-default-inline  -fno-defer-pop -floop-optimize2 -fmove-loop-invariants @gol
+-fno-default-inline  -fno-defer-pop -fmove-loop-invariants @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
 -funsafe-math-optimizations  -funsafe-loop-optimizations  -ffinite-math-only @gol
 -fno-toplevel-reorder -fno-trapping-math  -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
--foptimize-sibling-calls  -fprefetch-loop-arrays @gol
+-foptimize-sibling-calls  -fprefetch-loop-arrays -fprefetch-loop-arrays-rtl @gol
 -fprofile-generate -fprofile-use @gol
 -fregmove  -frename-registers @gol
 -freorder-blocks  -freorder-blocks-and-partition -freorder-functions @gol
@@ -708,7 +708,7 @@ See RS/6000 and PowerPC Options.
 -mstack-bias  -mno-stack-bias @gol
 -munaligned-doubles  -mno-unaligned-doubles @gol
 -mv8plus  -mno-v8plus  -mvis  -mno-vis
--threads -pthreads}
+-threads -pthreads -pthread}
 
 @emph{System V Options}
 @gccoptlist{-Qy  -Qn  -YP,@var{paths}  -Ym,@var{dir}}
@@ -1449,17 +1449,6 @@ earlier releases.
 
 This option is for compatibility, and may be removed in a future
 release of G++.
-
-@item -fno-const-strings
-@opindex fno-const-strings
-Give string constants type @code{char *} instead of type @code{const
-char *}.  By default, G++ uses type @code{const char *} as required by
-the standard.  Even if you use @option{-fno-const-strings}, you cannot
-actually modify the value of a string constant.
-
-This option might be removed in a future release of G++.  For maximum
-portability, you should structure your code so that it works with
-string constants that have type @code{const char *}.
 
 @item -fno-elide-constructors
 @opindex fno-elide-constructors
@@ -2526,14 +2515,14 @@ This warning is enabled by @option{-Wall}.
 @item -Wsequence-point
 @opindex Wsequence-point
 Warn about code that may have undefined semantics because of violations
-of sequence point rules in the C standard.
+of sequence point rules in the C and C++ standards.
 
-The C standard defines the order in which expressions in a C program are
-evaluated in terms of @dfn{sequence points}, which represent a partial
-ordering between the execution of parts of the program: those executed
-before the sequence point, and those executed after it.  These occur
-after the evaluation of a full expression (one which is not part of a
-larger expression), after the evaluation of the first operand of a
+The C and C++ standards defines the order in which expressions in a C/C++
+program are evaluated in terms of @dfn{sequence points}, which represent
+a partial ordering between the execution of parts of the program: those
+executed before the sequence point, and those executed after it.  These
+occur after the evaluation of a full expression (one which is not part
+of a larger expression), after the evaluation of the first operand of a
 @code{&&}, @code{||}, @code{? :} or @code{,} (comma) operator, before a
 function is called (but after the evaluation of its arguments and the
 expression denoting the called function), and in certain other places.
@@ -2547,11 +2536,11 @@ ruled that function calls do not overlap.
 
 It is not specified when between sequence points modifications to the
 values of objects take effect.  Programs whose behavior depends on this
-have undefined behavior; the C standard specifies that ``Between the
-previous and next sequence point an object shall have its stored value
-modified at most once by the evaluation of an expression.  Furthermore,
-the prior value shall be read only to determine the value to be
-stored.''.  If a program breaks these rules, the results on any
+have undefined behavior; the C and C++ standards specify that ``Between
+the previous and next sequence point an object shall have its stored
+value modified at most once by the evaluation of an expression.  
+Furthermore, the prior value shall be read only to determine the value
+to be stored.''.  If a program breaks these rules, the results on any
 particular implementation are entirely unpredictable.
 
 Examples of code with undefined behavior are @code{a = a++;}, @code{a[n]
@@ -2560,16 +2549,13 @@ diagnosed by this option, and it may give an occasional false positive
 result, but in general it has been found fairly effective at detecting
 this sort of problem in programs.
 
-The present implementation of this option only works for C programs.  A
-future implementation may also work for C++ programs.
-
-The C standard is worded confusingly, therefore there is some debate
+The standard is worded confusingly, therefore there is some debate
 over the precise meaning of the sequence point rules in subtle cases.
 Links to discussions of the problem, including proposed formal
 definitions, may be found on the GCC readings page, at
 @w{@uref{http://gcc.gnu.org/readings.html}}.
 
-This warning is enabled by @option{-Wall}.
+This warning is enabled by @option{-Wall} for C and C++.
 
 @item -Wreturn-type
 @opindex Wreturn-type
@@ -3079,7 +3065,8 @@ When compiling C, give string constants the type @code{const
 char[@var{length}]} so that
 copying the address of one into a non-@code{const} @code{char *}
 pointer will get a warning; when compiling C++, warn about the
-deprecated conversion from string constants to @code{char *}.
+deprecated conversion from string literals to @code{char *}.  This
+warning, by default, is enabled for C++ programs.
 These warnings will help you find at
 compile time code that can try to write into a string constant, but
 only if you have been very careful about using @code{const} in
@@ -4846,12 +4833,6 @@ exit test conditions and optionally do strength-reduction as well.
 
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
-@item -floop-optimize2
-@opindex floop-optimize2
-Perform loop optimizations using the new loop optimizer.  The optimizations
-(loop unrolling, peeling and unswitching, loop invariant motion) are enabled
-by separate flags.
-
 @item -funsafe-loop-optimizations
 @opindex funsafe-loop-optimizations
 If given, the loop optimizer will assume that loop indices do not
@@ -5190,7 +5171,9 @@ With this option, the compiler will create multiple copies of some
 local variables when unrolling a loop which can result in superior code.
 
 @item -fprefetch-loop-arrays
+@itemx -fprefetch-loop-arrays-rtl
 @opindex fprefetch-loop-arrays
+@opindex fprefetch-loop-arrays-rtl
 If supported by the target machine, generate instructions to prefetch
 memory to improve the performance of loops that access large arrays.
 
@@ -5728,7 +5711,9 @@ Move branches with loop invariant conditions out of the loop, with duplicates
 of the loop on both branches (modified according to result of the condition).
 
 @item -fprefetch-loop-arrays
+@itemx -fprefetch-loop-arrays-rtl
 @opindex fprefetch-loop-arrays
+@opindex fprefetch-loop-arrays-rtl
 If supported by the target machine, generate instructions to prefetch
 memory to improve the performance of loops that access large arrays.
 
@@ -6176,9 +6161,9 @@ interblock scheduling.  The default value is 10.
 The maximum number of insns in a region to be considered for
 interblock scheduling.  The default value is 100.
 
-@item min-sched-prob
-The minimum probability of reaching a source block for interblock
-speculative scheduling.  The default value is 40.
+@item min-spec-prob
+The minimum probability (in percents) of reaching a source block
+for interblock speculative scheduling.  The default value is 40.
 
 @item max-last-value-rtl
 
@@ -6210,6 +6195,11 @@ protection when @option{-fstack-protection} is used.
 @item max-jump-thread-duplication-stmts
 Maximum number of statements allowed in a block that needs to be
 duplicated when threading jumps.
+
+@item max-fields-for-field-sensitive
+Maximum number of fields in a structure we will treat in
+a field sensitive manner during pointer analysis.
+
 @end table
 @end table
 
@@ -11247,20 +11237,22 @@ implies @option{-mno-powerpc64}.  GCC defaults to @option{-maix32}.
 @itemx -mno-xl-compat
 @opindex mxl-compat
 @opindex mno-xl-compat
-Produce code that conforms more closely to IBM XLC semantics when using
-AIX-compatible ABI.  Pass floating-point arguments to prototyped
-functions beyond the register save area (RSA) on the stack in addition
-to argument FPRs.  Do not assume that most significant double in 128
-bit long double value is properly rounded when comparing values.
+Produce code that conforms more closely to IBM XL compiler semantics
+when using AIX-compatible ABI.  Pass floating-point arguments to
+prototyped functions beyond the register save area (RSA) on the stack
+in addition to argument FPRs.  Do not assume that most significant
+double in 128-bit long double value is properly rounded when comparing
+values and converting to double.  Use XL symbol names for long double
+support routines.
 
 The AIX calling convention was extended but not initially documented to
 handle an obscure K&R C case of calling a function that takes the
-address of its arguments with fewer arguments than declared.  AIX XL
+address of its arguments with fewer arguments than declared.  IBM XL
 compilers access floating point arguments which do not fit in the
 RSA from the stack when a subroutine is compiled without
 optimization.  Because always storing floating-point arguments on the
 stack is inefficient and rarely needed, this option is not enabled by
-default and only is necessary when calling subroutines compiled by AIX
+default and only is necessary when calling subroutines compiled by IBM
 XL compilers without optimization.
 
 @item -mpe
@@ -12395,6 +12387,10 @@ Add support for multithreading using the POSIX threads library.  This
 option sets flags for both the preprocessor and linker.  This option does
 not affect the thread safety of object code produced  by the compiler or
 that of libraries supplied with it.
+
+@item -pthread
+@opindex pthread
+This is a synonym for @option{-pthreads}.
 @end table
 
 @node System V Options
