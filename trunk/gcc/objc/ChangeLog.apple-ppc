@@ -1,5 +1,12 @@
 2006-02-15   Fariborz Jahanian <fjahanian@apple.com>
 
+        Radar 4439126
+        * objc/objc-act.c (objc_finish_file): call cp_finish_file before
+	genertating any meta-data so all instantiation have taken place
+	(some metadata (such as selectors) may go missing otherwise).
+
+2006-02-15   Fariborz Jahanian <fjahanian@apple.com>
+
         Radar 4441551
 	* objc/objc-act.c (diagnose_selector_cast): New function definition.
 

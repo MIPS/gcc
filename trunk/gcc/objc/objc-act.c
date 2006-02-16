@@ -792,8 +792,8 @@ objc_finish_file (void)
 #ifdef OBJCPLUS
   /* We need to instantiate templates _before_ we emit ObjC metadata;
      if we do not, some metadata (such as selectors) may go missing.  */
-  at_eof = 1;
-  instantiate_pending_templates (0);
+  /* APPLE LOCAL radar 4439126 */
+  cp_finish_file ();
 #endif
 
   /* APPLE LOCAL begin mainline */
@@ -805,10 +805,8 @@ objc_finish_file (void)
 
   if (gen_declaration_file)
     fclose (gen_declaration_file);
-
-#ifdef OBJCPLUS
-  cp_finish_file ();
-#endif
+  /* APPLE LOCAL radar 4439126 */
+  /* code removed. */
 }
 
 /* Return the first occurrence of a method declaration corresponding
