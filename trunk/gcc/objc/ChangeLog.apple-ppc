@@ -5,6 +5,15 @@
 
 2006-02-14   Fariborz Jahanian <fjahanian@apple.com>
 
+	Radar 4445586
+	* objc/objc-act.h: PROTOCOL_LANG_SLOT_ELTS has two new slots.
+	(PROTOCOL_OPTIONAL_CLS_METHODS, PROTOCOL_OPTIONAL_NST_METHODS): Renamed to
+	reflect the slot they belong to.
+	* objc/objc-act.c ((PROTOCOL_OPTIONAL_CLS_METHODS, 
+	PROTOCOL_OPTIONAL_NST_METHODS): Ditto.
+	
+2006-02-14   Fariborz Jahanian <fjahanian@apple.com>
+
 	Radar 4441049
 	* objc/objc-act.h: ivar_offset_hash_list new decl.
 	* objc/objc-act.c (hash_name_enter, hash_name_lookup): New functions.

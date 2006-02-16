@@ -50,7 +50,7 @@ void objc_detect_field_duplicates (tree);
 /* APPLE LOCAL radar 4291785 */
 #define CLASS_LANG_SLOT_ELTS		7
 /* APPLE LOCAL ObjC abi v2 */
-#define PROTOCOL_LANG_SLOT_ELTS		3
+#define PROTOCOL_LANG_SLOT_ELTS		5
 #define OBJC_INFO_SLOT_ELTS		2
 
 /* KEYWORD_DECL */
@@ -93,8 +93,8 @@ void objc_detect_field_duplicates (tree);
 #define PROTOCOL_DEFINED(CLASS) TREE_USED (CLASS)
 
 /* APPLE LOCAL begin C* language */
-#define CLASS_OPTIONAL_CLS_METHODS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 5)
-#define CLASS_OPTIONAL_NST_METHODS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 6)
+#define PROTOCOL_OPTIONAL_CLS_METHODS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 3)
+#define PROTOCOL_OPTIONAL_NST_METHODS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 4)
 /* APPLE LOCAL end C* language */
 
 /* ObjC-specific information pertaining to RECORD_TYPEs are stored in

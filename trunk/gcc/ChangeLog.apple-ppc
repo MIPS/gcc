@@ -1,5 +1,10 @@
 2006-02-15   Fariborz Jahanian <fjahanian@apple.com>
 
+	Radar 4445586
+	* c-common.def (DO_STMT): Takes an extra argument.
+
+2006-02-15   Fariborz Jahanian <fjahanian@apple.com>
+
 	Radar 4441551
 	* c-parse.in (component_decl_list2): Issue warning for @defs as needed.
 	* c-typeck.c (build_c_cast): Call diagnose_selector_cast.

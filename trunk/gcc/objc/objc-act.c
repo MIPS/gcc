@@ -10136,18 +10136,18 @@ objc_add_method (tree class, tree method, int is_class, int is_optional)
     {
       gcc_assert (TREE_CODE (class) == PROTOCOL_INTERFACE_TYPE);
       if (!(mth = lookup_method (is_class
-                                ? CLASS_OPTIONAL_CLS_METHODS (class)
-                                : CLASS_OPTIONAL_NST_METHODS (class), method)))
+                                ? PROTOCOL_OPTIONAL_CLS_METHODS (class)
+                                : PROTOCOL_OPTIONAL_NST_METHODS (class), method)))
       {
         if (is_class)
 	  {
-	    TREE_CHAIN (method) = CLASS_OPTIONAL_CLS_METHODS (class);
-	    CLASS_OPTIONAL_CLS_METHODS (class) = method;
+	    TREE_CHAIN (method) = PROTOCOL_OPTIONAL_CLS_METHODS (class);
+	    PROTOCOL_OPTIONAL_CLS_METHODS (class) = method;
 	  }
         else
 	  {
-	    TREE_CHAIN (method) = CLASS_OPTIONAL_NST_METHODS (class);
-	    CLASS_OPTIONAL_NST_METHODS (class) = method;
+	    TREE_CHAIN (method) = PROTOCOL_OPTIONAL_NST_METHODS (class);
+	    PROTOCOL_OPTIONAL_NST_METHODS (class) = method;
 	  }
       }
     }
