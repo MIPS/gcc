@@ -7214,13 +7214,18 @@ emit_reload_insns (struct insn_chain *chain)
       /* If a register gets output-reloaded from a non-spill register,
 	 that invalidates any previous reloaded copy of it.
 	 But forget_old_reloads_1 won't get to see it, because
-	 it thinks only about the original insn.  So invalidate it here.  */
-      if (i < 0 && rld[r].out != 0
-	  && (GET_CODE (rld[r].out) == REG
-	      || (GET_CODE (rld[r].out) == MEM
+	 it thinks only about the original insn.  So invalidate it here.
+	 Also do the same thing for RELOAD_OTHER constraints where the
+	 output is discarded.  */
+      if (i < 0 
+	  && ((rld[r].out != 0
+	       && (GET_CODE (rld[r].out) == REG
+		   || (GET_CODE (rld[r].out) == MEM
+		       && GET_CODE (rld[r].out_reg) == REG)))
+	      || (rld[r].out == 0 && rld[r].out_reg
 		  && GET_CODE (rld[r].out_reg) == REG)))
 	{
-	  rtx out = (GET_CODE (rld[r].out) == REG
+	  rtx out = (rld[r].out && GET_CODE (rld[r].out) == REG
 		     ? rld[r].out : rld[r].out_reg);
 	  int nregno = REGNO (out);
 	  if (nregno >= FIRST_PSEUDO_REGISTER)
@@ -7296,7 +7301,7 @@ emit_reload_insns (struct insn_chain *chain)
 	    }
 	  else
 	    {
-	      int num_regs = HARD_REGNO_NREGS (nregno, GET_MODE (rld[r].out));
+	      int num_regs = HARD_REGNO_NREGS (nregno, GET_MODE (out));
 
 	      while (num_regs-- > 0)
 		reg_last_reload_reg[nregno + num_regs] = 0;

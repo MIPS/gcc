@@ -1,3 +1,8 @@
+2005-02-16  Paul Brook  <paul@codesourcery.com>
+
+	* reload1.c (emit_reload_insns): Invalidate dead input registers used
+	for reloads.
+
 2006-01-18  Paul Brook  <paul@codesourcery.com>
 
 	* doc/invoke.texi: Document Arm -march=armv6t2 and -mcpu1156t2.
