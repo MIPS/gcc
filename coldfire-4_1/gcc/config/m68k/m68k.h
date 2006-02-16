@@ -1038,7 +1038,7 @@ enum uarch_type
 
 enum processor_type
 {
-#define M68K_CORE(NAME,IDENT,MICROARCH,ISA,FLAGS) \
+#define M68K_CORE(NAME,IDENT,MULTILIB,MICROARCH,ISA,FLAGS) \
   IDENT,
 #include "m68k-cores.def"
 #undef M68K_CORE

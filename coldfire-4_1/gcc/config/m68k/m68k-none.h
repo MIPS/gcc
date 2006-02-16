@@ -83,9 +83,18 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 
 #undef ASM_SPEC
 #define ASM_SPEC "\
-%{m68851}%{mno-68851}%{m68881}%{mno-68881}%{msoft-float:-mno-68881} %{m68000}%{m68302}%{mc68000}%{m68010}%{m68020}%{mc68020}%{m68030}%{m68040}%{m68020-40:-mc68040} %{m68020-60:-mc68040} %{m68060}%{mcpu32}%{m68332}%{m5200}%{m5206e}%{m528x}%{m5307}%{m5407}%{mcfv4e}%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:%{!m68030:%{!m68040:%{!m68020-40:%{!m68020-60:%{!m68060:%{!mcpu32:%{!m68332:%{!m5200:%{!m5206e:%{!m528x:%{!m5307:%{!m5407:%{!mcfv4e:%(asm_cpu_default)}}}}}}}}}}}}}}}}}}} \
-%{fPIC:--pcrel} %{fpic:--pcrel} %{msep-data:--pcrel} %{mid-shared-library:--pcrel} \
-"
+%{m68851}%{mno-68851}%{m68881}%{mno-68881}%{msoft-float:-mno-68881}\
+%{m68000}%{m68302}%{mc68000}%{m68010}%{m68020}%{mc68020}%{m68030}\
+%{m68040}%{m68020-40:-mc68040} %{m68020-60:-mc68040}\
+%{m68060}%{mcpu32}%{m68332}%{m5200}%{m5206e}%{m528x}%{m5307}%{m5407}%{mcfv4e}\
+%{mcpu=*:-mcpu=%*}\
+%{march=*:-march=%*}\
+%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:\
+ %{!m68030:%{!m68040:%{!m68020-40:%{!m68020-60:%{!m68060:%{!mcpu32:\
+ %{!m68332:%{!m5200:%{!m5206e:%{!m528x:%{!m5307:%{!m5407:%{!mcfv4e:\
+ %{!mcpu=*:%{!march=*:%(asm_cpu_default)}}}}}}}}}}}}}}}}}}}}} \
+%{fPIC:--pcrel} %{fpic:--pcrel} %{msep-data:--pcrel}\
+%{mid-shared-library:--pcrel}"
 
 /* cc1/cc1plus always receives all the -m flags. If the specs strings above 
    are consistent with the flags in m68k.opt, there should be no need for

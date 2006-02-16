@@ -304,7 +304,7 @@ struct processors
 static const struct processors all_cores[] =
 {
   /* m68k cores.  */
-#define M68K_CORE(NAME,IDENT,MICROARCH,ISA,FLAGS) \
+#define M68K_CORE(NAME,IDENT,MULTILIB,MICROARCH,ISA,FLAGS) \
   { NAME, IDENT, u##MICROARCH, ISA, FLAGS | FL_FOR_##ISA },
 #include "m68k-cores.def"
 #undef M68K_CORE
@@ -421,7 +421,7 @@ m68k_handle_option (size_t code, const char *arg, int value)
       return true;
 
     case OPT_m528x:
-      m68k_select[M68K_OPT_SET_CPU].string = "5280";
+      m68k_select[M68K_OPT_SET_CPU].string = "528x";
       return true;
 
     case OPT_m5307:
@@ -565,20 +565,9 @@ override_options (void)
 	}
     }
 
+  /* Override tuning. This should never alter the ISA used.  */
   if (tuning != -1)
-    {
-      if (target_cpu == unk_proc || uarch == unk_arch)
-        {
-          /* -mtune option but no -march/-mcpu option: pick sensible
-	     values.  */
-	  flags = all_tunings[tuning].flags;
-	  uarch = all_tunings[tuning].microarch;
-	  target_cpu = all_tunings[tuning].core;
-	}
-      else
-	/* -march/-mcpu given: override tuning.  */
-	uarch = all_tunings[tuning].microarch;
-    }
+    uarch = all_tunings[tuning].microarch;
 
   /* FIXME: This should fall back to the compiled-in default.  */
   gcc_assert (flags != 0);

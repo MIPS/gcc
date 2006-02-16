@@ -1,3 +1,27 @@
+2006-02-16  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-aout*): Use t-mlib-matches file.
+	(m68k-*-coff*): Likewise.
+	(m68010-*-netbsdelf*, m68k*-*-netbsdelf*): Likewise.
+	(m68k-*-uclinux*): Likewise.
+	(m68k-*-linux*): Likewise.
+	(m68k-*-rtems*): Likewise.
+	* gcc/config/m68k/t-rtems: Use -mcpu= options for multilibs.
+	* gcc/config/m68k/t-m68kelf: Likewise.
+	* gcc/config/m68k/t-m68kbare: Likewise.
+	* gcc/config/m68k/t-uclinux: Likewise.
+	* gcc/config/m68k/m68k-cores.def: Add multilib field. Add missing HWDIV
+	flag to various cores. Replace 5280, 5281, 5282 with 528x.
+	* gcc/config/m68k/t-mlib-matches: Find canonical multilib for
+	CPU/arch settings.
+	* gcc/config/m68k/m68k-none.h (ASM_SPEC): Add -mcpu/-march options.
+	* gcc/config/m68k/m68k.c (all_cores): Ignore new multilib field in
+	m68k-cores.def.
+	(m68k_handle_option): Use 528x instead of 5280.
+	(override_options): Don't set CPU/arch if tuning option only is given.
+	* gcc/config/m68k/m68k.h (processor_type): Ignore new multilib field in
+	m68k-cores.def.
+
 2006-02-13  Julian Brown  <julian@codesourcery.com>
 
 	* gcc/config/m68k/m68k.h (CONST_OK_FOR_LETTER_P): Implement 'R'

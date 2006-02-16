@@ -175,4 +175,3 @@ Specify the name of the target floating-point implementation
 mhwdiv
 Target Mask(CF_HWDIV)
 Use hardware division instructions on ColdFire
-
