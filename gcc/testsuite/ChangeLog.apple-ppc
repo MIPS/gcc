@@ -1,3 +1,7 @@
+2006-02-17  Stuart Hastings  <stuart@apple.com>
+
+	* gcc.dg/4176531.c: Fix target.
+
 2006-02-16  Mike Stump  <mrs@apple.com>
 
 	Radar 4419735
