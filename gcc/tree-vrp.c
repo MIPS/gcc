@@ -1,5 +1,5 @@
 /* Support routines for Value Range Propagation (VRP).
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>.
 
 This file is part of GCC.
@@ -40,10 +40,6 @@ Boston, MA 02110-1301, USA.  */
 /* Set of SSA names found during the dominator traversal of a
    sub-graph in find_assert_locations.  */
 static sbitmap found_in_subgraph;
-
-/* Loop structure of the program.  Used to analyze scalar evolutions
-   inside adjust_range_with_scev.  */
-static struct loops *cfg_loops;
 
 /* Local functions.  */
 static int compare_values (tree val1, tree val2);
@@ -255,7 +251,7 @@ get_value_range (tree var)
     return vr;
 
   /* Create a default value range.  */
-  vr_value[ver] = vr = xmalloc (sizeof (*vr));
+  vr_value[ver] = vr = XNEW (value_range_t);
   memset (vr, 0, sizeof (*vr));
 
   /* Allocate an equivalence set.  */
@@ -1048,6 +1044,97 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
       if (compare_values (var_vr->min, vr_p->min) == 0
 	  && compare_values (var_vr->max, vr_p->max) == 0)
 	set_value_range_to_varying (vr_p);
+      else
+	{
+	  tree min, max, anti_min, anti_max, real_min, real_max;
+
+	  /* We want to compute the logical AND of the two ranges;
+	     there are three cases to consider.
+
+
+	     1. The VR_ANTI_RANGE range is competely within the 
+		VR_RANGE and the endpoints of the ranges are
+		different.  In that case the resulting range
+		should be whichever range is more precise.
+		Typically that will be the VR_RANGE.
+
+	     2. The VR_ANTI_RANGE is completely disjoint from
+		the VR_RANGE.  In this case the resulting range
+		should be the VR_RANGE.
+
+	     3. There is some overlap between the VR_ANTI_RANGE
+		and the VR_RANGE.
+
+		3a. If the high limit of the VR_ANTI_RANGE resides
+		    within the VR_RANGE, then the result is a new
+		    VR_RANGE starting at the high limit of the
+		    the VR_ANTI_RANGE + 1 and extending to the
+		    high limit of the original VR_RANGE.
+
+		3b. If the low limit of the VR_ANTI_RANGE resides
+		    within the VR_RANGE, then the result is a new
+		    VR_RANGE starting at the low limit of the original
+		    VR_RANGE and extending to the low limit of the
+		    VR_ANTI_RANGE - 1.  */
+	  if (vr_p->type == VR_ANTI_RANGE)
+	    {
+	      anti_min = vr_p->min;
+	      anti_max = vr_p->max;
+	      real_min = var_vr->min;
+	      real_max = var_vr->max;
+	    }
+	  else
+	    {
+	      anti_min = var_vr->min;
+	      anti_max = var_vr->max;
+	      real_min = vr_p->min;
+	      real_max = vr_p->max;
+	    }
+
+
+	  /* Case 1, VR_ANTI_RANGE completely within VR_RANGE,
+	     not including any endpoints.  */
+	  if (compare_values (anti_max, real_max) == -1
+	      && compare_values (anti_min, real_min) == 1)
+	    {
+	      set_value_range (vr_p, VR_RANGE, real_min,
+			       real_max, vr_p->equiv);
+	    }
+	  /* Case 2, VR_ANTI_RANGE completely disjoint from
+	     VR_RANGE.  */
+	  else if (compare_values (anti_min, real_max) == 1
+		   || compare_values (anti_max, real_min) == -1)
+	    {
+	      set_value_range (vr_p, VR_RANGE, real_min,
+			       real_max, vr_p->equiv);
+	    }
+	  /* Case 3a, the anti-range extends into the low
+	     part of the real range.  Thus creating a new
+	     low for the real reange.  */
+	  else if ((compare_values (anti_max, real_min) == 1
+		    || compare_values (anti_max, real_min) == 0)
+		   && compare_values (anti_max, real_max) == -1)
+	    {
+	      min = fold_build2 (PLUS_EXPR, TREE_TYPE (var_vr->min),
+				 anti_max,
+				 build_int_cst (TREE_TYPE (var_vr->min), 1));
+	      max = real_max;
+	      set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
+	    }
+	  /* Case 3b, the anti-range extends into the high
+	     part of the real range.  Thus creating a new
+	     higher for the real reange.  */
+	  else if (compare_values (anti_min, real_min) == 1
+		   && (compare_values (anti_min, real_max) == -1
+		       || compare_values (anti_min, real_max) == 0))
+	    {
+	      max = fold_build2 (MINUS_EXPR, TREE_TYPE (var_vr->min),
+				 anti_min,
+				 build_int_cst (TREE_TYPE (var_vr->min), 1));
+	      min = real_min;
+	      set_value_range (vr_p, VR_RANGE, min, max, vr_p->equiv);
+	    }
+	}
     }
 
   /* Remove names from the equivalence set that have ranges
@@ -1104,22 +1191,24 @@ vrp_int_const_binop (enum tree_code code, tree val1, tree val2)
     {
       int checkz = compare_values (res, val1);
 
-      /* Ensure that res = val1 + val2 >= val1
+      /* Ensure that res = val1 [+*] val2 >= val1
          or that res = val1 - val2 <= val1.  */
-      if ((code == PLUS_EXPR && !(checkz == 1 || checkz == 0))
-          || (code == MINUS_EXPR && !(checkz == 0 || checkz == -1)))
+      if (((code == PLUS_EXPR || code == MULT_EXPR)
+	   && !(checkz == 1 || checkz == 0))
+          || (code == MINUS_EXPR
+	      && !(checkz == 0 || checkz == -1)))
 	{
 	  res = copy_node (res);
 	  TREE_OVERFLOW (res) = 1;
 	}
     }
-  /* If the operation overflowed but neither VAL1 nor VAL2 are
-     overflown, return -INF or +INF depending on the operation
-     and the combination of signs of the operands.  */
   else if (TREE_OVERFLOW (res)
 	   && !TREE_OVERFLOW (val1)
 	   && !TREE_OVERFLOW (val2))
     {
+      /* If the operation overflowed but neither VAL1 nor VAL2 are
+	 overflown, return -INF or +INF depending on the operation
+	 and the combination of signs of the operands.  */
       int sgn1 = tree_int_cst_sgn (val1);
       int sgn2 = tree_int_cst_sgn (val2);
 
@@ -1167,6 +1256,7 @@ static void
 extract_range_from_binary_expr (value_range_t *vr, tree expr)
 {
   enum tree_code code = TREE_CODE (expr);
+  enum value_range_type type;
   tree op0, op1, min, max;
   int cmp;
   value_range_t vr0 = { VR_UNDEFINED, NULL_TREE, NULL_TREE, NULL };
@@ -1188,8 +1278,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       && code != TRUTH_ANDIF_EXPR
       && code != TRUTH_ORIF_EXPR
       && code != TRUTH_AND_EXPR
-      && code != TRUTH_OR_EXPR
-      && code != TRUTH_XOR_EXPR)
+      && code != TRUTH_OR_EXPR)
     {
       set_value_range_to_varying (vr);
       return;
@@ -1220,12 +1309,17 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       return;
     }
 
+  /* The type of the resulting value range defaults to VR0.TYPE.  */
+  type = vr0.type;
+
   /* Refuse to operate on VARYING ranges, ranges of different kinds
      and symbolic ranges.  As an exception, we allow BIT_AND_EXPR
      because we may be able to derive a useful range even if one of
      the operands is VR_VARYING or symbolic range.  TODO, we may be
      able to derive anti-ranges in some cases.  */
   if (code != BIT_AND_EXPR
+      && code != TRUTH_AND_EXPR
+      && code != TRUTH_OR_EXPR
       && (vr0.type == VR_VARYING
 	  || vr1.type == VR_VARYING
 	  || vr0.type != vr1.type
@@ -1270,12 +1364,49 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
   if (code == TRUTH_ANDIF_EXPR
       || code == TRUTH_ORIF_EXPR
       || code == TRUTH_AND_EXPR
-      || code == TRUTH_OR_EXPR
-      || code == TRUTH_XOR_EXPR)
+      || code == TRUTH_OR_EXPR)
     {
-      /* Boolean expressions cannot be folded with int_const_binop.  */
-      min = fold_binary (code, TREE_TYPE (expr), vr0.min, vr1.min);
-      max = fold_binary (code, TREE_TYPE (expr), vr0.max, vr1.max);
+      /* If one of the operands is zero, we know that the whole
+	 expression evaluates zero.  */
+      if (code == TRUTH_AND_EXPR
+	  && ((vr0.type == VR_RANGE
+	       && integer_zerop (vr0.min)
+	       && integer_zerop (vr0.max))
+	      || (vr1.type == VR_RANGE
+		  && integer_zerop (vr1.min)
+		  && integer_zerop (vr1.max))))
+	{
+	  type = VR_RANGE;
+	  min = max = build_int_cst (TREE_TYPE (expr), 0);
+	}
+      /* If one of the operands is one, we know that the whole
+	 expression evaluates one.  */
+      else if (code == TRUTH_OR_EXPR
+	       && ((vr0.type == VR_RANGE
+		    && integer_onep (vr0.min)
+		    && integer_onep (vr0.max))
+		   || (vr1.type == VR_RANGE
+		       && integer_onep (vr1.min)
+		       && integer_onep (vr1.max))))
+	{
+	  type = VR_RANGE;
+	  min = max = build_int_cst (TREE_TYPE (expr), 1);
+	}
+      else if (vr0.type != VR_VARYING
+	       && vr1.type != VR_VARYING
+	       && vr0.type == vr1.type
+	       && !symbolic_range_p (&vr0)
+	       && !symbolic_range_p (&vr1))
+	{
+	  /* Boolean expressions cannot be folded with int_const_binop.  */
+	  min = fold_binary (code, TREE_TYPE (expr), vr0.min, vr1.min);
+	  max = fold_binary (code, TREE_TYPE (expr), vr0.max, vr1.max);
+	}
+      else
+	{
+	  set_value_range_to_varying (vr);
+	  return;
+	}
     }
   else if (code == PLUS_EXPR
 	   || code == MIN_EXPR
@@ -1368,12 +1499,13 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       max = val[0];
       for (i = 1; i < 4; i++)
 	{
-	  if (TREE_OVERFLOW (min) || TREE_OVERFLOW (max))
+	  if (!is_gimple_min_invariant (min) || TREE_OVERFLOW (min)
+	      || !is_gimple_min_invariant (max) || TREE_OVERFLOW (max))
 	    break;
 
 	  if (val[i])
 	    {
-	      if (TREE_OVERFLOW (val[i]))
+	      if (!is_gimple_min_invariant (val[i]) || TREE_OVERFLOW (val[i]))
 		{
 		  /* If we found an overflowed value, set MIN and MAX
 		     to it so that we set the resulting range to
@@ -1417,7 +1549,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 	  && tree_expr_nonnegative_p (vr0.max)
 	  && TREE_CODE (vr0.max) == INTEGER_CST)
 	{
-	  min = fold_convert (TREE_TYPE (expr), integer_zero_node);
+	  min = build_int_cst (TREE_TYPE (expr), 0);
 	  max = vr0.max;
 	}
       else if (vr1.type == VR_RANGE
@@ -1425,8 +1557,8 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 	  && tree_expr_nonnegative_p (vr1.max)
 	  && TREE_CODE (vr1.max) == INTEGER_CST)
 	{
-	  vr0.type = VR_RANGE;
-	  min = fold_convert (TREE_TYPE (expr), integer_zero_node);
+	  type = VR_RANGE;
+	  min = build_int_cst (TREE_TYPE (expr), 0);
 	  max = vr1.max;
 	}
       else
@@ -1440,7 +1572,8 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
 
   /* If either MIN or MAX overflowed, then set the resulting range to
      VARYING.  */
-  if (TREE_OVERFLOW (min) || TREE_OVERFLOW (max))
+  if (!is_gimple_min_invariant (min) || TREE_OVERFLOW (min)
+      || !is_gimple_min_invariant (max) || TREE_OVERFLOW (max))
     {
       set_value_range_to_varying (vr);
       return;
@@ -1455,7 +1588,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       set_value_range_to_varying (vr);
     }
   else
-    set_value_range (vr, vr0.type, min, max, NULL);
+    set_value_range (vr, type, min, max, NULL);
 }
 
 
@@ -1772,7 +1905,7 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
 
   /* Do not adjust ranges when chrec may wrap.  */
   if (scev_probably_wraps_p (chrec_type (chrec), init, step, stmt,
-			     cfg_loops->parray[CHREC_VARIABLE (chrec)],
+			     current_loops->parray[CHREC_VARIABLE (chrec)],
 			     &init_is_max, &unknown_max)
       || unknown_max)
     return;
@@ -1782,12 +1915,21 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop, tree stmt,
     {
       /* For VARYING or UNDEFINED ranges, just about anything we get
 	 from scalar evolutions should be better.  */
+      tree min = TYPE_MIN_VALUE (TREE_TYPE (init));
+      tree max = TYPE_MAX_VALUE (TREE_TYPE (init));
+
       if (init_is_max)
-	set_value_range (vr, VR_RANGE, TYPE_MIN_VALUE (TREE_TYPE (init)),
-	                 init, vr->equiv);
+	max = init;
       else
-	set_value_range (vr, VR_RANGE, init, TYPE_MAX_VALUE (TREE_TYPE (init)),
-	                 vr->equiv);
+	min = init;
+
+      /* If we would create an invalid range, then just assume we
+	 know absolutely nothing.  This may be over-conservative,
+	 but it's clearly safe.  */
+      if (compare_values (min, max) == 1)
+	return;
+
+      set_value_range (vr, VR_RANGE, min, max, vr->equiv);
     }
   else if (vr->type == VR_RANGE)
     {
@@ -2463,7 +2605,7 @@ register_new_assert_for (tree name,
   /* If we didn't find an assertion already registered for
      NAME COMP_CODE VAL, add a new one at the end of the list of
      assertions associated with NAME.  */
-  n = xmalloc (sizeof (*n));
+  n = XNEW (struct assert_locus_d);
   n->bb = dest_bb;
   n->e = e;
   n->si = si;
@@ -2613,7 +2755,24 @@ find_conditional_asserts (basic_block bb)
       /* Remove the COND_EXPR operands from the FOUND_IN_SUBGRAPH bitmap.
 	 Otherwise, when we finish traversing each of the sub-graphs, we
 	 won't know whether the variables were found in the sub-graphs or
-	 if they had been found in a block upstream from BB.  */
+	 if they had been found in a block upstream from BB. 
+
+	 This is actually a bad idea is some cases, particularly jump
+	 threading.  Consider a CFG like the following:
+
+                    0
+                   /|
+                  1 |
+                   \|
+                    2
+                   / \
+                  3   4
+
+	 Assume that one or more operands in the conditional at the
+	 end of block 0 are used in a conditional in block 2, but not
+	 anywhere in block 1.  In this case we will not insert any
+	 assert statements in block 1, which may cause us to miss
+	 opportunities to optimize, particularly for jump threading.  */
       FOR_EACH_SSA_TREE_OPERAND (op, last, iter, SSA_OP_USE)
 	RESET_BIT (found_in_subgraph, SSA_NAME_VERSION (op));
 
@@ -2935,7 +3094,7 @@ insert_range_assertions (void)
   sbitmap_zero (blocks_visited);
 
   need_assert_for = BITMAP_ALLOC (NULL);
-  asserts_for = xmalloc (num_ssa_names * sizeof (assert_locus_t));
+  asserts_for = XNEWVEC (assert_locus_t, num_ssa_names);
   memset (asserts_for, 0, num_ssa_names * sizeof (assert_locus_t));
 
   calculate_dominance_info (CDI_DOMINATORS);
@@ -3022,7 +3181,7 @@ remove_range_assertions (void)
 	      }
 
 	    /* And finally, remove the copy, it is not needed.  */
-	    bsi_remove (&si);
+	    bsi_remove (&si, true);
 	  }
 	else
 	  bsi_next (&si);
@@ -3066,7 +3225,7 @@ vrp_initialize (void)
 {
   basic_block bb;
 
-  vr_value = xmalloc (num_ssa_names * sizeof (value_range_t *));
+  vr_value = XNEWVEC (value_range_t *, num_ssa_names);
   memset (vr_value, 0, num_ssa_names * sizeof (value_range_t *));
 
   FOR_EACH_BB (bb)
@@ -3132,7 +3291,7 @@ vrp_visit_assignment (tree stmt, tree *output_p)
       /* If STMT is inside a loop, we may be able to know something
 	 else about the range of LHS by examining scalar evolution
 	 information.  */
-      if (cfg_loops && (l = loop_containing_stmt (stmt)))
+      if (current_loops && (l = loop_containing_stmt (stmt)))
 	adjust_range_with_scev (&new_vr, l, stmt, lhs);
 
       if (update_value_range (lhs, &new_vr))
@@ -3924,7 +4083,7 @@ test_for_singularity (enum tree_code cond_code, tree op0,
       if (cond_code == GT_EXPR)
 	{
 	  tree one = build_int_cst (TREE_TYPE (op0), 1);
-	  max = fold_build2 (PLUS_EXPR, TREE_TYPE (op0), max, one);
+	  min = fold_build2 (PLUS_EXPR, TREE_TYPE (op0), min, one);
 	}
     }
 
@@ -3941,10 +4100,10 @@ test_for_singularity (enum tree_code cond_code, tree op0,
       else
 	max = vr->max;
 
-      /* If the new min/max values have converged to a
-	 single value, then there is only one value which
-	 can satisfy the condition, return that value.  */
-      if (min == max && is_gimple_min_invariant (min))
+      /* If the new min/max values have converged to a single value,
+	 then there is only one value which can satisfy the condition,
+	 return that value.  */
+      if (operand_equal_p (min, max, 0) && is_gimple_min_invariant (min))
 	return min;
     }
   return NULL;
@@ -4060,6 +4219,157 @@ simplify_stmt_using_ranges (tree stmt)
     }
 }
 
+/* Stack of dest,src equivalency pairs that need to be restored after
+   each attempt to thread a block's incoming edge to an outgoing edge. 
+
+   A NULL entry is used to mark the end of pairs which need to be
+   restored.  */
+static VEC(tree,heap) *stack;
+
+/* A trivial wrapper so that we can present the generic jump
+   threading code with a simple API for simplifying statements.  */
+static tree
+simplify_stmt_for_jump_threading (tree stmt)
+{
+  /* We only use VRP information to simplify conditionals.  This is
+     overly conservative, but it's unclear if doing more would be
+     worth the compile time cost.  */
+  if (TREE_CODE (stmt) != COND_EXPR)
+    return NULL;
+
+  return vrp_evaluate_conditional (COND_EXPR_COND (stmt), true);
+}
+
+/* Blocks which have more than one predecessor and more than
+   one successor present jump threading opportunities.  ie,
+   when the block is reached from a specific predecessor, we
+   may be able to determine which of the outgoing edges will
+   be traversed.  When this optimization applies, we are able
+   to avoid conditionals at runtime and we may expose secondary
+   optimization opportunities.
+
+   This routine is effectively a driver for the generic jump
+   threading code.  It basically just presents the generic code
+   with edges that may be suitable for jump threading.
+
+   Unlike DOM, we do not iterate VRP if jump threading was successful.
+   While iterating may expose new opportunities for VRP, it is expected
+   those opportunities would be very limited and the compile time cost
+   to expose those opportunities would be significant. 
+
+   As jump threading opportunities are discovered, they are registered
+   for later realization.  */
+
+static void
+identify_jump_threads (void)
+{
+  basic_block bb;
+  tree dummy;
+
+  /* Ugh.  When substituting values earlier in this pass we can
+     wipe the dominance information.  So rebuild the dominator
+     information as we need it within the jump threading code.  */
+  calculate_dominance_info (CDI_DOMINATORS);
+
+  /* We do not allow VRP information to be used for jump threading
+     across a back edge in the CFG.  Otherwise it becomes too
+     difficult to avoid eliminating loop exit tests.  Of course
+     EDGE_DFS_BACK is not accurate at this time so we have to
+     recompute it.  */
+  mark_dfs_back_edges ();
+
+  /* Allocate our unwinder stack to unwind any temporary equivalences
+     that might be recorded.  */
+  stack = VEC_alloc (tree, heap, 20);
+
+  /* To avoid lots of silly node creation, we create a single
+     conditional and just modify it in-place when attempting to
+     thread jumps.  */
+  dummy = build2 (EQ_EXPR, boolean_type_node, NULL, NULL);
+  dummy = build3 (COND_EXPR, void_type_node, dummy, NULL, NULL);
+
+  /* Walk through all the blocks finding those which present a
+     potential jump threading opportunity.  We could set this up
+     as a dominator walker and record data during the walk, but
+     I doubt it's worth the effort for the classes of jump
+     threading opportunities we are trying to identify at this
+     point in compilation.  */
+  FOR_EACH_BB (bb)
+    {
+      tree last, cond;
+
+      /* If the generic jump threading code does not find this block
+	 interesting, then there is nothing to do.  */
+      if (! potentially_threadable_block (bb))
+	continue;
+
+      /* We only care about blocks ending in a COND_EXPR.  While there
+	 may be some value in handling SWITCH_EXPR here, I doubt it's
+	 terribly important.  */
+      last = bsi_stmt (bsi_last (bb));
+      if (TREE_CODE (last) != COND_EXPR)
+	continue;
+
+      /* We're basically looking for any kind of conditional with
+	 integral type arguments.  */
+      cond = COND_EXPR_COND (last);
+      if ((TREE_CODE (cond) == SSA_NAME
+	   && INTEGRAL_TYPE_P (TREE_TYPE (cond)))
+	  || (COMPARISON_CLASS_P (cond)
+	      && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
+	      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (cond, 0)))
+	      && (TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME
+		  || is_gimple_min_invariant (TREE_OPERAND (cond, 1)))
+	      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (cond, 1)))))
+	{
+	  edge_iterator ei;
+	  edge e;
+
+	  /* We've got a block with multiple predecessors and multiple
+	     successors which also ends in a suitable conditional.  For
+	     each predecessor, see if we can thread it to a specific
+	     successor.  */
+	  FOR_EACH_EDGE (e, ei, bb->preds)
+	    {
+	      /* Do not thread across back edges or abnormal edges
+		 in the CFG.  */
+	      if (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
+		continue;
+
+	      thread_across_edge (dummy, e, true,
+				  &stack,
+				  simplify_stmt_for_jump_threading);
+	    }
+	}
+    }
+
+  /* We do not actually update the CFG or SSA graphs at this point as
+     ASSERT_EXPRs are still in the IL and cfg cleanup code does not yet
+     handle ASSERT_EXPRs gracefully.  */
+}
+
+/* We identified all the jump threading opportunities earlier, but could
+   not transform the CFG at that time.  This routine transforms the
+   CFG and arranges for the dominator tree to be rebuilt if necessary.
+
+   Note the SSA graph update will occur during the normal TODO
+   processing by the pass manager.  */
+static void
+finalize_jump_threads (void)
+{
+  bool cfg_altered = false;
+  cfg_altered = thread_through_all_blocks ();
+
+  /* If we threaded jumps, then we need to recompute the dominance
+     information, to safely do that we must clean up the CFG first.  */
+  if (cfg_altered)
+    {
+      free_dominance_info (CDI_DOMINATORS);
+      cleanup_tree_cfg ();
+      calculate_dominance_info (CDI_DOMINATORS);
+    }
+  VEC_free (tree, heap, stack);
+}
 
 
 /* Traverse all the blocks folding conditionals with known ranges.  */
@@ -4081,7 +4391,7 @@ vrp_finalize (void)
   /* We may have ended with ranges that have exactly one value.  Those
      values can be substituted as any other copy/const propagated
      value using substitute_and_fold.  */
-  single_val_range = xmalloc (num_ssa_names * sizeof (*single_val_range));
+  single_val_range = XNEWVEC (prop_value_t, num_ssa_names);
   memset (single_val_range, 0, num_ssa_names * sizeof (*single_val_range));
 
   do_value_subst_p = false;
@@ -4103,6 +4413,10 @@ vrp_finalize (void)
     }
 
   substitute_and_fold (single_val_range, true);
+
+  /* We must identify jump threading opportunities before we release
+     the datastructures built by VRP.  */
+  identify_jump_threads ();
 
   /* Free allocated memory.  */
   for (i = 0; i < num_ssa_names; i++)
@@ -4166,22 +4480,35 @@ execute_vrp (void)
 {
   insert_range_assertions ();
 
-  cfg_loops = loop_optimizer_init (NULL);
-  if (cfg_loops)
-    scev_initialize (cfg_loops);
+  current_loops = loop_optimizer_init (LOOPS_NORMAL);
+  if (current_loops)
+    scev_initialize (current_loops);
 
   vrp_initialize ();
   ssa_propagate (vrp_visit_stmt, vrp_visit_phi_node);
   vrp_finalize ();
 
-  if (cfg_loops)
+  if (current_loops)
     {
       scev_finalize ();
-      loop_optimizer_finalize (cfg_loops, NULL);
+      loop_optimizer_finalize (current_loops);
       current_loops = NULL;
     }
 
+  /* ASSERT_EXPRs must be removed before finalizing jump threads
+     as finalizing jump threads calls the CFG cleanup code which
+     does not properly handle ASSERT_EXPRs.  */
   remove_range_assertions ();
+
+  /* If we exposed any new variables, go ahead and put them into
+     SSA form now, before we handle jump threading.  This simplifies
+     interactions between rewriting of _DECL nodes into SSA form
+     and rewriting SSA_NAME nodes into SSA form after block
+     duplication and CFG manipulation.  */
+  update_ssa (TODO_update_ssa);
+
+  finalize_jump_threads ();
+
 }
 
 static bool

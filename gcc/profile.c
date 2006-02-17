@@ -72,12 +72,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Hooks for profiling.  */
 static struct profile_hooks* profile_hooks;
 
-/* File for profiling debug output.  */
-static inline FILE*
-profile_dump_file (void) {
-  return profile_hooks->profile_dump_file ();
-}
-
 /* Additional information about the edges we need.  */
 struct edge_info {
   unsigned int count_valid : 1;
@@ -471,7 +465,7 @@ compute_branch_probabilities (void)
 	}
     }
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
 
   total_num_passes += passes;
   if (dump_file)
@@ -693,8 +687,7 @@ compute_value_histograms (histogram_values values)
 
       hist->hvalue.next = ann->histograms;
       ann->histograms = hist;
-      hist->hvalue.counters = 
-	    xmalloc (sizeof (gcov_type) * hist->n_counters);
+      hist->hvalue.counters =  XNEWVEC (gcov_type, hist->n_counters);
       for (j = 0; j < hist->n_counters; j++)
 	hist->hvalue.counters[j] = aact_count[j];
     }
@@ -1156,8 +1149,8 @@ branch_prob (void)
       /* Re-merge split basic blocks and the mess introduced by
 	 insert_insn_on_edge.  */
       cleanup_cfg (profile_arc_flag ? CLEANUP_EXPENSIVE : 0);
-      if (profile_dump_file())
-	dump_flow_info (profile_dump_file());
+      if (dump_file)
+	dump_flow_info (dump_file, dump_flags);
     }
 
   free_edge_list (el);

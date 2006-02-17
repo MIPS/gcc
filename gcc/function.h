@@ -22,6 +22,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_FUNCTION_H
 #define GCC_FUNCTION_H
 
+#include "tree.h"
+
 struct var_refs_queue GTY(())
 {
   rtx modified;
@@ -162,24 +164,13 @@ struct expr_status GTY(())
 struct function GTY(())
 {
   struct eh_status *eh;
-  struct eh_status *saved_eh;
   struct expr_status *expr;
   struct emit_status *emit;
   struct varasm_status *varasm;
 
   /* The control flow graph for this function.  */
   struct control_flow_graph *cfg;
-  struct control_flow_graph *saved_cfg;
   bool after_inlining;
-
-  /* For tree-optimize.c.  */
-
-  /* Saved tree and arguments during tree optimization.  Used later for
-     inlining */
-  tree saved_args;
-  tree saved_static_chain_decl;
-  tree saved_blocks;
-  tree saved_unexpanded_var_list;
 
   /* For function.c.  */
 
@@ -560,9 +551,6 @@ extern void use_return_register (void);
 #endif
 
 extern rtx get_arg_pointer_save_area (struct function *);
-
-extern void init_virtual_regs (struct emit_status *);
-extern void instantiate_virtual_regs (void);
 
 /* Returns the name of the current function.  */
 extern const char *current_function_name (void);

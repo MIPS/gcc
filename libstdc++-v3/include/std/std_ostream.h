@@ -1,6 +1,6 @@
 // Output streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -164,45 +164,68 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
        *  @c num_get facet) to perform numeric formatting.
       */
       __ostream_type& 
-      operator<<(long __n);
+      operator<<(long __n)
+      { return _M_insert(__n); }
       
       __ostream_type& 
-      operator<<(unsigned long __n);
+      operator<<(unsigned long __n)
+      { return _M_insert(__n); }	
 
       __ostream_type& 
-      operator<<(bool __n);
+      operator<<(bool __n)
+      { return _M_insert(__n); }
 
       __ostream_type& 
       operator<<(short __n);
 
       __ostream_type& 
-      operator<<(unsigned short __n);
+      operator<<(unsigned short __n)
+      {
+	// _GLIBCXX_RESOLVE_LIB_DEFECTS
+	// 117. basic_ostream uses nonexistent num_put member functions.
+	return _M_insert(static_cast<unsigned long>(__n));
+      }
 
       __ostream_type& 
       operator<<(int __n);
 
       __ostream_type& 
-      operator<<(unsigned int __n);
+      operator<<(unsigned int __n)
+      {
+	// _GLIBCXX_RESOLVE_LIB_DEFECTS
+	// 117. basic_ostream uses nonexistent num_put member functions.
+	return _M_insert(static_cast<unsigned long>(__n));
+      }
 
 #ifdef _GLIBCXX_USE_LONG_LONG
       __ostream_type& 
-      operator<<(long long __n);
+      operator<<(long long __n)
+      { return _M_insert(__n); }
 
       __ostream_type& 
-      operator<<(unsigned long long __n);
+      operator<<(unsigned long long __n)
+      { return _M_insert(__n); }	
 #endif
 
       __ostream_type& 
-      operator<<(double __f);
+      operator<<(double __f)
+      { return _M_insert(__f); }
 
       __ostream_type& 
-      operator<<(float __f);
+      operator<<(float __f)
+      {
+	// _GLIBCXX_RESOLVE_LIB_DEFECTS
+	// 117. basic_ostream uses nonexistent num_put member functions.
+	return _M_insert(static_cast<double>(__f));
+      }
 
       __ostream_type& 
-      operator<<(long double __f);
+      operator<<(long double __f)
+      { return _M_insert(__f); }
 
       __ostream_type& 
-      operator<<(const void* __p);
+      operator<<(const void* __p)
+      { return _M_insert(__p); }
 
       /**
        *  @brief  Extracting from another streambuf.
@@ -339,6 +362,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     protected:
       explicit 
       basic_ostream() { }
+
+      template<typename _ValueT>
+        __ostream_type&
+        _M_insert(_ValueT __v);
     };
 
   /**

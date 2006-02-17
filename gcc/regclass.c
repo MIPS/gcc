@@ -1182,7 +1182,7 @@ init_reg_autoinc (void)
    This pass comes just before local register allocation.  */
 
 void
-regclass (rtx f, int nregs, FILE *dump)
+regclass (rtx f, int nregs)
 {
   rtx insn;
   int i;
@@ -1190,11 +1190,11 @@ regclass (rtx f, int nregs, FILE *dump)
 
   init_recog ();
 
-  costs = xmalloc (nregs * sizeof (struct costs));
+  costs = XNEWVEC (struct costs, nregs);
 
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 
-  in_inc_dec = xmalloc (nregs);
+  in_inc_dec = XNEWVEC (char, nregs);
 
 #endif /* FORBIDDEN_INC_DEC_CLASSES */
 
@@ -1207,8 +1207,8 @@ regclass (rtx f, int nregs, FILE *dump)
     {
       basic_block bb;
 
-      if (dump)
-	fprintf (dump, "\n\nPass %i\n\n",pass);
+      if (dump_file)
+	fprintf (dump_file, "\n\nPass %i\n\n",pass);
       /* Zero out our accumulation of the cost of each class for each reg.  */
 
       memset (costs, 0, nregs * sizeof (struct costs));
@@ -1250,10 +1250,10 @@ regclass (rtx f, int nregs, FILE *dump)
       if (pass == 0)
 	reg_pref = reg_pref_buffer;
 
-      if (dump)
+      if (dump_file)
 	{
-	  dump_regclass (dump);
-	  fprintf (dump,"\n");
+	  dump_regclass (dump_file);
+	  fprintf (dump_file,"\n");
 	}
       for (i = FIRST_PSEUDO_REGISTER; i < nregs; i++)
 	{
@@ -1299,7 +1299,7 @@ regclass (rtx f, int nregs, FILE *dump)
 	     should be provided as a register class.  Don't do this if we
 	     will be doing it again later.  */
 
-	  if ((pass == 1  || dump) || ! flag_expensive_optimizations)
+	  if ((pass == 1  || dump_file) || ! flag_expensive_optimizations)
 	    for (class = 0; class < N_REG_CLASSES; class++)
 	      if (p->cost[class] < p->mem_cost
 		  && (reg_class_size[(int) reg_class_subunion[(int) alt][class]]
@@ -1318,17 +1318,17 @@ regclass (rtx f, int nregs, FILE *dump)
 	  if (alt == best)
 	    alt = NO_REGS;
 
-	  if (dump
+	  if (dump_file
 	      && (reg_pref[i].prefclass != (int) best
 		  || reg_pref[i].altclass != (int) alt))
 	    {
-	      fprintf (dump, "  Register %i", i);
+	      fprintf (dump_file, "  Register %i", i);
 	      if (alt == ALL_REGS || best == ALL_REGS)
-		fprintf (dump, " pref %s\n", reg_class_names[(int) best]);
+		fprintf (dump_file, " pref %s\n", reg_class_names[(int) best]);
 	      else if (alt == NO_REGS)
-		fprintf (dump, " pref %s or none\n", reg_class_names[(int) best]);
+		fprintf (dump_file, " pref %s or none\n", reg_class_names[(int) best]);
 	      else
-		fprintf (dump, " pref %s, else %s\n",
+		fprintf (dump_file, " pref %s, else %s\n",
 			 reg_class_names[(int) best],
 			 reg_class_names[(int) alt]);
 	    }
@@ -2143,8 +2143,7 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 	{
 	  VARRAY_REG_INIT (reg_n_info, regno_allocated, "reg_n_info");
 	  renumber = xmalloc (size_renumber);
-	  reg_pref_buffer = xmalloc (regno_allocated
-				     * sizeof (struct reg_pref));
+	  reg_pref_buffer = XNEWVEC (struct reg_pref, regno_allocated);
 	}
       else
 	{
@@ -2155,14 +2154,13 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 	      free ((char *) renumber);
 	      free ((char *) reg_pref);
 	      renumber = xmalloc (size_renumber);
-	      reg_pref_buffer = xmalloc (regno_allocated
-					 * sizeof (struct reg_pref));
+	      reg_pref_buffer = XNEWVEC (struct reg_pref, regno_allocated);
 	    }
 
 	  else
 	    {
 	      renumber = xrealloc (renumber, size_renumber);
-	      reg_pref_buffer = xrealloc (reg_pref_buffer,
+	      reg_pref_buffer = (struct reg_pref *) xrealloc (reg_pref_buffer,
 					  regno_allocated
 					  * sizeof (struct reg_pref));
 	    }
@@ -2601,7 +2599,7 @@ record_subregs_of_mode (rtx subreg)
   node = *slot;
   if (node == NULL)
     {
-      node = xcalloc (1, sizeof (*node));
+      node = XCNEW (struct subregs_of_mode_node);
       node->block = regno & -8;
       *slot = node;
     }

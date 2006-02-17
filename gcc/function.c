@@ -625,22 +625,30 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 
   /* Try to find an available, already-allocated temporary of the proper
      mode which meets the size and alignment requirements.  Choose the
-     smallest one with the closest alignment.  */
-  for (p = avail_temp_slots; p; p = p->next)
+     smallest one with the closest alignment.
+   
+     If assign_stack_temp is called outside of the tree->rtl expansion,
+     we cannot reuse the stack slots (that may still refer to
+     VIRTUAL_STACK_VARS_REGNUM).  */
+  if (!virtuals_instantiated)
     {
-      if (p->align >= align && p->size >= size && GET_MODE (p->slot) == mode
-	  && objects_must_conflict_p (p->type, type)
-	  && (best_p == 0 || best_p->size > p->size
-	      || (best_p->size == p->size && best_p->align > p->align)))
+      for (p = avail_temp_slots; p; p = p->next)
 	{
-	  if (p->align == align && p->size == size)
+	  if (p->align >= align && p->size >= size
+	      && GET_MODE (p->slot) == mode
+	      && objects_must_conflict_p (p->type, type)
+	      && (best_p == 0 || best_p->size > p->size
+		  || (best_p->size == p->size && best_p->align > p->align)))
 	    {
-	      selected = p;
-	      cut_slot_from_list (selected, &avail_temp_slots);
-	      best_p = 0;
-	      break;
+	      if (p->align == align && p->size == size)
+		{
+		  selected = p;
+		  cut_slot_from_list (selected, &avail_temp_slots);
+		  best_p = 0;
+		  break;
+		}
+	      best_p = p;
 	    }
-	  best_p = p;
 	}
     }
 
@@ -1590,6 +1598,22 @@ instantiate_decl (rtx x)
   for_each_rtx (&XEXP (x, 0), instantiate_virtual_regs_in_rtx, NULL);
 }
 
+/* Helper for instantiate_decls called via walk_tree: Process all decls
+   in the given DECL_VALUE_EXPR.  */
+
+static tree
+instantiate_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+{
+  tree t = *tp;
+  if (! EXPR_P (t))
+    {
+      *walk_subtrees = 0;
+      if (DECL_P (t) && DECL_RTL_SET_P (t))
+	instantiate_decl (DECL_RTL (t));
+    }
+  return NULL;
+}
+
 /* Subroutine of instantiate_decls: Process all decls in the given
    BLOCK node and all its subblocks.  */
 
@@ -1599,8 +1623,15 @@ instantiate_decls_1 (tree let)
   tree t;
 
   for (t = BLOCK_VARS (let); t; t = TREE_CHAIN (t))
-    if (DECL_RTL_SET_P (t))
-      instantiate_decl (DECL_RTL (t));
+    {
+      if (DECL_RTL_SET_P (t))
+	instantiate_decl (DECL_RTL (t));
+      if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t))
+	{
+	  tree v = DECL_VALUE_EXPR (t);
+	  walk_tree (&v, instantiate_expr, NULL, NULL);
+	}
+    }
 
   /* Process all subblocks.  */
   for (t = BLOCK_SUBBLOCKS (let); t; t = TREE_CHAIN (t))
@@ -1620,6 +1651,11 @@ instantiate_decls (tree fndecl)
     {
       instantiate_decl (DECL_RTL (decl));
       instantiate_decl (DECL_INCOMING_RTL (decl));
+      if (DECL_HAS_VALUE_EXPR_P (decl))
+	{
+	  tree v = DECL_VALUE_EXPR (decl);
+	  walk_tree (&v, instantiate_expr, NULL, NULL);
+	}
     }
 
   /* Now process all variables defined in the function or its subblocks.  */
@@ -1629,7 +1665,7 @@ instantiate_decls (tree fndecl)
 /* Pass through the INSNS of function FNDECL and convert virtual register
    references to hard register references.  */
 
-void
+static void
 instantiate_virtual_regs (void)
 {
   rtx insn;
@@ -2596,8 +2632,10 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
   /* Store the parm in a pseudoregister during the function, but we may
      need to do it in a wider mode.  */
 
+  /* This is not really promoting for a call.  However we need to be
+     consistent with assign_parm_find_data_types and expand_expr_real_1.  */
   promoted_nominal_mode
-    = promote_mode (data->nominal_type, data->nominal_mode, &unsignedp, 0);
+    = promote_mode (data->nominal_type, data->nominal_mode, &unsignedp, 1);
 
   parmreg = gen_reg_rtx (promoted_nominal_mode);
 
@@ -3716,7 +3754,7 @@ get_block_vector (tree block, int *n_blocks_p)
   tree *block_vector;
 
   *n_blocks_p = all_blocks (block, NULL);
-  block_vector = xmalloc (*n_blocks_p * sizeof (tree));
+  block_vector = XNEWVEC (tree, *n_blocks_p);
   all_blocks (block, block_vector);
 
   return block_vector;

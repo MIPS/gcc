@@ -137,8 +137,6 @@ make_thunk (tree function, bool this_adjusting,
   TREE_READONLY (thunk) = TREE_READONLY (function);
   TREE_THIS_VOLATILE (thunk) = TREE_THIS_VOLATILE (function);
   TREE_PUBLIC (thunk) = TREE_PUBLIC (function);
-  if (flag_weak)
-    comdat_linkage (thunk);
   SET_DECL_THUNK_P (thunk, this_adjusting);
   THUNK_TARGET (thunk) = function;
   THUNK_FIXED_OFFSET (thunk) = d;
@@ -381,8 +379,8 @@ use_thunk (tree thunk_fndecl, bool emit_p)
   DECL_VISIBILITY (thunk_fndecl) = DECL_VISIBILITY (function);
   DECL_VISIBILITY_SPECIFIED (thunk_fndecl)
     = DECL_VISIBILITY_SPECIFIED (function);
-  if (flag_weak && TREE_PUBLIC (thunk_fndecl))
-    comdat_linkage (thunk_fndecl);
+  if (DECL_ONE_ONLY (function))
+    make_decl_one_only (thunk_fndecl);
 
   if (flag_syntax_only)
     {
@@ -971,7 +969,7 @@ locate_copy (tree type, void *client_)
    reference argument or a non-const reference.  Returns the
    FUNCTION_DECL for the implicitly declared function.  */
 
-tree
+static tree
 implicitly_declare_fn (special_function_kind kind, tree type, bool const_p)
 {
   tree fn;
@@ -1137,7 +1135,7 @@ lazily_declare_fn (special_function_kind sfk, tree type)
 	 TYPE_METHODS list, which cause the destructor to be emitted
 	 in an incorrect location in the vtable.  */
       if (warn_abi && DECL_VIRTUAL_P (fn))
-	warning (0, "vtable layout for class %qT may not be ABI-compliant"
+	warning (OPT_Wabi, "vtable layout for class %qT may not be ABI-compliant"
 		 "and may change in a future version of GCC due to "
 		 "implicit virtual destructor",
 		 type);

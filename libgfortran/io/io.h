@@ -62,6 +62,7 @@ typedef struct stream
   try (*truncate) (struct stream *);
   int (*read) (struct stream *, void *, size_t *);
   int (*write) (struct stream *, const void *, size_t *);
+  try (*set) (struct stream *, int, size_t);
 }
 stream;
 
@@ -81,6 +82,8 @@ stream;
 #define struncate(s) ((s)->truncate)(s)
 #define sread(s, buf, nbytes) ((s)->read)(s, buf, nbytes)
 #define swrite(s, buf, nbytes) ((s)->write)(s, buf, nbytes)
+
+#define sset(s, c, n) ((s)->set)(s, c, n)
 
 /* The array_loop_spec contains the variables for the loops over index ranges
    that are encountered.  Since the variables can be negative, ssize_t
@@ -207,7 +210,7 @@ typedef enum
 unit_mode;
 
 typedef enum
-{ CONVERT_NATIVE, CONVERT_SWAP, CONVERT_BIG, CONVERT_LITTLE }
+{ CONVERT_NONE=-1, CONVERT_NATIVE, CONVERT_SWAP, CONVERT_BIG, CONVERT_LITTLE }
 unit_convert;
 
 #define CHARACTER1(name) \
@@ -884,3 +887,8 @@ dec_waiting_unlocked (gfc_unit *u)
 }
 
 #endif
+
+/* ../runtime/environ.c  This is here because we return unit_convert.  */
+
+unit_convert get_unformatted_convert (int);
+internal_proto(get_unformatted_convert);

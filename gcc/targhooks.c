@@ -148,6 +148,14 @@ default_shift_truncation_mask (enum machine_mode mode)
   return SHIFT_COUNT_TRUNCATED ? GET_MODE_BITSIZE (mode) - 1 : 0;
 }
 
+/* The default implementation of TARGET_MIN_DIVISIONS_FOR_RECIP_MUL.  */
+
+unsigned int
+default_min_divisions_for_recip_mul (enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  return have_insn_for (DIV, mode) ? 3 : 2;
+}
+
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
 
 bool
@@ -270,6 +278,14 @@ default_scalar_mode_supported_p (enum machine_mode mode)
     }
 }
 
+/* True if the target supports decimal floating point.  */
+
+bool
+default_decimal_float_supported_p (void)
+{
+  return ENABLE_DECIMAL_FLOAT;
+}
+
 /* NULL if INSN insn is valid within a low-overhead loop, otherwise returns
    an error message.
   
@@ -319,6 +335,11 @@ hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
 	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
   return 0;
+}
+
+void 
+hook_void_bitmap (bitmap regs ATTRIBUTE_UNUSED)
+{
 }
 
 const char *

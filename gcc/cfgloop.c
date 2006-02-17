@@ -233,7 +233,7 @@ flow_loop_nodes_find (basic_block header, struct loop *loop)
 
   if (loop->latch->loop_father != loop)
     {
-      stack = xmalloc (n_basic_blocks * sizeof (basic_block));
+      stack = XNEWVEC (basic_block, n_basic_blocks);
       sp = 0;
       num_nodes++;
       stack[sp++] = loop->latch;
@@ -337,7 +337,7 @@ establish_preds (struct loop *loop)
 
   if (loop->pred)
     free (loop->pred);
-  loop->pred = xmalloc (sizeof (struct loop *) * loop->depth);
+  loop->pred = XNEWVEC (struct loop *, loop->depth);
   memcpy (loop->pred, father->pred, sizeof (struct loop *) * father->depth);
   loop->pred[father->depth] = father;
 
@@ -667,10 +667,10 @@ flow_loops_find (struct loops *loops)
     }
 
   /* Allocate loop structures.  */
-  loops->parray = xcalloc (num_loops + 1, sizeof (struct loop *));
+  loops->parray = XCNEWVEC (struct loop *, num_loops + 1);
 
   /* Dummy loop containing whole function.  */
-  loops->parray[0] = xcalloc (1, sizeof (struct loop));
+  loops->parray[0] = XCNEW (struct loop);
   loops->parray[0]->next = NULL;
   loops->parray[0]->inner = NULL;
   loops->parray[0]->outer = NULL;
@@ -694,8 +694,8 @@ flow_loops_find (struct loops *loops)
     {
       /* Compute depth first search order of the CFG so that outer
 	 natural loops will be found before inner natural loops.  */
-      dfs_order = xmalloc (n_basic_blocks * sizeof (int));
-      rc_order = xmalloc (n_basic_blocks * sizeof (int));
+      dfs_order = XNEWVEC (int, n_basic_blocks);
+      rc_order = XNEWVEC (int, n_basic_blocks);
       pre_and_rev_post_order_compute (dfs_order, rc_order, false);
 
       /* Save CFG derived information to avoid recomputing it.  */
@@ -716,7 +716,7 @@ flow_loops_find (struct loops *loops)
 
 	  header = BASIC_BLOCK (rc_order[b]);
 
-	  loop = loops->parray[num_loops] = xcalloc (1, sizeof (struct loop));
+	  loop = loops->parray[num_loops] = XCNEW (struct loop);
 
 	  loop->header = header;
 	  loop->num = num_loops;
@@ -771,15 +771,6 @@ flow_bb_inside_loop_p (const struct loop *loop, const basic_block bb)
   return loop == source_loop || flow_loop_nested_p (loop, source_loop);
 }
 
-/* Return nonzero if edge E enters header of LOOP from outside of LOOP.  */
-
-bool
-flow_loop_outside_edge_p (const struct loop *loop, edge e)
-{
-  gcc_assert (e->dest == loop->header);
-  return !flow_bb_inside_loop_p (loop, e->src);
-}
-
 /* Enumeration predicate for get_loop_body.  */
 static bool
 glb_enum_p (basic_block bb, void *glb_header)
@@ -798,7 +789,7 @@ get_loop_body (const struct loop *loop)
 
   gcc_assert (loop->num_nodes);
 
-  tovisit = xcalloc (loop->num_nodes, sizeof (basic_block));
+  tovisit = XCNEWVEC (basic_block, loop->num_nodes);
   tovisit[tv++] = loop->header;
 
   if (loop->latch == EXIT_BLOCK_PTR)
@@ -861,7 +852,7 @@ get_loop_body_in_dom_order (const struct loop *loop)
 
   gcc_assert (loop->num_nodes);
 
-  tovisit = xcalloc (loop->num_nodes, sizeof (basic_block));
+  tovisit = XCNEWVEC (basic_block, loop->num_nodes);
 
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
@@ -887,7 +878,7 @@ get_loop_body_in_bfs_order (const struct loop *loop)
   gcc_assert (loop->num_nodes);
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
-  blocks = xcalloc (loop->num_nodes, sizeof (basic_block));
+  blocks = XCNEWVEC (basic_block, loop->num_nodes);
   visited = BITMAP_ALLOC (NULL);
 
   bb = loop->header;
@@ -941,7 +932,7 @@ get_loop_exit_edges (const struct loop *loop, unsigned int *num_edges)
     FOR_EACH_EDGE (e, ei, body[i]->succs)
       if (!flow_bb_inside_loop_p (loop, e->dest))
 	n++;
-  edges = xmalloc (n * sizeof (edge));
+  edges = XNEWVEC (edge, n);
   *num_edges = n;
   n = 0;
   for (i = 0; i < loop->num_nodes; i++)
@@ -1071,7 +1062,7 @@ verify_loop_structure (struct loops *loops)
   edge e;
 
   /* Check sizes.  */
-  sizes = xcalloc (loops->num, sizeof (int));
+  sizes = XCNEWVEC (unsigned, loops->num);
   sizes[0] = 2;
 
   FOR_EACH_BB (bb)

@@ -1,6 +1,6 @@
 /* Expand builtin functions.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -76,7 +76,6 @@ static const char *c_getstr (tree);
 static rtx c_readstr (const char *, enum machine_mode);
 static int target_char_cast (tree, char *);
 static rtx get_memory_rtx (tree, tree);
-static tree build_string_literal (int, const char *);
 static int apply_args_size (void);
 static int apply_result_size (void);
 #if defined (HAVE_untyped_call) || defined (HAVE_untyped_return)
@@ -95,6 +94,7 @@ static void expand_errno_check (tree, rtx);
 static rtx expand_builtin_mathfn (tree, rtx, rtx);
 static rtx expand_builtin_mathfn_2 (tree, rtx, rtx);
 static rtx expand_builtin_mathfn_3 (tree, rtx, rtx);
+static rtx expand_builtin_sincos (tree);
 static rtx expand_builtin_int_roundingfn (tree, rtx, rtx);
 static rtx expand_builtin_args_info (tree);
 static rtx expand_builtin_next_arg (void);
@@ -700,7 +700,7 @@ expand_builtin_setjmp (tree arglist, rtx target)
       || REGNO (target) < FIRST_PSEUDO_REGISTER)
     target = gen_reg_rtx (TYPE_MODE (integer_type_node));
 
-  buf_addr = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+  buf_addr = expand_normal (TREE_VALUE (arglist));
 
   next_lab = gen_label_rtx ();
   cont_lab = gen_label_rtx ();
@@ -842,9 +842,9 @@ expand_builtin_nonlocal_goto (tree arglist)
   arglist = TREE_CHAIN (arglist);
   t_save_area = TREE_VALUE (arglist);
 
-  r_label = expand_expr (t_label, NULL_RTX, VOIDmode, 0);
+  r_label = expand_normal (t_label);
   r_label = convert_memory_address (Pmode, r_label);
-  r_save_area = expand_expr (t_save_area, NULL_RTX, VOIDmode, 0);
+  r_save_area = expand_normal (t_save_area);
   r_save_area = convert_memory_address (Pmode, r_save_area);
   r_fp = gen_rtx_MEM (Pmode, r_save_area);
   r_sp = gen_rtx_MEM (STACK_SAVEAREA_MODE (SAVE_NONLOCAL),
@@ -975,7 +975,7 @@ expand_builtin_prefetch (tree arglist)
       error ("second argument to %<__builtin_prefetch%> must be a constant");
       arg1 = integer_zero_node;
     }
-  op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  op1 = expand_normal (arg1);
   /* Argument 1 must be either zero or one.  */
   if (INTVAL (op1) != 0 && INTVAL (op1) != 1)
     {
@@ -990,7 +990,7 @@ expand_builtin_prefetch (tree arglist)
       error ("third argument to %<__builtin_prefetch%> must be a constant");
       arg2 = integer_zero_node;
     }
-  op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+  op2 = expand_normal (arg2);
   /* Argument 2 must be 0, 1, 2, or 3.  */
   if (INTVAL (op2) < 0 || INTVAL (op2) > 3)
     {
@@ -1585,7 +1585,6 @@ type_to_class (tree type)
     {
     case VOID_TYPE:	   return void_type_class;
     case INTEGER_TYPE:	   return integer_type_class;
-    case CHAR_TYPE:	   return char_type_class;
     case ENUMERAL_TYPE:	   return enumeral_type_class;
     case BOOLEAN_TYPE:	   return boolean_type_class;
     case POINTER_TYPE:	   return pointer_type_class;
@@ -2019,8 +2018,8 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   if (! stable)
     exp = build_function_call_expr (fndecl, arglist);
 
-  op0 = expand_expr (arg0, subtarget, VOIDmode, 0);
-  op1 = expand_expr (arg1, 0, VOIDmode, 0);
+  op0 = expand_expr (arg0, subtarget, VOIDmode, EXPAND_NORMAL);
+  op1 = expand_normal (arg1);
 
   start_sequence ();
 
@@ -2064,7 +2063,6 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
   tree fndecl = get_callee_fndecl (exp);
   tree arglist = TREE_OPERAND (exp, 1);
   enum machine_mode mode;
-  bool errno_set = false;
   tree arg, narg;
 
   if (!validate_arglist (arglist, REAL_TYPE, VOID_TYPE))
@@ -2083,9 +2081,6 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
 
   /* Make a suitable register to place result in.  */
   mode = TYPE_MODE (TREE_TYPE (exp));
-
-  if (! flag_errno_math || ! HONOR_NANS (mode))
-    errno_set = false;
 
   /* Check if sincos insn is available, otherwise fallback
      to sin or cos insn.  */
@@ -2147,9 +2142,6 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
 
       if (target != 0)
 	{
-	  if (errno_set)
-	    expand_errno_check (exp, target);
-
 	  /* Output the entire sequence.  */
 	  insns = get_insns ();
 	  end_sequence ();
@@ -2166,6 +2158,55 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
   target = expand_call (exp, target, target == const0_rtx);
 
   return target;
+}
+
+/* Expand a call to the builtin sincos math function.
+   Return 0 if a normal call should be emitted rather than expanding the
+   function in-line.  EXP is the expression that is a call to the builtin
+   function.  */
+
+static rtx
+expand_builtin_sincos (tree exp)
+{
+  rtx op0, op1, op2, target1, target2;
+  tree arglist = TREE_OPERAND (exp, 1);
+  enum machine_mode mode;
+  tree arg, sinp, cosp;
+  int result;
+
+  if (!validate_arglist (arglist, REAL_TYPE,
+			 POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
+    return 0;
+
+  arg = TREE_VALUE (arglist);
+  sinp = TREE_VALUE (TREE_CHAIN (arglist));
+  cosp = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+
+  /* Make a suitable register to place result in.  */
+  mode = TYPE_MODE (TREE_TYPE (arg));
+
+  /* Check if sincos insn is available, otherwise emit the call.  */
+  if (sincos_optab->handlers[(int) mode].insn_code == CODE_FOR_nothing)
+    return NULL_RTX;
+
+  target1 = gen_reg_rtx (mode);
+  target2 = gen_reg_rtx (mode);
+
+  op0 = expand_normal (arg);
+  op1 = expand_normal (build_fold_indirect_ref (sinp));
+  op2 = expand_normal (build_fold_indirect_ref (cosp));
+
+  /* Compute into target1 and target2.
+     Set TARGET to wherever the result comes back.  */
+  result = expand_twoval_unop (sincos_optab, op0, target2, target1, 0);
+  gcc_assert (result);
+
+  /* Move target1 and target2 to the memory locations indicated
+     by op1 and op2.  */
+  emit_move_insn (op1, target1);
+  emit_move_insn (op2, target2);
+
+  return const0_rtx;
 }
 
 /* Expand a call to one of the builtin rounding functions (lfloor).
@@ -2815,7 +2856,7 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 
       dest_mem = get_memory_rtx (dest, len);
       set_mem_align (dest_mem, dest_align);
-      len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+      len_rtx = expand_normal (len);
       src_str = c_getstr (src);
 
       /* If SRC is a string constant and block move would be done
@@ -2902,7 +2943,7 @@ expand_builtin_mempcpy (tree arglist, tree type, rtx target, enum machine_mode m
       if (! host_integerp (len, 1))
 	return 0;
 
-      len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+      len_rtx = expand_normal (len);
       src_str = c_getstr (src);
 
       /* If SRC is a string constant and block move would be done
@@ -3173,7 +3214,7 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
 
       if (TREE_CODE (len) == INTEGER_CST)
 	{
-	  rtx len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+	  rtx len_rtx = expand_normal (len);
 
 	  if (GET_CODE (len_rtx) == CONST_INT)
 	    {
@@ -3354,7 +3395,7 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	  return expand_expr (dest, target, mode, EXPAND_NORMAL);
 	}
 
-      len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+      len_rtx = expand_normal (len);
       dest_mem = get_memory_rtx (dest, len);
 
       if (TREE_CODE (val) != INTEGER_CST)
@@ -3362,7 +3403,7 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	  rtx val_rtx;
 
 	  val = fold_build1 (CONVERT_EXPR, unsigned_char_type_node, val);
-	  val_rtx = expand_expr (val, NULL_RTX, VOIDmode, 0);
+	  val_rtx = expand_normal (val);
 
 	  /* Assume that we can memset by pieces if we can store the
 	   * the coefficients by pieces (in the required modes).
@@ -3508,7 +3549,7 @@ expand_builtin_memcmp (tree exp ATTRIBUTE_UNUSED, tree arglist, rtx target,
 
     arg1_rtx = get_memory_rtx (arg1, len);
     arg2_rtx = get_memory_rtx (arg2, len);
-    arg3_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+    arg3_rtx = expand_normal (len);
 
     /* Set MEM_SIZE as appropriate.  */
     if (GET_CODE (arg3_rtx) == CONST_INT)
@@ -3667,7 +3708,7 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
 	    return 0;
 
 	  /* Stabilize the arguments in case gen_cmpstrnsi fails.  */
-	  arg3_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+	  arg3_rtx = expand_normal (len);
 
 	  /* Make a place to write the result of the instruction.  */
 	  result = target;
@@ -3807,7 +3848,7 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
 
     arg1_rtx = get_memory_rtx (arg1, len);
     arg2_rtx = get_memory_rtx (arg2, len);
-    arg3_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+    arg3_rtx = expand_normal (len);
     insn = gen_cmpstrnsi (result, arg1_rtx, arg2_rtx, arg3_rtx,
 			  GEN_INT (MIN (arg1_align, arg2_align)));
     if (insn)
@@ -4474,7 +4515,7 @@ expand_builtin_alloca (tree arglist, rtx target)
     return 0;
 
   /* Compute the argument.  */
-  op0 = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+  op0 = expand_normal (TREE_VALUE (arglist));
 
   /* Allocate the desired space.  */
   result = allocate_dynamic_stack_space (op0, target, BITS_PER_UNIT);
@@ -4732,17 +4773,17 @@ expand_builtin_copysign (tree arglist, rtx target, rtx subtarget)
     return 0;
 
   arg = TREE_VALUE (arglist);
-  op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+  op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
   arg = TREE_VALUE (TREE_CHAIN (arglist));
-  op1 = expand_expr (arg, NULL, VOIDmode, 0);
+  op1 = expand_normal (arg);
 
   return expand_copysign (op0, op1, target);
 }
 
 /* Create a new constant string literal and return a char* pointer to it.
    The STRING_CST value is the LEN characters at STR.  */
-static tree
+tree
 build_string_literal (int len, const char *str)
 {
   tree t, elem, index, type;
@@ -5132,9 +5173,9 @@ expand_builtin_init_trampoline (tree arglist)
   arglist = TREE_CHAIN (arglist);
   t_chain = TREE_VALUE (arglist);
 
-  r_tramp = expand_expr (t_tramp, NULL_RTX, VOIDmode, 0);
-  r_func = expand_expr (t_func, NULL_RTX, VOIDmode, 0);
-  r_chain = expand_expr (t_chain, NULL_RTX, VOIDmode, 0);
+  r_tramp = expand_normal (t_tramp);
+  r_func = expand_normal (t_func);
+  r_chain = expand_normal (t_chain);
 
   /* Generate insns to initialize the trampoline.  */
   r_tramp = round_trampoline_addr (r_tramp);
@@ -5158,7 +5199,7 @@ expand_builtin_adjust_trampoline (tree arglist)
   if (!validate_arglist (arglist, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
 
-  tramp = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+  tramp = expand_normal (TREE_VALUE (arglist));
   tramp = round_trampoline_addr (tramp);
 #ifdef TRAMPOLINE_ADJUST_ADDRESS
   TRAMPOLINE_ADJUST_ADDRESS (tramp);
@@ -5205,7 +5246,7 @@ expand_builtin_signbit (tree exp, rtx target)
     return expand_expr (arg, target, VOIDmode, EXPAND_NORMAL);
   }
 
-  temp = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+  temp = expand_normal (arg);
   if (GET_MODE_SIZE (fmode) <= UNITS_PER_WORD)
     {
       imode = int_mode_for_mode (fmode);
@@ -5348,6 +5389,28 @@ get_builtin_sync_mode (int fcode_diff)
   return mode_for_size (BITS_PER_UNIT << fcode_diff, MODE_INT, 0);
 }
 
+/* Expand the memory expression LOC and return the appropriate memory operand
+   for the builtin_sync operations.  */
+
+static rtx
+get_builtin_sync_mem (tree loc, enum machine_mode mode)
+{
+  rtx addr, mem;
+
+  addr = expand_expr (loc, NULL, Pmode, EXPAND_SUM);
+
+  /* Note that we explicitly do not want any alias information for this
+     memory, so that we kill all other live memories.  Otherwise we don't
+     satisfy the full barrier semantics of the intrinsic.  */
+  mem = validize_mem (gen_rtx_MEM (mode, addr));
+
+  set_mem_align (mem, get_pointer_alignment (loc, BIGGEST_ALIGNMENT));
+  set_mem_alias_set (mem, ALIAS_SET_MEMORY_BARRIER);
+  MEM_VOLATILE_P (mem) = 1;
+
+  return mem;
+}
+
 /* Expand the __sync_xxx_and_fetch and __sync_fetch_and_xxx intrinsics.
    ARGLIST is the operands list to the function.  CODE is the rtx code 
    that corresponds to the arithmetic or logical operation from the name;
@@ -5361,19 +5424,13 @@ expand_builtin_sync_operation (enum machine_mode mode, tree arglist,
 			       enum rtx_code code, bool after,
 			       rtx target, bool ignore)
 {
-  rtx addr, val, mem;
+  rtx val, mem;
 
   /* Expand the operands.  */
-  addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_SUM);
+  mem = get_builtin_sync_mem (TREE_VALUE (arglist), mode);
 
   arglist = TREE_CHAIN (arglist);
   val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
-
-  /* Note that we explicitly do not want any alias information for this
-     memory, so that we kill all other live memories.  Otherwise we don't
-     satisfy the full barrier semantics of the intrinsic.  */
-  mem = validize_mem (gen_rtx_MEM (mode, addr));
-  MEM_VOLATILE_P (mem) = 1;
 
   if (ignore)
     return expand_sync_operation (mem, val, code);
@@ -5390,22 +5447,16 @@ static rtx
 expand_builtin_compare_and_swap (enum machine_mode mode, tree arglist,
 				 bool is_bool, rtx target)
 {
-  rtx addr, old_val, new_val, mem;
+  rtx old_val, new_val, mem;
 
   /* Expand the operands.  */
-  addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_SUM);
+  mem = get_builtin_sync_mem (TREE_VALUE (arglist), mode);
 
   arglist = TREE_CHAIN (arglist);
   old_val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
 
   arglist = TREE_CHAIN (arglist);
   new_val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
-
-  /* Note that we explicitly do not want any alias information for this
-     memory, so that we kill all other live memories.  Otherwise we don't
-     satisfy the full barrier semantics of the intrinsic.  */
-  mem = validize_mem (gen_rtx_MEM (mode, addr));
-  MEM_VOLATILE_P (mem) = 1;
 
   if (is_bool)
     return expand_bool_compare_and_swap (mem, old_val, new_val, target);
@@ -5423,19 +5474,13 @@ static rtx
 expand_builtin_lock_test_and_set (enum machine_mode mode, tree arglist,
 				  rtx target)
 {
-  rtx addr, val, mem;
+  rtx val, mem;
 
   /* Expand the operands.  */
-  addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_NORMAL);
+  mem = get_builtin_sync_mem (TREE_VALUE (arglist), mode);
 
   arglist = TREE_CHAIN (arglist);
   val = expand_expr (TREE_VALUE (arglist), NULL, mode, EXPAND_NORMAL);
-
-  /* Note that we explicitly do not want any alias information for this
-     memory, so that we kill all other live memories.  Otherwise we don't
-     satisfy the barrier semantics of the intrinsic.  */
-  mem = validize_mem (gen_rtx_MEM (mode, addr));
-  MEM_VOLATILE_P (mem) = 1;
 
   return expand_sync_lock_test_and_set (mem, val, target);
 }
@@ -5470,17 +5515,11 @@ static void
 expand_builtin_lock_release (enum machine_mode mode, tree arglist)
 {
   enum insn_code icode;
-  rtx addr, mem, insn;
+  rtx mem, insn;
   rtx val = const0_rtx;
 
   /* Expand the operands.  */
-  addr = expand_expr (TREE_VALUE (arglist), NULL, Pmode, EXPAND_NORMAL);
-
-  /* Note that we explicitly do not want any alias information for this
-     memory, so that we kill all other live memories.  Otherwise we don't
-     satisfy the barrier semantics of the intrinsic.  */
-  mem = validize_mem (gen_rtx_MEM (mode, addr));
-  MEM_VOLATILE_P (mem) = 1;
+  mem = get_builtin_sync_mem (TREE_VALUE (arglist), mode);
 
   /* If there is an explicit operation in the md file, use it.  */
   icode = sync_lock_release[mode];
@@ -5520,6 +5559,14 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
+  else
+    {
+      /* Try expanding the builtin via the generic target hook.  */
+      rtx tmp = targetm.expand_library_builtin (exp, target, subtarget,
+						mode, ignore);
+      if (tmp != NULL_RTX)
+	return tmp;
+    }
 
   /* When not optimizing, generate calls to library functions for a certain
      set of builtins.  */
@@ -5652,6 +5699,14 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
+    CASE_FLT_FN (BUILT_IN_SINCOS):
+      if (! flag_unsafe_math_optimizations)
+	break;
+      target = expand_builtin_sincos (exp);
+      if (target)
+	return target;
+      break;
+
     case BUILT_IN_APPLY_ARGS:
       return expand_builtin_apply_args ();
 
@@ -5678,7 +5733,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  rtx ops[3];
 
 	  for (t = arglist, i = 0; t; t = TREE_CHAIN (t), i++)
-	    ops[i] = expand_expr (TREE_VALUE (t), NULL_RTX, VOIDmode, 0);
+	    ops[i] = expand_normal (TREE_VALUE (t));
 
 	  return expand_builtin_apply (ops[0], ops[1], ops[2]);
 	}
@@ -5688,8 +5743,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	 memory returned by __builtin_apply.  */
     case BUILT_IN_RETURN:
       if (validate_arglist (arglist, POINTER_TYPE, VOID_TYPE))
-	expand_builtin_return (expand_expr (TREE_VALUE (arglist),
-					    NULL_RTX, VOIDmode, 0));
+	expand_builtin_return (expand_normal (TREE_VALUE (arglist)));
       return const0_rtx;
 
     case BUILT_IN_SAVEREGS:
@@ -5922,9 +5976,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       else
 	{
 	  rtx buf_addr = expand_expr (TREE_VALUE (arglist), subtarget,
-				      VOIDmode, 0);
-	  rtx value = expand_expr (TREE_VALUE (TREE_CHAIN (arglist)),
-				   NULL_RTX, VOIDmode, 0);
+				      VOIDmode, EXPAND_NORMAL);
+	  rtx value = expand_normal (TREE_VALUE (TREE_CHAIN (arglist)));
 
 	  if (value != const1_rtx)
 	    {
@@ -5948,7 +6001,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       if (validate_arglist (arglist, POINTER_TYPE, VOID_TYPE))
 	{
 	  rtx buf_addr
-	    = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+	    = expand_normal (TREE_VALUE (arglist));
 
 	  expand_builtin_update_setjmp_buf (buf_addr);
 	  return const0_rtx;
@@ -6073,6 +6126,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_ADD_2:
     case BUILT_IN_FETCH_AND_ADD_4:
     case BUILT_IN_FETCH_AND_ADD_8:
+    case BUILT_IN_FETCH_AND_ADD_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_ADD_1);
       target = expand_builtin_sync_operation (mode, arglist, PLUS,
 					      false, target, ignore);
@@ -6084,6 +6138,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_SUB_2:
     case BUILT_IN_FETCH_AND_SUB_4:
     case BUILT_IN_FETCH_AND_SUB_8:
+    case BUILT_IN_FETCH_AND_SUB_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_SUB_1);
       target = expand_builtin_sync_operation (mode, arglist, MINUS,
 					      false, target, ignore);
@@ -6095,6 +6150,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_OR_2:
     case BUILT_IN_FETCH_AND_OR_4:
     case BUILT_IN_FETCH_AND_OR_8:
+    case BUILT_IN_FETCH_AND_OR_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_OR_1);
       target = expand_builtin_sync_operation (mode, arglist, IOR,
 					      false, target, ignore);
@@ -6106,6 +6162,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_AND_2:
     case BUILT_IN_FETCH_AND_AND_4:
     case BUILT_IN_FETCH_AND_AND_8:
+    case BUILT_IN_FETCH_AND_AND_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_AND_1);
       target = expand_builtin_sync_operation (mode, arglist, AND,
 					      false, target, ignore);
@@ -6117,6 +6174,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_XOR_2:
     case BUILT_IN_FETCH_AND_XOR_4:
     case BUILT_IN_FETCH_AND_XOR_8:
+    case BUILT_IN_FETCH_AND_XOR_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_XOR_1);
       target = expand_builtin_sync_operation (mode, arglist, XOR,
 					      false, target, ignore);
@@ -6128,6 +6186,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_FETCH_AND_NAND_2:
     case BUILT_IN_FETCH_AND_NAND_4:
     case BUILT_IN_FETCH_AND_NAND_8:
+    case BUILT_IN_FETCH_AND_NAND_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_FETCH_AND_NAND_1);
       target = expand_builtin_sync_operation (mode, arglist, NOT,
 					      false, target, ignore);
@@ -6139,6 +6198,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_ADD_AND_FETCH_2:
     case BUILT_IN_ADD_AND_FETCH_4:
     case BUILT_IN_ADD_AND_FETCH_8:
+    case BUILT_IN_ADD_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_ADD_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, PLUS,
 					      true, target, ignore);
@@ -6150,6 +6210,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_SUB_AND_FETCH_2:
     case BUILT_IN_SUB_AND_FETCH_4:
     case BUILT_IN_SUB_AND_FETCH_8:
+    case BUILT_IN_SUB_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_SUB_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, MINUS,
 					      true, target, ignore);
@@ -6161,6 +6222,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_OR_AND_FETCH_2:
     case BUILT_IN_OR_AND_FETCH_4:
     case BUILT_IN_OR_AND_FETCH_8:
+    case BUILT_IN_OR_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_OR_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, IOR,
 					      true, target, ignore);
@@ -6172,6 +6234,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_AND_AND_FETCH_2:
     case BUILT_IN_AND_AND_FETCH_4:
     case BUILT_IN_AND_AND_FETCH_8:
+    case BUILT_IN_AND_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_AND_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, AND,
 					      true, target, ignore);
@@ -6183,6 +6246,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_XOR_AND_FETCH_2:
     case BUILT_IN_XOR_AND_FETCH_4:
     case BUILT_IN_XOR_AND_FETCH_8:
+    case BUILT_IN_XOR_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_XOR_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, XOR,
 					      true, target, ignore);
@@ -6194,6 +6258,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_NAND_AND_FETCH_2:
     case BUILT_IN_NAND_AND_FETCH_4:
     case BUILT_IN_NAND_AND_FETCH_8:
+    case BUILT_IN_NAND_AND_FETCH_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_NAND_AND_FETCH_1);
       target = expand_builtin_sync_operation (mode, arglist, NOT,
 					      true, target, ignore);
@@ -6205,6 +6270,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_BOOL_COMPARE_AND_SWAP_2:
     case BUILT_IN_BOOL_COMPARE_AND_SWAP_4:
     case BUILT_IN_BOOL_COMPARE_AND_SWAP_8:
+    case BUILT_IN_BOOL_COMPARE_AND_SWAP_16:
       if (mode == VOIDmode)
 	mode = TYPE_MODE (boolean_type_node);
       if (!target || !register_operand (target, mode))
@@ -6220,6 +6286,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_VAL_COMPARE_AND_SWAP_2:
     case BUILT_IN_VAL_COMPARE_AND_SWAP_4:
     case BUILT_IN_VAL_COMPARE_AND_SWAP_8:
+    case BUILT_IN_VAL_COMPARE_AND_SWAP_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_VAL_COMPARE_AND_SWAP_1);
       target = expand_builtin_compare_and_swap (mode, arglist, false, target);
       if (target)
@@ -6230,6 +6297,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOCK_TEST_AND_SET_2:
     case BUILT_IN_LOCK_TEST_AND_SET_4:
     case BUILT_IN_LOCK_TEST_AND_SET_8:
+    case BUILT_IN_LOCK_TEST_AND_SET_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_LOCK_TEST_AND_SET_1);
       target = expand_builtin_lock_test_and_set (mode, arglist, target);
       if (target)
@@ -6240,6 +6308,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_LOCK_RELEASE_2:
     case BUILT_IN_LOCK_RELEASE_4:
     case BUILT_IN_LOCK_RELEASE_8:
+    case BUILT_IN_LOCK_RELEASE_16:
       mode = get_builtin_sync_mode (fcode - BUILT_IN_LOCK_RELEASE_1);
       expand_builtin_lock_release (mode, arglist);
       return const0_rtx;
@@ -8843,6 +8912,18 @@ validate_arglist (tree arglist, ...)
 
 rtx
 default_expand_builtin (tree exp ATTRIBUTE_UNUSED,
+			rtx target ATTRIBUTE_UNUSED,
+			rtx subtarget ATTRIBUTE_UNUSED,
+			enum machine_mode mode ATTRIBUTE_UNUSED,
+			int ignore ATTRIBUTE_UNUSED)
+{
+  return NULL_RTX;
+}
+
+/* Default target-specific library builtin expander that does nothing.  */
+
+rtx
+default_expand_library_builtin (tree exp ATTRIBUTE_UNUSED,
 			rtx target ATTRIBUTE_UNUSED,
 			rtx subtarget ATTRIBUTE_UNUSED,
 			enum machine_mode mode ATTRIBUTE_UNUSED,

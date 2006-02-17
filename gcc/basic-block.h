@@ -282,6 +282,10 @@ struct rtl_bb_info GTY(())
 
 typedef struct basic_block_def *basic_block;
 
+DEF_VEC_P(basic_block);
+DEF_VEC_ALLOC_P(basic_block,gc);
+DEF_VEC_ALLOC_P(basic_block,heap);
+
 #define BB_FREQ_MAX 10000
 
 /* Masks for basic_block.flags.
@@ -363,7 +367,7 @@ struct control_flow_graph GTY(())
   basic_block x_exit_block_ptr;
 
   /* Index by basic block number, get basic block struct info.  */
-  varray_type x_basic_block_info;
+  VEC(basic_block,gc) *x_basic_block_info;
 
   /* Number of basic blocks in this flow graph.  */
   int x_n_basic_blocks;
@@ -376,7 +380,7 @@ struct control_flow_graph GTY(())
 
   /* Mapping of labels to their associated blocks.  At present
      only used for the tree CFG.  */
-  varray_type x_label_to_block_map;
+  VEC(basic_block,gc) *x_label_to_block_map;
 
   enum profile_status {
     PROFILE_ABSENT,
@@ -395,7 +399,7 @@ struct control_flow_graph GTY(())
 #define label_to_block_map_for_function(FN)  ((FN)->cfg->x_label_to_block_map)
 
 #define BASIC_BLOCK_FOR_FUNCTION(FN,N) \
-  (VARRAY_BB (basic_block_info_for_function(FN), (N)))
+  (VEC_index (basic_block, basic_block_info_for_function(FN), (N)))
 
 /* Defines for textual backward source compatibility.  */
 #define ENTRY_BLOCK_PTR		(cfun->cfg->x_entry_block_ptr)
@@ -407,7 +411,8 @@ struct control_flow_graph GTY(())
 #define label_to_block_map	(cfun->cfg->x_label_to_block_map)
 #define profile_status		(cfun->cfg->x_profile_status)
 
-#define BASIC_BLOCK(N)		(VARRAY_BB (basic_block_info, (N)))
+#define BASIC_BLOCK(N)		(VEC_index (basic_block, basic_block_info, (N)))
+#define SET_BASIC_BLOCK(N,BB)	(VEC_replace (basic_block, basic_block_info, (N), (BB)))
 
 /* TRUE if we should re-run loop discovery after threading jumps, FALSE
    otherwise.  */
@@ -509,6 +514,7 @@ extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(basic_block, void *),
 			       basic_block *, int, void *);
 extern void compute_dominance_frontiers (bitmap *);
+extern void dump_bb_info (basic_block, bool, bool, int, const char *, FILE *);
 extern void dump_edge_info (FILE *, edge, int);
 extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
@@ -846,7 +852,7 @@ enum update_life_extent
 					     to match only full blocks  */
 #define STRUCT_EQUIV_MATCH_JUMPS 8192	/* Also include the jumps at the end of the block in the comparison.  */
 
-extern void life_analysis (FILE *, int);
+extern void life_analysis (int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
 extern int count_or_remove_death_notes (sbitmap, int);
@@ -859,15 +865,14 @@ extern struct propagate_block_info *init_propagate_block_info
 extern void free_propagate_block_info (struct propagate_block_info *);
 
 /* In lcm.c */
-extern struct edge_list *pre_edge_lcm (FILE *, int, sbitmap *, sbitmap *,
+extern struct edge_list *pre_edge_lcm (int, sbitmap *, sbitmap *,
 				       sbitmap *, sbitmap *, sbitmap **,
 				       sbitmap **);
-extern struct edge_list *pre_edge_rev_lcm (FILE *, int, sbitmap *,
+extern struct edge_list *pre_edge_rev_lcm (int, sbitmap *,
 					   sbitmap *, sbitmap *,
 					   sbitmap *, sbitmap **,
 					   sbitmap **);
 extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
-extern int optimize_mode_switching (FILE *);
 
 /* In predict.c */
 extern void estimate_probability (struct loops *);
@@ -949,7 +954,6 @@ extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
 extern void reorder_basic_blocks (unsigned int);
-extern void partition_hot_cold_basic_blocks (void);
 
 /* In dominance.c */
 

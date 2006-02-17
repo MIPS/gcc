@@ -1,6 +1,6 @@
 // jni.cc - JNI implementation, including the jump table.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation
 
    This file is part of libgcj.
@@ -2352,10 +2352,14 @@ _Jv_JNI_AttachCurrentThread (JavaVM *, jstring name, void **penv,
     }
 
   // Attaching an already-attached thread is a no-op.
-  if (_Jv_GetCurrentJNIEnv () != NULL)
-    return 0;
+  JNIEnv *env = _Jv_GetCurrentJNIEnv ();
+  if (env != NULL)
+    {
+      *penv = reinterpret_cast<void *> (env);
+      return 0;
+    }
 
-  JNIEnv *env = (JNIEnv *) _Jv_MallocUnchecked (sizeof (JNIEnv));
+  env = (JNIEnv *) _Jv_MallocUnchecked (sizeof (JNIEnv));
   if (env == NULL)
     return JNI_ERR;
   env->p = &_Jv_JNIFunctions;
@@ -2422,7 +2426,12 @@ _Jv_JNI_DestroyJavaVM (JavaVM *vm)
 {
   JvAssert (the_vm && vm == the_vm);
 
-  JNIEnv *env;
+  union
+  {
+    JNIEnv *env;
+    void *env_p;
+  };
+
   if (_Jv_ThreadCurrent () != NULL)
     {
       jstring main_name;
@@ -2436,8 +2445,7 @@ _Jv_JNI_DestroyJavaVM (JavaVM *vm)
 	  return JNI_ERR;
 	}
 
-      jint r = _Jv_JNI_AttachCurrentThread (vm, main_name,
-					    reinterpret_cast<void **> (&env),
+      jint r = _Jv_JNI_AttachCurrentThread (vm, main_name, &env_p,
 					    NULL, false);
       if (r < 0)
 	return r;

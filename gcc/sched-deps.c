@@ -1,7 +1,8 @@
 /* Instruction scheduling pass.  This file computes dependencies between
    instructions.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -520,7 +521,7 @@ sched_analyze_1 (struct deps *deps, rtx x, rtx insn)
     {
       if (GET_CODE (dest) == STRICT_LOW_PART
 	 || GET_CODE (dest) == ZERO_EXTRACT
-	 || read_modify_subreg_p (dest))
+	 || df_read_modify_subreg_p (dest))
         {
 	  /* These both read and modify the result.  We must handle
              them as writes to get proper dependencies for following
@@ -1491,7 +1492,7 @@ init_deps (struct deps *deps)
   int max_reg = (reload_completed ? FIRST_PSEUDO_REGISTER : max_reg_num ());
 
   deps->max_reg = max_reg;
-  deps->reg_last = xcalloc (max_reg, sizeof (struct deps_reg));
+  deps->reg_last = XCNEWVEC (struct deps_reg, max_reg);
   INIT_REG_SET (&deps->reg_last_in_use);
   INIT_REG_SET (&deps->reg_conditional_sets);
 
@@ -1557,11 +1558,11 @@ init_dependency_caches (int luid)
   if (luid / n_basic_blocks > 100 * 5)
     {
       int i;
-      true_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
-      anti_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
-      output_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
+      true_dependency_cache = XNEWVEC (bitmap_head, luid);
+      anti_dependency_cache = XNEWVEC (bitmap_head, luid);
+      output_dependency_cache = XNEWVEC (bitmap_head, luid);
 #ifdef ENABLE_CHECKING
-      forward_dependency_cache = xmalloc (luid * sizeof (bitmap_head));
+      forward_dependency_cache = XNEWVEC (bitmap_head, luid);
 #endif
       for (i = 0; i < luid; i++)
 	{

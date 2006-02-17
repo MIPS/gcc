@@ -23,9 +23,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #ifndef GCC_OUTPUT_H
 #define GCC_OUTPUT_H
 
-/* Compute branch alignments based on frequency information in the CFG.  */
-extern void compute_alignments (void);
-
 /* Initialize data in final at the beginning of a compilation.  */
 extern void init_final (const char *);
 
@@ -553,6 +550,7 @@ extern bool default_binds_local_p (tree);
 extern bool default_binds_local_p_1 (tree, int);
 extern void default_globalize_label (FILE *, const char *);
 extern void default_emit_unwind_label (FILE *, tree, int, int);
+extern void default_emit_except_table_label (FILE *);
 extern void default_internal_label (FILE *, const char *, unsigned long);
 extern void default_file_start (void);
 extern void file_end_indicate_exec_stack (void);

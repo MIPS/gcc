@@ -62,6 +62,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_ASM_EMIT_UNWIND_LABEL default_emit_unwind_label
 #endif
 
+#ifndef TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL
+#define TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL default_emit_except_table_label
+#endif
+
 #ifndef TARGET_UNWIND_EMIT
 #define TARGET_UNWIND_EMIT default_unwind_emit
 #endif
@@ -181,6 +185,10 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_ASM_FILE_END hook_void_void
 #endif
 
+#ifndef TARGET_EXTRA_LIVE_ON_ENTRY
+#define TARGET_EXTRA_LIVE_ON_ENTRY hook_void_bitmap
+#endif
+
 #ifndef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF false
 #endif
@@ -221,6 +229,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 			TARGET_ASM_INTEGER,			\
 			TARGET_ASM_GLOBALIZE_LABEL,		\
                         TARGET_ASM_EMIT_UNWIND_LABEL,           \
+			TARGET_ASM_EMIT_EXCEPT_TABLE_LABEL,	\
 			TARGET_UNWIND_EMIT,			\
 			TARGET_ASM_INTERNAL_LABEL,		\
 			TARGET_ASM_TTYPE,			\
@@ -311,6 +320,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 /* In builtins.c.  */
 #define TARGET_INIT_BUILTINS hook_void_void
 #define TARGET_EXPAND_BUILTIN default_expand_builtin
+#define TARGET_EXPAND_LIBRARY_BUILTIN default_expand_library_builtin
 #define TARGET_RESOLVE_OVERLOADED_BUILTIN NULL
 #define TARGET_FOLD_BUILTIN hook_tree_tree_tree_bool_null
 
@@ -331,12 +341,20 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_SHIFT_TRUNCATION_MASK default_shift_truncation_mask
 #endif
 
+#ifndef TARGET_MIN_DIVISIONS_FOR_RECIP_MUL
+#define TARGET_MIN_DIVISIONS_FOR_RECIP_MUL default_min_divisions_for_recip_mul
+#endif
+
 #ifndef TARGET_VALID_POINTER_MODE
 #define TARGET_VALID_POINTER_MODE default_valid_pointer_mode
 #endif
 
 #ifndef TARGET_SCALAR_MODE_SUPPORTED_P
 #define TARGET_SCALAR_MODE_SUPPORTED_P default_scalar_mode_supported_p
+#endif
+
+#ifndef TARGET_DECIMAL_FLOAT_SUPPORTED_P
+#define TARGET_DECIMAL_FLOAT_SUPPORTED_P default_decimal_float_supported_p
 #endif
 
 #ifndef TARGET_VECTOR_MODE_SUPPORTED_P
@@ -365,10 +383,6 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 #define TARGET_RTX_COSTS hook_bool_rtx_int_int_intp_false
 #define TARGET_MANGLE_FUNDAMENTAL_TYPE hook_constcharptr_tree_null
 #define TARGET_ALLOCATE_INITIAL_VALUE NULL
-
-#ifndef TARGET_DECIMAL_FLOAT_SUPPORTED_P
-#define TARGET_DECIMAL_FLOAT_SUPPORTED_P hook_bool_void_false
-#endif
 
 #ifndef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS hook_void_void
@@ -565,6 +579,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_ALIGN_ANON_BITFIELD,			\
   TARGET_INIT_BUILTINS,				\
   TARGET_EXPAND_BUILTIN,			\
+  TARGET_EXPAND_LIBRARY_BUILTIN,		\
   TARGET_RESOLVE_OVERLOADED_BUILTIN,		\
   TARGET_FOLD_BUILTIN,				\
   TARGET_MANGLE_FUNDAMENTAL_TYPE,		\
@@ -583,6 +598,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_ENCODE_SECTION_INFO,			\
   TARGET_STRIP_NAME_ENCODING,			\
   TARGET_SHIFT_TRUNCATION_MASK,			\
+  TARGET_MIN_DIVISIONS_FOR_RECIP_MUL,		\
   TARGET_VALID_POINTER_MODE,                    \
   TARGET_SCALAR_MODE_SUPPORTED_P,		\
   TARGET_VECTOR_MODE_SUPPORTED_P,               \
@@ -615,6 +631,7 @@ Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   TARGET_INVALID_BINARY_OP,			\
   TARGET_SECONDARY_RELOAD,			\
   TARGET_CXX,					\
+  TARGET_EXTRA_LIVE_ON_ENTRY,                    \
   TARGET_UNWIND_TABLES_DEFAULT,			\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\

@@ -199,9 +199,9 @@ find_trace (basic_block bb, basic_block *trace)
 static void
 tail_duplicate (void)
 {
-  fibnode_t *blocks = xcalloc (last_basic_block, sizeof (fibnode_t));
-  basic_block *trace = xmalloc (sizeof (basic_block) * n_basic_blocks);
-  int *counts = xmalloc (sizeof (int) * last_basic_block);
+  fibnode_t *blocks = XCNEWVEC (fibnode_t, last_basic_block);
+  basic_block *trace = XNEWVEC (basic_block, n_basic_blocks);
+  int *counts = XNEWVEC (int, last_basic_block);
   int ninsns = 0, nduplicated = 0;
   gcov_type weighted_insns = 0, traced_insns = 0;
   fibheap_t heap = fibheap_new ();
@@ -369,11 +369,11 @@ tracer (unsigned int flags)
   cfg_layout_initialize (flags);
   mark_dfs_back_edges ();
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
   tail_duplicate ();
   layout_superblocks ();
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
   cfg_layout_finalize ();
 
   /* Merge basic blocks in duplicated traces.  */
@@ -391,7 +391,7 @@ static void
 rest_of_handle_tracer (void)
 {
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
   tracer (0);
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (get_insns (), max_reg_num ());

@@ -192,28 +192,6 @@ static void gen_split (rtx, int);
 static void check_constraint_len (void);
 static int constraint_len (const char *, int);
 
-const char *
-get_insn_name (int index)
-{
-  static char buf[100];
-
-  struct data *i, *last_named = NULL;
-  for (i = idata; i ; i = i->next)
-    {
-      if (i->index_number == index)
-	return i->name;
-      if (i->name)
-	last_named = i;
-    }
-
-  if (last_named)
-    sprintf(buf, "%s+%d", last_named->name, index - last_named->index_number);
-  else
-    sprintf(buf, "insn %d", index);
-
-  return buf;
-}
-
 static void
 output_prologue (void)
 {
@@ -820,7 +798,7 @@ validate_insn_operands (struct data *d)
 static void
 gen_insn (rtx insn, int lineno)
 {
-  struct data *d = xmalloc (sizeof (struct data));
+  struct data *d = XNEW (struct data);
   int i;
 
   d->code_number = next_code_number;
@@ -862,7 +840,7 @@ gen_insn (rtx insn, int lineno)
 static void
 gen_peephole (rtx peep, int lineno)
 {
-  struct data *d = xmalloc (sizeof (struct data));
+  struct data *d = XNEW (struct data);
   int i;
 
   d->code_number = next_code_number;
@@ -901,7 +879,7 @@ gen_peephole (rtx peep, int lineno)
 static void
 gen_expand (rtx insn, int lineno)
 {
-  struct data *d = xmalloc (sizeof (struct data));
+  struct data *d = XNEW (struct data);
   int i;
 
   d->code_number = next_code_number;
@@ -945,7 +923,7 @@ gen_expand (rtx insn, int lineno)
 static void
 gen_split (rtx split, int lineno)
 {
-  struct data *d = xmalloc (sizeof (struct data));
+  struct data *d = XNEW (struct data);
   int i;
 
   d->code_number = next_code_number;
@@ -1056,7 +1034,7 @@ strip_whitespace (const char *s)
   if (s == 0)
     return 0;
 
-  p = q = xmalloc (strlen (s) + 1);
+  p = q = XNEWVEC (char, strlen (s) + 1);
   while ((ch = *s++) != '\0')
     if (! ISSPACE (ch))
       *p++ = ch;

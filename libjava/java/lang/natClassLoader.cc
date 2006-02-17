@@ -1,6 +1,6 @@
 // natClassLoader.cc - Implementation of java.lang.ClassLoader native methods.
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -43,6 +43,7 @@ details.  */
 #include <java/lang/Cloneable.h>
 #include <java/util/HashMap.h>
 #include <gnu/gcj/runtime/BootClassLoader.h>
+#include <gnu/gcj/runtime/SystemClassLoader.h>
 
 // Size of local hash table.
 #define HASH_LEN 1013
@@ -253,16 +254,40 @@ _Jv_RegisterClass (jclass klass)
 // This is used during initialization to register all compiled-in
 // classes that are not part of the core with the system class loader.
 void
-_Jv_CopyClassesToSystemLoader (java::lang::ClassLoader *loader)
+_Jv_CopyClassesToSystemLoader (gnu::gcj::runtime::SystemClassLoader *loader)
 {
   for (jclass klass = system_class_list;
        klass;
        klass = klass->next_or_version)
     {
       klass->loader = loader;
-      loader->loadedClasses->put(klass->name->toString(), klass);
+      loader->addClass(klass);
     }
   system_class_list = SYSTEM_LOADER_INITIALIZED;
+}
+
+// An internal variant of _Jv_FindClass which simply swallows a
+// NoClassDefFoundError or a ClassNotFoundException. This gives the
+// caller a chance to evaluate the situation and behave accordingly.
+jclass
+_Jv_FindClassNoException (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
+{
+  jclass klass;
+
+  try
+    {
+      klass = _Jv_FindClass(name, loader);
+    }
+  catch ( java::lang::NoClassDefFoundError *ncdfe )
+    {
+      return NULL;
+    }
+  catch ( java::lang::ClassNotFoundException *cnfe )
+    {
+      return NULL;
+    }
+
+  return klass;
 }
 
 jclass
@@ -415,8 +440,6 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
 
   // Note that `vtable_method_count' doesn't include the initial
   // gc_descr slot.
-  JvAssert (java::lang::Object::class$.vtable_method_count
-	    == NUM_OBJECT_METHODS);
   int dm_count = java::lang::Object::class$.vtable_method_count;
 
   // Create a new vtable by copying Object's vtable.
@@ -435,7 +458,7 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
     = java::lang::Object::class$.vtable_method_count;
 
   // Stash the pointer to the element type.
-  array_class->methods = (_Jv_Method *) element;
+  array_class->element_type = element;
 
   // Register our interfaces.
   static jclass interfaces[] =

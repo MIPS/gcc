@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -423,6 +423,14 @@ translate_error (int code)
       p = "Numeric overflow on read";
       break;
 
+    case ERROR_INTERNAL:
+      p = "Internal error in run-time library";
+      break;
+
+    case ERROR_INTERNAL_UNIT:
+      p = "Internal unit I/O error";
+      break;
+
     default:
       p = "Unknown error code";
       break;
@@ -499,6 +507,9 @@ try
 notify_std (int std, const char * message)
 {
   int warning;
+
+  if (!compile_options.pedantic)
+    return SUCCESS;
 
   warning = compile_options.warn_std & std;
   if ((compile_options.allow_std & std) != 0 && !warning)

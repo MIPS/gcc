@@ -2209,6 +2209,25 @@ output_move_double (rtx *operands)
      supposed to allow to happen.  */
   gcc_assert (optype0 == REGOP || optype1 == REGOP);
 
+  /* Handle copies between general and floating registers.  */
+
+  if (optype0 == REGOP && optype1 == REGOP
+      && FP_REG_P (operands[0]) ^ FP_REG_P (operands[1]))
+    {
+      if (FP_REG_P (operands[0]))
+	{
+	  output_asm_insn ("{stws|stw} %1,-16(%%sp)", operands);
+	  output_asm_insn ("{stws|stw} %R1,-12(%%sp)", operands);
+	  return "{fldds|fldd} -16(%%sp),%0";
+	}
+      else
+	{
+	  output_asm_insn ("{fstds|fstd} %1,-16(%%sp)", operands);
+	  output_asm_insn ("{ldws|ldw} -16(%%sp),%0", operands);
+	  return "{ldws|ldw} -12(%%sp),%R0";
+	}
+    }
+
    /* Handle auto decrementing and incrementing loads and stores
      specifically, since the structure of the function doesn't work
      for them without major modification.  Do it better when we learn
@@ -7428,7 +7447,8 @@ attr_length_indirect_call (rtx insn)
 
   if (TARGET_FAST_INDIRECT_CALLS
       || (!TARGET_PORTABLE_RUNTIME
-	  && ((TARGET_PA_20 && distance < 7600000) || distance < 240000)))
+	  && ((TARGET_PA_20 && !TARGET_SOM && distance < 7600000)
+	      || distance < 240000)))
     return 8;
 
   if (flag_pic)
@@ -7465,10 +7485,10 @@ output_indirect_call (rtx insn, rtx call_dest)
      the remaining cases.  */
   if (attr_length_indirect_call (insn) == 8)
     {
-      /* The HP linker substitutes a BLE for millicode calls using
-	 the short PIC PCREL form.  Thus, we must use %r31 as the
-	 link register when generating PA 1.x code.  */
-      if (TARGET_PA_20)
+      /* The HP linker sometimes substitutes a BLE for BL/B,L calls to
+	 $$dyncall.  Since BLE uses %r31 as the link register, the 22-bit
+	 variant of the B,L instruction can't be used on the SOM target.  */
+      if (TARGET_PA_20 && !TARGET_SOM)
 	return ".CALL\tARGW0=GR\n\tb,l $$dyncall,%%r2\n\tcopy %%r2,%%r31";
       else
 	return ".CALL\tARGW0=GR\n\tbl $$dyncall,%%r31\n\tcopy %%r31,%%r2";
@@ -8772,7 +8792,9 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 {
   enum machine_mode valmode;
 
-  if (AGGREGATE_TYPE_P (valtype))
+  if (AGGREGATE_TYPE_P (valtype)
+      || TREE_CODE (valtype) == COMPLEX_TYPE
+      || TREE_CODE (valtype) == VECTOR_TYPE)
     {
       if (TARGET_64BIT)
 	{
@@ -8852,7 +8874,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
      this routine should return zero.  pa_arg_partial_bytes will
      handle arguments which are split between regs and stack slots if
      the ABI mandates split arguments.  */
-  if (! TARGET_64BIT)
+  if (!TARGET_64BIT)
     {
       /* The 32-bit ABI does not split arguments.  */
       if (cum->words + arg_size > max_arg_words)
@@ -8887,7 +8909,9 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	 treatment.  */
       if (arg_size > 1
 	  || mode == BLKmode
-	  || (type && AGGREGATE_TYPE_P (type)))
+	  || (type && (AGGREGATE_TYPE_P (type)
+		       || TREE_CODE (type) == COMPLEX_TYPE
+		       || TREE_CODE (type) == VECTOR_TYPE)))
 	{
 	  /* Double-extended precision (80-bit), quad-precision (128-bit)
 	     and aggregates including complex numbers are aligned on
@@ -8941,8 +8965,13 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	     objects.  The data is right-justified and zero-extended
 	     to 64 bits.  This is opposite to the normal justification
 	     used on big endian targets and requires special treatment.
-	     We now define BLOCK_REG_PADDING to pad these objects.  */
-	  if (mode == BLKmode || (type && AGGREGATE_TYPE_P (type)))
+	     We now define BLOCK_REG_PADDING to pad these objects.
+	     Aggregates, complex and vector types are passed in the same
+	     manner as structures.  */
+	  if (mode == BLKmode
+	      || (type && (AGGREGATE_TYPE_P (type)
+			   || TREE_CODE (type) == COMPLEX_TYPE
+			   || TREE_CODE (type) == VECTOR_TYPE)))
 	    {
 	      rtx loc = gen_rtx_EXPR_LIST (VOIDmode,
 					   gen_rtx_REG (DImode, gpr_reg_base),
@@ -8965,9 +8994,9 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
        /* If we are doing soft-float with portable runtime, then there
 	  is no need to worry about FP regs.  */
        && !TARGET_SOFT_FLOAT
-       /* The parameter must be some kind of float, else we can just
+       /* The parameter must be some kind of scalar float, else we just
 	  pass it in integer registers.  */
-       && FLOAT_MODE_P (mode)
+       && GET_MODE_CLASS (mode) == MODE_FLOAT
        /* The target function must not have a prototype.  */
        && cum->nargs_prototype <= 0
        /* libcalls do not need to pass items in both FP and general
@@ -8983,7 +9012,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	  && !TARGET_GAS
 	  && !cum->incoming
 	  && cum->indirect
-	  && FLOAT_MODE_P (mode)))
+	  && GET_MODE_CLASS (mode) == MODE_FLOAT))
     {
       retval
 	= gen_rtx_PARALLEL
@@ -9006,9 +9035,9 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	      && !TARGET_64BIT
 	      && !TARGET_ELF32
 	      && cum->indirect)
-	  /* If the parameter is not a floating point parameter, then
-	     it belongs in GPRs.  */
-	  || !FLOAT_MODE_P (mode)
+	  /* If the parameter is not a scalar floating-point parameter,
+	     then it belongs in GPRs.  */
+	  || GET_MODE_CLASS (mode) != MODE_FLOAT
 	  /* Structure with single SFmode field belongs in GPR.  */
 	  || (type && AGGREGATE_TYPE_P (type)))
 	retval = gen_rtx_REG (mode, gpr_reg_base);

@@ -100,7 +100,7 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
 		       build_int_cst (type, 1));
   incr_at = bsi_last (in->src);
   create_iv (niter,
-	     fold_convert (type, integer_minus_one_node),
+	     build_int_cst (type, -1),
 	     NULL_TREE, loop,
 	     &incr_at, false, NULL, &var);
 
@@ -224,7 +224,7 @@ try_unroll_loop_completely (struct loops *loops ATTRIBUTE_UNUSED,
   if (n_unroll)
     {
       sbitmap wont_exit;
-      edge *edges_to_remove = xmalloc (sizeof (edge *) * n_unroll);
+      edge *edges_to_remove = XNEWVEC (edge, n_unroll);
       unsigned int n_to_remove = 0;
 
       old_cond = COND_EXPR_COND (cond);

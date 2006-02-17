@@ -1,6 +1,6 @@
 /* Output routines for GCC for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   2002, 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -524,7 +524,7 @@ int arm_cpp_interwork = 0;
 enum machine_mode output_memory_reference_mode;
 
 /* The register number to be used for the PIC offset register.  */
-int arm_pic_register = INVALID_REGNUM;
+unsigned arm_pic_register = INVALID_REGNUM;
 
 /* Set to 1 when a return insn is output, this means that the epilogue
    is not needed.  */
@@ -638,7 +638,7 @@ struct fpu_desc
 };
 
 
-/* Available values for for -mfpu=.  */
+/* Available values for -mfpu=.  */
 
 static const struct fpu_desc all_fpus[] =
 {
@@ -1096,7 +1096,7 @@ arm_override_options (void)
 
   /* If stack checking is disabled, we can use r10 as the PIC register,
      which keeps r9 available.  */
-  if (flag_pic)
+  if (flag_pic && TARGET_SINGLE_PIC_BASE)
     arm_pic_register = TARGET_APCS_STACK ? 9 : 10;
 
   if (TARGET_APCS_FLOAT)
@@ -1413,7 +1413,9 @@ arm_compute_func_type (void)
      register values that will never be needed again.  This optimization
      was added to speed up context switching in a kernel application.  */
   if (optimize > 0
-      && TREE_NOTHROW (current_function_decl)
+      && (TREE_NOTHROW (current_function_decl)
+          || !(flag_unwind_tables
+               || (flag_exceptions && !USING_SJLJ_EXCEPTIONS)))
       && TREE_THIS_VOLATILE (current_function_decl))
     type |= ARM_FT_VOLATILE;
 
@@ -1547,7 +1549,9 @@ use_return_insn (int iscond, rtx sibling)
       if (saved_int_regs != 0 && saved_int_regs != (1 << LR_REGNUM))
 	return 0;
 
-      if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
+      if (flag_pic 
+	  && arm_pic_register != INVALID_REGNUM
+	  && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
 	return 0;
     }
 
@@ -3171,16 +3175,14 @@ arm_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 /* Addressing mode support functions.  */
 
 /* Return nonzero if X is a legitimate immediate operand when compiling
-   for PIC.  */
+   for PIC.  We know that X satisfies CONSTANT_P and flag_pic is true.  */
 int
 legitimate_pic_operand_p (rtx x)
 {
-  if (CONSTANT_P (x)
-      && flag_pic
-      && (GET_CODE (x) == SYMBOL_REF
-	  || (GET_CODE (x) == CONST
-	      && GET_CODE (XEXP (x, 0)) == PLUS
-	      && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF)))
+  if (GET_CODE (x) == SYMBOL_REF
+      || (GET_CODE (x) == CONST
+	  && GET_CODE (XEXP (x, 0)) == PLUS
+	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF))
     return 0;
 
   return 1;
@@ -3197,6 +3199,49 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 #endif
       rtx insn;
       int subregs = 0;
+
+      /* If this function doesn't have a pic register, create one now.
+	 A lot of the logic here is made obscure by the fact that this
+	 routine gets called as part of the rtx cost estimation
+	 process.  We don't want those calls to affect any assumptions
+	 about the real function; and further, we can't call
+	 entry_of_function() until we start the real expansion
+	 process.  */
+      if (!current_function_uses_pic_offset_table)
+	{
+	  gcc_assert (!no_new_pseudos);
+	  if (arm_pic_register != INVALID_REGNUM)
+	    {
+	      cfun->machine->pic_reg = gen_rtx_REG (Pmode, arm_pic_register);
+
+	      /* Play games to avoid marking the function as needing pic
+		 if we are being called as part of the cost-estimation
+		 process.  */
+	      if (!ir_type())
+		current_function_uses_pic_offset_table = 1;
+	    }
+	  else
+	    {
+	      rtx seq;
+
+	      cfun->machine->pic_reg = gen_reg_rtx (Pmode);
+
+	      /* Play games to avoid marking the function as needing pic
+		 if we are being called as part of the cost-estimation
+		 process.  */
+	      if (!ir_type())
+		{
+		  current_function_uses_pic_offset_table = 1;
+		  start_sequence ();
+
+		  arm_load_pic_register (0UL);
+
+		  seq = get_insns ();
+		  end_sequence ();
+		  emit_insn_after (seq, entry_of_function ());
+		}
+	    }
+	}
 
       if (reg == 0)
 	{
@@ -3225,17 +3270,16 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	   || (GET_CODE (orig) == SYMBOL_REF &&
 	       SYMBOL_REF_LOCAL_P (orig)))
 	  && NEED_GOT_RELOC)
-	pic_ref = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, address);
+	pic_ref = gen_rtx_PLUS (Pmode, cfun->machine->pic_reg, address);
       else
 	{
 	  pic_ref = gen_const_mem (Pmode,
-				   gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
+				   gen_rtx_PLUS (Pmode, cfun->machine->pic_reg,
 					         address));
 	}
 
       insn = emit_move_insn (reg, pic_ref);
 #endif
-      current_function_uses_pic_offset_table = 1;
       /* Put a REG_EQUAL note on this insn, so that it can be optimized
 	 by loop.  */
       REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, orig,
@@ -3247,7 +3291,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
       rtx base, offset;
 
       if (GET_CODE (XEXP (orig, 0)) == PLUS
-	  && XEXP (XEXP (orig, 0), 0) == pic_offset_table_rtx)
+	  && XEXP (XEXP (orig, 0), 0) == cfun->machine->pic_reg)
 	return orig;
 
       if (GET_CODE (XEXP (orig, 0)) == UNSPEC
@@ -3387,13 +3431,14 @@ arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 
   if (TARGET_ARM)
     {
-      emit_insn (gen_pic_load_addr_arm (pic_offset_table_rtx, pic_rtx));
-      emit_insn (gen_pic_add_dot_plus_eight (pic_offset_table_rtx,
-					     pic_offset_table_rtx, labelno));
+      emit_insn (gen_pic_load_addr_arm (cfun->machine->pic_reg, pic_rtx));
+      emit_insn (gen_pic_add_dot_plus_eight (cfun->machine->pic_reg,
+					     cfun->machine->pic_reg, labelno));
     }
   else
     {
-      if (REGNO (pic_offset_table_rtx) > LAST_LO_REGNUM)
+      if (arm_pic_register != INVALID_REGNUM
+	  && REGNO (cfun->machine->pic_reg) > LAST_LO_REGNUM)
 	{
 	  /* We will have pushed the pic register, so we should always be
 	     able to find a work register.  */
@@ -3403,14 +3448,14 @@ arm_load_pic_register (unsigned long saved_regs ATTRIBUTE_UNUSED)
 	  emit_insn (gen_movsi (pic_offset_table_rtx, pic_tmp));
 	}
       else
-	emit_insn (gen_pic_load_addr_thumb (pic_offset_table_rtx, pic_rtx));
-      emit_insn (gen_pic_add_dot_plus_four (pic_offset_table_rtx,
-					    pic_offset_table_rtx, labelno));
+	emit_insn (gen_pic_load_addr_thumb (cfun->machine->pic_reg, pic_rtx));
+      emit_insn (gen_pic_add_dot_plus_four (cfun->machine->pic_reg,
+					    cfun->machine->pic_reg, labelno));
     }
 
   /* Need to emit this whether or not we obey regdecls,
      since setjmp/longjmp can cause life info to screw up.  */
-  emit_insn (gen_rtx_USE (VOIDmode, pic_offset_table_rtx));
+  emit_insn (gen_rtx_USE (VOIDmode, cfun->machine->pic_reg));
 #endif /* AOF_ASSEMBLER */
 }
 
@@ -3690,7 +3735,7 @@ thumb_legitimate_address_p (enum machine_mode mode, rtx x, int strict_p)
   /* This is PC relative data before arm_reorg runs.  */
   else if (GET_MODE_SIZE (mode) >= 4 && CONSTANT_P (x)
 	   && GET_CODE (x) == SYMBOL_REF
-           && CONSTANT_POOL_ADDRESS_P (x) && ! flag_pic)
+           && CONSTANT_POOL_ADDRESS_P (x) && !flag_pic)
     return 1;
 
   /* This is PC relative data after arm_reorg runs.  */
@@ -6703,7 +6748,8 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
   if (TARGET_THUMB
       && GET_MODE (x) == SImode
       && (op == EQ || op == NE)
-      && (GET_CODE (x) == ZERO_EXTRACT))
+      && GET_CODE (x) == ZERO_EXTRACT
+      && XEXP (x, 1) == const1_rtx)
     return CC_Nmode;
 
   /* An operation that sets the condition codes as a side-effect, the
@@ -7428,7 +7474,7 @@ add_minipool_forward_ref (Mfix *fix)
      any existing entry.  Otherwise, we insert the new fix before
      MAX_MP and, if necessary, adjust the constraints on the other
      entries.  */
-  mp = xmalloc (sizeof (* mp));
+  mp = XNEW (Mnode);
   mp->fix_size = fix->fix_size;
   mp->mode = fix->mode;
   mp->value = fix->value;
@@ -7626,7 +7672,7 @@ add_minipool_backward_ref (Mfix *fix)
     }
 
   /* We need to create a new entry.  */
-  mp = xmalloc (sizeof (* mp));
+  mp = XNEW (Mnode);
   mp->fix_size = fix->fix_size;
   mp->mode = fix->mode;
   mp->value = fix->value;
@@ -9173,6 +9219,7 @@ arm_compute_save_reg0_reg12_mask (void)
       /* Also save the pic base register if necessary.  */
       if (flag_pic
 	  && !TARGET_SINGLE_PIC_BASE
+	  && arm_pic_register != INVALID_REGNUM
 	  && current_function_uses_pic_offset_table)
 	save_reg_mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
     }
@@ -9195,6 +9242,7 @@ arm_compute_save_reg0_reg12_mask (void)
 	 don't stack it even though it may be live.  */
       if (flag_pic
 	  && !TARGET_SINGLE_PIC_BASE
+	  && arm_pic_register != INVALID_REGNUM
 	  && (regs_ever_live[PIC_OFFSET_TABLE_REGNUM]
 	      || current_function_uses_pic_offset_table))
 	save_reg_mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
@@ -9312,6 +9360,7 @@ thumb_compute_save_reg_mask (void)
 
   if (flag_pic
       && !TARGET_SINGLE_PIC_BASE
+      && arm_pic_register != INVALID_REGNUM
       && current_function_uses_pic_offset_table)
     mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
 
@@ -10822,7 +10871,7 @@ arm_expand_prologue (void)
     }
 
 
-  if (flag_pic)
+  if (flag_pic && arm_pic_register != INVALID_REGNUM)
     arm_load_pic_register (0UL);
 
   /* If we are profiling, make sure no instructions are scheduled before
@@ -12492,8 +12541,8 @@ arm_expand_binop_builtin (enum insn_code icode,
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
   tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
@@ -12530,7 +12579,7 @@ arm_expand_unop_builtin (enum insn_code icode,
 {
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
@@ -12603,8 +12652,8 @@ arm_expand_builtin (tree exp,
 
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -12636,9 +12685,9 @@ arm_expand_builtin (tree exp,
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
       arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -12667,14 +12716,14 @@ arm_expand_builtin (tree exp,
     case ARM_BUILTIN_SETWCX:
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = force_reg (SImode, expand_expr (arg0, NULL_RTX, VOIDmode, 0));
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = force_reg (SImode, expand_normal (arg0));
+      op1 = expand_normal (arg1);
       emit_insn (gen_iwmmxt_tmcr (op1, op0));
       return 0;
 
     case ARM_BUILTIN_GETWCX:
       arg0 = TREE_VALUE (arglist);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
       target = gen_reg_rtx (SImode);
       emit_insn (gen_iwmmxt_tmrc (target, op0));
       return target;
@@ -12683,8 +12732,8 @@ arm_expand_builtin (tree exp,
       icode = CODE_FOR_iwmmxt_wshufh;
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
@@ -12738,9 +12787,9 @@ arm_expand_builtin (tree exp,
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
       arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -13584,7 +13633,7 @@ thumb_expand_prologue (void)
   live_regs_mask = thumb_compute_save_reg_mask ();
   /* Load the pic register before setting the frame pointer,
      so we can use r7 as a temporary work register.  */
-  if (flag_pic)
+  if (flag_pic && arm_pic_register != INVALID_REGNUM)
     arm_load_pic_register (live_regs_mask);
 
   if (!frame_pointer_needed && CALLER_INTERWORKING_SLOT_SIZE > 0)

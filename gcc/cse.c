@@ -867,8 +867,7 @@ init_cse_reg_info (unsigned int nregs)
       /* Reallocate the table with NEW_SIZE entries.  */
       if (cse_reg_info_table)
 	free (cse_reg_info_table);
-      cse_reg_info_table = xmalloc (sizeof (struct cse_reg_info)
-				     * new_size);
+      cse_reg_info_table = XNEWVEC (struct cse_reg_info, new_size);
       cse_reg_info_table_size = new_size;
       cse_reg_info_table_first_uninitialized = 0;
     }
@@ -1511,7 +1510,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
   if (elt)
     free_element_chain = elt->next_same_hash;
   else
-    elt = xmalloc (sizeof (struct table_elt));
+    elt = XNEW (struct table_elt);
 
   elt->exp = x;
   elt->canon_exp = NULL_RTX;
@@ -2538,15 +2537,25 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
     case MEM:
       if (for_gcse)
 	{
-	  /* Can't merge two expressions in different alias sets, since we
-	     can decide that the expression is transparent in a block when
-	     it isn't, due to it being set with the different alias set.  */
-	  if (MEM_ALIAS_SET (x) != MEM_ALIAS_SET (y))
-	    return 0;
-
 	  /* A volatile mem should not be considered equivalent to any
 	     other.  */
 	  if (MEM_VOLATILE_P (x) || MEM_VOLATILE_P (y))
+	    return 0;
+
+	  /* Can't merge two expressions in different alias sets, since we
+	     can decide that the expression is transparent in a block when
+	     it isn't, due to it being set with the different alias set.
+
+	     Also, can't merge two expressions with different MEM_ATTRS.
+	     They could e.g. be two different entities allocated into the
+	     same space on the stack (see e.g. PR25130).  In that case, the
+	     MEM addresses can be the same, even though the two MEMs are
+	     absolutely not equivalent.  
+   
+	     But because really all MEM attributes should be the same for
+	     equivalent MEMs, we just use the invariant that MEMs that have
+	     the same attributes share the same mem_attrs data structure.  */
+	  if (MEM_ATTRS (x) != MEM_ATTRS (y))
 	    return 0;
 	}
       break;
@@ -3972,6 +3981,57 @@ fold_rtx (rtx x, rtx insn)
 	     comparison.  */
 	  if (const_arg0 == 0 || const_arg1 == 0)
 	    {
+	      if (const_arg1 != NULL)
+		{
+		  rtx cheapest_simplification;
+		  int cheapest_cost;
+		  rtx simp_result;
+		  struct table_elt *p;
+
+		  /* See if we can find an equivalent of folded_arg0
+		     that gets us a cheaper expression, possibly a
+		     constant through simplifications.  */
+		  p = lookup (folded_arg0, SAFE_HASH (folded_arg0, mode_arg0),
+			      mode_arg0);
+		  
+		  if (p != NULL)
+		    {
+		      cheapest_simplification = x;
+		      cheapest_cost = COST (x);
+
+		      for (p = p->first_same_value; p != NULL; p = p->next_same_value)
+			{
+			  int cost;
+
+			  /* If the entry isn't valid, skip it.  */
+			  if (! exp_equiv_p (p->exp, p->exp, 1, false))
+			    continue;
+
+			  /* Try to simplify using this equivalence.  */
+			  simp_result
+			    = simplify_relational_operation (code, mode,
+							     mode_arg0,
+							     p->exp,
+							     const_arg1);
+
+			  if (simp_result == NULL)
+			    continue;
+
+			  cost = COST (simp_result);
+			  if (cost < cheapest_cost)
+			    {
+			      cheapest_cost = cost;
+			      cheapest_simplification = simp_result;
+			    }
+			}
+
+		      /* If we have a cheaper expression now, use that
+			 and try folding it further, from the top.  */
+		      if (cheapest_simplification != x)
+			return fold_rtx (cheapest_simplification, insn);
+		    }
+		}
+
 	      /* Some addresses are known to be nonzero.  We don't know
 		 their sign, but equality comparisons are known.  */
 	      if (const_arg1 == const0_rtx
@@ -6743,7 +6803,7 @@ cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
    in conditional jump instructions.  */
 
 int
-cse_main (rtx f, int nregs, FILE *file)
+cse_main (rtx f, int nregs)
 {
   struct cse_basic_block_data val;
   rtx insn = f;
@@ -6751,8 +6811,7 @@ cse_main (rtx f, int nregs, FILE *file)
 
   init_cse_reg_info (nregs);
 
-  val.path = xmalloc (sizeof (struct branch_path)
-		      * PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
+  val.path = XNEWVEC (struct branch_path, PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
 
   cse_jumps_altered = 0;
   recorded_label_ref = 0;
@@ -6764,12 +6823,12 @@ cse_main (rtx f, int nregs, FILE *file)
   init_recog ();
   init_alias_analysis ();
 
-  reg_eqv_table = xmalloc (nregs * sizeof (struct reg_eqv_elem));
+  reg_eqv_table = XNEWVEC (struct reg_eqv_elem, nregs);
 
   /* Find the largest uid.  */
 
   max_uid = get_max_uid ();
-  uid_cuid = xcalloc (max_uid + 1, sizeof (int));
+  uid_cuid = XCNEWVEC (int, max_uid + 1);
 
   /* Compute the mapping from uids to cuids.
      CUIDs are numbers assigned to insns, like uids,
@@ -6810,8 +6869,8 @@ cse_main (rtx f, int nregs, FILE *file)
       cse_basic_block_end = val.high_cuid;
       max_qty = val.nsets * 2;
 
-      if (file)
-	fprintf (file, ";; Processing block from %d to %d, %d sets.\n",
+      if (dump_file)
+	fprintf (dump_file, ";; Processing block from %d to %d, %d sets.\n",
 		 INSN_UID (insn), val.last ? INSN_UID (val.last) : 0,
 		 val.nsets);
 
@@ -6874,7 +6933,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
   int no_conflict = 0;
 
   /* Allocate the space needed by qty_table.  */
-  qty_table = xmalloc (max_qty * sizeof (struct qty_table_elem));
+  qty_table = XNEWVEC (struct qty_table_elem, max_qty);
 
   new_basic_block ();
 
@@ -7037,8 +7096,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	     following branches in this case.  */
 	  to_usage = 0;
 	  val.path_size = 0;
-	  val.path = xmalloc (sizeof (struct branch_path)
-			      * PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
+	  val.path = XNEWVEC (struct branch_path, PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
 	  cse_end_of_basic_block (insn, &val, 0, 0);
 	  free (val.path);
 
@@ -7341,7 +7399,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
   /* First count the number of times each register is used.  */
-  counts = xcalloc (nreg, sizeof (int));
+  counts = XCNEWVEC (int, nreg);
   for (insn = insns; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       count_reg_usage (insn, counts, NULL_RTX, 1);
@@ -7666,7 +7724,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 /* If we have a fixed condition code register (or two), walk through
    the instructions and try to eliminate duplicate assignments.  */
 
-void
+static void
 cse_condition_code_reg (void)
 {
   unsigned int cc_regno_1;
@@ -7786,11 +7844,11 @@ rest_of_handle_cse (void)
   int tem;
 
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
 
   reg_scan (get_insns (), max_reg_num ());
 
-  tem = cse_main (get_insns (), max_reg_num (), dump_file);
+  tem = cse_main (get_insns (), max_reg_num ());
   if (tem)
     rebuild_jump_labels (get_insns ());
   if (purge_all_dead_edges ())
@@ -7841,9 +7899,9 @@ rest_of_handle_cse2 (void)
   int tem;
 
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
 
-  tem = cse_main (get_insns (), max_reg_num (), dump_file);
+  tem = cse_main (get_insns (), max_reg_num ());
 
   /* Run a pass to eliminate duplicated assignments to condition code
      registers.  We have to run this after bypass_jumps, because it

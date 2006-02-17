@@ -138,22 +138,6 @@ tree global_var;
 DEF_VEC_I(int);
 DEF_VEC_ALLOC_I(int,heap);
 
-/* Return true if TAG can touch global memory.  */
-static bool
-tag_marked_global (tree tag)
-{
-  gcc_assert (MTAG_P (tag));
-  return MTAG_GLOBAL (tag);
-}
-
-/* Mark TAG, an alias tag, as possibly touching global memory.  */
-static void
-mark_tag_global (tree tag)
-{
-  gcc_assert (MTAG_P (tag));
-  MTAG_GLOBAL (tag) = 1;
-}
-
 /* qsort comparison function to sort type/name tags by DECL_UID.  */
 
 static int
@@ -267,7 +251,10 @@ compute_tag_properties (void)
      global vars, mark it global. 
      
      If the tag contains call clobbered vars, mark it call
-     clobbered.  */
+     clobbered.  
+
+     This loop iterates because tags may appear in the may-aliases
+     list of other tags when we group.  */
 
   while (changed)
     {
@@ -279,8 +266,10 @@ compute_tag_properties (void)
 	  VEC (tree, gc) *ma;
 	  unsigned int i;
 	  tree entry;
-
-	  if (is_call_clobbered (tag) && tag_marked_global (tag))
+	  bool tagcc = is_call_clobbered (tag);
+	  bool tagglobal = MTAG_GLOBAL (tag);
+	  
+	  if (tagcc && tagglobal)
 	    continue;
 	  
 	  ma = may_aliases (tag);
@@ -291,18 +280,25 @@ compute_tag_properties (void)
 	    {
 	      /* Call clobbered entries cause the tag to be marked
 		 call clobbered.  */
-	      if (is_call_clobbered (entry) && !is_call_clobbered (tag))
-		{		  
+	      if (!tagcc && is_call_clobbered (entry))
+		{
 		  mark_call_clobbered (tag, var_ann (entry)->escape_mask);
+		  tagcc = true;
 		  changed = true;
 		}
 
 	      /* Global vars cause the tag to be marked global.  */
-	      if (is_global_var (entry) && !tag_marked_global (tag))
+	      if (!tagglobal && is_global_var (entry))
 		{
-		  mark_tag_global (tag);
+		  MTAG_GLOBAL (tag) = true;
 		  changed = true;
+		  tagglobal = true;
 		}
+
+	      /* Early exit once both global and cc are set, since the
+		 loop can't do any more than that.  */
+	      if (tagcc && tagglobal)
+		break;
 	    }
 	}
     }
@@ -373,22 +369,29 @@ set_initial_properties (struct alias_info *ai)
 	mark_call_clobbered (v_ann->type_mem_tag, pi->escape_mask);
 
       /* Name tags and type tags that we don't know where they point
-	 to, might point to global memory, and thus, are clobbered.  */
+	 to, might point to global memory, and thus, are clobbered.
+
+         FIXME:  This is not quite right.  They should only be
+         clobbered if value_escapes_p is true, regardless of whether
+         they point to global memory or not.
+         So removing this code and fixing all the bugs would be nice.
+         It is the cause of a bunch of clobbering.  */
       if ((pi->pt_global_mem || pi->pt_anything) 
 	  && pi->is_dereferenced && pi->name_mem_tag)
 	{
 	  mark_call_clobbered (pi->name_mem_tag, ESCAPE_IS_GLOBAL);
-	  mark_tag_global (pi->name_mem_tag);
+	  MTAG_GLOBAL (pi->name_mem_tag) = true;
 	}
       
       if ((pi->pt_global_mem || pi->pt_anything) 
 	  && pi->is_dereferenced && v_ann->type_mem_tag)
 	{
 	  mark_call_clobbered (v_ann->type_mem_tag, ESCAPE_IS_GLOBAL);
-	  mark_tag_global (v_ann->type_mem_tag);
+	  MTAG_GLOBAL (v_ann->type_mem_tag) = true;
 	}
     }
 }
+
 /* Compute which variables need to be marked call clobbered because
    their tag is call clobbered, and which tags need to be marked
    global because they contain global variables.  */
@@ -1685,15 +1688,8 @@ maybe_create_global_var (struct alias_info *ai)
 	 call-clobbered variables.  */
       if (global_var && var != global_var)
 	{
-	  subvar_t svars;
 	  add_may_alias (var, global_var);
-	  if (var_can_have_subvars (var)
-	      && (svars = get_subvars_for_var (var)))
-	    {
-	      subvar_t sv;
-	      for (sv = svars; sv; sv = sv->next)
-		mark_sym_for_renaming (sv->var);
-	    }
+	  gcc_assert (!get_subvars_for_var (var));
 	}
       
       mark_sym_for_renaming (var);
@@ -1897,7 +1893,10 @@ set_pt_anything (tree ptr)
 	3- STMT is an assignment to a non-local variable, or
 	4- STMT is a return statement.
 
-   AI points to the alias information collected so far.  */
+   AI points to the alias information collected so far.  
+
+   Return the type of escape site found, if we found one, or NO_ESCAPE
+   if none.  */
 
 enum escape_type
 is_escape_site (tree stmt, struct alias_info *ai)
@@ -2062,8 +2061,7 @@ get_tmt_for (tree ptr, struct alias_info *ai)
     {
       struct alias_map_d *curr = ai->pointers[i];
       tree curr_tag = var_ann (curr->var)->type_mem_tag;
-      if (tag_set == curr->set
-	  && TYPE_READONLY (tag_type) == TYPE_READONLY (TREE_TYPE (curr_tag)))
+      if (tag_set == curr->set)
 	{
 	  tag = curr_tag;
 	  break;
@@ -2100,10 +2098,6 @@ get_tmt_for (tree ptr, struct alias_info *ai)
      pointed-to type.  */
   gcc_assert (tag_set == get_alias_set (tag));
 
-  /* If PTR's pointed-to type is read-only, then TAG's type must also
-     be read-only.  */
-  gcc_assert (TYPE_READONLY (tag_type) == TYPE_READONLY (TREE_TYPE (tag)));
-
   return tag;
 }
 
@@ -2125,6 +2119,8 @@ create_global_var (void)
   DECL_CONTEXT (global_var) = NULL_TREE;
   TREE_THIS_VOLATILE (global_var) = 0;
   TREE_ADDRESSABLE (global_var) = 0;
+  create_var_ann (global_var);
+  mark_call_clobbered (global_var, ESCAPE_UNKNOWN);
   create_var_ann (global_var);
   mark_call_clobbered (global_var, ESCAPE_UNKNOWN);
   add_referenced_tmp_var (global_var);
@@ -2538,7 +2534,7 @@ add_type_alias (tree ptr, tree var)
 found_tag:
   /* If VAR is not already PTR's type tag, add it to the may-alias set
      for PTR's type tag.  */
-  gcc_assert (var_ann (var)->type_mem_tag == NULL);
+  gcc_assert (!MTAG_P (var));
   tag = ann->type_mem_tag;
 
   /* If VAR has subvars, add the subvars to the tag instead of the
@@ -2655,6 +2651,8 @@ typedef struct used_part
      variable.  Implicit uses occur when we can't tell what part we
      are referencing, and have to make conservative assumptions.  */
   bool implicit_uses;
+  /* True if the structure is only written to or taken its address.  */
+  bool write_only;
 } *used_part_t;
 
 /* An array of used_part structures, indexed by variable uid.  */
@@ -2740,20 +2738,22 @@ get_or_create_used_part_for (size_t uid)
       up->maxused = 0;
       up->explicit_uses = false;
       up->implicit_uses = false;
+      up->write_only = true;
     }
 
   return up;
 }
 
 
-/* Create and return a structure sub-variable for field FIELD of
-   variable VAR.  */
+/* Create and return a structure sub-variable for field type FIELD at
+   offset OFFSET, with size SIZE, of variable VAR.  */
 
 static tree
-create_sft (tree var, tree field)
+create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
+	    unsigned HOST_WIDE_INT size)
 {
   var_ann_t ann;
-  tree subvar = create_tag_raw (STRUCT_FIELD_TAG, TREE_TYPE (field), "SFT");
+  tree subvar = create_tag_raw (STRUCT_FIELD_TAG, field, "SFT");
 
   /* We need to copy the various flags from VAR to SUBVAR, so that
      they are is_global_var iff the original variable was.  */
@@ -2768,7 +2768,9 @@ create_sft (tree var, tree field)
   ann = get_var_ann (subvar);
   ann->type_mem_tag = NULL;  	
   add_referenced_tmp_var (subvar);
-
+  SFT_PARENT_VAR (subvar) = var;
+  SFT_OFFSET (subvar) = offset;
+  SFT_SIZE (subvar) = size;
   return subvar;
 }
 
@@ -2783,10 +2785,11 @@ create_overlap_variables_for (tree var)
   used_part_t up;
   size_t uid = DECL_UID (var);
 
-  if (!up_lookup (uid))
+  up = up_lookup (uid);
+  if (!up
+      || up->write_only)
     return;
 
-  up = up_lookup (uid);
   push_fields_onto_fieldstack (TREE_TYPE (var), &fieldstack, 0, NULL);
   if (VEC_length (fieldoff_s, fieldstack) != 0)
     {
@@ -2810,8 +2813,8 @@ create_overlap_variables_for (tree var)
 
       for (i = 0; VEC_iterate (fieldoff_s, fieldstack, i, fo); i++)
 	{
-	  if (!DECL_SIZE (fo->field) 
-	      || TREE_CODE (DECL_SIZE (fo->field)) != INTEGER_CST
+	  if (!fo->size
+	      || TREE_CODE (fo->size) != INTEGER_CST
 	      || fo->offset < 0)
 	    {
 	      notokay = true;
@@ -2863,8 +2866,8 @@ create_overlap_variables_for (tree var)
 	  HOST_WIDE_INT fosize;
 	  tree currfotype;
 
-	  fosize = TREE_INT_CST_LOW (DECL_SIZE (fo->field));
-	  currfotype = TREE_TYPE (fo->field);
+	  fosize = TREE_INT_CST_LOW (fo->size);
+	  currfotype = fo->type;
 
 	  /* If this field isn't in the used portion,
 	     or it has the exact same offset and size as the last
@@ -2878,19 +2881,17 @@ create_overlap_variables_for (tree var)
 		  && currfotype == lastfotype))
 	    continue;
 	  sv = GGC_NEW (struct subvar);
-	  sv->offset = fo->offset;
-	  sv->size = fosize;
 	  sv->next = *subvars;
-	  sv->var = create_sft (var, fo->field);
+	  sv->var = create_sft (var, fo->type, fo->offset, fosize);
 
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "structure field tag %s created for var %s",
 		       get_name (sv->var), get_name (var));
 	      fprintf (dump_file, " offset " HOST_WIDE_INT_PRINT_DEC,
-		       sv->offset);
+		       SFT_OFFSET (sv->var));
 	      fprintf (dump_file, " size " HOST_WIDE_INT_PRINT_DEC,
-		       sv->size);
+		       SFT_SIZE (sv->var));
 	      fprintf (dump_file, "\n");
 	    }
 	  
@@ -2922,11 +2923,19 @@ create_overlap_variables_for (tree var)
    entire structure.  */
 
 static tree
-find_used_portions (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
+find_used_portions (tree *tp, int *walk_subtrees, void *lhs_p)
 {
   switch (TREE_CODE (*tp))
     {
+    case MODIFY_EXPR:
+      /* Recurse manually here to track whether the use is in the
+	 LHS of an assignment.  */
+      find_used_portions (&TREE_OPERAND (*tp, 0), walk_subtrees, tp);
+      return find_used_portions (&TREE_OPERAND (*tp, 1), walk_subtrees, NULL);
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
     case COMPONENT_REF:
+    case ARRAY_REF:
       {
 	HOST_WIDE_INT bitsize;
 	HOST_WIDE_INT bitmaxsize;
@@ -2951,6 +2960,8 @@ find_used_portions (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	      up->explicit_uses = true;
 	    else
 	      up->implicit_uses = true;
+	    if (!lhs_p)
+	      up->write_only = false;
 	    up_insert (uid, up);
 
 	    *walk_subtrees = 0;

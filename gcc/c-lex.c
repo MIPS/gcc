@@ -333,6 +333,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
   static bool no_more_pch;
   const cpp_token *tok;
   enum cpp_ttype type;
+  unsigned char add_flags = 0;
 
   timevar_push (TV_CPP);
  retry:
@@ -366,6 +367,10 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
 	    break;
 
 	  case CPP_N_INTEGER:
+	    /* C++ uses '0' to mark virtual functions as pure.
+	       Set PURE_ZERO to pass this information to the C++ parser.  */
+	    if (tok->val.str.len == 1 && *tok->val.str.text == '0')
+	      add_flags = PURE_ZERO;
 	    *value = interpret_integer (tok, flags);
 	    break;
 
@@ -453,11 +458,11 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
 	  type = lex_string (tok, value, false);
 	  break;
 	}
-      
-      /* FALLTHROUGH */
-
-    case CPP_PRAGMA:
       *value = build_string (tok->val.str.len, (char *) tok->val.str.text);
+      break;
+      
+    case CPP_PRAGMA:
+      *value = build_int_cst (NULL, tok->val.pragma);
       break;
 
       /* These tokens should not be visible outside cpplib.  */
@@ -472,7 +477,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
     }
 
   if (cpp_flags)
-    *cpp_flags = tok->flags;
+    *cpp_flags = tok->flags | add_flags;
 
   if (!no_more_pch)
     {
@@ -483,13 +488,6 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags)
   timevar_pop (TV_CPP);
   
   return type;
-}
-
-enum cpp_ttype
-pragma_lex (tree *value)
-{
-  location_t loc;
-  return c_lex_with_flags (value, &loc, NULL);
 }
 
 /* Returns the narrowest C-visible unsigned type, starting with the

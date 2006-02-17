@@ -1191,9 +1191,9 @@ visit_assignment (tree stmt, tree *output_p)
     if (TREE_CODE (orig_lhs) == VIEW_CONVERT_EXPR
 	&& val.lattice_val == CONSTANT)
       {
-	tree w = fold_build1 (VIEW_CONVERT_EXPR,
-			      TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
-			      val.value);
+	tree w = fold_unary (VIEW_CONVERT_EXPR,
+			     TREE_TYPE (TREE_OPERAND (orig_lhs, 0)),
+			     val.value);
 
 	orig_lhs = TREE_OPERAND (orig_lhs, 0);
 	if (w && is_gimple_min_invariant (w))
@@ -1901,9 +1901,9 @@ maybe_fold_stmt_addition (tree expr)
     {
       if (TYPE_UNSIGNED (TREE_TYPE (op1)))
 	return NULL;
-      op1 = fold_build1 (NEGATE_EXPR, TREE_TYPE (op1), op1);
+      op1 = fold_unary (NEGATE_EXPR, TREE_TYPE (op1), op1);
       /* ??? In theory fold should always produce another integer.  */
-      if (TREE_CODE (op1) != INTEGER_CST)
+      if (op1 == NULL || TREE_CODE (op1) != INTEGER_CST)
 	return NULL;
     }
 
@@ -2342,38 +2342,6 @@ fold_stmt (tree *stmt_p)
       callee = get_callee_fndecl (rhs);
       if (callee && DECL_BUILT_IN (callee))
 	result = ccp_fold_builtin (stmt, rhs);
-      else
-	{
-	  /* Check for resolvable OBJ_TYPE_REF.  The only sorts we can resolve
-	     here are when we've propagated the address of a decl into the
-	     object slot.  */
-	  /* ??? Should perhaps do this in fold proper.  However, doing it
-	     there requires that we create a new CALL_EXPR, and that requires
-	     copying EH region info to the new node.  Easier to just do it
-	     here where we can just smash the call operand.  */
-	  callee = TREE_OPERAND (rhs, 0);
-	  if (TREE_CODE (callee) == OBJ_TYPE_REF
-	      && lang_hooks.fold_obj_type_ref
-	      && TREE_CODE (OBJ_TYPE_REF_OBJECT (callee)) == ADDR_EXPR
-	      && DECL_P (TREE_OPERAND
-			 (OBJ_TYPE_REF_OBJECT (callee), 0)))
-	    {
-	      tree t;
-
-	      /* ??? Caution: Broken ADDR_EXPR semantics means that
-		 looking at the type of the operand of the addr_expr
-		 can yield an array type.  See silly exception in
-		 check_pointer_types_r.  */
-
-	      t = TREE_TYPE (TREE_TYPE (OBJ_TYPE_REF_OBJECT (callee)));
-	      t = lang_hooks.fold_obj_type_ref (callee, t);
-	      if (t)
-		{
-		  TREE_OPERAND (rhs, 0) = t;
-		  changed = true;
-		}
-	    }
-	}
     }
 
   /* If we couldn't fold the RHS, hand over to the generic fold routines.  */

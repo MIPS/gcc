@@ -752,6 +752,7 @@ ipa_init (void)
   module_statics_written = BITMAP_ALLOC (&ipa_obstack);
   all_module_statics = BITMAP_ALLOC (&ipa_obstack);
 
+  /* This will add NODE->DECL to the splay trees.  */
   for (node = cgraph_nodes; node; node = node->next)
     has_proper_scope_for_analysis (node->decl);
 
@@ -972,6 +973,7 @@ static_execute (void)
 	   variable.  */
 	if (TREE_CODE (var) == FUNCTION_DECL)
 	  continue;
+
 	/* Ignore variables in named sections - changing TREE_READONLY
 	   changes the section flags, potentially causing conflicts with
 	   other variables in the same named section.  */

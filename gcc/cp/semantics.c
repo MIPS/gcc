@@ -51,11 +51,7 @@
 /* There routines provide a modular interface to perform many parsing
    operations.  They may therefore be used during actual parsing, or
    during template instantiation, which may be regarded as a
-   degenerate form of parsing.  Since the current g++ parser is
-   lacking in several respects, and will be reimplemented, we are
-   attempting to move most code that is not directly related to
-   parsing into this file; that will make implementing the new parser
-   much easier since it will be able to make use of these routines.  */
+   degenerate form of parsing.  */
 
 static tree maybe_convert_cond (tree);
 static tree simplify_aggr_init_exprs_r (tree *, int *, void *);
@@ -670,6 +666,7 @@ finish_if_stmt (tree if_stmt)
   TREE_CHAIN (if_stmt) = NULL;
   add_stmt (do_poplevel (scope));
   finish_stmt ();
+  empty_body_warning (THEN_CLAUSE (if_stmt), ELSE_CLAUSE (if_stmt));
 }
 
 /* Begin a while-statement.  Returns a newly created WHILE_STMT if
@@ -1508,8 +1505,13 @@ finish_qualified_id_expr (tree qualifying_class,
 			  bool template_p,
 			  bool template_arg_p)
 {
+  gcc_assert (TYPE_P (qualifying_class));
+
   if (error_operand_p (expr))
     return error_mark_node;
+
+  if (DECL_P (expr) || BASELINK_P (expr))
+    mark_used (expr);
 
   if (template_p)
     check_template_keyword (expr);
@@ -2000,12 +2002,12 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 
   /* Build a CONSTRUCTOR for the INITIALIZER_LIST.  */
   compound_literal = build_constructor (NULL_TREE, initializer_list);
-  /* Mark it as a compound-literal.  */
   if (processing_template_decl)
     TREE_TYPE (compound_literal) = type;
   else
     {
       /* Check the initialization.  */
+      compound_literal = reshape_init (type, compound_literal);
       compound_literal = digest_init (type, compound_literal);
       /* If the TYPE was an array type with an unknown bound, then we can
 	 figure out the dimension now.  For example, something like:
@@ -2018,7 +2020,9 @@ finish_compound_literal (tree type, VEC(constructor_elt,gc) *initializer_list)
 				compound_literal, 1);
     }
 
+  /* Mark it as a compound-literal.  */
   TREE_HAS_CONSTRUCTOR (compound_literal) = 1;
+
   return compound_literal;
 }
 
@@ -2320,7 +2324,7 @@ finish_template_type (tree name, tree args, int entering_scope)
 
   decl = lookup_template_class (name, args,
 				NULL_TREE, NULL_TREE, entering_scope,
-				tf_error | tf_warning | tf_user);
+				tf_warning_or_error | tf_user);
   if (decl != error_mark_node)
     decl = TYPE_STUB_DECL (decl);
 

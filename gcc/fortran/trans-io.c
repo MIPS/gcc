@@ -160,7 +160,7 @@ gfc_build_st_parameter (enum ioparam_type ptype, tree *types)
   gcc_assert (len <= sizeof (name) - sizeof ("__st_parameter_"));
   memcpy (name, "__st_parameter_", sizeof ("__st_parameter_"));
   memcpy (name + sizeof ("__st_parameter_") - 1, st_parameter[ptype].name,
-	  len);
+	  len + 1);
   TYPE_NAME (t) = get_identifier (name);
 
   for (type = 0, p = st_parameter_field; type < IOPARM_field_num; type++, p++)
@@ -599,7 +599,7 @@ set_internal_unit (stmtblock_t * block, tree var, gfc_expr * e)
     }
 
   /* Character array.  */
-  else if (e->symtree && (e->symtree->n.sym->as->rank > 0))
+  else if (e->rank > 0)
     {
       se.ss = gfc_walk_expr (e);
 

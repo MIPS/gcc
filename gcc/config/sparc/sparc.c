@@ -1,6 +1,7 @@
 /* Subroutines for insn-output.c for SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -368,6 +369,9 @@ static int sparc_arg_partial_bytes (CUMULATIVE_ARGS *,
 static void sparc_dwarf_handle_frame_unspec (const char *, rtx, int);
 static void sparc_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void sparc_file_end (void);
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+static const char *sparc_mangle_fundamental_type (tree);
+#endif
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 const struct attribute_spec sparc_attribute_table[];
 #endif
@@ -526,6 +530,11 @@ static bool fpu_option_set = false;
 
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END sparc_file_end
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE sparc_mangle_fundamental_type
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2407,26 +2416,34 @@ empty_delay_slot (rtx insn)
 int
 tls_call_delay (rtx trial)
 {
-  rtx pat, unspec;
+  rtx pat;
 
   /* Binutils allows
-     call __tls_get_addr, %tgd_call (foo)
-      add %l7, %o0, %o0, %tgd_add (foo)
+       call __tls_get_addr, %tgd_call (foo)
+        add %l7, %o0, %o0, %tgd_add (foo)
      while Sun as/ld does not.  */
   if (TARGET_GNU_TLS || !TARGET_TLS)
     return 1;
 
   pat = PATTERN (trial);
-  if (GET_CODE (pat) != SET || GET_CODE (SET_DEST (pat)) != PLUS)
-    return 1;
 
-  unspec = XEXP (SET_DEST (pat), 1);
-  if (GET_CODE (unspec) != UNSPEC
-      || (XINT (unspec, 1) != UNSPEC_TLSGD
-	  && XINT (unspec, 1) != UNSPEC_TLSLDM))
-    return 1;
+  /* We must reject tgd_add{32|64}, i.e.
+       (set (reg) (plus (reg) (unspec [(reg) (symbol_ref)] UNSPEC_TLSGD)))
+     and tldm_add{32|64}, i.e.
+       (set (reg) (plus (reg) (unspec [(reg) (symbol_ref)] UNSPEC_TLSLDM)))
+     for Sun as/ld.  */
+  if (GET_CODE (pat) == SET
+      && GET_CODE (SET_SRC (pat)) == PLUS)
+    {
+      rtx unspec = XEXP (SET_SRC (pat), 1);
 
-  return 0;
+      if (GET_CODE (unspec) == UNSPEC
+	  && (XINT (unspec, 1) == UNSPEC_TLSGD
+	      || XINT (unspec, 1) == UNSPEC_TLSLDM))
+	return 0;
+    }
+
+  return 1;
 }
 
 /* Return nonzero if TRIAL, an insn, can be combined with a 'restore'
@@ -3693,7 +3710,10 @@ sparc_output_scratch_registers (FILE *file ATTRIBUTE_UNUSED)
 	  && ! sparc_hard_reg_printed [i])
 	{
 	  sparc_hard_reg_printed [i] = 1;
-	  fprintf (file, "\t.register\t%%g%d, #scratch\n", i);
+	  /* %g7 is used as TLS base register, use #ignore
+	     for it instead of #scratch.  */
+	  fprintf (file, "\t.register\t%%g%d, #%s\n", i,
+		   i == 7 ? "ignore" : "scratch");
 	}
       if (i == 3) i = 5;
     }
@@ -7001,8 +7021,7 @@ sparc_type_code (register tree type)
 	  return (qualifiers | 7);	/* Who knows? */
 
 	case VECTOR_TYPE:
-	case CHAR_TYPE:		/* GNU Pascal CHAR type.  Not used in C.  */
-	case BOOLEAN_TYPE:	/* GNU Fortran BOOLEAN type.  */
+	case BOOLEAN_TYPE:	/* Boolean truth value type.  */
 	case LANG_TYPE:		/* ? */
 	  return qualifiers;
   
@@ -7885,7 +7904,7 @@ sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       arg_count++;
       mode[arg_count] = insn_data[icode].operand[arg_count].mode;
-      op[arg_count] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+      op[arg_count] = expand_normal (arg);
 
       if (! (*insn_data[icode].operand[arg_count].predicate) (op[arg_count],
 							      mode[arg_count]))
@@ -8708,6 +8727,125 @@ sparc_file_end (void)
 
   if (NEED_INDICATE_EXEC_STACK)
     file_end_indicate_exec_stack ();
+}
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+
+static const char *
+sparc_mangle_fundamental_type (tree type)
+{
+  if (!TARGET_64BIT
+      && TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_LONG_DOUBLE_128)
+    return "g";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+#endif
+
+/* Expand code to perform a 8 or 16-bit compare and swap by doing 32-bit
+   compare and swap on the word containing the byte or half-word.  */
+
+void
+sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
+{
+  rtx addr1 = force_reg (Pmode, XEXP (mem, 0));
+  rtx addr = gen_reg_rtx (Pmode);
+  rtx off = gen_reg_rtx (SImode);
+  rtx oldv = gen_reg_rtx (SImode);
+  rtx newv = gen_reg_rtx (SImode);
+  rtx oldvalue = gen_reg_rtx (SImode);
+  rtx newvalue = gen_reg_rtx (SImode);
+  rtx res = gen_reg_rtx (SImode);
+  rtx resv = gen_reg_rtx (SImode);
+  rtx memsi, val, mask, end_label, loop_label, cc;
+
+  emit_insn (gen_rtx_SET (VOIDmode, addr,
+			  gen_rtx_AND (Pmode, addr1, GEN_INT (-4))));
+
+  if (Pmode != SImode)
+    addr1 = gen_lowpart (SImode, addr1);
+  emit_insn (gen_rtx_SET (VOIDmode, off,
+			  gen_rtx_AND (SImode, addr1, GEN_INT (3))));
+
+  memsi = gen_rtx_MEM (SImode, addr);
+  set_mem_alias_set (memsi, ALIAS_SET_MEMORY_BARRIER);
+  MEM_VOLATILE_P (memsi) = MEM_VOLATILE_P (mem);
+
+  val = force_reg (SImode, memsi);
+
+  emit_insn (gen_rtx_SET (VOIDmode, off,
+			  gen_rtx_XOR (SImode, off,
+				       GEN_INT (GET_MODE (mem) == QImode
+						? 3 : 2))));
+
+  emit_insn (gen_rtx_SET (VOIDmode, off,
+			  gen_rtx_ASHIFT (SImode, off, GEN_INT (3))));
+
+  if (GET_MODE (mem) == QImode)
+    mask = force_reg (SImode, GEN_INT (0xff));
+  else
+    mask = force_reg (SImode, GEN_INT (0xffff));
+
+  emit_insn (gen_rtx_SET (VOIDmode, mask,
+			  gen_rtx_ASHIFT (SImode, mask, off)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, val,
+			  gen_rtx_AND (SImode, gen_rtx_NOT (SImode, mask),
+				       val)));
+
+  oldval = gen_lowpart (SImode, oldval);
+  emit_insn (gen_rtx_SET (VOIDmode, oldv,
+			  gen_rtx_ASHIFT (SImode, oldval, off)));
+
+  newval = gen_lowpart_common (SImode, newval);
+  emit_insn (gen_rtx_SET (VOIDmode, newv,
+			  gen_rtx_ASHIFT (SImode, newval, off)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, oldv,
+			  gen_rtx_AND (SImode, oldv, mask)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, newv,
+			  gen_rtx_AND (SImode, newv, mask)));
+
+  end_label = gen_label_rtx ();
+  loop_label = gen_label_rtx ();
+  emit_label (loop_label);
+
+  emit_insn (gen_rtx_SET (VOIDmode, oldvalue,
+			  gen_rtx_IOR (SImode, oldv, val)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, newvalue,
+			  gen_rtx_IOR (SImode, newv, val)));
+
+  emit_insn (gen_sync_compare_and_swapsi (res, memsi, oldvalue, newvalue));
+
+  emit_cmp_and_jump_insns (res, oldvalue, EQ, NULL, SImode, 0, end_label);
+
+  emit_insn (gen_rtx_SET (VOIDmode, resv,
+			  gen_rtx_AND (SImode, gen_rtx_NOT (SImode, mask),
+				       res)));
+
+  sparc_compare_op0 = resv;
+  sparc_compare_op1 = val;
+  cc = gen_compare_reg (NE);
+
+  emit_insn (gen_rtx_SET (VOIDmode, val, resv));
+
+  sparc_compare_emitted = cc;
+  emit_jump_insn (gen_bne (loop_label));
+
+  emit_label (end_label);
+
+  emit_insn (gen_rtx_SET (VOIDmode, res,
+			  gen_rtx_AND (SImode, res, mask)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, res,
+			  gen_rtx_LSHIFTRT (SImode, res, off)));
+
+  emit_move_insn (result, gen_lowpart (GET_MODE (result), res));
 }
 
 #include "gt-sparc.h"

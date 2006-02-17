@@ -1700,7 +1700,7 @@ struct tree_opt_pass pass_lower_eh =
   TV_TREE_EH,				/* tv_id */
   PROP_gimple_lcf,			/* properties_required */
   PROP_gimple_leh,			/* properties_provided */
-  PROP_gimple_lcf,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
@@ -2075,3 +2075,25 @@ maybe_clean_or_replace_eh_stmt (tree old_stmt, tree new_stmt)
 
   return false;
 }
+
+#ifdef ENABLE_CHECKING
+static int
+verify_eh_throw_stmt_node (void **slot, void *data ATTRIBUTE_UNUSED)
+{
+  struct throw_stmt_node *node = (struct throw_stmt_node *)*slot;
+
+  gcc_assert (node->stmt->common.ann == NULL);
+  return 1;
+}
+
+void
+verify_eh_throw_table_statements (void)
+{
+  if (!get_eh_throw_stmt_table (cfun))
+    return;
+  htab_traverse (get_eh_throw_stmt_table (cfun),
+		 verify_eh_throw_stmt_node,
+		 NULL);
+}
+
+#endif

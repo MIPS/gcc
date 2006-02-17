@@ -261,19 +261,9 @@ int flag_ms_extensions;
 
 int flag_no_asm;
 
-/* Nonzero means give string constants the type `const char *', as mandated
-   by the standard.  */
-
-int flag_const_strings;
-
 /* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
 
 int flag_signed_bitfields = 1;
-
-/* Nonzero means warn about deprecated conversion from string constant to
-   `char *'.  */
-
-int warn_write_strings;
 
 /* Warn about #pragma directives that are not recognized.  */
 
@@ -844,7 +834,6 @@ fix_string_type (tree value)
 {
   const int wchar_bytes = TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT;
   const int wide_flag = TREE_TYPE (value) == wchar_array_type_node;
-  const int nchars_max = flag_isoc99 ? 4095 : 509;
   int length = TREE_STRING_LENGTH (value);
   int nchars;
   tree e_type, i_type, a_type;
@@ -852,15 +841,32 @@ fix_string_type (tree value)
   /* Compute the number of elements, for the array type.  */
   nchars = wide_flag ? length / wchar_bytes : length;
 
-  if (pedantic && nchars - 1 > nchars_max && !c_dialect_cxx ())
-    pedwarn ("string length %qd is greater than the length %qd ISO C%d compilers are required to support",
-	     nchars - 1, nchars_max, flag_isoc99 ? 99 : 89);
+  /* C89 2.2.4.1, C99 5.2.4.1 (Translation limits).  The analogous
+     limit in C++98 Annex B is very large (65536) and is not normative,
+     so we do not diagnose it (warn_overlength_strings is forced off
+     in c_common_post_options).  */
+  if (warn_overlength_strings)
+    {
+      const int nchars_max = flag_isoc99 ? 4095 : 509;
+      const int relevant_std = flag_isoc99 ? 99 : 90;
+      if (nchars - 1 > nchars_max)
+	/* Translators: The %d after 'ISO C' will be 90 or 99.  Do not
+	   separate the %d from the 'C'.  'ISO' should not be
+	   translated, but it may be moved after 'C%d' in languages
+	   where modifiers follow nouns.  */
+	pedwarn ("string length %qd is greater than the length %qd "
+		 "ISO C%d compilers are required to support",
+		 nchars - 1, nchars_max, relevant_std);
+    }
 
-  e_type = wide_flag ? wchar_type_node : char_type_node;
-  /* Create the array type for the string constant.  flag_const_strings
-     says make the string constant an array of const char so that
-     copying it to a non-const pointer will get a warning.  For C++,
-     this is the standard behavior.
+  /* Create the array type for the string constant.  The ISO C++
+     standard says that a string literal has type `const char[N]' or
+     `const wchar_t[N]'.  We use the same logic when invoked as a C
+     front-end with -Wwrite-strings.
+     ??? We should change the type of an expression depending on the
+     state of a warning flag.  We should just be warning -- see how
+     this is handled in the C++ front-end for the deprecated implicit
+     conversion from string literals to `char*' or `wchar_t*'.
 
      The C++ front end relies on TYPE_MAIN_VARIANT of a cv-qualified
      array type being the unqualified version of that type.
@@ -868,9 +874,10 @@ fix_string_type (tree value)
      construct the matching unqualified array type first.  The C front
      end does not require this, but it does no harm, so we do it
      unconditionally.  */
+  e_type = wide_flag ? wchar_type_node : char_type_node;
   i_type = build_index_type (build_int_cst (NULL_TREE, nchars - 1));
   a_type = build_array_type (e_type, i_type);
-  if (flag_const_strings)
+  if (c_dialect_cxx() || warn_write_strings)
     a_type = c_build_qualified_type (a_type, TYPE_QUAL_CONST);
 
   TREE_TYPE (value) = a_type;
@@ -994,6 +1001,36 @@ strict_aliasing_warning(tree otype, tree type, tree expr)
     }
 }
 
+
+/* Print a warning about if (); or if () .. else; constructs
+   via the special empty statement node that we create.  INNER_THEN
+   and INNER_ELSE are the statement lists of the if and the else
+   block.  */
+
+void
+empty_body_warning (tree inner_then, tree inner_else)
+{
+  if (extra_warnings)
+    {
+      if (TREE_CODE (inner_then) == STATEMENT_LIST
+	  && STATEMENT_LIST_TAIL (inner_then))
+	inner_then = STATEMENT_LIST_TAIL (inner_then)->stmt;
+
+      if (inner_else && TREE_CODE (inner_else) == STATEMENT_LIST
+	  && STATEMENT_LIST_TAIL (inner_else))
+	inner_else = STATEMENT_LIST_TAIL (inner_else)->stmt;
+
+      if (IS_EMPTY_STMT (inner_then) && !inner_else)
+	warning (OPT_Wextra, "%Hempty body in an if-statement",
+		 EXPR_LOCUS (inner_then));
+
+      if (inner_else && IS_EMPTY_STMT (inner_else))
+	warning (OPT_Wextra, "%Hempty body in an else-statement",
+		 EXPR_LOCUS (inner_else));
+   }
+}
+
+  
 /* Nonzero if constant C has a value that is permissible
    for type TYPE (an INTEGER_TYPE).  */
 
@@ -2426,25 +2463,26 @@ c_common_truthvalue_conversion (tree expr)
 
     case ADDR_EXPR:
       {
-	if (DECL_P (TREE_OPERAND (expr, 0))
-	    && !DECL_WEAK (TREE_OPERAND (expr, 0)))
+ 	tree inner = TREE_OPERAND (expr, 0);
+	if (DECL_P (inner)
+	    && (TREE_CODE (inner) == PARM_DECL || !DECL_WEAK (inner)))
 	  {
 	    /* Common Ada/Pascal programmer's mistake.  We always warn
 	       about this since it is so bad.  */
 	    warning (OPT_Walways_true, "the address of %qD, will always evaluate as %<true%>",
-		     TREE_OPERAND (expr, 0));
+		     inner);
 	    return truthvalue_true_node;
 	  }
 
 	/* If we are taking the address of an external decl, it might be
 	   zero if it is weak, so we cannot optimize.  */
-	if (DECL_P (TREE_OPERAND (expr, 0))
-	    && DECL_EXTERNAL (TREE_OPERAND (expr, 0)))
+	if (DECL_P (inner)
+	    && DECL_EXTERNAL (inner))
 	  break;
 
-	if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 0)))
+	if (TREE_SIDE_EFFECTS (inner))
 	  return build2 (COMPOUND_EXPR, truthvalue_type_node,
-			 TREE_OPERAND (expr, 0), truthvalue_true_node);
+			 inner, truthvalue_true_node);
 	else
 	  return truthvalue_true_node;
       }
@@ -2959,14 +2997,8 @@ static GTY(()) tree built_in_attributes[(int) ATTR_LAST];
 
 static void c_init_attributes (void);
 
-/* Build tree nodes and builtin functions common to both C and C++ language
-   frontends.  */
-
-void
-c_common_nodes_and_builtins (void)
+enum c_builtin_type
 {
-  enum builtin_type
-  {
 #define DEF_PRIMITIVE_TYPE(NAME, VALUE) NAME,
 #define DEF_FUNCTION_TYPE_0(NAME, RETURN) NAME,
 #define DEF_FUNCTION_TYPE_1(NAME, RETURN, ARG1) NAME,
@@ -2974,8 +3006,8 @@ c_common_nodes_and_builtins (void)
 #define DEF_FUNCTION_TYPE_3(NAME, RETURN, ARG1, ARG2, ARG3) NAME,
 #define DEF_FUNCTION_TYPE_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
 #define DEF_FUNCTION_TYPE_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) NAME,
-#define DEF_FUNCTION_TYPE_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6) \
-  NAME,
+#define DEF_FUNCTION_TYPE_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6) NAME,
+#define DEF_FUNCTION_TYPE_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7) NAME,
 #define DEF_FUNCTION_TYPE_VAR_0(NAME, RETURN) NAME,
 #define DEF_FUNCTION_TYPE_VAR_1(NAME, RETURN, ARG1) NAME,
 #define DEF_FUNCTION_TYPE_VAR_2(NAME, RETURN, ARG1, ARG2) NAME,
@@ -2993,6 +3025,7 @@ c_common_nodes_and_builtins (void)
 #undef DEF_FUNCTION_TYPE_4
 #undef DEF_FUNCTION_TYPE_5
 #undef DEF_FUNCTION_TYPE_6
+#undef DEF_FUNCTION_TYPE_7
 #undef DEF_FUNCTION_TYPE_VAR_0
 #undef DEF_FUNCTION_TYPE_VAR_1
 #undef DEF_FUNCTION_TYPE_VAR_2
@@ -3000,12 +3033,61 @@ c_common_nodes_and_builtins (void)
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
 #undef DEF_POINTER_TYPE
-    BT_LAST
-  };
+  BT_LAST
+};
 
-  typedef enum builtin_type builtin_type;
+typedef enum c_builtin_type builtin_type;
 
-  tree builtin_types[(int) BT_LAST + 1];
+/* A temporary array for c_common_nodes_and_builtins.  Used in
+   communication with def_fn_type.  */
+static tree builtin_types[(int) BT_LAST + 1];
+
+/* A helper function for c_common_nodes_and_builtins.  Build function type
+   for DEF with return type RET and N arguments.  If VAR is true, then the
+   function should be variadic after those N arguments.
+
+   Takes special care not to ICE if any of the types involved are
+   error_mark_node, which indicates that said type is not in fact available
+   (see builtin_type_for_size).  In which case the function type as a whole
+   should be error_mark_node.  */
+
+static void
+def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
+{
+  tree args = NULL, t;
+  va_list list;
+  int i;
+
+  va_start (list, n);
+  for (i = 0; i < n; ++i)
+    {
+      builtin_type a = va_arg (list, builtin_type);
+      t = builtin_types[a];
+      if (t == error_mark_node)
+	goto egress;
+      args = tree_cons (NULL_TREE, t, args);
+    }
+  va_end (list);
+
+  args = nreverse (args);
+  if (!var)
+    args = chainon (args, void_list_node);
+
+  t = builtin_types[ret];
+  if (t == error_mark_node)
+    goto egress;
+  t = build_function_type (t, args);
+
+ egress:
+  builtin_types[def] = t;
+}
+
+/* Build tree nodes and builtin functions common to both C and C++ language
+   frontends.  */
+
+void
+c_common_nodes_and_builtins (void)
+{
   int wchar_type_size;
   tree array_domain_type;
   tree va_list_ref_type_node;
@@ -3213,155 +3295,42 @@ c_common_nodes_and_builtins (void)
     }
 
 #define DEF_PRIMITIVE_TYPE(ENUM, VALUE) \
-  builtin_types[(int) ENUM] = VALUE;
-#define DEF_FUNCTION_TYPE_0(ENUM, RETURN)		\
-  builtin_types[(int) ENUM]				\
-    = build_function_type (builtin_types[(int) RETURN],	\
-			   void_list_node);
-#define DEF_FUNCTION_TYPE_1(ENUM, RETURN, ARG1)				\
-  builtin_types[(int) ENUM]						\
-    = build_function_type (builtin_types[(int) RETURN],			\
-			   tree_cons (NULL_TREE,			\
-				      builtin_types[(int) ARG1],	\
-				      void_list_node));
-#define DEF_FUNCTION_TYPE_2(ENUM, RETURN, ARG1, ARG2)	\
-  builtin_types[(int) ENUM]				\
-    = build_function_type				\
-      (builtin_types[(int) RETURN],			\
-       tree_cons (NULL_TREE,				\
-		  builtin_types[(int) ARG1],		\
-		  tree_cons (NULL_TREE,			\
-			     builtin_types[(int) ARG2],	\
-			     void_list_node)));
-#define DEF_FUNCTION_TYPE_3(ENUM, RETURN, ARG1, ARG2, ARG3)		 \
-  builtin_types[(int) ENUM]						 \
-    = build_function_type						 \
-      (builtin_types[(int) RETURN],					 \
-       tree_cons (NULL_TREE,						 \
-		  builtin_types[(int) ARG1],				 \
-		  tree_cons (NULL_TREE,					 \
-			     builtin_types[(int) ARG2],			 \
-			     tree_cons (NULL_TREE,			 \
-					builtin_types[(int) ARG3],	 \
-					void_list_node))));
-#define DEF_FUNCTION_TYPE_4(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4)	\
-  builtin_types[(int) ENUM]						\
-    = build_function_type						\
-      (builtin_types[(int) RETURN],					\
-       tree_cons (NULL_TREE,						\
-		  builtin_types[(int) ARG1],				\
-		  tree_cons (NULL_TREE,					\
-			     builtin_types[(int) ARG2],			\
-			     tree_cons					\
-			     (NULL_TREE,				\
-			      builtin_types[(int) ARG3],		\
-			      tree_cons (NULL_TREE,			\
-					 builtin_types[(int) ARG4],	\
-					 void_list_node)))));
+  builtin_types[ENUM] = VALUE;
+#define DEF_FUNCTION_TYPE_0(ENUM, RETURN) \
+  def_fn_type (ENUM, RETURN, 0, 0);
+#define DEF_FUNCTION_TYPE_1(ENUM, RETURN, ARG1) \
+  def_fn_type (ENUM, RETURN, 0, 1, ARG1);
+#define DEF_FUNCTION_TYPE_2(ENUM, RETURN, ARG1, ARG2) \
+  def_fn_type (ENUM, RETURN, 0, 2, ARG1, ARG2);
+#define DEF_FUNCTION_TYPE_3(ENUM, RETURN, ARG1, ARG2, ARG3) \
+  def_fn_type (ENUM, RETURN, 0, 3, ARG1, ARG2, ARG3);
+#define DEF_FUNCTION_TYPE_4(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4) \
+  def_fn_type (ENUM, RETURN, 0, 4, ARG1, ARG2, ARG3, ARG4);
 #define DEF_FUNCTION_TYPE_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5)	\
-  builtin_types[(int) ENUM]						\
-    = build_function_type						\
-      (builtin_types[(int) RETURN],					\
-       tree_cons (NULL_TREE,						\
-		  builtin_types[(int) ARG1],				\
-		  tree_cons (NULL_TREE,					\
-			     builtin_types[(int) ARG2],			\
-			     tree_cons					\
-			     (NULL_TREE,				\
-			      builtin_types[(int) ARG3],		\
-			      tree_cons (NULL_TREE,			\
-					 builtin_types[(int) ARG4],	\
-					 tree_cons (NULL_TREE,		\
-					      builtin_types[(int) ARG5],\
-					      void_list_node))))));
+  def_fn_type (ENUM, RETURN, 0, 5, ARG1, ARG2, ARG3, ARG4, ARG5);
 #define DEF_FUNCTION_TYPE_6(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
 			    ARG6)					\
-  builtin_types[(int) ENUM]						\
-    = build_function_type						\
-      (builtin_types[(int) RETURN],					\
-       tree_cons (NULL_TREE,						\
-		  builtin_types[(int) ARG1],				\
-		  tree_cons (NULL_TREE,					\
-			     builtin_types[(int) ARG2],			\
-			     tree_cons					\
-			     (NULL_TREE,				\
-			      builtin_types[(int) ARG3],		\
-			      tree_cons					\
-			      (NULL_TREE,				\
-			       builtin_types[(int) ARG4],		\
-			       tree_cons (NULL_TREE,			\
-					 builtin_types[(int) ARG5],	\
-					 tree_cons (NULL_TREE,		\
-					      builtin_types[(int) ARG6],\
-					      void_list_node)))))));
-#define DEF_FUNCTION_TYPE_VAR_0(ENUM, RETURN)				\
-  builtin_types[(int) ENUM]						\
-    = build_function_type (builtin_types[(int) RETURN], NULL_TREE);
-#define DEF_FUNCTION_TYPE_VAR_1(ENUM, RETURN, ARG1)			 \
-   builtin_types[(int) ENUM]						 \
-    = build_function_type (builtin_types[(int) RETURN],		 \
-			   tree_cons (NULL_TREE,			 \
-				      builtin_types[(int) ARG1],	 \
-				      NULL_TREE));
+  def_fn_type (ENUM, RETURN, 0, 6, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6);
+#define DEF_FUNCTION_TYPE_7(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6, ARG7)					\
+  def_fn_type (ENUM, RETURN, 0, 7, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7);
+#define DEF_FUNCTION_TYPE_VAR_0(ENUM, RETURN) \
+  def_fn_type (ENUM, RETURN, 1, 0);
+#define DEF_FUNCTION_TYPE_VAR_1(ENUM, RETURN, ARG1) \
+  def_fn_type (ENUM, RETURN, 1, 1, ARG1);
+#define DEF_FUNCTION_TYPE_VAR_2(ENUM, RETURN, ARG1, ARG2) \
+  def_fn_type (ENUM, RETURN, 1, 2, ARG1, ARG2);
+#define DEF_FUNCTION_TYPE_VAR_3(ENUM, RETURN, ARG1, ARG2, ARG3) \
+  def_fn_type (ENUM, RETURN, 1, 3, ARG1, ARG2, ARG3);
+#define DEF_FUNCTION_TYPE_VAR_4(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4) \
+  def_fn_type (ENUM, RETURN, 1, 4, ARG1, ARG2, ARG3, ARG4);
+#define DEF_FUNCTION_TYPE_VAR_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
+  def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5);
+#define DEF_POINTER_TYPE(ENUM, TYPE) \
+  builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
 
-#define DEF_FUNCTION_TYPE_VAR_2(ENUM, RETURN, ARG1, ARG2)	\
-   builtin_types[(int) ENUM]					\
-    = build_function_type					\
-      (builtin_types[(int) RETURN],				\
-       tree_cons (NULL_TREE,					\
-		  builtin_types[(int) ARG1],			\
-		  tree_cons (NULL_TREE,				\
-			     builtin_types[(int) ARG2],		\
-			     NULL_TREE)));
-
-#define DEF_FUNCTION_TYPE_VAR_3(ENUM, RETURN, ARG1, ARG2, ARG3)		\
-   builtin_types[(int) ENUM]						\
-    = build_function_type						\
-      (builtin_types[(int) RETURN],					\
-       tree_cons (NULL_TREE,						\
-		  builtin_types[(int) ARG1],				\
-		  tree_cons (NULL_TREE,					\
-			     builtin_types[(int) ARG2],			\
-			     tree_cons (NULL_TREE,			\
-					builtin_types[(int) ARG3],	\
-					NULL_TREE))));
-
-#define DEF_FUNCTION_TYPE_VAR_4(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4)	\
-   builtin_types[(int) ENUM]						\
-    = build_function_type						\
-      (builtin_types[(int) RETURN],					\
-       tree_cons (NULL_TREE,						\
-		  builtin_types[(int) ARG1],				\
-		  tree_cons (NULL_TREE,					\
-			     builtin_types[(int) ARG2],			\
-			     tree_cons (NULL_TREE,			\
-					builtin_types[(int) ARG3],	\
-					tree_cons (NULL_TREE,		\
-					      builtin_types[(int) ARG4],\
-					      NULL_TREE)))));
-
-#define DEF_FUNCTION_TYPE_VAR_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4,	\
-				ARG5)					\
-   builtin_types[(int) ENUM]						\
-    = build_function_type						\
-      (builtin_types[(int) RETURN],					\
-       tree_cons (NULL_TREE,						\
-		  builtin_types[(int) ARG1],				\
-		  tree_cons (NULL_TREE,					\
-			     builtin_types[(int) ARG2],			\
-			     tree_cons					\
-			     (NULL_TREE,				\
-			      builtin_types[(int) ARG3],		\
-			      tree_cons (NULL_TREE,			\
-					builtin_types[(int) ARG4],	\
-					tree_cons (NULL_TREE,		\
-					      builtin_types[(int) ARG5],\
-					      NULL_TREE))))));
-
-#define DEF_POINTER_TYPE(ENUM, TYPE)			\
-  builtin_types[(int) ENUM]				\
-    = build_pointer_type (builtin_types[(int) TYPE]);
 #include "builtin-types.def"
+
 #undef DEF_PRIMITIVE_TYPE
 #undef DEF_FUNCTION_TYPE_1
 #undef DEF_FUNCTION_TYPE_2
@@ -3403,6 +3372,9 @@ c_common_nodes_and_builtins (void)
      not shared.  */
   null_node = make_node (INTEGER_CST);
   TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
+
+  /* Since builtin_types isn't gc'ed, don't export these nodes.  */
+  memset (builtin_types, 0, sizeof (builtin_types));
 }
 
 /* Look up the function in built_in_decls that corresponds to DECL
@@ -3423,6 +3395,21 @@ set_builtin_user_assembler_name (tree decl, const char *asmspec)
     init_block_move_fn (asmspec);
   else if (DECL_FUNCTION_CODE (decl) == BUILT_IN_MEMSET)
     init_block_clear_fn (asmspec);
+}
+
+/* The number of named compound-literals generated thus far.  */
+static GTY(()) int compound_literal_number;
+
+/* Set DECL_NAME for DECL, a VAR_DECL for a compound-literal.  */
+
+void
+set_compound_literal_name (tree decl)
+{
+  char *name;
+  ASM_FORMAT_PRIVATE_NAME (name, "__compound_literal",
+			   compound_literal_number);
+  compound_literal_number++;
+  DECL_NAME (decl) = get_identifier (name);
 }
 
 tree
@@ -3492,6 +3479,9 @@ def_builtin_1 (enum built_in_function fncode,
 {
   tree decl;
   const char *libname;
+
+  if (fntype == error_mark_node)
+    return;
 
   gcc_assert ((!both_p && !fallback_p)
 	      || !strncmp (name, "__builtin_",
@@ -5247,6 +5237,18 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
       return NULL_TREE;
     }
 
+  if (vecsize % tree_low_cst (TYPE_SIZE_UNIT (type), 1))
+    {
+      error ("vector size not an integral multiple of component size");
+      return NULL;
+    }
+
+  if (vecsize == 0)
+    {
+      error ("zero vector size");
+      return NULL;
+    }
+
   /* Calculate how many units fit in the vector.  */
   nunits = vecsize / tree_low_cst (TYPE_SIZE_UNIT (type), 1);
   if (nunits & (nunits - 1))
@@ -5839,6 +5841,10 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token, tree value)
       free (message);
       message = NULL;
     }
+  else if (token == CPP_PRAGMA)
+    message = catenate_messages (gmsgid, " before %<#pragma%>");
+  else if (token == CPP_PRAGMA_EOL)
+    message = catenate_messages (gmsgid, " before end of line");
   else if (token < N_TTYPES)
     {
       message = catenate_messages (gmsgid, " before %qs token");
@@ -6178,7 +6184,7 @@ sync_resolve_size (tree function, tree params)
     goto incompatible;
 
   size = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
-  if (size == 1 || size == 2 || size == 4 || size == 8)
+  if (size == 1 || size == 2 || size == 4 || size == 8 || size == 16)
     return size;
 
  incompatible:

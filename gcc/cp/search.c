@@ -97,7 +97,7 @@ struct lookup_base_data_s
 static tree
 dfs_lookup_base (tree binfo, void *data_)
 {
-  struct lookup_base_data_s *data = data_;
+  struct lookup_base_data_s *data = (struct lookup_base_data_s *) data_;
 
   if (SAME_BINFO_TYPE_P (BINFO_TYPE (binfo), data->base))
     {
@@ -306,7 +306,7 @@ struct dcast_data_s
 static tree
 dfs_dcast_hint_pre (tree binfo, void *data_)
 {
-  struct dcast_data_s *data = data_;
+  struct dcast_data_s *data = (struct dcast_data_s *) data_;
 
   if (BINFO_VIRTUAL_P (binfo))
     data->virt_depth++;
@@ -334,7 +334,7 @@ dfs_dcast_hint_pre (tree binfo, void *data_)
 static tree
 dfs_dcast_hint_post (tree binfo, void *data_)
 {
-  struct dcast_data_s *data = data_;
+  struct dcast_data_s *data = (struct dcast_data_s *) data_;
 
   if (BINFO_VIRTUAL_P (binfo))
     data->virt_depth--;
@@ -2355,7 +2355,7 @@ lookup_conversions_r (tree binfo,
     {
       parent_tpl_convs = tree_cons (binfo, my_tpl_convs, parent_tpl_convs);
       if (virtual_depth)
-	TREE_STATIC (parent_convs) = 1;
+	TREE_STATIC (parent_tpl_convs) = 1;
     }
 
   child_convs = other_convs;

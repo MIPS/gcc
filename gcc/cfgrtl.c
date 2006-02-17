@@ -305,7 +305,7 @@ create_basic_block_structure (rtx head, rtx end, rtx bb_note, basic_block after)
   bb->index = last_basic_block++;
   bb->flags = BB_NEW | BB_RTL;
   link_block (bb, after);
-  BASIC_BLOCK (bb->index) = bb;
+  SET_BASIC_BLOCK (bb->index, bb);
   update_bb_for_insn (bb);
   BB_SET_PARTITION (bb, BB_UNPARTITIONED);
 
@@ -328,10 +328,14 @@ rtl_create_basic_block (void *headp, void *endp, basic_block after)
   basic_block bb;
 
   /* Grow the basic block array if needed.  */
-  if ((size_t) last_basic_block >= VARRAY_SIZE (basic_block_info))
+  if ((size_t) last_basic_block >= VEC_length (basic_block, basic_block_info))
     {
+      size_t old_size = VEC_length (basic_block, basic_block_info);
       size_t new_size = last_basic_block + (last_basic_block + 3) / 4;
-      VARRAY_GROW (basic_block_info, new_size);
+      basic_block *p;
+      VEC_safe_grow (basic_block, gc, basic_block_info, new_size);
+      p = VEC_address (basic_block, basic_block_info);
+      memset (&p[old_size], 0, sizeof (basic_block) * (new_size - old_size));
     }
 
   n_basic_blocks++;
@@ -1014,9 +1018,6 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
      by creating a basic block afterwards to redirect fallthru edge.  */
   if (e->src != ENTRY_BLOCK_PTR && e->dest != EXIT_BLOCK_PTR
       && any_condjump_p (BB_END (e->src))
-      /* When called from cfglayout, fallthru edges do not
-         necessarily go to the next block.  */
-      && e->src->next_bb == e->dest
       && JUMP_LABEL (BB_END (e->src)) == BB_HEAD (e->dest))
     {
       rtx note;
@@ -1805,9 +1806,9 @@ print_rtl_with_bb (FILE *outf, rtx rtx_first)
     {
       enum bb_state { NOT_IN_BB, IN_ONE_BB, IN_MULTIPLE_BB };
       int max_uid = get_max_uid ();
-      basic_block *start = xcalloc (max_uid, sizeof (basic_block));
-      basic_block *end = xcalloc (max_uid, sizeof (basic_block));
-      enum bb_state *in_bb_p = xcalloc (max_uid, sizeof (enum bb_state));
+      basic_block *start = XCNEWVEC (basic_block, max_uid);
+      basic_block *end = XCNEWVEC (basic_block, max_uid);
+      enum bb_state *in_bb_p = XCNEWVEC (enum bb_state, max_uid);
 
       basic_block bb;
 
@@ -1915,7 +1916,7 @@ rtl_verify_flow_info_1 (void)
   int err = 0;
   basic_block bb;
 
-  bb_info = xcalloc (max_uid, sizeof (basic_block));
+  bb_info = XCNEWVEC (basic_block, max_uid);
 
   FOR_EACH_BB_REVERSE (bb)
     {
@@ -2047,9 +2048,10 @@ rtl_verify_flow_info_1 (void)
 	  err = 1;
 	}
       if (n_branch != 1 && any_condjump_p (BB_END (bb))
-	  && JUMP_LABEL (BB_END (bb)) == BB_HEAD (fallthru->dest))
+	  && JUMP_LABEL (BB_END (bb)) != BB_HEAD (fallthru->dest))
 	{
-	  error ("wrong amount of branch edges after conditional jump %i", bb->index);
+	  error ("wrong amount of branch edges after conditional jump %i",
+		 bb->index);
 	  err = 1;
 	}
       if (n_call && !CALL_P (BB_END (bb)))

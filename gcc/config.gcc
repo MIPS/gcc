@@ -568,7 +568,7 @@ alpha*-*-unicosmk*)
 alpha*-*-linux*)
 	tm_file="${tm_file} alpha/elf.h alpha/linux.h alpha/linux-elf.h"
 	target_cpu_default="MASK_GAS"
-	tmake_file="${tmake_file} alpha/t-crtfm alpha/t-alpha alpha/t-ieee"
+	tmake_file="${tmake_file} alpha/t-crtfm alpha/t-alpha alpha/t-ieee alpha/t-linux"
 	;;
 alpha*-*-gnu*)
 	target_cpu_default="MASK_GAS"
@@ -714,7 +714,7 @@ arm*-*-eabi* | arm*-*-symbianelf* )
 	  tm_file="${tm_file} arm/symbian.h"
 	  # We do not include t-bpabi for Symbian OS because the system
 	  # provides its own implementation of the BPABI functions.
-	  tmake_file="${tmake_file} t-slibgcc-elf-ver arm/t-symbian"
+	  tmake_file="${tmake_file} arm/t-symbian"
 	  ;;
 	esac
 	tm_file="${tm_file} arm/aout.h arm/arm.h"
@@ -846,10 +846,11 @@ hppa*-*-linux* | parisc*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h linux.h pa/pa-linux.h \
 		 pa/pa32-regs.h pa/pa32-linux.h"
 	tmake_file="${tmake_file} pa/t-linux"
-	# if not configured with --enable-sjlj-exceptions, bump the
-	# libgcc version number
-	if test x$sjlj != x1; then
-	    tmake_file="$tmake_file pa/t-slibgcc-elf-ver"
+	# Set the libgcc version number
+	if test x$sjlj = x1; then
+	    tmake_file="$tmake_file pa/t-slibgcc-sjlj-ver"
+	else
+	    tmake_file="$tmake_file pa/t-slibgcc-dwarf-ver"
 	fi
 	;;
 # port not yet contributed.
@@ -889,7 +890,7 @@ hppa[12]*-*-hpux10*)
 		extra_options="${extra_options} pa/pa-hpux1010.opt"
 		;;
 	esac
-	tmake_file="pa/t-pa pa/t-pa-hpux pa/t-hpux-shlib"
+	tmake_file="pa/t-pa-hpux10 pa/t-pa-hpux pa/t-hpux-shlib"
 	case ${enable_threads} in
 	  "")
 	    if test x$have_pthread_h = xyes ; then
@@ -900,8 +901,11 @@ hppa[12]*-*-hpux10*)
 	    tmake_file="${tmake_file} pa/t-dce-thr"
 	    ;;
 	esac
-	if test x$sjlj != x1; then
-	    tmake_file="$tmake_file pa/t-slibgcc-elf-ver"
+	# Set the libgcc version number
+	if test x$sjlj = x1; then
+	    tmake_file="$tmake_file pa/t-slibgcc-sjlj-ver"
+	else
+	    tmake_file="$tmake_file pa/t-slibgcc-dwarf-ver"
 	fi
 	use_collect2=yes
 	use_fixproto=yes
@@ -935,8 +939,11 @@ hppa*64*-*-hpux11*)
 		       pa/pa-hpux1010.opt pa/pa64-hpux.opt"
 	need_64bit_hwint=yes
 	tmake_file="pa/t-pa64 pa/t-pa-hpux pa/t-hpux-shlib"
-	if test x$sjlj != x1; then
-	    tmake_file="$tmake_file pa/t-slibgcc-elf-ver"
+	# Set the libgcc version number
+	if test x$sjlj = x1; then
+	    tmake_file="$tmake_file pa/t-slibgcc-sjlj-ver"
+	else
+	    tmake_file="$tmake_file pa/t-slibgcc-dwarf-ver"
 	fi
 	extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o crtbeginT.o"
 	case x${enable_threads} in
@@ -960,9 +967,12 @@ hppa[12]*-*-hpux11*)
 		extra_options="${extra_options} pa/pa-hpux1111.opt"
 		;;
 	esac
-	tmake_file="pa/t-pa pa/t-pa-hpux pa/t-hpux-shlib"
-	if test x$sjlj != x1; then
-	    tmake_file="$tmake_file pa/t-slibgcc-elf-ver"
+	tmake_file="pa/t-pa-hpux11 pa/t-pa-hpux pa/t-hpux-shlib"
+	# Set the libgcc version number
+	if test x$sjlj = x1; then
+	    tmake_file="$tmake_file pa/t-slibgcc-sjlj-ver"
+	else
+	    tmake_file="$tmake_file pa/t-slibgcc-dwarf-ver"
 	fi
 	case x${enable_threads} in
 	xyes | xposix )
@@ -1850,7 +1860,7 @@ rs6000-ibm-aix[56789].* | powerpc-ibm-aix[56789].*)
 	;;
 s390-*-linux*)
 	tm_file="s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
-	tmake_file="${tmake_file} s390/t-crtstuff"
+	tmake_file="${tmake_file} s390/t-crtstuff s390/t-linux"
 	;;
 s390x-*-linux*)
 	tm_file="s390/s390x.h s390/s390.h dbxelf.h elfos.h svr4.h linux.h s390/linux.h"
@@ -1858,7 +1868,7 @@ s390x-*-linux*)
 	md_file=s390/s390.md
 	extra_modes=s390/s390-modes.def
 	out_file=s390/s390.c
-	tmake_file="${tmake_file} s390/t-crtstuff s390/t-linux64"
+	tmake_file="${tmake_file} s390/t-crtstuff s390/t-linux s390/t-linux64"
 	;;
 s390x-ibm-tpf*)
         tm_file="s390/s390x.h s390/s390.h dbxelf.h elfos.h svr4.h s390/tpf.h"
@@ -2045,7 +2055,7 @@ sparc-*-elf*)
 sparc-*-linux*)		# SPARC's running GNU/Linux, libc6
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux.h"
 	extra_options="${extra_options} sparc/long-double-switch.opt"
-	tmake_file="${tmake_file} sparc/t-crtfm"
+	tmake_file="${tmake_file} sparc/t-linux sparc/t-crtfm"
 	;;
 sparc-*-rtems*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/sp-elf.h sparc/rtemself.h rtems.h"
@@ -2164,7 +2174,7 @@ sparc64-*-freebsd*|ultrasparc-*-freebsd*)
 sparc64-*-linux*)		# 64-bit SPARC's running GNU/Linux
 	tm_file="sparc/biarch64.h ${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux64.h"
 	extra_options="${extra_options} sparc/long-double-switch.opt"
-	tmake_file="${tmake_file} sparc/t-linux64 sparc/t-crtfm"
+	tmake_file="${tmake_file} sparc/t-linux sparc/t-linux64 sparc/t-crtfm"
 	;;
 sparc64-*-netbsd*)
 	tm_file="sparc/biarch64.h ${tm_file}"
@@ -2356,6 +2366,9 @@ if test x$with_cpu = x ; then
       # A Cirrus ARM variant.
       with_cpu="ep9312"
       ;;
+    i386-*-*)
+      with_cpu=i386
+      ;;
     i486-*-*)
       with_cpu=i486
       ;;
@@ -2407,13 +2420,26 @@ if test x$with_cpu = x ; then
         pentium_m-*)
           with_cpu=pentium-m
           ;;
-        *)
+        pentiumpro-*)
           with_cpu=pentiumpro
+          ;;
+        *)
+          with_cpu=generic
           ;;
       esac
       ;;
     x86_64-*-*)
-      with_cpu=k8
+      case ${target_noncanonical} in
+        k8-*|opteron-*|athlon_64-*)
+          with_cpu=k8
+          ;;
+        nocona-*)
+          with_cpu=nocona
+          ;;
+        *)
+          with_cpu=generic
+          ;;
+      esac
       ;;
     alphaev6[78]*-*-*)
       with_cpu=ev67
@@ -2619,13 +2645,21 @@ case "${target}" in
 		for which in arch cpu tune; do
 			eval "val=\$with_$which"
 			case ${val} in
-			"" | i386 | i486 \
+			i386 | i486 \
 			| i586 | pentium | pentium-mmx | winchip-c6 | winchip2 \
 			| c3 | c3-2 | i686 | pentiumpro | pentium2 | pentium3 \
 			| pentium4 | k6 | k6-2 | k6-3 | athlon | athlon-tbird \
-			| athlon-4 | athlon-xp | athlon-mp | k8 | opteron \
-			| athlon64 | athlon-fx | prescott | pentium-m \
-			| pentium4m | pentium3m| nocona)
+			| athlon-4 | athlon-xp | athlon-mp \
+			| prescott | pentium-m | pentium4m | pentium3m)
+				case "${target}" in
+				  x86_64-*-*)
+				      echo "CPU given in --with-$which=$val doesn't support 64bit mode." 1>&2
+				      exit 1
+				      ;;
+				esac
+				# OK
+				;;
+			"" | k8 | opteron | athlon64 | athlon-fx | nocona | generic)
 				# OK
 				;;
 			*)
@@ -2666,6 +2700,25 @@ case "${target}" in
 		*)
 			echo "Unknown division check type use in --with-divide=$with_divide" 1>&2
 			exit 1
+		esac
+		;;
+
+	mt-*-*)
+		supported_defaults="arch"
+
+		case "$with_arch" in
+		"" \
+		| ms1-64-001 \
+		| ms1-16-002 \
+		| ms1-16-003 \
+		| ms2 \
+		| "")
+			# OK
+			;;
+		*)
+			echo "Unknown arch used in --with-arch=$with_arch" 1>&2
+			exit 1
+			;;
 		esac
 		;;
 
@@ -2885,6 +2938,11 @@ case ${target} in
                 fi
 		;;
 
+	sh[123456ble]*-*-* | sh-*-*)
+		c_target_objs="${c_target_objs} sh-c.o"
+		cxx_target_objs="${cxx_target_objs} sh-c.o"
+		;;
+
 	sparc*-*-*)
 		# Some standard aliases.
 		case x$with_cpu in
@@ -2923,6 +2981,7 @@ do
 			;;
 		*)
 			echo "This target does not support --with-$option." 2>&1
+			echo "Valid --with options are: $supported_defaults" 2>&1
 			exit 1
 			;;
 		esac

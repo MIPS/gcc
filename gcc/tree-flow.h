@@ -149,12 +149,6 @@ struct subvar GTY(())
   /* Fake variable.  */
   tree var;
 
-  /* Offset inside structure.  */
-  unsigned HOST_WIDE_INT offset;
-
-  /* Size of the field.  */
-  unsigned HOST_WIDE_INT size;
-
   /* Next subvar for this structure.  */
   subvar_t next;
 };
@@ -229,16 +223,15 @@ struct function_ann_d GTY(())
   /* True if the function in question has an argument that is a
      pointer.  */
   unsigned int has_pointer_arguments:1;
-
-  /* Pointer to the structure that contains the sets of global
-     variables modified by function calls.  This field is only used
-     for FUNCTION_DECLs.  */
-  ipa_reference_vars_info_t GTY ((skip)) reference_vars_info;
   
   /* This bitmap contains the cgraph node ids of all possible callees
      of this function, including those called by callees (IE it is
      post-transitive closure). */
   bitmap GTY((skip)) callees;
+  /* Pointer to the structure that contains the sets of global
+     variables modified by function calls.  This field is only used
+     for FUNCTION_DECLs.  */
+  ipa_reference_vars_info_t GTY ((skip)) reference_vars_info;
 };
 
 typedef struct immediate_use_iterator_d
@@ -465,7 +458,7 @@ static inline void bsi_prev (block_stmt_iterator *);
 static inline tree bsi_stmt (block_stmt_iterator);
 static inline tree * bsi_stmt_ptr (block_stmt_iterator);
 
-extern void bsi_remove (block_stmt_iterator *);
+extern void bsi_remove (block_stmt_iterator *, bool);
 extern void bsi_move_before (block_stmt_iterator *, block_stmt_iterator *);
 extern void bsi_move_after (block_stmt_iterator *, block_stmt_iterator *);
 extern void bsi_move_to_bb_end (block_stmt_iterator *, basic_block);
@@ -503,6 +496,7 @@ extern bool is_ctrl_stmt (tree);
 extern bool is_ctrl_altering_stmt (tree);
 extern bool computed_goto_p (tree);
 extern bool simple_goto_p (tree);
+extern basic_block single_noncomplex_succ (basic_block bb);
 extern void tree_dump_bb (basic_block, FILE *, int);
 extern void debug_tree_bb (basic_block);
 extern basic_block debug_tree_bb_n (int);
@@ -548,6 +542,8 @@ extern void fold_cond_expr_cond (void);
 extern void replace_uses_by (tree, tree);
 extern void start_recording_case_labels (void);
 extern void end_recording_case_labels (void);
+extern basic_block move_sese_region_to_fn (struct function *, basic_block,
+				           basic_block);
 
 /* In tree-cfgcleanup.c  */
 extern bool cleanup_tree_cfg (void);
@@ -588,8 +584,9 @@ extern void remove_phi_node (tree, tree);
 extern tree phi_reverse (tree);
 
 /* In gimple-low.c  */
+extern void record_vars_into (tree, tree);
 extern void record_vars (tree);
-extern bool block_may_fallthru (tree block);
+extern bool block_may_fallthru (tree);
 
 /* In tree-ssa-alias.c  */
 extern void dump_may_aliases_for (FILE *, tree);
@@ -615,7 +612,7 @@ extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
 static inline bool var_can_have_subvars (tree);
 static inline bool overlap_subvar (unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
-				   subvar_t, bool *);
+				   tree, bool *);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
@@ -672,6 +669,17 @@ extern void replace_exp (use_operand_p, tree);
 extern bool may_propagate_copy (tree, tree);
 extern bool may_propagate_copy_into_asm (tree);
 
+/* Affine iv.  */
+
+typedef struct
+{
+  /* Iv = BASE + STEP * i.  */
+  tree base, step;
+
+  /* True if this iv does not overflow.  */
+  bool no_overflow;
+} affine_iv;
+
 /* Description of number of iterations of a loop.  All the expressions inside
    the structure can be evaluated at the end of the loop's preheader
    (and due to ssa form, also anywhere inside the body of the loop).  */
@@ -702,6 +710,15 @@ struct tree_niter_desc
 			   MAX_SIGNED_INT.  However if the (n <= 0) assumption
 			   is eliminated (by looking at the guard on entry of
 			   the loop), then the information would be lost.  */
+
+  /* The simplified shape of the exit condition.  The loop exits if
+     CONTROL CMP BOUND is false, where CMP is one of NE_EXPR,
+     LT_EXPR, or GT_EXPR, and step of CONTROL is positive if CMP is
+     LE_EXPR and negative if CMP is GE_EXPR.  This information is used
+     by loop unrolling.  */
+  affine_iv control;
+  tree bound;
+  enum tree_code cmp;
 };
 
 /* In tree-vectorizer.c */
@@ -716,6 +733,7 @@ void tree_ssa_lim (struct loops *);
 void tree_ssa_unswitch_loops (struct loops *);
 void canonicalize_induction_variables (struct loops *);
 void tree_unroll_loops_completely (struct loops *, bool);
+void tree_ssa_prefetch_arrays (struct loops *);
 void remove_empty_loops (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
 
@@ -753,6 +771,15 @@ struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 tree expand_simple_operations (tree);
 void substitute_in_loop_info (struct loop *, tree, tree);
 edge single_dom_exit (struct loop *);
+bool can_unroll_loop_p (struct loop *loop, unsigned factor,
+			struct tree_niter_desc *niter);
+void tree_unroll_loop (struct loops *, struct loop *, unsigned,
+		       edge, struct tree_niter_desc *);
+
+/* In tree-ssa-threadedge.c */
+extern bool potentially_threadable_block (basic_block);
+extern void thread_across_edge (tree, edge, bool,
+				VEC(tree, heap) **, tree (*) (tree));
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */
@@ -766,18 +793,22 @@ enum move_pos
   };
 extern enum move_pos movement_possibility (tree);
 
+/* The reasons a variable may escape a function.  */
 enum escape_type 
   {
-    NO_ESCAPE = 0,
-    ESCAPE_STORED_IN_GLOBAL = 1 << 1,    
-    ESCAPE_TO_ASM = 1 << 2,
-    ESCAPE_TO_CALL = 1 << 3,
-    ESCAPE_BAD_CAST = 1 << 4, 
-    ESCAPE_TO_RETURN = 1 << 5,
-    ESCAPE_TO_PURE_CONST = 1 << 6,
-    ESCAPE_IS_GLOBAL = 1 << 7,
-    ESCAPE_IS_PARM = 1 << 8,
-    ESCAPE_UNKNOWN = 1 << 9
+    NO_ESCAPE = 0, /* Doesn't escape.  */
+    ESCAPE_STORED_IN_GLOBAL = 1 << 1,
+    ESCAPE_TO_ASM = 1 << 2,  /* Passed by address to an assembly
+				statement.  */
+    ESCAPE_TO_CALL = 1 << 3,  /* Escapes to a function call.  */
+    ESCAPE_BAD_CAST = 1 << 4, /* Cast from pointer to integer */
+    ESCAPE_TO_RETURN = 1 << 5, /* Returned from function.  */
+    ESCAPE_TO_PURE_CONST = 1 << 6, /* Escapes to a pure or constant
+				      function call.  */
+    ESCAPE_IS_GLOBAL = 1 << 7,  /* Is a global variable.  */
+    ESCAPE_IS_PARM = 1 << 8, /* Is an incoming function parameter.  */
+    ESCAPE_UNKNOWN = 1 << 9 /* We believe it escapes for some reason
+			       not enumerated above.  */
   };
 
 /* In tree-flow-inline.h  */
@@ -806,10 +837,14 @@ void print_value_expressions (FILE *, tree);
 /* In tree-vn.c  */
 bool expressions_equal_p (tree, tree);
 tree get_value_handle (tree);
-hashval_t vn_compute (tree, hashval_t, tree);
+hashval_t vn_compute (tree, hashval_t);
+void sort_vuses (VEC (tree, gc) *);
 tree vn_lookup_or_add (tree, tree);
-void vn_add (tree, tree, tree);
+tree vn_lookup_or_add_with_vuses (tree, VEC (tree, gc) *);
+void vn_add (tree, tree);
+void vn_add_with_vuses (tree, tree, VEC (tree, gc) *);
 tree vn_lookup (tree, tree);
+tree vn_lookup_with_vuses (tree, VEC (tree, gc) *);
 void vn_init (void);
 void vn_delete (void);
 
@@ -832,7 +867,8 @@ bool multiplier_allowed_in_address_p (HOST_WIDE_INT);
 unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode);
 
 /* In tree-ssa-threadupdate.c.  */
-extern bool thread_through_all_blocks (bitmap);
+extern bool thread_through_all_blocks (void);
+extern void register_jump_thread (edge, edge);
 
 /* In gimplify.c  */
 tree force_gimple_operand (tree, tree *, bool, tree);
@@ -840,6 +876,9 @@ tree force_gimple_operand_bsi (block_stmt_iterator *, tree, bool, tree);
 
 /* In tree-ssa-structalias.c */
 bool find_what_p_points_to (tree);
+
+/* In tree-ssa-live.c */
+extern void remove_unused_locals (void);
 
 /* In tree-ssa-address.c  */
 
@@ -882,6 +921,7 @@ tree create_mem_ref (block_stmt_iterator *, tree,
 rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
+
 /* This structure is simply used during pushing fields onto the fieldstack
    to track the offset of the field, since bitpos_of_field gives it relative
    to its immediate containing type, and we want it relative to the ultimate
@@ -889,7 +929,9 @@ tree maybe_fold_tmr (tree);
 
 struct fieldoff
 {
-  tree field;
+  tree type;
+  tree size;
+  tree decl;
   HOST_WIDE_INT offset;  
 };
 typedef struct fieldoff fieldoff_s;

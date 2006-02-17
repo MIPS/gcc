@@ -1,6 +1,7 @@
 // List implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -322,13 +323,21 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
   public:
       typedef _Alloc allocator_type;
 
+      _Node_alloc_type&
+      _M_get_Node_allocator()
+      { return *static_cast<_Node_alloc_type*>(&this->_M_impl); }
+
+      const _Node_alloc_type&
+      _M_get_Node_allocator() const
+      { return *static_cast<const _Node_alloc_type*>(&this->_M_impl); }
+
       _Tp_alloc_type
       _M_get_Tp_allocator() const
-      { return *static_cast<const _Node_alloc_type*>(&this->_M_impl); }
+      { return _Tp_alloc_type(_M_get_Node_allocator()); }
 
       allocator_type
       get_allocator() const
-      { return _M_get_Tp_allocator(); }
+      { return allocator_type(_M_get_Node_allocator()); }
 
       _List_base(const allocator_type& __a)
       : _M_impl(__a)
@@ -424,16 +433,11 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       // iterator types.
       typedef _List_node<_Tp>				 _Node;
 
-      /** @if maint
-       *  One data member plus two memory-handling functions.  If the
-       *  _Alloc type requires separate instances, then one of those
-       *  will also be included, accumulated from the topmost parent.
-       *  @endif
-       */
       using _Base::_M_impl;
       using _Base::_M_put_node;
       using _Base::_M_get_node;
       using _Base::_M_get_Tp_allocator;
+      using _Base::_M_get_Node_allocator;
 
       /**
        *  @if maint
@@ -489,7 +493,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  by @a x.
        */
       list(const list& __x)
-      : _Base(__x.get_allocator())
+      : _Base(__x._M_get_Node_allocator())
       { _M_initialize_dispatch(__x.begin(), __x.end(), __false_type()); }
 
       /**
@@ -803,7 +807,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
       void
       insert(iterator __position, size_type __n, const value_type& __x)
       {  
-	list __tmp(__n, __x, get_allocator());
+	list __tmp(__n, __x, _M_get_Node_allocator());
 	splice(__position, __tmp);
       }
 
@@ -825,7 +829,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
         insert(iterator __position, _InputIterator __first,
 	       _InputIterator __last)
         {
-	  list __tmp(__first, __last, get_allocator());
+	  list __tmp(__first, __last, _M_get_Node_allocator());
 	  splice(__position, __tmp);
 	}
 
@@ -884,7 +888,14 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        */
       void
       swap(list& __x)
-      { _List_node_base::swap(this->_M_impl._M_node, __x._M_impl._M_node); }
+      {
+	_List_node_base::swap(this->_M_impl._M_node, __x._M_impl._M_node);
+
+	// _GLIBCXX_RESOLVE_LIB_DEFECTS
+	// 431. Swapping containers with unequal allocators.
+	std::__alloc_swap<typename _Base::_Node_alloc_type>::
+	  _S_do_it(_M_get_Node_allocator(), __x._M_get_Node_allocator());
+      }
 
       /**
        *  Erases all the elements.  Note that this function only erases
@@ -908,12 +919,18 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  The elements of @a x are inserted in constant time in front of
        *  the element referenced by @a position.  @a x becomes an empty
        *  list.
+       *
+       *  Requires this != @a x.
        */
       void
       splice(iterator __position, list& __x)
       {
 	if (!__x.empty())
-	  this->_M_transfer(__position, __x.begin(), __x.end());
+	  {
+	    _M_check_equal_allocators(__x);
+
+	    this->_M_transfer(__position, __x.begin(), __x.end());
+	  }
       }
 
       /**
@@ -926,12 +943,16 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  inserts it into the current list before @a position.
        */
       void
-      splice(iterator __position, list&, iterator __i)
+      splice(iterator __position, list& __x, iterator __i)
       {
 	iterator __j = __i;
 	++__j;
 	if (__position == __i || __position == __j)
 	  return;
+
+	if (this != &__x)
+	  _M_check_equal_allocators(__x);
+
 	this->_M_transfer(__position, __i, __j);
       }
 
@@ -948,10 +969,15 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  Undefined if @a position is in [first,last).
        */
       void
-      splice(iterator __position, list&, iterator __first, iterator __last)
+      splice(iterator __position, list& __x, iterator __first, iterator __last)
       {
 	if (__first != __last)
-	  this->_M_transfer(__position, __first, __last);
+	  {
+	    if (this != &__x)
+	      _M_check_equal_allocators(__x);
+
+	    this->_M_transfer(__position, __first, __last);
+	  }
       }
 
       /**
@@ -980,8 +1006,8 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
        *  responsibilty.
        */
       template<typename _Predicate>
-      void
-      remove_if(_Predicate);
+        void
+        remove_if(_Predicate);
 
       /**
        *  @brief  Remove consecutive duplicate elements.
@@ -1144,6 +1170,14 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
         _Node* __n = static_cast<_Node*>(__position._M_node);
         _M_get_Tp_allocator().destroy(&__n->_M_data);
         _M_put_node(__n);
+      }
+
+      // To implement the splice (and merge) bits of N1599.
+      void
+      _M_check_equal_allocators(list& __x)
+      {
+	if (_M_get_Node_allocator() != __x._M_get_Node_allocator())
+	  __throw_runtime_error(__N("list::_M_check_equal_allocators"));
       }
     };
 

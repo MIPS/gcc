@@ -688,17 +688,6 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
     }
 }
 
-/* Try replacing every occurrence of FROM in subexpression LOC of INSN
-   with TO.  After all changes have been made, validate by seeing
-   if INSN is still valid.  */
-
-int
-validate_replace_rtx_subexp (rtx from, rtx to, rtx insn, rtx *loc)
-{
-  validate_replace_rtx_1 (loc, from, to, insn);
-  return apply_change_group ();
-}
-
 /* Try replacing every occurrence of FROM in INSN with TO.  After all
    changes have been made, validate by seeing if INSN is still valid.  */
 
@@ -1991,6 +1980,7 @@ extract_insn_cached (rtx insn)
   extract_insn (insn);
   recog_data.insn = insn;
 }
+
 /* Do cached extract_insn, constrain_operands and complain about failures.
    Used by insn_attrtab.  */
 void
@@ -2001,6 +1991,7 @@ extract_constrain_insn_cached (rtx insn)
       && !constrain_operands (reload_completed))
     fatal_insn_not_found (insn);
 }
+
 /* Do cached constrain_operands and complain about failures.  */
 int
 constrain_operands_cached (int strict)
@@ -3031,8 +3022,8 @@ peep2_find_free_register (int from, int to, const char *class_str,
 
 /* Perform the peephole2 optimization pass.  */
 
-void
-peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
+static void
+peephole2_optimize (void)
 {
   rtx insn, prev;
   regset live;
@@ -3104,8 +3095,18 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 	      propagate_one_insn (pbi, insn);
 	      COPY_REG_SET (peep2_insn_data[peep2_current].live_before, live);
 
-	      /* Match the peephole.  */
-	      try = peephole2_insns (PATTERN (insn), insn, &match_len);
+	      if (RTX_FRAME_RELATED_P (insn))
+		{
+		  /* If an insn has RTX_FRAME_RELATED_P set, peephole
+		     substitution would lose the
+		     REG_FRAME_RELATED_EXPR that is attached.  */
+		  peep2_current_count = 0;
+		  try = NULL;
+		}
+	      else
+		/* Match the peephole.  */
+		try = peephole2_insns (PATTERN (insn), insn, &match_len);
+
 	      if (try != NULL)
 		{
 		  /* If we are splitting a CALL_INSN, look for the CALL_INSN
@@ -3445,7 +3446,7 @@ static void
 rest_of_handle_peephole2 (void)
 {
 #ifdef HAVE_peephole2
-  peephole2_optimize (dump_file);
+  peephole2_optimize ();
 #endif
 }
 

@@ -361,7 +361,7 @@ gimplify_expr_stmt (tree *stmt_p)
 	  if (!IS_EMPTY_STMT (stmt)
 	      && !VOID_TYPE_P (TREE_TYPE (stmt))
 	      && !TREE_NO_WARNING (stmt))
-	    warning (0, "statement with no effect");
+	    warning (OPT_Wextra, "statement with no effect");
 	}
       else if (warn_unused_value)
 	warn_if_unused_value (stmt, input_location);
@@ -477,8 +477,10 @@ cp_gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p)
       ret = GS_OK;
       break;
 
+      /* We used to do this for MODIFY_EXPR as well, but that's unsafe; the
+	 LHS of an assignment might also be involved in the RHS, as in bug
+	 25979.  */
     case INIT_EXPR:
-    case MODIFY_EXPR:
       cp_gimplify_init_expr (expr_p, pre_p, post_p);
       ret = GS_OK;
       break;

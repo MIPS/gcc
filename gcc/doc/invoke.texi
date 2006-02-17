@@ -1,5 +1,5 @@
 @c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+@c 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -9,8 +9,8 @@
 @c man end
 
 @c man begin COPYRIGHT
-Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.2 or
@@ -175,7 +175,7 @@ in the following sections.
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
 @gccoptlist{-fabi-version=@var{n}  -fno-access-control  -fcheck-new @gol
--fconserve-space  -ffriend-injection  -fno-const-strings @gol
+-fconserve-space  -ffriend-injection @gol
 -fno-elide-constructors @gol
 -fno-enforce-eh-specs @gol
 -ffor-scope  -fno-for-scope  -fno-gnu-keywords @gol
@@ -226,7 +226,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wc++-compat -Wcast-align  -Wcast-qual  -Wchar-subscripts  -Wcomment @gol
 -Wconversion  -Wno-deprecated-declarations @gol
 -Wdisabled-optimization  -Wno-div-by-zero  -Wno-endif-labels @gol
--Werror  -Werror-implicit-function-declaration @gol
+-Werror  -Werror-* -Werror-implicit-function-declaration @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-extra-args -Wformat-nonliteral @gol
 -Wformat-security  -Wformat-y2k @gol
@@ -238,7 +238,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wmain  -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-format-attribute  -Wmissing-include-dirs @gol
 -Wmissing-noreturn @gol
--Wno-multichar  -Wnonnull  -Wpacked  -Wpadded @gol
+-Wno-multichar  -Wnonnull  -Woverlength-strings  -Wpacked  -Wpadded @gol
 -Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
@@ -256,7 +256,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
 -Wmissing-prototypes  -Wnested-externs  -Wold-style-definition @gol
 -Wstrict-prototypes  -Wtraditional @gol
--Wdeclaration-after-statement -Wno-pointer-sign}
+-Wdeclaration-after-statement -Wpointer-sign}
 
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
@@ -315,18 +315,19 @@ Objective-C and Objective-C++ Dialects}.
 -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
 -fmodulo-sched -fno-branch-count-reg @gol
--fno-default-inline  -fno-defer-pop -floop-optimize2 -fmove-loop-invariants @gol
+-fno-default-inline  -fno-defer-pop -fmove-loop-invariants @gol
 -fno-function-cse  -fno-guess-branch-probability @gol
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
 -funsafe-math-optimizations  -funsafe-loop-optimizations  -ffinite-math-only @gol
--fno-trapping-math  -fno-zero-initialized-in-bss @gol
+-fno-toplevel-reorder -fno-trapping-math  -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
--foptimize-sibling-calls  -fprefetch-loop-arrays @gol
+-foptimize-sibling-calls  -fprefetch-loop-arrays -fprefetch-loop-arrays-rtl @gol
 -fprofile-generate -fprofile-use @gol
 -fregmove  -frename-registers @gol
 -freorder-blocks  -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop  -frerun-loop-opt @gol
--frounding-math -fschedule-insns  -fschedule-insns2 @gol
+-frounding-math -frtl-abstract-sequences @gol
+-fschedule-insns  -fschedule-insns2 @gol
 -fno-sched-interblock  -fno-sched-spec  -fsched-spec-load @gol
 -fsched-spec-load-dangerous  @gol
 -fsched-stalled-insns=@var{n} -fsched-stalled-insns-dep=@var{n} @gol
@@ -357,7 +358,7 @@ Objective-C and Objective-C++ Dialects}.
 -include @var{file}  -imacros @var{file} @gol
 -iprefix @var{file}  -iwithprefix @var{dir} @gol
 -iwithprefixbefore @var{dir}  -isystem @var{dir} @gol
--isysroot @var{dir} @gol
+-imultilib @var{dir} -isysroot @var{dir} @gol
 -M  -MM  -MF  -MG  -MP  -MQ  -MT  -nostdinc  @gol
 -P  -fworking-directory  -remap @gol
 -trigraphs  -undef  -U@var{macro}  -Wp,@var{option} @gol
@@ -527,7 +528,7 @@ Objective-C and Objective-C++ Dialects}.
 -mno-fp-ret-in-387  -msoft-float  -msvr3-shlib @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
--mmmx  -msse  -msse2 -msse3 -m3dnow @gol
+-mmmx  -msse  -msse2 -msse3 -m3dnow -msselibm @gol
 -mthreads  -mno-align-stringops  -minline-all-stringops @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double  -mregparm=@var{num}  -msseregparm @gol
@@ -564,7 +565,8 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{M680x0 Options}
 @gccoptlist{-m68000  -m68020  -m68020-40  -m68020-60  -m68030  -m68040 @gol
--m68060  -mcpu32  -m5200  -m68881  -mbitfield  -mc68000  -mc68020   @gol
+-m68060  -mcpu32  -m5200  -mcfv4e -m68881  -mbitfield  @gol
+-mc68000  -mc68020   @gol
 -mnobitfield  -mrtd  -mshort  -msoft-float  -mpcrel @gol
 -malign-int  -mstrict-align  -msep-data  -mno-sep-data @gol
 -mshared-library-id=n  -mid-shared-library  -mno-id-shared-library}
@@ -672,8 +674,8 @@ See RS/6000 and PowerPC Options.
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
--mhard-float  -msoft-float  -mbackchain  -mno-backchain @gol
--mpacked-stack  -mno-packed-stack @gol
+-mhard-float  -msoft-float -mlong-double-64 -mlong-double-128 @gol
+-mbackchain  -mno-backchain -mpacked-stack  -mno-packed-stack @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
 -mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd @gol
@@ -706,7 +708,7 @@ See RS/6000 and PowerPC Options.
 -mstack-bias  -mno-stack-bias @gol
 -munaligned-doubles  -mno-unaligned-doubles @gol
 -mv8plus  -mno-v8plus  -mvis  -mno-vis
--threads -pthreads}
+-threads -pthreads -pthread}
 
 @emph{System V Options}
 @gccoptlist{-Qy  -Qn  -YP,@var{paths}  -Ym,@var{dir}}
@@ -764,7 +766,7 @@ See S/390 and zSeries Options.
 -fargument-noalias-global  -fleading-underscore @gol
 -ftls-model=@var{model} @gol
 -ftrapv  -fwrapv  -fbounds-check @gol
--fvisibility}
+-fvisibility  -fopenmp}
 @end table
 
 @menu
@@ -1448,17 +1450,6 @@ earlier releases.
 This option is for compatibility, and may be removed in a future
 release of G++.
 
-@item -fno-const-strings
-@opindex fno-const-strings
-Give string constants type @code{char *} instead of type @code{const
-char *}.  By default, G++ uses type @code{const char *} as required by
-the standard.  Even if you use @option{-fno-const-strings}, you cannot
-actually modify the value of a string constant.
-
-This option might be removed in a future release of G++.  For maximum
-portability, you should structure your code so that it works with
-string constants that have type @code{const char *}.
-
 @item -fno-elide-constructors
 @opindex fno-elide-constructors
 The C++ standard allows an implementation to omit creating a temporary
@@ -1735,8 +1726,8 @@ public static member functions.
 @item -Wnon-virtual-dtor @r{(C++ only)}
 @opindex Wnon-virtual-dtor
 Warn when a class appears to be polymorphic, thereby requiring a virtual
-destructor, yet it declares a non-virtual one.
-This warning is enabled by @option{-Wall}.
+destructor, yet it declares a non-virtual one.  This warning is also
+enabled if -Weffc++ is specified.
 
 @item -Wreorder @r{(C++ only)}
 @opindex Wreorder
@@ -1988,8 +1979,9 @@ accomplished via the comm page.
 @item -fobjc-exceptions
 @opindex fobjc-exceptions
 Enable syntactic support for structured exception handling in Objective-C,
-similar to what is offered by C++ and Java.  Currently, this option is only
-available in conjunction with the NeXT runtime on Mac OS X 10.3 and later.
+similar to what is offered by C++ and Java.  This option is
+unavailable in conjunction with the NeXT runtime on Mac OS X 10.2 and
+earlier.
 
 @smallexample
   @@try @{
@@ -2523,14 +2515,14 @@ This warning is enabled by @option{-Wall}.
 @item -Wsequence-point
 @opindex Wsequence-point
 Warn about code that may have undefined semantics because of violations
-of sequence point rules in the C standard.
+of sequence point rules in the C and C++ standards.
 
-The C standard defines the order in which expressions in a C program are
-evaluated in terms of @dfn{sequence points}, which represent a partial
-ordering between the execution of parts of the program: those executed
-before the sequence point, and those executed after it.  These occur
-after the evaluation of a full expression (one which is not part of a
-larger expression), after the evaluation of the first operand of a
+The C and C++ standards defines the order in which expressions in a C/C++
+program are evaluated in terms of @dfn{sequence points}, which represent
+a partial ordering between the execution of parts of the program: those
+executed before the sequence point, and those executed after it.  These
+occur after the evaluation of a full expression (one which is not part
+of a larger expression), after the evaluation of the first operand of a
 @code{&&}, @code{||}, @code{? :} or @code{,} (comma) operator, before a
 function is called (but after the evaluation of its arguments and the
 expression denoting the called function), and in certain other places.
@@ -2544,11 +2536,11 @@ ruled that function calls do not overlap.
 
 It is not specified when between sequence points modifications to the
 values of objects take effect.  Programs whose behavior depends on this
-have undefined behavior; the C standard specifies that ``Between the
-previous and next sequence point an object shall have its stored value
-modified at most once by the evaluation of an expression.  Furthermore,
-the prior value shall be read only to determine the value to be
-stored.''.  If a program breaks these rules, the results on any
+have undefined behavior; the C and C++ standards specify that ``Between
+the previous and next sequence point an object shall have its stored
+value modified at most once by the evaluation of an expression.  
+Furthermore, the prior value shall be read only to determine the value
+to be stored.''.  If a program breaks these rules, the results on any
 particular implementation are entirely unpredictable.
 
 Examples of code with undefined behavior are @code{a = a++;}, @code{a[n]
@@ -2557,16 +2549,13 @@ diagnosed by this option, and it may give an occasional false positive
 result, but in general it has been found fairly effective at detecting
 this sort of problem in programs.
 
-The present implementation of this option only works for C programs.  A
-future implementation may also work for C++ programs.
-
-The C standard is worded confusingly, therefore there is some debate
+The standard is worded confusingly, therefore there is some debate
 over the precise meaning of the sequence point rules in subtle cases.
 Links to discussions of the problem, including proposed formal
 definitions, may be found on the GCC readings page, at
 @w{@uref{http://gcc.gnu.org/readings.html}}.
 
-This warning is enabled by @option{-Wall}.
+This warning is enabled by @option{-Wall} for C and C++.
 
 @item -Wreturn-type
 @opindex Wreturn-type
@@ -3076,7 +3065,8 @@ When compiling C, give string constants the type @code{const
 char[@var{length}]} so that
 copying the address of one into a non-@code{const} @code{char *}
 pointer will get a warning; when compiling C++, warn about the
-deprecated conversion from string constants to @code{char *}.
+deprecated conversion from string literals to @code{char *}.  This
+warning, by default, is enabled for C++ programs.
 These warnings will help you find at
 compile time code that can try to write into a string constant, but
 only if you have been very careful about using @code{const} in
@@ -3399,15 +3389,33 @@ effectively.  Often, the problem is that your code is too big or too
 complex; GCC will refuse to optimize programs when the optimization
 itself is likely to take inordinate amounts of time.
 
-@item -Wno-pointer-sign
+@item -Wpointer-sign
+@opindex Wpointer-sign
 @opindex Wno-pointer-sign
-Don't warn for pointer argument passing or assignment with different signedness.
-Only useful in the negative form since this warning is enabled by default.
-This option is only supported for C and Objective-C@.
+Warn for pointer argument passing or assignment with different signedness.
+This option is only supported for C and Objective-C@.  It is implied by
+@option{-Wall} and by @option{-pedantic}, which can be disabled with
+@option{-Wno-pointer-sign}.
 
 @item -Werror
 @opindex Werror
 Make all warnings into errors.
+
+@item -Werror=
+@opindex Werror=
+Make the specified warning into an errors.  The specifier for a
+warning is appended, for example @option{-Werror=switch} turns the
+warnings controlled by @option{-Wswitch} into errors.  This switch
+takes a negative form, to be used to negate @option{-Werror} for
+specific warnings, for example @option{-Wno-error=switch} makes
+@option{-Wswitch} warnings not be errors, even when @option{-Werror}
+is in effect.  You can use the @option{-fdiagnostics-show-option}
+option to have each controllable warning amended with the option which
+controls it, to determine what to use with this option.
+
+Note that specifying @option{-Werror=}@var{foo} automatically implies
+@option{-W}@var{foo}.  However, @option{-Wno-error=}@var{foo} does not
+imply anything.
 
 @item -Wstack-protector
 @opindex Wstack-protector
@@ -3423,6 +3431,21 @@ even when intentional, result in unspecified behavior and are not portable.
 Usually these warnings alert that the programmer intended to use
 @code{strcmp}.  This warning is enabled by @option{-Wall}.
 
+@item -Woverlength-strings
+@opindex Woverlength-strings
+Warn about string constants which are longer than the ``minimum
+maximum'' length specified in the C standard.  Modern compilers
+generally allow string constants which are much longer than the
+standard's minimum limit, but very portable programs should avoid
+using longer strings.
+
+The limit applies @emph{after} string constant concatenation, and does
+not count the trailing NUL@.  In C89, the limit was 509 characters; in
+C99, it was raised to 4095.  C++98 does not specify a normative
+minimum maximum, so we do not diagnose overlength strings in C++@.
+
+This option is implied by @option{-pedantic}, and can be disabled with
+@option{-Wno-overlength-strings}.
 @end table
 
 @node Debugging Options
@@ -4699,6 +4722,15 @@ instrumentation (and therefore faster execution) and still provides
 some protection against outright memory corrupting writes, but allows
 erroneously read data to propagate within a program.
 
+@item -fopenmp
+@opindex fopenmp
+@cindex openmp parallel
+Enable handling of OpenMP directives @code{#pragma omp} in C/C++ and
+@code{!$omp} in Fortran.  When @option{-fopenmp} is specified, the
+compiler generates parallel code according to the OpenMP Application
+Program Interface v2.5.  To generate the final exectuable, the runtime
+library @code{libgomp} must be linked in using @option{-lgomp}.
+
 @item -fstrength-reduce
 @opindex fstrength-reduce
 Perform the optimizations of loop strength reduction and
@@ -4800,12 +4832,6 @@ Perform loop optimizations: move constant expressions out of loops, simplify
 exit test conditions and optionally do strength-reduction as well.
 
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
-
-@item -floop-optimize2
-@opindex floop-optimize2
-Perform loop optimizations using the new loop optimizer.  The optimizations
-(loop unrolling, peeling and unswitching, loop invariant motion) are enabled
-by separate flags.
 
 @item -funsafe-loop-optimizations
 @opindex funsafe-loop-optimizations
@@ -5145,7 +5171,9 @@ With this option, the compiler will create multiple copies of some
 local variables when unrolling a loop which can result in superior code.
 
 @item -fprefetch-loop-arrays
+@itemx -fprefetch-loop-arrays-rtl
 @opindex fprefetch-loop-arrays
+@opindex fprefetch-loop-arrays-rtl
 If supported by the target machine, generate instructions to prefetch
 memory to improve the performance of loops that access large arrays.
 
@@ -5334,14 +5362,16 @@ Enabled at levels @option{-O2}, @option{-O3}.
 Parse the whole compilation unit before starting to produce code.
 This allows some extra optimizations to take place but consumes
 more memory (in general).  There are some compatibility issues
-with @emph{unit-at-at-time} mode:
+with @emph{unit-at-a-time} mode:
 @itemize @bullet
 @item
 enabling @emph{unit-at-a-time} mode may change the order
 in which functions, variables, and top-level @code{asm} statements
 are emitted, and will likely break code relying on some particular
 ordering.  The majority of such top-level @code{asm} statements,
-though, can be replaced by @code{section} attributes.
+though, can be replaced by @code{section} attributes.  The
+@option{fno-toplevel-reorder} option may be used to keep the ordering
+used in the input file, at the cost of some optimizations.
 
 @item
 @emph{unit-at-a-time} mode removes unreferenced static variables
@@ -5362,6 +5392,14 @@ As a temporary workaround, @option{-fno-unit-at-a-time} can be used,
 but this scheme may not be supported by future releases of GCC@.
 
 Enabled at levels @option{-O2}, @option{-O3}.
+
+@item -fno-toplevel-reorder
+Do not reorder top-level functions, variables, and @code{asm}
+statements.  Output them in the same order that they appear in the
+input file.  When this option is used, unreferenced static variables
+will not be removed.  This option is intended to support existing code
+which relies on a particular ordering.  For new code, it is better to
+use attributes.
 
 @item -fweb
 @opindex fweb
@@ -5529,6 +5567,14 @@ Future versions of GCC may provide finer control of this setting
 using C99's @code{FENV_ACCESS} pragma.  This command line option
 will be used to specify the default state for @code{FENV_ACCESS}.
 
+@item -frtl-abstract-sequences
+@opindex frtl-abstract-sequences
+It is a size optimization method. This option is to find identical
+sequences of code, which can be turned into pseudo-procedures  and
+then  replace  all  occurrences with  calls to  the  newly created
+subroutine. It is kind of an opposite of @option{-finline-functions}.
+This optimization runs at RTL level.
+
 @item -fsignaling-nans
 @opindex fsignaling-nans
 Compile code assuming that IEEE signaling NaNs may generate user-visible
@@ -5665,7 +5711,9 @@ Move branches with loop invariant conditions out of the loop, with duplicates
 of the loop on both branches (modified according to result of the condition).
 
 @item -fprefetch-loop-arrays
+@itemx -fprefetch-loop-arrays-rtl
 @opindex fprefetch-loop-arrays
+@opindex fprefetch-loop-arrays-rtl
 If supported by the target machine, generate instructions to prefetch
 memory to improve the performance of loops that access large arrays.
 
@@ -5742,6 +5790,10 @@ In each case, the @var{value} is an integer.  The allowable choices for
 The maximum number of fields in a variable without direct
 structure accesses for which structure aliasing will consider trying 
 to track each field.  The default is 5
+
+@item salias-max-array-elements
+The maximum number of elements an array can have and its elements
+still be tracked individually by structure aliasing. The default is 4
 
 @item sra-max-structure-size
 The maximum structure size, in bytes, at which the scalar replacement
@@ -6109,9 +6161,9 @@ interblock scheduling.  The default value is 10.
 The maximum number of insns in a region to be considered for
 interblock scheduling.  The default value is 100.
 
-@item min-sched-prob
-The minimum probability of reaching a source block for interblock
-speculative scheduling.  The default value is 40.
+@item min-spec-prob
+The minimum probability (in percents) of reaching a source block
+for interblock speculative scheduling.  The default value is 40.
 
 @item max-last-value-rtl
 
@@ -6143,6 +6195,11 @@ protection when @option{-fstack-protection} is used.
 @item max-jump-thread-duplication-stmts
 Maximum number of statements allowed in a block that needs to be
 duplicated when threading jumps.
+
+@item max-fields-for-field-sensitive
+Maximum number of fields in a structure we will treat in
+a field sensitive manner during pointer analysis.
+
 @end table
 @end table
 
@@ -6813,9 +6870,9 @@ C@.
 
 @item %I
 Substitute any of @option{-iprefix} (made from @env{GCC_EXEC_PREFIX}),
-@option{-isysroot} (made from @env{TARGET_SYSTEM_ROOT}), and
+@option{-isysroot} (made from @env{TARGET_SYSTEM_ROOT}),
 @option{-isystem} (made from @env{COMPILER_PATH} and @option{-B} options)
-as necessary.
+and @option{-imultilib} as necessary.
 
 @item %s
 Current argument is the name of a library or startup file of some sort.
@@ -9013,6 +9070,23 @@ Tune to @var{cpu-type} everything applicable about the generated code, except
 for the ABI and the set of available instructions.  The choices for
 @var{cpu-type} are:
 @table @emph
+@item generic
+Produce code optimized for the most common IA32/AMD64/EM64T processors.
+If you know the CPU on which your code will run, then you should use
+the corresponding @option{-mtune} option instead of
+@option{-mtune=generic}.  But, if you do not know exactly what CPU users
+of your application will have, then you should use this option.
+
+As new processors are deployed in the marketplace, the behavior of this
+option will change.  Therefore, if you upgrade to a newer version of
+GCC, the code generated option will change to reflect the processors
+that were most common when that version of GCC was released.
+
+There is no @option{-march=generic} option because @option{-march}
+indicates the instruction set the compiler can use, and there is no
+generic instruction set applicable to all processors.  In contrast,
+@option{-mtune} indicates the processor (or, in this case, collection of
+processors) for which the code is optimized.
 @item i386
 Original Intel's i386 CPU@.
 @item i486
@@ -9021,8 +9095,11 @@ Intel's i486 CPU@.  (No scheduling is implemented for this chip.)
 Intel Pentium CPU with no MMX support.
 @item pentium-mmx
 Intel PentiumMMX CPU based on Pentium core with MMX instruction set support.
-@item i686, pentiumpro
+@item pentiumpro
 Intel PentiumPro CPU@.
+@item i686
+Same as @code{generic}, but when used as @code{march} option, PentiumPro
+instruction set will be used, so the code will run on all i686 familly chips.
 @item pentium2
 Intel Pentium2 CPU based on PentiumPro core with MMX instruction set support.
 @item pentium3, pentium3m
@@ -9349,6 +9426,12 @@ perform runtime CPU detection must compile separate files for each
 supported architecture, using the appropriate flags.  In particular,
 the file containing the CPU detection code should be compiled without
 these options.
+
+@item -msselibm
+@opindex msselibm
+Use special versions of certain libm routines that come with an SSE
+ABI and an SSE implementation.  Useful together with @option{-mfpmath=sse}
+to avoid moving values between SSE registers and the x87 FP stack.
 
 @item -mpush-args
 @itemx -mno-push-args
@@ -9837,6 +9920,10 @@ when the compiler is configured for 520X-based systems.
 Use this option for microcontroller with a 5200 core, including
 the MCF5202, MCF5203, MCF5204 and MCF5202.
 
+@item -mcfv4e
+@opindex mcfv4e
+Generate output for a ColdFire V4e family cpu (e.g.@: 547x/548x).
+This includes use of hardware floating point instructions.
 
 @item -m68020-40
 @opindex m68020-40
@@ -11042,16 +11129,6 @@ enhancements.
 @opindex mno-vrsave
 Generate VRSAVE instructions when generating AltiVec code.
 
-@item -mabi=spe
-@opindex mabi=spe
-Extend the current ABI with SPE ABI extensions.  This does not change
-the default ABI, instead it adds the SPE ABI extensions to the current
-ABI@.
-
-@item -mabi=no-spe
-@opindex mabi=no-spe
-Disable Booke SPE ABI extensions for the current ABI@.
-
 @item -msecure-plt
 @opindex msecure-plt
 Generate code that allows ld and ld.so to build executables and shared
@@ -11160,20 +11237,22 @@ implies @option{-mno-powerpc64}.  GCC defaults to @option{-maix32}.
 @itemx -mno-xl-compat
 @opindex mxl-compat
 @opindex mno-xl-compat
-Produce code that conforms more closely to IBM XLC semantics when using
-AIX-compatible ABI.  Pass floating-point arguments to prototyped
-functions beyond the register save area (RSA) on the stack in addition
-to argument FPRs.  Do not assume that most significant double in 128
-bit long double value is properly rounded when comparing values.
+Produce code that conforms more closely to IBM XL compiler semantics
+when using AIX-compatible ABI.  Pass floating-point arguments to
+prototyped functions beyond the register save area (RSA) on the stack
+in addition to argument FPRs.  Do not assume that most significant
+double in 128-bit long double value is properly rounded when comparing
+values and converting to double.  Use XL symbol names for long double
+support routines.
 
 The AIX calling convention was extended but not initially documented to
 handle an obscure K&R C case of calling a function that takes the
-address of its arguments with fewer arguments than declared.  AIX XL
+address of its arguments with fewer arguments than declared.  IBM XL
 compilers access floating point arguments which do not fit in the
 RSA from the stack when a subroutine is compiled without
 optimization.  Because always storing floating-point arguments on the
 stack is inefficient and rarely needed, this option is not enabled by
-default and only is necessary when calling subroutines compiled by AIX
+default and only is necessary when calling subroutines compiled by IBM
 XL compilers without optimization.
 
 @item -mpe
@@ -11414,7 +11493,27 @@ SVR4 ABI)@.
 @opindex mabi
 Extend the current ABI with a particular extension, or remove such extension.
 Valid values are @var{altivec}, @var{no-altivec}, @var{spe},
-@var{no-spe}@.
+@var{no-spe}, @var{ibmlongdouble}, @var{ieeelongdouble}@.
+
+@item -mabi=spe
+@opindex mabi=spe
+Extend the current ABI with SPE ABI extensions.  This does not change
+the default ABI, instead it adds the SPE ABI extensions to the current
+ABI@.
+
+@item -mabi=no-spe
+@opindex mabi=no-spe
+Disable Booke SPE ABI extensions for the current ABI@.
+
+@item -mabi=ibmlongdouble
+@opindex mabi=ibmlongdouble
+Change the current ABI to use IBM extended precision long double.
+This is a PowerPC 32-bit SYSV ABI option.
+
+@item -mabi=ieeelongdouble
+@opindex mabi=ieeelongdouble
+Change the current ABI to use IEEE extended precision long double.
+This is a PowerPC 32-bit Linux ABI option.
 
 @item -mprototype
 @itemx -mno-prototype
@@ -11603,6 +11702,14 @@ for floating-point operations.  When @option{-msoft-float} is specified,
 functions in @file{libgcc.a} will be used to perform floating-point
 operations.  When @option{-mhard-float} is specified, the compiler
 generates IEEE floating-point instructions.  This is the default.
+
+@item -mlong-double-64
+@itemx -mlong-double-128
+@opindex mlong-double-64
+@opindex mlong-double-128
+These switches control the size of @code{long double} type. A size
+of 64bit makes the @code{long double} type equivalent to the @code{double}
+type. This is the default.
 
 @item -mbackchain
 @itemx -mno-backchain
@@ -12280,6 +12387,10 @@ Add support for multithreading using the POSIX threads library.  This
 option sets flags for both the preprocessor and linker.  This option does
 not affect the thread safety of object code produced  by the compiler or
 that of libraries supplied with it.
+
+@item -pthread
+@opindex pthread
+This is a synonym for @option{-pthreads}.
 @end table
 
 @node System V Options

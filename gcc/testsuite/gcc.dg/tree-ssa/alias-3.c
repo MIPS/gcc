@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-vars" } */
+/* { dg-options "-O2 -fdump-tree-optimized" } */
 
 struct {
 	int i;
@@ -15,6 +15,6 @@ int foo(void)
 	return a.i + a.j;
 }
 
-/* { dg-final { scan-tree-dump "return 1;" "vars" } } */
-/* { dg-final { cleanup-tree-dump "vars" } } */
+/* { dg-final { scan-tree-dump "return 1;" "optimized" } } */
+/* { dg-final { cleanup-tree-dump "optimized" } } */
 

@@ -85,7 +85,7 @@ extract_string (char **pp)
 
   obstack_1grow (&temporary_obstack, '\0');
   *pp = p;
-  return obstack_finish (&temporary_obstack);
+  return (char *) obstack_finish (&temporary_obstack);
 }
 
 static const char *
@@ -148,7 +148,7 @@ afgets (FILE *stream)
   if (obstack_object_size (&temporary_obstack) == 0)
     return NULL;
   obstack_1grow (&temporary_obstack, '\0');
-  return obstack_finish (&temporary_obstack);
+  return (char *) obstack_finish (&temporary_obstack);
 }
 
 void
@@ -297,6 +297,12 @@ repo_emit_p (tree decl)
       if (!DECL_TEMPLATE_INSTANTIATION (decl)
 	  && (!TYPE_LANG_SPECIFIC (type)
 	      || !CLASSTYPE_TEMPLATE_INSTANTIATION (type)))
+	return 2;
+      /* Static data members initialized by constant expressions must
+	 be processed where needed so that their definitions are
+	 available.  */
+      if (DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)
+	  && DECL_CLASS_SCOPE_P (decl))
 	return 2;
     }
   else if (!DECL_TEMPLATE_INSTANTIATION (decl))

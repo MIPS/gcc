@@ -755,10 +755,10 @@ optimize_ops_list (enum tree_code opcode,
 	  && lang_hooks.types_compatible_p (TREE_TYPE (oelm1->op),
 					    TREE_TYPE (oelast->op)))
 	{
-	  tree folded = fold_build2 (opcode, TREE_TYPE (oelm1->op),
+	  tree folded = fold_binary (opcode, TREE_TYPE (oelm1->op),
 				     oelm1->op, oelast->op);
 
-	  if (is_gimple_min_invariant (folded))
+	  if (folded && is_gimple_min_invariant (folded))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "Merging constants\n");
@@ -1415,7 +1415,7 @@ init_reassoc (void)
   int i;
   unsigned int rank = 2;
   tree param;
-  int *bbs = xmalloc ((last_basic_block + 1) * sizeof (int));
+  int *bbs = XNEWVEC (int, last_basic_block + 1);
 
   memset (&reassociate_stats, 0, sizeof (reassociate_stats));
 
@@ -1425,7 +1425,7 @@ init_reassoc (void)
   /* Reverse RPO (Reverse Post Order) will give us something where
      deeper loops come later.  */
   pre_and_rev_post_order_compute (NULL, bbs, false);
-  bb_rank = xcalloc (last_basic_block + 1, sizeof (unsigned int));
+  bb_rank = XCNEWVEC (unsigned int, last_basic_block + 1);
   
   operand_rank = htab_create (511, operand_entry_hash,
 			      operand_entry_eq, 0);

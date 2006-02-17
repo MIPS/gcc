@@ -164,7 +164,6 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
 #define last_location (cfun->emit->x_last_location)
 #define first_label_num (cfun->emit->x_first_label_num)
 
-static rtx make_jump_insn_raw (rtx);
 static rtx make_call_insn_raw (rtx);
 static rtx find_line_note (rtx);
 static rtx change_address_1 (rtx, enum machine_mode, rtx, int);
@@ -254,7 +253,7 @@ mem_attrs_htab_hash (const void *x)
   return (p->alias ^ (p->align * 1000)
 	  ^ ((p->offset ? INTVAL (p->offset) : 0) * 50000)
 	  ^ ((p->size ? INTVAL (p->size) : 0) * 2500000)
-	  ^ (size_t) p->expr);
+	  ^ (size_t) iterative_hash_expr (p->expr, 0));
 }
 
 /* Returns nonzero if the value represented by X (which is really a
@@ -267,8 +266,11 @@ mem_attrs_htab_eq (const void *x, const void *y)
   mem_attrs *p = (mem_attrs *) x;
   mem_attrs *q = (mem_attrs *) y;
 
-  return (p->alias == q->alias && p->expr == q->expr && p->offset == q->offset
-	  && p->size == q->size && p->align == q->align);
+  return (p->alias == q->alias && p->offset == q->offset
+	  && p->size == q->size && p->align == q->align
+	  && (p->expr == q->expr
+	      || (p->expr != NULL_TREE && q->expr != NULL_TREE
+		  && operand_equal_p (p->expr, q->expr, 0))));
 }
 
 /* Allocate a new mem_attrs structure and insert it into the hash table if
@@ -2809,7 +2811,7 @@ get_max_uid (void)
 /* Renumber instructions so that no instruction UIDs are wasted.  */
 
 void
-renumber_insns (FILE *stream)
+renumber_insns (void)
 {
   rtx insn;
 
@@ -2826,8 +2828,8 @@ renumber_insns (FILE *stream)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (stream)
-	fprintf (stream, "Renumbering insn %d to %d\n",
+      if (dump_file)
+	fprintf (dump_file, "Renumbering insn %d to %d\n",
 		 INSN_UID (insn), cur_insn_uid);
       INSN_UID (insn) = cur_insn_uid++;
     }
@@ -3341,7 +3343,7 @@ make_insn_raw (rtx pattern)
 
 /* Like `make_insn_raw' but make a JUMP_INSN instead of an insn.  */
 
-static rtx
+rtx
 make_jump_insn_raw (rtx pattern)
 {
   rtx insn;
@@ -4887,7 +4889,7 @@ in_sequence_p (void)
 
 /* Put the various virtual registers into REGNO_REG_RTX.  */
 
-void
+static void
 init_virtual_regs (struct emit_status *es)
 {
   rtx *ptr = es->x_regno_reg_rtx;

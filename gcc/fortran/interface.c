@@ -320,42 +320,38 @@ gfc_match_end_interface (void)
 }
 
 
-/* Compare two typespecs, recursively if necessary.  */
+/* Compare two derived types using the criteria in 4.4.2 of the standard,
+   recursing through gfc_compare_types for the components.  */
 
 int
-gfc_compare_types (gfc_typespec * ts1, gfc_typespec * ts2)
+gfc_compare_derived_types (gfc_symbol * derived1, gfc_symbol * derived2)
 {
   gfc_component *dt1, *dt2;
-
-  if (ts1->type != ts2->type)
-    return 0;
-  if (ts1->type != BT_DERIVED)
-    return (ts1->kind == ts2->kind);
-
-  /* Compare derived types.  */
-  if (ts1->derived == ts2->derived)
-    return 1;
 
   /* Special case for comparing derived types across namespaces.  If the
      true names and module names are the same and the module name is
      nonnull, then they are equal.  */
-  if (strcmp (ts1->derived->name, ts2->derived->name) == 0
-      && ((ts1->derived->module == NULL && ts2->derived->module == NULL)
-	  || (ts1->derived != NULL && ts2->derived != NULL
-	      && strcmp (ts1->derived->module, ts2->derived->module) == 0)))
+  if (strcmp (derived1->name, derived2->name) == 0
+	&& derived1 != NULL && derived2 != NULL
+	&& derived1->module != NULL && derived2->module != NULL
+	&& strcmp (derived1->module, derived2->module) == 0)
     return 1;
 
   /* Compare type via the rules of the standard.  Both types must have
      the SEQUENCE attribute to be equal.  */
 
-  if (strcmp (ts1->derived->name, ts2->derived->name))
+  if (strcmp (derived1->name, derived2->name))
     return 0;
 
-  dt1 = ts1->derived->components;
-  dt2 = ts2->derived->components;
-
-  if (ts1->derived->attr.sequence == 0 || ts2->derived->attr.sequence == 0)
+  if (derived1->component_access == ACCESS_PRIVATE
+	|| derived2->component_access == ACCESS_PRIVATE)
     return 0;
+
+  if (derived1->attr.sequence == 0 || derived2->attr.sequence == 0)
+    return 0;
+
+  dt1 = derived1->components;
+  dt2 = derived2->components;
 
   /* Since subtypes of SEQUENCE types must be SEQUENCE types as well, a
      simple test can speed things up.  Otherwise, lots of things have to
@@ -387,6 +383,24 @@ gfc_compare_types (gfc_typespec * ts1, gfc_typespec * ts2)
     }
 
   return 1;
+}
+
+/* Compare two typespecs, recursively if necessary.  */
+
+int
+gfc_compare_types (gfc_typespec * ts1, gfc_typespec * ts2)
+{
+
+  if (ts1->type != ts2->type)
+    return 0;
+  if (ts1->type != BT_DERIVED)
+    return (ts1->kind == ts2->kind);
+
+  /* Compare derived types.  */
+  if (ts1->derived == ts2->derived)
+    return 1;
+
+  return gfc_compare_derived_types (ts1->derived ,ts2->derived);
 }
 
 
@@ -1227,7 +1241,10 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 	}
 
       if (!compare_parameter
-	  (f->sym, a->expr, ranks_must_agree, is_elemental))
+	  (f->sym, a->expr,
+	   ranks_must_agree && f->sym->as
+	     && f->sym->as->type == AS_ASSUMED_SHAPE,
+	   is_elemental))
 	{
 	  if (where)
 	    gfc_error ("Type/rank mismatch in argument '%s' at %L",
@@ -1258,6 +1275,16 @@ compare_actual_formal (gfc_actual_arglist ** ap,
 		       f->sym->name, &a->expr->where);
 	  return 0;
 	}
+
+      /* Check intent = OUT/INOUT for definable actual argument.  */
+      if (a->expr->expr_type != EXPR_VARIABLE
+	     && (f->sym->attr.intent == INTENT_OUT
+		   || f->sym->attr.intent == INTENT_INOUT))
+	{
+	  gfc_error ("Actual argument at %L must be definable to "
+		     "match dummy INTENT = OUT/INOUT", &a->expr->where);
+          return 0;
+        }
 
     match:
       if (a == actual)
@@ -1539,6 +1566,10 @@ check_intents (gfc_formal_arglist * f, gfc_actual_arglist * a)
 void
 gfc_procedure_use (gfc_symbol * sym, gfc_actual_arglist ** ap, locus * where)
 {
+  int ranks_must_agree;
+  ranks_must_agree = !sym->attr.elemental && (sym->attr.contained
+			|| sym->attr.if_source == IFSRC_IFBODY);
+
   /* Warn about calls with an implicit interface.  */
   if (gfc_option.warn_implicit_interface
       && sym->attr.if_source == IFSRC_UNKNOWN)
@@ -1546,8 +1577,8 @@ gfc_procedure_use (gfc_symbol * sym, gfc_actual_arglist ** ap, locus * where)
                  sym->name, where);
 
   if (sym->attr.if_source == IFSRC_UNKNOWN
-      || !compare_actual_formal (ap, sym->formal, 0,
-			         sym->attr.elemental, where))
+      || !compare_actual_formal (ap, sym->formal, ranks_must_agree,
+				 sym->attr.elemental, where))
     return;
 
   check_intents (sym->formal, *ap);
@@ -1704,6 +1735,7 @@ gfc_extend_expr (gfc_expr * e)
   e->value.function.actual = actual;
   e->value.function.esym = NULL;
   e->value.function.isym = NULL;
+  e->value.function.name = NULL;
 
   if (gfc_pure (NULL) && !gfc_pure (sym))
     {
@@ -1770,13 +1802,6 @@ gfc_extend_assign (gfc_code * c, gfc_namespace * ns)
   c->expr = NULL;
   c->expr2 = NULL;
   c->ext.actual = actual;
-
-  if (gfc_pure (NULL) && !gfc_pure (sym))
-    {
-      gfc_error ("Subroutine '%s' called in lieu of assignment at %L must be "
-		 "PURE", sym->name, &c->loc);
-      return FAILURE;
-    }
 
   return SUCCESS;
 }

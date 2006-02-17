@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -80,6 +80,11 @@ bool use_gnu_debug_info_extensions;
 /* The default visibility for all symbols (unless overridden) */
 enum symbol_visibility default_visibility = VISIBILITY_DEFAULT;
 
+/* Disable unit-at-a-time for frontends that might be still broken in this
+   respect.  */
+  
+bool no_unit_at_a_time_default;
+
 /* Global visibility options.  */
 struct visibility_flags visibility_options;
 
@@ -102,7 +107,8 @@ const char **in_fnames;
 unsigned num_in_fnames;
 
 static size_t find_opt (const char *, int);
-static int common_handle_option (size_t scode, const char *arg, int value);
+static int common_handle_option (size_t scode, const char *arg, int value,
+				 unsigned int lang_mask);
 static void handle_param (const char *);
 static void set_Wextra (int);
 static unsigned int handle_option (const char **argv, unsigned int lang_mask);
@@ -231,7 +237,7 @@ write_langs (unsigned int mask)
     if (mask & (1U << n))
       len += strlen (lang_name) + 1;
 
-  result = xmalloc (len);
+  result = XNEWVEC (char, len);
   len = 0;
   for (n = 0; (lang_name = lang_names[n]) != 0; n++)
     if (mask & (1U << n))
@@ -287,7 +293,7 @@ handle_option (const char **argv, unsigned int lang_mask)
       /* Drop the "no-" from negative switches.  */
       size_t len = strlen (opt) - 3;
 
-      dup = xmalloc (len + 1);
+      dup = XNEWVEC (char, len + 1);
       dup[0] = '-';
       dup[1] = opt[1];
       memcpy (dup + 2, opt + 5, len - 2 + 1);
@@ -405,7 +411,7 @@ handle_option (const char **argv, unsigned int lang_mask)
       result = 0;
 
   if (result && (option->flags & CL_COMMON))
-    if (common_handle_option (opt_index, arg, value) == 0)
+    if (common_handle_option (opt_index, arg, value, lang_mask) == 0)
       result = 0;
 
   if (result && (option->flags & CL_TARGET))
@@ -537,7 +543,8 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_copy_prop = 1;
       flag_tree_sink = 1;
       flag_tree_salias = 1;
-      flag_unit_at_a_time = 1;
+      if (!no_unit_at_a_time_default)
+        flag_unit_at_a_time = 1;
 
       if (!optimize_size)
 	{
@@ -719,7 +726,8 @@ decode_options (unsigned int argc, const char **argv)
    VALUE assigned to a variable, it happens automatically.  */
 
 static int
-common_handle_option (size_t scode, const char *arg, int value)
+common_handle_option (size_t scode, const char *arg, int value,
+		      unsigned int lang_mask)
 {
   enum opt_code code = (enum opt_code) scode;
 
@@ -757,6 +765,33 @@ common_handle_option (size_t scode, const char *arg, int value)
     case OPT_W:
       /* For backward compatibility, -W is the same as -Wextra.  */
       set_Wextra (value);
+      break;
+
+    case OPT_Werror_:
+      {
+	char *new_option;
+	int option_index;
+	new_option = XNEWVEC (char, strlen (arg) + 2);
+	new_option[0] = 'W';
+	strcpy (new_option+1, arg);
+	option_index = find_opt (new_option, lang_mask);
+	if (option_index == N_OPTS)
+	  {
+	    error ("-Werror-%s: No option -%s", arg, new_option);
+	  }
+	else
+	  {
+	    int kind = value ? DK_ERROR : DK_WARNING;
+	    diagnostic_classify_diagnostic (global_dc, option_index, kind);
+
+	    /* -Werror=foo implies -Wfoo.  */
+	    if (cl_options[option_index].var_type == CLVC_BOOLEAN
+		&& cl_options[option_index].flag_var
+		&& kind == DK_ERROR)
+	      *(int *) cl_options[option_index].flag_var = 1;
+	    free (new_option);
+	  }
+      }
       break;
 
     case OPT_Wextra:

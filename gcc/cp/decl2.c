@@ -2683,7 +2683,7 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
 static int
 generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
 {
-  location_t *locus = data;
+  location_t *locus = (location_t *) data;
   int priority = (int) n->key;
   priority_info pi = (priority_info) n->value;
 
@@ -3228,18 +3228,31 @@ check_default_args (tree x)
       else if (saw_def)
 	{
 	  error ("default argument missing for parameter %P of %q+#D", i, x);
-	  break;
+	  TREE_PURPOSE (arg) = error_mark_node;
 	}
     }
 }
 
-/* Mark DECL as "used" in the program.  If DECL is a specialization or
-   implicitly declared class member, generate the actual definition.  */
+/* Mark DECL (either a _DECL or a BASELINK) as "used" in the program.
+   If DECL is a specialization or implicitly declared class member,
+   generate the actual definition.  */
 
 void
 mark_used (tree decl)
 {
   HOST_WIDE_INT saved_processing_template_decl = 0;
+
+  /* If DECL is a BASELINK for a single function, then treat it just
+     like the DECL for the function.  Otherwise, if the BASELINK is
+     for an overloaded function, we don't know which function was
+     actually used until after overload resolution.  */
+  if (TREE_CODE (decl) == BASELINK)
+    {
+      decl = BASELINK_FUNCTIONS (decl);
+      if (really_overloaded_fn (decl))
+	return;
+      decl = OVL_CURRENT (decl);
+    }
 
   TREE_USED (decl) = 1;
   /* If we don't need a value, then we don't need to synthesize DECL.  */ 

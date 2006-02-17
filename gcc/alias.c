@@ -1,5 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
@@ -2209,6 +2209,9 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
     return 1;
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
     return 1;
+  if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
+      || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
+    return 1;
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
@@ -2282,6 +2285,9 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
     return 1;
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
     return 1;
+  if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
+      || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
+    return 1;
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
@@ -2340,6 +2346,9 @@ write_dependence_p (rtx mem, rtx x, int writep)
   if (GET_MODE (x) == BLKmode && GET_CODE (XEXP (x, 0)) == SCRATCH)
     return 1;
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
+    return 1;
+  if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
+      || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
     return 1;
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
@@ -2489,8 +2498,8 @@ init_alias_analysis (void)
       VARRAY_RTX_INIT (reg_base_value, maxreg, "reg_base_value");
     }
 
-  new_reg_base_value = xmalloc (maxreg * sizeof (rtx));
-  reg_seen = xmalloc (maxreg);
+  new_reg_base_value = XNEWVEC (rtx, maxreg);
+  reg_seen = XNEWVEC (char, maxreg);
 
   /* The basic idea is that each pass through this loop will use the
      "constant" information from the previous pass to propagate alias
@@ -2701,7 +2710,7 @@ static void
 rest_of_handle_cfg (void)
 {
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
   if (optimize)
     cleanup_cfg (CLEANUP_EXPENSIVE
                  | (flag_thread_jumps ? CLEANUP_THREADING : 0));
