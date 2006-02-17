@@ -1,7 +1,63 @@
+2006-02-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26300
+	* combine.c (make_extraction): Bail out if ORIG_POS is negative.
+
+2005-02-16  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/26209
+	* tree-ssa-loop.c (pass_scev_cprop): Add TODO_cleanup_cfg.
+	* tree-cfgcleanup.c (cleanup_control_flow): Remove dead
+	eh edges.
+	* tree-cfg.c (replace_uses_by): Do not alter cfg.
+
+	* tree-cfgcleanup.c (cleanup_tree_cfg_loop): Call scev_reset if cfg
+	changes.
+	* Makefile.in (tree-cfgcleanup.o): Add SCEV_H dependency.
+
+2006-02-15  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR middle-end/25335
+	* reload1.c (gen_reload): Also use find_replacement in UNARY_P case.
+
+2006-02-15  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/23424
+	* config/cris/predicates.md ("cris_bdap_sign_extend_operand"):
+	Reenable.
+
+2006-02-14  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/26255
+	* pa.md: Create separate HI and QI move patterns for 32-bit and 64-bit
+	with hardware float support, and software float support.  Add fcpy
+	alternative to hardware patterns.  Add alternatives to copy between
+	general and floating-point registers to the 32-bit pattern.
+	* pa32-regs.h (VALID_FP_MODE_P): Allow QImode and HImode.
+	* pa64-regs.h (VALID_FP_MODE_P): Likewise.
+
+2006-02-14  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR bootstrap/26053
+	* configure.ac (HAVE_COMDAT_GROUP): Don't assume non-GNU linkers
+	support COMDAT group.
+	* configure: Regenerate.
+
 2006-02-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.h (struct tree_omp_clause): Use OMP_CLAUSE_CODE rather
 	than TREE_CODE as index into omp_clause_num_ops array.
+
+2006-02-14  Michael Matz  <matz@suse.de>
+
+	PR middle-end/22275
+
+	* stor-layout.c (layout_decl): Zero-width bitfields aren't
+	influenced by maximum_field_alignment or DECL_PACKED.
+	(update_alignment_for_field): Ditto.
+	(place_field): Ditto.
+	* doc/extend.texi (<#pragma pack>, <Type Attributes>): Document
+	this behaviour.
 
 2006-02-14  Michael Matz  <matz@suse.de>
 
