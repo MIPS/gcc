@@ -1,3 +1,15 @@
+2006-02-16  Mike Stump  <mrs@apple.com>
+
+	Radar 4419735
+	* c-common.c (cw_build_bracket): Add support for [word ptr esi].
+	(cw_ptr_conv): Likewise.
+	* config/i386/i386.c (cw_canonicalize_bracket): Likewise.
+	(cw_canonicalize_bracket_1): Likewise.
+	(cw_combine_type): Add.
+
+	(x86_canonicalize_operands): Don't add a modifier for
+	fstcw/fnstcw.
+
 2006-02-14  Eric Christopher  <echristo@apple.com>
 
 	Radar 4331439

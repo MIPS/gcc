@@ -18910,6 +18910,31 @@ cw_is_offset (tree v)
   return false;
 }
 
+/* Combine two types for [] expressions.  */
+
+static tree
+cw_combine_type (tree type0, tree type1)
+{
+  if (type0 == void_type_node
+      || type0 == NULL_TREE)
+    {
+      if (type1 == void_type_node)
+	return NULL_TREE;
+      return type1;
+    }
+
+  if (type1 == void_type_node
+      || type1 == NULL_TREE)
+    return type0;
+
+  if (type0 == type1)
+    return type0;
+
+  error ("too many types in []");
+
+  return type0;
+}
+
 /* We canonicalize the inputs form of bracket expressions as the input
    forms are less constrained than what the assembler will accept.
 
@@ -18925,16 +18950,27 @@ cw_is_offset (tree v)
 
    where O are offset expressions.  */
 
-static void
+static tree
 cw_canonicalize_bracket_1 (tree* argp, tree top)
 {
   tree arg = *argp;
   tree offset = TREE_OPERAND (top, 0);
   tree arg0, arg1;
+  tree rtype = NULL_TREE;
 
   switch (TREE_CODE (arg))
     {
+    case NOP_EXPR:
+      if (TREE_CODE (TREE_TYPE (arg)) == IDENTIFIER_NODE)
+	{
+	  *argp = TREE_OPERAND (arg, 0);
+	  return TREE_TYPE (arg);
+	}
+      break;
+
     case BRACKET_EXPR:
+      rtype = TREE_TYPE (arg);
+      /* fall thru */
     case PLUS_EXPR:
       arg0 = TREE_OPERAND (arg, 0);
       arg1 = TREE_OPERAND (arg, 1);
@@ -18947,7 +18983,7 @@ cw_canonicalize_bracket_1 (tree* argp, tree top)
 
 	  *argp = arg1;
 	  if (arg1)
-	    cw_canonicalize_bracket_1 (argp, top);
+	    return cw_combine_type (rtype, cw_canonicalize_bracket_1 (argp, top));
 	}
       else if (arg1 && cw_is_offset (arg1))
 	{
@@ -18955,13 +18991,16 @@ cw_canonicalize_bracket_1 (tree* argp, tree top)
 	    arg1 = build2 (PLUS_EXPR, void_type_node, arg1, offset);
 	  TREE_OPERAND (top, 0) = arg1;
 	  *argp = arg0;
-	  cw_canonicalize_bracket_1 (argp, top);
+	  return cw_combine_type (rtype, cw_canonicalize_bracket_1 (argp, top));
 	}
       else
 	{
-	  cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top);
+	  rtype = cw_combine_type (rtype,
+				   cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top));
+
 	  if (arg1)
-	    cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), top);
+	    rtype = cw_combine_type (rtype,
+				     cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), top));
 	  if (TREE_OPERAND (arg, 0) == NULL_TREE)
 	    {
 	      if (TREE_OPERAND (arg, 1))
@@ -18973,10 +19012,10 @@ cw_canonicalize_bracket_1 (tree* argp, tree top)
 		*argp = NULL_TREE;
 	    }
 	}
-      break;
+      return rtype;
 
     case MINUS_EXPR:
-      cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top);
+      rtype = cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top);
       arg0 = TREE_OPERAND (arg, 0);
       arg1 = TREE_OPERAND (arg, 1);
       if (cw_is_offset (arg1))
@@ -18990,12 +19029,15 @@ cw_canonicalize_bracket_1 (tree* argp, tree top)
 	    arg1 = build2 (MINUS_EXPR, void_type_node, offset, arg1);
 	  TREE_OPERAND (top, 0) = arg1;
 	  *argp = arg0;
-	  cw_canonicalize_bracket_1 (argp, top);
+	  return cw_combine_type (rtype, cw_canonicalize_bracket_1 (argp, top));;
 	}
-      break;
+      return rtype;
+
     default:
       break;
     }
+
+  return NULL_TREE;
 }
 
 /* We canonicalize the inputs form of bracket expressions as the input
@@ -19004,6 +19046,8 @@ cw_canonicalize_bracket_1 (tree* argp, tree top)
 static void
 cw_canonicalize_bracket (tree arg)
 {
+  tree rtype;
+
   gcc_assert (TREE_CODE (arg) == BRACKET_EXPR);
 
   /* Let the normal operand printer output this without trying to
@@ -19037,7 +19081,11 @@ cw_canonicalize_bracket (tree arg)
     }
     
   if (TREE_OPERAND (arg, 1))
-    cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), arg);
+    {
+      rtype = cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), arg);
+      if (rtype)
+	TREE_TYPE (arg) = cw_combine_type (TREE_TYPE (arg), rtype);
+    }
 }
 
 /* We canonicalize the instruction by swapping operands and rewritting
@@ -19183,7 +19231,9 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 
   if (strcasecmp (opcode, "out") == 0
       || strcasecmp (opcode, "movntq") == 0
-      || strcasecmp (opcode, "movq") == 0)
+      || strcasecmp (opcode, "movq") == 0
+      || strcasecmp (opcode, "fstcw") == 0
+      || strcasecmp (opcode, "fnstcw") == 0)
     e->mod[0] = 0;
   else if (strcasecmp (opcode, "rcr") == 0
 	   || strcasecmp (opcode, "rcl") == 0

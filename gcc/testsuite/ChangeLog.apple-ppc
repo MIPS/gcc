@@ -1,3 +1,11 @@
+2006-02-16  Mike Stump  <mrs@apple.com>
+
+	Radar 4419735
+	* gcc.apple/asm-block-45.c: Add.
+	* gcc.apple/asm-block-46.c: Add.
+	* g++.dg/asm-block-45.C: Add.
+	* g++.dg/asm-block-46.C: Add.
+
 2006-02-14  Eric Christopher  <echristo@apple.com>
 
 	Radar 4385016 4331438

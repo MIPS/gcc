@@ -6300,6 +6300,17 @@ cw_ptr_conv (tree type, tree exp)
       TREE_TYPE (exp) = type;
       return exp;
     }
+  if (TREE_CODE (type) == IDENTIFIER_NODE
+      && (TREE_CODE (exp) == IDENTIFIER_NODE
+	  || TREE_CODE (TREE_TYPE (exp)) == IDENTIFIER_NODE))
+    {
+      if (TREE_CODE (exp) == BRACKET_EXPR)
+	{
+	  TREE_OPERAND (exp, 0) = build1 (NOP_EXPR, type, TREE_OPERAND (exp, 0));
+	  return exp;
+	}
+      return build1 (NOP_EXPR, type, exp);
+    }
 
   rhstype = TREE_TYPE (exp);
 
@@ -6328,7 +6339,16 @@ cw_ptr_conv (tree type, tree exp)
 tree
 cw_build_bracket (tree v1, tree v2)
 {
-  return build2 (BRACKET_EXPR, void_type_node, v1, v2);
+  tree type = void_type_node;
+
+  if (TREE_CODE (v1) == NOP_EXPR
+      && TREE_CODE (TREE_TYPE (v1)) == IDENTIFIER_NODE)
+    {
+      type = TREE_TYPE (v1);
+      v1 = TREE_OPERAND (v1, 0);
+    }
+
+  return build2 (BRACKET_EXPR, type, v1, v2);
 }
 
 /* Perform the default conversion of functions to pointers; simplified
