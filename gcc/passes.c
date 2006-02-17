@@ -1,6 +1,6 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -477,6 +477,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_create_structure_vars);
   NEXT_PASS (pass_build_ssa);
+  NEXT_PASS (pass_tracer);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_return_slot);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -624,7 +625,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_cfg);
   NEXT_PASS (pass_branch_prob);
   NEXT_PASS (pass_rtl_ifcvt);
-  NEXT_PASS (pass_tracer);
   /* Perform loop optimizations.  It might be better to do them a bit
      sooner, but we want the profile feedback to work more
      efficiently.  */

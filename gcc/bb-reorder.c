@@ -1,5 +1,6 @@
 /* Basic block reordering routines for the GNU compiler.
-   Copyright (C) 2000, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -2212,18 +2213,11 @@ rest_of_handle_reorder_blocks (void)
   liveness_flags = (!HAVE_conditional_execution ? CLEANUP_UPDATE_LIFE : 0);
   changed = cleanup_cfg (CLEANUP_EXPENSIVE | liveness_flags);
 
-  if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
-    {
-      timevar_push (TV_TRACER);
-      tracer (liveness_flags);
-      timevar_pop (TV_TRACER);
-    }
-
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition)
-    reorder_basic_blocks (liveness_flags);
-  if (flag_reorder_blocks || flag_reorder_blocks_and_partition
-      || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
-    changed |= cleanup_cfg (CLEANUP_EXPENSIVE | liveness_flags);
+    {
+      reorder_basic_blocks (liveness_flags);
+      changed |= cleanup_cfg (CLEANUP_EXPENSIVE | liveness_flags);
+    }
 
   /* On conditional execution targets we can not update the life cheaply, so
      we deffer the updating to after both cleanups.  This may lose some cases

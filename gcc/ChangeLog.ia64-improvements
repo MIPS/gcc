@@ -1,0 +1,19 @@
+2006-02-17  Robert Kidd  <rkidd@crhc.uiuc.edu>
+
+	* tracer.c (mark_bb_seen): New function.
+	(bb_seen_p): New function.
+	(count_insns): Use estimate_num_insns instead of counting RTL
+	instructions.
+	(find_trace): Tracing a loop now traverses the back edge once
+	to duplicate the loop header.
+	(tail_duplicate): Phi nodes are fixed after duplicating
+	blocks.
+	(layout_superblocks): Remove function.
+	(execute_tracer): CFG layout stuff is not needed at the tree
+	level.
+	(rest_of_handle_tracer): Remove function.
+	* bb-reorder.c (rest_of_handle_reorder_blocks): Removed call
+	to RTL level tracer.
+	* passes.c (init_optimization_passes): Moved pass_tracer from
+	after pass_rtl_ifcvt to after pass_build_ssa.
+
