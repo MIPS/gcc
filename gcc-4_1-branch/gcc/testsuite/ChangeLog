@@ -3,6 +3,11 @@
 	PR middle-end/26300
 	* gcc.c-torture/compile/20060215-1.c: New test.
 
+2006-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/26224
+	* gfortran.dg/gomp/pr26224.f: New test.
+
 2006-02-14  Erik Edelmann  <eedelman@gcc.gnu.org>
 
 	PR fortran/25806

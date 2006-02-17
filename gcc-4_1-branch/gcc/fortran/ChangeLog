@@ -1,3 +1,22 @@
+2006-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/26224
+	* parse.c (parse_omp_do, parse_omp_structured_block): Call
+	gfc_commit_symbols and gfc_warning_check.
+
+2006-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/25938
+	PR libgomp/25984
+	* Make-lang.in (install-finclude-dir): New goal.
+	(fortran.install-common): Depend on install-finclude-dir.
+	* lang-specs.h: If not -nostdinc, add -I finclude.
+
+2006-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* invoke.texi: Document -fopenmp.
+	* gfortran.texi (Extensions): Document OpenMP.
+
 2006-02-14  Erik Edelmann  <eedelman@gcc.gnu.org>
 
 	PR fortran/25806
