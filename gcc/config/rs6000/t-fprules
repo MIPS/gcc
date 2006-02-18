@@ -1,14 +1,8 @@
-# We want fine grained libraries, so use the new code to build the
-# floating point emulation libraries.
-FPBIT = fp-bit.c
-DPBIT = dp-bit.c
-
-dp-bit.c: $(srcdir)/config/fp-bit.c
-	cat $(srcdir)/config/fp-bit.c > dp-bit.c
-
-fp-bit.c: $(srcdir)/config/fp-bit.c
-	echo '#define FLOAT' > fp-bit.c
-	cat $(srcdir)/config/fp-bit.c >> fp-bit.c
+softfp_float_modes := sf df
+softfp_int_modes := si di
+softfp_extensions := sfdf
+softfp_truncations := dfsf
+softfp_machine_header := rs6000/sfp-machine.h
 
 MULTILIB_MATCHES_FLOAT	= msoft-float=mcpu?401 \
 			  msoft-float=mcpu?403 \

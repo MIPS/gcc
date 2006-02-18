@@ -1,3 +1,15 @@
+2006-02-18  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/config/soft-fp: New directory.  Based on glibc.
+	* gcc/config/soft-fp/t-softfp: New.
+	* gcc/mklibgcc.in: Handle LIB2FUNCS_EXCLUDE.
+	* gcc/Makefile.in (libgcc.mk): Pass LIB2FUNCS_EXCLUDE.
+	(LIBGCC_DEPS): Add $(SFP_MACHINE).
+	* gcc/config/rs6000/sfp-machine.h: New.  From glibc.
+	* gcc/config/rs6000/t-fprules: Use soft-fp not fp-bit.
+	* gcc/config/rs6000/t-ppccomm (LIB2FUNCS_EXTRA): Use +=.
+	* gcc/config.gcc (powerpc-*-linux*): Use soft-fp/t-softfp.
+
 2005-11-29  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/testsuite/gcc.dg/torture/fp-int-convert-timode.c: XFAIL only
