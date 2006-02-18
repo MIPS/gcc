@@ -52,6 +52,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "flags.h"
 #include "df.h"
 #include "hashtab.h"
+#include "except.h"
 
 /* The data stored for the loop.  */
 
@@ -232,6 +233,9 @@ invariant_for_use (struct df_ref *use)
   struct df_ref *def;
   basic_block bb = BLOCK_FOR_INSN (use->insn), def_bb;
 
+  if (use->flags & DF_REF_READ_WRITE)
+    return NULL;
+
   defs = DF_REF_CHAIN (use);
   if (!defs || defs->next)
     return NULL;
@@ -292,6 +296,8 @@ hash_invariant_expr_1 (rtx insn, rtx x)
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    val ^= hash_invariant_expr_1 (insn, XVECEXP (x, i, j));
 	}
+      else if (fmt[i] == 'i' || fmt[i] == 'n')
+	val ^= XINT (x, i);
     }
 
   return val;
@@ -373,6 +379,14 @@ invariant_expr_equal_p (rtx insn1, rtx e1, rtx insn2, rtx e2)
 		return false;
 	    }
 	}
+      else if (fmt[i] == 'i' || fmt[i] == 'n')
+	{
+	  if (XINT (e1, i) != XINT (e2, i))
+	    return false;
+	}
+      /* Unhandled type of subexpression, we fail conservatively.  */
+      else
+	return false;
     }
 
   return true;
@@ -582,7 +596,9 @@ find_exits (struct loop *loop, basic_block *body,
 static bool
 may_assign_reg_p (rtx x)
 {
-  return (can_copy_p (GET_MODE (x))
+  return (GET_MODE (x) != VOIDmode
+	  && GET_MODE (x) != BLKmode
+	  && can_copy_p (GET_MODE (x))
 	  && (!REG_P (x)
 	      || !HARD_REGISTER_P (x)
 	      || REGNO_REG_CLASS (REGNO (x)) != NO_REGS));
@@ -669,7 +685,8 @@ record_use (struct def *def, rtx *use, rtx insn)
 }
 
 /* Finds the invariants INSN depends on and store them to the DEPENDS_ON
-   bitmap.  */
+   bitmap.  Returns true if all dependencies of INSN are known to be
+   loop invariants, false otherwise.  */
 
 static bool
 check_dependencies (rtx insn, bitmap depends_on)
@@ -682,6 +699,9 @@ check_dependencies (rtx insn, bitmap depends_on)
 
   for (use = DF_INSN_GET (df, insn)->uses; use; use = use->next_ref)
     {
+      if (use->flags & DF_REF_READ_WRITE)
+	return false;
+
       defs = DF_REF_CHAIN (use);
       if (!defs)
 	continue;
@@ -730,6 +750,12 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
       || find_reg_note (insn, REG_NO_CONFLICT, NULL_RTX))
     return;
 
+#ifdef HAVE_cc0
+  /* We can't move a CC0 setter without the user.  */
+  if (sets_cc0_p (insn))
+    return;
+#endif
+
   set = single_set (insn);
   if (!set)
     return;
@@ -743,16 +769,14 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
       || !check_maybe_invariant (SET_SRC (set)))
     return;
 
-  if (may_trap_p (PATTERN (insn)))
-    {
-      if (!always_reached)
-	return;
+  /* If the insn can throw exception, we cannot move it at all without changing
+     cfg.  */
+  if (can_throw_internal (insn))
+    return;
 
-      /* Unless the exceptions are handled, the behavior is undefined
- 	 if the trap occurs.  */
-      if (flag_non_call_exceptions)
-	return;
-    }
+  /* We cannot make trapping insn executed, unless it was executed before.  */
+  if (may_trap_p (PATTERN (insn)) && !always_reached)
+    return;
 
   depends_on = BITMAP_ALLOC (NULL);
   if (!check_dependencies (insn, depends_on))
@@ -1068,7 +1092,7 @@ move_invariant_reg (struct loop *loop, unsigned invno)
   struct invariant *repr = VEC_index (invariant_p, invariants, inv->eqto);
   unsigned i;
   basic_block preheader = loop_preheader_edge (loop)->src;
-  rtx reg, set;
+  rtx reg, set, seq, op;
   struct use *use;
   bitmap_iterator bi;
 
@@ -1108,7 +1132,14 @@ move_invariant_reg (struct loop *loop, unsigned invno)
 	}
       else
 	{
-	  emit_insn_after (gen_move_insn (reg, SET_SRC (set)), BB_END (preheader));
+	  start_sequence ();
+	  op = force_operand (SET_SRC (set), reg);
+	  if (op != reg)
+	    emit_move_insn (reg, op);
+	  seq = get_insns ();
+	  end_sequence ();
+
+	  emit_insn_after (seq, BB_END (preheader));
 	  delete_insn (inv->insn);
 	}
     }

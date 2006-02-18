@@ -1,3 +1,138 @@
+2006-02-16  Andrew Haley  <aph@redhat.com>
+
+	* stacktrace.cc (GetStackTraceElements): Call
+	gnu::gcj::runtime::NameFinder::removeUnknown() to determine if
+	non-Java frames should be removed from a printed stack trace.
+	Pass methodName to getLineNumberForFrame().
+	(getLineNumberForFrame): Set method_name from info.dli_sname.
+	* gnu/gcj/runtime/NameFinder.java (removeUnknown): New method.
+	(remove_unknown): New variable.
+	* include/java-stack.h (_Jv_StackTrace::getLineNumberForFrame):
+	Add methodName arg.
+
+2006-02-15  Matthias Klose  <doko@debian.org>
+
+	* gnu/java/nio/charset, gnu/java/net/protocol/file,
+	gnu/regexp: Remove empty directories.
+
+2006-02-09  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* java/lang/Class.h (_Jv_IDispatchTable): Make it a struct. Put 
+	'itable' inline, instead of as a pointer.
+	(java::lang::Class): Put 'idt' in anonymous union with 'ioffsets'.
+	* link.cc (null_idt): Update definition.
+	(_Jv_Linker::prepare_constant_time_tables): Allocate klass->idt
+	as a single struct. Use _Jv_AllocBytes, not _Jv_AllocRawObj.
+	(_Jv_Linker::generate_itable): Update to use 'ioffsets'.
+	(_Jv_Linker::find_iindex): Likewise. Update comment.
+	* java/lang/natClass.cc	(_Jv_LookupInterfaceMethodIdx): Update for
+	_Jv_IDispatchTable change.
+	(_Jv_IsAssignableFrom): Likewise.
+
+2006-02-08  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/25187:
+	* gnu/gcj/io/natSimpleSHSStream.cc
+	(gnu::gcj::io::SimpleSHSStream::shsFinal): Remove bogus cast.
+	* interpret.cc (_Jv_InterpMethod::run): Simplify arguments to
+	_Jv_InterpFrame(). 
+	* boehm.cc: #undef some autoconf macros before including gc-config.h.
+	(_Jv_MarkObject): Don't mark the class, it is reachable via the vtable.
+	(_Jv_MarkArray): Likewise.
+	* java/lang/ref/natReference.cc (java::lang::ref::Reference::create):
+	Simplify _Jv_GCRegisterDisappearingLink() call.
+	* java/lang/Class.h (getComponentType): Use element_type.
+	(element_type): New field declaration, as a union with "methods".
+	* java/lang/natClassLoader.cc (_Jv_NewArrayClass): Use "element_type".
+	* java/net/natVMNetworkInterfacePosix.cc
+	(java::net::VMNetworkInterface::getInterfaces): Add "int" cast to
+	avoid sign comparison warning.	
+	* include/java-interp.h (_Jv_InterpFrame): Take thread as second
+	argument, not parent call frame.
+	* include/x86_64-signal.h (MAKE_THROW_FRAME): Use "gregs" directly,
+	without a cast.
+	(restore_rt): Declare with hidden visibility, not "static".
+	* posix.cc (_Jv_platform_initProperties): Make "tmpdir" a string
+	constant.
+	* jni.cc (_Jv_JNI_DestroyJavaVM): Use a union to avoid strict alias
+	warning.
+
+2006-02-08  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/26113:
+	* link.cc (_Jv_Linker::print_class_loaded): Declare string constants
+	as "const char *".
+	* verify.cc (verify_fail): Likewise.
+	* gnu/classpath/natSystemProperties.cc (file_encoding): Likewise.
+	* interpret.cc (throw_internal_error, throw_class_format_error):
+	Likewise.
+	* gcj/javaprims.h (_Jv_hashUtf8String, _Jv_Utf8Const::space_needed, 
+	_Jv_Utf8Const::init, _Jv_makeUtf8Const): Likewise.
+	* java/lang/Class.h (_Jv_InitPrimClass): Likewise.
+	* include/jvm.h (_Jv_strLengthUtf8, _Jv_makeUtf8Const): Likewise.
+	* defineclass.cc (throw_internal_error, throw_no_class_def_found_error,
+	is_attribute_name): Likewise.
+	* prims.cc (_Jv_strLengthUtf8, _Jv_hashUtf8String, _Jv_Utf8Const::init,
+	_Jv_makeUtf8Const, _Jv_InitPrimClass): Likewise.
+	
+2006-02-08  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26063, PR libgcj/17978, PR libgcj/10598:
+	* defineclass.cc (parse): Use _Jv_AllocRawObj.
+	(read_constpool): Likewise.
+	(read_one_code_attribute): Use internal function name.
+	(handleConstantPool): Use _Jv_AllocRawObj.
+	(handleInterfacesBegin): Likewise.
+	(handleFieldsBegin): Likewise.
+	(handleMethodsBegin): Likewise.
+	(handleCodeAttribute): Likewise.
+	(handleMethodsEnd): Likewise.
+	* include/jvm.h (new_vtable): Use _Jv_AllocRawObj.
+	* interpret.cc (do_allocate_static_fields): Use _Jv_AllocRawObj.
+	Allocate reference fields separately.
+	* link.cc (prepare_constant_time_tables): Use _Jv_AllocRawObj.
+	(add_miranda_methods): Likewise.
+	(generate_itable): Use _Jv_AllocBytes.
+	(find_iindex): Likewise.
+	(struct method_closure): New structure.
+	(create_error_method): Use struct method_closure; allocate with
+	_Jv_AllocBytes.
+	(ensure_fields_laid_out): Separate reference fields from
+	non-reference fields.
+	* boehm.cc (_Jv_MarkObj): Mark vtable.  Only mark direct fields
+	of Class.
+	(_Jv_MarkArray): Mark vtable.
+	(_Jv_AllocRawObj): Don't allocate objects of size 0.
+	* include/execution.h
+	(_Jv_ExecutionEngine::allocate_static_fields): Added 'int'
+	parameter.
+	(struct _Jv_CompiledEngine): Updated.
+	(class _Jv_InterpreterEngine): Updated.
+
+2006-02-08  Tom Tromey  <tromey@redhat.com>
+
+	PR java/22578:
+	* gcj/javaprims.h: Updated.
+	* sources.am, Makefile.in: Rebuilt.
+	* java/lang/natDouble.cc (doubleToLongBits): Moved to VMDouble.
+	(doubleToRawLongBits): Likewise.
+	(longBitsToDouble): Likewise.
+	(toString): Likewise.
+	(parseDouble): Likewise.
+	* java/lang/natFloat.cc (floatToIntBits): Moved to VMFloat.
+	(floatToRawIntBits): Likewise.
+	(intBitsToFloat): Likewise.
+	* java/lang/VMDouble.java: New file.
+	* java/lang/VMFloat.java: New file.
+	* java/lang/Float.java, java/lang/Double.java: Removed.
+
+2006-02-06  Tom Tromey  <tromey@redhat.com>
+
+	* gij.cc (version): Use 2006.
+	* gnu/java/rmi/rmic/RMIC.java (parseOptions): Use 2006.
+	* gnu/gcj/convert/Convert.java (version): Use 2006.
+	* gnu/gcj/tools/gcj_dbtool/Main.java (main): Use 2006.
+
 2006-02-04  Tom Tromey  <tromey@redhat.com>
 
 	PR java/25676:

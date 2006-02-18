@@ -47,7 +47,7 @@ _Jv_InterpreterEngine _Jv_soleInterpreterEngine;
 
 using namespace gcj;
 
-static void throw_internal_error (char *msg)
+static void throw_internal_error (const char *msg)
   __attribute__ ((__noreturn__));
 static void throw_incompatible_class_change_error (jstring msg)
   __attribute__ ((__noreturn__));
@@ -58,7 +58,7 @@ static void throw_null_pointer_exception ()
 
 static void throw_class_format_error (jstring msg)
 	__attribute__ ((__noreturn__));
-static void throw_class_format_error (char *msg)
+static void throw_class_format_error (const char *msg)
 	__attribute__ ((__noreturn__));
 
 #ifdef DIRECT_THREADED
@@ -807,8 +807,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
   // destructor so it cleans up automatically when the interpreter
   // returns.
   java::lang::Thread *thread = java::lang::Thread::currentThread();
-  _Jv_InterpFrame frame_desc (meth,
-			      (_Jv_InterpFrame **) &thread->interp_frame);
+  _Jv_InterpFrame frame_desc (meth, thread);
 
   _Jv_word stack[meth->max_stack];
   _Jv_word *sp = stack;
@@ -3294,7 +3293,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args, _Jv_InterpMethod *meth)
 }
 
 static void
-throw_internal_error (char *msg)
+throw_internal_error (const char *msg)
 {
   throw new java::lang::InternalError (JvNewStringLatin1 (msg));
 }
@@ -3817,7 +3816,7 @@ throw_class_format_error (jstring msg)
 }
 
 static void
-throw_class_format_error (char *msg)
+throw_class_format_error (const char *msg)
 {
   throw_class_format_error (JvNewStringLatin1 (msg));
 }
@@ -3877,25 +3876,30 @@ _Jv_InterpreterEngine::do_create_ncode (jclass klass)
 
 void
 _Jv_InterpreterEngine::do_allocate_static_fields (jclass klass,
-						  int static_size)
+						  int pointer_size,
+						  int other_size)
 {
   _Jv_InterpClass *iclass = (_Jv_InterpClass *) klass->aux_info;
 
-  char *static_data = (char *) _Jv_AllocBytes (static_size);
+  // Splitting the allocations here lets us scan reference fields and
+  // avoid scanning non-reference fields.
+  char *reference_fields = (char *) _Jv_AllocRawObj (pointer_size);
+  char *non_reference_fields = (char *) _Jv_AllocBytes (other_size);
 
   for (int i = 0; i < klass->field_count; i++)
     {
       _Jv_Field *field = &klass->fields[i];
 
-      if ((field->flags & java::lang::reflect::Modifier::STATIC) != 0)
+      if ((field->flags & java::lang::reflect::Modifier::STATIC) == 0)
+	continue;
+
+      char *base = field->isRef() ? reference_fields : non_reference_fields;
+      field->u.addr  = base + field->u.boffset;
+
+      if (iclass->field_initializers[i] != 0)
 	{
-	  field->u.addr  = static_data + field->u.boffset;
-	      
-	  if (iclass->field_initializers[i] != 0)
-	    {
-	      _Jv_Linker::resolve_field (field, klass->loader);
-	      _Jv_InitField (0, klass, i);
-	    }
+	  _Jv_Linker::resolve_field (field, klass->loader);
+	  _Jv_InitField (0, klass, i);
 	}
     }
 

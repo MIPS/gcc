@@ -1,6 +1,6 @@
 /* Process declarations and variables for C++ compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1976,7 +1976,7 @@ redeclaration_error_message (tree newdecl, tree olddecl)
 	 constructs like "typedef struct foo { ... } foo"
 	 would look like an erroneous redeclaration.  */
       if (same_type_p (TREE_TYPE (newdecl), TREE_TYPE (olddecl)))
-	return 0;
+	return NULL;
       else
 	return "redefinition of %q#D";
     }
@@ -1987,7 +1987,7 @@ redeclaration_error_message (tree newdecl, tree olddecl)
 	 abort()).  Don't complain about redefinition in this case.  */
       if (DECL_LANG_SPECIFIC (olddecl) && DECL_PURE_VIRTUAL_P (olddecl)
 	  && DECL_INITIAL (olddecl) == NULL_TREE)
-	return 0;
+	return NULL;
 
       /* If both functions come from different namespaces, this is not
 	 a redeclaration - this is a conflict with a used function.  */
@@ -2008,7 +2008,7 @@ redeclaration_error_message (tree newdecl, tree olddecl)
 	  else
 	    return "redefinition of %q#D";
 	}
-      return 0;
+      return NULL;
     }
   else if (TREE_CODE (newdecl) == TEMPLATE_DECL)
     {
@@ -2055,7 +2055,7 @@ redeclaration_error_message (tree newdecl, tree olddecl)
       /* Objects declared at top level:  */
       /* If at least one is a reference, it's ok.  */
       if (DECL_EXTERNAL (newdecl) || DECL_EXTERNAL (olddecl))
-	return 0;
+	return NULL;
       /* Reject two definitions.  */
       return "redefinition of %q#D";
     }
@@ -2066,7 +2066,7 @@ redeclaration_error_message (tree newdecl, tree olddecl)
 	 together with an external reference.  */
       if (!(DECL_EXTERNAL (newdecl) && DECL_EXTERNAL (olddecl)))
 	return "redeclaration of %q#D";
-      return 0;
+      return NULL;
     }
 }
 
@@ -2672,7 +2672,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
 					TREE_OPERAND (fullname, 1),
 					NULL_TREE, context,
 					/*entering_scope=*/0,
-					tf_warn_or_error | tf_user);
+					tf_warning_or_error | tf_user);
 	}
       else
 	{
@@ -6662,7 +6662,6 @@ grokdeclarator (const cp_declarator *declarator,
      this value will be NULL_TREE, even if the entity is located at
      namespace scope.  */
   tree in_namespace = NULL_TREE;
-  cp_decl_spec ds;
   cp_storage_class storage_class;
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
   bool type_was_error_mark_node = false;
@@ -6671,6 +6670,7 @@ grokdeclarator (const cp_declarator *declarator,
   unsigned_p = declspecs->specs[(int)ds_unsigned];
   short_p = declspecs->specs[(int)ds_short];
   long_p = declspecs->specs[(int)ds_long];
+  longlong = declspecs->specs[(int)ds_long] >= 2;
   thread_p = declspecs->specs[(int)ds_thread];
 
   if (decl_context == FUNCDEF)
@@ -6745,6 +6745,7 @@ grokdeclarator (const cp_declarator *declarator,
 
 		  type = TREE_OPERAND (decl, 0);
 		  name = IDENTIFIER_POINTER (constructor_name (type));
+		  dname = decl;
 		}
 		break;
 
@@ -6814,7 +6815,7 @@ grokdeclarator (const cp_declarator *declarator,
      a function declarator.  */
 
   if (funcdef_flag && innermost_code != cdk_function)
-    return 0;
+    return NULL_TREE;
 
   if (((dname && IDENTIFIER_OPNAME_P (dname)) || flags == TYPENAME_FLAG)
       && innermost_code != cdk_function
@@ -6882,45 +6883,6 @@ grokdeclarator (const cp_declarator *declarator,
   /* Gather flags.  */
   explicit_int = declspecs->explicit_int_p;
   explicit_char = declspecs->explicit_char_p;
-
-  /* Check for repeated decl-specifiers.  */
-  for (ds = ds_first; ds != ds_last; ++ds)
-    {
-      unsigned count = declspecs->specs[(int)ds];
-      if (count < 2)
-	continue;
-      /* The "long" specifier is a special case because of
-	 "long long".  */
-      if (ds == ds_long)
-	{
-	  if (count > 2)
-	    error ("%<long long long%> is too long for GCC");
-	  else if (pedantic && !in_system_header && warn_long_long)
-	    pedwarn ("ISO C++ does not support %<long long%>");
-	  else
-	    longlong = 1;
-	}
-      else if (declspecs->specs[(int)ds] > 1)
-	{
-	  static const char *const decl_spec_names[] = {
-	    "signed",
-	    "unsigned",
-	    "short",
-	    "long",
-	    "const",
-	    "volatile",
-	    "restrict",
-	    "inline",
-	    "virtual",
-	    "explicit",
-	    "friend",
-	    "typedef",
-	    "__complex",
-	    "__thread"
-	  };
-	  error ("duplicate %qs", decl_spec_names[(int)ds]);
-	}
-    }
 
 #if 0
   /* See the code below that used this.  */
@@ -7035,8 +6997,7 @@ grokdeclarator (const cp_declarator *declarator,
 	     `signed int' cannot be so controlled.  */
 	  && !(typedef_decl
 	       && C_TYPEDEF_EXPLICITLY_SIGNED (typedef_decl))
-	  && (TREE_CODE (type) == INTEGER_TYPE
-	      || TREE_CODE (type) == CHAR_TYPE)
+	  && TREE_CODE (type) == INTEGER_TYPE
 	  && !same_type_p (TYPE_MAIN_VARIANT (type), wchar_type_node)))
     {
       if (longlong)
@@ -7113,7 +7074,7 @@ grokdeclarator (const cp_declarator *declarator,
   type_quals |= cp_type_quals (type);
   type = cp_build_qualified_type_real
     (type, type_quals, ((typedef_decl && !DECL_ARTIFICIAL (typedef_decl)
-			 ? tf_ignore_bad_quals : 0) | tf_warn_or_error));
+			 ? tf_ignore_bad_quals : 0) | tf_warning_or_error));
   /* We might have ignored or rejected some of the qualifiers.  */
   type_quals = cp_type_quals (type);
 
@@ -7129,6 +7090,7 @@ grokdeclarator (const cp_declarator *declarator,
   if (virtualp && staticp == 2)
     {
       error ("member %qD cannot be declared both virtual and static", dname);
+      storage_class = sc_none;
       staticp = 0;
     }
   friendp = !! declspecs->specs[(int)ds_friend];

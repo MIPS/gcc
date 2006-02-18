@@ -7001,6 +7001,7 @@ if test "${enable_decimal_float+set}" = set; then
   if test x$enablevar = xyes ; then
     case $target in
     powerpc*-*-linux* | i?86*-*-linux*)
+      enable_decimal_float=yes
       ;;
     *)
       { echo "$as_me:$LINENO: WARNING: decimal float is not supported for this target" >&5
@@ -7011,16 +7012,7 @@ echo "$as_me: WARNING: decimal float is not supported for this target" >&2;}
   fi
 
 else
-
-  case $target in
-  powerpc*-*-linux*)
-    enable_decimal_float=yes
-    ;;
-  *)
-    enable_decimal_float=no
-    ;;
-  esac
-
+  enable_decimal_float=no
 fi;
 
 
@@ -7642,7 +7634,7 @@ if test "${gcc_cv_prog_makeinfo_modern+set}" = set; then
 else
     ac_prog_version=`$MAKEINFO --version 2>&1 |
                    sed -n 's/^.*GNU texinfo.* \([0-9][0-9.]*\).*$/\1/p'`
-  echo "configure:7645: version of makeinfo is $ac_prog_version" >&5
+  echo "configure:7637: version of makeinfo is $ac_prog_version" >&5
   case $ac_prog_version in
     '')     gcc_cv_prog_makeinfo_modern=no;;
     4.[4-9]*)
@@ -13993,10 +13985,13 @@ if test $in_tree_ld != yes && test x"$ld_vers" != x; then
       comdat_group=no
     fi
   fi
-  if test $comdat_group = no; then
-    gcc_cv_as_comdat_group=no
-    gcc_cv_as_comdat_group_percent=no
-  fi
+else
+  # assume linkers other than GNU ld don't support COMDAT group
+  comdat_group=no
+fi
+if test $comdat_group = no; then
+  gcc_cv_as_comdat_group=no
+  gcc_cv_as_comdat_group_percent=no
 fi
 
 cat >>confdefs.h <<_ACEOF
@@ -14267,6 +14262,15 @@ foo:	.long	25
 	;;
   sparc*-*-*)
     case "$target" in
+      sparc*-sun-solaris2.[56789]*)
+	# TLS was introduced in the Solaris 9 4/04 release but
+	# we do not enable it by default on Solaris 9 either.
+	if test "x$enable_tls" = xyes ; then
+	  on_solaris=yes
+	else
+	  enable_tls=no;
+	fi
+	;;
       sparc*-sun-solaris2.*)
 	on_solaris=yes
 	;;

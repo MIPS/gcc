@@ -316,14 +316,12 @@ static void reg_dies (int, enum machine_mode, struct insn_chain *);
 
 
 /* Perform allocation of pseudo-registers not allocated by local_alloc.
-   FILE is a file to output debugging information on,
-   or zero if such output is not desired.
 
    Return value is nonzero if reload failed
    and we must not do any more for this function.  */
 
 static int
-global_alloc (FILE *file)
+global_alloc (void)
 {
   int retval;
 #ifdef ELIMINABLE_REGS
@@ -597,8 +595,8 @@ global_alloc (FILE *file)
 
       prune_preferences ();
 
-      if (file)
-	dump_conflicts (file);
+      if (dump_file)
+	dump_conflicts (dump_file);
 
       /* Try allocating them, one by one, in that order,
 	 except for parameters marked with reg_live_length[regno] == -2.  */
@@ -2026,7 +2024,7 @@ rest_of_handle_global_alloc (void)
 
   df_set_state (DF_SCAN_GLOBAL); 
   if (optimize)
-    failure = global_alloc (dump_file);
+    failure = global_alloc ();
   else
     {
       df_finish (rtl_df);

@@ -9,16 +9,6 @@
 /* { dg-do run { xfail mips64*-*-* arm*-*-* strongarm*-*-* xscale*-*-* } } */
 #include "ffitest.h"
 
-#if LONG_MAX == 2147483647
-#define ffi_type_mylong ffi_type_uint32
-#else
-#if LONG_MAX == 9223372036854775807
-#define ffi_type_mylong ffi_type_uint64
-#else
-#error "Error, size LONG not defined as expected"
-#endif
-#endif
-
 typedef struct A {
   unsigned long a;
   unsigned char b;
@@ -115,7 +105,6 @@ int main (void)
   CHECK( res_dbl.x.b == (e_dbl.b + f_dbl.x.b + f_dbl.y));
   CHECK( res_dbl.y == (e_dbl.b + f_dbl.x.b));
 
-
   CHECK(ffi_prep_closure(pcl, &cif, B_gn, NULL) == FFI_OK);
 
   res_dbl = ((B(*)(A, B))(pcl))(e_dbl, f_dbl);
@@ -123,5 +112,6 @@ int main (void)
   CHECK( res_dbl.x.a == (e_dbl.a + f_dbl.x.a));
   CHECK( res_dbl.x.b == (e_dbl.b + f_dbl.x.b + f_dbl.y));
   CHECK( res_dbl.y == (e_dbl.b + f_dbl.x.b));
+
   exit(0);
 }

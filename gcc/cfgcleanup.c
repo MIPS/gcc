@@ -2341,7 +2341,7 @@ rest_of_handle_jump2 (void)
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   reg_scan (get_insns (), max_reg_num ());
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
                | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
@@ -2357,7 +2357,7 @@ rest_of_handle_jump2 (void)
      future passes, allocate arrays whose dimensions involve the
      maximum instruction UID, so if we can reduce the maximum UID
      we'll save big on memory.  */
-  renumber_insns (dump_file);
+  renumber_insns ();
 }
 
 

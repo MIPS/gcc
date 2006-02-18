@@ -453,7 +453,7 @@ df_rescan_blocks (struct df *df, bitmap blocks)
       for (i = df->num_problems_defined; i; i--)
 	{
 	  bitmap blocks_to_reset = NULL;
-	  if (*dflow->problem->reset_fun)
+	  if (dflow->problem->reset_fun)
 	    {
 	      if (!blocks_to_reset)
 		{
@@ -462,7 +462,7 @@ df_rescan_blocks (struct df *df, bitmap blocks)
 		  if (df->blocks_to_scan)
 		    bitmap_ior_into (blocks_to_reset, df->blocks_to_scan);
 		}
-	      (*dflow->problem->reset_fun) (dflow, blocks_to_reset);
+	      dflow->problem->reset_fun (dflow, blocks_to_reset);
 	    }
 	  if (blocks_to_reset)
 	    BITMAP_FREE (blocks_to_reset);
@@ -1113,9 +1113,8 @@ df_def_record_1 (struct dataflow *dflow, rtx x,
     loc = &SET_DEST (x);
   dst = *loc;
 
-  /* Some targets place small structures in registers for
-     return values of functions.  */
-  if (GET_CODE (dst) == PARALLEL && GET_MODE (dst) == BLKmode)
+  /* It is legal to have a set destination be a parallel. */
+  if (GET_CODE (dst) == PARALLEL)
     {
       int i;
 
@@ -1569,7 +1568,8 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
 	  unsigned regno = EH_RETURN_DATA_REGNO (i);
 	  if (regno == INVALID_REGNUM)
 	    break;
-	  df_ref_record (dflow, regno_reg_rtx[i], &regno_reg_rtx[i], bb, NULL,
+	  df_ref_record (dflow, regno_reg_rtx[regno], &regno_reg_rtx[regno],
+			 bb, NULL,
 			 DF_REF_REG_DEF, DF_REF_ARTIFICIAL | DF_REF_AT_TOP,
 			 false);
 	}
@@ -1801,7 +1801,7 @@ df_record_entry_block_defs (struct dataflow * dflow)
 #endif
     }
 
-  (*targetm.live_on_entry) (df->entry_block_defs);
+  targetm.live_on_entry (df->entry_block_defs);
 
   EXECUTE_IF_SET_IN_BITMAP (df->entry_block_defs, 0, i, bi)
     {

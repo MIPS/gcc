@@ -42,13 +42,15 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 struct loops *current_loops = NULL;
 
-/* Initializes the loop structures.  DUMP is the file to that the details
-   about the analysis should be dumped.  */
+/* Initializes the loop structures.  */
 
 static struct loops *
-tree_loop_optimizer_init (FILE *dump)
+tree_loop_optimizer_init (void)
 {
-  struct loops *loops = loop_optimizer_init (dump);
+  struct loops *loops;
+ 
+  loops = loop_optimizer_init (LOOPS_NORMAL
+			       | LOOPS_HAVE_MARKED_SINGLE_EXITS);
 
   if (!loops)
     return NULL;
@@ -88,12 +90,9 @@ struct tree_opt_pass pass_tree_loop =
 static void
 tree_ssa_loop_init (void)
 {
-  current_loops = tree_loop_optimizer_init (dump_file);
+  current_loops = tree_loop_optimizer_init ();
   if (!current_loops)
     return;
-
-  /* Find the loops that are exited just through a single edge.  */
-  mark_single_exit_loops (current_loops);
 
   scev_initialize (current_loops);
 }
@@ -303,7 +302,8 @@ struct tree_opt_pass pass_scev_cprop =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_update_ssa_only_virtuals,
+  TODO_dump_func | TODO_cleanup_cfg
+    | TODO_update_ssa_only_virtuals,
 					/* todo_flags_finish */
   0					/* letter */
 };
@@ -402,6 +402,40 @@ struct tree_opt_pass pass_complete_unroll =
   0					/* letter */
 };
 
+/* Prefetching.  */
+
+static void
+tree_ssa_loop_prefetch (void)
+{
+  if (!current_loops)
+    return;
+
+  tree_ssa_prefetch_arrays (current_loops);
+}
+
+static bool
+gate_tree_ssa_loop_prefetch (void)
+{
+  return flag_prefetch_loop_arrays == 1;
+}
+
+struct tree_opt_pass pass_loop_prefetch =
+{
+  "prefetch",				/* name */
+  gate_tree_ssa_loop_prefetch,		/* gate */
+  tree_ssa_loop_prefetch,	       	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_PREFETCH,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func | TODO_verify_loops,	/* todo_flags_finish */
+  0					/* letter */
+};
+
 /* Induction variable optimizations.  */
 
 static void
@@ -448,8 +482,7 @@ tree_ssa_loop_done (void)
 
   free_numbers_of_iterations_estimates (current_loops);
   scev_finalize ();
-  loop_optimizer_finalize (current_loops,
-			   (dump_flags & TDF_DETAILS ? dump_file : NULL));
+  loop_optimizer_finalize (current_loops);
   current_loops = NULL;
 }
   

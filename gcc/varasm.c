@@ -1,6 +1,6 @@
 /* Output variables, constants and external declarations, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -440,9 +440,14 @@ function_section (tree decl)
     reloc = 1;
 
 #ifdef USE_SELECT_SECTION_FOR_FUNCTIONS
-  return targetm.asm_out.select_section (decl, reloc, DECL_ALIGN (decl));
+  if (decl != NULL_TREE
+      && DECL_SECTION_NAME (decl) != NULL_TREE)
+    return reloc ? unlikely_text_section ()
+		 : get_named_section (decl, NULL, 0);
+  else
+    return targetm.asm_out.select_section (decl, reloc, DECL_ALIGN (decl));
 #else
-  return hot_function_section (decl);
+  return reloc ? unlikely_text_section () : hot_function_section (decl);
 #endif
 }
 
@@ -450,9 +455,15 @@ section *
 current_function_section (void)
 {
 #ifdef USE_SELECT_SECTION_FOR_FUNCTIONS
-  return targetm.asm_out.select_section (current_function_decl,
-					 in_cold_section_p,
-					 DECL_ALIGN (current_function_decl));
+  if (current_function_decl != NULL_TREE
+      && DECL_SECTION_NAME (current_function_decl) != NULL_TREE)
+    return in_cold_section_p ? unlikely_text_section ()
+			     : get_named_section (current_function_decl,
+						  NULL, 0);
+  else
+    return targetm.asm_out.select_section (current_function_decl,
+					   in_cold_section_p,
+					   DECL_ALIGN (current_function_decl));
 #else
   return (in_cold_section_p
 	  ? unlikely_text_section ()
@@ -3748,7 +3759,6 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
      Otherwise, break and ensure SIZE is the size written.  */
   switch (code)
     {
-    case CHAR_TYPE:
     case BOOLEAN_TYPE:
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:

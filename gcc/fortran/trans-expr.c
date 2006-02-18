@@ -925,6 +925,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
   switch (expr->value.op.operator)
     {
     case INTRINSIC_UPLUS:
+    case INTRINSIC_PARENTHESES:
       gfc_conv_expr (se, expr->value.op.op1);
       return;
 
@@ -1344,6 +1345,10 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
 
   /* If the argument is a scalar or a pointer to an array, dereference it.  */
   else if (!sym->attr.dimension || sym->attr.pointer)
+    value = build_fold_indirect_ref (se->expr);
+  
+  /* For character(*), use the actual argument's descriptor.  */  
+  else if (sym->ts.type == BT_CHARACTER && !new_sym->ts.cl->length)
     value = build_fold_indirect_ref (se->expr);
 
   /* If the argument is an array descriptor, use it to determine
@@ -1952,9 +1957,11 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  /* Evaluate the bounds of the result, if known.  */
 	  gfc_set_loop_bounds_from_array_spec (&mapping, se, sym->result->as);
 
-	  /* Allocate a temporary to store the result.  */
-	  gfc_trans_allocate_temp_array (&se->pre, &se->post,
-					 se->loop, info, tmp, false);
+	  /* Allocate a temporary to store the result.  In case the function
+             returns a pointer, the temporary will be a shallow copy and
+             mustn't be deallocated.  */
+          gfc_trans_allocate_temp_array (&se->pre, &se->post, se->loop, info,
+                                         tmp, false, !sym->attr.pointer);
 
 	  /* Zero the first stride to indicate a temporary.  */
 	  tmp = gfc_conv_descriptor_stride (info->descriptor, gfc_rank_cst[0]);
@@ -2656,7 +2663,7 @@ gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr)
 }
 
 /* Like gfc_conv_expr, but the POST block is guaranteed to be empty for
-   numeric expressions.  Used for scalar values whee inserting cleanup code
+   numeric expressions.  Used for scalar values where inserting cleanup code
    is inconvenient.  */
 void
 gfc_conv_expr_val (gfc_se * se, gfc_expr * expr)
@@ -2910,6 +2917,10 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
 
   /* Fail if EXPR1 can't be expressed as a descriptor.  */
   if (gfc_ref_needs_temporary_p (expr1->ref))
+    return NULL;
+
+  /* Functions returning pointers need temporaries.  */
+  if (expr2->symtree->n.sym->attr.pointer)
     return NULL;
 
   /* Check that no LHS component references appear during an array

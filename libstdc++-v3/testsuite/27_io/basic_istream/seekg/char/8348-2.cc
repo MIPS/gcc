@@ -1,6 +1,7 @@
 // 2000-06-29 bkoz
 
-// Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+// Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -40,6 +41,7 @@ void test06(void)
     iss >> asNum;
     VERIFY( test = iss.eof() );
     VERIFY( test = !iss.fail() );
+    iss.clear();
     iss.seekg(0, ios_base::beg);
     VERIFY( test = !iss.fail() );
   }

@@ -1,6 +1,6 @@
 // link.cc - Code for linking and resolving classes and pool entries.
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -552,7 +552,7 @@ _Jv_Linker::search_method_in_class (jclass cls, jclass klass,
 #define INITIAL_IOFFSETS_LEN 4
 #define INITIAL_IFACES_LEN 4
 
-static _Jv_IDispatchTable null_idt = { {SHRT_MAX, 0, NULL} };
+static _Jv_IDispatchTable null_idt = {SHRT_MAX, 0, {}};
 
 // Generate tables for constant-time assignment testing and interface
 // method lookup. This implements the technique described by Per Bothner
@@ -588,10 +588,10 @@ _Jv_Linker::prepare_constant_time_tables (jclass klass)
   // a pointer to the current class, and the rest are pointers to the 
   // classes ancestors, ordered from the current class down by decreasing 
   // depth. We do not include java.lang.Object in the table of ancestors, 
-  // since it is redundant.
+  // since it is redundant.  Note that the classes pointed to by
+  // 'ancestors' will always be reachable by other paths.
 
-  // FIXME: _Jv_AllocBytes
-  klass->ancestors = (jclass *) _Jv_Malloc (klass->depth
+  klass->ancestors = (jclass *) _Jv_AllocBytes (klass->depth
 						* sizeof (jclass));
   klass0 = klass;
   for (int index = 0; index < klass->depth; index++)
@@ -611,10 +611,6 @@ _Jv_Linker::prepare_constant_time_tables (jclass klass)
       return;
     }
 
-  // FIXME: _Jv_AllocBytes
-  klass->idt = 
-    (_Jv_IDispatchTable *) _Jv_Malloc (sizeof (_Jv_IDispatchTable));
-
   _Jv_ifaces ifaces;
   ifaces.count = 0;
   ifaces.len = INITIAL_IFACES_LEN;
@@ -624,10 +620,12 @@ _Jv_Linker::prepare_constant_time_tables (jclass klass)
 
   if (ifaces.count > 0)
     {
-      klass->idt->cls.itable = 
-	// FIXME: _Jv_AllocBytes
-	(void **) _Jv_Malloc (itable_size * sizeof (void *));
-      klass->idt->cls.itable_length = itable_size;
+      // The classes pointed to by the itable will always be reachable
+      // via other paths.
+      int idt_bytes = sizeof (_Jv_IDispatchTable) + (itable_size 
+						     * sizeof (void *));
+      klass->idt = (_Jv_IDispatchTable *) _Jv_AllocBytes (idt_bytes);
+      klass->idt->itable_length = itable_size;
 
       jshort *itable_offsets = 
 	(jshort *) _Jv_Malloc (ifaces.count * sizeof (jshort));
@@ -639,18 +637,17 @@ _Jv_Linker::prepare_constant_time_tables (jclass klass)
 
       for (int i = 0; i < ifaces.count; i++)
 	{
-	  ifaces.list[i]->idt->iface.ioffsets[cls_iindex] =
-	    itable_offsets[i];
+	  ifaces.list[i]->ioffsets[cls_iindex] = itable_offsets[i];
 	}
 
-      klass->idt->cls.iindex = cls_iindex;	    
+      klass->idt->iindex = cls_iindex;	    
 
       _Jv_Free (ifaces.list);
       _Jv_Free (itable_offsets);
     }
   else 
     {
-      klass->idt->cls.iindex = SHRT_MAX;
+      klass->idt->iindex = SHRT_MAX;
     }
 }
 
@@ -713,7 +710,7 @@ void
 _Jv_Linker::generate_itable (jclass klass, _Jv_ifaces *ifaces,
 			       jshort *itable_offsets)
 {
-  void **itable = klass->idt->cls.itable;
+  void **itable = klass->idt->itable;
   jshort itable_pos = 0;
 
   for (int i = 0; i < ifaces->count; i++)
@@ -722,22 +719,17 @@ _Jv_Linker::generate_itable (jclass klass, _Jv_ifaces *ifaces,
       itable_offsets[i] = itable_pos;
       itable_pos = append_partial_itable (klass, iface, itable, itable_pos);
 
-      /* Create interface dispatch table for iface */
-      if (iface->idt == NULL)
+      /* Create ioffsets table for iface */
+      if (iface->ioffsets == NULL)
 	{
-	  // FIXME: _Jv_AllocBytes
-	  iface->idt
-	    = (_Jv_IDispatchTable *) _Jv_Malloc (sizeof (_Jv_IDispatchTable));
-
 	  // The first element of ioffsets is its length (itself included).
-	  // FIXME: _Jv_AllocBytes
-	  jshort *ioffsets = (jshort *) _Jv_Malloc (INITIAL_IOFFSETS_LEN
-						    * sizeof (jshort));
+	  jshort *ioffsets = (jshort *) _Jv_AllocBytes (INITIAL_IOFFSETS_LEN
+							* sizeof (jshort));
 	  ioffsets[0] = INITIAL_IOFFSETS_LEN;
 	  for (int i = 1; i < INITIAL_IOFFSETS_LEN; i++)
 	    ioffsets[i] = -1;
 
-	  iface->idt->iface.ioffsets = ioffsets;	    
+	  iface->ioffsets = ioffsets;
 	}
     }
 }
@@ -883,8 +875,8 @@ static bool iindex_mutex_initialized = false;
 // Interface Dispatch Table, we just compare the first element to see if it 
 // matches the desired interface. So how can we find the correct offset?  
 // Our solution is to keep a vector of candiate offsets in each interface 
-// (idt->iface.ioffsets), and in each class we have an index 
-// (idt->cls.iindex) used to select the correct offset from ioffsets.
+// (ioffsets), and in each class we have an index (idt->iindex) used to
+// select the correct offset from ioffsets.
 //
 // Calculate and return iindex for a new class. 
 // ifaces is a vector of num interfaces that the class implements.
@@ -915,9 +907,9 @@ _Jv_Linker::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
         {
 	  if (j >= num)
 	    goto found;
-	  if (i >= ifaces[j]->idt->iface.ioffsets[0])
+	  if (i >= ifaces[j]->ioffsets[0])
 	    continue;
-	  int ioffset = ifaces[j]->idt->iface.ioffsets[i];
+	  int ioffset = ifaces[j]->ioffsets[i];
 	  /* We can potentially share this position with another class. */
 	  if (ioffset >= 0 && ioffset != offsets[j])
 	    break; /* Nope. Try next i. */	  
@@ -926,17 +918,17 @@ _Jv_Linker::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
   found:
   for (j = 0; j < num; j++)
     {
-      int len = ifaces[j]->idt->iface.ioffsets[0];
+      int len = ifaces[j]->ioffsets[0];
       if (i >= len) 
 	{
 	  // Resize ioffsets.
 	  int newlen = 2 * len;
 	  if (i >= newlen)
 	    newlen = i + 3;
-	  jshort *old_ioffsets = ifaces[j]->idt->iface.ioffsets;
-	  // FIXME: _Jv_AllocBytes
-	  jshort *new_ioffsets = (jshort *) _Jv_Malloc (newlen
-							* sizeof(jshort));
+
+	  jshort *old_ioffsets = ifaces[j]->ioffsets;
+	  jshort *new_ioffsets = (jshort *) _Jv_AllocBytes (newlen
+							    * sizeof(jshort));
 	  memcpy (&new_ioffsets[1], &old_ioffsets[1],
 		  (len - 1) * sizeof (jshort));
 	  new_ioffsets[0] = newlen;
@@ -944,9 +936,9 @@ _Jv_Linker::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
 	  while (len < newlen)
 	    new_ioffsets[len++] = -1;
 	  
-	  ifaces[j]->idt->iface.ioffsets = new_ioffsets;
+	  ifaces[j]->ioffsets = new_ioffsets;
 	}
-      ifaces[j]->idt->iface.ioffsets[i] = offsets[j];
+      ifaces[j]->ioffsets[i] = offsets[j];
     }
 
   _Jv_MutexUnlock (&iindex_mutex);
@@ -954,42 +946,47 @@ _Jv_Linker::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
   return i;
 }
 
+#ifdef USE_LIBFFI
+
+// We use a structure of this type to store the closure that
+// represents a missing method.
+struct method_closure
+{
+  // This field must come first, since the address of this field will
+  // be the same as the address of the overall structure.  This is due
+  // to disabling interior pointers in the GC.
+  ffi_closure closure;
+  ffi_cif cif;
+  ffi_type *arg_types[1];
+};
+
+#endif // USE_LIBFFI
 
 void *
 _Jv_Linker::create_error_method (_Jv_Utf8Const *class_name)
 {
 #ifdef USE_LIBFFI
-  // TODO: The following structs/objects are heap allocated are
-  // unreachable by the garbage collector:
-  // - cif, arg_types
+  method_closure *closure
+    = (method_closure *) _Jv_AllocBytes(sizeof (method_closure));
 
-  ffi_closure *closure = (ffi_closure *) _Jv_Malloc( sizeof( ffi_closure ));
-  ffi_cif *cif = (ffi_cif *) _Jv_Malloc( sizeof( ffi_cif ));
+  closure->arg_types[0] = &ffi_type_void;
 
-  // Pretends that we want to call a void (*) (void) function via
-  // ffi_call.
-  ffi_type **arg_types = (ffi_type **) _Jv_Malloc( sizeof( ffi_type * ));
-  arg_types[0] = &ffi_type_void;
-
-  // Initializes the cif and the closure. If that worked the closure is
-  // returned and can be used as a function pointer in a class' atable.
-  if (ffi_prep_cif (
-        cif, FFI_DEFAULT_ABI, 1, &ffi_type_void, arg_types) == FFI_OK
-      && (ffi_prep_closure (
-            closure, cif, _Jv_ThrowNoClassDefFoundErrorTrampoline,
-            class_name) == FFI_OK))
-    {
-      return closure;
-    }
-    else
+  // Initializes the cif and the closure.  If that worked the closure
+  // is returned and can be used as a function pointer in a class'
+  // atable.
+  if (ffi_prep_cif (&closure->cif, FFI_DEFAULT_ABI, 1, &ffi_type_void,
+		    closure->arg_types) == FFI_OK
+      && ffi_prep_closure (&closure->closure, &closure->cif,
+			   _Jv_ThrowNoClassDefFoundErrorTrampoline,
+			   class_name) == FFI_OK)
+    return &closure->closure;
+  else
     {
       java::lang::StringBuffer *buffer = new java::lang::StringBuffer();
-      buffer->append(
-        JvNewStringLatin1("Error setting up FFI closure"
-                          " for static method of missing class: "));
-      
+      buffer->append(JvNewStringLatin1("Error setting up FFI closure"
+				       " for static method of"
+				       " missing class: "));
       buffer->append (_Jv_NewStringUtf8Const(class_name));
-
       throw new java::lang::InternalError(buffer->toString());
     }
 #else
@@ -1484,7 +1481,11 @@ _Jv_Linker::ensure_fields_laid_out (jclass klass)
     }
 
   int instance_size;
-  int static_size = 0;
+  // This is the size of the 'static' non-reference fields.
+  int non_reference_size = 0;
+  // This is the size of the 'static' reference fields.  We count
+  // these separately to make it simpler for the GC to scan them.
+  int reference_size = 0;
 
   // Although java.lang.Object is never interpreted, an interface can
   // have a null superclass.  Note that we have to lay out an
@@ -1523,11 +1524,20 @@ _Jv_Linker::ensure_fields_laid_out (jclass klass)
 	  if (field->u.addr == NULL)
 	    {
 	      // This computes an offset into a region we'll allocate
-	      // shortly, and then add this offset to the start
+	      // shortly, and then adds this offset to the start
 	      // address.
-	      static_size       = ROUND (static_size, field_align);
-	      field->u.boffset   = static_size;
-	      static_size       += field_size;
+	      if (field->isRef())
+		{
+		  reference_size = ROUND (reference_size, field_align);
+		  field->u.boffset = reference_size;
+		  reference_size += field_size;
+		}
+	      else
+		{
+		  non_reference_size = ROUND (non_reference_size, field_align);
+		  field->u.boffset = non_reference_size;
+		  non_reference_size += field_size;
+		}
 	    }
 	}
       else
@@ -1540,8 +1550,9 @@ _Jv_Linker::ensure_fields_laid_out (jclass klass)
 	}
     }
 
-  if (static_size != 0)
-    klass->engine->allocate_static_fields (klass, static_size);
+  if (reference_size != 0 || non_reference_size != 0)
+    klass->engine->allocate_static_fields (klass, reference_size,
+					   non_reference_size);
 
   // Set the instance size for the class.  Note that first we round it
   // to the alignment required for this object; this keeps us in sync
@@ -1696,8 +1707,8 @@ _Jv_Linker::add_miranda_methods (jclass base, jclass iface_class)
 	      // found is really unique among all superinterfaces.
 	      int new_count = base->method_count + 1;
 	      _Jv_Method *new_m
-		= (_Jv_Method *) _Jv_AllocBytes (sizeof (_Jv_Method)
-						 * new_count);
+		= (_Jv_Method *) _Jv_AllocRawObj (sizeof (_Jv_Method)
+						  * new_count);
 	      memcpy (new_m, base->methods,
 		      sizeof (_Jv_Method) * base->method_count);
 
@@ -1832,9 +1843,9 @@ _Jv_Linker::print_class_loaded (jclass klass)
 	}
     }
   if (codesource == NULL)
-    codesource = "<no code source>";
+    codesource = (char *) "<no code source>";
 
-  char *abi;
+  const char *abi;
   if (_Jv_IsInterpretedClass (klass))
     abi = "bytecode";
   else if (_Jv_IsBinaryCompatibilityABI (klass))

@@ -120,23 +120,14 @@ struct _Jv_Method
   { return this + 1; }
 };
 
-// Interface Dispatch Tables 
-union _Jv_IDispatchTable
+// The table used to resolve interface calls.
+struct _Jv_IDispatchTable
 {
-  struct
-  {
-    // Index into interface's ioffsets.
-    jshort iindex;
-    jshort itable_length;
-    // Class Interface dispatch table.
-    void **itable;
-  } cls;
-
-  struct
-  {
-    // Offsets into implementation class itables.
-    jshort *ioffsets;
-  } iface;
+  // Index into interface's ioffsets.
+  jshort iindex;
+  jshort itable_length;
+  // Class Interface dispatch table.
+  void *itable[0];
 };
 
 // Used by _Jv_Linker::get_interfaces ()
@@ -261,7 +252,7 @@ jclass _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
 void _Jv_InitNewClassFields (jclass klass);
 
 // Friend functions and classes in prims.cc
-void _Jv_InitPrimClass (jclass, char *, char, int);
+void _Jv_InitPrimClass (jclass, const char *, char, int);
 jstring _Jv_GetMethodString (jclass, _Jv_Method *, jclass = NULL);
 
 jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
@@ -368,7 +359,7 @@ public:
 
   inline jclass getComponentType (void)
     {
-      return isArray () ? (* (jclass *) &methods) : 0;
+      return isArray () ? element_type : 0;
     }
 
   jboolean isAssignableFrom (jclass cls);
@@ -494,7 +485,7 @@ private:
   friend void ::_Jv_InitNewClassFields (jclass klass);
 
   // in prims.cc
-  friend void ::_Jv_InitPrimClass (jclass, char *, char, int);
+  friend void ::_Jv_InitPrimClass (jclass, const char *, char, int);
 
   friend jstring (::_Jv_GetMethodString) (jclass, _Jv_Method *, jclass);
 
@@ -554,7 +545,11 @@ private:
   _Jv_Constants constants;
   // Methods.  If this is an array class, then this field holds a
   // pointer to the element type.
-  _Jv_Method *methods;
+  union
+  {
+    _Jv_Method *methods;
+    jclass element_type;
+  };
   // Number of methods.  If this class is primitive, this holds the
   // character used to represent this type in a signature.
   jshort method_count;
@@ -596,8 +591,13 @@ private:
   jshort depth;
   // Vector of this class's superclasses, ordered by decreasing depth.
   jclass *ancestors;
-  // Interface Dispatch Table.
-  _Jv_IDispatchTable *idt;
+  // In a regular class, this field points to the Class Interface Dispatch 
+  // Table. In an interface, it points to the ioffsets table.
+  union 
+  {
+    _Jv_IDispatchTable *idt;
+    jshort *ioffsets;
+  };
   // Pointer to the class that represents an array of this class.
   jclass arrayclass;
   // Security Domain to which this class belongs (or null).

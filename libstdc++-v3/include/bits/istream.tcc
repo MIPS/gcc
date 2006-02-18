@@ -183,8 +183,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  try
 	    {
-	      if (!__copy_streambufs(this->rdbuf(), __sbout))
+	      bool __ineof;
+	      if (!__copy_streambufs_eof(this->rdbuf(), __sbout, __ineof))
 		__err |= ios_base::failbit;
+	      if (__ineof)
+		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
 	    { this->_M_setstate(ios_base::failbit); }
@@ -708,13 +711,18 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
       pos_type __ret = pos_type(-1);
-      try
+      sentry __cerb(*this, true);
+      if (__cerb)
 	{
-	  if (!this->fail())
-	    __ret = this->rdbuf()->pubseekoff(0, ios_base::cur, ios_base::in);
+	  try
+	    {
+	      if (!this->fail())
+		__ret = this->rdbuf()->pubseekoff(0, ios_base::cur,
+						  ios_base::in);
+	    }
+	  catch(...)
+	    { this->_M_setstate(ios_base::badbit); }
 	}
-      catch(...)
-	{ this->_M_setstate(ios_base::badbit); }
       return __ret;
     }
 
@@ -725,24 +733,28 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-      try
+      sentry __cerb(*this, true);
+      if (__cerb)
 	{
-	  if (!this->fail())
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  try
 	    {
-	      // 136.  seekp, seekg setting wrong streams?
-	      const pos_type __p = this->rdbuf()->pubseekpos(__pos,
-							     ios_base::in);
+	      if (!this->fail())
+		{
+		  // 136.  seekp, seekg setting wrong streams?
+		  const pos_type __p = this->rdbuf()->pubseekpos(__pos,
+								 ios_base::in);
 
-	      // 129. Need error indication from seekp() and seekg()
-	      if (__p == pos_type(off_type(-1)))
-		__err |= ios_base::failbit;
+		  // 129. Need error indication from seekp() and seekg()
+		  if (__p == pos_type(off_type(-1)))
+		    __err |= ios_base::failbit;
+		}
 	    }
+	  catch(...)
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
-      catch(...)
-	{ this->_M_setstate(ios_base::badbit); }
-      if (__err)
-	this->setstate(__err);
       return *this;
     }
 
@@ -753,24 +765,28 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR60.  Do not change _M_gcount.
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-      try
+      sentry __cerb(*this, true);
+      if (__cerb)
 	{
-	  if (!this->fail())
+	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  try
 	    {
-	      // 136.  seekp, seekg setting wrong streams?
-	      const pos_type __p = this->rdbuf()->pubseekoff(__off, __dir,
-							     ios_base::in);
+	      if (!this->fail())
+		{
+		  // 136.  seekp, seekg setting wrong streams?
+		  const pos_type __p = this->rdbuf()->pubseekoff(__off, __dir,
+								 ios_base::in);
 
-	      // 129. Need error indication from seekp() and seekg()
-	      if (__p == pos_type(off_type(-1)))
-		__err |= ios_base::failbit;
+		  // 129. Need error indication from seekp() and seekg()
+		  if (__p == pos_type(off_type(-1)))
+		    __err |= ios_base::failbit;
+		}
 	    }
+	  catch(...)
+	    { this->_M_setstate(ios_base::badbit); }
+	  if (__err)
+	    this->setstate(__err);
 	}
-      catch(...)
-	{ this->_M_setstate(ios_base::badbit); }
-      if (__err)
-	this->setstate(__err);
       return *this;
     }
 

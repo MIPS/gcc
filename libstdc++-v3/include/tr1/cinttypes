@@ -56,16 +56,17 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 
   // functions
   using ::imaxabs;
-  
-  inline intmax_t
-  abs(intmax_t __i)
-  { return imaxabs(__i); }
+
+  // May collide with _Longlong abs(_Longlong), and is not described
+  // anywhere outside the synopsis.  Likely, a defect.
+  //
+  // intmax_t abs(intmax_t)
 
   using ::imaxdiv;
-  
-  inline imaxdiv_t
-  div(intmax_t __numer, intmax_t __denom)
-  { return imaxdiv(__numer, __denom); }
+
+  // Likewise, with lldiv_t div(_Longlong, _Longlong).
+  //
+  // imaxdiv_t div(intmax_t, intmax_t)
 
   using ::strtoimax;
   using ::strtoumax;

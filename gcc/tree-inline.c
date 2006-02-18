@@ -266,7 +266,6 @@ remap_type_1 (tree type, copy_body_data *id)
     case REAL_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
       t = TYPE_MIN_VALUE (new);
       if (t && TREE_CODE (t) != INTEGER_CST)
         walk_tree (&TYPE_MIN_VALUE (new), copy_body_r, id, NULL);
@@ -1223,6 +1222,10 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
 	    use_it = false;
 	  else if (is_global_var (base_m))
 	    use_it = false;
+	  else if (TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
+		   && !DECL_COMPLEX_GIMPLE_REG_P (result)
+		   && DECL_COMPLEX_GIMPLE_REG_P (base_m))
+	    use_it = false;
 	  else if (!TREE_ADDRESSABLE (base_m))
 	    use_it = true;
 	}
@@ -1598,15 +1601,6 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case LOOP_EXPR:
     case PHI_NODE:
     case WITH_SIZE_EXPR:
-    case OMP_PARALLEL:
-    case OMP_FOR:
-    case OMP_SECTIONS:
-    case OMP_SINGLE:
-    case OMP_SECTION:
-    case OMP_MASTER:
-    case OMP_ORDERED:
-    case OMP_CRITICAL:
-    case OMP_ATOMIC:
     case OMP_CLAUSE:
     case OMP_RETURN_EXPR:
       break;
@@ -1795,6 +1789,20 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 	*count += PARAM_VALUE (PARAM_INLINE_CALL_COST);
 	break;
       }
+
+    case OMP_PARALLEL:
+    case OMP_FOR:
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+    case OMP_SECTION:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+    case OMP_ATOMIC:
+      /* OpenMP directives are generally very expensive.  */
+      *count += 40;
+      break;
+
     default:
       gcc_unreachable ();
     }
