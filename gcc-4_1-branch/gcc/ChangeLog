@@ -1,3 +1,47 @@
+2006-02-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* doc/install.texi: Add missing `@samp'.
+
+2006-02-19  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/26350
+	* config/rs6000/rs6000.md (extenddftf2): Force 0.0 to validized
+	MEM for ABI_V4 pic.
+
+2006-02-18  Mark Wielaard  <mark@klomp.org>
+
+	* doc/contrib.texi (Contributors): Add classpath/libgcj hackers
+	who added new 4.1 features, bug fixes and integration support.
+
+2006-02-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* doc/install.texi (hppa*-hp-hpux*): Update for 4.1.0.
+
+2006-02-18  Olivier Hainque  <hainque@adacore.com>
+
+	PR ada/13408
+	* pa.h (WIDEST_HARDWARE_FP_SIZE): Define.
+
+2006-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26334
+	* stmt.c (decl_overlaps_hard_reg_set_p): Use DECL_HARD_REGISTER
+	instead of DECL_REGISTER.
+
+2006-02-17  Roger Sayle  <roger@eyesopen.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/22209
+	* config/mips/mips.h (MIN_UNITS_PER_WORD): Don't define for libgcc.
+	* config/mips/_tilib.c: Remove.
+	* config/fixtfdi.c: New libgcc source file.
+	* config/fixunstfdi.c: New source file.
+	* config/floatditf.c: New source file.
+	* config/floatunditf.c: New souce file.
+	* config/mips/t-iris6 (LIB2FUNCS_EXTRA): Include the new source
+	files above instead of config/mips/_tilib.c.
+	* config/mips/t-linux64 (LIB2FUNCS_EXTRA): Likewise.
+
 2006-02-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR libstdc++/11953
