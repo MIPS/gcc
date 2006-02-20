@@ -240,6 +240,10 @@ struct data_dependence_relation
   omega_pb omega_dependence;
 };
 
+typedef struct data_dependence_relation *ddr_p;
+DEF_VEC_P(ddr_p);
+DEF_VEC_ALLOC_P(ddr_p,heap);
+
 #define DDR_A(DDR) DDR->a
 #define DDR_B(DDR) DDR->b
 #define DDR_AFFINE_P(DDR) DDR->affine_p
@@ -279,11 +283,8 @@ struct data_dependence_relation
 
 
 extern tree find_data_references_in_loop (struct loop *, varray_type *);
-
-extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (struct loop *, bool,
 					       varray_type *, varray_type *);
-
 extern void print_direction_vector (FILE *, lambda_vector, int);
 extern void dump_subscript (FILE *, struct subscript *);
 extern void dump_ddrs (FILE *, varray_type);

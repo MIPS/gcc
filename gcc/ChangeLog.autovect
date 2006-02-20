@@ -1,3 +1,22 @@
+2006-02-20  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-data-ref.c: (base_addr_differ_p): Fix formatting.
+	(compute_estimated_nb_iterations): No longer needed.
+	(find_data_references_in_loop): Remove the call to
+	compute_estimated_nb_iterations.
+	(analyze_array_indexes, analyze_array, analyze_indirect_ref,
+	init_data_ref, initialize_data_dependence_relation, 
+	analyze_ziv_subscript, analyze_siv_subscript_cst_affine, 
+	analyze_miv_subscript, analyze_overlapping_iterations): Fix formatting.
+	(compute_self_dependence): Call compute_subscript_distance.
+	(compute_all_dependences, find_data_references_in_loop): Fix formatting.
+	(compute_data_dependences_for_loop): Use a VEC for dependence_relations
+	instead of a VARRAY.  Fix formatting.
+	(analyze_all_data_dependences): Static.
+	* tree-data-ref.h (ddr_p, DEF_VEC_P(ddr_p), 
+	DEF_VEC_ALLOC_P(ddr_p,heap)): Defined.
+	(analyze_all_data_dependences): Removed.
+
 2006-02-19  Dorit Nuzman  <dorit@il.ibm.com>
 
 	* config/rs6000/altivec.md (UNSPEC_VPERMSI, UNSPEC_VPERMHI): New.
