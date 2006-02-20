@@ -1,3 +1,83 @@
+2006-02-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/complex-3.c: Split out first part into ...
+	* gcc.dg/tree-ssa/complex-4.c: Here.
+
+2006-02-19  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/19543
+	* gfortran.dg/logical_1.f90: New test case.
+
+2006-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26334
+	* gcc.dg/20060218-1.c: Moved to...
+	* gcc.target/i386/20060218-1.c: ... here.  New test.
+
+2006-02-19  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/26201
+	* gfortran.dg/convert_1.f90: New.
+
+2005-02-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25054
+	* gfortran.dg/namelist_5.f90: New test.
+
+	PR fortran/25089
+	* gfortran.dg/namelist_4.f90: New test.
+
+2006-02-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+        PR tree-opt/25680
+        * testsuite/gcc.dg/tree-ssa/complex-3.c: New test.
+
+2006-02-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/20031106-1.c: Fix the final scan of the
+	variable to take into account the variable name in the
+	function header.
+	* gcc.dg/tree-ssa/20031106-2.c: Likewise.
+
+2006-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26334
+	* gcc.c-torture/compile/20060217-1.c: New test.
+	* gcc.dg/20060218-1.c: New test.
+
+2006-02-18  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/glibc-uclibc-1.c, gcc.dg/glibc-uclibc-2.c: New tests.
+
+2006-02-17  Grigory Zagorodnev <grigory_zagorodnev@linux.intel.com>
+
+	* gcc.dg/cpp/undef3.c: New test.
+	* gcc.dg/cpp/trad/builtins2.c: New test.
+
+2006-02-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26266
+	* g++.dg/template/static22.C: New test.
+	* g++.dg/template/static23.C: New test.
+	* g++.dg/template/static24.C: New test.
+	* g++.dg/template/non-dependent13.C: New test.
+	* g++.dg/init/member1.C: Tweak error markers.
+
+2006-02-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/26255
+	* gcc.c-torture/compile/pr26255.c: New test case.
+
+2006-02-16  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.fortran-torture/execute/where_10.f90: New test case.
+	* gfortran.fortran-torture/execute/where_11.f90: Likewise.
+	* gfortran.fortran-torture/execute/where_12.f90: Likewise.
+	* gfortran.fortran-torture/execute/where_13.f90: Likewise.
+	* gfortran.fortran-torture/execute/where_14.f90: Likewise.
+	* gfortran.fortran-torture/execute/where_15.f90: Likewise.
+	* gfortran.fortran-torture/execute/where_16.f90: Likewise.
+
 2006-02-16  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/vrp24.c: Update expected output.

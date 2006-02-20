@@ -1,3 +1,489 @@
+2006-02-20  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* tree-chrec.c (eq_evolutions_p): New.
+	* tree-chrec.h (eq_evolutions_p): Declared.
+	* tree-data-ref.c: Fix formatting.
+	(datadep_stats, dependence_stats): New.
+	(gcd): Moved...
+	(print_direction_vector): New.
+	(dump_data_dependence_relation): Use print_direction_vector.
+	(object_analysis, create_data_ref): Handle COMPONENT_REF.
+	(compute_subscript_distance): Static.
+	(initialize_data_dependence_relation): Static.  Get the number
+	of loops surrounding the references from the callers, and initialize
+	DDR_SIZE_VECT to nb_loops.  Use both base_addr_differ_p and
+	base_object_differ_p analyzers.
+	(analyze_ziv_subscript, analyze_siv_subscript_cst_affine, 
+	compute_overlap_steps_for_affine_1_2,
+	analyze_subscript_affine_affine): Count the classified dependences.
+	Print a message when a test failed.
+	(can_use_analyze_subscript_affine_affine): New.	
+	(analyze_siv_subscript): Compute the data dependences on symbolic
+	scevs that verify can_use_analyze_subscript_affine_affine.
+	(chrec_steps_divide_constant_p): Returns true, false, or unknown.
+	(analyze_miv_subscript): Update use of chrec_steps_divide_constant_p.
+	Handle symbolic scevs.
+	(analyze_overlapping_iterations): Let symbolic affine scevs to be
+	analyzed.
+	(subscript_dependence_tester): Moved...
+	(build_classic_dist_vector, build_classic_dir_vector): Don't use 
+	lambda_vector_clear on newly allocated vectors.  Get nb_loops from
+	DDR_SIZE_VECT instead of getting it in parameter.
+	(subscript_dependence_tester): ... here.  Take as a parameter 
+	loop_nest_depth.  Call build_classic_dist_vector and
+	build_classic_dir_vector.
+	(compute_affine_dependence): Update subscript_dependence_tester 
+	parameters.  Update datadep_stats counters.  Call 
+	compute_subscript_distance.
+	(compute_self_dependence): Save the dist and dir vectors.  Call 
+	compute_subscript_distance.
+	(ddr_p, DEF_VEC_P(ddr_p), DEF_VEC_ALLOC_P(ddr_p,heap)): Moved...
+	(compute_all_dependences): Reorder parameters as they were before
+	conversion to VEC.  Pass nb_loops and loop_nest_depth.  Don't call
+	compute_subscript_distance.  Update the use of 
+	compute_affine_dependence and initialize_data_dependence_relation.
+	(find_data_references_in_loop): Handle COMPONENT_REF.
+	(compute_data_dependences_for_loop): Initialize dependence_stats.
+	Don't call build_classic_dist_vector and build_classic_dir_vector.
+	Update the parameters of initialize_data_dependence_relation and 
+	compute_all_dependences.  Print the statistics from datadep_stats.
+	(analyze_all_data_dependences): Static.  Not used until the pass for
+	checking the data dependences is contributed.
+	* tree-data-ref.h (ddr_p, DEF_VEC_P(ddr_p),
+	DEF_VEC_ALLOC_P(ddr_p,heap)): ... here.
+	(initialize_data_dependence_relation, compute_affine_dependence, 
+	analyze_all_data_dependences, compute_subscript_distance): Removed.
+	(print_direction_vector): New.
+	* lambda.h (gcd): ... here.
+	(lambda_vector_gcd): Moved here from gcd_vector.
+	* lambda-code.c (gcd, gcd_vector): Removed.
+	(lambda_compute_target_space): Use lambda_vector_gcd.  Fix formatting.
+	* Makefile.in (tree-vect-patterns.o): Depends on TREE_DATA_REF_H.
+
+2006-02-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* ipa-type-escape.c: Tidy some comments and white space.
+	* tree-ssa-operands.c: Likewise.
+
+2006-02-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/25879
+	* tree-pretty-print.c (debug_tree_chain): Walk the chains.
+	(dump_decl_name): Do not walk the decl tree chains.
+	* tree-pass.h (TDF_CHAIN): Remove.
+
+2006-02-20  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Makefile.in (C): Remove
+	(PROTO): Remove
+	(.PHONY): Remove C and PROTO
+
+2006-02-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/26236
+	* doc/c-tree.texi (INTEGER_TYPE): Remove reference to the now
+	deprecated CHAR_TYPE tree code.
+
+2006-02-20  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.ac (target_list): Add install-info, dvi, html.
+	* configure: Regenerate.
+
+	* ada/Make-lang.in, cp/Make-lang.in, fortran/Make-lang.in,
+	java/Make-lang.in, objc/Make-lang.in, objcp/Make-lang.in,
+	treelang/Make-lang.in: Do not use double-colon rules.
+
+2006-02-20  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree.h (struct tree_memory_tag): Add is_used_alone member.
+	(TMT_USED_ALONE): New macro.
+	* tree-pass.h (PROP_tmt_usage): New property.
+	(TODO_update_tmt_usage): New todo.
+	* tree-ssa-alias.c (updating_used_alone): New variable.
+	(recalculate_used_alone): New function.	  
+	(compute_may_aliases): Set updating_used_alone, call
+	recalculate_used_alone. 
+	* tree-sra.c (pass_sra): Note that this pass destroys
+	PROP_tmt_usage, and add TODO_update_tmt_usage.
+	* tree-ssa-forwprop.c (pass_forwprop): Ditto.
+	* tree-flow.h (updating_used_alone): Prototype.
+	(recalculate_used_alone): Ditto.
+	* passes.c (execute_todo): Add code to set updating_used_alone,
+	and call recalculate.
+	* tree-ssa-operands.c (add_virtual_operand): Only append bare def
+	for clobber if used alone, and add assert to verify used_alone
+	status.
+	
+2006-02-20  Angel Nunez Mencias  <anunez@de.ibm.com>
+
+	* config/s390/s390.c (legitimize_pic_address): Assertions checking
+	for non tls symbols added.
+	(legitimize_address): Do nothing for PLUS expressions if one of the
+	addends is a tls symbol reference.
+
+2006-02-20  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/25476
+
+	* Makefile.in (LDFLAGS): Define from autoconf substitution.
+
+	* Makefile.in (BOOTSTRAPPING): New.
+	(quickstrap): New definition if BOOTSTRAPPING=yes.
+
+	* Makefile.in (CONFIG_LANGUAGES): Substitute all_selected_languages.
+	* configure.ac: Substitute all_selected_languages with the languages
+	that were configured.  For all the other variables except
+	lang_specs_files, include all the languages in the tree.
+	* configure: Regenerate.
+	
+	* Makefile.in (stmp-fixinc): Copy includes from the prev-gcc directory,
+	if there is one.  Run the commands to run fixincludes in the same
+	subshell.
+
+	* doc/makefile.texi: Document new makefile targets from toplevel bootstrap.
+	* doc/install.texi: Document exact conventions for searching target tools.
+	Document --with-build-time-tools.  Document toplevel bootstrap.  Document
+	something more about building an Ada cross-compiler.  Don't list GNU Make
+	requirements which affect all platforms.
+
+2006-02-19  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/19543
+	* varasm.c (compare_constant) <INTEGER_CST>: Integer constants are
+	only equivalent if the have both the same mode and precision.
+
+2006-02-20  Ben Elliston  <bje@au.ibm.com>
+
+	* doc/tree-ssa.texi (Interfaces): Describe low vs. high GIMPLE.
+
+2006-02-19  Roger Sayle  <roger@eyesopen.com>
+	    Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* gcse.c (want_to_gcse_p): On STACK_REGS targets, look through
+	constant pool references to identify stack mode constants.
+	* rtlanal.c (constant_pool_constant_p): New predicate to check
+	whether operand is a floating point constant in the pool.
+	* rtl.h (constant_pool_constant_p): Prototype here.
+	* loop.c (scan_loop): Avoid hoisting constants from the constant
+	pool on STACK_REGS targets.
+	(load_mems): Likewise.
+	* loop-invariant.c (get_inv_cost): Make hoisting constant pool
+	loads into x87 registers expensive in terms of register pressure.
+
+2006-02-19  Roger Sayle  <roger@eyesopen.com>
+
+	* gthr-posix.h: On Tru64, map __gthr_foo as a weak reference to
+	__foo and not foo when _PTHREAD_USE_MANGLED_NAMES_ is defined.
+
+2006-02-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/xcoff.h (TARGET_ASM_OUTPUT_ANCHOR): Define.
+	* config/rs6000/rs6000.c (rs6000_xcoff_asm_output_anchor): Define.
+
+2006-02-19  Daniel Berlin  <dberlin@dberlin.org>
+
+	* doc/invoke.texi: Document -fipa-pta.
+	* common.opt: Add ipa-pta option.
+	* tree-ssa-structalias.c (DONT_PROPAGATE_WITH_ANYTHING): Removed.
+	(do_sd_constraint): Enable DONT_PROPAGATE_WITH_ANYTHING code.
+	(do_ds_constraint): Ditto.
+	(get_constraint_for): Only add to referenced_vars if
+	referenced_vars exists.
+	(insert_into_field_list): Rewrite to do this unsorted.
+	(insert_into_field_list_sorted): Rename old insert_into_field_list
+	to this.
+	(create_function_info_for): Use insert_into_field_list_sorted.
+	(create_variable_info_for): Rewrite so it uses unsorted version,
+	since the field list is sorted.
+	(intra_create_variable_infos): Only add to referenced_vars if
+	referenced_vars exists.
+	(ipa_pta_execute): Init heapvars, and delete when done.
+	* passes.c (init_optimization_passes): Add call to pass_ipa_pta.
+
+2006-02-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* doc/install.texi: Add missing `@samp'.
+
+2006-02-18  Andrew Pinski <pinskia@physics.uc.edu>
+
+	* config/rs6000/darwin.h (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P):
+	Use the arguments.
+
+2006-02-18  Mark Wielaard  <mark@klomp.org>
+
+	* doc/contrib.texi (Contributors): Add classpath/libgcj hackers
+	who added new 4.1 features, bug fixes and integration support.
+
+2006-02-18  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/26350
+	* config/rs6000/rs6000.md (extenddftf2): Force 0.0 to validized
+	MEM for ABI_V4 pic.
+
+2006-02-18  Richard Sandiford  <richard@codesourcery.com>
+
+	* cselib.c (cselib_init): Change RTX_SIZE to RTX_CODE_SIZE.
+	* emit-rtl.c (copy_rtx_if_shared_1): Use shallow_copy_rtx.
+	(copy_insn_1): Likewise.  Don't copy each field individually.
+	Reindent.
+	* read-rtl.c (apply_macro_to_rtx): Use RTX_CODE_SIZE instead
+	of RTX_SIZE.
+	* reload1.c (eliminate_regs): Use shallow_copy_rtx.
+	* rtl.c (rtx_size): Rename variable to...
+	(rtx_code_size): ...this.
+	(rtx_size): New function.
+	(rtx_alloc_stat): Use RTX_CODE_SIZE instead of RTX_SIZE.
+	(copy_rtx): Use shallow_copy_rtx.  Don't copy each field individually.
+	Reindent.
+	(shallow_copy_rtx_stat): Use rtx_size instead of RTX_SIZE.
+	* rtl.h (rtx_code_size): New variable.
+	(rtx_size): Change from a variable to a function.
+	(RTX_SIZE): Rename to...
+	(RTX_CODE_SIZE): ...this.
+
+	PR target/9703
+	PR tree-optimization/17106
+	* doc/tm.texi (TARGET_USE_BLOCKS_FOR_CONSTANT_P): Document.
+	(Anchored Addresses): New section.
+	* doc/invoke.texi (-fsection-anchors): Document.
+	* doc/rtl.texi (SYMBOL_REF_IN_BLOCK_P, SYMBOL_FLAG_IN_BLOCK): Likewise.
+	(SYMBOL_REF_ANCHOR_P, SYMBOL_FLAG_ANCHOR): Likewise.
+	(SYMBOL_REF_BLOCK, SYMBOL_REF_BLOCK_OFFSET): Likewise.
+	* hooks.c (hook_bool_mode_rtx_false): New function.
+	* hooks.h (hook_bool_mode_rtx_false): Declare.
+	* gengtype.c (create_optional_field): New function.
+	(adjust_field_rtx_def): Add the "block_sym" field for SYMBOL_REFs when
+	SYMBOL_REF_IN_BLOCK_P is true.
+	* target.h (output_anchor, use_blocks_for_constant_p): New hooks.
+	(min_anchor_offset, max_anchor_offset): Likewise.
+	(use_anchors_for_symbol_p): New hook.
+	* toplev.c (compile_file): Call output_object_blocks.
+	(target_supports_section_anchors_p): New function.
+	(process_options): Check that -fsection-anchors is only used on
+	targets that support it and when -funit-at-a-time is in effect.
+	* tree-ssa-loop-ivopts.c (prepare_decl_rtl): Only create DECL_RTL
+	if the decl doesn't have one.
+	* dwarf2out.c: Remove instantiations of VEC(rtx,gc).
+	* expr.c (emit_move_multi_word, emit_move_insn): Pass the result
+	of force_const_mem through use_anchored_address.
+	(expand_expr_constant): New function.
+	(expand_expr_addr_expr_1): Call it.  Use the same modifier when
+	calling expand_expr for INDIRECT_REF.
+	(expand_expr_real_1): Pass DECL_RTL through use_anchored_address
+	for all modifiers except EXPAND_INITIALIZER.  Use expand_expr_constant.
+	* expr.h (use_anchored_address): Declare.
+	* loop-unroll.c: Don't declare rtx vectors here.
+	* explow.c: Include output.h.
+	(validize_mem): Call use_anchored_address.
+	(use_anchored_address): New function.
+	* common.opt (-fsection-anchors): New switch.
+	* varasm.c (object_block_htab, anchor_labelno): New variables.
+	(hash_section, object_block_entry_eq, object_block_entry_hash)
+	(use_object_blocks_p, get_block_for_section, create_block_symbol)
+	(use_blocks_for_decl_p, change_symbol_section): New functions.
+	(get_variable_section): New function, split out from assemble_variable.
+	(make_decl_rtl): Create a block symbol if use_object_blocks_p and
+	use_blocks_for_decl_p say so.  Use change_symbol_section if the
+	symbol has already been created.
+	(assemble_variable_contents): New function, split out from...
+	(assemble_variable): ...here.  Don't output any code for
+	block symbols; just pass them to place_block_symbol.
+	Use get_variable_section and assemble_variable_contents.
+	(get_constant_alignment, get_constant_section, get_constant_size): New
+	functions, split from output_constant_def_contents.
+	(build_constant_desc): Create a block symbol if use_object_blocks_p
+	says so.  Or into SYMBOL_REF_FLAGS.
+	(assemble_constant_contents): New function, split from...
+	(output_constant_def_contents): ...here.  Don't output any code
+	for block symbols; just pass them to place_section_symbol.
+	Use get_constant_section and get_constant_alignment.
+	(force_const_mem): Create a block symbol if use_object_blocks_p and
+	use_blocks_for_constant_p say so.  Or into SYMBOL_REF_FLAGS.
+	(output_constant_pool_1): Add an explicit alignment argument.
+	Don't switch sections here.
+	(output_constant_pool): Adjust call to output_constant_pool_1.
+	Switch sections here instead.  Don't output anything for block symbols;
+	just pass them to place_block_symbol.
+	(init_varasm_once): Initialize object_block_htab.
+	(default_encode_section_info): Keep the old SYMBOL_FLAG_IN_BLOCK.
+	(default_asm_output_anchor, default_use_aenchors_for_symbol_p)
+	(place_block_symbol, get_section_anchor, output_object_block)
+	(output_object_block_htab, output_object_blocks): New functions.
+	* target-def.h (TARGET_ASM_OUTPUT_ANCHOR): New macro.
+	(TARGET_ASM_OUT): Include it.
+	(TARGET_USE_BLOCKS_FOR_CONSTANT_P): New macro.
+	(TARGET_MIN_ANCHOR_OFFSET, TARGET_MAX_ANCHOR_OFFSET): New macros.
+	(TARGET_USE_ANCHORS_FOR_SYMBOL_P): New macro.
+	(TARGET_INITIALIZER): Include them.
+	* rtl.c (rtl_check_failed_block_symbol): New function.
+	* rtl.h: Include vec.h.  Declare heap and gc rtx vectors.
+	(block_symbol, object_block): New structures.
+	(rtx_def): Add a block_symbol field to the union.
+	(BLOCK_SYMBOL_CHECK): New macro.
+	(rtl_check_failed_block_symbol): Declare.
+	(SYMBOL_FLAG_IN_BLOCK, SYMBOL_FLAG_ANCHOR): New SYMBOL_REF flags.
+	(SYMBOL_REF_IN_BLOCK_P, SYMBOL_REF_ANCHOR_P): New predicates.
+	(SYMBOL_FLAG_MACH_DEP_SHIFT): Bump by 2.
+	(SYMBOL_REF_BLOCK, SYMBOL_REF_BLOCK_OFFSET): New accessors.
+	* output.h (output_section_symbols): Declare.
+	(object_block): Name structure.
+	(place_section_symbol, get_section_anchor, default_asm_output_anchor)
+	(default_use_anchors_for_symbol_p): Declare.
+	* Makefile.in (RTL_BASE_H): Add vec.h.
+	(explow.o): Depend on output.h.
+	* config/rs6000/rs6000.c (TARGET_MIN_ANCHOR_OFFSET): Override default.
+	(TARGET_MAX_ANCHOR_OFFSET): Likewise.
+	(TARGET_USE_BLOCKS_FOR_CONSTANT_P): Likewise.
+	(rs6000_use_blocks_for_constant_p): New function.
+
+2006-02-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* doc/install.texi (hppa*-hp-hpux*): Update for 4.1.0.
+
+2006-02-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/25680
+	* tree-ssa-ccp.c (ccp_fold): Handle store CCP of REALPART_EXPR and
+	IMAGPART_EXPR.
+
+2006-02-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow.h (struct var_ann_d): Rename field is_alias_tag to
+	is_aliased.
+	Update all users.
+
+2006-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26334
+	* stmt.c (decl_overlaps_hard_reg_set_p): Use DECL_HARD_REGISTER
+	instead of DECL_REGISTER.
+
+2006-02-18  Olivier Hainque  <hainque@adacore.com>
+
+	PR ada/13408
+	* pa.h (WIDEST_HARDWARE_FP_SIZE): Define.
+
+2006-02-18  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR target/24837
+	* config.gcc: Define UCLIBC_DEFAULT to 0 or 1.
+	* opth-gen.awk: Handle Var and InverseMask together.
+	* config/linux.opt (muclibc, mglibc): Use Var(linux_uclibc).
+	* config/linux.h: Use #if not #ifdef for testing UCLIBC_DEFAULT.
+	(TARGET_C99_FUNCTIONS): Test OPTION_GLIBC not TARGET_GLIBC.
+	(CHOOSE_DYNAMIC_LINKER): Give an error for -mglibc and -muclibc
+	used together.
+	(UCLIBC_DYNAMIC_LINKER32, UCLIBC_DYNAMIC_LINKER64,
+	LINUX_DYNAMIC_LINKER32, LINUX_DYNAMIC_LINKER64): Define.
+	* config/alpha/linux-elf.h (GLIBC_DYNAMIC_LINKER,
+	UCLIBC_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER): Define.
+	(ELF_DYNAMIC_LINKER): Define to LINUX_DYNAMIC_LINKER.
+	* config/alpha/linux.h (TARGET_C99_FUNCTIONS): Define to
+	TARGET_GLIBC.
+	* config/cris/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(CRIS_LINK_SUBTARGET_SPEC): Pass a -dynamic-linker option.
+	* config/frv/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	(TARGET_C99_FUNCTIONS): Don't define.
+	* config/i386/linux.h (DYNAMIC_LINKER): Rename to
+	GLIBC_DYNAMIC_LINKER.
+	(SUBTARGET_EXTRA_SPECS): Use LINUX_DYNAMIC_LINKER.
+	* config/i386/linux64.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER32 and
+	LINUX_DYNAMIC_LINKER64.
+	* config/ia64/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* config/m32r/linux.h (GLIBC_DYNAMIC_LINKE): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* config/m68k/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* config/mips/linux64.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64, GLIBC_DYNAMIC_LINKERN32,
+	UCLIBC_DYNAMIC_LINKERN32, LINUX_DYNAMIC_LINKERN32): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKERN32, LINUX_DYNAMIC_LINKER64
+	and LINUX_DYNAMIC_LINKER32.
+	* config/mn10300/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* config/pa/pa-linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* config/rs6000/linux.h (TARGET_C99_FUNCTIONS): Define to
+	TARGET_GLIBC.
+	* config/rs6000/linux64.h (TARGET_C99_FUNCTIONS): Likewise.
+	(GLIBC_DYNAMIC_LINKER32, GLIBC_DYNAMIC_LINKER64,
+	UCLIBC_DYNAMIC_LINKER32, UCLIBC_DYNAMIC_LINKER64,
+	CHOOSE_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER32, LINUX_DYNAMIC_LINKER64): Define.
+	(LINK_OS_LINUX_SPEC32): Use LINUX_DYNAMIC_LINKER32.
+	(LINK_OS_LINUX_SPEC64): Use LINUX_DYNAMIC_LINKER64.
+	* config/rs6000/sysv4.h (GLIBC_DYNAMIC_LINKER,
+	UCLIBC_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER): Define.
+	(LINK_OS_LINUX_SPEC): Use LINUX_DYNAMIC_LINKE.
+	* config/s390/linux.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER32 and
+	LINUX_DYNAMIC_LINKER64.
+	* config/sh/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(SUBTARGET_LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* config/sparc/linux.h (GLIBC_DYNAMIC_LINKER,
+	UCLIBC_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	(TARGET_C99_FUNCTIONS): Define to TARGET_GLIBC.
+	* config/sparc/linux64.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64, UCLIBC_DYNAMIC_LINKER32,
+	UCLIBC_DYNAMIC_LINKER64, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER32, LINUX_DYNAMIC_LINKER64): Define.
+	(LINK_ARCH32_SPEC): Use LINUX_DYNAMIC_LINKER32.
+	(LINK_ARCH64_SPEC, LINK_SPEC): Use LINUX_DYNAMIC_LINKER64.
+	(TARGET_C99_FUNCTIONS): Define to TARGET_GLIBC.
+	* config/xtensa/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* doc/invoke.texi (-muclibc): Remove caveat about supported
+	targets.
+
+2006-02-17  Grigory Zagorodnev <grigory_zagorodnev@linux.intel.com>
+
+	* doc/cpp.texi (__TIMESTAMP__): Document.
+
+2006-02-17  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/25600
+	* fold-const.c (fold_binary): Fold (X >> C) != 0 into X < 0 when
+	C is one less than the width of X (and related transformations).
+	* simplify_rtx.c (simplify_unary_operation_1): Transform 
+	(neg (lt x 0)) into either (ashiftrt X C) or (lshiftrt X C)
+	depending on STORE_FLAG_VALUE, were C is one less then the
+	width of X.
+
+2006-02-17  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/26341
+	* tree-ssa-operands.c (add_virtual_operand): Remove assert 
+	about NAME_MEMORY_TAG's.
+
+2006-02-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/26255
+	* pa.md: Create separate HI and QI move patterns for 32-bit and 64-bit
+	with hardware float support, and software float support.  Add fcpy
+	alternative to hardware patterns.  Add alternatives to copy between
+	general and floating-point registers to the 32-bit pattern.
+	* pa.c (pa_secondary_reload): Don't abort if reload tries to find a
+	secondary reload to load a QI or HI mode constant into a floating
+	point register. 
+	* pa32-regs.h (VALID_FP_MODE_P): Allow QImode and HImode.
+	* pa64-regs.h (VALID_FP_MODE_P): Likewise.
+
+2006-02-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR target/26272
+	* config/rs6000/darwin.md (load_macho_picbase_si): Add
+	pc to the pattern.
+	(load_macho_picbase_di): Likewise.
+
 2006-02-16  Jeff Law  <law@redhat.com>
 
 	* tree-vrp.c (set_value_range_to_nonnegative): New function.
