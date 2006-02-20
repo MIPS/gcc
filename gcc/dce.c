@@ -34,9 +34,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "tree-pass.h"
 
-DEF_VEC_P(rtx);
-DEF_VEC_ALLOC_P(rtx,heap);
-
 DEF_VEC_I(int);
 DEF_VEC_ALLOC_I(int,heap);
 
