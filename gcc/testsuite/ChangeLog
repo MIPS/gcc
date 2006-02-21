@@ -1,3 +1,8 @@
+2006-02-21  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4439051
+	* g++.dg/eh/spbp.C: New.
+
 2006-01-21  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/25895
