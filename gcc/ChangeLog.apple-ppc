@@ -1,3 +1,9 @@
+2006-02-21  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4444941
+	* dwarf2out.c (gen_subprogram_die): Add DW_AT_MIPS_linkage_name
+	when it might not have been added previously.
+
 2006-02-16  Mike Stump  <mrs@apple.com>
 
 	Radar 4419735

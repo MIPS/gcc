@@ -5141,12 +5141,10 @@ add_AT_lineptr (dw_die_ref die, enum dwarf_attribute attr_kind,
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
   attr->dw_attr_val.val_class = dw_val_class_lineptr;
-/* APPLE LOCAL end dwarf 4383509 */
   attr->dw_attr_val.v.val_lbl_id = xstrdup (label);
   add_dwarf_attr (die, attr);
 }
 
-/* APPLE LOCAL begin dwarf 4383509 */
 /* Add a section offset attribute value to a DIE, an offset into the
    debug_macinfo section.  */
 
@@ -7147,10 +7145,8 @@ output_die (dw_die_ref die)
 	case dw_val_class_lineptr:
 	  dw2_asm_output_offset (DWARF_OFFSET_SIZE, AT_lbl (a),
 				 DEBUG_LINE_SECTION, "%s", name);
-/* APPLE LOCAL end dwarf 4383509 */
 	  break;
 
-/* APPLE LOCAL begin dwarf 4383509 */
 	case dw_val_class_macptr:
 	  dw2_asm_output_offset (DWARF_OFFSET_SIZE, AT_lbl (a),
 				 DEBUG_MACINFO_SECTION, "%s", name);
@@ -11548,6 +11544,13 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
     }
   else if (!DECL_EXTERNAL (decl))
     {
+      /* APPLE LOCAL begin dwarf 4444941 */
+      if (TREE_PUBLIC (decl) && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
+	  && DECL_ABSTRACT_ORIGIN (decl))
+	add_AT_string (subr_die, DW_AT_MIPS_linkage_name,
+		       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+      /* APPLE LOCAL end dwarf 4444941 */
+
       if (!old_die || !get_AT (old_die, DW_AT_inline))
 	equate_decl_number_to_die (decl, subr_die);
 
