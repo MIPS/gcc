@@ -84,16 +84,12 @@ m68851
 Target
 Generate code for a 68851
 
-m68881
-Target RejectNegative
-Generate code that uses 68881 floating-point instructions
-
 malign-int
 Target Report Mask(ALIGN_INT)
 Align variables on a 32-bit boundary
 
 mbitfield
-Target Report RejectNegative Mask(BITFIELD)
+Target Report RejectNegative Var(m68k_flag_bitfield) Init(-1)
 Use the bit-field instructions
 
 mc68000
@@ -113,7 +109,7 @@ Target Report Mask(ID_SHARED_LIBRARY)
 Enable ID based shared library
 
 mnobitfield
-Target RejectNegative InverseMask(BITFIELD)
+Target RejectNegative Var(m68k_flag_bitfield, 0)
 Do not use the bit-field instructions
 
 mnortd
@@ -145,11 +141,15 @@ Target Report RejectNegative Mask(SHORT)
 Consider type 'int' to be 16 bits wide
 
 mhard-float
-Target RejectNegative Mask(HARDFP)
+Target RejectNegative Var(m68k_flag_hardfloat) Init(-1)
 Generate code which uses hardware floating point instructions
 
+m68881
+Target RejectNegative Var(m68k_flag_hardfloat)
+Generate code that uses 68881 floating-point instructions
+
 msoft-float
-Target RejectNegative InverseMask(HARDFP)
+Target RejectNegative Var(m68k_flag_hardfloat, 0)
 Generate code with library calls for floating point
 
 mstrict-align
@@ -168,10 +168,10 @@ mtune=
 Target RejectNegative Joined
 Tune for the specified target CPU or architecture
 
-mfpu=
-Target RejectNegative Joined Var(target_fpu_name)
-Specify the name of the target floating-point implementation
-
 mhwdiv
-Target Mask(CF_HWDIV)
+Target Report Var(m68k_flag_hwdiv) Init(-1)
 Use hardware division instructions on ColdFire
+
+musp
+Target Report Var(m68k_flag_usp) Init(-1)
+Use user stack pointer on ColdFire

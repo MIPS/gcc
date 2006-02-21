@@ -61,6 +61,8 @@ Boston, MA 02110-1301, USA.  */
 /* Size (in bytes) of FPU registers.  */
 #define TARGET_FP_REG_SIZE	(TARGET_COLDFIRE ? 8 : 12)
 
+/* FIXME: Remove, use m68k_bitfield instead.  */
+#define TARGET_BITFIELD		(m68k_bitfield)
 
 #define OVERRIDE_OPTIONS   override_options()
 
@@ -1043,6 +1045,16 @@ enum processor_type
 #include "m68k-cores.def"
 #undef M68K_CORE
   unk_proc
+};
+
+/* Used by config.gcc to identify the compiled-in CPU.  */
+enum target_cpus
+{
+#define M68K_CORE(NAME,IDENT,MULTILIB,MICROARCH,ISA,FLAGS) \
+  TARGET_CPU_##IDENT,
+#include "m68k-cores.def"
+#undef M68K_CORE
+  TARGET_CPU_invalid
 };
 
 enum fpu_type

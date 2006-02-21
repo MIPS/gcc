@@ -24,7 +24,8 @@ MULTILIB_EXCEPTIONS = mcpu?68000/msoft-float mcpu?68000/mhard-float \
 		      mcpu?5207/msoft-float mcpu?5207/mhard-float \
 		      mcpu?5307/msoft-float mcpu?5307/mhard-float \
 		      mcpu?5407/msoft-float mcpu?5407/mhard-float \
-		      mcpu?547x/msoft-float mcpu?547x/mhard-float
+		      mcpu?547x/msoft-float mcpu?547x/mhard-float \
+		      msoft-float mhard-float
 
 LIBGCC = stmp-multilib
 INSTALL_LIBGCC = install-multilib

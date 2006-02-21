@@ -375,19 +375,6 @@ static struct m68k_cpu_select m68k_select[] =
   { NULL, "-mcpu=",  all_cores }
 };
 
-struct fpu_impl
-{
-  const char * name;
-  enum fpu_type fpu;
-};
-
-static struct fpu_impl fpu_select[] =
-{
-  { "none",     FPUTYPE_NONE },
-  { "68881",    FPUTYPE_68881 },
-  { "coldfire", FPUTYPE_COLDFIRE }
-};
-
 /* Defines representing indices into the above table.  */
 #define M68K_OPT_SET_TUNE 0
 #define M68K_OPT_SET_ARCH 1
@@ -477,18 +464,6 @@ m68k_handle_option (size_t code, const char *arg, int value)
       m68k_select[M68K_OPT_SET_CPU].string = "68332";
       return true;
 
-    case OPT_msoft_float:
-      target_fpu_name = "none";
-      return true;
-
-    case OPT_mhard_float:
-      target_fpu_name = "auto";
-      return true;
-
-    case OPT_m68881:
-      target_fpu_name = "68881";
-      return true;
-
     case OPT_mshared_library_id_:
       if (value > MAX_LIBRARY_ID)
 	error ("-mshared-library-id=%s is not between 0 and %d",
@@ -565,11 +540,28 @@ override_options (void)
 	}
     }
 
+  if (flags == 0)
+    {
+      unsigned int defaultcpu = TARGET_CPU_DEFAULT;
+
+      if (defaultcpu == TARGET_CPU_invalid)
+	{
+#ifdef SUBTARGET_CPU_DEFAULT
+          defaultcpu = SUBTARGET_CPU_DEFAULT;
+#endif
+	  if (defaultcpu == TARGET_CPU_invalid)
+	    defaultcpu = m68020;
+	}
+      flags = all_cores[defaultcpu].flags;
+      uarch = all_cores[defaultcpu].microarch;
+      target_cpu = all_cores[defaultcpu].core;
+    }
+
   /* Override tuning. This should never alter the ISA used.  */
   if (tuning != -1)
     uarch = all_tunings[tuning].microarch;
 
-  /* FIXME: This should fall back to the compiled-in default.  */
+  /* This should be set by now.  */
   gcc_assert (flags != 0);
 
   gcc_assert ((flags & FL_68881) == 0 || (flags & FL_CF_FPU) == 0);
@@ -597,39 +589,27 @@ override_options (void)
   m68k_arch_isaaplus = flags & FL_ISA_APLUS;
   m68k_arch_isab = flags & FL_ISA_B;
   m68k_arch_isac = flags & FL_ISA_C;
-  m68k_bitfield = flags & FL_BITFIELD;
-  m68k_cf_hwdiv = flags & FL_CF_HWDIV;
-  m68k_cf_usp = flags & FL_CF_USP;
+  m68k_bitfield = (m68k_flag_bitfield != -1) ? m68k_flag_bitfield
+                                             : flags & FL_BITFIELD;
+  m68k_cf_hwdiv = (m68k_flag_hwdiv != -1) ? m68k_flag_hwdiv
+                                          : flags & FL_CF_HWDIV;
+  m68k_cf_usp = (m68k_flag_usp != -1) ? m68k_flag_usp
+                                      : flags & FL_CF_USP;
 
-  /* Allow overriding of FPU selection.  */ 
-  if (target_fpu_name)
+  /* Allow overriding of FPU selection on command-line.  */ 
+  switch (m68k_flag_hardfloat)
     {
-      unsigned int i;
+    case 0:
+      m68k_fpu = FPUTYPE_NONE;
+      break;
 
-      for (i = 0; i < ARRAY_SIZE (fpu_select); i++)
-	{
-	  struct fpu_impl *fpu = fpu_select + i;
-	  if (strcmp (fpu->name, target_fpu_name) == 0)
-	    {
-	      m68k_fpu = fpu->fpu;
-	      break;
-	    }
-	}
-      /* Allow auto-selection of FPU unit (alias -mhard-float).  */
-      if (strcmp (target_fpu_name, "auto") == 0)
-	m68k_fpu = (flags & FL_COLDFIRE) ? FPUTYPE_COLDFIRE : FPUTYPE_68881;
-      else if (i == ARRAY_SIZE (fpu_select))
-	error ("bad value (%s) for -mfpu switch", target_fpu_name);
-    }
-  else
-    {
-      /* The compiled-in FPU setting: do something sensible.  */
-    }
+    case 1:
+      m68k_fpu = (flags & FL_COLDFIRE) ? FPUTYPE_COLDFIRE : FPUTYPE_68881;
+      break;
 
-  /* FIXME: Allow overriding of bitfield setting on command line.  */
-  target_flags &= ~MASK_BITFIELD;
-  if (m68k_bitfield)
-    target_flags |= MASK_BITFIELD;
+    default:
+      ;
+    }
 
   /* Sanity check to ensure that msep-data and mid-sahred-library are not
    * both specified together.  Doing so simply doesn't make sense.
@@ -645,9 +625,8 @@ override_options (void)
     flag_pic = 2;
 
   /* -fPIC uses 32-bit pc-relative displacements, which don't exist
-     until the 68020.
-    FIXME: PIC flag handling.  */
-  if (!m68k_arch_68020 && !TARGET_COLDFIRE && (flag_pic == 2))
+     until the 68020.  */
+  if ((flags & FL_NOPIC) && (flag_pic == 2))
     error ("-fPIC is not currently supported on the 68000 or 68010");
 
   /* ??? A historic way of turning on pic, or is this intended to

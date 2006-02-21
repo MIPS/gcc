@@ -1,3 +1,27 @@
+2005-02-21  Julian Brown  <julian@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (fpu_impl, fpu_select): Remove.
+	(m68k_handle_option): Remove msoft-float, mhard-float, m68881 handling
+	from here.
+	(override_options): Handle default CPU setting. Handle bitfield, hwdiv,
+	usp options. Use FL_NOPIC.
+	* gcc/config/m68k/m68k.h (TARGET_BITFIELD): Define to m68k_bitfield,
+	temporarily.
+	(target_cpus): New enumeration of CPU identifiers, TARGET_CPU_<core>.
+	* gcc/config/m68k/m68k-none.h: Remove old TARGET_CPU_DEFAULT handling.
+	(OPTION_DEFAULT_SPECS): Define macro for handling default CPU/float.
+	(EXTRA_SPECS): Remove CC1_CPU_DEFAULT_SPEC.
+	* gcc/config/m68k/m68k.opt (mbitfield): Use m68k_flag_bitfield.
+	(mnobitfield): Likewise.
+	(mhwdiv, musp): Fix options.
+	(m68881, msoft-float, mhard-float): Use m68k_flag_hardfloat.
+	(mfpu): Remove.
+	* gcc/config/m68k/t-m68kelf (MULTILIB_EXCEPTIONS): Add msoft-float,
+	mhard-float.
+	* gcc/config.gcc (m68k*-linux*): Rename to...
+	(m68k*-*): Implement --with-cpu, --with-float. Remove old
+	compile-time CPU selection options.
+
 2006-02-16  Julian Brown  <julian@codesourcery.com>
 
 	* gcc/config.gcc (m68k-*-aout*): Use t-mlib-matches file.
