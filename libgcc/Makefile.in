@@ -59,6 +59,7 @@ CC = @CC@
 CFLAGS = @CFLAGS@
 RANLIB = @RANLIB@
 MAKEINFO = @MAKEINFO@
+LN_S = @LN_S@
 PERL = @PERL@
 
 PWD_COMMAND = $${PWDCMD-pwd}
@@ -86,7 +87,7 @@ FLAGS_TO_PASS = \
 	"tooldir=$(tooldir)"
 
 # Dependencies for "all" are set later in the file.
-all:
+all: all-multi
 	# Now that we have built all the objects, we need to copy
 	# them back to the GCC directory.  Too many things (other
 	# in-tree libraries, and DejaGNU) know about the layout
@@ -94,6 +95,8 @@ all:
 	$(MAKE) install DESTDIR=$(gcc_objdir) \
 	  slibdir= libsubdir= MULTIOSDIR=$(MULTIDIR)
 
+.PHONY: all-multi
+all-multi:
 	# If this is the top-level multilib, build all the other
 	# multilibs.
 	@: $(MAKE) ; exec $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=all
@@ -140,7 +143,7 @@ AR_CREATE_FOR_TARGET = $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) rc
 AR_EXTRACT_FOR_TARGET = $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) x
 AWK = @AWK@
 GCC_FOR_TARGET = $(CC)
-LIPO = lipo
+LIPO = @LIPO@
 LIPO_FOR_TARGET = $(LIPO)
 MACHMODE_H = machmode.h mode-classes.def insn-modes.h
 NM = @NM@
@@ -201,6 +204,10 @@ gcc_compile = $(gcc_compile_bare) -o $@ -MT $@ -MD -MP -MF $(basename $@).dep
 gcc_s_compile = $(gcc_compile) -DSHARED
 
 objects = $(filter %$(objext),$^)
+
+# Collect any host-specific information from Makefile fragments.
+hmake_file = @hmake_file@
+include $(srcdir)/empty.mk $(hmake_file)
 
 # Only handle shared libraries if both:
 #   - the user requested them
@@ -271,22 +278,18 @@ lib2funcs = _muldi3 _negdi2 _lshrdi3 _ashldi3 _ashrdi3 _cmpdi2 _ucmpdi2	   \
 	    _floatdidf _floatdisf _fixunsdfsi _fixunssfsi		   \
 	    _fixunsdfdi _fixdfdi _fixunssfdi _fixsfdi _fixxfdi _fixunsxfdi \
 	    _floatdixf _fixunsxfsi _fixtfdi _fixunstfdi _floatditf	   \
-	    __clear_cache enable_execute_stack _trampoline __main _absvsi2 \
-	    __absvdi2 _addvsi3 addvdi3 _subvsi3 _subvdi3 _mulvsi3 _mulvdi3 \
-	    __negvsi2 _negvdi2 _ctors ffssi2 _ffsdi2 _clz _clzsi2 _clzdi2  \
-	    __ctzsi2 _ctzdi2 _popcount_tab popcountsi2 _popcountdi2	   \
-	    __paritysi2 _paritydi2 _powisf2 _powidf2 powixf2 _powitf2	   \
-	    __mulsc3 _muldc3 _mulxc3 _multc3 _divsc3 _divdc3 divxc3	   \
+	    _clear_cache _enable_execute_stack _trampoline __main _absvsi2 \
+	    _absvdi2 _addvsi3 _addvdi3 _subvsi3 _subvdi3 _mulvsi3 _mulvdi3 \
+	    _negvsi2 _negvdi2 _ctors _ffssi2 _ffsdi2 _clz _clzsi2 _clzdi2  \
+	    _ctzsi2 _ctzdi2 _popcount_tab _popcountsi2 _popcountdi2	   \
+	    _paritysi2 _paritydi2 _powisf2 _powidf2 _powixf2 _powitf2	   \
+	    _mulsc3 _muldc3 _mulxc3 _multc3 _divsc3 _divdc3 _divxc3	   \
 	    _divtc3 __floatundidf _floatundisf _floatundixf _floatunditf
 
 # These might cause a divide overflow trap and so are compiled with
 # unwinder info.
 LIB2_DIVMOD_FUNCS = _divdi3 _moddi3 _udivdi3 _umoddi3 _udiv_w_sdiv _udivmoddi4
 
-
-# Collect any host-specific information from Makefile fragments.
-hmake_file = @hmake_file@
-include $(srcdir)/empty.mk $(hmake_file)
 
 all: $(HOST_EXTRA)
 install: $(HOST_EXTRA_INSTALL)

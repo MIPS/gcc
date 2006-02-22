@@ -76,8 +76,11 @@ ACX_NONCANONICAL_HOST
 dnl These must be called before AM_PROG_LIBTOOL, because it may want
 dnl to call AC_CHECK_PROG.
 AC_CHECK_TOOL(AR, ar)
+AC_CHECK_TOOL(LIPO, lipo, :)
 AC_CHECK_TOOL(NM, nm)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
+AC_CHECK_TOOL(STRIP, strip, :)
+AC_PROG_LN_S
 
 GCC_NO_EXECUTABLES
 AC_PROG_CC
