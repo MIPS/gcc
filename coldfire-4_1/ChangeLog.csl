@@ -1,3 +1,9 @@
+2006-02-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (m68k_cpu_cpp_builtins): Move to ...
+	* gcc/config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): ... here.
+	* gcc/config/m68k/m68k-protos.h (m68k_cpu_cpp_builtins): Remove.
+
 2005-02-21  Julian Brown  <julian@codesourcery.com>
 
 	* gcc/config/m68k/m68k.c (fpu_impl, fpu_select): Remove.
