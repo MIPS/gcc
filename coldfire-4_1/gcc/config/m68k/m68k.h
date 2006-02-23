@@ -1242,6 +1242,3 @@ extern int m68k_bitfield;
 
 /* Nonzero if hardware divide is supported.  */
 extern int m68k_cf_hwdiv;
-
-/* Nonzero if user-stack pointer is available.  */
-extern int m68k_cf_usp;

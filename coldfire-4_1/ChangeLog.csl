@@ -1,5 +1,16 @@
 2006-02-23  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gcc/doc/invoke.text (M680x0 Options): Update.
+	* gcc/config/m68k/m68k.opt (mdiv): Rename from mhwdiv, to match
+	assembler.
+	(musp): Remove.
+	(mbitfield, mrtd, mshort): Allow negated.
+	* gcc/config/m68k/m68k.c (m68k_cf_usp): Remove.
+	(all_architectures): isaa defaults to HWDIV and 5206e. isaa+
+	defaults to HWDIV.
+	(override_options): Remove m68k_cf_usp setting.
+	* gcc/config/m68k/m68k.h (m68k_cf_usp): Remove.
+
 	* gcc/config/m68k/m68k-cores.def: Add 5202, 5204, 5250.
 
 	* gcc/config/m68k/m68k.h (TARGET_COLDFIRE): Remove, use

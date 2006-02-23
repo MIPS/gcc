@@ -240,9 +240,6 @@ int m68k_bitfield = 0;
 /* Nonzero if hardware divide is supported.  */
 int m68k_cf_hwdiv = 0;
 
-/* Nonzero if user-stack pointer is available.  */
-int m68k_cf_usp = 0;
-
 /* Bit values used by m68k-cores.def to identify processor capabilities.  */
 #define FL_NOPIC     (1 << 0)    /* PIC is *not* supported.  */
 #define FL_BITFIELD  (1 << 1)    /* Support bitfield instructions.  */
@@ -327,9 +324,10 @@ static const struct processors all_architectures[] =
     					       | FL_ISA_68020 | FL_BITFIELD
                                                | FL_68881 },
   { "cpu32",    cpu32,    ucpu32,   isa_20,    FL_ISA_68020 },
-  { "isaa",     mcf5206,  ucfv2,    isa_a,     FL_COLDFIRE | FL_ISA_A },
+  { "isaa",     mcf5206e, ucfv2,    isa_a,     FL_COLDFIRE | FL_ISA_A
+    					       | FL_CF_HWDIV},
   { "isaaplus", mcf5271,  ucfv2,    isa_aplus, FL_COLDFIRE | FL_ISA_A
-  					       | FL_ISA_APLUS },
+  					       | FL_ISA_APLUS | FL_CF_HWDIV},
   { "isab",     mcf5407,  ucfv4,    isa_b,     FL_COLDFIRE | FL_ISA_B
                                                | FL_CF_HWDIV },
   { "isac",     unk_proc, ucfv4,    isa_c,     FL_COLDFIRE | FL_ISA_C
@@ -593,8 +591,6 @@ override_options (void)
                                              : flags & FL_BITFIELD;
   m68k_cf_hwdiv = (m68k_flag_hwdiv != -1) ? m68k_flag_hwdiv
                                           : flags & FL_CF_HWDIV;
-  m68k_cf_usp = (m68k_flag_usp != -1) ? m68k_flag_usp
-                                      : flags & FL_CF_USP;
 
   /* Allow overriding of FPU selection on command-line.  */ 
   switch (m68k_flag_hardfloat)
