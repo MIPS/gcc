@@ -53,6 +53,8 @@ M68K_CORE("cpu32", cpu32,    "cpu32", cpu32,    isa_20,    0)
 /* Coldfire CFV2 processors.  */
 /* FIXME: This information was extracted from several different processor
    manuals, and may be inaccurate.  */
+M68K_CORE("5202",  mcf5202,  "5206",  cfv2,     isa_a,     0)
+M68K_CORE("5204",  mcf5204,  "5206",  cfv2,     isa_a,     0)
 M68K_CORE("5206",  mcf5206,  "5206",  cfv2,     isa_a,     0)
 M68K_CORE("5206e", mcf5206e, "5206e", cfv2,     isa_a,     FL_CF_HWDIV | FL_CF_MAC)
 M68K_CORE("5207",  mcf5207,  "5207",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
@@ -64,6 +66,7 @@ M68K_CORE("5214",  mcf5214,  "5207",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_E
 M68K_CORE("5216",  mcf5216,  "5207",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
 M68K_CORE("523x",  mcf523x,  "5207",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
 M68K_CORE("5249",  mcf5249,  "5206e", cfv2,     isa_a,     FL_CF_HWDIV | FL_CF_EMAC)
+M68K_CORE("5250",  mcf5250,  "5206e", cfv2,     isa_a,     FL_CF_HWDIV | FL_CF_EMAC)
 M68K_CORE("5270",  mcf5270,  "5207",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
 M68K_CORE("5271",  mcf5271,  "5207",  cfv2,     isa_aplus, FL_CF_HWDIV)
 M68K_CORE("5272",  mcf5272,  "5206e", cfv2,     isa_a,     FL_CF_HWDIV | FL_CF_MAC)

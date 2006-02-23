@@ -1,5 +1,7 @@
 2006-02-23  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gcc/config/m68k/m68k-cores.def: Add 5202, 5204, 5250.
+
 	* gcc/config/m68k/m68k.h (TARGET_COLDFIRE): Remove, use
 	m68k_arch_coldfire directly.  Update all users.
 	* gcc/config/m68k/m68k.c: Update all users.
