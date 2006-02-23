@@ -361,20 +361,23 @@ endif
 # Makefile.
 # FIXME: Soon we will be able to move this logic into this directory.
 
+ifneq ($(fpbit-in-libgcc),yes)
+FPBIT:=$(if $(FPBIT),$(gcc_objdir)/$(FPBIT),)
+DPBIT:=$(if $(DPBIT),$(gcc_objdir)/$(DPBIT),)
+TPBIT:=$(if $(TPBIT),$(gcc_objdir)/$(TPBIT),)
+endif
+
 # Build FPBIT.
 ifneq ($(FPBIT),)
 fpbit-o = $(patsubst %,%$(objext),$(FPBIT_FUNCS))
-$(fpbit-o): %$(objext): $(gcc_objdir)/$(FPBIT)
-	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* \
-	  -c $(gcc_objdir)/$(FPBIT) \
-	  $(vis_hide)
+$(fpbit-o): %$(objext): $(FPBIT)
+	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* -c $(FPBIT) $(vis_hide)
 libgcc-objects += $(fpbit-o)
 
 ifeq ($(enable_shared),yes)
 fpbit-s-o = $(patsubst %,%_s$(objext),$(FPBIT_FUNCS))
-$(fpbit-s-o): %_s$(objext): $(gcc_objdir)/$(FPBIT)
-	$(gcc_s_compile) -DFINE_GRAINED_LIBRARIES -DL$* \
-	  -c $(gcc_objdir)/$(FPBIT)
+$(fpbit-s-o): %_s$(objext): $(FPBIT)
+	$(gcc_s_compile) -DFINE_GRAINED_LIBRARIES -DL$* -c $(FPBIT)
 libgcc-s-objects += $(fpbit-s-o)
 endif
 endif
@@ -382,17 +385,14 @@ endif
 # Build DPBIT.
 ifneq ($(DPBIT),)
 dpbit-o = $(patsubst %,%$(objext),$(DPBIT_FUNCS))
-$(dpbit-o): %$(objext): $(gcc_objdir)/$(DPBIT)
-	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* \
-	  -c $(gcc_objdir)/$(DPBIT) \
-	  $(vis_hide)
+$(dpbit-o): %$(objext): $(DPBIT)
+	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* -c $(DPBIT) $(vis_hide)
 libgcc-objects += $(dpbit-o)
 
 ifeq ($(enable_shared),yes)
 dpbit-s-o = $(patsubst %,%_s$(objext),$(DPBIT_FUNCS))
-$(dpbit-s-o): %_s$(objext): $(gcc_objdir)/$(DPBIT)
-	$(gcc_s_compile) -DFINE_GRAINED_LIBRARIES -DL$* \
-	  -c $(gcc_objdir)/$(DPBIT)
+$(dpbit-s-o): %_s$(objext): $(DPBIT)
+	$(gcc_s_compile) -DFINE_GRAINED_LIBRARIES -DL$* -c $(DPBIT)
 libgcc-s-objects += $(dpbit-s-o)
 endif
 endif
@@ -400,17 +400,14 @@ endif
 # Build TPBIT.
 ifneq ($(TPBIT),)
 tpbit-o = $(patsubst %,%$(objext),$(TPBIT_FUNCS))
-$(tpbit-o): %$(objext): $(gcc_objdir)/$(TPBIT)
-	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* \
-	  -c $(gcc_objdir)/$(TPBIT) \
-	  $(vis_hide)
+$(tpbit-o): %$(objext): $(TPBIT)
+	$(gcc_compile) -DFINE_GRAINED_LIBRARIES -DL$* -c $(TPBIT) $(vis_hide)
 libgcc-objects += $(tpbit-o)
 
 ifeq ($(enable_shared),yes)
 tpbit-s-o = $(patsubst %,%_s$(objext),$(TPBIT_FUNCS))
-$(tpbit-s-o): %_s$(objext): $(gcc_objdir)/$(TPBIT)
-	$(gcc_s_compile) -DFINE_GRAINED_LIBRARIES -DL$* \
-	  -c $(gcc_objdir)/$(TPBIT)
+$(tpbit-s-o): %_s$(objext): $(TPBIT)
+	$(gcc_s_compile) -DFINE_GRAINED_LIBRARIES -DL$* -c $(TPBIT)
 libgcc-s-objects += $(tpbit-s-o)
 endif
 endif

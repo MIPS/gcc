@@ -1,5 +1,9 @@
 2006-02-22  Paolo Bonzini  <bonzini@gnu.org>
 
+	* Makefile.in: Allow fpbit to be placed in the libgcc object directory.
+
+2006-02-22  Paolo Bonzini  <bonzini@gnu.org>
+
 	* configure.ac (LN_S, LIPO, STRIP): Find these.
 	* configure: Regenerate.
 	* Makefile.in (LN_S, LIPO): New substitutions from configure.
