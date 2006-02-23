@@ -1,3 +1,14 @@
+2006-02-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (TARGET_COLDFIRE): Remove, use
+	m68k_arch_coldfire directly.  Update all users.
+	* gcc/config/m68k/m68k.c: Update all users.
+	* gcc/config/m68k/m58k.md: Update all users.
+	* gcc/config/m68k/linux.h (ASM_RETURN_CASE_JUMP): Update.
+	* gcc/config/m68k/coff.h (ASM_RETURN_CASE_JUMP): Update.
+	* gcc/config/m68k/m68kelf.h (ASM_RETURN_CASE_JUMP): Update.
+	* gcc/config/m68k/netbsd-elf.h (ASM_RETURN_CASE_JUMP): Update.
+
 2006-02-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc/config/m68k/m68k.c (m68k_cpu_cpp_builtins): Move to ...

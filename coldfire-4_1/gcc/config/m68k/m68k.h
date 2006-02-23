@@ -180,9 +180,6 @@ Boston, MA 02110-1301, USA.  */
 /* Set the default.  */
 #define INT_OP_GROUP INT_OP_DOT_WORD
 
-/* Is the target a ColdFire?  */
-#define TARGET_COLDFIRE		m68k_arch_coldfire
-
 /* FIXME: Use non-TARGET name.  */
 #define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
 
@@ -191,7 +188,7 @@ Boston, MA 02110-1301, USA.  */
 
 #define TARGET_HARD_FLOAT	(m68k_fpu != FPUTYPE_NONE)
 /* Size (in bytes) of FPU registers.  */
-#define TARGET_FP_REG_SIZE	(TARGET_COLDFIRE ? 8 : 12)
+#define TARGET_FP_REG_SIZE	(m68k_arch_coldfire ? 8 : 12)
 
 /* FIXME: Remove, use m68k_bitfield instead.  */
 #define TARGET_BITFIELD		(m68k_bitfield)
@@ -205,7 +202,7 @@ Boston, MA 02110-1301, USA.  */
 
 /* For Coldfire, sizeof (long double) is 64 bits.  */
 
-#define LONG_DOUBLE_TYPE_SIZE (TARGET_COLDFIRE ? 64 : 80)
+#define LONG_DOUBLE_TYPE_SIZE (m68k_arch_coldfire ? 64 : 80)
 
 /* We need to know the size of long double at compile-time in libgcc2.  */
 
@@ -539,7 +536,7 @@ extern enum reg_class regno_reg_class[];
 
 /* On the 680x0, sp@- in a byte insn really pushes a word.
    On the ColdFire, sp@- in a byte insn pushes just a byte.  */
-#define PUSH_ROUNDING(BYTES) (TARGET_COLDFIRE ? BYTES : ((BYTES) + 1) & ~1)
+#define PUSH_ROUNDING(BYTES) (m68k_arch_coldfire ? BYTES : ((BYTES) + 1) & ~1)
 
 #define FIRST_PARM_OFFSET(FNDECL) 8
 
@@ -834,7 +831,7 @@ __transfer_from_trampoline ()					\
 /* ColdFire/5200 does not allow HImode index registers.  */
 #define LEGITIMATE_INDEX_REG_P(X)   \
   ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_P (X))	\
-   || (! TARGET_COLDFIRE					\
+   || (! m68k_arch_coldfire					\
        && GET_CODE (X) == SIGN_EXTEND			\
        && GET_CODE (XEXP (X, 0)) == REG			\
        && GET_MODE (XEXP (X, 0)) == HImode		\
@@ -845,13 +842,13 @@ __transfer_from_trampoline ()					\
 
 #define LEGITIMATE_INDEX_P(X)   \
    (LEGITIMATE_INDEX_REG_P (X)				\
-    || ((m68k_arch_68020 || TARGET_COLDFIRE) && GET_CODE (X) == MULT \
+    || ((m68k_arch_68020 || m68k_arch_coldfire) && GET_CODE (X) == MULT \
 	&& LEGITIMATE_INDEX_REG_P (XEXP (X, 0))		\
 	&& GET_CODE (XEXP (X, 1)) == CONST_INT		\
 	&& (INTVAL (XEXP (X, 1)) == 2			\
 	    || INTVAL (XEXP (X, 1)) == 4		\
 	    || (INTVAL (XEXP (X, 1)) == 8		\
-		&& (TARGET_COLDFIRE_FPU || !TARGET_COLDFIRE)))))
+		&& (TARGET_COLDFIRE_FPU || !m68k_arch_coldfire)))))
 
 /* Coldfire FPU only accepts addressing modes 2-5 */
 #define GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\

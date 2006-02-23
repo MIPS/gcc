@@ -832,7 +832,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 
   /* On ColdFire add register save into initial stack frame setup, if possible.  */
   fsize_with_regs = current_frame.size;
-  if (TARGET_COLDFIRE)
+  if (m68k_arch_coldfire)
     {
       if (current_frame.reg_no > 2)
 	fsize_with_regs += current_frame.reg_no * 4;
@@ -868,7 +868,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	{
 	  if (fsize_with_regs <= 8)
 	    {
-	      if (!TARGET_COLDFIRE)
+	      if (!m68k_arch_coldfire)
 		asm_fprintf (stream, "\tsubq" ASM_DOT "w %I%wd,%Rsp\n",
 		             fsize_with_regs);
 	      else
@@ -1000,7 +1000,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
     }
   else if (current_frame.reg_rev_mask)
     {
-      if (TARGET_COLDFIRE)
+      if (m68k_arch_coldfire)
 	/* The ColdFire does not support the predecrement form of the
 	   MOVEM instruction, so we must adjust the stack pointer and
 	   then use the plain address register indirect mode.
@@ -1121,7 +1121,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
      after restoring registers. When the frame pointer isn't used,
      we can merge movem adjustment into frame unlinking
      made immediately after it.  */
-  if (TARGET_COLDFIRE && restore_from_sp)
+  if (m68k_arch_coldfire && restore_from_sp)
     {
       if (current_frame.reg_no > 2)
 	fsize_with_regs += current_frame.reg_no * 4;
@@ -1135,7 +1135,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
     {
       /* Because the ColdFire doesn't support moveml with
          complex address modes we make an extra correction here.  */
-      if (TARGET_COLDFIRE)
+      if (m68k_arch_coldfire)
         fsize += current_frame.offset;
 
       asm_fprintf (stream, "\t%Omove" ASM_DOT "l %I%wd,%Ra1\n", -fsize);
@@ -1191,7 +1191,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
   else if (current_frame.reg_mask)
     {
       /* The ColdFire requires special handling due to its limited moveml insn.  */
-      if (TARGET_COLDFIRE)
+      if (m68k_arch_coldfire)
         {
           if (big)
             {
@@ -1221,7 +1221,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 			     current_frame.reg_mask);
 	    }
         }
-      else /* !TARGET_COLDFIRE */
+      else /* !m68k_arch_coldfire */
 	{
 	  if (big)
 	    {
@@ -1262,7 +1262,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
     {
       if (big)
 	{
-	  if (TARGET_COLDFIRE)
+	  if (m68k_arch_coldfire)
 	    {
 	      if (current_frame.reg_no)
 		asm_fprintf (stream, MOTOROLA ?
@@ -1289,7 +1289,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	}
       else if (restore_from_sp)
 	{
-	  if (TARGET_COLDFIRE)
+	  if (m68k_arch_coldfire)
 	    {
 	      int offset;
 
@@ -1316,7 +1316,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	}
       else
 	{
-	  if (MOTOROLA && !TARGET_COLDFIRE)
+	  if (MOTOROLA && !m68k_arch_coldfire)
 	    asm_fprintf (stream, "\tfmovm -%wd(%s),%I0x%x\n",
 			 current_frame.foffset + fsize,
 			 M68K_REGNAME(FRAME_POINTER_REGNUM),
@@ -1334,7 +1334,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
     {
       if (fsize_with_regs <= 8)
 	{
-	  if (!TARGET_COLDFIRE)
+	  if (!m68k_arch_coldfire)
 	    asm_fprintf (stream, "\taddq" ASM_DOT "w %I%wd,%Rsp\n",
 			 fsize_with_regs);
 	  else
@@ -1583,7 +1583,7 @@ output_scc_di (rtx op, rtx operand1, rtx operand2, rtx dest)
     }
   else
     {
-      if (m68k_arch_68020 || TARGET_COLDFIRE || ! ADDRESS_REG_P (loperands[0]))
+      if (m68k_arch_68020 || m68k_arch_coldfire || ! ADDRESS_REG_P (loperands[0]))
 	output_asm_insn ("tst%.l %0", loperands);
       else
 	{
@@ -1592,7 +1592,7 @@ output_scc_di (rtx op, rtx operand1, rtx operand2, rtx dest)
 
       output_asm_insn (MOTOROLA ? "jbne %l4" : "jne %l4", loperands);
 
-      if (m68k_arch_68020 || TARGET_COLDFIRE || ! ADDRESS_REG_P (loperands[1]))
+      if (m68k_arch_68020 || m68k_arch_coldfire || ! ADDRESS_REG_P (loperands[1]))
 	output_asm_insn ("tst%.l %1", loperands);
       else
 	output_asm_insn ("cmp%.w #0,%1", loperands);
@@ -1839,7 +1839,7 @@ const_method (rtx constant)
 
   /* The ColdFire doesn't have byte or word operations.  */
   /* FIXME: This may not be useful for the m68060 either.  */
-  if (!TARGET_COLDFIRE) 
+  if (!m68k_arch_coldfire) 
     {
       /* if -256 < N < 256 but N is not in range for a moveq
 	 N^ff will be, so use moveq #N^ff, dreg; not.b dreg.  */
@@ -1930,10 +1930,10 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
        sometimes move insns are needed.  */
     /* div?.w is relatively cheaper on 68000 counted in COSTS_N_INSNS terms.  */
 #define MULL_COST (TUNE_68060 ? 2 : TUNE_68040 ? 5 : \
-  (TARGET_COLDFIRE && !TUNE_CFV2) ? 3 :	TARGET_COLDFIRE ? 10 : 13)
+  (m68k_arch_coldfire && !TUNE_CFV2) ? 3 :	m68k_arch_coldfire ? 10 : 13)
 
 #define MULW_COST (TUNE_68060 ? 2 :TUNE_68040 ? 3 : \
-  TUNE_68020 ? 8 : (TARGET_COLDFIRE && !TUNE_CFV2) ? 2 : 5)
+  TUNE_68020 ? 8 : (m68k_arch_coldfire && !TUNE_CFV2) ? 2 : 5)
 
 #define DIVW_COST (TUNE_68020 ? 27 : m68k_cf_hwdiv ? 11 : 12)
 
@@ -1949,7 +1949,7 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      || INTVAL (XEXP (XEXP (x, 0), 1)) == 8))
 	{
 	    /* lea an@(dx:l:i),am */
-	    *total = COSTS_N_INSNS (TARGET_COLDFIRE ? 2 : 3);
+	    *total = COSTS_N_INSNS (m68k_arch_coldfire ? 2 : 3);
 	    return true;
 	}
       return false;
@@ -1962,7 +1962,7 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
           *total = COSTS_N_INSNS(1);
 	  return true;
 	}
-      if (!TUNE_68020 && ! TARGET_COLDFIRE)
+      if (!TUNE_68020 && ! m68k_arch_coldfire)
         {
 	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	    {
@@ -1987,7 +1987,7 @@ m68k_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  && !(INTVAL (XEXP (x, 1)) > 0
 	       && INTVAL (XEXP (x, 1)) <= 8))
 	{
-	  *total = COSTS_N_INSNS (TARGET_COLDFIRE ? 1 : 3);	 /* lsr #i,dn */
+	  *total = COSTS_N_INSNS (m68k_arch_coldfire ? 1 : 3);	 /* lsr #i,dn */
 	  return true;
 	}
       return false;
@@ -2084,7 +2084,7 @@ output_move_simode_const (rtx *operands)
 	  || GET_CODE (operands[0]) == MEM)
       /* clr insns on 68000 read before writing.
 	 This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((m68k_arch_68020 || TARGET_COLDFIRE)
+      && ((m68k_arch_68020 || m68k_arch_coldfire)
 	  || !(GET_CODE (operands[0]) == MEM
 	       && MEM_VOLATILE_P (operands[0]))))
     return "clr%.l %0";
@@ -2143,7 +2143,7 @@ output_move_himode (rtx *operands)
 	      || GET_CODE (operands[0]) == MEM)
 	  /* clr insns on 68000 read before writing.
 	     This isn't so on the 68010, but we have no TARGET_68010.  */
-	  && ((m68k_arch_68020 || TARGET_COLDFIRE)
+	  && ((m68k_arch_68020 || m68k_arch_coldfire)
 	      || !(GET_CODE (operands[0]) == MEM
 		   && MEM_VOLATILE_P (operands[0]))))
 	return "clr%.w %0";
@@ -2195,17 +2195,17 @@ output_move_qimode (rtx *operands)
 		&& GET_CODE (XEXP (operands[0], 0)) == PRE_DEC
 		&& XEXP (XEXP (operands[0], 0), 0) == stack_pointer_rtx
 		&& ! ADDRESS_REG_P (operands[1])
-		&& ! TARGET_COLDFIRE));
+		&& ! m68k_arch_coldfire));
 
   /* clr and st insns on 68000 read before writing.
      This isn't so on the 68010, but we have no TARGET_68010.  */
   if (!ADDRESS_REG_P (operands[0])
-      && ((m68k_arch_68020 || TARGET_COLDFIRE)
+      && ((m68k_arch_68020 || m68k_arch_coldfire)
 	  || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     {
       if (operands[1] == const0_rtx)
 	return "clr%.b %0";
-      if ((!TARGET_COLDFIRE || DATA_REG_P (operands[0]))
+      if ((!m68k_arch_coldfire || DATA_REG_P (operands[0]))
 	  && GET_CODE (operands[1]) == CONST_INT
 	  && (INTVAL (operands[1]) & 255) == 255)
 	{
@@ -2237,7 +2237,7 @@ output_move_stricthi (rtx *operands)
   if (operands[1] == const0_rtx
       /* clr insns on 68000 read before writing.
 	 This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((m68k_arch_68020 || TARGET_COLDFIRE)
+      && ((m68k_arch_68020 || m68k_arch_coldfire)
 	  || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     return "clr%.w %0";
   return "move%.w %1,%0";
@@ -2249,7 +2249,7 @@ output_move_strictqi (rtx *operands)
   if (operands[1] == const0_rtx
       /* clr insns on 68000 read before writing.
          This isn't so on the 68010, but we have no TARGET_68010.  */
-      && ((m68k_arch_68020 || TARGET_COLDFIRE)
+      && ((m68k_arch_68020 || m68k_arch_coldfire)
           || !(GET_CODE (operands[0]) == MEM && MEM_VOLATILE_P (operands[0]))))
     return "clr%.b %0";
   return "move%.b %1,%0";
@@ -3686,7 +3686,7 @@ output_andsi3 (rtx *operands)
       && (INTVAL (operands[2]) | 0xffff) == -1
       && (DATA_REG_P (operands[0])
 	  || offsettable_memref_p (operands[0]))
-      && !TARGET_COLDFIRE)
+      && !m68k_arch_coldfire)
     {
       if (GET_CODE (operands[0]) != REG)
         operands[0] = adjust_address (operands[0], HImode, 2);
@@ -3726,7 +3726,7 @@ output_iorsi3 (rtx *operands)
       && INTVAL (operands[2]) >> 16 == 0
       && (DATA_REG_P (operands[0])
 	  || offsettable_memref_p (operands[0]))
-      && !TARGET_COLDFIRE)
+      && !m68k_arch_coldfire)
     {
       if (GET_CODE (operands[0]) != REG)
         operands[0] = adjust_address (operands[0], HImode, 2);
@@ -3761,7 +3761,7 @@ output_xorsi3 (rtx *operands)
   if (GET_CODE (operands[2]) == CONST_INT
       && INTVAL (operands[2]) >> 16 == 0
       && (offsettable_memref_p (operands[0]) || DATA_REG_P (operands[0]))
-      && !TARGET_COLDFIRE)
+      && !m68k_arch_coldfire)
     {
       if (! DATA_REG_P (operands[0]))
 	operands[0] = adjust_address (operands[0], HImode, 2);
@@ -3828,7 +3828,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 			 "\tsubq.l %I%d,4(%Rsp)\n" :
 			 "\tsubql %I%d,%Rsp@(4)\n",
 		 (int) -delta);
-  else if (TARGET_COLDFIRE)
+  else if (m68k_arch_coldfire)
     {
       /* ColdFire can't add/sub a constant to memory unless it is in
 	 the range of addq/subq.  So load the value into %d0 and
