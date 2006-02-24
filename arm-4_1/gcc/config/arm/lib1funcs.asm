@@ -66,29 +66,28 @@ Boston, MA 02110-1301, USA.  */
 
 /* Function end macros.  Variants for interworking.  */
 
-@ This selects the minimum architecture level required.
-#define __ARM_ARCH__ 3
-
 #if defined(__ARM_ARCH_3M__) || defined(__ARM_ARCH_4__) \
 	|| defined(__ARM_ARCH_4T__)
 /* We use __ARM_ARCH__ set to 4 here, but in reality it's any processor with
    long multiply instructions.  That includes v3M.  */
-# undef __ARM_ARCH__
 # define __ARM_ARCH__ 4
 #endif
 	
 #if defined(__ARM_ARCH_5__) || defined(__ARM_ARCH_5T__) \
 	|| defined(__ARM_ARCH_5E__) || defined(__ARM_ARCH_5TE__) \
 	|| defined(__ARM_ARCH_5TEJ__)
-# undef __ARM_ARCH__
 # define __ARM_ARCH__ 5
 #endif
 
 #if defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) \
 	|| defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) \
 	|| defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__)
-# undef __ARM_ARCH__
 # define __ARM_ARCH__ 6
+#endif
+
+#if defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) \
+	|| defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__)
+# define __ARM_ARCH__ 7
 #endif
 
 #ifndef __ARM_ARCH__

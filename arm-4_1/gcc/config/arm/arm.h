@@ -204,6 +204,13 @@ extern GTY(()) rtx aof_pic_label;
 /* 32-bit Thumb-2 code.  */
 #define TARGET_THUMB2			(TARGET_THUMB && arm_arch_thumb2)
 
+/* "DSP" multiply instructions, eg. SMULxy.  */
+#define TARGET_DSP_MULTIPLY \
+  (TARGET_32BIT && arm_arch5e && arm_arch_notm)
+/* Integer SIMD instructions, and extend-accumulate instructions.  */
+#define TARGET_INT_SIMD \
+  (TARGET_32BIT && arm_arch6 && arm_arch_notm)
+
 /* We could use unified syntax for arm mode, but for now we just use it
    for Thumb-2.  */
 #define TARGET_UNIFIED_ASM TARGET_THUMB2
@@ -332,6 +339,9 @@ extern int arm_arch5e;
 
 /* Nonzero if this chip supports the ARM Architecture 6 extensions.  */
 extern int arm_arch6;
+
+/* Nonzero if instructions not present in the 'M' profile can be used.  */
+extern int arm_arch_notm;
 
 /* Nonzero if this chip can benefit from load scheduling.  */
 extern int arm_ld_sched;

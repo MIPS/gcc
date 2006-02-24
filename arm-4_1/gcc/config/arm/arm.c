@@ -442,11 +442,14 @@ static int thumb_call_reg_needed;
 					 Note: ARM6 & 7 derivatives only.  */
 #define FL_ARCH6K     (1 << 15)       /* Architecture rel 6 K extensions.  */
 #define FL_THUMB2     (1 << 16)	      /* Thumb-2.  */
+#define FL_NOTM	      (1 << 17)	      /* Instructions not present in the 'M'
+					 profile.  */
+#define FL_DIV	      (1 << 18)	      /* Hardware divde.  */
 
 #define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
 
-#define FL_FOR_ARCH2	0
-#define FL_FOR_ARCH3	FL_MODE32
+#define FL_FOR_ARCH2	FL_NOTM
+#define FL_FOR_ARCH3	(FL_FOR_ARCH2 | FL_MODE32)
 #define FL_FOR_ARCH3M	(FL_FOR_ARCH3 | FL_ARCH3M)
 #define FL_FOR_ARCH4	(FL_FOR_ARCH3M | FL_ARCH4)
 #define FL_FOR_ARCH4T	(FL_FOR_ARCH4 | FL_THUMB)
@@ -461,6 +464,10 @@ static int thumb_call_reg_needed;
 #define FL_FOR_ARCH6Z	FL_FOR_ARCH6
 #define FL_FOR_ARCH6ZK	FL_FOR_ARCH6K
 #define FL_FOR_ARCH6T2	(FL_FOR_ARCH6 | FL_THUMB2)
+#define FL_FOR_ARCH7	(FL_FOR_ARCH6T2 &~ FL_NOTM)
+#define FL_FOR_ARCH7A	(FL_FOR_ARCH7 | FL_NOTM)
+#define FL_FOR_ARCH7R	(FL_FOR_ARCH7A | FL_DIV)
+#define FL_FOR_ARCH7M	(FL_FOR_ARCH7 | FL_DIV)
 
 /* The bits in this mask specify which
    instructions we are allowed to generate.  */
@@ -493,6 +500,9 @@ int arm_arch6 = 0;
 
 /* Nonzero if this chip supports the ARM 6K extensions.  */
 int arm_arch6k = 0;
+
+/* Nonzero if instructions not present in the 'M' profile can be used.  */
+int arm_arch_notm = 0;
 
 /* Nonzero if this chip can benefit from load scheduling.  */
 int arm_ld_sched = 0;
@@ -623,6 +633,10 @@ static const struct processors all_architectures[] =
   {"armv6z",  arm1176jzs, "6Z",  FL_CO_PROC |             FL_FOR_ARCH6Z, NULL},
   {"armv6zk", arm1176jzs, "6ZK", FL_CO_PROC |             FL_FOR_ARCH6ZK, NULL},
   {"armv6t2", arm1156t2s, "6T2", FL_CO_PROC |             FL_FOR_ARCH6T2, NULL},
+  {"armv7",   cortexa8,	  "7",	 FL_CO_PROC |		  FL_FOR_ARCH7, NULL},
+  {"armv7a",  cortexa8,	  "7A",	 FL_CO_PROC |		  FL_FOR_ARCH7A, NULL},
+  {"armv7r",  cortexr4,	  "7R",	 FL_CO_PROC |		  FL_FOR_ARCH7R, NULL},
+  {"armv7m",  cortexm3,	  "7M",	 FL_CO_PROC |		  FL_FOR_ARCH7M, NULL},
   {"ep9312",  ep9312,     "4T",  FL_LDSCHED | FL_CIRRUS | FL_FOR_ARCH4, NULL},
   {"iwmmxt",  iwmmxt,     "5TE", FL_LDSCHED | FL_STRONG | FL_FOR_ARCH5TE | FL_XSCALE | FL_IWMMXT , NULL},
   {NULL, arm_none, NULL, 0 , NULL}
@@ -1055,6 +1069,9 @@ arm_override_options (void)
 
   /* Make sure that the processor choice does not conflict with any of the
      other command line choices.  */
+  if (TARGET_ARM && !(insn_flags & FL_NOTM))
+    error ("target CPU does not support ARM mode");
+
   if (TARGET_INTERWORK && !(insn_flags & FL_THUMB))
     {
       warning (0, "target CPU does not support interworking" );
@@ -1128,6 +1145,7 @@ arm_override_options (void)
   arm_arch5e = (insn_flags & FL_ARCH5E) != 0;
   arm_arch6 = (insn_flags & FL_ARCH6) != 0;
   arm_arch6k = (insn_flags & FL_ARCH6K) != 0;
+  arm_arch_notm = (insn_flags & FL_NOTM) != 0;
   arm_arch_thumb2 = (insn_flags & FL_THUMB2) != 0;
   arm_arch_xscale = (insn_flags & FL_XSCALE) != 0;
   arm_arch_cirrus = (insn_flags & FL_CIRRUS) != 0;

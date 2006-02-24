@@ -1,3 +1,22 @@
+2006-02-24  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/arm.c (FL_NOTM, FL_DIV, FL_FOR_ARCH7, FL_FOR_ARCH7A,
+	FL_FOR_ARCH7R, FL_FOR_ARCH7M): New defines.
+	(arm_arch_notm): New variable.
+	(arm_override_options): Check if CPU supports ARM mode.
+	Set arm_arch_notm.
+	* gcc/config/arm/lib1funcs.asm: Recognise V7 architecture variants.
+	* gcc/config/arm/arm.h (TARGET_DSP_MULTIPLY, TARGET_INT_SIMD): Define.
+	(arm_arch_notm): Declare.
+	* gcc/config/arm/arm-cores.def: Add cortex-a8, cortex-r4 and cortex-m3.
+	* gcc/config/arm/arm-cores.def: Regenerate.
+	* gcc/config/arm/t-arm-elf: Add Armv7 Thumb-2 multilib.
+	* gcc/config/arm/arm.md (mulhisi3, mulhisi3tb, mulhisi3bt, mulhisi3tt,
+	mulhisi3addsi, mulhidi3adddi): Depend on TARGET_DSP_MULTIPLY.
+	(arm_zero_extendhisi2addsi, arm_zero_extendqisi2addsi,
+	arm_extendhisi2addsi, arm_extendqisi2addsi): Depend on
+	TARGET_INT_SIMD.
+	
 2005-02-16  Paul Brook  <paul@codesourcery.com>
 
 	Merge from csl/sourcerygxx-4_1

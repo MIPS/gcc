@@ -1285,7 +1285,7 @@
 		  (match_operand:HI 1 "s_register_operand" "%r"))
 		 (sign_extend:SI
 		  (match_operand:HI 2 "s_register_operand" "r"))))]
-  "TARGET_32BIT && arm_arch5e"
+  "TARGET_DSP_MULTIPLY"
   "smulbb%?\\t%0, %1, %2"
   [(set_attr "insn" "smulxy")
    (set_attr "predicable" "yes")]
@@ -1298,7 +1298,7 @@
 		  (const_int 16))
 		 (sign_extend:SI
 		  (match_operand:HI 2 "s_register_operand" "r"))))]
-  "TARGET_32BIT && arm_arch5e"
+  "TARGET_DSP_MULTIPLY"
   "smultb%?\\t%0, %1, %2"
   [(set_attr "insn" "smulxy")
    (set_attr "predicable" "yes")]
@@ -1311,7 +1311,7 @@
 		 (ashiftrt:SI
 		  (match_operand:SI 2 "s_register_operand" "r")
 		  (const_int 16))))]
-  "TARGET_32BIT && arm_arch5e"
+  "TARGET_DSP_MULTIPLY"
   "smulbt%?\\t%0, %1, %2"
   [(set_attr "insn" "smulxy")
    (set_attr "predicable" "yes")]
@@ -1325,7 +1325,7 @@
 		 (ashiftrt:SI
 		  (match_operand:SI 2 "s_register_operand" "r")
 		  (const_int 16))))]
-  "TARGET_32BIT && arm_arch5e"
+  "TARGET_DSP_MULTIPLY"
   "smultt%?\\t%0, %1, %2"
   [(set_attr "insn" "smulxy")
    (set_attr "predicable" "yes")]
@@ -1338,7 +1338,7 @@
 			   (match_operand:HI 2 "s_register_operand" "%r"))
 			  (sign_extend:SI
 			   (match_operand:HI 3 "s_register_operand" "r")))))]
-  "TARGET_32BIT && arm_arch5e"
+  "TARGET_DSP_MULTIPLY"
   "smlabb%?\\t%0, %2, %3, %1"
   [(set_attr "insn" "smlaxy")
    (set_attr "predicable" "yes")]
@@ -1352,7 +1352,7 @@
 	 	    (match_operand:HI 2 "s_register_operand" "%r"))
 		   (sign_extend:DI
 		    (match_operand:HI 3 "s_register_operand" "r")))))]
-  "TARGET_32BIT && arm_arch5e"
+  "TARGET_DSP_MULTIPLY"
   "smlalbb%?\\t%Q0, %R0, %2, %3"
   [(set_attr "insn" "smlalxy")
    (set_attr "predicable" "yes")])
@@ -3504,7 +3504,7 @@
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (zero_extend:SI (match_operand:HI 1 "s_register_operand" "r"))
 		 (match_operand:SI 2 "s_register_operand" "r")))]
-  "TARGET_32BIT && arm_arch6"
+  "TARGET_INT_SIMD"
   "uxtah%?\\t%0, %2, %1"
   [(set_attr "type" "alu_shift")
    (set_attr "predicable" "yes")]
@@ -3600,7 +3600,7 @@
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (zero_extend:SI (match_operand:QI 1 "s_register_operand" "r"))
 		 (match_operand:SI 2 "s_register_operand" "r")))]
-  "TARGET_32BIT && arm_arch6"
+  "TARGET_INT_SIMD"
   "uxtab%?\\t%0, %2, %1"
   [(set_attr "predicable" "yes")
    (set_attr "type" "alu_shift")]
@@ -3873,7 +3873,7 @@
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (sign_extend:SI (match_operand:HI 1 "s_register_operand" "r"))
 		 (match_operand:SI 2 "s_register_operand" "r")))]
-  "TARGET_32BIT && arm_arch6"
+  "TARGET_INT_SIMD"
   "sxtah%?\\t%0, %2, %1"
 )
 
@@ -3973,7 +3973,7 @@
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(plus:SI (sign_extend:SI (match_operand:QI 1 "s_register_operand" "r"))
 		 (match_operand:SI 2 "s_register_operand" "r")))]
-  "TARGET_32BIT && arm_arch6"
+  "TARGET_INT_SIMD"
   "sxtab%?\\t%0, %2, %1"
   [(set_attr "type" "alu_shift")
    (set_attr "predicable" "yes")]
