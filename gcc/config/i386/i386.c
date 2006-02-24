@@ -19140,12 +19140,14 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	case VAR_DECL:
 	case PARM_DECL:
 	case INDIRECT_REF:
-	  if (TYPE_MODE (TREE_TYPE (arg)) == SImode)
-	    e->mod[argnum-1] = 'l';
+	  if (TYPE_MODE (TREE_TYPE (arg)) == QImode)
+	    e->mod[argnum-1] = 'b';
 	  else if (TYPE_MODE (TREE_TYPE (arg)) == HImode)
 	    e->mod[argnum-1] = 'w';
-	  else if (TYPE_MODE (TREE_TYPE (arg)) == QImode)
-	    e->mod[argnum-1] = 'b';
+	  else if (TYPE_MODE (TREE_TYPE (arg)) == SImode)
+	    e->mod[argnum-1] = 'l';
+	  else if (TYPE_MODE (TREE_TYPE (arg)) == DImode)
+	    e->mod[argnum-1] = 'q';
 	  else if (TYPE_MODE (TREE_TYPE (arg)) == SFmode)
 	    e->mod[argnum-1] = 's';
 	  else if (TYPE_MODE (TREE_TYPE (arg)) == DFmode)
@@ -19228,6 +19230,14 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
       if (e->mod[1] == 'w')
 	e->mod[1] = 's';
     }
+  else if (strcasecmp (opcode, "mov") == 0)
+    {
+      /* The 32-bit integer instructions can be used on floats.  */
+      if (e->mod[0] == 's')
+	e->mod[0] = 'l';
+      if (e->mod[1] == 's')
+	e->mod[1] = 'l';
+    }
 
   if (strcasecmp (opcode, "out") == 0
       || strcasecmp (opcode, "movntq") == 0
@@ -19250,7 +19260,10 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	  && (e->mod[0] == e->mod[1]
 	      || e->mod[1] == 0)))
     {
-      sprintf (buf, "%s%c", opcode, e->mod[0]);
+      if (e->mod[0] == 'q')
+	sprintf (buf, "%s%s", opcode, "ll");
+      else
+	sprintf (buf, "%s%c", opcode, e->mod[0]);
       *opcode_p = buf;
     }
   else if (argnum == 2 && e->mod[0] && e->mod[1])

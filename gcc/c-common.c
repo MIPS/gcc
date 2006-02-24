@@ -6418,13 +6418,12 @@ cw_op_comp (const void *a, const void *b)
 /* This is used to denote the size for testcase generation.  */
 #define S(X)
 
-#define m1 "m" S("1")
-#define m2 "m" S("2")
-#define m4 "m" S("4")
-#define m2m4 m2 m4
-#define m8 m1
-#define m16 m2
-#define m32 m4
+#define m8 "m" S("1")
+#define m16 "m" S("2")
+#define m32 "m" S("4")
+#define m64 "m" S("8")
+#define m16m32 m16 m32
+#define m16m32m64 m16 m32 m64
 #define r8 "r" S("1")
 #define r16 "r" S("2")
 #define r32 "r" S("4")
@@ -6432,12 +6431,16 @@ cw_op_comp (const void *a, const void *b)
 #define a8 "a" S("1")
 #define a16 "a" S("2")
 #define a32 "a" S("4")
+#define r16r32 r16 r32
+#define r16r32r64 r16 r32 r64
 #define r8r16r32 r8 r16 r32
 #define rm8 r8 m8
-#define rm32 r32 m32
 #define rm16 r16 m16
+#define rm32 r32 m32
+#define rm64 r64 m64
 #define rm8rm16 rm8 rm16
 #define rm8rm16rm32 rm8 rm16 rm32
+#define rm8rm16rm32rm64 rm8 rm16 rm32 rm64
 #define m8m16m32 m8 m16 m32
 #define r32r64 r32 r64
 #define ri8 r8 "i"
@@ -6446,7 +6449,7 @@ cw_op_comp (const void *a, const void *b)
 #define rel8 "s" S("1")
 #define m32fp "m" S("3")
 #define m64fp "m" S("6")
-#define m80fp "m" S("8")
+#define m80fp "m" S("7")
 #define m32fpm64fp m32fp m64fp
 #define m32fpm64fpm80fp m32fp m64fp m80fp
 #endif
@@ -6501,13 +6504,12 @@ cw_constraint_for (const char *opcode, unsigned argnum, unsigned ARG_UNUSED (num
 }
 
 #if defined(TARGET_386)
-#undef m1
-#undef m2
-#undef m4
-#undef m2m4
 #undef m8
 #undef m16
 #undef m32
+#undef m64
+#undef m16m32
+#undef m16m32m64
 #undef r8
 #undef r16
 #undef r32
@@ -6515,12 +6517,16 @@ cw_constraint_for (const char *opcode, unsigned argnum, unsigned ARG_UNUSED (num
 #undef a8
 #undef a16
 #undef a32
+#undef r16r32
+#undef r16r32r64
 #undef r8r16r32
 #undef rm8
-#undef rm32
 #undef rm16
+#undef rm32
+#undef rm64
 #undef rm8rm16
 #undef rm8rm16rm32
+#undef rm8rm16rm32rm64
 #undef m8m16m32
 #undef r32r64
 #undef ri8
@@ -7371,12 +7377,7 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       break;
 
     case INDIRECT_REF:
-      arg = TREE_OPERAND (arg, 0);
-      STRIP_NOPS (arg);
-      if (TREE_CODE (arg) != ADDR_EXPR)
-	goto bad;
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
-			    must_be_reg, must_not_be_reg, e);
+      cw_asm_get_register_var (arg, "", buf, argnum, must_be_reg, e);
       break;
 
     default:
@@ -7384,7 +7385,6 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 			      must_be_reg, must_not_be_reg, e))
 	break;
 
-    bad:
       /* Something is wrong, most likely a user error.  */
       error ("block assembly operand not recognized");
       break;

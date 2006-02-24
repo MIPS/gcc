@@ -2886,34 +2886,30 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "fdivp", 1, "+f"},		\
   { "fdivp", 2, "t"},		\
   { "fdivr", 1, "+t,@"},	\
-  { "fdivr", 2, "f,m"},		\
+  { "fdivr", 2, "f," m32fpm64fp},\
   { "fdivrp", 1, "+f"},		\
   { "fdivrp", 2, "t"},		\
   { "ffree", 1, "f"},		\
-  { "fiadd", 1, m2m4},		\
-  { "ficom", 1, m2m4},		\
-  { "ficomp", 1, m2m4},		\
-  { "fidiv", 1, m2m4},		\
+  { "fiadd", 1, m16m32},	\
+  { "ficom", 1, m16m32},	\
+  { "ficomp", 1, m16m32},	\
+  { "fidiv", 1, m16m32},	\
   { "fidivl", 1, "m"},		\
-  { "fidivr", 1, m2m4},		\
+  { "fidivr", 1, m16m32},	\
   { "fidivrl", 1, "m"},		\
-  { "fild", 1, "m"},		\
-  { "fildl", 1, "m"},		\
-  { "fildll", 1, "m"},		\
-  { "fimul", 1, m2m4},		\
-  { "fist", 1, "=m"},		\
-  { "fistp", 1, "=m"},		\
-  { "fistpll", 1, "=m"},       	\
-  { "fisttp", 1, "=" m2m4},	\
-  { "fisttpll", 1, "=m"},	\
-  { "fisub", 1, m2m4},		\
-  { "fisubr", 1, m2m4},		\
+  { "fild", 1, m16m32m64},	\
+  { "fimul", 1, m16m32},	\
+  { "fist", 1, "=" m16m32},	\
+  { "fistp", 1, "=" m16m32m64},	\
+  { "fisttp", 1, "=" m16m32m64},\
+  { "fisub", 1, m16m32},	\
+  { "fisubr", 1, m16m32},	\
   { "fld", 1, "f" m32fpm64fpm80fp},\
   { "fldcw", 1, m16},		\
   { "fldenv", 1, "m"},		\
   { "fldt", 1, "m"},		\
   { "fmul", 1, "=f,t,@"},	\
-  { "fmul", 2, "t,f," m2m4},	\
+  { "fmul", 2, "t,f," m32fpm64fp},\
   { "fmulp", 1, "=f"},		\
   { "fmulp", 2, "t"},		\
   { "fnsave", 1, "=m"},		\
@@ -2948,13 +2944,13 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "hsubpd", 2, "xm"},		\
   { "hsubps", 1, "+x"},		\
   { "hsubps", 2, "xm"},		\
-  { "idiv", 1, "r" m4},		\
+  { "idiv", 1, rm8rm16rm32 U(rm64)},\
   { "imul", 1, "+r"},		\
   { "imul", 2, "rm"},		\
   { "imul", 3, "i"},		\
   { "in", 1, "=a"},		\
   { "in", 2, "i"},		\
-  { "inc", 1, "+r" m4},		\
+  { "inc", 1, "+" rm8rm16rm32 U(rm64)},\
   { "ins", 1, U("=m")},		\
   { "ins", 2, U("d")},		\
   { "int", 1, "i"},		\
@@ -2996,17 +2992,17 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "lddqu", 1, "=x"},		\
   { "lddqu", 2, "m"},		\
   { "ldmxcsr", 1, "m"},		\
-  { "lds", 1, "=r"},		\
-  { "lds", 2, m4},		\
+  { "lds", 1, "=" U(r16 ",") r32},\
+  { "lds", 2, U(m16 ",") m32},	\
   { "lea", 1, "=r"},		\
   { "lea", 2, "m"},		\
-  { "les", 1, "=r"},		\
-  { "les", 2, "m"},		\
-  { "lfs", 1, "=r"},		\
-  { "lfs", 2, "m"},		\
+  { "les", 1, "=" U(r16 ",") r32},\
+  { "les", 2, U(m16 ",") m32},	\
+  { "lfs", 1, "=" U(r16 ",") r32 U("," r64)},\
+  { "lfs", 2, U(m16 ",") m32 U("," m64)},\
   { "lgdt", 1, "m"},		\
-  { "lgs", 1, "=r"},		\
-  { "lgs", 2, "m"},		\
+  { "lgs", 1, "=" U(r16 ",") r32 U("," r64)},\
+  { "lgs", 2, U(m16 ",") m32 U("," m64)},\
   { "lidt", 1, "m"},		\
   { "lldt", 1, "rm"},		\
   { "lmsw", 1, "m"},		\
@@ -3018,8 +3014,8 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "loopz", 1, rel8},		\
   { "lsl", 1, "=" r16 "," r32},	\
   { "lsl", 2, rm16 "," rm32},	\
-  { "lss", 1, "=r"},		\
-  { "lss", 2, m4},		\
+  { "lss", 1, "=" U(r16 ",") r32 U("," r64)},\
+  { "lss", 2, U(m16 ",") m32 U("," m64)},\
   { "ltr", 1, "rm"},		\
   { "maskmovdqu", 1, "x"},	\
   { "maskmovdqu", 2, "x"},	\

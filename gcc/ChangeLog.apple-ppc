@@ -1,3 +1,18 @@
+2006-02-24  Mike Stump  <mrs@apple.com>
+
+	Radar 4298040
+	* config/i386/i386.h (TARGET_CW_OP_CONSTRAINT): Improve fdivr,
+	fiadd, ficom, ficomp, fidiv, fidivr fild, fimul, fist, fistp,
+	fisttp, fisub, fisubr, fmul, idiv, inc, lds, les, lfs, lgs, lss.
+	Remove fildl, fildll, fistpll, fisttpll.
+	* config/i386/i386.c (x86_canonicalize_operands): Add DImode
+	support.  Allow mov to be used on floats.
+	* c-common.c (m1, m2, m4, m2m4): Remove.
+	(m64, m16m32, m16m32m64, r16r32, r16r32r64): Add.
+	(rm64, rm8rm16rm32rm64): Add.
+	(print_cw_asm_operand, case INDIRECT_REF): Handle all
+	INDIRECT_REFs uniformly.
+
 2006-02-23  Eric Christopher  <echristo@apple.com>
 
 	Radar 4081414
