@@ -1,3 +1,10 @@
+2006-02-23  Eric Christopher  <echristo@apple.com>
+
+	Radar 4081414
+	* global.c (local_reg_weight): Make HOST_WIDE_INT.
+	(global_alloc): Remove casts to double for local_reg_weight.
+	(find_reg): Use integer temporary for weight computation.
+
 2006-02-21  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4444941
