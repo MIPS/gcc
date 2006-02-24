@@ -1,5 +1,11 @@
 2006-02-24  Mike Stump  <mrs@apple.com>
 
+	Radar 4456673
+	* gcc.apple/asm-block-48.c: Add.
+	* g++.dg/asm-block-48.C: Add.
+
+2006-02-24  Mike Stump  <mrs@apple.com>
+
 	Radar 4298040
 	* g++.dg/asm-block-47.C: Add.
 	* g++.dg/asm-block-13.C: Update.

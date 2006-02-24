@@ -1,5 +1,11 @@
 2006-02-24  Mike Stump  <mrs@apple.com>
 
+	Radar 4456673
+	* c-common.c (print_cw_asm_operand): Revert change from
+	Radar 4399388 as it breaks C++ ppc.
+
+2006-02-24  Mike Stump  <mrs@apple.com>
+
 	Radar 4298040
 	* config/i386/i386.h (TARGET_CW_OP_CONSTRAINT): Improve fdivr,
 	fiadd, ficom, ficomp, fidiv, fidivr fild, fimul, fist, fistp,

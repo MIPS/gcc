@@ -7370,10 +7370,9 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
       break;
 
     case NEGATE_EXPR:
-      strcat (buf, "-(");
+      strcat (buf, "-");
       print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
 			    must_be_reg, must_not_be_reg, e);
-      strcat (buf, ")");
       break;
 
     case INDIRECT_REF:
