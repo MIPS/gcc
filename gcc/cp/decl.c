@@ -3197,7 +3197,8 @@ cp_make_fname_decl (tree id, int type_dep)
       while (b->level_chain->kind != sk_function_parms)
 	b = b->level_chain;
       pushdecl_with_scope (decl, b, /*is_friend=*/false);
-      cp_finish_decl (decl, init, NULL_TREE, LOOKUP_ONLYCONVERTING);
+      cp_finish_decl (decl, init, /*init_const_expr_p=*/false, NULL_TREE, 
+		      LOOKUP_ONLYCONVERTING);
     }
   else
     pushdecl_top_level_and_finish (decl, init);
@@ -4855,14 +4856,15 @@ initialize_artificial_var (tree decl, tree init)
    If the length of an array type is not known before,
    it must be determined now, from the initial value, or it is an error.
 
-   INIT holds the value of an initializer that should be allowed to escape
-   the normal rules.
+   INIT is the initializer (if any) for DECL.  If INIT_CONST_EXPR_P is
+   true, then INIT is an integral constant expression.
 
    FLAGS is LOOKUP_ONLYCONVERTING if the = init syntax was used, else 0
    if the (init) syntax was used.  */
 
 void
-cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
+cp_finish_decl (tree decl, tree init, bool init_const_expr_p, 
+		tree asmspec_tree, int flags)
 {
   tree type;
   tree cleanup;
@@ -4914,7 +4916,16 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	add_decl_expr (decl);
 
       if (init && DECL_INITIAL (decl))
-	DECL_INITIAL (decl) = init;
+	{
+	  DECL_INITIAL (decl) = init;
+	  if (init_const_expr_p)
+	    {
+	      DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = 1;
+	      if (DECL_INTEGRAL_CONSTANT_VAR_P (decl))
+		TREE_CONSTANT (decl) = 1;
+	    }
+	}
+
       if (TREE_CODE (decl) == VAR_DECL
 	  && !DECL_PRETTY_FUNCTION_P (decl)
 	  && !dependent_type_p (TREE_TYPE (decl)))
@@ -4975,7 +4986,15 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 	  && (!DECL_EXTERNAL (decl) || init))
 	{
 	  if (init)
-	    DECL_NONTRIVIALLY_INITIALIZED_P (decl) = 1;
+	    {
+	      DECL_NONTRIVIALLY_INITIALIZED_P (decl) = 1;
+	      if (init_const_expr_p)
+		{
+		  DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = 1;
+		  if (DECL_INTEGRAL_CONSTANT_VAR_P (decl))
+		    TREE_CONSTANT (decl) = 1;
+		}
+	    }
 	  init = check_initializer (decl, init, flags, &cleanup);
 	  /* Thread-local storage cannot be dynamically initialized.  */
 	  if (DECL_THREAD_LOCAL_P (decl) && init)
@@ -5127,7 +5146,7 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 void
 finish_decl (tree decl, tree init, tree asmspec_tree)
 {
-  cp_finish_decl (decl, init, asmspec_tree, 0);
+  cp_finish_decl (decl, init, /*init_const_expr_p=*/false, asmspec_tree, 0);
 }
 
 /* Returns a declaration for a VAR_DECL as if:
@@ -5152,7 +5171,7 @@ declare_global_var (tree name, tree type)
      library), then it is possible that our declaration will be merged
      with theirs by pushdecl.  */
   decl = pushdecl (decl);
-  cp_finish_decl (decl, NULL_TREE, NULL_TREE, 0);
+  finish_decl (decl, NULL_TREE, NULL_TREE);
   pop_from_top_level ();
 
   return decl;
@@ -6274,9 +6293,13 @@ check_static_variable_definition (tree decl, tree type)
 tree
 compute_array_index_type (tree name, tree size)
 {
-  tree type = TREE_TYPE (size);
+  tree type;
   tree itype;
 
+  if (error_operand_p (size))
+    return error_mark_node;
+
+  type = TREE_TYPE (size);
   /* The array bound must be an integer type.  */
   if (!dependent_type_p (type) && !INTEGRAL_TYPE_P (type))
     {
@@ -8805,13 +8828,15 @@ grok_op_properties (tree decl, bool complain)
   tree name = DECL_NAME (decl);
   enum tree_code operator_code;
   int arity;
+  bool ellipsis_p;
   tree class_type;
 
-  /* Count the number of arguments.  */
+  /* Count the number of arguments and check for ellipsis.  */
   for (argtype = argtypes, arity = 0;
        argtype && argtype != void_list_node;
        argtype = TREE_CHAIN (argtype))
     ++arity;
+  ellipsis_p = !argtype;
 
   class_type = DECL_CONTEXT (decl);
   if (class_type && !CLASS_TYPE_P (class_type))
@@ -8977,11 +9002,14 @@ grok_op_properties (tree decl, bool complain)
 		     "conversion operator",
 		     ref ? "a reference to " : "", what);
 	}
+
       if (operator_code == COND_EXPR)
 	{
 	  /* 13.4.0.3 */
 	  error ("ISO C++ prohibits overloading operator ?:");
 	}
+      else if (ellipsis_p)
+	error ("%qD must not have variable number of arguments", decl);
       else if (ambi_op_p (operator_code))
 	{
 	  if (arity == 1)
@@ -11033,7 +11061,7 @@ start_method (cp_decl_specifier_seq *declspecs,
       grok_special_member_properties (fndecl);
     }
 
-  cp_finish_decl (fndecl, NULL_TREE, NULL_TREE, 0);
+  finish_decl (fndecl, NULL_TREE, NULL_TREE);
 
   /* Make a place for the parms.  */
   begin_scope (sk_function_parms, fndecl);

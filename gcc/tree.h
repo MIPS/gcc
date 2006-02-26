@@ -1737,7 +1737,6 @@ struct tree_ssa_name GTY(())
 #define PHI_ARG_CAPACITY(NODE)		PHI_NODE_CHECK (NODE)->phi.capacity
 #define PHI_ARG_ELT(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I)
 #define PHI_ARG_EDGE(NODE, I) 		(EDGE_PRED (PHI_BB ((NODE)), (I)))
-#define PHI_ARG_NONZERO(NODE, I) 	PHI_NODE_ELT_CHECK (NODE, I).nonzero
 #define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
 #define PHI_ARG_IMM_USE_NODE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).imm_use
 
@@ -2310,9 +2309,14 @@ struct tree_memory_tag GTY(())
 {
   struct tree_decl_minimal common;
   unsigned int is_global:1;
+  unsigned int is_used_alone:1;
 };
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
+
+/* This flag is true if a TMT is used as the vdef or vuse operand directly,
+   because the access had all of the TMT's aliases pruned from it.  */
+#define TMT_USED_ALONE(NODE) (TYPE_MEMORY_TAG_CHECK (NODE)->mtag.is_used_alone)
 
 struct tree_struct_field_tag GTY(())
 {
@@ -4376,7 +4380,6 @@ extern unsigned int update_alignment_for_field (record_layout_info, tree,
 extern void make_decl_rtl (tree);
 extern void make_decl_one_only (tree);
 extern int supports_one_only (void);
-extern void variable_section (tree, int);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 extern void mark_decl_referenced (tree);
@@ -4519,6 +4522,10 @@ extern int tree_map_eq (const void *, const void *);
 /* In tree-ssa-address.c.  */
 extern tree tree_mem_ref_addr (tree, tree);
 extern void copy_mem_ref_info (tree, tree);
+
+/* In tree-vrp.c */
+extern bool ssa_name_nonzero_p (tree);
+extern bool ssa_name_nonnegative_p (tree);
 
 /* In tree-object-size.c.  */
 extern void init_object_sizes (void);

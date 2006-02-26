@@ -1,4 +1,4 @@
-// Copyright (C) 2006 Free Software Foundation
+// Copyright (C) 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -16,32 +16,42 @@
 // Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
-#include <istream>
+// 27.8.1.4 Overridden virtual functions
+
 #include <sstream>
 #include <testsuite_hooks.h>
 
-// libstdc++/26211
+struct pubbuf
+: std::stringbuf
+{
+  using std::stringbuf::eback;
+  using std::stringbuf::egptr;
+  using std::stringbuf::pbase;
+  using std::stringbuf::pptr;
+  using std::stringbuf::epptr;
+  using std::stringbuf::overflow;
+};
+
+// libstdc++/26250
 void test01()
 {
-  using namespace std;
   bool test __attribute__((unused)) = true;
   
-  typedef istringstream::pos_type pos_type;
+  pubbuf buf;
 
-  istringstream iss("Duos for Doris");
-  ostringstream oss;
-  
-  VERIFY( iss.tellg() == pos_type(0) );
-  
-  iss >> oss.rdbuf();
-  VERIFY( iss.rdstate() == iss.eofbit );
-  VERIFY( iss.tellg() == pos_type(-1) );
+  VERIFY( buf.overflow('x') == 'x' );
+  VERIFY( buf.pptr() - buf.pbase() == 1 );
+ 
+  // not required but good for efficiency
+  // NB: we are implementing DR 169 and DR 432
+  const int write_positions = buf.epptr() - buf.pbase();
+  VERIFY( write_positions > 1 );
 
-  iss.clear();
-  VERIFY( iss.tellg() == pos_type(14) );
+  // 27.7.1.3, p8:
+  VERIFY( buf.egptr() - buf.eback() == 1 );
 }
 
-int main()
+int main() 
 {
   test01();
   return 0;

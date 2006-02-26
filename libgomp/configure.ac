@@ -139,12 +139,11 @@ AC_SUBST(libtool_VERSION)
 AC_STDC_HEADERS
 AC_HEADER_TIME
 AC_CHECK_HEADERS(unistd.h semaphore.h sys/loadavg.h sys/time.h)
-AC_CHECK_HEADER([pthread.h],[],
-  [AC_MSG_ERROR([Pthreads are required to build libgomp])])
 
 GCC_HEADER_STDINT(gstdint.h)
 
 # Check to see if -pthread or -lpthread is needed.  Prefer the former.
+# In case the pthread.h system header is not found, this test will fail.
 XPCFLAGS=""
 CFLAGS="$CFLAGS -pthread"
 AC_LINK_IFELSE(
@@ -164,6 +163,15 @@ AC_LINK_IFELSE(
 
 # Check for functions needed.
 AC_CHECK_FUNCS(getloadavg clock_gettime)
+
+# Check for broken semaphore implementation on darwin.
+# sem_init returns: sem_init error: Function not implemented.
+case "$host" in
+  *-darwin*)
+    AC_DEFINE(HAVE_BROKEN_POSIX_SEMAPHORES, 1,
+	Define if the POSIX Semaphores do not work on your system.)
+    ;;
+esac
 
 # At least for glibc, clock_gettime is in librt.  But don't pull that
 # in if it still doesn't give us the function we want.

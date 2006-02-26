@@ -523,6 +523,10 @@ fipa-pure-const
 Common Report Var(flag_ipa_pure_const) Init(0)
 Discover pure and const functions
 
+fipa-pta
+Common Report Var(flag_ipa_pta) Init(0)
+Perform interprocedural points-to analysis
+
 fipa-reference
 Common Report Var(flag_ipa_reference) Init(0)
 Discover readonly and non addressable static variables
@@ -787,13 +791,13 @@ fsched-stalled-insns-dep=
 Common RejectNegative Joined UInteger
 -fsched-stalled-insns-dep=<number>	Set dependence distance checking in premature scheduling of queued insns
 
+fsection-anchors
+Common Report Var(flag_section_anchors)
+Access data in the same section from shared anchor points
+
 frtl-abstract-sequences
 Common Report Var(flag_rtl_seqabstr)
 Perform sequence abstraction optimization on RTL
-
-fshared-data
-Common Report Var(flag_shared_data)
-Mark data as shared rather than private
 
 fshow-column
 Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)

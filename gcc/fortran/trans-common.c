@@ -101,11 +101,11 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree.h"
 #include "toplev.h"
 #include "tm.h"
+#include "rtl.h"
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-types.h"
 #include "trans-const.h"
-#include "rtl.h"
 
 
 /* Holds a single variable in an equivalence set.  */
@@ -755,15 +755,20 @@ find_equivalence (segment_info *n)
 }
 
 
-/* Add all symbols equivalenced within a segment.  We need to scan the
-   segment list multiple times to include indirect equivalences.  */
+  /* Add all symbols equivalenced within a segment.  We need to scan the
+   segment list multiple times to include indirect equivalences.  Since
+   a new segment_info can inserted at the beginning of the segment list,
+   depending on its offset, we have to force a final pass through the
+   loop by demanding that completion sees a pass with no matches; ie.
+   all symbols with equiv_built set and no new equivalences found.  */
 
 static void
 add_equivalences (bool *saw_equiv)
 {
   segment_info *f;
-  bool more;
+  bool seen_one, more;
 
+  seen_one = false;
   more = TRUE;
   while (more)
     {
@@ -773,9 +778,12 @@ add_equivalences (bool *saw_equiv)
 	  if (!f->sym->equiv_built)
 	    {
 	      f->sym->equiv_built = 1;
-	      more = find_equivalence (f);
-	      if (more)
-		*saw_equiv = true;
+	      seen_one = find_equivalence (f);
+	      if (seen_one)
+		{
+		  *saw_equiv = true;
+		  more = true;
+		}
 	    }
 	}
     }

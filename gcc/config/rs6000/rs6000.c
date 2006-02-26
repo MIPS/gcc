@@ -623,7 +623,9 @@ static section *rs6000_elf_select_rtx_section (enum machine_mode, rtx,
 static void rs6000_elf_encode_section_info (tree, rtx, int)
      ATTRIBUTE_UNUSED;
 #endif
+static bool rs6000_use_blocks_for_constant_p (enum machine_mode, rtx);
 #if TARGET_XCOFF
+static void rs6000_xcoff_asm_output_anchor (rtx);
 static void rs6000_xcoff_asm_globalize_label (FILE *, const char *);
 static void rs6000_xcoff_asm_init_sections (void);
 static void rs6000_xcoff_asm_named_section (const char *, unsigned int, tree);
@@ -1020,6 +1022,20 @@ static const char alt_reg_names[][8] =
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL rs6000_output_dwarf_dtprel
 #endif
+
+/* Use a 32-bit anchor range.  This leads to sequences like:
+
+	addis	tmp,anchor,high
+	add	dest,tmp,low
+
+   where tmp itself acts as an anchor, and can be shared between
+   accesses to the same 64k page.  */
+#undef TARGET_MIN_ANCHOR_OFFSET
+#define TARGET_MIN_ANCHOR_OFFSET -0x7fffffff - 1
+#undef TARGET_MAX_ANCHOR_OFFSET
+#define TARGET_MAX_ANCHOR_OFFSET 0x7fffffff
+#undef TARGET_USE_BLOCKS_FOR_CONSTANT_P
+#define TARGET_USE_BLOCKS_FOR_CONSTANT_P rs6000_use_blocks_for_constant_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -7950,6 +7966,12 @@ rs6000_init_builtins (void)
     altivec_init_builtins ();
   if (TARGET_ALTIVEC || TARGET_SPE)
     rs6000_common_init_builtins ();
+
+#if TARGET_XCOFF
+  /* AIX libm provides clog as __clog.  */
+  if (built_in_decls [BUILT_IN_CLOG])
+    set_user_assembler_name (built_in_decls [BUILT_IN_CLOG], "__clog");
+#endif
 }
 
 /* Search through a set of builtins and enable the mask bits.
@@ -15137,8 +15159,6 @@ static void
 rs6000_output_function_epilogue (FILE *file,
 				 HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
-  rs6000_stack_t *info = rs6000_stack_info ();
-
   if (! HAVE_epilogue)
     {
       rtx insn = get_last_insn ();
@@ -15209,13 +15229,14 @@ rs6000_output_function_epilogue (FILE *file,
      System V.4 Powerpc's (and the embedded ABI derived from it) use a
      different traceback table.  */
   if (DEFAULT_ABI == ABI_AIX && ! flag_inhibit_size_directive
-      && rs6000_traceback != traceback_none)
+      && rs6000_traceback != traceback_none && !current_function_is_thunk)
     {
       const char *fname = NULL;
       const char *language_string = lang_hooks.name;
       int fixed_parms = 0, float_parms = 0, parm_info = 0;
       int i;
       int optional_tbtab;
+      rs6000_stack_t *info = rs6000_stack_info ();
 
       if (rs6000_traceback == traceback_full)
 	optional_tbtab = 1;
@@ -17648,7 +17669,14 @@ rs6000_elf_in_small_data_p (tree decl)
 }
 
 #endif /* USING_ELFOS_H */
+
+/* Implement TARGET_USE_BLOCKS_FOR_CONSTANT_P.  */
 
+static bool
+rs6000_use_blocks_for_constant_p (enum machine_mode mode, rtx x)
+{
+  return !ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (x, mode);
+}
 
 /* Return a REG that occurs in ADDR with coefficient 1.
    ADDR can be effectively incremented by incrementing REG.
@@ -18197,6 +18225,16 @@ rs6000_elf_end_indicate_exec_stack (void)
 #endif
 
 #if TARGET_XCOFF
+static void
+rs6000_xcoff_asm_output_anchor (rtx symbol)
+{
+  char buffer[100];
+
+  sprintf (buffer, "$ + " HOST_WIDE_INT_PRINT_DEC,
+	   SYMBOL_REF_BLOCK_OFFSET (symbol));
+  ASM_OUTPUT_DEF (asm_out_file, XSTR (symbol, 0), buffer);
+}
+
 static void
 rs6000_xcoff_asm_globalize_label (FILE *stream, const char *name)
 {

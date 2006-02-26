@@ -49,13 +49,6 @@ typedef struct iter_info
 }
 iter_info;
 
-typedef  struct temporary_list
-{
-  tree temporary;
-  struct temporary_list *next;
-}
-temporary_list;
-
 typedef struct forall_info
 {
   iter_info *this_loop;
@@ -69,8 +62,7 @@ typedef struct forall_info
 }
 forall_info;
 
-static void gfc_trans_where_2 (gfc_code *, tree, forall_info *,
-                               stmtblock_t *, temporary_list **temp);
+static void gfc_trans_where_2 (gfc_code *, tree, forall_info *, stmtblock_t *);
 
 /* Translate a F95 label number to a LABEL_EXPR.  */
 
@@ -2317,7 +2309,6 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
   gfc_saved_var *saved_vars;
   iter_info *this_forall, *iter_tmp;
   forall_info *info, *forall_tmp;
-  temporary_list *temp;
 
   gfc_start_block (&block);
 
@@ -2523,27 +2514,9 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
 	  break;
 
         case EXEC_WHERE:
-
 	  /* Translate WHERE or WHERE construct nested in FORALL.  */
-          temp = NULL;
-	  gfc_trans_where_2 (c, NULL, nested_forall_info, &block, &temp);
-
-          while (temp)
-            {
-              tree args;
-              temporary_list *p;
-
-              /* Free the temporary.  */
-              args = gfc_chainon_list (NULL_TREE, temp->temporary);
-              tmp = build_function_call_expr (gfor_fndecl_internal_free, args);
-              gfc_add_expr_to_block (&block, tmp);
-
-              p = temp;
-              temp = temp->next;
-              gfc_free (p);
-            }
-
-          break;
+	  gfc_trans_where_2 (c, NULL, nested_forall_info, &block);
+	  break;
 
         /* Pointer assignment inside FORALL.  */
 	case EXEC_POINTER_ASSIGN:
@@ -2622,71 +2595,27 @@ tree gfc_trans_forall (gfc_code * code)
    needed by the WHERE mask expression multiplied by the iterator number of
    the nested forall.
    ME is the WHERE mask expression.
-   MASK is the temporary whose value is mask's value.
-   NMASK is another temporary whose value is !mask, or NULL if not required.
-   TEMP records the temporary's address allocated in this function in order
-   to free them outside this function.
-   MASK, NMASK and TEMP are all OUT arguments.  */
+   MASK is the current execution mask upon input.
+   CMASK is the updated execution mask on output, or NULL if not required.
+   PMASK is the pending execution mask on output, or NULL if not required.
+   BLOCK is the block in which to place the condition evaluation loops.  */
 
-static tree
+static void
 gfc_evaluate_where_mask (gfc_expr * me, forall_info * nested_forall_info,
-                         tree * mask, tree * nmask, temporary_list ** temp,
-                         stmtblock_t * block)
+                         tree mask, tree cmask, tree pmask,
+                         tree mask_type, stmtblock_t * block)
 {
   tree tmp, tmp1;
   gfc_ss *lss, *rss;
   gfc_loopinfo loop;
-  tree ptemp1, ntmp, ptemp2;
-  tree inner_size, size;
-  stmtblock_t body, body1, inner_size_body;
+  stmtblock_t body, body1;
+  tree count, cond, mtmp;
   gfc_se lse, rse;
-  tree mask_type;
-  tree count;
-  tree tmpexpr;
 
   gfc_init_loopinfo (&loop);
 
-  /* Calculate the size of temporary needed by the mask-expr.  */
-  gfc_init_block (&inner_size_body);
-  inner_size = compute_inner_temp_size (me, me, &inner_size_body, &lss, &rss);
-
-  /* Calculate the total size of temporary needed.  */
-  size = compute_overall_iter_number (nested_forall_info, inner_size,
-				      &inner_size_body, block);
-
-  /* As the mask array can be very big, prefer compact boolean types.  */
-  mask_type = gfc_get_logical_type (gfc_logical_kinds[0].kind);
-
-  /* Allocate temporary for where mask.  */
-  tmp = allocate_temp_for_forall_nest_1 (mask_type, size, block, &ptemp1);
-
-  /* Record the temporary address in order to free it later.  */
-  if (ptemp1)
-    {
-      temporary_list *tempo;
-      tempo = (temporary_list *) gfc_getmem (sizeof (temporary_list));
-      tempo->temporary = ptemp1;
-      tempo->next = *temp;
-      *temp = tempo;
-    }
-
-  if (nmask)
-    {
-      /* Allocate temporary for !mask.  */
-      ntmp = allocate_temp_for_forall_nest_1 (mask_type, size, block, &ptemp2);
-
-      /* Record the temporary  in order to free it later.  */
-      if (ptemp2)
-	{
-	  temporary_list *tempo;
-	  tempo = (temporary_list *) gfc_getmem (sizeof (temporary_list));
-	  tempo->temporary = ptemp2;
-	  tempo->next = *temp;
-	  *temp = tempo;
-	}
-    }
-  else
-    ntmp = NULL_TREE;
+  lss = gfc_walk_expr (me);
+  rss = gfc_walk_expr (me);
 
   /* Variable to index the temporary.  */
   count = gfc_create_var (gfc_array_index_type, "count");
@@ -2723,22 +2652,46 @@ gfc_evaluate_where_mask (gfc_expr * me, forall_info * nested_forall_info,
       rse.ss = rss;
       gfc_conv_expr (&rse, me);
     }
-  /* Form the expression of the temporary.  */
-  lse.expr = gfc_build_array_ref (tmp, count);
 
-  /* Use the scalar assignment to fill temporary TMP.  */
-  tmp1 = gfc_trans_scalar_assign (&lse, &rse, me->ts.type);
-  gfc_add_expr_to_block (&body1, tmp1);
+  /* Variable to evalate mask condition.  */
+  cond = gfc_create_var (mask_type, "cond");
+  if (mask && (cmask || pmask))
+    mtmp = gfc_create_var (mask_type, "mask");
+  else mtmp = NULL_TREE;
 
-  if (nmask)
+  gfc_add_block_to_block (&body1, &lse.pre);
+  gfc_add_block_to_block (&body1, &rse.pre);
+
+  gfc_add_modify_expr (&body1, cond, fold_convert (mask_type, rse.expr));
+
+  if (mask && (cmask || pmask))
     {
-      /* Fill temporary NTMP.  */
-      tmp1 = build1 (TRUTH_NOT_EXPR, TREE_TYPE (lse.expr), lse.expr);
-      tmpexpr = gfc_build_array_ref (ntmp, count);
-      gfc_add_modify_expr (&body1, tmpexpr, tmp1);
+      tmp = gfc_build_array_ref (mask, count);
+      gfc_add_modify_expr (&body1, mtmp, tmp);
     }
 
- if (lss == gfc_ss_terminator)
+  if (cmask)
+    {
+      tmp1 = gfc_build_array_ref (cmask, count);
+      tmp = cond;
+      if (mask)
+	tmp = build2 (TRUTH_AND_EXPR, mask_type, mtmp, tmp);
+      gfc_add_modify_expr (&body1, tmp1, tmp);
+    }
+
+  if (pmask)
+    {
+      tmp1 = gfc_build_array_ref (pmask, count);
+      tmp = build1 (TRUTH_NOT_EXPR, mask_type, cond);
+      if (mask)
+	tmp = build2 (TRUTH_AND_EXPR, mask_type, mtmp, tmp);
+      gfc_add_modify_expr (&body1, tmp1, tmp);
+    }
+
+  gfc_add_block_to_block (&body1, &lse.post);
+  gfc_add_block_to_block (&body1, &rse.post);
+
+  if (lss == gfc_ss_terminator)
     {
       gfc_add_block_to_block (&body, &body1);
     }
@@ -2766,12 +2719,6 @@ gfc_evaluate_where_mask (gfc_expr * me, forall_info * nested_forall_info,
     tmp1 = gfc_trans_nested_forall_loop (nested_forall_info, tmp1, 1, 1);
 
   gfc_add_expr_to_block (block, tmp1);
-
-  *mask = tmp;
-  if (nmask)
-    *nmask = ntmp;
-
-  return tmp1;
 }
 
 
@@ -2793,7 +2740,7 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2, tree mask,
   tree tmp;
   stmtblock_t block;
   stmtblock_t body;
-  tree index, maskexpr, tmp1;
+  tree index, maskexpr;
 
 #if 0
   /* TODO: handle this special case.
@@ -2888,21 +2835,10 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2, tree mask,
   else
     gfc_conv_expr (&lse, expr1);
 
-  /* Form the mask expression according to the mask tree list.  */
+  /* Form the mask expression according to the mask.  */
   index = count1;
-  tmp = mask;
-  if (tmp != NULL)
-    maskexpr = gfc_build_array_ref (tmp, index);
-  else
-    maskexpr = NULL;
+  maskexpr = gfc_build_array_ref (mask, index);
 
-  tmp = TREE_CHAIN (tmp);
-  while (tmp)
-    {
-      tmp1 = gfc_build_array_ref (tmp, index);
-      maskexpr = build2 (TRUTH_AND_EXPR, TREE_TYPE (tmp1), maskexpr, tmp1);
-      tmp = TREE_CHAIN (tmp);
-    }
   /* Use the scalar assignment as is.  */
   tmp = gfc_trans_scalar_assign (&lse, &rse, expr1->ts.type);
   tmp = build3_v (COND_EXPR, maskexpr, tmp, build_empty_stmt ());
@@ -2951,20 +2887,8 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2, tree mask,
 
           /* Form the mask expression according to the mask tree list.  */
           index = count2;
-          tmp = mask;
-          if (tmp != NULL)
-            maskexpr = gfc_build_array_ref (tmp, index);
-          else
-            maskexpr = NULL;
+          maskexpr = gfc_build_array_ref (mask, index);
 
-          tmp = TREE_CHAIN (tmp);
-          while (tmp)
-            {
-              tmp1 = gfc_build_array_ref (tmp, index);
-              maskexpr = build2 (TRUTH_AND_EXPR, TREE_TYPE (tmp1),
-				 maskexpr, tmp1);
-              tmp = TREE_CHAIN (tmp);
-            }
           /* Use the scalar assignment as is.  */
           tmp = gfc_trans_scalar_assign (&lse, &rse, expr1->ts.type);
           tmp = build3_v (COND_EXPR, maskexpr, tmp, build_empty_stmt ());
@@ -2999,80 +2923,93 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2, tree mask,
 /* Translate the WHERE construct or statement.
    This function can be called iteratively to translate the nested WHERE
    construct or statement.
-   MASK is the control mask.
-   TEMP records the temporary address which must be freed later.  */
+   MASK is the control mask.  */
 
 static void
 gfc_trans_where_2 (gfc_code * code, tree mask,
-		   forall_info * nested_forall_info, stmtblock_t * block,
-                   temporary_list ** temp)
+		   forall_info * nested_forall_info, stmtblock_t * block)
 {
+  stmtblock_t inner_size_body;
+  tree inner_size, size;
+  gfc_ss *lss, *rss;
+  tree mask_type;
   gfc_expr *expr1;
   gfc_expr *expr2;
   gfc_code *cblock;
   gfc_code *cnext;
-  tree tmp, tmp1, tmp2;
+  tree tmp;
   tree count1, count2;
-  tree mask_copy;
   int need_temp;
-  tree *tmp1_ptr;
-  tree pmask;
-
-  pmask = NULL_TREE;
+  tree pcmask = NULL_TREE;
+  tree ppmask = NULL_TREE;
+  tree cmask = NULL_TREE;
+  tree pmask = NULL_TREE;
 
   /* the WHERE statement or the WHERE construct statement.  */
   cblock = code->block;
+
+  /* Calculate the size of temporary needed by the mask-expr.  */
+  gfc_init_block (&inner_size_body);
+  inner_size = compute_inner_temp_size (cblock->expr, cblock->expr,
+					&inner_size_body, &lss, &rss);
+
+  /* Calculate the total size of temporary needed.  */
+  size = compute_overall_iter_number (nested_forall_info, inner_size,
+				      &inner_size_body, block);
+
+  /* As the mask array can be very big, prefer compact boolean types.  */
+  mask_type = gfc_get_logical_type (gfc_logical_kinds[0].kind);
+
+  /* Allocate temporary for WHERE mask.  We only need a "cmask" if
+     there are statements to be executed.  The following test only
+     checks the first ELSEWHERE to catch the F90 cases.  */
+  if (cblock->next
+      || (cblock->block && cblock->block->next && cblock->block->expr)
+      || (cblock->block && cblock->block->block))
+    {
+      cmask = allocate_temp_for_forall_nest_1 (mask_type, size, block,
+					       &pcmask);
+    }
+  else
+    {
+      pcmask = NULL_TREE;
+      cmask = NULL_TREE;
+    }
+
+  /* Allocate temporary for !mask.  We only need a "pmask" if there 
+     is an ELSEWHERE clause containing executable statements.  Again
+     we only lookahead a single ELSEWHERE to catch the F90 cases.  */
+  if ((cblock->block && cblock->block->next)
+      || (cblock->block && cblock->block->block))
+    {
+      pmask = allocate_temp_for_forall_nest_1 (mask_type, size, block,
+					       &ppmask);
+    }
+  else
+    {
+      ppmask = NULL_TREE;
+      pmask = NULL_TREE;
+    }
+
   while (cblock)
     {
       /* Has mask-expr.  */
       if (cblock->expr)
         {
-	  /* If this is the last clause of the WHERE construct, then
-	     we don't need to allocate/populate/deallocate a complementary
-	     pending control mask (pmask).  */
-	  if (! cblock->block)
-	    {
-	      tmp1 = NULL_TREE;
-	      tmp1_ptr = NULL;
-	    }
-	  else
-	    tmp1_ptr = &tmp1;
+          /* Ensure that the WHERE mask will be evaluated exactly once.
+	     If there are no statements in this WHERE/ELSEWHERE clause,
+	     then we don't need to update the control mask (cmask).
+	     If this is the last clause of the WHERE construct, then
+	     we don't need to update the pending control mask (pmask).  */
+          gfc_evaluate_where_mask (cblock->expr, nested_forall_info, mask,
+				   cblock->next ? cmask : NULL_TREE,
+				   cblock->block ? pmask : NULL_TREE,
+				   mask_type, block);
 
-          /* Ensure that the WHERE mask be evaluated only once.  */
-          tmp2 = gfc_evaluate_where_mask (cblock->expr, nested_forall_info,
-                                          &tmp, tmp1_ptr, temp, block);
-
-          /* Set the control mask and the pending control mask.  */
-          /* It's a where-stmt.  */
-          if (mask == NULL)
-            {
-              mask = tmp;
-              pmask = tmp1;
-            }
-          /* It's a nested where-stmt.  */
-          else if (mask && pmask == NULL)
-            {
-              tree tmp2;
-              /* Use the TREE_CHAIN to list the masks.  */
-              tmp2 = copy_list (mask);
-              pmask = chainon (mask, tmp1);
-              mask = chainon (tmp2, tmp);
-            }
-          /* It's a masked-elsewhere-stmt.  */
-          else if (mask && cblock->expr)
-            {
-              tree tmp2;
-              tmp2 = copy_list (pmask);
-
-              mask = pmask;
-              tmp2 = chainon (tmp2, tmp);
-              pmask = chainon (mask, tmp1);
-              mask = tmp2;
-            }
         }
-      /* It's a elsewhere-stmt. No mask-expr is present.  */
+      /* It's a final elsewhere-stmt. No mask-expr is present.  */
       else
-        mask = pmask;
+        cmask = mask;
 
       /* Get the assignment statement of a WHERE statement, or the first
          statement in where-body-construct of a WHERE construct.  */
@@ -3089,7 +3026,7 @@ gfc_trans_where_2 (gfc_code * code, tree mask,
                 {
                   need_temp = gfc_check_dependency (expr1, expr2, 0);
                   if (need_temp)
-                    gfc_trans_assign_need_temp (expr1, expr2, mask,
+                    gfc_trans_assign_need_temp (expr1, expr2, cmask,
                                                 nested_forall_info, block);
                   else
                     {
@@ -3099,8 +3036,8 @@ gfc_trans_where_2 (gfc_code * code, tree mask,
                       gfc_add_modify_expr (block, count1, gfc_index_zero_node);
                       gfc_add_modify_expr (block, count2, gfc_index_zero_node);
 
-                      tmp = gfc_trans_where_assign (expr1, expr2, mask, count1,
-                                                    count2);
+                      tmp = gfc_trans_where_assign (expr1, expr2, cmask,
+						    count1, count2);
 
                       tmp = gfc_trans_nested_forall_loop (nested_forall_info,
                                                           tmp, 1, 1);
@@ -3115,8 +3052,8 @@ gfc_trans_where_2 (gfc_code * code, tree mask,
                   gfc_add_modify_expr (block, count1, gfc_index_zero_node);
                   gfc_add_modify_expr (block, count2, gfc_index_zero_node);
 
-                  tmp = gfc_trans_where_assign (expr1, expr2, mask, count1,
-                                                count2);
+                  tmp = gfc_trans_where_assign (expr1, expr2, cmask,
+						count1, count2);
                   gfc_add_expr_to_block (block, tmp);
 
                 }
@@ -3124,11 +3061,9 @@ gfc_trans_where_2 (gfc_code * code, tree mask,
 
             /* WHERE or WHERE construct is part of a where-body-construct.  */
             case EXEC_WHERE:
-              /* Ensure that MASK is not modified by next gfc_trans_where_2.  */
-              mask_copy = copy_list (mask);
-              gfc_trans_where_2 (cnext, mask_copy, nested_forall_info,
-                                 block, temp);
-              break;
+	      /* Ensure that MASK is not modified by next gfc_trans_where_2.  */
+	      gfc_trans_where_2 (cnext, cmask, nested_forall_info, block);
+	      break;
 
             default:
               gcc_unreachable ();
@@ -3139,7 +3074,24 @@ gfc_trans_where_2 (gfc_code * code, tree mask,
        }
     /* The next masked-elsewhere-stmt, elsewhere-stmt, or end-where-stmt.  */
     cblock = cblock->block;
+    mask = pmask;
   }
+
+  /* If we allocated a pending mask array, deallocate it now.  */
+  if (ppmask)
+    {
+      tree args = gfc_chainon_list (NULL_TREE, ppmask);
+      tmp = build_function_call_expr (gfor_fndecl_internal_free, args);
+      gfc_add_expr_to_block (block, tmp);
+    }
+
+  /* If we allocated a current mask array, deallocate it now.  */
+  if (pcmask)
+    {
+      tree args = gfc_chainon_list (NULL_TREE, pcmask);
+      tmp = build_function_call_expr (gfor_fndecl_internal_free, args);
+      gfc_add_expr_to_block (block, tmp);
+    }
 }
 
 /* Translate a simple WHERE construct or statement without dependencies.
@@ -3282,11 +3234,8 @@ tree
 gfc_trans_where (gfc_code * code)
 {
   stmtblock_t block;
-  temporary_list *temp, *p;
   gfc_code *cblock;
   gfc_code *eblock;
-  tree args;
-  tree tmp;
 
   cblock = code->block;
   if (cblock->next
@@ -3333,21 +3282,9 @@ gfc_trans_where (gfc_code * code)
     }
 
   gfc_start_block (&block);
-  temp = NULL;
 
-  gfc_trans_where_2 (code, NULL, NULL, &block, &temp);
+  gfc_trans_where_2 (code, NULL, NULL, &block);
 
-  /* Add calls to free temporaries which were dynamically allocated.  */
-  while (temp)
-    {
-      args = gfc_chainon_list (NULL_TREE, temp->temporary);
-      tmp = build_function_call_expr (gfor_fndecl_internal_free, args);
-      gfc_add_expr_to_block (&block, tmp);
-
-      p = temp;
-      temp = temp->next;
-      gfc_free (p);
-    }
   return gfc_finish_block (&block);
 }
 

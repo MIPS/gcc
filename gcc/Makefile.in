@@ -130,7 +130,7 @@ T_ADAFLAGS =
 SUBDIRS =@subdirs@ build
 
 # Selection of languages to be made.
-CONFIG_LANGUAGES = @all_languages@
+CONFIG_LANGUAGES = @all_selected_languages@
 LANGUAGES = c gcov$(exeext) gcov-dump$(exeext) $(CONFIG_LANGUAGES)
 
 # Selection of languages to be made during stage1 build.
@@ -150,6 +150,7 @@ BOOT_LANGUAGES = c @all_boot_languages@
 XCFLAGS =
 TCFLAGS =
 CFLAGS = -g
+LDFLAGS = @LDFLAGS@
 STAGE1_CFLAGS = -g @stage1_cflags@
 STAGE1_CHECKING = -DENABLE_CHECKING -DENABLE_ASSERT_CHECKING
 BOOT_CFLAGS = -g -O2
@@ -735,7 +736,7 @@ HOSTHOOKS_DEF_H = hosthooks-def.h $(HOOKS_H)
 LANGHOOKS_DEF_H = langhooks-def.h $(HOOKS_H)
 TARGET_DEF_H = target-def.h $(HOOKS_H)
 RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H) reg-notes.def insn-notes.def \
-  input.h real.h statistics.h
+  input.h real.h statistics.h vec.h
 RTL_H = $(RTL_BASE_H) genrtl.h
 PARAMS_H = params.h params.def
 BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def
@@ -1262,11 +1263,10 @@ native: config.status auto-host.h build-@POSUB@ $(LANGUAGES) \
 	$(EXTRA_PASSES) $(EXTRA_PROGRAMS) $(COLLECT2)
 
 # Define the names for selecting languages in LANGUAGES.
-C c: cc1$(exeext)
-PROTO: proto
+c: cc1$(exeext)
 
 # Tell GNU make these are phony targets.
-.PHONY: C c PROTO proto
+.PHONY: c proto
 
 # On the target machine, finish building a cross compiler.
 # This does the things that can't be done on the host machine.
@@ -2057,7 +2057,7 @@ tree-vect-analyze.o: tree-vect-analyze.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 tree-vect-patterns.o: tree-vect-patterns.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) \
    diagnostic.h $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h \
-   tree-vectorizer.h tree-data-ref.h $(EXPR_H)
+   tree-vectorizer.h $(TREE_DATA_REF_H) $(EXPR_H)
 tree-vect-transform.o: tree-vect-transform.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(GGC_H) $(OPTABS_H) $(RECOG_H) $(TREE_H) $(RTL_H) \
    $(BASIC_BLOCK_H) $(DIAGNOSTIC_H) $(TREE_FLOW_H) $(TREE_DUMP_H) \
@@ -2198,7 +2198,8 @@ expmed.o : expmed.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_
    toplev.h $(TM_P_H) langhooks.h
 explow.o : explow.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    $(FLAGS_H) hard-reg-set.h insn-config.h $(EXPR_H) $(OPTABS_H) $(RECOG_H) \
-   toplev.h $(FUNCTION_H) $(GGC_H) $(TM_P_H) langhooks.h gt-explow.h target.h
+   toplev.h $(FUNCTION_H) $(GGC_H) $(TM_P_H) langhooks.h gt-explow.h target.h \
+   output.h
 optabs.o : optabs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) insn-config.h $(EXPR_H) $(OPTABS_H) libfuncs.h \
    $(RECOG_H) reload.h toplev.h $(GGC_H) real.h $(TM_P_H) except.h \
@@ -3192,17 +3193,23 @@ stmp-fixinc: gsyslimits.h macro_list \
 	fi
 	rm -rf include; mkdir include
 	-chmod a+rx include
-	(TARGET_MACHINE='$(target)'; srcdir=`cd $(srcdir); ${PWD_COMMAND}`; \
-	  SHELL='$(SHELL)'; MACRO_LIST=`${PWD_COMMAND}`/macro_list ; \
-	  export TARGET_MACHINE srcdir SHELL MACRO_LIST && \
-	  cd $(build_objdir)/fixincludes && \
-	  $(SHELL) ./fixinc.sh ../../gcc/include \
-	    $(SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS) )
-	rm -f include/syslimits.h
-	if [ -f include/limits.h ]; then \
-	  mv include/limits.h include/syslimits.h; \
+	if [ -d ../prev-gcc ]; then \
+	  cd ../prev-gcc && \
+	  $(MAKE) real-$(INSTALL_HEADERS_DIR) DESTDIR=`pwd`/../gcc/ \
+	    libsubdir=. ; \
 	else \
-	  cp $(srcdir)/gsyslimits.h include/syslimits.h; \
+	  (TARGET_MACHINE='$(target)'; srcdir=`cd $(srcdir); ${PWD_COMMAND}`; \
+	    SHELL='$(SHELL)'; MACRO_LIST=`${PWD_COMMAND}`/macro_list ; \
+	    export TARGET_MACHINE srcdir SHELL MACRO_LIST && \
+	    cd $(build_objdir)/fixincludes && \
+	    $(SHELL) ./fixinc.sh ../../gcc/include \
+	      $(SYSTEM_HEADER_DIR) $(OTHER_FIXINCLUDES_DIRS) ); \
+	  rm -f include/syslimits.h; \
+	  if [ -f include/limits.h ]; then \
+	    mv include/limits.h include/syslimits.h; \
+	  else \
+	    cp $(srcdir)/gsyslimits.h include/syslimits.h; \
+	  fi; \
 	fi
 	chmod a+r include/syslimits.h
 	$(STAMP) stmp-fixinc
@@ -3782,6 +3789,18 @@ install-headers-cpio: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 install-headers-cp: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 	cp -p -r include $(DESTDIR)$(libsubdir)
 
+# Targets without dependencies, for use in prev-gcc during bootstrap.
+real-install-headers-tar:
+	(cd `${PWD_COMMAND}`/include ; \
+	 tar -cf - .; exit 0) | (cd $(DESTDIR)$(libsubdir)/include; tar xpf - )
+
+real-install-headers-cpio:
+	cd `${PWD_COMMAND}`/include ; \
+	find . -print | cpio -pdum $(DESTDIR)$(libsubdir)/include
+
+real-install-headers-cp:
+	cp -p -r include $(DESTDIR)$(libsubdir)
+
 # Install supporting files for fixincludes to be run later.
 install-mkheaders: stmp-int-hdrs $(STMP_FIXPROTO) install-itoolsdirs \
   macro_list xlimits.h
@@ -4238,12 +4257,19 @@ bubblestrap:
 	  $(MAKE) $(REMAKEFLAGS) stage4_build || exit 1; \
 	fi
 
+BOOTSTRAPPING := $(shell if test -f ../stage_last; then echo yes; else echo no; fi)
+ifeq ($(BOOTSTRAPPING),yes)
+# Provide quickstrap as a target that people can type into the gcc directory,
+# and that fails if you're not into it.
+quickstrap: all
+else
 quickstrap:
 	if test -f stage_last ; then \
 	  LAST=`cat stage_last`; rm $$LAST; $(MAKE) $(REMAKEFLAGS) $$LAST; \
 	else \
 	  $(MAKE) $(REMAKEFLAGS) stage1_build; \
 	fi
+endif
 
 cleanstrap:
 	-$(MAKE) clean

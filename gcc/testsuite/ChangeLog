@@ -1,3 +1,182 @@
+2006-02-26  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/fold-even-1.c: New test case.
+
+2006-02-26  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/21137
+	* gcc.dg/fold-eqandshift-1.c: New test case.
+
+2006-02-26  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimization/25125
+	* gcc.dg/vect/wrapv-vect-7.c, gcc.dg/vect/wrapv-vect-reduc-2char.c,
+	gcc.dg/vect/wrapv-vect-reduc-2short.c: New tests.
+
+2006-02-26  Dorit Nuzman  <dorit@il.ibm.com>
+
+	PR tree-optimizations/26359
+	* gcc.dg/vect/vect.exp: Compile tests prefixed with "dump-tree-dceloop" 
+	with -fdump-tree-dceloop-details.
+	* gcc.dg/vect/dump-tree-dceloop-pr26359.c: New test.
+
+2006-02-25  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/23673
+	* gcc.dg/fold-eqxor-1.c: New test case.
+	* gcc.dg/fold-eqxor-2.c: Likewise.
+	* gcc.dg/fold-eqxor-3.c: Likewise.
+
+2006-02-25  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/23092
+	* scalar_mask_1.f90:  New test.
+
+2006-02-24  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/eh/uncaught1.C: Add dg-options for ppc-darwin.
+	* g++.dg/eh/uncaught2.C: New.
+	* g++.dg/eh/uncaught3.C: New.
+
+2006-02-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26423
+	* gfortran.dg/read_many_1.f: New test.
+
+2006-02-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24519
+	* gfortran.dg/dependency_3.f90: New test.
+	* gfortran.fortran-torture/execute/vect-3.f90: Remove two of the
+	XFAILs.
+
+	PR fortran/25395
+	* gfortran.dg/equiv_6.f90: New test.
+
+2006-02-23  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/pr26425.c: New test.
+
+2006-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26412
+	* gcc.dg/gomp/pr26412.c: New test.
+
+2006-02-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26291
+	* g++.dg/other/ellipsis1.C: New test.
+	* g++.dg/parse/operator4.C: Adjust error marker.
+
+2006-02-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/25603
+	* gfortran.dg/pr25603.f: New testcase.
+
+2006-02-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/bf-spl1.c: Don't specify -m68000.
+	* g++.old-deja/g++.pt/static11.C: Xfail for m68k-elf
+
+2006-02-21  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/eh/spbp.C: New.
+
+2006-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26379
+	* gcc.target/i386/mmx-7.c: New test.
+
+2006-02-20  Roger Sayle  <roger@eyesopen.com>
+
+	PR tree-optimization/26361
+	* gcc.dg/tree-ssa/vrp27.c: New test case.
+
+2006-02-20  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/complex-3.c: Split out first part into ...
+	* gcc.dg/tree-ssa/complex-4.c: Here.
+
+2006-02-19  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/19543
+	* gfortran.dg/logical_1.f90: New test case.
+
+2006-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26334
+	* gcc.dg/20060218-1.c: Moved to...
+	* gcc.target/i386/20060218-1.c: ... here.  New test.
+
+2006-02-19  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/26201
+	* gfortran.dg/convert_1.f90: New.
+
+2005-02-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25054
+	* gfortran.dg/namelist_5.f90: New test.
+
+	PR fortran/25089
+	* gfortran.dg/namelist_4.f90: New test.
+
+2006-02-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+        PR tree-opt/25680
+        * testsuite/gcc.dg/tree-ssa/complex-3.c: New test.
+
+2006-02-18  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.dg/tree-ssa/20031106-1.c: Fix the final scan of the
+	variable to take into account the variable name in the
+	function header.
+	* gcc.dg/tree-ssa/20031106-2.c: Likewise.
+
+2006-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26334
+	* gcc.c-torture/compile/20060217-1.c: New test.
+	* gcc.dg/20060218-1.c: New test.
+
+2006-02-18  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/glibc-uclibc-1.c, gcc.dg/glibc-uclibc-2.c: New tests.
+
+2006-02-17  Grigory Zagorodnev <grigory_zagorodnev@linux.intel.com>
+
+	* gcc.dg/cpp/undef3.c: New test.
+	* gcc.dg/cpp/trad/builtins2.c: New test.
+
+2006-02-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26266
+	* g++.dg/template/static22.C: New test.
+	* g++.dg/template/static23.C: New test.
+	* g++.dg/template/static24.C: New test.
+	* g++.dg/template/non-dependent13.C: New test.
+	* g++.dg/init/member1.C: Tweak error markers.
+
+2006-02-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/26255
+	* gcc.c-torture/compile/pr26255.c: New test case.
+
+2006-02-16  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.fortran-torture/execute/where_10.f90: New test case.
+	* gfortran.fortran-torture/execute/where_11.f90: Likewise.
+	* gfortran.fortran-torture/execute/where_12.f90: Likewise.
+	* gfortran.fortran-torture/execute/where_13.f90: Likewise.
+	* gfortran.fortran-torture/execute/where_14.f90: Likewise.
+	* gfortran.fortran-torture/execute/where_15.f90: Likewise.
+	* gfortran.fortran-torture/execute/where_16.f90: Likewise.
+
+2006-02-16  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/vrp24.c: Update expected output.
+	* gcc.dg/tree-ssa/vrp26.c: New test.
+
 2006-02-16  Joseph S. Myers  <joseph@codesourcery.com>
 
 	PR target/20353

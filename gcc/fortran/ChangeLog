@@ -1,3 +1,111 @@
+2006-02-25  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/23092
+	* trans-intrinsic.c (gfc_conv_intrinsic_arith):  If the
+	mask expression exists and has rank 0, enclose the generated
+	loop in an "if (mask)".
+	* (gfc_conv_intrinsic_minmaxloc):  Likewise.
+
+2006-02-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26409
+	* resolve.c (resolve_contained_functions, resolve_types,
+	gfc_resolve): Revert patch of 2006-02-19.
+
+2006-02-24  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24519
+	* dependency.c (gfc_is_same_range): Correct typo.
+	(gfc_check_section_vs_section): Call gfc_is_same_range.
+
+	PR fortran/25395
+	* trans-common.c (add_equivalences): Add a new flag that is set when
+	an equivalence is seen that prevents more from being reset until the
+	start of a new traversal of the list, thus ensuring completion of
+	all the equivalences.
+
+2006-02-23  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	* module.c (read_module): Remove redundant code lines.
+
+2006-02-20 Rafael Å¡vila de EspÅÌndola <rafael.espindola@gmail.com>
+	* Make-lang.in (FORTRAN): Remove
+	(.PHONY): Remove F95 and f95. Add fortran
+
+2006-02-20  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-stmt.c (gfc_trans_where_2): Avoid updating unused current
+	execution mask for empty WHERE/ELSEWHERE clauses.  Don't allocate
+	temporary mask arrays if they won't be used.
+
+2006-02-20  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-stmt.c (gfc_trans_where_assign): Remove code to handle
+	traversing a linked list of MASKs.  The MASK is now always a
+	single element requiring no ANDing during the assignment.
+
+2006-02-19  Thomas Koenig  <Thomas.Koenig@online.de>
+
+        * gfortran.texi:  Document environment variables which
+        influence runtime behavior.
+
+2006-02-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* resolve.c (resolve_contained_functions): Call resolve_entries
+	first.
+	(resolve_types): Remove calls to resolve_entries and
+	resolve_contained_functions.
+	(gfc_resolve): Call resolve_contained_functions.
+
+2006-02-19  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/26201
+	* intrinsic.c (gfc_convert_type_warn): Call
+	gfc_intrinsic_symbol() on the newly created symbol.
+
+2005-02-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25054
+	* resolve.c (is_non_constant_shape_array): New function.
+	(resolve_fl_variable): Remove code for the new function and call it.
+	(resolve_fl_namelist): New function.  Add test for namelist array
+	with non-constant shape, using is_non_constant_shape_array.
+	(resolve_symbol): Remove code for resolve_fl_namelist and call it.
+
+	PR fortran/25089
+	* match.c (match_namelist): Increment the refs field of an accepted
+	namelist object symbol.
+	* resolve.c (resolve_fl_namelist): Test namelist objects for a conflict
+	with contained or module procedures.
+
+2006-02-18  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-stmt.c (struct temporary_list): Delete.
+	(gfc_trans_where_2): Major reorganization.  Remove no longer needed
+	TEMP argument.  Allocate and deallocate the control mask and
+	pending control mask locally.
+	(gfc_trans_forall_1): Delete TEMP local variable, and update
+	call to gfc_trans_where_2.  No need to deallocate arrays after.
+	(gfc_evaluate_where_mask): Major reorganization.  Change return
+	type to void.  Pass in parent execution mask, MASK, and two
+	already allocated mask arrays CMASK and PMASK.  On return
+	CMASK := MASK & COND, PMASK := MASK & !COND.  MASK, CMASK and
+	CMASK may all be NULL, or refer to the same temporary arrays.
+	(gfc_trans_where): Update call to gfc_trans_where_2.  We no
+	longer need a TEMP variable or to deallocate temporary arrays
+	allocated by gfc_trans_where_2.
+
+2006-02-18   Danny Smith  <dannysmith@users.sourceforeg.net>
+
+	* gfortran.h (gfc_add_attribute): Change uint to unsigned int.
+	* symbol.c (gfc_add_attribute): Likewise for definition.
+	* resolve.c (resolve_global_procedure): Likewise for variable 'type'.
+
+2006-02-17  Richard Sandiford  <richard@codesourcery.com>
+
+	* trans-common.c: Include rtl.h earlier.
+	* trans-decl.c: Likewise.
+
 2006-02-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/26224

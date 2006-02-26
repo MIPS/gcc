@@ -29,6 +29,7 @@
 #include <tr1/cmath>
 #include <tr1/complex>
 #include <tr1/cstdarg>
+#include <tr1/cstdbool>
 #include <tr1/cstdint>
 #include <tr1/cstdio>
 #include <tr1/cstdlib>
@@ -39,12 +40,12 @@
 #include <tr1/fenv.h>
 #include <tr1/float.h>
 #include <tr1/functional>
-#include <tr1/hashtable>
 #include <tr1/inttypes.h>
 #include <tr1/limits.h>
 #include <tr1/math.h>
 #include <tr1/memory>
 #include <tr1/stdarg.h>
+#include <tr1/stdbool.h>
 #include <tr1/stdint.h>
 #include <tr1/stdio.h>
 #include <tr1/stdlib.h>

@@ -1,3 +1,174 @@
+2006-02-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cmath: Add templates (8.16.3).	
+	* include/tr1/cstbool: New.
+	* include/tr1/stdbool.h: Likewise.
+	* include/Makefile.am: Add.
+	* testsuite/tr1/8_c_compatibility/cmath/templates.cc: New.
+	* testsuite/tr1/headers.cc: Update.
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): Add <stdbool.h> check.
+	* docs/html/ext/tr1.html: Update.
+	* include/Makefile.in: Regenerate.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+
+2006-02-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/array (array<>::swap, assign): Implement.
+	* include/tr1/array (operator==, operator!=, operator<,
+	operator>, operator>=, operator<=, swap, get): Inline.
+	* testsuite/tr1/6_containers/array/requirements/member_swap.cc: New.
+	* testsuite/tr1/6_containers/array/requirements/assign.cc: Likewise.
+	* testsuite/tr1/6_containers/array/specialized_algorithms/swap.cc:
+	Likewise.
+
+2006-02-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/22_locale/codecvt/in/wchar_t/1.cc (test01): Change int
+	to size_t. Use explicit static_cast for casts.
+	* testsuite/22_locale/codecvt/in/wchar_t/6.cc (test06): Same.
+	* testsuite/22_locale/codecvt/in/wchar_t/5.cc (test05): Same.
+	* testsuite/ext/stdio_sync_filebuf/wchar_t/1.cc (test01): Same.
+	
+2006-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/pb_assoc/
+	basic_tree_assoc_cntnr_const_node_iterator.html:Fix links
+	* docs/html/ext/pb_assoc/basic_tree_assoc_cntnr_node_iterator.html:
+	Likewise.
+	* docs/html/ext/pb_assoc/hash_based_containers.html: Likewise.
+	* docs/html/ext/pb_assoc/hash_standard_resize_policy.html: Likewise.
+	* docs/html/ext/pb_assoc/interface.html: Likewise..
+	* docs/html/ext/pb_assoc/list_updates.html: Likewise.
+	* docs/html/ext/pb_assoc/lu_based_containers.html: Likewise.
+	* docs/html/ext/pb_assoc/resize_policies.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_probe_fn.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_range_hashing.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_ranged_hash_fn.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_ranged_probe_fn.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_resize_policy.html: Likewise.
+	* docs/html/ext/pb_assoc/tree_assoc_cntnr_const_node_iterator.html:
+	Likewise.
+	* docs/html/ext/pb_assoc/tree_assoc_cntnr_node_iterator.html: Likewise.
+
+2006-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26132
+	* include/tr1/hashtable (hashtable<>::rehash): Define.
+	* testsuite/tr1/6_containers/unordered/hashtable/26132.cc: New.
+
+	* include/tr1/hashtable: Trivial formatting and stylistic fixes.
+
+	* testsuite/tr1/headers.cc: remove <tr1/hashtable>, not a tr1 header,
+	only an implementation detail.
+
+2006-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/debug/list (splice): Remove splice_alloc check, redundant
+	after implementing the splice bits of N1599.
+
+2006-02-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_std/cmath.tcc: Use _GLIBCXX_BEGIN_NAMESPACE,
+	_GLIBCXX_END_NAMESPACE.
+
+2006-02-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/c++config: Simplify debug namespaces.
+	* include/ext/hash_set: Specialize insert_iterator after norm,
+	debug containers have been (optionally) declared. Use nested
+	namespaces.	
+	* include/ext/hash_map: Same.
+	* include/debug/hash_map.h (insert): Add specialization for value
+	pointer types.
+	* include/debug/hash_set.h (insert): Same.
+	* include/debug/hash_multimap.h: Change __gnu_debug_def to __debug.
+	* include/debug/set.h: Same.
+	* include/debug/bitset: Same.
+	* include/debug/multiset.h: Same.
+	* include/debug/hash_multiset.h: Same.
+	* include/debug/vector: Same.
+	* include/debug/map.h: Same.
+	* include/debug/deque: Same.
+	* include/debug/list: Same.
+	* include/debug/multimap.h. Same.
+	* include/debug/macros.h: Use __gnu_debug.
+	* include/debug/debug.h: Same.
+	* include/debug/formatter.h: Same.
+	* include/debug/safe_sequence.h: Same.
+	* include/debug/functions.h: Same.
+	* include/debug/safe_base.h: Same.
+	* include/debug/safe_iterator.h: Same.
+	* include/debug/safe_iterator.tcc: Same.
+	(_M_invalidate): Adjust compare order.
+	* include/debug/string: Change std::__gnu_debug to __gnu_debug.
+	* include/ext/hashtable.h: Formatting fixes.
+	* include/bits/stl_map.h: Formatting fixes.		
+	* src/compatibility.cc: Adjust compatibility symbols for old debug
+	mode model.	
+	* src/debug_list.cc: Tweak.
+	* src/debug.cc: Adjust namespaces.
+	* docs/html/debug_mode.html: Adjust namespace names.
+	* testsuite/25_algorithms/heap/heap.cc: Restore _GLIBCXX_DEBUG
+	macro guards, as count values differ when in debug mode.	
+	* testsuite/23_containers/vector/26412.cc: Move to...
+	* testsuite/23_containers/vector/26412-1.cc: ... here.
+	* testsuite/23_containers/vector/26412-2.cc: Add.
+
+	* include/ext/pb_assoc/detail/standard_policies.hpp
+	(PB_ASSOC_HASH_NAMESPACE): Remove, use __gnu_cxx::hash_map and
+	std::equal_to.
+
+	* configure.ac (libtool_VERSION): To 6:8:0.
+	* configure: Regenerate.
+	* config/abi/pre/gnu.ver: Revert to exporting __gnu_debug symbols.
+	(GLIBCXX_3.4.8): New.
+	* testsuite/testsuite_abi.cc: Add GLIBCXX_3.4.8 to known versions.
+	
+2006-02-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable: Trivial formatting fixes.
+
+2006-02-20  Paolo Carlini  <pcarlini@suse.de>
+
+	Revert recent commit for libstdc++/26211, now suspended waiting for
+	DR 342 (reopened) to reach a new resolution.
+	* include/bits/istream.tcc (basic_istream<>::tellg, seekg(pos_type),
+	seekg(off_type, ios_base::seekdir)): Remove sentry.
+	* testsuite/27_io/basic_istream/seekg/char/26211.cc: Remove.
+	* testsuite/27_io/basic_istream/seekg/wchar_t/26211.cc: Likewise.
+	* testsuite/27_io/basic_istream/tellg/char/26211.cc: Likewise.
+	* testsuite/27_io/basic_istream/tellg/wchar_t/26211.cc: Likewise.
+	* testsuite/27_io/basic_istream/seekg/char/8348-1.cc: Revert changes.
+	* testsuite/27_io/basic_istream/seekg/wchar_t/8348-1.cc: Likewise.
+	* testsuite/27_io/basic_istream/seekg/char/8348-2.cc: Likewise.
+	* testsuite/27_io/basic_istream/seekg/wchar_t/8348-1.cc: Likewise.
+	* testsuite/27_io/basic_istream/tellg/char/8348.cc: Likewise.
+	* testsuite/27_io/basic_istream/tellg/wchar_t/8348.cc: Likewise.
+
+2006-02-19  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_sstream.h (basic_stringbuf<>::setbuf): Simply
+	clear the internal _M_string, adjust _M_sync call.
+	* include/bits/sstream.tcc (basic_stringbuf<>::_M_sync): Adjust
+	consistently for calls from setbuf.
+
+2006-02-17  Paolo Carlini  <pcarlini@suse.de>
+	    Howard Hinnant  <hhinnant@apple.com>
+
+	PR libstdc++/26250
+	* include/bits/sstream.tcc (basic_stringbuf<>::overflow): Tweak
+	to leave epgtr() just past the new write position, as per the
+	relevant bits of 27.7.1.3/8 (not changed by DR 432).
+	* testsuite/27_io/basic_stringbuf/overflow/char/26250.cc: New.
+	* testsuite/27_io/basic_stringbuf/overflow/wchar_t/26250.cc: Same.
+
+	* docs/html/ext/howto.html: Add entries for DR 169 and DR 432.
+
+	* include/std/std_sstream.h (basic_stringbuf<>::_M_sync): Move out
+	of line...
+	* include/bits/sstream.tcc: ... here.
+
 2006-02-16  Joseph S. Myers  <joseph@codesourcery.com>
 
 	PR libstdc++/14939
