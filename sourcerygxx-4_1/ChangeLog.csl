@@ -1,3 +1,34 @@
+2006-02-27  Nathan Sidwell  <nathan@potter.codesourcery.com>
+
+	Backport the following
+	* gcc/config.gcc (mt-*-*): Add --with-arch support.
+	(--with): Print accepted options on error.
+	* gcc/config/mt/mt.h (OPTION_DEFAULT_SPECS): Define.
+
+	* gcc/config/mt/mt.c (DEF_VEC_P(basic_block),
+	DEF_VEC_ALLOC_P(basic_bloc,heap)): Remove from here.
+
+	* gcc/config/mt/mt.md (UNSPEC_LOOP): New constant.
+	(loop_end, loop_init, doloop_end): New insns.
+	* gcc/config/mt/mt.h (LOOP_FIRST, LOOP_LAST): New.
+	(SPECIAL_REG_FIRST, FIRST_PSEUDO_REGISTER): Adjust.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Adjust.
+	(REG_CLASS_CONTENTS, REGISTER_NAMES): Adjust.
+	* gcc/config/mt/mt.c: #include basic-block.h
+	(struct machine_function): Add has_loops field.
+	(mt_add_loop): New.
+	(MAX_LOOP_DEPTH, MAX_LOO_LENGTH): New.
+	(struct loop_info, struct loop_work): New.
+	(mt_loop_nesting, ms1_block_length, ms1_scan_loop): New workers.
+	(mt_reorg_loops): New loop optimization.
+	(mt_machine_reorg): Call it.
+	* gcc/config/mt/mt-protos.h (mt_add_loop): Declare.
+
+	* gcc/vec.h (VEC_block_remove): New.
+
+	* gcc/loop-doloop.c (add_test): Only add jump notes if we did emit a
+	jump.
+
 2006-02-18  Joseph S. Myers  <joseph@codesourcery.com>
 
 	PR target/24837
