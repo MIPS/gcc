@@ -131,6 +131,23 @@ do {									\
   /* APPLE LOCAL end 4298879.  */                                       \
 } while(0)
 
+/* APPLE LOCAL begin mainline 2006-02-24 4086777 */
+#define C_COMMON_OVERRIDE_OPTIONS do {					\
+  /* On powerpc, __cxa_get_exception_ptr is available starting in the	\
+     10.4.6 libstdc++.dylib.  */					\
+  if ((! darwin_macosx_version_min					\
+       || strverscmp (darwin_macosx_version_min, "10.4.6") < 0)		\
+      && flag_use_cxa_get_exception_ptr == 2)				\
+    flag_use_cxa_get_exception_ptr = 0;					\
+  /* On powerpc, __cxa_atexit is available starting in the 10.4		\
+     libSystem.dylib.  */						\
+  if ((! darwin_macosx_version_min					\
+       || strverscmp (darwin_macosx_version_min, "10.4") < 0)		\
+      && flag_use_cxa_atexit == 2)					\
+    flag_use_cxa_atexit = 0;						\
+} while (0)
+/* APPLE LOCAL end mainline 2006-02-24 4086777 */
+
 /* Darwin has 128-bit long double support in libc in 10.4 and later.
    Default to 128-bit long doubles even on earlier platforms for ABI
    consistency; arithmetic will work even if libc and libm support is

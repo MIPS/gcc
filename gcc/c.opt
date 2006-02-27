@@ -854,6 +854,12 @@ fuse-cxa-atexit
 C++ ObjC++
 Use __cxa_atexit to register destructors
 
+; APPLE LOCAL begin mainline 2006-02-24 4086777
+fuse-cxa-get-exception-ptr
+C++ ObjC++
+Use __cxa_get_exception_ptr in exception handling
+
+; APPLE LOCAL end mainline 2006-02-24 4086777
 fvisibility-inlines-hidden
 C++ ObjC++
 Marks all inlined methods as having hidden visibility

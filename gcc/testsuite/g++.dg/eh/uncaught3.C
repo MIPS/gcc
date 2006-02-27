@@ -1,7 +1,7 @@
-// PR libstdc++/10606
-// { dg-do run }
-// APPLE LOCAL mainline 2006-02-24 4086777
-// { dg-options "-fuse-cxa-get-exception-ptr" { target powerpc*-*-darwin* } }
+// APPLE LOCAL file mainline 2006-02-24 4086777
+// { dg-do compile { target powerpc*-*-darwin* } }
+// { dg-final { scan-assembler-not "__cxa_get_exception" } }
+// { dg-options "-mmacosx-version-min=10.4" }
 
 #include <exception>
 #include <cstdlib>
