@@ -1187,8 +1187,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
       && code != TRUTH_ANDIF_EXPR
       && code != TRUTH_ORIF_EXPR
       && code != TRUTH_AND_EXPR
-      && code != TRUTH_OR_EXPR
-      && code != TRUTH_XOR_EXPR)
+      && code != TRUTH_OR_EXPR)
     {
       set_value_range_to_varying (vr);
       return;
@@ -1266,8 +1265,7 @@ extract_range_from_binary_expr (value_range_t *vr, tree expr)
   if (code == TRUTH_ANDIF_EXPR
       || code == TRUTH_ORIF_EXPR
       || code == TRUTH_AND_EXPR
-      || code == TRUTH_OR_EXPR
-      || code == TRUTH_XOR_EXPR)
+      || code == TRUTH_OR_EXPR)
     {
       /* Boolean expressions cannot be folded with int_const_binop.  */
       min = fold_binary (code, TREE_TYPE (expr), vr0.min, vr1.min);

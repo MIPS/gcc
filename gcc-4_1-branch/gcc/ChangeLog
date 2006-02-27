@@ -1,3 +1,8 @@
+2006-02-13  Jeff Law  <law@redhat.com>
+
+	* tree-vrp.c (extract_range_from_binary_expr): Remove handling of
+	TRUTH_XOR_EPR.
+
 2006-02-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/sparc/sparc.c (sparc_output_scratch_registers): Use
