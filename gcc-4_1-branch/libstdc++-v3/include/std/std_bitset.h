@@ -1156,7 +1156,7 @@ namespace _GLIBCXX_STD
 	      case '0':
 		break;
 	      case '1':
-		set(__i);
+		_Unchecked_set(__i);
 		break;
 	      default:
 		__throw_invalid_argument(__N("bitset::_M_copy_from_string"));

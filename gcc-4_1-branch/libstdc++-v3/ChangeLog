@@ -1,3 +1,8 @@
+2006-01-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_bitset.h (bitset<>::_M_copy_to_string):
+	Call the internal _Unchecked_set(size_t) instead of set.
+
 2006-02-22  Paolo Carlini  <pcarlini@suse.de>
 
 	* docs/html/ext/pb_assoc/basic_tree_assoc_cntnr_const_node_iterator.html:
