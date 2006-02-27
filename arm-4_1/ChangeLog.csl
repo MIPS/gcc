@@ -1,3 +1,7 @@
+2006-02-27  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/t-arm-elf: Fix backwards MULTILIB_MATCHES.
+
 2006-02-24  Paul Brook  <paul@codesourcery.com>
 
 	* gcc/config/arm/arm.c (FL_NOTM, FL_DIV, FL_FOR_ARCH7, FL_FOR_ARCH7A,
