@@ -1,3 +1,7 @@
+2006-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_for_loop): Adjust cp_finish_decl caller.
+
 2006-02-18  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/26266
