@@ -1,3 +1,15 @@
+2006-02-24  Diego Novillo  <dnovillo@redhat.com>
+
+	* doc/invoke.texi: Move -fopenmp description to "Options for
+	Code Generation".
+	Remove reference to -lgomp.
+
+2006-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26412
+	* gimplify.c (omp_add_variable): Guard variable size decl test with
+	DECL_SIZE (decl) check.
+
 2006-02-13  Jeff Law  <law@redhat.com>
 
 	* tree-vrp.c (extract_range_from_binary_expr): Remove handling of
