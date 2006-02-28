@@ -1,5 +1,14 @@
 2006-02-27  Stuart Hastings  <stuart@apple.com>
 
+	Radar 4356747
+	* testsuite/gcc.target/i386/20060210-1.c: New.
+	* testsuite/gcc.target/i386/20060210-2.c: New.
+	* testsuite/gcc.target/i386/20060210-3.c: New.
+	* testsuite/gcc.target/i386/20060210-4.c: New.
+	* gcc/testsuite/ChangeLog.apple-ppc: Fix.
+
+2006-02-27  Stuart Hastings  <stuart@apple.com>
+
 	Radar 4448096
 	* testsuite/gcc.target/i386/4448096-1.c: New.
 	* testsuite/g++.dg/4448096-2.C: New.
@@ -16,14 +25,6 @@
 	* g++.dg/asm-block-47.C: Add.
 	* g++.dg/asm-block-13.C: Update.
 	* gcc.apple/asm-block-13.c: Update.
-
-2006-02-17  Stuart Hastings  <stuart@apple.com>
-
-	Radar 4356747
-	testsuite/gcc.target/i386/20060210-1.c: New.
-	testsuite/gcc.target/i386/20060210-2.c: New.
-	testsuite/gcc.target/i386/20060210-3.c: New.
-	testsuite/gcc.target/i386/20060210-4.c: New.
 
 2006-02-17  Stuart Hastings  <stuart@apple.com>
 

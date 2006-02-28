@@ -288,5 +288,5 @@ extern void x86_cw_print_prefix (char *buf, tree prefix_list);
 
 /* APPLE LOCAL begin 4356747 stack realign */
 /* Note to merger: this decl will vanish when the i386.opt file arrives in the merge.  */
-extern int ix86_force_align_arg_pointer;
+extern const char *ix86_force_align_arg_pointer;
 /* APPLE LOCAL end 4356747 stack realign */
