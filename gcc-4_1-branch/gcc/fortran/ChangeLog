@@ -1,3 +1,57 @@
+2006-02-20  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-stmt.c (gfc_trans_where_2): Avoid updating unused current
+	execution mask for empty WHERE/ELSEWHERE clauses.  Don't allocate
+	temporary mask arrays if they won't be used.
+
+2006-02-20  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-stmt.c (gfc_trans_where_assign): Remove code to handle
+	traversing a linked list of MASKs.  The MASK is now always a
+	single element requiring no ANDing during the assignment.
+
+2006-02-18  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-stmt.c (struct temporary_list): Delete.
+	(gfc_trans_where_2): Major reorganization.  Remove no longer needed
+	TEMP argument.  Allocate and deallocate the control mask and
+	pending control mask locally.
+	(gfc_trans_forall_1): Delete TEMP local variable, and update
+	call to gfc_trans_where_2.  No need to deallocate arrays after.
+	(gfc_evaluate_where_mask): Major reorganization.  Change return
+	type to void.  Pass in parent execution mask, MASK, and two
+	already allocated mask arrays CMASK and PMASK.  On return
+	CMASK := MASK & COND, PMASK := MASK & !COND.  MASK, CMASK and
+	CMASK may all be NULL, or refer to the same temporary arrays.
+	(gfc_trans_where): Update call to gfc_trans_where_2.  We no
+	longer need a TEMP variable or to deallocate temporary arrays
+	allocated by gfc_trans_where_2.
+
+2006-02-06  Roger Sayle  <roger@eyesopen.com>
+
+	* trans-stmt.c (gfc_evaluate_where_mask): Allow the NMASK argument
+	to be NULL to indicate that the not mask isn't required.
+	(gfc_trans_where_2): Remove PMASK argument.  Avoid calculating the
+	pending mask for the last clause of a WHERE chain.  Update recursive
+	call.
+	(gfc_trans_forall_1): Update call to gfc_trans_where_2.
+	(gfc_trans_where): Likewise.
+
+2006-02-04  Roger Sayle  <roger@eyesopen.com>
+
+	* dependency.c (gfc_check_dependency): Remove unused vars and nvars
+	arguments.  Replace with an "identical" argument.  A full array
+	reference to the same symbol is a dependency if identical is true.
+	* dependency.h (gfc_check_dependency): Update prototype.
+	* trans-array.h (gfc_check_dependency): Delete duplicate prototype.
+	* trans-stmt.c: #include dependency.h for gfc_check_dependency.
+	(gfc_trans_forall_1): Update calls to gfc_check_dependency.
+	(gfc_trans_where_2): Likewise.  Remove unneeded variables.
+	(gfc_trans_where_3): New function for simple non-dependent WHEREs.
+	(gfc_trans_where): Call gfc_trans_where_3 to translate simple
+	F90-style WHERE statements without internal dependencies.
+	* Make-lang.in (trans-stmt.o): Depend upon dependency.h.
+
 2005-12-13  Richard Sandiford  <richard@codesourcery.com>
 
 	* Make-lang.in (fortran/trans-resolve.o): Depend on
