@@ -1503,9 +1503,11 @@ override_options (void)
      don't want additional code to keep the stack aligned when
      optimizing for code size.  */
   /* APPLE LOCAL begin SSE stack alignment */
-  ix86_preferred_stack_boundary = (optimize_size
-				   ? TARGET_64BIT ? 128 : BASIC_STACK_BOUNDARY
-				   : 128);
+  ix86_preferred_stack_boundary = (TARGET_64BIT
+				   ? 128
+				   : ((optimize_size || flag_apple_kext)
+				      ? BASIC_STACK_BOUNDARY
+				      : 128));
   /* APPLE LOCAL end SSE stack alignment */
   if (ix86_preferred_stack_boundary_string)
     {
@@ -8666,6 +8668,8 @@ ix86_expand_convert_DF2SI_sse (rtx operands[])
 
   incoming_value = force_reg (GET_MODE (operands[1]), operands[1]);
 
+  gcc_assert (ix86_preferred_stack_boundary >= 128);
+
   fp_value = gen_reg_rtx (V2DFmode);
   ix86_expand_vector_move2 (V2DFmode, fp_value, gen_rtx_SUBREG (V2DFmode, incoming_value, 0));
   large_xmm = gen_reg_rtx (V2DFmode);
@@ -8756,6 +8760,8 @@ ix86_expand_convert_SF2SI_sse (rtx operands[])
   int_two32_as_fp = const_double_from_real_value (rvt_int_two32, SFmode);
 
   incoming_value = force_reg (GET_MODE (operands[1]), operands[1]);
+
+  gcc_assert (ix86_preferred_stack_boundary >= 128);
 
   fp_value = gen_reg_rtx (V4SFmode);
   ix86_expand_vector_move2 (V4SFmode, fp_value, gen_rtx_SUBREG (V4SFmode, incoming_value, 0));
@@ -8862,6 +8868,8 @@ ix86_expand_convert_DI2DF_sse (rtx operands[])
   rtvec biases_rtvec, exponents_rtvec;
 
   cfun->uses_vector = 1;
+
+  gcc_assert (ix86_preferred_stack_boundary >= 128);
 
   int_xmm = gen_reg_rtx (V4SImode);
 

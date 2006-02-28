@@ -1,3 +1,9 @@
+2006-02-27  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4448096
+	* testsuite/gcc.target/i386/4448096-1.c: New.
+	* testsuite/g++.dg/4448096-2.C: New.
+
 2006-02-24  Mike Stump  <mrs@apple.com>
 
 	Radar 4456673
