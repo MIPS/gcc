@@ -312,6 +312,25 @@ hook_invalid_arg_for_unprototyped_fn (
 }
 /* APPLE LOCAL end mainline 2005-04-14 */
 
+/* APPLE LOCAL begin 4375453 */
+bool
+default_vector_alignment_reachable (tree type, bool is_packed)
+{
+  if (is_packed)
+    return false;
+
+  /* Assuming that types whose size is > pointer-size are not
+     guaranteed to be naturally aligned.  */
+  if (tree_int_cst_compare (TYPE_SIZE (type),
+			    bitsize_int (POINTER_SIZE)) > 0)
+    return false;
+
+  /* Assuming that types whose size is <= pointer-size are
+     naturally aligned.  */
+  return true;
+}
+/* APPLE LOCAL end 4375453 */
+
 /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
 rtx
 default_internal_arg_pointer (void)
@@ -328,3 +347,4 @@ default_internal_arg_pointer (void)
     return virtual_incoming_args_rtx;
 }
 /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
+

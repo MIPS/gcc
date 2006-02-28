@@ -1,3 +1,17 @@
+2006-02-28  Devang Patel  <dpatel@apple.com>
+	    Dorit Nuzman  <dorit@apple.com>
+
+	Radar 4375453
+        * targhooks.h (vector_alignment_reachable): New.
+        * targhooks.c (default_vector_alignment_reachable): New.
+        * target.h (gcc_target): Add vector_alignment_reachable.
+        * target-def.h (TARGET_VECTOR_ALIGNMENT_REACHABLE): New.
+        * tree-vect-analyze.c (vect_enhance_data_refs_alignment): Avoid
+        peeling when natural alignment is not reachable due to known
+        misalignment. Use target hook to check unknown alignment.
+        * config/rs6000.c (TARGET_VECTOR_ALIGNMENT_REACHABLE,
+        rs6000_vector_alignment_reachable): New.
+
 2006-02-27  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 3992198

@@ -1,3 +1,9 @@
+2006-02-28  Devang Patel  <dpatel@apple.com>
+	    Dorit Nuzman  <dorit@apple.com>
+
+	Radar 4375453
+        * gcc.dg/vect/vect-align-2.c: New.
+
 2006-02-27  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4356747

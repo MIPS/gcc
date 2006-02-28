@@ -721,7 +721,8 @@ static int pad_groups (FILE *, int, rtx, rtx);
 static void rs6000_sched_finish (FILE *, int);
 static int rs6000_use_sched_lookahead (void);
 static tree rs6000_builtin_mask_for_load (void);
-
+/* APPLE LOCAL 4375453 */
+static bool rs6000_vector_alignment_reachable (tree, bool);
 static void rs6000_init_builtins (void);
 static rtx rs6000_expand_unop_builtin (enum insn_code, tree, rtx);
 static rtx rs6000_expand_binop_builtin (enum insn_code, tree, rtx);
@@ -988,7 +989,10 @@ static const char alt_reg_names[][8] =
 
 #undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD rs6000_builtin_mask_for_load
-
+/* APPLE LOCAL begin 4375453 */
+#undef TARGET_VECTOR_ALIGNMENT_REACHABLE
+#define TARGET_VECTOR_ALIGNMENT_REACHABLE rs6000_vector_alignment_reachable
+/* APPLE LOCAL end 4375453 */
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
 
@@ -1819,7 +1823,38 @@ rs6000_builtin_mask_for_load (void)
   else
     return 0;
 }
+/* APPLE LOCAL begin 4375453 */
+/* Return true iff, data reference of TYPE can reach vector alignment (16)
+   after applying N number of iterations. This routine does not determine how
+   many iterations are required to reach desired alignment.  */
+static bool
+rs6000_vector_alignment_reachable (tree type, bool is_packed)
+{
+  if (is_packed)
+    return false;
 
+  if (TARGET_MACHO)
+    {
+      if (TARGET_32BIT)
+	{
+	  if (rs6000_alignment_flags == MASK_ALIGN_NATURAL)
+	    return true;
+
+	  if (rs6000_alignment_flags == MASK_ALIGN_POWER)
+	    return true;
+	}
+      return false;
+    }
+
+  /* Assuming that type whose size is > pointer-size are not guaranteed to be
+     naturally aligned.  */
+  if (tree_int_cst_compare (TYPE_SIZE (type), bitsize_int (POINTER_SIZE)) > 0)
+    return false;
+
+  /* Assuming that types whose size is <= pointer-size are naturally aligned.  */
+  return true;
+}
+/* APPLE LOCAL end 4375453 */
 /* Handle generic options of the form -mfoo=yes/no.
    NAME is the option name.
    VALUE is the option value.

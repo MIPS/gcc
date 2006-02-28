@@ -295,6 +295,11 @@ struct gcc_target
        by the vectorizer, and return the decl of the target builtin
        function.  */
     tree (* builtin_mask_for_load) (void);
+    /* APPLE LOCAL begin 4375453 */
+    /* Return true if vector alignment is reachable (by peeling N
+       interations) for the given type.  */
+    bool (* vector_alignment_reachable) (tree, bool);
+    /* APPLE LOCAL end 4375453 */
   } vectorize;
 
   /* Return machine mode for filter value.  */
