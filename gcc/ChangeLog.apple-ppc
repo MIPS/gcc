@@ -7,6 +7,13 @@
 
 	Radar 4356747
 	(marked APPLE LOCAL "4356747 stack realign")
+	* gcc/config/i386/i386.c
+	(ix86_force_align_arg_pointer_string): Tweak decl.
+
+2006-02-27  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4356747
+	(marked APPLE LOCAL "4356747 stack realign")
 	* gcc/rtl.h (gen_tmp_stack_mem): Declare.
 	Fix up previous ChangeLog entry.
 	

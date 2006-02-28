@@ -884,7 +884,7 @@ const char *ix86_preferred_stack_boundary_string;
 	       the next FSF merge, and then we'll need an 'extern'
 	       here.  */
 const char *ix86_force_align_arg_pointer;
-static const char const ix86_force_align_arg_pointer_string[] = "force_align_arg_pointer";
+static const char ix86_force_align_arg_pointer_string[] = "force_align_arg_pointer";
 /* Note #2 to merger: The -mstackrealign stuff was submitted to FSF trunk
 on 10feb2006: http://gcc.gnu.org/ml/gcc-patches/2006-02/msg00854.html
 Apple needed this enhancement promptly (before the FSF acted on that patch), so
