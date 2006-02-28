@@ -205,10 +205,6 @@ extern void darwin_x86_file_end (void);
       else fprintf (FILE, "\tcall mcount\n");				\
     } while (0)
 
-/* APPLE LOCAL begin SSE stack alignment */
-#define BASIC_STACK_BOUNDARY (128)
-/* APPLE LOCAL end SSE stack alignment */
-
 /* APPLE LOCAL CW asm blocks */
 extern int flag_cw_asm_blocks;
 /* APPLE LOCAL begin fix-and-continue x86 */

@@ -4083,7 +4083,9 @@ init_function_for_compilation (void)
 void
 expand_main_function (void)
 {
-  /* APPLE LOCAL deletion mainline 2006-02-17 4356747 stack realign */
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  /* deletion */
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 #ifndef HAS_INIT_SECTION
   emit_library_call (init_one_libfunc (NAME__MAIN), LCT_NORMAL, VOIDmode, 0);
 #endif

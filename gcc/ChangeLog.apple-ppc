@@ -1,3 +1,10 @@
+2006-02-28  Stuart Hastings  <stuart@apple.com>
+
+	* gcc/function.c (APPLE LOCAL) Fix.
+	* gcc/config/i386/darwin.h (BASIC_STACK_BOUNDARY): Delete.
+	* gcc/config/i386/i386.c (BASIC_STACK_BOUNDARY): Delete.
+	(APPLE LOCAL) Fix.
+
 2006-02-28  Devang Patel  <dpatel@apple.com>
 	    Dorit Nuzman  <dorit@apple.com>
 

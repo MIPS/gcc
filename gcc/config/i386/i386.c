@@ -1132,12 +1132,6 @@ static void init_ext_80387_constants (void);
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST ix86_address_cost
 
-/* APPLE LOCAL begin SSE stack alignment */
-#ifndef BASIC_STACK_BOUNDARY
-#define BASIC_STACK_BOUNDARY (32)
-#endif
-/* APPLE LOCAL end SSE stack alignment */
-
 #undef TARGET_FIXED_CONDITION_CODE_REGS
 #define TARGET_FIXED_CONDITION_CODE_REGS ix86_fixed_condition_code_regs
 #undef TARGET_CC_MODES_COMPATIBLE
@@ -1545,7 +1539,7 @@ override_options (void)
   ix86_preferred_stack_boundary = (TARGET_64BIT
 				   ? 128
 				   : ((optimize_size || flag_apple_kext)
-				      ? BASIC_STACK_BOUNDARY
+				      ? 32
 				      : 128));
   /* APPLE LOCAL end SSE stack alignment */
   if (ix86_preferred_stack_boundary_string)
@@ -2092,7 +2086,7 @@ ix86_comp_type_attributes (tree type1, tree type2)
 static int
 ix86_function_regparm (tree type, tree decl)
 {
-  /* APPLE LOCAL mainline 2006-02-17 4356747 stack realign (function body) */
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign (function body) */
   tree attr;
   int local_regparm = ix86_regparm;
   bool user_convention = false;
@@ -2136,7 +2130,7 @@ ix86_function_regparm (tree type, tree decl)
 	}
     }
   return local_regparm;
-  /* APPLE LOCAL end 4356747 stack realign (function body) */
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign (function body) */
 }
 
 /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
