@@ -374,6 +374,8 @@ Objective-C and Objective-C++ Dialects}.
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
 -funsafe-math-optimizations  -ffinite-math-only @gol
 -fno-trapping-math  -fno-zero-initialized-in-bss @gol
+@c APPLE LOCAL 4356747 stack realign
+-mstackrealign @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
 -foptimize-sibling-calls  -fprefetch-loop-arrays @gol
 -fprofile-generate -fprofile-use @gol
@@ -9467,6 +9469,22 @@ function by using the function attribute @samp{regparm}.
 @var{num} is nonzero, then you must build all modules with the same
 value, including any libraries.  This includes the system libraries and
 startup modules.
+
+@c APPLE LOCAL begin 4356747 stack realign
+@item -mstackrealign
+@opindex mstackrealign
+Realign the stack at entry.  On the Intel x86, the
+@option{-mstackrealign} option will generate an alternate
+prologue/epilogue that realigns the runtime stack.  This supports
+mixing legacy codes that keep a 4-byte aligned stack with modern codes
+that keep a 16-byte stack for SSE compatibility.  The alternate
+prologue and epilogue are slower and bigger than the regular ones, and
+they require one dedicated register for the entire function.  This
+also lowers the number of registers available if used in conjunction
+with the @code{regparm} attribute.  Nested functions encountered while
+@option{-mstackrealign} is on will generate warnings, and they will
+not realign the stack when called.
+@c APPLE LOCAL end 4356747 stack realign
 
 @item -mpreferred-stack-boundary=@var{num}
 @opindex mpreferred-stack-boundary

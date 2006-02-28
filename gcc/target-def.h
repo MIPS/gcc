@@ -433,6 +433,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_CALLEE_COPIES hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false
 #define TARGET_ARG_PARTIAL_BYTES hook_int_CUMULATIVE_ARGS_mode_tree_bool_0
 
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+#define TARGET_INTERNAL_ARG_POINTER default_internal_arg_pointer
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
+
 /* APPLE LOCAL begin mainline 2005-04-14 */
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -453,7 +457,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_MUST_PASS_IN_STACK,					\
    TARGET_CALLEE_COPIES,					\
    TARGET_ARG_PARTIAL_BYTES,					\
-   TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN                     \
+   /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */	\
+   TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN,			\
+   TARGET_INTERNAL_ARG_POINTER					\
+   /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */		\
    }
 /* APPLE LOCAL end mainline 2005-04-14 */
 

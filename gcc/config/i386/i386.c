@@ -664,7 +664,8 @@ enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER] =
 
 /* The "default" register map used in 32bit mode.  */
 
-int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+int const dbx_register_map[FIRST_PSEUDO_REGISTER+1] =
 {
   0, 2, 1, 3, 6, 7, 4, 5,		/* general regs */
   12, 13, 14, 15, 16, 17, 18, 19,	/* fp regs */
@@ -673,7 +674,9 @@ int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
   29, 30, 31, 32, 33, 34, 35, 36,       /* MMX */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
+  8					/* return column */
 };
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 static int const x86_64_int_parameter_registers[6] =
 {
@@ -687,7 +690,8 @@ static int const x86_64_int_return_registers[4] =
 };
 
 /* The "default" register map used in 64bit mode.  */
-int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+int const dbx64_register_map[FIRST_PSEUDO_REGISTER+1] =
 {
   0, 1, 2, 3, 4, 5, 6, 7,		/* general regs */
   33, 34, 35, 36, 37, 38, 39, 40,	/* fp regs */
@@ -696,7 +700,9 @@ int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
   41, 42, 43, 44, 45, 46, 47, 48,       /* MMX */
   8,9,10,11,12,13,14,15,		/* extended integer registers */
   25, 26, 27, 28, 29, 30, 31, 32,	/* extended SSE registers */
+  16					/* return column */
 };
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 /* Define the register numbers to be used in Dwarf debugging information.
    The SVR4 reference port C compiler uses the following register numbers
@@ -752,7 +758,8 @@ int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
 	17 for %st(6) (gcc regno = 14)
 	18 for %st(7) (gcc regno = 15)
 */
-int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER+1] =
 {
   0, 2, 1, 3, 6, 7, 5, 4,		/* general regs */
   11, 12, 13, 14, 15, 16, 17, 18,	/* fp regs */
@@ -761,7 +768,9 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
   29, 30, 31, 32, 33, 34, 35, 36,	/* MMX registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
+  8					/* return column */
 };
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 /* Test and compare insns in i386.md store the information needed to
    generate branch and scc insns here.  */
@@ -868,6 +877,25 @@ const char *ix86_align_jumps_string;
 
 /* Power of two alignment for stack boundary in bytes.  */
 const char *ix86_preferred_stack_boundary_string;
+
+/* APPLE LOCAL begin 4356747 stack realign */
+/* -mstackrealign option */
+/* extern *//* Note #1 to merger: This decl will move to "i386.opt" in
+	       the next FSF merge, and then we'll need an 'extern'
+	       here.  */
+const char *ix86_force_align_arg_pointer;
+static const char const ix86_force_align_arg_pointer_string[] = "force_align_arg_pointer";
+/* Note #2 to merger: The -mstackrealign stuff was submitted to FSF trunk
+on 10feb2006: http://gcc.gnu.org/ml/gcc-patches/2006-02/msg00854.html
+Apple needed this enhancement promptly (before the FSF acted on that patch), so
+A) I copied in a previous, necessary trunk patch:
+   http://gcc.gnu.org/ml/gcc-patches/2005-10/msg00931.html
+   This patch is marked "mainline 2006-02-17 4356747 stack realign".
+B) I added my own patch (URL above), marked "4356747 stack realign".
+C) I had to modify my patch to work without the "i386.opt" file (I was too lazy
+to merge this non-trivial change into Apple's Curry branch).
+HTH.  */
+/* APPLE LOCAL end 4356747 stack realign */
 
 /* Preferred alignment for stack boundary in bits.  */
 unsigned int ix86_preferred_stack_boundary;
@@ -976,6 +1004,11 @@ static bool ix86_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    tree, bool);
 static void ix86_init_builtins (void);
 static rtx ix86_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
+
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+static rtx ix86_internal_arg_pointer (void);
+static void ix86_dwarf_handle_frame_unspec (const char *, rtx, int);
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 /* This function is only used on Solaris.  */
 static void i386_solaris_elf_named_section (const char *, unsigned int, tree)
@@ -1129,6 +1162,12 @@ static void init_ext_80387_constants (void);
 #define TARGET_MUST_PASS_IN_STACK ix86_must_pass_in_stack
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE ix86_pass_by_reference
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+#undef TARGET_INTERNAL_ARG_POINTER
+#define TARGET_INTERNAL_ARG_POINTER ix86_internal_arg_pointer
+#undef TARGET_DWARF_HANDLE_FRAME_UNSPEC
+#define TARGET_DWARF_HANDLE_FRAME_UNSPEC ix86_dwarf_handle_frame_unspec
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
@@ -1789,6 +1828,11 @@ const struct attribute_spec ix86_attribute_table[] =
   { "regparmandstackparm", 0, 0, false, true, true, ix86_handle_cconv_attribute },
   { "regparmandstackparmee", 0, 0, false, true, true, ix86_handle_cconv_attribute },
   /* APPLE LOCAL end regparmandstackparm */
+  /* APPLE LOCAL begin 4356747 stack realign */
+  /* force_align_arg_pointer says this function realigns the stack at entry.  */
+  { ix86_force_align_arg_pointer_string, 0, 0,
+    false, true,  true, ix86_handle_cconv_attribute },
+  /* APPLE LOCAL end 4356747 stack realign */
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
   { "dllimport", 0, 0, false, false, false, handle_dll_attribute },
   { "dllexport", 0, 0, false, false, false, handle_dll_attribute },
@@ -1871,6 +1915,13 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
       && ix86_function_regparm (TREE_TYPE (decl), NULL) >= 3)
     return false;
 #endif
+
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  /* If we forced aligned the stack, then sibcalling would unalign the
+     stack, which may break the called function.  */
+  if (cfun->machine->force_align_arg_pointer)
+    return false;
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
   /* Otherwise okay.  That also includes certain types of indirect calls.  */
   return true;
@@ -1993,6 +2044,8 @@ ix86_handle_cconv_attribute (tree *node, tree name,
     }
 
   /* Can combine sseregparm with all attributes.  */
+  /* APPLE LOCAL 4356747 stack realign */
+  /* Can combine force_align_arg_pointer with all attributes.  */
 
   return NULL_TREE;
 }
@@ -2039,8 +2092,9 @@ ix86_comp_type_attributes (tree type1, tree type2)
 static int
 ix86_function_regparm (tree type, tree decl)
 {
+  /* APPLE LOCAL mainline 2006-02-17 4356747 stack realign (function body) */
   tree attr;
-  int regparm = ix86_regparm;
+  int local_regparm = ix86_regparm;
   bool user_convention = false;
 
   if (!TARGET_64BIT)
@@ -2048,7 +2102,7 @@ ix86_function_regparm (tree type, tree decl)
       attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (type));
       if (attr)
 	{
-	  regparm = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+	  local_regparm = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
 	  user_convention = true;
 	}
 
@@ -2057,7 +2111,7 @@ ix86_function_regparm (tree type, tree decl)
 	  || lookup_attribute ("regparmandstackparmee", TYPE_ATTRIBUTES (type)))
       /* APPLE LOCAL end regparmandstackparm */
 	{
-	  regparm = 2;
+	  local_regparm = 2;
 	  user_convention = true;
 	}
 
@@ -2071,13 +2125,18 @@ ix86_function_regparm (tree type, tree decl)
 	      /* We can't use regparm(3) for nested functions as these use
 		 static chain pointer in third argument.  */
 	      if (DECL_CONTEXT (decl) && !DECL_NO_STATIC_CHAIN (decl))
-		regparm = 2;
+		local_regparm = 2;
 	      else
-		regparm = 3;
+		local_regparm = 3;
+	      /* If the function realigns its stackpointer, it
+		 clobbers %ecx to deref unaligned arguments.  */
+	      if (cfun->machine->force_align_arg_pointer)
+		local_regparm = 2;
 	    }
 	}
     }
-  return regparm;
+  return local_regparm;
+  /* APPLE LOCAL end 4356747 stack realign (function body) */
 }
 
 /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
@@ -4454,6 +4513,12 @@ ix86_save_reg (unsigned int regno, int maybe_eh_return)
 	}
     }
 
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  if (cfun->machine->force_align_arg_pointer
+      && regno == REGNO (cfun->machine->force_align_arg_pointer))
+    return 1;
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
+
   return (regs_ever_live[regno]
 	  && !call_used_regs[regno]
 	  && !fixed_regs[regno]
@@ -4669,15 +4734,17 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
 static void
 ix86_emit_save_regs (void)
 {
-  int regno;
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign (function body) */
+  unsigned int regno;
   rtx insn;
 
-  for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno--)
+  for (regno = FIRST_PSEUDO_REGISTER; regno-- > 0; )
     if (ix86_save_reg (regno, true))
       {
 	insn = emit_insn (gen_push (gen_rtx_REG (Pmode, regno)));
 	RTX_FRAME_RELATED_P (insn) = 1;
       }
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign (function body) */
 }
 
 /* Emit code to save registers using MOV insns.  First register
@@ -4685,7 +4752,8 @@ ix86_emit_save_regs (void)
 static void
 ix86_emit_save_regs_using_mov (rtx pointer, HOST_WIDE_INT offset)
 {
-  int regno;
+  /* APPLE LOCAL mainline 2006-02-17 4356747 stack realign */
+  unsigned int regno;
   rtx insn;
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -4740,6 +4808,70 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
 #endif
 /* APPLE LOCAL end fix-and-continue x86 */
 
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+/* Handle the TARGET_INTERNAL_ARG_POINTER hook.  */
+
+static rtx
+ix86_internal_arg_pointer (void)
+{
+  /* APPLE LOCAL begin 4356747 stack realign */
+  /* Note to merger: this function is from FSF mainline, AND it has
+     been altered with a local patch that is pending in FSF.  */
+  bool has_force_align_arg_pointer =
+    (0 != lookup_attribute (ix86_force_align_arg_pointer_string,
+			    TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))));
+  if ((FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
+       && DECL_NAME (current_function_decl)
+       && MAIN_NAME_P (DECL_NAME (current_function_decl))
+       && DECL_FILE_SCOPE_P (current_function_decl))
+      || ix86_force_align_arg_pointer
+      || has_force_align_arg_pointer)
+    {
+      /* Nested functions can't realign the stack due to a register
+	 conflict.  */
+      if (DECL_CONTEXT (current_function_decl)
+	  && TREE_CODE (DECL_CONTEXT (current_function_decl)) == FUNCTION_DECL)
+	{
+	  if (ix86_force_align_arg_pointer)
+	    warning ("-mstackrealign ignored for nested functions");
+	  if (has_force_align_arg_pointer)
+	    error ("%s not supported for nested functions",
+		   ix86_force_align_arg_pointer_string);
+	  return virtual_incoming_args_rtx;
+	}
+      cfun->machine->force_align_arg_pointer = gen_rtx_REG (Pmode, 2);
+      return copy_to_reg (cfun->machine->force_align_arg_pointer);
+    }
+  else
+    return virtual_incoming_args_rtx;
+  /* APPLE LOCAL end 4356747 stack realign */
+}
+
+/* Handle the TARGET_DWARF_HANDLE_FRAME_UNSPEC hook.
+   This is called from dwarf2out.c to emit call frame instructions
+   for frame-related insns containing UNSPECs and UNSPEC_VOLATILEs. */
+static void
+ix86_dwarf_handle_frame_unspec (const char *label, rtx pattern, int index)
+{
+  rtx unspec = SET_SRC (pattern);
+  gcc_assert (GET_CODE (unspec) == UNSPEC);
+
+  switch (index)
+    {
+    case UNSPEC_REG_SAVE:
+      dwarf2out_reg_save_reg (label, XVECEXP (unspec, 0, 0),
+			      SET_DEST (pattern));
+      break;
+    case UNSPEC_DEF_CFA:
+      dwarf2out_def_cfa (label, REGNO (SET_DEST (pattern)),
+			 INTVAL (XVECEXP (unspec, 0, 0)));
+      break;
+    default:
+      gcc_unreachable ();
+    }
+}
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
+
 /* Expand the prologue into a bunch of separate insns.  */
 
 void
@@ -4768,6 +4900,54 @@ ix86_expand_prologue (void)
   /* APPLE LOCAL end fix-and-continue x86 */
 
   ix86_compute_frame_layout (&frame);
+
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  if (cfun->machine->force_align_arg_pointer)
+    {
+      rtx x, y;
+
+      /* Grab the argument pointer.  */
+      x = plus_constant (stack_pointer_rtx, 4);
+      y = cfun->machine->force_align_arg_pointer;
+      insn = emit_insn (gen_rtx_SET (VOIDmode, y, x));
+      RTX_FRAME_RELATED_P (insn) = 1;
+
+      /* The unwind info consists of two parts: install the fafp as the cfa,
+	 and record the fafp as the "save register" of the stack pointer.
+	 The later is there in order that the unwinder can see where it
+	 should restore the stack pointer across the and insn.  */
+      x = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, const0_rtx), UNSPEC_DEF_CFA);
+      x = gen_rtx_SET (VOIDmode, y, x);
+      RTX_FRAME_RELATED_P (x) = 1;
+      y = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, stack_pointer_rtx),
+			  UNSPEC_REG_SAVE);
+      y = gen_rtx_SET (VOIDmode, cfun->machine->force_align_arg_pointer, y);
+      RTX_FRAME_RELATED_P (y) = 1;
+      x = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, x, y));
+      x = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, x, NULL);
+      REG_NOTES (insn) = x;
+
+      /* Align the stack.  */
+      emit_insn (gen_andsi3 (stack_pointer_rtx, stack_pointer_rtx,
+			     GEN_INT (-16)));
+
+      /* And here we cheat like madmen with the unwind info.  We force the
+	 cfa register back to sp+4, which is exactly what it was at the
+	 start of the function.  Re-pushing the return address results in
+	 the return at the same spot relative to the cfa, and thus is 
+	 correct wrt the unwind info.  */
+      x = cfun->machine->force_align_arg_pointer;
+      x = gen_frame_mem (Pmode, plus_constant (x, -4));
+      insn = emit_insn (gen_push (x));
+      RTX_FRAME_RELATED_P (insn) = 1;
+
+      x = GEN_INT (4);
+      x = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, x), UNSPEC_DEF_CFA);
+      x = gen_rtx_SET (VOIDmode, stack_pointer_rtx, x);
+      x = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, x, NULL);
+      REG_NOTES (insn) = x;
+    }
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
   /* Note: AT&T enter does NOT have reversed args.  Enter is probably
      slower on all targets.  Also sdb doesn't like it.  */
@@ -5058,6 +5238,15 @@ ix86_expand_epilogue (int style)
 	    emit_insn (gen_popsi1 (hard_frame_pointer_rtx));
 	}
     }
+
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  if (cfun->machine->force_align_arg_pointer)
+    {
+      emit_insn (gen_addsi3 (stack_pointer_rtx,
+			     cfun->machine->force_align_arg_pointer,
+			     GEN_INT (-4)));
+    }
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
   /* Sibcall epilogues don't want a return instruction.  */
   if (style == 0)

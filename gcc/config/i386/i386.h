@@ -517,6 +517,11 @@ extern int x86_prefetch_sse;
     N_("Use given assembler dialect"), 0},			\
   { "tls-dialect=", &ix86_tls_dialect_string,			\
     N_("Use given thread-local storage dialect"), 0},		\
+  /* APPLE LOCAL begin 4356747 stack realign */			\
+  { "stackrealign",						\
+    &ix86_force_align_arg_pointer,				\
+    N_("Realign stack in prologue"), 0},			\
+  /* APPLE LOCAL end 4356747 stack realign */			\
   SUBTARGET_OPTIONS						\
 }
 
@@ -2288,9 +2293,11 @@ number as al, and ax.
 #define DBX_REGISTER_NUMBER(N) \
   (TARGET_64BIT ? dbx64_register_map[(N)] : dbx_register_map[(N)])
 
-extern int const dbx_register_map[FIRST_PSEUDO_REGISTER];
-extern int const dbx64_register_map[FIRST_PSEUDO_REGISTER];
-extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+extern int const dbx_register_map[FIRST_PSEUDO_REGISTER+1];
+extern int const dbx64_register_map[FIRST_PSEUDO_REGISTER+1];
+extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER+1];
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 /* Before the prologue, RA is at 0(%esp).  */
 #define INCOMING_RETURN_ADDR_RTX \
@@ -2587,6 +2594,8 @@ struct machine_function GTY(())
 {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
+  /* APPLE LOCAL mainline 2006-02-17 4356747 stack realign */
+  rtx force_align_arg_pointer;
   int save_varrargs_registers;
   int accesses_prev_frame;
   int optimize_mode_switching;

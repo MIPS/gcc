@@ -19,6 +19,14 @@
 
 2006-02-17  Stuart Hastings  <stuart@apple.com>
 
+	Radar 4356747
+	testsuite/gcc.target/i386/20060210-1.c: New.
+	testsuite/gcc.target/i386/20060210-2.c: New.
+	testsuite/gcc.target/i386/20060210-3.c: New.
+	testsuite/gcc.target/i386/20060210-4.c: New.
+
+2006-02-17  Stuart Hastings  <stuart@apple.com>
+
 	* gcc.dg/4176531.c: Fix target.
 
 2006-02-16  Mike Stump  <mrs@apple.com>
