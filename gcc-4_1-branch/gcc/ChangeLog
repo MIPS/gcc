@@ -1,3 +1,13 @@
+2005-11-22  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* libgcc-std.ver (GCC_4.2.0): New version.
+	* libgcc2.c (__floatundixf, __floatunditf, __floatundidf,
+	__floatundisf): New functions.
+	* libgcc2.h (__floatundixf, __floatunditf, __floatundidf,
+	__floatundisf): Declare.
+	* mklibgcc.in (lib2funcs): Add _floatundidf, _floatundisf,
+	_floatundixf, and _floatunditf.
+
 2006-02-28  Mark Mitchell  <mark@codesourcery.com>
 
 	* BASE-VER: 4.1.1.
