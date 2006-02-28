@@ -365,6 +365,8 @@ case ${target} in
   cxx_target_objs="darwin-c.o"
   extra_parts="crt2.o"
   extra_objs="darwin.o"
+ # APPLE LOCAL cxa_atexit 3992198
+  default_use_cxa_atexit=yes
   case ${enable_threads} in
     "" | yes | posix) thread_file='posix' ;;
   esac
