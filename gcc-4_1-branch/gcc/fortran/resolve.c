@@ -25,6 +25,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor,Boston, MA
 #include "system.h"
 #include "gfortran.h"
 #include "arith.h"  /* For gfc_compare_expr().  */
+#include "dependency.h"
 
 /* Types used in equivalence statements.  */
 
@@ -879,6 +880,24 @@ resolve_actual_arglist (gfc_actual_arglist * arg)
   return SUCCESS;
 }
 
+
+/* Go through each actual argument in ACTUAL and see if it can be
+   implemented as an inlined, non-copying intrinsic.  FNSYM is the
+   function being called, or NULL if not known.  */
+
+static void
+find_noncopying_intrinsics (gfc_symbol * fnsym, gfc_actual_arglist * actual)
+{
+  gfc_actual_arglist *ap;
+  gfc_expr *expr;
+
+  for (ap = actual; ap; ap = ap->next)
+    if (ap->expr
+	&& (expr = gfc_get_noncopying_intrinsic_argument (ap->expr))
+	&& !gfc_check_fncall_dependency (expr, INTENT_IN, fnsym, actual))
+      ap->expr->inline_noncopying_intrinsic = 1;
+}
+
 /* This function does the checking of references to global procedures
    as defined in sections 18.1 and 14.1, respectively, of the Fortran
    77 and 95 standards.  It checks for a gsymbol for the name, making
@@ -1362,6 +1381,9 @@ resolve_function (gfc_expr * expr)
       gfc_expr_set_symbols_referenced (expr->ts.cl->length);
     }
 
+  if (t == SUCCESS)
+    find_noncopying_intrinsics (expr->value.function.esym,
+				expr->value.function.actual);
   return t;
 }
 
@@ -1608,26 +1630,26 @@ resolve_call (gfc_code * c)
   /* Resume assumed_size checking. */
   need_full_assumed_size--;
 
-  if (c->resolved_sym != NULL)
-    return SUCCESS;
 
-  switch (procedure_kind (c->symtree->n.sym))
-    {
-    case PTYPE_GENERIC:
-      t = resolve_generic_s (c);
-      break;
+  t = SUCCESS;
+  if (c->resolved_sym == NULL)
+    switch (procedure_kind (c->symtree->n.sym))
+      {
+      case PTYPE_GENERIC:
+	t = resolve_generic_s (c);
+	break;
 
-    case PTYPE_SPECIFIC:
-      t = resolve_specific_s (c);
-      break;
+      case PTYPE_SPECIFIC:
+	t = resolve_specific_s (c);
+	break;
 
-    case PTYPE_UNKNOWN:
-      t = resolve_unknown_s (c);
-      break;
+      case PTYPE_UNKNOWN:
+	t = resolve_unknown_s (c);
+	break;
 
-    default:
-      gfc_internal_error ("resolve_subroutine(): bad function type");
-    }
+      default:
+	gfc_internal_error ("resolve_subroutine(): bad function type");
+      }
 
   if (c->ext.actual != NULL
       && c->symtree->n.sym->attr.elemental)
@@ -1644,6 +1666,8 @@ resolve_call (gfc_code * c)
 	}
     }
 
+  if (t == SUCCESS)
+    find_noncopying_intrinsics (c->resolved_sym, c->ext.actual);
   return t;
 }
 
