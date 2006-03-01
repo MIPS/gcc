@@ -1,3 +1,22 @@
+2005-02-28 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4327263
+	* objc/objc-act.c (init_module_descriptor): Remove file name
+	from module descriptors.
+
+2005-02-28 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4156731
+	* objc/objc-act.c (gen_type_name_0): Handle Error reporting of
+	nameless types.
+
+2005-02-28 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4441049
+	* objc/objc-act.c (objc_v2_bitfield_ivar_bitpos): New routine to
+	compute ivar bitfield bit position from start of its starting byte.
+	(ivar_offset_ref): ivar bitfield byte position recomputed.
+
 2006-02-15   Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4439126

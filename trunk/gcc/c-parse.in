@@ -1821,7 +1821,7 @@ component_decl_list2:	/* empty */
 		      || (flag_objc2_check && flag_objc_abi == 1))
 		    warning ("@defs will not be supported in future");
 		  else if (flag_objc_abi == 2)
-		    error ("@defs will not be supported in future");
+		    error ("@defs is not supported in new abi");
 		}
 		/* APPLE LOCAL end C* warnings to easy porting to new abi */
 @@end_ifobjc

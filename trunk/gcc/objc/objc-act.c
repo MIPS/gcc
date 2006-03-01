@@ -2944,9 +2944,11 @@ init_module_descriptor (tree type)
 		  size_in_bytes (objc_module_template));
   initlist = tree_cons (NULL_TREE, expr, initlist);
 
-  /* name = { ..., "foo.m", ... } */
+  /* APPLE LOCAL begin radar 4327263 */
+  /* name = { ..., "", ... } */
 
-  expr = add_objc_string (get_identifier (input_filename), class_names);
+  expr = add_objc_string (get_identifier (""), class_names);
+  /* APPLE LOCAL end radar 4327263 */
   initlist = tree_cons (NULL_TREE, expr, initlist);
 
   /* symtab = { ..., _OBJC_SYMBOLS, ... } */
@@ -3775,6 +3777,11 @@ objc_get_class_reference (tree ident)
 		     : ident);
   bool local_scope = false;
 
+  /* APPLE LOCAL begin prevent extra error diagnostics. */
+  if (orig_ident == error_mark_node)
+    return orig_ident;
+  /* APPLE LOCAL end prevent extra error diagnostics. */
+
 #ifdef OBJCPLUS
   if (processing_template_decl)
     /* Must wait until template instantiation time.  */
@@ -4563,6 +4570,36 @@ objc_v2_component_ref_field_offset (tree exp)
   offset = create_extern_decl (TREE_TYPE (size_zero_node), var_offset_name);
   return offset;
 }
+
+/* This routine computes the bit position from the beginning of its byte. 
+   This is only done for bitfield ivars. */
+
+tree
+objc_v2_bitfield_ivar_bitpos (tree exp)
+{
+  tree class_name;
+  int bitpos;
+  tree datum = TREE_OPERAND (exp, 0);
+  tree field = TREE_OPERAND (exp, 1);
+  tree component = DECL_NAME (field);
+  tree ivar_field;
+
+  if (!((flag_objc_abi == 2 || flag_objc_abi == 3)
+        && (ivar_field = objc_is_ivar (datum, component, &class_name))))
+    return NULL_TREE;
+  
+  /* This routine must only be called for bitfield ivars. */
+  /* DECL_INITIAL macro is set to width of bitfield and can be relied on to
+     check for bitfield ivars. Note that I cannot rely on DECL_BIT_FIELD macro
+     because it is only set when the whole struct is seen (at finish_struct) 
+     and not when the ivar chain is built. */
+  gcc_assert (DECL_INITIAL (ivar_field));
+
+  bitpos = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 0);
+  bitpos = bitpos % BITS_PER_UNIT;
+  return build_int_cst (TREE_TYPE (bitsize_zero_node), bitpos);
+}
+
 /* APPLE LOCAL end radar 4441049 */
 
 /* This routine generates new abi's ivar reference tree. It amounts to generating
@@ -7158,10 +7195,7 @@ ivar_offset_ref (tree class_name, tree field_decl)
     chain = &TREE_CHAIN (*chain);
 
   /* APPLE LOCAL begin radar 4441049 */
-  *chain = tree_cons (decl, 
-		      DECL_BIT_FIELD_TYPE (field_decl) 
-			? DECL_FIELD_OFFSET (field_decl) 
-			: byte_position (field_decl), NULL_TREE);
+  *chain = tree_cons (decl, byte_position (field_decl), NULL_TREE);
   /* APPLE LOCAL end radar 4441049 */
   
   return decl;
@@ -12277,9 +12311,11 @@ gen_type_name_0 (tree type)
 
   if (TREE_CODE (type) == TYPE_DECL && DECL_NAME (type))
     type = DECL_NAME (type);
-
-  strcat (errbuf, IDENTIFIER_POINTER (type));
-
+  /* APPLE LOCAL begin radar 4156731 */
+  strcat (errbuf, TREE_CODE (type) == IDENTIFIER_NODE 
+		    ? IDENTIFIER_POINTER (type) 
+		    : "");
+  /* APPLE LOCAL end radar 4156731 */
   /* For 'id' and 'Class', adopted protocols are stored in the pointee.  */
   if (objc_is_id (orig))
     orig = TREE_TYPE (orig);

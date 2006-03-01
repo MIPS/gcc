@@ -1,3 +1,14 @@
+2005-02-28 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4327263
+	* objc-nofilename-1.m: New.
+
+2005-02-28 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4156731
+	* objc.dg/bad-receiver-type.m: New.
+	* obj-c++.dg/bad-receiver-type.mm: New.
+
 2006-02-15   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4294910

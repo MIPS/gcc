@@ -433,4 +433,9 @@ objc_v2_component_ref_field_offset (tree ARG_UNUSED (exp))
 {
   return 0;
 }
+tree
+objc_v2_bitfield_ivar_bitpos (tree ARG_UNUSED (exp))
+{
+  return 0;
+}
 /* APPLE LOCAL end radar 4441049 */ 

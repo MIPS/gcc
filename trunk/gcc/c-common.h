@@ -1083,8 +1083,10 @@ extern tree objc_v2_build_ivar_ref (tree datum, tree component);
 /* APPLE LOCAL C* warnings to easy porting to new abi */
 void diagnose_selector_cast (tree cast_type, tree sel_exp);
 
-/* APPLE LOCAL radar 4441049 */
+/* APPLE LOCAL begin radar 4441049 */
 tree objc_v2_component_ref_field_offset (tree);
+tree objc_v2_bitfield_ivar_bitpos (tree);
+/* APPLE LOCAL end radar 4441049 */
 
 /* The following are provided by the C and C++ front-ends, and called by
    ObjC/ObjC++.  */

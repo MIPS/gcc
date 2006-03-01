@@ -1,3 +1,11 @@
+2005-02-28 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4441049
+	* c-common.h (objc_v2_bitfield_ivar_bitpos): New decl.
+	* expr.h (objc_v2_bitfield_ivar_bitpos): New decl.
+	* stub-objc.c (objc_v2_bitfield_ivar_bitpos): New stub.
+	* expr.c (get_inner_reference): Compute ivar's bitfield bit offset.
+	
 2005-02-28  Devang Patel  <dpatel@apple.com>
   	    Ziemowit Laski  <zlaski@apple.com>
 
