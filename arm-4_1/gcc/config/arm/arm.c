@@ -1419,6 +1419,9 @@ arm_isr_value (tree argument)
   const isr_attribute_arg * ptr;
   const char *              arg;
 
+  if (!arm_arch_notm)
+    return ARM_FT_NORMAL | ARM_FT_STACKALIGN;
+
   /* No argument - default to IRQ.  */
   if (argument == NULL_TREE)
     return ARM_FT_ISR;
@@ -1512,9 +1515,9 @@ use_return_insn (int iscond, rtx sibling)
 
   func_type = arm_current_func_type ();
 
-  /* Naked functions and volatile functions need special
+  /* Naked, volatile and stack alignment functions need special
      consideration.  */
-  if (func_type & (ARM_FT_VOLATILE | ARM_FT_NAKED))
+  if (func_type & (ARM_FT_VOLATILE | ARM_FT_NAKED | ARM_FT_STACKALIGN))
     return 0;
 
   /* So do interrupt functions that use the frame pointer.  */
@@ -3216,6 +3219,7 @@ static bool
 arm_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
   int call_type = TARGET_LONG_CALLS ? CALL_LONG : CALL_NORMAL;
+  unsigned long func_type;
 
   if (cfun->machine->sibcall_blocked)
     return false;
@@ -3243,8 +3247,13 @@ arm_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   if (TARGET_INTERWORK && TREE_PUBLIC (decl) && !TREE_ASM_WRITTEN (decl))
     return false;
 
+  func_type = arm_current_func_type ();
   /* Never tailcall from an ISR routine - it needs a special exit sequence.  */
-  if (IS_INTERRUPT (arm_current_func_type ()))
+  if (IS_INTERRUPT (func_type))
+    return false;
+
+  /* Never tailcall if function may be called with a misaligned SP.  */
+  if (IS_STACKALIGN (func_type))
     return false;
 
   /* Everything else is ok.  */
@@ -10018,6 +10027,8 @@ arm_output_function_prologue (FILE *f, HOST_WIDE_INT frame_size)
 
   if (IS_NESTED (func_type))
     asm_fprintf (f, "\t%@ Nested: function declared inside another function.\n");
+  if (IS_STACKALIGN (func_type))
+    asm_fprintf (f, "\t%@ Stack Align: May be called with mis-aligned SP.\n");
 
   asm_fprintf (f, "\t%@ args = %d, pretend = %d, frame = %wd\n",
 	       current_function_args_size,
@@ -10334,6 +10345,7 @@ arm_output_epilogue (rtx sibling)
 
       /* If we can, restore the LR into the PC.  */
       if (ARM_FUNC_TYPE (func_type) == ARM_FT_NORMAL
+	  && !IS_STACKALIGN (func_type)
 	  && really_return
 	  && current_function_pretend_args_size == 0
 	  && saved_regs_mask & (1 << LR_REGNUM)
@@ -10344,8 +10356,9 @@ arm_output_epilogue (rtx sibling)
 	}
 
       /* Load the registers off the stack.  If we only have one register
-	 to load use the LDR instruction - it is faster.  */
-      if (saved_regs_mask == (1 << LR_REGNUM))
+	 to load use the LDR instruction - it is faster.  For Thumb-2
+	 always use pop and the assembler will pick the best instruction.*/
+      if (TARGET_ARM && saved_regs_mask == (1 << LR_REGNUM))
 	{
 	  asm_fprintf (f, "\tldr\t%r, [%r], #4\n", LR_REGNUM, SP_REGNUM);
 	}
@@ -10398,6 +10411,12 @@ arm_output_epilogue (rtx sibling)
       break;
 
     default:
+      if (IS_STACKALIGN (func_type))
+	{
+	  /* See comment in arm_expand_prologue.  */
+	  asm_fprintf (f, "\tpop\t{%r}\n", IP_REGNUM);
+	  asm_fprintf (f, "\tmov\t%r, %r\n", SP_REGNUM, IP_REGNUM);
+	}
       if (arm_arch5 || arm_arch4t)
 	asm_fprintf (f, "\tbx\t%r\n", LR_REGNUM);
       else
@@ -11057,6 +11076,48 @@ arm_expand_prologue (void)
   live_regs_mask = arm_compute_save_reg_mask ();
 
   ip_rtx = gen_rtx_REG (SImode, IP_REGNUM);
+
+  if (IS_STACKALIGN (func_type))
+    {
+      rtx dwarf;
+      /* Handle a word-aligned stack pointer.  We generate the following:
+
+	  mov ip, sp
+	  push {ip}
+	  push {ip}
+	  sub ip, ip, #4
+	  bic ip, ip, #4
+	  mov sp, ip
+	  <Normal prologue+body+epilogue, leaving return address in LR>
+	  pop {ip}
+	  mov sp, ip
+	  bx lr
+
+	 Generating accurate unwind information for this is tricky.  Instead
+	 we just tell the unwinder that the first instruction pushes
+	 sp onto the stack.  */
+      gcc_assert (TARGET_THUMB2 && !arm_arch_notm && args_to_push == 0);
+
+      dwarf = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (2));
+      XVECEXP (dwarf, 0, 0) = 
+	gen_rtx_SET (VOIDmode, gen_rtx_MEM (SImode,
+		     gen_rtx_PLUS (SImode, stack_pointer_rtx, GEN_INT (-4))),
+		     stack_pointer_rtx);
+      XVECEXP (dwarf, 0, 1) = 
+	gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+		     gen_rtx_PLUS (SImode, stack_pointer_rtx, GEN_INT(4)));
+
+      insn = gen_movsi (ip_rtx, stack_pointer_rtx);
+      RTX_FRAME_RELATED_P (insn) = 1;
+      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+					    dwarf, REG_NOTES (insn));
+      emit_insn (insn);
+      insn = emit_multi_reg_push (1 << IP_REGNUM);
+      insn = emit_multi_reg_push (1 << IP_REGNUM);
+      emit_insn (gen_addsi3 (ip_rtx, ip_rtx, GEN_INT (-4)));
+      emit_insn (gen_andsi3 (ip_rtx, ip_rtx, GEN_INT (~(HOST_WIDE_INT)4)));
+      emit_insn (gen_movsi (stack_pointer_rtx, ip_rtx));
+    }
 
   if (frame_pointer_needed && TARGET_ARM)
     {
@@ -15768,12 +15829,13 @@ arm_dbx_register_number (unsigned int regno)
 
 
 #ifdef TARGET_UNWIND_INFO
-/* Emit unwind directives for a store-multiple instruction.  This should
-   only ever be generated by the function prologue code, so we expect it
-   to have a particular form.  */
+/* Emit unwind directives for a store-multiple instruction or stack pointer
+   push during alignment.
+   These should only ever be generated by the function prologue code, so
+   expect them to have a particular form.  */
 
 static void
-arm_unwind_emit_stm (FILE * asm_out_file, rtx p)
+arm_unwind_emit_sequence (FILE * asm_out_file, rtx p)
 {
   int i;
   HOST_WIDE_INT offset;
@@ -15783,8 +15845,19 @@ arm_unwind_emit_stm (FILE * asm_out_file, rtx p)
   unsigned lastreg;
   rtx e;
 
-  /* First insn will adjust the stack pointer.  */
   e = XVECEXP (p, 0, 0);
+  if (GET_CODE (e) != SET)
+    abort ();
+
+  if (GET_CODE (XEXP (e, 0)) == MEM)
+    {
+      /* Stack pointer push to align SP.  */
+      gcc_assert (rtx_equal_p (XEXP (e, 1), stack_pointer_rtx));
+      asm_fprintf (asm_out_file, "\t.save {%r}\n", SP_REGNUM);
+      return;
+    }
+  
+  /* First insn will adjust the stack pointer.  */
   if (GET_CODE (e) != SET
       || GET_CODE (XEXP (e, 0)) != REG
       || REGNO (XEXP (e, 0)) != SP_REGNUM
@@ -15983,7 +16056,7 @@ arm_unwind_emit (FILE * asm_out_file, rtx insn)
 
     case SEQUENCE:
       /* Store multiple.  */
-      arm_unwind_emit_stm (asm_out_file, pat);
+      arm_unwind_emit_sequence (asm_out_file, pat);
       break;
 
     default:

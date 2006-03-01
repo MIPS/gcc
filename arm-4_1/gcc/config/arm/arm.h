@@ -1514,6 +1514,7 @@ do {									      \
 #define ARM_FT_NAKED		(1 << 3) /* No prologue or epilogue.  */
 #define ARM_FT_VOLATILE		(1 << 4) /* Does not return.  */
 #define ARM_FT_NESTED		(1 << 5) /* Embedded inside another func.  */
+#define ARM_FT_STACKALIGN	(1 << 6) /* Called with misaligned stack.  */
 
 /* Some macros to test these flags.  */
 #define ARM_FUNC_TYPE(t)	(t & ARM_FT_TYPE_MASK)
@@ -1521,6 +1522,7 @@ do {									      \
 #define IS_VOLATILE(t)     	(t & ARM_FT_VOLATILE)
 #define IS_NAKED(t)        	(t & ARM_FT_NAKED)
 #define IS_NESTED(t)       	(t & ARM_FT_NESTED)
+#define IS_STACKALIGN(t)       	(t & ARM_FT_STACKALIGN)
 
 
 /* Structure used to hold the function stack frame layout.  Offsets are

@@ -1,3 +1,17 @@
+2006-03-01  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/doc/extend.texi: Document ARMv7 interrupt attribute.
+	* gcc/config/arm/arm.c (arm_isr_value): Check arm_arch_notm.
+	(use_return_insn): Return 0 is SP needs realignment.
+	(arm_function_ok_for_sibcall): Ditto.
+	(arm_output_function_prologue): Add IS_STACKALIGN comment.
+	(arm_output_epilogue): Restore SP from stack if it needed realignment.
+	(arm_expand_prologue): Add dynamic stack alignment code.
+	(-arm_unwind_emit_stm): Rename...
+	(arm_unwind_emit_sequence): ... to this.  Handle popping SP.
+	* gcc/config/arm/arm.h (ARM_FT_STACKALIGN, IS_STACKALIGN): Define.
+	* gcc/g++.dg/other/armv7m-1.c: New test.
+
 2006-02-27  Paul Brook  <paul@codesourcery.com>
 
 	* gcc/config/arm/t-arm-elf: Fix backwards MULTILIB_MATCHES.
