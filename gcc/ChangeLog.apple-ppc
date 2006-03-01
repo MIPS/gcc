@@ -19,11 +19,6 @@
         * config/rs6000.c (TARGET_VECTOR_ALIGNMENT_REACHABLE,
         rs6000_vector_alignment_reachable): New.
 
-2006-02-27  Geoffrey Keating  <geoffk@apple.com>
-
-	Radar 3992198
-	* config.gcc (*-*-darwin*): Define default_use_cxa_atexit.
-
 2006-02-27  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4356747
