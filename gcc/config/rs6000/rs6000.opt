@@ -68,6 +68,10 @@ mmulhw
 Target Report Mask(MULHW)
 Use 4xx half-word multiply instructions
 
+mdlmzb
+Target Report Mask(DLMZB)
+Use 4xx string-search dlmzb instruction
+
 mmultiple
 Target Report Mask(MULTIPLE)
 Generate load/store multiple instructions

@@ -1,3 +1,13 @@
+2006-03-02  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc/config/rs6000/rs6000.opt (mdlmzb): New option.
+	* gcc/doc/invoke.texi (-mdlmzb): Document.
+	* gcc/config/rs6000/rs6000.c (rs6000_override_options): Enable
+	-mdlmzb for 405 and 440.
+	* gcc/config/rs6000/rs6000.md: Add dlmzb support for 405 and 440.
+	* gcc/testsuite/gcc.target/powerpc/405-dlmzb-strlen-1.c,
+	gcc/testsuite/gcc.target/powerpc/440-dlmzb-strlen-1.c: New tests.
+
 2006-02-18  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/config/soft-fp: New directory.  Based on glibc.
