@@ -586,6 +586,7 @@ build_os = @build_os@
 build_subdir = @build_subdir@
 build_vendor = @build_vendor@
 datadir = @datadir@
+dbexecdir = @dbexecdir@
 exec_prefix = @exec_prefix@
 extra_ldflags_libjava = @extra_ldflags_libjava@
 gxx_include_dir = @gxx_include_dir@
@@ -626,7 +627,6 @@ target_vendor = @target_vendor@
 toolexecdir = @toolexecdir@
 toolexeclibdir = @toolexeclibdir@
 toolexecmainlibdir = @toolexecmainlibdir@
-dbexecdir = @dbexecdir@
 AUTOMAKE_OPTIONS = foreign subdir-objects
 ACLOCAL_AMFLAGS = -I . -I .. -I ../config
 
@@ -1998,7 +1998,10 @@ classpath/gnu/regexp/RETokenBackRef.java \
 classpath/gnu/regexp/RETokenChar.java \
 classpath/gnu/regexp/RETokenEnd.java \
 classpath/gnu/regexp/RETokenEndSub.java \
+classpath/gnu/regexp/RETokenIndependent.java \
 classpath/gnu/regexp/RETokenLookAhead.java \
+classpath/gnu/regexp/RETokenLookBehind.java \
+classpath/gnu/regexp/RETokenNamedProperty.java \
 classpath/gnu/regexp/RETokenOneOf.java \
 classpath/gnu/regexp/RETokenPOSIX.java \
 classpath/gnu/regexp/RETokenRange.java \
@@ -3505,6 +3508,7 @@ classpath/java/util/prefs/PreferencesFactory.java
 
 java_util_prefs_header_files = $(patsubst classpath/%,%,$(patsubst %.java,%.h,$(java_util_prefs_source_files)))
 java_util_regex_source_files = \
+classpath/java/util/regex/MatchResult.java \
 classpath/java/util/regex/Matcher.java \
 classpath/java/util/regex/Pattern.java \
 classpath/java/util/regex/PatternSyntaxException.java
@@ -9405,15 +9409,34 @@ write-entries-to-file-check:
 src.zip:
 	-rm -f src.zip
 	here=`pwd`; \
-	( ( cd $(srcdir); \
+	( \
+	  ( cd $(srcdir)/classpath; \
 	  find java gnu javax org -name '*.java' -print | \
+	  while read file; do \
+	    echo "x-C" | sed -e 's/^.//'; \
+	    echo $(srcdir)/classpath; \
+	    echo $$file; \
+	  done ); \
+	  ( cd classpath; \
+	    find gnu java -name '*.java' -print | \
+	    while read file; do \
+	    echo "x-C" | sed -e 's/^.//'; \
+	    echo `pwd`; \
+	    echo $$file; \
+	  done ); \
+	) | \
+	$(ZIP) -cfM@ $$here/src.zip
+	here=`pwd`; \
+	( \
+	  ( cd $(srcdir); \
+	  find gnu java -name '*.java' -print | \
 	  while read file; do \
 	    echo "x-C" | sed -e 's/^.//'; \
 	    echo $(srcdir); \
 	    echo $$file; \
 	  done ); \
-	  find gnu java -name '*.java' -print) | \
-	$(ZIP) -cfM@ $$here/src.zip
+	) | \
+	$(ZIP) -ufM@ $$here/src.zip
 
 install-src.zip: src.zip
 	$(INSTALL_DATA) src.zip $(DESTDIR)$(sourcesdir)/src-$(gcc_version).zip

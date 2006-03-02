@@ -1,3 +1,46 @@
+2006-02-28  Release Manager
+
+	* GCC 4.1.0 released.
+
+2006-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/pb_assoc/basic_tree_assoc_cntnr_const_node_iterator.html:
+	Fix links
+	* docs/html/ext/pb_assoc/basic_tree_assoc_cntnr_node_iterator.html:
+	Likewise.
+	* docs/html/ext/pb_assoc/hash_based_containers.html: Likewise.
+	* docs/html/ext/pb_assoc/hash_standard_resize_policy.html: Likewise.
+	* docs/html/ext/pb_assoc/interface.html: Likewise..
+	* docs/html/ext/pb_assoc/list_updates.html: Likewise.
+	* docs/html/ext/pb_assoc/lu_based_containers.html: Likewise.	
+	* docs/html/ext/pb_assoc/resize_policies.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_probe_fn.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_range_hashing.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_ranged_hash_fn.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_ranged_probe_fn.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_resize_policy.html: Likewise.
+	* docs/html/ext/pb_assoc/tree_assoc_cntnr_const_node_iterator.html:
+	Likewise.
+	* docs/html/ext/pb_assoc/tree_assoc_cntnr_node_iterator.html: Likewise.
+
+2006-02-07  Paolo Carlini  <pcarlini@suse.de>	
+
+	* include/tr1/hashtable: Trivial formatting fixes.
+
+2006-02-07  Paolo Carlini  <pcarlini@suse.de>
+	    Zak Kipling  <zak@transversal.com>
+
+	PR libstdc++/26127
+	* include/tr1/hashtable (hashtable<>::key_equal): Define.
+	(hashtable<>::bucket, rehash_base<>::max_load_factor): Fix.
+	* testsuite/tr1/6_containers/unordered/hashtable/26127.cc: New.
+
+2006-02-01  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/21554
+	* include/tr1/array (array<>::_M_instance): Maximally align.
+	* testsuite/ext/array_allocator/2.cc: Do not xfail for powerpc.
+
 2006-01-26  Paolo Carlini  <pcarlini@suse.de>
 
 	* docs/html/install.html ([Tools you will need beforehand]):

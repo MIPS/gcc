@@ -782,6 +782,7 @@ simplify_intrinsic_op (gfc_expr * p, int type)
   switch (p->value.op.operator)
     {
     case INTRINSIC_UPLUS:
+    case INTRINSIC_PARENTHESES:
       result = gfc_uplus (op1);
       break;
 
@@ -1343,6 +1344,9 @@ check_intrinsic_op (gfc_expr * e, try (*check_function) (gfc_expr *))
 
       break;
 
+    case INTRINSIC_PARENTHESES:
+      break;
+
     default:
       gfc_error ("Only intrinsic operators can be used in expression at %L",
 		 &e->where);
@@ -1821,7 +1825,7 @@ gfc_check_conformance (const char *optype_msgid,
 
       if (op1_flag && op2_flag && mpz_cmp (op1_size, op2_size) != 0)
 	{
-	  gfc_error ("%s at %L has different shape on dimension %d (%d/%d)",
+	  gfc_error ("different shape for %s at %L on dimension %d (%d/%d)",
 		     _(optype_msgid), &op1->where, d + 1,
 		     (int) mpz_get_si (op1_size),
 		     (int) mpz_get_si (op2_size));
@@ -1980,7 +1984,7 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
   /* If rvalue is a NULL() or NULLIFY, we're done. Otherwise the type,
      kind, etc for lvalue and rvalue must match, and rvalue must be a
      pure variable if we're in a pure function.  */
-  if (rvalue->expr_type == EXPR_NULL)
+  if (rvalue->expr_type == EXPR_NULL && rvalue->ts.type == BT_UNKNOWN)
     return SUCCESS;
 
   if (!gfc_compare_types (&lvalue->ts, &rvalue->ts))
@@ -1996,6 +2000,17 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
 		 "assignment at %L", &lvalue->where);
       return FAILURE;
     }
+
+  if (lvalue->rank != rvalue->rank)
+    {
+      gfc_error ("Different ranks in pointer assignment at %L",
+		  &lvalue->where);
+      return FAILURE;
+    }
+
+  /* Now punt if we are dealing with a NULLIFY(X) or X = NULL(X).  */
+  if (rvalue->expr_type == EXPR_NULL)
+    return SUCCESS;
 
   if (lvalue->ts.type == BT_CHARACTER
 	&& lvalue->ts.cl->length && rvalue->ts.cl->length
@@ -2019,13 +2034,6 @@ gfc_check_pointer_assign (gfc_expr * lvalue, gfc_expr * rvalue)
     {
       gfc_error ("Bad target in pointer assignment in PURE "
 		 "procedure at %L", &rvalue->where);
-    }
-
-  if (lvalue->rank != rvalue->rank)
-    {
-      gfc_error ("Unequal ranks %d and %d in pointer assignment at %L", 
-		 lvalue->rank, rvalue->rank, &rvalue->where);
-      return FAILURE;
     }
 
   if (gfc_has_vector_index (rvalue))

@@ -1,3 +1,212 @@
+2006-02-28  Release Manager
+
+	* GCC 4.1.0 released.
+
+2006-02-23  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2006-02-21  Jakub Jelinek  <jakub@redhat.com>
+	PR middle-end/26379
+	* gcc.target/i386/mmx-7.c: New test.
+
+2006-02-23  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2006-02-22  H.J. Lu  <hongjiu.lu@intel.com>
+	PR target/25603
+	* gfortran.dg/pr25603.f: New testcase.
+
+2006-02-19  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/26201
+	* gfortran.dg/convert_1.f90: New.
+
+2006-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26334
+	* gcc.dg/20060218-1.c: Moved to...
+	* gcc.target/i386/20060218-1.c: ... here.  New test.
+
+2006-02-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26266
+	* g++.dg/template/static22.C: New test.
+	* g++.dg/template/static23.C: New test.
+	* g++.dg/template/static24.C: New test.
+	* g++.dg/template/non-dependent13.C: New test.
+
+2006-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26334
+	* gcc.c-torture/compile/20060217-1.c: New test.
+	* gcc.dg/20060218-1.c: New test.
+
+2006-02-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26300
+	* gcc.c-torture/compile/20060215-1.c: New test.
+
+2006-02-14  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	PR fortran/25806
+	* gfortran.dg/ret_pointer_2.f90: New test.
+
+2006-02-14  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24685
+	* gfortran.dg/large_real_kind_form_io_2.f90: New test.
+
+2006-02-14  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR target/26141
+	* g++.dg/expr/stdarg2.C: New test.
+
+2006-02-14  J"orn Rennecke <joern.rennecke@st.com>
+
+	PR inline-asm/16194
+	* gcc.dg/pr16194.c: New test.
+
+2006-02-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26258
+	* gcc.dg/torture/pr26258.c: New testcase.
+
+2006-02-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26074
+	PR fortran/25103
+	* gfortran.dg/module_parameter_array_refs_1.f90: New test.
+	* gfortran.dg/bad_automatic_objects_1.f90: New test.
+	* gfortran.dg/automatic_module_variable.f90: Change error message.
+
+	PR fortran/20861
+	* gfortran.dg/internal_dummy_1.f90: New test.
+
+	PR fortran/20871
+	* gfortran.dg/elemental_non_intrinsic_dummy_1.f90: New test.
+
+
+	PR fortran/25083
+	* gfortran.dg/uncommon_block_data_1.f90: New test.
+	* gfortran.dg/equiv_constraint_7.f90: Correct non-compliance of test
+	with standard.
+
+	PR fortran/25088
+	* gfortran.dg/typed_subroutine_1.f90: New test.
+
+2006-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26092
+	* gcc.c-torture/compile/20060208-1.c: New test.
+
+2006-02-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26038
+	* gfortran.dg/allocate_char_star_scalar_1.f90: New test.
+
+	PR fortran/25059
+	* gfortran.dg/impure_assignment_1.f90: New test.
+
+	PR fortran/25070
+	* gfortran.dg/assumed_shape_ranks_1.f90: New test.
+
+2006-02-11  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	Backport r110819 and r110840 from the trunk
+	PR fortran/14771
+	* gfortran.dg/parens_1.f90: New.
+	* gfortran.dg/parens_2.f90: New.
+	* gfortran.dg/parens_3.f90: New.
+	* gfortran.dg/parens_4.f90: New.
+	* gfortran.dg/parens_5.f90: New.
+
+2006-02-10  Bernhard Fischer  <rep.nop@aon.at>
+
+	PR fortran/25756
+	* gfortran.dg/label_3.f90: New test.
+
+2006-02-10  Steven G. Kargl  <kargls@comcast.net>
+        
+	PR fortran/20858
+	gfortran.dg/null_1.f90: New test.
+
+2006-02-09  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* ada/acats/run_acats: Use portable variant of "$@".
+
+2006-02-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR tree-opt/25251
+	* gfortran.dg/assign_7.f: New test.
+
+2006-02-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/compile/volatile-1.c: New test.
+
+2006-02-09  Diego Novillo  <dnovillo@redhat.com>
+
+	PR 26180
+	* gcc.dg/tree-ssa/pr26180.c: New test.
+
+2005-02-08  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23815
+	* unf_io_convert_4.f90:  New test.
+
+2006-02-08  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/25577
+	* gfortran.dg/mvbits_1.f90: New.
+
+2006-02-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26071
+	* g++.dg/other/virtual2.C: New test.
+
+	PR c++/26070
+	* g++.dg/other/virtual1.C: New test.
+
+2006-02-06  Janis Johnson  <janis187@us.ibm.com
+
+	Backport from mainline
+	2005-12-28  Tobias Schl"uter  <tobias.schlueter@physik.uni-muenchen.de>
+                                                                                
+	* lib/gfortran-dg.exp: Remove trailing whitespace.
+
+	2005-12-06  Janis Johnson  <janis187@us.ibm.com>
+                                                                                
+	* lib/gcc-dg.exp (cleanup-dump): Remove options from test name.
+
+	2005-12-01  Uros Bizjak  <uros@kss-loka.si>
+                                                                                
+	* lib/gcov.exp (clean-gcov): Also remove $base.h.gcov files.
+
+2006-02-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/26039
+	PR fortran/25046
+	* maxval_maxloc_conformance_1.f90:  New test.
+
+2006-02-03  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/24958
+	* gfortran.dg/nullify_2.f90
+
+	PR fortran/20845
+	* gfortran.dg/char_result_11.f90: Add SAVE.
+	* gfortran.dg/der_pointer_4.f90: Ditto.
+	* gfortran.dg/used_dummy_types_5.f90
+	* gfortran.dg/default_initialization.f90: New test.
+
+2006-01-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR middle-end/26001
+	* gfortran.dg/data_char_2.f90: New.
+
+2006-02-03  Alan Modra  <amodra@bigpond.net.au>
+
+	* gcc.target/powerpc/pr25960.c: New test.
+
 2006-01-31  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/25342
