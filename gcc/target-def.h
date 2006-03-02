@@ -290,7 +290,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 /* APPLE LOCAL begin 4375453 */                                         \
   {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,                              \
    TARGET_VECTOR_ALIGNMENT_REACHABLE}                                   
-/* APPLE LCOAL end 4375453 */
+/* APPLE LOCAL end 4375453 */
 
 /* In except.c */
 #define TARGET_EH_RETURN_FILTER_MODE  default_eh_return_filter_mode
