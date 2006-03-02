@@ -1,3 +1,9 @@
+2005-03-01 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4451818
+	* obj-c++.dg/try-catch-16.mm: New.
+	* obj-c++.dg/try-catch-17.mm: New.
+
 2005-02-28 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4327263

@@ -1,3 +1,10 @@
+2005-03-01 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4451818
+	* call.c (standard_conversion, implicit_conversion): Ignore
+	'volatile' attribute of artificially volatized type in objc when
+	evaluating various conversion weights.
+
 2005-02-28  Devang Patel  <dpatel@apple.com>
   	    Ziemowit Laski  <zlaski@apple.com>
 
