@@ -1,3 +1,13 @@
+2006-03-03  Stuart Hastings  <stuart@apple.com>
+
+	* Radar 4425360
+	* gcc/tree-ssa-dse.c (dse_optimize_stmt): Update from FSF trunk (see below).
+
+2005-12-16  Jeff Law  <law@redhat.com>
+
+        * tree-ssa-dse.c (dse_optimize_stmt): Correctly handle PHI nodes which
+        represent a use and definition of the same SSA_NAME.
+
 2006-02-28  Stuart Hastings  <stuart@apple.com>
 
 	* gcc/function.c (APPLE LOCAL) Fix.
