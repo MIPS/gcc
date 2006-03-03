@@ -1639,7 +1639,7 @@ override_options (void)
 
   ix86_fpmath = TARGET_FPMATH_DEFAULT;
 /* APPLE LOCAL end mainline 2005-04-11 4010614 */
-
+  
   if (ix86_fpmath_string != 0)
     {
       if (! strcmp (ix86_fpmath_string, "387"))
@@ -1710,7 +1710,7 @@ override_options (void)
   if (flag_pic == 1)
     {
       /* Darwin doesn't support -fpic.  */
-      warning ("-fpic is not supported; -fPIC assumed");
+      warning ("-fpic is not supported; -fPIC assumed");  
       flag_pic = 2;
     }
   /* APPLE LOCAL end dynamic-no-pic */
@@ -1855,7 +1855,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   /* If we are generating position-independent code, we cannot sibcall
      optimize any indirect call, or a direct call to a global function,
      as the PLT requires %ebx be live.  (Darwin does not have a PLT.)  */
-  if (!TARGET_MACHO && !TARGET_64BIT && flag_pic
+  if (!TARGET_MACHO && !TARGET_64BIT && flag_pic 
       && (!decl || TREE_PUBLIC (decl)))
     return false;
   /* APPLE LOCAL end indirect sibcall 4087330 */
@@ -1882,7 +1882,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   if (! rtx_equal_p (a, b))
     return false;
   /* APPLE LOCAL end mainline 2005-09-20 4205103 */
-
+  
   /* If this call is indirect, we'll need to be able to use a call-clobbered
      register for the address of the target function.  Make sure that all
      such registers are not used for passing parameters.  */
@@ -2388,7 +2388,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
    When we have only some of our vector isa extensions enabled, then there
    are some modes for which vector_mode_supported_p is false.  For these
    modes, the generic vector support in gcc will choose some non-vector mode
-   in order to implement the type.  By computing the natural mode, we'll
+   in order to implement the type.  By computing the natural mode, we'll 
    select the proper ABI location for the operand and not depend on whatever
    the middle-end decides to do with these vector types.  */
 
@@ -4928,7 +4928,7 @@ ix86_expand_prologue (void)
       /* And here we cheat like madmen with the unwind info.  We force the
 	 cfa register back to sp+4, which is exactly what it was at the
 	 start of the function.  Re-pushing the return address results in
-	 the return at the same spot relative to the cfa, and thus is
+	 the return at the same spot relative to the cfa, and thus is 
 	 correct wrt the unwind info.  */
       x = cfun->machine->force_align_arg_pointer;
       x = gen_frame_mem (Pmode, plus_constant (x, -4));
@@ -5849,7 +5849,7 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
     {
       rtx reg;
       reason_rtx = base;
-
+  
       if (REG_P (base))
   	reg = base;
       else if (GET_CODE (base) == SUBREG
@@ -7978,7 +7978,7 @@ emit_i387_cw_initialization (rtx current_mode, rtx new_mode, int mode)
 	  /* round toward zero (truncate) */
 	  emit_insn (gen_movsi_insv_1 (reg, GEN_INT (0xc)));
 	  break;
-
+ 
 	case I387_CW_MASK_PM:
 	  /* mask precision exception for nearbyint() */
 	  emit_insn (gen_iorhi3 (reg, reg, GEN_INT (0x0020)));
@@ -8426,7 +8426,7 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
   emit_insn (gen_rtx_SET (VOIDmode, op0, op1));
 }
 
-/* Implement the movmisalign patterns for SSE.  Non-SSE modes go
+/* Implement the movmisalign patterns for SSE.  Non-SSE modes go 
    straight to ix86_expand_vector_move.  */
 
 void
@@ -8856,7 +8856,7 @@ ix86_expand_convert_DF2SI_sse (rtx operands[])
   fp_value = gen_reg_rtx (V2DFmode);
   ix86_expand_vector_move2 (V2DFmode, fp_value, gen_rtx_SUBREG (V2DFmode, incoming_value, 0));
   large_xmm = gen_reg_rtx (V2DFmode);
-
+  
   v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
 				gen_2_4_rtvec (2, int_two31_as_fp, DFmode));
   ix86_expand_vector_move2 (DFmode, large_xmm, v_rtx);
@@ -8882,7 +8882,7 @@ ix86_expand_convert_DF2SI_sse (rtx operands[])
   zero_or_two31_xmm = gen_reg_rtx (V2DFmode);
   v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
 				gen_2_4_rtvec (2, int_two31_as_fp, DFmode));
-  ix86_expand_vector_move2 (DFmode, zero_or_two31_xmm, v_rtx);
+  ix86_expand_vector_move2 (DFmode, zero_or_two31_xmm, v_rtx);  
 
   /* zero_or_two31 = (large_xmm) ? 2**31 : 0; */
   emit_insn (gen_andv2df3 (zero_or_two31_xmm, zero_or_two31_xmm, large_xmm));
@@ -8949,7 +8949,7 @@ ix86_expand_convert_SF2SI_sse (rtx operands[])
   fp_value = gen_reg_rtx (V4SFmode);
   ix86_expand_vector_move2 (V4SFmode, fp_value, gen_rtx_SUBREG (V4SFmode, incoming_value, 0));
   large_xmm = gen_reg_rtx (V4SFmode);
-
+  
   /* fp_value = MAX (fp_value, 0.0); */
   /* Preclude negative values; truncate at zero.  */
   int_zero_as_xmm = gen_reg_rtx (V4SFmode);
@@ -11303,7 +11303,7 @@ ix86_expand_fp_movcc (rtx operands[])
 /* APPLE LOCAL begin mainline April 14, 2005 Radar 4053179 */
 /* Expand a floating-point vector conditional move; a vcond operation
    rather than a movcc operation.  */
-
+ 
 bool
 ix86_expand_fp_vcond (rtx operands[])
 {
@@ -11945,7 +11945,7 @@ ix86_split_ashldi (rtx *operands, rtx scratch)
 	  ix86_expand_clear (low[0]);
 	  ix86_expand_clear (high[0]);
 	  emit_insn (gen_testqi_ccz_1 (operands[2], GEN_INT (32)));
-
+	  
 	  d = gen_lowpart (QImode, low[0]);
 	  d = gen_rtx_STRICT_LOW_PART (VOIDmode, d);
 	  s = gen_rtx_EQ (QImode, flags, const0_rtx);
@@ -15197,7 +15197,7 @@ ix86_init_mmx_sse_builtins (void)
 				    integer_type_node, NULL_TREE);
   def_builtin (MASK_SSE, "__builtin_ia32_vec_set_v8hi",
 	       ftype, IX86_BUILTIN_VEC_SET_V8HI);
-
+  
   ftype = build_function_type_list (V4HI_type_node, V4HI_type_node,
 				    intHI_type_node,
 				    integer_type_node, NULL_TREE);
@@ -15511,7 +15511,7 @@ get_element_number (tree vec_type, tree arg)
    instructions from inside the compiler, we can't allow the use of MMX
    registers unless the user explicitly asks for it.  So we do *not* define
    vec_set/vec_extract/vec_init patterns for MMX modes in mmx.md.  Instead
-   we have builtins invoked by mmintrin.h that gives us license to emit
+   we have builtins invoked by mmintrin.h that gives us license to emit 
    these sorts of instructions.  */
 
 static rtx
@@ -16163,7 +16163,7 @@ ix86_preferred_reload_class (rtx x, enum reg_class class)
   enum machine_mode mode = GET_MODE (x);
   bool is_sse_math_mode;
 
-  /* We're only allowed to return a subclass of CLASS.  Many of the
+  /* We're only allowed to return a subclass of CLASS.  Many of the 
      following checks fail for NO_REGS, so eliminate that early.  */
   if (class == NO_REGS)
     return NO_REGS;
@@ -16313,7 +16313,7 @@ ix86_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
       if (!TARGET_SSE2)
 	return true;
 
-      /* If the target says that inter-unit moves are more expensive
+      /* If the target says that inter-unit moves are more expensive 
 	 than moving through memory, then don't generate them.  */
       if (!TARGET_INTER_UNIT_MOVES && !optimize_size)
 	return true;
@@ -16323,7 +16323,7 @@ ix86_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
 	return true;
 
       /* ??? For the cost of one register reformat penalty, we could use
-	 the same instructions to move SFmode and DFmode data, but the
+	 the same instructions to move SFmode and DFmode data, but the 
 	 relevant move patterns don't support those alternatives.  */
       if (mode == SFmode || mode == DFmode)
 	return true;
@@ -16357,7 +16357,7 @@ ix86_cannot_change_mode_class (enum machine_mode from, enum machine_mode to,
 	return true;
 
       /* Vector registers do not support subreg with nonzero offsets, which
-	 are otherwise valid for integer registers.  Since we can't see
+	 are otherwise valid for integer registers.  Since we can't see 
 	 whether we have a nonzero offset from here, prohibit all
          nonparadoxical subregs changing size.  */
       if (GET_MODE_SIZE (to) < GET_MODE_SIZE (from))
@@ -16468,7 +16468,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
   else if (VALID_FP_MODE_P (mode))
     return 1;
   /* Lots of MMX code casts 8 byte vector modes to DImode.  If we then go
-     on to use that value in smaller contexts, this can easily force a
+     on to use that value in smaller contexts, this can easily force a 
      pseudo to be allocated to GENERAL_REGS.  Since this is no worse than
      supporting DImode, allow it.  */
   else if (VALID_MMX_REG_MODE_3DNOW (mode) || VALID_MMX_REG_MODE (mode))
@@ -16477,7 +16477,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
   return 0;
 }
 
-/* A subroutine of ix86_modes_tieable_p.  Return true if MODE is a
+/* A subroutine of ix86_modes_tieable_p.  Return true if MODE is a 
    tieable integer mode.  */
 
 static bool
@@ -16525,7 +16525,7 @@ ix86_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
   if (mode2 == DFmode)
     return mode1 == SFmode;
 
-  /* If MODE2 is only appropriate for an SSE register, then tie with
+  /* If MODE2 is only appropriate for an SSE register, then tie with 
      any other mode acceptable to SSE registers.  */
   if (GET_MODE_SIZE (mode2) >= 8
       && ix86_hard_regno_mode_ok (FIRST_SSE_REG, mode2))
@@ -16639,7 +16639,7 @@ static bool
 ix86_binds_local_p (tree decl)
 {
   /* APPLE LOCAL kext treat vtables as overridable  */
-  return default_binds_local_p_1 (decl,
+  return default_binds_local_p_1 (decl, 
 	flag_apple_kext && lang_hooks.vtable_p (decl));
 }
 #endif
@@ -18011,7 +18011,7 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
       if (!register_operand (op1, half_mode))
 	op1 = force_reg (half_mode, op1);
 
-      emit_insn (gen_rtx_SET (VOIDmode, target,
+      emit_insn (gen_rtx_SET (VOIDmode, target, 
 			      gen_rtx_VEC_CONCAT (mode, op0, op1)));
     }
   else
@@ -18071,7 +18071,7 @@ ix86_expand_vector_init_general (bool mmx_ok, enum machine_mode mode,
     }
 }
 
-/* Initialize vector TARGET via VALS.  Suppress the use of MMX
+/* Initialize vector TARGET via VALS.  Suppress the use of MMX 
    instructions unless MMX_OK is true.  */
 
 void
@@ -18625,7 +18625,7 @@ ix86_darwin_regparmandstackparm_dup_fndecl (tree trad_fndecl, splay_tree st)
     = copy_list (TYPE_ATTRIBUTES (TREE_TYPE (trad_fndecl)));
   ix86_make_regparmandstackparmee (&TREE_TYPE (new_fndecl));
   /* Kludge: block copied from tree-inline.c(save_body).  Should
-     be refactored into a common shareable routine.  */
+     be refactored into a common shareable routine.  */	
   {
     tree *parg;
 
@@ -18717,7 +18717,7 @@ ix86_darwin_redirect_calls(void)
 
   if (!ix86_darwin_fntype_st)
     ix86_darwin_fntype_st = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
-
+  
   if (!ix86_darwin_regparmandstackparm_st)
     ix86_darwin_regparmandstackparm_st
       = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
@@ -19271,7 +19271,7 @@ cw_canonicalize_bracket (tree arg)
       TREE_OPERAND (arg, 0) = integer_zero_node;
       TREE_OPERAND (arg, 1) = swp;
     }
-
+    
   if (TREE_OPERAND (arg, 1))
     {
       rtype = cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), arg);
@@ -19326,7 +19326,7 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	}
       else if (TREE_CODE (arg) == BRACKET_EXPR)
 	cw_canonicalize_bracket (arg);
-
+	  
       switch (TREE_CODE (arg))
 	{
 	case VAR_DECL:
