@@ -591,6 +591,13 @@ extern int flag_working_directory;
 
 extern int flag_use_cxa_atexit;
 
+/* APPLE LOCAL begin mainline 2006-02-24 4086777 */
+/* Nonzero to use __cxa_get_exception_ptr in the C++ exception-handling
+   logic.  */
+
+extern int flag_use_cxa_get_exception_ptr;
+
+/* APPLE LOCAL end mainline 2006-02-24 4086777 */
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */
 

@@ -3,7 +3,7 @@
 /* { dg-options { -fasm-blocks -msse3 } } */
 /* Radar 4259442 */
 
-char fooc; short foos; int fooi; float foof; double food; long double foold;
+char fooc; short foos; int fooi; long long fooll; float foof; double food; long double foold;
 asm void bar() { fool:
 	adc	eax, 1
 	adc	fool, 1
@@ -188,7 +188,8 @@ asm void bar() { fool:
 	fdiv	food
 	fdivp	st(2), st(0)
 	fdivr	st(0), st(2)
-	fdivr	fool
+	fdivr	foof
+	fdivr	food
 	fdivrp	st(2), st(0)
 	ffree	st(2)
 	fiadd	foos
@@ -199,21 +200,21 @@ asm void bar() { fool:
 	ficomp	fooi
 	fidiv	foos
 	fidiv	fooi
-	fidivl	fool
 	fidivr	foos
 	fidivr	fooi
-	fidivrl	fool
-	fild	fool
-	fildl	fool
-	fildll	fool
+	fild	foos
+	fild	fooi
+	fild	fooll
 	fimul	foos
 	fimul	fooi
-	fist	fool
-	fistp	fool
-	fistpll	fool
+	fist	foos
+	fist	fooi
+	fistp	foos
+	fistp	fooi
+	fistp	fooll
 	fisttp	foos
 	fisttp	fooi
-	fisttpll	fool
+	fisttp	fooll
 	fisub	foos
 	fisub	fooi
 	fisubr	foos
@@ -227,8 +228,8 @@ asm void bar() { fool:
 	fldt	fool
 	fmul	st(2), st(0)
 	fmul	st(0), st(2)
-	fmul	foos
-	fmul	fooi
+	fmul	foof
+	fmul	food
 	fmulp	st(2), st(0)
 	fnsave	fool
 	fnstcw	fool
@@ -271,9 +272,17 @@ asm void bar() { fool:
 	hsubpd	xmm0, fool
 	hsubps	xmm0, xmm0
 	hsubps	xmm0, fool
+	idiv	ah
+	idiv	fooc
+	idiv	ax
+	idiv	foos
 	idiv	eax
 	idiv	fooi
 	in	eax, 1
+	inc	ah
+	inc	fooc
+	inc	ax
+	inc	foos
 	inc	eax
 	inc	fooi
 	int	1
@@ -318,10 +327,10 @@ asm void bar() { fool:
 	ldmxcsr	fool
 	lds	eax, fooi
 	lea	eax, fool
-	les	eax, fool
-	lfs	eax, fool
+	les	eax, fooi
+	lfs	eax, fooi
 	lgdt	fool
-	lgs	eax, fool
+	lgs	eax, fooi
 	lidt	fool
 	lldt	eax
 	lldt	fool

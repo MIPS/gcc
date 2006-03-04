@@ -1258,6 +1258,32 @@ clobbers_queued_reg_save (rtx insn)
   return false;
 }
 
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+/* Entry point for saving the first register into the second.  */
+
+void
+dwarf2out_reg_save_reg (const char *label, rtx reg, rtx sreg)
+{
+  size_t i;
+  unsigned int regno, sregno;
+
+  for (i = 0; i < num_regs_saved_in_regs; i++)
+    if (REGNO (regs_saved_in_regs[i].orig_reg) == REGNO (reg))
+      break;
+  if (i == num_regs_saved_in_regs)
+    {
+      gcc_assert (i != ARRAY_SIZE (regs_saved_in_regs));
+      num_regs_saved_in_regs++;
+    }
+  regs_saved_in_regs[i].orig_reg = reg;
+  regs_saved_in_regs[i].saved_in_reg = sreg;
+
+  regno = DWARF_FRAME_REGNUM (REGNO (reg));
+  sregno = DWARF_FRAME_REGNUM (REGNO (sreg));
+  reg_save (label, regno, sregno, 0);
+}
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
+
 /* What register, if any, is currently saved in REG?  */
 
 static rtx
@@ -1646,7 +1672,8 @@ dwarf2out_frame_debug_expr (rtx expr, const char *label)
 	case UNSPEC_VOLATILE:
 	  gcc_assert (targetm.dwarf_handle_frame_unspec);
 	  targetm.dwarf_handle_frame_unspec (label, expr, XINT (src, 1));
-	  break;
+	  /* APPLE LOCAL mainline 2006-02-17 4356747 stack realign */
+	  return;
 
 	default:
 	  gcc_unreachable ();
@@ -5141,12 +5168,10 @@ add_AT_lineptr (dw_die_ref die, enum dwarf_attribute attr_kind,
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
   attr->dw_attr_val.val_class = dw_val_class_lineptr;
-/* APPLE LOCAL end dwarf 4383509 */
   attr->dw_attr_val.v.val_lbl_id = xstrdup (label);
   add_dwarf_attr (die, attr);
 }
 
-/* APPLE LOCAL begin dwarf 4383509 */
 /* Add a section offset attribute value to a DIE, an offset into the
    debug_macinfo section.  */
 
@@ -7147,10 +7172,8 @@ output_die (dw_die_ref die)
 	case dw_val_class_lineptr:
 	  dw2_asm_output_offset (DWARF_OFFSET_SIZE, AT_lbl (a),
 				 DEBUG_LINE_SECTION, "%s", name);
-/* APPLE LOCAL end dwarf 4383509 */
 	  break;
 
-/* APPLE LOCAL begin dwarf 4383509 */
 	case dw_val_class_macptr:
 	  dw2_asm_output_offset (DWARF_OFFSET_SIZE, AT_lbl (a),
 				 DEBUG_MACINFO_SECTION, "%s", name);
@@ -11548,6 +11571,13 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
     }
   else if (!DECL_EXTERNAL (decl))
     {
+      /* APPLE LOCAL begin dwarf 4444941 */
+      if (TREE_PUBLIC (decl) && DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
+	  && DECL_ABSTRACT_ORIGIN (decl))
+	add_AT_string (subr_die, DW_AT_MIPS_linkage_name,
+		       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+      /* APPLE LOCAL end dwarf 4444941 */
+
       if (!old_die || !get_AT (old_die, DW_AT_inline))
 	equate_decl_number_to_die (decl, subr_die);
 

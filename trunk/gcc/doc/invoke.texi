@@ -374,6 +374,8 @@ Objective-C and Objective-C++ Dialects}.
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
 -funsafe-math-optimizations  -ffinite-math-only @gol
 -fno-trapping-math  -fno-zero-initialized-in-bss @gol
+@c APPLE LOCAL 4356747 stack realign
+-mstackrealign @gol
 -fomit-frame-pointer  -foptimize-register-move @gol
 -foptimize-sibling-calls  -fprefetch-loop-arrays @gol
 -fprofile-generate -fprofile-use @gol
@@ -1747,8 +1749,14 @@ Register destructors for objects with static storage duration with the
 This option is required for fully standards-compliant handling of static
 destructors, but will only work if your C library supports
 @code{__cxa_atexit}.
-@c APPLE LOCAL manual
-This option is not supported on Mac OS X.
+
+@c APPLE LOCAL begin mainline 2006-02-24 4086777
+@item -fno-use-cxa-get-exception-ptr
+@opindex fno-use-cxa-get-exception-ptr
+Don't use the @code{__cxa_get_exception_ptr} runtime routine.  This
+will cause @code{std::uncaught_exception} to be incorrect, but is necessary
+if the runtime routine is not available.
+@c APPLE LOCAL end mainline 2006-02-24 4086777
 
 @item -fvisibility-inlines-hidden
 @opindex fvisibility-inlines-hidden
@@ -8117,7 +8125,13 @@ altered by adding a zero word at the end of every vtable.
 @option{-fno-exceptions} and @option{-static} must also be used with
 this flag.  @option{-findirect-virtual-calls} and
 @option{-fterminated-vtables} are accepted for backwards compatibility
-but will be removed in the future.  (APPLE ONLY)
+but will be removed in the future.
+On Intel x86-based Apple platforms, the kernel and its extensions run
+with a four-byte aligned stack
+(@option{-mpreferred-stack-boundary=2}); function prologues inside
+kernel extentions won't keep the usual 16-byte alignment required
+everywhere else in OS X.
+(APPLE ONLY)
 @c APPLE LOCAL end KEXT
 
 @item -all_load
@@ -9455,6 +9469,22 @@ function by using the function attribute @samp{regparm}.
 @var{num} is nonzero, then you must build all modules with the same
 value, including any libraries.  This includes the system libraries and
 startup modules.
+
+@c APPLE LOCAL begin 4356747 stack realign
+@item -mstackrealign
+@opindex mstackrealign
+Realign the stack at entry.  On the Intel x86, the
+@option{-mstackrealign} option will generate an alternate
+prologue/epilogue that realigns the runtime stack.  This supports
+mixing legacy codes that keep a 4-byte aligned stack with modern codes
+that keep a 16-byte stack for SSE compatibility.  The alternate
+prologue and epilogue are slower and bigger than the regular ones, and
+they require one dedicated register for the entire function.  This
+also lowers the number of registers available if used in conjunction
+with the @code{regparm} attribute.  Nested functions encountered while
+@option{-mstackrealign} is on will generate warnings, and they will
+not realign the stack when called.
+@c APPLE LOCAL end 4356747 stack realign
 
 @item -mpreferred-stack-boundary=@var{num}
 @opindex mpreferred-stack-boundary

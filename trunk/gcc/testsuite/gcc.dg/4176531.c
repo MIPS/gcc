@@ -1,7 +1,7 @@
 /* APPLE LOCAL file */
 /* Radar 4176531 */
-/* { dg-do compile } */
-/* { dg-options "-O2 -mfpmath=sse" { target i?86-*-* } } */
+/* { dg-do compile { target i?86-*-* } } */
+/* { dg-options "-O2 -mfpmath=sse" } */
 /* Runnable as a standalone test program.  Looks for SSE-based
    FP<->uint conversions.  Turn on optimize_size ("-Oz") to see x87
    sequences.  */

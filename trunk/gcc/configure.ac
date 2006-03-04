@@ -1326,7 +1326,8 @@ if test x$enable___cxa_atexit = xyes || \
     use_cxa_atexit=yes
   fi
   if test x$use_cxa_atexit = xyes; then
-    AC_DEFINE(DEFAULT_USE_CXA_ATEXIT, 1,
+dnl APPLE LOCAL mainline 2006-02-24 4086777
+    AC_DEFINE(DEFAULT_USE_CXA_ATEXIT, 2,
       [Define if you want to use __cxa_atexit, rather than atexit, to
       register C++ destructors for local statics and global objects.
       This is essential for fully standards-compliant handling of

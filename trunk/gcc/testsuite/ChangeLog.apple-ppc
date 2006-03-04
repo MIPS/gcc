@@ -72,6 +72,88 @@
 	Radar 4229905
 	* obj-c++.dg/warn5.mm: New
 
+2006-03-03  Stuart Hastings  <stuart@apple.com>
+
+	* Radar 4425360
+	* g++.dg/4425360.C: New.
+
+2006-02-28  Devang Patel  <dpatel@apple.com>
+	    Dorit Nuzman  <dorit@apple.com>
+
+	Radar 4375453
+        * gcc.dg/vect/vect-align-2.c: New.
+
+2006-02-27  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4356747
+	* testsuite/gcc.target/i386/20060210-1.c: New.
+	* testsuite/gcc.target/i386/20060210-2.c: New.
+	* testsuite/gcc.target/i386/20060210-3.c: New.
+	* testsuite/gcc.target/i386/20060210-4.c: New.
+	* gcc/testsuite/ChangeLog.apple-ppc: Fix.
+
+2006-02-27  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4448096
+	* testsuite/gcc.target/i386/4448096-1.c: New.
+	* testsuite/g++.dg/4448096-2.C: New.
+
+2006-02-24  Mike Stump  <mrs@apple.com>
+
+	Radar 4456673
+	* gcc.apple/asm-block-48.c: Add.
+	* g++.dg/asm-block-48.C: Add.
+
+2006-02-24  Mike Stump  <mrs@apple.com>
+
+	Radar 4298040
+	* g++.dg/asm-block-47.C: Add.
+	* g++.dg/asm-block-13.C: Update.
+	* gcc.apple/asm-block-13.c: Update.
+
+2006-02-17  Stuart Hastings  <stuart@apple.com>
+
+	* gcc.dg/4176531.c: Fix target.
+
+2006-02-16  Mike Stump  <mrs@apple.com>
+
+	Radar 4419735
+	* gcc.apple/asm-block-45.c: Add.
+	* gcc.apple/asm-block-46.c: Add.
+	* g++.dg/asm-block-45.C: Add.
+	* g++.dg/asm-block-46.C: Add.
+
+2006-02-14  Eric Christopher  <echristo@apple.com>
+
+	Radar 4385016 4331438
+	* gcc.apple/altivec-maltivec-1.c: xfail for 64bit.
+	* gcc.apple/altivec-faltivec-1.c: Ditto.
+	* gcc.apple/altivec-faltivec-2.c: Ditto.
+	* gcc.apple/default-cpu-1.c: Skip for 64bit.
+	* gcc.apple/default-cpu-2.c: Ditto.
+	* gcc.apple/align-test-5c: Ditto.
+	* gcc.apple/asm-test-nofralloc.c: Ditto.
+
+2006-02-14  Mike Stump  <mrs@apple.com>
+
+	Radar 4443942
+	* gcc.apple/asm-block-44.c: Add.
+	* g++.dg/asm-block-44.C: Add.
+
+2006-02-14  Mike Stump  <mrs@apple.com>
+
+	Radar 4415216
+	* gcc.apple/asm-block-43.c: Add.
+	* g++.dg/asm-block-43.C: Add.
+
+2006-02-14  Josh Conner  <jconner@apple.com>
+
+	Radar 4373419
+	PR target/25376
+	* gcc.dg/pr25376: New test.
+	* lib/target-supports.exp (check_named_sections_available):
+	Only compile named-sections test -- don't assemble.
+
 2006-02-10  Dale Johannesen  <dalej@apple.com>
 	
 	Radar 4430139 4431497

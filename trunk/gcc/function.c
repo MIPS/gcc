@@ -3061,24 +3061,14 @@ assign_parms (tree fndecl)
 {
   struct assign_parm_data_all all;
   tree fnargs, parm;
-  rtx internal_arg_pointer;
+  /* APPLE LOCAL deletion mainline 2006-02-17 4356747 stack realign */
   /* APPLE LOCAL AltiVec */
   int pass, last_pass;
 
-  /* If the reg that the virtual arg pointer will be translated into is
-     not a fixed reg or is the stack pointer, make a copy of the virtual
-     arg pointer, and address parms via the copy.  The frame pointer is
-     considered fixed even though it is not marked as such.
-
-     The second time through, simply use ap to avoid generating rtx.  */
-
-  if ((ARG_POINTER_REGNUM == STACK_POINTER_REGNUM
-       || ! (fixed_regs[ARG_POINTER_REGNUM]
-	     || ARG_POINTER_REGNUM == FRAME_POINTER_REGNUM)))
-    internal_arg_pointer = copy_to_reg (virtual_incoming_args_rtx);
-  else
-    internal_arg_pointer = virtual_incoming_args_rtx;
-  current_function_internal_arg_pointer = internal_arg_pointer;
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  current_function_internal_arg_pointer
+    = targetm.calls.internal_arg_pointer ();
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
   assign_parms_initialize_all (&all);
   fnargs = assign_parms_augmented_arg_list (&all);
@@ -4093,42 +4083,9 @@ init_function_for_compilation (void)
 void
 expand_main_function (void)
 {
-#ifdef FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
-  if (FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN)
-    {
-      int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-      rtx tmp, seq;
-
-      start_sequence ();
-      /* Forcibly align the stack.  */
-#ifdef STACK_GROWS_DOWNWARD
-      tmp = expand_simple_binop (Pmode, AND, stack_pointer_rtx, GEN_INT(-align),
-				 stack_pointer_rtx, 1, OPTAB_WIDEN);
-#else
-      tmp = expand_simple_binop (Pmode, PLUS, stack_pointer_rtx,
-				 GEN_INT (align - 1), NULL_RTX, 1, OPTAB_WIDEN);
-      tmp = expand_simple_binop (Pmode, AND, tmp, GEN_INT (-align),
-				 stack_pointer_rtx, 1, OPTAB_WIDEN);
-#endif
-      if (tmp != stack_pointer_rtx)
-	emit_move_insn (stack_pointer_rtx, tmp);
-
-      /* Enlist allocate_dynamic_stack_space to pick up the pieces.  */
-      tmp = force_reg (Pmode, const0_rtx);
-      allocate_dynamic_stack_space (tmp, NULL_RTX, BIGGEST_ALIGNMENT);
-      seq = get_insns ();
-      end_sequence ();
-
-      for (tmp = get_last_insn (); tmp; tmp = PREV_INSN (tmp))
-	if (NOTE_P (tmp) && NOTE_LINE_NUMBER (tmp) == NOTE_INSN_FUNCTION_BEG)
-	  break;
-      if (tmp)
-	emit_insn_before (seq, tmp);
-      else
-	emit_insn (seq);
-    }
-#endif
-
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  /* deletion */
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 #ifndef HAS_INIT_SECTION
   emit_library_call (init_one_libfunc (NAME__MAIN), LCT_NORMAL, VOIDmode, 0);
 #endif

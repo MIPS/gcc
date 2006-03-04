@@ -271,7 +271,7 @@ static int local_reg_n_refs[FIRST_PSEUDO_REGISTER];
    Now it is computed as
    SUM (REG_FREQ(i)/REG_LIVE_LENGTH(i)) over all uses. */
 
-static double local_reg_weight[FIRST_PSEUDO_REGISTER];
+static HOST_WIDE_INT local_reg_weight[FIRST_PSEUDO_REGISTER];
 #else
 /* Frequency of uses of given hard reg.  */
 static int local_reg_freq[FIRST_PSEUDO_REGISTER];
@@ -567,8 +567,8 @@ global_alloc (FILE *file)
 	    /* APPLE LOCAL begin rewrite weight computation */
 #ifdef REWRITE_WEIGHT_COMPUTATION
 	    if ( REG_LIVE_LENGTH (i) > 0 )
-	      local_reg_weight[j] += (double)REG_FREQ (i) 
-				    / (double) REG_LIVE_LENGTH (i);
+	      local_reg_weight[j] += (REG_FREQ (i) * 100)
+				      / REG_LIVE_LENGTH (i);
 #else
 	    local_reg_freq[j] += REG_FREQ (i);
 	    local_reg_live_length[j] += REG_LIVE_LENGTH (i);
@@ -1416,11 +1416,11 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 	    {
 	      /* APPLE LOCAL begin rewrite weight computation */
 #ifdef REWRITE_WEIGHT_COMPUTATION
-	      /* We explicitly evaluate the divide result into a temporary
-		 variable so as to avoid excess precision problems that occur
-		 on an i386-unknown-sysv4.2 (unixware) host.  */
-	      double tmp = ((double) allocno[num].freq
-			    / allocno[num].live_length);
+	      /* The multiplier of 100 is used to help get a couple
+		 of places of difference to mitigate the problem of
+		 having to use integers in the weight calculation.  */
+	      HOST_WIDE_INT tmp = (allocno[num].freq * 100)
+				  / allocno[num].live_length;
 #else
 	    /* APPLE LOCAL end rewrite weight computation */
 	      /* We explicitly evaluate the divide results into temporary
