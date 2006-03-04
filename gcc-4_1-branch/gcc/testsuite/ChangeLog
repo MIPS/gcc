@@ -1,3 +1,33 @@
+2006-03-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26136
+	* gfortran.dg/namelist_23.f90: New test.
+
+2006-03-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26464
+	* gfortran.dg/backspace_5.f: New test.
+	* gfortran.dg/backspace_6.f: New test.
+
+2006-03-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/template/repo5.C: Cleanup repo files.
+	* gcc.dg/20051201-1.c: Cleanup coverage files.
+	* gcc.target/sparc/fexpand-2.c, gcc.target/sparc/fpmerge-2.c,
+	gcc.target/sparc/fpmul-2.c, gcc.target/sparc/pdist-2.c: Cleanup
+	tree dump files.
+
+2006-03-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26423
+	* gfortran.dg/read_many_1.f: New test.
+
+2006-03-02  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26291
+	* g++.dg/other/ellipsis1.C: New test.
+	* g++.dg/parse/operator4.C: Adjust error marker.
+
 2006-02-16  Roger Sayle  <roger@eyesopen.com>
 
 	* gfortran.fortran-torture/execute/where_10.f90: New test case.
