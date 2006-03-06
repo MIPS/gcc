@@ -241,7 +241,7 @@ int m68k_bitfield = 0;
 int m68k_cf_hwdiv = 0;
 
 /* Bit values used by m68k-cores.def to identify processor capabilities.  */
-#define FL_NOPIC     (1 << 0)    /* PIC is *not* supported.  */
+#define FL_PCREL_16  (1 << 0)    /* PC rel instructions have a 16bit offset */
 #define FL_BITFIELD  (1 << 1)    /* Support bitfield instructions.  */
 #define FL_68881     (1 << 2)    /* (Default) support for 68881/2.  */
 #define FL_COLDFIRE  (1 << 3)    /* ColdFire processor.  */
@@ -314,8 +314,8 @@ static const struct processors all_cores[] =
 
 static const struct processors all_architectures[] =
 {
-  { "68000",    m68000,   u68000,   isa_00,    FL_ISA_68000 | FL_NOPIC },
-  { "68010",    m68010,   u68000,   isa_00,    FL_ISA_68000 | FL_NOPIC },
+  { "68000",    m68000,   u68000,   isa_00,    FL_ISA_68000 | FL_PCREL_16 },
+  { "68010",    m68010,   u68000,   isa_00,    FL_ISA_68000 | FL_PCREL_16 },
   { "68020",    m68020,   u68020,   isa_20,    FL_ISA_68020 | FL_BITFIELD },
   { "68030",    m68030,   u68020,   isa_20,    FL_ISA_68020 | FL_BITFIELD },
   { "68040",    m68040,   u68040,   isa_40,    FL_ISA_68040 | FL_ISA_68020
@@ -325,11 +325,12 @@ static const struct processors all_architectures[] =
                                                | FL_68881 },
   { "cpu32",    cpu32,    ucpu32,   isa_20,    FL_ISA_68020 },
   { "isaa",     mcf5206e, ucfv2,    isa_a,     FL_COLDFIRE | FL_ISA_A
-    					       | FL_CF_HWDIV},
+    					       | FL_CF_HWDIV | FL_PCREL_16},
   { "isaaplus", mcf5271,  ucfv2,    isa_aplus, FL_COLDFIRE | FL_ISA_A
-  					       | FL_ISA_APLUS | FL_CF_HWDIV},
+  					       | FL_ISA_APLUS | FL_CF_HWDIV
+    					       | FL_PCREL_16},
   { "isab",     mcf5407,  ucfv4,    isa_b,     FL_COLDFIRE | FL_ISA_B
-                                               | FL_CF_HWDIV },
+                                               | FL_CF_HWDIV},
   { "isac",     unk_proc, ucfv4,    isa_c,     FL_COLDFIRE | FL_ISA_C
                                                | FL_CF_HWDIV | FL_CF_USP
    					       | FL_CF_FPU | FL_CF_EMAC },
@@ -338,8 +339,8 @@ static const struct processors all_architectures[] =
 
 static const struct processors all_tunings[] =
 {
-  { "68000",    m68000,   u68000,   isa_00,  FL_ISA_68000 | FL_NOPIC },
-  { "68010",    m68010,   u68000,   isa_00,  FL_ISA_68000 | FL_NOPIC },
+  { "68000",    m68000,   u68000,   isa_00,  FL_ISA_68000 | FL_PCREL_16 },
+  { "68010",    m68010,   u68000,   isa_00,  FL_ISA_68000 | FL_PCREL_16 },
   { "68020",    m68020,   u68020,   isa_20,  FL_ISA_68020 | FL_BITFIELD },
   { "68030",    m68030,   u68020,   isa_20,  FL_ISA_68020 | FL_BITFIELD },
   { "68040",    m68040,   u68040,   isa_40,  FL_ISA_68040 | FL_ISA_68020
@@ -348,9 +349,10 @@ static const struct processors all_tunings[] =
    					     | FL_ISA_68020 | FL_BITFIELD
                                              | FL_68881 },
   { "cpu32",    cpu32,    ucpu32,   isa_20,  FL_ISA_68020 },
-  { "cfv2",     mcf5206,  ucfv2,    isa_a,   FL_COLDFIRE | FL_ISA_A },
+  { "cfv2",     mcf5206,  ucfv2,    isa_a,   FL_COLDFIRE | FL_ISA_A
+					     | FL_PCREL_16},
   { "cfv3",     mcf5307,  ucfv3,    isa_a,   FL_COLDFIRE | FL_ISA_A
-                                             | FL_CF_HWDIV },
+                                             | FL_CF_HWDIV | FL_PCREL_16},
   { "cfv4",     mcf5407,  ucfv4,    isa_b,   FL_COLDFIRE | FL_ISA_B
     					     | FL_CF_HWDIV },
   { "cfv4e",    mcf547x,  ucfv4e,   isa_b,   FL_COLDFIRE | FL_ISA_B
@@ -620,10 +622,11 @@ override_options (void)
   if (TARGET_SEP_DATA || TARGET_ID_SHARED_LIBRARY)
     flag_pic = 2;
 
-  /* -fPIC uses 32-bit pc-relative displacements, which don't exist
-     until the 68020.  */
-  if ((flags & FL_NOPIC) && (flag_pic == 2))
-    error ("-fPIC is not currently supported on the 68000 or 68010");
+  /* -fPIC uses 32-bit pc-relative displacements. Some chips do not
+      have single instructions to deal with this, and the ABI they
+      would need has not been defined.  */
+  if ((flags & FL_PCREL_16) && (flag_pic == 2))
+    error ("-fPIC is not currently supported on selected cpu");
 
   /* ??? A historic way of turning on pic, or is this intended to
      be an embedded thing that doesn't have the same name binding

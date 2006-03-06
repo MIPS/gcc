@@ -1,3 +1,13 @@
+2006-03-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-cores.def: Set FL_PCREL_16 as appropriate.
+	* gcc/config/m68k/m68k.c (FL_NOPIC): Remove.
+	(FL_PCREL_16): Define.
+	(all_architectures): Set FL_PCREL_16 as appropriate.
+	(all_tunings): Likewise.
+	(override_options): Replace 68k specific FL_NOPIC test with general
+	FL_PCREL_16 one.
+
 2006-02-26  Nathan Sidwell  <nathan@potter.codesourcery.com>
 
 	* libstdc++-v3/testsuite/lib/libstdc++.exp (check_v3_target_fileio,
