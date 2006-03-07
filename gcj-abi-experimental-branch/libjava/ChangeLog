@@ -1,5 +1,12 @@
 2006-03-07  Andrew Haley  <aph@redhat.com>
 
+	* java/lang/natClassLoader.cc (_Jv_NewClassFromInitializer): Don't
+	allocate constant pool or static fields here.
+	* link.cc (resolve_pool_entry): Allocate constant pool here.
+	(wait_for_state): Allocate static fields here.
+
+2006-03-07  Andrew Haley  <aph@redhat.com>
+
 	* include/execution.h (do_allocate_static_fields): Allocate the
 	static fields.
 	* java/lang/Class.h (_Jv_NewClassFromInitializer): Declare

@@ -36,7 +36,7 @@ _Jv_GC_has_static_roots (struct dl_phdr_info * info, size_t size, void *ptr)
   static const char suffix[] = "libgcj.so.7";
   const char *name = info->dlpi_name;
 
-  fprintf (stderr, "%p: lib %s ", ptr, name);
+//   fprintf (stderr, "%p: lib %s ", ptr, name);
 
   if (strlen (name) <= strlen (suffix))
     goto defaul;
@@ -45,12 +45,12 @@ _Jv_GC_has_static_roots (struct dl_phdr_info * info, size_t size, void *ptr)
   if (strcmp (name + strlen (name) - strlen (suffix),
 	      suffix) == 0)
     {
-      fprintf (stderr, "registered\n");
+//       fprintf (stderr, "registered\n");
       return 1;
     }  
 
  defaul:
-  fprintf (stderr, "not registered\n");
+//   fprintf (stderr, "not registered\n");
   return 0;
 }
 	      

@@ -193,34 +193,10 @@ _Jv_NewClassFromInitializer (const jclass class_initializer)
   memcpy ((void*)new_class, (void*)class_initializer, sizeof *new_class);
 
   if (_Jv_CheckABIVersion ((unsigned long) new_class->next_or_version))
-    {
-      jsize count = new_class->field_count;
-      if (count)
-	{
-	  new_class->fields 
-	    = (_Jv_Field*) _Jv_AllocRawObj (count * sizeof (_Jv_Field));
-	  memcpy ((void*)new_class->fields,
-		  (void*)class_initializer->fields,
-		  count * sizeof (_Jv_Field));
-	}
-
-      count = new_class->constants.size;
-      if (count)
-	{
-	  new_class->constants.data
-	    = (_Jv_word*) _Jv_AllocRawObj (count * sizeof (_Jv_word));
-	  memcpy ((void*)new_class->constants.data,
-		  (void*)class_initializer->constants.data,
-		  count * sizeof (_Jv_word));
-	}
-
-      (*_Jv_RegisterClassHook) (new_class);
-    }
+    (*_Jv_RegisterClassHook) (new_class);
   
   return new_class;
 }
-
-
 
 void
 _Jv_RegisterClassHookDefault (jclass klass)
