@@ -34,141 +34,134 @@ Boston, MA 02110-1301, USA.  */
 
 
 /* Note that some other tm.h files include this one and then override
-   many of the definitions that relate to assembler syntax.  */
+   many of the definitions that relate to assembler syntax.  FIXME:We
+   no longer set the mc68030 #define, it never made any difference to
+   code generation.  */
 
 #define TARGET_CPU_CPP_BUILTINS()					     \
-  cpp_define (pfile, "__m68k__");					     \
-  builtin_define_std ("mc68000");					     \
-									     \
- /* if (TARGET_68040_ONLY)						     \
+  do									     \
     {									     \
-      if (TARGET_68060)							     \
-	builtin_define_std ("mc68060");					     \
-      else								     \
-	builtin_define_std ("mc68040");					     \
-    }									     \
-  else if (TARGET_68060) // -m68020-60					     \
-    {									     \
-      builtin_define_std ("mc68060");					     \
-      builtin_define_std ("mc68040");					     \
-      builtin_define_std ("mc68030");					     \
-      builtin_define_std ("mc68020");					     \
-    }									     \
-  else if (TARGET_68040) // -m68020-40					     \
-    {									     \
-      builtin_define_std ("mc68040");					     \
-      builtin_define_std ("mc68030");					     \
-      builtin_define_std ("mc68020");					     \
-    }									     \
-  else if (TARGET_68030)						     \
-    builtin_define_std ("mc68030");					     \
-  else if (TARGET_68020)						     \
-    builtin_define_std ("mc68020"); */					     \
-									     \
-  /* FIXME: This may not be quite the same as the above behaviour.  */	     \
-  if (m68k_arch_68020)							     \
-    builtin_define_std ("mc68020");					     \
-									     \
-  if (m68k_arch_68040)							     \
-    builtin_define_std ("mc68040");					     \
-									     \
-  if (m68k_arch_68060)							     \
-    builtin_define_std ("mc68060");					     \
-									     \
-  if (TARGET_68881)							     \
-    cpp_define (pfile, "__HAVE_68881__");				     \
-									     \
-  if (m68k_cpu == cpu32 || m68k_cpu == m68332 || TUNE_CPU32)		     \
-    {									     \
-      builtin_define_std ("mc68332");					     \
-      builtin_define_std ("mcpu32");					     \
-    }									     \
-									     \
-  if (m68k_arch_coldfire)						     \
-    {									     \
-      cpp_define (pfile, "__mcoldfire__");				     \
-									     \
-      if (!m68k_arch_isaaplus && !m68k_arch_isab && !m68k_arch_isac)	     \
-	{								     \
-	  /* ISA_A: legacy define.  */					     \
-	  cpp_define (pfile, "__mcf5200__");				     \
-	  cpp_define (pfile, "__mcfisaa__");				     \
-	}								     \
-      else if (m68k_arch_isaaplus)					     \
-	{								     \
-	  /* ISA_A+: legacy define.  */					     \
-	  cpp_define (pfile, "__mcf528x__");				     \
-	  cpp_define (pfile, "__mcf5200__");				     \
-	  cpp_define (pfile, "__mcfisaaplus__");			     \
-	}								     \
-      else if (m68k_arch_isab)						     \
-	{								     \
-	  /* ISA_B: 5307, 5407 handled specially. __mcfisaX__ or __mcfvX__   \
-	     should be used in new code.  */				     \
-	  switch (m68k_cpu)						     \
+      cpp_define (pfile, "__m68k__");					     \
+      builtin_define_std ("mc68000");					     \
+      if (m68k_arch_68020)						     \
+        {								     \
+          builtin_define_std ("mc68020");				     \
+          if (TUNE_68040)						     \
+	    builtin_define_std ("mc68040");				     \
+          if (TUNE_68060)						     \
 	    {								     \
-	    case mcf5307:						     \
-	      cpp_define (pfile, "__mcf5300__");			     \
-	      cpp_define (pfile, "__mcf5307__");			     \
+	      builtin_define_std ("mc68040");				     \
+	      builtin_define_std ("mc68060");				     \
+	    }								     \
+        }								     \
+									     \
+      if (m68k_arch_68040)						     \
+        {								     \
+          builtin_define_std ("mc68040");				     \
+          if (TUNE_68060) 						     \
+	    builtin_define_std ("mc68060");				     \
+        }								     \
+									     \
+      if (m68k_arch_68060)						     \
+        builtin_define_std ("mc68060");					     \
+									     \
+      if (TARGET_68881)							     \
+        cpp_define (pfile, "__HAVE_68881__");				     \
+									     \
+      if (m68k_cpu == cpu32 || m68k_cpu == m68332 || TUNE_CPU32)	     \
+        {								     \
+          builtin_define_std ("mc68332");				     \
+          builtin_define_std ("mcpu32");				     \
+        }								     \
+									     \
+      if (m68k_arch_coldfire)						     \
+        {								     \
+          cpp_define (pfile, "__mcoldfire__");				     \
+									     \
+          if (!m68k_arch_isaaplus && !m68k_arch_isab && !m68k_arch_isac)     \
+	    {								     \
+	      /* ISA_A: legacy define.  */				     \
+	      cpp_define (pfile, "__mcf5200__");			     \
+	      cpp_define (pfile, "__mcfisaa__");			     \
+    	    }								     \
+          else if (m68k_arch_isaaplus)					     \
+	    {								     \
+	      /* ISA_A+: legacy define.  */				     \
+	      cpp_define (pfile, "__mcf528x__");			     \
+	      cpp_define (pfile, "__mcf5200__");			     \
+	      cpp_define (pfile, "__mcfisaaplus__");			     \
+	    }								     \
+          else if (m68k_arch_isab)					     \
+	    {								     \
+	      /* ISA_B: 5307, 5407 handled specially. __mcfisaX__ or 	     \
+		 __mcfvX__   should be used in new code.  */		     \
+	      switch (m68k_cpu)						     \
+	        {							     \
+	        case mcf5307:						     \
+	          cpp_define (pfile, "__mcf5300__");			     \
+	          cpp_define (pfile, "__mcf5307__");			     \
+	          break;						     \
+									     \
+	        case mcf5407:						     \
+	          cpp_define (pfile, "__mcf5400__");			     \
+	          cpp_define (pfile, "__mcf5407__");			     \
+	          break;						     \
+									     \
+	        default:						     \
+	          ;							     \
+	        }							     \
+	      cpp_define (pfile, "__mcfisab__");			     \
+	    }								     \
+          else if (m68k_arch_isac)					     \
+    	    cpp_define (pfile, "__mcfisac__");				     \
+									     \
+          /* Handle options to allow selecting different user code for	     \
+	     tuning purposes.  */					     \
+          switch (m68k_tune)						     \
+	    {								     \
+	    case ucfv2:							     \
+	      cpp_define (pfile, "__mcfv2__");				     \
 	      break;							     \
 									     \
-	    case mcf5407:						     \
+    	    case ucfv3:							     \
+	      cpp_define (pfile, "__mcfv3__");				     \
+	      break;							     \
+									     \
+	    case ucfv4:							     \
+	      cpp_define (pfile, "__mcfv4__");				     \
+	      break;							     \
+									     \
+	    case ucfv4e:						     \
+	      cpp_define (pfile, "__mcfv4e__");				     \
+	      /* More legacy flags: these aren't correct, strictly	     \
+		 speaking.  */						     \
 	      cpp_define (pfile, "__mcf5400__");			     \
 	      cpp_define (pfile, "__mcf5407__");			     \
 	      break;							     \
 									     \
+	    case ucfv5:							     \
+	      cpp_define (pfile, "__mcfv5__");				     \
+	      break;							     \
+									     \
 	    default:							     \
-	      ;								     \
+    	      ;								     \
 	    }								     \
-	  cpp_define (pfile, "__mcfisab__");				     \
-	}								     \
-      else if (m68k_arch_isac)						     \
-	cpp_define (pfile, "__mcfisac__");				     \
+        }								     \
 									     \
-      /* Handle options to allow selecting different user code for tuning    \
-	 purposes.  */							     \
-      switch (m68k_tune)						     \
-	{								     \
-	case ucfv2:							     \
-	  cpp_define (pfile, "__mcfv2__");				     \
-	  break;							     \
+      if (m68k_cf_hwdiv)						     \
+        cpp_define (pfile, "__mcfhwdiv__");				     \
 									     \
-	case ucfv3:							     \
-	  cpp_define (pfile, "__mcfv3__");				     \
-	  break;							     \
-									     \
-	case ucfv4:							     \
-	  cpp_define (pfile, "__mcfv4__");				     \
-	  break;							     \
-									     \
-	case ucfv4e:							     \
-	  cpp_define (pfile, "__mcfv4e__");				     \
-	  /* More legacy flags: these aren't correct, strictly speaking.  */ \
-	  cpp_define (pfile, "__mcf5400__");				     \
-	  cpp_define (pfile, "__mcf5407__");				     \
-	  break;							     \
-									     \
-	case ucfv5:							     \
-	  cpp_define (pfile, "__mcfv5__");				     \
-	  break;							     \
-									     \
-	default:							     \
-	  ;								     \
-	}								     \
-    }									     \
-									     \
-  if (m68k_cf_hwdiv)							     \
-    cpp_define (pfile, "__mcfhwdiv__");					     \
-									     \
-  if (flag_pic)								     \
-    {									     \
-      cpp_define (pfile, "__pic__");					     \
-      if (flag_pic > 1)							     \
-	cpp_define (pfile, "__PIC__");					     \
-    }									     \
+      if (flag_pic)							     \
+        {								     \
+          cpp_define (pfile, "__pic__");				     \
+          if (flag_pic > 1)						     \
+    	    cpp_define (pfile, "__PIC__");				     \
+        }								     \
   									     \
-  cpp_assert (pfile, "cpu=m68k");					     \
-  cpp_assert (pfile, "machine=m68k");
+      cpp_assert (pfile, "cpu=m68k");					     \
+      cpp_assert (pfile, "machine=m68k");				     \
+   }									     \
+ while (0)
 
 /* Classify the groups of pseudo-ops used to assemble QI, HI and SI
    quantities.  */

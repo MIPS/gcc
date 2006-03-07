@@ -1,3 +1,8 @@
+2006-03-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Detect -mtune
+	usage to set multiple 68k core #defines.
+
 2006-03-06  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc/config/m68k/m68k-cores.def: Set FL_PCREL_16 as appropriate.
