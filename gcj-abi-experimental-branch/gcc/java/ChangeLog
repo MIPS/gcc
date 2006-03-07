@@ -1,3 +1,29 @@
+2006-03-07  Andrew Haley  <aph@redhat.com>
+
+	* jvgenmain.c: If flag_indirect_classes, generate access to
+	_class$_<classname>.
+	* mangle.c (java_mangle_decl): Mangle record types too.
+	* jvspec.c: Allow -findirect-classes.
+	* constants.c (build_ref_from_constant_pool): If
+	flag_indirect_classes, build a constant ref via the class, not
+	directly.
+	* decl.c (constants_field_decl_node,
+	constants_data_field_decl_node): New variables.
+	(java_init_decl_processing): Initialize them.
+	* class.c (build_static_class_ref): New function.
+	(build_class_ref): Change direct ref to class to indirect ref to
+	_class$_<classname>.
+	(build_class_ref): Call build_static_class_ref.
+	(make_field_value): If flag_indirect_classes, don't create a
+	pointer to a field.
+	(make_class_data): Call build_static_class_ref instead of
+	build_class_ref.
+	(register_class): If flag_indirect_classes, just push
+	current_class instead of generating a class ref.
+	(emit_indirect_register_classes): Nw function.
+	(emit_register_classes): If flag_indirect_classes, call
+	emit_indirect_register_classes.
+
 2006-02-20  Andrew Haley  <aph@redhat.com>
 
 	* jcf-parse.c (parse_class_file): Set input_location from

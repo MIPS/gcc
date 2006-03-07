@@ -3635,4 +3635,4 @@ promote_arguments (void)
     }
 }
 
-#include "gt-java-expr.h"
+#include "gt-java-java-expr.h"

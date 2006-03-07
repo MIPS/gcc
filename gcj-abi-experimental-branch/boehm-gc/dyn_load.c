@@ -390,6 +390,9 @@ GC_bool GC_register_main_static_data()
 /* Thus we also treat it as a weak symbol.				*/
 #define HAVE_DL_ITERATE_PHDR
 
+int (*GC_has_static_roots)(struct dl_phdr_info * info, size_t size, void *ptr)
+  __attribute__((weak));
+
 static int GC_register_dynlib_callback(info, size, ptr)
      struct dl_phdr_info * info;
      size_t size;
@@ -411,6 +414,10 @@ static int GC_register_dynlib_callback(info, size, ptr)
 	{
 	  if( !(p->p_flags & PF_W) ) break;
 	  start = ((char *)(p->p_vaddr)) + info->dlpi_addr;
+
+	  if (GC_has_static_roots && !GC_has_static_roots(info, size, start))
+	    break;
+
 	  GC_add_roots_inner(start, start + p->p_memsz, TRUE);
 	}
       break;

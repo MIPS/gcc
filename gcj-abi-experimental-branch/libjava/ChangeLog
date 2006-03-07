@@ -1,3 +1,14 @@
+2006-03-07  Andrew Haley  <aph@redhat.com>
+
+	* include/execution.h (do_allocate_static_fields): Allocate the
+	static fields.
+	* java/lang/Class.h (_Jv_NewClassFromInitializer): Declare
+	* java/lang/natClassLoader.cc (_Jv_NewClassFromInitializer): New
+	function.
+	* boehm.cc (_Jv_InitGC): Return if gc is already initialized.
+	* gnu/gcj/runtime/natSharedLibLoader.cc (_Jv_GC_has_static_roots):
+	New function.
+
 2006-02-15  Matthias Klose  <doko@debian.org>
 
 	* gnu/java/nio/charset, gnu/java/net/protocol/file,

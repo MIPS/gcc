@@ -42,6 +42,8 @@ struct obstack *mangle_obstack = &name_obstack;
 
 static void usage (const char *) ATTRIBUTE_NORETURN;
 
+int flag_indirect_classes = 0;
+
 static void
 usage (const char *name)
 {
@@ -56,7 +58,7 @@ main (int argc, char **argv)
   char *classname, *p;
   FILE *stream;
   const char *mangled_classname;
-  int i, last_arg;
+  int i, last_arg, first_arg;
 
   /* Unlock the stdio streams.  */
   unlock_std_streams ();
@@ -66,7 +68,15 @@ main (int argc, char **argv)
   if (argc < 2)
     usage (argv[0]);
 
-  for (i = 1; i < argc; ++i)
+  if (strcmp (argv[1], "-findirect-classes") == 0)
+    {
+      flag_indirect_classes = 1;
+      first_arg = 2;
+    }
+  else
+    first_arg = 1;
+
+  for (i = first_arg; i < argc; ++i)
     {
       if (! strncmp (argv[i], "-D", 2))
 	{
@@ -106,11 +116,11 @@ main (int argc, char **argv)
   else
     stream = stdout;
 
-  /* At this point every element of ARGV from 1 to LAST_ARG is a `-D'
-     option.  Process them appropriately.  */
+  /* At this point every element of ARGV from FIRST_ARG to LAST_ARG is
+     a `-D' option.  Process them appropriately.  */
   fprintf (stream, "extern const char **_Jv_Compiler_Properties;\n");
   fprintf (stream, "static const char *props[] =\n{\n");
-  for (i = 1; i < last_arg; ++i)
+  for (i = first_arg; i < last_arg; ++i)
     {
       const char *p;
       fprintf (stream, "  \"");
@@ -127,11 +137,19 @@ main (int argc, char **argv)
     }
   fprintf (stream, "  0\n};\n\n");
 
-  fprintf (stream, "extern int %s;\n", mangled_classname);
   fprintf (stream, "int main (int argc, const char **argv)\n");
   fprintf (stream, "{\n");
   fprintf (stream, "   _Jv_Compiler_Properties = props;\n");
-  fprintf (stream, "   JvRunMain (&%s, argc, argv);\n", mangled_classname);
+  if (flag_indirect_classes)
+    {
+      fprintf (stream, "   extern void *%s;\n", mangled_classname);
+      fprintf (stream, "   JvRunMain (%s, argc, argv);\n", mangled_classname);
+    }
+  else
+    {
+      fprintf (stream, "   extern int %s;\n", mangled_classname);
+      fprintf (stream, "   JvRunMain (&%s, argc, argv);\n", mangled_classname);
+    }
   fprintf (stream, "}\n");
   if (stream != stdout && fclose (stream) != 0)
     {
@@ -149,20 +167,34 @@ do_mangle_classname (const char *string)
   const char *ptr;
   int count = 0;
 
-  obstack_grow (&name_obstack, "_ZN", 3);
-
-  for (ptr = string; *ptr; ptr++ )
+  if (flag_indirect_classes)
     {
-      if (ptr[0] == '.')
+      obstack_grow (&name_obstack, "_class$_", strlen ("_class$_"));
+      for (ptr = string; *ptr; ptr++ )
 	{
-	  append_gpp_mangled_name (&ptr [-count], count);
-	  count = 0;
+	  if (*ptr == '.')
+	    obstack_1grow (mangle_obstack, '_');
+	  else
+	    obstack_1grow (mangle_obstack, *ptr);
 	}
-      else
-	count++;
     }
-  append_gpp_mangled_name (&ptr [-count], count);
-  obstack_grow (mangle_obstack, "6class$E", 8);
+  else
+    {
+      obstack_grow (&name_obstack, "_ZN", 3);
+
+      for (ptr = string; *ptr; ptr++ )
+	{
+	  if (*ptr == '.')
+	    {
+	      append_gpp_mangled_name (ptr - count, count);
+	      count = 0;
+	    }
+	  else
+	    count++;
+	}
+      append_gpp_mangled_name (ptr - count, count);
+      obstack_grow (mangle_obstack, "6class$E", 8);
+    }
   obstack_1grow (mangle_obstack, '\0');
   return obstack_finish (mangle_obstack);
 }

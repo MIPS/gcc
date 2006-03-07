@@ -98,7 +98,7 @@ $(srcdir)/java/keyword.h: $(srcdir)/java/keyword.gperf
 gt-java-parse.h : s-gtype ; @true
 
 # Executables built by this Makefile:
-JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
+JAVA_OBJS = java/parse.o java/class.o java/decl.o java/java-expr.o \
   java/constants.o java/lang.o java/typeck.o java/except.o \
   java/verify-glue.o java/verify-impl.o \
   java/zextract.o java/jcf-io.o java/win32-host.o java/jcf-parse.o java/mangle.o \
@@ -313,10 +313,10 @@ java/decl.o: java/decl.c $(CONFIG_H) $(JAVA_TREE_H) $(RTL_H) java/jcf.h \
 java/except.o: java/except.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h real.h \
   $(RTL_H) java/javaop.h java/java-opcodes.h except.h java/java-except.h \
   toplev.h $(SYSTEM_H) coretypes.h $(TM_H) function.h 
-java/expr.o: java/expr.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h real.h \
+java/java-expr.o: java/java-expr.c $(CONFIG_H) $(JAVA_TREE_H) java/jcf.h real.h \
   $(RTL_H) $(EXPR_H) java/javaop.h java/java-opcodes.h except.h \
   java/java-except.h java/java-except.h java/parse.h toplev.h \
-  $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) gt-java-expr.h target.h
+  $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) gt-java-java-expr.h target.h
 java/jcf-depend.o: java/jcf-depend.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
   $(TM_H) java/jcf.h
 java/jcf-parse.o: java/jcf-parse.c $(CONFIG_H) $(JAVA_TREE_H) flags.h \

@@ -1,3 +1,8 @@
+2006-03-07  Andrew Haley  <aph@redhat.com>
+
+	* dyn_load.c (GC_has_static_roots): Declare.
+	(GC_register_dynlib_callback): Call GC_has_static_roots.
+
 2006-02-09  Tom Tromey  <tromey@redhat.com>
 
 	* pthread_support.c: Conditionally include dlfcn.h.

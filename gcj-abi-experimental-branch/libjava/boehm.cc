@@ -468,6 +468,12 @@ void
 _Jv_InitGC (void)
 {
   int proc;
+  static bool gc_initialized;
+
+  if (gc_initialized)
+    return;
+
+  gc_initialized = 1;
 
   // Ignore pointers that do not point to the start of an object.
   GC_all_interior_pointers = 0;
