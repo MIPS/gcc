@@ -1,3 +1,9 @@
+2006-03-07  Mike Stump  <mrs@apple.com>
+
+	Radar 4408780
+	* g++.dg/asm-block-13.C: Update.
+	* gcc.apple/asm-block-13.c: Update.
+
 2006-03-03  Stuart Hastings  <stuart@apple.com>
 
 	* Radar 4425360

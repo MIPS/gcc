@@ -2722,24 +2722,26 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "adc", 2, "ir,m" },		\
   { "add", 1, "+rm,r" },	\
   { "add", 2, "ir,m" },		\
+  { "addps", 1, "+x"},		\
+  { "addps", 2, "xm"},		\
   { "addsd", 1, "+x"},		\
-  { "addsd", 2, "m"},		\
+  { "addsd", 2, "xm"},		\
   { "addss", 1, "+x"},		\
-  { "addss", 2, "m"},		\
+  { "addss", 2, "xm"},		\
   { "addsubpd", 1, "+x"},      	\
-  { "addsubpd", 2, "m"},	\
+  { "addsubpd", 2, "xm"},	\
   { "addsubps", 1, "+x"},	\
-  { "addsubps", 2, "m"},      	\
+  { "addsubps", 2, "xm"},      	\
   { "and", 1, "+rm,r"},		\
   { "and", 2, "ir,m"},		\
   { "andnpd", 1, "+x"},		\
-  { "andnpd", 2, "m"},		\
+  { "andnpd", 2, "xm"},		\
   { "andnps", 1, "+x"},		\
-  { "andnps", 2, "m"},		\
+  { "andnps", 2, "xm"},		\
   { "andpd", 1, "+x"},		\
-  { "andpd", 2, "m"},		\
+  { "andpd", 2, "xm"},		\
   { "andps", 1, "+x"},		\
-  { "andps", 2, "m"},		\
+  { "andps", 2, "xm"},		\
   { "arpl", 1, "+" rm16},	\
   { "arpl", 2, r16},		\
   { "bound", 1, U("r")},	\
@@ -2805,47 +2807,49 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "cmpxchg", 1, "+mr"},      	\
   { "cmpxchg", 2, "r"},      	\
   { "comisd", 1, "x"},		\
-  { "comisd", 2, "m"},		\
+  { "comisd", 2, "xm"},		\
   { "comiss", 1, "x"},		\
-  { "comiss", 2, "m"},		\
+  { "comiss", 2, "xm"},		\
   { "cvtdq2pd", 1, "=x"},	\
-  { "cvtdq2pd", 2, "m"},	\
+  { "cvtdq2pd", 2, "xm"},	\
   { "cvtdq2ps", 1, "=x"},	\
-  { "cvtdq2ps", 2, "m"},	\
+  { "cvtdq2ps", 2, "xm"},	\
+  { "cvtpd2dq", 1, "=x"},	\
+  { "cvtpd2dq", 2, "xm"},	\
   { "cvtpd2pi", 1, "=y"},	\
-  { "cvtpd2pi", 2, "m"},	\
+  { "cvtpd2pi", 2, "xm"},	\
   { "cvtpd2ps", 1, "=x"},	\
-  { "cvtpd2ps", 2, "m"},	\
+  { "cvtpd2ps", 2, "xm"},	\
   { "cvtpi2pd", 1, "=x"},	\
-  { "cvtpi2pd", 2, "m"},	\
+  { "cvtpi2pd", 2, "ym"},	\
   { "cvtpi2ps", 1, "=x"},	\
-  { "cvtpi2ps", 2, "m"},	\
+  { "cvtpi2ps", 2, "ym"},	\
   { "cvtps2dq", 1, "=x"},	\
-  { "cvtps2dq", 2, "m"},	\
+  { "cvtps2dq", 2, "xm"},	\
   { "cvtps2pd", 1, "=x"},	\
-  { "cvtps2pd", 2, "m"},	\
+  { "cvtps2pd", 2, "xm"},	\
   { "cvtps2pi", 1, "=y"},	\
-  { "cvtps2pi", 2, "m"},	\
+  { "cvtps2pi", 2, "xm"},	\
   { "cvtsd2si", 1, "=r"},	\
   { "cvtsd2si", 2, "xm"},	\
   { "cvtsd2ss", 1, "=x"},	\
-  { "cvtsd2ss", 2, "m"},	\
+  { "cvtsd2ss", 2, "xm"},	\
   { "cvtsi2sd", 1, "=x"},	\
-  { "cvtsi2sd", 2, "m"},	\
+  { "cvtsi2sd", 2, U("r") "m"},	\
   { "cvtsi2ss", 1, "=x"},	\
-  { "cvtsi2ss", 2, "m"},	\
+  { "cvtsi2ss", 2, U("r") "m"},	\
   { "cvtss2sd", 1, "=x"},	\
-  { "cvtss2sd", 2, "m"},	\
+  { "cvtss2sd", 2, "xm"},	\
   { "cvtss2si", 1, "=r"},	\
   { "cvtss2si", 2, "xm"},	\
   { "cvttpd2dq", 1, "=x"},	\
-  { "cvttpd2dq", 2, "m"},	\
+  { "cvttpd2dq", 2, "xm"},	\
   { "cvttpd2pi", 1, "=y"},	\
-  { "cvttpd2pi", 2, "m"},	\
+  { "cvttpd2pi", 2, "xm"},	\
   { "cvttps2dq", 1, "=x"},	\
-  { "cvttps2dq", 2, "m"},	\
+  { "cvttps2dq", 2, "xm"},	\
   { "cvttps2pi", 1, "=y"},	\
-  { "cvttps2pi", 2, "m"},	\
+  { "cvttps2pi", 2, "xm"},	\
   { "cvttsd2si", 1, "=r"},	\
   { "cvttsd2si", 2, "xm"},	\
   { "cvttss2si", 1, "=r"},	\
@@ -2853,13 +2857,13 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "dec", 1, "+" rm8rm16rm32},	\
   { "div", 1, rm8rm16rm32},	\
   { "divpd", 1, "+x"},		\
-  { "divpd", 2, "m"},		\
+  { "divpd", 2, "xm"},		\
   { "divps", 1, "+x"},		\
-  { "divps", 2, "m"},		\
+  { "divps", 2, "xm"},		\
   { "divsd", 1, "+x"},		\
-  { "divsd", 2, "m"},		\
+  { "divsd", 2, "xm"},		\
   { "divss", 1, "+x"},		\
-  { "divss", 2, "m"},		\
+  { "divss", 2, "xm"},		\
   { "enter", 1, "i"},		\
   { "enter", 2, "i"},		\
   { "fadd", 1, "+t,f,@"},	\
@@ -2903,9 +2907,7 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "ficom", 1, m16m32},	\
   { "ficomp", 1, m16m32},	\
   { "fidiv", 1, m16m32},	\
-  { "fidivl", 1, "m"},		\
   { "fidivr", 1, m16m32},	\
-  { "fidivrl", 1, "m"},		\
   { "fild", 1, m16m32m64},	\
   { "fimul", 1, m16m32},	\
   { "fist", 1, "=" m16m32},	\
@@ -3142,7 +3144,7 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "paddd", 1, "+x,y"},	\
   { "paddd", 2, "xm,ym"},	\
   { "paddq", 1, "+x,y"},	\
-  { "paddq", 2, "x,,ym"},	\
+  { "paddq", 2, "xm,ym"},	\
   { "paddsb", 1, "+x,y"},       \
   { "paddsb", 2, "xm,ym"},      \
   { "paddsw", 1, "+x,y"},       \
@@ -3159,8 +3161,8 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "pandn", 2, "xm,ym"},	\
   { "pavgb", 1, "+x,y"},	\
   { "pavgb", 2, "xm,ym"},	\
-  { "pavgw", 1, "+x,y"},		\
-  { "pavgw", 2, "xm,ym"},		\
+  { "pavgw", 1, "+x,y"},	\
+  { "pavgw", 2, "xm,ym"},	\
   { "pcmpeqb", 1, "+x,y"},	\
   { "pcmpeqb", 2, "xm,ym"},	\
   { "pcmpeqd", 1, "+x,y"},	\
@@ -3173,11 +3175,11 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "pcmpgtd", 2, "xm,ym"},	\
   { "pcmpgtw", 1, "+x,y"},	\
   { "pcmpgtw", 2, "xm,ym"},	\
-  { "pextrw", 1, "=q"},		\
+  { "pextrw", 1, "=" r32r64},	\
   { "pextrw", 2, "xy"},		\
   { "pextrw", 3, "i"},		\
   { "pinsrw", 1, "=xy"},	\
-  { "pinsrw", 2, "qm"},		\
+  { "pinsrw", 2, r32r64 "m"},	\
   { "pinsrw", 3, "i"},		\
   { "pmaddwd", 1, "+x,y"},	\
   { "pmaddwd", 2, "xm,ym"},	\
@@ -3245,17 +3247,17 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "psubd", 1, "+x,y"},	\
   { "psubd", 2, "xm,ym"},	\
   { "psubq", 1, "+x,y"},	\
-  { "psubq", 2, "xm,ym"},		\
-  { "psubsb", 1, "+x,y"},       	\
-  { "psubsb", 2, "xm,ym"},       	\
-  { "psubsw", 1, "+x,y"},       	\
-  { "psubsw", 2, "xm,ym"},       	\
+  { "psubq", 2, "xm,ym"},	\
+  { "psubsb", 1, "+x,y"},      	\
+  { "psubsb", 2, "xm,ym"},     	\
+  { "psubsw", 1, "+x,y"},      	\
+  { "psubsw", 2, "xm,ym"},     	\
   { "psubusb", 1, "+x,y"},	\
   { "psubusb", 2, "xm,ym"},	\
   { "psubusw", 1, "+x,y"},	\
   { "psubusw", 2, "xm,ym"},	\
-  { "psubw", 1, "+x,y"},		\
-  { "psubw", 2, "xm,ym"},		\
+  { "psubw", 1, "+x,y"},	\
+  { "psubw", 2, "xm,ym"},	\
   { "punpckhbw", 1, "+x,y"},	\
   { "punpckhbw", 2, "xm,ym"},	\
   { "punpckhdq", 1, "+x,y"},	\
@@ -3332,14 +3334,14 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "sgdt", 1, "=m"},		\
   { "shl", 1, "+" rm8rm16rm32},	\
   { "shl", 2, "ic"},		\
-  { "shld", 1, "+" rm16 "," rm16},\
-  { "shld", 2, r16 "," r32},	\
-  { "shld", 3, "ic"},		\
+  { "shld", 1, "+" rm16 "," rm32 "," rm64},\
+  { "shld", 2, r16 "," r32 "," r64},\
+  { "shld", 3, "ic,ic,ic"},	\
   { "shr", 1, "+" rm8rm16rm32},	\
   { "shr", 2, "ic"},		\
-  { "shrd", 1, "+" rm16 "," rm32},\
-  { "shrd", 2, r16 "," r32},	\
-  { "shrd", 3, "ic"},		\
+  { "shrd", 1, "+" rm16 "," rm32 "," rm64},\
+  { "shrd", 2, r16 "," r32 "," r64},\
+  { "shrd", 3, "ic,ic,ic"},	\
   { "shufpd", 1, "+x"},		\
   { "shufpd", 2, "xm"},		\
   { "shufpd", 3, "i"},		\

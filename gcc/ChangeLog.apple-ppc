@@ -1,3 +1,16 @@
+2006-03-07  Mike Stump  <mrs@apple.com>
+
+	Radar 4408780
+	* c-common.c (cw_type_for): Add support for r*, x* and m* registers.
+	* config/i386/i386.h (TARGET_CW_OP_CONSTRAINT): Add or fix up
+	addps, addsd, addss, addsubpd, addsubps, andnpd, andnps, andpd,
+	andps, comisd, comiss, cvtdq2pd, cvtdq2ps, cvtpd2dq, cvtpd2pi,
+	cvtpd2ps, cvtpi2pd, cvtpi2ps, cvtps2dq, cvtps2pd, cvtps2pi,
+	cvtsd2ss, cvtsi2sd, cvtsi2ss, cvtss2sd, cvttpd2dq, cvttpd2pi,
+	cvttps2dq, cvttps2pi, divpd, divps, divsd, divss, fidivl, fidivrl,
+	paddq, pextrw, pinsrw, psubq, psubsb, psubsw, psubw, shld and
+	shrd.
+
 2006-03-03  Stuart Hastings  <stuart@apple.com>
 
 	* Radar 4425360
