@@ -2490,6 +2490,10 @@ for_objc_collection:
 			   POP_DECLSPEC_STACK; 
 			   check_for_loop_decls ();
 			}
+		| expr AT_IN init
+		  {
+		    $$ = build_tree_list ($1.value, $3.value);
+		  }
 	;
 @@end_ifobjc
 
