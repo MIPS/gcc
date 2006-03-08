@@ -92,6 +92,15 @@ static void dwarf2out_source_line (unsigned int, const char *);
    DW_CFA_... = DWARF2 CFA call frame instruction
    DW_TAG_... = DWARF2 DIE tag */
 
+/* APPLE LOCAL begin mainline 2006-03-08 4466819 */
+/* Map register numbers held in the call frame info that gcc has
+   collected using DWARF_FRAME_REGNUM to those that should be output in
+   .debug_frame and .eh_frame.  */
+#ifndef DWARF2_FRAME_REG_OUT
+#define DWARF2_FRAME_REG_OUT(REGNO, FOR_EH) (REGNO)
+#endif
+/* APPLE LOCAL end mainline 2006-03-08 4466819 */
+
 /* Decide whether we want to emit frame unwind information for the current
    translation unit.  */
 
@@ -441,7 +450,10 @@ static void def_cfa_1 (const char *, dw_cfa_location *);
 rtx
 expand_builtin_dwarf_sp_column (void)
 {
-  return GEN_INT (DWARF_FRAME_REGNUM (STACK_POINTER_REGNUM));
+/* APPLE LOCAL begin mainline 2006-03-08 4466819 */
+  int dwarf_regnum = DWARF_FRAME_REGNUM (STACK_POINTER_REGNUM);
+  return GEN_INT (DWARF2_FRAME_REG_OUT (dwarf_regnum, 1));
+/* APPLE LOCAL end mainline 2006-03-08 4466819 */
 }
 
 /* Return a pointer to a copy of the section string name S with all
@@ -474,27 +486,33 @@ expand_builtin_init_dwarf_reg_sizes (tree address)
   bool wrote_return_column = false;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (DWARF_FRAME_REGNUM (i) < DWARF_FRAME_REGISTERS)
-      {
-	HOST_WIDE_INT offset = DWARF_FRAME_REGNUM (i) * GET_MODE_SIZE (mode);
-	enum machine_mode save_mode = reg_raw_mode[i];
-	HOST_WIDE_INT size;
-
-	if (HARD_REGNO_CALL_PART_CLOBBERED (i, save_mode))
-	  save_mode = choose_hard_reg_mode (i, 1, true);
-	if (DWARF_FRAME_REGNUM (i) == DWARF_FRAME_RETURN_COLUMN)
-	  {
-	    if (save_mode == VOIDmode)
-	      continue;
-	    wrote_return_column = true;
-	  }
-	size = GET_MODE_SIZE (save_mode);
-	if (offset < 0)
-	  continue;
-
+/* APPLE LOCAL begin mainline 2006-03-08 4466819 */
+    {
+      int rnum = DWARF2_FRAME_REG_OUT (DWARF_FRAME_REGNUM (i), 1);
+      
+      if (rnum < DWARF_FRAME_REGISTERS)
+	{
+	  HOST_WIDE_INT offset = rnum * GET_MODE_SIZE (mode);
+	  enum machine_mode save_mode = reg_raw_mode[i];
+	  HOST_WIDE_INT size;
+	  
+	  if (HARD_REGNO_CALL_PART_CLOBBERED (i, save_mode))
+	    save_mode = choose_hard_reg_mode (i, 1, true);
+	  if (DWARF_FRAME_REGNUM (i) == DWARF_FRAME_RETURN_COLUMN)
+	    {
+	      if (save_mode == VOIDmode)
+		continue;
+	      wrote_return_column = true;
+	    }
+	  size = GET_MODE_SIZE (save_mode);
+	  if (offset < 0)
+	    continue;
+	  
 	emit_move_insn (adjust_address (mem, mode, offset), GEN_INT (size));
-      }
+	}
+    }
 
+/* APPLE LOCAL end mainline 2006-03-08 4466819 */
 #ifdef DWARF_ALT_FRAME_RETURN_COLUMN
   gcc_assert (wrote_return_column);
   i = DWARF_ALT_FRAME_RETURN_COLUMN;
@@ -2047,12 +2065,8 @@ dw_cfi_oprnd2_desc (enum dwarf_call_frame_info cfi)
 
 #if defined (DWARF2_DEBUGGING_INFO) || defined (DWARF2_UNWIND_INFO)
 
-/* Map register numbers held in the call frame info that gcc has
-   collected using DWARF_FRAME_REGNUM to those that should be output in
-   .debug_frame and .eh_frame.  */
-#ifndef DWARF2_FRAME_REG_OUT
-#define DWARF2_FRAME_REG_OUT(REGNO, FOR_EH) (REGNO)
-#endif
+/* APPLE LOCAL mainline 2006-03-08 4466819 */
+/* Moved DWARF2_FRAME_REG_OUT to top of the file.  */
 
 /* Output a Call Frame Information opcode and its operand(s).  */
 
