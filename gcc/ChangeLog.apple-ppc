@@ -1,3 +1,10 @@
+2006-03-07  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4457939
+	* gcc/config/i386/i386.c (ix86_darwin_init_expanders): New.
+	* gcc/config/i386/darwin.h (ix86_darwin_init_expanders): Declare.
+	(INIT_EXPANDERS): Define.
+
 2006-03-07  Mike Stump  <mrs@apple.com>
 
 	Radar 4408780

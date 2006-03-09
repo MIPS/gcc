@@ -17081,6 +17081,30 @@ darwin_x86_file_end (void)
   ix86_file_end ();
 }
 /* APPLE LOCAL end deep branch prediction pic-base */
+
+/* APPLE LOCAL begin 4457939 stack alignment mishandled */
+void
+ix86_darwin_init_expanders (void)
+{
+  /* <rdar://problem/4471596> stack alignment is not handled properly
+
+     Please remove this entire function when addressing this
+     Radar.  Please be sure to delete the definition of INIT_EXPANDERS
+     in i386/darwin.h as well.  */
+  /* Darwin/x86_32 stack pointer will be 16-byte aligned at every
+     CALL, but the frame pointer, when used, will be 8-bytes offset
+     from a 16-byte alignment (the size of the return address and the
+     saved frame pointer).  */
+  if (cfun && cfun->emit
+      && cfun->emit->regno_pointer_align)
+    {
+      REGNO_POINTER_ALIGN (STACK_POINTER_REGNUM) = STACK_BOUNDARY;
+      REGNO_POINTER_ALIGN (FRAME_POINTER_REGNUM) = BITS_PER_WORD;
+      REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = BITS_PER_WORD;
+      REGNO_POINTER_ALIGN (ARG_POINTER_REGNUM) = BITS_PER_WORD;
+    }
+}
+/* APPLE LOCAL end 4457939 stack alignment mishandled */
 #endif /* TARGET_MACHO */
 
 /* Order the registers for register allocator.  */

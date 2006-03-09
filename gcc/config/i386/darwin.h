@@ -271,3 +271,12 @@ extern int flag_cw_asm_blocks;
    : (n) >= 11 && (n) <= 18 ? (n) + 1					\
    : (n))
 /* APPLE LOCAL end mainline 2006-02-21 4439051 */
+
+/* APPLE LOCAL begin 4457939 stack alignment mishandled */
+/* <rdar://problem/4471596> stack alignment is not handled properly
+
+   Please remove this entire a**le local when addressing this
+   Radar.  */
+extern void ix86_darwin_init_expanders (void);
+#define INIT_EXPANDERS (ix86_darwin_init_expanders ())
+/* APPLE LOCAL end 4457939 stack alignment mishandled */

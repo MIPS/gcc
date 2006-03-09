@@ -1,3 +1,8 @@
+2006-03-07  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4457939
+	* dg.apple/4457979.c: New.
+
 2006-03-07  Mike Stump  <mrs@apple.com>
 
 	Radar 4408780
@@ -6,7 +11,7 @@
 
 2006-03-03  Stuart Hastings  <stuart@apple.com>
 
-	* Radar 4425360
+	Radar 4425360
 	* g++.dg/4425360.C: New.
 
 2006-02-28  Devang Patel  <dpatel@apple.com>
