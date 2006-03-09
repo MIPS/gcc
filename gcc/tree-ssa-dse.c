@@ -255,6 +255,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
       use_operand_p var2;
       def_operand_p var1;
       ssa_op_iter op_iter;
+      vuse_vec_p vv;
 
       /* We want to verify that each virtual definition in STMT has
 	 precisely one use and that all the virtual definitions are
@@ -262,8 +263,10 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	 want USE_STMT to refer to the one statement which uses
 	 all of the virtual definitions from STMT.  */
       use_stmt = NULL;
-      FOR_EACH_SSA_MUST_AND_MAY_DEF_OPERAND (var1, var2, stmt, op_iter)
+      FOR_EACH_SSA_MUST_AND_MAY_DEF_OPERAND (var1, vv, stmt, op_iter)
 	{
+	  gcc_assert (VUSE_VECT_NUM_ELEM (*vv) == 1);
+	  var2 = VUSE_ELEMENT_PTR (*vv, 0);
 	  defvar = DEF_FROM_PTR (var1);
 	  usevar = USE_FROM_PTR (var2);
 
@@ -345,8 +348,10 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
               fprintf (dump_file, "'\n");
             }
 	  /* Then we need to fix the operand of the consuming stmt.  */
-	  FOR_EACH_SSA_MUST_AND_MAY_DEF_OPERAND (var1, var2, stmt, op_iter)
+	  FOR_EACH_SSA_MUST_AND_MAY_DEF_OPERAND (var1, vv, stmt, op_iter)
 	    {
+	      gcc_assert (VUSE_VECT_NUM_ELEM (*vv) == 1);
+	      var2 = VUSE_ELEMENT_PTR (*vv, 0);
 	      single_imm_use (DEF_FROM_PTR (var1), &use_p, &temp);
 	      SET_USE (use_p, USE_FROM_PTR (var2));
 	    }

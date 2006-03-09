@@ -896,14 +896,22 @@ op_iter_next_use (ssa_op_iter *ptr)
     }
   if (ptr->vuses)
     {
-      use_p = VUSE_OP_PTR (ptr->vuses);
-      ptr->vuses = ptr->vuses->next;
+      use_p = VUSE_OP_PTR (ptr->vuses, ptr->vuse_index);
+      if (++(ptr->vuse_index) >= VUSE_NUM (ptr->vuses))
+        {
+	  ptr->vuse_index = 0;
+	  ptr->vuses = ptr->vuses->next;
+	}
       return use_p;
     }
   if (ptr->mayuses)
     {
-      use_p = MAYDEF_OP_PTR (ptr->mayuses);
-      ptr->mayuses = ptr->mayuses->next;
+      use_p = MAYDEF_OP_PTR (ptr->mayuses, ptr->mayuse_index);
+      if (++(ptr->mayuse_index) >= MAYDEF_NUM (ptr->mayuses))
+        {
+	  ptr->mayuse_index = 0;
+	  ptr->mayuses = ptr->mayuses->next;
+	}
       return use_p;
     }
   if (ptr->mustkills)
@@ -966,14 +974,22 @@ op_iter_next_tree (ssa_op_iter *ptr)
     }
   if (ptr->vuses)
     {
-      val = VUSE_OP (ptr->vuses);
-      ptr->vuses = ptr->vuses->next;
+      val = VUSE_OP (ptr->vuses, ptr->vuse_index);
+      if (++(ptr->vuse_index) >= VUSE_NUM (ptr->vuses))
+        {
+	  ptr->vuse_index = 0;
+	  ptr->vuses = ptr->vuses->next;
+	}
       return val;
     }
   if (ptr->mayuses)
     {
-      val = MAYDEF_OP (ptr->mayuses);
-      ptr->mayuses = ptr->mayuses->next;
+      val = MAYDEF_OP (ptr->mayuses, ptr->mayuse_index);
+      if (++(ptr->mayuse_index) >= MAYDEF_NUM (ptr->mayuses))
+        {
+	  ptr->mayuse_index = 0;
+	  ptr->mayuses = ptr->mayuses->next;
+	}
       return val;
     }
   if (ptr->mustkills)
@@ -1026,6 +1042,8 @@ clear_and_done_ssa_iter (ssa_op_iter *ptr)
   ptr->num_phi = 0;
   ptr->phi_stmt = NULL_TREE;
   ptr->done = true;
+  ptr->vuse_index = 0;
+  ptr->mayuse_index = 0;
 }
 
 /* Initialize the iterator PTR to the virtual defs in STMT.  */
@@ -1048,6 +1066,8 @@ op_iter_init (ssa_op_iter *ptr, tree stmt, int flags)
   ptr->phi_i = 0;
   ptr->num_phi = 0;
   ptr->phi_stmt = NULL_TREE;
+  ptr->vuse_index = 0;
+  ptr->mayuse_index = 0;
 }
 
 /* Initialize iterator PTR to the use operands in STMT based on FLAGS. Return
@@ -1085,7 +1105,7 @@ op_iter_init_tree (ssa_op_iter *ptr, tree stmt, int flags)
 /* Get the next iterator mustdef value for PTR, returning the mustdef values in
    KILL and DEF.  */
 static inline void
-op_iter_next_maymustdef (use_operand_p *use, def_operand_p *def, 
+op_iter_next_maymustdef (vuse_vec_p *use, def_operand_p *def, 
 			 ssa_op_iter *ptr)
 {
 #ifdef ENABLE_CHECKING
@@ -1094,7 +1114,7 @@ op_iter_next_maymustdef (use_operand_p *use, def_operand_p *def,
   if (ptr->mayuses)
     {
       *def = MAYDEF_RESULT_PTR (ptr->mayuses);
-      *use = MAYDEF_OP_PTR (ptr->mayuses);
+      *use = MAYDEF_VECT (ptr->mayuses);
       ptr->mayuses = ptr->mayuses->next;
       return;
     }
@@ -1102,22 +1122,37 @@ op_iter_next_maymustdef (use_operand_p *use, def_operand_p *def,
   if (ptr->mustkills)
     {
       *def = MUSTDEF_RESULT_PTR (ptr->mustkills);
-      *use = MUSTDEF_KILL_PTR (ptr->mustkills);
+      *use = MUSTDEF_VECT (ptr->mustkills);
       ptr->mustkills = ptr->mustkills->next;
       return;
     }
 
   *def = NULL_DEF_OPERAND_P;
-  *use = NULL_USE_OPERAND_P;
+  *use = NULL;
   ptr->done = true;
   return;
 }
 
 
+static inline void
+op_iter_next_mustdef (use_operand_p *use, def_operand_p *def, 
+			 ssa_op_iter *ptr)
+{
+  vuse_vec_p vp;
+  op_iter_next_maymustdef (&vp, def, ptr);
+  if (vp != NULL)
+    {
+      gcc_assert (VUSE_VECT_NUM_ELEM (*vp) == 1);
+      *use = VUSE_ELEMENT_PTR (*vp, 0);
+    }
+  else
+    *use = NULL_USE_OPERAND_P;
+}
+
 /* Initialize iterator PTR to the operands in STMT.  Return the first operands
    in USE and DEF.  */
 static inline void
-op_iter_init_maydef (ssa_op_iter *ptr, tree stmt, use_operand_p *use, 
+op_iter_init_maydef (ssa_op_iter *ptr, tree stmt, vuse_vec_p *use, 
 		     def_operand_p *def)
 {
   gcc_assert (TREE_CODE (stmt) != PHI_NODE);
@@ -1134,18 +1169,26 @@ static inline void
 op_iter_init_mustdef (ssa_op_iter *ptr, tree stmt, use_operand_p *kill, 
 		     def_operand_p *def)
 {
+  vuse_vec_p vp;
   gcc_assert (TREE_CODE (stmt) != PHI_NODE);
 
   op_iter_init (ptr, stmt, SSA_OP_VMUSTKILL);
   ptr->iter_type = ssa_op_iter_maymustdef;
-  op_iter_next_maymustdef (kill, def, ptr);
+  op_iter_next_maymustdef (&vp, def, ptr);
+  if (vp != NULL)
+    {
+      gcc_assert (VUSE_VECT_NUM_ELEM (*vp) == 1);
+      *kill = VUSE_ELEMENT_PTR (*vp, 0);
+    }
+  else
+    *kill = NULL_USE_OPERAND_P;
 }
 
 /* Initialize iterator PTR to the operands in STMT.  Return the first operands
    in KILL and DEF.  */
 static inline void
 op_iter_init_must_and_may_def (ssa_op_iter *ptr, tree stmt,
-			       use_operand_p *kill, def_operand_p *def)
+			       vuse_vec_p *kill, def_operand_p *def)
 {
   gcc_assert (TREE_CODE (stmt) != PHI_NODE);
 

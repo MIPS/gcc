@@ -637,6 +637,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
   use_operand_p use_p;
   def_operand_p def_p;
   ssa_op_iter iter;
+  vuse_vec_p vv;
 
   stmt = bsi_stmt (bsi);
   update_stmt_if_modified (stmt);
@@ -661,9 +662,12 @@ mark_def_sites (struct dom_walk_data *walk_data,
      variable.  However, the operand of a virtual definitions is a use
      of the variable, so it may cause the variable to be considered
      live-on-entry.  */
-  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter)
+  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, vv, stmt, iter)
     {
-      tree sym = USE_FROM_PTR (use_p);
+      tree sym;
+      gcc_assert (VUSE_VECT_NUM_ELEM (*vv) == 1);
+      use_p = VUSE_ELEMENT_PTR (*vv, 0);
+      sym = USE_FROM_PTR (use_p);
       gcc_assert (DECL_P (sym));
       set_livein_block (sym, bb);
       set_def_block (sym, bb, false);

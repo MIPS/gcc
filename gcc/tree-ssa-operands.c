@@ -130,19 +130,6 @@ static vuse_optype_p free_vuses = NULL;
 static maydef_optype_p free_maydefs = NULL;
 static mustdef_optype_p free_mustdefs = NULL;
 
-/* Allocates operand OP of given TYPE from the appropriate free list,
-   or of the new value if the list is empty.  */
-
-#define ALLOC_OPTYPE(OP, TYPE)				\
-  do							\
-    {							\
-      TYPE##_optype_p ret = free_##TYPE##s;		\
-      if (ret)						\
-	free_##TYPE##s = ret->next;			\
-      else						\
-	ret = ssa_operand_alloc (sizeof (*ret));	\
-      (OP) = ret;					\
-    } while (0) 
 
 /* Return the DECL_UID of the base variable of T.  */
 
@@ -325,6 +312,101 @@ ssa_operand_alloc (unsigned size)
 }
 
 
+static inline struct def_optype_d *
+alloc_def (void)
+{
+  struct def_optype_d *ret;
+  if (free_defs)
+    {
+      ret = free_defs;
+      free_defs = free_defs->next;
+    }
+  else
+    ret = (struct def_optype_d *)
+		      ssa_operand_alloc (sizeof (struct def_optype_d));
+  return ret;
+}
+
+
+static inline struct use_optype_d *
+alloc_use (void)
+{
+  struct use_optype_d *ret;
+  if (free_uses)
+    {
+      ret = free_uses;
+      free_uses = free_uses->next;
+    }
+  else
+    ret = (struct use_optype_d *)ssa_operand_alloc (sizeof (struct use_optype_d));
+  return ret;
+}
+
+
+
+
+static inline struct maydef_optype_d *
+alloc_maydef (int num)
+{
+  struct maydef_optype_d *ret;
+  /* Eliminate free list for the moment.  */
+#if 0
+  if (free_maydefs)
+    {
+      ret = free_maydefs;
+      free_maydefs = free_maydefs->next;
+    }
+  else
+#endif
+    ret = (struct maydef_optype_d *)ssa_operand_alloc (
+	sizeof (struct maydef_optype_d) + (num - 1) * sizeof (vuse_element_t));
+  VUSE_VECT_NUM_ELEM (ret->usev) = num;
+  return ret;
+}
+
+
+
+
+static inline struct vuse_optype_d *
+alloc_vuse (int num)
+{
+  struct vuse_optype_d *ret;
+/* No free list for the moment.  */
+#if 0    
+  if (free_vuses)
+    {
+      ret = free_vuses;
+      free_vuses = free_vuses->next;
+    }
+  else
+#endif
+    ret = (struct vuse_optype_d *)ssa_operand_alloc (
+	sizeof (struct vuse_optype_d) + (num - 1) * sizeof (vuse_element_t));
+  VUSE_VECT_NUM_ELEM (ret->usev) = num;
+  return ret;
+}
+
+
+
+
+
+static inline struct mustdef_optype_d *
+alloc_mustdef (void)
+{
+  struct mustdef_optype_d *ret;
+  if (free_mustdefs)
+    {
+      ret = free_mustdefs;
+      free_mustdefs = free_mustdefs->next;
+    }
+  else
+    ret = (struct mustdef_optype_d *)ssa_operand_alloc (sizeof (struct mustdef_optype_d));
+  VUSE_VECT_NUM_ELEM (ret->usev) = 1;
+  return ret;
+}
+
+
+
 /* Make sure PTR is in the correct immediate use list.  Since uses are simply
    pointers into the stmt TREE, there is no way of telling if anyone has
    changed what this pointer points to via TREE_OPERANDS (exp, 0) = <...>.
@@ -424,72 +506,205 @@ set_virtual_use_link (use_operand_p ptr, tree stmt)
 /* Adds OP to the list of defs after LAST, and moves
    LAST to the new element.  */
 
-static inline void
+static inline def_optype_p 
 add_def_op (tree *op, def_optype_p *last)
 {
   def_optype_p new;
 
-  ALLOC_OPTYPE (new, def);
+  new = alloc_def ();
   DEF_OP_PTR (new) = op;
   APPEND_OP_AFTER (new, *last);  
+  return new;
 }
 
 /* Adds OP to the list of uses of statement STMT after LAST, and moves
    LAST to the new element.  */
 
-static inline void
+static inline use_optype_p
 add_use_op (tree stmt, tree *op, use_optype_p *last)
 {
   use_optype_p new;
 
-  ALLOC_OPTYPE (new, use);
+  new = alloc_use ();
   INITIALIZE_USE (USE_OP_PTR (new), op, stmt);
   APPEND_OP_AFTER (new, *last);  
+  return new;
 }
 
 /* Adds OP to the list of vuses of statement STMT after LAST, and moves
    LAST to the new element.  */
 
-static inline void
-add_vuse_op (tree stmt, tree op, vuse_optype_p *last)
+static inline vuse_optype_p
+add_vuse_op (tree stmt, tree op, int num, vuse_optype_p *last)
 {
   vuse_optype_p new;
+  int x;
 
-  ALLOC_OPTYPE (new, vuse);
-  VUSE_OP (new) = op;
-  INITIALIZE_USE (VUSE_OP_PTR (new), &VUSE_OP (new), stmt);
+  new = alloc_vuse (num);
+  for (x = 0; x < num; x++)
+    {
+      VUSE_OP (new, x) = op;
+      INITIALIZE_USE (VUSE_OP_PTR (new, x), &(VUSE_OP (new, x)), stmt);
+    }
   APPEND_OP_AFTER (new, *last);  
+  return new;
 }
 
 /* Adds OP to the list of maydefs of statement STMT after LAST, and moves
    LAST to the new element.  */
 
-static inline void
-add_maydef_op (tree stmt, tree op, maydef_optype_p *last)
+static inline maydef_optype_p
+add_maydef_op (tree stmt, tree op, int num, maydef_optype_p *last)
 {
+  int x;
   maydef_optype_p new;
 
-  ALLOC_OPTYPE (new, maydef);
+  new = alloc_maydef (num);
   MAYDEF_RESULT (new) = op;
-  MAYDEF_OP (new) = op;
-  INITIALIZE_USE (MAYDEF_OP_PTR (new), &MAYDEF_OP (new), stmt);
+  for (x = 0; x < num; x++)
+    {
+      MAYDEF_OP (new, x) = op;
+      INITIALIZE_USE (MAYDEF_OP_PTR (new, x), &(MAYDEF_OP (new, x)), stmt);
+    }
   APPEND_OP_AFTER (new, *last);  
+  return new;
 }
 
 /* Adds OP to the list of mustdefs of statement STMT after LAST, and moves
    LAST to the new element.  */
 
-static inline void
+static inline mustdef_optype_p
 add_mustdef_op (tree stmt, tree op, mustdef_optype_p *last)
 {
   mustdef_optype_p new;
 
-  ALLOC_OPTYPE (new, mustdef);
+  new = alloc_mustdef ();
   MUSTDEF_RESULT (new) = op;
   MUSTDEF_KILL (new) = op;
   INITIALIZE_USE (MUSTDEF_KILL_PTR (new), &MUSTDEF_KILL (new), stmt);
   APPEND_OP_AFTER (new, *last);
+  return new;
 }
+
+
+struct maydef_optype_d *
+realloc_maydef (struct maydef_optype_d *ptr, int num_elem)
+{
+  int x, lim;
+  tree val, stmt;
+  struct maydef_optype_d *ret, *tmp;
+
+  if (VUSE_VECT_NUM_ELEM (ptr->usev) == num_elem)
+    return ptr; 
+  
+  val = MAYDEF_RESULT (ptr);
+  if (TREE_CODE (val) == SSA_NAME)
+    val = SSA_NAME_VAR (val);
+
+  stmt = USE_STMT (MAYDEF_OP_PTR (ptr, 0));
+
+  /* Delink all the existing uses.  */
+
+  for (x = 0; x < VUSE_VECT_NUM_ELEM (ptr->usev); x++)
+    {
+      use_operand_p use_p = MAYDEF_OP_PTR (ptr, x);
+      delink_imm_use (use_p);
+    }
+
+  /* If we want less space, simply use this one, and shrink the size.  */
+  if (VUSE_VECT_NUM_ELEM (ptr->usev) > num_elem)
+    {
+      VUSE_VECT_NUM_ELEM (ptr->usev) = num_elem;
+      return ptr;
+    }
+
+  /* its growing. Allocate a new one and replace the old one.  */
+  tmp = ptr;;
+  ret = add_maydef_op (stmt, val, num_elem, &ptr);
+  ptr = tmp;
+
+  lim = VUSE_VECT_NUM_ELEM (ptr->usev);
+  memset (ptr, 0, sizeof (struct maydef_optype_d) + sizeof (vuse_element_t) * (lim- 1));
+  /* Now simply remove the old one.  */
+  if (MAYDEF_OPS (stmt) == ptr)
+    {
+      MAYDEF_OPS (stmt) = ret;
+      return ret;
+    }
+  else
+    for (tmp = MAYDEF_OPS (stmt); 
+	 tmp != NULL && tmp->next != ptr; 
+	 tmp = tmp->next)
+      {
+	tmp->next = ret;
+	return ret;
+      }
+  /* The pointer passed in isnt in the stmt's maydef lists.  */
+  gcc_unreachable ();
+
+}
+
+
+
+struct vuse_optype_d *
+realloc_vuse (struct vuse_optype_d *ptr, int num_elem)
+{
+  int x, lim;
+  tree val, stmt;
+  struct vuse_optype_d *ret, *tmp;
+
+  if (VUSE_VECT_NUM_ELEM (ptr->usev) == num_elem)
+    return ptr; 
+  
+  val = VUSE_OP (ptr, 0);
+  if (TREE_CODE (val) == SSA_NAME)
+    val = SSA_NAME_VAR (val);
+
+  stmt = USE_STMT (VUSE_OP_PTR (ptr, 0));
+
+  /* Delink all the existing uses.  */
+
+  for (x = 0; x < VUSE_VECT_NUM_ELEM (ptr->usev); x++)
+    {
+      use_operand_p use_p = VUSE_OP_PTR (ptr, x);
+      delink_imm_use (use_p);
+    }
+
+  /* If we want less space, simply use this one, and shrink the size.  */
+  if (VUSE_VECT_NUM_ELEM (ptr->usev) > num_elem)
+    {
+      VUSE_VECT_NUM_ELEM (ptr->usev) = num_elem;
+      return ptr;
+    }
+
+  /* its growing. Allocate a new one and reaplce the old one.  */
+  tmp = ptr;
+  ret = add_vuse_op (stmt, val, num_elem, &ptr);
+  ptr = tmp;
+
+  lim = VUSE_VECT_NUM_ELEM (ptr->usev);
+  memset (ptr, 0, 
+	  sizeof (struct vuse_optype_d) + sizeof (vuse_element_t) * (lim - 1));
+  /* No wsimply link it in, find the node which points to this one.  */
+  if (VUSE_OPS (stmt) == ptr)
+    {
+      VUSE_OPS (stmt) = ret;
+      return ret;
+    }
+  else
+    for (tmp = VUSE_OPS (stmt); 
+	 tmp != NULL && tmp->next != ptr; 
+	 tmp = tmp->next)
+      {
+	tmp->next = ret;
+	return ret;
+      }
+  /* The pointer passed in isnt in the stmt's maydef lists.  */
+  gcc_unreachable ();
+
+}
+
+
 
 /* Takes elements from build_defs and turns them into def operands of STMT.
    TODO -- Given that def operands list is not neccessarily sorted, merging
@@ -681,6 +896,7 @@ finalize_ssa_uses (tree stmt)
 static inline void
 finalize_ssa_v_may_def_ops (tree stmt)
 {
+  int x;
   unsigned new_i;
   struct maydef_optype_d new_list;
   maydef_optype_p old_ops, ptr, last;
@@ -697,32 +913,34 @@ finalize_ssa_v_may_def_ops (tree stmt)
     {
       act = VEC_index (tree, build_v_may_defs, new_i);
       new_base = get_name_decl (act);
-      old_base = get_name_decl (MAYDEF_OP (old_ops));
+      old_base = get_name_decl (MAYDEF_RESULT (old_ops));
 
       if (old_base == new_base)
         {
 	  /* if variables are the same, reuse this node.  */
 	  MOVE_HEAD_AFTER (old_ops, last);
-	  set_virtual_use_link (MAYDEF_OP_PTR (last), stmt);
+	  for (x = 0; x < VUSE_VECT_NUM_ELEM (last->usev); x++)
+	    set_virtual_use_link (MAYDEF_OP_PTR (last, x), stmt);
 	  new_i++;
 	}
       else if (old_base < new_base)
 	{
 	  /* if old is less than new, old goes to the free list.  */
-	  delink_imm_use (MAYDEF_OP_PTR (old_ops));
+	  for (x = 0; x < VUSE_VECT_NUM_ELEM (old_ops->usev); x++)
+	    delink_imm_use (MAYDEF_OP_PTR (old_ops, x));
 	  MOVE_HEAD_TO_FREELIST (old_ops, maydef);
 	}
       else
 	{
 	  /* This is a new operand.  */
-	  add_maydef_op (stmt, act, &last);
+	  add_maydef_op (stmt, act, 1, &last);
 	  new_i++;
 	}
     }
 
   /* If there is anything remaining in the build_v_may_defs list, simply emit it.  */
   for ( ; new_i < VEC_length (tree, build_v_may_defs); new_i++)
-    add_maydef_op (stmt, VEC_index (tree, build_v_may_defs, new_i), &last);
+    add_maydef_op (stmt, VEC_index (tree, build_v_may_defs, new_i), 1, &last);
 
   last->next = NULL;
 
@@ -730,7 +948,8 @@ finalize_ssa_v_may_def_ops (tree stmt)
   if (old_ops)
     {
       for (ptr = old_ops; ptr; ptr = ptr->next)
-	delink_imm_use (MAYDEF_OP_PTR (ptr));
+	for (x = 0; x < VUSE_VECT_NUM_ELEM (ptr->usev); x++)
+	  delink_imm_use (MAYDEF_OP_PTR (ptr, x));
       old_ops->next = free_maydefs;
       free_maydefs = old_ops;
     }
@@ -783,6 +1002,7 @@ cleanup_v_may_defs (void)
 static inline void
 finalize_ssa_vuse_ops (tree stmt)
 {
+  int x;
   unsigned new_i;
   struct vuse_optype_d new_list;
   vuse_optype_p old_ops, ptr, last;
@@ -799,32 +1019,34 @@ finalize_ssa_vuse_ops (tree stmt)
     {
       act = VEC_index (tree, build_vuses, new_i);
       new_base = get_name_decl (act);
-      old_base = get_name_decl (VUSE_OP (old_ops));
+      old_base = get_name_decl (VUSE_OP (old_ops, 0));
 
       if (old_base == new_base)
         {
 	  /* if variables are the same, reuse this node.  */
 	  MOVE_HEAD_AFTER (old_ops, last);
-	  set_virtual_use_link (VUSE_OP_PTR (last), stmt);
+	  for (x = 0; x < VUSE_VECT_NUM_ELEM (last->usev); x++)
+	    set_virtual_use_link (VUSE_OP_PTR (last, x), stmt);
 	  new_i++;
 	}
       else if (old_base < new_base)
 	{
 	  /* if old is less than new, old goes to the free list.  */
-	  delink_imm_use (USE_OP_PTR (old_ops));
+	  for (x = 0; x < VUSE_VECT_NUM_ELEM (old_ops->usev); x++)
+	    delink_imm_use (VUSE_OP_PTR (old_ops, x));
 	  MOVE_HEAD_TO_FREELIST (old_ops, vuse);
 	}
       else
 	{
 	  /* This is a new operand.  */
-	  add_vuse_op (stmt, act, &last);
+	  add_vuse_op (stmt, act, 1, &last);
 	  new_i++;
 	}
     }
 
   /* If there is anything remaining in the build_vuses list, simply emit it.  */
   for ( ; new_i < VEC_length (tree, build_vuses); new_i++)
-    add_vuse_op (stmt, VEC_index (tree, build_vuses, new_i), &last);
+    add_vuse_op (stmt, VEC_index (tree, build_vuses, new_i), 1, &last);
 
   last->next = NULL;
 
@@ -832,7 +1054,8 @@ finalize_ssa_vuse_ops (tree stmt)
   if (old_ops)
     {
       for (ptr = old_ops; ptr; ptr = ptr->next)
-	delink_imm_use (VUSE_OP_PTR (ptr));
+	for (x = 0; x < VUSE_VECT_NUM_ELEM (ptr->usev); x++)
+	  delink_imm_use (VUSE_OP_PTR (ptr, x));
       old_ops->next = free_vuses;
       free_vuses = old_ops;
     }
@@ -2256,6 +2479,7 @@ copy_virtual_operands (tree dest, tree src)
   tree t;
   ssa_op_iter iter, old_iter;
   use_operand_p use_p, u2;
+  vuse_vec_p u3, u4;
   def_operand_p def_p, d2;
 
   build_ssa_operands (dest);
@@ -2288,23 +2512,31 @@ copy_virtual_operands (tree dest, tree src)
     }
   gcc_assert (op_iter_done (&old_iter));
 
-  op_iter_init_maydef (&old_iter, src, &u2, &d2);
-  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, dest, iter)
+  op_iter_init_maydef (&old_iter, src, &u3, &d2);
+  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, u4, dest, iter)
     {
       gcc_assert (!op_iter_done (&old_iter));
-      SET_USE (use_p, USE_FROM_PTR (u2));
+      gcc_assert (VUSE_VECT_NUM_ELEM (*u3) == 1);
+      gcc_assert (VUSE_VECT_NUM_ELEM (*u4) == 1);
+      SET_USE (VUSE_ELEMENT_PTR_NC (*u4, 0), VUSE_ELEMENT_VAR (*u3, 0));
       SET_DEF (def_p, DEF_FROM_PTR (d2));
-      op_iter_next_maymustdef (&u2, &d2, &old_iter);
+      op_iter_next_maymustdef (&u3, &d2, &old_iter);
     }
   gcc_assert (op_iter_done (&old_iter));
 
   op_iter_init_mustdef (&old_iter, src, &u2, &d2);
+  u3 = NULL;
   FOR_EACH_SSA_MUSTDEF_OPERAND (def_p, use_p, dest, iter)
     {
+      if (u3 != NULL)
+        {
+	  gcc_assert (VUSE_VECT_NUM_ELEM (*u3) == 1);
+	  u2 = VUSE_ELEMENT_PTR (*u3, 0);
+	}
       gcc_assert (!op_iter_done (&old_iter));
       SET_USE (use_p, USE_FROM_PTR (u2));
       SET_DEF (def_p, DEF_FROM_PTR (d2));
-      op_iter_next_maymustdef (&u2, &d2, &old_iter);
+      op_iter_next_maymustdef (&u3, &d2, &old_iter);
     }
   gcc_assert (op_iter_done (&old_iter));
 

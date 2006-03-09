@@ -50,13 +50,48 @@ struct use_optype_d
 };
 typedef struct use_optype_d *use_optype_p;
 
+typedef struct vuse_element_d
+{
+  tree use_var;
+  struct ssa_use_operand_d use_ptr;
+} vuse_element_t;
+
+typedef struct vuse_vec_d
+{
+  int num_vuse;
+  vuse_element_t uses[1];
+} vuse_vec_t;
+typedef struct vuse_vec_d *vuse_vec_p;
+
+#define VUSE_VECT_NUM_ELEM(V)	(V).num_vuse
+#define VUSE_VECT_ELEMENT_NC(V,X)	(V).uses[(X)]
+#define VUSE_ELEMENT_PTR_NC(V,X)	(&(VUSE_VECT_ELEMENT_NC ((V),(X)).use_ptr))
+#define VUSE_ELEMENT_VAR_NC(V,X)	(VUSE_VECT_ELEMENT_NC ((V),(X)).use_var)
+
+#if 0 
+#ifdef ENABLE_CHECKING
+#define VUSE_VECT_ELEMENT(V,X)	(gcc_assert ((X) >= 0 && (X) < 		\
+					    VUSE_VECT_NUM_ELEM (V)),	\
+				 VUSE_VECT_ELEMENT_NC (V,X))
+#define VUSE_ELEMENT_PTR(V,X)	(gcc_assert ((X) >= 0 && (X) < 		\
+					    VUSE_VECT_NUM_ELEM (V)),	\
+				 VUSE_ELEMENT_PTR_NC (V, X))
+#else
+#define VUSE_VECT_ELEMENT(V,X)	VUSE_VECT_ELEMENT_NC(V,X)
+#define VUSE_ELEMENT_PTR(V,X)	VUSE_ELEMENT_PTR_NC(V,X)
+#endif
+#endif
+
+#define VUSE_VECT_ELEMENT(V,X)	VUSE_VECT_ELEMENT_NC(V,X)
+#define VUSE_ELEMENT_PTR(V,X)	VUSE_ELEMENT_PTR_NC(V,X)
+#define VUSE_ELEMENT_VAR(V,X)	(VUSE_VECT_ELEMENT ((V),(X)).use_var)
+
 /* This represents the MAY_DEFS for a stmt.  */
 struct maydef_optype_d
 {
   struct maydef_optype_d *next;
   tree def_var;
-  tree use_var;
-  struct ssa_use_operand_d use_ptr;
+  vuse_vec_t usev;
 };
 typedef struct maydef_optype_d *maydef_optype_p;
 
@@ -64,8 +99,7 @@ typedef struct maydef_optype_d *maydef_optype_p;
 struct vuse_optype_d
 {
   struct vuse_optype_d *next;
-  tree use_var;
-  struct ssa_use_operand_d use_ptr;
+  vuse_vec_t usev;
 };
 typedef struct vuse_optype_d *vuse_optype_p;
                                                                               
@@ -74,8 +108,7 @@ struct mustdef_optype_d
 {
   struct mustdef_optype_d *next;
   tree def_var;
-  tree kill_var;
-  struct ssa_use_operand_d use_ptr;
+  vuse_vec_t usev;
 };
 typedef struct mustdef_optype_d *mustdef_optype_p;
 
@@ -123,18 +156,24 @@ typedef struct stmt_operands_d *stmt_operands_p;
 #define DEF_OP_PTR(OP)		((OP)->def_ptr)
 #define DEF_OP(OP)		(DEF_FROM_PTR (DEF_OP_PTR (OP)))
 
-#define VUSE_OP_PTR(OP)		USE_OP_PTR(OP)
-#define VUSE_OP(OP)		((OP)->use_var)
+#define VUSE_OP_PTR(OP,X)	VUSE_ELEMENT_PTR ((OP)->usev, (X)) 
+#define VUSE_OP(OP,X)		VUSE_ELEMENT_VAR ((OP)->usev, (X))
+#define VUSE_NUM(OP)		VUSE_VECT_NUM_ELEM ((OP)->usev)
+#define VUSE_VECT(OP)		&((OP)->usev)
 
 #define MAYDEF_RESULT_PTR(OP)	(&((OP)->def_var))
 #define MAYDEF_RESULT(OP)	((OP)->def_var)
-#define MAYDEF_OP_PTR(OP)	USE_OP_PTR (OP)
-#define MAYDEF_OP(OP)		((OP)->use_var)
+#define MAYDEF_OP_PTR(OP,X)	VUSE_OP_PTR (OP, X)
+#define MAYDEF_OP(OP,X)		VUSE_OP (OP, X)
+#define MAYDEF_NUM(OP)		VUSE_VECT_NUM_ELEM ((OP)->usev)
+#define MAYDEF_VECT(OP)		&((OP)->usev)
 
 #define MUSTDEF_RESULT_PTR(OP)	(&((OP)->def_var))
 #define MUSTDEF_RESULT(OP)	((OP)->def_var)
-#define MUSTDEF_KILL_PTR(OP)	USE_OP_PTR (OP)
-#define MUSTDEF_KILL(OP)	((OP)->kill_var)
+#define MUSTDEF_KILL_PTR(OP)	VUSE_OP_PTR (OP, 0)
+#define MUSTDEF_KILL(OP)	VUSE_OP (OP, 0)
+#define MUSTDEF_NUM(OP)		VUSE_VECT_NUM_ELEM ((OP)->usev)
+#define MUSTDEF_VECT(OP)	&((OP)->usev)
 
 #define PHI_RESULT_PTR(PHI)	get_phi_result_ptr (PHI)
 #define PHI_RESULT(PHI)		DEF_FROM_PTR (PHI_RESULT_PTR (PHI))
@@ -150,6 +189,9 @@ typedef struct stmt_operands_d *stmt_operands_p;
 				PHI_ARG_DEF_PTR ((PHI), (E)->dest_idx)
 #define PHI_ARG_INDEX_FROM_USE(USE)   phi_arg_index_from_use (USE)
 
+
+extern struct maydef_optype_d *realloc_maydef (struct maydef_optype_d *, int);
+extern struct vuse_optype_d *realloc_vuse (struct vuse_optype_d *, int);
 
 extern void init_ssa_operands (void);
 extern void fini_ssa_operands (void);
@@ -195,6 +237,8 @@ typedef struct ssa_operand_iterator_d
   int num_phi;
   tree phi_stmt;
   bool done;
+  int vuse_index;
+  int mayuse_index;
 } ssa_op_iter;
 
 /* These flags are used to determine which operands are returned during 
@@ -257,7 +301,7 @@ typedef struct ssa_operand_iterator_d
 #define FOR_EACH_SSA_MUSTDEF_OPERAND(DEFVAR, KILLVAR, STMT, ITER)	\
   for (op_iter_init_mustdef (&(ITER), STMT, &(KILLVAR), &(DEFVAR));	\
        !op_iter_done (&(ITER));					\
-       op_iter_next_maymustdef (&(KILLVAR), &(DEFVAR), &(ITER)))
+       op_iter_next_mustdef (&(KILLVAR), &(DEFVAR), &(ITER)))
 
 /* This macro executes a loop over the V_{MUST,MAY}_DEF of STMT.  The def
    and kill for each V_{MUST,MAY}_DEF is returned in DEFVAR and KILLVAR. 

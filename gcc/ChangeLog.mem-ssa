@@ -1,0 +1,55 @@
+2006-03-08  Andrew Macleod  <amacleod@redhat.com>
+
+	* tree-ssa-operands.h (struct vuse_element_d): Declare.
+	(vuse_element_t): Declare.
+	(struct vuse_vec_d): Declare.
+	(vuse_vec_p): Declare.
+	(VUSE_VECT_NUM_ELEM): Define.
+	(VUSE_VECT_ELEMENT_NC): Define.
+	(VUSE_ELEMENT_PTR_NC): Define.
+	(VUSE_ELEMENT_VAR_NC): Define.
+	(VUSE_VECT_ELEMENT): Define.
+	(VUSE_ELEMENT_PTR): Define.
+	(VUSE_ELEMENT_VAR): Define.
+	(struct maydef_optype_d) <use_var>: Remove.
+	<use_ptr>: Remove.
+	<usev>: Add.
+	(struct vuse_optype_d) <kill_var>: Remove.
+	<use_ptr>: Remove.
+	<usev>: Add.
+	(struct mustdef_optype_d) <kill_var>: Remove.
+	<use_ptr>: Remove.
+	<usev>: Add.
+	(VUSE_OP_PTR): Add argument.  Use VUSE_ELEMENT_PTR.
+	(VUSE_OP): Add argument.  Use VUSE_ELEMENT_PTR.
+	(VUSE_NUM): Define.
+	(VUSE_VECT): Define.
+	(MAYDEF_OP_PTR): Add argument.  Use VUSE_OP_PTR.
+	(MAYDEF_OP): Add argument.  Use VUSE_OP.
+	(MAYDEF_NUM): Define.
+	(MAYDEF_VECT): Define.
+	(MUSTDEF_KILL_PTR): Use VUSE_OP_PTR.
+	(MUSTDEF_KILL): Use VUSE_OP.
+	(MUSTDEF_NUM): Define.
+	(MUSTDEF_VECT): Define.
+	(realloc_maydef): Declare.
+	(realloc_vuse): Declare.
+	(struct ssa_operand_iterator_d) <vuse_index>: Add.
+	<mayuse_index>: Add.
+	(FOR_EACH_SSA_MUSTDEF_OPERAND): Call op_iter_next_mustdef.
+	* tree-into-ssa.c: Adapt for multi-operand V_MAY_DEF and VUSE
+	operators.
+	* tree-pretty-print.c: Likewise.
+	* tree-ssa-dse.c: Likewise.
+	* tree-flow-inline.h: Likewise.
+	(op_iter_next_mustdef): New.
+	* tree-ssa-operands.c: Likewise.
+	(ALLOC_OPTYPE): Remove.
+	Update all users.
+	(alloc_def): New.
+	(alloc_use): New.
+	(alloc_maydef): New.
+	(alloc_vuse): New.
+	(alloc_mustdef): New.
+	(realloc_maydef): New.
+	(realloc_vuse): New.
