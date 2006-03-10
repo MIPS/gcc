@@ -3,6 +3,8 @@
 
 set -x
 
+unset MACOSX_DEPLOYMENT_TARGET
+
 # -arch arguments are different than configure arguments. We need to
 # translate them.
 
