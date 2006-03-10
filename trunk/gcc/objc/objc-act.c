@@ -9230,8 +9230,17 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	 more intelligent about which methods the receiver will
 	 understand. */
       if (!rtype || TREE_CODE (rtype) == IDENTIFIER_NODE)
-	/* APPLE LOCAL mainline */
-	rtype = NULL_TREE;
+	/* APPLE LOCAL begin radar 4457381 */
+	{
+	  /* APPLE LOCAL mainline */
+	  rtype = NULL_TREE;
+	  /* We could not find an @interface declaration, yet Message maybe in a 
+	     @class's protocol. */
+	  if (!method_prototype && rprotos)
+	    method_prototype
+	      = lookup_method_in_protocol_list (rprotos, sel_name, 0);
+	}
+	/* APPLE LOCAL end radar 4457381 */
       else if (TREE_CODE (rtype) == CLASS_INTERFACE_TYPE
 	  || TREE_CODE (rtype) == CLASS_IMPLEMENTATION_TYPE)
 	{
@@ -13280,7 +13289,7 @@ objc_finish_foreach_loop (location_t location, tree cond, tree for_body, tree bl
   /*   } while (counter < limit ); */
   do_condition  = build_binary_op (LT_EXPR, counter_decl, limit_decl, 1); 
   inner_do_body = c_end_compound_stmt (inner_do_body, true);
-  c_finish_loop (location, do_condition, NULL, inner_do_body, NULL_TREE, NULL_TREE, false); 
+  c_finish_loop (location, do_condition, NULL, inner_do_body, NULL_TREE, clab, false); 
   add_stmt (c_end_compound_stmt (inner_do_block_start, true));
 
   /* } while (limit = [collection countByEnumeratingWithState:&enumState objects:items count:16]);  */
@@ -13289,7 +13298,7 @@ objc_finish_foreach_loop (location_t location, tree cond, tree for_body, tree bl
 				   fold_convert (TREE_TYPE (limit_decl), integer_zero_node), 
 				   1); 
   outer_do_body = c_end_compound_stmt (outer_do_body, true);
-  c_finish_loop (location, do_condition, NULL, outer_do_body, blab, clab, false); 
+  c_finish_loop (location, do_condition, NULL, outer_do_body, blab, NULL_TREE, false); 
   add_stmt (c_end_compound_stmt (outer_do_block_start, true));
 
   /* } */

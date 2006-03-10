@@ -1,3 +1,9 @@
+2005-03-09 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4457381
+	* objc.dg/msg-in-protocol.m: New.
+	* obj-c++.dg/msg-in-protocol.mm: New.
+
 2005-03-07 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4468498
