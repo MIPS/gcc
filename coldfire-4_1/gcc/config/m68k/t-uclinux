@@ -15,10 +15,10 @@ xfgnulib.c: $(srcdir)/config/m68k/fpgnulib.c
 MULTILIB_OPTIONS = mcpu=68000/mcpu=5206/mcpu=5206e/mcpu=528x/mcpu=5307/mcpu=5407/mcpu=cpu32 msep-data/mid-shared-library
 MULTILIB_DIRNAMES = m68000 m5206 m5206e m528x m5307 m5407 mcpu32 msep-data mid-shared-library
 MULTILIB_EXCEPTIONS = mcpu=68000/msep-data* mcpu=68000/mid-shared-library* \
+	mcpu=5206/msep-data* mcpu=5206/mid-shared-library* \
+	mcpu=5206e/msep-data* mcpu=5206e/mid-shared-library* \
+	mcpu=5307/msep-data* mcpu=5307/mid-shared-library* \
 		      msep-data* mid-shared-library*
 
 LIBGCC = stmp-multilib
 INSTALL_LIBGCC = install-multilib
-
-# We don't use crtbegin.o and crtend.o
-EXTRA_MULTILIB_PARTS=

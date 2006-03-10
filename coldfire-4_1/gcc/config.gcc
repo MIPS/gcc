@@ -1407,7 +1407,7 @@ m68k*-*-openbsd*)
 m68k-*-uclinux*)		# Motorola m68k/ColdFire running uClinux with uClibc
 	tm_file="m68k/m68k.h m68k/m68k-none.h m68k/m68kelf.h dbxelf.h elfos.h m68k/uclinux.h"
  	tm_defines="MOTOROLA USE_GAS"
-	tmake_file="m68k/t-uclinux m68k/t-mlib-matches"
+	tmake_file="m68k/t-uclinux m68k/t-crtstuff m68k/t-mlib-matches"
 	use_fixproto=no
 	;;
 m68k-*-linux*)		# Motorola m68k's running GNU/Linux

@@ -172,8 +172,10 @@ int m68k_last_compare_had_fp_operands;
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
+#if !M68K_NO_ASM_FILE_START_APP_OFF
 #undef TARGET_ASM_FILE_START_APP_OFF
 #define TARGET_ASM_FILE_START_APP_OFF true
+#endif
 
 #undef TARGET_DEFAULT_TARGET_FLAGS
 #define TARGET_DEFAULT_TARGET_FLAGS (TARGET_DEFAULT | MASK_STRICT_ALIGNMENT)
@@ -590,9 +592,9 @@ override_options (void)
   m68k_arch_isab = flags & FL_ISA_B;
   m68k_arch_isac = flags & FL_ISA_C;
   m68k_bitfield = (m68k_flag_bitfield != -1) ? m68k_flag_bitfield
-                                             : flags & FL_BITFIELD;
+                                             : (flags & FL_BITFIELD) != 0;
   m68k_cf_hwdiv = (m68k_flag_hwdiv != -1) ? m68k_flag_hwdiv
-                                          : flags & FL_CF_HWDIV;
+                                          : (flags & FL_CF_HWDIV) != 0;
 
   /* Allow overriding of FPU selection on command-line.  */ 
   switch (m68k_flag_hardfloat)
@@ -620,8 +622,11 @@ override_options (void)
    * -fpic but it hasn't been tested properly.
    */
   if (TARGET_SEP_DATA || TARGET_ID_SHARED_LIBRARY)
-    flag_pic = 2;
-
+    {
+      if ((flags & FL_PCREL_16))
+	error ("-msep-data or -mid-shared-library are not currently supported on selected cpu because they require -fPIC");
+      flag_pic = 2;
+    }
   /* -fPIC uses 32-bit pc-relative displacements. Some chips do not
       have single instructions to deal with this, and the ABI they
       would need has not been defined.  */

@@ -1,3 +1,21 @@
+2006-03-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-uclinux*): Include t-crtstuff.
+	* gcc/config/m68k/t-uclinux (MULITLIB_EXCEPTIONS): Disable
+	mid-shared-library & msep-data on coldfire chips without 32bit PC
+	rel addressing.
+	(EXTRA_MULTILIB_PARTS): Don't define here.
+	* gcc/config/m68k/m68k.c (TARGET_ASM_FILE_START_APP_OFF): Protect
+	with M68K_NO_ASM_FUILE_START_APP_OFF.
+	(override_options): Avoid signed/unsigned warning. Give more
+	informative error message when TARGET_SEP_DATA or
+	TARGET_ID_SHARED_LIBRARY are unsupported.
+	* gcc/config/m68k/uclinux.h (STARTFILE_SPEC): Define here.
+	(ENDFILE_SPEC): Likewise.
+	(INIT_SECTION_ASM_OP, FINI_SECTION_ASM_OP): Don't define.
+	(TARGET_OS_CP_BUILTINS): Remove duplicared mc68000 #define.
+	(M68K_NO_ASM_FILE_START_APP_OFF): New.
+
 2006-03-08  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc/config/m68k/m68k-none.h (ASM_SPEC): Pass -mno-float for
