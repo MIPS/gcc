@@ -87652,7 +87652,7 @@ case "$target" in
 esac
 
 
-if test $LIBSUPCXX_PRONLY = yes; then
+if test x$LIBSUPCXX_PRONLY = xyes; then
   LIBSUPCXX_PRONLY_TRUE=
   LIBSUPCXX_PRONLY_FALSE='#'
 else

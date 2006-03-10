@@ -1,5 +1,9 @@
 2006-03-10  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* libstdc++-v2/configure.ac (LIBSUPCXX_PRONLY): Protect against unset
+	environment variable.
+	* libstdc++-v3/configure: Rebuilt.
+
 	* gcc/config.gcc (m68k-*-uclinux*): Include t-crtstuff.
 	* gcc/config/m68k/t-uclinux (MULITLIB_EXCEPTIONS): Disable
 	mid-shared-library & msep-data on coldfire chips without 32bit PC
