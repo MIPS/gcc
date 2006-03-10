@@ -1,3 +1,8 @@
+2006-03-10  Diego Novillo  <dnovillo@redhat.com>
+
+	* BASE-VER: Add mem-ssa.
+	* version.c (VERSUFFIX): Add last merge date.
+
 2006-03-08  Andrew Macleod  <amacleod@redhat.com>
 
 	* tree-ssa-operands.h (struct vuse_element_d): Declare.
