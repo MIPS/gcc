@@ -1,7 +1,8 @@
 2005-03-10 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4466530
-	* -fobjc-direct-dispatch should be a no-op on ppc64
+	* objc/objc-act.c (synth_module_prologue): -fobjc-direct-dispatch 
+	should be a no-op on ppc64
 
 2005-03-09 Fariborz Jahanian <fjahanian@apple.com>
 

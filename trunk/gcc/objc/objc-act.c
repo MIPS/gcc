@@ -730,13 +730,6 @@ generate_struct_by_value_array (void)
 bool
 objc_init (void)
 {
-/* APPLE LOCAL begin radar 4466530 */
-#ifdef TARGET_POWERPC
-  /* -fobjc-direct-dispatch should be a no-op on ppc64 */
-  if (TARGET_64BIT)
-    flag_objc_direct_dispatch = false;
-#endif
-/* APPLE LOCAL end radar 4466530 */
 #ifdef OBJCPLUS
   if (cxx_init () == false)
 #else
@@ -2426,6 +2419,13 @@ synth_module_prologue (void)
 
   write_symbols = save_write_symbols;
   debug_hooks = save_hooks;
+/* APPLE LOCAL begin radar 4466530 */
+#ifdef TARGET_POWERPC
+  /* -fobjc-direct-dispatch should be a no-op on ppc64 */
+  if (TARGET_64BIT)
+    flag_objc_direct_dispatch = false;
+#endif
+/* APPLE LOCAL end radar 4466530 */
 }
 
 /* Ensure that the ivar list for NSConstantString/NXConstantString
