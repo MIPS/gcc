@@ -1,3 +1,9 @@
+2005-03-08 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4468456
+	* c-gimplify.c (gimplify_c_loop): 'continue' label is generated
+	as in normal case and belongs to current loop.
+
 2005-03-07 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4468498

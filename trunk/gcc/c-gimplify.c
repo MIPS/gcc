@@ -368,16 +368,12 @@ gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first,
 
   gcc_assert (inner_foreach == NULL_TREE 
 	      || inner_foreach == integer_zero_node);
+
   if (!inner_foreach)
-    {
-      break_block = begin_bc_block (bc_break);
-      cont_block = begin_bc_block (bc_continue);
-    }
+    break_block = begin_bc_block (bc_break);
   else
-    {
-      break_block = obj_reuse_bc_block (bc_break);
-      cont_block = obj_reuse_bc_block (bc_continue);
-    }
+    break_block = obj_reuse_bc_block (bc_break);
+  cont_block = begin_bc_block (bc_continue);
 
   /* If condition is zero don't generate a loop construct.  */
   if (cond && integer_zerop (cond))
@@ -426,8 +422,7 @@ gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first,
   gimplify_stmt (&body);
   gimplify_stmt (&incr);
 
-  if (!inner_foreach)
-    body = finish_bc_block (cont_block, body);
+  body = finish_bc_block (cont_block, body);
 
   append_to_statement_list (top, &stmt_list);
   append_to_statement_list (body, &stmt_list);
