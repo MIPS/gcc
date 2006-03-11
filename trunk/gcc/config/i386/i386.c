@@ -6756,7 +6756,14 @@ i386_output_dwarf_dtprel (FILE *file, int size, rtx x)
 static rtx
 ix86_delegitimize_address (rtx orig_x)
 {
-  rtx x = orig_x, y;
+  /* APPLE LOCAL begin mainline 2006-03-08 4446590 */
+  rtx x = orig_x;
+  /* reg_addend is NULL or a multiple of some register.  */
+  rtx reg_addend = NULL_RTX;
+  /* const_addend is NULL or a const_int.  */
+  rtx const_addend = NULL_RTX;
+  /* This is the result, or NULL.  */
+  rtx result = NULL_RTX;
 
   if (GET_CODE (x) == MEM)
     x = XEXP (x, 0);
@@ -6778,62 +6785,53 @@ ix86_delegitimize_address (rtx orig_x)
   if (GET_CODE (XEXP (x, 0)) == REG
       && REGNO (XEXP (x, 0)) == PIC_OFFSET_TABLE_REGNUM)
     /* %ebx + GOT/GOTOFF */
-    y = NULL;
+    ;
   else if (GET_CODE (XEXP (x, 0)) == PLUS)
     {
       /* %ebx + %reg * scale + GOT/GOTOFF */
-      y = XEXP (x, 0);
-      if (GET_CODE (XEXP (y, 0)) == REG
-	  && REGNO (XEXP (y, 0)) == PIC_OFFSET_TABLE_REGNUM)
-	y = XEXP (y, 1);
-      else if (GET_CODE (XEXP (y, 1)) == REG
-	       && REGNO (XEXP (y, 1)) == PIC_OFFSET_TABLE_REGNUM)
-	y = XEXP (y, 0);
+      reg_addend = XEXP (x, 0);
+      if (GET_CODE (XEXP (reg_addend, 0)) == REG
+	  && REGNO (XEXP (reg_addend, 0)) == PIC_OFFSET_TABLE_REGNUM)
+	reg_addend = XEXP (reg_addend, 1);
+      else if (GET_CODE (XEXP (reg_addend, 1)) == REG
+	       && REGNO (XEXP (reg_addend, 1)) == PIC_OFFSET_TABLE_REGNUM)
+	reg_addend = XEXP (reg_addend, 0);
       else
 	return orig_x;
-      if (GET_CODE (y) != REG
-	  && GET_CODE (y) != MULT
-	  && GET_CODE (y) != ASHIFT)
+      if (GET_CODE (reg_addend) != REG
+	  && GET_CODE (reg_addend) != MULT
+	  && GET_CODE (reg_addend) != ASHIFT)
 	return orig_x;
     }
   else
     return orig_x;
 
   x = XEXP (XEXP (x, 1), 0);
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+    {
+      const_addend = XEXP (x, 1);
+      x = XEXP (x, 0);
+    }
+
   if (GET_CODE (x) == UNSPEC
       && ((XINT (x, 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
 	  || (XINT (x, 1) == UNSPEC_GOTOFF && GET_CODE (orig_x) != MEM)))
-    {
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, XVECEXP (x, 0, 0));
-      return XVECEXP (x, 0, 0);
-    }
+    result = XVECEXP (x, 0, 0);
 
-  if (GET_CODE (x) == PLUS
-      && GET_CODE (XEXP (x, 0)) == UNSPEC
-      && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && ((XINT (XEXP (x, 0), 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
-	  || (XINT (XEXP (x, 0), 1) == UNSPEC_GOTOFF
-	      && GET_CODE (orig_x) != MEM)))
-    {
-      x = gen_rtx_PLUS (VOIDmode, XVECEXP (XEXP (x, 0), 0, 0), XEXP (x, 1));
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, x);
-      return x;
-    }
-
-  /* APPLE LOCAL begin mainline 4.2 2006-02-07 4430041 */
   if (TARGET_MACHO && darwin_local_data_pic (x)
       && GET_CODE (orig_x) != MEM)
-    {
-      x = XEXP (x, 0);
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, x);
-      return x;
-    }
-  /* APPLE LOCAL end mainline 4.2 2006-02-07 4430041 */
+    result = XEXP (x, 0);
 
-  return orig_x;
+  if (! result)
+    return orig_x;
+  
+  if (const_addend)
+    result = gen_rtx_PLUS (Pmode, result, const_addend);
+  if (reg_addend)
+    result = gen_rtx_PLUS (Pmode, reg_addend, result);
+  return result;
+  /* APPLE LOCAL end mainline 2006-03-08 4446590 */
 }
 
 static void
@@ -17083,6 +17081,30 @@ darwin_x86_file_end (void)
   ix86_file_end ();
 }
 /* APPLE LOCAL end deep branch prediction pic-base */
+
+/* APPLE LOCAL begin 4457939 stack alignment mishandled */
+void
+ix86_darwin_init_expanders (void)
+{
+  /* <rdar://problem/4471596> stack alignment is not handled properly
+
+     Please remove this entire function when addressing this
+     Radar.  Please be sure to delete the definition of INIT_EXPANDERS
+     in i386/darwin.h as well.  */
+  /* Darwin/x86_32 stack pointer will be 16-byte aligned at every
+     CALL, but the frame pointer, when used, will be 8-bytes offset
+     from a 16-byte alignment (the size of the return address and the
+     saved frame pointer).  */
+  if (cfun && cfun->emit
+      && cfun->emit->regno_pointer_align)
+    {
+      REGNO_POINTER_ALIGN (STACK_POINTER_REGNUM) = STACK_BOUNDARY;
+      REGNO_POINTER_ALIGN (FRAME_POINTER_REGNUM) = BITS_PER_WORD;
+      REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = BITS_PER_WORD;
+      REGNO_POINTER_ALIGN (ARG_POINTER_REGNUM) = BITS_PER_WORD;
+    }
+}
+/* APPLE LOCAL end 4457939 stack alignment mishandled */
 #endif /* TARGET_MACHO */
 
 /* Order the registers for register allocator.  */

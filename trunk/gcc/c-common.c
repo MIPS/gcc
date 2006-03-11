@@ -7156,6 +7156,12 @@ cw_type_for (tree arg)
 	mode = QImode;
       else if (IDENTIFIER_POINTER (arg)[2] == 'x')
 	mode = HImode;
+      else if (IDENTIFIER_POINTER (arg)[1] == 'r')
+	mode = DImode;
+      else if (IDENTIFIER_POINTER (arg)[1] == 'x')
+	mode = SFmode;
+      else if (IDENTIFIER_POINTER (arg)[1] == 'm')
+	mode = SFmode;
 
       if (mode != VOIDmode)
 	type = c_common_type_for_mode (mode, 1);
