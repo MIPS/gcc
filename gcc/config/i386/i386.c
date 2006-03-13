@@ -1535,13 +1535,8 @@ override_options (void)
      The default of 128 bits is for Pentium III's SSE __m128, but we
      don't want additional code to keep the stack aligned when
      optimizing for code size.  */
-  /* APPLE LOCAL begin SSE stack alignment */
-  ix86_preferred_stack_boundary = (TARGET_64BIT
-				   ? 128
-				   : ((optimize_size || flag_apple_kext)
-				      ? 32
-				      : 128));
-  /* APPLE LOCAL end SSE stack alignment */
+  ix86_preferred_stack_boundary = ((TARGET_64BIT || TARGET_MACHO || !optimize_size)
+				   ? 128 : 32);
   if (ix86_preferred_stack_boundary_string)
     {
       i = atoi (ix86_preferred_stack_boundary_string);

@@ -1,3 +1,9 @@
+2006-03-13  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4474655
+	* gcc/config/i386/i386.c (override_options): Remove
+	APPLE LOCAL for ix86_preferred_stack_boundary.
+
 2006-03-07  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4457939
