@@ -1,3 +1,8 @@
+2006-03-13  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4439126
+        * obj-c++.dg/template-8.mm: New.
+
 2005-03-09 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4457381
