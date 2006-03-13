@@ -1,5 +1,17 @@
 2006-03-13  Paul Brook  <paul@codesourcery.com>
 
+	* gcc/config/arm/arm.c (arm_dwarf_handle_frame_unspec): New function.
+	(TARGET_DWARF_HANDLE_FRAME_UNSPEC): Define.
+	(arm_compute_save_reg0_reg12_mask): Save r0 if dynamic stack
+	alignment is required.
+	(arm_output_epilogue): Restore sp from r0.
+	(arm_expand_prologue): Save sp in r0 before aligning stack.
+	(arm_unwind_emit_sequence): Remove redundant SP push code.
+	(arm_unwind_emit_set): Handle UNSPEC_STACK_ALIGN.
+	* gcc/config/arm/arm.md (UNSPEC_STACK_ALIGN): Define.
+
+2006-03-13  Paul Brook  <paul@codesourcery.com>
+
 	Merge from csl/sourcerygxx-4_1
 	2006-02-27  Nathan Sidwell  <nathan@potter.codesourcery.com>
 	Backport the following

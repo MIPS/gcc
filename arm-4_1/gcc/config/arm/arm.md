@@ -93,6 +93,8 @@
    (UNSPEC_TLS      20) ; A symbol that has been treated properly for TLS usage.
    (UNSPEC_PIC_LABEL 21) ; A label used for PIC access that does not appear in the
                          ; instruction stream.
+   (UNSPEC_STACK_ALIGN 20) ; Doubleword aligned stack pointer.  Used to
+			   ; generate correct unwind information.
   ]
 )
 

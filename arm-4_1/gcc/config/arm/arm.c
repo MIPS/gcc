@@ -178,6 +178,7 @@ static bool arm_must_pass_in_stack (enum machine_mode, tree);
 static void arm_unwind_emit (FILE *, rtx);
 static bool arm_output_ttype (rtx);
 #endif
+static void arm_dwarf_handle_frame_unspec (const char *, rtx, int);
 
 static tree arm_cxx_guard_type (void);
 static bool arm_cxx_guard_mask_bit (void);
@@ -360,6 +361,9 @@ static bool arm_tls_symbol_p (rtx x);
 #undef TARGET_ARM_EABI_UNWINDER
 #define TARGET_ARM_EABI_UNWINDER true
 #endif /* TARGET_UNWIND_INFO */
+
+#undef TARGET_DWARF_HANDLE_FRAME_UNSPEC
+#define TARGET_DWARF_HANDLE_FRAME_UNSPEC arm_dwarf_handle_frame_unspec
 
 #undef  TARGET_CANNOT_COPY_INSN_P
 #define TARGET_CANNOT_COPY_INSN_P arm_cannot_copy_insn_p
@@ -9540,6 +9544,10 @@ arm_compute_save_reg0_reg12_mask (void)
 	  && (regs_ever_live[PIC_OFFSET_TABLE_REGNUM]
 	      || current_function_uses_pic_offset_table))
 	save_reg_mask |= 1 << PIC_OFFSET_TABLE_REGNUM;
+
+      /* The prologue will copy SP into R0, so save it.  */
+      if (IS_STACKALIGN (func_type))
+	save_reg_mask |= 1;
     }
 
   /* Save registers so the exception handler can modify them.  */
@@ -10414,8 +10422,7 @@ arm_output_epilogue (rtx sibling)
       if (IS_STACKALIGN (func_type))
 	{
 	  /* See comment in arm_expand_prologue.  */
-	  asm_fprintf (f, "\tpop\t{%r}\n", IP_REGNUM);
-	  asm_fprintf (f, "\tmov\t%r, %r\n", SP_REGNUM, IP_REGNUM);
+	  asm_fprintf (f, "\tmov\t%r, %r\n", SP_REGNUM, 0);
 	}
       if (arm_arch5 || arm_arch4t)
 	asm_fprintf (f, "\tbx\t%r\n", LR_REGNUM);
@@ -11080,43 +11087,32 @@ arm_expand_prologue (void)
   if (IS_STACKALIGN (func_type))
     {
       rtx dwarf;
+      rtx r0;
+      rtx r1;
       /* Handle a word-aligned stack pointer.  We generate the following:
 
-	  mov ip, sp
-	  push {ip}
-	  push {ip}
-	  sub ip, ip, #4
-	  bic ip, ip, #4
-	  mov sp, ip
-	  <Normal prologue+body+epilogue, leaving return address in LR>
-	  pop {ip}
-	  mov sp, ip
+	  mov r0, sp
+	  bic r1, r0, #7
+	  mov sp, r1
+	  <save and restore r0 in normal prologue/epilogue>
+	  mov sp, r0
 	  bx lr
 
-	 Generating accurate unwind information for this is tricky.  Instead
-	 we just tell the unwinder that the first instruction pushes
-	 sp onto the stack.  */
+	 The unwinder doesn't need to know about the stack realignment.
+	 Just tell it we saved SP in r0.  */
       gcc_assert (TARGET_THUMB2 && !arm_arch_notm && args_to_push == 0);
 
-      dwarf = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (2));
-      XVECEXP (dwarf, 0, 0) = 
-	gen_rtx_SET (VOIDmode, gen_rtx_MEM (SImode,
-		     gen_rtx_PLUS (SImode, stack_pointer_rtx, GEN_INT (-4))),
-		     stack_pointer_rtx);
-      XVECEXP (dwarf, 0, 1) = 
-	gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-		     gen_rtx_PLUS (SImode, stack_pointer_rtx, GEN_INT(4)));
-
-      insn = gen_movsi (ip_rtx, stack_pointer_rtx);
+      r0 = gen_rtx_REG (SImode, 0);
+      r1 = gen_rtx_REG (SImode, 1);
+      dwarf = gen_rtx_UNSPEC (SImode, NULL_RTVEC, UNSPEC_STACK_ALIGN);
+      dwarf = gen_rtx_SET (SImode, r0, dwarf);
+      insn = gen_movsi (r0, stack_pointer_rtx);
       RTX_FRAME_RELATED_P (insn) = 1;
       REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR,
 					    dwarf, REG_NOTES (insn));
       emit_insn (insn);
-      insn = emit_multi_reg_push (1 << IP_REGNUM);
-      insn = emit_multi_reg_push (1 << IP_REGNUM);
-      emit_insn (gen_addsi3 (ip_rtx, ip_rtx, GEN_INT (-4)));
-      emit_insn (gen_andsi3 (ip_rtx, ip_rtx, GEN_INT (~(HOST_WIDE_INT)4)));
-      emit_insn (gen_movsi (stack_pointer_rtx, ip_rtx));
+      emit_insn (gen_andsi3 (r1, r0, GEN_INT (~(HOST_WIDE_INT)7)));
+      emit_insn (gen_movsi (stack_pointer_rtx, r1));
     }
 
   if (frame_pointer_needed && TARGET_ARM)
@@ -15849,14 +15845,6 @@ arm_unwind_emit_sequence (FILE * asm_out_file, rtx p)
   if (GET_CODE (e) != SET)
     abort ();
 
-  if (GET_CODE (XEXP (e, 0)) == MEM)
-    {
-      /* Stack pointer push to align SP.  */
-      gcc_assert (rtx_equal_p (XEXP (e, 1), stack_pointer_rtx));
-      asm_fprintf (asm_out_file, "\t.save {%r}\n", SP_REGNUM);
-      return;
-    }
-  
   /* First insn will adjust the stack pointer.  */
   if (GET_CODE (e) != SET
       || GET_CODE (XEXP (e, 0)) != REG
@@ -15956,6 +15944,7 @@ arm_unwind_emit_set (FILE * asm_out_file, rtx p)
 {
   rtx e0;
   rtx e1;
+  unsigned reg;
 
   e0 = XEXP (p, 0);
   e1 = XEXP (p, 1);
@@ -15992,7 +15981,6 @@ arm_unwind_emit_set (FILE * asm_out_file, rtx p)
       else if (REGNO (e0) == HARD_FRAME_POINTER_REGNUM)
 	{
 	  HOST_WIDE_INT offset;
-	  unsigned reg;
 
 	  if (GET_CODE (e1) == PLUS)
 	    {
@@ -16018,6 +16006,13 @@ arm_unwind_emit_set (FILE * asm_out_file, rtx p)
 	{
 	  /* Move from sp to reg.  */
 	  asm_fprintf (asm_out_file, "\t.movsp %r\n", REGNO (e0));
+	}
+      else if (GET_CODE (e1) == UNSPEC && XINT (e1, 1) == UNSPEC_STACK_ALIGN)
+	{
+	  /* Stack pointer save before alignment.  */
+	  reg = REGNO (e0);
+	  asm_fprintf (asm_out_file, "\t.unwind_raw 0, 0x%x @ vsp = r%d\n",
+		       reg + 0x90, reg);
 	}
       else
 	abort ();
@@ -16082,6 +16077,30 @@ arm_output_ttype (rtx x)
   return TRUE;
 }
 #endif /* TARGET_UNWIND_INFO */
+
+
+/* Handle UNSPEC DWARF call frame instructions.  These are needed for dynamic
+   stack alignment.  */
+
+static void
+arm_dwarf_handle_frame_unspec (const char *label, rtx pattern, int index)
+{
+  rtx unspec = SET_SRC (pattern);
+  gcc_assert (GET_CODE (unspec) == UNSPEC);
+
+  switch (index)
+    {
+    case UNSPEC_STACK_ALIGN:
+      /* ??? We should set the CFA = (SP & ~7).  At this point we haven't
+         put anything on the stack, so hopefully it won't matter.
+         CFA = SP will be correct after alignment.  */
+      dwarf2out_reg_save_reg (label, stack_pointer_rtx,
+                              SET_DEST (pattern));
+      break;
+    default:
+      gcc_unreachable ();
+    }
+}
 
 
 /* Output unwind directives for the start/end of a function.  */
