@@ -501,6 +501,9 @@ Objective-C and Objective-C++ Dialects}.
 -mTLS -mtls @gol
 -mcpu=@var{cpu}}
 
+@emph{GNU/Linux Options}
+@gccoptlist{-muclibc}
+
 @emph{H8/300 Options}
 @gccoptlist{-mrelax  -mh  -ms  -mn  -mint32  -malign-300}
 
@@ -670,8 +673,8 @@ See RS/6000 and PowerPC Options.
 
 @emph{S/390 and zSeries Options}
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
--mhard-float  -msoft-float  -mbackchain  -mno-backchain @gol
--mpacked-stack  -mno-packed-stack @gol
+-mhard-float  -msoft-float -mlong-double-64 -mlong-double-128 @gol
+-mbackchain  -mno-backchain -mpacked-stack  -mno-packed-stack @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
 -mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd @gol
@@ -704,7 +707,7 @@ See RS/6000 and PowerPC Options.
 -mstack-bias  -mno-stack-bias @gol
 -munaligned-doubles  -mno-unaligned-doubles @gol
 -mv8plus  -mno-v8plus  -mvis  -mno-vis
--threads -pthreads}
+-threads -pthreads -pthread}
 
 @emph{System V Options}
 @gccoptlist{-Qy  -Qn  -YP,@var{paths}  -Ym,@var{dir}}
@@ -6131,6 +6134,11 @@ protection when @option{-fstack-protection} is used.
 @item max-jump-thread-duplication-stmts
 Maximum number of statements allowed in a block that needs to be
 duplicated when threading jumps.
+
+@item max-fields-for-field-sensitive
+Maximum number of fields in a structure we will treat in
+a field sensitive manner during pointer analysis.
+
 @end table
 @end table
 
@@ -7124,6 +7132,7 @@ platform.
 * DEC Alpha Options::
 * DEC Alpha/VMS Options::
 * FRV Options::
+* GNU/Linux Options::
 * H8/300 Options::
 * HPPA Options::
 * i386 and x86-64 Options::
@@ -8715,6 +8724,23 @@ Select the processor type for which to generate code.  Possible values are
 @samp{frv}, @samp{fr550}, @samp{tomcat}, @samp{fr500}, @samp{fr450},
 @samp{fr405}, @samp{fr400}, @samp{fr300} and @samp{simple}.
 
+@end table
+
+@node GNU/Linux Options
+@subsection GNU/Linux Options
+
+These @samp{-m} options are defined for GNU/Linux targets:
+
+@table @gcctabopt
+@item -mglibc
+@opindex mglibc
+Use the GNU C library instead of uClibc.  This is the default except
+on @samp{*-*-linux-*uclibc*} targets.
+
+@item -muclibc
+@opindex muclibc
+Use uClibc instead of the GNU C library.  This is the default on
+@samp{*-*-linux-*uclibc*} targets.
 @end table
 
 @node H8/300 Options
@@ -11032,16 +11058,6 @@ enhancements.
 @opindex mno-vrsave
 Generate VRSAVE instructions when generating AltiVec code.
 
-@item -mabi=spe
-@opindex mabi=spe
-Extend the current ABI with SPE ABI extensions.  This does not change
-the default ABI, instead it adds the SPE ABI extensions to the current
-ABI@.
-
-@item -mabi=no-spe
-@opindex mabi=no-spe
-Disable Booke SPE ABI extensions for the current ABI@.
-
 @item -msecure-plt
 @opindex msecure-plt
 Generate code that allows ld and ld.so to build executables and shared
@@ -11150,20 +11166,22 @@ implies @option{-mno-powerpc64}.  GCC defaults to @option{-maix32}.
 @itemx -mno-xl-compat
 @opindex mxl-compat
 @opindex mno-xl-compat
-Produce code that conforms more closely to IBM XLC semantics when using
-AIX-compatible ABI.  Pass floating-point arguments to prototyped
-functions beyond the register save area (RSA) on the stack in addition
-to argument FPRs.  Do not assume that most significant double in 128
-bit long double value is properly rounded when comparing values.
+Produce code that conforms more closely to IBM XL compiler semantics
+when using AIX-compatible ABI.  Pass floating-point arguments to
+prototyped functions beyond the register save area (RSA) on the stack
+in addition to argument FPRs.  Do not assume that most significant
+double in 128-bit long double value is properly rounded when comparing
+values and converting to double.  Use XL symbol names for long double
+support routines.
 
 The AIX calling convention was extended but not initially documented to
 handle an obscure K&R C case of calling a function that takes the
-address of its arguments with fewer arguments than declared.  AIX XL
+address of its arguments with fewer arguments than declared.  IBM XL
 compilers access floating point arguments which do not fit in the
 RSA from the stack when a subroutine is compiled without
 optimization.  Because always storing floating-point arguments on the
 stack is inefficient and rarely needed, this option is not enabled by
-default and only is necessary when calling subroutines compiled by AIX
+default and only is necessary when calling subroutines compiled by IBM
 XL compilers without optimization.
 
 @item -mpe
@@ -11395,7 +11413,27 @@ SVR4 ABI)@.
 @opindex mabi
 Extend the current ABI with a particular extension, or remove such extension.
 Valid values are @var{altivec}, @var{no-altivec}, @var{spe},
-@var{no-spe}@.
+@var{no-spe}, @var{ibmlongdouble}, @var{ieeelongdouble}@.
+
+@item -mabi=spe
+@opindex mabi=spe
+Extend the current ABI with SPE ABI extensions.  This does not change
+the default ABI, instead it adds the SPE ABI extensions to the current
+ABI@.
+
+@item -mabi=no-spe
+@opindex mabi=no-spe
+Disable Booke SPE ABI extensions for the current ABI@.
+
+@item -mabi=ibmlongdouble
+@opindex mabi=ibmlongdouble
+Change the current ABI to use IBM extended precision long double.
+This is a PowerPC 32-bit SYSV ABI option.
+
+@item -mabi=ieeelongdouble
+@opindex mabi=ieeelongdouble
+Change the current ABI to use IEEE extended precision long double.
+This is a PowerPC 32-bit Linux ABI option.
 
 @item -mprototype
 @itemx -mno-prototype
@@ -11584,6 +11622,14 @@ for floating-point operations.  When @option{-msoft-float} is specified,
 functions in @file{libgcc.a} will be used to perform floating-point
 operations.  When @option{-mhard-float} is specified, the compiler
 generates IEEE floating-point instructions.  This is the default.
+
+@item -mlong-double-64
+@itemx -mlong-double-128
+@opindex mlong-double-64
+@opindex mlong-double-128
+These switches control the size of @code{long double} type. A size
+of 64bit makes the @code{long double} type equivalent to the @code{double}
+type. This is the default.
 
 @item -mbackchain
 @itemx -mno-backchain
@@ -12261,6 +12307,10 @@ Add support for multithreading using the POSIX threads library.  This
 option sets flags for both the preprocessor and linker.  This option does
 not affect the thread safety of object code produced  by the compiler or
 that of libraries supplied with it.
+
+@item -pthread
+@opindex pthread
+This is a synonym for @option{-pthreads}.
 @end table
 
 @node System V Options

@@ -1,7 +1,7 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 # Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -2175,10 +2175,13 @@ if test $in_tree_ld != yes && test x"$ld_vers" != x; then
       comdat_group=no
     fi
   fi
-  if test $comdat_group = no; then
-    gcc_cv_as_comdat_group=no
-    gcc_cv_as_comdat_group_percent=no
-  fi
+else
+  # assume linkers other than GNU ld don't support COMDAT group
+  comdat_group=no
+fi
+if test $comdat_group = no; then
+  gcc_cv_as_comdat_group=no
+  gcc_cv_as_comdat_group_percent=no
 fi
 AC_DEFINE_UNQUOTED(HAVE_COMDAT_GROUP,
   [`if test $gcc_cv_as_comdat_group = yes || test $gcc_cv_as_comdat_group_percent = yes; then echo 1; else echo 0; fi`],
@@ -2448,6 +2451,15 @@ foo:	.long	25
 	;;
   sparc*-*-*)
     case "$target" in
+      sparc*-sun-solaris2.[56789]*)
+	# TLS was introduced in the Solaris 9 4/04 release but
+	# we do not enable it by default on Solaris 9 either.
+	if test "x$enable_tls" = xyes ; then
+	  on_solaris=yes
+	else
+	  enable_tls=no;
+	fi
+	;;
       sparc*-sun-solaris2.*)
 	on_solaris=yes
 	;;

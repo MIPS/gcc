@@ -1,3 +1,151 @@
+2006-03-13  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl/sourcerygxx-4_1
+	2006-02-27  Nathan Sidwell  <nathan@potter.codesourcery.com>
+	Backport the following
+	* gcc/config.gcc (mt-*-*): Add --with-arch support.
+	(--with): Print accepted options on error.
+	* gcc/config/mt/mt.h (OPTION_DEFAULT_SPECS): Define.
+
+	* gcc/config/mt/mt.c (DEF_VEC_P(basic_block),
+	DEF_VEC_ALLOC_P(basic_bloc,heap)): Remove from here.
+
+	* gcc/config/mt/mt.md (UNSPEC_LOOP): New constant.
+	(loop_end, loop_init, doloop_end): New insns.
+	* gcc/config/mt/mt.h (LOOP_FIRST, LOOP_LAST): New.
+	(SPECIAL_REG_FIRST, FIRST_PSEUDO_REGISTER): Adjust.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Adjust.
+	(REG_CLASS_CONTENTS, REGISTER_NAMES): Adjust.
+	* gcc/config/mt/mt.c: #include basic-block.h
+	(struct machine_function): Add has_loops field.
+	(mt_add_loop): New.
+	(MAX_LOOP_DEPTH, MAX_LOO_LENGTH): New.
+	(struct loop_info, struct loop_work): New.
+	(mt_loop_nesting, ms1_block_length, ms1_scan_loop): New workers.
+	(mt_reorg_loops): New loop optimization.
+	(mt_machine_reorg): Call it.
+	* gcc/config/mt/mt-protos.h (mt_add_loop): Declare.
+
+	* gcc/vec.h (VEC_block_remove): New.
+
+	* gcc/loop-doloop.c (add_test): Only add jump notes if we did emit a
+	jump.
+
+	2006-02-18  Joseph S. Myers  <joseph@codesourcery.com>
+	PR target/24837
+	* gcc/config.gcc: Define UCLIBC_DEFAULT to 0 or 1.
+	* gcc/opth-gen.awk: Handle Var and InverseMask together.
+	* gcc/config/linux.opt (muclibc, mglibc): Use Var(linux_uclibc).
+	* gcc/config/linux.h: Use #if not #ifdef for testing
+	UCLIBC_DEFAULT.
+	(TARGET_C99_FUNCTIONS): Test OPTION_GLIBC not TARGET_GLIBC.
+	(CHOOSE_DYNAMIC_LINKER): Give an error for -mglibc and -muclibc
+	used together.
+	(UCLIBC_DYNAMIC_LINKER32, UCLIBC_DYNAMIC_LINKER64,
+	LINUX_DYNAMIC_LINKER32, LINUX_DYNAMIC_LINKER64): Define.
+	* gcc/config/alpha/linux-elf.h (GLIBC_DYNAMIC_LINKER,
+	UCLIBC_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER): Define.
+	(ELF_DYNAMIC_LINKER): Define to LINUX_DYNAMIC_LINKER.
+	* gcc/config/alpha/linux.h (TARGET_C99_FUNCTIONS): Define to
+	TARGET_GLIBC.
+	* gcc/config/cris/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(CRIS_LINK_SUBTARGET_SPEC): Pass a -dynamic-linker option.
+	* gcc/config/frv/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	(TARGET_C99_FUNCTIONS): Don't define.
+	* gcc/config/i386/linux.h (DYNAMIC_LINKER): Rename to
+	GLIBC_DYNAMIC_LINKER.
+	(SUBTARGET_EXTRA_SPECS): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/i386/linux64.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER32 and
+	LINUX_DYNAMIC_LINKER64.
+	* gcc/config/ia64/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/m32r/linux.h (GLIBC_DYNAMIC_LINKE): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/m68k/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/mips/linux64.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64, GLIBC_DYNAMIC_LINKERN32,
+	UCLIBC_DYNAMIC_LINKERN32, LINUX_DYNAMIC_LINKERN32): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKERN32, LINUX_DYNAMIC_LINKER64
+	and LINUX_DYNAMIC_LINKER32.
+	* gcc/config/mn10300/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/pa/pa-linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/rs6000/linux.h (TARGET_C99_FUNCTIONS): Define to
+	TARGET_GLIBC.
+	* gcc/config/rs6000/linux64.h (TARGET_C99_FUNCTIONS): Likewise.
+	(GLIBC_DYNAMIC_LINKER32, GLIBC_DYNAMIC_LINKER64,
+	UCLIBC_DYNAMIC_LINKER32, UCLIBC_DYNAMIC_LINKER64,
+	CHOOSE_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER32, LINUX_DYNAMIC_LINKER64): Define.
+	(LINK_OS_LINUX_SPEC32): Use LINUX_DYNAMIC_LINKER32.
+	(LINK_OS_LINUX_SPEC64): Use LINUX_DYNAMIC_LINKER64.
+	* gcc/config/rs6000/sysv4.h (GLIBC_DYNAMIC_LINKER,
+	UCLIBC_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER): Define.
+	(LINK_OS_LINUX_SPEC): Use LINUX_DYNAMIC_LINKE.
+	* gcc/config/s390/linux.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER32 and
+	LINUX_DYNAMIC_LINKER64.
+	* gcc/config/sh/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(SUBTARGET_LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/sparc/linux.h (GLIBC_DYNAMIC_LINKER,
+	UCLIBC_DYNAMIC_LINKER, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	(TARGET_C99_FUNCTIONS): Define to TARGET_GLIBC.
+	* gcc/config/sparc/linux64.h (GLIBC_DYNAMIC_LINKER32,
+	GLIBC_DYNAMIC_LINKER64, UCLIBC_DYNAMIC_LINKER32,
+	UCLIBC_DYNAMIC_LINKER64, CHOOSE_DYNAMIC_LINKER,
+	LINUX_DYNAMIC_LINKER32, LINUX_DYNAMIC_LINKER64): Define.
+	(LINK_ARCH32_SPEC): Use LINUX_DYNAMIC_LINKER32.
+	(LINK_ARCH64_SPEC, LINK_SPEC): Use LINUX_DYNAMIC_LINKER64.
+	(TARGET_C99_FUNCTIONS): Define to TARGET_GLIBC.
+	* gcc/config/xtensa/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/doc/invoke.texi (-muclibc): Remove caveat about supported
+	targets.
+	* gcc/testsuite/gcc.dg/glibc-uclibc-1.c,
+	gcc/testsuite/gcc.dg/glibc-uclibc-2.c: New tests.
+
+	2006-02-16  Joseph S. Myers  <joseph@codesourcery.com>
+	PR libstdc++/14939
+	PR target/20353
+	PR target/24578
+	PR target/24837
+	* gcc/config/linux.opt: New file.
+	* gcc/config/linux.h (CHOOSE_DYNAMIC_LINKER,
+	UCLIBC_DYNAMIC_LINKER, LINUX_DYNAMIC_LINKER): Define.
+	(TARGET_C99_FUNCTIONS): Define depending on TARGET_GLIBC.
+	* gcc/config.gcc (*-*-linux*): Define extra_options.
+	(*-*-*uclibc*): Define UCLIBC_DEFAULT.
+	(arm*-*-linux-gnueabi): Change to arm*-*-linux-*eabi.
+	* gcc/config/arm/linux-eabi.h (LINUX_TARGET_INTERPRETER): Change
+	to GLIBC_DYNAMIC_LINKER.
+	* gcc/config/arm/linux-elf.h (LINUX_TARGET_INTERPRETER): Likewise.
+	(LINUX_TARGET_LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/config/mips/linux.h (GLIBC_DYNAMIC_LINKER): Define.
+	(LINK_SPEC): Use LINUX_DYNAMIC_LINKER.
+	* gcc/doc/invoke.texi (GNU/Linux Options): New section.
+	* gcc/testsuite/gcc.dg/builtins-config.h (HAVE_C99_RUNTIME): Don't
+	define if __UCLIBC__ is defined.
+	* libstdc++-v3/config/os/uclibc/ctype_base.h,
+	libstdc++-v3/config/os/uclibc/ctype_inline.h,
+	libstdc++-v3/config/os/uclibc/ctype_noninline.h,
+	libstdc++-v3/config/os/uclibc/os_defines.h: New.
+	* libstdc++-v3/acinclude.m4 (GLIBCXX_CONFIGURE): Test whether
+	using uClibc.
+	* libstdc++-v3/configure.host: Use os/uclibc for uClibc.
+	* libstdc++-v3/crossconfig.m4 (*-linux*): Use link tests.  Don't
+	hardcode presence of math functions.
+	* libstdc++-v3/configure: Regenerate.
+
 2006-03-01  Paul Brook  <paul@codesourcery.com>
 
 	* gcc/doc/extend.texi: Document ARMv7 interrupt attribute.
@@ -34,7 +182,7 @@
 	(arm_zero_extendhisi2addsi, arm_zero_extendqisi2addsi,
 	arm_extendhisi2addsi, arm_extendqisi2addsi): Depend on
 	TARGET_INT_SIMD.
-	
+
 2005-02-16  Paul Brook  <paul@codesourcery.com>
 
 	Merge from csl/sourcerygxx-4_1

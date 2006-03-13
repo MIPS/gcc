@@ -49,6 +49,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "alloc-pool.h"
 #include "splay-tree.h"
 #include "tree-ssa-structalias.h"
+#include "params.h"
 
 /* The idea behind this analyzer is to generate set constraints from the
    program, then solve the resulting constraints in order to generate the
@@ -2883,8 +2884,25 @@ find_func_aliases (tree t, struct alias_info *ai)
 	  lhs = get_constraint_for (PHI_RESULT (t), NULL);
 	  for (i = 0; i < PHI_NUM_ARGS (t); i++)
 	    {
-	      rhs = get_constraint_for (PHI_ARG_DEF (t, i), NULL);
+	      bool need_anyoffset = false;
+	      tree anyoffsetrhs = PHI_ARG_DEF (t, i);
+
+	      rhs = get_constraint_for (PHI_ARG_DEF (t, i), &need_anyoffset);
 	      process_constraint (new_constraint (lhs, rhs));
+
+	      STRIP_NOPS (anyoffsetrhs);
+	      /* When taking the address of an aggregate
+	         type, from the LHS we can access any field
+	         of the RHS.  */
+	      if (need_anyoffset || (rhs.type == ADDRESSOF
+		  && !(get_varinfo (rhs.var)->is_special_var)
+		  && AGGREGATE_TYPE_P (TREE_TYPE (TREE_TYPE (anyoffsetrhs)))))
+		{
+		  rhs.var = anyoffset_id;
+		  rhs.type = ADDRESSOF;
+		  rhs.offset = 0;
+		  process_constraint (new_constraint (lhs, rhs));
+		}
 	    }
 	}
     }
@@ -3142,7 +3160,6 @@ check_for_overlaps (VEC (fieldoff_s,heap) *fieldstack)
     }
   return false;
 }
-
 /* Create a varinfo structure for NAME and DECL, and add it to VARMAP.
    This will also create any varinfo structures necessary for fields
    of DECL.  */
@@ -3204,7 +3221,8 @@ create_variable_info_for (tree decl, const char *name)
   if (use_field_sensitive 
       && !notokay 
       && !vi->is_unknown_size_var 
-      && var_can_have_subvars (decl))
+      && var_can_have_subvars (decl)
+      && VEC_length (fieldoff_s, fieldstack) <= MAX_FIELDS_FOR_FIELD_SENSITIVE)
     {
       unsigned int newindex = VEC_length (varinfo_t, varmap);
       fieldoff_s *fo = NULL;

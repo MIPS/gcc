@@ -38,6 +38,11 @@ enum epilogue_type
 extern enum processor_type mt_cpu;
 
 
+/* Support for a compile-time default CPU, et cetera.  The rules are:
+   --with-arch is ignored if -march is specified.  */
+#define OPTION_DEFAULT_SPECS \
+  {"arch", "%{!march=*:-march=%(VALUE)}" }
+
 /* A C string constant that tells the GCC driver program options to pass to
    the assembler.  */
 #undef  ASM_SPEC
@@ -231,10 +236,13 @@ march=ms2:exit-ms2.o%s; \
 					   seen  by the caller */
 #define GPR_INTERRUPT_LINK 15		/* hold return addres for interrupts */
 
+#define LOOP_FIRST         (GPR_LAST + 1)
+#define LOOP_LAST	   (LOOP_FIRST + 3)
+
 /* Argument register that is eliminated in favor of the frame and/or stack
    pointer.  Also add register to point to where the return address is
    stored.  */
-#define SPECIAL_REG_FIRST		(GPR_LAST + 1)
+#define SPECIAL_REG_FIRST		(LOOP_LAST + 1)
 #define SPECIAL_REG_LAST		(SPECIAL_REG_FIRST)
 #define ARG_POINTER_REGNUM		(SPECIAL_REG_FIRST + 0)
 #define SPECIAL_REG_P(R)		((R) == SPECIAL_REG_FIRST)
@@ -246,7 +254,7 @@ march=ms2:exit-ms2.o%s; \
 /* The register used to hold functions return value */
 #define RETVAL_REGNUM		11
 
-#define FIRST_PSEUDO_REGISTER (GPR_FIRST + 17)
+#define FIRST_PSEUDO_REGISTER (SPECIAL_REG_LAST + 1)
 
 #define IS_PSEUDO_P(R)	(REGNO (R) >= FIRST_PSEUDO_REGISTER)
 
@@ -258,7 +266,7 @@ march=ms2:exit-ms2.o%s; \
    R15	IRA	interrupt return address.  */
 #define FIXED_REGISTERS { 1, 0, 0, 0, 0, 0, 0, 0, \
 			  0, 0, 0, 0, 1, 1, 1, 1, \
-			  1			  \
+			  1, 1, 1, 1, 1		  \
 			 }
 
 /* Like `FIXED_REGISTERS' but has 1 for each register that is clobbered (in
@@ -267,7 +275,7 @@ march=ms2:exit-ms2.o%s; \
    allocation of values that must live across function calls.  */
 #define CALL_USED_REGISTERS	{ 1, 1, 1, 1, 1, 0, 0, 1, \
 				  1, 1, 1, 1, 1, 1, 1, 1, \
-				  1			  \
+				  1, 1, 1, 1, 1		  \
 				}
 
 
@@ -298,9 +306,9 @@ enum reg_class
 #define REG_CLASS_NAMES {"NO_REGS", "ALL_REGS" }
 
 #define REG_CLASS_CONTENTS \
-   {									\
-     { 0x0, 0x0 },							\
-     { (((1 << (GPR_LAST + 1)) - 1) & ~(1 << GPR_FIRST)), 0x0 },	\
+   {								\
+     { 0x0 },							\
+     { 0x000fffff },						\
    }
 
 /* A C expression whose value is a register class containing hard register
@@ -721,7 +729,7 @@ extern struct mt_frame_info current_frame_info;
 #define REGISTER_NAMES							\
 { "R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7",			\
   "R8", "R9", "R10", "R11", "R12", "R13", "R14", "R15",			\
-  "ap" }
+  "LOOP1", "LOOP2", "LOOP3", "LOOP4", "ap" }
 
 /* If defined, a C initializer for an array of structures containing a name and
    a register number.  This macro defines additional names for hard registers,

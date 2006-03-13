@@ -302,7 +302,8 @@ calculate_G_format (st_parameter_dt *dtp, const fnode *f,
   /* In case of the two data magnitude ranges,
      generate E editing, Ew.d[Ee].  */
   exp_d = calculate_exp (d);
-  if ((m > 0.0 && m < 0.1 - 0.05 / exp_d) || (m >= exp_d - 0.5 ))
+  if ((m > 0.0 && m < 0.1 - 0.05 / exp_d) || (m >= exp_d - 0.5 ) ||
+      ((m == 0.0) && !(compile_options.allow_std & GFC_STD_F2003)))
     {
       newf->format = FMT_E;
       newf->u.real.w = w;
@@ -1373,8 +1374,8 @@ write_real (st_parameter_dt *dtp, const char *source, int length)
       f.u.real.e = 3;
       break;
     case 10:
-      f.u.real.w = 24;
-      f.u.real.d = 15;
+      f.u.real.w = 28;
+      f.u.real.d = 19;
       f.u.real.e = 4;
       break;
     case 16:

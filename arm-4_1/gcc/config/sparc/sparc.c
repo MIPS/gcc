@@ -368,6 +368,9 @@ static int sparc_arg_partial_bytes (CUMULATIVE_ARGS *,
 static void sparc_dwarf_handle_frame_unspec (const char *, rtx, int);
 static void sparc_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void sparc_file_end (void);
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+static const char *sparc_mangle_fundamental_type (tree);
+#endif
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 const struct attribute_spec sparc_attribute_table[];
 #endif
@@ -526,6 +529,11 @@ static bool fpu_option_set = false;
 
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END sparc_file_end
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE sparc_mangle_fundamental_type
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2407,26 +2415,34 @@ empty_delay_slot (rtx insn)
 int
 tls_call_delay (rtx trial)
 {
-  rtx pat, unspec;
+  rtx pat;
 
   /* Binutils allows
-     call __tls_get_addr, %tgd_call (foo)
-      add %l7, %o0, %o0, %tgd_add (foo)
+       call __tls_get_addr, %tgd_call (foo)
+        add %l7, %o0, %o0, %tgd_add (foo)
      while Sun as/ld does not.  */
   if (TARGET_GNU_TLS || !TARGET_TLS)
     return 1;
 
   pat = PATTERN (trial);
-  if (GET_CODE (pat) != SET || GET_CODE (SET_DEST (pat)) != PLUS)
-    return 1;
 
-  unspec = XEXP (SET_DEST (pat), 1);
-  if (GET_CODE (unspec) != UNSPEC
-      || (XINT (unspec, 1) != UNSPEC_TLSGD
-	  && XINT (unspec, 1) != UNSPEC_TLSLDM))
-    return 1;
+  /* We must reject tgd_add{32|64}, i.e.
+       (set (reg) (plus (reg) (unspec [(reg) (symbol_ref)] UNSPEC_TLSGD)))
+     and tldm_add{32|64}, i.e.
+       (set (reg) (plus (reg) (unspec [(reg) (symbol_ref)] UNSPEC_TLSLDM)))
+     for Sun as/ld.  */
+  if (GET_CODE (pat) == SET
+      && GET_CODE (SET_SRC (pat)) == PLUS)
+    {
+      rtx unspec = XEXP (SET_SRC (pat), 1);
 
-  return 0;
+      if (GET_CODE (unspec) == UNSPEC
+	  && (XINT (unspec, 1) == UNSPEC_TLSGD
+	      || XINT (unspec, 1) == UNSPEC_TLSLDM))
+	return 0;
+    }
+
+  return 1;
 }
 
 /* Return nonzero if TRIAL, an insn, can be combined with a 'restore'
@@ -8707,5 +8723,21 @@ sparc_file_end (void)
   if (NEED_INDICATE_EXEC_STACK)
     file_end_indicate_exec_stack ();
 }
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+
+static const char *
+sparc_mangle_fundamental_type (tree type)
+{
+  if (!TARGET_64BIT
+      && TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_LONG_DOUBLE_128)
+    return "g";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+#endif
 
 #include "gt-sparc.h"

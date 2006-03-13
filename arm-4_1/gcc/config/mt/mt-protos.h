@@ -26,6 +26,7 @@ extern void	    mt_override_options (void);
 extern int	    mt_initial_elimination_offset (int, int);
 extern const char * mt_asm_output_opcode (FILE *, const char *);
 extern int          mt_epilogue_uses	 (int);
+extern void	    mt_add_loop 	 (void);
 
 #ifdef TREE_CODE
 extern const char * mt_cannot_inline_p	 (tree);
