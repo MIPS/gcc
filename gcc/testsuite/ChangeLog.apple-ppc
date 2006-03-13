@@ -1,3 +1,8 @@
+2006-03-10  Fariborz Jahanian <fjahanian@apple.com>
+        
+        Radar 4407151
+        * obj-c++.dg/template-7.mm: New.
+
 2006-03-07  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4457939

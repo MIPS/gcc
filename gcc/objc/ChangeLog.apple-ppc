@@ -1,3 +1,11 @@
+2006-03-10  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4407151
+        * objc/objc-act.c (objc_is_class_name): template parameter is not
+        an objective class name.
+        (objc_generate_cxx_cdtors): Check for the null
+        objc_implementation_context.
+	
 2006-02-07  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4219590
