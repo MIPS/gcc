@@ -1,3 +1,9 @@
+2006-03-13  Mike Stump  <mrs@apple.com>
+
+	Radar 4230099
+	* g++.apple/apple.exp: Add.
+	* g++.apple/visibility-1.C: Add.
+
 2006-03-13  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4474655

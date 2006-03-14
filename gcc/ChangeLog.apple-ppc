@@ -1,3 +1,9 @@
+2006-03-13  Mike Stump  <mrs@apple.com>
+
+	Radar 4230099
+	* c.opt (fvisibility-ms-compat): Add.
+	* doc/invoke.texi (-fvisibility-ms-compat): Add.
+
 2006-03-13  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4474655

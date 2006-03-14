@@ -2944,6 +2944,10 @@ cxx_init_decl_processing (void)
     }
   if (flag_inline_functions)
     flag_inline_trees = 2;
+  /* APPLE LOCAL begin ms tinfo compat 4230099 */
+  if (flag_visibility_ms_compat)
+    default_visibility = VISIBILITY_HIDDEN;
+  /* APPLE LOCAL end ms tinfo compat 4230099 */
 
   /* Force minimum function alignment if using the least significant
      bit of function pointers to store the virtual bit.  */

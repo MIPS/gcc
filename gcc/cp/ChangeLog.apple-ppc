@@ -1,3 +1,10 @@
+2006-03-13  Mike Stump  <mrs@apple.com>
+
+	Radar 4230099
+	* decl2.c (determine_visibility): Add suppport for
+	-fvisibility-ms-compat.
+	* decl.c (cxx_init_decl_processing): Likewise.
+
 2006-02-08  Mike Stump  <mrs@apple.com>
 
 	Radar 4407059

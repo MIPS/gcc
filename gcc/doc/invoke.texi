@@ -231,6 +231,8 @@ in the following sections.
 -frepo  -fno-rtti  -fstats  -ftemplate-depth-@var{n} @gol
 -fno-threadsafe-statics -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
 -fno-default-inline  -fvisibility-inlines-hidden @gol
+@c APPLE LOCAL ms tinfo compat 4230099
+-fvisibility-ms-compat
 -Wabi  -Wctor-dtor-privacy @gol
 -Wnon-virtual-dtor  -Wreorder @gol
 -Weffc++  -Wno-deprecated  -Wstrict-null-sentinel @gol
@@ -1771,6 +1773,35 @@ it is used, often the wastage is less than the considerable space occupied
 by a long symbol name in the export table which is typical when using
 templates and namespaces.  For even more savings, combine with the
 @option{-fvisibility=hidden} switch.
+
+@c APPLE LOCAL begin ms tinfo compat 4230099
+@item -fvisibility-ms-compat
+@opindex fvisibility-ms-compat
+This flag attempts to use visibility settings to make GCC's C++
+linkage model compatible with that of Microsoft Visual Studio.
+
+The flag makes these changes to GCC's linkage model:
+
+1. It sets the default visibility to 'hidden', like @option{-fvisibility=hidden}.
+2. Types, but not their members, are not hidden by default.
+3. The One Definition Rule is relaxed for types without explicit
+visibility specifications which are defined in more than one different
+shared object: those declarations are permitted if they would have
+been permitted when this option was not used.
+
+This option is discouraged, rather, it is preferable for types to be
+explicitly exported as desired on a per-class basis.  Unfortunately
+because Visual Studio can't compare two different hidden types as
+unequal for the purposes of type_info and exception handling, users
+are able to write code that relies upon this behavior.
+
+Among the consequences of these changes are that static data members
+of the same type with the same name but defined in different shared
+objects will be different, so changing one will not change the other;
+and that pointers to function members defined in different shared
+objects will not compare equal.  When this flag is given, it is a
+violation of the ODR to define types with the same name differently.
+@c APPLE LOCAL end ms tinfo compat 4230099
 
 @item -fno-weak
 @opindex fno-weak
