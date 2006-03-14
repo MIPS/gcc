@@ -1,16 +1,22 @@
-2005-03-08 Fariborz Jahanian <fjahanian@apple.com>
+2006-03-13 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4472881
+	* c-parse.in: Change grammar code as needed to allow
+	declaration in objective-c's foreach for-loop loop header.
+ 
+2006-03-08 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4468456
 	* c-gimplify.c (gimplify_c_loop): 'continue' label is generated
 	as in normal case and belongs to current loop.
 
-2005-03-07 Fariborz Jahanian <fjahanian@apple.com>
+2006-03-07 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4468498
 	* c-parse.in (for_objc_collection): Add grammar for non-declarative 
 	form of foreach-statement.
 
-2005-02-28 Fariborz Jahanian <fjahanian@apple.com>
+2006-02-28 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4441049
 	* c-common.h (objc_v2_bitfield_ivar_bitpos): New decl.
@@ -18,7 +24,7 @@
 	* stub-objc.c (objc_v2_bitfield_ivar_bitpos): New stub.
 	* expr.c (get_inner_reference): Compute ivar's bitfield bit offset.
 	
-2005-02-28  Devang Patel  <dpatel@apple.com>
+2006-02-28  Devang Patel  <dpatel@apple.com>
   	    Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 4137741
