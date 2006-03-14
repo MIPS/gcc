@@ -976,7 +976,7 @@ options and for @option{-mhard-float} or @option{-msoft-float}.  As with
 of the arguments depend on the target.
 
 @item --with-mode=@var{mode}
-Specity if the compiler shoud default to @option{-marm} or @option{-mthumb}.
+Specify if the compiler should default to @option{-marm} or @option{-mthumb}.
 This option is only supported on ARM targets.
 
 @item --with-divide=@var{type}
