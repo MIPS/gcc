@@ -755,7 +755,6 @@ FUNCTION_H = function.h $(TREE_H)
 EXPR_H = expr.h insn-config.h $(FUNCTION_H) $(RTL_H) $(FLAGS_H) $(TREE_H) $(MACHMODE_H) $(EMIT_RTL_H)
 OPTABS_H = optabs.h insn-codes.h
 REGS_H = regs.h varray.h $(MACHMODE_H) $(OBSTACK_H) $(BASIC_BLOCK_H) $(FUNCTION_H)
-RESOURCE_H = resource.h hard-reg-set.h
 SCHED_INT_H = sched-int.h $(INSN_ATTR_H) $(BASIC_BLOCK_H) $(RTL_H)
 INTEGRATE_H = integrate.h varray.h
 CFGLAYOUT_H = cfglayout.h $(BASIC_BLOCK_H)
@@ -765,6 +764,7 @@ IPA_REFERENCE_H = ipa-reference.h bitmap.h $(TREE_H)
 IPA_TYPE_ESCAPE_H = ipa-type-escape.h $(TREE_H)  
 CGRAPH_H = cgraph.h $(TREE_H)
 DF_H = df.h bitmap.h $(BASIC_BLOCK_H) alloc-pool.h
+RESOURCE_H = resource.h hard-reg-set.h $(DF_H)
 DDG_H = ddg.h sbitmap.h $(DF_H)
 GCC_H = gcc.h version.h
 GGC_H = ggc.h gtype-desc.h
@@ -2504,7 +2504,7 @@ reorg.o : reorg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    conditions.h hard-reg-set.h $(BASIC_BLOCK_H) $(REGS_H) insn-config.h \
    $(INSN_ATTR_H) except.h $(RECOG_H) $(FUNCTION_H) $(FLAGS_H) output.h \
    $(EXPR_H) toplev.h $(PARAMS_H) $(TM_P_H) $(OBSTACK_H) $(RESOURCE_H) \
-   timevar.h target.h tree-pass.h
+   timevar.h target.h tree-pass.h $(DF_H)
 alias.o : alias.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(FLAGS_H) hard-reg-set.h $(BASIC_BLOCK_H) $(REGS_H) toplev.h output.h \
    $(ALIAS_H) $(EMIT_RTL_H) $(GGC_H) $(FUNCTION_H) cselib.h $(TREE_H) $(TM_P_H) \
@@ -2547,7 +2547,7 @@ final.o : final.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(INSN_ATTR_H) $(FUNCTION_H) real.h output.h hard-reg-set.h \
    except.h debug.h xcoffout.h toplev.h reload.h dwarf2out.h tree-pass.h \
    $(BASIC_BLOCK_H) $(TM_P_H) $(TARGET_H) $(EXPR_H) $(CFGLAYOUT_H) dbxout.h \
-   timevar.h cgraph.h $(COVERAGE_H) $(DF_H)
+   timevar.h cgraph.h $(COVERAGE_H)
 recog.o : recog.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(FUNCTION_H) $(BASIC_BLOCK_H) $(REGS_H) $(RECOG_H) $(EXPR_H) hard-reg-set.h \
    $(FLAGS_H) insn-config.h $(INSN_ATTR_H) real.h toplev.h output.h reload.h \

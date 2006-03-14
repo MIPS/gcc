@@ -187,6 +187,10 @@ static GTY(()) varray_type stack_regs_mentioned_data;
 
 #define REG_STACK_SIZE (LAST_STACK_REG - FIRST_STACK_REG + 1)
 
+static struct df *df = NULL;
+
+int regstack_completed = 0;
+
 /* This is the basic stack record.  TOP is an index into REG[] such
    that REG[TOP] is the top of stack.  If TOP is -1 the stack is empty.
 
@@ -3063,17 +3067,6 @@ reg_to_stack (void)
   int i;
   int max_uid;
 
-#if 0
-  fprintf (stderr, "\n\n\n\n");
-
-  df_dump (rtl_df, stderr);
-
-  FOR_EACH_BB (bb)
-    {
-      fprintf (stderr, "\n");
-      dump_bb (bb, stderr, 0);
-    }
-#endif
   /* Clean up previous run.  */
   stack_regs_mentioned_data = 0;
 
@@ -3085,17 +3078,12 @@ reg_to_stack (void)
   if (i > LAST_STACK_REG)
     return false;
 
-  /* Ok, floating point instructions exist.  If not optimizing,
-     build the CFG and run life analysis.
-     Also need to rebuild life when superblock scheduling is done
-     as it don't update liveness yet.  */
-  if (!optimize
-      || ((flag_sched2_use_superblocks || flag_sched2_use_traces)
-	  && flag_schedule_insns_after_reload))
-    {
-      count_or_remove_death_notes (NULL, 1);
-      life_analysis (PROP_DEATH_NOTES);
-    }
+  df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (df);
+  df_ur_add_problem (df);
+  df_ri_add_problem (df);
+  df_analyze (df);
+
   mark_dfs_back_edges ();
 
   /* Set up block info for each basic block.  */
@@ -3118,9 +3106,9 @@ reg_to_stack (void)
       /* Copy live_at_end and live_at_start into temporaries.  */
       for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
 	{
-	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_OUT (rtl_df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_OUT (df, bb), reg))
 	    SET_HARD_REG_BIT (bi->out_reg_set, reg);
-	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (rtl_df, bb), reg))
+	  if (REGNO_REG_SET_P (DF_UPWARD_LIVE_IN (df, bb), reg))
 	    SET_HARD_REG_BIT (bi->stack_in.reg_set, reg);
 	}
     }
@@ -3163,6 +3151,7 @@ reg_to_stack (void)
 
   convert_regs ();
 
+  df_finish (df);
   free_aux_for_blocks ();
   return true;
 }
@@ -3184,8 +3173,10 @@ static void
 rest_of_handle_stack_regs (void)
 {
 #ifdef STACK_REGS
+#if 0
   if (reg_to_stack () && optimize)
     {
+      regstack_completed = 1;
       if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
                        | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
           && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
@@ -3194,6 +3185,10 @@ rest_of_handle_stack_regs (void)
           cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
         }
     }
+#else
+  reg_to_stack ();
+#endif
+  regstack_completed = 1;
 #endif
 }
 

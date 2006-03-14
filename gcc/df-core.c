@@ -1148,8 +1148,7 @@ df_dump (struct df *df, FILE *file)
 
 
 void
-df_refs_chain_dump (struct df *df, struct df_ref *ref, 
-		   bool follow_chain, FILE *file)
+df_refs_chain_dump (struct df_ref *ref, bool follow_chain, FILE *file)
 {
   fprintf (file, "{ ");
   while (ref)
@@ -1159,7 +1158,7 @@ df_refs_chain_dump (struct df *df, struct df_ref *ref,
 	       DF_REF_ID (ref),
 	       DF_REF_REGNO (ref));
       if (follow_chain)
-	df_chain_dump (df, DF_REF_CHAIN (ref), file);
+	df_chain_dump (DF_REF_CHAIN (ref), file);
       ref = ref->next_ref;
     }
   fprintf (file, "}");
@@ -1183,6 +1182,28 @@ df_regs_chain_dump (struct df *df ATTRIBUTE_UNUSED, struct df_ref *ref,  FILE *f
   fprintf (file, "}");
 }
 
+
+static void
+df_mws_dump (struct df_mw_hardreg *mws, FILE *file)
+{
+  while (mws)
+    {
+      struct df_link *regs = mws->regs;
+      fprintf (file, "%c%d(", 
+	       (mws->type == DF_REF_REG_DEF) ? 'd' : 'u',
+	       DF_REF_REGNO (regs->ref));
+      while (regs)
+	{
+	  fprintf (file, "%d ", DF_REF_REGNO (regs->ref));
+	  regs = regs->next;
+	}
+
+      fprintf (file, ") "); 
+      mws = mws->next;
+    }
+}
+
+
 static void 
 df_insn_uid_debug (struct df *df, unsigned int uid, 
 		   bool follow_chain, FILE *file)
@@ -1196,12 +1217,26 @@ df_insn_uid_debug (struct df *df, unsigned int uid,
   else
     bbi = -1;
 
-  fprintf (file, "insn %d bb %d luid %d defs ",
+  fprintf (file, "insn %d bb %d luid %d",
 	   uid, bbi, DF_INSN_UID_LUID (df, uid));
 
-  df_refs_chain_dump (df, DF_INSN_UID_DEFS (df, uid), follow_chain, file);
-  fprintf (file, " defs ");
-  df_refs_chain_dump (df, DF_INSN_UID_USES (df, uid), follow_chain, file);
+  if (DF_INSN_UID_DEFS (df, uid))
+    {
+      fprintf (file, " defs ");
+      df_refs_chain_dump (DF_INSN_UID_DEFS (df, uid), follow_chain, file);
+    }
+
+  if (DF_INSN_UID_USES (df, uid))
+    {
+      fprintf (file, " uses ");
+      df_refs_chain_dump (DF_INSN_UID_USES (df, uid), follow_chain, file);
+    }
+
+  if (DF_INSN_UID_MWS (df, uid))
+    {
+      fprintf (file, " mws ");
+      df_mws_dump (DF_INSN_UID_MWS (df, uid), file);
+    }
   fprintf (file, "\n");
 }
 
@@ -1247,17 +1282,17 @@ df_regno_debug (struct df *df, unsigned int regno, FILE *file)
 
 
 void
-df_ref_debug (struct df *df, struct df_ref *ref, FILE *file)
+df_ref_debug (struct df_ref *ref, FILE *file)
 {
   fprintf (file, "%c%d ",
 	   DF_REF_REG_DEF_P (ref) ? 'd' : 'u',
 	   DF_REF_ID (ref));
-  fprintf (file, "reg %d bb %d luid %d insn %d chain ",
+  fprintf (file, "reg %d bb %d insn %d flag %x chain ",
 	   DF_REF_REGNO (ref),
 	   DF_REF_BBNO (ref),
-	   DF_REF_INSN (ref) ? DF_INSN_LUID (df, DF_REF_INSN (ref)) : -1,
-	   DF_REF_INSN (ref) ? INSN_UID (DF_REF_INSN (ref)) : -1);
-  df_chain_dump (df, DF_REF_CHAIN (ref), file);
+	   DF_REF_INSN (ref) ? INSN_UID (DF_REF_INSN (ref)) : -1,
+	   DF_REF_FLAGS (ref));
+  df_chain_dump (DF_REF_CHAIN (ref), file);
   fprintf (file, "\n");
 }
 
@@ -1288,28 +1323,28 @@ debug_df_regno (unsigned int regno)
 void
 debug_df_ref (struct df_ref *ref)
 {
-  df_ref_debug (ddf, ref, stderr);
+  df_ref_debug (ref, stderr);
 }
 
 
 void
 debug_df_defno (unsigned int defno)
 {
-  df_ref_debug (ddf, DF_DEFS_GET (ddf, defno), stderr);
+  df_ref_debug (DF_DEFS_GET (ddf, defno), stderr);
 }
 
 
 void
 debug_df_useno (unsigned int defno)
 {
-  df_ref_debug (ddf, DF_USES_GET (ddf, defno), stderr);
+  df_ref_debug (DF_USES_GET (ddf, defno), stderr);
 }
 
 
 void
 debug_df_chain (struct df_link *link)
 {
-  df_chain_dump (ddf, link, stderr);
+  df_chain_dump (link, stderr);
   fputc ('\n', stderr);
 }
 
@@ -1344,4 +1379,29 @@ struct tree_opt_pass pass_reset_df_after_reload =
   0                                     /* letter */
 };
 
+static void 
+clear_df (void)
+{
+  if (rtl_df)
+    {
+      df_finish (rtl_df);
+      rtl_df = NULL;
+    }
+}
 
+struct tree_opt_pass pass_clear_df =
+{
+  "clear_df",                           /* name */
+  NULL,                                 /* gate */
+  clear_df,                /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};

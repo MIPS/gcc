@@ -581,12 +581,25 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   unsigned i = 0;
   int stabilized_prop_flags = prop_flags;
   basic_block bb;
+  bitmap blocks_in_bitmap = NULL;
 
   tmp = ALLOC_REG_SET (&reg_obstack);
   ndead = 0;
 
   if (prop_flags & PROP_KILL_DEAD_CODE)
-    run_fast_dce ();
+    {
+      if (blocks)
+	{
+	  sbitmap_iterator sbi;
+	  blocks_in_bitmap = BITMAP_GGC_ALLOC ();
+	  EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)
+	    {
+	      bitmap_set_bit (blocks_in_bitmap, i);
+	    }
+	  df_rescan_blocks (rtl_df, blocks_in_bitmap);
+	}
+      run_fast_dce ();
+    }
   if ((prop_flags & PROP_REG_INFO) && !reg_deaths)
     reg_deaths = XCNEWVEC (int, max_regno);
 
@@ -610,10 +623,8 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   /* For a global update, we go through the relaxation process again.  */
   if (extent != UPDATE_LIFE_LOCAL)
     {
-      bitmap blocks_in_bitmap = NULL;
       sbitmap_iterator sbi;
-
-      if (blocks)
+      if (blocks && (blocks_in_bitmap == NULL))
 	{
 	  blocks_in_bitmap = BITMAP_GGC_ALLOC ();
 	  EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)

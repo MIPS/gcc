@@ -1,3 +1,63 @@
+2006-03-14  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* tree-pass.h: Added pass to clear other dataflow infomation out.
+	* final.c (rest_of_handle_final, rest_of_clean_state): Cleared out
+	references to df.
+	(rest_of_clean_state) Added regstack_completed.
+	* reorg.c (fill_simple_delay_slots, fill_slots_from_thread,
+	fill_eager_delay_slots, make_return_insns): Added df parameter to function.
+	(make_return_insns, dbr_schedule) Added df parameter to calls.
+	* flow.c (update_life_info): Added glue code to df calls.
+	* df-scan.c (df_scan_free_internal, df_insn_refs_delete, df_ref_record): Added
+	code to properly handle multiword hard registers.
+	(df_ref_create_structure, df_ref_record): Added code to properly handle subregs.
+	(df_ref_create_structure): Changed switching structure. 
+	(df_bb_refs_record): Fixed case where duplicate artificial refs
+	were created.
+	(df_record_entry_block_defs): Added code to make stack pointer
+	live in entry block.  Refined cases where frame pointer is needed.
+	* df-core.c (df_mvs_dump, clear_df): New function.
+	(pass_clear_df): New pass structure.
+	(df_insn_uid_debug, df_ref_debug, debug_df_defno, debug_df_ref,
+	debug_df_chain): Improved debugging output.
+	* df.h: Some reordering to remove forward reference.
+	(df_ref_flags.DF_REF_MW_HARDREG, DF_REF_PARTIAL): New fields.
+	(df_ref_flags.DF_REF_DIES_AFTER_THIS_USE): Removed.
+	(df_mw_hardreg): New struct.
+	(DF_INSN_UID_MWS): New macro.
+	(df_refs_chain_dump, df_ref_debug, df_chain_dump): Removed df
+	parameter.
+	* rtl.h (regstack_completed): New global var.
+	* resource.c (mark_target_live_regs): Added passed in instance of
+	df.
+	* resource.h (mark_target_live_regs): Ditto.
+	* df-problems.c (df_chain_dump): Removed df parameter.
+        (df_ru_bb_local_compute_process_def,
+	df_rd_bb_local_compute_process_def, df_lr_bb_local_compute,
+	df_lr_bb_local_compute, df_chain_create_bb): Made subreg aware.
+	(df_ru_bb_local_compute, df_rd_bb_local_compute,
+	df_lr_bb_local_compute, df_lr_bb_local_compute,
+	df_chain_create_bb): Cleanup to use proper macros.
+	(df_ur_local_finalize, df_ur_local_finalize): Removed unnecessary
+	code to fixup bitvectors.
+	(df_ri_alloc): Cleared lifetime.
+	(df_ignore_stack_reg, df_kill_notes, df_set_notes_for_mw,
+	df_create_unused_note): New function.
+	(df_ri_bb_compute, df_ri_compute): Added code to create/update
+	REG_DEAD and REG_UNUSED notes.
+	* reg-stack.c (regstack_completed): New variable.
+	(reg_to_stack): Modified to use it's own instance of df.
+	(rest_of_handle_stack_regs): Removed most cleanup code.
+	* Makefile.in (reorg.o, RESOURCE_H): Added dependancy to df.h.
+	(final.o): Removed dependency to df.h
+	* passes.c (pass_magic_life): Removed.
+	(pass_clear_df): Added.
+	* dce.c (prescan_insns_for_dce, end_fast_dce): Now works if no instance of
+	df is available.
+	(dce_process_block): Made subreg aware.
+	(rest_of_handle_fast_dce): Reset bitvectors when iterating.
+	(prescan_insns_for_dse): Removed useless code.
+
 2006-02-06  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* doc/rtl.texi: Document REG_LIBCALL_ID.
