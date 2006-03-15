@@ -1,0 +1,4 @@
+2005-09-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/22555
+	* gcc.dg/tree-ssa/alias-3.c: New testcase.

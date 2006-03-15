@@ -1,0 +1,330 @@
+2005-11-06  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree.h (tree_memory_tag): Add parent_var.
+	(SFT_PARENT_VAR): New macro.
+	* tree-ssa-alias.c (set_initial_properties): For now, mark global 
+	tags as clobbered.
+	(create_sft): Set SFT_PARENT_VAR.
+	* tree-ssa-operands.c (add_call_clobber_ops):  Lookup and use
+	parent vars.
+
+2005-10-18  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/24287
+	* tree-dfa.c (dump_variable): Print reasons for call clobbering.
+	* tree-flow.h (struct ptr_info_def): Add escape mask to pointer.
+	(ESCAPE_TRANSITIVE): Removed.
+	(ESCAPE_TO_PURE_CONST): New.
+	(ESCAPE_IS_PARM): New.
+	(ESCAPE_UNKNOWN): New.
+	* tree-ssa-alias.c (set_initial_properties): Incoming pointers are
+	value escaping.
+	Pointers that point to anything are not.
+	Use pointer escape mask.
+	(is_escape_site): Use ESCAPE_TO_PURE_CONST.
+	* tree-ssa-operands.c (add_call_clobber_ops): Clean up a bit.
+	Things that *only* escape to pure/const functions are only read by
+	pure/const functions, and are not clobbered by the non-pure/const
+	functions. 
+	(add_call_read_ops): Cleanup.
+	* tree-ssa-structalias.c (update_alias_info): Use pi->escape_mask,
+	not v_ann.
+
+2005-10-17  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-structalias.c (process_constraint): Remove code to
+	transform addressofs into scalar.
+	(create_variable_info_for): In whole-program IPA, globals don't
+	point to ANYTHING by default.
+
+2005-10-08  Daniel Berlin  <dberlin@dberlin.org>
+
+	* ipa-callees.c (callees_execute): Use externally visible.
+	* passes.c (pass_ipa_pta): New but commented out.
+	* timevar.def (TV_IPA_PTA): New.
+	* tree-pass.h (pass_ipa_pta): New
+	* tree-ssa-structalias.c: Include cgraph.h
+	(in_ipa_mode): New.
+	(predbitmap_obstack): New.
+	(EXECUTE_IF_IN_NONNULL_BITMAP): New.
+	(struct constraint_stats): Add num_edges.
+	(new_var_info): Don't call bitmap_clear.
+	(struct constraint_edge): Update docs.
+	(new_constraint_edge): Remove src param.
+	(struct constraint_graph): Add zero_weight_succs,
+	zero_weight_preds.  Update docs.
+	(constraint_expr_equal): Reformat.
+	(constraint_edge_equal): Update for removal of src.
+	(constraint_edge_less): Ditto.
+	(constraint_edge_vec_find): Ditto.
+	(erase_graph_self_edge): Update for removal of src and and zero
+	weight bitmap.
+	(clear_edges_for_node): Ditto.
+	(add_graph_edge): Ditto.
+	(get_graph_weights): Ditto.
+	(allocate_graph_weights): Ditto.
+	(merge_graph_nodes): Ditto.
+	(int_add_graph_edge): Ditto.
+	(valid_graph_edge): Ditto.
+	(valid_weighted_graph_edge): Ditto.
+	(build_constraint_graph): Ditto.
+	(scc_visit): Ditto.
+	(collapse_nodes): Ditto.
+	(process_unification_queue): Ditto.
+	(topo_visit): Ditto.
+	(solve_graph): Ditto.
+	(do_structure_copy): Ditto.
+	(perform_var_substitution): Ditto.
+	Init and release obstack.
+	(handle_ptr_arith): Try to resolve directly.
+	(find_func_aliases): Don't call update_alias_info here
+	Handle RETURN_EXPR, and CALL_EXPR's in IPA mode.
+	(do_sd_constraint): Add code for propagating faster.
+	Update.
+	(do_ds_constraint): Ditto.
+	(count_num_arguments): New function.
+	(create_function_info_for): Ditto.
+	(create_variable_info_for): Handle FUNCTION_DECL.
+	(intra_create_variable_infos): Use make_constraint_to_anything.
+	(init_alias_vars): Init obstacks here.
+	(need_to_solve): Handle zero weight graph changes.
+	(compute_points_to_sets): Call update_alias_info here.
+	(delete_points_to_sets): Free zero weight preds/succs here.
+	(gate_ipa_pta): New.
+	(ipa_pta_execute): New
+			   
+2005-10-02  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-structalias.c (var_anyoffset): Removed.
+	(anyoffset_tree): Ditto.
+	(anyoffset_id): Ditto.
+	(do_deref): Take vector of constraints, no return value.
+	Update to work on vector.		 
+	(get_constraint_for): Ditto.
+	(get_constraint_for_component_ref): Ditto.
+	(do_structure_copy): Ditto.
+	(handle_ptr_arith): Ditto.
+	(find_func_aliases): Ditto.
+	(set_uids_in_ptset): Remove anyoffset handling.
+	(init_base_vars): Ditto.
+
+2005-09-29  Daniel Berlin  <dberlin@dberlin.org>
+
+	* ipa-callees.c (argument_readonly_nonpointer): Removed.
+	(has_pointer_arguments): Renamed from has_nonreadonly_pointer_arguments.
+
+2005-09-29  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* ipa-callees.c (scan_for_indirect_calls): New function.
+	(argument_readonly_nonpointer): New function
+	(has_nonreadonly_pointer_arguments): Ditto.
+	(callees_execute): Scan for indirect calls.
+	Cleanup a small amount.
+	* tree-flow-inline.h: (mark_call_clobbered): Remove used of call
+	call clobbered cache.
+	(mark_non_addressable): Ditto.
+	(clear_call_clobbered): Ditto.
+	* tree-flow.h (struct_function_ann_d): Add has_pointer_arguments.
+	* tree-ssa-alias.c: Fixup function names missed during global replace.
+	(init_transitive_clobber_worklist): Pass in reason worklist.
+	Push reason onto second worklist.
+	(add_to_worklist): Ditto.
+	(mark_aliases_call_clobbered): Ditto.
+	(compute_call_clobbered): Ditto.
+	(set_initial_properties): Handle subvars properly.
+	* tree-ssa-operands.c  (clobber_stats) :New.
+	(init_ssa_operands): Initialize clobber stats.
+	(fini_ssa_operands): Print out stats if requested. Remove call
+        clobbered caches
+	(add_call_read_ops): Add callee argument. Use escapable
+ 	and static read info to avoid clobbers.
+	Remove cache.
+	(callee_okay_for_noescape): New function.
+	(add_call_clobber_ops): Use it.
+	Use nonescaping info.
+	* tree-ssa-operands.h: Remove call clobbered cache.
+	
+2005-09-26  Daniel Berlin  <dberlin@dberlin.org>
+	   
+	* ipa-callees.c (callees_execute): Use function_ann.
+	* ipa-reference.c (get_reference_vars_info_from_cgraph): Ditto.
+	(get_local_reference_vars_info): Ditto.
+	(get_global_reference_vars_info): Ditto.
+	(analyze_function): Ditto.
+	(clean_function): Ditto.
+	* tree-dfa.c (create_function_ann): New function.
+	* tree-flow-inline.h (var_ann): FUNCTION_DECL's don't have
+	var_ann.
+	(function_ann): New.
+	(get_function_ann): Ditto.
+	(mark_call_clobbered): Add escape_type parameter.
+	Set escape mask.
+	(mark_bitmap_call_clobbered): Removed for now.
+	(clear_call_clobbered): Clear escape_mask.
+	* tree-flow.h (tree_ann_type): Add FUNCTION_ANN.
+	(struct var_ann_d): Add escape_mask.
+	Move callees and reference_vars_info to function annotation.
+	(struct function_ann_d): New.
+	(union tree_ann_d): Add function_ann.
+	(enum escape_type): New.
+	* tree-outof-ssa.c (create_temp): Copy escape_mask.
+	* tree-ssa-alias.c (mark_aliases_call_clobbered): Use escape mask.
+	(compute_tag_properties): Ditto.
+	(set_initial_properties): Ditto.
+	(compute_call_clobbered): Ditto.
+	(is_escape_site): Return escape type.
+	(create_global_var): Mark as escaped.
+	* tree-ssa-structalias.c (update_alias_info): Mark reason for
+	escaping. 
+
+2005-09-26  Daniel Berlin  <dberlin@dberlin.org>
+
+	* print-tree.c (print_node): Update to check for decl_common structure.
+	* tree-dfa.c (add_referenced_var): Tag's don't have DECL_INITIAL.
+	* tree-dump.c (dequeue_and_dump): Check for decl_common structure
+	before accessing DECL_ARTIFICIAL. 
+	Handle new tree codes.
+	* tree-flow-inline.h (clear_call_clobbered): Update for tag
+	changes.
+	(unmodifiable_var_p): Ditto.
+	* tree-flow.h (mem_tag_kind): Remove.
+	(struct var_ann_d): Remove mem_tag_kind member.
+	* tree-gimple.c (is_gimple_reg): Tags are not gimple registers.
+	* tree-pretty-print.c (dump_generic_node): Handle tags.
+	* tree-ssa-alias.c (tag_marked_global): Update for tags.
+	(mark_tag_global): Ditto.
+	(init_transitive_clobber_worklist): Ditto.
+	(mark_aliases_call_clobbered): Ditto.
+	(compute_tag_properties): Ditto.
+	(init_alias_info): Ditto.
+	(group_aliases): Ditto.
+	(setup_pointers_and_addressables): Ditto.
+	(may_alias_p): Ditto.
+	(create_tag_raw): New function.
+	(create_memory_tag): Use it.
+	(dump_alias_info): Update for tags.
+	(may_be_aliased): Ditto.
+	(add_type_alias): Ditto.
+	(new_type_alias): Ditto.
+	(create_sft): Ditto.
+	(create_structure_vars): Ditto.
+	* tree-ssa-ccp.c (get_default_value): Ditto.
+	* tree-ssa-operands.c (get_expr_operands): Ditto.
+	(add_stmt_operand): Ditto.
+	(add_call_clobber_ops): Remove duplicated condition.
+	* tree-ssa.c (verify_flow_insensitive_alias_info): Update for
+	tags.
+	* tree-tailcall.c (suitable_for_tail_opt_p): Ditto.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): Ditto.
+	* tree.c (init_ttree): Update structures for new tree codes.
+	(tree_code_size): Update sizes for new tree codes.
+	(make_node_stat): Don't try to set common things on minimal
+	structures.
+	(tree_node_structure): Update for tags.
+	(is_global_var): Ditto.
+	* tree.def: Add new tree codes.
+	* tree.h (MTAG_P): New macro.
+	(TREE_MEMORY_TAG_CHECK): Ditto.
+	(SSA_VAR_P): Update for tags.
+	(struct tree_memory_tag): New structure.
+	(MTAG_GLOBAL): New macro.
+	(union tree_node): Add memory tag member.
+	* treestruct.def (TS_MEMORY_TAG): New.
+	
+2005-09-22  Daniel Berlin  <dberlin@dberlin.org>
+	    Jan Hubicka <jh@suse.cz>
+	
+	* Makefile.in (ipa-callees.o): New.
+	
+	* ipa-reference.c (check_operand): Handle FUNCTION_DECL.
+	(look_for_address_of): Ditto.
+	(ipa_init): Add static functions to all_module_statics.
+	(static_execute): Don't touch readonly on FUNCTION_DECL.
+	
+	* cgraph.c (cgraph_create_node): Add to uid array.
+	(cgraph_remove_node): Remove from uid array.
+	(cgraph_node_by_uid): New function.
+	* cgraph.h (cgraph_node_by_uid): Prototype.
+	* cgraphunit.c (verify_cgraph_node): Make sure uid array doesn't
+	get corrupted.
+
+	* ipa-callees.c: New file.
+
+	* passes.c: (init_optimization_passes): Add pass_ipa_callees.
+	* timevar.def (TV_IPA_CALLEES): New.
+	* tree-dfa.c (add_referenced_var): Stop call clobbering on add.
+	* tree-flow-inline.h (is_call_clobbered): Remove is_global_var.
+	* tree-flow.h (struct var_ann_d): Add callees bitmap.
+	* tree-pass.h (pass_ipa_callees): New.
+	* tree-ssa-alias.c (mark_aliases_call_clobbered): Don't mark
+	unmodifiable vars call clobbered.
+	(set_initial_properties): Mark global but not unmodiifable vars
+	call clobbered here.
+	Check for unmodifiable var before call clobbering.
+	(create_global_var): This global var is call clobbered.
+	* tree-ssa-operands.c (add_call_clobber_ops): Remove
+	unmodifiable_var check, and rewrite into assert.
+	* tree-ssa-structalias.c (update_alias_info): Don't call clobber
+	unmodifiable vars.
+	
+2005-09-14  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-flow-inline (mark_call_clobbered): Don't auto-set
+	DECL_EXTERNAL on tags.
+	* tree-ssa-alias.c (tag_marked_global): New function.
+	(mark_tag_global): Ditto.
+	(sort_tags_by_id): New function.
+	(compute_tag_properties): Renamed from mark_global_tags.
+	Change to iteration and compute tag globalness properly as well.
+	(set_initial_properties): Renamed from set_initial_clobbers.
+	Set initial globalness as well.
+	(compute_call_properties): Call newly renamed functions.
+	(compute_may_aliases): Group aliases before clobbering.
+	(group_aliases): Don't deal with clobbering.
+	(setup_pointers_and_addressables): Ditto.
+	(get_nmt_for): Ditto.					  
+	
+2005-09-11  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-alias.c (mark_global_tags): Don't touch SFT's here. 
+
+2005-09-11  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-alias.c (set_initial_clobbers): Use
+	mark_bitmap_call_clobbered.  
+	(group_aliases): Ditto.
+	* tree-flow-inline.h (mark_bitmap_call_clobbered): New function.
+	* tree-flow.h: Declare mark_bitmap_call_clobbered.
+
+2005-09-11  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-alias.c (init_transitive_clobber_worklist): New
+	function.
+	(add_to_worklist): Ditto.
+	(mark_aliases_call_clobbered): Ditto.
+	(mark_global_tags): Ditto.
+	(set_initial_clobbers): Ditto.
+	(compute_call_clobbered): Ditto.
+	(compute_may_alias): Call compute_call_clobbered, and
+	group_aliases.
+	(compute_flow_sensitive_aliasing): Remove call clobbering code.
+	(compute_flow_insensitive_aliasing): Don't group here.
+	(group_aliases): Fix call clobbering on grouping.
+	(add_may_alias): Don't deal with call clobbering here.
+	(replace_may_alias): Ditto.
+	
+2005-09-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/22555
+	* tree-dfa.c (okay_component_ref_for_subvars): Do not give up,
+	if one structure field is an array.
+	* tree-ssa-alias.c (create_overlap_variables_for): Likewise.
+	* tree-ssa-structalias.c (create_variable_info_for): Likewise.
+	(get_constraint_for_component_ref): Do not assert we can not
+	only be accessing padding if we deal with an ARRAY_REF.
+	* tree-ssa-loop-ivopts.c (rewrite_use): Mark new vars in stmt
+	for renaming.
+	* tree-ssa-loop.c (pass_iv_optimize): Schedule TODO_update_ssa.
+	* tree-ssa-operands.c (get_expr_operands): Continue scanning
+	operands even if we found a subvar, but ignore VOPs in this
+	case.
