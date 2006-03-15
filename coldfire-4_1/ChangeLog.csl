@@ -1,3 +1,8 @@
+2006-03-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/fpgnulib.c (__truncdfsf2): Implement round to
+	nearest even, fix denormal rounding overflow.
+
 2006-03-10  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* libstdc++-v2/configure.ac (LIBSUPCXX_PRONLY): Protect against unset
