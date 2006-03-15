@@ -1,3 +1,14 @@
+2006-02-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/testsuite_tr1.h (test_property): New function.
+	* testsuite/tr1/4_metaprogramming/type_properties/extent/extent.cc 
+	(test01) 
+
+2006-02-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_stringbuf/in_avail/char/21955.cc: Avoid
+	warning on string constant.
+
 2006-01-20  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* acinclude.m4 (GLIBCXX_CHECK_LINKER_FEATURES): Verbose ld version
