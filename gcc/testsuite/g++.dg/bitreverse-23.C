@@ -19,9 +19,7 @@ int main() {
     xx.x.x = 5;
     xx.x.z = 7;
     xx.x.q = 9;
-    if (xx.z[0] != 0x00090705)
+    if ((xx.z[0] & 0xFFFFFF) != 0x090705)
       abort();
     return 0;
 }
-
-
