@@ -1306,7 +1306,8 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	      if (offset)
 		 asm_fprintf (stream,
 			     "\tfmovem %Rsp@(%wd), %I0x%x\n",
-			     offset, current_frame.fpu_rev_mask);
+			      (HOST_WIDE_INT)offset,
+			      current_frame.fpu_rev_mask);
 	      else
 		 asm_fprintf (stream,
 			     "\tfmovem %Rsp@, %I0x%x\n",

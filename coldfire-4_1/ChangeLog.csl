@@ -1,5 +1,8 @@
 2006-03-16  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gcc/config/m68k/m68k.c (m68k_output_function_epilogue): Prevent
+	compilation warning.
+
 	* gcc/config/m68k/m68k-protos.h (m68k_legitimize_reload_address): Declare.
 	* gcc/config/m68k/m68k.c (m68k_legitimize_reload_address): New.
 	* gcc/config/m68k/m68k.h (LEGITIMIZE_RELOAD_ADDRESS): New.
