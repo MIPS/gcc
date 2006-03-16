@@ -951,13 +951,13 @@ build_static_class_ref (tree type)
   if (TYPE_SIZE (type) == error_mark_node)
     return null_pointer_node;
   decl_name = identifier_subst (DECL_NAME (TYPE_NAME (type)),
-				"", '/', '/', ".class");
+				"", '/', '/', ".class$$");
   decl = IDENTIFIER_GLOBAL_VALUE (decl_name);
   if (decl == NULL_TREE)
     {
       decl = build_decl (VAR_DECL, decl_name, class_type_node);
       TREE_STATIC (decl) = 1;
-//       if (! flag_indirect_classes)
+      if (! flag_indirect_classes)
 	TREE_PUBLIC (decl) = 1;
       DECL_IGNORED_P (decl) = 1;
       DECL_ARTIFICIAL (decl) = 1;
@@ -974,6 +974,38 @@ build_static_class_ref (tree type)
 
   ref = build1 (ADDR_EXPR, class_ptr_type, decl);
   return ref;
+}
+
+static tree
+build_classdollar_field (tree type)
+{
+  tree decl_name = identifier_subst (DECL_NAME (TYPE_NAME (type)),
+				     "", '/', '/', ".class$");
+  tree decl = IDENTIFIER_GLOBAL_VALUE (decl_name);
+
+  if (decl == NULL_TREE)
+    {
+      decl 
+	= build_decl (VAR_DECL, decl_name, 
+		      (build_type_variant 
+		       (build_pointer_type 
+			(build_type_variant (class_type_node, 
+					     /* const */ 1, 0)),
+			/* const */ 1, 0)));
+      TREE_STATIC (decl) = 1;
+      TREE_INVARIANT (decl) = 1;
+      TREE_CONSTANT (decl) = 1;
+      TREE_READONLY (decl) = 1;
+      TREE_PUBLIC (decl) = 1;
+      DECL_IGNORED_P (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (decl);
+      IDENTIFIER_GLOBAL_VALUE (decl_name) = decl;
+      DECL_CLASS_FIELD_P (decl) = 1;
+      DECL_CONTEXT (decl) = type;
+    }
+
+  return decl;
 }
 
 /* Build a reference to the class TYPE.
@@ -994,40 +1026,8 @@ build_class_ref (tree type)
 	  && TREE_CODE (type) == RECORD_TYPE)
 	return build_indirect_class_ref (type);
 
-      if (flag_indirect_classes
-	  && type == output_class)
-	{
-	  tree decl_name = mangled_classname ("_class$_", output_class);
-	  decl = IDENTIFIER_GLOBAL_VALUE (decl_name);
-	  if (decl == NULL_TREE)
-	    {
-	      decl 
-		= build_decl (VAR_DECL, decl_name, 
-			      (build_type_variant 
-			       (build_pointer_type 
-				(build_type_variant (class_type_node, 
-						     /* const */ 1, 0)),
-				/* const */ 1, 0)));
-// 	      decl 
-// 		= build_decl (VAR_DECL, decl_name, 
-// 			      build_pointer_type 
-// 			      (build_type_variant (class_type_node, 
-// 						   /* const */ 1, 0)));
-	      TREE_STATIC (decl) = 1;
-	      TREE_INVARIANT (decl) = 1;
-	      TREE_PUBLIC (decl) = 1;
-	      DECL_IGNORED_P (decl) = 1;
-	      DECL_ARTIFICIAL (decl) = 1;
-	      if (is_compiled == 1)
-		DECL_EXTERNAL (decl) = 1;
-	      MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (decl);
-	      DECL_CLASS_FIELD_P (decl) = 1;
-	      DECL_CONTEXT (decl) = type;
-	      IDENTIFIER_GLOBAL_VALUE (decl_name) = decl;
-	      pushdecl_top_level (decl);
-	    }
-	  return decl;
-	}	  
+      if (type == output_class && flag_indirect_classes)
+	return build_classdollar_field (type);
 
       if (TREE_CODE (type) == RECORD_TYPE)
 	return build_static_class_ref (type);
@@ -1955,7 +1955,13 @@ make_class_data (tree type)
     DECL_ALIGN (decl) = 64; 
   
   rest_of_decl_compilation (decl, 1, 0);
-  
+  {
+    tree classdollar_field = build_classdollar_field (type);
+    if (!flag_indirect_classes)
+      DECL_INITIAL (classdollar_field) = build_static_class_ref (type);
+    rest_of_decl_compilation (classdollar_field, 1, 0);
+  }
+
   TYPE_OTABLE_DECL (type) = NULL_TREE;
   TYPE_ATABLE_DECL (type) = NULL_TREE;
   TYPE_CTABLE_DECL (type) = NULL_TREE;

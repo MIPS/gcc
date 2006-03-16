@@ -400,6 +400,12 @@ static _Jv_IDispatchTable *array_idt = NULL;
 static jshort array_depth = 0;
 static jclass *array_ancestors = NULL;
 
+static jclass interfaces[] =
+{
+  &java::lang::Cloneable::class$,
+  &java::io::Serializable::class$
+};
+
 // Create a class representing an array of ELEMENT and store a pointer to it
 // in element->arrayclass. LOADER is the ClassLoader which _initiated_ the 
 // instantiation of this array. ARRAY_VTABLE is the vtable to use for the new 
@@ -475,11 +481,6 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
   array_class->element_type = element;
 
   // Register our interfaces.
-  static jclass interfaces[] =
-    {
-      &java::lang::Cloneable::class$,
-      &java::io::Serializable::class$
-    };
   array_class->interfaces = interfaces;
   array_class->interface_count = sizeof interfaces / sizeof interfaces[0];
 

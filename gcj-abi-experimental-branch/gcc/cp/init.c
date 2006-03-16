@@ -1628,7 +1628,7 @@ build_java_class_ref (tree type)
   tree name = NULL_TREE, class_decl;
   static tree CL_suffix = NULL_TREE;
   if (CL_suffix == NULL_TREE)
-    CL_suffix = get_identifier("class$");
+    CL_suffix = get_identifier("class$$");
   if (jclass_node == NULL_TREE)
     {
       jclass_node = IDENTIFIER_GLOBAL_VALUE (get_identifier ("jclass"));

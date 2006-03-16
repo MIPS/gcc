@@ -1,3 +1,19 @@
+2006-03-16  Andrew Haley  <aph@redhat.com>
+
+	* jvgenmain.c (main): Revert previous change.
+	(do_mangle_classname): Likewise.
+
+	* mangle.c (java_mangle_decl): mangle_class_field(decl), not
+	DECL_CONTEXT (decl).
+	(mangle_class_field): Mangle "class$$" and "class$".
+
+	* gjavah.c (process_file): Emit "class$$" as well as "class$".
+
+	* class.c (build_static_class_ref): Rename to "class$$".
+	(build_classdollar_field): New function.
+	(build_class_ref): Break out code into build_classdollar_field.
+	(make_class_data): Explicitly emit classdollar_field.
+
 2006-03-07  Andrew Haley  <aph@redhat.com>
 
 	* jvgenmain.c: If flag_indirect_classes, generate access to

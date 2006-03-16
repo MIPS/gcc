@@ -39,17 +39,25 @@ _Jv_GC_has_static_roots (struct dl_phdr_info * info, size_t size, void *ptr)
 //   fprintf (stderr, "%p: lib %s ", ptr, name);
 
   if (strlen (name) <= strlen (suffix))
-    goto defaul;
+    goto registered;
 
   // If a DSO name ends with SUFFIX, it has GC roots.
   if (strcmp (name + strlen (name) - strlen (suffix),
 	      suffix) == 0)
     {
 //       fprintf (stderr, "registered\n");
-      return 1;
+      goto registered;
     }  
 
- defaul:
+  // If a name contains ".so", it is a DSO with no roots.
+  if (strstr (name, ".so"))
+    goto shlib;
+
+ registered:
+//       fprintf (stderr, "registered\n");
+  return 1;
+
+  shlib:
 //   fprintf (stderr, "not registered\n");
   return 0;
 }

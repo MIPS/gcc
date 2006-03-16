@@ -1,3 +1,13 @@
+2006-03-16  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/Class.h (Object): New field, class$$.
+	* java/lang/Object.h: Likewise.
+	* java/lang/natClassLoader.cc (interfaces): Hoist out of
+	_Jv_NewArrayClass.
+
+	* gnu/gcj/runtime/natSharedLibLoader.cc (_Jv_GC_has_static_roots):
+	Register everything that isn't a shared library.
+
 2006-03-07  Andrew Haley  <aph@redhat.com>
 
 	* java/lang/natClassLoader.cc (_Jv_NewClassFromInitializer): Don't

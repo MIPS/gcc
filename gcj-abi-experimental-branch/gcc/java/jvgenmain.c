@@ -140,16 +140,8 @@ main (int argc, char **argv)
   fprintf (stream, "int main (int argc, const char **argv)\n");
   fprintf (stream, "{\n");
   fprintf (stream, "   _Jv_Compiler_Properties = props;\n");
-  if (flag_indirect_classes)
-    {
-      fprintf (stream, "   extern void *%s;\n", mangled_classname);
-      fprintf (stream, "   JvRunMain (%s, argc, argv);\n", mangled_classname);
-    }
-  else
-    {
-      fprintf (stream, "   extern int %s;\n", mangled_classname);
-      fprintf (stream, "   JvRunMain (&%s, argc, argv);\n", mangled_classname);
-    }
+  fprintf (stream, "   extern void *%s;\n", mangled_classname);
+  fprintf (stream, "   JvRunMain (%s, argc, argv);\n", mangled_classname);
   fprintf (stream, "}\n");
   if (stream != stdout && fclose (stream) != 0)
     {
@@ -167,34 +159,20 @@ do_mangle_classname (const char *string)
   const char *ptr;
   int count = 0;
 
-  if (flag_indirect_classes)
+  obstack_grow (&name_obstack, "_ZN", 3);
+  
+  for (ptr = string; *ptr; ptr++ )
     {
-      obstack_grow (&name_obstack, "_class$_", strlen ("_class$_"));
-      for (ptr = string; *ptr; ptr++ )
+      if (*ptr == '.')
 	{
-	  if (*ptr == '.')
-	    obstack_1grow (mangle_obstack, '_');
-	  else
-	    obstack_1grow (mangle_obstack, *ptr);
+	  append_gpp_mangled_name (ptr - count, count);
+	  count = 0;
 	}
+      else
+	count++;
     }
-  else
-    {
-      obstack_grow (&name_obstack, "_ZN", 3);
-
-      for (ptr = string; *ptr; ptr++ )
-	{
-	  if (*ptr == '.')
-	    {
-	      append_gpp_mangled_name (ptr - count, count);
-	      count = 0;
-	    }
-	  else
-	    count++;
-	}
-      append_gpp_mangled_name (ptr - count, count);
-      obstack_grow (mangle_obstack, "6class$E", 8);
-    }
+  append_gpp_mangled_name (&ptr [-count], count);
+  obstack_grow (mangle_obstack, "6class$E", 8);
   obstack_1grow (mangle_obstack, '\0');
   return obstack_finish (mangle_obstack);
 }

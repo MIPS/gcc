@@ -102,7 +102,7 @@ java_mangle_decl (tree decl)
 	    {
 	      if (DECL_CLASS_FIELD_P (decl))
 		{
-		  mangle_class_field (DECL_CONTEXT (decl));
+		  mangle_class_field (decl);
 		  break;
 		}
 	      else if (DECL_VTABLE_P (decl))
@@ -133,10 +133,14 @@ java_mangle_decl (tree decl)
 /* Beginning of the helper functions */
 
 static void
-mangle_class_field (tree type)
+mangle_class_field (tree decl)
 {
+  tree type = DECL_CONTEXT (decl);
   mangle_record_type (type, /* for_pointer = */ 0);
-  MANGLE_RAW_STRING ("6class$");
+  if (TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE)
+    MANGLE_RAW_STRING ("7class$$");
+  else
+    MANGLE_RAW_STRING ("6class$");
   obstack_1grow (mangle_obstack, 'E');
 }
 
@@ -229,10 +233,16 @@ mangle_local_cni_method_decl (tree decl)
 static void
 mangle_member_name (tree name)
 {
+  const char *s;
+  int len;
   append_gpp_mangled_name (IDENTIFIER_POINTER (name),
 			   IDENTIFIER_LENGTH (name));
 
-  /* If NAME happens to be a C++ keyword, add `$'. */
+/*   s = IDENTIFIER_POINTER (name); */
+/*   len = IDENTIFIER_LENGTH (name); */
+  /* If NAME happens to be a C++ keyword, add `$'.  */
+/*   if (cxx_keyword_p (s, len) */
+/*       && (strncmp (s, "class$", len) != 0)) */
   if (cxx_keyword_p (IDENTIFIER_POINTER (name), IDENTIFIER_LENGTH (name)))
     obstack_1grow (mangle_obstack, '$');
 }

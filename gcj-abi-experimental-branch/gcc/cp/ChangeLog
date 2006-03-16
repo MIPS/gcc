@@ -1,3 +1,8 @@
+2006-03-16  Andrew Haley  <aph@redhat.com>
+
+	* call.c (build_java_interface_fn_ref): Rename "class$" to "class$$".
+	* init.c (build_java_class_ref): Rename "class$" to "class$$".
+
 2006-02-14  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* call.c (standard_conversion): Return NULL instead of 0.
