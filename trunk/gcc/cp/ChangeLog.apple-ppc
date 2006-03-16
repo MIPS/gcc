@@ -1,3 +1,10 @@
+2006-03-16  Devang Patel  <dpatel@apple.com>
+
+	Radar 4461042
+	* cp/parser.c (cp_parser_initializer_clause): Eat CPP_BINCL/CPP_EINCL
+	tokens.
+	(cp_parser_initializer_list): Same.
+
 2005-03-01 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4451818

@@ -12853,6 +12853,11 @@ cp_parser_initializer_clause (cp_parser* parser, bool* non_constant_p)
      assignment-expression.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_BRACE))
     {
+      /* APPLE LOCAL begin 4137741 */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_BINCL)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EINCL))
+	cp_lexer_handle_pragma_etc (parser->lexer);
+      /* APPLE LOCAL end 4137741 */
       initializer
 	= cp_parser_constant_expression (parser,
 					/*allow_non_constant_p=*/true,
@@ -12866,6 +12871,11 @@ cp_parser_initializer_clause (cp_parser* parser, bool* non_constant_p)
       cp_lexer_consume_token (parser->lexer);
       /* Create a CONSTRUCTOR to represent the braced-initializer.  */
       initializer = make_node (CONSTRUCTOR);
+      /* APPLE LOCAL begin 4137741 */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_BINCL)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EINCL))
+	cp_lexer_handle_pragma_etc (parser->lexer);
+      /* APPLE LOCAL end 4137741 */
       /* If it's not a `}', then there is a non-trivial initializer.  */
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_BRACE))
 	{
@@ -12875,6 +12885,11 @@ cp_parser_initializer_clause (cp_parser* parser, bool* non_constant_p)
 	  /* A trailing `,' token is allowed.  */
 	  if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
 	    cp_lexer_consume_token (parser->lexer);
+      /* APPLE LOCAL begin 4137741 */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_BINCL)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EINCL))
+	cp_lexer_handle_pragma_etc (parser->lexer);
+      /* APPLE LOCAL end 4137741 */
 	}
       /* Now, there should be a trailing `}'.  */
       cp_parser_require (parser, CPP_CLOSE_BRACE, "`}'");
@@ -12916,6 +12931,15 @@ cp_parser_initializer_list (cp_parser* parser, bool* non_constant_p)
       tree initializer;
       bool clause_non_constant_p;
 
+      /* APPLE LOCAL begin 4137741 */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_BINCL)
+	  || cp_lexer_next_token_is (parser->lexer, CPP_EINCL))
+	{
+	  cp_lexer_handle_pragma_etc (parser->lexer);
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE))
+	    break;
+	}
+      /* APPLE LOCAL end 4137741 */
       /* If the next token is an identifier and the following one is a
 	 colon, we are looking at the GNU designated-initializer
 	 syntax.  */
