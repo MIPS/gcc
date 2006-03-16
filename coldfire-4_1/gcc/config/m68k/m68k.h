@@ -724,17 +724,6 @@ __transfer_from_trampoline ()					\
 #define LEGITIMATE_CONSTANT_P(X) (GET_MODE (X) != XFmode)
 
 #ifndef REG_OK_STRICT
-#define PCREL_GENERAL_OPERAND_OK 0
-#else
-#define PCREL_GENERAL_OPERAND_OK (TARGET_PCREL)
-#endif
-
-#define LEGITIMATE_PIC_OPERAND_P(X)	\
-  (! symbolic_operand (X, VOIDmode)				\
-   || (GET_CODE (X) == SYMBOL_REF && SYMBOL_REF_FLAG (X))	\
-   || PCREL_GENERAL_OPERAND_OK)
-
-#ifndef REG_OK_STRICT
 
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg.  */
@@ -743,6 +732,14 @@ __transfer_from_trampoline ()					\
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X) ((REGNO (X) & ~027) != 0)
 
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
+  do									\
+    {									\
+      if (m68k_legitimate_address_p (MODE, X, 0))			\
+        goto ADDR;							\
+    }									\
+  while (0)
+
 #else
 
 /* Nonzero if X is a hard reg that can be used as an index.  */
@@ -750,124 +747,14 @@ __transfer_from_trampoline ()					\
 /* Nonzero if X is a hard reg that can be used as a base reg.  */
 #define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
 
-#endif
-
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
-   that is a valid memory address for an instruction.
-   The MODE argument is the machine mode for the MEM expression
-   that wants to use this address.
-
-   When generating PIC, an address involving a SYMBOL_REF is legitimate
-   if and only if it is the sum of pic_offset_table_rtx and the SYMBOL_REF.
-   We use LEGITIMATE_PIC_OPERAND_P to throw out the illegitimate addresses,
-   and we explicitly check for the sum of pic_offset_table_rtx and a SYMBOL_REF.
-
-   Likewise for a LABEL_REF when generating PIC.
-
-   The other macros defined here are used only in GO_IF_LEGITIMATE_ADDRESS.  */
-
-/* Allow SUBREG everywhere we allow REG.  This results in better code.  It
-   also makes function inlining work when inline functions are called with
-   arguments that are SUBREGs.  */
-
-#define LEGITIMATE_BASE_REG_P(X)   \
-  ((GET_CODE (X) == REG && REG_OK_FOR_BASE_P (X))	\
-   || (GET_CODE (X) == SUBREG				\
-       && GET_CODE (SUBREG_REG (X)) == REG		\
-       && REG_OK_FOR_BASE_P (SUBREG_REG (X))))
-
-#define INDIRECTABLE_1_ADDRESS_P(X)  \
-  ((CONSTANT_ADDRESS_P (X) && (!flag_pic || LEGITIMATE_PIC_OPERAND_P (X))) \
-   || LEGITIMATE_BASE_REG_P (X)						\
-   || ((GET_CODE (X) == PRE_DEC || GET_CODE (X) == POST_INC)		\
-       && LEGITIMATE_BASE_REG_P (XEXP (X, 0)))				\
-   || (GET_CODE (X) == PLUS						\
-       && LEGITIMATE_BASE_REG_P (XEXP (X, 0))				\
-       && GET_CODE (XEXP (X, 1)) == CONST_INT				\
-       && (m68k_arch_68020						\
-	   || ((unsigned) INTVAL (XEXP (X, 1)) + 0x8000) < 0x10000))	\
-   || (GET_CODE (X) == PLUS && XEXP (X, 0) == pic_offset_table_rtx 	\
-       && flag_pic && GET_CODE (XEXP (X, 1)) == SYMBOL_REF)		\
-   || (GET_CODE (X) == PLUS && XEXP (X, 0) == pic_offset_table_rtx 	\
-       && flag_pic && GET_CODE (XEXP (X, 1)) == LABEL_REF))
-
-#define GO_IF_NONINDEXED_ADDRESS(X, ADDR)  \
-{ if (INDIRECTABLE_1_ADDRESS_P (X)) goto ADDR; }
-
-/* Only labels on dispatch tables are valid for indexing from.  */
-#define GO_IF_INDEXABLE_BASE(X, ADDR)				\
-{ rtx temp;							\
-  if (GET_CODE (X) == LABEL_REF					\
-      && (temp = next_nonnote_insn (XEXP (X, 0))) != 0		\
-      && GET_CODE (temp) == JUMP_INSN				\
-      && (GET_CODE (PATTERN (temp)) == ADDR_VEC			\
-	  || GET_CODE (PATTERN (temp)) == ADDR_DIFF_VEC))	\
-    goto ADDR;							\
-  if (LEGITIMATE_BASE_REG_P (X)) goto ADDR; }
-
-#define GO_IF_INDEXING(X, ADDR)	\
-{ if (GET_CODE (X) == PLUS && LEGITIMATE_INDEX_P (XEXP (X, 0)))		\
-    { GO_IF_INDEXABLE_BASE (XEXP (X, 1), ADDR); }			\
-  if (GET_CODE (X) == PLUS && LEGITIMATE_INDEX_P (XEXP (X, 1)))		\
-    { GO_IF_INDEXABLE_BASE (XEXP (X, 0), ADDR); } }
-
-#define GO_IF_INDEXED_ADDRESS(X, ADDR)	 \
-{ GO_IF_INDEXING (X, ADDR);						\
-  if (GET_CODE (X) == PLUS)						\
-    { if (GET_CODE (XEXP (X, 1)) == CONST_INT				\
-	  && (m68k_arch_68020 || (unsigned) INTVAL (XEXP (X, 1)) + 0x80 < 0x100))		\
-	{ rtx go_temp = XEXP (X, 0); GO_IF_INDEXING (go_temp, ADDR); }	\
-      if (GET_CODE (XEXP (X, 0)) == CONST_INT				\
-	  && (m68k_arch_68020 || (unsigned) INTVAL (XEXP (X, 0)) + 0x80 < 0x100))		\
-	{ rtx go_temp = XEXP (X, 1); GO_IF_INDEXING (go_temp, ADDR); } } }
-
-/* ColdFire/5200 does not allow HImode index registers.  */
-#define LEGITIMATE_INDEX_REG_P(X)   \
-  ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_P (X))	\
-   || (! m68k_arch_coldfire					\
-       && GET_CODE (X) == SIGN_EXTEND			\
-       && GET_CODE (XEXP (X, 0)) == REG			\
-       && GET_MODE (XEXP (X, 0)) == HImode		\
-       && REG_OK_FOR_INDEX_P (XEXP (X, 0)))		\
-   || (GET_CODE (X) == SUBREG				\
-       && GET_CODE (SUBREG_REG (X)) == REG		\
-       && REG_OK_FOR_INDEX_P (SUBREG_REG (X))))
-
-#define LEGITIMATE_INDEX_P(X)   \
-   (LEGITIMATE_INDEX_REG_P (X)				\
-    || ((m68k_arch_68020 || m68k_arch_coldfire) && GET_CODE (X) == MULT \
-	&& LEGITIMATE_INDEX_REG_P (XEXP (X, 0))		\
-	&& GET_CODE (XEXP (X, 1)) == CONST_INT		\
-	&& (INTVAL (XEXP (X, 1)) == 2			\
-	    || INTVAL (XEXP (X, 1)) == 4		\
-	    || (INTVAL (XEXP (X, 1)) == 8		\
-		&& (TARGET_COLDFIRE_FPU || !m68k_arch_coldfire)))))
-
-/* Coldfire FPU only accepts addressing modes 2-5 */
-#define GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\
-{ if (LEGITIMATE_BASE_REG_P (X)						\
-      || ((GET_CODE (X) == PRE_DEC || GET_CODE (X) == POST_INC)		\
-          && LEGITIMATE_BASE_REG_P (XEXP (X, 0)))			\
-      || ((GET_CODE (X) == PLUS) && LEGITIMATE_BASE_REG_P (XEXP (X, 0))	\
-          && (GET_CODE (XEXP (X, 1)) == CONST_INT)			\
-          && ((((unsigned) INTVAL (XEXP (X, 1)) + 0x8000) < 0x10000))))	\
-  goto ADDR;}
-
-/* If pic, we accept INDEX+LABEL, which is what do_tablejump makes.  */
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
-{ if (TARGET_COLDFIRE_FPU && (GET_MODE_CLASS (MODE) == MODE_FLOAT))	\
+  do									\
     {									\
-      GO_IF_COLDFIRE_FPU_LEGITIMATE_ADDRESS (MODE, X, ADDR);		\
+      if (m68k_legitimate_address_p (MODE, X, 1))			\
+        goto ADDR;							\
     }									\
-  else									\
-    {									\
-      GO_IF_NONINDEXED_ADDRESS (X, ADDR);				\
-      GO_IF_INDEXED_ADDRESS (X, ADDR);					\
-      if (flag_pic && MODE == CASE_VECTOR_MODE && GET_CODE (X) == PLUS	\
-	  && LEGITIMATE_INDEX_P (XEXP (X, 0))				\
-	  && GET_CODE (XEXP (X, 1)) == LABEL_REF)			\
-	goto ADDR;							\
-    }}
+  while (0)
+#endif
 
 /* Don't call memory_address_noforce for the address to fetch
    the switch offset.  This address is ok as it stands (see above),

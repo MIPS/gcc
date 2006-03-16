@@ -1739,6 +1739,153 @@ output_btst (rtx *operands, rtx countop, rtx dataop, rtx insn, int signpos)
   return "btst %0,%1";
 }
 
+/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
+   that is a valid memory address for an instruction.
+   The MODE argument is the machine mode for the MEM expression
+   that wants to use this address.
+
+   When generating PIC, an address involving a SYMBOL_REF is legitimate
+   if and only if it is the sum of pic_offset_table_rtx and the SYMBOL_REF.
+   We use LEGITIMATE_PIC_OPERAND_P to throw out the illegitimate addresses,
+   and we explicitly check for the sum of pic_offset_table_rtx and a SYMBOL_REF.
+
+   Likewise for a LABEL_REF when generating PIC.
+
+   The other macros defined here are used only in GO_IF_LEGITIMATE_ADDRESS.  */
+
+/* Nonzero if X is a reg that can be used as an index.  When non-strict we
+   allow pseudos, otherwise only a hard reg will do. */
+#define REG_OK_FOR_INDEX_STRICT(X, STRICT) \
+  (STRICT ? REGNO_OK_FOR_INDEX_P (REGNO (X)) : (REGNO (X) ^ 16) >= 8)
+
+/* Nonzero if X is a reg that can be used as a base reg. When non-strict we
+   allow pseudos, otherwise only a hard reg will do. */
+#define REG_OK_FOR_BASE_STRICT(X, STRICT) \
+  (STRICT ? REGNO_OK_FOR_BASE_P (REGNO (X)) : (REGNO (X) & ~23) != 0)
+
+/* Allow SUBREG everywhere we allow REG.  This results in better code.  It
+   also makes function inlining work when inline functions are called with
+   arguments that are SUBREGs.  */
+
+#define LEGITIMATE_BASE_REG_P(X, STRICT)   \
+  ((GET_CODE (X) == REG && REG_OK_FOR_BASE_STRICT (X, STRICT))	\
+   || (GET_CODE (X) == SUBREG				\
+       && GET_CODE (SUBREG_REG (X)) == REG		\
+       && REG_OK_FOR_BASE_STRICT (SUBREG_REG (X), STRICT)))
+
+/* ColdFire/5200 does not allow HImode index registers.  */
+#define LEGITIMATE_INDEX_REG_P(X, STRICT)   \
+  ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_STRICT (X, STRICT))	\
+   || (! m68k_arch_coldfire					\
+       && GET_CODE (X) == SIGN_EXTEND			\
+       && GET_CODE (XEXP (X, 0)) == REG			\
+       && GET_MODE (XEXP (X, 0)) == HImode		\
+       && REG_OK_FOR_INDEX_STRICT (XEXP (X, 0), STRICT))		\
+   || (GET_CODE (X) == SUBREG				\
+       && GET_CODE (SUBREG_REG (X)) == REG		\
+       && REG_OK_FOR_INDEX_STRICT (SUBREG_REG (X), STRICT)))
+
+#define LEGITIMATE_INDEX_P(X, STRICT)   \
+   (LEGITIMATE_INDEX_REG_P (X, STRICT)				\
+    || ((m68k_arch_68020 || m68k_arch_coldfire) && GET_CODE (X) == MULT \
+	&& LEGITIMATE_INDEX_REG_P (XEXP (X, 0), STRICT)		\
+	&& GET_CODE (XEXP (X, 1)) == CONST_INT		\
+	&& (INTVAL (XEXP (X, 1)) == 2			\
+	    || INTVAL (XEXP (X, 1)) == 4		\
+	    || (INTVAL (XEXP (X, 1)) == 8		\
+		&& (TARGET_COLDFIRE_FPU || !m68k_arch_coldfire)))))
+
+int m68k_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
+{
+  rtx arg0, arg1;
+
+  arg0 = x;
+  switch (GET_CODE (x))
+    {
+    case PLUS:
+      arg1 = XEXP (arg0, 1);
+      if (GET_CODE (arg1) != CONST_INT)
+	break;
+      if ((unsigned HOST_WIDE_INT)INTVAL (arg1) + 0x8000 >= 0x10000)
+	 break;
+      /* FALLTHROUGH */
+    case PRE_DEC:
+    case POST_INC:
+      arg0 = XEXP (arg0, 0);
+    default:
+      if (LEGITIMATE_BASE_REG_P (arg0, strict))
+	return 1;
+    }
+
+  if (TARGET_COLDFIRE_FPU && (GET_MODE_CLASS (mode) == MODE_FLOAT))
+    /* Coldfire FPU only accepts addressing modes 2-5 */
+    return 0;
+
+  if (CONSTANT_ADDRESS_P (x))
+    {
+      if (flag_pic)
+	{
+	  if (!symbolic_operand (x, VOIDmode))
+	    return 1;
+	  if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_FLAG (x))
+	    return 1;
+	  return strict && TARGET_PCREL;
+	}
+
+     return 1;
+    }
+
+  if (GET_CODE (x) == PLUS)
+    {
+      arg0 = XEXP (x, 0);
+      arg1 = XEXP (x, 1);
+
+      if (arg0 == pic_offset_table_rtx)
+	return GET_CODE (arg1) == SYMBOL_REF || GET_CODE (arg1) == LABEL_REF;
+
+      if (GET_CODE (arg1) == CONST_INT && GET_CODE (arg0) == PLUS
+	  && (m68k_arch_68020 || (unsigned) INTVAL (arg1) + 0x80 < 0x100))
+	{
+	  arg1 = XEXP (arg0, 1);
+	  arg0 = XEXP (arg0, 0);
+	}
+
+      /* FIXME:There is probably some redundancy in the following
+	 conditionals.  */
+      if (LEGITIMATE_INDEX_P (arg0, strict))
+	{
+	  rtx temp;
+	  if (GET_CODE (arg1) == LABEL_REF
+	      && (temp = next_nonnote_insn (XEXP (arg1, 0))) != 0
+	      && GET_CODE (temp) == JUMP_INSN
+	      && (GET_CODE (PATTERN (temp)) == ADDR_VEC
+		  || GET_CODE (PATTERN (temp)) == ADDR_DIFF_VEC))
+	    return 1;
+	  if (LEGITIMATE_BASE_REG_P (arg1, strict))
+	    return 1;
+	}
+      if (LEGITIMATE_INDEX_P (arg1, strict))
+	{
+	  rtx temp;
+	  if (GET_CODE (arg0) == LABEL_REF
+	      && (temp = next_nonnote_insn (XEXP (arg0, 0))) != 0
+	      && GET_CODE (temp) == JUMP_INSN
+	      && (GET_CODE (PATTERN (temp)) == ADDR_VEC
+		  || GET_CODE (PATTERN (temp)) == ADDR_DIFF_VEC))
+	    return 1;
+	  if (LEGITIMATE_BASE_REG_P (arg0, strict))
+	    return 1;
+	}
+
+      /* If pic, we accept INDEX+LABEL, which is what do_tablejump makes.  */
+      if (flag_pic && mode == CASE_VECTOR_MODE
+	  && LEGITIMATE_INDEX_P (arg0, strict)
+	  && GET_CODE (arg1) == LABEL_REF)
+	return 1;
+    }
+  return 0;
+}
+
 /* Legitimize PIC addresses.  If the address is already
    position-independent, we return ORIG.  Newly generated
    position-independent addresses go to REG.  If we need more
