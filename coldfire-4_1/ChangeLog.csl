@@ -3,6 +3,7 @@
 	* gcc/config/m68k/m68k-protos.h (m68k_legitimize_reload_address): Declare.
 	* gcc/config/m68k/m68k.c (m68k_legitimize_reload_address): New.
 	* gcc/config/m68k/m68k.h (LEGITIMIZE_RELOAD_ADDRESS): New.
+	* gcc/testsuite/gcc.dg/m68k-fp-1.c: New.
 	
 	* gcc/config/m68k/m68k-protos.h (m68k_legitimiate_address_p): Declare.
 	* gcc/config/m68k/m68k.c (REG_OK_FOR_INDEX_STRICT,
