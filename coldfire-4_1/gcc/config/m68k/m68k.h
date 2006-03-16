@@ -807,6 +807,24 @@ __transfer_from_trampoline ()					\
 	    X = force_operand (X, 0);					\
 	  goto WIN; }}}
 
+/* Try a machine-dependent way of reloading an illegitimate address
+   operand.  If we find one, push the reload and jump to WIN.  This
+   macro is used in only one place: `find_reloads_address' in reload.c.
+
+   Implemented on m68k by m68k_legitimize_reload_address.  
+   Note that (X) is evaluated twice; this is safe in current usage.  */
+
+#define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)	\
+do {									\
+  rtx tmp = m68k_legitimize_reload_address (&(X), (MODE), (OPNUM),	\
+			(int)(TYPE), (IND_LEVELS));		     	\
+  if (tmp != NULL_RTX)							\
+    {									\
+      (X) = tmp; 							\
+      goto WIN;								\
+    }									\
+} while (0)
+
 /* On the 68000, only predecrement and postincrement address depend thus
    (the amount of decrement or increment being the length of the operand).  */
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR,LABEL)	\
