@@ -162,6 +162,25 @@
 	* c-typeck.c (build_component_ref): Generate the new ivar reference
 	tree.
 
+2006-03-15  Devang Patel  <dpatel@apple.com>
+
+	Radar 4479522
+	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Do not 
+	enable Altivec by default when deployment target is Mac OSX 10.5 
+	or higher.	
+
+2006-03-13  Mike Stump  <mrs@apple.com>
+
+	Radar 4230099
+	* c.opt (fvisibility-ms-compat): Add.
+	* doc/invoke.texi (-fvisibility-ms-compat): Add.
+
+2006-03-13  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4474655
+	* gcc/config/i386/i386.c (override_options): Remove
+	APPLE LOCAL for ix86_preferred_stack_boundary.
+
 2006-03-07  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4457939

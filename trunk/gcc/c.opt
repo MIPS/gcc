@@ -864,6 +864,12 @@ fvisibility-inlines-hidden
 C++ ObjC++
 Marks all inlined methods as having hidden visibility
 
+; APPLE LOCAL begin ms tinfo compat 4230099
+fvisibility-ms-compat
+C++ ObjC++ Var(flag_visibility_ms_compat)
+Changes visibility to match Microsoft Visual Studio by default
+; APPLE LOCAL end ms tinfo compat 4230099
+
 fvtable-gc
 C++ ObjC++
 Discard unused virtual functions

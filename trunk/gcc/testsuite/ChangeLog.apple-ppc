@@ -93,6 +93,22 @@
 	Radar 4229905
 	* obj-c++.dg/warn5.mm: New
 
+2006-03-13  Mike Stump  <mrs@apple.com>
+
+	Radar 4230099
+	* g++.apple/apple.exp: Add.
+	* g++.apple/visibility-1.C: Add.
+
+2006-03-13  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4474655
+	* testsuite/g++.dg/4448096-2.C: Remove.
+
+2006-03-10  Fariborz Jahanian <fjahanian@apple.com>
+        
+        Radar 4407151
+        * obj-c++.dg/template-7.mm: New.
+
 2006-03-07  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4457939
