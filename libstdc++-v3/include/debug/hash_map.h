@@ -1,6 +1,6 @@
 // Debugging hash_map implementation -*- C++ -*-
 
-// Copyright (C) 2003, 2005
+// Copyright (C) 2003, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -34,20 +34,20 @@
 #include <debug/safe_sequence.h>
 #include <debug/safe_iterator.h>
 
-namespace std
+namespace __gnu_cxx
 {
-namespace __gnu_debug_def
+namespace __debug
 {
   template<typename _Value, typename _Tp,
 	   typename _HashFcn  = __gnu_cxx::hash<_Value>,
 	   typename _EqualKey = std::equal_to<_Value>,
 	   typename _Alloc = std::allocator<_Value> >
     class hash_map
-    : public __gnu_cxx::hash_map<_Value, _Tp, _HashFcn, _EqualKey, _Alloc>,
+    : public _GLIBCXX_EXT::hash_map<_Value, _Tp, _HashFcn, _EqualKey, _Alloc>,
       public __gnu_debug::_Safe_sequence<hash_map<_Value, _Tp, _HashFcn,
 						 _EqualKey, _Alloc> >
     {
-      typedef __gnu_cxx::hash_map<_Value, _Tp, _HashFcn, _EqualKey, _Alloc>
+      typedef _GLIBCXX_EXT::hash_map<_Value, _Tp, _HashFcn, _EqualKey, _Alloc>
       							_Base;
       typedef __gnu_debug::_Safe_sequence<hash_map> 	_Safe_base;
 
@@ -141,7 +141,14 @@ namespace __gnu_debug_def
 	return std::make_pair(iterator(__res.first, this), __res.second);
       }
 
-      template <typename _InputIterator>
+      void
+      insert(const value_type* __first, const value_type* __last)
+      {
+	__glibcxx_check_valid_range(__first, __last);
+	_Base::insert(__first, __last);
+      }
+
+     template<typename _InputIterator>
         void
         insert(_InputIterator __first, _InputIterator __last)
         {
@@ -267,7 +274,7 @@ namespace __gnu_debug_def
     swap(hash_map<_Value, _Tp, _HashFcn, _EqualKey, _Alloc>& __x,
 	 hash_map<_Value, _Tp, _HashFcn, _EqualKey, _Alloc>& __y)
     { __x.swap(__y); }
-} // namespace __gnu_debug_def
-} // namespace std
+} // namespace __debug
+} // namespace __gnu_cxx
 
 #endif

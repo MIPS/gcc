@@ -1,6 +1,6 @@
 ## Linker script for GNU ld 2.13.91+ only.
 ##
-## Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+## Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ##
@@ -121,7 +121,10 @@ GLIBCXX_4.2 {
       std::__num_base::_S_atoms_out;
       std::__moneypunct_cache*;
       std::__numpunct_cache*;
-      std::__timepunct_cache*
+      std::__timepunct_cache*;
+      __gnu_debug::_Safe_iterator_base*;
+      __gnu_debug::_Safe_sequence_base*;
+      __gnu_debug::_Error_formatter*
     };
 
     # Names not in an 'extern' block are mangled names.
@@ -167,6 +170,7 @@ GLIBCXX_4.2 {
     _ZNKSs8_M_limit*;
     _ZNKSs9_M_ibeginEv;
     _ZStplIcSt11char_traitsIcESaIcEESbIT_T0_T1_E*;
+    _ZNSs9_M_appendEPKc[jm];
 
     # std::wstring
     _ZNSbIwSt11char_traitsIwESaIwEEC*;
@@ -209,6 +213,7 @@ GLIBCXX_4.2 {
     _ZNKSbIwSt11char_traitsIwESaIwEE8_M_limit*;
     _ZNKSbIwSt11char_traitsIwESaIwEE9_M_ibeginEv;
     _ZStplIwSt11char_traitsIwESaIwEESbIT_T0_T1_E*;
+    _ZNSbIwSt11char_traitsIwESaIwEE9_M_appendEPKw[jm];
 
     # std::basic_stringbuf
     _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EE[CD]*;
@@ -377,26 +382,12 @@ GLIBCXX_4.2 {
     _ZN9__gnu_cxx12__atomic_add*;
     _ZN9__gnu_cxx18__exchange_and_add*;
 
-    # __gnu_debug
-    _ZN10__gnu_norm15_List_node_base4hookEPS0_;
-    _ZN10__gnu_norm15_List_node_base4swapERS0_S1_;
-    _ZN10__gnu_norm15_List_node_base6unhookEv;
-    _ZN10__gnu_norm15_List_node_base7reverseEv;
-    _ZN10__gnu_norm15_List_node_base8transferEPS0_S1_;
-    _ZN11__gnu_debug19_Safe_iterator_base9_M_attachEPNS_19_Safe_sequence_baseEb;
-    _ZN11__gnu_debug19_Safe_iterator_base9_M_detachEv;
-    _ZNK11__gnu_debug19_Safe_iterator_base11_M_singularEv;
-    _ZNK11__gnu_debug19_Safe_iterator_base14_M_can_compareERKS0_;
-    _ZN11__gnu_debug19_Safe_sequence_base13_M_detach_allEv;
-    _ZN11__gnu_debug19_Safe_sequence_base18_M_detach_singularEv;
-    _ZN11__gnu_debug19_Safe_sequence_base22_M_revalidate_singularEv;
-    _ZN11__gnu_debug19_Safe_sequence_base7_M_swapERS0_;
-    _ZNK11__gnu_debug16_Error_formatter8_M_errorEv;
-    _ZNK11__gnu_debug16_Error_formatter10_M_messageENS_13_Debug_msg_idE;
-    _ZNK11__gnu_debug16_Error_formatter10_Parameter14_M_print_fieldEPKS0_PKc;
-    _ZNK11__gnu_debug16_Error_formatter10_Parameter20_M_print_descriptionEPKS0_;
-    _ZNK11__gnu_debug16_Error_formatter13_M_print_wordEPKc;
-    _ZNK11__gnu_debug16_Error_formatter15_M_print_stringEPKc;
+    # debug mode
+    _ZNSt6__norm15_List_node_base7reverse*;
+    _ZNSt6__norm15_List_node_base4swap*;
+    _ZNSt6__norm15_List_node_base7_M_hook*;
+    _ZNSt6__norm15_List_node_base9_M_unhookEv;
+    _ZNSt6__norm15_List_node_base11_M_transfer*;
 
     # operator new(size_t)
     _Znw[jm];
@@ -599,25 +590,6 @@ GLIBCXX_4.2 {
     # In GLIBCXX_3.4.7
     _ZNSt6locale5_Impl16_M_install_cacheEPKNS_5facetE[jm];
 
-    _ZNSt10__gnu_norm15_List_node_base4hookEPS0_;
-    _ZNSt10__gnu_norm15_List_node_base4swapERS0_S1_;
-    _ZNSt10__gnu_norm15_List_node_base6unhookEv;
-    _ZNSt10__gnu_norm15_List_node_base7reverseEv;
-    _ZNSt10__gnu_norm15_List_node_base8transferEPS0_S1_;
-    _ZNKSt11__gnu_debug16_Error_formatter8_M_errorEv;
-    _ZNKSt11__gnu_debug16_Error_formatter10_M_messageENS_13_Debug_msg_idE;
-    _ZNKSt11__gnu_debug16_Error_formatter10_Parameter14_M_print_fieldEPKS0_PKc;
-    _ZNKSt11__gnu_debug16_Error_formatter10_Parameter20_M_print_descriptionEPKS0_;
-    _ZNKSt11__gnu_debug16_Error_formatter13_M_print_wordEPKc;
-    _ZNKSt11__gnu_debug16_Error_formatter15_M_print_stringEPKc;
-    _ZNKSt11__gnu_debug19_Safe_iterator_base11_M_singularEv;
-    _ZNKSt11__gnu_debug19_Safe_iterator_base14_M_can_compareERKS0_;
-    _ZNSt11__gnu_debug19_Safe_iterator_base9_M_attachEPNS_19_Safe_sequence_baseEb;
-    _ZNSt11__gnu_debug19_Safe_iterator_base9_M_detachEv;
-    _ZNSt11__gnu_debug19_Safe_sequence_base13_M_detach_allEv;
-    _ZNSt11__gnu_debug19_Safe_sequence_base18_M_detach_singularEv;
-    _ZNSt11__gnu_debug19_Safe_sequence_base22_M_revalidate_singularEv;
-    _ZNSt11__gnu_debug19_Safe_sequence_base7_M_swapERS0_;
 
     _ZNSo9_M_insertI*;
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE9_M_insertI*;

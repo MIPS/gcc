@@ -1,7 +1,6 @@
 // -*- C++ -*- C math library.
 
-// Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
-// Free Software Foundation, Inc.
+// Copyright (C) 2000, 2003, 2004, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,8 +31,6 @@
 
 #ifndef _GLIBCXX_CMATH_TCC
 #define _GLIBCXX_CMATH_TCC 1
-
-#include <bits/c++config.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(std)
 
