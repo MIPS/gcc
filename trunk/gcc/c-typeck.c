@@ -4563,6 +4563,11 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
 	      error_init ("invalid use of non-lvalue array");
 	      return error_mark_node;
 	    }
+	  /* APPLE LOCAL begin radar 4293709 */
+          if (c_dialect_objc ())
+	    (void)objc_compare_types (type, TREE_TYPE (inside_init), 
+				      -2/* init */, NULL_TREE);
+	  /* APPLE LOCAL end radar 4293709 */
 	 }
 
       if (code == VECTOR_TYPE)

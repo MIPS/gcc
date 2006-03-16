@@ -1,3 +1,9 @@
+2006-03-16 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4293709
+	* c-typeck.c (digest_init): Check for protocol match in 
+	initialization of two otherwise matching pointers.
+
 2006-03-13 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4472881
