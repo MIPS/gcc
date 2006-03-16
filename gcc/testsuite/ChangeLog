@@ -1,3 +1,9 @@
+2006-03-15  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3992198
+	* g++.old-deja/g++.other/init18.C: New.
+	* g++.old-deja/g++.other/init5.C: Remove xfail.
+
 2006-03-09  Eric Christopher  <echristo@apple.com>
 
 	Radar 4461050

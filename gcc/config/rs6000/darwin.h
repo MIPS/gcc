@@ -132,12 +132,8 @@ do {									\
        || strverscmp (darwin_macosx_version_min, "10.4.6") < 0)		\
       && flag_use_cxa_get_exception_ptr == 2)				\
     flag_use_cxa_get_exception_ptr = 0;					\
-  /* On powerpc, __cxa_atexit is available starting in the 10.4		\
-     libSystem.dylib.  */						\
-  if ((! darwin_macosx_version_min					\
-       || strverscmp (darwin_macosx_version_min, "10.4") < 0)		\
-      && flag_use_cxa_atexit == 2)					\
-    flag_use_cxa_atexit = 0;						\
+  /* APPLE LOCAL kexts */						\
+  SUBTARGET_C_COMMON_OVERRIDE_OPTIONS;					\
 } while (0)
 /* APPLE LOCAL end mainline 2006-02-24 4086777 */
 

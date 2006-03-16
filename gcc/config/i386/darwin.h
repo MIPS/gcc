@@ -239,6 +239,12 @@ extern int flag_cw_asm_blocks;
     /* APPLE LOCAL end CW asm blocks */				\
   } while (0)
 
+/* APPLE LOCAL begin kexts */
+#define C_COMMON_OVERRIDE_OPTIONS do {		\
+  SUBTARGET_C_COMMON_OVERRIDE_OPTIONS;		\
+} while (0)
+/* APPLE LOCAL end kexts */
+
 /* True, iff we're generating fast turn around debugging code.  When
    true, we arrange for function prologues to start with 6 nops so
    that gdb may insert code to redirect them, and for data to be

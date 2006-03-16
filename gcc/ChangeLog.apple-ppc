@@ -1,3 +1,12 @@
+2006-03-15  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3992198
+	* config/i386/darwin.h (C_COMMON_OVERRIDE_OPTIONS): New.
+	* config/rs6000/darwin.h  (C_COMMON_OVERRIDE_OPTIONS): Call
+	SUBTARGET_C_COMMON_OVERRIDE_OPTIONS.
+	* config/darwin.h (SUBTARGET_C_COMMON_OVERRIDE_OPTIONS): NEw.
+	* config/darwin-crt3.c: Be empty if __PIC__ is not defined.
+
 2006-03-15  Devang Patel  <dpatel@apple.com>
 
 	Radar 4479522

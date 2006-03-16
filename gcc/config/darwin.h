@@ -270,6 +270,13 @@ do {									\
   /* APPLE LOCAL end kexts */                                           \
 } while(0)
 
+/* APPLE LOCAL begin kexts */
+#define SUBTARGET_C_COMMON_OVERRIDE_OPTIONS do {	\
+  if (flag_apple_kext && flag_use_cxa_atexit == 2)	\
+    flag_use_cxa_atexit = 0;				\
+} while (0)
+/* APPLE LOCAL end kexts */
+
 #define SUBTARGET_INIT_BUILTINS		\
 do {					\
   darwin_init_cfstring_builtins ();	\
@@ -420,9 +427,16 @@ do {					\
    %{Zinit*:-init %*} \
 "/* APPLE LOCAL mainline 2005-09-01 3449986 */"\
    %{mmacosx-version-min=*:-macosx_version_min %*} \
+"/* APPLE LOCAL mainline 2006-03-15 3992198 */"\
+   %{!mmacosx-version-min=*:%{shared-libgcc:-macosx_version_min 10.3}} \
    %{nomultidefs} \
    %{Zmulti_module:-multi_module} %{Zsingle_module:-single_module} \
    %{Zmultiply_defined*:-multiply_defined %*} \
+"/* APPLE LOCAL begin mainline 2006-03-15 3992198 */"\
+   %{!Zmultiply_defined*:%{shared-libgcc: \
+     %:version-compare(< 10.5 mmacosx-version-min= -multiply_defined) \
+     %:version-compare(< 10.5 mmacosx-version-min= suppress)}} \
+"/* APPLE LOCAL end mainline 2006-03-15 3992198 */"\
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
@@ -486,22 +500,28 @@ do {					\
        -lgcc}"
 
 /* APPLE LOCAL end mainline 2005-11-15 4276161 */
-/* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
-/* APPLE LOCAL begin mainline 2005-11-15 4271575 */
+/* APPLE LOCAL begin mainline 2006-03-15 3992198 */
+/* We specify crt0.o as -lcrt0.o so that ld will search the library path.
+
+   crt3.o provides __cxa_atexit on systems that don't have it.  Since
+   it's only used with C++, which requires passing -shared-libgcc, key
+   off that to avoid unnecessarily adding a destructor to every
+   powerpc program built.  */
 
 #undef  STARTFILE_SPEC
-#define STARTFILE_SPEC  \
-  "%{!Zdynamiclib:%{Zbundle:%{!static:-lbundle1.o}} \
-     %{!Zbundle:%{pg:%{static:-lgcrt0.o} \
-                     %{!static:%{object:-lgcrt0.o} \
-                               %{!object:%{preload:-lgcrt0.o} \
-                                 %{!preload:-lgcrt1.o %(darwin_crt2)}}}} \
-                %{!pg:%{static:-lcrt0.o} \
-                      %{!static:%{object:-lcrt0.o} \
-                                %{!object:%{preload:-lcrt0.o} \
-                                  %{!preload:-lcrt1.o %(darwin_crt2)}}}}}}"
-/* APPLE LOCAL end mainline 2005-11-15 4271575 */
+#define STARTFILE_SPEC							    \
+  "%{!Zdynamiclib:%{Zbundle:%{!static:-lbundle1.o}}			    \
+     %{!Zbundle:%{pg:%{static:-lgcrt0.o}				    \
+                     %{!static:%{object:-lgcrt0.o}			    \
+                               %{!object:%{preload:-lgcrt0.o}		    \
+                                 %{!preload:-lgcrt1.o %(darwin_crt2)}}}}    \
+                %{!pg:%{static:-lcrt0.o}				    \
+                      %{!static:%{object:-lcrt0.o}			    \
+                                %{!object:%{preload:-lcrt0.o}		    \
+                                  %{!preload:-lcrt1.o %(darwin_crt2)}}}}}}  \
+  %{shared-libgcc:%:version-compare(< 10.5 mmacosx-version-min= -lcrt3.o)}"
 
+/* APPLE LOCAL end mainline 2006-03-15 3992198 */
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
    to put anything in ENDFILE_SPEC.  */
