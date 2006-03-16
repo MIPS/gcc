@@ -1,3 +1,10 @@
+2006-03-15  David Boreham  <david@bozemanpass.com>
+	    Scott Bridges  <scott@bozemanpass.com>
+
+	* include/ext/mt_allocator.h (_Thread_Bin_record): New struct, use it.
+	* src/mt_allocator.cc: Same.
+	* docs/html/ext/mt_allocator.html: Update.
+
 2006-03-15  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/libstdc++-abi/abi.exp: Disable abi checking on this branch.

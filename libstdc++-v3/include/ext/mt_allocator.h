@@ -1,6 +1,6 @@
 // MT-optimized allocator -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -195,11 +195,14 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
       struct _Bin_record
       {
-	// An "array" of pointers to the first free block.
-	_Block_record** volatile        _M_first;
-
 	// A list of the initial addresses of all allocated blocks.
 	_Block_address*		     	_M_address;
+      };
+      
+      struct _Thread_Bin_record
+      {
+	// Pointer to the first free block for a thread id and bin.
+	_Block_record* volatile        _M_first;
       };
       
       void
@@ -225,15 +228,20 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       _M_get_bin(size_t __which)
       { return _M_bin[__which]; }
       
+      _Thread_Bin_record&
+      _M_get_thread_bin(size_t __thread_id, size_t __which)
+      { return _M_thread_bin[__thread_id][__which]; }
+      
       void
-      _M_adjust_freelist(const _Bin_record&, _Block_record*, size_t)
+      _M_adjust_freelist(_Thread_Bin_record*,_Block_record*, size_t)
       { }
 
       explicit __pool() 
-      : _M_bin(NULL), _M_bin_size(1) { }
+      : _M_bin(NULL), _M_bin_size(1), _M_thread_bin(NULL) { }
 
       explicit __pool(const __pool_base::_Tune& __tune) 
-      : __pool_base(__tune), _M_bin(NULL), _M_bin_size(1) { }
+      : __pool_base(__tune), _M_bin(NULL), _M_bin_size(1), 
+	_M_thread_bin(NULL) { }
 
     private:
       // An "array" of bin_records each of which represents a specific
@@ -244,6 +252,12 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       // Actual value calculated in _M_initialize().
       size_t 	       	     	_M_bin_size;     
 
+      // An "array" of pointers to thread_bin_record "arrays" indexed
+      // first by thread id and then by bin which represents a
+      // specific power of 2 size. Memory to this "array" and the
+      // thread_bin_record "arrays" is allocated in _M_initialize().
+      _Thread_Bin_record** volatile     _M_thread_bin;
+      
       void
       _M_initialize();
   };
@@ -283,27 +297,26 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       
       struct _Bin_record
       {
-	// An "array" of pointers to the first free block for each
-	// thread id. Memory to this "array" is allocated in
-	// _S_initialize() for _S_max_threads + global pool 0.
-	_Block_record** volatile        _M_first;
-	
 	// A list of the initial addresses of all allocated blocks.
 	_Block_address*		     	_M_address;
 
-	// An "array" of counters used to keep track of the amount of
-	// blocks that are on the freelist/used for each thread id.
-	// Memory to these "arrays" is allocated in _S_initialize() for
-	// _S_max_threads + global pool 0.
-	size_t* volatile                _M_free;
-	size_t* volatile                _M_used;
-	
 	// Each bin has its own mutex which is used to ensure data
 	// integrity while changing "ownership" on a block.  The mutex
 	// is initialized in _S_initialize().
 	__gthread_mutex_t*              _M_mutex;
       };
+      
+      struct _Thread_Bin_record
+      {
+	// Pointer to the first free block for a thread id and bin.
+	_Block_record* volatile        _M_first;
 
+	// Counters used to keep track of the amount of blocks
+	// that are on the freelist/used for a thread id and bin.
+	size_t volatile                _M_free;
+	size_t volatile                _M_used;
+      };
+      
       void
       _M_initialize_once()
       {
@@ -324,15 +337,19 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       _M_get_bin(size_t __which)
       { return _M_bin[__which]; }
       
+      _Thread_Bin_record&
+      _M_get_thread_bin(size_t __thread_id, size_t __which)
+      { return _M_thread_bin[__thread_id][__which]; }
+      
       void
-      _M_adjust_freelist(const _Bin_record& __bin, _Block_record* __block, 
-			 size_t __thread_id)
+      _M_adjust_freelist(_Thread_Bin_record* __thread_bin,
+			 _Block_record* __block, size_t __thread_id)
       {
 	if (__gthread_active_p())
 	  {
 	    __block->_M_thread_id = __thread_id;
-	    --__bin._M_free[__thread_id];
-	    ++__bin._M_used[__thread_id];
+	    --__thread_bin->_M_free;
+	    ++__thread_bin->_M_used;
 	  }
       }
 
@@ -340,25 +357,32 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       _M_get_thread_id();
 
       explicit __pool() 
-      : _M_bin(NULL), _M_bin_size(1), _M_thread_freelist(NULL) 
+      : _M_bin(NULL), _M_bin_size(1), _M_thread_bin(NULL), 
+	_M_thread_freelist(NULL), _M_thread_freelist_initial(NULL)
       { }
 
       explicit __pool(const __pool_base::_Tune& __tune) 
-      : __pool_base(__tune), _M_bin(NULL), _M_bin_size(1), 
-      _M_thread_freelist(NULL) 
+      : __pool_base(__tune), _M_bin(NULL), _M_bin_size(1), _M_thread_bin(NULL),
+	_M_thread_freelist(NULL), _M_thread_freelist_initial(NULL)
       { }
 
     private:
       // An "array" of bin_records each of which represents a specific
       // power of 2 size. Memory to this "array" is allocated in
       // _M_initialize().
-      _Bin_record* volatile	_M_bin;
+      _Bin_record* volatile		_M_bin;
 
       // Actual value calculated in _M_initialize().
-      size_t 	       	     	_M_bin_size;
+      size_t 	       	     		_M_bin_size;
 
-      _Thread_record* 		_M_thread_freelist;
-      void*			_M_thread_freelist_initial;
+      // An "array" of pointers to thread_bin_record "arrays" indexed
+      // first by thread id and then by bin which represents a specific
+      // power of 2 size. Memory to this "array" and the thread_bin_record
+      // "arrays" is allocated in _M_initialize().
+      _Thread_Bin_record** volatile	_M_thread_bin;
+
+      _Thread_record* 			_M_thread_freelist;
+      void*				_M_thread_freelist_initial;
 
       void
       _M_initialize();
@@ -670,16 +694,16 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       // Find out if we have blocks on our freelist.  If so, go ahead
       // and use them directly without having to lock anything.
       char* __c;
-      typedef typename __pool_type::_Bin_record _Bin_record;
-      const _Bin_record& __bin = __pool._M_get_bin(__which);
-      if (__bin._M_first[__thread_id])
+      typedef typename __pool_type::_Thread_Bin_record _Thread_Bin_record;
+      _Thread_Bin_record& __thread_bin = __pool._M_get_thread_bin(__thread_id, __which);
+      if (__thread_bin._M_first)
 	{
 	  // Already reserved.
 	  typedef typename __pool_type::_Block_record _Block_record;
-	  _Block_record* __block = __bin._M_first[__thread_id];
-	  __bin._M_first[__thread_id] = __block->_M_next;
+	  _Block_record* __block = __thread_bin._M_first;
+	  __thread_bin._M_first = __block->_M_next;
 	  
-	  __pool._M_adjust_freelist(__bin, __block, __thread_id);
+	  __pool._M_adjust_freelist(&__thread_bin, __block, __thread_id);
 	  __c = reinterpret_cast<char*>(__block) + __pool._M_get_align();
 	}
       else

@@ -39,15 +39,32 @@
 <p> The mt allocator [hereinafter referred to simply as "the
 allocator"] is a fixed size (power of two) allocator that was
 initially developed specifically to suit the needs of multi threaded
-applications [hereinafter referred to as an MT application]. Over time
+applications [hereinafter referred to as an MT application]. 
+This allocator is tunable, very flexible, and capable of
+high-performance.
+</p>
+
+<p>
+Over time
 the allocator has evolved and been improved in many ways, in
 particular it now also does a good job in single threaded applications
 [hereinafter referred to as a ST application]. (Note: In this
 document, when referring to single threaded applications this also
 includes applications that are compiled with gcc without thread
 support enabled. This is accomplished using ifdef's on
-__GTHREADS). This allocator is tunable, very flexible, and capable of
-high-performance.
+__GTHREADS). 
+Another recent optimization addresses poor performance observed
+with threaded applicatios on some SMP hardware. Previously the layout of the bin and 
+thread-related data was such that different threads running on different
+processors would often refer to data stored at relatively nearby
+addresses, such that often different processors were accessing
+memory locations that lay on the same cache line. This in turn led to poor
+performance due to the resulting cache coherency traffic. 
+The code has been modified such that this
+data is now arranged in memory such that there is very little
+chance of two processors referring to data that is stored on the same
+cache line. In applications this change along can yield a 2x
+performance improvement on a 4-core machine.
 </p>
 
 <p>
@@ -199,29 +216,35 @@ The _S_initialize() function:
     of bytes. I.e., by default the allocator will deal with requests of up to 
     128 bytes (or whatever the value of _S_max_bytes is when _S_init() is 
     called). This means that there will be bins of the following sizes 
-    (in bytes): 1, 2, 4, 8, 16, 32, 64, 128. 
+    (in bytes): 8, 16, 32, 64, 128. 
 
   - Create the _S_binmap array. All requests are rounded up to the next 
     "large enough" bin. I.e., a request for 29 bytes will cause a block from 
     the "32 byte bin" to be returned to the application. The purpose of 
     _S_binmap is to speed up the process of finding out which bin to use. 
-    I.e., the value of _S_binmap[ 29 ] is initialized to 5 (bin 5 = 32 bytes).
+    I.e., the value of _S_binmap[ 29 ] is initialized to 2 (bin 2 = 32 bytes).
 </p>
 <p>
-  - Create the _S_bin array. This array consists of bin_records. There will be
+  - Create the _M_bin array. This array consists of bin_records. There will be
     as many bin_records in this array as the number of bins that we calculated
-    earlier. I.e., if _S_max_bytes = 128 there will be 8 entries.
-    Each bin_record is then initialized:
-    - bin_record-&gt;first = An array of pointers to block_records. There will be
-      as many block_records pointers as there are maximum number of threads 
-      (in a ST application there is only 1 thread, in a MT application there 
-      are _S_max_threads).
-      This holds the pointer to the first free block for each thread in this
+    earlier. I.e., if _S_max_bytes = 128 there will be 5 entries.
+</p>
+<p>
+  - Create the _M_thread_bin array. This array consists of pointers to arrays
+    of thread_bin_records. There will be as many thread_bin_record arrays as
+    the number of threads (in a ST application there is only 1 thread, in a MT
+    application there are _S_max_threads). There will be as many
+    thread_bin_records per array as the number of bins that we calculated
+    earlier. I.e., if _S_max_bytes = 128 there will be 5 entries.
+    Each thread_bin_record is then initialized:
+    - thread_bin_record.first = A pointer to a block_record.
+      This holds the pointer to the first free block for this thread in this
       bin. I.e., if we would like to know where the first free block of size 32
-      for thread number 3 is we would look this up by: _S_bin[ 5 ].first[ 3 ]
+      for thread number 3 is we would look this up by:
+      _M_thread_bin[ 3 ][ 2 ].first
 
     The above created block_record pointers members are now initialized to 
-    their initial values. I.e. _S_bin[ n ].first[ n ] = NULL;
+    their initial values. I.e. _M_thread_bin[ n ][ m ].first = NULL;
 </p>
 
 <p>
@@ -242,7 +265,7 @@ The _S_initialize() function:
     thread_record-&gt;thread_id as identification. I.e., the first thread that 
     calls allocate will get the first record in this list and thus be thread
     number 1 and will then find the pointer to its first free 32 byte block
-    in _S_bin[ 5 ].first[ 1 ]
+    in _M_thread_bin[ 1 ][ 2 ].first
     When we create the _S_thread_key we also define a destructor 
     (_S_thread_key_destr) which means that when the thread dies, this
     thread_record is returned to the front of this list and the thread id
@@ -251,19 +274,19 @@ The _S_initialize() function:
     locked when records are removed/added to the list.
 </p>
 <p>
-  - Initialize the free and used counters of each bin_record:
-    - bin_record-&gt;free = An array of size_t. This keeps track of the number
-      of blocks on a specific thread's freelist in each bin. I.e., if a thread
-      has 12 32-byte blocks on it's freelists and allocates one of these, this
-      counter would be decreased to 11.
+  - Initialize the free and used counters of each thread_bin_record:
+    - thread_bin_record.free = An array of size_t. This keeps track of the
+      number of blocks on a specific thread's freelist in each bin. I.e., if a
+      thread has 12 32-byte blocks on it's freelists and allocates one of these,
+      this counter would be decreased to 11.
 
-    - bin_record-&gt;used = An array of size_t. This keeps track of the number
+    - thread_bin_record.used = An array of size_t. This keeps track of the number
       of blocks currently in use of this size by this thread. I.e., if a thread
       has made 678 requests (and no deallocations...) of 32-byte blocks this
       counter will read 678.
 
     The above created arrays are now initialized with their initial values. 
-    I.e. _S_bin[ n ].free[ n ] = 0;
+    I.e. _M_thread_bin[ n ][ m ].free = 0;
 </p>
 <p>
   - Initialize the mutex of each bin_record: The bin_record-&gt;mutex
@@ -311,11 +334,11 @@ pool that frees memory, see the following
 
 <p>
 Let's start by describing how the data on a freelist is laid out in memory.
-This is the first two blocks in freelist for thread id 3 in bin 3 (8 bytes):
+This is the first two blocks in freelist for thread id 3 in bin 0 (8 bytes):
 </p>
 <pre>
 +----------------+
-| next* ---------|--+  (_S_bin[ 3 ].first[ 3 ] points here)
+| next* ---------|--+  (_M_thread_bin[ 3 ][ 0 ].first points here)
 |                |  |
 |                |  |
 |                |  |
@@ -371,10 +394,10 @@ If the requested size is within limits we start by finding out from which
 bin we should serve this request by looking in _S_binmap.
 </p>
 <p>
-A quick look at _S_bin[ bin ].first[ 0 ] tells us if there are any blocks of
-this size on the freelist (0). If this is not NULL - fine, just remove the
-block that _S_bin[ bin ].first[ 0 ] points to from the list, 
-update _S_bin[ bin ].first[ 0 ] and return a pointer to that blocks data.
+A quick look at _M_thread_bin[ 0 ][ bin ].first tells us if there are any blocks
+of this size on the freelist (0). If this is not NULL - fine, just remove the
+block that _M_thread_bin[ 0 ][ bin ].first points to from the list, 
+update _M_thread_bin[ 0 ][ bin ].first and return a pointer to that blocks data.
 </p>
 <p>
 If the freelist is empty (the pointer is NULL) we must get memory from the 
@@ -382,14 +405,14 @@ system and build us a freelist within this memory. All requests for new memory
 is made in chunks of _S_chunk_size. Knowing the size of a block_record and 
 the bytes that this bin stores we then calculate how many blocks we can create 
 within this chunk, build the list, remove the first block, update the pointer
-(_S_bin[ bin ].first[ 0 ]) and return a pointer to that blocks data. 
+(_M_thread_bin[ 0 ][ bin ].first) and return a pointer to that blocks data. 
 </p>
 
 <p>
 Deallocation is equally simple; the pointer is casted back to a block_record
 pointer, lookup which bin to use based on the size, add the block to the front 
 of the global freelist and update the pointer as needed 
-(_S_bin[ bin ].first[ 0 ]).
+(_M_thread_bin[ 0 ][ bin ].first).
 </p>
 
 <p>
@@ -454,12 +477,11 @@ returned).
 </p>
 
 <p>
-A quick look at _S_bin[ bin ].first[ thread_id ] tells us if there are
+A quick look at _M_thread_bin[ thread_id ][ bin ].first tells us if there are
 any blocks of this size on the current threads freelist. If this is
-not NULL - fine, just remove the block that _S_bin[ bin ].first[
-thread_id ] points to from the list, update _S_bin[ bin ].first[
-thread_id ], update the free and used counters and return a pointer to
-that blocks data.
+not NULL - fine, just remove the block that _M_thread_bin[ thread_id ][ bin ]
+points to from the list, update _M_thread_bin[ thread_id ][ bin ],
+update the free and used counters and return a pointer to that blocks data.
 </p>
 
 <p>
@@ -470,8 +492,8 @@ number of blocks of this bins size that will fit into a _S_chunk_size)
 or until end of list - whatever comes first - to the current threads
 freelist and at the same time change the thread_id ownership and
 update the counters and pointers. When the bins mutex has been
-unlocked, we remove the block that _S_bin[ bin ].first[ thread_id ]
-points to from the list, update _S_bin[ bin ].first[ thread_id ],
+unlocked, we remove the block that _M_thread_bin[ thread_id ][ bin ].first
+points to from the list, update _M_thread_bin[ thread_id ][ bin ].first,
 update the free and used counters, and return a pointer to that blocks
 data.
 </p>
