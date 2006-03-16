@@ -38,7 +38,6 @@
 #include <cstdlib>
 #include <bits/functexcept.h>
 #include <bits/gthr.h>
-#include <bits/atomicity.h>
 
 _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
@@ -309,12 +308,12 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
       struct _Thread_Bin_record
       {
 	// Pointer to the first free block for a thread id and bin.
-	_Block_record* volatile        _M_first;
+	_Block_record* volatile        	_M_first;
 
 	// Counters used to keep track of the amount of blocks
 	// that are on the freelist/used for a thread id and bin.
-	size_t volatile                _M_free;
-	size_t volatile                _M_used;
+	size_t volatile		     	_M_free;
+	size_t volatile			_M_used;
       };
       
       void
@@ -390,7 +389,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 #endif
 
   template<template <bool> class _PoolTp, bool _Thread>
-    struct __common_pool
+    struct __common_pool_base
     {
       typedef _PoolTp<_Thread> 		pool_type;
       
@@ -403,13 +402,13 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     };
 
   template<template <bool> class _PoolTp, bool _Thread>
-    struct __common_pool_base;
+    struct __common_pool;
 
   template<template <bool> class _PoolTp>
-    struct __common_pool_base<_PoolTp, false> 
-    : public __common_pool<_PoolTp, false>
+    struct __common_pool<_PoolTp, false> 
+    : public __common_pool_base<_PoolTp, false>
     {
-      using  __common_pool<_PoolTp, false>::_S_get_pool;
+      using  __common_pool_base<_PoolTp, false>::_S_get_pool;
 
       static void
       _S_initialize_once()
@@ -425,10 +424,10 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
 #ifdef __GTHREADS
   template<template <bool> class _PoolTp>
-    struct __common_pool_base<_PoolTp, true>
-    : public __common_pool<_PoolTp, true>
+    struct __common_pool<_PoolTp, true>
+    : public __common_pool_base<_PoolTp, true>
     {
-      using  __common_pool<_PoolTp, true>::_S_get_pool;
+      using  __common_pool_base<_PoolTp, true>::_S_get_pool;
       
       static void
       _S_initialize() 
@@ -459,20 +458,20 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
   /// @brief  Policy for shared __pool objects.
   template<template <bool> class _PoolTp, bool _Thread>
-    struct __common_pool_policy : public __common_pool_base<_PoolTp, _Thread>
+    struct __common_pool_policy : public __common_pool<_PoolTp, _Thread>
     {
+      using  __common_pool<_PoolTp, _Thread>::_S_get_pool;
+      using  __common_pool<_PoolTp, _Thread>::_S_initialize_once;
+
       template<typename _Tp1, template <bool> class _PoolTp1 = _PoolTp, 
 	       bool _Thread1 = _Thread>
         struct _M_rebind
         { typedef __common_pool_policy<_PoolTp1, _Thread1> other; };
-
-      using  __common_pool_base<_PoolTp, _Thread>::_S_get_pool;
-      using  __common_pool_base<_PoolTp, _Thread>::_S_initialize_once;
   };
  
 
   template<typename _Tp, template <bool> class _PoolTp, bool _Thread>
-    struct __per_type_pool
+    struct __per_type_pool_base
     {
       typedef _Tp 			value_type;
       typedef _PoolTp<_Thread> 		pool_type;
@@ -498,13 +497,13 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     };
 
   template<typename _Tp, template <bool> class _PoolTp, bool _Thread>
-    struct __per_type_pool_base;
+    struct __per_type_pool;
 
   template<typename _Tp, template <bool> class _PoolTp>
-    struct __per_type_pool_base<_Tp, _PoolTp, false> 
-    : public __per_type_pool<_Tp, _PoolTp, false> 
+    struct __per_type_pool<_Tp, _PoolTp, false> 
+    : public __per_type_pool_base<_Tp, _PoolTp, false> 
     {
-      using  __per_type_pool<_Tp, _PoolTp, false>::_S_get_pool;
+      using  __per_type_pool_base<_Tp, _PoolTp, false>::_S_get_pool;
 
       static void
       _S_initialize_once()
@@ -520,10 +519,10 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
  #ifdef __GTHREADS
  template<typename _Tp, template <bool> class _PoolTp>
-    struct __per_type_pool_base<_Tp, _PoolTp, true> 
-    : public __per_type_pool<_Tp, _PoolTp, true> 
+    struct __per_type_pool<_Tp, _PoolTp, true> 
+    : public __per_type_pool_base<_Tp, _PoolTp, true> 
     {
-      using  __per_type_pool<_Tp, _PoolTp, true>::_S_get_pool;
+      using  __per_type_pool_base<_Tp, _PoolTp, true>::_S_get_pool;
 
       static void
       _S_initialize() 
@@ -555,15 +554,15 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   /// @brief  Policy for individual __pool objects.
   template<typename _Tp, template <bool> class _PoolTp, bool _Thread>
     struct __per_type_pool_policy 
-    : public __per_type_pool_base<_Tp, _PoolTp, _Thread>
+    : public __per_type_pool<_Tp, _PoolTp, _Thread>
     {
+      using  __per_type_pool<_Tp, _PoolTp, _Thread>::_S_get_pool;
+      using  __per_type_pool<_Tp, _PoolTp, _Thread>::_S_initialize_once;
+
       template<typename _Tp1, template <bool> class _PoolTp1 = _PoolTp, 
 	       bool _Thread1 = _Thread>
         struct _M_rebind
         { typedef __per_type_pool_policy<_Tp1, _PoolTp1, _Thread1> other; };
-
-      using  __per_type_pool_base<_Tp, _PoolTp, _Thread>::_S_get_pool;
-      using  __per_type_pool_base<_Tp, _PoolTp, _Thread>::_S_initialize_once;
   };
 
 

@@ -38,20 +38,22 @@
 namespace __gnu_internal
 {
 #ifdef __GTHREADS
+
+  typedef __gnu_cxx::__pool<true>::_Thread_record trecord_type;
+
   struct __freelist
   {
-    typedef __gnu_cxx::__pool<true>::_Thread_record _Thread_record;
-    _Thread_record* 	_M_thread_freelist;
-    _Thread_record* 	_M_thread_freelist_array;
+    trecord_type* 	_M_current; 
+    trecord_type* 	_M_array; 
     size_t 		_M_max_threads;
     __gthread_key_t 	_M_key;
 
     ~__freelist()
     {
-      if (_M_thread_freelist_array)
+      if (_M_array)
 	{
 	  __gthread_key_delete(_M_key);
-	  ::operator delete(static_cast<void*>(_M_thread_freelist_array));
+	  ::operator delete(static_cast<void*>(_M_array));
 	}
     }
   };
@@ -61,17 +63,16 @@ namespace __gnu_internal
   static __glibcxx_mutex_define_initialized(freelist_mutex);
 
   static void 
-  _M_destroy_thread_key(void* __id)
+  __destroy_thread_key(void* __id_arg)
   {
     // Return this thread id record to the front of thread_freelist.
+    const size_t __id = reinterpret_cast<size_t>(__id_arg);
     __gnu_cxx::lock sentry(__gnu_internal::freelist_mutex);
-    size_t _M_id = reinterpret_cast<size_t>(__id);
-
-    using namespace __gnu_internal;
-    typedef __gnu_cxx::__pool<true>::_Thread_record _Thread_record;
-    _Thread_record* __tr = &freelist._M_thread_freelist_array[_M_id - 1];
-    __tr->_M_next = freelist._M_thread_freelist;
-    freelist._M_thread_freelist = __tr;
+    {
+      trecord_type* tfl = &freelist._M_array[__id - 1];
+      tfl->_M_next = freelist._M_current;
+      freelist._M_current = tfl;
+    }
   }
 #endif
 }
@@ -269,23 +270,23 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     _Block_record* __block = reinterpret_cast<_Block_record*>(__c);
     if (__gthread_active_p())
       {
-	// Calculate the number of records to remove from our freelist:
-	// in order to avoid too much contention we wait until the
-	// number of records is "high enough".
+	// Calculate the number of records to remove from our
+	// freelist: in order to avoid too much contention we wait
+	// until the number of records is "high enough".
 	const size_t __thread_id = _M_get_thread_id();
 	_Thread_Bin_record& __thread_bin = _M_thread_bin[__thread_id][__which];
 	_Thread_Bin_record& __thread_bin_0 = _M_thread_bin[0][__which];
 	const _Tune& __options = _M_get_options();	
 	const unsigned long __limit = 100 * (_M_bin_size - __which)
 		                      * __options._M_freelist_headroom;
-
-	unsigned long __remove = __thread_bin._M_free;
-	__remove *= __options._M_freelist_headroom;
-	if (__remove >= __thread_bin._M_used)
-	  __remove -= __thread_bin._M_used;
+	const unsigned long free = __thread_bin._M_free;
+	const unsigned long used = __thread_bin._M_used;
+	unsigned long __remove = free * __options._M_freelist_headroom;
+	if (__remove >= used)
+	  __remove -= used;
 	else
 	  __remove = 0;
-	if (__remove > __limit && __remove > __thread_bin._M_free)
+	if (__remove > __limit && __remove > free)
 	  {
 	    _Block_record* __first = __thread_bin._M_first;
 	    _Block_record* __tmp = __first;
@@ -296,11 +297,12 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	    __thread_bin._M_first = __tmp->_M_next;
 	    __thread_bin._M_free -= __removed;
 	    
-	    __gthread_mutex_lock(__bin._M_mutex);
-	    __tmp->_M_next = __thread_bin_0._M_first;
-	    __thread_bin_0._M_first = __first;
-	    __thread_bin_0._M_free += __removed;
-	    __gthread_mutex_unlock(__bin._M_mutex);
+	    __gnu_cxx::lock sentry(*__bin._M_mutex);
+	    {
+	      __tmp->_M_next = __thread_bin_0._M_first;
+	      __thread_bin_0._M_first = __first;
+	      __thread_bin_0._M_free += __removed;
+	    }
 	  }
 
 	// Return this block to our list and update counters and
@@ -379,7 +381,7 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	    // to the number that can be provided by the global free
 	    // list?
 	    __thread_bin._M_first = __thread_bin_0._M_first;
-	    if (__block_count >= __thread_bin_0._M_free)
+	    if (__block_count >= static_cast<size_t>(__thread_bin_0._M_free))
 	      {
 		__thread_bin._M_free = __thread_bin_0._M_free;
 		__thread_bin_0._M_free = 0;
@@ -480,75 +482,66 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
     // directly and have no need for this.
     if (__gthread_active_p())
       {
-	const size_t __max_threads = _M_options._M_max_threads + 1;
-	__v = ::operator new(sizeof(_Thread_Bin_record*) * __max_threads);
+	const size_t __max_threads = _M_options._M_max_threads;
+	__v = ::operator new(sizeof(_Thread_Bin_record*) * (__max_threads + 1));
 	_M_thread_bin = static_cast<_Thread_Bin_record**>(__v);
-	for (size_t __threadn = 0; __threadn < __max_threads; ++__threadn)
+	for (size_t __threadn = 0; __threadn < __max_threads + 1; ++__threadn)
 	  {
 	    __v = ::operator new(sizeof(_Thread_Bin_record) * _M_bin_size);
 	    _M_thread_bin[__threadn] = static_cast<_Thread_Bin_record*>(__v);
 	  }
-	{
-	  __gnu_cxx::lock sentry(__gnu_internal::freelist_mutex);
 
-	  if (!__gnu_internal::freelist._M_thread_freelist_array
-	      || __gnu_internal::freelist._M_max_threads
-		 < _M_options._M_max_threads)
+	__gnu_cxx::lock sentry(__gnu_internal::freelist_mutex);
+	{
+	  using namespace __gnu_internal;
+	  typedef _Thread_record trecord_type;
+
+	  if (!freelist._M_array || freelist._M_max_threads < __max_threads)
 	    {
-	      const size_t __k = sizeof(_Thread_record)
-				 * _M_options._M_max_threads;
-	      __v = ::operator new(__k);
-	      _Thread_record* _M_thread_freelist
-		= static_cast<_Thread_record*>(__v);
+	      const size_t k = sizeof(trecord_type) * __max_threads;
+	      __v = ::operator new(k);
+	      trecord_type* tfl = static_cast<trecord_type*>(__v);
 
 	      // NOTE! The first assignable thread id is 1 since the
 	      // global pool uses id 0
 	      size_t __i;
-	      for (__i = 1; __i < _M_options._M_max_threads; ++__i)
+	      for (__i = 1; __i < __max_threads; ++__i)
 		{
-		  _Thread_record& __tr = _M_thread_freelist[__i - 1];
-		  __tr._M_next = &_M_thread_freelist[__i];
+		  trecord_type& __tr = tfl[__i - 1];
+		  __tr._M_next = &tfl[__i];
 		  __tr._M_id = __i;
 		}
 
 	      // Set last record.
-	      _M_thread_freelist[__i - 1]._M_next = NULL;
-	      _M_thread_freelist[__i - 1]._M_id = __i;
+	      tfl[__i - 1]._M_next = NULL;
+	      tfl[__i - 1]._M_id = __i;
 
-	      if (!__gnu_internal::freelist._M_thread_freelist_array)
+	      if (!freelist._M_array)
 		{
 		  // Initialize per thread key to hold pointer to
-		  // _M_thread_freelist.
-		  __gthread_key_create(&__gnu_internal::freelist._M_key,
-				       __gnu_internal::_M_destroy_thread_key);
-		  __gnu_internal::freelist._M_thread_freelist
-		    = _M_thread_freelist;
+		  // _M_current.
+		  __gthread_key_create(&freelist._M_key, __destroy_thread_key);
+		  freelist._M_current = tfl;
 		}
 	      else
 		{
-		  _Thread_record* _M_old_freelist
-		    = __gnu_internal::freelist._M_thread_freelist;
-		  _Thread_record* _M_old_array
-		    = __gnu_internal::freelist._M_thread_freelist_array;
-		  __gnu_internal::freelist._M_thread_freelist
-		    = &_M_thread_freelist[_M_old_freelist - _M_old_array];
-		  while (_M_old_freelist)
+		  trecord_type* old_tfl = freelist._M_current;
+		  trecord_type* old_array = freelist._M_array;
+		  freelist._M_current = &tfl[old_tfl - old_array];
+		  while (old_tfl)
 		    {
 		      size_t next_id;
-		      if (_M_old_freelist->_M_next)
-			next_id = _M_old_freelist->_M_next - _M_old_array;
+		      if (old_tfl->_M_next)
+			next_id = old_tfl->_M_next - old_array;
 		      else
-			next_id = __gnu_internal::freelist._M_max_threads;
-		      _M_thread_freelist[_M_old_freelist->_M_id - 1]._M_next
-			= &_M_thread_freelist[next_id];
-		      _M_old_freelist = _M_old_freelist->_M_next;
+			next_id = freelist._M_max_threads;
+		      tfl[old_tfl->_M_id - 1]._M_next = &tfl[next_id];
+		      old_tfl = old_tfl->_M_next;
 		    }
-		  ::operator delete(static_cast<void*>(_M_old_array));
+		  ::operator delete(static_cast<void*>(old_array));
 		}
-	      __gnu_internal::freelist._M_thread_freelist_array
-		= _M_thread_freelist;
-	      __gnu_internal::freelist._M_max_threads
-		= _M_options._M_max_threads;
+	      freelist._M_array = tfl;
+	      freelist._M_max_threads = __max_threads;
 	    }
 	}
 
@@ -600,28 +593,29 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
   {
     // If we have thread support and it's active we check the thread
     // key value and return its id or if it's not set we take the
-    // first record from _M_thread_freelist and sets the key and
+    // first record from _M_current and sets the key and
     // returns it's id.
     if (__gthread_active_p())
       {
-	void* v = __gthread_getspecific(__gnu_internal::freelist._M_key);
-	size_t _M_id = (size_t)v;
-	if (_M_id == 0)
+	using namespace __gnu_internal;
+	void* v = __gthread_getspecific(freelist._M_key);
+	size_t id = reinterpret_cast<size_t>(v);
+	if (id == 0)
 	  {
 	    {
-	      __gnu_cxx::lock sentry(__gnu_internal::freelist_mutex);
-	      if (__gnu_internal::freelist._M_thread_freelist)
+	      __gnu_cxx::lock sentry(freelist_mutex);
+	      typedef _Thread_record trecord_type;
+	      trecord_type* tfl = freelist._M_current;
+	      if (tfl)
 		{
-		  _M_id = __gnu_internal::freelist._M_thread_freelist->_M_id;
-		  __gnu_internal::freelist._M_thread_freelist
-		    = __gnu_internal::freelist._M_thread_freelist->_M_next;
+		  id = tfl->_M_id;
+		  freelist._M_current = tfl->_M_next;
 		}
 	    }
-
-	    __gthread_setspecific(__gnu_internal::freelist._M_key,
-				  (void*)_M_id);
+	    __gthread_setspecific(freelist._M_key, 
+				  reinterpret_cast<void*>(id));
 	  }
-	return _M_id >= _M_options._M_max_threads ? 0 : _M_id;
+	return id >= _M_options._M_max_threads ? 0 : id;
       }
 
     // Otherwise (no thread support or inactive) all requests are
