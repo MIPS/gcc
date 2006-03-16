@@ -1,3 +1,8 @@
+2006-03-15  Devang Patel  <dpatel@apple.com>
+
+	Radar 4468705
+	* build_gcc (MACOSX_DEPLOYMENT_TARGET): Do not unset.
+
 2006-03-09  Devang Patel  <dpatel@apple.com>
 
 	Radar 4468705
