@@ -1,3 +1,10 @@
+2006-03-15  Devang Patel  <dpatel@apple.com>
+
+	Radar 4479522
+	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Do not 
+	enable Altivec by default when deployment target is Mac OSX 10.5 
+	or higher.	
+
 2006-03-13  Mike Stump  <mrs@apple.com>
 
 	Radar 4230099

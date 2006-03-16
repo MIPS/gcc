@@ -122,13 +122,6 @@ do {									\
       target_flags |= MASK_POWERPC64;					\
       warning ("-m64 requires PowerPC64 architecture, enabling");	\
     }									\
-  /* APPLE LOCAL begin 4298879.  */                                     \
-  if (darwin_macosx_version_min                                         \
-      && strverscmp (darwin_macosx_version_min, "10.5") >= 0            \
-      && !(target_flags_explicit & MASK_ALTIVEC)                        \
-      && !(rs6000_select[1].string))                                    \
-    target_flags |= MASK_ALTIVEC;                                       \
-  /* APPLE LOCAL end 4298879.  */                                       \
 } while(0)
 
 /* APPLE LOCAL begin mainline 2006-02-24 4086777 */
