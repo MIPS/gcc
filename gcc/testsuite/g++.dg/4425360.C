@@ -27,7 +27,7 @@ int main (int argc, char * const argv[])
         }
         packet->next = 0;
         /* printf("in loop %d         head = 0x%X    next = 0x%X\n", count, (unsigned int)head, (unsigned int)head->next); */
-        printf("", count, (unsigned int)head, (unsigned int)head->next);
+        printf("", count, head, head->next);
     } while (++count < num);
     if (!head->next)
       abort ();

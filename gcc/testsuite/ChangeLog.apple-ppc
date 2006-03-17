@@ -1,3 +1,7 @@
+2006-03-17  Stuart Hastings  <stuart@apple.com>
+
+	* g++.dg/4425360.C: Tweak for -m64.
+
 2006-03-16  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4481011
