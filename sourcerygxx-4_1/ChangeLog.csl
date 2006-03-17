@@ -1,3 +1,9 @@
+2006-03-17  Richard Sandiford  <richard@codesourcery.com>
+
+	Backport from mainline:
+	* gcc/config.gcc (mips64*-*-linux*): Keep existing tm_defines.
+	(mips*-*-linux*): Likewise.
+
 2006-03-16  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/config.gcc (tm_defines): Always add to previous value rather
