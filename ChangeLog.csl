@@ -1,3 +1,8 @@
+2006-03-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/soft-fp: Update license notices.
+	* gcc/config/soft-fp/README: New.
+
 2006-03-02  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/config/rs6000/rs6000.opt (mdlmzb): New option.
