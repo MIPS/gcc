@@ -2447,6 +2447,9 @@ if test x$with_cpu = x ; then
         with_cpu=v9
       fi
       ;;
+    m68k-*-uclinux*)
+      with_cpu=5206
+      ;;
   esac
 fi
 

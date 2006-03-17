@@ -1,3 +1,16 @@
+2006-03-17  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-uclinux*): Set with_cpu to 5206 by default.
+	* gcc/config/m68k/m68k-cores.def (5211, 5212, 5213): Use the -mcpu=5211
+	multilibs instead of the -mcpu=5207 ones.
+	* gcc/config/m68k/t-uclinux (MULTILIB_OPTIONS): Restrict to coldfire
+	cores.
+	(MULTILIB_DIRNAMES, MULTILIB_EXCEPTIONS): Update accordingly.
+	(NATIVE_SYSTEM_HEADER_DIR): Override default.
+	* gcc/config/m68k/uclinux.h (MULTILIB_DEFAULTS): Define.
+	(SYSROOT_SUFFIX_SPEC): Define.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Define.
+
 2006-03-16  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc/config/m68k/m68k.c (m68k_output_function_epilogue): Prevent

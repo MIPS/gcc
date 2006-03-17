@@ -60,3 +60,17 @@ Boston, MA 02110-1301, USA.  */
 /* uclibc uses comments to hide section attributes.  So setting
    ASM_FILE_START_APP_OFF breaks it.  */
 #define M68K_NO_ASM_FILE_START_APP_OFF 1
+
+/* Arbitrarily pick one multilib to be the default.  The true default
+   is enforced by the with_cpu setting in config.gcc.  */
+#define MULTILIB_DEFAULTS { "mcpu=5206" }
+
+#define SYSROOT_SUFFIX_SPEC	\
+  "%{mcpu=5206: /m5206 ;	\
+     mcpu=5206e: /m5206e ;	\
+     mcpu=5207: /m5207 ;	\
+     mcpu=5211: /m5211 ;	\
+     mcpu=5307: /m5307 ;	\
+     mcpu=5407: /m5407}"
+
+#define SYSROOT_HEADERS_SUFFIX_SPEC "/m5206"

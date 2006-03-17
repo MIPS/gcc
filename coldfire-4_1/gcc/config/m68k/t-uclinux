@@ -12,13 +12,14 @@ xfgnulib.c: $(srcdir)/config/m68k/fpgnulib.c
 	echo '#define EXTFLOAT' > xfgnulib.c
 	cat $(srcdir)/config/m68k/fpgnulib.c >> xfgnulib.c
 
-MULTILIB_OPTIONS = mcpu=68000/mcpu=5206/mcpu=5206e/mcpu=528x/mcpu=5307/mcpu=5407/mcpu=cpu32 msep-data/mid-shared-library
-MULTILIB_DIRNAMES = m68000 m5206 m5206e m528x m5307 m5407 mcpu32 msep-data mid-shared-library
-MULTILIB_EXCEPTIONS = mcpu=68000/msep-data* mcpu=68000/mid-shared-library* \
-	mcpu=5206/msep-data* mcpu=5206/mid-shared-library* \
-	mcpu=5206e/msep-data* mcpu=5206e/mid-shared-library* \
-	mcpu=5307/msep-data* mcpu=5307/mid-shared-library* \
-		      msep-data* mid-shared-library*
+MULTILIB_OPTIONS = mcpu=5206/mcpu=5206e/mcpu=5207/mcpu=5211/mcpu=5307/mcpu=5407
+MULTILIB_DIRNAMES = m5206 m5206e m5207 m5211 m5307 m5407
+MULTILIB_EXCEPTIONS =
+
+# Arbitrarily pick one of the sysroots to act as the default one
+# for fixincludes.  Define OTHER_FIXINCLUDES_DIR to the full paths
+# of all the other build-time sysroots.
+NATIVE_SYSTEM_HEADER_DIR = /m5206/usr/include
 
 LIBGCC = stmp-multilib
 INSTALL_LIBGCC = install-multilib
