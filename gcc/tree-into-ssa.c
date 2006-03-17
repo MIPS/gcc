@@ -648,7 +648,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
   /* If a variable is used before being set, then the variable is live
      across a block boundary, so mark it live-on-entry to BB.  */
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
-			    SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMUSTKILL)
+			    SSA_OP_USE | SSA_OP_VUSE | SSA_OP_VMAYUSE)
     {
       tree sym = USE_FROM_PTR (use_p);
       gcc_assert (DECL_P (sym));
@@ -675,8 +675,8 @@ mark_def_sites (struct dom_walk_data *walk_data,
       REWRITE_THIS_STMT (stmt) = 1;
     }
 
-  /* Now process the defs and must-defs made by this statement.  */
-  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF | SSA_OP_VMUSTDEF)
+  /* Now process the defs and vdefs made by this statement.  */
+  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF | SSA_OP_VMAYDEF)
     {
       gcc_assert (DECL_P (def));
       set_def_block (def, bb, false);
@@ -1039,8 +1039,7 @@ rewrite_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
   if (REWRITE_THIS_STMT (stmt))
-    FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
-	                      SSA_OP_ALL_USES|SSA_OP_ALL_KILLS)
+    FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
       {
 	tree var = USE_FROM_PTR (use_p);
 	gcc_assert (DECL_P (var));
@@ -1470,8 +1469,7 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	maybe_replace_use (use_p);
 
       if (need_to_update_vops_p)
-	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
-				  SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
+	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
 	  maybe_replace_use (use_p);
     }
 

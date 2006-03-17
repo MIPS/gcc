@@ -156,8 +156,7 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
       it means that the block in that array slot contains the
       definition of SSA_NAME.
 
-   IS_VIRTUAL is true if SSA_NAME is created by a V_MAY_DEF or a
-      V_MUST_DEF.  */
+   IS_VIRTUAL is true if SSA_NAME is created by a V_MAY_DEF.  */
 
 static bool
 verify_def (basic_block bb, basic_block *definition_block, tree ssa_name,
@@ -208,8 +207,7 @@ err:
       is flowing through an abnormal edge (only used when checking PHI
       arguments).
 
-   IS_VIRTUAL is true if SSA_NAME is created by a V_MAY_DEF or a
-      V_MUST_DEF.
+   IS_VIRTUAL is true if SSA_NAME is created by a V_MAY_DEF.
    
    If NAMES_DEFINED_IN_BB is not NULL, it contains a bitmap of ssa names
      that are defined before STMT in basic block BB.  */
@@ -719,17 +717,16 @@ verify_ssa (bool check_modified_stmt)
 
 	      if (base_address
 		  && SSA_VAR_P (base_address)
-		  && ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF|SSA_OP_VMUSTDEF))
+		  && ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF))
 		{
 		  error ("statement makes a memory store, but has no "
-			 "V_MAY_DEFS nor V_MUST_DEFS");
+			 "V_MAY_DEFS");
 		  print_generic_stmt (stderr, stmt, TDF_VOPS);
 		  goto err;
 		}
 	    }
 
-	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
-	                            SSA_OP_ALL_USES | SSA_OP_ALL_KILLS)
+	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
 	    {
 	      op = USE_FROM_PTR (use_p);
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],

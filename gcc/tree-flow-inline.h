@@ -914,12 +914,6 @@ op_iter_next_use (ssa_op_iter *ptr)
 	}
       return use_p;
     }
-  if (ptr->mustkills)
-    {
-      use_p = MUSTDEF_KILL_PTR (ptr->mustkills);
-      ptr->mustkills = ptr->mustkills->next;
-      return use_p;
-    }
   if (ptr->phi_i < ptr->num_phi)
     {
       return PHI_ARG_DEF_PTR (ptr->phi_stmt, (ptr->phi_i)++);
@@ -940,12 +934,6 @@ op_iter_next_def (ssa_op_iter *ptr)
     {
       def_p = DEF_OP_PTR (ptr->defs);
       ptr->defs = ptr->defs->next;
-      return def_p;
-    }
-  if (ptr->mustdefs)
-    {
-      def_p = MUSTDEF_RESULT_PTR (ptr->mustdefs);
-      ptr->mustdefs = ptr->mustdefs->next;
       return def_p;
     }
   if (ptr->maydefs)
@@ -992,22 +980,10 @@ op_iter_next_tree (ssa_op_iter *ptr)
 	}
       return val;
     }
-  if (ptr->mustkills)
-    {
-      val = MUSTDEF_KILL (ptr->mustkills);
-      ptr->mustkills = ptr->mustkills->next;
-      return val;
-    }
   if (ptr->defs)
     {
       val = DEF_OP (ptr->defs);
       ptr->defs = ptr->defs->next;
-      return val;
-    }
-  if (ptr->mustdefs)
-    {
-      val = MUSTDEF_RESULT (ptr->mustdefs);
-      ptr->mustdefs = ptr->mustdefs->next;
       return val;
     }
   if (ptr->maydefs)
@@ -1035,8 +1011,6 @@ clear_and_done_ssa_iter (ssa_op_iter *ptr)
   ptr->vuses = NULL;
   ptr->maydefs = NULL;
   ptr->mayuses = NULL;
-  ptr->mustdefs = NULL;
-  ptr->mustkills = NULL;
   ptr->iter_type = ssa_op_iter_none;
   ptr->phi_i = 0;
   ptr->num_phi = 0;
@@ -1059,8 +1033,6 @@ op_iter_init (ssa_op_iter *ptr, tree stmt, int flags)
   ptr->vuses = (flags & SSA_OP_VUSE) ? VUSE_OPS (stmt) : NULL;
   ptr->maydefs = (flags & SSA_OP_VMAYDEF) ? MAYDEF_OPS (stmt) : NULL;
   ptr->mayuses = (flags & SSA_OP_VMAYUSE) ? MAYDEF_OPS (stmt) : NULL;
-  ptr->mustdefs = (flags & SSA_OP_VMUSTDEF) ? MUSTDEF_OPS (stmt) : NULL;
-  ptr->mustkills = (flags & SSA_OP_VMUSTKILL) ? MUSTDEF_OPS (stmt) : NULL;
   ptr->done = false;
 
   ptr->phi_i = 0;
@@ -1086,7 +1058,7 @@ op_iter_init_use (ssa_op_iter *ptr, tree stmt, int flags)
 static inline def_operand_p
 op_iter_init_def (ssa_op_iter *ptr, tree stmt, int flags)
 {
-  gcc_assert ((flags & (SSA_OP_ALL_USES | SSA_OP_VIRTUAL_KILLS)) == 0);
+  gcc_assert ((flags & SSA_OP_ALL_USES) == 0);
   op_iter_init (ptr, stmt, flags);
   ptr->iter_type = ssa_op_iter_def;
   return op_iter_next_def (ptr);
@@ -1116,14 +1088,6 @@ op_iter_next_maymustdef (vuse_vec_p *use, def_operand_p *def,
       *def = MAYDEF_RESULT_PTR (ptr->mayuses);
       *use = MAYDEF_VECT (ptr->mayuses);
       ptr->mayuses = ptr->mayuses->next;
-      return;
-    }
-
-  if (ptr->mustkills)
-    {
-      *def = MUSTDEF_RESULT_PTR (ptr->mustkills);
-      *use = MUSTDEF_VECT (ptr->mustkills);
-      ptr->mustkills = ptr->mustkills->next;
       return;
     }
 
@@ -1166,33 +1130,12 @@ op_iter_init_maydef (ssa_op_iter *ptr, tree stmt, vuse_vec_p *use,
 /* Initialize iterator PTR to the operands in STMT.  Return the first operands
    in KILL and DEF.  */
 static inline void
-op_iter_init_mustdef (ssa_op_iter *ptr, tree stmt, use_operand_p *kill, 
-		     def_operand_p *def)
-{
-  vuse_vec_p vp;
-  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
-
-  op_iter_init (ptr, stmt, SSA_OP_VMUSTKILL);
-  ptr->iter_type = ssa_op_iter_maymustdef;
-  op_iter_next_maymustdef (&vp, def, ptr);
-  if (vp != NULL)
-    {
-      gcc_assert (VUSE_VECT_NUM_ELEM (*vp) == 1);
-      *kill = VUSE_ELEMENT_PTR (*vp, 0);
-    }
-  else
-    *kill = NULL_USE_OPERAND_P;
-}
-
-/* Initialize iterator PTR to the operands in STMT.  Return the first operands
-   in KILL and DEF.  */
-static inline void
 op_iter_init_must_and_may_def (ssa_op_iter *ptr, tree stmt,
 			       vuse_vec_p *kill, def_operand_p *def)
 {
   gcc_assert (TREE_CODE (stmt) != PHI_NODE);
 
-  op_iter_init (ptr, stmt, SSA_OP_VMUSTKILL|SSA_OP_VMAYUSE);
+  op_iter_init (ptr, stmt, SSA_OP_VMAYUSE);
   ptr->iter_type = ssa_op_iter_maymustdef;
   op_iter_next_maymustdef (kill, def, ptr);
 }
@@ -1287,8 +1230,7 @@ delink_stmt_imm_use (tree stmt)
    use_operand_p use_p;
 
    if (ssa_operands_active ())
-     FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
-			       (SSA_OP_ALL_USES | SSA_OP_ALL_KILLS))
+     FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
        delink_imm_use (use_p);
 }
 

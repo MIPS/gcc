@@ -230,8 +230,7 @@ rename_variables_in_bb (basic_block bb)
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
     {
       stmt = bsi_stmt (bsi);
-      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, 
-				 (SSA_OP_ALL_USES | SSA_OP_ALL_KILLS))
+      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
 	rename_use_op (use_p);
     }
 

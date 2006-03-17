@@ -472,7 +472,7 @@ create_ssa_var_map (int flags)
 #ifdef ENABLE_CHECKING
 	  /* Validate that virtual ops don't get used in funny ways.  */
 	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, 
-				     SSA_OP_VIRTUAL_USES | SSA_OP_VMUSTDEF)
+				     SSA_OP_VIRTUAL_USES | SSA_OP_VMAYDEF)
 	    {
 	      bitmap_set_bit (used_in_virtual_ops, 
 			      DECL_UID (SSA_NAME_VAR (use)));

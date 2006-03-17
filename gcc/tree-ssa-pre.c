@@ -1916,15 +1916,13 @@ compute_rvuse_and_antic_safe (void)
 	  tree stmt = bsi_stmt (bsi);
 	  
 	  if (first_store_uid[bb->index] == 0 
-	      && !ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYUSE | SSA_OP_VMAYDEF 
-				     | SSA_OP_VMUSTDEF | SSA_OP_VMUSTKILL))
+	      && !ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYUSE | SSA_OP_VMAYDEF))
 	    {
 	      first_store_uid[bb->index] = stmt_ann (stmt)->uid;
 	    }
 	  
 
-	  FOR_EACH_SSA_USE_OPERAND (usep, stmt, iter, SSA_OP_VIRTUAL_KILLS
-				    | SSA_OP_VMAYUSE)
+	  FOR_EACH_SSA_USE_OPERAND (usep, stmt, iter, SSA_OP_VMAYUSE)
 	    {
 	      tree use = USE_FROM_PTR (usep);
 	      bitmap repbit = get_representative (vuse_names,

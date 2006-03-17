@@ -1,3 +1,128 @@
+2006-03-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-ssa-operands.c: Remove build_v_must_defs.
+	(init_ssa_operands): Delete build_v_must_defs.
+	(finalize_ssa_v_must_def_ops): Remove.
+	(finalize_ssa_v_must_defs): Remove.
+	(finalize_ssa_stmt_operands): Do not call
+	finalize_ssa_v_must_defs.
+	(start_ssa_stmt_operands): Do not check build_v_must_defs.
+	(append_v_must_def): Delete.
+	(copy_virtual_operands): Do not copy V_MUST_DEFs.
+	(get_modify_expr_operands): Remove reference to V_MUST_DEF from
+	comment.  Remove opf_kill_def.
+	(build_ssa_operands): Remove references to v_must_defs.
+	(copy_virtual_operands): Same.
+	(copy_virtual_operands): Same.
+	(fini_ssa_operands): Same.
+	(free_ssa_operands): Same.
+	(add_mustdef_op): Remove.
+	Remove mustdef_optype_p.
+	(alloc_mustdef): Remove.
+	Remove references to V_MUST_DEFs in comment at top of file.
+	(get_expr_operands): Remove opf_kill_def.
+	(opf_kill_def): Remove.
+	(add_virtual_operand): Remove opf_kill_def.
+	(get_indirect_ref_operands): Same.
+	(get_tmr_operands): Same.
+
+	* tree-vectorizer.c (rename_variables_in_bb): Remove
+	SSA_OP_ALL_KILLS.
+
+	* tree-ssa-loop-manip.c (find_uses_to_rename_stmt): Remove
+	SSA_OP_ALL_KILLS.
+	(check_loop_closed_ssa_stmt): Same.
+
+	* tree-ssa.c (verify_def): Remove V_MUST_DEF from comment.
+	(verify_use): Same.
+	(verify_ssa): Remove V_MUST_DEFs traces.
+	(verify_ssa): Remove SSA_OP_ALL_KILLS.
+
+	* tree-into-ssa.c (mark_def_sites): Change SSA_OP_VMUSTDEF to
+	SSA_OP_VMAYDEF.
+	(rewrite_update_stmt): Remove SSA_OP_VIRTUAL_KILLS.
+	(rewrite_stmt): Remove SSA_OP_ALL_KILLS.
+
+	* tree-ssa-operands.h (struct stmt_operands_d): Remove V_MUST_DEF
+	references.
+	(MUSTDEF_OPS): Remove.
+	(SSA_OP_VMUSTDEF): Remove.
+	(FOR_EACH_SSA_MUSTDEF_OPERAND): Remove.
+	(struct mustdef_optype_d): Remove.
+	Remove mustdef_optype_p.
+	(struct stmt_operands_d): Remove mustdef_ops.
+	(ssa_operand_iterator_d): Remove mustdefs and mustkills.
+	(SSA_OP_VIRTUAL_DEFS): Remove SSA_OP_VMUSTDEF.
+	(MUSTDEF_RESULT_PTR): Remove.
+	(MUSTDEF_RESULT): Remove.
+	(MUSTDEF_KILL_PTR): Remove.
+	(MUSTDEF_KILL): Remove.
+	(MUSTDEF_NUM): Remove.
+	(MUSTDEF_VECT): Remove.
+	(SSA_OP_VIRTUAL_KILLS): Remove.
+	(SSA_OP_ALL_VIRTUALS): Remove SSA_OP_VIRTUAL_KILLS.
+	(SSA_OP_VMUSTKILL): Remove.
+	(SSA_OP_ALL_KILLS): Remove.
+	(SSA_OP_ALL_OPERANDS): Remove SSA_OP_ALL_KILLS.
+
+	* tree-flow-inline.h (op_iter_init_def): Remove
+	SSA_OP_VIRTUAL_KILLS.
+	(delink_stmt_imm_use): Remove SSA_OP_ALL_KILLS.
+
+	* tree-ssa-pre.c (compute_rvuse_and_antic_safe): Remove
+	SSA_OP_VIRTUAL_KILLS.
+
+	* tree-ssa-loop-im.c (determine_max_movement): Remove
+	SSA_OP_VIRTUAL_KILLS.
+	(gather_mem_refs_stmt): Same.
+	(gather_mem_refs_stmt): Same.
+
+	* tree-ssa-dce.c (mark_really_necessary_kill_operand_phis): Delete.
+	(perform_tree_ssa_dce): Remove call to
+	mark_really_necessary_kill_operand_phis.
+
+	* tree-flow-inline.h (op_iter_init): Remove setting of mustdefs
+	and mustkills.
+	(op_iter_next_use): Do not check mustkills.
+	(op_iter_next_def): Do not check mustdefs.
+	(op_iter_next_tree): Do not check mustkills or mustdefs.
+	(clear_and_done_ssa_iter): Do not set mustdefs or mustkills.
+	(op_iter_next_maymustdef): Do not check mustkills.
+	(op_iter_init_must_and_may_def): Remove SSA_OP_VMUSTKILL.
+	(op_iter_init_mustdef): Remove.
+
+	* tree-ssa-live.c (create_ssa_var_map): Change SSA_OP_VMUSTDEF to
+	SSA_OP_VMAYDEF.
+
+	* tree-ssa-dse.c (dse_optimize_stmt): Remove SSA_OP_VMUSTDEF.
+
+	* tree-ssa-ccp.c: Remove V_MUST_DEF traces from comments.
+	(visit_assignment): Same.
+
+	* tree-ssa-copy.c (copy_prop_visit_assignment): Same.
+
+	* tree-sra.c (mark_all_v_defs_1): Remove V_MUST_DEF from comment.
+
+	* tree-outof-ssa.c (check_replaceable): Remove SSA_OP_VMUSTDEF.
+
+	* tree-pretty-print.c (dump_vops): Remove printing of V_MUST_DEF.
+	Remove kill_p variable.
+
+	* tree-dfa.c (struct dfa_stats_d): Remove num_v_must_defs.
+	(dump_dfa_stats): Remove code related to V_MUST_DEFs.
+	(collect_dfa_stats_r): Do not set num_v_must_defs.
+	(mark_new_vars_to_rename): Remove v_must_defs_{before,after}
+	code.
+
+	* tree-into-ssa.c (mark_def_sites): Change SSA_OP_VMUSTKILL to
+	SSA_OP_VMAYUSE.
+
+	* tree-ssa-pre.c (compute_rvuse_and_antic_safe): Remove
+	SSA_OP_VMUSTDEF and SSA_OP_VMUSTKILL.
+
+	* tree-ssa-propagate.c (stmt_makes_single_store): Remove
+	SSA_OP_VMUSTDEF.
+
 2006-03-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* BASE-VER: Add mem-ssa.

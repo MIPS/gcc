@@ -687,7 +687,7 @@ ssa_propagate (ssa_prop_visit_stmt_fn visit_stmt,
 }
 
 
-/* Return the first V_MAY_DEF or V_MUST_DEF operand for STMT.  */
+/* Return the first V_MAY_DEF operand for STMT.  */
 
 tree
 first_vdef (tree stmt)
@@ -741,7 +741,7 @@ stmt_makes_single_store (tree stmt)
   if (TREE_CODE (stmt) != MODIFY_EXPR)
     return false;
 
-  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF|SSA_OP_VMUSTDEF))
+  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF))
     return false;
 
   lhs = TREE_OPERAND (stmt, 0);

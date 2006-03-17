@@ -1571,8 +1571,8 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   if (version_ref_count (map, def) != 1)
     return false;
 
-  /* There must be no V_MAY_DEFS or V_MUST_DEFS.  */
-  if (!(ZERO_SSA_OPERANDS (stmt, (SSA_OP_VMAYDEF | SSA_OP_VMUSTDEF))))
+  /* There must be no VDEFs.  */
+  if (!(ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF)))
     return false;
 
   /* Float expressions must go through memory if float-store is on.  */

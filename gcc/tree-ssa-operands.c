@@ -53,16 +53,15 @@ Boston, MA 02110-1301, USA.  */
    The operand tree is the parsed by the various get_* routines which look 
    through the stmt tree for the occurrence of operands which may be of 
    interest, and calls are made to the append_* routines whenever one is 
-   found.  There are 5 of these routines, each representing one of the 
-   5 types of operands. Defs, Uses, Virtual Uses, Virtual May Defs, and 
-   Virtual Must Defs.
+   found.  There are 4 of these routines, each representing one of the 
+   4 types of operands. Defs, Uses, Virtual Uses, and Virtual May Defs.
 
    The append_* routines check for duplication, and simply keep a list of 
    unique objects for each operand type in the build_* extendable vectors.
 
    Once the stmt tree is completely parsed, the finalize_ssa_operands() 
    routine is called, which proceeds to perform the finalization routine 
-   on each of the 5 operand vectors which have been built up.
+   on each of the 4 operand vectors which have been built up.
 
    If the stmt had a previous operand cache, the finalization routines 
    attempt to match up the new operands with the old ones.  If it's a perfect 
@@ -84,9 +83,6 @@ Boston, MA 02110-1301, USA.  */
 /* Operand is the target of an assignment expression or a 
    call-clobbered variable.  */
 #define opf_is_def 	(1 << 0)
-
-/* Operand is the target of an assignment expression.  */
-#define opf_kill_def 	(1 << 1)
 
 /* No virtual operands should be created in the expression.  This is used
    when traversing ADDR_EXPR nodes which have different semantics than
@@ -113,9 +109,6 @@ static VEC(tree,heap) *build_v_may_defs;
 /* Array for building all the VUSE operands.  */
 static VEC(tree,heap) *build_vuses;
 
-/* Array for building all the V_MUST_DEF operands.  */
-static VEC(tree,heap) *build_v_must_defs;
-
 /* These arrays are the cached operand vectors for call clobbered calls.  */
 static bool ops_active = false;
 
@@ -128,7 +121,6 @@ static def_optype_p free_defs = NULL;
 static use_optype_p free_uses = NULL;
 static vuse_optype_p free_vuses = NULL;
 static maydef_optype_p free_maydefs = NULL;
-static mustdef_optype_p free_mustdefs = NULL;
 
 
 /* Return the DECL_UID of the base variable of T.  */
@@ -241,7 +233,6 @@ init_ssa_operands (void)
   build_uses = VEC_alloc (tree, heap, 10);
   build_vuses = VEC_alloc (tree, heap, 25);
   build_v_may_defs = VEC_alloc (tree, heap, 25);
-  build_v_must_defs = VEC_alloc (tree, heap, 25);
 
   gcc_assert (operand_memory == NULL);
   operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
@@ -258,14 +249,12 @@ fini_ssa_operands (void)
   struct ssa_operand_memory_d *ptr;
   VEC_free (tree, heap, build_defs);
   VEC_free (tree, heap, build_uses);
-  VEC_free (tree, heap, build_v_must_defs);
   VEC_free (tree, heap, build_v_may_defs);
   VEC_free (tree, heap, build_vuses);
   free_defs = NULL;
   free_uses = NULL;
   free_vuses = NULL;
   free_maydefs = NULL;
-  free_mustdefs = NULL;
   while ((ptr = operand_memory) != NULL)
     {
       operand_memory = operand_memory->next;
@@ -385,27 +374,6 @@ alloc_vuse (int num)
   VUSE_VECT_NUM_ELEM (ret->usev) = num;
   return ret;
 }
-
-
-
-
-
-static inline struct mustdef_optype_d *
-alloc_mustdef (void)
-{
-  struct mustdef_optype_d *ret;
-  if (free_mustdefs)
-    {
-      ret = free_mustdefs;
-      free_mustdefs = free_mustdefs->next;
-    }
-  else
-    ret = (struct mustdef_optype_d *)ssa_operand_alloc (sizeof (struct mustdef_optype_d));
-  VUSE_VECT_NUM_ELEM (ret->usev) = 1;
-  return ret;
-}
-
-
 
 /* Make sure PTR is in the correct immediate use list.  Since uses are simply
    pointers into the stmt TREE, there is no way of telling if anyone has
@@ -567,22 +535,6 @@ add_maydef_op (tree stmt, tree op, int num, maydef_optype_p *last)
       INITIALIZE_USE (MAYDEF_OP_PTR (new, x), &(MAYDEF_OP (new, x)), stmt);
     }
   APPEND_OP_AFTER (new, *last);  
-  return new;
-}
-
-/* Adds OP to the list of mustdefs of statement STMT after LAST, and moves
-   LAST to the new element.  */
-
-static inline mustdef_optype_p
-add_mustdef_op (tree stmt, tree op, mustdef_optype_p *last)
-{
-  mustdef_optype_p new;
-
-  new = alloc_mustdef ();
-  MUSTDEF_RESULT (new) = op;
-  MUSTDEF_KILL (new) = op;
-  INITIALIZE_USE (MUSTDEF_KILL_PTR (new), &MUSTDEF_KILL (new), stmt);
-  APPEND_OP_AFTER (new, *last);
   return new;
 }
 
@@ -1141,93 +1093,6 @@ finalize_ssa_vuses (tree stmt)
 
 }
 
-/* Takes elements from build_v_must_defs and turns them into mustdef operands of
-   STMT.  */
-
-static inline void
-finalize_ssa_v_must_def_ops (tree stmt)
-{
-  unsigned new_i;
-  struct mustdef_optype_d new_list;
-  mustdef_optype_p old_ops, ptr, last;
-  tree act;
-  unsigned old_base, new_base;
-
-  new_list.next = NULL;
-  last = &new_list;
-
-  old_ops = MUSTDEF_OPS (stmt);
-
-  new_i = 0;
-  while (old_ops && new_i < VEC_length (tree, build_v_must_defs))
-    {
-      act = VEC_index (tree, build_v_must_defs, new_i);
-      new_base = get_name_decl (act);
-      old_base = get_name_decl (MUSTDEF_KILL (old_ops));
-
-      if (old_base == new_base)
-        {
-	  /* If variables are the same, reuse this node.  */
-	  MOVE_HEAD_AFTER (old_ops, last);
-	  set_virtual_use_link (MUSTDEF_KILL_PTR (last), stmt);
-	  new_i++;
-	}
-      else if (old_base < new_base)
-	{
-	  /* If old is less than new, old goes to the free list.  */
-	  delink_imm_use (MUSTDEF_KILL_PTR (old_ops));
-	  MOVE_HEAD_TO_FREELIST (old_ops, mustdef);
-	}
-      else
-	{
-	  /* This is a new operand.  */
-	  add_mustdef_op (stmt, act, &last);
-	  new_i++;
-	}
-    }
-
-  /* If there is anything remaining in the build_v_must_defs list, simply emit it.  */
-  for ( ; new_i < VEC_length (tree, build_v_must_defs); new_i++)
-    add_mustdef_op (stmt, VEC_index (tree, build_v_must_defs, new_i), &last);
-
-  last->next = NULL;
-
-  /* If there is anything in the old list, free it.  */
-  if (old_ops)
-    {
-      for (ptr = old_ops; ptr; ptr = ptr->next)
-	delink_imm_use (MUSTDEF_KILL_PTR (ptr));
-      old_ops->next = free_mustdefs;
-      free_mustdefs = old_ops;
-    }
-
-  /* Now set the stmt's operands.  */
-  MUSTDEF_OPS (stmt) = new_list.next;
-
-#ifdef ENABLE_CHECKING
-  {
-    unsigned x = 0;
-    for (ptr = MUSTDEF_OPS (stmt); ptr; ptr = ptr->next)
-      x++;
-
-    gcc_assert (x == VEC_length (tree, build_v_must_defs));
-  }
-#endif
-}
-
-static void
-finalize_ssa_v_must_defs (tree stmt)
-{
-  /* In the presence of subvars, there may be more than one V_MUST_DEF
-     per statement (one for each subvar).  It is a bit expensive to
-     verify that all must-defs in a statement belong to subvars if
-     there is more than one must-def, so we don't do it.  Suffice to
-     say, if you reach here without having subvars, and have num >1,
-     you have hit a bug.  */
-  finalize_ssa_v_must_def_ops (stmt);
-  VEC_truncate (tree, build_v_must_defs, 0);
-}
-
 
 /* Finalize all the build vectors, fill the new ones into INFO.  */
                                                                               
@@ -1236,7 +1101,6 @@ finalize_ssa_stmt_operands (tree stmt)
 {
   finalize_ssa_defs (stmt);
   finalize_ssa_uses (stmt);
-  finalize_ssa_v_must_defs (stmt);
   finalize_ssa_v_may_defs (stmt);
   finalize_ssa_vuses (stmt);
 }
@@ -1251,7 +1115,6 @@ start_ssa_stmt_operands (void)
   gcc_assert (VEC_length (tree, build_uses) == 0);
   gcc_assert (VEC_length (tree, build_vuses) == 0);
   gcc_assert (VEC_length (tree, build_v_may_defs) == 0);
-  gcc_assert (VEC_length (tree, build_v_must_defs) == 0);
 }
 
 
@@ -1308,22 +1171,6 @@ append_vuse (tree var)
     }
 
   VEC_safe_push (tree, heap, build_vuses, (tree)var);
-}
-
-
-/* Add VAR to the list of virtual must definitions for INFO.  */
-
-static inline void
-append_v_must_def (tree var)
-{
-  unsigned i;
-
-  /* Don't allow duplicate entries.  */
-  for (i = 0; i < VEC_length (tree, build_v_must_defs); i++)
-    if (var == VEC_index (tree, build_v_must_defs, i))
-      return;
-
-  VEC_safe_push (tree, heap, build_v_must_defs, (tree)var);
 }
 
 
@@ -1495,7 +1342,7 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
      at runtime, then the program is ill formed.  If the statement is
      not executed then all is well.  At the very least, we cannot ICE.  */
   if ((flags & opf_non_specific) && unmodifiable_var_p (var))
-    flags &= ~(opf_is_def | opf_kill_def);
+    flags &= ~opf_is_def;
   
   /* The variable is not a GIMPLE register.  Add it (or its aliases) to
      virtual operands, unless the caller has specifically requested
@@ -1509,22 +1356,7 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
     {
       /* The variable is not aliased or it is an alias tag.  */
       if (flags & opf_is_def)
-	{
-	  if (flags & opf_kill_def)
-	    {
-	      /* V_MUST_DEF for non-aliased, non-GIMPLE register 
-		 variable definitions.  */
-	      gcc_assert (!MTAG_P (var)
-			  || TREE_CODE (var) == STRUCT_FIELD_TAG);
-	      append_v_must_def (var);
-	    }
-	  else
-	    {
-	      /* Add a V_MAY_DEF for call-clobbered variables and
-		 memory tags.  */
-	      append_v_may_def (var);
-	    }
-	}
+	append_v_may_def (var);
       else
 	append_vuse (var);
     }
@@ -1669,9 +1501,6 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
   tree ptr = *pptr;
   stmt_ann_t s_ann = stmt_ann (stmt);
 
-  /* Stores into INDIRECT_REF operands are never killing definitions.  */
-  flags &= ~opf_kill_def;
-
   if (SSA_VAR_P (ptr))
     {
       struct ptr_info_def *pi = NULL;
@@ -1750,9 +1579,6 @@ get_tmr_operands (tree stmt, tree expr, int flags)
   get_expr_operands (stmt, &TMR_BASE (expr), opf_none);
   get_expr_operands (stmt, &TMR_INDEX (expr), opf_none);
 
-  /* MEM_REFs should never be killing.  */
-  flags &= ~opf_kill_def;
-
   if (TMR_SYMBOL (expr))
     {
       stmt_ann_t ann = stmt_ann (stmt);
@@ -1779,12 +1605,7 @@ get_tmr_operands (tree stmt, tree expr, int flags)
     {
       bool exact;		
       if (overlap_subvar (offset, maxsize, sv->var, &exact))
-	{
-	  int subvar_flags = flags;
-	  if (!exact || size != maxsize)
-	    subvar_flags &= ~opf_kill_def;
-	  add_stmt_operand (&sv->var, s_ann, subvar_flags);
-	}
+	add_stmt_operand (&sv->var, s_ann, flags);
     }
 }
 
@@ -2072,19 +1893,17 @@ get_modify_expr_operands (tree stmt, tree expr)
   get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none);
 
   /* For the LHS, use a regular definition (OPF_IS_DEF) for GIMPLE
-     registers.  If the LHS is a store to memory, we will either need
-     a preserving definition (V_MAY_DEF) or a killing definition
-     (V_MUST_DEF).
+     registers.  If the LHS is a store to memory, we will need
+     a preserving definition (V_MAY_DEF).
 
      Preserving definitions are those that modify a part of an
      aggregate object for which no subvars have been computed (or the
      reference does not correspond exactly to one of them). Stores
      through a pointer are also represented with V_MAY_DEF operators.
 
-     The determination of whether to use a preserving or a killing
-     definition is done while scanning the LHS of the assignment.  By
-     default, assume that we will emit a V_MUST_DEF.  */
-  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_is_def|opf_kill_def);
+     We used to distinguish between preserving and killing definitions.
+     We always emit preserving definitions now.  */
+  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_is_def);
 }
 
 
@@ -2199,11 +2018,8 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 
 		if (overlap_subvar (offset, maxsize, sv->var, &exact))
 		  {
-	            int subvar_flags = flags;
 		    none = false;
-		    if (!exact || size != maxsize)
-		      subvar_flags &= ~opf_kill_def;
-		    add_stmt_operand (&sv->var, s_ann, subvar_flags);
+		    add_stmt_operand (&sv->var, s_ann, flags);
 		  }
 	      }
 
@@ -2220,8 +2036,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	/* Even if we found subvars above we need to ensure to see
 	   immediate uses for d in s.a[d].  In case of s.a having
 	   a subvar or we would miss it otherwise.  */
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0),
-			   flags & ~opf_kill_def);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags);
 	
 	if (code == COMPONENT_REF)
 	  {
@@ -2277,11 +2092,6 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
       }
 
     case BIT_FIELD_REF:
-      /* Stores using BIT_FIELD_REF are always preserving definitions.  */
-      flags &= ~opf_kill_def;
-
-      /* Fallthru  */
-
     case TRUTH_NOT_EXPR:
     case VIEW_CONVERT_EXPR:
     do_unary:
@@ -2423,7 +2233,6 @@ build_ssa_operands (tree stmt)
   parse_ssa_operands (stmt);
   operand_build_sort_virtual (build_vuses);
   operand_build_sort_virtual (build_v_may_defs);
-  operand_build_sort_virtual (build_v_must_defs);
 
   finalize_ssa_stmt_operands (stmt);
 }
@@ -2437,7 +2246,6 @@ free_ssa_operands (stmt_operands_p ops)
   ops->def_ops = NULL;
   ops->use_ops = NULL;
   ops->maydef_ops = NULL;
-  ops->mustdef_ops = NULL;
   ops->vuse_ops = NULL;
 }
 
@@ -2478,7 +2286,7 @@ copy_virtual_operands (tree dest, tree src)
 {
   tree t;
   ssa_op_iter iter, old_iter;
-  use_operand_p use_p, u2;
+  use_operand_p use_p;
   vuse_vec_p u3, u4;
   def_operand_p def_p, d2;
 
@@ -2489,16 +2297,12 @@ copy_virtual_operands (tree dest, tree src)
     append_vuse (t);
   FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VMAYDEF)
     append_v_may_def (t);
-  FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VMUSTDEF)
-    append_v_must_def (t);
 
   if (VEC_length (tree, build_vuses) == 0
-      && VEC_length (tree, build_v_may_defs) == 0
-      && VEC_length (tree, build_v_must_defs) == 0)
+      && VEC_length (tree, build_v_may_defs) == 0)
     return;
 
   /* Now commit the virtual operands to this stmt.  */
-  finalize_ssa_v_must_defs (dest);
   finalize_ssa_v_may_defs (dest);
   finalize_ssa_vuses (dest);
 
@@ -2519,22 +2323,6 @@ copy_virtual_operands (tree dest, tree src)
       gcc_assert (VUSE_VECT_NUM_ELEM (*u3) == 1);
       gcc_assert (VUSE_VECT_NUM_ELEM (*u4) == 1);
       SET_USE (VUSE_ELEMENT_PTR_NC (*u4, 0), VUSE_ELEMENT_VAR (*u3, 0));
-      SET_DEF (def_p, DEF_FROM_PTR (d2));
-      op_iter_next_maymustdef (&u3, &d2, &old_iter);
-    }
-  gcc_assert (op_iter_done (&old_iter));
-
-  op_iter_init_mustdef (&old_iter, src, &u2, &d2);
-  u3 = NULL;
-  FOR_EACH_SSA_MUSTDEF_OPERAND (def_p, use_p, dest, iter)
-    {
-      if (u3 != NULL)
-        {
-	  gcc_assert (VUSE_VECT_NUM_ELEM (*u3) == 1);
-	  u2 = VUSE_ELEMENT_PTR (*u3, 0);
-	}
-      gcc_assert (!op_iter_done (&old_iter));
-      SET_USE (use_p, USE_FROM_PTR (u2));
       SET_DEF (def_p, DEF_FROM_PTR (d2));
       op_iter_next_maymustdef (&u3, &d2, &old_iter);
     }
@@ -2586,14 +2374,11 @@ create_ssa_artficial_load_stmt (tree new_stmt, tree old_stmt)
 
   /* Remove any virtual operands that were found.  */
   VEC_truncate (tree, build_v_may_defs, 0);
-  VEC_truncate (tree, build_v_must_defs, 0);
   VEC_truncate (tree, build_vuses, 0);
 
   /* For each VDEF on the original statement, we want to create a
-     VUSE of the V_MAY_DEF result or V_MUST_DEF op on the new 
-     statement.  */
-  FOR_EACH_SSA_TREE_OPERAND (op, old_stmt, iter, 
-			     (SSA_OP_VMAYDEF | SSA_OP_VMUSTDEF))
+     VUSE of the V_MAY_DEF result on the new statement.  */
+  FOR_EACH_SSA_TREE_OPERAND (op, old_stmt, iter, SSA_OP_VMAYDEF)
     append_vuse (op);
     
   /* Now build the operands for this new stmt.  */

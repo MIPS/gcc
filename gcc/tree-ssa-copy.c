@@ -572,8 +572,8 @@ copy_prop_visit_assignment (tree stmt, tree *result_p)
     }
   else if (stmt_makes_single_store (stmt))
     {
-      /* Otherwise, set the names in V_MAY_DEF/V_MUST_DEF operands
-	 to be a copy of RHS.  */
+      /* Otherwise, set the names in V_MAY_DEF operands to be a copy
+	 of RHS.  */
       ssa_op_iter i;
       tree vdef;
       bool changed;

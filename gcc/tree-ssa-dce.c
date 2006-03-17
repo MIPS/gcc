@@ -554,72 +554,6 @@ propagate_necessity (struct edge_list *el)
 	}
     }
 }
-
-
-/* Propagate necessity around virtual phi nodes used in kill operands.
-   The reason this isn't done during propagate_necessity is because we don't
-   want to keep phis around that are just there for must-defs, unless we
-   absolutely have to.  After we've rewritten the reaching definitions to be
-   correct in the previous part of the fixup routine, we can simply propagate
-   around the information about which of these virtual phi nodes are really
-   used, and set the NECESSARY flag accordingly.
-   Note that we do the minimum here to ensure that we keep alive the phis that
-   are actually used in the corrected SSA form.  In particular, some of these
-   phis may now have all of the same operand, and will be deleted by some
-   other pass.  */
-
-static void
-mark_really_necessary_kill_operand_phis (void)
-{
-  basic_block bb;
-  int i;
-
-  /* Seed the worklist with the new virtual phi arguments and virtual
-     uses */
-  FOR_EACH_BB (bb)
-    {
-      block_stmt_iterator bsi;
-      tree phi;
-      
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  if (!is_gimple_reg (PHI_RESULT (phi)) && NECESSARY (phi))
-	    {
-	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-		mark_operand_necessary (PHI_ARG_DEF (phi, i), true);
-	    }
-	}
-      
-      for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
-	{
-	  tree stmt = bsi_stmt (bsi);
-	
-	  if (NECESSARY (stmt))
-	    {
-	      use_operand_p use_p;
-	      ssa_op_iter iter;
-	      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
-					SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
-		{
-		  tree use = USE_FROM_PTR (use_p);
-		  mark_operand_necessary (use, true);
-		}
-	    }
-	}
-    }
-  
-  /* Mark all virtual phis still in use as necessary, and all of their
-     arguments that are phis as necessary.  */
-  while (VEC_length (tree, worklist) > 0)
-    {
-      tree use = VEC_pop (tree, worklist);
-      
-      for (i = 0; i < PHI_NUM_ARGS (use); i++)
-	mark_operand_necessary (PHI_ARG_DEF (use, i), true);
-    }
-}
-
-
 
 
 /* Eliminate unnecessary statements. Any instruction not marked as necessary
@@ -904,7 +838,6 @@ perform_tree_ssa_dce (bool aggressive)
 
   propagate_necessity (el);
 
-  mark_really_necessary_kill_operand_phis ();
   eliminate_unnecessary_stmts ();
 
   if (aggressive)
