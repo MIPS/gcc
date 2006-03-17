@@ -1,3 +1,14 @@
+2006-03-17  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* gcc/cp/search.c (maybe_suppress_debug_info): Exit if
+	flag_emit_class_debug_always is true.
+	* gcc/common.opt: Add flag -femit-class-debug-always.
+	* gcc/toplev.c: Define flag_emit_class_debug_always.
+	(f_options): Add flag femit-class-debug-always.
+	* gcc/opts.c (common_handle_option): Handle
+	OPT_femit_class_debug_always.
+	* gcc/doc/invoke.texi: Document -femit-class-debug-always.
+
 2006-01-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc/Makefile.in (AR_FOR_TARGET, RANLIB_FOR_TARGET,

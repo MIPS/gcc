@@ -391,6 +391,10 @@ int flag_eliminate_unused_debug_types = 1;
 /* Nonzero means emit debugging information only for symbols which are used.  */
 int flag_debug_only_used_symbols = 0;
 
+/* Zero means that C++ debug class information should be suppressed */
+
+int flag_emit_class_debug_always;
+
 /* Nonzero if generating code to do profiling.  */
 
 int profile_flag = 0;
@@ -1039,6 +1043,7 @@ static const lang_independent_options f_options[] =
   {"eliminate-dwarf2-dups", &flag_eliminate_dwarf2_dups, 1 },
   {"eliminate-unused-debug-symbols", &flag_debug_only_used_symbols, 1 },
   {"eliminate-unused-debug-types", &flag_eliminate_unused_debug_types, 1 },
+  {"emit-class-debug-always", &flag_emit_class_debug_always, 1 },
   {"float-store", &flag_float_store, 1 },
   {"defer-pop", &flag_defer_pop, 1 },
   {"omit-frame-pointer", &flag_omit_frame_pointer, 1 },

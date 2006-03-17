@@ -723,6 +723,10 @@ extern int flag_eliminate_dwarf2_dups;
 
 extern int flag_eliminate_unused_debug_types;
 
+/* Zero means that C++ debug class information should be suppressed */
+
+extern int flag_emit_class_debug_always;
+
 /* Nonzero means to collect statistics which might be expensive
    and to print them when we are done.  */
 extern int flag_detailed_statistics;

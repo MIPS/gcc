@@ -983,6 +983,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_debug_only_used_symbols = value;
       break;
 
+    case OPT_femit_class_debug_always:
+      flag_emit_class_debug_always = value;
+      break;
+
     case OPT_fexceptions:
       flag_exceptions = value;
       break;

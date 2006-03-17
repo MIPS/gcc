@@ -314,6 +314,10 @@ feliminate-unused-debug-types
 Common
 Perform unused type elimination in debug info
 
+femit-class-debug-always
+Common
+Do not suppress C++ class debug information.
+
 fexceptions
 Common
 Enable exception handling
