@@ -1,0 +1,5 @@
+2006-03-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/tree-ssa/20040517-1.c: Expect 2 V_MAY_DEFs.
+
+	* gcc.dg/tree-ssa/pr26421.c: Same.
