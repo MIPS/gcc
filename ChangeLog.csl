@@ -1,3 +1,10 @@
+2006-03-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/dwarf2.h (DW64_CIE_ID): Define.
+	* gcc/dwarf2out.c (DWARF_CIE_ID): Define.
+	(output_call_frame_info): Output 0xffffffff before standard 8-byte
+	length header.  Use DWARF_CIE_ID.
+
 2006-03-17  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* gcc/cp/search.c (maybe_suppress_debug_info): Exit if
