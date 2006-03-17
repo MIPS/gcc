@@ -1,3 +1,12 @@
+2006-03-17  Andrew Haley  <aph@redhat.com>
+
+	* call.c (build_java_interface_fn_ref):  Revert previous change.
+
+	* init.c (build_java_class_ref): Revert previous change.  Make
+	"class$" a reference.
+	Remove build_address() of the reference.
+	(build_new_1): Use convert_from_reference on the class ref.
+
 2006-03-16  Andrew Haley  <aph@redhat.com>
 
 	* call.c (build_java_interface_fn_ref): Rename "class$" to "class$$".

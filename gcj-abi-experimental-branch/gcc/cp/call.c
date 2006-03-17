@@ -5019,7 +5019,7 @@ build_java_interface_fn_ref (tree fn, tree instance)
 
   /* Get the java.lang.Class pointer for the interface being called.  */
   iface = DECL_CONTEXT (fn);
-  iface_ref = lookup_field (iface, get_identifier ("class$$"), 0, false);
+  iface_ref = lookup_field (iface, get_identifier ("class$"), 0, false);
   if (!iface_ref || TREE_CODE (iface_ref) != VAR_DECL
       || DECL_CONTEXT (iface_ref) != iface)
     {
@@ -5027,8 +5027,8 @@ build_java_interface_fn_ref (tree fn, tree instance)
 		iface);
       return error_mark_node;
     }
-  iface_ref = build_address (iface_ref);
-  iface_ref = convert (build_pointer_type (iface), iface_ref);
+  iface_ref = convert (build_pointer_type (iface), 
+		       build_address (convert_from_reference (iface_ref)));
 
   /* Determine the itable index of FN.  */
   i = 1;

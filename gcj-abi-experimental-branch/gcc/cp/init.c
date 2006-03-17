@@ -1628,7 +1628,7 @@ build_java_class_ref (tree type)
   tree name = NULL_TREE, class_decl;
   static tree CL_suffix = NULL_TREE;
   if (CL_suffix == NULL_TREE)
-    CL_suffix = get_identifier("class$$");
+    CL_suffix = get_identifier("class$");
   if (jclass_node == NULL_TREE)
     {
       jclass_node = IDENTIFIER_GLOBAL_VALUE (get_identifier ("jclass"));
@@ -1655,7 +1655,8 @@ build_java_class_ref (tree type)
   class_decl = IDENTIFIER_GLOBAL_VALUE (name);
   if (class_decl == NULL_TREE)
     {
-      class_decl = build_decl (VAR_DECL, name, TREE_TYPE (jclass_node));
+      class_decl = build_decl (VAR_DECL, name, 
+			       TYPE_REFERENCE_TO (TREE_TYPE (jclass_node)));
       TREE_STATIC (class_decl) = 1;
       DECL_EXTERNAL (class_decl) = 1;
       TREE_PUBLIC (class_decl) = 1;
@@ -1813,7 +1814,8 @@ build_new_1 (tree exp)
   if (! placement && TYPE_FOR_JAVA (elt_type))
     {
       tree class_addr, alloc_decl;
-      tree class_decl = build_java_class_ref (elt_type);
+      tree class_decl = 
+	convert_from_reference (build_java_class_ref (elt_type));
       static const char alloc_name[] = "_Jv_AllocObject";
 
       use_java_new = 1;
