@@ -307,8 +307,8 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
 	// Return this block to our list and update counters and
 	// owner id as needed.
-	--__thread_bin._M_used;
-	
+	--_M_thread_bin[__block->_M_thread_id][__which]._M_used;
+
 	__block->_M_next = __thread_bin._M_first;
 	__thread_bin._M_first = __block;
 	
