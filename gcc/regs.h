@@ -230,6 +230,13 @@ extern int caller_save_needed;
 /* Allocate reg_n_info tables */
 extern void allocate_reg_info (size_t, int, int);
 
+/* 1 if class does contain register of given mode.  */
+extern char contains_reg_of_mode [N_REG_CLASSES] [MAX_MACHINE_MODE];
+
+/* Maximum cost of moving from a register in one class to a register
+   in another class.  */
+extern int move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
+
 /* Specify number of hard registers given machine mode occupy.  */
 extern unsigned char hard_regno_nregs[FIRST_PSEUDO_REGISTER][MAX_MACHINE_MODE];
 

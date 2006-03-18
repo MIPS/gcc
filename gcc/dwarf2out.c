@@ -47,6 +47,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "regs.h"
 #include "insn-config.h"
 #include "reload.h"
+#include "yara.h"
 #include "function.h"
 #include "output.h"
 #include "expr.h"
@@ -8678,7 +8679,9 @@ based_loc_descr (rtx reg, HOST_WIDE_INT offset)
      argument pointer and soft frame pointer rtx's.  */
   if (reg == arg_pointer_rtx || reg == frame_pointer_rtx)
     {
-      rtx elim = eliminate_regs (reg, VOIDmode, NULL_RTX);
+      rtx elim = (flag_yara
+		  ? yara_eliminate_regs (reg, VOIDmode)
+		  : eliminate_regs (reg, VOIDmode, NULL_RTX));
 
       if (elim != reg)
 	{
@@ -10449,7 +10452,9 @@ compute_frame_pointer_to_fb_displacement (HOST_WIDE_INT offset)
   offset += ARG_POINTER_CFA_OFFSET (current_function_decl);
 #endif
 
-  elim = eliminate_regs (reg, VOIDmode, NULL_RTX);
+  elim = (flag_yara
+	  ? yara_eliminate_regs (reg, VOIDmode)
+	  : eliminate_regs (reg, VOIDmode, NULL_RTX));
   if (GET_CODE (elim) == PLUS)
     {
       offset += INTVAL (XEXP (elim, 1));

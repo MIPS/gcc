@@ -1227,14 +1227,28 @@ enum reg_class
 #define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE) \
   ix86_secondary_memory_needed ((CLASS1), (CLASS2), (MODE), 1)
 
+
+/* Macro saying that value of MODE may need a secondary reload.  If it
+   is not defined, all modes are eligible for secondary reload.  This
+   macro is used to speed up the register allocation.  */
+#define SECONDARY_RELOAD_MODE_P(MODE) (!TARGET_64BIT && (MODE) == QImode)
+
 /* QImode spills from non-QI registers need a scratch.  This does not
    happen often -- the only example so far requires an uninitialized
    pseudo.  */
 
+#if 0
 #define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, OUT)			\
   (((CLASS) == GENERAL_REGS || (CLASS) == LEGACY_REGS			\
     || (CLASS) == INDEX_REGS) && !TARGET_64BIT && (MODE) == QImode	\
    ? Q_REGS : NO_REGS)
+#else
+#define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, OUT)			\
+  ((CLASS) != AREG && (CLASS) != BREG && (CLASS) != CREG		\
+   && (CLASS) != DREG && (CLASS) != AD_REGS && (CLASS) != Q_REGS	\
+   && !TARGET_64BIT && (MODE) == QImode	\
+   ? Q_REGS : NO_REGS)
+#endif
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */

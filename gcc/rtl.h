@@ -2183,6 +2183,7 @@ extern void dbr_schedule (rtx);
 
 /* In local-alloc.c */
 extern void dump_local_alloc (FILE *);
+extern void update_equiv_regs (void);
 
 /* In reload1.c */
 extern int function_invariant_p (rtx);

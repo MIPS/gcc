@@ -65,6 +65,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic.h"
 #include "params.h"
 #include "reload.h"
+#include "yara.h"
 #include "dwarf2asm.h"
 #include "integrate.h"
 #include "real.h"
@@ -654,6 +655,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_sched);
   NEXT_PASS (pass_local_alloc);
   NEXT_PASS (pass_global_alloc);
+  NEXT_PASS (pass_yara);
   NEXT_PASS (pass_postreload);
   *p = NULL;
 

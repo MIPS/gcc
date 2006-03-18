@@ -2464,7 +2464,7 @@ combine_stack_adjustments_for_block (basic_block bb)
 static bool
 gate_handle_regmove (void)
 {
-  return (optimize > 0 && flag_regmove);
+  return (optimize > 0 && flag_regmove && ! flag_yara);
 }
 
 

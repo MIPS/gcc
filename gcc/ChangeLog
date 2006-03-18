@@ -1,3 +1,60 @@
+2006-03-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* yara.h, yara-int.h, yara.c, yara-ir.c, yara-trans.c,
+	yara-color.c, yara-insns.c, yara-final.c: New files.
+
+	* tree-pass.h (pass_yara): New external definition.
+	* reload.h (cleanup_subreg_operands): Move to output.h.
+	(add_auto_inc_notes): New prototype.
+	* final.c (alter_subreg): simply subreg of reg only after reload
+	or for hard register.
+	* params.h (YARA_PARAMS, YARA_SPLIT_THRESHOLD): New params.
+	* toplev.h (flag_yara, flag_optimistic_coalescing,
+	flag_extended_coalescing, flag_rematerialize, flag_slit): New
+	external definitions.
+	* toplev.c (yara.h): Add header.
+	(backend_init): Call yara_init_once.
+	* regs.h (contains_reg_of_mode, move_cost): External definitions.
+	* dbxout.c (yara.h): Add header.
+	(dbxout_symbol, dbxout_parms): Call yara_eliminate_regs for YARA.
+	* global.c (gate_handle_global_alloc): New guard to prevent global
+	when YARA.
+	(pass_global_alloc): Initialize the guard.
+	* dwarf2out.c (yara.h): Add header.
+	(based_loc_descr, compute_frame_pointer_to_fb_displacement): Call
+	yara_eliminate_regs for YARA.
+	* timevar.def (TV_YARA): Define.
+	* hard-reg-set.h (reg_class_subclasses): External definition.
+	* regmove.c (gate_handle_regmove): Prevent regmove when YARA.
+	* local-alloc.c (update_equiv_regs): Make it global.
+	(gate_handle_local_alloc): New guard to prevent local when YARA.
+	(pass_local_alloc): Initialize the guard.
+	* sdbout.c (yara.h): Add header.
+	(sdbout_symbol, sdbout_parms): Call yara_eliminate_regs for YARA.
+	* common.opt (fextended-coalescing, foptimistic-coalescing,
+	frematerialize, fsplit, fyara): New options.
+	* regclass.c (reg_class_subclasses, contains_reg_of_mode,
+	move_cost): Make them global.
+	* rtl.h (update_equiv_regs): External definition.
+	* output.h (cleanup_subreg_operands): External definition.
+	* Makefile.in (OBJS-common): Add YARA object files.
+	(toplev.o, passes.o, dbxout.o, sdbout.o, dwarf2out.o): Add
+	yara.h.
+	(yara.o, yara-ir.o, yara-trans.o, yara-color.o, yara-insn.o,
+	yara-final.o): New entries.
+	(gt-yara-trans.h): New entry.
+	* passes.c (yara.h): Add header.
+	(init_optimization_passes): Add new pass pass_yara.
+	* config/i386/i386.h (SECONDARY_RELOAD_MODE_P): New macro.
+	(SECONDARY_OUTPUT_RELOAD_CLASS): Change it.
+	* config/i386/i386.c (pentium4_cost): Fix typo in a comment.
+	* params.def (YARA_PARAMS, YARA_PARAM_RA_SPLIT_THRESHOLD): New
+	parameters.
+	* reload1.c (add_auto_inc_notes): Make it global.
+	* doc/invoke.texi (fyara, foptimistic-coalescing,
+	fextended-coalescing, fsplit, frematerialize): Add new options.
+	(yara-params, yara-split-threshold): New parameters.
+	
 2006-03-17  Steve Ellcey  <sje@cup.hp.com>
 
 	* config/ia64/ia64.opt: Add empty line to end of file.

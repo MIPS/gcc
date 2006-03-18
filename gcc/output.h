@@ -74,6 +74,13 @@ extern void final (rtx, FILE *, int);
    be scanned.  */
 extern rtx final_scan_insn (rtx, FILE *, int, int, int *);
 
+/* For each operand in INSN, simplify (subreg (reg)) so that it refers
+   directly to the desired hard register.  */
+extern void cleanup_subreg_operands (rtx);
+
+/* Replace (subreg (reg)) with the appropriate (reg) for any operands.  */
+extern void cleanup_subreg_operands (rtx);
+
 /* Replace a SUBREG with a REG or a MEM, based on the thing it is a
    subreg of.  */
 extern rtx alter_subreg (rtx *);

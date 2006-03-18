@@ -67,6 +67,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "diagnostic.h"
 #include "params.h"
 #include "reload.h"
+#include "yara.h"
 #include "dwarf2asm.h"
 #include "integrate.h"
 #include "real.h"
@@ -1832,6 +1833,7 @@ backend_init (void)
 
   init_rtlanal ();
   init_regs ();
+  yara_init_once ();
   init_fake_stack_mems ();
   init_alias_once ();
   init_reload ();

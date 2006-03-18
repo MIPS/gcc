@@ -433,9 +433,6 @@ static void delete_output_reload (rtx, int, int);
 static void delete_address_reloads (rtx, rtx);
 static void delete_address_reloads_1 (rtx, rtx, rtx);
 static rtx inc_for_reload (rtx, rtx, rtx, int);
-#ifdef AUTO_INC_DEC
-static void add_auto_inc_notes (rtx, rtx);
-#endif
 static void copy_eh_notes (rtx, rtx);
 static int reloads_conflict (int, int);
 static rtx gen_reload (rtx, rtx, int, enum reload_type);
@@ -8199,7 +8196,7 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
 }
 
 #ifdef AUTO_INC_DEC
-static void
+void
 add_auto_inc_notes (rtx insn, rtx x)
 {
   enum rtx_code code = GET_CODE (x);

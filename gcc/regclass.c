@@ -172,7 +172,7 @@ static enum reg_class reg_class_superclasses[N_REG_CLASSES][N_REG_CLASSES];
 
 /* For each reg class, table listing all the classes contained in it.  */
 
-static enum reg_class reg_class_subclasses[N_REG_CLASSES][N_REG_CLASSES];
+enum reg_class reg_class_subclasses[N_REG_CLASSES][N_REG_CLASSES];
 
 /* For each pair of reg classes,
    a largest reg class contained in their union.  */
@@ -205,12 +205,12 @@ bool have_regs_of_mode [MAX_MACHINE_MODE];
 
 /* 1 if class does contain register of given mode.  */
 
-static char contains_reg_of_mode [N_REG_CLASSES] [MAX_MACHINE_MODE];
+char contains_reg_of_mode [N_REG_CLASSES] [MAX_MACHINE_MODE];
 
 /* Maximum cost of moving from a register in one class to a register in
    another class.  Based on REGISTER_MOVE_COST.  */
 
-static int move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
+int move_cost[MAX_MACHINE_MODE][N_REG_CLASSES][N_REG_CLASSES];
 
 /* Similar, but here we don't have to move if the first index is a subset
    of the second so in that case the cost is zero.  */

@@ -2575,7 +2575,7 @@ alter_subreg (rtx *xp)
 
       *xp = adjust_address (y, GET_MODE (x), offset);
     }
-  else
+  else if (reload_completed || HARD_REGISTER_P (y))
     {
       rtx new = simplify_subreg (GET_MODE (x), y, GET_MODE (y),
 				 SUBREG_BYTE (x));

@@ -359,9 +359,6 @@ extern void setup_save_areas (void);
 /* Find the places where hard regs are live across calls and save them.  */
 extern void save_call_clobbered_regs (void);
 
-/* Replace (subreg (reg)) with the appropriate (reg) for any operands.  */
-extern void cleanup_subreg_operands (rtx);
-
 /* Debugging support.  */
 extern void debug_reload_to_stream (FILE *);
 extern void debug_reload (void);
@@ -369,3 +366,7 @@ extern void debug_reload (void);
 /* Compute the actual register we should reload to, in case we're
    reloading to/from a register that is wider than a word.  */
 extern rtx reload_adjust_reg_for_mode (rtx, enum machine_mode);
+
+#ifdef AUTO_INC_DEC
+extern void add_auto_inc_notes (rtx, rtx);
+#endif

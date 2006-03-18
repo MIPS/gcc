@@ -307,7 +307,7 @@ Objective-C and Objective-C++ Dialects}.
 -fcaller-saves  -fcprop-registers  -fcse-follow-jumps @gol
 -fcse-skip-blocks  -fcx-limited-range  -fdata-sections @gol
 -fdelayed-branch  -fdelete-null-pointer-checks -fearly-inlining @gol
--fexpensive-optimizations  -ffast-math  -ffloat-store @gol
+-fexpensive-optimizations -fextended-coalescing -ffast-math  -ffloat-store @gol
 -fforce-addr  -ffunction-sections @gol
 -fgcse  -fgcse-lm  -fgcse-sm  -fgcse-las  -fgcse-after-reload @gol
 -fcrossjumping  -fif-conversion  -fif-conversion2 @gol
@@ -320,10 +320,10 @@ Objective-C and Objective-C++ Dialects}.
 -fno-inline  -fno-math-errno  -fno-peephole  -fno-peephole2 @gol
 -funsafe-math-optimizations  -funsafe-loop-optimizations  -ffinite-math-only @gol
 -fno-toplevel-reorder -fno-trapping-math  -fno-zero-initialized-in-bss @gol
--fomit-frame-pointer  -foptimize-register-move @gol
+-fomit-frame-pointer -foptimistic-coalescing -foptimize-register-move @gol
 -foptimize-sibling-calls  -fprefetch-loop-arrays @gol
 -fprofile-generate -fprofile-use @gol
--fregmove  -frename-registers @gol
+-fregmove -frematerialize -frename-registers @gol
 -freorder-blocks  -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop @gol
 -frounding-math -frtl-abstract-sequences @gol
@@ -334,7 +334,7 @@ Objective-C and Objective-C++ Dialects}.
 -fsched2-use-superblocks @gol
 -fsched2-use-traces -freschedule-modulo-scheduled-loops @gol
 -fsection-anchors  -fsignaling-nans  -fsingle-precision-constant @gol
--fstack-protector  -fstack-protector-all @gol
+-fsplit -fstack-protector  -fstack-protector-all @gol
 -fstrict-aliasing  -ftracer  -fthread-jumps @gol
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -fsplit-ivs-in-unroller -funswitch-loops @gol
@@ -345,6 +345,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
 -ftree-vect-loop-version -ftree-salias -fipa-pta -fweb @gol
 -ftree-copy-prop -ftree-store-ccp -ftree-store-copy-prop -fwhole-program @gol
+-fyara @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -5788,6 +5789,21 @@ int foo (void)
 
 Not all targets support this option.
 
+@item -fyara
+Run yet another register allocator (YARA) instead of the original one.
+
+@item -foptimistic-coalescing
+Do optimistic coalescing in YARA.  By default it is off.
+
+@item -foptimistic-coalescing
+Do extended coalescing in YARA.  By default it is off.
+
+@item -fsplit
+Do register live range splitting in YARA.  By default it is off.
+
+@item -frematerialize
+Do register value rematerialization in YARA.  By default it is off.
+
 @item --param @var{name}=@var{value}
 @opindex param
 In some places, GCC uses various constants to control the amount of
@@ -6232,6 +6248,14 @@ duplicated when threading jumps.
 @item max-fields-for-field-sensitive
 Maximum number of fields in a structure we will treat in
 a field sensitive manner during pointer analysis.
+
+@item yara-params
+Mask to switch on/off internal passes of YARA which are normally
+always on.  This parameter is used for debugging YARA.
+
+@item yara-split-threshold
+The minimal ratio of one part register live range to another part to try
+splitting the two parts in YARA.
 
 @end table
 @end table
