@@ -1,3 +1,41 @@
+2006-03-13  Paul Brook  <paul@codesourcery.com>
+
+	Merge from csl/sourcerygxx-4_1
+	2006-03-20  Mark Mitchell  <mark@codesourcery.com>
+	* libiberty/pex-win32.c (<errno.h>): Include.
+	(fix_argv): Remove.
+	(argv_to_cmdline): New function.
+	(std_suffixes): New variable.
+	(no_suffixes): Likewise.
+	(find_executable): New function.
+	(win32_spawn): Likewise.
+	(spawn_script): Use win32_spawn instead of _spawnv[p].
+	(pex_win32_exec_child): Replace MSVCRT calls with Win32 API calls.
+	(pex_win32_wait): Likewise.
+
+	2006-03-17  Joseph Myers  <joseph@codesourcery.com>
+	* gcc/dwarf2.h (DW64_CIE_ID): Define.
+	* gcc/dwarf2out.c (DWARF_CIE_ID): Define.
+	(output_call_frame_info): Output 0xffffffff before standard 8-byte
+	length header.  Use DWARF_CIE_ID.
+	(value_format): Use DW_FORM_data4 or DW_FORM_data8 for
+	dw_val_class_loc_list depending on DWARF_OFFSET_SIZE.
+
+	2006-03-17  Carlos O'Donell  <carlos@codesourcery.com>
+	* gcc/doc/invoke.texi: Define -femit-class-debug-always.
+	* gcc/common.opts: Likewise.
+	* gcc/cp/search.c (maybe_suppress_debug_info): Suppress
+	debug info if flag_emit_class_debug_always is zero.
+
+	2006-03-17  Richard Sandiford  <richard@codesourcery.com>
+	Backport from mainline:
+	* gcc/config.gcc (mips64*-*-linux*): Keep existing tm_defines.
+	(mips*-*-linux*): Likewise.
+
+	2006-03-16  Joseph S. Myers  <joseph@codesourcery.com>
+	* gcc/config.gcc (tm_defines): Always add to previous value rather
+	than replacing it.
+
 2006-03-15  Paul Brook  <paul@codesourcery.com>
 
 	Backport from mainline.
