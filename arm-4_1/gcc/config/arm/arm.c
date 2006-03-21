@@ -543,6 +543,9 @@ int arm_cpp_interwork = 0;
 /* Nonzero if chip supports Thumb 2.  */
 int arm_arch_thumb2;
 
+/* Nonzero if chip supports integer division instruction.  */
+int arm_arch_hwdiv;
+
 /* In case of a PRE_INC, POST_INC, PRE_DEC, POST_DEC memory reference, we
    must report the mode of the memory reference from PRINT_OPERAND to
    PRINT_OPERAND_ADDRESS.  */
@@ -1160,6 +1163,7 @@ arm_override_options (void)
   arm_tune_wbuf = (tune_flags & FL_WBUF) != 0;
   arm_tune_xscale = (tune_flags & FL_XSCALE) != 0;
   arm_arch_iwmmxt = (insn_flags & FL_IWMMXT) != 0;
+  arm_arch_hwdiv = (insn_flags & FL_DIV) != 0;
 
   /* V5 code we generate is completely interworking capable, so we turn off
      TARGET_INTERWORK here to avoid many tests later on.  */

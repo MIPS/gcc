@@ -378,6 +378,9 @@ extern int arm_cpp_interwork;
 /* Nonzero if chip supports Thumb 2.  */
 extern int arm_arch_thumb2;
 
+/* Nonzero if chip supports integer division instruction.  */
+extern int arm_arch_hwdiv;
+
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT  (MASK_APCS_FRAME)
 #endif
