@@ -56,6 +56,8 @@
    (UNSPEC_LOADGP		26)
    (UNSPEC_LOAD_CALL		27)
    (UNSPEC_GP			29)
+   (UNSPEC_TLS_LDM		30)
+   (UNSPEC_TLS_GET_TP		31)
 
    (UNSPEC_ADDRESS_FIRST	100)
 
@@ -9230,3 +9232,31 @@ ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2%/"
   "reload_completed"
   [(match_dup 0)]
   { operands[0] = mips_rewrite_small_data (operands[0]); })
+
+; Thread-Local Storage
+
+; The TLS base pointer is acessed via "rdhwr $v1, $29".  No current
+; MIPS architecture defines this register, and no current
+; implementation provides it; instead, any OS which supports TLS is
+; expected to trap and emulate this instruction.  rdhwr is part of the
+; MIPS 32r2 specification, but we use it on any architecture because
+; we expect it to be emulated.  Use .set to force the assembler to
+; accept it.
+
+(define_insn "tls_get_tp_si"
+  [(set (match_operand:SI 0 "register_operand" "=v")
+	(unspec:SI [(const_int 0)]
+		   UNSPEC_TLS_GET_TP))]
+  "HAVE_AS_TLS && !TARGET_MIPS16"
+  ".set\tpush\;.set\tmips32r2\t\;rdhwr\t%0,$29\;.set\tpop"
+  [(set_attr "type" "unknown")
+   (set_attr "mode" "SI")])
+
+(define_insn "tls_get_tp_di"
+  [(set (match_operand:DI 0 "register_operand" "=v")
+	(unspec:DI [(const_int 0)]
+		   UNSPEC_TLS_GET_TP))]
+  "HAVE_AS_TLS && !TARGET_MIPS16"
+  ".set\tpush\;.set\tmips32r2\t\;rdhwr\t%0,$29\;.set\tpop"
+  [(set_attr "type" "unknown")
+   (set_attr "mode" "DI")])
