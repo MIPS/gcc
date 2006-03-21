@@ -714,14 +714,18 @@ __transfer_from_trampoline ()					\
 
 #define MAX_REGS_PER_ADDRESS 2
 
-#define CONSTANT_ADDRESS_P(X)   \
-  (GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
-   || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
-   || GET_CODE (X) == HIGH)
+#define CONSTANT_ADDRESS_P(X)						\
+  ((GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
+    || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
+    || GET_CODE (X) == HIGH)						\
+   && LEGITIMATE_CONSTANT_P (X))
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
-#define LEGITIMATE_CONSTANT_P(X) (GET_MODE (X) != XFmode)
+#define LEGITIMATE_CONSTANT_P(X)				\
+  (GET_MODE (X) != XFmode					\
+   && !(M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P			\
+	&& constant_may_be_outside_section_p (X, NULL, NULL)))
 
 #ifndef REG_OK_STRICT
 
@@ -731,6 +735,10 @@ __transfer_from_trampoline ()					\
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X) ((REGNO (X) & ~027) != 0)
+
+/* True if SYMBOL + OFFSET constants must refer to something within
+   SYMBOL's section.  */
+#define M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P 0
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
   do									\

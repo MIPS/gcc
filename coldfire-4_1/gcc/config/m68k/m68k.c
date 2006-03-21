@@ -122,6 +122,7 @@ static void m68k_compute_frame_layout (void);
 static bool m68k_save_reg (unsigned int regno, bool interrupt_handler);
 static int const_int_cost (rtx);
 static bool m68k_rtx_costs (rtx, int, int, int *);
+static bool m68k_cannot_force_const_mem (rtx);
 
 
 /* Specify the identification number of the library being built */
@@ -193,6 +194,9 @@ int m68k_last_compare_had_fp_operands;
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX m68k_struct_value_rtx
+
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM m68k_cannot_force_const_mem
 
 static const struct attribute_spec m68k_attribute_table[] =
 {
@@ -4188,4 +4192,13 @@ m68k_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
     return gen_rtx_REG (mode, 8);
   else
     return gen_rtx_REG (mode, 0);
+}
+
+/* Implement TARGET_CANNOT_FORCE_CONST_MEM.  */
+
+static bool
+m68k_cannot_force_const_mem (rtx x)
+{
+  return (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P
+	  && constant_may_be_outside_section_p (x, NULL, NULL));
 }
