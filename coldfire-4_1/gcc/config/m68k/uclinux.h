@@ -59,7 +59,7 @@ Boston, MA 02110-1301, USA.  */
 
 /* uclibc uses comments to hide section attributes.  So setting
    ASM_FILE_START_APP_OFF breaks it.  */
-#define M68K_NO_ASM_FILE_START_APP_OFF 1
+#undef TARGET_ASM_FILE_START_APP_OFF
 
 /* Arbitrarily pick one multilib to be the default.  The true default
    is enforced by the with_cpu setting in config.gcc.  */

@@ -886,6 +886,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define LOCAL_LABEL_PREFIX ""
 #define USER_LABEL_PREFIX "_"
 #define IMMEDIATE_PREFIX "#"
+#define TARGET_ASM_FILE_START_APP_OFF true
 
 #define REGISTER_NAMES \
 {REGISTER_PREFIX"d0", REGISTER_PREFIX"d1", REGISTER_PREFIX"d2",	\

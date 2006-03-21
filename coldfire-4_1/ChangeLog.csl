@@ -1,4 +1,12 @@
 2006-03-21  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/m68k.c (TARGET_ASM_FILE_START_APP_OFF): Don't
+	override here.
+	* gcc/config/m68k/m68k.h (TARGET_ASM_FILE_START_APP_OFF): Define.
+	* gcc/config/m68k/uclinux.h (TARGET_ASM_FILE_START_APP_OFF): Override.
+	(M68K_NO_ASM_FILE_START_APP_OFF): Delete.
+
+2006-03-21  Richard Sandiford  <richard@codesourcery.com>
 	    Nathan Sidwell <nathan@codesourcery.com>
 
 	* gcc/rtlanal.c: Include tree.h.
