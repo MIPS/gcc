@@ -1729,7 +1729,7 @@ rs6000_override_options (const char *default_cpu)
 
   /* APPLE LOCAL begin AltiVec */
   /* Enable '(vector signed int)(a, b, c, d)' vector literal notation.  */
-  if (TARGET_ALTIVEC)
+  if (rs6000_altivec_pim)
     targetm.cast_expr_as_vector_init = true;
   /* APPLE LOCAL end AltiVec */
 
@@ -20208,7 +20208,7 @@ rs6000_darwin_file_start (void)
   size_t i;
 
   rs6000_file_start();
-  /* APPLE LOCAL dwarf 4383509 */
+  /* APPLE LOCAL mainline 2006-03-16 dwarf 4383509 */
   darwin_file_start();
 
   /* Determine the argument to -mcpu=.  Default to G3 if not specified.  */

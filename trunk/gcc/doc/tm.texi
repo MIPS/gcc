@@ -8234,22 +8234,22 @@ tables, and hence is desirable if it works.
 
 @defmac ASM_OUTPUT_DWARF_DELTA (@var{stream}, @var{size}, @var{label1}, @var{label2})
 A C statement to issue assembly directives that create a difference
-@c APPLE LOCAL dwarf 4383509
+@c APPLE LOCAL mainline 2006-03-16 dwarf 4383509
 @var{lab1} minus @var{lab2}, using an integer of the given @var{size}.
 @end defmac
 
-@c APPLE LOCAL begin dwarf 4383509
+@c APPLE LOCAL begin mainline 2006-03-16 dwarf 4383509
 @defmac ASM_OUTPUT_DWARF_OFFSET (@var{stream}, @var{size}, @var{label}, @var{section})
 A C statement to issue assembly directives that create a
 section-relative reference to the given @var{label}, using an integer of the
 given @var{size}.  The label is known to be defined in the section named
 @var{section}.
 @end defmac
-@c APPLE LOCAL end dwarf 4383509
+@c APPLE LOCAL end mainline 2006-03-16 dwarf 4383509
 
 @defmac ASM_OUTPUT_DWARF_PCREL (@var{stream}, @var{size}, @var{label})
 A C statement to issue assembly directives that create a self-relative
-@c APPLE LOCAL dwarf 4383509
+@c APPLE LOCAL mainline 2006-03-16 dwarf 4383509
 reference to the given @var{label}, using an integer of the given @var{size}.
 @end defmac
 

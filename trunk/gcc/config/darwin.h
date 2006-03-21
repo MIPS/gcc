@@ -522,7 +522,7 @@ do {					\
 #define DWARF2_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-/* APPLE LOCAL begin dwarf2 section flags */
+/* APPLE LOCAL begin mainline 2006-03-16 dwarf2 section flags */
 #define DEBUG_FRAME_SECTION	"__DWARF,__debug_frame,regular,debug"
 #define DEBUG_INFO_SECTION	"__DWARF,__debug_info,regular,debug"
 #define DEBUG_ABBREV_SECTION	"__DWARF,__debug_abbrev,regular,debug"
@@ -533,7 +533,7 @@ do {					\
 #define DEBUG_PUBNAMES_SECTION	"__DWARF,__debug_pubnames,regular,debug"
 #define DEBUG_STR_SECTION	"__DWARF,__debug_str,regular,debug"
 #define DEBUG_RANGES_SECTION	"__DWARF,__debug_ranges,regular,debug"
-/* APPLE LOCAL end dwarf2 section flags */
+/* APPLE LOCAL end mainline 2006-03-16 dwarf2 section flags */
 
 /* APPLE LOCAL begin gdb only used symbols */
 /* Support option to generate stabs for only used symbols. */
@@ -613,7 +613,7 @@ do {					\
 /* We need to use a nonlocal label for the start of an EH frame: the
    Darwin linker requires that a coalesced section start with a label. */
 #undef FRAME_BEGIN_LABEL
-/* APPLE LOCAL dwarf2 4392520 */
+/* APPLE LOCAL mainline 2006-03-16 dwarf2 4392520 */
 #define FRAME_BEGIN_LABEL (for_eh ? "EH_frame" : "Lframe")
 
 /* Emit a label for the FDE corresponding to DECL.  EMPTY means 
@@ -1314,11 +1314,11 @@ enum machopic_addr_class {
 #define ASM_OUTPUT_DWARF_DELTA(FILE,SIZE,LABEL1,LABEL2)  \
   darwin_asm_output_dwarf_delta (FILE, SIZE, LABEL1, LABEL2)
 
-/* APPLE LOCAL begin dwarf 4383509 */
+/* APPLE LOCAL begin mainline 2006-03-16 dwarf 4383509 */
 #define ASM_OUTPUT_DWARF_OFFSET(FILE,SIZE,LABEL,BASE)  \
   darwin_asm_output_dwarf_offset (FILE, SIZE, LABEL, BASE)
 
-/* APPLE LOCAL end dwarf 4383509 */
+/* APPLE LOCAL end mainline 2006-03-16 dwarf 4383509 */
 #define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(ASM_OUT_FILE, ENCODING, SIZE, ADDR, DONE)	\
       if (ENCODING == ASM_PREFERRED_EH_DATA_FORMAT (2, 1)) {				\
 	darwin_non_lazy_pcrel (ASM_OUT_FILE, ADDR);					\
@@ -1381,19 +1381,8 @@ enum machopic_addr_class {
 extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
 /* APPLE LOCAL end insert assembly ".abort" directive on fatal error   */
 
-/* APPLE LOCAL begin Macintosh alignment 2002-2-13 --ff */
-#ifdef RS6000_VECTOR_ALIGNMENT
-/* When adjusting (lowering) the alignment of fields when in the
-   mac68k alignment mode, the 128-bit alignment of vectors *MUST*
-   be preserved.  */
-#define PEG_ALIGN_FOR_MAC68K(DESIRED)           \
-        ((TARGET_ALTIVEC && (DESIRED) == RS6000_VECTOR_ALIGNMENT) \
-         ? RS6000_VECTOR_ALIGNMENT              \
-         : MIN ((DESIRED), 16))
-#else
+/* APPLE LOCAL Macintosh alignment 2002-2-13 --ff */
 #define PEG_ALIGN_FOR_MAC68K(DESIRED)   MIN ((DESIRED), 16)
-#endif 
-/* APPLE LOCAL end Macintosh alignment 2002-2-13 --ff */
 
 /* APPLE LOCAL begin KEXT double destructor */
 /* Need a mechanism to tell whether a C++ operator delete is empty so

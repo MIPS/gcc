@@ -1626,14 +1626,14 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
     ? DECL_ASSEMBLER_NAME (decl)
     : DECL_NAME (decl);
 
-  /* APPLE LOCAL begin mainline */
+  /* APPLE LOCAL begin mainline 2006-03-16 */
   const char *prefix = user_label_prefix;
-  /* APPLE LOCAL end mainline */
+  /* APPLE LOCAL end mainline 2006-03-16 */
 
   const char *base = IDENTIFIER_POINTER (id);
   unsigned int base_len = IDENTIFIER_LENGTH (id);
 
-  /* APPLE LOCAL dwarf2 section flags */
+  /* APPLE LOCAL mainline 2006-03-16 dwarf2 section flags */
   static const char suffix[] = ".eh";
 
   int need_quotes = name_needs_quotes (base);
@@ -1644,10 +1644,10 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
     /* APPLE LOCAL dwarf2 section flags */
     return;
 
-  /* APPLE LOCAL begin mainline */
+  /* APPLE LOCAL begin mainline 2006-03-16 */
   lab = xmalloc (strlen (prefix)
 		 + base_len + strlen (suffix) + quotes_len + 1);
-  /* APPLE LOCAL end mainline */
+  /* APPLE LOCAL end mainline 2006-03-16 */
   lab[0] = '\0';
 
   if (need_quotes)
@@ -1763,7 +1763,7 @@ darwin_asm_output_dwarf_delta (FILE *file, int size,
     fprintf (file, "\n\t%s L$set$%d", directive, darwin_dwarf_label_counter++);
 }
 
-/* APPLE LOCAL begin dwarf 4383509 */
+/* APPLE LOCAL begin mainline 2006-03-16 dwarf 4383509 */
 /* Output labels for the start of the DWARF sections if necessary.  */
 void
 darwin_file_start (void)
@@ -1819,7 +1819,7 @@ darwin_asm_output_dwarf_offset (FILE *file, int size, const char * lab,
   sprintf (sname, "*Lsection%.*s", namelen, base + 8);
   darwin_asm_output_dwarf_delta (file, size, lab, sname);
 }
-/* APPLE LOCAL end dwarf 4383509 */
+/* APPLE LOCAL end mainline 2006-03-16 dwarf 4383509 */
 
 void
 darwin_file_end (void)
