@@ -1,5 +1,11 @@
-2006-03-15  Geoffrey Keating  <geoffk@apple.com>
+2005-12-02  Mark Mitchell  <mark@codesourcery.com>
 
+	Radar 4458276
+	PR c++/24173
+	* g++.dg/template/friend40.C: New test.
+
+2006-03-15  Geoffrey Keating  <geoffk@apple.com>
+	
 	Radar 3992198
 	* g++.old-deja/g++.other/init18.C: New.
 	* g++.old-deja/g++.other/init5.C: Remove xfail.

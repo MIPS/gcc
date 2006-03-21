@@ -1,3 +1,10 @@
+2005-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	Radar 4458276
+	PR c++/24173
+	* decl.c (duplicate_decls): Don't rely on DECL_TEMPLATE_INFO after
+	clobbering newdecl.
+
 2006-02-24  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4086777
