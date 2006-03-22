@@ -1611,6 +1611,11 @@ build_component_ref (tree datum, tree component)
     return ref;
   /* APPLE LOCAL end ObjC new abi */
 
+  /* APPLE LOCAL begin C* property (Radar 4436866) */
+  if ((ref = objc_build_getter_call (datum, component)))
+    return ref;
+  /* APPLE LOCAL end C* property (Radar 4436866) */
+
   /* See if there is a field or component with name COMPONENT.  */
 
   if (code == RECORD_TYPE || code == UNION_TYPE)
@@ -3570,6 +3575,15 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
       lhs = stabilize_reference (lhs);
       newrhs = build_binary_op (modifycode, lhs, rhs, 1);
     }
+
+  /* APPLE LOCAL begin C* property (Radar 4436866) */
+  if (c_dialect_objc ())
+    {
+      result = objc_build_setter_call (lhs, newrhs);
+      if (result)
+        return result;
+    }
+  /* APPLE LOCAL end C* property (Radar 4436866) */
 
   /* APPLE LOCAL non lvalue assign */
   if (!lvalue_or_else (&lhs, lv_assign))

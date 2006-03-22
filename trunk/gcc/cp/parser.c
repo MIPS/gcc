@@ -141,7 +141,6 @@ static bool objc_foreach_context;
 static bool objc_is_foreach_stmt;
 static void objc_finish_foreach_stmt (tree);
 /* APPLE LOCAL end C* language */
-
 /* Prototypes.  */
 
 static cp_lexer *cp_lexer_new_main
@@ -1487,6 +1486,13 @@ static tree cp_parser_builtin_offsetof
 static void objc_foreach_stmt 
   (cp_parser *, tree);
 /* APPLE LOCAL end C* language */
+/* APPLE LOCAL begin C* property (Radar 4436866) */
+static void objc_cp_parser_at_property
+  (cp_parser *);
+static void objc_cp_parse_property_decl
+  (cp_parser *);
+/* APPLE LOCAL end C* property (Radar 4436866) */
+
 /* Statements [gram.stmt.stmt]  */
 
 static void cp_parser_statement
@@ -2423,6 +2429,120 @@ cp_parser_skip_to_end_of_statement (cp_parser* parser)
       cp_lexer_consume_token (parser->lexer);
     }
 }
+
+/* APPLE LOCAL being C* property (Radar 4436866) */
+/* This routine parses the propery declarations. */
+
+static void
+objc_cp_parse_property_decl (cp_parser *parser)
+{
+  int declares_class_or_enum;
+  cp_decl_specifier_seq declspecs;
+
+  cp_parser_decl_specifier_seq (parser,
+                                CP_PARSER_FLAGS_NONE,
+                                &declspecs,
+                                &declares_class_or_enum);
+  /* Keep going until we hit the `;' at the end of the declaration. */
+  while (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
+    {
+      tree property;
+      cp_token *token;
+      cp_declarator *declarator
+	= cp_parser_declarator (parser, CP_PARSER_DECLARATOR_NAMED,
+				NULL, NULL, false);
+      property = grokdeclarator (declarator, &declspecs, NORMAL,0, NULL);
+      /* Revover from any kind of error in property declaration. */
+      if (property == error_mark_node || property == NULL_TREE)
+	return;
+      /* Add to property list. */
+      objc_add_property_variable (copy_node (property));
+      token = cp_lexer_peek_token (parser->lexer);
+      if (token->type == CPP_COMMA)
+	{
+	  cp_lexer_consume_token (parser->lexer);  /* Eat ','.  */
+	  continue;
+	}
+      else if (token->type == CPP_EOF)
+	return;
+    }
+    cp_lexer_consume_token (parser->lexer);  /* Eat ';'.  */
+}
+
+/* This function parses a @property declaration inside an objective class
+   or its implementation. */
+
+static void 
+objc_cp_parser_at_property (cp_parser *parser)
+{
+  cp_token *token;
+
+  objc_set_property_attr (0, NULL_TREE);
+  /* Consume @property */
+  cp_lexer_consume_token (parser->lexer);
+  token = cp_lexer_peek_token (parser->lexer);
+  if (token->type == CPP_OPEN_PAREN)
+    {
+      cp_lexer_consume_token (parser->lexer);
+      while (token->type != CPP_CLOSE_PAREN && token->type != CPP_EOF)
+	{
+          tree node;
+          /* property has attribute list. */
+          /* Consume '(' */
+          node = cp_parser_identifier (parser);
+          if (node == ridpointers [(int) RID_READONLY])
+	    {
+	      /* Do the readyonly thing. */
+	      objc_set_property_attr (1, NULL_TREE);
+	    }	
+	  else if (node == ridpointers [(int) RID_GETTER]
+		   || node == ridpointers [(int) RID_SETTER]
+		   || node == ridpointers [(int) RID_IVAR])
+	    {
+	      /* Do the getter/setter/ivar attribute. */
+	      token = cp_lexer_consume_token (parser->lexer);
+	      if (token->type == CPP_EQ)
+		{
+		  tree attr_ident = cp_parser_identifier (parser);
+		  int num;
+		  if (node == ridpointers [(int) RID_GETTER])
+		    num = 2;
+		  else if (node == ridpointers [(int) RID_SETTER])
+		    {
+		      num = 3;
+		      /* Consume the ':' which must always follow the setter name. */
+	              if (cp_lexer_next_token_is (parser->lexer, CPP_COLON))
+			cp_lexer_consume_token (parser->lexer); 
+		    }
+		  else 
+		    num = 4;
+		  objc_set_property_attr (num, attr_ident);	  
+		}
+	      else
+		{
+		  error ("getter/setter/ivar attribute must be followed by '='");
+		  break;
+		}
+	    }
+	  else
+	    {
+	      error ("unknown property attribute");
+	      break;
+	    }
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+	    cp_lexer_consume_token (parser->lexer);
+	  token = cp_lexer_peek_token (parser->lexer);	  
+	}
+	if (token->type != CPP_CLOSE_PAREN)
+	  {
+	    error ("syntax error in @property's attribute declaration");
+	  }
+	/* Consume ')' */
+	cp_lexer_consume_token (parser->lexer);
+    }
+    objc_cp_parse_property_decl (parser);
+}
+/* APPLE LOCAL end C* property (Radar 4436866) */
 
 /* This function is called at the end of a statement or declaration.
    If the next token is a semicolon, it is consumed; otherwise, error
@@ -18409,6 +18529,10 @@ cp_parser_objc_method_prototype_list (cp_parser* parser)
 	   (cp_parser_objc_method_signature (parser));
 	  cp_parser_consume_semicolon_at_end_of_statement (parser);
 	}
+      /* APPLE LOCAL begin C* interface */
+      else if (token->keyword == RID_AT_PROPERTY)
+	objc_cp_parser_at_property (parser);
+      /* APPLE LOCAL end C* interface */
       else
 	/* Allow for interspersed non-ObjC++ code.  */
 	cp_parser_objc_interstitial_code (parser);
@@ -18458,6 +18582,10 @@ cp_parser_objc_method_definition_list (cp_parser* parser)
 	    }
 	  /* APPLE LOCAL end radar 4290840 */
 	}
+      /* APPLE LOCAL begin C* interface */
+      else if (token->keyword == RID_AT_PROPERTY)
+	objc_cp_parser_at_property (parser);
+      /* APPLE LOCAL end C* interface */
       else
 	/* Allow for interspersed non-ObjC++ code.  */
 	cp_parser_objc_interstitial_code (parser);

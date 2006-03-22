@@ -352,6 +352,27 @@ objc_build_foreach_components (tree ARG_UNUSED (receiver),
 }
 /* APPLE LOCAL end C* language */
 
+/* APPLE LOCAL begin C* property (Radar 4436866) */
+void
+objc_set_property_attr (int ARG_UNUSED (code), tree ARG_UNUSED (identifier))
+{
+}
+void
+objc_add_property_variable (tree ARG_UNUSED (prop))
+{
+}
+tree
+objc_build_getter_call (tree ARG_UNUSED (datum), tree ARG_UNUSED (component))
+{
+  return 0;
+}
+tree
+objc_build_setter_call (tree ARG_UNUSED (lhs), tree ARG_UNUSED (rhs))
+{
+  return 0;
+}
+/* APPLE LOCAL end C* property (Radar 4436866) */
+
 /* APPLE LOCAL begin mainline */
 tree
 objc_build_throw_stmt (tree ARG_UNUSED (expr))

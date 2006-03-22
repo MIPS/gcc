@@ -1,4 +1,27 @@
-2005-03-10 Fariborz Jahanian <fjahanian@apple.com>
+2006-03-22 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4436866
+	* objc-act.c (objc_gen_one_property_data): New.
+	(objc_gen_property_datae): New.
+	(objc_synthesize_getter): New.
+	(objc_process_getter_setter): New.
+	(objc_synthesize_setter): New.
+	(objc_build_property_ivar_name): New.
+	(objc_build_property_setter_name): New.
+	(objc_v2_build_setter_call): New.
+	(objc_setter_func_call): New.
+	(build_property_reference): New.
+	(match_proto_with_proto): New.
+	(is_property): New.
+	(finish_class): Generate what needed for property in class
+	and category.
+	(comp_proto_with_proto): Bulk of code moved to match_proto_with_proto.
+	(objc_lookup_ivar): Added support to lookup property name.
+	* objc-tree.def (PROPERTY_DECL): New tree node.
+	* objc-act.h: Several new macros to access various @property 
+	fields.
+
+2006-03-22 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4486614
 	* objc/objc-act.c (objc_generate_weak_read): Don't attempt

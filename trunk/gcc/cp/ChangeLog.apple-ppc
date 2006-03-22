@@ -1,3 +1,15 @@
+2006-03-22 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4436866
+	* typeck.c (finish_class_member_access_expr): Call objc_build_getter_call.
+	(build_modify_expr): Call objc_build_setter_call.
+	* lex.c: Add keyword @property and context sensitive lexical tokens for
+	readonly, getter, setter, ivar attribute names.
+	* parser.c (objc_cp_parse_property_decl): New.
+	(objc_cp_parser_at_property): New.
+	(cp_parser_objc_method_prototype_list): Process @property keyword.
+	(cp_parser_objc_method_definition_list): Ditto.
+
 2006-03-16  Devang Patel  <dpatel@apple.com>
 
 	Radar 4461042

@@ -48,9 +48,9 @@ void objc_detect_field_duplicates (tree);
 /* Objective-C structures */
 
 /* APPLE LOCAL radar 4291785 */
-#define CLASS_LANG_SLOT_ELTS		7
+#define CLASS_LANG_SLOT_ELTS		8
 /* APPLE LOCAL ObjC abi v2 */
-#define PROTOCOL_LANG_SLOT_ELTS		5
+#define PROTOCOL_LANG_SLOT_ELTS		8
 #define OBJC_INFO_SLOT_ELTS		2
 
 /* KEYWORD_DECL */
@@ -63,6 +63,14 @@ void objc_detect_field_duplicates (tree);
 #define METHOD_ADD_ARGS(DECL) ((DECL)->decl.result)
 #define METHOD_DEFINITION(DECL) ((DECL)->decl.initial)
 #define METHOD_ENCODING(DECL) ((DECL)->decl.context)
+
+/* APPLE LOCAL begin C* property (Radar 4436866) */
+#define PROPERTY_NAME(DECL) ((DECL)->decl.name)
+#define PROPERTY_GETTER_NAME(DECL) ((DECL)->decl.arguments)
+#define PROPERTY_SETTER_NAME(DECL) ((DECL)->decl.result)
+#define PROPERTY_IVAR_NAME(DECL) ((DECL)->decl.initial)
+#define PROPERTY_READONLY(DECL) ((DECL)->decl.context)
+/* APPLE LOCAL end C* property (Radar 4436866) */
 
 /* CLASS_INTERFACE_TYPE, CLASS_IMPLEMENTATION_TYPE,
    CATEGORY_INTERFACE_TYPE, CATEGORY_IMPLEMENTATION_TYPE,
@@ -96,6 +104,12 @@ void objc_detect_field_duplicates (tree);
 #define PROTOCOL_OPTIONAL_CLS_METHODS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 3)
 #define PROTOCOL_OPTIONAL_NST_METHODS(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 4)
 /* APPLE LOCAL end C* language */
+/* APPLE LOCAL begin C* property (Radar 4436866) */
+/* For CATEGORY_INTERFACE_TYPE, CLASS_INTERFACE_TYPE or PROTOCOL_INTERFACE_TYPE */
+#define CLASS_PROPERTY_DECL(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 7)
+/* For CLASS_IMPLEMENTATION_TYPE or CATEGORY_IMPLEMENTATION_TYPE. */
+#define IMPL_PROPERTY_DECL(CLASS) TREE_VEC_ELT (TYPE_LANG_SLOT_1 (CLASS), 7)
+/* APPLE LOCAL end C* property (Radar 4436866) */
 
 /* ObjC-specific information pertaining to RECORD_TYPEs are stored in
    the LANG_SPECIFIC structures, which may itself need allocating first.  */

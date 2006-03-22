@@ -1,3 +1,16 @@
+2006-03-22 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4436866
+	* c-parse.in: Add all the needed grammar and lexical support for
+	objective-c @property.
+	* c-typeck.c (build_component_ref): Call objc_build_getter_call.
+	(build_modify_expr): Call objc_build_setter_call.
+	* tree.h (CALL_EXPR_OBJC_PROPERTY_GETTER): New macro.
+	* c-common.h: Several new declarations in support of 
+	objective-c's @property.
+	* stub-objc.c (objc_set_property_attr, objc_add_property_variable, 
+	objc_build_getter_call, objc_build_setter_call): New stubs.
+	
 2006-03-16 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4293709

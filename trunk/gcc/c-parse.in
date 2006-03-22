@@ -193,6 +193,8 @@ do {									\
 /* APPLE LOCAL begin C* language */
 %token AT_IN AT_OPTIONAL AT_REQUIRED
 /* APPLE LOCAL end C* language */
+/* APPLE LOCAL C* property (Radar 4436866) */
+%token AT_PROPERTY AT_READONLY AT_GETTER AT_SETTER AT_IVAR
 
 %type <code> unop
 %type <ttype> ENUM STRUCT UNION IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
@@ -367,6 +369,10 @@ static int objc_pq_context = 0;
    exists.  */
 static int objc_need_raw_identifier;
 #define OBJC_NEED_RAW_IDENTIFIER(VAL)	objc_need_raw_identifier = VAL
+/* APPLE LOCAL begin C* property (Radar 4436866) */
+/* For checking property attribute keywords */
+static int objc_property_attr_context = 0;
+/* APPLE LOCAL end C* property (Radar 4436866) */
 @@end_ifobjc
 
 @@ifc
@@ -3109,6 +3115,8 @@ objcdef:
 	| aliasdecl
 	| protocoldef
 	| methoddef
+	/* APPLE LOCAL C* property (Radar 4436866) */
+	| property_declaration
 	| AT_END
 		{
 		  objc_finish_implementation ();
@@ -3147,6 +3155,59 @@ class_ivars:
 	| /* NULL */
 	;
 
+/* APPLE LOCAL begin C* property (Radar 4436866) */
+property_attribute:
+	AT_READONLY
+		{
+		  objc_set_property_attr (1, NULL_TREE);
+		}
+	| AT_GETTER '=' IDENTIFIER
+		{
+		  objc_set_property_attr (2, $3);
+		}
+	| AT_SETTER '=' IDENTIFIER ':'
+		{
+		  objc_set_property_attr (3, $3);
+		}
+	| AT_IVAR '=' IDENTIFIER
+		{
+		  objc_set_property_attr (4, $3);
+		}
+	;
+
+property_attrlist:
+	property_attribute
+	| property_attrlist ',' property_attribute 
+	;
+
+property_attr_decl:
+	'(' property_attrlist ')'
+		{
+		}
+	| /* NULL */
+	;
+
+property_declaration:
+	AT_PROPERTY 
+		{
+		  objc_property_attr_context = 1;
+		  objc_set_property_attr (0, NULL_TREE);
+		}
+	property_attr_decl 
+		{
+		  objc_property_attr_context = 0;
+		}
+	component_decl ';'
+		{
+		  /* Comma-separated properties are chained together in
+		     reverse order; add them one by one.  */
+		  tree prop = nreverse ($5);
+
+		  for (; prop; prop = TREE_CHAIN (prop))
+		    objc_add_property_variable (copy_node (prop));
+		}
+	;
+/* APPLE LOCAL end C* property (Radar 4436866) */
 classdef:
 	  AT_INTERFACE identifier superclass protocolrefs
 		{
@@ -3156,7 +3217,8 @@ classdef:
 		{
 		  objc_continue_interface ();
 		}
-	  methodprotolist AT_END
+	  /* APPLE LOCAL C* property (Radar 4436866) */
+	  interfacedecllist AT_END
 		{
 		  objc_finish_interface ();
 		}
@@ -3174,7 +3236,8 @@ classdef:
 		{
 		  objc_start_category_interface ($2, $4, $6);
 		}
-	  methodprotolist AT_END
+	  /* APPLE LOCAL C* property (Radar 4436866) */
+	  interfacedecllist AT_END
 		{
 		  objc_finish_interface ();
 		}
@@ -3191,7 +3254,8 @@ protocoldef:
 		  objc_pq_context = 1;
 		  objc_start_protocol ($2, $3);
 		}
-	  methodprotolist AT_END
+	  /* APPLE LOCAL C* property (Radar 4436866) */
+	  interfacedecllist AT_END
 		{
 		  objc_pq_context = 0;
 		  objc_finish_interface ();
@@ -3292,10 +3356,13 @@ methoddef:
  is so that notype_initdecls when reached via datadef
  can find a valid list of type and sc specs in $0. */
 
-methodprotolist:
+interfacedecllist:
 	  /* empty  */
-	| methodprotolist methodproto
-	| methodprotolist { $<ttype>$ = NULL_TREE; } datadef
+	/* APPLE LOCAL begin C* property (Radar 4436866) */
+	| interfacedecllist methodproto
+	| interfacedecllist { $<ttype>$ = NULL_TREE; } datadef
+   	| interfacedecllist property_declaration
+	/* APPLE LOCAL end C* property (Radar 4436866) */
 	;
 
 semi_or_error:
@@ -3674,6 +3741,8 @@ static const struct resword reswords[] =
   { "optional",		RID_AT_OPTIONAL,	D_OBJC },
   { "required",		RID_AT_REQUIRED,	D_OBJC },
   /* APPLE LOCAL end C* language */
+  /* APPLE LOCAL C* property (Radar 4436866) */
+  { "property",		RID_AT_PROPERTY,	D_OBJC },
   { "private",		RID_AT_PRIVATE,		D_OBJC },
   { "protected",	RID_AT_PROTECTED,	D_OBJC },
   { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
@@ -3692,6 +3761,13 @@ static const struct resword reswords[] =
   { "inout",		RID_INOUT,		D_OBJC },
   { "oneway",		RID_ONEWAY,		D_OBJC },
   { "out",		RID_OUT,		D_OBJC },
+  /* APPLE LOCAL begin C* property (Radar 4436866) */
+  /* These are recognized inside a property attribute list */
+  { "readonly",		RID_READONLY,		D_OBJC }, 
+  { "getter",		RID_GETTER,		D_OBJC }, 
+  { "setter",		RID_SETTER,		D_OBJC }, 
+  { "ivar",		RID_IVAR,		D_OBJC }, 
+  /* APPLE LOCAL end C* property (Radar 4436866) */
 @@end_ifobjc
 };
 #define N_reswords (sizeof reswords / sizeof (struct resword))
@@ -3831,6 +3907,8 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_AT_OPTIONAL */		AT_OPTIONAL,
   /* RID_AT_REQUIRED */		AT_REQUIRED,
   /* APPLE LOCAL end C* language */
+  /* APPLE LOCAL C* property (Radar 4436866) */
+  /* RID_AT_PROPERTY */		AT_PROPERTY,
   /* RID_AT_IMPLEMENTATION */	AT_IMPLEMENTATION
 };
 
@@ -3884,6 +3962,8 @@ yylexname (void)
 
 @@ifobjc
       if (!OBJC_IS_AT_KEYWORD (rid_code)
+	  /* APPLE LOCAL C* property (Radar 4436866) */
+	  && !OBJC_IS_PATTR_KEYWORD (rid_code)
 	  && (!OBJC_IS_PQ_KEYWORD (rid_code) || objc_pq_context))
 @@end_ifobjc
       {
@@ -3943,6 +4023,34 @@ yylexname (void)
 	       break;
 	    }
 	}
+       /* APPLE LOCAL begin C* property (Radar 4436866) */
+       else if (c_dialect_objc () &&
+		objc_property_attr_context && 
+		OBJC_IS_PATTR_KEYWORD(rid_code))
+	 {
+	   tree next_tok;
+	   enum cpp_ttype next_tok_type = c_lex (&next_tok);
+	   /* Now put it back.  */
+	   _cpp_backup_tokens (parse_in, 1);
+	   if (rid_code == RID_READONLY)
+	     return AT_READONLY;
+	   if (next_tok_type == CPP_EQ)
+	     {
+	       switch (rid_code)
+		 {
+		   case RID_GETTER:
+		     return AT_GETTER;
+		   case RID_SETTER:
+		     return AT_SETTER;
+		   case RID_IVAR:
+		     return AT_IVAR;
+
+		   default:
+		     break;
+		 }
+	     }
+	 }
+       /* APPLE LOCAL end C* property (Radar 4436866) */
 @@end_ifobjc
 /* APPLE LOCAL end C* language */
     }

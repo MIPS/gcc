@@ -304,6 +304,8 @@ static const struct resword reswords[] =
   { "optional",         RID_AT_OPTIONAL,        D_OBJC },
   { "required",         RID_AT_REQUIRED,        D_OBJC },
   /* APPLE LOCAL end C* language */
+  /* APPLE LOCAL C* property (Radar 4436866) */
+  { "property",		RID_AT_PROPERTY,	D_OBJC },
   { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
   { "selector",		RID_AT_SELECTOR,	D_OBJC },
   { "finally",		RID_AT_FINALLY,		D_OBJC },
@@ -316,6 +318,13 @@ static const struct resword reswords[] =
   { "oneway",		RID_ONEWAY,		D_OBJC },
   { "out",		RID_OUT,		D_OBJC },
   /* APPLE LOCAL end mainline */
+  /* APPLE LOCAL begin C* property (Radar 4436866) */
+  /* These are recognized inside a property attribute list */
+  { "readonly",         RID_READONLY,           D_OBJC },
+  { "getter",           RID_GETTER,             D_OBJC },
+  { "setter",           RID_SETTER,             D_OBJC },
+  { "ivar",             RID_IVAR,               D_OBJC },
+  /* APPLE LOCAL end C* property (Radar 4436866) */
 };
 
 void

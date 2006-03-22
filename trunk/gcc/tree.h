@@ -422,6 +422,8 @@ struct tree_common GTY(())
 
 	TREE_DEPRECATED in
 	   ..._DECL
+	APPLE LOCAL C* property (Radar 4436866)
+	   CALL_EXPR
 
    APPLE LOCAL begin "unavailable" attribute (Radar 2809697)
    unavailable_flag:
@@ -851,6 +853,12 @@ extern void tree_operand_check_failed (int, enum tree_code,
    exit of a function.  Calls for which this is true are candidates for tail
    call optimizations.  */
 #define CALL_EXPR_TAILCALL(NODE) (CALL_EXPR_CHECK(NODE)->common.addressable_flag)
+
+/* APPLE LOCAL begin C* property (Radar 4436866) */
+/* Set on a CALL_EXPR if it is for call to a getter function represented by an
+   objective-c property declaration. */
+#define CALL_EXPR_OBJC_PROPERTY_GETTER(NODE) (CALL_EXPR_CHECK(NODE)->common.deprecated_flag)
+/* APPLE LOCAL end C* property (Radar 4436866) */
 
 /* In a VAR_DECL, nonzero means allocate static storage.
    In a FUNCTION_DECL, nonzero if function has been defined.

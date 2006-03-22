@@ -103,10 +103,18 @@ enum rid
   RID_AT_INTERFACE,
   /* APPLE LOCAL C* language */
   RID_AT_OPTIONAL, RID_AT_REQUIRED,
+  /* APPLE LOCAL C* property (Radar 4436866) */
+  RID_AT_PROPERTY,
   RID_AT_IMPLEMENTATION,
+  /* APPLE LOCAL C* property (Radar 4436866) */
+  RID_READONLY, RID_GETTER, RID_SETTER, RID_IVAR,
 
   RID_MAX,
 
+  /* APPLE LOCAL begin C* property (Radar 4436866) */
+  RID_FIRST_PATTR = RID_READONLY,
+  RID_LAST_PATTR = RID_IVAR,
+  /* APPLE LOCAL end C* property (Radar 4436866) */
   RID_FIRST_MODIFIER = RID_STATIC,
   RID_LAST_MODIFIER = RID_ONEWAY,
 
@@ -115,6 +123,12 @@ enum rid
   RID_FIRST_PQ = RID_IN,
   RID_LAST_PQ = RID_ONEWAY
 };
+
+/* APPLE LOCAL begin C* property (Radar 4436866) */
+#define OBJC_IS_PATTR_KEYWORD(rid) \
+  ((unsigned int) (rid) >= (unsigned int) RID_FIRST_PATTR && \
+  (unsigned int) (rid) <= (unsigned int) RID_LAST_PATTR)
+/* APPLE LOCAL end C* property (Radar 4436866) */
 
 #define OBJC_IS_AT_KEYWORD(rid) \
   ((unsigned int) (rid) >= (unsigned int) RID_FIRST_AT && \
@@ -1083,6 +1097,12 @@ tree objc_build_component_ref (tree, tree);
 tree objc_build_foreach_components (tree, tree*, tree*, tree*, 
 				    tree*, tree*, tree*);
 /* APPLE LOCAL end C* language */
+/* APPLE LOCAL begin C* property (Radar 4436866) */
+void objc_set_property_attr (int, tree);
+void objc_add_property_variable (tree);
+tree objc_build_getter_call (tree, tree);
+tree objc_build_setter_call (tree, tree);
+/* APPLE LOCAL end C* property (Radar 4436866) */
 
 /* APPLE LOCAL ObjC new abi */
 extern tree objc_v2_build_ivar_ref (tree datum, tree component);
