@@ -270,7 +270,7 @@ gate_check_data_deps (void)
 
 struct tree_opt_pass pass_check_data_deps =
 {
-  "checkdd",				/* name */
+  "ckdd",				/* name */
   gate_check_data_deps,	        	/* gate */
   check_data_deps,       		/* execute */
   NULL,					/* sub */

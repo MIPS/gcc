@@ -1,3 +1,55 @@
+2006-03-22  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* omega.c: Add a link to David Wonnacott's thesis.
+	(debug_omega_problem): New.
+	(eliminateRedundantConstraints): Rename ELIMINATE_REDUNDANT_CONSTRAINTS.
+	* omega.h (debug_omega_problem): Declared.
+	* tree-ssa-loop.c (pass_check_data_deps): Renamed ckdd.
+	* tree-data-ref.c: Rename DDR_SIZE_VECT to DDR_NB_LOOPS.
+	(subscript_dependence_tester_1): Declared.
+	(print_dir_vectors, print_dist_vectors): New.
+	(debug_data_dependence_relation): New.
+	(dump_data_dependence_relation): Print more details.
+	(initialize_data_dependence_relation): Initialize DDR_LOOP_NEST.
+	Remove initialization of DDR_OMEGA and DDR_SIZE_VECT.
+	(analyze_subscript_affine_affine): Don't ICE when gcd_alpha_beta is 0.
+	(save_dist_v, save_dir_v, index_in_loop_nest, add_outer_distances,
+	build_classic_dist_vector_1): New.
+	(build_classic_dist_vector): Rewrite to work on DDR_LOOP_NEST.
+	Don't test for lambda_vector_lexico_pos.
+	(same_access_functions, add_multivariate_self_dist,
+	add_other_self_distances, dir_from_dist): New.
+	(build_classic_dir_vector): Replace implementation almost identical to 
+	build_classic_dist_vector with a walk of DDR_DIST_VECTS with a call to
+	dir_from_dist.
+	(subscript_dependence_tester_1, lexico_pos_distv_p): New.
+	(subscript_dependence_tester): Handle the lexicographically negative
+	distance vectors by recomputing the dependence relation.
+	(loop_p): Moved...
+	(init_omega_eq_with_af): Pass a pointer to the DDR, not to the loop
+	nest.  Call index_in_loop_nest.
+	(omega_extract_distance_vectors, omega_setup_subscript,
+	init_omega_for_ddr_1): New.
+	(init_omega_for_ddr): Add more documentation, use helper functions.
+	(omega_compute_classic_representations): Removed.
+	(omega_dependence_tester): Removed.
+	(check_ddr): Modify printing.
+	(compute_affine_dependence): Remove parameter loop_nest_depth.
+	Don't call omega_dependence_tester.
+	(compute_self_dependence): Don't call compute_subscript_distance.
+	(compute_all_dependences): Remove parameters nb_loops, loop_nest_depth.
+	Add a parameter for the loop_nest.
+	(find_loop_nest_1, find_loop_nest): New.
+	(compute_data_dependences_for_loop): Compute the loop nest, and give
+	up if the nest is not well formed.
+	(free_dependence_relation): Remove DDR_OMEGA.
+	* tree-data-ref.h (loop_p): ...here.
+	(struct data_dependence_relation): Replace size_vect field with 
+	loop_nest, a vec of loops.  Remove omega_dependence field.
+	(DDR_SIZE_VECT): Renamed DDR_NB_LOOPS.
+	(DDR_LOOP_NEST, DDR_INNER_LOOP): New.
+	(DDR_OMEGA): Removed.
+
 2006-02-20  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-data-ref.c: (base_addr_differ_p): Fix formatting.

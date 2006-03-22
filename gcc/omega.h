@@ -102,7 +102,10 @@ typedef struct omega_pb
   bool variables_freed;
 
   /* Index or name of variables.  Negative integers are reserved for
-     wildcard variables.  */
+     wildcard variables.  Maps the index of variables in the original
+     problem to the new index of the variable.  The index for a
+     variable in the coef array of an equation can change as some
+     variables are eliminated.  */
   int *var;
 
   /* */
@@ -129,6 +132,7 @@ extern enum omega_result omega_simplify_approximate (omega_pb);
 extern enum omega_result omega_constrain_variable_sign (omega_pb,
 							enum omega_eqn_color,
 							int, int);
+extern void debug_omega_problem (omega_pb);
 extern void omega_print_problem (FILE *, omega_pb);
 extern void omega_print_red_equations (FILE *, omega_pb);
 extern int omega_count_red_equations (omega_pb);

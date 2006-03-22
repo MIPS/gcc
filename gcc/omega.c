@@ -24,6 +24,12 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+/* For a detailed description, see "Constraint-Based Array Dependence
+   Analysis" William Pugh, David Wonnacott, TOPLAS'98 and David
+   Wonnacott's thesis:
+   ftp://ftp.cs.umd.edu/pub/omega/davewThesis/davewThesis.ps.gz
+*/
+
 /* Options:
    
    ELIMINATE_REDUNDANT_CONSTRAINTS
@@ -286,7 +292,7 @@ omega_print_eqn (FILE *file, omega_pb pb, eqn e, bool test, int extra)
       if (e->touched)
 	fprintf (file, "!");
 
-      else if (!e->touched && e->key != 0)
+      else if (e->key != 0)
 	fprintf (file, "%d: ", e->key);
     }
 
@@ -366,7 +372,7 @@ omega_print_vars (FILE *file, omega_pb pb)
   fprintf (file, "variables = ");
 
   if (pb->safe_vars > 0)
-    fprintf (file, "(");
+    fprintf (file, "protected (");
 
   for (i = 1; i <= pb->num_vars; i++)
     {
@@ -380,6 +386,14 @@ omega_print_vars (FILE *file, omega_pb pb)
     }
 
   fprintf (file, "\n");
+}
+
+/* Debug problem PB.  */
+
+void
+debug_omega_problem (omega_pb pb)
+{
+  omega_print_problem (stderr, pb);
 }
 
 /* Print to FILE problem PB.  */
@@ -2751,7 +2765,7 @@ omega_problem_reduced (omega_pb pb)
     }
 
   /*
-    #ifdef eliminateRedundantConstraints
+    #ifdef ELIMINATE_REDUNDANT_CONSTRAINTS
     if (!omega_eliminate_redundant (pb, 1))
     return;
     #endif
