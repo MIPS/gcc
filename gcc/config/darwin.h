@@ -519,7 +519,7 @@ do {					\
                       %{!static:%{object:-lcrt0.o}			    \
                                 %{!object:%{preload:-lcrt0.o}		    \
                                   %{!preload:-lcrt1.o %(darwin_crt2)}}}}}}  \
-  %{shared-libgcc:%:version-compare(< 10.5 mmacosx-version-min= -lcrt3.o)}"
+  %{shared-libgcc:%:version-compare(< 10.5 mmacosx-version-min= crt3.o%s)}"
 
 /* APPLE LOCAL end 4484188 */
 /* The native Darwin linker doesn't necessarily place files in the order

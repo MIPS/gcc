@@ -1,5 +1,10 @@
 2006-03-22  Geoffrey Keating  <geoffk@apple.com>
 
+	Radar 4484188
+	* g++.old-deja/g++.other/init19.C: New.
+
+2006-03-22  Geoffrey Keating  <geoffk@apple.com>
+
 	Radar 4255172
 	* gcc.apple/altivec-maltivec-2.c: New.
 	* gcc.apple/altivec-maltivec-3.c: New.

@@ -1,5 +1,11 @@
 2006-03-22  Geoffrey Keating  <geoffk@apple.com>
 
+	Radar 4484188
+	* config/darwin.h (STARTFILE_SPEC): Don't use -l for crt3.o.
+	* config/darwin-crt3.c: Rewrite entire file.
+
+2006-03-22  Geoffrey Keating  <geoffk@apple.com>
+
 	Radar 4255172
 	* config/rs6000/darwin.h (PEG_ALIGN_FOR_MAC68K): Move to here from
 	config/darwin.h.  Don't test TARGET_ALTIVEC.
