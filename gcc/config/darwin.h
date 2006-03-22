@@ -500,7 +500,7 @@ do {					\
        -lgcc}"
 
 /* APPLE LOCAL end mainline 2005-11-15 4276161 */
-/* APPLE LOCAL begin mainline 2006-03-15 3992198 */
+/* APPLE LOCAL begin 4484188 */
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.
 
    crt3.o provides __cxa_atexit on systems that don't have it.  Since
@@ -521,7 +521,7 @@ do {					\
                                   %{!preload:-lcrt1.o %(darwin_crt2)}}}}}}  \
   %{shared-libgcc:%:version-compare(< 10.5 mmacosx-version-min= -lcrt3.o)}"
 
-/* APPLE LOCAL end mainline 2006-03-15 3992198 */
+/* APPLE LOCAL end 4484188 */
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
    to put anything in ENDFILE_SPEC.  */
@@ -542,7 +542,7 @@ do {					\
 #define DWARF2_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-/* APPLE LOCAL begin dwarf2 section flags */
+/* APPLE LOCAL begin mainline 2006-03-16 dwarf2 section flags */
 #define DEBUG_FRAME_SECTION	"__DWARF,__debug_frame,regular,debug"
 #define DEBUG_INFO_SECTION	"__DWARF,__debug_info,regular,debug"
 #define DEBUG_ABBREV_SECTION	"__DWARF,__debug_abbrev,regular,debug"
@@ -553,7 +553,7 @@ do {					\
 #define DEBUG_PUBNAMES_SECTION	"__DWARF,__debug_pubnames,regular,debug"
 #define DEBUG_STR_SECTION	"__DWARF,__debug_str,regular,debug"
 #define DEBUG_RANGES_SECTION	"__DWARF,__debug_ranges,regular,debug"
-/* APPLE LOCAL end dwarf2 section flags */
+/* APPLE LOCAL end mainline 2006-03-16 dwarf2 section flags */
 
 /* APPLE LOCAL begin gdb only used symbols */
 /* Support option to generate stabs for only used symbols. */
@@ -633,7 +633,7 @@ do {					\
 /* We need to use a nonlocal label for the start of an EH frame: the
    Darwin linker requires that a coalesced section start with a label. */
 #undef FRAME_BEGIN_LABEL
-/* APPLE LOCAL dwarf2 4392520 */
+/* APPLE LOCAL mainline 2006-03-16 dwarf2 4392520 */
 #define FRAME_BEGIN_LABEL (for_eh ? "EH_frame" : "Lframe")
 
 /* Emit a label for the FDE corresponding to DECL.  EMPTY means 
@@ -1295,11 +1295,11 @@ enum machopic_addr_class {
 #define ASM_OUTPUT_DWARF_DELTA(FILE,SIZE,LABEL1,LABEL2)  \
   darwin_asm_output_dwarf_delta (FILE, SIZE, LABEL1, LABEL2)
 
-/* APPLE LOCAL begin dwarf 4383509 */
+/* APPLE LOCAL begin mainline 2006-03-16 dwarf 4383509 */
 #define ASM_OUTPUT_DWARF_OFFSET(FILE,SIZE,LABEL,BASE)  \
   darwin_asm_output_dwarf_offset (FILE, SIZE, LABEL, BASE)
 
-/* APPLE LOCAL end dwarf 4383509 */
+/* APPLE LOCAL end mainline 2006-03-16 dwarf 4383509 */
 #define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(ASM_OUT_FILE, ENCODING, SIZE, ADDR, DONE)	\
       if (ENCODING == ASM_PREFERRED_EH_DATA_FORMAT (2, 1)) {				\
 	darwin_non_lazy_pcrel (ASM_OUT_FILE, ADDR);					\
