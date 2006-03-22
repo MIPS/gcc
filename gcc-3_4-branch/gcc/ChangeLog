@@ -1,3 +1,9 @@
+2006-03-21  Jason Merrill  <jason@redhat.com>
+
+	PR middle-end/20297
+	* expr.c (init_block_move_fn): Force default visibility.
+	(init_block_clear_fn): Likewise.
+
 2005-12-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* version.c: Bump version number.
