@@ -4841,7 +4841,6 @@ create_can (void)
   CLEAR_HARD_REG_SET (CAN_BIASED_HARD_REGS (can));
   CAN_FREQ (can) = 0;
   CAN_IN_GRAPH_P (can) = false;
-  CAN_REMOVED_P (can) = false;
   CAN_ASSIGNED_P (can) = false;
   CAN_HARD_REGNO (can) = -1;
   CAN_SLOTNO (can) = CAN_NUM (can);
@@ -4853,8 +4852,6 @@ create_can (void)
   CAN_HARD_REG_COSTS (can) = NULL;
   CAN_COPIES (can) = NULL;
   CAN_LEFT_CONFLICTS_NUM (can) = -1;
-  CAN_INTERNAL_COPY_COST (can) = 0;
-  CAN_DIVIDING_NODES (can) = 0;
   CAN_COVER_CLASS (can) = NO_REGS;
   CAN_MEMORY_COST (can) = CAN_COVER_CLASS_COST (can) = 0;
   CAN_NEXT_BUCKET_CAN (can) = CAN_PREV_BUCKET_CAN (can) = NULL;
@@ -5715,16 +5712,14 @@ print_can (FILE *f, can_t can)
   allocno_t a, *can_allocnos;
 
   fprintf
-    (f, "%scan#%d (%s %s(%d,%d) freq %d (call %d) r%d m%d %s%s%s%sconfl %d dividing %d) allocnos:\n  ",
+    (f, "%scan#%d (%s %s(%d,%d) freq %d (call %d) r%d m%d %s%s%sconfl %d) allocnos:\n  ",
      (CAN_GLOBAL_P (can) ? "g" : ""), CAN_NUM (can),
      GET_MODE_NAME (CAN_MODE (can)), reg_class_names [CAN_COVER_CLASS (can)],
      CAN_COVER_CLASS_COST (can), CAN_MEMORY_COST (can),
      CAN_FREQ (can), CAN_CALL_FREQ (can), CAN_HARD_REGNO (can),
      CAN_SLOTNO (can),
      (CAN_CALL_P (can) ? "call " : ""), (CAN_IN_GRAPH_P (can) ? "in " : ""),
-     (CAN_REMOVED_P (can) ? "removed " : ""),
-     (CAN_SPILL_P (can) ? "spill " : ""), CAN_LEFT_CONFLICTS_NUM (can),
-     CAN_DIVIDING_NODES (can));
+     (CAN_SPILL_P (can) ? "spill " : ""), CAN_LEFT_CONFLICTS_NUM (can));
   can_allocnos = CAN_ALLOCNOS (can);
   for (i = 0; (a = can_allocnos [i]) != NULL; i++)
     {

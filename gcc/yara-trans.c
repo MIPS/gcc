@@ -85,13 +85,7 @@ static void remove_memory_slot_end (int);
 static void increase_align_count (int);
 static void decrease_align_count (int);
 static void initiate_memory_slots (void);
-static void try_can_conflict_slot_moves (can_t);
 static void register_slot_start_change (int, struct memory_slot *);
-static void try_can_slot_move (can_t);
-#ifdef SECONDARY_MEMORY_NEEDED
-static void try_copy_conflict_slot_moves (copy_t);
-static void try_copy_slot_move (copy_t);
-#endif
 static void register_memory_slot_usage (struct memory_slot *, int);
 static void unregister_memory_slot_usage (struct memory_slot *, int);
 static void allocate_allocno_memory_slot (allocno_t);
@@ -100,6 +94,7 @@ static void deallocate_allocno_memory_slot (allocno_t);
 static void allocate_copy_memory_slot (copy_t);
 static void deallocate_copy_memory_slot (copy_t);
 #endif
+static int can_compare (const void *, const void *);
 static void finish_memory_slots (void);
 
 static void set_up_temp_mems_and_addresses (void);
@@ -636,36 +631,6 @@ can_copy_conflict_p (can_t can, copy_t cp)
 #endif
 
 static void
-try_can_conflict_slot_moves (can_t can)
-{
-  unsigned int i;
-  int num;
-  can_t another_can, *can_vec;
-  bitmap_iterator bi;
-
-  can_vec = CAN_CONFLICT_CAN_VEC (can);
-  for (i = 0; (another_can = can_vec [i]) != NULL; i++)
-    {
-      num = CAN_SLOTNO (another_can);
-      if (can_memory_slots [num] != NULL
-	  && can_memory_slots [num]->mem == NULL_RTX)
-	try_can_slot_move (another_can);
-    }
-#ifdef SECONDARY_MEMORY_NEEDED
-  EXECUTE_IF_SET_IN_BITMAP (secondary_memory_copies, 0, i, bi)
-    {
-      if (can_copy_conflict_p (can, copies [i]))
-	{
-	  gcc_assert (COPY_SECONDARY_CHANGE_ADDR (copies [i]) != NULL
-		      && COPY_MEMORY_SLOT (copies [i]) != NULL
-		      && COPY_MEMORY_SLOT (copies [i])->mem == NULL_RTX);
-	  try_copy_slot_move (copies [i]);
-	}
-    }
-#endif
-}
-
-static void
 register_slot_start_change (int new, struct memory_slot *slot)
 {
   log_memory_slot (slot);
@@ -677,103 +642,6 @@ register_slot_start_change (int new, struct memory_slot *slot)
   add_memory_slot_end (new + slot->size - 1);
 #endif
 }
-
-static void
-try_can_slot_move (can_t can)
-{
-  unsigned int i;
-  int *vec;
-  int start, align;
-  struct memory_slot *conflict_slot;
-  struct memory_slot *slot = can_memory_slots [CAN_SLOTNO (can)];
-  int num;
-  bitmap_iterator bi;
-
-  gcc_assert (slot != NULL && slot->mem == NULL_RTX);
-  align = slotno_max_ref_align [CAN_SLOTNO (can)];
-  free_all_stack_memory ();
-  vec = slotno_conflicts [CAN_SLOTNO (can)];
-  if (vec != NULL)
-    for (i = 0; (num = vec [i]) >= 0; i++)
-      if ((conflict_slot = can_memory_slots [num]) != NULL
-	  && conflict_slot->mem == NULL_RTX)
-	reserve_stack_memory (conflict_slot->start, conflict_slot->size);
-#ifdef SECONDARY_MEMORY_NEEDED
-  EXECUTE_IF_SET_IN_BITMAP (secondary_memory_copies, 0, i, bi)
-    {
-      if (can_copy_conflict_p (can, copies [i]))
-	{
-	  gcc_assert (COPY_SECONDARY_CHANGE_ADDR (copies [i]) != NULL);
-	  conflict_slot = COPY_MEMORY_SLOT (copies [i]);
-	  gcc_assert (conflict_slot != NULL
-		      && conflict_slot->mem == NULL_RTX);
-	  reserve_stack_memory (conflict_slot->start, conflict_slot->size);
-	}
-      }
-#endif
-  start = find_free_stack_memory (slot->size, align);
-  gcc_assert (slot->start >= start);
-  if (start == slot->start)
-    return;
-  register_slot_start_change (start, slot);
-  slot->start = start;
-  if ((YARA_PARAMS & YARA_NO_SLOT_MOVE) == 0)
-    try_can_conflict_slot_moves (can);
-}
-
-#ifdef SECONDARY_MEMORY_NEEDED
-static void
-try_copy_conflict_slot_moves (copy_t cp)
-{
-  int i;
-  allocno_t a;
-  can_t can;
-  allocno_t *vec;
-
-  vec = COPY_ALLOCNO_CONFLICT_VEC (cp);
-  for (i = 0; (a = vec [i]) != NULL; i++)
-    {
-      can = ALLOCNO_CAN (a);
-      if (can == NULL)
-	continue;
-      if (can_memory_slots [CAN_SLOTNO (can)] != NULL
-	  && can_memory_slots [CAN_SLOTNO (can)]->mem == NULL_RTX)
-	try_can_slot_move (can);
-    }
-}
-
-static void
-try_copy_slot_move (copy_t cp)
-{
-  int i, start, align;
-  allocno_t a;
-  can_t can;
-  struct memory_slot *conflict_slot;
-  struct memory_slot *slot = COPY_MEMORY_SLOT (cp);
-  allocno_t *vec;
-
-  gcc_assert (slot != NULL);
-  free_all_stack_memory ();
-  align = get_stack_align (COPY_MEMORY_MODE (cp)) / BITS_PER_UNIT;
-  vec = COPY_ALLOCNO_CONFLICT_VEC (cp);
-  for (i = 0; (a = vec [i]) != NULL; i++)
-    {
-      can = ALLOCNO_CAN (a);
-      if (can == NULL)
-	continue;
-      if ((conflict_slot = can_memory_slots [CAN_SLOTNO (can)]) != NULL
-	  && conflict_slot->mem == NULL_RTX)
-	reserve_stack_memory (conflict_slot->start, conflict_slot->size);
-    }
-  start = find_free_stack_memory (slot->size, align);
-  gcc_assert (slot->start >= start);
-  if (start == slot->start)
-    return;
-  register_slot_start_change (start, slot);
-  slot->start = start;
-  try_copy_conflict_slot_moves (cp);
-}
-#endif
 
 void
 print_memory_slot (FILE *f, const char *head, int indent,
@@ -1142,12 +1010,8 @@ deallocate_allocno_memory_slot (allocno_t a)
     {
 #ifdef REGNO_SLOT
       regno_memory_slots [regno] = NULL;
-      if ((YARA_PARAMS & YARA_NO_SLOT_MOVE) == 0)
-	try_regno_conflict_slot_moves (regno);
 #else
       can_memory_slots [num] = NULL;
-      if ((YARA_PARAMS & YARA_NO_SLOT_MOVE) == 0)
-	try_can_conflict_slot_moves (can);
 #endif
     }
   ALLOCNO_MEMORY_SLOT_OFFSET (a) = 0;
@@ -1199,10 +1063,122 @@ deallocate_copy_memory_slot (copy_t cp)
   unregister_memory_slot_usage (slot, align);
   COPY_MEMORY_SLOT (cp) = NULL;
   bitmap_clear_bit (secondary_memory_copies, COPY_NUM (cp));
-  if (slot->allocnos_num == 0)
-    try_copy_conflict_slot_moves (cp);
 }
 #endif
+
+/* The function is used to sort cans in order to put cans with higher
+   memory cost first.  */
+static int
+can_compare (const void *c1p, const void *c2p)
+{
+  can_t c1 = *(can_t *) c1p;
+  can_t c2 = *(can_t *) c2p;
+  int diff;
+
+  diff = (CAN_MEMORY_COST (c2) - CAN_MEMORY_COST (c1));
+  if (diff != 0)
+    return diff;
+  return CAN_NUM (c1) - CAN_NUM (c2);
+}
+
+/* The following function tries to compact stack.  It might decrease
+   (but never increase) the displacement from the stack start.  */
+void
+compact_stack (void)
+{
+  int i, j, n, slot_no;
+  can_t can;
+  int *vec;
+  int start, align;
+  allocno_t a, *a_vec;
+  copy_t cp;
+  struct memory_slot *slot, *conflict_slot;
+  bitmap_iterator bi;
+  varray_type slot_memory_can_varray;
+
+  /* Sort cans to consider more higher cost can moves first.  */
+  VARRAY_GENERIC_PTR_NOGC_INIT (slot_memory_can_varray,
+				cans_num, "cans with slot memory");
+  for (i = 0; i < cans_num; i++)
+    {
+      can = cans [i];
+      if (can == NULL)
+	continue;
+      slot_no = CAN_SLOTNO (can);
+      if ((slot = can_memory_slots [slot_no]) == NULL || slot->mem != NULL_RTX)
+	continue;
+      VARRAY_PUSH_GENERIC_PTR (slot_memory_can_varray, can);
+    }
+  if (VARRAY_ACTIVE_SIZE (slot_memory_can_varray) != 0)
+    qsort (&VARRAY_GENERIC_PTR (slot_memory_can_varray, 0),
+	   VARRAY_ACTIVE_SIZE (slot_memory_can_varray),
+	   sizeof (can_t), can_compare);
+  /* Try to move can slots to closer stack start.  */
+  for (i = 0; i < (int) VARRAY_ACTIVE_SIZE (slot_memory_can_varray); i++)
+    {
+      can = VARRAY_GENERIC_PTR (slot_memory_can_varray, i);
+      if (can == NULL)
+	continue;
+      slot_no = CAN_SLOTNO (can);
+      if ((slot = can_memory_slots [slot_no]) == NULL || slot->mem != NULL_RTX)
+	continue;
+      align = slotno_max_ref_align [slot_no];
+      free_all_stack_memory ();
+      vec = slotno_conflicts [slot_no];
+      if (vec != NULL)
+	for (j = 0; (n = vec [j]) >= 0; j++)
+	  if ((conflict_slot = can_memory_slots [n]) != NULL
+	      && conflict_slot->mem == NULL_RTX)
+	    reserve_stack_memory (conflict_slot->start, conflict_slot->size);
+#ifdef SECONDARY_MEMORY_NEEDED
+      EXECUTE_IF_SET_IN_BITMAP (secondary_memory_copies, 0, j, bi)
+	{
+	  if (can_copy_conflict_p (can, copies [j]))
+	    {
+	      gcc_assert (COPY_SECONDARY_CHANGE_ADDR (copies [j]) != NULL);
+	      conflict_slot = COPY_MEMORY_SLOT (copies [j]);
+	      gcc_assert (conflict_slot != NULL
+			  && conflict_slot->mem == NULL_RTX);
+	      reserve_stack_memory (conflict_slot->start, conflict_slot->size);
+	    }
+	}
+#endif
+      start = find_free_stack_memory (slot->size, align);
+      gcc_assert (slot->start >= start);
+      if (start == slot->start)
+	continue;
+      register_slot_start_change (start, slot);
+      slot->start = start;
+    }
+  VARRAY_FREE (slot_memory_can_varray);
+#ifdef SECONDARY_MEMORY_NEEDED
+  /* Try to move slots used for secondary memory closer to the stack
+     start.  */
+  EXECUTE_IF_SET_IN_BITMAP (secondary_memory_copies, 0, i, bi)
+    {
+      cp = copies [i];
+      slot = COPY_MEMORY_SLOT (cp);
+      free_all_stack_memory ();
+      align = get_stack_align (COPY_MEMORY_MODE (cp)) / BITS_PER_UNIT;
+      a_vec = COPY_ALLOCNO_CONFLICT_VEC (cp);
+      for (j = 0; (a = a_vec [j]) != NULL; j++)
+	{
+	  can = ALLOCNO_CAN (a);
+	  if (can == NULL)
+	    continue;
+	  if ((conflict_slot = can_memory_slots [CAN_SLOTNO (can)]) != NULL
+	      && conflict_slot->mem == NULL_RTX)
+	    reserve_stack_memory (conflict_slot->start, conflict_slot->size);
+	}
+      start = find_free_stack_memory (slot->size, align);
+      gcc_assert (slot->start >= start);
+      if (start == slot->start)
+	continue;
+      register_slot_start_change (start, slot);
+      slot->start = start;
+    }
+#endif
+}
 
 static void
 finish_memory_slots (void)
@@ -1256,28 +1232,6 @@ hard_reg_not_in_set_p (int hard_regno, enum machine_mode mode,
     if (TEST_HARD_REG_BIT (hard_regset, hard_regno + i))
       return false;
   return true;
-}
-
-void
-ior_hard_reg_set_by_mode (int hard_regno, enum machine_mode mode,
-			  HARD_REG_SET *hard_regset)
-{
-  int i;
-
-  gcc_assert (hard_regno >= 0 && HARD_REGISTER_NUM_P (hard_regno));
-  for (i = hard_regno_nregs [hard_regno] [mode] - 1; i >= 0; i--)
-    SET_HARD_REG_BIT (*hard_regset, hard_regno + i);
-}
-
-void
-and_compl_hard_reg_set_by_mode (int hard_regno, enum machine_mode mode,
-				HARD_REG_SET *hard_regset)
-{
-  int i;
-
-  gcc_assert (hard_regno >= 0 && HARD_REGISTER_NUM_P (hard_regno));
-  for (i = hard_regno_nregs [hard_regno] [mode] - 1; i >= 0; i--)
-    CLEAR_HARD_REG_BIT (*hard_regset, hard_regno + i);
 }
 
 
@@ -1807,9 +1761,9 @@ assign_copy_secondary (copy_t cp)
 	    x = temp_reg [(int) mode];
 	    REGNO (x) = regno;
 	    reg_renumber [regno] = ALLOCNO_HARD_REGNO (a2);
-	    ior_hard_reg_set_by_mode (ALLOCNO_HARD_REGNO (a2), mode,
-				      &prohibited_hard_regs);
-	    
+	    IOR_HARD_REG_SET
+	      (prohibited_hard_regs,
+	       reg_mode_hard_regset [ALLOCNO_HARD_REGNO (a2)] [mode]);
 	  }
 	else if ((slot = ALLOCNO_MEMORY_SLOT (a2)) != NULL)
 	  {
@@ -1960,11 +1914,12 @@ assign_copy_secondary (copy_t cp)
 	    if (interm_hard_regno < 0)
 	      return false;
 	    mark_regno_allocation (interm_hard_regno, interm_mode);
-	    ior_hard_reg_set_by_mode (interm_hard_regno, interm_mode,
-				      &COPY_INTERM_SCRATCH_HARD_REGSET (cp));
-	    
-	    ior_hard_reg_set_by_mode (interm_hard_regno, interm_mode,
-				      &prohibited_hard_regs);
+	    IOR_HARD_REG_SET
+	      (COPY_INTERM_SCRATCH_HARD_REGSET (cp),
+	       reg_mode_hard_regset [interm_hard_regno] [interm_mode]);
+	    IOR_HARD_REG_SET
+	      (prohibited_hard_regs,
+	       reg_mode_hard_regset [interm_hard_regno] [interm_mode]);
 	  }
 	if (scratch_class != NO_REGS)
 	  {
@@ -1978,9 +1933,9 @@ assign_copy_secondary (copy_t cp)
 		return false;
 	      }
 	    mark_regno_allocation (scratch_hard_regno, scratch_mode);
-	    ior_hard_reg_set_by_mode (scratch_hard_regno, scratch_mode,
-				      &COPY_INTERM_SCRATCH_HARD_REGSET (cp));
-	    
+	    IOR_HARD_REG_SET
+	      (COPY_INTERM_SCRATCH_HARD_REGSET (cp),
+	       reg_mode_hard_regset [scratch_hard_regno] [scratch_mode]);
 	  }
 	COPY_ICODE (cp) = icode;
 	COPY_INTERM_MODE (cp) = interm_mode;
@@ -2505,7 +2460,8 @@ assign_allocno_hard_regno (allocno_t a, int hard_regno,
   start = get_maximal_part_start_hard_regno (hard_regno, a);
   gcc_assert (start >= 0);
   mark_regno_allocation (start, allocation_mode);
-  ior_hard_reg_set_by_mode (start, allocation_mode, &ALLOCNO_HARD_REGSET (a));
+  IOR_HARD_REG_SET
+    (ALLOCNO_HARD_REGSET (a), reg_mode_hard_regset [start] [allocation_mode]);
   global_allocation_cost += allocno_copy_cost (a);
   return true;
 }
@@ -2604,7 +2560,8 @@ assign_one_allocno (allocno_t a, enum reg_class cl, HARD_REG_SET possible_regs)
   start = get_maximal_part_start_hard_regno (hard_regno, a);
   gcc_assert (start >= 0);
   mark_regno_allocation (start, allocation_mode);
-  ior_hard_reg_set_by_mode (start, allocation_mode, &ALLOCNO_HARD_REGSET (a));
+  IOR_HARD_REG_SET
+    (ALLOCNO_HARD_REGSET (a), reg_mode_hard_regset [start] [allocation_mode]);
   global_allocation_cost += allocno_copy_cost (a);
   return true;
 }
@@ -2782,8 +2739,8 @@ assign_elimination_reg (allocno_t a, enum reg_class cl,
     += COST_FACTOR * register_move_cost [Pmode] [BASE_REG_CLASS] [cl];
   INSN_ALLOCNO_INTERM_ELIMINATION_REGNO (a) = hard_regno;
   mark_regno_allocation (hard_regno, Pmode);
-  ior_hard_reg_set_by_mode (hard_regno, Pmode,
-			    &INSN_ALLOCNO_INTERM_ELIMINATION_REGSET (a));
+  IOR_HARD_REG_SET (INSN_ALLOCNO_INTERM_ELIMINATION_REGSET (a),
+		    reg_mode_hard_regset [hard_regno] [Pmode]);
   return true;
 }
 
@@ -3084,8 +3041,9 @@ find_interm_elimination_reg (allocno_t a, enum reg_class cl,
     {
       INSN_ALLOCNO_INTERM_ELIMINATION_REGNO (a) = interm_elimination_regno;
       mark_regno_allocation (interm_elimination_regno, Pmode);
-      ior_hard_reg_set_by_mode (interm_elimination_regno, Pmode,
-				&INSN_ALLOCNO_INTERM_ELIMINATION_REGSET (a));
+      IOR_HARD_REG_SET
+	(INSN_ALLOCNO_INTERM_ELIMINATION_REGSET (a),
+	 reg_mode_hard_regset [interm_elimination_regno] [Pmode]);
       return true;
     }
   if (assign_elimination_reg (a, cl, possible_regs, -1))

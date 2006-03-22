@@ -49,6 +49,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 FILE *yara_dump_file;
 int yara_max_uid; /* before the allocation */
 unsigned char mode_inner_mode [NUM_MACHINE_MODES];
+
+/* The following array is a map hard regs X modes -> number registers
+   for store value of given mode starting with given hard regs.  An
+   element is defined only if the corresponding value of
+   HARD_REGNO_MODE_OK is true.  */
+HARD_REG_SET reg_mode_hard_regset [FIRST_PSEUDO_REGISTER] [NUM_MACHINE_MODES];
 int memory_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [2];
 int register_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [N_REG_CLASSES];
 bool class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
@@ -75,6 +81,28 @@ set_inner_mode (void)
 	  mode_inner_mode [wider] = i;
 	}
     }
+}
+
+
+
+/* The function sets up map REG_MODE_HARD_REGSET.  */
+static void
+set_reg_mode_hard_regset (void)
+{
+  int i, m, hard_regno;
+
+  for (m = 0; m < NUM_MACHINE_MODES; m++)
+    for (hard_regno = 0; hard_regno < FIRST_PSEUDO_REGISTER; hard_regno++)
+      {
+	CLEAR_HARD_REG_SET (reg_mode_hard_regset [hard_regno] [m]);
+	if (HARD_REGNO_MODE_OK (hard_regno, m))
+	  for (i = hard_regno_nregs [hard_regno] [m] - 1; i >= 0; i--)
+	    {
+	      gcc_assert (hard_regno + i < FIRST_PSEUDO_REGISTER);
+	      SET_HARD_REG_BIT (reg_mode_hard_regset [hard_regno] [m],
+				hard_regno + i);
+	    }
+      }
 }
 
 
@@ -363,6 +391,7 @@ yara_init_once (void)
   CLEAR_HARD_REG_SET (zero_hard_reg_set);
   SET_HARD_REG_SET (one_hard_reg_set);
   set_inner_mode ();
+  set_reg_mode_hard_regset ();
   set_class_subset_and_move_costs ();
   set_non_alloc_regs ();
   set_up_class_hard_regs ();

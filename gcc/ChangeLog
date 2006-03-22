@@ -1,3 +1,44 @@
+2006-03-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* yara.c (reg_mode_hard_regset): New global variable.
+	(set_reg_mode_hard_regset): New function.
+	(yara_init_once): Call the function.
+	* yara-color.c (choose_global_hard_reg, try_change_allocno): Use
+	reg_mode_hard_regset instead of function ior_hard_reg_set_by_mode.
+	(mem_can_assignment_compare, assign_global_can_allocnos,
+	print_can_disposition): Don't use CAN_REMOVED_P.
+	(yara_color): Call compact stack.
+	* yara-final.c (get_reg_set_and_memory_slots,
+	copy_can_be_moved_through_insn_allocno_p): Use
+	reg_mode_hard_regset instead of function
+	ior_hard_reg_set_by_mode.
+	* yara-int.h (YARA_NO_SLOT_MOVE): Remove.
+	(YARA_NO_REGCLASS_BEFORE, YARA_CLEAN_AFTER,
+	YARA_PRIORITY_COLORING, YARA_NO_UPDATE_COSTS): Change values.
+	(struct can): Remove removed_p, internal_copy_cost, clued_can,
+	clued_can_copy_cost, dividing_nodes.
+	(CAN_REMOVED_P, CAN_INTERNAL_COPY_COST, CAN_CLUED_CAN,
+	CAN_CLUED_CAN_COPY_COST, CAN_DIVIDING_NODES): Remove.
+	(compact_stack): New prototype.
+	(ior_hard_reg_set_by_mode, and_compl_hard_reg_set_by_mode):
+	Remove.
+	(reg_mode_hard_regset): New external definition.
+	(create_can, print_can): Don't use CAN_REMOVED_P,
+	CAN_INTERNAL_COPY_COST, CAN_DIVIDING_NODES.
+	* yara-trans.c (try_can_conflict_slot_moves, try_can_slot_move,
+	try_copy_conflict_slot_moves, try_copy_slot_move): Remove.
+	(deallocate_allocno_memory_slot): Don't call
+	try_can_conflict_slot_moves.
+	(deallocate_copy_memory_slot): Don't call
+	try_copy_conflict_slot_moves.
+	(can_compare, compact_stack): New functions.
+	(ior_hard_reg_set_by_mode, and_compl_hard_reg_set_by_mode):
+	Remove.
+	(assign_copy_secondary, assign_allocno_hard_regno,
+	assign_one_allocno, assign_elimination_reg,
+	find_interm_elimination_reg): Use reg_mode_hard_regset instead of
+	function ior_hard_reg_set_by_mode.
+
 2006-03-18  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* yara.h, yara-int.h, yara.c, yara-ir.c, yara-trans.c,

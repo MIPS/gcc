@@ -27,11 +27,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define YARA_NO_ALLOCNO_COALESCING 8
 #define YARA_NO_COPY_SYNC 16
 #define YARA_NO_MOVE_SYNC 32
-#define YARA_NO_SLOT_MOVE 64
-#define YARA_NO_REGCLASS_BEFORE 128
-#define YARA_CLEAN_AFTER 256
-#define YARA_PRIORITY_COLORING 512
-#define YARA_NO_UPDATE_COSTS 1024
+#define YARA_NO_REGCLASS_BEFORE 64
+#define YARA_CLEAN_AFTER 128
+#define YARA_PRIORITY_COLORING 256
+#define YARA_NO_UPDATE_COSTS 512
 
 
 #ifdef ENABLE_CHECKING
@@ -746,8 +745,6 @@ struct can
   bool global_p;
   /* True if we already spilled the can during local allocation.  */  
   bool spill_p;
-  /* True if the can has been clued to another one.  */
-  bool removed_p;
   /* True if hard register or memory has been assigned to the can.  */
   bool assigned_p;
   /* Mode of allocnos belonging to the can.  */
@@ -768,16 +765,6 @@ struct can
   /* Cans in a bucket chained by the following two members.  */
   struct can *next_bucket_can;
   struct can *prev_bucket_can;
-  /* Cost of internal copies.  */
-  int internal_copy_cost;
-  /* The best can to clue with given can.  The subsequent two members
-     are defined only if the following member value is not NULL.  */
-  struct can *clued_can;
-  /* Cost of copies between given can and the clued can.  */
-  int clued_can_copy_cost;
-  /* Number of common conflict graph nodes on distance from 1 from
-     give node and the clued node.  */
-  int dividing_nodes;
 };
 
 #define CAN_NUM(C) ((C)->can_num)
@@ -793,7 +780,6 @@ struct can
 #define CAN_IN_GRAPH_P(C) ((C)->in_graph_p)
 #define CAN_GLOBAL_P(C) ((C)->global_p)
 #define CAN_SPILL_P(C) ((C)->spill_p)
-#define CAN_REMOVED_P(C) ((C)->removed_p)
 #define CAN_ASSIGNED_P(C) ((C)->assigned_p)
 #define CAN_MODE(C) ((C)->mode)
 #define CAN_COPIES(C) ((C)->can_copies)
@@ -804,10 +790,6 @@ struct can
 #define CAN_MEMORY_COST(C) ((C)->memory_cost)
 #define CAN_NEXT_BUCKET_CAN(C) ((C)->next_bucket_can)
 #define CAN_PREV_BUCKET_CAN(C) ((C)->prev_bucket_can)
-#define CAN_INTERNAL_COPY_COST(C) ((C)->internal_copy_cost)
-#define CAN_CLUED_CAN(C) ((C)->clued_can)
-#define CAN_CLUED_CAN_COPY_COST(C) ((C)->clued_can_copy_cost)
-#define CAN_DIVIDING_NODES(C) ((C)->dividing_nodes)
 
 /* Array of references to cans.  */
 extern can_t *cans;
@@ -936,11 +918,10 @@ extern int get_paradoxical_subreg_memory_offset (int, enum machine_mode);
 extern enum machine_mode get_copy_mode (copy_t);
 extern void get_copy_loc (copy_t, bool, enum machine_mode *,
 			  int *, struct memory_slot **, int *);
+void compact_stack (void);
 extern bool hard_reg_in_set_p (int, enum machine_mode, HARD_REG_SET);
 extern bool hard_reg_not_in_set_p (int, enum machine_mode, HARD_REG_SET);
-extern void ior_hard_reg_set_by_mode (int, enum machine_mode, HARD_REG_SET *);
-extern void and_compl_hard_reg_set_by_mode (int, enum machine_mode,
-					    HARD_REG_SET *);
+
 extern int allocno_copy_cost (allocno_t);
 #ifdef HAVE_ANY_SECONDARY_MOVES
 extern void unassign_copy_secondary (copy_t);
@@ -1005,6 +986,8 @@ extern void yara_rewrite (void);
 extern HARD_REG_SET zero_hard_reg_set;
 extern HARD_REG_SET one_hard_reg_set;
 extern unsigned char mode_inner_mode [NUM_MACHINE_MODES];
+extern HARD_REG_SET reg_mode_hard_regset
+                    [FIRST_PSEUDO_REGISTER] [NUM_MACHINE_MODES];
 extern int memory_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [2];
 extern int register_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES]
                               [N_REG_CLASSES];

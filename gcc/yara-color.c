@@ -1280,17 +1280,17 @@ choose_global_hard_reg (can_t can)
 	    if (cover_class != CAN_COVER_CLASS (conflict_can)
 		|| CAN_ASSIGNED_P (conflict_can))
 	      continue;
-	    ior_hard_reg_set_by_mode (best_hard_regno, mode,
-				      &CAN_CONFLICT_HARD_REGS (conflict_can));
+	    IOR_HARD_REG_SET (CAN_CONFLICT_HARD_REGS (conflict_can),
+			      reg_mode_hard_regset [best_hard_regno] [mode]);
 	    can_vec2 = CAN_CONFLICT_CAN_VEC (conflict_can);
 	    for (j = 0; (conflict_can2 = can_vec2 [j]) != NULL; j++)
 	      {
 		if (cover_class != CAN_COVER_CLASS (conflict_can2)
 		    || CAN_ASSIGNED_P (conflict_can2))
 		  continue;
-		ior_hard_reg_set_by_mode
-		  (best_hard_regno, mode,
-		   &CAN_BIASED_HARD_REGS (conflict_can2));
+		IOR_HARD_REG_SET (CAN_BIASED_HARD_REGS (conflict_can2),
+				  reg_mode_hard_regset 
+				  [best_hard_regno] [mode]);
 	      }
 	  }
     }
@@ -1839,18 +1839,10 @@ mem_can_assignment_compare (const void *c1p, const void *c2p)
   can_t c2 = *(can_t *) c2p;
   int diff;
 
-  if (CAN_REMOVED_P (c1) && ! CAN_REMOVED_P (c2))
-    return 1;
-  else if (! CAN_REMOVED_P (c1) && CAN_REMOVED_P (c2))
-    return -1;
-  else
-    {
-      diff = ((CAN_MEMORY_COST (c2) + CAN_INTERNAL_COPY_COST (c2))
-	      - (CAN_MEMORY_COST (c1) + CAN_INTERNAL_COPY_COST (c1)));
-      if (diff != 0)
-	return diff;
-      return CAN_NUM (c1) - CAN_NUM (c2);
-    }
+  diff = (CAN_MEMORY_COST (c2) - CAN_MEMORY_COST (c1));
+  if (diff != 0)
+    return diff;
+  return CAN_NUM (c1) - CAN_NUM (c2);
 }
 
 /* Propagate can allocation to the corresponding allocnos.  */
@@ -1872,8 +1864,6 @@ assign_global_can_allocnos (void)
   for (i = 0; i < cans_num; i++)
     {
       can = sorted_cans [i];
-      if (CAN_REMOVED_P (can))
- 	continue;
       if (! CAN_GLOBAL_P (can))
 	continue;
       cover_class = CAN_COVER_CLASS (can);
@@ -2555,10 +2545,7 @@ print_can_disposition (FILE *f, bool global_p)
       can = cans [i];
       if (CAN_GLOBAL_P (can) ^ global_p)
 	continue;
-      if (CAN_REMOVED_P (can))
-	fprintf (f, "  %4d:--", CAN_NUM (can));
-      else
-	fprintf (f, "  %4d:%2d", CAN_NUM (can), CAN_HARD_REGNO (can));
+      fprintf (f, "  %4d:%2d", CAN_NUM (can), CAN_HARD_REGNO (can));
       num++;
       if (num % 8 == 0)
 	fprintf (f, "\n");
@@ -2607,7 +2594,8 @@ try_change_allocno (allocno_t old, bool use_equiv_const_p,
 
       start = get_maximal_part_start_hard_regno (new_allocno_hard_regno, old);
       gcc_assert (start >= 0);
-      ior_hard_reg_set_by_mode (start, get_allocation_mode (old), &regs);
+      IOR_HARD_REG_SET
+	(regs, reg_mode_hard_regset [start] [get_allocation_mode (old)]);
       AND_COMPL_HARD_REG_SET (regs, no_alloc_regs);
       cl = smallest_superset_class (regs);
     }
@@ -3025,6 +3013,7 @@ yara_color (void)
   eliminate_virtual_registers (provide_allocno_elimination_class_hard_reg);
   if ((YARA_PARAMS & YARA_NO_ALLOCNO_COALESCING) == 0)
     coalesce_allocnos ();
+  compact_stack ();
   reload_in_progress = 0;
   yara_free (saved_conflict_cans);
   yara_free_bitmap (conflict_can_bitmap);

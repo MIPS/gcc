@@ -1450,8 +1450,9 @@ get_reg_set_and_memory_slots (copy_t cp, HARD_REG_SET *regs,
 	      && ALLOCNO_REGNO (src) >= 0)
 	    {
 	      gcc_assert (HARD_REGISTER_NUM_P (ALLOCNO_REGNO (src)));
-	      ior_hard_reg_set_by_mode (ALLOCNO_REGNO (src),
-					ALLOCNO_MODE (src), regs);
+	      IOR_HARD_REG_SET (*regs,
+				reg_mode_hard_regset 
+				[ALLOCNO_REGNO (src)] [ALLOCNO_MODE (src)]);
 	    }
 	}
     }
@@ -1466,8 +1467,9 @@ get_reg_set_and_memory_slots (copy_t cp, HARD_REG_SET *regs,
 	      && ALLOCNO_REGNO (dst) >= 0)
 	    {
 	      gcc_assert (HARD_REGISTER_NUM_P (ALLOCNO_REGNO (dst)));
-	      ior_hard_reg_set_by_mode (ALLOCNO_REGNO (dst),
-					ALLOCNO_MODE (dst), regs);
+	      IOR_HARD_REG_SET (*regs,
+				reg_mode_hard_regset 
+				[ALLOCNO_REGNO (dst)] [ALLOCNO_MODE (dst)]);
 	    }
 	}
     }
@@ -1546,7 +1548,8 @@ copy_can_be_moved_through_insn_allocno_p (copy_t cp, allocno_t a)
   if (INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a) && ALLOCNO_REGNO (a) >= 0)
     {
       gcc_assert (HARD_REGISTER_NUM_P (ALLOCNO_REGNO (a)));
-      ior_hard_reg_set_by_mode (ALLOCNO_REGNO (a), ALLOCNO_MODE (a), &a_regs);
+      IOR_HARD_REG_SET
+	(a_regs, reg_mode_hard_regset [ALLOCNO_REGNO (a)] [ALLOCNO_MODE (a)]);
     }
   a_slot = ALLOCNO_MEMORY_SLOT (a);
   AND_HARD_REG_SET (a_regs, regs);
