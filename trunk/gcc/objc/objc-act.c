@@ -4237,6 +4237,12 @@ objc_generate_weak_read (tree expr)
   tree t;
   int strong;
 
+/* APPLE LOCAL begin radar 4486614 */
+#ifdef OBJCPLUS
+  if (processing_template_decl)
+    return expr;
+#endif
+/* APPLE LOCAL end radar 4486614 */
   if (skip_evaluation || TREE_TYPE (expr) == NULL_TREE)
     return expr;
 

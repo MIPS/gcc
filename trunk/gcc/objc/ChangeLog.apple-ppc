@@ -1,5 +1,11 @@
 2005-03-10 Fariborz Jahanian <fjahanian@apple.com>
 
+	Radar 4486614
+	* objc/objc-act.c (objc_generate_weak_read): Don't attempt
+	to generate 'weak' barriers in templates.
+
+2005-03-10 Fariborz Jahanian <fjahanian@apple.com>
+
 	Radar 4466530
 	* objc/objc-act.c (synth_module_prologue): -fobjc-direct-dispatch 
 	should be a no-op on ppc64
