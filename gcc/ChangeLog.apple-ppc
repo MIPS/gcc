@@ -1,3 +1,15 @@
+2006-03-22  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4255172
+	* config/rs6000/darwin.h (PEG_ALIGN_FOR_MAC68K): Move to here from
+	config/darwin.h.  Don't test TARGET_ALTIVEC.
+	* config/darwin.h [RS6000_VECTOR_ALIGNMENT] (PEG_ALIGN_FOR_MAC68K): 
+	Move this definition to config/rs6000/darwin.h.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Don't define
+	Altivec PIM macros unless -faltivec.
+	* config/rs6000/rs6000.c (rs6000_override_options): Don't allow
+	special Altivec vector initialisation unless -faltivec.
+
 2006-03-15  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 3992198

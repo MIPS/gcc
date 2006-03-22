@@ -468,6 +468,14 @@ do {									\
     	    			 : ((FIRST_FIELD_P) ? (COMPUTED) \
     	    			 		    : 32))))))
 
+/* When adjusting (lowering) the alignment of fields when in the
+   mac68k alignment mode, the 128-bit alignment of vectors *MUST*
+   be preserved.  */
+#undef PEG_ALIGN_FOR_MAC68K
+#define PEG_ALIGN_FOR_MAC68K(DESIRED)					\
+        ((DESIRED) == RS6000_VECTOR_ALIGNMENT ? RS6000_VECTOR_ALIGNMENT	\
+         : MIN ((DESIRED), 16))
+
 #undef ROUND_TYPE_ALIGN
 /* Macintosh alignment modes require more complicated handling
    of alignment, so we replace the macro with a call to a
