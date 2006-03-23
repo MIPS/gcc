@@ -613,7 +613,7 @@ default_function_rodata_section (tree decl)
     {
       const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 
-      if (DECL_ONE_ONLY (decl) && HAVE_COMDAT_GROUP)
+      if (DECL_ONE_ONLY (decl) && targetm.use_comdat_groups)
         {
 	  size_t len = strlen (name) + 3;
 	  char* rname = alloca (len);
@@ -5142,7 +5142,7 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
      abbreviated form to switch back to it -- unless this section is
      part of a COMDAT groups, in which case GAS requires the full
      declaration every time.  */
-  if (!(HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+  if (!(targetm.use_comdat_groups && (flags & SECTION_LINKONCE))
       && ! named_section_first_declaration (name))
     {
       fprintf (asm_out_file, "\t.section\t%s\n", name);
@@ -5163,7 +5163,7 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
     *f++ = 'S';
   if (flags & SECTION_TLS)
     *f++ = 'T';
-  if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+  if (targetm.use_comdat_groups && (flags & SECTION_LINKONCE))
     *f++ = 'G';
   *f = '\0';
 
@@ -5190,7 +5190,7 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
 
       if (flags & SECTION_ENTSIZE)
 	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
-      if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
+      if (targetm.use_comdat_groups && (flags & SECTION_LINKONCE))
 	fprintf (asm_out_file, ",%s,comdat", 
 		 lang_hooks.decls.comdat_group (decl));
     }
@@ -5463,7 +5463,7 @@ void
 default_unique_section_1 (tree decl, int reloc, int shlib)
 {
   /* We only need to use .gnu.linkonce if we don't have COMDAT groups.  */
-  bool one_only = DECL_ONE_ONLY (decl) && !HAVE_COMDAT_GROUP;
+  bool one_only = DECL_ONE_ONLY (decl) && !targetm.use_comdat_groups;
   const char *prefix, *name;
   size_t nlen, plen;
   char *string;

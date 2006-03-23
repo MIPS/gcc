@@ -34,9 +34,6 @@ Boston, MA 02110-1301, USA.  */
 %{mid-shared-library:-R libc.gdb%s -elf2flt -shared-lib-id 0} -lc \
 "
 
-/* we don't want a .eh_frame section.  */
-#define EH_FRAME_IN_DATA_SECTION
-
 /* we have init/fini section. */
 #define HAS_INIT_SECTION
 

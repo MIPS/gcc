@@ -6087,6 +6087,11 @@ Contains the value true if the target supports thread-local storage.
 The default value is false.
 @end deftypevar
 
+@deftypevar {Target Hook} TARGET_USE_COMDAT_GROUPS
+This hook only applies to ELF targets, and is true if we should use
+COMDAT groups instead of linkonce sections.  The default is set from
+the @code{HAVE_COMDAT_GROUP} @file{config.in} macro.
+@end deftypevar
 
 @node PIC
 @section Position Independent Code

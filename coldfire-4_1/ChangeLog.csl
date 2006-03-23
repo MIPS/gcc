@@ -1,5 +1,23 @@
 2006-03-23  Richard Sandiford  <richard@codesourcery.com>
 
+	* gcc/doc/tm.texi (TARGET_USE_COMDAT_GROUPS): Document.
+	* gcc/target.h (use_comdat_groups): New hook.
+	* gcc/crtstuff.c (USE_PT_GNU_EH_FRAME): Don't define if
+	OBJECT_FORMAT_FLAT.
+	* gcc/varasm.c (default_function_rodata_section): Test the
+	use_comdat_groups target hok instead of HAVE_COMDAT_GROUP.
+	(default_elf_asm_named_section): Likewise.
+	(default_unique_section): Likewise.
+	* gcc/target-def.h (TARGET_USE_COMDAT_GROUPS): Define if undefined.
+	(TARGET_INITIALIZER): Include it.
+	* gcc/config.gcc (m68k-*-uclinux*): Add flat.h to tm_defines.
+	Remove t-crtstuff from tmake_file.
+	* gcc/config/flat.h: New file.
+	* gcc/config/m68k/t-uclinux (EXTRA_MULTILIB_PARTS): Define.
+	* gcc/config/m68k/uclinux.h (EH_FRAME_IN_DATA_SECTION): Delete.
+
+2006-03-23  Richard Sandiford  <richard@codesourcery.com>
+
 	* gcc/config/m68k/m68k.h (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P):
 	Move definition outside !REG_OK_STRICT block.
 
