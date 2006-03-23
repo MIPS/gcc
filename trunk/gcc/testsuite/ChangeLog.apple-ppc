@@ -1,4 +1,8 @@
-2006-03-22  Geoffrey Keating  <geoffk@apple.com>
+2006-03-23  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4255172
+	* gcc.apple/align-test-1.c: Replace __VEC__ with __APPLE_ALTIVEC__.
+	* g++.dg/align-test-1.C: Likewise.
 
 	Radar 4255172
 	* gcc.apple/altivec-maltivec-2.c: New.
