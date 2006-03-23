@@ -711,6 +711,9 @@ __transfer_from_trampoline ()					\
 /* 1 if X is an address register  */
 #define ADDRESS_REG_P(X) (REG_P (X) && REGNO_OK_FOR_BASE_P (REGNO (X)))
 
+/* True if SYMBOL + OFFSET constants must refer to something within
+   SYMBOL's section.  */
+#define M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P 0
 
 #define MAX_REGS_PER_ADDRESS 2
 
@@ -735,10 +738,6 @@ __transfer_from_trampoline ()					\
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X) ((REGNO (X) & ~027) != 0)
-
-/* True if SYMBOL + OFFSET constants must refer to something within
-   SYMBOL's section.  */
-#define M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P 0
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
   do									\

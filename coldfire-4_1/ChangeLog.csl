@@ -1,3 +1,8 @@
+2006-03-23  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P):
+	Move definition outside !REG_OK_STRICT block.
+
 2006-03-21  Richard Sandiford  <richard@codesourcery.com>
 
 	* gcc/config/m68k/m68k.c (TARGET_ASM_FILE_START_APP_OFF): Don't
