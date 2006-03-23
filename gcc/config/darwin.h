@@ -1362,8 +1362,19 @@ enum machopic_addr_class {
 extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
 /* APPLE LOCAL end insert assembly ".abort" directive on fatal error   */
 
-/* APPLE LOCAL Macintosh alignment 2002-2-13 --ff */
+/* APPLE LOCAL begin Macintosh alignment 2002-2-13 --ff */
+#ifdef RS6000_VECTOR_ALIGNMENT
+/* When adjusting (lowering) the alignment of fields when in the
+   mac68k alignment mode, the 128-bit alignment of vectors *MUST*
+   be preserved.  */
+#define PEG_ALIGN_FOR_MAC68K(DESIRED)           \
+        ((TARGET_ALTIVEC && (DESIRED) == RS6000_VECTOR_ALIGNMENT) \
+         ? RS6000_VECTOR_ALIGNMENT              \
+         : MIN ((DESIRED), 16))
+#else
 #define PEG_ALIGN_FOR_MAC68K(DESIRED)   MIN ((DESIRED), 16)
+#endif 
+/* APPLE LOCAL end Macintosh alignment 2002-2-13 --ff */
 
 /* APPLE LOCAL begin KEXT double destructor */
 /* Need a mechanism to tell whether a C++ operator delete is empty so

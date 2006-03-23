@@ -1,5 +1,7 @@
 /* { dg-do run { target powerpc*-*-* } } */
-/* { dg-options "-maltivec -faltivec" } */
+/* { dg-options "-maltivec" } */
+
+#include <altivec.h>
 
 extern void abort();
 

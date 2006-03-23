@@ -2,7 +2,7 @@
 /* This is a compile-only test for interaction of "-maltivec" and "-save-temps".  */
 /* Author:  Ziemowit Laski  <zlaski@apple.com>.  */
 /* { dg-do compile { target powerpc*-*-* } } */
-/* { dg-options "-save-temps -faltivec" } */
+/* { dg-options "-save-temps -maltivec" } */
 
 #define vector_float vector float
 #define vector_float_foo vector float foo

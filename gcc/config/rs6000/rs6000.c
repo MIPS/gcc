@@ -1729,7 +1729,7 @@ rs6000_override_options (const char *default_cpu)
 
   /* APPLE LOCAL begin AltiVec */
   /* Enable '(vector signed int)(a, b, c, d)' vector literal notation.  */
-  if (rs6000_altivec_pim)
+  if (TARGET_ALTIVEC)
     targetm.cast_expr_as_vector_init = true;
   /* APPLE LOCAL end AltiVec */
 

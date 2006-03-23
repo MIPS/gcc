@@ -3,24 +3,6 @@
 	Radar 4484188
 	* g++.old-deja/g++.other/init19.C: New.
 
-2006-03-22  Geoffrey Keating  <geoffk@apple.com>
-
-	Radar 4255172
-	* gcc.apple/altivec-maltivec-2.c: New.
-	* gcc.apple/altivec-maltivec-3.c: New.
-	* gcc.apple/altivec-maltivec-1.c: Pass -faltivec, don't include
-	<altivec.h>.
-	* gcc.apple/apple-altivec-5.c: Likewise.
-	* gcc.apple/apple-altivec-6.c: Likewise.
-	* gcc.apple/apple-altivec-7.c: Likewise.
-	* gcc.apple/apple-altivec-8.c: Likewise.
-	* gcc.apple/altivec-19.c: Likewise.
-	* gcc.apple/altivec-20.c: Likewise.
-	* gcc.apple/apple-altivec-test.c: Likewise.
-	* g++.dg/apple-altivec-2.c: Likewise.
-	* g++.dg/apple-altivec-6.c: Likewise.
-	* g++.dg/apple-altivec-11.c: Likewise.
-
 2006-03-17  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4474655

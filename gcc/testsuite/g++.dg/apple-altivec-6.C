@@ -1,6 +1,6 @@
 /* APPLE LOCAL file */
 /* { dg-do run { target powerpc*-*-* } } */
-/* { dg-options "-maltivec -pedantic -faltivec" } */
+/* { dg-options "-maltivec -pedantic" } */
 
 int main()
     {
