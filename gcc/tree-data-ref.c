@@ -3386,22 +3386,6 @@ save_dir_v (struct data_dependence_relation *ddr, lambda_vector dir_v)
   VEC_safe_push (lambda_vector, heap, DDR_DIR_VECTS (ddr), dir_v);
 }
 
-/* Return the index of the variable VAR in the LOOP_NEST array.  */
-
-static int
-index_in_loop_nest (int var, VEC (loop_p, heap) *loop_nest)
-{
-  struct loop *loopi;
-  int var_index;
-
-  for (var_index = 0; VEC_iterate (loop_p, loop_nest, var_index, loopi);
-       var_index++)
-    if (loopi->num == var)
-      break;
-
-  return var_index;
-}
-
 /* Add a distance of 1 on all the loops outer than INDEX.  If we
    haven't yet determined a distance for this outer loop, push a new
    distance vector composed of the previous distance, and a distance

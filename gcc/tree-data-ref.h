@@ -278,17 +278,6 @@ DEF_VEC_ALLOC_P(ddr_p,heap);
 #define DDR_CSYS(DDR) DDR->dependence_constraint_system
 #define DDR_POLYHEDRON(DDR) DDR->dependence_polyhedron
 
-#define DDR_DIST_VECTS(DDR) ((DDR)->dist_vects)
-#define DDR_DIR_VECTS(DDR) ((DDR)->dir_vects)
-#define DDR_NUM_DIST_VECTS(DDR) \
-  (VEC_length (lambda_vector, DDR_DIST_VECTS (DDR)))
-#define DDR_NUM_DIR_VECTS(DDR) \
-  (VEC_length (lambda_vector, DDR_DIR_VECTS (DDR)))
-#define DDR_DIR_VECT(DDR, I) \
-  VEC_index (lambda_vector, DDR_DIR_VECTS (DDR), I)
-#define DDR_DIST_VECT(DDR, I) \
-  VEC_index (lambda_vector, DDR_DIST_VECTS (DDR), I)
-
 
 
 extern tree find_data_references_in_loop (struct loop *, varray_type *);
@@ -313,6 +302,22 @@ extern void free_dependence_relations (varray_type);
 extern void free_data_refs (varray_type);
 extern struct data_reference *analyze_array (tree, tree, bool);
 extern void estimate_iters_using_array (tree, tree);
+
+/* Return the index of the variable VAR in the LOOP_NEST array.  */
+
+static inline int
+index_in_loop_nest (int var, VEC (loop_p, heap) *loop_nest)
+{
+  struct loop *loopi;
+  int var_index;
+
+  for (var_index = 0; VEC_iterate (loop_p, loop_nest, var_index, loopi);
+       var_index++)
+    if (loopi->num == var)
+      break;
+
+  return var_index;
+}
 
 
 
