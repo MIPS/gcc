@@ -922,7 +922,8 @@ check_global_declarations (tree *vec, int len)
 	  && ! TREE_USED (decl)
 	  /* The TREE_USED bit for file-scope decls is kept in the identifier,
 	     to handle multiple external decls in different scopes.  */
-	  && ! TREE_USED (DECL_NAME (decl))
+	  /* APPLE LOCAL mainline 2005-10-10  */
+	  && ! (DECL_NAME (decl) && TREE_USED (DECL_NAME (decl)))
 	  && ! DECL_EXTERNAL (decl)
 	  && ! TREE_PUBLIC (decl)
 	  /* A volatile variable might be used in some non-obvious way.  */
