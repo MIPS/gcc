@@ -1,3 +1,14 @@
+2006-03-24  Mark Mitchell  <mark@codesourcery.com>
+            Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR libstdc++/20448
+	PR libstdc++/20451
+	* libstdc++-v3/scripts/testsuite_flags.in (--cxxflags): Don't
+	define LOCALEDIR.
+	* libstdc++-v3/testsuite/lib/libstdc++.exp (libstdc++_init):
+	Always define LOCALEDIR to ".".
+	(v3-build_support): Build MO files.
+
 2006-03-20  Mark Mitchell  <mark@codesourcery.com>
 
 	* libiberty/pex-win32.c (<errno.h>): Include.
