@@ -1,3 +1,9 @@
+2006-03-23 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4193359
+	* c-typeck.c (convert_for_assignment): Remove Objective-C EH machinery
+	'volatile' qualifier before doing type comparison.
+
 2006-03-22  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4255172

@@ -3940,8 +3940,13 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
   else if ((codel == POINTER_TYPE || codel == REFERENCE_TYPE)
 	   && (coder == codel))
     {
-      tree ttl = TREE_TYPE (type);
-      tree ttr = TREE_TYPE (rhstype);
+      /* APPLE LOCAL begin radar 4193359 */
+      /* Types differing only by the presence of the 'volatile'
+	 qualifier are acceptable if the 'volatile' has been added
+	 in by the Objective-C EH machinery.  */
+      tree ttl = objc_non_volatilized_type (TREE_TYPE (type));
+      tree ttr = objc_non_volatilized_type (TREE_TYPE (rhstype));
+      /* APPLE LOCAL end radar 4193359 */
       tree mvl = ttl;
       tree mvr = ttr;
       bool is_opaque_pointer;
@@ -3992,12 +3997,9 @@ convert_for_assignment (tree type, tree rhs, enum impl_conv errtype,
 	      /* APPLE LOCAL begin 4086969 */
 	      if (TYPE_QUALS (ttr) & ~TYPE_QUALS (ttl))
 		{
-		  /* APPLE LOCAL begin mainline */
-		  /* Types differing only by the presence of the 'volatile'
-		     qualifier are acceptable if the 'volatile' has been added
-		     in by the Objective-C EH machinery.  */
-		  if (warn_discard_qual && !objc_type_quals_match (ttl, ttr))
-		  /* APPLE LOCAL end mainline */
+		  /* APPLE LOCAL begin radar 4193359 */
+		  if (warn_discard_qual)
+		  /* APPLE LOCAL end radar 4193359 */
 		    WARN_FOR_ASSIGNMENT (G_("passing argument %d of %qE discards "
 					    "qualifiers from pointer target type"),
 					 G_("assignment discards qualifiers "
