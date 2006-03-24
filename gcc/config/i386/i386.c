@@ -18977,7 +18977,7 @@ ix86_darwin_handle_regparmandstackparm (tree fndecl)
 #include "c-common.h"
 #undef CTI_MAX
 
-/* Addition register names accepted for inliine assembly that would
+/* Addition register names accepted for inline assembly that would
    otherwise not be registers.  This table must be sorted for
    bsearch.  */
 static const char *additional_names[] = {
@@ -18996,7 +18996,7 @@ cw_reg_comp (const void *a, const void *b)
 {
   char *const*x = a;
   char *const*y = b;
-  int c = strcmp (*x, *y);
+  int c = strcasecmp (*x, *y);
   return c;
 }
 
@@ -19450,6 +19450,7 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 
   if (strcasecmp (opcode, "out") == 0
       || strcasecmp (opcode, "movntq") == 0
+      || strcasecmp (opcode, "movd") == 0
       || strcasecmp (opcode, "movq") == 0
       || strcasecmp (opcode, "fstcw") == 0
       || strcasecmp (opcode, "fnstcw") == 0)

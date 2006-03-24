@@ -1,3 +1,8 @@
+2006-03-24  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4474259
+	* gcc.apple/4474259.c: New.
+
 2006-03-22  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4484188

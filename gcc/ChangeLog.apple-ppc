@@ -1,3 +1,9 @@
+2006-03-24  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4474259
+	* gcc/config/i386/i386.c (cw_reg_comp): Use strcasecmp.
+	(x86_canonicalize_operands): Exception for movd.
+
 2006-03-22  Eric Christopher  <echristo@apple.com>
 
 	Radar 4473966
