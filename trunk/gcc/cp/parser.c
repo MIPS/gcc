@@ -12969,15 +12969,15 @@ cp_parser_initializer_clause (cp_parser* parser, bool* non_constant_p)
   /* Assume the expression is constant.  */
   *non_constant_p = false;
 
+  /* APPLE LOCAL begin 4137741 */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_BINCL)
+      || cp_lexer_next_token_is (parser->lexer, CPP_EINCL))
+    cp_lexer_handle_pragma_etc (parser->lexer);
+  /* APPLE LOCAL end 4137741 */
   /* If it is not a `{', then we are looking at an
      assignment-expression.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_BRACE))
     {
-      /* APPLE LOCAL begin 4137741 */
-      if (cp_lexer_next_token_is (parser->lexer, CPP_BINCL)
-	  || cp_lexer_next_token_is (parser->lexer, CPP_EINCL))
-	cp_lexer_handle_pragma_etc (parser->lexer);
-      /* APPLE LOCAL end 4137741 */
       initializer
 	= cp_parser_constant_expression (parser,
 					/*allow_non_constant_p=*/true,

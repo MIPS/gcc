@@ -1,3 +1,9 @@
+2006-03-23  Devang Patel  <dpatel@apple.com>
+
+	Radar 4488417
+	* parser.c (cp_parser_initializer_clause): Check CPP_BINCL/CPP_EINCL
+	tokens before checking CPP_OPEN_BRACE.
+
 2006-03-22 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4436866

@@ -1,3 +1,8 @@
+2006-03-23  Devang Patel  <dpatel@apple.com>
+
+	Radar 4488417
+	* g++.apple/R4488418.C: New test.
+	
 2006-03-23 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4193359
