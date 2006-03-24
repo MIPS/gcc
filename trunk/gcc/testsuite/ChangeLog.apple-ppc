@@ -1,3 +1,12 @@
+2006-03-24  Devang Patel  <dpatel@apple.com>
+
+	Radar 4485223
+        * gcc.apple/R4485223-1.c: New.
+        * gcc.apple/R4485223-2.c: New.
+        * gcc.apple/R4485223-3.c: New.
+        * gcc.apple/R4485223-4.c: New.
+        * gcc.apple/R4485223-5.c: New.
+
 2006-03-23  Devang Patel  <dpatel@apple.com>
 
 	Radar 4488417
