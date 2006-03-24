@@ -1,3 +1,9 @@
+2006-03-24  Devang Patel  <dpatel@apple.com>
+
+        Radar 4484026
+        * parser.c (cp_parser_enumerator_list): Eat CPP_BINCL and
+        CPP_EINCL tokens.
+
 2006-03-23  Devang Patel  <dpatel@apple.com>
 
 	Radar 4488417

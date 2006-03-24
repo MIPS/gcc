@@ -1,5 +1,10 @@
 2006-03-24  Devang Patel  <dpatel@apple.com>
 
+        Radar 4484026
+        * g++.apple/R4484026.C: New.
+
+2006-03-24  Devang Patel  <dpatel@apple.com>
+
 	Radar 4485223
         * gcc.apple/R4485223-1.c: New.
         * gcc.apple/R4485223-2.c: New.

@@ -10680,6 +10680,11 @@ cp_parser_enumerator_list (cp_parser* parser, tree type)
 {
   while (true)
     {
+      /* APPLE LOCAL begin 4137741 */
+      while (cp_lexer_next_token_is (parser->lexer, CPP_BINCL)
+	     || cp_lexer_next_token_is (parser->lexer, CPP_EINCL))
+	cp_lexer_handle_pragma_etc (parser->lexer);
+      /* APPLE LOCAL end 4137741 */
       /* Parse an enumerator-definition.  */
       cp_parser_enumerator_definition (parser, type);
 
