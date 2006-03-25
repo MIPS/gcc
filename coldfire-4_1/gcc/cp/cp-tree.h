@@ -2729,12 +2729,13 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 
    For a class template, this list contains the partial
    specializations of this template.  (Full specializations are not
-   recorded on this list.)  The TREE_PURPOSE holds the innermost
-   arguments used in the partial specialization (e.g., for `template
-   <class T> struct S<T*, int>' this will be `T*'.)  The TREE_VALUE
-   holds the innermost template parameters for the specialization
-   (e.g., `T' in the example above.)  The TREE_TYPE is the _TYPE node
-   for the partial specialization.
+   recorded on this list.)  The TREE_PURPOSE holds the arguments used
+   in the partial specialization (e.g., for `template <class T> struct
+   S<T*, int>' this will be `T*'.)  The arguments will also include
+   any outer template arguments.  The TREE_VALUE holds the innermost
+   template parameters for the specialization (e.g., `T' in the
+   example above.)  The TREE_TYPE is the _TYPE node for the partial
+   specialization.
 
    This list is not used for static variable templates.  */
 #define DECL_TEMPLATE_SPECIALIZATIONS(NODE)     DECL_SIZE (NODE)
@@ -3755,6 +3756,8 @@ extern tree cp_fold_obj_type_ref		(tree, tree);
 extern void set_linkage_according_to_type	(tree, tree);
 extern void determine_key_method		(tree);
 extern void check_for_override			(tree, tree);
+extern void push_class_stack                    (void);
+extern void pop_class_stack                     (void);
 
 /* in cvt.c */
 extern tree convert_to_reference		(tree, tree, int, int, tree);
@@ -3811,7 +3814,7 @@ extern tree shadow_tag				(cp_decl_specifier_seq *);
 extern tree groktypename			(cp_decl_specifier_seq *, const cp_declarator *);
 extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, tree, tree, tree *);
 extern void start_decl_1			(tree);
-extern void cp_finish_decl			(tree, tree, tree, int);
+extern void cp_finish_decl			(tree, tree, bool, tree, int);
 extern void finish_decl				(tree, tree, tree);
 extern int cp_complete_array_type		(tree *, tree, bool);
 extern tree build_ptrmemfunc_type		(tree);
@@ -3886,7 +3889,7 @@ extern tree delete_sanity			(tree, tree, bool, int);
 extern tree check_classfn			(tree, tree, tree);
 extern void check_member_template		(tree);
 extern tree grokfield (const cp_declarator *, cp_decl_specifier_seq *,
-		       tree, tree, tree);
+		       tree, bool, tree, tree);
 extern tree grokbitfield (const cp_declarator *, cp_decl_specifier_seq *,
 			  tree);
 extern void cplus_decl_attributes		(tree *, tree, int);
@@ -3901,7 +3904,7 @@ extern tree build_cleanup			(tree);
 extern tree build_offset_ref_call_from_tree	(tree, tree);
 extern void check_default_args			(tree);
 extern void mark_used				(tree);
-extern void finish_static_data_member_decl	(tree, tree, tree, int);
+extern void finish_static_data_member_decl	(tree, tree, bool, tree, int);
 extern tree cp_build_parm_decl			(tree, tree);
 extern tree get_guard				(tree);
 extern tree get_guard_cond			(tree);
@@ -4037,7 +4040,7 @@ extern void do_type_instantiation		(tree, tree, tsubst_flags_t);
 extern tree instantiate_decl			(tree, int, bool);
 extern int push_tinst_level			(tree);
 extern void pop_tinst_level			(void);
-extern int more_specialized_class		(tree, tree, tree);
+extern int more_specialized_class		(tree, tree);
 extern int comp_template_parms			(tree, tree);
 extern int template_class_depth			(tree);
 extern int is_specialization_of			(tree, tree);

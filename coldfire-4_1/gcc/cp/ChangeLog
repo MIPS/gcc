@@ -1,3 +1,170 @@
+2006-02-28  Release Manager
+
+	* GCC 4.1.0 released.
+
+2006-02-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26266
+	* cp-tree.h (cp_finish_decl): Adjust declaration.
+	(grokbitfield): Likewise.
+	(finish_static_data_member_decl): Likewise.
+	* init.c (constant_value_1): Ensure processing_template_decl when
+	folding non-dependent initializers for static data members of
+	dependent types.  Return error_mark_node for erroneous
+	initailizers.
+	* class.c (get_vtable_decl): Use finish_decl, not cp_finish_decl.
+	* decl.c (cp_make_fname_decl): Adjust call to cp_finish_decl.
+	(cp_finish_decl): Add init_const_expr_p parameter.  Set
+	DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P here.
+	(finish_decl): Adjust call to cp_finish_decl.
+	(compute_array_index_type): Robustify.
+	(start_method): Use finish_decl, not cp_finish_decl.
+	* rtti.c (emit_tinfo_decl): Likewise.
+	* except.c (initialize_handler_parm): Adjust call to
+	cp_finish_decl.
+	(expand_start_catch_block): Likewise.
+	* cvt.c (build_up_reference): Adjust call to cp_finish_decl.
+	* pt.c (instantiate_class_template): Adjust call to
+	finish_static_data_member_decl.
+	(tsubst_expr): Use finish_decl, not cp_finish_decl.
+	(instantiate_decl): Adjust call to cp_finish_decl.
+	* name-lookup.c (pushdecl_top_level_1): Use finish_decl, not
+	cp_finish_decl.
+	* decl2.c (finish_static_data_member_decl): Add init_const_expr_p
+	parameter.
+	(grokfield): Likewise.
+	* parser.c (cp_parser_condition): Check for constant initializers.
+	(cp_parser_init_declarator): Adjust calls to grokfield and
+	cp_finish_decl.  Don't set
+	DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P here.
+	(cp_parser_member_declaration): Likewise.
+	(cp_parser_objc_class_ivars): Likewise.
+
+2006-02-14  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26151
+	* parser.c (cp_parser_decl_specifier_seq): Check for duplicate
+	decl-specifiers.  Remove extra check for duplicate 'friend'.
+	* decl.c (grokdeclarator): Remove check for duplicate
+	decl-specifiers.  Set longlong together with long_p.
+
+2006-02-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/24996
+	* except.c (build_throw): Add a CLEANUP_POINT_EXPR inside the 
+	TRY_CATCH_EXPR or MUST_NOT_THROW_EXPR.
+
+2006-02-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/25979
+	* cp-gimplify.c (cp_gimplify_expr): Don't call
+	cp_gimplify_init_expr for MODIFY_EXPRs.
+	* typeck2.c (split_nonconstant_init_1): Use INIT_EXPR.
+
+2006-02-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26071
+	* decl.c (grokdeclarator): Set dname also for destructor.
+
+	PR c++/26070
+	* decl.c (grokdeclarator): Clear storage_class together with staticp.
+
+2006-01-31  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25342
+	* cp-tree.h (DECL_TEMPLATE_SPECIALIZATIONS): Revise
+	documentation.
+	* pt.c (determine_specialization): Use INNERMOST_TEMPLATE_PARMS,
+	not TREE_VALUE.
+	(instantiate_class_template): Simplify.
+	(verify_class_unification): Remove.
+	(unify): Document parameters.  Use INNERMOST_TEMPLATE_ARGS to
+	permit multiple levels of template arguments.
+	(more_specialized_class): Simplify.
+	(get_class_bindings): Pass full arguments to unify.  Fold
+	verify_class_unification into this function.  Return full
+	arguments.
+	(most_specialized_class): Adjust for changes to
+	get_class_bindings.  Issue errors here for ambiguity.  Return the
+	fully deduced arguments for the most specialized class, in
+	addition to the partial specialization.
+
+2006-01-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25999
+	* decl.c (start_preparsed_function): Call maybe_apply_pragma_weak
+	here, not ...
+	(start_function): ... here.
+
+	PR c++/25855
+	* pt.c (most_speialized_instantiation): When a tie occurs, set the
+	current presumed champion to the next template.
+
+2006-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/25552
+	* parser.c (cp_parser_unqualified_id): Check that destructor name
+	and scope match.
+	* call.c (check_dtor_name): Do not expect a BIT_NOT_EXPR.
+	Adjust comment.  Use same_type_p to compare types.
+	* typeck.c (lookup_destructor): Adjust call to check_dtor_name.
+	* init.c (build_offset_ref): Adjust call to check_dtor_name.
+
+2006-01-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25895
+	* class.c (build_base_path): Generate a NOP_EXPR instead of a
+	COMPONENT_REF if the base and derived classes are at the same
+	address.
+
+	PR c++/25856
+	* decl.c (begin_destructor_body): Robustify.
+
+	PR c++/25858 
+	* parser.c (cp_parser_direct_declarator): Robustify.
+	
+2006-01-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22136
+	* name-lookup.c (do_class_using_decl): Don't try to look up base
+	classes in templates with dependent base types.
+
+2006-01-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/25854
+	* pt.c (maybe_process_partial_specialization): Return early on
+	error_mark_node.
+
+2006-01-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/16829
+	* decl.c (start_preparsed_function): Check default arguments
+	unconditionally.
+	* name-lookup.c (pushdecl_maybe_friend): Check default arguments
+	of all functions and function templates.
+	* parser.c (cp_parser_late_parsing_default_args): Check default
+	arguments.
+	* decl2.c (check_default_args): Set missing default arguments to
+	error_mark_node.
+
+2006-01-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25836
+	* cp-tree.h (push_class_stack): New function.
+	(pop_class_stack): Likewise.
+	* class.c (class_stack_node): Add hidden field.
+	(pushclass): Clear it.
+	(push_class_stack): New function.
+	(pop_class_stack): Likewise.
+	(currently_open_class): Ignore hidden classes.
+	(currently_open_derived_class): Likewise.
+	* name-lookup.c (push_to_top_level): Call push_class_stack.
+	(pop_from_top_level): Call pop_class_stack.
+
+2006-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* search.c (lookup_conversions_r): Fix a pasto.
+
 2006-01-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/25682

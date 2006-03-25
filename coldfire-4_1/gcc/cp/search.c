@@ -2042,6 +2042,10 @@ maybe_suppress_debug_info (tree t)
   /* We might have set this earlier in cp_finish_decl.  */
   TYPE_DECL_SUPPRESS_DEBUG (TYPE_MAIN_DECL (t)) = 0;
 
+  /* Always emit the information for each class every time. */
+  if (flag_emit_class_debug_always)
+    return;
+
   /* If we already know how we're handling this class, handle debug info
      the same way.  */
   if (CLASSTYPE_INTERFACE_KNOWN (t))
@@ -2355,7 +2359,7 @@ lookup_conversions_r (tree binfo,
     {
       parent_tpl_convs = tree_cons (binfo, my_tpl_convs, parent_tpl_convs);
       if (virtual_depth)
-	TREE_STATIC (parent_convs) = 1;
+	TREE_STATIC (parent_tpl_convs) = 1;
     }
 
   child_convs = other_convs;

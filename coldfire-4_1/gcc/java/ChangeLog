@@ -1,3 +1,29 @@
+2006-02-28  Release Manager
+
+	* GCC 4.1.0 released.
+
+2006-02-09  Andrew Haley  <aph@redhat.com>
+
+	PR java/26192
+	* expr.c (expand_invoke): Allow methods in arrays to be resolved
+	in their superclass.
+
+2006-02-07  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (expand_invoke): (BC mode.)  If we find a method in a
+	class other than the one in which we expected to find it, ignore
+	the result.
+
+2006-01-30  Andrew Haley  <aph@redhat.com>
+
+	PR java/21428
+	* parse.y (source_start_java_method): Mark DECL_ARTIFICIAL("this").
+
+2006-01-21  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* jv-scan.c (version), jcf-dump.c (version), gjavah.c (version):
+	Update copyright notice dates.
+
 2006-01-16  Andrew Haley  <aph@redhat.com>
 
 	PR java/25535

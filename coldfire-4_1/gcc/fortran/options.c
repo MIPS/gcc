@@ -72,6 +72,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_no_backend = 0;
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
+  gfc_option.flag_preprocessed = 0;
   gfc_option.flag_automatic = 1;
   gfc_option.flag_backslash = 1;
   gfc_option.flag_cray_pointer = 0;
@@ -172,7 +173,7 @@ form_from_filename (const char *filename)
 bool
 gfc_post_options (const char **pfilename)
 {
-  const char *filename = *pfilename;
+  const char *filename = *pfilename, *canon_source_file = NULL;
   char *source_path;
   int i;
 
@@ -182,22 +183,39 @@ gfc_post_options (const char **pfilename)
       filename = "";
     }
 
-  gfc_source_file = filename;
+  if (gfc_option.flag_preprocessed)
+    {
+      /* For preprocessed files, if the first tokens are of the form # NUM.
+	 handle the directives so we know the original file name.  */
+      gfc_source_file = gfc_read_orig_filename (filename, &canon_source_file);
+      if (gfc_source_file == NULL)
+	gfc_source_file = filename;
+      else
+	*pfilename = gfc_source_file;
+    }
+  else
+    gfc_source_file = filename;
+
+  if (canon_source_file == NULL)
+    canon_source_file = gfc_source_file;
 
   /* Adds the path where the source file is to the list of include files.  */
 
-  i = strlen(gfc_source_file);
-  while (i > 0 && !IS_DIR_SEPARATOR(gfc_source_file[i]))
+  i = strlen (canon_source_file);
+  while (i > 0 && !IS_DIR_SEPARATOR (canon_source_file[i]))
     i--;
   if (i != 0)
     {
       source_path = alloca (i + 1);
-      memcpy (source_path, gfc_source_file, i);
+      memcpy (source_path, canon_source_file, i);
       source_path[i] = 0;
       gfc_add_include_path (source_path);
     }
   else
     gfc_add_include_path (".");
+
+  if (canon_source_file != gfc_source_file)
+    gfc_free ((void *) canon_source_file);
 
   /* Decide which form the file will be read in as.  */
 
@@ -211,7 +229,7 @@ gfc_post_options (const char **pfilename)
 	{
 	  gfc_current_form = FORM_FREE;
 	  gfc_warning_now ("Reading file '%s' as free form.", 
-			   (filename[0] == '\0') ? "<stdin>" : filename); 
+			   (filename[0] == '\0') ? "<stdin>" : filename);
 	}
     }
 
@@ -478,6 +496,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_repack_arrays = value;
       break;
 
+    case OPT_fpreprocessed:
+      gfc_option.flag_preprocessed = value;
+      break;
+
     case OPT_fmax_identifier_length_:
       if (value > GFC_MAX_SYMBOL_LEN)
 	gfc_fatal_error ("Maximum supported idenitifier length is %d",
@@ -550,6 +572,22 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fshort_enums:
       gfc_option.fshort_enums = 1;
+      break;
+
+    case OPT_fconvert_little_endian:
+      gfc_option.convert = CONVERT_LITTLE;
+      break;
+
+    case OPT_fconvert_big_endian:
+      gfc_option.convert = CONVERT_BIG;
+      break;
+
+    case OPT_fconvert_native:
+      gfc_option.convert = CONVERT_NATIVE;
+      break;
+
+    case OPT_fconvert_swap:
+      gfc_option.convert = CONVERT_SWAP;
       break;
     }
 

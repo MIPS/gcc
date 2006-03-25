@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -3255,17 +3255,12 @@ extern enum mdep_reorg_phase_e mdep_reorg_phase;
   c_register_pragma (0, "nosave_low_regs", sh_pr_nosave_low_regs);	\
 } while (0)
 
-/* Set when processing a function with pragma interrupt turned on.  */
-
-extern int pragma_interrupt;
+extern tree sh_deferred_function_attributes;
+extern tree *sh_deferred_function_attributes_tail;
 
 /* Set when processing a function with interrupt attribute.  */
 
 extern int current_function_interrupt;
-
-/* Set to an RTX containing the address of the stack to switch to
-   for interrupt functions.  */
-extern struct rtx_def *sp_switch;
 
 
 /* Instructions with unfilled delay slots take up an

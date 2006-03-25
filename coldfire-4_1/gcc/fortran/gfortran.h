@@ -111,6 +111,12 @@ mstring;
 #define GFC_FPE_UNDERFLOW  (1<<4)
 #define GFC_FPE_PRECISION  (1<<5)
 
+/* Keep this in sync with libgfortran/io/io.h ! */
+
+typedef enum
+  { CONVERT_NATIVE=0, CONVERT_SWAP, CONVERT_BIG, CONVERT_LITTLE }
+options_convert;
+
 
 /*************************** Enums *****************************/
 
@@ -176,7 +182,7 @@ typedef enum
   INTRINSIC_AND, INTRINSIC_OR, INTRINSIC_EQV, INTRINSIC_NEQV,
   INTRINSIC_EQ, INTRINSIC_NE, INTRINSIC_GT, INTRINSIC_GE,
   INTRINSIC_LT, INTRINSIC_LE, INTRINSIC_NOT, INTRINSIC_USER,
-  INTRINSIC_ASSIGN,
+  INTRINSIC_ASSIGN, INTRINSIC_PARENTHESES,
   GFC_INTRINSIC_END /* Sentinel */
 }
 gfc_intrinsic_op;
@@ -1512,6 +1518,7 @@ typedef struct
   int flag_no_backend;
   int flag_pack_derived;
   int flag_repack_arrays;
+  int flag_preprocessed;
   int flag_f2c;
   int flag_automatic;
   int flag_backslash;
@@ -1526,6 +1533,7 @@ typedef struct
   int allow_std;
   int warn_nonstd_intrinsics;
   int fshort_enums;
+  int convert;
 }
 gfc_option_t;
 
@@ -1592,6 +1600,7 @@ int gfc_peek_char (void);
 void gfc_error_recovery (void);
 void gfc_gobble_whitespace (void);
 try gfc_new_file (void);
+const char * gfc_read_orig_filename (const char *, const char **);
 
 extern gfc_source_form gfc_current_form;
 extern const char *gfc_source_file;
@@ -1697,6 +1706,7 @@ void gfc_get_component_attr (symbol_attribute *, gfc_component *);
 
 void gfc_set_sym_referenced (gfc_symbol * sym);
 
+try gfc_add_attribute (symbol_attribute *, locus *, uint);
 try gfc_add_allocatable (symbol_attribute *, locus *);
 try gfc_add_dimension (symbol_attribute *, const char *, locus *);
 try gfc_add_external (symbol_attribute *, locus *);
@@ -1766,6 +1776,7 @@ int gfc_symbols_could_alias (gfc_symbol *, gfc_symbol *);
 
 void gfc_undo_symbols (void);
 void gfc_commit_symbols (void);
+void gfc_commit_symbol (gfc_symbol * sym);
 void gfc_free_namespace (gfc_namespace *);
 
 void gfc_symbol_init_2 (void);
@@ -1957,5 +1968,9 @@ void gfc_show_namespace (gfc_namespace *);
 
 /* parse.c */
 try gfc_parse_file (void);
+void global_used (gfc_gsymbol *, locus *);
+
+/* dependency.c */
+int gfc_dep_compare_expr (gfc_expr *, gfc_expr *);
 
 #endif /* GCC_GFORTRAN_H  */

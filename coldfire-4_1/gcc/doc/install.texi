@@ -945,6 +945,18 @@ Microsoft Win32 API thread support.
 Novell Kernel Services thread support.
 @end table
 
+@item --enable-tls
+Specify that the target supports TLS (Thread Local Storage).  Usually
+configure can correctly determine if TLS is supported.  In cases where
+it guesses incorrectly, TLS can be explicitly enabled or disabled with
+@option{--enable-tls} or @option{--disable-tls}.  This can happen if
+the assembler supports TLS but the C library does not, or if the
+assumptions made by the configure test are incorrect.
+
+@item --disable-tls
+Specify that the target does not support TLS.
+This is an alias for @option{--enable-tls=no}.
+
 @item --with-cpu=@var{cpu}
 Specify which cpu variant the compiler should generate code for by default.
 @var{cpu} will be used as the default value of the @option{-mcpu=} switch.
@@ -2761,6 +2773,17 @@ in a number of ways.  With HP cc, @env{UNIX_STD} can be set to @samp{95}
 or @samp{98}.  Another way is to add an appropriate set of predefines
 to @env{CC}.  The description for the @option{munix=} option contains
 a list of the predefines used with each standard.
+
+As of GCC 4.1, @env{DWARF2} exception handling is available on HP-UX. 
+It is now the default.  This exposed a bug in the handling of data
+relocations in the GAS assembler.  The handling of 64-bit data relocations
+was seriously broken, affecting debugging and exception support on all
+@samp{hppa64-*-*} targets.  Under some circumstances, 32-bit data relocations
+could also be handled incorrectly.  This problem is fixed in GAS version
+2.16.91 20051125.
+
+GCC versions prior to 4.1 incorrectly passed and returned complex
+values.  They are now passed in the same manner as aggregates.
 
 More specific information to @samp{hppa*-hp-hpux*} targets follows.
 

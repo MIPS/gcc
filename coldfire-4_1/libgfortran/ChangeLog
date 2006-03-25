@@ -1,3 +1,115 @@
+2006-02-28  Release Manager
+
+	* GCC 4.1.0 released.
+
+2006-02-19  Roger Sayle  <roger@eyesopen.com>
+
+	* configure.ac (CFLAGS): Update to include -std=gnu99 so that
+	the configure tests will be run with the same environment as
+	used to compile the libgfortran source code.
+	* configure: Regenerate.
+
+2006-02-14  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libgfortran/25949
+	* io/io.h: Add set function pointer to struct stream.  
+	* io/unix.c (fd_seek): Only update offset, don't seek.
+	(fd_sset): New function.
+	(fd_read): Call lseek directly if necessary.
+	(fd_write): Likewise.
+	(fd_open): Set pointer to fd_sset.
+	(mem_set): New function.
+	(open_internal): Set pointer to mem_set.
+	* io/transfer.c (write_block_direct): Rename to write_buf, add
+	error return, non-pointer length argument.
+	(unformatted_write): Update to use write_buf.
+	(us_write): Simplify by using swrite instead of salloc_w.
+	(write_us_marker): New function.
+	(new_record_w): Use sset instead of memset, use write_us_marker,
+	simplify by using swrite instead of salloc_w.
+
+2006-02-14  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	PR libfortran/15234: Backport from mainline
+
+2006-01-02  Paolo Bonzini  <bonzini@gnu.org>
+
+        PR target/25259
+        * configure.ac: Use GCC_HEADER_STDINT.
+        * libgfortran.h: Include gstdint.h.
+        * aclocal.m4: Regenerate.
+        * configure: Regenerate.
+
+2006-02-14  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24685
+	* io/write.c (write_real): Widen the default format for real(10)
+	variables output.
+
+2006-02-14  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/25425
+	* libgfortran.h: Add pedantic field to compile_options struct.
+	* io/write.c (calculate_G_format): Depending on the standard,
+	choose E or F format for list-directed output of 0.0.
+	* runtime/error.c (notify_std): Make warning and error dependent
+	on pedanticity.
+	* runtime/compile_options.c (set_std): Use new pedantic argument.
+
+2006-02-08  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23815
+	* runtime/environ.c (init_unformatted):  Add GFORTRAN_CONVERT_UNIT
+	environment variable.
+	(top level):  Add defines, type and static variables for
+	GFORTRAN_CONVERT_UNIT handling.
+	(search_unit):  New function.
+	(match_word): New function.
+	(match_integer): New function.
+	(next_token): New function.
+	(push_token): New function.
+	(mark_single): New function.
+	(mark_range): New funciton.
+	(do_parse): New function.
+	(init_unformatted): New function.
+	(get_unformatted_convert): New function.
+	* runtime/compile_options.c:  Add set_convert().
+	* libgfortran.h:  Add convert to compile_options_t.
+	* io/open.c (st_open): Call get_unformatted_convert to get
+	unit default; if CONVERT_NONE is returned, check for
+	the presence of a CONVERT specifier and use it.
+	As default, use compile_options.convert.
+	* io/io.h (top level): Add CONVERT_NONE to unit_convert, to signal
+	"nothing has been set".
+	(top level): Add prototype for get_unformatted_convert.
+
+2006-02-07  Dale Ranta  <dir@lanl.gov>
+
+	PR fortran/25577
+	* intrinsics/mvbits.c: Shift '(TYPE)1' type when building 'lenmask'.
+
+2006-02-07  Rainer Emrich <r.emrich@de.tecosim.com>
+
+	* intrinsics/c99_functions.c: Work around incompatible
+	declarations of cabs{,f,l} on pre-C99 IRIX systems.
+
+2006-01-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25835
+	* io/transfer.c (st_read_done): Flush buffers when read is done.
+
+2006-01-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25697
+	* io/transfer.c (us_read): Detect end of file condition from previous
+	operations and bail out (no need to pre-position).
+
+2006-01-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25631
+	* io/transfer.c (formatted_transfer_scalar): Adjust pending_spaces and
+	skips so that TL works correctly when no bytes_used yet.  
+
 2006-01-16  Roger Sayle  <roger@eyesopen.com>
 
 	* intrinsics/c99_functions.c: Add function prototypes to avoid

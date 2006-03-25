@@ -926,6 +926,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
   switch (expr->value.op.operator)
     {
     case INTRINSIC_UPLUS:
+    case INTRINSIC_PARENTHESES:
       gfc_conv_expr (se, expr->value.op.op1);
       return;
 
@@ -1225,7 +1226,7 @@ gfc_get_interface_mapping_array (stmtblock_t * block, gfc_symbol * sym,
   type = gfc_typenode_for_spec (&sym->ts);
   type = gfc_get_nodesc_array_type (type, sym->as, packed);
 
-  var = gfc_create_var (type, "parm");
+  var = gfc_create_var (type, "ifm");
   gfc_add_modify_expr (block, var, fold_convert (type, data));
 
   return var;
@@ -1530,6 +1531,226 @@ gfc_apply_interface_mapping (gfc_interface_mapping * mapping,
   gfc_free_expr (expr);
 }
 
+/* Returns a reference to a temporary array into which a component of
+   an actual argument derived type array is copied and then returned
+   after the function call.
+   TODO Get rid of this kludge, when array descriptors are capable of
+   handling aliased arrays.  */
+
+static void
+gfc_conv_aliased_arg (gfc_se * parmse, gfc_expr * expr, int g77)
+{
+  gfc_se lse;
+  gfc_se rse;
+  gfc_ss *lss;
+  gfc_ss *rss;
+  gfc_loopinfo loop;
+  gfc_loopinfo loop2;
+  gfc_ss_info *info;
+  tree offset;
+  tree tmp_index;
+  tree tmp;
+  tree base_type;
+  stmtblock_t body;
+  int n;
+
+  gcc_assert (expr->expr_type == EXPR_VARIABLE);
+
+  gfc_init_se (&lse, NULL);
+  gfc_init_se (&rse, NULL);
+
+  /* Walk the argument expression.  */
+  rss = gfc_walk_expr (expr);
+
+  gcc_assert (rss != gfc_ss_terminator);
+ 
+  /* Initialize the scalarizer.  */
+  gfc_init_loopinfo (&loop);
+  gfc_add_ss_to_loop (&loop, rss);
+
+  /* Calculate the bounds of the scalarization.  */
+  gfc_conv_ss_startstride (&loop);
+
+  /* Build an ss for the temporary.  */
+  base_type = gfc_typenode_for_spec (&expr->ts);
+  if (GFC_ARRAY_TYPE_P (base_type)
+		|| GFC_DESCRIPTOR_TYPE_P (base_type))
+    base_type = gfc_get_element_type (base_type);
+
+  loop.temp_ss = gfc_get_ss ();;
+  loop.temp_ss->type = GFC_SS_TEMP;
+  loop.temp_ss->data.temp.type = base_type;
+
+  if (expr->ts.type == BT_CHARACTER)
+    loop.temp_ss->string_length = expr->ts.cl->backend_decl;
+
+  loop.temp_ss->data.temp.dimen = loop.dimen;
+  loop.temp_ss->next = gfc_ss_terminator;
+
+  /* Associate the SS with the loop.  */
+  gfc_add_ss_to_loop (&loop, loop.temp_ss);
+
+  /* Setup the scalarizing loops.  */
+  gfc_conv_loop_setup (&loop);
+
+  /* Pass the temporary descriptor back to the caller.  */
+  info = &loop.temp_ss->data.info;
+  parmse->expr = info->descriptor;
+
+  /* Setup the gfc_se structures.  */
+  gfc_copy_loopinfo_to_se (&lse, &loop);
+  gfc_copy_loopinfo_to_se (&rse, &loop);
+
+  rse.ss = rss;
+  lse.ss = loop.temp_ss;
+  gfc_mark_ss_chain_used (rss, 1);
+  gfc_mark_ss_chain_used (loop.temp_ss, 1);
+
+  /* Start the scalarized loop body.  */
+  gfc_start_scalarized_body (&loop, &body);
+
+  /* Translate the expression.  */
+  gfc_conv_expr (&rse, expr);
+
+  gfc_conv_tmp_array_ref (&lse);
+  gfc_advance_se_ss_chain (&lse);
+
+  tmp = gfc_trans_scalar_assign (&lse, &rse, expr->ts.type);
+  gfc_add_expr_to_block (&body, tmp);
+
+  gcc_assert (rse.ss == gfc_ss_terminator);
+
+  gfc_trans_scalarizing_loops (&loop, &body);
+
+  /* Add the post block after the second loop, so that any
+     freeing of allocated memory is done at the right time.  */
+  gfc_add_block_to_block (&parmse->pre, &loop.pre);
+
+  /**********Copy the temporary back again.*********/
+
+  gfc_init_se (&lse, NULL);
+  gfc_init_se (&rse, NULL);
+
+  /* Walk the argument expression.  */
+  lss = gfc_walk_expr (expr);
+  rse.ss = loop.temp_ss;
+  lse.ss = lss;
+
+  /* Initialize the scalarizer.  */
+  gfc_init_loopinfo (&loop2);
+  gfc_add_ss_to_loop (&loop2, lss);
+
+  /* Calculate the bounds of the scalarization.  */
+  gfc_conv_ss_startstride (&loop2);
+
+  /* Setup the scalarizing loops.  */
+  gfc_conv_loop_setup (&loop2);
+
+  gfc_copy_loopinfo_to_se (&lse, &loop2);
+  gfc_copy_loopinfo_to_se (&rse, &loop2);
+
+  gfc_mark_ss_chain_used (lss, 1);
+  gfc_mark_ss_chain_used (loop.temp_ss, 1);
+
+  /* Declare the variable to hold the temporary offset and start the
+     scalarized loop body.  */
+  offset = gfc_create_var (gfc_array_index_type, NULL);
+  gfc_start_scalarized_body (&loop2, &body);
+
+  /* Build the offsets for the temporary from the loop variables.  The
+     temporary array has lbounds of zero and strides of one in all
+     dimensions, so this is very simple.  The offset is only computed
+     outside the innermost loop, so the overall transfer could be
+     optimised further.  */
+  info = &rse.ss->data.info;
+
+  tmp_index = gfc_index_zero_node;
+  for (n = info->dimen - 1; n > 0; n--)
+    {
+      tree tmp_str;
+      tmp = rse.loop->loopvar[n];
+      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
+			 tmp, rse.loop->from[n]);
+      tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
+			 tmp, tmp_index);
+
+      tmp_str = fold_build2 (MINUS_EXPR, gfc_array_index_type,
+			     rse.loop->to[n-1], rse.loop->from[n-1]);
+      tmp_str = fold_build2 (PLUS_EXPR, gfc_array_index_type,
+			     tmp_str, gfc_index_one_node);
+
+      tmp_index = fold_build2 (MULT_EXPR, gfc_array_index_type,
+			       tmp, tmp_str);
+    }
+
+  tmp_index = fold_build2 (MINUS_EXPR, gfc_array_index_type,
+  			   tmp_index, rse.loop->from[0]);
+  gfc_add_modify_expr (&rse.loop->code[0], offset, tmp_index);
+
+  tmp_index = fold_build2 (PLUS_EXPR, gfc_array_index_type,
+			   rse.loop->loopvar[0], offset);
+
+  /* Now use the offset for the reference.  */
+  tmp = build_fold_indirect_ref (info->data);
+  rse.expr = gfc_build_array_ref (tmp, tmp_index);
+
+  if (expr->ts.type == BT_CHARACTER)
+    rse.string_length = expr->ts.cl->backend_decl;
+
+  gfc_conv_expr (&lse, expr);
+
+  gcc_assert (lse.ss == gfc_ss_terminator);
+
+  tmp = gfc_trans_scalar_assign (&lse, &rse, expr->ts.type);
+  gfc_add_expr_to_block (&body, tmp);
+  
+  /* Generate the copying loops.  */
+  gfc_trans_scalarizing_loops (&loop2, &body);
+
+  /* Wrap the whole thing up by adding the second loop to the post-block
+     and following it by the post-block of the fist loop.  In this way,
+     if the temporary needs freeing, it is done after use!  */
+  gfc_add_block_to_block (&parmse->post, &loop2.pre);
+  gfc_add_block_to_block (&parmse->post, &loop2.post);
+
+  gfc_add_block_to_block (&parmse->post, &loop.post);
+
+  gfc_cleanup_loop (&loop);
+  gfc_cleanup_loop (&loop2);
+
+  /* Pass the string length to the argument expression.  */
+  if (expr->ts.type == BT_CHARACTER)
+    parmse->string_length = expr->ts.cl->backend_decl;
+
+  /* We want either the address for the data or the address of the descriptor,
+     depending on the mode of passing array arguments.  */
+  if (g77)
+    parmse->expr = gfc_conv_descriptor_data_get (parmse->expr);
+  else
+    parmse->expr = build_fold_addr_expr (parmse->expr);
+
+  return;
+}
+
+/* Is true if the last array reference is followed by a component reference.  */
+
+static bool
+is_aliased_array (gfc_expr * e)
+{
+  gfc_ref * ref;
+  bool seen_array;
+
+  seen_array = false;	
+  for (ref = e->ref; ref; ref = ref->next)
+    {
+      if (ref->type == REF_ARRAY)
+	seen_array = true;
+
+      if (ref->next == NULL && ref->type == REF_COMPONENT)
+	return seen_array;
+    }
+  return false;
+}
 
 /* Generate code for a procedure call.  Note can return se->post != NULL.
    If se->direct_byref is set then se->expr contains the return parameter.
@@ -1588,8 +1809,10 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
   gfc_init_interface_mapping (&mapping);
   need_interface_mapping = ((sym->ts.type == BT_CHARACTER
-			     && sym->ts.cl->length->expr_type != EXPR_CONSTANT)
-			    || sym->attr.dimension);
+				  && sym->ts.cl->length
+				  && sym->ts.cl->length->expr_type
+						!= EXPR_CONSTANT)
+			      || sym->attr.dimension);
   formal = sym->formal;
   /* Evaluate the arguments.  */
   for (; arg != NULL; arg = arg->next, formal = formal ? formal->next : NULL)
@@ -1656,7 +1879,15 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		  && !formal->sym->attr.pointer
 		  && formal->sym->as->type != AS_ASSUMED_SHAPE;
 	      f = f || !sym->attr.always_explicit;
-	      gfc_conv_array_parameter (&parmse, arg->expr, argss, f);
+	      if (arg->expr->expr_type == EXPR_VARIABLE
+		    && is_aliased_array (arg->expr))
+		/* The actual argument is a component reference to an
+		   array of derived types.  In this case, the argument
+		   is converted to a temporary, which is passed and then
+		   written back after the procedure call.  */
+		gfc_conv_aliased_arg (&parmse, arg->expr, f);
+	      else
+	        gfc_conv_array_parameter (&parmse, arg->expr, argss, f);
 	    } 
 	}
 
@@ -1678,19 +1909,30 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   ts = sym->ts;
   if (ts.type == BT_CHARACTER)
     {
-      /* Calculate the length of the returned string.  */
-      gfc_init_se (&parmse, NULL);
-      if (need_interface_mapping)
-	gfc_apply_interface_mapping (&mapping, &parmse, sym->ts.cl->length);
+      if (sym->ts.cl->length == NULL)
+	{
+	  /* Assumed character length results are not allowed by 5.1.1.5 of the
+	     standard and are trapped in resolve.c; except in the case of SPREAD
+	     (and other intrinsics?).  In this case, we take the character length
+	     of the first argument for the result.  */
+	  cl.backend_decl = TREE_VALUE (stringargs);
+	}
       else
-	gfc_conv_expr (&parmse, sym->ts.cl->length);
-      gfc_add_block_to_block (&se->pre, &parmse.pre);
-      gfc_add_block_to_block (&se->post, &parmse.post);
+	{
+	  /* Calculate the length of the returned string.  */
+	  gfc_init_se (&parmse, NULL);
+	  if (need_interface_mapping)
+	    gfc_apply_interface_mapping (&mapping, &parmse, sym->ts.cl->length);
+	  else
+	    gfc_conv_expr (&parmse, sym->ts.cl->length);
+	  gfc_add_block_to_block (&se->pre, &parmse.pre);
+	  gfc_add_block_to_block (&se->post, &parmse.post);
+	  cl.backend_decl = fold_convert (gfc_charlen_type_node, parmse.expr);
+	}
 
       /* Set up a charlen structure for it.  */
       cl.next = NULL;
       cl.length = NULL;
-      cl.backend_decl = fold_convert (gfc_charlen_type_node, parmse.expr);
       ts.cl = &cl;
 
       len = cl.backend_decl;
@@ -1712,9 +1954,11 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  /* Evaluate the bounds of the result, if known.  */
 	  gfc_set_loop_bounds_from_array_spec (&mapping, se, sym->result->as);
 
-	  /* Allocate a temporary to store the result.  */
-	  gfc_trans_allocate_temp_array (&se->pre, &se->post,
-					 se->loop, info, tmp, false);
+	  /* Allocate a temporary to store the result.  In case the function
+             returns a pointer, the temporary will be a shallow copy and
+             mustn't be deallocated.  */
+          gfc_trans_allocate_temp_array (&se->pre, &se->post, se->loop, info,
+                                         tmp, false, !sym->attr.pointer);
 
 	  /* Zero the first stride to indicate a temporary.  */
 	  tmp = gfc_conv_descriptor_stride (info->descriptor, gfc_rank_cst[0]);
@@ -2669,6 +2913,10 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
 
   /* Fail if EXPR1 can't be expressed as a descriptor.  */
   if (gfc_ref_needs_temporary_p (expr1->ref))
+    return NULL;
+
+  /* Functions returning pointers need temporaries.  */
+  if (expr2->symtree->n.sym->attr.pointer)
     return NULL;
 
   /* Check that no LHS component references appear during an array

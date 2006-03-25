@@ -3426,6 +3426,15 @@ cp_parser_unqualified_id (cp_parser* parser,
 	else if (type_decl == error_mark_node)
 	  return error_mark_node;
 
+	/* Check that destructor name and scope match.  */
+	if (declarator_p && scope && !check_dtor_name (scope, type_decl))
+	  {
+	    if (!cp_parser_uncommitted_to_tentative_parse_p (parser))
+	      error ("declaration of %<~%T%> as member of %qT",
+		     type_decl, scope);
+	    return error_mark_node;
+	  }
+
 	/* [class.dtor]
 
 	   A typedef-name that names a class shall not be used as the
@@ -6461,6 +6470,7 @@ cp_parser_condition (cp_parser* parser)
       if (cp_parser_parse_definitely (parser))
 	{
 	  tree pushed_scope;
+	  bool non_constant_p;
 
 	  /* Create the declaration.  */
 	  decl = start_decl (declarator, &type_specifiers,
@@ -6468,12 +6478,16 @@ cp_parser_condition (cp_parser* parser)
 			     attributes, /*prefix_attributes=*/NULL_TREE,
 			     &pushed_scope);
 	  /* Parse the assignment-expression.  */
-	  initializer = cp_parser_assignment_expression (parser,
-							 /*cast_p=*/false);
+	  initializer 
+	    = cp_parser_constant_expression (parser,
+					     /*allow_non_constant_p=*/true,
+					     &non_constant_p);
+	  if (!non_constant_p)
+	    initializer = fold_non_dependent_expr (initializer);
 
 	  /* Process the initializer.  */
 	  cp_finish_decl (decl,
-			  initializer,
+			  initializer, !non_constant_p, 
 			  asm_specification,
 			  LOOKUP_ONLYCONVERTING);
 
@@ -7281,6 +7295,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 			      int* declares_class_or_enum)
 {
   bool constructor_possible_p = !parser->in_declarator_p;
+  cp_decl_spec ds;
 
   /* Clear DECL_SPECS.  */
   clear_decl_specs (decl_specs);
@@ -7315,8 +7330,7 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	  /* decl-specifier:
 	       friend  */
 	case RID_FRIEND:
-	  if (decl_specs->specs[(int) ds_friend]++)
-	    error ("duplicate %<friend%>");
+	  ++decl_specs->specs[(int) ds_friend];
 	  /* Consume the token.  */
 	  cp_lexer_consume_token (parser->lexer);
 	  break;
@@ -7480,6 +7494,42 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
       /* After we see one decl-specifier, further decl-specifiers are
 	 always optional.  */
       flags |= CP_PARSER_FLAGS_OPTIONAL;
+    }
+
+  /* Check for repeated decl-specifiers.  */
+  for (ds = ds_first; ds != ds_last; ++ds)
+    {
+      unsigned count = decl_specs->specs[(int)ds];
+      if (count < 2)
+	continue;
+      /* The "long" specifier is a special case because of "long long".  */
+      if (ds == ds_long)
+	{
+	  if (count > 2)
+	    error ("%<long long long%> is too long for GCC");
+	  else if (pedantic && !in_system_header && warn_long_long)
+	    pedwarn ("ISO C++ does not support %<long long%>");
+	}
+      else if (count > 1)
+	{
+	  static const char *const decl_spec_names[] = {
+	    "signed",
+	    "unsigned",
+	    "short",
+	    "long",
+	    "const",
+	    "volatile",
+	    "restrict",
+	    "inline",
+	    "virtual",
+	    "explicit",
+	    "friend",
+	    "typedef",
+	    "__complex",
+	    "__thread"
+	  };
+	  error ("duplicate %qs", decl_spec_names[(int)ds]);
+	}
     }
 
   /* Don't allow a friend specifier with a class definition.  */
@@ -10977,7 +11027,8 @@ cp_parser_init_declarator (cp_parser* parser,
 	  pushed_scope = false;
 	}
       decl = grokfield (declarator, decl_specifiers,
-			initializer, /*asmspec=*/NULL_TREE,
+			initializer, !is_non_constant_init,
+			/*asmspec=*/NULL_TREE,
 			prefix_attributes);
       if (decl && TREE_CODE (decl) == FUNCTION_DECL)
 	cp_parser_save_default_args (parser, decl);
@@ -10988,7 +11039,7 @@ cp_parser_init_declarator (cp_parser* parser,
   if (!friend_p && decl && decl != error_mark_node)
     {
       cp_finish_decl (decl,
-		      initializer,
+		      initializer, !is_non_constant_init,
 		      asm_specification,
 		      /* If the initializer is in parentheses, then this is
 			 a direct-initialization, which means that an
@@ -10999,12 +11050,6 @@ cp_parser_init_declarator (cp_parser* parser,
     }
   if (!friend_p && pushed_scope)
     pop_scope (pushed_scope);
-
-  /* Remember whether or not variables were initialized by
-     constant-expressions.  */
-  if (decl && TREE_CODE (decl) == VAR_DECL
-      && is_initialized && !is_non_constant_init)
-    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = true;
 
   return decl;
 }
@@ -11440,22 +11485,24 @@ cp_parser_direct_declarator (cp_parser* parser,
 
 	      if (TREE_CODE (unqualified_name) == TYPE_DECL)
 		{
-		  if (qualifying_scope 
-		      && CLASSTYPE_USE_TEMPLATE (TREE_TYPE (unqualified_name)))
+		  tree name_type = TREE_TYPE (unqualified_name);
+		  if (class_type && same_type_p (name_type, class_type))
 		    {
-		      error ("invalid use of constructor as a template");
-		      inform ("use %<%T::%D%> instead of %<%T::%T%> to name "
-			      "the constructor in a qualified name",
-			      class_type,
-			      DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
-			      class_type, class_type);
-		      declarator = cp_error_declarator;
-		      break;
+		      if (qualifying_scope
+			  && CLASSTYPE_USE_TEMPLATE (name_type))
+			{
+			  error ("invalid use of constructor as a template");
+			  inform ("use %<%T::%D%> instead of %<%T::%D%> to "
+				  "name the constructor in a qualified name",
+				  class_type,
+				  DECL_NAME (TYPE_TI_TEMPLATE (class_type)),
+				  class_type, name_type);
+			  declarator = cp_error_declarator;
+			  break;
+			}
+		      else
+			unqualified_name = constructor_name (class_type);
 		    }
-		  else if (class_type
-			   && same_type_p (TREE_TYPE (unqualified_name),
-					   class_type))
-		    unqualified_name = constructor_name (class_type);
 		  else
 		    {
 		      /* We do not attempt to print the declarator
@@ -13618,16 +13665,11 @@ cp_parser_member_declaration (cp_parser* parser)
 		  return;
 		}
 	      else
-		{
-		  /* Create the declaration.  */
-		  decl = grokfield (declarator, &decl_specifiers,
-				    initializer, asm_specification,
-				    attributes);
-		  /* Any initialization must have been from a
-		     constant-expression.  */
-		  if (decl && TREE_CODE (decl) == VAR_DECL && initializer)
-		    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = 1;
-		}
+		/* Create the declaration.  */
+		decl = grokfield (declarator, &decl_specifiers,
+				  initializer, /*init_const_expr_p=*/true,
+				  asm_specification,
+				  attributes);
 	    }
 
 	  /* Reset PREFIX_ATTRIBUTES.  */
@@ -15788,6 +15830,9 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
       cp_parser_pop_lexer (parser);
     }
 
+  /* Make sure no default arg is missing.  */
+  check_default_args (fn);
+
   /* Restore the state of local_variables_forbidden_p.  */
   parser->local_variables_forbidden_p = saved_local_variables_forbidden_p;
 
@@ -17176,7 +17221,8 @@ cp_parser_objc_class_ivars (cp_parser* parser)
 	      cplus_decl_attributes (&decl, attributes, /*flags=*/0);
 	    }
 	  else
-	    decl = grokfield (declarator, &declspecs, NULL_TREE,
+	    decl = grokfield (declarator, &declspecs, 
+			      NULL_TREE, /*init_const_expr_p=*/false,
 			      NULL_TREE, attributes);
 
 	  /* Add the instance variable.  */
