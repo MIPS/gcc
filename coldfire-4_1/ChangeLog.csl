@@ -1,3 +1,8 @@
+2006-03-25  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/uclinux.h (CPLUSPLUS_CPP_SPEC): Override and
+	define _GNU_SOURCE.
+
 2006-03-23  Richard Sandiford  <richard@codesourcery.com>
 
 	* gcc/doc/tm.texi (TARGET_USE_COMDAT_GROUPS): Document.

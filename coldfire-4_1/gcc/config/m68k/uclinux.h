@@ -54,6 +54,10 @@ Boston, MA 02110-1301, USA.  */
     }						\
   while (0)
 
+/* The GNU C++ standard library requires that these macros be defined.  */
+#undef CPLUSPLUS_CPP_SPEC
+#define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
+
 /* uclibc uses comments to hide section attributes.  So setting
    ASM_FILE_START_APP_OFF breaks it.  */
 #undef TARGET_ASM_FILE_START_APP_OFF
