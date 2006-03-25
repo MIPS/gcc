@@ -1,5 +1,10 @@
 2006-03-24  Stuart Hastings  <stuart@apple.com>
 
+	Radar 4443946
+	gcc.apple/4443946.c: New.
+
+2006-03-24  Stuart Hastings  <stuart@apple.com>
+
 	Radar 4474259
 	* gcc.apple/4474259.c: New.
 

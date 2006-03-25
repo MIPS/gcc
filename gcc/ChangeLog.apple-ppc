@@ -1,5 +1,11 @@
 2006-03-24  Stuart Hastings  <stuart@apple.com>
 
+	Radar 4443946
+	* gcc/global.c (global_alloc): Allow -fasm-blocks to clobber
+	the frame pointer.
+
+2006-03-24  Stuart Hastings  <stuart@apple.com>
+
 	Radar 4474259
 	* gcc/config/i386/i386.c (cw_reg_comp): Use strcasecmp.
 	(x86_canonicalize_operands): Exception for movd.
