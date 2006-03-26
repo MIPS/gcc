@@ -1,3 +1,7 @@
+2006-03-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k.md (cmpsi): Split symbol+const for Coldfire.
+
 2006-03-25  Richard Sandiford  <richard@codesourcery.com>
 
 	Merge from csl/sourcerygxx-4_1 branch:
@@ -317,6 +321,14 @@
 
 2006-03-16  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gcc/config/m68k/m68k-protos.h (m68k_out_of_object_offset): New.
+	* gcc/config/m68k/m68k.c (m68k_out_of_object_offset): New.
+	(m68k_legitimate_address_p): Check out of object offset.
+	* gcc/config/m68k/m68k.md (movsi): Split if out of object offset.
+	* gcc/config/m68k/predicates.md (general_src_operand): Check out of
+	object offset.
+	* gcc/config/m68k/uclinux.h (M68K_NO_OUT_OF_OBJECT_OFFSETS): Declare.
+	
 	* gcc/config/m68k/m68k.c (m68k_output_function_epilogue): Prevent
 	compilation warning.
 
