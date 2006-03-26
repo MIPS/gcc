@@ -1,5 +1,12 @@
 2006-03-26  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gcc/config/m68k/t-mlib-matches (MULTILIB_MATCHES): m5206e is
+	equivalent to isaa.
+	* gcc/config/m68k/t-m68kelf (MULTILIB_OPTIONS): Add 5211.
+	(MULTILIB_DIRNAMES): Likewise.
+	(MULTILIB_EXCEPTIONS): Inhibit all 68k multilibs.  Allow
+	m547x/soft-float.
+
 	* gcc/config/m68k/m68k.md (cmpsi): Split symbol+const for Coldfire.
 
 2006-03-25  Richard Sandiford  <richard@codesourcery.com>

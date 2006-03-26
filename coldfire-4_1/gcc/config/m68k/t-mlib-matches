@@ -16,5 +16,5 @@ MULTILIB_MATCHES += mcpu?5206=m5200 mcpu?5206e=m5206e mcpu?5207=m528x \
 
 MULTILIB_MATCHES += $(shell $(AWK) 'BEGIN { FS="([()]|[ ,\t]+)"; ORS=" " } ; /^M68K_CORE/ { if ($$2 != $$4) print "mcpu?"substr($$4,2,length($$4)-2)"=mcpu?"substr($$2,2,length($$2)-2) }' $(srcdir)/config/m68k/m68k-cores.def)
 
-MULTILIB_MATCHES += mcpu?5206=march?isaa mcpu?5207=march?isaaplus \
+MULTILIB_MATCHES += mcpu?5206e=march?isaa mcpu?5207=march?isaaplus \
 		    mcpu?5407=march?isab
