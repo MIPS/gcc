@@ -32,6 +32,36 @@ Boston, MA 02110-1301, USA.  */
 # define MOTOROLA 0  /* Use the MIT assembly syntax.  */
 #endif
 
+/* Handle --with-cpu, --with-float default options from configure script.  */
+#define OPTION_DEFAULT_SPECS						\
+  { "cpu",   "%{!mcpu=*:%{!march=*:-mcpu=%(VALUE)}}" },			\
+  { "float", "%{!msoft-float:%{!mhard-float:%{!m68881:-m%(VALUE)-float}}}" },
+
+#ifndef TARGET_DEFAULT
+#define TARGET_DEFAULT 0
+#endif
+
+
+#ifndef ASM_CPU_DEFAULT_SPEC
+#define ASM_CPU_DEFAULT_SPEC ""
+#endif
+
+/* This macro defines names of additional specifications to put in the specs
+   that can be used in various specifications like CC1_SPEC.  Its definition
+   is an initializer with a subgrouping for each command option.
+
+   Each subgrouping contains a string constant, that defines the
+   specification name, and a string constant that used by the GCC driver
+   program.
+
+   Do not define this macro if it does not need to do anything.  */
+
+#define EXTRA_SPECS					\
+  { "asm_cpu_default",	ASM_CPU_DEFAULT_SPEC },		\
+  SUBTARGET_EXTRA_SPECS
+
+#define CPP_SUBTARGET_SPEC ""
+#define SUBTARGET_EXTRA_SPECS
 
 /* Note that some other tm.h files include this one and then override
    many of the definitions that relate to assembler syntax.  FIXME:We
