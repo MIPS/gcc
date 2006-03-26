@@ -24,21 +24,9 @@ Boston, MA 02110-1301, USA.  */
 #define ASM_CPU_DEFAULT_SPEC "-mcpu=68020"
 #endif
 
-#ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT 0
-#endif
-
-
-#ifndef ASM_CPU_DEFAULT_SPEC
-#define ASM_CPU_DEFAULT_SPEC ""
-#endif
-
-/* Handle --with-cpu, --with-float default options from configure script.  */
-#define OPTION_DEFAULT_SPECS						\
-  { "cpu",   "%{!mcpu=*:%{!march=*:-mcpu=%(VALUE)}}" },			\
-  { "float", "%{!msoft-float:%{!mhard-float:%{!m68881:-m%(VALUE)-float}}}" },
-
-/* Pass flags to gas indicating which type of processor we have.  */
+/* Pass flags to gas indicating which type of processor we have.  This
+   can be simplified when we can rely on the assembler supporting .cpu
+   and .arch directives.  */
 
 #undef ASM_SPEC
 #define ASM_SPEC "\
@@ -62,22 +50,6 @@ Boston, MA 02110-1301, USA.  */
 #undef CC1_SPEC
 #define CC1_SPEC ""
 
-/* This macro defines names of additional specifications to put in the specs
-   that can be used in various specifications like CC1_SPEC.  Its definition
-   is an initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   specification name, and a string constant that used by the GCC driver
-   program.
-
-   Do not define this macro if it does not need to do anything.  */
-
-#define EXTRA_SPECS					\
-  { "asm_cpu_default",	ASM_CPU_DEFAULT_SPEC },		\
-  SUBTARGET_EXTRA_SPECS
-
-#define CPP_SUBTARGET_SPEC ""
-#define SUBTARGET_EXTRA_SPECS
 
 /* Avoid building multilib libraries for the defaults.
    For targets not handled here, just build the full set of multilibs.

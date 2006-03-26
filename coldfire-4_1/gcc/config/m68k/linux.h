@@ -23,19 +23,28 @@ Boston, MA 02110-1301, USA.  */
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (68k GNU/Linux with ELF)");
 
-/* Default target comes from config.gcc.  */
-
-#undef TARGET_DEFAULT
-#ifdef TARGET_CPU_DEFAULT
-#define TARGET_DEFAULT TARGET_CPU_DEFAULT
-#else
-#define TARGET_DEFAULT (MASK_BITFIELD|MASK_HARDFP|MASK_68020)
+/* Default to m68040.  */
+#ifndef TARGET_CPU_DEFAULT
+#define TARGET_CPU_DEFAULT TARGET_CPU_m68040
+#define ASM_CPU_DEFAULT_SPEC "-mcpu=68040"
 #endif
 
-/* for 68k machines this only needs to be TRUE for the 68000 */
-
-#undef STRICT_ALIGNMENT
-#define STRICT_ALIGNMENT 0
+/* We override the ASM_SPEC from svr4.h because we must pass the right
+   cpu option to the assembler.  This can go away when we require the
+   assembler to suppor the .cpu directive.  */
+#undef ASM_SPEC
+#define ASM_SPEC \
+  "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*} \
+%{m68851}%{mno-68851}%{m68881}%{mno-68881}%{msoft-float:-mno-float}\
+%{m68000}%{m68302}%{mc68000}%{m68010}%{m68020}%{mc68020}%{m68030}\
+%{m68040}%{m68020-40:-m68040} %{m68020-60:-m68040}\
+%{m68060}%{mcpu32}%{m68332}%{m5200}%{m5206e}%{m528x}%{m5307}%{m5407}%{mcfv4e}\
+%{mcpu=*:-mcpu=%*}\
+%{march=*:-march=%*}\
+%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:\
+ %{!m68030:%{!m68040:%{!m68020-40:%{!m68020-60:%{!m68060:%{!mcpu32:\
+ %{!m68332:%{!m5200:%{!m5206e:%{!m528x:%{!m5307:%{!m5407:%{!mcfv4e:\
+ %{!mcpu=*:%{!march=*:%(asm_cpu_default)}}}}}}}}}}}}}}}}}}}}}"
 
 /* Here are four prefixes that are used by asm_fprintf to
    facilitate customization for alternate assembler syntaxes.
@@ -79,8 +88,6 @@ Boston, MA 02110-1301, USA.  */
   do						\
     {						\
 	LINUX_TARGET_OS_CPP_BUILTINS();		\
-	builtin_define_std ("mc68000");		\
-	builtin_define_std ("mc68020");		\
    }						\
   while (0)
 
@@ -92,20 +99,8 @@ Boston, MA 02110-1301, USA.  */
   while (0)
 
 #undef CPP_SPEC
-#if TARGET_DEFAULT & MASK_HARDFP
 #define CPP_SPEC \
-  "%{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__} %{!msoft-float:-D__HAVE_68881__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
-#else
-#define CPP_SPEC \
-  "%{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__} %{m68881:-D__HAVE_68881__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
-#endif
-
-/* We override the ASM_SPEC from svr4.h because we must pass -m68040 down
-   to the assembler.  */
-#undef ASM_SPEC
-#define ASM_SPEC \
-  "%{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*} \
-%{m68040} %{m68060:-m68040}"
+  "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
 /* Provide a LINK_SPEC appropriate for GNU/Linux.  Here we provide support
    for the special GCC options -static and -shared, which allow us to
@@ -209,7 +204,7 @@ Boston, MA 02110-1301, USA.  */
 
 #undef FUNCTION_VALUE_REGNO_P
 #define FUNCTION_VALUE_REGNO_P(N) \
-  ((N) == 0 || (N) == 8 || (TARGET_HARDFP && (N) == 16))
+  ((N) == 0 || (N) == 8 || (TARGET_68881 && (N) == 16))
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for
    more than one register.  */
@@ -292,3 +287,16 @@ do {									\
 }
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+
+/* glibc uses comments to hide section attributes.  So setting
+   ASM_FILE_START_APP_OFF breaks it.  */
+#undef TARGET_ASM_FILE_START_APP_OFF
+
+/* Arbitrarily pick one multilib to be the default.  The true default
+   is enforced by the with_cpu setting in config.gcc.  */
+#define MULTILIB_DEFAULTS { "mcpu=547x", "mhard-float" }
+
+#define SYSROOT_SUFFIX_SPEC	\
+  "%{mcpu=547x:/m547x%{msoft-float:/softfp}}"
+
+#define SYSROOT_HEADERS_SUFFIX_SPEC "/m547x"

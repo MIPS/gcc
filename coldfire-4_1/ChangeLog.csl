@@ -1,5 +1,29 @@
 2006-03-26  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gcc/config/gcc (m68k-*-linux*): Add t-linux.
+	(m68k/t-rtems): Reorder include files.
+	* gcc/config/m68k/linux.h (TARGET_DEFAULT): Do not define.
+	(TARGET_CPU_DEFAULT, ASM_CPU_DEFAULT_SPEC): Default to 68040.
+	(STRICT_ALIGNMENT): Do not define here.
+	(ASM_SPEC): Define earlier.
+	(TARGET_OS_CPP_BUILTINS): Do not define mc68000 or mc68020 here.
+	(CPP_SPEC): Simplify.
+	(FUNCTION_VALUE_REGNO_P): fp0 is only a return on 68k, not
+	coldfire.
+	(TARGET_ASM_FILE_START_APP_OFF): Undef.
+	(MULTILB_DEFAULTS, SYSROOT_SUFFIX_SPEC,
+	SYSROOT_HEADERS_SUFFIX_SPEC): Define.
+	* gcc/config/m68k/m68k-none.h (TARGET_DEFAULT, ASM_CPU_DEFAULT,
+	OPTION_DEFAULT_SPECS): Do not process here, move to m68k.h.
+	(EXTRA_SPECS, CPP_SUBTARGET_SPEC, SUBTARGET_EXTRA_SPECS):
+	Likewise.
+	* gcc/config/m68k/m68k.h (OPTION_DEFAULT_SPECS, TARGET_DEFAULT,
+	ASM_CPU_DEFAULT_SPEC, EXTRA_SPECS, CPP_SUBTARGET_SPECS,
+	SUBTARGET_EXTRA_SPECS): Moved here from m68k-none.h.
+	* gcc/config/m68k/t-linux: New.
+	* gcc/config/netbsd-elf.h (FUNCTION_VALUE_REGNO_P): fp0 is not a
+	return reg on coldfire.
+
 	* gcc/config/m68k/t-mlib-matches (MULTILIB_MATCHES): m5206e is
 	equivalent to isaa.
 	* gcc/config/m68k/t-m68kelf (MULTILIB_OPTIONS): Add 5211.
