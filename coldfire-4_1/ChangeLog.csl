@@ -1,5 +1,8 @@
 2006-03-26  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* libstdc++-v3/config/cpu/m68k/atomicity.h (__exchange_and_add): Add
+	coldfire fragments.
+
 	* gcc/config/gcc (m68k-*-linux*): Add t-linux.
 	(m68k/t-rtems): Reorder include files.
 	* gcc/config/m68k/linux.h (TARGET_DEFAULT): Do not define.
