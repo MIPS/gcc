@@ -1,3 +1,10 @@
+2006-03-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config.gcc (m68k-*-linux*): Add default --with-cpu.
+	* gcc/config/m68k/netbsd-elf.h (FUNCTION_VALUE_REGNO_P): Fix thinko
+	in previous change.
+	* gcc/testsuite/gcc.dg/m68k-pic-1.c: New.
+
 2006-03-26  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* libstdc++-v3/config/cpu/m68k/atomicity.h (__exchange_and_add): Add

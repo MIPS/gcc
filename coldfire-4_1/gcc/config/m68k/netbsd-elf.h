@@ -289,7 +289,7 @@ while (0)
 
 #undef FUNCTION_VALUE_REGNO_P
 #define FUNCTION_VALUE_REGNO_P(N)					\
-  ((N) == 0 || (N) == 8 || (TARGET_HARD_FLOAT && (N) == 16))
+  ((N) == 0 || (N) == 8 || (TARGET_68881 && (N) == 16))
 
 
 /* Define this to be true when FUNCTION_VALUE_REGNO_P is true for

@@ -2469,6 +2469,9 @@ if test x$with_cpu = x ; then
     m68k-*-uclinux*)
       with_cpu=5206
       ;;
+    m68k-*-linux*)
+      with_cpu=547x
+      ;;
   esac
 fi
 
