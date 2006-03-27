@@ -81,10 +81,16 @@ namespace __debug
       : _Base(__gnu_debug::__check_valid_range(__first, __last), __last, __a)
       { }
 
+      list(const list& __x)
+      : _Base(__x), _Safe_base() { }
 
-      list(const list& __x) : _Base(__x), _Safe_base() { }
+      list(const _Base& __x)
+      : _Base(__x), _Safe_base() { }
 
-      list(const _Base& __x) : _Base(__x), _Safe_base() { }
+      template<typename _List>
+	list(__gnu_cxx::__rvalref<_List> __x)
+	: _Base(__x), _Safe_base()
+        { this->_M_swap(__x.__ref); }
 
       ~list() { }
 
@@ -95,6 +101,14 @@ namespace __debug
 	this->_M_invalidate_all();
 	return *this;
       }
+
+      template<typename _List>
+        list&
+        operator=(__gnu_cxx::__rvalref<_List> __x)
+        {
+	  swap(__x.__ref);
+	  return *this;
+	}
 
       template<class _InputIterator>
         void
@@ -505,5 +519,13 @@ namespace __debug
     { __lhs.swap(__rhs); }
 } // namespace __debug
 } // namespace std
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
+  template<typename _Tp, typename _Alloc>
+    struct __is_moveable<std::__debug::list<_Tp, _Alloc> >
+    { static const bool __value = true; };
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

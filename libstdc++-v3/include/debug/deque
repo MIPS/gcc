@@ -1,6 +1,6 @@
 // Debugging deque implementation -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005
+// Copyright (C) 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -80,19 +80,34 @@ namespace __debug
 	: _Base(__gnu_debug::__check_valid_range(__first, __last), __last, __a)
         { }
 
-      deque(const deque<_Tp,_Allocator>& __x) : _Base(__x), _Safe_base() { }
+      deque(const deque& __x)
+      : _Base(__x), _Safe_base() { }
 
-      deque(const _Base& __x) : _Base(__x), _Safe_base() { }
+      deque(const _Base& __x)
+      : _Base(__x), _Safe_base() { }
+
+      template<typename _Deque>
+	deque(__gnu_cxx::__rvalref<_Deque> __x)
+	: _Base(__x), _Safe_base()
+        { this->_M_swap(__x.__ref); }
 
       ~deque() { }
-
-      deque<_Tp,_Allocator>&
-      operator=(const deque<_Tp,_Allocator>& __x)
+      
+      deque&
+      operator=(const deque& __x)
       {
 	*static_cast<_Base*>(this) = __x;
 	this->_M_invalidate_all();
 	return *this;
       }
+
+      template<typename _Deque>
+        deque&
+        operator=(__gnu_cxx::__rvalref<_Deque> __x)
+        {
+	  swap(__x.__ref);	  
+	  return *this;
+	}
 
       template<class _InputIterator>
         void
@@ -325,7 +340,7 @@ namespace __debug
       }
 
       void
-      swap(deque<_Tp,_Allocator>& __x)
+      swap(deque& __x)
       {
 	_Base::swap(__x);
 	this->_M_swap(__x);
@@ -385,5 +400,13 @@ namespace __debug
     { __lhs.swap(__rhs); }
 } // namespace __debug
 } // namespace std
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
+  template<typename _Tp, typename _Alloc>
+    struct __is_moveable<std::__debug::deque<_Tp, _Alloc> >
+    { static const bool __value = true; };
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

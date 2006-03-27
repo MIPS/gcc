@@ -1,3 +1,34 @@
+2006-03-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26733
+	* include/bits/basic_string.h (operator[]): Commit for real
+	2005-05-19 mainline change, lost in a merge.
+	* include/debug/deque (deque<>::deque(__gnu_cxx::__rvalref<>),
+	deque<>::operator=(__gnu_cxx::__rvalref<>)): Add
+	(struct __is_moveable<std::__debug::deque<> >): Add.
+	* include/debug/list (list<>::list(__gnu_cxx::__rvalref<>),
+	list<>::operator=(__gnu_cxx::__rvalref<>)): Add
+	(struct __is_moveable<std::__debug::list<> >): Add.
+	* include/debug/map.h (map<>::map(__gnu_cxx::__rvalref<>),
+	map<>::operator=(__gnu_cxx::__rvalref<>)): Add.
+	(struct __is_moveable<std::__debug::map<> >): Add.
+	* include/debug/multimap.h (multimap<>::multimap(__gnu_cxx::
+	__rvalref<>), multimap<>::operator=(__gnu_cxx::__rvalref<>)): Add.
+	(struct __is_moveable<std::__debug::multimap<> >): Add.
+	* include/debug/multiset.h (multiset<>::multiset(__gnu_cxx::
+	__rvalref<>), multiset<>::operator=(__gnu_cxx::__rvalref<>)): Add
+	(struct __is_moveable<std::__debug::multiset<> >): Add.
+	* include/debug/set.h (set<>::set(__gnu_cxx::__rvalref<>),
+	set<>::operator=(__gnu_cxx::__rvalref<>)): Add.
+	(struct __is_moveable<std::__debug::set<> >): Add.
+	* include/debug/vector (vector<>::vector(__gnu_cxx::
+	__rvalref<>), vector<>::operator=(__gnu_cxx::__rvalref<>)): Add
+	(struct __is_moveable<std::__debug::vector<> >): Add.
+	* testsuite/23_containers/deque/resize/moveable.cc: In debug mode
+	allow for one additional copy for each resize, due to the by value
+	second argument.
+	* testsuite/23_containers/vector/resize/moveable.cc: Likewise.
+
 2006-03-17   Paolo Carlini  <pcarlini@suse.de>
 	     Scott Bridges  <scott@bozemanpass.com>
 

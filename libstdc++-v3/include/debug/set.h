@@ -1,6 +1,6 @@
 // Debugging set implementation -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005
+// Copyright (C) 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -82,20 +82,34 @@ namespace __debug
 	: _Base(__gnu_debug::__check_valid_range(__first, __last), __last,
 		__comp, __a) { }
 
-      set(const set<_Key,_Compare,_Allocator>& __x)
+      set(const set& __x)
       : _Base(__x), _Safe_base() { }
 
-      set(const _Base& __x) : _Base(__x), _Safe_base() { }
+      set(const _Base& __x)
+      : _Base(__x), _Safe_base() { }
+
+      template<typename _Set>
+	set(__gnu_cxx::__rvalref<_Set> __x)
+	: _Base(__x), _Safe_base()
+        { this->_M_swap(__x.__ref); }
 
       ~set() { }
 
-      set<_Key,_Compare,_Allocator>&
-      operator=(const set<_Key,_Compare,_Allocator>& __x)
+      set&
+      operator=(const set& __x)
       {
 	*static_cast<_Base*>(this) = __x;
 	this->_M_invalidate_all();
 	return *this;
       }
+
+      template<typename _Set>
+        set&
+        operator=(__gnu_cxx::__rvalref<_Set> __x)
+        {
+	  swap(__x.__ref);
+	  return *this;
+	}
 
       using _Base::get_allocator;
 
@@ -203,7 +217,7 @@ namespace __debug
       }
 
       void
-      swap(set<_Key,_Compare,_Allocator>& __x)
+      swap(set& __x)
       {
 	_Base::swap(__x);
 	this->_M_swap(__x);
@@ -331,5 +345,13 @@ namespace __debug
     { return __x.swap(__y); }
 } // namespace __debug
 } // namespace std
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
+  template<typename _Tp, typename _Alloc>
+    struct __is_moveable<std::__debug::set<_Tp, _Alloc> >
+    { static const bool __value = true; };
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

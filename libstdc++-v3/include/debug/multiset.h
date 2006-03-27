@@ -1,6 +1,6 @@
 // Debugging multiset implementation -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005
+// Copyright (C) 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -82,20 +82,34 @@ namespace __debug
 	: _Base(__gnu_debug::__check_valid_range(__first, __last), __last,
 		__comp, __a) { }
 
-      multiset(const multiset<_Key,_Compare,_Allocator>& __x)
+      multiset(const multiset& __x)
       : _Base(__x), _Safe_base() { }
 
-      multiset(const _Base& __x) : _Base(__x), _Safe_base() { }
+      multiset(const _Base& __x)
+      : _Base(__x), _Safe_base() { }
+
+      template<typename _Multiset>
+	multiset(__gnu_cxx::__rvalref<_Multiset> __x)
+	: _Base(__x), _Safe_base()
+        { this->_M_swap(__x.__ref); }
 
       ~multiset() { }
 
-      multiset<_Key,_Compare,_Allocator>&
-      operator=(const multiset<_Key,_Compare,_Allocator>& __x)
+      multiset&
+      operator=(const multiset& __x)
       {
 	*static_cast<_Base*>(this) = __x;
 	this->_M_invalidate_all();
 	return *this;
       }
+
+      template<typename _Multiset>
+        multiset&
+        operator=(__gnu_cxx::__rvalref<_Multiset> __x)
+        {
+	  swap(__x.__ref);
+	  return *this;
+	}
 
       using _Base::get_allocator;
 
@@ -198,7 +212,7 @@ namespace __debug
       }
 
       void
-      swap(multiset<_Key,_Compare,_Allocator>& __x)
+      swap(multiset& __x)
       {
 	_Base::swap(__x);
 	this->_M_swap(__x);
@@ -326,5 +340,13 @@ namespace __debug
     { return __x.swap(__y); }
 } // namespace __debug
 } // namespace std
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
+  template<typename _Tp, typename _Alloc>
+    struct __is_moveable<std::__debug::multiset<_Tp, _Alloc> >
+    { static const bool __value = true; };
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

@@ -1,4 +1,4 @@
-// Copyright (C) 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -46,15 +46,30 @@ test01()
   a.resize(98);
   a.resize(99);
   a.resize(100);
-  printf("%d\n", copycounter::copycount);
-  VERIFY(copycounter::copycount == 100);
+#ifndef _GLIBCXX_DEBUG
+  VERIFY( copycounter::copycount == 100 );
+#else
+  VERIFY( copycounter::copycount == 100 + 4 );
+#endif
   a.resize(99);
   a.resize(0);
-  VERIFY(copycounter::copycount == 100);
+#ifndef _GLIBCXX_DEBUG
+  VERIFY( copycounter::copycount == 100 );
+#else
+  VERIFY( copycounter::copycount == 100 + 6 );
+#endif
   a.resize(100);
-  VERIFY(copycounter::copycount == 200);
+#ifndef _GLIBCXX_DEBUG
+  VERIFY( copycounter::copycount == 200 );
+#else
+  VERIFY( copycounter::copycount == 200 + 7 );
+#endif
   a.clear();
-  VERIFY(copycounter::copycount == 200);
+#ifndef _GLIBCXX_DEBUG
+  VERIFY( copycounter::copycount == 200 );
+#else
+  VERIFY( copycounter::copycount == 200 + 7 );
+#endif
 }
 
 

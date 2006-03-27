@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -494,7 +494,10 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       reference
       operator[](size_type __pos)
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos < this->size());
+        // allow pos == size() as v3 extension:
+	_GLIBCXX_DEBUG_ASSERT(__pos <= size());
+        // but be strict in pedantic mode:
+	_GLIBCXX_DEBUG_PEDASSERT(__pos < size());
 	this->_M_leak();
 	return this->_M_data()[__pos];
       }

@@ -1,4 +1,4 @@
-// Copyright (C) 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,7 +34,7 @@ using namespace __gnu_test;
 // According to n1771, there should be two resizes, with and without
 // parameter. We only have one at present, whose second parameter defaults
 // to a default-constructed object.
-// These values are one higher than might be expected because internally
+// Also, the values are one higher than might be expected because internally
 // resize calls fill, which copies its input value in case it is already in
 // the vector when the vector isn't moved.
 void
@@ -48,14 +48,30 @@ test01()
   a.resize(98);
   a.resize(99);
   a.resize(100);
-  VERIFY(copycounter::copycount == 100 + 4);
+#ifndef _GLIBCXX_DEBUG
+  VERIFY( copycounter::copycount == 100 + 4 );
+#else
+  VERIFY( copycounter::copycount == 100 + 4 + 4 );
+#endif
   a.resize(99);
   a.resize(0);
-  VERIFY(copycounter::copycount == 100 + 4);
+#ifndef _GLIBCXX_DEBUG
+  VERIFY( copycounter::copycount == 100 + 4 );
+#else
+  VERIFY( copycounter::copycount == 100 + 4 + 6 );
+#endif
   a.resize(100);
-  VERIFY(copycounter::copycount == 200 + 5);
+#ifndef _GLIBCXX_DEBUG  
+  VERIFY( copycounter::copycount == 200 + 5 );
+#else
+  VERIFY( copycounter::copycount == 200 + 5 + 7 );
+#endif
   a.clear();
-  VERIFY(copycounter::copycount == 200 + 5);
+#ifndef _GLIBCXX_DEBUG
+  VERIFY( copycounter::copycount == 200 + 5 );
+#else
+  VERIFY( copycounter::copycount == 200 + 5 + 7 );
+#endif
 }
 
 

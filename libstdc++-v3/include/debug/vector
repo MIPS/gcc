@@ -1,6 +1,6 @@
 // Debugging vector implementation -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005
+// Copyright (C) 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -87,23 +87,39 @@ namespace __debug
 	  _M_guaranteed_capacity(0)
         { _M_update_guaranteed_capacity(); }
 
-      vector(const vector<_Tp,_Allocator>& __x)
+      vector(const vector& __x)
       : _Base(__x), _Safe_base(), _M_guaranteed_capacity(__x.size()) { }
 
       /// Construction from a release-mode vector
       vector(const _Base& __x)
       : _Base(__x), _Safe_base(), _M_guaranteed_capacity(__x.size()) { }
 
+      template<typename _Vector>
+	vector(__gnu_cxx::__rvalref<_Vector> __x)
+	: _Base(__x), _Safe_base(), _M_guaranteed_capacity(this->size())
+        { 
+	  this->_M_swap(__x.__ref);
+	  __x.__ref._M_guaranteed_capacity = 0;
+	}
+
       ~vector() { }
 
-      vector<_Tp,_Allocator>&
-      operator=(const vector<_Tp,_Allocator>& __x)
+      vector&
+      operator=(const vector& __x)
       {
 	static_cast<_Base&>(*this) = __x;
 	this->_M_invalidate_all();
 	_M_update_guaranteed_capacity();
 	return *this;
       }
+
+      template<typename _Vector>
+	vector&
+	operator=(__gnu_cxx::__rvalref<_Vector> __x)
+	{
+	  swap(__x.__ref);
+	  return *this;
+	}
 
       template<typename _InputIterator>
         void
@@ -331,7 +347,7 @@ namespace __debug
       }
 
       void
-      swap(vector<_Tp,_Allocator>& __x)
+      swap(vector& __x)
       {
 	_Base::swap(__x);
 	this->_M_swap(__x);
@@ -415,5 +431,13 @@ namespace __debug
     { __lhs.swap(__rhs); }
 } // namespace __debug
 } // namespace std
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
+  template<typename _Tp, typename _Alloc>
+    struct __is_moveable<std::__debug::vector<_Tp, _Alloc> >
+    { static const bool __value = true; };
+
+_GLIBCXX_END_NAMESPACE
 
 #endif
