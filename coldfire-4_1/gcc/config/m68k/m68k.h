@@ -958,6 +958,9 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
    Instead use the identity mapping.  */
 #define DWARF_FRAME_REGNUM(REG) REG
 
+/* Return address column */
+#define DWARF_FRAME_RETURN_COLUMN 25
+
 /* Before the prologue, the top of the frame is at 4(%sp).  */
 #define INCOMING_FRAME_SP_OFFSET 4
 
