@@ -14,6 +14,7 @@
 #
 # the following fail with -mcpu=G5 only 
 4489254: obj-c++.dg/objc-instantiate-1.mm (test for excess errors)
+4489254: obj-c++.dg/except-1.mm (test for excess errors)
 4489254: obj-c++.dg/property-2.mm (test for excess errors)
 4489254: obj-c++.dg/property-3.mm (test for excess errors)
 4489254: obj-c++.dg/proto-bad-propagate.mm (test for excess errors)
