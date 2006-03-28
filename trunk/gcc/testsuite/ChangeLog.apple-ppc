@@ -176,6 +176,25 @@
 	Radar 4229905
 	* obj-c++.dg/warn5.mm: New
 
+2006-03-22  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4484188
+	* g++.old-deja/g++.other/init19.C: New.
+
+2006-03-17  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4474655
+	* g++.apple/474655.C: New.
+
+2006-03-17  Stuart Hastings  <stuart@apple.com>
+
+	* g++.dg/4425360.C: Tweak for -m64.
+
+2006-03-16  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4481011
+	* g++.dg/bitreverse-23.C: Avoid uninitialised-data problem.
+
 2006-03-13  Mike Stump  <mrs@apple.com>
 
 	Radar 4230099

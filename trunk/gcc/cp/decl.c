@@ -1033,6 +1033,8 @@ duplicate_decls (tree newdecl, tree olddecl)
   unsigned olddecl_uid = DECL_UID (olddecl);
   int olddecl_friend = 0, types_match = 0;
   int new_defines_function = 0;
+  /* APPLE LOCAL mainline 2005-12-02 Radar 4458276  */
+  tree new_template;
 
   if (newdecl == olddecl)
     return olddecl;
@@ -1678,6 +1680,8 @@ duplicate_decls (tree newdecl, tree olddecl)
   if (! DECL_EXTERNAL (olddecl))
     DECL_EXTERNAL (newdecl) = 0;
 
+  /* APPLE LOCAL mainline 2005-12-02 Radar 4458276  */
+  new_template = NULL_TREE;
   if (DECL_LANG_SPECIFIC (newdecl) && DECL_LANG_SPECIFIC (olddecl))
     {
       DECL_INTERFACE_KNOWN (newdecl) |= DECL_INTERFACE_KNOWN (olddecl);
@@ -1700,6 +1704,10 @@ duplicate_decls (tree newdecl, tree olddecl)
 	DECL_LANG_SPECIFIC (olddecl)->decl_flags.u2;
       DECL_NONCONVERTING_P (newdecl) = DECL_NONCONVERTING_P (olddecl);
       DECL_REPO_AVAILABLE_P (newdecl) = DECL_REPO_AVAILABLE_P (olddecl);
+      /* APPLE LOCAL begin mainline 2005-12-02 Radar 4458276  */
+      if (DECL_TEMPLATE_INFO (newdecl))
+	new_template = DECL_TI_TEMPLATE (newdecl);
+      /* APPLE LOCAL end  mainline 2005-12-02 Radar 4458276  */
       DECL_TEMPLATE_INFO (newdecl) = DECL_TEMPLATE_INFO (olddecl);
       DECL_INITIALIZED_IN_CLASS_P (newdecl)
         |= DECL_INITIALIZED_IN_CLASS_P (olddecl);
@@ -1847,7 +1855,8 @@ duplicate_decls (tree newdecl, tree olddecl)
 	      (char *) newdecl + sizeof (struct tree_common),
 	      function_size - sizeof (struct tree_common));
 
-      if (DECL_TEMPLATE_INSTANTIATION (newdecl))
+      /* APPLE LOCAL mainline 2005-12-02 Radar 4458276  */
+      if (new_template)
 	/* If newdecl is a template instantiation, it is possible that
 	   the following sequence of events has occurred:
 
@@ -1870,7 +1879,8 @@ duplicate_decls (tree newdecl, tree olddecl)
 	   instantiations so that if we try to do the instantiation
 	   again we won't get the clobbered declaration.  */
 	reregister_specialization (newdecl,
-				   DECL_TI_TEMPLATE (newdecl),
+				   /* APPLE LOCAL mainline 2005-12-02 Radar 4458276  */
+				   new_template,
 				   olddecl);
     }
   else

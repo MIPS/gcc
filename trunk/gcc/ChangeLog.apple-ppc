@@ -205,12 +205,34 @@
 	* c-typeck.c (build_component_ref): Generate the new ivar reference
 	tree.
 
+2006-03-22  Eric Christopher  <echristo@apple.com>
+
+	Radar 4473966
+	* config/darwin-driver.c (fnasm_seen): Remove.
+	(do_nasm): Ditto.
+	(main): Remove check for fnasm. Remove call.
+
+2006-03-22  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4484188
+	* config/darwin.h (STARTFILE_SPEC): Don't use -l for crt3.o.
+	* config/darwin-crt3.c: Rewrite entire file.
+
+2006-03-15  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3992198
+	* config/i386/darwin.h (C_COMMON_OVERRIDE_OPTIONS): New.
+	* config/rs6000/darwin.h  (C_COMMON_OVERRIDE_OPTIONS): Call
+	SUBTARGET_C_COMMON_OVERRIDE_OPTIONS.
+	* config/darwin.h (SUBTARGET_C_COMMON_OVERRIDE_OPTIONS): NEw.
+	* config/darwin-crt3.c: Be empty if __PIC__ is not defined.
+
 2006-03-15  Devang Patel  <dpatel@apple.com>
 
 	Radar 4479522
-	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Do not 
-	enable Altivec by default when deployment target is Mac OSX 10.5 
-	or higher.	
+	* config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Do not
+	enable Altivec by default when deployment target is Mac OSX 10.5
+	or higher.
 
 2006-03-13  Mike Stump  <mrs@apple.com>
 
@@ -288,7 +310,7 @@
 	(marked APPLE LOCAL "4356747 stack realign")
 	* gcc/rtl.h (gen_tmp_stack_mem): Declare.
 	Fix up previous ChangeLog entry.
-	
+
 2006-02-27  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4356747
@@ -448,7 +470,7 @@
 	* config/darwin-driver.c (main.c): Check --save-temps.
 
 2006-02-09  Mike Stump  <mrs@apple.com>
-	
+
 	Radar 4399388
 	* config/i386/i386.c (cw_canonicalize_bracket_1): Add.
 	(cw_canonicalize_bracket): Improve.
@@ -476,7 +498,7 @@
 	Radar 4407059
 	* c-lex.c (c_lex_with_flags): Only recognize "offset" when doing
 	x86 assembly.
-	
+
 2006-02-03  Mike Stump  <mrs@apple.com>
 
 	Radar 4432782
@@ -517,12 +539,12 @@
 2006-01-31  Devang Patel  <dpatel@apple.com>
 
 	Radar 4382844
-	* tree-data-ref.c (analyze_array, init_data_ref, 
+	* tree-data-ref.c (analyze_array, init_data_ref,
 	find_data_references_in_loop): Set DR_TYPE.
 	* tree-data-ref.h (data_ref_type): New.
 	(struct data_reference): New member, data reference type.
 	(DR_TYPE): New.
-	* tree-vect-analyze.c (record_ptr_differ_p, 
+	* tree-vect-analyze.c (record_ptr_differ_p,
 	vect_base_object_differ_p): New.
 	(vect_base_addr_differ_p): Check base objects.
 
@@ -579,7 +601,7 @@
 	functions.
 	(expand_function_start): We don't need DECL_RTL for asm functions.
 	(expand_function_end): Use a naked return for asm functions.
-	(expand_function_end): 
+	(expand_function_end):
 	* gimple-low.c (lower_function_body): Don't generate a return; for
 	asm functions.
 	* tree-inline.c (inline_forbidden_p): Don't inline asm functions on ppc.
@@ -605,7 +627,7 @@
 	Pass to ASM_OUTPUT_DWARF_OFFSET.
 	* doc/tm.texi (SDB and DWARF): Add extra parameter to
 	ASM_OUTPUT_DWARF_OFFSET.  Use @var to indicate metavariables.
-	
+
 2006-01-13  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4386531
@@ -728,9 +750,9 @@
 
 	Radar 4261575
 
-	* config/i386/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Set default value 
+	* config/i386/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): Set default value
 	for darwin_constant_cfstrings
-	
+
 2005-12-09  Mike Stump  <mrs@apple.com>
 
 	Radar 4371551
@@ -739,7 +761,7 @@
 	* c-typeck.c (build_array_ref): Also handle exprs with no type.
 	* config/i386/i386.c (cw_canonicalize_bracket): Add support for
 	more complex offsets.
-	
+
 2005-12-09  Zdenek Dvorak <rakdver@gcc.gnu.org>
 	    Dale Johannesen  <dalej@apple.com>
 
@@ -753,7 +775,7 @@
 
 	Radar 4233898
         * tree-chrec.c (chrec_fold_multiply_poly_poly): Associate chrecs
-        correctly.	
+        correctly.
 
 2005-12-09  Stuart Hastings  <stuart@apple.com>
 
@@ -778,7 +800,7 @@
 2005-12-07  Devang Patel  <dpatel@apple.com>
 
 	Radar 4333194
-	* tree-vect-analyze.c (vect_compute_data_ref_alignment): Check 
+	* tree-vect-analyze.c (vect_compute_data_ref_alignment): Check
 	misalignment where natural alignment is not reachable using loop
 	peeling.
 
@@ -809,7 +831,7 @@
         * langhooks-def.h: Revert Radar 4133801 changes.
         * langhooks.c: Likewise.
         * langhooks.h: Likewise.
-	
+
 2005-12-07  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4349512
@@ -848,7 +870,7 @@
 	* config/i386/i386.c (cw_canonicalize_bracket): to here.  Add more
 	canonicalizations.
 	(cw_is_offset): Add offsets built with PLUS_EXPR and MINUS_EXPR.
-	
+
 2005-12-01  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4350099
@@ -873,7 +895,7 @@
 	* doc/invoke.texi (C Dialect Options): Likewise.
 	* config/darwin.h (LINK_COMMAND_SPEC): Pass -allow_stack_execute
 	when nested functions are on.
-	
+
 2005-11-30  Dale Johannesen  <dalej@apple.com>
             Andrew Pinski  <pinskia@physics.uc.edu>
 
@@ -1016,26 +1038,26 @@
 	standard_sse_constant_opcode.
         (*movv4sf_internal) Use standard_sse_constant_opcode.
         (*movv2df_internal) Use standard_sse_constant_opcode.
-	(sse_movlhps) Replace vector_move_operand with 
+	(sse_movlhps) Replace vector_move_operand with
 	nonimmediate_or_0_operand.
-	(*sse_concatv2sf) Replace vector_move_operand with 
+	(*sse_concatv2sf) Replace vector_move_operand with
 	nonimmediate_or_0_operand.
-        (*vec_setv4sf_0) Replace vector_move_operand with 
+        (*vec_setv4sf_0) Replace vector_move_operand with
 	nonimmediate_or_0_operand.
-        (sse2_loadlpd) Replace vector_move_operand with 
+        (sse2_loadlpd) Replace vector_move_operand with
 	nonimmediate_or_0_operand.
-        (*vec_concatv2df) Replace vector_move_operand with 
+        (*vec_concatv2df) Replace vector_move_operand with
 	nonimmediate_or_0_operand.
 	(sse2_loadld) Replace vector_move_operand with
 	nonimmediate_or_0_operand.
-        (*vec_concatv2di) Replace vector_move_operand with 
+        (*vec_concatv2di) Replace vector_move_operand with
 	nonimmediate_or_0_operand.
 	* testsuite/gcc.apple/4283414.c: New.
 
 2005-11-01  Fariborz Jahanian <fjahanian@apple.com>
 
         objc new meta-data definitions - part 1
-	
+
 	* common.opt: Add new -fobjc-abi-version=n option.
 
 2005-11-01  Evan Cheng  <evan.cheng@apple.com>
@@ -1053,7 +1075,7 @@
 	* config/i386/i386.h (Unused): Fix gratuitous APPLE LOCAL change.
 
 2005-10-31  Devang Patel  <dpatel@apple.com>
-	
+
 	Radar 4053179
 	Backport from Mainline.
 	2005-04-14  Richard Henderson  <rth@redhat.com>
@@ -1105,7 +1127,7 @@
 	(ix86_rotrdi3): New pattern.
 	(rotldi3): Handle 32-bit mode.
 	(ix86_rotldi3): New pattern.
-	
+
 2005-10-19  Eric Christopher  <echristo@apple.com>
 
 	Radar 3907496
@@ -1122,7 +1144,7 @@
 
 	* c-parse.in (objc_quals): Build objc qualifier list same way
 	as gcc-3.3
-	
+
 2005-10-11  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4271575
@@ -1132,7 +1154,7 @@
 	as empty.
 	* config/darwin.h (STARTFILE_SPEC): Use %(darwin_crt2) to possibly
 	link in crt2.o.
-	
+
 2005-10-12  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4291785
@@ -1157,7 +1179,7 @@
 	* stub-objc.c (objc_check_global_decl): New stub.
 	* c-decl.c (start_decl): Check for redeclaration of class name.
 	* c-parse.in (after_type_declarator): Recognize CLASSNAME.
-	
+
 2005-10-17  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4122763
@@ -1211,7 +1233,7 @@
 	* dbxout.c (struct typeinf): New member, q_type_number.
 	(struct qualified_typeinf): New.
 	(q_typevec, q_typevec_len, q_type_number); New.
-	(dbxout_reusable_type, dbxout_note_q_type, 
+	(dbxout_reusable_type, dbxout_note_q_type,
 	dbxout_next_q_type_number): New.
 	(dbxout_init): Initialize q_typevec.
 	(dbxout_type_index): Check reusable type.
@@ -1283,7 +1305,7 @@
 2005-10-12  Devang Patel  <dpatel@apple.com>
 
 	Radar 4278903
-	* gcc.c (invoke_as): Process ASM_SPEC when -fsave-repository 
+	* gcc.c (invoke_as): Process ASM_SPEC when -fsave-repository
 	is seen.
 
 2005-10-11  Dale Johannesen  <dalej@apple.com>
@@ -1314,7 +1336,7 @@
 
 2005-10-07  Evan Cheng  <evan.cheng@apple.com>
 
-        Radar 4109832	
+        Radar 4109832
 	* config/i386/xmmintrin.h (_MM_TRANSPOSE4_PS): Rewrite using high/low
 	moves and unpack to speed up.
 
@@ -1322,7 +1344,7 @@
 
 	Radar 4205103
 	* config/i386/i386.c (ix86_value_regno): Moved APPLE LOCAL marker.
-	
+
 2005-10-06  Devang Patel  <dpatel@apple.com>
 
 	Radar 4257091
@@ -1531,7 +1553,7 @@
 	(CW_SEE_NO_OFFSET): Add.
 	* doc/extend.texi (Asm Blocks and Functions): Update for x86.
 	* tree-cfg.c (set_bb_for_stmt): Handle label rewritting anywhere in opcode.
-	
+
 2005-09-22  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4231761
@@ -1615,7 +1637,7 @@
         to do actual work.
         (dbxout_partial_type, dbxout_complete_type, dbxout_type_xref,
         dbxout_pointer_type, dbxout_void_type, dbxout_integer_type,
-        dbxout_real_type, dbxout_char_type, dbxout_complex_type, 
+        dbxout_real_type, dbxout_char_type, dbxout_complex_type,
         dbxout_file_type, dbxout_function_type, dbxout_reference_type,
         dbxout_next_type_number, dbxout_cross_ref_type_p, dbxout_type_with_name,
         dbxout_queue_type, dbxout_free_type_queue): New.
@@ -1686,9 +1708,9 @@
 2005-08-30  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4235138
-	* c-common.c (print_cw_asm_operand): Generate tree for nested 
+	* c-common.c (print_cw_asm_operand): Generate tree for nested
 	member operand.
-	* c-typeck.c (cw_asm_c_build_component_ref): Build component ref 
+	* c-typeck.c (cw_asm_c_build_component_ref): Build component ref
 	for nested member operand.
 
 2005-08-29  Eric Christopher  <echristo@apple.com>
@@ -1729,7 +1751,7 @@
 2005-08-24  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4211430
-	* stmt.c (expand_asm_operands): Make static entry symbol 
+	* stmt.c (expand_asm_operands): Make static entry symbol
 	local and not extern.
 
 2005-08-23  Eric Christopher  <echristo@apple.com>
