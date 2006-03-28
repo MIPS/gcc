@@ -826,6 +826,23 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 
   m68k_compute_frame_layout();
 
+  if (dwarf2out_do_frame ()
+      && m68k_interrupt_function_p (current_function_decl))
+    {
+      /* On entry to an isr the stack will be
+	   sp@4:pc
+	   sp@0:(event info << 16) | sr
+	 This is 4 more words than normal.  Emit dwarf information so
+	 we can unwind out of an ISR. */
+      char *l = (char *) dwarf2out_cfi_label ();
+
+      cfa_offset += 8 - INCOMING_FRAME_SP_OFFSET;
+      dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
+      /* I'm not sure what register number to use for the status
+         register.  */
+      dwarf2out_reg_save (l, DWARF_FRAME_RETURN_COLUMN, -cfa_offset + 4);
+    }
+
   /* If the stack limit is a symbol, we can check it here,
      before actually allocating the space.  */
   if (current_function_limit_stack

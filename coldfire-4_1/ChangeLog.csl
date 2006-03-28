@@ -1,3 +1,9 @@
+2006-03-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (DWARF_FRAME_RETURN_COLUMN): Define.
+	* gcc/config/m68k/m68k.c (m68k_output_function_prologue): Output
+	dwarf to allow unwinding from interrupt_handlers.
+
 2006-03-27  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc/config.gcc (m68k-*-linux*): Add default --with-cpu.
