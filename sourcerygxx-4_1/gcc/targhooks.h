@@ -53,6 +53,8 @@ extern bool default_scalar_mode_supported_p (enum machine_mode);
 
 extern const char * default_invalid_within_doloop (rtx);
 
+extern bool default_narrow_bitfield (void);
+
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */
 

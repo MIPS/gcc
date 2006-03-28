@@ -1,5 +1,14 @@
 2006-03-28  Paul Brook  <paul@codesourcery.com>
 
+	PR middle-end/23623
+	* gcc/targhooks.c (default_narrow_bitfield): New fuction.
+	* gcc/targhooks.h (default_narrow_bitfield): add prototype.
+	* gcc/target-def.h (TARGET_NARROW_VOLATILE_BITFIELD): Define.
+	* gcc/doc/tm.texi: Document TARGET_NARROW_VOLATILE_BITFIELDS.
+	* gcc/config/arm/arm.c (TARGET_NARROW_VOLATILE_BITFIELD): Define.
+
+2006-03-28  Paul Brook  <paul@codesourcery.com>
+
 	* gcc/reload1.c (choose_reload_regs): Check for all RTX_AUTOINC
 	operators.
 	(inc_for_reload): Handle PRE_MODIFY and POST_MODIFY addresses.
