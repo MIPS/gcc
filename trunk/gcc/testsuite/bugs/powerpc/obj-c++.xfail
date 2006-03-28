@@ -10,24 +10,39 @@
 ### file and make sure the Radar is closed.
 ###
 ###------------------------------------------------------------------
-#4178746: obj-c++.dg/debug-1.mm scan-assembler B:Tt\\(0,45\\)=s16!1,10-96
 4239991: obj-c++.dg/gnu-runtime-3.mm (test for excess errors)
-4261715: obj-c++.dg/const-cfstring-1.mm (test for excess errors)
-4261715: obj-c++.dg/const-str-1.mm  (test for errors, line 12)
-4261575: obj-c++.dg/const-str-3.mm (test for excess errors)
-4261575: obj-c++.dg/const-str-4.mm (test for excess errors)
-4261715: obj-c++.dg/const-str-6.mm  (test for errors, line 28)
-4261575: obj-c++.dg/const-str-7.mm (test for excess errors)
-4261575: obj-c++.dg/const-str-8.mm (test for excess errors)
-4261715: obj-c++.dg/const-str-9.mm scan-assembler .section __OBJC, __cstring_object
-4261715: obj-c++.dg/const-str-9.mm scan-assembler .long\t__NSConstantStringClassReference\n\t.long\t.*\n\t.long\t5\n\t.data
-4261575: obj-c++.dg/template-4.mm (test for excess errors)
 #
-# the following fail with -m64 on Leopard only 
+# the following fail with -mcpu=G5 only 
+4489254: obj-c++.dg/objc-instantiate-1.mm (test for excess errors)
+4489254: obj-c++.dg/property-2.mm (test for excess errors)
+4489254: obj-c++.dg/property-3.mm (test for excess errors)
+4489254: obj-c++.dg/proto-bad-propagate.mm (test for excess errors)
+4489254: obj-c++.dg/template-8.mm (test for excess errors)
+#
+# the following fail with -m64 only 
 4385129: obj-c++.dg/const-cfstring-1.mm (test for excess errors)
-4385129: obj-c++.dg/const-cfstring-3.mm (test for excess errors)
-4385129: obj-c++.dg/const-cfstring-6.mm (test for excess errors)
-4385129: obj-c++.dg/except-1.mm (test for excess errors)
+4385129: obj-c++.dg/objc-instantiate-1.mm (test for excess errors)
+4385129: obj-c++.dg/objc-instantiate-1.mm execution test
 4385167: obj-c++.dg/bitfield-1.mm (test for excess errors)
 4385167: obj-c++.dg/bitfield-4.mm (test for excess errors)
 4385167: obj-c++.dg/layout-1.mm (test for excess errors) 
+4492973: obj-c++.dg/encode-3.mm execution test
+4492976: obj-c++.dg/const-cfstring-4.mm scan-assembler .long\t___CFConstantStringClassReference\n\t.long\t1992\n\t.long\t.*\n\t.long\t19\n\t.data
+4492976: obj-c++.dg/const-str-9.mm scan-assembler .long\t__NSConstantStringClassReference\n\t.long\t.*\n\t.long\t5\n\t.data
+4492976: obj-c++.dg/const-str-10.mm scan-assembler .long\t__NSConstantStringClassReference\n\t.long\t.*\n\t.long\t5\n\t.data
+4492976: obj-c++.dg/const-str-11.mm scan-assembler .long\t__XStrClassReference\n\t.long\t.*\n\t.long\t5\n\t.data
+4492976: obj-c++.dg/debug-1.mm scan-assembler B:Tt\\([0-9],[0-9]*\\)=s16!1,10-96
+4492976: obj-c++.dg/encode-3.mm execution test
+4492976: obj-c++.dg/objc-fast-1.mm scan-assembler-not objc_msgSend
+4492976: obj-c++.dg/objc-fast-1.mm scan-assembler-not objc_assign_ivar
+4492976: obj-c++.dg/objc-fast-1.mm scan-assembler bla.*fffeff00
+4492976: obj-c++.dg/objc-fast-1.mm scan-assembler bla.*fffefec0
+4492976: obj-c++.dg/objc-fast-2.mm scan-assembler-not objc_msgSend
+4492976: obj-c++.dg/objc-fast-2.mm scan-assembler-not objc_assign_ivar
+4492976: obj-c++.dg/objc-fast-2.mm scan-assembler ba.*fffeff00
+4492976: obj-c++.dg/objc-fast-2.mm scan-assembler ba.*fffefec0
+4492976: obj-c++.dg/objc-fast-3.mm scan-assembler-not objc_msgSend
+4492976: obj-c++.dg/objc-fast-3.mm scan-assembler bla.*fffeff00
+4492976: obj-c++.dg/objc-fast-3.mm scan-assembler ba.*fffeff00
+4492976: obj-c++.dg/objc-fast-4.mm scan-assembler-not objc_msgSend
+4492976: obj-c++.dg/objc-fast-4.mm scan-assembler bla.*fffeff00
