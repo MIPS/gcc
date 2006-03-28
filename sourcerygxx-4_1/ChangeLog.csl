@@ -1,3 +1,9 @@
+2006-03-28  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/reload1.c (choose_reload_regs): Check for all RTX_AUTOINC
+	operators.
+	(inc_for_reload): Handle PRE_MODIFY and POST_MODIFY addresses.
+
 2006-03-27  Jim Blandy	<jimb@codesourcery.com>
 
 	* include/libiberty.h (pex_write_input): New declaration.
