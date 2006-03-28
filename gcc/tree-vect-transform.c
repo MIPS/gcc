@@ -1724,13 +1724,13 @@ vectorizable_store (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   *vec_stmt = build2 (MODIFY_EXPR, vectype, data_ref, vec_oprnd1);
   vect_finish_stmt_generation (stmt, *vec_stmt, bsi);
 
-  /* Copy the V_MAY_DEFS representing the aliasing of the original array
+  /* Copy the VDEFS representing the aliasing of the original array
      element's definition to the vector's definition then update the
      defining statement.  The original is being deleted so the same
      SSA_NAMEs can be used.  */
   copy_virtual_operands (*vec_stmt, stmt);
 
-  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMAYDEF)
+  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VDEF)
     {
       SSA_NAME_DEF_STMT (def) = *vec_stmt;
 
@@ -2373,9 +2373,9 @@ vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
    LOOP - the loop whose preheader will contain STMT.
 
    It's possible to vectorize a loop even though an SSA_NAME from a VUSE
-   appears to be defined in a V_MAY_DEF in another statement in a loop.
+   appears to be defined in a VDEF in another statement in a loop.
    One such case is when the VUSE is at the dereference of a __restricted__
-   pointer in a load and the V_MAY_DEF is at the dereference of a different
+   pointer in a load and the VDEF is at the dereference of a different
    __restricted__ pointer in a store.  Vectorization may result in
    copy_virtual_uses being called to copy the problematic VUSE to a new
    statement that is being inserted in the loop preheader.  This procedure

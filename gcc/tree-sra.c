@@ -1448,7 +1448,7 @@ decide_instantiations (void)
 
 /* Phase Four: Update the function to match the replacements created.  */
 
-/* Mark all the variables in V_MAY_DEF operands for STMT for
+/* Mark all the variables in VDEF operands for STMT for
    renaming. This becomes necessary when we modify all of a non-scalar.  */
 
 static void

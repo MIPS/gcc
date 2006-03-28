@@ -181,8 +181,8 @@ struct var_ann_d GTY(())
   unsigned in_vuse_list : 1;
 
   /* Used during operand processing to determine if this variable is already 
-     in the v_may_def list.  */
-  unsigned in_v_may_def_list : 1;
+     in the vdef list.  */
+  unsigned in_vdef_list : 1;
 
   /* An artificial variable representing the memory location pointed-to by
      all the pointer symbols that flow-insensitive alias analysis

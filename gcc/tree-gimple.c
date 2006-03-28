@@ -93,7 +93,7 @@ is_gimple_reg_rhs (tree t)
      variable is only modified if evaluation of the RHS does not throw.
 
      Don't force a temp of a non-renamable type; the copy could be
-     arbitrarily expensive.  Instead we will generate a V_MAY_DEF for
+     arbitrarily expensive.  Instead we will generate a VDEF for
      the assignment.  */
 
   if (is_gimple_reg_type (TREE_TYPE (t))

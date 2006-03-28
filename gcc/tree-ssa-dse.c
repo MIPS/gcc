@@ -234,7 +234,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 
   /* If this statement has no virtual defs, then there is nothing
      to do.  */
-  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF))
+  if (ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF))
     return;
 
   /* We know we have virtual definitions.  If this is a MODIFY_EXPR that's
@@ -263,7 +263,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	 want USE_STMT to refer to the one statement which uses
 	 all of the virtual definitions from STMT.  */
       use_stmt = NULL;
-      FOR_EACH_SSA_MUST_AND_MAY_DEF_OPERAND (var1, vv, stmt, op_iter)
+      FOR_EACH_SSA_VDEF_OPERAND (var1, vv, stmt, op_iter)
 	{
 	  gcc_assert (VUSE_VECT_NUM_ELEM (*vv) == 1);
 	  var2 = VUSE_ELEMENT_PTR (*vv, 0);
@@ -348,7 +348,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
               fprintf (dump_file, "'\n");
             }
 	  /* Then we need to fix the operand of the consuming stmt.  */
-	  FOR_EACH_SSA_MUST_AND_MAY_DEF_OPERAND (var1, vv, stmt, op_iter)
+	  FOR_EACH_SSA_VDEF_OPERAND (var1, vv, stmt, op_iter)
 	    {
 	      gcc_assert (VUSE_VECT_NUM_ELEM (*vv) == 1);
 	      var2 = VUSE_ELEMENT_PTR (*vv, 0);

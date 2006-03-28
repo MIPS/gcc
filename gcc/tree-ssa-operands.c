@@ -103,8 +103,8 @@ static VEC(tree,heap) *build_defs;
 /* Array for building all the use operands.  */
 static VEC(tree,heap) *build_uses;
 
-/* Array for building all the V_MAY_DEF operands.  */
-static VEC(tree,heap) *build_v_may_defs;
+/* Array for building all the VDEF operands.  */
+static VEC(tree,heap) *build_vdefs;
 
 /* Array for building all the VUSE operands.  */
 static VEC(tree,heap) *build_vuses;
@@ -120,7 +120,7 @@ static void get_expr_operands (tree, tree *, int);
 static def_optype_p free_defs = NULL;
 static use_optype_p free_uses = NULL;
 static vuse_optype_p free_vuses = NULL;
-static maydef_optype_p free_maydefs = NULL;
+static vdef_optype_p free_vdefs = NULL;
 
 
 /* Return the DECL_UID of the base variable of T.  */
@@ -204,8 +204,8 @@ static struct
      add_call_clobber_ops.  */
   unsigned int clobbered_vars;
 
-  /* Number of write-clobbers (V_MAY_DEFs) avoided by using
-     not_written information.  */
+  /* Number of write-clobbers (VDEFs) avoided by using not_written
+     information.  */
   unsigned int static_write_clobbers_avoided;
 
   /* Number of reads (VUSEs) avoided by using not_read information.  */
@@ -232,7 +232,7 @@ init_ssa_operands (void)
   build_defs = VEC_alloc (tree, heap, 5);
   build_uses = VEC_alloc (tree, heap, 10);
   build_vuses = VEC_alloc (tree, heap, 25);
-  build_v_may_defs = VEC_alloc (tree, heap, 25);
+  build_vdefs = VEC_alloc (tree, heap, 25);
 
   gcc_assert (operand_memory == NULL);
   operand_memory_index = SSA_OPERAND_MEMORY_SIZE;
@@ -249,12 +249,12 @@ fini_ssa_operands (void)
   struct ssa_operand_memory_d *ptr;
   VEC_free (tree, heap, build_defs);
   VEC_free (tree, heap, build_uses);
-  VEC_free (tree, heap, build_v_may_defs);
+  VEC_free (tree, heap, build_vdefs);
   VEC_free (tree, heap, build_vuses);
   free_defs = NULL;
   free_uses = NULL;
   free_vuses = NULL;
-  free_maydefs = NULL;
+  free_vdefs = NULL;
   while ((ptr = operand_memory) != NULL)
     {
       operand_memory = operand_memory->next;
@@ -334,21 +334,21 @@ alloc_use (void)
 
 
 
-static inline struct maydef_optype_d *
-alloc_maydef (int num)
+static inline struct vdef_optype_d *
+alloc_vdef (int num)
 {
-  struct maydef_optype_d *ret;
+  struct vdef_optype_d *ret;
   /* Eliminate free list for the moment.  */
 #if 0
-  if (free_maydefs)
+  if (free_vdefs)
     {
-      ret = free_maydefs;
-      free_maydefs = free_maydefs->next;
+      ret = free_vdefs;
+      free_vdefs = free_vdefs->next;
     }
   else
 #endif
-    ret = (struct maydef_optype_d *)ssa_operand_alloc (
-	sizeof (struct maydef_optype_d) + (num - 1) * sizeof (vuse_element_t));
+    ret = (struct vdef_optype_d *)ssa_operand_alloc (
+	sizeof (struct vdef_optype_d) + (num - 1) * sizeof (vuse_element_t));
   VUSE_VECT_NUM_ELEM (ret->usev) = num;
   return ret;
 }
@@ -518,48 +518,48 @@ add_vuse_op (tree stmt, tree op, int num, vuse_optype_p *last)
   return new;
 }
 
-/* Adds OP to the list of maydefs of statement STMT after LAST, and moves
+/* Adds OP to the list of vdefs of statement STMT after LAST, and moves
    LAST to the new element.  */
 
-static inline maydef_optype_p
-add_maydef_op (tree stmt, tree op, int num, maydef_optype_p *last)
+static inline vdef_optype_p
+add_vdef_op (tree stmt, tree op, int num, vdef_optype_p *last)
 {
   int x;
-  maydef_optype_p new;
+  vdef_optype_p new;
 
-  new = alloc_maydef (num);
-  MAYDEF_RESULT (new) = op;
+  new = alloc_vdef (num);
+  VDEF_RESULT (new) = op;
   for (x = 0; x < num; x++)
     {
-      MAYDEF_OP (new, x) = op;
-      INITIALIZE_USE (MAYDEF_OP_PTR (new, x), &(MAYDEF_OP (new, x)), stmt);
+      VDEF_OP (new, x) = op;
+      INITIALIZE_USE (VDEF_OP_PTR (new, x), &(VDEF_OP (new, x)), stmt);
     }
   APPEND_OP_AFTER (new, *last);  
   return new;
 }
 
 
-struct maydef_optype_d *
-realloc_maydef (struct maydef_optype_d *ptr, int num_elem)
+struct vdef_optype_d *
+realloc_vdef (struct vdef_optype_d *ptr, int num_elem)
 {
   int x, lim;
   tree val, stmt;
-  struct maydef_optype_d *ret, *tmp;
+  struct vdef_optype_d *ret, *tmp;
 
   if (VUSE_VECT_NUM_ELEM (ptr->usev) == num_elem)
     return ptr; 
   
-  val = MAYDEF_RESULT (ptr);
+  val = VDEF_RESULT (ptr);
   if (TREE_CODE (val) == SSA_NAME)
     val = SSA_NAME_VAR (val);
 
-  stmt = USE_STMT (MAYDEF_OP_PTR (ptr, 0));
+  stmt = USE_STMT (VDEF_OP_PTR (ptr, 0));
 
   /* Delink all the existing uses.  */
 
   for (x = 0; x < VUSE_VECT_NUM_ELEM (ptr->usev); x++)
     {
-      use_operand_p use_p = MAYDEF_OP_PTR (ptr, x);
+      use_operand_p use_p = VDEF_OP_PTR (ptr, x);
       delink_imm_use (use_p);
     }
 
@@ -572,26 +572,26 @@ realloc_maydef (struct maydef_optype_d *ptr, int num_elem)
 
   /* its growing. Allocate a new one and replace the old one.  */
   tmp = ptr;;
-  ret = add_maydef_op (stmt, val, num_elem, &ptr);
+  ret = add_vdef_op (stmt, val, num_elem, &ptr);
   ptr = tmp;
 
   lim = VUSE_VECT_NUM_ELEM (ptr->usev);
-  memset (ptr, 0, sizeof (struct maydef_optype_d) + sizeof (vuse_element_t) * (lim- 1));
+  memset (ptr, 0, sizeof (struct vdef_optype_d) + sizeof (vuse_element_t) * (lim- 1));
   /* Now simply remove the old one.  */
-  if (MAYDEF_OPS (stmt) == ptr)
+  if (VDEF_OPS (stmt) == ptr)
     {
-      MAYDEF_OPS (stmt) = ret;
+      VDEF_OPS (stmt) = ret;
       return ret;
     }
   else
-    for (tmp = MAYDEF_OPS (stmt); 
+    for (tmp = VDEF_OPS (stmt); 
 	 tmp != NULL && tmp->next != ptr; 
 	 tmp = tmp->next)
       {
 	tmp->next = ret;
 	return ret;
       }
-  /* The pointer passed in isnt in the stmt's maydef lists.  */
+  /* The pointer passed in isnt in the stmt's vdef lists.  */
   gcc_unreachable ();
 
 }
@@ -651,7 +651,7 @@ realloc_vuse (struct vuse_optype_d *ptr, int num_elem)
 	tmp->next = ret;
 	return ret;
       }
-  /* The pointer passed in isnt in the stmt's maydef lists.  */
+  /* The pointer passed in isnt in the stmt's vdef lists.  */
   gcc_unreachable ();
 
 }
@@ -842,57 +842,57 @@ finalize_ssa_uses (tree stmt)
 }
 
 
-/* Takes elements from build_v_may_defs and turns them into maydef operands of
+/* Takes elements from build_vdefs and turns them into vdef operands of
    STMT.  */
 
 static inline void
-finalize_ssa_v_may_def_ops (tree stmt)
+finalize_ssa_vdef_ops (tree stmt)
 {
   int x;
   unsigned new_i;
-  struct maydef_optype_d new_list;
-  maydef_optype_p old_ops, ptr, last;
+  struct vdef_optype_d new_list;
+  vdef_optype_p old_ops, ptr, last;
   tree act;
   unsigned old_base, new_base;
 
   new_list.next = NULL;
   last = &new_list;
 
-  old_ops = MAYDEF_OPS (stmt);
+  old_ops = VDEF_OPS (stmt);
 
   new_i = 0;
-  while (old_ops && new_i < VEC_length (tree, build_v_may_defs))
+  while (old_ops && new_i < VEC_length (tree, build_vdefs))
     {
-      act = VEC_index (tree, build_v_may_defs, new_i);
+      act = VEC_index (tree, build_vdefs, new_i);
       new_base = get_name_decl (act);
-      old_base = get_name_decl (MAYDEF_RESULT (old_ops));
+      old_base = get_name_decl (VDEF_RESULT (old_ops));
 
       if (old_base == new_base)
         {
 	  /* if variables are the same, reuse this node.  */
 	  MOVE_HEAD_AFTER (old_ops, last);
 	  for (x = 0; x < VUSE_VECT_NUM_ELEM (last->usev); x++)
-	    set_virtual_use_link (MAYDEF_OP_PTR (last, x), stmt);
+	    set_virtual_use_link (VDEF_OP_PTR (last, x), stmt);
 	  new_i++;
 	}
       else if (old_base < new_base)
 	{
 	  /* if old is less than new, old goes to the free list.  */
 	  for (x = 0; x < VUSE_VECT_NUM_ELEM (old_ops->usev); x++)
-	    delink_imm_use (MAYDEF_OP_PTR (old_ops, x));
-	  MOVE_HEAD_TO_FREELIST (old_ops, maydef);
+	    delink_imm_use (VDEF_OP_PTR (old_ops, x));
+	  MOVE_HEAD_TO_FREELIST (old_ops, vdef);
 	}
       else
 	{
 	  /* This is a new operand.  */
-	  add_maydef_op (stmt, act, 1, &last);
+	  add_vdef_op (stmt, act, 1, &last);
 	  new_i++;
 	}
     }
 
-  /* If there is anything remaining in the build_v_may_defs list, simply emit it.  */
-  for ( ; new_i < VEC_length (tree, build_v_may_defs); new_i++)
-    add_maydef_op (stmt, VEC_index (tree, build_v_may_defs, new_i), 1, &last);
+  /* If there is anything remaining in the build_vdefs list, simply emit it.  */
+  for ( ; new_i < VEC_length (tree, build_vdefs); new_i++)
+    add_vdef_op (stmt, VEC_index (tree, build_vdefs, new_i), 1, &last);
 
   last->next = NULL;
 
@@ -901,50 +901,50 @@ finalize_ssa_v_may_def_ops (tree stmt)
     {
       for (ptr = old_ops; ptr; ptr = ptr->next)
 	for (x = 0; x < VUSE_VECT_NUM_ELEM (ptr->usev); x++)
-	  delink_imm_use (MAYDEF_OP_PTR (ptr, x));
-      old_ops->next = free_maydefs;
-      free_maydefs = old_ops;
+	  delink_imm_use (VDEF_OP_PTR (ptr, x));
+      old_ops->next = free_vdefs;
+      free_vdefs = old_ops;
     }
 
   /* Now set the stmt's operands.  */
-  MAYDEF_OPS (stmt) = new_list.next;
+  VDEF_OPS (stmt) = new_list.next;
 
 #ifdef ENABLE_CHECKING
   {
     unsigned x = 0;
-    for (ptr = MAYDEF_OPS (stmt); ptr; ptr = ptr->next)
+    for (ptr = VDEF_OPS (stmt); ptr; ptr = ptr->next)
       x++;
 
-    gcc_assert (x == VEC_length (tree, build_v_may_defs));
+    gcc_assert (x == VEC_length (tree, build_vdefs));
   }
 #endif
 }
 
 static void
-finalize_ssa_v_may_defs (tree stmt)
+finalize_ssa_vdefs (tree stmt)
 {
-  finalize_ssa_v_may_def_ops (stmt);
+  finalize_ssa_vdef_ops (stmt);
 }
                                                                                
 
-/* Clear the in_list bits and empty the build array for V_MAY_DEFs.  */
+/* Clear the in_list bits and empty the build array for VDEFs.  */
 
 static inline void
-cleanup_v_may_defs (void)
+cleanup_vdefs (void)
 {
   unsigned x, num;
-  num = VEC_length (tree, build_v_may_defs);
+  num = VEC_length (tree, build_vdefs);
 
   for (x = 0; x < num; x++)
     {
-      tree t = VEC_index (tree, build_v_may_defs, x);
+      tree t = VEC_index (tree, build_vdefs, x);
       if (TREE_CODE (t) != SSA_NAME)
 	{
 	  var_ann_t ann = var_ann (t);
-	  ann->in_v_may_def_list = 0;
+	  ann->in_vdef_list = 0;
 	}
     }
-  VEC_truncate (tree, build_v_may_defs, 0);
+  VEC_truncate (tree, build_vdefs, 0);
 }                                                                             
 
 
@@ -1031,24 +1031,24 @@ finalize_ssa_vuse_ops (tree stmt)
 static void
 finalize_ssa_vuses (tree stmt)
 {
-  unsigned num, num_v_may_defs;
+  unsigned num, num_vdefs;
   unsigned vuse_index;
 
   /* Remove superfluous VUSE operands.  If the statement already has a
-     V_MAY_DEF operation for a variable 'a', then a VUSE for 'a' is
-     not needed because V_MAY_DEFs imply a VUSE of the variable.  For
+     VDEF operation for a variable 'a', then a VUSE for 'a' is
+     not needed because VDEFs imply a VUSE of the variable.  For
      instance, suppose that variable 'a' is aliased:
 
 	      # VUSE <a_2>
-	      # a_3 = V_MAY_DEF <a_2>
+	      # a_3 = VDEF <a_2>
 	      a = a + 1;
 
      The VUSE <a_2> is superfluous because it is implied by the
-     V_MAY_DEF operation.  */
+     VDEF operation.  */
   num = VEC_length (tree, build_vuses);
-  num_v_may_defs = VEC_length (tree, build_v_may_defs);
+  num_vdefs = VEC_length (tree, build_vdefs);
 
-  if (num > 0 && num_v_may_defs > 0)
+  if (num > 0 && num_vdefs > 0)
     {
       for (vuse_index = 0; vuse_index < VEC_length (tree, build_vuses); )
         {
@@ -1058,7 +1058,7 @@ finalize_ssa_vuses (tree stmt)
 	    {
 	      var_ann_t ann = var_ann (vuse);
 	      ann->in_vuse_list = 0;
-	      if (ann->in_v_may_def_list)
+	      if (ann->in_vdef_list)
 	        {
 		  VEC_ordered_remove (tree, build_vuses, vuse_index);
 		  continue;
@@ -1085,8 +1085,8 @@ finalize_ssa_vuses (tree stmt)
 
   finalize_ssa_vuse_ops (stmt);
 
-  /* The V_MAY_DEF build vector wasn't cleaned up because we needed it.  */
-  cleanup_v_may_defs ();
+  /* The VDEF build vector wasn't cleaned up because we needed it.  */
+  cleanup_vdefs ();
                                                                               
   /* Free the VUSEs build vector.  */
   VEC_truncate (tree, build_vuses, 0);
@@ -1101,7 +1101,7 @@ finalize_ssa_stmt_operands (tree stmt)
 {
   finalize_ssa_defs (stmt);
   finalize_ssa_uses (stmt);
-  finalize_ssa_v_may_defs (stmt);
+  finalize_ssa_vdefs (stmt);
   finalize_ssa_vuses (stmt);
 }
 
@@ -1114,7 +1114,7 @@ start_ssa_stmt_operands (void)
   gcc_assert (VEC_length (tree, build_defs) == 0);
   gcc_assert (VEC_length (tree, build_uses) == 0);
   gcc_assert (VEC_length (tree, build_vuses) == 0);
-  gcc_assert (VEC_length (tree, build_v_may_defs) == 0);
+  gcc_assert (VEC_length (tree, build_vdefs) == 0);
 }
 
 
@@ -1136,22 +1136,22 @@ append_use (tree *use_p)
 }
 
 
-/* Add a new virtual may def for variable VAR to the build array.  */
+/* Add a new virtual def for variable VAR to the build array.  */
 
 static inline void
-append_v_may_def (tree var)
+append_vdef (tree var)
 {
   if (TREE_CODE (var) != SSA_NAME)
     {
       var_ann_t ann = get_var_ann (var);
 
       /* Don't allow duplicate entries.  */
-      if (ann->in_v_may_def_list)
+      if (ann->in_vdef_list)
 	return;
-      ann->in_v_may_def_list = 1;
+      ann->in_vdef_list = 1;
     }
 
-  VEC_safe_push (tree, heap, build_v_may_defs, (tree)var);
+  VEC_safe_push (tree, heap, build_vdefs, (tree)var);
 }
 
 
@@ -1165,7 +1165,7 @@ append_vuse (tree var)
     {
       var_ann_t ann = get_var_ann (var);
 
-      if (ann->in_vuse_list || ann->in_v_may_def_list)
+      if (ann->in_vuse_list || ann->in_vdef_list)
         return;
       ann->in_vuse_list = 1;
     }
@@ -1328,13 +1328,13 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
   if (TREE_THIS_VOLATILE (sym) && s_ann)
     s_ann->has_volatile_ops = true;
 
-  /* If the variable cannot be modified and this is a V_MAY_DEF change
+  /* If the variable cannot be modified and this is a VDEF change
      it into a VUSE.  This happens when read-only variables are marked
      call-clobbered and/or aliased to writable variables.  So we only
      check that this only happens on non-specific stores.
 
      Note that if this is a specific store, i.e. associated with a
-     modify_expr, then we can't suppress the V_MAY_DEF, lest we run
+     modify_expr, then we can't suppress the VDEF, lest we run
      into validation problems.
 
      This can happen when programs cast away const, leaving us with a
@@ -1356,7 +1356,7 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
     {
       /* The variable is not aliased or it is an alias tag.  */
       if (flags & opf_is_def)
-	append_v_may_def (var);
+	append_vdef (var);
       else
 	append_vuse (var);
     }
@@ -1380,7 +1380,7 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 		continue;
 	      
 	      none_added = false;
-	      append_v_may_def (al);
+	      append_vdef (al);
 	    }
 
 	  /* If the variable is also an alias tag, add a virtual
@@ -1408,7 +1408,7 @@ add_virtual_operand (tree var, stmt_ann_t s_ann, int flags,
 		  && TREE_CODE (var) == SYMBOL_MEMORY_TAG)
 		gcc_assert (SMT_USED_ALONE (var));
 
-	      append_v_may_def (var);
+	      append_vdef (var);
 	    }
 	}
       else
@@ -1639,7 +1639,7 @@ add_call_clobber_ops (tree stmt, tree callee)
      or write that variable.  */
   not_read_b = callee ? ipa_reference_get_not_read_global (callee) : NULL; 
   not_written_b = callee ? ipa_reference_get_not_written_global (callee) : NULL; 
-  /* Add a V_MAY_DEF operand for every call clobbered variable.  */
+  /* Add a VDEF operand for every call clobbered variable.  */
   EXECUTE_IF_SET_IN_BITMAP (call_clobbered_vars, 0, u, bi)
     {
       tree var = referenced_var_lookup (u);
@@ -1754,7 +1754,7 @@ get_call_expr_operands (tree stmt, tree expr)
   tree op;
   int call_flags = call_expr_flags (expr);
 
-  /* If aliases have been computed already, add V_MAY_DEF or V_USE
+  /* If aliases have been computed already, add VDEF or V_USE
      operands for all the symbols that have been found to be
      call-clobbered.
      
@@ -1894,12 +1894,12 @@ get_modify_expr_operands (tree stmt, tree expr)
 
   /* For the LHS, use a regular definition (OPF_IS_DEF) for GIMPLE
      registers.  If the LHS is a store to memory, we will need
-     a preserving definition (V_MAY_DEF).
+     a preserving definition (VDEF).
 
      Preserving definitions are those that modify a part of an
      aggregate object for which no subvars have been computed (or the
      reference does not correspond exactly to one of them). Stores
-     through a pointer are also represented with V_MAY_DEF operators.
+     through a pointer are also represented with VDEF operators.
 
      We used to distinguish between preserving and killing definitions.
      We always emit preserving definitions now.  */
@@ -2232,7 +2232,7 @@ build_ssa_operands (tree stmt)
 
   parse_ssa_operands (stmt);
   operand_build_sort_virtual (build_vuses);
-  operand_build_sort_virtual (build_v_may_defs);
+  operand_build_sort_virtual (build_vdefs);
 
   finalize_ssa_stmt_operands (stmt);
 }
@@ -2245,7 +2245,7 @@ free_ssa_operands (stmt_operands_p ops)
 {
   ops->def_ops = NULL;
   ops->use_ops = NULL;
-  ops->maydef_ops = NULL;
+  ops->vdef_ops = NULL;
   ops->vuse_ops = NULL;
 }
 
@@ -2295,15 +2295,15 @@ copy_virtual_operands (tree dest, tree src)
   /* Copy all the virtual fields.  */
   FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VUSE)
     append_vuse (t);
-  FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VMAYDEF)
-    append_v_may_def (t);
+  FOR_EACH_SSA_TREE_OPERAND (t, src, iter, SSA_OP_VDEF)
+    append_vdef (t);
 
   if (VEC_length (tree, build_vuses) == 0
-      && VEC_length (tree, build_v_may_defs) == 0)
+      && VEC_length (tree, build_vdefs) == 0)
     return;
 
   /* Now commit the virtual operands to this stmt.  */
-  finalize_ssa_v_may_defs (dest);
+  finalize_ssa_vdefs (dest);
   finalize_ssa_vuses (dest);
 
   /* Finally, set the field to the same values as then originals.  */
@@ -2316,15 +2316,15 @@ copy_virtual_operands (tree dest, tree src)
     }
   gcc_assert (op_iter_done (&old_iter));
 
-  op_iter_init_maydef (&old_iter, src, &u3, &d2);
-  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, u4, dest, iter)
+  op_iter_init_vdef (&old_iter, src, &u3, &d2);
+  FOR_EACH_SSA_VDEF_OPERAND (def_p, u4, dest, iter)
     {
       gcc_assert (!op_iter_done (&old_iter));
       gcc_assert (VUSE_VECT_NUM_ELEM (*u3) == 1);
       gcc_assert (VUSE_VECT_NUM_ELEM (*u4) == 1);
       SET_USE (VUSE_ELEMENT_PTR_NC (*u4, 0), VUSE_ELEMENT_VAR (*u3, 0));
       SET_DEF (def_p, DEF_FROM_PTR (d2));
-      op_iter_next_maymustdef (&u3, &d2, &old_iter);
+      op_iter_next_vdef (&u3, &d2, &old_iter);
     }
   gcc_assert (op_iter_done (&old_iter));
 
@@ -2362,23 +2362,23 @@ create_ssa_artficial_load_stmt (tree new_stmt, tree old_stmt)
 	}
     }
    
-  for (x = 0; x < VEC_length (tree, build_v_may_defs); x++)
+  for (x = 0; x < VEC_length (tree, build_vdefs); x++)
     {
-      tree t = VEC_index (tree, build_v_may_defs, x);
+      tree t = VEC_index (tree, build_vdefs, x);
       if (TREE_CODE (t) != SSA_NAME)
 	{
 	  var_ann_t ann = var_ann (t);
-	  ann->in_v_may_def_list = 0;
+	  ann->in_vdef_list = 0;
 	}
     }
 
   /* Remove any virtual operands that were found.  */
-  VEC_truncate (tree, build_v_may_defs, 0);
+  VEC_truncate (tree, build_vdefs, 0);
   VEC_truncate (tree, build_vuses, 0);
 
   /* For each VDEF on the original statement, we want to create a
-     VUSE of the V_MAY_DEF result on the new statement.  */
-  FOR_EACH_SSA_TREE_OPERAND (op, old_stmt, iter, SSA_OP_VMAYDEF)
+     VUSE of the VDEF result on the new statement.  */
+  FOR_EACH_SSA_TREE_OPERAND (op, old_stmt, iter, SSA_OP_VDEF)
     append_vuse (op);
     
   /* Now build the operands for this new stmt.  */

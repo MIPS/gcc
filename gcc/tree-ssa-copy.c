@@ -527,7 +527,7 @@ dump_copy_of (FILE *file, tree var)
 /* Evaluate the RHS of STMT.  If it produces a valid copy, set the LHS
    value and store the LHS into *RESULT_P.  If STMT generates more
    than one name (i.e., STMT is an aliased store), it is enough to
-   store the first name in the V_MAY_DEF list into *RESULT_P.  After
+   store the first name in the VDEF list into *RESULT_P.  After
    all, the names generated will be VUSEd in the same statements.  */
 
 static enum ssa_prop_result
@@ -572,7 +572,7 @@ copy_prop_visit_assignment (tree stmt, tree *result_p)
     }
   else if (stmt_makes_single_store (stmt))
     {
-      /* Otherwise, set the names in V_MAY_DEF operands to be a copy
+      /* Otherwise, set the names in VDEF operands to be a copy
 	 of RHS.  */
       ssa_op_iter i;
       tree vdef;

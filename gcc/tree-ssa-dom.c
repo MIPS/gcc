@@ -1454,7 +1454,7 @@ eliminate_redundant_computations (tree stmt)
   if (! def
       || TREE_CODE (def) != SSA_NAME
       || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def)
-      || !ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF)
+      || !ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF)
       /* Do not record equivalences for increments of ivs.  This would create
 	 overlapping live ranges for a very questionable gain.  */
       || simple_iv_increment_p (stmt))
@@ -1714,7 +1714,7 @@ cprop_operand (tree stmt, use_operand_p op_p)
    known value for that SSA_NAME (or NULL if no value is known).  
 
    Propagate values from CONST_AND_COPIES into the uses, vuses and
-   v_may_def_ops of STMT.  */
+   vdef_ops of STMT.  */
 
 static bool
 cprop_into_stmt (tree stmt)
@@ -1773,7 +1773,7 @@ optimize_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
       print_generic_stmt (dump_file, stmt, TDF_SLIM);
     }
 
-  /* Const/copy propagate into USES, VUSES and the RHS of V_MAY_DEFs.  */
+  /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
   may_have_exposed_new_symbols = cprop_into_stmt (stmt);
 
   /* If the statement has been modified with constant replacements,

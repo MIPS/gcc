@@ -86,14 +86,14 @@ typedef struct vuse_vec_d *vuse_vec_p;
 #define VUSE_ELEMENT_PTR(V,X)	VUSE_ELEMENT_PTR_NC(V,X)
 #define VUSE_ELEMENT_VAR(V,X)	(VUSE_VECT_ELEMENT ((V),(X)).use_var)
 
-/* This represents the MAY_DEFS for a stmt.  */
-struct maydef_optype_d
+/* This represents the VDEFS for a stmt.  */
+struct vdef_optype_d
 {
-  struct maydef_optype_d *next;
+  struct vdef_optype_d *next;
   tree def_var;
   vuse_vec_t usev;
 };
-typedef struct maydef_optype_d *maydef_optype_p;
+typedef struct vdef_optype_d *vdef_optype_p;
 
 /* This represents the VUSEs for a stmt.  */
 struct vuse_optype_d
@@ -120,8 +120,8 @@ struct stmt_operands_d
   struct def_optype_d * def_ops;
   struct use_optype_d * use_ops;
                                                                               
-  /* Virtual operands (V_MAY_DEF, VUSE).  */
-  struct maydef_optype_d * maydef_ops;
+  /* Virtual operands (VDEF, VUSE).  */
+  struct vdef_optype_d * vdef_ops;
   struct vuse_optype_d * vuse_ops;
 };
                                                                               
@@ -137,7 +137,7 @@ typedef struct stmt_operands_d *stmt_operands_p;
 #define DEF_OPS(STMT)		(stmt_ann (STMT)->operands.def_ops)
 #define USE_OPS(STMT)		(stmt_ann (STMT)->operands.use_ops)
 #define VUSE_OPS(STMT)		(stmt_ann (STMT)->operands.vuse_ops)
-#define MAYDEF_OPS(STMT)	(stmt_ann (STMT)->operands.maydef_ops)
+#define VDEF_OPS(STMT)		(stmt_ann (STMT)->operands.vdef_ops)
 
 #define USE_OP_PTR(OP)		(&((OP)->use_ptr))
 #define USE_OP(OP)		(USE_FROM_PTR (USE_OP_PTR (OP)))
@@ -150,12 +150,12 @@ typedef struct stmt_operands_d *stmt_operands_p;
 #define VUSE_NUM(OP)		VUSE_VECT_NUM_ELEM ((OP)->usev)
 #define VUSE_VECT(OP)		&((OP)->usev)
 
-#define MAYDEF_RESULT_PTR(OP)	(&((OP)->def_var))
-#define MAYDEF_RESULT(OP)	((OP)->def_var)
-#define MAYDEF_OP_PTR(OP,X)	VUSE_OP_PTR (OP, X)
-#define MAYDEF_OP(OP,X)		VUSE_OP (OP, X)
-#define MAYDEF_NUM(OP)		VUSE_VECT_NUM_ELEM ((OP)->usev)
-#define MAYDEF_VECT(OP)		&((OP)->usev)
+#define VDEF_RESULT_PTR(OP)	(&((OP)->def_var))
+#define VDEF_RESULT(OP)	((OP)->def_var)
+#define VDEF_OP_PTR(OP,X)	VUSE_OP_PTR (OP, X)
+#define VDEF_OP(OP,X)		VUSE_OP (OP, X)
+#define VDEF_NUM(OP)		VUSE_VECT_NUM_ELEM ((OP)->usev)
+#define VDEF_VECT(OP)		&((OP)->usev)
 
 #define PHI_RESULT_PTR(PHI)	get_phi_result_ptr (PHI)
 #define PHI_RESULT(PHI)		DEF_FROM_PTR (PHI_RESULT_PTR (PHI))
@@ -172,7 +172,7 @@ typedef struct stmt_operands_d *stmt_operands_p;
 #define PHI_ARG_INDEX_FROM_USE(USE)   phi_arg_index_from_use (USE)
 
 
-extern struct maydef_optype_d *realloc_maydef (struct maydef_optype_d *, int);
+extern struct vdef_optype_d *realloc_vdef (struct vdef_optype_d *, int);
 extern struct vuse_optype_d *realloc_vuse (struct vuse_optype_d *, int);
 
 extern void init_ssa_operands (void);
@@ -198,7 +198,7 @@ enum ssa_op_iter_type {
   ssa_op_iter_tree,
   ssa_op_iter_use,
   ssa_op_iter_def,
-  ssa_op_iter_maymustdef
+  ssa_op_iter_vdef
 };
 /* This structure is used in the operand iterator loops.  It contains the 
    items required to determine which operand is retrieved next.  During
@@ -210,8 +210,8 @@ typedef struct ssa_operand_iterator_d
   def_optype_p defs;
   use_optype_p uses;
   vuse_optype_p vuses;
-  maydef_optype_p maydefs;
-  maydef_optype_p mayuses;
+  vdef_optype_p vdefs;
+  vdef_optype_p mayuses;
   enum ssa_op_iter_type iter_type;
   int phi_i;
   int num_phi;
@@ -226,12 +226,12 @@ typedef struct ssa_operand_iterator_d
 #define SSA_OP_USE		0x01	/* Real USE operands.  */
 #define SSA_OP_DEF		0x02	/* Real DEF operands.  */
 #define SSA_OP_VUSE		0x04	/* VUSE operands.  */
-#define SSA_OP_VMAYUSE		0x08	/* USE portion of V_MAY_DEFS.  */
-#define SSA_OP_VMAYDEF		0x10	/* DEF portion of V_MAY_DEFS.  */
+#define SSA_OP_VMAYUSE		0x08	/* USE portion of VDEFS.  */
+#define SSA_OP_VDEF		0x10	/* DEF portion of VDEFS.  */
 
 /* These are commonly grouped operand flags.  */
 #define SSA_OP_VIRTUAL_USES	(SSA_OP_VUSE | SSA_OP_VMAYUSE)
-#define SSA_OP_VIRTUAL_DEFS	(SSA_OP_VMAYDEF)
+#define SSA_OP_VIRTUAL_DEFS	(SSA_OP_VDEF)
 #define SSA_OP_ALL_VIRTUALS     (SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_DEFS)
 #define SSA_OP_ALL_USES		(SSA_OP_VIRTUAL_USES | SSA_OP_USE)
 #define SSA_OP_ALL_DEFS		(SSA_OP_VIRTUAL_DEFS | SSA_OP_DEF)
@@ -261,21 +261,13 @@ typedef struct ssa_operand_iterator_d
        !op_iter_done (&(ITER));					\
        DEFVAR = op_iter_next_def (&(ITER)))
 
-/* This macro executes a loop over the V_MAY_DEF operands of STMT.  The def
-   and use for each V_MAY_DEF is returned in DEFVAR and USEVAR. 
+/* This macro executes a loop over the VDEF operands of STMT.  The def
+   and use for each VDEF is returned in DEFVAR and USEVAR. 
    ITER is an ssa_op_iter structure used to control the loop.  */
-#define FOR_EACH_SSA_MAYDEF_OPERAND(DEFVAR, USEVAR, STMT, ITER)	\
-  for (op_iter_init_maydef (&(ITER), STMT, &(USEVAR), &(DEFVAR));	\
+#define FOR_EACH_SSA_VDEF_OPERAND(DEFVAR, USEVAR, STMT, ITER)	\
+  for (op_iter_init_vdef (&(ITER), STMT, &(USEVAR), &(DEFVAR));	\
        !op_iter_done (&(ITER));					\
-       op_iter_next_maymustdef (&(USEVAR), &(DEFVAR), &(ITER)))
-
-/* This macro executes a loop over the V_{MUST,MAY}_DEF of STMT.  The def
-   and kill for each V_{MUST,MAY}_DEF is returned in DEFVAR and KILLVAR. 
-   ITER is an ssa_op_iter structure used to control the loop.  */
-#define FOR_EACH_SSA_MUST_AND_MAY_DEF_OPERAND(DEFVAR, KILLVAR, STMT, ITER)\
-  for (op_iter_init_must_and_may_def (&(ITER), STMT, &(KILLVAR), &(DEFVAR));\
-       !op_iter_done (&(ITER));					\
-       op_iter_next_maymustdef (&(KILLVAR), &(DEFVAR), &(ITER)))
+       op_iter_next_vdef (&(USEVAR), &(DEFVAR), &(ITER)))
 
 /* This macro will execute a loop over all the arguments of a PHI which
    match FLAGS.   A use_operand_p is always returned via USEVAR.  FLAGS

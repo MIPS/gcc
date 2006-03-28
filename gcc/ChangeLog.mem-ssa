@@ -1,3 +1,84 @@
+2006-03-28  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-ssa-operands.h: Rename all *maydef* globals to *vdef*.
+	Rename all *MAYDEF* macros to VDEF*.
+	Adjust all SSA_OP_* macros accordingly.
+	Adjust all comments to reflect *vdef* renaming.
+	* tree-into-ssa.c (mark_def_sites): Rename *MAYDEF* to *VDEF*.
+	* tree-pretty-print.c (dump_vops): Same.
+	* tree.h: Same.
+	* tree-ssa-dse.c (dse_optimize_stmt): Same.
+	* tree-gimple.c (is_gimple_reg_rhs): Same.
+	* tree-ssa-ccp.c (visit_assignment): Same.
+	* tree-ssa-dom.c (eliminate_redundant_computations): Same.
+	(cprop_operand): Same.
+	(optimize_stmt): Same.
+	* tree-ssa-propagate.c (ssa_propagate): Same.
+	(stmt_makes_single_load): Same.
+	(stmt_makes_single_store): Same.
+	(replace_uses_in): Same.
+	* tree-ssa-alias.c (recalculate_used_alone): Same.
+	(group_aliases): Same.
+	(setup_pointers_and_addressables): Same.
+	* tree-ssa-sink.c (all_immediate_uses_same_place): Same.
+	(is_hidden_global_store): Same.
+	(statement_sink_location): Same.
+	* tree-flow-inline.h (op_iter_next_use):Same.
+	Rename op_iter_init_maydef to op_iter_init_vdef.
+	Remove op_iter_init_must_and_may_def.
+	(op_iter_next_def): Rename *MAYDEF* to *VDEF*.
+	(op_iter_next_tree): Same.
+	(clear_and_done_ssa_iter): Same.
+	(op_iter_init): Same.
+	(op_iter_init_tree): Same.
+	(op_iter_next_mustdef): Same.
+	* tree-dfa.c (dump_dfa_stats): Same.
+	(collect_dfa_stats_r): Same.
+	(mark_new_vars_to_rename): Same.
+	* tree-ssa-pre.c (compute_rvuse_and_antic_safe): Same.
+	(remove_dead_inserted_code): Same.
+	* tree-ssa-live.c (create_ssa_var_map): Same.
+	* tree-sra.c (decide_instantiations): Same.
+	* tree-ssa-copy.c (dump_copy_of): Same.
+	(copy_prop_visit_assignment): Same.
+	* tree-ssa-dce.c (propagate_necessity): Same.
+	* tree-ssa.c (verify_ssa_name): Same.
+	(verify_ssa): Same.
+	* tree-vect-transform.c (vectorizable_store): Same.
+	(vect_generate_tmps_on_preheader): Same.
+	* tree-outof-ssa.c (coalesce_vars): Same.
+	(check_replaceable): Same.
+	* tree-flow.h: Same.
+	* tree-ssa-structalias.c (update_alias_info): Same.
+	* tree-ssa-operands.c: Rename *v_may_def* to *vdef*.
+	(realloc_maydef): Rename to realloc_vdef.
+	(finalize_ssa_v_may_def_ops): Rename to finalize_ssa_vdef_ops.
+	(finalize_ssa_v_may_defs): Rename to finalize_ssa_vdefs.
+	(cleanup_v_may_defs): Rename to cleanup_vdefs.
+	(append_v_may_def): Rename to append_vdef.
+	(init_ssa_operands): Rename *MAYDEF* to *VDEF*.
+	(fini_ssa_operands): Same.
+	(alloc_use): Same.
+	(add_vuse_op): Same.
+	(add_maydef_op): Rename to add_vdef_op.
+	(realloc_maydef): Rename *MAYDEF* to *VDEF*.
+	(realloc_vuse): Same.
+	(finalize_ssa_uses): Same.
+	(finalize_ssa_vuse_ops): Same.
+	(finalize_ssa_vuses): Same.
+	(finalize_ssa_stmt_operands): Same.
+	(start_ssa_stmt_operands): Same.
+	(append_use): Same.
+	(append_vuse): Same.
+	(add_virtual_operand): Same.
+	(add_call_clobber_ops): Same.
+	(get_call_expr_operands): Same.
+	(get_modify_expr_operands): Same.
+	(build_ssa_operands): Same.
+	(free_ssa_operands): Same.
+	(copy_virtual_operands): Same.
+	(create_ssa_artficial_load_stmt): Same.
+
 2006-03-17  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-ssa-operands.c: Remove build_v_must_defs.

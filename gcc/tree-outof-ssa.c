@@ -1272,7 +1272,7 @@ coalesce_vars (var_map map, tree_live_info_p liveinfo)
    dependent on any virtual variable (via a VUSE) has a dependence added
    to the special partition defined by VIRTUAL_PARTITION.
 
-   Whenever a V_MAY_DEF is seen, all expressions dependent this 
+   Whenever a VDEF is seen, all expressions dependent this 
    VIRTUAL_PARTITION are removed from consideration.
 
    At the end of a basic block, all expression are removed from consideration
@@ -1310,7 +1310,7 @@ typedef struct temp_expr_table_d
   value_expr_p pending_dependence;
 } *temp_expr_table_p;
 
-/* Used to indicate a dependency on V_MAY_DEFs.  */
+/* Used to indicate a dependency on VDEFs.  */
 #define VIRTUAL_PARTITION(table)	(table->virtual_partition)
 
 static temp_expr_table_p new_temp_expr_table (var_map);
@@ -1572,7 +1572,7 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
     return false;
 
   /* There must be no VDEFs.  */
-  if (!(ZERO_SSA_OPERANDS (stmt, SSA_OP_VMAYDEF)))
+  if (!(ZERO_SSA_OPERANDS (stmt, SSA_OP_VDEF)))
     return false;
 
   /* Float expressions must go through memory if float-store is on.  */

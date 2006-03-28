@@ -658,11 +658,11 @@ mark_def_sites (struct dom_walk_data *walk_data,
     }
   
   /* Note that virtual definitions are irrelevant for computing KILLS
-     because a V_MAY_DEF does not constitute a killing definition of the
+     because a VDEF does not constitute a killing definition of the
      variable.  However, the operand of a virtual definitions is a use
      of the variable, so it may cause the variable to be considered
      live-on-entry.  */
-  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, vv, stmt, iter)
+  FOR_EACH_SSA_VDEF_OPERAND (def_p, vv, stmt, iter)
     {
       tree sym;
       gcc_assert (VUSE_VECT_NUM_ELEM (*vv) == 1);
@@ -676,7 +676,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
     }
 
   /* Now process the defs and vdefs made by this statement.  */
-  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF | SSA_OP_VMAYDEF)
+  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF | SSA_OP_VDEF)
     {
       gcc_assert (DECL_P (def));
       set_def_block (def, bb, false);

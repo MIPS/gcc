@@ -2577,14 +2577,14 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
   if (!ssa_operands_active ())
     return;
 
-  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, vv, stmt, iter)
+  FOR_EACH_SSA_VDEF_OPERAND (def_p, vv, stmt, iter)
     {
       gcc_assert (VUSE_VECT_NUM_ELEM (*vv) == 1);
       use_p = VUSE_ELEMENT_PTR (*vv, 0);
       pp_string (buffer, "#   ");
       dump_generic_node (buffer, DEF_FROM_PTR (def_p),
                          spc + 2, flags, false);
-      pp_string (buffer, " = V_MAY_DEF <");
+      pp_string (buffer, " = VDEF <");
       dump_generic_node (buffer, USE_FROM_PTR (use_p),
                          spc + 2, flags, false);
       pp_string (buffer, ">;");

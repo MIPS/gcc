@@ -2316,7 +2316,7 @@ struct tree_memory_tag GTY(())
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
 
-/* This flag is true if a SMT is used as the V_MAY_DEF or VUSE operand
+/* This flag is true if a SMT is used as the VDEF or VUSE operand
    directly, because the access had all of the SMT's aliases pruned
    from it.  */
 #define SMT_USED_ALONE(NODE) (SYMBOL_MEMORY_TAG_CHECK (NODE)->mtag.is_used_alone)

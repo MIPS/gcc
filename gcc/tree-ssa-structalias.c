@@ -3063,7 +3063,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
 	 So, if the original code had no other dereferences of PTR,
 	 the aliaser will not create memory tags for it, and when
 	 &PTR->FLD gets propagated to INDIRECT_REF expressions, the
-	 memory operations will receive no V_MAY_DEF/VUSE operands.
+	 memory operations will receive no VDEF/VUSE operands.
 
 	 One solution would be to have count_uses_and_derefs consider
 	 &PTR->FLD a dereference of PTR.  But that is wrong, since it
@@ -3145,7 +3145,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
       
     }
   
-  /* Mark variables in V_MAY_DEF operands as being written to.  */
+  /* Mark variables in VDEF operands as being written to.  */
   FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_DEFS)
     {
       tree var = DECL_P (op) ? op : SSA_NAME_VAR (op);

@@ -539,14 +539,14 @@ propagate_necessity (struct edge_list *el)
       else
 	{
 	  /* Propagate through the operands.  Examine all the USE, VUSE and
-	     V_MAY_DEF operands in this statement.  Mark all the statements 
+	     VDEF operands in this statement.  Mark all the statements 
 	     which feed this statement's uses as necessary.  */
 	  ssa_op_iter iter;
 	  tree use;
 
-	  /* The operands of V_MAY_DEF expressions are also needed as they
+	  /* The operands of VDEF expressions are also needed as they
 	     represent potential definitions that may reach this
-	     statement (V_MAY_DEF operands allow us to follow def-def 
+	     statement (VDEF operands allow us to follow def-def 
 	     links).  */
 
 	  FOR_EACH_SSA_TREE_OPERAND (use, i, iter, SSA_OP_ALL_USES)

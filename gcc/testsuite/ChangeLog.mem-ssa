@@ -3,3 +3,13 @@
 	* gcc.dg/tree-ssa/20040517-1.c: Expect 2 V_MAY_DEFs.
 
 	* gcc.dg/tree-ssa/pr26421.c: Same.
+
+2006-03-28  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/tree-ssa/20040517-1.c: Rename V_MAY_DEF to VDEF.
+	* gcc.dg/tree-ssa/pr26421.c: Same.
+	* gcc.dg/tree-ssa/inline_asm-1.c: Same.
+	* gcc.dg/tree-ssa/pr23382.c: Same.
+	* gcc.dg/tree-ssa/inline_asm-2.c: Same.
+	* gcc.dg/tree-ssa/20031015-1.c: Same.
+	* gcc.dg/tree-ssa/alias-12.c: Same.
