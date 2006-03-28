@@ -1,3 +1,40 @@
+2006-03-23  Andrew Haley  <aph@redhat.com>
+
+	* java/net/InetAddress.java: Throw an UnknownHostException if
+	lookup fails.
+
+2006-02-16  Andrew Haley  <aph@redhat.com>
+
+	* stacktrace.cc (GetStackTraceElements): Call
+	gnu::gcj::runtime::NameFinder::removeUnknown() to determine if
+	non-Java frames should be removed from a printed stack trace.
+	Pass methodName to getLineNumberForFrame().
+	(getLineNumberForFrame): Set method_name from info.dli_sname.
+	* gnu/gcj/runtime/NameFinder.java (removeUnknown): New method.
+	(remove_unknown): New variable.
+	* include/java-stack.h (_Jv_StackTrace::getLineNumberForFrame):
+	Add methodName arg.
+
+2006-03-10  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/25713:
+	* java/util/zip/GZIPOutputStream.java (write(int)): Don't update
+	CRC.
+
+2006-03-09  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24461:
+	* java/util/zip/InflaterInputStream.java (fill): Throw exception
+	if stream is truncated.
+
+2006-03-07  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26103:
+	* java/lang/ClassLoader.java (loadClass): Don't throw
+	StringIndexOutOfBoundsException if name is empty.
+	* java/lang/natClassLoader.cc (loadClassFromSig): Throw exception
+	if class not found.
+
 2006-02-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR other/26208

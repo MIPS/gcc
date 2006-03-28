@@ -379,6 +379,7 @@ typedef enum
   ERROR_READ_OVERFLOW,
   ERROR_INTERNAL,
   ERROR_INTERNAL_UNIT,
+  ERROR_DIRECT_EOR,
   ERROR_LAST			/* Not a real error, the last error # + 1.  */
 }
 error_codes;
@@ -403,6 +404,13 @@ error_codes;
 #define GFC_FPE_OVERFLOW   (1<<3)
 #define GFC_FPE_UNDERFLOW  (1<<4)
 #define GFC_FPE_PRECISION  (1<<5)
+
+/* This is returned by notification_std to know if, given the flags
+   that were given (-std=, -pedantic) we should issue an error, a warning
+   or nothing.  */
+typedef enum
+{ SILENT, WARNING, ERROR }
+notification;
 
 /* The filename and line number don't go inside the globals structure.
    They are set by the rest of the program and must be linked to.  */

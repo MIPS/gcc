@@ -431,6 +431,10 @@ translate_error (int code)
       p = "Internal unit I/O error";
       break;
 
+    case ERROR_DIRECT_EOR:
+      p = "Write exceeds length of DIRECT access record";
+      break;
+
     default:
       p = "Unknown error code";
       break;
@@ -495,6 +499,25 @@ generate_error (st_parameter_common *cmp, int family, const char *message)
   show_locus (cmp);
   st_printf ("Fortran runtime error: %s\n", message);
   sys_exit (2);
+}
+
+
+/* Whether, for a feature included in a given standard set (GFC_STD_*),
+   we should issue an error or a warning, or be quiet.  */
+
+notification
+notification_std (int std)
+{
+  int warning;
+
+  if (!compile_options.pedantic)
+    return SILENT;
+
+  warning = compile_options.warn_std & std;
+  if ((compile_options.allow_std & std) != 0 && !warning)
+    return SILENT;
+
+  return warning ? WARNING : ERROR;
 }
 
 

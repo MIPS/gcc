@@ -1,3 +1,146 @@
+2006-03-27  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/26459
+	* config/rs6000/rs6000.md (DF reg move peephole): Prevent
+	peephole removing spe frob_di_df_2.
+
+2006-03-24  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/26607
+	* config/rs6000/darwin-ldouble.c: Don't compile when __NO_FPRS__
+	or __LITTLE_ENDIAN__.
+
+2006-03-23  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_legitimate_constant_p): Reject
+	tls symbols.
+
+	PR target/26347
+	* config/alpha/predicates.md (local_symbolic_operand): Reject
+	weak symbols.
+
+2006-03-22  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.h (ASM_FORMAT_PRIVATE_NAME): Remove.
+
+2006-03-21  Jason Merrill  <jason@redhat.com>
+
+	* builtins.c (expand_builtin_fork_or_exec): Fix pasto.
+
+	PR middle-end/20297
+	* expr.c (init_block_move_fn): Force default visibility.
+	(init_block_clear_fn): Likewise.
+	* builtins.c (expand_builtin_fork_or_exec): Likewise.
+	* targhooks.c (default_external_stack_protect_fail): Likewise.
+
+2006-03-16  David Edelsohn  <edelsohn@gnu.org>
+
+	Backport from mainline.
+	* config/rs6000/rs6000.c (rs6000_init_builtins): Change
+	decl libname for clog to __clog on AIX.
+
+2006-03-16  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/25917
+	Backport from mainline.
+	* config/ia64/predicates.md (extr_len_operand): New predicate.
+	* config/ia64/ia64.md (extv): Tighten constraints.
+	(extzv): Ditto.
+	(*tbit_and_2): Ditto.
+	(*tbit_and_3): Ditto.
+	(*tbit_or_2): Ditto.
+	(*tbit_or_3): Ditto.
+	(*bit_zero): Ditto.
+	(*bit_one): Ditto.
+
+2006-03-16  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	* gcc/config/arm/arm.c (minipool_pad): New.
+	(add_minipool_forward_ref): Include pool alignment padding in address
+	calculation.
+	(push_minipool_fix): Set minipool_pad.
+	(minipool_pad): Ditto.
+
+2006-03-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/19543
+	Backport from mainline.
+	* varasm.c (compare_constant) <INTEGER_CST>: Integer constants are
+	only equivalent if the have both the same mode and precision.
+
+2006-03-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR other/26489
+	Backport from mainline.
+	* gthr-posix.h (__gthrw2): Define to take three parameters, the
+	declared name, the weak reference name, and the typeof name.
+	(__gthrw): Avoid expanding the declared name suffix.
+	(__gthrw3): New Tru64 specific macro to simplify the OSF/1 decls.
+
+2006-03-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/26557
+	* stmt.c (emit_case_nodes): Handle the case where the index is a
+	CONST_INT, where the comparison mode is specified by the index type.
+
+2006-03-14  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa/pa32-linux.h (CRT_CALL_STATIC_FUNCTION): Fix typo.
+
+2006-03-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26672
+	* tree-ssa-propagate.c (set_rhs): Don't walk DEFs if not in
+	SSA form.
+
+2006-03-13  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* pa/pa32-linux.h (CRT_CALL_STATIC_FUNCTION): Define when CRTSTUFFS_O
+	is defined.
+
+2006-03-13  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/uclinux.h: Define _GNU_SOURCE in CPLUSPLUS_CPP_SPEC.
+
+2006-03-13  Bernd Schmidt  <bernd.schmidt@analog.com>
+
+	* config/bfin/lib1funcs.asm (___umodsi3): Use stack to save contents
+	of RETS.
+	* config/bfin/bfin.h (TARGET_CPU_CPP_BUILTINS): If
+	TARGET_ID_SHARED_LIBRARY, define __ID_SHARED_LIB__.
+	* config/bfin/crti.S: Use it instead of __PIC__.
+	* config/bfin/crtn.S: Likewise.
+
+	* config/bfin/bfin.md (call_value_symbol, sibcall_value_symbol,
+	call_symbol, sibcall_symbol): Disallow if TARGET_ID_SHARED_LIBRARY,
+	not if flag_pic.
+	Lose 'G' modifier for call operand.
+	* config/bfin/bfin.c (print_operand) <case SYMBOL_REF>: Don't
+	recognize 'G' modifier.
+
+2006-03-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/18859
+	* stmt.c (expand_case): Discard empty ranges.
+
+2006-03-10  Jason Merrill  <jason@redhat.com>
+
+	PR c/26004
+	* gimplify.c (gimplify_modify_expr_rhs): Don't do return slot opt if 
+	the target was declared 'register'.
+
+2006-03-09  Roger Sayle  <roger@eyesopen.com>
+
+	PR tree-optimization/26524
+	* tree-scalar-evolution.c (interpret_rhs_modify_expr): Use
+	fold_convert to create a constant of the appropriate type.
+
+2006-03-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26587
+	* tree-ssa-structalias.c (handle_ptr_arith): Handle MINUS_EXPR.
+
 2006-03-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2.h (DW_TAG_condition, DW_TAG_shared_type): New constants

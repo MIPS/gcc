@@ -1,3 +1,223 @@
+2006-03-27  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/20935
+	Backport from mainline
+	* gfortran.dg/scalar_mask_2.f90:  New test case.
+
+2006-03-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25378
+	Backport from mainline
+	* gfortran.fortran-torture/execute/intrinsic_mmloc_3.f90: Expand
+	test to include more permuatations of mask and index.
+	* testsuite/gfortran.dg/scalar_mask_1.f90: Modify last test to
+	respond to F2003 spec. that the position returned for an all false
+	mask && condition is zero.
+
+2006-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/advance_2.f90: New test.
+	* gfortran.dg/advance_3.f90: New test.
+
+	* gfortran.fortran-torture/execute/equiv_5.f: New test.
+
+2006-03-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26661
+	PR libgfortran/26880
+	* gfortran.dg/read_x_past.f: New test.
+
+2006-03-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26509
+	gfortran.dg/write_direct_eor.f90: New test.
+
+2006-03-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gfortran.dg/endfile_2.f90: Delete temp file.
+
+2006-03-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/17298
+	* gfortran.dg/transfer_array_intrinsic_1.f90: New test.
+	* gfortran.dg/transfer_array_intrinsic_2.f90: New test.
+
+2006-03-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gfortran.dg/advance.f90, gfortran.dg/backspace_2.f,
+	gfortran.dg/comma.f, gfortran.dg/direct_io_2.f90,
+	gfortran.dg/tl_editing.f90, gfortran.dg/unf_io_convert_1.f90,
+	gfortran.dg/write_back.f,
+	gfortran.fortran-torture/execute/inquire_1.f90,
+	gfortran.fortran-torture/execute/inquire_3.f90: Delete temp file.
+
+2006-03-19  Tobias Schlüter  <tobias.schlueter@physik.uni-muenchen.de>
+
+        (backport r110993)
+	PR fortran/26277
+	* gfortran.dg/label_4.f90: New.
+
+2006-03-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26741
+	* gfortran.dg/elemental_initializer_1.f90: New test.
+
+	PR fortran/26716
+	* gfortran.dg/assumed_shape_ranks_2: New test.
+
+2006-03-18  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gfortran.dg/direct_io_1.f90, gfortran.dg/iostat_2.f90,
+	gfortran.dg/open_new.f90, gfortran.dg/open_readonly_1.f90,
+	gfortran.dg/pr16935.f90, gfortran.dg/pr20954.f,
+	gfortran.dg/read_many_1.f, gfortran.dg/unf_io_convert_2.f90,
+	gfortran.fortran-torture/execute/direct_io.f90,
+	gfortran.fortran-torture/execute/inquire_2.f90,
+	gfortran.fortran-torture/execute/inquire_4.f90,
+	gfortran.fortran-torture/execute/list_read_1.f90,
+	gfortran.fortran-torture/execute/open_replace.f90,
+	gfortran.fortran-torture/execute/slash_edit.f90,
+	gfortran.fortran-torture/execute/unopened_unit_1.f90: Delete
+	temporary files from testcases.
+
+2006-03-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/opt/pr15551.C: Cleanup temp file.
+
+2006-03-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26499
+	* gfortran.dg/write_back.f: New test.
+	* gfortran.dg/write_rewind_1.f: New test.
+	* gfortran.dg/write_rewind_2.f: New test.
+
+2006-03-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/19543
+	* gfortran.dg/logical_1.f90: New test case.
+
+2006-03-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/26557
+	* gcc.c-torture/compile/switch-1.c: New test case.
+
+2006-03-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26672
+	* gcc.dg/torture/pr26672.c: New testcase.
+
+2006-03-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/switch-9.c: New test.
+
+2006-03-13  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/26630
+	* gcc.dg/torture/pr26630.c: New testcase.
+
+2006-03-11  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/26054
+	* gfortran.dg/enum_8.f90: Remove check for warning.
+	* gfortran.dg/iomsg_1.f90: Ditto.
+	* gfortran.dg/enum_1.f90: Ditto.
+	* gfortran.dg/enum_9.f90: Ditto.
+	* gfortran.dg/enum_2.f90: Ditto.
+	* gfortran.dg/enum_10.f90: Ditto.
+	* gfortran.dg/enum_3.f90: Ditto.
+	* gfortran.dg/flush_1.f90: Ditto.
+	* gfortran.dg/enum_4.f90: Ditto.
+	* gfortran.dg/array_constructor_1.f90: Ditto.
+	* gfortran.dg/enum_5.f90: Ditto.
+	* gfortran.dg/enum_6.f90: Ditto.
+	* gfortran.dg/enum_7.f90: Ditto.
+
+2006-03-09  Roger Sayle  <roger@eyesopen.com>
+
+	PR tree-optimization/26524
+	* gfortran.dg/pr26524.f: New test case.
+
+2006-03-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26554
+	* gfortran.dg/read_logical.f90: New test.
+
+2006-03-07  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2006-01-18  Jeff Law  <law@redhat.com>
+	
+	* gcc.dg/tree-ssa/pr23109.c: Remove the .lim file too.
+
+2006-03-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR fortran/26041
+	PR fortran/26064
+	Backport from mainline
+	* gfortran.dg/sibling_dummy_procedure_1.f90: New file.
+	* gfortran.dg/sibling_dummy_procedure_2.f90: Likewise.
+	* gfortran.dg/sibling_dummy_procedure_3.f90: Likewise.
+
+2006-03-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26587
+	* gcc.dg/torture/pr26587.c: New testcase.
+
+2006-03-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26107
+	* gfortran.dg/logical_dot_product.f90: New test. 
+
+	PR fortran/26393
+	* gfortran.dg/used_interface_ref.f90: New test.
+
+	PR fortran/20938
+	* gfortran.dg/dependency_2.f90: New test.
+	* gfortran.fortran-torture/execute/where17.f90: New test.
+	* gfortran.fortran-torture/execute/where18.f90: New test.
+	* gfortran.fortran-torture/execute/where19.f90: New test.
+	* gfortran.fortran-torture/execute/where20.f90: New test.
+
+	PR fortran/24519
+	* gfortran.dg/dependency_3.f90: New test.
+	* gfortran.fortran-torture/execute/vect-3.f90: Remove two of the
+	XFAILs.
+
+	PR fortran/25395
+	* gfortran.dg/equiv_6.f90: New test.
+
+	PR fortran/25054
+	* gfortran.dg/namelist_5.f90: New test.
+
+	PR fortran/25089
+	* gfortran.dg/namelist_4.f90: New test.
+
+	PR fortran/24557
+	* gfortran.dg/assumed_charlen_needed_1.f90: New test.
+
+2006-03-05  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/23092
+	backport from mainline
+	* gfortran.dg/scalar_mask_1.f90:  New test.
+
+2006-03-04  Laurent GUERBY <laurent@guerby.net>
+
+        * ada/acats/norun.lst: cdd2a03 now passes.
+
+2006-03-04  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/25045
+	PR fortran/25075
+	backport from mainline
+        * optional_dim.f90:  New test.
+	* intrinsic_argument_conformance_1.f90:  New test.
+
+2006-03-04  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/21303
+	* gcc/testsuite/gfortran.dg/fmt_l.f90: New test.
+
 2006-03-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libgfortran/26136
