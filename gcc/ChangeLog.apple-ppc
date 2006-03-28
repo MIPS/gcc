@@ -1,3 +1,9 @@
+2006-03-28  Stuart Hastings  <stuart@apple.com>
+
+	* gcc/config/i386/i386.c (preferred_stack_boundary): Add APPLE
+	LOCAL mainline comments.  (ix86_function_regparm): Move APPLE
+	LOCAL comments.
+
 2006-03-24  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4443946

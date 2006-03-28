@@ -1535,8 +1535,10 @@ override_options (void)
      The default of 128 bits is for Pentium III's SSE __m128, but we
      don't want additional code to keep the stack aligned when
      optimizing for code size.  */
+  /* APPLE LOCAL begin mainline */
   ix86_preferred_stack_boundary = ((TARGET_64BIT || TARGET_MACHO || !optimize_size)
 				   ? 128 : 32);
+  /* APPLE LOCAL end mainline */
   if (ix86_preferred_stack_boundary_string)
     {
       i = atoi (ix86_preferred_stack_boundary_string);
@@ -2078,10 +2080,10 @@ ix86_comp_type_attributes (tree type1, tree type2)
    DECL may be NULL when calling function indirectly
    or considering a libcall.  */
 
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign (function body) */
 static int
 ix86_function_regparm (tree type, tree decl)
 {
-  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign (function body) */
   tree attr;
   int local_regparm = ix86_regparm;
   bool user_convention = false;
@@ -2125,8 +2127,8 @@ ix86_function_regparm (tree type, tree decl)
 	}
     }
   return local_regparm;
-  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign (function body) */
 }
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign (function body) */
 
 /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
 /* Return 1 or 2, if we can pass up to 8 SFmode (1) and DFmode (2) arguments
