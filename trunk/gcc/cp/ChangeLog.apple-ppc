@@ -1,3 +1,9 @@
+2006-03-27 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4133425
+	* lex.c (unqualified_name_lookup_error): Issue doagnostic
+	for private 'ivar' access.
+
 2006-03-24  Devang Patel  <dpatel@apple.com>
 
         Radar 4484026

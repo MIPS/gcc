@@ -2243,7 +2243,10 @@ convert_arguments (tree typelist, tree values, tree function, tree fundecl)
 
       if (type == void_type_node)
 	{
-	  error ("too many arguments to function %qE", function);
+	  /* APPLE LOCAL begin radar 4491608 */
+	  error ("too many arguments to function %qE", selector ? selector 
+								: function);
+	  /* APPLE LOCAL end radar 4491608 */
 	  break;
 	}
 

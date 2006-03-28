@@ -34,7 +34,8 @@
 - (void) test
 {
   /* Private variables simply don't exist in the subclass.  */
-  private = 12;/* { dg-error "undeclared" } */
+  private = 12;  /* { dg-error "instance variable" } */
+  /* { dg-error "undeclared" "" { target *-*-* } { 37 } } */
   /* { dg-error "function it appears in" "" { target *-*-* } { 37 } } */
 
   protected = 12; /* Ok  */

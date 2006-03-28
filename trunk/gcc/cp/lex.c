@@ -632,7 +632,10 @@ unqualified_name_lookup_error (tree name)
     }
   else
     {
-      error ("%qD was not declared in this scope", name);
+      /* APPLE LOCAL begin radar 4133425 */
+      if (!objc_diagnose_private_ivar (name))
+        error ("%qD was not declared in this scope", name);
+      /* APPLE LOCAL end radar 4133425 */
       /* Prevent repeated error messages by creating a VAR_DECL with
 	 this NAME in the innermost block scope.  */
       if (current_function_decl)

@@ -2461,7 +2461,10 @@ undeclared_variable (tree id)
     }
   else
     {
-      error ("%qE undeclared (first use in this function)", id);
+      /* APPLE LOCAL begin radar 4133425 */
+      if (!objc_diagnose_private_ivar (id))
+        error ("%qE undeclared (first use in this function)", id);
+      /* APPLE LOCAL end radar 4133425 */
 
       if (!already)
 	{

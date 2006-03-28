@@ -1,3 +1,17 @@
+2006-03-27 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4133425
+	* c-common.h (objc_diagnose_private_ivar): New decl.
+	* stub-objc.c (objc_diagnose_private_ivar): New stub.
+	* c-decl.c (undeclared_variable): Issue disnostic on
+	private 'ivar' access.	
+	
+2006-03-27 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4491608
+	* c-typeck.c (convert_arguments): function name must come from 'selector'
+	when diagnosing 'too many arguments'.
+
 2006-03-24  Devang Patel  <dpatel@apple.com>
 
 	Radar 4485223

@@ -45,6 +45,13 @@ objc_is_object_ptr (tree ARG_UNUSED (arg))
   return 0;
 }
 
+/* APPLE LOCAL begin radar 4133425 */
+bool objc_diagnose_private_ivar (tree ARG_UNUSED (arg))
+{
+  return false;
+}
+/* APPLE LOCAL end radar 4133425 */
+
 tree
 objc_lookup_ivar (tree other, tree ARG_UNUSED (arg))
 {
