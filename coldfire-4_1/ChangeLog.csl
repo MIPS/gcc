@@ -1,3 +1,11 @@
+2006-03-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/gcc.c (LINK_COMMAND_SPEC): Place T* options before
+	endfile_spec.
+	* gcc/doc/invoke.texi (M680x0 Options): Revert previous change.
+	* gcc/config/m68kenb.h (LIB_SPEC): Revert previous change.
+	* gcc/config/m68k.opt (mboard, mbsp): Revert previous change.
+
 2006-03-29  Richard Sandiford  <richard@codesourcery.com>
 
 	* gcc/testuite/lib/target-supports.exp (check_no_compiler_messages):

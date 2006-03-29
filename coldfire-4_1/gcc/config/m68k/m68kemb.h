@@ -46,7 +46,7 @@
    profiling, or libg.a.  */
 
 #undef  LIB_SPEC
-#define LIB_SPEC "--start-group -lc %{mbsp=*:-l%*} --end-group %{mboard=*:-T%*%{mbsp=*:-%*}.ld}"
+#define LIB_SPEC "-lc"
 
 /* Make this be null, since we want the crt0.o to come from the linker
    script */

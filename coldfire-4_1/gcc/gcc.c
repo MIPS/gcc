@@ -691,7 +691,8 @@ proper position among the other output files.  */
    doesn't handle -static.  */
 /* We want %{T*} after %{L*} and %D so that it can be used to specify linker
    scripts which exist in user specified directories, or in standard
-   directories.  */
+   directories.  It needs to come before endfile_spec, incase it cause
+   code to be emitted to the various ctor/dtor sections.  */
 #ifndef LINK_COMMAND_SPEC
 #define LINK_COMMAND_SPEC "\
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
@@ -700,7 +701,7 @@ proper position among the other output files.  */
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
-    %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
+    %{T*} %{!A:%{!nostdlib:%{!nostartfiles:%E}}}}}}}}}"
 #endif
 
 #ifndef LINK_LIBGCC_SPEC
