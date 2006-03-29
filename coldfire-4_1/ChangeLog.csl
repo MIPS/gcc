@@ -1,5 +1,7 @@
 2006-03-29  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gcc/config/m68k/uclinux.h (SYSROOT_SUFFIX_SPEC): Add 532x.
+
 	* gcc/config/m68k/m68k-cores.def (532x, 537x): Use 532x multilib.
 	* gcc/config/m68k/t-m68kelf (MULTILIB_OPTIONS): Remove m68k
 	options.  Add mcpu=532x.

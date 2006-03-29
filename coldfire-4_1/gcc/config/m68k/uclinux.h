@@ -72,6 +72,7 @@ Boston, MA 02110-1301, USA.  */
      mcpu=5207: /m5207 ;	\
      mcpu=5211: /m5211 ;	\
      mcpu=5307: /m5307 ;	\
+     mcpu=532x: /m532x ;	\
      mcpu=5407: /m5407}"
 
 #define SYSROOT_HEADERS_SUFFIX_SPEC "/m5206"
