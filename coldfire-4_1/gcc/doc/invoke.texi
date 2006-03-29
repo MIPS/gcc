@@ -575,7 +575,8 @@ Objective-C and Objective-C++ Dialects}.
 -mshort -mno-short -mnoshort @gol
 -mstrict-align -mno-strict-align -malign-int -mno-align-int @gol
 -mrtd -mno-rtd -mnortd -mpcrel -mno-pcrel -msep-data -mno-sep-data @gol
--mid-shared-library -mno-id-shared-library -mshared-library-id=@var{n}}
+-mid-shared-library -mno-id-shared-library -mshared-library-id=@var{n}} @gol
+-mboard=@var{board} -mbsp=@var{bsp}
 
 @emph{M68hc1x Options}
 @gccoptlist{-m6811  -m6812  -m68hc11  -m68hc12   -m68hcs12 @gol
@@ -10102,6 +10103,18 @@ Specify the identification number of the ID based shared library being
 compiled.  Specifying a value of 0 will generate more compact code, specifying
 other values will force the allocation of that number to the current
 library but is no more space or time efficient than omitting this option.
+
+@item -mboard=@var{board}
+@itemx -mbsp=@var{bsp}
+@opindex mboard
+@opindex mbsp
+These two options are used when you are targetting a bare board.  The
+first, @option{-mboard=}, option specifies the type of the target board, and
+is used to select the linker script to define the correct memory map.
+The second, @option{-mbsp=}, option specifies the board support
+package you wish to use for that board.  This controls both the
+runtime library used by the C library and augments the linker script
+appropriately.
 
 @end table
 

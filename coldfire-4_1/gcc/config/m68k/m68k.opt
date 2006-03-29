@@ -168,6 +168,14 @@ mtune=
 Target RejectNegative Joined
 Tune for the specified target CPU or architecture
 
+mboard=
+Target RejectNegative Joined
+Specify target board
+
+mbsp=
+Target RejectNegative Joined
+Specify the BSP
+
 mdiv
 Target Report Var(m68k_flag_hwdiv) Init(-1)
 Use hardware division instructions on ColdFire

@@ -5174,7 +5174,6 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	    if (soft_matched_part)
 	      {
 		do_spec_1 (soft_matched_part, 1, NULL);
-		do_spec_1 (" ", 0, NULL);
 	      }
 	    else
 	      /* Catch the case where a spec string contains something like
@@ -5524,12 +5523,16 @@ static inline void
 process_marked_switches (void)
 {
   int i;
+  int first = 1;
 
   for (i = 0; i < n_switches; i++)
     if (switches[i].ordering == 1)
       {
+	if (!first)
+	  do_spec_1 (" ", 0, NULL);
 	switches[i].ordering = 0;
 	give_switch (i, 0);
+	first = 0;
       }
 }
 
@@ -5747,17 +5750,21 @@ process_brace_body (const char *p, const char *atom, const char *end_atom,
 	     variant part of the switch.  */
 	  unsigned int hard_match_len = end_atom - atom;
 	  int i;
+	  int first = 1;
 
 	  for (i = 0; i < n_switches; i++)
 	    if (!strncmp (switches[i].part1, atom, hard_match_len)
 		&& check_live_switch (i, hard_match_len))
 	      {
+		if (!first)
+		  do_spec_1 (" ", 0, NULL);
 		if (do_spec_1 (string, 0,
 			       &switches[i].part1[hard_match_len]) < 0)
 		  return 0;
 		/* Pass any arguments this switch has.  */
 		give_switch (i, 1);
 		suffix_subst = NULL;
+		first = 0;
 	      }
 	}
     }
@@ -5892,7 +5899,6 @@ give_switch (int switchnum, int omit_first_word)
 	}
     }
 
-  do_spec_1 (" ", 0, NULL);
   switches[switchnum].validated = 1;
 }
 

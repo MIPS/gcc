@@ -1,3 +1,15 @@
+2006-03-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/gcc.c (do_spec_1): <case '*'> Don't append space here.
+	(process_marked_switches): Put a space between each marked switch.
+	(process_brace_body): Put a space between each live switch.
+	(give_switch): Don't append space here.
+	* gcc/config/m68k/m68kemb.h (LIB_SPEC): Add BSP lib and linker
+	script here.  Group with LIBGCC spec.
+	* gcc/config/m68k/m68k.opt (mboard, mbsp): New switches.
+	* gcc/config/m68k/m68020-elf.h (LIB_SPEC): Do not define here.
+	* gcc/doc/invoke.texi (M680x0 Options): Document new switches.
+
 2006-03-28  Richard Sandiford  <richard@codesourcery.com>
 
 	Merge from csl/sourcerygxx-4_1 branch:
