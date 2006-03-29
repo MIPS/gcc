@@ -1,3 +1,8 @@
+2006-03-29  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/vfp.md (movsf_vfp): Disparage w<->r alternatives.
+	(thumb2_movsf_vfp, movdf_vfp, thumb2_movdf_vfp): Ditto.
+
 2005-03-21  Paul Brook  <paul@codesourcery.com>
 
 	* gcc/config/arm/thumb2.md (divsi3, udivsi3): New define_insn.
