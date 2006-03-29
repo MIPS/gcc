@@ -1,4 +1,4 @@
-/* APPLE LOCAL begin CW asm blocks */
+/* APPLE LOCAL file CW asm blocks */
 /* { dg-do assemble { target powerpc*-*-* } } */
 /* { dg-options "-fasm-blocks" } */
 /* Radar 4258924 */
