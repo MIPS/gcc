@@ -15,14 +15,9 @@ xfgnulib.c: $(srcdir)/config/m68k/fpgnulib.c
 # crti and crtn are provided by uClibc.
 EXTRA_MULTILIB_PARTS=crtbegin.o crtend.o
 
-MULTILIB_OPTIONS = mcpu=5206/mcpu=5206e/mcpu=5207/mcpu=5211/mcpu=5307/mcpu=532x/mcpu=5407
-MULTILIB_DIRNAMES = m5206 m5206e m5207 m5211 m5307 m532x m5407
+MULTILIB_OPTIONS = mcpu=5206e/mcpu=5207/mcpu=5211/mcpu=5307/mcpu=532x/mcpu=5407
+MULTILIB_DIRNAMES = m5206e m5207 m5211 m5307 m532x m5407
 MULTILIB_EXCEPTIONS =
-
-# Arbitrarily pick one of the sysroots to act as the default one
-# for fixincludes.  Define OTHER_FIXINCLUDES_DIR to the full paths
-# of all the other build-time sysroots.
-NATIVE_SYSTEM_HEADER_DIR = /m5206/usr/include
 
 LIBGCC = stmp-multilib
 INSTALL_LIBGCC = install-multilib

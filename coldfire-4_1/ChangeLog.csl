@@ -1,5 +1,21 @@
 2006-03-29  Richard Sandiford  <richard@codesourcery.com>
 
+	* gcc/configure.ac: Allow $tm_file to contain names of the form ./*.
+	Look for them in the build directory rather than $srcdir/config.
+	* gcc/configure: Regenerate.
+	* gcc/config.gcc (tm_file): Update commentary.
+	(m68k-*-uclinux*): Add ./sysroot-suffix.h to tm_file.
+	* gcc/config/m68k/print-sysroot-suffix.sh: New file.
+	* gcc/config/m68k/t-mlib-matches (sysroot-suffix.h): New rule.
+	* gcc/config/m68k/t-uclinux (MULTILIB_OPTIONS): Remove -mcpu=5206.
+	(MULTILIB_DIRNAMES): Update accordingly.
+	(NATIVE_SYSTEM_HEADER_DIR): Delete.
+	* gcc/config/m68k/uclinux.h (MULTILIB_DEFAULTS): Delete.
+	(SYSROOT_SUFFIX_SPEC): Delete.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Just undefine; don't redefine.
+
+2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
 	* gcc/config.gcc (m68k-*-uclinux*): Reorder includes to match
 	m68k-*-linux.  Include linux.h and m68k/linux.h.  Include linux.opt
 	and define UCLIBC_DEFAULT.

@@ -18,3 +18,10 @@ MULTILIB_MATCHES += $(shell $(AWK) 'BEGIN { FS="([()]|[ ,\t]+)"; ORS=" " } ; /^M
 
 MULTILIB_MATCHES += mcpu?5206e=march?isaa mcpu?5207=march?isaaplus \
 		    mcpu?5407=march?isab
+
+# This rule uses MULTILIB_MATCHES to generate a definition of
+# SYSROOT_SUFFIX_SPEC.
+sysroot-suffix.h: $(srcdir)/config/m68k/print-sysroot-suffix.sh
+	sysroot="$(SYSTEM_HEADER_DIR)/../.." \
+	$(SHELL) $(srcdir)/config/m68k/print-sysroot-suffix.sh \
+	  $(patsubst %,'%',$(MULTILIB_MATCHES)) > $@

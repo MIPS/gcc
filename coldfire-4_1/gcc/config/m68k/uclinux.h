@@ -39,26 +39,11 @@ Boston, MA 02110-1301, USA.  */
     }						\
   while (0)
 
-/* Arbitrarily pick one multilib to be the default.  The true default
-   is enforced by the with_cpu setting in config.gcc.  */
-#undef MULTILIB_DEFAULTS
-#define MULTILIB_DEFAULTS { "mcpu=5206" }
-
-#undef SYSROOT_SUFFIX_SPEC
-#define SYSROOT_SUFFIX_SPEC	\
-  "%{mcpu=5206: /m5206 ;	\
-     mcpu=5206e: /m5206e ;	\
-     mcpu=5207: /m5207 ;	\
-     mcpu=5211: /m5211 ;	\
-     mcpu=5307: /m5307 ;	\
-     mcpu=532x: /m532x ;	\
-     mcpu=5407: /m5407}"
-
-#undef SYSROOT_HEADERS_SUFFIX_SPEC
-#define SYSROOT_HEADERS_SUFFIX_SPEC "/m5206"
-
 /* The uclinux binary format relies on relocations against a segment being
    within that segment.  Conservatively apply this rule to individual
    sections.  */
 #undef M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P
 #define M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P 1
+
+/* Undefine linux.h definition.  */
+#undef SYSROOT_HEADERS_SUFFIX_SPEC
