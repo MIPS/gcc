@@ -76,8 +76,8 @@ M68K_CORE("528x",  mcf528x,  "5207",  cfv2,     isa_aplus, FL_CF_HWDIV | FL_CF_E
 
 /* CFV3 processors.  */
 M68K_CORE("5307",  mcf5307,  "5307",  cfv3,     isa_a,     FL_CF_HWDIV | FL_CF_MAC | FL_PCREL_16)
-M68K_CORE("532x",  mcf532x,  "5307",  cfv3,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC | FL_PCREL_16)
-M68K_CORE("537x",  mcf537x,  "5307",  cfv3,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
+M68K_CORE("532x",  mcf532x,  "532x",  cfv3,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC | FL_PCREL_16)
+M68K_CORE("537x",  mcf537x,  "532x",  cfv3,     isa_aplus, FL_CF_HWDIV | FL_CF_EMAC)
 
 /* CFV4/CFV4e processors.  */
 M68K_CORE("5407",  mcf5407,  "5407",  cfv4,     isa_b,     FL_CF_MAC)

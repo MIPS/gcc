@@ -1,5 +1,13 @@
 2006-03-29  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gcc/config/m68k/m68k-cores.def (532x, 537x): Use 532x multilib.
+	* gcc/config/m68k/t-m68kelf (MULTILIB_OPTIONS): Remove m68k
+	options.  Add mcpu=532x.
+	(MULTILIB_DIRNAMES): Likewise.
+	(MULTILIB_EXCEPTIONS): Likewise.
+	* gcc/config/m68k/t-uclinux (MULTILIB_OPTIONS): Add mcpu=532x
+	(MULTILIB_DIRNAMES): Likewise.
+
 	* gcc/gcc.c (LINK_COMMAND_SPEC): Place T* options before
 	endfile_spec.
 	* gcc/doc/invoke.texi (M680x0 Options): Revert previous change.
