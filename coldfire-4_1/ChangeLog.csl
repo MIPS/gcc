@@ -1,6 +1,7 @@
 2006-03-29  Richard Sandiford  <richard@codesourcery.com>
 
-	* lib/target-supports.exp (check_no_compiler_messages): New procedure.
+	* gcc/testuite/lib/target-supports.exp (check_no_compiler_messages):
+	New procedure.
 	(check_visibility_available): Use it.
 	(check_effective_target_default_packed): Likewise.
 	(check_effective_target_pcc_bitfield_type_matters): Likewise.
