@@ -1,6 +1,7 @@
-// Causes timeout for the MMIX simulator on a 3GHz P4 and we can't
+// This test requires too much memory for most m68k uClinux systems.
+// It also causes timeout for the MMIX simulator on a 3GHz P4.  We can't
 // have "compile" for some targets and "run" for others.
-// { dg-do run { target { ! mmix-*-* } } }
+// { dg-do run { target { { ! mmix-*-* } && { ! m68k-*-uclinux } } } }
 // { dg-options "-mstructure-size-boundary=8" { target arm-*-* } }
 
 // Copyright (C) 2004 Free Software Foundation, Inc.

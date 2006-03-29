@@ -1,4 +1,5 @@
-// { dg-do run }
+// This test requires too much memory for most m68k uClinux systems.
+// { dg-do run { target { ! m68k-*-uclinux } } }
 
 // Copyright (C) 2004 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 8 Dec 2004 <nathan@codesourcery.com>

@@ -1,3 +1,12 @@
+2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/builtins/lib/chk.c (vsnprintf):
+	Don't define for uClinux targets.
+	* gcc/testsuite/gcc.c-torture/execute/20030125-1.x: Restrict the
+	test *-linux* rather than *linux* targets.
+	* gcc/testsuite/g++.dg/init/array15.C: Don't run on m68k-uclinux.
+	* gcc/testsuite/g++.dg/init/array16.C: Likewise.
+
 2006-03-28  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc/gcc.c (do_spec_1): <case '*'> Don't append space here.

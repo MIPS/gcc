@@ -448,6 +448,8 @@ snprintf (char *str, __SIZE_TYPE__ len, const char *fmt, ...)
   return ret;
 }
 
+/* vsprintf calls vsnprintf when using uClibc.  */
+#ifndef __uClinux__
 int
 vsnprintf (char *str, __SIZE_TYPE__ len, const char *fmt, va_list ap)
 {
@@ -470,3 +472,4 @@ vsnprintf (char *str, __SIZE_TYPE__ len, const char *fmt, va_list ap)
     }
   return ret;
 }
+#endif
