@@ -1,5 +1,20 @@
 2006-03-29  Richard Sandiford  <richard@codesourcery.com>
 
+	* gcc/config.gcc (m68k-*-uclinux*): Reorder includes to match
+	m68k-*-linux.  Include linux.h and m68k/linux.h.  Include linux.opt
+	and define UCLIBC_DEFAULT.
+	* gcc/config/m68k/uclinux.h (STARTFILE_SPEC): Delete.
+	(ENDFILE_SPEC): Delete.
+	(HAS_INIT_SECTION): Delete.
+	(TARGET_OS_CPP_BUILTINS): Use LINUX_TARGET_OS_CPP_BUILTINS.
+	(CPLUSPLUS_CPP_SPEC): Delete.
+	(TARGET_ASM_FILE_START_APP_OFF): Delete.
+	(MULTILIB_DEFAULTS): Undefine before redefining.
+	(SYSROOT_SUFFIX_SPEC): Likewise.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Likewise.
+
+2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
 	* gcc/testsuite/lib/target-supports.exp (check_missing_uclibc_feature):
 	New procedure.
 	(check_gc_sections_available): Return false if ldflags includes
