@@ -1,3 +1,11 @@
+2006-03-29 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4493912
+	* config/darwin.c (darwin_init_cfstring_builtins): Make type of
+	CFString.length 'long'.
+	(darwin_init_cfstring_builtins): Initialize CFString.length to
+	a 'long' value.
+
 2006-03-27 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4133425

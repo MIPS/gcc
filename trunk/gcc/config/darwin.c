@@ -1897,7 +1897,7 @@ darwin_init_cfstring_builtins (void)
        const int *isa;		(will point at
        int flags;		 __CFConstantStringClassReference)
        const char *str;
-       int length;
+       long length;
      };  */
 
   pcint_type_node
@@ -1912,7 +1912,8 @@ darwin_init_cfstring_builtins (void)
   TREE_CHAIN (field) = fields; fields = field;
   field = build_decl (FIELD_DECL, NULL_TREE, pcchar_type_node);
   TREE_CHAIN (field) = fields; fields = field;
-  field = build_decl (FIELD_DECL, NULL_TREE, integer_type_node);
+  /* APPLE LOCAL radar 4493912 */
+  field = build_decl (FIELD_DECL, NULL_TREE, long_integer_type_node);
   TREE_CHAIN (field) = fields; fields = field;
   /* NB: The finish_builtin_struct() routine expects FIELD_DECLs in
      reverse order!  */
@@ -2120,7 +2121,8 @@ darwin_build_constant_cfstring (tree str)
 			    build1 (ADDR_EXPR, pcchar_type_node,
 				    str), initlist);
       field = TREE_CHAIN (field);
-      initlist = tree_cons (field, build_int_cst (NULL_TREE, length),
+      /* APPLE LOCAL radar 4493912 */
+      initlist = tree_cons (field, build_int_cst (TREE_TYPE (field), length),
 			    initlist);
 
       constructor = build_constructor (ccfstring_type_node,
