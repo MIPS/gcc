@@ -1,5 +1,17 @@
 2006-03-29  Richard Sandiford  <richard@codesourcery.com>
 
+	* lib/target-supports.exp (check_no_compiler_messages): New procedure.
+	(check_visibility_available): Use it.
+	(check_effective_target_default_packed): Likewise.
+	(check_effective_target_pcc_bitfield_type_matters): Likewise.
+	(check_effective_target_freorder): Likewise.
+	(check_effective_target_fpic): Likewise.
+	(check_named_sections_available): Likewise.
+	(check_effective_target_ilp32): Likewise.
+	(check_effective_target_lp64): Likewise.
+
+2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
 	* gcc/testsuite/gcc.c-torture/execute/builtins/lib/chk.c (vsnprintf):
 	Don't define for uClinux targets.
 	* gcc/testsuite/gcc.c-torture/execute/20030125-1.x: Restrict the
