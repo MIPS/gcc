@@ -34,8 +34,12 @@ Boston, MA 02110-1301, USA.  */
 
 /* Handle --with-cpu, --with-float default options from configure script.  */
 #define OPTION_DEFAULT_SPECS						\
-  { "cpu",   "%{!mcpu=*:%{!march=*:-mcpu=%(VALUE)}}" },			\
-  { "float", "%{!msoft-float:%{!mhard-float:%{!m68881:-m%(VALUE)-float}}}" },
+  { "cpu",   "%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:\
+%{!m68030:%{!m68040:%{!m68020-40:%{!m68020-60:%{!m68060:%{!mcpu32:\
+%{!m68332:%{!m5200:%{!m5206e:%{!m528x:%{!m5307:%{!m5407:%{!mcfv4e:\
+%{!mcpu=*:%{!march=*:-mcpu=%(VALUE)}}}}}}}}}}}}}}}}}}}}}" },		\
+  { "float", "%{!msoft-float:%{!mhard-float:%{!m68881:%{!no-m68881:\
+-m%(VALUE)-float}}}}" },
 
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT 0
