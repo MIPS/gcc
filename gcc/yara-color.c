@@ -84,15 +84,12 @@ setup_reg_subclasses (void)
 	continue;
 
       COPY_HARD_REG_SET (temp_set1, reg_class_contents [i]);
-      AND_COMPL_HARD_REG_SET (temp_set1, fixed_reg_set);
-      
       for (j = 0; j < N_REG_CLASSES; j++)
 	if (i != j)
 	  {
 	    enum reg_class *p;
 	    
 	    COPY_HARD_REG_SET (temp_set2, reg_class_contents [j]);
-	    AND_COMPL_HARD_REG_SET (temp_set2, fixed_reg_set);
 	    GO_IF_HARD_REG_SUBSET (temp_set1, temp_set2, subclass);
 	    continue;
 	  subclass:
@@ -161,9 +158,9 @@ set_up_closure_classes (void)
 }      
 
 
-static int reg_class_cover_size, min_reg_class_cover_size;
+static int reg_class_cover_size, final_reg_class_cover_size;
 static enum reg_class reg_class_cover [N_REG_CLASSES];
-static enum reg_class min_reg_class_cover [N_REG_CLASSES];
+static enum reg_class final_reg_class_cover [N_REG_CLASSES];
 static HARD_REG_SET reg_class_cover_set;
 static HARD_REG_SET temp_hard_reg_set;
 
@@ -179,7 +176,7 @@ extend_reg_class_cover (void)
   AND_COMPL_HARD_REG_SET (temp_hard_reg_set, reg_class_cover_set);
   GO_IF_HARD_REG_EQUAL (temp_hard_reg_set, zero_hard_reg_set,
 			done);
-  if (reg_class_cover_size >= min_reg_class_cover_size)
+  if (reg_class_cover_size >= final_reg_class_cover_size)
     return false;
   result = false;
   for (i = 0; i < closure_classes_size; i++)
@@ -206,10 +203,10 @@ extend_reg_class_cover (void)
   gcc_unreachable ();
 
  done:
-  if (min_reg_class_cover_size > reg_class_cover_size)
+  if (final_reg_class_cover_size > reg_class_cover_size)
     {
-      min_reg_class_cover_size = reg_class_cover_size;
-      memcpy (min_reg_class_cover, reg_class_cover,
+      final_reg_class_cover_size = reg_class_cover_size;
+      memcpy (final_reg_class_cover, reg_class_cover,
 	      reg_class_cover_size * sizeof (enum reg_class));
     }
   return true;
@@ -225,9 +222,9 @@ set_up_class_translate (void)
 
   for (cl = 0; cl < N_REG_CLASSES; cl++)
     class_translate [cl] = NO_REGS;
-  for (i = 0; i < min_reg_class_cover_size; i++)
+  for (i = 0; i < final_reg_class_cover_size; i++)
     {
-      cl = min_reg_class_cover [i];
+      cl = final_reg_class_cover [i];
       for (cl_ptr = &alloc_reg_class_subclasses [cl] [0];
 	   *cl_ptr != LIM_REG_CLASSES;
 	   cl_ptr++)
@@ -259,8 +256,8 @@ print_class_cover (FILE *f)
   int i;
 
   fprintf (f, "Class cover:\n");
-  for (i = 0; i < min_reg_class_cover_size; i++)
-    fprintf (f, " %s", reg_class_names [min_reg_class_cover [i]]);
+  for (i = 0; i < final_reg_class_cover_size; i++)
+    fprintf (f, " %s", reg_class_names [final_reg_class_cover [i]]);
   fprintf (f, "\nClass translation:\n");
   for (i = 0; i < N_REG_CLASSES; i++)
     fprintf (f, " %s -> %s\n", reg_class_names [i],
@@ -280,7 +277,7 @@ find_reg_class_closure (void)
 
   setup_reg_subclasses ();
   set_up_closure_classes ();
-  min_reg_class_cover_size = N_REG_CLASSES;
+  final_reg_class_cover_size = N_REG_CLASSES;
   reg_class_cover_size = 0;
   CLEAR_HARD_REG_SET (reg_class_cover_set);
   ok_p = extend_reg_class_cover ();
@@ -1337,29 +1334,32 @@ static can_t *sorted_cans;
 /* Number of global cans.  */
 static int global_cans_num;
 
+/* Bucket of cans can be colored currently without spilling.  */
+static can_t colorable_can_bucket;
+
 /* Array of all buckets used for colouring.  I-th bucket contains cans
    conflicting with I other cans uncoloured yet.  */
 static varray_type bucket_varray;
 
-/* Add CAN to BUCKET_NUM-th bucket.  CAN should be not in a bucket
+/* Add CAN to *BUCKET_PTR bucket.  CAN should be not in a bucket
    before the call.  */
 static void
-add_can_to_bucket (can_t can, varray_type *bucket_varray, int bucket_num)
+add_can_to_bucket (can_t can, can_t *bucket_ptr)
 {
   can_t first_can;
 
-  first_can = VARRAY_GENERIC_PTR (*bucket_varray, bucket_num);
+  first_can = *bucket_ptr;
   CAN_NEXT_BUCKET_CAN (can) = first_can;
   CAN_PREV_BUCKET_CAN (can) = NULL;
   if (first_can != NULL)
     CAN_PREV_BUCKET_CAN (first_can) = can;
-  VARRAY_GENERIC_PTR (*bucket_varray, bucket_num) = can;
+  *bucket_ptr = can;
 }
 
-/* Delete CAN from BUCKET_NUM-th bucket.  It should be there before
+/* Delete CAN from *BUCKET_PTR bucket.  It should be there before
    the call.  */
 static void
-delete_can_from_bucket (can_t can, varray_type *bucket_varray, int bucket_num)
+delete_can_from_bucket (can_t can, can_t *bucket_ptr)
 {
   can_t prev_can, next_can;
 
@@ -1369,8 +1369,8 @@ delete_can_from_bucket (can_t can, varray_type *bucket_varray, int bucket_num)
     CAN_NEXT_BUCKET_CAN (prev_can) = next_can;
   else
     {
-      gcc_assert (VARRAY_GENERIC_PTR (*bucket_varray, bucket_num) == can);
-      VARRAY_GENERIC_PTR (*bucket_varray, bucket_num) = next_can;
+      gcc_assert (*bucket_ptr == can);
+      *bucket_ptr = next_can;
     }
   if (next_can != NULL)
     CAN_PREV_BUCKET_CAN (next_can) = prev_can;
@@ -1380,9 +1380,6 @@ delete_can_from_bucket (can_t can, varray_type *bucket_varray, int bucket_num)
    colouring.  */
 static varray_type global_stack_varray;
 
-/* Cover class of the global can in consideration.  */
-static enum reg_class curr_global_can_cover_class;
-
 /* Function used to sort cans according to their priorities to choose
    one for spilling.  */
 static int
@@ -1390,24 +1387,21 @@ global_can_compare (const void *c1p, const void *c2p)
 {
   can_t c1 = *(can_t *) c1p;
   can_t c2 = *(can_t *) c2p;
-  int diff;
+  int diff, size1, size2;
 
   if (CAN_IN_GRAPH_P (c1) && ! CAN_IN_GRAPH_P (c2))
     return -1;
   else if (! CAN_IN_GRAPH_P (c1) && CAN_IN_GRAPH_P (c2))
     return 1;
-  else if (CAN_COVER_CLASS (c1) == curr_global_can_cover_class
-	   && CAN_COVER_CLASS (c2) != curr_global_can_cover_class)
-    return -1;
-  else if (CAN_COVER_CLASS (c1) != curr_global_can_cover_class
-	   && CAN_COVER_CLASS (c2) == curr_global_can_cover_class)
-    return 1;
   else
     {
+      gcc_assert (CAN_COVER_CLASS (c1) == CAN_COVER_CLASS (c2));
+      size1 = reg_class_nregs [CAN_COVER_CLASS (c1)] [CAN_MODE (c1)];
+      size2 = reg_class_nregs [CAN_COVER_CLASS (c2)] [CAN_MODE (c2)];
       diff = ((CAN_MEMORY_COST (c1) - CAN_COVER_CLASS_COST (c1))
-	      / (CAN_LEFT_CONFLICTS_NUM (c1) + 1)
+	      / (CAN_LEFT_CONFLICTS_NUM (c1) + 1) * size1
 	      - (CAN_MEMORY_COST (c2) - CAN_COVER_CLASS_COST (c2))
-	      / (CAN_LEFT_CONFLICTS_NUM (c2) + 1));
+	      / (CAN_LEFT_CONFLICTS_NUM (c2) + 1) * size2);
       if (diff != 0)
 	return diff;
       return CAN_NUM (c1) - CAN_NUM (c2);
@@ -1419,62 +1413,131 @@ global_can_compare (const void *c1p, const void *c2p)
 static void
 push_globals_to_stack (void)
 {
-  int i, n, size = 0, cans_num_to_sort;
+  int i, size = 0, conflicts_num, conflict_size;
+  int first_non_empty_bucket_num;
   can_t can, conflict_can;
-  can_t *sorted_global_cans, *can_vec;
+  can_t *can_vec, *sorted_global_cans, *bucket_ptr;
+  enum reg_class cover_class;
+  int num, cover_class_cans_num [N_REG_CLASSES];
+  can_t *cover_class_cans [N_REG_CLASSES];
 
-  sorted_global_cans = yara_allocate (sizeof (can_t) * global_cans_num);
-  for (n = i = 0; i < cans_num; i++)
-    if (CAN_GLOBAL_P (cans [i]))
-      sorted_global_cans [n++] = cans [i];
-  gcc_assert (n == global_cans_num);
-  cans_num_to_sort = global_cans_num;
-  for (n = 0; n < global_cans_num; n++)
+  sorted_global_cans = yara_allocate (sizeof (can_t) * cans_num);
+  for (i = 0; i < final_reg_class_cover_size; i++)
     {
-      for (i = 0; i < (int) VARRAY_ACTIVE_SIZE (bucket_varray); i++)
-	if (VARRAY_GENERIC_PTR (bucket_varray, i) != NULL)
-	  break;
-      if (i >= (int) VARRAY_ACTIVE_SIZE (bucket_varray))
-	break;
-      can = VARRAY_GENERIC_PTR (bucket_varray, i);
-      gcc_assert (CAN_LEFT_CONFLICTS_NUM (can) == i);
-      curr_global_can_cover_class = CAN_COVER_CLASS (can);
-      if (curr_global_can_cover_class != NO_REGS)
+      cover_class = final_reg_class_cover [i];
+      cover_class_cans_num [cover_class] = 0;
+      cover_class_cans [cover_class] = NULL;
+    }
+  for (i = 0; i < cans_num; i++)
+    if (CAN_GLOBAL_P (cans [i])
+	&& (cover_class = CAN_COVER_CLASS (cans [i])) != NO_REGS)
+      cover_class_cans_num [cover_class]++;
+  for (num = i = 0; i < final_reg_class_cover_size; i++)
+    {
+      cover_class = final_reg_class_cover [i];
+      if (cover_class_cans_num [cover_class] != 0)
 	{
-	  size
-	    = reg_class_nregs [curr_global_can_cover_class] [CAN_MODE (can)];
-	  gcc_assert (size > 0);
-	  if (i + size > available_class_regs [curr_global_can_cover_class])
+	  cover_class_cans [cover_class] = sorted_global_cans + num;
+	  num += cover_class_cans_num [cover_class];
+	  cover_class_cans_num [cover_class] = 0;
+	}
+    }
+  gcc_assert (num <= cans_num);
+  for (i = 0; i < cans_num; i++)
+    if (CAN_GLOBAL_P (cans [i])
+	&& (cover_class = CAN_COVER_CLASS (cans [i])) != NO_REGS)
+      cover_class_cans [cover_class] [cover_class_cans_num [cover_class]++]
+	= cans [i];
+  first_non_empty_bucket_num = 0;
+  for (;;)
+    {
+      if (colorable_can_bucket != NULL)
+	{
+	  can = colorable_can_bucket;
+	  cover_class = CAN_COVER_CLASS (can);
+	  if (cover_class != NO_REGS)
+	    size = reg_class_nregs [cover_class] [CAN_MODE (can)];
+	  gcc_assert (CAN_LEFT_CONFLICTS_NUM (can)
+		      + reg_class_nregs [cover_class] [CAN_MODE (can)]
+		      <= available_class_regs [cover_class]);
+	  bucket_ptr = &colorable_can_bucket;
+	}
+      else
+	{
+	  for (i = first_non_empty_bucket_num;
+	       i < (int) VARRAY_ACTIVE_SIZE (bucket_varray);
+	       i++)
+	    if (VARRAY_GENERIC_PTR (bucket_varray, i) != NULL)
+	      break;
+	  if (i >= (int) VARRAY_ACTIVE_SIZE (bucket_varray))
+	    break;
+	  first_non_empty_bucket_num = i;
+	  bucket_ptr = (can_t *) &VARRAY_GENERIC_PTR (bucket_varray, i);
+	  can = *bucket_ptr;
+	  gcc_assert (CAN_LEFT_CONFLICTS_NUM (can) == i);
+	  cover_class = CAN_COVER_CLASS (can);
+	  if (cover_class != NO_REGS)
 	    {
-	      qsort (sorted_global_cans, cans_num_to_sort, sizeof (can_t),
-		     global_can_compare);
-	      cans_num_to_sort = global_cans_num - n;
-	      can = sorted_global_cans [0];
-	      size = (reg_class_nregs [curr_global_can_cover_class]
-		      [CAN_MODE (can)]);
-	      gcc_assert
-		(CAN_IN_GRAPH_P (can)
-		 && CAN_COVER_CLASS (can) == curr_global_can_cover_class);
+	      size = reg_class_nregs [cover_class] [CAN_MODE (can)];
+	      gcc_assert (size > 0);
+	      if (i + size > available_class_regs [cover_class])
+		{
+		  num = cover_class_cans_num [cover_class];
+		  gcc_assert (num > 0);
+		  can_vec = cover_class_cans [cover_class];
+		  qsort (can_vec, num, sizeof (can_t), global_can_compare);
+		  for (num--; ! CAN_IN_GRAPH_P (can_vec [num]); num--)
+		    ;
+		  gcc_assert (num >= 0);
+		  cover_class_cans_num [cover_class] = num;
+		  can = can_vec [0];
+		  cover_class_cans [cover_class]++;
+		  size = reg_class_nregs [cover_class] [CAN_MODE (can)];
+		  gcc_assert (CAN_IN_GRAPH_P (can)
+			      && CAN_COVER_CLASS (can) == cover_class
+			      && (CAN_LEFT_CONFLICTS_NUM (can) + size
+				  > available_class_regs [cover_class]));
+		  bucket_ptr = ((can_t *) &VARRAY_GENERIC_PTR
+				(bucket_varray, CAN_LEFT_CONFLICTS_NUM (can)));
+		}
 	    }
 	}
-      delete_can_from_bucket (can, &bucket_varray,
-			      CAN_LEFT_CONFLICTS_NUM (can));
+      delete_can_from_bucket (can, bucket_ptr);
       CAN_IN_GRAPH_P (can) = false;
       VARRAY_PUSH_GENERIC_PTR (global_stack_varray, can);
-      if (curr_global_can_cover_class == NO_REGS)
+      if (cover_class == NO_REGS)
 	continue;
       can_vec = CAN_CONFLICT_CAN_VEC (can);
       for (i = 0; (conflict_can = can_vec [i]) != NULL; i++)
 	{
-	  if (curr_global_can_cover_class != CAN_COVER_CLASS (conflict_can))
+	  if (cover_class != CAN_COVER_CLASS (conflict_can))
 	    continue;
 	  if (CAN_IN_GRAPH_P (conflict_can))
 	    {
-	      delete_can_from_bucket (conflict_can, &bucket_varray,
-				      CAN_LEFT_CONFLICTS_NUM (conflict_can));
+	      conflicts_num = CAN_LEFT_CONFLICTS_NUM (conflict_can);
+	      conflict_size
+		= reg_class_nregs [cover_class] [CAN_MODE (conflict_can)];
+	      gcc_assert (CAN_LEFT_CONFLICTS_NUM (conflict_can) >= size);
 	      CAN_LEFT_CONFLICTS_NUM (conflict_can) -= size;
-	      add_can_to_bucket (conflict_can, &bucket_varray,
-				 CAN_LEFT_CONFLICTS_NUM (conflict_can));
+	      if (conflicts_num + conflict_size
+		  <= available_class_regs [cover_class])
+		continue;
+	      delete_can_from_bucket
+		(conflict_can,
+		 (can_t *) &VARRAY_GENERIC_PTR (bucket_varray, conflicts_num));
+	      conflicts_num = CAN_LEFT_CONFLICTS_NUM (conflict_can);
+	      if (conflicts_num + conflict_size
+		  <= available_class_regs [cover_class])
+		add_can_to_bucket (conflict_can, &colorable_can_bucket);
+	      else
+		{
+		  if (first_non_empty_bucket_num > conflicts_num)
+		    first_non_empty_bucket_num = conflicts_num;
+		  add_can_to_bucket
+		    (conflict_can,
+		     (can_t *) &VARRAY_GENERIC_PTR (bucket_varray,
+						    conflicts_num));
+		}
 	    }
 	}
     }
@@ -1703,7 +1766,6 @@ pop_globals_from_stack (void)
 static void
 global_can_alloc (void)
 {
-    {
   int i, j, hard_regno, conflict_cans_size;
   can_t can, conflict_can;
   can_t *can_vec;
@@ -1712,6 +1774,7 @@ global_can_alloc (void)
 
   global_cans_num = 0;
   /* Put the global cans into the corresponding buckets.  */
+  colorable_can_bucket = NULL;
   VARRAY_GENERIC_PTR_NOGC_INIT (bucket_varray, cans_num,
 				"buckets of global cans");
   for (i = 0; i < cans_num; i++)
@@ -1748,7 +1811,13 @@ global_can_alloc (void)
       CAN_LEFT_CONFLICTS_NUM (can) = conflict_cans_size;
       while (conflict_cans_size >= (int) VARRAY_ACTIVE_SIZE (bucket_varray))
 	VARRAY_PUSH_GENERIC_PTR (bucket_varray, NULL);
-      add_can_to_bucket (can, &bucket_varray, conflict_cans_size);
+      if (conflict_cans_size + reg_class_nregs [cover_class] [CAN_MODE (can)]
+	  <= available_class_regs [cover_class])
+	add_can_to_bucket (can, &colorable_can_bucket);
+      else
+	add_can_to_bucket (can,
+			   (can_t *) &VARRAY_GENERIC_PTR (bucket_varray,
+							  conflict_cans_size));
     }
   VARRAY_GENERIC_PTR_NOGC_INIT (global_stack_varray, global_cans_num,
 				"stack of global cans");
@@ -1756,7 +1825,6 @@ global_can_alloc (void)
   pop_globals_from_stack ();
   VARRAY_FREE (global_stack_varray);
   VARRAY_FREE (bucket_varray);
-    }
 }
 
 

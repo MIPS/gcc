@@ -66,7 +66,7 @@ static void add_copy_list (copy_t);
 static void modify_insn (rtx, bool);
 static void clean_insn (rtx);
 
-static void align_or_allocate_stack_memory (bool);
+static void allocate_stack_memory (void);
 
 static bitmap insn_to_be_removed_p;
 
@@ -1631,6 +1631,14 @@ eliminate_regs (rtx x)
   return x;
 }
 
+/* Offset between frame and stack memory slot area after the
+   allocation.  */
+static HOST_WIDE_INT final_stack_memory_start_frame_offset;
+
+/* Size of stack slots after allocation of all necessary stack
+   memory.  */
+static int final_rounded_slot_memory_size;
+
 static rtx
 get_allocno_memory_slot_rtx (struct memory_slot *memory_slot, int offset,
 			     enum machine_mode mode,
@@ -1652,17 +1660,26 @@ get_allocno_memory_slot_rtx (struct memory_slot *memory_slot, int offset,
     {
       HOST_WIDE_INT disp;
 
+#ifdef FRAME_GROWS_DOWNWARD
       if (stack_frame_pointer_can_be_eliminated_p
 	  && obligatory_stack_frame_pointer_elimination_p)
-	disp = (stack_memory_start_frame_offset ()
-		+ frame_stack_pointer_offset);
+	disp = (frame_stack_pointer_offset
+		+ final_stack_memory_start_frame_offset
+		+ memory_slot->start - memory_slot->size + 2
+		- final_rounded_slot_memory_size);
       else
-	disp = (stack_memory_start_frame_offset ()
-		+ frame_hard_frame_pointer_offset);
-#ifdef FRAME_GROWS_DOWNWARD
-      disp -= memory_slot->start;
+	disp = (final_stack_memory_start_frame_offset
+		+ frame_hard_frame_pointer_offset - memory_slot->start);
 #else
-      disp += memory_slot->start;
+      if (stack_frame_pointer_can_be_eliminated_p
+	  && obligatory_stack_frame_pointer_elimination_p)
+	disp = (frame_stack_pointer_offset
+		- final_stack_memory_start_frame_offset
+		+ memory_slot->start + memory_slot->size
+		- final_rounded_slot_memory_size);
+      else
+	disp = (final_stack_memory_start_frame_offset
+		+ frame_hard_frame_pointer_offset + memory_slot->start);
 #endif
       mem = gen_rtx_MEM (mode,
 			 gen_rtx_PLUS
@@ -1998,8 +2015,6 @@ emit_copy (copy_t cp)
 #endif
 	  elimination_subst_reg = gen_allocno_reg_rtx (Pmode, elim->to, dst);
 	  offset = elim->offset;
-	  if (elim->to == STACK_POINTER_REGNUM)
-	    offset += slot_memory_size;
 	  interm_elimination_regno
 	    = INSN_ALLOCNO_INTERM_ELIMINATION_REGNO (dst);
 	  regno = ALLOCNO_REGNO (dst);
@@ -2837,8 +2852,6 @@ modify_insn (rtx insn, bool non_operand_p)
 	    }
 	  interm_regno = INSN_ALLOCNO_INTERM_ELIMINATION_REGNO (a);
 	  offset = elim->offset;
-	  if (elim->to == STACK_POINTER_REGNUM)
-	    offset += slot_memory_size;
 	  if (interm_regno < 0)
 	    to = elim->to;
 	  else
@@ -2946,7 +2959,7 @@ clean_insn (rtx insn)
 /* Allign stack or allocate memory on the stack for all stack slots
    currently existing.  */
 static void
-align_or_allocate_stack_memory (bool align_p)
+allocate_stack_memory (void)
 {
   int align;
 
@@ -2957,10 +2970,13 @@ align_or_allocate_stack_memory (bool align_p)
      boundary.  */
   if ((unsigned) align * BITS_PER_UNIT > PREFERRED_STACK_BOUNDARY)
     align = (int) PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
-  (void) assign_stack_local (BLKmode, (align_p ? 0 : slot_memory_size),
+  (void) assign_stack_local (BLKmode, 0, align * BITS_PER_UNIT);
+  final_stack_memory_start_frame_offset
+    = get_stack_memory_start_frame_offset ();
+  (void) assign_stack_local (BLKmode, slot_memory_size,
 			     align * BITS_PER_UNIT);
-  if (align_p)
-    update_elim_offsets ();
+  final_rounded_slot_memory_size = rounded_slot_memory_size ();
+  update_elim_offsets ();
 }
 
 
@@ -2982,7 +2998,7 @@ yara_rewrite (void)
       finish_locations ();
     }
   no_new_pseudos = 0;
-  align_or_allocate_stack_memory (true);
+  allocate_stack_memory ();
   FOR_EACH_BB (bb)
     {
       bound = NEXT_INSN (BB_END (bb));
@@ -3042,7 +3058,6 @@ yara_rewrite (void)
     }
   commit_edge_insertions ();
   no_new_pseudos = 1;
-  align_or_allocate_stack_memory (false);
   if ((YARA_PARAMS & YARA_NO_COPY_SYNC) == 0)
     yara_free_bitmap (insn_to_be_removed_p);
 }

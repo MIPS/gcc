@@ -58,9 +58,6 @@ HARD_REG_SET reg_mode_hard_regset [FIRST_PSEUDO_REGISTER] [NUM_MACHINE_MODES];
 int memory_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [2];
 int register_move_cost [MAX_MACHINE_MODE] [N_REG_CLASSES] [N_REG_CLASSES];
 bool class_subset_p [N_REG_CLASSES] [N_REG_CLASSES];
-short class_hard_regs [N_REG_CLASSES] [FIRST_PSEUDO_REGISTER];
-int class_hard_regs_num [N_REG_CLASSES];
-short class_hard_reg_index [N_REG_CLASSES] [FIRST_PSEUDO_REGISTER];
 
 
 
@@ -140,19 +137,9 @@ set_class_subset_and_move_costs (void)
 
 
 
-HARD_REG_SET no_alloc_regs;
-
-static void
-set_non_alloc_regs (void)
-{
-  COPY_HARD_REG_SET (no_alloc_regs, fixed_reg_set);
-  
-  if (! stack_frame_pointer_can_be_eliminated_p
-      || ! obligatory_stack_frame_pointer_elimination_p)
-    SET_HARD_REG_BIT (no_alloc_regs, HARD_FRAME_POINTER_REGNUM);
-}
-
-
+short class_hard_regs [N_REG_CLASSES] [FIRST_PSEUDO_REGISTER];
+int class_hard_regs_num [N_REG_CLASSES];
+short class_hard_reg_index [N_REG_CLASSES] [FIRST_PSEUDO_REGISTER];
 
 #ifdef REG_ALLOC_ORDER
 static int hard_reg_alloc_order[FIRST_PSEUDO_REGISTER] = REG_ALLOC_ORDER;
@@ -209,6 +196,18 @@ set_up_available_class_regs (void)
 	if (TEST_HARD_REG_BIT (temp_set, j))
 	  available_class_regs [i]++;
     }
+}
+
+HARD_REG_SET no_alloc_regs;
+
+void
+set_non_alloc_regs (bool use_hard_frame_p)
+{
+  COPY_HARD_REG_SET (no_alloc_regs, fixed_reg_set);
+  if (! use_hard_frame_p)
+    SET_HARD_REG_BIT (no_alloc_regs, HARD_FRAME_POINTER_REGNUM);
+  set_up_class_hard_regs ();
+  set_up_available_class_regs ();
 }
 
 
@@ -393,9 +392,7 @@ yara_init_once (void)
   set_inner_mode ();
   set_reg_mode_hard_regset ();
   set_class_subset_and_move_costs ();
-  set_non_alloc_regs ();
-  set_up_class_hard_regs ();
-  set_up_available_class_regs ();
+  set_non_alloc_regs (flag_omit_frame_pointer);
   yara_ir_init_once ();
   yara_trans_init_once ();
   yara_color_init_once ();

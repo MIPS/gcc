@@ -911,7 +911,8 @@ extern void yara_trans_init (void);
 extern void yara_trans_finish (void);
 
 /* yara-trans.c: */
-extern HOST_WIDE_INT stack_memory_start_frame_offset (void);
+extern HOST_WIDE_INT rounded_slot_memory_size (void);
+extern HOST_WIDE_INT get_stack_memory_start_frame_offset (void);
 extern void print_memory_slot (FILE *, const char *, int,
 			       struct memory_slot *);
 extern int get_paradoxical_subreg_memory_offset (int, enum machine_mode);
@@ -998,6 +999,7 @@ extern short class_hard_reg_index [N_REG_CLASSES] [FIRST_PSEUDO_REGISTER];
 extern HARD_REG_SET no_alloc_regs;
 extern int available_class_regs [N_REG_CLASSES];
 
+extern void set_non_alloc_regs (bool);
 extern void *yara_allocate (size_t);
 extern void yara_free (void *addr);
 extern bitmap yara_allocate_bitmap (void);

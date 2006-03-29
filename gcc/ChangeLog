@@ -1,3 +1,49 @@
+2006-03-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* yara-int.h (stack_memory_start_frame_offset): Rename to
+	get_stack_memory_start_frame_offset.
+	(rounded_slot_memory_size): New prototype.
+	(set_non_alloc_regs): New prototype.
+	* yara-color.c (setup_reg_subclasses): Don't take fixed registers
+	into account.
+	(min_reg_class_cover_size, min_reg_class_cover): Rename them to
+	final_reg_class_cover_size, final_reg_class_cover.
+	(extend_reg_class_cover, set_up_class_translate,
+	print_class_cover, find_reg_class_closure): Use the new names.
+	(colorable_can_bucket): New variable.
+	(add_can_to_bucket, delete_can_from_bucket): Change signature.
+	(curr_global_can_cover_class): Remove.
+	(global_can_compare): Don't check cover class.  Take allocno sizes
+	into account.
+	(push_globals_to_stack): Form and use can arrays according to
+	their cover classes.
+	(global_can_alloc): Initialize colorable_can_bucket.
+	* yara-final.c (final_stack_memory_start_frame_offset,
+	final_rounded_slot_memory_size): New variables.
+	(get_allocno_memory_slot_rtx): Fix bug in calculating displacement
+	relative to stack pointer.
+	(emit_copy, modify_insn): Don't change offset for elimination to
+	set pointer.
+	(align_or_allocate_stack_memory): Rename to
+	allocate_stack_memory.  Setup
+	final_stack_memory_start_frame_offset and
+	final_allocate_stack_memory.
+	(yara_rewrite): Use the renamed function once.
+	* yara.c (set_non_alloc_regs): Make it external, add
+	parameter, and call set_up_class_hard_regs and
+	set_up_available_class_regs.
+	(yara_init_once): Remove calls of set_up_class_hard_regs and
+	set_up_available_class_regs.
+	* yara-trans.c (get_temp_stack_memory_slot_rtx): Add a
+	parameter.  Fix the displacement calculation.
+	(rounded_slot_memory_size): New function.
+	(stack_memory_start_frame_offset): Rename to
+	get_stack_memory_start_frame_offset.
+	(assign_copy_secondary): Add parameter to
+	get_temp_stack_memory_slot_rtx call.
+	* yara-ir.c (modify_offsets_and_frame_pointer_needed): Modify
+	no_alloc_regs if necessary.
+	
 2006-03-22  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* yara.c (reg_mode_hard_regset): New global variable.

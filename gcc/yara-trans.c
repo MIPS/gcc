@@ -100,7 +100,8 @@ static void finish_memory_slots (void);
 static void set_up_temp_mems_and_addresses (void);
 static rtx get_temp_const_int (HOST_WIDE_INT);
 static rtx get_temp_disp (rtx, HOST_WIDE_INT);
-static rtx get_temp_stack_memory_slot_rtx (enum machine_mode, HOST_WIDE_INT);
+static rtx get_temp_stack_memory_slot_rtx (enum machine_mode, HOST_WIDE_INT,
+					   int);
 
 static enum reg_class get_allocno_reg_class (allocno_t);
 static int non_pseudo_allocno_copy_cost (allocno_t);
@@ -533,10 +534,25 @@ decrease_align_count (int align)
     }
 }
 
+/* Return size of the aligned simulated stack area.  */
+HOST_WIDE_INT
+rounded_slot_memory_size (void)
+{
+  int align;
+
+  align = slot_memory_alignment;
+  /* Ignore alignment we can't do with expected alignment of the
+     boundary.  */
+  if ((unsigned) align * BITS_PER_UNIT > PREFERRED_STACK_BOUNDARY)
+    align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+  
+  return CEIL_ROUND (slot_memory_size, (unsigned) align);
+}
+
 /* Return the displacement of the simulated stack area start relative
    to frame pointer.  */
 HOST_WIDE_INT
-stack_memory_start_frame_offset (void)
+get_stack_memory_start_frame_offset (void)
 {
   int align, size;
   int frame_off, frame_alignment, frame_phase;
@@ -1316,7 +1332,8 @@ get_temp_disp (rtx disp, HOST_WIDE_INT offset)
 }
 
 static rtx
-get_temp_stack_memory_slot_rtx (enum machine_mode mode, HOST_WIDE_INT disp)
+get_temp_stack_memory_slot_rtx (enum machine_mode mode, HOST_WIDE_INT disp,
+				int size)
 {
   rtx mem;
   HOST_WIDE_INT offset;
@@ -1326,20 +1343,25 @@ get_temp_stack_memory_slot_rtx (enum machine_mode mode, HOST_WIDE_INT disp)
     {
       /* disp is addressed from the stack bottom in this case.  */
       mem = temp_stack_disp_mem [mode];
-      offset = (stack_memory_start_frame_offset ()
-		- frame_stack_pointer_offset);
+      offset = (frame_stack_pointer_offset + disp
+		- rounded_slot_memory_size ());
+#ifdef FRAME_GROWS_DOWNWARD
+      offset += get_stack_memory_start_frame_offset () - size + 2;
+#else
+      offset += size - get_stack_memory_start_frame_offset ();
+#endif
     }
   else
     {
       mem = temp_hard_frame_disp_mem [mode];
-      offset = (stack_memory_start_frame_offset ()
-		- frame_hard_frame_pointer_offset);
-    }
+      offset = (get_stack_memory_start_frame_offset ()
+		+ frame_hard_frame_pointer_offset);
 #ifdef FRAME_GROWS_DOWNWARD
-  offset -= disp;
+      offset -= disp;
 #else
-  offset += disp;
+      offset += disp;
 #endif
+    }
   XEXP (XEXP (mem, 0), 1) = get_temp_const_int (disp);
   return mem;
 }
@@ -1769,7 +1791,8 @@ assign_copy_secondary (copy_t cp)
 	  {
 	    x = slot->mem;
 	    if (x == NULL)
-	      x = get_temp_stack_memory_slot_rtx (mode, slot->start);
+	      x = get_temp_stack_memory_slot_rtx (mode, slot->start,
+						  slot->size);
 	  }
 	else
 	  gcc_unreachable ();

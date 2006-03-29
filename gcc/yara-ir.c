@@ -647,6 +647,15 @@ modify_offsets_and_frame_pointer_needed (void)
 	  obligatory_stack_frame_pointer_elimination_p = ep->obligatory;
 	}
     }
+  /* Check that NO_ALLOC_REGS should be changed.  */
+  if (stack_frame_pointer_can_be_eliminated_p
+      && obligatory_stack_frame_pointer_elimination_p)
+    {
+      if (TEST_HARD_REG_BIT (no_alloc_regs, HARD_FRAME_POINTER_REGNUM))
+	set_non_alloc_regs (true);
+    }
+  else if (! TEST_HARD_REG_BIT (no_alloc_regs, HARD_FRAME_POINTER_REGNUM))
+    set_non_alloc_regs (false);
 }
 
 static void
