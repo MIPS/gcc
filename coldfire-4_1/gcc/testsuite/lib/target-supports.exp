@@ -80,6 +80,21 @@ proc check_no_compiler_messages {prop args} {
     return $value
 }
 
+# Return true if this is a uclibc target and if the uclibc feature
+# described by __$feature__ is not present.
+
+proc check_missing_uclibc_feature {feature} {
+    if {[check_no_compiler_messages $feature object "
+	     #include <features.h>
+	     #if defined (__UCLIBC__) && !defined (__${feature}__)
+	     #error FOO
+	     #endif
+	 "]} {
+	return 0
+    }
+    return 1
+}
+
 ###############################
 # proc check_weak_available { }
 ###############################
@@ -240,6 +255,14 @@ proc check_gc_sections_available { } {
 	    return 0
 	}
 
+	# elf2flt uses relocatable links and so is incompatible with
+	# --gc-sections.
+	if { [board_info target exists ldflags]
+	     && [regexp " -elf2flt\[ =\]" " [board_info target ldflags] "] } {
+	    set gc_sections_available_saved 0
+	    return 0
+	}
+
 	# Check if the ld used by gcc supports --gc-sections.
 	set gcc_spec [${tool}_target_compile "-dumpspecs" "" "none" ""]
 	regsub ".*\n\*linker:\[ \t\]*\n(\[^ \t\n\]*).*" "$gcc_spec" {\1} linker
@@ -300,6 +323,7 @@ proc check_profiling_available { test_what } {
 	     || [istarget cris-*-*]
 	     || [istarget h8300-*-*]
 	     || [istarget m68k-*-elf]
+	     || [istarget m68k-*-uclinux*]
 	     || [istarget mips*-*-elf]
 	     || [istarget xtensa-*-elf]
 	     || [istarget *-*-windiss] } {
@@ -1265,6 +1289,15 @@ proc check_effective_target_sync_char_short { } {
 
     verbose "check_effective_target_sync_char_short: returning $et_sync_char_short_saved" 2
     return $et_sync_char_short_saved
+}
+
+# Return 1 if the target is expected to provide wide character support.
+
+proc check_effective_target_wchar { } {
+    if {[check_missing_uclibc_feature UCLIBC_HAS_WCHAR]} {
+	return 0
+    }
+    return 1
 }
 
 # Return 1 if the target matches the effective target 'arg', 0 otherwise.

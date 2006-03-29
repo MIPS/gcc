@@ -1,3 +1,14 @@
+2006-03-29  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/testsuite/lib/target-supports.exp (check_missing_uclibc_feature):
+	New procedure.
+	(check_gc_sections_available): Return false if ldflags includes
+	-elf2flt.
+	(check_profiling_available): Return false for m68k-*-uclinux.
+	(check_effective_target_wchar): New procedure.
+	* gcc/testsuite/gcc.dg/wint_t-1.c: Require { target wchar }.
+	* gcc/testsuite/gcc.dg/wchar_t-1.c: Likewise.
+
 2006-03-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc/config/m68k/uclinux.h (SYSROOT_SUFFIX_SPEC): Add 532x.
