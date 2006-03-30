@@ -1,10 +1,8 @@
-/* APPLE LOCAL file 4136935 */
-/* Additional testing for the NeXT runtime.  */
-/* Author: Ziemowit Laski  <zlaski@apple.com>  */
+/* APPLE LOCAL file 4492973 */
+/* Additional testing for the NeXT runtime. Encoding in -m64 mode  */
 
 /* { dg-do run { target *-*-darwin* } } */
-/* { dg-options "-fnext-runtime" } */
-/* { dg-skip-if "" { powerpc*-*-darwin* } { "-m64" } { "" } } */
+/* { dg-options "-fnext-runtime -m64" } */
 
 #include <objc/Object.h>
 #include <stdbool.h>
@@ -197,58 +195,58 @@ int main(void) {
   struct objc_ivar *ivar;
 
   meth = class_getInstanceMethod (fooClass, @selector(_errorWithOSStatus:ref1:ref2:reading:));
-  CHECK_IF (!strcmp (meth->method_types, "@24@0:4l8r^{FSRef=[80C]}12r^{FSRef=[80C]}16c20"));
+  CHECK_IF (!strcmp (meth->method_types, "@44@0:8q16r^{FSRef=[80C]}24r^{FSRef=[80C]}32c40"));
 
   meth = class_getInstanceMethod (fooClass, @selector(_attributeRunForCharacterAtIndex:));
-  CHECK_IF (!strcmp (meth->method_types, "r^{?=@@II^Iffff{_NSRect={_NSPoint=ff}{_NSSize=ff}}l^lL^L@@@:::****{?=b1b1b1b1b1b27}}12@0:4L8"));
+  CHECK_IF (!strcmp (meth->method_types, "r^{?=@@QQ^Qffff{_NSRect={_NSPoint=ff}{_NSSize=ff}}q^qQ^Q@@@:::****{?=b1b1b1b1b1b27}}24@0:8Q16"));
 
   meth = class_getInstanceMethod (fooClass, @selector(_getATSTypesetterGuts:));
-  CHECK_IF (!strcmp (meth->method_types, "r@12@0:4r:8"));
+  CHECK_IF (!strcmp (meth->method_types, "r@24@0:8r:16"));
 
   meth = class_getInstanceMethod (fooClass, @selector(resumeWithSuspensionID:and:));
-  CHECK_IF (!strcmp (meth->method_types, "v16@0:4^{__NSAppleEventManagerSuspension=}8r^I12"));
+  CHECK_IF (!strcmp (meth->method_types, "v32@0:8^{__NSAppleEventManagerSuspension=}16r^Q24"));
 
   meth = class_getInstanceMethod (fooClass, @selector(anotherMeth:and:and:));
-  CHECK_IF (!strcmp (meth->method_types, "r@20@0:4r:8r@12r@16"));
+  CHECK_IF (!strcmp (meth->method_types, "r@40@0:8r:16r@24r@32"));
 
   meth = class_getInstanceMethod (fooClass, @selector(str1:str2:str3:str4:));
-  CHECK_IF (!strcmp (meth->method_types, "@24@0:4r*8*12*16r*20"));
+  CHECK_IF (!strcmp (meth->method_types, "@48@0:8r*16*24*32r*40"));
 
   meth = class_getInstanceMethod (fooClass, @selector(foo1:foo2:foo3:foo4:));
-  CHECK_IF (!strcmp (meth->method_types, "Vv24@0:4@8r@12@16r@20"));
+  CHECK_IF (!strcmp (meth->method_types, "Vv48@0:8@16r@24@32r@40"));
 
   meth = class_getInstanceMethod (fooClass, @selector(sel1:id1:));
-  CHECK_IF (!strcmp (meth->method_types, "rn*16@0:4r:8r@12"));
+  CHECK_IF (!strcmp (meth->method_types, "rn*32@0:8r:16r@24"));
 
   meth = class_getInstanceMethod (fooClass, @selector(obj1:obj2:obj3:));
-  CHECK_IF (!strcmp (meth->method_types, "N@20@0:4r@8@12^{Object=#}16"));
+  CHECK_IF (!strcmp (meth->method_types, "N@40@0:8r@16@24^{Object=#}32"));
 
   meth = class_getClassMethod (fooClass, @selector(_defaultScriptingComponent));
-  CHECK_IF (!strcmp (meth->method_types, "^{ComponentInstanceRecord=[1l]}8@0:4"));
+  CHECK_IF (!strcmp (meth->method_types, "^{ComponentInstanceRecord=[1q]}16@0:8"));
 
   meth = class_getInstanceMethod (fooClass, @selector(_formatCocoaErrorString:parameters:applicableFormatters:count:));
-  CHECK_IF (!strcmp (meth->method_types, "@24@0:4@8r*12^^{?}16i20"));
+  CHECK_IF (!strcmp (meth->method_types, "@44@0:8@16r*24^^{?}32i40"));
 
   meth = class_getInstanceMethod (fooClass, @selector(formatter_func:run:));
-  CHECK_IF (!strcmp (meth->method_types, "^{?=^?@I}16@0:4@8r^^{?}12"));
+  CHECK_IF (!strcmp (meth->method_types, "^{?=^?@I}32@0:8@16r^^{?}24"));
 
   meth = class_getInstanceMethod (fooClass, @selector(_forgetWord:inDictionary:));
-  CHECK_IF (!strcmp (meth->method_types, "c16@0:4nO@8nO@12"));
+  CHECK_IF (!strcmp (meth->method_types, "c32@0:8nO@16nO@24"));
 
   meth = class_getInstanceMethod (fooClass, @selector(_registerServicesMenu:withSendTypes:andReturnTypes:addToList:));
-  CHECK_IF (!strcmp (meth->method_types, "v24@0:4@8r^*12r^*16c20"));
+  CHECK_IF (!strcmp (meth->method_types, "v44@0:8@16r^*24r^*32c40"));
 
   meth = class_getClassMethod (fooClass, @selector(_proxySharePointer));
-  CHECK_IF (!strcmp (meth->method_types, "^^{__CFSet}8@0:4"));
+  CHECK_IF (!strcmp (meth->method_types, "^^{__CFSet}16@0:8"));
 
   meth = class_getInstanceMethod (fooClass, @selector(_checkGrammarInString:language:details:));
-  CHECK_IF (!strcmp (meth->method_types, "{_NSRange=II}20@0:4n@8nO@12oO^@16"));
+  CHECK_IF (!strcmp (meth->method_types, "{_NSRange=II}40@0:8n@16nO@24oO^@32"));
 
   meth = class_getInstanceMethod (fooClass, @selector(_resolvePositionalStakeGlyphsForLineFragment:lineFragmentRect:minPosition:maxPosition:maxLineFragmentWidth:breakHint:));
-  CHECK_IF (!strcmp (meth->method_types, "B44@0:4^{__CTLine=}8{_NSRect={_NSPoint=ff}{_NSSize=ff}}12f28f32f36^I40"));
+  CHECK_IF (!strcmp (meth->method_types, "B60@0:8^{__CTLine=}16{_NSRect={_NSPoint=ff}{_NSSize=ff}}24f40f44f48^Q52"));
 
   meth = class_getClassMethod (fooClass, @selector(findVoiceByIdentifier:returningCreator:returningID:));
-  CHECK_IF (!strcmp (meth->method_types, "c20@0:4@8^I12^I16"));
+  CHECK_IF (!strcmp (meth->method_types, "c40@0:8@16^I24^I32"));
 
   ivars = fooClass->ivars;
   CHECK_IF (ivars->ivar_count == 1);
@@ -256,11 +254,11 @@ int main(void) {
   ivar = ivars->ivar_list;
   CHECK_IF (!strcmp (ivar->ivar_name, "r"));
   CHECK_IF (!strcmp (ivar->ivar_type,
-    "{?=\"_attributes\"@\"NSDictionary\"\"_font\"@\"NSFont\"\"_characterLength\""
-    "I\"_nominalGlyphLocation\"I\"p\"^I\"_defaultLineHeight\"f\"_defaultBaselineOffset\""
+   "{?=\"_attributes\"@\"NSDictionary\"\"_font\"@\"NSFont\"\"_characterLength\""
+    "Q\"_nominalGlyphLocation\"Q\"p\"^Q\"_defaultLineHeight\"f\"_defaultBaselineOffset\""
     "f\"_horizExpansion\"f\"_baselineDelta\"f\"_attachmentBBox\"{_NSRect=\"origin\""
-    "{_NSPoint=\"x\"f\"y\"f}\"size\"{_NSSize=\"width\"f\"height\"f}}\"ll\"l\"llp\"^l\"ull\""
-    "L\"ullp\"^L\"a\"@\"a1\"@\"a2\"@\"b\":\"b1\":\"b2\":\"str1\"*\"str2\"*\"str3\"*\"str4\""
+    "{_NSPoint=\"x\"f\"y\"f}\"size\"{_NSSize=\"width\"f\"height\"f}}\"ll\"q\"llp\"^q\"ull\""
+    "Q\"ullp\"^Q\"a\"@\"a1\"@\"a2\"@\"b\":\"b1\":\"b2\":\"str1\"*\"str2\"*\"str3\"*\"str4\""
     "*\"_rFlags\"{?=\"_isAttachmentRun\"b1\"_hasPositionalStake\"b1\"_isDefaultFace\""
     "b1\"_hasCombiningMarks\"b1\"_isScreenFont\"b1\"_reserved\"b27}}"));
 

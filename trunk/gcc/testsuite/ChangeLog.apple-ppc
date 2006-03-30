@@ -1,3 +1,11 @@
+2006-03-30 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4492973
+	* obj-c++.dg/encode-3-64bit.mm: New.
+	* obj-c++.dg/encode-3.mm: Skip if -m64.
+	* objc.dg/encode-7-64bit.m: New.
+	* objc.dg/encode-7.m: Skip if -m64.
+
 2006-03-29 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4493912

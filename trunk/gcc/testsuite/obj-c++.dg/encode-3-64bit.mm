@@ -1,6 +1,7 @@
-/* APPLE LOCAL file mainline */
-/* { dg-do run } */
-/* { dg-skip-if "" { powerpc*-*-darwin* } { "-m64" } { "" } } */
+/* APPLE LOCAL file radar 4492973 */
+/* Encoding in -m64 bit mode. */
+/* { dg-do run { target *-*-darwin* } } */
+/* { dg-options "-m64" } */
 
 #include <stdlib.h>
 #include <string.h>
@@ -19,13 +20,13 @@ const char *enc2 = @encode(Vec<double>);
 int main(void) {
   char *encode = @encode(long);
 
-  if (strcmp (encode, "l"))
+  if (strcmp (encode, "q"))
     abort();
 
-  if (strcmp (enc, "{Vec<float>=fflq}"))
+  if (strcmp (enc, "{Vec<float>=ffqq}"))
     abort();
 
-  if (strcmp (enc2, "{Vec<double>=ddlq}"))
+  if (strcmp (enc2, "{Vec<double>=ddqq}"))
     abort();
 
   return 0;
