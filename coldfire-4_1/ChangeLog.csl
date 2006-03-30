@@ -42,6 +42,10 @@
 
 2006-03-29  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gcc/config/m68k/m68k-none.h (ASM_SPEC): Add some whitespace.
+	* gcc/config/m68k/m68k.h (OPTION_DEFAULT_SPECS): Add deprecated
+	cpu selectors to inhibit default.
+
 	* gcc/config/m68k/uclinux.h (SYSROOT_SUFFIX_SPEC): Add 532x.
 
 	* gcc/config/m68k/m68k-cores.def (532x, 537x): Use 532x multilib.
