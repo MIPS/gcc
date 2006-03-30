@@ -125,7 +125,7 @@ extern const char * arm_output_load_gr (rtx *);
 extern const char *vfp_output_fstmx (rtx *);
 extern void arm_set_return_address (rtx, rtx);
 extern int arm_eliminable_register (rtx);
-extern const char *arm_output_shift(rtx *, bool);
+extern const char *arm_output_shift(rtx *, int);
 
 extern bool arm_output_addr_const_extra (FILE *, rtx);
 

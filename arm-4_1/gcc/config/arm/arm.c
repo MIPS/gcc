@@ -16193,26 +16193,29 @@ arm_output_addr_const_extra (FILE *fp, rtx x)
   return FALSE;
 }
 
-/* Output assembly for a shift instruction.  SET_FLAGS is TRUE if the
-   instruction modifies the condition codes.  */
+/* Output assembly for a shift instruction.
+   SET_FLAGS determines how the instruction modifies the condition codes.
+   0 - Do not set conditiona codes.
+   1 - Set condition codes.
+   2 - Use smallest instruction.  */
 const char *
-arm_output_shift(rtx * operands, bool set_flags)
+arm_output_shift(rtx * operands, int set_flags)
 {
   char pattern[100];
+  static const char flag_chars[3] = {'.', '?', '!'};
   const char *shift;
   HOST_WIDE_INT val;
   char c;
   
-  if (set_flags)
-    c = '.';
-  else
-    c = '?';
-
+  c = flag_chars[set_flags];
   if (TARGET_UNIFIED_ASM)
     {
       shift = shift_op(operands[3], &val);
       if (shift)
-	sprintf (pattern, "%s%%%c\t%%0, %%1, %%2", shift, c);
+	{
+	  operands[2] = GEN_INT(val);
+	  sprintf (pattern, "%s%%%c\t%%0, %%1, %%2", shift, c);
+	}
       else
 	sprintf (pattern, "mov%%%c\t%%0, %%1", c);
     }

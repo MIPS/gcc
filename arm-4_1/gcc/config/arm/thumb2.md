@@ -1020,7 +1020,7 @@
 	  (match_operand:SI 2 "low_reg_or_int_operand" "lM")]))
    (clobber (reg:CC CC_REGNUM))]
   "TARGET_THUMB2 && reload_completed"
-  "%I3%!\\t%0, %1, %2"
+  "* return arm_output_shift(operands, 2);"
   [(set_attr "predicable" "yes")
    (set_attr "shift" "1")
    (set_attr "length" "2")

@@ -1,3 +1,12 @@
+2006-03-30  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/arm.c (arm_output_shift): Change set_flags to
+	tristate option.  Use modified shift value.
+	* gcc/config/arm/thumb2.md (thumb2_shiftsi3_short): Use
+	arm_output_shift.
+	* gcc/config/arm/arm.md (arm_shiftsi3, shiftsi3_compare0,
+	shiftsi3_compare0_scratch): Adjust arguments to arm_output_shift.
+
 2006-03-29  Paul Brook  <paul@codesourcery.com>
 
 	* gcc/config/arm/vfp.md (movsf_vfp): Disparage w<->r alternatives.

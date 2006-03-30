@@ -2903,7 +2903,7 @@
 	 [(match_operand:SI 1 "s_register_operand"  "r")
 	  (match_operand:SI 2 "reg_or_int_operand" "rM")]))]
   "TARGET_32BIT"
-  "* return arm_output_shift(operands, false);"
+  "* return arm_output_shift(operands, 0);"
   [(set_attr "predicable" "yes")
    (set_attr "shift" "1")
    (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
@@ -2920,7 +2920,7 @@
    (set (match_operand:SI 0 "s_register_operand" "=r")
 	(match_op_dup 3 [(match_dup 1) (match_dup 2)]))]
   "TARGET_32BIT"
-  "* return arm_output_shift(operands, true);"
+  "* return arm_output_shift(operands, 1);"
   [(set_attr "conds" "set")
    (set_attr "shift" "1")
    (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
@@ -2936,7 +2936,7 @@
 			 (const_int 0)))
    (clobber (match_scratch:SI 0 "=r"))]
   "TARGET_32BIT"
-  "* return arm_output_shift(operands, true);"
+  "* return arm_output_shift(operands, 1);"
   [(set_attr "conds" "set")
    (set_attr "shift" "1")]
 )
