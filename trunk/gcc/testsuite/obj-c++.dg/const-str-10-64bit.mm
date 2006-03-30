@@ -1,11 +1,8 @@
-/* APPLE LOCAL file 4149909 */
+/* APPLE LOCAL file 4492976 */
 /* Test if ObjC constant string layout is checked properly, regardless of how
    constant string classes get derived.  */
-/* Contributed by Ziemowit Laski <zlaski@apple.com>  */
-
-/* { dg-options "-fnext-runtime -fno-constant-cfstrings" } */
+/* { dg-options "-fnext-runtime -fno-constant-cfstrings -m64" } */
 /* { dg-do compile { target *-*-darwin* } } */
-/* { dg-skip-if "" { powerpc*-*-darwin* } { "-m64" } { "" } } */
 
 #include <objc/Object.h>
 
@@ -27,4 +24,4 @@ extern struct objc_class _NSConstantStringClassReference;
 const NSConstantString *appKey = @"MyApp";
 
 /* { dg-final { scan-assembler ".section __OBJC, __cstring_object" } } */
-/* { dg-final { scan-assembler ".long\t__NSConstantStringClassReference\n\t.long\t.*\n\t.long\t5\n\t.data" } } */
+/* { dg-final { scan-assembler ".quad\t__NSConstantStringClassReference\n\t.quad\t.*\n\t.long\t5\n\t.space 4\n\t.data" } } */

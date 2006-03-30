@@ -1,5 +1,39 @@
 2006-03-30 Fariborz Jahanian <fjahanian@apple.com>
 
+	Radar 4492976
+	* objc.dg/const-str-10-64bit.m: New.
+	* objc.dg/const-str-11-64bit.m: New.
+	* objc.dg/const-cfstring-4-64bit.m: New.
+	* objc.dg/const-str-9-64bit.m: New.
+	* objc.dg/next-runtime-1-64bit.m: New.
+	* obj-c++.dg/const-str-11-64bit.mm: New.
+	* objc.dg/symtab-1-64bit.m: New.
+	* obj-c++.dg/const-str-9-64bit.mm: New.
+	* obj-c++.dg/const-cfstring-4-64bit.mm: New.
+	* obj-c++.dg/const-str-10-64bit.mm: New.
+	* objc.dg/objc-fast-4.m: Skip if -m64.
+	* objc.dg/const-str-10.m: Skip if -m64.
+	* objc.dg/objc-fast-1.m: Skip if -m64.
+	* objc.dg/stret-2.m: Skip if -m64.
+	* objc.dg/const-str-11.m: Skip if -m64.
+	* objc.dg/objc-fast-2.m: Skip if -m64.
+	* objc.dg/next-runtime-1.m: Skip if -m64.
+	* objc.dg/const-str-9.m: Skip if -m64.
+	* objc.dg/symtab-1.m: Skip if -m64.
+	* objc.dg/objc-fast-3.m: Skip if -m64.
+	* objc.dg/const-cfstring-4.m: Skip if -m64.
+	* obj-c++.dg/objc-fast-4.mm: Skip if -m64.
+	* obj-c++.dg/const-cfstring-4.mm: Skip if -m64.
+	* obj-c++.dg/objc-fast-2.mm: Skip if -m64.
+	* obj-c++.dg/const-str-10.mm: Skip if -m64.
+	* obj-c++.dg/objc-fast-3.mm: Skip if -m64.
+	* obj-c++.dg/const-str-11.mm: Skip if -m64.
+	* obj-c++.dg/debug-1.mm: Skip if -m64.
+	* obj-c++.dg/const-str-9.mm: Skip if -m64.
+	* obj-c++.dg/objc-fast-1.mm: Skip if -m64.
+
+2006-03-30 Fariborz Jahanian <fjahanian@apple.com>
+
 	Radar 4492973
 	* obj-c++.dg/encode-3-64bit.mm: New.
 	* obj-c++.dg/encode-3.mm: Skip if -m64.

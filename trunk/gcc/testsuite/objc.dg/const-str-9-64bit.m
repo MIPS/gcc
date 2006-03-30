@@ -1,10 +1,8 @@
+/* APPLE LOCAL file 4492976 */
 /* Test if ObjC constant strings get placed in the correct section.  */
-/* Contributed by Ziemowit Laski <zlaski@apple.com>  */
-
-/* { dg-options "-fnext-runtime" } */
+/* { dg-options "-fnext-runtime -m64" } */
 /* APPLE LOCAL constant cfstrings */
 /* { dg-do compile { target powerpc-*-darwin* } } */
-/* { dg-skip-if "" { powerpc*-*-darwin* } { "-m64" } { "" } } */
 
 #include <objc/Object.h>
 
@@ -19,4 +17,4 @@ extern struct objc_class _NSConstantStringClassReference;
 static const NSConstantString *appKey = @"MyApp";
 
 /* { dg-final { scan-assembler ".section __OBJC, __cstring_object" } } */
-/* { dg-final { scan-assembler ".long\t__NSConstantStringClassReference\n\t.long\t.*\n\t.long\t5\n\t.data" } } */
+/* { dg-final { scan-assembler ".quad\t__NSConstantStringClassReference\n\t.quad\t.*\n\t.long\t5\n\t.space 4\n\t.data" } } */
