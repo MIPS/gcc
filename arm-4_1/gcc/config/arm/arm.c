@@ -16213,7 +16213,8 @@ arm_output_shift(rtx * operands, int set_flags)
       shift = shift_op(operands[3], &val);
       if (shift)
 	{
-	  operands[2] = GEN_INT(val);
+	  if (val != -1)
+	    operands[2] = GEN_INT(val);
 	  sprintf (pattern, "%s%%%c\t%%0, %%1, %%2", shift, c);
 	}
       else

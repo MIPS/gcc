@@ -1,3 +1,7 @@
+2006-03-31  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/arm.c (arm_output_shift): Handle Thumb register shifts.
+
 2006-03-30  Paul Brook  <paul@codesourcery.com>
 
 	* gcc/config/arm/arm.c (arm_output_shift): Change set_flags to
