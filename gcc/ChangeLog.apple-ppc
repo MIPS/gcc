@@ -1,3 +1,9 @@
+2006-03-30  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4493694
+	* c-opts.c (c_common_handle_option): Ignore -fsave-repository
+	when not using STABS.
+
 2006-03-28  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4321213
