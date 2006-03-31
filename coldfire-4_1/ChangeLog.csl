@@ -1,3 +1,19 @@
+2006-03-31  Richard Sandiford  <richard@codesourcery.com>
+
+	* config/no-executables.m4 (GCC_TRY_COMPILE_OR_LINK): New function.
+	* libstdc++-v3/aclocal.m4 (GLIBCXX_ENABLE_C99): Temporarily add
+	-fno-exceptions to CXXFLAGS.  Use GCC_TRY_COMPILE_OR_LINK.
+	Make the tests assign results to volatile variables.
+	* libstdc++-v3/libmath/Makefile.in: Regenerate.
+	* libstdc++-v3/configure: Regenerate.
+	* libstdc++-v3/Makefile.in: Regenerate.
+	* libstdc++-v3/include/Makefile.in: Regenerate.
+	* libstdc++-v3/src/Makefile.in: Regenerate.
+	* libstdc++-v3/libsupc++/Makefile.in: Regenerate.
+	* libstdc++-v3/testsuite/Makefile.in: Regenerate.
+	* libstdc++-v3/acinclude.m4: Regenerate.
+	* libstdc++-v3/po/Makefile.in: Regenerate.
+
 2006-03-30  Mark Mitchell  <mark@codesourcery.com>
 
 	* libiberty/cygpath.c (fopen): Allocate MAX_PATH + 1 bytes for the
