@@ -200,7 +200,7 @@ FILE *
 fopen (const char *path, const char *mode)
 {
   FILE *f;
-  char win32_path[MAX_PATH];
+  char win32_path[MAX_PATH + 1];
 
   /* Assume PATH is a Windows path.  */
   f = msvcrt_fopen (path, mode);
@@ -216,7 +216,7 @@ int
 open (const char *path, int oflag, ...)
 {
   int fd;
-  char win32_path[MAX_PATH];
+  char win32_path[MAX_PATH + 1];
   int pmode = 0;
 
   if ((oflag & _O_CREAT))
@@ -241,7 +241,7 @@ int
 stat (const char *path, struct stat *buffer)
 {
   int r;
-  char win32_path[MAX_PATH];
+  char win32_path[MAX_PATH + 1];
 
   /* Assume PATH is a Windows path.  */
   r = _stat (path, (struct _stat *) buffer);
@@ -257,7 +257,7 @@ int
 access (const char *path, int mode)
 {
   int r;
-  char win32_path[MAX_PATH];
+  char win32_path[MAX_PATH + 1];
 
   /* Assume PATH is a Windows path.  */
   r = _access (path, mode);
