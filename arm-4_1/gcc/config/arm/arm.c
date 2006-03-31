@@ -16202,7 +16202,7 @@ const char *
 arm_output_shift(rtx * operands, int set_flags)
 {
   char pattern[100];
-  static const char flag_chars[3] = {'.', '?', '!'};
+  static const char flag_chars[3] = {'?', '.', '!'};
   const char *shift;
   HOST_WIDE_INT val;
   char c;
