@@ -997,13 +997,16 @@
 )
 
 ;; Similarly for 16-bit shift instructions
+;; There is no 16-bit rotate by immediate instruction.
 (define_peephole2
   [(set (match_operand:SI   0 "low_register_operand" "")
 	(match_operator:SI  3 "shift_operator"
 	 [(match_operand:SI 1 "low_register_operand" "")
 	  (match_operand:SI 2 "low_reg_or_int_operand" "")]))]
   "TARGET_THUMB2
-   && peep2_regno_dead_p(0, CC_REGNUM)"
+   && peep2_regno_dead_p(0, CC_REGNUM)
+   && ((GET_CODE(operands[3]) != ROTATE && GET_CODE(operands[3]) != ROTATERT)
+       || REG_P(operands[2]))"
   [(parallel
     [(set (match_dup 0)
 	  (match_op_dup 3
@@ -1019,7 +1022,9 @@
 	 [(match_operand:SI 1 "low_register_operand"  "l")
 	  (match_operand:SI 2 "low_reg_or_int_operand" "lM")]))
    (clobber (reg:CC CC_REGNUM))]
-  "TARGET_THUMB2 && reload_completed"
+  "TARGET_THUMB2 && reload_completed
+   && ((GET_CODE(operands[3]) != ROTATE && GET_CODE(operands[3]) != ROTATERT)
+       || REG_P(operands[2]))"
   "* return arm_output_shift(operands, 2);"
   [(set_attr "predicable" "yes")
    (set_attr "shift" "1")
@@ -1097,8 +1102,7 @@
 		(match_operand:SI 2 "s_register_operand"  "r")))]
   "TARGET_THUMB2 && arm_arch_hwdiv"
   "sdiv%?\t%0, %1, %2"
-  [(set_attr "predicable" "yes")
-   (set_attr "length" "2")]
+  [(set_attr "predicable" "yes")]
 )
 
 (define_insn "udivsi3"
@@ -1107,6 +1111,5 @@
 		 (match_operand:SI 2 "s_register_operand"  "r")))]
   "TARGET_THUMB2 && arm_arch_hwdiv"
   "udiv%?\t%0, %1, %2"
-  [(set_attr "predicable" "yes")
-   (set_attr "length" "2")]
+  [(set_attr "predicable" "yes")]
 )
