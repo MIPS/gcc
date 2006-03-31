@@ -1,3 +1,9 @@
+2006-03-30  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4495520
+	* config/darwin.h (LINK_COMMAND_SPEC): Don't try to protect %S with
+	!Zdynamiclib.
+
 2006-03-24  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4485597

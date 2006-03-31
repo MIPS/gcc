@@ -367,7 +367,8 @@ do {					\
     %l %X %{d} %{s} %{t} %{Z} \
     %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
     %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
-    %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
+"/* APPLE LOCAL mainline 2006-04-01 4495520 */"\
+    %{!A:%{!nostdlib:%{!nostartfiles:%S}}} \
 "/* APPLE LOCAL add fcreate-profile */"\
     %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|fcreate-profile:-lgcov} \
 "/* APPLE LOCAL nested functions 4357979  */"\
