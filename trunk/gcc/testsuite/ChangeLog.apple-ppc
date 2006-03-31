@@ -1,3 +1,8 @@
+2006-03-31 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4494634
+	* objc.dg/no-strict-alias-warn.m: New.
+
 2006-03-30 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4492976
