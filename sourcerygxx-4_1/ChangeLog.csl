@@ -1,3 +1,11 @@
+2006-03-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* libiberty/cygpath.c (fopen): Allocate MAX_PATH + 1 bytes for the
+	filename. 
+	(open): Likewise.
+	(stat): Likewise.
+	(access): Likewise.
+
 2006-03-30  Mark Mitchell <mark@codesourcery.com>
 
 	* libiberty/configure.ac: Add cygpath for mingw hosts.
