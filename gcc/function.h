@@ -388,7 +388,7 @@ struct function GTY(())
   unsigned int calls_alloca : 1;
 
   /* Nonzero if function being compiled called builtin_return_addr or
-     builtin_frame_address with non-zero count.  */
+     builtin_frame_address with nonzero count.  */
   unsigned int accesses_prior_frames : 1;
 
   /* Nonzero if the function calls __builtin_eh_return.  */
@@ -536,6 +536,11 @@ extern void free_block_changes (void);
    the caller may have to do that.  */
 extern HOST_WIDE_INT get_frame_size (void);
 
+/* Issue an error message and return TRUE if frame OFFSET overflows in
+   the signed target pointer arithmetics for function FUNC.  Otherwise
+   return FALSE.  */
+extern bool frame_offset_overflow (HOST_WIDE_INT, tree);
+
 /* A pointer to a function to create target specific, per-function
    data structures.  */
 extern struct machine_function * (*init_machine_status) (void);
@@ -549,12 +554,9 @@ extern void init_varasm_status (struct function *);
 #ifdef RTX_CODE
 extern void diddle_return_value (void (*)(rtx, void*), void*);
 extern void clobber_return_register (void);
-extern void use_return_register (void);
 #endif
 
 extern rtx get_arg_pointer_save_area (struct function *);
-
-extern void init_virtual_regs (struct emit_status *);
 
 /* Returns the name of the current function.  */
 extern const char *current_function_name (void);

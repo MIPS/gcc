@@ -171,6 +171,7 @@ static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
 static tree record_reference (tree *, int *, void *);
+static void cgraph_output_pending_asms (void);
 
 /* Records tree nodes seen in record_reference.  Simply using
    walk_tree_without_duplicates doesn't guarantee each node is visited
@@ -337,6 +338,8 @@ cgraph_assemble_pending_functions (void)
 
   if (flag_unit_at_a_time)
     return false;
+
+  cgraph_output_pending_asms ();
 
   while (cgraph_nodes_queue)
     {
@@ -615,7 +618,7 @@ initialize_inline_failed (struct cgraph_node *node)
 
 /* Rebuild call edges from current function after a passes not aware
    of cgraph updating.  */
-void
+unsigned int
 rebuild_cgraph_edges (void)
 {
   basic_block bb;
@@ -640,6 +643,7 @@ rebuild_cgraph_edges (void)
       }
   initialize_inline_failed (node);
   gcc_assert (!node->global.inlined_to);
+  return 0;
 }
 
 struct tree_opt_pass pass_rebuild_cgraph_edges =
@@ -1145,8 +1149,7 @@ static void
 cgraph_expand_all_functions (void)
 {
   struct cgraph_node *node;
-  struct cgraph_node **order =
-    xcalloc (cgraph_n_nodes, sizeof (struct cgraph_node *));
+  struct cgraph_node **order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
   int order_pos = 0, new_order_pos = 0;
   int i;
 
@@ -1249,7 +1252,6 @@ cgraph_output_in_order (void)
       nodes[i].kind = ORDER_ASM;
       nodes[i].u.a = pa;
     }
-  cgraph_asm_nodes = NULL;
 
   for (i = 0; i < max; ++i)
     {
@@ -1275,6 +1277,8 @@ cgraph_output_in_order (void)
 	  gcc_unreachable ();
 	}
     }
+
+  cgraph_asm_nodes = NULL;
 }
 
 /* Mark visibility of all functions.
@@ -1696,7 +1700,7 @@ save_inline_function_body (struct cgraph_node *node)
   gcc_assert (node == cgraph_node (node->decl));
 
   /* In non-unit-at-a-time we construct full fledged clone we never output to
-     assembly file.  This clone is pointed out by inline_decl of orginal function
+     assembly file.  This clone is pointed out by inline_decl of original function
      and inlining infrastructure knows how to deal with this.  */
   if (!flag_unit_at_a_time)
     {

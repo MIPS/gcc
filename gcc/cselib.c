@@ -1453,8 +1453,7 @@ cselib_init (bool record_memory)
 				         sizeof (struct elt_loc_list), 10);
   cselib_val_pool = create_alloc_pool ("cselib_val_list", 
 				       sizeof (cselib_val), 10);
-  value_pool = create_alloc_pool ("value", 
-				  RTX_SIZE (VALUE), 100);
+  value_pool = create_alloc_pool ("value", RTX_CODE_SIZE (VALUE), 100);
   cselib_record_memory = record_memory;
   /* This is only created once.  */
   if (! callmem)
@@ -1472,9 +1471,9 @@ cselib_init (bool record_memory)
       /* Some space for newly emit instructions so we don't end up
 	 reallocating in between passes.  */
       reg_values_size = cselib_nregs + (63 + cselib_nregs) / 16;
-      reg_values = xcalloc (reg_values_size, sizeof (reg_values));
+      reg_values = XCNEWVEC (struct elt_list *, reg_values_size);
     }
-  used_regs = xmalloc (sizeof (*used_regs) * cselib_nregs);
+  used_regs = XNEWVEC (unsigned int, cselib_nregs);
   n_used_regs = 0;
   cselib_hash_table = htab_create (31, get_value_hash,
 				   entry_and_rtx_equal_p, NULL);

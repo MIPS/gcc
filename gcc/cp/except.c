@@ -397,7 +397,7 @@ initialize_handler_parm (tree decl, tree exp)
   decl = pushdecl (decl);
 
   start_decl_1 (decl);
-  cp_finish_decl (decl, init, NULL_TREE,
+  cp_finish_decl (decl, init, /*init_const_expr_p=*/false, NULL_TREE,
 		  LOOKUP_ONLYCONVERTING|DIRECT_BIND);
 }
 
@@ -446,7 +446,8 @@ expand_start_catch_block (tree decl)
   /* If the C++ object needs constructing, we need to do that before
      calling __cxa_begin_catch, so that std::uncaught_exception gets
      the right value during the copy constructor.  */
-  else if (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
+  else if (flag_use_cxa_get_exception_ptr 
+	   && TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
     {
       exp = do_get_exception_ptr ();
       initialize_handler_parm (decl, exp);
@@ -461,7 +462,8 @@ expand_start_catch_block (tree decl)
       tree init = do_begin_catch ();
       exp = create_temporary_var (ptr_type_node);
       DECL_REGISTER (exp) = 1;
-      cp_finish_decl (exp, init, NULL_TREE, LOOKUP_ONLYCONVERTING);
+      cp_finish_decl (exp, init, /*init_const_expr=*/false, 
+		      NULL_TREE, LOOKUP_ONLYCONVERTING);
       finish_expr_stmt (build_modify_expr (exp, INIT_EXPR, init));
       initialize_handler_parm (decl, exp);
     }
@@ -721,6 +723,11 @@ build_throw (tree exp)
 	 preevaluate.  */
       temp_expr = NULL_TREE;
       stabilize_init (exp, &temp_expr);
+
+      /* Wrap the initialization in a CLEANUP_POINT_EXPR so that cleanups
+	 for temporaries within the initialization are run before the one
+	 for the exception object, preserving LIFO order.  */
+      exp = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (exp), exp);
 
       if (elided)
 	exp = build2 (TRY_CATCH_EXPR, void_type_node, exp,

@@ -1,5 +1,5 @@
 /* Header file for fp-bit.c.  */
-/* Copyright (C) 2000, 2002, 2003 Free Software Foundation, Inc.
+/* Copyright (C) 2000, 2002, 2003, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -89,7 +89,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #endif /* ! FINE_GRAINED_LIBRARIES */
 
 #if __LDBL_MANT_DIG__ == 113 || __LDBL_MANT_DIG__ == 106
-# define TMODES
+# if defined(TFLOAT) || defined(L_sf_to_tf) || defined(L_df_to_tf)
+#  define TMODES
+# endif
 #endif
 
 typedef float SFtype __attribute__ ((mode (SF)));
@@ -105,9 +107,10 @@ typedef int DItype __attribute__ ((mode (DI)));
 typedef int TItype __attribute__ ((mode (TI)));
 #endif
 
-/* The type of the result of a fp compare */
+/* The type of the result of a floating point comparison.  This must
+   match `word_mode' in GCC for the target.  */
 #ifndef CMPtype
-#define CMPtype SItype
+typedef int CMPtype __attribute__ ((mode (word)));
 #endif
 
 typedef unsigned int UHItype __attribute__ ((mode (HI)));

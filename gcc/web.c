@@ -249,9 +249,9 @@ web_main (void)
   df_reorganize_refs (&df->def_info);
   df_reorganize_refs (&df->use_info);
 
-  def_entry = xcalloc (DF_DEFS_SIZE (df), sizeof (struct web_entry));
-  use_entry = xcalloc (DF_USES_SIZE (df), sizeof (struct web_entry));
-  used = xcalloc (max, sizeof (char));
+  def_entry = XCNEWVEC (struct web_entry, DF_DEFS_SIZE (df));
+  use_entry = XCNEWVEC (struct web_entry, DF_USES_SIZE (df));
+  used = XCNEWVEC (char, max);
 
   if (dump_file)
     df_dump (df, dump_file);
@@ -285,13 +285,14 @@ gate_handle_web (void)
   return (optimize > 0 && flag_web);
 }
 
-static void
+static unsigned int
 rest_of_handle_web (void)
 {
   web_main ();
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (get_insns (), max_reg_num ());
+  return 0;
 }
 
 struct tree_opt_pass pass_web =

@@ -1474,7 +1474,7 @@ gfc_conv_intrinsic_arith (gfc_se * se, gfc_expr * expr, int op)
   actual = actual->next->next;
   gcc_assert (actual);
   maskexpr = actual->expr;
-  if (maskexpr)
+  if (maskexpr && maskexpr->rank != 0)
     {
       maskss = gfc_walk_expr (maskexpr);
       gcc_assert (maskss != gfc_ss_terminator);
@@ -1535,6 +1535,122 @@ gfc_conv_intrinsic_arith (gfc_se * se, gfc_expr * expr, int op)
   gfc_add_expr_to_block (&body, tmp);
 
   gfc_trans_scalarizing_loops (&loop, &body);
+
+  /* For a scalar mask, enclose the loop in an if statement.  */
+  if (maskexpr && maskss == NULL)
+    {
+      gfc_init_se (&maskse, NULL);
+      gfc_conv_expr_val (&maskse, maskexpr);
+      gfc_init_block (&block);
+      gfc_add_block_to_block (&block, &loop.pre);
+      gfc_add_block_to_block (&block, &loop.post);
+      tmp = gfc_finish_block (&block);
+
+      tmp = build3_v (COND_EXPR, maskse.expr, tmp, build_empty_stmt ());
+      gfc_add_expr_to_block (&block, tmp);
+      gfc_add_block_to_block (&se->pre, &block);
+    }
+  else
+    {
+      gfc_add_block_to_block (&se->pre, &loop.pre);
+      gfc_add_block_to_block (&se->pre, &loop.post);
+    }
+
+  gfc_cleanup_loop (&loop);
+
+  se->expr = resvar;
+}
+
+
+/* Inline implementation of the dot_product intrinsic. This function
+   is based on gfc_conv_intrinsic_arith (the previous function).  */
+static void
+gfc_conv_intrinsic_dot_product (gfc_se * se, gfc_expr * expr)
+{
+  tree resvar;
+  tree type;
+  stmtblock_t body;
+  stmtblock_t block;
+  tree tmp;
+  gfc_loopinfo loop;
+  gfc_actual_arglist *actual;
+  gfc_ss *arrayss1, *arrayss2;
+  gfc_se arrayse1, arrayse2;
+  gfc_expr *arrayexpr1, *arrayexpr2;
+
+  type = gfc_typenode_for_spec (&expr->ts);
+
+  /* Initialize the result.  */
+  resvar = gfc_create_var (type, "val");
+  if (expr->ts.type == BT_LOGICAL)
+    tmp = convert (type, integer_zero_node);
+  else
+    tmp = gfc_build_const (type, integer_zero_node);
+
+  gfc_add_modify_expr (&se->pre, resvar, tmp);
+
+  /* Walk argument #1.  */
+  actual = expr->value.function.actual;
+  arrayexpr1 = actual->expr;
+  arrayss1 = gfc_walk_expr (arrayexpr1);
+  gcc_assert (arrayss1 != gfc_ss_terminator);
+
+  /* Walk argument #2.  */
+  actual = actual->next;
+  arrayexpr2 = actual->expr;
+  arrayss2 = gfc_walk_expr (arrayexpr2);
+  gcc_assert (arrayss2 != gfc_ss_terminator);
+
+  /* Initialize the scalarizer.  */
+  gfc_init_loopinfo (&loop);
+  gfc_add_ss_to_loop (&loop, arrayss1);
+  gfc_add_ss_to_loop (&loop, arrayss2);
+
+  /* Initialize the loop.  */
+  gfc_conv_ss_startstride (&loop);
+  gfc_conv_loop_setup (&loop);
+
+  gfc_mark_ss_chain_used (arrayss1, 1);
+  gfc_mark_ss_chain_used (arrayss2, 1);
+
+  /* Generate the loop body.  */
+  gfc_start_scalarized_body (&loop, &body);
+  gfc_init_block (&block);
+
+  /* Make the tree expression for [conjg(]array1[)].  */
+  gfc_init_se (&arrayse1, NULL);
+  gfc_copy_loopinfo_to_se (&arrayse1, &loop);
+  arrayse1.ss = arrayss1;
+  gfc_conv_expr_val (&arrayse1, arrayexpr1);
+  if (expr->ts.type == BT_COMPLEX)
+    arrayse1.expr = build1 (CONJ_EXPR, type, arrayse1.expr);
+  gfc_add_block_to_block (&block, &arrayse1.pre);
+
+  /* Make the tree expression for array2.  */
+  gfc_init_se (&arrayse2, NULL);
+  gfc_copy_loopinfo_to_se (&arrayse2, &loop);
+  arrayse2.ss = arrayss2;
+  gfc_conv_expr_val (&arrayse2, arrayexpr2);
+  gfc_add_block_to_block (&block, &arrayse2.pre);
+
+  /* Do the actual product and sum.  */
+  if (expr->ts.type == BT_LOGICAL)
+    {
+      tmp = build2 (TRUTH_AND_EXPR, type, arrayse1.expr, arrayse2.expr);
+      tmp = build2 (TRUTH_OR_EXPR, type, resvar, tmp);
+    }
+  else
+    {
+      tmp = build2 (MULT_EXPR, type, arrayse1.expr, arrayse2.expr);
+      tmp = build2 (PLUS_EXPR, type, resvar, tmp);
+    }
+  gfc_add_modify_expr (&block, resvar, tmp);
+
+  /* Finish up the loop block and the loop.  */
+  tmp = gfc_finish_block (&block);
+  gfc_add_expr_to_block (&body, tmp);
+
+  gfc_trans_scalarizing_loops (&loop, &body);
   gfc_add_block_to_block (&se->pre, &loop.pre);
   gfc_add_block_to_block (&se->pre, &loop.post);
   gfc_cleanup_loop (&loop);
@@ -1542,17 +1658,19 @@ gfc_conv_intrinsic_arith (gfc_se * se, gfc_expr * expr, int op)
   se->expr = resvar;
 }
 
+
 static void
 gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 {
   stmtblock_t body;
   stmtblock_t block;
   stmtblock_t ifblock;
+  stmtblock_t elseblock;
   tree limit;
   tree type;
   tree tmp;
+  tree elsetmp;
   tree ifbody;
-  tree cond;
   gfc_loopinfo loop;
   gfc_actual_arglist *actual;
   gfc_ss *arrayss;
@@ -1583,7 +1701,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
   actual = actual->next->next;
   gcc_assert (actual);
   maskexpr = actual->expr;
-  if (maskexpr)
+  if (maskexpr && maskexpr->rank != 0)
     {
       maskss = gfc_walk_expr (maskexpr);
       gcc_assert (maskss != gfc_ss_terminator);
@@ -1625,17 +1743,10 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 
   gcc_assert (loop.dimen == 1);
 
-  /* Initialize the position to the first element.  If the array has zero
-     size we need to return zero.  Otherwise use the first element of the
-     array, in case all elements are equal to the limit.
-     i.e. pos = (ubound >= lbound) ? lbound, lbound - 1;  */
-  tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
-		     loop.from[0], gfc_index_one_node);
-  cond = fold_build2 (GE_EXPR, boolean_type_node,
-		      loop.to[0], loop.from[0]);
-  tmp = fold_build3 (COND_EXPR, gfc_array_index_type, cond,
-		     loop.from[0], tmp);
-  gfc_add_modify_expr (&loop.pre, pos, tmp);
+  /* Initialize the position to zero, following Fortran 2003.  We are free
+     to do this because Fortran 95 allows the result of an entirely false
+     mask to be processor dependent.  */
+  gfc_add_modify_expr (&loop.pre, pos, gfc_index_zero_node);
 
   gfc_mark_ss_chain_used (arrayss, 1);
   if (maskss)
@@ -1675,8 +1786,10 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 
   ifbody = gfc_finish_block (&ifblock);
 
-  /* If it is a more extreme value.  */
-  tmp = build2 (op, boolean_type_node, arrayse.expr, limit);
+  /* If it is a more extreme value or pos is still zero.  */
+  tmp = build2 (TRUTH_OR_EXPR, boolean_type_node,
+		  build2 (op, boolean_type_node, arrayse.expr, limit),
+		  build2 (EQ_EXPR, boolean_type_node, pos, gfc_index_zero_node));
   tmp = build3_v (COND_EXPR, tmp, ifbody, build_empty_stmt ());
   gfc_add_expr_to_block (&block, tmp);
 
@@ -1693,8 +1806,32 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
 
   gfc_trans_scalarizing_loops (&loop, &body);
 
-  gfc_add_block_to_block (&se->pre, &loop.pre);
-  gfc_add_block_to_block (&se->pre, &loop.post);
+  /* For a scalar mask, enclose the loop in an if statement.  */
+  if (maskexpr && maskss == NULL)
+    {
+      gfc_init_se (&maskse, NULL);
+      gfc_conv_expr_val (&maskse, maskexpr);
+      gfc_init_block (&block);
+      gfc_add_block_to_block (&block, &loop.pre);
+      gfc_add_block_to_block (&block, &loop.post);
+      tmp = gfc_finish_block (&block);
+
+      /* For the else part of the scalar mask, just initialize
+	 the pos variable the same way as above.  */
+
+      gfc_init_block (&elseblock);
+      gfc_add_modify_expr (&elseblock, pos, gfc_index_zero_node);
+      elsetmp = gfc_finish_block (&elseblock);
+
+      tmp = build3_v (COND_EXPR, maskse.expr, tmp, elsetmp);
+      gfc_add_expr_to_block (&block, tmp);
+      gfc_add_block_to_block (&se->pre, &block);
+    }
+  else
+    {
+      gfc_add_block_to_block (&se->pre, &loop.pre);
+      gfc_add_block_to_block (&se->pre, &loop.post);
+    }
   gfc_cleanup_loop (&loop);
 
   /* Return a value in the range 1..SIZE(array).  */
@@ -1762,7 +1899,7 @@ gfc_conv_intrinsic_minmaxval (gfc_se * se, gfc_expr * expr, int op)
   actual = actual->next->next;
   gcc_assert (actual);
   maskexpr = actual->expr;
-  if (maskexpr)
+  if (maskexpr && maskexpr->rank != 0)
     {
       maskss = gfc_walk_expr (maskexpr);
       gcc_assert (maskss != gfc_ss_terminator);
@@ -1824,8 +1961,26 @@ gfc_conv_intrinsic_minmaxval (gfc_se * se, gfc_expr * expr, int op)
 
   gfc_trans_scalarizing_loops (&loop, &body);
 
-  gfc_add_block_to_block (&se->pre, &loop.pre);
-  gfc_add_block_to_block (&se->pre, &loop.post);
+  /* For a scalar mask, enclose the loop in an if statement.  */
+  if (maskexpr && maskss == NULL)
+    {
+      gfc_init_se (&maskse, NULL);
+      gfc_conv_expr_val (&maskse, maskexpr);
+      gfc_init_block (&block);
+      gfc_add_block_to_block (&block, &loop.pre);
+      gfc_add_block_to_block (&block, &loop.post);
+      tmp = gfc_finish_block (&block);
+
+      tmp = build3_v (COND_EXPR, maskse.expr, tmp, build_empty_stmt ());
+      gfc_add_expr_to_block (&block, tmp);
+      gfc_add_block_to_block (&se->pre, &block);
+    }
+  else
+    {
+      gfc_add_block_to_block (&se->pre, &loop.pre);
+      gfc_add_block_to_block (&se->pre, &loop.post);
+    }
+
   gfc_cleanup_loop (&loop);
 
   se->expr = limit;
@@ -2101,7 +2256,7 @@ gfc_conv_intrinsic_len (gfc_se * se, gfc_expr * expr)
 	    decl = gfc_get_symbol_decl (sym);
 	    if (decl == current_function_decl && sym->attr.function
 		&& (sym->result == sym))
-	      decl = gfc_get_fake_result_decl (sym);
+	      decl = gfc_get_fake_result_decl (sym, 0);
 
 	    len = sym->ts.cl->backend_decl;
 	    gcc_assert (len);
@@ -2237,6 +2392,7 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr)
   ss = gfc_walk_expr (actual->expr);
   gcc_assert (ss != gfc_ss_terminator);
   argse.want_pointer = 1;
+  argse.data_not_needed = 1;
   gfc_conv_expr_descriptor (&argse, actual->expr, ss);
   gfc_add_block_to_block (&se->pre, &argse.pre);
   gfc_add_block_to_block (&se->post, &argse.post);
@@ -3065,6 +3221,10 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_dim (se, expr);
       break;
 
+    case GFC_ISYM_DOT_PRODUCT:
+      gfc_conv_intrinsic_dot_product (se, expr);
+      break;
+
     case GFC_ISYM_DPROD:
       gfc_conv_intrinsic_dprod (se, expr);
       break;
@@ -3234,7 +3394,6 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       break;
 
     case GFC_ISYM_CHDIR:
-    case GFC_ISYM_DOT_PRODUCT:
     case GFC_ISYM_ETIME:
     case GFC_ISYM_FGET:
     case GFC_ISYM_FGETC:

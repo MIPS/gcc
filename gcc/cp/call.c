@@ -198,15 +198,12 @@ typedef void (*diagnostic_fn_t) (const char *, ...) ATTRIBUTE_GCC_CXXDIAG(1,2);
 static tree build_temp (tree, tree, int, diagnostic_fn_t *);
 static void check_constructor_callable (tree, tree);
 
-/* Returns nonzero iff the destructor name specified in NAME
-   (a BIT_NOT_EXPR) matches BASETYPE.  The operand of NAME can take many
-   forms...  */
+/* Returns nonzero iff the destructor name specified in NAME matches BASETYPE.
+   NAME can take many forms...  */
 
 bool
 check_dtor_name (tree basetype, tree name)
 {
-  name = TREE_OPERAND (name, 0);
-
   /* Just accept something we've already complained about.  */
   if (name == error_mark_node)
     return true;
@@ -220,7 +217,7 @@ check_dtor_name (tree basetype, tree name)
       if ((IS_AGGR_TYPE (basetype) && name == constructor_name (basetype))
 	  || (TREE_CODE (basetype) == ENUMERAL_TYPE
 	      && name == TYPE_IDENTIFIER (basetype)))
-	name = basetype;
+	return true;
       else
 	name = get_type_value (name);
     }
@@ -237,9 +234,9 @@ check_dtor_name (tree basetype, tree name)
       return false;
     }
 
-  if (name && TYPE_MAIN_VARIANT (basetype) == TYPE_MAIN_VARIANT (name))
-    return true;
-  return false;
+  if (!name)
+    return false;
+  return same_type_p (TYPE_MAIN_VARIANT (basetype), TYPE_MAIN_VARIANT (name));
 }
 
 /* We want the address of a function or method.  We avoid creating a
@@ -471,7 +468,7 @@ static conversion *
 alloc_conversion (conversion_kind kind)
 {
   conversion *c;
-  c = conversion_obstack_alloc (sizeof (conversion));
+  c = (conversion *) conversion_obstack_alloc (sizeof (conversion));
   c->kind = kind;
   return c;
 }
@@ -496,7 +493,7 @@ validate_conversion_obstack (void)
 static conversion **
 alloc_conversions (size_t n)
 {
-  return conversion_obstack_alloc (n * sizeof (conversion *));
+  return (conversion **) conversion_obstack_alloc (n * sizeof (conversion *));
 }
 
 static conversion *
@@ -771,7 +768,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	  || !compparms (TREE_CHAIN (TYPE_ARG_TYPES (fromfn)),
 			 TREE_CHAIN (TYPE_ARG_TYPES (tofn)))
 	  || cp_type_quals (fbase) != cp_type_quals (tbase))
-	return 0;
+	return NULL;
 
       from = cp_build_qualified_type (tbase, cp_type_quals (fbase));
       from = build_method_type_directly (from,
@@ -809,7 +806,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	   || tcode == REAL_TYPE)
     {
       if (! (INTEGRAL_CODE_P (fcode) || fcode == REAL_TYPE))
-	return 0;
+	return NULL;
       conv = build_conv (ck_std, to, conv);
 
       /* Give this a better rank if it's a promotion.  */
@@ -1272,8 +1269,8 @@ add_candidate (struct z_candidate **candidates,
 	       tree access_path, tree conversion_path,
 	       int viable)
 {
-  struct z_candidate *cand
-    = conversion_obstack_alloc (sizeof (struct z_candidate));
+  struct z_candidate *cand = (struct z_candidate *)
+    conversion_obstack_alloc (sizeof (struct z_candidate));
 
   cand->fn = fn;
   cand->args = args;
@@ -2445,7 +2442,7 @@ print_z_candidates (struct z_candidate *candidates)
       /* Indent successive candidates by the width of the translation
 	 of the above string.  */
       size_t len = gcc_gettext_width (str) + 1;
-      char *spaces = alloca (len);
+      char *spaces = (char *) alloca (len);
       memset (spaces, ' ', len-1);
       spaces[len - 1] = '\0';
 
@@ -2618,7 +2615,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 
   candidates = splice_viable (candidates, pedantic, &any_viable_p);
   if (!any_viable_p)
-    return 0;
+    return NULL;
 
   cand = tourney (candidates);
   if (cand == 0)
@@ -4282,7 +4279,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       }
     case ck_identity:
       if (type_unknown_p (expr))
-	expr = instantiate_type (totype, expr, tf_error | tf_warning);
+	expr = instantiate_type (totype, expr, tf_warning_or_error);
       /* Convert a constant to its underlying value, unless we are
 	 about to bind it to a reference, in which case we need to
 	 leave it as an lvalue.  */
@@ -5934,9 +5931,8 @@ source_type (conversion *t)
 static void
 add_warning (struct z_candidate *winner, struct z_candidate *loser)
 {
-  candidate_warning *cw;
-
-  cw = conversion_obstack_alloc (sizeof (candidate_warning));
+  candidate_warning *cw = (candidate_warning *)
+    conversion_obstack_alloc (sizeof (candidate_warning));
   cw->loser = loser;
   cw->next = winner->warnings;
   winner->warnings = cw;
@@ -6032,9 +6028,9 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 
 	      if (warn)
 		{
-		  warning (0, "passing %qT chooses %qT over %qT",
-			      type, type1, type2);
-		  warning (0, "  in call to %qD", w->fn);
+		  warning (OPT_Wsign_promo, "passing %qT chooses %qT over %qT",
+                           type, type1, type2);
+		  warning (OPT_Wsign_promo, "  in call to %qD", w->fn);
 		}
 	      else
 		add_warning (w, l);
@@ -6091,10 +6087,10 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 	  tree source = source_type (w->convs[0]);
 	  if (! DECL_CONSTRUCTOR_P (w->fn))
 	    source = TREE_TYPE (source);
-	  warning (0, "choosing %qD over %qD", w->fn, l->fn);
-	  warning (0, "  for conversion from %qT to %qT",
+	  warning (OPT_Wconversion, "choosing %qD over %qD", w->fn, l->fn);
+	  warning (OPT_Wconversion, "  for conversion from %qT to %qT",
 		   source, w->second_conv->type);
-	  warning (0, "  because conversion sequence for the argument is better");
+	  inform ("  because conversion sequence for the argument is better");
 	}
       else
 	add_warning (w, l);
@@ -6251,7 +6247,7 @@ tourney (struct z_candidate *candidates)
 	    {
 	      champ = challenger->next;
 	      if (champ == 0)
-		return 0;
+		return NULL;
 	      champ_compared_to_predecessor = 0;
 	    }
 	  else
@@ -6274,7 +6270,7 @@ tourney (struct z_candidate *candidates)
     {
       fate = joust (champ, challenger, 0);
       if (fate != 1)
-	return 0;
+	return NULL;
     }
 
   return champ;

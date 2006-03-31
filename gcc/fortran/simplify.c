@@ -2528,16 +2528,14 @@ gfc_simplify_null (gfc_expr * mold)
 {
   gfc_expr *result;
 
-  result = gfc_get_expr ();
-  result->expr_type = EXPR_NULL;
-
   if (mold == NULL)
-    result->ts.type = BT_UNKNOWN;
-  else
     {
-      result->ts = mold->ts;
-      result->where = mold->where;
+      result = gfc_get_expr ();
+      result->ts.type = BT_UNKNOWN;
     }
+  else
+    result = gfc_copy_expr (mold);
+  result->expr_type = EXPR_NULL;
 
   return result;
 }
@@ -3761,7 +3759,7 @@ gfc_simplify_verify (gfc_expr * s, gfc_expr * set, gfc_expr * b)
     {
       if (lenset == 0)
 	{
-	  mpz_set_ui (result->value.integer, len);
+	  mpz_set_ui (result->value.integer, 1);
 	  return result;
 	}
 
@@ -3775,7 +3773,7 @@ gfc_simplify_verify (gfc_expr * s, gfc_expr * set, gfc_expr * b)
     {
       if (lenset == 0)
 	{
-	  mpz_set_ui (result->value.integer, 1);
+	  mpz_set_ui (result->value.integer, len);
 	  return result;
 	}
       for (index = len; index > 0; index --)

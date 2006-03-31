@@ -142,10 +142,11 @@ struct tree_opt_pass pass_all_early_optimizations =
    because after the tree optimizers have run such cleanups may
    be necessary.  */
 
-static void 
+static unsigned int
 execute_cleanup_cfg_pre_ipa (void)
 {
   cleanup_tree_cfg ();
+  return 0;
 }
 
 struct tree_opt_pass pass_cleanup_cfg =
@@ -171,13 +172,14 @@ struct tree_opt_pass pass_cleanup_cfg =
    because after the tree optimizers have run such cleanups may
    be necessary.  */
 
-static void 
+static unsigned int
 execute_cleanup_cfg_post_optimizing (void)
 {
   fold_cond_expr_cond ();
   cleanup_tree_cfg ();
   cleanup_dead_labels ();
   group_case_labels ();
+  return 0;
 }
 
 struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
@@ -200,7 +202,7 @@ struct tree_opt_pass pass_cleanup_cfg_post_optimizing =
 /* Pass: do the actions required to finish with tree-ssa optimization
    passes.  */
 
-static void
+static unsigned int
 execute_free_datastructures (void)
 {
   /* ??? This isn't the right place for this.  Worse, it got computed
@@ -212,6 +214,7 @@ execute_free_datastructures (void)
      annotations that need to be intact during disband_implicit_edges.  */
   if (cfun->ssa)
     delete_tree_ssa ();
+  return 0;
 }
 
 struct tree_opt_pass pass_free_datastructures =
@@ -232,7 +235,7 @@ struct tree_opt_pass pass_free_datastructures =
 };
 /* Pass: free cfg annotations.  */
 
-static void
+static unsigned int
 execute_free_cfg_annotations (void)
 {
   basic_block bb;
@@ -258,6 +261,7 @@ execute_free_cfg_annotations (void)
      the integrity of statements in the EH throw table.  */
   verify_eh_throw_table_statements ();
 #endif
+  return 0;
 }
 
 struct tree_opt_pass pass_free_cfg_annotations =
@@ -280,7 +284,7 @@ struct tree_opt_pass pass_free_cfg_annotations =
    changed some properties - such as marked functions nothrow.  Remove now
    redundant edges and basic blocks.  */
 
-static void
+static unsigned int
 execute_fixup_cfg (void)
 {
   basic_block bb;
@@ -294,6 +298,8 @@ execute_fixup_cfg (void)
 	    tree stmt = bsi_stmt (bsi);
 	    tree call = get_call_expr_in (stmt);
 
+            if (lookup_stmt_eh_region (stmt) >= 0 && !tree_could_throw_p (stmt))
+
 	    if (call && call_expr_flags (call) & (ECF_CONST | ECF_PURE))
 	      TREE_SIDE_EFFECTS (call) = 0;
 	    if (!tree_could_throw_p (stmt) && lookup_stmt_eh_region (stmt))
@@ -303,6 +309,7 @@ execute_fixup_cfg (void)
       }
     
   cleanup_tree_cfg ();
+  return 0;
 }
 
 struct tree_opt_pass pass_fixup_cfg =
@@ -317,7 +324,7 @@ struct tree_opt_pass pass_fixup_cfg =
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
+  TODO_skip_verify_ssa,			/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
@@ -325,11 +332,12 @@ struct tree_opt_pass pass_fixup_cfg =
 /* Do the actions required to initialize internal data structures used
    in tree-ssa optimization passes.  */
 
-static void
+static unsigned int
 execute_init_datastructures (void)
 {
   /* Allocate hash tables, arrays and other structures.  */
   init_tree_ssa ();
+  return 0;
 }
 
 struct tree_opt_pass pass_init_datastructures =
@@ -416,6 +424,8 @@ tree_rest_of_compilation (tree fndecl)
   
   tree_register_cfg_hooks ();
   /* Perform all tree transforms and optimizations.  */
+  if (optimize && flag_unit_at_a_time)
+    all_passes->properties_required |= PROP_ssa;
   execute_pass_list (all_passes);
   
   bitmap_obstack_release (&reg_obstack);

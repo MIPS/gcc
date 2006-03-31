@@ -414,10 +414,6 @@ struct control_flow_graph GTY(())
 #define BASIC_BLOCK(N)		(VEC_index (basic_block, basic_block_info, (N)))
 #define SET_BASIC_BLOCK(N,BB)	(VEC_replace (basic_block, basic_block_info, (N), (BB)))
 
-/* TRUE if we should re-run loop discovery after threading jumps, FALSE
-   otherwise.  */
-extern bool rediscover_loops_after_threading;
-
 /* For iterating over basic blocks.  */
 #define FOR_BB_BETWEEN(BB, FROM, TO, DIR) \
   for (BB = FROM; BB != TO; BB = BB->DIR)
@@ -483,7 +479,7 @@ extern bitmap_obstack reg_obstack;
 #define set_block_for_insn(INSN, BB)  (BLOCK_FOR_INSN (INSN) = BB)
 
 extern void compute_bb_for_insn (void);
-extern void free_bb_for_insn (void);
+extern unsigned int free_bb_for_insn (void);
 extern void update_bb_for_insn (basic_block);
 
 extern void free_basic_block_vars (void);
@@ -514,6 +510,7 @@ extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(basic_block, void *),
 			       basic_block *, int, void *);
 extern void compute_dominance_frontiers (bitmap *);
+extern void dump_bb_info (basic_block, bool, bool, int, const char *, FILE *);
 extern void dump_edge_info (FILE *, edge, int);
 extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
@@ -831,27 +828,25 @@ enum update_life_extent
 #define CLEANUP_CROSSJUMP	2	/* Do crossjumping.  */
 #define CLEANUP_POST_REGSTACK	4	/* We run after reg-stack and need
 					   to care REG_DEAD notes.  */
-#define CLEANUP_PRE_LOOP	8	/* Take care to preserve syntactic loop
-					   notes.  */
-#define CLEANUP_UPDATE_LIFE	16	/* Keep life information up to date.  */
-#define CLEANUP_THREADING	32	/* Do jump threading.  */
-#define CLEANUP_NO_INSN_DEL	64	/* Do not try to delete trivially dead
+#define CLEANUP_UPDATE_LIFE	8	/* Keep life information up to date.  */
+#define CLEANUP_THREADING	16	/* Do jump threading.  */
+#define CLEANUP_NO_INSN_DEL	32	/* Do not try to delete trivially dead
 					   insns.  */
-#define CLEANUP_CFGLAYOUT	128	/* Do cleanup in cfglayout mode.  */
-#define CLEANUP_LOG_LINKS	256	/* Update log links.  */
+#define CLEANUP_CFGLAYOUT	64	/* Do cleanup in cfglayout mode.  */
+#define CLEANUP_LOG_LINKS	128	/* Update log links.  */
 
 /* The following are ORed in on top of the CLEANUP* flags in calls to
    struct_equiv_block_eq.  */
-#define STRUCT_EQUIV_START	512	 /* Initializes the search range.  */
-#define STRUCT_EQUIV_RERUN	1024	/* Rerun to find register use in
+#define STRUCT_EQUIV_START	256	 /* Initializes the search range.  */
+#define STRUCT_EQUIV_RERUN	512	/* Rerun to find register use in
 					   found equivalence.  */
-#define STRUCT_EQUIV_FINAL	2048	/* Make any changes necessary to get
+#define STRUCT_EQUIV_FINAL	1024	/* Make any changes necessary to get
 					   actual equivalence.  */
-#define STRUCT_EQUIV_NEED_FULL_BLOCK 4096 /* struct_equiv_block_eq is required
+#define STRUCT_EQUIV_NEED_FULL_BLOCK 2048 /* struct_equiv_block_eq is required
 					     to match only full blocks  */
-#define STRUCT_EQUIV_MATCH_JUMPS 8192	/* Also include the jumps at the end of the block in the comparison.  */
+#define STRUCT_EQUIV_MATCH_JUMPS 4096	/* Also include the jumps at the end of the block in the comparison.  */
 
-extern void life_analysis (FILE *, int);
+extern void life_analysis (int);
 extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
 extern int count_or_remove_death_notes (sbitmap, int);
@@ -864,17 +859,16 @@ extern struct propagate_block_info *init_propagate_block_info
 extern void free_propagate_block_info (struct propagate_block_info *);
 
 /* In lcm.c */
-extern struct edge_list *pre_edge_lcm (FILE *, int, sbitmap *, sbitmap *,
+extern struct edge_list *pre_edge_lcm (int, sbitmap *, sbitmap *,
 				       sbitmap *, sbitmap *, sbitmap **,
 				       sbitmap **);
-extern struct edge_list *pre_edge_rev_lcm (FILE *, int, sbitmap *,
+extern struct edge_list *pre_edge_rev_lcm (int, sbitmap *,
 					   sbitmap *, sbitmap *,
 					   sbitmap *, sbitmap **,
 					   sbitmap **);
 extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 
 /* In predict.c */
-extern void estimate_probability (struct loops *);
 extern void expected_value_to_br_prob (void);
 extern bool maybe_hot_bb_p (basic_block);
 extern bool probably_cold_bb_p (basic_block);

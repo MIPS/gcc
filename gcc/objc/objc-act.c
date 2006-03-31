@@ -2254,9 +2254,10 @@ init_module_descriptor (tree type)
 		  size_in_bytes (objc_module_template));
   initlist = tree_cons (NULL_TREE, expr, initlist);
 
-  /* name = { ..., "foo.m", ... } */
+  /* Don't provide any file name for security reasons. */
+  /* name = { ..., "", ... } */
 
-  expr = add_objc_string (get_identifier (input_filename), class_names);
+  expr = add_objc_string (get_identifier (""), class_names);
   initlist = tree_cons (NULL_TREE, expr, initlist);
 
   /* symtab = { ..., _OBJC_SYMBOLS, ... } */
@@ -8883,7 +8884,9 @@ gen_type_name_0 (tree type)
   if (TREE_CODE (type) == TYPE_DECL && DECL_NAME (type))
     type = DECL_NAME (type);
 
-  strcat (errbuf, IDENTIFIER_POINTER (type));
+  strcat (errbuf, TREE_CODE (type) == IDENTIFIER_NODE
+	  	  ? IDENTIFIER_POINTER (type)
+		  : "");
 
   /* For 'id' and 'Class', adopted protocols are stored in the pointee.  */
   if (objc_is_id (orig))
@@ -9048,7 +9051,7 @@ objc_demangle (const char *mangled)
       (mangled[1] == 'i' || mangled[1] == 'c') &&
       mangled[2] == '_')
     {
-      cp = demangled = xmalloc(strlen(mangled) + 2);
+      cp = demangled = XNEWVEC (char, strlen(mangled) + 2);
       if (mangled[1] == 'i')
 	*cp++ = '-';            /* for instance method */
       else
@@ -9106,7 +9109,7 @@ init_objc (void)
   gcc_obstack_init (&util_obstack);
   util_firstobj = (char *) obstack_finish (&util_obstack);
 
-  errbuf = (char *) xmalloc (1024 * 10);
+  errbuf = XNEWVEC (char, 1024 * 10);
   hash_init ();
   synth_module_prologue ();
 }

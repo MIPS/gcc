@@ -1229,7 +1229,7 @@ ipaa_callsite_param_trees_print (FILE * f)
 }
 
 /* The ipaa driver.  */
-void
+static unsigned int
 ipaa_driver (void)
 {
   ipa_nodes_create ();
@@ -1266,6 +1266,7 @@ ipaa_driver (void)
     {
       fprintf (dump_file, "\nIPA alias analysis end:\n");
     }
+  return 0;
 }
 
 /* Given a tree of FORMAL, this function returns its index.

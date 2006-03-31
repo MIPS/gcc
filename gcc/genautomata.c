@@ -3791,7 +3791,7 @@ initiate_states (void)
   int i;
 
   if (description->units_num)
-    units_array = xmalloc (description->units_num * sizeof (unit_decl_t));
+    units_array = XNEWVEC (unit_decl_t, description->units_num);
   else
     units_array = 0;
 
@@ -6162,7 +6162,7 @@ static void
 process_state_for_insn_equiv_partition (state_t state)
 {
   arc_t arc;
-  arc_t *insn_arcs_array = xmalloc (description->insns_num * sizeof(arc_t));
+  arc_t *insn_arcs_array = XCNEWVEC (arc_t, description->insns_num);
 
   /* Process insns of the arcs.  */
   for (arc = first_out_arc (state); arc != NULL; arc = next_out_arc (arc))
@@ -6292,7 +6292,7 @@ units_to_automata_heuristic_distr (void)
   if (description->units_num == 0)
     return;
   estimation_bound = estimate_one_automaton_bound ();
-  unit_decls = xmalloc (description->units_num * sizeof (unit_decl_t));
+  unit_decls = XNEWVEC (unit_decl_t, description->units_num);
 
   for (i = 0, j = 0; i < description->decls_num; i++)
     if (description->decls[i]->mode == dm_unit)
@@ -6851,6 +6851,8 @@ output_reserved_units_table_name (FILE *f, automaton_t automaton)
 #define CPU_UNIT_RESERVATION_P_FUNC_NAME "cpu_unit_reservation_p"
 
 #define DFA_CLEAN_INSN_CACHE_FUNC_NAME  "dfa_clean_insn_cache"
+
+#define DFA_CLEAR_SINGLE_INSN_CACHE_FUNC_NAME "dfa_clear_single_insn_cache"
 
 #define DFA_START_FUNC_NAME  "dfa_start"
 
@@ -8335,7 +8337,8 @@ output_cpu_unit_reservation_p (void)
   fprintf (output_file, "  return 0;\n}\n\n");
 }
 
-/* The function outputs PHR interface function `dfa_clean_insn_cache'.  */
+/* The function outputs PHR interface functions `dfa_clean_insn_cache'
+   and 'dfa_clear_single_insn_cache'.  */
 static void
 output_dfa_clean_insn_cache_func (void)
 {
@@ -8347,6 +8350,16 @@ output_dfa_clean_insn_cache_func (void)
 	   I_VARIABLE_NAME, I_VARIABLE_NAME,
 	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME, I_VARIABLE_NAME,
 	   DFA_INSN_CODES_VARIABLE_NAME, I_VARIABLE_NAME);
+
+  fprintf (output_file,
+           "void\n%s (rtx %s)\n{\n  int %s;\n\n",
+           DFA_CLEAR_SINGLE_INSN_CACHE_FUNC_NAME, INSN_PARAMETER_NAME,
+	   I_VARIABLE_NAME);
+  fprintf (output_file,
+           "  %s = INSN_UID (%s);\n  if (%s < %s)\n    %s [%s] = -1;\n}\n\n",
+           I_VARIABLE_NAME, INSN_PARAMETER_NAME, I_VARIABLE_NAME,
+	   DFA_INSN_CODES_LENGTH_VARIABLE_NAME, DFA_INSN_CODES_VARIABLE_NAME,
+	   I_VARIABLE_NAME);
 }
 
 /* The function outputs PHR interface function `dfa_start'.  */
@@ -9255,7 +9268,16 @@ main (int argc, char **argv)
 	"#include \"coretypes.h\"\n"
 	"#include \"tm.h\"\n"
 	"#include \"rtl.h\"\n"
-	"#include \"insn-attr.h\"\n");
+	"#include \"tm_p.h\"\n"
+	"#include \"insn-config.h\"\n"
+	"#include \"recog.h\"\n"
+	"#include \"regs.h\"\n"
+	"#include \"real.h\"\n"
+	"#include \"output.h\"\n"
+	"#include \"insn-attr.h\"\n"
+	"#include \"toplev.h\"\n"
+	"#include \"flags.h\"\n"
+	"#include \"function.h\"\n");
 
   if (VEC_length (decl_t, decls) > 0)
     {

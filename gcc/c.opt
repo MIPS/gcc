@@ -166,7 +166,7 @@ C++ ObjC++ Var(warn_deprecated) Init(1)
 Warn about deprecated compiler features
 
 Wdiv-by-zero
-C ObjC Var(warn_div_by_zero) Init(1)
+C ObjC C++ Var(warn_div_by_zero) Init(1)
 Warn about compile-time integer division by zero
 
 Weffc++
@@ -311,6 +311,10 @@ Wold-style-definition
 C ObjC Var(warn_old_style_definition)
 Warn if an old-style parameter definition is used
 
+Woverlength-strings
+C ObjC C++ ObjC++ Var(warn_overlength_strings) Init(-1)
+Warn if a string is longer than the maximum portable length specified by the standard
+
 Woverloaded-virtual
 C++ ObjC++ Var(warn_overloaded_virtual)
 Warn about overloaded virtual function names
@@ -416,11 +420,11 @@ C ObjC C++ ObjC++
 Do not warn about using variadic macros when -pedantic
 
 Wwrite-strings
-C ObjC C++ ObjC++
-Give strings the type \"array of char\"
+C ObjC C++ ObjC++ Var(warn_write_strings)
+In C++, nonzero means warn about deprecated conversion from string literals to `char *'.  In C, similar warning, except that the conversion is of course not deprecated by the ISO C standard.
 
 Wpointer-sign
-C ObjC Var(warn_pointer_sign) Init(1)
+C ObjC Var(warn_pointer_sign) Init(-1)
 Warn when a pointer differs in signedness in an assignment
 
 ansi
@@ -464,10 +468,6 @@ Allow the arguments of the '?' operator to have different types
 fconserve-space
 C++ ObjC++
 Reduce the size of object files
-
-fconst-strings
-C++ ObjC++
-Make string literals \"const char[]\" not \"char[]\"
 
 fconstant-string-class=
 ObjC ObjC++ Joined
@@ -712,6 +712,10 @@ Make \"char\" unsigned by default
 fuse-cxa-atexit
 C++ ObjC++
 Use __cxa_atexit to register destructors
+
+fuse-cxa-get-exception-ptr
+C++ ObjC++
+Use __cxa_get_exception_ptr in exception handling
 
 fvisibility-inlines-hidden
 C++ ObjC++

@@ -1,6 +1,7 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -699,15 +700,15 @@ reload (rtx first, int global)
      Record memory equivalents in reg_mem_equiv so they can
      be substituted eventually by altering the REG-rtx's.  */
 
-  reg_equiv_constant = xcalloc (max_regno, sizeof (rtx));
-  reg_equiv_invariant = xcalloc (max_regno, sizeof (rtx));
-  reg_equiv_mem = xcalloc (max_regno, sizeof (rtx));
-  reg_equiv_address = xcalloc (max_regno, sizeof (rtx));
-  reg_max_ref_width = xcalloc (max_regno, sizeof (int));
-  reg_old_renumber = xcalloc (max_regno, sizeof (short));
+  reg_equiv_constant = XCNEWVEC (rtx, max_regno);
+  reg_equiv_invariant = XCNEWVEC (rtx, max_regno);
+  reg_equiv_mem = XCNEWVEC (rtx, max_regno);
+  reg_equiv_address = XCNEWVEC (rtx, max_regno);
+  reg_max_ref_width = XCNEWVEC (unsigned int, max_regno);
+  reg_old_renumber = XCNEWVEC (short, max_regno);
   memcpy (reg_old_renumber, reg_renumber, max_regno * sizeof (short));
-  pseudo_forbidden_regs = xmalloc (max_regno * sizeof (HARD_REG_SET));
-  pseudo_previous_regs = xcalloc (max_regno, sizeof (HARD_REG_SET));
+  pseudo_forbidden_regs = XNEWVEC (HARD_REG_SET, max_regno);
+  pseudo_previous_regs = XCNEWVEC (HARD_REG_SET, max_regno);
 
   CLEAR_HARD_REG_SET (bad_spill_regs_global);
 
@@ -817,8 +818,8 @@ reload (rtx first, int global)
   /* We used to use alloca here, but the size of what it would try to
      allocate would occasionally cause it to exceed the stack limit and
      cause a core dump.  */
-  offsets_known_at = xmalloc (num_labels);
-  offsets_at = xmalloc (num_labels * NUM_ELIMINABLE_REGS * sizeof (HOST_WIDE_INT));
+  offsets_known_at = XNEWVEC (char, num_labels);
+  offsets_at = (HOST_WIDE_INT (*)[NUM_ELIMINABLE_REGS]) xmalloc (num_labels * NUM_ELIMINABLE_REGS * sizeof (HOST_WIDE_INT));
 
   /* Alter each pseudo-reg rtx to contain its hard reg number.
      Assign stack slots to the pseudos that lack hard regs or equivalents.
@@ -2606,9 +2607,7 @@ eliminate_regs_1 (rtx x, enum machine_mode mem_mode, rtx insn,
 	  new = eliminate_regs_1 (XEXP (x, i), mem_mode, insn, false);
 	  if (new != XEXP (x, i) && ! copied)
 	    {
-	      rtx new_x = rtx_alloc (code);
-	      memcpy (new_x, x, RTX_SIZE (code));
-	      x = new_x;
+	      x = shallow_copy_rtx (x);
 	      copied = 1;
 	    }
 	  XEXP (x, i) = new;
@@ -2625,9 +2624,7 @@ eliminate_regs_1 (rtx x, enum machine_mode mem_mode, rtx insn,
 					     XVEC (x, i)->elem);
 		  if (! copied)
 		    {
-		      rtx new_x = rtx_alloc (code);
-		      memcpy (new_x, x, RTX_SIZE (code));
-		      x = new_x;
+		      x = shallow_copy_rtx (x);
 		      copied = 1;
 		    }
 		  XVEC (x, i) = new_v;
@@ -3878,8 +3875,8 @@ reload_as_needed (int live_known)
 
   memset (spill_reg_rtx, 0, sizeof spill_reg_rtx);
   memset (spill_reg_store, 0, sizeof spill_reg_store);
-  reg_last_reload_reg = xcalloc (max_regno, sizeof (rtx));
-  reg_has_output_reload = xmalloc (max_regno);
+  reg_last_reload_reg = XCNEWVEC (rtx, max_regno);
+  reg_has_output_reload = XNEWVEC (char, max_regno);
   CLEAR_HARD_REG_SET (reg_reloaded_valid);
   CLEAR_HARD_REG_SET (reg_reloaded_call_part_clobbered);
 
@@ -5779,7 +5776,7 @@ choose_reload_regs (struct insn_chain *chain)
 
 	      if (equiv != 0)
 		{
-		  if (regno_clobbered_p (regno, insn, rld[r].mode, 0))
+		  if (regno_clobbered_p (regno, insn, rld[r].mode, 2))
 		    switch (rld[r].when_needed)
 		      {
 		      case RELOAD_FOR_OTHER_ADDRESS:
@@ -6327,71 +6324,11 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
   if (mode == VOIDmode)
     mode = rl->inmode;
 
-  /* If we need a secondary register for this operation, see if
-     the value is already in a register in that class.  Don't
-     do this if the secondary register will be used as a scratch
-     register.  */
-
-  if (rl->secondary_in_reload >= 0
-      && rl->secondary_in_icode == CODE_FOR_nothing
-      && optimize)
-    oldequiv
-      = find_equiv_reg (old, insn,
-			rld[rl->secondary_in_reload].class,
-			-1, NULL, 0, mode);
-
-  /* If reloading from memory, see if there is a register
-     that already holds the same value.  If so, reload from there.
-     We can pass 0 as the reload_reg_p argument because
-     any other reload has either already been emitted,
-     in which case find_equiv_reg will see the reload-insn,
-     or has yet to be emitted, in which case it doesn't matter
-     because we will use this equiv reg right away.  */
-
-  if (oldequiv == 0 && optimize
-      && (MEM_P (old)
-	  || (REG_P (old)
-	      && REGNO (old) >= FIRST_PSEUDO_REGISTER
-	      && reg_renumber[REGNO (old)] < 0)))
-    oldequiv = find_equiv_reg (old, insn, ALL_REGS, -1, NULL, 0, mode);
-
-  if (oldequiv)
-    {
-      unsigned int regno = true_regnum (oldequiv);
-
-      /* Don't use OLDEQUIV if any other reload changes it at an
-	 earlier stage of this insn or at this stage.  */
-      if (! free_for_value_p (regno, rl->mode, rl->opnum, rl->when_needed,
-			      rl->in, const0_rtx, j, 0))
-	oldequiv = 0;
-
-      /* If it is no cheaper to copy from OLDEQUIV into the
-	 reload register than it would be to move from memory,
-	 don't use it. Likewise, if we need a secondary register
-	 or memory.  */
-
-      if (oldequiv != 0
-	  && (((enum reg_class) REGNO_REG_CLASS (regno) != rl->class
-	       && (REGISTER_MOVE_COST (mode, REGNO_REG_CLASS (regno),
-				       rl->class)
-		   >= MEMORY_MOVE_COST (mode, rl->class, 1)))
-	      || (secondary_reload_class (1, rl->class, mode, oldequiv)
-		  != NO_REGS)
-#ifdef SECONDARY_MEMORY_NEEDED
-	      || SECONDARY_MEMORY_NEEDED (REGNO_REG_CLASS (regno),
-					  rl->class,
-					  mode)
-#endif
-	      ))
-	oldequiv = 0;
-    }
-
   /* delete_output_reload is only invoked properly if old contains
      the original pseudo register.  Since this is replaced with a
      hard reg when RELOAD_OVERRIDE_IN is set, see if we can
      find the pseudo in RELOAD_IN_REG.  */
-  if (oldequiv == 0
-      && reload_override_in[j]
+  if (reload_override_in[j]
       && REG_P (rl->in_reg))
     {
       oldequiv = old;
@@ -7478,13 +7415,18 @@ emit_reload_insns (struct insn_chain *chain)
       /* If a register gets output-reloaded from a non-spill register,
 	 that invalidates any previous reloaded copy of it.
 	 But forget_old_reloads_1 won't get to see it, because
-	 it thinks only about the original insn.  So invalidate it here.  */
-      if (i < 0 && rld[r].out != 0
-	  && (REG_P (rld[r].out)
-	      || (MEM_P (rld[r].out)
+	 it thinks only about the original insn.  So invalidate it here.
+	 Also do the same thing for RELOAD_OTHER constraints where the
+	 output is discarded.  */
+      if (i < 0 
+	  && ((rld[r].out != 0
+	       && (REG_P (rld[r].out)
+		   || (MEM_P (rld[r].out)
+		       && REG_P (rld[r].out_reg))))
+	      || (rld[r].out == 0 && rld[r].out_reg
 		  && REG_P (rld[r].out_reg))))
 	{
-	  rtx out = (REG_P (rld[r].out)
+	  rtx out = ((rld[r].out && REG_P (rld[r].out))
 		     ? rld[r].out : rld[r].out_reg);
 	  int nregno = REGNO (out);
 	  if (nregno >= FIRST_PSEUDO_REGISTER)
@@ -7560,7 +7502,7 @@ emit_reload_insns (struct insn_chain *chain)
 	    }
 	  else
 	    {
-	      int num_regs = hard_regno_nregs[nregno][GET_MODE (rld[r].out)];
+	      int num_regs = hard_regno_nregs[nregno][GET_MODE (out)];
 
 	      while (num_regs-- > 0)
 		reg_last_reload_reg[nregno + num_regs] = 0;
@@ -7780,6 +7722,10 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       rtx out_moded;
       rtx set;
 
+      op1 = find_replacement (&XEXP (in, 0));
+      if (op1 != XEXP (in, 0))
+	in = gen_rtx_fmt_e (GET_CODE (in), GET_MODE (in), op1);
+
       /* First, try a plain SET.  */
       set = emit_insn_if_valid_for_reload (gen_rtx_SET (VOIDmode, out, in));
       if (set)
@@ -7788,7 +7734,6 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       /* If that failed, move the inner operand to the reload
 	 register, and try the same unop with the inner expression
 	 replaced with the reload register.  */
-      op1 = XEXP (in, 0);
 
       if (GET_MODE (op1) != GET_MODE (out))
 	out_moded = gen_rtx_REG (GET_MODE (op1), REGNO (out));

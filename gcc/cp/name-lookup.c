@@ -1,5 +1,5 @@
 /* Definitions for C++ name lookup routines.
-   Copyright (C) 2003, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -950,8 +950,8 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 
 	      if (warn_shadow && !err)
 		{
-		  warning (0, "declaration of %q#D shadows a parameter", x);
-		  warning (0, "%Jshadowed declaration is here", oldlocal);
+		  warning (OPT_Wshadow, "declaration of %q#D shadows a parameter", x);
+		  warning (OPT_Wshadow, "%Jshadowed declaration is here", oldlocal);
 		}
 	    }
 
@@ -975,22 +975,22 @@ pushdecl_maybe_friend (tree x, bool is_friend)
 	      if (member && !TREE_STATIC (member))
 		{
 		  /* Location of previous decl is not useful in this case.  */
-		  warning (0, "declaration of %qD shadows a member of 'this'",
+		  warning (OPT_Wshadow, "declaration of %qD shadows a member of 'this'",
 			   x);
 		}
 	      else if (oldlocal != NULL_TREE
 		       && TREE_CODE (oldlocal) == VAR_DECL)
 		{
-		  warning (0, "declaration of %qD shadows a previous local", x);
-		  warning (0, "%Jshadowed declaration is here", oldlocal);
+		  warning (OPT_Wshadow, "declaration of %qD shadows a previous local", x);
+		  warning (OPT_Wshadow, "%Jshadowed declaration is here", oldlocal);
 		}
 	      else if (oldglobal != NULL_TREE
 		       && TREE_CODE (oldglobal) == VAR_DECL)
 		/* XXX shadow warnings in outer-more namespaces */
 		{
-		  warning (0, "declaration of %qD shadows a global declaration",
+		  warning (OPT_Wshadow, "declaration of %qD shadows a global declaration",
 			   x);
-		  warning (0, "%Jshadowed declaration is here", oldglobal);
+		  warning (OPT_Wshadow, "%Jshadowed declaration is here", oldglobal);
 		}
 	    }
 	}
@@ -1278,6 +1278,7 @@ begin_scope (scope_kind kind, tree entity)
     case sk_for:
     case sk_class:
     case sk_function_parms:
+    case sk_omp:
       scope->keep = keep_next_level_flag;
       break;
 
@@ -1789,7 +1790,7 @@ binding_for_name (cxx_scope *scope, tree name)
    return NULL_TREE if this not in namespace scope (in namespace
    scope, a using decl might extend any previous bindings).  */
 
-tree
+static tree
 push_using_decl (tree scope, tree name)
 {
   tree decl;
@@ -1892,6 +1893,7 @@ push_overloaded_decl (tree decl, int flags, bool is_friend)
 	  for (tmp = old; tmp; tmp = OVL_NEXT (tmp))
 	    {
 	      tree fn = OVL_CURRENT (tmp);
+	      tree dup;
 
 	      if (TREE_CODE (tmp) == OVERLOAD && OVL_USED (tmp)
 		  && !(flags & PUSH_USING)
@@ -1901,8 +1903,11 @@ push_overloaded_decl (tree decl, int flags, bool is_friend)
 		error ("%q#D conflicts with previous using declaration %q#D",
 		       decl, fn);
 
-	      if (duplicate_decls (decl, fn, is_friend) == fn)
-		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, fn);
+	      dup = duplicate_decls (decl, fn, is_friend);
+	      /* If DECL was a redeclaration of FN -- even an invalid
+		 one -- pass that information along to our caller.  */
+	      if (dup == fn || dup == error_mark_node)
+		POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, dup);
 	    }
 
 	  /* We don't overload implicit built-ins.  duplicate_decls()
@@ -2764,7 +2769,7 @@ do_class_using_decl (tree scope, tree name)
 
   scope_dependent_p = dependent_type_p (scope);
   name_dependent_p = (scope_dependent_p 
-		      || (IDENTIFIER_OPNAME_P (name)
+		      || (IDENTIFIER_TYPENAME_P (name)
 			  && dependent_type_p (TREE_TYPE (name))));
 
   bases_dependent_p = false;
@@ -3295,9 +3300,14 @@ parse_using_directive (tree namespace, tree attribs)
 	  if (!toplevel_bindings_p ())
 	    error ("strong using only meaningful at namespace scope");
 	  else if (namespace != error_mark_node)
-	    DECL_NAMESPACE_ASSOCIATIONS (namespace)
-	      = tree_cons (current_namespace, 0,
-			   DECL_NAMESPACE_ASSOCIATIONS (namespace));
+	    {
+	      if (!is_ancestor (current_namespace, namespace))
+		error ("current namespace %qD does not enclose strongly used namespace %qD",
+		       current_namespace, namespace);
+	      DECL_NAMESPACE_ASSOCIATIONS (namespace)
+		= tree_cons (current_namespace, 0,
+			     DECL_NAMESPACE_ASSOCIATIONS (namespace));
+	    }
 	}
       else
 	warning (OPT_Wattributes, "%qD attribute directive ignored", name);
@@ -3315,7 +3325,7 @@ pushdecl_top_level_1 (tree x, tree *init, bool is_friend)
   push_to_top_level ();
   x = pushdecl_namespace_level (x, is_friend);
   if (init)
-    cp_finish_decl (x, *init, NULL_TREE, 0);
+    finish_decl (x, *init, NULL_TREE);
   pop_from_top_level ();
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, x);
 }
@@ -4436,7 +4446,6 @@ arg_assoc_type (struct arg_lookup *k, tree type)
     case REAL_TYPE:
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
-    case CHAR_TYPE:
     case BOOLEAN_TYPE:
       return false;
     case RECORD_TYPE:

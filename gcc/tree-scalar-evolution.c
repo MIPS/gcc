@@ -1647,9 +1647,9 @@ interpret_rhs_modify_expr (struct loop *loop, tree at_stmt,
       opnd10 = TREE_OPERAND (opnd1, 0);
       chrec10 = analyze_scalar_evolution (loop, opnd10);
       chrec10 = chrec_convert (type, chrec10, at_stmt);
-      res = chrec_fold_multiply (type, chrec10, SCALAR_FLOAT_TYPE_P (type)
-				  ? build_real (type, dconstm1)
-				  : build_int_cst_type (type, -1));
+      /* TYPE may be integer, real or complex, so use fold_convert.  */
+      res = chrec_fold_multiply (type, chrec10,
+				 fold_convert (type, integer_minus_one_node));
       break;
 
     case MULT_EXPR:
@@ -2671,7 +2671,7 @@ expression_expensive_p (tree expr)
    We only consider SSA names defined by phi nodes; rest is left to the
    ordinary constant propagation pass.  */
 
-void
+unsigned int
 scev_const_prop (void)
 {
   basic_block bb;
@@ -2681,7 +2681,7 @@ scev_const_prop (void)
   unsigned i;
 
   if (!current_loops)
-    return;
+    return 0;
 
   FOR_EACH_BB (bb)
     {
@@ -2793,10 +2793,14 @@ scev_const_prop (void)
 
 	  ass = build2 (MODIFY_EXPR, void_type_node, rslt, NULL_TREE);
 	  SSA_NAME_DEF_STMT (rslt) = ass;
-	  bsi_insert_after (&bsi, ass, BSI_NEW_STMT);
-	  def = force_gimple_operand_bsi (&bsi, def, false, NULL_TREE);
+	  {
+	    block_stmt_iterator dest = bsi;
+	    bsi_insert_before (&dest, ass, BSI_NEW_STMT);
+	    def = force_gimple_operand_bsi (&dest, def, false, NULL_TREE);
+	  }
 	  TREE_OPERAND (ass, 1) = def;
 	  update_stmt (ass);
 	}
     }
+  return 0;
 }

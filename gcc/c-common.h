@@ -406,11 +406,6 @@ extern int flag_const_strings;
 
 extern int flag_signed_bitfields;
 
-/* Nonzero means warn about deprecated conversion from string constant to
-   `char *'.  */
-
-extern int warn_write_strings;
-
 /* Warn about #pragma directives that are not recognized.  */      
 
 extern int warn_unknown_pragmas; /* Tri state variable.  */  
@@ -553,6 +548,11 @@ extern int flag_working_directory;
    destructors for local statics and global objects.  */
 
 extern int flag_use_cxa_atexit;
+
+/* Nonzero to use __cxa_get_exception_ptr in the C++ exception-handling
+   logic.  */
+
+extern int flag_use_cxa_get_exception_ptr;
 
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */

@@ -523,6 +523,10 @@ fipa-pure-const
 Common Report Var(flag_ipa_pure_const) Init(0)
 Discover pure and const functions
 
+fipa-pta
+Common Report Var(flag_ipa_pta) Init(0)
+Perform interprocedural points-to analysis
+
 fipa-reference
 Common Report Var(flag_ipa_reference) Init(0)
 Discover readonly and non addressable static variables
@@ -552,12 +556,8 @@ Common Report Var(flag_leading_underscore) Init(-1)
 Give external symbols a leading underscore
 
 floop-optimize
-Common Report Var(flag_loop_optimize)
-Perform loop optimizations
-
-floop-optimize2
-Common Report Var(flag_loop_optimize2)
-Perform loop optimizations using the new loop optimizer
+Common
+Does nothing.  Preserved for backward compatibility.
 
 fmath-errno
 Common Report Var(flag_errno_math) Init(1)
@@ -587,7 +587,7 @@ Common Report Var(flag_modulo_sched)
 Perform SMS based modulo scheduling before the first scheduling pass
 
 fmove-loop-invariants
-Common Report Var(flag_move_loop_invariants)
+Common Report Var(flag_move_loop_invariants) Init(1)
 Move loop invariant computations out of loops
 
 fmudflap
@@ -722,8 +722,8 @@ Common Report Var(flag_rerun_cse_after_loop) Init(2)
 Add a common subexpression elimination pass after loop optimizations
 
 frerun-loop-opt
-Common Report Var(flag_rerun_loop_opt)
-Run the loop optimizer twice
+Common
+Does nothing.  Preserved for backward compatibility.
 
 frounding-math
 Common Report Var(flag_rounding_math)
@@ -787,13 +787,13 @@ fsched-stalled-insns-dep=
 Common RejectNegative Joined UInteger
 -fsched-stalled-insns-dep=<number>	Set dependence distance checking in premature scheduling of queued insns
 
+fsection-anchors
+Common Report Var(flag_section_anchors)
+Access data in the same section from shared anchor points
+
 frtl-abstract-sequences
 Common Report Var(flag_rtl_seqabstr)
 Perform sequence abstraction optimization on RTL
-
-fshared-data
-Common Report Var(flag_shared_data)
-Mark data as shared rather than private
 
 fshow-column
 Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)
@@ -841,8 +841,8 @@ Common Report RejectNegative Var(flag_stack_protect, 2) VarExists
 Use a stack protection method for every function
 
 fstrength-reduce
-Common Report Var(flag_strength_reduce)
-Perform strength reduction optimizations
+Common
+Does nothing.  Preserved for backward compatibility.
 
 ; Nonzero if we should do (language-dependent) alias analysis.
 ; Typically, this analysis will assume that expressions of certain

@@ -364,6 +364,7 @@ PERSONALITY_FUNCTION (int version,
   int handler_switch_value;
   void* thrown_ptr = ue_header + 1;
   bool foreign_exception;
+  int ip_before_insn = 0;
 
 #ifdef __ARM_EABI_UNWINDER__
   _Unwind_Action actions;
@@ -430,7 +431,9 @@ PERSONALITY_FUNCTION (int version,
   // Parse the LSDA header.
   p = parse_lsda_header (context, language_specific_data, &info);
   info.ttype_base = base_of_encoded_value (info.ttype_encoding, context);
-  ip = _Unwind_GetIP (context) - 1;
+  ip = _Unwind_GetIPInfo (context, &ip_before_insn);
+  if (! ip_before_insn)
+    --ip;
   landing_pad = 0;
   action_record = 0;
   handler_switch_value = 0;
@@ -679,10 +682,10 @@ PERSONALITY_FUNCTION (int version,
   return _URC_INSTALL_CONTEXT;
 }
 
-/* The ARM EABI implementation of __cxa_call_unexpected is in a different
-   file so that the personality routine san be used standalone.  The generic
-   routine sahred datastructures with the PR so it is most convenient to
-   implement it here.  */
+/* The ARM EABI implementation of __cxa_call_unexpected is in a
+   different file so that the personality routine (PR) can be used
+   standalone.  The generic routine shared datastructures with the PR
+   so it is most convenient to implement it here.  */
 #ifndef __ARM_EABI_UNWINDER__
 extern "C" void
 __cxa_call_unexpected (void *exc_obj_in)

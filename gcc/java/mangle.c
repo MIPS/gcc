@@ -243,9 +243,13 @@ mangle_type (tree type)
     {
       char code;
     case BOOLEAN_TYPE: code = 'b';  goto primitive;
-    case CHAR_TYPE:    code = 'w';  goto primitive;
     case VOID_TYPE:    code = 'v';  goto primitive;
     case INTEGER_TYPE:
+      if (type == char_type_node || type == promoted_char_type_node)
+	{
+	  code = 'w';
+	  goto primitive;
+	}
       /* Get the original type instead of the arguments promoted type.
 	 Avoid symbol name clashes. Should call a function to do that.
 	 FIXME.  */
@@ -280,7 +284,7 @@ mangle_type (tree type)
       break;
     bad_type:
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -397,8 +401,7 @@ mangle_record_type (tree type, int for_pointer)
 #define ADD_N() \
   do { obstack_1grow (mangle_obstack, 'N'); nadded_p = 1; } while (0)
 
-  if (TREE_CODE (type) != RECORD_TYPE)
-    abort ();
+  gcc_assert (TREE_CODE (type) == RECORD_TYPE);
 
   if (!TYPE_PACKAGE_LIST (type))
     set_type_package_list (type);
@@ -450,8 +453,7 @@ mangle_pointer_type (tree type)
   /* This didn't work. We start by mangling the pointed-to type */
   pointer_type = type;
   type = TREE_TYPE (type);
-  if (TREE_CODE (type) != RECORD_TYPE)
-    abort ();
+  gcc_assert (TREE_CODE (type) == RECORD_TYPE);
   
   obstack_1grow (mangle_obstack, 'P');
   if (mangle_record_type (type, /* for_pointer = */ 1))
@@ -473,8 +475,7 @@ mangle_array_type (tree p_type)
   int match;
 
   type = TREE_TYPE (p_type);
-  if (!type)
-    abort ();
+  gcc_assert (type);
 
   elt_type = TYPE_ARRAY_ELEMENT (type);
 

@@ -1,6 +1,6 @@
 // istream classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -135,6 +135,46 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>&
     basic_istream<_CharT, _Traits>::
+    operator>>(short& __n)
+    {
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 118. basic_istream uses nonexistent num_get member functions.
+      long __l;
+      _M_extract(__l);
+      if (!this->fail())
+	{
+	  if (numeric_limits<short>::min() <= __l
+	      && __l <= numeric_limits<short>::max())
+	    __n = __l;
+	  else
+	    this->setstate(ios_base::failbit);
+	}
+      return *this;
+    }
+    
+  template<typename _CharT, typename _Traits>
+    basic_istream<_CharT, _Traits>&
+    basic_istream<_CharT, _Traits>::
+    operator>>(int& __n)
+    {
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 118. basic_istream uses nonexistent num_get member functions.
+      long __l;
+      _M_extract(__l);
+      if (!this->fail())
+	{
+	  if (numeric_limits<int>::min() <= __l
+	      && __l <= numeric_limits<int>::max())
+	    __n = __l;
+	  else
+	    this->setstate(ios_base::failbit);
+	}
+      return *this;
+    }
+
+  template<typename _CharT, typename _Traits>
+    basic_istream<_CharT, _Traits>&
+    basic_istream<_CharT, _Traits>::
     operator>>(__streambuf_type* __sbout)
     {
       ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
@@ -143,8 +183,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  try
 	    {
-	      if (!__copy_streambufs(this->rdbuf(), __sbout))
+	      bool __ineof;
+	      if (!__copy_streambufs_eof(this->rdbuf(), __sbout, __ineof))
 		__err |= ios_base::failbit;
+	      if (__ineof)
+		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
 	    { this->_M_setstate(ios_base::failbit); }
@@ -671,7 +714,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       try
 	{
 	  if (!this->fail())
-	    __ret = this->rdbuf()->pubseekoff(0, ios_base::cur, ios_base::in);
+	    __ret = this->rdbuf()->pubseekoff(0, ios_base::cur,
+					      ios_base::in);
 	}
       catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
@@ -693,8 +737,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      // 136.  seekp, seekg setting wrong streams?
 	      const pos_type __p = this->rdbuf()->pubseekpos(__pos,
 							     ios_base::in);
-
-	      // 129. Need error indication from seekp() and seekg()
+	      
+	      // 129.  Need error indication from seekp() and seekg()
 	      if (__p == pos_type(off_type(-1)))
 		__err |= ios_base::failbit;
 	    }
@@ -721,8 +765,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      // 136.  seekp, seekg setting wrong streams?
 	      const pos_type __p = this->rdbuf()->pubseekoff(__off, __dir,
 							     ios_base::in);
-
-	      // 129. Need error indication from seekp() and seekg()
+	      
+	      // 129.  Need error indication from seekp() and seekg()
 	      if (__p == pos_type(off_type(-1)))
 		__err |= ios_base::failbit;
 	    }

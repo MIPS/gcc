@@ -81,7 +81,10 @@ java::lang::ClassLoader::loadClassFromSig(jstring name)
   int len = _Jv_GetStringUTFLength (name);
   char sig[len + 1];
   _Jv_GetStringUTFRegion (name, 0, name->length(), sig);
-  return _Jv_FindClassFromSignature(sig, this);
+  jclass result = _Jv_FindClassFromSignature(sig, this);
+  if (result == NULL)
+    throw new ClassNotFoundException(name);
+  return result;
 }
 
 
@@ -266,6 +269,30 @@ _Jv_CopyClassesToSystemLoader (gnu::gcj::runtime::SystemClassLoader *loader)
   system_class_list = SYSTEM_LOADER_INITIALIZED;
 }
 
+// An internal variant of _Jv_FindClass which simply swallows a
+// NoClassDefFoundError or a ClassNotFoundException. This gives the
+// caller a chance to evaluate the situation and behave accordingly.
+jclass
+_Jv_FindClassNoException (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
+{
+  jclass klass;
+
+  try
+    {
+      klass = _Jv_FindClass(name, loader);
+    }
+  catch ( java::lang::NoClassDefFoundError *ncdfe )
+    {
+      return NULL;
+    }
+  catch ( java::lang::ClassNotFoundException *cnfe )
+    {
+      return NULL;
+    }
+
+  return klass;
+}
+
 jclass
 _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 {
@@ -434,7 +461,7 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
     = java::lang::Object::class$.vtable_method_count;
 
   // Stash the pointer to the element type.
-  array_class->methods = (_Jv_Method *) element;
+  array_class->element_type = element;
 
   // Register our interfaces.
   static jclass interfaces[] =

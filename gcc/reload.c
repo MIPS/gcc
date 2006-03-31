@@ -1,6 +1,7 @@
 /* Search an insn for pseudo regs that must be in hard regs and are not.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -300,7 +301,7 @@ push_secondary_reload (int in_p, rtx x, int opnum, int optional,
   enum reg_class scratch_class;
   enum machine_mode mode = reload_mode;
   enum insn_code icode = CODE_FOR_nothing;
-  enum insn_code t_icode;
+  enum insn_code t_icode = CODE_FOR_nothing;
   enum reload_type secondary_type;
   int s_reload, t_reload = -1;
   const char *scratch_constraint;
@@ -6940,9 +6941,39 @@ find_inc_amount (rtx x, rtx inced)
   return 0;
 }
 
+/* Return 1 if registers from REGNO to ENDREGNO are the subjects of a
+   REG_INC note in insn INSN.  REGNO must refer to a hard register.  */
+
+#ifdef AUTO_INC_DEC
+static int 
+reg_inc_found_and_valid_p (unsigned int regno, unsigned int endregno,
+			   rtx insn)
+{
+  rtx link;
+
+  gcc_assert (insn);
+
+  if (! INSN_P (insn))
+    return 0;
+    
+  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+    if (REG_NOTE_KIND (link) == REG_INC)
+      {
+	unsigned int test = (int) REGNO (XEXP (link, 0));
+	if (test >= regno && test < endregno)
+	  return 1; 
+      }
+  return 0;
+}
+#else
+
+#define reg_inc_found_and_valid_p(regno,endregno,insn) 0
+
+#endif 
+
 /* Return 1 if register REGNO is the subject of a clobber in insn INSN.
-   If SETS is nonzero, also consider SETs.  REGNO must refer to a hard
-   register.  */
+   If SETS is 1, also consider SETs.  If SETS is 2, enable checking
+   REG_INC.  REGNO must refer to a hard register.  */
 
 int
 regno_clobbered_p (unsigned int regno, rtx insn, enum machine_mode mode,
@@ -6957,7 +6988,7 @@ regno_clobbered_p (unsigned int regno, rtx insn, enum machine_mode mode,
   endregno = regno + nregs;
 
   if ((GET_CODE (PATTERN (insn)) == CLOBBER
-       || (sets && GET_CODE (PATTERN (insn)) == SET))
+       || (sets == 1 && GET_CODE (PATTERN (insn)) == SET))
       && REG_P (XEXP (PATTERN (insn), 0)))
     {
       unsigned int test = REGNO (XEXP (PATTERN (insn), 0));
@@ -6965,6 +6996,9 @@ regno_clobbered_p (unsigned int regno, rtx insn, enum machine_mode mode,
       return test >= regno && test < endregno;
     }
 
+  if (sets == 2 && reg_inc_found_and_valid_p (regno, endregno, insn))
+    return 1; 
+  
   if (GET_CODE (PATTERN (insn)) == PARALLEL)
     {
       int i = XVECLEN (PATTERN (insn), 0) - 1;
@@ -6973,7 +7007,7 @@ regno_clobbered_p (unsigned int regno, rtx insn, enum machine_mode mode,
 	{
 	  rtx elt = XVECEXP (PATTERN (insn), 0, i);
 	  if ((GET_CODE (elt) == CLOBBER
-	       || (sets && GET_CODE (PATTERN (insn)) == SET))
+	       || (sets == 1 && GET_CODE (PATTERN (insn)) == SET))
 	      && REG_P (XEXP (elt, 0)))
 	    {
 	      unsigned int test = REGNO (XEXP (elt, 0));
@@ -6981,6 +7015,9 @@ regno_clobbered_p (unsigned int regno, rtx insn, enum machine_mode mode,
 	      if (test >= regno && test < endregno)
 		return 1;
 	    }
+	  if (sets == 2
+	      && reg_inc_found_and_valid_p (regno, endregno, elt))
+	    return 1; 
 	}
     }
 

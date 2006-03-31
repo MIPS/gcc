@@ -208,7 +208,7 @@ typedef struct _stmt_vec_info {
   /* Stmt is part of some pattern (computation idiom)  */
   bool in_pattern_p;
 
-  /* Used for various bookeeping purposes, generally holding a pointer to 
+  /* Used for various bookkeeping purposes, generally holding a pointer to 
      some other stmt S that is in some way "related" to this stmt. 
      Current use of this field is:
         If this stmt is part of a pattern (i.e. the field 'in_pattern_p' is 
@@ -319,7 +319,6 @@ extern void slpeel_verify_cfg_after_peeling (struct loop *, struct loop *);
   General Vectorization Utilities
  *************************************************************************/
 /** In tree-vectorizer.c **/
-extern tree vect_strip_conversion (tree);
 extern tree get_vectype_for_scalar_type (tree);
 extern bool vect_is_simple_use (tree, loop_vec_info, tree *, tree *,
 				enum vect_def_type *);

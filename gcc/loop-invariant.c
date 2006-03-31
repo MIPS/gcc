@@ -52,6 +52,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "flags.h"
 #include "df.h"
 #include "hashtab.h"
+#include "except.h"
 
 /* The data stored for the loop.  */
 
@@ -232,6 +233,9 @@ invariant_for_use (struct df_ref *use)
   struct df_ref *def;
   basic_block bb = BLOCK_FOR_INSN (use->insn), def_bb;
 
+  if (use->flags & DF_REF_READ_WRITE)
+    return NULL;
+
   defs = DF_REF_CHAIN (use);
   if (!defs || defs->next)
     return NULL;
@@ -292,6 +296,8 @@ hash_invariant_expr_1 (rtx insn, rtx x)
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    val ^= hash_invariant_expr_1 (insn, XVECEXP (x, i, j));
 	}
+      else if (fmt[i] == 'i' || fmt[i] == 'n')
+	val ^= XINT (x, i);
     }
 
   return val;
@@ -373,6 +379,14 @@ invariant_expr_equal_p (rtx insn1, rtx e1, rtx insn2, rtx e2)
 		return false;
 	    }
 	}
+      else if (fmt[i] == 'i' || fmt[i] == 'n')
+	{
+	  if (XINT (e1, i) != XINT (e2, i))
+	    return false;
+	}
+      /* Unhandled type of subexpression, we fail conservatively.  */
+      else
+	return false;
     }
 
   return true;
@@ -425,7 +439,7 @@ find_or_insert_inv (htab_t eq, rtx expr, enum machine_mode mode,
   if (entry)
     return entry->inv;
 
-  entry = xmalloc (sizeof (struct invariant_expr_entry));
+  entry = XNEW (struct invariant_expr_entry);
   entry->inv = inv;
   entry->expr = expr;
   entry->mode = mode;
@@ -465,7 +479,7 @@ find_identical_invariants (htab_t eq, struct invariant *inv)
 
   if (dump_file && inv->eqto != inv->invno)
     fprintf (dump_file,
-	     "Invariant %d is equivalent to invariant %d.\n ",
+	     "Invariant %d is equivalent to invariant %d.\n",
 	     inv->invno, inv->eqto);
 }
 
@@ -582,7 +596,9 @@ find_exits (struct loop *loop, basic_block *body,
 static bool
 may_assign_reg_p (rtx x)
 {
-  return (can_copy_p (GET_MODE (x))
+  return (GET_MODE (x) != VOIDmode
+	  && GET_MODE (x) != BLKmode
+	  && can_copy_p (GET_MODE (x))
 	  && (!REG_P (x)
 	      || !HARD_REGISTER_P (x)
 	      || REGNO_REG_CLASS (REGNO (x)) != NO_REGS));
@@ -614,7 +630,7 @@ static struct invariant *
 create_new_invariant (struct def *def, rtx insn, bitmap depends_on,
 		      bool always_executed)
 {
-  struct invariant *inv = xmalloc (sizeof (struct invariant));
+  struct invariant *inv = XNEW (struct invariant);
   rtx set = single_set (insn);
 
   inv->def = def;
@@ -655,7 +671,7 @@ create_new_invariant (struct def *def, rtx insn, bitmap depends_on,
 static void
 record_use (struct def *def, rtx *use, rtx insn)
 {
-  struct use *u = xmalloc (sizeof (struct use));
+  struct use *u = XNEW (struct use);
 
   if (GET_CODE (*use) == SUBREG)
     use = &SUBREG_REG (*use);
@@ -669,7 +685,8 @@ record_use (struct def *def, rtx *use, rtx insn)
 }
 
 /* Finds the invariants INSN depends on and store them to the DEPENDS_ON
-   bitmap.  */
+   bitmap.  Returns true if all dependencies of INSN are known to be
+   loop invariants, false otherwise.  */
 
 static bool
 check_dependencies (rtx insn, bitmap depends_on)
@@ -682,6 +699,9 @@ check_dependencies (rtx insn, bitmap depends_on)
 
   for (use = DF_INSN_GET (df, insn)->uses; use; use = use->next_ref)
     {
+      if (use->flags & DF_REF_READ_WRITE)
+	return false;
+
       defs = DF_REF_CHAIN (use);
       if (!defs)
 	continue;
@@ -730,6 +750,12 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
       || find_reg_note (insn, REG_NO_CONFLICT, NULL_RTX))
     return;
 
+#ifdef HAVE_cc0
+  /* We can't move a CC0 setter without the user.  */
+  if (sets_cc0_p (insn))
+    return;
+#endif
+
   set = single_set (insn);
   if (!set)
     return;
@@ -743,16 +769,14 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
       || !check_maybe_invariant (SET_SRC (set)))
     return;
 
-  if (may_trap_p (PATTERN (insn)))
-    {
-      if (!always_reached)
-	return;
+  /* If the insn can throw exception, we cannot move it at all without changing
+     cfg.  */
+  if (can_throw_internal (insn))
+    return;
 
-      /* Unless the exceptions are handled, the behavior is undefined
- 	 if the trap occurs.  */
-      if (flag_non_call_exceptions)
-	return;
-    }
+  /* We cannot make trapping insn executed, unless it was executed before.  */
+  if (may_trap_after_code_motion_p (PATTERN (insn)) && !always_reached)
+    return;
 
   depends_on = BITMAP_ALLOC (NULL);
   if (!check_dependencies (insn, depends_on))
@@ -762,7 +786,7 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
     }
 
   if (simple)
-    def = xcalloc (1, sizeof (struct def));
+    def = XCNEW (struct def);
   else
     def = NULL;
 
@@ -907,6 +931,32 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
 
   (*regs_needed)++;
   (*comp_cost) += inv->cost;
+
+#ifdef STACK_REGS
+  {
+    /* Hoisting constant pool constants into stack regs may cost more than
+       just single register.  On x87, the balance is affected both by the
+       small number of FP registers, and by its register stack organization,
+       that forces us to add compensation code in and around the loop to
+       shuffle the operands to the top of stack before use, and pop them
+       from the stack after the loop finishes.
+
+       To model this effect, we increase the number of registers needed for
+       stack registers by two: one register push, and one register pop.
+       This usually has the effect that FP constant loads from the constant
+       pool are not moved out of the loop.
+
+       Note that this also means that dependent invariants can not be moved.
+       However, the primary purpose of this pass is to move loop invariant
+       address arithmetic out of loops, and address arithmetic that depends
+       on floating point constants is unlikely to ever occur.  */
+    rtx set = single_set (inv->insn);
+    if (set
+       && IS_STACK_MODE (GET_MODE (SET_SRC (set)))
+       && constant_pool_constant_p (SET_SRC (set)))
+      (*regs_needed) += 2;
+  }
+#endif
 
   EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, depno, bi)
     {
@@ -1059,22 +1109,38 @@ find_invariants_to_move (void)
     }
 }
 
-/* Move invariant INVNO out of the LOOP.  */
+/* Returns true if all insns in SEQ are valid.  */
 
-static void
+static bool
+seq_insns_valid_p (rtx seq)
+{
+  rtx x;
+
+  for (x = seq; x; x = NEXT_INSN (x))
+    if (insn_invalid_p (x))
+      return false;
+
+  return true;
+}
+
+/* Move invariant INVNO out of the LOOP.  Returns true if this succeeds, false
+   otherwise.  */
+
+static bool
 move_invariant_reg (struct loop *loop, unsigned invno)
 {
   struct invariant *inv = VEC_index (invariant_p, invariants, invno);
   struct invariant *repr = VEC_index (invariant_p, invariants, inv->eqto);
   unsigned i;
   basic_block preheader = loop_preheader_edge (loop)->src;
-  rtx reg, set;
+  rtx reg, set, dest, seq, op;
   struct use *use;
   bitmap_iterator bi;
 
-  if (inv->reg
-      || !repr->move)
-    return;
+  if (inv->reg)
+    return true;
+  if (!repr->move)
+    return false;
 
   /* If this is a representative of the class of equivalent invariants,
      really move the invariant.  Otherwise just replace its use with
@@ -1085,7 +1151,8 @@ move_invariant_reg (struct loop *loop, unsigned invno)
 	{
 	  EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, i, bi)
 	    {
-	      move_invariant_reg (loop, i);
+	      if (!move_invariant_reg (loop, i))
+		goto fail;
 	    }
 	}
 
@@ -1095,26 +1162,39 @@ move_invariant_reg (struct loop *loop, unsigned invno)
 	 would not be dominated by it, we may just move it (TODO).  Otherwise we
 	 need to create a temporary register.  */
       set = single_set (inv->insn);
-      reg = gen_reg_rtx (GET_MODE (SET_DEST (set)));
-      emit_insn_after (gen_move_insn (SET_DEST (set), reg), inv->insn);
+      dest = SET_DEST (set);
+      reg = gen_reg_rtx (GET_MODE (dest));
 
-      /* If the SET_DEST of the invariant insn is a reg, we can just move
+      /* If the SET_DEST of the invariant insn is a pseudo, we can just move
 	 the insn out of the loop.  Otherwise, we have to use gen_move_insn
 	 to let emit_move_insn produce a valid instruction stream.  */
-      if (REG_P (SET_DEST (set)))
+      if (REG_P (dest) && !HARD_REGISTER_P (dest))
 	{
+	  emit_insn_after (gen_move_insn (dest, reg), inv->insn);
 	  SET_DEST (set) = reg;
 	  reorder_insns (inv->insn, inv->insn, BB_END (preheader));
 	}
       else
 	{
-	  emit_insn_after (gen_move_insn (reg, SET_SRC (set)), BB_END (preheader));
+	  start_sequence ();
+	  op = force_operand (SET_SRC (set), reg);
+	  if (op != reg)
+	    emit_move_insn (reg, op);
+	  seq = get_insns ();
+	  end_sequence ();
+
+	  if (!seq_insns_valid_p (seq))
+	    goto fail;
+	  emit_insn_after (seq, BB_END (preheader));
+      
+	  emit_insn_after (gen_move_insn (dest, reg), inv->insn);
 	  delete_insn (inv->insn);
 	}
     }
   else
     {
-      move_invariant_reg (loop, repr->invno);
+      if (!move_invariant_reg (loop, repr->invno))
+	goto fail;
       reg = repr->reg;
       set = single_set (inv->insn);
       emit_insn_after (gen_move_insn (SET_DEST (set), reg), inv->insn);
@@ -1131,6 +1211,17 @@ move_invariant_reg (struct loop *loop, unsigned invno)
       for (use = inv->def->uses; use; use = use->next)
 	*use->pos = reg;
     }
+
+  return true;
+
+fail:
+  /* If we failed, clear move flag, so that we do not try to move inv
+     again.  */
+  if (dump_file)
+    fprintf (dump_file, "Failed to move invariant %d\n", invno);
+  inv->move = false;
+  inv->reg = NULL_RTX;
+  return false;
 }
 
 /* Move selected invariant out of the LOOP.  Newly created regs are marked

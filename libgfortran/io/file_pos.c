@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003, 2005 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2003, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Andy Vaught and Janne Blomqvist
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -161,7 +161,11 @@ st_backspace (st_parameter_filepos *fpp)
   /* Check for special cases involving the ENDFILE record first.  */
 
   if (u->endfile == AFTER_ENDFILE)
-    u->endfile = AT_ENDFILE;
+    {
+      u->endfile = AT_ENDFILE;
+      flush (u->s);
+      struncate (u->s);
+    }
   else
     {
       if (file_position (u->s) == 0)
@@ -242,15 +246,14 @@ st_rewind (st_parameter_filepos *fpp)
 			"Cannot REWIND a file opened for DIRECT access");
       else
 	{
-	  /* If we have been writing to the file, the last written record
-	     is the last record in the file, so truncate the file now.
-	     Reset to read mode so two consecutive rewind statements do not
-	     delete the file contents.  Flush buffer when switching mode.  */
-          if (u->mode == WRITING)
-	    {
-	      flush (u->s);
-	      struncate (u->s);
-	    }
+	  /* Flush the buffers.  If we have been writing to the file, the last
+	       written record is the last record in the file, so truncate the
+	       file now.  Reset to read mode so two consecutive rewind
+	       statements do not delete the file contents.  */
+	  flush (u->s);
+	  if (u->mode == WRITING)
+	    struncate (u->s);
+
 	  u->mode = READING;
 	  u->last_record = 0;
 	  if (sseek (u->s, 0) == FAILURE)

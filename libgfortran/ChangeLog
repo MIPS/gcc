@@ -1,3 +1,158 @@
+2006-03-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25378
+	* libgfortran/m4/minloc1.m4: Set the initial position to zero and
+	modify the condition for updating it, to implement the F2003
+	requirement for all(mask).eq.false.
+	* libgfortran/m4/maxloc1.m4: The same.
+	* libgfortran/m4/iforeach.m4: The same.
+	* libgfortran/m4/minloc0.m4: The same.
+	* libgfortran/m4/maxloc0.m4: The same.
+	* libgfortran/generated/maxloc0_16_i16.c: Regenerated, together
+	with 41 others.
+	* libgfortran/generated/minloc0_16_i16.c: Regenerated, together
+	with 41 others.
+
+2006-03-09  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26499
+	* io/file_pos (st_rewind): Flush always.
+	* io/unix.c (fd_truncate): Return SUCCESS rather than FAILURE for
+	special files like /dev/null.
+	* io/transfer.c (st_write_done): Remove broken logic that
+	prevented calling fd_truncate.
+
+2006-03-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26554
+	* io/list_read.c (read_logical): Return the value if not in namelist
+	mode.
+
+2006-03-03  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/25031
+	* runtime/memory.c:  Adjust copyright years.
+	(allocate_array):  New function.
+	(allocate64_array):  New function.
+	* libgfortran.h (error_codes):  Add ERROR_ALLOCATION.
+
+2006-02-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26136
+	* io/io.h: Add flag for reading from line_buffer.
+	* io/list_read.c (l_push_char): New function to save namelist
+	input when reading logicals.
+	(free_line): New function to free line_buffer memory.
+	(next_char): Added feature to read from line_buffer.
+	(read_logical): Use new functions to test for '=' after reading a
+	logical value, checking for possible variable name.
+	(namelist_read): Use free_line when all done.
+
+2006-02-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26464
+	* io/file_pos.c (st_backspace): Flush and truncate file
+	when in AFTER_ENDFILE condition.
+	* io/transfer.c (st_read_done): Remove flush, no longer needed.
+
+2006-02-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26423
+	* io/unix.c (fd_seek): Revert change from 25949.
+	(fd_read): Same.
+	(fd_write): Same.
+
+2006-02-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/open.c (edit_modes): Correct abusive copy-pasting.
+
+2006-02-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24903
+	* m4/dotprodc.m4: Use __builtin_conj instead of assigning real
+	and imaginary parts separately.
+	* generated/dotprod_c4.c: Regenerated.
+	* generated/dotprod_c8.c: Regenerated.
+	* generated/dotprod_c10.c: Regenerated.
+	* generated/dotprod_c16.c: Regenerated.
+
+2006-02-12  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libgfortran/25949
+	* io/io.h: Add set function pointer to struct stream.  
+	* io/unix.c (fd_seek): Only update offset, don't seek.
+	(fd_sset): New function.
+	(fd_read): Call lseek directly if necessary.
+	(fd_write): Likewise.
+	(fd_open): Set pointer to fd_sset.
+	(mem_set): New function.
+	(open_internal): Set pointer to mem_set.
+	* io/transfer.c (write_block_direct): Rename to write_buf, add
+	error return, non-pointer length argument.
+	(unformatted_write): Update to use write_buf.
+	(us_write): Simplify by using swrite instead of salloc_w.
+	(write_us_marker): New function.
+	(new_record_w): Use sset instead of memset, use write_us_marker,
+	simplify by using swrite instead of salloc_w.
+
+2006-02-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/25425
+	* libgfortran.h: Add pedantic field to compile_options struct.
+	* io/write.c (calculate_G_format): Depending on the standard,
+	choose E or F format for list-directed output of 0.0.
+	* runtime/error.c (notify_std): Make warning and error dependent
+	on pedanticity.
+	* runtime/compile_options.c (set_std): Use new pedantic argument.
+
+2006-02-07  Dale Ranta  <dir@lanl.gov>
+
+	PR fortran/25577
+	* intrinsics/mvbits.c: Shift '(TYPE)1' type when building 'lenmask'.
+
+2006-02-07  Rainer Emrich <r.emrich@de.tecosim.com>
+
+	* intrinsics/c99_functions.c: Work around incompatible
+	declarations of cabs{,f,l} on pre-C99 IRIX systems.
+
+2005-02-06  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23815
+	* runtime/environ.c (init_unformatted):  Add GFORTRAN_CONVERT_UNIT
+	environment variable.
+	(top level):  Add defines, type and static variables for
+	GFORTRAN_CONVERT_UNIT handling.
+	(search_unit):  New function.
+	(match_word): New function.
+	(match_integer): New function.
+	(next_token): New function.
+	(push_token): New function.
+	(mark_single): New function.
+	(mark_range): New funciton.
+	(do_parse): New function.
+	(init_unformatted): New function.
+	(get_unformatted_convert): New function.
+	* runtime/compile_options.c:  Add set_convert().
+	* libgfortran.h:  Add convert to compile_options_t.
+	* io/open.c (st_open): Call get_unformatted_convert to get
+	unit default; if CONVERT_NONE is returned, check for
+	the presence of a CONVERT specifier and use it.
+	As default, use compile_options.convert.
+	* io/io.h (top level): Add CONVERT_NONE to unit_convert, to signal
+	"nothing has been set".
+	(top level): Add prototype for get_unformatted_convert.
+
+2006-02-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24685
+	* io/write.c (write_real): Widen the default format for real(10)
+	variables output.
+
+2006-01-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/25835
+	* io/transfer.c (st_read_done): Flush buffers when read is done.
+
 2006-01-17  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libgfortran/25697
@@ -39,7 +194,6 @@
 	to seek is not less than zero.
 	(st_backspace): Set unit bytes_left to zero.
 	* io/transfer.c (next_record_r): Fix line lengths, no functional change.
-	a null value (default). Revert patch of 25419 on 2005-12-28.  
 
 2006-01-02  Paolo Bonzini  <bonzini@gnu.org>
 

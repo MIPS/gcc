@@ -742,7 +742,7 @@ const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA | m_GENERIC32; /*m_G
 /* We probably ought to watch for partial register stalls on Generic32
    compilation setting as well.  However in current implementation the
    partial register stalls are not eliminated very well - they can
-   be introduced via subregs synthetized by combine and can happen
+   be introduced via subregs synthesized by combine and can happen
    in caller/callee saving sequences.
    Because this option pays back little on PPro based chips and is in conflict
    with partial reg. dependencies used by Athlon/P4 based chips, it is better
@@ -777,7 +777,7 @@ const int x86_prologue_using_move = m_ATHLON_K8 | m_PPRO | m_GENERIC;
 const int x86_epilogue_using_move = m_ATHLON_K8 | m_PPRO | m_GENERIC;
 const int x86_shift1 = ~m_486;
 const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
-/* In Generic model we have an confict here in between PPro/Pentium4 based chips
+/* In Generic model we have an conflict here in between PPro/Pentium4 based chips
    that thread 128bit SSE registers as single units versus K8 based chips that
    divide SSE registers to two 64bit halves.
    x86_sse_partial_reg_dependency promote all store destinations to be 128bit
@@ -1050,6 +1050,9 @@ int ix86_section_threshold = 65536;
 /* Prefix built by ASM_GENERATE_INTERNAL_LABEL.  */
 char internal_label_prefix[16];
 int internal_label_prefix_len;
+
+/* Table for BUILT_IN_NORMAL to BUILT_IN_MD mapping.  */
+static GTY(()) tree ix86_builtin_function_variants[(int) END_BUILTINS];
 
 static bool ix86_handle_option (size_t, const char *, int);
 static void output_pic_addr_const (FILE *, rtx, int);
@@ -1084,6 +1087,7 @@ static int ix86_issue_rate (void);
 static int ix86_adjust_cost (rtx, rtx, rtx, int);
 static int ia32_multipass_dfa_lookahead (void);
 static void ix86_init_mmx_sse_builtins (void);
+static void ix86_init_sse_abi_builtins (void);
 static rtx x86_this_parameter (tree);
 static void x86_output_mi_thunk (FILE *, tree, HOST_WIDE_INT,
 				 HOST_WIDE_INT, tree);
@@ -1095,6 +1099,7 @@ static tree ix86_build_builtin_va_list (void);
 static void ix86_setup_incoming_varargs (CUMULATIVE_ARGS *, enum machine_mode,
 					 tree, int *, int);
 static tree ix86_gimplify_va_arg (tree, tree, tree *, tree *);
+static bool ix86_scalar_mode_supported_p (enum machine_mode);
 static bool ix86_vector_mode_supported_p (enum machine_mode);
 
 static int ix86_address_cost (rtx);
@@ -1140,6 +1145,7 @@ static bool ix86_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    tree, bool);
 static void ix86_init_builtins (void);
 static rtx ix86_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
+static rtx ix86_expand_library_builtin (tree, rtx, rtx, enum machine_mode, int);
 static const char *ix86_mangle_fundamental_type (tree);
 static tree ix86_stack_protect_fail (void);
 
@@ -1202,6 +1208,8 @@ static section *x86_64_elf_select_section (tree decl, int reloc,
 #define TARGET_INIT_BUILTINS ix86_init_builtins
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN ix86_expand_builtin
+#undef TARGET_EXPAND_LIBRARY_BUILTIN
+#define TARGET_EXPAND_LIBRARY_BUILTIN ix86_expand_library_builtin
 
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE ix86_output_function_epilogue
@@ -1251,6 +1259,8 @@ static section *x86_64_elf_select_section (tree decl, int reloc,
 #endif
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM ix86_cannot_force_const_mem
+#undef TARGET_USE_BLOCKS_FOR_CONSTANT_P
+#define TARGET_USE_BLOCKS_FOR_CONSTANT_P hook_bool_mode_rtx_true
 
 #undef TARGET_DELEGITIMIZE_ADDRESS
 #define TARGET_DELEGITIMIZE_ADDRESS ix86_delegitimize_address
@@ -1313,6 +1323,9 @@ static section *x86_64_elf_select_section (tree decl, int reloc,
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P ix86_scalar_mode_supported_p
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P ix86_vector_mode_supported_p
@@ -1880,6 +1893,16 @@ override_options (void)
       && ! TARGET_SSE)
     error ("-msseregparm used without SSE enabled");
 
+  /* Accept -msselibm only if at least SSE support is enabled.  */
+  if (TARGET_SSELIBM
+      && ! TARGET_SSE2)
+    error ("-msselibm used without SSE2 enabled");
+
+  /* Ignore -msselibm on 64bit targets.  */
+  if (TARGET_SSELIBM
+      && TARGET_64BIT)
+    error ("-msselibm used on a 64bit target");
+
   ix86_fpmath = TARGET_FPMATH_DEFAULT;
 
   if (ix86_fpmath_string != 0)
@@ -2205,7 +2228,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   /* If we are generating position-independent code, we cannot sibcall
      optimize any indirect call, or a direct call to a global function,
      as the PLT requires %ebx be live.  */
-  if (!TARGET_64BIT && flag_pic && (!decl || TREE_PUBLIC (decl)))
+  if (!TARGET_64BIT && flag_pic && (!decl || !targetm.binds_local_p (decl)))
     return false;
 
   if (decl)
@@ -3042,6 +3065,14 @@ classify_argument (enum machine_mode mode, tree type,
   /* Classification of atomic types.  */
   switch (mode)
     {
+    case SDmode:
+    case DDmode:
+      classes[0] = X86_64_SSE_CLASS;
+      return 1;
+    case TDmode:
+      classes[0] = X86_64_SSE_CLASS;
+      classes[1] = X86_64_SSEUP_CLASS;
+      return 2;
     case DImode:
     case SImode:
     case HImode:
@@ -3785,6 +3816,9 @@ ix86_return_in_memory (tree type)
   if (mode == XFmode)
     return 0;
 
+  if (mode == TDmode)
+    return 1;
+
   if (size > 12)
     return 1;
   return 0;
@@ -3850,6 +3884,9 @@ ix86_libcall_value (enum machine_mode mode)
 	case DFmode:
 	case DCmode:
 	case TFmode:
+	case SDmode:
+	case DDmode:
+	case TDmode:
 	  return gen_rtx_REG (mode, FIRST_SSE_REG);
 	case XFmode:
 	case XCmode:
@@ -3880,6 +3917,10 @@ ix86_value_regno (enum machine_mode mode, tree func, tree fntype)
      we prevent this case when sse is not available.  */
   if (mode == TImode || (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 16))
     return FIRST_SSE_REG;
+
+  /* Decimal floating point values can go in %eax, unlike other float modes.  */
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return 0;
 
   /* Most things go in %eax, except (unless -mno-fp-ret-in-387) fp values.  */
   if (!SCALAR_FLOAT_MODE_P (mode) || !TARGET_FLOAT_RETURNS_IN_80387)
@@ -6793,7 +6834,7 @@ output_pic_addr_const (FILE *file, rtx x, int code)
       break;
 
     case SYMBOL_REF:
-      assemble_name (file, XSTR (x, 0));
+      output_addr_const (file, x);
       if (!TARGET_MACHO && code == 'P' && ! SYMBOL_REF_LOCAL_P (x))
 	fputs ("@PLT", file);
       break;
@@ -6933,12 +6974,24 @@ i386_output_dwarf_dtprel (FILE *file, int size, rtx x)
 
 /* In the name of slightly smaller debug output, and to cater to
    general assembler lossage, recognize PIC+GOTOFF and turn it back
-   into a direct symbol reference.  */
+   into a direct symbol reference.  
+
+   On Darwin, this is necessary to avoid a crash, because Darwin
+   has a different PIC label for each routine but the DWARF debugging
+   information is not associated with any particular routine, so it's
+   necessary to remove references to the PIC label from RTL stored by
+   the DWARF output code.  */
 
 static rtx
 ix86_delegitimize_address (rtx orig_x)
 {
-  rtx x = orig_x, y;
+  rtx x = orig_x;
+  /* reg_addend is NULL or a multiple of some register.  */
+  rtx reg_addend = NULL_RTX;
+  /* const_addend is NULL or a const_int.  */
+  rtx const_addend = NULL_RTX;
+  /* This is the result, or NULL.  */
+  rtx result = NULL_RTX;
 
   if (GET_CODE (x) == MEM)
     x = XEXP (x, 0);
@@ -6960,51 +7013,52 @@ ix86_delegitimize_address (rtx orig_x)
   if (GET_CODE (XEXP (x, 0)) == REG
       && REGNO (XEXP (x, 0)) == PIC_OFFSET_TABLE_REGNUM)
     /* %ebx + GOT/GOTOFF */
-    y = NULL;
+    ;
   else if (GET_CODE (XEXP (x, 0)) == PLUS)
     {
       /* %ebx + %reg * scale + GOT/GOTOFF */
-      y = XEXP (x, 0);
-      if (GET_CODE (XEXP (y, 0)) == REG
-	  && REGNO (XEXP (y, 0)) == PIC_OFFSET_TABLE_REGNUM)
-	y = XEXP (y, 1);
-      else if (GET_CODE (XEXP (y, 1)) == REG
-	       && REGNO (XEXP (y, 1)) == PIC_OFFSET_TABLE_REGNUM)
-	y = XEXP (y, 0);
+      reg_addend = XEXP (x, 0);
+      if (GET_CODE (XEXP (reg_addend, 0)) == REG
+	  && REGNO (XEXP (reg_addend, 0)) == PIC_OFFSET_TABLE_REGNUM)
+	reg_addend = XEXP (reg_addend, 1);
+      else if (GET_CODE (XEXP (reg_addend, 1)) == REG
+	       && REGNO (XEXP (reg_addend, 1)) == PIC_OFFSET_TABLE_REGNUM)
+	reg_addend = XEXP (reg_addend, 0);
       else
 	return orig_x;
-      if (GET_CODE (y) != REG
-	  && GET_CODE (y) != MULT
-	  && GET_CODE (y) != ASHIFT)
+      if (GET_CODE (reg_addend) != REG
+	  && GET_CODE (reg_addend) != MULT
+	  && GET_CODE (reg_addend) != ASHIFT)
 	return orig_x;
     }
   else
     return orig_x;
 
   x = XEXP (XEXP (x, 1), 0);
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+    {
+      const_addend = XEXP (x, 1);
+      x = XEXP (x, 0);
+    }
+
   if (GET_CODE (x) == UNSPEC
       && ((XINT (x, 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
 	  || (XINT (x, 1) == UNSPEC_GOTOFF && GET_CODE (orig_x) != MEM)))
-    {
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, XVECEXP (x, 0, 0));
-      return XVECEXP (x, 0, 0);
-    }
+    result = XVECEXP (x, 0, 0);
 
-  if (GET_CODE (x) == PLUS
-      && GET_CODE (XEXP (x, 0)) == UNSPEC
-      && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && ((XINT (XEXP (x, 0), 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
-	  || (XINT (XEXP (x, 0), 1) == UNSPEC_GOTOFF
-	      && GET_CODE (orig_x) != MEM)))
-    {
-      x = gen_rtx_PLUS (VOIDmode, XVECEXP (XEXP (x, 0), 0, 0), XEXP (x, 1));
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, x);
-      return x;
-    }
+  if (TARGET_MACHO && darwin_local_data_pic (x)
+      && GET_CODE (orig_x) != MEM)
+    result = XEXP (x, 0);
 
-  return orig_x;
+  if (! result)
+    return orig_x;
+  
+  if (const_addend)
+    result = gen_rtx_PLUS (Pmode, result, const_addend);
+  if (reg_addend)
+    result = gen_rtx_PLUS (Pmode, reg_addend, result);
+  return result;
 }
 
 static void
@@ -13135,9 +13189,7 @@ memory_address_length (rtx addr)
       /* Find the length of the displacement constant.  */
       if (disp)
 	{
-	  if (GET_CODE (disp) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (disp), 'K')
-	      && base)
+	  if (base && satisfies_constraint_K (disp))
 	    len = 1;
 	  else
 	    len = 4;
@@ -13170,9 +13222,7 @@ ix86_attr_length_immediate_default (rtx insn, int shortform)
     if (CONSTANT_P (recog_data.operand[i]))
       {
 	gcc_assert (!len);
-	if (shortform
-	    && GET_CODE (recog_data.operand[i]) == CONST_INT
-	    && CONST_OK_FOR_LETTER_P (INTVAL (recog_data.operand[i]), 'K'))
+	if (shortform && satisfies_constraint_K (recog_data.operand[i]))
 	  len = 1;
 	else
 	  {
@@ -14126,6 +14176,28 @@ enum ix86_builtins
   IX86_BUILTIN_VEC_SET_V8HI,
   IX86_BUILTIN_VEC_SET_V4HI,
 
+  /* SSE2 ABI functions.  */
+  IX86_BUILTIN_SSE2_ACOS,
+  IX86_BUILTIN_SSE2_ACOSF,
+  IX86_BUILTIN_SSE2_ASIN,
+  IX86_BUILTIN_SSE2_ASINF,
+  IX86_BUILTIN_SSE2_ATAN,
+  IX86_BUILTIN_SSE2_ATANF,
+  IX86_BUILTIN_SSE2_ATAN2,
+  IX86_BUILTIN_SSE2_ATAN2F,
+  IX86_BUILTIN_SSE2_COS,
+  IX86_BUILTIN_SSE2_COSF,
+  IX86_BUILTIN_SSE2_EXP,
+  IX86_BUILTIN_SSE2_EXPF,
+  IX86_BUILTIN_SSE2_LOG10,
+  IX86_BUILTIN_SSE2_LOG10F,
+  IX86_BUILTIN_SSE2_LOG,
+  IX86_BUILTIN_SSE2_LOGF,
+  IX86_BUILTIN_SSE2_SIN,
+  IX86_BUILTIN_SSE2_SINF,
+  IX86_BUILTIN_SSE2_TAN,
+  IX86_BUILTIN_SSE2_TANF,
+
   IX86_BUILTIN_MAX
 };
 
@@ -14507,6 +14579,8 @@ ix86_init_builtins (void)
 {
   if (TARGET_MMX)
     ix86_init_mmx_sse_builtins ();
+  if (TARGET_SSE2)
+    ix86_init_sse_abi_builtins ();
 }
 
 /* Set up all the MMX/SSE builtins.  This is not called if TARGET_MMX
@@ -15146,6 +15220,70 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_vec_set_v4hi",
 	       ftype, IX86_BUILTIN_VEC_SET_V4HI);
 }
+#undef def_builtin
+
+/* Set up all the SSE ABI builtins that we may use to override
+   the normal builtins.  */
+static void
+ix86_init_sse_abi_builtins (void)
+{
+  tree dbl, flt, dbl2, flt2;
+
+  /* Bail out in case the template definitions are not available.  */
+  if (! built_in_decls [BUILT_IN_SIN]
+      || ! built_in_decls [BUILT_IN_SINF]
+      || ! built_in_decls [BUILT_IN_ATAN2]
+      || ! built_in_decls [BUILT_IN_ATAN2F])
+    return;
+
+  /* Build the function types as variants of the existing ones.  */
+  dbl = build_variant_type_copy (TREE_TYPE (built_in_decls [BUILT_IN_SIN]));
+  TYPE_ATTRIBUTES (dbl)
+    = tree_cons (get_identifier ("sseregparm"),
+                 NULL_TREE, TYPE_ATTRIBUTES (dbl));
+  flt = build_variant_type_copy (TREE_TYPE (built_in_decls [BUILT_IN_SINF]));
+  TYPE_ATTRIBUTES (flt)
+    = tree_cons (get_identifier ("sseregparm"),
+                 NULL_TREE, TYPE_ATTRIBUTES (flt));
+  dbl2 = build_variant_type_copy (TREE_TYPE (built_in_decls [BUILT_IN_ATAN2]));
+  TYPE_ATTRIBUTES (dbl2)
+    = tree_cons (get_identifier ("sseregparm"),
+                 NULL_TREE, TYPE_ATTRIBUTES (dbl2));
+  flt2 = build_variant_type_copy (TREE_TYPE (built_in_decls [BUILT_IN_ATAN2F]));
+  TYPE_ATTRIBUTES (flt2)
+    = tree_cons (get_identifier ("sseregparm"),
+                 NULL_TREE, TYPE_ATTRIBUTES (flt2));
+
+#define def_builtin(capname, name, type) \
+  ix86_builtin_function_variants [BUILT_IN_ ## capname]			\
+    = lang_hooks.builtin_function ("__builtin_sse2_" # name, type,	\
+				   IX86_BUILTIN_SSE2_ ## capname,	\
+				   BUILT_IN_NORMAL,			\
+				   "__libm_sse2_" # name, NULL_TREE)
+ 
+  def_builtin (ACOS, acos, dbl);
+  def_builtin (ACOSF, acosf, flt);
+  def_builtin (ASIN, asin, dbl);
+  def_builtin (ASINF, asinf, flt);
+  def_builtin (ATAN, atan, dbl);
+  def_builtin (ATANF, atanf, flt);
+  def_builtin (ATAN2, atan2, dbl2);
+  def_builtin (ATAN2F, atan2f, flt2);
+  def_builtin (COS, cos, dbl);
+  def_builtin (COSF, cosf, flt);
+  def_builtin (EXP, exp, dbl);
+  def_builtin (EXPF, expf, flt);
+  def_builtin (LOG10, log10, dbl);
+  def_builtin (LOG10F, log10f, flt);
+  def_builtin (LOG, log, dbl);
+  def_builtin (LOGF, logf, flt);
+  def_builtin (SIN, sin, dbl);
+  def_builtin (SINF, sinf, flt);
+  def_builtin (TAN, tan, dbl);
+  def_builtin (TANF, tanf, flt);
+
+#undef def_builtin
+}
 
 /* Errors in the source file can cause expand_expr to return const0_rtx
    where we expect a vector.  To avoid crashing, use one of the vector
@@ -15166,8 +15304,8 @@ ix86_expand_binop_builtin (enum insn_code icode, tree arglist, rtx target)
   rtx pat, xops[3];
   tree arg0 = TREE_VALUE (arglist);
   tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
@@ -15234,8 +15372,8 @@ ix86_expand_store_builtin (enum insn_code icode, tree arglist)
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
   tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
   enum machine_mode mode0 = insn_data[icode].operand[0].mode;
   enum machine_mode mode1 = insn_data[icode].operand[1].mode;
 
@@ -15259,7 +15397,7 @@ ix86_expand_unop_builtin (enum insn_code icode, tree arglist,
 {
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
@@ -15294,7 +15432,7 @@ ix86_expand_unop1_builtin (enum insn_code icode, tree arglist, rtx target)
 {
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
-  rtx op1, op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op1, op0 = expand_normal (arg0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
@@ -15330,8 +15468,8 @@ ix86_expand_sse_compare (const struct builtin_description *d, tree arglist,
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
   tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
   rtx op2;
   enum machine_mode tmode = insn_data[d->icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[d->icode].operand[1].mode;
@@ -15382,8 +15520,8 @@ ix86_expand_sse_comi (const struct builtin_description *d, tree arglist,
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
   tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
   rtx op2;
   enum machine_mode mode0 = insn_data[d->icode].operand[0].mode;
   enum machine_mode mode1 = insn_data[d->icode].operand[1].mode;
@@ -15467,7 +15605,7 @@ ix86_expand_vec_init_builtin (tree type, tree arglist, rtx target)
 
   for (i = 0; i < n_elt; ++i, arglist = TREE_CHAIN (arglist))
     {
-      rtx x = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+      rtx x = expand_normal (TREE_VALUE (arglist));
       RTVEC_ELT (v, i) = gen_lowpart (inner_mode, x);
     }
 
@@ -15495,7 +15633,7 @@ ix86_expand_vec_ext_builtin (tree arglist, rtx target)
   arg0 = TREE_VALUE (arglist);
   arg1 = TREE_VALUE (TREE_CHAIN (arglist));
 
-  op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  op0 = expand_normal (arg0);
   elt = get_element_number (TREE_TYPE (arg0), arg1);
 
   tmode = TYPE_MODE (TREE_TYPE (TREE_TYPE (arg0)));
@@ -15587,9 +15725,9 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       arg1 = TREE_VALUE (arglist);
       arg2 = TREE_VALUE (TREE_CHAIN (arglist));
       arg0 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       mode0 = insn_data[icode].operand[0].mode;
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
@@ -15632,8 +15770,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	       : CODE_FOR_sse2_loadlpd);
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -15656,8 +15794,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	       : CODE_FOR_sse_storelps);
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       mode0 = insn_data[icode].operand[0].mode;
       mode1 = insn_data[icode].operand[1].mode;
 
@@ -15676,7 +15814,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       return ix86_expand_store_builtin (CODE_FOR_sse_movntdi, arglist);
 
     case IX86_BUILTIN_LDMXCSR:
-      op0 = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (TREE_VALUE (arglist));
       target = assign_386_stack_local (SImode, SLOT_TEMP);
       emit_move_insn (target, op0);
       emit_insn (gen_sse_ldmxcsr (target));
@@ -15695,9 +15833,9 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
       arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -15734,8 +15872,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	       : CODE_FOR_mmx_pshufw);
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
@@ -15764,8 +15902,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	       : CODE_FOR_sse2_lshrti3);
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
@@ -15882,7 +16020,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_CLFLUSH:
 	arg0 = TREE_VALUE (arglist);
-	op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+	op0 = expand_normal (arg0);
 	icode = CODE_FOR_sse2_clflush;
 	if (! (*insn_data[icode].operand[0].predicate) (op0, Pmode))
 	    op0 = copy_to_mode_reg (Pmode, op0);
@@ -15906,9 +16044,9 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
       arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       if (!REG_P (op0))
 	op0 = copy_to_mode_reg (SImode, op0);
       if (!REG_P (op1))
@@ -15921,8 +16059,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_MWAIT:
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       if (!REG_P (op0))
 	op0 = copy_to_mode_reg (SImode, op0);
       if (!REG_P (op1))
@@ -15978,6 +16116,39 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       return ix86_expand_sse_comi (d, arglist, target);
 
   gcc_unreachable ();
+}
+
+/* Expand an expression EXP that calls a built-in library function,
+   with result going to TARGET if that's convenient
+   (and in mode MODE if that's convenient).
+   SUBTARGET may be used as the target for computing one of EXP's operands.
+   IGNORE is nonzero if the value is to be ignored.  */
+
+static rtx
+ix86_expand_library_builtin (tree exp, rtx target,
+			     rtx subtarget ATTRIBUTE_UNUSED,
+			     enum machine_mode mode ATTRIBUTE_UNUSED,
+			     int ignore)
+{
+  enum built_in_function fncode;
+  tree fndecl, newfn, call;
+
+  /* Try expanding builtin math functions to the SSE2 ABI variants.  */
+  if (!TARGET_SSELIBM)
+      return NULL_RTX;
+
+  fncode = builtin_mathfn_code (exp);
+  if (!ix86_builtin_function_variants [(int)fncode])
+    return NULL_RTX;
+
+  fndecl = get_callee_fndecl (exp);
+  if (DECL_RTL_SET_P (fndecl))
+    return NULL_RTX;
+
+  /* Build the redirected call and expand it.  */
+  newfn = ix86_builtin_function_variants [(int)fncode];
+  call = build_function_call_expr (newfn, TREE_OPERAND (exp, 1));
+  return expand_call (call, target, ignore);
 }
 
 /* Store OPERAND to the memory after reload is completed.  This means
@@ -16847,7 +17018,7 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
     {
       fprintf (file, "\tcall LPC$%d\nLPC$%d:\tpopl %%eax\n", label, label);
       fprintf (file, "\tmovl %s-LPC$%d(%%eax),%%edx\n", lazy_ptr_name, label);
-      fprintf (file, "\tjmp %%edx\n");
+      fprintf (file, "\tjmp *%%edx\n");
     }
   else
     fprintf (file, "\tjmp *%s\n", lazy_ptr_name);
@@ -18194,6 +18365,16 @@ ix86_expand_reduc_v4sf (rtx (*fn) (rtx, rtx, rtx), rtx dest, rtx in)
   emit_insn (fn (dest, tmp2, tmp3));
 }
 
+/* Target hook for scalar_mode_supported_p.  */
+static bool
+ix86_scalar_mode_supported_p (enum machine_mode mode)
+{
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return true;
+  else
+    return default_scalar_mode_supported_p (mode);
+}
+
 /* Implements target hook vector_mode_supported_p.  */
 static bool
 ix86_vector_mode_supported_p (enum machine_mode mode)

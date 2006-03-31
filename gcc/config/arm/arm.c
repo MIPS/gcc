@@ -6748,7 +6748,8 @@ arm_select_cc_mode (enum rtx_code op, rtx x, rtx y)
   if (TARGET_THUMB
       && GET_MODE (x) == SImode
       && (op == EQ || op == NE)
-      && (GET_CODE (x) == ZERO_EXTRACT))
+      && GET_CODE (x) == ZERO_EXTRACT
+      && XEXP (x, 1) == const1_rtx)
     return CC_Nmode;
 
   /* An operation that sets the condition codes as a side-effect, the
@@ -7307,6 +7308,7 @@ struct minipool_fixup
 static Mnode *	minipool_vector_head;
 static Mnode *	minipool_vector_tail;
 static rtx	minipool_vector_label;
+static int	minipool_pad;
 
 /* The linked list of all minipool fixes required for this function.  */
 Mfix * 		minipool_fix_head;
@@ -7418,7 +7420,7 @@ add_minipool_forward_ref (Mfix *fix)
   /* If set, max_mp is the first pool_entry that has a lower
      constraint than the one we are trying to add.  */
   Mnode *       max_mp = NULL;
-  HOST_WIDE_INT max_address = fix->address + fix->forwards;
+  HOST_WIDE_INT max_address = fix->address + fix->forwards - minipool_pad;
   Mnode *       mp;
 
   /* If this fix's address is greater than the address of the first
@@ -7473,7 +7475,7 @@ add_minipool_forward_ref (Mfix *fix)
      any existing entry.  Otherwise, we insert the new fix before
      MAX_MP and, if necessary, adjust the constraints on the other
      entries.  */
-  mp = xmalloc (sizeof (* mp));
+  mp = XNEW (Mnode);
   mp->fix_size = fix->fix_size;
   mp->mode = fix->mode;
   mp->value = fix->value;
@@ -7671,7 +7673,7 @@ add_minipool_backward_ref (Mfix *fix)
     }
 
   /* We need to create a new entry.  */
-  mp = xmalloc (sizeof (* mp));
+  mp = XNEW (Mnode);
   mp->fix_size = fix->fix_size;
   mp->mode = fix->mode;
   mp->value = fix->value;
@@ -7996,12 +7998,11 @@ push_minipool_fix (rtx insn, HOST_WIDE_INT address, rtx *loc,
      to generate duff assembly code.  */
   gcc_assert (fix->forwards || fix->backwards);
 
-  /* With AAPCS/iWMMXt enabled, the pool is aligned to an 8-byte boundary.
-     So there might be an empty word before the start of the pool.
-     Hence we reduce the forward range by 4 to allow for this
-     possibility.  */
+  /* If an entry requires 8-byte alignment then assume all constant pools
+     require 4 bytes of padding.  Trying to do this later on a per-pool
+     basis is awkward becuse existing pool entries have to be modified.  */
   if (ARM_DOUBLEWORD_ALIGN && fix->fix_size == 8)
-    fix->forwards -= 4;
+    minipool_pad = 4;
 
   if (dump_file)
     {
@@ -8178,6 +8179,7 @@ arm_reorg (void)
      scan it properly.  */
   insn = get_insns ();
   gcc_assert (GET_CODE (insn) == NOTE);
+  minipool_pad = 0;
 
   /* Scan all the insns and record the operands that will need fixing.  */
   for (insn = next_nonnote_insn (insn); insn; insn = next_nonnote_insn (insn))
@@ -12540,8 +12542,8 @@ arm_expand_binop_builtin (enum insn_code icode,
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
   tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
+  rtx op1 = expand_normal (arg1);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
   enum machine_mode mode1 = insn_data[icode].operand[2].mode;
@@ -12578,7 +12580,7 @@ arm_expand_unop_builtin (enum insn_code icode,
 {
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op0 = expand_normal (arg0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
@@ -12651,8 +12653,8 @@ arm_expand_builtin (tree exp,
 
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -12684,9 +12686,9 @@ arm_expand_builtin (tree exp,
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
       arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;
@@ -12715,14 +12717,14 @@ arm_expand_builtin (tree exp,
     case ARM_BUILTIN_SETWCX:
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = force_reg (SImode, expand_expr (arg0, NULL_RTX, VOIDmode, 0));
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = force_reg (SImode, expand_normal (arg0));
+      op1 = expand_normal (arg1);
       emit_insn (gen_iwmmxt_tmcr (op1, op0));
       return 0;
 
     case ARM_BUILTIN_GETWCX:
       arg0 = TREE_VALUE (arglist);
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
       target = gen_reg_rtx (SImode);
       emit_insn (gen_iwmmxt_tmrc (target, op0));
       return target;
@@ -12731,8 +12733,8 @@ arm_expand_builtin (tree exp,
       icode = CODE_FOR_iwmmxt_wshufh;
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
       tmode = insn_data[icode].operand[0].mode;
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
@@ -12786,9 +12788,9 @@ arm_expand_builtin (tree exp,
       arg0 = TREE_VALUE (arglist);
       arg1 = TREE_VALUE (TREE_CHAIN (arglist));
       arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
-      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
-      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
-      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
       tmode = insn_data[icode].operand[0].mode;
       mode0 = insn_data[icode].operand[1].mode;
       mode1 = insn_data[icode].operand[2].mode;

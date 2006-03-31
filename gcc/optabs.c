@@ -2898,15 +2898,8 @@ expand_abs (enum machine_mode mode, rtx op0, rtx target,
   emit_move_insn (target, op0);
   NO_DEFER_POP;
 
-  /* If this mode is an integer too wide to compare properly,
-     compare word by word.  Rely on CSE to optimize constant cases.  */
-  if (GET_MODE_CLASS (mode) == MODE_INT
-      && ! can_compare_p (GE, mode, ccp_jump))
-    do_jump_by_parts_greater_rtx (mode, 0, target, const0_rtx,
-				  NULL_RTX, op1);
-  else
-    do_compare_rtx_and_jump (target, CONST0_RTX (mode), GE, 0, mode,
-			     NULL_RTX, NULL_RTX, op1);
+  do_compare_rtx_and_jump (target, CONST0_RTX (mode), GE, 0, mode,
+			   NULL_RTX, NULL_RTX, op1);
 
   op0 = expand_unop (mode, result_unsignedp ? neg_optab : negv_optab,
                      target, target, 0);
@@ -3711,18 +3704,24 @@ prepare_cmp_insn (rtx *px, rtx *py, enum rtx_code *pcomparison, rtx size,
       result = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST_MAKE_BLOCK,
 					word_mode, 2, x, mode, y, mode);
 
+      /* There are two kinds of comparison routines. Biased routines
+	 return 0/1/2, and unbiased routines return -1/0/1. Other parts
+	 of gcc expect that the comparison operation is equivalent
+	 to the modified comparison. For signed comparisons compare the 
+	 result against 1 in the biased case, and zero in the unbiased
+	 case. For unsigned comparisons always compare against 1 after
+	 biasing the unbased result by adding 1. This gives us a way to
+	 represent LTU. */
       *px = result;
       *pmode = word_mode;
-      if (TARGET_LIB_INT_CMP_BIASED)
-	/* Integer comparison returns a result that must be compared
-	   against 1, so that even if we do an unsigned compare
-	   afterward, there is still a value that can represent the
-	   result "less than".  */
-	*py = const1_rtx;
-      else
+      *py = const1_rtx;
+
+      if (!TARGET_LIB_INT_CMP_BIASED)
 	{
-	  *py = const0_rtx;
-	  *punsignedp = 1;
+	  if (*punsignedp)
+	    *px = plus_constant (result, 1);  
+	  else
+	    *py = const0_rtx;
 	}
       return;
     }
@@ -5133,7 +5132,7 @@ init_one_libfunc (const char *name)
 
   /* Zap the nonsensical SYMBOL_REF_DECL for this.  What we're left with
      are the flags assigned by targetm.encode_section_info.  */
-  SYMBOL_REF_DECL (symbol) = 0;
+  SET_SYMBOL_REF_DECL (symbol, 0);
 
   return symbol;
 }

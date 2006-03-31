@@ -1,6 +1,6 @@
 /* Expand builtin functions.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -275,14 +275,23 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 	case ADDR_EXPR:
 	  /* See what we are pointing at and look at its alignment.  */
 	  exp = TREE_OPERAND (exp, 0);
+	  inner = max_align;
+	  while (handled_component_p (exp))
+	    {
+	      if (TREE_CODE (exp) == COMPONENT_REF)
+		inner = MIN (inner, DECL_ALIGN (TREE_OPERAND (exp, 1)));
+	      exp = TREE_OPERAND (exp, 0);
+	    }
 	  if (TREE_CODE (exp) == FUNCTION_DECL)
 	    align = FUNCTION_BOUNDARY;
 	  else if (DECL_P (exp))
-	    align = DECL_ALIGN (exp);
+	    align = MIN (inner, DECL_ALIGN (exp));
 #ifdef CONSTANT_ALIGNMENT
 	  else if (CONSTANT_CLASS_P (exp))
 	    align = CONSTANT_ALIGNMENT (exp, align);
 #endif
+	  else
+	    align = MIN (align, inner);
 	  return MIN (align, max_align);
 
 	default:
@@ -498,7 +507,7 @@ expand_builtin_return_addr (enum built_in_function fndecl_code, int count)
 
   /* For a zero count, we don't care what frame address we return, so frame
      pointer elimination is OK, and using the soft frame pointer is OK.
-     For a non-zero count, we require a stable offset from the current frame
+     For a nonzero count, we require a stable offset from the current frame
      pointer to the previous one, so we must use the hard frame pointer, and
      we must disable frame pointer elimination.  */
   if (count == 0)
@@ -700,7 +709,7 @@ expand_builtin_setjmp (tree arglist, rtx target)
       || REGNO (target) < FIRST_PSEUDO_REGISTER)
     target = gen_reg_rtx (TYPE_MODE (integer_type_node));
 
-  buf_addr = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+  buf_addr = expand_normal (TREE_VALUE (arglist));
 
   next_lab = gen_label_rtx ();
   cont_lab = gen_label_rtx ();
@@ -842,9 +851,9 @@ expand_builtin_nonlocal_goto (tree arglist)
   arglist = TREE_CHAIN (arglist);
   t_save_area = TREE_VALUE (arglist);
 
-  r_label = expand_expr (t_label, NULL_RTX, VOIDmode, 0);
+  r_label = expand_normal (t_label);
   r_label = convert_memory_address (Pmode, r_label);
-  r_save_area = expand_expr (t_save_area, NULL_RTX, VOIDmode, 0);
+  r_save_area = expand_normal (t_save_area);
   r_save_area = convert_memory_address (Pmode, r_save_area);
   r_fp = gen_rtx_MEM (Pmode, r_save_area);
   r_sp = gen_rtx_MEM (STACK_SAVEAREA_MODE (SAVE_NONLOCAL),
@@ -975,7 +984,7 @@ expand_builtin_prefetch (tree arglist)
       error ("second argument to %<__builtin_prefetch%> must be a constant");
       arg1 = integer_zero_node;
     }
-  op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+  op1 = expand_normal (arg1);
   /* Argument 1 must be either zero or one.  */
   if (INTVAL (op1) != 0 && INTVAL (op1) != 1)
     {
@@ -990,7 +999,7 @@ expand_builtin_prefetch (tree arglist)
       error ("third argument to %<__builtin_prefetch%> must be a constant");
       arg2 = integer_zero_node;
     }
-  op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+  op2 = expand_normal (arg2);
   /* Argument 2 must be 0, 1, 2, or 3.  */
   if (INTVAL (op2) < 0 || INTVAL (op2) > 3)
     {
@@ -1585,7 +1594,6 @@ type_to_class (tree type)
     {
     case VOID_TYPE:	   return void_type_class;
     case INTEGER_TYPE:	   return integer_type_class;
-    case CHAR_TYPE:	   return char_type_class;
     case ENUMERAL_TYPE:	   return enumeral_type_class;
     case BOOLEAN_TYPE:	   return boolean_type_class;
     case POINTER_TYPE:	   return pointer_type_class;
@@ -2019,8 +2027,8 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   if (! stable)
     exp = build_function_call_expr (fndecl, arglist);
 
-  op0 = expand_expr (arg0, subtarget, VOIDmode, 0);
-  op1 = expand_expr (arg1, 0, VOIDmode, 0);
+  op0 = expand_expr (arg0, subtarget, VOIDmode, EXPAND_NORMAL);
+  op1 = expand_normal (arg1);
 
   start_sequence ();
 
@@ -2193,9 +2201,9 @@ expand_builtin_sincos (tree exp)
   target1 = gen_reg_rtx (mode);
   target2 = gen_reg_rtx (mode);
 
-  op0 = expand_expr (arg, NULL_RTX, VOIDmode, 0);
-  op1 = expand_expr (build_fold_indirect_ref (sinp), NULL_RTX, VOIDmode, 0);
-  op2 = expand_expr (build_fold_indirect_ref (cosp), NULL_RTX, VOIDmode, 0);
+  op0 = expand_normal (arg);
+  op1 = expand_normal (build_fold_indirect_ref (sinp));
+  op2 = expand_normal (build_fold_indirect_ref (cosp));
 
   /* Compute into target1 and target2.
      Set TARGET to wherever the result comes back.  */
@@ -2857,7 +2865,7 @@ expand_builtin_memcpy (tree exp, rtx target, enum machine_mode mode)
 
       dest_mem = get_memory_rtx (dest, len);
       set_mem_align (dest_mem, dest_align);
-      len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+      len_rtx = expand_normal (len);
       src_str = c_getstr (src);
 
       /* If SRC is a string constant and block move would be done
@@ -2944,7 +2952,7 @@ expand_builtin_mempcpy (tree arglist, tree type, rtx target, enum machine_mode m
       if (! host_integerp (len, 1))
 	return 0;
 
-      len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+      len_rtx = expand_normal (len);
       src_str = c_getstr (src);
 
       /* If SRC is a string constant and block move would be done
@@ -3215,7 +3223,7 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
 
       if (TREE_CODE (len) == INTEGER_CST)
 	{
-	  rtx len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+	  rtx len_rtx = expand_normal (len);
 
 	  if (GET_CODE (len_rtx) == CONST_INT)
 	    {
@@ -3396,7 +3404,7 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	  return expand_expr (dest, target, mode, EXPAND_NORMAL);
 	}
 
-      len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+      len_rtx = expand_normal (len);
       dest_mem = get_memory_rtx (dest, len);
 
       if (TREE_CODE (val) != INTEGER_CST)
@@ -3404,7 +3412,7 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	  rtx val_rtx;
 
 	  val = fold_build1 (CONVERT_EXPR, unsigned_char_type_node, val);
-	  val_rtx = expand_expr (val, NULL_RTX, VOIDmode, 0);
+	  val_rtx = expand_normal (val);
 
 	  /* Assume that we can memset by pieces if we can store the
 	   * the coefficients by pieces (in the required modes).
@@ -3550,7 +3558,7 @@ expand_builtin_memcmp (tree exp ATTRIBUTE_UNUSED, tree arglist, rtx target,
 
     arg1_rtx = get_memory_rtx (arg1, len);
     arg2_rtx = get_memory_rtx (arg2, len);
-    arg3_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+    arg3_rtx = expand_normal (len);
 
     /* Set MEM_SIZE as appropriate.  */
     if (GET_CODE (arg3_rtx) == CONST_INT)
@@ -3709,7 +3717,7 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
 	    return 0;
 
 	  /* Stabilize the arguments in case gen_cmpstrnsi fails.  */
-	  arg3_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+	  arg3_rtx = expand_normal (len);
 
 	  /* Make a place to write the result of the instruction.  */
 	  result = target;
@@ -3849,7 +3857,7 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
 
     arg1_rtx = get_memory_rtx (arg1, len);
     arg2_rtx = get_memory_rtx (arg2, len);
-    arg3_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
+    arg3_rtx = expand_normal (len);
     insn = gen_cmpstrnsi (result, arg1_rtx, arg2_rtx, arg3_rtx,
 			  GEN_INT (MIN (arg1_align, arg2_align)));
     if (insn)
@@ -4516,7 +4524,7 @@ expand_builtin_alloca (tree arglist, rtx target)
     return 0;
 
   /* Compute the argument.  */
-  op0 = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+  op0 = expand_normal (TREE_VALUE (arglist));
 
   /* Allocate the desired space.  */
   result = allocate_dynamic_stack_space (op0, target, BITS_PER_UNIT);
@@ -4774,10 +4782,10 @@ expand_builtin_copysign (tree arglist, rtx target, rtx subtarget)
     return 0;
 
   arg = TREE_VALUE (arglist);
-  op0 = expand_expr (arg, subtarget, VOIDmode, 0);
+  op0 = expand_expr (arg, subtarget, VOIDmode, EXPAND_NORMAL);
 
   arg = TREE_VALUE (TREE_CHAIN (arglist));
-  op1 = expand_expr (arg, NULL, VOIDmode, 0);
+  op1 = expand_normal (arg);
 
   return expand_copysign (op0, op1, target);
 }
@@ -5174,9 +5182,9 @@ expand_builtin_init_trampoline (tree arglist)
   arglist = TREE_CHAIN (arglist);
   t_chain = TREE_VALUE (arglist);
 
-  r_tramp = expand_expr (t_tramp, NULL_RTX, VOIDmode, 0);
-  r_func = expand_expr (t_func, NULL_RTX, VOIDmode, 0);
-  r_chain = expand_expr (t_chain, NULL_RTX, VOIDmode, 0);
+  r_tramp = expand_normal (t_tramp);
+  r_func = expand_normal (t_func);
+  r_chain = expand_normal (t_chain);
 
   /* Generate insns to initialize the trampoline.  */
   r_tramp = round_trampoline_addr (r_tramp);
@@ -5200,7 +5208,7 @@ expand_builtin_adjust_trampoline (tree arglist)
   if (!validate_arglist (arglist, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
 
-  tramp = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+  tramp = expand_normal (TREE_VALUE (arglist));
   tramp = round_trampoline_addr (tramp);
 #ifdef TRAMPOLINE_ADJUST_ADDRESS
   TRAMPOLINE_ADJUST_ADDRESS (tramp);
@@ -5247,7 +5255,7 @@ expand_builtin_signbit (tree exp, rtx target)
     return expand_expr (arg, target, VOIDmode, EXPAND_NORMAL);
   }
 
-  temp = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+  temp = expand_normal (arg);
   if (GET_MODE_SIZE (fmode) <= UNITS_PER_WORD)
     {
       imode = int_mode_for_mode (fmode);
@@ -5406,6 +5414,7 @@ get_builtin_sync_mem (tree loc, enum machine_mode mode)
   mem = validize_mem (gen_rtx_MEM (mode, addr));
 
   set_mem_align (mem, get_pointer_alignment (loc, BIGGEST_ALIGNMENT));
+  set_mem_alias_set (mem, ALIAS_SET_MEMORY_BARRIER);
   MEM_VOLATILE_P (mem) = 1;
 
   return mem;
@@ -5559,6 +5568,14 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
+  else
+    {
+      /* Try expanding the builtin via the generic target hook.  */
+      rtx tmp = targetm.expand_library_builtin (exp, target, subtarget,
+						mode, ignore);
+      if (tmp != NULL_RTX)
+	return tmp;
+    }
 
   /* When not optimizing, generate calls to library functions for a certain
      set of builtins.  */
@@ -5725,7 +5742,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  rtx ops[3];
 
 	  for (t = arglist, i = 0; t; t = TREE_CHAIN (t), i++)
-	    ops[i] = expand_expr (TREE_VALUE (t), NULL_RTX, VOIDmode, 0);
+	    ops[i] = expand_normal (TREE_VALUE (t));
 
 	  return expand_builtin_apply (ops[0], ops[1], ops[2]);
 	}
@@ -5735,8 +5752,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	 memory returned by __builtin_apply.  */
     case BUILT_IN_RETURN:
       if (validate_arglist (arglist, POINTER_TYPE, VOID_TYPE))
-	expand_builtin_return (expand_expr (TREE_VALUE (arglist),
-					    NULL_RTX, VOIDmode, 0));
+	expand_builtin_return (expand_normal (TREE_VALUE (arglist)));
       return const0_rtx;
 
     case BUILT_IN_SAVEREGS:
@@ -5969,9 +5985,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       else
 	{
 	  rtx buf_addr = expand_expr (TREE_VALUE (arglist), subtarget,
-				      VOIDmode, 0);
-	  rtx value = expand_expr (TREE_VALUE (TREE_CHAIN (arglist)),
-				   NULL_RTX, VOIDmode, 0);
+				      VOIDmode, EXPAND_NORMAL);
+	  rtx value = expand_normal (TREE_VALUE (TREE_CHAIN (arglist)));
 
 	  if (value != const1_rtx)
 	    {
@@ -5995,7 +6010,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       if (validate_arglist (arglist, POINTER_TYPE, VOID_TYPE))
 	{
 	  rtx buf_addr
-	    = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
+	    = expand_normal (TREE_VALUE (arglist));
 
 	  expand_builtin_update_setjmp_buf (buf_addr);
 	  return const0_rtx;
@@ -8202,9 +8217,9 @@ fold_builtin_copysign (tree fndecl, tree arglist, tree type)
 
       c1 = TREE_REAL_CST (arg1);
       c2 = TREE_REAL_CST (arg2);
+      /* c1.sign := c2.sign.  */
       real_copysign (&c1, &c2);
       return build_real (type, c1);
-      c1.sign = c2.sign;
     }
 
   /* copysign(X, Y) is fabs(X) when Y is always non-negative.
@@ -8906,6 +8921,18 @@ validate_arglist (tree arglist, ...)
 
 rtx
 default_expand_builtin (tree exp ATTRIBUTE_UNUSED,
+			rtx target ATTRIBUTE_UNUSED,
+			rtx subtarget ATTRIBUTE_UNUSED,
+			enum machine_mode mode ATTRIBUTE_UNUSED,
+			int ignore ATTRIBUTE_UNUSED)
+{
+  return NULL_RTX;
+}
+
+/* Default target-specific library builtin expander that does nothing.  */
+
+rtx
+default_expand_library_builtin (tree exp ATTRIBUTE_UNUSED,
 			rtx target ATTRIBUTE_UNUSED,
 			rtx subtarget ATTRIBUTE_UNUSED,
 			enum machine_mode mode ATTRIBUTE_UNUSED,

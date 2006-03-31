@@ -1797,7 +1797,7 @@ copyprop_hardreg_forward (void)
 
   need_refresh = false;
 
-  all_vd = xmalloc (sizeof (struct value_data) * last_basic_block);
+  all_vd = XNEWVEC (struct value_data, last_basic_block);
 
   visited = sbitmap_alloc (last_basic_block);
   sbitmap_zero (visited);
@@ -1953,13 +1953,14 @@ gate_handle_regrename (void)
 
 
 /* Run the regrename and cprop passes.  */
-static void
+static unsigned int
 rest_of_handle_regrename (void)
 {
   if (flag_rename_registers)
     regrename_optimize ();
   if (flag_cprop_registers)
     copyprop_hardreg_forward ();
+  return 0;
 }
 
 struct tree_opt_pass pass_regrename =

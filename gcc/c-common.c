@@ -261,19 +261,9 @@ int flag_ms_extensions;
 
 int flag_no_asm;
 
-/* Nonzero means give string constants the type `const char *', as mandated
-   by the standard.  */
-
-int flag_const_strings;
-
 /* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
 
 int flag_signed_bitfields = 1;
-
-/* Nonzero means warn about deprecated conversion from string constant to
-   `char *'.  */
-
-int warn_write_strings;
 
 /* Warn about #pragma directives that are not recognized.  */
 
@@ -434,9 +424,15 @@ int flag_weak = 1;
 int flag_working_directory = -1;
 
 /* Nonzero to use __cxa_atexit, rather than atexit, to register
-   destructors for local statics and global objects.  */
+   destructors for local statics and global objects.  '2' means it has been
+   set nonzero as a default, not by a command-line flag.  */
 
 int flag_use_cxa_atexit = DEFAULT_USE_CXA_ATEXIT;
+
+/* Nonzero to use __cxa_get_exception_ptr in C++ exception-handling
+   code.  '2' means it has not been set explicitly on the command line.  */
+
+int flag_use_cxa_get_exception_ptr = 2;
 
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */
@@ -844,7 +840,6 @@ fix_string_type (tree value)
 {
   const int wchar_bytes = TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT;
   const int wide_flag = TREE_TYPE (value) == wchar_array_type_node;
-  const int nchars_max = flag_isoc99 ? 4095 : 509;
   int length = TREE_STRING_LENGTH (value);
   int nchars;
   tree e_type, i_type, a_type;
@@ -852,15 +847,32 @@ fix_string_type (tree value)
   /* Compute the number of elements, for the array type.  */
   nchars = wide_flag ? length / wchar_bytes : length;
 
-  if (pedantic && nchars - 1 > nchars_max && !c_dialect_cxx ())
-    pedwarn ("string length %qd is greater than the length %qd ISO C%d compilers are required to support",
-	     nchars - 1, nchars_max, flag_isoc99 ? 99 : 89);
+  /* C89 2.2.4.1, C99 5.2.4.1 (Translation limits).  The analogous
+     limit in C++98 Annex B is very large (65536) and is not normative,
+     so we do not diagnose it (warn_overlength_strings is forced off
+     in c_common_post_options).  */
+  if (warn_overlength_strings)
+    {
+      const int nchars_max = flag_isoc99 ? 4095 : 509;
+      const int relevant_std = flag_isoc99 ? 99 : 90;
+      if (nchars - 1 > nchars_max)
+	/* Translators: The %d after 'ISO C' will be 90 or 99.  Do not
+	   separate the %d from the 'C'.  'ISO' should not be
+	   translated, but it may be moved after 'C%d' in languages
+	   where modifiers follow nouns.  */
+	pedwarn ("string length %qd is greater than the length %qd "
+		 "ISO C%d compilers are required to support",
+		 nchars - 1, nchars_max, relevant_std);
+    }
 
-  e_type = wide_flag ? wchar_type_node : char_type_node;
-  /* Create the array type for the string constant.  flag_const_strings
-     says make the string constant an array of const char so that
-     copying it to a non-const pointer will get a warning.  For C++,
-     this is the standard behavior.
+  /* Create the array type for the string constant.  The ISO C++
+     standard says that a string literal has type `const char[N]' or
+     `const wchar_t[N]'.  We use the same logic when invoked as a C
+     front-end with -Wwrite-strings.
+     ??? We should change the type of an expression depending on the
+     state of a warning flag.  We should just be warning -- see how
+     this is handled in the C++ front-end for the deprecated implicit
+     conversion from string literals to `char*' or `wchar_t*'.
 
      The C++ front end relies on TYPE_MAIN_VARIANT of a cv-qualified
      array type being the unqualified version of that type.
@@ -868,9 +880,10 @@ fix_string_type (tree value)
      construct the matching unqualified array type first.  The C front
      end does not require this, but it does no harm, so we do it
      unconditionally.  */
+  e_type = wide_flag ? wchar_type_node : char_type_node;
   i_type = build_index_type (build_int_cst (NULL_TREE, nchars - 1));
   a_type = build_array_type (e_type, i_type);
-  if (flag_const_strings)
+  if (c_dialect_cxx() || warn_write_strings)
     a_type = c_build_qualified_type (a_type, TYPE_QUAL_CONST);
 
   TREE_TYPE (value) = a_type;
@@ -2456,25 +2469,26 @@ c_common_truthvalue_conversion (tree expr)
 
     case ADDR_EXPR:
       {
-	if (DECL_P (TREE_OPERAND (expr, 0))
-	    && !DECL_WEAK (TREE_OPERAND (expr, 0)))
+ 	tree inner = TREE_OPERAND (expr, 0);
+	if (DECL_P (inner)
+	    && (TREE_CODE (inner) == PARM_DECL || !DECL_WEAK (inner)))
 	  {
 	    /* Common Ada/Pascal programmer's mistake.  We always warn
 	       about this since it is so bad.  */
 	    warning (OPT_Walways_true, "the address of %qD, will always evaluate as %<true%>",
-		     TREE_OPERAND (expr, 0));
+		     inner);
 	    return truthvalue_true_node;
 	  }
 
 	/* If we are taking the address of an external decl, it might be
 	   zero if it is weak, so we cannot optimize.  */
-	if (DECL_P (TREE_OPERAND (expr, 0))
-	    && DECL_EXTERNAL (TREE_OPERAND (expr, 0)))
+	if (DECL_P (inner)
+	    && DECL_EXTERNAL (inner))
 	  break;
 
-	if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 0)))
+	if (TREE_SIDE_EFFECTS (inner))
 	  return build2 (COMPOUND_EXPR, truthvalue_type_node,
-			 TREE_OPERAND (expr, 0), truthvalue_true_node);
+			 inner, truthvalue_true_node);
 	else
 	  return truthvalue_true_node;
       }
@@ -2521,37 +2535,6 @@ c_common_truthvalue_conversion (tree expr)
       if (TYPE_PRECISION (TREE_TYPE (expr))
 	  >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (expr, 0))))
 	return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
-      break;
-
-    case MINUS_EXPR:
-      /* Perhaps reduce (x - y) != 0 to (x != y).  The expressions
-	 aren't guaranteed to the be same for modes that can represent
-	 infinity, since if x and y are both +infinity, or both
-	 -infinity, then x - y is not a number.
-
-	 Note that this transformation is safe when x or y is NaN.
-	 (x - y) is then NaN, and both (x - y) != 0 and x != y will
-	 be false.  */
-      if (HONOR_INFINITIES (TYPE_MODE (TREE_TYPE (TREE_OPERAND (expr, 0)))))
-	break;
-      /* Fall through....  */
-    case BIT_XOR_EXPR:
-      /* This and MINUS_EXPR can be changed into a comparison of the
-	 two objects.  */
-      if (TREE_TYPE (TREE_OPERAND (expr, 0))
-	  == TREE_TYPE (TREE_OPERAND (expr, 1)))
-	return fold_build2 (NE_EXPR, truthvalue_type_node,
-			    TREE_OPERAND (expr, 0), TREE_OPERAND (expr, 1));
-      return fold_build2 (NE_EXPR, truthvalue_type_node,
-			  TREE_OPERAND (expr, 0),
-			  fold_convert (TREE_TYPE (TREE_OPERAND (expr, 0)),
-					TREE_OPERAND (expr, 1)));
-
-    case BIT_AND_EXPR:
-      if (integer_onep (TREE_OPERAND (expr, 1))
-	  && TREE_TYPE (expr) != truthvalue_type_node)
-	/* Using convert here would cause infinite recursion.  */
-	return build1 (NOP_EXPR, truthvalue_type_node, expr);
       break;
 
     case MODIFY_EXPR:

@@ -1,6 +1,7 @@
 /* Subroutines for insn-output.c for SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -196,6 +197,30 @@ struct processor_costs ultrasparc3_costs = {
   0, /* shift penalty */
 };
 
+static const
+struct processor_costs niagara_costs = {
+  COSTS_N_INSNS (3), /* int load */
+  COSTS_N_INSNS (3), /* int signed load */
+  COSTS_N_INSNS (3), /* int zeroed load */
+  COSTS_N_INSNS (9), /* float load */
+  COSTS_N_INSNS (8), /* fmov, fneg, fabs */
+  COSTS_N_INSNS (8), /* fadd, fsub */
+  COSTS_N_INSNS (26), /* fcmp */
+  COSTS_N_INSNS (8), /* fmov, fmovr */
+  COSTS_N_INSNS (29), /* fmul */
+  COSTS_N_INSNS (54), /* fdivs */
+  COSTS_N_INSNS (83), /* fdivd */
+  COSTS_N_INSNS (100), /* fsqrts - not implemented in hardware */
+  COSTS_N_INSNS (100), /* fsqrtd - not implemented in hardware */
+  COSTS_N_INSNS (11), /* imul */
+  COSTS_N_INSNS (11), /* imulX */
+  0, /* imul bit factor */
+  COSTS_N_INSNS (72), /* idiv */
+  COSTS_N_INSNS (72), /* idivX */
+  COSTS_N_INSNS (1), /* movcc/movr */
+  0, /* shift penalty */
+};
+
 const struct processor_costs *sparc_costs = &cypress_costs;
 
 #ifdef HAVE_AS_RELAX_OPTION
@@ -368,6 +393,9 @@ static int sparc_arg_partial_bytes (CUMULATIVE_ARGS *,
 static void sparc_dwarf_handle_frame_unspec (const char *, rtx, int);
 static void sparc_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void sparc_file_end (void);
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+static const char *sparc_mangle_fundamental_type (tree);
+#endif
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
 const struct attribute_spec sparc_attribute_table[];
 #endif
@@ -527,6 +555,11 @@ static bool fpu_option_set = false;
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END sparc_file_end
 
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE sparc_mangle_fundamental_type
+#endif
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Implement TARGET_HANDLE_OPTION.  */
@@ -588,6 +621,7 @@ sparc_override_options (void)
     { TARGET_CPU_v9, "v9" },
     { TARGET_CPU_ultrasparc, "ultrasparc" },
     { TARGET_CPU_ultrasparc3, "ultrasparc3" },
+    { TARGET_CPU_niagara, "niagara" },
     { 0, 0 }
   };
   const struct cpu_default *def;
@@ -623,6 +657,8 @@ sparc_override_options (void)
     /* TI ultrasparc III */
     /* ??? Check if %y issue still holds true in ultra3.  */
     { "ultrasparc3", PROCESSOR_ULTRASPARC3, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
+    /* UltraSPARC T1 */
+    { "niagara", PROCESSOR_NIAGARA, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
     { 0, 0, 0, 0 }
   };
   const struct cpu_table *cpu;
@@ -732,7 +768,8 @@ sparc_override_options (void)
   /* Supply a default value for align_functions.  */
   if (align_functions == 0
       && (sparc_cpu == PROCESSOR_ULTRASPARC
-	  || sparc_cpu == PROCESSOR_ULTRASPARC3))
+	  || sparc_cpu == PROCESSOR_ULTRASPARC3
+	  || sparc_cpu == PROCESSOR_NIAGARA))
     align_functions = 32;
 
   /* Validate PCC_STRUCT_RETURN.  */
@@ -781,7 +818,15 @@ sparc_override_options (void)
     case PROCESSOR_ULTRASPARC3:
       sparc_costs = &ultrasparc3_costs;
       break;
+    case PROCESSOR_NIAGARA:
+      sparc_costs = &niagara_costs;
+      break;
     };
+
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+  if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
+    target_flags |= MASK_LONG_DOUBLE_128;
+#endif
 }
 
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
@@ -2407,26 +2452,34 @@ empty_delay_slot (rtx insn)
 int
 tls_call_delay (rtx trial)
 {
-  rtx pat, unspec;
+  rtx pat;
 
   /* Binutils allows
-     call __tls_get_addr, %tgd_call (foo)
-      add %l7, %o0, %o0, %tgd_add (foo)
+       call __tls_get_addr, %tgd_call (foo)
+        add %l7, %o0, %o0, %tgd_add (foo)
      while Sun as/ld does not.  */
   if (TARGET_GNU_TLS || !TARGET_TLS)
     return 1;
 
   pat = PATTERN (trial);
-  if (GET_CODE (pat) != SET || GET_CODE (SET_DEST (pat)) != PLUS)
-    return 1;
 
-  unspec = XEXP (SET_DEST (pat), 1);
-  if (GET_CODE (unspec) != UNSPEC
-      || (XINT (unspec, 1) != UNSPEC_TLSGD
-	  && XINT (unspec, 1) != UNSPEC_TLSLDM))
-    return 1;
+  /* We must reject tgd_add{32|64}, i.e.
+       (set (reg) (plus (reg) (unspec [(reg) (symbol_ref)] UNSPEC_TLSGD)))
+     and tldm_add{32|64}, i.e.
+       (set (reg) (plus (reg) (unspec [(reg) (symbol_ref)] UNSPEC_TLSLDM)))
+     for Sun as/ld.  */
+  if (GET_CODE (pat) == SET
+      && GET_CODE (SET_SRC (pat)) == PLUS)
+    {
+      rtx unspec = XEXP (SET_SRC (pat), 1);
 
-  return 0;
+      if (GET_CODE (unspec) == UNSPEC
+	  && (XINT (unspec, 1) == UNSPEC_TLSGD
+	      || XINT (unspec, 1) == UNSPEC_TLSLDM))
+	return 0;
+    }
+
+  return 1;
 }
 
 /* Return nonzero if TRIAL, an insn, can be combined with a 'restore'
@@ -3693,7 +3746,10 @@ sparc_output_scratch_registers (FILE *file ATTRIBUTE_UNUSED)
 	  && ! sparc_hard_reg_printed [i])
 	{
 	  sparc_hard_reg_printed [i] = 1;
-	  fprintf (file, "\t.register\t%%g%d, #scratch\n", i);
+	  /* %g7 is used as TLS base register, use #ignore
+	     for it instead of #scratch.  */
+	  fprintf (file, "\t.register\t%%g%d, #%s\n", i,
+		   i == 7 ? "ignore" : "scratch");
 	}
       if (i == 3) i = 5;
     }
@@ -7001,8 +7057,7 @@ sparc_type_code (register tree type)
 	  return (qualifiers | 7);	/* Who knows? */
 
 	case VECTOR_TYPE:
-	case CHAR_TYPE:		/* GNU Pascal CHAR type.  Not used in C.  */
-	case BOOLEAN_TYPE:	/* GNU Fortran BOOLEAN type.  */
+	case BOOLEAN_TYPE:	/* Boolean truth value type.  */
 	case LANG_TYPE:		/* ? */
 	  return qualifiers;
   
@@ -7075,7 +7130,8 @@ sparc_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
      aligned on a 16 byte boundary so one flush clears it all.  */
   emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode, tramp))));
   if (sparc_cpu != PROCESSOR_ULTRASPARC
-      && sparc_cpu != PROCESSOR_ULTRASPARC3)
+      && sparc_cpu != PROCESSOR_ULTRASPARC3
+      && sparc_cpu != PROCESSOR_NIAGARA)
     emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode,
 						     plus_constant (tramp, 8)))));
 
@@ -7117,7 +7173,8 @@ sparc64_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
   emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, tramp))));
 
   if (sparc_cpu != PROCESSOR_ULTRASPARC
-      && sparc_cpu != PROCESSOR_ULTRASPARC3)
+      && sparc_cpu != PROCESSOR_ULTRASPARC3
+      && sparc_cpu != PROCESSOR_NIAGARA)
     emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, plus_constant (tramp, 8)))));
 
   /* Call __enable_execute_stack after writing onto the stack to make sure
@@ -7297,6 +7354,8 @@ sparc_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 static int
 sparc_use_sched_lookahead (void)
 {
+  if (sparc_cpu == PROCESSOR_NIAGARA)
+    return 0;
   if (sparc_cpu == PROCESSOR_ULTRASPARC
       || sparc_cpu == PROCESSOR_ULTRASPARC3)
     return 4;
@@ -7312,6 +7371,7 @@ sparc_issue_rate (void)
 {
   switch (sparc_cpu)
     {
+    case PROCESSOR_NIAGARA:
     default:
       return 1;
     case PROCESSOR_V9:
@@ -7885,7 +7945,7 @@ sparc_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       arg_count++;
       mode[arg_count] = insn_data[icode].operand[arg_count].mode;
-      op[arg_count] = expand_expr (arg, NULL_RTX, VOIDmode, 0);
+      op[arg_count] = expand_normal (arg);
 
       if (! (*insn_data[icode].operand[arg_count].predicate) (op[arg_count],
 							      mode[arg_count]))
@@ -8710,6 +8770,22 @@ sparc_file_end (void)
     file_end_indicate_exec_stack ();
 }
 
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+
+static const char *
+sparc_mangle_fundamental_type (tree type)
+{
+  if (!TARGET_64BIT
+      && TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_LONG_DOUBLE_128)
+    return "g";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+#endif
+
 /* Expand code to perform a 8 or 16-bit compare and swap by doing 32-bit
    compare and swap on the word containing the byte or half-word.  */
 
@@ -8736,6 +8812,7 @@ sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
 			  gen_rtx_AND (SImode, addr1, GEN_INT (3))));
 
   memsi = gen_rtx_MEM (SImode, addr);
+  set_mem_alias_set (memsi, ALIAS_SET_MEMORY_BARRIER);
   MEM_VOLATILE_P (memsi) = MEM_VOLATILE_P (mem);
 
   val = force_reg (SImode, memsi);

@@ -330,7 +330,6 @@ remap_type_1 (tree type, copy_body_data *id)
     case REAL_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
       t = TYPE_MIN_VALUE (new);
       if (t && TREE_CODE (t) != INTEGER_CST)
         walk_tree (&TYPE_MIN_VALUE (new), copy_body_r, id, NULL);
@@ -1510,6 +1509,10 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
 	    use_it = false;
 	  else if (is_global_var (base_m))
 	    use_it = false;
+	  else if (TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
+		   && !DECL_COMPLEX_GIMPLE_REG_P (result)
+		   && DECL_COMPLEX_GIMPLE_REG_P (base_m))
+	    use_it = false;
 	  else if (!TREE_ADDRESSABLE (base_m))
 	    use_it = true;
 	}
@@ -1892,28 +1895,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case LOOP_EXPR:
     case PHI_NODE:
     case WITH_SIZE_EXPR:
-    case OMP_PARALLEL:
-    case OMP_FOR:
-    case OMP_SECTIONS:
-    case OMP_SINGLE:
-    case OMP_SECTION:
-    case OMP_MASTER:
-    case OMP_ORDERED:
-    case OMP_CRITICAL:
-    case OMP_ATOMIC:
-    case OMP_CLAUSE_PRIVATE:
-    case OMP_CLAUSE_SHARED:
-    case OMP_CLAUSE_FIRSTPRIVATE:
-    case OMP_CLAUSE_LASTPRIVATE:
-    case OMP_CLAUSE_REDUCTION:
-    case OMP_CLAUSE_COPYIN:
-    case OMP_CLAUSE_COPYPRIVATE:
-    case OMP_CLAUSE_IF:
-    case OMP_CLAUSE_NUM_THREADS:
-    case OMP_CLAUSE_SCHEDULE:
-    case OMP_CLAUSE_NOWAIT:
-    case OMP_CLAUSE_ORDERED:
-    case OMP_CLAUSE_DEFAULT:
+    case OMP_CLAUSE:
     case OMP_RETURN_EXPR:
       break;
 
@@ -2101,6 +2083,20 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 	*count += PARAM_VALUE (PARAM_INLINE_CALL_COST);
 	break;
       }
+
+    case OMP_PARALLEL:
+    case OMP_FOR:
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+    case OMP_SECTION:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+    case OMP_ATOMIC:
+      /* OpenMP directives are generally very expensive.  */
+      *count += 40;
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -2633,7 +2629,8 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
   if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code))
       || code == TREE_LIST
       || code == TREE_VEC
-      || code == TYPE_DECL)
+      || code == TYPE_DECL
+      || code == OMP_CLAUSE)
     {
       /* Because the chain gets clobbered when we make a copy, we save it
 	 here.  */
@@ -2653,20 +2650,7 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 	 walk_tree to walk into the chain as well.  */
       if (code == PARM_DECL
 	  || code == TREE_LIST
-	  /* OpenMP clauses are linked through TREE_CHAIN.  */
-	  || code == OMP_CLAUSE_PRIVATE
-	  || code == OMP_CLAUSE_SHARED
-	  || code == OMP_CLAUSE_FIRSTPRIVATE
-	  || code == OMP_CLAUSE_LASTPRIVATE
-	  || code == OMP_CLAUSE_REDUCTION
-	  || code == OMP_CLAUSE_COPYIN
-	  || code == OMP_CLAUSE_COPYPRIVATE
-	  || code == OMP_CLAUSE_IF
-	  || code == OMP_CLAUSE_NUM_THREADS
-	  || code == OMP_CLAUSE_SCHEDULE
-	  || code == OMP_CLAUSE_NOWAIT
-	  || code == OMP_CLAUSE_ORDERED
-	  || code == OMP_CLAUSE_DEFAULT)
+	  || code == OMP_CLAUSE)
 	TREE_CHAIN (*tp) = chain;
 
       /* For now, we don't update BLOCKs when we make copies.  So, we

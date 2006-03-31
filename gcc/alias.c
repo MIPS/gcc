@@ -1,5 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
@@ -221,17 +221,6 @@ static GTY (()) rtx static_reg_base_value[FIRST_PSEUDO_REGISTER];
 #define REG_BASE_VALUE(X) \
   (reg_base_value && REGNO (X) < VARRAY_SIZE (reg_base_value) \
    ? VARRAY_RTX (reg_base_value, REGNO (X)) : 0)
-
-/* Vector of known invariant relationships between registers.  Set in
-   loop unrolling.  Indexed by register number, if nonzero the value
-   is an expression describing this register in terms of another.
-
-   The length of this array is REG_BASE_VALUE_SIZE.
-
-   Because this array contains only pseudo registers it has no effect
-   after reload.  */
-static GTY((length("alias_invariant_size"))) rtx *alias_invariant;
-static GTY(()) unsigned int alias_invariant_size;
 
 /* Vector indexed by N giving the initial (unchanging) value known for
    pseudo-register N.  This array is initialized in init_alias_analysis,
@@ -1079,31 +1068,6 @@ record_set (rtx dest, rtx set, void *data ATTRIBUTE_UNUSED)
   reg_seen[regno] = 1;
 }
 
-/* Called from loop optimization when a new pseudo-register is
-   created.  It indicates that REGNO is being set to VAL.  f INVARIANT
-   is true then this value also describes an invariant relationship
-   which can be used to deduce that two registers with unknown values
-   are different.  */
-
-void
-record_base_value (unsigned int regno, rtx val, int invariant)
-{
-  if (invariant && alias_invariant && regno < alias_invariant_size)
-    alias_invariant[regno] = val;
-
-  if (regno >= VARRAY_SIZE (reg_base_value))
-    VARRAY_GROW (reg_base_value, max_reg_num ());
-
-  if (REG_P (val))
-    {
-      VARRAY_RTX (reg_base_value, regno)
-	 = REG_BASE_VALUE (val);
-      return;
-    }
-  VARRAY_RTX (reg_base_value, regno)
-     = find_base_value (val);
-}
-
 /* Clear alias info for a register.  This is used if an RTL transformation
    changes the value of a register.  This is used in flow by AUTO_INC_DEC
    optimizations.  We don't need to clear reg_base_value, since flow only
@@ -1792,25 +1756,6 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	  return memrefs_conflict_p (xsize, x0, ysize, y0, c);
 	}
 
-      case REG:
-	/* Are these registers known not to be equal?  */
-	if (alias_invariant)
-	  {
-	    unsigned int r_x = REGNO (x), r_y = REGNO (y);
-	    rtx i_x, i_y;	/* invariant relationships of X and Y */
-
-	    i_x = r_x >= alias_invariant_size ? 0 : alias_invariant[r_x];
-	    i_y = r_y >= alias_invariant_size ? 0 : alias_invariant[r_y];
-
-	    if (i_x == 0 && i_y == 0)
-	      break;
-
-	    if (! memrefs_conflict_p (xsize, i_x ? i_x : x,
-				      ysize, i_y ? i_y : y, c))
-	      return 0;
-	  }
-	break;
-
       default:
 	break;
       }
@@ -2209,6 +2154,9 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
     return 1;
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
     return 1;
+  if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
+      || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
+    return 1;
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
@@ -2282,6 +2230,9 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
     return 1;
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
     return 1;
+  if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
+      || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
+    return 1;
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
@@ -2340,6 +2291,9 @@ write_dependence_p (rtx mem, rtx x, int writep)
   if (GET_MODE (x) == BLKmode && GET_CODE (XEXP (x, 0)) == SCRATCH)
     return 1;
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
+    return 1;
+  if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
+      || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
     return 1;
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
@@ -2489,8 +2443,8 @@ init_alias_analysis (void)
       VARRAY_RTX_INIT (reg_base_value, maxreg, "reg_base_value");
     }
 
-  new_reg_base_value = xmalloc (maxreg * sizeof (rtx));
-  reg_seen = xmalloc (maxreg);
+  new_reg_base_value = XNEWVEC (rtx, maxreg);
+  reg_seen = XNEWVEC (char, maxreg);
 
   /* The basic idea is that each pass through this loop will use the
      "constant" information from the previous pass to propagate alias
@@ -2687,42 +2641,6 @@ end_alias_analysis (void)
   reg_known_value_size = 0;
   free (reg_known_equiv_p);
   reg_known_equiv_p = 0;
-  if (alias_invariant)
-    {
-      ggc_free (alias_invariant);
-      alias_invariant = 0;
-      alias_invariant_size = 0;
-    }
 }
-
-/* Do control and data flow analysis; write some of the results to the
-   dump file.  */
-static void
-rest_of_handle_cfg (void)
-{
-  if (dump_file)
-    dump_flow_info (dump_file);
-  if (optimize)
-    cleanup_cfg (CLEANUP_EXPENSIVE
-                 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-}
-
-struct tree_opt_pass pass_cfg =
-{
-  "cfg",                                /* name */
-  NULL,					/* gate */   
-  rest_of_handle_cfg,                   /* execute */       
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_FLOW,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'f'                                   /* letter */
-};
-
 
 #include "gt-alias.h"

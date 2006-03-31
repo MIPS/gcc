@@ -28,6 +28,8 @@ extern bool hook_bool_void_false (void);
 extern bool hook_bool_void_true (void);
 extern bool hook_bool_bool_false (bool);
 extern bool hook_bool_mode_false (enum machine_mode);
+extern bool hook_bool_mode_rtx_false (enum machine_mode, rtx);
+extern bool hook_bool_mode_rtx_true (enum machine_mode, rtx);
 extern bool hook_bool_tree_false (tree);
 extern bool hook_bool_tree_true (tree);
 extern bool hook_bool_tree_hwi_hwi_tree_false (tree, HOST_WIDE_INT, HOST_WIDE_INT,
@@ -35,7 +37,6 @@ extern bool hook_bool_tree_hwi_hwi_tree_false (tree, HOST_WIDE_INT, HOST_WIDE_IN
 extern bool hook_bool_tree_hwi_hwi_tree_true (tree, HOST_WIDE_INT, HOST_WIDE_INT,
 				       tree);
 extern bool hook_bool_rtx_false (rtx);
-extern bool hook_bool_rtx_int_false (rtx, int);
 extern bool hook_bool_uintp_uintp_false (unsigned int *, unsigned int *);
 extern bool hook_bool_rtx_int_int_intp_false (rtx, int, int, int *);
 extern bool hook_bool_constcharptr_size_t_false (const char *, size_t);

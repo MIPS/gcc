@@ -106,7 +106,7 @@ static void make_switch_expr_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
 static edge tree_redirect_edge_and_branch (edge, basic_block);
 static edge tree_try_redirect_by_replacing_jump (edge, basic_block);
-static void split_critical_edges (void);
+static unsigned int split_critical_edges (void);
 
 /* Various helpers.  */
 static inline bool stmt_starts_bb_p (tree, tree);
@@ -207,11 +207,11 @@ build_tree_cfg (tree *tp)
   /* Write the flowgraph to a VCG file.  */
   {
     int local_dump_flags;
-    FILE *dump_file = dump_begin (TDI_vcg, &local_dump_flags);
-    if (dump_file)
+    FILE *vcg_file = dump_begin (TDI_vcg, &local_dump_flags);
+    if (vcg_file)
       {
-	tree_cfg2vcg (dump_file);
-	dump_end (TDI_vcg, dump_file);
+	tree_cfg2vcg (vcg_file);
+	dump_end (TDI_vcg, vcg_file);
       }
   }
 
@@ -224,10 +224,11 @@ build_tree_cfg (tree *tp)
     dump_tree_cfg (dump_file, dump_flags);
 }
 
-static void
+static unsigned int
 execute_build_cfg (void)
 {
   build_tree_cfg (&DECL_SAVED_TREE (current_function_decl));
+  return 0;
 }
 
 struct tree_opt_pass pass_build_cfg =
@@ -1108,7 +1109,8 @@ cleanup_dead_labels (void)
   for_each_eh_region (update_eh_label);
 
   /* Finally, purge dead labels.  All user-defined labels and labels that
-     can be the target of non-local gotos are preserved.  */
+     can be the target of non-local gotos and labels which have their
+     address taken are preserved.  */
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator i;
@@ -1128,7 +1130,8 @@ cleanup_dead_labels (void)
 
 	  if (label == label_for_this_bb
 	      || ! DECL_ARTIFICIAL (label)
-	      || DECL_NONLOCAL (label))
+	      || DECL_NONLOCAL (label)
+	      || FORCED_LABEL (label))
 	    bsi_next (&i);
 	  else
 	    bsi_remove (&i, true);
@@ -1345,10 +1348,7 @@ replace_uses_by (tree name, tree val)
       if (TREE_CODE (rhs) == ADDR_EXPR)
 	recompute_tree_invariant_for_addr_expr (rhs);
 
-      /* If the statement could throw and now cannot, we need to prune cfg.  */
-      if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
-	tree_purge_dead_eh_edges (bb_for_stmt (stmt));
-
+      maybe_clean_or_replace_eh_stmt (stmt, stmt);
       mark_new_vars_to_rename (stmt);
     }
 
@@ -1995,7 +1995,7 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
     }
 }
 
-static void
+static unsigned int
 remove_useless_stmts (void)
 {
   struct rus_data data;
@@ -2008,6 +2008,7 @@ remove_useless_stmts (void)
       remove_useless_stmts_1 (&DECL_SAVED_TREE (current_function_decl), &data);
     }
   while (data.repeat);
+  return 0;
 }
 
 
@@ -4656,7 +4657,8 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   edge e;
   block_stmt_iterator si;
   struct move_stmt_d d;
-  unsigned sz;
+  unsigned old_len, new_len;
+  basic_block *addr;
 
   /* Link BB to the new linked list.  */
   move_block_after (bb, after);
@@ -4679,11 +4681,13 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
   if (bb->index > cfg->x_last_basic_block)
     cfg->x_last_basic_block = bb->index;
 
-  sz = VEC_length (basic_block, cfg->x_basic_block_info);
-  if ((unsigned) cfg->x_last_basic_block >= sz)
+  old_len = VEC_length (basic_block, cfg->x_basic_block_info);
+  if ((unsigned) cfg->x_last_basic_block >= old_len)
     {
-      sz = cfg->x_last_basic_block + (cfg->x_last_basic_block + 3) / 4;
-      VEC_safe_grow (basic_block, gc, cfg->x_basic_block_info, sz);
+      new_len = cfg->x_last_basic_block + (cfg->x_last_basic_block + 3) / 4;
+      VEC_safe_grow (basic_block, gc, cfg->x_basic_block_info, new_len);
+      addr = VEC_address (basic_block, cfg->x_basic_block_info);
+      memset (&addr[old_len], 0, sizeof (basic_block) * (new_len - old_len));
     }
 
   VEC_replace (basic_block, cfg->x_basic_block_info,
@@ -4708,7 +4712,6 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 
       if (TREE_CODE (stmt) == LABEL_EXPR)
 	{
-	  unsigned old_len;
 	  tree label = LABEL_EXPR_LABEL (stmt);
 	  int uid = LABEL_DECL_UID (label);
 
@@ -4717,8 +4720,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	  old_len = VEC_length (basic_block, cfg->x_label_to_block_map);
 	  if (old_len <= (unsigned) uid)
 	    {
-	      basic_block *addr;
-	      unsigned new_len = 3 * uid / 2;
+	      new_len = 3 * uid / 2;
 	      VEC_safe_grow (basic_block, gc, cfg->x_label_to_block_map,
 			     new_len);
 	      addr = VEC_address (basic_block, cfg->x_label_to_block_map);
@@ -4734,6 +4736,8 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	  if (uid >= dest_cfun->last_label_uid)
 	    dest_cfun->last_label_uid = uid + 1;
 	}
+
+      remove_stmt_from_eh_region (stmt);
     }
 }
 
@@ -5445,7 +5449,7 @@ struct cfg_hooks tree_cfg_hooks = {
 
 /* Split all critical edges.  */
 
-static void
+static unsigned int
 split_critical_edges (void)
 {
   basic_block bb;
@@ -5465,6 +5469,7 @@ split_critical_edges (void)
 	  }
     }
   end_recording_case_labels ();
+  return 0;
 }
 
 struct tree_opt_pass pass_split_crit_edges = 
@@ -5559,7 +5564,7 @@ gimplify_build1 (block_stmt_iterator *bsi, enum tree_code code, tree type,
 
 /* Emit return warnings.  */
 
-static void
+static unsigned int
 execute_warn_function_return (void)
 {
 #ifdef USE_MAPPED_LOCATION
@@ -5632,6 +5637,7 @@ execute_warn_function_return (void)
 	    }
 	}
     }
+  return 0;
 }
 
 
@@ -5678,7 +5684,7 @@ struct tree_opt_pass pass_warn_function_return =
 
 /* Emit noreturn warnings.  */
 
-static void
+static unsigned int
 execute_warn_function_noreturn (void)
 {
   if (warn_missing_noreturn
@@ -5688,6 +5694,7 @@ execute_warn_function_noreturn (void)
     warning (OPT_Wmissing_noreturn, "%Jfunction might be possible candidate "
 	     "for attribute %<noreturn%>",
 	     cfun->decl);
+  return 0;
 }
 
 struct tree_opt_pass pass_warn_function_noreturn =

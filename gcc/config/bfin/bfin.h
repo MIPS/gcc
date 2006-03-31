@@ -1,5 +1,5 @@
 /* Definitions for the Blackfin port.
-   Copyright (C) 2005  Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006  Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
    This file is part of GCC.
@@ -41,6 +41,8 @@ extern int target_flags;
     {                                           \
       builtin_define ("bfin");                  \
       builtin_define ("BFIN");                  \
+      if (TARGET_ID_SHARED_LIBRARY)		\
+	builtin_define ("__ID_SHARED_LIB__");	\
     }                                           \
   while (0)
 #endif
@@ -256,7 +258,7 @@ extern const char *bfin_library_id_string;
 /*i0 i1 i2 i3 b0 b1 b2 b3   l0 l1 l2 l3 m0 m1 m2 m3 */ \
   0, 0, 0, 0, 0, 0, 0, 0,   1, 1, 1, 1, 0, 0, 0, 0,    \
 /*a0 a1 cc rets/i/x/n/e     astat seqstat usp argp */ \
-  0, 0, 1, 1, 1, 1, 1, 1,   1, 1, 1, 1	 \
+  0, 0, 0, 1, 1, 1, 1, 1,   1, 1, 1, 1	 \
 }
 
 /* 1 for registers not available across function calls.
@@ -1123,10 +1125,6 @@ extern struct rtx_def *bfin_cc_rtx, *bfin_rets_rtx;
 
 /* This works for GAS and some other assemblers.  */
 #define SET_ASM_OP              ".set "
-
-/* Don't know how to order these.  UNALIGNED_WORD_ASM_OP is in
-   dwarf2.out. */
-#define UNALIGNED_WORD_ASM_OP ".4byte"
 
 /* DBX register number for a given compiler register number */
 #define DBX_REGISTER_NUMBER(REGNO)  (REGNO) 

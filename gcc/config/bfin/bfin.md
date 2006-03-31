@@ -1,5 +1,5 @@
 ;;- Machine description for Blackfin for GNU compiler
-;;  Copyright 2005  Free Software Foundation, Inc.
+;;  Copyright 2005, 2006  Free Software Foundation, Inc.
 ;;  Contributed by Analog Devices.
 
 ;; This file is part of GCC.
@@ -239,7 +239,7 @@
 (define_insn "*movsicc_insn1"
   [(set (match_operand:SI 0 "register_operand" "=da,da,da")
         (if_then_else:SI
-	    (eq:BI (match_operand:BI 3 "cc_operand" "C,C,C")
+	    (eq:BI (match_operand:BI 3 "register_operand" "C,C,C")
 		(const_int 0))
 	    (match_operand:SI 1 "register_operand" "da,0,da")
 	    (match_operand:SI 2 "register_operand" "0,da,da")))]
@@ -254,7 +254,7 @@
 (define_insn "*movsicc_insn2"
   [(set (match_operand:SI 0 "register_operand" "=da,da,da")
         (if_then_else:SI
-	    (ne:BI (match_operand:BI 3 "cc_operand" "C,C,C")
+	    (ne:BI (match_operand:BI 3 "register_operand" "C,C,C")
 		(const_int 0))
 	    (match_operand:SI 1 "register_operand" "0,da,da")
 	    (match_operand:SI 2 "register_operand" "da,0,da")))]
@@ -344,15 +344,15 @@
 })
 
 (define_insn "movbi"
-  [(set (match_operand:BI 0 "nonimmediate_operand" "=x,x,d,mr,C,d,C")
-        (match_operand:BI 1 "general_operand" "x,xKs3,mr,d,d,C,P0"))]
+  [(set (match_operand:BI 0 "nonimmediate_operand" "=x,x,d,md,C,d,C")
+        (match_operand:BI 1 "general_operand" "x,xKs3,md,d,d,C,P0"))]
 
   ""
   "@
    %0 = %1;
    %0 = %1 (X);
-   %0 = %1;
-   %0 = %1;
+   %0 = B %1 (Z);
+   B %0 = %1;
    CC = %1;
    %0 = CC;
    R0 = R0 | R0; CC = AC0;"
@@ -967,7 +967,7 @@
 ;; Bit test instructions
 
 (define_insn "*not_bittst"
- [(set (match_operand:BI 0 "cc_operand" "=C")
+ [(set (match_operand:BI 0 "register_operand" "=C")
        (eq:BI (zero_extract:SI (match_operand:SI 1 "register_operand" "d")
 			       (const_int 1)
 			       (match_operand:SI 2 "immediate_operand" "Ku5"))
@@ -977,7 +977,7 @@
   [(set_attr "type" "alu0")])
 
 (define_insn "*bittst"
- [(set (match_operand:BI 0 "cc_operand" "=C")
+ [(set (match_operand:BI 0 "register_operand" "=C")
        (ne:BI (zero_extract:SI (match_operand:SI 1 "register_operand" "d")
 			       (const_int 1)
 			       (match_operand:SI 2 "immediate_operand" "Ku5"))
@@ -1362,10 +1362,10 @@
 	 (match_operand 1 "general_operand" "g"))
    (use (match_operand 2 "" ""))]
   "! SIBLING_CALL_P (insn)
-   && !flag_pic
+   && !TARGET_ID_SHARED_LIBRARY
    && GET_CODE (operands[0]) == SYMBOL_REF
    && !bfin_longcall_p (operands[0], INTVAL (operands[2]))"
-  "call %G0;"
+  "call %0;"
   [(set_attr "type" "call")
    (set_attr "length" "4")])
 
@@ -1375,10 +1375,10 @@
    (use (match_operand 2 "" ""))
    (return)]
   "SIBLING_CALL_P (insn)
-   && !flag_pic
+   && !TARGET_ID_SHARED_LIBRARY
    && GET_CODE (operands[0]) == SYMBOL_REF
    && !bfin_longcall_p (operands[0], INTVAL (operands[2]))"
-  "jump.l %G0;"
+  "jump.l %0;"
   [(set_attr "type" "br")
    (set_attr "length" "4")])
 
@@ -1388,10 +1388,10 @@
 	      (match_operand 2 "general_operand" "g")))
    (use (match_operand 3 "" ""))]
   "! SIBLING_CALL_P (insn)
-   && !flag_pic
+   && !TARGET_ID_SHARED_LIBRARY
    && GET_CODE (operands[1]) == SYMBOL_REF
    && !bfin_longcall_p (operands[1], INTVAL (operands[3]))"
-  "call %G1;"
+  "call %1;"
   [(set_attr "type" "call")
    (set_attr "length" "4")])
 
@@ -1402,10 +1402,10 @@
    (use (match_operand 3 "" ""))
    (return)]
   "SIBLING_CALL_P (insn)
-   && !flag_pic
+   && !TARGET_ID_SHARED_LIBRARY
    && GET_CODE (operands[1]) == SYMBOL_REF
    && !bfin_longcall_p (operands[1], INTVAL (operands[3]))"
-  "jump.l %G1;"
+  "jump.l %1;"
   [(set_attr "type" "br")
    (set_attr "length" "4")])
 
@@ -1530,7 +1530,7 @@
 })
 
 (define_insn "compare_eq"
-  [(set (match_operand:BI 0 "cc_operand" "=C,C")
+  [(set (match_operand:BI 0 "register_operand" "=C,C")
         (eq:BI (match_operand:SI 1 "register_operand" "d,a")
                (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   ""
@@ -1538,7 +1538,7 @@
   [(set_attr "type" "compare")])
 
 (define_insn "compare_ne"
-  [(set (match_operand:BI 0 "cc_operand" "=C,C")
+  [(set (match_operand:BI 0 "register_operand" "=C,C")
         (ne:BI (match_operand:SI 1 "register_operand" "d,a")
                (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   "0"
@@ -1546,7 +1546,7 @@
   [(set_attr "type" "compare")])
 
 (define_insn "compare_lt"
-  [(set (match_operand:BI 0 "cc_operand" "=C,C")
+  [(set (match_operand:BI 0 "register_operand" "=C,C")
         (lt:BI (match_operand:SI 1 "register_operand" "d,a")
                (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   ""
@@ -1554,7 +1554,7 @@
   [(set_attr "type" "compare")])
 
 (define_insn "compare_le"
-  [(set (match_operand:BI 0 "cc_operand" "=C,C")
+  [(set (match_operand:BI 0 "register_operand" "=C,C")
         (le:BI (match_operand:SI 1 "register_operand" "d,a")
                (match_operand:SI 2 "reg_or_const_int_operand" "dKs3,aKs3")))]
   ""
@@ -1562,7 +1562,7 @@
   [(set_attr "type" "compare")])
 
 (define_insn "compare_leu"
-  [(set (match_operand:BI 0 "cc_operand" "=C,C")
+  [(set (match_operand:BI 0 "register_operand" "=C,C")
         (leu:BI (match_operand:SI 1 "register_operand" "d,a")
                 (match_operand:SI 2 "reg_or_const_int_operand" "dKu3,aKu3")))]
   ""
@@ -1570,7 +1570,7 @@
   [(set_attr "type" "compare")])
 
 (define_insn "compare_ltu"
-  [(set (match_operand:BI 0 "cc_operand" "=C,C")
+  [(set (match_operand:BI 0 "register_operand" "=C,C")
         (ltu:BI (match_operand:SI 1 "register_operand" "d,a")
                 (match_operand:SI 2 "reg_or_const_int_operand" "dKu3,aKu3")))]
   ""
@@ -1735,7 +1735,7 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 0 "bfin_cbranch_operator"
-			 [(match_operand:BI 1 "cc_operand" "C")
+			 [(match_operand:BI 1 "register_operand" "C")
 			  (match_operand:BI 2 "immediate_operand" "P0")])
 	 (label_ref (match_operand 3 "" ""))
 	 (pc)))]
@@ -1753,7 +1753,7 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 0 "bfin_cbranch_operator"
-			 [(match_operand:BI 1 "cc_operand" "C")
+			 [(match_operand:BI 1 "register_operand" "C")
 			  (match_operand:BI 2 "immediate_operand" "P0")])
 	 (label_ref (match_operand 3 "" ""))
 	 (pc)))
@@ -1769,7 +1769,7 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 0 "bfin_cbranch_operator"
-			 [(match_operand:BI 1 "cc_operand" "C")
+			 [(match_operand:BI 1 "register_operand" "C")
 			  (match_operand:BI 2 "immediate_operand" "P0")])
 	 (label_ref (match_operand 3 "" ""))
 	 (pc)))
@@ -1845,7 +1845,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;   CC2dreg   ;;;;;;;;;;;;;;;;;;;;;;;;;
 (define_insn "movsibi"
-  [(set (match_operand:BI 0 "cc_operand" "=C")
+  [(set (match_operand:BI 0 "register_operand" "=C")
 	(ne:BI (match_operand:SI 1 "register_operand" "d")
 	       (const_int 0)))]
   ""
@@ -1854,15 +1854,15 @@
 
 (define_insn "movbisi"
   [(set (match_operand:SI 0 "register_operand" "=d")
-	(ne:SI (match_operand:BI 1 "cc_operand" "C")
+	(ne:SI (match_operand:BI 1 "register_operand" "C")
 	       (const_int 0)))]
   ""
   "%0 = CC;"
   [(set_attr "length" "2")])
 
 (define_insn ""
-  [(set (match_operand:BI 0 "cc_operand" "=C")
-	(eq:BI (match_operand:BI 1 "cc_operand" " 0")
+  [(set (match_operand:BI 0 "register_operand" "=C")
+	(eq:BI (match_operand:BI 1 "register_operand" " 0")
 	       (const_int 0)))]
   ""
   "%0 = ! %0;"    /*  NOT CC;"  */

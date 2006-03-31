@@ -3329,9 +3329,10 @@ alignment.  See your linker documentation for further information.
 
 @item packed
 This attribute, attached to @code{struct} or @code{union} type
-definition, specifies that each member of the structure or union is
-placed to minimize the memory required.  When attached to an @code{enum}
-definition, it indicates that the smallest integral type should be used.
+definition, specifies that each member (other than zero-width bitfields)
+of the structure or union is placed to minimize the memory required.  When
+attached to an @code{enum} definition, it indicates that the smallest
+integral type should be used.
 
 @opindex fshort-enums
 Specifying this attribute for @code{struct} and @code{union} types is
@@ -6804,6 +6805,35 @@ v2sf __builtin_ia32_pswapdsf (v2sf)
 v2si __builtin_ia32_pswapdsi (v2si)
 @end smallexample
 
+The following built-in functions are available when @option{-msse2}
+is used.  All of them generate calls to an SSE2 ABI IEEE754 math intrinsic
+that is part of the name.  Rather than using these directly you may
+want them automatically substituted for calls to the regular intrinsics
+using the @option{-msselibm}.
+
+@smallexample
+double __builtin_sse2_acos (double)
+float __builtin_sse2_acosf (float)
+double __builtin_sse2_asin (double)
+float __builtin_sse2_asinf (float)
+double __builtin_sse2_atan (double)
+float __builtin_sse2_atanf (float)
+double __builtin_sse2_atan2 (double, double)
+float __builtin_sse2_atan2f (float, float)
+double __builtin_sse2_cos (double)
+float __builtin_sse2_cosf (float)
+double __builtin_sse2_exp (double)
+float __builtin_sse2_expf (float)
+double __builtin_sse2_log10 (double)
+float __builtin_sse2_log10f (float)
+double __builtin_sse2_log (double)
+float __builtin_sse2_logf (float)
+double __builtin_sse2_sin (double)
+float __builtin_sse2_sinf (float)
+double __builtin_sse2_tan (double)
+float __builtin_sse2_tanf (float)
+@end smallexample
+
 @node MIPS DSP Built-in Functions
 @subsection MIPS DSP Built-in Functions
 
@@ -9489,10 +9519,10 @@ way of knowing that that happened.)
 @subsection Structure-Packing Pragmas
 
 For compatibility with Win32, GCC supports a set of @code{#pragma}
-directives which change the maximum alignment of members of structures,
-unions, and classes subsequently defined.  The @var{n} value below always
-is required to be a small power of two and specifies the new alignment
-in bytes.
+directives which change the maximum alignment of members of structures
+(other than zero-width bitfields), unions, and classes subsequently
+defined.  The @var{n} value below always is required to be a small power
+of two and specifies the new alignment in bytes.
 
 @enumerate
 @item @code{#pragma pack(@var{n})} simply sets the new alignment.

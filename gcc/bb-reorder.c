@@ -911,7 +911,7 @@ connect_traces (int n_traces, struct trace *traces)
   else
     count_threshold = max_entry_count / 1000 * DUPLICATION_THRESHOLD;
 
-  connected = xcalloc (n_traces, sizeof (bool));
+  connected = XCNEWVEC (bool, n_traces);
   last_trace = -1;
   current_pass = 1;
   current_partition = BB_PARTITION (traces[0].first);
@@ -1912,7 +1912,7 @@ reorder_basic_blocks (unsigned int flags)
 
   /* We need to know some information for each basic block.  */
   array_size = GET_ARRAY_SIZE (last_basic_block);
-  bbd = xmalloc (array_size * sizeof (bbro_basic_block_data));
+  bbd = XNEWVEC (bbro_basic_block_data, array_size);
   for (i = 0; i < array_size; i++)
     {
       bbd[i].start_of_trace = -1;
@@ -1922,7 +1922,7 @@ reorder_basic_blocks (unsigned int flags)
       bbd[i].node = NULL;
     }
 
-  traces = xmalloc (n_basic_blocks * sizeof (struct trace));
+  traces = XNEWVEC (struct trace, n_basic_blocks);
   n_traces = 0;
   find_traces (&n_traces, traces);
   connect_traces (n_traces, traces);
@@ -1930,7 +1930,7 @@ reorder_basic_blocks (unsigned int flags)
   FREE (bbd);
 
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
 
   cfg_layout_finalize ();
   if (flag_reorder_blocks_and_partition)
@@ -1979,7 +1979,7 @@ gate_duplicate_computed_gotos (void)
 }
 
 
-static void
+static unsigned int
 duplicate_computed_gotos (void)
 {
   basic_block bb, new_bb;
@@ -1987,10 +1987,10 @@ duplicate_computed_gotos (void)
   int max_size;
 
   if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
-    return;
+    return 0;
 
   if (targetm.cannot_modify_jumps_p ())
-    return;
+    return 0;
 
   cfg_layout_initialize (0);
 
@@ -2083,6 +2083,7 @@ done:
   cfg_layout_finalize ();
 
   BITMAP_FREE (candidates);
+  return 0;
 }
 
 struct tree_opt_pass pass_duplicate_computed_gotos =
@@ -2172,7 +2173,7 @@ partition_hot_cold_basic_blocks (void)
   if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
     return;
   
-  crossing_edges = xcalloc (max_edges, sizeof (edge));
+  crossing_edges = XCNEWVEC (edge, max_edges);
 
   cfg_layout_initialize (0);
   
@@ -2201,7 +2202,7 @@ gate_handle_reorder_blocks (void)
 
 
 /* Reorder basic blocks.  */
-static void
+static unsigned int
 rest_of_handle_reorder_blocks (void)
 {
   bool changed;
@@ -2234,6 +2235,7 @@ rest_of_handle_reorder_blocks (void)
 
   /* Add NOTE_INSN_SWITCH_TEXT_SECTIONS notes.  */
   insert_section_boundary_note ();
+  return 0;
 }
 
 struct tree_opt_pass pass_reorder_blocks =
@@ -2267,7 +2269,7 @@ gate_handle_partition_blocks (void)
 }
 
 /* Partition hot and cold basic blocks.  */
-static void
+static unsigned int
 rest_of_handle_partition_blocks (void)
 {
   no_new_pseudos = 0;
@@ -2276,6 +2278,7 @@ rest_of_handle_partition_blocks (void)
   update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
                     PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
   no_new_pseudos = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_partition_blocks =

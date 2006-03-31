@@ -1,5 +1,5 @@
 /* The Blackfin code generation auxiliary output file.
-   Copyright (C) 2005  Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006  Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
    This file is part of GCC.
@@ -1264,8 +1264,6 @@ print_operand (FILE *file, rtx x, char code)
 
 	case SYMBOL_REF:
 	  output_addr_const (file, x);
-	  if (code == 'G' && flag_pic)
-	    fprintf (file, "@GOT");
 	  break;
 
 	case CONST_DOUBLE:
@@ -1685,6 +1683,11 @@ int
 bfin_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 			 enum reg_class class1, enum reg_class class2)
 {
+  /* These need secondary reloads, so they're more expensive.  */
+  if ((class1 == CCREGS && class2 != DREGS)
+      || (class1 != DREGS && class2 == CCREGS))
+    return 4;
+
   /* If optimizing for size, always prefer reg-reg over reg-memory moves.  */
   if (optimize_size)
     return 2;
@@ -1788,6 +1791,7 @@ bfin_secondary_reload (bool in_p, rtx x, enum reg_class class,
     return DREGS;
   if (x_class == CCREGS && class != DREGS)
     return DREGS;
+
   /* All registers other than AREGS can load arbitrary constants.  The only
      case that remains is MEM.  */
   if (code == MEM)

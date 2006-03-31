@@ -93,7 +93,7 @@ diagnostic_initialize (diagnostic_context *context)
 {
   /* Allocate a basic pretty-printer.  Clients will replace this a
      much more elaborated pretty-printer if they wish.  */
-  context->printer = xmalloc (sizeof (pretty_printer));
+  context->printer = XNEW (pretty_printer);
   pp_construct (context->printer, NULL, 0);
   /* By default, diagnostics are sent to stderr.  */
   context->printer->buffer->stream = stderr;
@@ -383,7 +383,7 @@ diagnostic_report_diagnostic (diagnostic_context *context,
 	 option.  */
       if (context->classify_diagnostic[diagnostic->option_index] != DK_UNSPECIFIED)
 	diagnostic->kind = context->classify_diagnostic[diagnostic->option_index];
-      /* This allows for future extenions, like temporarily disabling
+      /* This allows for future extensions, like temporarily disabling
 	 warnings for ranges of source code.  */
       if (diagnostic->kind == DK_IGNORED)
 	return;

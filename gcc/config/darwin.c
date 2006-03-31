@@ -559,7 +559,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
 		 (Pmode,
 		  machopic_indirection_name (orig, /*stub_p=*/false)));
 
-      SYMBOL_REF_DECL (ptr_ref) = SYMBOL_REF_DECL (orig);
+      SYMBOL_REF_DATA (ptr_ref) = SYMBOL_REF_DATA (orig);
 
       ptr_ref = gen_const_mem (Pmode, ptr_ref);
       machopic_define_symbol (ptr_ref);
@@ -642,10 +642,9 @@ machopic_indirect_call_target (rtx target)
       const char *stub_name = machopic_indirection_name (sym_ref,
 							 /*stub_p=*/true);
       enum machine_mode mode = GET_MODE (sym_ref);
-      tree decl = SYMBOL_REF_DECL (sym_ref);
 
       XEXP (target, 0) = gen_rtx_SYMBOL_REF (mode, stub_name);
-      SYMBOL_REF_DECL (XEXP (target, 0)) = decl;
+      SYMBOL_REF_DATA (XEXP (target, 0)) = SYMBOL_REF_DATA (sym_ref);
       MEM_READONLY_P (target) = 1;
       MEM_NOTRAP_P (target) = 1;
     }
@@ -1343,7 +1342,7 @@ darwin_emit_unwind_label (FILE *file, tree decl, int for_eh, int empty)
   if (! for_eh)
     suffix = ".eh1";
 
-  lab = xmalloc (strlen (prefix)
+  lab = XNEWVEC (char, strlen (prefix)
 		 + base_len + strlen (suffix) + quotes_len + 1);
   lab[0] = '\0';
 
@@ -1478,6 +1477,19 @@ bool
 darwin_binds_local_p (tree decl)
 {
   return default_binds_local_p_1 (decl, 0);
+}
+
+/* The Darwin's implementation of TARGET_ASM_OUTPUT_ANCHOR.  Define the
+   anchor relative to ".", the current section position.  We cannot use
+   the default one because ASM_OUTPUT_DEF is wrong for Darwin.  */
+
+void
+darwin_asm_output_anchor (rtx symbol)
+{
+  fprintf (asm_out_file, "\t.set\t");
+  assemble_name (asm_out_file, XSTR (symbol, 0));
+  fprintf (asm_out_file, ", . + " HOST_WIDE_INT_PRINT_DEC "\n",
+	   SYMBOL_REF_BLOCK_OFFSET (symbol));
 }
 
 #include "gt-darwin.h"

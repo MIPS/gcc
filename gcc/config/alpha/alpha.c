@@ -235,6 +235,21 @@ alpha_handle_option (size_t code, const char *arg, int value)
   return true;
 }
 
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+
+static const char *
+alpha_mangle_fundamental_type (tree type)
+{
+  if (TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_LONG_DOUBLE_128)
+    return "g";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+#endif
+
 /* Parse target option strings.  */
 
 void
@@ -501,6 +516,11 @@ override_options (void)
       REAL_MODE_FORMAT (DFmode) = &vax_g_format;
       REAL_MODE_FORMAT (TFmode) = NULL;
     }
+
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+  if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
+    target_flags |= MASK_LONG_DOUBLE_128;
+#endif
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -10710,6 +10730,11 @@ alpha_init_libfuncs (void)
   (TARGET_DEFAULT | TARGET_CPU_DEFAULT | TARGET_DEFAULT_EXPLICIT_RELOCS)
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION alpha_handle_option
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE alpha_mangle_fundamental_type
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

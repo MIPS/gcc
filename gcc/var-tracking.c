@@ -498,7 +498,7 @@ vt_stack_adjustments (void)
   VTI (ENTRY_BLOCK_PTR)->out.stack_adjust = INCOMING_FRAME_SP_OFFSET;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge_iterator));
+  stack = XNEWVEC (edge_iterator, n_basic_blocks + 1);
   sp = 0;
 
   /* Push the first edge on to the stack.  */
@@ -1070,7 +1070,7 @@ variable_union (void **slot, void *data)
 	  dst_l = 0;
 	  for (node = dst->var_part[j].loc_chain; node; node = node->next)
 	    dst_l++;
-	  vui = xcalloc (src_l + dst_l, sizeof (struct variable_union_info));
+	  vui = XCNEWVEC (struct variable_union_info, src_l + dst_l);
 
 	  /* Fill in the locations from DST.  */
 	  for (node = dst->var_part[j].loc_chain, jj = 0; node;
@@ -1638,8 +1638,8 @@ vt_find_locations (void)
 
   /* Compute reverse completion order of depth first search of the CFG
      so that the data-flow runs faster.  */
-  rc_order = xmalloc ((n_basic_blocks - NUM_FIXED_BLOCKS) * sizeof (int));
-  bb_order = xmalloc (last_basic_block * sizeof (int));
+  rc_order = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
+  bb_order = XNEWVEC (int, last_basic_block);
   pre_and_rev_post_order_compute (NULL, rc_order, false);
   for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
     bb_order[rc_order[i]] = i;
@@ -2546,8 +2546,7 @@ vt_initialize (void)
 	}
 
       /* Add the micro-operations to the array.  */
-      VTI (bb)->mos = xmalloc (VTI (bb)->n_mos
-			       * sizeof (struct micro_operation_def));
+      VTI (bb)->mos = XNEWVEC (micro_operation, VTI (bb)->n_mos);
       VTI (bb)->n_mos = 0;
       for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
 	   insn = NEXT_INSN (insn))
@@ -2677,11 +2676,11 @@ vt_finalize (void)
 
 /* The entry point to variable tracking pass.  */
 
-void
+unsigned int
 variable_tracking_main (void)
 {
   if (n_basic_blocks > 500 && n_edges / n_basic_blocks >= 20)
-    return;
+    return 0;
 
   mark_dfs_back_edges ();
   vt_initialize ();
@@ -2690,20 +2689,21 @@ variable_tracking_main (void)
       if (!vt_stack_adjustments ())
 	{
 	  vt_finalize ();
-	  return;
+	  return 0;
 	}
     }
 
   vt_find_locations ();
   vt_emit_notes ();
 
-  if (dump_file)
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       dump_dataflow_sets ();
-      dump_flow_info (dump_file);
+      dump_flow_info (dump_file, dump_flags);
     }
 
   vt_finalize ();
+  return 0;
 }
 
 static bool

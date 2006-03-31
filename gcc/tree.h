@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -105,7 +105,7 @@ extern const enum tree_code_class tree_code_type[];
 #define MTAG_P(CODE) \
   (TREE_CODE (CODE) == STRUCT_FIELD_TAG		\
    || TREE_CODE (CODE) == NAME_MEMORY_TAG	\
-   || TREE_CODE (CODE) == TYPE_MEMORY_TAG)
+   || TREE_CODE (CODE) == SYMBOL_MEMORY_TAG)
         
 
 /* Nonzero if DECL represents a VAR_DECL or FUNCTION_DECL.  */
@@ -261,6 +261,66 @@ extern const char * built_in_names[(int) END_BUILTINS];
 /* An array of _DECL trees for the above.  */
 extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
 extern GTY(()) tree implicit_built_in_decls[(int) END_BUILTINS];
+
+/* In an OMP_CLAUSE node.  */
+
+/* Number of operands and names for each clause.  */
+extern unsigned const char omp_clause_num_ops[];
+extern const char * const omp_clause_code_name[];
+
+/* Clause codes.  Do not reorder, as this is used to index into the tables
+   omp_clause_num_ops and omp_clause_code_name.  */
+enum omp_clause_code
+{
+  /* Clause zero is special-cased inside the parser
+     (c_parser_omp_variable_list).  */
+  OMP_CLAUSE_ERROR = 0,
+
+  /* OpenMP clause: private (variable_list).  */
+  OMP_CLAUSE_PRIVATE,
+
+  /* OpenMP clause: shared (variable_list).  */
+  OMP_CLAUSE_SHARED,
+
+  /* OpenMP clause: firstprivate (variable_list).  */
+  OMP_CLAUSE_FIRSTPRIVATE,
+
+  /* OpenMP clause: lastprivate (variable_list).  */
+  OMP_CLAUSE_LASTPRIVATE,
+
+  /* OpenMP clause: reduction (operator:variable_list).
+     OMP_CLAUSE_REDUCTION_CODE: The tree_code of the operator.
+     Operand 1: OMP_CLAUSE_REDUCTION_INIT: Stmt-list to initialize the var.
+     Operand 2: OMP_CLAUSE_REDUCTION_MERGE: Stmt-list to merge private var 
+                into the shared one.
+     Operand 3: OMP_CLAUSE_REDUCTION_PLACEHOLDER: A dummy VAR_DECL
+                placeholder used in OMP_CLAUSE_REDUCTION_MERGE.  */
+  OMP_CLAUSE_REDUCTION,
+
+  /* OpenMP clause: copyin (variable_list).  */
+  OMP_CLAUSE_COPYIN,
+
+  /* OpenMP clause: copyprivate (variable_list).  */
+  OMP_CLAUSE_COPYPRIVATE,
+
+  /* OpenMP clause: if (scalar-expression).  */
+  OMP_CLAUSE_IF,
+
+  /* OpenMP clause: num_threads (integer-expression).  */
+  OMP_CLAUSE_NUM_THREADS,
+
+  /* OpenMP clause: schedule.  */
+  OMP_CLAUSE_SCHEDULE,
+
+  /* OpenMP clause: nowait.  */
+  OMP_CLAUSE_NOWAIT,
+
+  /* OpenMP clause: ordered.  */
+  OMP_CLAUSE_ORDERED,
+
+  /* OpenMP clause: default.  */
+  OMP_CLAUSE_DEFAULT
+};
 
 /* The definition of tree nodes fills the next several pages.  */
 
@@ -598,9 +658,30 @@ enum tree_node_structure_enum {
 
 #define TREE_RANGE_CHECK(T, CODE1, CODE2) __extension__			\
 ({  const tree __t = (T);						\
-    if (TREE_CODE (__t) < (CODE1) && TREE_CODE (__t) > (CODE2))		\
+    if (TREE_CODE (__t) < (CODE1) || TREE_CODE (__t) > (CODE2))		\
       tree_range_check_failed (__t, __FILE__, __LINE__, __FUNCTION__,	\
 			       (CODE1), (CODE2));			\
+    __t; })
+
+#define OMP_CLAUSE_SUBCODE_CHECK(T, CODE) __extension__			\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != OMP_CLAUSE)					\
+      tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__,  	\
+			 OMP_CLAUSE, 0);				\
+    if (__t->omp_clause.code != (CODE))					\
+      omp_clause_check_failed (__t, __FILE__, __LINE__, __FUNCTION__, 	\
+			       (CODE));					\
+    __t; })
+
+#define OMP_CLAUSE_RANGE_CHECK(T, CODE1, CODE2) __extension__		\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != OMP_CLAUSE)					\
+      tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__,  	\
+			 OMP_CLAUSE, 0);				\
+    if ((int) __t->omp_clause.code < (int) (CODE1)			\
+        || (int) __t->omp_clause.code > (int) (CODE2))			\
+      omp_clause_range_check_failed (__t, __FILE__, __LINE__,		\
+				     __FUNCTION__, (CODE1), (CODE2));	\
     __t; })
 
 /* These checks have to be special cased.  */
@@ -641,6 +722,17 @@ enum tree_node_structure_enum {
       phi_node_elt_check_failed (__i, __t->phi.num_args,		\
 				 __FILE__, __LINE__, __FUNCTION__);	\
     &__t->phi.a[__i]; }))
+
+#define OMP_CLAUSE_ELT_CHECK(t, i) __extension__			\
+(*({const tree __t = t;							\
+    const int __i = (i);						\
+    if (TREE_CODE (__t) != OMP_CLAUSE)					\
+      tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__,  	\
+			 OMP_CLAUSE, 0);				\
+    if (__i < 0 || __i >= omp_clause_num_ops [__t->omp_clause.code])	\
+      omp_clause_operand_check_failed (__i, __t, __FILE__, __LINE__,	\
+	                               __FUNCTION__);			\
+    &__t->omp_clause.ops[__i]; }))
 
 /* Special checks for TREE_OPERANDs.  */
 #define TREE_OPERAND_CHECK(T, I) __extension__				\
@@ -700,6 +792,16 @@ extern void phi_node_elt_check_failed (int, int, const char *,
 extern void tree_operand_check_failed (int, enum tree_code,
 				       const char *, int, const char *)
     ATTRIBUTE_NORETURN;
+extern void omp_clause_check_failed (const tree, const char *, int,
+				     const char *, enum omp_clause_code)
+    ATTRIBUTE_NORETURN;
+extern void omp_clause_operand_check_failed (int, tree, const char *,
+				             int, const char *)
+    ATTRIBUTE_NORETURN;
+extern void omp_clause_range_check_failed (const tree, const char *, int,
+			       const char *, enum omp_clause_code,
+			       enum omp_clause_code)
+    ATTRIBUTE_NORETURN;
 
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
 
@@ -723,10 +825,13 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I)  (*(rtx *) &((T)->exp.operands[I]))
 #define PHI_NODE_ELT_CHECK(T, i)	((T)->phi.a[i])
+#define OMP_CLAUSE_ELT_CHECK(T, i)	        ((T)->omp_clause.ops[i])
+#define OMP_CLAUSE_RANGE_CHECK(T, CODE1, CODE2)	(T)
+#define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
 
 #endif
 
-#define TREE_BLOCK(NODE)		((NODE)->exp.block)
+#define TREE_BLOCK(NODE)		(EXPR_CHECK (NODE)->exp.block)
 
 #include "tree-check.h"
 
@@ -748,8 +853,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
   TREE_NOT_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
 
 #define NUMERICAL_TYPE_CHECK(T)					\
-  TREE_CHECK5 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE,	\
-	       CHAR_TYPE, REAL_TYPE)
+  TREE_CHECK4 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE, REAL_TYPE)
 
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
@@ -826,7 +930,6 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define INTEGRAL_TYPE_P(TYPE)  \
   (TREE_CODE (TYPE) == ENUMERAL_TYPE  \
    || TREE_CODE (TYPE) == BOOLEAN_TYPE \
-   || TREE_CODE (TYPE) == CHAR_TYPE \
    || TREE_CODE (TYPE) == INTEGER_TYPE)
 
 /* Nonzero if TYPE represents a scalar floating-point type.  */
@@ -1136,13 +1239,7 @@ extern void tree_operand_check_failed (int, enum tree_code,
 struct tree_int_cst GTY(())
 {
   struct tree_common common;
-  /* A sub-struct is necessary here because the function `const_hash'
-     wants to scan both words as a unit and taking the address of the
-     sub-struct yields the properly inclusive bounded pointer.  */
-  struct tree_int_cst_lowhi {
-    unsigned HOST_WIDE_INT low;
-    HOST_WIDE_INT high;
-  } int_cst;
+  double_int int_cst;
 };
 
 /* In a REAL_CST node.  struct real_value is an opaque entity, with
@@ -1463,38 +1560,38 @@ struct tree_constructor GTY(())
 #define OMP_CRITICAL_BODY(NODE)    TREE_OPERAND (OMP_CRITICAL_CHECK (NODE), 0)
 #define OMP_CRITICAL_NAME(NODE)    TREE_OPERAND (OMP_CRITICAL_CHECK (NODE), 1)
 
-#define OMP_CLAUSE_CHAIN(NODE) \
-  TREE_CHAIN (TREE_RANGE_CHECK (NODE, OMP_CLAUSE_PRIVATE, OMP_CLAUSE_DEFAULT))
-#define OMP_CLAUSE_DECL(NODE) \
-  TREE_OPERAND (TREE_RANGE_CHECK (NODE, OMP_CLAUSE_PRIVATE, \
-				  OMP_CLAUSE_COPYPRIVATE), 0)
+#define OMP_CLAUSE_CHAIN(NODE)     TREE_CHAIN (OMP_CLAUSE_CHECK (NODE))
+#define OMP_CLAUSE_DECL(NODE)      					\
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
+					      OMP_CLAUSE_PRIVATE,	\
+	                                      OMP_CLAUSE_COPYPRIVATE), 0)
 
 /* True on a PRIVATE clause if its decl is kept around for debugging
    information only and its DECL_VALUE_EXPR is supposed to point
    to what it has been remapped to.  */
 #define OMP_CLAUSE_PRIVATE_DEBUG(NODE) \
-  TREE_PUBLIC (OMP_CLAUSE_PRIVATE_CHECK (NODE))
+  TREE_PUBLIC (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIVATE))
 
 /* True on a LASTPRIVATE clause if a FIRSTPRIVATE clause for the same
    decl is present in the chain.  */
 #define OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE(NODE) \
-  TREE_PUBLIC (OMP_CLAUSE_LASTPRIVATE_CHECK (NODE))
+  TREE_PUBLIC (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LASTPRIVATE))
 
 #define OMP_CLAUSE_IF_EXPR(NODE) \
-  TREE_OPERAND (OMP_CLAUSE_IF_CHECK (NODE), 0)
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_IF), 0)
 #define OMP_CLAUSE_NUM_THREADS_EXPR(NODE) \
-  TREE_OPERAND (OMP_CLAUSE_NUM_THREADS_CHECK (NODE), 0)
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_NUM_THREADS),0)
 #define OMP_CLAUSE_SCHEDULE_CHUNK_EXPR(NODE) \
-  TREE_OPERAND (OMP_CLAUSE_SCHEDULE_CHECK (NODE), 0)
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE), 0)
 
 #define OMP_CLAUSE_REDUCTION_CODE(NODE)	\
-  (OMP_CLAUSE_REDUCTION_CHECK (NODE)->exp.complexity)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION)->omp_clause.subcode.reduction_code)
 #define OMP_CLAUSE_REDUCTION_INIT(NODE) \
-  TREE_OPERAND (OMP_CLAUSE_REDUCTION_CHECK (NODE), 1)
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 1)
 #define OMP_CLAUSE_REDUCTION_MERGE(NODE) \
-  TREE_OPERAND (OMP_CLAUSE_REDUCTION_CHECK (NODE), 2)
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 2)
 #define OMP_CLAUSE_REDUCTION_PLACEHOLDER(NODE) \
-  TREE_OPERAND (OMP_CLAUSE_REDUCTION_CHECK (NODE), 3)
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 3)
 
 enum omp_clause_schedule_kind
 {
@@ -1505,7 +1602,7 @@ enum omp_clause_schedule_kind
 };
 
 #define OMP_CLAUSE_SCHEDULE_KIND(NODE) \
-  (OMP_CLAUSE_SCHEDULE_CHECK (NODE)->exp.complexity)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE)->omp_clause.subcode.schedule_kind)
 
 enum omp_clause_default_kind
 {
@@ -1516,7 +1613,7 @@ enum omp_clause_default_kind
 };
 
 #define OMP_CLAUSE_DEFAULT_KIND(NODE) \
-  (OMP_CLAUSE_DEFAULT_CHECK (NODE)->exp.complexity)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEFAULT)->omp_clause.subcode.default_kind)
 
 struct tree_exp GTY(())
 {
@@ -1634,7 +1731,6 @@ struct tree_ssa_name GTY(())
 #define PHI_ARG_CAPACITY(NODE)		PHI_NODE_CHECK (NODE)->phi.capacity
 #define PHI_ARG_ELT(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I)
 #define PHI_ARG_EDGE(NODE, I) 		(EDGE_PRED (PHI_BB ((NODE)), (I)))
-#define PHI_ARG_NONZERO(NODE, I) 	PHI_NODE_ELT_CHECK (NODE, I).nonzero
 #define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
 #define PHI_ARG_IMM_USE_NODE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).imm_use
 
@@ -1644,7 +1740,6 @@ struct phi_arg_d GTY(())
      pointer arithmetic with it.  See phi_arg_index_from_use.  */
   struct ssa_use_operand_d imm_use;
   tree def;
-  bool nonzero;
 };
 
 struct tree_phi_node GTY(())
@@ -1660,6 +1755,30 @@ struct tree_phi_node GTY(())
   /* Arguments of the PHI node.  These are maintained in the same
      order as predecessor edge vector BB->PREDS.  */
   struct phi_arg_d GTY ((length ("((tree)&%h)->phi.num_args"))) a[1];
+};
+
+#define OMP_CLAUSE_CODE(NODE)					\
+	(OMP_CLAUSE_CHECK (NODE))->omp_clause.code
+
+#define OMP_CLAUSE_SET_CODE(NODE, CODE)				\
+	((OMP_CLAUSE_CHECK (NODE))->omp_clause.code = (CODE))
+
+#define OMP_CLAUSE_CODE(NODE)					\
+	(OMP_CLAUSE_CHECK (NODE))->omp_clause.code
+
+#define OMP_CLAUSE_OPERAND(NODE, I)				\
+	OMP_CLAUSE_ELT_CHECK (NODE, I)
+
+struct tree_omp_clause GTY(())
+{
+  struct tree_common common;
+  enum omp_clause_code code;
+  union omp_clause_subcode {
+    enum omp_clause_default_kind  default_kind;
+    enum omp_clause_schedule_kind schedule_kind;
+    enum tree_code                reduction_code;
+  } GTY ((skip)) subcode;
+  tree GTY ((length ("omp_clause_num_ops[OMP_CLAUSE_CODE ((tree)&%h)]"))) ops[1];
 };
 
 
@@ -1884,7 +2003,7 @@ struct tree_block GTY(())
 
 /* If set in an ARRAY_TYPE, indicates a string type (for languages
    that distinguish string from array of char).
-   If set in a SET_TYPE, indicates a bitstring type.  */
+   If set in a INTEGER_TYPE, indicates a character type.  */
 #define TYPE_STRING_FLAG(NODE) (TYPE_CHECK (NODE)->type.string_flag)
 
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
@@ -2173,21 +2292,52 @@ struct tree_decl_minimal GTY(())
 
 /* When computing aliasing information, we represent the memory pointed-to
    by pointers with artificial variables called "memory tags" (MT).  There
-   are two kinds of tags: type and name.  Type tags (TMT) are used in
-   type-based alias analysis, they represent all the pointed-to locations
-   and variables of the same alias set class.  Name tags (NMT) are used in
-   flow-sensitive points-to alias analysis, they represent the variables
-   and memory locations pointed-to by a specific SSA_NAME pointer.  */
+   are two kinds of tags, namely symbol and name:
+   
+   Symbol tags (SMT) are used in flow-insensitive alias analysis, they
+   represent all the pointed-to locations and variables pointed-to by
+   the same pointer symbol.  Usually, this set is computed using
+   type-based analysis (i.e., alias set classes), but this may not
+   always be the case.
 
+   Name tags (NMT) are used in flow-sensitive points-to alias
+   analysis, they represent the variables and memory locations
+   pointed-to by a specific SSA_NAME pointer.
+
+   In general, given a pointer P with a symbol tag SMT, the alias set
+   of SMT should be the union of all the alias sets of the NMTs of
+   every SSA_NAME for P.  */
 struct tree_memory_tag GTY(())
 {
   struct tree_decl_minimal common;
-  tree parent_var;
   unsigned int is_global:1;
+  unsigned int is_used_alone:1;
 };
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
-#define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->mtag.parent_var)
+
+/* This flag is true if a SMT is used as the V_MAY_DEF or VUSE operand
+   directly, because the access had all of the SMT's aliases pruned
+   from it.  */
+#define SMT_USED_ALONE(NODE) (SYMBOL_MEMORY_TAG_CHECK (NODE)->mtag.is_used_alone)
+
+struct tree_struct_field_tag GTY(())
+{
+  struct tree_memory_tag common;
+  
+  /* Parent variable.  */
+  tree parent_var;
+ 
+  /* Offset inside structure.  */
+  unsigned HOST_WIDE_INT offset;
+
+  /* Size of the field.  */
+  unsigned HOST_WIDE_INT size;
+
+};
+#define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.parent_var)
+#define SFT_OFFSET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.offset)
+#define SFT_SIZE(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.size)
 
 /* For any sort of a ..._DECL node, this points to the original (abstract)
    decl node which this decl is an instance of, or else it is NULL indicating
@@ -2997,6 +3147,8 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_value_handle GTY ((tag ("TS_VALUE_HANDLE"))) value_handle;
   struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
   struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;
+  struct tree_struct_field_tag GTY ((tag ("TS_STRUCT_FIELD_TAG"))) sft; 
+  struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
 };
 
 /* Standard named or nameless data types of the C compiler.  */
@@ -3359,6 +3511,7 @@ extern void annotate_with_file_line (tree, const char *, int);
 extern void annotate_with_locus (tree, location_t);
 #endif
 extern tree build_empty_stmt (void);
+extern tree build_omp_clause (enum omp_clause_code);
 
 /* Construct various nodes representing data types.  */
 
@@ -3739,10 +3892,6 @@ extern bool initializer_zerop (tree);
 extern void categorize_ctor_elements (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 				      HOST_WIDE_INT *, bool *);
 extern HOST_WIDE_INT count_type_elements (tree, bool);
-
-/* add_var_to_bind_expr (bind_expr, var) binds var to bind_expr.  */
-
-extern void add_var_to_bind_expr (tree, tree);
 
 /* integer_zerop (tree x) is nonzero if X is an integer constant of value 0.  */
 
@@ -4125,7 +4274,7 @@ extern tree find_compatible_field (tree, tree);
 extern void expand_main_function (void);
 extern void init_dummy_function_start (void);
 extern void expand_dummy_function_end (void);
-extern void init_function_for_compilation (void);
+extern unsigned int init_function_for_compilation (void);
 extern void allocate_struct_function (tree);
 extern void init_function_start (tree);
 extern bool use_register_for_decl (tree);
@@ -4230,7 +4379,6 @@ extern unsigned int update_alignment_for_field (record_layout_info, tree,
 extern void make_decl_rtl (tree);
 extern void make_decl_one_only (tree);
 extern int supports_one_only (void);
-extern void variable_section (tree, int);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 extern void mark_decl_referenced (tree);
@@ -4253,7 +4401,7 @@ extern void expand_decl (tree);
 extern void expand_anon_union_decl (tree, tree, tree);
 #ifdef HARD_CONST
 /* Silly ifdef to avoid having all includers depend on hard-reg-set.h.  */
-extern bool decl_overlaps_hard_reg_set_p (tree, const HARD_REG_SET);
+extern tree tree_overlaps_hard_reg_set (tree, HARD_REG_SET *);
 #endif
 
 /* In gimplify.c.  */
@@ -4337,6 +4485,7 @@ typedef enum
   x_kind,
   lang_decl,
   lang_type,
+  omp_clause_kind,
   all_kinds
 } tree_node_kind;
 
@@ -4368,6 +4517,10 @@ extern int tree_map_eq (const void *, const void *);
 /* In tree-ssa-address.c.  */
 extern tree tree_mem_ref_addr (tree, tree);
 extern void copy_mem_ref_info (tree, tree);
+
+/* In tree-vrp.c */
+extern bool ssa_name_nonzero_p (tree);
+extern bool ssa_name_nonnegative_p (tree);
 
 /* In tree-object-size.c.  */
 extern void init_object_sizes (void);

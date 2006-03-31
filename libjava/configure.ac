@@ -113,6 +113,7 @@ AC_SUBST(LDFLAGS)
 AM_INIT_AUTOMAKE([1.9.0])
 
 AC_CHECK_TOOL(AS, as)
+AC_CHECK_TOOL(LD, ld)
 AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 
@@ -1015,6 +1016,17 @@ else
 	    AC_DEFINE(HAVE_SCHED_YIELD)
 	    THREADLIBS="$THREADLIBS -lposix4"
 	    THREADSPEC="$THREADSPEC -lposix4"])])])
+
+      AC_CHECK_LIB(rt, clock_gettime, [
+         AC_DEFINE(HAVE_CLOCK_GETTIME, 1, [Define if you have clock_gettime()])
+	 case "$THREADSPEC" in
+	   *-lrt*) ;;
+	   *)
+ 	     THREADSPEC="$THREADSPEC -lrt"
+	     THREADLIBS="$THREADLIBS -lrt"
+	     ;;
+	 esac])
+
       LIBS="$save_LIBS"
 
       # We can save a little space at runtime if the mutex has m_count
@@ -1418,6 +1430,17 @@ fi
 # See if we support thread-local storage.
 GCC_CHECK_TLS
 
+# Check if linker supports static linking on a per library basis
+LD_START_STATIC_SPEC=
+LD_FINISH_STATIC_SPEC=
+if $LD --help 2>&1 | grep -q -e -call_shared ; then
+  if $LD --help 2>&1 | grep -q -e -non_shared ; then
+    LD_START_STATIC_SPEC='%{static-libgcj:-non_shared}'
+    LD_FINISH_STATIC_SPEC='%{static-libgcj:-call_shared}'
+  fi
+fi
+AC_SUBST(LD_START_STATIC_SPEC)
+AC_SUBST(LD_FINISH_STATIC_SPEC)
 
 here=`${PWDCMD-pwd}`
 AC_SUBST(here)

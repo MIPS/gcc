@@ -310,7 +310,7 @@ struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
                                                 varray_type, varray_type);
 void cgraph_analyze_function (struct cgraph_node *);
 struct cgraph_node *save_inline_function_body (struct cgraph_node *);
-void rebuild_cgraph_edges (void);
+unsigned int rebuild_cgraph_edges (void);
 
 /* In ipa.c  */
 bool cgraph_remove_unreachable_nodes (bool, FILE *);

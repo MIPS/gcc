@@ -296,6 +296,11 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 {
   gfc_ref *ref;
   gfc_symbol *sym;
+  tree parent_decl;
+  int parent_flag;
+  bool return_value;
+  bool alternate_entry;
+  bool entry_master;
 
   sym = expr->symtree->n.sym;
   if (se->ss != NULL)
@@ -317,32 +322,48 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 
       se->expr = gfc_get_symbol_decl (sym);
 
+      /* Deal with references to a parent results or entries by storing
+	 the current_function_decl and moving to the parent_decl.  */
+      return_value = sym->attr.function && sym->result == sym;
+      alternate_entry = sym->attr.function && sym->attr.entry
+			&& sym->result == sym;
+      entry_master = sym->attr.result
+		     && sym->ns->proc_name->attr.entry_master
+		     && !gfc_return_by_reference (sym->ns->proc_name);
+      parent_decl = DECL_CONTEXT (current_function_decl);
+
+      if ((se->expr == parent_decl && return_value)
+	   || (sym->ns && sym->ns->proc_name
+	       && sym->ns->proc_name->backend_decl == parent_decl
+	       && (alternate_entry || entry_master)))
+	parent_flag = 1;
+      else
+	parent_flag = 0;
+
       /* Special case for assigning the return value of a function.
 	 Self recursive functions must have an explicit return value.  */
-      if (se->expr == current_function_decl && sym->attr.function
-	  && (sym->result == sym))
-	se_expr = gfc_get_fake_result_decl (sym);
+      if (return_value && (se->expr == current_function_decl || parent_flag))
+	se_expr = gfc_get_fake_result_decl (sym, parent_flag);
 
       /* Similarly for alternate entry points.  */
-      else if (sym->attr.function && sym->attr.entry
-	       && (sym->result == sym)
-	       && sym->ns->proc_name->backend_decl == current_function_decl)
+      else if (alternate_entry 
+	       && (sym->ns->proc_name->backend_decl == current_function_decl
+		   || parent_flag))
 	{
 	  gfc_entry_list *el = NULL;
 
 	  for (el = sym->ns->entries; el; el = el->next)
 	    if (sym == el->sym)
 	      {
-		se_expr = gfc_get_fake_result_decl (sym);
+		se_expr = gfc_get_fake_result_decl (sym, parent_flag);
 		break;
 	      }
 	}
 
-      else if (sym->attr.result
-	       && sym->ns->proc_name->backend_decl == current_function_decl
-	       && sym->ns->proc_name->attr.entry_master
-	       && !gfc_return_by_reference (sym->ns->proc_name))
-	se_expr = gfc_get_fake_result_decl (sym);
+      else if (entry_master
+	       && (sym->ns->proc_name->backend_decl == current_function_decl
+		   || parent_flag))
+	se_expr = gfc_get_fake_result_decl (sym, parent_flag);
 
       if (se_expr)
 	se->expr = se_expr;
@@ -925,6 +946,7 @@ gfc_conv_expr_op (gfc_se * se, gfc_expr * expr)
   switch (expr->value.op.operator)
     {
     case INTRINSIC_UPLUS:
+    case INTRINSIC_PARENTHESES:
       gfc_conv_expr (se, expr->value.op.op1);
       return;
 
@@ -1224,7 +1246,7 @@ gfc_get_interface_mapping_array (stmtblock_t * block, gfc_symbol * sym,
   type = gfc_typenode_for_spec (&sym->ts);
   type = gfc_get_nodesc_array_type (type, sym->as, packed);
 
-  var = gfc_create_var (type, "parm");
+  var = gfc_create_var (type, "ifm");
   gfc_add_modify_expr (block, var, fold_convert (type, data));
 
   return var;
@@ -1291,6 +1313,7 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
   new_sym->attr.referenced = 1;
   new_sym->attr.dimension = sym->attr.dimension;
   new_sym->attr.pointer = sym->attr.pointer;
+  new_sym->attr.allocatable = sym->attr.allocatable;
   new_sym->attr.flavor = sym->attr.flavor;
 
   /* Create a fake symtree for it.  */
@@ -1342,8 +1365,13 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
 	value = build_fold_indirect_ref (value);
     }
 
-  /* If the argument is a scalar or a pointer to an array, dereference it.  */
-  else if (!sym->attr.dimension || sym->attr.pointer)
+  /* If the argument is a scalar, a pointer to an array or an allocatable,
+     dereference it.  */
+  else if (!sym->attr.dimension || sym->attr.pointer || sym->attr.allocatable)
+    value = build_fold_indirect_ref (se->expr);
+  
+  /* For character(*), use the actual argument's descriptor.  */  
+  else if (sym->ts.type == BT_CHARACTER && !new_sym->ts.cl->length)
     value = build_fold_indirect_ref (se->expr);
 
   /* If the argument is an array descriptor, use it to determine
@@ -1774,6 +1802,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   gfc_formal_arglist *formal;
   int has_alternate_specifier = 0;
   bool need_interface_mapping;
+  bool callee_alloc;
   gfc_typespec ts;
   gfc_charlen cl;
 
@@ -1807,8 +1836,10 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
   gfc_init_interface_mapping (&mapping);
   need_interface_mapping = ((sym->ts.type == BT_CHARACTER
-			     && sym->ts.cl->length->expr_type != EXPR_CONSTANT)
-			    || sym->attr.dimension);
+				  && sym->ts.cl->length
+				  && sym->ts.cl->length->expr_type
+						!= EXPR_CONSTANT)
+			      || sym->attr.dimension);
   formal = sym->formal;
   /* Evaluate the arguments.  */
   for (; arg != NULL; arg = arg->next, formal = formal ? formal->next : NULL)
@@ -1863,16 +1894,15 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
             }
 	  else
 	    {
-	      /* If the procedure requires an explicit interface, the
-		 actual argument is passed according to the
-		 corresponding formal argument.  If the corresponding
-		 formal argument is a POINTER or assumed shape, we do
-		 not use g77's calling convention, and pass the
-		 address of the array descriptor instead. Otherwise we
-		 use g77's calling convention.  */
+              /* If the procedure requires an explicit interface, the actual
+                 argument is passed according to the corresponding formal
+                 argument.  If the corresponding formal argument is a POINTER,
+                 ALLOCATABLE or assumed shape, we do not use g77's calling
+                 convention, and pass the address of the array descriptor
+                 instead. Otherwise we use g77's calling convention.  */
 	      int f;
 	      f = (formal != NULL)
-		  && !formal->sym->attr.pointer
+		  && !(formal->sym->attr.pointer || formal->sym->attr.allocatable)
 		  && formal->sym->as->type != AS_ASSUMED_SHAPE;
 	      f = f || !sym->attr.always_explicit;
 	      if (arg->expr->expr_type == EXPR_VARIABLE
@@ -1884,6 +1914,16 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		gfc_conv_aliased_arg (&parmse, arg->expr, f);
 	      else
 	        gfc_conv_array_parameter (&parmse, arg->expr, argss, f);
+
+              /* If an ALLOCATABLE dummy argument has INTENT(OUT) and is 
+                 allocated on entry, it must be deallocated.  */
+              if (formal && formal->sym->attr.allocatable
+                  && formal->sym->attr.intent == INTENT_OUT)
+                {
+                  tmp = gfc_trans_dealloc_allocated (arg->expr->symtree->n.sym);
+                  gfc_add_expr_to_block (&se->pre, tmp);
+                }
+
 	    } 
 	}
 
@@ -1905,19 +1945,30 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   ts = sym->ts;
   if (ts.type == BT_CHARACTER)
     {
-      /* Calculate the length of the returned string.  */
-      gfc_init_se (&parmse, NULL);
-      if (need_interface_mapping)
-	gfc_apply_interface_mapping (&mapping, &parmse, sym->ts.cl->length);
+      if (sym->ts.cl->length == NULL)
+	{
+	  /* Assumed character length results are not allowed by 5.1.1.5 of the
+	     standard and are trapped in resolve.c; except in the case of SPREAD
+	     (and other intrinsics?).  In this case, we take the character length
+	     of the first argument for the result.  */
+	  cl.backend_decl = TREE_VALUE (stringargs);
+	}
       else
-	gfc_conv_expr (&parmse, sym->ts.cl->length);
-      gfc_add_block_to_block (&se->pre, &parmse.pre);
-      gfc_add_block_to_block (&se->post, &parmse.post);
+	{
+	  /* Calculate the length of the returned string.  */
+	  gfc_init_se (&parmse, NULL);
+	  if (need_interface_mapping)
+	    gfc_apply_interface_mapping (&mapping, &parmse, sym->ts.cl->length);
+	  else
+	    gfc_conv_expr (&parmse, sym->ts.cl->length);
+	  gfc_add_block_to_block (&se->pre, &parmse.pre);
+	  gfc_add_block_to_block (&se->post, &parmse.post);
+	  cl.backend_decl = fold_convert (gfc_charlen_type_node, parmse.expr);
+	}
 
       /* Set up a charlen structure for it.  */
       cl.next = NULL;
       cl.length = NULL;
-      cl.backend_decl = fold_convert (gfc_charlen_type_node, parmse.expr);
       ts.cl = &cl;
 
       len = cl.backend_decl;
@@ -1939,9 +1990,12 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  /* Evaluate the bounds of the result, if known.  */
 	  gfc_set_loop_bounds_from_array_spec (&mapping, se, sym->result->as);
 
-	  /* Allocate a temporary to store the result.  */
-	  gfc_trans_allocate_temp_array (&se->pre, &se->post,
-					 se->loop, info, tmp, false);
+	  /* Create a temporary to store the result.  In case the function
+	     returns a pointer, the temporary will be a shallow copy and
+	     mustn't be deallocated.  */
+	  callee_alloc = sym->attr.allocatable || sym->attr.pointer;
+	  gfc_trans_create_temp_array (&se->pre, &se->post, se->loop, info, tmp,
+				       false, !sym->attr.pointer, callee_alloc);
 
 	  /* Zero the first stride to indicate a temporary.  */
 	  tmp = gfc_conv_descriptor_stride (info->descriptor, gfc_rank_cst[0]);
@@ -2643,7 +2697,7 @@ gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr)
 }
 
 /* Like gfc_conv_expr, but the POST block is guaranteed to be empty for
-   numeric expressions.  Used for scalar values whee inserting cleanup code
+   numeric expressions.  Used for scalar values where inserting cleanup code
    is inconvenient.  */
 void
 gfc_conv_expr_val (gfc_se * se, gfc_expr * expr)
@@ -2897,6 +2951,11 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
 
   /* Fail if EXPR1 can't be expressed as a descriptor.  */
   if (gfc_ref_needs_temporary_p (expr1->ref))
+    return NULL;
+
+  /* Functions returning pointers need temporaries.  */
+  if (expr2->symtree->n.sym->attr.pointer 
+      || expr2->symtree->n.sym->attr.allocatable)
     return NULL;
 
   /* Check that no LHS component references appear during an array

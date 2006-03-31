@@ -1,6 +1,6 @@
 // posix.cc -- Helper functions for POSIX-flavored OSs.
 
-/* Copyright (C) 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 2000, 2001, 2002, 2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -66,6 +66,22 @@ _Jv_platform_gettimeofday ()
 #endif
 }
 
+jlong
+_Jv_platform_nanotime ()
+{
+#ifdef HAVE_CLOCK_GETTIME
+  struct timespec now;
+  if (clock_gettime (CLOCK_REALTIME, &now) == 0)
+    {
+      jlong result = (jlong) now.tv_sec;
+      result = result * 1000 * 1000 + now.tv_nsec;
+      return result;
+    }
+  // clock_gettime failed, but we can fall through.
+#endif // HAVE_CLOCK_GETTIME
+  return _Jv_platform_gettimeofday () * 1000LL;
+}
+
 // Platform-specific VM initialization.
 void
 _Jv_platform_initialize (void)
@@ -98,7 +114,7 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
   SET ("file.separator", "/");
   SET ("path.separator", ":");
   SET ("line.separator", "\n");
-  char *tmpdir = ::getenv("TMPDIR");
+  const char *tmpdir = ::getenv("TMPDIR");
   if (! tmpdir)
     tmpdir = "/tmp";
   SET ("java.io.tmpdir", tmpdir);

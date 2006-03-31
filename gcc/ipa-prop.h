@@ -239,9 +239,6 @@ void ipaa_func_tree_alias_info_print (tree, FILE *);
 /* ipa general calculations.  */
 void ipa_calc_formals_counts (void);
 
-void ipcp_driver (void);
-void ipaa_driver (void);
-
 /* ipaa external interface.  */
 enum alias_info_d ipaa_get_aliasing_of_formals (tree, tree);
 

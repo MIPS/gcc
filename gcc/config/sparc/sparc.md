@@ -1,6 +1,6 @@
 ;; Machine description for SPARC chip for GCC
 ;;  Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003, 2004, 2005,2006 Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;;  64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;;  at Cygnus Support.
@@ -94,7 +94,8 @@
    sparclet,tsc701,
    v9,
    ultrasparc,
-   ultrasparc3"
+   ultrasparc3,
+   niagara"
   (const (symbol_ref "sparc_cpu_attr")))
 
 ;; Attribute for the instruction set.
@@ -315,6 +316,7 @@
 (include "sparclet.md")
 (include "ultra1_2.md")
 (include "ultra3.md")
+(include "niagara.md")
 
 
 ;; Operand and operator predicates.
@@ -7244,24 +7246,19 @@
   [(const_int 0)]
   ""
 {
-  if (TARGET_ARCH64)
-    emit_insn (gen_setjmp_64 ());
-  else
-    emit_insn (gen_setjmp_32 ());
+  rtx mem;
+  
+  mem = gen_rtx_MEM (Pmode,
+		     plus_constant (stack_pointer_rtx,
+				    SPARC_STACK_BIAS + 14 * UNITS_PER_WORD));
+  emit_insn (gen_rtx_SET (VOIDmode, mem, frame_pointer_rtx));
+
+  mem = gen_rtx_MEM (Pmode,
+		     plus_constant (stack_pointer_rtx,
+				    SPARC_STACK_BIAS + 15 * UNITS_PER_WORD));
+  emit_insn (gen_rtx_SET (VOIDmode, mem, gen_rtx_REG (Pmode, 31)));
   DONE;
 })
-
-(define_expand "setjmp_32"
-  [(set (mem:SI (plus:SI (reg:SI 14) (const_int 56))) (match_dup 0))
-   (set (mem:SI (plus:SI (reg:SI 14) (const_int 60))) (reg:SI 31))]
-  ""
-  { operands[0] = frame_pointer_rtx; })
-
-(define_expand "setjmp_64"
-  [(set (mem:DI (plus:DI (reg:DI 14) (const_int 112))) (match_dup 0))
-   (set (mem:DI (plus:DI (reg:DI 14) (const_int 120))) (reg:DI 31))]
-  ""
-  { operands[0] = frame_pointer_rtx; })
 
 ;; Special pattern for the FLUSH instruction.
 

@@ -1,6 +1,7 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -96,7 +97,8 @@ static const char * const tree_node_kind_names[] = {
   "constructors",
   "random kinds",
   "lang_decl kinds",
-  "lang_type kinds"
+  "lang_type kinds",
+  "omp clauses"
 };
 #endif /* GATHER_STATISTICS */
 
@@ -172,13 +174,49 @@ tree global_trees[TI_MAX];
 tree integer_types[itk_none];
 
 unsigned char tree_contains_struct[256][64];
+
+/* Number of operands for each OpenMP clause.  */
+unsigned const char omp_clause_num_ops[] =
+{
+  0, /* OMP_CLAUSE_ERROR  */
+  1, /* OMP_CLAUSE_PRIVATE  */
+  1, /* OMP_CLAUSE_SHARED  */
+  1, /* OMP_CLAUSE_FIRSTPRIVATE  */
+  1, /* OMP_CLAUSE_LASTPRIVATE  */
+  4, /* OMP_CLAUSE_REDUCTION  */
+  1, /* OMP_CLAUSE_COPYIN  */
+  1, /* OMP_CLAUSE_COPYPRIVATE  */
+  1, /* OMP_CLAUSE_IF  */
+  1, /* OMP_CLAUSE_NUM_THREADS  */
+  1, /* OMP_CLAUSE_SCHEDULE  */
+  0, /* OMP_CLAUSE_NOWAIT  */
+  0, /* OMP_CLAUSE_ORDERED  */
+  0  /* OMP_CLAUSE_DEFAULT  */
+};
+
+const char * const omp_clause_code_name[] =
+{
+  "error_clause",
+  "private",
+  "shared",
+  "firstprivate",
+  "lastprivate",
+  "reduction",
+  "copyin",
+  "copyprivate",
+  "if",
+  "num_threads",
+  "schedule",
+  "nowait",
+  "ordered",
+  "default"
+};
 
 /* Init tree.c.  */
 
 void
 init_ttree (void)
 {
-
   /* Initialize the hash table of types.  */
   type_hash_table = htab_create_ggc (TYPE_HASH_INITIAL_SIZE, type_hash_hash,
 				     type_hash_eq, 0);
@@ -232,11 +270,13 @@ init_ttree (void)
   tree_contains_struct[FIELD_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[STRUCT_FIELD_TAG][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[NAME_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
-  tree_contains_struct[TYPE_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[SYMBOL_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
 
   tree_contains_struct[STRUCT_FIELD_TAG][TS_MEMORY_TAG] = 1;
   tree_contains_struct[NAME_MEMORY_TAG][TS_MEMORY_TAG] = 1;
-  tree_contains_struct[TYPE_MEMORY_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[SYMBOL_MEMORY_TAG][TS_MEMORY_TAG] = 1;
+
+  tree_contains_struct[STRUCT_FIELD_TAG][TS_STRUCT_FIELD_TAG] = 1;
 
   tree_contains_struct[VAR_DECL][TS_DECL_WITH_VIS] = 1;
   tree_contains_struct[FUNCTION_DECL][TS_DECL_WITH_VIS] = 1;
@@ -296,9 +336,10 @@ tree_code_size (enum tree_code code)
 	  case FUNCTION_DECL:
 	    return sizeof (struct tree_function_decl);
 	  case NAME_MEMORY_TAG:
-	  case TYPE_MEMORY_TAG:
-	  case STRUCT_FIELD_TAG:
+	  case SYMBOL_MEMORY_TAG:
 	    return sizeof (struct tree_memory_tag);
+	  case STRUCT_FIELD_TAG:
+	    return sizeof (struct tree_struct_field_tag);
 	  default:
 	    return sizeof (struct tree_decl_non_common);
 	  }
@@ -338,6 +379,7 @@ tree_code_size (enum tree_code code)
 	case PLACEHOLDER_EXPR:	return sizeof (struct tree_common);
 
 	case TREE_VEC:
+	case OMP_CLAUSE:
 	case PHI_NODE:		gcc_unreachable ();
 
 	case SSA_NAME:		return sizeof (struct tree_ssa_name);
@@ -379,6 +421,11 @@ tree_size (tree node)
     case STRING_CST:
       return sizeof (struct tree_string) + TREE_STRING_LENGTH (node) - 1;
 
+    case OMP_CLAUSE:
+      return (sizeof (struct tree_omp_clause)
+	      + (omp_clause_num_ops[OMP_CLAUSE_CODE (node)] - 1)
+	        * sizeof (tree));
+
     default:
       return tree_code_size (code);
     }
@@ -386,8 +433,9 @@ tree_size (tree node)
 
 /* Return a newly allocated node of code CODE.  For decl and type
    nodes, some other fields are initialized.  The rest of the node is
-   initialized to zero.  This function cannot be used for PHI_NODE or
-   TREE_VEC nodes, which is enforced by asserts in tree_code_size.
+   initialized to zero.  This function cannot be used for PHI_NODE,
+   TREE_VEC or OMP_CLAUSE nodes, which is enforced by asserts in
+   tree_code_size.
 
    Achoo!  I got a code in the node.  */
 
@@ -779,7 +827,6 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
       break;
 
     case INTEGER_TYPE:
-    case CHAR_TYPE:
     case OFFSET_TYPE:
       if (TYPE_UNSIGNED (type))
 	{
@@ -1995,7 +2042,7 @@ tree_node_structure (tree t)
 	    return TS_TYPE_DECL;
 	  case FUNCTION_DECL:
 	    return TS_FUNCTION_DECL;
-	  case TYPE_MEMORY_TAG:
+	  case SYMBOL_MEMORY_TAG:
 	  case NAME_MEMORY_TAG:
 	  case STRUCT_FIELD_TAG:
 	    return TS_MEMORY_TAG;
@@ -2036,6 +2083,7 @@ tree_node_structure (tree t)
     case CONSTRUCTOR:		return TS_CONSTRUCTOR;
     case TREE_BINFO:		return TS_BINFO;
     case VALUE_HANDLE:		return TS_VALUE_HANDLE;
+    case OMP_CLAUSE:		return TS_OMP_CLAUSE;
 
     default:
       gcc_unreachable ();
@@ -2134,7 +2182,6 @@ type_contains_placeholder_1 (tree type)
     case COMPLEX_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
     case POINTER_TYPE:
     case OFFSET_TYPE:
     case REFERENCE_TYPE:
@@ -3693,20 +3740,6 @@ build_qualified_type (tree type, int type_quals)
     {
       t = build_variant_type_copy (type);
       set_type_quals (t, type_quals);
-
-      /* If it's a pointer type, the new variant points to the same type.  */
-      if (TREE_CODE (type) == POINTER_TYPE)
-	{
-	  TYPE_NEXT_PTR_TO (t) = TYPE_NEXT_PTR_TO (type);
-	  TYPE_NEXT_PTR_TO (type) = t;
-	}
-
-      /* Same for a reference type.  */
-      else if (TREE_CODE (type) == REFERENCE_TYPE)
-	{
-	  TYPE_NEXT_REF_TO (t) = TYPE_NEXT_REF_TO (type);
-	  TYPE_NEXT_REF_TO (type) = t;
-	}
     }
 
   return t;
@@ -4027,7 +4060,6 @@ type_hash_eq (const void *va, const void *vb)
     case INTEGER_TYPE:
     case REAL_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
       return ((TYPE_MAX_VALUE (a->type) == TYPE_MAX_VALUE (b->type)
 	       || tree_int_cst_equal (TYPE_MAX_VALUE (a->type),
 				      TYPE_MAX_VALUE (b->type)))
@@ -4822,12 +4854,10 @@ build_pointer_type_for_mode (tree to_type, enum machine_mode mode,
       && TREE_CODE (TYPE_POINTER_TO (to_type)) != POINTER_TYPE)
     return TYPE_POINTER_TO (to_type);
 
-  /* First, if we already have an unqualified type for pointers to TO_TYPE
-     and it's the proper mode, use it.  */
+  /* First, if we already have a type for pointers to TO_TYPE and it's
+     the proper mode, use it.  */
   for (t = TYPE_POINTER_TO (to_type); t; t = TYPE_NEXT_PTR_TO (t))
-    if (TYPE_MODE (t) == mode
-	&& !TYPE_QUALS (t)
-	&& TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
   t = make_node (POINTER_TYPE);
@@ -4873,12 +4903,10 @@ build_reference_type_for_mode (tree to_type, enum machine_mode mode,
       && TREE_CODE (TYPE_REFERENCE_TO (to_type)) != REFERENCE_TYPE)
     return TYPE_REFERENCE_TO (to_type);
 
-  /* First, if we already have an unqualified type for references to TO_TYPE
-     and it's the proper mode, use it.  */
+  /* First, if we already have a type for pointers to TO_TYPE and it's
+     the proper mode, use it.  */
   for (t = TYPE_REFERENCE_TO (to_type); t; t = TYPE_NEXT_REF_TO (t))
-    if (TYPE_MODE (t) == mode
-	&& !TYPE_QUALS (t)
-	&& TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
   t = make_node (REFERENCE_TYPE);
@@ -4981,9 +5009,8 @@ build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
 }
 
 /* Create a range of some discrete type TYPE (an INTEGER_TYPE,
-   ENUMERAL_TYPE, BOOLEAN_TYPE, or CHAR_TYPE), with
-   low bound LOWVAL and high bound HIGHVAL.
-   if TYPE==NULL_TREE, sizetype is used.  */
+   ENUMERAL_TYPE or BOOLEAN_TYPE), with low bound LOWVAL and
+   high bound HIGHVAL.  If TYPE is NULL, sizetype is used.  */
 
 tree
 build_range_type (tree type, tree lowval, tree highval)
@@ -5648,7 +5675,6 @@ variably_modified_type_p (tree type, tree fn)
     case REAL_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
       /* Scalar types are variably modified if their end points
 	 aren't constant.  */
       RETURN_TRUE_IF_VAR (TYPE_MIN_VALUE (type));
@@ -6109,6 +6135,53 @@ tree_not_class_check_failed (const tree node, const enum tree_code_class cl,
      tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
 }
 
+
+/* Similar to tree_check_failed but applied to OMP_CLAUSE codes.  */
+
+void
+omp_clause_check_failed (const tree node, const char *file, int line,
+                         const char *function, enum omp_clause_code code)
+{
+  internal_error ("tree check: expected omp_clause %s, have %s in %s, at %s:%d",
+		  omp_clause_code_name[code], tree_code_name[TREE_CODE (node)],
+		  function, trim_filename (file), line);
+}
+
+
+/* Similar to tree_range_check_failed but applied to OMP_CLAUSE codes.  */
+
+void
+omp_clause_range_check_failed (const tree node, const char *file, int line,
+			       const char *function, enum omp_clause_code c1,
+			       enum omp_clause_code c2)
+{
+  char *buffer;
+  unsigned length = 0;
+  enum omp_clause_code c;
+
+  for (c = c1; c <= c2; ++c)
+    length += 4 + strlen (omp_clause_code_name[c]);
+
+  length += strlen ("expected ");
+  buffer = alloca (length);
+  length = 0;
+
+  for (c = c1; c <= c2; ++c)
+    {
+      const char *prefix = length ? " or " : "expected ";
+
+      strcpy (buffer + length, prefix);
+      length += strlen (prefix);
+      strcpy (buffer + length, omp_clause_code_name[c]);
+      length += strlen (omp_clause_code_name[c]);
+    }
+
+  internal_error ("tree check: %s, have %s in %s, at %s:%d",
+		  buffer, omp_clause_code_name[TREE_CODE (node)],
+		  function, trim_filename (file), line);
+}
+
+
 #undef DEFTREESTRUCT
 #define DEFTREESTRUCT(VAL, NAME) NAME,
 
@@ -6170,6 +6243,20 @@ tree_operand_check_failed (int idx, enum tree_code code, const char *file,
     ("tree check: accessed operand %d of %s with %d operands in %s, at %s:%d",
      idx + 1, tree_code_name[code], TREE_CODE_LENGTH (code),
      function, trim_filename (file), line);
+}
+
+/* Similar to above, except that the check is for the number of
+   operands of an OMP_CLAUSE node.  */
+
+void
+omp_clause_operand_check_failed (int idx, tree t, const char *file,
+			         int line, const char *function)
+{
+  internal_error
+    ("tree check: accessed operand %d of omp_clause %s with %d operands "
+     "in %s, at %s:%d", idx + 1, omp_clause_code_name[OMP_CLAUSE_CODE (t)],
+     omp_clause_num_ops [OMP_CLAUSE_CODE (t)], function,
+     trim_filename (file), line);
 }
 #endif /* ENABLE_TREE_CHECKING */
 
@@ -6254,7 +6341,9 @@ build_common_tree_nodes (bool signed_char, bool signed_sizetype)
 
   /* Define both `signed char' and `unsigned char'.  */
   signed_char_type_node = make_signed_type (CHAR_TYPE_SIZE);
+  TYPE_STRING_FLAG (signed_char_type_node) = 1;
   unsigned_char_type_node = make_unsigned_type (CHAR_TYPE_SIZE);
+  TYPE_STRING_FLAG (unsigned_char_type_node) = 1;
 
   /* Define `char', which is like either `signed char' or `unsigned char'
      but not the same as either.  */
@@ -6262,6 +6351,7 @@ build_common_tree_nodes (bool signed_char, bool signed_sizetype)
     = (signed_char
        ? make_signed_type (CHAR_TYPE_SIZE)
        : make_unsigned_type (CHAR_TYPE_SIZE));
+  TYPE_STRING_FLAG (char_type_node) = 1;
 
   short_integer_type_node = make_signed_type (SHORT_TYPE_SIZE);
   short_unsigned_type_node = make_unsigned_type (SHORT_TYPE_SIZE);
@@ -6714,22 +6804,37 @@ initializer_zerop (tree init)
     }
 }
 
-void
-add_var_to_bind_expr (tree bind_expr, tree var)
-{
-  BIND_EXPR_VARS (bind_expr)
-    = chainon (BIND_EXPR_VARS (bind_expr), var);
-  if (BIND_EXPR_BLOCK (bind_expr))
-    BLOCK_VARS (BIND_EXPR_BLOCK (bind_expr))
-      = BIND_EXPR_VARS (bind_expr);
-}
-
 /* Build an empty statement.  */
 
 tree
 build_empty_stmt (void)
 {
   return build1 (NOP_EXPR, void_type_node, size_zero_node);
+}
+
+
+/* Build an OpenMP clause with code CODE.  */
+
+tree
+build_omp_clause (enum omp_clause_code code)
+{
+  tree t;
+  int size, length;
+
+  length = omp_clause_num_ops[code];
+  size = (sizeof (struct tree_omp_clause) + (length - 1) * sizeof (tree));
+
+  t = ggc_alloc (size);
+  memset (t, 0, size);
+  TREE_SET_CODE (t, OMP_CLAUSE);
+  OMP_CLAUSE_SET_CODE (t, code);
+
+#ifdef GATHER_STATISTICS
+  tree_node_counts[(int) omp_clause_kind]++;
+  tree_node_sizes[(int) omp_clause_kind] += size;
+#endif
+  
+  return t;
 }
 
 
@@ -7145,7 +7250,6 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
     case BOOLEAN_TYPE:
     case ENUMERAL_TYPE:
     case INTEGER_TYPE:
-    case CHAR_TYPE:
     case REAL_TYPE:
       WALK_SUBTREE (TYPE_MIN_VALUE (type));
       WALK_SUBTREE (TYPE_MAX_VALUE (type));
@@ -7211,7 +7315,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
       /* But we still need to check our siblings.  */
       if (code == TREE_LIST)
 	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
-      else if (code >= OMP_CLAUSE_PRIVATE && code <= OMP_CLAUSE_DEFAULT)
+      else if (code == OMP_CLAUSE)
 	WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
       else
 	return NULL_TREE;
@@ -7303,30 +7407,38 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
       }
       break;
 
-    case OMP_CLAUSE_PRIVATE:
-    case OMP_CLAUSE_SHARED:
-    case OMP_CLAUSE_FIRSTPRIVATE:
-    case OMP_CLAUSE_LASTPRIVATE:
-    case OMP_CLAUSE_COPYIN:
-    case OMP_CLAUSE_COPYPRIVATE:
-    case OMP_CLAUSE_IF:
-    case OMP_CLAUSE_NUM_THREADS:
-    case OMP_CLAUSE_SCHEDULE:
-      WALK_SUBTREE (TREE_OPERAND (*tp, 0));
-      /* FALLTHRU */
+    case OMP_CLAUSE:
+      switch (OMP_CLAUSE_CODE (*tp))
+	{
+	case OMP_CLAUSE_PRIVATE:
+	case OMP_CLAUSE_SHARED:
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_LASTPRIVATE:
+	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_COPYPRIVATE:
+	case OMP_CLAUSE_IF:
+	case OMP_CLAUSE_NUM_THREADS:
+	case OMP_CLAUSE_SCHEDULE:
+	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 0));
+	  /* FALLTHRU */
 
-    case OMP_CLAUSE_NOWAIT:
-    case OMP_CLAUSE_ORDERED:
-    case OMP_CLAUSE_DEFAULT:
-      WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
+	case OMP_CLAUSE_NOWAIT:
+	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_DEFAULT:
+	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 
-    case OMP_CLAUSE_REDUCTION:
-      {
-	int i;
-	for (i = 0; i < 4; i++)
-	  WALK_SUBTREE (TREE_OPERAND (*tp, i));
-	WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
-      }
+	case OMP_CLAUSE_REDUCTION:
+	  {
+	    int i;
+	    for (i = 0; i < 4; i++)
+	      WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, i));
+	    WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
+	  }
+
+	default:
+	  gcc_unreachable ();
+	}
+      break;
 
     case TARGET_EXPR:
       {

@@ -108,8 +108,8 @@ may_propagate_copy (tree dest, tree orig)
       && POINTER_TYPE_P (type_d)
       && POINTER_TYPE_P (type_o))
     {
-      tree mt_dest = var_ann (SSA_NAME_VAR (dest))->type_mem_tag;
-      tree mt_orig = var_ann (SSA_NAME_VAR (orig))->type_mem_tag;
+      tree mt_dest = var_ann (SSA_NAME_VAR (dest))->symbol_mem_tag;
+      tree mt_orig = var_ann (SSA_NAME_VAR (orig))->symbol_mem_tag;
       if (mt_dest && mt_orig && mt_dest != mt_orig)
 	return false;
       else if (!lang_hooks.types_compatible_p (type_d, type_o))
@@ -187,16 +187,16 @@ merge_alias_info (tree orig, tree new)
 	      == get_alias_set (TREE_TYPE (TREE_TYPE (orig_sym))));
 #endif
 
-  /* Synchronize the type tags.  If both pointers had a tag and they
-     are different, then something has gone wrong.  Type tags can
+  /* Synchronize the symbol tags.  If both pointers had a tag and they
+     are different, then something has gone wrong.  Symbol tags can
      always be merged because they are flow insensitive, all the SSA
-     names of the same base DECL share the same type tag.  */
-  if (new_ann->type_mem_tag == NULL_TREE)
-    new_ann->type_mem_tag = orig_ann->type_mem_tag;
-  else if (orig_ann->type_mem_tag == NULL_TREE)
-    orig_ann->type_mem_tag = new_ann->type_mem_tag;
+     names of the same base DECL share the same symbol tag.  */
+  if (new_ann->symbol_mem_tag == NULL_TREE)
+    new_ann->symbol_mem_tag = orig_ann->symbol_mem_tag;
+  else if (orig_ann->symbol_mem_tag == NULL_TREE)
+    orig_ann->symbol_mem_tag = new_ann->symbol_mem_tag;
   else
-    gcc_assert (new_ann->type_mem_tag == orig_ann->type_mem_tag);
+    gcc_assert (new_ann->symbol_mem_tag == orig_ann->symbol_mem_tag);
 
   /* Check that flow-sensitive information is compatible.  Notice that
      we may not merge flow-sensitive information here.  This function
@@ -479,15 +479,15 @@ set_copy_of_val (tree dest, tree first, tree mem_ref)
 }
 
 
-/* Dump the copy-of value for variable VAR to DUMP_FILE.  */
+/* Dump the copy-of value for variable VAR to FILE.  */
 
 static void
-dump_copy_of (FILE *dump_file, tree var)
+dump_copy_of (FILE *file, tree var)
 {
   tree val;
   sbitmap visited;
 
-  print_generic_expr (dump_file, var, dump_flags);
+  print_generic_expr (file, var, dump_flags);
 
   if (TREE_CODE (var) != SSA_NAME)
     return;
@@ -496,17 +496,17 @@ dump_copy_of (FILE *dump_file, tree var)
   sbitmap_zero (visited);
   SET_BIT (visited, SSA_NAME_VERSION (var));
   
-  fprintf (dump_file, " copy-of chain: ");
+  fprintf (file, " copy-of chain: ");
 
   val = var;
-  print_generic_expr (dump_file, val, 0);
-  fprintf (dump_file, " ");
+  print_generic_expr (file, val, 0);
+  fprintf (file, " ");
   while (copy_of[SSA_NAME_VERSION (val)].value)
     {
-      fprintf (dump_file, "-> ");
+      fprintf (file, "-> ");
       val = copy_of[SSA_NAME_VERSION (val)].value;
-      print_generic_expr (dump_file, val, 0);
-      fprintf (dump_file, " ");
+      print_generic_expr (file, val, 0);
+      fprintf (file, " ");
       if (TEST_BIT (visited, SSA_NAME_VERSION (val)))
         break;
       SET_BIT (visited, SSA_NAME_VERSION (val));
@@ -514,11 +514,11 @@ dump_copy_of (FILE *dump_file, tree var)
 
   val = get_copy_of_val (var)->value;
   if (val == NULL_TREE)
-    fprintf (dump_file, "[UNDEFINED]");
+    fprintf (file, "[UNDEFINED]");
   else if (val != var)
-    fprintf (dump_file, "[COPY]");
+    fprintf (file, "[COPY]");
   else
-    fprintf (dump_file, "[NOT A COPY]");
+    fprintf (file, "[NOT A COPY]");
   
   sbitmap_free (visited);
 }
@@ -1042,10 +1042,11 @@ gate_copy_prop (void)
   return flag_tree_copy_prop != 0;
 }
 
-static void
+static unsigned int
 do_copy_prop (void)
 {
   execute_copy_prop (false, false);
+  return 0;
 }
 
 struct tree_opt_pass pass_copy_prop =
@@ -1070,10 +1071,11 @@ struct tree_opt_pass pass_copy_prop =
 };
 
 
-static void
+static unsigned int
 do_phi_only_copy_prop (void)
 {
   execute_copy_prop (false, true);
+  return 0;
 }
 
 struct tree_opt_pass pass_phi_only_copy_prop =
@@ -1108,11 +1110,12 @@ gate_store_copy_prop (void)
   return flag_tree_store_copy_prop != 0 || flag_tree_copy_prop != 0;
 }
 
-static void
+static unsigned int
 store_copy_prop (void)
 {
   /* If STORE-COPY-PROP is not enabled, we just run regular COPY-PROP.  */
   execute_copy_prop (flag_tree_store_copy_prop != 0, false);
+  return 0;
 }
 
 struct tree_opt_pass pass_store_copy_prop =

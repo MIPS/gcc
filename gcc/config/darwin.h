@@ -206,7 +206,8 @@ Boston, MA 02110-1301, USA.  */
     %{!Zdynamiclib:%{A} %{e*} %{m} %{N} %{n} %{r} %{u*} %{x} %{z}} \
     %{@:-o %f%u.out}%{!@:%{o*}%{!o:-o a.out}} \
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
-    %{L*} %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|coverage:-lgcov} \
+    %{L*} %{fopenmp:%:include(libgomp.spec)%(link_gomp)}   \
+    %(link_libgcc) %o %{fprofile-arcs|fprofile-generate|coverage:-lgcov} \
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %G %L}} \
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} }}}}}}}}"
 
@@ -261,9 +262,13 @@ Boston, MA 02110-1301, USA.  */
    %{Zimage_base*:-image_base %*} \
    %{Zinit*:-init %*} \
    %{mmacosx-version-min=*:-macosx_version_min %*} \
+   %{!mmacosx-version-min=*:%{shared-libgcc:-macosx_version_min 10.3}} \
    %{nomultidefs} \
    %{Zmulti_module:-multi_module} %{Zsingle_module:-single_module} \
    %{Zmultiply_defined*:-multiply_defined %*} \
+   %{!Zmultiply_defined*:%{shared-libgcc: \
+     %:version-compare(< 10.5 mmacosx-version-min= -multiply_defined) \
+     %:version-compare(< 10.5 mmacosx-version-min= suppress)}} \
    %{Zmultiplydefinedunused*:-multiply_defined_unused %*} \
    %{prebind} %{noprebind} %{nofixprebinding} %{prebind_all_twolevel_modules} \
    %{read_only_relocs} \
@@ -318,19 +323,25 @@ Boston, MA 02110-1301, USA.  */
        %:version-compare(>= 10.5 mmacosx-version-min= -lgcc_s.10.5)	   \
        -lgcc}"
 
-/* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
+/* We specify crt0.o as -lcrt0.o so that ld will search the library path.
+
+   crt3.o provides __cxa_atexit on systems that don't have it.  Since
+   it's only used with C++, which requires passing -shared-libgcc, key
+   off that to avoid unnecessarily adding a destructor to every
+   powerpc program built.  */
 
 #undef  STARTFILE_SPEC
-#define STARTFILE_SPEC  \
-  "%{!Zdynamiclib:%{Zbundle:%{!static:-lbundle1.o}} \
-     %{!Zbundle:%{pg:%{static:-lgcrt0.o} \
-                     %{!static:%{object:-lgcrt0.o} \
-                               %{!object:%{preload:-lgcrt0.o} \
-                                 %{!preload:-lgcrt1.o %(darwin_crt2)}}}} \
-                %{!pg:%{static:-lcrt0.o} \
-                      %{!static:%{object:-lcrt0.o} \
-                                %{!object:%{preload:-lcrt0.o} \
-                                  %{!preload:-lcrt1.o %(darwin_crt2)}}}}}}"
+#define STARTFILE_SPEC							    \
+  "%{!Zdynamiclib:%{Zbundle:%{!static:-lbundle1.o}}			    \
+     %{!Zbundle:%{pg:%{static:-lgcrt0.o}				    \
+                     %{!static:%{object:-lgcrt0.o}			    \
+                               %{!object:%{preload:-lgcrt0.o}		    \
+                                 %{!preload:-lgcrt1.o %(darwin_crt2)}}}}    \
+                %{!pg:%{static:-lcrt0.o}				    \
+                      %{!static:%{object:-lcrt0.o}			    \
+                                %{!object:%{preload:-lcrt0.o}		    \
+                                  %{!preload:-lcrt1.o %(darwin_crt2)}}}}}}  \
+  %{shared-libgcc:%:version-compare(< 10.5 mmacosx-version-min= -lcrt3.o)}"
 
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
@@ -708,8 +719,8 @@ enum machopic_addr_class {
 
 #define MACHO_DYNAMIC_NO_PIC_P	(TARGET_DYNAMIC_NO_PIC)
 #define MACHOPIC_INDIRECT	(flag_pic || MACHO_DYNAMIC_NO_PIC_P)
-#define MACHOPIC_JUST_INDIRECT	(flag_pic == 1 || MACHO_DYNAMIC_NO_PIC_P)
-#define MACHOPIC_PURE		(flag_pic == 2 && ! MACHO_DYNAMIC_NO_PIC_P)
+#define MACHOPIC_JUST_INDIRECT	(MACHO_DYNAMIC_NO_PIC_P)
+#define MACHOPIC_PURE		(flag_pic && ! MACHO_DYNAMIC_NO_PIC_P)
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO  darwin_encode_section_info
@@ -792,6 +803,8 @@ enum machopic_addr_class {
 	darwin_non_lazy_pcrel (ASM_OUT_FILE, ADDR);					\
 	goto DONE;									\
       }
+
+#define TARGET_ASM_OUTPUT_ANCHOR darwin_asm_output_anchor
 
 /* Experimentally, putting jump tables in text is faster on SPEC.
    Also this is needed for correctness for coalesced functions.  */

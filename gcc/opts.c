@@ -80,6 +80,11 @@ bool use_gnu_debug_info_extensions;
 /* The default visibility for all symbols (unless overridden) */
 enum symbol_visibility default_visibility = VISIBILITY_DEFAULT;
 
+/* Disable unit-at-a-time for frontends that might be still broken in this
+   respect.  */
+  
+bool no_unit_at_a_time_default;
+
 /* Global visibility options.  */
 struct visibility_flags visibility_options;
 
@@ -95,7 +100,6 @@ static bool profile_arc_flag_set, flag_profile_values_set;
 static bool flag_unroll_loops_set, flag_tracer_set;
 static bool flag_value_profile_transformations_set;
 static bool flag_peel_loops_set, flag_branch_probabilities_set;
-static bool flag_loop_optimize_set;
 
 /* Input file names.  */
 const char **in_fnames;
@@ -232,7 +236,7 @@ write_langs (unsigned int mask)
     if (mask & (1U << n))
       len += strlen (lang_name) + 1;
 
-  result = xmalloc (len);
+  result = XNEWVEC (char, len);
   len = 0;
   for (n = 0; (lang_name = lang_names[n]) != 0; n++)
     if (mask & (1U << n))
@@ -288,7 +292,7 @@ handle_option (const char **argv, unsigned int lang_mask)
       /* Drop the "no-" from negative switches.  */
       size_t len = strlen (opt) - 3;
 
-      dup = xmalloc (len + 1);
+      dup = XNEWVEC (char, len + 1);
       dup[0] = '-';
       dup[1] = opt[1];
       memcpy (dup + 2, opt + 5, len - 2 + 1);
@@ -521,7 +525,6 @@ decode_options (unsigned int argc, const char **argv)
 #endif
       flag_guess_branch_prob = 1;
       flag_cprop_registers = 1;
-      flag_loop_optimize = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
       flag_ipa_pure_const = 1;
@@ -539,7 +542,8 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_sink = 1;
       /* THere is problem with local annotations and aliasing run early right now.  */
       /*flag_tree_salias = 1;*/
-      flag_unit_at_a_time = 1;
+      if (!no_unit_at_a_time_default)
+        flag_unit_at_a_time = 1;
 
       if (!optimize_size)
 	{
@@ -561,9 +565,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_gcse = 1;
       flag_expensive_optimizations = 1;
       flag_ipa_type_escape = 1;
-      flag_strength_reduce = 1;
       flag_rerun_cse_after_loop = 1;
-      flag_rerun_loop_opt = 1;
       flag_caller_saves = 1;
       flag_peephole2 = 1;
 #ifdef INSN_SCHEDULING
@@ -766,13 +768,13 @@ common_handle_option (size_t scode, const char *arg, int value,
       {
 	char *new_option;
 	int option_index;
-	new_option = (char *) xmalloc (strlen (arg) + 2);
+	new_option = XNEWVEC (char, strlen (arg) + 2);
 	new_option[0] = 'W';
 	strcpy (new_option+1, arg);
 	option_index = find_opt (new_option, lang_mask);
 	if (option_index == N_OPTS)
 	  {
-	    error("-Werror-%s: No option -%s", arg, new_option);
+	    error ("-Werror-%s: No option -%s", arg, new_option);
 	  }
 	else
 	  {
@@ -784,6 +786,7 @@ common_handle_option (size_t scode, const char *arg, int value,
 		&& cl_options[option_index].flag_var
 		&& kind == DK_ERROR)
 	      *(int *) cl_options[option_index].flag_var = 1;
+	    free (new_option);
 	  }
       }
       break;
@@ -851,10 +854,6 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_fbranch_probabilities:
       flag_branch_probabilities_set = true;
-      break;
-
-    case OPT_floop_optimize:
-      flag_loop_optimize_set = true;
       break;
 
     case OPT_fcall_used_:
@@ -933,9 +932,6 @@ common_handle_option (size_t scode, const char *arg, int value,
         flag_tracer = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
-      /* Old loop optimizer is incompatible with tree profiling.  */
-      if (!flag_loop_optimize_set)
-	flag_loop_optimize = 0;
       break;
 
     case OPT_fprofile_generate:
@@ -1085,6 +1081,12 @@ common_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_fforce_mem:
       warning (0, "-f[no-]force-mem is nop and option will be removed in 4.2");
+      break;
+
+    case OPT_floop_optimize:
+    case OPT_frerun_loop_opt:
+    case OPT_fstrength_reduce:
+      /* These are no-ops, preserved for backward compatibility.  */
       break;
 
     default:

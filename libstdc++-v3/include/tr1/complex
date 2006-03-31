@@ -64,7 +64,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       return std::complex<_Tp>(__pi_2 - __t.real(), -__t.imag());
     }
 
-#if _GLIBCXX_USE_C99_COMPLEX
+#if _GLIBCXX_USE_C99_COMPLEX_TR1
   inline __complex__ float
   __complex_acos(__complex__ float __z)
   { return __builtin_cacosf(__z); }
@@ -100,7 +100,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       return std::complex<_Tp>(__t.imag(), -__t.real());
     }
 
-#if _GLIBCXX_USE_C99_COMPLEX
+#if _GLIBCXX_USE_C99_COMPLEX_TR1
   inline __complex__ float
   __complex_asin(__complex__ float __z)
   { return __builtin_casinf(__z); }
@@ -144,7 +144,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 			       _Tp(0.25) * log(__num / __den));
     }
 
-#if _GLIBCXX_USE_C99_COMPLEX
+#if _GLIBCXX_USE_C99_COMPLEX_TR1
   inline __complex__ float
   __complex_atan(__complex__ float __z)
   { return __builtin_catanf(__z); }
@@ -183,7 +183,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       return std::log(__t + __z);
     }
 
-#if _GLIBCXX_USE_C99_COMPLEX
+#if _GLIBCXX_USE_C99_COMPLEX_TR1
   inline __complex__ float
   __complex_acosh(__complex__ float __z)
   { return __builtin_cacoshf(__z); }
@@ -222,7 +222,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       return std::log(__t + __z);
     }
 
-#if _GLIBCXX_USE_C99_COMPLEX
+#if _GLIBCXX_USE_C99_COMPLEX_TR1
   inline __complex__ float
   __complex_asinh(__complex__ float __z)
   { return __builtin_casinhf(__z); }
@@ -266,7 +266,7 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
 			       _Tp(0.5) * atan2(_Tp(2.0) * __z.imag(), __x));
     }
 
-#if _GLIBCXX_USE_C99_COMPLEX
+#if _GLIBCXX_USE_C99_COMPLEX_TR1
   inline __complex__ float
   __complex_atanh(__complex__ float __z)
   { return __builtin_catanhf(__z); }
@@ -325,6 +325,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
     };
 
 
+  using std::arg;
+
   template<typename _Tp>
     inline typename __promote<_Tp>::__type
     arg(_Tp __x)
@@ -333,15 +335,21 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       return std::arg(std::complex<__type>(__x));
     }
 
+  using std::conj;
+
   template<typename _Tp>
     inline std::complex<typename __promote<_Tp>::__type>
     conj(_Tp __x)
     { return __x; }
 
+  using std::imag;
+
   template<typename _Tp>
     inline typename __promote<_Tp>::__type
     imag(_Tp)
     { return _Tp(); }
+
+  using std::norm;
 
   template<typename _Tp>
     inline typename __promote<_Tp>::__type
@@ -351,6 +359,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       return __type(__x) * __type(__x);
     }
 
+  using std::polar;
+
   template<typename _Tp, typename _Up>
     inline std::complex<typename __promote_2<_Tp, _Up>::__type>
     polar(const _Tp& __rho, const _Up& __theta)
@@ -358,6 +368,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       typedef typename __promote_2<_Tp, _Up>::__type __type;
       return std::polar(__type(__rho), __type(__theta));
     }
+  
+  using std::pow;
   
   template<typename _Tp, typename _Up>
     inline std::complex<typename __promote_2<_Tp, _Up>::__type>
@@ -383,6 +395,8 @@ _GLIBCXX_BEGIN_NAMESPACE(tr1)
       return std::pow(std::complex<__type>(__x),
 		      std::complex<__type>(__y));
     }
+
+  using std::real;
 
   template<typename _Tp>
     inline typename __promote<_Tp>::__type

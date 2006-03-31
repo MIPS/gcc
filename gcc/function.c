@@ -358,10 +358,31 @@ get_func_frame_size (struct function *f)
 /* Return size needed for stack frame based on slots so far allocated.
    This size counts from zero.  It is not rounded to PREFERRED_STACK_BOUNDARY;
    the caller may have to do that.  */
+
 HOST_WIDE_INT
 get_frame_size (void)
 {
   return get_func_frame_size (cfun);
+}
+
+/* Issue an error message and return TRUE if frame OFFSET overflows in
+   the signed target pointer arithmetics for function FUNC.  Otherwise
+   return FALSE.  */
+
+bool
+frame_offset_overflow (HOST_WIDE_INT offset, tree func)
+{  
+  unsigned HOST_WIDE_INT size = FRAME_GROWS_DOWNWARD ? -offset : offset;
+
+  if (size > ((unsigned HOST_WIDE_INT) 1 << (GET_MODE_BITSIZE (Pmode) - 1))
+	       /* Leave room for the fixed part of the frame.  */
+	       - 64 * UNITS_PER_WORD)
+    {
+      error ("%Jtotal size of local objects too large", func);
+      return TRUE;
+    }
+
+  return FALSE;
 }
 
 /* Allocate a stack slot of SIZE bytes and return a MEM rtx for it
@@ -479,20 +500,8 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
   function->x_stack_slot_list
     = gen_rtx_EXPR_LIST (VOIDmode, x, function->x_stack_slot_list);
 
-  /* Try to detect frame size overflows on native platforms.  */
-#if BITS_PER_WORD >= 32
-  if ((FRAME_GROWS_DOWNWARD
-       ? (unsigned HOST_WIDE_INT) -function->x_frame_offset
-       : (unsigned HOST_WIDE_INT) function->x_frame_offset)
-	> ((unsigned HOST_WIDE_INT) 1 << (BITS_PER_WORD - 1))
-	    /* Leave room for the fixed part of the frame.  */
-	    - 64 * UNITS_PER_WORD)
-    {
-      error ("%Jtotal size of local objects too large", function->decl);
-      /* Avoid duplicate error messages as much as possible.  */
-      function->x_frame_offset = 0;
-    }
-#endif
+  if (frame_offset_overflow (function->x_frame_offset, function->decl))
+    function->x_frame_offset = 0;
 
   return x;
 }
@@ -625,22 +634,30 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 
   /* Try to find an available, already-allocated temporary of the proper
      mode which meets the size and alignment requirements.  Choose the
-     smallest one with the closest alignment.  */
-  for (p = avail_temp_slots; p; p = p->next)
+     smallest one with the closest alignment.
+   
+     If assign_stack_temp is called outside of the tree->rtl expansion,
+     we cannot reuse the stack slots (that may still refer to
+     VIRTUAL_STACK_VARS_REGNUM).  */
+  if (!virtuals_instantiated)
     {
-      if (p->align >= align && p->size >= size && GET_MODE (p->slot) == mode
-	  && objects_must_conflict_p (p->type, type)
-	  && (best_p == 0 || best_p->size > p->size
-	      || (best_p->size == p->size && best_p->align > p->align)))
+      for (p = avail_temp_slots; p; p = p->next)
 	{
-	  if (p->align == align && p->size == size)
+	  if (p->align >= align && p->size >= size
+	      && GET_MODE (p->slot) == mode
+	      && objects_must_conflict_p (p->type, type)
+	      && (best_p == 0 || best_p->size > p->size
+		  || (best_p->size == p->size && best_p->align > p->align)))
 	    {
-	      selected = p;
-	      cut_slot_from_list (selected, &avail_temp_slots);
-	      best_p = 0;
-	      break;
+	      if (p->align == align && p->size == size)
+		{
+		  selected = p;
+		  cut_slot_from_list (selected, &avail_temp_slots);
+		  best_p = 0;
+		  break;
+		}
+	      best_p = p;
 	    }
-	  best_p = p;
 	}
     }
 
@@ -1657,7 +1674,7 @@ instantiate_decls (tree fndecl)
 /* Pass through the INSNS of function FNDECL and convert virtual register
    references to hard register references.  */
 
-static void
+static unsigned int
 instantiate_virtual_regs (void)
 {
   rtx insn;
@@ -1709,6 +1726,7 @@ instantiate_virtual_regs (void)
   /* Indicate that, from now on, assign_stack_local should use
      frame_pointer_rtx.  */
   virtuals_instantiated = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_instantiate_virtual_regs =
@@ -2624,8 +2642,10 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
   /* Store the parm in a pseudoregister during the function, but we may
      need to do it in a wider mode.  */
 
+  /* This is not really promoting for a call.  However we need to be
+     consistent with assign_parm_find_data_types and expand_expr_real_1.  */
   promoted_nominal_mode
-    = promote_mode (data->nominal_type, data->nominal_mode, &unsignedp, 0);
+    = promote_mode (data->nominal_type, data->nominal_mode, &unsignedp, 1);
 
   parmreg = gen_reg_rtx (promoted_nominal_mode);
 
@@ -3757,7 +3777,7 @@ get_block_vector (tree block, int *n_blocks_p)
   tree *block_vector;
 
   *n_blocks_p = all_blocks (block, NULL);
-  block_vector = xmalloc (*n_blocks_p * sizeof (tree));
+  block_vector = XNEWVEC (tree, *n_blocks_p);
   all_blocks (block, block_vector);
 
   return block_vector;
@@ -3937,7 +3957,7 @@ init_function_start (tree subr)
 
 /* Make sure all values used by the optimization passes have sane
    defaults.  */
-void
+unsigned int
 init_function_for_compilation (void)
 {
   reg_renumber = 0;
@@ -3947,6 +3967,7 @@ init_function_for_compilation (void)
   gcc_assert (VEC_length (int, prologue) == 0);
   gcc_assert (VEC_length (int, epilogue) == 0);
   gcc_assert (VEC_length (int, sibcall_epilogue) == 0);
+  return 0;
 }
 
 struct tree_opt_pass pass_init_function =
@@ -4344,7 +4365,7 @@ do_use_return_reg (rtx reg, void *arg ATTRIBUTE_UNUSED)
   emit_insn (gen_rtx_USE (VOIDmode, reg));
 }
 
-void
+static void
 use_return_register (void)
 {
   diddle_return_value (do_use_return_reg, NULL);
@@ -5607,13 +5628,14 @@ current_function_name (void)
 }
 
 
-static void
+static unsigned int
 rest_of_handle_check_leaf_regs (void)
 {
 #ifdef LEAF_REGISTERS
   current_function_uses_only_leaf_regs
     = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
 #endif
+  return 0;
 }
 
 int

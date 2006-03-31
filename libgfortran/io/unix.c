@@ -586,7 +586,7 @@ fd_truncate (unix_stream * s)
 
   /* non-seekable files, like terminals and fifo's fail the lseek.
      Using ftruncate on a seekable special file (like /dev/null)
-     is undefined, so we treat it as if the ftruncate failed.
+     is undefined, so we treat it as if the ftruncate succeeded.
   */
 #ifdef HAVE_FTRUNCATE
   if (s->special_file || ftruncate (s->fd, s->logical_offset))
@@ -597,7 +597,7 @@ fd_truncate (unix_stream * s)
 #endif
     {
       s->physical_offset = s->file_length = 0;
-      return FAILURE;
+      return SUCCESS;
     }
 
   s->physical_offset = s->file_length = s->logical_offset;
@@ -606,6 +606,34 @@ fd_truncate (unix_stream * s)
 }
 
 
+/* Similar to memset(), but operating on a stream instead of a string.
+   Takes care of not using too much memory.  */
+
+static try
+fd_sset (unix_stream * s, int c, size_t n)
+{
+  size_t bytes_left;
+  int trans;
+  void *p;
+
+  bytes_left = n;
+
+  while (bytes_left > 0)
+    {
+      /* memset() in chunks of BUFFER_SIZE.  */
+      trans = (bytes_left < BUFFER_SIZE) ? bytes_left : BUFFER_SIZE;
+
+      p = fd_alloc_w_at (s, &trans, -1);
+      if (p)
+	  memset (p, c, trans);
+      else
+	return FAILURE;
+
+      bytes_left -= trans;
+    }
+
+  return SUCCESS;
+}
 
 
 /* Stream read function. Avoids using a buffer for big reads. The
@@ -739,6 +767,7 @@ fd_open (unix_stream * s)
   s->st.truncate = (void *) fd_truncate;
   s->st.read = (void *) fd_read;
   s->st.write = (void *) fd_write;
+  s->st.set = (void *) fd_sset;
 
   s->buffer = NULL;
 }
@@ -870,6 +899,25 @@ mem_seek (unix_stream * s, gfc_offset offset)
 }
 
 
+static try
+mem_set (unix_stream * s, int c, size_t n)
+{
+  void *p;
+  int len;
+
+  len = n;
+  
+  p = mem_alloc_w_at (s, &len, -1);
+  if (p)
+    {
+      memset (p, c, len);
+      return SUCCESS;
+    }
+  else
+    return FAILURE;
+}
+
+
 static int
 mem_truncate (unix_stream * s __attribute__ ((unused)))
 {
@@ -932,6 +980,7 @@ open_internal (char *base, int length)
   s->st.truncate = (void *) mem_truncate;
   s->st.read = (void *) mem_read;
   s->st.write = (void *) mem_write;
+  s->st.set = (void *) mem_set;
 
   return (stream *) s;
 }

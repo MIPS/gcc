@@ -32,18 +32,7 @@ extern tree analyze_scalar_evolution (struct loop *, tree);
 extern tree instantiate_parameters (struct loop *, tree);
 extern void gather_stats_on_scev_database (void);
 extern void scev_analysis (void);
-void scev_const_prop (void);
-
-/* Affine iv.  */
-
-typedef struct
-{
-  /* Iv = BASE + STEP * i.  */
-  tree base, step;
-
-  /* True if this iv does not overflow.  */
-  bool no_overflow;
-} affine_iv;
+unsigned int scev_const_prop (void);
 
 extern bool simple_iv (struct loop *, tree, tree, affine_iv *, bool);
 

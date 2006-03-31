@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2005 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2006 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -671,14 +671,15 @@ extern tree gnat_truthvalue_conversion (tree expr);
 /* Return the base type of TYPE.  */
 extern tree get_base_type (tree type);
 
-/* Likewise, but only return types known at Ada source.  */
-extern tree get_ada_base_type (tree type);
-
 /* EXP is a GCC tree representing an address.  See if we can find how
    strictly the object at that address is aligned.   Return that alignment
    strictly the object at that address is aligned.   Return that alignment
    in bits.  If we don't know anything about the alignment, return 0.  */
 extern unsigned int known_alignment (tree exp);
+
+/* Return true if VALUE is a multiple of FACTOR. FACTOR must be a power
+   of 2. */
+extern bool value_factor_p (tree value, HOST_WIDE_INT factor);
 
 /* Make a binary operation of kind OP_CODE.  RESULT_TYPE is the type
    desired for the result.  Usually the operation is to be performed

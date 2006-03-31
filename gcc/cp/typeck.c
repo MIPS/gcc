@@ -43,6 +43,7 @@ Boston, MA 02110-1301, USA.  */
 #include "convert.h"
 #include "c-common.h"
 
+static tree pfn_from_ptrmemfunc (tree);
 static tree convert_for_assignment (tree, tree, const char *, tree, int);
 static tree cp_pointer_int_sum (enum tree_code, tree, tree);
 static tree rationalize_conditional_expr (enum tree_code, tree);
@@ -1266,20 +1267,17 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
   return value;
 }
 
-/* Process a sizeof or alignof expression where the operand is an
-   expression.  */
+/* Process a sizeof expression where the operand is an expression.  */
 
-tree
-cxx_sizeof_or_alignof_expr (tree e, enum tree_code op)
+static tree
+cxx_sizeof_expr (tree e)
 {
-  const char *op_name = operator_name_info[(int) op].name;
-
   if (e == error_mark_node)
     return error_mark_node;
 
   if (processing_template_decl)
     {
-      e = build_min (op, size_type_node, e);
+      e = build_min (SIZEOF_EXPR, size_type_node, e);
       TREE_SIDE_EFFECTS (e) = 0;
       TREE_READONLY (e) = 1;
 
@@ -1290,13 +1288,13 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op)
       && TREE_CODE (TREE_OPERAND (e, 1)) == FIELD_DECL
       && DECL_C_BIT_FIELD (TREE_OPERAND (e, 1)))
     {
-      error ("invalid application of %qs to a bit-field", op_name);
+      error ("invalid application of %<sizeof%> to a bit-field");
       e = char_type_node;
     }
   else if (is_overloaded_fn (e))
     {
-      pedwarn ("ISO C++ forbids applying %qs to an expression of "
-	       "function type", op_name);
+      pedwarn ("ISO C++ forbids applying %<sizeof%> to an expression of "
+	       "function type");
       e = char_type_node;
     }
   else if (type_unknown_p (e))
@@ -1307,9 +1305,71 @@ cxx_sizeof_or_alignof_expr (tree e, enum tree_code op)
   else
     e = TREE_TYPE (e);
 
-  return cxx_sizeof_or_alignof_type (e, op, true);
+  return cxx_sizeof_or_alignof_type (e, SIZEOF_EXPR, true);
 }
 
+/* Implement the __alignof keyword: Return the minimum required
+   alignment of E, measured in bytes.  For VAR_DECL's and
+   FIELD_DECL's return DECL_ALIGN (which can be set from an
+   "aligned" __attribute__ specification).  */
+
+static tree
+cxx_alignof_expr (tree e)
+{
+  tree t;
+  
+  if (e == error_mark_node)
+    return error_mark_node;
+
+  if (processing_template_decl)
+    {
+      e = build_min (ALIGNOF_EXPR, size_type_node, e);
+      TREE_SIDE_EFFECTS (e) = 0;
+      TREE_READONLY (e) = 1;
+
+      return e;
+    }
+
+  if (TREE_CODE (e) == VAR_DECL)
+    t = size_int (DECL_ALIGN_UNIT (e));
+  else if (TREE_CODE (e) == COMPONENT_REF
+	   && TREE_CODE (TREE_OPERAND (e, 1)) == FIELD_DECL
+	   && DECL_C_BIT_FIELD (TREE_OPERAND (e, 1)))
+    {
+      error ("invalid application of %<__alignof%> to a bit-field");
+      t = size_one_node;
+    }
+  else if (TREE_CODE (e) == COMPONENT_REF
+	   && TREE_CODE (TREE_OPERAND (e, 1)) == FIELD_DECL)
+    t = size_int (DECL_ALIGN_UNIT (TREE_OPERAND (e, 1)));
+  else if (is_overloaded_fn (e))
+    {
+      pedwarn ("ISO C++ forbids applying %<__alignof%> to an expression of "
+	       "function type");
+      t = size_one_node;
+    }
+  else if (type_unknown_p (e))
+    {
+      cxx_incomplete_type_error (e, TREE_TYPE (e));
+      t = size_one_node;
+    }
+  else
+    return cxx_sizeof_or_alignof_type (TREE_TYPE (e), ALIGNOF_EXPR, true);
+
+  return fold_convert (size_type_node, t);
+}
+
+/* Process a sizeof or alignof expression E with code OP where the operand
+   is an expression.  */
+
+tree
+cxx_sizeof_or_alignof_expr (tree e, enum tree_code op)
+{
+  if (op == SIZEOF_EXPR)
+    return cxx_sizeof_expr (e);
+  else
+    return cxx_alignof_expr (e);
+}
 
 /* EXPR is being used in a context that is not a function call.
    Enforce:
@@ -1471,7 +1531,7 @@ string_conv_p (tree totype, tree exp, int warn)
 {
   tree t;
 
-  if (! flag_const_strings || TREE_CODE (totype) != POINTER_TYPE)
+  if (TREE_CODE (totype) != POINTER_TYPE)
     return 0;
 
   t = TREE_TYPE (totype);
@@ -1498,8 +1558,8 @@ string_conv_p (tree totype, tree exp, int warn)
     }
 
   /* This warning is not very useful, as it complains about printf.  */
-  if (warn && warn_write_strings)
-    warning (0, "deprecated conversion from string constant to %qT'", totype);
+  if (warn)
+    warning (OPT_Wwrite_strings, "deprecated conversion from string constant to %qT'", totype);
 
   return 1;
 }
@@ -1828,7 +1888,7 @@ lookup_destructor (tree object, tree scope, tree dtor_name)
   tree dtor_type = TREE_OPERAND (dtor_name, 0);
   tree expr;
 
-  if (scope && !check_dtor_name (scope, dtor_name))
+  if (scope && !check_dtor_name (scope, dtor_type))
     {
       error ("qualified type %qT does not match destructor name ~%qT",
 	     scope, dtor_type);
@@ -2305,7 +2365,7 @@ build_array_ref (tree array, tree idx)
 	  while (TREE_CODE (foo) == COMPONENT_REF)
 	    foo = TREE_OPERAND (foo, 0);
 	  if (TREE_CODE (foo) == VAR_DECL && DECL_REGISTER (foo))
-	    warning (0, "subscripting array declared %<register%>");
+	    warning (OPT_Wextra, "subscripting array declared %<register%>");
 	}
 
       type = TREE_TYPE (TREE_TYPE (array));
@@ -2953,9 +3013,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	      || code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE))
 	{
 	  if (TREE_CODE (op1) == INTEGER_CST && integer_zerop (op1))
-	    warning (0, "division by zero in %<%E / 0%>", op0);
+	    warning (OPT_Wdiv_by_zero, "division by zero in %<%E / 0%>", op0);
 	  else if (TREE_CODE (op1) == REAL_CST && real_zerop (op1))
-	    warning (0, "division by zero in %<%E / 0.%>", op0);
+	    warning (OPT_Wdiv_by_zero, "division by zero in %<%E / 0.%>", op0);
 
 	  if (code0 == COMPLEX_TYPE || code0 == VECTOR_TYPE)
 	    code0 = TREE_CODE (TREE_TYPE (TREE_TYPE (op0)));
@@ -2990,9 +3050,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
     case TRUNC_MOD_EXPR:
     case FLOOR_MOD_EXPR:
       if (code1 == INTEGER_TYPE && integer_zerop (op1))
-	warning (0, "division by zero in %<%E %% 0%>", op0);
+	warning (OPT_Wdiv_by_zero, "division by zero in %<%E %% 0%>", op0);
       else if (code1 == REAL_TYPE && real_zerop (op1))
-	warning (0, "division by zero in %<%E %% 0.%>", op0);
+	warning (OPT_Wdiv_by_zero, "division by zero in %<%E %% 0.%>", op0);
 
       if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	{
@@ -3087,8 +3147,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 
     case EQ_EXPR:
     case NE_EXPR:
-      if (warn_float_equal && (code0 == REAL_TYPE || code1 == REAL_TYPE))
-	warning (0, "comparing floating point with == or != is unsafe");
+      if (code0 == REAL_TYPE || code1 == REAL_TYPE)
+	warning (OPT_Wfloat_equal, 
+                 "comparing floating point with == or != is unsafe");
       if ((TREE_CODE (orig_op0) == STRING_CST && !integer_zerop (op1))
 	  || (TREE_CODE (orig_op1) == STRING_CST && !integer_zerop (op0)))
 	warning (OPT_Wstring_literal_comparison,
@@ -4341,7 +4402,7 @@ unary_complex_lvalue (enum tree_code code, tree arg)
     }
 
   if (code != ADDR_EXPR)
-    return 0;
+    return NULL_TREE;
 
   /* Handle (a = b) used as an "lvalue" for `&'.  */
   if (TREE_CODE (arg) == MODIFY_EXPR
@@ -4382,7 +4443,7 @@ unary_complex_lvalue (enum tree_code code, tree arg)
   }
 
   /* Don't let anything else be handled specially.  */
-  return 0;
+  return NULL_TREE;
 }
 
 /* Mark EXP saying that we need to be able to take the
@@ -4436,9 +4497,9 @@ cxx_mark_addressable (tree exp)
 		  ("address of explicit register variable %qD requested", x);
 		return false;
 	      }
-	    else if (extra_warnings)
+	    else
 	      warning
-		(0, "address requested for %qD, which is declared %<register%>", x);
+		(OPT_Wextra, "address requested for %qD, which is declared %<register%>", x);
 	  }
 	TREE_ADDRESSABLE (x) = 1;
 	return true;
@@ -5876,7 +5937,7 @@ build_ptrmemfunc (tree type, tree pfn, int force, bool c_cast_p)
     }
 
   if (type_unknown_p (pfn))
-    return instantiate_type (type, pfn, tf_error | tf_warning);
+    return instantiate_type (type, pfn, tf_warning_or_error);
 
   fn = TREE_OPERAND (pfn, 0);
   gcc_assert (TREE_CODE (fn) == FUNCTION_DECL
@@ -5962,7 +6023,7 @@ expand_ptrmemfunc_cst (tree cst, tree *delta, tree *pfn)
 /* Return an expression for PFN from the pointer-to-member function
    given by T.  */
 
-tree
+static tree
 pfn_from_ptrmemfunc (tree t)
 {
   if (TREE_CODE (t) == PTRMEM_CST)
@@ -6067,7 +6128,7 @@ convert_for_assignment (tree type, tree rhs,
 	     overloaded function.  Call instantiate_type to get error
 	     messages.  */
 	  if (rhstype == unknown_type_node)
-	    instantiate_type (type, rhs, tf_error | tf_warning);
+	    instantiate_type (type, rhs, tf_warning_or_error);
 	  else if (fndecl)
 	    error ("cannot convert %qT to %qT for argument %qP to %qD",
 		   rhstype, type, parmnum, fndecl);
@@ -6376,7 +6437,7 @@ check_return_expr (tree retval, bool *no_warning)
 	}
 
       if (warn)
-	warning (0, "%<operator=%> should return a reference to %<*this%>");
+	warning (OPT_Weffc__, "%<operator=%> should return a reference to %<*this%>");
     }
 
   /* The fabled Named Return Value optimization, as per [class.copy]/15:

@@ -3,7 +3,7 @@
    marshalling to implement data sharing and copying clauses.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -47,7 +47,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    phases.  The first phase scans the function looking for OMP statements
    and then for variables that must be replaced to satisfy data sharing
    clauses.  The second phase expands code for the constructs, as well as
-   re-gimplifing things when variables have been replaced with complex
+   re-gimplifying things when variables have been replaced with complex
    expressions.
 
    Final code generation is done by pass_expand_omp.  The flowgraph is
@@ -154,7 +154,7 @@ static tree
 find_omp_clause (tree clauses, enum tree_code kind)
 {
   for (; clauses ; clauses = OMP_CLAUSE_CHAIN (clauses))
-    if (TREE_CODE (clauses) == kind)
+    if (OMP_CLAUSE_CODE (clauses) == kind)
       return clauses;
 
   return NULL_TREE;
@@ -242,7 +242,7 @@ extract_omp_for_data (tree for_stmt, struct omp_for_data *fd)
   fd->chunk_size = NULL_TREE;
 
   for (t = OMP_FOR_CLAUSES (for_stmt); t ; t = OMP_CLAUSE_CHAIN (t))
-    switch (TREE_CODE (t))
+    switch (OMP_CLAUSE_CODE (t))
       {
       case OMP_CLAUSE_NOWAIT:
 	fd->have_nowait = true;
@@ -943,7 +943,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
     {
       bool by_ref;
 
-      switch (TREE_CODE (c))
+      switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_PRIVATE:
 	  decl = OMP_CLAUSE_DECL (c);
@@ -966,7 +966,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      break;
 	    }
 	  /* We don't need to copy const scalar vars back.  */
-	  TREE_SET_CODE (c, OMP_CLAUSE_FIRSTPRIVATE);
+	  OMP_CLAUSE_SET_CODE (c, OMP_CLAUSE_FIRSTPRIVATE);
 	  goto do_private;
 
 	case OMP_CLAUSE_LASTPRIVATE:
@@ -1009,7 +1009,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
 	  if (ctx->outer)
-	    scan_omp (&TREE_OPERAND (c, 0), ctx->outer);
+	    scan_omp (&OMP_CLAUSE_OPERAND (c, 0), ctx->outer);
 	  break;
 
 	case OMP_CLAUSE_NOWAIT:
@@ -1023,7 +1023,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
   for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     {
-      switch (TREE_CODE (c))
+      switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_LASTPRIVATE:
 	  /* Let the corresponding firstprivate clause create
@@ -1039,9 +1039,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  if (is_variable_sized (decl))
 	    install_var_local (decl, ctx);
 	  fixup_remapped_decl (decl, ctx,
-			       TREE_CODE (c) == OMP_CLAUSE_PRIVATE
+			       OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
 			       && OMP_CLAUSE_PRIVATE_DEBUG (c));
-	  if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 	      && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	    scan_array_reductions = true;
 	  break;
@@ -1068,7 +1068,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
   if (scan_array_reductions)
     for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-      if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 	  && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	{
 	  scan_omp (&OMP_CLAUSE_REDUCTION_INIT (c), ctx);
@@ -1525,7 +1525,7 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
     {
       for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
 	{
-	  enum tree_code c_kind = TREE_CODE (c);
+	  enum omp_clause_code c_kind = OMP_CLAUSE_CODE (c);
 	  tree var, new_var;
 	  bool by_ref;
 
@@ -1619,7 +1619,7 @@ lower_rec_input_clauses (tree clauses, tree *ilist, tree *dlist,
 	  else if (pass != 0)
 	    continue;
 
-	  switch (TREE_CODE (c))
+	  switch (OMP_CLAUSE_CODE (c))
 	    {
 	    case OMP_CLAUSE_SHARED:
 	      /* Set up the DECL_VALUE_EXPR for shared variables now.  This
@@ -1753,7 +1753,7 @@ lower_lastprivate_clauses (tree clauses, tree predicate, tree *stmt_list,
     {
       tree var, new_var;
 
-      if (TREE_CODE (c) != OMP_CLAUSE_LASTPRIVATE)
+      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_LASTPRIVATE)
 	continue;
 
       var = OMP_CLAUSE_DECL (c);
@@ -1786,7 +1786,7 @@ lower_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
   /* First see if there is exactly one reduction clause.  Use OMP_ATOMIC
      update in that case, otherwise use a lock.  */
   for (c = clauses; c && count < 2; c = OMP_CLAUSE_CHAIN (c))
-    if (TREE_CODE (c) == OMP_CLAUSE_REDUCTION)
+    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
       {
 	if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	  {
@@ -1805,7 +1805,7 @@ lower_reduction_clauses (tree clauses, tree *stmt_list, omp_context *ctx)
       tree var, ref, new_var;
       enum tree_code code;
 
-      if (TREE_CODE (c) != OMP_CLAUSE_REDUCTION)
+      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_REDUCTION)
 	continue;
 
       var = OMP_CLAUSE_DECL (c);
@@ -1878,7 +1878,7 @@ lower_copyprivate_clauses (tree clauses, tree *slist, tree *rlist,
       tree var, ref, x;
       bool by_ref;
 
-      if (TREE_CODE (c) != OMP_CLAUSE_COPYPRIVATE)
+      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_COPYPRIVATE)
 	continue;
 
       var = OMP_CLAUSE_DECL (c);
@@ -1915,7 +1915,7 @@ lower_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
       tree val, ref, x, var;
       bool by_ref, do_in = false, do_out = false;
 
-      switch (TREE_CODE (c))
+      switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYIN:
@@ -1934,7 +1934,7 @@ lower_send_clauses (tree clauses, tree *ilist, tree *olist, omp_context *ctx)
 	continue;
       by_ref = use_pointer_for_field (val, false);
 
-      switch (TREE_CODE (c))
+      switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYIN:
@@ -2042,7 +2042,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb, tree ws_args)
   clauses = OMP_PARALLEL_CLAUSES (region->entry);
   push_gimplify_context ();
 
-  /* Determine what flavour of GOMP_parallel_start we will be
+  /* Determine what flavor of GOMP_parallel_start we will be
      emitting.  */
   start_ix = BUILT_IN_GOMP_PARALLEL_START;
   if (is_combined_parallel (region))
@@ -2279,13 +2279,16 @@ expand_omp_parallel (struct omp_region *region)
   entry_bb = bb_for_stmt (region->entry);
   exit_bb = bb_for_stmt (region->exit);
 
-  /* Barriers at the end of the function are not necessary and can be
-     removed.  Since the caller will have a barrier of its own, this
-     one is superfluous.  */
-  remove_exit_barrier (region);
-
   if (is_combined_parallel (region))
-    ws_args = region->ws_args;
+    {
+      ws_args = region->ws_args;
+
+      /* For combined parallel+workshare calls, barriers at the end of
+	 the function are not necessary and can be removed.  Since the
+	 caller will have a barrier of its own, the workshare barrier is
+	 superfluous.  */
+      remove_exit_barrier (region);
+    }
   else
     ws_args = NULL_TREE;
 
@@ -2427,6 +2430,8 @@ expand_omp_for_generic (struct omp_region *region,
 
   istart0 = create_tmp_var (long_integer_type_node, ".istart0");
   iend0 = create_tmp_var (long_integer_type_node, ".iend0");
+  TREE_ADDRESSABLE (istart0) = 1;
+  TREE_ADDRESSABLE (iend0) = 1;
 
   l0 = create_artificial_label ();
   l1 = create_artificial_label ();
@@ -3244,6 +3249,13 @@ expand_omp (struct omp_region *region)
 	    gcc_unreachable ();
 	}
 
+      /* Expansion adds and removes basic block, edges, creates
+	 and exposes unreachable regions that need to be cleaned up
+	 before proceeding.  */
+      free_dominance_info (CDI_DOMINATORS);
+      free_dominance_info (CDI_POST_DOMINATORS);
+      cleanup_tree_cfg ();
+
       region = region->next;
     }
 }
@@ -3321,7 +3333,7 @@ build_omp_regions (void)
 
 /* Main entry point for expanding OMP-GIMPLE into runtime calls.  */
 
-static void
+static unsigned int
 execute_expand_omp (void)
 {
   build_omp_regions ();
@@ -3339,12 +3351,8 @@ execute_expand_omp (void)
       splay_tree_delete (omp_regions);
       root_omp_region = NULL;
       omp_regions = NULL;
-      free_dominance_info (CDI_DOMINATORS);
-      free_dominance_info (CDI_POST_DOMINATORS);
     }
-
-  /* Expansion adds basic blocks that may be merged.  */
-  cleanup_tree_cfg ();
+  return 0;
 }
 
 static bool
@@ -4100,7 +4108,7 @@ lower_omp (tree *stmt_p, omp_context *ctx)
 
 /* Main entry point.  */
 
-static void
+static unsigned int
 execute_lower_omp (void)
 {
   all_contexts = splay_tree_new (splay_tree_compare_pointers, 0,
@@ -4117,6 +4125,7 @@ execute_lower_omp (void)
       splay_tree_delete (all_contexts);
       all_contexts = NULL;
     }
+  return 0;
 }
 
 static bool

@@ -855,11 +855,19 @@ ccp_fold (tree stmt)
       /* If the RHS is a memory load, see if the VUSEs associated with
 	 it are a valid constant for that memory load.  */
       prop_value_t *val = get_value_loaded_by (stmt, const_val);
-      if (val && val->mem_ref
-	  && operand_equal_p (val->mem_ref, rhs, 0))
-	return val->value;
-      else
-	return NULL_TREE;
+      if (val && val->mem_ref)
+	{
+	  if (operand_equal_p (val->mem_ref, rhs, 0))
+	    return val->value;
+
+	  /* If RHS is extracting REALPART_EXPR or IMAGPART_EXPR of a
+	     complex type with a known constant value, return it.  */
+	  if ((TREE_CODE (rhs) == REALPART_EXPR
+	       || TREE_CODE (rhs) == IMAGPART_EXPR)
+	      && operand_equal_p (val->mem_ref, TREE_OPERAND (rhs, 0), 0))
+	    return fold_build1 (TREE_CODE (rhs), TREE_TYPE (rhs), val->value);
+	}
+      return NULL_TREE;
     }
 
   /* Unary operators.  Note that we know the single operand must
@@ -1370,10 +1378,11 @@ execute_ssa_ccp (bool store_ccp)
 }
 
 
-static void
+static unsigned int
 do_ssa_ccp (void)
 {
   execute_ssa_ccp (false);
+  return 0;
 }
 
 
@@ -1393,22 +1402,23 @@ struct tree_opt_pass pass_ccp =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_CCP,				/* tv_id */
-  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
+  PROP_cfg | PROP_ssa /*| PROP_alias*/,	/* properties_required */
   0,					/* properties_provided */
-  0,					/* properties_destroyed */
+  PROP_smt_usage,			/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_cleanup_cfg | TODO_dump_func | TODO_update_ssa
     | TODO_ggc_collect | TODO_verify_ssa
-    | TODO_verify_stmts,		/* todo_flags_finish */
+    | TODO_verify_stmts | TODO_update_smt_usage, /* todo_flags_finish */
   0					/* letter */
 };
 
 
-static void
+static unsigned int
 do_ssa_store_ccp (void)
 {
   /* If STORE-CCP is not enabled, we just run regular CCP.  */
   execute_ssa_ccp (flag_tree_store_ccp != 0);
+  return 0;
 }
 
 static bool
@@ -1432,12 +1442,12 @@ struct tree_opt_pass pass_store_ccp =
   TV_TREE_STORE_CCP,			/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  0,					/* properties_destroyed */
+  PROP_smt_usage,			/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func | TODO_update_ssa
     | TODO_ggc_collect | TODO_verify_ssa
     | TODO_cleanup_cfg
-    | TODO_verify_stmts,		/* todo_flags_finish */
+    | TODO_verify_stmts | TODO_update_smt_usage, /* todo_flags_finish */
   0					/* letter */
 };
 
@@ -2344,6 +2354,40 @@ fold_stmt (tree *stmt_p)
       callee = get_callee_fndecl (rhs);
       if (callee && DECL_BUILT_IN (callee))
 	result = ccp_fold_builtin (stmt, rhs);
+      else
+	{
+	  /* Check for resolvable OBJ_TYPE_REF.  The only sorts we can resolve
+	     here are when we've propagated the address of a decl into the
+	     object slot.  */
+	  /* ??? Should perhaps do this in fold proper.  However, doing it
+	     there requires that we create a new CALL_EXPR, and that requires
+	     copying EH region info to the new node.  Easier to just do it
+	     here where we can just smash the call operand. Also
+	     CALL_EXPR_RETURN_SLOT_OPT needs to be handled correctly and
+	     copied, fold_ternary does not have not information. */
+	  callee = TREE_OPERAND (rhs, 0);
+	  if (TREE_CODE (callee) == OBJ_TYPE_REF
+	      && lang_hooks.fold_obj_type_ref
+	      && TREE_CODE (OBJ_TYPE_REF_OBJECT (callee)) == ADDR_EXPR
+	      && DECL_P (TREE_OPERAND
+			 (OBJ_TYPE_REF_OBJECT (callee), 0)))
+	    {
+	      tree t;
+
+	      /* ??? Caution: Broken ADDR_EXPR semantics means that
+		 looking at the type of the operand of the addr_expr
+		 can yield an array type.  See silly exception in
+		 check_pointer_types_r.  */
+
+	      t = TREE_TYPE (TREE_TYPE (OBJ_TYPE_REF_OBJECT (callee)));
+	      t = lang_hooks.fold_obj_type_ref (callee, t);
+	      if (t)
+		{
+		  TREE_OPERAND (rhs, 0) = t;
+		  changed = true;
+		}
+	    }
+	}
     }
 
   /* If we couldn't fold the RHS, hand over to the generic fold routines.  */
@@ -2429,7 +2473,7 @@ convert_to_gimple_builtin (block_stmt_iterator *si_p, tree expr)
 /* A simple pass that attempts to fold all builtin functions.  This pass
    is run after we've propagated as many constants as we can.  */
 
-static void
+static unsigned int
 execute_fold_all_builtins (void)
 {
   bool cfg_changed = false;
@@ -2521,6 +2565,7 @@ execute_fold_all_builtins (void)
   /* Delete unreachable blocks.  */
   if (cfg_changed)
     cleanup_tree_cfg ();
+  return 0;
 }
 
 

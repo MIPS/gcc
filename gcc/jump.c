@@ -104,7 +104,7 @@ rebuild_jump_labels (rtx f)
    This simple pass moves barriers and removes duplicates so that the
    old code is happy.
  */
-void
+unsigned int
 cleanup_barriers (void)
 {
   rtx insn, next, prev;
@@ -120,6 +120,7 @@ cleanup_barriers (void)
 	    reorder_insns (insn, insn, prev);
 	}
     }
+  return 0;
 }
 
 struct tree_opt_pass pass_cleanup_barriers =
@@ -139,7 +140,7 @@ struct tree_opt_pass pass_cleanup_barriers =
   0                                     /* letter */
 };
 
-void
+unsigned int
 purge_line_number_notes (void)
 {
   rtx last_note = 0;
@@ -175,6 +176,7 @@ purge_line_number_notes (void)
 	    last_note = insn;
 	  }
       }
+  return 0;
 }
 
 struct tree_opt_pass pass_purge_lineno_notes =
@@ -1039,8 +1041,7 @@ sets_cc0_p (rtx x)
    If the chain loops or we can't find end, return LABEL,
    since that tells caller to avoid changing the insn.
 
-   If RELOAD_COMPLETED is 0, we do not chain across a NOTE_INSN_LOOP_BEG or
-   a USE or CLOBBER.  */
+   If RELOAD_COMPLETED is 0, we do not chain across a USE or CLOBBER.  */
 
 rtx
 follow_jumps (rtx label)
@@ -1061,19 +1062,15 @@ follow_jumps (rtx label)
 	&& BARRIER_P (next));
        depth++)
     {
-      /* Don't chain through the insn that jumps into a loop
-	 from outside the loop,
-	 since that would create multiple loop entry jumps
-	 and prevent loop optimization.  */
       rtx tem;
-      if (!reload_completed)
-	for (tem = value; tem != insn; tem = NEXT_INSN (tem))
-	  if (NOTE_P (tem)
-	      && (NOTE_LINE_NUMBER (tem) == NOTE_INSN_LOOP_BEG
-		  /* ??? Optional.  Disables some optimizations, but makes
-		     gcov output more accurate with -O.  */
-		  || (flag_test_coverage && NOTE_LINE_NUMBER (tem) > 0)))
-	    return value;
+      if (!reload_completed && flag_test_coverage)
+	{
+	  /* ??? Optional.  Disables some optimizations, but makes
+	     gcov output more accurate with -O.  */
+	  for (tem = value; tem != insn; tem = NEXT_INSN (tem))
+	    if (NOTE_P (tem) && NOTE_LINE_NUMBER (tem) > 0)
+	      return value;
+	}
 
       /* If we have found a cycle, make the insn jump to itself.  */
       if (JUMP_LABEL (insn) == label)

@@ -187,18 +187,18 @@ gen_insn (rtx insn, int insn_code_number)
    exist and be NULL, or not yet exist within the vector.  In the latter
    case the vector is enlarged as appropriate.  */
 static void
-VEC_safe_set_locstr (VEC(locstr,heap) *v, unsigned int ix, char *str)
+VEC_safe_set_locstr (VEC(locstr,heap) **vp, unsigned int ix, char *str)
 {
-  if (ix < VEC_length (locstr, v))
+  if (ix < VEC_length (locstr, *vp))
     {
-      gcc_assert (VEC_index (locstr, v, ix) == 0);
-      VEC_replace (locstr, v, ix, str);
+      gcc_assert (VEC_index (locstr, *vp, ix) == 0);
+      VEC_replace (locstr, *vp, ix, str);
     }
   else
     {
-      while (ix > VEC_length (locstr, v))
-	VEC_safe_push (locstr,heap, v, 0);
-      VEC_safe_push (locstr,heap, v, str);
+      while (ix > VEC_length (locstr, *vp))
+	VEC_safe_push (locstr, heap, *vp, 0);
+      VEC_safe_push (locstr, heap, *vp, str);
     }
 }
 
@@ -208,7 +208,7 @@ static char *
 VEC_char_to_string (VEC(char,heap) *v)
 {
   size_t n = VEC_length (char, v);
-  char *s = xmalloc (n + 1);
+  char *s = XNEWVEC (char, n + 1);
   memcpy (s, VEC_address (char, v), n);
   s[n] = '\0';
   return s;
@@ -235,13 +235,13 @@ walk_rtx (rtx x, struct accum_extract *acc)
 
     case MATCH_OPERAND:
     case MATCH_SCRATCH:
-      VEC_safe_set_locstr (acc->oplocs, XINT (x, 0),
+      VEC_safe_set_locstr (&acc->oplocs, XINT (x, 0),
 			   VEC_char_to_string (acc->pathstr));
       break;
 
     case MATCH_OPERATOR:
     case MATCH_PARALLEL:
-      VEC_safe_set_locstr (acc->oplocs, XINT (x, 0),
+      VEC_safe_set_locstr (&acc->oplocs, XINT (x, 0),
 			   VEC_char_to_string (acc->pathstr));
 
       base = (code == MATCH_OPERATOR ? '0' : 'a');
@@ -419,7 +419,7 @@ main (int argc, char **argv)
 
       else if (GET_CODE (desc) == DEFINE_PEEPHOLE)
 	{
-	  struct code_ptr *link = xmalloc (sizeof (struct code_ptr));
+	  struct code_ptr *link = XNEW (struct code_ptr);
 
 	  link->insn_code = insn_code_number;
 	  link->next = peepholes;

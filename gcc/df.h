@@ -211,7 +211,12 @@ enum df_ref_flags
     DF_REF_IN_NOTE = 16,
 
     /* This flag is set if this ref is really a clobber, and not a def.  */
-    DF_REF_CLOBBER = 32
+    DF_REF_CLOBBER = 32,
+
+    /* True if ref is dead (i.e. the next ref is a def or clobber or
+       the end of the function.)  This is only valid the RI problem
+       has been set in this df instance.  */
+    DF_REF_DIES_AFTER_THIS_USE = 64
   };
 
 
@@ -223,7 +228,10 @@ struct df_ref
   rtx reg;			/* The register referenced.  */
   unsigned int regno;           /* The register number referenced.  */
   basic_block bb;               /* Basic block containing the instruction. */
-  rtx insn;			/* Insn containing ref.  NB: THIS MAY BE NULL.  */
+
+  /* Insn containing ref. This will be null if this is an artificial
+     reference.  */
+  rtx insn;
   rtx *loc;			/* The location of the reg.  */
   struct df_link *chain;	/* Head of def-use, use-def.  */
   unsigned int id;		/* Location in table.  */
@@ -263,7 +271,7 @@ struct df_ref_info
   unsigned int bitmap_size;	/* Number of refs seen.  */
 
   /* True if refs table is organized so that every reference for a
-     pseudo is contigious.  */
+     pseudo is contiguous.  */
   bool refs_organized;
   /* True if the next refs should be added immediately or false to
      defer to later to reorganize the table.  */
@@ -316,6 +324,7 @@ struct df
   struct df_insn_info **insns;   /* Insn table, indexed by insn UID.  */
   unsigned int insns_size;       /* Size of insn table.  */
   bitmap hardware_regs_used;     /* The set of hardware registers used.  */
+  bitmap entry_block_defs;       /* The set of hardware registers live on entry to the function.  */
   bitmap exit_block_uses;        /* The set of hardware registers used in exit block.  */
 };
 
@@ -386,7 +395,7 @@ struct df
 
 /* Macros to access the register information from scan dataflow record.  */
 
-#define DF_REG_SIZE(DF) ((DF)->def_info.regs_size)
+#define DF_REG_SIZE(DF) ((DF)->def_info.regs_inited)
 #define DF_REG_DEF_GET(DF, REG) ((DF)->def_info.regs[(REG)])
 #define DF_REG_DEF_SET(DF, REG, VAL) ((DF)->def_info.regs[(REG)]=(VAL))
 #define DF_REG_USE_GET(DF, REG) ((DF)->use_info.regs[(REG)])
@@ -421,8 +430,6 @@ extern bitmap df_invalidated_by_call;
 
 /* Initialize ur_in and ur_out as if all hard registers were partially
 available.  */
-
-extern bitmap df_all_hard_regs;
 
 /* The way that registers are processed, especially hard registers,
    changes as the compilation proceeds. These states are passed to
