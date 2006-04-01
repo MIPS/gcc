@@ -1,6 +1,11 @@
 2006-03-31 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4494634
+	* objc-act.c (objc_build_string_object): Call build1 directly.
+
+2006-03-31 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4494634
 	* objc-act.c (objc_build_string_object): Suppress strict-alias
 	warning when converting to type 'id'.
 

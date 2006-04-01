@@ -2862,19 +2862,7 @@ objc_build_string_object (tree string)
   constructor = (*targetm.construct_objc_string) (string);
   /* APPLE LOCAL begin radar 4494634 */
   if (constructor)
-    {
-      /* We must type-cast 'struct __builtin_CFString*' to type of a CFString which
-	 is an object of type 'id'. This however, results in the -fstrict-aliasing
-         warning. Object of type 'struct __builtin_CFString' is a read-only object 
-	 and its fields are not user-referenced (neither is the sole field in the 'id'
-	 object).  So, it is safe to turn-off the warning for this case. */ 
-      tree string_object_tree;
-      int save_warn_strict_aliasing = warn_strict_aliasing;
-      warn_strict_aliasing = 0;
-      string_object_tree =  build_c_cast (objc_object_type, constructor);
-      warn_strict_aliasing = save_warn_strict_aliasing;
-      return string_object_tree;
-    }
+    return build1 (NOP_EXPR, objc_object_type, constructor);
   /* APPLE LOCAL end radar 4494634 */
   /* APPLE LOCAL end constant cfstrings */  
     
