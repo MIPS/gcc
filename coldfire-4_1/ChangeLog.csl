@@ -1,3 +1,9 @@
+2006-04-01  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/uclinux.h (STARTFILE_SPEC): Reinstate defintion.
+	(END_SPEC): Likewise.
+	(LINK_SPEC): Make -elf2flt the default.
+
 2006-03-31  Richard Sandiford  <richard@codesourcery.com>
 
 	* config/no-executables.m4 (GCC_TRY_COMPILE_OR_LINK): New function.
