@@ -1,3 +1,41 @@
+2006-04-02  Paul Brook  <paul@codesourcery.com>
+
+	Backport form mainline.
+	* gcc/testsuite/gcc.c-torture/execute/loop-ivopts-3.c: New test.
+
+	2006-01-14  Zdenek Dvorak <dvorakz@suse.cz>
+	* gcc/tree-ssa-loop-niter.c (number_of_iterations_cond): Split into
+	several functions.
+	(number_of_iterations_ne, number_of_iterations_lt_to_ne,
+	assert_no_overflow_lt, assert_loop_rolls_lt, number_of_iterations_lt,
+	number_of_iterations_le): New functions.
+	(number_of_iterations_special): Removed.
+	(number_of_iterations_exit): Do not use number_of_iterations_special.
+	* gcc/tree.c (unsigned_type_for): Always return integer type.
+	* gcc/testsuite/gcc.dg/tree-ssa/pr19210-1.c: Update outcome.
+	Add new test loop.
+	* gcc/testsuite/gcc.dg/tree-ssa/pr19210-2.c: Ditto.
+
+	2005-01-06  Zdenek Dvorak <dvorakz@suse.cz>
+	PR tree-optimization/18527
+	* gcc/tree-ssa-loop-niter.c (number_of_iterations_cond,
+	number_of_iterations_special, number_of_iterations_exit):
+	Move base and step of an iv to a single structure.  Add
+	no_overflow flag, and use it in # of iterations analysis.
+	* gcc/tree-scalar-evolution.c (analyze_scalar_evolution_in_loop): Add
+	folded_casts argument.
+	(simple_iv): Pass base and step in a structure.  Set no_overflow
+	flag.
+	(scev_const_prop): Add argument to analyze_scalar_evolution_in_loop.
+	Evaluate expensiveness of computing # of iterations instead of
+	the final expression.
+	* gcc/tree-scalar-evolution.h (affine_iv): New structure.
+	(simple_iv): Declaration changed.
+	* gcc/tree-chrec.c (chrec_apply): Handle chrecs containing symbols.
+	* gcc/tree-ssa-loop-ivopts.c (determine_biv_step,
+	find_givs_in_stmt_scev, find_givs_in_stmt): Changed due to simple_iv
+	change.
+
 2006-03-30  Mark Mitchell  <mark@codesourcery.com>
 
 	* libiberty/cygpath.c (fopen): Allocate MAX_PATH + 1 bytes for the
