@@ -294,9 +294,9 @@ LSYM(Lad_l):
 	rsble	ip, r2, #32
 	lsl	xh, xh, r2
 #if defined(__thumb2__)
-	lsr	yl, xl, ip
+	lsr	ip, xl, ip
 	itt	le
-	orrle	xh, xh, yl
+	orrle	xh, xh, ip
 #else
 	orrle	xh, xh, xl, lsr ip
 #endif

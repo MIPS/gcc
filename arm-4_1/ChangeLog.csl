@@ -1,5 +1,9 @@
 2006-04-02  Paul Brook  <paul@codesourcery.com>
 
+	* gcc/config/arm/ieee754-df.S (adddf3): Avoid clobbering yl.
+
+2006-04-02  Paul Brook  <paul@codesourcery.com>
+
 	Merge from csl/sourcerygxx-4_1
 	* gcc/testsuite/gcc.c-torture/execute/loop-ivopts-3.c: New test.
 
