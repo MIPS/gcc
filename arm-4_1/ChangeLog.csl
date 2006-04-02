@@ -1,5 +1,101 @@
 2006-04-02  Paul Brook  <paul@codesourcery.com>
 
+	Merge from csl/sourcerygxx-4_1
+	* gcc/testsuite/gcc.c-torture/execute/loop-ivopts-3.c: New test.
+
+	2006-01-14  Zdenek Dvorak <dvorakz@suse.cz>
+	* gcc/tree-ssa-loop-niter.c (number_of_iterations_cond): Split into
+	several functions.
+	(number_of_iterations_ne, number_of_iterations_lt_to_ne,
+	assert_no_overflow_lt, assert_loop_rolls_lt, number_of_iterations_lt,
+	number_of_iterations_le): New functions.
+	(number_of_iterations_special): Removed.
+	(number_of_iterations_exit): Do not use number_of_iterations_special.
+	* gcc/tree.c (unsigned_type_for): Always return integer type.
+	* gcc/testsuite/gcc.dg/tree-ssa/pr19210-1.c: Update outcome.
+	Add new test loop.
+	* gcc/testsuite/gcc.dg/tree-ssa/pr19210-2.c: Ditto.
+
+	2005-01-06  Zdenek Dvorak <dvorakz@suse.cz>
+	PR tree-optimization/18527
+	* gcc/tree-ssa-loop-niter.c (number_of_iterations_cond,
+	number_of_iterations_special, number_of_iterations_exit):
+	Move base and step of an iv to a single structure.  Add
+	no_overflow flag, and use it in # of iterations analysis.
+	* gcc/tree-scalar-evolution.c (analyze_scalar_evolution_in_loop): Add
+	folded_casts argument.
+	(simple_iv): Pass base and step in a structure.  Set no_overflow
+	flag.
+	(scev_const_prop): Add argument to analyze_scalar_evolution_in_loop.
+	Evaluate expensiveness of computing # of iterations instead of
+	the final expression.
+	* gcc/tree-scalar-evolution.h (affine_iv): New structure.
+	(simple_iv): Declaration changed.
+	* gcc/tree-chrec.c (chrec_apply): Handle chrecs containing symbols.
+	* gcc/tree-ssa-loop-ivopts.c (determine_biv_step,
+	find_givs_in_stmt_scev, find_givs_in_stmt): Changed due to simple_iv
+	change.
+
+	2006-03-30  Mark Mitchell  <mark@codesourcery.com>
+	* libiberty/cygpath.c (fopen): Allocate MAX_PATH + 1 bytes for the
+	filename. 
+	(open): Likewise.
+	(stat): Likewise.
+	(access): Likewise.
+
+	2006-03-30  Mark Mitchell <mark@codesourcery.com>
+	* libiberty/configure.ac: Add cygpath for mingw hosts.
+	* libiberty.configure: Rebuilt.
+	* libiberty/Makefile.in: Add cygpath.
+	* libiberty/cygpath.c: New.
+
+	2006-03-28  Paul Brook  <paul@codesourcery.com>
+	PR middle-end/23623
+	* gcc/targhooks.c (default_narrow_bitfield): New fuction.
+	* gcc/targhooks.h (default_narrow_bitfield): add prototype.
+	* gcc/target-def.h (TARGET_NARROW_VOLATILE_BITFIELD): Define.
+	* gcc/doc/tm.texi: Document TARGET_NARROW_VOLATILE_BITFIELDS.
+	* gcc/config/arm/arm.c (TARGET_NARROW_VOLATILE_BITFIELD): Define.
+
+	2006-03-28  Paul Brook  <paul@codesourcery.com>
+	* gcc/reload1.c (choose_reload_regs): Check for all RTX_AUTOINC
+	operators.
+	(inc_for_reload): Handle PRE_MODIFY and POST_MODIFY addresses.
+
+	2006-03-27  Jim Blandy	<jimb@codesourcery.com>
+	* include/libiberty.h (pex_write_input): New declaration.
+
+	* libiberty/pex-common.c (pex_write_input): New function.
+	* libiberty/pexecute.txh (pex_write_input): Document it.
+	* libiberty/pex-common.h (struct pex_funcs): New function ptr fdopenw.
+	* libiberty/pex-unix.c (pex_unix_fdopenw): New function.
+	(funcs): List it as our fdopenw function.
+	* libiberty/pex-win32.c (pex_win32_fdopenw): New function.
+	(funcs): List it as our fdopenw function.
+	* libiberty/pex-djgpp.c (funcs): Leave fdopenw null.
+	* libiberty/pex-msdos (funcs): Same.
+	* libiberty/functions.texi: Regenerated.
+
+	* libiberty/pex-common.h (struct pex_obj): Doc fixes.
+
+	* libiberty/functions.texi: Regenerate.
+
+	2006-03-27  Mark Mitchell  <mark@codesourcery.com>
+	* libiberty/pex-win32.c (pex_win32_exec_child): Close stdout/stderr
+	in parent.
+
+	2006-03-24  Mark Mitchell  <mark@codesourcery.com>
+            Joseph S. Myers  <joseph@codesourcery.com>
+	PR libstdc++/20448
+	PR libstdc++/20451
+	* libstdc++-v3/scripts/testsuite_flags.in (--cxxflags): Don't
+	define LOCALEDIR.
+	* libstdc++-v3/testsuite/lib/libstdc++.exp (libstdc++_init):
+	Always define LOCALEDIR to ".".
+	(v3-build_support): Build MO files.
+
+2006-04-02  Paul Brook  <paul@codesourcery.com>
+
 	* gcc/config/arm/arm.c (arm_file_start): Output additional object
 	attribute directives.
 
