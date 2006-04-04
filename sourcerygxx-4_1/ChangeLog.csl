@@ -1,3 +1,12 @@
+2006-04-04  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/struct-parse-1.c: New test case.
+
+	2006-03-31  Nathan Sidwell  <nathan@codesourcery.com>
+	* stor-layout.c: Place invalid field at the current end of
+	the structure or start of union, to maintain placement
+	invariants.
+
 2006-04-02  Paul Brook  <paul@codesourcery.com>
 
 	Backport form mainline.
