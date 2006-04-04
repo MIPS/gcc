@@ -1,3 +1,8 @@
+2006-04-04  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/config/m68k/m68k.h (PREFERRED_STACK_BOUNDARY): Define to 32
+	for Coldfire targets.
+
 2006-04-01  Richard Sandiford  <richard@codesourcery.com>
 
 	* gcc/config/m68k/uclinux.h (STARTFILE_SPEC): Reinstate defintion.

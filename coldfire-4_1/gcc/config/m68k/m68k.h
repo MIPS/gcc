@@ -254,6 +254,8 @@ Boston, MA 02110-1301, USA.  */
 #define STACK_BOUNDARY 16
 #define FUNCTION_BOUNDARY 16
 #define EMPTY_FIELD_BOUNDARY 16
+/* Coldfire strongly prefers a 32-bit aligned stack.  */
+#define PREFERRED_STACK_BOUNDARY (m68k_arch_coldfire ? 32 : 16)
 
 /* No data type wants to be aligned rounder than this.
    Most published ABIs say that ints should be aligned on 16 bit
