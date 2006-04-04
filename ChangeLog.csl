@@ -1,3 +1,7 @@
+2006-04-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/soft-fp: Update license notices.
+
 2006-03-17  Joseph Myers  <joseph@codesourcery.com>
 
 	Backport:
