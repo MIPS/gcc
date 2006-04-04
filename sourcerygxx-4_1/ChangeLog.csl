@@ -3,7 +3,7 @@
 	* gcc/testsuite/gcc.dg/struct-parse-1.c: New test case.
 
 	2006-03-31  Nathan Sidwell  <nathan@codesourcery.com>
-	* stor-layout.c: Place invalid field at the current end of
+	* gcc/stor-layout.c: Place invalid field at the current end of
 	the structure or start of union, to maintain placement
 	invariants.
 
