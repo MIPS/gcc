@@ -3920,7 +3920,7 @@ rest_of_handle_if_conversion (void)
   if (flag_if_conversion)
     {
       if (dump_file)
-        dump_flow_info (dump_file);
+        dump_flow_info (dump_file, dump_flags);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       reg_scan (get_insns (), max_reg_num ());
       if_convert (0);

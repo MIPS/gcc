@@ -1,3 +1,89 @@
+2006-02-19  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	* io/open.c (edit_modes): Correct abusive copy-pasting.
+
+2006-02-16  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24903
+	* m4/dotprodc.m4: Use __builtin_conj instead of assigning real
+	and imaginary parts separately.
+	* generated/dotprod_c4.c: Regenerated.
+	* generated/dotprod_c8.c: Regenerated.
+	* generated/dotprod_c10.c: Regenerated.
+	* generated/dotprod_c16.c: Regenerated.
+
+2006-02-12  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libgfortran/25949
+	* io/io.h: Add set function pointer to struct stream.  
+	* io/unix.c (fd_seek): Only update offset, don't seek.
+	(fd_sset): New function.
+	(fd_read): Call lseek directly if necessary.
+	(fd_write): Likewise.
+	(fd_open): Set pointer to fd_sset.
+	(mem_set): New function.
+	(open_internal): Set pointer to mem_set.
+	* io/transfer.c (write_block_direct): Rename to write_buf, add
+	error return, non-pointer length argument.
+	(unformatted_write): Update to use write_buf.
+	(us_write): Simplify by using swrite instead of salloc_w.
+	(write_us_marker): New function.
+	(new_record_w): Use sset instead of memset, use write_us_marker,
+	simplify by using swrite instead of salloc_w.
+
+2006-02-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/25425
+	* libgfortran.h: Add pedantic field to compile_options struct.
+	* io/write.c (calculate_G_format): Depending on the standard,
+	choose E or F format for list-directed output of 0.0.
+	* runtime/error.c (notify_std): Make warning and error dependent
+	on pedanticity.
+	* runtime/compile_options.c (set_std): Use new pedantic argument.
+
+2006-02-07  Dale Ranta  <dir@lanl.gov>
+
+	PR fortran/25577
+	* intrinsics/mvbits.c: Shift '(TYPE)1' type when building 'lenmask'.
+
+2006-02-07  Rainer Emrich <r.emrich@de.tecosim.com>
+
+	* intrinsics/c99_functions.c: Work around incompatible
+	declarations of cabs{,f,l} on pre-C99 IRIX systems.
+
+2005-02-06  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR libfortran/23815
+	* runtime/environ.c (init_unformatted):  Add GFORTRAN_CONVERT_UNIT
+	environment variable.
+	(top level):  Add defines, type and static variables for
+	GFORTRAN_CONVERT_UNIT handling.
+	(search_unit):  New function.
+	(match_word): New function.
+	(match_integer): New function.
+	(next_token): New function.
+	(push_token): New function.
+	(mark_single): New function.
+	(mark_range): New funciton.
+	(do_parse): New function.
+	(init_unformatted): New function.
+	(get_unformatted_convert): New function.
+	* runtime/compile_options.c:  Add set_convert().
+	* libgfortran.h:  Add convert to compile_options_t.
+	* io/open.c (st_open): Call get_unformatted_convert to get
+	unit default; if CONVERT_NONE is returned, check for
+	the presence of a CONVERT specifier and use it.
+	As default, use compile_options.convert.
+	* io/io.h (top level): Add CONVERT_NONE to unit_convert, to signal
+	"nothing has been set".
+	(top level): Add prototype for get_unformatted_convert.
+
+2006-02-06  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR libfortran/24685
+	* io/write.c (write_real): Widen the default format for real(10)
+	variables output.
+
 2006-01-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libgfortran/25835

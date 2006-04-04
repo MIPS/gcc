@@ -40,6 +40,7 @@ Boston, MA 02110-1301, USA.  */
 
 static tree cp_convert_to_pointer (tree, tree, bool);
 static tree convert_to_pointer_force (tree, tree);
+static tree build_type_conversion (tree, tree);
 static tree build_up_reference (tree, tree, int, tree);
 static void warn_ref_binding (tree, tree, tree);
 
@@ -280,7 +281,7 @@ cp_convert_to_pointer (tree type, tree expr, bool force)
     }
 
   if (type_unknown_p (expr))
-    return instantiate_type (type, expr, tf_warn_or_error);
+    return instantiate_type (type, expr, tf_warning_or_error);
 
   error ("cannot convert %qE from type %qT to type %qT",
 	 expr, intype, type);
@@ -364,7 +365,7 @@ build_up_reference (tree type, tree arg, int flags, tree decl)
 
       /* Process the initializer for the declaration.  */
       DECL_INITIAL (arg) = targ;
-      cp_finish_decl (arg, targ, NULL_TREE,
+      cp_finish_decl (arg, targ, /*init_const_expr_p=*/false, NULL_TREE,
 		      LOOKUP_ONLYCONVERTING|DIRECT_BIND);
     }
   else if (!(flags & DIRECT_BIND) && ! lvalue_p (arg))
@@ -451,7 +452,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
       && TREE_TYPE (expr) == unknown_type_node)
     expr = instantiate_type (type, expr,
 			     (flags & LOOKUP_COMPLAIN)
-			     ? tf_warn_or_error : tf_none);
+			     ? tf_warning_or_error : tf_none);
 
   if (expr == error_mark_node)
     return error_mark_node;
@@ -1035,7 +1036,7 @@ convert_force (tree type, tree expr, int convtype)
    that doesn't do it.  This will probably wait for an overloading rewrite.
    (jason 8/9/95)  */
 
-tree
+static tree
 build_type_conversion (tree xtype, tree expr)
 {
   /* C++: check to see if we can convert this aggregate type

@@ -76,7 +76,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "cgraph.h"
 #include "coverage.h"
-#include "df.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -3942,12 +3941,6 @@ rest_of_handle_final (void)
   if (! quiet_flag)
     fflush (asm_out_file);
 
-  /* Release all memory allocated by df.  */
-  if (rtl_df)
-    {
-      df_finish (rtl_df);
-      rtl_df = NULL;
-    }
   /* Write DBX symbols if requested.  */
 
   /* Note that for those inline functions where we don't initially
@@ -4035,6 +4028,9 @@ rest_of_clean_state (void)
   epilogue_completed = 0;
   flow2_completed = 0;
   no_new_pseudos = 0;
+#ifdef STACK_REGS
+  regstack_completed = 0;
+#endif
 
   /* Clear out the insn_length contents now that they are no
      longer valid.  */
@@ -4043,13 +4039,7 @@ rest_of_clean_state (void)
   /* Show no temporary slots allocated.  */
   init_temp_slots ();
 
-  if (rtl_df)
-    {
-      df_finish (rtl_df);
-      rtl_df = NULL;
-    }
   free_bb_for_insn ();
-
 
   if (targetm.binds_local_p (current_function_decl))
     {

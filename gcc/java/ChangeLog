@@ -1,3 +1,37 @@
+2006-02-15  Andrew Haley  <aph@redhat.com>
+
+	* class.c (GEN_TABLE): Don't pushdecl *_SYMS_DECL here.
+	(make_class_data): pushdecl_top_level TYPE_OTABLE_SYMS_DECL,
+	TYPE_ATABLE_SYMS_DECL, TYPE_ITABLE_SYMS_DECL here.
+
+2006-02-09  Andrew Haley  <aph@redhat.com>
+
+	PR java/26192
+	* expr.c (expand_invoke): Allow methods in arrays to be resolved
+	in their superclass.
+
+	* typeck.c (build_java_array_type): Generate TYPE_STUB_DECLs for
+	array types.
+	
+2006-02-08  Tom Tromey  <tromey@redhat.com>
+
+	PR java/22578:
+	* check-init.c (check_init): Handle VIEW_CONVERT_EXPR.
+	* builtins.c (convert_real): New function.
+	(java_builtins): Handle Float.intBitsToFloat,
+	Float.floatToRawIntBits, Double.longBitsToDouble,
+	Double.doubleToRawLongBits.
+
+2006-02-07  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (expand_invoke): (BC mode.)  If we find a method in a
+	class other than the one in which we expected to find it, ignore
+	the result.
+
+	PR java/25535
+	* constants.c (build_constants_constructor): move initializer into
+	first halfword on a 64-bit big-endian machine.
+ 
 2006-02-04  Tom Tromey  <tromey@redhat.com>
 
 	PR java/25676:

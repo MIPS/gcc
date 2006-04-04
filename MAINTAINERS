@@ -113,7 +113,12 @@ Ada front end		Geert Bosch		bosch@gnat.com
 Ada front end		Robert Dewar		dewar@gnat.com
 Ada front end		Arnaud Charlet		charlet@act-europe.fr
 fortran 95		Paul Brook		paul@codesourcery.com
+fortran 95		Thomas Koenig		Thomas.Koenig@online.de
 fortran 95		Toon Moene		toon@moene.indiv.nluug.nl
+fortran 95		Jerry DeLisle		jvdelisle@gcc.gnu.org
+fortran 95		François-Xavier Coudert	coudert@clipper.ens.fr
+fortran 95              Bud Davis               jmdavis@link.com
+fortran 95		Steve Kargl		sgk@troutmask.apl.washington.edu
 c++			Jason Merrill		jason@redhat.com
 c++                     Mark Mitchell		mark@codesourcery.com
 c++			Nathan Sidwell		nathan@codesourcery.com
@@ -232,11 +237,8 @@ William Cohen					wcohen@redhat.com
 Josh Conner					jconner@apple.com
 R. Kelley Cook					kcook@gcc.gnu.org
 Christian Cornelssen				ccorn@cs.tu-berlin.de
-François-Xavier Coudert				coudert@clipper.ens.fr
 Ian Dall					ian@beware.dropbear.id.au
 David Daney					ddaney@avtrex.com
-Bud Davis					bdavis9659@comcast.net
-Jerry DeLisle					jvdelisle@verizon.net
 Zdenek Dvorak					dvorakz@suse.cz
 Erik Edelmann                                   erik.edelmann@iki.fi
 Steve Ellcey					sje@cup.hp.com
@@ -266,15 +268,15 @@ Daniel Jacobowitz				dan@debian.org
 Andreas Jaeger					aj@suse.de
 Fariborz Jahanian				fjahanian@apple.com
 Klaus Kaempf					kkaempf@progis.de
-Steve Kargl					sgk@troutmask.apl.washington.edu
+Victor Kaplansky				victork@il.ibm.com
 Brendan Kehoe					brendan@zen.org
 Mumit Khan					khan@xraylith.wisc.edu
 Matthias Klose					doko@debian.org
 Jeff Knaggs					jknaggs@redhat.com
 Michael Koch					konqueror@gmx.de
-Thomas Koenig					Thomas.Koenig@online.de
 Matt Kraai					kraai@ftbfs.org
 Andreas Krebbel					krebbel1@de.ibm.com
+Maxim Kuvyrkov					mkuvyrkov@ispras.ru
 Scott Robert Ladd				scott.ladd@coyotegulch.com
 Razya Ladelsky					razya@gcc.gnu.org
 Aaron W. LaFramboise				aaronavay62@aaronwl.com

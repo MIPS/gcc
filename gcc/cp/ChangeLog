@@ -1,3 +1,156 @@
+2006-02-20 Rafael Ávila de Espíndola <rafael.espindola@gmail.com>
+	* Make-lang.in (C++): Remove
+	(.PHONY): Remove C++
+
+2006-02-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26266
+	* cp-tree.h (cp_finish_decl): Adjust declaration.
+	(grokbitfield): Likewise.
+	(finish_static_data_member_decl): Likewise.
+	* init.c (constant_value_1): Ensure processing_template_decl when
+	folding non-dependent initializers for static data members of
+	dependent types.  Return error_mark_node for erroneous
+	initailizers.
+	* class.c (get_vtable_decl): Use finish_decl, not cp_finish_decl.
+	* decl.c (cp_make_fname_decl): Adjust call to cp_finish_decl.
+	(cp_finish_decl): Add init_const_expr_p parameter.  Set
+	DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P here.
+	(finish_decl): Adjust call to cp_finish_decl.
+	(compute_array_index_type): Robustify.
+	(start_method): Use finish_decl, not cp_finish_decl.
+	* rtti.c (emit_tinfo_decl): Likewise.
+	* except.c (initialize_handler_parm): Adjust call to
+	cp_finish_decl.
+	(expand_start_catch_block): Likewise.
+	* cvt.c (build_up_reference): Adjust call to cp_finish_decl.
+	* pt.c (instantiate_class_template): Adjust call to
+	finish_static_data_member_decl.
+	(tsubst_expr): Use finish_decl, not cp_finish_decl.
+	(instantiate_decl): Adjust call to cp_finish_decl.
+	* name-lookup.c (pushdecl_top_level_1): Use finish_decl, not
+	cp_finish_decl.
+	* decl2.c (finish_static_data_member_decl): Add init_const_expr_p
+	parameter.
+	(grokfield): Likewise.
+	* parser.c (cp_parser_condition): Check for constant initializers.
+	(cp_parser_init_declarator): Adjust calls to grokfield and
+	cp_finish_decl.  Don't set
+	DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P here.
+	(cp_parser_member_declaration): Likewise.
+	(cp_parser_objc_class_ivars): Likewise.
+
+2006-02-14  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* call.c (standard_conversion): Return NULL instead of 0.
+	(build_user_type_conversion_1): Likewise.
+	(tourney): Likewise.
+	* decl.c (redeclaration_error_message): Likewise.
+	* error.c (language_to_string): Likewise.
+
+2006-02-13  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* cp-tree.h (warn_hidden): Remove prototype.
+	* class.c (warn_hidden): Make static.
+
+	* cp-tree.h (build_type_conversion): Remove prototype.
+	* cvt.c (build_type_conversion): Add prototype, make static.
+
+	* cp-tree.h (push_tinst_level): Remove prototype.
+	(pop_tinst_level): Likewise.
+	* pt.c (push_tinst_level): Add prototype, make static.
+	(pop_tinst_level): Likewise.
+
+2006-02-13  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* decl.c (grokdeclarator): Return NULL_TREE instead of 0.
+	* typeck.c (unary_complex_lvalue): Likewise.
+
+2006-02-13  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* lex.c (parse_strconst_pragma): Return error_mark_node instead of
+	"(tree)-1" to indicate failure.  Simplify.
+	(handle_pragma_interface): Test for error_mark_node instead of
+	"(tree)-1".
+	(handle_pragma_implementation): Likewise.
+
+2006-02-13  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26151
+	* parser.c (cp_parser_decl_specifier_seq): Check for duplicate
+	decl-specifiers.  Remove extra check for duplicate 'friend'.
+	* decl.c (grokdeclarator): Remove check for duplicate
+	decl-specifiers.  Set longlong together with long_p.
+
+2006-02-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/24996
+	* except.c (build_throw): Add a CLEANUP_POINT_EXPR inside the 
+	TRY_CATCH_EXPR or MUST_NOT_THROW_EXPR.
+
+2006-02-10  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* class.c (debug_class): Remove extern.
+	(debug_thunks): Likewise.
+
+2006-02-09  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* typeck.c (string_conv_p): Don't test for flag_const_strings.
+
+2006-02-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/25979
+	* cp-gimplify.c (cp_gimplify_expr): Don't call
+	cp_gimplify_init_expr for MODIFY_EXPRs.
+	* typeck2.c (split_nonconstant_init_1): Use INIT_EXPR.
+
+2006-02-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26071
+	* decl.c (grokdeclarator): Set dname also for destructor.
+
+	PR c++/26070
+	* decl.c (grokdeclarator): Clear storage_class together with staticp.
+
+2006-02-07  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cp-tree.h (tf_warning_or_error): Renamed from tf_warn_or_error.
+	(cp_build_qualified_type): Propogate renaming.
+	* call.c (convert_like_real): Likewise.
+	* cvt.c (cp_convert_to_pointer, convert_to_reference): Likewise.
+	* decl.c (make_typename_type, grokdeclarator): Likewise.
+	* pt.c (tsubst_friend_function, instantiate_class_template,
+	tsubst_default_argument, instantiate_decl,
+	tsubst_initializer_list, tsubst_enum): Likewise.
+	* semantics.c (finish_template_type): Likewise.
+	* typeck.c (build_ptrmemfunc, convert_for_assignment): Likewise.
+
+2006-02-07  Dirk Mueller  <dmueller@suse.com>
+
+	* typeck.c (build_binary_op): Annotate div-by-zero
+	warnings to make -Wno-div-by-zero have an effect.
+
+2006-02-07  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9737
+	* pt.c (coerce_template_template_parms): Do not templates with
+	excess default arguments to match template template parameters
+	with fewer parameters.
+	(coerce_template_parms): Add use_default_args parameter; use
+	default arguments only when true.
+	(lookup_template_class): Adjust call to coerce_template_parms.
+	(fn_type_unification): Likewise.
+	(unify): Likewise.
+	(get_bindings): Likewise.
+	(dependent_type_p): Add assertions.
+
+2006-02-06  Roger Sayle  <roger@eyesopen.com>
+
+	* decl.c (grokdeclarator): Don't bother checking for CHAR_TYPE.
+	* rtti.c (typeinfo_in_lib_p): Likewise.
+	* cp-tree.h (INTEGRAL_CODE_P, CP_INTEGRAL_TYPE_P): Likewise.
+	* name-lookup.c (arg_assoc_type): Likewise.
+
 2006-02-04  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* cp-tree.h (tf_warn_or_error): New substituion flag.

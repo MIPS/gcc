@@ -584,6 +584,19 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 	  && XEXP (op, 1) == const1_rtx
 	  && nonzero_bits (XEXP (op, 0), mode) == 1)
 	return plus_constant (XEXP (op, 0), -1);
+
+      /* (neg (lt x 0)) is (ashiftrt X C) if STORE_FLAG_VALUE is 1.  */
+      /* (neg (lt x 0)) is (lshiftrt X C) if STORE_FLAG_VALUE is -1.  */
+      if (GET_CODE (op) == LT
+	  && XEXP (op, 1) == const0_rtx)
+	{
+	  if (STORE_FLAG_VALUE == 1)
+	    return simplify_gen_binary (ASHIFTRT, mode, XEXP (op, 0),
+					GEN_INT (GET_MODE_BITSIZE (mode) - 1));
+	  else if (STORE_FLAG_VALUE == -1)
+	    return simplify_gen_binary (LSHIFTRT, mode, XEXP (op, 0),
+					GEN_INT (GET_MODE_BITSIZE (mode) - 1));
+	}
       break;
 
     case TRUNCATE:
@@ -609,12 +622,13 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 	return simplify_gen_unary (GET_CODE (op), mode,
 				   XEXP (XEXP (op, 0), 0), mode);
 
-      /* (truncate:SI (subreg:DI (truncate:SI X) 0)) is
-	 (truncate:SI x).  */
+      /* (truncate:A (subreg:B (truncate:C X) 0)) is
+	 (truncate:A X).  */
       if (GET_CODE (op) == SUBREG
 	  && GET_CODE (SUBREG_REG (op)) == TRUNCATE
 	  && subreg_lowpart_p (op))
-	return SUBREG_REG (op);
+	return simplify_gen_unary (TRUNCATE, mode, XEXP (SUBREG_REG (op), 0),
+				   GET_MODE (XEXP (SUBREG_REG (op), 0)));
 
       /* If we know that the value is already truncated, we can
          replace the TRUNCATE with a SUBREG if TRULY_NOOP_TRUNCATION
@@ -4424,6 +4438,14 @@ simplify_subreg (enum machine_mode outermode, rtx op,
         return gen_rtx_SUBREG (outermode, SUBREG_REG (op), final_offset);
       return NULL_RTX;
     }
+
+  /* Merge implicit and explicit truncations.  */
+
+  if (GET_CODE (op) == TRUNCATE
+      && GET_MODE_SIZE (outermode) < GET_MODE_SIZE (innermode)
+      && subreg_lowpart_offset (outermode, innermode) == byte)
+    return simplify_gen_unary (TRUNCATE, outermode, XEXP (op, 0),
+			       GET_MODE (XEXP (op, 0)));
 
   /* SUBREG of a hard register => just change the register number
      and/or mode.  If the hard register is not valid in that mode,

@@ -741,7 +741,7 @@ get_vtable_decl (tree type, int complete)
   if (complete)
     {
       DECL_EXTERNAL (decl) = 1;
-      cp_finish_decl (decl, NULL_TREE, NULL_TREE, 0);
+      finish_decl (decl, NULL_TREE, NULL_TREE);
     }
 
   return decl;
@@ -2349,7 +2349,7 @@ check_for_override (tree decl, tree ctype)
 /* Warn about hidden virtual functions that are not overridden in t.
    We know that constructors and destructors don't apply.  */
 
-void
+static void
 warn_hidden (tree t)
 {
   VEC(tree,gc) *method_vec = CLASSTYPE_METHOD_VEC (t);
@@ -6514,7 +6514,7 @@ dump_class_hierarchy_1 (FILE *stream, int flags, tree t)
 
 /* Debug interface to hierarchy dumping.  */
 
-extern void
+void
 debug_class (tree t)
 {
   dump_class_hierarchy_1 (stderr, TDF_SLIM, t);
@@ -6644,7 +6644,7 @@ dump_thunk (FILE *stream, int indent, tree thunk)
 
 /* Dump the thunks for FN.  */
 
-extern void
+void
 debug_thunks (tree fn)
 {
   dump_thunk (stderr, 0, fn);

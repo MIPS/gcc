@@ -531,6 +531,10 @@ fipa-pure-const
 Common Report Var(flag_ipa_pure_const) Init(0)
 Discover pure and const functions
 
+fipa-pta
+Common Report Var(flag_ipa_pta) Init(0)
+Perform interprocedural points-to analysis
+
 fipa-reference
 Common Report Var(flag_ipa_reference) Init(0)
 Discover readonly and non addressable static variables
@@ -563,10 +567,6 @@ floop-optimize
 Common Report Var(flag_loop_optimize)
 Perform loop optimizations
 
-floop-optimize2
-Common Report Var(flag_loop_optimize2)
-Perform loop optimizations using the new loop optimizer
-
 fmath-errno
 Common Report Var(flag_errno_math) Init(1)
 Set errno after built-in math functions
@@ -595,7 +595,7 @@ Common Report Var(flag_modulo_sched)
 Perform SMS based modulo scheduling before the first scheduling pass
 
 fmove-loop-invariants
-Common Report Var(flag_move_loop_invariants)
+Common Report Var(flag_move_loop_invariants) Init(1)
 Move loop invariant computations out of loops
 
 fmudflap
@@ -675,7 +675,11 @@ Common Report Var(flag_pie,1) VarExists
 Generate position-independent code for executables if possible (small mode)
 
 fprefetch-loop-arrays
-Common Report Var(flag_prefetch_loop_arrays)
+Common Report Var(flag_prefetch_loop_arrays,1)
+Generate prefetch instructions, if available, for arrays in loops
+
+fprefetch-loop-arrays-rtl
+Common Report Var(flag_prefetch_loop_arrays,2)
 Generate prefetch instructions, if available, for arrays in loops
 
 fprofile
@@ -798,6 +802,10 @@ Set dependence distance checking in premature scheduling of queued insns
 fsched-stalled-insns-dep=
 Common RejectNegative Joined UInteger
 -fsched-stalled-insns-dep=<number>	Set dependence distance checking in premature scheduling of queued insns
+
+fsection-anchors
+Common Report Var(flag_section_anchors)
+Access data in the same section from shared anchor points
 
 frtl-abstract-sequences
 Common Report Var(flag_rtl_seqabstr)

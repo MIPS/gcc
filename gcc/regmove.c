@@ -76,12 +76,12 @@ static void flags_set_1 (rtx, rtx, void *);
 static int try_auto_increment (rtx, rtx, rtx, rtx, HOST_WIDE_INT, int);
 static int find_matches (rtx, struct match *);
 static void replace_in_call_usage (rtx *, unsigned int, rtx, rtx);
-static int fixup_match_1 (rtx, rtx, rtx, rtx, rtx, int, int, int, FILE *);
+static int fixup_match_1 (rtx, rtx, rtx, rtx, rtx, int, int, int);
 static int reg_is_remote_constant_p (rtx, rtx, rtx);
 static int stable_and_no_regs_but_for_p (rtx, rtx, rtx);
 static int regclass_compatible_p (int, int);
 static int replacement_quality (rtx);
-static int fixup_match_2 (rtx, rtx, rtx, rtx, FILE *);
+static int fixup_match_2 (rtx, rtx, rtx, rtx);
 
 /* Return nonzero if registers with CLASS1 and CLASS2 can be merged without
    causing too much register allocation problems.  */
@@ -915,7 +915,7 @@ reg_is_remote_constant_p (rtx reg, rtx insn, rtx first)
    hard register as ultimate source, like the frame pointer.  */
 
 static int
-fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset, FILE *regmove_dump_file)
+fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset)
 {
   rtx p, dst_death = 0;
   int length, num_calls = 0;
@@ -964,8 +964,8 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset, FILE *regmove_dump_file)
 		  REG_N_CALLS_CROSSED (REGNO (dst)) += num_calls;
 		}
 
-	      if (regmove_dump_file)
-		fprintf (regmove_dump_file,
+	      if (dump_file)
+		fprintf (dump_file,
 			 "Fixed operand of insn %d.\n",
 			  INSN_UID (insn));
 
@@ -1037,7 +1037,7 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset, FILE *regmove_dump_file)
    (or 0 if none should be output).  */
 
 static void
-regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
+regmove_optimize (rtx f, int nregs)
 {
   int old_max_uid = get_max_uid ();
   rtx insn;
@@ -1071,8 +1071,8 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
       if (! flag_regmove && pass >= flag_expensive_optimizations)
 	goto done;
 
-      if (regmove_dump_file)
-	fprintf (regmove_dump_file, "Starting %s pass...\n",
+      if (dump_file)
+	fprintf (dump_file, "Starting %s pass...\n",
 		 pass ? "backward" : "forward");
 
       for (insn = pass ? get_last_insn () : f; insn;
@@ -1208,8 +1208,7 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 		continue;
 
 	      if (fixup_match_1 (insn, set, src, src_subreg, dst, pass,
-				 op_no, match_no,
-				 regmove_dump_file))
+				 op_no, match_no))
 		break;
 	    }
 	}
@@ -1217,8 +1216,8 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 
   /* A backward pass.  Replace input operands with output operands.  */
 
-  if (regmove_dump_file)
-    fprintf (regmove_dump_file, "Starting backward pass...\n");
+  if (dump_file)
+    fprintf (dump_file, "Starting backward pass...\n");
 
   for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
     {
@@ -1307,8 +1306,7 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 		      && GET_CODE (XEXP (SET_SRC (set), 1)) == CONST_INT
 		      && XEXP (SET_SRC (set), 0) == src
 		      && fixup_match_2 (insn, dst, src,
-					XEXP (SET_SRC (set), 1),
-					regmove_dump_file))
+					XEXP (SET_SRC (set), 1)))
 		    break;
 		  continue;
 		}
@@ -1367,8 +1365,8 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 		}
 
 
-	      if (regmove_dump_file)
-		fprintf (regmove_dump_file,
+	      if (dump_file)
+		fprintf (dump_file,
 			 "Could fix operand %d of insn %d matching operand %d.\n",
 			 op_no, INSN_UID (insn), match_no);
 
@@ -1471,8 +1469,8 @@ regmove_optimize (rtx f, int nregs, FILE *regmove_dump_file)
 			REG_LIVE_LENGTH (srcno) = 2;
 		    }
 
-		  if (regmove_dump_file)
-		    fprintf (regmove_dump_file,
+		  if (dump_file)
+		    fprintf (dump_file,
 			     "Fixed operand %d of insn %d matching operand %d.\n",
 			     op_no, INSN_UID (insn), match_no);
 
@@ -1642,8 +1640,7 @@ replace_in_call_usage (rtx *loc, unsigned int dst_reg, rtx src, rtx insn)
 
 static int
 fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
-	       int backward, int operand_number, int match_number,
-	       FILE *regmove_dump_file)
+	       int backward, int operand_number, int match_number)
 {
   rtx p;
   rtx post_inc = 0, post_inc_set = 0, search_end = 0;
@@ -1678,8 +1675,8 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
 	code = NOTE;
     }
 
-  if (regmove_dump_file)
-    fprintf (regmove_dump_file,
+  if (dump_file)
+    fprintf (dump_file,
 	     "Could fix operand %d of insn %d matching operand %d.\n",
 	     operand_number, INSN_UID (insn), match_number);
 
@@ -2019,8 +2016,8 @@ fixup_match_1 (rtx insn, rtx set, rtx src, rtx src_subreg, rtx dst,
       if (REG_LIVE_LENGTH (REGNO (dst)) < 2)
 	REG_LIVE_LENGTH (REGNO (dst)) = 2;
     }
-  if (regmove_dump_file)
-    fprintf (regmove_dump_file,
+  if (dump_file)
+    fprintf (dump_file,
 	     "Fixed operand %d of insn %d matching operand %d.\n",
 	     operand_number, INSN_UID (insn), match_number);
   return 1;
@@ -2475,7 +2472,7 @@ gate_handle_regmove (void)
 static void
 rest_of_handle_regmove (void)
 {
-  regmove_optimize (get_insns (), max_reg_num (), dump_file);
+  regmove_optimize (get_insns (), max_reg_num ());
   cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
 }
 
@@ -2507,7 +2504,7 @@ gate_handle_stack_adjustments (void)
 static void
 rest_of_handle_stack_adjustments (void)
 {
-  life_analysis (dump_file, PROP_POSTRELOAD);
+  life_analysis (PROP_POSTRELOAD);
   cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
                | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 

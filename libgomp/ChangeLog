@@ -1,3 +1,40 @@
+2006-02-17  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR bootstrap/26161
+	* configure.ac: Remove AC_CHECK_HEADER for pthread.h. Add comment
+	for the other pthread check.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+
+2006-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/25938
+	PR libgomp/25984
+	* Makefile.am (fincludedir): New variable.
+	(nodist_include_HEADERS): Remove Fortran files.
+	(nodist_finclude_HEADERS): New variable.
+	* Makefile.in: Regenerated.
+
+2006-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.fortran/vla7.f90: Add -w to options.
+	Remove tests for returning assumed character length arrays.
+
+2006-02-12  Roger Sayle  <roger@eyesopen.com>
+	    John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	PR libgomp/25936
+	* configure.tgt: Link against -lrt for sem_init on HPUX v11 systems.
+ 
+2006-02-08  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* testsuite/lib/libgomp-dg.exp: Load scanrtl.exp library.
+
+2006-02-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* testsuite/lib/libgomp-dg.exp (libgomp_init): Compute multilib related
+	part of LD_LIBRARY_PATH manually.
+
 2006-02-03  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR libgomp/25852

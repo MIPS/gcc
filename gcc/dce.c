@@ -34,9 +34,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "tree-pass.h"
 
-DEF_VEC_P(rtx);
-DEF_VEC_ALLOC_P(rtx,heap);
-
 DEF_VEC_I(int);
 DEF_VEC_ALLOC_I(int,heap);
 
@@ -200,13 +197,26 @@ prescan_insns_for_dce (bool fast)
 static void
 init_dce (bool fast)
 {
-  dce_df = df_init (DF_HARD_REGS);
   if (fast)
-    df_lr_add_problem (dce_df);
+    {
+      if (rtl_df)
+	{
+	  dce_df = rtl_df;
+	  df_analyze (dce_df);
+	}
+      else
+	{
+	  dce_df = df_init (DF_HARD_REGS);
+	  df_lr_add_problem (dce_df);
+	  df_analyze (dce_df);
+	}
+    }
   else
-    df_chain_add_problem (dce_df, DF_UD_CHAIN);
-
-  df_analyze (dce_df);
+    {
+      dce_df = df_init (DF_HARD_REGS);
+      df_chain_add_problem (dce_df, DF_UD_CHAIN);
+      df_analyze (dce_df);
+    }
 
   marked = BITMAP_ALLOC (NULL);
   marked_libcalls = BITMAP_ALLOC (NULL);
@@ -387,6 +397,22 @@ struct tree_opt_pass pass_rtl_dce =
    Fast DCE functions
    ------------------------------------------------------------------------- */
 
+
+/* Free the data allocated by init_dce.  */
+
+static void
+end_fast_dce (void)
+{
+  BITMAP_FREE (marked);
+
+  if (rtl_df)
+    dce_df = NULL;
+  else
+    df_finish (dce_df);
+  dce_df = NULL;
+}
+
+
 /* Process basic block BB.  Return true if the live_in set has
    changed.  */
 
@@ -415,7 +441,8 @@ dce_process_block (struct dataflow * dflow, basic_block bb, bool redo_out)
   /* Process the artificial defs and uses at the bottom of the block.  */
   for (def = df_get_artificial_defs (dce_df, bb_index); 
        def; def = def->next_ref)
-    if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
+    if (((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
+	&& (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL)))
       bitmap_clear_bit (local_live, DF_REF_REGNO (def));
 
   for (use = df_get_artificial_uses (dce_df, bb_index); 
@@ -441,12 +468,13 @@ dce_process_block (struct dataflow * dflow, basic_block bb, bool redo_out)
 	      mark_insn (insn, true);
 	  }
 	
-	/* No matter if the instruction is needed or not, we
-	   remove any regno in the defs from the live set.  */
+	/* No matter if the instruction is needed or not, we remove
+	   any regno in the defs from the live set.  */
 	for (def = DF_INSN_GET (dce_df, insn)->defs; def; def = def->next_ref)
 	  {
 	    unsigned int regno = DF_REF_REGNO (def);
-	    bitmap_clear_bit (local_live, regno);
+	    if (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL))
+	      bitmap_clear_bit (local_live, regno);
 	  }
 	if (marked_insn_p (insn))
 	  for (use = DF_INSN_GET (dce_df, insn)->uses; 
@@ -458,7 +486,8 @@ dce_process_block (struct dataflow * dflow, basic_block bb, bool redo_out)
       }
   
   for (def = df_get_artificial_defs (dce_df, bb_index); def; def = def->next_ref)
-    if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+    if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP)
+	&& (!(DF_REF_FLAGS (def) & DF_REF_PARTIAL)))
       bitmap_clear_bit (local_live, DF_REF_REGNO (def));
 
 #ifdef EH_USES
@@ -488,8 +517,13 @@ rest_of_handle_fast_dce (void)
 {
   int *postorder = xmalloc (sizeof (int) *last_basic_block);
   int i;
+  /* The set of blocks that have been seen on this iteration.  */
   bitmap processed = BITMAP_ALLOC (NULL);
+  /* The set of blocks that will have to be rescaned because some
+     instructions were deleted.  */
   bitmap changed = BITMAP_ALLOC (NULL);
+  /* The set of blocks that need to have the out vectors reset because
+     the in of one of their successors has changed.  */
   bitmap redo_out = BITMAP_ALLOC (NULL);
   bitmap all_blocks = BITMAP_ALLOC (NULL);
   struct dataflow *dflow;
@@ -549,6 +583,8 @@ rest_of_handle_fast_dce (void)
 	     the cheap.  */
 	  delete_unmarked_insns ();
 	  bitmap_clear (marked);
+	  bitmap_clear (processed);
+	  bitmap_clear (redo_out);
 	  
 	  /* We do not need to rescan any instructions.  We only need
 	     to redo the dataflow equations for the blocks that had a
@@ -556,6 +592,7 @@ rest_of_handle_fast_dce (void)
 	     iteration.  */ 
 	  df_analyze_problem (dflow, all_blocks, all_blocks, 
 			      changed, postorder, n_blocks, false);
+	  bitmap_clear (changed);
 	  prescan_insns_for_dce (true);
 	}
       loop_count++;
@@ -567,7 +604,7 @@ rest_of_handle_fast_dce (void)
   BITMAP_FREE (changed);
   BITMAP_FREE (redo_out);
   BITMAP_FREE (all_blocks);
-  end_dce ();
+  end_fast_dce ();
 }
 
 
@@ -1483,7 +1520,6 @@ prescan_insns_for_dse (void)
 	{
 	  if (INSN_P (insn))
 	    {
-	      PUT_MODE (insn, VOIDmode);
 	      if (!deletable_insn_p (insn))
 		mark_insn (insn, false);
 	      else

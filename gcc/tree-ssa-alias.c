@@ -392,6 +392,12 @@ set_initial_properties (struct alias_info *ai)
     }
 }
 
+/* This variable is set to true if we are updating the used alone
+   information for TMT's, or are in a pass that is going to break it
+   temporarily.  */
+
+bool updating_used_alone;
+
 /* Compute which variables need to be marked call clobbered because
    their tag is call clobbered, and which tags need to be marked
    global because they contain global variables.  */
@@ -415,6 +421,76 @@ compute_call_clobbered (struct alias_info *ai)
   VEC_free (tree, heap, worklist);
   VEC_free (int, heap, worklist2);
   compute_tag_properties ();
+}
+
+
+/* Recalculate the used_alone information for TMT's . */
+void 
+recalculate_used_alone (void)
+{
+  VEC (tree, heap) *calls = NULL;
+  block_stmt_iterator bsi;
+  basic_block bb;
+  tree stmt;
+  size_t i;
+  referenced_var_iterator rvi;
+  tree var;
+  
+  /* First, reset all the TMT used alone bits to zero.  */
+  updating_used_alone = true;
+  FOR_EACH_REFERENCED_VAR (var, rvi)
+    if (TREE_CODE (var) == TYPE_MEMORY_TAG)
+      TMT_USED_ALONE (var) = 0;
+
+  /* Walk all the statements.
+     Calls get put into a list of statements to update, since we will
+     need to update operands on them if we make any changes.
+     If we see a bare use of a TMT anywhere in a real virtual use or virtual
+     def, mark the TMT as used alone, and for renaming.  */
+     
+     
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  stmt = bsi_stmt (bsi);
+	  if (TREE_CODE (stmt) == CALL_EXPR
+	      || (TREE_CODE (stmt) == MODIFY_EXPR 
+		  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
+	    VEC_safe_push (tree, heap, calls, stmt);
+	  else
+	    {
+	      ssa_op_iter iter;
+	      
+	      FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, 
+					 SSA_OP_VUSE | SSA_OP_VIRTUAL_DEFS)
+		{
+		  tree svar = var;
+		  
+		  if(TREE_CODE (var) == SSA_NAME)
+		    svar = SSA_NAME_VAR (var);
+		  
+		  if (TREE_CODE (svar) == TYPE_MEMORY_TAG)
+		    {
+		      if (!TMT_USED_ALONE (svar))
+			{
+			  TMT_USED_ALONE (svar) = true;
+			  mark_sym_for_renaming (svar);
+			}
+		    }
+		}
+	    }	           
+	}
+    }
+  
+  /* Update the operands on all the calls we saw.  */
+  if (calls)
+    {
+      for (i = 0; VEC_iterate (tree, calls, i, stmt); i++)
+	update_stmt (stmt);
+    }
+  VEC_free (tree, heap, calls);
+  updating_used_alone = false;
 }
 
 /* Compute may-alias information for every variable referenced in function
@@ -585,6 +661,7 @@ compute_may_aliases (void)
   /* Deallocate memory used by aliasing data structures.  */
   delete_alias_info (ai);
 
+  updating_used_alone = true;
   {
     block_stmt_iterator bsi;
     basic_block bb;
@@ -596,8 +673,10 @@ compute_may_aliases (void)
           }
       }
   }
-
+  recalculate_used_alone ();
+  updating_used_alone = false;
 }
+
 
 struct tree_opt_pass pass_may_alias = 
 {
@@ -766,7 +845,7 @@ init_alias_info (void)
 	{
 	  var_ann_t ann = var_ann (var);
 	  
-	  ann->is_alias_tag = 0;
+	  ann->is_aliased = 0;
 	  ann->may_aliases = NULL;
 	  NUM_REFERENCES_CLEAR (ann);
 
@@ -1209,7 +1288,7 @@ group_aliases_into (tree tag, bitmap tag_aliases, struct alias_info *ai)
       var_ann_t ann = var_ann (var);
 
       /* Make TAG the unique alias of VAR.  */
-      ann->is_alias_tag = 0;
+      ann->is_aliased = 0;
       ann->may_aliases = NULL;
 
       /* Note that VAR and TAG may be the same if the function has no
@@ -1849,7 +1928,7 @@ add_may_alias (tree var, tree alias)
       return;
 
   VEC_safe_push (tree, gc, v_ann->may_aliases, alias);
-  a_ann->is_alias_tag = 1;
+  a_ann->is_aliased = 1;
 }
 
 
@@ -2061,8 +2140,7 @@ get_tmt_for (tree ptr, struct alias_info *ai)
     {
       struct alias_map_d *curr = ai->pointers[i];
       tree curr_tag = var_ann (curr->var)->type_mem_tag;
-      if (tag_set == curr->set
-	  && TYPE_READONLY (tag_type) == TYPE_READONLY (TREE_TYPE (curr_tag)))
+      if (tag_set == curr->set)
 	{
 	  tag = curr_tag;
 	  break;
@@ -2098,10 +2176,6 @@ get_tmt_for (tree ptr, struct alias_info *ai)
   /* Make sure that the type tag has the same alias set as the
      pointed-to type.  */
   gcc_assert (tag_set == get_alias_set (tag));
-
-  /* If PTR's pointed-to type is read-only, then TAG's type must also
-     be read-only.  */
-  gcc_assert (TYPE_READONLY (tag_type) == TYPE_READONLY (TREE_TYPE (tag)));
 
   return tag;
 }
@@ -2459,7 +2533,7 @@ is_aliased_with (tree tag, tree sym)
   VEC(tree,gc) *aliases;
   tree al;
 
-  if (var_ann (sym)->is_alias_tag)
+  if (var_ann (sym)->is_aliased)
     {
       aliases = var_ann (tag)->may_aliases;
 
@@ -2749,11 +2823,12 @@ get_or_create_used_part_for (size_t uid)
 }
 
 
-/* Create and return a structure sub-variable for field type FIELD of
-   variable VAR.  */
+/* Create and return a structure sub-variable for field type FIELD at
+   offset OFFSET, with size SIZE, of variable VAR.  */
 
 static tree
-create_sft (tree var, tree field)
+create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
+	    unsigned HOST_WIDE_INT size)
 {
   var_ann_t ann;
   tree subvar = create_tag_raw (STRUCT_FIELD_TAG, field, "SFT");
@@ -2771,7 +2846,8 @@ create_sft (tree var, tree field)
   ann->type_mem_tag = NULL;  	
   add_referenced_tmp_var (subvar);
   SFT_PARENT_VAR (subvar) = var;
-
+  SFT_OFFSET (subvar) = offset;
+  SFT_SIZE (subvar) = size;
   return subvar;
 }
 
@@ -2882,19 +2958,17 @@ create_overlap_variables_for (tree var)
 		  && currfotype == lastfotype))
 	    continue;
 	  sv = GGC_NEW (struct subvar);
-	  sv->offset = fo->offset;
-	  sv->size = fosize;
 	  sv->next = *subvars;
-	  sv->var = create_sft (var, fo->type);
+	  sv->var = create_sft (var, fo->type, fo->offset, fosize);
 
 	  if (dump_file)
 	    {
 	      fprintf (dump_file, "structure field tag %s created for var %s",
 		       get_name (sv->var), get_name (var));
 	      fprintf (dump_file, " offset " HOST_WIDE_INT_PRINT_DEC,
-		       sv->offset);
+		       SFT_OFFSET (sv->var));
 	      fprintf (dump_file, " size " HOST_WIDE_INT_PRINT_DEC,
-		       sv->size);
+		       SFT_SIZE (sv->var));
 	      fprintf (dump_file, "\n");
 	    }
 	  

@@ -353,7 +353,7 @@ first_insn_after_basic_block_note (basic_block block)
    FLAGS is a set of PROP_* flags to be used in accumulating flow info.  */
 
 void
-life_analysis (FILE *file, int flags)
+life_analysis (int flags)
 {
 #ifdef ELIMINABLE_REGS
   int i;
@@ -432,8 +432,8 @@ life_analysis (FILE *file, int flags)
   if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     end_alias_analysis ();
 
-  if (file)
-    dump_flow_info (file);
+  if (dump_file)
+    dump_flow_info (dump_file, dump_flags);
 
   /* Removing dead insns should have made jumptables really dead.  */
   delete_dead_jumptables ();
@@ -581,12 +581,25 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   unsigned i = 0;
   int stabilized_prop_flags = prop_flags;
   basic_block bb;
+  bitmap blocks_in_bitmap = NULL;
 
   tmp = ALLOC_REG_SET (&reg_obstack);
   ndead = 0;
 
   if (prop_flags & PROP_KILL_DEAD_CODE)
-    run_fast_dce ();
+    {
+      if (blocks)
+	{
+	  sbitmap_iterator sbi;
+	  blocks_in_bitmap = BITMAP_GGC_ALLOC ();
+	  EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)
+	    {
+	      bitmap_set_bit (blocks_in_bitmap, i);
+	    }
+	  df_rescan_blocks (rtl_df, blocks_in_bitmap);
+	}
+      run_fast_dce ();
+    }
   if ((prop_flags & PROP_REG_INFO) && !reg_deaths)
     reg_deaths = XCNEWVEC (int, max_regno);
 
@@ -610,10 +623,8 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   /* For a global update, we go through the relaxation process again.  */
   if (extent != UPDATE_LIFE_LOCAL)
     {
-      bitmap blocks_in_bitmap = NULL;
       sbitmap_iterator sbi;
-
-      if (blocks)
+      if (blocks && (blocks_in_bitmap == NULL))
 	{
 	  blocks_in_bitmap = BITMAP_GGC_ALLOC ();
 	  EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)
@@ -3877,7 +3888,7 @@ recompute_reg_usage (void)
   update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO | PROP_DEATH_NOTES);
 
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
 }
 
 struct tree_opt_pass pass_recompute_reg_usage =
@@ -4098,7 +4109,7 @@ rest_of_handle_life (void)
   df_lr_add_problem (rtl_df);
   df_ur_add_problem (rtl_df);
 
-  life_analysis (dump_file, PROP_FINAL);
+  life_analysis (PROP_FINAL);
   if (optimize)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE | CLEANUP_LOG_LINKS
                  | (flag_thread_jumps ? CLEANUP_THREADING : 0));

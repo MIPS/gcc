@@ -149,12 +149,6 @@ struct subvar GTY(())
   /* Fake variable.  */
   tree var;
 
-  /* Offset inside structure.  */
-  unsigned HOST_WIDE_INT offset;
-
-  /* Size of the field.  */
-  unsigned HOST_WIDE_INT size;
-
   /* Next subvar for this structure.  */
   subvar_t next;
 };
@@ -170,10 +164,8 @@ struct var_ann_d GTY(())
   /* Used when building root_var structures in tree_ssa_live.[ch].  */
   unsigned root_var_processed : 1;
 
-  /* Nonzero if this variable is an alias tag that represents references to
-     other variables (i.e., this variable appears in the MAY_ALIASES array
-     of other variables).  */
-  unsigned is_alias_tag : 1;
+  /* Nonzero if this variable is in the alias set of another variable.  */
+  unsigned is_aliased : 1;
 
   /* Nonzero if this variable was used after SSA optimizations were
      applied.  We set this when translating out of SSA form.  */
@@ -212,7 +204,6 @@ struct var_ann_d GTY(())
      current version of this variable (an SSA_NAME).  */
   tree current_def;
   
-
   /* If this variable is a structure, this fields holds a list of
      symbols representing each of the fields of the structure.  */
   subvar_t subvars;
@@ -610,7 +601,7 @@ extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
 static inline bool var_can_have_subvars (tree);
 static inline bool overlap_subvar (unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
-				   subvar_t, bool *);
+				   tree, bool *);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
@@ -667,6 +658,17 @@ extern void replace_exp (use_operand_p, tree);
 extern bool may_propagate_copy (tree, tree);
 extern bool may_propagate_copy_into_asm (tree);
 
+/* Affine iv.  */
+
+typedef struct
+{
+  /* Iv = BASE + STEP * i.  */
+  tree base, step;
+
+  /* True if this iv does not overflow.  */
+  bool no_overflow;
+} affine_iv;
+
 /* Description of number of iterations of a loop.  All the expressions inside
    the structure can be evaluated at the end of the loop's preheader
    (and due to ssa form, also anywhere inside the body of the loop).  */
@@ -697,6 +699,15 @@ struct tree_niter_desc
 			   MAX_SIGNED_INT.  However if the (n <= 0) assumption
 			   is eliminated (by looking at the guard on entry of
 			   the loop), then the information would be lost.  */
+
+  /* The simplified shape of the exit condition.  The loop exits if
+     CONTROL CMP BOUND is false, where CMP is one of NE_EXPR,
+     LT_EXPR, or GT_EXPR, and step of CONTROL is positive if CMP is
+     LE_EXPR and negative if CMP is GE_EXPR.  This information is used
+     by loop unrolling.  */
+  affine_iv control;
+  tree bound;
+  enum tree_code cmp;
 };
 
 /* In tree-vectorizer.c */
@@ -711,6 +722,7 @@ void tree_ssa_lim (struct loops *);
 void tree_ssa_unswitch_loops (struct loops *);
 void canonicalize_induction_variables (struct loops *);
 void tree_unroll_loops_completely (struct loops *, bool);
+void tree_ssa_prefetch_arrays (struct loops *);
 void remove_empty_loops (struct loops *);
 void tree_ssa_iv_optimize (struct loops *);
 
@@ -748,6 +760,15 @@ struct loop *tree_ssa_loop_version (struct loops *, struct loop *, tree,
 tree expand_simple_operations (tree);
 void substitute_in_loop_info (struct loop *, tree, tree);
 edge single_dom_exit (struct loop *);
+bool can_unroll_loop_p (struct loop *loop, unsigned factor,
+			struct tree_niter_desc *niter);
+void tree_unroll_loop (struct loops *, struct loop *, unsigned,
+		       edge, struct tree_niter_desc *);
+
+/* In tree-ssa-threadedge.c */
+extern bool potentially_threadable_block (basic_block);
+extern void thread_across_edge (tree, edge, bool,
+				VEC(tree, heap) **, tree (*) (tree));
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */
@@ -917,4 +938,6 @@ void delete_alias_heapvars (void);
 
 void swap_tree_operands (tree, tree *, tree *);
 
+extern void recalculate_used_alone (void);
+extern bool updating_used_alone;
 #endif /* _TREE_FLOW_H  */

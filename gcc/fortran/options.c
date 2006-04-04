@@ -1,6 +1,6 @@
 /* Parse and display command line options.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -77,6 +77,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_backslash = 1;
   gfc_option.flag_cray_pointer = 0;
   gfc_option.flag_d_lines = -1;
+  gfc_option.flag_openmp = 0;
 
   gfc_option.q_kind = gfc_default_double_kind;
 
@@ -89,7 +90,7 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
     | GFC_STD_F2003 | GFC_STD_F95 | GFC_STD_F77 | GFC_STD_GNU
     | GFC_STD_LEGACY;
   gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
-    | GFC_STD_F2003 | GFC_STD_LEGACY;
+    | GFC_STD_LEGACY;
 
   gfc_option.warn_nonstd_intrinsics = 0;
 
@@ -456,6 +457,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.source_form = FORM_FREE;
       break;
 
+    case OPT_fopenmp:
+      gfc_option.flag_openmp = value;
+      break;
+
     case OPT_ffree_line_length_none:
       gfc_option.free_line_length = 0;
       break;
@@ -572,6 +577,22 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fshort_enums:
       gfc_option.fshort_enums = 1;
+      break;
+
+    case OPT_fconvert_little_endian:
+      gfc_option.convert = CONVERT_LITTLE;
+      break;
+
+    case OPT_fconvert_big_endian:
+      gfc_option.convert = CONVERT_BIG;
+      break;
+
+    case OPT_fconvert_native:
+      gfc_option.convert = CONVERT_NATIVE;
+      break;
+
+    case OPT_fconvert_swap:
+      gfc_option.convert = CONVERT_SWAP;
       break;
     }
 

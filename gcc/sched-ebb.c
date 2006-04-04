@@ -43,6 +43,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "df.h"
 
+#include "output.h"
 
 /* The number of insns to be scheduled in total.  */
 static int target_n_insns;
@@ -553,11 +554,10 @@ schedule_ebb (rtx head, rtx tail)
   return b;
 }
 
-/* The one entry point in this file.  DUMP_FILE is the dump file for
-   this pass.  */
+/* The one entry point in this file.  */
 
 void
-schedule_ebbs (FILE *dump_file)
+schedule_ebbs (void)
 {
   basic_block bb;
   int probability_cutoff;
@@ -573,7 +573,7 @@ schedule_ebbs (FILE *dump_file)
   if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return;
 
-  sched_init (dump_file);
+  sched_init ();
 
   current_sched_info = &ebb_sched_info;
 

@@ -109,6 +109,10 @@ static int *block_to_bb;
 /* The number of the region containing a block.  */
 static int *containing_rgn;
 
+/* The minimum probability of reaching a source block so that it will be
+   considered for speculative scheduling.  */
+static int min_spec_prob;
+
 #define RGN_NR_BLOCKS(rgn) (rgn_table[rgn].rgn_nr_blocks)
 #define RGN_BLOCKS(rgn) (rgn_table[rgn].rgn_blocks)
 #define BLOCK_TO_BB(block) (block_to_bb[block])
@@ -201,15 +205,9 @@ static sbitmap *dom;
 #define IS_DOMINATED(bb_src, bb_trg)                                 \
 ( TEST_BIT (dom[bb_src], bb_trg) )
 
-/* Probability: Prob[i] is a float in [0, 1] which is the probability
-   of bb i relative to the region entry.  */
-static float *prob;
-
-/* The probability of bb_src, relative to bb_trg.  Note, that while the
-   'prob[bb]' is a float in [0, 1], this macro returns an integer
-   in [0, 100].  */
-#define GET_SRC_PROB(bb_src, bb_trg) ((int) (100.0 * (prob[bb_src] / \
-						      prob[bb_trg])))
+/* Probability: Prob[i] is an int in [0, REG_BR_PROB_BASE] which is
+   the probability of bb i relative to the region entry.  */
+static int *prob;
 
 /* Bit-set of edges, where bit i stands for edge i.  */
 typedef sbitmap edgeset;
@@ -888,24 +886,27 @@ find_rgns (void)
 static void
 compute_dom_prob_ps (int bb)
 {
-  int pred_bb;
-  int nr_out_edges, nr_rgn_out_edges;
-  edge_iterator in_ei, out_ei;
-  edge in_edge, out_edge;
+  edge_iterator in_ei;
+  edge in_edge;
 
-  prob[bb] = 0.0;
   if (IS_RGN_ENTRY (bb))
     {
       SET_BIT (dom[bb], 0);
-      prob[bb] = 1.0;
+      prob[bb] = REG_BR_PROB_BASE;
       return;
     }
+
+  prob[bb] = 0;
 
   /* Initialize dom[bb] to '111..1'.  */
   sbitmap_ones (dom[bb]);
 
   FOR_EACH_EDGE (in_edge, in_ei, BASIC_BLOCK (BB_TO_BLOCK (bb))->preds)
     {
+      int pred_bb;
+      edge out_edge;
+      edge_iterator out_ei;
+
       if (in_edge->src == ENTRY_BLOCK_PTR)
 	continue;
 
@@ -918,30 +919,10 @@ compute_dom_prob_ps (int bb)
 
       sbitmap_a_or_b (pot_split[bb], pot_split[bb], pot_split[pred_bb]);
 
-      nr_out_edges = 0;
-      nr_rgn_out_edges = 0;
-
       FOR_EACH_EDGE (out_edge, out_ei, in_edge->src->succs)
-	{
-	  ++nr_out_edges;
+	SET_BIT (pot_split[bb], EDGE_TO_BIT (out_edge));
 
-	  /* The successor doesn't belong in the region?  */
-	  if (out_edge->dest != EXIT_BLOCK_PTR
-	      && CONTAINING_RGN (out_edge->dest->index)
-		 != CONTAINING_RGN (BB_TO_BLOCK (bb)))
-	    ++nr_rgn_out_edges;
-
-	  SET_BIT (pot_split[bb], EDGE_TO_BIT (out_edge));
-	}
-
-      /* Now nr_rgn_out_edges is the number of region-exit edges from
-         pred, and nr_out_edges will be the number of pred out edges
-         not leaving the region.  */
-      nr_out_edges -= nr_rgn_out_edges;
-      if (nr_rgn_out_edges > 0)
-	prob[bb] += 0.9 * prob[pred_bb] / nr_out_edges;
-      else
-	prob[bb] += prob[pred_bb] / nr_out_edges;
+      prob[bb] += ((prob[pred_bb] * in_edge->probability) / REG_BR_PROB_BASE);
     }
 
   SET_BIT (dom[bb], bb);
@@ -949,7 +930,7 @@ compute_dom_prob_ps (int bb)
 
   if (sched_verbose >= 2)
     fprintf (sched_dump, ";;  bb_prob(%d, %d) = %3d\n", bb, BB_TO_BLOCK (bb),
-	     (int) (100.0 * prob[bb]));
+	     (100 * prob[bb]) / REG_BR_PROB_BASE);
 }
 
 /* Functions for target info.  */
@@ -987,7 +968,7 @@ compute_trg_info (int trg)
   sp = candidate_table + trg;
   sp->is_valid = 1;
   sp->is_speculative = 0;
-  sp->src_prob = 100;
+  sp->src_prob = REG_BR_PROB_BASE;
 
   visited = sbitmap_alloc (last_basic_block);
 
@@ -998,8 +979,11 @@ compute_trg_info (int trg)
       sp->is_valid = IS_DOMINATED (i, trg);
       if (sp->is_valid)
 	{
-	  sp->src_prob = GET_SRC_PROB (i, trg);
-	  sp->is_valid = (sp->src_prob >= PARAM_VALUE (PARAM_MIN_SPEC_PROB));
+	  int tf = prob[trg], cf = prob[i];
+
+	  /* In CFGs with low probability edges TF can possibly be zero.  */
+	  sp->src_prob = (tf ? ((cf * REG_BR_PROB_BASE) / tf) : 0);
+	  sp->is_valid = (sp->src_prob >= min_spec_prob);
 	}
 
       if (sp->is_valid)
@@ -2290,7 +2274,7 @@ schedule_region (int rgn)
   /* Compute interblock info: probabilities, split-edges, dominators, etc.  */
   if (current_nr_blocks > 1)
     {
-      prob = XNEWVEC (float, current_nr_blocks);
+      prob = XNEWVEC (int, current_nr_blocks);
 
       dom = sbitmap_vector_alloc (current_nr_blocks, current_nr_blocks);
       sbitmap_vector_zero (dom, current_nr_blocks);
@@ -2467,11 +2451,10 @@ init_regions (void)
   count_or_remove_death_notes (NULL, 1);
 }
 
-/* The one entry point in this file.  DUMP_FILE is the dump file for
-   this pass.  */
+/* The one entry point in this file.  */
 
 void
-schedule_insns (FILE *dump_file)
+schedule_insns (void)
 {
   int rgn;
 
@@ -2482,7 +2465,10 @@ schedule_insns (FILE *dump_file)
 
   nr_inter = 0;
   nr_spec = 0;
-  sched_init (dump_file);
+  sched_init ();
+
+  min_spec_prob = ((PARAM_VALUE (PARAM_MIN_SPEC_PROB) * REG_BR_PROB_BASE)
+		    / 100);
 
   init_regions ();
 
@@ -2563,7 +2549,7 @@ rest_of_handle_sched (void)
   /* Do control and data sched analysis,
      and write some of the results to dump file.  */
 
-  schedule_insns (dump_file);
+  schedule_insns ();
 #endif
 }
 
@@ -2589,14 +2575,14 @@ rest_of_handle_sched2 (void)
 
   if (flag_sched2_use_superblocks || flag_sched2_use_traces)
     {
-      schedule_ebbs (dump_file);
+      schedule_ebbs ();
       /* No liveness updating code yet, but it should be easy to do.
          reg-stack recomputes the liveness when needed for now.  */
       count_or_remove_death_notes (NULL, 1);
       cleanup_cfg (CLEANUP_EXPENSIVE);
     }
   else
-    schedule_insns (dump_file);
+    schedule_insns ();
 
 #endif
 }

@@ -2821,6 +2821,8 @@ legitimize_pic_address (rtx orig, rtx reg)
   rtx new = orig;
   rtx base;
 
+  gcc_assert (!TLS_SYMBOLIC_CONST (addr));
+
   if (GET_CODE (addr) == LABEL_REF
       || (GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_LOCAL_P (addr)))
     {
@@ -2973,6 +2975,10 @@ legitimize_pic_address (rtx orig, rtx reg)
       if (GET_CODE (addr) == PLUS)
 	{
 	  rtx op0 = XEXP (addr, 0), op1 = XEXP (addr, 1);
+
+	  gcc_assert (!TLS_SYMBOLIC_CONST (op0));
+	  gcc_assert (!TLS_SYMBOLIC_CONST (op1));
+
 	  /* Check first to see if this is a constant offset
              from a local symbol reference.  */
 	  if ((GET_CODE (op0) == LABEL_REF
@@ -3344,6 +3350,12 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 
       if (legitimate_address_p (mode, x, FALSE))
 	return x;
+    }
+  else if (GET_CODE (x) == PLUS
+	   && (TLS_SYMBOLIC_CONST (XEXP (x, 0)) 
+	       || TLS_SYMBOLIC_CONST (XEXP (x, 1))))
+    {
+      return x;
     }
   else if (flag_pic)
     {
@@ -4292,6 +4304,21 @@ s390_output_dwarf_dtprel (FILE *file, int size, rtx x)
   output_addr_const (file, x);
   fputs ("@DTPOFF", file);
 }
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+
+static const char *
+s390_mangle_fundamental_type (tree type)
+{
+  if (TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_LONG_DOUBLE_128)
+    return "g";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+#endif
 
 /* In the name of slightly smaller debug output, and to cater to
    general assembler lossage, recognize various UNSPEC sequences
@@ -9183,6 +9210,11 @@ s390_reorg (void)
 #ifdef HAVE_AS_TLS
 #undef TARGET_ASM_OUTPUT_DWARF_DTPREL
 #define TARGET_ASM_OUTPUT_DWARF_DTPREL s390_output_dwarf_dtprel
+#endif
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE s390_mangle_fundamental_type
 #endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;

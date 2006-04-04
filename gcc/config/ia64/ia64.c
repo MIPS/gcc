@@ -3817,7 +3817,7 @@ hfa_element_mode (tree type, bool nested)
   switch (code)
     {
     case VOID_TYPE:	case INTEGER_TYPE:	case ENUMERAL_TYPE:
-    case BOOLEAN_TYPE:	case CHAR_TYPE:		case POINTER_TYPE:
+    case BOOLEAN_TYPE:	case POINTER_TYPE:
     case OFFSET_TYPE:	case REFERENCE_TYPE:	case METHOD_TYPE:
     case LANG_TYPE:		case FUNCTION_TYPE:
       return VOIDmode;
@@ -7797,7 +7797,7 @@ ia64_reorg (void)
 	  _1mfb_ = get_cpu_unit_code ("1b_1mfb.");
 	  _1mlx_ = get_cpu_unit_code ("1b_1mlx.");
 	}
-      schedule_ebbs (dump_file);
+      schedule_ebbs ();
       finish_bundle_states ();
       if (ia64_tune == PROCESSOR_ITANIUM)
 	{

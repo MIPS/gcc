@@ -1,6 +1,6 @@
 /* Expands front end tree to back end RTL for GCC
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -105,14 +105,13 @@ static int cost_table_initialized;
 #define COST_TABLE(I)  cost_table_[(unsigned HOST_WIDE_INT) ((I) + 1)]
 
 static int n_occurrences (int, const char *);
-static bool decl_conflicts_with_clobbers_p (tree, const HARD_REG_SET);
+static bool tree_conflicts_with_clobbers_p (tree, HARD_REG_SET *);
 static void expand_nl_goto_receiver (void);
 static bool check_operand_nalternatives (tree, tree);
 static bool check_unique_operand_names (tree, tree);
 static char *resolve_operand_name_1 (char *, tree, tree);
 static void expand_null_return_1 (void);
 static void expand_value_return (rtx);
-static void do_jump_if_equal (rtx, rtx, rtx, int);
 static int estimate_case_costs (case_node_ptr);
 static bool lshift_cheap_p (void);
 static int case_bit_test_cmp (const void *, const void *);
@@ -558,49 +557,66 @@ parse_input_constraint (const char **constraint_p, int input_num,
   return true;
 }
 
-/* Return true iff there's an overlap between REGS and DECL, where DECL
-   can be an asm-declared register.  */
+/* Return DECL iff there's an overlap between *REGS and DECL, where DECL
+   can be an asm-declared register.  Called via walk_tree.  */
 
-bool
-decl_overlaps_hard_reg_set_p (tree decl, const HARD_REG_SET regs)
+static tree
+decl_overlaps_hard_reg_set_p (tree *declp, int *walk_subtrees ATTRIBUTE_UNUSED,
+			      void *data)
 {
-  if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
-      && DECL_REGISTER (decl)
-      && REG_P (DECL_RTL (decl))
-      && REGNO (DECL_RTL (decl)) < FIRST_PSEUDO_REGISTER)
+  tree decl = *declp;
+  const HARD_REG_SET *regs = data;
+
+  if (TREE_CODE (decl) == VAR_DECL)
     {
-      rtx reg = DECL_RTL (decl);
-      unsigned int regno;
+      if (DECL_HARD_REGISTER (decl)
+	  && REG_P (DECL_RTL (decl))
+	  && REGNO (DECL_RTL (decl)) < FIRST_PSEUDO_REGISTER)
+	{
+	  rtx reg = DECL_RTL (decl);
+	  unsigned int regno;
 
-      for (regno = REGNO (reg);
-	   regno < (REGNO (reg)
-		    + hard_regno_nregs[REGNO (reg)][GET_MODE (reg)]);
-	   regno++)
-	if (TEST_HARD_REG_BIT (regs, regno))
-	  return true;
+	  for (regno = REGNO (reg);
+	       regno < (REGNO (reg)
+			+ hard_regno_nregs[REGNO (reg)][GET_MODE (reg)]);
+	       regno++)
+	    if (TEST_HARD_REG_BIT (*regs, regno))
+	      return decl;
+	}
+      walk_subtrees = 0;
     }
-
-  return false;
+  else if (TYPE_P (decl) || TREE_CODE (decl) == PARM_DECL)
+    walk_subtrees = 0;
+  return NULL_TREE;
 }
 
+/* If there is an overlap between *REGS and DECL, return the first overlap
+   found.  */
+tree
+tree_overlaps_hard_reg_set (tree decl, HARD_REG_SET *regs)
+{
+  return walk_tree (&decl, decl_overlaps_hard_reg_set_p, regs, NULL);
+}
 
 /* Check for overlap between registers marked in CLOBBERED_REGS and
-   anything inappropriate in DECL.  Emit error and return TRUE for error,
-   FALSE for ok.  */
+   anything inappropriate in T.  Emit error and return the register
+   variable definition for error, NULL_TREE for ok.  */
 
 static bool
-decl_conflicts_with_clobbers_p (tree decl, const HARD_REG_SET clobbered_regs)
+tree_conflicts_with_clobbers_p (tree t, HARD_REG_SET *clobbered_regs)
 {
   /* Conflicts between asm-declared register variables and the clobber
      list are not allowed.  */
-  if (decl_overlaps_hard_reg_set_p (decl, clobbered_regs))
+  tree overlap = tree_overlaps_hard_reg_set (t, clobbered_regs);
+
+  if (overlap)
     {
       error ("asm-specifier for variable %qs conflicts with asm clobber list",
-	     IDENTIFIER_POINTER (DECL_NAME (decl)));
+	     IDENTIFIER_POINTER (DECL_NAME (overlap)));
 
       /* Reset registerness to stop multiple errors emitted for a single
 	 variable.  */
-      DECL_REGISTER (decl) = 0;
+      DECL_REGISTER (overlap) = 0;
       return true;
     }
 
@@ -827,7 +843,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	  inout_opnum[ninout++] = i;
 	}
 
-      if (decl_conflicts_with_clobbers_p (val, clobbered_regs))
+      if (tree_conflicts_with_clobbers_p (val, &clobbered_regs))
 	clobber_conflict_found = 1;
     }
 
@@ -923,7 +939,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	= gen_rtx_ASM_INPUT (TYPE_MODE (type), 
 			     ggc_strdup (constraints[i + noutputs]));
 
-      if (decl_conflicts_with_clobbers_p (val, clobbered_regs))
+      if (tree_conflicts_with_clobbers_p (val, &clobbered_regs))
 	clobber_conflict_found = 1;
     }
 
@@ -2571,21 +2587,14 @@ expand_case (tree exp)
   free_temp_slots ();
 }
 
-/* Generate code to jump to LABEL if OP1 and OP2 are equal.  */
+/* Generate code to jump to LABEL if OP0 and OP1 are equal in mode MODE.  */
 
 static void
-do_jump_if_equal (rtx op1, rtx op2, rtx label, int unsignedp)
+do_jump_if_equal (enum machine_mode mode, rtx op0, rtx op1, rtx label,
+		  int unsignedp)
 {
-  if (GET_CODE (op1) == CONST_INT && GET_CODE (op2) == CONST_INT)
-    {
-      if (op1 == op2)
-	emit_jump (label);
-    }
-  else
-    emit_cmp_and_jump_insns (op1, op2, EQ, NULL_RTX,
-			     (GET_MODE (op1) == VOIDmode
-			     ? GET_MODE (op2) : GET_MODE (op1)),
-			     unsignedp, label);
+  do_compare_rtx_and_jump (op0, op1, EQ, unsignedp, mode,
+			   NULL_RTX, NULL_RTX, label);
 }
 
 /* Not all case values are encountered equally.  This function
@@ -2937,7 +2946,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
       /* Node is single valued.  First see if the index expression matches
 	 this node and then check our children, if any.  */
 
-      do_jump_if_equal (index,
+      do_jump_if_equal (mode, index,
 			convert_modes (mode, imode,
 				       expand_normal (node->low),
 				       unsignedp),
@@ -2990,7 +2999,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 
 	      /* See if the value matches what the right hand side
 		 wants.  */
-	      do_jump_if_equal (index,
+	      do_jump_if_equal (mode, index,
 				convert_modes (mode, imode,
 					       expand_normal (node->right->low),
 					       unsignedp),
@@ -2999,7 +3008,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 
 	      /* See if the value matches what the left hand side
 		 wants.  */
-	      do_jump_if_equal (index,
+	      do_jump_if_equal (mode, index,
 				convert_modes (mode, imode,
 					       expand_normal (node->left->low),
 					       unsignedp),
@@ -3065,7 +3074,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	    /* We cannot process node->right normally
 	       since we haven't ruled out the numbers less than
 	       this node's value.  So handle node->right explicitly.  */
-	    do_jump_if_equal (index,
+	    do_jump_if_equal (mode, index,
 			      convert_modes
 			      (mode, imode,
 			       expand_normal (node->right->low),
@@ -3096,7 +3105,7 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
 	    /* We cannot process node->left normally
 	       since we haven't ruled out the numbers less than
 	       this node's value.  So handle node->left explicitly.  */
-	    do_jump_if_equal (index,
+	    do_jump_if_equal (mode, index,
 			      convert_modes
 			      (mode, imode,
 			       expand_normal (node->left->low),

@@ -369,9 +369,9 @@ df_set_blocks (struct df *df, bitmap blocks)
 	  for (p = df->num_problems_defined - 1; p >= 0 ;p--)
 	    {
 	      struct dataflow *dflow = df->problems_in_order[p];
-	      if (*dflow->problem->reset_fun)
-		(*dflow->problem->reset_fun) (dflow, df->blocks_to_analyze);
-	      else if (*dflow->problem->free_bb_fun)
+	      if (dflow->problem->reset_fun)
+		dflow->problem->reset_fun (dflow, df->blocks_to_analyze);
+	      else if (dflow->problem->free_bb_fun)
 		{
 		  bitmap_iterator bi;
 		  unsigned int bb_index;
@@ -381,7 +381,7 @@ df_set_blocks (struct df *df, bitmap blocks)
 		      basic_block bb = BASIC_BLOCK (bb_index);
 		      if (bb)
 			{
-			  (*dflow->problem->free_bb_fun) 
+			  dflow->problem->free_bb_fun
 			    (dflow, bb, df_get_bb_info (dflow, bb_index));
 			  df_set_bb_info (dflow, bb_index, NULL); 
 			}
@@ -403,7 +403,7 @@ df_set_blocks (struct df *df, bitmap blocks)
 	      for (p = df->num_problems_defined - 1; p >= 0 ;p--)
 		{
 		  struct dataflow *dflow = df->problems_in_order[p];
-		  if (*dflow->problem->reset_fun)
+		  if (dflow->problem->reset_fun)
 		    {
 		      if (!blocks_to_reset)
 			{
@@ -414,7 +414,7 @@ df_set_blocks (struct df *df, bitmap blocks)
 			      bitmap_set_bit (blocks_to_reset, bb->index); 
 			    }
 			}
-		      (*dflow->problem->reset_fun) (dflow, blocks_to_reset);
+		      dflow->problem->reset_fun (dflow, blocks_to_reset);
 		    }
 		}
 	      if (blocks_to_reset)
@@ -444,7 +444,7 @@ df_finish1 (struct df *df)
   int i;
 
   for (i = 0; i < df->num_problems_defined; i++)
-    (*df->problems_in_order[i]->problem->free_fun) (df->problems_in_order[i]); 
+    df->problems_in_order[i]->problem->free_fun (df->problems_in_order[i]); 
 
   free (df);
 }
@@ -479,12 +479,12 @@ df_hybrid_search_forward (basic_block bb,
 	if (!TEST_BIT (dataflow->considered, e->src->index))
 	  continue;
 	
-	(*dataflow->problem->con_fun_n) (dataflow, e);
+	dataflow->problem->con_fun_n (dataflow, e);
       }
-  else if (*dataflow->problem->con_fun_0)
-    (*dataflow->problem->con_fun_0) (dataflow, bb);
+  else if (dataflow->problem->con_fun_0)
+    dataflow->problem->con_fun_0 (dataflow, bb);
   
-  result_changed = (*dataflow->problem->trans_fun) (dataflow, i);
+  result_changed = dataflow->problem->trans_fun (dataflow, i);
   
   if (!result_changed || single_pass)
     return;
@@ -531,12 +531,12 @@ df_hybrid_search_backward (basic_block bb,
 	if (!TEST_BIT (dataflow->considered, e->dest->index))		
 	  continue;							
 	
-	(*dataflow->problem->con_fun_n) (dataflow, e);
+	dataflow->problem->con_fun_n (dataflow, e);
       }								
-  else if (*dataflow->problem->con_fun_0)
-    (*dataflow->problem->con_fun_0) (dataflow, bb);
+  else if (dataflow->problem->con_fun_0)
+    dataflow->problem->con_fun_0 (dataflow, bb);
 
-  result_changed = (*dataflow->problem->trans_fun) (dataflow, i);
+  result_changed = dataflow->problem->trans_fun (dataflow, i);
   
   if (!result_changed || single_pass)
     return;
@@ -607,7 +607,7 @@ df_iterative_dataflow (struct dataflow *dataflow,
       SET_BIT (pending, idx);
     };
 
-  (*dataflow->problem->init_fun) (dataflow, blocks_to_init);
+  dataflow->problem->init_fun (dataflow, blocks_to_init);
 
   while (1)
     {
@@ -706,24 +706,24 @@ df_analyze_problem (struct dataflow *dflow,
 		    int *postorder, int n_blocks, bool single_pass)
 {
   /* (Re)Allocate the datastructures necessary to solve the problem.  */ 
-  if (*dflow->problem->alloc_fun)
-    (*dflow->problem->alloc_fun) (dflow, blocks_to_scan);
+  if (dflow->problem->alloc_fun)
+    dflow->problem->alloc_fun (dflow, blocks_to_scan);
 
   /* Set up the problem and compute the local information.  This
      function is passed both the blocks_to_consider and the
      blocks_to_scan because the RD and RU problems require the entire
      function to be rescanned if they are going to be updated.  */
-  if (*dflow->problem->local_compute_fun)
-    (*dflow->problem->local_compute_fun) (dflow, blocks_to_consider, blocks_to_scan);
+  if (dflow->problem->local_compute_fun)
+    dflow->problem->local_compute_fun (dflow, blocks_to_consider, blocks_to_scan);
 
   /* Solve the equations.  */
-  if (*dflow->problem->dataflow_fun)
-    (*dflow->problem->dataflow_fun) (dflow, blocks_to_consider, blocks_to_init,
-				    postorder, n_blocks, single_pass);
+  if (dflow->problem->dataflow_fun)
+    dflow->problem->dataflow_fun (dflow, blocks_to_consider, blocks_to_init,
+				  postorder, n_blocks, single_pass);
 
   /* Massage the solution.  */
-  if (*dflow->problem->finalize_fun)
-    (*dflow->problem->finalize_fun) (dflow, blocks_to_consider);
+  if (dflow->problem->finalize_fun)
+    dflow->problem->finalize_fun (dflow, blocks_to_consider);
 }
 
 
@@ -784,6 +784,7 @@ df_analyze (struct df *df)
 
   BITMAP_FREE (df->blocks_to_scan);
   df->blocks_to_scan = NULL;
+  free (postorder);
 }
 
 
@@ -902,7 +903,7 @@ df_compact_blocks (struct df *df)
   for (p = 0; p < df->num_problems_defined; p++)
     {
       struct dataflow *dflow = df->problems_in_order[p];
-      if (*dflow->problem->free_bb_fun)
+      if (dflow->problem->free_bb_fun)
 	{
 	  df_grow_bb_info (dflow);
 	  memcpy (problem_temps, dflow->block_info, size);
@@ -926,7 +927,7 @@ df_compact_blocks (struct df *df)
 	    {
 	      basic_block bb = BASIC_BLOCK (i); 
 	      if (problem_temps[i] && bb)
-		(*dflow->problem->free_bb_fun) 
+		dflow->problem->free_bb_fun
 		  (dflow, bb, problem_temps[i]);
 	    }
 	}
@@ -1140,15 +1141,14 @@ df_dump (struct df *df, FILE *file)
 	   df->def_info.bitmap_size, df->use_info.bitmap_size);
 
   for (i = 0; i < df->num_problems_defined; i++)
-    (*df->problems_in_order[i]->problem->dump_fun) (df->problems_in_order[i], file); 
+    df->problems_in_order[i]->problem->dump_fun (df->problems_in_order[i], file); 
 
   fprintf (file, "\n");
 }
 
 
 void
-df_refs_chain_dump (struct df *df, struct df_ref *ref, 
-		   bool follow_chain, FILE *file)
+df_refs_chain_dump (struct df_ref *ref, bool follow_chain, FILE *file)
 {
   fprintf (file, "{ ");
   while (ref)
@@ -1158,7 +1158,7 @@ df_refs_chain_dump (struct df *df, struct df_ref *ref,
 	       DF_REF_ID (ref),
 	       DF_REF_REGNO (ref));
       if (follow_chain)
-	df_chain_dump (df, DF_REF_CHAIN (ref), file);
+	df_chain_dump (DF_REF_CHAIN (ref), file);
       ref = ref->next_ref;
     }
   fprintf (file, "}");
@@ -1182,6 +1182,28 @@ df_regs_chain_dump (struct df *df ATTRIBUTE_UNUSED, struct df_ref *ref,  FILE *f
   fprintf (file, "}");
 }
 
+
+static void
+df_mws_dump (struct df_mw_hardreg *mws, FILE *file)
+{
+  while (mws)
+    {
+      struct df_link *regs = mws->regs;
+      fprintf (file, "%c%d(", 
+	       (mws->type == DF_REF_REG_DEF) ? 'd' : 'u',
+	       DF_REF_REGNO (regs->ref));
+      while (regs)
+	{
+	  fprintf (file, "%d ", DF_REF_REGNO (regs->ref));
+	  regs = regs->next;
+	}
+
+      fprintf (file, ") "); 
+      mws = mws->next;
+    }
+}
+
+
 static void 
 df_insn_uid_debug (struct df *df, unsigned int uid, 
 		   bool follow_chain, FILE *file)
@@ -1195,12 +1217,26 @@ df_insn_uid_debug (struct df *df, unsigned int uid,
   else
     bbi = -1;
 
-  fprintf (file, "insn %d bb %d luid %d defs ",
+  fprintf (file, "insn %d bb %d luid %d",
 	   uid, bbi, DF_INSN_UID_LUID (df, uid));
 
-  df_refs_chain_dump (df, DF_INSN_UID_DEFS (df, uid), follow_chain, file);
-  fprintf (file, " defs ");
-  df_refs_chain_dump (df, DF_INSN_UID_USES (df, uid), follow_chain, file);
+  if (DF_INSN_UID_DEFS (df, uid))
+    {
+      fprintf (file, " defs ");
+      df_refs_chain_dump (DF_INSN_UID_DEFS (df, uid), follow_chain, file);
+    }
+
+  if (DF_INSN_UID_USES (df, uid))
+    {
+      fprintf (file, " uses ");
+      df_refs_chain_dump (DF_INSN_UID_USES (df, uid), follow_chain, file);
+    }
+
+  if (DF_INSN_UID_MWS (df, uid))
+    {
+      fprintf (file, " mws ");
+      df_mws_dump (DF_INSN_UID_MWS (df, uid), file);
+    }
   fprintf (file, "\n");
 }
 
@@ -1246,17 +1282,17 @@ df_regno_debug (struct df *df, unsigned int regno, FILE *file)
 
 
 void
-df_ref_debug (struct df *df, struct df_ref *ref, FILE *file)
+df_ref_debug (struct df_ref *ref, FILE *file)
 {
   fprintf (file, "%c%d ",
 	   DF_REF_REG_DEF_P (ref) ? 'd' : 'u',
 	   DF_REF_ID (ref));
-  fprintf (file, "reg %d bb %d luid %d insn %d chain ",
+  fprintf (file, "reg %d bb %d insn %d flag %x chain ",
 	   DF_REF_REGNO (ref),
 	   DF_REF_BBNO (ref),
-	   DF_REF_INSN (ref) ? DF_INSN_LUID (df, DF_REF_INSN (ref)) : -1,
-	   DF_REF_INSN (ref) ? INSN_UID (DF_REF_INSN (ref)) : -1);
-  df_chain_dump (df, DF_REF_CHAIN (ref), file);
+	   DF_REF_INSN (ref) ? INSN_UID (DF_REF_INSN (ref)) : -1,
+	   DF_REF_FLAGS (ref));
+  df_chain_dump (DF_REF_CHAIN (ref), file);
   fprintf (file, "\n");
 }
 
@@ -1287,28 +1323,28 @@ debug_df_regno (unsigned int regno)
 void
 debug_df_ref (struct df_ref *ref)
 {
-  df_ref_debug (ddf, ref, stderr);
+  df_ref_debug (ref, stderr);
 }
 
 
 void
 debug_df_defno (unsigned int defno)
 {
-  df_ref_debug (ddf, DF_DEFS_GET (ddf, defno), stderr);
+  df_ref_debug (DF_DEFS_GET (ddf, defno), stderr);
 }
 
 
 void
 debug_df_useno (unsigned int defno)
 {
-  df_ref_debug (ddf, DF_USES_GET (ddf, defno), stderr);
+  df_ref_debug (DF_USES_GET (ddf, defno), stderr);
 }
 
 
 void
 debug_df_chain (struct df_link *link)
 {
-  df_chain_dump (ddf, link, stderr);
+  df_chain_dump (link, stderr);
   fputc ('\n', stderr);
 }
 
@@ -1343,4 +1379,29 @@ struct tree_opt_pass pass_reset_df_after_reload =
   0                                     /* letter */
 };
 
+static void 
+clear_df (void)
+{
+  if (rtl_df)
+    {
+      df_finish (rtl_df);
+      rtl_df = NULL;
+    }
+}
 
+struct tree_opt_pass pass_clear_df =
+{
+  "clear_df",                           /* name */
+  NULL,                                 /* gate */
+  clear_df,                /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};

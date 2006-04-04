@@ -1,6 +1,6 @@
 /* Front-end tree definitions for GNU compiler.
    Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -853,8 +853,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
   TREE_NOT_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
 
 #define NUMERICAL_TYPE_CHECK(T)					\
-  TREE_CHECK5 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE,	\
-	       CHAR_TYPE, REAL_TYPE)
+  TREE_CHECK4 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE, REAL_TYPE)
 
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
@@ -931,7 +930,6 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 #define INTEGRAL_TYPE_P(TYPE)  \
   (TREE_CODE (TYPE) == ENUMERAL_TYPE  \
    || TREE_CODE (TYPE) == BOOLEAN_TYPE \
-   || TREE_CODE (TYPE) == CHAR_TYPE \
    || TREE_CODE (TYPE) == INTEGER_TYPE)
 
 /* Nonzero if TYPE represents a scalar floating-point type.  */
@@ -1788,7 +1786,7 @@ struct tree_omp_clause GTY(())
     enum omp_clause_schedule_kind schedule_kind;
     enum tree_code                reduction_code;
   } GTY ((skip)) subcode;
-  tree GTY ((length ("omp_clause_num_ops[TREE_CODE ((tree)&%h)]"))) ops[1];
+  tree GTY ((length ("omp_clause_num_ops[OMP_CLAUSE_CODE ((tree)&%h)]"))) ops[1];
 };
 
 
@@ -2311,12 +2309,33 @@ struct tree_decl_minimal GTY(())
 struct tree_memory_tag GTY(())
 {
   struct tree_decl_minimal common;
-  tree parent_var;
   unsigned int is_global:1;
+  unsigned int is_used_alone:1;
 };
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
-#define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->mtag.parent_var)
+
+/* This flag is true if a TMT is used as the vdef or vuse operand directly,
+   because the access had all of the TMT's aliases pruned from it.  */
+#define TMT_USED_ALONE(NODE) (TYPE_MEMORY_TAG_CHECK (NODE)->mtag.is_used_alone)
+
+struct tree_struct_field_tag GTY(())
+{
+  struct tree_memory_tag common;
+  
+  /* Parent variable.  */
+  tree parent_var;
+ 
+  /* Offset inside structure.  */
+  unsigned HOST_WIDE_INT offset;
+
+  /* Size of the field.  */
+  unsigned HOST_WIDE_INT size;
+
+};
+#define SFT_PARENT_VAR(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.parent_var)
+#define SFT_OFFSET(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.offset)
+#define SFT_SIZE(NODE) (STRUCT_FIELD_TAG_CHECK (NODE)->sft.size)
 
 /* For any sort of a ..._DECL node, this points to the original (abstract)
    decl node which this decl is an instance of, or else it is NULL indicating
@@ -3126,6 +3145,7 @@ union tree_node GTY ((ptr_alias (union lang_tree_node),
   struct tree_value_handle GTY ((tag ("TS_VALUE_HANDLE"))) value_handle;
   struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
   struct tree_memory_tag GTY ((tag ("TS_MEMORY_TAG"))) mtag;
+  struct tree_struct_field_tag GTY ((tag ("TS_STRUCT_FIELD_TAG"))) sft; 
   struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
 };
 
@@ -4384,7 +4404,7 @@ extern void expand_decl (tree);
 extern void expand_anon_union_decl (tree, tree, tree);
 #ifdef HARD_CONST
 /* Silly ifdef to avoid having all includers depend on hard-reg-set.h.  */
-extern bool decl_overlaps_hard_reg_set_p (tree, const HARD_REG_SET);
+extern tree tree_overlaps_hard_reg_set (tree, HARD_REG_SET *);
 #endif
 
 /* In gimplify.c.  */
@@ -4504,6 +4524,10 @@ extern int tree_map_eq (const void *, const void *);
 /* In tree-ssa-address.c.  */
 extern tree tree_mem_ref_addr (tree, tree);
 extern void copy_mem_ref_info (tree, tree);
+
+/* In tree-vrp.c */
+extern bool ssa_name_nonzero_p (tree);
+extern bool ssa_name_nonnegative_p (tree);
 
 /* In tree-object-size.c.  */
 extern void init_object_sizes (void);

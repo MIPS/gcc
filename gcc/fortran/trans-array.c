@@ -479,9 +479,9 @@ gfc_set_loop_bounds_from_array_spec (gfc_interface_mapping * mapping,
 
 
 /* Generate code to allocate an array temporary, or create a variable to
-   hold the data.  If size is NULL zero the descriptor so that so that the
-   callee will allocate the array.  Also generates code to free the array
-   afterwards.
+   hold the data.  If size is NULL, zero the descriptor so that the
+   callee will allocate the array.  If DEALLOC is true, also generate code to
+   free the array afterwards.
 
    Initialization code is added to PRE and finalization code to POST.
    DYNAMIC is true if the caller may want to extend the array later
@@ -489,8 +489,8 @@ gfc_set_loop_bounds_from_array_spec (gfc_interface_mapping * mapping,
 
 static void
 gfc_trans_allocate_array_storage (stmtblock_t * pre, stmtblock_t * post,
-				  gfc_ss_info * info, tree size, tree nelem,
-				  bool dynamic)
+                                  gfc_ss_info * info, tree size, tree nelem,
+                                  bool dynamic, bool dealloc)
 {
   tree tmp;
   tree args;
@@ -546,7 +546,7 @@ gfc_trans_allocate_array_storage (stmtblock_t * pre, stmtblock_t * post,
   tmp = gfc_conv_descriptor_offset (desc);
   gfc_add_modify_expr (pre, tmp, gfc_index_zero_node);
 
-  if (!onstack)
+  if (dealloc && !onstack)
     {
       /* Free the temporary.  */
       tmp = gfc_conv_descriptor_data_get (desc);
@@ -565,12 +565,13 @@ gfc_trans_allocate_array_storage (stmtblock_t * pre, stmtblock_t * post,
    Also fills in the descriptor, data and offset fields of info if known.
    Returns the size of the array, or NULL for a callee allocated array.
 
-   PRE, POST and DYNAMIC are as for gfc_trans_allocate_array_storage.  */
+   PRE, POST, DYNAMIC and DEALLOC are as for gfc_trans_allocate_array_storage.
+ */
 
 tree
 gfc_trans_allocate_temp_array (stmtblock_t * pre, stmtblock_t * post,
-			       gfc_loopinfo * loop, gfc_ss_info * info,
-			       tree eltype, bool dynamic)
+                               gfc_loopinfo * loop, gfc_ss_info * info,
+                               tree eltype, bool dynamic, bool dealloc)
 {
   tree type;
   tree desc;
@@ -665,7 +666,8 @@ gfc_trans_allocate_temp_array (stmtblock_t * pre, stmtblock_t * post,
     size = fold_build2 (MULT_EXPR, gfc_array_index_type, size,
 			TYPE_SIZE_UNIT (gfc_get_element_type (type)));
 
-  gfc_trans_allocate_array_storage (pre, post, info, size, nelem, dynamic);
+  gfc_trans_allocate_array_storage (pre, post, info, size, nelem, dynamic,
+                                    dealloc);
 
   if (info->dimen > loop->temp_dim)
     loop->temp_dim = info->dimen;
@@ -1416,7 +1418,7 @@ gfc_trans_array_constructor (gfc_loopinfo * loop, gfc_ss * ss)
     }
 
   gfc_trans_allocate_temp_array (&loop->pre, &loop->post, loop,
-				 &ss->data.info, type, dynamic);
+                                 &ss->data.info, type, dynamic, true);
 
   desc = ss->data.info.descriptor;
   offset = gfc_index_zero_node;
@@ -2832,7 +2834,8 @@ gfc_conv_loop_setup (gfc_loopinfo * loop)
       loop->temp_ss->type = GFC_SS_SECTION;
       loop->temp_ss->data.info.dimen = n;
       gfc_trans_allocate_temp_array (&loop->pre, &loop->post, loop,
-				     &loop->temp_ss->data.info, tmp, false);
+                                     &loop->temp_ss->data.info, tmp, false,
+                                     true);
     }
 
   for (n = 0; n < loop->temp_dim; n++)
@@ -3255,7 +3258,7 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
       if (dim + 1 < as->rank)
         stride = GFC_TYPE_ARRAY_STRIDE (type, dim + 1);
       else
-        stride = NULL_TREE;
+	stride = GFC_TYPE_ARRAY_SIZE (type);
 
       if (ubound != NULL_TREE && !(stride && INTEGER_CST_P (stride)))
         {
@@ -3272,6 +3275,8 @@ gfc_trans_array_bounds (tree type, gfc_symbol * sym, tree * poffset,
 
       size = stride;
     }
+
+  gfc_trans_vla_type_sizes (sym, pblock);
 
   *poffset = offset;
   return size;
@@ -3308,6 +3313,8 @@ gfc_trans_auto_array_allocation (tree decl, gfc_symbol * sym, tree fnbody)
       && onstack && !INTEGER_CST_P (sym->ts.cl->backend_decl))
     {
       gfc_trans_init_string_length (sym->ts.cl, &block);
+
+      gfc_trans_vla_type_sizes (sym, &block);
 
       /* Emit a DECL_EXPR for this variable, which will cause the
 	 gimplifier to allocate storage, and all that good stuff.  */
@@ -3661,11 +3668,29 @@ gfc_trans_dummy_array_bias (gfc_symbol * sym, tree tmpdesc, tree body)
               gfc_add_modify_expr (&block, stride, tmp);
             }
         }
+      else
+	{
+	  stride = GFC_TYPE_ARRAY_SIZE (type);
+
+	  if (stride && !INTEGER_CST_P (stride))
+	    {
+	      /* Calculate size = stride * (ubound + 1 - lbound).  */
+	      tmp = fold_build2 (MINUS_EXPR, gfc_array_index_type,
+				 gfc_index_one_node, lbound);
+	      tmp = fold_build2 (PLUS_EXPR, gfc_array_index_type,
+				 ubound, tmp);
+	      tmp = fold_build2 (MULT_EXPR, gfc_array_index_type,
+				 GFC_TYPE_ARRAY_STRIDE (type, n), tmp);
+	      gfc_add_modify_expr (&block, stride, tmp);
+	    }
+	}
     }
 
   /* Set the offset.  */
   if (TREE_CODE (GFC_TYPE_ARRAY_OFFSET (type)) == VAR_DECL)
     gfc_add_modify_expr (&block, GFC_TYPE_ARRAY_OFFSET (type), offset);
+
+  gfc_trans_vla_type_sizes (sym, &block);
 
   stmt = gfc_finish_block (&block);
 
@@ -4268,7 +4293,10 @@ gfc_trans_deferred_array (gfc_symbol * sym, tree body)
 
   if (sym->ts.type == BT_CHARACTER
       && !INTEGER_CST_P (sym->ts.cl->backend_decl))
-    gfc_trans_init_string_length (sym->ts.cl, &fnblock);
+    {
+      gfc_trans_init_string_length (sym->ts.cl, &fnblock);
+      gfc_trans_vla_type_sizes (sym, &fnblock);
+    }
 
   /* Dummy and use associated variables don't need anything special.  */
   if (sym->attr.dummy || sym->attr.use_assoc)

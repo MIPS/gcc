@@ -1022,6 +1022,8 @@ compile_file (void)
   if (flag_mudflap)
     mudflap_finish_file ();
 
+  output_object_blocks ();
+
   /* Write out any pending weak symbol declarations.  */
 
   weak_finish ();
@@ -1498,6 +1500,20 @@ general_init (const char *argv0)
   init_optimization_passes ();
 }
 
+/* Return true if the current target supports -fsection-anchors.  */
+
+static bool
+target_supports_section_anchors_p (void)
+{
+  if (targetm.min_anchor_offset == 0 && targetm.max_anchor_offset == 0)
+    return false;
+
+  if (targetm.asm_out.output_anchor == NULL)
+    return false;
+
+  return true;
+}
+
 /* Process the options that have been parsed.  */
 static void
 process_options (void)
@@ -1519,6 +1535,13 @@ process_options (void)
   /* Some machines may reject certain combinations of options.  */
   OVERRIDE_OPTIONS;
 #endif
+
+  if (flag_section_anchors && !target_supports_section_anchors_p ())
+    {
+      warning (OPT_fsection_anchors,
+	       "this target does not support %qs", "-fsection-anchors");
+      flag_section_anchors = 0;
+    }
 
   if (flag_short_enums == 2)
     flag_short_enums = targetm.default_short_enums ();
@@ -1568,19 +1591,6 @@ process_options (void)
   if (flag_rename_registers == AUTODETECT_VALUE)
     flag_rename_registers = flag_unroll_loops || flag_peel_loops;
 
-  /* If explicitly asked to run new loop optimizer, switch off the old
-     one.  */
-  if (flag_loop_optimize2)
-    flag_loop_optimize = 0;
-
-  /* Enable new loop optimizer pass if any of its optimizations is called.  */
-  if (flag_move_loop_invariants
-      || flag_unswitch_loops
-      || flag_peel_loops
-      || flag_unroll_loops
-      || flag_branch_on_count_reg)
-    flag_loop_optimize2 = 1;
-
   if (flag_non_call_exceptions)
     flag_asynchronous_unwind_tables = 1;
   if (flag_asynchronous_unwind_tables)
@@ -1590,6 +1600,9 @@ process_options (void)
      interface.  */
   if (flag_unit_at_a_time && ! lang_hooks.callgraph.expand_function)
     flag_unit_at_a_time = 0;
+
+  if (!flag_unit_at_a_time)
+    flag_section_anchors = 0;
 
   if (flag_value_profile_transformations)
     flag_profile_values = 1;

@@ -26,6 +26,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "machmode.h"
 #include "input.h"
 #include "real.h"
+#include "vec.h"
 
 #undef FFS  /* Some systems predefine this symbol; don't let it interfere.  */
 #undef FLOAT /* Likewise.  */
@@ -104,7 +105,7 @@ extern const char * const rtx_format[NUM_RTX_CODE];
 extern const enum rtx_class rtx_class[NUM_RTX_CODE];
 #define GET_RTX_CLASS(CODE)		(rtx_class[(int) (CODE)])
 
-extern const unsigned char rtx_size[NUM_RTX_CODE];
+extern const unsigned char rtx_code_size[NUM_RTX_CODE];
 extern const unsigned char rtx_next[NUM_RTX_CODE];
 
 /* The flags and bitfields of an ADDR_DIFF_VEC.  BASE is the base label
@@ -174,6 +175,59 @@ union rtunion_def
   struct constant_descriptor_rtx *rt_constant;
 };
 typedef union rtunion_def rtunion;
+
+/* This structure remembers the position of a SYMBOL_REF within an
+   object_block structure.  A SYMBOL_REF only provides this information
+   if SYMBOL_REF_IN_BLOCK_P is true.  */
+struct block_symbol GTY(()) {
+  /* The usual SYMBOL_REF fields.  */
+  rtunion GTY ((skip)) fld[3];
+
+  /* The block that contains this object.  */
+  struct object_block *block;
+
+  /* The offset of this object from the start of its block.  It is negative
+     if the symbol has not yet been assigned an offset.  */
+  HOST_WIDE_INT offset;
+};
+
+DEF_VEC_P(rtx);
+DEF_VEC_ALLOC_P(rtx,heap);
+DEF_VEC_ALLOC_P(rtx,gc);
+
+/* Describes a group of objects that are to be placed together in such
+   a way that their relative positions are known.  */
+struct object_block GTY(())
+{
+  /* The section in which these objects should be placed.  */
+  section *sect;
+
+  /* The alignment of the first object, measured in bits.  */
+  unsigned int alignment;
+
+  /* The total size of the objects, measured in bytes.  */
+  HOST_WIDE_INT size;
+
+  /* The SYMBOL_REFs for each object.  The vector is sorted in
+     order of increasing offset and the following conditions will
+     hold for each element X:
+
+	 SYMBOL_REF_IN_BLOCK_P (X)
+	 !SYMBOL_REF_ANCHOR_P (X)
+	 SYMBOL_REF_BLOCK (X) == [address of this structure]
+	 SYMBOL_REF_BLOCK_OFFSET (X) >= 0.  */
+  VEC(rtx,gc) *objects;
+
+  /* All the anchor SYMBOL_REFs used to address these objects, sorted
+     in order of increasing offset, and then increasing TLS model.
+     The following conditions will hold for each element X in this vector:
+
+	 SYMBOL_REF_IN_BLOCK_P (X)
+	 SYMBOL_REF_ANCHOR_P (X)
+	 SYMBOL_REF_BLOCK (X) == [address of this structure]
+	 SYMBOL_REF_BLOCK_OFFSET (X) >= 0.  */
+  VEC(rtx,gc) *anchors;
+};
 
 /* RTL expression ("rtx").  */
 
@@ -251,6 +305,7 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
   union u {
     rtunion fld[1];
     HOST_WIDE_INT hwint[1];
+    struct block_symbol block_sym;
     struct real_value rv;
   } GTY ((special ("rtx_def"), desc ("GET_CODE (&%0)"))) u;
 };
@@ -259,7 +314,7 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
 #define RTX_HDR_SIZE offsetof (struct rtx_def, u)
 
 /* The size in bytes of an rtx with code CODE.  */
-#define RTX_SIZE(CODE) rtx_size[CODE]
+#define RTX_CODE_SIZE(CODE) rtx_code_size[CODE]
 
 #define NULL_RTX (rtx) 0
 
@@ -471,6 +526,14 @@ struct rtvec_def GTY(()) {
 				 __LINE__, __FUNCTION__);		\
    &_rtx->u.rv; })
 
+#define BLOCK_SYMBOL_CHECK(RTX) __extension__				\
+({ rtx const _symbol = (RTX);						\
+   unsigned int flags = RTL_CHECKC1 (_symbol, 1, SYMBOL_REF).rt_int;	\
+   if ((flags & SYMBOL_FLAG_IN_BLOCK) == 0)				\
+     rtl_check_failed_block_symbol (__FILE__, __LINE__,			\
+				    __FUNCTION__);			\
+   &_symbol->u.block_sym; })
+
 extern void rtl_check_failed_bounds (rtx, int, const char *, int,
 				     const char *)
     ATTRIBUTE_NORETURN;
@@ -489,6 +552,8 @@ extern void rtl_check_failed_code2 (rtx, enum rtx_code, enum rtx_code,
 extern void rtl_check_failed_code_mode (rtx, enum rtx_code, enum machine_mode,
 					bool, const char *, int, const char *)
     ATTRIBUTE_NORETURN;
+extern void rtl_check_failed_block_symbol (const char *, int, const char *)
+    ATTRIBUTE_NORETURN;
 extern void rtvec_check_failed_bounds (rtvec, int, const char *, int,
 				       const char *)
     ATTRIBUTE_NORETURN;
@@ -505,6 +570,7 @@ extern void rtvec_check_failed_bounds (rtvec, int, const char *, int,
 #define XCMWINT(RTX, N, C, M)	    ((RTX)->u.hwint[N])
 #define XCNMWINT(RTX, N, C, M)	    ((RTX)->u.hwint[N])
 #define XCNMPRV(RTX, C, M)	    (&(RTX)->u.rv)
+#define BLOCK_SYMBOL_CHECK(RTX)	    (&(RTX)->u.block_sym)
 
 #endif
 
@@ -980,6 +1046,7 @@ extern bool subreg_offset_representable_p (unsigned int, enum machine_mode,
 extern unsigned int subreg_regno (rtx);
 extern unsigned HOST_WIDE_INT nonzero_bits (rtx, enum machine_mode);
 extern unsigned int num_sign_bit_copies (rtx, enum machine_mode);
+extern bool constant_pool_constant_p (rtx);
 
 
 /* 1 if RTX is a subreg containing a reg that is already known to be
@@ -1249,10 +1316,28 @@ do {						\
 #define SYMBOL_FLAG_EXTERNAL	(1 << 6)
 #define SYMBOL_REF_EXTERNAL_P(RTX) \
   ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_EXTERNAL) != 0)
+/* Set if this symbol has a block_symbol structure associated with it.  */
+#define SYMBOL_FLAG_IN_BLOCK	(1 << 7)
+#define SYMBOL_REF_IN_BLOCK_P(RTX) \
+  ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_IN_BLOCK) != 0)
+/* Set if this symbol is a section anchor.  SYMBOL_REF_ANCHOR_P implies
+   SYMBOL_REF_IN_BLOCK_P.  */
+#define SYMBOL_FLAG_ANCHOR	(1 << 8)
+#define SYMBOL_REF_ANCHOR_P(RTX) \
+  ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_ANCHOR) != 0)
 
 /* Subsequent bits are available for the target to use.  */
-#define SYMBOL_FLAG_MACH_DEP_SHIFT	7
+#define SYMBOL_FLAG_MACH_DEP_SHIFT	9
 #define SYMBOL_FLAG_MACH_DEP		(1 << SYMBOL_FLAG_MACH_DEP_SHIFT)
+
+/* The block to which the given SYMBOL_REF belongs.  Only valid if
+   SYMBOL_REF_IN_BLOCK_P (RTX).  */
+#define SYMBOL_REF_BLOCK(RTX) (BLOCK_SYMBOL_CHECK (RTX)->block)
+
+/* The byte offset of the given SYMBOL_REF from the start of its block,
+   or a negative value if the symbol has not yet been assigned a position.
+   Only valid if SYMBOL_REF_IN_BLOCK_P (RTX).  */
+#define SYMBOL_REF_BLOCK_OFFSET(RTX) (BLOCK_SYMBOL_CHECK (RTX)->offset)
 
 /* Define a macro to look for REG_INC notes,
    but save time on machines where they never exist.  */
@@ -1384,6 +1469,7 @@ extern void dump_rtx_statistics (void);
 extern rtx copy_rtx_if_shared (rtx);
 
 /* In rtl.c */
+extern unsigned int rtx_size (rtx);
 extern rtx shallow_copy_rtx_stat (rtx MEM_STAT_DECL);
 #define shallow_copy_rtx(a) shallow_copy_rtx_stat (a MEM_STAT_INFO)
 extern int rtx_equal_p (rtx, rtx);
@@ -1889,6 +1975,13 @@ extern int epilogue_completed;
 
 extern int reload_in_progress;
 
+
+#ifdef STACK_REGS
+/* Nonzero after end of regstack pass.
+   Set to 1 or 0 by reg-stack.c.  */
+extern int regstack_completed;
+#endif
+
 /* If this is nonzero, we do not bother generating VOLATILE
    around volatile memory references, and we are willing to
    output indirect addresses.  If cse is to follow, we reject
@@ -1909,7 +2002,7 @@ extern int rtx_to_tree_code (enum rtx_code);
 
 /* In cse.c */
 extern int delete_trivially_dead_insns (rtx, int);
-extern int cse_main (rtx, int, FILE *);
+extern int cse_main (rtx, int);
 extern int exp_equiv_p (rtx, rtx, int, bool);
 extern unsigned hash_rtx (rtx x, enum machine_mode, int *, int *, bool);
 
@@ -1975,7 +2068,7 @@ extern void add_insn_after (rtx, rtx);
 extern void remove_insn (rtx);
 extern void emit_insn_after_with_line_notes (rtx, rtx, rtx);
 extern rtx emit (rtx);
-extern void renumber_insns (FILE *);
+extern void renumber_insns (void);
 extern void remove_unnecessary_notes (void);
 extern rtx delete_insn (rtx);
 extern rtx entry_of_function (void);
@@ -2002,10 +2095,10 @@ extern void dump_insn_slim (FILE *f, rtx x);
 extern void debug_insn_slim (rtx x);
 
 /* In sched-rgn.c.  */
-extern void schedule_insns (FILE *);
+extern void schedule_insns (void);
 
 /* In sched-ebb.c.  */
-extern void schedule_ebbs (FILE *);
+extern void schedule_ebbs (void);
 
 /* In haifa-sched.c.  */
 extern void fix_sched_param (const char *, const char *);
@@ -2049,7 +2142,7 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 extern void recompute_reg_usage (void);
 extern void delete_dead_jumptables (void);
 extern void print_rtl_with_bb (FILE *, rtx);
-extern void dump_flow_info (FILE *);
+extern void dump_flow_info (FILE *, int);
 
 /* In expmed.c */
 extern void init_expmed (void);
@@ -2078,7 +2171,7 @@ extern void init_regs (void);
 extern void init_fake_stack_mems (void);
 extern void init_reg_sets (void);
 extern void regclass_init (void);
-extern void regclass (rtx, int, FILE *);
+extern void regclass (rtx, int);
 extern void reg_scan (rtx, unsigned int);
 extern void reg_scan_update (rtx, rtx, unsigned int);
 extern void fix_register (const char *, int, int);
@@ -2092,7 +2185,7 @@ extern bool invalid_mode_change_p (unsigned int, enum reg_class,
 				   enum machine_mode);
 
 /* In reorg.c */
-extern void dbr_schedule (rtx, FILE *);
+extern void dbr_schedule (rtx);
 
 /* In local-alloc.c */
 extern void dump_local_alloc (FILE *);

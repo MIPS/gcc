@@ -1535,8 +1535,6 @@ type_safe (unsigned int n, unsigned HOST_WIDE_INT *offset)
   return (get_varinfo (n)->offset + *offset) < get_varinfo (n)->fullsize;
 }
 
-#define DONT_PROPAGATE_WITH_ANYTHING 0
-
 /* Process a constraint C that represents *x = &y.  */
 
 static void
@@ -1593,7 +1591,6 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
   unsigned int j;
   bitmap_iterator bi;
 
-#if DONT_PROPAGATE_WITH_ANYTHING 
  if (bitmap_bit_p (delta, anything_id))
    {
      flag = !bitmap_bit_p (sol, anything_id);
@@ -1601,7 +1598,6 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
        bitmap_set_bit (sol, anything_id);
      goto done;
    }
-#endif
   /* For each variable j in delta (Sol(y)), add    
      an edge in the graph from j to x, and union Sol(j) into Sol(x).  */
   EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
@@ -1629,9 +1625,8 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	fprintf (dump_file, "Untypesafe usage in do_sd_constraint\n");
       
     }
-#if DONT_PROPAGATE_WITH_ANYTHING
+
 done:
-#endif
   /* If the LHS solution changed, mark the var as changed.  */
   if (flag)
     {
@@ -1655,7 +1650,6 @@ do_ds_constraint (constraint_graph_t graph, constraint_t c, bitmap delta)
   unsigned int j;
   bitmap_iterator bi;
 
-#if DONT_PROPAGATE_WITH_ANYTHING 
  if (bitmap_bit_p (sol, anything_id))
    {
      EXECUTE_IF_SET_IN_BITMAP (delta, 0, j, bi)
@@ -1683,7 +1677,6 @@ do_ds_constraint (constraint_graph_t graph, constraint_t c, bitmap delta)
        }
      return;
    }
-#endif
 
   /* For each member j of delta (Sol(x)), add an edge from y to j and
      union Sol(y) into Sol(j) */
@@ -2538,7 +2531,8 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results)
 		  {		    
 		    heapvar = create_tmp_var_raw (ptr_type_node, "HEAP");
 		    DECL_EXTERNAL (heapvar) = 1;
-		    add_referenced_tmp_var (heapvar);
+		    if (referenced_vars)
+		      add_referenced_tmp_var (heapvar);
 		    heapvar_insert (t, heapvar);
 		  }
 
@@ -3239,7 +3233,33 @@ find_func_aliases (tree origt)
 	  get_constraint_for (PHI_RESULT (t), &lhsc);
 	  for (i = 0; i < PHI_NUM_ARGS (t); i++)
 	    { 
+	      tree rhstype;
+	      tree strippedrhs = PHI_ARG_DEF (t, i);
+
+	      STRIP_NOPS (strippedrhs);
+	      rhstype = TREE_TYPE (strippedrhs);
 	      get_constraint_for (PHI_ARG_DEF (t, i), &rhsc);
+
+	      if (TREE_CODE (strippedrhs) == ADDR_EXPR
+		 && AGGREGATE_TYPE_P (TREE_TYPE (rhstype))
+		 && VEC_length (ce_s, rhsc) == 1)
+		{
+		  struct constraint_expr *origrhs;
+		  varinfo_t origvar;
+		  struct constraint_expr tmp;
+
+		  gcc_assert (VEC_length (ce_s, rhsc) == 1);
+		  origrhs = VEC_last (ce_s, rhsc);
+		  tmp = *origrhs;
+		  VEC_pop (ce_s, rhsc);
+		  origvar = get_varinfo (origrhs->var);
+		  for (; origvar; origvar = origvar->next)
+		    {
+		      tmp.var = origvar->id;
+		      VEC_safe_push (ce_s, heap, rhsc, &tmp);
+		    }
+		}
+
 	      for (j = 0; VEC_iterate (ce_s, lhsc, j, c); j++)
 		{
 		  struct constraint_expr *c2;
@@ -3505,11 +3525,24 @@ first_vi_for_offset (varinfo_t start, unsigned HOST_WIDE_INT offset)
 }
 
 
+/* Insert the varinfo FIELD into the field list for BASE, at the front
+   of the list.  */
+
+static void
+insert_into_field_list (varinfo_t base, varinfo_t field)
+{
+  varinfo_t prev = base;
+  varinfo_t curr = base->next;
+  
+  field->next = curr;
+  prev->next = field;
+}
+
 /* Insert the varinfo FIELD into the field list for BASE, ordered by
    offset.  */
 
 static void
-insert_into_field_list (varinfo_t base, varinfo_t field)
+insert_into_field_list_sorted (varinfo_t base, varinfo_t field)
 {
   varinfo_t prev = base;
   varinfo_t curr = base->next;
@@ -3767,6 +3800,7 @@ create_function_info_for (tree decl, const char *name)
   
   arg = DECL_ARGUMENTS (decl);
 
+
   /* Set up variables for each argument.  */
   for (i = 1; i < vi->fullsize; i++)
     {      
@@ -3791,7 +3825,7 @@ create_function_info_for (tree decl, const char *name)
       argvi->size = 1;
       argvi->fullsize = vi->fullsize;
       argvi->has_union = false;
-      insert_into_field_list (vi, argvi);
+      insert_into_field_list_sorted (vi, argvi);
       stats.total_vars ++;
       if (arg)
 	{
@@ -3799,7 +3833,7 @@ create_function_info_for (tree decl, const char *name)
 	  arg = TREE_CHAIN (arg);
 	}
     }
-  
+
   /* Create a variable for the return var.  */
   if (DECL_RESULT (decl) != NULL
       || !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (decl))))
@@ -3811,7 +3845,6 @@ create_function_info_for (tree decl, const char *name)
       tree resultdecl = decl;
 
       vi->fullsize ++;
-
 
       if (DECL_RESULT (decl))
 	resultdecl = DECL_RESULT (decl);
@@ -3828,7 +3861,7 @@ create_function_info_for (tree decl, const char *name)
       resultvi->size = 1;
       resultvi->fullsize = vi->fullsize;
       resultvi->has_union = false;
-      insert_into_field_list (vi, resultvi);
+      insert_into_field_list_sorted (vi, resultvi);
       stats.total_vars ++;
       if (DECL_RESULT (decl))
 	insert_id_for_tree (DECL_RESULT (decl), newindex);
@@ -3855,7 +3888,6 @@ check_for_overlaps (VEC (fieldoff_s,heap) *fieldstack)
     }
   return false;
 }
-
 /* Create a varinfo structure for NAME and DECL, and add it to VARMAP.
    This will also create any varinfo structures necessary for fields
    of DECL.  */
@@ -3919,7 +3951,8 @@ create_variable_info_for (tree decl, const char *name)
   if (use_field_sensitive 
       && !notokay 
       && !vi->is_unknown_size_var 
-      && var_can_have_subvars (decl))
+      && var_can_have_subvars (decl)
+      && VEC_length (fieldoff_s, fieldstack) <= MAX_FIELDS_FOR_FIELD_SENSITIVE)
     {
       unsigned int newindex = VEC_length (varinfo_t, varmap);
       fieldoff_s *fo = NULL;
@@ -3965,7 +3998,9 @@ create_variable_info_for (tree decl, const char *name)
       
       vi->size = TREE_INT_CST_LOW (fo->size);
       vi->offset = fo->offset;
-      for (i = 1; VEC_iterate (fieldoff_s, fieldstack, i, fo); i++)
+      for (i = VEC_length (fieldoff_s, fieldstack) - 1; 
+	   i >= 1 && VEC_iterate (fieldoff_s, fieldstack, i, fo); 
+	   i--)
 	{
 	  varinfo_t newvi;
 	  const char *newname;
@@ -4051,9 +4086,11 @@ intra_create_variable_infos (void)
 	  unsigned int id;
 	  if (heapvar == NULL_TREE)
 	    {
-	      heapvar = create_tmp_var_raw (TREE_TYPE (TREE_TYPE (t)), "PARM_NOALIAS");
+	      heapvar = create_tmp_var_raw (TREE_TYPE (TREE_TYPE (t)), 
+					    "PARM_NOALIAS");
 	      DECL_EXTERNAL (heapvar) = 1;
-	      add_referenced_tmp_var (heapvar);
+	      if (referenced_vars)
+		add_referenced_tmp_var (heapvar);
 	      heapvar_insert (t, heapvar);
 	    }
 	  id = create_variable_info_for (heapvar,
@@ -4534,6 +4571,7 @@ static bool
 gate_ipa_pta (void)
 {
   return (flag_unit_at_a_time != 0
+          && flag_ipa_pta
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !(errorcount || sorrycount));
 }
@@ -4544,9 +4582,9 @@ ipa_pta_execute (void)
 {
   struct cgraph_node *node;
   in_ipa_mode = 1;
-
+  init_alias_heapvars ();
   init_alias_vars ();
-  
+   
   for (node = cgraph_nodes; node; node = node->next)
     {
       if (!node->analyzed || cgraph_is_master_clone (node))
@@ -4632,6 +4670,8 @@ ipa_pta_execute (void)
   if (dump_file)
     dump_sa_points_to_info (dump_file);
   in_ipa_mode = 0;
+  delete_alias_heapvars ();
+  delete_points_to_sets ();
 }
   
 struct tree_opt_pass pass_ipa_pta =
