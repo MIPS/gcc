@@ -1,3 +1,106 @@
+2006-04-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26763
+	* fold-const.c (fold_binary): Fold PTR + CST CMP PTR + CST
+	only for EQ_EXPR and NE_EXPR.
+
+2006-04-04  Paul Brook  <paul@codesourcery.com>
+
+	Backport form mainline.
+	2006-01-14  Zdenek Dvorak <dvorakz@suse.cz>
+	* tree-ssa-loop-niter.c (number_of_iterations_cond): Split into several
+	functions.
+	(number_of_iterations_ne, number_of_iterations_lt_to_ne,
+	assert_no_overflow_lt, assert_loop_rolls_lt, number_of_iterations_lt,
+	number_of_iterations_le): New functions.
+	(number_of_iterations_special): Removed.
+	(number_of_iterations_exit): Do not use number_of_iterations_special.
+	* tree.c (unsigned_type_for): Always return integer type.
+
+	2005-01-06  Zdenek Dvorak <dvorakz@suse.cz>
+	PR tree-optimization/18527
+	* tree-ssa-loop-niter.c (number_of_iterations_cond,
+	number_of_iterations_special, number_of_iterations_exit):
+	Move base and step of an iv to a single structure.  Add
+	no_overflow flag, and use it in # of iterations analysis.
+	* tree-scalar-evolution.c (analyze_scalar_evolution_in_loop): Add
+	folded_casts argument.
+	(simple_iv): Pass base and step in a structure.  Set no_overflow
+	flag.
+	(scev_const_prop): Add argument to analyze_scalar_evolution_in_loop.
+	Evaluate expensiveness of computing # of iterations instead of
+	the final expression.
+	* tree-scalar-evolution.h (affine_iv): New structure.
+	(simple_iv): Declaration changed.
+	* tree-chrec.c (chrec_apply): Handle chrecs containing symbols.
+	* tree-ssa-loop-ivopts.c (determine_biv_step, find_givs_in_stmt_scev,
+	find_givs_in_stmt): Changed due to simple_iv change.
+
+2006-04-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/26830
+	* tree-cfg.c (tree_duplicate_sese_region): Do not update SSA.
+	* tree-ssa-loop-ch.c (copy_loop_headers): Count successfully duplicated
+	headers and, if there was any, update SSA at the end.
+        
+	Backport from mainline:
+	2006-03-30  Paolo Bonzini  <bonzini@gnu.org>
+
+	* tree-ssa-copy.c (copy_prop_visit_assignment): Do not check loop depth.
+	(copy_prop_visit_stmt): Remove write-only variable ann.
+	(init_copy_prop): Check variable loop depth here.  Do not simulate
+	memory-tag and virtual operand PHIs except for store copy prop.
+
+
+2006-03-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/25741
+	Backport from mainline
+	2006-01-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Makefile.in (check-%): Depend on site.exp instead of
+	$(TESTSUITEDIR)/site.exp. Run "runtest" in separate language
+	directories.
+
+	2006-01-17  Shantonu Sen  <ssen@opendarwin.org>
+
+	* Makefile.in (check-%, check-consistency): Use $${srcdir}
+	instead of $(srcdir) and ${srcdir}.
+
+2006-03-31  Richard Guenther  <rguenther@suse.de>
+
+	PR bootstrap/26936
+	Backport from mainline.
+	2006-02-25  Juergen Weigert  <jw@suse.de>
+		Richard Guenther  <rguenther@suse.de>
+ 
+	* scan-decls.c (scan_decls): Don't fetch new statement after CPP_EOF.
+
+2006-03-31  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/26459
+	* config/rs6000/rs6000.h (CANNOT_CHANGE_MODE_CLASS): Limit 2003-12-08
+	change to FLOAT_REGS.
+
+	* config/rs6000/rs6000.c (rs6000_explicit_options): Add ieee.
+	(rs6000_override_options): Use it.
+	(rs6000_handle_option): Set it.  Set rs6000_explicit_options.abi
+	only for -mabi=spe/no-spe and -mabi=altivec.
+
+2006-03-30  Jie Zhang  <jie.zhang@analog.com>
+
+	* config/bfin/bfin.c (single_move_for_strmov): Renamed to...
+	(single_move_for_movmem): ... this. Also change all uses.
+	(bfin_expand_strmov): Renamed to...
+	(bfin_expand_movmem): ... this. Also change all uses.
+	* config/bfin/bfin.md (movstrsi): Renamed to...
+	(movstrsi): ...this.
+
+2006-03-28  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-alias.c (create_sft): Initially inherit TREE_ADDRESSABLE
+	from parent_var.
+
 2006-03-22  Richard Henderson  <rth@redhat.com>
 
 	PR middle-end/26084

@@ -1,3 +1,33 @@
+2006-03-31  Asher Langton  <langton2@llnl.gov>
+
+	PR fortran/25358
+	*expr.c (gfc_check_assign): Allow cray pointee to be assumes-size.
+
+2006-03-31  Thomas Koenig  <Thomas.Koenig@onlien.de>
+
+	PR fortran/19303
+	Backport from mainline
+	* gfortran.h (gfc_option_t):  Add record_marker.
+	* lang.opt:  Add -frecord-marker=4 and -frecord-marker=8.
+	* trans-decl.c:  Add gfor_fndecl_set_record_marker.
+	(gfc_build_builtin_function_decls): Set
+	gfor_fndecl_set_record_marker.
+	(gfc_generate_function_code):  If we are in the main program
+	and -frecord-marker was provided, call set_record_marker.
+	* options.c (gfc_handle_option):  Add handling for
+	-frecord-marker=4 and -frecord-marker=8.
+	* invoke.texi:  Document -frecord-marker.
+
+2006-03-28  Steven G. Kargl  <kargls@comcast.net>
+
+	* intrinsic.texi: s/floor/float in previous commit.
+
+2006-03-28  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/26816 
+	* intrinsic.c (add_functions): Allow FLOAT to accept all integer kinds.
+	* intrinsic.texi: Document FLOAT.
+
 2006-03-27  Thomas Koenig  <Thomas.Koenig@online.de>
 
 	PR fortran/20935
@@ -19,6 +49,15 @@
 	* trans-intrinsic.c (gfc_conv_intrinsic_minmaxloc): Set the
 	initial position to zero and modify the condition for updating
 	it, to implement the F2003 requirement for all(mask) is false.
+
+2006-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* io.c (check_io_constraints): Don't look at
+	dt->advance->value.charater.string, unless it is a CHARACTER
+	constant.
+
+	* f95-lang.c (gfc_get_alias_set): New function.
+	(LANG_HOOKS_GET_ALIAS_SET): Define.
 
 2006-03-22  Paul Thomas  <pault@gcc.gnu.org>
 
