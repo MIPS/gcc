@@ -27,7 +27,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define YARA_NO_ALLOCNO_COALESCING 8
 #define YARA_NO_COPY_SYNC 16
 #define YARA_NO_MOVE_SYNC 32
-#define YARA_NO_REGCLASS_BEFORE 64
+#define YARA_REGCLASS_BEFORE 64
 #define YARA_CLEAN_AFTER 128
 #define YARA_PRIORITY_COLORING 256
 #define YARA_NO_UPDATE_COSTS 512
@@ -822,6 +822,9 @@ struct insn_op_info
   char **op_constraints;
   int n_operands;
   int n_alts;
+  /* The following field value is true if there are commutative
+     operands in the insn.  */
+  bool commutative_op_p;
 };
 
 /* The following is a map: insn code -> insn operand info.  */
@@ -968,8 +971,8 @@ extern void make_commutative_exchange (allocno_t);
 extern void allocate_insn_allocnos (rtx, bool (*) (allocno_t),
 				    void (*) (allocno_t *, int, rtx, int),
 				    int (*) (allocno_t, enum reg_class));
-extern void yara_reload_init (void);
-extern void yara_reload_finish (void);
+extern void yara_insn_init (void);
+extern void yara_insn_finish (void);
 
 /* yara-color.c: */
 extern void debug_cover_classes (void);

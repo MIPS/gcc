@@ -1,3 +1,49 @@
+2006-04-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* yara-int.h (YARA_NO_REGCLASS_BEFORE): Rename to
+	YARA_REGCLASS_BEFORE.
+	(yara_reload_init, yara_reload_frinish): Rename to
+	yara_insn_init and yara_insn_frinish.
+	(insn_op_info): New field commutative_op_p.
+	* yara.c (YARA_OBSTACK): Uncomment the macro definition.
+	(rest_of_handle_yara): Use YARA_REGCLASS_BEFORE
+	instead of YARA_NO_REGCLASS_BEFORE.
+	(yara): Rename yara_reload_init and yara_reload_frinish to
+	yara_insn_init and yara_insn_frinish.
+	* yara-color.c (process_insn_allocno_constraint,
+	pick_up_hard_regs_from_constraints): Exclude # from processing.
+	* yara-final.c (process_allocno_locs):  Check that
+	process_reg_loc_set_func is defined.
+	* yara-insn.c (try_insn_allocno_allocation,
+	store_best_allocation): Remove.
+	(find_best_alt_allocation_1,
+	assign_pseudo_allocno_from_connected_allocno,
+	assign_insn_allocnos_without_copy): New functions.
+	(find_best_alt_allocation): Change prototype and rewrite.
+	(set_up_possible_allocno_alternatives, get_duplication_number):
+	Exclude # from processing.
+	(curr_allocation_insn, min_alt_cost_undef_p, min_alt_cost,
+	best_alt_constraints, best_op_exchange_p, best_alt_op_exchange_p,
+	curr_alt_op_exchange_p): Remove.
+	(best_constraints): Rename to best_insn_constraints.
+	(curr_allocation_insn_info, min_insn_cost_undef_p, min_insn_cost,
+	best_insn_exchange_allocno, op_try_varray,
+	curr_alt_exchange_allocno): New variables.
+	(make_commutative_exchange): Modify insn_op_allocnos.
+	(put_duplication_before_original): Use curr_allocation_insn_info.
+	(allocate_insn_allocnos): Define curr_allocation_insn_info,
+	best_exchange_allocno.  Call assign_without_copy.  Use
+	best_exchange_allocno.
+	(yara_reload_init): Rename to yara_insn_init.  Create
+	op_try_varray.
+	(yara_reload_finish): Rename to yara_insn_finish.
+	* yara-ir.c (create_insn_info): Define commutative_op_p for the
+	insn info.  Remove commented constraints.
+	(single_alt_reg_class, get_duplication_allocno): Exclude # from
+	processing.
+	* yara-trans.c (possible_alt_reg_intersection,
+	all_alt_offset_ok_p): Ditto.
+	
 2006-03-29  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* yara-int.h (stack_memory_start_frame_offset): Rename to

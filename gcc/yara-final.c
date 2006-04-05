@@ -190,10 +190,11 @@ process_allocno_locs (allocno_t dst, allocno_t src, copy_t cp, rtx insn)
 	}
       else if (dst_hard_regno >= 0)
 	{
-	  for (i = hard_regno_nregs [dst_hard_regno] [cp_mode] - 1;
-	       i >= 0;
-	       i--)
-	    (*process_reg_loc_set_func) (dst_hard_regno + i);
+	  if (process_reg_loc_set_func)
+	    for (i = hard_regno_nregs [dst_hard_regno] [cp_mode] - 1;
+		 i >= 0;
+		 i--)
+	      (*process_reg_loc_set_func) (dst_hard_regno + i);
 	}
       else
 	{

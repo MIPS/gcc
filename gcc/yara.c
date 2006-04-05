@@ -221,9 +221,9 @@ static void check_allocation (void);
 
 static struct obstack yara_obstack;
 static struct bitmap_obstack yara_bitmap_obstack;
-/*
+
 #define YARA_OBSTACK
-*/
+
 void *
 yara_allocate (size_t len)
 {
@@ -421,12 +421,12 @@ yara (FILE *f)
   bitmap_obstack_initialize (&yara_bitmap_obstack);
   yara_ir_init ();
   yara_trans_init ();
-  yara_reload_init ();
+  yara_insn_init ();
   yara_color ();
   if (yara_dump_file != NULL)
     print_disposition (yara_dump_file);
   yara_rewrite ();
-  yara_reload_finish ();
+  yara_insn_finish ();
   yara_trans_finish ();
   yara_ir_finish ();
   bitmap_obstack_release (&yara_bitmap_obstack);
@@ -457,7 +457,7 @@ rest_of_handle_yara (void)
   reg_equiv_memory_loc = &VARRAY_RTX (reg_equiv_memory_loc_varray, 0);
 
   allocate_initial_values (reg_equiv_memory_loc);
-  if ((YARA_PARAMS & YARA_NO_REGCLASS_BEFORE) == 0)
+  if (YARA_PARAMS & YARA_REGCLASS_BEFORE)
     /*?? We should implement own pass. */
     regclass (get_insns (), max_reg_num ());
 

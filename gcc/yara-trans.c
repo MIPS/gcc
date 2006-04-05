@@ -2884,9 +2884,7 @@ possible_alt_reg_intersection (allocno_t a, HARD_REG_SET *regs)
 	       (c = *constraints);
 	       constraints += CONSTRAINT_LEN (c, constraints))
 	    {
-	      if (c == '#')
-		break;
-	      else if (c == '*')
+	      if (c == '*')
 		{
 		  constraints += CONSTRAINT_LEN (c, constraints);
 		  continue;
@@ -2980,11 +2978,9 @@ all_alt_offset_ok_p (allocno_t a, HOST_WIDE_INT val)
 	       (c = *constraints);
 	       constraints += CONSTRAINT_LEN (c, constraints))
 	    {
-	      if (c == '#')
-		break;
-	      else if (c == ' ' || c == '\t' || c == '=' || c == '+'
-		       || c == '*' || c == '&' || c == '%' || c == '?'
-		       || c == '!')
+	      if (c == ' ' || c == '\t' || c == '=' || c == '+'
+		  || c == '*' || c == '&' || c == '%' || c == '?'
+		  || c == '!')
 		continue;
 	      
 	      switch (c)

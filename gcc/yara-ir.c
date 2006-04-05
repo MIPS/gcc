@@ -2776,6 +2776,7 @@ create_insn_info (rtx insn)
     info->op_constraints
       = yara_allocate (sizeof (char *) * recog_data.n_operands
 		       * recog_data.n_alternatives);
+  info->commutative_op_p = false;
   for (i = 0; i < recog_data.n_operands; i++)
     {
       str = yara_allocate (sizeof (char)
@@ -2792,7 +2793,11 @@ create_insn_info (rtx insn)
 		break;
 	      len = CONSTRAINT_LEN (c, p);
 	      str += len;
-	      if (c == ',')
+	      if (c == '%')
+		info->commutative_op_p = true;
+	      else if (c == '#')
+		str [-len] = '\0';
+	      else if (c == ',')
 		{
 		  str [-len] = '\0';
 		  break;
@@ -3228,9 +3233,6 @@ single_alt_reg_class (const char *constraints, struct insn_op_info *info,
       case '?':
 	break;
 	
-      case '#':
-	break;
-	
 	/* ??? what about memory */
       case 'r':
       case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
@@ -3261,6 +3263,7 @@ single_alt_reg_class (const char *constraints, struct insn_op_info *info,
 	break;
 
       default:
+	gcc_assert (c != '#');
 	return NO_REGS;
       }
   return cl;
@@ -5360,10 +5363,8 @@ get_duplication_allocno (allocno_t a, bool commutative_p)
       for (;
 	   (c = *constraints);
 	   constraints += CONSTRAINT_LEN (c, constraints))
-	if (c == '#')
-	  break;
-	else if (c == ' ' || c == '\t' || c == '=' || c == '+' || c == '*'
-		 || c == '&' || c == '%' || c == '?' || c == '!')
+	if (c == ' ' || c == '\t' || c == '=' || c == '+' || c == '*'
+	    || c == '&' || c == '%' || c == '?' || c == '!')
 	  ;
 	else if ('0' <= c && c <= '9')
 	  {
@@ -5372,7 +5373,10 @@ get_duplication_allocno (allocno_t a, bool commutative_p)
 	    original = c;
 	  }
 	else
-	  break;
+	  {
+	    gcc_assert (c != '#');
+	    break;
+	  }
     }
   if (curr_alt < info->n_alts || original == -1)
     {

@@ -388,9 +388,7 @@ process_insn_allocno_constraint (allocno_t a, const char *constraint,
   char c;
 
   for (; (c = *constraint); constraint += CONSTRAINT_LEN (c, constraint))
-    if (c == '#')
-      break;
-    else if (c == '*')
+    if (c == '*')
       /* That is really important for better performance.  */
       constraint += CONSTRAINT_LEN (c, constraint);
     else if (c == ' ' || c == '\t' || c == '=' || c == '+' || c == '*'
@@ -401,6 +399,7 @@ process_insn_allocno_constraint (allocno_t a, const char *constraint,
       ;
     else
       {
+	gcc_assert (c != '#');
 	add_op_cost = 0;
 	op = *INSN_ALLOCNO_LOC (a);
 	SKIP_TO_REG (no_subreg_op, op);
@@ -2297,9 +2296,6 @@ pick_up_hard_regs_from_constraints (const char *constraints,
   for (; (c = *constraints); constraints += CONSTRAINT_LEN (c, constraints))
     switch (c)
       {
-      case '#':
-	 return;
-
 	 /* ??? what about constants and other memory. */
       case 'm':
       case 'o':
@@ -2331,6 +2327,8 @@ pick_up_hard_regs_from_constraints (const char *constraints,
 				  + curr_allocation_insn_alt], sp, &flag);
 	 *mem_too_p = *mem_too_p || flag;
 	 break;
+      default:
+	gcc_assert (c != '#');
       }
 }
 
