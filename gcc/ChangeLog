@@ -1,3 +1,14 @@
+2006-04-04  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4383613
+	* doc/extend.texi (Function Attributes): Rewrite visibility 
+	attribute documentation.
+	* doc/invoke.texi (C++ Dialect Options): Rewrite
+	-fvisibility-inlines-hidden documentation to describe something
+	entirely different, although in practise compatible.
+	(Code Gen Options): Warn about system headers in -fvisibility=
+	documentation.
+
 2006-03-22  Eric Christopher  <echristo@apple.com>
 
         Radar 4419200
