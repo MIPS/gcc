@@ -1,5 +1,9 @@
 2006-04-04  Geoffrey Keating  <geoffk@apple.com>
 
+	Radar 4502209
+	* config/darwin-crt3.c (atexit): Pass &__dso_handle rather than
+	NULL for dso parameter to atexit_common.
+
 	Radar 4383613
 	* doc/extend.texi (Function Attributes): Rewrite visibility 
 	attribute documentation.
