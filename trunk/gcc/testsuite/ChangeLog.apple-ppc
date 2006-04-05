@@ -1,3 +1,16 @@
+2006-04-04 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4498373
+	(Metadata for objective-c properties)
+	* objc.dg/property-neg-3.m: Test modified.
+	* obj-c++.dg/property-neg-3.mm: Test modified.
+	* objc.dg/property-metadata-1.m: New.
+	* objc.dg/property-metadata-2.m: New.
+	* objc.dg/property-metadata-3.m: New.
+	* obj-c++.dg/property-metadata-2.mm: New.
+	* obj-c++.dg/property-metadata-3.mm: New.
+	* obj-c++.dg/property-metadata-1.mm: New.
+
 2006-03-31 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4494634

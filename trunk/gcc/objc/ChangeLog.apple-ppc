@@ -1,3 +1,47 @@
+2006-04-04 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4498373
+        (Metadata for objective-c properties)
+	* objc-act.h (objc_v2_property_template, UOBJC_V2_PROPERTY_decl,
+	prop_names_attr_chain, objc_prop_list_ptr): New global 
+	declarations.
+	* objc-act.c (build_v2_property_template, build_v2_property_list_template,
+	generate_v2_property_tables, build_v2_property_table_initializer, 
+	objc_v2_encode_prop_attr, generate_v2_property_list,
+	objc_v2_merge_dynamic_property): New functions for property's
+	meta-data generation.
+	(string_section): prop_names_attr is the new enum for property
+	name/attribute strings section.
+	(objc_add_property_variable): Fix a latentbug to prevent crash on user
+	error.
+	(synth_module_prologue): Define a new type for _prop_list_t*.
+	(build_objc_string_decl): Add property name/attributes to their own
+        list.
+	(add_objc_string): Add support for property name/attribute names. 
+	(get_objc_string_decl): Add list of property name/attributes among
+	those to search for.
+	(generate_strings): Generate the property name/attribute data.
+	(build_v2_protocol_template): Add the new field "properties"
+	to 'struct protocol_t'.
+	(build_protocol_initializer): Add the initializer for "properties"
+	field.
+	(build_v2_category_template): Add the new field "properties"
+	to 'struct category_t'.
+	(build_category_initializer): Add the initializer for "properties"
+	field.
+	(build_v2_class_template): Add the new field "properties"
+	to 'struct class_ro_t'.
+	(build_class_ro_t_initializer): Add the new field "properties"
+	to 'struct class_ro_t'.
+	(generate_v2_shared_structures): Fixed a latent bug.
+	(check_methods): Don't issue error if synthesize declarations
+	found in interface don't have an implementation.
+	(objc_gen_property_data): Merege 'dynamic' properties into 
+	class's implementation.
+	(finish_class): Set the context for synthesized instance methods.
+	(finish_objc): Call to generate_v2_property_tables to generate
+	property metadata.
+
 2006-03-31 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4494634

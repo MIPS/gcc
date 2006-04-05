@@ -1,3 +1,10 @@
+2006-04-04 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4498373
+        (Metadata for objective-c properties)
+	* config/darwin.c (machopic_select_section): Put metadata 
+	name/attribute strings in .data section.
+
 2006-03-29 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4493912

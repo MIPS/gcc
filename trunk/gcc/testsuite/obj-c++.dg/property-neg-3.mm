@@ -10,7 +10,4 @@
 @end	
 
 @implementation  Person
-@end /* { dg-warning "incomplete implementation of class \\'Person\\'" "" { target *-*-* } 13 } */
-     /* { dg-warning "method definition for \\'-setFirstName:\\' not found" "" { target *-*-* } 13 } */
-     /* { dg-warning "method definition for \\'-firstName\\' not found" "" { target *-*-* } 13 } */
-
+@end 

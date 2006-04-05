@@ -63,6 +63,8 @@ void objc_detect_field_duplicates (tree);
 #define METHOD_ADD_ARGS(DECL) ((DECL)->decl.result)
 #define METHOD_DEFINITION(DECL) ((DECL)->decl.initial)
 #define METHOD_ENCODING(DECL) ((DECL)->decl.context)
+/* APPLE LOCAL C* property metadata (Radar 4498373) */
+#define METHOD_PROPERTY_CONTEXT(DECL) ((DECL)->decl.size_unit)
 
 /* APPLE LOCAL begin C* property (Radar 4436866) */
 #define PROPERTY_NAME(DECL) ((DECL)->decl.name)
@@ -406,7 +408,12 @@ enum objc_tree_index
     OCTI_FAST_ENUM_STATE_TEMP,
     OCTI_ENUM_MUTATION_DECL,
     /* APPLE LOCAL end C* language */
-
+    /* APPLE LOCAL begin C* property metadata (Radar 4498373) */
+    OCTI_V2_PROPERTY_TEMPL,
+    OCTI_V2_PROPERTY_DECL,
+    OCTI_V2_PROP_NAME_ATTR_CHAIN,
+    OCTI_PROP_LIST_TEMPL,
+    /* APPLE LOCAL end C* property metadata (Radar 4498373) */
     OCTI_MAX
 };
 
@@ -643,4 +650,10 @@ extern GTY(()) tree objc_global_trees[OCTI_MAX];
 #define objc_fast_enum_state_type	objc_global_trees[OCTI_FAST_ENUM_STATE_TEMP]
 #define objc_enum_mutation_decl		objc_global_trees[OCTI_ENUM_MUTATION_DECL]
 /* APPLE LOCAL end C* language */
+/* APPLE LOCAL begin C* property metadata (Radar 4498373) */
+#define objc_v2_property_template objc_global_trees[OCTI_V2_PROPERTY_TEMPL]
+#define UOBJC_V2_PROPERTY_decl  objc_global_trees[OCTI_V2_PROPERTY_DECL]
+#define prop_names_attr_chain	objc_global_trees[OCTI_V2_PROP_NAME_ATTR_CHAIN]
+#define objc_prop_list_ptr	objc_global_trees[OCTI_PROP_LIST_TEMPL]
+/* APPLE LOCAL end C* property metadata (Radar 4498373) */
 #endif /* GCC_OBJC_ACT_H */

@@ -1271,7 +1271,10 @@ machopic_select_section (tree exp, int reloc,
       else if (!strncmp (name, "_OBJC_CLASSLIST_REFERENCES_", 27))
 	objc_classrefs_section ();
       else if (!strncmp (name, "_OBJC_CLASS_RO_$", 16) 
-	       || !strncmp (name, "_OBJC_METACLASS_RO_$", 20))
+      /* APPLE LOCAL begin C* property metadata (Radar 4498373) */
+	       || !strncmp (name, "_OBJC_METACLASS_RO_$", 20)
+	       || !strncmp (name, "_OBJC_PROP_NAME_ATTR_", 21))
+      /* APPLE LOCAL end C* property metadata (Radar 4498373) */
 	objc_data_section ();
       else if (!strncmp (name, "_OBJC_MESSAGE_REF", 17))
 	objc_message_refs_section ();
