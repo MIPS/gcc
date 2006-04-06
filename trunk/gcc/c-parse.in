@@ -194,7 +194,7 @@ do {									\
 %token AT_IN AT_OPTIONAL AT_REQUIRED
 /* APPLE LOCAL end C* language */
 /* APPLE LOCAL C* property (Radar 4436866) */
-%token AT_PROPERTY AT_READONLY AT_GETTER AT_SETTER AT_IVAR
+%token AT_PROPERTY AT_READONLY AT_PROP_COPIES AT_GETTER AT_SETTER AT_IVAR
 
 %type <code> unop
 %type <ttype> ENUM STRUCT UNION IF ELSE WHILE DO FOR SWITCH CASE DEFAULT
@@ -3173,6 +3173,10 @@ property_attribute:
 		{
 		  objc_set_property_attr (4, $3);
 		}
+	| AT_PROP_COPIES
+		{
+		  objc_set_property_attr (5, NULL_TREE);
+		}
 	;
 
 property_attrlist:
@@ -3764,6 +3768,7 @@ static const struct resword reswords[] =
   /* APPLE LOCAL begin C* property (Radar 4436866) */
   /* These are recognized inside a property attribute list */
   { "readonly",		RID_READONLY,		D_OBJC }, 
+  { "copies",		RID_COPIES,		D_OBJC },
   { "getter",		RID_GETTER,		D_OBJC }, 
   { "setter",		RID_SETTER,		D_OBJC }, 
   { "ivar",		RID_IVAR,		D_OBJC }, 
@@ -4034,6 +4039,8 @@ yylexname (void)
 	   _cpp_backup_tokens (parse_in, 1);
 	   if (rid_code == RID_READONLY)
 	     return AT_READONLY;
+	   if (rid_code == RID_COPIES)
+	     return AT_PROP_COPIES;
 	   if (next_tok_type == CPP_EQ)
 	     {
 	       switch (rid_code)

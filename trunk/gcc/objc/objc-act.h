@@ -72,6 +72,7 @@ void objc_detect_field_duplicates (tree);
 #define PROPERTY_SETTER_NAME(DECL) ((DECL)->decl.result)
 #define PROPERTY_IVAR_NAME(DECL) ((DECL)->decl.initial)
 #define PROPERTY_READONLY(DECL) ((DECL)->decl.context)
+#define PROPERTY_COPIES(DECL) ((DECL)->decl.size_unit)
 /* APPLE LOCAL end C* property (Radar 4436866) */
 
 /* CLASS_INTERFACE_TYPE, CLASS_IMPLEMENTATION_TYPE,

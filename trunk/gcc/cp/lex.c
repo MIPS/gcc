@@ -321,6 +321,7 @@ static const struct resword reswords[] =
   /* APPLE LOCAL begin C* property (Radar 4436866) */
   /* These are recognized inside a property attribute list */
   { "readonly",         RID_READONLY,           D_OBJC },
+  { "copies",		RID_COPIES,		D_OBJC },
   { "getter",           RID_GETTER,             D_OBJC },
   { "setter",           RID_SETTER,             D_OBJC },
   { "ivar",             RID_IVAR,               D_OBJC },

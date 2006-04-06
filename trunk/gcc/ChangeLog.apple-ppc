@@ -1,3 +1,10 @@
+2006-04-06 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4436866
+        (Missing copies attribute)
+	* c-parse.in: Add grammer for 'copies' attribute.
+	* c-common.h (RID_COPIES): New enumerator.
+
 2006-04-04 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4498373

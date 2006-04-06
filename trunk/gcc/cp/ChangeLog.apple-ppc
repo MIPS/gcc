@@ -1,3 +1,11 @@
+2006-04-06 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4436866 
+	(Missing copies attribute)
+	* lex.c (reswords): New keyword 'copies' added.
+	* parser.c (objc_cp_parser_at_property): Parse 'copies'
+	attribute.
+
 2006-03-27 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4133425

@@ -638,6 +638,7 @@ int objc_public_flag;
 static int objc_method_optional_flag = 0;
 /* APPLE LOCAL begin C* property (Radar 4436866) */
 static bool property_readonly;
+static bool property_copies;
 static tree property_getter;
 static tree property_setter;
 static tree property_ivar;
@@ -1033,7 +1034,7 @@ objc_set_property_attr (int attr, tree ident)
   switch (attr)
     {
     case 0: /* init */
-	property_readonly = false;
+	property_readonly = property_copies = false;
 	property_setter = property_getter = property_ivar = NULL_TREE;
 	break;
     case 1: /* readonly */
@@ -1058,6 +1059,9 @@ objc_set_property_attr (int attr, tree ident)
 	if (property_ivar != NULL_TREE)
 	  error("ivar attribute can be specified only once");
 	property_ivar = ident;
+	break;
+    case 5: /* copies */
+	property_copies = true;
 	break;
     default:
 	break;
@@ -1108,8 +1112,11 @@ objc_add_property_variable (tree decl)
   PROPERTY_SETTER_NAME (property_decl) = property_setter;
   PROPERTY_IVAR_NAME (property_decl) = property_ivar;
   PROPERTY_READONLY (property_decl) = property_readonly 
-					? integer_one_node 
-					: integer_zero_node;
+					? boolean_true_node 
+					: boolean_false_node;
+  PROPERTY_COPIES (property_decl) = property_copies 
+					? boolean_true_node 
+					: boolean_false_node;
 
   if (objc_interface_context)
     {
@@ -1150,8 +1157,14 @@ objc_add_property_variable (tree decl)
 	  error ("property %qs has conflicting 'readyonly' attribute with its interface version", 
 		 IDENTIFIER_POINTER (DECL_NAME (decl)));
 	}
+      /* copies must also match. */
+      if (PROPERTY_COPIES (x) != PROPERTY_COPIES (property_decl))
+	{
+	  error ("property %qs has conflicting 'copies' attribute with its interface version", 
+		 IDENTIFIER_POINTER (DECL_NAME (decl)));
+	}
       /* Cannot have readonly and setter attribute for the same property. */
-      if (PROPERTY_READONLY (property_decl) == integer_one_node &&
+      if (PROPERTY_READONLY (property_decl) == boolean_true_node &&
 	  PROPERTY_SETTER_NAME (property_decl))
 	{
 	  warning ("readonly property cannot have setter; setter is ignored");
@@ -1408,13 +1421,11 @@ objc_v2_encode_prop_attr (tree property)
   obstack_1grow (&util_obstack, 't');
   encode_type (type, obstack_object_size (&util_obstack),
 	       OBJC_ENCODE_INLINE_DEFS);
-  if (PROPERTY_READONLY (property) == integer_one_node)
+  if (PROPERTY_READONLY (property) == boolean_true_node)
     obstack_grow (&util_obstack, ",r", 2);
 
-  /* Do the 'copies' attribute. 
-  if (PROPERTY_COPIES (property) == integer_one_node)
+  if (PROPERTY_COPIES (property) == boolean_true_node)
     obstack_grow (&util_obstack, ",c", 2);
-  */
 
   if (PROPERTY_GETTER_NAME (property))
     {
@@ -1563,9 +1574,7 @@ objc_v2_merge_dynamic_property (void)
       TREE_TYPE (property_decl) = TREE_TYPE (x);
       PROPERTY_NAME (property_decl) = PROPERTY_NAME (x);
       PROPERTY_READONLY (property_decl) = PROPERTY_READONLY (x);
-      /*
       PROPERTY_COPIES (property_decl) = PROPERTY_COPIES (x);
-      */
       PROPERTY_GETTER_NAME (property_decl) = NULL_TREE;
       PROPERTY_SETTER_NAME (property_decl) = NULL_TREE;
       PROPERTY_IVAR_NAME (property_decl) = NULL_TREE;
@@ -11765,7 +11774,7 @@ objc_gen_one_property_data (tree class, tree property, tree class_methods, bool 
    	       IDENTIFIER_POINTER (PROPERTY_IVAR_NAME (property)));
     }
   else if (!PROPERTY_GETTER_NAME (property) 
-	   || (PROPERTY_READONLY (property) == integer_zero_node 
+	   || (PROPERTY_READONLY (property) == boolean_false_node 
 	       && !PROPERTY_SETTER_NAME (property)))
     {
       /* Setter and/or getter must be synthesize and there was no user-specified
@@ -11986,7 +11995,7 @@ objc_gen_property_data (tree class, tree class_methods)
      else
        objc_process_getter_setter (class_methods, x, true);
 
-     if (PROPERTY_READONLY (x) == integer_zero_node)
+     if (PROPERTY_READONLY (x) == boolean_false_node)
        {
 	 /* not a readonly property. */
 	 if (PROPERTY_SETTER_NAME (x) == NULL_TREE)
@@ -12081,7 +12090,7 @@ finish_class (tree class)
 
 	  /* Build an instance method declaration: - (void) setName: (type)value; */
 	  if (PROPERTY_SETTER_NAME (x) == NULL_TREE 
-	      && PROPERTY_READONLY (x) == integer_zero_node)
+	      && PROPERTY_READONLY (x) == boolean_false_node)
 	    {
 	      /* Declare a setter instance method in the interface. */
 	      tree key_name, arg_type, arg_name;

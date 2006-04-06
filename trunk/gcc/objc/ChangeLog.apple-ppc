@@ -1,3 +1,16 @@
+2006-04-06 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4436866
+        (Missing copies attribute)
+	* objc-act.h (PROPERTY_COPIES): New field in property node.
+	* objc-act.c (objc_set_property_attr): Set property_copies
+	flag.
+	(objc_add_property_variable): Update field PROPERTY_COPIES
+	corresponding to 'copies' attribute.
+	(objc_v2_encode_prop_attr): Ancode 'copies' attribute in
+	attribute field of metadata.
+	(objc_v2_merge_dynamic_property): Merge 'copies' attribute.
+	
 2006-04-04 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4498373

@@ -2524,6 +2524,11 @@ objc_cp_parser_at_property (cp_parser *parser)
 		  break;
 		}
 	    }
+          else if (node == ridpointers [(int) RID_COPIES])
+	    {
+	      /* Do the 'copies' thing. */
+	      objc_set_property_attr (5, NULL_TREE);
+	    }	
 	  else
 	    {
 	      error ("unknown property attribute");
