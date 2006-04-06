@@ -129,9 +129,9 @@ inverse (tree x, tree mask)
 /* Determines number of iterations of loop whose ending condition
    is IV <> FINAL.  TYPE is the type of the iv.  The number of
    iterations is stored to NITER.  NEVER_INFINITE is true if
-   we know that the loop cannot be infinite (we derived this
-   earlier, and possibly set NITER->assumptions to make sure this
-   is the case.  */
+   we know that the exit must be taken eventually, i.e., that the IV
+   ever reaches the value FINAL (we derived this earlier, and possibly set
+   NITER->assumptions to make sure this is the case).  */
 
 static bool
 number_of_iterations_ne (tree type, affine_iv *iv, tree final,
@@ -492,9 +492,9 @@ number_of_iterations_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 /* Determines number of iterations of loop whose ending condition
    is IV0 <= IV1.  TYPE is the type of the iv.  The number of
    iterations is stored to NITER.  NEVER_INFINITE is true if
-   we know that the loop cannot be infinite (we derived this
+   we know that this condition must eventually become false (we derived this
    earlier, and possibly set NITER->assumptions to make sure this
-   is the case.  */
+   is the case).  */
 
 static bool
 number_of_iterations_le (tree type, affine_iv *iv0, affine_iv *iv1,
@@ -538,6 +538,11 @@ number_of_iterations_le (tree type, affine_iv *iv0, affine_iv *iv1,
    is IV0, the right-hand side is IV1.  Both induction variables must have
    type TYPE, which must be an integer or pointer type.  The steps of the
    ivs must be constants (or NULL_TREE, which is interpreted as constant zero).
+
+   ONLY_EXIT is true if we are sure this is the only way the loop could be
+   exited (including possibly non-returning function calls, exceptions, etc.)
+   -- in this case we can use the information whether the control induction
+   variables can overflow or not in a more efficient way.
    
    The results (number of iterations and assumptions as described in
    comments at struct tree_niter_desc in tree-flow.h) are stored to NITER.
@@ -546,7 +551,8 @@ number_of_iterations_le (tree type, affine_iv *iv0, affine_iv *iv1,
 
 static bool
 number_of_iterations_cond (tree type, affine_iv *iv0, enum tree_code code,
-			   affine_iv *iv1, struct tree_niter_desc *niter)
+			   affine_iv *iv1, struct tree_niter_desc *niter,
+			   bool only_exit)
 {
   bool never_infinite;
 
@@ -572,13 +578,30 @@ number_of_iterations_cond (tree type, affine_iv *iv0, enum tree_code code,
       code = swap_tree_comparison (code);
     }
 
+  if (!only_exit)
+    {
+      /* If this is not the only possible exit from the loop, the information
+	 that the induction variables cannot overflow as derived from
+	 signedness analysis cannot be relied upon.  We use them e.g. in the
+	 following way:  given loop for (i = 0; i <= n; i++), if i is
+	 signed, it cannot overflow, thus this loop is equivalent to
+	 for (i = 0; i < n + 1; i++);  however, if n == MAX, but the loop
+	 is exited in some other way before i overflows, this transformation
+	 is incorrect (the new loop exits immediately).  */
+      iv0->no_overflow = false;
+      iv1->no_overflow = false;
+    }
+
   if (POINTER_TYPE_P (type))
     {
       /* Comparison of pointers is undefined unless both iv0 and iv1 point
 	 to the same object.  If they do, the control variable cannot wrap
 	 (as wrap around the bounds of memory will never return a pointer
 	 that would be guaranteed to point to the same object, even if we
-	 avoid undefined behavior by casting to size_t and back).  */
+	 avoid undefined behavior by casting to size_t and back).  The
+	 restrictions on pointer arithmetics and comparisons of pointers
+	 ensure that using the no-overflow assumptions is correct in this
+	 case even if ONLY_EXIT is false.  */
       iv0->no_overflow = true;
       iv1->no_overflow = true;
     }
@@ -963,6 +986,37 @@ simplify_using_outer_evolutions (struct loop *loop, tree expr)
   return expr;
 }
 
+/* Returns true if EXIT is the only possible exit from LOOP.  */
+
+static bool
+loop_only_exit_p (struct loop *loop, edge exit)
+{
+  basic_block *body;
+  block_stmt_iterator bsi;
+  unsigned i;
+  tree call;
+
+  if (exit != loop->single_exit)
+    return false;
+
+  body = get_loop_body (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      for (bsi = bsi_start (body[0]); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  call = get_call_expr_in (bsi_stmt (bsi));
+	  if (call && TREE_SIDE_EFFECTS (call))
+	    {
+	      free (body);
+	      return false;
+	    }
+	}
+    }
+
+  free (body);
+  return true;
+}
+
 /* Stores description of number of iterations of LOOP derived from
    EXIT (an exit edge of the LOOP) in NITER.  Returns true if some
    useful information could be derived (and fields of NITER has
@@ -1023,7 +1077,8 @@ number_of_iterations_exit (struct loop *loop, edge exit,
 
   iv0.base = expand_simple_operations (iv0.base);
   iv1.base = expand_simple_operations (iv1.base);
-  if (!number_of_iterations_cond (type, &iv0, code, &iv1, niter))
+  if (!number_of_iterations_cond (type, &iv0, code, &iv1, niter,
+				  loop_only_exit_p (loop, exit)))
     return false;
 
   if (optimize >= 3)
@@ -1527,9 +1582,13 @@ infer_loop_bounds_from_undefined (struct loop *loop)
 		      diff = fold_build2 (MINUS_EXPR, utype,
 					  TYPE_MAX_VALUE (type), init);
 
-		    estimation = fold_build2 (CEIL_DIV_EXPR, utype, diff,
-					      step);
-		    record_estimate (loop, estimation, boolean_true_node, stmt);
+		    if (!integer_zerop (step))
+		      {
+			estimation = fold_build2 (CEIL_DIV_EXPR, utype, diff,
+						  step);
+			record_estimate (loop, estimation, boolean_true_node,
+					 stmt);
+		      }
 		  }
 
 		break;
@@ -2035,7 +2094,7 @@ tree
 convert_step (struct loop *loop, tree new_type, tree base, tree step,
 	      tree at_stmt)
 {
-  tree base_type;
+  tree res, base_type;
 
   if (chrec_contains_undetermined (base)
       || chrec_contains_undetermined (step))
@@ -2045,12 +2104,22 @@ convert_step (struct loop *loop, tree new_type, tree base, tree step,
 
   /* When not using wrapping arithmetic, signed types don't wrap.  */
   if (!flag_wrapv && !TYPE_UNSIGNED (base_type))
-    return fold_convert (new_type, step);
+    goto do_convert_step;
 
   if (TYPE_PRECISION (new_type) > TYPE_PRECISION (base_type))
     return convert_step_widening (loop, new_type, base, step, at_stmt);
 
-  return fold_convert (new_type, step);
+ do_convert_step:
+  
+  res = fold_convert (new_type, step);
+
+  if (TREE_CODE (res) == INTEGER_CST)
+    {
+      TREE_OVERFLOW (res) = 0;
+      TREE_CONSTANT_OVERFLOW (res) = 0;
+    }
+
+  return res;
 }
 
 /* Frees the information on upper bounds on numbers of iterations of LOOP.  */

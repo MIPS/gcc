@@ -7101,9 +7101,10 @@ cp_parser_declaration (cp_parser* parser)
 	   && (/* A named namespace definition.  */
 	       (token2.type == CPP_NAME
 		&& (cp_lexer_peek_nth_token (parser->lexer, 3)->type
-		    == CPP_OPEN_BRACE))
+		    != CPP_EQ))
 	       /* An unnamed namespace definition.  */
-	       || token2.type == CPP_OPEN_BRACE))
+	       || token2.type == CPP_OPEN_BRACE
+	       || token2.keyword == RID_ATTRIBUTE))
     cp_parser_namespace_definition (parser);
   /* Objective-C++ declaration/definition.  */
   else if (c_dialect_objc () && OBJC_IS_AT_KEYWORD (token1.keyword))
@@ -10507,7 +10508,7 @@ cp_parser_namespace_name (cp_parser* parser)
 static void
 cp_parser_namespace_definition (cp_parser* parser)
 {
-  tree identifier;
+  tree identifier, attribs;
 
   /* Look for the `namespace' keyword.  */
   cp_parser_require_keyword (parser, RID_NAMESPACE, "`namespace'");
@@ -10521,10 +10522,13 @@ cp_parser_namespace_definition (cp_parser* parser)
   else
     identifier = NULL_TREE;
 
+  /* Parse any specified attributes.  */
+  attribs = cp_parser_attributes_opt (parser);
+
   /* Look for the `{' to start the namespace.  */
   cp_parser_require (parser, CPP_OPEN_BRACE, "`{'");
   /* Start the namespace.  */
-  push_namespace (identifier);
+  push_namespace_with_attribs (identifier, attribs);
   /* Parse the body of the namespace.  */
   cp_parser_namespace_body (parser);
   /* Finish the namespace.  */

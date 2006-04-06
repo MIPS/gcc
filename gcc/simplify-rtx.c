@@ -656,7 +656,8 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
       if ((TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
 				 GET_MODE_BITSIZE (GET_MODE (op)))
 	   ? (num_sign_bit_copies (op, GET_MODE (op))
-	      >= (unsigned int) (GET_MODE_BITSIZE (mode) + 1))
+	      > (unsigned int) (GET_MODE_BITSIZE (GET_MODE (op))
+				- GET_MODE_BITSIZE (mode)))
 	   : truncated_to_mode (mode, op))
 	  && ! (GET_CODE (op) == LSHIFTRT
 		&& GET_CODE (XEXP (op, 0)) == MULT))
@@ -3517,8 +3518,7 @@ simplify_relational_operation (enum rtx_code code, enum machine_mode mode,
     return simplify_relational_operation (code, mode, VOIDmode,
 				          XEXP (op0, 0), XEXP (op0, 1));
 
-  if (mode == VOIDmode
-      || GET_MODE_CLASS (cmp_mode) == MODE_CC
+  if (GET_MODE_CLASS (cmp_mode) == MODE_CC
       || CC0_P (op0))
     return NULL_RTX;
 

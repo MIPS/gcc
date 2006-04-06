@@ -1,7 +1,57 @@
+2006-03-29  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/22494
+	* init.c (build_vec_delete_1): Convert BASE pointer's type to
+	the base pointer type to avoid a type mismatch in the EQ_EXPR.
+
+2006-03-24  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* search.c (maybe_suppress_debug_info): If
+	flag_emit_class_debug_always then don't suppress.
+
+2006-03-22  Jason Merrill  <jason@redhat.com>
+
+        * name-lookup.c (push_namespace_with_attribs): Only apply hidden
+        visibility to anonymous namespaces if HAVE_GAS_HIDDEN.
+
+2006-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/26691
+	* cp-gimplify.c (cxx_omp_clause_apply_fn): Handle default arguments.
+
+2006-03-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21581
+	* parser.c (cp_parser_declaration): Support attributes on
+	anonymous namespaces.
+	* name-lookup.c (push_namespace_with_attribs): Anonymous 
+	namespaces default to hidden visibility.
+
+2006-03-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/21764, c++/19238
+	* decl.c (cp_finish_decl): Call determine_visibility later.
+	(start_preparsed_function): Likewise.
+	* cp-tree.h (CP_TYPE_CONTEXT, TYPE_NAMESPACE_SCOPE_P): New macros.
+	(TYPE_CLASS_SCOPE_P, TYPE_FUNCTION_SCOPE_P): New macros.
+	* name-lookup.h (struct cp_binding_level): Add has_visibility 
+	bitfield.
+	* name-lookup.c: Include c-pragma.h.
+	(push_namespace_with_attribs): Split out from push_namespace.
+	Push visibility if appropriate.  Set TREE_PUBLIC on namespaces.
+	(leave_scope): Pop visibility if appropriate.
+	* decl2.c (determine_visibility_from_class): Split out from...
+	(determine_visibility): ...here.  Handle function scope and 
+	nested classes.
+	(import_export_decl): Move visibility handling to 
+	determine_visibility_from_class.
+	* parser.c (cp_parser_declaration, cp_parser_namespace_name): Allow
+	attributes on namespace declarations.
+
 2006-03-15  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/6634
-	decl.c (grokdeclarator): Do not accept long long double.
+	* decl.c (grokdeclarator): Do not accept long long double.
 	Reorganize checks for invalid (combinations of) type modifiers.
 	Quote modifiers in messages.
 

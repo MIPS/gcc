@@ -397,6 +397,8 @@ default_external_stack_protect_fail (void)
       TREE_NOTHROW (t) = 1;
       DECL_ARTIFICIAL (t) = 1;
       DECL_IGNORED_P (t) = 1;
+      DECL_VISIBILITY (t) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (t) = 1;
 
       stack_chk_fail_decl = t;
     }
@@ -552,6 +554,20 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 	sri->t_icode = icode;
     }
   return class;
+}
+
+
+/* If STRICT_ALIGNMENT is true we use the container type for accessing
+   volatile bitfields.  This is generally the preferred behavior for memory
+   mapped peripherals on RISC architectures.
+   If STRICT_ALIGNMENT is false we use the narrowest type possible.  This
+   is typically used to avoid spurious page faults and extra memory accesses
+   due to unaligned accesses on CISC architectures.  */
+
+bool
+default_narrow_bitfield (void)
+{
+  return !STRICT_ALIGNMENT;
 }
 
 #include "gt-targhooks.h"

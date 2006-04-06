@@ -1,3 +1,205 @@
+2006-04-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR fortran/25619
+	* trans-array.c (gfc_conv_expr_descriptor): Only dereference
+	character pointer when copying temporary.
+
+	PR fortran/23634
+	* trans-array.c (gfc_conv_expr_descriptor): Properly copy
+	temporary character with non constant size.
+
+2006-04-03  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26891
+	* trans.h : Prototype for gfc_conv_missing_dummy.
+	* trans-expr (gfc_conv_missing_dummy): New function
+	(gfc_conv_function_call): Call it and tidy up some of the code.
+	* trans-intrinsic (gfc_conv_intrinsic_function_args): The same.
+
+	PR fortran/26976
+	* array.c (gfc_array_dimen_size): If available, return shape[dimen].
+	* resolve.c (resolve_function): If available, use the argument shape for the
+	function expression.
+	* iresolve.c (gfc_resolve_transfer): Set shape[0] = size.
+
+2006-04-02  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	* trans-array.c (gfc_trans_dealloc_allocated): Take a
+	tree representation of the array to be deallocated as argument
+	instead of its gfc_symbol.
+	(gfc_trans_deferred_array): Update call to
+	gfc_trans_dealloc_allocated.
+	* trans-array.h (gfc_trans_dealloc_allocated): Update
+	prototype.
+	* trans-expr.c (gfc_conv_function_call): Update call to
+	gfc_trans_dealloc_allocated, get indirect reference to dummy
+	arguments.
+
+2006-04-01  Roger Sayle  <roger@eyesopen.com>
+
+	PR fortran/25270
+	* trans-array.c (gfc_trans_allocate_array_storage): In array index
+	calculations use gfc_index_zero_node and gfc_index_one_node instead
+	of integer_zero_node and integer_one_node respectively.
+	(gfc_conv_array_transpose): Likewise.
+	(gfc_conv_ss_startstride): Likewise.
+	(gfc_trans_dummy_array_bias): Likewise.
+
+2006-04-01  Roger Sayle  <roger@eyesopen.com>
+
+	* dependency.c (gfc_is_inside_range): Delete.
+	(gfc_check_element_vs_section): Significant rewrite.
+
+2006-04-01  Roger Sayle  <roger@eyesopen.com>
+
+	* dependency.c (gfc_dep_compare_expr): Strip parentheses and unary
+	plus operators when comparing expressions.  Handle comparisons of
+	the form "X+C vs. X", "X vs. X+C", "X-C vs. X" and "X vs. X-C" where
+	C is an integer constant.  Handle comparisons of the form "P+Q vs.
+	R+S" and "P-Q vs. R-S".  Handle comparisons of integral extensions
+	specially (increasing functions) so extend(A) > extend(B), when A>B.
+	(gfc_check_element_vs_element): Move test later, so that we ignore
+	the fact that "A < B" or "A > B" when A or B contains a forall index.
+
+2006-03-31  Asher Langton  <langton2@llnl.gov>
+
+	PR fortran/25358
+	*expr.c (gfc_check_assign): Allow cray pointee to be assumes-size.
+	
+2006-03-30  Paul Thomas <paulthomas2@wanadoo.fr>
+            Bud Davis  <bdavis9659@sbcglobal.net>
+
+	PR 21130
+	* module.c (load_needed): Traverse entire tree before returning.
+
+2006-03-30  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/22375
+	* trans.c (gfc_trans_runtime_check): Promote the arguments of
+	__builtin_expect to the correct types, and the result back to
+	boolean_type_node.
+
+2006-03-29  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Make-lang.in: Rename docdir to gcc_docdir.
+
+2006-03-28  Steven G. Kargl  <kargls@comcast.net>
+
+	* intrinsic.texi: s/floor/float in previous commit.
+
+2006-03-28 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/26779
+	*resolve.c (resolve_fl_procedure): Do not check the access of
+	derived types for internal procedures.
+
+2006-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* io.c (check_io_constraints): Don't look at
+	dt->advance->value.charater.string, unless it is a CHARACTER
+	constant.
+
+	* f95-lang.c (gfc_get_alias_set): New function.
+	(LANG_HOOKS_GET_ALIAS_SET): Define.
+
+2006-03-25  Steven G. Kargl  <kargls@comcast.net>
+
+	PR fortran/26816
+	* intrinsic.c (add_functions): Allow FLOAT to accept all integer kinds.
+	* intrinsic.texi: Document FLOAT.
+
+2006-03-25  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/26769
+	* iresolve.c (gfc_resolve_reshape):  Remove doubling of
+	kind for complex. For real(kind=10), call reshape_r10.
+	(gfc_resolve_transpose):  For real(kind=10), call
+	transpose_r10.
+
+2006-03-25  Roger Sayle  <roger@eyesopen.com>
+
+	* dependency.c (gfc_check_dependency): Improve handling of pointers;
+	Two variables of different types can't have a dependency, and two
+	variables with the same symbol are equal, even if pointers.
+
+2006-03-24  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.h (gfc_symbol): Add a new "forall_index" bit field.
+	* match.c (match_forall_iterator): Set forall_index field on
+	the iteration variable's symbol.
+	* dependency.c (contains_forall_index_p): New function to
+	traverse a gfc_expr to check whether it contains a variable
+	with forall_index set in it's symbol.
+	(gfc_check_element_vs_element): Return GFC_DEP_EQUAL for scalar
+	constant expressions that don't variables used as FORALL indices.
+
+2006-03-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR driver/22600
+	* error.c (gfc_fatal_error): Return ICE_EXIT_CODE instead of 4.
+
+2006-03-22  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/19303
+	* gfortran.h (gfc_option_t):  Add record_marker.
+	* lang.opt:  Add -frecord-marker=4 and -frecord-marker=8.
+	* trans-decl.c:  Add gfor_fndecl_set_record_marker.
+	(gfc_build_builtin_function_decls): Set
+	gfor_fndecl_set_record_marker.
+	(gfc_generate_function_code):  If we are in the main program
+	and -frecord-marker was provided, call set_record_marker.
+	* options.c (gfc_handle_option):  Add handling for
+	-frecord-marker=4 and -frecord-marker=8.
+	* invoke.texi:  Document -frecord-marker.
+
+2006-03-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/17298
+	* trans-intrinsic.c (gfc_conv_intrinsic_array_transfer): New
+	function to implement array valued TRANSFER intrinsic.
+	(gfc_conv_intrinsic_function): Call the new function if TRANSFER
+	and non-null se->ss.
+	(gfc_walk_intrinsic_function): Treat TRANSFER as one of the
+	special cases by calling gfc_walk_intrinsic_libfunc directly.
+
+2006-03-21  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* options.c (gfc_init_options): Initialize
+	flag_argument_noalias to 3.
+
+2006-03-20  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/20935
+	* iresolve.c (gfc_resolve_maxloc):   If mask is scalar,
+	prefix the function name with an "s".  If the mask is scalar
+	or if its kind is smaller than gfc_default_logical_kind,
+	coerce it to default kind.
+	(gfc_resolve_maxval):  Likewise.
+	(gfc_resolve_minloc):  Likewise.
+	(gfc_resolve_minval):  Likewise.
+	(gfc_resolve_product):  Likewise.
+	(gfc_resolve_sum):  Likewise.
+
+2006-03-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26741
+	*expr.c (external_spec_function): Permit elemental functions.
+
+	PR fortran/26716
+	*interface.c (compare_actual_formal): Detect call for procedure
+	usage and require rank checking, in this case, for assumed shape
+	and deferred shape arrays.
+	(gfc_procedure_use): Revert to pre-PR25070 call to
+	compare_actual_formal that does not require rank checking..
+
+2006-03-16  Roger Sayle  <roger@eyesopen.com>
+
+	* gfortran.h (gfc_equiv_info): Add length field.
+	* trans-common.c (copy_equiv_list_to_ns): Set the length field.
+	* dependency.c (gfc_are_equivalenced_arrays): Use both the offset
+	and length fields to determine whether the two equivalenced symbols
+	overlap in memory.
+
 2006-03-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/19101

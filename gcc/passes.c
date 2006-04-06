@@ -477,6 +477,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_init_datastructures);
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_create_structure_vars);
+  NEXT_PASS (pass_reset_cc_flags);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_early_warn_uninitialized);
 
@@ -515,11 +516,12 @@ init_optimization_passes (void)
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dominator);
 
-  /* The only copy propagation opportunities left after DOM
-     should be due to degenerate PHI nodes.  So rather than
-     run the full copy propagator, just discover and copy
-     propagate away the degenerate PHI nodes.  */
-  NEXT_PASS (pass_phi_only_copy_prop);
+  /* The only const/copy propagation opportunities left after
+     DOM should be due to degenerate PHI nodes.  So rather than
+     run the full propagators, run a specialized pass which
+     only examines PHIs to discover const/copy propagation
+     opportunities.  */
+  NEXT_PASS (pass_phi_only_cprop);
 
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_may_alias);
@@ -536,11 +538,12 @@ init_optimization_passes (void)
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
 
-  /* The only copy propagation opportunities left after DOM
-     should be due to degenerate PHI nodes.  So rather than
-     run the full copy propagator, just discover and copy
-     propagate away the degenerate PHI nodes.  */
-  NEXT_PASS (pass_phi_only_copy_prop);
+  /* The only const/copy propagation opportunities left after
+     DOM should be due to degenerate PHI nodes.  So rather than
+     run the full propagators, run a specialized pass which
+     only examines PHIs to discover const/copy propagation
+     opportunities.  */
+  NEXT_PASS (pass_phi_only_cprop);
 
   NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_dce);
@@ -566,11 +569,12 @@ init_optimization_passes (void)
   NEXT_PASS (pass_vrp);
   NEXT_PASS (pass_dominator);
 
-  /* The only copy propagation opportunities left after DOM
-     should be due to degenerate PHI nodes.  So rather than
-     run the full copy propagator, just discover and copy
-     propagate away the degenerate PHI nodes.  */
-  NEXT_PASS (pass_phi_only_copy_prop);
+  /* The only const/copy propagation opportunities left after
+     DOM should be due to degenerate PHI nodes.  So rather than
+     run the full propagators, run a specialized pass which
+     only examines PHIs to discover const/copy propagation
+     opportunities.  */
+  NEXT_PASS (pass_phi_only_cprop);
 
   NEXT_PASS (pass_cd_dce);
 
@@ -632,7 +636,6 @@ init_optimization_passes (void)
   *p = NULL;
   
   p = &pass_rest_of_compilation.sub;
-  NEXT_PASS (pass_remove_unnecessary_notes);
   NEXT_PASS (pass_init_function);
   NEXT_PASS (pass_jump);
   NEXT_PASS (pass_insn_locators_initialize);
@@ -729,6 +732,13 @@ execute_todo (unsigned int flags)
   /* Always recalculate SMT usage before doing anything else.  */
   if (flags & TODO_update_smt_usage)
     recalculate_used_alone ();
+
+  if (cfun && cfun->cfg)
+  {
+	  basic_block bb;
+	  FOR_ALL_BB (bb)
+		  gcc_assert (!bb->aux);
+  }
 
   /* Always cleanup the CFG before trying to update SSA .  */
   if (flags & TODO_cleanup_cfg)

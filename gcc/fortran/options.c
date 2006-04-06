@@ -85,7 +85,10 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
 
   gfc_option.fpe = 0;
 
-  flag_argument_noalias = 2;
+  /* Argument pointers cannot point to anything
+     but their argument.  */
+  flag_argument_noalias = 3;
+
   flag_errno_math = 0;
 
   gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
@@ -611,6 +614,14 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fconvert_swap:
       gfc_option.convert = CONVERT_SWAP;
+      break;
+
+    case OPT_frecord_marker_4:
+      gfc_option.record_marker = 4;
+      break;
+
+    case OPT_frecord_marker_8:
+      gfc_option.record_marker = 8;
       break;
     }
 

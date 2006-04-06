@@ -1681,7 +1681,7 @@ A memory reference suitable for iWMMXt load/store instructions.
 A memory reference suitable for the ARMv4 ldrsb instruction.
 @end table
 
-@item AVR family---@file{config/avr/avr.h}
+@item AVR family---@file{config/avr/constraints.md}
 @table @code
 @item l
 Registers from r0 to r15
@@ -1882,7 +1882,7 @@ A 15-bit signed integer constant.
 A positive 16-bit constant.
 @end table
 
-@item Intel 386---@file{config/i386/predicates.md}
+@item Intel 386---@file{config/i386/constraints.md}
 @table @code
 @item R
 Legacy register---the eight integer registers available on all

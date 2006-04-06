@@ -2844,6 +2844,7 @@ create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
   TREE_PUBLIC  (subvar) = TREE_PUBLIC (var);
   TREE_STATIC (subvar) = TREE_STATIC (var);
   TREE_READONLY (subvar) = TREE_READONLY (var);
+  TREE_ADDRESSABLE (subvar) = TREE_ADDRESSABLE (var);
 
   /* Add the new variable to REFERENCED_VARS.  */
   ann = get_var_ann (subvar);
@@ -3182,5 +3183,36 @@ struct tree_opt_pass pass_create_structure_vars =
   0,			 /* properties_destroyed */
   0,			 /* todo_flags_start */
   TODO_dump_func,	 /* todo_flags_finish */
+  0			 /* letter */
+};
+
+/* Reset the DECL_CALL_CLOBBERED flags on our referenced vars.  In
+   theory, this only needs to be done for globals.  */
+
+static unsigned int
+reset_cc_flags (void)
+{
+  tree var;
+  referenced_var_iterator rvi;
+
+  FOR_EACH_REFERENCED_VAR (var, rvi)
+    DECL_CALL_CLOBBERED (var) = false;
+  return 0;
+}
+
+struct tree_opt_pass pass_reset_cc_flags =
+{
+  NULL,		 /* name */
+  NULL,  	 /* gate */
+  reset_cc_flags, /* execute */
+  NULL,			 /* sub */
+  NULL,			 /* next */
+  0,			 /* static_pass_number */
+  0,			 /* tv_id */
+  PROP_referenced_vars |PROP_cfg, /* properties_required */
+  0,			 /* properties_provided */
+  0,			 /* properties_destroyed */
+  0,			 /* todo_flags_start */
+  0,         	         /* todo_flags_finish */
   0			 /* letter */
 };

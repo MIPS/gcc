@@ -728,6 +728,10 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
 
   t = *tp;
   type = TREE_TYPE (t);
+
+  if (type == error_mark_node)
+    return;
+
   size = TYPE_SIZE_UNIT (type);
 
   switch (TREE_CODE (t))
@@ -1251,6 +1255,9 @@ mudflap_finish_file (void)
       for (i = 0; VEC_iterate (tree, deferred_static_decls, i, obj); i++)
         {
           gcc_assert (DECL_P (obj));
+
+          if (TREE_TYPE (obj) == error_mark_node)
+	    continue;
 
           if (mf_marked_p (obj))
             continue;

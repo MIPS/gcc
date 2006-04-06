@@ -278,8 +278,13 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 	  inner = max_align;
 	  while (handled_component_p (exp))
 	    {
+	      /* Fields in a structure can be packed, honour DECL_ALIGN
+		 of the FIELD_DECL.  For all other references the conservative 
+		 alignment is the element type alignment.  */
 	      if (TREE_CODE (exp) == COMPONENT_REF)
 		inner = MIN (inner, DECL_ALIGN (TREE_OPERAND (exp, 1)));
+	      else
+		inner = MIN (inner, TYPE_ALIGN (TREE_TYPE (exp)));
 	      exp = TREE_OPERAND (exp, 0);
 	    }
 	  if (TREE_CODE (exp) == FUNCTION_DECL)
@@ -288,7 +293,7 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 	    align = MIN (inner, DECL_ALIGN (exp));
 #ifdef CONSTANT_ALIGNMENT
 	  else if (CONSTANT_CLASS_P (exp))
-	    align = CONSTANT_ALIGNMENT (exp, align);
+	    align = MIN (inner, (unsigned)CONSTANT_ALIGNMENT (exp, align));
 #endif
 	  else
 	    align = MIN (align, inner);
@@ -4290,7 +4295,7 @@ build_va_arg_indirect_ref (tree addr)
 static tree
 dummy_object (tree type)
 {
-  tree t = convert (build_pointer_type (type), null_pointer_node);
+  tree t = build_int_cst (build_pointer_type (type), 0);
   return build1 (INDIRECT_REF, type, t);
 }
 
@@ -5376,6 +5381,8 @@ expand_builtin_fork_or_exec (tree fn, tree arglist, rtx target, int ignore)
   TREE_PUBLIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   TREE_NOTHROW (decl) = 1;
+  DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+  DECL_VISIBILITY_SPECIFIED (decl) = 1;
   call = build_function_call_expr (decl, arglist);
 
   return expand_call (call, target, ignore);
@@ -9650,7 +9657,7 @@ fold_builtin_sprintf (tree arglist, int ignored)
 
   if (call && retval)
     {
-      retval = convert
+      retval = fold_convert
 	(TREE_TYPE (TREE_TYPE (implicit_built_in_decls[BUILT_IN_SPRINTF])),
 	 retval);
       return build2 (COMPOUND_EXPR, TREE_TYPE (retval), call, retval);

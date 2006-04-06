@@ -56,6 +56,7 @@
 #include "tree-gimple.h"
 #include "intl.h"
 #include "params.h"
+#include "tm-constrs.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -248,11 +249,12 @@ int rs6000_alignment_flags;
 struct {
   bool aix_struct_ret;		/* True if -maix-struct-ret was used.  */
   bool alignment;		/* True if -malign- was used.  */
-  bool abi;			/* True if -mabi= was used.  */
+  bool abi;			/* True if -mabi=spe/nospe was used.  */
   bool spe;			/* True if -mspe= was used.  */
   bool float_gprs;		/* True if -mfloat-gprs= was used.  */
   bool isel;			/* True if -misel was used. */
   bool long_double;	        /* True if -mlong-double- was used.  */
+  bool ieee;			/* True if -mabi=ieee/ibmlongdouble used.  */
 } rs6000_explicit_options;
 
 struct builtin_description
@@ -588,6 +590,7 @@ static unsigned toc_hash_function (const void *);
 static int toc_hash_eq (const void *, const void *);
 static int constant_pool_expr_1 (rtx, int *, int *);
 static bool constant_pool_expr_p (rtx);
+static bool legitimate_small_data_p (enum machine_mode, rtx);
 static bool legitimate_indexed_address_p (rtx, int);
 static bool legitimate_lo_sum_address_p (enum machine_mode, rtx, int);
 static struct machine_function * rs6000_init_machine_status (void);
@@ -599,6 +602,8 @@ static void rs6000_assemble_visibility (tree, int);
 static int rs6000_ra_ever_killed (void);
 static tree rs6000_handle_longcall_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *);
+static bool rs6000_ms_bitfield_layout_p (tree);
+static tree rs6000_handle_struct_attribute (tree *, tree, tree, int, bool *);
 static void rs6000_eliminate_indexed_memrefs (rtx operands[2]);
 static const char *rs6000_mangle_fundamental_type (tree);
 extern const struct attribute_spec rs6000_attribute_table[];
@@ -928,6 +933,9 @@ static const char alt_reg_names[][8] =
 #undef TARGET_BINDS_LOCAL_P
 #define TARGET_BINDS_LOCAL_P darwin_binds_local_p
 #endif
+
+#undef TARGET_MS_BITFIELD_LAYOUT_P
+#define TARGET_MS_BITFIELD_LAYOUT_P rs6000_ms_bitfield_layout_p
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK rs6000_output_mi_thunk
@@ -1320,7 +1328,7 @@ rs6000_override_options (const char *default_cpu)
     rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
 
 #ifndef POWERPC_LINUX
-  if (!rs6000_explicit_options.abi)
+  if (!rs6000_explicit_options.ieee)
     rs6000_ieeequad = 1;
 #endif
 
@@ -1635,10 +1643,10 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 				| MASK_PPC_GFXOPT | MASK_POWERPC64);
       break;
     case OPT_mfull_toc:
-      target_flags &= ~(MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC
-			| MASK_NO_SUM_IN_TOC);
-      target_flags_explicit |= (MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC
-				| MASK_NO_SUM_IN_TOC);
+      target_flags &= ~MASK_MINIMAL_TOC;
+      TARGET_NO_FP_IN_TOC = 0;
+      TARGET_NO_SUM_IN_TOC = 0;
+      target_flags_explicit |= MASK_MINIMAL_TOC;
 #ifdef TARGET_USES_SYSV4_OPT
       /* Note, V.4 no longer uses a normal TOC, so make -mfull-toc, be
 	 just the same as -mminimal-toc.  */
@@ -1681,8 +1689,8 @@ rs6000_handle_option (size_t code, const char *arg, int value)
     case OPT_mminimal_toc:
       if (value == 1)
 	{
-	  target_flags &= ~(MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC);
-	  target_flags_explicit |= (MASK_NO_FP_IN_TOC | MASK_NO_SUM_IN_TOC);
+	  TARGET_NO_FP_IN_TOC = 0;
+	  TARGET_NO_SUM_IN_TOC = 0;
 	}
       break;
 
@@ -1753,18 +1761,18 @@ rs6000_handle_option (size_t code, const char *arg, int value)
     case OPT_mrelocatable:
       if (value == 1)
 	{
-	  target_flags |= MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC;
-	  target_flags_explicit |= MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC;
+	  target_flags |= MASK_MINIMAL_TOC;
+	  target_flags_explicit |= MASK_MINIMAL_TOC;
+	  TARGET_NO_FP_IN_TOC = 1;
 	}
       break;
 
     case OPT_mrelocatable_lib:
       if (value == 1)
 	{
-	  target_flags |= MASK_RELOCATABLE | MASK_MINIMAL_TOC
-	    | MASK_NO_FP_IN_TOC;
-	  target_flags_explicit |= MASK_RELOCATABLE | MASK_MINIMAL_TOC
-	    | MASK_NO_FP_IN_TOC;
+	  target_flags |= MASK_RELOCATABLE | MASK_MINIMAL_TOC;
+	  target_flags_explicit |= MASK_RELOCATABLE | MASK_MINIMAL_TOC;
+	  TARGET_NO_FP_IN_TOC = 1;
 	}
       else
 	{
@@ -1775,23 +1783,31 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 #endif
 
     case OPT_mabi_:
-      rs6000_explicit_options.abi = true;
       if (!strcmp (arg, "altivec"))
 	{
+	  rs6000_explicit_options.abi = true;
 	  rs6000_altivec_abi = 1;
 	  rs6000_spe_abi = 0;
 	}
       else if (! strcmp (arg, "no-altivec"))
-	rs6000_altivec_abi = 0;
+	{
+	  /* ??? Don't set rs6000_explicit_options.abi here, to allow
+	     the default for rs6000_spe_abi to be chosen later.  */
+	  rs6000_altivec_abi = 0;
+	}
       else if (! strcmp (arg, "spe"))
 	{
+	  rs6000_explicit_options.abi = true;
 	  rs6000_spe_abi = 1;
 	  rs6000_altivec_abi = 0;
 	  if (!TARGET_SPE_ABI)
 	    error ("not configured for ABI: '%s'", arg);
 	}
       else if (! strcmp (arg, "no-spe"))
-	rs6000_spe_abi = 0;
+	{
+	  rs6000_explicit_options.abi = true;
+	  rs6000_spe_abi = 0;
+	}
 
       /* These are here for testing during development only, do not
 	 document in the manual please.  */
@@ -1808,11 +1824,13 @@ rs6000_handle_option (size_t code, const char *arg, int value)
 
       else if (! strcmp (arg, "ibmlongdouble"))
 	{
+	  rs6000_explicit_options.ieee = true;
 	  rs6000_ieeequad = 0;
 	  warning (0, "Using IBM extended precision long double");
 	}
       else if (! strcmp (arg, "ieeelongdouble"))
 	{
+	  rs6000_explicit_options.ieee = true;
 	  rs6000_ieeequad = 1;
 	  warning (0, "Using IEEE extended precision long double");
 	}
@@ -1991,11 +2009,12 @@ int
 num_insns_constant_wide (HOST_WIDE_INT value)
 {
   /* signed constant loadable with {cal|addi} */
-  if (CONST_OK_FOR_LETTER_P (value, 'I'))
+  if ((unsigned HOST_WIDE_INT) (value + 0x8000) < 0x10000)
     return 1;
 
   /* constant loadable with {cau|addis} */
-  else if (CONST_OK_FOR_LETTER_P (value, 'L'))
+  else if ((value & 0xffff) == 0
+	   && (value >> 31 == -1 || value >> 31 == 0))
     return 1;
 
 #if HOST_BITS_PER_WIDE_INT == 64
@@ -2090,7 +2109,7 @@ num_insns_constant (rtx op, enum machine_mode mode)
 }
 
 
-/* Return true if OP can be synthesized with a particular vspltisb, vspltish 
+/* Return true if OP can be synthesized with a particular vspltisb, vspltish
    or vspltisw instruction.  OP is a CONST_VECTOR.  Which instruction is used
    depends on STEP and COPIES, one of which will be 1.  If COPIES > 1,
    all items are set to the same value and contain COPIES replicas of the
@@ -2157,7 +2176,7 @@ vspltis_constant (rtx op, unsigned step, unsigned copies)
 }
 
 
-/* Return true if OP is of the given MODE and can be synthesized 
+/* Return true if OP is of the given MODE and can be synthesized
    with a vspltisb, vspltish or vspltisw.  */
 
 bool
@@ -2692,8 +2711,8 @@ legitimate_constant_pool_address_p (rtx x)
 	  && constant_pool_expr_p (XEXP (x, 1)));
 }
 
-bool
-rs6000_legitimate_small_data_p (enum machine_mode mode, rtx x)
+static bool
+legitimate_small_data_p (enum machine_mode mode, rtx x)
 {
   return (DEFAULT_ABI == ABI_V4
 	  && !flag_pic && !TARGET_TOC
@@ -3478,7 +3497,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
       && TARGET_UPDATE
       && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict))
     return 1;
-  if (rs6000_legitimate_small_data_p (mode, x))
+  if (legitimate_small_data_p (mode, x))
     return 1;
   if (legitimate_constant_pool_address_p (x))
     return 1;
@@ -3541,6 +3560,33 @@ rs6000_mode_dependent_address (rtx addr)
     }
 
   return false;
+}
+
+/* More elaborate version of recog's offsettable_memref_p predicate
+   that works around the ??? note of rs6000_mode_dependent_address.
+   In particular it accepts
+
+     (mem:DI (plus:SI (reg/f:SI 31 31) (const_int 32760 [0x7ff8])))
+
+   in 32-bit mode, that the recog predicate rejects.  */
+
+bool
+rs6000_offsettable_memref_p (rtx op)
+{
+  if (!MEM_P (op))
+    return false;
+
+  /* First mimic offsettable_memref_p.  */
+  if (offsettable_address_p (1, GET_MODE (op), XEXP (op, 0)))
+    return true;
+
+  /* offsettable_address_p invokes rs6000_mode_dependent_address, but
+     the latter predicate knows nothing about the mode of the memory
+     reference and, therefore, assumes that it is the largest supported
+     mode (TFmode).  As a consequence, legitimate offsettable memory
+     references are rejected.  rs6000_legitimate_offset_address_p contains
+     the correct logic for the PLUS case of rs6000_mode_dependent_address.  */
+  return rs6000_legitimate_offset_address_p (GET_MODE (op), XEXP (op, 0), 1);
 }
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
@@ -12488,7 +12534,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 			 : gen_adddi3 (breg, breg, delta_rtx));
 	      src = replace_equiv_address (src, breg);
 	    }
-	  else if (! offsettable_memref_p (src))
+	  else if (! rs6000_offsettable_memref_p (src))
 	    {
 	      rtx basereg;
 	      basereg = gen_rtx_REG (Pmode, reg);
@@ -12541,7 +12587,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	      dst = replace_equiv_address (dst, breg);
 	    }
 	  else
-	    gcc_assert (offsettable_memref_p (dst));
+	    gcc_assert (rs6000_offsettable_memref_p (dst));
 	}
 
       for (i = 0; i < nregs; i++)
@@ -17308,6 +17354,8 @@ const struct attribute_spec rs6000_attribute_table[] =
   { "altivec",   1, 1, false, true,  false, rs6000_handle_altivec_attribute },
   { "longcall",  0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
   { "shortcall", 0, 0, false, true,  true,  rs6000_handle_longcall_attribute },
+  { "ms_struct", 0, 0, false, false, false, rs6000_handle_struct_attribute },
+  { "gcc_struct", 0, 0, false, false, false, rs6000_handle_struct_attribute },
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
   SUBTARGET_ATTRIBUTE_TABLE,
 #endif
@@ -17504,6 +17552,54 @@ rs6000_longcall_ref (rtx call_ref)
     }
 
   return force_reg (Pmode, call_ref);
+}
+
+#ifndef TARGET_USE_MS_BITFIELD_LAYOUT
+#define TARGET_USE_MS_BITFIELD_LAYOUT 0
+#endif
+
+/* Handle a "ms_struct" or "gcc_struct" attribute; arguments as in
+   struct attribute_spec.handler.  */
+static tree
+rs6000_handle_struct_attribute (tree *node, tree name,
+				tree args ATTRIBUTE_UNUSED,
+				int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  tree *type = NULL;
+  if (DECL_P (*node))
+    {
+      if (TREE_CODE (*node) == TYPE_DECL)
+        type = &TREE_TYPE (*node);
+    }
+  else
+    type = node;
+
+  if (!(type && (TREE_CODE (*type) == RECORD_TYPE
+                 || TREE_CODE (*type) == UNION_TYPE)))
+    {
+      warning (OPT_Wattributes, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  else if ((is_attribute_p ("ms_struct", name)
+            && lookup_attribute ("gcc_struct", TYPE_ATTRIBUTES (*type)))
+           || ((is_attribute_p ("gcc_struct", name)
+                && lookup_attribute ("ms_struct", TYPE_ATTRIBUTES (*type)))))
+    {
+      warning (OPT_Wattributes, "%qs incompatible attribute ignored",
+               IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+static bool
+rs6000_ms_bitfield_layout_p (tree record_type)
+{
+  return (TARGET_USE_MS_BITFIELD_LAYOUT &&
+          !lookup_attribute ("gcc_struct", TYPE_ATTRIBUTES (record_type)))
+    || lookup_attribute ("ms_struct", TYPE_ATTRIBUTES (record_type));
 }
 
 #ifdef USING_ELFOS_H
@@ -18048,6 +18144,7 @@ rs6000_darwin_file_start (void)
   size_t i;
 
   rs6000_file_start ();
+  darwin_file_start ();
 
   /* Determine the argument to -mcpu=.  Default to G3 if not specified.  */
   for (i = 0; i < ARRAY_SIZE (rs6000_select); i++)
@@ -18486,19 +18583,21 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
       if (((outer_code == SET
 	    || outer_code == PLUS
 	    || outer_code == MINUS)
-	   && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'I')
-	       || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')))
+	   && (satisfies_constraint_I (x)
+	       || satisfies_constraint_L (x)))
 	  || (outer_code == AND
-	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
-		  || (CONST_OK_FOR_LETTER_P (INTVAL (x),
-					     mode == SImode ? 'L' : 'J'))
+	      && (satisfies_constraint_K (x)
+		  || (mode == SImode
+		      ? satisfies_constraint_L (x)
+		      : satisfies_constraint_J (x))
 		  || mask_operand (x, mode)
 		  || (mode == DImode
 		      && mask64_operand (x, DImode))))
 	  || ((outer_code == IOR || outer_code == XOR)
-	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
-		  || (CONST_OK_FOR_LETTER_P (INTVAL (x),
-					     mode == SImode ? 'L' : 'J'))))
+	      && (satisfies_constraint_K (x)
+		  || (mode == SImode
+		      ? satisfies_constraint_L (x)
+		      : satisfies_constraint_J (x))))
 	  || outer_code == ASHIFT
 	  || outer_code == ASHIFTRT
 	  || outer_code == LSHIFTRT
@@ -18506,22 +18605,23 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  || outer_code == ROTATERT
 	  || outer_code == ZERO_EXTRACT
 	  || (outer_code == MULT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (x), 'I'))
+	      && satisfies_constraint_I (x))
 	  || ((outer_code == DIV || outer_code == UDIV
 	       || outer_code == MOD || outer_code == UMOD)
 	      && exact_log2 (INTVAL (x)) >= 0)
 	  || (outer_code == COMPARE
-	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'I')
-		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')))
+	      && (satisfies_constraint_I (x)
+		  || satisfies_constraint_K (x)))
 	  || (outer_code == EQ
-	      && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'I')
-		  || CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
-		  || (CONST_OK_FOR_LETTER_P (INTVAL (x),
-					     mode == SImode ? 'L' : 'J'))))
+	      && (satisfies_constraint_I (x)
+		  || satisfies_constraint_K (x)
+		  || (mode == SImode
+		      ? satisfies_constraint_L (x)
+		      : satisfies_constraint_J (x))))
 	  || (outer_code == GTU
-	      && CONST_OK_FOR_LETTER_P (INTVAL (x), 'I'))
+	      && satisfies_constraint_I (x))
 	  || (outer_code == LTU
-	      && CONST_OK_FOR_LETTER_P (INTVAL (x), 'P')))
+	      && satisfies_constraint_P (x)))
 	{
 	  *total = 0;
 	  return true;
@@ -18544,8 +18644,8 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
     case CONST_DOUBLE:
       if (mode == DImode
 	  && ((outer_code == AND
-	       && (CONST_OK_FOR_LETTER_P (INTVAL (x), 'K')
-		   || CONST_OK_FOR_LETTER_P (INTVAL (x), 'L')
+	       && (satisfies_constraint_K (x)
+		   || satisfies_constraint_L (x)
 		   || mask_operand (x, DImode)
 		   || mask64_operand (x, DImode)))
 	      || ((outer_code == IOR || outer_code == XOR)
@@ -18647,7 +18747,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case MULT:
       if (GET_CODE (XEXP (x, 1)) == CONST_INT
-	  && CONST_OK_FOR_LETTER_P (INTVAL (XEXP (x, 1)), 'I'))
+	  && satisfies_constraint_I (XEXP (x, 1)))
 	{
 	  if (INTVAL (XEXP (x, 1)) >= -256
 	      && INTVAL (XEXP (x, 1)) <= 255)

@@ -851,6 +851,8 @@ typedef struct gfc_symbol
   /* Nonzero if all equivalences associated with this symbol have been
      processed.  */
   unsigned equiv_built:1;
+  /* Set if this variable is used as an index name in a FORALL.  */
+  unsigned forall_index:1;
   int refs;
   struct gfc_namespace *ns;	/* namespace containing this symbol */
 
@@ -1351,6 +1353,7 @@ typedef struct gfc_equiv_info
 {
   gfc_symbol *sym;
   HOST_WIDE_INT offset;
+  HOST_WIDE_INT length;
   struct gfc_equiv_info *next;
 } gfc_equiv_info;
 
@@ -1639,6 +1642,7 @@ typedef struct
   int warn_nonstd_intrinsics;
   int fshort_enums;
   int convert;
+  int record_marker;
 }
 gfc_option_t;
 

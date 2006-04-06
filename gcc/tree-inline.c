@@ -1102,6 +1102,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   basic_block bb;
   tree new_fndecl = NULL;
   int count_scale, frequency_scale;
+  int last;
 
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)
     count_scale = (REG_BR_PROB_BASE * count
@@ -1137,7 +1138,8 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
   if (cfun->eh)
     {
       id->eh_region_offset
-	= duplicate_eh_regions (cfun_to_copy, remap_decl_1, id, id->eh_region);
+	= duplicate_eh_regions (cfun_to_copy, remap_decl_1, id,
+				0, id->eh_region);
     }
   /* Use aux pointers to map the original blocks to copy.  */
   FOR_EACH_BB_FN (bb, cfun_to_copy)
@@ -1146,6 +1148,8 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
       bb->aux = new;
       new->aux = bb;
     }
+
+  last = n_basic_blocks;
   /* Now that we've duplicated the blocks, duplicate their edges.  */
   FOR_ALL_BB_FN (bb, cfun_to_copy)
     copy_edges_for_bb (bb, count_scale, exit_block_map);
@@ -1153,7 +1157,14 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
     FOR_ALL_BB_FN (bb, cfun_to_copy)
       copy_phis_for_bb (bb, id);
   FOR_ALL_BB_FN (bb, cfun_to_copy)
-    ((basic_block)bb->aux)->aux = bb->aux = NULL;
+    {
+      ((basic_block)bb->aux)->aux = NULL;
+      bb->aux = NULL;
+    }
+  /* Zero out AUX fields of newly created block during EH edge
+     insertion. */
+  for (; last < n_basic_blocks; last++)
+    BASIC_BLOCK (last)->aux = NULL;
   entry_block_map->aux = NULL;
   exit_block_map->aux = NULL;
 
@@ -2568,7 +2579,8 @@ optimize_inline_calls (tree fn, bool early)
   if (ENTRY_BLOCK_PTR->count)
     counts_to_freqs ();
   fold_cond_expr_cond ();
-  delete_unreachable_blocks ();
+  if (delete_unreachable_blocks ())
+    rebuild_cgraph_edges ();
 #ifdef ENABLE_CHECKING
   verify_stmts ();
   verify_flow_info ();

@@ -1636,7 +1636,7 @@ external_spec_function (gfc_expr * e)
       return FAILURE;
     }
 
-  if (!f->attr.pure)
+  if (!f->attr.pure && !f->attr.elemental)
     {
       gfc_error ("Specification function '%s' at %L must be PURE", f->name,
 		 &e->where);
@@ -1894,7 +1894,7 @@ gfc_check_assign (gfc_expr * lvalue, gfc_expr * rvalue, int conform)
 
    if (sym->attr.cray_pointee
        && lvalue->ref != NULL
-       && lvalue->ref->u.ar.type != AR_ELEMENT
+       && lvalue->ref->u.ar.type == AR_FULL
        && lvalue->ref->u.ar.as->cp_was_assumed)
      {
        gfc_error ("Vector assignment to assumed-size Cray Pointee at %L"
