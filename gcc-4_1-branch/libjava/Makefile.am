@@ -324,7 +324,7 @@ $(propertyo_files): %.lo: classpath/resource/%
 	$(mkinstalldirs) `dirname $@`; \
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,$(@:.lo=)
 
-libgcj-$(gcc_version).jar:
+libgcj-$(gcc_version).jar: classpath/lib/compile-classes
 ## The following is an attempt to have libgcj-*.jar files
 ## from the same GCC version identical across the architectures.
 	jardir=`dirname $(ZIP)`; \
