@@ -1,3 +1,9 @@
+2006-04-06  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4499627
+	* gcc.apple/4499627.c: New.
+	* gcc.apple/4209085.c: Remove.
+
 2006-03-28  Mike Stump  <mrs@apple.com>
 
 	* asm-array-ref.C, asm-block-1.C: Move from g++.dg to g++.apple.

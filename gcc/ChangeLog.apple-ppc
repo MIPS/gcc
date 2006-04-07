@@ -1,3 +1,9 @@
+2006-04-06  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4499627
+	* gcc/config/i386/i386.md (gen_fix_trunc<mode>_i386_fisttp):
+	Remove 4209085 peephole.
+
 2006-03-30  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4493694
