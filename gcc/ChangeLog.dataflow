@@ -1,3 +1,79 @@
+2006-04-07  Daniel Berlin  <dberlin@dberlin.org>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+	* regoc.c (dbr_schedule): Added parm to call to df_lr_add_problem.
+	* ifcvt.c (if_convert): Ditto.
+	* modulo-sched.c (sms_schedule): Ditto.
+	* reg-stack.c (reg_to_stack): Ditto.
+	* global.c (global_alloc, rest_of_handle_global_alloc): Ditto.
+	(rest_of_handle_global_alloc): Removed call to df_set_state.
+	* basic_block.h (clear_reg_deaths): New function.
+	* flow.c: (clear_reg_deaths): New function.
+	(rest_of_handle_life): Added parm to call to df_lr_add_problem and
+	df_ur_add_problem.
+	* df-scan.c (df_scan_free_internal): Added code to clear new
+	bit vectors.
+	(df_scan_alloc): Added extra parameter and code to initialize
+	new bit vectors.
+	(df_scan_dump): Added code to dump new bit vectors.
+	(df_problem problem_SCAN): Added extra field.
+	(df_scan_add_problem): Added flags parameter.
+	(df_rescan_blocks): Added code to remove deleted blocks from
+	bitmap and extra parm to call to df_scan_alloc.
+	(df_insn_create_insn_record): Removed return value.
+	(df_set_state): Removed function.
+	(df_ref_record, df_bb_refs_record, df_record_entry_block_defs,
+	df_record_exit_block_uses): Changed the way flags are processed.
+	(df_bb_refs_record, df_refs_record, df_record_exit_block_uses): 
+	Restructured scanning to fixed hard regs so bitmaps could be
+	recorded for later use.
+	(df_has_eh_preds): Now public.
+	* df-core.c (df_mvs_dump, df_set_flags, df_clear_flags,
+	df_delete_basic_block): New function.
+	(df_init): Changed location of flags.
+	(df_add_problem): Added flags parameter and the way flags are
+	processed.
+	(df_insn_uid_debug, df_ref_debug, debug_df_defno, debug_df_ref,
+	debug_df_chain): Improved debugging output.
+	(clear_df): Added call to clear_reg_deaths.
+	* df.h: Some reordering to remove forward references.
+	(dataflow.flags): New field.
+	(df.flag): Deleted field.
+	(df_alloc_function): Added additional bitmap parameter.
+	(df_dependent_problem_function): New type.
+	(df_problem.changeable_flags): New field.
+	(df_ref_flags.DF_SCAN_INITIAL,
+	DF_SCAN_GLOBAL, DF_SCAN_POST_ALLOC, df_state): Removed.
+	(df_refs_chain_dump, df_ref_debug, df_chain_dump): Removed df
+	parameter.
+	(df_add_problem, df_ru_add_problem, df_rd_add_problem,
+	df_lr_add_problem, df_ur_add_problem, df_urec_add_problem, 
+	df_ri_add_problem, df_scan_add_problem): Added flags parameter.
+	(df_set_state): Removed function.
+	(df_set_flags, df_clear_flags, df_delete_basic_block, df_has_eh_preds) New functions.
+	* df-problems.c (df_get_dependent_problem): Deleted function.
+	(df_ru_alloc, df_rd_alloc, df_lr_alloc, df_ur_alloc,
+	df_urec_alloc, df_chain_alloc, df_ri_alloc): Added all blocks
+	parameter.
+	(df_ru_alloc, df_rd_alloc): Now resets all blocks.
+	(df_ru_dump, df_rd_dump, df_lr_dump, df_ur_dump, df_urec_dump,
+	df_chains_dump): Fixed crash if problem was never run.
+	(df_ru_add_problem, df_rd_add_problem, df_lr_add_problem, 
+	df_ur_add_problem, df_urec_add_problem, df_chain_add_problem,
+	df_ri_add_problem): Processes flags in uniform manner.
+	(df_lr_bb_local_compute): Fixed case to account for return value
+	correctly.
+	(df_lr_bb_local_compute): Changed processing of exit block.
+	(df_lr_transfer_function): Added hook to call dce.
+	(df_lr_free): Added lr problem data.
+	(df_set_notes_for_mw, df_reg_lifetime): Removed function.
+	(df_lr_simulate_artificial_refs_at_end, df_lr_simulate_one_insn,
+	df_kill_notes, df_set_unused_notes_for_mw, df_set_dead_notes_for_mw):
+	New function.
+	(df_ri_alloc, df_ri_bb_compute, df_create_unused_note, 
+	df_ri_bb_compute, df_ri_compute, df_ri_free, df_ri_add_problem):
+	Added functionality to compute register information. 
+
+
 2006-03-14  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h: Added pass to clear other dataflow infomation out.

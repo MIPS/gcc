@@ -342,8 +342,8 @@ global_alloc (void)
 
   /* Create a new version of df that has the special version of UR.  */
   rtl_df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (rtl_df);
-  df_urec_add_problem (rtl_df);
+  df_lr_add_problem (rtl_df, 0);
+  df_urec_add_problem (rtl_df, 0);
 
   df_analyze (rtl_df);
   if (dump_file)
@@ -2022,7 +2022,6 @@ rest_of_handle_global_alloc (void)
   /* If optimizing, allocate remaining pseudo-regs.  Do the reload
      pass fixing up any insns that are invalid.  */
 
-  df_set_state (DF_SCAN_GLOBAL); 
   if (optimize)
     failure = global_alloc ();
   else
@@ -2030,15 +2029,14 @@ rest_of_handle_global_alloc (void)
       df_finish (rtl_df);
       rtl_df = NULL;
       rtl_df = df_init (DF_HARD_REGS);
-      df_lr_add_problem (rtl_df);
-      df_urec_add_problem (rtl_df);
+      df_lr_add_problem (rtl_df, 0);
+      df_urec_add_problem (rtl_df, 0);
       df_analyze (rtl_df);
 
       build_insn_chain (get_insns ());
       failure = reload (get_insns (), 0);
     }
 
-  df_set_state (DF_SCAN_POST_ALLOC); 
   if (dump_enabled_p (pass_global_alloc.static_pass_number))
     {
       timevar_push (TV_DUMP);

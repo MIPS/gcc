@@ -870,6 +870,7 @@ extern int update_life_info (sbitmap, enum update_life_extent, int);
 extern int update_life_info_in_dirty_blocks (enum update_life_extent, int);
 extern int count_or_remove_death_notes (sbitmap, int);
 extern int propagate_block (basic_block, regset, regset, regset, int);
+extern void clear_reg_deaths (void);
 
 struct propagate_block_info;
 extern rtx propagate_one_insn (struct propagate_block_info *, rtx);

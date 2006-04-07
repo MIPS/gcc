@@ -3821,8 +3821,8 @@ if_convert (int x_life_data_ok)
       if (had_df)
 	{
 	  rtl_df = df_init (DF_HARD_REGS);
-	  df_lr_add_problem (rtl_df);
-	  df_ur_add_problem (rtl_df);
+	  df_lr_add_problem (rtl_df, 0);
+	  df_ur_add_problem (rtl_df, 0);
 	  df_analyze (rtl_df);
 	}
     }

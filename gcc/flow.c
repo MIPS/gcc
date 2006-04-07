@@ -758,6 +758,16 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   return ndead;
 }
 
+void 
+clear_reg_deaths (void)
+{
+  if (reg_deaths)
+    {
+      free (reg_deaths);
+      reg_deaths = NULL;
+    }
+}
+
 /* Update life information in all blocks where BB_DIRTY is set.  */
 
 int
@@ -4104,10 +4114,9 @@ static void
 rest_of_handle_life (void)
 {
   regclass_init ();
-  df_set_state (DF_SCAN_INITIAL);
   rtl_df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (rtl_df);
-  df_ur_add_problem (rtl_df);
+  df_lr_add_problem (rtl_df, 0);
+  df_ur_add_problem (rtl_df, 0);
 
   life_analysis (PROP_FINAL);
   if (optimize)

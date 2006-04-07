@@ -66,6 +66,7 @@ deletable_insn_p (rtx insn)
   switch (GET_CODE (PATTERN (insn)))
     {
     case USE:
+    case PREFETCH:
     case TRAP_IF:
       return false;
 
@@ -197,25 +198,28 @@ prescan_insns_for_dce (bool fast)
 static void
 init_dce (bool fast)
 {
-  if (fast)
+  if (!dce_df)
     {
-      if (rtl_df)
+      if (fast)
 	{
-	  dce_df = rtl_df;
-	  df_analyze (dce_df);
+	  if (rtl_df)
+	    {
+	      dce_df = rtl_df;
+	      df_analyze (dce_df);
+	    }
+	  else
+	    {
+	      dce_df = df_init (DF_HARD_REGS);
+	      df_lr_add_problem (dce_df, 0);
+	      df_analyze (dce_df);
+	    }
 	}
       else
 	{
 	  dce_df = df_init (DF_HARD_REGS);
-	  df_lr_add_problem (dce_df);
+	  df_chain_add_problem (dce_df, DF_UD_CHAIN);
 	  df_analyze (dce_df);
 	}
-    }
-  else
-    {
-      dce_df = df_init (DF_HARD_REGS);
-      df_chain_add_problem (dce_df, DF_UD_CHAIN);
-      df_analyze (dce_df);
     }
 
   marked = BITMAP_ALLOC (NULL);
@@ -225,23 +229,28 @@ init_dce (bool fast)
 }
 
 
-/* Delete every instruction that hasn't been marked.  */
+/* Delete every instruction that hasn't been marked.  Clear the insn from DCE_DF if
+   DF_DELETE is true.  */
 
 static void
-delete_unmarked_insns (void)
+delete_unmarked_insns (bool df_delete)
 {
   basic_block bb;
   rtx insn, next;
+  struct dataflow *dflow = dce_df->problems_by_index[DF_SCAN];
 
   something_changed = false;
   FOR_EACH_BB (bb)
     FOR_BB_INSNS_SAFE (bb, insn, next)
-      if (INSN_P (insn) && !marked_insn_p (insn))
+      if (INSN_P (insn) 
+	&& ((!marked_insn_p (insn)) || noop_move_p (insn)))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "DCE: Deleting insn %d\n", INSN_UID (insn));
 	  /* XXX: This may need to be changed to delete_insn_and_edges */
 	  delete_insn (insn);
+	  if (df_delete)
+	    df_insn_refs_delete (dflow, insn);
 	  something_changed = true;
 	}
 }
@@ -278,7 +287,6 @@ end_dce (void)
   BITMAP_FREE (marked_libcalls);
 
   df_finish (dce_df);
-  dce_df = NULL;
 
   /* People who call dce expect the core data flow to be updated.  */
   if (rtl_df)
@@ -356,7 +364,7 @@ rest_of_handle_dce (void)
   while (VEC_length (rtx, worklist) > 0)
     mark_reg_dependencies (VEC_pop (rtx, worklist));
 
-  delete_unmarked_insns ();
+  delete_unmarked_insns (false);
 
   end_dce ();
 }
@@ -404,6 +412,7 @@ static void
 end_fast_dce (void)
 {
   BITMAP_FREE (marked);
+  BITMAP_FREE (marked_libcalls);
 
   if (rtl_df)
     dce_df = NULL;
@@ -510,10 +519,8 @@ dce_process_block (struct dataflow * dflow, basic_block bb, bool redo_out)
   return block_changed;
 }
 
-/* Callback for running pass_rtl_dce.  */
-
 static void
-rest_of_handle_fast_dce (void)
+fast_dce (bool df_delete)
 {
   int *postorder = xmalloc (sizeof (int) *last_basic_block);
   int i;
@@ -530,8 +537,6 @@ rest_of_handle_fast_dce (void)
   bool global_changed = true;
   int n_blocks;
   int loop_count = 0;
-
-  init_dce (true);
 
   prescan_insns_for_dce (true);
 
@@ -579,9 +584,13 @@ rest_of_handle_fast_dce (void)
       
       if (global_changed)
 	{
+	  /* Turn off the RUN_DCE flag to prevent recursive calls to
+	     dce.  */
+	  int old_flag = df_clear_flags (dflow, DF_LR_RUN_DCE);
+
 	  /* So something was deleted that requires a redo.  Do it on
 	     the cheap.  */
-	  delete_unmarked_insns ();
+	  delete_unmarked_insns (df_delete);
 	  bitmap_clear (marked);
 	  bitmap_clear (processed);
 	  bitmap_clear (redo_out);
@@ -592,19 +601,54 @@ rest_of_handle_fast_dce (void)
 	     iteration.  */ 
 	  df_analyze_problem (dflow, all_blocks, all_blocks, 
 			      changed, postorder, n_blocks, false);
+
+	  if (old_flag & DF_LR_RUN_DCE)
+	    df_set_flags (dflow, DF_LR_RUN_DCE);
 	  bitmap_clear (changed);
 	  prescan_insns_for_dce (true);
 	}
       loop_count++;
     }
 
-  delete_unmarked_insns ();
+  delete_unmarked_insns (df_delete);
 
   BITMAP_FREE (processed);
   BITMAP_FREE (changed);
   BITMAP_FREE (redo_out);
   BITMAP_FREE (all_blocks);
+}
+
+
+/* Callback for running pass_rtl_dce.  */
+
+static void
+rest_of_handle_fast_dce (void)
+{
+  init_dce (true);
+  fast_dce (false);
   end_fast_dce ();
+}
+
+
+/* This is an internal call that is used by the df live register
+   problem to run fast dce as a side effect of creating the live
+   information.  The stack is organized so that the lr problem is run,
+   this pass is run, which updates the live info and the df scanning
+   info, and then returns to allow the rest of the problems to be run.
+
+   This can be called by elsewhere but it will not update the bit
+   vectors for any other problems than LR.
+*/
+
+void
+run_fast_df_dce (struct df *df)
+{
+  dce_df = df;
+  init_dce (true);
+  fast_dce (true);
+  BITMAP_FREE (marked);
+  BITMAP_FREE (marked_libcalls);
+  dce_df = NULL;
 }
 
 
@@ -864,7 +908,8 @@ static struct df_problem reaching_stores_problem =
   NULL,                       /* Finalize function.  */
   NULL,                       /* Free all of the problem information.  */
   NULL,                       /* Debugging.  */
-  NULL                        /* Dependent problem.  */
+  NULL,                       /* Dependent problem.  */
+  0                           /* Changeable flags.  */
 };
 
 /* Initialize store group *GROUP.  */
@@ -1560,7 +1605,7 @@ rest_of_handle_dse (void)
       mark_reg_dependencies (insn);
       mark_dependent_stores (insn);
     }
-  delete_unmarked_insns ();
+  delete_unmarked_insns (false);
   if (stores.stores)
     {
       end_unmarked_stores ();
