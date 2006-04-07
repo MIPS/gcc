@@ -270,7 +270,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
       /* APPLE LOCAL begin ss2 */
     case OPT_fsave_repository_:
-      flag_save_repository = 1;
+      if (write_symbols != DBX_DEBUG)
+	error ("-fsave-repository may only be used with STABS debugging");
+      else
+	flag_save_repository = 1;
       break;
       /* APPLE LOCAL end ss2 */
 

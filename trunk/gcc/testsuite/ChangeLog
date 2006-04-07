@@ -4,6 +4,12 @@
 	PR c++/24302
 	* g++.dg/warn/Wunused-12.C: New test.
 
+2006-03-24  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4485597
+	* objc.dg/dwarf-2.m: New.
+	* obj-c++.dg/dwarf-2.mm: New.
+
 2005-12-02  Mark Mitchell  <mark@codesourcery.com>
 
 	Radar 4458276

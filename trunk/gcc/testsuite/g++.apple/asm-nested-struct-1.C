@@ -1,6 +1,8 @@
-/* APPLE LOCAL begin radar 4235138 */
+/* APPLE LOCAL file CW asm blocks */
 /* { dg-do run { target powerpc*-*-* } } */
 /* { dg-options "-fasm-blocks" } */
+/* Radar 4235138 */
+
 extern "C" void abort();
 
 static void FUNC(register unsigned int x) {
@@ -42,4 +44,3 @@ int main()
 	FUNC (123);
 	return 0;
 }
-/* APPLE LOCAL end radar 4235138 */

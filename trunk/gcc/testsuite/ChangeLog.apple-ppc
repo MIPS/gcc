@@ -271,6 +271,50 @@
 	Radar 4229905
 	* obj-c++.dg/warn5.mm: New
 
+2006-04-06  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4499627
+	* gcc.apple/4499627.c: New.
+	* gcc.apple/4209085.c: Remove.
+
+2006-03-28  Mike Stump  <mrs@apple.com>
+
+	* asm-array-ref.C, asm-block-1.C: Move from g++.dg to g++.apple.
+	* asm-block-2.C, asm-block-3.C, asm-block-4.C, asm-block-5.C: Likwise.
+	* asm-block-6.C, asm-block-7.C, asm-block-8.C, asm-block-9.C: Likwise.
+	* asm-block-10.C, asm-block-11.C, asm-block-12.C: Likewise.
+	* asm-block-13.C, asm-block-14.C, asm-block-15.C: Likewise.
+	* asm-block-16.C, asm-block-17.C, asm-block-18.C: Likewise.
+	* asm-block-19.C, asm-block-20.C, asm-block-21.C: Likewise.
+	* asm-block-22.C, asm-block-23.C, asm-block-24.C: Likewise.
+	* asm-block-25.C, asm-block-26.C, asm-block-27.C: Likewise.
+	* asm-block-28.C, asm-block-29.C, asm-block-30.C: Likewise.
+	* asm-block-31.C, asm-block-32.C, asm-block-33.C: Likewise.
+	* asm-block-34.C, asm-block-35.C, asm-block-36.C: Likewise.
+	* asm-block-37.C, asm-block-38.C, asm-block-39.C: Likewise.
+	* asm-block-40.C, asm-block-41.C, asm-block-42.C: Likewise.
+	* asm-block-43.C, asm-block-44.C, asm-block-45.C: Likewise.
+	* asm-block-46.C, asm-block-47.C: Likewise.
+	* asm-block-48.C, asm-block-dot-align.C, asm-function-1.C: Likewise.
+	* asm-function-2.C, asm-function-3.C, asm-function-4.C: Likewise.
+	* asm-function-5.C, asm-function-6.C, asm-function-7.C: Likewise.
+	* asm-function-8.C, asm-function-9.C, asm-function-10.C: Likewise.
+	* asm-function-11.C, asm-function-12.C, asm-function-13.C: Likewise.
+	* asm-function-14.C, asm-function-15.C, asm-function-16.C: Likewise.
+	* asm-function-17.C, asm-function-18.C, asm-function-19.C: Likewise.
+	* asm-function-20.C, asm-nested-struct-1.C: Likewise.
+	* asm-static-entry-1.C: Likewise.
+
+2006-03-24  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4443946
+	gcc.apple/4443946.c: New.
+
+2006-03-24  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4474259
+	* gcc.apple/4474259.c: New.
+
 2006-03-22  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4484188

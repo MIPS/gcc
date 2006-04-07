@@ -11,6 +11,79 @@
 	* toplev.c (check_global_declarations): Check anonymous
 	decl name.
 	
+2006-04-04  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4502209
+	* config/darwin-crt3.c (atexit): Pass &__dso_handle rather than
+	NULL for dso parameter to atexit_common.
+
+	Radar 4383613
+	* doc/extend.texi (Function Attributes): Rewrite visibility 
+	attribute documentation.
+	* doc/invoke.texi (C++ Dialect Options): Rewrite
+	-fvisibility-inlines-hidden documentation to describe something
+	entirely different, although in practise compatible.
+	(Code Gen Options): Warn about system headers in -fvisibility=
+	documentation.
+
+2006-03-22  Eric Christopher  <echristo@apple.com>
+
+        Radar 4419200
+        2006-01-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+        * config/i386/emmintrin.h (_mm_cvtsd_f64): Add missing Intel
+        intrinsic.
+        (_mm_cvtsi128_si64): Likewise.
+        (_mm_cvtsd_si64): Likewise.
+        (_mm_cvttsd_si64): Likewise.
+        (_mm_cvtsi64_sd): Likewise.
+        (_mm_cvtsi64_si128): Likewise.
+        * config/i386/mmintrin.h (_m_from_int64): Likewise.
+        (_mm_cvtsi64_m64): Likewise.
+        (_m_to_int64): Likewise.
+        (_mm_cvtm64_si64): Likewise.
+        * config/i386/xmmintrin.h (_mm_cvtss_si64): Likewise.
+        (_mm_cvttss_si64): Likewise.
+        (_mm_cvtsi64_ss): Likewise.
+        (_mm_cvtss_f32): Likewise.
+
+2006-03-30  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4495520
+	* config/darwin.h (LINK_COMMAND_SPEC): Don't try to protect %S with
+	!Zdynamiclib.
+
+2006-03-24  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4485597
+	* dwarf2out.c (is_c_family): Understand new DWARF3 language types.
+	(is_cxx): Likewise.
+	(gen_compile_unit_die): Use new language types for Objective-C and
+	Objective-C++.
+	(dwarf2out_decl): Use is_cxx rather than testing explicitly against
+	DW_LANG_C_plus_plus.
+
+2006-03-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2.h (DW_TAG_condition, DW_TAG_shared_type): New constants
+	from DWARF 3.
+	(DW_AT_description, DW_AT_binary_scale, DW_AT_decimal_scale,
+	DW_AT_small, DW_AT_decimal_sign, DW_AT_digit_count,
+	DW_AT_picture_string, DW_AT_mutable, DW_AT_threads_scaled,
+	DW_AT_explicit, DW_AT_object_pointer, DW_AT_endianity,
+	DW_AT_elemental, DW_AT_pure, DW_AT_recursive): New.
+	(DW_OP_form_tls_address, DW_OP_call_frame_cfa, DW_OP_bit_piece): New.
+	(DW_ATE_packed_decimal, DW_ATE_numeric_string, DW_ATE_edited,
+	DW_ATE_signed_fixed, DW_ATE_unsigned_fixed): New.
+	(DW_DS_unsigned, DW_DS_leading_overpunch, DW_DS_trailing_overpunch,
+	DW_DS_leading_separate, DW_DS_trailing_separate): New.
+	(DW_END_default, DW_END_big, DW_END_little): New.
+	(DW_END_lo_user, DW_END_hi_user): Define.
+	(DW_LNE_lo_user, DW_LNE_hi_user): Define.
+	(DW_CFA_val_offset, DW_CFA_val_offset_sf, DW_CFA_val_expression): New.
+	(DW_LANG_PLI, DW_LANG_ObjC, DW_LANG_ObjC_plus_plus, DW_LANG_UPC,
+	DW_LANG_D): New.
+
 2006-03-15  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 3992198

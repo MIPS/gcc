@@ -1,6 +1,8 @@
-/* APPLE LOCAL begin radar 4211430 */
+/* APPLE LOCAL file CW asm blocks */
 /* { dg-do run { target powerpc*-*-darwin* } } */
 /* { dg-options "-fasm-blocks" } */
+/* Radar 4211430 */
+
 #include <stdio.h>
 
 extern "C" void abort();
@@ -50,4 +52,3 @@ int main()
 	  abort();
 	return 0;
 }
-/* APPLE LOCAL end radar 4211430 */

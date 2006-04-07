@@ -241,6 +241,41 @@
 	* c-typeck.c (build_component_ref): Generate the new ivar reference
 	tree.
 
+2006-04-06  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4499627
+	* gcc/config/i386/i386.md (gen_fix_trunc<mode>_i386_fisttp):
+	Remove 4209085 peephole.
+
+2006-03-30  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4493694
+	* c-opts.c (c_common_handle_option): Ignore -fsave-repository
+	when not using STABS.
+
+2006-03-28  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4321213
+	* doc/include/sourcecode.texi (Source Code): Rewrite for Subversion.
+
+2006-03-28  Stuart Hastings  <stuart@apple.com>
+
+	* gcc/config/i386/i386.c (preferred_stack_boundary): Add APPLE
+	LOCAL mainline comments.  (ix86_function_regparm): Move APPLE
+	LOCAL comments.
+
+2006-03-24  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4443946
+	* gcc/global.c (global_alloc): Allow -fasm-blocks to clobber
+	the frame pointer.
+
+2006-03-24  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4474259
+	* gcc/config/i386/i386.c (cw_reg_comp): Use strcasecmp.
+	(x86_canonicalize_operands): Exception for movd.
+
 2006-03-22  Eric Christopher  <echristo@apple.com>
 
 	Radar 4473966
