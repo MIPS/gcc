@@ -82,7 +82,7 @@
     movq\t{%1, %0|%0, %1}
     movd\t{%1, %0|%0, %1}
     movd\t{%1, %0|%0, %1}"
-  [(set_attr "type" "imov,imov,mmxmov,mmxmov,mmxmov,ssecvt,ssecvt,ssemov,ssemov,ssemov,ssemov,ssemov")
+  [(set_attr "type" "imov,imov,mmx,mmxmov,mmxmov,ssecvt,ssecvt,sselog1,ssemov,ssemov,ssemov,ssemov")
    (set_attr "unit" "*,*,*,*,*,mmx,mmx,*,*,*,*,*")
    (set_attr "mode" "DI")])
 
@@ -108,7 +108,7 @@
     movlps\t{%1, %0|%0, %1}
     #
     #"
-  [(set_attr "type" "mmxmov,mmxmov,mmxmov,ssecvt,ssecvt,ssemov,ssemov,ssemov,ssemov,ssemov,ssemov,ssemov,*,*")
+  [(set_attr "type" "mmx,mmxmov,mmxmov,ssecvt,ssecvt,sselog1,ssemov,ssemov,sselog1,ssemov,ssemov,ssemov,*,*")
    (set_attr "unit" "*,*,*,mmx,mmx,*,*,*,*,*,*,*,*,*")
    (set_attr "mode" "DI,DI,DI,DI,DI,TI,DI,DI,V4SF,V4SF,V2SF,V2SF,DI,DI")])
 
@@ -142,7 +142,7 @@
     movlps\t{%1, %0|%0, %1}
     movd\t{%1, %0|%0, %1}
     movd\t{%1, %0|%0, %1}"
-  [(set_attr "type" "imov,imov,mmxmov,mmxmov,mmxmov,ssecvt,ssecvt,ssemov,ssemov,ssemov,ssemov,ssemov,ssemov")
+  [(set_attr "type" "imov,imov,mmx,mmxmov,mmxmov,ssecvt,ssecvt,ssemov,sselog1,ssemov,ssemov,ssemov,ssemov")
    (set_attr "unit" "*,*,*,*,*,mmx,mmx,*,*,*,*,*,*")
    (set_attr "mode" "DI,DI,DI,DI,DI,DI,DI,V4SF,V4SF,V2SF,V2SF,DI,DI")])
 
@@ -165,7 +165,7 @@
     movlps\t{%1, %0|%0, %1}
     #
     #"
-  [(set_attr "type" "mmxmov,mmxmov,mmxmov,ssecvt,ssecvt,ssemov,ssemov,ssemov,ssemov,*,*")
+  [(set_attr "type" "mmx,mmxmov,mmxmov,ssecvt,ssecvt,sselog1,ssemov,ssemov,ssemov,*,*")
    (set_attr "unit" "*,*,*,mmx,mmx,*,*,*,*,*,*")
    (set_attr "mode" "DI,DI,DI,DI,DI,V4SF,V4SF,V2SF,V2SF,DI,DI")])
 
@@ -573,7 +573,7 @@
 	 [(plus:DI (match_operand:DI 1 "nonimmediate_operand" "%0")
 		   (match_operand:DI 2 "nonimmediate_operand" "ym"))]
 	 UNSPEC_NOP))]
-  "TARGET_MMX && ix86_binary_operator_ok (PLUS, DImode, operands)"
+  "TARGET_SSE2 && ix86_binary_operator_ok (PLUS, DImode, operands)"
   "paddq\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxadd")
    (set_attr "mode" "DI")])
@@ -614,7 +614,7 @@
 	 [(minus:DI (match_operand:DI 1 "register_operand" "0")
 		    (match_operand:DI 2 "nonimmediate_operand" "ym"))]
 	 UNSPEC_NOP))]
-  "TARGET_MMX"
+  "TARGET_SSE2"
   "psubq\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxadd")
    (set_attr "mode" "DI")])

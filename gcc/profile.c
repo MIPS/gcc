@@ -72,12 +72,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 /* Hooks for profiling.  */
 static struct profile_hooks* profile_hooks;
 
-/* File for profiling debug output.  */
-static inline FILE*
-profile_dump_file (void) {
-  return profile_hooks->profile_dump_file ();
-}
-
 /* Additional information about the edges we need.  */
 struct edge_info {
   unsigned int count_valid : 1;
@@ -471,7 +465,7 @@ compute_branch_probabilities (void)
 	}
     }
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
 
   total_num_passes += passes;
   if (dump_file)
@@ -531,7 +525,7 @@ compute_branch_probabilities (void)
 	{
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    e->probability = (e->count * REG_BR_PROB_BASE + bb->count / 2) / bb->count;
-	  if (bb->index >= 0
+	  if (bb->index >= NUM_FIXED_BLOCKS
 	      && block_ends_with_condjump_p (bb)
 	      && EDGE_COUNT (bb->succs) >= 2)
 	    {
@@ -609,7 +603,7 @@ compute_branch_probabilities (void)
 	      FOR_EACH_EDGE (e, ei, bb->succs)
 		e->probability = REG_BR_PROB_BASE / total;
 	    }
-	  if (bb->index >= 0
+	  if (bb->index >= NUM_FIXED_BLOCKS
 	      && block_ends_with_condjump_p (bb)
 	      && EDGE_COUNT (bb->succs) >= 2)
 	    num_branches++, num_never_executed;
@@ -693,8 +687,7 @@ compute_value_histograms (histogram_values values)
 
       hist->hvalue.next = ann->histograms;
       ann->histograms = hist;
-      hist->hvalue.counters = 
-	    xmalloc (sizeof (gcov_type) * hist->n_counters);
+      hist->hvalue.counters =  XNEWVEC (gcov_type, hist->n_counters);
       for (j = 0; j < hist->n_counters; j++)
 	hist->hvalue.counters[j] = aact_count[j];
     }
@@ -704,7 +697,9 @@ compute_value_histograms (histogram_values values)
       free (histogram_counts[t]);
 }
 
-#define BB_TO_GCOV_INDEX(bb)  ((bb)->index + 1)
+/* The entry basic block will be moved around so that it has index=1,
+   there is nothing at index 0 and the exit is at n_basic_block.  */
+#define BB_TO_GCOV_INDEX(bb)  ((bb)->index - 1)
 /* When passed NULL as file_name, initialize.
    When passed something else, output the necessary commands to change
    line to LINE and offset to FILE_NAME.  */
@@ -917,7 +912,7 @@ branch_prob (void)
 	num_instrumented++;
     }
 
-  total_num_blocks += n_basic_blocks + 2;
+  total_num_blocks += n_basic_blocks;
   if (dump_file)
     fprintf (dump_file, "%d basic blocks\n", n_basic_blocks);
 
@@ -938,7 +933,7 @@ branch_prob (void)
       gcov_position_t offset;
 
       offset = gcov_write_tag (GCOV_TAG_BLOCKS);
-      for (i = 0; i != (unsigned) (n_basic_blocks + 2); i++)
+      for (i = 0; i != (unsigned) (n_basic_blocks); i++)
 	gcov_write_unsigned (0);
       gcov_write_length (offset);
     }
@@ -946,7 +941,7 @@ branch_prob (void)
    /* Keep all basic block indexes nonnegative in the gcov output.
       Index 0 is used for entry block, last index is for exit block.
       */
-  ENTRY_BLOCK_PTR->index = -1;
+  ENTRY_BLOCK_PTR->index = 1;
   EXIT_BLOCK_PTR->index = last_basic_block;
 
   /* Arcs */
@@ -1154,8 +1149,8 @@ branch_prob (void)
       /* Re-merge split basic blocks and the mess introduced by
 	 insert_insn_on_edge.  */
       cleanup_cfg (profile_arc_flag ? CLEANUP_EXPENSIVE : 0);
-      if (profile_dump_file())
-	dump_flow_info (profile_dump_file());
+      if (dump_file)
+	dump_flow_info (dump_file, dump_flags);
     }
 
   free_edge_list (el);
@@ -1340,46 +1335,4 @@ tree_register_profile_hooks (void)
   gcc_assert (ir_type ());
   profile_hooks = &tree_profile_hooks;
 }
-
-
-/* Do branch profiling and static profile estimation passes.  */
-static void
-rest_of_handle_branch_prob (void)
-{
-  struct loops loops;
-
-  /* Discover and record the loop depth at the head of each basic
-     block.  The loop infrastructure does the real job for us.  */
-  flow_loops_find (&loops);
-
-  if (dump_file)
-    flow_loops_dump (&loops, dump_file, NULL, 0);
-
-  /* Estimate using heuristics if no profiling info is available.  */
-  if (flag_guess_branch_prob
-      && profile_status == PROFILE_ABSENT)
-    estimate_probability (&loops);
-
-  flow_loops_free (&loops);
-  free_dominance_info (CDI_DOMINATORS);
-}
-
-struct tree_opt_pass pass_branch_prob =
-{
-  "bp",                                 /* name */
-  NULL,                                 /* gate */   
-  rest_of_handle_branch_prob,           /* execute */       
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_BRANCH_PROB,                       /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'b'                                   /* letter */
-};
-
-
 

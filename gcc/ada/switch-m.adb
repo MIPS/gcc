@@ -491,7 +491,7 @@ package body Switch.M is
       --  Skip past the initial character (must be the switch character)
 
       if Ptr = Max then
-         raise Bad_Switch;
+         Bad_Switch (Switch_Chars);
 
       else
          Ptr := Ptr + 1;
@@ -573,15 +573,11 @@ package body Switch.M is
             while Ptr < Max loop
                Ptr := Ptr + 1;
                C := Switch_Chars (Ptr);
-               exit when C = ASCII.NUL or else C = '/' or else C = '-';
 
-               if C in '1' .. '9' or else
-                  C in 'a' .. 'z' or else
-                  C in 'A' .. 'Z'
-               then
+               if C in 'a' .. 'z' or else C in 'A' .. 'Z' then
                   Set_Debug_Flag (C);
                else
-                  raise Bad_Switch;
+                  Bad_Switch (Switch_Chars);
                end if;
             end loop;
 
@@ -593,7 +589,7 @@ package body Switch.M is
             Ptr := Ptr + 1;
 
             if Ptr > Max then
-               raise Bad_Switch;
+               Bad_Switch (Switch_Chars);
             end if;
 
             case Switch_Chars (Ptr) is
@@ -602,7 +598,7 @@ package body Switch.M is
 
                when 'I' =>
                   Ptr := Ptr + 1;
-                  Scan_Pos (Switch_Chars, Max, Ptr, Main_Index);
+                  Scan_Pos (Switch_Chars, Max, Ptr, Main_Index, C);
 
                --  processing for eL switch
 
@@ -611,7 +607,7 @@ package body Switch.M is
                   Follow_Links := True;
 
                when others =>
-                  raise Bad_Switch;
+                  Bad_Switch (Switch_Chars);
             end case;
 
          --  Processing for f switch
@@ -641,12 +637,16 @@ package body Switch.M is
          --  Processing for j switch
 
          when 'j' =>
+            if Ptr = Max then
+               Bad_Switch (Switch_Chars);
+            end if;
+
             Ptr := Ptr + 1;
 
             declare
                Max_Proc : Pos;
             begin
-               Scan_Pos (Switch_Chars, Max, Ptr, Max_Proc);
+               Scan_Pos (Switch_Chars, Max, Ptr, Max_Proc, C);
                Maximum_Processes := Positive (Max_Proc);
             end;
 
@@ -679,7 +679,7 @@ package body Switch.M is
             Ptr := Ptr + 1;
 
             if Output_File_Name_Present then
-               raise Too_Many_Output_Files;
+               Osint.Fail ("duplicate -o switch");
             else
                Output_File_Name_Present := True;
             end if;
@@ -707,6 +707,25 @@ package body Switch.M is
          when 'v' =>
             Ptr := Ptr + 1;
             Verbose_Mode := True;
+            Verbosity_Level := Opt.High;
+
+            if Ptr <= Max then
+               case Switch_Chars (Ptr) is
+                  when 'l' =>
+                     Verbosity_Level := Opt.Low;
+
+                  when 'm' =>
+                     Verbosity_Level := Opt.Medium;
+
+                  when 'h' =>
+                     Verbosity_Level := Opt.High;
+
+                  when others =>
+                     Bad_Switch (Switch_Chars);
+               end case;
+
+               Ptr := Ptr + 1;
+            end if;
 
          --  Processing for x switch
 
@@ -720,36 +739,18 @@ package body Switch.M is
             Ptr := Ptr + 1;
             No_Main_Subprogram := True;
 
-         --  Ignore extra switch character
-
-         when '/' | '-' =>
-            Ptr := Ptr + 1;
-
          --  Anything else is an error (illegal switch character)
 
          when others =>
-            raise Bad_Switch;
+            Bad_Switch (Switch_Chars);
 
          end case;
 
          if Ptr <= Max then
-            Osint.Fail ("invalid switch: ", Switch_Chars);
+            Bad_Switch (Switch_Chars);
          end if;
 
       end Check_Switch;
-
-   exception
-      when Bad_Switch =>
-         Osint.Fail ("invalid switch: ", (1 => C));
-
-      when Bad_Switch_Value =>
-         Osint.Fail ("numeric value out of range for switch: ", (1 => C));
-
-      when Missing_Switch_Value =>
-         Osint.Fail ("missing numeric value for switch: ", (1 => C));
-
-      when Too_Many_Output_Files =>
-         Osint.Fail ("duplicate -o switch");
 
    end Scan_Make_Switches;
 

@@ -32,7 +32,8 @@ extern tree analyze_scalar_evolution (struct loop *, tree);
 extern tree instantiate_parameters (struct loop *, tree);
 extern void gather_stats_on_scev_database (void);
 extern void scev_analysis (void);
-extern bool simple_iv (struct loop *, tree, tree, tree *, tree *, bool);
-void scev_const_prop (void);
+unsigned int scev_const_prop (void);
+
+extern bool simple_iv (struct loop *, tree, tree, affine_iv *, bool);
 
 #endif  /* GCC_TREE_SCALAR_EVOLUTION_H  */

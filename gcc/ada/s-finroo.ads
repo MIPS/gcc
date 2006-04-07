@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---            Copyright (C) 1992-2005 Free Software Foundation, Inc.        --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -61,10 +61,13 @@ package System.Finalization_Root is
    procedure Finalize   (Object : in out Root_Controlled);
    procedure Adjust     (Object : in out Root_Controlled);
 
-   procedure Write     (Stream : access Ada.Streams.Root_Stream_Type'Class;
-                        Item : in Root_Controlled);
-   procedure Read      (Stream : access Ada.Streams.Root_Stream_Type'Class;
-                        Item : out Root_Controlled);
+   procedure Write
+     (Stream : not null access Ada.Streams.Root_Stream_Type'Class;
+      Item   : Root_Controlled);
+
+   procedure Read
+     (Stream : not null access Ada.Streams.Root_Stream_Type'Class;
+      Item   : out Root_Controlled);
 
    for Root_Controlled'Read use Read;
    for Root_Controlled'Write use Write;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -174,6 +174,15 @@ package body Sinfo is
         or else NT (N).Nkind = N_Subprogram_Body);
       return Flag4 (N);
    end Acts_As_Spec;
+
+   function Actual_Designated_Subtype
+     (N : Node_Id) return Node_Id is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Explicit_Dereference
+        or else NT (N).Nkind = N_Free_Statement);
+      return Node2 (N);
+   end Actual_Designated_Subtype;
 
    function Aggregate_Bounds
       (N : Node_Id) return Node_Id is
@@ -876,6 +885,14 @@ package body Sinfo is
       return Flag13 (N);
    end Do_Tag_Check;
 
+   function Elaborate_All_Desirable
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_With_Clause);
+      return Flag9 (N);
+   end Elaborate_All_Desirable;
+
    function Elaborate_All_Present
       (N : Node_Id) return Boolean is
    begin
@@ -883,6 +900,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_With_Clause);
       return Flag14 (N);
    end Elaborate_All_Present;
+
+   function Elaborate_Desirable
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_With_Clause);
+      return Flag11 (N);
+   end Elaborate_Desirable;
 
    function Elaborate_Present
       (N : Node_Id) return Boolean is
@@ -1667,6 +1692,7 @@ package body Sinfo is
    begin
       pragma Assert (False
         or else NT (N).Nkind = N_Derived_Type_Definition
+        or else NT (N).Nkind = N_Formal_Derived_Type_Definition
         or else NT (N).Nkind = N_Formal_Private_Type_Definition
         or else NT (N).Nkind = N_Private_Extension_Declaration
         or else NT (N).Nkind = N_Private_Type_Declaration
@@ -2745,6 +2771,15 @@ package body Sinfo is
       Set_Flag4 (N, Val);
    end Set_Acts_As_Spec;
 
+   procedure Set_Actual_Designated_Subtype
+     (N : Node_Id; Val : Node_Id) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Explicit_Dereference
+        or else NT (N).Nkind = N_Free_Statement);
+      Set_Node2 (N, Val);
+   end Set_Actual_Designated_Subtype;
+
    procedure Set_Aggregate_Bounds
       (N : Node_Id; Val : Node_Id) is
    begin
@@ -3446,6 +3481,14 @@ package body Sinfo is
       Set_Flag13 (N, Val);
    end Set_Do_Tag_Check;
 
+   procedure Set_Elaborate_All_Desirable
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_With_Clause);
+      Set_Flag9 (N, Val);
+   end Set_Elaborate_All_Desirable;
+
    procedure Set_Elaborate_All_Present
       (N : Node_Id; Val : Boolean := True) is
    begin
@@ -3453,6 +3496,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_With_Clause);
       Set_Flag14 (N, Val);
    end Set_Elaborate_All_Present;
+
+   procedure Set_Elaborate_Desirable
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_With_Clause);
+      Set_Flag11 (N, Val);
+   end Set_Elaborate_Desirable;
 
    procedure Set_Elaborate_Present
       (N : Node_Id; Val : Boolean := True) is
@@ -4228,6 +4279,7 @@ package body Sinfo is
    begin
       pragma Assert (False
         or else NT (N).Nkind = N_Derived_Type_Definition
+        or else NT (N).Nkind = N_Formal_Derived_Type_Definition
         or else NT (N).Nkind = N_Formal_Private_Type_Definition
         or else NT (N).Nkind = N_Private_Extension_Declaration
         or else NT (N).Nkind = N_Private_Type_Declaration

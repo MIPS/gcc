@@ -341,7 +341,7 @@ gen_insn (rtx insn, int lineno)
       if (i != XVECLEN (insn, 1) - 1)
 	{
 	  struct clobber_pat *p;
-	  struct clobber_ent *link = xmalloc (sizeof (struct clobber_ent));
+	  struct clobber_ent *link = XNEW (struct clobber_ent);
 	  int j;
 
 	  link->code_number = insn_code_number;
@@ -377,7 +377,7 @@ gen_insn (rtx insn, int lineno)
 
 	  if (p == 0)
 	    {
-	      p = xmalloc (sizeof (struct clobber_pat));
+	      p = XNEW (struct clobber_pat);
 
 	      p->insns = 0;
 	      p->pattern = insn;
@@ -599,7 +599,7 @@ gen_split (rtx split)
   max_operand_vec (split, 2);
   operands = MAX (max_opno, MAX (max_dup_opno, max_scratch_opno)) + 1;
   unused = (operands == 0 ? " ATTRIBUTE_UNUSED" : "");
-  used = xcalloc (1, operands);
+  used = XCNEWVEC (char, operands);
 
   /* Output the prototype, function name and argument declarations.  */
   if (GET_CODE (split) == DEFINE_PEEPHOLE2)
@@ -844,6 +844,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"resource.h\"\n");
   printf ("#include \"reload.h\"\n");
   printf ("#include \"toplev.h\"\n");
+  printf ("#include \"tm-constrs.h\"\n");
   printf ("#include \"ggc.h\"\n\n");
   printf ("#include \"basic-block.h\"\n\n");
   printf ("#define FAIL return (end_sequence (), _val)\n");
@@ -893,11 +894,4 @@ from the machine description file `md'.  */\n\n");
 
   fflush (stdout);
   return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);
-}
-
-/* Define this so we can link with print-rtl.o to get debug_rtx function.  */
-const char *
-get_insn_name (int code ATTRIBUTE_UNUSED)
-{
-  return NULL;
 }

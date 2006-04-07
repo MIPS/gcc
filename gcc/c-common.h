@@ -72,6 +72,7 @@ enum rid
   RID_ASM,       RID_TYPEOF,   RID_ALIGNOF,  RID_ATTRIBUTE,  RID_VA_ARG,
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
   RID_TYPES_COMPATIBLE_P,
+  RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128,
 
   /* Too many ways of getting the name of a function as a string */
   RID_FUNCTION_NAME, RID_PRETTY_FUNCTION_NAME, RID_C99_FUNCTION_NAME,
@@ -295,6 +296,10 @@ extern tree push_stmt_list (void);
 extern tree pop_stmt_list (tree);
 extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
+extern tree pushdecl_top_level (tree);
+extern tree pushdecl (tree);
+extern tree build_modify_expr (tree, enum tree_code, tree);
+extern tree build_indirect_ref (tree, const char *);
 
 extern int c_expand_decl (tree);
 
@@ -400,11 +405,6 @@ extern int flag_const_strings;
 /* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
 
 extern int flag_signed_bitfields;
-
-/* Nonzero means warn about deprecated conversion from string constant to
-   `char *'.  */
-
-extern int warn_write_strings;
 
 /* Warn about #pragma directives that are not recognized.  */      
 
@@ -549,6 +549,11 @@ extern int flag_working_directory;
 
 extern int flag_use_cxa_atexit;
 
+/* Nonzero to use __cxa_get_exception_ptr in the C++ exception-handling
+   logic.  */
+
+extern int flag_use_cxa_get_exception_ptr;
+
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */
 
@@ -649,6 +654,8 @@ extern void binary_op_error (enum tree_code);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
+extern void strict_aliasing_warning(tree, tree, tree);
+extern void empty_body_warning (tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
 extern void unsigned_conversion_warning (tree, tree);
@@ -676,6 +683,8 @@ extern void c_common_nodes_and_builtins (void);
 extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
 
 extern void disable_builtin_function (const char *);
+
+extern void set_compound_literal_name (tree decl);
 
 extern tree build_va_arg (tree, tree);
 
@@ -776,6 +785,7 @@ extern tree finish_label_address_expr (tree);
 /* Same function prototype, but the C and C++ front ends have
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label (tree);
+extern tree lookup_name (tree);
 
 extern int vector_types_convertible_p (tree t1, tree t2);
 
@@ -835,6 +845,8 @@ extern int complete_array_type (tree *, tree, bool);
 
 extern tree builtin_type_for_size (int, bool);
 
+extern void warn_array_subscript_with_type_char (tree);
+
 /* In c-gimplify.c  */
 extern void c_genericize (tree);
 extern int c_gimplify_expr (tree *, tree *, tree *);
@@ -847,7 +859,7 @@ extern void c_common_read_pch (cpp_reader *pfile, const char *name, int fd,
 			       const char *orig);
 extern void c_common_write_pch (void);
 extern void c_common_no_more_pch (void);
-extern void c_common_pch_pragma (cpp_reader *pfile);
+extern void c_common_pch_pragma (cpp_reader *pfile, const char *);
 extern void c_common_print_pch_checksum (FILE *f);
 
 /* In *-checksum.c */
@@ -926,6 +938,21 @@ extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
 extern void pp_dir_change (cpp_reader *, const char *);
 extern bool check_missing_format_attribute (tree, tree);
+
+/* In c-omp.c  */
+extern tree c_finish_omp_master (tree);
+extern tree c_finish_omp_critical (tree, tree);
+extern tree c_finish_omp_ordered (tree);
+extern void c_finish_omp_barrier (void);
+extern void c_finish_omp_atomic (enum tree_code, tree, tree);
+extern void c_finish_omp_flush (void);
+extern tree c_finish_omp_for (location_t, tree, tree, tree, tree, tree, tree);
+extern void c_split_parallel_clauses (tree, tree *, tree *);
+extern enum omp_clause_default_kind c_omp_predetermined_sharing (tree);
+
+/* Not in c-omp.c; provided by the front end.  */
+extern bool c_omp_sharing_predetermined (tree);
+extern tree c_omp_remap_decl (tree, bool);
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before

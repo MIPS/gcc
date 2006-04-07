@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---             Copyright (C) 2000-2005 Free Software Foundation, Inc.       --
+--          Copyright (C) 2000-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,7 +24,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  Check the Naming Scheme of a project file, find the source files.
+--  Check the Naming Scheme of a project file, find the source files
 
 private package Prj.Nmsc is
 
@@ -33,10 +33,11 @@ private package Prj.Nmsc is
    --  language summary of the implementation ???
 
    procedure Check
-     (Project      : Project_Id;
-      In_Tree      : Project_Tree_Ref;
-      Report_Error : Put_Line_Access;
-      Follow_Links : Boolean);
+     (Project         : Project_Id;
+      In_Tree         : Project_Tree_Ref;
+      Report_Error    : Put_Line_Access;
+      Follow_Links    : Boolean;
+      When_No_Sources : Error_Warning);
    --  Check the object directory and the source directories
    --
    --  Check the library attributes, including the library directory if any
@@ -57,5 +58,8 @@ private package Prj.Nmsc is
    --  any file duplicated through symbolic links (although the latter are
    --  still valid if they point to a file which is outside of the project),
    --  and that no directory has a name which is a valid source name.
+   --
+   --  When_No_Ada_Sources indicates what should be done when no Ada sources
+   --  are found in a project where Ada is a language.
 
 end Prj.Nmsc;

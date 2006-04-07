@@ -155,7 +155,7 @@ i386_pe_dllimport_p (tree decl)
 
   /* The DECL_DLLIMPORT_P flag was set for decls in the class definition
      by  targetm.cxx.adjust_class_at_definition.  Check again to emit
-     warnings if the class attribute has been overriden by an
+     warnings if the class attribute has been overridden by an
      out-of-class definition.  */
   if (associated_type (decl)
       && lookup_attribute ("dllimport",
@@ -229,7 +229,7 @@ i386_pe_mark_dllexport (tree decl)
   idp = get_identifier (newname);
 
   symref = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
-  SYMBOL_REF_DECL (symref) = decl;
+  SET_SYMBOL_REF_DECL (symref, decl);
   XEXP (DECL_RTL (decl), 0) = symref;
 }
 
@@ -274,7 +274,7 @@ i386_pe_mark_dllimport (tree decl)
   idp = get_identifier (newname);
 
   symref = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
-  SYMBOL_REF_DECL (symref) = decl;
+  SET_SYMBOL_REF_DECL (symref, decl);
   newrtl = gen_rtx_MEM (Pmode,symref);
   XEXP (DECL_RTL (decl), 0) = newrtl;
 

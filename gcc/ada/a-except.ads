@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -34,6 +34,15 @@
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
+
+--  This version of Ada.Exceptions is a full Ada 95 version, but lacks the
+--  additional definitions of Exception_Name returning Wide_[Wide_]String.
+--  It is used for building the compiler and the basic tools, since these
+--  builds may be done with bootstrap compilers that cannot handle these
+--  additions. The full version of Ada.Exceptions can be found in the files
+--  a-except-2005.ads/adb, and is used for all other builds where full Ada
+--  2005 functionality is required. in particular, it is used for building
+--  run times on all targets.
 
 pragma Polling (Off);
 --  We must turn polling off for this unit, because otherwise we get

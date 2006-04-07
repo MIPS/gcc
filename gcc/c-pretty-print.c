@@ -1,5 +1,5 @@
 /* Subroutines common to both C and C++ pretty-printers.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -311,7 +311,6 @@ pp_c_type_specifier (c_pretty_printer *pp, tree t)
 
     case VOID_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
     case INTEGER_TYPE:
     case REAL_TYPE:
       if (TYPE_NAME (t))
@@ -911,6 +910,12 @@ pp_c_floating_constant (c_pretty_printer *pp, tree r)
     pp_character (pp, 'f');
   else if (TREE_TYPE (r) == long_double_type_node)
     pp_character (pp, 'l');
+  else if (TREE_TYPE (r) == dfloat128_type_node)
+    pp_string (pp, "dl");
+  else if (TREE_TYPE (r) == dfloat64_type_node)
+    pp_string (pp, "dd");
+  else if (TREE_TYPE (r) == dfloat32_type_node)
+    pp_string (pp, "df");
 }
 
 /* Pretty-print a compound literal expression.  GNU extensions include
@@ -1492,6 +1497,7 @@ pp_c_cast_expression (c_pretty_printer *pp, tree e)
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case CONVERT_EXPR:
+    case NOP_EXPR:
       pp_c_type_cast (pp, TREE_TYPE (e));
       pp_c_cast_expression (pp, TREE_OPERAND (e, 0));
       break;
@@ -1870,6 +1876,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case CONVERT_EXPR:
+    case NOP_EXPR:
       pp_c_cast_expression (pp, e);
       break;
 
@@ -1938,7 +1945,6 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       pp_c_right_paren (pp);
       break;
 
-    case NOP_EXPR:
     case NON_LVALUE_EXPR:
     case SAVE_EXPR:
       pp_expression (pp, TREE_OPERAND (e, 0));
@@ -1994,6 +2000,7 @@ pp_c_pretty_printer_init (c_pretty_printer *pp)
 
   pp->statement                 = pp_c_statement;
 
+  pp->constant                  = pp_c_constant;
   pp->id_expression             = pp_c_id_expression;
   pp->primary_expression        = pp_c_primary_expression;
   pp->postfix_expression        = pp_c_postfix_expression;

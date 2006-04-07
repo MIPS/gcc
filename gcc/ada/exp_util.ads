@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,6 +32,21 @@ with Sinfo;   use Sinfo;
 with Types;   use Types;
 
 package Exp_Util is
+
+   --  An enumeration type used to capture all the possible interface
+   --  kinds and their hierarchical relation. These values are used in
+   --  Find_Implemented_Interface and Implements_Interface.
+
+   type Interface_Kind is (
+     Any_Interface,               --  Any interface
+     Any_Limited_Interface,       --  Only limited interfaces
+     Any_Synchronized_Interface,  --  Only synchronized interfaces
+
+     Iface,                       --  Individual kinds
+     Limited_Interface,
+     Protected_Interface,
+     Synchronized_Interface,
+     Task_Interface);
 
    -----------------------------------------------
    -- Handling of Actions Associated with Nodes --
@@ -324,17 +339,34 @@ package Exp_Util is
    --  declarations and/or allocations when the type is indefinite (including
    --  class-wide).
 
+   function Find_Interface
+     (T    : Entity_Id;
+      Comp : Entity_Id) return Entity_Id;
+   --  Ada 2005 (AI-251): Given a tagged type and one of its components
+   --  associated with the secondary dispatch table of an abstract interface
+   --  type, return the associated abstract interface type.
+
    function Find_Interface_ADT
-     (T         : Entity_Id;
-      Iface     : Entity_Id) return Entity_Id;
+     (T     : Entity_Id;
+      Iface : Entity_Id) return Entity_Id;
    --  Ada 2005 (AI-251): Given a type T implementing the interface Iface,
    --  return the Access_Disp_Table value of the interface.
 
    function Find_Interface_Tag
-     (T         : Entity_Id;
-      Iface     : Entity_Id) return Entity_Id;
+     (T     : Entity_Id;
+      Iface : Entity_Id) return Entity_Id;
    --  Ada 2005 (AI-251): Given a type T implementing the interface Iface,
    --  return the record component containing the tag of Iface.
+
+   function Find_Implemented_Interface
+     (Typ          : Entity_Id;
+      Kind         : Interface_Kind;
+      Check_Parent : Boolean := False) return Entity_Id;
+   --  Ada 2005 (AI-345): Find a designated kind of interface implemented by
+   --  Typ or any parent subtype. Return the first encountered interface that
+   --  correspond to the selected class. Return Empty if no such interface is
+   --  found. Use Check_Parent to climb a potential derivation chain and
+   --  examine the parent subtypes for any implementation.
 
    function Find_Prim_Op (T : Entity_Id; Name : Name_Id) return Entity_Id;
    --  Find the first primitive operation of type T whose name is 'Name'.
@@ -410,11 +442,13 @@ package Exp_Util is
    --  chain, counting only entries in the curren scope. If an entity is not
    --  overloaded, the returned number will be one.
 
-   function Implements_Limited_Interface (Typ : Entity_Id) return Boolean;
-   --  Ada 2005 (AI-345): Determine whether Typ implements some limited
-   --  interface. The interface may be of limited, protected, synchronized
-   --  or taks kind. Typ may also be derived from a type that implements a
-   --  limited interface.
+   function Implements_Interface
+     (Typ          : Entity_Id;
+      Kind         : Interface_Kind;
+      Check_Parent : Boolean := False) return Boolean;
+   --  Ada 2005 (AI-345): Determine whether Typ implements a designated kind
+   --  of interface. Use Check_Parent to climb a potential derivation chain
+   --  and examine the parent subtypes for any implementation.
 
    function Inside_Init_Proc return Boolean;
    --  Returns True if current scope is within an init proc
@@ -430,10 +464,8 @@ package Exp_Util is
    --  False otherwise. True for an empty list. It is an error to call this
    --  routine with No_List as the argument.
 
-   function Is_Predefined_Dispatching_Operation
-     (Subp : Entity_Id) return Boolean;
-   --  Ada 2005 (AI-251): Determines if Subp is a predefined primitive
-   --  operation.
+   function Is_Predefined_Dispatching_Operation (E : Entity_Id) return Boolean;
+   --  Ada 2005 (AI-251): Determines if E is a predefined primitive operation.
 
    function Is_Ref_To_Bit_Packed_Array (N : Node_Id) return Boolean;
    --  Determine whether the node P is a reference to a bit packed array, i.e.
@@ -493,6 +525,12 @@ package Exp_Util is
    --  be non-null and returns True if so. Returns False otherwise. It is
    --  an error to call this function if N is not of an access type.
 
+   function Known_Null (N : Node_Id) return Boolean;
+   --  Given a node N for a subexpression of an access type, determines if this
+   --  subexpression yields a value that is known at compile time to be null
+   --  and returns True if so. Returns False otherwise. It is an error to call
+   --  this function if N is not of an access type.
+
    function Make_Subtype_From_Expr
      (E       : Node_Id;
       Unc_Typ : Entity_Id) return Node_Id;
@@ -509,6 +547,18 @@ package Exp_Util is
    --  temporaries that interfere with stack checking mechanism. Note that the
    --  caller has to check whether stack checking is actually enabled in order
    --  to guide the expansion (typically of a function call).
+
+   function OK_To_Do_Constant_Replacement (E : Entity_Id) return Boolean;
+   --  This function is used when testing whether or not to replace a reference
+   --  to entity E by a known constant value. Such replacement must be done
+   --  only in a scope known to be safe for such replacements. In particular,
+   --  if we are within a subprogram and the entity E is declared outside the
+   --  subprogram then we cannot do the replacement, since we do not attempt to
+   --  trace subprogram call flow. It is also unsafe to replace statically
+   --  allocated values (since they can be modified outside the scope), and we
+   --  also inhibit replacement of Volatile or aliased objects since their
+   --  address might be captured in a way we do not detect. A value of True is
+   --  returned only if the replacement is safe.
 
    procedure Remove_Side_Effects
      (Exp          : Node_Id;
@@ -548,6 +598,11 @@ package Exp_Util is
    --  the flag in this case is generated in the binder. We do that so that we
    --  can detect cases where this is the only elaboration action that is
    --  required.
+
+   procedure Set_Renamed_Subprogram (N : Node_Id; E : Entity_Id);
+   --  N is an node which is an entity name that represents the name of a
+   --  renamed subprogram. The node is rewritten to be an identifier that
+   --  refers directly to the renamed subprogram, given by entity E.
 
    function Target_Has_Fixed_Ops
      (Left_Typ   : Entity_Id;

@@ -1,5 +1,5 @@
 ; Options for the Fortran 95 front end.
-; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -41,6 +41,10 @@ Waliasing
 Fortran
 Warn about possible aliasing of dummy arguments
 
+Wampersand
+Fortran
+Warn about missing ampersand in continued character constants
+
 Wconversion
 Fortran
 Warn about implicit conversion
@@ -60,6 +64,10 @@ Warn about usage of non-standard intrinsics
 Wsurprising
 Fortran
 Warn about \"suspicious\" constructs
+
+Wtabs
+Fortran
+Warn about nonconforming uses of the tab character
 
 Wunderflow
 Fortran
@@ -110,12 +118,16 @@ Fortran
 Use f2c calling convention
 
 ffixed-form
-Fortran
+Fortran RejectNegative
 Assume that the source file is fixed form
 
 ffree-form
-Fortran
+Fortran RejectNegative
 Assume that the source file is free form
+
+fopenmp
+Fortran
+Enable OpenMP
 
 funderscoring
 Fortran
@@ -141,6 +153,14 @@ ffixed-line-length-
 Fortran RejectNegative Joined UInteger
 -ffixed-line-length-<n>		Use n as character line width in fixed mode
 
+ffree-line-length-none
+Fortran RejectNegative
+Allow arbitrary character line width in free mode
+
+ffree-line-length-
+Fortran RejectNegative Joined UInteger
+-ffree-line-length-<n>		Use n as character line width in free mode
+
 fmax-identifier-length=
 Fortran RejectNegative Joined UInteger
 -fmax-identifier-length=<n>	Maximum identifier length
@@ -164,6 +184,10 @@ Try to layout derived types as compact as possible
 frepack-arrays
 Fortran
 Copy array sections into a contiguous block on procedure entry
+
+fpreprocessed
+Fortran
+Treat the input file as preprocessed
 
 qkind=
 Fortran RejectNegative Joined UInteger
@@ -192,5 +216,29 @@ Accept extensions to support legacy code
 fshort-enums
 Fortran
 Use the narrowest integer type possible for enumeration types
+
+fconvert=little-endian
+Fortran RejectNegative
+Use little-endian format for unformatted files
+
+fconvert=big-endian
+Fortran RejectNegative
+Use big-endian format for unformatted files
+
+fconvert=native
+Fortran RejectNegative
+Use native format for unformatted files
+
+fconvert=swap
+Fortran RejectNegative
+Swap endianness for unformatted files
+
+frecord-marker=4
+Fortran RejectNegative
+Use a 4-byte record marker for unformatted files
+
+frecord-marker=8
+Fortran RejectNegative
+Use an 8-byte record marker for unformatted files
 
 ; This comment is to ensure we retain the blank line above.

@@ -57,7 +57,7 @@ package body Makeutl is
       Key        => Mark_Key,
       Hash       => Hash,
       Equal      => "=");
-   --  A hash table to keep tracks of the marked units.
+   --  A hash table to keep tracks of the marked units
 
    type Linker_Options_Data is record
       Project : Project_Id;
@@ -278,20 +278,26 @@ package body Makeutl is
             while Options /= Nil_String loop
                Option :=
                  In_Tree.String_Elements.Table (Options).Value;
+               Get_Name_String (Option);
+
+               --  Do not consider empty linker options
+
+               if Name_Len /= 0 then
+                  Add_Linker_Option (Name_Buffer (1 .. Name_Len));
+
+                  --  Object files and -L switches specified with relative
+                  --  paths must be converted to absolute paths.
+
+                  Test_If_Relative_Path
+                    (Switch =>
+                       Linker_Options_Buffer (Last_Linker_Option),
+                     Parent =>
+                       In_Tree.Projects.Table (Proj).Dir_Path,
+                     Including_L_Switch => True);
+               end if;
+
                Options :=
                  In_Tree.String_Elements.Table (Options).Next;
-               Add_Linker_Option (Get_Name_String (Option));
-
-               --  Object files and -L switches specified with
-               --  relative paths and must be converted to
-               --  absolute paths.
-
-               Test_If_Relative_Path
-                 (Switch =>
-                    Linker_Options_Buffer (Last_Linker_Option),
-                  Parent =>
-                    In_Tree.Projects.Table (Proj).Dir_Path,
-                  Including_L_Switch => True);
             end loop;
          end;
       end loop;

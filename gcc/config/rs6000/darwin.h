@@ -1,5 +1,5 @@
 /* Target definitions for PowerPC running Darwin (Mac OS X).
-   Copyright (C) 1997, 2000, 2001, 2003, 2004, 2005
+   Copyright (C) 1997, 2000, 2001, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -26,6 +26,15 @@
 /* The "Darwin ABI" is mostly like AIX, but with some key differences.  */
 
 #define DEFAULT_ABI ABI_DARWIN
+
+#ifdef IN_LIBGCC2
+#undef TARGET_64BIT
+#ifdef __powerpc64__
+#define TARGET_64BIT 1
+#else
+#define TARGET_64BIT 0
+#endif
+#endif
 
 /* The object file format is Mach-O.  */
 
@@ -55,16 +64,14 @@
       builtin_define ("__POWERPC__");           \
       builtin_define ("__NATURAL_ALIGNMENT__"); \
       darwin_cpp_builtins (pfile);		\
-      SUBTARGET_OS_CPP_BUILTINS ();             \
     }                                           \
   while (0)
 
 
-/* The Darwin ABI always includes AltiVec, can't be (validly) turned
-   off.  */
-
 #define SUBTARGET_OVERRIDE_OPTIONS					\
 do {									\
+  /* The Darwin ABI always includes AltiVec, can't be (validly) turned	\
+     off.  */								\
   rs6000_altivec_abi = 1;						\
   TARGET_ALTIVEC_VRSAVE = 1;						\
   if (DEFAULT_ABI == ABI_DARWIN)					\
@@ -78,7 +85,6 @@ do {									\
     else if (flag_pic == 1)						\
       {									\
         /* Darwin doesn't support -fpic.  */				\
-        warning (0, "-fpic is not supported; -fPIC assumed");		\
         flag_pic = 2;							\
       }									\
   }									\
@@ -88,6 +94,15 @@ do {									\
       warning (0, "-m64 requires PowerPC64 architecture, enabling");	\
     }									\
 } while(0)
+
+#define C_COMMON_OVERRIDE_OPTIONS do {					\
+  /* On powerpc, __cxa_get_exception_ptr is available starting in the	\
+     10.4.6 libstdc++.dylib.  */					\
+  if ((! darwin_macosx_version_min					\
+       || strverscmp (darwin_macosx_version_min, "10.4.6") < 0)		\
+      && flag_use_cxa_get_exception_ptr == 2)				\
+    flag_use_cxa_get_exception_ptr = 0;					\
+} while (0)
 
 /* Darwin has 128-bit long double support in libc in 10.4 and later.
    Default to 128-bit long doubles even on earlier platforms for ABI
@@ -124,9 +139,14 @@ do {									\
    mcpu=G5:ppc970;				\
    :ppc}}"
 
+/* crt2.o is at least partially required for 10.3.x and earlier.  */
+#define DARWIN_CRT2_SPEC \
+  "%{!m64:%:version-compare(!> 10.4 mmacosx-version-min= crt2.o%s)}"
+
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS			\
   { "darwin_arch", "%{m64:ppc64;:ppc}" },	\
+  { "darwin_crt2", DARWIN_CRT2_SPEC },		\
   { "darwin_subarch", DARWIN_SUBARCH_SPEC },
 
 /* Output a .machine directive.  */
@@ -308,10 +328,12 @@ do {									\
 /* Darwin only runs on PowerPC, so short-circuit POWER patterns.  */
 #undef  TARGET_POWER
 #define TARGET_POWER 0
+#undef  TARGET_IEEEQUAD
+#define TARGET_IEEEQUAD 0
 
 /* Since Darwin doesn't do TOCs, stub this out.  */
 
-#define ASM_OUTPUT_SPECIAL_POOL_ENTRY_P(X, MODE)  0
+#define ASM_OUTPUT_SPECIAL_POOL_ENTRY_P(X, MODE)  ((void)X, (void)MODE, 0)
 
 /* Unlike most other PowerPC targets, chars are signed, for
    consistency with other Darwin architectures.  */
@@ -319,11 +341,11 @@ do {									\
 #undef DEFAULT_SIGNED_CHAR
 #define DEFAULT_SIGNED_CHAR (1)
 
-/* Given an rtx X being reloaded into a reg required to be      
-   in class CLASS, return the class of reg to actually use.     
+/* Given an rtx X being reloaded into a reg required to be
+   in class CLASS, return the class of reg to actually use.
    In general this is just CLASS; but on some machines
    in some cases it is preferable to use a more restrictive class.
-  
+
    On the RS/6000, we have to return NO_REGS when we want to reload a
    floating-point CONST_DOUBLE to force it to be copied to memory.
 
@@ -420,3 +442,50 @@ do {									\
   (TARGET_64BIT							\
    || (darwin_macosx_version_min				\
        && strverscmp (darwin_macosx_version_min, "10.3") >= 0))
+
+/* Attempt to turn on execute permission for the stack.  This may be
+    used by INITIALIZE_TRAMPOLINE of the target needs it (that is,
+    if the target machine can change execute permissions on a page).
+
+    There is no way to query the execute permission of the stack, so
+    we always issue the mprotect() call.
+
+    Note that we go out of our way to use namespace-non-invasive calls
+    here.  Unfortunately, there is no libc-internal name for mprotect().
+
+    Also note that no errors should be emitted by this code; it is
+    considered dangerous for library calls to send messages to
+    stdout/stderr.  */
+
+#define ENABLE_EXECUTE_STACK                                            \
+extern void __enable_execute_stack (void *);                            \
+void                                                                    \
+__enable_execute_stack (void *addr)                                     \
+{                                                                       \
+   extern int mprotect (void *, size_t, int);                           \
+   extern int __sysctl (int *, unsigned int, void *, size_t *,          \
+                       void *, size_t);                                 \
+                                                                        \
+   static int size;                                                     \
+   static long mask;                                                    \
+                                                                        \
+   char *page, *end;                                                    \
+                                                                        \
+   if (size == 0)                                                       \
+     {                                                                  \
+       int mib[2];                                                      \
+       size_t len;                                                      \
+                                                                        \
+       mib[0] = 6; /* CTL_HW */                                         \
+       mib[1] = 7; /* HW_PAGESIZE */                                    \
+       len = sizeof (size);                                             \
+       (void) __sysctl (mib, 2, &size, &len, NULL, 0);                  \
+       mask = ~((long) size - 1);                                       \
+     }                                                                  \
+                                                                        \
+   page = (char *) (((long) addr) & mask);                              \
+   end  = (char *) ((((long) (addr + (TARGET_64BIT ? 48 : 40))) & mask) + size); \
+                                                                        \
+   /* 7 == PROT_READ | PROT_WRITE | PROT_EXEC */                        \
+   (void) mprotect (page, end - page, 7);                               \
+}

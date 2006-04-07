@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,6 +41,8 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Output;   use Output;
 with Opt;      use Opt;
+with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Scans;    use Scans;
 with Scn;      use Scn;
@@ -136,8 +138,8 @@ package body Sem_Util is
          Rtyp := Typ;
       end if;
 
-      Discard_Node (
-        Compile_Time_Constraint_Error (N, Msg, Ent, Loc, Warn => Warn));
+      Discard_Node
+        (Compile_Time_Constraint_Error (N, Msg, Ent, Loc, Warn => Warn));
 
       if not Rep then
          return;
@@ -863,6 +865,52 @@ package body Sem_Util is
       end if;
    end Check_Fully_Declared;
 
+   -----------------------
+   -- Check_Obsolescent --
+   -----------------------
+
+   procedure Check_Obsolescent (Nam : Entity_Id; N : Node_Id) is
+      W : Node_Id;
+
+   begin
+      --  Note that we always allow obsolescent references in the compiler
+      --  itself and the run time, since we assume that we know what we are
+      --  doing in such cases. For example the calls in Ada.Characters.Handling
+      --  to its own obsolescent subprograms are just fine.
+
+      if Is_Obsolescent (Nam) and then not GNAT_Mode then
+         Check_Restriction (No_Obsolescent_Features, N);
+
+         if Warn_On_Obsolescent_Feature then
+            if Is_Package_Or_Generic_Package (Nam) then
+               Error_Msg_NE ("with of obsolescent package&?", N, Nam);
+            else
+               Error_Msg_NE ("call to obsolescent subprogram&?", N, Nam);
+            end if;
+
+            --  Output additional warning if present
+
+            W := Obsolescent_Warning (Nam);
+
+            if Present (W) then
+               Name_Buffer (1) := '|';
+               Name_Buffer (2) := '?';
+               Name_Len := 2;
+
+               --  Add characters to message, and output message
+
+               for J in 1 .. String_Length (Strval (W)) loop
+                  Add_Char_To_Name_Buffer (''');
+                  Add_Char_To_Name_Buffer
+                    (Get_Character (Get_String_Char (Strval (W), J)));
+               end loop;
+
+               Error_Msg_N (Name_Buffer (1 .. Name_Len), N);
+            end if;
+         end if;
+      end if;
+   end Check_Obsolescent;
+
    ------------------------------------------
    -- Check_Potentially_Blocking_Operation --
    ------------------------------------------
@@ -955,11 +1003,10 @@ package body Sem_Util is
             null;
          end if;
 
-      elsif (Is_Package (B_Scope)
-               and then Nkind (
-                 Parent (Declaration_Node (First_Subtype (T))))
-                   /=  N_Package_Body)
-
+      elsif (Is_Package_Or_Generic_Package (B_Scope)
+              and then
+                Nkind (Parent (Declaration_Node (First_Subtype (T)))) /=
+                                                            N_Package_Body)
         or else Is_Derived_Type (B_Type)
       then
          --  The primitive operations appear after the base type, except
@@ -1056,6 +1103,7 @@ package body Sem_Util is
       Msgl : Natural;
       Wmsg : Boolean;
       P    : Node_Id;
+      OldP : Node_Id;
       Msgs : Boolean;
       Eloc : Source_Ptr;
 
@@ -1110,28 +1158,72 @@ package body Sem_Util is
          --  Should we generate a warning? The answer is not quite yes. The
          --  very annoying exception occurs in the case of a short circuit
          --  operator where the left operand is static and decisive. Climb
-         --  parents to see if that is the case we have here.
+         --  parents to see if that is the case we have here. Conditional
+         --  expressions with decisive conditions are a similar situation.
 
          Msgs := True;
          P := N;
-
          loop
+            OldP := P;
             P := Parent (P);
 
-            if (Nkind (P) = N_And_Then
-                and then Compile_Time_Known_Value (Left_Opnd (P))
-                and then Is_False (Expr_Value (Left_Opnd (P))))
-              or else (Nkind (P) = N_Or_Else
-                and then Compile_Time_Known_Value (Left_Opnd (P))
-                and then Is_True (Expr_Value (Left_Opnd (P))))
+            --  And then with False as left operand
+
+            if Nkind (P) = N_And_Then
+              and then Compile_Time_Known_Value (Left_Opnd (P))
+              and then Is_False (Expr_Value (Left_Opnd (P)))
             then
                Msgs := False;
                exit;
 
+            --  OR ELSE with True as left operand
+
+            elsif Nkind (P) = N_Or_Else
+              and then Compile_Time_Known_Value (Left_Opnd (P))
+              and then Is_True (Expr_Value (Left_Opnd (P)))
+            then
+               Msgs := False;
+               exit;
+
+            --  Conditional expression
+
+            elsif Nkind (P) = N_Conditional_Expression then
+               declare
+                  Cond : constant Node_Id := First (Expressions (P));
+                  Texp : constant Node_Id := Next (Cond);
+                  Fexp : constant Node_Id := Next (Texp);
+
+               begin
+                  if Compile_Time_Known_Value (Cond) then
+
+                     --  Condition is True and we are in the right operand
+
+                     if Is_True (Expr_Value (Cond))
+                       and then OldP = Fexp
+                     then
+                        Msgs := False;
+                        exit;
+
+                     --  Condition is False and we are in the left operand
+
+                     elsif Is_False (Expr_Value (Cond))
+                       and then OldP = Texp
+                     then
+                        Msgs := False;
+                        exit;
+                     end if;
+                  end if;
+               end;
+
+            --  Special case for component association in aggregates, where
+            --  we want to keep climbing up to the parent aggregate.
+
             elsif Nkind (P) = N_Component_Association
               and then Nkind (Parent (P)) = N_Aggregate
             then
-               null;  --   Keep going.
+               null;
+
+            --  Keep going if within subexpression
 
             else
                exit when Nkind (P) not in N_Subexpr;
@@ -1148,11 +1240,11 @@ package body Sem_Util is
             if Wmsg then
                if Inside_Init_Proc then
                   Error_Msg_NEL
-                    ("\& will be raised for objects of this type!?",
+                    ("\?& will be raised for objects of this type",
                      N, Standard_Constraint_Error, Eloc);
                else
                   Error_Msg_NEL
-                    ("\& will be raised at run time!?",
+                    ("\?& will be raised at run time",
                      N, Standard_Constraint_Error, Eloc);
                end if;
             else
@@ -1489,15 +1581,14 @@ package body Sem_Util is
    ----------------------------
 
    function Enclosing_Generic_Body
-     (E : Entity_Id) return Node_Id
+     (N : Node_Id) return Node_Id
    is
       P    : Node_Id;
       Decl : Node_Id;
       Spec : Node_Id;
 
    begin
-      P := Parent (E);
-
+      P := Parent (N);
       while Present (P) loop
          if Nkind (P) = N_Package_Body
            or else Nkind (P) = N_Subprogram_Body
@@ -1520,6 +1611,47 @@ package body Sem_Util is
 
       return Empty;
    end Enclosing_Generic_Body;
+
+   ----------------------------
+   -- Enclosing_Generic_Unit --
+   ----------------------------
+
+   function Enclosing_Generic_Unit
+     (N : Node_Id) return Node_Id
+   is
+      P    : Node_Id;
+      Decl : Node_Id;
+      Spec : Node_Id;
+
+   begin
+      P := Parent (N);
+      while Present (P) loop
+         if Nkind (P) = N_Generic_Package_Declaration
+           or else Nkind (P) = N_Generic_Subprogram_Declaration
+         then
+            return P;
+
+         elsif Nkind (P) = N_Package_Body
+           or else Nkind (P) = N_Subprogram_Body
+         then
+            Spec := Corresponding_Spec (P);
+
+            if Present (Spec) then
+               Decl := Unit_Declaration_Node (Spec);
+
+               if Nkind (Decl) = N_Generic_Package_Declaration
+                 or else Nkind (Decl) = N_Generic_Subprogram_Declaration
+               then
+                  return Decl;
+               end if;
+            end if;
+         end if;
+
+         P := Parent (P);
+      end loop;
+
+      return Empty;
+   end Enclosing_Generic_Unit;
 
    -------------------------------
    -- Enclosing_Lib_Unit_Entity --
@@ -1613,10 +1745,30 @@ package body Sem_Util is
    -- Enter_Name --
    ----------------
 
-   procedure Enter_Name (Def_Id : Node_Id) is
+   procedure Enter_Name (Def_Id : Entity_Id) is
       C : constant Entity_Id := Current_Entity (Def_Id);
       E : constant Entity_Id := Current_Entity_In_Scope (Def_Id);
       S : constant Entity_Id := Current_Scope;
+
+      function Is_Private_Component_Renaming (N : Node_Id) return Boolean;
+      --  Recognize a renaming declaration that is introduced for private
+      --  components of a protected type. We treat these as weak declarations
+      --  so that they are overridden by entities with the same name that
+      --  come from source, such as formals or local variables of a given
+      --  protected declaration.
+
+      -----------------------------------
+      -- Is_Private_Component_Renaming --
+      -----------------------------------
+
+      function Is_Private_Component_Renaming (N : Node_Id) return Boolean is
+      begin
+         return not Comes_From_Source (N)
+           and then not Comes_From_Source (Current_Scope)
+           and then Nkind (N) = N_Object_Renaming_Declaration;
+      end Is_Private_Component_Renaming;
+
+   --  Start of processing for Enter_Name
 
    begin
       Generate_Definition (Def_Id);
@@ -1740,6 +1892,9 @@ package body Sem_Util is
            and then Is_Concurrent_Type (Etype (E))
            and then E = Def_Id
          then
+            return;
+
+         elsif Is_Private_Component_Renaming (Parent (Def_Id)) then
             return;
 
          --  In the body or private part of an instance, a type extension
@@ -2131,8 +2286,7 @@ package body Sem_Util is
             Ent := Defining_Identifier (Ent);
          end if;
 
-         --  Compute recursively the qualification. Only "Standard" has no
-         --  scope.
+         --  Compute qualification recursively (only "Standard" has no scope)
 
          if Present (Scope (Scope (Ent))) then
             Parent_Name := Internal_Full_Qualified_Name (Scope (Ent));
@@ -2157,7 +2311,7 @@ package body Sem_Util is
 
          --  Generates the entity name in upper case
 
-         Get_Name_String (Chars (Ent));
+         Get_Decoded_Name_String (Chars (Ent));
          Set_All_Upper_Case;
          Store_String_Chars (Name_Buffer (1 .. Name_Len));
          return End_String;
@@ -2381,7 +2535,7 @@ package body Sem_Util is
       Atyp : Entity_Id;
 
    begin
-      if not Present (Utyp) then
+      if No (Utyp) then
          Utyp := Typ;
       end if;
 
@@ -3181,7 +3335,7 @@ package body Sem_Util is
    function In_Visible_Part (Scope_Id : Entity_Id) return Boolean is
    begin
       return
-        Is_Package (Scope_Id)
+        Is_Package_Or_Generic_Package (Scope_Id)
           and then In_Open_Scopes (Scope_Id)
           and then not In_Package_Body (Scope_Id)
           and then not In_Private_Part (Scope_Id);
@@ -3450,26 +3604,30 @@ package body Sem_Util is
    function Is_Controlling_Limited_Procedure
      (Proc_Nam : Entity_Id) return Boolean
    is
-      Param_Typ : Entity_Id;
+      Param_Typ : Entity_Id := Empty;
 
    begin
-      --  Proc_Nam was found to be a primitive operation of a limited interface
-
-      if Ekind (Proc_Nam) = E_Procedure then
-         Param_Typ := Etype (Parameter_Type (First (Parameter_Specifications (
-           Parent (Proc_Nam)))));
-         return
-           Is_Interface (Param_Typ)
-             and then Is_Limited_Record (Param_Typ);
+      if Ekind (Proc_Nam) = E_Procedure
+        and then Present (Parameter_Specifications (Parent (Proc_Nam)))
+      then
+         Param_Typ := Etype (Parameter_Type (First (
+                        Parameter_Specifications (Parent (Proc_Nam)))));
 
       --  In this case where an Itype was created, the procedure call has been
       --  rewritten.
 
       elsif Present (Associated_Node_For_Itype (Proc_Nam))
         and then Present (Original_Node (Associated_Node_For_Itype (Proc_Nam)))
+        and then
+          Present (Parameter_Associations
+                     (Associated_Node_For_Itype (Proc_Nam)))
       then
-         Param_Typ := Etype (First (Parameter_Associations (
-           Associated_Node_For_Itype (Proc_Nam))));
+         Param_Typ :=
+           Etype (First (Parameter_Associations
+                          (Associated_Node_For_Itype (Proc_Nam))));
+      end if;
+
+      if Present (Param_Typ) then
          return
            Is_Interface (Param_Typ)
              and then Is_Limited_Record (Param_Typ);
@@ -3500,7 +3658,6 @@ package body Sem_Util is
       function Is_Declared_Within_Variant (Comp : Entity_Id) return Boolean is
          Comp_Decl : constant Node_Id   := Parent (Comp);
          Comp_List : constant Node_Id   := Parent (Comp_Decl);
-
       begin
          return Nkind (Parent (Comp_List)) = N_Variant;
       end Is_Declared_Within_Variant;
@@ -3717,7 +3874,6 @@ package body Sem_Util is
       S : constant Ureal := Small_Value (T);
       M : Urealp.Save_Mark;
       R : Boolean;
-
    begin
       M := Urealp.Mark;
       R := (U = UR_Trunc (U / S) * S);
@@ -4033,14 +4189,12 @@ package body Sem_Util is
          declare
             Ent : constant Entity_Id := Entity (Expr);
             Sub : constant Entity_Id := Enclosing_Subprogram (Ent);
-
          begin
             if Ekind (Ent) /= E_Variable
                  and then
                Ekind (Ent) /= E_In_Out_Parameter
             then
                return False;
-
             else
                return Present (Sub) and then Sub = Current_Subprogram;
             end if;
@@ -4181,10 +4335,10 @@ package body Sem_Util is
          return True;
 
       --  Unchecked conversions are allowed only if they come from the
-      --  generated code, which sometimes uses unchecked conversions for
-      --  out parameters in cases where code generation is unaffected.
-      --  We tell source unchecked conversions by seeing if they are
-      --  rewrites of an original UC function call, or of an explicit
+      --  generated code, which sometimes uses unchecked conversions for out
+      --  parameters in cases where code generation is unaffected. We tell
+      --  source unchecked conversions by seeing if they are rewrites of an
+      --  original Unchecked_Conversion function call, or of an explicit
       --  conversion of a function call.
 
       elsif Nkind (AV) = N_Unchecked_Type_Conversion then
@@ -4346,7 +4500,6 @@ package body Sem_Util is
       elsif Is_Private_Type (Typ) then
          declare
             U : constant Entity_Id := Underlying_Type (Typ);
-
          begin
             if No (U) then
                return True;
@@ -4446,6 +4599,7 @@ package body Sem_Util is
          if Nkind (The_Unit) /= N_Package_Declaration then
             return False;
          end if;
+
          return Is_Remote_Call_Interface (Defining_Entity (The_Unit));
       end Is_RCI_Pkg_Decl_Cunit;
 
@@ -4985,6 +5139,20 @@ package body Sem_Util is
    -- Kill_Current_Values --
    -------------------------
 
+   procedure Kill_Current_Values (Ent : Entity_Id) is
+   begin
+      if Is_Object (Ent) then
+         Kill_Checks (Ent);
+         Set_Current_Value (Ent, Empty);
+
+         if not Can_Never_Be_Null (Ent) then
+            Set_Is_Known_Non_Null (Ent, False);
+         end if;
+
+         Set_Is_Known_Null (Ent, False);
+      end if;
+   end Kill_Current_Values;
+
    procedure Kill_Current_Values is
       S : Entity_Id;
 
@@ -4997,18 +5165,10 @@ package body Sem_Util is
 
       procedure Kill_Current_Values_For_Entity_Chain (E : Entity_Id) is
          Ent : Entity_Id;
-
       begin
          Ent := E;
          while Present (Ent) loop
-            if Is_Object (Ent) then
-               Set_Current_Value (Ent, Empty);
-
-               if not Can_Never_Be_Null (Ent) then
-                  Set_Is_Known_Non_Null (Ent, False);
-               end if;
-            end if;
-
+            Kill_Current_Values (Ent);
             Next_Entity (Ent);
          end loop;
       end Kill_Current_Values_For_Entity_Chain;
@@ -5165,26 +5325,26 @@ package body Sem_Util is
    -- Normalize_Actuals --
    -----------------------
 
-   --  Chain actuals according to formals of subprogram. If there are
-   --  no named associations, the chain is simply the list of Parameter
-   --  Associations, since the order is the same as the declaration order.
-   --  If there are named associations, then the First_Named_Actual field
-   --  in the N_Procedure_Call_Statement node or N_Function_Call node
-   --  points to the Parameter_Association node for the parameter that
-   --  comes first in declaration order. The remaining named parameters
-   --  are then chained in declaration order using Next_Named_Actual.
+   --  Chain actuals according to formals of subprogram. If there are no named
+   --  associations, the chain is simply the list of Parameter Associations,
+   --  since the order is the same as the declaration order. If there are named
+   --  associations, then the First_Named_Actual field in the N_Function_Call
+   --  or N_Procedure_Call_Statement node points to the Parameter_Association
+   --  node for the parameter that comes first in declaration order. The
+   --  remaining named parameters are then chained in declaration order using
+   --  Next_Named_Actual.
 
-   --  This routine also verifies that the number of actuals is compatible
-   --  with the number and default values of formals, but performs no type
-   --  checking (type checking is done by the caller).
+   --  This routine also verifies that the number of actuals is compatible with
+   --  the number and default values of formals, but performs no type checking
+   --  (type checking is done by the caller).
 
-   --  If the matching succeeds, Success is set to True, and the caller
-   --  proceeds with type-checking. If the match is unsuccessful, then
-   --  Success is set to False, and the caller attempts a different
-   --  interpretation, if there is one.
+   --  If the matching succeeds, Success is set to True and the caller proceeds
+   --  with type-checking. If the match is unsuccessful, then Success is set to
+   --  False, and the caller attempts a different interpretation, if there is
+   --  one.
 
-   --  If the flag Report is on, the call is not overloaded, and a failure
-   --  to match can be reported here, rather than in the caller.
+   --  If the flag Report is on, the call is not overloaded, and a failure to
+   --  match can be reported here, rather than in the caller.
 
    procedure Normalize_Actuals
      (N       : Node_Id;
@@ -5418,7 +5578,7 @@ package body Sem_Util is
          Next_Formal (Formal);
       end loop;
 
-      if  Formals_To_Match = 0 and then Actuals_To_Match = 0 then
+      if Formals_To_Match = 0 and then Actuals_To_Match = 0 then
          Success := True;
          return;
 
@@ -5501,6 +5661,7 @@ package body Sem_Util is
                   --  side effects have been removed.
 
                   Exp := Prefix (Expression (Parent (Entity (P))));
+                  goto Continue;
 
                else
                   return;
@@ -5512,22 +5673,22 @@ package body Sem_Util is
            or else Nkind (Exp) = N_Unchecked_Type_Conversion
          then
             Exp := Expression (Exp);
+            goto Continue;
 
          elsif     Nkind (Exp) = N_Slice
            or else Nkind (Exp) = N_Indexed_Component
            or else Nkind (Exp) = N_Selected_Component
          then
             Exp := Prefix (Exp);
+            goto Continue;
 
          else
             return;
-
          end if;
 
          --  Now look for entity being referenced
 
          if Present (Ent) then
-
             if Is_Object (Ent) then
                if Comes_From_Source (Exp)
                  or else Modification_Comes_From_Source
@@ -5535,12 +5696,15 @@ package body Sem_Util is
                   Set_Never_Set_In_Source (Ent, False);
                end if;
 
-               Set_Is_True_Constant    (Ent, False);
-               Set_Current_Value       (Ent, Empty);
+               Set_Is_True_Constant (Ent, False);
+               Set_Current_Value    (Ent, Empty);
+               Set_Is_Known_Null    (Ent, False);
 
                if not Can_Never_Be_Null (Ent) then
                   Set_Is_Known_Non_Null (Ent, False);
                end if;
+
+               --  Follow renaming chain
 
                if (Ekind (Ent) = E_Variable or else Ekind (Ent) = E_Constant)
                  and then Present (Renamed_Object (Ent))
@@ -6451,20 +6615,37 @@ package body Sem_Util is
       S : constant Entity_Id := Current_Scope;
 
    begin
-      if S = Standard_Standard
-        or else (Is_Public (S)
-                  and then (Ekind (S) = E_Package
-                             or else Is_Record_Type (S)
-                             or else Ekind (S) = E_Void))
+      --  Everything in the scope of Standard is public
+
+      if S = Standard_Standard then
+         Set_Is_Public (Id);
+
+      --  Entity is definitely not public if enclosing scope is not public
+
+      elsif not Is_Public (S) then
+         return;
+
+      --  An object declaration that occurs in a handled sequence of statements
+      --  is the declaration for a temporary object generated by the expander.
+      --  It never needs to be made public and furthermore, making it public
+      --  can cause back end problems if it is of variable size.
+
+      elsif Nkind (Parent (Id)) = N_Object_Declaration
+        and then
+          Nkind (Parent (Parent (Id))) = N_Handled_Sequence_Of_Statements
       then
+         return;
+
+      --  Entities in public packages or records are public
+
+      elsif Ekind (S) = E_Package or Is_Record_Type (S) then
          Set_Is_Public (Id);
 
       --  The bounds of an entry family declaration can generate object
       --  declarations that are visible to the back-end, e.g. in the
       --  the declaration of a composite type that contains tasks.
 
-      elsif Is_Public (S)
-        and then Is_Concurrent_Type (S)
+      elsif Is_Concurrent_Type (S)
         and then not Has_Completion (S)
         and then Nkind (Parent (Id)) = N_Object_Declaration
       then
@@ -6660,6 +6841,18 @@ package body Sem_Util is
          end if;
 
          Btyp := Root_Type (Btyp);
+
+         --  The accessibility level of anonymous acccess types associated with
+         --  discriminants is that of the current instance of the type, and
+         --  that's deeper than the type itself (AARM 3.10.2 (12.3.21)).
+
+         if Ekind (Typ) = E_Anonymous_Access_Type
+           and then Present (Associated_Node_For_Itype (Typ))
+           and then Nkind (Associated_Node_For_Itype (Typ)) =
+                                                 N_Discriminant_Specification
+         then
+            return Scope_Depth (Enclosing_Dynamic_Scope (Btyp)) + 1;
+         end if;
       end if;
 
       return Scope_Depth (Enclosing_Dynamic_Scope (Btyp));
@@ -6959,7 +7152,7 @@ package body Sem_Util is
          end if;
 
          if Is_Entity_Name (Expr)
-           and then Is_Package (Entity (Expr))
+           and then Is_Package_Or_Generic_Package (Entity (Expr))
          then
             Error_Msg_N ("found package name!", Expr);
 

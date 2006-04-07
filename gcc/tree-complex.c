@@ -79,7 +79,7 @@ cvc_insert (unsigned int uid, tree to)
   struct int_tree_map *h;
   void **loc;
 
-  h = xmalloc (sizeof (struct int_tree_map));
+  h = XNEW (struct int_tree_map);
   h->uid = uid;
   h->to = to;
   loc = htab_find_slot_with_hash (complex_variable_components, h,
@@ -629,7 +629,7 @@ update_complex_assignment (block_stmt_iterator *bsi, tree r, tree i)
     update_complex_components (bsi, stmt, r, i);
   
   type = TREE_TYPE (TREE_OPERAND (mod, 1));
-  TREE_OPERAND (mod, 1) = build (COMPLEX_EXPR, type, r, i);
+  TREE_OPERAND (mod, 1) = build2 (COMPLEX_EXPR, type, r, i);
   update_stmt (stmt);
 }
 
@@ -1055,7 +1055,7 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
     {
       edge e;
 
-      cond = build (COND_EXPR, void_type_node, cond, NULL, NULL);
+      cond = build3 (COND_EXPR, void_type_node, cond, NULL_TREE, NULL_TREE);
       bsi_insert_before (bsi, cond, BSI_SAME_STMT);
 
       /* Split the original block, and create the TRUE and FALSE blocks.  */
@@ -1065,8 +1065,8 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
       bb_true = create_empty_bb (bb_cond);
       bb_false = create_empty_bb (bb_true);
 
-      t1 = build (GOTO_EXPR, void_type_node, tree_block_label (bb_true));
-      t2 = build (GOTO_EXPR, void_type_node, tree_block_label (bb_false));
+      t1 = build1 (GOTO_EXPR, void_type_node, tree_block_label (bb_true));
+      t2 = build1 (GOTO_EXPR, void_type_node, tree_block_label (bb_false));
       COND_EXPR_THEN (cond) = t1;
       COND_EXPR_ELSE (cond) = t2;
 
@@ -1120,11 +1120,11 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
 
      if (bb_true)
        {
-	 t1 = build (MODIFY_EXPR, inner_type, rr, tr);
+	 t1 = build2 (MODIFY_EXPR, inner_type, rr, tr);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 t1 = build (MODIFY_EXPR, inner_type, ri, ti);
+	 t1 = build2 (MODIFY_EXPR, inner_type, ri, ti);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 bsi_remove (bsi);
+	 bsi_remove (bsi, true);
        }
     }
 
@@ -1159,11 +1159,11 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
 
      if (bb_false)
        {
-	 t1 = build (MODIFY_EXPR, inner_type, rr, tr);
+	 t1 = build2 (MODIFY_EXPR, inner_type, rr, tr);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 t1 = build (MODIFY_EXPR, inner_type, ri, ti);
+	 t1 = build2 (MODIFY_EXPR, inner_type, ri, ti);
 	 bsi_insert_before (bsi, t1, BSI_SAME_STMT);
-	 bsi_remove (bsi);
+	 bsi_remove (bsi, true);
        }
     }
 
@@ -1480,7 +1480,7 @@ expand_complex_operations_1 (block_stmt_iterator *bsi)
 
 /* Entry point for complex operation lowering during optimization.  */
 
-static void
+static unsigned int
 tree_lower_complex (void)
 {
   int old_last_basic_block;
@@ -1488,7 +1488,7 @@ tree_lower_complex (void)
   basic_block bb;
 
   if (!init_dont_simulate_again ())
-    return;
+    return 0;
 
   complex_lattice_values = VEC_alloc (complex_lattice_t, heap, num_ssa_names);
   VEC_safe_grow (complex_lattice_t, heap,
@@ -1525,6 +1525,7 @@ tree_lower_complex (void)
   htab_delete (complex_variable_components);
   VEC_free (tree, heap, complex_ssa_name_components);
   VEC_free (complex_lattice_t, heap, complex_lattice_values);
+  return 0;
 }
 
 struct tree_opt_pass pass_lower_complex = 
@@ -1549,7 +1550,7 @@ struct tree_opt_pass pass_lower_complex =
 
 /* Entry point for complex operation lowering without optimization.  */
 
-static void
+static unsigned int
 tree_lower_complex_O0 (void)
 {
   int old_last_basic_block = last_basic_block;
@@ -1563,6 +1564,7 @@ tree_lower_complex_O0 (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	expand_complex_operations_1 (&bsi);
     }
+  return 0;
 }
 
 static bool

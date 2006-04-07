@@ -1,6 +1,6 @@
 /* Functions related to invoking methods and overloaded functions.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -198,15 +198,12 @@ typedef void (*diagnostic_fn_t) (const char *, ...) ATTRIBUTE_GCC_CXXDIAG(1,2);
 static tree build_temp (tree, tree, int, diagnostic_fn_t *);
 static void check_constructor_callable (tree, tree);
 
-/* Returns nonzero iff the destructor name specified in NAME
-   (a BIT_NOT_EXPR) matches BASETYPE.  The operand of NAME can take many
-   forms...  */
+/* Returns nonzero iff the destructor name specified in NAME matches BASETYPE.
+   NAME can take many forms...  */
 
 bool
 check_dtor_name (tree basetype, tree name)
 {
-  name = TREE_OPERAND (name, 0);
-
   /* Just accept something we've already complained about.  */
   if (name == error_mark_node)
     return true;
@@ -220,7 +217,7 @@ check_dtor_name (tree basetype, tree name)
       if ((IS_AGGR_TYPE (basetype) && name == constructor_name (basetype))
 	  || (TREE_CODE (basetype) == ENUMERAL_TYPE
 	      && name == TYPE_IDENTIFIER (basetype)))
-	name = basetype;
+	return true;
       else
 	name = get_type_value (name);
     }
@@ -237,9 +234,9 @@ check_dtor_name (tree basetype, tree name)
       return false;
     }
 
-  if (name && TYPE_MAIN_VARIANT (basetype) == TYPE_MAIN_VARIANT (name))
-    return true;
-  return false;
+  if (!name)
+    return false;
+  return same_type_p (TYPE_MAIN_VARIANT (basetype), TYPE_MAIN_VARIANT (name));
 }
 
 /* We want the address of a function or method.  We avoid creating a
@@ -284,18 +281,28 @@ build_call (tree function, tree parms)
 
   function = build_addr_func (function);
 
-  if (TYPE_PTRMEMFUNC_P (TREE_TYPE (function)))
-    {
-      sorry ("unable to call pointer to member function here");
-      return error_mark_node;
-    }
-
+  gcc_assert (TYPE_PTR_P (TREE_TYPE (function)));
   fntype = TREE_TYPE (TREE_TYPE (function));
+  gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE
+	      || TREE_CODE (fntype) == METHOD_TYPE);
   result_type = TREE_TYPE (fntype);
 
   if (TREE_CODE (function) == ADDR_EXPR
       && TREE_CODE (TREE_OPERAND (function, 0)) == FUNCTION_DECL)
-    decl = TREE_OPERAND (function, 0);
+    {
+      decl = TREE_OPERAND (function, 0);
+      if (!TREE_USED (decl))
+	{
+	  /* We invoke build_call directly for several library
+	     functions.  These may have been declared normally if
+	     we're building libgcc, so we can't just check
+	     DECL_ARTIFICIAL.  */
+	  gcc_assert (DECL_ARTIFICIAL (decl)
+		      || !strncmp (IDENTIFIER_POINTER (DECL_NAME (decl)),
+				   "__", 2));
+	  mark_used (decl);
+	}
+    }
   else
     decl = NULL_TREE;
 
@@ -313,17 +320,6 @@ build_call (tree function, tree parms)
 
   if (decl && DECL_CONSTRUCTOR_P (decl))
     is_constructor = 1;
-
-  if (decl && ! TREE_USED (decl))
-    {
-      /* We invoke build_call directly for several library functions.
-	 These may have been declared normally if we're building libgcc,
-	 so we can't just check DECL_ARTIFICIAL.  */
-      gcc_assert (DECL_ARTIFICIAL (decl)
-		  || !strncmp (IDENTIFIER_POINTER (DECL_NAME (decl)),
-			       "__", 2));
-      mark_used (decl);
-    }
 
   /* Don't pass empty class objects by value.  This is useful
      for tags in STL, which are used to control overload resolution.
@@ -472,7 +468,7 @@ static conversion *
 alloc_conversion (conversion_kind kind)
 {
   conversion *c;
-  c = conversion_obstack_alloc (sizeof (conversion));
+  c = (conversion *) conversion_obstack_alloc (sizeof (conversion));
   c->kind = kind;
   return c;
 }
@@ -497,7 +493,7 @@ validate_conversion_obstack (void)
 static conversion **
 alloc_conversions (size_t n)
 {
-  return conversion_obstack_alloc (n * sizeof (conversion *));
+  return (conversion **) conversion_obstack_alloc (n * sizeof (conversion *));
 }
 
 static conversion *
@@ -772,7 +768,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	  || !compparms (TREE_CHAIN (TYPE_ARG_TYPES (fromfn)),
 			 TREE_CHAIN (TYPE_ARG_TYPES (tofn)))
 	  || cp_type_quals (fbase) != cp_type_quals (tbase))
-	return 0;
+	return NULL;
 
       from = cp_build_qualified_type (tbase, cp_type_quals (fbase));
       from = build_method_type_directly (from,
@@ -810,7 +806,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	   || tcode == REAL_TYPE)
     {
       if (! (INTEGRAL_CODE_P (fcode) || fcode == REAL_TYPE))
-	return 0;
+	return NULL;
       conv = build_conv (ck_std, to, conv);
 
       /* Give this a better rank if it's a promotion.  */
@@ -1205,7 +1201,7 @@ reference_binding (tree rto, tree rfrom, tree expr, int flags)
   if (related_p && !at_least_as_qualified_p (to, from))
     return NULL;
 
-  conv = implicit_conversion (to, from, expr, /*c_cast_p=*/false, 
+  conv = implicit_conversion (to, from, expr, /*c_cast_p=*/false,
 			      flags);
   if (!conv)
     return NULL;
@@ -1273,8 +1269,8 @@ add_candidate (struct z_candidate **candidates,
 	       tree access_path, tree conversion_path,
 	       int viable)
 {
-  struct z_candidate *cand
-    = conversion_obstack_alloc (sizeof (struct z_candidate));
+  struct z_candidate *cand = (struct z_candidate *)
+    conversion_obstack_alloc (sizeof (struct z_candidate));
 
   cand->fn = fn;
   cand->args = args;
@@ -1394,7 +1390,7 @@ add_function_candidate (struct z_candidate **candidates,
 	      parmtype = build_pointer_type (parmtype);
 	    }
 
-	  t = implicit_conversion (parmtype, argtype, arg, 
+	  t = implicit_conversion (parmtype, argtype, arg,
 				   /*c_cast_p=*/false, flags);
 	}
       else
@@ -1473,7 +1469,7 @@ add_conv_candidate (struct z_candidate **candidates, tree fn, tree obj,
       else if (parmnode == void_list_node)
 	break;
       else if (parmnode)
-	t = implicit_conversion (TREE_VALUE (parmnode), argtype, arg, 
+	t = implicit_conversion (TREE_VALUE (parmnode), argtype, arg,
 				 /*c_cast_p=*/false, flags);
       else
 	{
@@ -1528,7 +1524,7 @@ build_builtin_candidate (struct z_candidate **candidates, tree fnname,
       if (! args[i])
 	break;
 
-      t = implicit_conversion (types[i], argtypes[i], args[i], 
+      t = implicit_conversion (types[i], argtypes[i], args[i],
 			       /*c_cast_p=*/false, flags);
       if (! t)
 	{
@@ -1546,7 +1542,7 @@ build_builtin_candidate (struct z_candidate **candidates, tree fnname,
     {
       convs[2] = convs[1];
       convs[1] = convs[0];
-      t = implicit_conversion (boolean_type_node, argtypes[2], args[2], 
+      t = implicit_conversion (boolean_type_node, argtypes[2], args[2],
 			       /*c_cast_p=*/false, flags);
       if (t)
 	convs[0] = t;
@@ -2162,8 +2158,6 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 	  (candidates, code, code2, fnname, TREE_VALUE (types[0]),
 	   NULL_TREE, args, argtypes, flags);
     }
-
-  return;
 }
 
 
@@ -2448,7 +2442,7 @@ print_z_candidates (struct z_candidate *candidates)
       /* Indent successive candidates by the width of the translation
 	 of the above string.  */
       size_t len = gcc_gettext_width (str) + 1;
-      char *spaces = alloca (len);
+      char *spaces = (char *) alloca (len);
       memset (spaces, ' ', len-1);
       spaces[len - 1] = '\0';
 
@@ -2606,7 +2600,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 	      conversion *ics
 		= implicit_conversion (totype,
 				       TREE_TYPE (TREE_TYPE (cand->fn)),
-				       0, 
+				       0,
 				       /*c_cast_p=*/false, convflags);
 
 	      cand->second_conv = ics;
@@ -2621,7 +2615,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 
   candidates = splice_viable (candidates, pedantic, &any_viable_p);
   if (!any_viable_p)
-    return 0;
+    return NULL;
 
   cand = tourney (candidates);
   if (cand == 0)
@@ -3278,7 +3272,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 	  || (conv2 && conv2->kind == ck_ambig)
 	  || (conv3 && conv3->kind == ck_ambig))
 	{
-	  error ("operands to ?: have different types");
+	  error ("operands to ?: have different types %qT and %qT",
+             arg2_type, arg3_type);
 	  result = error_mark_node;
 	}
       else if (conv2 && (!conv2->bad_p || !conv3))
@@ -3488,7 +3483,8 @@ build_conditional_expr (tree arg1, tree arg2, tree arg3)
 
   if (!result_type)
     {
-      error ("operands to ?: have different types");
+	  error ("operands to ?: have different types %qT and %qT",
+             arg2_type, arg3_type);
       return error_mark_node;
     }
 
@@ -4200,10 +4196,10 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       if (ARITHMETIC_TYPE_P (t) && expr == null_node)
 	{
 	  if (fn)
-	    warning (0, "passing NULL to non-pointer argument %P of %qD",
+	    warning (OPT_Wconversion, "passing NULL to non-pointer argument %P of %qD",
 		     argnum, fn);
 	  else
-	    warning (0, "converting to non-pointer type %qT from NULL", t);
+	    warning (OPT_Wconversion, "converting to non-pointer type %qT from NULL", t);
 	}
 
       /* Warn about assigning a floating-point type to an integer type.  */
@@ -4211,10 +4207,10 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  && TREE_CODE (t) == INTEGER_TYPE)
 	{
 	  if (fn)
-	    warning (0, "passing %qT for argument %P to %qD",
+	    warning (OPT_Wconversion, "passing %qT for argument %P to %qD",
 		     TREE_TYPE (expr), argnum, fn);
 	  else
-	    warning (0, "converting to %qT from %qT", t, TREE_TYPE (expr));
+	    warning (OPT_Wconversion, "converting to %qT from %qT", t, TREE_TYPE (expr));
 	}
     }
 
@@ -4283,7 +4279,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       }
     case ck_identity:
       if (type_unknown_p (expr))
-	expr = instantiate_type (totype, expr, tf_error | tf_warning);
+	expr = instantiate_type (totype, expr, tf_warning_or_error);
       /* Convert a constant to its underlying value, unless we are
 	 about to bind it to a reference, in which case we need to
 	 leave it as an lvalue.  */
@@ -5272,7 +5268,7 @@ build_new_method_call (tree instance, tree fns, tree args,
   orig_fns = fns;
   orig_args = args;
 
-  /* Dismantle the baselink to collect all the information we need.  */  
+  /* Dismantle the baselink to collect all the information we need.  */
   if (!conversion_path)
     conversion_path = BASELINK_BINFO (fns);
   access_binfo = BASELINK_ACCESS_BINFO (fns);
@@ -5935,9 +5931,8 @@ source_type (conversion *t)
 static void
 add_warning (struct z_candidate *winner, struct z_candidate *loser)
 {
-  candidate_warning *cw;
-
-  cw = conversion_obstack_alloc (sizeof (candidate_warning));
+  candidate_warning *cw = (candidate_warning *)
+    conversion_obstack_alloc (sizeof (candidate_warning));
   cw->loser = loser;
   cw->next = winner->warnings;
   winner->warnings = cw;
@@ -6033,9 +6028,9 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 
 	      if (warn)
 		{
-		  warning (0, "passing %qT chooses %qT over %qT",
-			      type, type1, type2);
-		  warning (0, "  in call to %qD", w->fn);
+		  warning (OPT_Wsign_promo, "passing %qT chooses %qT over %qT",
+                           type, type1, type2);
+		  warning (OPT_Wsign_promo, "  in call to %qD", w->fn);
 		}
 	      else
 		add_warning (w, l);
@@ -6092,10 +6087,10 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 	  tree source = source_type (w->convs[0]);
 	  if (! DECL_CONSTRUCTOR_P (w->fn))
 	    source = TREE_TYPE (source);
-	  warning (0, "choosing %qD over %qD", w->fn, l->fn);
-	  warning (0, "  for conversion from %qT to %qT",
+	  warning (OPT_Wconversion, "choosing %qD over %qD", w->fn, l->fn);
+	  warning (OPT_Wconversion, "  for conversion from %qT to %qT",
 		   source, w->second_conv->type);
-	  warning (0, "  because conversion sequence for the argument is better");
+	  inform ("  because conversion sequence for the argument is better");
 	}
       else
 	add_warning (w, l);
@@ -6252,7 +6247,7 @@ tourney (struct z_candidate *candidates)
 	    {
 	      champ = challenger->next;
 	      if (champ == 0)
-		return 0;
+		return NULL;
 	      champ_compared_to_predecessor = 0;
 	    }
 	  else
@@ -6275,7 +6270,7 @@ tourney (struct z_candidate *candidates)
     {
       fate = joust (champ, challenger, 0);
       if (fate != 1)
-	return 0;
+	return NULL;
     }
 
   return champ;
@@ -6301,7 +6296,7 @@ can_convert_arg (tree to, tree from, tree arg, int flags)
   /* Get the high-water mark for the CONVERSION_OBSTACK.  */
   p = conversion_obstack_alloc (0);
 
-  t  = implicit_conversion (to, from, arg, /*c_cast_p=*/false, 
+  t  = implicit_conversion (to, from, arg, /*c_cast_p=*/false,
 			    flags);
   ok_p = (t && !t->bad_p);
 
@@ -6429,10 +6424,7 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
   tree var;
 
   /* Create the variable.  */
-  var = build_decl (VAR_DECL, NULL_TREE, type);
-  DECL_ARTIFICIAL (var) = 1;
-  DECL_IGNORED_P (var) = 1;
-  TREE_USED (var) = 1;
+  var = create_temporary_var (type);
 
   /* Register the variable.  */
   if (TREE_STATIC (decl))
@@ -6447,12 +6439,8 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
       var = pushdecl_top_level (var);
     }
   else
-    {
-      /* Create a new cleanup level if necessary.  */
-      maybe_push_cleanup_level (type);
-      /* Don't push unnamed temps.  Do set DECL_CONTEXT, though.  */
-      DECL_CONTEXT (var) = current_function_decl;
-    }
+    /* Create a new cleanup level if necessary.  */
+    maybe_push_cleanup_level (type);
 
   return var;
 }

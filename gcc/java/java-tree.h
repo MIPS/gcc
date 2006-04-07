@@ -215,6 +215,9 @@ extern int flag_indirect_dispatch;
 /* When zero, don't generate runtime array store checks. */
 extern int flag_store_check;
 
+/* When nonzero, generate only a limited set of class meta-data. */
+extern int flag_reduced_reflection;
+
 /* Encoding used for source files.  */
 extern const char *current_encoding;
 
@@ -386,6 +389,7 @@ enum java_tree_index
   JTI_SOFT_BADARRAYINDEX_NODE,
   JTI_SOFT_NULLPOINTER_NODE,
   JTI_SOFT_ABSTRACTMETHOD_NODE,
+  JTI_SOFT_NOSUCHFIELD_NODE,
   JTI_SOFT_CHECKARRAYSTORE_NODE,
   JTI_SOFT_MONITORENTER_NODE,
   JTI_SOFT_MONITOREXIT_NODE,
@@ -394,6 +398,7 @@ enum java_tree_index
   JTI_SOFT_LOOKUPJNIMETHOD_NODE,
   JTI_SOFT_GETJNIENVNEWFRAME_NODE,
   JTI_SOFT_JNIPOPSYSTEMFRAME_NODE,
+  JTI_SOFT_UNWRAPJNI_NODE,
   JTI_SOFT_FMOD_NODE,
   JTI_SOFT_IDIV_NODE,
   JTI_SOFT_IREM_NODE,
@@ -647,6 +652,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_NULLPOINTER_NODE]
 #define soft_abstractmethod_node \
   java_global_trees[JTI_SOFT_ABSTRACTMETHOD_NODE]
+#define soft_nosuchfield_node \
+  java_global_trees[JTI_SOFT_NOSUCHFIELD_NODE]
 #define soft_checkarraystore_node \
   java_global_trees[JTI_SOFT_CHECKARRAYSTORE_NODE]
 #define soft_monitorenter_node \
@@ -663,6 +670,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_GETJNIENVNEWFRAME_NODE]
 #define soft_jnipopsystemframe_node \
   java_global_trees[JTI_SOFT_JNIPOPSYSTEMFRAME_NODE]
+#define soft_unwrapjni_node \
+  java_global_trees[JTI_SOFT_UNWRAPJNI_NODE]
 #define soft_fmod_node \
   java_global_trees[JTI_SOFT_FMOD_NODE]
 #define soft_idiv_node \
@@ -1042,10 +1051,11 @@ struct lang_decl GTY(())
 #define TYPE_FINIT_STMT_LIST(T)  (TYPE_LANG_SPECIFIC (T)->finit_stmt_list)
 #define TYPE_CLINIT_STMT_LIST(T) (TYPE_LANG_SPECIFIC (T)->clinit_stmt_list)
 #define TYPE_II_STMT_LIST(T)     (TYPE_LANG_SPECIFIC (T)->ii_block)
-/* The decl of the synthetic method `class$' used to handle `.class'
-   for non primitive types when compiling to bytecode. */
 
 #define TYPE_DUMMY(T)		(TYPE_LANG_SPECIFIC(T)->dummy_class)
+
+/* The decl of the synthetic method `class$' used to handle `.class'
+   for non primitive types when compiling to bytecode. */
 
 #define TYPE_DOT_CLASS(T)        (TYPE_LANG_SPECIFIC (T)->dot_class)
 #define TYPE_PACKAGE_LIST(T)     (TYPE_LANG_SPECIFIC (T)->package_list)

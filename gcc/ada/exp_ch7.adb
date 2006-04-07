@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1248,6 +1248,12 @@ package body Exp_Ch7 is
          Set_End_Label (Handled_Statement_Sequence (N), End_Lab);
          Wrapped := True;
 
+         --  Comment needed here, see RH for 1.306 ???
+
+         if Nkind (N) = N_Subprogram_Body then
+            Set_Has_Nested_Block_With_Handler (Current_Scope);
+         end if;
+
       --  Otherwise we do not wrap
 
       else
@@ -1793,6 +1799,13 @@ package body Exp_Ch7 is
                   return The_Parent;
                end if;
 
+            --  A raise statement can be wrapped. This will arise when the
+            --  expression in a raise_with_expression uses the secondary
+            --  stack, for example.
+
+            when N_Raise_Statement  =>
+               return The_Parent;
+
             --  If the expression is within the iteration scheme of a loop,
             --  we must create a declaration for it, followed by an assignment
             --  in order to have a usable statement to wrap.
@@ -1950,10 +1963,11 @@ package body Exp_Ch7 is
    -----------------------
 
    function Make_Adjust_Call
-     (Ref          : Node_Id;
-      Typ          : Entity_Id;
-      Flist_Ref    : Node_Id;
-      With_Attach  : Node_Id) return List_Id
+     (Ref         : Node_Id;
+      Typ         : Entity_Id;
+      Flist_Ref   : Node_Id;
+      With_Attach : Node_Id;
+      Allocator   : Boolean := False) return List_Id
    is
       Loc    : constant Source_Ptr := Sloc (Ref);
       Res    : constant List_Id    := New_List;
@@ -2011,8 +2025,19 @@ package body Exp_Ch7 is
          Attach := Make_Integer_Literal (Loc, 0);
       end if;
 
+      --  Special case for allocators: need initialization of the chain
+      --  pointers. For the 0 case, reset them to null.
+
+      if Allocator then
+         pragma Assert (Nkind (Attach) = N_Integer_Literal);
+
+         if Intval (Attach) = 0 then
+            Set_Intval (Attach, Uint_4);
+         end if;
+      end if;
+
       --  Generate:
-      --    Deep_Adjust (Flist_Ref, Ref, With_Attach);
+      --    Deep_Adjust (Flist_Ref, Ref, Attach);
 
       if Has_Controlled_Component (Utyp)
         or else Is_Class_Wide_Type (Typ)
@@ -2151,7 +2176,7 @@ package body Exp_Ch7 is
                Pid := Corresponding_Concurrent_Type (Param_Type);
             end if;
 
-            exit when not Present (Param) or else Present (Pid);
+            exit when No (Param) or else Present (Pid);
             Next (Param);
          end loop;
 
@@ -2728,13 +2753,27 @@ package body Exp_Ch7 is
       Utyp := Underlying_Type (Base_Type (Utyp));
       Set_Assignment_OK (Cref);
 
-      --  Deal with non-tagged derivation of private views
+      --  Deal with non-tagged derivation of private views. If the parent is
+      --  now known to be protected, the finalization routine is the one
+      --  defined on the corresponding record of the ancestor (corresponding
+      --  records do not automatically inherit operations, but maybe they
+      --  should???)
 
       if Is_Untagged_Derivation (Typ) then
-         Utyp := Underlying_Type (Root_Type (Base_Type (Typ)));
+         if Is_Protected_Type (Typ) then
+            Utyp := Corresponding_Record_Type (Root_Type (Base_Type (Typ)));
+         else
+            Utyp := Underlying_Type (Root_Type (Base_Type (Typ)));
+         end if;
+
          Cref := Unchecked_Convert_To (Utyp, Cref);
+
+         --  We need to set Assignment_OK to prevent problems with unchecked
+         --  conversions, where we do not want them to be converted back in the
+         --  case of untagged record derivation (see code in Make_*_Call
+         --  procedures for similar situations).
+
          Set_Assignment_OK (Cref);
-         --  To prevent problems with UC see 1.156 RH ???
       end if;
 
       --  If the underlying_type is a subtype, we are dealing with

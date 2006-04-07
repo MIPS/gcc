@@ -102,7 +102,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 
 /* local function prototypes */
-static void main_tree_if_conversion (void);
+static unsigned int main_tree_if_conversion (void);
 static tree tree_if_convert_stmt (struct loop *loop, tree, tree,
 				  block_stmt_iterator *);
 static void tree_if_convert_cond_expr (struct loop *, tree, tree,
@@ -287,7 +287,7 @@ tree_if_convert_cond_expr (struct loop *loop, tree stmt, tree cond,
      using new condition.  */
   if (!bb_with_exit_edge_p (loop, bb_for_stmt (stmt)))
     {
-      bsi_remove (bsi);
+      bsi_remove (bsi, true);
       cond = NULL_TREE;
     }
   return;
@@ -630,8 +630,8 @@ add_to_dst_predicate_list (struct loop * loop, basic_block bb,
         bsi_insert_before (bsi, tmp_stmts2, BSI_SAME_STMT);
 
       /* new_cond == prev_cond AND cond */
-      tmp = build (TRUTH_AND_EXPR, boolean_type_node,
-		   unshare_expr (prev_cond), cond);
+      tmp = build2 (TRUTH_AND_EXPR, boolean_type_node,
+		    unshare_expr (prev_cond), cond);
       tmp_stmt = ifc_temp_var (boolean_type_node, tmp);
       bsi_insert_before (bsi, tmp_stmt, BSI_SAME_STMT);
       new_cond = TREE_OPERAND (tmp_stmt, 0);
@@ -737,8 +737,7 @@ find_phi_replacement_condition (struct loop *loop,
       tree new_stmt;
 
       new_stmt = ifc_temp_var (TREE_TYPE (*cond), unshare_expr (*cond));
-      bsi_insert_after (bsi, new_stmt, BSI_SAME_STMT);
-      bsi_next (bsi);
+      bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
       *cond = TREE_OPERAND (new_stmt, 0);
     }
 
@@ -792,21 +791,19 @@ replace_phi_with_cond_modify_expr (tree phi, tree cond, basic_block true_bb,
     }
 
   /* Build new RHS using selected condition and arguments.  */
-  rhs = build (COND_EXPR, TREE_TYPE (PHI_RESULT (phi)),
-	       unshare_expr (cond), unshare_expr (arg_0),
-	       unshare_expr (arg_1));
+  rhs = build3 (COND_EXPR, TREE_TYPE (PHI_RESULT (phi)),
+	        unshare_expr (cond), unshare_expr (arg_0),
+	        unshare_expr (arg_1));
 
   /* Create new MODIFY expression using RHS.  */
-  new_stmt = build (MODIFY_EXPR, TREE_TYPE (PHI_RESULT (phi)),
-		    unshare_expr (PHI_RESULT (phi)), rhs);
+  new_stmt = build2 (MODIFY_EXPR, TREE_TYPE (PHI_RESULT (phi)),
+		     unshare_expr (PHI_RESULT (phi)), rhs);
 
   /* Make new statement definition of the original phi result.  */
   SSA_NAME_DEF_STMT (PHI_RESULT (phi)) = new_stmt;
 
   /* Insert using iterator.  */
-  bsi_insert_after (bsi, new_stmt, BSI_SAME_STMT);
-  bsi_next (bsi);
-
+  bsi_insert_before (bsi, new_stmt, BSI_SAME_STMT);
   update_stmt (new_stmt);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -867,8 +864,10 @@ combine_blocks (struct loop *loop)
   unsigned int orig_loop_num_nodes = loop->num_nodes;
   unsigned int i;
   unsigned int n_exits;
+  edge *exits;
 
-  get_loop_exit_edges (loop, &n_exits);
+  exits = get_loop_exit_edges (loop, &n_exits);
+  free (exits);
   /* Process phi nodes to prepare blocks for merge.  */
   process_phi_nodes (loop);
 
@@ -934,7 +933,7 @@ combine_blocks (struct loop *loop)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); )
 	{
 	  if (TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR)
-	    bsi_remove (&bsi);
+	    bsi_remove (&bsi, true);
 	  else
 	    {
 	      set_bb_for_stmt (bsi_stmt (bsi), merge_target_bb);
@@ -993,7 +992,7 @@ ifc_temp_var (tree type, tree exp)
   add_referenced_tmp_var (var);
 
   /* Build new statement to assign EXP to new variable.  */
-  stmt = build (MODIFY_EXPR, type, var, exp);
+  stmt = build2 (MODIFY_EXPR, type, var, exp);
 
   /* Get SSA name for the new variable and set make new statement
      its definition statement.  */
@@ -1038,7 +1037,7 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
   gcc_assert (loop->num_nodes);
   gcc_assert (loop->latch != EXIT_BLOCK_PTR);
 
-  blocks = xcalloc (loop->num_nodes, sizeof (basic_block));
+  blocks = XCNEWVEC (basic_block, loop->num_nodes);
   visited = BITMAP_ALLOC (NULL);
 
   blocks_in_bfs_order = get_loop_body_in_bfs_order (loop);
@@ -1099,14 +1098,14 @@ bb_with_exit_edge_p (struct loop *loop, basic_block bb)
 
 /* Tree if-conversion pass management.  */
 
-static void
+static unsigned int
 main_tree_if_conversion (void)
 {
   unsigned i, loop_num;
   struct loop *loop;
 
   if (!current_loops)
-    return;
+    return 0;
 
   loop_num = current_loops->num;
   for (i = 0; i < loop_num; i++)
@@ -1117,7 +1116,7 @@ main_tree_if_conversion (void)
 
       tree_if_conversion (loop, true);
     }
-
+  return 0;
 }
 
 static bool

@@ -113,7 +113,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
   argv = *in_argv;
   added_libraries = *in_added_libraries;
 
-  args = xcalloc (argc, sizeof (int));
+  args = XCNEWVEC (int, argc);
 
   for (i = 1; i < argc; i++)
     {
@@ -252,7 +252,7 @@ lang_specific_driver (int *in_argc, const char *const **in_argv,
 
   /* Make sure to have room for the trailing NULL argument.  */
   num_args = argc + added + need_math + shared_libgcc + (library > 0) + 1;
-  arglist = xmalloc (num_args * sizeof (char *));
+  arglist = XNEWVEC (const char *, num_args);
 
   i = 0;
   j = 0;
@@ -343,9 +343,3 @@ int lang_specific_pre_link (void)  /* Not used for C++.  */
 
 /* Number of extra output files that lang_specific_pre_link may generate.  */
 int lang_specific_extra_outfiles = 0;  /* Not used for C++.  */
-
-/* Table of language-specific spec functions.  */
-const struct spec_function lang_specific_spec_functions[] =
-{
-  { 0, 0 }
-};

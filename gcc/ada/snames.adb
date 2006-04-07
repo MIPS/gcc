@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,6 +32,7 @@
 ------------------------------------------------------------------------------
 
 with Namet; use Namet;
+with Opt;   use Opt;
 with Table;
 
 package body Snames is
@@ -93,6 +94,7 @@ package body Snames is
      "_disp_conditional_select#" &
      "_disp_get_prim_op_kind#" &
      "_disp_timed_select#" &
+     "_disp_get_task_id#" &
      "initialize#" &
      "adjust#" &
      "finalize#" &
@@ -173,6 +175,7 @@ package body Snames is
      "ada_83#" &
      "ada_95#" &
      "ada_05#" &
+     "ada_2005#" &
      "assertion_policy#" &
      "c_pass_by_copy#" &
      "compile_time_warning#" &
@@ -228,6 +231,7 @@ package body Snames is
      "attach_handler#" &
      "comment#" &
      "common_object#" &
+     "complete_representation#" &
      "complex_representation#" &
      "controlled#" &
      "convention#" &
@@ -458,6 +462,7 @@ package body Snames is
      "machine_mantissa#" &
      "machine_overflows#" &
      "machine_radix#" &
+     "machine_rounding#" &
      "machine_rounds#" &
      "machine_size#" &
      "mantissa#" &
@@ -639,6 +644,7 @@ package body Snames is
      "unchecked_conversion#" &
      "unchecked_deallocation#" &
      "to_pointer#" &
+     "free#" &
      "abstract#" &
      "aliased#" &
      "protected#" &
@@ -647,6 +653,8 @@ package body Snames is
      "tagged#" &
      "raise_exception#" &
      "ada_roots#" &
+     "archive_builder#" &
+     "archive_indexer#" &
      "binder#" &
      "binder_driver#" &
      "body_suffix#" &
@@ -654,10 +662,21 @@ package body Snames is
      "compiler#" &
      "compiler_driver#" &
      "compiler_kind#" &
+     "compiler_pic_option#" &
      "compute_dependency#" &
+     "config_body_file_name#" &
+     "config_body_file_name_pattern#" &
+     "config_file_switches#" &
+     "config_file_unique#" &
+     "config_spec_file_name#" &
+     "config_spec_file_name_pattern#" &
      "cross_reference#" &
+     "default_builder_switches#" &
+     "default_global_compiler_switches#" &
+     "default_language#" &
      "default_linker#" &
      "default_switches#" &
+     "dependency_file_kind#" &
      "dependency_option#" &
      "exec_dir#" &
      "executable#" &
@@ -665,6 +684,7 @@ package body Snames is
      "extends#" &
      "externally_built#" &
      "finder#" &
+     "global_compiler_switches#" &
      "global_configuration_pragmas#" &
      "gnatls#" &
      "gnatstub#" &
@@ -672,8 +692,12 @@ package body Snames is
      "implementation_exceptions#" &
      "implementation_suffix#" &
      "include_option#" &
+     "include_path#" &
+     "include_path_file#" &
+     "language_kind#" &
      "language_processing#" &
      "languages#" &
+     "library_ali_dir#" &
      "library_dir#" &
      "library_auto_init#" &
      "library_gcc#" &
@@ -687,13 +711,19 @@ package body Snames is
      "library_symbol_policy#" &
      "library_version#" &
      "linker#" &
+     "linker_executable_option#" &
+     "linker_lib_dir_option#" &
+     "linker_lib_name_option#" &
      "local_configuration_pragmas#" &
      "locally_removed_files#" &
+     "mapping_file_switches#" &
      "metrics#" &
      "naming#" &
      "object_dir#" &
      "pretty_printer#" &
      "project#" &
+     "roots#" &
+     "runtime_project#" &
      "separate_suffix#" &
      "source_dirs#" &
      "source_files#" &
@@ -986,6 +1016,19 @@ package body Snames is
         First_Renamable_Function_Attribute ..
           Last_Renamable_Function_Attribute;
    end Is_Function_Attribute_Name;
+
+   ---------------------
+   -- Is_Keyword_Name --
+   ---------------------
+
+   function Is_Keyword_Name (N : Name_Id) return Boolean is
+   begin
+      return Get_Name_Table_Byte (N) /= 0
+        and then (Ada_Version >= Ada_95
+                  or else N not in Ada_95_Reserved_Words)
+        and then (Ada_Version >= Ada_05
+                  or else N not in Ada_2005_Reserved_Words);
+   end Is_Keyword_Name;
 
    ----------------------------
    -- Is_Locking_Policy_Name --

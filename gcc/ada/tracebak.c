@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *           Copyright (C) 2000-2005 Ada Core Technologies, Inc.            *
+ *                     Copyright (C) 2000-2006, AdaCore                     *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -193,7 +193,8 @@ extern void (*Unlock_Task) (void);
 
 /*--------------------------- PPC AIX/Darwin ----------------------------*/
 
-#if (defined (__ppc__) && ((defined (_AIX) || defined (__APPLE__))))
+#if ((defined (_POWER) && defined (_AIX)) || \
+(defined (__ppc__) && defined (__APPLE__)))
 
 #define USE_GENERIC_UNWINDER
 
@@ -215,7 +216,7 @@ struct layout
    To have __gnat_backtrace retrieve its own return address, we then
    define ... */
 
-#define FORCE_CALL
+#define FORCE_CALL 1
 #define FRAME_LEVEL 1
 
 #define BASE_SKIP 1
@@ -232,7 +233,7 @@ struct layout
   void *return_address;
 };
 
-#define FORCE_CALL
+#define FORCE_CALL 1
 #define FRAME_LEVEL 1
 /* See the PPC AIX case for an explanation of these values.  */
 
@@ -300,7 +301,11 @@ struct layout
 };
 
 #define LOWEST_ADDR 0
-#define FRAME_LEVEL 0
+#define FRAME_LEVEL 1
+/* builtin_frame_address (1) is expected to work on this target, and (0) might
+   return the soft stack pointer, which does not designate a location where a
+   backchain and a return address might be found.  */
+
 #define FRAME_OFFSET 0
 #define PC_ADJUST -2
 #define STOP_FRAME(CURRENT, TOP_STACK) \
@@ -309,7 +314,7 @@ struct layout
    || (CURRENT)->return_address == 0|| (CURRENT)->next == 0  \
    || (void *) (CURRENT) < (TOP_STACK))
 
-#define BASE_SKIP 1
+#define BASE_SKIP (1+FRAME_LEVEL)
 
 /* On i386 architecture we check that at the call point we really have a call
    insn. Possible call instructions are:
@@ -349,9 +354,13 @@ struct layout
 
 /*----------------------------- ia64 ---------------------------------*/
 
-#elif defined (__ia64__) && !defined (USE_LIBUNWIND_EXCEPTIONS)
+#elif defined (__ia64__) && (defined (linux) || defined (__hpux__))
 
 #define USE_GCC_UNWINDER
+/* Use _Unwind_Backtrace driven exceptions on ia64 HP-UX and ia64
+   GNU/Linux, where _Unwind_Backtrace is provided by the system unwind
+   library. On HP-UX 11.23 this requires patch PHSS_33352, which adds
+   _Unwind_Backtrace to the system unwind library. */
 
 #define PC_ADJUST -16
 /* Every call on ia64 is part of a 128 bit bundle, so an adjustment of
@@ -396,12 +405,18 @@ struct layout
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
 #endif
 
-/* Define a dummy function to call if FORCE_CALL is defined.  Don't
-   define it otherwise, as this could lead to "defined but not used"
-   warnings.  */
-#if defined (FORCE_CALL)
-static void forced_callee () {}
+#ifndef FORCE_CALL
+#define FORCE_CALL 0
 #endif
+
+/* Make sure the function is not inlined.  */
+static void forced_callee (void) __attribute__ ((noinline));
+
+static void forced_callee (void)
+{
+  /* Make sure the function is not pure.  */
+  volatile int i __attribute__ ((unused)) = 0;
+}
 
 int
 __gnat_backtrace (void **array,
@@ -415,10 +430,8 @@ __gnat_backtrace (void **array,
   void *top_stack;
   int cnt = 0;
 
-  /* Honor FORCE_CALL when defined.  */
-#if defined (FORCE_CALL)
-  forced_callee ();
-#endif
+  if (FORCE_CALL)
+    forced_callee ();
 
   /* Force a call to builtin_frame_address with a positive argument
      if required. This is necessary e.g. on sparc to have the register

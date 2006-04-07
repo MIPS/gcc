@@ -47,8 +47,8 @@ Boston, MA 02110-1301, USA.  */
 
 #undef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC "\
-%{pthreads:-D_REENTRANT -D_PTHREADS} \
-%{!pthreads:%{threads:-D_REENTRANT -D_SOLARIS_THREADS}} \
+%{pthreads|pthread:-D_REENTRANT -D_PTHREADS} \
+%{!pthreads:%{!pthread:%{threads:-D_REENTRANT -D_SOLARIS_THREADS}}} \
 %{compat-bsd:-iwithprefixbefore ucbinclude -I/usr/ucbinclude} \
 "
 
@@ -72,11 +72,6 @@ Boston, MA 02110-1301, USA.  */
 	    builtin_define ("_LARGEFILE64_SOURCE=1");	\
 	    builtin_define ("__EXTENSIONS__");		\
 	  }						\
-	if (flag_pic)					\
-	  {						\
-	    builtin_define ("__PIC__");			\
-	    builtin_define ("__pic__");			\
-	  }						\
 	TARGET_SUB_OS_CPP_BUILTINS();			\
     } while (0)
 
@@ -98,8 +93,8 @@ Boston, MA 02110-1301, USA.  */
   "%{compat-bsd:-lucb -lsocket -lnsl -lelf -laio} \
    %{!shared:\
      %{!symbolic:\
-       %{pthreads:-lpthread} \
-       %{!pthreads:%{threads:-lthread}} \
+       %{pthreads|pthread:-lpthread} \
+       %{!pthreads:%{!pthread:%{threads:-lthread}}} \
        %{p|pg:-ldl} -lc}}"
 
 #undef  ENDFILE_SPEC

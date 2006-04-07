@@ -1278,6 +1278,23 @@ dump_expr_init_vec (VEC(constructor_elt,gc) *v, int flags)
 }
 
 
+/* We've gotten an indirect REFERENCE (an OBJ_TYPE_REF) to a virtual
+   function.  Resolve it to a close relative -- in the sense of static
+   type -- variant being overridden.  That is close to what was written in
+   the source code.  Subroutine of dump_expr.  */
+
+static tree
+resolve_virtual_fun_from_obj_type_ref (tree ref)
+{
+  tree obj_type = TREE_TYPE (OBJ_TYPE_REF_OBJECT (ref));
+  int index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
+  tree fun = BINFO_VIRTUALS (TYPE_BINFO (TREE_TYPE (obj_type)));
+    while (index--)
+      fun = TREE_CHAIN (fun);
+
+  return BV_FN (fun);
+}
+
 /* Print out an expression E under control of FLAGS.  */
 
 static void
@@ -1301,17 +1318,10 @@ dump_expr (tree t, int flags)
       dump_decl (t, (flags & ~TFF_DECL_SPECIFIERS) | TFF_NO_FUNCTION_ARGUMENTS);
       break;
 
-    case STRING_CST:
-      if (PAREN_STRING_LITERAL_P (t))
-	pp_cxx_left_paren (cxx_pp);
-      pp_c_constant (pp_c_base (cxx_pp), t);
-      if (PAREN_STRING_LITERAL_P (t))
-	pp_cxx_right_paren (cxx_pp);
-      break;
-
     case INTEGER_CST:
     case REAL_CST:
-       pp_c_constant (pp_c_base (cxx_pp), t);
+    case STRING_CST:
+      pp_constant (cxx_pp, t);
       break;
 
     case THROW_EXPR:
@@ -1385,6 +1395,10 @@ dump_expr (tree t, int flags)
 
 	if (TREE_CODE (fn) == ADDR_EXPR)
 	  fn = TREE_OPERAND (fn, 0);
+
+        /* Nobody is interested in seeing the guts of vcalls.  */
+        if (TREE_CODE (fn) == OBJ_TYPE_REF)
+          fn = resolve_virtual_fun_from_obj_type_ref (fn);
 
 	if (TREE_TYPE (fn) != NULL_TREE && NEXT_CODE (fn) == METHOD_TYPE)
 	  {
@@ -2041,7 +2055,7 @@ language_to_string (enum languages c)
     default:
       gcc_unreachable ();
     }
-  return 0;
+  return NULL;
 }
 
 /* Return the proper printed version of a parameter to a C++ function.  */

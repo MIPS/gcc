@@ -1,7 +1,7 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2004, 2005
+   1999, 2000, 2001, 2002, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -145,7 +145,8 @@ struct pending_abstract_type GTY((chain_next ("%h.next")))
 static hashval_t
 pat_calc_hash (const void* val)
 {
-  const struct pending_abstract_type* pat = val;
+  const struct pending_abstract_type *pat =
+     (const struct pending_abstract_type *) val;
   return (hashval_t) TYPE_UID (pat->type);
 }
 
@@ -156,7 +157,8 @@ pat_calc_hash (const void* val)
 static int
 pat_compare (const void* val1, const void* val2)
 {
-  const struct pending_abstract_type* pat1 = val1;
+  const struct pending_abstract_type *pat1 =
+     (const struct pending_abstract_type *) val1;
   tree type2 = (tree)val2;
 
   return (pat1->type == type2);
@@ -270,7 +272,7 @@ abstract_virtuals_error (tree decl, tree type)
 		    ? DECL_SOURCE_LOCATION (decl)
 		    : input_location);
 
-      pat->next = *slot;
+      pat->next = (struct pending_abstract_type *) *slot;
       *slot = pat;
 
       return 0;
@@ -500,7 +502,7 @@ split_nonconstant_init_1 (tree dest, tree init)
 		sub = build3 (COMPONENT_REF, inner_type, dest, field_index,
 			      NULL_TREE);
 
-	      code = build2 (MODIFY_EXPR, inner_type, sub, value);
+	      code = build2 (INIT_EXPR, inner_type, sub, value);
 	      code = build_stmt (EXPR_STMT, code);
 	      add_stmt (code);
 	      continue;
@@ -523,6 +525,9 @@ split_nonconstant_init_1 (tree dest, tree init)
     default:
       gcc_unreachable ();
     }
+
+  /* The rest of the initializer is now a constant. */
+  TREE_CONSTANT (init) = 1;
 }
 
 /* A subroutine of store_init_value.  Splits non-constant static
@@ -712,8 +717,7 @@ digest_init (tree type, tree init)
       return process_init_constructor (type, init);
   else
     {
-      if (TREE_HAS_CONSTRUCTOR (init)
-	  && TREE_CODE (type) == ARRAY_TYPE)
+      if (COMPOUND_LITERAL_P (init) && TREE_CODE (type) == ARRAY_TYPE)
 	{
 	  error ("cannot initialize aggregate of type %qT with "
 		 "a compound literal", type);
@@ -993,12 +997,7 @@ process_init_constructor_union (tree type, tree init)
       tree field = TYPE_FIELDS (type);
       while (field && (!DECL_NAME (field) || TREE_CODE (field) != FIELD_DECL))
 	field = TREE_CHAIN (field);
-      if (!field)
-	{
-	  error ("union %qT with no named members cannot be initialized",
-		 type);
-	  ce->value = error_mark_node;
-	}
+      gcc_assert (field);
       ce->index = field;
     }
 

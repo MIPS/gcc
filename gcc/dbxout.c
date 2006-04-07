@@ -1,6 +1,7 @@
 /* Output dbx-format symbol table information from GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -269,7 +270,7 @@ static int pending_bincls = 0;
 static const char *base_input_file;
 
 #ifdef DEBUG_SYMS_TEXT
-#define FORCE_TEXT current_function_section (current_function_decl);
+#define FORCE_TEXT switch_to_section (current_function_section ())
 #else
 #define FORCE_TEXT
 #endif
@@ -907,7 +908,7 @@ dbxout_function_end (tree decl)
 
   /* The Lscope label must be emitted even if we aren't doing anything
      else; dbxout_block needs it.  */
-  function_section (current_function_decl);
+  switch_to_section (function_section (current_function_decl));
   
   /* Convert Lscope into the appropriate format for local labels in case
      the system doesn't insert underscores in front of user generated
@@ -1033,7 +1034,7 @@ dbxout_init (const char *input_file_name)
 
   if (used_ltext_label_name)
     {
-      text_section ();
+      switch_to_section (text_section);
       targetm.asm_out.internal_label (asm_out_file, "Ltext", 0);
     }
 
@@ -1049,7 +1050,7 @@ dbxout_init (const char *input_file_name)
   next_type_number = 1;
 
 #ifdef DBX_USE_BINCL
-  current_file = xmalloc (sizeof *current_file);
+  current_file = XNEW (struct dbx_file);
   current_file->next = NULL;
   current_file->file_number = 0;
   current_file->next_type_number = 1;
@@ -1158,7 +1159,7 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 			  const char *filename ATTRIBUTE_UNUSED)
 {
 #ifdef DBX_USE_BINCL
-  struct dbx_file *n = xmalloc (sizeof *n);
+  struct dbx_file *n = XNEW (struct dbx_file);
 
   n->next = current_file;
   n->next_type_number = 1;
@@ -1232,7 +1233,7 @@ dbxout_source_file (const char *filename)
     {
       /* Don't change section amid function.  */
       if (current_function_decl == NULL_TREE)
-	text_section ();
+	switch_to_section (text_section);
 
       dbxout_begin_simple_stabs (filename, N_SOL);
       dbxout_stab_value_internal_label ("Ltext", &source_label_number);
@@ -1347,7 +1348,7 @@ dbxout_finish (const char *filename ATTRIBUTE_UNUSED)
   DBX_OUTPUT_MAIN_SOURCE_FILE_END (asm_out_file, filename);
 #elif defined DBX_OUTPUT_NULL_N_SO_AT_MAIN_SOURCE_FILE_END
  {
-   text_section ();
+   switch_to_section (text_section);
    dbxout_begin_empty_stabs (N_SO);
    dbxout_stab_value_internal_label ("Letext", 0);
  }
@@ -1909,23 +1910,6 @@ dbxout_type (tree type, int full)
       stabstr_C (';');
       stabstr_D (int_size_in_bytes (type));
       stabstr_S (";0;");
-      break;
-
-    case CHAR_TYPE:
-      if (use_gnu_debug_info_extensions)
-	{
-	  stabstr_S ("@s");
-	  stabstr_D (BITS_PER_UNIT * int_size_in_bytes (type));
-	  stabstr_S (";-20;");
-	}
-      else
-	{
-	  /* Output the type `char' as a subrange of itself.
-	     That is what pcc seems to do.  */
-	  stabstr_C ('r');
-	  dbxout_type_index (char_type_node);
-	  stabstr_S (TYPE_UNSIGNED (type) ? ";0;255;" : ";0;127;");
-	}
       break;
 
     case BOOLEAN_TYPE:
@@ -2838,7 +2822,7 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	    {
 	      /* Ultrix `as' seems to need this.  */
 #ifdef DBX_STATIC_STAB_DATA_SECTION
-	      data_section ();
+	      switch_to_section (data_section);
 #endif
 	      code = N_STSYM;
 	    }

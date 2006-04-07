@@ -40,8 +40,8 @@ extern gfc_st_label *gfc_statement_label;
 /* Generic match subroutines */
 match gfc_match_space (void);
 match gfc_match_eos (void);
-match gfc_match_small_literal_int (int *);
-match gfc_match_st_label (gfc_st_label **, int);
+match gfc_match_small_literal_int (int *, int *);
+match gfc_match_st_label (gfc_st_label **);
 match gfc_match_label (void);
 match gfc_match_small_int (int *);
 int gfc_match_strings (mstring *);
@@ -89,6 +89,28 @@ match gfc_match_forall (gfc_statement *);
 /* Other functions.  */
 
 gfc_common_head *gfc_get_common (const char *, int);
+
+/* openmp.c */
+
+/* OpenMP directive matchers */
+match gfc_match_omp_eos (void);
+match gfc_match_omp_atomic (void);
+match gfc_match_omp_barrier (void);
+match gfc_match_omp_critical (void);
+match gfc_match_omp_do (void);
+match gfc_match_omp_flush (void);
+match gfc_match_omp_master (void);
+match gfc_match_omp_ordered (void);
+match gfc_match_omp_parallel (void);
+match gfc_match_omp_parallel_do (void);
+match gfc_match_omp_parallel_sections (void);
+match gfc_match_omp_parallel_workshare (void);
+match gfc_match_omp_sections (void);
+match gfc_match_omp_single (void);
+match gfc_match_omp_threadprivate (void);
+match gfc_match_omp_workshare (void);
+match gfc_match_omp_end_nowait (void);
+match gfc_match_omp_end_single (void);
 
 /* decl.c */
 

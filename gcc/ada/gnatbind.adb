@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -87,6 +87,9 @@ procedure Gnatbind is
    --  All the one character arguments are still handled by Switch. This
    --  routine handles -aO -aI and -I-.
 
+   function Is_Cross_Compiler return Boolean;
+   --  Returns True iff this is a cross-compiler
+
    ---------------------------------
    -- Gnatbind_Supports_Auto_Init --
    ---------------------------------
@@ -98,6 +101,17 @@ procedure Gnatbind is
    begin
       return gnat_binder_supports_auto_init /= 0;
    end Gnatbind_Supports_Auto_Init;
+
+   -----------------------
+   -- Is_Cross_Compiler --
+   -----------------------
+
+   function Is_Cross_Compiler return Boolean is
+      Cross_Compiler : Integer;
+      pragma Import (C, Cross_Compiler, "__gnat_is_cross_compiler");
+   begin
+      return Cross_Compiler = 1;
+   end Is_Cross_Compiler;
 
    ----------------------------------
    -- List_Applicable_Restrictions --
@@ -350,6 +364,11 @@ procedure Gnatbind is
          --  -Mname
 
          elsif Argv'Length >= 3 and then Argv (2) = 'M' then
+            if not Is_Cross_Compiler then
+               Write_Line
+                 ("gnatbind: -M not expected to be used on native platforms");
+            end if;
+
             Opt.Bind_Alternate_Main_Name := True;
             Opt.Alternate_Main_Name := new String'(Argv (3 .. Argv'Last));
 
@@ -507,7 +526,9 @@ begin
       Write_Str ("GNATBIND ");
       Write_Str (Gnat_Version_String);
       Write_Eol;
-      Write_Str ("Copyright 1995-2005 Free Software Foundation, Inc.");
+      Write_Str ("Copyright 1995-" &
+                 Current_Year &
+                 ", Free Software Foundation, Inc.");
       Write_Eol;
    end if;
 
@@ -702,10 +723,15 @@ begin
 
    if Total_Errors > 0 then
       Exit_Program (E_Errors);
+
    elsif Total_Warnings > 0 then
       Exit_Program (E_Warnings);
+
    else
-      Exit_Program (E_Success);
+      --  Do not call Exit_Program (E_Success), so that finalization occurs
+      --  normally.
+
+      null;
    end if;
 
 end Gnatbind;

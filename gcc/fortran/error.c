@@ -1,6 +1,6 @@
 /* Handle errors.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+   Foundation, Inc.
    Contributed by Andy Vaught & Niels Kristian Bech Jensen
 
 This file is part of GCC.
@@ -483,6 +483,22 @@ gfc_warning (const char *nocmsgid, ...)
 }
 
 
+/* Whether, for a feature included in a given standard set (GFC_STD_*),
+   we should issue an error or a warning, or be quiet.  */
+
+notification
+gfc_notification_std (int std)
+{
+  bool warning;
+
+  warning = ((gfc_option.warn_std & std) != 0) && !inhibit_warnings;
+  if ((gfc_option.allow_std & std) != 0 && !warning)
+    return SILENT;
+
+  return warning ? WARNING : ERROR;
+}
+
+
 /* Possibly issue a warning/error about use of a nonstandard (or deleted)
    feature.  An error/warning will be issued if the currently selected
    standard does not contain the requested bits.  Return FAILURE if
@@ -661,7 +677,7 @@ gfc_internal_error (const char *format, ...)
   error_print ("", format, argp);
   va_end (argp);
 
-  exit (4);
+  exit (ICE_EXIT_CODE);
 }
 
 

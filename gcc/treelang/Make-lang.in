@@ -1,6 +1,6 @@
 # Top level makefile fragment for TREELANG For GCC. -*- makefile -*-
 
-#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
 #   Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -23,9 +23,9 @@
 # This file provides the language dependent support in the main Makefile.
 # Each language makefile fragment must provide the following targets:
 #
-# foo.all.build, foo.all.cross, foo.start.encap, foo.rest.encap,
-# foo.install-normal, foo.install-common, foo.install-man,
-# foo.uninstall, foo.distdir,
+# foo.all.cross, foo.start.encap, foo.rest.encap,
+# foo.install-common, foo.install-man, foo.install-info, foo.dvi, foo.html,
+# foo.uninstall,
 # foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
 #
@@ -68,9 +68,9 @@ treelang/lex.o-warn = -Wno-error
 #
 # Define the names for selecting treelang in LANGUAGES.
 
-.phony: treelang TREELANG
+.phony: treelang
 
-treelang TREELANG:treelang.done
+treelang:treelang.done
 
 treelang.done: gtreelang$(exeext) tree1$(exeext)
 	$(STAMP) treelang.done
@@ -138,12 +138,9 @@ treelang/parse.c treelang/parse.h treelang/parse.output: treelang/parse.y
 
 # -v
 
-gt-treelang-tree1.h gtype-treelang.h : s-gtype; @true
-
 #
 # Build hooks:
 
-treelang.all.build: treelang
 treelang.all.cross:
 	_error_not_here_yet - havent even thought about it - it may even work
 
@@ -161,33 +158,30 @@ treelang.info: doc/treelang.info
 treelang.srcinfo: doc/treelang.info
 	-cp -p $^ $(srcdir)/doc
 
-dvi:: doc/treelang.dvi
+treelang.dvi: doc/treelang.dvi
 
 TEXI_TREELANG_FILES = treelang/treelang.texi \
-	 $(docdir)/include/gcc-common.texi \
-	 $(docdir)/include/gpl.texi \
-	 $(docdir)/include/fdl.texi \
-	 $(docdir)/include/funding.texi \
+	 $(gcc_docdir)/include/gcc-common.texi \
+	 $(gcc_docdir)/include/gpl.texi \
+	 $(gcc_docdir)/include/fdl.texi \
+	 $(gcc_docdir)/include/funding.texi \
 	 gcc-vers.texi
 
 doc/treelang.info: $(TEXI_TREELANG_FILES)
-	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir)/include -o $@ $<
+	$(MAKEINFO) $(MAKEINFOFLAGS) -I $(gcc_docdir)/include -o $@ $<
 
 doc/treelang.dvi: $(TEXI_TREELANG_FILES)
 	$(TEXI2DVI) -I $(abs_docdir)/include -o $@ $<
 
-html:: $(htmldir)/treelang/index.html
+treelang.html: $(htmldir)/treelang/index.html
 
 $(htmldir)/treelang/index.html: $(TEXI_TREELANG_FILES)
 	$(mkinstalldirs) $(@D)
 	rm -f $(@D)/*
-	$(TEXI2HTML) -I $(docdir)/include -I $(srcdir)/treelang -o $(@D) $<
+	$(TEXI2HTML) -I $(gcc_docdir)/include -I $(srcdir)/treelang -o $(@D) $<
 
 #
 # Install hooks:
-
-# Nothing to do here.
-treelang.install-normal: treelang.install.common
 
 # Install
 .phony:treelang.install.common
@@ -209,7 +203,7 @@ treelang.install.common.done:  installdirs treelang.done
 	$(STAMP) treelang.install.common.done
 
 # We might not be able to build the info files
-install-info:: $(DESTDIR)$(infodir)/treelang.info
+treelang.install-info: $(DESTDIR)$(infodir)/treelang.info
 
 treelang.install-man:
 
@@ -277,11 +271,6 @@ treelang.stagefeedback: stagefeedback-start
 	-mv treelang/*$(objext) stagefeedback/treelang
 #
 # Maintenance hooks:
-
-# This target creates the files that can be rebuilt, but go in the
-# distribution anyway.  It then copies the files to the distdir directory.
-treelang.distdir:
-#	not here yet sorry not sure if this is needed or not???
 
 # test hook
 

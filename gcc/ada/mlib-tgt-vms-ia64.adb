@@ -30,7 +30,6 @@
 with Ada.Characters.Handling; use Ada.Characters.Handling;
 
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
-with GNAT.OS_Lib;               use GNAT.OS_Lib;
 
 with MLib.Fil;
 with MLib.Utl;
@@ -180,7 +179,7 @@ package body MLib.Tgt is
             return True;
 
          elsif ALI'Length > 2 and then
-               ALI (ALI'First .. ALI'First + 1) = "b$"
+               ALI (ALI'First .. ALI'First + 2) = "b__"
          then
             return True;
 
@@ -288,7 +287,7 @@ package body MLib.Tgt is
 
       if Auto_Init then
          declare
-            Macro_File_Name : constant String := Lib_Filename & "$init.asm";
+            Macro_File_Name : constant String := Lib_Filename & "__init.asm";
             Macro_File      : File_Descriptor;
             Init_Proc       : String := Lib_Filename & "INIT";
             Popen_Result    : System.Address;
@@ -416,7 +415,7 @@ package body MLib.Tgt is
 
             Additional_Objects :=
               new Argument_List'
-                (1 => new String'(Lib_Filename & "$init.obj"));
+                (1 => new String'(Lib_Filename & "__init.obj"));
          end;
       end if;
 
@@ -549,7 +548,7 @@ package body MLib.Tgt is
       if Auto_Init then
          declare
             Auto_Init_Object_File_Name : constant String :=
-                                           Lib_Filename & "$init.obj";
+                                           Lib_Filename & "__init.obj";
             Disregard : Boolean;
 
          begin
@@ -572,6 +571,15 @@ package body MLib.Tgt is
    begin
       return "exe";
    end DLL_Ext;
+
+   ----------------
+   -- DLL_Prefix --
+   ----------------
+
+   function DLL_Prefix return String is
+   begin
+      return "lib";
+   end DLL_Prefix;
 
    --------------------
    -- Dynamic_Option --

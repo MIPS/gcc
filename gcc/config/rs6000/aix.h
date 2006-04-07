@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -33,11 +33,17 @@
 /* AIX allows r13 to be used in 32-bit mode.  */
 #define FIXED_R13 0
 
+/* 32-bit and 64-bit AIX stack boundary is 128.  */
+#undef  STACK_BOUNDARY
+#define STACK_BOUNDARY 128
+
 /* AIX does not support Altivec.  */
 #undef  TARGET_ALTIVEC
 #define TARGET_ALTIVEC 0
 #undef  TARGET_ALTIVEC_ABI
 #define TARGET_ALTIVEC_ABI 0
+#undef  TARGET_IEEEQUAD
+#define TARGET_IEEEQUAD 0
 
 /* The AIX linker will discard static constructors in object files before
    collect has a chance to see them, so scan the object files directly.  */
@@ -164,12 +170,12 @@
 
 /* AIX increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
-#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)				\
-  ((TREE_CODE (STRUCT) == RECORD_TYPE						\
-    || TREE_CODE (STRUCT) == UNION_TYPE						\
-    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)					\
-   && TARGET_ALIGN_NATURAL == 0							\
-   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)		\
+#define ROUND_TYPE_ALIGN(STRUCT, COMPUTED, SPECIFIED)			\
+  ((TREE_CODE (STRUCT) == RECORD_TYPE					\
+    || TREE_CODE (STRUCT) == UNION_TYPE					\
+    || TREE_CODE (STRUCT) == QUAL_UNION_TYPE)				\
+   && TARGET_ALIGN_NATURAL == 0						\
+   ? rs6000_special_round_type_align (STRUCT, COMPUTED, SPECIFIED)	\
    : MAX ((COMPUTED), (SPECIFIED)))
 
 /* The AIX ABI isn't explicit on whether aggregates smaller than a

@@ -711,8 +711,13 @@ find_sym (gfc_intrinsic_sym * start, int n, const char *name)
 gfc_intrinsic_sym *
 gfc_find_function (const char *name)
 {
+  gfc_intrinsic_sym *sym;
 
-  return find_sym (functions, nfunc, name);
+  sym = find_sym (functions, nfunc, name);
+  if (!sym)
+    sym = find_sym (conversion, nconv, name);
+
+  return sym;
 }
 
 
@@ -1894,7 +1899,7 @@ add_functions (void)
 	     a, BT_UNKNOWN, dr, REQUIRED);
 
   add_sym_1 ("float", 1, 0, BT_REAL, dr, GFC_STD_F77,
-	     NULL, gfc_simplify_float, NULL,
+	     gfc_check_i, gfc_simplify_float, NULL,
 	     a, BT_INTEGER, di, REQUIRED);
 
   add_sym_1 ("sngl", 1, 0, BT_REAL, dr, GFC_STD_F77,
@@ -3414,6 +3419,17 @@ gfc_convert_type_warn (gfc_expr * expr, gfc_typespec * ts, int eflag,
   new->where = old_where;
   new->rank = rank;
   new->shape = gfc_copy_shape (shape, rank);
+
+  gfc_get_ha_sym_tree (sym->name, &new->symtree);
+  new->symtree->n.sym->ts = *ts;
+  new->symtree->n.sym->attr.flavor = FL_PROCEDURE;
+  new->symtree->n.sym->attr.function = 1;
+  new->symtree->n.sym->attr.intrinsic = 1;
+  new->symtree->n.sym->attr.elemental = 1;
+  new->symtree->n.sym->attr.pure = 1;
+  new->symtree->n.sym->attr.referenced = 1;
+  gfc_intrinsic_symbol(new->symtree->n.sym);
+  gfc_commit_symbol (new->symtree->n.sym);
 
   *expr = *new;
 

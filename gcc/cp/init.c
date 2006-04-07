@@ -324,7 +324,7 @@ perform_member_init (tree member, tree init)
   /* Effective C++ rule 12 requires that all data members be
      initialized.  */
   if (warn_ecpp && !explicit && TREE_CODE (type) != ARRAY_TYPE)
-    warning (0, "%J%qD should be initialized in the member initialization "
+    warning (OPT_Weffc__, "%J%qD should be initialized in the member initialization "
 	     "list", current_function_decl, member);
 
   if (init == void_type_node)
@@ -524,16 +524,16 @@ sort_mem_initializers (tree t, tree mem_inits)
       if (warn_reorder && !subobject_init)
 	{
 	  if (TREE_CODE (TREE_PURPOSE (next_subobject)) == FIELD_DECL)
-	    warning (0, "%q+D will be initialized after",
+	    warning (OPT_Wreorder, "%q+D will be initialized after",
 		     TREE_PURPOSE (next_subobject));
 	  else
-	    warning (0, "base %qT will be initialized after",
+	    warning (OPT_Wreorder, "base %qT will be initialized after",
 		     TREE_PURPOSE (next_subobject));
 	  if (TREE_CODE (subobject) == FIELD_DECL)
-	    warning (0, "  %q+#D", subobject);
+	    warning (OPT_Wreorder, "  %q+#D", subobject);
 	  else
-	    warning (0, "  base %qT", subobject);
-	  warning (0, "%J  when initialized here", current_function_decl);
+	    warning (OPT_Wreorder, "  base %qT", subobject);
+	  warning (OPT_Wreorder, "%J  when initialized here", current_function_decl);
 	}
 
       /* Look again, from the beginning of the list.  */
@@ -681,7 +681,7 @@ emit_mem_initializers (tree mem_inits)
       if (extra_warnings && !arguments
 	  && DECL_COPY_CONSTRUCTOR_P (current_function_decl)
 	  && TYPE_NEEDS_CONSTRUCTING (BINFO_TYPE (subobject)))
-	warning (0, "%Jbase class %q#T should be explicitly initialized in the "
+	warning (OPT_Wextra, "%Jbase class %q#T should be explicitly initialized in the "
 		 "copy constructor",
 		 current_function_decl, BINFO_TYPE (subobject));
 
@@ -1019,11 +1019,11 @@ expand_member_init (tree name)
       if (!direct_binfo && !virtual_binfo)
 	{
 	  if (CLASSTYPE_VBASECLASSES (current_class_type))
-	    error ("type %qD is not a direct or virtual base of %qT",
-		   name, current_class_type);
+	    error ("type %qT is not a direct or virtual base of %qT",
+		   basetype, current_class_type);
 	  else
-	    error ("type %qD is not a direct base of %qT",
-		   name, current_class_type);
+	    error ("type %qT is not a direct base of %qT",
+		   basetype, current_class_type);
 	  return NULL_TREE;
 	}
 
@@ -1271,11 +1271,10 @@ expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags)
      as TARGET_EXPRs.  */
 
   if (init && TREE_CODE (exp) == VAR_DECL
-      && TREE_CODE (init) == CONSTRUCTOR
-      && TREE_HAS_CONSTRUCTOR (init))
+      && COMPOUND_LITERAL_P (init))
     {
       /* If store_init_value returns NULL_TREE, the INIT has been
-	 record in the DECL_INITIAL for EXP.  That means there's
+	 recorded as the DECL_INITIAL for EXP.  That means there's
 	 nothing more we have to do.  */
       init = store_init_value (exp, init);
       if (init)
@@ -1332,112 +1331,40 @@ get_type_value (tree name)
    @@ This function should be rewritten and placed in search.c.  */
 
 tree
-build_offset_ref (tree type, tree name, bool address_p)
+build_offset_ref (tree type, tree member, bool address_p)
 {
   tree decl;
-  tree member;
   tree basebinfo = NULL_TREE;
-  tree orig_name = name;
 
   /* class templates can come in as TEMPLATE_DECLs here.  */
-  if (TREE_CODE (name) == TEMPLATE_DECL)
-    return name;
+  if (TREE_CODE (member) == TEMPLATE_DECL)
+    return member;
 
-  if (dependent_type_p (type) || type_dependent_expression_p (name))
-    return build_qualified_name (NULL_TREE, type, name, 
+  if (dependent_type_p (type) || type_dependent_expression_p (member))
+    return build_qualified_name (NULL_TREE, type, member, 
 				 /*template_p=*/false);
 
-  if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
-    {
-      /* If the NAME is a TEMPLATE_ID_EXPR, we are looking at
-	 something like `a.template f<int>' or the like.  For the most
-	 part, we treat this just like a.f.  We do remember, however,
-	 the template-id that was used.  */
-      name = TREE_OPERAND (orig_name, 0);
-
-      if (DECL_P (name))
-	name = DECL_NAME (name);
-      else
-	{
-	  if (TREE_CODE (name) == COMPONENT_REF)
-	    name = TREE_OPERAND (name, 1);
-	  if (TREE_CODE (name) == OVERLOAD)
-	    name = DECL_NAME (OVL_CURRENT (name));
-	}
-
-      gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
-    }
-
-  if (type == NULL_TREE)
-    return error_mark_node;
-
-  /* Handle namespace names fully here.  */
-  if (TREE_CODE (type) == NAMESPACE_DECL)
-    {
-      tree t = lookup_namespace_name (type, name);
-      if (t == error_mark_node)
-	return t;
-      if (TREE_CODE (orig_name) == TEMPLATE_ID_EXPR)
-	/* Reconstruct the TEMPLATE_ID_EXPR.  */
-	t = build2 (TEMPLATE_ID_EXPR, TREE_TYPE (t),
-		    t, TREE_OPERAND (orig_name, 1));
-      if (! type_unknown_p (t))
-	{
-	  mark_used (t);
-	  t = convert_from_reference (t);
-	}
-      return t;
-    }
-
+  gcc_assert (TYPE_P (type));
   if (! is_aggr_type (type, 1))
     return error_mark_node;
 
-  if (TREE_CODE (name) == BIT_NOT_EXPR)
-    {
-      if (! check_dtor_name (type, name))
-	error ("qualified type %qT does not match destructor name %<~%T%>",
-		  type, TREE_OPERAND (name, 0));
-      name = dtor_identifier;
-    }
+  gcc_assert (DECL_P (member) || BASELINK_P (member));
+  /* Callers should call mark_used before this point.  */
+  gcc_assert (!DECL_P (member) || TREE_USED (member));
 
   if (!COMPLETE_TYPE_P (complete_type (type))
       && !TYPE_BEING_DEFINED (type))
     {
-      error ("incomplete type %qT does not have member %qD", type, name);
+      error ("incomplete type %qT does not have member %qD", type, member);
       return error_mark_node;
     }
 
-  /* Set up BASEBINFO for member lookup.  */
-  decl = maybe_dummy_object (type, &basebinfo);
-
-  if (BASELINK_P (name) || DECL_P (name))
-    member = name;
-  else
-    {
-      member = lookup_member (basebinfo, name, 1, 0);
-
-      if (member == error_mark_node)
-	return error_mark_node;
-    }
-
-  if (!member)
-    {
-      error ("%qD is not a member of type %qT", name, type);
-      return error_mark_node;
-    }
-
+  /* Entities other than non-static members need no further
+     processing.  */ 
   if (TREE_CODE (member) == TYPE_DECL)
-    {
-      TREE_USED (member) = 1;
-      return member;
-    }
-  /* static class members and class-specific enum
-     values can be returned without further ado.  */
+    return member;
   if (TREE_CODE (member) == VAR_DECL || TREE_CODE (member) == CONST_DECL)
-    {
-      mark_used (member);
-      return convert_from_reference (member);
-    }
+    return convert_from_reference (member);
 
   if (TREE_CODE (member) == FIELD_DECL && DECL_C_BIT_FIELD (member))
     {
@@ -1445,35 +1372,15 @@ build_offset_ref (tree type, tree name, bool address_p)
       return error_mark_node;
     }
 
+  /* Set up BASEBINFO for member lookup.  */
+  decl = maybe_dummy_object (type, &basebinfo);
+
   /* A lot of this logic is now handled in lookup_member.  */
   if (BASELINK_P (member))
     {
       /* Go from the TREE_BASELINK to the member function info.  */
       tree fnfields = member;
       tree t = BASELINK_FUNCTIONS (fnfields);
-
-      if (TREE_CODE (orig_name) == TEMPLATE_ID_EXPR)
-	{
-	  /* The FNFIELDS are going to contain functions that aren't
-	     necessarily templates, and templates that don't
-	     necessarily match the explicit template parameters.  We
-	     save all the functions, and the explicit parameters, and
-	     then figure out exactly what to instantiate with what
-	     arguments in instantiate_type.  */
-
-	  if (TREE_CODE (t) != OVERLOAD)
-	    /* The code in instantiate_type which will process this
-	       expects to encounter OVERLOADs, not raw functions.  */
-	    t = ovl_cons (t, NULL_TREE);
-
-	  t = build2 (TEMPLATE_ID_EXPR, TREE_TYPE (t), t,
-		      TREE_OPERAND (orig_name, 1));
-	  t = build2 (OFFSET_REF, unknown_type_node, decl, t);
-
-	  PTRMEM_OK_P (t) = 1;
-
-	  return t;
-	}
 
       if (TREE_CODE (t) != TEMPLATE_ID_EXPR && !really_overloaded_fn (t))
 	{
@@ -1494,7 +1401,6 @@ build_offset_ref (tree type, tree name, bool address_p)
 	  else
 	    perform_or_defer_access_check (basebinfo, t);
 
-	  mark_used (t);
 	  if (DECL_STATIC_FUNCTION_P (t))
 	    return t;
 	  member = t;
@@ -1578,7 +1484,7 @@ constant_value_1 (tree decl, bool integral_p)
       tree init;
       /* Static data members in template classes may have
 	 non-dependent initializers.  References to such non-static
-	 data members are no value-dependent, so we must retrieve the
+	 data members are not value-dependent, so we must retrieve the
 	 initializer here.  The DECL_INITIAL will have the right type,
 	 but will not have been folded because that would prevent us
 	 from performing all appropriate semantic checks at
@@ -1587,7 +1493,11 @@ constant_value_1 (tree decl, bool integral_p)
 	  && CLASSTYPE_TEMPLATE_INFO (DECL_CONTEXT (decl))
 	  && uses_template_parms (CLASSTYPE_TI_ARGS 
 				  (DECL_CONTEXT (decl))))
-	init = fold_non_dependent_expr (DECL_INITIAL (decl));
+	{
+	  ++processing_template_decl;
+	  init = fold_non_dependent_expr (DECL_INITIAL (decl));
+	  --processing_template_decl;
+	}
       else
 	{
 	  /* If DECL is a static data member in a template
@@ -1597,7 +1507,9 @@ constant_value_1 (tree decl, bool integral_p)
 	  mark_used (decl);
 	  init = DECL_INITIAL (decl);
 	}
-      if (!(init || init == error_mark_node)
+      if (init == error_mark_node)
+	return error_mark_node;
+      if (!init
 	  || !TREE_TYPE (init)
 	  || (integral_p
 	      ? !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (init))
@@ -1610,7 +1522,7 @@ constant_value_1 (tree decl, bool integral_p)
 		 || TREE_CODE (init) == CONSTRUCTOR
 		 || TREE_CODE (init) == STRING_CST)))
 	break;
-      decl = init;
+      decl = unshare_expr (init);
     }
   return decl;
 }
@@ -2300,7 +2212,8 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
   TREE_SIDE_EFFECTS (controller) = 1;
 
   body = build1 (EXIT_EXPR, void_type_node,
-		 build2 (EQ_EXPR, boolean_type_node, base, tbase));
+		 build2 (EQ_EXPR, boolean_type_node, tbase,
+			 fold_convert (ptype, base)));
   body = build_compound_expr
     (body, build_modify_expr (tbase, NOP_EXPR,
 			      build2 (MINUS_EXPR, ptype, tbase, size_exp)));
@@ -2341,9 +2254,10 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 	}
 
       if (auto_delete_vec == sfk_deleting_destructor)
-	deallocate_expr = build_x_delete (base_tbd,
-					  2 | use_global_delete,
-					  virtual_size);
+	deallocate_expr = build_op_delete_call (VEC_DELETE_EXPR,
+						base_tbd, virtual_size,
+						use_global_delete & 1,
+						NULL_TREE);
     }
 
   body = loop;
@@ -2701,31 +2615,6 @@ build_vec_init (tree base, tree maxindex, tree init,
 
   current_stmt_tree ()->stmts_are_full_exprs_p = destroy_temps;
   return stmt_expr;
-}
-
-/* Free up storage of type TYPE, at address ADDR.
-
-   TYPE is a POINTER_TYPE and can be ptr_type_node for no special type
-   of pointer.
-
-   VIRTUAL_SIZE is the amount of storage that was allocated, and is
-   used as the second argument to operator delete.  It can include
-   things like padding and magic size cookies.  It has virtual in it,
-   because if you have a base pointer and you delete through a virtual
-   destructor, it should be the size of the dynamic object, not the
-   static object, see Free Store 12.5 ISO C++.
-
-   This does not call any destructors.  */
-
-tree
-build_x_delete (tree addr, int which_delete, tree virtual_size)
-{
-  int use_global_delete = which_delete & 1;
-  int use_vec_delete = !!(which_delete & 2);
-  enum tree_code code = use_vec_delete ? VEC_DELETE_EXPR : DELETE_EXPR;
-
-  return build_op_delete_call (code, addr, virtual_size, use_global_delete,
-			       NULL_TREE);
 }
 
 /* Call the DTOR_KIND destructor for EXP.  FLAGS are as for

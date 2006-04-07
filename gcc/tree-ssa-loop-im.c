@@ -401,7 +401,7 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
       && def_bb->loop_father == loop)
     data->cost += LIM_DATA (def_stmt)->cost;
 
-  dep = xmalloc (sizeof (struct depend));
+  dep = XNEW (struct depend);
   dep->stmt = def_stmt;
   dep->next = data->depends;
   data->depends = dep;
@@ -759,7 +759,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 		   cost, level->num);
 	}
       bsi_insert_on_edge (loop_preheader_edge (level), stmt);
-      bsi_remove (&bsi);
+      bsi_remove (&bsi, false);
     }
 }
 
@@ -887,7 +887,7 @@ force_move_till (tree ref, tree *index, void *data)
 static void
 record_mem_ref_loc (struct mem_ref_loc **mem_refs, tree stmt, tree *ref)
 {
-  struct mem_ref_loc *aref = xmalloc (sizeof (struct mem_ref_loc));
+  struct mem_ref_loc *aref = XNEW (struct mem_ref_loc);
 
   aref->stmt = stmt;
   aref->ref = ref;
@@ -1070,7 +1070,7 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
       LIM_DATA (aref->stmt)->sm_done = true;
 
   /* Emit the load & stores.  */
-  load = build (MODIFY_EXPR, void_type_node, tmp_var, ref);
+  load = build2 (MODIFY_EXPR, void_type_node, tmp_var, ref);
   get_stmt_ann (load)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
   LIM_DATA (load)->max_loop = loop;
   LIM_DATA (load)->tgt_loop = loop;
@@ -1081,8 +1081,8 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
 
   for (i = 0; i < n_exits; i++)
     {
-      store = build (MODIFY_EXPR, void_type_node,
-		     unshare_expr (ref), tmp_var);
+      store = build2 (MODIFY_EXPR, void_type_node,
+		      unshare_expr (ref), tmp_var);
       bsi_insert_on_edge (exits[i], store);
     }
 }
@@ -1258,7 +1258,7 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
     ref = *slot;
   else
     {
-      ref = xmalloc (sizeof (struct mem_ref));
+      ref = XNEW (struct mem_ref);
       ref->mem = *mem;
       ref->hash = hash;
       ref->locs = NULL;

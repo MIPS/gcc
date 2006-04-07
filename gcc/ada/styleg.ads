@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -105,7 +105,7 @@ package Styleg is
    --  Token_Ptr is the first token on the line.
 
    procedure Check_Left_Paren;
-   --  Called after scanning out a left parenthesis to check spacing.
+   --  Called after scanning out a left parenthesis to check spacing
 
    procedure Check_Line_Max_Length (Len : Int);
    --  Called with Scan_Ptr pointing to the first line terminator character
@@ -122,7 +122,7 @@ package Styleg is
    --  properly (i.e. with an appropriate casing convention).
 
    procedure Check_Right_Paren;
-   --  Called after scanning out a right parenthesis to check spacing.
+   --  Called after scanning out a right parenthesis to check spacing
 
    procedure Check_Semicolon;
    --  Called after scanning out a semicolon to check spacing
@@ -142,6 +142,11 @@ package Styleg is
    procedure Check_Xtra_Parens (Loc : Source_Ptr);
    --  Called after scanning a conditional expression that has at least one
    --  level of parentheses around the entire expression.
+
+   function Mode_In_Check return Boolean;
+   pragma Inline (Mode_In_Check);
+   --  Determines whether style checking is active and the Mode_In_Check is
+   --  set, forbidding the explicit use of mode IN.
 
    procedure No_End_Name (Name : Node_Id);
    --  Called if an END is encountered where a name is allowed but not present.

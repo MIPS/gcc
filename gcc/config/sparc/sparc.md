@@ -1,6 +1,6 @@
 ;; Machine description for SPARC chip for GCC
 ;;  Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003, 2004, 2005,2006 Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;;  64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;;  at Cygnus Support.
@@ -69,6 +69,10 @@
    (UNSPECV_FLUSH		4)
    (UNSPECV_SETJMP		5)
    (UNSPECV_SAVEW		6)
+   (UNSPECV_MEMBAR		7)
+   (UNSPECV_CAS			8)
+   (UNSPECV_SWAP		9)
+   (UNSPECV_LDSTUB		10)
   ])
 
 ;; The upper 32 fp regs on the v9 can't hold SFmode values.  To deal with this
@@ -90,7 +94,8 @@
    sparclet,tsc701,
    v9,
    ultrasparc,
-   ultrasparc3"
+   ultrasparc3,
+   niagara"
   (const (symbol_ref "sparc_cpu_attr")))
 
 ;; Attribute for the instruction set.
@@ -311,6 +316,7 @@
 (include "sparclet.md")
 (include "ultra1_2.md")
 (include "ultra3.md")
+(include "niagara.md")
 
 
 ;; Operand and operator predicates.
@@ -803,7 +809,7 @@
       if (gen_v9_scc (LTU, operands))
 	DONE;
     }
-  operands[1] = gen_compare_reg (LTU, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (LTU);
 })
 
 (define_expand "sgeu"
@@ -816,7 +822,7 @@
       if (gen_v9_scc (GEU, operands))
 	DONE;
     }
-  operands[1] = gen_compare_reg (GEU, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (GEU);
 })
 
 (define_expand "sleu"
@@ -1267,7 +1273,7 @@
       emit_jump_insn (gen_bne (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (EQ, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (EQ);
 })
 
 (define_expand "bne"
@@ -1290,7 +1296,7 @@
       emit_jump_insn (gen_bne (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (NE, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (NE);
 })
 
 (define_expand "bgt"
@@ -1313,7 +1319,7 @@
       emit_jump_insn (gen_bne (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (GT, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (GT);
 })
 
 (define_expand "bgtu"
@@ -1323,7 +1329,7 @@
 		      (pc)))]
   ""
 {
-  operands[1] = gen_compare_reg (GTU, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (GTU);
 })
 
 (define_expand "blt"
@@ -1346,7 +1352,7 @@
       emit_jump_insn (gen_bne (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (LT, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (LT);
 })
 
 (define_expand "bltu"
@@ -1356,7 +1362,7 @@
 		      (pc)))]
   ""
 {
-  operands[1] = gen_compare_reg (LTU, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (LTU);
 })
 
 (define_expand "bge"
@@ -1379,7 +1385,7 @@
       emit_jump_insn (gen_bne (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (GE, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (GE);
 })
 
 (define_expand "bgeu"
@@ -1389,7 +1395,7 @@
 		      (pc)))]
   ""
 {
-  operands[1] = gen_compare_reg (GEU, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (GEU);
 })
 
 (define_expand "ble"
@@ -1412,7 +1418,7 @@
       emit_jump_insn (gen_bne (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (LE, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (LE);
 })
 
 (define_expand "bleu"
@@ -1422,7 +1428,7 @@
 		      (pc)))]
   ""
 {
-  operands[1] = gen_compare_reg (LEU, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (LEU);
 })
 
 (define_expand "bunordered"
@@ -1439,8 +1445,7 @@
       emit_jump_insn (gen_beq (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (UNORDERED, sparc_compare_op0,
-				 sparc_compare_op1);
+  operands[1] = gen_compare_reg (UNORDERED);
 })
 
 (define_expand "bordered"
@@ -1456,8 +1461,7 @@
       emit_jump_insn (gen_bne (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (ORDERED, sparc_compare_op0,
-				 sparc_compare_op1);
+  operands[1] = gen_compare_reg (ORDERED);
 })
 
 (define_expand "bungt"
@@ -1473,7 +1477,7 @@
       emit_jump_insn (gen_bgt (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (UNGT, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (UNGT);
 })
 
 (define_expand "bunlt"
@@ -1489,7 +1493,7 @@
       emit_jump_insn (gen_bne (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (UNLT, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (UNLT);
 })
 
 (define_expand "buneq"
@@ -1505,7 +1509,7 @@
       emit_jump_insn (gen_beq (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (UNEQ, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (UNEQ);
 })
 
 (define_expand "bunge"
@@ -1521,7 +1525,7 @@
       emit_jump_insn (gen_bne (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (UNGE, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (UNGE);
 })
 
 (define_expand "bunle"
@@ -1537,7 +1541,7 @@
       emit_jump_insn (gen_bne (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (UNLE, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (UNLE);
 })
 
 (define_expand "bltgt"
@@ -1553,7 +1557,7 @@
       emit_jump_insn (gen_bne (operands[0]));
       DONE;
     }
-  operands[1] = gen_compare_reg (LTGT, sparc_compare_op0, sparc_compare_op1);
+  operands[1] = gen_compare_reg (LTGT);
 })
 
 ;; Now match both normal and inverted jump.
@@ -3025,8 +3029,7 @@
     }
   else
     {
-      rtx cc_reg = gen_compare_reg (code,
-				    sparc_compare_op0, sparc_compare_op1);
+      rtx cc_reg = gen_compare_reg (code);
       operands[1] = gen_rtx_fmt_ee (code, GET_MODE (cc_reg), cc_reg, const0_rtx);
     }
 })
@@ -3054,8 +3057,7 @@
     }
   else
     {
-      rtx cc_reg = gen_compare_reg (code,
-				    sparc_compare_op0, sparc_compare_op1);
+      rtx cc_reg = gen_compare_reg (code);
       operands[1] = gen_rtx_fmt_ee (code, GET_MODE (cc_reg), cc_reg, const0_rtx);
     }
 })
@@ -3079,8 +3081,7 @@
     }
   else
     {
-      rtx cc_reg = gen_compare_reg (code,
-				    sparc_compare_op0, sparc_compare_op1);
+      rtx cc_reg = gen_compare_reg (code);
       operands[1] = gen_rtx_fmt_ee (code, GET_MODE (cc_reg),
 				    cc_reg, const0_rtx);
     }
@@ -3105,8 +3106,7 @@
     }
   else
     {
-      rtx cc_reg = gen_compare_reg (code,
-				    sparc_compare_op0, sparc_compare_op1);
+      rtx cc_reg = gen_compare_reg (code);
       operands[1] = gen_rtx_fmt_ee (code, GET_MODE (cc_reg),
 				    cc_reg, const0_rtx);
     }
@@ -3135,8 +3135,7 @@
     }
   else
     {
-      rtx cc_reg = gen_compare_reg (code,
-				    sparc_compare_op0, sparc_compare_op1);
+      rtx cc_reg = gen_compare_reg (code);
       operands[1] = gen_rtx_fmt_ee (code, GET_MODE (cc_reg), cc_reg, const0_rtx);
     }
 })
@@ -3164,8 +3163,7 @@
     }
   else
     {
-      rtx cc_reg = gen_compare_reg (code,
-				    sparc_compare_op0, sparc_compare_op1);
+      rtx cc_reg = gen_compare_reg (code);
       operands[1] = gen_rtx_fmt_ee (code, GET_MODE (cc_reg), cc_reg, const0_rtx);
     }
 })
@@ -3193,8 +3191,7 @@
     }
   else
     {
-      rtx cc_reg = gen_compare_reg (code,
-				    sparc_compare_op0, sparc_compare_op1);
+      rtx cc_reg = gen_compare_reg (code);
       operands[1] = gen_rtx_fmt_ee (code, GET_MODE (cc_reg), cc_reg, const0_rtx);
     }
 })
@@ -7249,24 +7246,19 @@
   [(const_int 0)]
   ""
 {
-  if (TARGET_ARCH64)
-    emit_insn (gen_setjmp_64 ());
-  else
-    emit_insn (gen_setjmp_32 ());
+  rtx mem;
+  
+  mem = gen_rtx_MEM (Pmode,
+		     plus_constant (stack_pointer_rtx,
+				    SPARC_STACK_BIAS + 14 * UNITS_PER_WORD));
+  emit_insn (gen_rtx_SET (VOIDmode, mem, frame_pointer_rtx));
+
+  mem = gen_rtx_MEM (Pmode,
+		     plus_constant (stack_pointer_rtx,
+				    SPARC_STACK_BIAS + 15 * UNITS_PER_WORD));
+  emit_insn (gen_rtx_SET (VOIDmode, mem, gen_rtx_REG (Pmode, 31)));
   DONE;
 })
-
-(define_expand "setjmp_32"
-  [(set (mem:SI (plus:SI (reg:SI 14) (const_int 56))) (match_dup 0))
-   (set (mem:SI (plus:SI (reg:SI 14) (const_int 60))) (reg:SI 31))]
-  ""
-  { operands[0] = frame_pointer_rtx; })
-
-(define_expand "setjmp_64"
-  [(set (mem:DI (plus:DI (reg:DI 14) (const_int 112))) (match_dup 0))
-   (set (mem:DI (plus:DI (reg:DI 14) (const_int 120))) (reg:DI 31))]
-  ""
-  { operands[0] = frame_pointer_rtx; })
 
 ;; Special pattern for the FLUSH instruction.
 
@@ -7567,8 +7559,7 @@
   [(trap_if (match_operator 0 "noov_compare_operator" [(match_dup 2) (match_dup 3)])
 	    (match_operand:SI 1 "arith_operand" ""))]
   ""
-  "operands[2] = gen_compare_reg (GET_CODE (operands[0]),
-				  sparc_compare_op0, sparc_compare_op1);
+  "operands[2] = gen_compare_reg (GET_CODE (operands[0]));
    if (GET_MODE (operands[2]) != CCmode && GET_MODE (operands[2]) != CCXmode)
      FAIL;
    operands[3] = const0_rtx;")
@@ -8486,3 +8477,5 @@
   "pdist\t%1, %2, %0"
   [(set_attr "type" "fga")
    (set_attr "fptype" "double")])
+
+(include "sync.md")

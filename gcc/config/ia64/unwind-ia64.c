@@ -1,6 +1,6 @@
 /* Subroutines needed for unwinding IA-64 standard format stack frame
    info for exception handling.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Andrew MacLeod  <amacleod@cygnus.com>
 	          Andrew Haley  <aph@cygnus.com>
@@ -1704,6 +1704,13 @@ _Unwind_GetIP (struct _Unwind_Context *context)
   return context->rp;
 }
 
+inline _Unwind_Ptr
+_Unwind_GetIPInfo (struct _Unwind_Context *context, int *ip_before_insn)
+{
+  *ip_before_insn = 0;
+  return context->rp;
+}
+
 /* Overwrite the return address for CONTEXT with VAL.  */
 
 inline void
@@ -2058,6 +2065,12 @@ uw_update_context (struct _Unwind_Context *context, _Unwind_FrameState *fs)
       context->bsp = (unsigned long)
 	ia64_rse_skip_regs ((unsigned long *) context->bsp, -sol);
     }
+}
+
+static void
+uw_advance_context (struct _Unwind_Context *context, _Unwind_FrameState *fs)
+{
+  uw_update_context (context, fs);
 }
 
 /* Fill in CONTEXT for top-of-stack.  The only valid registers at this

@@ -26,8 +26,8 @@
 # This file provides the language dependent support in the main Makefile.
 # Each language makefile fragment must provide the following targets:
 #
-# foo.all.build, foo.all.cross, foo.start.encap, foo.rest.encap,
-# foo.install-normal, foo.install-common, foo.install-man,
+# foo.all.cross, foo.start.encap, foo.rest.encap,
+# foo.install-common, foo.install-man, foo.install-info, foo.dvi, foo.html,
 # foo.uninstall,
 # foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
@@ -95,10 +95,7 @@ $(srcdir)/java/keyword.h: $(srcdir)/java/keyword.gperf
 	exit 1; } ; \
 	mv -f k$$$$.h keyword.h)
 
-gt-java-class.h gt-java-constants.h gt-java-decl.h : s-gtype ; @true
-gt-java-expr.h gt-java-jcf-parse.h gt-java-jcf-write.h : s-gtype ; @true
-gt-java-lang.h gt-java-mangle.h gt-java-parse.h : s-gtype ; @true
-gt-java-builtins.h gtype-java.h gt-java-resource.h : s-gtype ; @true
+gt-java-parse.h : s-gtype ; @true
 
 # Executables built by this Makefile:
 JAVA_OBJS = java/parse.o java/class.o java/decl.o java/expr.o \
@@ -163,7 +160,6 @@ jvgenmain$(exeext): $(JVGENMAIN_OBJS) $(LIBDEPS)
 #
 # Build hooks:
 
-java.all.build: $(GCJ)$(exeext)
 java.all.cross: $(GCJ)-cross$(exeext)
 java.start.encap: $(GCJ)$(exeext)
 java.rest.encap:
@@ -180,8 +176,8 @@ java.info: doc/gcj.info
 java.srcinfo: doc/gcj.info
 	-cp -p $^ $(srcdir)/doc
 
-dvi:: doc/gcj.dvi
-html:: $(htmldir)/java/index.html
+java.dvi: doc/gcj.dvi
+java.html: $(htmldir)/java/index.html
 JAVA_MANFILES = doc/gcj.1 doc/gcjh.1 doc/jv-scan.1 doc/jcf-dump.1 doc/gij.1 \
                 doc/jv-convert.1 doc/grmic.1 doc/grmiregistry.1 \
 		doc/gcj-dbtool.1 doc/gjnih.1
@@ -196,9 +192,6 @@ check-java :
 # Install hooks:
 # jc1, gcj, jvgenmain, and gcjh are installed elsewhere as part
 # of $(COMPILERS).
-
-# Nothing to do here.
-java.install-normal:
 
 # Install gcj as well as the target-independent tools.
 # For a native build, we special-case gcjh and also install
@@ -247,7 +240,7 @@ java.uninstall:
 	-rm -rf $(DESTDIR)$(man1dir)/jv-convert$(man1ext)
 	-rm -rf $(DESTDIR)$(man1dir)/gcj-dbtool$(man1ext)
 
-install-info:: $(DESTDIR)$(infodir)/gcj.info
+java.install-info: $(DESTDIR)$(infodir)/gcj.info
 
 #
 # Clean hooks:
@@ -387,15 +380,15 @@ java/gjavah-jni.o: $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(JAVA_TREE_H) \
 		-DJNI_DEFAULT=1 \
 		$(srcdir)/java/gjavah.c $(OUTPUT_OPTION)
 
-TEXI_JAVA_FILES = java/gcj.texi $(docdir)/include/fdl.texi		\
-	 $(docdir)/include/gpl.texi $(docdir)/include/gcc-common.texi   \
+TEXI_JAVA_FILES = java/gcj.texi $(gcc_docdir)/include/fdl.texi		\
+	 $(gcc_docdir)/include/gpl.texi $(gcc_docdir)/include/gcc-common.texi   \
 	 gcc-vers.texi
 
 # Documentation
 doc/gcj.info: $(TEXI_JAVA_FILES)
 	if test "x$(BUILD_INFO)" = xinfo; then \
 	  rm -f doc/gcj.info*; \
-	  $(MAKEINFO) $(MAKEINFOFLAGS) -I $(docdir)/include -o $@ $<; \
+	  $(MAKEINFO) $(MAKEINFOFLAGS) -I $(gcc_docdir)/include -o $@ $<; \
 	else true; fi
 
 doc/gcj.dvi: $(TEXI_JAVA_FILES)
@@ -404,7 +397,7 @@ doc/gcj.dvi: $(TEXI_JAVA_FILES)
 $(htmldir)/java/index.html: $(TEXI_JAVA_FILES)
 	$(mkinstalldirs) $(@D)
 	rm -f $(@D)/*
-	$(TEXI2HTML) -I $(docdir)/include -I $(srcdir)/java -o $(@D) $<
+	$(TEXI2HTML) -I $(gcc_docdir)/include -I $(srcdir)/java -o $(@D) $<
 
 .INTERMEDIATE: gcj.pod gcjh.pod jv-scan.pod jcf-dump.pod gij.pod \
   jv-convert.pod grmic.pod grmiregistry.pod gcj-dbtool.pod gjnih.pod

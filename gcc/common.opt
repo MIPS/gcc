@@ -1,6 +1,6 @@
 ; Options for the language- and target-independent parts of the compiler.
 
-; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -57,6 +57,10 @@ Waggregate-return
 Common Var(warn_aggregate_return)
 Warn about returning structures, unions or arrays
 
+Walways-true
+Common Var(warn_always_true)
+Warn about comparisons that always evaluate to true
+
 Wattributes
 Common Var(warn_attributes) Init(1)
 Warn about inappropriate attribute usage
@@ -76,6 +80,10 @@ Warn when an optimization pass is disabled
 Werror
 Common Var(warnings_are_errors)
 Treat all warnings as errors
+
+Werror=
+Common Joined
+Treat specified warning as error
 
 Wextra
 Common
@@ -124,6 +132,10 @@ Warn about code which might break strict aliasing rules
 Wstrict-aliasing=
 Common Joined UInteger
 Warn about code which might break strict aliasing rules
+
+Wstring-literal-comparison
+Common Var(warn_string_literal_comparison)
+Warn about comparisons to constant string literals
 
 Wswitch
 Common Var(warn_switch)
@@ -245,7 +257,9 @@ Common RejectNegative Joined UInteger
 ; 1 if pointer arguments may not alias each other but may alias
 ;   global variables.
 ; 2 if pointer arguments may not alias each other and may not
-;   alias global variables.  True in Fortran.
+;   alias global variables.
+; 3 if pointer arguments may not alias anything.  True in Fortran.
+;   Set by the front end.
 fargument-alias
 Common Report Var(flag_argument_noalias,0)
 Specify that arguments may alias each other and globals
@@ -257,6 +271,10 @@ Assume arguments may alias globals but not each other
 fargument-noalias-global
 Common Report Var(flag_argument_noalias,2) VarExists
 Assume arguments alias neither each other nor globals
+
+fargument-noalias-anything
+Common Report Var(flag_argument_noalias,3) VarExists
+Assume arguments alias no other storage
 
 fasynchronous-unwind-tables
 Common Report Var(flag_asynchronous_unwind_tables)
@@ -378,6 +396,10 @@ Perform unused type elimination in debug info
 feliminate-unused-debug-types
 Common Report Var(flag_eliminate_unused_debug_types) Init(1)
 Perform unused type elimination in debug info
+
+femit-class-debug-always
+Common Report Var(flag_emit_class_debug_always) Init(1)
+Do not suppress C++ class debug information.
 
 fexceptions
 Common Report Var(flag_exceptions)
@@ -511,6 +533,10 @@ fipa-pure-const
 Common Report Var(flag_ipa_pure_const) Init(0)
 Discover pure and const functions
 
+fipa-pta
+Common Report Var(flag_ipa_pta) Init(0)
+Perform interprocedural points-to analysis
+
 fipa-reference
 Common Report Var(flag_ipa_reference) Init(0)
 Discover readonly and non addressable static variables
@@ -540,12 +566,8 @@ Common Report Var(flag_leading_underscore) Init(-1)
 Give external symbols a leading underscore
 
 floop-optimize
-Common Report Var(flag_loop_optimize)
-Perform loop optimizations
-
-floop-optimize2
-Common Report Var(flag_loop_optimize2)
-Perform loop optimizations using the new loop optimizer
+Common
+Does nothing.  Preserved for backward compatibility.
 
 fmath-errno
 Common Report Var(flag_errno_math) Init(1)
@@ -575,7 +597,7 @@ Common Report Var(flag_modulo_sched)
 Perform SMS based modulo scheduling before the first scheduling pass
 
 fmove-loop-invariants
-Common Report Var(flag_move_loop_invariants)
+Common Report Var(flag_move_loop_invariants) Init(1)
 Move loop invariant computations out of loops
 
 fmudflap
@@ -710,8 +732,8 @@ Common Report Var(flag_rerun_cse_after_loop) Init(2)
 Add a common subexpression elimination pass after loop optimizations
 
 frerun-loop-opt
-Common Report Var(flag_rerun_loop_opt)
-Run the loop optimizer twice
+Common
+Does nothing.  Preserved for backward compatibility.
 
 frounding-math
 Common Report Var(flag_rounding_math)
@@ -775,9 +797,13 @@ fsched-stalled-insns-dep=
 Common RejectNegative Joined UInteger
 -fsched-stalled-insns-dep=<number>	Set dependence distance checking in premature scheduling of queued insns
 
-fshared-data
-Common Report Var(flag_shared_data)
-Mark data as shared rather than private
+fsection-anchors
+Common Report Var(flag_section_anchors)
+Access data in the same section from shared anchor points
+
+frtl-abstract-sequences
+Common Report Var(flag_rtl_seqabstr)
+Perform sequence abstraction optimization on RTL
 
 fshow-column
 Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)
@@ -825,8 +851,8 @@ Common Report RejectNegative Var(flag_stack_protect, 2) VarExists
 Use a stack protection method for every function
 
 fstrength-reduce
-Common Report Var(flag_strength_reduce)
-Perform strength reduction optimizations
+Common
+Does nothing.  Preserved for backward compatibility.
 
 ; Nonzero if we should do (language-dependent) alias analysis.
 ; Typically, this analysis will assume that expressions of certain
@@ -855,6 +881,10 @@ Report the time taken by each compiler pass
 ftls-model=
 Common Joined RejectNegative
 -ftls-model=[global-dynamic|local-dynamic|initial-exec|local-exec]	Set the default thread-local storage code generation model
+
+ftoplevel-reorder
+Common Report Var(flag_toplevel_reorder) Init(1)
+Reorder top level functions, variables, and asms
 
 ftracer
 Common Report Var(flag_tracer)

@@ -1,6 +1,6 @@
 /* Chains of recurrences.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
-   Contributed by Sebastian Pop <s.pop@laposte.net>
+   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+   Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
 
@@ -32,7 +32,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree.h"
 #include "real.h"
 #include "diagnostic.h"
-#include "varray.h"
 #include "cfgloop.h"
 #include "tree-flow.h"
 #include "tree-chrec.h"
@@ -533,10 +532,9 @@ chrec_apply (unsigned var,
       /* When the symbols are defined in an outer loop, it is possible
 	 to symbolically compute the apply, since the symbols are
 	 constants with respect to the varying loop.  */
-      || chrec_contains_symbols_defined_in_loop (chrec, var)
-      || chrec_contains_symbols (x))
+      || chrec_contains_symbols_defined_in_loop (chrec, var))
     return chrec_dont_know;
-  
+ 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "(chrec_apply \n");
 
@@ -546,14 +544,10 @@ chrec_apply (unsigned var,
   if (evolution_function_is_affine_p (chrec))
     {
       /* "{a, +, b} (x)"  ->  "a + b*x".  */
-      if (TREE_CODE (CHREC_LEFT (chrec)) == INTEGER_CST
-	  && integer_zerop (CHREC_LEFT (chrec)))
-	res = chrec_fold_multiply (type, CHREC_RIGHT (chrec), x);
-      
-      else
-	res = chrec_fold_plus (type, CHREC_LEFT (chrec), 
-			       chrec_fold_multiply (type, 
-						    CHREC_RIGHT (chrec), x));
+      x = chrec_convert (type, x, NULL_TREE);
+      res = chrec_fold_multiply (type, CHREC_RIGHT (chrec), x);
+      if (!integer_zerop (CHREC_LEFT (chrec)))
+	res = chrec_fold_plus (type, CHREC_LEFT (chrec), res);
     }
   
   else if (TREE_CODE (chrec) != POLYNOMIAL_CHREC)
@@ -563,7 +557,6 @@ chrec_apply (unsigned var,
 	   && tree_int_cst_sgn (x) == 1)
     /* testsuite/.../ssa-chrec-38.c.  */
     res = chrec_evaluate (var, chrec, x, 0);
-
   else
     res = chrec_dont_know;
   
@@ -1225,6 +1218,26 @@ chrec_convert_aggressive (tree type, tree chrec)
   if (!rc)
     rc = chrec_convert (type, right, NULL_TREE);
 
+  /* Ada creates sub-types where TYPE_MIN_VALUE/TYPE_MAX_VALUE do not
+     cover the entire range of values allowed by TYPE_PRECISION.
+
+     We do not want to optimize away conversions to such types.  Long
+     term I'd rather see the Ada front-end fixed.  */
+  if (INTEGRAL_TYPE_P (type))
+    {
+      tree t;
+
+      t = upper_bound_in_type (type, inner_type);
+      if (! TYPE_MAX_VALUE (type)
+	  || ! operand_equal_p (TYPE_MAX_VALUE (type), t, 0))
+	return NULL_TREE;
+
+      t = lower_bound_in_type (type, inner_type);
+      if (! TYPE_MIN_VALUE (type)
+	  || ! operand_equal_p (TYPE_MIN_VALUE (type), t, 0))
+	return NULL_TREE;
+    }
+  
   return build_polynomial_chrec (CHREC_VARIABLE (chrec), lc, rc);
 }
 
@@ -1238,3 +1251,32 @@ chrec_type (tree chrec)
   
   return TREE_TYPE (chrec);
 }
+
+/* Returns true when CHREC0 == CHREC1.  */
+
+bool 
+eq_evolutions_p (tree chrec0, 
+		 tree chrec1)
+{
+  if (chrec0 == NULL_TREE
+      || chrec1 == NULL_TREE
+      || TREE_CODE (chrec0) != TREE_CODE (chrec1))
+    return false;
+
+  if (chrec0 == chrec1)
+    return true;
+
+  switch (TREE_CODE (chrec0))
+    {
+    case INTEGER_CST:
+      return integer_zerop (fold (build2 (MINUS_EXPR, TREE_TYPE (chrec0), 
+					 chrec0, chrec1)));
+    case POLYNOMIAL_CHREC:
+      return (CHREC_VARIABLE (chrec0) == CHREC_VARIABLE (chrec1)
+	      && eq_evolutions_p (CHREC_LEFT (chrec0), CHREC_LEFT (chrec1))
+	      && eq_evolutions_p (CHREC_RIGHT (chrec0), CHREC_RIGHT (chrec1)));
+    default:
+      return false;
+    }  
+}
+

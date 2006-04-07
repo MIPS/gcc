@@ -1,6 +1,6 @@
 /* RunTime Type Identification
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005
+   2005, 2006
    Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
@@ -699,6 +699,13 @@ build_dynamic_cast (tree type, tree expr)
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
 
+  /* Use of dynamic_cast when -fno-rtti is prohibited.  */
+  if (!flag_rtti)
+    {
+      error ("%<dynamic_cast%> not permitted with -fno-rtti");
+      return error_mark_node;
+    }
+
   if (processing_template_decl)
     {
       expr = build_min (DYNAMIC_CAST_EXPR, type, expr);
@@ -979,7 +986,6 @@ typeinfo_in_lib_p (tree type)
     {
     case INTEGER_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
     case REAL_TYPE:
     case VOID_TYPE:
       return true;
@@ -1117,7 +1123,7 @@ create_pseudo_type_info (int tk, const char *real_name, ...)
   va_start (ap, real_name);
 
   /* Generate the pseudo type name.  */
-  pseudo_name = alloca (strlen (real_name) + 30);
+  pseudo_name = (char *) alloca (strlen (real_name) + 30);
   strcpy (pseudo_name, real_name);
   strcat (pseudo_name, "_pseudo");
   if (tk >= TK_FIXED)
@@ -1476,7 +1482,7 @@ emit_tinfo_decl (tree decl)
       init = get_pseudo_ti_init (type, get_pseudo_ti_index (type));
       DECL_INITIAL (decl) = init;
       mark_used (decl);
-      cp_finish_decl (decl, init, NULL_TREE, 0);
+      finish_decl (decl, init, NULL_TREE);
       return true;
     }
   else

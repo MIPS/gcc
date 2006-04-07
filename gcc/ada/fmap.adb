@@ -62,7 +62,7 @@ package body Fmap is
      Table_Initial        => 1_000,
      Table_Increment      => 1_000,
      Table_Name           => "Fmap.File_Mapping");
-   --  Mapping table to map unit names to file names.
+   --  Mapping table to map unit names to file names
 
    package Path_Mapping is new Table.Table (
      Table_Component_Type => Mapping,
@@ -214,8 +214,8 @@ package body Fmap is
 
          while First < SP'Last
            and then (SP (First) = CR
-                     or else SP (First) = LF
-                     or else SP (First) = EOF)
+                      or else SP (First) = LF
+                      or else SP (First) = EOF)
          loop
             First := First + 1;
          end loop;

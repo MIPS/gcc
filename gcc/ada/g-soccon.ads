@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2000-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2000-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,9 +35,13 @@
 --  by the GNAT.Sockets package (g-socket.ads). This package should not be
 --  directly with'ed by an applications program.
 
---  This is the version for i686-pc-linux-gnu
---  This file is generated automatically, do not modify it by hand! Instead,
---  make changes to gen-soccon.c and re-run it on each target.
+--  WARNING! This file is a default version that must be replaced for
+--  each platform by running gen-soccon.c which automatically generates
+--  the appropriate target specific values.
+
+--  The values below were computed from a i686-pc-linux-gnu environment,
+--  but are for illustration purposes only. As noted above, part of a port
+--  to a new target is to replace this file appropriately.
 
 package GNAT.Sockets.Constants is
 
@@ -168,5 +172,14 @@ package GNAT.Sockets.Constants is
    -------------------
 
    IOV_MAX            : constant :=   2147483647; --  Maximum writev iovcnt
+
+   ----------------------
+   -- Type definitions --
+   ----------------------
+
+   --  Sizes (in bytes) of the components of struct timeval
+
+   SIZEOF_tv_sec      : constant :=            4; --  tv_sec
+   SIZEOF_tv_usec     : constant :=            4; --  tv_usec
 
 end GNAT.Sockets.Constants;

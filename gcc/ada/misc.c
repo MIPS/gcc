@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2005, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2006, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -283,6 +283,10 @@ gnat_handle_option (size_t scode, const char *arg, int value ATTRIBUTE_UNUSED)
     case OPT_Wstrict_prototypes:
     case OPT_Wwrite_strings:
     case OPT_Wlong_long:
+    case OPT_Wvariadic_macros:
+    case OPT_Wold_style_definition:
+    case OPT_Wmissing_format_attribute:
+    case OPT_Woverlength_strings:
       break;
 
       /* This is handled by the front-end.  */
@@ -364,12 +368,23 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 static void
 internal_error_function (const char *msgid, va_list *ap)
 {
-  char buffer[1000];		/* Assume this is big enough.  */
+  text_info tinfo;
+  char *buffer;
   char *p;
   String_Template temp;
   Fat_Pointer fp;
 
-  vsprintf (buffer, msgid, *ap);
+  /* Reset the pretty-printer.  */
+  pp_clear_output_area (global_dc->printer);
+
+  /* Format the message into the pretty-printer.  */
+  tinfo.format_spec = msgid;
+  tinfo.args_ptr = ap;
+  tinfo.err_no = errno;
+  pp_format_verbatim (global_dc->printer, &tinfo);
+
+  /* Extract a (writable) pointer to the formatted text.  */
+  buffer = (char*) pp_formatted_text (global_dc->printer);
 
   /* Go up to the first newline.  */
   for (p = buffer; *p; p++)
@@ -379,8 +394,10 @@ internal_error_function (const char *msgid, va_list *ap)
 	break;
       }
 
-  temp.Low_Bound = 1, temp.High_Bound = strlen (buffer);
-  fp.Array = buffer, fp.Bounds = &temp;
+  temp.Low_Bound = 1;
+  temp.High_Bound = p - buffer;
+  fp.Bounds = &temp;
+  fp.Array = buffer;
 
   Current_Error_Node = error_gnat_node;
   Compiler_Abort (fp, -1);

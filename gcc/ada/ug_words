@@ -10,6 +10,8 @@ gnat1           ^ GNAT1
 Gnat1           ^ GNAT1
 gnatbind        ^ GNAT BIND
 Gnatbind        ^ GNAT BIND
+gnatcheck       ^ GNAT CHECK
+Gnatcheck       ^ GNAT CHECK
 gnatchop        ^ GNAT CHOP
 Gnatchop        ^ GNAT CHOP
 gnatclean       ^ GNAT CLEAN
@@ -153,6 +155,8 @@ gcc -c          ^ GNAT COMPILE
 -gnatzc         ^ /DISTRIBUTION_STUBS=CALLER
 -gnatzr         ^ /DISTRIBUTION_STUBS=RECEIVER
 -gnat83         ^ /83
+-gnat95         ^ /95
+-gnat05         ^ /05
 -gnatx          ^ /XREF=SUPPRESS
 -gnatX          ^ /EXTENSIONS_ALLOWED
 --RTS           ^ /RUNTIME_SYSTEM

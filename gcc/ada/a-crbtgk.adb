@@ -7,7 +7,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -254,13 +254,14 @@ package body Ada.Containers.Red_Black_Trees.Generic_Keys is
       Key  : Key_Type;
       Z    : out Node_Access)
    is
-      subtype Length_Subtype is Count_Type range 0 .. Count_Type'Last - 1;
-
-      New_Length : constant Count_Type := Length_Subtype'(Tree.Length) + 1;
-
    begin
+      if Tree.Length = Count_Type'Last then
+         raise Constraint_Error with "too many elements";
+      end if;
+
       if Tree.Busy > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "attempt to tamper with cursors (container is busy)";
       end if;
 
       if Y = null
@@ -316,7 +317,7 @@ package body Ada.Containers.Red_Black_Trees.Generic_Keys is
 
       Ops.Set_Parent (Z, Y);
       Ops.Rebalance_For_Insert (Tree, Z);
-      Tree.Length := New_Length;
+      Tree.Length := Tree.Length + 1;
    end Generic_Insert_Post;
 
    -----------------------

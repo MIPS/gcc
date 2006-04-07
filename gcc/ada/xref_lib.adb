@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1998-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1998-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -75,9 +75,9 @@ package body Xref_Lib is
    --  the .ali files.
 
    procedure Open
-     (Name         : in  String;
+     (Name         : String;
       File         : out ALI_File;
-      Dependencies : in  Boolean := False);
+      Dependencies : Boolean := False);
    --  Open a new ALI file. If Dependencies is True, the insert every library
    --  file 'with'ed in the files database (used for gnatxref)
 
@@ -372,7 +372,7 @@ package body Xref_Lib is
 
          if Tail (Dir_Ent (1 .. Last), 4) = ".adp" then
 
-            --  The first project file found is the good one.
+            --  The first project file found is the good one
 
             Close (My_Dir);
             return Dir_Ent (1 .. Last);
@@ -889,8 +889,9 @@ package body Xref_Lib is
 
       if Ali (Ptr) = '[' then
          Skip_To_Matching_Closing_Bracket;
+      end if;
 
-      elsif Ali (Ptr) = '<'
+      if Ali (Ptr) = '<'
         or else Ali (Ptr) = '('
         or else Ali (Ptr) = '{'
       then
@@ -1366,7 +1367,7 @@ package body Xref_Lib is
    -- Print_Unused --
    ------------------
 
-   procedure Print_Unused (Full_Path_Name : in Boolean) is
+   procedure Print_Unused (Full_Path_Name : Boolean) is
       Decls : constant Declaration_Array_Access := Get_Declarations;
       Decl  : Declaration_Reference;
       Arr   : Reference_Array_Access;
@@ -1416,7 +1417,7 @@ package body Xref_Lib is
    -- Print_Vi --
    --------------
 
-   procedure Print_Vi (Full_Path_Name : in Boolean) is
+   procedure Print_Vi (Full_Path_Name : Boolean) is
       Tab   : constant Character := ASCII.HT;
       Decls : constant Declaration_Array_Access :=
                 Get_Declarations (Sorted => False);
@@ -1464,7 +1465,7 @@ package body Xref_Lib is
    -- Print_Xref --
    ----------------
 
-   procedure Print_Xref (Full_Path_Name : in Boolean) is
+   procedure Print_Xref (Full_Path_Name : Boolean) is
       Decls : constant Declaration_Array_Access := Get_Declarations;
       Decl : Declaration_Reference;
 
@@ -1474,8 +1475,8 @@ package body Xref_Lib is
       procedure New_Line80;
       --  Go to start of new line
 
-      procedure Print80 (S : in String);
-      --  Print the text, respecting the 80 columns rule.
+      procedure Print80 (S : String);
+      --  Print the text, respecting the 80 columns rule
 
       procedure Print_Ref (Line, Column : String);
       --  The beginning of the output is aligned on a column multiple of 9
@@ -1503,7 +1504,7 @@ package body Xref_Lib is
       -- Print80 --
       -------------
 
-      procedure Print80 (S : in String) is
+      procedure Print80 (S : String) is
          Align : Natural := Margin - (Integer (Column) mod Margin);
 
       begin

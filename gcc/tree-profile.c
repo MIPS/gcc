@@ -106,11 +106,11 @@ tree_gen_edge_profiler (int edgeno, edge e)
   tree tmp1 = create_tmp_var (gcov_type_node, "PROF");
   tree tmp2 = create_tmp_var (gcov_type_node, "PROF");
   tree ref = tree_coverage_counter_ref (GCOV_COUNTER_ARCS, edgeno);
-  tree stmt1 = build (MODIFY_EXPR, gcov_type_node, tmp1, ref);
-  tree stmt2 = build (MODIFY_EXPR, gcov_type_node, tmp2,
-		      build (PLUS_EXPR, gcov_type_node, 
-			     tmp1, integer_one_node));
-  tree stmt3 = build (MODIFY_EXPR, gcov_type_node, ref, tmp2);
+  tree stmt1 = build2 (MODIFY_EXPR, gcov_type_node, tmp1, ref);
+  tree stmt2 = build2 (MODIFY_EXPR, gcov_type_node, tmp2,
+		       build2 (PLUS_EXPR, gcov_type_node, 
+			      tmp1, integer_one_node));
+  tree stmt3 = build2 (MODIFY_EXPR, gcov_type_node, ref, tmp2);
   bsi_insert_on_edge (e, stmt1);
   bsi_insert_on_edge (e, stmt2);
   bsi_insert_on_edge (e, stmt3);
@@ -234,13 +234,7 @@ do_tree_profiling (void)
   return false;
 }
 
-/* Return the file on which profile dump output goes, if any.  */
-
-static FILE *tree_profile_dump_file (void) {
-  return dump_file;
-}
-
-static void
+static unsigned int
 tree_profiling (void)
 {
   branch_prob ();
@@ -253,6 +247,7 @@ tree_profiling (void)
      easy to adjust it, if and when there is some.  */
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
+  return 0;
 }
 
 struct tree_opt_pass pass_tree_profile = 
@@ -306,8 +301,7 @@ struct profile_hooks tree_profile_hooks =
   tree_gen_interval_profiler,   /* gen_interval_profiler */
   tree_gen_pow2_profiler,       /* gen_pow2_profiler */
   tree_gen_one_value_profiler,  /* gen_one_value_profiler */
-  tree_gen_const_delta_profiler,/* gen_const_delta_profiler */
-  tree_profile_dump_file	/* profile_dump_file */
+  tree_gen_const_delta_profiler /* gen_const_delta_profiler */
 };
 
 #include "gt-tree-profile.h"

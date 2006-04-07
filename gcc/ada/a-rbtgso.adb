@@ -7,7 +7,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2004-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -96,7 +96,8 @@ package body Ada.Containers.Red_Black_Trees.Generic_Set_Operations is
    begin
       if Target'Address = Source'Address then
          if Target.Busy > 0 then
-            raise Program_Error;
+            raise Program_Error with
+              "attempt to tamper with cursors (container is busy)";
          end if;
 
          Clear (Target);
@@ -108,7 +109,8 @@ package body Ada.Containers.Red_Black_Trees.Generic_Set_Operations is
       end if;
 
       if Target.Busy > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "attempt to tamper with cursors (container is busy)";
       end if;
 
       loop
@@ -222,7 +224,8 @@ package body Ada.Containers.Red_Black_Trees.Generic_Set_Operations is
       end if;
 
       if Target.Busy > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "attempt to tamper with cursors (container is busy)";
       end if;
 
       if Source.Length = 0 then
@@ -400,7 +403,8 @@ package body Ada.Containers.Red_Black_Trees.Generic_Set_Operations is
 
    begin
       if Target.Busy > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "attempt to tamper with cursors (container is busy)";
       end if;
 
       if Target'Address = Source'Address then
@@ -566,7 +570,8 @@ package body Ada.Containers.Red_Black_Trees.Generic_Set_Operations is
       end if;
 
       if Target.Busy > 0 then
-         raise Program_Error;
+         raise Program_Error with
+           "attempt to tamper with cursors (container is busy)";
       end if;
 
       Iterate (Source);

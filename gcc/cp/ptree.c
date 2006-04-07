@@ -41,7 +41,8 @@ cxx_print_decl (FILE *file, tree node, int indent)
       return;
     }
 
-  if (!DECL_LANG_SPECIFIC (node))
+  if (!CODE_CONTAINS_STRUCT (TREE_CODE (node), TS_DECL_COMMON)
+      || !DECL_LANG_SPECIFIC (node))
     return;
   indent_to (file, indent + 3);
   if (TREE_CODE (node) == FUNCTION_DECL
@@ -168,6 +169,12 @@ cxx_print_xnode (FILE *file, tree node, int indent)
 {
   switch (TREE_CODE (node))
     {
+    case BASELINK:
+      print_node (file, "functions", BASELINK_FUNCTIONS (node), indent + 4);
+      print_node (file, "binfo", BASELINK_BINFO (node), indent + 4);
+      print_node (file, "access_binfo", BASELINK_ACCESS_BINFO (node), 
+		  indent + 4);
+      break;
     case OVERLOAD:
       print_node (file, "function", OVL_FUNCTION (node), indent+4);
       print_node (file, "chain", TREE_CHAIN (node), indent+4);

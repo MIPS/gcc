@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2000-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2000-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,7 +35,8 @@ package Prj.Pars is
      (In_Tree           : Project_Tree_Ref;
       Project           : out Project_Id;
       Project_File_Name : String;
-      Packages_To_Check : String_List_Access := All_Packages);
+      Packages_To_Check : String_List_Access := All_Packages;
+      When_No_Sources   : Error_Warning := Error);
    --  Parse a project files and all its imported project files, in the
    --  project tree In_Tree.
    --
@@ -46,5 +47,8 @@ package Prj.Pars is
    --  Packages_To_Check indicates the packages where any unknown attribute
    --  produces an error. For other packages, an unknown attribute produces
    --  a warning.
+   --
+   --  When_No_Sources indicates what should be done when no sources
+   --  are found in a project for a specified or implied language.
 
 end Prj.Pars;

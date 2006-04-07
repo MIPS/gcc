@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 1998-2005 Ada Core Technologies, Inc.           --
+--                     Copyright (C) 1998-2006, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -428,7 +428,7 @@ package body GNAT.Spitbol is
       -- Copy --
       ----------
 
-      procedure Copy (From : in Table; To : in out Table) is
+      procedure Copy (From : Table; To : in out Table) is
          Elmt : Hash_Element_Ptr;
 
       begin
@@ -622,7 +622,7 @@ package body GNAT.Spitbol is
 
       begin
          for J in Str'Range loop
-            Result := Rotate_Left (Result, 1) +
+            Result := Rotate_Left (Result, 3) +
                       Unsigned_32 (Character'Pos (Str (J)));
          end loop;
 

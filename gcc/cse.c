@@ -867,8 +867,7 @@ init_cse_reg_info (unsigned int nregs)
       /* Reallocate the table with NEW_SIZE entries.  */
       if (cse_reg_info_table)
 	free (cse_reg_info_table);
-      cse_reg_info_table = xmalloc (sizeof (struct cse_reg_info)
-				     * new_size);
+      cse_reg_info_table = XNEWVEC (struct cse_reg_info, new_size);
       cse_reg_info_table_size = new_size;
       cse_reg_info_table_first_uninitialized = 0;
     }
@@ -1511,7 +1510,7 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
   if (elt)
     free_element_chain = elt->next_same_hash;
   else
-    elt = xmalloc (sizeof (struct table_elt));
+    elt = XNEW (struct table_elt);
 
   elt->exp = x;
   elt->canon_exp = NULL_RTX;
@@ -2538,15 +2537,25 @@ exp_equiv_p (rtx x, rtx y, int validate, bool for_gcse)
     case MEM:
       if (for_gcse)
 	{
-	  /* Can't merge two expressions in different alias sets, since we
-	     can decide that the expression is transparent in a block when
-	     it isn't, due to it being set with the different alias set.  */
-	  if (MEM_ALIAS_SET (x) != MEM_ALIAS_SET (y))
-	    return 0;
-
 	  /* A volatile mem should not be considered equivalent to any
 	     other.  */
 	  if (MEM_VOLATILE_P (x) || MEM_VOLATILE_P (y))
+	    return 0;
+
+	  /* Can't merge two expressions in different alias sets, since we
+	     can decide that the expression is transparent in a block when
+	     it isn't, due to it being set with the different alias set.
+
+	     Also, can't merge two expressions with different MEM_ATTRS.
+	     They could e.g. be two different entities allocated into the
+	     same space on the stack (see e.g. PR25130).  In that case, the
+	     MEM addresses can be the same, even though the two MEMs are
+	     absolutely not equivalent.  
+   
+	     But because really all MEM attributes should be the same for
+	     equivalent MEMs, we just use the invariant that MEMs that have
+	     the same attributes share the same mem_attrs data structure.  */
+	  if (MEM_ATTRS (x) != MEM_ATTRS (y))
 	    return 0;
 	}
       break;
@@ -3088,7 +3097,7 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
 	      || (GET_MODE_CLASS (GET_MODE (arg1)) == MODE_INT
 		  && code == LT && STORE_FLAG_VALUE == -1)
 #ifdef FLOAT_STORE_FLAG_VALUE
-	      || (GET_MODE_CLASS (GET_MODE (arg1)) == MODE_FLOAT
+	      || (SCALAR_FLOAT_MODE_P (GET_MODE (arg1))
 		  && (fsfv = FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)),
 		      REAL_VALUE_NEGATIVE (fsfv)))
 #endif
@@ -3098,7 +3107,7 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
 		   || (GET_MODE_CLASS (GET_MODE (arg1)) == MODE_INT
 		       && code == GE && STORE_FLAG_VALUE == -1)
 #ifdef FLOAT_STORE_FLAG_VALUE
-		   || (GET_MODE_CLASS (GET_MODE (arg1)) == MODE_FLOAT
+		   || (SCALAR_FLOAT_MODE_P (GET_MODE (arg1))
 		       && (fsfv = FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)),
 			   REAL_VALUE_NEGATIVE (fsfv)))
 #endif
@@ -3161,7 +3170,7 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
 			      << (GET_MODE_BITSIZE (inner_mode) - 1))))
 #ifdef FLOAT_STORE_FLAG_VALUE
 		   || (code == LT
-		       && GET_MODE_CLASS (inner_mode) == MODE_FLOAT
+		       && SCALAR_FLOAT_MODE_P (inner_mode)
 		       && (fsfv = FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)),
 			   REAL_VALUE_NEGATIVE (fsfv)))
 #endif
@@ -3181,7 +3190,7 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
 			       << (GET_MODE_BITSIZE (inner_mode) - 1))))
 #ifdef FLOAT_STORE_FLAG_VALUE
 		    || (code == GE
-			&& GET_MODE_CLASS (inner_mode) == MODE_FLOAT
+			&& SCALAR_FLOAT_MODE_P (inner_mode)
 			&& (fsfv = FLOAT_STORE_FLAG_VALUE (GET_MODE (arg1)),
 			    REAL_VALUE_NEGATIVE (fsfv)))
 #endif
@@ -3946,7 +3955,7 @@ fold_rtx (rtx x, rtx insn)
 	  enum machine_mode mode_arg1;
 
 #ifdef FLOAT_STORE_FLAG_VALUE
-	  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	  if (SCALAR_FLOAT_MODE_P (mode))
 	    {
 	      true_rtx = (CONST_DOUBLE_FROM_REAL_VALUE
 			  (FLOAT_STORE_FLAG_VALUE (mode), mode));
@@ -3972,6 +3981,57 @@ fold_rtx (rtx x, rtx insn)
 	     comparison.  */
 	  if (const_arg0 == 0 || const_arg1 == 0)
 	    {
+	      if (const_arg1 != NULL)
+		{
+		  rtx cheapest_simplification;
+		  int cheapest_cost;
+		  rtx simp_result;
+		  struct table_elt *p;
+
+		  /* See if we can find an equivalent of folded_arg0
+		     that gets us a cheaper expression, possibly a
+		     constant through simplifications.  */
+		  p = lookup (folded_arg0, SAFE_HASH (folded_arg0, mode_arg0),
+			      mode_arg0);
+		  
+		  if (p != NULL)
+		    {
+		      cheapest_simplification = x;
+		      cheapest_cost = COST (x);
+
+		      for (p = p->first_same_value; p != NULL; p = p->next_same_value)
+			{
+			  int cost;
+
+			  /* If the entry isn't valid, skip it.  */
+			  if (! exp_equiv_p (p->exp, p->exp, 1, false))
+			    continue;
+
+			  /* Try to simplify using this equivalence.  */
+			  simp_result
+			    = simplify_relational_operation (code, mode,
+							     mode_arg0,
+							     p->exp,
+							     const_arg1);
+
+			  if (simp_result == NULL)
+			    continue;
+
+			  cost = COST (simp_result);
+			  if (cost < cheapest_cost)
+			    {
+			      cheapest_cost = cost;
+			      cheapest_simplification = simp_result;
+			    }
+			}
+
+		      /* If we have a cheaper expression now, use that
+			 and try folding it further, from the top.  */
+		      if (cheapest_simplification != x)
+			return fold_rtx (cheapest_simplification, insn);
+		    }
+		}
+
 	      /* Some addresses are known to be nonzero.  We don't know
 		 their sign, but equality comparisons are known.  */
 	      if (const_arg1 == const0_rtx
@@ -4061,7 +4121,7 @@ fold_rtx (rtx x, rtx insn)
 	      rtx true_rtx = const_true_rtx, false_rtx = const0_rtx;
 
 #ifdef FLOAT_STORE_FLAG_VALUE
-	      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	      if (SCALAR_FLOAT_MODE_P (mode))
 		{
 		  true_rtx = (CONST_DOUBLE_FROM_REAL_VALUE
 			  (FLOAT_STORE_FLAG_VALUE (mode), mode));
@@ -5506,6 +5566,22 @@ cse_insn (rtx insn, rtx libcall_insn)
 	      break;
 	    }
 
+	  /* Reject certain invalid forms of CONST that we create.  */
+	  else if (CONSTANT_P (trial)
+		   && GET_CODE (trial) == CONST
+		   /* Reject cases that will cause decode_rtx_const to
+		      die.  On the alpha when simplifying a switch, we
+		      get (const (truncate (minus (label_ref)
+		      (label_ref)))).  */
+		   && (GET_CODE (XEXP (trial, 0)) == TRUNCATE
+		       /* Likewise on IA-64, except without the
+			  truncate.  */
+		       || (GET_CODE (XEXP (trial, 0)) == MINUS
+			   && GET_CODE (XEXP (XEXP (trial, 0), 0)) == LABEL_REF
+			   && GET_CODE (XEXP (XEXP (trial, 0), 1)) == LABEL_REF)))
+	    /* Do nothing for this case.  */
+	    ;
+
 	  /* Look for a substitution that makes a valid insn.  */
 	  else if (validate_change (insn, &SET_SRC (sets[i].rtl), trial, 0))
 	    {
@@ -5541,17 +5617,6 @@ cse_insn (rtx insn, rtx libcall_insn)
 
 	  else if (constant_pool_entries_cost
 		   && CONSTANT_P (trial)
-		   /* Reject cases that will cause decode_rtx_const to
-		      die.  On the alpha when simplifying a switch, we
-		      get (const (truncate (minus (label_ref)
-		      (label_ref)))).  */
-		   && ! (GET_CODE (trial) == CONST
-			 && GET_CODE (XEXP (trial, 0)) == TRUNCATE)
-		   /* Likewise on IA-64, except without the truncate.  */
-		   && ! (GET_CODE (trial) == CONST
-			 && GET_CODE (XEXP (trial, 0)) == MINUS
-			 && GET_CODE (XEXP (XEXP (trial, 0), 0)) == LABEL_REF
-			 && GET_CODE (XEXP (XEXP (trial, 0), 1)) == LABEL_REF)
 		   && (src_folded == 0
 		       || (!MEM_P (src_folded)
 			   && ! src_folded_force_flag))
@@ -6631,7 +6696,6 @@ cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
 	{
 	  for (q = PREV_INSN (JUMP_LABEL (p)); q; q = PREV_INSN (q))
 	    if ((!NOTE_P (q)
-		 || NOTE_LINE_NUMBER (q) == NOTE_INSN_LOOP_END
 		 || (PREV_INSN (q) && CALL_P (PREV_INSN (q))
 		     && find_reg_note (PREV_INSN (q), REG_SETJMP, NULL)))
 		&& (!LABEL_P (q) || LABEL_NUSES (q) != 0))
@@ -6738,7 +6802,7 @@ cse_end_of_basic_block (rtx insn, struct cse_basic_block_data *data,
    in conditional jump instructions.  */
 
 int
-cse_main (rtx f, int nregs, FILE *file)
+cse_main (rtx f, int nregs)
 {
   struct cse_basic_block_data val;
   rtx insn = f;
@@ -6746,8 +6810,7 @@ cse_main (rtx f, int nregs, FILE *file)
 
   init_cse_reg_info (nregs);
 
-  val.path = xmalloc (sizeof (struct branch_path)
-		      * PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
+  val.path = XNEWVEC (struct branch_path, PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
 
   cse_jumps_altered = 0;
   recorded_label_ref = 0;
@@ -6759,12 +6822,12 @@ cse_main (rtx f, int nregs, FILE *file)
   init_recog ();
   init_alias_analysis ();
 
-  reg_eqv_table = xmalloc (nregs * sizeof (struct reg_eqv_elem));
+  reg_eqv_table = XNEWVEC (struct reg_eqv_elem, nregs);
 
   /* Find the largest uid.  */
 
   max_uid = get_max_uid ();
-  uid_cuid = xcalloc (max_uid + 1, sizeof (int));
+  uid_cuid = XCNEWVEC (int, max_uid + 1);
 
   /* Compute the mapping from uids to cuids.
      CUIDs are numbers assigned to insns, like uids,
@@ -6805,8 +6868,8 @@ cse_main (rtx f, int nregs, FILE *file)
       cse_basic_block_end = val.high_cuid;
       max_qty = val.nsets * 2;
 
-      if (file)
-	fprintf (file, ";; Processing block from %d to %d, %d sets.\n",
+      if (dump_file)
+	fprintf (dump_file, ";; Processing block from %d to %d, %d sets.\n",
 		 INSN_UID (insn), val.last ? INSN_UID (val.last) : 0,
 		 val.nsets);
 
@@ -6869,7 +6932,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
   int no_conflict = 0;
 
   /* Allocate the space needed by qty_table.  */
-  qty_table = xmalloc (max_qty * sizeof (struct qty_table_elem));
+  qty_table = XNEWVEC (struct qty_table_elem, max_qty);
 
   new_basic_block ();
 
@@ -7032,8 +7095,7 @@ cse_basic_block (rtx from, rtx to, struct branch_path *next_branch)
 	     following branches in this case.  */
 	  to_usage = 0;
 	  val.path_size = 0;
-	  val.path = xmalloc (sizeof (struct branch_path)
-			      * PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
+	  val.path = XNEWVEC (struct branch_path, PARAM_VALUE (PARAM_MAX_CSE_PATH_LENGTH));
 	  cse_end_of_basic_block (insn, &val, 0, 0);
 	  free (val.path);
 
@@ -7336,7 +7398,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 
   timevar_push (TV_DELETE_TRIVIALLY_DEAD);
   /* First count the number of times each register is used.  */
-  counts = xcalloc (nreg, sizeof (int));
+  counts = XCNEWVEC (int, nreg);
   for (insn = insns; insn; insn = NEXT_INSN (insn))
     if (INSN_P (insn))
       count_reg_usage (insn, counts, NULL_RTX, 1);
@@ -7661,7 +7723,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 /* If we have a fixed condition code register (or two), walk through
    the instructions and try to eliminate duplicate assignments.  */
 
-void
+static void
 cse_condition_code_reg (void)
 {
   unsigned int cc_regno_1;
@@ -7775,17 +7837,17 @@ gate_handle_cse (void)
   return optimize > 0;
 }
 
-static void
+static unsigned int
 rest_of_handle_cse (void)
 {
   int tem;
 
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
 
   reg_scan (get_insns (), max_reg_num ());
 
-  tem = cse_main (get_insns (), max_reg_num (), dump_file);
+  tem = cse_main (get_insns (), max_reg_num ());
   if (tem)
     rebuild_jump_labels (get_insns ());
   if (purge_all_dead_edges ())
@@ -7801,7 +7863,8 @@ rest_of_handle_cse (void)
     delete_dead_jumptables ();
 
   if (tem || optimize > 1)
-    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+    cleanup_cfg (CLEANUP_EXPENSIVE);
+  return 0;
 }
 
 struct tree_opt_pass pass_cse =
@@ -7830,15 +7893,15 @@ gate_handle_cse2 (void)
 }
 
 /* Run second CSE pass after loop optimizations.  */
-static void
+static unsigned int
 rest_of_handle_cse2 (void)
 {
   int tem;
 
   if (dump_file)
-    dump_flow_info (dump_file);
+    dump_flow_info (dump_file, dump_flags);
 
-  tem = cse_main (get_insns (), max_reg_num (), dump_file);
+  tem = cse_main (get_insns (), max_reg_num ());
 
   /* Run a pass to eliminate duplicated assignments to condition code
      registers.  We have to run this after bypass_jumps, because it
@@ -7859,6 +7922,7 @@ rest_of_handle_cse2 (void)
     }
   reg_scan (get_insns (), max_reg_num ());
   cse_not_expected = 1;
+  return 0;
 }
 
 

@@ -1,5 +1,5 @@
 /* Header for array handling functions
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -24,15 +24,15 @@ tree gfc_array_deallocate (tree, tree);
 
 /* Generate code to initialize an allocate an array.  Statements are added to
    se, which should contain an expression for the array descriptor.  */
-void gfc_array_allocate (gfc_se *, gfc_ref *, tree);
+bool gfc_array_allocate (gfc_se *, gfc_expr *, tree);
 
 /* Allow the bounds of a loop to be set from a callee's array spec.  */
 void gfc_set_loop_bounds_from_array_spec (gfc_interface_mapping *,
 					  gfc_se *, gfc_array_spec *);
 
-/* Generate code to allocate a temporary array.  */
-tree gfc_trans_allocate_temp_array (stmtblock_t *, stmtblock_t *,
-				    gfc_loopinfo *, gfc_ss_info *, tree, bool);
+/* Generate code to create a temporary array.  */
+tree gfc_trans_create_temp_array (stmtblock_t *, stmtblock_t *, gfc_loopinfo *,
+                                  gfc_ss_info *, tree, bool, bool, bool);
 
 /* Generate function entry code for allocation of compiler allocated array
    variables.  */
@@ -41,6 +41,8 @@ tree gfc_trans_auto_array_allocation (tree, gfc_symbol *, tree);
 tree gfc_trans_dummy_array_bias (gfc_symbol *, tree, tree);
 /* Generate entry and exit code for g77 calling convention arrays.  */
 tree gfc_trans_g77_array (gfc_symbol *, tree);
+/* Generate code to deallocate the symbol 'sym', if it is allocated.  */
+tree gfc_trans_dealloc_allocated (gfc_symbol * sym);
 /* Add initialization for deferred arrays.  */
 tree gfc_trans_deferred_array (gfc_symbol *, tree);
 /* Generate an initializer for a static pointer or allocatable array.  */
@@ -48,11 +50,14 @@ void gfc_trans_static_array_pointer (gfc_symbol *);
 
 /* Generate scalarization information for an expression.  */
 gfc_ss *gfc_walk_expr (gfc_expr *);
-/* Walk the arguments of an intrinsic function.  */
-gfc_ss *gfc_walk_elemental_function_args (gfc_ss *, gfc_expr *, gfc_ss_type);
+/* Walk the arguments of an elemental function.  */
+gfc_ss *gfc_walk_elemental_function_args (gfc_ss *, gfc_actual_arglist *,
+					  gfc_ss_type);
 /* Walk an intrinsic function.  */
 gfc_ss *gfc_walk_intrinsic_function (gfc_ss *, gfc_expr *,
 				     gfc_intrinsic_sym *);
+/* Reverse the order of an SS chain.  */
+gfc_ss *gfc_reverse_ss (gfc_ss *);
 
 /* Free the SS associated with a loop.  */
 void gfc_cleanup_loop (gfc_loopinfo *);
@@ -91,6 +96,8 @@ void gfc_conv_tmp_ref (gfc_se *);
 void gfc_conv_expr_descriptor (gfc_se *, gfc_expr *, gfc_ss *);
 /* Convert an array for passing as an actual function parameter.  */
 void gfc_conv_array_parameter (gfc_se *, gfc_expr *, gfc_ss *, int);
+/* Evaluate and transpose a matrix expression.  */
+void gfc_conv_array_transpose (gfc_se *, gfc_expr *);
 
 /* These work with both descriptors and descriptorless arrays.  */
 tree gfc_conv_array_data (tree);
@@ -109,11 +116,6 @@ tree gfc_conv_descriptor_dtype (tree);
 tree gfc_conv_descriptor_stride (tree, tree);
 tree gfc_conv_descriptor_lbound (tree, tree);
 tree gfc_conv_descriptor_ubound (tree, tree);
-
-/* Dependency checking for WHERE and FORALL.  */
-int gfc_check_dependency (gfc_expr *, gfc_expr *, gfc_expr **, int);
-/* Dependency checking for function calls.  */
-int gfc_check_fncall_dependency (gfc_expr *, gfc_expr *);
 
 /* Add pre-loop scalarization code for intrinsic functions which require
    special handling.  */

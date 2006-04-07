@@ -1,5 +1,5 @@
 /* Process expressions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -129,6 +129,10 @@ static GTY(()) tree quick_stack;
 
 /* A free-list of unused permanent TREE_LIST nodes.  */
 static GTY((deletable)) tree tree_list_free_list;
+
+/* The physical memory page size used in this computer.  See
+   build_field_ref().  */
+static GTY(()) tree page_size;
 
 /* The stack pointer of the Java virtual machine.
    This does include the size of the quick_stack. */
@@ -273,8 +277,8 @@ push_type_0 (tree type)
 void
 push_type (tree type)
 {
-  if (! push_type_0 (type))
-    abort ();
+  int r = push_type_0 (type);
+  gcc_assert (r);
 }
 
 static void
@@ -606,15 +610,13 @@ java_stack_pop (int count)
     {
       tree type, val;
 
-      if (stack_pointer == 0)
-	abort ();
+      gcc_assert (stack_pointer != 0);
 
       type = stack_type_map[stack_pointer - 1];
       if (type == TYPE_SECOND)
 	{
 	  count--;
-	  if (stack_pointer == 1 || count <= 0)
-	    abort ();
+	  gcc_assert (stack_pointer != 1 && count > 0);
 
 	  type = stack_type_map[stack_pointer - 2];
 	}
@@ -639,6 +641,7 @@ java_stack_swap (void)
       || TYPE_IS_WIDE (type1) || TYPE_IS_WIDE (type2))
     /* Bad stack swap.  */
     abort ();
+  /* Bad stack swap.  */
 
   flush_quick_stack ();
   decl1 = find_stack_slot (stack_pointer - 1, type1);
@@ -678,18 +681,16 @@ java_stack_dup (int size, int offset)
       type = stack_type_map [src_index];
       if (type == TYPE_SECOND)
 	{
-	  if (src_index <= low_index)
-	    /* Dup operation splits 64-bit number.  */
-	    abort ();
+	  /* Dup operation splits 64-bit number.  */
+	  gcc_assert (src_index > low_index);
 
 	  stack_type_map[dst_index] = type;
 	  src_index--;  dst_index--;
 	  type = stack_type_map[src_index];
-	  if (! TYPE_IS_WIDE (type))
-	    abort ();
+	  gcc_assert (TYPE_IS_WIDE (type));
 	}
-      else if (TYPE_IS_WIDE (type))
-	abort ();
+      else
+	gcc_assert (! TYPE_IS_WIDE (type));
 
       if (src_index != dst_index)
 	{
@@ -785,7 +786,7 @@ encode_newarray_type (tree type)
   else if (type == long_type_node)
     return 11;
   else
-    abort ();
+    gcc_unreachable ();
 }
 
 /* Build a call to _Jv_ThrowBadArrayIndex(), the
@@ -942,17 +943,15 @@ build_java_arraystore_check (tree array, tree object)
     }
   else
     {
-      if (! is_array_type_p (array_type_p))
-	abort ();
+      gcc_assert (is_array_type_p (array_type_p));
 
       /* Get the TYPE_DECL for ARRAY's element type. */
       element_type
 	= TYPE_NAME (TREE_TYPE (TREE_TYPE (TREE_TYPE (array_type_p))));
     }
 
-  if (TREE_CODE (element_type) != TYPE_DECL   
-      || TREE_CODE (object_type) != TYPE_DECL)
-    abort ();
+  gcc_assert (TREE_CODE (element_type) == TYPE_DECL
+	      && TREE_CODE (object_type) == TYPE_DECL);
 
   if (!flag_store_check)
     return build1 (NOP_EXPR, array_type_p, array);
@@ -1235,7 +1234,7 @@ expand_java_pushc (int ival, tree type)
       value = build_real (type, x);
     }
   else
-    abort ();
+    gcc_unreachable ();
 
   push_value (value);
 }
@@ -1312,10 +1311,10 @@ java_create_object (tree type)
 		     ? alloc_object_node
 		     : alloc_no_finalizer_node);
   
-  return build (CALL_EXPR, promote_type (type),
-		build_address_of (alloc_node),
-		build_tree_list (NULL_TREE, build_class_ref (type)),
-		NULL_TREE);
+  return build3 (CALL_EXPR, promote_type (type),
+		 build_address_of (alloc_node),
+		 build_tree_list (NULL_TREE, build_class_ref (type)),
+		 NULL_TREE);
 }
 
 static void
@@ -1492,9 +1491,7 @@ build_java_soft_divmod (enum tree_code op, tree type, tree op1, tree op2)
 	}
     }
 
-  if (! call)
-    abort ();
-		  
+  gcc_assert (call);
   call = build3 (CALL_EXPR, type,
 		 build_address_of (call),
 		 tree_cons (NULL_TREE, arg1,
@@ -1685,11 +1682,28 @@ build_field_ref (tree self_value, tree self_class, tree name)
     }
   else
     {
-      int check = (flag_check_references
-		   && ! (DECL_P (self_value)
-			 && DECL_NAME (self_value) == this_identifier_node));
-
       tree base_type = promote_type (base_class);
+
+      /* CHECK is true if self_value is not the this pointer.  */
+      int check = (! (DECL_P (self_value)
+		      && DECL_NAME (self_value) == this_identifier_node));
+
+      /* Determine whether a field offset from NULL will lie within
+	 Page 0: this is necessary on those GNU/Linux/BSD systems that
+	 trap SEGV to generate NullPointerExceptions.  
+
+	 We assume that Page 0 will be mapped with NOPERM, and that
+	 memory may be allocated from any other page, so only field
+	 offsets < pagesize are guaratneed to trap.  We also assume
+	 the smallest page size we'll encounter is 4k bytes.  */
+      if (check && ! flag_check_references && ! flag_indirect_dispatch)
+	{
+	  tree field_offset = byte_position (field_decl);
+	  if (! page_size)
+	    page_size = size_int (4096); 	      
+	  check = ! INT_CST_LT_UNSIGNED (field_offset, page_size);
+	}
+
       if (base_type != TREE_TYPE (self_value))
 	self_value = fold_build1 (NOP_EXPR, base_type, self_value);
       if (! flag_syntax_only && flag_indirect_dispatch)
@@ -1703,7 +1717,19 @@ build_field_ref (tree self_value, tree self_class, tree name)
 		      NULL_TREE, NULL_TREE);
 	  tree address;
 
+	  if (DECL_CONTEXT (field_decl) != output_class)
+	    field_offset
+	      = build3 (COND_EXPR, TREE_TYPE (field_offset),
+			build2 (EQ_EXPR, boolean_type_node,
+				field_offset, integer_zero_node),
+			build3 (CALL_EXPR, void_type_node, 
+				build_address_of (soft_nosuchfield_node),
+				build_tree_list (NULL_TREE, otable_index), 
+				NULL_TREE),
+			field_offset);
+	  
 	  field_offset = fold (convert (sizetype, field_offset));
+	  self_value = java_check_reference (self_value, check);
 	  address 
 	    = fold_build2 (PLUS_EXPR, 
 			   build_pointer_type (TREE_TYPE (field_decl)),
@@ -1879,7 +1905,7 @@ pop_arguments (tree arg_types)
 	arg = convert (integer_type_node, arg);
       return tree_cons (NULL_TREE, arg, tail);
     }
-  abort ();
+  gcc_unreachable ();
 }
 
 /* Attach to PTR (a block) the declaration found in ENTRY. */
@@ -2140,8 +2166,7 @@ build_invokevirtual (tree dtable, tree method)
 
   if (flag_indirect_dispatch)
     {
-      if (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method))))
-	abort ();
+      gcc_assert (! CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method))));
 
       otable_index 
 	= build_int_cst (NULL_TREE, get_symbol_table_index 
@@ -2194,8 +2219,7 @@ build_invokeinterface (tree dtable, tree method)
 		   lookup_field (&dtable_type, class_ident), NULL_TREE);
 
   interface = DECL_CONTEXT (method);
-  if (! CLASS_INTERFACE (TYPE_NAME (interface)))
-    abort ();
+  gcc_assert (CLASS_INTERFACE (TYPE_NAME (interface)));
   layout_class_methods (interface);
   
   if (flag_indirect_dispatch)
@@ -2268,6 +2292,18 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
     method = lookup_java_constructor (self_type, method_signature);
   else
     method = lookup_java_method (self_type, method_name, method_signature);
+
+  /* We've found a method in a class other than the one in which it
+     was wanted.  This can happen if, for instance, we're trying to
+     compile invokespecial super.equals().  
+     FIXME: This is a kludge.  Rather than nullifying the result, we
+     should change lookup_java_method() so that it doesn't search the
+     superclass chain when we're BC-compiling.  */
+  if (! flag_verify_invocations
+      && method
+      && ! TYPE_ARRAY_P (self_type)
+      && self_type != DECL_CONTEXT (method))
+    method = NULL_TREE;
 
   /* We've found a method in an interface, but this isn't an interface
      call.  */
@@ -2436,8 +2472,7 @@ build_jni_stub (tree method)
   int from_class = ! CLASS_FROM_SOURCE_P (klass);
   klass = build_class_ref (klass);
 
-  if (! METHOD_NATIVE (method) || ! flag_jni)
-    abort ();
+  gcc_assert (METHOD_NATIVE (method) && flag_jni);
 
   DECL_ARTIFICIAL (method) = 1;
   DECL_EXTERNAL (method) = 0;
@@ -2558,8 +2593,17 @@ build_jni_stub (tree method)
   /* If the JNI call returned a result, capture it here.  If we had to
      unwrap JNI object results, we would do that here.  */
   if (res_var != NULL_TREE)
-    call = build2 (MODIFY_EXPR, TREE_TYPE (TREE_TYPE (method)),
-		   res_var, call);
+    {
+      /* If the call returns an object, it may return a JNI weak
+	 reference, in which case we must unwrap it.  */
+      if (! JPRIMITIVE_TYPE_P (TREE_TYPE (TREE_TYPE (method))))
+	call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (method)),
+		       build_address_of (soft_unwrapjni_node),
+		       build_tree_list (NULL_TREE, call),
+		       NULL_TREE);
+      call = build2 (MODIFY_EXPR, TREE_TYPE (TREE_TYPE (method)),
+		     res_var, call);
+    }
 
   TREE_SIDE_EFFECTS (call) = 1;
   CAN_COMPLETE_NORMALLY (call) = 1;
@@ -2582,8 +2626,7 @@ build_jni_stub (tree method)
   if (res_var != NULL_TREE)
     {
       tree drt;
-      if (! DECL_RESULT (method))
-	abort ();
+      gcc_assert (DECL_RESULT (method));
       /* Make sure we copy the result variable to the actual
 	 result.  We use the type of the DECL_RESULT because it
 	 might be different from the return type of the function:
@@ -3462,8 +3505,7 @@ force_evaluation_order (tree node)
 	return node;
 
       /* Not having a list of arguments here is an error. */ 
-      if (TREE_CODE (arg) != TREE_LIST)
-        abort ();
+      gcc_assert (TREE_CODE (arg) == TREE_LIST);
 
       /* This reverses the evaluation order. This is a desired effect. */
       for (cmp = NULL_TREE; arg; arg = TREE_CHAIN (arg))

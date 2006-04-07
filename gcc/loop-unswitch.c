@@ -172,7 +172,7 @@ unswitch_loops (struct loops *loops)
 static rtx
 may_unswitch_on (basic_block bb, struct loop *loop, rtx *cinsn)
 {
-  rtx test, at, insn, op[2], stest;
+  rtx test, at, op[2], stest;
   struct rtx_iv iv;
   unsigned i;
   enum machine_mode mode;
@@ -205,8 +205,7 @@ may_unswitch_on (basic_block bb, struct loop *loop, rtx *cinsn)
       if (CONSTANT_P (op[i]))
 	continue;
 
-      insn = iv_get_reaching_def (at, op[i]);
-      if (!iv_analyze (insn, op[i], &iv))
+      if (!iv_analyze (at, op[i], &iv))
 	return NULL_RTX;
       if (iv.step != const0_rtx
 	  || iv.first_special)
@@ -426,8 +425,11 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
   sbitmap_zero (zero_bitmap);
   if (!duplicate_loop_to_header_edge (loop, entry, loops, 1,
 	zero_bitmap, NULL, NULL, NULL, 0))
-    return NULL;
-  free (zero_bitmap);
+    {
+      sbitmap_free (zero_bitmap);
+      return NULL;
+    }
+  sbitmap_free (zero_bitmap);
   entry->flags |= irred_flag;
 
   /* Record the block with condition we unswitch on.  */

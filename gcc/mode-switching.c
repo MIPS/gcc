@@ -104,7 +104,7 @@ static struct seginfo *
 new_seginfo (int mode, rtx insn, int bb, HARD_REG_SET regs_live)
 {
   struct seginfo *ptr;
-  ptr = xmalloc (sizeof (struct seginfo));
+  ptr = XNEW (struct seginfo);
   ptr->mode = mode;
   ptr->insn_ptr = insn;
   ptr->bbnum = bb;
@@ -382,8 +382,8 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 /* Find all insns that need a particular mode setting, and insert the
    necessary mode switches.  Return true if we did work.  */
 
-int
-optimize_mode_switching (FILE *file)
+static int
+optimize_mode_switching (void)
 {
   rtx insn;
   int e;
@@ -415,7 +415,7 @@ optimize_mode_switching (FILE *file)
 	entry_exit_extra = 3;
 #endif
 	bb_info[n_entities]
-	  = xcalloc (last_basic_block + entry_exit_extra, sizeof **bb_info);
+	  = XCNEWVEC (struct bb_info, last_basic_block + entry_exit_extra);
 	entity_map[n_entities++] = e;
 	if (num_modes[e] > max_num_modes)
 	  max_num_modes = num_modes[e];
@@ -563,7 +563,7 @@ optimize_mode_switching (FILE *file)
 
       FOR_EACH_BB (bb)
 	sbitmap_not (kill[bb->index], transp[bb->index]);
-      edge_list = pre_edge_lcm (file, n_entities, transp, comp, antic,
+      edge_list = pre_edge_lcm (n_entities, transp, comp, antic,
 				kill, &insert, &delete);
 
       for (j = n_entities - 1; j >= 0; j--)
@@ -735,14 +735,15 @@ gate_mode_switching (void)
 #endif
 }
 
-static void
+static unsigned int
 rest_of_handle_mode_switching (void)
 {
 #ifdef OPTIMIZE_MODE_SWITCHING
   no_new_pseudos = 0;
-  optimize_mode_switching (NULL);
+  optimize_mode_switching ();
   no_new_pseudos = 1;
 #endif /* OPTIMIZE_MODE_SWITCHING */
+  return 0;
 }
 
 

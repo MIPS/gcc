@@ -1,6 +1,6 @@
 /* Parse and display command line options.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
-   Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -46,16 +46,19 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_source_file = NULL;
   gfc_option.module_dir = NULL;
   gfc_option.source_form = FORM_UNKNOWN;
-  gfc_option.fixed_line_length = 72;
+  gfc_option.fixed_line_length = -1;
+  gfc_option.free_line_length = -1;
   gfc_option.max_identifier_length = GFC_MAX_SYMBOL_LEN;
   gfc_option.verbose = 0;
 
   gfc_option.warn_aliasing = 0;
+  gfc_option.warn_ampersand = 0;
   gfc_option.warn_conversion = 0;
   gfc_option.warn_implicit_interface = 0;
   gfc_option.warn_line_truncation = 0;
-  gfc_option.warn_underflow = 1;
   gfc_option.warn_surprising = 0;
+  gfc_option.warn_tabs = 1;
+  gfc_option.warn_underflow = 1;
   gfc_option.warn_unused_labels = 0;
 
   gfc_option.flag_default_double = 0;
@@ -71,23 +74,28 @@ gfc_init_options (unsigned int argc ATTRIBUTE_UNUSED,
   gfc_option.flag_no_backend = 0;
   gfc_option.flag_pack_derived = 0;
   gfc_option.flag_repack_arrays = 0;
+  gfc_option.flag_preprocessed = 0;
   gfc_option.flag_automatic = 1;
   gfc_option.flag_backslash = 1;
   gfc_option.flag_cray_pointer = 0;
   gfc_option.flag_d_lines = -1;
+  gfc_option.flag_openmp = 0;
 
   gfc_option.q_kind = gfc_default_double_kind;
 
   gfc_option.fpe = 0;
 
-  flag_argument_noalias = 2;
+  /* Argument pointers cannot point to anything
+     but their argument.  */
+  flag_argument_noalias = 3;
+
   flag_errno_math = 0;
 
   gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
     | GFC_STD_F2003 | GFC_STD_F95 | GFC_STD_F77 | GFC_STD_GNU
     | GFC_STD_LEGACY;
   gfc_option.warn_std = GFC_STD_F95_OBS | GFC_STD_F95_DEL
-    | GFC_STD_F2003 | GFC_STD_LEGACY;
+    | GFC_STD_LEGACY;
 
   gfc_option.warn_nonstd_intrinsics = 0;
 
@@ -171,7 +179,9 @@ form_from_filename (const char *filename)
 bool
 gfc_post_options (const char **pfilename)
 {
-  const char *filename = *pfilename;
+  const char *filename = *pfilename, *canon_source_file = NULL;
+  char *source_path;
+  int i;
 
   /* Verify the input file name.  */
   if (!filename || strcmp (filename, "-") == 0)
@@ -179,7 +189,39 @@ gfc_post_options (const char **pfilename)
       filename = "";
     }
 
-  gfc_source_file = filename;
+  if (gfc_option.flag_preprocessed)
+    {
+      /* For preprocessed files, if the first tokens are of the form # NUM.
+	 handle the directives so we know the original file name.  */
+      gfc_source_file = gfc_read_orig_filename (filename, &canon_source_file);
+      if (gfc_source_file == NULL)
+	gfc_source_file = filename;
+      else
+	*pfilename = gfc_source_file;
+    }
+  else
+    gfc_source_file = filename;
+
+  if (canon_source_file == NULL)
+    canon_source_file = gfc_source_file;
+
+  /* Adds the path where the source file is to the list of include files.  */
+
+  i = strlen (canon_source_file);
+  while (i > 0 && !IS_DIR_SEPARATOR (canon_source_file[i]))
+    i--;
+  if (i != 0)
+    {
+      source_path = alloca (i + 1);
+      memcpy (source_path, canon_source_file, i);
+      source_path[i] = 0;
+      gfc_add_include_path (source_path);
+    }
+  else
+    gfc_add_include_path (".");
+
+  if (canon_source_file != gfc_source_file)
+    gfc_free ((void *) canon_source_file);
 
   /* Decide which form the file will be read in as.  */
 
@@ -193,7 +235,7 @@ gfc_post_options (const char **pfilename)
 	{
 	  gfc_current_form = FORM_FREE;
 	  gfc_warning_now ("Reading file '%s' as free form.", 
-			   (filename[0] == '\0') ? "<stdin>" : filename); 
+			   (filename[0] == '\0') ? "<stdin>" : filename);
 	}
     }
 
@@ -233,6 +275,9 @@ gfc_post_options (const char **pfilename)
   /* Implement -fno-automatic as -fmax-stack-var-size=0.  */
   if (!gfc_option.flag_automatic)
     gfc_option.flag_max_stack_var_size = 0;
+  
+  if (pedantic)
+    gfc_option.warn_ampersand = 1;
 
   return false;
 }
@@ -245,12 +290,14 @@ set_Wall (void)
 {
 
   gfc_option.warn_aliasing = 1;
+  gfc_option.warn_ampersand = 1;
   gfc_option.warn_line_truncation = 1;
-  gfc_option.warn_underflow = 1;
-  gfc_option.warn_surprising = 1;
-  gfc_option.warn_unused_labels = 1;
   gfc_option.warn_nonstd_intrinsics = 1;
-
+  gfc_option.warn_surprising = 1;
+  gfc_option.warn_tabs = 0;
+  gfc_option.warn_underflow = 1;
+  gfc_option.warn_unused_labels = 1;
+ 
   set_Wunused (1);
   warn_return_type = 1;
   warn_switch = 1;
@@ -346,6 +393,10 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.warn_aliasing = value;
       break;
 
+    case OPT_Wampersand:
+      gfc_option.warn_ampersand = value;
+      break;
+
     case OPT_Wconversion:
       gfc_option.warn_conversion = value;
       break;
@@ -358,12 +409,16 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.warn_line_truncation = value;
       break;
 
-    case OPT_Wunderflow:
-      gfc_option.warn_underflow = value;
-      break;
-
     case OPT_Wsurprising:
       gfc_option.warn_surprising = value;
+      break;
+
+    case OPT_Wtabs:
+      gfc_option.warn_tabs = value;
+      break;
+
+    case OPT_Wunderflow:
+      gfc_option.warn_underflow = value;
       break;
 
     case OPT_Wunused_labels:
@@ -406,8 +461,30 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.source_form = FORM_FIXED;
       break;
 
+    case OPT_ffixed_line_length_none:
+      gfc_option.fixed_line_length = 0;
+      break;
+
+    case OPT_ffixed_line_length_:
+      if (value != 0 && value < 7)
+	gfc_fatal_error ("Fixed line length must be at least seven.");
+      gfc_option.fixed_line_length = value;
+      break;
+
     case OPT_ffree_form:
       gfc_option.source_form = FORM_FREE;
+      break;
+
+    case OPT_fopenmp:
+      gfc_option.flag_openmp = value;
+      break;
+
+    case OPT_ffree_line_length_none:
+      gfc_option.free_line_length = 0;
+      break;
+
+    case OPT_ffree_line_length_:
+      gfc_option.free_line_length = value;
       break;
 
     case OPT_funderscoring:
@@ -442,14 +519,8 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.flag_repack_arrays = value;
       break;
 
-    case OPT_ffixed_line_length_none:
-      gfc_option.fixed_line_length = 0;
-      break;
-
-    case OPT_ffixed_line_length_:
-      if (value != 0 && value < 7)
-	gfc_fatal_error ("Fixed line length must be at least seven.");
-      gfc_option.fixed_line_length = value;
+    case OPT_fpreprocessed:
+      gfc_option.flag_preprocessed = value;
       break;
 
     case OPT_fmax_identifier_length_:
@@ -494,6 +565,8 @@ gfc_handle_option (size_t scode, const char *arg, int value)
       gfc_option.allow_std = GFC_STD_F95_OBS | GFC_STD_F95 | GFC_STD_F77;
       gfc_option.warn_std = GFC_STD_F95_OBS;
       gfc_option.max_identifier_length = 31;
+      gfc_option.warn_ampersand = 1;
+      gfc_option.warn_tabs = 0;
       break;
 
     case OPT_std_f2003:
@@ -501,6 +574,7 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 	| GFC_STD_F2003 | GFC_STD_F95;
       gfc_option.warn_std = GFC_STD_F95_OBS;
       gfc_option.max_identifier_length = 63;
+      gfc_option.warn_ampersand = 1;
       break;
 
     case OPT_std_gnu:
@@ -524,6 +598,30 @@ gfc_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_fshort_enums:
       gfc_option.fshort_enums = 1;
+      break;
+
+    case OPT_fconvert_little_endian:
+      gfc_option.convert = CONVERT_LITTLE;
+      break;
+
+    case OPT_fconvert_big_endian:
+      gfc_option.convert = CONVERT_BIG;
+      break;
+
+    case OPT_fconvert_native:
+      gfc_option.convert = CONVERT_NATIVE;
+      break;
+
+    case OPT_fconvert_swap:
+      gfc_option.convert = CONVERT_SWAP;
+      break;
+
+    case OPT_frecord_marker_4:
+      gfc_option.record_marker = 4;
+      break;
+
+    case OPT_frecord_marker_8:
+      gfc_option.record_marker = 8;
       break;
     }
 

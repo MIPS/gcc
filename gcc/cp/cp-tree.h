@@ -1,6 +1,6 @@
 /* Definitions for C++ parsing and type checking.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -52,6 +52,8 @@ struct diagnostic_context;
       TYPENAME_IS_ENUM_P (in TYPENAME_TYPE)
       REFERENCE_REF_P (in INDIRECT_EXPR)
       QUALIFIED_NAME_IS_TEMPLATE (in SCOPE_REF)
+      OMP_ATOMIC_DEPENDENT_P (in OMP_ATOMIC)
+      OMP_FOR_GIMPLIFYING_P (in OMP_FOR)
       BASELINK_QUALIFIED_P (in BASELINK)
    1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
@@ -742,8 +744,7 @@ struct language_function GTY(())
   /* True if this function can throw an exception.  */
   BOOL_BITFIELD can_throw : 1;
 
-  struct named_label_use_list *x_named_label_uses;
-  struct named_label_list *x_named_labels;
+  htab_t GTY((param_is(struct named_label_entry))) x_named_labels;
   struct cp_binding_level *bindings;
   VEC(tree,gc) *x_local_names;
 };
@@ -1521,7 +1522,8 @@ struct lang_decl_flags GTY(())
   unsigned this_thunk_p : 1;
   unsigned repo_available_p : 1;
   unsigned hidden_friend_p : 1;
-  unsigned dummy : 2;
+  unsigned threadprivate_p : 1;
+  /* One unused bit.  */
 
   union lang_decl_u {
     /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
@@ -1962,6 +1964,8 @@ struct lang_decl GTY(())
 /* NULL_TREE in DECL_CONTEXT represents the global namespace.  */
 #define CP_DECL_CONTEXT(NODE) \
   (DECL_CONTEXT (NODE) ? DECL_CONTEXT (NODE) : global_namespace)
+#define CP_TYPE_CONTEXT(NODE) \
+  (TYPE_CONTEXT (NODE) ? TYPE_CONTEXT (NODE) : global_namespace)
 #define FROB_CONTEXT(NODE)   ((NODE) == global_namespace ? NULL_TREE : (NODE))
 
 /* 1 iff NODE has namespace scope, including the global namespace.  */
@@ -1969,14 +1973,24 @@ struct lang_decl GTY(())
   (!DECL_TEMPLATE_PARM_P (NODE)					\
    && TREE_CODE (CP_DECL_CONTEXT (NODE)) == NAMESPACE_DECL)
 
+#define TYPE_NAMESPACE_SCOPE_P(NODE)				\
+  (TREE_CODE (CP_TYPE_CONTEXT (NODE)) == NAMESPACE_DECL)
+
 /* 1 iff NODE is a class member.  */
 #define DECL_CLASS_SCOPE_P(NODE) \
   (DECL_CONTEXT (NODE) && TYPE_P (DECL_CONTEXT (NODE)))
+
+#define TYPE_CLASS_SCOPE_P(NODE) \
+  (TYPE_CONTEXT (NODE) && TYPE_P (TYPE_CONTEXT (NODE)))
 
 /* 1 iff NODE is function-local.  */
 #define DECL_FUNCTION_SCOPE_P(NODE) \
   (DECL_CONTEXT (NODE) \
    && TREE_CODE (DECL_CONTEXT (NODE)) == FUNCTION_DECL)
+
+#define TYPE_FUNCTION_SCOPE_P(NODE) \
+  (TYPE_CONTEXT (NODE) \
+   && TREE_CODE (TYPE_CONTEXT (NODE)) == FUNCTION_DECL)
 
 /* 1 iff VAR_DECL node NODE is a type-info decl.  This flag is set for
    both the primary typeinfo object and the associated NTBS name.  */
@@ -2348,6 +2362,11 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 #define DECL_HIDDEN_FRIEND_P(NODE) \
   (DECL_LANG_SPECIFIC (DECL_COMMON_CHECK (NODE))->decl_flags.hidden_friend_p)
 
+/* Nonzero if DECL has been declared threadprivate by
+   #pragma omp threadprivate.  */
+#define CP_DECL_THREADPRIVATE_P(DECL) \
+  (DECL_LANG_SPECIFIC (VAR_DECL_CHECK (DECL))->decl_flags.threadprivate_p)
+
 /* Record whether a typedef for type `int' was actually `signed int'.  */
 #define C_TYPEDEF_EXPLICITLY_SIGNED(EXP) DECL_LANG_FLAG_1 (EXP)
 
@@ -2358,12 +2377,12 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 #define DECL_EXTERNAL_LINKAGE_P(DECL) \
   (decl_linkage (DECL) == lk_external)
 
-/* Keep these codes in ascending code order.  CHAR_TYPE is used here
-   to completely fill the range.  */
+/* Keep these codes in ascending code order.  */
 
-#define INTEGRAL_CODE_P(CODE)				\
-  ((CODE) == ENUMERAL_TYPE || (CODE) == BOOLEAN_TYPE	\
-   || (CODE) == CHAR_TYPE || (CODE) == INTEGER_TYPE)
+#define INTEGRAL_CODE_P(CODE)	\
+  ((CODE) == ENUMERAL_TYPE	\
+   || (CODE) == BOOLEAN_TYPE	\
+   || (CODE) == INTEGER_TYPE)
 
 /* [basic.fundamental]
 
@@ -2372,11 +2391,9 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 
    Note that INTEGRAL_TYPE_P, as defined in tree.h, allows enumeration
    types as well, which is incorrect in C++.  Keep these checks in
-   ascending code order.  CHAR_TYPE is added to complete the interval of
-   values.  */
+   ascending code order.  */
 #define CP_INTEGRAL_TYPE_P(TYPE)		\
   (TREE_CODE (TYPE) == BOOLEAN_TYPE		\
-   || TREE_CODE (TYPE) == CHAR_TYPE		\
    || TREE_CODE (TYPE) == INTEGER_TYPE)
 
 /* Returns true if TYPE is an integral or enumeration name.  Keep
@@ -2439,6 +2456,11 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 /* True if NODE is a brace-enclosed initializer.  */
 #define BRACE_ENCLOSED_INITIALIZER_P(NODE) \
   (TREE_CODE (NODE) == CONSTRUCTOR && !TREE_TYPE (NODE))
+
+/* True if NODE is a compound-literal, i.e., a brace-enclosed
+   initializer cast to a particular type.  */
+#define COMPOUND_LITERAL_P(NODE) \
+  (TREE_CODE (NODE) == CONSTRUCTOR && TREE_HAS_CONSTRUCTOR (NODE))
 
 #define EMPTY_CONSTRUCTOR_P(NODE) (TREE_CODE (NODE) == CONSTRUCTOR \
 				   && VEC_empty (constructor_elt, \
@@ -2724,12 +2746,13 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 
    For a class template, this list contains the partial
    specializations of this template.  (Full specializations are not
-   recorded on this list.)  The TREE_PURPOSE holds the innermost
-   arguments used in the partial specialization (e.g., for `template
-   <class T> struct S<T*, int>' this will be `T*'.)  The TREE_VALUE
-   holds the innermost template parameters for the specialization
-   (e.g., `T' in the example above.)  The TREE_TYPE is the _TYPE node
-   for the partial specialization.
+   recorded on this list.)  The TREE_PURPOSE holds the arguments used
+   in the partial specialization (e.g., for `template <class T> struct
+   S<T*, int>' this will be `T*'.)  The arguments will also include
+   any outer template arguments.  The TREE_VALUE holds the innermost
+   template parameters for the specialization (e.g., `T' in the
+   example above.)  The TREE_TYPE is the _TYPE node for the partial
+   specialization.
 
    This list is not used for static variable templates.  */
 #define DECL_TEMPLATE_SPECIALIZATIONS(NODE)     DECL_SIZE (NODE)
@@ -2943,6 +2966,26 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 #define QUALIFIED_NAME_IS_TEMPLATE(NODE) \
   (TREE_LANG_FLAG_0 (SCOPE_REF_CHECK (NODE)))
 
+/* True for an OMP_ATOMIC that has dependent parameters.  These are stored
+   as bare LHS/RHS, and not as ADDR/RHS, as in the generic statement.  */
+#define OMP_ATOMIC_DEPENDENT_P(NODE) \
+  (TREE_LANG_FLAG_0 (OMP_ATOMIC_CHECK (NODE)))
+
+/* Used to store the operation code when OMP_ATOMIC_DEPENDENT_P is set.  */
+#define OMP_ATOMIC_CODE(NODE) \
+  (OMP_ATOMIC_CHECK (NODE)->exp.complexity)
+
+/* Used while gimplifying continue statements bound to OMP_FOR nodes.  */
+#define OMP_FOR_GIMPLIFYING_P(NODE) \
+  (TREE_LANG_FLAG_0 (OMP_FOR_CHECK (NODE)))
+
+/* A language-specific token attached to the OpenMP data clauses to 
+   hold code (or code fragments) related to ctors, dtors, and op=.
+   See semantics.c for details.  */
+#define CP_OMP_CLAUSE_INFO(NODE) \
+  TREE_TYPE (OMP_CLAUSE_RANGE_CHECK (NODE, OMP_CLAUSE_PRIVATE, \
+			             OMP_CLAUSE_COPYPRIVATE))
+
 /* These macros provide convenient access to the various _STMT nodes
    created when parsing template declarations.  */
 #define TRY_STMTS(NODE)		TREE_OPERAND (TRY_BLOCK_CHECK (NODE), 0)
@@ -3102,10 +3145,12 @@ typedef enum tsubst_flags_t {
 				   instantiate_type use) */
   tf_user = 1 << 5,		/* found template must be a user template
 				   (lookup_template_class use) */
-  tf_conv = 1 << 6		/* We are determining what kind of
+  tf_conv = 1 << 6,		/* We are determining what kind of
 				   conversion might be permissible,
 				   not actually performing the
 				   conversion.  */
+  /* Convenient substitution flags combinations.  */
+  tf_warning_or_error = tf_warning | tf_error
 } tsubst_flags_t;
 
 /* The kind of checking we can do looking in a class hierarchy.  */
@@ -3273,13 +3318,6 @@ extern GTY(()) VEC(tree,gc) *local_classes;
 #define ANON_AGGRNAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == JOINER \
 				  && IDENTIFIER_POINTER (ID_NODE)[1] == '_')
 #endif /* !defined(NO_DOLLAR_IN_LABEL) || !defined(NO_DOT_IN_LABEL) */
-
-/* Returns nonzero iff NODE is a declaration for the global function
-   `main'.  */
-#define DECL_MAIN_P(NODE)				\
-   (DECL_EXTERN_C_FUNCTION_P (NODE)			\
-    && DECL_NAME (NODE) != NULL_TREE			\
-    && MAIN_NAME_P (DECL_NAME (NODE)))
 
 
 /* Nonzero if we're done parsing and into end-of-file activities.  */
@@ -3735,21 +3773,20 @@ extern void cxx_print_error_function	(struct diagnostic_context *,
 						 const char *);
 extern void build_self_reference		(void);
 extern int same_signature_p			(tree, tree);
-extern void warn_hidden				(tree);
 extern void maybe_add_class_template_decl_list	(tree, tree, int);
 extern void unreverse_member_declarations	(tree);
 extern void invalidate_class_lookup_cache	(void);
 extern void maybe_note_name_used_in_class	(tree, tree);
 extern void note_name_declared_in_class		(tree, tree);
 extern tree get_vtbl_decl_for_binfo		(tree);
-extern tree get_vtt_name			(tree);
-extern tree get_primary_binfo			(tree);
 extern void debug_class				(tree);
 extern void debug_thunks			(tree);
 extern tree cp_fold_obj_type_ref		(tree, tree);
 extern void set_linkage_according_to_type	(tree, tree);
 extern void determine_key_method		(tree);
 extern void check_for_override			(tree, tree);
+extern void push_class_stack                    (void);
+extern void pop_class_stack                     (void);
 
 /* in cvt.c */
 extern tree convert_to_reference		(tree, tree, int, int, tree);
@@ -3759,7 +3796,6 @@ extern tree ocp_convert				(tree, tree, int, int);
 extern tree cp_convert				(tree, tree);
 extern tree convert_to_void	(tree, const char */*implicit context*/);
 extern tree convert_force			(tree, tree, int);
-extern tree build_type_conversion		(tree, tree);
 extern tree build_expr_type_conversion		(int, tree, bool);
 extern tree type_promotes_to			(tree);
 extern tree perform_qualification_conversions	(tree, tree);
@@ -3785,13 +3821,12 @@ extern tree pushtag				(tree, tree, tag_scope);
 extern tree make_anon_name			(void);
 extern int decls_match				(tree, tree);
 extern tree duplicate_decls			(tree, tree, bool);
-extern tree pushdecl_top_level			(tree);
 extern tree pushdecl_top_level_maybe_friend	(tree, bool);
 extern tree pushdecl_top_level_and_finish	(tree, tree);
-extern tree push_using_decl			(tree, tree);
 extern tree declare_local_label			(tree);
 extern tree define_label			(location_t, tree);
 extern void check_goto				(tree);
+extern bool check_omp_return			(void);
 extern tree make_typename_type			(tree, tree, enum tag_types, tsubst_flags_t);
 extern tree make_unbound_class_template		(tree, tree, tree, tsubst_flags_t);
 extern tree check_for_out_of_scope_variable	(tree);
@@ -3806,7 +3841,7 @@ extern tree shadow_tag				(cp_decl_specifier_seq *);
 extern tree groktypename			(cp_decl_specifier_seq *, const cp_declarator *);
 extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, tree, tree, tree *);
 extern void start_decl_1			(tree);
-extern void cp_finish_decl			(tree, tree, tree, int);
+extern void cp_finish_decl			(tree, tree, bool, tree, int);
 extern void finish_decl				(tree, tree, tree);
 extern int cp_complete_array_type		(tree *, tree, bool);
 extern tree build_ptrmemfunc_type		(tree);
@@ -3849,7 +3884,6 @@ extern tree force_target_expr			(tree, tree);
 extern tree build_target_expr_with_type		(tree, tree);
 extern int local_variable_p			(tree);
 extern int nonstatic_local_decl_p		(tree);
-extern tree declare_global_var			(tree, tree);
 extern tree register_dtor_fn			(tree);
 extern tmpl_spec_kind current_tmpl_spec_kind	(int);
 extern tree cp_fname_init			(const char *, tree *);
@@ -3864,6 +3898,7 @@ extern const char *cxx_comdat_group		(tree);
 extern bool cp_missing_noreturn_ok_p		(tree);
 extern void initialize_artificial_var		(tree, tree);
 extern tree check_var_type			(tree, tree);
+extern tree reshape_init (tree, tree);
 
 extern bool have_extern_spec;
 
@@ -3880,7 +3915,7 @@ extern tree delete_sanity			(tree, tree, bool, int);
 extern tree check_classfn			(tree, tree, tree);
 extern void check_member_template		(tree);
 extern tree grokfield (const cp_declarator *, cp_decl_specifier_seq *,
-		       tree, tree, tree);
+		       tree, bool, tree, tree);
 extern tree grokbitfield (const cp_declarator *, cp_decl_specifier_seq *,
 			  tree);
 extern void cplus_decl_attributes		(tree *, tree, int);
@@ -3895,7 +3930,7 @@ extern tree build_cleanup			(tree);
 extern tree build_offset_ref_call_from_tree	(tree, tree);
 extern void check_default_args			(tree);
 extern void mark_used				(tree);
-extern void finish_static_data_member_decl	(tree, tree, tree, int);
+extern void finish_static_data_member_decl	(tree, tree, bool, tree, int);
 extern tree cp_build_parm_decl			(tree, tree);
 extern tree get_guard				(tree);
 extern tree get_guard_cond			(tree);
@@ -3936,7 +3971,7 @@ extern tree cplus_expand_constant		(tree);
 extern int is_friend				(tree, tree);
 extern void make_friend_class			(tree, tree, bool);
 extern void add_friend				(tree, tree, bool);
-extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, cp_cv_quals, int);
+extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, cp_cv_quals, bool);
 
 /* in init.c */
 extern tree expand_member_init			(tree);
@@ -3949,7 +3984,6 @@ extern tree build_zero_init			(tree, tree, bool);
 extern tree build_offset_ref			(tree, tree, bool);
 extern tree build_new				(tree, tree, tree, tree, int);
 extern tree build_vec_init			(tree, tree, tree, bool, int);
-extern tree build_x_delete			(tree, int, tree);
 extern tree build_delete			(tree, tree,
 						 special_function_kind,
 						 int, int);
@@ -3984,8 +4018,6 @@ extern tree make_thunk				(tree, bool, tree, tree);
 extern void finish_thunk			(tree);
 extern void use_thunk				(tree, bool);
 extern void synthesize_method			(tree);
-extern tree implicitly_declare_fn		(special_function_kind,
-						 tree, bool);
 extern tree lazily_declare_fn			(special_function_kind,
 						 tree);
 extern tree skip_artificial_parms_for		(tree, tree);
@@ -4010,7 +4042,6 @@ extern tree check_explicit_specialization	(tree, tree, int, int);
 extern tree process_template_parm		(tree, tree, bool);
 extern tree end_template_parm_list		(tree);
 extern void end_template_decl			(void);
-extern tree current_template_args		(void);
 extern tree push_template_decl			(tree);
 extern tree push_template_decl_real		(tree, bool);
 extern void redeclare_class_template		(tree, tree);
@@ -4025,13 +4056,9 @@ extern int fn_type_unification			(tree, tree, tree, tree,
 						 tree, unification_kind_t, int);
 extern void mark_decl_instantiated		(tree, int);
 extern int more_specialized_fn			(tree, tree, int);
-extern void mark_class_instantiated		(tree, int);
 extern void do_decl_instantiation		(tree, tree);
 extern void do_type_instantiation		(tree, tree, tsubst_flags_t);
 extern tree instantiate_decl			(tree, int, bool);
-extern int push_tinst_level			(tree);
-extern void pop_tinst_level			(void);
-extern int more_specialized_class		(tree, tree, tree);
 extern int comp_template_parms			(tree, tree);
 extern int template_class_depth			(tree);
 extern int is_specialization_of			(tree, tree);
@@ -4064,7 +4091,6 @@ extern tree build_non_dependent_expr		(tree);
 extern tree build_non_dependent_args		(tree);
 extern bool reregister_specialization		(tree, tree, tree);
 extern tree fold_non_dependent_expr		(tree);
-extern tree fold_decl_constant_value		(tree);
 
 /* in repo.c */
 extern void init_repo				(void);
@@ -4229,6 +4255,22 @@ extern tree finish_qualified_id_expr		(tree, tree, bool, bool,
 extern void simplify_aggr_init_expr		(tree *);
 extern void finalize_nrv			(tree *, tree, tree);
 extern void note_decl_for_pch			(tree);
+extern tree finish_omp_clauses			(tree);
+extern void finish_omp_threadprivate		(tree);
+extern tree begin_omp_structured_block		(void);
+extern tree finish_omp_structured_block		(tree);
+extern tree begin_omp_parallel			(void);
+extern tree finish_omp_parallel			(tree, tree);
+extern tree finish_omp_for			(location_t, tree, tree,
+						 tree, tree, tree, tree);
+extern void finish_omp_atomic			(enum tree_code, tree, tree);
+extern void finish_omp_barrier			(void);
+extern void finish_omp_flush			(void);
+extern enum omp_clause_default_kind cxx_omp_predetermined_sharing (tree);
+extern tree cxx_omp_clause_default_ctor		(tree, tree);
+extern tree cxx_omp_clause_copy_ctor		(tree, tree, tree);
+extern tree cxx_omp_clause_assign_op		(tree, tree, tree);
+extern tree cxx_omp_clause_dtor			(tree, tree);
 
 /* in tree.c */
 extern void lang_check_failed			(const char *, int,
@@ -4283,12 +4325,11 @@ extern tree make_ptrmem_cst			(tree, tree);
 extern tree cp_build_type_attribute_variant     (tree, tree);
 extern tree cp_build_qualified_type_real	(tree, int, tsubst_flags_t);
 #define cp_build_qualified_type(TYPE, QUALS) \
-  cp_build_qualified_type_real ((TYPE), (QUALS), tf_error | tf_warning)
+  cp_build_qualified_type_real ((TYPE), (QUALS), tf_warning_or_error)
 extern special_function_kind special_function_p (tree);
 extern int count_trees				(tree);
 extern int char_type_p				(tree);
 extern void verify_stmt_tree			(tree);
-extern tree find_tree				(tree, tree);
 extern linkage_kind decl_linkage		(tree);
 extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
 			      void*, struct pointer_set_t*);
@@ -4306,7 +4347,6 @@ extern tree require_complete_type		(tree);
 extern tree complete_type			(tree);
 extern tree complete_type_or_else		(tree, tree);
 extern int type_unknown_p			(tree);
-extern tree original_type			(tree);
 extern bool comp_except_specs			(tree, tree, bool);
 extern bool comptypes				(tree, tree, int);
 extern bool compparms				(tree, tree);
@@ -4350,7 +4390,6 @@ extern bool at_least_as_qualified_p		(tree, tree);
 extern void cp_apply_type_quals_to_decl		(int, tree);
 extern tree build_ptrmemfunc1			(tree, tree, tree);
 extern void expand_ptrmemfunc_cst		(tree, tree *, tree *);
-extern tree pfn_from_ptrmemfunc			(tree);
 extern tree type_after_usual_arithmetic_conversions (tree, tree);
 extern tree composite_pointer_type		(tree, tree, tree, tree,
 						 const char*);

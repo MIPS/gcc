@@ -112,11 +112,6 @@
       builtin_assert ("machine=m32r");		\
       builtin_define (TARGET_BIG_ENDIAN		\
                       ? "__BIG_ENDIAN__" : "__LITTLE_ENDIAN__"); \
-      if (flag_pic)				\
-        {					\
-          builtin_define ("__pic__");		\
-          builtin_define ("__PIC__");		\
-        }					\
     }						\
   while (0)
 
@@ -344,7 +339,6 @@ extern enum m32r_sdata m32r_sdata;
       if (SIZE)					\
 	{					\
 	  flag_omit_frame_pointer = TRUE;	\
-	  flag_strength_reduce = FALSE;		\
 	}					\
       						\
       SUBTARGET_OPTIMIZATION_OPTIONS		\
@@ -1534,9 +1528,9 @@ extern char m32r_punct_chars[256];
     {									\
       if (! TARGET_SDATA_NONE						\
           && (SIZE) > 0 && (SIZE) <= g_switch_value)			\
-        named_section (0, ".sbss", 0);					\
+        switch_to_section (get_named_section (NULL, ".sbss", 0));	\
       else								\
-        bss_section ();							\
+        switch_to_section (bss_section);				\
       ASM_OUTPUT_ALIGN (FILE, floor_log2 (ALIGN / BITS_PER_UNIT));	\
       last_assemble_variable_decl = DECL;				\
       ASM_DECLARE_OBJECT_NAME (FILE, NAME, DECL);			\

@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005 Free Software Foundation, Inc.
+;; Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -63,12 +63,12 @@
 ;; Return 1 if op is a constant integer that can fit in a D field.
 (define_predicate "short_cint_operand"
   (and (match_code "const_int")
-       (match_test "CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')")))
+       (match_test "satisfies_constraint_I (op)")))
 
 ;; Return 1 if op is a constant integer that can fit in an unsigned D field.
 (define_predicate "u_short_cint_operand"
   (and (match_code "const_int")
-       (match_test "CONST_OK_FOR_LETTER_P (INTVAL (op), 'K')")))
+       (match_test "satisfies_constraint_K (op)")))
 
 ;; Return 1 if op is a constant integer that cannot fit in a signed D field.
 (define_predicate "non_short_cint_operand"
@@ -117,7 +117,7 @@
 ;; or equal to const, which does not work for zero.
 (define_predicate "reg_or_neg_short_operand"
   (if_then_else (match_code "const_int")
-    (match_test "CONST_OK_FOR_LETTER_P (INTVAL (op), 'P')
+    (match_test "satisfies_constraint_P (op)
 		 && INTVAL (op) != 0")
     (match_operand 0 "gpc_reg_operand")))
 
@@ -187,13 +187,16 @@
   REAL_VALUE_TYPE rv;
 
   if (GET_MODE (op) != mode
-      || (GET_MODE_CLASS (mode) != MODE_FLOAT && mode != DImode))
+      || (!SCALAR_FLOAT_MODE_P (mode) && mode != DImode))
     return 0;
 
   /* Consider all constants with -msoft-float to be easy.  */
   if ((TARGET_SOFT_FLOAT || TARGET_E500_SINGLE)
       && mode != DImode)
     return 1;
+
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return 0;
 
   /* If we are using V.4 style PIC, consider all constants to be hard.  */
   if (flag_pic && DEFAULT_ABI == ABI_V4)
@@ -317,7 +320,7 @@
 	    (match_test "easy_altivec_constant (op, mode)")))
 {
   rtx last = CONST_VECTOR_ELT (op, GET_MODE_NUNITS (mode) - 1);
-  HOST_WIDE_INT val = (char) (INTVAL (last) & 255);
+  HOST_WIDE_INT val = ((INTVAL (last) & 0xff) ^ 0x80) - 0x80;
   return EASY_VECTOR_15_ADD_SELF (val);
 })
 
@@ -330,7 +333,7 @@
 ;; or non-special register register field no cr0
 (define_predicate "zero_fp_constant"
   (and (match_code "const_double")
-       (match_test "GET_MODE_CLASS (mode) == MODE_FLOAT
+       (match_test "SCALAR_FLOAT_MODE_P (mode)
 		    && op == CONST0_RTX (mode)")))
 
 ;; Return 1 if the operand is in volatile memory.  Note that during the
@@ -353,25 +356,6 @@
 					   || reload_in_progress,
 					   mode, XEXP (op, 0))")))
 
-;; Return 1 if the operand is an indexed or indirect memory operand.
-(define_predicate "indexed_or_indirect_operand"
-  (match_operand 0 "memory_operand")
-{
-  rtx tmp = XEXP (op, 0);
-
-  if (TARGET_ALTIVEC
-      && ALTIVEC_VECTOR_MODE (mode)
-      && GET_CODE (tmp) == AND
-      && GET_CODE (XEXP (tmp, 1)) == CONST_INT
-      && INTVAL (XEXP (tmp, 1)) == -16)
-    tmp = XEXP (tmp, 0);
-
-    return REG_P (tmp)
-		  || (GET_CODE (tmp) == PLUS
-		      && REG_P (XEXP (tmp, 0)) 
-		      && REG_P (XEXP (tmp, 1)));
-})
-
 ;; Return 1 if the operand is a memory operand with an address divisible by 4
 (define_predicate "word_offset_memref_operand"
   (and (match_operand 0 "memory_operand")
@@ -380,13 +364,28 @@
 		    || GET_CODE (XEXP (XEXP (op, 0), 1)) != CONST_INT
 		    || INTVAL (XEXP (XEXP (op, 0), 1)) % 4 == 0")))
 
+;; Return 1 if the operand is an indexed or indirect memory operand.
+(define_predicate "indexed_or_indirect_operand"
+  (match_code "mem")
+{
+  op = XEXP (op, 0);
+  if (TARGET_ALTIVEC
+      && ALTIVEC_VECTOR_MODE (mode)
+      && GET_CODE (op) == AND
+      && GET_CODE (XEXP (op, 1)) == CONST_INT
+      && INTVAL (XEXP (op, 1)) == -16)
+    op = XEXP (op, 0);
+
+  return indexed_or_indirect_address (op, mode);
+})
+
 ;; Return 1 if the operand is an indexed or indirect address.
-(define_predicate "indexed_or_indirect_address"
-  (and (match_operand 0 "address_operand")
-       (match_test "REG_P (op)
+(define_special_predicate "indexed_or_indirect_address"
+  (and (match_test "REG_P (op)
 		    || (GET_CODE (op) == PLUS
-			&& REG_P (XEXP (op, 0)) 
-			&& REG_P (XEXP (op, 1)))")))
+			/* Omit testing REG_P (XEXP (op, 0)).  */
+			&& REG_P (XEXP (op, 1)))")
+       (match_operand 0 "address_operand")))
 
 ;; Used for the destination of the fix_truncdfsi2 expander.
 ;; If stfiwx will be used, the result goes to memory; otherwise,
@@ -401,25 +400,22 @@
 ;; as the operand of a `mode' add insn.
 (define_predicate "add_operand"
   (if_then_else (match_code "const_int")
-    (match_test "CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')
-		 || CONST_OK_FOR_LETTER_P (INTVAL (op), 'L')")
+    (match_test "satisfies_constraint_I (op)
+		 || satisfies_constraint_L (op)")
     (match_operand 0 "gpc_reg_operand")))
 
 ;; Return 1 if OP is a constant but not a valid add_operand.
 (define_predicate "non_add_cint_operand"
   (and (match_code "const_int")
-       (match_test "!CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')
-		    && !CONST_OK_FOR_LETTER_P (INTVAL (op), 'L')")))
+       (match_test "!satisfies_constraint_I (op)
+		    && !satisfies_constraint_L (op)")))
 
-;; Return 1 if the operand is a non-special register or a constant that
-;; can be used as the operand of an OR or XOR.
-(define_predicate "logical_operand"
-  (match_code "reg,subreg,const_int,const_double")
+;; Return 1 if the operand is a constant that can be used as the operand
+;; of an OR or XOR.
+(define_predicate "logical_const_operand"
+  (match_code "const_int,const_double")
 {
   HOST_WIDE_INT opl, oph;
-
-  if (gpc_reg_operand (op, mode))
-    return 1;
 
   if (GET_CODE (op) == CONST_INT)
     {
@@ -444,6 +440,12 @@
   return ((opl & ~ (unsigned HOST_WIDE_INT) 0xffff) == 0
 	  || (opl & ~ (unsigned HOST_WIDE_INT) 0xffff0000) == 0);
 })
+
+;; Return 1 if the operand is a non-special register or a constant that
+;; can be used as the operand of an OR or XOR.
+(define_predicate "logical_operand"
+  (ior (match_operand 0 "gpc_reg_operand")
+       (match_operand 0 "logical_const_operand")))
 
 ;; Return 1 if op is a constant that is not a logical operand, but could
 ;; be split into one.
@@ -618,11 +620,11 @@
 
 ;; Return 1 if the operand is a general non-special register or memory operand.
 (define_predicate "reg_or_mem_operand"
-  (if_then_else (match_code "mem")
      (ior (match_operand 0 "memory_operand")
-	  (ior (match_test "macho_lo_sum_memory_operand (op, mode)")
-	       (match_operand 0 "volatile_mem_operand")))
-     (match_operand 0 "gpc_reg_operand")))
+	  (ior (and (match_code "mem")
+		    (match_test "macho_lo_sum_memory_operand (op, mode)"))
+	       (ior (match_operand 0 "volatile_mem_operand")
+		    (match_operand 0 "gpc_reg_operand")))))
 
 ;; Return 1 if the operand is either an easy FP constant or memory or reg.
 (define_predicate "reg_or_none500mem_operand"
@@ -707,7 +709,7 @@
     return 1;
 
   /* For floating-point, easy constants are valid.  */
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT
+  if (SCALAR_FLOAT_MODE_P (mode)
       && CONSTANT_P (op)
       && easy_fp_constant (op, mode))
     return 1;
@@ -725,7 +727,7 @@
 
   /* For floating-point or multi-word mode, the only remaining valid type
      is a register.  */
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT
+  if (SCALAR_FLOAT_MODE_P (mode)
       || GET_MODE_SIZE (mode) > UNITS_PER_WORD)
     return register_operand (op, mode);
 
@@ -1034,14 +1036,14 @@
   if (count <= 1
       || GET_CODE (XVECEXP (op, 0, 0)) != SET
       || GET_CODE (SET_DEST (XVECEXP (op, 0, 0))) != REG
-      || GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) != UNSPEC_VOLATILE)
+      || GET_CODE (SET_SRC (XVECEXP (op, 0, 0))) != UNSPEC_VOLATILE
+      || XINT (SET_SRC (XVECEXP (op, 0, 0)), 1) != UNSPECV_SET_VRSAVE)
     return 0;
 
   dest_regno = REGNO (SET_DEST (XVECEXP (op, 0, 0)));
-  src_regno  = REGNO (SET_SRC (XVECEXP (op, 0, 0)));
+  src_regno  = REGNO (XVECEXP (SET_SRC (XVECEXP (op, 0, 0)), 0, 1));
 
-  if (dest_regno != VRSAVE_REGNO
-      && src_regno != VRSAVE_REGNO)
+  if (dest_regno != VRSAVE_REGNO || src_regno != VRSAVE_REGNO)
     return 0;
 
   for (i = 1; i < count; i++)

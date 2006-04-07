@@ -6,7 +6,7 @@
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -78,9 +78,16 @@ begin
    Write_Str ("  -C        Generate binder program in C");
    Write_Eol;
 
+   --  Line for -d switch
+
+   Write_Str ("  -dnn[k|m] Default primary stack size = nn [kilo|mega] ");
+   Write_Str ("bytes ");
+   Write_Eol;
+
    --  Line for D switch
 
-   Write_Str ("  -Dnnn     Default secondary stack size = nnn bytes");
+   Write_Str ("  -Dnn[k|m] Default secondary stack size = nnn [kilo|mega] ");
+   Write_Str ("bytes");
    Write_Eol;
 
    --  Line for -e switch
@@ -132,15 +139,15 @@ begin
    Write_Str ("renamed to xyzinit/final, implies -n");
    Write_Eol;
 
-   --  Line for -M switch
-
-   Write_Str ("  -Mxyz     Rename generated main program from main to xyz");
-   Write_Eol;
-
    --  Line for -m switch
 
    Write_Str ("  -mnnn     Limit number of detected error");
    Write_Str ("s to nnn (1-999999)");
+   Write_Eol;
+
+   --  Line for -M switch
+
+   Write_Str ("  -Mxyz     Rename generated main program from main to xyz");
    Write_Eol;
 
    --  Line for -n switch
@@ -212,6 +219,12 @@ begin
    --  Line for -T switch
 
    Write_Str ("  -Tn       Set time slice value to n milliseconds (n >= 0)");
+   Write_Eol;
+
+   --  Line for -u switch
+
+   Write_Str ("  -un       Enable dynamic stack analysis, with n results ");
+   Write_Str ("stored");
    Write_Eol;
 
    --  Line for -v switch

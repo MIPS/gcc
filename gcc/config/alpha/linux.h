@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for Alpha Linux-based GNU systems.
-   Copyright (C) 1996, 1997, 1998, 2002, 2003, 2004, 2005
+   Copyright (C) 1996, 1997, 1998, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Richard Henderson.
 
@@ -36,11 +36,6 @@ Boston, MA 02110-1301, USA.  */
 	/* The GNU C++ standard library requires this.  */	\
 	if (c_dialect_cxx ())					\
 	  builtin_define ("_GNU_SOURCE");			\
-	if (flag_pic)						\
-	  {							\
-		builtin_define ("__PIC__");			\
-		builtin_define ("__pic__");			\
-	  }							\
     } while (0)
 
 #undef LIB_SPEC
@@ -69,7 +64,7 @@ Boston, MA 02110-1301, USA.  */
 
 /* Determine whether the entire c99 runtime is present in the
    runtime library.  */
-#define TARGET_C99_FUNCTIONS 1
+#define TARGET_C99_FUNCTIONS (OPTION_GLIBC)
 
 #define TARGET_POSIX_IO
 
@@ -82,3 +77,6 @@ Boston, MA 02110-1301, USA.  */
 #endif
 
 #define MD_UNWIND_SUPPORT "config/alpha/linux-unwind.h"
+
+/* Define if long doubles should be mangled as 'g'.  */
+#define TARGET_ALTERNATE_LONG_DOUBLE_MANGLING

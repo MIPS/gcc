@@ -91,7 +91,7 @@ struct address_walk_data
 };
 
 static bool gate_dse (void);
-static void tree_ssa_dse (void);
+static unsigned int tree_ssa_dse (void);
 static void dse_initialize_block_local_data (struct dom_walk_data *,
 					     basic_block,
 					     bool);
@@ -309,6 +309,15 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	     && TREE_CODE (use_stmt) == PHI_NODE
 	     && bitmap_bit_p (dse_gd->stores, get_stmt_uid (use_stmt)))
 	{
+	  /* A PHI node can both define and use the same SSA_NAME if
+	     the PHI is at the top of a loop and the PHI_RESULT is
+	     a loop invariant and copies have not been fully propagated.
+
+	     The safe thing to do is exit assuming no optimization is
+	     possible.  */
+	  if (SSA_NAME_DEF_STMT (PHI_RESULT (use_stmt)) == use_stmt)
+	    return;
+
 	  /* Skip past this PHI and loop again in case we had a PHI
 	     chain.  */
 	  if (single_imm_use (PHI_RESULT (use_stmt), &use_p, &use_stmt))
@@ -342,7 +351,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 	      SET_USE (use_p, USE_FROM_PTR (var2));
 	    }
 	  /* Remove the dead store.  */
-	  bsi_remove (&bsi);
+	  bsi_remove (&bsi, true);
 
 	  /* And release any SSA_NAMEs set in this statement back to the
 	     SSA_NAME manager.  */
@@ -389,7 +398,7 @@ dse_finalize_block (struct dom_walk_data *walk_data,
       }
 }
 
-static void
+static unsigned int
 tree_ssa_dse (void)
 {
   struct dom_walk_data walk_data;
@@ -446,6 +455,7 @@ tree_ssa_dse (void)
 
   /* For now, just wipe the post-dominator information.  */
   free_dominance_info (CDI_POST_DOMINATORS);
+  return 0;
 }
 
 static bool

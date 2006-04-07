@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2004, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -63,7 +63,7 @@ procedure Gnatdll is
    --  build the DLL.
 
    Help : Boolean := False;
-   --  Help will be set to True the usage information is to be displayed.
+   --  Help will be set to True the usage information is to be displayed
 
    Version : constant String := Gnatvsn.Gnat_Version_String;
    --  Why should it be necessary to make a copy of this
@@ -152,7 +152,7 @@ procedure Gnatdll is
    -- Check --
    -----------
 
-   procedure Check (Filename : in String) is
+   procedure Check (Filename : String) is
    begin
       if not Is_Regular_File (Filename) then
          Raise_Exception
@@ -166,12 +166,10 @@ procedure Gnatdll is
 
    procedure Parse_Command_Line is
 
-      use GNAT.Command_Line;
-
-      procedure Add_File (Filename : in String);
+      procedure Add_File (Filename : String);
       --  Add one file to the list of file to handle
 
-      procedure Add_Files_From_List (List_Filename : in String);
+      procedure Add_Files_From_List (List_Filename : String);
       --  Add the files listed in List_Filename (one by line) to the list
       --  of file to handle
 
@@ -209,7 +207,7 @@ procedure Gnatdll is
       -- Add_File --
       --------------
 
-      procedure Add_File (Filename : in String) is
+      procedure Add_File (Filename : String) is
       begin
          if Is_Ali (Filename) then
             Check (Filename);
@@ -241,7 +239,7 @@ procedure Gnatdll is
       -- Add_Files_From_List --
       -------------------------
 
-      procedure Add_Files_From_List (List_Filename : in String) is
+      procedure Add_Files_From_List (List_Filename : String) is
          File   : File_Type;
          Buffer : String (1 .. 500);
          Last   : Natural;

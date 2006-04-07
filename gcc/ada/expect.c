@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *           Copyright (C) 2001-2005 Ada Core Technologies, Inc.            *
+ *                     Copyright (C) 2001-2005, AdaCore                     *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -76,17 +76,15 @@
 #include <process.h>
 
 void
-__gnat_kill (int pid, int sig)
+__gnat_kill (int pid, int sig, int close)
 {
-  HANDLE process_handle;
-
   if (sig == 9)
     {
-      process_handle = OpenProcess (PROCESS_TERMINATE, FALSE, pid);
-      if (process_handle != NULL)
+      if ((HANDLE)pid != NULL)
 	{
-	  TerminateProcess (process_handle, 0);
-	  CloseHandle (process_handle);
+	  TerminateProcess ((HANDLE)pid, 0);
+	  if (close)
+	    CloseHandle ((HANDLE)pid);
 	}
     }
 }
@@ -94,17 +92,14 @@ __gnat_kill (int pid, int sig)
 int
 __gnat_waitpid (int pid)
 {
-  HANDLE process_handle;
   DWORD exitcode = 1;
   DWORD res;
 
-  process_handle = OpenProcess (PROCESS_QUERY_INFORMATION, FALSE, pid);
-
-  if (process_handle != NULL)
+  if ((HANDLE)pid != NULL)
     {
-      res = WaitForSingleObject (process_handle, INFINITE);
-      GetExitCodeProcess (process_handle, &exitcode);
-      CloseHandle (process_handle);
+      res = WaitForSingleObject ((HANDLE)pid, INFINITE);
+      GetExitCodeProcess ((HANDLE)pid, &exitcode);
+      CloseHandle ((HANDLE)pid);
     }
 
   return (int) exitcode;
@@ -119,7 +114,61 @@ __gnat_expect_fork (void)
 void
 __gnat_expect_portable_execvp (int *pid, char *cmd, char *argv[])
 {
-  *pid = (int) spawnve (_P_NOWAIT, cmd, argv, NULL);
+  BOOL result;
+  STARTUPINFO SI;
+  PROCESS_INFORMATION PI;
+  SECURITY_ATTRIBUTES SA;
+  int csize = 1;
+  char *full_command;
+  int k;
+
+  /* compute the total command line length.  */
+  k = 0;
+  while (argv[k])
+    {
+      csize += strlen (argv[k]) + 1;
+      k++;
+    }
+
+  full_command = (char *) malloc (csize);
+  full_command[0] = '\0';
+
+  /* Startup info. */
+  SI.cb          = sizeof (STARTUPINFO);
+  SI.lpReserved  = NULL;
+  SI.lpReserved2 = NULL;
+  SI.lpDesktop   = NULL;
+  SI.cbReserved2 = 0;
+  SI.lpTitle     = NULL;
+  SI.dwFlags     = 0;
+  SI.wShowWindow = SW_HIDE;
+
+  /* Security attributes. */
+  SA.nLength = sizeof (SECURITY_ATTRIBUTES);
+  SA.bInheritHandle = TRUE;
+  SA.lpSecurityDescriptor = NULL;
+
+  k = 0;
+  while (argv[k])
+    {
+      strcat (full_command, argv[k]);
+      strcat (full_command, " ");
+      k++;
+    }
+
+  result = CreateProcess
+	     (NULL, (char *) full_command, &SA, NULL, TRUE,
+              GetPriorityClass (GetCurrentProcess()), NULL, NULL, &SI, &PI);
+
+  free (full_command);
+
+  if (result == TRUE)
+    {
+      CloseHandle (PI.hThread);
+      *pid = (int) PI.hProcess;
+    }
+  else
+    *pid = -1;
 }
 
 int
@@ -337,7 +386,7 @@ typedef long fd_mask;
 #endif /* !NO_FD_SET */
 
 void
-__gnat_kill (int pid, int sig)
+__gnat_kill (int pid, int sig, int close)
 {
   kill (pid, sig);
 }
@@ -456,7 +505,7 @@ __gnat_expect_poll (int *fd, int num_fd, int timeout, int *is_set)
 #else
 
 void
-__gnat_kill (int pid, int sig)
+__gnat_kill (int pid, int sig, int close)
 {
 }
 

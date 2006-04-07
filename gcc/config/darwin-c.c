@@ -28,6 +28,7 @@ Boston, MA 02110-1301, USA.  */
 #include "c-pragma.h"
 #include "c-tree.h"
 #include "c-incpath.h"
+#include "c-common.h"
 #include "toplev.h"
 #include "flags.h"
 #include "tm_p.h"
@@ -61,7 +62,7 @@ static struct align_stack * field_align_stack = NULL;
 static void
 push_field_alignment (int bit_alignment)
 {
-  align_stack *entry = (align_stack *) xmalloc (sizeof (align_stack));
+  align_stack *entry = XNEW (align_stack);
 
   entry->alignment = maximum_field_alignment;
   entry->prev = field_align_stack;
@@ -101,17 +102,17 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
   const char *arg;
   tree t, x;
 
-  if (c_lex (&t) != CPP_NAME)
+  if (pragma_lex (&t) != CPP_NAME)
     BAD ("malformed '#pragma options', ignoring");
   arg = IDENTIFIER_POINTER (t);
   if (strcmp (arg, "align"))
     BAD ("malformed '#pragma options', ignoring");
-  if (c_lex (&t) != CPP_EQ)
+  if (pragma_lex (&t) != CPP_EQ)
     BAD ("malformed '#pragma options', ignoring");
-  if (c_lex (&t) != CPP_NAME)
+  if (pragma_lex (&t) != CPP_NAME)
     BAD ("malformed '#pragma options', ignoring");
 
-  if (c_lex (&x) != CPP_EOF)
+  if (pragma_lex (&x) != CPP_EOF)
     warning (0, "junk at end of '#pragma options'");
 
   arg = IDENTIFIER_POINTER (t);
@@ -133,19 +134,19 @@ darwin_pragma_unused (cpp_reader *pfile ATTRIBUTE_UNUSED)
   tree decl, x;
   int tok;
 
-  if (c_lex (&x) != CPP_OPEN_PAREN)
+  if (pragma_lex (&x) != CPP_OPEN_PAREN)
     BAD ("missing '(' after '#pragma unused', ignoring");
 
   while (1)
     {
-      tok = c_lex (&decl);
+      tok = pragma_lex (&decl);
       if (tok == CPP_NAME && decl)
 	{
 	  tree local = lookup_name (decl);
 	  if (local && (TREE_CODE (local) == PARM_DECL
 			|| TREE_CODE (local) == VAR_DECL))
 	    TREE_USED (local) = 1;
-	  tok = c_lex (&x);
+	  tok = pragma_lex (&x);
 	  if (tok != CPP_COMMA)
 	    break;
 	}
@@ -154,7 +155,7 @@ darwin_pragma_unused (cpp_reader *pfile ATTRIBUTE_UNUSED)
   if (tok != CPP_CLOSE_PAREN)
     BAD ("missing ')' after '#pragma unused', ignoring");
 
-  if (c_lex (&x) != CPP_EOF)
+  if (pragma_lex (&x) != CPP_EOF)
     warning (0, "junk at end of '#pragma unused'");
 }
 
@@ -193,7 +194,7 @@ add_framework (const char *name, size_t len, cpp_dir *dir)
       frameworks_in_use = xrealloc (frameworks_in_use,
 				    max_frameworks*sizeof(*frameworks_in_use));
     }
-  dir_name = xmalloc (len + 1);
+  dir_name = XNEWVEC (char, len + 1);
   memcpy (dir_name, name, len);
   dir_name[len] = '\0';
   frameworks_in_use[num_frameworks].name = dir_name;
@@ -260,7 +261,7 @@ framework_construct_pathname (const char *fname, cpp_dir *dir)
   if (fast_dir && dir != fast_dir)
     return 0;
 
-  frname = xmalloc (strlen (fname) + dir->len + 2
+  frname = XNEWVEC (char, strlen (fname) + dir->len + 2
 		    + strlen(".framework/") + strlen("PrivateHeaders"));
   strncpy (&frname[0], dir->name, dir->len);
   frname_len = dir->len;
@@ -348,7 +349,7 @@ find_subframework_file (const char *fname, const char *pname)
      into
      sfrname = /System/Library/Frameworks/Foundation.framework/Frameworks/CarbonCore.framework/Headers/OSUtils.h */
 
-  sfrname = (char *) xmalloc (strlen (pname) + strlen (fname) + 2 +
+  sfrname = XNEWVEC (char, strlen (pname) + strlen (fname) + 2 +
 			      strlen ("Frameworks/") + strlen (".framework/")
 			      + strlen ("PrivateHeaders"));
  
@@ -404,7 +405,7 @@ add_system_framework_path (char *path)
   int cxx_aware = 1;
   cpp_dir *p;
 
-  p = xmalloc (sizeof (cpp_dir));
+  p = XNEW (cpp_dir);
   p->next = NULL;
   p->name = path;
   p->sysp = 1 + !cxx_aware;
@@ -422,7 +423,7 @@ add_framework_path (char *path)
 {
   cpp_dir *p;
 
-  p = xmalloc (sizeof (cpp_dir));
+  p = XNEW (cpp_dir);
   p->next = NULL;
   p->name = path;
   p->sysp = 0;

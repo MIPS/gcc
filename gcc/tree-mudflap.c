@@ -57,13 +57,13 @@ static tree mf_file_function_line_tree (location_t);
 static void mf_decl_cache_locals (void);
 static void mf_decl_clear_locals (void);
 static void mf_xform_derefs (void);
-static void execute_mudflap_function_ops (void);
+static unsigned int execute_mudflap_function_ops (void);
 
 /* Addressable variables instrumentation.  */
 static void mf_xform_decls (tree, tree);
 static tree mx_xfn_xform_decls (tree *, int *, void *);
 static void mx_register_decls (tree, tree *);
-static void execute_mudflap_function_decls (void);
+static unsigned int execute_mudflap_function_decls (void);
 
 
 /* ------------------------------------------------------------------------ */
@@ -409,14 +409,14 @@ mudflap_init (void)
    tree optimizations have been performed, but we have to preserve the CFG
    for expansion from trees to RTL.  */
 
-static void
+static unsigned int
 execute_mudflap_function_ops (void)
 {
   /* Don't instrument functions such as the synthetic constructor
      built during mudflap_finish_file.  */
   if (mf_marked_p (current_function_decl) ||
       DECL_ARTIFICIAL (current_function_decl))
-    return;
+    return 0;
 
   push_gimplify_context ();
 
@@ -430,6 +430,7 @@ execute_mudflap_function_ops (void)
     mf_decl_clear_locals ();
 
   pop_gimplify_context (NULL);
+  return 0;
 }
 
 /* Create and initialize local shadow variables for the lookup cache
@@ -453,14 +454,14 @@ mf_decl_cache_locals (void)
 
   /* Build initialization nodes for the cache vars.  We just load the
      globals into the cache variables.  */
-  t = build (MODIFY_EXPR, TREE_TYPE (mf_cache_shift_decl_l),
-             mf_cache_shift_decl_l, mf_cache_shift_decl);
+  t = build2 (MODIFY_EXPR, TREE_TYPE (mf_cache_shift_decl_l),
+              mf_cache_shift_decl_l, mf_cache_shift_decl);
   SET_EXPR_LOCATION (t, DECL_SOURCE_LOCATION (current_function_decl));
   gimplify_to_stmt_list (&t);
   shift_init_stmts = t;
 
-  t = build (MODIFY_EXPR, TREE_TYPE (mf_cache_mask_decl_l),
-             mf_cache_mask_decl_l, mf_cache_mask_decl);
+  t = build2 (MODIFY_EXPR, TREE_TYPE (mf_cache_mask_decl_l),
+              mf_cache_mask_decl_l, mf_cache_mask_decl);
   SET_EXPR_LOCATION (t, DECL_SOURCE_LOCATION (current_function_decl));
   gimplify_to_stmt_list (&t);
   mask_init_stmts = t;
@@ -548,31 +549,31 @@ mf_build_check_statement_for (tree base, tree limit,
   mf_limit = create_tmp_var (mf_uintptr_type, "__mf_limit");
 
   /* Build: __mf_base = (uintptr_t) <base address expression>.  */
-  t = build (MODIFY_EXPR, void_type_node, mf_base,
-             convert (mf_uintptr_type, unshare_expr (base)));
+  t = build2 (MODIFY_EXPR, void_type_node, mf_base,
+              convert (mf_uintptr_type, unshare_expr (base)));
   SET_EXPR_LOCUS (t, locus);
   gimplify_to_stmt_list (&t);
   head = tsi_start (t);
   tsi = tsi_last (t);
 
   /* Build: __mf_limit = (uintptr_t) <limit address expression>.  */
-  t = build (MODIFY_EXPR, void_type_node, mf_limit,
-             convert (mf_uintptr_type, unshare_expr (limit)));
+  t = build2 (MODIFY_EXPR, void_type_node, mf_limit,
+              convert (mf_uintptr_type, unshare_expr (limit)));
   SET_EXPR_LOCUS (t, locus);
   gimplify_to_stmt_list (&t);
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
   /* Build: __mf_elem = &__mf_lookup_cache [(__mf_base >> __mf_shift)
                                             & __mf_mask].  */
-  t = build (RSHIFT_EXPR, mf_uintptr_type, mf_base,
-             (flag_mudflap_threads ? mf_cache_shift_decl : mf_cache_shift_decl_l));
-  t = build (BIT_AND_EXPR, mf_uintptr_type, t,
-             (flag_mudflap_threads ? mf_cache_mask_decl : mf_cache_mask_decl_l));
-  t = build (ARRAY_REF,
-             TREE_TYPE (TREE_TYPE (mf_cache_array_decl)),
-             mf_cache_array_decl, t, NULL_TREE, NULL_TREE);
+  t = build2 (RSHIFT_EXPR, mf_uintptr_type, mf_base,
+              (flag_mudflap_threads ? mf_cache_shift_decl : mf_cache_shift_decl_l));
+  t = build2 (BIT_AND_EXPR, mf_uintptr_type, t,
+              (flag_mudflap_threads ? mf_cache_mask_decl : mf_cache_mask_decl_l));
+  t = build4 (ARRAY_REF,
+              TREE_TYPE (TREE_TYPE (mf_cache_array_decl)),
+              mf_cache_array_decl, t, NULL_TREE, NULL_TREE);
   t = build1 (ADDR_EXPR, mf_cache_structptr_type, t);
-  t = build (MODIFY_EXPR, void_type_node, mf_elem, t);
+  t = build2 (MODIFY_EXPR, void_type_node, mf_elem, t);
   SET_EXPR_LOCUS (t, locus);
   gimplify_to_stmt_list (&t);
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
@@ -592,10 +593,10 @@ mf_build_check_statement_for (tree base, tree limit,
      the edge to the THEN clause of the conditional jump as unlikely.  */
 
   /* Construct t <-- '__mf_elem->low  > __mf_base'.  */
-  t = build (COMPONENT_REF, mf_uintptr_type,
-             build1 (INDIRECT_REF, mf_cache_struct_type, mf_elem),
-             TYPE_FIELDS (mf_cache_struct_type), NULL_TREE);
-  t = build (GT_EXPR, boolean_type_node, t, mf_base);
+  t = build3 (COMPONENT_REF, mf_uintptr_type,
+              build1 (INDIRECT_REF, mf_cache_struct_type, mf_elem),
+              TYPE_FIELDS (mf_cache_struct_type), NULL_TREE);
+  t = build2 (GT_EXPR, boolean_type_node, t, mf_base);
 
   /* Construct '__mf_elem->high < __mf_limit'.
 
@@ -605,28 +606,28 @@ mf_build_check_statement_for (tree base, tree limit,
 
      Then build 'u <-- (u < v).  */
 
-  u = build (COMPONENT_REF, mf_uintptr_type,
-             build1 (INDIRECT_REF, mf_cache_struct_type, mf_elem),
-             TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type)), NULL_TREE);
+  u = build3 (COMPONENT_REF, mf_uintptr_type,
+              build1 (INDIRECT_REF, mf_cache_struct_type, mf_elem),
+              TREE_CHAIN (TYPE_FIELDS (mf_cache_struct_type)), NULL_TREE);
 
   v = mf_limit;
 
-  u = build (LT_EXPR, boolean_type_node, u, v);
+  u = build2 (LT_EXPR, boolean_type_node, u, v);
 
   /* Build the composed conditional: t <-- 't || u'.  Then store the
      result of the evaluation of 't' in a temporary variable which we
      can use as the condition for the conditional jump.  */
-  t = build (TRUTH_OR_EXPR, boolean_type_node, t, u);
+  t = build2 (TRUTH_OR_EXPR, boolean_type_node, t, u);
   cond = create_tmp_var (boolean_type_node, "__mf_unlikely_cond");
-  t = build (MODIFY_EXPR, boolean_type_node, cond, t);
+  t = build2 (MODIFY_EXPR, boolean_type_node, cond, t);
   gimplify_to_stmt_list (&t);
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
   /* Build the conditional jump.  'cond' is just a temporary so we can
      simply build a void COND_EXPR.  We do need labels in both arms though.  */
-  t = build (COND_EXPR, void_type_node, cond,
-             build (GOTO_EXPR, void_type_node, tree_block_label (then_bb)),
-             build (GOTO_EXPR, void_type_node, tree_block_label (join_bb)));
+  t = build3 (COND_EXPR, void_type_node, cond,
+              build1 (GOTO_EXPR, void_type_node, tree_block_label (then_bb)),
+              build1 (GOTO_EXPR, void_type_node, tree_block_label (join_bb)));
   SET_EXPR_LOCUS (t, locus);
   tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
@@ -671,12 +672,12 @@ mf_build_check_statement_for (tree base, tree limit,
 
   if (! flag_mudflap_threads)
     {
-      t = build (MODIFY_EXPR, void_type_node,
-                 mf_cache_shift_decl_l, mf_cache_shift_decl);
+      t = build2 (MODIFY_EXPR, void_type_node,
+                  mf_cache_shift_decl_l, mf_cache_shift_decl);
       tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
 
-      t = build (MODIFY_EXPR, void_type_node,
-                 mf_cache_mask_decl_l, mf_cache_mask_decl);
+      t = build2 (MODIFY_EXPR, void_type_node,
+                  mf_cache_mask_decl_l, mf_cache_mask_decl);
       tsi_link_after (&tsi, t, TSI_CONTINUE_LINKING);
     }
 
@@ -727,6 +728,10 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
 
   t = *tp;
   type = TREE_TYPE (t);
+
+  if (type == error_mark_node)
+    return;
+
   size = TYPE_SIZE_UNIT (type);
 
   switch (TREE_CODE (t))
@@ -940,14 +945,14 @@ mf_xform_derefs (void)
    of their BIND_EXPR binding context, and we lose liveness information
    for the declarations we wish to instrument.  */
 
-static void
+static unsigned int
 execute_mudflap_function_decls (void)
 {
   /* Don't instrument functions such as the synthetic constructor
      built during mudflap_finish_file.  */
   if (mf_marked_p (current_function_decl) ||
       DECL_ARTIFICIAL (current_function_decl))
-    return;
+    return 0;
 
   push_gimplify_context ();
 
@@ -955,6 +960,7 @@ execute_mudflap_function_decls (void)
                   DECL_ARGUMENTS (current_function_decl));
 
   pop_gimplify_context (NULL);
+  return 0;
 }
 
 /* This struct is passed between mf_xform_decls to store state needed
@@ -1053,8 +1059,8 @@ mx_register_decls (tree decl, tree *stmt_list)
   /* Actually, (initially_stmts!=NULL) <=> (finally_stmts!=NULL) */
   if (finally_stmts != NULL_TREE)
     {
-      tree t = build (TRY_FINALLY_EXPR, void_type_node,
-                      *stmt_list, finally_stmts);
+      tree t = build2 (TRY_FINALLY_EXPR, void_type_node,
+                       *stmt_list, finally_stmts);
       *stmt_list = NULL;
       append_to_statement_list (t, stmt_list);
     }
@@ -1249,6 +1255,9 @@ mudflap_finish_file (void)
       for (i = 0; VEC_iterate (tree, deferred_static_decls, i, obj); i++)
         {
           gcc_assert (DECL_P (obj));
+
+          if (TREE_TYPE (obj) == error_mark_node)
+	    continue;
 
           if (mf_marked_p (obj))
             continue;

@@ -1,5 +1,6 @@
 /* Code translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -282,22 +283,6 @@ gfc_build_addr_expr (tree type, tree t)
 }
 
 
-/* Build an INDIRECT_REF with its natural type.  */
-
-tree
-gfc_build_indirect_ref (tree t)
-{
-  tree type = TREE_TYPE (t);
-  gcc_assert (POINTER_TYPE_P (type));
-  type = TREE_TYPE (type);
-
-  if (TREE_CODE (t) == ADDR_EXPR)
-    return TREE_OPERAND (t, 0);
-  else
-    return build1 (INDIRECT_REF, type, t);
-}
-
-
 /* Build an ARRAY_REF with its natural type.  */
 
 tree
@@ -314,24 +299,6 @@ gfc_build_array_ref (tree base, tree offset)
 }
 
 
-/* Given a function declaration FNDECL and an argument list ARGLIST,
-   build a CALL_EXPR.  */
-
-tree
-gfc_build_function_call (tree fndecl, tree arglist)
-{
-  tree fn;
-  tree call;
-
-  fn = gfc_build_addr_expr (NULL, fndecl);
-  call = build3 (CALL_EXPR, TREE_TYPE (TREE_TYPE (fndecl)), 
-		 fn, arglist, NULL);
-  TREE_SIDE_EFFECTS (call) = 1;
-
-  return call;
-}
-
-
 /* Generate a runtime error if COND is true.  */
 
 void
@@ -341,8 +308,6 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   tree body;
   tree tmp;
   tree args;
-
-  cond = fold (cond);
 
   if (integer_zerop (cond))
     return;
@@ -363,7 +328,7 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   tmp = build_int_cst (NULL_TREE, input_line);
   args = gfc_chainon_list (args, tmp);
 
-  tmp = gfc_build_function_call (gfor_fndecl_runtime_error, args);
+  tmp = build_function_call_expr (gfor_fndecl_runtime_error, args);
   gfc_add_expr_to_block (&block, tmp);
 
   body = gfc_finish_block (&block);
@@ -375,9 +340,11 @@ gfc_trans_runtime_check (tree cond, tree msg, stmtblock_t * pblock)
   else
     {
       /* Tell the compiler that this isn't likely.  */
+      cond = fold_convert (long_integer_type_node, cond);
       tmp = gfc_chainon_list (NULL_TREE, cond);
-      tmp = gfc_chainon_list (tmp, integer_zero_node);
-      cond = gfc_build_function_call (built_in_decls[BUILT_IN_EXPECT], tmp);
+      tmp = gfc_chainon_list (tmp, build_int_cst (long_integer_type_node, 0));
+      cond = build_function_call_expr (built_in_decls[BUILT_IN_EXPECT], tmp);
+      cond = fold_convert (boolean_type_node, cond);
 
       tmp = build3_v (COND_EXPR, cond, body, build_empty_stmt ());
       gfc_add_expr_to_block (pblock, tmp);
@@ -394,9 +361,6 @@ gfc_add_expr_to_block (stmtblock_t * block, tree expr)
 
   if (expr == NULL_TREE || IS_EMPTY_STMT (expr))
     return;
-
-  if (TREE_CODE (expr) != STATEMENT_LIST)
-    expr = fold (expr);
 
   if (block->head)
     {
@@ -619,6 +583,23 @@ gfc_trans_code (gfc_code * code)
 
 	case EXEC_DT_END:
 	  res = gfc_trans_dt_end (code);
+	  break;
+
+	case EXEC_OMP_ATOMIC:
+	case EXEC_OMP_BARRIER:
+	case EXEC_OMP_CRITICAL:
+	case EXEC_OMP_DO:
+	case EXEC_OMP_FLUSH:
+	case EXEC_OMP_MASTER:
+	case EXEC_OMP_ORDERED:
+	case EXEC_OMP_PARALLEL:
+	case EXEC_OMP_PARALLEL_DO:
+	case EXEC_OMP_PARALLEL_SECTIONS:
+	case EXEC_OMP_PARALLEL_WORKSHARE:
+	case EXEC_OMP_SECTIONS:
+	case EXEC_OMP_SINGLE:
+	case EXEC_OMP_WORKSHARE:
+	  res = gfc_trans_omp_directive (code);
 	  break;
 
 	default:

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -86,7 +86,7 @@ package body Sinput is
       LL : Physical_Line_Number;
 
    begin
-      --  Reallocate the lines tables if necessary.
+      --  Reallocate the lines tables if necessary
 
       --  Note: the reason we do not use the normal Table package
       --  mechanism is that we have several of these tables. We could
@@ -1155,6 +1155,11 @@ package body Sinput is
       return Source_File.Table (S).Time_Stamp;
    end Time_Stamp;
 
+   function Unit (S : SFI) return Unit_Number_Type is
+   begin
+      return Source_File.Table (S).Unit;
+   end Unit;
+
    ------------------------------------------
    -- Set Procedures for Source File Table --
    ------------------------------------------
@@ -1173,6 +1178,11 @@ package body Sinput is
    begin
       Source_File.Table (S).License := L;
    end Set_License;
+
+   procedure Set_Unit (S : SFI; U : Unit_Number_Type) is
+   begin
+      Source_File.Table (S).Unit := U;
+   end Set_Unit;
 
    ----------------------
    -- Trim_Lines_Table --

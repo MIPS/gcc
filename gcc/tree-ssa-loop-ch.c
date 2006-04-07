@@ -120,7 +120,7 @@ do_while_loop_p (struct loop *loop)
    of the loop.  This is beneficial since it increases efficiency of
    code motion optimizations.  It also saves one jump on entry to the loop.  */
 
-static void
+static unsigned int
 copy_loop_headers (void)
 {
   struct loops *loops;
@@ -132,20 +132,17 @@ copy_loop_headers (void)
   unsigned n_bbs;
   unsigned bbs_size;
 
-  loops = loop_optimizer_init (dump_file);
+  loops = loop_optimizer_init (LOOPS_HAVE_PREHEADERS
+			       | LOOPS_HAVE_SIMPLE_LATCHES);
   if (!loops)
-    return;
-  
-  /* We do not try to keep the information about irreducible regions
-     up-to-date.  */
-  loops->state &= ~LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS;
+    return 0;
 
 #ifdef ENABLE_CHECKING
   verify_loop_structure (loops);
 #endif
 
-  bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
-  copied_bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  bbs = XNEWVEC (basic_block, n_basic_blocks);
+  copied_bbs = XNEWVEC (basic_block, n_basic_blocks);
   bbs_size = n_basic_blocks;
 
   for (i = 1; i < loops->num; i++)
@@ -216,7 +213,8 @@ copy_loop_headers (void)
   free (bbs);
   free (copied_bbs);
 
-  loop_optimizer_finalize (loops, NULL);
+  loop_optimizer_finalize (loops);
+  return 0;
 }
 
 static bool

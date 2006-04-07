@@ -37,12 +37,16 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #ifndef USED_FOR_TARGET
 
+struct bitmap_head_def;
+typedef struct bitmap_head_def *bitmap;
 struct rtx_def;
 typedef struct rtx_def *rtx;
 struct rtvec_def;
 typedef struct rtvec_def *rtvec;
 union tree_node;
 typedef union tree_node *tree;
+union section;
+typedef union section section;
 
 /* Provide forward struct declaration so that we don't have to include
    all of cpplib.h whenever a random prototype includes a pointer.

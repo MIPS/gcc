@@ -78,14 +78,6 @@ struct loop
   /* Average number of executed insns per iteration.  */
   unsigned av_ninsns;
 
-  /* The first block in the loop.  This is not necessarily the same as
-     the loop header.  */
-  basic_block first;
-
-  /* The last block in the loop.  This is not necessarily the same as
-     the loop latch.  */
-  basic_block last;
-
   /* Number of blocks contained within the loop.  */
   unsigned num_nodes;
 
@@ -111,45 +103,8 @@ struct loop
   /* Loop that is copy of this loop.  */
   struct loop *copy;
 
-  /* Nonzero if the loop is invalid (e.g., contains setjmp.).  */
-  int invalid;
-
   /* Auxiliary info specific to a pass.  */
   void *aux;
-
-  /* The following are currently used by loop.c but they are likely to
-     disappear when loop.c is replaced and removed.  */
-
-  /* The NOTE_INSN_LOOP_BEG.  */
-  rtx start;
-
-  /* The NOTE_INSN_LOOP_END.  */
-  rtx end;
-
-  /* For a rotated loop that is entered near the bottom,
-     this is the label at the top.  Otherwise it is zero.  */
-  rtx top;
-
-  /* Place in the loop where control enters.  */
-  rtx scan_start;
-
-  /* The position where to sink insns out of the loop.  */
-  rtx sink;
-
-  /* List of all LABEL_REFs which refer to code labels outside the
-     loop.  Used by routines that need to know all loop exits, such as
-     final_biv_value and final_giv_value.
-
-     This does not include loop exits due to return instructions.
-     This is because all bivs and givs are pseudos, and hence must be
-     dead after a return, so the presence of a return does not affect
-     any of the optimizations that use this info.  It is simpler to
-     just not include return instructions on this list.  */
-  rtx exit_labels;
-
-  /* The number of LABEL_REFs on exit_labels for this loop and all
-     loops nested inside it.  */
-  int exit_count;
 
   /* The probable number of times the loop is executed at runtime.
      This is an INTEGER_CST or an expression containing symbolic
@@ -184,6 +139,9 @@ enum
   LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS = 4,
   LOOPS_HAVE_MARKED_SINGLE_EXITS = 8
 };
+
+#define LOOPS_NORMAL (LOOPS_HAVE_PREHEADERS | LOOPS_HAVE_SIMPLE_LATCHES \
+		      | LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS)
 
 /* Structure to hold CFG information about natural loops within a function.  */
 struct loops
@@ -240,12 +198,10 @@ int flow_loop_nodes_find (basic_block, struct loop *);
 void fix_loop_structure (struct loops *, bitmap changed_bbs);
 void mark_irreducible_loops (struct loops *);
 void mark_single_exit_loops (struct loops *);
-extern void create_loop_notes (void);
 
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);
 extern void flow_loop_tree_node_remove (struct loop *);
-extern bool flow_loop_outside_edge_p (const struct loop *, edge);
 extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
@@ -270,7 +226,6 @@ extern edge loop_latch_edge (const struct loop *);
 extern void add_bb_to_loop (basic_block, struct loop *);
 extern void remove_bb_from_loops (basic_block);
 
-extern void cancel_loop (struct loops *, struct loop *);
 extern void cancel_loop_tree (struct loops *, struct loop *);
 
 extern basic_block loop_split_edge_with (edge, rtx);
@@ -311,7 +266,6 @@ extern struct loop *loopify (struct loops *, edge, edge,
 struct loop * loop_version (struct loops *, struct loop *, void *,
 			    basic_block *, bool);
 extern bool remove_path (struct loops *, edge);
-extern edge split_loop_bb (basic_block, void *);
 
 /* Induction variable analysis.  */
 
@@ -351,9 +305,6 @@ struct rtx_iv
 
   /* The mode the variable iterates in.  */
   enum machine_mode mode;
-
-  /* Whether we have already filled the remaining fields.  */
-  unsigned analysed : 1;
 
   /* Whether the first iteration needs to be handled specially.  */
   unsigned first_special : 1;
@@ -404,12 +355,14 @@ struct niter_desc
 };
 
 extern void iv_analysis_loop_init (struct loop *);
-extern rtx iv_get_reaching_def (rtx, rtx);
 extern bool iv_analyze (rtx, rtx, struct rtx_iv *);
+extern bool iv_analyze_result (rtx, rtx, struct rtx_iv *);
+extern bool iv_analyze_expr (rtx, rtx, enum machine_mode, struct rtx_iv *);
 extern rtx get_iv_value (struct rtx_iv *, rtx);
 extern bool biv_p (rtx, rtx);
 extern void find_simple_exit (struct loop *, struct niter_desc *);
 extern void iv_analysis_done (void);
+extern struct df *iv_current_loop_df (void);
 
 extern struct niter_desc *get_simple_loop_desc (struct loop *loop);
 extern void free_simple_loop_desc (struct loop *loop);
@@ -417,7 +370,7 @@ extern void free_simple_loop_desc (struct loop *loop);
 static inline struct niter_desc *
 simple_loop_desc (struct loop *loop)
 {
-  return loop->aux;
+  return (struct niter_desc *) loop->aux;
 }
 
 /* The properties of the target.  */
@@ -437,8 +390,8 @@ extern unsigned global_cost_for_size (unsigned, unsigned, unsigned);
 extern void init_set_costs (void);
 
 /* Loop optimizer initialization.  */
-extern struct loops *loop_optimizer_init (FILE *);
-extern void loop_optimizer_finalize (struct loops *, FILE *);
+extern struct loops *loop_optimizer_init (unsigned);
+extern void loop_optimizer_finalize (struct loops *);
 
 /* Optimization passes.  */
 extern void unswitch_loops (struct loops *);
@@ -459,7 +412,5 @@ extern void record_estimate (struct loop *, tree, tree, tree);
 
 /* Flags passed to loop_optimize.  */
 #define LOOP_PREFETCH 1
-
-extern void loop_optimize (rtx, FILE *, int);
 
 #endif /* GCC_CFGLOOP_H */
