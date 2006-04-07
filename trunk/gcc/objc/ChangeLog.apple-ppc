@@ -1,3 +1,11 @@
+2006-04-07 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4505126
+	* objc-act.c (lookup_property, lookup_property_in_list,
+	lookup_property_in_protocol_list): New.
+	(objc_build_getter_call): Call lookup_property to find a property.
+	Also fix a minor C* property bug uncovered.
+	
 2006-04-06 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4436866

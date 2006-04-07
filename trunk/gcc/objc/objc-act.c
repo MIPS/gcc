@@ -298,6 +298,11 @@ static tree hash_name_lookup (hash *, tree);
 static void build_objc_fast_enum_state_type (void);
 static tree objc_create_named_tmp_var (tree);
 /* APPLE LOCAL end C* language */
+/* APPLE LOCAL beginradar 4505126 */
+static tree lookup_property (tree, tree);
+static tree lookup_property_in_list (tree, tree);
+static tree lookup_property_in_protocol_list (tree, tree);
+/* APPLE LOCAL end radar 4505126 */
 
 /* APPLE LOCAL end mainline */
 static tree build_ivar_template (void);
@@ -1176,6 +1181,74 @@ objc_add_property_variable (tree decl)
     }
 }
 
+/* APPLE LOCAL begin radar 4505126 */
+/* This routine looks for a given PROPERTY in a list of CLASS, CATEGORY, or
+   PROTOCOL.
+*/
+static tree
+lookup_property_in_list (tree chain, tree property)
+{
+  tree x;
+  for (x = CLASS_PROPERTY_DECL (chain); x; x = TREE_CHAIN (x))
+    if (PROPERTY_NAME (x) == property)
+      return x;
+  return NULL_TREE;
+}
+
+/* This routine looks for a given PROPERTY in the tree chain of RPROTO_LIST. */
+
+static tree lookup_property_in_protocol_list (tree rproto_list, tree property)
+{
+  tree rproto, x;
+  for (rproto = rproto_list; rproto; rproto = TREE_CHAIN (rproto))
+    {
+      tree p = TREE_VALUE (rproto);
+      if (TREE_CODE (p) == PROTOCOL_INTERFACE_TYPE)
+	{
+	  if ((x = lookup_property_in_list (p, property)))
+	    return x;
+	  if (PROTOCOL_LIST (p))
+	    return lookup_property_in_protocol_list (PROTOCOL_LIST (p), property);
+	}
+      else
+	{
+	  ; /* An identifier...if we could not find a protocol.  */
+	}
+    }
+  return NULL_TREE;
+}
+
+/* This routine looks up the PROPERTY in current INTERFACE, its categories and up the
+   chain of interface hierarchy.
+*/
+static tree
+lookup_property (tree interface_type, tree property)
+{
+  tree inter = interface_type;
+  while (inter)
+    {
+      tree x, category;
+      if ((x = lookup_property_in_list (inter, property)))
+	return x;
+      /* Failing that, look for the property in each category of the class.  */
+      category = inter;
+      while ((category = CLASS_CATEGORY_LIST (category)))
+	if ((x = lookup_property_in_list (category, property)))
+	  return x;
+
+      /*  Failing to find in categories, look for property in protocol list. */
+      if (CLASS_PROTOCOL_LIST (inter) 
+	  && (x = lookup_property_in_protocol_list (
+		    CLASS_PROTOCOL_LIST (inter), property)))
+	return x;
+      
+      /* Failing that, climb up the inheritance hierarchy.  */
+      inter = lookup_interface (CLASS_SUPER_NAME (inter));
+    }
+  return inter;
+}
+/* APPLE LOCAL end radar 4505126 */
+
 /* This routine recognizes a dot-notation for a propery reference and generates a call to
    the getter function for this property. In all other cases, it returns a NULL_TREE.
 */
@@ -1203,19 +1276,36 @@ objc_build_getter_call (tree receiver, tree component)
   basetype = DECL_ORIGINAL_TYPE (OBJC_TYPE_NAME (basetype));
   if (TYPED_OBJECT (basetype))
     {
+      /* APPLE LOCAL radar 4505126 */
+      tree call_exp;
       interface_type = TYPE_OBJC_INTERFACE (basetype);
       if (!interface_type)
 	return NULL_TREE;
-      for (x = CLASS_PROPERTY_DECL (interface_type); x; x = TREE_CHAIN (x))
-	if (PROPERTY_NAME (x) == component)
-	  break;
+      /* APPLE LOCAL begin radar 4505126 */
+      x = lookup_property (interface_type, component);
+      /* APPLE LOCAL end radar 4505126 */
       if (!x)
 	return NULL_TREE;
 
       /* Get the getter name. */
       gcc_assert (PROPERTY_NAME (x));
       getter = objc_finish_message_expr (receiver, PROPERTY_NAME (x), NULL_TREE);
-      CALL_EXPR_OBJC_PROPERTY_GETTER (getter) = 1;
+      /* APPLE LOCAL begin radar 4505126 */
+      call_exp = getter;
+#ifdef OBJCPLUS
+      /* In C++, a getter which returns an aggregate value results in a target_expr
+	 which initializes a temporary to the call expression. Must accomodate
+	 for this senarion. */
+      if (TREE_CODE (getter) == TARGET_EXPR)
+	{
+	  gcc_assert (IS_AGGR_TYPE (TREE_TYPE (getter)));
+	  gcc_assert (TREE_CODE (TREE_OPERAND (getter,0)) == VAR_DECL);
+	  call_exp = TREE_OPERAND (getter,1);
+	}
+#endif
+      gcc_assert (TREE_CODE (call_exp) == CALL_EXPR);
+      CALL_EXPR_OBJC_PROPERTY_GETTER (call_exp) = 1;
+      /* APPLE LOCAL end radar 4505126 */
       return getter;
     }
   return NULL_TREE;
