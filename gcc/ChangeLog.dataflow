@@ -72,6 +72,13 @@
 	(df_ri_alloc, df_ri_bb_compute, df_create_unused_note, 
 	df_ri_bb_compute, df_ri_compute, df_ri_free, df_ri_add_problem):
 	Added functionality to compute register information. 
+	dce.c (deletable_insn_p): Cannot delete PREFETCHes.
+	(delete_unmarked_insns): Also delete noop moves as well as support for
+	calling dce from df.
+	(prescan_insns_for_dce, rest_of_handle_dce, end_fast_dce, 
+	dce_process_block, rest_of_handle_fast_dce,
+	rest_of_handle_dse): Restructured to handle being directly called from
+	df.
 
 
 2006-03-14  Kenneth Zadeck <zadeck@naturalbridge.com>
