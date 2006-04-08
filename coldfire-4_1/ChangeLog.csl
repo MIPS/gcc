@@ -1,3 +1,9 @@
+2006-04-08  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/builtins/lib/chk.c: Include
+	<sys/types.h>.  Use __UCLIBC__ rather than __uClinux__ to guard
+	the definition of vsnprintf.
+
 2006-04-04  Richard Sandiford  <richard@codesourcery.com>
 
 	* gcc/config/m68k/m68k.h (PREFERRED_STACK_BOUNDARY): Define to 32
