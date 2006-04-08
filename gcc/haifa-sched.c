@@ -143,6 +143,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "sched-int.h"
 #include "target.h"
 #include "output.h"
+#include "df.h"
 
 #ifdef INSN_SCHEDULING
 
@@ -442,7 +443,7 @@ static int priority (rtx);
 static int rank_for_schedule (const void *, const void *);
 static void swap_sort (rtx *, int);
 static void queue_insn (rtx, int);
-static int schedule_insn (rtx, struct ready_list *, int);
+static int schedule_insn (struct df *df, rtx, struct ready_list *, int);
 static int find_set_reg_weight (rtx);
 static void find_insn_reg_weight (int);
 static void adjust_priority (rtx);
@@ -502,7 +503,7 @@ struct sched_info *current_sched_info;
 
 #ifndef INSN_SCHEDULING
 void
-schedule_insns (void)
+schedule_insns (struct df *)
 {
 }
 #else
@@ -883,7 +884,7 @@ static int last_clock_var;
    zero for insns in a schedule group).  */
 
 static int
-schedule_insn (rtx insn, struct ready_list *ready, int clock)
+schedule_insn (struct df *df, rtx insn, struct ready_list *ready, int clock)
 {
   rtx link;
   int advance = 0;
@@ -922,7 +923,7 @@ schedule_insn (rtx insn, struct ready_list *ready, int clock)
 	{
 	  int effective_cost = INSN_TICK (next) - clock;
 
-	  if (! (*current_sched_info->new_ready) (next))
+	  if (! (*current_sched_info->new_ready) (df, next))
 	    continue;
 
 	  if (sched_verbose >= 2)
@@ -1834,7 +1835,7 @@ choose_ready (struct ready_list *ready)
    possibly bringing insns from subsequent blocks in the same region.  */
 
 void
-schedule_block (int b, int rgn_n_insns)
+schedule_block (struct df* df, int b, int rgn_n_insns)
 {
   struct ready_list ready;
   int i, first_cycle_insn_p;
@@ -1886,7 +1887,7 @@ schedule_block (int b, int rgn_n_insns)
   for (i = 0; i <= rgn_n_insns; i++)
     choice_stack[i].state = xmalloc (dfa_state_size);
 
-  (*current_sched_info->init_ready_list) (&ready);
+  (*current_sched_info->init_ready_list) (df, &ready);
 
   if (targetm.sched.md_init)
     targetm.sched.md_init (sched_dump, sched_verbose, ready.veclen);
@@ -2047,7 +2048,7 @@ schedule_block (int b, int rgn_n_insns)
 	      continue;
 	    }
 
-	  if (! (*current_sched_info->can_schedule_ready_p) (insn))
+	  if (! (*current_sched_info->can_schedule_ready_p) (df, insn))
 	    goto next;
 
 	  last_scheduled_insn = move_insn (insn, last_scheduled_insn);
@@ -2066,7 +2067,7 @@ schedule_block (int b, int rgn_n_insns)
 		   && GET_CODE (PATTERN (insn)) != CLOBBER)
 	    can_issue_more--;
 
-	  advance = schedule_insn (insn, &ready, clock_var);
+	  advance = schedule_insn (df, insn, &ready, clock_var);
 
 	  /* After issuing an asm insn we should start a new cycle.  */
 	  if (advance == 0 && asm_p)

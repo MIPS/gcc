@@ -2755,17 +2755,7 @@ split_all_insns (void)
 		     allocation, and there are unlikely to be very many
 		     nops then anyways.  */
 		  if (reload_completed)
-		    {
-		      /* If the no-op set has a REG_UNUSED note, we need
-			 to update liveness information.  */
-		      if (find_reg_note (insn, REG_UNUSED, NULL_RTX))
-			{
-			  SET_BIT (blocks, bb->index);
-			  changed = true;
-			}
-		      /* ??? Is life info affected by deleting edges?  */
 		      delete_insn_and_edges (insn);
-		    }
 		}
 	      else
 		{

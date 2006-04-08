@@ -2094,11 +2094,12 @@ extern void print_rtl_slim_with_bb (FILE *, rtx, int);
 extern void dump_insn_slim (FILE *f, rtx x);
 extern void debug_insn_slim (rtx x);
 
+struct df;
 /* In sched-rgn.c.  */
-extern void schedule_insns (void);
+extern void schedule_insns (struct df *);
 
 /* In sched-ebb.c.  */
-extern void schedule_ebbs (void);
+extern void schedule_ebbs (struct df *);
 
 /* In haifa-sched.c.  */
 extern void fix_sched_param (const char *, const char *);

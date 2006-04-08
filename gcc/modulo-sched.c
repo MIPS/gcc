@@ -244,7 +244,8 @@ contributes_to_priority (rtx next, rtx insn)
 }
 
 static void
-compute_jump_reg_dependencies (rtx insn ATTRIBUTE_UNUSED,
+compute_jump_reg_dependencies (struct df * df ATTRIBUTE_UNUSED,
+			       rtx insn ATTRIBUTE_UNUSED,
 			       regset cond_exec ATTRIBUTE_UNUSED,
 			       regset used ATTRIBUTE_UNUSED,
 			       regset set ATTRIBUTE_UNUSED)
@@ -935,6 +936,7 @@ sms_schedule (void)
 
   /* Init Data Flow analysis, to be used in interloop dep calculation.  */
   df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
+  df_lr_add_problem (df, DF_LR_RUN_DCE);
   df_rd_add_problem (df, 0);
   df_ru_add_problem (df, 0);
   df_chain_add_problem (df, DF_DU_CHAIN | DF_UD_CHAIN);

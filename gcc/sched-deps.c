@@ -96,7 +96,7 @@ static void fixup_sched_groups (rtx);
 static void flush_pending_lists (struct deps *, rtx, int, int);
 static void sched_analyze_1 (struct deps *, rtx, rtx);
 static void sched_analyze_2 (struct deps *, rtx, rtx);
-static void sched_analyze_insn (struct deps *, rtx, rtx, rtx);
+static void sched_analyze_insn (struct df *, struct deps *, rtx, rtx, rtx);
 
 static rtx sched_get_condition (rtx);
 static int conditions_mutex_p (rtx, rtx);
@@ -881,7 +881,8 @@ sched_analyze_2 (struct deps *deps, rtx x, rtx insn)
 /* Analyze an INSN with pattern X to find all dependencies.  */
 
 static void
-sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
+sched_analyze_insn (struct df *df, struct deps *deps, 
+		    rtx x, rtx insn, rtx loop_notes)
 {
   RTX_CODE code = GET_CODE (x);
   rtx link;
@@ -957,7 +958,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
 	  INIT_REG_SET (&tmp_sets);
 
 	  (*current_sched_info->compute_jump_reg_dependencies)
-	    (insn, &deps->reg_conditional_sets, &tmp_uses, &tmp_sets);
+	    (df, insn, &deps->reg_conditional_sets, &tmp_uses, &tmp_sets);
 	  /* Make latency of jump equal to 0 by using anti-dependence.  */
 	  EXECUTE_IF_SET_IN_REG_SET (&tmp_uses, 0, i, rsi)
 	    {
@@ -1242,7 +1243,7 @@ sched_analyze_insn (struct deps *deps, rtx x, rtx insn, rtx loop_notes)
    for every dependency.  */
 
 void
-sched_analyze (struct deps *deps, rtx head, rtx tail)
+sched_analyze (struct df *df, struct deps *deps, rtx head, rtx tail)
 {
   rtx insn;
   rtx loop_notes = 0;
@@ -1279,7 +1280,7 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 		deps->last_pending_memory_flush
 		  = alloc_INSN_LIST (insn, deps->last_pending_memory_flush);
 	    }
-	  sched_analyze_insn (deps, PATTERN (insn), insn, loop_notes);
+	  sched_analyze_insn (df, deps, PATTERN (insn), insn, loop_notes);
 	  loop_notes = 0;
 	}
       else if (CALL_P (insn))
@@ -1334,7 +1335,7 @@ sched_analyze (struct deps *deps, rtx head, rtx tail)
 	  add_dependence_list_and_free (insn, &deps->sched_before_next_call, 1,
 					REG_DEP_ANTI);
 
-	  sched_analyze_insn (deps, PATTERN (insn), insn, loop_notes);
+	  sched_analyze_insn (df, deps, PATTERN (insn), insn, loop_notes);
 	  loop_notes = 0;
 
 	  /* In the absence of interprocedural alias analysis, we must flush

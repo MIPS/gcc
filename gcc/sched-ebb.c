@@ -51,17 +51,17 @@ static int target_n_insns;
 static int sched_n_insns;
 
 /* Implementations of the sched_info functions for region scheduling.  */
-static void init_ready_list (struct ready_list *);
-static int can_schedule_ready_p (rtx);
-static int new_ready (rtx);
+static void init_ready_list (struct df *, struct ready_list *);
+static int can_schedule_ready_p (struct df *, rtx);
+static int new_ready (struct df *, rtx);
 static int schedule_more_p (void);
 static const char *ebb_print_insn (rtx, int);
 static int rank (rtx, rtx);
 static int contributes_to_priority (rtx, rtx);
-static void compute_jump_reg_dependencies (rtx, regset, regset, regset);
+static void compute_jump_reg_dependencies (struct df *, rtx, regset, regset, regset);
 static basic_block earliest_block_with_similiar_load (basic_block, rtx);
 static void add_deps_for_risky_insns (rtx, rtx);
-static basic_block schedule_ebb (rtx, rtx);
+static basic_block schedule_ebb (struct df * df, rtx, rtx);
 static basic_block fix_basic_block_boundaries (basic_block, basic_block, rtx,
 					       rtx);
 static void add_missing_bbs (rtx, basic_block, basic_block);
@@ -78,7 +78,7 @@ schedule_more_p (void)
    once before scheduling a set of insns.  */
 
 static void
-init_ready_list (struct ready_list *ready)
+init_ready_list (struct df *df ATTRIBUTE_UNUSED, struct ready_list *ready)
 {
   rtx prev_head = current_sched_info->prev_head;
   rtx next_tail = current_sched_info->next_tail;
@@ -107,7 +107,7 @@ init_ready_list (struct ready_list *ready)
    insn can be scheduled, nonzero if we should silently discard it.  */
 
 static int
-can_schedule_ready_p (rtx insn ATTRIBUTE_UNUSED)
+can_schedule_ready_p (struct df *df ATTRIBUTE_UNUSED, rtx insn ATTRIBUTE_UNUSED)
 {
   sched_n_insns++;
   return 1;
@@ -117,7 +117,7 @@ can_schedule_ready_p (rtx insn ATTRIBUTE_UNUSED)
    if it should be moved to the ready list or the queue, or zero if we
    should silently discard it.  */
 static int
-new_ready (rtx next ATTRIBUTE_UNUSED)
+new_ready (struct df *df ATTRIBUTE_UNUSED, rtx next ATTRIBUTE_UNUSED)
 {
   return 1;
 }
@@ -172,8 +172,8 @@ contributes_to_priority (rtx next ATTRIBUTE_UNUSED,
     registers that must be considered as set in SET.  */
 
 static void
-compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
-			       regset set)
+compute_jump_reg_dependencies (struct df *df, rtx insn, regset cond_set, 
+			       regset used, regset set)
 {
   basic_block b = BLOCK_FOR_INSN (insn);
   edge e;
@@ -186,9 +186,9 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
 	 it may guard the fallthrough block from using a value that has
 	 conditionally overwritten that of the main codepath.  So we
 	 consider that it restores the value of the main codepath.  */
-      bitmap_and (set, DF_LIVE_IN (rtl_df, e->dest), cond_set);
+      bitmap_and (set, DF_LIVE_IN (df, e->dest), cond_set);
     else
-      bitmap_ior_into (used, DF_LIVE_IN (rtl_df, e->dest));
+      bitmap_ior_into (used, DF_LIVE_IN (df, e->dest));
 }
 
 /* Used in schedule_insns to initialize current_sched_info for scheduling
@@ -479,7 +479,7 @@ add_deps_for_risky_insns (rtx head, rtx tail)
    and TAIL.  */
 
 static basic_block
-schedule_ebb (rtx head, rtx tail)
+schedule_ebb (struct df *df, rtx head, rtx tail)
 {
   int n_insns;
   basic_block b;
@@ -494,7 +494,7 @@ schedule_ebb (rtx head, rtx tail)
 
   /* Compute LOG_LINKS.  */
   init_deps (&tmp_deps);
-  sched_analyze (&tmp_deps, head, tail);
+  sched_analyze (df, &tmp_deps, head, tail);
   free_deps (&tmp_deps);
 
   /* Compute INSN_DEPEND.  */
@@ -539,7 +539,7 @@ schedule_ebb (rtx head, rtx tail)
 
   current_sched_info->queue_must_finish_empty = 1;
 
-  schedule_block (-1, n_insns);
+  schedule_block (df, -1, n_insns);
 
   /* Sanity check: verify that all region insns were scheduled.  */
   gcc_assert (sched_n_insns == n_insns);
@@ -557,7 +557,7 @@ schedule_ebb (rtx head, rtx tail)
 /* The one entry point in this file.  */
 
 void
-schedule_ebbs (void)
+schedule_ebbs (struct df *df)
 {
   basic_block bb;
   int probability_cutoff;
@@ -617,7 +617,7 @@ schedule_ebbs (void)
 	    break;
 	}
 
-      bb = schedule_ebb (head, tail);
+      bb = schedule_ebb (df, head, tail);
     }
 
   /* Updating life info can be done by local propagation over the modified

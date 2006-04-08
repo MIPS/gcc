@@ -240,10 +240,10 @@ static void compute_dom_prob_ps (int);
 #define INSN_BB(INSN) (BLOCK_TO_BB (BLOCK_NUM (INSN)))
 
 /* Speculative scheduling functions.  */
-static int check_live_1 (int, rtx);
-static void update_live_1 (int, rtx);
-static int check_live (rtx, int);
-static void update_live (rtx, int);
+static int check_live_1 (struct df *, int, rtx);
+static void update_live_1 (struct df *, int, rtx);
+static int check_live (struct df *, rtx, int);
+static void update_live (struct df *, rtx, int);
 static void set_spec_fed (rtx);
 static int is_pfree (rtx, int, int);
 static int find_conditional_protection (rtx, int);
@@ -254,11 +254,11 @@ static int is_exception_free (rtx, int, int);
 static bool sets_likely_spilled (rtx);
 static void sets_likely_spilled_1 (rtx, rtx, void *);
 static void add_branch_dependences (rtx, rtx);
-static void compute_block_backward_dependences (int);
+static void compute_block_backward_dependences (struct df *, int);
 void debug_dependencies (void);
 
 static void init_regions (void);
-static void schedule_region (int);
+static void schedule_region (struct df*, int);
 static rtx concat_INSN_LIST (rtx, rtx);
 static void concat_insn_mem_list (rtx, rtx, rtx *, rtx *);
 static void propagate_deps (int, struct deps *);
@@ -1106,7 +1106,7 @@ debug_candidates (int trg)
    of the split-blocks of src, otherwise return 1.  */
 
 static int
-check_live_1 (int src, rtx x)
+check_live_1 (struct df *df, int src, rtx x)
 {
   int i;
   int regno;
@@ -1126,7 +1126,7 @@ check_live_1 (int src, rtx x)
 
       for (i = XVECLEN (reg, 0) - 1; i >= 0; i--)
 	if (XEXP (XVECEXP (reg, 0, i), 0) != 0)
-	  if (check_live_1 (src, XEXP (XVECEXP (reg, 0, i), 0)))
+	  if (check_live_1 (df, src, XEXP (XVECEXP (reg, 0, i), 0)))
 	    return 1;
 
       return 0;
@@ -1153,7 +1153,7 @@ check_live_1 (int src, rtx x)
 	      for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 		{
 		  basic_block b = candidate_table[src].split_bbs.first_member[i];
-		  if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, b), regno + j))
+		  if (REGNO_REG_SET_P (DF_LIVE_IN (df, b), regno + j))
 		    return 0;
 		}
 	    }
@@ -1164,7 +1164,7 @@ check_live_1 (int src, rtx x)
 	  for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 	    {
 	      basic_block b = candidate_table[src].split_bbs.first_member[i];
-	      if (REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, b), regno))
+	      if (REGNO_REG_SET_P (DF_LIVE_IN (df, b), regno))
 		return 0;
 	    }
 	}
@@ -1177,7 +1177,7 @@ check_live_1 (int src, rtx x)
    of every update-block of src.  */
 
 static void
-update_live_1 (int src, rtx x)
+update_live_1 (struct df *df, int src, rtx x)
 {
   int i;
   int regno;
@@ -1197,7 +1197,7 @@ update_live_1 (int src, rtx x)
 
       for (i = XVECLEN (reg, 0) - 1; i >= 0; i--)
 	if (XEXP (XVECEXP (reg, 0, i), 0) != 0)
-	  update_live_1 (src, XEXP (XVECEXP (reg, 0, i), 0));
+	  update_live_1 (df, src, XEXP (XVECEXP (reg, 0, i), 0));
 
       return;
     }
@@ -1220,8 +1220,8 @@ update_live_1 (int src, rtx x)
 	      for (i = 0; i < candidate_table[src].update_bbs.nr_members; i++)
 		{
 		  basic_block b = candidate_table[src].update_bbs.first_member[i];
-		  SET_REGNO_REG_SET (DF_LIVE_IN (rtl_df, b), regno + j);
-		  SET_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, b), regno + j);
+		  SET_REGNO_REG_SET (DF_LIVE_IN (df, b), regno + j);
+		  SET_REGNO_REG_SET (DF_LIVE_OUT (df, b), regno + j);
 		}
 	    }
 	}
@@ -1230,8 +1230,8 @@ update_live_1 (int src, rtx x)
 	  for (i = 0; i < candidate_table[src].update_bbs.nr_members; i++)
 	    {
 	      basic_block b = candidate_table[src].update_bbs.first_member[i];
-	      SET_REGNO_REG_SET (DF_LIVE_IN (rtl_df, b), regno);
-	      SET_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, b), regno);
+	      SET_REGNO_REG_SET (DF_LIVE_IN (df, b), regno);
+	      SET_REGNO_REG_SET (DF_LIVE_OUT (df, b), regno);
 	    }
 	}
     }
@@ -1242,19 +1242,19 @@ update_live_1 (int src, rtx x)
    ready-list or before the scheduling.  */
 
 static int
-check_live (rtx insn, int src)
+check_live (struct df *df, rtx insn, int src)
 {
   /* Find the registers set by instruction.  */
   if (GET_CODE (PATTERN (insn)) == SET
       || GET_CODE (PATTERN (insn)) == CLOBBER)
-    return check_live_1 (src, PATTERN (insn));
+    return check_live_1 (df, src, PATTERN (insn));
   else if (GET_CODE (PATTERN (insn)) == PARALLEL)
     {
       int j;
       for (j = XVECLEN (PATTERN (insn), 0) - 1; j >= 0; j--)
 	if ((GET_CODE (XVECEXP (PATTERN (insn), 0, j)) == SET
 	     || GET_CODE (XVECEXP (PATTERN (insn), 0, j)) == CLOBBER)
-	    && !check_live_1 (src, XVECEXP (PATTERN (insn), 0, j)))
+	    && !check_live_1 (df, src, XVECEXP (PATTERN (insn), 0, j)))
 	  return 0;
 
       return 1;
@@ -1267,19 +1267,19 @@ check_live (rtx insn, int src)
    block src to trg.  */
 
 static void
-update_live (rtx insn, int src)
+update_live (struct df *df, rtx insn, int src)
 {
   /* Find the registers set by instruction.  */
   if (GET_CODE (PATTERN (insn)) == SET
       || GET_CODE (PATTERN (insn)) == CLOBBER)
-    update_live_1 (src, PATTERN (insn));
+    update_live_1 (df, src, PATTERN (insn));
   else if (GET_CODE (PATTERN (insn)) == PARALLEL)
     {
       int j;
       for (j = XVECLEN (PATTERN (insn), 0) - 1; j >= 0; j--)
 	if (GET_CODE (XVECEXP (PATTERN (insn), 0, j)) == SET
 	    || GET_CODE (XVECEXP (PATTERN (insn), 0, j)) == CLOBBER)
-	  update_live_1 (src, XVECEXP (PATTERN (insn), 0, j));
+	  update_live_1 (df, src, XVECEXP (PATTERN (insn), 0, j));
     }
 }
 
@@ -1511,14 +1511,14 @@ static int sched_n_insns;
 static int last_was_jump;
 
 /* Implementations of the sched_info functions for region scheduling.  */
-static void init_ready_list (struct ready_list *);
-static int can_schedule_ready_p (rtx);
-static int new_ready (rtx);
+static void init_ready_list (struct df *, struct ready_list *);
+static int can_schedule_ready_p (struct df *, rtx);
+static int new_ready (struct df *, rtx);
 static int schedule_more_p (void);
 static const char *rgn_print_insn (rtx, int);
 static int rgn_rank (rtx, rtx);
 static int contributes_to_priority (rtx, rtx);
-static void compute_jump_reg_dependencies (rtx, regset, regset, regset);
+static void compute_jump_reg_dependencies (struct df *, rtx, regset, regset, regset);
 
 /* Return nonzero if there are more insns that should be scheduled.  */
 
@@ -1532,7 +1532,7 @@ schedule_more_p (void)
    once before scheduling a set of insns.  */
 
 static void
-init_ready_list (struct ready_list *ready)
+init_ready_list (struct df *df, struct ready_list *ready)
 {
   rtx prev_head = current_sched_info->prev_head;
   rtx next_tail = current_sched_info->next_tail;
@@ -1606,7 +1606,7 @@ init_ready_list (struct ready_list *ready)
 		    || ((recog_memoized (insn) < 0
 			 || min_insn_conflict_delay (curr_state,
 						     insn, insn) <= 3)
-			&& check_live (insn, bb_src)
+			&& check_live (df, insn, bb_src)
 			&& is_exception_free (insn, bb_src, target_bb))))
 	      if (INSN_DEP_COUNT (insn) == 0)
 		{
@@ -1624,7 +1624,7 @@ init_ready_list (struct ready_list *ready)
    insn can be scheduled, nonzero if we should silently discard it.  */
 
 static int
-can_schedule_ready_p (rtx insn)
+can_schedule_ready_p (struct df *df, rtx insn)
 {
   if (JUMP_P (insn))
     last_was_jump = 1;
@@ -1636,9 +1636,9 @@ can_schedule_ready_p (rtx insn)
 
       if (IS_SPECULATIVE_INSN (insn))
 	{
-	  if (!check_live (insn, INSN_BB (insn)))
+	  if (!check_live (df, insn, INSN_BB (insn)))
 	    return 0;
-	  update_live (insn, INSN_BB (insn));
+	  update_live (df, insn, INSN_BB (insn));
 
 	  /* For speculative load, mark insns fed by it.  */
 	  if (IS_LOAD_INSN (insn) || FED_BY_SPEC_LOAD (insn))
@@ -1688,7 +1688,7 @@ can_schedule_ready_p (rtx insn)
    if it should be moved to the ready list or the queue, or zero if we
    should silently discard it.  */
 static int
-new_ready (rtx next)
+new_ready (struct df *df, rtx next)
 {
   /* For speculative insns, before inserting to ready/queue,
      check live, exception-free, and issue-delay.  */
@@ -1698,7 +1698,7 @@ new_ready (rtx next)
 	  || (IS_SPECULATIVE_INSN (next)
 	      && ((recog_memoized (next) >= 0
 		   && min_insn_conflict_delay (curr_state, next, next) > 3)
-		  || !check_live (next, INSN_BB (next))
+		  || !check_live (df, next, INSN_BB (next))
 		  || !is_exception_free (next, INSN_BB (next), target_bb)))))
     return 0;
   return 1;
@@ -1773,7 +1773,8 @@ contributes_to_priority (rtx next, rtx insn)
    registers that must be considered as set in SET.  */
 
 static void
-compute_jump_reg_dependencies (rtx insn ATTRIBUTE_UNUSED,
+compute_jump_reg_dependencies (struct df * df ATTRIBUTE_UNUSED,
+			       rtx insn ATTRIBUTE_UNUSED,
 			       regset cond_exec ATTRIBUTE_UNUSED,
 			       regset used ATTRIBUTE_UNUSED,
 			       regset set ATTRIBUTE_UNUSED)
@@ -2089,7 +2090,7 @@ propagate_deps (int bb, struct deps *pred_deps)
    similar, and the result is interblock dependences in the region.  */
 
 static void
-compute_block_backward_dependences (int bb)
+compute_block_backward_dependences (struct df *df, int bb)
 {
   rtx head, tail;
   struct deps tmp_deps;
@@ -2098,7 +2099,7 @@ compute_block_backward_dependences (int bb)
 
   /* Do the analysis for this block.  */
   get_block_head_tail (BB_TO_BLOCK (bb), &head, &tail);
-  sched_analyze (&tmp_deps, head, tail);
+  sched_analyze (df, &tmp_deps, head, tail);
   add_branch_dependences (head, tail);
 
   if (current_nr_blocks > 1)
@@ -2220,7 +2221,7 @@ sched_is_disabled_for_current_region_p (void)
    scheduled after its flow predecessors.  */
 
 static void
-schedule_region (int rgn)
+schedule_region (struct df *df, int rgn)
 {
   basic_block block;
   edge_iterator ei;
@@ -2247,7 +2248,7 @@ schedule_region (int rgn)
 
   /* Compute LOG_LINKS.  */
   for (bb = 0; bb < current_nr_blocks; bb++)
-    compute_block_backward_dependences (bb);
+    compute_block_backward_dependences (df, bb);
 
   /* Compute INSN_DEPEND.  */
   for (bb = current_nr_blocks - 1; bb >= 0; bb--)
@@ -2355,7 +2356,7 @@ schedule_region (int rgn)
       current_sched_info->queue_must_finish_empty
 	= current_nr_blocks > 1 && !flag_schedule_interblock;
 
-      schedule_block (b, rgn_n_insns);
+      schedule_block (df, b, rgn_n_insns);
       sched_rgn_n_insns += sched_n_insns;
 
       /* Update target block boundaries.  */
@@ -2454,7 +2455,7 @@ init_regions (void)
 /* The one entry point in this file.  */
 
 void
-schedule_insns (void)
+schedule_insns (struct df *df)
 {
   int rgn;
 
@@ -2475,29 +2476,9 @@ schedule_insns (void)
   current_sched_info = &region_sched_info;
   /* Schedule every region in the subroutine.  */
   for (rgn = 0; rgn < nr_regions; rgn++)
-    schedule_region (rgn);
+    schedule_region (df, rgn);
 
-  /* Update life analysis for the subroutine.  Do single block regions
-     first so that we can verify that live_at_start didn't change.  Then
-     do all other blocks.  */
-  /* ??? There is an outside possibility that update_life_info, or more
-     to the point propagate_block, could get called with nonzero flags
-     more than once for one basic block.  This would be kinda bad if it
-     were to happen, since REG_INFO would be accumulated twice for the
-     block, and we'd have twice the REG_DEAD notes.
-
-     I'm fairly certain that this _shouldn't_ happen, since I don't think
-     that live_at_start should change at region heads.  Not sure what the
-     best way to test for this kind of thing...  */
-
-  allocate_reg_life_data ();
   compute_bb_for_insn ();
-
-  /* Don't update reg info after reload, since that affects
-     regs_ever_live, which should not change after reload.  */
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL,
-		    (reload_completed ? PROP_DEATH_NOTES
-		     : PROP_DEATH_NOTES | PROP_REG_INFO));
 
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
@@ -2548,8 +2529,22 @@ rest_of_handle_sched (void)
 #ifdef INSN_SCHEDULING
   /* Do control and data sched analysis,
      and write some of the results to dump file.  */
+  struct df * df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (df, DF_LR_RUN_DCE);
+  df_ur_add_problem (df, 0);
+  df_ri_add_problem (df, DF_RI_LIFE);
+  df_analyze (df);
 
-  schedule_insns ();
+  schedule_insns (df);
+
+  /* FIXME - temporary hack to rebuild dataflow info after the first
+     round of scheduling.  This will be removed when all passes are
+     responcible for building their own info before running.  */
+  df_clear_flags (df->problems_by_index[DF_LR], DF_LR_RUN_DCE);
+  df_analyze (df);
+  /* end FIXME */
+
+  df_finish (df);
 #endif
 }
 
@@ -2568,22 +2563,21 @@ static void
 rest_of_handle_sched2 (void)
 {
 #ifdef INSN_SCHEDULING
-  /* Do control and data sched analysis again,
-     and write some more of the results to dump file.  */
+  struct df * df = df_init (DF_HARD_REGS);
+
+  df_lr_add_problem (df, DF_LR_RUN_DCE);
+  df_ur_add_problem (df, 0);
+  df_ri_add_problem (df, DF_RI_LIFE);
 
   split_all_insns ();
 
+  df_analyze (df);
   if (flag_sched2_use_superblocks || flag_sched2_use_traces)
-    {
-      schedule_ebbs ();
-      /* No liveness updating code yet, but it should be easy to do.
-         reg-stack recomputes the liveness when needed for now.  */
-      count_or_remove_death_notes (NULL, 1);
-      cleanup_cfg (CLEANUP_EXPENSIVE);
-    }
+    schedule_ebbs (df);
   else
-    schedule_insns ();
+    schedule_insns (df);
 
+  df_finish (df);
 #endif
 }
 

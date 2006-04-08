@@ -1,3 +1,37 @@
+2006-04-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* sched-ebb.c (init_ready_list, can_schedule_ready_p, new_ready,
+	compute_jump_reg_dependencies, schedule_ebb, sched_analyze,
+	schedule_block): Changed to pass instance of df.
+	(compute_jump_reg_dependencies): Changed to use local instance
+	of dataflow.
+	* ddg.c (build_intra_loop_deps, sched_analyze,
+	build_intra_loop_deps): Changed to pass instance of df.
+	* ddg.h: added forward reference to struct df.
+	* haifa-sched.c (schedule_insns, schedule_insn,
+	schedule_block): Changed to pass instance of df.
+	* modulo-sched (compute_jump_reg_dependencies): Ditto.
+	(sms_schedule): Added call to do dce when stated.
+	* sched-deps.c (sched_analyze_insn, sched_analyze):
+	Changed to pass instance of df.
+	* rtl.h (schedule_insns, schedule_ebbs): Ditto.
+	* sched-int.h (init_ready_list, can_schedule_ready_p, new_ready, 
+	compute_jump_reg_dependencies, sched_analyze, schedule_block):
+	Ditto.
+	* sched-rgn.c (check_live_1, update_live_1, check_live, 
+	update_live, init_ready_list, can_schedule_ready_p, new_ready,
+	compute_jump_reg_dependencies, compute_block_backward_dependences,
+	schedule_region, schedule_insns): Ditto.
+	(schedule_insns): Removed call to update_life_info when finished.
+ 	(rest_of_handle_sched, rest_of_handle_sched2): Creates local
+ 	instance of df.
+	* passes.c (init_optimization_passes): moved clear_df pass
+	earlier.
+	* Makefile.in (df-core.o): Added except.h and dce.h
+	(modulo-sched.o): Added DF_H.
+	* recog.c (split_all_insns): Removed old code that was used to 
+	update dataflow.
+	* reg-stack.c (rest_of_handle_stack_regs): Removed ifdefed out code.
+
 2006-04-07  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* recog.c (split_all_insns): Removed parameter and code to
 	update dataflow.

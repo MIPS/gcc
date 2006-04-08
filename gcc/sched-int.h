@@ -136,16 +136,16 @@ struct sched_info
 {
   /* Add all insns that are initially ready to the ready list.  Called once
      before scheduling a set of insns.  */
-  void (*init_ready_list) (struct ready_list *);
+  void (*init_ready_list) (struct df *, struct ready_list *);
   /* Called after taking an insn from the ready list.  Returns nonzero if
      this insn can be scheduled, nonzero if we should silently discard it.  */
-  int (*can_schedule_ready_p) (rtx);
+  int (*can_schedule_ready_p) (struct df *, rtx);
   /* Return nonzero if there are more insns that should be scheduled.  */
   int (*schedule_more_p) (void);
   /* Called after an insn has all its dependencies resolved.  Return nonzero
      if it should be moved to the ready list or the queue, or zero if we
      should silently discard it.  */
-  int (*new_ready) (rtx);
+  int (*new_ready) (struct df *, rtx);
   /* Compare priority of two insns.  Return a positive number if the second
      insn is to be preferred for scheduling, and a negative one if the first
      is to be preferred.  Zero if they are equally good.  */
@@ -161,7 +161,7 @@ struct sched_info
   /* Called when computing dependencies for a JUMP_INSN.  This function
      should store the set of registers that must be considered as set by
      the jump in the regset.  */
-  void (*compute_jump_reg_dependencies) (rtx, regset, regset, regset);
+  void (*compute_jump_reg_dependencies) (struct df *, rtx, regset, regset, regset);
 
   /* The boundaries of the set of insns to be scheduled.  */
   rtx prev_head, next_tail;
@@ -333,7 +333,7 @@ extern void print_insn (char *, rtx, int);
 /* Functions in sched-deps.c.  */
 extern bool sched_insns_conditions_mutex_p (rtx, rtx);
 extern int add_dependence (rtx, rtx, enum reg_note);
-extern void sched_analyze (struct deps *, rtx, rtx);
+extern void sched_analyze (struct df *, struct deps *, rtx, rtx);
 extern void init_deps (struct deps *);
 extern void free_deps (struct deps *);
 extern void init_deps_global (void);
@@ -358,7 +358,7 @@ extern void rm_other_notes (rtx, rtx);
 extern int insn_cost (rtx, rtx, rtx);
 extern int set_priorities (rtx, rtx);
 
-extern void schedule_block (int, int);
+extern void schedule_block (struct df *, int, int);
 extern void sched_init (void);
 extern void sched_finish (void);
 

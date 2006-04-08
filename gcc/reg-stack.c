@@ -3176,21 +3176,7 @@ static void
 rest_of_handle_stack_regs (void)
 {
 #ifdef STACK_REGS
-#if 0
-  if (reg_to_stack () && optimize)
-    {
-      regstack_completed = 1;
-      if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
-                       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
-          && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
-        {
-          reorder_basic_blocks ();
-          cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
-        }
-    }
-#else
   reg_to_stack ();
-#endif
   regstack_completed = 1;
 #endif
 }

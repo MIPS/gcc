@@ -685,9 +685,9 @@ init_optimization_passes (void)
   NEXT_PASS (pass_reorder_blocks);
   NEXT_PASS (pass_branch_target_load_optimize);
   NEXT_PASS (pass_leaf_regs);
+  NEXT_PASS (pass_clear_df);
   NEXT_PASS (pass_sched2);
   NEXT_PASS (pass_split_before_regstack);
-  NEXT_PASS (pass_clear_df);
   NEXT_PASS (pass_stack_regs);
   NEXT_PASS (pass_compute_alignments);
   NEXT_PASS (pass_duplicate_computed_gotos);
