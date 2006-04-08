@@ -3177,7 +3177,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	      case 'p':
 		/* All necessary reloads for an address_operand
 		   were handled in find_reloads_address.  */
-		this_alternative[i] = (int) MODE_BASE_REG_CLASS (VOIDmode);
+		this_alternative[i] =
+		  (int) MODE_BASE_REG_CLASS (operand_mode[i]);
 		win = 1;
 		badop = 0;
 		break;
@@ -3381,7 +3382,8 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 
 			/* If we didn't already win, we can reload
 			   the address into a base register.  */
-			this_alternative[i] = (int) MODE_BASE_REG_CLASS (VOIDmode);
+			this_alternative[i] =
+			  (int) MODE_BASE_REG_CLASS (operand_mode[i]);
 			badop = 0;
 			break;
 		      }
@@ -3884,7 +3886,7 @@ find_reloads (rtx insn, int replace, int ind_levels, int live_known,
 	    operand_reloadnum[i]
 	      = push_reload (XEXP (recog_data.operand[i], 0), NULL_RTX,
 			     &XEXP (recog_data.operand[i], 0), (rtx*) 0,
-			     MODE_BASE_REG_CLASS (VOIDmode),
+			     MODE_BASE_REG_CLASS (operand_mode[i]),
 			     GET_MODE (XEXP (recog_data.operand[i], 0)),
 			     VOIDmode, 0, 0, i, RELOAD_FOR_INPUT);
 	    rld[operand_reloadnum[i]].inc
@@ -4938,7 +4940,7 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	    loc = &XEXP (*loc, 0);
 	}
 
-      if (double_reg_address_ok)
+      if (double_reg_address_ok && MODE_INDEX_REG_CLASS (mode) != NO_REGS)
 	{
 	  /* Unshare the sum as well.  */
 	  *loc = ad = copy_rtx (ad);
@@ -4946,8 +4948,8 @@ find_reloads_address (enum machine_mode mode, rtx *memrefloc, rtx ad,
 	  /* Reload the displacement into an index reg.
 	     We assume the frame pointer or arg pointer is a base reg.  */
 	  find_reloads_address_part (XEXP (ad, 1), &XEXP (ad, 1),
-				     INDEX_REG_CLASS, GET_MODE (ad), opnum,
-				     type, ind_levels);
+				     MODE_INDEX_REG_CLASS (mode),
+				     GET_MODE (ad), opnum, type, ind_levels);
 	  return 0;
 	}
       else
@@ -5328,7 +5330,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
   ((CONTEXT) == 2					\
    ? REGNO_MODE_OK_FOR_REG_BASE_P (REGNO, MODE)		\
    : (CONTEXT) == 1					\
-   ? REGNO_OK_FOR_INDEX_P (REGNO)			\
+   ? REGNO_MODE_OK_FOR_INDEX_P (REGNO, MODE)		\
    : REGNO_MODE_OK_FOR_BASE_P (REGNO, MODE))
 
   enum reg_class context_reg_class;
@@ -5337,7 +5339,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
   if (context == 2)
     context_reg_class = MODE_BASE_REG_REG_CLASS (mode);
   else if (context == 1)
-    context_reg_class = INDEX_REG_CLASS;
+    context_reg_class = MODE_INDEX_REG_CLASS (mode);
   else
     context_reg_class = MODE_BASE_REG_CLASS (mode);
 
@@ -5423,10 +5425,10 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 
 	else if (code0 == REG && code1 == REG)
 	  {
-	    if (REG_OK_FOR_INDEX_P (op0)
+	    if (REG_MODE_OK_FOR_INDEX_P (op0, mode)
 		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      return 0;
-	    else if (REG_OK_FOR_INDEX_P (op1)
+	    else if (REG_MODE_OK_FOR_INDEX_P (op1, mode)
 		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      return 0;
 	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
@@ -5435,10 +5437,10 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      find_reloads_address_1 (mode, orig_op1, 1, &XEXP (x, 1), opnum,
 				      type, ind_levels, insn);
-	    else if (REG_OK_FOR_INDEX_P (op1))
+	    else if (REG_MODE_OK_FOR_INDEX_P (op1, mode))
 	      find_reloads_address_1 (mode, orig_op0, 2, &XEXP (x, 0), opnum,
 				      type, ind_levels, insn);
-	    else if (REG_OK_FOR_INDEX_P (op0))
+	    else if (REG_MODE_OK_FOR_INDEX_P (op0, mode))
 	      find_reloads_address_1 (mode, orig_op1, 2, &XEXP (x, 1), opnum,
 				      type, ind_levels, insn);
 	    else
@@ -5491,7 +5493,7 @@ find_reloads_address_1 (enum machine_mode mode, rtx x, int context,
 	   auto-modify by a constant then we could try replacing a pseudo
 	   register with its equivalent constant where applicable.  */
 	if (REG_P (XEXP (op1, 1)))
-	  if (!REGNO_OK_FOR_INDEX_P (REGNO (XEXP (op1, 1))))
+	  if (!REGNO_MODE_OK_FOR_INDEX_P (REGNO (XEXP (op1, 1)), mode))
 	    find_reloads_address_1 (mode, XEXP (op1, 1), 1, &XEXP (op1, 1),
 				    opnum, type, ind_levels, insn);
 

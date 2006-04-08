@@ -564,17 +564,17 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	  {
 	    int index_op;
 
-	    if (REG_OK_FOR_INDEX_P (op0)
+	    if (REG_MODE_OK_FOR_INDEX_P (op0, mode)
 		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
-	    else if (REG_OK_FOR_INDEX_P (op1)
+	    else if (REG_MODE_OK_FOR_INDEX_P (op1, mode)
 		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
 	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
 	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
-	    else if (REG_OK_FOR_INDEX_P (op1))
+	    else if (REG_MODE_OK_FOR_INDEX_P (op1, mode))
 	      index_op = 1;
 	    else
 	      index_op = 0;
@@ -594,9 +594,11 @@ scan_rtx_address (rtx insn, rtx *loc, enum reg_class cl,
 	  }
 
 	if (locI)
-	  scan_rtx_address (insn, locI, INDEX_REG_CLASS, action, mode);
+	  scan_rtx_address (insn, locI, MODE_INDEX_REG_CLASS (mode),
+			    action, mode);
 	if (locB)
-	  scan_rtx_address (insn, locB, MODE_BASE_REG_CLASS (mode), action, mode);
+	  scan_rtx_address (insn, locB, MODE_BASE_REG_CLASS (mode),
+			    action, mode);
 	if (locB_reg)
 	  scan_rtx_address (insn, locB_reg, MODE_BASE_REG_REG_CLASS (mode),
 			    action, mode);
@@ -1477,17 +1479,17 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	  {
 	    int index_op;
 
-	    if (REG_OK_FOR_INDEX_P (op0)
+	    if (REG_MODE_OK_FOR_INDEX_P (op0, mode)
 		&& REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
-	    else if (REG_OK_FOR_INDEX_P (op1)
+	    else if (REG_MODE_OK_FOR_INDEX_P (op1, mode)
 		     && REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
 	    else if (REG_MODE_OK_FOR_REG_BASE_P (op1, mode))
 	      index_op = 0;
 	    else if (REG_MODE_OK_FOR_REG_BASE_P (op0, mode))
 	      index_op = 1;
-	    else if (REG_OK_FOR_INDEX_P (op1))
+	    else if (REG_MODE_OK_FOR_INDEX_P (op1, mode))
 	      index_op = 1;
 	    else
 	      index_op = 0;
@@ -1507,8 +1509,9 @@ replace_oldest_value_addr (rtx *loc, enum reg_class cl,
 	  }
 
 	if (locI)
-	  changed |= replace_oldest_value_addr (locI, INDEX_REG_CLASS, mode,
-						insn, vd);
+	  changed |= replace_oldest_value_addr (locI,
+						MODE_INDEX_REG_CLASS (mode),
+						mode, insn, vd);
 	if (locB)
 	  changed |= replace_oldest_value_addr (locB,
 						MODE_BASE_REG_CLASS (mode),

@@ -1,5 +1,81 @@
 2006-04-08  Richard Sandiford  <richard@codesourcery.com>
 
+	* gcc/regrename.c (scan_rtx_address): Use REG_MODE_OK_FOR_INDEX_P
+	instead of REG_OK_FOR_INDEX_P.  Use MODE_INDEX_REG_CLASS instead
+	of INDEX_REG_CLASS.
+	(replace_oldest_value_addr): Likewise.
+	* gcc/doc/tm.texi (MODE_BASE_REG_CLASS): Clarify what a VOIDmode
+	argument means.
+	(REGNO_MODE_OK_FOR_BASE_P): Likewise.
+	(REG_MODE_OK_FOR_BASE_P): Likewise.
+	(MODE_INDEX_REG_CLASS): Document.
+	(REGNO_MODE_OK_FOR_INDEX_P): Likewise.
+	(REG_MODE_OK_FOR_INDEX_P): Likewise.
+	* gcc/defaults.h (REGNO_MODE_OK_FOR_INDEX_P): Provide default.
+	(REG_MODE_OK_FOR_INDEX_P): Likewise.
+	(MODE_INDEX_REG_CLASS): Likewise.
+	* gcc/postreload.c (reload_combine): Compute the set of index
+	registers that can be used for at least one mode.  Use that set
+	instead of INDEX_REG_CLASS.
+	* gcc/reload.c (find_reloads): Use operand_mode[i] as the argument
+	to MODE_BASE_REG_CLASS.
+	(find_reloads_address): Use MODE_INDEX_REG_CLASS instead of
+	INDEX_REG_CLASS.  Check MODE_INDEX_REG_CLASS (mode) as well
+	as double_reg_address_ok.
+	(find_reload_address_1): Use REG_MODE_OK_FOR_INDEX_P instead
+	of REG_OK_FOR_INDEX_P.  Use REGNO_MODE_OK_FOR_INDEX_P instead
+	of REGNO_OK_FOR_INDEX_P.  Use MODE_INDEX_REG_CLASS instead of
+	INDEX_REG_CLASS.
+	* gcc/recog.c (preprocess_constraints): Pass recog_data.operand_mode[i]
+	as the argument to BASE_REG_CLASS.
+	* gcc/regclass.c (record_operand_costs): Pass the mode of the
+	addressed data to record_address_regs.
+	(scan_one_insn): Likewise.  Also pass the mode of the memory reference
+	to MODE_BASE_REG_CLASS.
+	(record_reg_classes): Pass the operand mode to MODE_BASE_REG_CLASS.
+	(record_address_regs): Add a mode argument.  Update recursive calls.
+	Pass the mode argument to REG_MODE_OK_FOR_REG_BASE_P and
+	MODE_BASE_REG_REG_CLASS.  Use REG_MODE_OK_FOR_INDEX_P instead
+	of REG_OK_FOR_INDEX_P.  Use MODE_INDEX_REG_CLASS instead of
+	INDEX_REG_CLASS.
+	* gcc/config/m68k/m68k.md (tst<mode>_cf): Use "m" instead of "<Q>U".
+	(cmp<mode>_cf): Likewise.
+	(movsf_cf_hard): Likewise.
+	(movdf_cf_hard): Likewise.
+	(extendsfdf2_cf): Likewise.
+	(truncdfsf2_cf): Likewise.
+	(floatsi<mode>2_cf): Likewise.
+	(ftrunc<mode>2_cf): Likewise.
+	(add<mode>3_cf): Likewise.
+	(sub<mode>3_cf): Likewise.
+	(fmul<mode>3_cf): Likewise.
+	(div<mode>3_cf): Likewise.
+	(neg<mode>2_cf): Likewise.
+	(sqrt<mode>2_cf): Likewise.
+	(abs<mode>2_cf): Likewise.
+	* gcc/config/m68k/m68k-protos.h (m68k_legitimize_reload_address):
+	Delete.
+	* gcc/config/m68k/m68k.c (REG_OK_FOR_INDEX_STRICT): Add a mode
+	argument.  Use REGNO_MODE_OK_FOR_INDEX_P.  Test MODE_OK_FOR_INDEX_P.
+	(LEGITIMATE_INDEX_REG_P): Add a mode argument.  Update calls to
+	REG_OK_FOR_INDEX_STRICT.
+	(LEGITIMATE_INDEX_P): Add a mode argument.  Update calls to
+	LEGITIMATE_INDEX_REG_P.
+	(m68k_legitimate_address_p): Update calls to LEGITIMATE_INDEX_P.
+	(m68k_legitimize_reload_address): Delete.
+	* gcc/config/m68k/m68k.h (INDEX_REG_CLASS): Delete in favor of...
+	(MODE_INDEX_REG_CLASS): ...this new macro.
+	(MODE_OK_FOR_INDEX_P): New macro.
+	(REGNO_OK_FOR_INDEX_P): Delete in favor of...
+	(REGNO_MODE_OK_FOR_INDEX_P): ...this new macro.
+	(REG_OK_FOR_INDEX_P): Delete in favor of...
+	(REG_MODE_OK_FOR_INDEX_P): ...this new macro.
+	(LEGITIMIZE_RELOAD_ADDRESS): Delete.
+	* gcc/reload1.c (maybe_fix_stack_asms): Pass operand_mode[i]
+	to MODE_BASE_REG_CLASS.
+
+2006-04-08  Richard Sandiford  <richard@codesourcery.com>
+
 	* gcc/testsuite/gcc.c-torture/execute/builtins/lib/chk.c: Include
 	<sys/types.h>.  Use __UCLIBC__ rather than __uClinux__ to guard
 	the definition of vsnprintf.

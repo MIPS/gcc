@@ -879,7 +879,7 @@ static void record_reg_classes (int, int, rtx *, enum machine_mode *,
 				const char **, rtx, struct costs *,
 				struct reg_pref *);
 static int copy_cost (rtx, enum machine_mode, enum reg_class, int);
-static void record_address_regs (rtx, enum reg_class, int);
+static void record_address_regs (rtx, enum machine_mode, enum reg_class, int);
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 static int auto_inc_dec_reg_p (rtx, enum machine_mode);
 #endif
@@ -985,11 +985,11 @@ record_operand_costs (rtx insn, struct costs *op_costs,
 	recog_data.operand[i] = SUBREG_REG (recog_data.operand[i]);
 
       if (MEM_P (recog_data.operand[i]))
-	record_address_regs (XEXP (recog_data.operand[i], 0),
+	record_address_regs (XEXP (recog_data.operand[i], 0), modes[i],
 			     MODE_BASE_REG_CLASS (modes[i]), frequency * 2);
       else if (constraints[i][0] == 'p'
 	       || EXTRA_ADDRESS_CONSTRAINT (constraints[i][0], constraints[i]))
-	record_address_regs (recog_data.operand[i],
+	record_address_regs (recog_data.operand[i], modes[i],
 			     MODE_BASE_REG_CLASS (modes[i]), frequency * 2);
     }
 
@@ -1064,8 +1064,9 @@ scan_one_insn (rtx insn, int pass)
 	-= (MEMORY_MOVE_COST (GET_MODE (SET_DEST (set)),
 			      GENERAL_REGS, 1)
 	    * frequency);
-      record_address_regs (XEXP (SET_SRC (set), 0),
-			   MODE_BASE_REG_CLASS (VOIDmode), frequency * 2);
+      record_address_regs (XEXP (SET_SRC (set), 0), GET_MODE (SET_SRC (set)),
+			   MODE_BASE_REG_CLASS (GET_MODE (SET_SRC (set))),
+			   frequency * 2);
       return insn;
     }
 
@@ -1579,7 +1580,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		     address, i.e. BASE_REG_CLASS.  */
 		  classes[i]
 		    = reg_class_subunion[(int) classes[i]]
-		      [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		      [(int) MODE_BASE_REG_CLASS (modes[i])];
 		  break;
 
 		case 'm':  case 'o':  case 'V':
@@ -1693,7 +1694,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 			 address, i.e. BASE_REG_CLASS.  */
 		      classes[i]
 			= reg_class_subunion[(int) classes[i]]
-			  [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+			  [(int) MODE_BASE_REG_CLASS (modes[i])];
 		    }
 #endif
 		  break;
@@ -1931,7 +1932,8 @@ copy_cost (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED,
 }
 
 /* Record the pseudo registers we must reload into hard registers
-   in a subexpression of a memory address, X.
+   in a subexpression of a memory address, X.  MODE is the mode of
+   data addressed by X.
 
    CLASS is the class that the register needs to be in and is either
    BASE_REG_CLASS or INDEX_REG_CLASS.
@@ -1940,7 +1942,8 @@ copy_cost (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED,
    can represent half-cost adjustments).  */
 
 static void
-record_address_regs (rtx x, enum reg_class class, int scale)
+record_address_regs (rtx x, enum machine_mode mode,
+		     enum reg_class class, int scale)
 {
   enum rtx_code code = GET_CODE (x);
 
@@ -1983,31 +1986,31 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 	   be in the first operand.  */
 
 	if (MAX_REGS_PER_ADDRESS == 1)
-	  record_address_regs (arg0, class, scale);
+	  record_address_regs (arg0, mode, class, scale);
 
 	/* If index and base registers are the same on this machine, just
 	   record registers in any non-constant operands.  We assume here,
 	   as well as in the tests below, that all addresses are in
 	   canonical form.  */
 
-	else if (INDEX_REG_CLASS == MODE_BASE_REG_CLASS (VOIDmode))
+	else if (MODE_INDEX_REG_CLASS (mode) == MODE_BASE_REG_CLASS (mode))
 	  {
-	    record_address_regs (arg0, class, scale);
+	    record_address_regs (arg0, mode, class, scale);
 	    if (! CONSTANT_P (arg1))
-	      record_address_regs (arg1, class, scale);
+	      record_address_regs (arg1, mode, class, scale);
 	  }
 
 	/* If the second operand is a constant integer, it doesn't change
 	   what class the first operand must be.  */
 
 	else if (code1 == CONST_INT || code1 == CONST_DOUBLE)
-	  record_address_regs (arg0, class, scale);
+	  record_address_regs (arg0, mode, class, scale);
 
 	/* If the second operand is a symbolic constant, the first operand
 	   must be an index register.  */
 
 	else if (code1 == SYMBOL_REF || code1 == CONST || code1 == LABEL_REF)
-	  record_address_regs (arg0, INDEX_REG_CLASS, scale);
+	  record_address_regs (arg0, mode, MODE_INDEX_REG_CLASS (mode), scale);
 
 	/* If both operands are registers but one is already a hard register
 	   of index or reg-base class, give the other the class that the
@@ -2015,21 +2018,21 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 
 	else if (code0 == REG && code1 == REG
 		 && REGNO (arg0) < FIRST_PSEUDO_REGISTER
-		 && (REG_MODE_OK_FOR_REG_BASE_P (arg0, VOIDmode)
-		     || REG_OK_FOR_INDEX_P (arg0)))
-	  record_address_regs (arg1,
-			       REG_MODE_OK_FOR_REG_BASE_P (arg0, VOIDmode)
-			       ? INDEX_REG_CLASS
-			       : MODE_BASE_REG_REG_CLASS (VOIDmode),
+		 && (REG_MODE_OK_FOR_REG_BASE_P (arg0, mode)
+		     || REG_MODE_OK_FOR_INDEX_P (arg0, mode)))
+	  record_address_regs (arg1, mode,
+			       REG_MODE_OK_FOR_REG_BASE_P (arg0, mode)
+			       ? MODE_INDEX_REG_CLASS (mode)
+			       : MODE_BASE_REG_REG_CLASS (mode),
 			       scale);
 	else if (code0 == REG && code1 == REG
 		 && REGNO (arg1) < FIRST_PSEUDO_REGISTER
-		 && (REG_MODE_OK_FOR_REG_BASE_P (arg1, VOIDmode)
-		     || REG_OK_FOR_INDEX_P (arg1)))
-	  record_address_regs (arg0,
-			       REG_MODE_OK_FOR_REG_BASE_P (arg1, VOIDmode)
-			       ? INDEX_REG_CLASS
-			       : MODE_BASE_REG_REG_CLASS (VOIDmode),
+		 && (REG_MODE_OK_FOR_REG_BASE_P (arg1, mode)
+		     || REG_MODE_OK_FOR_INDEX_P (arg1, mode)))
+	  record_address_regs (arg0, mode,
+			       REG_MODE_OK_FOR_REG_BASE_P (arg1, mode)
+			       ? MODE_INDEX_REG_CLASS (mode)
+			       : MODE_BASE_REG_REG_CLASS (mode),
 			       scale);
 
 	/* If one operand is known to be a pointer, it must be the base
@@ -2039,16 +2042,18 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 	else if ((code0 == REG && REG_POINTER (arg0))
 		 || code1 == MULT)
 	  {
-	    record_address_regs (arg0, MODE_BASE_REG_REG_CLASS (VOIDmode),
-				 scale);
-	    record_address_regs (arg1, INDEX_REG_CLASS, scale);
+	    record_address_regs (arg0, mode,
+				 MODE_BASE_REG_REG_CLASS (mode), scale);
+	    record_address_regs (arg1, mode,
+				 MODE_INDEX_REG_CLASS (mode), scale);
 	  }
 	else if ((code1 == REG && REG_POINTER (arg1))
 		 || code0 == MULT)
 	  {
-	    record_address_regs (arg0, INDEX_REG_CLASS, scale);
-	    record_address_regs (arg1, MODE_BASE_REG_REG_CLASS (VOIDmode),
-				 scale);
+	    record_address_regs (arg0, mode,
+				 MODE_INDEX_REG_CLASS (mode), scale);
+	    record_address_regs (arg1, mode,
+				 MODE_BASE_REG_REG_CLASS (mode), scale);
 	  }
 
 	/* Otherwise, count equal chances that each might be a base
@@ -2056,12 +2061,14 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 
 	else
 	  {
-	    record_address_regs (arg0, MODE_BASE_REG_REG_CLASS (VOIDmode),
-				 scale / 2);
-	    record_address_regs (arg0, INDEX_REG_CLASS, scale / 2);
-	    record_address_regs (arg1, MODE_BASE_REG_REG_CLASS (VOIDmode),
-				 scale / 2);
-	    record_address_regs (arg1, INDEX_REG_CLASS, scale / 2);
+	    record_address_regs (arg0, mode,
+				 MODE_BASE_REG_REG_CLASS (mode), scale / 2);
+	    record_address_regs (arg0, mode,
+				 MODE_INDEX_REG_CLASS (mode), scale / 2);
+	    record_address_regs (arg1, mode,
+				 MODE_BASE_REG_REG_CLASS (mode), scale / 2);
+	    record_address_regs (arg1, mode,
+				 MODE_INDEX_REG_CLASS (mode), scale / 2);
 	  }
       }
       break;
@@ -2071,11 +2078,11 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 	 if it ends up in the wrong place.  */
     case POST_MODIFY:
     case PRE_MODIFY:
-      record_address_regs (XEXP (x, 0), MODE_BASE_REG_CLASS (VOIDmode),
+      record_address_regs (XEXP (x, 0), mode, MODE_BASE_REG_CLASS (mode),
 			   2 * scale);
       if (REG_P (XEXP (XEXP (x, 1), 1)))
-	record_address_regs (XEXP (XEXP (x, 1), 1),
-			     INDEX_REG_CLASS, 2 * scale);
+	record_address_regs (XEXP (XEXP (x, 1), 1), mode,
+			     MODE_INDEX_REG_CLASS (mode), 2 * scale);
       break;
 
     case POST_INC:
@@ -2093,7 +2100,7 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 	in_inc_dec[REGNO (XEXP (x, 0))] = 1;
 #endif
 
-      record_address_regs (XEXP (x, 0), class, 2 * scale);
+      record_address_regs (XEXP (x, 0), mode, class, 2 * scale);
       break;
 
     case REG:
@@ -2114,7 +2121,7 @@ record_address_regs (rtx x, enum reg_class class, int scale)
 	int i;
 	for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
 	  if (fmt[i] == 'e')
-	    record_address_regs (XEXP (x, i), class, scale);
+	    record_address_regs (XEXP (x, i), mode, class, scale);
       }
     }
 }

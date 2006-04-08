@@ -442,7 +442,8 @@ enum reg_class {
 
 extern enum reg_class regno_reg_class[];
 #define REGNO_REG_CLASS(REGNO) (regno_reg_class[(REGNO)])
-#define INDEX_REG_CLASS GENERAL_REGS
+#define MODE_INDEX_REG_CLASS(MODE) \
+  (MODE_OK_FOR_INDEX_P (MODE) ? GENERAL_REGS : NO_REGS)
 #define BASE_REG_CLASS ADDR_REGS
 
 /* We do a trick here to modify the effective constraints on the
@@ -717,10 +718,15 @@ __transfer_from_trampoline ()					\
 #define HAVE_POST_INCREMENT 1
 #define HAVE_PRE_DECREMENT 1
 
+/* Return true if addresses of mode MODE can have an index register.  */
+#define MODE_OK_FOR_INDEX_P(MODE) \
+  (!TARGET_COLDFIRE_FPU || GET_MODE_CLASS (MODE) != MODE_FLOAT)
+
 /* Macros to check register numbers against specific register classes.  */
 
-#define REGNO_OK_FOR_INDEX_P(REGNO) \
-((REGNO) < 16 || (unsigned) reg_renumber[REGNO] < 16)
+#define REGNO_MODE_OK_FOR_INDEX_P(REGNO, MODE) \
+(MODE_OK_FOR_INDEX_P (MODE) \
+ && ((REGNO) < 16 || (unsigned) reg_renumber[REGNO] < 16))
 #define REGNO_OK_FOR_BASE_P(REGNO) \
 (((REGNO) ^ 010) < 8 || (unsigned) (reg_renumber[REGNO] ^ 010) < 8)
 #define REGNO_OK_FOR_DATA_P(REGNO) \
@@ -770,7 +776,8 @@ __transfer_from_trampoline ()					\
 
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg.  */
-#define REG_OK_FOR_INDEX_P(X) ((REGNO (X) ^ 020) >= 8)
+#define REG_MODE_OK_FOR_INDEX_P(X, MODE) \
+  (MODE_OK_FOR_INDEX_P (MODE) && (REGNO (X) ^ 020) >= 8)
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X) ((REGNO (X) & ~027) != 0)
@@ -786,7 +793,9 @@ __transfer_from_trampoline ()					\
 #else
 
 /* Nonzero if X is a hard reg that can be used as an index.  */
-#define REG_OK_FOR_INDEX_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
+#define REG_MODE_OK_FOR_INDEX_P(X, MODE) \
+  REGNO_MODE_OK_FOR_INDEX_P (REGNO (X), MODE)
+
 /* Nonzero if X is a hard reg that can be used as a base reg.  */
 #define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
 
@@ -849,24 +858,6 @@ __transfer_from_trampoline ()					\
 	      && GET_CODE (XEXP (X, 1)) == REG)				\
 	    X = force_operand (X, 0);					\
 	  goto WIN; }}}
-
-/* Try a machine-dependent way of reloading an illegitimate address
-   operand.  If we find one, push the reload and jump to WIN.  This
-   macro is used in only one place: `find_reloads_address' in reload.c.
-
-   Implemented on m68k by m68k_legitimize_reload_address.  
-   Note that (X) is evaluated twice; this is safe in current usage.  */
-
-#define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)	\
-do {									\
-  rtx tmp = m68k_legitimize_reload_address (&(X), (MODE), (OPNUM),	\
-			(int)(TYPE), (IND_LEVELS));		     	\
-  if (tmp != NULL_RTX)							\
-    {									\
-      (X) = tmp; 							\
-      goto WIN;								\
-    }									\
-} while (0)
 
 /* On the 68000, only predecrement and postincrement address depend thus
    (the amount of decrement or increment being the length of the operand).  */

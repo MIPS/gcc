@@ -1772,8 +1772,9 @@ output_btst (rtx *operands, rtx countop, rtx dataop, rtx insn, int signpos)
 
 /* Nonzero if X is a reg that can be used as an index.  When non-strict we
    allow pseudos, otherwise only a hard reg will do. */
-#define REG_OK_FOR_INDEX_STRICT(X, STRICT) \
-  (STRICT ? REGNO_OK_FOR_INDEX_P (REGNO (X)) : (REGNO (X) ^ 16) >= 8)
+#define REG_OK_FOR_INDEX_STRICT(X, MODE, STRICT) \
+  (STRICT ? REGNO_MODE_OK_FOR_INDEX_P (REGNO (X), MODE) \
+   : MODE_OK_FOR_INDEX_P (MODE) && (REGNO (X) ^ 16) >= 8)
 
 /* Nonzero if X is a reg that can be used as a base reg. When non-strict we
    allow pseudos, otherwise only a hard reg will do. */
@@ -1791,25 +1792,25 @@ output_btst (rtx *operands, rtx countop, rtx dataop, rtx insn, int signpos)
        && REG_OK_FOR_BASE_STRICT (SUBREG_REG (X), STRICT)))
 
 /* ColdFire/5200 does not allow HImode index registers.  */
-#define LEGITIMATE_INDEX_REG_P(X, STRICT)   \
-  ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_STRICT (X, STRICT))	\
-   || (! m68k_arch_coldfire					\
-       && GET_CODE (X) == SIGN_EXTEND			\
-       && GET_CODE (XEXP (X, 0)) == REG			\
-       && GET_MODE (XEXP (X, 0)) == HImode		\
-       && REG_OK_FOR_INDEX_STRICT (XEXP (X, 0), STRICT))		\
-   || (GET_CODE (X) == SUBREG				\
-       && GET_CODE (SUBREG_REG (X)) == REG		\
-       && REG_OK_FOR_INDEX_STRICT (SUBREG_REG (X), STRICT)))
+#define LEGITIMATE_INDEX_REG_P(X, MODE, STRICT)   \
+  ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_STRICT (X, MODE, STRICT))	\
+   || (! m68k_arch_coldfire						\
+       && GET_CODE (X) == SIGN_EXTEND					\
+       && GET_CODE (XEXP (X, 0)) == REG					\
+       && GET_MODE (XEXP (X, 0)) == HImode				\
+       && REG_OK_FOR_INDEX_STRICT (XEXP (X, 0), MODE, STRICT))		\
+   || (GET_CODE (X) == SUBREG						\
+       && GET_CODE (SUBREG_REG (X)) == REG				\
+       && REG_OK_FOR_INDEX_STRICT (SUBREG_REG (X), MODE, STRICT)))
 
-#define LEGITIMATE_INDEX_P(X, STRICT)   \
-   (LEGITIMATE_INDEX_REG_P (X, STRICT)				\
+#define LEGITIMATE_INDEX_P(X, MODE, STRICT)   \
+   (LEGITIMATE_INDEX_REG_P (X, MODE, STRICT)				\
     || ((m68k_arch_68020 || m68k_arch_coldfire) && GET_CODE (X) == MULT \
-	&& LEGITIMATE_INDEX_REG_P (XEXP (X, 0), STRICT)		\
-	&& GET_CODE (XEXP (X, 1)) == CONST_INT		\
-	&& (INTVAL (XEXP (X, 1)) == 2			\
-	    || INTVAL (XEXP (X, 1)) == 4		\
-	    || (INTVAL (XEXP (X, 1)) == 8		\
+	&& LEGITIMATE_INDEX_REG_P (XEXP (X, 0), MODE, STRICT)		\
+	&& GET_CODE (XEXP (X, 1)) == CONST_INT				\
+	&& (INTVAL (XEXP (X, 1)) == 2					\
+	    || INTVAL (XEXP (X, 1)) == 4				\
+	    || (INTVAL (XEXP (X, 1)) == 8				\
 		&& (TARGET_COLDFIRE_FPU || !m68k_arch_coldfire)))))
 
 int m68k_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
@@ -1869,7 +1870,7 @@ int m68k_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
 
       /* FIXME:There is probably some redundancy in the following
 	 conditionals.  */
-      if (LEGITIMATE_INDEX_P (arg0, strict))
+      if (LEGITIMATE_INDEX_P (arg0, mode, strict))
 	{
 	  rtx temp;
 	  if (GET_CODE (arg1) == LABEL_REF
@@ -1881,7 +1882,7 @@ int m68k_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
 	  if (LEGITIMATE_BASE_REG_P (arg1, strict))
 	    return 1;
 	}
-      if (LEGITIMATE_INDEX_P (arg1, strict))
+      if (LEGITIMATE_INDEX_P (arg1, mode, strict))
 	{
 	  rtx temp;
 	  if (GET_CODE (arg0) == LABEL_REF
@@ -1896,54 +1897,11 @@ int m68k_legitimate_address_p (enum machine_mode mode, rtx x, int strict)
 
       /* If pic, we accept INDEX+LABEL, which is what do_tablejump makes.  */
       if (flag_pic && mode == CASE_VECTOR_MODE
-	  && LEGITIMATE_INDEX_P (arg0, strict)
+	  && LEGITIMATE_INDEX_P (arg0, mode, strict)
 	  && GET_CODE (arg1) == LABEL_REF)
 	return 1;
     }
   return 0;
-}
-
-/* Our implementation of LEGITIMIZE_RELOAD_ADDRESS.  Returns a value to
-   replace the input X, or the original X if no replacement is called for.
-   The output parameter *WIN is 1 if the calling macro should goto WIN,
-   0 if it should not.
-
-   For m68k, we wish to handle large displacements off a base
-   register for FP modes by pushing the sum into a register and using
-   it instead. */
-
-rtx
-m68k_legitimize_reload_address (rtx *px, enum machine_mode mode, 
-	int opnum, int type, int ind_levels ATTRIBUTE_UNUSED)
-{
-  rtx x = *px;
-
-  /* If the address is valid for 'mode', accept it.  */
-  if (strict_memory_address_p(mode, x))
-    return NULL_RTX;
-
-  /* The ColdFire v4e can't handle FP mode 6 addresses.  Unfortunately
-     reload tries to remap a mode 5 address with the offset out of range
-     into a mode 6.  Push an FP mode 5 with displacement out of range or
-     mode 6 address into a register and use mode 2 addressing
-     instead. */
-  if (TARGET_COLDFIRE_FPU && GET_MODE_CLASS (mode) == MODE_FLOAT
-      && GET_CODE (x) == PLUS)
-    {
-      rtx arg0 = XEXP (x, 0);
-      rtx arg1 = XEXP (x, 1);
-
-      if (GET_CODE (arg0) != REG
-	  || GET_CODE (arg0) != CONST_INT
-	  || (unsigned HOST_WIDE_INT)INTVAL (arg1) + 0x8000 >= 0x10000)
-	{
-	  push_reload (x, NULL_RTX, px,
-		       NULL, BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
-		       opnum, type);
-	  return x;
-	}
-    }
-  return NULL_RTX;
 }
 
 /* Legitimize PIC addresses.  If the address is already
