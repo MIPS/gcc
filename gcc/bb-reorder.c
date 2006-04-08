@@ -2200,13 +2200,9 @@ gate_handle_reorder_blocks (void)
 static void
 rest_of_handle_reorder_blocks (void)
 {
-  bool changed;
-  struct df * saved_df = rtl_df;
-  rtl_df = NULL;
-
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
      splitting possibly introduced more crossjumping opportunities.  */
-  changed = cleanup_cfg (CLEANUP_EXPENSIVE);
+  cleanup_cfg (CLEANUP_EXPENSIVE);
 
   if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
     {
@@ -2219,11 +2215,7 @@ rest_of_handle_reorder_blocks (void)
     reorder_basic_blocks ();
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
-    changed |= cleanup_cfg (CLEANUP_EXPENSIVE);
-
-  rtl_df = saved_df;
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-		    PROP_DEATH_NOTES);
+    cleanup_cfg (CLEANUP_EXPENSIVE);
 
   /* Add NOTE_INSN_SWITCH_TEXT_SECTIONS notes.  */
   insert_section_boundary_note ();

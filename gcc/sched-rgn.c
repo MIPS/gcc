@@ -2571,7 +2571,7 @@ rest_of_handle_sched2 (void)
   /* Do control and data sched analysis again,
      and write some more of the results to dump file.  */
 
-  split_all_insns (1);
+  split_all_insns ();
 
   if (flag_sched2_use_superblocks || flag_sched2_use_traces)
     {

@@ -1,3 +1,20 @@
+2006-04-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* recog.c (split_all_insns): Removed parameter and code to
+	update dataflow.
+	* sched-rgn.c (rest_of_handle_sched2): Removed parm to 
+	split_all_insns.
+	* flow.c (rest_of_handle_flow2): Ditto.
+	(rest_of_handle_split_all_insns): Added call to update old
+	dataflow after this pass.
+	(rest_of_handle_split_after_reload,
+	rest_of_handle_split_before_regstack): New function.
+	(pass_split_after_reload): New structure.
+	* rtl.h (split_all_insns): Removed param.
+	* bb-reorder.c (rest_of_handle_reorder_blocks): Removed 
+	references to flow.
+	* reg-stack.c (subst_stack_regs_pat): Removed unnecessary 
+	assertion.
+
 2006-04-07  Daniel Berlin  <dberlin@dberlin.org>
 	    Kenneth Zadeck <zadeck@naturalbridge.com>
 	* regoc.c (dbr_schedule): Added parm to call to df_lr_add_problem.

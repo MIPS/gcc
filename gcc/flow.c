@@ -4172,7 +4172,7 @@ rest_of_handle_flow2 (void)
 #ifndef STACK_REGS
   if (optimize > 0)
 #endif
-    split_all_insns (0);
+    split_all_insns ();
 
   if (flag_branch_target_load_optimize)
     branch_target_load_optimize (epilogue_completed);

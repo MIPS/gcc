@@ -2719,7 +2719,7 @@ split_insn (rtx insn)
 /* Split all insns in the function.  If UPD_LIFE, update life info after.  */
 
 void
-split_all_insns (int upd_life)
+split_all_insns (void)
 {
   sbitmap blocks;
   bool changed;
@@ -2787,18 +2787,7 @@ split_all_insns (int upd_life)
     }
 
   if (changed)
-    {
-      int old_last_basic_block = last_basic_block;
-
-      find_many_sub_basic_blocks (blocks);
-
-      if (old_last_basic_block != last_basic_block && upd_life)
-	blocks = sbitmap_resize (blocks, last_basic_block, 1);
-    }
-
-  if (changed && upd_life)
-    update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
-		      PROP_DEATH_NOTES);
+    find_many_sub_basic_blocks (blocks);
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -3470,7 +3459,8 @@ struct tree_opt_pass pass_peephole2 =
 static void
 rest_of_handle_split_all_insns (void)
 {
-  split_all_insns (1);
+  split_all_insns ();
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
 }
 
 struct tree_opt_pass pass_split_all_insns =
@@ -3482,6 +3472,74 @@ struct tree_opt_pass pass_split_all_insns =
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
   0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+static void
+rest_of_handle_split_after_reload (void)
+{
+  /* If optimizing, then go ahead and split insns now.  */
+#ifndef STACK_REGS
+  if (optimize > 0)
+#endif
+    split_all_insns ();
+}
+
+struct tree_opt_pass pass_split_after_reload =
+{
+  "split2",                             /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_split_after_reload,    /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+static bool
+gate_handle_split_before_regstack (void)
+{
+#if defined (HAVE_ATTR_length) && defined (STACK_REGS)
+  /* If flow2 creates new instructions which need splitting
+     and scheduling after reload is not done, they might not be
+     split until final which doesn't allow splitting
+     if HAVE_ATTR_length.  */
+# ifdef INSN_SCHEDULING
+  return (optimize && !flag_schedule_insns_after_reload);
+# else
+  return (optimize);
+# endif
+#else
+  return 0;
+#endif
+}
+
+static void
+rest_of_handle_split_before_regstack (void)
+{
+  split_all_insns ();
+}
+
+struct tree_opt_pass pass_split_before_regstack =
+{
+  "split3",                             /* name */
+  gate_handle_split_before_regstack,    /* gate */
+  rest_of_handle_split_before_regstack, /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SHORTEN_BRANCH,                    /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3504,7 +3562,7 @@ gate_do_final_split (void)
 
 struct tree_opt_pass pass_split_for_shorten_branches =
 {
-  "split3",                             /* name */
+  "split4",                             /* name */
   gate_do_final_split,                  /* gate */
   split_all_insns_noflow,               /* execute */
   NULL,                                 /* sub */
@@ -3520,37 +3578,3 @@ struct tree_opt_pass pass_split_for_shorten_branches =
 };
 
 
-static bool
-gate_handle_split_before_regstack (void)
-{
-#if defined (HAVE_ATTR_length) && defined (STACK_REGS)
-  /* If flow2 creates new instructions which need splitting
-     and scheduling after reload is not done, they might not be
-     split until final which doesn't allow splitting
-     if HAVE_ATTR_length.  */
-# ifdef INSN_SCHEDULING
-  return (optimize && !flag_schedule_insns_after_reload);
-# else
-  return (optimize);
-# endif
-#else
-  return 0;
-#endif
-}
-
-struct tree_opt_pass pass_split_before_regstack =
-{
-  "split2",                             /* name */
-  gate_handle_split_before_regstack,    /* gate */
-  rest_of_handle_split_all_insns,       /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_SHORTEN_BRANCH,                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
-};
