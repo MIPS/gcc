@@ -382,6 +382,7 @@ extern struct tree_opt_pass pass_stack_adjustments;
 extern struct tree_opt_pass pass_peephole2;
 extern struct tree_opt_pass pass_if_after_reload;
 extern struct tree_opt_pass pass_regrename;
+extern struct tree_opt_pass pass_cprop;
 extern struct tree_opt_pass pass_reorder_blocks;
 extern struct tree_opt_pass pass_branch_target_load_optimize2;
 extern struct tree_opt_pass pass_leaf_regs;

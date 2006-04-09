@@ -2213,6 +2213,7 @@ rest_of_handle_reorder_blocks (void)
 
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition)
     reorder_basic_blocks ();
+
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
     cleanup_cfg (CLEANUP_EXPENSIVE);

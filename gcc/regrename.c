@@ -90,7 +90,7 @@ static struct du_chain *build_def_use (basic_block);
 static void dump_def_use_chain (struct du_chain *);
 static void note_sets (rtx, rtx, void *);
 static void clear_dead_regs (HARD_REG_SET *, enum machine_mode, rtx);
-static void merge_overlapping_regs (basic_block, HARD_REG_SET *,
+static void merge_overlapping_regs (struct df *, basic_block, HARD_REG_SET *,
 				    struct du_chain *);
 
 /* Called through note_stores from update_life.  Find sets of registers, and
@@ -143,14 +143,14 @@ clear_dead_regs (HARD_REG_SET *pset, enum machine_mode kind, rtx notes)
    its lifetime and set the corresponding bits in *PSET.  */
 
 static void
-merge_overlapping_regs (basic_block b, HARD_REG_SET *pset,
+merge_overlapping_regs (struct df *df, basic_block b, HARD_REG_SET *pset,
 			struct du_chain *chain)
 {
   struct du_chain *t = chain;
   rtx insn;
   HARD_REG_SET live;
 
-  REG_SET_TO_HARD_REG_SET (live, DF_LIVE_IN (rtl_df, b));
+  REG_SET_TO_HARD_REG_SET (live, DF_LIVE_IN (df, b));
   insn = BB_HEAD (b);
   while (t)
     {
@@ -192,6 +192,11 @@ regrename_optimize (void)
   int this_tick = 0;
   basic_block bb;
   char *first_obj;
+  struct df * df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (df, DF_LR_RUN_DCE);
+  df_ur_add_problem (df, 0);
+  df_ri_add_problem (df, 0);
+  df_analyze (df);
 
   memset (tick, 0, sizeof tick);
 
@@ -283,7 +288,7 @@ regrename_optimize (void)
 	  if (this->need_caller_save_reg)
 	    IOR_HARD_REG_SET (this_unavailable, call_used_reg_set);
 
-	  merge_overlapping_regs (bb, &this_unavailable, this);
+	  merge_overlapping_regs (df, bb, &this_unavailable, this);
 
 	  /* Now potential_regs is a reasonable approximation, let's
 	     have a closer look at each register still in there.  */
@@ -357,13 +362,10 @@ regrename_optimize (void)
     }
 
   obstack_free (&rename_obstack, NULL);
+  df_finish (df);
 
   if (dump_file)
     fputc ('\n', dump_file);
-
-  count_or_remove_death_notes (NULL, 1);
-  update_life_info (NULL, UPDATE_LIFE_LOCAL,
-		    PROP_DEATH_NOTES);
 }
 
 static void
@@ -1792,11 +1794,8 @@ static void
 copyprop_hardreg_forward (void)
 {
   struct value_data *all_vd;
-  bool need_refresh;
   basic_block bb;
   sbitmap visited;
-
-  need_refresh = false;
 
   all_vd = XNEWVEC (struct value_data, last_basic_block);
 
@@ -1818,27 +1817,10 @@ copyprop_hardreg_forward (void)
       else
 	init_value_data (all_vd + bb->index);
 
-      if (copyprop_hardreg_forward_1 (bb, all_vd + bb->index))
-	need_refresh = true;
+      copyprop_hardreg_forward_1 (bb, all_vd + bb->index);
     }
 
   sbitmap_free (visited);  
-
-  if (need_refresh)
-    {
-      if (dump_file)
-	fputs ("\n\n", dump_file);
-
-      /* ??? Irritatingly, delete_noop_moves does not take a set of blocks
-	 to scan, so we have to do a life update with no initial set of
-	 blocks Just In Case.  */
-      delete_noop_moves ();
-      update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-			PROP_DEATH_NOTES
-			| PROP_SCAN_DEAD_CODE
-			| PROP_KILL_DEAD_CODE);
-    }
-
   free (all_vd);
 }
 
@@ -1949,7 +1931,7 @@ validate_value_data (struct value_data *vd)
 static bool
 gate_handle_regrename (void)
 {
-  return (optimize > 0 && (flag_rename_registers || flag_cprop_registers));
+  return (optimize > 0 && (flag_rename_registers));
 }
 
 
@@ -1957,10 +1939,7 @@ gate_handle_regrename (void)
 static void
 rest_of_handle_regrename (void)
 {
-  if (flag_rename_registers)
-    regrename_optimize ();
-  if (flag_cprop_registers)
-    copyprop_hardreg_forward ();
+  regrename_optimize ();
 }
 
 struct tree_opt_pass pass_regrename =
@@ -1968,6 +1947,37 @@ struct tree_opt_pass pass_regrename =
   "rnreg",                              /* name */
   gate_handle_regrename,                /* gate */
   rest_of_handle_regrename,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_RENAME_REGISTERS,                  /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'n'                                   /* letter */
+};
+
+static bool
+gate_handle_cprop (void)
+{
+  return (optimize > 0 && (flag_cprop_registers));
+}
+
+
+/* Run the regrename and cprop passes.  */
+static void
+rest_of_handle_cprop (void)
+{
+  copyprop_hardreg_forward ();
+}
+
+struct tree_opt_pass pass_cprop =
+{
+  "rnreg",                              /* name */
+  gate_handle_cprop,                    /* gate */
+  rest_of_handle_cprop,                 /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */

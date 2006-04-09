@@ -1,3 +1,17 @@
+2006-04-09  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* regrename.c (merge_overlapping_regs, regrename_optimize):
+	Threaded private instance of df.
+	(regrename_optimize): Created private instance of df, removed
+	all references or flow.
+	(copyprop_hardreg_forward): Removed all references to flow.
+	(gate_handle_regrename): Split reg rename and cprop into separate 
+	passes.
+	(gate_handle_cprop): New function.
+	(pass_cprop): New pass structure.
+	* tree-pass.h (pass_cprop): New pass structure.
+	* passes.c (init_optimization_passes): Added cprop pass and 
+	moved clear_df pass closer to beginning.	
+
 2006-04-08  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* tree-pass.h (pass_split_after_reload, pass_branch_target_load_optimize1
 	pass_branch_target_load_optimize2): Added.
