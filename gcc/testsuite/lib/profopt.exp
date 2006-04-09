@@ -221,6 +221,23 @@ proc profopt-execute { src } {
         error "No feedback option specified for second compile."
     }
 
+    # Get special options for this test from the .x file, if presnet.
+    # This can include the following strings to pass to setup_xfail
+    # for various test steps that might be expected to fail:
+    #   profopt_compile1_xfail
+    #   profopt_execute1_xfail
+    #   profopt_compile2_xfail
+    #   profopt_execute2_xfail
+    #   profopt_perfcheck_xfail
+    if [file exists [file rootname $src].x] {
+	verbose "Using alternate driver [file rootname [file tail $src]].x" 2
+	set done_p 0
+	catch "set done_p \[source [file rootname $src].x\]"
+	if { $done_p } {
+	    return
+	}
+    }
+
     regsub "^$srcdir/?" $src "" testcase
     # If we couldn't rip $srcdir out of `src' then just do the best we can.
     # The point is to reduce the unnecessary noise in the logs.  Don't strip
@@ -264,6 +281,9 @@ proc profopt-execute { src } {
 
 	# Compile for profiling.
 
+	if [info exists profopt_compile1_xfail] {
+	    setup_xfail $profopt_compile1_xfail
+	}
 	set options ""
 	lappend options "additional_flags=$option $extra_flags $profile_option"
 	set optstr "$option $profile_option"
@@ -277,6 +297,9 @@ proc profopt-execute { src } {
 
 	# Run the profiled test.
 
+	if [info exists profopt_execute1_xfail] {
+	    setup_xfail $profopt_execute1_xfail
+	}
 	set result [${tool}_load $execname1 "" ""]
 	set status [lindex $result 0]
 	set missing_file 0
@@ -314,6 +337,9 @@ proc profopt-execute { src } {
 
 	# Compile with feedback-directed optimizations.
 
+	if [info exists profopt_compile2_xfail] {
+	    setup_xfail $profopt_compile2_xfail
+	}
 	set options ""
 	lappend options "additional_flags=$option $extra_flags $feedback_option"
 	set optstr "$option $feedback_option"
@@ -325,6 +351,9 @@ proc profopt-execute { src } {
 
 	# Run the profile-directed optimized test.
 
+	if [info exists profopt_execute2_xfail] {
+	    setup_xfail $profopt_execute2_xfail
+	}
 	set result [${tool}_load "$execname2" "" ""]
 	set status [lindex $result 0]
 	$status "$testcase execution,   $optstr"
@@ -394,6 +423,9 @@ proc profopt-execute { src } {
 	# Compare results of the two runs and fail if the time with the
 	# profile-directed optimization is significantly more than the time
 	# without it.
+	if [info exists profopt_perfcheck_xfail] {
+	    setup_xfail $profopt_perfcheck_xfail
+	}
 	set status "pass"
 	if { $val2 > $val1 } {
 	    # Check for a performance degration outside of allowable limits.
