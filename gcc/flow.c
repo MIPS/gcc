@@ -4168,15 +4168,6 @@ rest_of_handle_flow2 (void)
 #if 0
   int i;
 #endif
-  /* If optimizing, then go ahead and split insns now.  */
-#ifndef STACK_REGS
-  if (optimize > 0)
-#endif
-    split_all_insns ();
-
-  if (flag_branch_target_load_optimize)
-    branch_target_load_optimize (epilogue_completed);
-
   if (optimize)
     cleanup_cfg (CLEANUP_EXPENSIVE);
 #if 0

@@ -2119,9 +2119,6 @@ extern void print_inline_rtx (FILE *, rtx, int);
 /* In loop.c */
 extern void init_loop (void);
 
-/* In bt-load.c */
-extern void branch_target_load_optimize (bool);
-
 /* In function.c */
 extern void reposition_prologue_and_epilogue_notes (rtx);
 extern void thread_prologue_and_epilogue_insns (rtx);

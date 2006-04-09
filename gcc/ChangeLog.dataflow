@@ -1,4 +1,22 @@
 2006-04-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-pass.h (pass_split_after_reload, pass_branch_target_load_optimize1
+	pass_branch_target_load_optimize2): Added.
+	(pass_branch_target_load_optimize): Deleted.
+	* flow.c (rest_of_handle_flow2): Split the calls to split_all_insns and 
+	branch_target_load_optimize into their own passes.
+	* passes.c (init_optimization_passes): Ditto.
+	(init_optimization_passes): Moved clear_df pass to before 
+	second branch_target_load_optimize pass.
+	* bt-load (compute_defs_uses_and_gen, build_btr_def_use_webs, 
+	migrate_btr_defs): Threaded private copy of df into these functions.
+	(branch_target_load_optimize): Made private and add local
+	instance of df.  Removed all references to flow.
+	(rest_of_handle_branch_target_load_optimize1): New function.
+	(rest_of_handle_branch_target_load_optimize): Renamed to 
+	rest_of_handle_branch_target_load_optimize2.
+	rtl.h (branch_target_load_optimize): Removed.
+
+2006-04-08  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* sched-ebb.c (init_ready_list, can_schedule_ready_p, new_ready,
 	compute_jump_reg_dependencies, schedule_ebb, sched_analyze,
 	schedule_block): Changed to pass instance of df.
