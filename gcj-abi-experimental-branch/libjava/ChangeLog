@@ -1,4 +1,16 @@
-2006-03-16  Andrew Haley  <aph@redhat.com>
+2006-04-10  Andrew Haley  <aph@redhat.com>
+
+	* include/x86_64-signal.h (HANDLE_DIVIDE_OVERFLOW): New.
+	(SIGNAL_HANDLER): Mark arg as unused.
+	* configure.host (x86_64-* DIVIDESPEC): Use
+	fno-use-divide-subroutine.
+
+2006-04-07  Andrew Haley  <aph@redhat.com>
+
+	* java/net/InetAddress.java: Throw an UnknownHostException if
+	lookup fails.
+
+2006-02-16  Andrew Haley  <aph@redhat.com>
 
 	* java/lang/Class.h (Object): New field, class$$.
 	* java/lang/Object.h: Likewise.
