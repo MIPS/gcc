@@ -424,9 +424,15 @@ int flag_weak = 1;
 int flag_working_directory = -1;
 
 /* Nonzero to use __cxa_atexit, rather than atexit, to register
-   destructors for local statics and global objects.  */
+   destructors for local statics and global objects.  '2' means it has been
+   set nonzero as a default, not by a command-line flag.  */
 
 int flag_use_cxa_atexit = DEFAULT_USE_CXA_ATEXIT;
+
+/* Nonzero to use __cxa_get_exception_ptr in C++ exception-handling
+   code.  '2' means it has not been set explicitly on the command line.  */
+
+int flag_use_cxa_get_exception_ptr = 2;
 
 /* Nonzero means make the default pedwarns warnings instead of errors.
    The value of this flag is ignored if -pedantic is specified.  */
@@ -2529,37 +2535,6 @@ c_common_truthvalue_conversion (tree expr)
       if (TYPE_PRECISION (TREE_TYPE (expr))
 	  >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (expr, 0))))
 	return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
-      break;
-
-    case MINUS_EXPR:
-      /* Perhaps reduce (x - y) != 0 to (x != y).  The expressions
-	 aren't guaranteed to the be same for modes that can represent
-	 infinity, since if x and y are both +infinity, or both
-	 -infinity, then x - y is not a number.
-
-	 Note that this transformation is safe when x or y is NaN.
-	 (x - y) is then NaN, and both (x - y) != 0 and x != y will
-	 be false.  */
-      if (HONOR_INFINITIES (TYPE_MODE (TREE_TYPE (TREE_OPERAND (expr, 0)))))
-	break;
-      /* Fall through....  */
-    case BIT_XOR_EXPR:
-      /* This and MINUS_EXPR can be changed into a comparison of the
-	 two objects.  */
-      if (TREE_TYPE (TREE_OPERAND (expr, 0))
-	  == TREE_TYPE (TREE_OPERAND (expr, 1)))
-	return fold_build2 (NE_EXPR, truthvalue_type_node,
-			    TREE_OPERAND (expr, 0), TREE_OPERAND (expr, 1));
-      return fold_build2 (NE_EXPR, truthvalue_type_node,
-			  TREE_OPERAND (expr, 0),
-			  fold_convert (TREE_TYPE (TREE_OPERAND (expr, 0)),
-					TREE_OPERAND (expr, 1)));
-
-    case BIT_AND_EXPR:
-      if (integer_onep (TREE_OPERAND (expr, 1))
-	  && TREE_TYPE (expr) != truthvalue_type_node)
-	/* Using convert here would cause infinite recursion.  */
-	return build1 (NOP_EXPR, truthvalue_type_node, expr);
       break;
 
     case MODIFY_EXPR:

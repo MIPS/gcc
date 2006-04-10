@@ -3784,12 +3784,13 @@ gate_handle_delay_slots (void)
 }
 
 /* Run delay slot optimization.  */
-static void
+static unsigned int
 rest_of_handle_delay_slots (void)
 {
 #ifdef DELAY_SLOTS
   dbr_schedule (get_insns ());
 #endif
+  return 0;
 }   
 
 struct tree_opt_pass pass_delay_slots =
@@ -3818,10 +3819,11 @@ gate_handle_machine_reorg (void)
 }
 
 
-static void
+static unsigned int
 rest_of_handle_machine_reorg (void)
 {
   targetm.machine_dependent_reorg ();
+  return 0;
 }
 
 struct tree_opt_pass pass_machine_reorg =

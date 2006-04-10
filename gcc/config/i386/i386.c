@@ -50,6 +50,7 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-gimple.h"
 #include "dwarf2.h"
 #include "df.h"
+#include "tm-constrs.h"
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -96,7 +97,8 @@ struct processor_costs size_cost = {	/* costs for tunning for size */
   2,					/* cost of reg,reg fld/fst */
   {2, 2, 2},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {2, 2, 2},				/* cost of loading integer registers */
+  {2, 2, 2},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   3,					/* cost of moving MMX register */
   {3, 3},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -149,7 +151,8 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   2,					/* cost of reg,reg fld/fst */
   {8, 8, 8},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {8, 8, 8},				/* cost of loading integer registers */
+  {8, 8, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {4, 8},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -201,7 +204,8 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   2,					/* cost of reg,reg fld/fst */
   {8, 8, 8},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {8, 8, 8},				/* cost of loading integer registers */
+  {8, 8, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {4, 8},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -253,7 +257,8 @@ struct processor_costs pentium_cost = {
   2,					/* cost of reg,reg fld/fst */
   {2, 2, 6},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 6},				/* cost of loading integer registers */
+  {4, 4, 6},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   8,					/* cost of moving MMX register */
   {8, 8},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -305,7 +310,8 @@ struct processor_costs pentiumpro_cost = {
   2,					/* cost of reg,reg fld/fst */
   {2, 2, 6},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 6},				/* cost of loading integer registers */
+  {4, 4, 6},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {2, 2},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -357,7 +363,8 @@ struct processor_costs k6_cost = {
   4,					/* cost of reg,reg fld/fst */
   {6, 6, 6},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 4},				/* cost of loading integer registers */
+  {4, 4, 4},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {2, 2},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -409,7 +416,8 @@ struct processor_costs athlon_cost = {
   4,					/* cost of reg,reg fld/fst */
   {4, 4, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {6, 6, 8},				/* cost of loading integer registers */
+  {6, 6, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {4, 4},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -461,7 +469,8 @@ struct processor_costs k8_cost = {
   4,					/* cost of reg,reg fld/fst */
   {4, 4, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {6, 6, 8},				/* cost of loading integer registers */
+  {6, 6, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {3, 3},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -513,7 +522,8 @@ struct processor_costs pentium4_cost = {
   2,					/* cost of reg,reg fld/fst */
   {2, 2, 6},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 6},				/* cost of loading integer registers */
+  {4, 4, 6},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {2, 2},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -565,7 +575,8 @@ struct processor_costs nocona_cost = {
   3,					/* cost of reg,reg fld/fst */
   {12, 12, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {4, 4, 4},				/* cost of loading integer registers */
+  {4, 4, 4},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   6,					/* cost of moving MMX register */
   {12, 12},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -622,7 +633,8 @@ struct processor_costs generic64_cost = {
   4,					/* cost of reg,reg fld/fst */
   {12, 12, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {6, 6, 8},				/* cost of loading integer registers */
+  {6, 6, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {8, 8},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -677,7 +689,8 @@ struct processor_costs generic32_cost = {
   4,					/* cost of reg,reg fld/fst */
   {12, 12, 12},				/* cost of loading fp registers
 					   in SFmode, DFmode and XFmode */
-  {6, 6, 8},				/* cost of loading integer registers */
+  {6, 6, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
   2,					/* cost of moving MMX register */
   {8, 8},				/* cost of loading MMX registers
 					   in SImode and DImode */
@@ -743,7 +756,7 @@ const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA | m_GENERIC32; /*m_G
 /* We probably ought to watch for partial register stalls on Generic32
    compilation setting as well.  However in current implementation the
    partial register stalls are not eliminated very well - they can
-   be introduced via subregs synthetized by combine and can happen
+   be introduced via subregs synthesized by combine and can happen
    in caller/callee saving sequences.
    Because this option pays back little on PPro based chips and is in conflict
    with partial reg. dependencies used by Athlon/P4 based chips, it is better
@@ -778,7 +791,7 @@ const int x86_prologue_using_move = m_ATHLON_K8 | m_PPRO | m_GENERIC;
 const int x86_epilogue_using_move = m_ATHLON_K8 | m_PPRO | m_GENERIC;
 const int x86_shift1 = ~m_486;
 const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
-/* In Generic model we have an confict here in between PPro/Pentium4 based chips
+/* In Generic model we have an conflict here in between PPro/Pentium4 based chips
    that thread 128bit SSE registers as single units versus K8 based chips that
    divide SSE registers to two 64bit halves.
    x86_sse_partial_reg_dependency promote all store destinations to be 128bit
@@ -1262,6 +1275,8 @@ static section *x86_64_elf_select_section (tree decl, int reloc,
 #endif
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM ix86_cannot_force_const_mem
+#undef TARGET_USE_BLOCKS_FOR_CONSTANT_P
+#define TARGET_USE_BLOCKS_FOR_CONSTANT_P hook_bool_mode_rtx_true
 
 #undef TARGET_DELEGITIMIZE_ADDRESS
 #define TARGET_DELEGITIMIZE_ADDRESS ix86_delegitimize_address
@@ -7082,12 +7097,24 @@ i386_output_dwarf_dtprel (FILE *file, int size, rtx x)
 
 /* In the name of slightly smaller debug output, and to cater to
    general assembler lossage, recognize PIC+GOTOFF and turn it back
-   into a direct symbol reference.  */
+   into a direct symbol reference.  
+
+   On Darwin, this is necessary to avoid a crash, because Darwin
+   has a different PIC label for each routine but the DWARF debugging
+   information is not associated with any particular routine, so it's
+   necessary to remove references to the PIC label from RTL stored by
+   the DWARF output code.  */
 
 static rtx
 ix86_delegitimize_address (rtx orig_x)
 {
-  rtx x = orig_x, y;
+  rtx x = orig_x;
+  /* reg_addend is NULL or a multiple of some register.  */
+  rtx reg_addend = NULL_RTX;
+  /* const_addend is NULL or a const_int.  */
+  rtx const_addend = NULL_RTX;
+  /* This is the result, or NULL.  */
+  rtx result = NULL_RTX;
 
   if (GET_CODE (x) == MEM)
     x = XEXP (x, 0);
@@ -7109,59 +7136,52 @@ ix86_delegitimize_address (rtx orig_x)
   if (GET_CODE (XEXP (x, 0)) == REG
       && REGNO (XEXP (x, 0)) == PIC_OFFSET_TABLE_REGNUM)
     /* %ebx + GOT/GOTOFF */
-    y = NULL;
+    ;
   else if (GET_CODE (XEXP (x, 0)) == PLUS)
     {
       /* %ebx + %reg * scale + GOT/GOTOFF */
-      y = XEXP (x, 0);
-      if (GET_CODE (XEXP (y, 0)) == REG
-	  && REGNO (XEXP (y, 0)) == PIC_OFFSET_TABLE_REGNUM)
-	y = XEXP (y, 1);
-      else if (GET_CODE (XEXP (y, 1)) == REG
-	       && REGNO (XEXP (y, 1)) == PIC_OFFSET_TABLE_REGNUM)
-	y = XEXP (y, 0);
+      reg_addend = XEXP (x, 0);
+      if (GET_CODE (XEXP (reg_addend, 0)) == REG
+	  && REGNO (XEXP (reg_addend, 0)) == PIC_OFFSET_TABLE_REGNUM)
+	reg_addend = XEXP (reg_addend, 1);
+      else if (GET_CODE (XEXP (reg_addend, 1)) == REG
+	       && REGNO (XEXP (reg_addend, 1)) == PIC_OFFSET_TABLE_REGNUM)
+	reg_addend = XEXP (reg_addend, 0);
       else
 	return orig_x;
-      if (GET_CODE (y) != REG
-	  && GET_CODE (y) != MULT
-	  && GET_CODE (y) != ASHIFT)
+      if (GET_CODE (reg_addend) != REG
+	  && GET_CODE (reg_addend) != MULT
+	  && GET_CODE (reg_addend) != ASHIFT)
 	return orig_x;
     }
   else
     return orig_x;
 
   x = XEXP (XEXP (x, 1), 0);
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+    {
+      const_addend = XEXP (x, 1);
+      x = XEXP (x, 0);
+    }
+
   if (GET_CODE (x) == UNSPEC
       && ((XINT (x, 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
 	  || (XINT (x, 1) == UNSPEC_GOTOFF && GET_CODE (orig_x) != MEM)))
-    {
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, XVECEXP (x, 0, 0));
-      return XVECEXP (x, 0, 0);
-    }
-
-  if (GET_CODE (x) == PLUS
-      && GET_CODE (XEXP (x, 0)) == UNSPEC
-      && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && ((XINT (XEXP (x, 0), 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
-	  || (XINT (XEXP (x, 0), 1) == UNSPEC_GOTOFF
-	      && GET_CODE (orig_x) != MEM)))
-    {
-      x = gen_rtx_PLUS (VOIDmode, XVECEXP (XEXP (x, 0), 0, 0), XEXP (x, 1));
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, x);
-      return x;
-    }
+    result = XVECEXP (x, 0, 0);
 
   if (TARGET_MACHO && darwin_local_data_pic (x)
       && GET_CODE (orig_x) != MEM)
-    {
-      x = XEXP (x, 0);
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, x);
-      return x;
-    }
-  return orig_x;
+    result = XEXP (x, 0);
+
+  if (! result)
+    return orig_x;
+  
+  if (const_addend)
+    result = gen_rtx_PLUS (Pmode, result, const_addend);
+  if (reg_addend)
+    result = gen_rtx_PLUS (Pmode, reg_addend, result);
+  return result;
 }
 
 static void
@@ -13292,9 +13312,7 @@ memory_address_length (rtx addr)
       /* Find the length of the displacement constant.  */
       if (disp)
 	{
-	  if (GET_CODE (disp) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL (disp), 'K')
-	      && base)
+	  if (base && satisfies_constraint_K (disp))
 	    len = 1;
 	  else
 	    len = 4;
@@ -13327,9 +13345,7 @@ ix86_attr_length_immediate_default (rtx insn, int shortform)
     if (CONSTANT_P (recog_data.operand[i]))
       {
 	gcc_assert (!len);
-	if (shortform
-	    && GET_CODE (recog_data.operand[i]) == CONST_INT
-	    && CONST_OK_FOR_LETTER_P (INTVAL (recog_data.operand[i]), 'K'))
+	if (shortform && satisfies_constraint_K (recog_data.operand[i]))
 	  len = 1;
 	else
 	  {
@@ -15334,7 +15350,7 @@ ix86_init_mmx_sse_builtins (void)
 static void
 ix86_init_sse_abi_builtins (void)
 {
-  tree dbl, flt, dbl2, flt2;
+  tree flt, flt2;
 
   /* Bail out in case the template definitions are not available.  */
   if (! built_in_decls [BUILT_IN_SIN]
@@ -15344,18 +15360,10 @@ ix86_init_sse_abi_builtins (void)
     return;
 
   /* Build the function types as variants of the existing ones.  */
-  dbl = build_variant_type_copy (TREE_TYPE (built_in_decls [BUILT_IN_SIN]));
-  TYPE_ATTRIBUTES (dbl)
-    = tree_cons (get_identifier ("sseregparm"),
-                 NULL_TREE, TYPE_ATTRIBUTES (dbl));
   flt = build_variant_type_copy (TREE_TYPE (built_in_decls [BUILT_IN_SINF]));
   TYPE_ATTRIBUTES (flt)
     = tree_cons (get_identifier ("sseregparm"),
                  NULL_TREE, TYPE_ATTRIBUTES (flt));
-  dbl2 = build_variant_type_copy (TREE_TYPE (built_in_decls [BUILT_IN_ATAN2]));
-  TYPE_ATTRIBUTES (dbl2)
-    = tree_cons (get_identifier ("sseregparm"),
-                 NULL_TREE, TYPE_ATTRIBUTES (dbl2));
   flt2 = build_variant_type_copy (TREE_TYPE (built_in_decls [BUILT_IN_ATAN2F]));
   TYPE_ATTRIBUTES (flt2)
     = tree_cons (get_identifier ("sseregparm"),
@@ -15368,25 +15376,15 @@ ix86_init_sse_abi_builtins (void)
 				   BUILT_IN_NORMAL,			\
 				   "__libm_sse2_" # name, NULL_TREE)
  
-  def_builtin (ACOS, acos, dbl);
   def_builtin (ACOSF, acosf, flt);
-  def_builtin (ASIN, asin, dbl);
   def_builtin (ASINF, asinf, flt);
-  def_builtin (ATAN, atan, dbl);
   def_builtin (ATANF, atanf, flt);
-  def_builtin (ATAN2, atan2, dbl2);
   def_builtin (ATAN2F, atan2f, flt2);
-  def_builtin (COS, cos, dbl);
   def_builtin (COSF, cosf, flt);
-  def_builtin (EXP, exp, dbl);
   def_builtin (EXPF, expf, flt);
-  def_builtin (LOG10, log10, dbl);
   def_builtin (LOG10F, log10f, flt);
-  def_builtin (LOG, log, dbl);
   def_builtin (LOGF, logf, flt);
-  def_builtin (SIN, sin, dbl);
   def_builtin (SINF, sinf, flt);
-  def_builtin (TAN, tan, dbl);
   def_builtin (TANF, tanf, flt);
 
 #undef def_builtin
@@ -16364,14 +16362,27 @@ ix86_free_from_memory (enum machine_mode mode)
 enum reg_class
 ix86_preferred_reload_class (rtx x, enum reg_class class)
 {
+  enum machine_mode mode = GET_MODE (x);
+
   /* We're only allowed to return a subclass of CLASS.  Many of the 
      following checks fail for NO_REGS, so eliminate that early.  */
   if (class == NO_REGS)
     return NO_REGS;
 
   /* All classes can load zeros.  */
-  if (x == CONST0_RTX (GET_MODE (x)))
+  if (x == CONST0_RTX (mode))
     return class;
+
+  /* Force constants into memory if we are loading a (nonzero) constant into
+     an MMX or SSE register.  This is because there are no MMX/SSE instructions
+     to load from a constant.  */
+  if (CONSTANT_P (x)
+      && (MAYBE_MMX_CLASS_P (class) || MAYBE_SSE_CLASS_P (class)))
+    return NO_REGS;
+
+  /* Prefer SSE regs only, if we can use them for math.  */
+  if (TARGET_SSE_MATH && !TARGET_MIX_SSE_I387 && SSE_FLOAT_MODE_P (mode))
+    return SSE_CLASS_P (class) ? class : NO_REGS;
 
   /* Floating-point constants need more complex checks.  */
   if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) != VOIDmode)
@@ -16384,8 +16395,6 @@ ix86_preferred_reload_class (rtx x, enum reg_class class)
 	 zero above.  We only want to wind up preferring 80387 registers if
 	 we plan on doing computation with them.  */
       if (TARGET_80387
-	  && (TARGET_MIX_SSE_I387 
-	      || !(TARGET_SSE_MATH && SSE_FLOAT_MODE_P (GET_MODE (x))))
 	  && standard_80387_constant_p (x))
 	{
 	  /* Limit class to non-sse.  */
@@ -16401,10 +16410,6 @@ ix86_preferred_reload_class (rtx x, enum reg_class class)
 
       return NO_REGS;
     }
-  if (MAYBE_MMX_CLASS_P (class) && CONSTANT_P (x))
-    return NO_REGS;
-  if (MAYBE_SSE_CLASS_P (class) && CONSTANT_P (x))
-    return NO_REGS;
 
   /* Generally when we see PLUS here, it's the function invariant
      (plus soft-fp const_int).  Which can only be computed into general
@@ -16421,6 +16426,33 @@ ix86_preferred_reload_class (rtx x, enum reg_class class)
       if (reg_class_subset_p (Q_REGS, class))
 	return Q_REGS;
       return NO_REGS;
+    }
+
+  return class;
+}
+
+/* Discourage putting floating-point values in SSE registers unless
+   SSE math is being used, and likewise for the 387 registers.  */
+enum reg_class
+ix86_preferred_output_reload_class (rtx x, enum reg_class class)
+{
+  enum machine_mode mode = GET_MODE (x);
+
+  /* Restrict the output reload class to the register bank that we are doing
+     math on.  If we would like not to return a subset of CLASS, reject this
+     alternative: if reload cannot do this, it will still use its choice.  */
+  mode = GET_MODE (x);
+  if (TARGET_SSE_MATH && SSE_FLOAT_MODE_P (mode))
+    return MAYBE_SSE_CLASS_P (class) ? SSE_REGS : NO_REGS;
+
+  if (TARGET_80387 && SCALAR_FLOAT_MODE_P (mode))
+    {
+      if (class == FP_TOP_SSE_REGS)
+	return FP_TOP_REG;
+      else if (class == FP_SECOND_SSE_REGS)
+	return FP_SECOND_REG;
+      else
+	return FLOAT_CLASS_P (class) ? class : NO_REGS;
     }
 
   return class;
@@ -17123,24 +17155,24 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
 
   if (MACHOPIC_PURE)
     {
-      fprintf (file, "\tcall LPC$%d\nLPC$%d:\tpopl %%eax\n", label, label);
-      fprintf (file, "\tmovl %s-LPC$%d(%%eax),%%edx\n", lazy_ptr_name, label);
-      fprintf (file, "\tjmp %%edx\n");
+      fprintf (file, "\tcall\tLPC$%d\nLPC$%d:\tpopl\t%%eax\n", label, label);
+      fprintf (file, "\tmovl\t%s-LPC$%d(%%eax),%%edx\n", lazy_ptr_name, label);
+      fprintf (file, "\tjmp\t*%%edx\n");
     }
   else
-    fprintf (file, "\tjmp *%s\n", lazy_ptr_name);
+    fprintf (file, "\tjmp\t*%s\n", lazy_ptr_name);
 
   fprintf (file, "%s:\n", binder_name);
 
   if (MACHOPIC_PURE)
     {
-      fprintf (file, "\tlea %s-LPC$%d(%%eax),%%eax\n", lazy_ptr_name, label);
-      fprintf (file, "\tpushl %%eax\n");
+      fprintf (file, "\tlea\t%s-LPC$%d(%%eax),%%eax\n", lazy_ptr_name, label);
+      fprintf (file, "\tpushl\t%%eax\n");
     }
   else
-    fprintf (file, "\t pushl $%s\n", lazy_ptr_name);
+    fprintf (file, "\tpushl\t$%s\n", lazy_ptr_name);
 
-  fprintf (file, "\tjmp dyld_stub_binding_helper\n");
+  fprintf (file, "\tjmp\tdyld_stub_binding_helper\n");
 
   switch_to_section (darwin_sections[machopic_lazy_symbol_ptr_section]);
   fprintf (file, "%s:\n", lazy_ptr_name);
@@ -17455,6 +17487,9 @@ static void
 x86_file_start (void)
 {
   default_file_start ();
+#if TARGET_MACHO
+  darwin_file_start ();
+#endif
   if (X86_FILE_START_VERSION_DIRECTIVE)
     fputs ("\t.version\t\"01.01\"\n", asm_out_file);
   if (X86_FILE_START_FLTUSED)

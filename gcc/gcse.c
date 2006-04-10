@@ -2642,7 +2642,7 @@ find_used_regs (rtx *xptr, void *data ATTRIBUTE_UNUSED)
 static int
 try_replace_reg (rtx from, rtx to, rtx insn)
 {
-  rtx note = find_reg_equal_equiv_note (insn);
+  rtx note = find_reg_note (insn, REG_EQUAL, NULL);
   rtx src = 0;
   int success = 0;
   rtx set = single_set (insn);
@@ -6621,7 +6621,7 @@ gate_handle_jump_bypass (void)
 }
 
 /* Perform jump bypassing and control flow optimizations.  */
-static void
+static unsigned int
 rest_of_handle_jump_bypass (void)
 {
   cleanup_cfg (CLEANUP_EXPENSIVE);
@@ -6633,6 +6633,7 @@ rest_of_handle_jump_bypass (void)
       cleanup_cfg (CLEANUP_EXPENSIVE);
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
     }
+  return 0;
 }
 
 struct tree_opt_pass pass_jump_bypass =
@@ -6661,7 +6662,7 @@ gate_handle_gcse (void)
 }
 
 
-static void
+static unsigned int
 rest_of_handle_gcse (void)
 {
   int save_csb, save_cfj;
@@ -6695,12 +6696,13 @@ rest_of_handle_gcse (void)
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
       delete_dead_jumptables ();
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
       timevar_pop (TV_JUMP);
     }
 
   flag_cse_skip_blocks = save_csb;
   flag_cse_follow_jumps = save_cfj;
+  return 0;
 }
 
 struct tree_opt_pass pass_gcse =

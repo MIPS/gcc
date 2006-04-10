@@ -847,7 +847,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	}
       break;
 
-    case TYPE_MEMORY_TAG:
+    case SYMBOL_MEMORY_TAG:
     case NAME_MEMORY_TAG:
     case STRUCT_FIELD_TAG:
     case VAR_DECL:
@@ -1557,8 +1557,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case RESX_EXPR:
-      pp_string (buffer, "resx");
-      /* ??? Any sensible way to present the eh region?  */
+      pp_string (buffer, "resx ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       break;
 
     case ASM_EXPR:

@@ -332,7 +332,7 @@ free_after_compilation (struct function *f)
   f->x_return_label = NULL;
   f->x_naked_return_label = NULL;
   f->x_stack_slot_list = NULL;
-  f->x_tail_recursion_reentry = NULL;
+  f->x_stack_check_probe_note = NULL;
   f->x_arg_pointer_save_area = NULL;
   f->x_parm_birth_insn = NULL;
   f->original_arg_vector = NULL;
@@ -359,10 +359,31 @@ get_func_frame_size (struct function *f)
 /* Return size needed for stack frame based on slots so far allocated.
    This size counts from zero.  It is not rounded to PREFERRED_STACK_BOUNDARY;
    the caller may have to do that.  */
+
 HOST_WIDE_INT
 get_frame_size (void)
 {
   return get_func_frame_size (cfun);
+}
+
+/* Issue an error message and return TRUE if frame OFFSET overflows in
+   the signed target pointer arithmetics for function FUNC.  Otherwise
+   return FALSE.  */
+
+bool
+frame_offset_overflow (HOST_WIDE_INT offset, tree func)
+{  
+  unsigned HOST_WIDE_INT size = FRAME_GROWS_DOWNWARD ? -offset : offset;
+
+  if (size > ((unsigned HOST_WIDE_INT) 1 << (GET_MODE_BITSIZE (Pmode) - 1))
+	       /* Leave room for the fixed part of the frame.  */
+	       - 64 * UNITS_PER_WORD)
+    {
+      error ("%Jtotal size of local objects too large", func);
+      return TRUE;
+    }
+
+  return FALSE;
 }
 
 /* Allocate a stack slot of SIZE bytes and return a MEM rtx for it
@@ -480,20 +501,8 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
   function->x_stack_slot_list
     = gen_rtx_EXPR_LIST (VOIDmode, x, function->x_stack_slot_list);
 
-  /* Try to detect frame size overflows on native platforms.  */
-#if BITS_PER_WORD >= 32
-  if ((FRAME_GROWS_DOWNWARD
-       ? (unsigned HOST_WIDE_INT) -function->x_frame_offset
-       : (unsigned HOST_WIDE_INT) function->x_frame_offset)
-	> ((unsigned HOST_WIDE_INT) 1 << (BITS_PER_WORD - 1))
-	    /* Leave room for the fixed part of the frame.  */
-	    - 64 * UNITS_PER_WORD)
-    {
-      error ("%Jtotal size of local objects too large", function->decl);
-      /* Avoid duplicate error messages as much as possible.  */
-      function->x_frame_offset = 0;
-    }
-#endif
+  if (frame_offset_overflow (function->x_frame_offset, function->decl))
+    function->x_frame_offset = 0;
 
   return x;
 }
@@ -1666,7 +1675,7 @@ instantiate_decls (tree fndecl)
 /* Pass through the INSNS of function FNDECL and convert virtual register
    references to hard register references.  */
 
-static void
+static unsigned int
 instantiate_virtual_regs (void)
 {
   rtx insn;
@@ -1718,6 +1727,7 @@ instantiate_virtual_regs (void)
   /* Indicate that, from now on, assign_stack_local should use
      frame_pointer_rtx.  */
   virtuals_instantiated = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_instantiate_virtual_regs =
@@ -3935,7 +3945,7 @@ init_function_start (tree subr)
 
 /* Make sure all values used by the optimization passes have sane
    defaults.  */
-void
+unsigned int
 init_function_for_compilation (void)
 {
   reg_renumber = 0;
@@ -3945,6 +3955,7 @@ init_function_for_compilation (void)
   gcc_assert (VEC_length (int, prologue) == 0);
   gcc_assert (VEC_length (int, epilogue) == 0);
   gcc_assert (VEC_length (int, sibcall_epilogue) == 0);
+  return 0;
 }
 
 struct tree_opt_pass pass_init_function =
@@ -4110,7 +4121,7 @@ expand_function_start (tree subr)
       else
 #endif
 	{
-	  rtx sv = targetm.calls.struct_value_rtx (TREE_TYPE (subr), 1);
+	  rtx sv = targetm.calls.struct_value_rtx (TREE_TYPE (subr), 2);
 	  /* Expect to be passed the address of a place to store the value.
 	     If it is passed as an argument, assign_parms will take care of
 	     it.  */
@@ -4214,8 +4225,8 @@ expand_function_start (tree subr)
      as opposed to parm setup.  */
   emit_note (NOTE_INSN_FUNCTION_BEG);
 
-  if (!NOTE_P (get_last_insn ()))
-    emit_note (NOTE_INSN_DELETED);
+  gcc_assert (NOTE_P (get_last_insn ()));
+
   parm_birth_insn = get_last_insn ();
 
   if (current_function_profile)
@@ -4225,10 +4236,10 @@ expand_function_start (tree subr)
 #endif
     }
 
-  /* After the display initializations is where the tail-recursion label
-     should go, if we end up needing one.   Ensure we have a NOTE here
-     since some things (like trampolines) get placed before this.  */
-  tail_recursion_reentry = emit_note (NOTE_INSN_DELETED);
+  /* After the display initializations is where the stack checking
+     probe should go.  */
+  if(flag_stack_check)
+    stack_check_probe_note = emit_note (NOTE_INSN_DELETED);
 
   /* Make sure there is a line number after the function entry setup code.  */
   force_next_line_note ();
@@ -4306,7 +4317,7 @@ do_use_return_reg (rtx reg, void *arg ATTRIBUTE_UNUSED)
   emit_insn (gen_rtx_USE (VOIDmode, reg));
 }
 
-void
+static void
 use_return_register (void)
 {
   diddle_return_value (do_use_return_reg, NULL);
@@ -4354,7 +4365,7 @@ expand_function_end (void)
 			       GEN_INT (STACK_CHECK_MAX_FRAME_SIZE));
 	    seq = get_insns ();
 	    end_sequence ();
-	    emit_insn_before (seq, tail_recursion_reentry);
+	    emit_insn_before (seq, stack_check_probe_note);
 	    break;
 	  }
     }
@@ -5569,13 +5580,14 @@ current_function_name (void)
 }
 
 
-static void
+static unsigned int
 rest_of_handle_check_leaf_regs (void)
 {
 #ifdef LEAF_REGISTERS
   current_function_uses_only_leaf_regs
     = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
 #endif
+  return 0;
 }
 
 struct tree_opt_pass pass_leaf_regs =

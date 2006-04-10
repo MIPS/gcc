@@ -2483,7 +2483,7 @@ dump_local_alloc (FILE *file)
 
 /* Run old register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
-static void
+static unsigned int
 rest_of_handle_local_alloc (void)
 {
   int rebuild_notes;
@@ -2526,6 +2526,7 @@ rest_of_handle_local_alloc (void)
       dump_local_alloc (dump_file);
       timevar_pop (TV_DUMP);
     }
+  return 0;
 }
 
 struct tree_opt_pass pass_local_alloc =

@@ -1,6 +1,7 @@
 /* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -444,64 +445,28 @@ immed_double_const (HOST_WIDE_INT i0, HOST_WIDE_INT i1, enum machine_mode mode)
   rtx value;
   unsigned int i;
 
+  /* There are the following cases (note that there are no modes with
+     HOST_BITS_PER_WIDE_INT < GET_MODE_BITSIZE (mode) < 2 * HOST_BITS_PER_WIDE_INT):
+
+     1) If GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT, then we use
+	gen_int_mode.
+     2) GET_MODE_BITSIZE (mode) == 2 * HOST_BITS_PER_WIDE_INT, but the value of
+	the integer fits into HOST_WIDE_INT anyway (i.e., i1 consists only
+	from copies of the sign bit, and sign of i0 and i1 are the same),  then 
+	we return a CONST_INT for i0.
+     3) Otherwise, we create a CONST_DOUBLE for i0 and i1.  */
   if (mode != VOIDmode)
     {
-      int width;
-      
       gcc_assert (GET_MODE_CLASS (mode) == MODE_INT
 		  || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT
 		  /* We can get a 0 for an error mark.  */
 		  || GET_MODE_CLASS (mode) == MODE_VECTOR_INT
 		  || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT);
 
-      /* We clear out all bits that don't belong in MODE, unless they and
-	 our sign bit are all one.  So we get either a reasonable negative
-	 value or a reasonable unsigned value for this mode.  */
-      width = GET_MODE_BITSIZE (mode);
-      if (width < HOST_BITS_PER_WIDE_INT
-	  && ((i0 & ((HOST_WIDE_INT) (-1) << (width - 1)))
-	      != ((HOST_WIDE_INT) (-1) << (width - 1))))
-	i0 &= ((HOST_WIDE_INT) 1 << width) - 1, i1 = 0;
-      else if (width == HOST_BITS_PER_WIDE_INT
-	       && ! (i1 == ~0 && i0 < 0))
-	i1 = 0;
-      else
-	/* We should be able to represent this value as a constant.  */
-	gcc_assert (width <= 2 * HOST_BITS_PER_WIDE_INT);
+      if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
+	return gen_int_mode (i0, mode);
 
-      /* If this would be an entire word for the target, but is not for
-	 the host, then sign-extend on the host so that the number will
-	 look the same way on the host that it would on the target.
-
-	 For example, when building a 64 bit alpha hosted 32 bit sparc
-	 targeted compiler, then we want the 32 bit unsigned value -1 to be
-	 represented as a 64 bit value -1, and not as 0x00000000ffffffff.
-	 The latter confuses the sparc backend.  */
-
-      if (width < HOST_BITS_PER_WIDE_INT
-	  && (i0 & ((HOST_WIDE_INT) 1 << (width - 1))))
-	i0 |= ((HOST_WIDE_INT) (-1) << width);
-
-      /* If MODE fits within HOST_BITS_PER_WIDE_INT, always use a
-	 CONST_INT.
-
-	 ??? Strictly speaking, this is wrong if we create a CONST_INT for
-	 a large unsigned constant with the size of MODE being
-	 HOST_BITS_PER_WIDE_INT and later try to interpret that constant
-	 in a wider mode.  In that case we will mis-interpret it as a
-	 negative number.
-
-	 Unfortunately, the only alternative is to make a CONST_DOUBLE for
-	 any constant in any mode if it is an unsigned constant larger
-	 than the maximum signed integer in an int on the host.  However,
-	 doing this will break everyone that always expects to see a
-	 CONST_INT for SImode and smaller.
-
-	 We have always been making CONST_INTs in this case, so nothing
-	 new is being broken.  */
-
-      if (width <= HOST_BITS_PER_WIDE_INT)
-	i1 = (i0 < 0) ? ~(HOST_WIDE_INT) 0 : 0;
+      gcc_assert (GET_MODE_BITSIZE (mode) == 2 * HOST_BITS_PER_WIDE_INT);
     }
 
   /* If this integer fits in one word, return a CONST_INT.  */
@@ -1632,8 +1597,9 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 				     index, low_bound);
 
 	      off_tree = size_binop (PLUS_EXPR,
-				     size_binop (MULT_EXPR, convert (sizetype,
-								     index),
+				     size_binop (MULT_EXPR,
+						 fold_convert (sizetype,
+							       index),
 						 unit_size),
 				     off_tree);
 	      t2 = TREE_OPERAND (t2, 0);
@@ -2178,10 +2144,11 @@ unshare_all_rtl_again (rtx insn)
   unshare_all_rtl_1 (cfun->decl, insn);
 }
 
-void
+unsigned int
 unshare_all_rtl (void)
 {
   unshare_all_rtl_1 (current_function_decl, get_insns ());
+  return 0;
 }
 
 struct tree_opt_pass pass_unshare_all_rtl =
@@ -3711,79 +3678,6 @@ find_line_note (rtx insn)
 
   return insn;
 }
-
-/* Remove unnecessary notes from the instruction stream.  */
-
-void
-remove_unnecessary_notes (void)
-{
-  rtx eh_stack = NULL_RTX;
-  rtx insn;
-  rtx next;
-  rtx tmp;
-
-  /* We must not remove the first instruction in the function because
-     the compiler depends on the first instruction being a note.  */
-  for (insn = NEXT_INSN (get_insns ()); insn; insn = next)
-    {
-      /* Remember what's next.  */
-      next = NEXT_INSN (insn);
-
-      /* We're only interested in notes.  */
-      if (!NOTE_P (insn))
-	continue;
-
-      switch (NOTE_LINE_NUMBER (insn))
-	{
-	case NOTE_INSN_DELETED:
-	  remove_insn (insn);
-	  break;
-
-	case NOTE_INSN_EH_REGION_BEG:
-	  eh_stack = alloc_INSN_LIST (insn, eh_stack);
-	  break;
-
-	case NOTE_INSN_EH_REGION_END:
-	  /* Too many end notes.  */
-	  gcc_assert (eh_stack);
-	  /* Mismatched nesting.  */
-	  gcc_assert (NOTE_EH_HANDLER (XEXP (eh_stack, 0))
-		      == NOTE_EH_HANDLER (insn));
-	  tmp = eh_stack;
-	  eh_stack = XEXP (eh_stack, 1);
-	  free_INSN_LIST_node (tmp);
-	  break;
-
-	case NOTE_INSN_BLOCK_BEG:
-	case NOTE_INSN_BLOCK_END:
-          /* BLOCK_END and BLOCK_BEG notes only exist in the `final' pass.  */
-          gcc_unreachable ();
-
-	default:
-	  break;
-	}
-    }
-
-  /* Too many EH_REGION_BEG notes.  */
-  gcc_assert (!eh_stack);
-}
-
-struct tree_opt_pass pass_remove_unnecessary_notes =
-{
-  "eunotes",                            /* name */ 
-  NULL,					/* gate */
-  remove_unnecessary_notes,             /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,					/* tv_id */ 
-  0,					/* properties_required */
-  0,                                    /* properties_provided */
-  0,					/* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0                                     /* letter */ 
-};
 
 
 /* Emit insn(s) of given code and pattern

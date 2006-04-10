@@ -370,7 +370,7 @@ add_inter_loop_mem_dep (ddg_ptr g, ddg_node_ptr from, ddg_node_ptr to)
 /* Perform intra-block Data Dependency analysis and connect the nodes in
    the DDG.  We assume the loop has a single basic block.  */
 static void
-build_intra_loop_deps (struct df *df, ddg_ptr g)
+build_intra_loop_deps (struct df *df ATTRIBUTE_UNUSED, ddg_ptr g)
 {
   int i;
   /* Hold the dependency analysis state during dependency calculations.  */
@@ -382,8 +382,8 @@ build_intra_loop_deps (struct df *df, ddg_ptr g)
   init_deps (&tmp_deps);
 
   /* Do the intra-block data dependence analysis for the given block.  */
-  get_block_head_tail (g->bb->index, &head, &tail);
-  sched_analyze (df, &tmp_deps, head, tail);
+  get_ebb_head_tail (g->bb, g->bb, &head, &tail);
+  sched_analyze (&tmp_deps, head, tail);
 
   /* Build intra-loop data dependencies using the scheduler dependency
      analysis.  */
@@ -401,8 +401,7 @@ build_intra_loop_deps (struct df *df, ddg_ptr g)
 	  if (!src_node)
 	    continue;
 
-      	  add_forward_dependence (XEXP (link, 0), dest_node->insn,
-				  REG_NOTE_KIND (link));
+      	  add_forw_dep (dest_node->insn, link);
 	  create_ddg_dependence (g, src_node, dest_node,
 				 INSN_DEPEND (src_node->insn));
 	}

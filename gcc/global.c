@@ -2014,7 +2014,7 @@ dump_global_regs (FILE *file)
 
 /* Run old register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
-static void
+static unsigned int
 rest_of_handle_global_alloc (void)
 {
   bool failure;
@@ -2046,6 +2046,7 @@ rest_of_handle_global_alloc (void)
 
   gcc_assert (reload_completed || failure);
   reload_completed = !failure;
+  return 0;
 }
 
 struct tree_opt_pass pass_global_alloc =

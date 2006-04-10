@@ -2469,11 +2469,12 @@ gate_handle_regmove (void)
 
 /* Register allocation pre-pass, to reduce number of moves necessary
    for two-address machines.  */
-static void
+static unsigned int
 rest_of_handle_regmove (void)
 {
   regmove_optimize (get_insns (), max_reg_num ());
   cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
+  return 0;
 }
 
 struct tree_opt_pass pass_regmove =
@@ -2501,7 +2502,7 @@ gate_handle_stack_adjustments (void)
   return (optimize > 0);
 }
 
-static void
+static unsigned int
 rest_of_handle_stack_adjustments (void)
 {
   life_analysis (PROP_POSTRELOAD);
@@ -2516,6 +2517,7 @@ rest_of_handle_stack_adjustments (void)
   if (!ACCUMULATE_OUTGOING_ARGS)
 #endif
     combine_stack_adjustments ();
+  return 0;
 }
 
 struct tree_opt_pass pass_stack_adjustments =

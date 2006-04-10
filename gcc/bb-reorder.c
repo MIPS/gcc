@@ -1975,7 +1975,7 @@ gate_duplicate_computed_gotos (void)
 }
 
 
-static void
+static unsigned int
 duplicate_computed_gotos (void)
 {
   basic_block bb, new_bb;
@@ -1983,10 +1983,10 @@ duplicate_computed_gotos (void)
   int max_size;
 
   if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
-    return;
+    return 0;
 
   if (targetm.cannot_modify_jumps_p ())
-    return;
+    return 0;
 
   cfg_layout_initialize (0);
 
@@ -2079,6 +2079,7 @@ done:
   cfg_layout_finalize ();
 
   BITMAP_FREE (candidates);
+  return 0;
 }
 
 struct tree_opt_pass pass_duplicate_computed_gotos =
@@ -2197,7 +2198,7 @@ gate_handle_reorder_blocks (void)
 
 
 /* Reorder basic blocks.  */
-static void
+static unsigned int
 rest_of_handle_reorder_blocks (void)
 {
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
@@ -2220,6 +2221,7 @@ rest_of_handle_reorder_blocks (void)
 
   /* Add NOTE_INSN_SWITCH_TEXT_SECTIONS notes.  */
   insert_section_boundary_note ();
+  return 0;
 }
 
 struct tree_opt_pass pass_reorder_blocks =
@@ -2253,7 +2255,7 @@ gate_handle_partition_blocks (void)
 }
 
 /* Partition hot and cold basic blocks.  */
-static void
+static unsigned int
 rest_of_handle_partition_blocks (void)
 {
   no_new_pseudos = 0;
@@ -2262,6 +2264,7 @@ rest_of_handle_partition_blocks (void)
   update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
                     PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
   no_new_pseudos = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_partition_blocks =

@@ -846,7 +846,7 @@ static void
 fwprop_done (void)
 {
   df_finish (df);
-  cleanup_cfg (CLEANUP_PRE_LOOP);
+/*  cleanup_cfg (CLEANUP_PRE_LOOP);*/
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
 
   if (dump_file)
@@ -873,7 +873,7 @@ gate_fwprop (void)
   return optimize > 0 && flag_forward_propagate;
 }
 
-static void
+static unsigned int
 fwprop (void)
 {
   unsigned i;
@@ -898,6 +898,7 @@ fwprop (void)
     }
 
   fwprop_done ();
+  return 0;
 }
 
 struct tree_opt_pass pass_rtl_fwprop =
@@ -924,7 +925,7 @@ gate_fwprop_addr (void)
   	 && (flag_unroll_loops || flag_peel_loops);
 }
 
-static void
+static unsigned int
 fwprop_addr (void)
 {
   unsigned i;
@@ -943,6 +944,7 @@ fwprop_addr (void)
     }
 
   fwprop_done ();
+  return 0;
 }
 
 struct tree_opt_pass pass_rtl_fwprop_addr =

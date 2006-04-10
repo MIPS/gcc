@@ -3914,7 +3914,7 @@ gate_handle_if_conversion (void)
 }
 
 /* If-conversion and CFG cleanup.  */
-static void
+static unsigned int
 rest_of_handle_if_conversion (void)
 {
   if (flag_if_conversion)
@@ -3930,6 +3930,7 @@ rest_of_handle_if_conversion (void)
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (get_insns (), max_reg_num ());
   timevar_pop (TV_JUMP);
+  return 0;
 }
 
 struct tree_opt_pass pass_rtl_ifcvt =
@@ -3958,12 +3959,13 @@ gate_handle_if_after_combine (void)
 
 /* Rerun if-conversion, as combine may have simplified things enough
    to now meet sequence length restrictions.  */
-static void
+static unsigned int
 rest_of_handle_if_after_combine (void)
 {
   no_new_pseudos = 0;
   if_convert (1);
   no_new_pseudos = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_if_after_combine =
@@ -3991,7 +3993,7 @@ gate_handle_if_after_reload (void)
   return (optimize > 0);
 }
 
-static void
+static unsigned int
 rest_of_handle_if_after_reload (void)
 {
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
@@ -4001,6 +4003,7 @@ rest_of_handle_if_after_reload (void)
              | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
   if (flag_if_conversion2)
     if_convert (1);
+  return 0;
 }
 
 

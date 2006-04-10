@@ -15,6 +15,10 @@ details.  */
 
 #include <stdio.h>
 
+#ifdef USE_LIBFFI
+#include <ffi.h>
+#endif
+
 #include <java-interp.h>
 
 #include <jvm.h>
@@ -142,10 +146,10 @@ _Jv_Linker::find_field_helper (jclass search, _Jv_Utf8Const *name,
 	  // pass in the descriptor and check that way, because when
 	  // the field is already resolved there is no easy way to
 	  // find its descriptor again.
-	  if ( (field->isResolved () ? 
-                _Jv_equalUtf8Classnames (type_name, field->type->name) :
-                _Jv_equalUtf8Classnames (
-                  type_name, (_Jv_Utf8Const *) field->type)) )
+	  if ((field->isResolved ()
+               ? _Jv_equalUtf8Classnames (type_name, field->type->name)
+               : _Jv_equalUtf8Classnames (type_name,
+                                          (_Jv_Utf8Const *) field->type)))
 	    {
 	      *declarer = search;
 	      return field;
@@ -695,9 +699,18 @@ _Jv_Linker::get_interfaces (jclass klass, _Jv_ifaces *ifaces)
 	  result += get_interfaces (klass->interfaces[i], ifaces);
 	}
     }
-    
+
   if (klass->isInterface())
-    result += klass->method_count + 1;
+    {
+      // We want to add 1 plus the number of interface methods here.
+      // But, we take special care to skip <clinit>.
+      ++result;
+      for (int i = 0; i < klass->method_count; ++i)
+	{
+	  if (klass->methods[i].name->first() != '<')
+	    ++result;
+	}
+    }
   else if (klass->superclass)
     result += get_interfaces (klass->superclass, ifaces);
   return result;
@@ -771,7 +784,7 @@ _Jv_ThrowNoClassDefFoundErrorTrampoline(ffi_cif *,
                                         void *data)
 {
   throw new java::lang::NoClassDefFoundError(
-    _Jv_NewStringUtf8Const( (_Jv_Utf8Const *) data));
+    _Jv_NewStringUtf8Const((_Jv_Utf8Const *) data));
 }
 #else
 // A variant of the NoClassDefFoundError throwing method that can
@@ -813,7 +826,7 @@ _Jv_ThrowAbstractMethodError ()
 // Returns the offset at which the next partial ITable should be appended.
 jshort
 _Jv_Linker::append_partial_itable (jclass klass, jclass iface,
-				     void **itable, jshort pos)
+				   void **itable, jshort pos)
 {
   using namespace java::lang::reflect;
 
@@ -822,6 +835,10 @@ _Jv_Linker::append_partial_itable (jclass klass, jclass iface,
   
   for (int j=0; j < iface->method_count; j++)
     {
+      // Skip '<clinit>' here.
+      if (iface->methods[j].name->first() == '<')
+	continue;
+
       meth = NULL;
       for (jclass cl = klass; cl; cl = cl->getSuperclass())
         {
@@ -832,12 +849,7 @@ _Jv_Linker::append_partial_itable (jclass klass, jclass iface,
 	    break;
 	}
 
-      if (meth && (meth->name->first() == '<'))
-	{
-	  // leave a placeholder in the itable for hidden init methods.
-          itable[pos] = NULL;	
-	}
-      else if (meth)
+      if (meth)
         {
 	  if ((meth->accflags & Modifier::STATIC) != 0)
 	    throw new java::lang::IncompatibleClassChangeError
@@ -947,7 +959,6 @@ _Jv_Linker::find_iindex (jclass *ifaces, jshort *offsets, jshort num)
 }
 
 #ifdef USE_LIBFFI
-
 // We use a structure of this type to store the closure that
 // represents a missing method.
 struct method_closure
@@ -960,12 +971,9 @@ struct method_closure
   ffi_type *arg_types[1];
 };
 
-#endif // USE_LIBFFI
-
 void *
 _Jv_Linker::create_error_method (_Jv_Utf8Const *class_name)
 {
-#ifdef USE_LIBFFI
   method_closure *closure
     = (method_closure *) _Jv_AllocBytes(sizeof (method_closure));
 
@@ -974,9 +982,13 @@ _Jv_Linker::create_error_method (_Jv_Utf8Const *class_name)
   // Initializes the cif and the closure.  If that worked the closure
   // is returned and can be used as a function pointer in a class'
   // atable.
-  if (ffi_prep_cif (&closure->cif, FFI_DEFAULT_ABI, 1, &ffi_type_void,
-		    closure->arg_types) == FFI_OK
-      && ffi_prep_closure (&closure->closure, &closure->cif,
+  if (   ffi_prep_cif (&closure->cif,
+                       FFI_DEFAULT_ABI,
+                       1,
+                       &ffi_type_void,
+		       closure->arg_types) == FFI_OK
+      && ffi_prep_closure (&closure->closure,
+                           &closure->cif,
 			   _Jv_ThrowNoClassDefFoundErrorTrampoline,
 			   class_name) == FFI_OK)
     return &closure->closure;
@@ -989,13 +1001,17 @@ _Jv_Linker::create_error_method (_Jv_Utf8Const *class_name)
       buffer->append (_Jv_NewStringUtf8Const(class_name));
       throw new java::lang::InternalError(buffer->toString());
     }
+}
 #else
+void *
+_Jv_Linker::create_error_method (_Jv_Utf8Const *)
+{
   // Codepath for platforms which do not support (or want) libffi.
   // You have to accept that it is impossible to provide the name
   // of the missing class then.
   return (void *) _Jv_ThrowNoClassDefFoundError;
-#endif
 }
+#endif // USE_LIBFFI
 
 // Functions for indirect dispatch (symbolic virtual binding) support.
 
@@ -1213,7 +1229,7 @@ _Jv_Linker::link_symbol_table (jclass klass)
 	}
 
       // Try fields only if the target class exists.
-      if ( target_class != NULL )
+      if (target_class != NULL)
       {
 	wait_for_state(target_class, JV_STATE_PREPARED);
 	jclass found_class;

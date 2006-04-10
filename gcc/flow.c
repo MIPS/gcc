@@ -3887,7 +3887,7 @@ debug_regset (regset r)
    It might be worthwhile to update REG_LIVE_LENGTH, REG_BASIC_BLOCK and
    possibly other information which is used by the register allocators.  */
 
-void
+static unsigned int
 recompute_reg_usage (void)
 {
   allocate_reg_life_data ();
@@ -3899,6 +3899,7 @@ recompute_reg_usage (void)
 
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
+  return 0;
 }
 
 struct tree_opt_pass pass_recompute_reg_usage =
@@ -4086,10 +4087,11 @@ gate_remove_death_notes (void)
   return flag_profile_values;
 }
 
-static void
+static unsigned int
 rest_of_handle_remove_death_notes (void)
 {
   count_or_remove_death_notes (NULL, 1);
+  return 0;
 }
 
 struct tree_opt_pass pass_remove_death_notes =
@@ -4110,7 +4112,7 @@ struct tree_opt_pass pass_remove_death_notes =
 };
 
 /* Perform life analysis.  */
-static void
+static unsigned int
 rest_of_handle_life (void)
 {
   regclass_init ();
@@ -4142,6 +4144,7 @@ rest_of_handle_life (void)
     }
 
   no_new_pseudos = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_life =
@@ -4162,7 +4165,7 @@ struct tree_opt_pass pass_life =
   'f'                                   /* letter */
 };
 
-static void
+static unsigned int
 rest_of_handle_flow2 (void)
 {
 #if 0
@@ -4182,11 +4185,7 @@ rest_of_handle_flow2 (void)
   thread_prologue_and_epilogue_insns (get_insns ());
   epilogue_completed = 1;
   flow2_completed = 1;
-#if 0
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    fprintf (stderr, "regs_ever_live[%d]=%d after prologue\n", i,
-	     regs_ever_live[i]);
-#endif
+  return 0;
 }
 
 struct tree_opt_pass pass_flow2 =

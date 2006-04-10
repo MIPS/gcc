@@ -119,6 +119,10 @@ fortran 95		Jerry DeLisle		jvdelisle@gcc.gnu.org
 fortran 95		François-Xavier Coudert	coudert@clipper.ens.fr
 fortran 95              Bud Davis               jmdavis@link.com
 fortran 95		Steve Kargl		sgk@troutmask.apl.washington.edu
+fortran 95              Erik Edelmann           erik.edelmann@iki.fi
+fortran 95		Paul Thomas		pault@gcc.gnu.org
+fortran 95		Tobias Schlüter		tobias.schlueter@physik.uni-muenchen.de
+fortran 95		Janne Blomqvist		jb@gcc.gnu.org
 c++			Jason Merrill		jason@redhat.com
 c++                     Mark Mitchell		mark@codesourcery.com
 c++			Nathan Sidwell		nathan@codesourcery.com
@@ -139,6 +143,10 @@ cpplib			Per Bothner		per@bothner.com
 libdecnumber		Ben Elliston		bje@au.ibm.com
 libgcj			Tom Tromey		tromey@redhat.com
 libgcj			Bryce McKinlay		mckinlay@redhat.com
+libgomp                 Richard Henderson       rth@redhat.com
+libiberty		DJ Delorie		dj@redhat.com
+libiberty		Ian Lance Taylor	ian@airs.com
+libffi testsuite	Andreas Tobler		andreast@gcc.gnu.org
 libobjc			Nicola Pero		n.pero@mi.flashnet.it
 libobjc			Andrew Pinski		pinskia@physics.uc.edu
 loop discovery		Michael Hayes		m.hayes@elec.canterbury.ac.nz
@@ -170,8 +178,6 @@ basic block reordering	Jason Eckhardt		jle@rice.edu
 i18n			Philipp Thomas		pthomas@suse.de
 i18n			Joseph Myers		jsm@polyomino.org.uk
 diagnostic messages	Gabriel Dos Reis	gdr@integrable-solutions.net
-libiberty		DJ Delorie		dj@redhat.com
-libiberty		Ian Lance Taylor	ian@airs.com
 build machinery (*.in)	DJ Delorie		dj@redhat.com
 build machinery (*.in)	Nathanael Nerode	neroden@gcc.gnu.org
 build machinery (*.in)	Alexandre Oliva		aoliva@redhat.com
@@ -182,7 +188,6 @@ contrib/regression	Geoff Keating		geoffk@geoffk.org
 gcov			Jan Hubicka		jh@suse.cz
 gcov			Nathan Sidwell		nathan@codesourcery.com
 option handling		Neil Booth		neil@daikokuya.co.uk
-libffi testsuite	Andreas Tobler		andreast@gcc.gnu.org
 testsuite		Janis Johnson		janis187@us.ibm.com
 middle-end		Roger Sayle		roger@eyesopen.com
 middle-end		Ian Lance Taylor	ian@airs.com
@@ -216,8 +221,7 @@ David Billinghurst				David.Billinghurst@riotinto.com
 Laurynas Biveinis			        laurynas.biveinis@mif.vu.lt
 Uros Bizjak					uros@kss-loka.si
 Eric Blake					ericb@gcc.gnu.org
-Jim Blandy					jimb@redhat.com
-Janne Blomqvist					jb@gcc.gnu.org
+Jim Blandy					jimb@codesourcery.com
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
 Segher Boessenkool				segher@kernel.crashing.org
@@ -240,7 +244,6 @@ Christian Cornelssen				ccorn@cs.tu-berlin.de
 Ian Dall					ian@beware.dropbear.id.au
 David Daney					ddaney@avtrex.com
 Zdenek Dvorak					dvorakz@suse.cz
-Erik Edelmann                                   erik.edelmann@iki.fi
 Steve Ellcey					sje@cup.hp.com
 Mohan Embar					gnustuff@thisiscool.com
 Marc Espie					espie@cvs.openbsd.org
@@ -298,6 +301,7 @@ Ranjit Mathew					rmathew@hotmail.com
 Michael Matz					matz@suse.de
 Greg McGary					gkm@gnu.org
 Adam Megacz					adam@xwt.org
+Robert Millan					rmh@gcc.gnu.org
 Lee Millward					lee.millward@gmail.com
 Alan Modra					amodra@bigpond.net.au
 Catherine Moore					clm@redhat.com
@@ -327,7 +331,6 @@ Ira Ruben					ira@apple.com
 Douglas Rupp					rupp@gnat.com
 Matthew Sachs					msachs@apple.com
 Alex Samuel					samuel@codesourcery.com
-Tobias Schlüter					tobias.schlueter@physik.uni-muenchen.de
 Svein Seldal                                    svein@dev.seldal.com
 Thiemo Seufer					ths@networkno.de
 Franz Sirl					franz.sirl-kernel@lauterbach.com
@@ -336,7 +339,6 @@ Richard Stallman				rms@gnu.org
 Graham Stott					graham.stott@btinternet.com
 Mike Stump					mrs@apple.com
 Jeff Sturm					jsturm@gcc.gnu.org
-Paul Thomas					pault@gcc.gnu.org
 Kresten Krab Thorup				krab@gcc.gnu.org
 Caroline Tice					ctice@apple.com
 Michael Tiemann					tiemann@redhat.com

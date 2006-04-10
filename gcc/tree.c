@@ -270,11 +270,11 @@ init_ttree (void)
   tree_contains_struct[FIELD_DECL][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[STRUCT_FIELD_TAG][TS_DECL_MINIMAL] = 1;
   tree_contains_struct[NAME_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
-  tree_contains_struct[TYPE_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
+  tree_contains_struct[SYMBOL_MEMORY_TAG][TS_DECL_MINIMAL] = 1;
 
   tree_contains_struct[STRUCT_FIELD_TAG][TS_MEMORY_TAG] = 1;
   tree_contains_struct[NAME_MEMORY_TAG][TS_MEMORY_TAG] = 1;
-  tree_contains_struct[TYPE_MEMORY_TAG][TS_MEMORY_TAG] = 1;
+  tree_contains_struct[SYMBOL_MEMORY_TAG][TS_MEMORY_TAG] = 1;
 
   tree_contains_struct[STRUCT_FIELD_TAG][TS_STRUCT_FIELD_TAG] = 1;
 
@@ -336,7 +336,7 @@ tree_code_size (enum tree_code code)
 	  case FUNCTION_DECL:
 	    return sizeof (struct tree_function_decl);
 	  case NAME_MEMORY_TAG:
-	  case TYPE_MEMORY_TAG:
+	  case SYMBOL_MEMORY_TAG:
 	    return sizeof (struct tree_memory_tag);
 	  case STRUCT_FIELD_TAG:
 	    return sizeof (struct tree_struct_field_tag);
@@ -2042,7 +2042,7 @@ tree_node_structure (tree t)
 	    return TS_TYPE_DECL;
 	  case FUNCTION_DECL:
 	    return TS_FUNCTION_DECL;
-	  case TYPE_MEMORY_TAG:
+	  case SYMBOL_MEMORY_TAG:
 	  case NAME_MEMORY_TAG:
 	  case STRUCT_FIELD_TAG:
 	    return TS_MEMORY_TAG;
@@ -5021,8 +5021,8 @@ build_range_type (tree type, tree lowval, tree highval)
   if (type == NULL_TREE)
     type = sizetype;
 
-  TYPE_MIN_VALUE (itype) = convert (type, lowval);
-  TYPE_MAX_VALUE (itype) = highval ? convert (type, highval) : NULL;
+  TYPE_MIN_VALUE (itype) = fold_convert (type, lowval);
+  TYPE_MAX_VALUE (itype) = highval ? fold_convert (type, highval) : NULL;
 
   TYPE_PRECISION (itype) = TYPE_PRECISION (type);
   TYPE_MODE (itype) = TYPE_MODE (type);
@@ -5800,6 +5800,9 @@ tree
 get_callee_fndecl (tree call)
 {
   tree addr;
+
+  if (call == error_mark_node)
+    return call;
 
   /* It's invalid to call this function with anything but a
      CALL_EXPR.  */
@@ -6802,16 +6805,6 @@ initializer_zerop (tree init)
     default:
       return false;
     }
-}
-
-void
-add_var_to_bind_expr (tree bind_expr, tree var)
-{
-  BIND_EXPR_VARS (bind_expr)
-    = chainon (BIND_EXPR_VARS (bind_expr), var);
-  if (BIND_EXPR_BLOCK (bind_expr))
-    BLOCK_VARS (BIND_EXPR_BLOCK (bind_expr))
-      = BIND_EXPR_VARS (bind_expr);
 }
 
 /* Build an empty statement.  */

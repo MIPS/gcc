@@ -1,3 +1,28 @@
+2006-04-08  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure: Rebuilt.
+
+2006-04-06  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* acinclude.m4 (AC_LTDL_SHLIBEXT): Add GCJ LOCAL marker to indicate
+	GCJ specific stuff.
+
+2006-03-30  Tom Tromey  <tromey@redhat.com>
+
+	* aclocal.m4, configure, Makefile.in: Rebuilt.
+	* configure.ac: Use AM_MAINTAINER_MODE.
+
+2006-03-29  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* acinclude.m4: Restore the situation that we don't build modules on
+	darwin.
+	* configure: Regenerated.
+
+2006-03-28  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26441:
+	* Merged libltdl 1.5.16 from vendor branch.
+
 2004-11-24  Kelley Cook  <kcook@gcc.gnu.org>
 
 	* Makefile.in: Regenrate with Automake 1.9.3.

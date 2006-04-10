@@ -175,7 +175,7 @@ create_temp (tree t)
   /* add_referenced_tmp_var will create the annotation and set up some
      of the flags in the annotation.  However, some flags we need to
      inherit from our original variable.  */
-  var_ann (tmp)->type_mem_tag = var_ann (t)->type_mem_tag;
+  var_ann (tmp)->symbol_mem_tag = var_ann (t)->symbol_mem_tag;
   if (is_call_clobbered (t))
     mark_call_clobbered (tmp, var_ann (t)->escape_mask);
 
@@ -2505,7 +2505,7 @@ insert_backedge_copies (void)
    R. Morgan, ``Building an Optimizing Compiler'',
    Butterworth-Heinemann, Boston, MA, 1998. pp 176-186.  */
 
-static void
+static unsigned int
 rewrite_out_of_ssa (void)
 {
   var_map map;
@@ -2548,6 +2548,7 @@ rewrite_out_of_ssa (void)
   delete_var_map (map);
 
   in_ssa_p = false;
+  return 0;
 }
 
 

@@ -197,6 +197,30 @@ struct processor_costs ultrasparc3_costs = {
   0, /* shift penalty */
 };
 
+static const
+struct processor_costs niagara_costs = {
+  COSTS_N_INSNS (3), /* int load */
+  COSTS_N_INSNS (3), /* int signed load */
+  COSTS_N_INSNS (3), /* int zeroed load */
+  COSTS_N_INSNS (9), /* float load */
+  COSTS_N_INSNS (8), /* fmov, fneg, fabs */
+  COSTS_N_INSNS (8), /* fadd, fsub */
+  COSTS_N_INSNS (26), /* fcmp */
+  COSTS_N_INSNS (8), /* fmov, fmovr */
+  COSTS_N_INSNS (29), /* fmul */
+  COSTS_N_INSNS (54), /* fdivs */
+  COSTS_N_INSNS (83), /* fdivd */
+  COSTS_N_INSNS (100), /* fsqrts - not implemented in hardware */
+  COSTS_N_INSNS (100), /* fsqrtd - not implemented in hardware */
+  COSTS_N_INSNS (11), /* imul */
+  COSTS_N_INSNS (11), /* imulX */
+  0, /* imul bit factor */
+  COSTS_N_INSNS (72), /* idiv */
+  COSTS_N_INSNS (72), /* idivX */
+  COSTS_N_INSNS (1), /* movcc/movr */
+  0, /* shift penalty */
+};
+
 const struct processor_costs *sparc_costs = &cypress_costs;
 
 #ifdef HAVE_AS_RELAX_OPTION
@@ -597,6 +621,7 @@ sparc_override_options (void)
     { TARGET_CPU_v9, "v9" },
     { TARGET_CPU_ultrasparc, "ultrasparc" },
     { TARGET_CPU_ultrasparc3, "ultrasparc3" },
+    { TARGET_CPU_niagara, "niagara" },
     { 0, 0 }
   };
   const struct cpu_default *def;
@@ -632,6 +657,8 @@ sparc_override_options (void)
     /* TI ultrasparc III */
     /* ??? Check if %y issue still holds true in ultra3.  */
     { "ultrasparc3", PROCESSOR_ULTRASPARC3, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
+    /* UltraSPARC T1 */
+    { "niagara", PROCESSOR_NIAGARA, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
     { 0, 0, 0, 0 }
   };
   const struct cpu_table *cpu;
@@ -741,7 +768,8 @@ sparc_override_options (void)
   /* Supply a default value for align_functions.  */
   if (align_functions == 0
       && (sparc_cpu == PROCESSOR_ULTRASPARC
-	  || sparc_cpu == PROCESSOR_ULTRASPARC3))
+	  || sparc_cpu == PROCESSOR_ULTRASPARC3
+	  || sparc_cpu == PROCESSOR_NIAGARA))
     align_functions = 32;
 
   /* Validate PCC_STRUCT_RETURN.  */
@@ -790,7 +818,15 @@ sparc_override_options (void)
     case PROCESSOR_ULTRASPARC3:
       sparc_costs = &ultrasparc3_costs;
       break;
+    case PROCESSOR_NIAGARA:
+      sparc_costs = &niagara_costs;
+      break;
     };
+
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+  if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
+    target_flags |= MASK_LONG_DOUBLE_128;
+#endif
 }
 
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
@@ -5389,7 +5425,7 @@ sparc_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
    Return where to find the structure return value address.  */
 
 static rtx
-sparc_struct_value_rtx (tree fndecl ATTRIBUTE_UNUSED, int incoming)
+sparc_struct_value_rtx (tree fndecl, int incoming)
 {
   if (TARGET_ARCH64)
     return 0;
@@ -5403,6 +5439,46 @@ sparc_struct_value_rtx (tree fndecl ATTRIBUTE_UNUSED, int incoming)
       else
 	mem = gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx,
 						 STRUCT_VALUE_OFFSET));
+
+      /* Only follow the SPARC ABI for fixed-size structure returns. 
+         Variable size structure returns are handled per the normal 
+         procedures in GCC. This is enabled by -mstd-struct-return */
+      if (incoming == 2 
+	  && sparc_std_struct_return
+	  && TYPE_SIZE_UNIT (TREE_TYPE (fndecl))
+	  && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (fndecl))) == INTEGER_CST)
+	{
+	  /* We must check and adjust the return address, as it is
+	     optional as to whether the return object is really
+	     provided.  */
+	  rtx ret_rtx = gen_rtx_REG (Pmode, 31);
+	  rtx scratch = gen_reg_rtx (SImode);
+	  rtx endlab = gen_label_rtx (); 
+
+	  /* Calculate the return object size */
+	  tree size = TYPE_SIZE_UNIT (TREE_TYPE (fndecl));
+	  rtx size_rtx = GEN_INT (TREE_INT_CST_LOW (size) & 0xfff);
+	  /* Construct a temporary return value */
+	  rtx temp_val = assign_stack_local (Pmode, TREE_INT_CST_LOW (size), 0);
+
+	  /* Implement SPARC 32-bit psABI callee returns struck checking
+	     requirements: 
+	    
+	      Fetch the instruction where we will return to and see if
+	     it's an unimp instruction (the most significant 10 bits
+	     will be zero).  */
+	  emit_move_insn (scratch, gen_rtx_MEM (SImode,
+						plus_constant (ret_rtx, 8)));
+	  /* Assume the size is valid and pre-adjust */
+	  emit_insn (gen_add3_insn (ret_rtx, ret_rtx, GEN_INT (4)));
+	  emit_cmp_and_jump_insns (scratch, size_rtx, EQ, const0_rtx, SImode, 0, endlab);
+	  emit_insn (gen_sub3_insn (ret_rtx, ret_rtx, GEN_INT (4)));
+	  /* Assign stack temp: 
+	     Write the address of the memory pointed to by temp_val into
+	     the memory pointed to by mem */
+	  emit_move_insn (mem, XEXP (temp_val, 0));
+	  emit_label (endlab);
+	}
 
       set_mem_alias_set (mem, struct_value_alias_set);
       return mem;
@@ -6603,9 +6679,14 @@ print_operand (FILE *file, rtx x, int code)
 	 so we have to account for it.  This insn is used in the 32-bit ABI
 	 when calling a function that returns a non zero-sized structure. The
 	 64-bit ABI doesn't have it.  Be careful to have this test be the same
-	 as that used on the call.  */
+	 as that used on the call. The exception here is that when 
+	 sparc_std_struct_return is enabled, the psABI is followed exactly
+	 and the adjustment is made by the code in sparc_struct_value_rtx. 
+	 The call emitted is the same when sparc_std_struct_return is 
+	 present. */
      if (! TARGET_ARCH64
 	 && current_function_returns_struct
+	 && ! sparc_std_struct_return
 	 && (TREE_CODE (DECL_SIZE (DECL_RESULT (current_function_decl)))
 	     == INTEGER_CST)
 	 && ! integer_zerop (DECL_SIZE (DECL_RESULT (current_function_decl))))
@@ -7094,7 +7175,8 @@ sparc_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
      aligned on a 16 byte boundary so one flush clears it all.  */
   emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode, tramp))));
   if (sparc_cpu != PROCESSOR_ULTRASPARC
-      && sparc_cpu != PROCESSOR_ULTRASPARC3)
+      && sparc_cpu != PROCESSOR_ULTRASPARC3
+      && sparc_cpu != PROCESSOR_NIAGARA)
     emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode,
 						     plus_constant (tramp, 8)))));
 
@@ -7136,7 +7218,8 @@ sparc64_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
   emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, tramp))));
 
   if (sparc_cpu != PROCESSOR_ULTRASPARC
-      && sparc_cpu != PROCESSOR_ULTRASPARC3)
+      && sparc_cpu != PROCESSOR_ULTRASPARC3
+      && sparc_cpu != PROCESSOR_NIAGARA)
     emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, plus_constant (tramp, 8)))));
 
   /* Call __enable_execute_stack after writing onto the stack to make sure
@@ -7316,6 +7399,8 @@ sparc_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 static int
 sparc_use_sched_lookahead (void)
 {
+  if (sparc_cpu == PROCESSOR_NIAGARA)
+    return 0;
   if (sparc_cpu == PROCESSOR_ULTRASPARC
       || sparc_cpu == PROCESSOR_ULTRASPARC3)
     return 4;
@@ -7331,6 +7416,7 @@ sparc_issue_rate (void)
 {
   switch (sparc_cpu)
     {
+    case PROCESSOR_NIAGARA:
     default:
       return 1;
     case PROCESSOR_V9:

@@ -300,12 +300,12 @@ vect_create_data_ref_ptr (tree stmt,
   tag = DR_MEMTAG (dr);
   gcc_assert (tag);
 
-  /* If tag is a variable (and NOT_A_TAG) than a new type alias
+  /* If tag is a variable (and NOT_A_TAG) than a new symbol memory
      tag must be created with tag added to its may alias list.  */
   if (!MTAG_P (tag))
     new_type_alias (vect_ptr, tag);
   else
-    var_ann (vect_ptr)->type_mem_tag = tag;
+    var_ann (vect_ptr)->symbol_mem_tag = tag;
 
   var_ann (vect_ptr)->subvars = DR_SUBVARS (dr);
 
@@ -857,7 +857,7 @@ vect_create_epilog_for_reduction (tree vect_def, tree stmt,
   exit_bsi = bsi_start (exit_bb);
 
   /* 2.2 Get the relevant tree-code to use in the epilog for schemes 2,3 
-         (i.e. when reduc_code is not available) and in the final adjusment code
+         (i.e. when reduc_code is not available) and in the final adjustment code
          (if needed).  Also get the original scalar reduction variable as
          defined in the loop.  In case STMT is a "pattern-stmt" (i.e. - it 
          represents a reduction pattern), the tree-code and scalar-def are 
@@ -2769,16 +2769,14 @@ static void
 vect_update_inits_of_drs (loop_vec_info loop_vinfo, tree niters)
 {
   unsigned int i;
-  varray_type datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
+  VEC (data_reference_p, heap) *datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
+  struct data_reference *dr;
 
   if (vect_dump && (dump_flags & TDF_DETAILS))
     fprintf (vect_dump, "=== vect_update_inits_of_dr ===");
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
-    {
-      struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
-      vect_update_init_of_dr (dr, niters);
-    }
+  for (i = 0; VEC_iterate (data_reference_p, datarefs, i, dr); i++)
+    vect_update_init_of_dr (dr, niters);
 }
 
 
@@ -2945,7 +2943,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
   append_to_statement_list_force (and_stmt, cond_expr_stmt_list);
 
   /* Make and_tmp the left operand of the conditional test against zero.
-     if and_tmp has a non-zero bit then some address is unaligned.  */
+     if and_tmp has a nonzero bit then some address is unaligned.  */
   ptrsize_zero = build_int_cst (int_ptrsize_type, 0);
   return build2 (EQ_EXPR, boolean_type_node,
                  and_tmp_name, ptrsize_zero);

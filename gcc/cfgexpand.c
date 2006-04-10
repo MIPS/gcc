@@ -192,6 +192,9 @@ alloc_stack_frame_space (HOST_WIDE_INT size, HOST_WIDE_INT align)
     }
   frame_offset = new_frame_offset;
 
+  if (frame_offset_overflow (frame_offset, cfun->decl))
+    frame_offset = offset = 0;
+
   return offset;
 }
 
@@ -1572,7 +1575,7 @@ discover_nonconstant_array_refs (void)
    confuse the CFG hooks, so be careful to not manipulate CFG during
    the expansion.  */
 
-static void
+static unsigned int
 tree_expand_cfg (void)
 {
   basic_block bb, init_block;
@@ -1685,6 +1688,7 @@ tree_expand_cfg (void)
   /* After expanding, the return labels are no longer needed. */
   return_label = NULL;
   naked_return_label = NULL;
+  return 0;
 }
 
 struct tree_opt_pass pass_expand =

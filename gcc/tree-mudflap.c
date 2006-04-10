@@ -57,13 +57,13 @@ static tree mf_file_function_line_tree (location_t);
 static void mf_decl_cache_locals (void);
 static void mf_decl_clear_locals (void);
 static void mf_xform_derefs (void);
-static void execute_mudflap_function_ops (void);
+static unsigned int execute_mudflap_function_ops (void);
 
 /* Addressable variables instrumentation.  */
 static void mf_xform_decls (tree, tree);
 static tree mx_xfn_xform_decls (tree *, int *, void *);
 static void mx_register_decls (tree, tree *);
-static void execute_mudflap_function_decls (void);
+static unsigned int execute_mudflap_function_decls (void);
 
 
 /* ------------------------------------------------------------------------ */
@@ -409,14 +409,14 @@ mudflap_init (void)
    tree optimizations have been performed, but we have to preserve the CFG
    for expansion from trees to RTL.  */
 
-static void
+static unsigned int
 execute_mudflap_function_ops (void)
 {
   /* Don't instrument functions such as the synthetic constructor
      built during mudflap_finish_file.  */
   if (mf_marked_p (current_function_decl) ||
       DECL_ARTIFICIAL (current_function_decl))
-    return;
+    return 0;
 
   push_gimplify_context ();
 
@@ -430,6 +430,7 @@ execute_mudflap_function_ops (void)
     mf_decl_clear_locals ();
 
   pop_gimplify_context (NULL);
+  return 0;
 }
 
 /* Create and initialize local shadow variables for the lookup cache
@@ -727,6 +728,10 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
 
   t = *tp;
   type = TREE_TYPE (t);
+
+  if (type == error_mark_node)
+    return;
+
   size = TYPE_SIZE_UNIT (type);
 
   switch (TREE_CODE (t))
@@ -840,7 +845,7 @@ mf_xform_derefs_1 (block_stmt_iterator *iter, tree *tp,
       base = addr;
       limit = fold_build2 (MINUS_EXPR, ptr_type_node,
 			   fold_build2 (PLUS_EXPR, ptr_type_node, base, size),
-			   build_int_cst_type (ptr_type_node, 1));
+			   build_int_cst (ptr_type_node, 1));
       break;
 
     case ARRAY_RANGE_REF:
@@ -940,14 +945,14 @@ mf_xform_derefs (void)
    of their BIND_EXPR binding context, and we lose liveness information
    for the declarations we wish to instrument.  */
 
-static void
+static unsigned int
 execute_mudflap_function_decls (void)
 {
   /* Don't instrument functions such as the synthetic constructor
      built during mudflap_finish_file.  */
   if (mf_marked_p (current_function_decl) ||
       DECL_ARTIFICIAL (current_function_decl))
-    return;
+    return 0;
 
   push_gimplify_context ();
 
@@ -955,6 +960,7 @@ execute_mudflap_function_decls (void)
                   DECL_ARGUMENTS (current_function_decl));
 
   pop_gimplify_context (NULL);
+  return 0;
 }
 
 /* This struct is passed between mf_xform_decls to store state needed
@@ -1249,6 +1255,9 @@ mudflap_finish_file (void)
       for (i = 0; VEC_iterate (tree, deferred_static_decls, i, obj); i++)
         {
           gcc_assert (DECL_P (obj));
+
+          if (TREE_TYPE (obj) == error_mark_node)
+	    continue;
 
           if (mf_marked_p (obj))
             continue;

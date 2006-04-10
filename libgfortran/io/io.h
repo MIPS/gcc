@@ -371,7 +371,9 @@ typedef struct st_parameter_dt
 	  void (*transfer) (struct st_parameter_dt *, bt, void *, int,
 			    size_t, size_t);
 	  struct gfc_unit *current_unit;
-	  int item_count; /* Item number in a formatted data transfer.  */
+	  /* Item number in a formatted data transfer.  Also used in namelist
+	       read_logical as an index into line_buffer.  */
+	  int item_count;
 	  unit_mode mode;
 	  unit_blank blank_status;
 	  enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
@@ -409,7 +411,10 @@ typedef struct st_parameter_dt
 	     character string is being read so don't use commas to shorten a
 	     formatted field width.  */
 	  unsigned sf_read_comma : 1;
-	  /* 19 unused bits.  */
+          /* A namelist specific flag used to enable reading input from 
+	     line_buffer for logical reads.  */
+	  unsigned line_buffer_enabled : 1;
+	  /* 18 unused bits.  */
 
 	  char last_char;
 	  char nml_delim;
@@ -429,7 +434,10 @@ typedef struct st_parameter_dt
 	     enough to hold a complex value (two reals) of the largest
 	     kind.  */
 	  char value[32];
+	  gfc_offset size_used;
 	} p;
+      /* This pad size must be greater than or equal to the pad_size declared in
+	 trans-io.c (gfc_build_io_library_fndecls)  */
       char pad[16 * sizeof (char *) + 34 * sizeof (int)];
     } u;
 }
@@ -737,6 +745,9 @@ internal_proto(type_name);
 
 extern void *read_block (st_parameter_dt *, int *);
 internal_proto(read_block);
+
+extern char *read_sf (st_parameter_dt *, int *, int);
+internal_proto(read_sf);
 
 extern void *write_block (st_parameter_dt *, int);
 internal_proto(write_block);

@@ -3061,16 +3061,17 @@ load_needed (pointer_info * p)
   gfc_namespace *ns;
   pointer_info *q;
   gfc_symbol *sym;
+  int rv;
 
+  rv = 0;
   if (p == NULL)
-    return 0;
-  if (load_needed (p->left))
-    return 1;
-  if (load_needed (p->right))
-    return 1;
+    return rv;
+
+  rv |= load_needed (p->left);
+  rv |= load_needed (p->right);
 
   if (p->type != P_SYMBOL || p->u.rsym.state != NEEDED)
-    return 0;
+    return rv;
 
   p->u.rsym.state = USED;
 
@@ -3189,12 +3190,6 @@ read_module (void)
       skip_list ();
 
       /* See if the symbol has already been loaded by a previous module.
-         If so, we reference the existing symbol and prevent it from
-         being loaded again.  */
-
-      sym = find_true_name (info->u.rsym.true_name, info->u.rsym.module);
-
-        /* See if the symbol has already been loaded by a previous module.
 	 If so, we reference the existing symbol and prevent it from
 	 being loaded again.  This should not happen if the symbol being
 	 read is an index for an assumed shape dummy array (ns != 1).  */

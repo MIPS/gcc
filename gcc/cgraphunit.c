@@ -618,7 +618,7 @@ initialize_inline_failed (struct cgraph_node *node)
 
 /* Rebuild call edges from current function after a passes not aware
    of cgraph updating.  */
-static void
+static unsigned int
 rebuild_cgraph_edges (void)
 {
   basic_block bb;
@@ -643,6 +643,7 @@ rebuild_cgraph_edges (void)
       }
   initialize_inline_failed (node);
   gcc_assert (!node->global.inlined_to);
+  return 0;
 }
 
 struct tree_opt_pass pass_rebuild_cgraph_edges =
@@ -1691,7 +1692,7 @@ save_inline_function_body (struct cgraph_node *node)
   cgraph_lower_function (node);
 
   /* In non-unit-at-a-time we construct full fledged clone we never output to
-     assembly file.  This clone is pointed out by inline_decl of orginal function
+     assembly file.  This clone is pointed out by inline_decl of original function
      and inlining infrastructure knows how to deal with this.  */
   if (!flag_unit_at_a_time)
     {

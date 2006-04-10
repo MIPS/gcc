@@ -1,6 +1,6 @@
 /* gfortran header file
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software 
-   Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -852,6 +852,8 @@ typedef struct gfc_symbol
   /* Nonzero if all equivalences associated with this symbol have been
      processed.  */
   unsigned equiv_built:1;
+  /* Set if this variable is used as an index name in a FORALL.  */
+  unsigned forall_index:1;
   int refs;
   struct gfc_namespace *ns;	/* namespace containing this symbol */
 
@@ -950,6 +952,10 @@ typedef struct gfc_namespace
 
   /* Points to the equivalences set up in this namespace.  */
   struct gfc_equiv *equiv;
+
+  /* Points to the equivalence groups produced by trans_common.  */
+  struct gfc_equiv_list *equiv_lists;
+
   gfc_interface *operator[GFC_INTRINSIC_OPS];
 
   /* Points to the parent namespace, i.e. the namespace of a module or
@@ -1343,6 +1349,21 @@ gfc_equiv;
 
 #define gfc_get_equiv() gfc_getmem(sizeof(gfc_equiv))
 
+/* Holds a single equivalence member after processing.  */
+typedef struct gfc_equiv_info
+{
+  gfc_symbol *sym;
+  HOST_WIDE_INT offset;
+  HOST_WIDE_INT length;
+  struct gfc_equiv_info *next;
+} gfc_equiv_info;
+
+/* Holds equivalence groups, after they have been processed.  */
+typedef struct gfc_equiv_list
+{
+  gfc_equiv_info *equiv;
+  struct gfc_equiv_list *next;
+} gfc_equiv_list;
 
 /* gfc_case stores the selector list of a case statement.  The *low
    and *high pointers can point to the same expression in the case of
@@ -1584,11 +1605,13 @@ typedef struct
   int verbose;
 
   int warn_aliasing;
+  int warn_ampersand;
   int warn_conversion;
   int warn_implicit_interface;
   int warn_line_truncation;
-  int warn_underflow;
   int warn_surprising;
+  int warn_tabs;
+  int warn_underflow;
   int warn_unused_labels;
 
   int flag_default_double;
@@ -1620,6 +1643,7 @@ typedef struct
   int warn_nonstd_intrinsics;
   int fshort_enums;
   int convert;
+  int record_marker;
 }
 gfc_option_t;
 

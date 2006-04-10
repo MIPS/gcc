@@ -31,6 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "hard-reg-set.h"
 #include "recog.h"
 #include "regs.h"
+#include "addresses.h"
 #include "expr.h"
 #include "function.h"
 #include "flags.h"
@@ -238,45 +239,6 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
     return apply_change_group ();
 }
 
-
-/* Function to be passed to for_each_rtx to test whether a piece of
-   RTL contains any mem/v.  */
-static int
-volatile_mem_p (rtx *x, void *data ATTRIBUTE_UNUSED)
-{
-  return (MEM_P (*x) && MEM_VOLATILE_P (*x));
-}
-
-/* Same as validate_change, but doesn't support groups, and it accepts
-   volatile mems if they're already present in the original insn.  */
-
-int
-validate_change_maybe_volatile (rtx object, rtx *loc, rtx new)
-{
-  int result;
-
-  if (validate_change (object, loc, new, 0))
-    return 1;
-
-  if (volatile_ok
-      /* If there isn't a volatile MEM, there's nothing we can do.  */
-      || !for_each_rtx (&PATTERN (object), volatile_mem_p, 0)
-      /* Make sure we're not adding or removing volatile MEMs.  */
-      || for_each_rtx (loc, volatile_mem_p, 0)
-      || for_each_rtx (&new, volatile_mem_p, 0)
-      || !insn_invalid_p (object))
-    return 0;
-
-  volatile_ok = 1;
-
-  gcc_assert (!insn_invalid_p (object));
-
-  result = validate_change (object, loc, new, 0);
-
-  volatile_ok = 0;
-
-  return result;
-}
 
 /* This subroutine of apply_change_group verifies whether the changes to INSN
    were valid; i.e. whether INSN can still be recognized.  */
@@ -2197,7 +2159,7 @@ preprocess_constraints (void)
 		case 'p':
 		  op_alt[j].is_address = 1;
 		  op_alt[j].cl = reg_class_subunion[(int) op_alt[j].cl]
-		    [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		      [(int) base_reg_class (VOIDmode, ADDRESS, SCRATCH)];
 		  break;
 
 		case 'g':
@@ -2218,7 +2180,8 @@ preprocess_constraints (void)
 		      op_alt[j].cl
 			= (reg_class_subunion
 			   [(int) op_alt[j].cl]
-			   [(int) MODE_BASE_REG_CLASS (VOIDmode)]);
+			   [(int) base_reg_class (VOIDmode, ADDRESS,
+						  SCRATCH)]);
 		      break;
 		    }
 
@@ -2665,6 +2628,10 @@ reg_fits_class_p (rtx operand, enum reg_class cl, int offset,
 		  enum machine_mode mode)
 {
   int regno = REGNO (operand);
+
+  if (cl == NO_REGS)
+    return 0;
+
   if (regno < FIRST_PSEUDO_REGISTER
       && TEST_HARD_REG_BIT (reg_class_contents[(int) cl],
 			    regno + offset))
@@ -2789,7 +2756,7 @@ split_all_insns (void)
 /* Same as split_all_insns, but do not expect CFG to be available.
    Used by machine dependent reorg passes.  */
 
-void
+unsigned int
 split_all_insns_noflow (void)
 {
   rtx next, insn;
@@ -2819,6 +2786,7 @@ split_all_insns_noflow (void)
 	    split_insn (insn);
 	}
     }
+  return 0;
 }
 
 #ifdef HAVE_peephole2
@@ -3421,12 +3389,13 @@ gate_handle_peephole2 (void)
   return (optimize > 0 && flag_peephole2);
 }
 
-static void
+static unsigned int
 rest_of_handle_peephole2 (void)
 {
 #ifdef HAVE_peephole2
   peephole2_optimize ();
 #endif
+  return 0;
 }
 
 struct tree_opt_pass pass_peephole2 =
@@ -3446,11 +3415,11 @@ struct tree_opt_pass pass_peephole2 =
   'z'                                   /* letter */
 };
 
-static void
+static unsigned int
 rest_of_handle_split_all_insns (void)
 {
   split_all_insns ();
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
+  return 0;
 }
 
 struct tree_opt_pass pass_split_all_insns =
@@ -3470,7 +3439,7 @@ struct tree_opt_pass pass_split_all_insns =
   0                                     /* letter */
 };
 
-static void
+static unsigned int
 rest_of_handle_split_after_reload (void)
 {
   /* If optimizing, then go ahead and split insns now.  */
@@ -3478,6 +3447,7 @@ rest_of_handle_split_after_reload (void)
   if (optimize > 0)
 #endif
     split_all_insns ();
+  return 0;
 }
 
 struct tree_opt_pass pass_split_after_reload =
@@ -3515,10 +3485,11 @@ gate_handle_split_before_regstack (void)
 #endif
 }
 
-static void
+static unsigned int
 rest_of_handle_split_before_regstack (void)
 {
   split_all_insns ();
+  return 0;
 }
 
 struct tree_opt_pass pass_split_before_regstack =

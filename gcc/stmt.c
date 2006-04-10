@@ -2286,7 +2286,7 @@ emit_case_bit_tests (tree index_type, tree index_expr, tree minval,
 #define HAVE_tablejump 0
 #endif
 
-/* Terminate a case (Pascal) or switch (C) statement
+/* Terminate a case (Pascal/Ada) or switch (C) statement
    in which ORIG_INDEX is the expression to be tested.
    If ORIG_TYPE is not NULL, it is the original ORIG_INDEX
    type as given in the source before any compiler conversions.
@@ -2348,26 +2348,24 @@ expand_case (tree exp)
 
       for (i = TREE_VEC_LENGTH (vec) - 1; --i >= 0; )
 	{
+	  tree low, high;
 	  elt = TREE_VEC_ELT (vec, i);
-	  gcc_assert (CASE_LOW (elt));
-	  case_list = add_case_node (case_list, index_type,
-				     CASE_LOW (elt), CASE_HIGH (elt),
+
+	  low = CASE_LOW (elt);
+	  gcc_assert (low);
+	  high = CASE_HIGH (elt);
+
+	  /* Discard empty ranges.  */
+	  if (high && INT_CST_LT (high, low))
+	    continue;
+
+	  case_list = add_case_node (case_list, index_type, low, high,
 				     CASE_LABEL (elt));
 	}
 
 
-      /* Make sure start points to something that won't need any
-	 transformation before the end of this function.  */
-      start = get_last_insn ();
-      if (! NOTE_P (start))
-	{
-	  emit_note (NOTE_INSN_DELETED);
-	  start = get_last_insn ();
-	}
-
+      before_case = start = get_last_insn ();
       default_label = label_rtx (default_label_decl);
-
-      before_case = get_last_insn ();
 
       /* Get upper and lower bounds of case values.  */
 
@@ -2935,6 +2933,10 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
   int unsignedp = TYPE_UNSIGNED (index_type);
   enum machine_mode mode = GET_MODE (index);
   enum machine_mode imode = TYPE_MODE (index_type);
+
+  /* Handle indices detected as constant during RTL expansion.  */
+  if (mode == VOIDmode)
+    mode = imode;
 
   /* See if our parents have already tested everything for us.
      If they have, emit an unconditional jump for this node.  */
