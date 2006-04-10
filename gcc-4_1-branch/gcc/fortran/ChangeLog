@@ -1,3 +1,52 @@
+2006-04-08  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/25031
+	Backport from mainline
+	* trans-array.h:  Adjust gfc_array_allocate prototype.
+	* trans-array.c (gfc_array_allocate):  Change type of
+	gfc_array_allocatate to bool.  Function returns true if
+	it operates on an array.  Change second argument to gfc_expr.
+	Find last reference in chain.
+	If the function operates on an allocatable array, emit call to
+	allocate_array() or allocate64_array().
+	* trans-stmt.c (gfc_trans_allocate):  Code to follow to last
+	reference has been moved to gfc_array_allocate.
+	* trans.h:  Add declaration for gfor_fndecl_allocate_array and
+	gfor_fndecl_allocate64_array.
+	(gfc_build_builtin_function_decls):  Add gfor_fndecl_allocate_array
+	and gfor_fndecl_allocate64_array.
+
+2006-04-07 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/19101
+	* gfortran.h: Add warn_ampersand.
+	* invoke.texi: Add documentation for new option.
+	* lang.opt: Add Wampersand.
+	* options.c (gfc_init_options): Initialize warn_ampersand.
+	(gfc_post_options): Set the warn if pedantic.
+	(set_Wall): Set warn_ampersand.
+	(gfc_handle_option: Add Wampersand for itself, -std=f95, and -std=f2003.
+	* scanner.c (gfc_next_char_literal): Add test for missing '&' in
+	continued character constant and give warning if missing.
+
+2006-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26891
+	* trans.h : Prototype for gfc_conv_missing_dummy.
+	* trans-expr (gfc_conv_missing_dummy): New function
+	(gfc_conv_function_call): Call it and tidy up some of the code.
+	* trans-intrinsic (gfc_conv_intrinsic_function_args): The same.
+
+	PR fortran/26976
+	* array.c (gfc_array_dimen_size): If available, return shape[dimen]
+	* resolve.c (resolve_function): If available, use the argument shape
+	for the function expression.
+	* iresolve.c (gfc_resolve_transfer): Set shape[0] = size.
+
+	PR fortran/26779
+	*resolve.c (resolve_fl_procedure): Do not check the access of
+	derived types for internal procedures.
+
 2006-03-31  Asher Langton  <langton2@llnl.gov>
 
 	PR fortran/25358

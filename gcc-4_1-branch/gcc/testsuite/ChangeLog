@@ -1,3 +1,42 @@
+2006-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/27057
+	* g++.dg/debug/dwarf2-2.C: New test.
+
+2006-04-08  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/25031
+	* gfortran.dg/multiple_allocation_1.f90:  New test.
+
+2006-04-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/19101
+	* gfortran.dg/continuation.f90: New test.
+	* gfortran.dg/fmt_read_bz_bn.f90: Fix use of continuation.
+
+2006-04-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26919
+	* gcc.dg/ipa/ipa-1.c: Use -fno-early-inlining.
+	* gcc.dg/ipa/ipa-2.c: Likewise.
+	* gcc.dg/ipa/ipa-3.c: Likewise.
+	* gcc.dg/ipa/ipa-5.c: Likewise.
+
+2006-04-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26891
+	* gfortran.dg/missing_optional_dummy_1.f90: New test.
+
+	PR fortran/26976
+	* gfortran.dg/compliant_elemental_intrinsics_1.f90: New test.
+	* gfortran.dg/initialization_1.f90: Make assignment compliant.
+	* gfortran.dg/transfer_array_intrinsic_1.f90: Simplify.
+	* gfortran.dg/transfer_array_intrinsic_2.f90: Make assignments
+	compliant and detect bigendian-ness.
+
+	PR fortran/26779
+	* gfortran.dg/private_type_5.f90: New test.
+
 2006-04-05  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/26763

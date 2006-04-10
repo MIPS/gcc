@@ -313,6 +313,8 @@ void gfc_conv_structure (gfc_se *, gfc_expr *, int);
 
 /* Return an expression which determines if a dummy parameter is present.  */
 tree gfc_conv_expr_present (gfc_symbol *);
+/* Convert a missing, dummy argument into a null or zero.  */
+void gfc_conv_missing_dummy (gfc_se *, gfc_expr *, gfc_typespec);
 
 /* Generate code to allocate a string temporary.  */
 tree gfc_conv_string_tmp (gfc_se *, tree, tree);
@@ -461,6 +463,8 @@ extern GTY(()) tree gfor_fndecl_internal_realloc64;
 extern GTY(()) tree gfor_fndecl_internal_free;
 extern GTY(()) tree gfor_fndecl_allocate;
 extern GTY(()) tree gfor_fndecl_allocate64;
+extern GTY(()) tree gfor_fndecl_allocate_array;
+extern GTY(()) tree gfor_fndecl_allocate64_array;
 extern GTY(()) tree gfor_fndecl_deallocate;
 extern GTY(()) tree gfor_fndecl_pause_numeric;
 extern GTY(()) tree gfor_fndecl_pause_string;
