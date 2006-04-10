@@ -1396,7 +1396,7 @@ debug_df_chain (struct df_link *link)
   fputc ('\n', stderr);
 }
 
-static void 
+static unsigned int 
 reset_df_after_reload (void)
 {
   if (rtl_df)
@@ -1408,6 +1408,7 @@ reset_df_after_reload (void)
   df_lr_add_problem (rtl_df, 0);
   df_ur_add_problem (rtl_df, 0);
   df_analyze (rtl_df);
+  return 0;
 }
 
 struct tree_opt_pass pass_reset_df_after_reload =
@@ -1427,7 +1428,7 @@ struct tree_opt_pass pass_reset_df_after_reload =
   0                                     /* letter */
 };
 
-static void 
+static unsigned int 
 clear_df (void)
 {
   if (rtl_df)
@@ -1437,6 +1438,7 @@ clear_df (void)
     }
 
   clear_reg_deaths ();
+  return 0;
 }
 
 struct tree_opt_pass pass_clear_df =

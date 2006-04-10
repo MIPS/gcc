@@ -348,7 +348,7 @@ mark_reg_dependencies (rtx insn)
 
 /* Callback for running pass_rtl_dce.  */
 
-static void
+static unsigned int
 rest_of_handle_dce (void)
 {
   init_dce (false);
@@ -367,6 +367,7 @@ rest_of_handle_dce (void)
   delete_unmarked_insns (false);
 
   end_dce ();
+  return 0;
 }
 
 static bool
@@ -621,12 +622,13 @@ fast_dce (bool df_delete)
 
 /* Callback for running pass_rtl_dce.  */
 
-static void
+static unsigned int
 rest_of_handle_fast_dce (void)
 {
   init_dce (true);
   fast_dce (false);
   end_fast_dce ();
+  return 0;
 }
 
 
@@ -1581,7 +1583,7 @@ prescan_insns_for_dse (void)
 
 /* Callback for running pass_rtl_dse.  */
 
-static void
+static unsigned int
 rest_of_handle_dse (void)
 {
   rtx insn;
@@ -1615,6 +1617,7 @@ rest_of_handle_dse (void)
   end_dse ();
   end_alias_analysis ();
   end_dce ();
+  return 0;
 }
 
 static bool
