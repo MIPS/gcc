@@ -569,14 +569,9 @@ GLIBCXX_4.2 {
     _ZN9__gnu_cxx9free_list6_M_getE*;
     _ZN9__gnu_cxx9free_list8_M_clearEv;
 
-    # In GLIBCXX_3.4.5
-    _ZSt17__copy_streambufsI[cw]St11char_traitsI[cw]EEiPSt15basic_streambuf*;
-    _ZNSt8ios_base17_M_call_callbacksENS_5eventE;
-    _ZNSt8ios_base20_M_dispose_callbacksEv;
-    _ZNSt6locale5facet13_S_get_c_nameEv;
-
     # In GLIBCXX_3.4.6
     _ZSt17__copy_streambufsI[cw]St11char_traitsI[cw]EEiPSt15basic_streambuf*;
+    
     _ZNSt8ios_base17_M_call_callbacksENS_5eventE;
     _ZNSt8ios_base20_M_dispose_callbacksEv;
     _ZNSt6locale5facet13_S_get_c_nameEv;
@@ -590,12 +585,17 @@ GLIBCXX_4.2 {
     # In GLIBCXX_3.4.7
     _ZNSt6locale5_Impl16_M_install_cacheEPKNS_5facetE[jm];
 
+    # In GLIBCXX_3.4.8
+    _ZSt17__copy_streambufsI[cw]St11char_traitsI[cw]EElPSt15basic_streambuf*;
 
+    # In GLIBCXX_3.4.9
     _ZNSo9_M_insertI*;
     _ZNSt13basic_ostreamIwSt11char_traitsIwEE9_M_insertI*;
     _ZNSi10_M_extractI*;
     _ZNSt13basic_istreamIwSt11char_traitsIwEE10_M_extractI*;
-    
+
+    _ZSt21__copy_streambufs_eofI[cw]St11char_traitsI[cw]EE[il]PSt15basic_streambuf*;
+
     # Changed in libstdcxx_so_7-branch
     _ZNSt10__gnu_norm15_List_node_base7_M_hookEPS0_;
     _ZNSt10__gnu_norm15_List_node_base9_M_unhookEv;

@@ -169,6 +169,8 @@ check_version(const symbol& test, bool added)
       known_versions.push_back("GLIBCXX_3.4.5");
       known_versions.push_back("GLIBCXX_3.4.6");
       known_versions.push_back("GLIBCXX_3.4.7");
+      known_versions.push_back("GLIBCXX_3.4.8");
+      known_versions.push_back("GLIBCXX_3.4.9");
       known_versions.push_back("GLIBCXX_3.6");
       known_versions.push_back("CXXABI_1.2");
       known_versions.push_back("CXXABI_1.2.1");

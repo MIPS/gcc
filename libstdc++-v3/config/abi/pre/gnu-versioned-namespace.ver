@@ -68,8 +68,9 @@ GLIBCXX_4.2 {
     # std::__convert_to_v
     _ZNSt2_714__convert_to_v*;
 
-    # std::__copy_streambufs
-    _ZNSt2_717__copy_streambufsI[cw]NS_11char_traitsI[cw]EEEEiPNS_15basic_streambuf*;
+    # std::__copy_streambufs and std::__copy_streambufs_eof
+    _ZNSt2_717__copy_streambufsI[cw]NS_11char_traitsI[cw]EEEE[il]PNS_15basic_streambuf*;
+    _ZNSt2_721__copy_streambufs_eofI[cw]NS_11char_traitsI[cw]EEEE[il]PNS_15basic_streambuf*;
 
     # __gnu_cxx::__atomic_add
     # __gnu_cxx::__exchange_and_add

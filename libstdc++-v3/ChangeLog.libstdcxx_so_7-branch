@@ -1,5 +1,11 @@
 2006-04-11  Paolo Carlini  <pcarlini@suse.de>
 
+	Merged to mainline at revision 112818.
+
+	(adjusted gnu-versioned-namespace.ver for __copy_streambufs_eof)
+
+2006-04-11  Paolo Carlini  <pcarlini@suse.de>
+
 	Merge mainline changes from revision 110045 to 110697.
 
 2006-03-27  Paolo Carlini  <pcarlini@suse.de>

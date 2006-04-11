@@ -183,8 +183,11 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	{
 	  try
 	    {
-	      if (!__copy_streambufs(this->rdbuf(), __sbout))
+	      bool __ineof;
+	      if (!__copy_streambufs_eof(this->rdbuf(), __sbout, __ineof))
 		__err |= ios_base::failbit;
+	      if (__ineof)
+		__err |= ios_base::eofbit;
 	    }
 	  catch(...)
 	    { this->_M_setstate(ios_base::failbit); }
@@ -711,7 +714,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       try
 	{
 	  if (!this->fail())
-	    __ret = this->rdbuf()->pubseekoff(0, ios_base::cur, ios_base::in);
+	    __ret = this->rdbuf()->pubseekoff(0, ios_base::cur,
+					      ios_base::in);
 	}
       catch(...)
 	{ this->_M_setstate(ios_base::badbit); }
@@ -733,8 +737,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      // 136.  seekp, seekg setting wrong streams?
 	      const pos_type __p = this->rdbuf()->pubseekpos(__pos,
 							     ios_base::in);
-
-	      // 129. Need error indication from seekp() and seekg()
+	      
+	      // 129.  Need error indication from seekp() and seekg()
 	      if (__p == pos_type(off_type(-1)))
 		__err |= ios_base::failbit;
 	    }
@@ -761,8 +765,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	      // 136.  seekp, seekg setting wrong streams?
 	      const pos_type __p = this->rdbuf()->pubseekoff(__off, __dir,
 							     ios_base::in);
-
-	      // 129. Need error indication from seekp() and seekg()
+	      
+	      // 129.  Need error indication from seekp() and seekg()
 	      if (__p == pos_type(off_type(-1)))
 		__err |= ios_base::failbit;
 	    }

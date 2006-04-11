@@ -1,6 +1,6 @@
 // Iostreams base classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -73,8 +73,6 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
   const ios_base::seekdir ios_base::beg;
   const ios_base::seekdir ios_base::cur;
   const ios_base::seekdir ios_base::end;
-
-  const int ios_base::_S_local_word_size;
 
   _Atomic_word ios_base::Init::_S_refcount;
 
