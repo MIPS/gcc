@@ -1,3 +1,8 @@
+2006-04-11  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (cgraph_early_inlining): Collect garbage.
+	* tree-inline.c (declare_return_variable): Unwind memory references.
+
 2006-04-06  Jan Hubicka  <jh@suse.cz>
 
 	* Merge from mainline

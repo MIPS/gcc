@@ -1467,12 +1467,29 @@ declare_return_variable (copy_body_data *id, tree return_slot_addr,
 	  if (TREE_CODE (base_var) == SSA_NAME)
 	    base_var = SSA_NAME_VAR (base_var);
 	  if (in_ssa_p)
-	    mark_sym_for_renaming (base_var);
+	    {
+	      HOST_WIDE_INT bitsize;
+	      HOST_WIDE_INT bitpos;
+	      tree offset;
+	      enum machine_mode mode;
+	      int unsignedp;
+	      int volatilep;
+	      tree base;
+	      base = get_inner_reference (base_var, &bitsize, &bitpos, &offset,
+					  &mode, &unsignedp, &volatilep,
+					  false);
+	      if (TREE_CODE (base) == INDIRECT_REF)
+		base = TREE_OPERAND (base, 0);
+	      if (TREE_CODE (base) == SSA_NAME)
+		base = SSA_NAME_VAR (base);
+	      mark_sym_for_renaming (base);
+	    }
 	  var = return_slot_addr;
 	}
       else
 	{
-	  mark_sym_for_renaming (TREE_OPERAND (return_slot_addr, 0));
+	  if (in_ssa_p)
+	    mark_sym_for_renaming (TREE_OPERAND (return_slot_addr, 0));
 	  var = build_fold_indirect_ref (return_slot_addr);
 	}
       if (TREE_CODE (TREE_TYPE (result)) == COMPLEX_TYPE
