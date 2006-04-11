@@ -1,3 +1,7 @@
+2006-04-11  Paolo Carlini  <pcarlini@suse.de>
+
+	Merge mainline changes from revision 110045 to 110697.
+
 2006-03-27  Paolo Carlini  <pcarlini@suse.de>
 
 	PR libstdc++/26733
