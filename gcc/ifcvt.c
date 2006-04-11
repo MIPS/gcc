@@ -3928,6 +3928,7 @@ rest_of_handle_if_conversion (void)
 
   timevar_push (TV_JUMP);
   cleanup_cfg (CLEANUP_EXPENSIVE);
+  clear_reg_deaths ();
   reg_scan (get_insns (), max_reg_num ());
   timevar_pop (TV_JUMP);
   return 0;

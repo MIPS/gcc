@@ -542,8 +542,6 @@ schedule_ebbs (void)
   basic_block bb;
   int probability_cutoff;
   rtx tail;
-  sbitmap large_region_blocks, blocks;
-  int any_large_regions;
 
   if (profile_info && flag_branch_probabilities)
     probability_cutoff = PARAM_VALUE (TRACER_MIN_BRANCH_PROBABILITY_FEEDBACK);
@@ -616,61 +614,9 @@ schedule_ebbs (void)
   bitmap_clear (&dont_calc_deps);
 
   gcc_assert (current_sched_info->flags & DETACH_LIFE_INFO);
-  /* We can create new basic blocks during scheduling, and
-     attach_life_info () will create regsets for them
-     (along with attaching existing info back).  */
-  attach_life_info ();
 
   /* Updating register live information.  */
   allocate_reg_life_data ();
-
-  any_large_regions = 0;
-  large_region_blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (large_region_blocks);
-  FOR_EACH_BB (bb)
-    SET_BIT (large_region_blocks, bb->index);
-
-  blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (blocks);
-
-  /* Update life information.  For regions consisting of multiple blocks
-     we've possibly done interblock scheduling that affects global liveness.
-     For regions consisting of single blocks we need to do only local
-     liveness.  */
-  FOR_EACH_BB (bb)
-    {
-      int bbi;
-      
-      bbi = bb->index;
-
-      if (!bitmap_bit_p (&ebb_head, bbi)
-	  || !bitmap_bit_p (&ebb_tail, bbi)
-	  /* New blocks (e.g. recovery blocks) should be processed
-	     as parts of large regions.  */
-	  || !glat_start[bbi])
-	any_large_regions = 1;
-      else
-	{
-	  SET_BIT (blocks, bbi);
-	  RESET_BIT (large_region_blocks, bbi);
-	}
-    }
-
-  update_life_info (blocks, UPDATE_LIFE_LOCAL, 0);
-  sbitmap_free (blocks);
-  
-  if (any_large_regions)
-    {
-      update_life_info (large_region_blocks, UPDATE_LIFE_GLOBAL, 0);
-
-#ifdef ENABLE_CHECKING
-      /* !!! We can't check reg_live_info here because of the fact,
-	 that destination registers of COND_EXEC's may be dead
-	 before scheduling (while they should be alive).  Don't know why.  */
-      /*check_reg_live (true);*/
-#endif
-    }
-  sbitmap_free (large_region_blocks);
 
   bitmap_clear (&ebb_head);
   bitmap_clear (&ebb_tail);
@@ -678,7 +624,7 @@ schedule_ebbs (void)
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
   if (reload_completed)
-    reposition_prologue_and_epilogue_notes (get_insns ());
+    reposition_prologue_and_epilogue_notes ();
 
   if (write_symbols != NO_DEBUG)
     rm_redundant_line_notes ();

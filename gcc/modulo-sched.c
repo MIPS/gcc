@@ -238,8 +238,7 @@ sms_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
 }
 
 static void
-compute_jump_reg_dependencies (struct df * df ATTRIBUTE_UNUSED,
-			       rtx insn ATTRIBUTE_UNUSED,
+compute_jump_reg_dependencies (rtx insn ATTRIBUTE_UNUSED,
 			       regset cond_exec ATTRIBUTE_UNUSED,
 			       regset used ATTRIBUTE_UNUSED,
 			       regset set ATTRIBUTE_UNUSED)

@@ -5428,7 +5428,7 @@ epilogue_done:
    scheduling and delayed branch scheduling.  */
 
 void
-reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
+reposition_prologue_and_epilogue_notes (void)
 {
 #if defined (HAVE_prologue) || defined (HAVE_epilogue)
   rtx insn, last, note;
@@ -5441,7 +5441,7 @@ reposition_prologue_and_epilogue_notes (rtx f ATTRIBUTE_UNUSED)
       /* Scan from the beginning until we reach the last prologue insn.
 	 We apparently can't depend on basic_block_{head,end} after
 	 reorg has run.  */
-      for (insn = f; insn; insn = NEXT_INSN (insn))
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{
 	  if (NOTE_P (insn))
 	    {

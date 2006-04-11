@@ -2123,7 +2123,7 @@ extern void print_inline_rtx (FILE *, rtx, int);
 extern void init_loop (void);
 
 /* In function.c */
-extern void reposition_prologue_and_epilogue_notes (rtx);
+extern void reposition_prologue_and_epilogue_notes (void);
 extern void thread_prologue_and_epilogue_insns (rtx);
 extern int prologue_epilogue_contains (rtx);
 extern int sibcall_epilogue_contains (rtx);

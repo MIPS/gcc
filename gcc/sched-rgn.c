@@ -2928,10 +2928,7 @@ init_regions (void)
 void
 schedule_insns (void)
 {
-  sbitmap large_region_blocks, blocks;
   int rgn;
-  int any_large_regions;
-  basic_block bb;
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
@@ -2962,88 +2959,12 @@ schedule_insns (void)
   
   free(ebb_head);
 
-  /* Update life analysis for the subroutine.  Do single block regions
-     first so that we can verify that live_at_start didn't change.  Then
-     do all other blocks.  */
-  /* ??? There is an outside possibility that update_life_info, or more
-     to the point propagate_block, could get called with nonzero flags
-     more than once for one basic block.  This would be kinda bad if it
-     were to happen, since REG_INFO would be accumulated twice for the
-     block, and we'd have twice the REG_DEAD notes.
-
-     I'm fairly certain that this _shouldn't_ happen, since I don't think
-     that live_at_start should change at region heads.  Not sure what the
-     best way to test for this kind of thing...  */
-
-  if (current_sched_info->flags & DETACH_LIFE_INFO)
-    /* this flag can be set either by the target or by ENABLE_CHECKING.  */
-    attach_life_info ();
-
   allocate_reg_life_data ();
-
-  any_large_regions = 0;
-  large_region_blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (large_region_blocks);
-  FOR_EACH_BB (bb)
-    SET_BIT (large_region_blocks, bb->index);
-
-  blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (blocks);
-
-  /* Update life information.  For regions consisting of multiple blocks
-     we've possibly done interblock scheduling that affects global liveness.
-     For regions consisting of single blocks we need to do only local
-     liveness.  */
-  for (rgn = 0; rgn < nr_regions; rgn++)    
-    if (RGN_NR_BLOCKS (rgn) > 1
-	/* Or the only block of this region has been split.  */
-	|| RGN_HAS_REAL_EBB (rgn)
-	/* New blocks (e.g. recovery blocks) should be processed
-	   as parts of large regions.  */
-	|| !glat_start[rgn_bb_table[RGN_BLOCKS (rgn)]])
-      any_large_regions = 1;
-    else
-      {
-	SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
-	RESET_BIT (large_region_blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
-      }
-
-  /* Don't update reg info after reload, since that affects
-     regs_ever_live, which should not change after reload.  */
-  update_life_info (blocks, UPDATE_LIFE_LOCAL,
-		    (reload_completed ? PROP_DEATH_NOTES
-		     : (PROP_DEATH_NOTES | PROP_REG_INFO)));
-  if (any_large_regions)
-    {
-      update_life_info (large_region_blocks, UPDATE_LIFE_GLOBAL,
-			(reload_completed ? PROP_DEATH_NOTES
-			 : (PROP_DEATH_NOTES | PROP_REG_INFO)));
-
-#ifdef ENABLE_CHECKING
-      check_reg_live (true);
-#endif
-    }
-
-  if (CHECK_DEAD_NOTES)
-    {
-      /* Verify the counts of basic block notes in single basic block
-         regions.  */
-      for (rgn = 0; rgn < nr_regions; rgn++)
-	if (RGN_NR_BLOCKS (rgn) == 1)
-	  {
-	    sbitmap_zero (blocks);
-	    SET_BIT (blocks, rgn_bb_table[RGN_BLOCKS (rgn)]);
-
-	    gcc_assert (deaths_in_region[rgn]
-			== count_or_remove_death_notes (blocks, 0));
-	  }
-      free (deaths_in_region);
-    }
 
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
   if (reload_completed)
-    reposition_prologue_and_epilogue_notes (get_insns ());
+    reposition_prologue_and_epilogue_notes ();
 
   /* Delete redundant line notes.  */
   if (write_symbols != NO_DEBUG)
@@ -3069,9 +2990,6 @@ schedule_insns (void)
   free (containing_rgn);
 
   sched_finish ();
-
-  sbitmap_free (blocks);
-  sbitmap_free (large_region_blocks);
 }
 
 /* INSN has been added to/removed from current region.  */
@@ -3298,6 +3216,15 @@ rest_of_handle_sched (void)
      and write some of the results to dump file.  */
 
   schedule_insns ();
+
+  /* FIXME - temporary hack to rebuild dataflow info after the first
+     round of scheduling.  This will be removed when all passes are
+     responcible for building their own info before running.  */
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
+                    (PROP_DEATH_NOTES
+                     | PROP_REG_INFO
+                     | PROP_KILL_DEAD_CODE
+                     | PROP_SCAN_DEAD_CODE));
 #endif
   return 0;
 }
