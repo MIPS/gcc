@@ -1,5 +1,5 @@
 /* BasicTextUI.java --
-   Copyright (C) 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package javax.swing.plaf.basic;
 
+import java.awt.Color;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Graphics;
@@ -54,14 +55,18 @@ import javax.swing.Action;
 import javax.swing.ActionMap;
 import javax.swing.InputMap;
 import javax.swing.JComponent;
+import javax.swing.KeyStroke;
+import javax.swing.LookAndFeel;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.UIDefaults;
 import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.plaf.ActionMapUIResource;
+import javax.swing.plaf.InputMapUIResource;
 import javax.swing.plaf.TextUI;
 import javax.swing.plaf.UIResource;
+import javax.swing.text.AbstractDocument;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Caret;
 import javax.swing.text.DefaultCaret;
@@ -73,8 +78,8 @@ import javax.swing.text.Element;
 import javax.swing.text.Highlighter;
 import javax.swing.text.JTextComponent;
 import javax.swing.text.Keymap;
-import javax.swing.text.PlainView;
 import javax.swing.text.Position;
+import javax.swing.text.Utilities;
 import javax.swing.text.View;
 import javax.swing.text.ViewFactory;
 
@@ -92,11 +97,11 @@ public abstract class BasicTextUI extends TextUI
   /**
    * A {@link DefaultCaret} that implements {@link UIResource}.
    */
-  public static class BasicCaret extends DefaultCaret
-    implements UIResource
+  public static class BasicCaret extends DefaultCaret implements UIResource
   {
     public BasicCaret()
     {
+      // Nothing to do here.
     }
   }
 
@@ -108,6 +113,7 @@ public abstract class BasicTextUI extends TextUI
   {
     public BasicHighlighter()
     {
+      // Nothing to do here.
     }
   }
 
@@ -153,11 +159,11 @@ public abstract class BasicTextUI extends TextUI
      * Indicates that the preferences of one of the child view has changed.
      * This calls revalidate on the text component.
      *
-     * @param view the child view which's preference has changed
+     * @param v the child view which's preference has changed
      * @param width <code>true</code> if the width preference has changed
      * @param height <code>true</code> if the height preference has changed
      */
-    public void preferenceChanged(View view, boolean width, boolean height)
+    public void preferenceChanged(View v, boolean width, boolean height)
     {
       textComponent.revalidate();
     }
@@ -173,7 +179,7 @@ public abstract class BasicTextUI extends TextUI
         view.setParent(null);
       
       if (v != null)
-        v.setParent(null);
+        v.setParent(this);
 
       view = v;
     }
@@ -199,10 +205,10 @@ public abstract class BasicTextUI extends TextUI
      */
     public int getViewCount()
     {
+      int count = 0;
       if (view != null)
-        return 1;
-      else
-        return 0;
+        count = 1;
+      return count;
     }
 
     /**
@@ -241,7 +247,11 @@ public abstract class BasicTextUI extends TextUI
     public void paint(Graphics g, Shape s)
     {
       if (view != null)
-	view.paint(g, s);
+        {
+          Rectangle b = s.getBounds();
+          view.setSize(b.width, b.height);
+          view.paint(g, s);
+        }
     }
 
 
@@ -252,10 +262,10 @@ public abstract class BasicTextUI extends TextUI
      *
      * This is delegated to the real root view.
      *
-     * @param pos the position of the character in the model
+     * @param position the position of the character in the model
      * @param a the area that is occupied by the view
-     * @param bias either {@link Position.Bias.Forward} or
-     *        {@link Position.Bias.Backward} depending on the preferred
+     * @param bias either {@link Position.Bias#Forward} or
+     *        {@link Position.Bias#Backward} depending on the preferred
      *        direction bias. If <code>null</code> this defaults to
      *        <code>Position.Bias.Forward</code>
      *
@@ -269,7 +279,7 @@ public abstract class BasicTextUI extends TextUI
     public Shape modelToView(int position, Shape a, Position.Bias bias)
       throws BadLocationException
     {
-      return ((View) view).modelToView(position, a, bias);
+      return view.modelToView(position, a, bias);
     }
 
     /**
@@ -327,12 +337,72 @@ public abstract class BasicTextUI extends TextUI
     {
       view.changedUpdate(ev, shape, vf);
     }
+
+    /**
+     * Returns the document position that is (visually) nearest to the given
+     * document position <code>pos</code> in the given direction <code>d</code>.
+     *
+     * @param pos the document position
+     * @param b the bias for <code>pos</code>
+     * @param a the allocation for the view
+     * @param d the direction, must be either {@link SwingConstants#NORTH},
+     *        {@link SwingConstants#SOUTH}, {@link SwingConstants#WEST} or
+     *        {@link SwingConstants#EAST}
+     * @param biasRet an array of {@link Position.Bias} that can hold at least
+     *        one element, which is filled with the bias of the return position
+     *        on method exit
+     *
+     * @return the document position that is (visually) nearest to the given
+     *         document position <code>pos</code> in the given direction
+     *         <code>d</code>
+     *
+     * @throws BadLocationException if <code>pos</code> is not a valid offset in
+     *         the document model
+     */
+    public int getNextVisualPositionFrom(int pos, Position.Bias b, Shape a,
+                                         int d, Position.Bias[] biasRet)
+      throws BadLocationException
+    {
+      return view.getNextVisualPositionFrom(pos, b, a, d, biasRet);
+    }
+
+    /**
+     * Returns the startOffset of this view, which is always the beginning
+     * of the document.
+     *
+     * @return the startOffset of this view
+     */
+    public int getStartOffset()
+    {
+      return 0;
+    }
+
+    /**
+     * Returns the endOffset of this view, which is always the end
+     * of the document.
+     *
+     * @return the endOffset of this view
+     */
+    public int getEndOffset()
+    {
+      return getDocument().getLength();
+    }
+
+    /**
+     * Returns the document associated with this view.
+     *
+     * @return the document associated with this view
+     */
+    public Document getDocument()
+    {
+      return textComponent.getDocument();
+    }
   }
 
   /**
    * Receives notifications when properties of the text component change.
    */
-  class UpdateHandler implements PropertyChangeListener
+  private class PropertyChangeHandler implements PropertyChangeListener
   {
     /**
      * Notifies when a property of the text component changes.
@@ -342,10 +412,12 @@ public abstract class BasicTextUI extends TextUI
     public void propertyChange(PropertyChangeEvent event)
     {
       if (event.getPropertyName().equals("document"))
-	{
+        {
           // Document changed.
-	  modelChanged();
-	}
+	      modelChanged();
+        }
+
+      BasicTextUI.this.propertyChange(event);
     }
   }
 
@@ -364,11 +436,10 @@ public abstract class BasicTextUI extends TextUI
      */
     public void changedUpdate(DocumentEvent ev)
     {
-      Dimension size = textComponent.getSize();
-      rootView.changedUpdate(ev, new Rectangle(0, 0, size.width, size.height),
+      rootView.changedUpdate(ev, getVisibleEditorRect(),
                              rootView.getViewFactory());
     }
-    
+
     /**
      * Notification about a document insert event.
      *
@@ -376,12 +447,8 @@ public abstract class BasicTextUI extends TextUI
      */
     public void insertUpdate(DocumentEvent ev)
     {
-      Dimension size = textComponent.getSize();
-      rootView.insertUpdate(ev, new Rectangle(0, 0, size.width, size.height),
+      rootView.insertUpdate(ev, getVisibleEditorRect(),
                             rootView.getViewFactory());
-      int caretPos = textComponent.getCaretPosition();
-      if (caretPos >= ev.getOffset())
-        textComponent.setCaretPosition(caretPos + ev.getLength());
     }
 
     /**
@@ -391,12 +458,8 @@ public abstract class BasicTextUI extends TextUI
      */
     public void removeUpdate(DocumentEvent ev)
     {
-      Dimension size = textComponent.getSize();
-      rootView.removeUpdate(ev, new Rectangle(0, 0, size.width, size.height),
+      rootView.removeUpdate(ev, getVisibleEditorRect(),
                             rootView.getViewFactory());
-      int caretPos = textComponent.getCaretPosition();
-      if (caretPos >= ev.getOffset())
-        textComponent.setCaretPosition(ev.getOffset());
     }
   }
 
@@ -419,16 +482,29 @@ public abstract class BasicTextUI extends TextUI
   /**
    * Receives notification when the model changes.
    */
-  UpdateHandler updateHandler = new UpdateHandler();
+  private PropertyChangeHandler updateHandler = new PropertyChangeHandler();
 
   /** The DocumentEvent handler. */
   DocumentHandler documentHandler = new DocumentHandler();
+
+  /**
+   * The standard background color. This is the color which is used to paint
+   * text in enabled text components.
+   */
+  Color background;
+
+  /**
+   * The inactive background color. This is the color which is used to paint
+   * text in disabled text components.
+   */
+  Color inactiveBackground;
 
   /**
    * Creates a new <code>BasicTextUI</code> instance.
    */
   public BasicTextUI()
   {
+    // Nothing to do here.
   }
 
   /**
@@ -473,20 +549,19 @@ public abstract class BasicTextUI extends TextUI
     c.setOpaque(true);
 
     textComponent = (JTextComponent) c;
-
     Document doc = textComponent.getDocument();
     if (doc == null)
       {
-	doc = getEditorKit(textComponent).createDefaultDocument();
-	textComponent.setDocument(doc);
+        doc = getEditorKit(textComponent).createDefaultDocument();
+        textComponent.setDocument(doc);
       }
-    
-    textComponent.addPropertyChangeListener(updateHandler);
-    modelChanged();
-    
     installDefaults();
     installListeners();
     installKeyboardActions();
+
+    // We need to trigger this so that the view hierarchy gets initialized.
+    modelChanged();
+
   }
 
   /**
@@ -506,14 +581,20 @@ public abstract class BasicTextUI extends TextUI
       textComponent.setHighlighter(createHighlighter());
 
     String prefix = getPropertyPrefix();
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-    textComponent.setBackground(defaults.getColor(prefix + ".background"));
-    textComponent.setForeground(defaults.getColor(prefix + ".foreground"));
-    textComponent.setMargin(defaults.getInsets(prefix + ".margin"));
-    textComponent.setBorder(defaults.getBorder(prefix + ".border"));
-    textComponent.setFont(defaults.getFont(prefix + ".font"));
+    LookAndFeel.installColorsAndFont(textComponent, prefix + ".background",
+                                     prefix + ".foreground", prefix + ".font");
+    LookAndFeel.installBorder(textComponent, prefix + ".border");
+    textComponent.setMargin(UIManager.getInsets(prefix + ".margin"));
 
-    caret.setBlinkRate(defaults.getInt(prefix + ".caretBlinkRate"));
+    caret.setBlinkRate(UIManager.getInt(prefix + ".caretBlinkRate"));
+
+    // Fetch the colors for enabled/disabled text components.
+    background = UIManager.getColor(prefix + ".background");
+    inactiveBackground = UIManager.getColor(prefix + ".inactiveBackground");
+    textComponent.setDisabledTextColor
+                         (UIManager.getColor(prefix + ".inactiveForeground"));
+    textComponent.setSelectedTextColor(UIManager.getColor(prefix + ".selectionForeground"));
+    textComponent.setSelectionColor(UIManager.getColor(prefix + ".selectionBackground"));    
   }
 
   /**
@@ -536,6 +617,7 @@ public abstract class BasicTextUI extends TextUI
   protected void installListeners()
   {
     textComponent.addFocusListener(focuslistener);
+    textComponent.addPropertyChangeListener(updateHandler);
     installDocumentListeners();
   }
 
@@ -573,15 +655,28 @@ public abstract class BasicTextUI extends TextUI
    */
   protected Keymap createKeymap()
   {
+    // FIXME: It seems to me that this method implementation is wrong. It seems
+    // to fetch the focusInputMap and transform it to the KeyBinding/Keymap
+    // implemenation. I would think that it should be done the other way,
+    // fetching the keybindings (from prefix + ".bindings") and transform
+    // it to the newer InputMap/ActionMap implementation.
+    JTextComponent.KeyBinding[] bindings = null;
     String prefix = getPropertyPrefix();
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-    JTextComponent.KeyBinding[] bindings = 
-      (JTextComponent.KeyBinding[]) defaults.get(prefix + ".keyBindings");
-    if (bindings == null)
+    InputMapUIResource m = (InputMapUIResource) UIManager.get(prefix + ".focusInputMap");
+    if (m != null)
       {
-        bindings = new JTextComponent.KeyBinding[0];
-        defaults.put(prefix + ".keyBindings", bindings);
+        KeyStroke[] keys = m.keys();
+        int len = keys.length;
+        bindings = new JTextComponent.KeyBinding[len];
+        for (int i = 0; i < len; i++)
+          {
+            KeyStroke curr = keys[i];
+            bindings[i] = new JTextComponent.KeyBinding(curr,
+                                                        (String) m.get(curr));
+          }
       }
+    if (bindings == null)
+      bindings = new JTextComponent.KeyBinding[0];
 
     Keymap km = JTextComponent.addKeymap(getKeymapName(), 
                                          JTextComponent.getKeymap(JTextComponent.DEFAULT_KEYMAP));    
@@ -593,67 +688,32 @@ public abstract class BasicTextUI extends TextUI
    * Installs the keyboard actions on the text components.
    */
   protected void installKeyboardActions()
-  {    
-    // load any bindings for the older Keymap interface
+  {
+    // load key bindings for the older interface
     Keymap km = JTextComponent.getKeymap(getKeymapName());
     if (km == null)
       km = createKeymap();
     textComponent.setKeymap(km);
 
     // load any bindings for the newer InputMap / ActionMap interface
-    SwingUtilities.replaceUIInputMap(textComponent, 
-                                     JComponent.WHEN_FOCUSED,
+    SwingUtilities.replaceUIInputMap(textComponent, JComponent.WHEN_FOCUSED,
                                      getInputMap(JComponent.WHEN_FOCUSED));
-    SwingUtilities.replaceUIActionMap(textComponent, getActionMap());
-  }
-
-  /**
-   * Gets the input map for the specified <code>condition</code>.
-   *
-   * @param condition the condition for the InputMap
-   *
-   * @return the InputMap for the specified condition
-   */
-  InputMap getInputMap(int condition)
-  {
-    String prefix = getPropertyPrefix();
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-    switch (condition)
+    SwingUtilities.replaceUIActionMap(textComponent, createActionMap());
+    
+    ActionMap parentActionMap = new ActionMapUIResource();
+    Action[] actions = textComponent.getActions();
+    for (int j = 0; j < actions.length; j++)
       {
-      case JComponent.WHEN_IN_FOCUSED_WINDOW:
-        // FIXME: is this the right string? nobody seems to use it.
-        return (InputMap) defaults.get(prefix + ".windowInputMap"); 
-      case JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT:
-        return (InputMap) defaults.get(prefix + ".ancestorInputMap");
-      default:
-      case JComponent.WHEN_FOCUSED:
-        return (InputMap) defaults.get(prefix + ".focusInputMap");
+        Action currAction = actions[j];
+        parentActionMap.put(currAction.getValue(Action.NAME), currAction);
       }
+    
+    SwingUtilities.replaceUIActionMap(textComponent, parentActionMap);
   }
-
-  /**
-   * Returns the ActionMap to be installed on the text component.
-   *
-   * @return the ActionMap to be installed on the text component
-   */
-  // FIXME: The UIDefaults have no entries for .actionMap, so this should
-  // be handled somehow different.
-  ActionMap getActionMap()
-  {
-    String prefix = getPropertyPrefix();
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();    
-    ActionMap am = (ActionMap) defaults.get(prefix + ".actionMap");
-    if (am == null)
-      {
-        am = createActionMap();
-        defaults.put(prefix + ".actionMap", am);
-      }
-    return am;
-  }
-
+  
   /**
    * Creates an ActionMap to be installed on the text component.
-   *
+   * 
    * @return an ActionMap to be installed on the text component
    */
   ActionMap createActionMap()
@@ -670,6 +730,29 @@ public abstract class BasicTextUI extends TextUI
   }
 
   /**
+   * Gets the input map for the specified <code>condition</code>.
+   *
+   * @param condition the condition for the InputMap
+   *
+   * @return the InputMap for the specified condition
+   */
+  InputMap getInputMap(int condition)
+  {
+    String prefix = getPropertyPrefix();
+    switch (condition)
+      {
+      case JComponent.WHEN_IN_FOCUSED_WINDOW:
+        // FIXME: is this the right string? nobody seems to use it.
+        return (InputMap) UIManager.get(prefix + ".windowInputMap"); 
+      case JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT:
+        return (InputMap) UIManager.get(prefix + ".ancestorInputMap");
+      default:
+      case JComponent.WHEN_FOCUSED:
+        return (InputMap) UIManager.get(prefix + ".focusInputMap");
+      }
+  }
+
+  /**
    * Uninstalls this TextUI from the text component.
    *
    * @param component the text component to uninstall the UI from
@@ -678,8 +761,6 @@ public abstract class BasicTextUI extends TextUI
   {
     super.uninstallUI(component);
     rootView.setView(null);
-
-    textComponent.removePropertyChangeListener(updateHandler);
 
     uninstallDefaults();
     uninstallListeners();
@@ -703,7 +784,9 @@ public abstract class BasicTextUI extends TextUI
    */
   protected void uninstallListeners()
   {
+    textComponent.removePropertyChangeListener(updateHandler);
     textComponent.removeFocusListener(focuslistener);
+    textComponent.getDocument().removeDocumentListener(documentHandler);
   }
 
   /**
@@ -738,7 +821,9 @@ public abstract class BasicTextUI extends TextUI
     float w = v.getPreferredSpan(View.X_AXIS);
     float h = v.getPreferredSpan(View.Y_AXIS);
 
-    return new Dimension((int) w, (int) h);
+    Insets i = c.getInsets();
+    return new Dimension((int) w + i.left + i.right,
+                         (int) h + i.top + i.bottom);
   }
 
   /**
@@ -757,18 +842,61 @@ public abstract class BasicTextUI extends TextUI
   }
 
   /**
-   * Paints the text component.
+   * Returns the minimum size for text components. This returns the size
+   * of the component's insets.
+   *
+   * @return the minimum size for text components
+   */
+  public Dimension getMinimumSize(JComponent c)
+  {
+    Insets i = c.getInsets();
+    return new Dimension(i.left + i.right, i.top + i.bottom);
+  }
+
+  /**
+   * Paints the text component. This acquires a read lock on the model and then
+   * calls {@link #paintSafely(Graphics)} in order to actually perform the
+   * painting.
    *
    * @param g the <code>Graphics</code> context to paint to
    * @param c not used here
    */
   public final void paint(Graphics g, JComponent c)
   {
-    paintSafely(g);
+    try
+      {
+        Document doc = textComponent.getDocument();
+        if (doc instanceof AbstractDocument)
+          {
+            AbstractDocument aDoc = (AbstractDocument) doc;
+            aDoc.readLock();
+          }
+        
+        paintSafely(g);
+      }
+    finally
+      {
+        Document doc = textComponent.getDocument();
+        if (doc instanceof AbstractDocument)
+          {
+            AbstractDocument aDoc = (AbstractDocument) doc;
+            aDoc.readUnlock();
+          }
+      }
   }
 
   /**
-   * Actually performs the painting.
+   * This paints the text component while beeing sure that the model is not
+   * modified while painting.
+   *
+   * The following is performed in this order:
+   * <ol>
+   * <li>If the text component is opaque, the background is painted by
+   * calling {@link #paintBackground(Graphics)}.</li>
+   * <li>If there is a highlighter, the highlighter is painted.</li>
+   * <li>The view hierarchy is painted.</li>
+   * <li>The Caret is painter.</li>
+   * </ol>
    *
    * @param g the <code>Graphics</code> context to paint to
    */
@@ -776,13 +904,23 @@ public abstract class BasicTextUI extends TextUI
   {
     Caret caret = textComponent.getCaret();
     Highlighter highlighter = textComponent.getHighlighter();
-    
+
     if (textComponent.isOpaque())
       paintBackground(g);
-    
-    if (highlighter != null
-	&& textComponent.getSelectionStart() != textComponent.getSelectionEnd())
-      highlighter.paint(g);
+
+    // Try painting with the highlighter without checking whether there
+    // is a selection because a highlighter can be used to do more than
+    // marking selected text.
+    if (highlighter != null)
+      {
+        // Handle restoring of the color here to prevent
+        // drawing problems when the Highlighter implementor
+        // forgets to restore it.
+        Color oldColor = g.getColor();
+        highlighter.paint(g);
+        g.setColor(oldColor);
+      }
+      
 
     rootView.paint(g, getVisibleEditorRect());
 
@@ -797,8 +935,23 @@ public abstract class BasicTextUI extends TextUI
    */
   protected void paintBackground(Graphics g)
   {
+    Color old = g.getColor();
     g.setColor(textComponent.getBackground());
     g.fillRect(0, 0, textComponent.getWidth(), textComponent.getHeight());
+    g.setColor(old);
+  }
+
+  /**
+   * Overridden for better control over background painting. This now simply
+   * calls {@link #paint} and this delegates the background painting to
+   * {@link #paintBackground}.
+   *
+   * @param g the graphics to use
+   * @param c the component to be painted
+   */
+  public void update(Graphics g, JComponent c)
+  {
+    paint(g, c);
   }
 
   /**
@@ -833,7 +986,84 @@ public abstract class BasicTextUI extends TextUI
   public void damageRange(JTextComponent t, int p0, int p1,
                           Position.Bias firstBias, Position.Bias secondBias)
   {
-    // TODO: Implement me.
+    try
+      {
+        // Limit p0 and p1 to sane values to prevent unfriendly
+        // BadLocationExceptions. This makes it possible for the highlighter
+        // to send us illegal values which can happen when a large number
+        // of selected characters are removed (eg. by pressing delete
+        // or backspace).
+        // The reference implementation does not throw an exception, too.
+        p0 = Math.min(p0, t.getDocument().getLength());
+        p1 = Math.min(p1, t.getDocument().getLength());
+
+        Rectangle l1 = modelToView(t, p0, firstBias);
+        Rectangle l2 = modelToView(t, p1, secondBias);
+        if (l1.y == l2.y)
+          t.repaint(l1.union(l2));
+        else
+          {
+            // The two rectangles lie on different lines and we need a
+            // different algorithm to calculate the damaged area:
+            // 1. The line of p0 is damaged from the position of p0
+            // to the right border.
+            // 2. All lines between the ones where p0 and p1 lie on
+            // are completely damaged. Use the allocation area to find
+            // out the bounds.
+            // 3. The final line is damaged from the left bound to the
+            // position of p1.
+            Insets insets = t.getInsets();
+
+            // Damage first line until the end.
+            l1.width = insets.right + t.getWidth() - l1.x;
+            t.repaint(l1);
+            
+            // Note: Utilities.getPositionBelow() may return the offset
+            // that was put in. In that case there is no next line and
+            // we should stop searching for one.
+            
+            int posBelow = Utilities.getPositionBelow(t, p0, l1.x);
+            if (posBelow < p1 && posBelow != -1 && posBelow != p0)
+              {
+                // Take the rectangle of the offset we just found and grow it
+                // to the maximum width. Retain y because this is our start
+                // height.
+                Rectangle grow = modelToView(t, posBelow);
+                grow.x = insets.left;
+                grow.width = t.getWidth() + insets.right;
+                
+                // Find further lines which have to be damaged completely.
+                int nextPosBelow = posBelow;
+                while (nextPosBelow < p1 && nextPosBelow != -1 && posBelow != nextPosBelow)
+                  {
+                    posBelow = nextPosBelow;
+                    nextPosBelow = Utilities.getPositionBelow(t, posBelow, l1.x);
+                  }
+                // Now posBelow is an offset on the last line which has to be damaged
+                // completely. (newPosBelow is on the same line as p1)
+                 
+                // Retrieve the rectangle of posBelow and use its y and height
+                // value to calculate the final height of the multiple line
+                // spanning rectangle.
+                Rectangle end = modelToView(t, posBelow);
+                grow.height = end.y + end.height - grow.y;
+                
+                // Mark that area as damage.
+                t.repaint(grow);
+              }
+            
+            // Damage last line from its beginning to the position of p1.
+            l2.width += l2.x;
+            l2.x = insets.left;
+            t.repaint(l2);
+          }
+      }
+    catch (BadLocationException ex)
+      {
+        AssertionError err = new AssertionError("Unexpected bad location");
+        err.initCause(ex);
+        throw err;
+      }
   }
 
   /**
@@ -885,10 +1115,10 @@ public abstract class BasicTextUI extends TextUI
   /**
    * Maps a position in the document into the coordinate space of the View.
    * The output rectangle usually reflects the font height but has a width
-   * of zero. A bias of {@link Position.Bias.Forward} is used in this method.
+   * of zero. A bias of {@link Position.Bias#Forward} is used in this method.
    *
+   * @param t the text component
    * @param pos the position of the character in the model
-   * @param a the area that is occupied by the view
    *
    * @return a rectangle that gives the location of the document position
    *         inside the view coordinate space
@@ -908,10 +1138,10 @@ public abstract class BasicTextUI extends TextUI
    * The output rectangle usually reflects the font height but has a width
    * of zero.
    *
+   * @param t the text component
    * @param pos the position of the character in the model
-   * @param a the area that is occupied by the view
-   * @param bias either {@link Position.Bias.Forward} or
-   *        {@link Position.Bias.Backward} depending on the preferred
+   * @param bias either {@link Position.Bias#Forward} or
+   *        {@link Position.Bias#Backward} depending on the preferred
    *        direction bias. If <code>null</code> this defaults to
    *        <code>Position.Bias.Forward</code>
    *
@@ -957,7 +1187,7 @@ public abstract class BasicTextUI extends TextUI
    */
   public int viewToModel(JTextComponent t, Point pt, Position.Bias[] biasReturn)
   {
-    return 0; // FIXME: Implement me.
+    return rootView.viewToModel(pt.x, pt.y, getVisibleEditorRect(), biasReturn);
   }
 
   /**
@@ -1003,12 +1233,12 @@ public abstract class BasicTextUI extends TextUI
     int height = textComponent.getHeight();
 
     if (width <= 0 || height <= 0)
-      return null;
+      return new Rectangle(0, 0, 0, 0);
 	
     Insets insets = textComponent.getInsets();
     return new Rectangle(insets.left, insets.top,
-			 width - insets.left + insets.right,
-			 height - insets.top + insets.bottom);
+			 width - insets.left - insets.right,
+			 height - insets.top - insets.bottom);
   }
 
   /**
@@ -1019,7 +1249,8 @@ public abstract class BasicTextUI extends TextUI
   protected final void setView(View view)
   {
     rootView.setView(view);
-    view.setParent(rootView);
+    textComponent.revalidate();
+    textComponent.repaint();
   }
 
   /**
@@ -1042,5 +1273,18 @@ public abstract class BasicTextUI extends TextUI
       return;
     View view = factory.create(elem);
     setView(view);
+  }
+
+  /**
+   * Receives notification whenever one of the text component's bound
+   * properties changes. This default implementation does nothing.
+   * It is a hook that enables subclasses to react to property changes
+   * on the text component.
+   *
+   * @param ev the property change event
+   */
+  protected void propertyChange(PropertyChangeEvent ev)
+  {
+    // The default implementation does nothing.
   }
 }

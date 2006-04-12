@@ -1,5 +1,6 @@
 /* Checkbox.java -- An AWT checkbox widget
-   Copyright (C) 1999, 2000, 2001, 2002, 2005  Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -392,6 +393,11 @@ Checkbox(String label, boolean state, CheckboxGroup group)
   this.label = label;
   this.state = state;
   this.group = group;
+
+  if ( state && group != null )
+    {
+      group.setSelectedCheckbox(this);
+    }
 }
 
 /*************************************************************************/
@@ -454,11 +460,14 @@ getState()
 public synchronized void
 setState(boolean state)
 {
-  this.state = state;
-  if (peer != null)
+  if (this.state != state)
     {
-      CheckboxPeer cp = (CheckboxPeer) peer;
-      cp.setState (state);
+      this.state = state;
+      if (peer != null)
+	{
+	  CheckboxPeer cp = (CheckboxPeer) peer;
+	  cp.setState (state);
+	}
     }
 }
 
@@ -594,10 +603,15 @@ void
 dispatchEventImpl(AWTEvent e)
 {
   if (e.id <= ItemEvent.ITEM_LAST
-      && e.id >= ItemEvent.ITEM_FIRST
-      && (item_listeners != null 
-	  || (eventMask & AWTEvent.ITEM_EVENT_MASK) != 0))
-    processEvent(e);
+      && e.id >= ItemEvent.ITEM_FIRST)
+    {
+      ItemEvent ie = (ItemEvent) e;
+      int itemState = ie.getStateChange();
+      setState(itemState == ItemEvent.SELECTED ? true : false);
+      if (item_listeners != null 
+	  || (eventMask & AWTEvent.ITEM_EVENT_MASK) != 0)
+	processEvent(e);
+    }
   else
     super.dispatchEventImpl(e);
 }
@@ -610,8 +624,10 @@ dispatchEventImpl(AWTEvent e)
 protected String
 paramString()
 {
-  return ("label=" + label + ",state=" + state + ",group=" + group
-	  + "," + super.paramString());
+  // Note: We cannot add the checkbox group information here because this
+  // would trigger infinite recursion when CheckboxGroup.toString() is
+  // called and the box is in its selected state.
+  return ("label=" + label + ",state=" + state + "," + super.paramString());
 }
 
 /**

@@ -54,6 +54,7 @@ import java.util.ResourceBundle;
 
 import javax.swing.border.Border;
 import javax.swing.plaf.ComponentUI;
+import javax.swing.plaf.InputMapUIResource;
 
 /**
  * UIDefaults is a database where all settings and interface bindings are
@@ -95,10 +96,14 @@ public class UIDefaults extends Hashtable
     }
     public Object createValue(UIDefaults table)
     {
-      InputMap im = new InputMap ();
+      InputMapUIResource im = new InputMapUIResource ();
       for (int i = 0; 2*i+1 < bind.length; ++i)
         {
-          im.put (KeyStroke.getKeyStroke ((String) bind[2*i]),
+          Object curr = bind[2*i];
+          if (curr instanceof KeyStroke)
+            im.put((KeyStroke) curr, bind[2*i+1]);
+          else
+            im.put(KeyStroke.getKeyStroke((String) curr),
                   bind[2*i+1]);
         }
       return im;
@@ -577,8 +582,8 @@ public class UIDefaults extends Hashtable
    *
    * @param key the key to the requested entry
    *
-   * @return the boolean entry for <code>key</code> or null if no such entry
-   *     exists
+   * @return The boolean entry for <code>key</code> or <code>false</code> if no 
+   *         such entry exists.
    */
   public boolean getBoolean(Object key)
   {
@@ -674,9 +679,9 @@ public class UIDefaults extends Hashtable
       return null;
     try 
       {
-        if (loader != null)
-          return loader.loadClass (className);    
-        return Class.forName (className);
+        if (loader == null)
+          loader = ClassLoader.getSystemClassLoader();
+        return loader.loadClass (className);
       }
     catch (Exception e)
       {

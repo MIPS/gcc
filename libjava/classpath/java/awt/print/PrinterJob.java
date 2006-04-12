@@ -1,5 +1,5 @@
 /* PrinterJob.java -- This job is the printer control class
-   Copyright (C) 1999, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 1999, 2004, 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -61,7 +61,7 @@ public abstract class PrinterJob
   public static PrinterJob getPrinterJob()
   {
     // FIXME: Need to fix this to load a default implementation instance.
-    return null;
+    return new NoPrinterJob();
   }
 
   /**
@@ -169,8 +169,11 @@ public abstract class PrinterJob
   /**
    * Prints the page with given attributes.
    */
-  public abstract void print (PrintRequestAttributeSet attributes)
-    throws PrinterException;
+  public void print (PrintRequestAttributeSet attributes)
+    throws PrinterException
+  {
+    print ();
+  }
 
   /**
    * Displays a dialog box to the user which allows the print job

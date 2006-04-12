@@ -148,12 +148,6 @@ public class DefaultTreeModel
    */
   public void setRoot(TreeNode root)
   {
-    // Sanity Check
-    if (root == null)
-      {
-        throw new IllegalArgumentException("null root");
-      }
-    // Set new root
     this.root = root;
   }
 
@@ -299,6 +293,7 @@ public class DefaultTreeModel
   public void insertNodeInto(MutableTreeNode newChild, MutableTreeNode parent,
                              int index)
   {
+    newChild.setParent(parent);
     parent.insert(newChild, index);
     int[] childIndices = new int[1];
     childIndices[0] = index;

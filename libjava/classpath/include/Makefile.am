@@ -1,11 +1,19 @@
 ## GCJ LOCAL: headers are installed specially.
 ##include_HEADERS = jni.h jni_md.h jawt.h jawt_md.h
 
-DISTCLEANFILES = jni_md.h
+DISTCLEANFILES = jni_md.h config-int.h
 
 ARG_JNI_JAVAH = -jni
 ARG_CLASSPATH_JAVAH = -bootclasspath
 JAVAH = $(USER_JAVAH) $(ARG_JNI_JAVAH) $(ARG_CLASSPATH_JAVAH) ../lib:$(USER_CLASSLIB)
+CLASSDIR = lib
+
+SOUND_H_FILES = \
+$(top_srcdir)/include/gnu_javax_sound_midi_alsa_AlsaPortDevice.h \
+$(top_srcdir)/include/gnu_javax_sound_midi_alsa_AlsaMidiSequencerDevice.h \
+$(top_srcdir)/include/gnu_javax_sound_midi_alsa_AlsaMidiDeviceProvider.h \
+$(top_srcdir)/include/gnu_javax_sound_midi_dssi_DSSIMidiDeviceProvider.h \
+$(top_srcdir)/include/gnu_javax_sound_midi_dssi_DSSISynthesizer.h
 
 XMLJ_H_FILES = \
 $(top_srcdir)/include/gnu_xml_libxmlj_dom_GnomeDocument.h \
@@ -106,6 +114,7 @@ $(top_srcdir)/include/gnu_java_awt_peer_qt_QtContainerPeer.h \
 $(top_srcdir)/include/gnu_java_awt_peer_qt_QtEmbeddedWindowPeer.h 
 
 H_FILES = \
+$(SOUND_H_FILES) \
 $(XMLJ_H_FILES) \
 $(GTKPEER_H_FILES) \
 $(QTPEER_H_FILES) \
@@ -119,9 +128,9 @@ $(top_srcdir)/include/gnu_java_nio_charset_iconv_IconvDecoder.h \
 $(top_srcdir)/include/java_io_VMFile.h \
 $(top_srcdir)/include/java_io_VMObjectInputStream.h \
 $(top_srcdir)/include/java_io_VMObjectStreamClass.h \
-$(top_srcdir)/include/java_lang_Math.h \
 $(top_srcdir)/include/java_lang_VMDouble.h \
 $(top_srcdir)/include/java_lang_VMFloat.h \
+$(top_srcdir)/include/java_lang_VMMath.h \
 $(top_srcdir)/include/java_lang_VMProcess.h \
 $(top_srcdir)/include/java_lang_VMSystem.h \
 $(top_srcdir)/include/java_lang_reflect_Array.h \
@@ -135,20 +144,26 @@ if CREATE_JNI_HEADERS
 
 all-local: $(H_FILES)
 
-$(top_srcdir)/include/gnu_xml_libxmlj_dom_%.h: $(top_builddir)/lib/gnu/xml/libxmlj/dom/%.class
+$(top_srcdir)/include/gnu_xml_libxmlj_dom_%.h: $(top_builddir)/$(CLASSDIR)/gnu/xml/libxmlj/dom/%.class
 	$(JAVAH) -o $@ gnu.xml.libxmlj.dom.$*
 
-$(top_srcdir)/include/gnu_xml_libxmlj_sax_%.h: $(top_builddir)/lib/gnu/xml/libxmlj/sax/%.class
+$(top_srcdir)/include/gnu_xml_libxmlj_sax_%.h: $(top_builddir)/$(CLASSDIR)/gnu/xml/libxmlj/sax/%.class
 	$(JAVAH) -o $@ gnu.xml.libxmlj.sax.$*
 
-$(top_srcdir)/include/gnu_xml_libxmlj_transform_%.h: $(top_builddir)/lib/gnu/xml/libxmlj/transform/%.class
+$(top_srcdir)/include/gnu_xml_libxmlj_transform_%.h: $(top_builddir)/$(CLASSDIR)/gnu/xml/libxmlj/transform/%.class
 	$(JAVAH) -o $@ gnu.xml.libxmlj.transform.$*
 
-$(top_srcdir)/include/gnu_java_awt_peer_gtk_%.h: $(top_builddir)/lib/gnu/java/awt/peer/gtk/%.class
+$(top_srcdir)/include/gnu_java_awt_peer_gtk_%.h: $(top_builddir)/$(CLASSDIR)/gnu/java/awt/peer/gtk/%.class
 	$(JAVAH) -o $@ gnu.java.awt.peer.gtk.$*
 
-$(top_srcdir)/include/gnu_java_awt_peer_qt_%.h: $(top_builddir)/lib/gnu/java/awt/peer/qt/%.class
+$(top_srcdir)/include/gnu_java_awt_peer_qt_%.h: $(top_builddir)/$(CLASSDIR)/gnu/java/awt/peer/qt/%.class
 	$(JAVAH) -o $@ gnu.java.awt.peer.qt.$*
+
+$(top_srcdir)/include/gnu_javax_sound_midi_alsa_%.h: $(top_builddir)/$(CLASSDIR)/gnu/javax/sound/midi/alsa/%.class
+	$(JAVAH) -o $@ gnu.javax.sound.midi.alsa.$*
+
+$(top_srcdir)/include/gnu_javax_sound_midi_dssi_%.h: $(top_builddir)/$(CLASSDIR)/gnu/javax/sound/midi/dssi/%.class
+	$(JAVAH) -o $@ gnu.javax.sound.midi.dssi.$*
 
 $(top_srcdir)/include/gnu_java_net_PlainDatagramSocketImpl.h: $(top_srcdir)/gnu/java/net/PlainDatagramSocketImpl.java
 	$(JAVAH) -o $@ gnu.java.net.PlainDatagramSocketImpl
@@ -164,8 +179,8 @@ $(top_srcdir)/include/java_io_VMObjectInputStream.h: $(top_srcdir)/vm/reference/
 	$(JAVAH) -o $@ java.io.VMObjectInputStream
 $(top_srcdir)/include/java_io_VMObjectStreamClass.h: $(top_srcdir)/vm/reference/java/io/VMObjectStreamClass.java
 	$(JAVAH) -o $@ java.io.VMObjectStreamClass
-$(top_srcdir)/include/java_lang_Math.h: $(top_srcdir)/java/lang/Math.java
-	$(JAVAH) -o $@ java.lang.Math
+$(top_srcdir)/include/java_lang_VMMath.h: $(top_srcdir)/vm/reference/java/lang/VMMath.java
+	$(JAVAH) -o $@ java.lang.VMMath
 $(top_srcdir)/include/java_lang_VMDouble.h: $(top_srcdir)/vm/reference/java/lang/VMDouble.java
 	$(JAVAH) -o $@ java.lang.VMDouble
 $(top_srcdir)/include/java_lang_VMFloat.h: $(top_srcdir)/vm/reference/java/lang/VMFloat.java

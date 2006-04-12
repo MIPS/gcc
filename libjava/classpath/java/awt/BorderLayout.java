@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package java.awt;
 
+
 /**
   * This class implements a layout manager that positions components
   * in certain sectors of the parent container.
@@ -229,6 +230,12 @@ public class BorderLayout implements LayoutManager2, java.io.Serializable
   private int vgap;
 
 
+  // Some constants for use with calcSize().
+  private static final int MIN = 0;
+  private static final int MAX = 1;
+  private static final int PREF = 2;
+
+
   /**
    * Initializes a new instance of <code>BorderLayout</code> with no
    * horiztonal or vertical gaps between components.
@@ -408,7 +415,7 @@ public class BorderLayout implements LayoutManager2, java.io.Serializable
    */
   public Dimension maximumLayoutSize(Container target)
   {
-    return calcSize(target, MAX);
+    return new Dimension (Integer.MAX_VALUE, Integer.MAX_VALUE);
   }
 
   /**
@@ -423,7 +430,7 @@ public class BorderLayout implements LayoutManager2, java.io.Serializable
    */
   public float getLayoutAlignmentX(Container parent)
   {
-    return(parent.getAlignmentX());
+    return 0.5F;
   }
 
   /**
@@ -438,7 +445,7 @@ public class BorderLayout implements LayoutManager2, java.io.Serializable
    */
   public float getLayoutAlignmentY(Container parent)
   {
-    return(parent.getAlignmentY());
+    return 0.5F;
   }
 
   /**
@@ -449,31 +456,34 @@ public class BorderLayout implements LayoutManager2, java.io.Serializable
    */
   public void invalidateLayout(Container parent)
   {
-    // FIXME: Implement this properly!
+    // Nothing to do here.
   }
 
   /**
-   * Lays out the specified container according to the constraints
-   * in this object.
-   *
+   * Lays out the specified container according to the constraints in this
+   * object.
+   * 
    * @param target The container to lay out.
    */
   public void layoutContainer(Container target)
   {
-    synchronized (target.getTreeLock ())
+    synchronized (target.getTreeLock())
       {
         Insets i = target.getInsets();
+        int top = i.top;
+        int bottom = target.height - i.bottom;
+        int left = i.left;
+        int right = target.width - i.right;
 
-        ComponentOrientation orient = target.getComponentOrientation ();
-        boolean left_to_right = orient.isLeftToRight ();
+        boolean left_to_right = target.getComponentOrientation().isLeftToRight();
 
         Component my_north = north;
         Component my_east = east;
         Component my_south = south;
         Component my_west = west;
 
-        // Note that we currently don't handle vertical layouts.  Neither
-        // does JDK 1.3.
+        // Note that we currently don't handle vertical layouts.
+        // Neither does JDK 1.3.
         if (firstLine != null)
           my_north = firstLine;
         if (lastLine != null)
@@ -493,65 +503,42 @@ public class BorderLayout implements LayoutManager2, java.io.Serializable
               my_west = lastItem;
           }
 
-        Dimension c = calcCompSize(center, PREF);
-        Dimension n = calcCompSize(my_north, PREF);
-        Dimension s = calcCompSize(my_south, PREF);
-        Dimension e = calcCompSize(my_east, PREF);
-        Dimension w = calcCompSize(my_west, PREF);
-        int targetWidth = target.getWidth();
-        int targetHeight = target.getHeight();
+        if (my_north != null)
+          {
+            Dimension n = calcCompSize(my_north, PREF);
+            my_north.setBounds(left, top, right - left, n.height);
+            top += n.height + vgap;
+          }
 
-        /*
-	<-> hgap     <-> hgap
-	+----------------------------+          }
-	|t                           |          } i.top
-	|  +----------------------+  |  --- y1  }
-	|  |n                     |  |
-	|  +----------------------+  |          } vgap
-	|  +---+ +----------+ +---+  |  --- y2  }        }
-	|  |w  | |c         | |e  |  |                   } hh
-	|  +---+ +----------+ +---+  |          } vgap   }
-	|  +----------------------+  |  --- y3  }
-	|  |s                     |  |
-	|  +----------------------+  |          }
-	|                            |          } i.bottom
-	+----------------------------+          }
-	|x1   |x2          |x3
-	<---------------------->
-	<-->         ww           <-->
-	i.left                    i.right
-        */
+        if (my_south != null)
+          {
+            Dimension s = calcCompSize(my_south, PREF);
+            my_south.setBounds(left, bottom - s.height, right - left, s.height);
+            bottom -= s.height + vgap;
+          }
 
-        int x1 = i.left;
-        int x2 = x1 + w.width + (w.width == 0 ? 0 : hgap);
-        int x3;
-        if (targetWidth <= i.right + e.width)
-          x3 = x2 + w.width + (w.width == 0 ? 0 : hgap);
-        else
-          x3 = targetWidth - i.right - e.width;
-        int ww = targetWidth - i.right - i.left;
+        if (my_east != null)
+          {
+            Dimension e = calcCompSize(my_east, PREF);
+            my_east.setBounds(right - e.width, top, e.width, bottom - top);
+            right -= e.width + hgap;
+          }
 
-        int y1 = i.top;
-        int y2 = y1 + n.height + (n.height == 0 ? 0 : vgap);
-        int midh = Math.max(e.height, Math.max(w.height, c.height));
-        int y3;
-        if (targetHeight <= i.bottom + s.height)
-          y3 = y2 + midh + vgap;
-        else
-          y3 = targetHeight - i.bottom - s.height;
-        int hh = y3-y2-(s.height == 0 ? 0 : vgap);
+        if (my_west != null)
+          {
+            Dimension w = calcCompSize(my_west, PREF);
+            my_west.setBounds(left, top, w.width, bottom - top);
+            left += w.width + hgap;
+          }
 
-        setBounds(center, x2, y2, x3-x2-(w.width == 0 ? 0 : hgap), hh);
-        setBounds(my_north, x1, y1, ww, n.height);
-        setBounds(my_south, x1, y3, ww, s.height);
-        setBounds(my_west, x1, y2, w.width, hh);
-        setBounds(my_east, x3, y2, e.width, hh);
+        if (center != null)
+          center.setBounds(left, top, right - left, bottom - top);
       }
   }
 
   /**
    * Returns a string representation of this layout manager.
-   *
+   * 
    * @return A string representation of this object.
    */
   public String toString()
@@ -559,25 +546,9 @@ public class BorderLayout implements LayoutManager2, java.io.Serializable
     return getClass().getName() + "[hgap=" + hgap + ",vgap=" + vgap + "]";
   }
 
-  /**
-   * FIXME: Document me!
-   */
-  private void setBounds(Component comp, int x, int y, int w, int h)
-  {
-    if (comp == null)
-      return;
-    comp.setBounds(x, y, w, h);
-  }
-
-  // FIXME: Maybe move to top of file.
-  // Some constants for use with calcSize().
-  private static final int MIN = 0;
-  private static final int MAX = 1;
-  private static final int PREF = 2;
-
   private Dimension calcCompSize(Component comp, int what)
   {
-    if (comp == null || !comp.isVisible())
+    if (comp == null || ! comp.isVisible())
       return new Dimension(0, 0);
     if (what == MIN)
       return comp.getMinimumSize();
@@ -587,12 +558,12 @@ public class BorderLayout implements LayoutManager2, java.io.Serializable
   }
 
   /**
-   * This is a helper function used to compute the various sizes for
-   * this layout.
+   * This is a helper function used to compute the various sizes for this
+   * layout.
    */
   private Dimension calcSize(Container target, int what)
   {
-    synchronized (target.getTreeLock ())
+    synchronized (target.getTreeLock())
       {
         Insets ins = target.getInsets();
 
@@ -659,5 +630,113 @@ public class BorderLayout implements LayoutManager2, java.io.Serializable
 
         return(new Dimension(width, height));
       }
+  }
+
+  /**
+   * Return the component at the indicated location, or null if no component
+   * is at that location.  The constraints argument must be one of the 
+   * location constants specified by this class.   
+   * @param constraints the location
+   * @return the component at that location, or null
+   * @throws IllegalArgumentException if the constraints argument is not 
+   * recognized
+   * @since 1.5
+   */
+  public Component getLayoutComponent(Object constraints)
+  {
+    if (constraints == CENTER)
+      return center;
+    if (constraints == NORTH)
+      return north;
+    if (constraints == EAST)
+      return east;
+    if (constraints == SOUTH)
+      return south;
+    if (constraints == WEST)
+      return west;
+    if (constraints == PAGE_START)
+      return firstLine;
+    if (constraints == PAGE_END)
+      return lastLine;
+    if (constraints == LINE_START)
+      return firstItem;
+    if (constraints == LINE_END)
+      return lastItem;
+    throw new IllegalArgumentException("constraint " + constraints 
+                                       + " is not recognized");
+  }
+
+  /**
+   * Return the component at the specified location, which must be one
+   * of the absolute constants such as CENTER or SOUTH.  The container's
+   * orientation is used to map this location to the correct corresponding
+   * component, so for instance in a right-to-left container, a request
+   * for the EAST component could return the LINE_END component.  This will
+   * return null if no component is available at the given location.
+   * @param container the container whose orientation is used
+   * @param constraints the absolute location of the component
+   * @return the component at the location, or null
+   * @throws IllegalArgumentException if the constraint is not recognized
+   */
+  public Component getLayoutComponent(Container container, Object constraints)
+  {
+    ComponentOrientation orient = container.getComponentOrientation();
+    if (constraints == CENTER)
+      return center;
+    // Note that we don't support vertical layouts.
+    if (constraints == NORTH)
+      return north;
+    if (constraints == SOUTH)
+      return south;
+    if (constraints == WEST)
+      {
+        // Note that relative layout takes precedence.
+        if (orient.isLeftToRight())
+          return firstItem == null ? west : firstItem;
+        return lastItem == null ? west : lastItem;
+      }
+    if (constraints == EAST)
+      {
+        // Note that relative layout takes precedence.
+        if (orient.isLeftToRight())
+          return lastItem == null ? east : lastItem;
+        return firstItem == null ? east : firstItem;
+      }
+    throw new IllegalArgumentException("constraint " + constraints
+                                       + " is not recognized");
+  }
+
+  /**
+   * Return the constraint corresponding to a component in this layout.
+   * If the component is null, or is not in this layout, returns null.
+   * Otherwise, this will return one of the constraint constants defined
+   * in this class.
+   * @param c the component
+   * @return the constraint, or null
+   * @since 1.5
+   */
+  public Object getConstraints(Component c)
+  {
+    if (c == null)
+      return null;
+    if (c == center)
+      return CENTER;
+    if (c == north)
+      return NORTH;
+    if (c == east)
+      return EAST;
+    if (c == south)
+      return SOUTH;
+    if (c == west)
+      return WEST;
+    if (c == firstLine)
+      return PAGE_START;
+    if (c == lastLine)
+      return PAGE_END;
+    if (c == firstItem)
+      return LINE_START;
+    if (c == lastItem)
+      return LINE_END;
+    return null;
   }
 }

@@ -39,18 +39,21 @@ Boston, MA 02110-1301, USA.  */
 #if defined (HAVE_GFC_INTEGER_16) && defined (HAVE_GFC_INTEGER_16)
 
 
-extern void maxloc1_16_i16 (gfc_array_i16 *, gfc_array_i16 *, index_type *);
+extern void maxloc1_16_i16 (gfc_array_i16 * const restrict, 
+	gfc_array_i16 * const restrict, const index_type * const restrict);
 export_proto(maxloc1_16_i16);
 
 void
-maxloc1_16_i16 (gfc_array_i16 *retarray, gfc_array_i16 *array, index_type *pdim)
+maxloc1_16_i16 (gfc_array_i16 * const restrict retarray, 
+	gfc_array_i16 * const restrict array, 
+	const index_type * const restrict pdim)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type sstride[GFC_MAX_DIMENSIONS];
   index_type dstride[GFC_MAX_DIMENSIONS];
-  GFC_INTEGER_16 *base;
-  GFC_INTEGER_16 *dest;
+  const GFC_INTEGER_16 * restrict base;
+  GFC_INTEGER_16 * restrict dest;
   index_type rank;
   index_type n;
   index_type len;
@@ -122,14 +125,14 @@ maxloc1_16_i16 (gfc_array_i16 *retarray, gfc_array_i16 *array, index_type *pdim)
 
   while (base)
     {
-      GFC_INTEGER_16 *src;
+      const GFC_INTEGER_16 * restrict src;
       GFC_INTEGER_16 result;
       src = base;
       {
 
   GFC_INTEGER_16 maxval;
   maxval = -GFC_INTEGER_16_HUGE;
-  result = 1;
+  result = 0;
         if (len <= 0)
 	  *dest = 0;
 	else
@@ -137,7 +140,7 @@ maxloc1_16_i16 (gfc_array_i16 *retarray, gfc_array_i16 *array, index_type *pdim)
 	    for (n = 0; n < len; n++, src += delta)
 	      {
 
-  if (*src > maxval)
+  if (*src > maxval || !result)
     {
       maxval = *src;
       result = (GFC_INTEGER_16)n + 1;
@@ -178,22 +181,25 @@ maxloc1_16_i16 (gfc_array_i16 *retarray, gfc_array_i16 *array, index_type *pdim)
 }
 
 
-extern void mmaxloc1_16_i16 (gfc_array_i16 *, gfc_array_i16 *, index_type *,
-					       gfc_array_l4 *);
+extern void mmaxloc1_16_i16 (gfc_array_i16 * const restrict, 
+	gfc_array_i16 * const restrict, const index_type * const restrict,
+	gfc_array_l4 * const restrict);
 export_proto(mmaxloc1_16_i16);
 
 void
-mmaxloc1_16_i16 (gfc_array_i16 * retarray, gfc_array_i16 * array,
-				  index_type *pdim, gfc_array_l4 * mask)
+mmaxloc1_16_i16 (gfc_array_i16 * const restrict retarray, 
+	gfc_array_i16 * const restrict array, 
+	const index_type * const restrict pdim, 
+	gfc_array_l4 * const restrict mask)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type sstride[GFC_MAX_DIMENSIONS];
   index_type dstride[GFC_MAX_DIMENSIONS];
   index_type mstride[GFC_MAX_DIMENSIONS];
-  GFC_INTEGER_16 *dest;
-  GFC_INTEGER_16 *base;
-  GFC_LOGICAL_4 *mbase;
+  GFC_INTEGER_16 * restrict dest;
+  const GFC_INTEGER_16 * restrict base;
+  const GFC_LOGICAL_4 * restrict mbase;
   int rank;
   int dim;
   index_type n;
@@ -284,8 +290,8 @@ mmaxloc1_16_i16 (gfc_array_i16 * retarray, gfc_array_i16 * array,
 
   while (base)
     {
-      GFC_INTEGER_16 *src;
-      GFC_LOGICAL_4 *msrc;
+      const GFC_INTEGER_16 * restrict src;
+      const GFC_LOGICAL_4 * restrict msrc;
       GFC_INTEGER_16 result;
       src = base;
       msrc = mbase;
@@ -293,7 +299,7 @@ mmaxloc1_16_i16 (gfc_array_i16 * retarray, gfc_array_i16 * array,
 
   GFC_INTEGER_16 maxval;
   maxval = -GFC_INTEGER_16_HUGE;
-  result = 1;
+  result = 0;
         if (len <= 0)
 	  *dest = 0;
 	else
@@ -301,7 +307,7 @@ mmaxloc1_16_i16 (gfc_array_i16 * retarray, gfc_array_i16 * array,
 	    for (n = 0; n < len; n++, src += delta, msrc += mdelta)
 	      {
 
-  if (*msrc && *src > maxval)
+  if (*msrc && (*src > maxval || !result))
     {
       maxval = *src;
       result = (GFC_INTEGER_16)n + 1;
@@ -342,6 +348,60 @@ mmaxloc1_16_i16 (gfc_array_i16 * retarray, gfc_array_i16 * array,
             }
         }
     }
+}
+
+
+extern void smaxloc1_16_i16 (gfc_array_i16 * const restrict, 
+	gfc_array_i16 * const restrict, const index_type * const restrict,
+	GFC_LOGICAL_4 *);
+export_proto(smaxloc1_16_i16);
+
+void
+smaxloc1_16_i16 (gfc_array_i16 * const restrict retarray, 
+	gfc_array_i16 * const restrict array, 
+	const index_type * const restrict pdim, 
+	GFC_LOGICAL_4 * mask)
+{
+  index_type rank;
+  index_type n;
+  index_type dstride;
+  GFC_INTEGER_16 *dest;
+
+  if (*mask)
+    {
+      maxloc1_16_i16 (retarray, array, pdim);
+      return;
+    }
+    rank = GFC_DESCRIPTOR_RANK (array);
+  if (rank <= 0)
+    runtime_error ("Rank of array needs to be > 0");
+
+  if (retarray->data == NULL)
+    {
+      retarray->dim[0].lbound = 0;
+      retarray->dim[0].ubound = rank-1;
+      retarray->dim[0].stride = 1;
+      retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
+      retarray->offset = 0;
+      retarray->data = internal_malloc_size (sizeof (GFC_INTEGER_16) * rank);
+    }
+  else
+    {
+      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
+	runtime_error ("rank of return array does not equal 1");
+
+      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
+        runtime_error ("dimension of return array incorrect");
+
+      if (retarray->dim[0].stride == 0)
+	retarray->dim[0].stride = 1;
+    }
+
+    dstride = retarray->dim[0].stride;
+    dest = retarray->data;
+
+    for (n = 0; n < rank; n++)
+      dest[n * dstride] = 0 ;
 }
 
 #endif

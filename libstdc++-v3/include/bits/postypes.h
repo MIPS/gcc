@@ -1,6 +1,6 @@
 // Position types -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -49,8 +49,8 @@
 #include <stdint.h> // For int64_t
 #endif
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // The types streamoff, streampos and wstreampos and the class
   // template fpos<> are described in clauses 21.1.2, 21.1.3, 27.1.2,
   // 27.2, 27.4.1, 27.4.3 and D.6. Despite all this verbage, the
@@ -119,6 +119,11 @@ namespace std
       /// Convert to streamoff.
       operator streamoff() const { return _M_off; }
 
+      // NB: Via conversion to streamoff, two fpos objects can be compared.
+      // The standard only requires that operator== must be an equivalence
+      // relation.  In this implementation two fpos objects belong to the
+      // same equivalence class if the contained offsets compare equal.
+
       /// Remember the value of @a st.
       void
       state(_StateT __st)
@@ -128,20 +133,6 @@ namespace std
       _StateT
       state() const
       { return _M_state; }
-
-      // The standard only requires that operator== must be an
-      // equivalence relation. In this implementation two fpos<StateT>
-      // objects belong to the same equivalence class if the contained
-      // offsets compare equal.
-      /// Test if equivalent to another position.
-      bool
-      operator==(const fpos& __other) const
-      { return _M_off == __other._M_off; }
-
-      /// Test if not equivalent to another position.
-      bool
-      operator!=(const fpos& __other) const
-      { return _M_off != __other._M_off; }
 
       // The standard requires that this operator must be defined, but
       // gives no semantics. In this implemenation it just adds it's
@@ -210,6 +201,7 @@ namespace std
   typedef fpos<mbstate_t> streampos;
   /// File position for wchar_t streams.
   typedef fpos<mbstate_t> wstreampos;
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

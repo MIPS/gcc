@@ -1,5 +1,5 @@
 /* Preferences -- Preference node containing key value entries and subnodes
-   Copyright (C) 2001, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2001, 2004, 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -90,12 +90,9 @@ public abstract class Preferences {
     /**
      * Default PreferencesFactory class used when the system property
      * "java.util.prefs.PreferencesFactory" is not set.
-	 * <p>
-	 * XXX - Currently set to MemoryBasedFactory, should be changed
-	 * when FileBasedPreferences backend works.
      */
     private static final String defaultFactoryClass
-        = "gnu.java.util.prefs.MemoryBasedFactory";
+        = "gnu.java.util.prefs.FileBasedFactory";
 
     /** Permission needed to access system or user root. */
     private static final Permission prefsPermission
@@ -219,8 +216,7 @@ public abstract class Preferences {
 		catch (Exception e)
 		  {
                     throw new RuntimeException ("Couldn't load default factory"
-                        + " '"+ defaultFactoryClass +"'");
-                    // XXX - when using 1.4 compatible throwables add cause
+                        + " '"+ defaultFactoryClass +"'", e);
                   }
               }
 
@@ -230,15 +226,15 @@ public abstract class Preferences {
     }
 
     /**
-     * Returns the system preferences node for the package of an object.
-     * The package node name of the object is determined by dropping the
-     * class name of the object of the fully quallified class name and
-     * replacing all '.' to '/' in the package name. If the class of the
+     * Returns the system preferences node for the package of a class.
+     * The package node name of the class is determined by dropping the
+     * final component of the fully qualified class name and
+     * changing all '.' to '/' in the package name. If the class of the
      * object has no package then the package node name is "&lt;unnamed&gt;".
-     * The returened node is <code>systemRoot().node(packageNodeName)</code>.
+     * The returned node is <code>systemRoot().node(packageNodeName)</code>.
      *
-     * @param o Object whose default system preference node is requested
-     * @returns system preferences node that should be used by object o
+     * @param c Object whose default system preference node is requested
+     * @returns system preferences node that should be used by class c
      * @exception SecurityException when a security manager is installed and
      * the caller does not have <code>RuntimePermission("preferences")</code>.
      */
@@ -249,15 +245,15 @@ public abstract class Preferences {
     }
 
     /**
-     * Returns the user preferences node for the package of an object.
-     * The package node name of the object is determined by dropping the
-     * class name of the object of the fully quallified class name and
-     * replacing all '.' to '/' in the package name. If the class of the
+     * Returns the user preferences node for the package of a class.
+     * The package node name of the class is determined by dropping the
+     * final component of the fully qualified class name and
+     * changing all '.' to '/' in the package name. If the class of the
      * object has no package then the package node name is "&lt;unnamed&gt;".
-     * The returened node is <code>userRoot().node(packageNodeName)</code>.
+     * The returned node is <code>userRoot().node(packageNodeName)</code>.
      *
-     * @param o Object whose default user preference node is requested
-     * @returns user preferences node that should be used by object o
+     * @param c Object whose default userpreference node is requested
+     * @returns userpreferences node that should be used by class c
      * @exception SecurityException when a security manager is installed and
      * the caller does not have <code>RuntimePermission("preferences")</code>.
      */
@@ -288,7 +284,13 @@ public abstract class Preferences {
     }
 
     /**
-     * XXX
+     * Import preferences from the given input stream.  This expects
+     * preferences to be represented in XML as emitted by
+     * {@link #exportNode(OutputStream)} and
+     * {@link #exportSubtree(OutputStream)}.
+     * @throws IOException if there is an error while reading
+     * @throws InvalidPreferencesFormatException if the XML is not properly
+     * formatted
      */
     public static void importPreferences(InputStream is) 
                                     throws InvalidPreferencesFormatException,
@@ -385,14 +387,28 @@ public abstract class Preferences {
     // abstract methods (export)
 
     /**
-     * XXX
+     * Export this node, but not its descendants, as XML to the 
+     * indicated output stream.  The XML will be encoded using UTF-8 
+     * and will use a specified document type:<br>
+     * <code>&lt;!DOCTYPE preferences SYSTEM "http://java.sun.com/dtd/preferences.dtd"&gt;</code><br>
+     * @param os the output stream to which the XML is sent
+     * @throws BackingStoreException if preference data cannot be read
+     * @throws IOException if an error occurs while writing the XML
+     * @throws IllegalStateException if this node or an ancestor has been removed
      */
     public abstract void exportNode(OutputStream os)
                                 throws BackingStoreException,
                                        IOException;
 
     /**
-     * XXX
+     * Export this node and all its descendants as XML to the 
+     * indicated output stream.  The XML will be encoded using UTF-8 
+     * and will use a specified document type:<br>
+     * <code>&lt;!DOCTYPE preferences SYSTEM "http://java.sun.com/dtd/preferences.dtd"&gt;</code><br>
+     * @param os the output stream to which the XML is sent
+     * @throws BackingStoreException if preference data cannot be read
+     * @throws IOException if an error occurs while writing the XML
+     * @throws IllegalStateException if this node or an ancestor has been removed
      */
     public abstract void exportSubtree(OutputStream os)
                                 throws BackingStoreException,

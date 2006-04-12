@@ -1,5 +1,5 @@
 /* QName.java - An XML qualified name.
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004,2005,2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package javax.xml.namespace;
 
+import java.io.Serializable;
+
 import javax.xml.XMLConstants;
 
 /**
@@ -47,14 +49,15 @@ import javax.xml.XMLConstants;
  * @author <a href='mailto:dog@gnu.org'>Chris Burdess</a>
  * @since 1.3
  */
-public class QName
+public class QName implements Serializable
 {
+  private static final long serialVersionUID = 4418622981026545151L;
 
   private final String namespaceURI;
   private final String localPart;
   private final String prefix;
-  private final String qName;
-  int hashCode = -1;
+  private transient String qName;
+  transient int hashCode = -1;
 
   public QName(String namespaceURI, String localPart)
   {
@@ -64,35 +67,21 @@ public class QName
   public QName(String namespaceURI, String localPart, String prefix)
   {
     if (namespaceURI == null)
-      {
-        namespaceURI = XMLConstants.NULL_NS_URI;
-      }
+      namespaceURI = XMLConstants.NULL_NS_URI;
     if (localPart == null)
-      {
-        throw new IllegalArgumentException();
-      }
+      throw new IllegalArgumentException();
     if (prefix == null)
+      prefix = XMLConstants.DEFAULT_NS_PREFIX;
+    else
       {
-        prefix = XMLConstants.DEFAULT_NS_PREFIX;
+        if (XMLConstants.XML_NS_PREFIX.equals(prefix))
+          namespaceURI = XMLConstants.XML_NS_URI;
+        else if (XMLConstants.XMLNS_ATTRIBUTE.equals(prefix))
+          namespaceURI = XMLConstants.XMLNS_ATTRIBUTE_NS_URI;
       }
     this.namespaceURI = namespaceURI;
     this.localPart = localPart;
     this.prefix = prefix;
-    
-    StringBuffer buf = new StringBuffer();
-    if (namespaceURI.length() > 0)
-      {
-        buf.append('{');
-        buf.append(namespaceURI);
-        buf.append('}');
-      }
-    if (prefix.length() > 0)
-      {
-        buf.append(prefix);
-        buf.append(':');
-      }
-    buf.append(localPart);
-    qName = buf.toString();
   }
 
   public QName(String localPart)
@@ -115,7 +104,7 @@ public class QName
     return prefix;
   }
 
-  public boolean equals(Object obj)
+  public final boolean equals(Object obj)
   {
     if (obj instanceof QName)
       {
@@ -129,19 +118,29 @@ public class QName
   public final int hashCode()
   {
     if (hashCode == -1)
-      {
-        StringBuffer buf = new StringBuffer();
-        buf.append('{');
-        buf.append(namespaceURI);
-        buf.append('}');
-        buf.append(localPart);
-        hashCode = buf.toString().hashCode();
-      }
+      hashCode = localPart.hashCode() ^ namespaceURI.hashCode();
     return hashCode;
   }
 
-  public String toString()
+  public synchronized String toString()
   {
+    if (qName == null)
+      {
+	StringBuffer buf = new StringBuffer();
+	if (namespaceURI.length() > 0)
+	  {
+	    buf.append('{');
+	    buf.append(namespaceURI);
+	    buf.append('}');
+	  }
+	if (prefix.length() > 0)
+	  {
+	    buf.append(prefix);
+	    buf.append(':');
+	  }
+	buf.append(localPart);
+	qName = buf.toString();
+      }
     return qName;
   }
 
@@ -153,9 +152,7 @@ public class QName
     if (start != -1)
       {
         if (end < start)
-          {
-            throw new IllegalArgumentException(qNameAsString);
-          }
+          throw new IllegalArgumentException(qNameAsString);
         namespaceUri = qNameAsString.substring(start + 1, end);
         qNameAsString = qNameAsString.substring(end + 1);
       }

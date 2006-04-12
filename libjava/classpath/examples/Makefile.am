@@ -20,7 +20,7 @@ endif
 endif
 
 # All our example java source files
-EXAMPLE_JAVA_FILES = $(srcdir)/gnu/classpath/examples/*/*.java
+EXAMPLE_JAVA_FILES = $(srcdir)/gnu/classpath/examples/*/*.java $(srcdir)/gnu/classpath/examples/*/*/*.java $(srcdir)/gnu/classpath/examples/*/*/*/*.java
 
 # The example C source files
 EXAMPLE_C_FILES = $(srcdir)/gnu/classpath/examples/*/*.c
@@ -34,8 +34,11 @@ BUILT_SOURCES = $(EXAMPLE_ZIP)
 # the png icons we use in some of the examples.
 EXAMPLE_ICONS = $(srcdir)/gnu/classpath/examples/icons/*.png
 
+# The example specific README files.
+READMES = $(srcdir)/gnu/classpath/examples/CORBA/swing/README.html
+
 # All the files we find "interesting"
-ALL_EXAMPLE_FILES = $(EXAMPLE_JAVA_FILES) $(EXAMPLE_C_FILES) $(EXAMPLE_ICONS)
+ALL_EXAMPLE_FILES = $(EXAMPLE_JAVA_FILES) $(EXAMPLE_C_FILES) $(EXAMPLE_ICONS) $(READMES)
 
 # Some architecture independent data to be installed.
 example_DATA = $(EXAMPLE_ZIP) README
@@ -50,25 +53,25 @@ install-data-local:
 	for file in $(ALL_EXAMPLE_FILES); do \
 	  f=`echo $$file | cut -c$$srcdir_cnt-`; \
 	  fdir=`dirname $$f`; \
-	  if test ! -d $(DESTDIR)/$(pkgdatadir)/examples/$$fdir; then \
-	    echo "$(mkinstalldirs) $(DESTDIR)/$(pkgdatadir)/examples/$$fdir"; \
-	    $(mkinstalldirs) $(DESTDIR)/$(pkgdatadir)/examples/$$fdir; \
+	  if test ! -d $(DESTDIR)$(pkgdatadir)/examples/$$fdir; then \
+	    echo "$(mkinstalldirs) $(DESTDIR)$(pkgdatadir)/examples/$$fdir"; \
+	    $(mkinstalldirs) $(DESTDIR)$(pkgdatadir)/examples/$$fdir; \
 	  fi; \
-	  echo "$(INSTALL_DATA) $$file $(DESTDIR)/$(pkgdatadir)/examples/$$f"; \
-	  $(INSTALL_DATA) $$file $(DESTDIR)/$(pkgdatadir)/examples/$$f; \
+	  echo "$(INSTALL_DATA) $$file $(DESTDIR)$(pkgdatadir)/examples/$$f"; \
+	  $(INSTALL_DATA) $$file $(DESTDIR)$(pkgdatadir)/examples/$$f; \
 	done
-	echo "$(INSTALL_DATA) Makefile.jawt $(DESTDIR)/$(pkgdatadir)/examples/"
-	$(INSTALL_DATA) Makefile.jawt $(DESTDIR)/$(pkgdatadir)/examples/
+	echo "$(INSTALL_DATA) Makefile.jawt $(DESTDIR)$(pkgdatadir)/examples/"
+	$(INSTALL_DATA) Makefile.jawt $(DESTDIR)$(pkgdatadir)/examples/
 
 uninstall-local:
 	srcdir_cnt=`echo $(srcdir) | wc -c`; \
 	for file in $(ALL_EXAMPLE_FILES); do \
 	  f=`echo $$file | cut -c$$srcdir_cnt-`; \
-	  echo "rm -f $(DESTDIR)/$(pkgdatadir)/examples/$$f"; \
-	  rm -f $(DESTDIR)/$(pkgdatadir)/examples/$$f; \
+	  echo "rm -f $(DESTDIR)$(pkgdatadir)/examples/$$f"; \
+	  rm -f $(DESTDIR)$(pkgdatadir)/examples/$$f; \
 	done
-	echo "rm -f $(DESTDIR)/$(pkgdatadir)/examples/Makefile.jawt"
-	rm -f $(DESTDIR)/$(pkgdatadir)/examples/Makefile.jawt
+	echo "rm -f $(DESTDIR)$(pkgdatadir)/examples/Makefile.jawt"
+	rm -f $(DESTDIR)$(pkgdatadir)/examples/Makefile.jawt
 
 # Make sure everything is included in the distribution.
 EXTRA_DIST = README Makefile.jawt.in
@@ -92,7 +95,10 @@ $(EXAMPLE_ZIP): $(EXAMPLE_JAVA_FILES)
 	mkdir -p classes/gnu/classpath/examples/icons
 	cp $(EXAMPLE_ICONS) classes/gnu/classpath/examples/icons
 	$(JCOMPILER) -d classes $(EXAMPLE_JAVA_FILES) 
-	cd classes; $(ZIP) -r ../$(EXAMPLE_ZIP) .; cd ..
+	(cd classes; \
+	if test "$(ZIP)" != ""; then $(ZIP) -r ../$(EXAMPLE_ZIP) .; fi; \
+	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf ../$(EXAMPLE_ZIP) .; fi; \
+	cd ..)
 	rm -rf classes
 
 # Zip file be gone! (and make sure the classes are gone too)

@@ -1,5 +1,5 @@
 /* GapContent.java --
-   Copyright (C) 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,10 +39,17 @@ exception statement from your version. */
 package javax.swing.text;
 
 import java.io.Serializable;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedList;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.ListIterator;
+import java.util.Vector;
 
+import javax.swing.undo.AbstractUndoableEdit;
+import javax.swing.undo.CannotRedoException;
+import javax.swing.undo.CannotUndoException;
 import javax.swing.undo.UndoableEdit;
 
 /**
@@ -59,12 +66,12 @@ import javax.swing.undo.UndoableEdit;
 public class GapContent
     implements AbstractDocument.Content, Serializable
 {
-
+  
   /**
    * A {@link Position} implementation for <code>GapContent</code>.
    */
-  class GapContentPosition
-      implements Position, Comparable
+  private class GapContentPosition
+    implements Position, Comparable
   {
 
     /** The index within the buffer array. */
@@ -96,15 +103,15 @@ public class GapContent
     public int compareTo(Object o)
     {
       if (o instanceof Integer)
-      {
-        int otherMark = ((Integer) o).intValue();
-        return mark - otherMark;
-      }
+        {
+          int otherMark = ((Integer) o).intValue();
+          return mark - otherMark;
+        }
       else
-      {
-        GapContentPosition other = (GapContentPosition) o;
-        return mark - other.mark;
-      }
+        {
+          GapContentPosition other = (GapContentPosition) o;
+          return mark - other.mark;
+        }
     }
 
     /**
@@ -114,6 +121,10 @@ public class GapContent
      */
     public int getOffset()
     {
+      // Check precondition.
+      assert mark <= gapStart || mark >= gapEnd : "mark: " + mark
+                                               + ", gapStart: " + gapStart
+                                               + ", gapEnd: " + gapEnd;
       if (mark <= gapStart)
         return mark;
       else
@@ -121,13 +132,125 @@ public class GapContent
     }
   }
 
-  private static final long serialVersionUID = 8374645204155842629L;
+  private class InsertUndo extends AbstractUndoableEdit
+  {
+    public int where, length;
+    String text;
+    public InsertUndo(int start, int len)
+    {
+      where = start;
+      length = len;
+    }
+
+    public void undo () throws CannotUndoException
+    {
+      super.undo();
+      try
+      {
+        text = getString(where, length);
+        remove(where, length);
+      }
+      catch (BadLocationException ble)
+      {
+        throw new CannotUndoException();
+      }
+    }
+    
+    public void redo () throws CannotUndoException
+    {
+      super.redo();
+      try
+      {
+        insertString(where, text);
+      }
+      catch (BadLocationException ble)
+      {
+        throw new CannotRedoException();
+      }
+    }
+    
+  }
+  
+  private class UndoRemove extends AbstractUndoableEdit
+  {
+    public int where;
+    String text;
+    public UndoRemove(int start, String removedText)
+    {
+      where = start;
+      text = removedText;
+    }
+
+    public void undo () throws CannotUndoException
+    {
+      super.undo();
+      try
+      {
+        insertString(where, text);
+      }
+      catch (BadLocationException ble)
+      {
+        throw new CannotUndoException();
+      }
+    }
+    
+    public void redo () throws CannotUndoException
+    {
+      super.redo();
+      try
+      {
+        remove(where, text.length());
+      }
+      catch (BadLocationException ble)
+      {
+        throw new CannotRedoException();
+      }
+    }
+    
+  }
+
+  /**
+   * Compares WeakReference objects in a List by comparing the referenced
+   * objects instead.
+   *
+   * @author Roman Kennke (kennke@aicas.com)
+   */
+  private class WeakPositionComparator
+    implements Comparator
+  {
+
+    /**
+     * Compares two objects of type WeakReference. The objects are compared
+     * using the referenced objects compareTo() method.
+     */
+    public int compare(Object o1, Object o2)
+    {
+      // Unwrap references.
+      if (o1 instanceof WeakReference)
+        o1 = ((WeakReference) o1).get();
+      if (o2 instanceof WeakReference)
+        o2 = ((WeakReference) o2).get();
+
+      GapContentPosition p1 = (GapContentPosition) o1;
+      GapContentPosition p2 = (GapContentPosition) o2;
+
+      int retVal;
+      if (p1 == null || p2 == null)
+        retVal = -1;
+      else
+        retVal = p1.compareTo(p2);
+      return retVal;
+    }
+  }
+
+  /** The serialization UID (compatible with JDK1.5). */
+  private static final long serialVersionUID = -6226052713477823730L;
 
   /**
    * This is the default buffer size and the amount of bytes that a buffer is
    * extended if it is full.
    */
-  static final int DEFAULT_BUFSIZE = 64;
+  static final int DEFAULT_BUFSIZE = 10;
 
   /**
    * The text buffer.
@@ -146,9 +269,10 @@ public class GapContent
 
   /**
    * The positions generated by this GapContent. They are kept in an ordered
-   * fashion, so they can be looked up easily.
+   * fashion, so they can be looked up easily. The value objects will be
+   * WeakReference objects that in turn hold GapContentPosition objects.
    */
-  LinkedList positions;
+  private ArrayList positions;
 
   /**
    * Creates a new GapContent object.
@@ -166,10 +290,10 @@ public class GapContent
   public GapContent(int size)
   {
     buffer = (char[]) allocateArray(size);
-    gapStart = 0;
-    gapEnd = size - 1;
-    buffer[size - 1] = '\n';
-    positions = new LinkedList();
+    gapStart = 1;
+    gapEnd = size;
+    buffer[0] = '\n';
+    positions = new ArrayList();
   }
 
   /**
@@ -211,8 +335,7 @@ public class GapContent
    * @param where the position where the string is inserted
    * @param str the string that is to be inserted
    * 
-   * @return an UndoableEdit object (currently not supported, so
-   *         <code>null</code> is returned)
+   * @return an UndoableEdit object
    * 
    * @throws BadLocationException if <code>where</code> is not a valid
    *         location in the buffer
@@ -224,13 +347,17 @@ public class GapContent
     int length = length();
     int strLen = str.length();
 
+    if (where < 0)
+      throw new BadLocationException("The where argument cannot be smaller"
+                                     + " than the zero", where);
+
     if (where >= length)
-      throw new BadLocationException("the where argument cannot be greater"
+      throw new BadLocationException("The where argument cannot be greater"
           + " than the content length", where);
 
-    replace(where, 0, str.toCharArray(), str.length());
+    replace(where, 0, str.toCharArray(), strLen);
 
-    return null;
+    return new InsertUndo(where, strLen);
   }
 
   /**
@@ -239,8 +366,7 @@ public class GapContent
    * @param where the position where the content is to be removed
    * @param nitems number of characters to be removed
    * 
-   * @return an UndoableEdit object (currently not supported, so
-   *         <code>null</code> is returned)
+   * @return an UndoableEdit object
    * 
    * @throws BadLocationException if <code>where</code> is not a valid
    *         location in the buffer
@@ -257,9 +383,10 @@ public class GapContent
       throw new BadLocationException("where + nitems cannot be greater"
           + " than the content length", where + nitems);
 
+    String removedText = getString(where, nitems);
     replace(where, nitems, null, 0);
 
-    return null;
+    return new UndoRemove(where, removedText);
   }
 
   /**
@@ -360,19 +487,22 @@ public class GapContent
       throw new BadLocationException("The offset was out of the bounds of this"
           + " buffer", offset);
 
+    clearPositionReferences();
+
     // We store the actual array index in the GapContentPosition. The real
     // offset is then calculated in the GapContentPosition.
     int mark = offset;
-    if (offset > gapStart)
+    if (offset >= gapStart)
       mark += gapEnd - gapStart;
     GapContentPosition pos = new GapContentPosition(mark);
+    WeakReference r = new WeakReference(pos);
 
     // Add this into our list in a sorted fashion.
-    int index = Collections.binarySearch(positions, pos);
+    int index = Collections.binarySearch(positions, r,
+                                         new WeakPositionComparator());
     if (index < 0)
       index = -(index + 1);
-    positions.add(index, pos);
-
+    positions.add(index, r);
     return pos;
   }
 
@@ -386,7 +516,14 @@ public class GapContent
    */
   protected void shiftEnd(int newSize)
   {
-    int delta = (gapEnd - gapStart) - newSize;
+    assert newSize > (gapEnd - gapStart) : "The new gap size must be greater "
+                                           + "than the old gap size";
+
+    int delta = newSize - gapEnd + gapStart;
+    // Update the marks after the gapEnd.
+    adjustPositionsInRange(gapEnd, buffer.length - gapEnd, delta);
+
+    // Copy the data around.
     char[] newBuf = (char[]) allocateArray(length() + newSize);
     System.arraycopy(buffer, 0, newBuf, 0, gapStart);
     System.arraycopy(buffer, gapEnd, newBuf, gapStart + newSize, buffer.length
@@ -394,18 +531,6 @@ public class GapContent
     gapEnd = gapStart + newSize;
     buffer = newBuf;
 
-    // Update the marks after the gapEnd.
-    int index = Collections.binarySearch(positions, new GapContentPosition(
-        gapEnd));
-    if (index < 0)
-    {
-      index = -(index + 1);
-    }
-    for (ListIterator i = positions.listIterator(index); i.hasNext();)
-    {
-      GapContentPosition p = (GapContentPosition) i.next();
-      p.mark += delta;
-    }
   }
 
   /**
@@ -415,32 +540,15 @@ public class GapContent
    */
   protected void shiftGap(int newGapStart)
   {
-    int newGapEnd = newGapStart + (gapEnd - gapStart);
-
-    // Update the positions between newGapEnd and (old) gapEnd. The marks
-    // must be shifted by (gapEnd - newGapEnd).
-    int index1 = Collections.binarySearch(positions,
-                                          new GapContentPosition(gapEnd));
-    int index2 = Collections.binarySearch(positions,
-                                          new GapContentPosition(newGapEnd));
-    if (index1 > 0 && index2 > 0)
-      {
-        int i1 = Math.min(index1, index2);
-        int i2 = Math.max(index1, index2);
-        for (ListIterator i = positions.listIterator(i1); i.hasNext();)
-          {
-            if (i.nextIndex() > i2)
-              break;
-            
-            GapContentPosition p = (GapContentPosition) i.next();
-            p.mark += gapEnd - newGapEnd;
-          }
-      }
-
     if (newGapStart == gapStart)
       return;
-    else if (newGapStart < gapStart)
+
+    int newGapEnd = newGapStart + gapEnd - gapStart;
+    if (newGapStart < gapStart)
       {
+        // Update the positions between newGapStart and (old) gapStart. The marks
+        // must be shifted by (gapEnd - gapStart).
+        adjustPositionsInRange(newGapStart, gapStart - newGapStart, gapEnd - gapStart);
         System.arraycopy(buffer, newGapStart, buffer, newGapEnd, gapStart
                          - newGapStart);
         gapStart = newGapStart;
@@ -448,11 +556,54 @@ public class GapContent
       }
     else
       {
+        // Update the positions between newGapEnd and (old) gapEnd. The marks
+        // must be shifted by (gapEnd - gapStart).
+        adjustPositionsInRange(gapEnd, newGapEnd - gapEnd, -(gapEnd - gapStart));
         System.arraycopy(buffer, gapEnd, buffer, gapStart, newGapStart
                          - gapStart);
         gapStart = newGapStart;
         gapEnd = newGapEnd;
       }
+    if (gapStart == 0)
+      resetMarksAtZero();
+  }
+
+  /**
+   * Shifts the gap start downwards. This does not affect the content of the
+   * buffer. This only updates the gap start and all the marks that are between
+   * the old gap start and the new gap start. They all are squeezed to the start
+   * of the gap, because their location has been removed.
+   *
+   * @param newGapStart the new gap start
+   */
+  protected void shiftGapStartDown(int newGapStart)
+  {
+    if (newGapStart == gapStart)
+      return;
+
+    assert newGapStart < gapStart : "The new gap start must be less than the "
+                                    + "old gap start.";
+    setPositionsInRange(newGapStart, gapStart - newGapStart, gapStart);
+    gapStart = newGapStart;
+  }
+
+  /**
+   * Shifts the gap end upwards. This does not affect the content of the
+   * buffer. This only updates the gap end and all the marks that are between
+   * the old gap end and the new end start. They all are squeezed to the end
+   * of the gap, because their location has been removed.
+   *
+   * @param newGapEnd the new gap start
+   */
+  protected void shiftGapEndUp(int newGapEnd)
+  {
+    if (newGapEnd == gapEnd)
+      return;
+
+    assert newGapEnd > gapEnd : "The new gap end must be greater than the "
+                                + "old gap end.";
+    setPositionsInRange(gapEnd, newGapEnd - gapEnd, newGapEnd);
+    gapEnd = newGapEnd;
   }
 
   /**
@@ -460,7 +611,7 @@ public class GapContent
    * 
    * @return the allocated buffer array
    */
-  protected Object getArray()
+  protected final Object getArray()
   {
     return buffer;
   }
@@ -476,19 +627,262 @@ public class GapContent
   protected void replace(int position, int rmSize, Object addItems,
                          int addSize)
   {
+    if (gapStart != position)
+      shiftGap(position);
+      
     // Remove content
-    shiftGap(position);
-    gapEnd += rmSize;
+    if (rmSize > 0) 
+      shiftGapEndUp(gapEnd + rmSize);
 
     // If gap is too small, enlarge the gap.
-    if ((gapEnd - gapStart) < addSize)
-      shiftEnd(addSize);
+    if ((gapEnd - gapStart) <= addSize)
+      shiftEnd((addSize - gapEnd + gapStart + 1) * 2 + gapEnd + DEFAULT_BUFSIZE);
 
     // Add new items to the buffer.
     if (addItems != null)
       {
         System.arraycopy(addItems, 0, buffer, gapStart, addSize);
         gapStart += addSize;
+      }
+  }
+
+  /**
+   * Returns the start index of the gap within the buffer array.
+   *
+   * @return the start index of the gap within the buffer array
+   */
+  protected final int getGapStart()
+  {
+    return gapStart;
+  }
+
+  /**
+   * Returns the end index of the gap within the buffer array.
+   *
+   * @return the end index of the gap within the buffer array
+   */
+  protected final int getGapEnd()
+  {
+    return gapEnd;
+  }
+
+  /**
+   * Returns all <code>Position</code>s that are in the range specified by
+   * <code>offset</code> and </code>length</code> within the buffer array.
+   *
+   * @param v the vector to use; if <code>null</code>, a new Vector is allocated
+   * @param offset the start offset of the range to search
+   * @param length the length of the range to search
+   *
+   * @return the positions within the specified range
+   */
+  protected Vector getPositionsInRange(Vector v, int offset, int length)
+  {
+    Vector res = v;
+    if (res == null)
+      res = new Vector();
+    else
+      res.clear();
+
+    int endOffset = offset + length;
+
+    int index1 = Collections.binarySearch(positions,
+                                          new GapContentPosition(offset),
+                                          new WeakPositionComparator());
+    if (index1 < 0)
+      index1 = -(index1 + 1);
+
+    // Search the first index with the specified offset. The binarySearch does
+    // not necessarily find the first one.
+    while (index1 > 0)
+      {
+        WeakReference r = (WeakReference) positions.get(index1 - 1);
+        GapContentPosition p = (GapContentPosition) r.get();
+        if (p != null && p.mark == offset || p == null)
+          index1--;
+        else
+          break;
+      }
+
+    for (ListIterator i = positions.listIterator(index1); i.hasNext();)
+      {
+        WeakReference r = (WeakReference) i.next();
+        GapContentPosition p = (GapContentPosition) r.get();
+        if (p == null)
+          continue;
+
+        if (p.mark > endOffset)
+          break;
+        if (p.mark >= offset && p.mark <= endOffset)
+          res.add(p);
+      }
+    return res;
+  }
+  
+  /**
+   * Sets the mark of all <code>Position</code>s that are in the range 
+   * specified by <code>offset</code> and </code>length</code> within 
+   * the buffer array to <code>value</code>
+   *
+   * @param offset the start offset of the range to search
+   * @param length the length of the range to search
+   * @param value the new value for each mark
+   */
+  private void setPositionsInRange(int offset, int length, int value)
+  {
+    int endOffset = offset + length;
+
+    int index1 = Collections.binarySearch(positions,
+                                          new GapContentPosition(offset),
+                                          new WeakPositionComparator());
+    if (index1 < 0)
+      index1 = -(index1 + 1);
+
+    // Search the first index with the specified offset. The binarySearch does
+    // not necessarily find the first one.
+    while (index1 > 0)
+      {
+        WeakReference r = (WeakReference) positions.get(index1 - 1);
+        GapContentPosition p = (GapContentPosition) r.get();
+        if (p != null && p.mark == offset || p == null)
+          index1--;
+        else
+          break;
+      }
+
+    for (ListIterator i = positions.listIterator(index1); i.hasNext();)
+      {
+        WeakReference r = (WeakReference) i.next();
+        GapContentPosition p = (GapContentPosition) r.get();
+        if (p == null)
+          continue;
+
+        if (p.mark > endOffset)
+          break;
+        
+        if (p.mark >= offset && p.mark <= endOffset)
+          p.mark = value;
+      }
+  }
+  
+  /**
+   * Adjusts the mark of all <code>Position</code>s that are in the range 
+   * specified by <code>offset</code> and </code>length</code> within 
+   * the buffer array by <code>increment</code>
+   *
+   * @param offset the start offset of the range to search
+   * @param length the length of the range to search
+   * @param incr the increment
+   */
+  private void adjustPositionsInRange(int offset, int length, int incr)
+  {
+    int endOffset = offset + length;
+
+    int index1 = Collections.binarySearch(positions,
+                                          new GapContentPosition(offset),
+                                          new WeakPositionComparator());
+    if (index1 < 0)
+      index1 = -(index1 + 1);
+
+    // Search the first index with the specified offset. The binarySearch does
+    // not necessarily find the first one.
+    while (index1 > 0)
+      {
+        WeakReference r = (WeakReference) positions.get(index1 - 1);
+        GapContentPosition p = (GapContentPosition) r.get();
+        if (p != null && p.mark == offset || p == null)
+          index1--;
+        else
+          break;
+      }
+
+    for (ListIterator i = positions.listIterator(index1); i.hasNext();)
+      {
+        WeakReference r = (WeakReference) i.next();
+        GapContentPosition p = (GapContentPosition) r.get();
+        if (p == null)
+          continue;
+
+        if (p.mark > endOffset)
+          break;
+
+        if (p.mark >= offset && p.mark <= endOffset)
+          p.mark += incr;
+      }
+  }
+
+  /**
+   * Resets all <code>Position</code> that have an offset of <code>0</code>,
+   * to also have an array index of <code>0</code>. This might be necessary
+   * after a call to <code>shiftGap(0)</code>, since then the marks at offset
+   * <code>0</code> get shifted to <code>gapEnd</code>.
+   */
+  protected void resetMarksAtZero()
+  {
+    if (gapStart != 0)
+      return;
+
+    setPositionsInRange(gapEnd, 0, 0);
+  }
+
+  /**
+   * @specnote This method is not very well specified and the positions vector
+   *           is implementation specific. The undo positions are managed
+   *           differently in this implementation, this method is only here
+   *           for binary compatibility.
+   */
+  protected void updateUndoPositions(Vector positions, int offset, int length)
+  {
+    // We do nothing here.
+  }
+
+  /**
+   * Outputs debugging info to System.err. It prints out the buffer array,
+   * the gapStart is marked by a &lt; sign, the gapEnd is marked by a &gt;
+   * sign and each position is marked by a # sign.
+   */
+  private void dump()
+  {
+    System.err.println("GapContent debug information");
+    System.err.println("buffer length: " + buffer.length);
+    System.err.println("gap start: " + gapStart);
+    System.err.println("gap end: " + gapEnd);
+    for (int i = 0; i < buffer.length; i++)
+      {
+        if (i == gapStart)
+          System.err.print('<');
+        if (i == gapEnd)
+          System.err.print('>');
+
+        if (!Character.isISOControl(buffer[i]))
+          System.err.print(buffer[i]);
+        else
+          System.err.print('.');
+      }
+    System.err.println();
+  }
+
+  private void dumpPositions()
+  {
+    for (Iterator i = positions.iterator(); i.hasNext();)
+      {
+        WeakReference r = (WeakReference) i.next();
+        GapContentPosition pos = (GapContentPosition) r.get();
+        System.err.println("position at: " + pos.mark);
+      }
+  }
+
+  /**
+   * Clears all GC'ed references in the positions array.
+   */
+  private void clearPositionReferences()
+  {
+    Iterator i = positions.iterator();
+    while (i.hasNext())
+      {
+        WeakReference r = (WeakReference) i.next();
+        if (r.get() == null)
+          i.remove();
       }
   }
 }

@@ -47,8 +47,7 @@ import javax.swing.JColorChooser;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
-import javax.swing.UIDefaults;
-import javax.swing.UIManager;
+import javax.swing.LookAndFeel;
 import javax.swing.colorchooser.AbstractColorChooserPanel;
 import javax.swing.colorchooser.ColorChooserComponentFactory;
 import javax.swing.event.ChangeEvent;
@@ -142,10 +141,9 @@ public class BasicColorChooserUI extends ColorChooserUI
   protected PropertyChangeListener propertyChangeListener;
 
   /**
-   * The JColorChooser.
-   * This is package-private to avoid an accessor method.
+   * The JColorChooser this is installed on.
    */
-  JColorChooser chooser;
+  protected JColorChooser chooser;
 
   /** The JTabbedPane that is used. */
   JTabbedPane pane;
@@ -243,9 +241,18 @@ public class BasicColorChooserUI extends ColorChooserUI
   {
     uninstallListeners();
     uninstallDefaults();
+    uninstallDefaultChoosers();
 
     pane = null;
     chooser = null;
+  }
+
+  /**
+   * Uninstalls the default color choosers that have been installed by this UI.
+   */
+  protected void uninstallDefaultChoosers()
+  {
+    defaultChoosers = null;
   }
 
   /**
@@ -281,11 +288,9 @@ public class BasicColorChooserUI extends ColorChooserUI
    */
   protected void installDefaults()
   {
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-
-    chooser.setFont(defaults.getFont("ColorChooser.font"));
-    chooser.setForeground(defaults.getColor("ColorChooser.foreground"));
-    chooser.setBackground(defaults.getColor("ColorChooser.background"));
+    LookAndFeel.installColorsAndFont(chooser, "ColorChooser.background",
+                                     "ColorChooser.foreground",
+                                     "ColorChooser.font");
   }
 
   /**

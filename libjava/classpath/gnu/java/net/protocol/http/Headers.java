@@ -1,5 +1,5 @@
 /* Headers.java --
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2006 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -44,143 +44,75 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.DateFormat;
 import java.text.ParseException;
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * A collection of HTTP header names and associated values.
- * Retrieval of values is case insensitive. An iteration over the keys
+ * A collection of HTTP header names and associated values.  The
+ * values are {@link ArrayList ArrayLists} of Strings.  Retrieval of
+ * values is case insensitive. An iteration over the collection
  * returns the header names in the order they were received.
  *
  * @author Chris Burdess (dog@gnu.org)
+ * @author David Daney (ddaney@avtrex.com)
  */
-public class Headers
-  implements Map
+class Headers
 {
-
+  /**
+   * A list of HeaderElements
+   *
+   */
+  private final ArrayList headers = new ArrayList();
+  
   static final DateFormat dateFormat = new HTTPDateFormat();
 
-  static class Header
+  static class HeaderElement
   {
+    String name;
+    String value;
 
-    final String name;
-
-    Header(String name)
+    HeaderElement(String name, String value)
     {
-      if (name == null || name.length() == 0)
-        {
-          throw new IllegalArgumentException(name);
-        }
       this.name = name;
+      this.value = value;
     }
-
-    public int hashCode()
-    {
-      return name.toLowerCase().hashCode();
-    }
-
-    public boolean equals(Object other)
-    {
-      if (other instanceof Header)
-        {
-          return ((Header) other).name.equalsIgnoreCase(name);
-        }
-      return false;
-    }
-
-    public String toString()
-    {
-      return name;
-    }
-    
   }
-
-  static class HeaderEntry
-    implements Map.Entry
-  {
-
-    final Map.Entry entry;
-
-    HeaderEntry(Map.Entry entry)
-    {
-      this.entry = entry;
-    }
-
-    public Object getKey()
-    {
-      return ((Header) entry.getKey()).name;
-    }
-
-    public Object getValue()
-    {
-      return entry.getValue();
-    }
-
-    public Object setValue(Object value)
-    {
-      return entry.setValue(value);
-    }
-
-    public int hashCode()
-    {
-      return entry.hashCode();
-    }
-
-    public boolean equals(Object other)
-    {
-      return entry.equals(other);
-    }
-
-    public String toString()
-    {
-      return getKey().toString() + "=" + getValue();
-    }
-    
-  }
-
-  private LinkedHashMap headers;
 
   public Headers()
   {
-    headers = new LinkedHashMap();
-  }
-
-  public int size()
-  {
-    return headers.size();
-  }
-
-  public boolean isEmpty()
-  {
-    return headers.isEmpty();
-  }
-
-  public boolean containsKey(Object key)
-  {
-    return headers.containsKey(new Header((String) key));
-  }
-
-  public boolean containsValue(Object value)
-  {
-    return headers.containsValue(value);
-  }
-
-  public Object get(Object key)
-  {
-    return headers.get(new Header((String) key));
   }
 
   /**
-   * Returns the value of the specified header as a string.
+   * Return an Iterator over this collection of headers.
+   * Iterator.getNext() returns objects of type {@link HeaderElement}.
+   *
+   * @return the Iterator.
+   */
+  Iterator iterator()
+  {
+    return headers.iterator();
+  }
+  
+  /**
+   * Returns the value of the specified header as a string.  If
+   * multiple values are present, the last one is returned.
    */
   public String getValue(String header)
   {
-    return (String) headers.get(new Header(header));
+    for (int i = headers.size() - 1; i >= 0; i--)
+      {
+        HeaderElement e = (HeaderElement)headers.get(i);
+        if (e.name.equalsIgnoreCase(header))
+          {
+            return e.value;
+          }
+      }
+    return null;
   }
 
   /**
@@ -197,6 +129,27 @@ public class Headers
     try
       {
         return Integer.parseInt(val);
+      }
+    catch (NumberFormatException e)
+      {
+      }
+    return -1;
+  }
+
+  /**
+   * Returns the value of the specified header as a long, or -1 if the
+   * header is not present or cannot be parsed as a long.
+   */
+  public long getLongValue(String header)
+  {
+    String val = getValue(header);
+    if (val == null)
+      {
+        return -1;
+      }
+    try
+      {
+        return Long.parseLong(val);
       }
     catch (NumberFormatException e)
       {
@@ -225,71 +178,62 @@ public class Headers
       }
   }
 
-  public Object put(Object key, Object value)
+  /**
+   * Add a header to this set of headers.  If there is an existing
+   * header with the same name, it is discarded.
+   *
+   * @param name the header name
+   * @param value the header value
+   *
+   * @see #addValue
+   */
+  public void put(String name, String value)
   {
-    return headers.put(new Header((String) key), value);
-  }
-
-  public Object remove(Object key)
-  {
-    return headers.remove(new Header((String) key));
-  }
-
-  public void putAll(Map t)
-  {
-    for (Iterator i = t.keySet().iterator(); i.hasNext(); )
-      {
-        String key = (String) i.next();
-        String value = (String) t.get(key);
-        headers.put(new Header(key), value);
-      }
-  }
-  
-  public void clear()
-  {
-    headers.clear();
-  }
-
-  public Set keySet()
-  {
-    Set keys = headers.keySet();
-    Set ret = new LinkedHashSet();
-    for (Iterator i = keys.iterator(); i.hasNext(); )
-      {
-        ret.add(((Header) i.next()).name);
-      }
-    return ret;
-  }
-
-  public Collection values()
-  {
-    return headers.values();
-  }
-
-  public Set entrySet()
-  {
-    Set entries = headers.entrySet();
-    Set ret = new LinkedHashSet();
-    for (Iterator i = entries.iterator(); i.hasNext(); )
-      {
-        Map.Entry entry = (Map.Entry) i.next();
-        ret.add(new HeaderEntry(entry));
-      }
-    return ret;
-  }
-
-  public boolean equals(Object other)
-  {
-    return headers.equals(other);
-  }
-
-  public int hashCode()
-  {
-    return headers.hashCode();
+    remove(name);
+    headers.add(headers.size(), new HeaderElement(name, value));
   }
 
   /**
-   * Parse the specified input stream, adding headers to this collection.
+   * Add all headers from a set of headers to this set.  If any of the
+   * headers to be added have the same name as existing headers, the
+   * existing headers will be discarded.
+   *
+   * @param o the headers to be added
+   */
+  public void putAll(Headers o)
+  {
+    for (Iterator it = o.iterator(); it.hasNext(); )
+      {
+        HeaderElement e = (HeaderElement)it.next();
+        remove(e.name);
+      }
+    for (Iterator it = o.iterator(); it.hasNext(); )
+      {
+        HeaderElement e = (HeaderElement)it.next();
+        addValue(e.name, e.value);
+      }
+  }
+
+  /**
+   * Remove a header from this set of headers.  If there is more than
+   * one instance of a header of the given name, they are all removed.
+   *
+   * @param name the header name
+   */
+  public void remove(String name)
+  {
+    for (Iterator it = headers.iterator(); it.hasNext(); )
+      {
+        HeaderElement e = (HeaderElement)it.next();
+        if (e.name.equalsIgnoreCase(name))
+          it.remove();
+      }
+  }
+
+  /**
+   * Parse the specified InputStream, adding headers to this collection.
+   *
+   * @param in the InputStream.
    */
   public void parse(InputStream in)
     throws IOException
@@ -298,7 +242,7 @@ public class Headers
       (LineInputStream) in : new LineInputStream(in);
     
     String name = null;
-    StringBuffer value = new StringBuffer();
+    StringBuilder value = new StringBuilder();
     while (true)
       {
         String line = lin.readLine();
@@ -351,18 +295,90 @@ public class Headers
       }
   }
   
-  private void addValue(String name, String value)
+
+  /**
+   * Add a header to this set of headers.  If there is an existing
+   * header with the same name, it is not effected.
+   *
+   * @param name the header name
+   * @param value the header value
+   *
+   * @see #put
+   */
+  public void addValue(String name, String value)
   {
-    Header key = new Header(name);
-    String old = (String) headers.get(key);
-    if (old == null)
+    headers.add(headers.size(), new HeaderElement(name, value));
+  }
+
+  /**
+   * Get a new Map containing all the headers.  The keys of the Map
+   * are Strings (the header names).  The values of the Map are
+   * unmodifiable Lists containing Strings (the header values).
+   *
+   * <p>
+   * 
+   * The returned map is modifiable.  Changing it will not effect this
+   * collection of Headers in any way.
+   *
+   * @return a Map containing all the headers.
+   */
+  public Map getAsMap()
+  {
+    LinkedHashMap m = new LinkedHashMap();
+    for (Iterator it = headers.iterator(); it.hasNext(); )
       {
-        headers.put(key, value);
+        HeaderElement e = (HeaderElement)it.next();
+        ArrayList l = (ArrayList)m.get(e.name);
+        if (l == null)
+          {
+            l = new ArrayList(1);
+            l.add(e.value);
+            m.put(e.name, l);
+          }
+        else
+          l.add(0, e.value);
       }
-    else
+    for (Iterator it = m.entrySet().iterator(); it.hasNext(); )
       {
-        headers.put(key, old + ", " + value);
+        Map.Entry me = (Map.Entry)it.next();
+        ArrayList l = (ArrayList)me.getValue();
+        me.setValue(Collections.unmodifiableList(l));
       }
+    return m;
+  }
+  
+  /**
+   * Get the name of the Nth header.
+   *
+   * @param i the header index.
+   *
+   * @return the header name.
+   *
+   * @see #getHeaderValue
+   */
+  public String getHeaderName(int i)
+  {
+    if (i >= headers.size() || i < 0)
+      return null;
+    
+    return ((HeaderElement)headers.get(i)).name;
+  }
+
+  /**
+   * Get the value of the Nth header.
+   *
+   * @param i the header index.
+   *
+   * @return the header value.
+   *
+   * @see #getHeaderName
+   */
+  public String getHeaderValue(int i)
+  {
+    if (i >= headers.size() || i < 0)
+      return null;
+    
+    return ((HeaderElement)headers.get(i)).value;
   }
   
 }

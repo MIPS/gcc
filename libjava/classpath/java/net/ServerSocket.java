@@ -1,5 +1,5 @@
 /* ServerSocket.java -- Class for implementing server side sockets
-   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004
+   Copyright (C) 1998, 1999, 2000, 2002, 2003, 2004, 2006
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -314,10 +314,6 @@ public class ServerSocket
    */
   public Socket accept() throws IOException
   {
-    SecurityManager sm = System.getSecurityManager();
-    if (sm != null)
-      sm.checkListen(impl.getLocalPort());
-
     Socket socket = new Socket();
 
     try
@@ -359,6 +355,9 @@ public class ServerSocket
     if (isClosed())
       throw new SocketException("ServerSocket is closed");
 
+    // FIXME: Add a security check to make sure we're allowed to 
+    // connect to the remote host.
+
     // The Sun spec says that if we have an associated channel and
     // it is in non-blocking mode, we throw an IllegalBlockingModeException.
     // However, in our implementation if the channel itself initiated this
@@ -369,6 +368,7 @@ public class ServerSocket
 
     impl.accept(socket.impl);
     socket.implCreated = true;
+    socket.bound = true;
   }
 
   /**

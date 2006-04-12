@@ -1,5 +1,5 @@
 /* AttributeSetUtilities.java -- 
-   Copyright (C) 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,24 +39,53 @@ package javax.print.attribute;
 
 import java.io.Serializable;
 
+/**
+ * <code>AttributeSetUtilities</code> provides static methods for working
+ * with <code>AttributeSet</code>s.
+ * <p>
+ * For every type of an attribute set available in the Java Print Service API
+ * are methods provided to get an unmodifiable view of an attribute set.
+ * This unmodifiable view provides a read-only version of the attribute
+ * set which throws {@link javax.print.attribute.UnmodifiableSetException}s
+ * if state changing methods are invoked.
+ * </p>
+ * <p>
+ * Methods for getting a synchronized view of an attribute set are also 
+ * available. This view provides synchronized (thread safe) access to the
+ * underlying wrapped attribute set.
+ * </P>
+ * <p>
+ * Three static methods for the implementation of own AttributeSets
+ * are provided, which verify that:
+ * <ul>
+ * <li>the given object is an attribute of the given interface.</li>
+ * <li>the category of given attribute is equals to a given category.</li>
+ * <li>the given object is a <code>Class</code> that implements the given 
+ * interface name.</li>
+ * </ul>
+ * 
+ */
 public final class AttributeSetUtilities
 {
   /**
    * This class isn't intended to be instantiated.
    */
-  private AttributeSetUtilities() {}
+  private AttributeSetUtilities() 
+  {
+    // only static methods
+  }
 
   private static class UnmodifiableAttributeSet
     implements AttributeSet, Serializable
   {
-    private AttributeSet set;
+    private AttributeSet attrset;
 
     public UnmodifiableAttributeSet(AttributeSet attributeSet)
     {
       if (attributeSet == null)
         throw new NullPointerException("attributeSet may not be null");
 
-      this.set = attributeSet;
+      this.attrset = attributeSet;
     }
 
     public boolean add(Attribute attribute)
@@ -76,32 +105,32 @@ public final class AttributeSetUtilities
 
     public boolean containsKey(Class category)
     {
-      return set.containsKey(category);
+      return attrset.containsKey(category);
     }
 
     public boolean containsValue(Attribute attribute)
     {
-      return set.containsValue(attribute);
+      return attrset.containsValue(attribute);
     }
 
     public boolean equals(Object obj)
     {
-      return set.equals(obj);
+      return attrset.equals(obj);
     }
     
     public Attribute get(Class interfaceName)
     {
-      return set.get(interfaceName);
+      return attrset.get(interfaceName);
     }
 
     public int hashCode()
     {
-      return set.hashCode();
+      return attrset.hashCode();
     }
     
     public boolean isEmpty()
     {
-      return set.isEmpty();
+      return attrset.isEmpty();
     }
 
     public boolean remove(Class category)
@@ -116,12 +145,12 @@ public final class AttributeSetUtilities
 
     public int size()
     {
-      return set.size();
+      return attrset.size();
     }
 
     public Attribute[] toArray()
     {
-      return set.toArray();
+      return attrset.toArray();
     }
   }
 
@@ -168,79 +197,79 @@ public final class AttributeSetUtilities
   private static class SynchronizedAttributeSet
     implements AttributeSet, Serializable
   {
-    private AttributeSet set;
+    private AttributeSet attrset;
 
     public SynchronizedAttributeSet(AttributeSet attributeSet)
     {
       if (attributeSet == null)
         throw new NullPointerException("attributeSet may not be null");
 
-      this.set = attributeSet;
+      attrset = attributeSet;
     }
 
     public synchronized boolean add(Attribute attribute)
     {
-      return set.add(attribute);
+      return attrset.add(attribute);
     }
 
     public synchronized boolean addAll(AttributeSet attributes)
     {
-      return set.addAll(attributes);
+      return attrset.addAll(attributes);
     }
     
     public synchronized void clear()
     {
-      set.clear();
+      attrset.clear();
     }
 
     public synchronized boolean containsKey(Class category)
     {
-      return set.containsKey(category);
+      return attrset.containsKey(category);
     }
 
     public synchronized boolean containsValue(Attribute attribute)
     {
-      return set.containsValue(attribute);
+      return attrset.containsValue(attribute);
     }
 
     public synchronized boolean equals(Object obj)
     {
-      return set.equals(obj);
+      return attrset.equals(obj);
     }
     
     public synchronized Attribute get(Class interfaceName)
     {
-      return set.get(interfaceName);
+      return attrset.get(interfaceName);
     }
 
     public synchronized int hashCode()
     {
-      return set.hashCode();
+      return attrset.hashCode();
     }
     
     public synchronized boolean isEmpty()
     {
-      return set.isEmpty();
+      return attrset.isEmpty();
     }
 
     public synchronized boolean remove(Class category)
     {
-      return set.remove(category);
+      return attrset.remove(category);
     }
 
     public synchronized boolean remove(Attribute attribute)
     {
-      return set.remove(attribute);
+      return attrset.remove(attribute);
     }
 
     public synchronized int size()
     {
-      return set.size();
+      return attrset.size();
     }
 
     public synchronized Attribute[] toArray()
     {
-      return set.toArray();
+      return attrset.toArray();
     }
   }
 
@@ -287,7 +316,8 @@ public final class AttributeSetUtilities
   /**
    * Returns a synchronized view of the given attribute set.
    *
-   * @return the sychronized attribute set
+   * @param attributeSet the set to synchronize.
+   * @return The sychronized attribute set.
    */
   public static AttributeSet synchronizedView(AttributeSet attributeSet)
   {
@@ -297,7 +327,8 @@ public final class AttributeSetUtilities
   /**
    * Returns a synchronized view of the given attribute set.
    *
-   * @return the sychronized attribute set
+   * @param attributeSet the set to synchronize.
+   * @return The sychronized attribute set.
    */
   public static DocAttributeSet synchronizedView(DocAttributeSet attributeSet)
   {
@@ -307,7 +338,8 @@ public final class AttributeSetUtilities
   /**
    * Returns a synchronized view of the given attribute set.
    *
-   * @return the sychronized attribute set
+   * @param attributeSet the set to synchronize.
+   * @return The sychronized attribute set.
    */
   public static PrintJobAttributeSet synchronizedView(PrintJobAttributeSet attributeSet)
   {
@@ -317,7 +349,8 @@ public final class AttributeSetUtilities
   /**
    * Returns a synchronized view of the given attribute set.
    *
-   * @return the sychronized attribute set
+   * @param attributeSet the set to synchronize.
+   * @return The sychronized attribute set.
    */
   public static PrintRequestAttributeSet synchronizedView(PrintRequestAttributeSet attributeSet)
   {
@@ -327,7 +360,8 @@ public final class AttributeSetUtilities
   /**
    * Returns a synchronized view of the given attribute set.
    *
-   * @return the sychronized attribute set
+   * @param attributeSet the set to synchronize.
+   * @return The sychronized attribute set.
    */
   public static PrintServiceAttributeSet synchronizedView(PrintServiceAttributeSet attributeSet)
   {
@@ -337,7 +371,8 @@ public final class AttributeSetUtilities
   /**
    * Returns an unmodifiable view of the given attribute set.
    *
-   * @return the sychronized attribute set
+   * @param attributeSet the set to make unmodifiable.
+   * @return The unmodifiable attribute set.
    */
   public static AttributeSet unmodifiableView(AttributeSet attributeSet)
   {
@@ -347,7 +382,8 @@ public final class AttributeSetUtilities
   /**
    * Returns an unmodifiable view of the given attribute set.
    *
-   * @return the sychronized attribute set
+   * @param attributeSet the set to make unmodifiable.
+   * @return The unmodifiable attribute set.
    */
   public static DocAttributeSet unmodifiableView(DocAttributeSet attributeSet)
   {
@@ -357,7 +393,8 @@ public final class AttributeSetUtilities
   /**
    * Returns an unmodifiable view of the given attribute set.
    *
-   * @return the sychronized attribute set
+   * @param attributeSet the set to make unmodifiable.
+   * @return The unmodifiable attribute set.
    */
   public static PrintJobAttributeSet unmodifiableView(PrintJobAttributeSet attributeSet)
   {
@@ -367,7 +404,8 @@ public final class AttributeSetUtilities
   /**
    * Returns an unmodifiable view of the given attribute set.
    *
-   * @return the sychronized attribute set
+   * @param attributeSet the set to make unmodifiable.
+   * @return The unmodifiable attribute set.
    */
   public static PrintRequestAttributeSet unmodifiableView(PrintRequestAttributeSet attributeSet)
   {
@@ -377,7 +415,8 @@ public final class AttributeSetUtilities
   /**
    * Returns an unmodifiable view of the given attribute set.
    *
-   * @return the sychronized attribute set
+   * @param attributeSet the set to make unmodifiable.
+   * @return The unmodifiable attribute set.
    */
   public static PrintServiceAttributeSet unmodifiableView(PrintServiceAttributeSet attributeSet)
   {
@@ -386,8 +425,10 @@ public final class AttributeSetUtilities
 
   /**
    * Verifies that the given object is a <code>Class</code> that
-   * implements the given interface name.
-   *
+   * implements the given interface name and returns it casted.
+   * 
+   * @param object the object to test.
+   * @param interfaceName the <code>Class</code> to verify against.
    * @return object casted to <code>Class</code>
    *
    * @exception ClassCastException if object is not a <code>Class</code>
@@ -410,7 +451,10 @@ public final class AttributeSetUtilities
   
   /**
    * Verifies that the given object is an attribute of the given interface.
-   *
+   * and returns it casted to the interface type.
+   * 
+   * @param object the object to test.
+   * @param interfaceName the <code>Class</code> to verify against.
    * @return the object casted to <code>Attribute</code>
    *
    * @exception ClassCastException if object is no instance of interfaceName.
@@ -429,10 +473,11 @@ public final class AttributeSetUtilities
   }
 
   /**
-   * Verifies that the category of attribute is equals to category.
-   *
-   * @param category the category the atteribute should be
-   * @param attribute the attribute to verify
+   * Verifies that the category of attribute is equals to the given category
+   * class.
+   * 
+   * @param category the category to test.
+   * @param attribute the attribute to verify.
    *
    * @exception IllegalArgumentException if the categories are not equal
    * @exception NullPointerException if category is null
@@ -440,10 +485,10 @@ public final class AttributeSetUtilities
   public static void verifyCategoryForValue(Class category,
                                             Attribute attribute)
   {
-    if (category == null)
-      throw new NullPointerException("object may not be null");
+    if (category == null || attribute == null)
+      throw new NullPointerException("category or attribute may not be null");
 
-    if (category.equals(attribute.getCategory()))
+    if (!category.equals(attribute.getCategory()))
       throw new IllegalArgumentException
         ("category of attribute not equal to category");
   }

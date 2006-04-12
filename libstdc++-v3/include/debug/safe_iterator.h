@@ -1,6 +1,6 @@
 // Safe iterator implementation  -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005
+// Copyright (C) 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -41,9 +41,6 @@
 
 namespace __gnu_debug
 {
-  using std::iterator_traits;
-  using std::pair;
-
   /** Iterators that derive from _Safe_iterator_base but that aren't
    *  _Safe_iterators can be determined singular or non-singular via
    *  _Safe_iterator_base.
@@ -89,7 +86,7 @@ namespace __gnu_debug
 	return __is_same<const_iterator, _Safe_iterator>::value;
       }
 
-      typedef iterator_traits<_Iterator> _Traits;
+      typedef std::iterator_traits<_Iterator> _Traits;
 
     public:
       typedef _Iterator                           _Base_iterator;
@@ -361,16 +358,16 @@ namespace __gnu_debug
      *	precision.
     */
     template<typename _Iterator1, typename _Iterator2>
-      static pair<difference_type, _Distance_precision>
+      static std::pair<difference_type, _Distance_precision>
       _M_get_distance(const _Iterator1& __lhs, const _Iterator2& __rhs)
       {
-        typedef typename iterator_traits<_Iterator1>::iterator_category
+        typedef typename std::iterator_traits<_Iterator1>::iterator_category
 	  _Category;
         return _M_get_distance(__lhs, __rhs, _Category());
       }
 
     template<typename _Iterator1, typename _Iterator2>
-      static pair<difference_type, _Distance_precision>
+      static std::pair<difference_type, _Distance_precision>
       _M_get_distance(const _Iterator1& __lhs, const _Iterator2& __rhs,
 		      std::random_access_iterator_tag)
       {
@@ -378,7 +375,7 @@ namespace __gnu_debug
       }
 
     template<typename _Iterator1, typename _Iterator2>
-      static pair<difference_type, _Distance_precision>
+      static std::pair<difference_type, _Distance_precision>
       _M_get_distance(const _Iterator1& __lhs, const _Iterator2& __rhs,
 		    std::forward_iterator_tag)
       {
@@ -606,6 +603,22 @@ namespace __gnu_debug
 			    ._M_iterator(__rhs, "rhs"));
       return __lhs.base() - __rhs.base();
     }
+
+   template<typename _Iterator, typename _Sequence>
+     inline typename _Safe_iterator<_Iterator, _Sequence>::difference_type
+     operator-(const _Safe_iterator<_Iterator, _Sequence>& __lhs,
+	       const _Safe_iterator<_Iterator, _Sequence>& __rhs)
+     {
+       _GLIBCXX_DEBUG_VERIFY(! __lhs._M_singular() && ! __rhs._M_singular(),
+			     _M_message(__msg_distance_bad)
+			     ._M_iterator(__lhs, "lhs")
+			     ._M_iterator(__rhs, "rhs"));
+       _GLIBCXX_DEBUG_VERIFY(__lhs._M_can_compare(__rhs),
+			     _M_message(__msg_distance_different)
+			     ._M_iterator(__lhs, "lhs")
+			     ._M_iterator(__rhs, "rhs"));
+       return __lhs.base() - __rhs.base();
+     }
 
   template<typename _Iterator, typename _Sequence>
     inline _Safe_iterator<_Iterator, _Sequence>

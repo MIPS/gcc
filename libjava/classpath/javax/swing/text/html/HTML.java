@@ -57,8 +57,7 @@ public class HTML
   /**
    * Represents a HTML attribute.
    */
-  public static class Attribute
-    implements Serializable
+  public static final class Attribute
   {
     /**
      * The action attribute
@@ -464,47 +463,18 @@ public class HTML
      *  The width attribute
      */
     public static final Attribute WIDTH = new Attribute("width");
+
+    /**
+     * The attribute name.
+     */
     private final String name;
 
     /**
      * Creates the attribute with the given name.
      */
-    protected Attribute(String a_name)
+    private Attribute(String a_name)
     {
       name = a_name;
-    }
-
-    /**
-     * Calls compareTo on the tag names (Strings)
-     */
-    public int compareTo(Object other)
-    {
-      return name.compareTo(((Attribute) other).name);
-    }
-
-    /**
-     * The attributes are equal if the names are equal
-     * (ignoring case)
-     */
-    public boolean equals(Object other)
-    {
-      if (other == this)
-        return true;
-
-      if (!(other instanceof Attribute))
-        return false;
-
-      Attribute that = (Attribute) other;
-
-      return that.name.equalsIgnoreCase(name);
-    }
-
-    /**
-     * Returns the hash code which corresponds to the string for this tag.
-     */
-    public int hashCode()
-    {
-      return name == null ? 0 : name.hashCode();
     }
 
     /**
@@ -559,7 +529,6 @@ public class HTML
    * Represents a HTML tag.
    */
   public static class Tag
-    implements Comparable, Serializable
   {
     /**
      * The &lt;a&gt; tag
@@ -945,22 +914,22 @@ public class HTML
      * This tag is not included into the array, returned by getAllTags().
      * toString() returns 'comment'. HTML reader synthesizes this tag.
      */
-    public static final Tag COMMENT = new Tag("comment", SYNTETIC);
+    public static final Tag COMMENT = new Tag("comment", SYNTHETIC);
 
     /**
      *  All text content is labeled with this tag.
      *  This tag is not included into the array, returned by getAllTags().
      *  toString() returns 'content'. HTML reader synthesizes this tag.
      */
-    public static final Tag CONTENT = new Tag("content", SYNTETIC);
+    public static final Tag CONTENT = new Tag("content", SYNTHETIC);
 
     /**
      * All text content must be in a paragraph element.
      * If a paragraph didn't exist when content was encountered,
      * a paragraph is manufactured.
-     * toString() returns 'implied'. HTML reader synthesizes this tag.
+     * toString() returns 'p-implied'. HTML reader synthesizes this tag.
      */
-    public static final Tag IMPLIED = new Tag("implied", SYNTETIC);
+    public static final Tag IMPLIED = new Tag("p-implied", SYNTHETIC);
     final String name;
     final int flags;
 
@@ -1047,42 +1016,6 @@ public class HTML
     }
 
     /**
-     * Calls compareTo on the tag names (Strings)
-     */
-    public int compareTo(Object other)
-    {
-      return name.compareTo(((Tag) other).name);
-    }
-
-    /**
-     * The tags are equal if the names are equal (ignoring case).
-     */
-    public boolean equals(Object other)
-    {
-      if (other == this)
-        {
-          return true;
-        }
-
-      if (!(other instanceof Tag))
-        {
-          return false;
-        }
-
-      Tag that = (Tag) other;
-
-      return that.name.equalsIgnoreCase(name);
-    }
-
-    /**
-     * Returns the hash code which corresponds to the string for this tag.
-     */
-    public int hashCode()
-    {
-      return name == null ? 0 : name.hashCode();
-    }
-
-    /**
      * Returns the tag name. The names of the built-in tags are always
      * returned in lowercase.
      */
@@ -1144,7 +1077,7 @@ public class HTML
      */
     boolean isSyntetic()
     {
-      return (flags & SYNTETIC) != 0;
+      return (flags & SYNTHETIC) != 0;
     }
 
     private static void unexpected(Exception ex)
@@ -1185,7 +1118,7 @@ public class HTML
   static final int BREAKS = 1;
   static final int BLOCK = 2;
   static final int PREFORMATTED = 4;
-  static final int SYNTETIC = 8;
+  static final int SYNTHETIC = 8;
   private static Map tagMap;
   private static Map attrMap;
 
@@ -1196,6 +1129,7 @@ public class HTML
    */
   public HTML()
   {
+    // Nothing to do here.
   }
 
   /**

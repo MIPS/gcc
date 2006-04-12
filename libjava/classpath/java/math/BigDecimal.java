@@ -43,11 +43,26 @@ public class BigDecimal extends Number implements Comparable
   private int scale;
   private static final long serialVersionUID = 6108874887143696463L;
 
-  private static final BigDecimal ZERO = 
+  /**
+   * The constant zero as a BigDecimal with scale zero.
+   * @since 1.5
+   */
+  public static final BigDecimal ZERO = 
     new BigDecimal (BigInteger.valueOf (0), 0);
 
-  private static final BigDecimal ONE = 
+  /**
+   * The constant one as a BigDecimal with scale zero.
+   * @since 1.5
+   */
+  public static final BigDecimal ONE = 
     new BigDecimal (BigInteger.valueOf (1), 0);
+
+  /**
+   * The constant ten as a BigDecimal with scale zero.
+   * @since 1.5
+   */
+  public static final BigDecimal TEN = 
+    new BigDecimal (BigInteger.valueOf (10), 0);
 
   public static final int ROUND_UP = 0;
   public static final int ROUND_DOWN = 1;
@@ -350,16 +365,13 @@ public class BigDecimal extends Number implements Comparable
 
     // quotients are the same, so compare remainders
 
-    // remove trailing zeros
-    if (thisParts[1].equals (BigInteger.valueOf (0)) == false)
-      while (thisParts[1].mod (BigInteger.valueOf (10)).equals
-	     (BigInteger.valueOf (0)))
-      thisParts[1] = thisParts[1].divide (BigInteger.valueOf (10));
-    // again...
-    if (valParts[1].equals(BigInteger.valueOf (0)) == false)
-      while (valParts[1].mod (BigInteger.valueOf (10)).equals
-	     (BigInteger.valueOf (0)))
-	valParts[1] = valParts[1].divide (BigInteger.valueOf (10));
+    // Add some trailing zeros to the remainder with the smallest scale
+    if (scale < val.scale)
+      thisParts[1] = thisParts[1].multiply
+			(BigInteger.valueOf (10).pow (val.scale - scale));
+    else if (scale > val.scale)
+      valParts[1] = valParts[1].multiply
+			(BigInteger.valueOf (10).pow (scale - val.scale));
 
     // and compare them
     return thisParts[1].compareTo (valParts[1]);

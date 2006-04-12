@@ -1,6 +1,6 @@
-// Versatile string utilities -*- C++ -*-
+// Versatile string utility -*- C++ -*-
 
-// Copyright (C) 2005 Free Software Foundation, Inc.
+// Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -45,17 +45,7 @@
 #include <locale>
 #include <algorithm> // For std::distance, srd::search.
 
-namespace __gnu_cxx
-{
-  template<typename _Type>
-    inline bool
-    __is_null_p(_Type* __ptr)
-    { return __ptr == 0; }
-
-  template<typename _Type>
-    inline bool
-    __is_null_p(_Type)
-    { return false; }
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     struct __vstring_utility
@@ -92,6 +82,29 @@ namespace __gnu_cxx
 				       __rc_string_base> >
         __const_rc_iterator;
 
+      // NB:  When the allocator is empty, deriving from it saves space 
+      // (http://www.cantrip.org/emptyopt.html).
+      template<typename _Alloc1>
+        struct _Alloc_hider
+	: public _Alloc1
+	{
+	  _Alloc_hider(const _Alloc1& __a, _CharT* __ptr)
+	  : _Alloc1(__a), _M_p(__ptr) { }
+
+	  _CharT*  _M_p; // The actual data.
+	};
+
+      // For use in _M_construct (_S_construct) forward_iterator_tag.
+      template<typename _Type>
+        static bool
+        _S_is_null_pointer(_Type* __ptr)
+        { return __ptr == 0; }
+
+      template<typename _Type>
+        static bool
+        _S_is_null_pointer(_Type)
+        { return false; }
+
       // When __n = 1 way faster than the general multichar
       // traits_type::copy/move/assign.
       static void
@@ -123,7 +136,7 @@ namespace __gnu_cxx
 
       // _S_copy_chars is a separate template to permit specialization
       // to optimize for the common case of pointers as iterators.
-      template<class _Iterator>
+      template<typename _Iterator>
         static void
         _S_copy_chars(_CharT* __p, _Iterator __k1, _Iterator __k2)
         {
@@ -157,6 +170,7 @@ namespace __gnu_cxx
       _S_copy_chars(_CharT* __p, const _CharT* __k1, const _CharT* __k2)
       { _S_copy(__p, __k1, __k2 - __k1); }
     };
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _VSTRING_UTIL_H */

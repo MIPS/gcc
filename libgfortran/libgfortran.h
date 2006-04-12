@@ -1,5 +1,5 @@
-/* Common declarations for all of libgfor.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+/* Common declarations for all of libgfortran.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>, and
    Andy Vaught <andy@xena.eas.asu.edu>
 
@@ -51,24 +51,7 @@ Boston, MA 02110-1301, USA.  */
 #include <ieeefp.h>
 #endif
 
-#if HAVE_STDINT_H
-#include <stdint.h>
-#endif
-
-#if HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
-
-#if !defined(HAVE_STDINT_H) && !defined(HAVE_INTTYPES_H) && defined(TARGET_ILP32)
-typedef char int8_t;
-typedef short int16_t;
-typedef int int32_t;
-typedef long long int64_t;
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long long uint64_t;
-#endif
+#include "gstdint.h"
 
 #if HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -353,6 +336,9 @@ typedef struct
 {
   int warn_std;
   int allow_std;
+  int pedantic;
+  int convert;
+  size_t record_marker;
 }
 compile_options_t;
 
@@ -392,6 +378,10 @@ typedef enum
   ERROR_BAD_US,
   ERROR_READ_VALUE,
   ERROR_READ_OVERFLOW,
+  ERROR_INTERNAL,
+  ERROR_INTERNAL_UNIT,
+  ERROR_ALLOCATION,
+  ERROR_DIRECT_EOR,
   ERROR_LAST			/* Not a real error, the last error # + 1.  */
 }
 error_codes;
@@ -417,6 +407,13 @@ error_codes;
 #define GFC_FPE_UNDERFLOW  (1<<4)
 #define GFC_FPE_PRECISION  (1<<5)
 
+/* This is returned by notification_std to know if, given the flags
+   that were given (-std=, -pedantic) we should issue an error, a warning
+   or nothing.  */
+typedef enum
+{ SILENT, WARNING, ERROR }
+notification;
+
 /* The filename and line number don't go inside the globals structure.
    They are set by the rest of the program and must be linked to.  */
 
@@ -437,11 +434,11 @@ iexport_data_proto(filename);
 extern void stupid_function_name_for_static_linking (void);
 internal_proto(stupid_function_name_for_static_linking);
 
-extern void library_start (void);
+struct st_parameter_common;
+extern void library_start (struct st_parameter_common *);
 internal_proto(library_start);
 
-extern void library_end (void);
-internal_proto(library_end);
+#define library_end()
 
 extern void set_args (int, char **);
 export_proto(set_args);
@@ -465,13 +462,14 @@ internal_proto(xtoa);
 extern void os_error (const char *) __attribute__ ((noreturn));
 internal_proto(os_error);
 
-extern void show_locus (void);
+extern void show_locus (struct st_parameter_common *);
 internal_proto(show_locus);
 
 extern void runtime_error (const char *) __attribute__ ((noreturn));
 iexport_proto(runtime_error);
 
-extern void internal_error (const char *) __attribute__ ((noreturn));
+extern void internal_error (struct st_parameter_common *, const char *)
+  __attribute__ ((noreturn));
 internal_proto(internal_error);
 
 extern const char *get_oserror (void);
@@ -491,7 +489,7 @@ internal_proto(st_sprintf);
 extern const char *translate_error (int);
 internal_proto(translate_error);
 
-extern void generate_error (int, const char *);
+extern void generate_error (struct st_parameter_common *, int, const char *);
 internal_proto(generate_error);
 
 /* fpu.c */
@@ -526,7 +524,8 @@ internal_proto(show_variables);
 
 /* string.c */
 
-extern int find_option (const char *, int, const st_option *, const char *);
+extern int find_option (struct st_parameter_common *, const char *, int,
+			const st_option *, const char *);
 internal_proto(find_option);
 
 extern int fstrlen (const char *, int);

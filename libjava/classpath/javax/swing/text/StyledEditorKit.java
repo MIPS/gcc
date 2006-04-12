@@ -40,13 +40,9 @@ package javax.swing.text;
 
 import java.awt.Color;
 import java.awt.event.ActionEvent;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
-import java.io.Serializable;
 
 import javax.swing.Action;
 import javax.swing.JEditorPane;
-import javax.swing.JTextPane;
 import javax.swing.event.CaretEvent;
 import javax.swing.event.CaretListener;
 
@@ -71,7 +67,7 @@ public class StyledEditorKit extends DefaultEditorKit
      */
     public UnderlineAction()
     {
-      super("TODO"); // TODO: Figure out name for this action.
+      super("font-underline");
     }
 
     /**
@@ -101,7 +97,7 @@ public class StyledEditorKit extends DefaultEditorKit
      */
     public ItalicAction()
     {
-      super("TODO"); // TODO: Figure out correct name of this Action.
+      super("font-italic");
     }
 
     /**
@@ -131,7 +127,7 @@ public class StyledEditorKit extends DefaultEditorKit
      */
     public BoldAction()
     {
-      super("TODO"); // TODO: Figure out correct name of this Action.
+      super("font-bold");
     }
 
     /**
@@ -460,11 +456,11 @@ public class StyledEditorKit extends DefaultEditorKit
    * <code>StyledEditorKit</code>, namely the following types of Elements:
    *
    * <ul>
-   * <li>{@link AbstractDocument.ContentElementName}</li>
-   * <li>{@link AbstractDocument.ParagraphElementName}</li>
-   * <li>{@link AbstractDocument.SectionElementName}</li>
-   * <li>{@link StyleContext.ComponentElementName}</li>
-   * <li>{@link StyleContext.IconElementName}</li>
+   * <li>{@link AbstractDocument#ContentElementName}</li>
+   * <li>{@link AbstractDocument#ParagraphElementName}</li>
+   * <li>{@link AbstractDocument#SectionElementName}</li>
+   * <li>{@link StyleConstants#ComponentElementName}</li>
+   * <li>{@link StyleConstants#IconElementName}</li>
    * </ul>
    */
   static class StyledViewFactory
@@ -589,8 +585,26 @@ public class StyledEditorKit extends DefaultEditorKit
   public Action[] getActions()
   {
     Action[] actions1 = super.getActions();
-    Action[] myActions = new Action[] { new BoldAction(), new ItalicAction(),
-					new UnderlineAction() };
+    Action[] myActions = new Action[] { 
+      new FontSizeAction("font-size-8", 8),
+      new FontSizeAction("font-size-10", 10),
+      new FontSizeAction("font-size-12", 12),
+      new FontSizeAction("font-size-14", 14),
+      new FontSizeAction("font-size-16", 16),
+      new FontSizeAction("font-size-18", 18),
+      new FontSizeAction("font-size-24", 24),
+      new FontSizeAction("font-size-36", 36),
+      new FontSizeAction("font-size-48", 48),
+      new FontFamilyAction("font-family-Serif", "Serif"),
+      new FontFamilyAction("font-family-Monospaced", "Monospaced"),
+      new FontFamilyAction("font-family-SansSerif", "SansSerif"),
+      new AlignmentAction("left-justify", StyleConstants.ALIGN_LEFT),
+      new AlignmentAction("center-justify", StyleConstants.ALIGN_CENTER),
+      new AlignmentAction("right-justify", StyleConstants.ALIGN_RIGHT),
+      new BoldAction(),
+      new ItalicAction(),
+      new UnderlineAction()
+    };
     return TextAction.augmentList(actions1, myActions);
   }
 
@@ -667,11 +681,11 @@ public class StyledEditorKit extends DefaultEditorKit
    * namely the following types of <code>Element</code>s:
    *
    * <ul>
-   * <li>{@link AbstractDocument.ContentElementName}</li>
-   * <li>{@link AbstractDocument.ParagraphElementName}</li>
-   * <li>{@link AbstractDocument.SectionElementName}</li>
-   * <li>{@link StyleContext.ComponentElementName}</li>
-   * <li>{@link StyleContext.IconElementName}</li>
+   * <li>{@link AbstractDocument#ContentElementName}</li>
+   * <li>{@link AbstractDocument#ParagraphElementName}</li>
+   * <li>{@link AbstractDocument#SectionElementName}</li>
+   * <li>{@link StyleConstants#ComponentElementName}</li>
+   * <li>{@link StyleConstants#IconElementName}</li>
    * </ul>
    *
    * @return a {@link ViewFactory} that is able to create {@link View}s
@@ -700,9 +714,8 @@ public class StyledEditorKit extends DefaultEditorKit
   protected void createInputAttributes(Element element,
 				       MutableAttributeSet set)
   {
-    AttributeSet atts = element.getAttributes();
-    set.removeAttributes(set);
     // FIXME: Filter out component, icon and element name attributes.
-    set.addAttributes(atts);
+    set.removeAttributes(set);
+    set.addAttributes(element.getAttributes());
   }
 }

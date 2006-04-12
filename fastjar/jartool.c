@@ -1,6 +1,6 @@
 /*
   jartool.c - main functions for fastjar utility
-  Copyright (C) 2002, 2004, 2005  Free Software Foundation
+  Copyright (C) 2002, 2004, 2005, 2006  Free Software Foundation
   Copyright (C) 1999, 2000, 2001  Bryan Burns
   
   This program is free software; you can redistribute it and/or
@@ -321,7 +321,7 @@ ub4 end_of_entries;
 #define OPT_HELP     LONG_OPT (0)
 
 /* This holds all options.  */
-#define OPTION_STRING "-ctxuvVf:m:C:0ME@"
+#define OPTION_STRING "-ctxuvVf:m:C:0MiE@"
 
 /* Define the MANIFEST content here to have it easier with calculations
    below.  This is for the case we create an empty MANIFEST.MF.  */
@@ -407,6 +407,9 @@ int main(int argc, char **argv)
     case 'M':
       manifest = FALSE;
       break;
+    case 'i':
+      action = ACTION_INDEX;
+      break;
 
     case OPT_HELP:
       help(argv[0]);
@@ -423,6 +426,13 @@ int main(int argc, char **argv)
       usage(argv[0]);
     }
   }
+
+  if(verbose && action == ACTION_INDEX)
+    fprintf(stderr, "Warning: '-i' option is currently a no-op\n");
+
+  /* FIXME: implement -i option. */
+  if(action == ACTION_INDEX)
+    exit(0);
 
   /* We might have seen `--'.  In this case we want to make sure that
      all following options are handled as file names.  */
@@ -2218,7 +2228,7 @@ void version (void)
 {
   printf("jar (%s) %s\n\n", PACKAGE, VERSION);
   printf("Copyright 1999, 2000, 2001  Bryan Burns\n");
-  printf("Copyright 2002, 2004 Free Software Foundation\n");
+  printf("Copyright 2006 Free Software Foundation\n");
   printf("\
 This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
@@ -2245,8 +2255,12 @@ Store many files together in a single `jar' file.\n\
   -E              don't include the files found in a directory\n\
   -f FILE         specify archive file name\n\
   --help          print this help, then exit\n\
+");
+  printf("\
   -m FILE         include manifest information from specified manifest file\n\
   -M              Do not create a manifest file for the entries\n\
+  -i              generate an index of the packages in this jar\n\
+                  and its Class-Path (currently unimplemented)\n\
   -v              generate verbose output on standard output\n\
   -V, --version   display version information\n\
 ");

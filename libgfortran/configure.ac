@@ -4,6 +4,7 @@
 AC_PREREQ(2.59)
 AC_INIT([GNU Fortran Runtime Library], 0.2,,[libgfortran])
 AC_CONFIG_HEADER(config.h)
+GCC_TOPLEV_SUBDIRS
 
 # -------
 # Options
@@ -111,10 +112,13 @@ m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
 
 # Add -Wall -fno-repack-arrays -fno-underscoring if we are using GCC.
 if test "x$GCC" = "xyes"; then
-  AM_FCFLAGS="-Wall -fno-repack-arrays -fno-underscoring"
+  AM_FCFLAGS="-I . -Wall -fno-repack-arrays -fno-underscoring"
   ## We like to use C99 routines when available.  This makes sure that
   ## __STDC_VERSION__ is set such that libc includes make them available.
   AM_CFLAGS="-std=gnu99 -Wall -Wstrict-prototypes -Wmissing-prototypes -Wold-style-definition -Wextra -Wwrite-strings"
+  ## Compile the following tests with the same system header contents
+  ## that we'll encounter when compiling our own source files.
+  CFLAGS="-std=gnu99 $CFLAGS"
 fi
 AC_SUBST(AM_FCFLAGS)
 AC_SUBST(AM_CFLAGS)
@@ -156,9 +160,10 @@ AC_TYPE_OFF_T
 AC_STDC_HEADERS
 AC_HAVE_HEADERS(stdlib.h stdio.h string.h stddef.h math.h unistd.h signal.h)
 AC_CHECK_HEADERS(time.h sys/params.h sys/time.h sys/times.h sys/resource.h)
-AC_CHECK_HEADERS(sys/mman.h sys/types.h sys/stat.h floatingpoint.h ieeefp.h)
+AC_CHECK_HEADERS(sys/types.h sys/stat.h floatingpoint.h ieeefp.h)
 AC_CHECK_HEADERS(fenv.h fptrap.h float.h)
 AC_CHECK_HEADER([complex.h],[AC_DEFINE([HAVE_COMPLEX_H], [1], [complex.h exists])])
+GCC_HEADER_STDINT(gstdint.h)
 
 AC_CHECK_MEMBERS([struct stat.st_blksize])
 AC_CHECK_MEMBERS([struct stat.st_blocks])
@@ -373,6 +378,15 @@ LIBGFOR_TARGET_ILP32
 LIBGFOR_CHECK_ATTRIBUTE_VISIBILITY
 LIBGFOR_CHECK_ATTRIBUTE_DLLEXPORT
 LIBGFOR_CHECK_ATTRIBUTE_ALIAS
+
+# Check out sync builtins support.
+LIBGFOR_CHECK_SYNC_FETCH_AND_ADD
+
+# Check out thread support.
+LIBGFOR_CHECK_GTHR_DEFAULT
+
+# Check out #pragma weak.
+LIBGFOR_GTHREAD_WEAK
 
 # Various other checks on target
 LIBGFOR_CHECK_UNLINK_OPEN_FILE

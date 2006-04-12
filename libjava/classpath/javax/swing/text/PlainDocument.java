@@ -1,5 +1,5 @@
 /* PlainDocument.java --
-   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -40,6 +40,15 @@ package javax.swing.text;
 
 import java.util.ArrayList;
 
+/**
+ * A simple document class which maps lines to {@link Element}s.
+ *
+ * @author Anthony Balkissoon (abalkiss@redhat.com)
+ * @author Graydon Hoare (graydon@redhat.com)
+ * @author Roman Kennke (roman@kennke.org)
+ * @author Michael Koch (konqueror@gmx.de)
+ * @author Robert Schuster (robertschuster@fsfe.org)
+ */
 public class PlainDocument extends AbstractDocument
 {
   private static final long serialVersionUID = 4758290289196893664L;
@@ -105,10 +114,119 @@ public class PlainDocument extends AbstractDocument
     return root;
   }
 
-  protected void insertUpdate(DefaultDocumentEvent event, AttributeSet attributes)
+  protected void insertUpdate(DefaultDocumentEvent event,
+                              AttributeSet attributes)
   {
-    reindex();
+    int offset = event.getOffset();
+    int eventLength = event.getLength();
+    int end = offset + event.getLength();
+    int oldElementIndex, elementIndex = rootElement.getElementIndex(offset);
+    Element firstElement = rootElement.getElement(elementIndex);
+    oldElementIndex = elementIndex;
+        
+    // If we're inserting immediately after a newline we have to fix the 
+    // Element structure (but only if we are dealing with a line which
+    // has not existed as Element before).
+    if (offset > 0 && firstElement.getStartOffset() != offset)
+      {
+        try
+        {
+          String s = getText(offset - 1, 1);
+          if (s.equals("\n") )
+            {
+              int newEl2EndOffset = end;
+              boolean replaceNext = false;
+              if (rootElement.getElementCount() > elementIndex + 1)
+                {
+                  replaceNext = true;
+                  newEl2EndOffset = 
+                    rootElement.getElement(elementIndex + 1).getEndOffset();
+                }
+              Element newEl1 = 
+                createLeafElement(rootElement, firstElement.getAttributes(), 
+                                  firstElement.getStartOffset(), offset);
+              Element newEl2 = 
+                createLeafElement (rootElement, firstElement.getAttributes(), 
+                                   offset, newEl2EndOffset);
+              if (replaceNext)
+                rootElement.replace(elementIndex, 2, new Element[] { newEl1, newEl2 });
+              else
+                rootElement.replace(elementIndex, 1, new Element[] { newEl1, newEl2 });
+              firstElement = newEl2;
+              elementIndex ++;
+            }
+        }
+        catch (BadLocationException ble)
+        {          
+          // This shouldn't happen.
+          AssertionError ae = new AssertionError();
+          ae.initCause(ble);
+          throw ae;
+        }        
+      }
 
+    // added and removed are Element arrays used to add an ElementEdit
+    // to the DocumentEvent if there were entire lines added or removed.
+    Element[] removed = new Element[1];
+    Element[] added;
+    try 
+      {
+        String str = content.getString(offset, eventLength);
+        ArrayList elts = new ArrayList();
+
+        // Determine how many NEW lines were added by finding the newline
+        // characters within the newly inserted text
+        int j = firstElement.getStartOffset();
+        int i = str.indexOf('\n', 0);
+        int contentLength = content.length();
+          
+        while (i != -1 && i <= eventLength)
+          {            
+            // For each new line, create a new element
+            elts.add(createLeafElement(rootElement, SimpleAttributeSet.EMPTY,
+                                       j, offset + i + 1));
+                  
+            j = offset + i + 1;
+            if (j >= contentLength)
+                break;
+            i = str.indexOf('\n', i + 1);
+          }
+
+        // If there were new lines added we have to add an ElementEdit to 
+        // the DocumentEvent and we have to call rootElement.replace to 
+        // insert the new lines
+        if (elts.size() != 0)
+          {
+            // If we have created new lines test whether there are remaining
+            // characters in firstElement after the inserted text and if so
+            // create a new element for them.
+            if (j < firstElement.getEndOffset())
+              elts.add(createLeafElement(rootElement, SimpleAttributeSet.EMPTY, j, firstElement.getEndOffset()));
+
+            // Set up the ElementEdit by filling the added and removed 
+            // arrays with the proper Elements
+            added = new Element[elts.size()];
+            elts.toArray(added);
+            
+            removed[0] = firstElement;
+            
+            // Now create and add the ElementEdit
+            ElementEdit e = new ElementEdit(rootElement, elementIndex, removed,
+                                            added);
+            event.addEdit(e);
+            
+            // And call replace to actually make the changes
+            ((BranchElement) rootElement).replace(elementIndex, 1, added);
+          }
+      }
+    catch (BadLocationException e)
+      {
+        // This shouldn't happen so we throw an AssertionError
+        AssertionError ae = new AssertionError();
+        ae.initCause(e);
+        throw ae;
+      }
+    
     super.insertUpdate(event, attributes);
   }
 
@@ -116,24 +234,37 @@ public class PlainDocument extends AbstractDocument
   {
     super.removeUpdate(event);
 
+    // added and removed are Element arrays used to add an ElementEdit
+    // to the DocumentEvent if there were entire lines added or removed
+    // from the Document
+    Element[] added = new Element[1];
+    Element[] removed;
     int p0 = event.getOffset();
-    int len = event.getLength();
-    int p1 = len + p0;
 
     // check if we must collapse some elements
     int i1 = rootElement.getElementIndex(p0);
-    int i2 = rootElement.getElementIndex(p1);
+    int i2 = rootElement.getElementIndex(p0 + event.getLength());
     if (i1 != i2)
       {
-        Element el1 = rootElement.getElement(i1);
-        Element el2 = rootElement.getElement(i2);
-        int start = el1.getStartOffset();
-        int end = el2.getEndOffset();
-        // collapse elements if the removal spans more than 1 line
-        Element newEl = createLeafElement(rootElement,
+        // If there were lines removed then we have to add an ElementEdit
+        // to the DocumentEvent so we set it up now by filling the Element
+        // arrays "removed" and "added" appropriately
+        removed = new Element [i2 - i1 + 1];
+        for (int i = i1; i <= i2; i++)
+          removed[i-i1] = rootElement.getElement(i);
+        
+        int start = rootElement.getElement(i1).getStartOffset();
+        int end = rootElement.getElement(i2).getEndOffset();        
+        added[0] = createLeafElement(rootElement,
                                           SimpleAttributeSet.EMPTY,
-                                          start, end - len);
-        rootElement.replace(i1, i2 - i1, new Element[]{ newEl });
+                                          start, end);
+
+        // Now create and add the ElementEdit
+        ElementEdit e = new ElementEdit(rootElement, i1, removed, added);
+        event.addEdit(e);
+
+        // collapse elements if the removal spans more than 1 line
+        rootElement.replace(i1, i2 - i1 + 1, added);
       }
   }
 
@@ -146,5 +277,29 @@ public class PlainDocument extends AbstractDocument
   {
     Element root = getDefaultRootElement();
     return root.getElement(root.getElementIndex(pos));
+  }
+
+  /**
+   * Inserts a string into the document. If the document property
+   * '<code>filterNewLines</code>' is set to <code>Boolean.TRUE</code>, then
+   * all newlines in the inserted string are replaced by space characters,
+   * otherwise the superclasses behaviour is executed.
+   *
+   * Inserting content causes a write lock to be acquired during this method
+   * call.
+   *
+   * @param offs the offset at which to insert the string
+   * @param str the string to be inserted
+   * @param atts the text attributes of the string to be inserted
+   *
+   * @throws BadLocationException
+   */
+  public void insertString(int offs, String str, AttributeSet atts)
+    throws BadLocationException
+  {
+    String string = str;
+    if (str != null && Boolean.TRUE.equals(getProperty("filterNewlines")))
+      string = str.replaceAll("\n", " ");
+    super.insertString(offs, string, atts);
   }
 }

@@ -40,8 +40,8 @@
 #include <bits/gthr.h>
 #include <bits/atomicity.h>
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   typedef void (*__destroy_handler)(void*);
 
   /// @brief  Base class for pool object.
@@ -631,7 +631,7 @@ namespace __gnu_cxx
       __mt_alloc(const __mt_alloc&) throw() { }
 
       template<typename _Tp1, typename _Poolp1>
-        __mt_alloc(const __mt_alloc<_Tp1, _Poolp1>& obj) throw() { }
+        __mt_alloc(const __mt_alloc<_Tp1, _Poolp1>&) throw() { }
 
       ~__mt_alloc() throw() { }
 
@@ -729,6 +729,7 @@ namespace __gnu_cxx
     { return false; }
 
 #undef __thread_default
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

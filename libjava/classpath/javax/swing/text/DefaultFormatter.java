@@ -57,8 +57,7 @@ import javax.swing.JFormattedTextField;
  *  
  * @author Roman Kennke (roman@kennke.org)
  */
-public class DefaultFormatter
-  extends JFormattedTextField.AbstractFormatter
+public class DefaultFormatter extends JFormattedTextField.AbstractFormatter
   implements Cloneable, Serializable
 {
 
@@ -156,9 +155,6 @@ public class DefaultFormatter
      * Checks if the value in the input field is valid. If the
      * property allowsInvalid is set to <code>false</code>, then
      * the string in the input field is not allowed to be entered.
-     *
-     * @param doc the document of the input field
-     * @param value the current (old) value of the input field
      */
     private void checkValidInput()
     {
@@ -179,15 +175,18 @@ public class DefaultFormatter
               catch (ParseException pe)
                 {
                   // if that happens, something serious must be wrong
-                  throw new AssertionError("values must be parseable");
+                  AssertionError ae;
+		  ae = new AssertionError("values must be parseable");
+		  ae.initCause(pe);
+		  throw ae;
                 }
             }
         }
     }
   }
 
-  /** The serialVersoinUID. */
-  private static final long serialVersionUID = -7369196326612908900L;
+  /** The serialization UID (compatible with JDK1.5). */
+  private static final long serialVersionUID = -355018354457785329L;
 
   /**
    * Indicates if the value should be committed after every
@@ -220,7 +219,6 @@ public class DefaultFormatter
     commitsOnValidEdit = true;
     overwriteMode = true;
     allowsInvalid = true;
-    valueClass = Object.class;
   }
 
   /**
@@ -369,7 +367,11 @@ public class DefaultFormatter
     Object value = string;
     Class valueClass = getValueClass();
     if (valueClass == null)
-      valueClass = getFormattedTextField().getValue().getClass();
+      {
+        JFormattedTextField jft = getFormattedTextField();
+        if (jft != null)
+          valueClass = jft.getValue().getClass();
+      }
     if (valueClass != null)
       try
         {
@@ -401,6 +403,8 @@ public class DefaultFormatter
   public String valueToString(Object value)
     throws ParseException
   {
+    if (value == null)
+      return "";
     return value.toString();
   }
 

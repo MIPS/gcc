@@ -48,6 +48,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Enumeration;
 import java.util.EventListener;
+import java.util.HashSet;
 import java.util.Hashtable;
 
 import javax.swing.event.ChangeEvent;
@@ -57,9 +58,15 @@ import javax.swing.event.EventListenerList;
 public class StyleContext 
     implements Serializable, AbstractDocument.AttributeContext
 {
+  /** The serialization UID (compatible with JDK1.5). */
+  private static final long serialVersionUID = 8042858831190784241L;
+
   public class NamedStyle
     implements Serializable, Style
   {
+    /** The serialization UID (compatible with JDK1.5). */
+    private static final long serialVersionUID = -6690628971806226374L;
+
     protected ChangeEvent changeEvent;
     protected EventListenerList listenerList;
       
@@ -288,7 +295,7 @@ public class StyleContext
     public boolean equals(Object obj)
     {
       return 
-        (obj instanceof SmallAttributeSet)
+        (obj instanceof AttributeSet)
         && this.isEqual((AttributeSet)obj);
     }
  
@@ -300,9 +307,14 @@ public class StyleContext
             return attrs[i+1];
         }
             
-      Object p = getResolveParent();
-      if (p != null && p instanceof AttributeSet)
-        return (((AttributeSet)p).getAttribute(key));
+      // Check the resolve parent, unless we're looking for the 
+      // ResolveAttribute, which would cause an infinite loop
+      if (!(key.equals(ResolveAttribute)))
+          {
+            Object p = getResolveParent();
+            if (p != null && p instanceof AttributeSet)
+              return (((AttributeSet)p).getAttribute(key));
+          }
       
       return null;
     }
@@ -351,16 +363,15 @@ public class StyleContext
 	
     public boolean isEqual(AttributeSet attr)
     {
-      return attr != null 
-        && attr.containsAttributes(this)
-        && this.containsAttributes(attr);
+      return getAttributeCount() == attr.getAttributeCount()
+             && this.containsAttributes(attr);
     }
 	
     public String toString()
     {
       StringBuffer sb = new StringBuffer();
       sb.append("[StyleContext.SmallattributeSet:");
-      for (int i = 0; i < attrs.length; ++i)
+      for (int i = 0; i < attrs.length - 1; ++i)
         {
           sb.append(" (");
           sb.append(attrs[i].toString());
@@ -396,7 +407,12 @@ public class StyleContext
 
   static StyleContext defaultStyleContext = new StyleContext();
   static final int compressionThreshold = 9;
-  
+
+  /**
+   * These attribute keys are handled specially in serialization.
+   */
+  private static HashSet staticAttributeKeys = new HashSet();
+
   EventListenerList listenerList;
   Hashtable styleTable;
   
@@ -726,5 +742,20 @@ public class StyleContext
     throws IOException
   {
     throw new InternalError("not implemented");
+  }
+
+  /**
+   * Registers an attribute key as a well-known keys. When an attribute with
+   * such a key is written to a stream,, a special syntax is used so that it
+   * can be recognized when it is read back in. All attribute keys defined
+   * in <code>StyleContext</code> are registered as static keys. If you define
+   * additional attribute keys that you want to exist as nonreplicated objects,
+   * then you should register them using this method.
+   *
+   * @param key the key to register as static attribute key
+   */
+  public static void registerStaticAttributeKey(Object key)
+  {
+    staticAttributeKeys.add(key);
   }
 }

@@ -45,7 +45,6 @@ import javax.swing.JMenuItem;
 import javax.swing.MenuElement;
 import javax.swing.MenuSelectionManager;
 import javax.swing.UIDefaults;
-import javax.swing.UIManager;
 import javax.swing.plaf.ComponentUI;
 
 /**
@@ -59,8 +58,6 @@ public class BasicRadioButtonMenuItemUI extends BasicMenuItemUI
   public BasicRadioButtonMenuItemUI()
   {
     super();
-    UIDefaults defaults = UIManager.getLookAndFeelDefaults();
-    checkIcon = defaults.getIcon("RadioButtonMenuItem.checkIcon");
   }
 
   /**
@@ -98,5 +95,7 @@ public class BasicRadioButtonMenuItemUI extends BasicMenuItemUI
                                 MenuElement[] path,
                                 MenuSelectionManager manager)
   {
+    // TODO: May not be implemented properly.
+    item.processMouseEvent(e, path, manager);
   }
 }

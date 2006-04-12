@@ -50,9 +50,9 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.InputMethodListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
@@ -60,7 +60,9 @@ import java.util.Enumeration;
 import java.util.Hashtable;
 
 import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleAction;
 import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleEditableText;
 import javax.accessibility.AccessibleRole;
 import javax.accessibility.AccessibleStateSet;
 import javax.accessibility.AccessibleText;
@@ -72,7 +74,6 @@ import javax.swing.JViewport;
 import javax.swing.KeyStroke;
 import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
-import javax.swing.Timer;
 import javax.swing.TransferHandler;
 import javax.swing.UIManager;
 import javax.swing.event.CaretEvent;
@@ -87,198 +88,415 @@ public abstract class JTextComponent extends JComponent
   implements Scrollable, Accessible
 {
   /**
-   * AccessibleJTextComponent
+   * This class implements accessibility support for the JTextComponent class. 
+   * It provides an implementation of the Java Accessibility API appropriate 
+   * to menu user-interface elements.
    */
-  public class AccessibleJTextComponent extends AccessibleJComponent
-    implements AccessibleText, CaretListener, DocumentListener
+  public class AccessibleJTextComponent extends AccessibleJComponent implements
+      AccessibleText, CaretListener, DocumentListener, AccessibleAction,
+      AccessibleEditableText
   {
     private static final long serialVersionUID = 7664188944091413696L;
 
+    /** The caret's offset. */
+    int dot = 0;
+    
+    /** The current JTextComponent. */
+    JTextComponent textComp = JTextComponent.this;
+    
     /**
-     * Constructor AccessibleJTextComponent
+     * Constructs an AccessibleJTextComponent. 
+     * Adds a listener to track caret change.
      */
     public AccessibleJTextComponent()
     {
+      super();
+      textComp.addCaretListener(this);
     }
 
     /**
-     * getCaretPosition
-     * @return int
+     * Returns the zero-based offset of the caret. Note: The character 
+     * to the right of the caret will have the same index value as the 
+     * offset (the caret is between two characters).
+     * 
+     * @return offset of caret
      */
     public int getCaretPosition()
     {
-      return 0; // TODO
+      dot = textComp.getCaretPosition();
+      return dot;
     }
 
     /**
-     * getSelectedText
-     * @return String
+     * Returns the portion of the text that is selected.
+     * 
+     * @return null if no text is selected.
      */
     public String getSelectedText()
     {
-      return null; // TODO
+      return textComp.getSelectedText();
     }
 
     /**
-     * getSelectionStart
-     * @return int
+     * Returns the start offset within the selected text. If there is no 
+     * selection, but there is a caret, the start and end offsets will be 
+     * the same. Return 0 if the text is empty, or the caret position if no selection.
+     * 
+     * @return index of the start of the text >= 0.
      */
     public int getSelectionStart()
     {
-      return 0; // TODO
+      if (getSelectedText() == null || (textComp.getText().equals("")))
+        return 0;
+      return textComp.getSelectionStart();
     }
 
     /**
-     * getSelectionEnd
-     * @return int
+     * Returns the end offset within the selected text. If there is no 
+     * selection, but there is a caret, the start and end offsets will 
+     * be the same. Return 0 if the text is empty, or the caret position
+     * if no selection.
+     * 
+     * @return index of the end of the text >= 0.
      */
     public int getSelectionEnd()
     {
-      return 0; // TODO
+      if (getSelectedText() == null || (textComp.getText().equals("")))
+        return 0;
+      return textComp.getSelectionEnd();
     }
 
     /**
-     * caretUpdate
-     * @param value0 TODO
+     * Handles caret updates (fire appropriate property change event, which are 
+     * AccessibleContext.ACCESSIBLE_CARET_PROPERTY and 
+     * AccessibleContext.ACCESSIBLE_SELECTION_PROPERTY). This keeps track of 
+     * the dot position internally. When the caret moves, the internal position 
+     * is updated after firing the event.
+     * 
+     * @param e - caret event
      */
-    public void caretUpdate(CaretEvent value0)
+    public void caretUpdate(CaretEvent e)
     {
-      // TODO
+      // TODO: fire appropriate event.
+      dot = e.getDot();
     }
 
     /**
-     * getAccessibleStateSet
-     * @return AccessibleStateSet
+     * Returns the accessible state set of this component.
+     *
+     * @return the accessible state set of this component
      */
     public AccessibleStateSet getAccessibleStateSet()
     {
-      return null; // TODO
+      AccessibleStateSet state = super.getAccessibleStateSet();
+      // TODO: Figure out what state must be added here to the super's state.
+      return state;
     }
 
     /**
-     * getAccessibleRole
-     * @return AccessibleRole
+     * Returns the accessible role of this component.
+     *
+     * @return the accessible role of this component
+     *
+     * @see AccessibleRole
      */
     public AccessibleRole getAccessibleRole()
     {
-      return null; // TODO
+      return AccessibleRole.TEXT;
     }
 
     /**
-     * getAccessibleText
-     * @return AccessibleText
+     * Returns the AccessibleEditableText interface for this text component.
+     * 
+     * @return this
+     */
+    public AccessibleEditableText getAccessibleEditableText()
+    {
+      return this;
+    }
+    
+    /**
+     * Get the AccessibleText associated with this object. In the implementation 
+     * of the Java Accessibility API for this class, return this object, 
+     * which is responsible for implementing the AccessibleText interface on 
+     * behalf of itself.
+     *
+     * @return this
+     *
+     * @see AccessibleText
      */
     public AccessibleText getAccessibleText()
     {
-      return null; // TODO
+      return this;
     }
-
+    
     /**
-     * insertUpdate
-     * @param value0 TODO
+     * Insert update. Fire appropriate property change event which 
+     * is AccessibleContext.ACCESSIBLE_TEXT_PROPERTY.
+     * 
+     * @param e - document event
      */
-    public void insertUpdate(DocumentEvent value0)
+    public void insertUpdate(DocumentEvent e)
     {
       // TODO
     }
 
     /**
-     * removeUpdate
-     * @param value0 TODO
+     * Remove update. Fire appropriate property change event which 
+     * is AccessibleContext.ACCESSIBLE_TEXT_PROPERTY.
+     * 
+     * @param e - document event
      */
-    public void removeUpdate(DocumentEvent value0)
+    public void removeUpdate(DocumentEvent e)
     {
       // TODO
     }
 
     /**
-     * changedUpdate
-     * @param value0 TODO
+     * Changed update. Fire appropriate property change event which 
+     * is AccessibleContext.ACCESSIBLE_TEXT_PROPERTY.
+     * 
+     * @param e - document event
      */
-    public void changedUpdate(DocumentEvent value0)
+    public void changedUpdate(DocumentEvent e)
     {
       // TODO
     }
 
     /**
-     * getIndexAtPoint
-     * @param value0 TODO
-     * @return int
+     * Given a point in the coordinate system of this object, return the
+     * 0-based index of the character at that point, or -1 if there is none.
+     *
+     * @param p the point to look at
+     * @return the character index, or -1
      */
-    public int getIndexAtPoint(Point value0)
+    public int getIndexAtPoint(Point p)
     {
       return 0; // TODO
     }
 
     /**
-     * getRootEditorRect
-     * @return Rectangle
+     * Determines the bounding box of the indexed character. Returns an empty
+     * rectangle if the index is out of bounds.  The bounds are returned in local coordinates. 
+     * If the index is invalid a null rectangle is returned. The screen coordinates returned are 
+     * "unscrolled coordinates" if the JTextComponent is contained in a JScrollPane in which 
+     * case the resulting rectangle should be composed with the parent coordinates. 
+     * Note: the JTextComponent must have a valid size (e.g. have been added to a parent 
+     * container whose ancestor container is a valid top-level window) for this method to 
+     * be able to return a meaningful (non-null) value.
+     *
+     * @param index the 0-based character index
+     * @return the bounding box, may be empty or null.
      */
-    Rectangle getRootEditorRect()
-    {
-      return null;
-    }
-
-    /**
-     * getCharacterBounds
-     * @param value0 TODO
-     * @return Rectangle
-     */
-    public Rectangle getCharacterBounds(int value0)
+    public Rectangle getCharacterBounds(int index)
     {
       return null; // TODO
     }
 
     /**
-     * getCharCount
-     * @return int
+     * Return the number of characters.
+     *
+     * @return the character count
      */
     public int getCharCount()
     {
+      return textComp.getText().length();
+    }
+
+   /** 
+    * Returns the attributes of a character at an index, or null if the index
+    * is out of bounds.
+    *
+    * @param index the 0-based character index
+    * @return the character's attributes
+    */
+    public AttributeSet getCharacterAttribute(int index)
+    {
+      return null; // TODO
+    }
+
+    /**
+     * Returns the section of text at the index, or null if the index or part
+     * is invalid.
+     *
+     * @param part {@link #CHARACTER}, {@link #WORD}, or {@link #SENTENCE}
+     * @param index the 0-based character index
+     * @return the selection of text at that index, or null
+     */
+    public String getAtIndex(int part, int index)
+    {
+      return null; // TODO
+    }
+
+    /**
+     * Returns the section of text after the index, or null if the index or part
+     * is invalid.
+     *
+     * @param part {@link #CHARACTER}, {@link #WORD}, or {@link #SENTENCE}
+     * @param index the 0-based character index
+     * @return the selection of text after that index, or null
+     */
+    public String getAfterIndex(int part, int index)
+    {
+      return null; // TODO
+    }
+
+    /**
+     * Returns the section of text before the index, or null if the index or part
+     * is invalid.
+     *
+     * @param part {@link #CHARACTER}, {@link #WORD}, or {@link #SENTENCE}
+     * @param index the 0-based character index
+     * @return the selection of text before that index, or null
+     */
+    public String getBeforeIndex(int part, int index)
+    {
+      return null; // TODO
+    }
+    
+    /**
+     * Get the number possible actions for this object, with the zeroth
+     * representing the default action.
+     * 
+     * @return the 0-based number of actions
+     */
+    public int getAccessibleActionCount()
+    {
       return 0; // TODO
     }
-
+    
     /**
-     * getCharacterAttribute
-     * @param value0 TODO
-     * @return AttributeSet
+     * Get a description for the specified action. Returns null if out of
+     * bounds.
+     * 
+     * @param i
+     *          the action to describe, 0-based
+     * @return description of the action
      */
-    public AttributeSet getCharacterAttribute(int value0)
+    public String getAccessibleActionDescription(int i)
     {
-      return null; // TODO
+      // TODO: Not implemented fully
+      return super.getAccessibleDescription();
+    }
+    
+    /**
+     * Perform the specified action. Does nothing if out of bounds.
+     *
+     * @param i the action to perform, 0-based
+     * @return true if the action was performed
+     */
+    public boolean doAccessibleAction(int i)
+    {
+      return false; // TODO
+    }
+    
+    /**
+     * Set the text contents to the given string.
+     *
+     * @param s the new text
+     */
+    public void setTextContents(String s)
+    {
+      // TODO
     }
 
     /**
-     * getAtIndex
-     * @param value0 TODO
-     * @param value1 TODO
-     * @return String
+     * Inserts the given string at the specified location.
+     *
+     * @param index the index for insertion
+     * @param s the new text
      */
-    public String getAtIndex(int value0, int value1)
+    public void insertTextAtIndex(int index, String s)
     {
-      return null; // TODO
+      replaceText(index, index, s);
     }
 
     /**
-     * getAfterIndex
-     * @param value0 TODO
-     * @param value1 TODO
-     * @return String
+     * Return the text between two points.
+     *
+     * @param start the start position, inclusive
+     * @param end the end position, exclusive
      */
-    public String getAfterIndex(int value0, int value1)
+    public String getTextRange(int start, int end)
     {
-      return null; // TODO
+      try
+      {
+        return textComp.getText(start, end - start);
+      }
+      catch (BadLocationException ble)
+      {
+        return "";
+      }
     }
 
     /**
-     * getBeforeIndex
-     * @param value0 TODO
-     * @param value1 TODO
-     * @return String
+     * Delete the text between two points.
+     *
+     * @param start the start position, inclusive
+     * @param end the end position, exclusive
      */
-    public String getBeforeIndex(int value0, int value1)
+    public void delete(int start, int end)
     {
-      return null; // TODO
+      replaceText(start, end, "");
+    }
+
+    /**
+     * Cut the text between two points to the system clipboard.
+     *
+     * @param start the start position, inclusive
+     * @param end the end position, exclusive
+     */
+    public void cut(int start, int end)
+    {
+      textComp.select(start, end);
+      textComp.cut();
+    }
+
+    /**
+     * Paste the text from the system clipboard at the given index.
+     *
+     * @param start the start position
+     */
+    public void paste(int start)
+    {
+      textComp.setCaretPosition(start);
+      textComp.paste();
+    }
+
+    /**
+     * Replace the text between two points with the given string.
+     *
+     * @param start the start position, inclusive
+     * @param end the end position, exclusive
+     * @param s the string to paste
+     */
+    public void replaceText(int start, int end, String s)
+    {
+      textComp.select(start, end);
+      textComp.replaceSelection(s);
+    }
+
+    /**
+     * Select the text between two points.
+     *
+     * @param start the start position, inclusive
+     * @param end the end position, exclusive
+     */
+    public void selectText(int start, int end)
+    {
+      textComp.select(start, end);
+    }
+
+    /**
+     * Set the attributes of text between two points.
+     *
+     * @param start the start position, inclusive
+     * @param end the end position, exclusive
+     * @param s the new attribute set for the range
+     */
+    public void setAttributes(int start, int end, AttributeSet s)
+    {
+      // TODO
     }
   }
 
@@ -297,50 +515,6 @@ public abstract class JTextComponent extends JComponent
     {
       this.key = key;
       this.actionName = actionName;
-    }
-  }
-
-  /**
-   * The timer that lets the caret blink.
-   */
-  private class CaretBlinkTimer
-    extends Timer
-    implements ActionListener
-  {
-    /**
-     * Creates a new CaretBlinkTimer object with a default delay of 1 second.
-     */
-    public CaretBlinkTimer()
-    {
-      super(1000, null);
-      addActionListener(this);
-    }
-
-    /**
-     * Lets the caret blink.
-     */
-    public void actionPerformed(ActionEvent ev)
-    {
-      Caret c = caret;
-      if (c != null)
-	c.setVisible(!c.isVisible());
-    }
-
-    /**
-     * Updates the blink delay according to the current caret.
-     */
-    public void update()
-    {
-      stop();
-      Caret c = caret;
-      if (c != null)
-	{
-	  setDelay(c.getBlinkRate());
-	  if (editable)
-	    start();
-	  else
-	    c.setVisible(false);
-	}
     }
   }
 
@@ -423,12 +597,18 @@ public abstract class JTextComponent extends JComponent
     public KeyStroke[] allKeys()
     {
       KeyStroke[] superKeys = super.allKeys();
-      KeyStroke[] mapKeys = map.getBoundKeyStrokes(); 
-      KeyStroke[] bothKeys = new KeyStroke[superKeys.length + mapKeys.length];
-      for (int i = 0; i < superKeys.length; ++i)
+      KeyStroke[] mapKeys = map.getBoundKeyStrokes();
+      int skl = 0;
+      int mkl = 0;
+      if (superKeys != null)
+        skl = superKeys.length;
+      if (mapKeys != null)
+        mkl = mapKeys.length;
+      KeyStroke[] bothKeys = new KeyStroke[skl + mkl];
+      for (int i = 0; i < skl; ++i)
         bothKeys[i] = superKeys[i];
-      for (int i = 0; i < mapKeys.length; ++i)
-        bothKeys[i + superKeys.length] = mapKeys[i];
+      for (int i = 0; i < mkl; ++i)
+        bothKeys[i + skl] = mapKeys[i];
       return bothKeys;
     }
   }
@@ -604,8 +784,7 @@ public abstract class JTextComponent extends JComponent
     }
   }
 
-  class DefaultTransferHandler
-    extends TransferHandler
+  class DefaultTransferHandler extends TransferHandler
   {
     public boolean canImport(JComponent component, DataFlavor[] flavors)
     {
@@ -631,23 +810,23 @@ public abstract class JTextComponent extends JComponent
       int end = textComponent.getSelectionEnd();
 
       if (start == end)
-	return;
+        return;
 
       try
-	{
-	  // Copy text to clipboard.
-	  String data = textComponent.getDocument().getText(start, end);
-	  StringSelection selection = new StringSelection(data);
-	  clipboard.setContents(selection, null);
+        {
+          // Copy text to clipboard.
+          String data = textComponent.getDocument().getText(start, end);
+          StringSelection selection = new StringSelection(data);
+          clipboard.setContents(selection, null);
 
-	  // Delete selected text on cut action.
-	  if (action == MOVE)
-	    doc.remove(start, end - start);
-	}
+          // Delete selected text on cut action.
+          if (action == MOVE)
+            doc.remove(start, end - start);
+        }
       catch (BadLocationException e)
-	{
-	  // Ignore this and do nothing.
-	}
+        {
+          // Ignore this and do nothing.
+        }
     }
     
     public int getSourceActions()
@@ -661,30 +840,30 @@ public abstract class JTextComponent extends JComponent
       DataFlavor[] flavors = transferable.getTransferDataFlavors();
 
       if (flavors == null)
-	return false;
+        return false;
 
       for (int i = 0; i < flavors.length; ++i)
-	if (flavors[i].equals(DataFlavor.stringFlavor))
-	   flavor = flavors[i];
+        if (flavors[i].equals(DataFlavor.stringFlavor))
+          flavor = flavors[i];
       
       if (flavor == null)
-	return false;
+        return false;
 
       try
-	{
-	  JTextComponent textComponent = (JTextComponent) component;
-	  String data = (String) transferable.getTransferData(flavor);
-	  textComponent.replaceSelection(data);
-	  return true;
-	}
+        {
+          JTextComponent textComponent = (JTextComponent) component;
+          String data = (String) transferable.getTransferData(flavor);
+          textComponent.replaceSelection(data);
+          return true;
+        }
       catch (IOException e)
-	{
-	  // Ignored.
-	}
+        {
+          // Ignored.
+        }
       catch (UnsupportedFlavorException e)
-	{
-	  // Ignored.
-	}
+        {
+          // Ignored.
+        }
 
       return false;
     }
@@ -700,8 +879,6 @@ public abstract class JTextComponent extends JComponent
   private Keymap keymap;
   private char focusAccelerator = '\0';
   private NavigationFilter navigationFilter;
-
-  private CaretBlinkTimer caretBlinkTimer;
 
   /**
    * Get a Keymap from the global keymap table, by name.
@@ -910,7 +1087,7 @@ public abstract class JTextComponent extends JComponent
     Hashtable acts = new Hashtable(actions.length);
     for (int i = 0; i < actions.length; ++i)
       acts.put(actions[i].getValue(Action.NAME), actions[i]);
-    for (int i = 0; i < bindings.length; ++i)
+      for (int i = 0; i < bindings.length; ++i)
       if (acts.containsKey(bindings[i].actionName))
         map.addActionForKeyStroke(bindings[i].key, (Action) acts.get(bindings[i].actionName));
   }
@@ -952,35 +1129,16 @@ public abstract class JTextComponent extends JComponent
   public JTextComponent()
   {
     Keymap defkeymap = getKeymap(DEFAULT_KEYMAP);
-    boolean creatingKeymap = false;
     if (defkeymap == null)
       {
         defkeymap = addKeymap(DEFAULT_KEYMAP, null);
         defkeymap.setDefaultAction(new DefaultEditorKit.DefaultKeyTypedAction());
-        creatingKeymap = true;
       }
-
-    caretBlinkTimer = new CaretBlinkTimer();
 
     setFocusable(true);
     setEditable(true);
     enableEvents(AWTEvent.KEY_EVENT_MASK);
     updateUI();
-    
-    // need to do this after updateUI()
-    if (creatingKeymap)
-      loadKeymap(defkeymap, 
-                 new KeyBinding[] { 
-                   new KeyBinding(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0),
-                                  DefaultEditorKit.backwardAction),
-                   new KeyBinding(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0),
-                                  DefaultEditorKit.forwardAction),
-                   new KeyBinding(KeyStroke.getKeyStroke("typed \b"),
-                                  DefaultEditorKit.deletePrevCharAction),
-                   new KeyBinding(KeyStroke.getKeyStroke("typed \u007f"),
-                                  DefaultEditorKit.deleteNextCharAction)                   
-                 },
-                 getActions());
   }
 
   public void setDocument(Document newDoc)
@@ -1004,7 +1162,7 @@ public abstract class JTextComponent extends JComponent
    */
   public AccessibleContext getAccessibleContext()
   {
-    return null;
+    return new AccessibleJTextComponent();
   }
 
   public void setMargin(Insets m)
@@ -1021,12 +1179,17 @@ public abstract class JTextComponent extends JComponent
   {
     try
       {
-	doc.remove(0, doc.getLength());
-	doc.insertString(0, text, null);
+        if (doc instanceof AbstractDocument)
+          ((AbstractDocument) doc).replace(0, doc.getLength(), text, null);
+        else
+          {
+            doc.remove(0, doc.getLength());
+            doc.insertString(0, text, null);
+          }
       }
     catch (BadLocationException e)
       {
-	// This can never happen.
+        // This can never happen.
       }
   }
 
@@ -1044,12 +1207,12 @@ public abstract class JTextComponent extends JComponent
 
     try
       {
-	return doc.getText(0, doc.getLength());
+        return doc.getText(0, doc.getLength());
       }
     catch (BadLocationException e)
       {
-	// This should never happen.
-	return "";
+        // This should never happen.
+        return "";
       }
   }
 
@@ -1078,14 +1241,20 @@ public abstract class JTextComponent extends JComponent
    */
   public String getSelectedText()
   {
+    int start = getSelectionStart();
+    int offset = getSelectionEnd() - start;
+    
+    if (offset <= 0)
+      return null;
+    
     try
       {
-	return doc.getText(getSelectionStart(), getSelectionEnd());
+        return doc.getText(start, offset);
       }
     catch (BadLocationException e)
       {
-	// This should never happen.
-	return null;
+        // This should never happen.
+        return null;
       }
   }
 
@@ -1105,7 +1274,8 @@ public abstract class JTextComponent extends JComponent
    */
   protected String paramString()
   {
-    return "JTextComponent";
+    // TODO: Do something useful here.
+    return super.paramString();
   }
 
   /**
@@ -1194,14 +1364,6 @@ public abstract class JTextComponent extends JComponent
     if (editable == newValue)
       return;
 
-    if (newValue == true)
-      caretBlinkTimer.start();
-    else
-      {
-        caretBlinkTimer.stop();
-        caret.setVisible(false);
-      }
-
     boolean oldValue = editable;
     editable = newValue;
     firePropertyChange("editable", oldValue, newValue);
@@ -1229,8 +1391,6 @@ public abstract class JTextComponent extends JComponent
     
     Caret oldCaret = caret;
     caret = newCaret;
-
-    caretBlinkTimer.update();
 
     if (caret != null)
       caret.install(this);
@@ -1399,7 +1559,7 @@ public abstract class JTextComponent extends JComponent
     start = Math.max(start, 0);
     start = Math.min(start, length);
 
-    end = Math.max(end, 0);
+    end = Math.max(end, start);
     end = Math.min(end, length);
 
     setCaretPosition(start);
@@ -1422,35 +1582,39 @@ public abstract class JTextComponent extends JComponent
     // If content is empty delete selection.
     if (content == null)
       {
-	caret.setDot(dot);
-	return;
+        caret.setDot(dot);
+        return;
       }
 
     try
       {
-	int start = getSelectionStart();
-	int end = getSelectionEnd();
-	
-	// Remove selected text.
-	if (dot != mark)
-	  doc.remove(start, end - start);
+        int start = getSelectionStart();
+        int end = getSelectionEnd();
 
-	// Insert new text.
-	doc.insertString(start, content, null);
+        // Remove selected text.
+        if (dot != mark)
+          doc.remove(start, end - start);
 
-	// Set dot to new position.
-	setCaretPosition(start + content.length());
+        // Insert new text.
+        doc.insertString(start, content, null);
+
+        // Set dot to new position,
+        dot = start + content.length();
+        setCaretPosition(dot);
+        
+        // and update it's magic position.
+        caret.setMagicCaretPosition(modelToView(dot).getLocation());
       }
     catch (BadLocationException e)
       {
-	// This should never happen.
+        // This should never happen.
       }
   }
 
   public boolean getScrollableTracksViewportHeight()
   {
     if (getParent() instanceof JViewport)
-      return ((JViewport) getParent()).getHeight() > getPreferredSize().height;
+      return getParent().getHeight() > getPreferredSize().height;
 
     return false;
   }
@@ -1458,7 +1622,7 @@ public abstract class JTextComponent extends JComponent
   public boolean getScrollableTracksViewportWidth()
   {
     if (getParent() instanceof JViewport)
-      return ((JViewport) getParent()).getWidth() > getPreferredSize().width;
+      return getParent().getWidth() > getPreferredSize().width;
 
     return false;
   }
@@ -1577,15 +1741,15 @@ public abstract class JTextComponent extends JComponent
     // Install default TransferHandler if none set.
     if (getTransferHandler() == null)
       {
-	if (defaultTransferHandler == null)
-	  defaultTransferHandler = new DefaultTransferHandler();
-	
-	setTransferHandler(defaultTransferHandler);
+        if (defaultTransferHandler == null)
+          defaultTransferHandler = new DefaultTransferHandler();
+
+        setTransferHandler(defaultTransferHandler);
       }
 
     // Perform action.
     ActionEvent event = new ActionEvent(this, ActionEvent.ACTION_PERFORMED,
-					action.getValue(Action.NAME).toString());
+                                        action.getValue(Action.NAME).toString());
     action.actionPerformed(event);
   }
 
@@ -1669,5 +1833,20 @@ public abstract class JTextComponent extends JComponent
              throws IOException
   {
     output.write(getText());
-  }  
+  }
+
+  /**
+   * Returns the tooltip text for this text component for the given mouse
+   * event. This forwards the call to
+   * {@link TextUI#getToolTipText(JTextComponent, Point)}.
+   *
+   * @param ev the mouse event
+   *
+   * @return the tooltip text for this text component for the given mouse
+   *         event
+   */
+  public String getToolTipText(MouseEvent ev)
+  {
+    return getUI().getToolTipText(this, ev.getPoint());
+  }
 }

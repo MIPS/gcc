@@ -397,6 +397,7 @@ addNotify()
     return;
 
   setPeer((ComponentPeer)getToolkit().createTextField(this));
+  super.addNotify();
 }
 
 /*************************************************************************/
@@ -523,6 +524,8 @@ paramString()
 
   protected class AccessibleAWTTextField extends AccessibleAWTTextComponent
   {
+    private static final long serialVersionUID = 6219164359235943158L;
+
     protected AccessibleAWTTextField()
     {
     }

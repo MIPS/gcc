@@ -43,8 +43,8 @@ import java.awt.Graphics;
 import java.awt.Rectangle;
 import java.awt.Shape;
 
-import javax.swing.JComponent;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 
 public abstract class View implements SwingConstants
@@ -73,8 +73,29 @@ public abstract class View implements SwingConstants
 
   public abstract void paint(Graphics g, Shape s);
 
+  /**
+   * Sets the parent for this view. This is the first method that is beeing
+   * called on a view to setup the view hierarchy. This is also the last method
+   * beeing called when the view is disconnected from the view hierarchy, in
+   * this case <code>parent</code> is null.
+   *
+   * If <code>parent</code> is <code>null</code>, a call to this method also
+   * calls <code>setParent</code> on the children, thus disconnecting them from
+   * the view hierarchy. That means that super must be called when this method
+   * is overridden.
+   *
+   * @param parent the parent to set, <code>null</code> when this view is
+   *        beeing disconnected from the view hierarchy
+   */
   public void setParent(View parent)
   {
+    if (parent == null)
+      {
+        int numChildren = getViewCount();
+        for (int i = 0; i < numChildren; i++)
+          getView(i).setParent(null);
+      }
+
     this.parent = parent;
   }
     
@@ -87,9 +108,9 @@ public abstract class View implements SwingConstants
   {
     View parent = getParent();
     if (parent == null)
-      throw new AssertionError("The parent of a View must not be null.");
-
-    return parent.getContainer();
+      return null;
+    else
+      return parent.getContainer();
   }
   
   public Document getDocument()
@@ -102,27 +123,65 @@ public abstract class View implements SwingConstants
     return elt;
   }
 
+  /**
+   * Returns the preferred span along the specified axis. Normally the view is
+   * rendered with the span returned here if that is possible.
+   *
+   * @param axis the axis
+   *
+   * @return the preferred span along the specified axis
+   */
   public abstract float getPreferredSpan(int axis);
 
+  /**
+   * Returns the resize weight of this view. A value of <code>0</code> or less
+   * means this view is not resizeable. Positive values make the view
+   * resizeable. The default implementation returns <code>0</code>
+   * unconditionally.
+   *
+   * @param axis the axis
+   *
+   * @return the resizability of this view along the specified axis
+   */
   public int getResizeWeight(int axis)
   {
     return 0;
   }
 
+  /**
+   * Returns the maximum span along the specified axis. The default
+   * implementation will forward to
+   * {@link #getPreferredSpan(int)} unless {@link #getResizeWeight(int)}
+   * returns a value > 0, in which case this returns {@link Integer#MIN_VALUE}.
+   *
+   * @param axis the axis
+   *
+   * @return the maximum span along the specified axis
+   */
   public float getMaximumSpan(int axis)
   {
+    float max = Integer.MAX_VALUE;
     if (getResizeWeight(axis) <= 0)
-      return getPreferredSpan(axis);
-
-    return Integer.MAX_VALUE;
+      max = getPreferredSpan(axis);
+    return max;
   }
 
+  /**
+   * Returns the minimum span along the specified axis. The default
+   * implementation will forward to
+   * {@link #getPreferredSpan(int)} unless {@link #getResizeWeight(int)}
+   * returns a value > 0, in which case this returns <code>0</code>.
+   *
+   * @param axis the axis
+   *
+   * @return the minimum span along the specified axis
+   */
   public float getMinimumSpan(int axis)
   {
+    float min = 0;
     if (getResizeWeight(axis) <= 0)
-      return getPreferredSpan(axis);
-
-    return Integer.MAX_VALUE;
+      min = getPreferredSpan(axis);
+    return min;
   }
   
   public void setSize(float width, float height)
@@ -130,6 +189,20 @@ public abstract class View implements SwingConstants
     // The default implementation does nothing.
   }
   
+  /**
+   * Returns the alignment of this view along the baseline of the parent view.
+   * An alignment of <code>0.0</code> will align this view with the left edge
+   * along the baseline, an alignment of <code>0.5</code> will align it
+   * centered to the baseline, an alignment of <code>1.0</code> will align
+   * the right edge along the baseline.
+   *
+   * The default implementation returns 0.5 unconditionally.
+   *
+   * @param axis the axis
+   *
+   * @return the alignment of this view along the parents baseline for the
+   *         specified axis
+   */
   public float getAlignment(int axis)
   {
     return 0.5f;
@@ -161,6 +234,15 @@ public abstract class View implements SwingConstants
     return parent != null ? parent.getViewFactory() : null;
   }
 
+  /**
+   * Replaces a couple of child views with new child views. If
+   * <code>length == 0</code> then this is a simple insertion, if
+   * <code>views == null</code> this only removes some child views.
+   *
+   * @param offset the offset at which to replace
+   * @param length the number of child views to be removed
+   * @param views the new views to be inserted, may be <code>null</code>
+   */
   public void replace(int offset, int length, View[] views)
   {
     // Default implementation does nothing.
@@ -393,6 +475,10 @@ public abstract class View implements SwingConstants
    * of the change to the model. This calles {@link #forwardUpdateToView}
    * for each View that must be forwarded to.
    *
+   * If <code>ec</code> is not <code>null</code> (this means there have been
+   * structural changes to the element that this view is responsible for) this
+   * method should recognize this and don't notify newly added child views.
+   *
    * @param ec the ElementChange describing the element changes (may be
    *           <code>null</code> if there were no changes)
    * @param ev the DocumentEvent describing the changes to the model
@@ -405,10 +491,31 @@ public abstract class View implements SwingConstants
                                DocumentEvent ev, Shape shape, ViewFactory vf)
   {
     int count = getViewCount();
-    for (int i = 0; i < count; i++)
+    if (count > 0)
       {
-        View child = getView(i);
-        forwardUpdateToView(child, ev, shape, vf);
+        int startOffset = ev.getOffset();
+        int endOffset = startOffset + ev.getLength();
+        int startIndex = getViewIndex(startOffset, Position.Bias.Backward);
+        int endIndex = getViewIndex(endOffset, Position.Bias.Forward);
+        int index = -1;
+        int addLength = -1;
+        if (ec != null)
+          {
+            index = ec.getIndex();
+            addLength = ec.getChildrenAdded().length;
+          }
+
+        if (startIndex >= 0 && endIndex >= 0)
+          {
+            for (int i = startIndex; i <= endIndex; i++)
+              {
+                // Skip newly added child views.
+                if (index >= 0 && i >= index && i < (index+addLength))
+                  continue;
+                View child = getView(i);
+                forwardUpdateToView(child, ev, shape, vf);
+              }
+          }
       }
   }
 
@@ -448,9 +555,11 @@ public abstract class View implements SwingConstants
   protected void updateLayout(DocumentEvent.ElementChange ec,
                               DocumentEvent ev, Shape shape)
   {
-    Rectangle b = shape.getBounds();
-    if (ec != null)
-      preferenceChanged(this, true, true);
+    if (ec != null && shape != null)
+      preferenceChanged(null, true, true);
+    Container c = getContainer();
+    if (c != null)
+      c.repaint();
   }
 
   /**
@@ -502,9 +611,33 @@ public abstract class View implements SwingConstants
     if (b2 != Position.Bias.Forward && b2 != Position.Bias.Backward)
       throw new IllegalArgumentException
 	("b2 must be either Position.Bias.Forward or Position.Bias.Backward");
-    Shape s1 = modelToView(p1, a, b1);
-    Shape s2 = modelToView(p2, a, b2);
-    return s1.getBounds().union(s2.getBounds());
+    Rectangle s1 = (Rectangle) modelToView(p1, a, b1);
+    Rectangle s2 = (Rectangle) modelToView(p2, a, b2);
+    return SwingUtilities.computeUnion(s1.x, s1.y, s1.width, s1.height, s2);
+  }
+
+  /**
+   * Maps a position in the document into the coordinate space of the View.
+   * The output rectangle usually reflects the font height but has a width
+   * of zero.
+   *
+   * This method is deprecated and calls
+   * {@link #modelToView(int, Position.Bias, int, Position.Bias, Shape)} with
+   * a bias of {@link Position.Bias#Forward}.
+   *
+   * @param pos the position of the character in the model
+   * @param a the area that is occupied by the view
+   *
+   * @return a rectangle that gives the location of the document position
+   *         inside the view coordinate space
+   *
+   * @throws BadLocationException if <code>pos</code> is invalid
+   *
+   * @deprecated Use {@link #modelToView(int, Shape, Position.Bias)} instead.
+   */
+  public Shape modelToView(int pos, Shape a) throws BadLocationException
+  {
+    return modelToView(pos, a, Position.Bias.Forward);
   }
 
   /**
@@ -521,12 +654,31 @@ public abstract class View implements SwingConstants
    */
   public abstract int viewToModel(float x, float y, Shape a, Position.Bias[] b);
 
+  /**
+   * Maps coordinates from the <code>View</code>'s space into a position
+   * in the document model. This method is deprecated and only there for
+   * compatibility.
+   *
+   * @param x the x coordinate in the view space
+   * @param y the y coordinate in the view space
+   * @param a the allocation of this <code>View</code>
+   *
+   * @return the position in the document that corresponds to the screen
+   *         coordinates <code>x, y</code>
+   *
+   * @deprecated Use {@link #viewToModel(float, float, Shape, Position.Bias[])}
+   *             instead.
+   */
+  public int viewToModel(float x, float y, Shape a)
+  {
+    return viewToModel(x, y, a, new Position.Bias[0]);
+  }
 
   /**
    * Dumps the complete View hierarchy. This method can be used for debugging
    * purposes.
    */
-  void dump()
+  protected void dump()
   {
     // Climb up the hierarchy to the parent.
     View parent = getParent();
@@ -546,10 +698,58 @@ public abstract class View implements SwingConstants
   {
     for (int i = 0; i < indent; ++i)
       System.out.print('.');
-    System.out.println(this);
+    System.out.println(this + "(" + getStartOffset() + "," + getEndOffset() + ": " + getElement());
 
     int count = getViewCount();
     for (int i = 0; i < count; ++i)
       getView(i).dump(indent + 1);
+  }
+
+  /**
+   * Returns the document position that is (visually) nearest to the given
+   * document position <code>pos</code> in the given direction <code>d</code>.
+   *
+   * @param pos the document position
+   * @param b the bias for <code>pos</code>
+   * @param a the allocation for this view
+   * @param d the direction, must be either {@link SwingConstants#NORTH},
+   *        {@link SwingConstants#SOUTH}, {@link SwingConstants#WEST} or
+   *        {@link SwingConstants#EAST}
+   * @param biasRet an array of {@link Position.Bias} that can hold at least
+   *        one element, which is filled with the bias of the return position
+   *        on method exit
+   *
+   * @return the document position that is (visually) nearest to the given
+   *         document position <code>pos</code> in the given direction
+   *         <code>d</code>
+   *
+   * @throws BadLocationException if <code>pos</code> is not a valid offset in
+   *         the document model
+   * @throws IllegalArgumentException if <code>d</code> is not a valid direction
+   */
+  public int getNextVisualPositionFrom(int pos, Position.Bias b,
+                                       Shape a, int d,
+                                       Position.Bias[] biasRet)
+    throws BadLocationException
+  {
+    int ret = pos;
+    switch (d)
+    {
+      case WEST:
+        ret = pos - 1;
+        break;
+      case EAST:
+        ret = pos + 1;
+        break;
+      case NORTH:
+        // TODO: Implement this
+        break;
+      case SOUTH:
+        // TODO: Implement this
+        break;
+      default:
+        throw new IllegalArgumentException("Illegal value for d");
+    }
+    return ret;
   }
 }

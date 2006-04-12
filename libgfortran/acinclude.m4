@@ -1,3 +1,6 @@
+m4_include(../config/acx.m4)
+m4_include(../config/no-executables.m4)
+
 dnl Check:
 dnl * If we have gettimeofday;
 dnl * If we have struct timezone for use in calling it;
@@ -148,6 +151,50 @@ extern void bar(void) __attribute__((alias(ULP "foo")));],
     AC_DEFINE(HAVE_ATTRIBUTE_ALIAS, 1,
       [Define to 1 if the target supports __attribute__((alias(...))).])
   fi])
+
+dnl Check whether the target supports __sync_fetch_and_add.
+AC_DEFUN([LIBGFOR_CHECK_SYNC_FETCH_AND_ADD], [
+  AC_CACHE_CHECK([whether the target supports __sync_fetch_and_add],
+		 have_sync_fetch_and_add, [
+  AC_TRY_LINK([int foovar = 0;], [
+if (foovar <= 0) return __sync_fetch_and_add (&foovar, 1);
+if (foovar > 10) return __sync_add_and_fetch (&foovar, -1);],
+	      have_sync_fetch_and_add=yes, have_sync_fetch_and_add=no)])
+  if test $have_sync_fetch_and_add = yes; then
+    AC_DEFINE(HAVE_SYNC_FETCH_AND_ADD, 1,
+	      [Define to 1 if the target supports __sync_fetch_and_add])
+  fi])
+
+dnl Check if threads are supported.
+AC_DEFUN([LIBGFOR_CHECK_GTHR_DEFAULT], [
+  AC_CACHE_CHECK([configured target thread model],
+		 target_thread_file, [
+target_thread_file=`$CC -v 2>&1 | sed -n 's/^Thread model: //p'`])
+
+  if test $target_thread_file != single; then
+    AC_DEFINE(HAVE_GTHR_DEFAULT, 1,
+	      [Define if the compiler has a thread header that is non single.])
+  fi])
+
+dnl Check for pragma weak.
+AC_DEFUN([LIBGFOR_GTHREAD_WEAK], [
+  AC_CACHE_CHECK([whether pragma weak works],
+		 have_pragma_weak, [
+  gfor_save_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -Wunknown-pragmas"
+  AC_TRY_COMPILE([void foo (void);
+#pragma weak foo], [if (foo) foo ();],
+		 have_pragma_weak=yes, have_pragma_weak=no)])
+  if test $have_pragma_weak = yes; then
+    AC_DEFINE(SUPPORTS_WEAK, 1,
+	      [Define to 1 if the target supports #pragma weak])
+  fi
+  case "$host" in
+    *-*-darwin* | *-*-hpux* | *-*-cygwin*)
+      AC_DEFINE(GTHREAD_USE_WEAK, 0,
+		[Define to 0 if the target shouldn't use #pragma weak])
+      ;;
+  esac])
 
 dnl Check whether target can unlink a file still open.
 AC_DEFUN([LIBGFOR_CHECK_UNLINK_OPEN_FILE], [

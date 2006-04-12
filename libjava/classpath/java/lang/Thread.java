@@ -38,8 +38,9 @@ exception statement from your version. */
 
 package java.lang;
 
+import gnu.java.util.WeakIdentityHashMap;
+import java.security.Permission;
 import java.util.Map;
-import java.util.WeakHashMap;
 
 /* Written using "Java Class Libraries", 2nd edition, ISBN 0-201-31002-3
  * "The Java Language Specification", ISBN 0-201-63451-1
@@ -136,7 +137,7 @@ public class Thread implements Runnable
   /** Thread local storage. Package accessible for use by
     * InheritableThreadLocal.
     */
-  WeakHashMap locals;
+  WeakIdentityHashMap locals;
 
   /**
    * Allocates a new <code>Thread</code> object. This constructor has
@@ -704,7 +705,7 @@ public class Thread implements Runnable
    *
    * @return the context class loader
    * @throws SecurityException when permission is denied
-   * @see setContextClassLoader(ClassLoader)
+   * @see #setContextClassLoader(ClassLoader)
    * @since 1.2
    */
   public synchronized ClassLoader getContextClassLoader()
@@ -726,7 +727,7 @@ public class Thread implements Runnable
    *
    * @param classloader the new context class loader
    * @throws SecurityException when permission is denied
-   * @see getContextClassLoader()
+   * @see #getContextClassLoader()
    * @since 1.2
    */
   public synchronized void setContextClassLoader(ClassLoader classloader)
@@ -812,8 +813,11 @@ public class Thread implements Runnable
   {
 
     // Check parameters
-    if (ms < 0 || ns < 0 || ns > 999999)
-      throw new IllegalArgumentException();
+    if (ms < 0 )
+      throw new IllegalArgumentException("Negative milliseconds: " + ms);
+
+    if (ns < 0 || ns > 999999)
+      throw new IllegalArgumentException("Nanoseconds ouf of range: " + ns);
 
     // Really sleep
     VMThread.sleep(ms, ns);
@@ -902,7 +906,7 @@ public class Thread implements Runnable
     if (sm != null)
       {
         sm.checkAccess(this);
-        if (this != currentThread())
+        if (this != currentThread() || !(t instanceof ThreadDeath))
           sm.checkPermission(new RuntimePermission("stopThread"));
       }
     VMThread vt = vmThread;
@@ -992,7 +996,7 @@ public class Thread implements Runnable
     Map locals = thread.locals;
     if (locals == null)
       {
-        locals = thread.locals = new WeakHashMap();
+        locals = thread.locals = new WeakIdentityHashMap();
       }
     return locals;
   }

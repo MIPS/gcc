@@ -39,6 +39,8 @@ exception statement from your version. */
 
 package java.util.logging;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.text.DateFormat;
 import java.util.Date;
 
@@ -85,7 +87,7 @@ public class SimpleFormatter
   /**
    * Formats a log record into a String.
    *
-   * @param the log record to be formatted.
+   * @param record the log record to be formatted.
    *
    * @return a short human-readable message, typically one or two
    *   lines.  Lines are separated using the default platform line
@@ -113,6 +115,14 @@ public class SimpleFormatter
     buf.append(formatMessage(record));
 
     buf.append(lineSep);
+
+    Throwable throwable = record.getThrown();
+    if (throwable != null)
+      {
+        StringWriter sink = new StringWriter();
+        throwable.printStackTrace(new PrintWriter(sink, true));
+        buf.append(sink.toString());
+      }
 
     return buf.toString();
   }

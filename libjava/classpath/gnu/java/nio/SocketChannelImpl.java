@@ -220,7 +220,7 @@ public final class SocketChannelImpl extends SocketChannel
     int offset = 0;
     InputStream input = socket.getInputStream();
     int available = input.available();
-    int len = dst.capacity() - dst.position();
+    int len = dst.remaining();
 	
     if ((! isBlocking()) && available == 0)
       return 0;
@@ -258,7 +258,7 @@ public final class SocketChannelImpl extends SocketChannel
 	}
       else
         {
-          dst.put (data, offset, len);
+          dst.put (data, offset, readBytes);
         }
 
     return readBytes;

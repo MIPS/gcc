@@ -38,17 +38,17 @@ Boston, MA 02110-1301, USA.  */
 
 typedef GFC_ARRAY_DESCRIPTOR(GFC_MAX_DIMENSIONS, char) char_array;
 
-extern GFC_COMPLEX_8 dot_product_c8 (gfc_array_c8 * a, gfc_array_c8 * b);
+extern GFC_COMPLEX_8 dot_product_c8 (gfc_array_c8 * const restrict a, 
+	gfc_array_c8 * const restrict b);
 export_proto(dot_product_c8);
 
 /* Both parameters will already have been converted to the result type.  */
 GFC_COMPLEX_8
-dot_product_c8 (gfc_array_c8 * a, gfc_array_c8 * b)
+dot_product_c8 (gfc_array_c8 * const restrict a, gfc_array_c8 * const restrict b)
 {
-  GFC_COMPLEX_8 *pa;
-  GFC_COMPLEX_8 *pb;
+  const GFC_COMPLEX_8 * restrict pa;
+  const GFC_COMPLEX_8 * restrict pb;
   GFC_COMPLEX_8 res;
-  GFC_COMPLEX_8 conjga;
   index_type count;
   index_type astride;
   index_type bstride;
@@ -70,8 +70,7 @@ dot_product_c8 (gfc_array_c8 * a, gfc_array_c8 * b)
 
   while (count--)
     {
-      COMPLEX_ASSIGN(conjga, REALPART (*pa), -IMAGPART (*pa));
-      res += conjga * *pb;
+      res += __builtin_conj (*pa) * *pb;
       pa += astride;
       pb += bstride;
     }

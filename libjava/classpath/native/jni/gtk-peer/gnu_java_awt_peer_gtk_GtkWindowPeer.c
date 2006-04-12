@@ -1,5 +1,6 @@
 /* gtkwindowpeer.c -- Native implementation of GtkWindowPeer
-   Copyright (C) 1998, 1999, 2002, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -952,29 +953,29 @@ keyevent_state_to_awt_mods (GdkEventKey *event)
 
       if (event->keyval == GDK_Shift_L
           || event->keyval == GDK_Shift_R)
-        result |= AWT_SHIFT_DOWN_MASK;
+        result |= AWT_SHIFT_DOWN_MASK | AWT_SHIFT_MASK;
       else
         {
           if (state & GDK_SHIFT_MASK)
-            result |= AWT_SHIFT_DOWN_MASK;
+            result |= AWT_SHIFT_DOWN_MASK | AWT_SHIFT_MASK;
         }
 
       if (event->keyval == GDK_Control_L
           || event->keyval == GDK_Control_R)
-        result |= AWT_CTRL_DOWN_MASK;
+        result |= AWT_CTRL_DOWN_MASK | AWT_CTRL_MASK;
       else
         {
           if (state & GDK_CONTROL_MASK)
-            result |= AWT_CTRL_DOWN_MASK;
+            result |= AWT_CTRL_DOWN_MASK | AWT_CTRL_MASK;
         }
 
       if (event->keyval == GDK_Alt_L
           || event->keyval == GDK_Alt_R)
-        result |= AWT_ALT_DOWN_MASK;
+        result |= AWT_ALT_DOWN_MASK | AWT_ALT_MASK;
       else
         {
           if (state & GDK_MOD1_MASK)
-            result |= AWT_ALT_DOWN_MASK;
+            result |= AWT_ALT_DOWN_MASK | AWT_ALT_MASK;
         }
     }
   else if (event->type == GDK_KEY_RELEASE)
@@ -985,20 +986,20 @@ keyevent_state_to_awt_mods (GdkEventKey *event)
           && event->keyval != GDK_Shift_R)
         {
           if (state & GDK_SHIFT_MASK)
-            result |= AWT_SHIFT_DOWN_MASK;
+            result |= AWT_SHIFT_DOWN_MASK | AWT_SHIFT_MASK;
         }
       if (event->keyval != GDK_Control_L
           && event->keyval != GDK_Control_R)
         {
           if (state & GDK_CONTROL_MASK)
-            result |= AWT_CTRL_DOWN_MASK;
+            result |= AWT_CTRL_DOWN_MASK | AWT_CTRL_MASK;
         }
 
       if (event->keyval != GDK_Alt_L
           && event->keyval != GDK_Alt_R)
         {
           if (state & GDK_MOD1_MASK)
-            result |= AWT_ALT_DOWN_MASK;
+            result |= AWT_ALT_DOWN_MASK | AWT_ALT_MASK;
         }
     }
 
@@ -1028,9 +1029,6 @@ static gboolean window_delete_cb (GtkWidget *widget, GdkEvent *event,
 static void window_destroy_cb (GtkWidget *widget, GdkEvent *event,
 			       jobject peer);
 static void window_show_cb (GtkWidget *widget, jobject peer);
-static void window_active_state_change_cb (GtkWidget *widget,
-                                           GParamSpec *pspec,
-                                           jobject peer);
 static void window_focus_state_change_cb (GtkWidget *widget,
                                           GParamSpec *pspec,
                                           jobject peer);
@@ -1043,7 +1041,6 @@ static gboolean window_focus_out_cb (GtkWidget * widget,
 static gboolean window_window_state_cb (GtkWidget *widget,
 					GdkEvent *event,
 					jobject peer);
-static jint window_get_new_state (GtkWidget *widget);
 static gboolean window_property_changed_cb (GtkWidget *widget,
 					    GdkEventProperty *event,
 					    jobject peer);
@@ -1208,8 +1205,8 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_gtkWindowSetResizable
   gdk_threads_enter ();
 
   ptr = NSA_GET_PTR (env, obj);
-
-  gtk_window_set_policy (GTK_WINDOW (ptr), resizable, resizable, FALSE);
+  gtk_window_set_resizable (GTK_WINDOW (ptr), resizable);
+  g_object_set (G_OBJECT (ptr), "allow-shrink", resizable, NULL);
 
   gdk_threads_leave ();
 }
@@ -1277,9 +1274,6 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_connectSignals
 
   g_signal_connect (G_OBJECT (ptr), "show",
 		    G_CALLBACK (window_show_cb), *gref);
-
-  g_signal_connect (G_OBJECT (ptr), "notify::is-active",
-  		    G_CALLBACK (window_active_state_change_cb), *gref);
 
   g_signal_connect (G_OBJECT (ptr), "notify::has-toplevel-focus",
   		    G_CALLBACK (window_focus_state_change_cb), *gref);
@@ -1400,6 +1394,32 @@ Java_gnu_java_awt_peer_gtk_GtkWindowPeer_nativeSetBounds
 }
 
 JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkWindowPeer_nativeSetLocationUnlocked
+  (JNIEnv *env, jobject obj, jint x, jint y)
+{
+  void *ptr;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gtk_window_move (GTK_WINDOW(ptr), x, y);
+
+  if (GTK_WIDGET (ptr)->window != NULL)
+    gdk_window_move (GTK_WIDGET (ptr)->window, x, y);
+}
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkWindowPeer_nativeSetLocation
+  (JNIEnv *env, jobject obj, jint x, jint y)
+{
+  gdk_threads_enter ();
+
+  Java_gnu_java_awt_peer_gtk_GtkWindowPeer_nativeSetLocationUnlocked
+    (env, obj, x, y);
+
+  gdk_threads_leave ();
+}
+
+JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkWindowPeer_nativeSetBoundsUnlocked
   (JNIEnv *env, jobject obj, jint x, jint y, jint width, jint height)
 {
@@ -1444,20 +1464,20 @@ window_get_frame_extents (GtkWidget *window,
 
   /* Guess frame extents in case _NET_FRAME_EXTENTS is not
      supported. */
-  if (gtk_window_get_decorated (GTK_WINDOW (window)))
-    {
-      *top = 23;
-      *left = 6;
-      *bottom = 6;
-      *right = 6;
-    }
-  else
+  if (!gtk_window_get_decorated (GTK_WINDOW (window)))
     {
       *top = 0;
       *left = 0;
       *bottom = 0;
       *right = 0;
+
+      return;
     }
+
+  *top = 23;
+  *left = 6;
+  *bottom = 6;
+  *right = 6;
 
   /* Request that the window manager set window's
      _NET_FRAME_EXTENTS property. */
@@ -1592,31 +1612,6 @@ window_show_cb (GtkWidget *widget __attribute__((unused)),
 }
 
 static void
-window_active_state_change_cb (GtkWidget *widget __attribute__((unused)),
-			       GParamSpec *pspec __attribute__((unused)),
-			       jobject peer __attribute__((unused)))
-{
-  /* FIXME: not sure if this is needed or not. */
-  /* Remove the unused attributes if you fix the below.  */
-#if 0
-  gdk_threads_leave ();
-
-  if (GTK_WINDOW (widget)->is_active)
-    (*cp_gtk_gdk_env())->CallVoidMethod (cp_gtk_gdk_env(), peer,
-                                postWindowEventID,
-                                (jint) AWT_WINDOW_GAINED_FOCUS,
-                                (jobject) NULL, (jint) 0);
-  else
-    (*cp_gtk_gdk_env())->CallVoidMethod (cp_gtk_gdk_env(), peer,
-                                postWindowEventID,
-                                (jint) AWT_WINDOW_DEACTIVATED,
-                                (jobject) NULL, (jint) 0);
-
-  gdk_threads_enter ();
-#endif
-}
-
-static void
 window_focus_state_change_cb (GtkWidget *widget,
 			      GParamSpec *pspec __attribute__((unused)),
 			      jobject peer)
@@ -1660,7 +1655,7 @@ window_focus_out_cb (GtkWidget * widget __attribute__((unused)),
 }
 
 static gboolean
-window_window_state_cb (GtkWidget *widget,
+window_window_state_cb (GtkWidget *widget __attribute__((unused)),
 			GdkEvent *event,
 			jobject peer)
 {
@@ -1695,55 +1690,12 @@ window_window_state_cb (GtkWidget *widget,
   if (event->window_state.new_window_state & GDK_WINDOW_STATE_ICONIFIED)
     new_state |= AWT_FRAME_STATE_ICONIFIED;
 
-  new_state |= window_get_new_state (widget);
-
   (*cp_gtk_gdk_env())->CallVoidMethod (cp_gtk_gdk_env(), peer,
 			      postWindowEventID,
 			      (jint) AWT_WINDOW_STATE_CHANGED,
 			      (jobject) NULL, new_state);
 
   return TRUE;
-}
-
-static jint
-window_get_new_state (GtkWidget *widget)
-{
-  GdkDisplay *display = gtk_widget_get_display(widget);
-  jint new_state = AWT_FRAME_STATE_NORMAL;
-  Atom type;
-  gint format;
-  gulong atom_count;
-  gulong bytes_after;
-  Atom *atom_list = NULL;
-  union atom_list_union alu;
-  gulong i;
-
-  alu.atom_list = &atom_list;
-  XGetWindowProperty (GDK_DISPLAY_XDISPLAY (display), 
-		      GDK_WINDOW_XID (widget->window),
-		      gdk_x11_get_xatom_by_name_for_display (display, "_NET_WM_STATE"),
-		      0, G_MAXLONG, False, XA_ATOM, &type, &format, &atom_count,
-		      &bytes_after, alu.gu_extents);
-
-  if (type != None)
-    {
-      Atom maxvert = gdk_x11_get_xatom_by_name_for_display (display, "_NET_WM_STATE_MAXIMIZED_VERT");
-      Atom maxhorz	= gdk_x11_get_xatom_by_name_for_display (display, "_NET_WM_STATE_MAXIMIZED_HORZ");
-
-      i = 0;
-      while (i < atom_count)
-        {
-	  if (atom_list[i] == maxhorz)
-	    new_state |= AWT_FRAME_STATE_MAXIMIZED_HORIZ;
-          else if (atom_list[i] == maxvert)
-	    new_state |= AWT_FRAME_STATE_MAXIMIZED_VERT;
-
-          ++i;
-        }
-
-      XFree (atom_list);
-    }
-  return new_state;
 }
 
 static gboolean

@@ -37,18 +37,21 @@ Boston, MA 02110-1301, USA.  */
 #if defined (HAVE_GFC_COMPLEX_10) && defined (HAVE_GFC_COMPLEX_10)
 
 
-extern void product_c10 (gfc_array_c10 *, gfc_array_c10 *, index_type *);
+extern void product_c10 (gfc_array_c10 * const restrict, 
+	gfc_array_c10 * const restrict, const index_type * const restrict);
 export_proto(product_c10);
 
 void
-product_c10 (gfc_array_c10 *retarray, gfc_array_c10 *array, index_type *pdim)
+product_c10 (gfc_array_c10 * const restrict retarray, 
+	gfc_array_c10 * const restrict array, 
+	const index_type * const restrict pdim)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type sstride[GFC_MAX_DIMENSIONS];
   index_type dstride[GFC_MAX_DIMENSIONS];
-  GFC_COMPLEX_10 *base;
-  GFC_COMPLEX_10 *dest;
+  const GFC_COMPLEX_10 * restrict base;
+  GFC_COMPLEX_10 * restrict dest;
   index_type rank;
   index_type n;
   index_type len;
@@ -120,7 +123,7 @@ product_c10 (gfc_array_c10 *retarray, gfc_array_c10 *array, index_type *pdim)
 
   while (base)
     {
-      GFC_COMPLEX_10 *src;
+      const GFC_COMPLEX_10 * restrict src;
       GFC_COMPLEX_10 result;
       src = base;
       {
@@ -170,22 +173,25 @@ product_c10 (gfc_array_c10 *retarray, gfc_array_c10 *array, index_type *pdim)
 }
 
 
-extern void mproduct_c10 (gfc_array_c10 *, gfc_array_c10 *, index_type *,
-					       gfc_array_l4 *);
+extern void mproduct_c10 (gfc_array_c10 * const restrict, 
+	gfc_array_c10 * const restrict, const index_type * const restrict,
+	gfc_array_l4 * const restrict);
 export_proto(mproduct_c10);
 
 void
-mproduct_c10 (gfc_array_c10 * retarray, gfc_array_c10 * array,
-				  index_type *pdim, gfc_array_l4 * mask)
+mproduct_c10 (gfc_array_c10 * const restrict retarray, 
+	gfc_array_c10 * const restrict array, 
+	const index_type * const restrict pdim, 
+	gfc_array_l4 * const restrict mask)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type sstride[GFC_MAX_DIMENSIONS];
   index_type dstride[GFC_MAX_DIMENSIONS];
   index_type mstride[GFC_MAX_DIMENSIONS];
-  GFC_COMPLEX_10 *dest;
-  GFC_COMPLEX_10 *base;
-  GFC_LOGICAL_4 *mbase;
+  GFC_COMPLEX_10 * restrict dest;
+  const GFC_COMPLEX_10 * restrict base;
+  const GFC_LOGICAL_4 * restrict mbase;
   int rank;
   int dim;
   index_type n;
@@ -276,8 +282,8 @@ mproduct_c10 (gfc_array_c10 * retarray, gfc_array_c10 * array,
 
   while (base)
     {
-      GFC_COMPLEX_10 *src;
-      GFC_LOGICAL_4 *msrc;
+      const GFC_COMPLEX_10 * restrict src;
+      const GFC_LOGICAL_4 * restrict msrc;
       GFC_COMPLEX_10 result;
       src = base;
       msrc = mbase;
@@ -329,6 +335,60 @@ mproduct_c10 (gfc_array_c10 * retarray, gfc_array_c10 * array,
             }
         }
     }
+}
+
+
+extern void sproduct_c10 (gfc_array_c10 * const restrict, 
+	gfc_array_c10 * const restrict, const index_type * const restrict,
+	GFC_LOGICAL_4 *);
+export_proto(sproduct_c10);
+
+void
+sproduct_c10 (gfc_array_c10 * const restrict retarray, 
+	gfc_array_c10 * const restrict array, 
+	const index_type * const restrict pdim, 
+	GFC_LOGICAL_4 * mask)
+{
+  index_type rank;
+  index_type n;
+  index_type dstride;
+  GFC_COMPLEX_10 *dest;
+
+  if (*mask)
+    {
+      product_c10 (retarray, array, pdim);
+      return;
+    }
+    rank = GFC_DESCRIPTOR_RANK (array);
+  if (rank <= 0)
+    runtime_error ("Rank of array needs to be > 0");
+
+  if (retarray->data == NULL)
+    {
+      retarray->dim[0].lbound = 0;
+      retarray->dim[0].ubound = rank-1;
+      retarray->dim[0].stride = 1;
+      retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
+      retarray->offset = 0;
+      retarray->data = internal_malloc_size (sizeof (GFC_COMPLEX_10) * rank);
+    }
+  else
+    {
+      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
+	runtime_error ("rank of return array does not equal 1");
+
+      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
+        runtime_error ("dimension of return array incorrect");
+
+      if (retarray->dim[0].stride == 0)
+	retarray->dim[0].stride = 1;
+    }
+
+    dstride = retarray->dim[0].stride;
+    dest = retarray->data;
+
+    for (n = 0; n < rank; n++)
+      dest[n * dstride] = 1 ;
 }
 
 #endif

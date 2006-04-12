@@ -5,12 +5,14 @@ JAVA_DEPEND = java.dep
 ## this file and restart the make process again
 sinclude $(JAVA_DEPEND)
 
-propertydirs :=  $(shell cd $(top_srcdir)/resource && $(FIND) gnu java org META-INF -type d ! -name CVS -print)
+## GCJ LOCAL: prune .svn directories
+propertydirs :=  $(shell cd $(top_srcdir)/resource && $(FIND) gnu java org META-INF -type d ! -name CVS -print | fgrep -v .svn)
 propertyfiles :=  $(shell cd $(top_srcdir)/resource && $(FIND) gnu java org -name \*\.properties -print)
-metafiles :=  $(shell cd $(top_srcdir)/resource && $(FIND) META-INF -name CVS -prune -o -type f -print)
+metafiles :=  $(shell cd $(top_srcdir)/resource && $(FIND) META-INF -name CVS -prune -o -type f -print | fgrep -v .svn)
+## END GCJ LOCAL
 iconfiles :=  $(shell cd $(top_srcdir) && $(FIND) gnu/javax/swing/plaf/gtk/icons -name *.png -type f -print)
 
-compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:.:$(USER_CLASSLIB)
+compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:.:$(USER_CLASSLIB)
 
 # handling source to bytecode compiler programs like gcj, jikes  and kjc
 if FOUND_GCJ
@@ -19,17 +21,17 @@ if FOUND_GCJ
 JAVAC = exit 1
 else
 if FOUND_JIKES
-JAVAC = $(JIKES) +Pno-shadow +Pno-switchcheck +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
+JAVAC = $(JIKES) $(JIKESWARNINGS) +F $(JIKESENCODING) -bootclasspath '' -extdirs '' -sourcepath '' --classpath $(compile_classpath) -d . @classes
 else
 if FOUND_KJC
 ## FIXME: from what I can tell, kjc does not support a -encoding option.
 JAVAC = $(KJC) -classpath .:$(USER_CLASSLIB) -d . @classes
 else
 if FOUND_GCJX
-JAVAC = $(GCJX) -encoding UTF-8 -classpath .:$(USER_CLASSLIB) -d . @classes
+JAVAC = $(GCJX) -g -encoding UTF-8 -classpath .:$(USER_CLASSLIB) -d . @classes
 else
 if FOUND_ECJ
-JAVAC = $(ECJ) -encoding UTF-8 -warn:none -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
+JAVAC = $(ECJ) -source 1.4 -encoding UTF-8 -warn:-deprecation,serial,unused -proceedOnError -bootclasspath '' -classpath $(compile_classpath) -d . @classes
 endif # FOUND_ECJ
 endif # FOUND_GCJX
 endif # FOUND_KJC
@@ -38,9 +40,28 @@ endif # FOUND_JIKES
 
 JAVAH = $(USER_JAVAH) -jni -classpath .:$(USER_CLASSLIB)
 
+if CREATE_COLLECTIONS
+COLLECTIONS = collections.jar
+
+collections.jar: mkcollections.pl
+	./mkcollections.pl $(top_srcdir)
+if FOUND_GCJ
+	$(GCJ) -C `$(FIND) $(COLLECTIONS_PREFIX) -name '*' -type f -print`
+else
+	$(JAVAC) `$(FIND) $(COLLECTIONS_PREFIX) -name '*' -type f -print`
+endif
+	if test "$(FASTJAR)" != ""; then \
+	  $(FASTJAR) cf $@ $(COLLECTIONS_PREFIX); \
+	else \
+	  echo "fastjar not found" > collections.jar; \
+	fi
+endif # CREATE_COLLECTIONS
+
 if INSTALL_GLIBJ_ZIP
 
-pkgdata_DATA = glibj.zip
+## GCJ LOCAL: Comment this out so we don't make an empty
+## '$(glibjdir)' in the install tree.
+## glibj_DATA = glibj.zip
 
 endif # INSTALL_GLIBJ_ZIP
 
@@ -72,23 +93,25 @@ endif # INSTALL_CLASS_FILES
 
 glibj.zip: classes compile-classes resources
 	if test "$(ZIP)" != ""; then $(ZIP) -r -D glibj.zip gnu java javax org META-INF > /dev/null; fi
+	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf glibj.zip gnu java javax org META-INF; fi
 
-resources:
+resources: copy-vmresources.sh
 	if ! [ -e gnu ]; then mkdir gnu; fi
 	if ! [ -e gnu/java ]; then mkdir gnu/java; fi
 	if ! [ -e gnu/java/locale ]; then mkdir gnu/java/locale; fi
 	if ! [ -e gnu/javax/swing/plaf/gtk/icons ]; then mkdir -p gnu/javax/swing/plaf/gtk/icons; fi
-	@list='$(propertydirs)'; for p in $$list; do \
+	list='$(propertydirs)'; for p in $$list; do \
 	  if ! [ -e $$p ]; then mkdir $$p; fi; \
 	done
-	@list='$(propertyfiles)'; for p in $$list; do \
-	  cp $(top_srcdir)/resource/$$p $$p; \
+	list='$(propertyfiles)'; for p in $$list; do \
+	  cp -f $(top_srcdir)/resource/$$p $$p; \
 	done
-	@list='$(metafiles)'; for p in $$list; do \
-	  cp $(top_srcdir)/resource/$$p $$p; \
+	list='$(metafiles)'; for p in $$list; do \
+	  cp -f $(top_srcdir)/resource/$$p $$p; \
 	done
-	@list='$(iconfiles)'; for p in $$list; do \
-	  cp $(top_srcdir)/$$p $$p; \
+	$(SHELL) ./copy-vmresources.sh
+	list='$(iconfiles)'; for p in $$list; do \
+	  cp -f $(top_srcdir)/$$p $$p; \
 	done
 	touch resources
 
@@ -145,16 +168,17 @@ clean-local:
 	-rm -rf java
 	-rm -rf javax
 	-rm -rf org
+	-rm -rf com
 	-rm -rf META-INF
 	-rm -rf lists
 	-rm -f Makefile.deps
 
 dist-hook:
 	mkdir -p $(distdir)
-	cp -dfR $(top_srcdir)/gnu $(top_srcdir)/java $(top_srcdir)/javax $(top_srcdir)/org $(top_srcdir)/vm $(top_srcdir)/resource $(top_distdir)
+	cp -pdfR $(top_srcdir)/gnu $(top_srcdir)/java $(top_srcdir)/javax $(top_srcdir)/org $(top_srcdir)/vm $(top_srcdir)/resource $(distdir)/..
 # Delete not wanted files.
-	$(FIND) $(top_distdir)/gnu $(top_distdir)/java $(top_distdir)/javax $(top_distdir)/org $(top_distdir)/vm $(top_distdir)/resource -name CVS -print | xargs rm -fr
-	$(FIND) $(top_distdir)/gnu $(top_distdir)/java $(top_distdir)/javax $(top_distdir)/org $(top_distdir)/vm $(top_distdir)/resource -name .cvsignore -print | xargs rm -f
-	$(FIND) $(top_distdir)/gnu $(top_distdir)/java $(top_distdir)/javax $(top_distdir)/org $(top_distdir)/vm -name class-dependencies.conf -print | xargs rm -f
-	rm -f $(top_distdir)/gnu/classpath/Configuration.java
-	rm -f $(top_distdir)/java/util/LocaleData.java
+	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../vm $(distdir)/../resource -name CVS -print | xargs rm -fr
+	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../vm $(distdir)/../resource -name .cvsignore -print | xargs rm -f
+	$(FIND) $(distdir)/../gnu $(distdir)/../java $(distdir)/../javax $(distdir)/../org $(distdir)/../vm -name class-dependencies.conf -print | xargs rm -f
+	rm -f $(distdir)/../gnu/classpath/Configuration.java
+	rm -f $(distdir)/../java/util/LocaleData.java

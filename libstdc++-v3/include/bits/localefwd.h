@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -47,8 +47,8 @@
 #include <iosfwd>		// For ostreambuf_iterator, istreambuf_iterator
 #include <bits/functexcept.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // 22.1.1 Locale
   class locale;
 
@@ -129,10 +129,12 @@ namespace std
     class codecvt_byname;
 
   // 22.2.2 and 22.2.3 numeric
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
   template<typename _CharT, typename _InIter = istreambuf_iterator<_CharT> >
     class num_get;
   template<typename _CharT, typename _OutIter = ostreambuf_iterator<_CharT> >
     class num_put;
+_GLIBCXX_END_LDBL_NAMESPACE
   template<typename _CharT> class numpunct;
   template<typename _CharT> class numpunct_byname;
 
@@ -155,10 +157,12 @@ namespace std
 
   // 22.2.6 money
   class money_base;
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
   template<typename _CharT, typename _InIter =  istreambuf_iterator<_CharT> >
     class money_get;
   template<typename _CharT, typename _OutIter = ostreambuf_iterator<_CharT> >
     class money_put;
+_GLIBCXX_END_LDBL_NAMESPACE
   template<typename _CharT, bool _Intl = false>
     class moneypunct;
   template<typename _CharT, bool _Intl = false>
@@ -187,6 +191,7 @@ namespace std
 	__throw_bad_cast();
       return *__f;
     }
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

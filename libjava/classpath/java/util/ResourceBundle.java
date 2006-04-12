@@ -1,5 +1,5 @@
 /* ResourceBundle -- aids in loading resource bundles
-   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -419,7 +419,11 @@ public abstract class ResourceBundle
 	  }
       }
 
-    throw new MissingResourceException("Bundle " + baseName + " not found",
+    throw new MissingResourceException("Bundle " + baseName 
+				       + " not found for locale "
+				       + locale
+				       + " by classloader "
+				       + classLoader,
 				       baseName, "");
   }
 
@@ -472,9 +476,7 @@ public abstract class ResourceBundle
 	if (ResourceBundle.class.isAssignableFrom(rbClass))
 	  bundle = (ResourceBundle) rbClass.newInstance();
       }
-    catch (IllegalAccessException ex) {}
-    catch (InstantiationException ex) {}
-    catch (ClassNotFoundException ex) {}
+    catch (Exception ex) {}
 
     if (bundle == null)
       {
@@ -508,8 +510,7 @@ public abstract class ResourceBundle
    *
    * @param baseName the raw bundle name, without locale qualifiers
    * @param locale the locale
-   * @param classloader the classloader
-   * @param bundle the backup (parent) bundle
+   * @param classLoader the classloader
    * @param wantBase whether a resource bundle made only from the base name
    *        (with no locale information attached) should be returned.
    * @return the resource bundle if it was loaded, otherwise the backup

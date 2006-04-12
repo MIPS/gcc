@@ -1,5 +1,5 @@
 // -*- C++ -*- The GNU C++ exception personality routine.
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2006 Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -26,7 +26,6 @@
 // the GNU General Public License.  This exception does not however
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
-
 
 #include <bits/c++config.h>
 #include <cstdlib>
@@ -365,11 +364,12 @@ PERSONALITY_FUNCTION (int version,
   int handler_switch_value;
   void* thrown_ptr = ue_header + 1;
   bool foreign_exception;
+  int ip_before_insn = 0;
 
 #ifdef __ARM_EABI_UNWINDER__
   _Unwind_Action actions;
 
-  switch (state)
+  switch (state & _US_ACTION_MASK)
     {
     case _US_VIRTUAL_UNWIND_FRAME:
       actions = _UA_SEARCH_PHASE;
@@ -377,7 +377,8 @@ PERSONALITY_FUNCTION (int version,
 
     case _US_UNWIND_FRAME_STARTING:
       actions = _UA_CLEANUP_PHASE;
-      if (ue_header->barrier_cache.sp == _Unwind_GetGR(context, 13))
+      if (!(state & _US_FORCE_UNWIND)
+	  && ue_header->barrier_cache.sp == _Unwind_GetGR(context, 13))
 	actions |= _UA_HANDLER_FRAME;
       break;
 
@@ -386,8 +387,9 @@ PERSONALITY_FUNCTION (int version,
       break;
 
     default:
-      abort();
+      std::abort();
     }
+  actions |= state & _US_FORCE_UNWIND;
 
   // We don't know which runtime we're working with, so can't check this.
   // However the ABI routines hide this from us, and we don't actually need
@@ -429,7 +431,9 @@ PERSONALITY_FUNCTION (int version,
   // Parse the LSDA header.
   p = parse_lsda_header (context, language_specific_data, &info);
   info.ttype_base = base_of_encoded_value (info.ttype_encoding, context);
-  ip = _Unwind_GetIP (context) - 1;
+  ip = _Unwind_GetIPInfo (context, &ip_before_insn);
+  if (! ip_before_insn)
+    --ip;
   landing_pad = 0;
   action_record = 0;
   handler_switch_value = 0;
@@ -523,13 +527,13 @@ PERSONALITY_FUNCTION (int version,
       // exception class, there's no exception type.
       // ??? What to do about GNU Java and GNU Ada exceptions.
 
-#ifdef __ARM_EABI_UNWINDER__
-      throw_type = ue_header;
-#else
       if ((actions & _UA_FORCE_UNWIND)
 	  || foreign_exception)
 	throw_type = 0;
       else
+#ifdef __ARM_EABI_UNWINDER__
+	throw_type = ue_header;
+#else
 	throw_type = xh->exceptionType;
 #endif
 
@@ -613,7 +617,6 @@ PERSONALITY_FUNCTION (int version,
 
  install_context:
   
-#ifndef __ARM_EABI_UNWINDER__
   // We can't use any of the cxa routines with foreign exceptions,
   // because they all expect ue_header to be a struct __cxa_exception.
   // So in that case, call terminate or unexpected directly.
@@ -631,7 +634,6 @@ PERSONALITY_FUNCTION (int version,
 	}
     }
   else
-#endif
     {
       if (found_type == found_terminate)
 	__cxa_call_terminate(ue_header);
@@ -680,10 +682,10 @@ PERSONALITY_FUNCTION (int version,
   return _URC_INSTALL_CONTEXT;
 }
 
-/* The ARM EABI implementation of __cxa_call_unexpected is in a different
-   file so that the personality routine san be used standalone.  The generic
-   routine sahred datastructures with the PR so it is most convenient to
-   implement it here.  */
+/* The ARM EABI implementation of __cxa_call_unexpected is in a
+   different file so that the personality routine (PR) can be used
+   standalone.  The generic routine shared datastructures with the PR
+   so it is most convenient to implement it here.  */
 #ifndef __ARM_EABI_UNWINDER__
 extern "C" void
 __cxa_call_unexpected (void *exc_obj_in)

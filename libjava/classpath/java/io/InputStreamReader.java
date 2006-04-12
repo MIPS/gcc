@@ -1,5 +1,6 @@
 /* InputStreamReader.java -- Reader than transforms bytes to chars
-   Copyright (C) 1998, 1999, 2001, 2003, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,16 +39,15 @@ exception statement from your version. */
 
 package java.io;
 
-import java.nio.charset.UnsupportedCharsetException;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.IllegalCharsetNameException;
-import java.nio.charset.CoderResult;
-import java.nio.charset.CodingErrorAction;
+import gnu.classpath.SystemProperties;
+import gnu.java.nio.charset.EncodingHelper;
+
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
-import java.nio.CharBuffer;
-import java.nio.ByteBuffer;
-import gnu.java.nio.charset.EncodingHelper;
+import java.nio.charset.CoderResult;
+import java.nio.charset.CodingErrorAction;
 
 /**
  * This class reads characters from a byte input stream.   The characters
@@ -147,7 +147,7 @@ public class InputStreamReader extends Reader
     this.in = in;
     try 
 	{ 
-	  encoding = System.getProperty("file.encoding");
+	  encoding = SystemProperties.getProperty("file.encoding");
 	  // Don't use NIO if avoidable
 	  if(EncodingHelper.isISOLatin1(encoding))
 	    {
@@ -232,10 +232,20 @@ public class InputStreamReader extends Reader
    * Creates an InputStreamReader that uses a decoder of the given
    * charset to decode the bytes in the InputStream into
    * characters.
+   * 
+   * @since 1.4
    */
   public InputStreamReader(InputStream in, Charset charset) {
+    if (in == null)
+      throw new NullPointerException();
     this.in = in;
     decoder = charset.newDecoder();
+
+    try {
+      maxBytesPerChar = charset.newEncoder().maxBytesPerChar();
+    } catch(UnsupportedOperationException _){
+      maxBytesPerChar = 1f;
+    }
 
     decoder.onMalformedInput(CodingErrorAction.REPLACE);
     decoder.onUnmappableCharacter(CodingErrorAction.REPLACE);
@@ -246,13 +256,21 @@ public class InputStreamReader extends Reader
   /**
    * Creates an InputStreamReader that uses the given charset decoder
    * to decode the bytes in the InputStream into characters.
+   * 
+   * @since 1.4
    */
   public InputStreamReader(InputStream in, CharsetDecoder decoder) {
+    if (in == null)
+      throw new NullPointerException();
     this.in = in;
     this.decoder = decoder;
 
+    Charset charset = decoder.charset();
     try {
-	maxBytesPerChar = decoder.charset().newEncoder().maxBytesPerChar();
+      if (charset == null)
+        maxBytesPerChar = 1f;
+      else
+        maxBytesPerChar = charset.newEncoder().maxBytesPerChar();
     } catch(UnsupportedOperationException _){
 	maxBytesPerChar = 1f;
     } 
@@ -260,7 +278,10 @@ public class InputStreamReader extends Reader
     decoder.onMalformedInput(CodingErrorAction.REPLACE);
     decoder.onUnmappableCharacter(CodingErrorAction.REPLACE);
     decoder.reset();
-    encoding = EncodingHelper.getOldCanonical(decoder.charset().name());      
+    if (charset == null)
+      encoding = "US-ASCII";
+    else
+      encoding = EncodingHelper.getOldCanonical(decoder.charset().name());      
   }
   
   /**

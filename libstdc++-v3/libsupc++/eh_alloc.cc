@@ -1,5 +1,6 @@
 // -*- C++ -*- Allocate exception objects.
-// Copyright (C) 2001, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+// Free Software Foundation, Inc.
 //
 // This file is part of GCC.
 //
@@ -30,6 +31,7 @@
 // This is derived from the C++ ABI for IA-64.  Where we diverge
 // for cross-architecture compatibility are noted with "@@@".
 
+#include <bits/c++config.h>
 #include <cstdlib>
 #if _GLIBCXX_HOSTED
 #include <cstring>
@@ -37,7 +39,6 @@
 #include <climits>
 #include <exception>
 #include "unwind-cxx.h"
-#include "bits/c++config.h"
 #include "bits/gthr.h"
 
 #if _GLIBCXX_HOSTED
@@ -45,11 +46,11 @@ using std::free;
 using std::malloc;
 using std::memcpy;
 #else
-// In a freestanding environment, these functions may not be
-// available -- but for now, we assume that they are.
+// In a freestanding environment, these functions may not be available
+// -- but for now, we assume that they are.
 extern "C" void *malloc (std::size_t);
 extern "C" void free(void *);
-extern "C" int memset (void *, int, std::size_t);
+extern "C" void *memset (void *, int, std::size_t);
 #endif
 
 using namespace __cxxabiv1;

@@ -1,5 +1,5 @@
 /* LineInputStream.java --
-   Copyright (C) 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,8 +38,8 @@ exception statement from your version. */
 
 package gnu.java.net;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -49,8 +49,14 @@ import java.io.InputStream;
  * @author Chris Burdess (dog@gnu.org)
  */
 public class LineInputStream
-  extends FilterInputStream
+  extends InputStream
 {
+
+  /**
+   * The underlying input stream.
+   */
+  protected InputStream in;
+  
   /*
    * Line buffer.
    */
@@ -87,11 +93,30 @@ public class LineInputStream
    */
   public LineInputStream(InputStream in, String encoding)
   {
-    super(in);
+    this.in = in;
     buf = new ByteArrayOutputStream();
     this.encoding = encoding;
     eof = false;
-    blockReads = in.markSupported();
+    // If it is already buffered, additional buffering gains nothing.
+    blockReads = !(in instanceof BufferedInputStream) && in.markSupported();
+  }
+
+  public int read()
+    throws IOException
+  {
+    return in.read();
+  }
+
+  public int read(byte[] buf)
+    throws IOException
+  {
+    return in.read(buf);
+  }
+  
+  public int read(byte[] buf, int off, int len)
+    throws IOException
+  {
+    return in.read(buf, off, len);
   }
 
   /**
@@ -109,11 +134,12 @@ public class LineInputStream
         if (blockReads)
           {
             // Use mark and reset to read chunks of bytes
-            final int MIN_LENGTH = 1024;
+            final int MAX_LENGTH = 1024;
             int len, pos;
-            
+
             len = in.available();
-            len = (len < MIN_LENGTH) ? MIN_LENGTH : len;
+            if (len == 0 || len > MAX_LENGTH)
+              len = MAX_LENGTH;
             byte[] b = new byte[len];
             in.mark(len);
             // Read into buffer b

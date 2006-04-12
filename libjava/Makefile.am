@@ -64,8 +64,6 @@ secdir = $(libdir)/security
 ## Where to install default logging property file.
 propdir = $(libdir)
 
-## Where the standard .db file is found.
-dbexecdir = $(libdir)/gcj-$(gcc_version)
 ## Name of the default .db.
 db_name = classmap.db
 ## Compiler specific component of the .db file
@@ -154,6 +152,7 @@ LIBFFIINCS = @LIBFFIINCS@
 AM_CPPFLAGS = -I$(top_srcdir) \
 	-Iinclude -I$(top_srcdir)/include \
 	-I$(top_srcdir)/classpath/include \
+	-Iclasspath/include \
 	-I$(top_srcdir)/classpath/native/fdlibm \
 	$(GCINCS) $(THREADINCS) $(INCLTDL) \
 	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
@@ -188,10 +187,6 @@ endif
 
 if USING_NOGC
 libgcj_la_SOURCES += nogc.cc
-endif
-
-if SUPPLY_BACKTRACE
-libgcj_la_SOURCES += sysdep/dwarf2-backtrace.cc
 endif
 
 if USING_POSIX_PLATFORM
@@ -566,7 +561,7 @@ install-data-local:
 ## FIXME: the obvious approach using lib_DATA doesn't work with
 ## automake 1.4.
 	$(mkinstalldirs) $(DESTDIR)$(secdir)
-	@for f in classpath.security libgcj.security; do \
+	@for f in libgcj.security; do \
 	  echo " $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f"; \
 	  $(INSTALL_DATA) $(srcdir)/java/security/$$f $(DESTDIR)$(secdir)/$$f; \
 	done
@@ -869,20 +864,40 @@ gnu/gcj/xlib/natXUnmapEvent.cc
 src.zip:
 	-rm -f src.zip
 	here=`pwd`; \
-	( ( cd $(srcdir); \
+	( \
+	  ( cd $(srcdir)/classpath; \
 	  find java gnu javax org -name '*.java' -print | \
 	  while read file; do \
 ## Ugly code to avoid "echo -C".  Must separate each entry by a newline
 ## Gross but easy.
 	    echo "x-C" | sed -e 's/^.//'; \
-	    echo $(srcdir); \
+	    echo $(srcdir)/classpath; \
 	    echo $$file; \
 	  done ); \
 ## Now the build tree.
-	  find gnu java -name '*.java' -print) | \
+	  ( cd classpath; \
+	    find gnu java -name '*.java' -print | \
+	    while read file; do \
+	    echo "x-C" | sed -e 's/^.//'; \
+	    echo `pwd`; \
+	    echo $$file; \
+	  done ); \
+	) | \
 ## Many of the above circumlocutions are because ZIP will most likely
 ## be a relative path to fastjar.
 	$(ZIP) -cfM@ $$here/src.zip
+## Override GNU Classpath sources with libgcj replacements.
+	here=`pwd`; \
+	( \
+	  ( cd $(srcdir); \
+	  find gnu java -name '*.java' -print | \
+	  while read file; do \
+	    echo "x-C" | sed -e 's/^.//'; \
+	    echo $(srcdir); \
+	    echo $$file; \
+	  done ); \
+	) | \
+	$(ZIP) -ufM@ $$here/src.zip
 
 ## We use a variable for this in case the user wants to override it.
 sourcesdir = $(jardir)

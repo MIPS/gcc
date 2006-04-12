@@ -100,6 +100,17 @@ public class File implements Serializable, Comparable
    * may be an absolute or relative path name.
    */
   private String path;
+  
+  
+  /**
+   * The time (millisecond), when the last temporary file was created.
+   */
+  private static long last_tmp;
+  
+  /**
+   * The number of files, created during the current millisecond.
+   */
+  private static int n_created;  
 
   /**
    * This method tests whether or not the current thread is allowed to
@@ -385,7 +396,8 @@ public class File implements Serializable, Comparable
    * This method initializes a new <code>File</code> object to represent
    * a file corresponding to the specified <code>file:</code> protocol URI.
    *
-   * @param uri The uri.
+   * @param uri The URI
+   * @throws IllegalArgumentException if the URI is not hierarchical
    */
   public File(URI uri)
   {
@@ -395,7 +407,11 @@ public class File implements Serializable, Comparable
     if (!uri.getScheme().equals("file"))
 	throw new IllegalArgumentException("invalid uri protocol");
 
-    path = normalizePath(uri.getPath());
+    String name = uri.getPath();
+    if (name == null)
+      throw new IllegalArgumentException("URI \"" + uri
+                     + "\" is not hierarchical");
+    path = normalizePath(name);
   }
 
   /**
@@ -446,6 +462,8 @@ public class File implements Serializable, Comparable
         else
           return drvDir;
       }
+    else if (path.equals(""))
+      return System.getProperty ("user.dir");
     else
       return System.getProperty ("user.dir") + separatorChar + path;
   }
@@ -532,6 +550,9 @@ public class File implements Serializable, Comparable
   {
     String prefix = null;
     int nameSeqIndex = 0;
+    
+    if (path.equals(""))
+      return null;
 
     // The "prefix", if present, is the leading "/" on UNIX and 
     // either the drive specifier (e.g. "C:") or the leading "\\"
@@ -943,8 +964,8 @@ public class File implements Serializable, Comparable
   public URI toURI()
   {
     String abspath = getAbsolutePath();
-
-    if (isDirectory())
+       
+    if (isDirectory() || path.equals(""))
       abspath = abspath + separatorChar;
 
     if (separatorChar == '\\')
@@ -1059,7 +1080,7 @@ public class File implements Serializable, Comparable
    *
    * @since 1.2
    */
-  public static File createTempFile(String prefix, String suffix,
+  public static synchronized File createTempFile(String prefix, String suffix,
 				    File directory)
     throws IOException
   {
@@ -1091,10 +1112,23 @@ public class File implements Serializable, Comparable
     // Now identify a file name and make sure it doesn't exist.
     File file;
     if (!VMFile.IS_DOS_8_3)
-      {      
+      { 
         do
           {
-            String filename = prefix + System.currentTimeMillis() + suffix;
+            long now = System.currentTimeMillis();
+            if (now > last_tmp)
+              {
+                // The last temporary file was created more than 1 ms ago.
+                last_tmp = now;
+                n_created = 0;
+              }
+            else
+              n_created++;
+            
+            String name = Long.toHexString(now);
+            if (n_created > 0)
+              name += '_'+Integer.toHexString(n_created);
+            String filename = prefix + name + suffix;
             file = new File(directory, filename);
           }
         while (VMFile.exists(file.path));

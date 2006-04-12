@@ -60,6 +60,21 @@ import javax.accessibility.AccessibleContext;
  */
 public class JWindow extends Window implements Accessible, RootPaneContainer
 {
+  /**
+   * Provides accessibility support for <code>JWindow</code>.
+   */
+  protected class AccessibleJWindow extends Window.AccessibleAWTWindow
+  {
+    /**
+     * Creates a new instance of <code>AccessibleJWindow</code>.
+     */
+    protected AccessibleJWindow()
+    {
+      super();
+      // Nothing to do here.
+    }
+  }
+
   private static final long serialVersionUID = 5420698392125238833L;
   
   protected JRootPane rootPane;
@@ -72,39 +87,72 @@ public class JWindow extends Window implements Accessible, RootPaneContainer
   protected AccessibleContext accessibleContext;
 
   /**
-   * Tells us if we're in the initialization stage.
-   * If so, adds go to top-level Container, otherwise they go
-   * to the content pane for this container.
+   * Creates a new <code>JWindow</code> that has a shared invisible owner frame
+   * as its parent.
    */
-  private boolean initStageDone = false;
-
   public JWindow()
   {
-    super(SwingUtilities.getOwnerFrame());
+    super(SwingUtilities.getOwnerFrame(null));
     windowInit();
   }
 
+  /**
+   * Creates a new <code>JWindow</code> that uses the specified graphics
+   * environment. This can be used to open a window on a different screen for
+   * example.
+   *
+   * @param gc the graphics environment to use
+   */
   public JWindow(GraphicsConfiguration gc)
   {
-    super(SwingUtilities.getOwnerFrame(), gc);
+    super(SwingUtilities.getOwnerFrame(null), gc);
     windowInit();
   }
-  
+
+  /**
+   * Creates a new <code>JWindow</code> that has the specified
+   * <code>owner</code> frame. If <code>owner</code> is <code>null</code>, then
+   * an invisible shared owner frame is installed as owner frame.
+   *
+   * @param owner the owner frame of this window; if <code>null</code> a shared
+   *        invisible owner frame is used
+   */
   public JWindow(Frame owner)
   {
-    super(owner);
+    super(SwingUtilities.getOwnerFrame(owner));
     windowInit();
   }
 
+  /**
+   * Creates a new <code>JWindow</code> that has the specified
+   * <code>owner</code> window. If <code>owner</code> is <code>null</code>,
+   * then an invisible shared owner frame is installed as owner frame.
+   *
+   * @param owner the owner window of this window; if <code>null</code> a
+   *        shared invisible owner frame is used
+   */
   public JWindow(Window owner)
   {
-    super(owner);
+    super(SwingUtilities.getOwnerFrame(owner));
     windowInit();
   }
 
+  /**
+   * Creates a new <code>JWindow</code> for the given graphics configuration
+   * and that has the specified <code>owner</code> window. If
+   * <code>owner</code> is <code>null</code>, then an invisible shared owner
+   * frame is installed as owner frame.
+   *
+   * The <code>gc</code> parameter can be used to open the window on a
+   * different screen for example.
+   *
+   * @param owner the owner window of this window; if <code>null</code> a
+   *        shared invisible owner frame is used
+   * @param gc the graphics configuration to use
+   */
   public JWindow(Window owner, GraphicsConfiguration gc)
   {
-    super(owner, gc);
+    super(SwingUtilities.getOwnerFrame(owner), gc);
     windowInit();
   }
 
@@ -113,7 +161,7 @@ public class JWindow extends Window implements Accessible, RootPaneContainer
     super.setLayout(new BorderLayout(1, 1));
     getRootPane(); // will do set/create
     // Now we're done init stage, adds and layouts go to content pane.
-    initStageDone = true;
+    setRootPaneCheckingEnabled(true);
   }
 
   public Dimension getPreferredSize()
@@ -125,13 +173,8 @@ public class JWindow extends Window implements Accessible, RootPaneContainer
   {
     // Check if we're in initialization stage.  If so, call super.setLayout
     // otherwise, valid calls go to the content pane.
-    if (initStageDone)
-      {
-        if (isRootPaneCheckingEnabled())
-          throw new Error("Cannot set layout. Use getContentPane().setLayout()"
-                           + " instead.");
-        getContentPane().setLayout(manager);
-      }
+    if (isRootPaneCheckingEnabled())
+      getContentPane().setLayout(manager);
     else
       super.setLayout(manager);
   }
@@ -192,15 +235,10 @@ public class JWindow extends Window implements Accessible, RootPaneContainer
   {
     // If we're adding in the initialization stage use super.add.
     // otherwise pass the add onto the content pane.
-    if (!initStageDone)
-      super.addImpl(comp, constraints, index);
+    if (isRootPaneCheckingEnabled())
+      getContentPane().add(comp, constraints, index);
     else
-      {
-        if (isRootPaneCheckingEnabled())
-          throw new Error("Do not use add() on JWindow directly. Use "
-                          + "getContentPane().add() instead");
-        getContentPane().add(comp, constraints, index);
-      }
+      super.addImpl(comp, constraints, index);
   }
 
   public void remove(Component comp)
@@ -235,7 +273,9 @@ public class JWindow extends Window implements Accessible, RootPaneContainer
 
   public AccessibleContext getAccessibleContext()
   {
-    return null;
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJWindow();
+    return accessibleContext;
   }
 
   protected String paramString()

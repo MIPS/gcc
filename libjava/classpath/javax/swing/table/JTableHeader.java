@@ -61,9 +61,19 @@ import javax.accessibility.AccessibleValue;
 import javax.swing.JComponent;
 import javax.swing.JTable;
 import javax.swing.UIManager;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.TableColumnModelEvent;
+import javax.swing.event.TableColumnModelListener;
 import javax.swing.plaf.TableHeaderUI;
 
+/**
+ * Represents the table header. The header displays the column header values,
+ * is always visible event if the rest of the table scrolls up and down and
+ * supports column reordering and resizing with mouse.
+ */
 public class JTableHeader extends JComponent
+  implements TableColumnModelListener, Accessible
 {
   protected class AccessibleJTableHeader extends AccessibleJComponent
   {
@@ -301,13 +311,11 @@ public class JTableHeader extends JComponent
       }
     };
   }
-
-  private static final long serialVersionUID = 5144633983372967710L;
-
+  
   /**
-   * The accessibleContext property.
+   * Use serialVersionUid for interoperability.
    */
-  AccessibleContext accessibleContext;
+  private static final long serialVersionUID = 5144633983372967710L;
 
   /**
    * The columnModel property.
@@ -373,17 +381,8 @@ public class JTableHeader extends JComponent
    */
   public JTableHeader(TableColumnModel cm)
   {
-    accessibleContext = new AccessibleJTableHeader();
     columnModel = cm == null ? createDefaultColumnModel() : cm; 
-    draggedColumn = null;
-    draggedDistance = 0;
-    opaque = true;
-    reorderingAllowed = true;
-    resizingAllowed = true;
-    resizingColumn = null;
-    table = null;
-    updateTableInRealTime = true;
-    cellRenderer = createDefaultRenderer();
+    initializeLocalVars();
     updateUI();
   }
 
@@ -418,9 +417,10 @@ public class JTableHeader extends JComponent
   }
 
   /**
-   * Get the value of the {@link #draggedColumn} property.
+   * Get the column that is currently being dragged. This is used when
+   * handling the column reordering with mouse.
    *
-   * @return The current value of the property
+   * @return the column being dragged, null if none.
    */
   public TableColumn getDraggedColumn()
   {
@@ -438,29 +438,34 @@ public class JTableHeader extends JComponent
   }
 
   /**
-   * Get the value of the {@link #reorderingAllowed} property.
+   * Check if it is possible to reorder the table columns by dragging column
+   * header with mouse. The table reordering is enabled by default, but can be
+   * disabled with {@link #setReorderingAllowed(boolean)}.
    *
-   * @return The current value of the property
-   */
+   * @return true if reordering is allowed, false otherwise.
+   */ 
   public boolean getReorderingAllowed()
   {
     return reorderingAllowed;
   }
 
   /**
-   * Get the value of the {@link #resizingAllowed} property.
+   * Check if it is possible to resize the table columns by dragging the column
+   * boundary in the table header with mouse. The resizing is enabled
+   * by default, but can be disabled with {@link #setResizingAllowed(boolean)}.
    *
-   * @return The current value of the property
-   */
+   * @return true if resizing is allowed, false otherwise.
+   */ 
   public boolean getResizingAllowed()
   {
     return resizingAllowed;
   }
 
   /**
-   * Get the value of the {@link #resizingColumn} property.
+   * Get the column that is currently being resized. This is used when
+   * handling the column resizing with mouse.
    *
-   * @return The current value of the property
+   * @return the column being currently resized, null if none.
    */
   public TableColumn getResizingColumn()
   {
@@ -468,9 +473,9 @@ public class JTableHeader extends JComponent
   }
 
   /**
-   * Get the value of the {@link #table} property.
+   * Get the table, having this header.
    *
-   * @return The current value of the property
+   * @return the table, having this header.
    */
   public JTable getTable()
   {
@@ -504,17 +509,21 @@ public class JTableHeader extends JComponent
    */ 
   public void setColumnModel(TableColumnModel c)
   {
+    columnModel.removeColumnModelListener(this);
     columnModel = c;
+    columnModel.addColumnModelListener(this);
   }
 
   /**
-   * Set the value of the {@link #draggedColumn} property.
+   * Set the column that is currently being dragged. This is used when
+   * dragging the column with mouse. Setting to null will stop the 
+   * dragging session immediately.
    *
-   * @param d The new value of the property
+   * @param draggingIt the column being currently dragged, null if none.
    */ 
-  public void setDraggedColumn(TableColumn d)
+  public void setDraggedColumn(TableColumn draggingIt)
   {
-    draggedColumn = d;
+    draggedColumn = draggingIt;
   }
 
   /**
@@ -538,33 +547,39 @@ public class JTableHeader extends JComponent
   }
 
   /**
-   * Set the value of the {@link #reorderingAllowed} property.
+   * Set the table ability to reorder columns by dragging column header
+   * with mouse. The table reordering is enabled by default, but can be
+   * disabled with this method.
    *
-   * @param r The new value of the property
+   * @param allowed true if reordering is allowed, false otherwise.
    */ 
-  public void setReorderingAllowed(boolean r)
+  public void setReorderingAllowed(boolean allowed)
   {
-    reorderingAllowed = r;
+    reorderingAllowed = allowed;
   }
 
   /**
-   * Set the value of the {@link #resizingAllowed} property.
+   * Set the table ability to resize columns by dragging the column
+   * boundary in the table header with mouse. The resizing is enabled
+   * by default, but can be disabled using this method.
    *
-   * @param r The new value of the property
+   * @param allowed true if resizing is allowed, false otherwise.
    */ 
-  public void setResizingAllowed(boolean r)
+  public void setResizingAllowed(boolean allowed)
   {
-    resizingAllowed = r;
+    resizingAllowed = allowed;
   }
 
   /**
-   * Set the value of the {@link #resizingColumn} property.
+   * The the column that is currently being resized. This property is used
+   * when handling table resizing with mouse. Setting to null would stop
+   * the resizing session immediately.
    *
-   * @param r The new value of the property
+   * @param resizingIt the column being currently resized
    */ 
-  public void setResizingColumn(TableColumn r)
+  public void setResizingColumn(TableColumn resizingIt)
   {
-    resizingColumn = r;
+    resizingColumn = resizingIt;
   }
 
   /**
@@ -616,10 +631,17 @@ public class JTableHeader extends JComponent
   {
     this.cellRenderer = cellRenderer;
   }
-
+  
+  /**
+   * Get the rectangle, occupied by the header of the given column.
+   * 
+   * @param column the column, for that the header area is requested.
+   * 
+   * @return the column header area.
+   */
   public Rectangle getHeaderRect(int column)
   {
-    Rectangle r = getTable().getCellRect(-1, column, true);
+    Rectangle r = getTable().getCellRect(-1, column, false);
     r.height = getHeight();
     return r;
   }
@@ -664,5 +686,89 @@ public class JTableHeader extends JComponent
       return columnModel.getColumnIndexAtX(point.x);
     
     return -1;
+  }
+
+  /**
+   * Receives notification when a column is added to the column model.
+   *
+   * @param event the table column model event
+   */
+  public void columnAdded(TableColumnModelEvent event)
+  {
+    // TODO: What else to do here (if anything)?
+    resizeAndRepaint();
+  }
+
+  /**
+   * Receives notification when a column margin changes in the column model.
+   *
+   * @param event the table column model event
+   */
+  public void columnMarginChanged(ChangeEvent event)
+  {
+    // TODO: What else to do here (if anything)?
+    resizeAndRepaint();
+  }
+
+  /**
+   * Receives notification when a column is moved within the column model.
+   *
+   * @param event the table column model event
+   */
+  public void columnMoved(TableColumnModelEvent event)
+  {
+    // TODO: What else to do here (if anything)?
+    resizeAndRepaint();
+  }
+
+  /**
+   * Receives notification when a column is removed from the column model.
+   *
+   * @param event the table column model event
+   */
+  public void columnRemoved(TableColumnModelEvent event)
+  {
+    // TODO: What else to do here (if anything)?
+    resizeAndRepaint();
+  }
+
+  /**
+   * Receives notification when the column selection has changed.
+   *
+   * @param event the table column model event
+   */
+  public void columnSelectionChanged(ListSelectionEvent event)
+  {
+    // TODO: What else to do here (if anything)?
+    resizeAndRepaint();
+  }
+
+  /**
+   * Validates the layout of this table header and repaints it. This is
+   * equivalent to <code>revalidate()</code> followed by
+   * <code>repaint()</code>.
+   */
+  public void resizeAndRepaint()
+  {
+    revalidate();
+    repaint();
+  }
+
+  /**
+   * Initializes the fields and properties of this class with default values.
+   * This is called by the constructors.
+   */
+  protected void initializeLocalVars()
+  {
+    accessibleContext = new AccessibleJTableHeader();
+    draggedColumn = null;
+    draggedDistance = 0;
+    opaque = true;
+    reorderingAllowed = true;
+    resizingAllowed = true;
+    resizingColumn = null;
+    table = null;
+    updateTableInRealTime = true;
+    cellRenderer = createDefaultRenderer();
   }
 }

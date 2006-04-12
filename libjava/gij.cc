@@ -1,4 +1,4 @@
-/* Copyright (C) 1999-2005  Free Software Foundation
+/* Copyright (C) 1999-2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -42,7 +42,7 @@ version ()
 {
   printf ("java version \"" JV_VERSION "\"\n");
   printf ("gij (GNU libgcj) version %s\n\n", __VERSION__);
-  printf ("Copyright (C) 2005 Free Software Foundation, Inc.\n");
+  printf ("Copyright (C) 2006 Free Software Foundation, Inc.\n");
   printf ("This is free software; see the source for copying conditions.  There is NO\n");
   printf ("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
 }
@@ -52,6 +52,7 @@ nonstandard_opts_help ()
 {
   printf ("  -Xms<size>         set initial heap size\n");
   printf ("  -Xmx<size>         set maximum heap size\n");
+  printf ("  -Xss<size>         set thread stack size\n");
   exit (0);
 }
 

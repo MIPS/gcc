@@ -1,5 +1,5 @@
 /* CellRendererPane.java --
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2006, Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -54,9 +54,7 @@ import javax.accessibility.AccessibleRole;
  *
  * @author Andrew Selkirk
  */
-public class CellRendererPane
-  extends Container
-  implements Accessible
+public class CellRendererPane extends Container implements Accessible
 {
   private static final long serialVersionUID = -7642183829532984273L;
 
@@ -72,11 +70,12 @@ public class CellRendererPane
      */
     protected AccessibleCellRendererPane()
     {
+      // Nothing to do here.
     }
 
     /**
      * getAccessibleRole
-     * @returns AccessibleRole
+     * @return AccessibleRole
      */
     public AccessibleRole getAccessibleRole()
     {
@@ -89,22 +88,13 @@ public class CellRendererPane
    */
   protected AccessibleContext accessibleContext = null;
 
-
-  //-------------------------------------------------------------
-  // Initialization ---------------------------------------------
-  //-------------------------------------------------------------
-
   /**
    * Constructs a new CellRendererPane.
    */
   public CellRendererPane()
   {
-  } // CellRendererPane()
-
-
-  //-------------------------------------------------------------
-  // Methods ----------------------------------------------------
-  //-------------------------------------------------------------
+    // Nothing to do here.
+  }
 
   /**
    * Should not be called.
@@ -113,7 +103,8 @@ public class CellRendererPane
    */
   public void update(Graphics graphics)
   {
-  } // update()
+    //Nothing to do here.
+  }
 
   /**
    * Despite normal behaviour this does <em>not</em> cause the container
@@ -121,7 +112,8 @@ public class CellRendererPane
    */
   public void invalidate()
   {
-  } // invalidate()
+    // Overridden to do nothing.
+  }
 
   /**
    * Should not be called.
@@ -130,6 +122,7 @@ public class CellRendererPane
    */
   public void paint(Graphics graphics)
   {
+    // Overridden to do nothing.
   }
 
   /**
@@ -147,7 +140,7 @@ public class CellRendererPane
       {
         super.addImpl(c, constraints, index);
       }
-  } // addImpl()
+  }
 
   /**
    * Paints the specified component <code>c</code> on the {@link Graphics}
@@ -175,25 +168,34 @@ public class CellRendererPane
     // reparent c
     addImpl(c, null, 0);
 
-    // translate to (x,y)
-    graphics.translate(x, y);
-
-    // set bounds of c
-    c.setBounds(0, 0, w, h);
-
-    // validate if necessary
-    if (shouldValidate)
+    Rectangle oldClip = graphics.getClipBounds();
+    boolean translated = false;
+    try
       {
-        c.validate();
+        // translate to (x,y)
+        graphics.translate(x, y);
+        translated = true;
+        graphics.clipRect(0, 0, w, h);
+        // set bounds of c
+        c.setBounds(0, 0, w, h);
+
+        // validate if necessary
+        if (shouldValidate)
+          {
+            c.validate();
+          }
+
+        // paint component
+        c.paint(graphics);
       }
-
-    // paint component
-    c.paint(graphics);
-
-    // untranslate g
-    graphics.translate(-x, -y);
-
-  } // paintComponent()
+    finally
+      {
+        // untranslate g
+        if (translated)
+          graphics.translate(-x, -y);
+        graphics.setClip(oldClip);
+      }
+  }
 
   /**
    * Paints the specified component <code>c</code> on the {@link Graphics}
@@ -215,7 +217,7 @@ public class CellRendererPane
                              Container p, int x, int y, int w, int h)
   {
     paintComponent(graphics, c, p, x, y, w, h, false);
-  } // paintComponent()
+  }
 
   /**
    * Paints the specified component <code>c</code> on the {@link Graphics}
@@ -233,7 +235,7 @@ public class CellRendererPane
                              Container p, Rectangle r)
   {
     paintComponent(graphics, c, p, r.x, r.y, r.width, r.height);
-  } // paintComponent()
+  }
 
   /**
    * getAccessibleContext <em>TODO</em>

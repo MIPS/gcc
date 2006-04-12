@@ -45,6 +45,7 @@ Boston, MA 02110-1301, USA.  */
 
 #include "libgfortran.h"
 #include "io.h"
+#include "unix.h"
 
 #ifndef SSIZE_MAX
 #define SSIZE_MAX SHRT_MAX
@@ -115,35 +116,6 @@ Boston, MA 02110-1301, USA.  */
  * Short forms of these are salloc_r() and salloc_w() which drop the
  * 'where' parameter and use the current file pointer. */
 
-
-#define BUFFER_SIZE 8192
-
-typedef struct
-{
-  stream st;
-
-  int fd;
-  gfc_offset buffer_offset;	/* File offset of the start of the buffer */
-  gfc_offset physical_offset;	/* Current physical file offset */
-  gfc_offset logical_offset;	/* Current logical file offset */
-  gfc_offset dirty_offset;	/* Start of modified bytes in buffer */
-  gfc_offset file_length;	/* Length of the file, -1 if not seekable. */
-
-  char *buffer;
-  int len;			/* Physical length of the current buffer */
-  int active;			/* Length of valid bytes in the buffer */
-
-  int prot;
-  int ndirty;			/* Dirty bytes starting at dirty_offset */
-
-  int special_file;		/* =1 if the fd refers to a special file */
-
-  unsigned unbuffered:1;
-
-  char small_buffer[BUFFER_SIZE];
-
-}
-unix_stream;
 
 /*move_pos_offset()--  Move the record pointer right or left
  *relative to current position */
@@ -614,7 +586,7 @@ fd_truncate (unix_stream * s)
 
   /* non-seekable files, like terminals and fifo's fail the lseek.
      Using ftruncate on a seekable special file (like /dev/null)
-     is undefined, so we treat it as if the ftruncate failed.
+     is undefined, so we treat it as if the ftruncate succeeded.
   */
 #ifdef HAVE_FTRUNCATE
   if (s->special_file || ftruncate (s->fd, s->logical_offset))
@@ -625,15 +597,43 @@ fd_truncate (unix_stream * s)
 #endif
     {
       s->physical_offset = s->file_length = 0;
-      return FAILURE;
+      return SUCCESS;
     }
 
   s->physical_offset = s->file_length = s->logical_offset;
-
+  s->active = 0;
   return SUCCESS;
 }
 
 
+/* Similar to memset(), but operating on a stream instead of a string.
+   Takes care of not using too much memory.  */
+
+static try
+fd_sset (unix_stream * s, int c, size_t n)
+{
+  size_t bytes_left;
+  int trans;
+  void *p;
+
+  bytes_left = n;
+
+  while (bytes_left > 0)
+    {
+      /* memset() in chunks of BUFFER_SIZE.  */
+      trans = (bytes_left < BUFFER_SIZE) ? bytes_left : BUFFER_SIZE;
+
+      p = fd_alloc_w_at (s, &trans, -1);
+      if (p)
+	  memset (p, c, trans);
+      else
+	return FAILURE;
+
+      bytes_left -= trans;
+    }
+
+  return SUCCESS;
+}
 
 
 /* Stream read function. Avoids using a buffer for big reads. The
@@ -767,6 +767,7 @@ fd_open (unix_stream * s)
   s->st.truncate = (void *) fd_truncate;
   s->st.read = (void *) fd_read;
   s->st.write = (void *) fd_write;
+  s->st.set = (void *) fd_sset;
 
   s->buffer = NULL;
 }
@@ -898,6 +899,25 @@ mem_seek (unix_stream * s, gfc_offset offset)
 }
 
 
+static try
+mem_set (unix_stream * s, int c, size_t n)
+{
+  void *p;
+  int len;
+
+  len = n;
+  
+  p = mem_alloc_w_at (s, &len, -1);
+  if (p)
+    {
+      memset (p, c, len);
+      return SUCCESS;
+    }
+  else
+    return FAILURE;
+}
+
+
 static int
 mem_truncate (unix_stream * s __attribute__ ((unused)))
 {
@@ -960,6 +980,7 @@ open_internal (char *base, int length)
   s->st.truncate = (void *) mem_truncate;
   s->st.read = (void *) mem_read;
   s->st.write = (void *) mem_write;
+  s->st.set = (void *) mem_set;
 
   return (stream *) s;
 }
@@ -998,15 +1019,18 @@ fd_to_stream (int fd, int prot)
 /* Given the Fortran unit number, convert it to a C file descriptor.  */
 
 int
-unit_to_fd(int unit)
+unit_to_fd (int unit)
 {
   gfc_unit *us;
+  int fd;
 
-  us = find_unit(unit);
+  us = find_unit (unit);
   if (us == NULL)
     return -1;
 
-  return ((unix_stream *) us->s)->fd;
+  fd = ((unix_stream *) us->s)->fd;
+  unlock_unit (us);
+  return fd;
 }
 
 
@@ -1032,11 +1056,11 @@ unpack_filename (char *cstring, const char *fstring, int len)
  * open it.  mkstemp() opens the file for reading and writing, but the
  * library mode prevents anything that is not allowed.  The descriptor
  * is returned, which is -1 on error.  The template is pointed to by 
- * ioparm.file, which is copied into the unit structure
+ * opp->file, which is copied into the unit structure
  * and freed later. */
 
 static int
-tempfile (void)
+tempfile (st_parameter_open *opp)
 {
   const char *tempdir;
   char *template;
@@ -1062,7 +1086,7 @@ tempfile (void)
 
   if (mktemp (template))
     do
-#ifdef HAVE_CRLF
+#if defined(HAVE_CRLF) && defined(O_BINARY)
       fd = open (template, O_RDWR | O_CREAT | O_EXCL | O_BINARY,
                  S_IREAD | S_IWRITE);
 #else
@@ -1078,8 +1102,8 @@ tempfile (void)
     free_mem (template);
   else
     {
-      ioparm.file = template;
-      ioparm.file_len = strlen (template);	/* Don't include trailing nul */
+      opp->file = template;
+      opp->file_len = strlen (template);	/* Don't include trailing nul */
     }
 
   return fd;
@@ -1092,7 +1116,7 @@ tempfile (void)
  * Returns the descriptor, which is less than zero on error. */
 
 static int
-regular_file (unit_flags *flags)
+regular_file (st_parameter_open *opp, unit_flags *flags)
 {
   char path[PATH_MAX + 1];
   int mode;
@@ -1100,7 +1124,7 @@ regular_file (unit_flags *flags)
   int crflag;
   int fd;
 
-  if (unpack_filename (path, ioparm.file, ioparm.file_len))
+  if (unpack_filename (path, opp->file, opp->file_len))
     {
       errno = ENOENT;		/* Fake an OS error */
       return -1;
@@ -1124,7 +1148,7 @@ regular_file (unit_flags *flags)
       break;
 
     default:
-      internal_error ("regular_file(): Bad action");
+      internal_error (&opp->common, "regular_file(): Bad action");
     }
 
   switch (flags->status)
@@ -1147,12 +1171,12 @@ regular_file (unit_flags *flags)
       break;
 
     default:
-      internal_error ("regular_file(): Bad status");
+      internal_error (&opp->common, "regular_file(): Bad status");
     }
 
   /* rwflag |= O_LARGEFILE; */
 
-#ifdef HAVE_CRLF
+#if defined(HAVE_CRLF) && defined(O_BINARY)
   crflag |= O_BINARY;
 #endif
 
@@ -1198,26 +1222,27 @@ regular_file (unit_flags *flags)
  * Returns NULL on operating system error. */
 
 stream *
-open_external (unit_flags *flags)
+open_external (st_parameter_open *opp, unit_flags *flags)
 {
   int fd, prot;
 
   if (flags->status == STATUS_SCRATCH)
     {
-      fd = tempfile ();
+      fd = tempfile (opp);
       if (flags->action == ACTION_UNSPECIFIED)
         flags->action = ACTION_READWRITE;
 
 #if HAVE_UNLINK_OPEN_FILE
       /* We can unlink scratch files now and it will go away when closed. */
-      unlink (ioparm.file);
+      if (fd >= 0)
+	unlink (opp->file);
 #endif
     }
   else
     {
       /* regular_file resets flags->action if it is ACTION_UNSPECIFIED and
        * if it succeeds */
-      fd = regular_file (flags);
+      fd = regular_file (opp, flags);
     }
 
   if (fd < 0)
@@ -1239,7 +1264,7 @@ open_external (unit_flags *flags)
       break;
 
     default:
-      internal_error ("open_external(): Bad action");
+      internal_error (&opp->common, "open_external(): Bad action");
     }
 
   return fd_to_stream (fd, prot);
@@ -1281,21 +1306,19 @@ error_stream (void)
  * corrupted. */
 
 stream *
-init_error_stream (void)
+init_error_stream (unix_stream *error)
 {
-  static unix_stream error;
+  memset (error, '\0', sizeof (*error));
 
-  memset (&error, '\0', sizeof (error));
+  error->fd = options.use_stderr ? STDERR_FILENO : STDOUT_FILENO;
 
-  error.fd = options.use_stderr ? STDERR_FILENO : STDOUT_FILENO;
+  error->st.alloc_w_at = (void *) fd_alloc_w_at;
+  error->st.sfree = (void *) fd_sfree;
 
-  error.st.alloc_w_at = (void *) fd_alloc_w_at;
-  error.st.sfree = (void *) fd_sfree;
+  error->unbuffered = 1;
+  error->buffer = error->small_buffer;
 
-  error.unbuffered = 1;
-  error.buffer = error.small_buffer;
-
-  return (stream *) & error;
+  return (stream *) error;
 }
 
 
@@ -1332,33 +1355,39 @@ compare_file_filename (gfc_unit *u, const char *name, int len)
 }
 
 
+#ifdef HAVE_WORKING_STAT
+# define FIND_FILE0_DECL struct stat *st
+# define FIND_FILE0_ARGS st
+#else
+# define FIND_FILE0_DECL const char *file, gfc_charlen_type file_len
+# define FIND_FILE0_ARGS file, file_len
+#endif
+
 /* find_file0()-- Recursive work function for find_file() */
 
 static gfc_unit *
-find_file0 (gfc_unit * u, struct stat *st1)
+find_file0 (gfc_unit *u, FIND_FILE0_DECL)
 {
-#ifdef HAVE_WORKING_STAT
-  struct stat st2;
-#endif
   gfc_unit *v;
 
   if (u == NULL)
     return NULL;
 
 #ifdef HAVE_WORKING_STAT
-  if (fstat (((unix_stream *) u->s)->fd, &st2) >= 0 &&
-      st1->st_dev == st2.st_dev && st1->st_ino == st2.st_ino)
+  if (u->s != NULL
+      && fstat (((unix_stream *) u->s)->fd, &st[1]) >= 0 &&
+      st[0].st_dev == st[1].st_dev && st[0].st_ino == st[1].st_ino)
     return u;
 #else
-  if (compare_string(u->file_len, u->file, ioparm.file_len, ioparm.file) == 0)
+  if (compare_string (u->file_len, u->file, file_len, file) == 0)
     return u;
 #endif
 
-  v = find_file0 (u->left, st1);
+  v = find_file0 (u->left, FIND_FILE0_ARGS);
   if (v != NULL)
     return v;
 
-  v = find_file0 (u->right, st1);
+  v = find_file0 (u->right, FIND_FILE0_ARGS);
   if (v != NULL)
     return v;
 
@@ -1370,18 +1399,111 @@ find_file0 (gfc_unit * u, struct stat *st1)
  * that has the file already open.  Returns a pointer to the unit if so. */
 
 gfc_unit *
-find_file (void)
+find_file (const char *file, gfc_charlen_type file_len)
 {
   char path[PATH_MAX + 1];
-  struct stat statbuf;
+  struct stat st[2];
+  gfc_unit *u;
 
-  if (unpack_filename (path, ioparm.file, ioparm.file_len))
+  if (unpack_filename (path, file, file_len))
     return NULL;
 
-  if (stat (path, &statbuf) < 0)
+  if (stat (path, &st[0]) < 0)
     return NULL;
 
-  return find_file0 (g.unit_root, &statbuf);
+  __gthread_mutex_lock (&unit_lock);
+retry:
+  u = find_file0 (unit_root, FIND_FILE0_ARGS);
+  if (u != NULL)
+    {
+      /* Fast path.  */
+      if (! __gthread_mutex_trylock (&u->lock))
+	{
+	  /* assert (u->closed == 0); */
+	  __gthread_mutex_unlock (&unit_lock);
+	  return u;
+	}
+
+      inc_waiting_locked (u);
+    }
+  __gthread_mutex_unlock (&unit_lock);
+  if (u != NULL)
+    {
+      __gthread_mutex_lock (&u->lock);
+      if (u->closed)
+	{
+	  __gthread_mutex_lock (&unit_lock);
+	  __gthread_mutex_unlock (&u->lock);
+	  if (predec_waiting_locked (u) == 0)
+	    free_mem (u);
+	  goto retry;
+	}
+
+      dec_waiting_unlocked (u);
+    }
+  return u;
+}
+
+static gfc_unit *
+flush_all_units_1 (gfc_unit *u, int min_unit)
+{
+  while (u != NULL)
+    {
+      if (u->unit_number > min_unit)
+	{
+	  gfc_unit *r = flush_all_units_1 (u->left, min_unit);
+	  if (r != NULL)
+	    return r;
+	}
+      if (u->unit_number >= min_unit)
+	{
+	  if (__gthread_mutex_trylock (&u->lock))
+	    return u;
+	  if (u->s)
+	    flush (u->s);
+	  __gthread_mutex_unlock (&u->lock);
+	}
+      u = u->right;
+    }
+  return NULL;
+}
+
+void
+flush_all_units (void)
+{
+  gfc_unit *u;
+  int min_unit = 0;
+
+  __gthread_mutex_lock (&unit_lock);
+  do
+    {
+      u = flush_all_units_1 (unit_root, min_unit);
+      if (u != NULL)
+	inc_waiting_locked (u);
+      __gthread_mutex_unlock (&unit_lock);
+      if (u == NULL)
+	return;
+
+      __gthread_mutex_lock (&u->lock);
+
+      min_unit = u->unit_number + 1;
+
+      if (u->closed == 0)
+	{
+	  flush (u->s);
+	  __gthread_mutex_lock (&unit_lock);
+	  __gthread_mutex_unlock (&u->lock);
+	  (void) predec_waiting_locked (u);
+	}
+      else
+	{
+	  __gthread_mutex_lock (&unit_lock);
+	  __gthread_mutex_unlock (&u->lock);
+	  if (predec_waiting_locked (u) == 0)
+	    free_mem (u);
+	}
+    }
+  while (1);
 }
 
 
@@ -1402,7 +1524,7 @@ stream_at_bof (stream * s)
 }
 
 
-/* stream_at_eof()-- Returns nonzero if the stream is at the beginning
+/* stream_at_eof()-- Returns nonzero if the stream is at the end
  * of the file. */
 
 int
@@ -1441,12 +1563,12 @@ delete_file (gfc_unit * u)
  * the system */
 
 int
-file_exists (void)
+file_exists (const char *file, gfc_charlen_type file_len)
 {
   char path[PATH_MAX + 1];
   struct stat statbuf;
 
-  if (unpack_filename (path, ioparm.file, ioparm.file_len))
+  if (unpack_filename (path, file, file_len))
     return 0;
 
   if (stat (path, &statbuf) < 0)

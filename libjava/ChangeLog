@@ -1,3 +1,1038 @@
+2006-03-30  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26042:
+	* testsuite/libjava.compile/pr26042.java: New file.
+
+2006-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl: Scan classpath/external/relaxngDatatype.
+
+2006-03-29  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26390:
+	* testsuite/libjava.lang/pr26390.out: New file.
+	* testsuite/libjava.lang/pr26390.java: New file.
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl: Compile gnu/java/awt/peer/swing.
+
+2006-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* posix.cc (_Jv_platform_nanotime): Look for CLOCK_MONOTONIC and
+	CLOCK_HIGHRES.
+
+2006-03-28  Anthony Balkissoon  <abalkiss@redhat.com>
+
+	* scripts/unicode-muncher.pl: Removed this file.
+	* scripts/MakeCharTables.java: Likewise.
+	* scripts/unicode-to-chartables.pl: New file.
+	* java/lang/natCharacter.cc: 
+	(UNASSIGNED_TYPE): New field.
+	(UNASSIGNED_DIGIT): Likewise.
+	(UNASSIGNED_DIRECTION): Likewise.
+	(UNASSIGNED_NUMERIC_VALUE): Likewise.
+	(PRIVATE_TYPE): Likewise.
+	(PRIVATE_DIRECTION): Likewise.
+	(readCodePoint): New method.
+	(getType(jint)): Likewise.
+	(toLowerCase(jint)): Likewise.
+	(toUpperCase(jint)): Likewise.
+	(toTitleCase(jint)): Likewise.
+	(digit(jint, jint)): Likewise.
+	(getNumericValue(jint)): Likewise.
+	(getDirectionality(jint)): Likewise.
+	(readChar),
+	(getType(jchar)),
+	(toLowerCase(jchar)),
+	(toUpperCase(jchar)),
+	(toTitleCase(jchar)),
+	(digit(jchar, jint)),
+	(getNumericValue(jchar)),
+	(getDirectionality(jchar)): Changed references from data to data[0], 
+	blocks to blocks[0], direction to direction[0], numValue to 
+	numValue[0], upper to upper[0], lower to lower[0], and shift to 
+	shift[0] to reflect the new structures in java-chartables.h.	
+	* java/lang/Character.java:
+	(readCodePoint): Declared new native method.
+	(getType(int)): Likewise.
+	(toLowerCase(int)): Likewise.
+	(toUpperCase(int)): Likewise.
+	(toTitleCase(int)): Likewise.
+	(digit(int, int)): Likewise.
+	(getNumericValue(int)): Likewise.
+	(getDirectionality(int)): Likewise.
+	(isLowerCase(int)): New method.
+	(isUpperCase(int)): Likewise.
+	(itTitleCase(int)): Likewise.
+	(isDigit(int)): Likewise.
+	(isDefined(int)): Likewise.
+	(isLetter(int)): Likewise.
+	(isLetterOrDigit(int)): Likewise.
+	(isJavaIdentifierStart(int)): Likewise.
+	(isJavaIdentifierPart(int)): Likewise.
+	(isUnicodeIdentifierStart(int)): Likewise.
+	(isUnicodeIdentifierPart(int)): Likewise.
+	(isIdentifierIgnorable(int)): Likewise.
+	(isSpaceChar(int)): Likewise.
+	(isWhitespace(int)): Likewise.
+	(isISOControl(int)): Likewise.
+	(isMirrored(int)): Likewise.
+	* include/java-chartables.h: Generated from 
+	scripts/unicode-to-chartables.h.
+
+2006-03-24  David Daney  <ddaney@avtrex.com)
+
+	* testsuite/libjava.lang/PR26858.java: New test.
+	* testsuite/libjava.lang/PR26858.out: Ditto.
+	* testsuite/libjava.lang/PR26858.xfail: Ditto.
+
+2006-03-16  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* include/sh-signal.h (MAKE_THROW_FRAME): Change into empty
+	macro.
+	
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail: Removed
+	13.1-runtime-method-5.
+
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26638:
+	* link.cc (get_interfaces): Skip <clinit>.
+	(append_partial_itable): Likewise.
+
+2006-03-10  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/25713:
+	* java/util/zip/Deflater.java (flush): New method.
+	* sources.am, Makefile.in: Rebuilt.
+	* java/util/zip/DeflaterOutputStream.java: Removed.
+	* java/util/zip/InflaterInputStream.java: Likewise.
+	* java/util/zip/GZIPInputStream.java: Likewise.
+	* java/util/zip/GZIPOutputStream.java: Likewise.
+
+2006-03-10  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* include/powerpc-signal.h: Fix typo in comment.
+
+2006-03-09  Mark Wielaard  <mark@klomp.org>
+
+	Imported GNU Classpath 0.90
+	* scripts/makemake.tcl: Set gnu/java/awt/peer/swing to ignore.
+	* gnu/classpath/jdwp/VMFrame.java (SIZE): New constant.
+	* java/lang/VMCompiler.java: Use gnu.java.security.hash.MD5.
+	* java/lang/Math.java: New override file.
+	* java/lang/Character.java: Merged from Classpath.
+	(start, end): Now 'int's.
+	(canonicalName): New field.
+	(CANONICAL_NAME, NO_SPACES_NAME, CONSTANT_NAME): New constants.
+	(UnicodeBlock): Added argument.
+	(of): New overload.
+	(forName): New method.
+	Updated unicode blocks.
+	(sets): Updated.
+	* sources.am: Regenerated.
+	* Makefile.in: Likewise.
+
+2006-03-09  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23495:
+	* java/lang/natString.cc (_Jv_NewString): Use memcpy.
+	(equals): Use memcmp.
+	(contentEquals): Likewise.
+	(getChars): Use memcpy.
+	(toCharArray): Likewise.
+	(regionMatches): Use memcmp.
+	(regionMatches): Likewise.
+	(startsWith): Likewise.
+	(concat): Use memcpy.
+	(valueOf): Likewise.
+
+2006-03-09  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.ac (HAVE_CLOCK_GETTIME): Put -lrt in THREADLIBS as
+	well.
+
+2006-03-09  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24461:
+	* java/util/zip/InflaterInputStream.java (fill): Throw exception
+	if stream is truncated.
+
+2006-03-09  Tom Tromey  <tromey@redhat.com>
+
+	* win32.cc (_Jv_platform_nanotime): New function.
+	* include/win32.h (_Jv_platform_nanotime): Declare.
+	* posix.cc (_Jv_platform_nanotime): New function.
+	* include/posix.h (_Jv_platform_nanotime): Declare.
+	* java/lang/natSystem.cc (nanoTime): New method.
+	* java/lang/System.java (nanoTime): Declare.
+	* include/config.h.in, configure: Rebuilt.
+	* configure.ac: Check for clock_gettime.
+
+2006-03-08  David Daney  <ddaney@avtrex.com>
+
+	* configure.ac (LD): Add AC_CHECK_TOOL for ld.
+	(LD_START_STATIC_SPEC): New AC_SUBST, set with ld check.
+	(LD_FINISH_STATIC_SPEC): Ditto
+	* configure: Regenerated.
+	* libgcj.spec.in: Wrap -lgcj in LD_START_STATIC_SPEC and
+	LD_FINISH_STATIC_SPEC.
+	
+2006-03-07  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26103:
+	* java/lang/ClassLoader.java (loadClass): Don't throw
+	StringIndexOutOfBoundsException if name is empty.
+	* java/lang/natClassLoader.cc (loadClassFromSig): Throw exception
+	if class not found.
+
+2006-03-07  David Daney  <ddaney@avtrex.com>
+
+	* include/java-interp.h: Removed extern "C" around #include <ffi.h>.
+
+2006-03-07  David Daney  <ddaney@avtrex.com>
+
+	* link.cc: Include ffi.h if USE_LIBFFI defined.
+	
+2006-03-03  Tom Tromey  <tromey@redhat.com>
+
+	* interpret.cc (do_allocate_static_fields): Added comment.
+
+2006-03-01  Tom Tromey  <tromey@redhat.com>
+
+	PR java/24321:
+	* testsuite/libjava.lang/pr24321.java: New file.
+	* testsuite/libjava.lang/pr24321.out: New file.
+	* java/lang/natClass.cc (isInstance): Don't initialize class.
+	(isAssignableFrom): Likewise.
+
+2006-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/26208
+	* exception.cc (PERSONALITY_FUNCTION): Use _Unwind_GetIPInfo instead
+	of _Unwind_GetIP.
+	* include/i386-signal.h (MAKE_THROW_FRAME): Change into empty macro.
+	(HANDLE_DIVIDE_OVERFLOW): Don't adjust _res->eip if falling through
+	to throw.
+	* include/x86_64-signal.h (MAKE_THROW_FRAME): Change into empty
+	macro.
+	* include/powerpc-signal.h (MAKE_THROW_FRAME): Change into empty
+	macro.
+
+2006-02-23  Scott Gilbertson  <scottg@mantatest.com>
+
+	* gnu/awt/j2d/IntegerGraphicsState.java (getClip): Clone clip
+	before returning, handle null clip.
+	(getClipBounds): Handle null clip.
+	* gnu/awt/j2d/Graphics2DImpl.java (clipRect): Handle null clip.
+	* gnu/awt/xlib/XCanvasPeer.java (): 
+	(getLocationOnScreen): Implement.
+	* classpath/gnu/java/awt/peer/GLightweightPeer.java
+	(repaint): Merged with Classpath.
+	* classpath/java/awt/Graphics.java (hitClip): Merged with
+	Classpath.
+
+2006-02-21  Robert Schuster  <robertschuster@fsfe.org>
+
+	* link.cc: Added variant of create_error_method that
+	will not complain about unused parameter if compiled with
+	USE_LIBFFI not being defined.
+	(_Jv_Linker::find_field_helper): Fixed indentation.
+	(_Jv_Linker::create_error_method): Fixed indentation.
+	(_Jv_Linker::link_symbol_table): Fixed indentation.
+
+2006-02-16  Andrew Haley  <aph@redhat.com>
+
+	* stacktrace.cc (GetStackTraceElements): Call
+	gnu::gcj::runtime::NameFinder::removeUnknown() to determine if
+	non-Java frames should be removed from a printed stack trace.
+	Pass methodName to getLineNumberForFrame().
+	(getLineNumberForFrame): Set method_name from info.dli_sname.
+	* gnu/gcj/runtime/NameFinder.java (removeUnknown): New method.
+	(remove_unknown): New variable.
+	* include/java-stack.h (_Jv_StackTrace::getLineNumberForFrame):
+	Add methodName arg.
+
+2006-02-15  Matthias Klose  <doko@debian.org>
+
+	* gnu/java/nio/charset, gnu/java/net/protocol/file,
+	gnu/regexp: Remove empty directories.
+
+2006-02-09  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* java/lang/Class.h (_Jv_IDispatchTable): Make it a struct. Put 
+	'itable' inline, instead of as a pointer.
+	(java::lang::Class): Put 'idt' in anonymous union with 'ioffsets'.
+	* link.cc (null_idt): Update definition.
+	(_Jv_Linker::prepare_constant_time_tables): Allocate klass->idt
+	as a single struct. Use _Jv_AllocBytes, not _Jv_AllocRawObj.
+	(_Jv_Linker::generate_itable): Update to use 'ioffsets'.
+	(_Jv_Linker::find_iindex): Likewise. Update comment.
+	* java/lang/natClass.cc	(_Jv_LookupInterfaceMethodIdx): Update for
+	_Jv_IDispatchTable change.
+	(_Jv_IsAssignableFrom): Likewise.
+
+2006-02-08  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/25187:
+	* gnu/gcj/io/natSimpleSHSStream.cc
+	(gnu::gcj::io::SimpleSHSStream::shsFinal): Remove bogus cast.
+	* interpret.cc (_Jv_InterpMethod::run): Simplify arguments to
+	_Jv_InterpFrame(). 
+	* boehm.cc: #undef some autoconf macros before including gc-config.h.
+	(_Jv_MarkObject): Don't mark the class, it is reachable via the vtable.
+	(_Jv_MarkArray): Likewise.
+	* java/lang/ref/natReference.cc (java::lang::ref::Reference::create):
+	Simplify _Jv_GCRegisterDisappearingLink() call.
+	* java/lang/Class.h (getComponentType): Use element_type.
+	(element_type): New field declaration, as a union with "methods".
+	* java/lang/natClassLoader.cc (_Jv_NewArrayClass): Use "element_type".
+	* java/net/natVMNetworkInterfacePosix.cc
+	(java::net::VMNetworkInterface::getInterfaces): Add "int" cast to
+	avoid sign comparison warning.	
+	* include/java-interp.h (_Jv_InterpFrame): Take thread as second
+	argument, not parent call frame.
+	* include/x86_64-signal.h (MAKE_THROW_FRAME): Use "gregs" directly,
+	without a cast.
+	(restore_rt): Declare with hidden visibility, not "static".
+	* posix.cc (_Jv_platform_initProperties): Make "tmpdir" a string
+	constant.
+	* jni.cc (_Jv_JNI_DestroyJavaVM): Use a union to avoid strict alias
+	warning.
+
+2006-02-08  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/26113:
+	* link.cc (_Jv_Linker::print_class_loaded): Declare string constants
+	as "const char *".
+	* verify.cc (verify_fail): Likewise.
+	* gnu/classpath/natSystemProperties.cc (file_encoding): Likewise.
+	* interpret.cc (throw_internal_error, throw_class_format_error):
+	Likewise.
+	* gcj/javaprims.h (_Jv_hashUtf8String, _Jv_Utf8Const::space_needed, 
+	_Jv_Utf8Const::init, _Jv_makeUtf8Const): Likewise.
+	* java/lang/Class.h (_Jv_InitPrimClass): Likewise.
+	* include/jvm.h (_Jv_strLengthUtf8, _Jv_makeUtf8Const): Likewise.
+	* defineclass.cc (throw_internal_error, throw_no_class_def_found_error,
+	is_attribute_name): Likewise.
+	* prims.cc (_Jv_strLengthUtf8, _Jv_hashUtf8String, _Jv_Utf8Const::init,
+	_Jv_makeUtf8Const, _Jv_InitPrimClass): Likewise.
+
+2006-02-08  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26063, PR libgcj/17978, PR libgcj/10598:
+	* defineclass.cc (parse): Use _Jv_AllocRawObj.
+	(read_constpool): Likewise.
+	(read_one_code_attribute): Use internal function name.
+	(handleConstantPool): Use _Jv_AllocRawObj.
+	(handleInterfacesBegin): Likewise.
+	(handleFieldsBegin): Likewise.
+	(handleMethodsBegin): Likewise.
+	(handleCodeAttribute): Likewise.
+	(handleMethodsEnd): Likewise.
+	* include/jvm.h (new_vtable): Use _Jv_AllocRawObj.
+	* interpret.cc (do_allocate_static_fields): Use _Jv_AllocRawObj.
+	Allocate reference fields separately.
+	* link.cc (prepare_constant_time_tables): Use _Jv_AllocRawObj.
+	(add_miranda_methods): Likewise.
+	(generate_itable): Use _Jv_AllocBytes.
+	(find_iindex): Likewise.
+	(struct method_closure): New structure.
+	(create_error_method): Use struct method_closure; allocate with
+	_Jv_AllocBytes.
+	(ensure_fields_laid_out): Separate reference fields from
+	non-reference fields.
+	* boehm.cc (_Jv_MarkObj): Mark vtable.  Only mark direct fields
+	of Class.
+	(_Jv_MarkArray): Mark vtable.
+	(_Jv_AllocRawObj): Don't allocate objects of size 0.
+	* include/execution.h
+	(_Jv_ExecutionEngine::allocate_static_fields): Added 'int'
+	parameter.
+	(struct _Jv_CompiledEngine): Updated.
+	(class _Jv_InterpreterEngine): Updated.
+
+2006-02-08  Tom Tromey  <tromey@redhat.com>
+
+	PR java/22578:
+	* gcj/javaprims.h: Updated.
+	* sources.am, Makefile.in: Rebuilt.
+	* java/lang/natDouble.cc (doubleToLongBits): Moved to VMDouble.
+	(doubleToRawLongBits): Likewise.
+	(longBitsToDouble): Likewise.
+	(toString): Likewise.
+	(parseDouble): Likewise.
+	* java/lang/natFloat.cc (floatToIntBits): Moved to VMFloat.
+	(floatToRawIntBits): Likewise.
+	(intBitsToFloat): Likewise.
+	* java/lang/VMDouble.java: New file.
+	* java/lang/VMFloat.java: New file.
+	* java/lang/Float.java, java/lang/Double.java: Removed.
+
+2006-02-06  Tom Tromey  <tromey@redhat.com>
+
+	* gij.cc (version): Use 2006.
+	* gnu/java/rmi/rmic/RMIC.java (parseOptions): Use 2006.
+	* gnu/gcj/convert/Convert.java (version): Use 2006.
+	* gnu/gcj/tools/gcj_dbtool/Main.java (main): Use 2006.
+
+2006-02-04  Tom Tromey  <tromey@redhat.com>
+
+	PR java/25676:
+	* testsuite/libjava.lang/pr25676.out: New file.
+	* testsuite/libjava.lang/pr25676.java: New file.
+
+2006-02-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* Makefile.am (src.zip): Update src.zip file search to look in
+	classpath directory.
+	* Makefile.in: Regenerate.
+
+2006-02-03  Robert Schuster  <robertschuster@fsfe.org>
+
+	* link.cc:
+	(_Jv_Linker::create_error_method): Added missing (void *) cast.
+
+2006-02-03  Robert Schuster  <robertschuster@fsfe.org>
+
+	* include/jvm.h:
+	(_Jv_Linker::create_error_method): New method declaration.
+	* link.cc:
+	(_Jv_Linker::create_error_method): New method.
+	(_Jv_Linker::link_symbol_table): Use new method above.
+
+2006-02-01  Robert Schuster  <robertschuster@fsfe.org>
+
+	* link.cc:
+	(_Jv_Linker::find_field_helper): Added checks.
+	(_Jv_Linker::find_field): Use exception swallowing class resolution
+	and added early return.
+	(_Jv_ThrowNoClassDefFoundErrorTrampoline): New function.
+	(_Jv_Linker::link_symbol_table):  Use exception swallowing class
+	resolution, added ffi_closure installation routine, use
+	_Jv_ThrowNoClassDefFoundError for missing static method.
+	(_Jv_Linker::ensure_class_linked): Added string check which does
+	not trigger class resolution.
+	* java/lang/natClassLoader.cc:
+	(_Jv_FindClassNoException): New method.
+	* java/lang/Class.h:
+	(_Jv_FindClassNoException): New method declaration.
+	* include/jvm.h:
+	(_Jv_FindClassNoException): New method declaration.
+	(_Jv_FindClassFromSignatureNoException): New method declaration.
+	* prims.cc:
+	(_Jv_FindClassFromSignatureNoException): New method.
+        * gcj/javaprims.h:
+        (_Jv_equalsUtf8Classname): New method declaration.
+        (_Jv_isPrimitiveOrDerived): Dito.
+        * prims.cc:
+	(_Jv_equalsUtf8Classnames): New method.
+        (_Jv_isPrimitiveOrDerived): New method.
+        * verify.cc:
+        (ref_intersection::equals): Use new classname comparison method.
+        (type::compatible): Use new classname comparison method. Added
+        check whether LHS' type is java.lang.Object .
+        (type::resolve): Added new optional debug message and simplified
+        if-expression.
+        (type::to_array): Added codepath that generates an array type
+        without resolving the element type.
+
+2006-01-31  Mark Wielaard  <mark@klomp.org>
+ 
+ 	* NEWS: Add 4.1 updates.
+ 
+2006-01-30  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (insn_index): New declaration.
+	(num_insn_slots): New private variable.
+	(get_line_table): New declaration.
+	* interpret.cc (insn_index): New function.
+	(get_line_table): New function.
+
+2006-01-24  Archit Shah  <ashah@redhat.com>
+	    Tom Tromey  <tromey@redhat.com>
+
+	* prims.cc (next_property_value): Never return NULL.
+	(process_gcj_properties): Copy 'props' before using it.
+
+2006-01-23  Keith Seitz  <keiths@redhat.com>
+
+	* java/lang/Class.h (_Jv_FindInterpreterMethod): Add new declaration.
+	* java/lang/natClass.cc (_Jv_FindInterpreterMethod): New function.
+
+2006-01-23  David Daney  <ddaney@avtrex.com>
+
+	* configure.host (disable_dladdr): Remove variable and its
+	documentation.
+	* configure.ac: Do not test for disable_dladdr.
+	* configure: Regenerate.
+	* include/config.h.in: Regenerate.
+
+2006-01-18  Tom Tromey  <tromey@redhat.com>
+
+	* jni.cc (_Jv_JNI_AttachCurrentThread): Return environment if it
+	already exists.
+
+2006-01-18  Keith Seitz  <keiths@redhat.com>
+
+	* include/java-interp.h (_Jv_CompileMethod): Add declaration.
+	(class _Jv_InterpMethod): Add _Jv_CompileMethod as a friend.
+	* interpret.cc (_Jv_CompileMethod): New function.
+	(run): 	Massage code to allow for NULL args.
+	Update comments to explain NULL args.
+	Return if compiling the method and args is NULL.
+
+2006-01-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libgcj/25840
+	* include/x86_64-signal.h (RESTORE2): Add ".text\n".
+
+2006-01-17  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/20198:
+	* java/net/URLClassLoader.java (FileURLLoader): Added argument.
+	(JarURLLoader): Likewise.
+	(addURLImpl): Canonicalize file URLs.
+
+2006-01-16  Mark Wielaard  <mark@klomp.org>
+
+	Imported GNU Classpath 0.20
+	* Makefile.am (AM_CPPFLAGS): Add classpath/include.
+	* java/nio/charset/spi/CharsetProvider.java: New override file.
+	* java/security/Security.java: Likewise.
+	* sources.am: Regenerated.
+	* Makefile.in: Likewise.
+
+2006-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (dbexecdir): New substituted var.
+	* configure: Rebuilt.
+	* Makefile.am (dbexecdir): Remove.
+	* Makefile.in: Rebuilt.
+
+2006-01-13  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/regexp/MessagesBundle_fr.properties: Removed.
+	* gnu/regexp/MessagesBundle.properties: Removed.
+
+2006-01-13  Tom Tromey  <tromey@redhat.com>
+
+	* java/security/classpath.security: Removed.
+	* Makefile.in: Rebuilt.
+	* Makefile.am (install-data-local): Don't install
+	classpath.security.
+
+2006-01-08  Chris Burdess  <dog@gnu.org>
+
+	* java/lang/Character.java (toChars,toCodePoint): Correct these
+	  methods to use algorithms from Unicode specification.
+
+2006-01-08  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/StringBuilder.java (appendCodePoint): New method.
+	(insert): New overloads.
+	* java/lang/StringBuffer.java (StringBuffer): New constructor.
+	(charAt): Remerged javadoc.
+	(codePointAt, codePointBefore): New methods.
+	(appendCodePoint): New method.
+	(append): New overloads.
+	(insert): Likewise.
+	(trimToSize, codePointCount, offsetByCodePoints): New methods.
+	* java/lang/Float.java (SIZE): New field.
+	(valueOf): New method.
+	* java/lang/natDouble.cc (initIDs): Removed.
+	* java/lang/Double.java (static initializer): Removed.
+	(SIZE): New field.
+	(valueOf): New method.
+	(initIDs): Removed.
+
+2006-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgcj/24940
+	* shlibpath.m4: Replace $SED with sed.
+	* configure: Rebuilt.
+
+2006-01-06  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Character.java (SIZE, MAX_CACHE, charCache,
+	MIN_SURROGATE, MAX_SURROGATE): New fields from Classpath.
+	(MIN_HIGH_SURROGATE, MAX_HIGH_SURROGATE, MIN_LOW_SURROGATE,
+	MAX_LOW_SURROGATE): Javadoc fixes.
+	(valueOf, reverseBytes, isHighSurrogate, isLowSurrogate,
+	isSurrogatePair, toCodePoint, codePointAt, codePointBefore): New
+	methods from Classpath.
+	* java/lang/String.java (codePointAt, codePointBefore,
+	codePointCount, contains, replace): New methods from Classpath.
+	(contentEquals): Declare.
+	* java/lang/natString.cc (contentEquals): New method.
+
+2005-12-26  Anthony Green  <green@redhat.com>
+
+	* gnu/java/nio/SocketChannelImpl.java (read): Compute the right amount
+	of data to read (dst.remaining()).
+	* gnu/java/nio/DatagramChannelImpl.java (receive): Ditto.
+
+2005-11-11  Mark Wielaard  <mark@klomp.org>
+
+	Reported by john.zigman@anu.edu.au as bug #24608.
+	* gnu/java/nio/SocketChannelImpl.java (read): Put readBytes in
+	destination ByteBuffer when it doesn't have an array instead of len
+	bytes.
+
+2006-01-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natThread.cc (finish_): Don't clear 'group'.
+	* sources.am, Makefile.in: Rebuilt.
+	* java/lang/Runtime.java (exit): Merged with Classpath.
+	(runShutdownHooks): New method from Classpath.
+	* java/io/File.java (deleteOnExit): Use DeleteFileHelper, not
+	FileDeleter.
+	* gnu/gcj/runtime/FileDeleter.java: Removed.
+	* java/lang/natRuntime.cc (runFinalizationForExit): New method.
+	(exitInternal): Don't run finalizers or delete files.
+
+2006-01-05  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natPosixProcess.cc (reap): Ignore unknown children.
+
+2006-01-04  Krister Walfridsson  <cato@df.lth.se>
+
+	* posix-threads.cc (_Jv_InitThreads): #ifdef PTHREAD_STACK_MIN
+
+2006-01-04  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.h (_Jv_CopyClassesToSystemLoader): Updated.
+	* java/lang/natClassLoader.cc (_Jv_CopyClassesToSystemLoader):
+	Changed argument type.  Use SystemClassLoader.addClass.
+	* gnu/gcj/runtime/SystemClassLoader.java (addClass): New method.
+
+2005-12-24  David Daney <ddaney@avtrex.com>
+	    Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/9715, PR libgcj/19132:
+	* java/nio/charset/Charset.java (charsetForName): Try default
+	provider first.
+	(availableCharsets): Re-merged.
+	(providers2): Likewise.
+	(defaultCharset): Likewise.
+	* sources.am, Makefile.in: Rebuilt.
+	* gnu/java/nio/charset/Provider.java: Removed.
+	* java/io/OutputStreamWriter.java
+	(OutputStreamWriter(OutputStream,Charset)): New constructor.
+	(OutputStreamWriter(OutputStream,CharsetEncoder)): Likewise.
+	* java/io/InputStreamReader.java
+	(InputStreamReader(InputStream,CharsetDecoder)): New constructor.
+	(InputStreamReader(InputStream,Charset)): Likewise.
+	* gnu/gcj/convert/BytesToUnicode.java (getDecoder): Try a
+	BytesToCharsetAdaptor.
+	* gnu/gcj/convert/UnicodeToBytes.java (getEncoder): Try a
+	CharsetToBytesAdaptor.
+	* gnu/gcj/convert/CharsetToBytesAdaptor.java: New file.
+	* gnu/gcj/convert/BytesToCharsetAdaptor.java: New file.
+	* mauve-libgcj: Remove getEncoding exclusion.
+
+2005-12-28  Anthony Green  <green@redhat.com>
+
+	* gnu/java/net/natPlainSocketImplWin32.cc (connect): Same 
+	as previous patch, but for win32.
+
+2005-12-28  Anthony Green  <green@redhat.com>
+
+	* gnu/java/net/natPlainSocketImplPosix.cc (connect): Record
+	address and port before attempting anything.
+
+2005-12-28  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* sysdep/pa/locks.h (compare_and_swap): Add ldcw semaphore to make
+	operation atomic.
+
+2005-12-22  Andrew Haley  <aph@redhat.com>
+
+	PR java/25535
+	* testsuite/libjava.lang/PR25535.java: New test.
+
+2005-12-22  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natClassLoader.cc (_Jv_NewArrayClass): Don't
+	reference NUM_OBJECT_METHODS.
+	* include/jvm.h (NUM_OBJECT_METHODS): Removed.
+
+2005-12-18  Anthony Green  <green@redhat.com>
+
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc (getLocalAddress): 
+	New helper function.
+	(setOption): Use getLocalAddress.  Don't downcast value to
+	InetAddress.
+	(getOption): Use getLocalAddress.
+
+2005-12-16  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/Class.java (getPackage): Get package from
+	VMClassLoader if needed.
+
+2005-12-16  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail
+	(8.5.2-accessible-static-member-usage-3): Removed.
+
+2005-12-15  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.compile/rh175833.java: New file.
+	* testsuite/libjava.compile/pr25429.java: New file.
+
+2005-12-15  Alan Modra  <amodra@bigpond.net.au>
+
+	* testsuite/lib/libjava.exp: Revert 2005-12-01.
+	* testsuite/libjava.lang/Array_3.xfail: Delete.
+
+2005-12-14  Andrew Haley  <aph@redhat.com>
+
+	* gnu/java/rmi/rmic/CompilerProcess.java: Use a new thread to
+	handle stdout from the child process.
+
+2005-12-14  Tom Tromey  <tromey@redhat.com>
+
+	PR classpath/25389:
+	* java/io/File.java (File): Throw IllegalArgumentException if URI is
+	non-hierarchical.
+
+2005-12-12  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/VMCompiler.java: Directly generate a new instance of
+	gnu.java.security.provider.MD5.
+
+2005-12-08  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/25265
+	* java/lang/Object.h (throwNoSuchMethodError): New method.
+	* java/lang/Object.java (throwNoSuchMethodError): New method.
+	* include/jvm.h (_Jv_ThrowNoSuchFieldError): Declare.
+	* link.cc (_Jv_ThrowNoSuchFieldError): New.
+	(link_symbol_table): Don't throw a NoSuchFieldError if a field is
+	missing.  Instead, set the otable entry to zero.
+	(link_symbol_table): If we don't find a nonstatic method, insert
+	the vtable offset of Object.throwNoSuchMethodError() into the
+	otable.
+
+2005-12-05  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.compile/rh174912.java: New file.
+
+2005-12-01  Geoffrey Keating  <geoffk@apple.com>
+
+	* testsuite/lib/libjava.exp (test_libjava_from_javac): Support
+	xfail-byte-exec.
+	* testsuite/libjava.lang/Array_3.xfail: New file.
+
+2005-12-01  Alan Modra  <amodra@bigpond.net.au>
+
+	* stacktrace.cc (UnwindTraceFn): Use UNWRAP_FUNCTION_DESCRIPTOR
+	to compare _Jv_InterpMethod::run against current func.
+
+2005-11-30  Andrew Haley  <aph@redhat.com>
+
+	* classpath/lib/Makefile.am (resources): Use `cp -p'.
+	Remove `@' from start of line.
+
+2005-11-28  Tom Tromey  <tromey@redhat.com>
+
+	PR java/18278:
+	* testsuite/libjava.jni/pr18278.out: New file.
+	* testsuite/libjava.jni/pr18278.c: New file.
+	* testsuite/libjava.jni/pr18278.java: New file.
+	* include/jvm.h (_Jv_UnwrapJNIweakReference): Declare.
+	* jni.cc (_Jv_UnwrapJNIweakReference): New function.
+	(call): Unwrap return value if needed.
+
+2005-11-25  Mark Wielaard  <mark@klomp.org>
+
+	* standard.omit.in: Remove javax/rmi, org/omg, gnu/CORBA and
+	gnu/javax/rmi.
+	* scripts/makemake.tcl: Set javax/rmi, org/omg, gnu/CORBA and
+	gnu/javax/rmi to bc.
+	* gnu/CORBA/ObjectCreator.java: New override file for missing
+	VMStackWalker issue.
+	* gnu/CORBA/DynAn/gnuDynValue.java: New override file for bug #24938
+	* gnu/CORBA/DynAn/RecordAny.java: Likewise
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated
+
+2005-11-25  Andrew Haley  <aph@redhat.com>
+
+	PR libgcj/25016
+	* posix-threads.cc (_Jv_CondWait): Rewrite calculation of the
+	struct timespec we pass to pthread_cond_timedwait.
+
+2005-11-25  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* testsuite/libjava.jacks/jacks.xfail: Remove
+	non-jls-argument-expansion-13 and add
+	non-jls-argument-expansion-error-1 in response to the @file support
+	patch in the main GCC driver.
+
+2005-11-24  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* sysdep/ia64-frame.h: Removed.
+	* sysdep/ia64.c: Removed.
+	* sysdep/dwarf2-backtrace.cc: Removed.
+	* configure.ac: Remove references to HAVE_BACKTRACE and
+	SUPPLY_BACKTRACE.
+	* Makefile.am: Remove SUPPLY_BACKTRACE support.
+	* configure: Rebuilt.
+	* Makefile.in: Rebuilt.
+
+2005-11-24  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gij.cc (nonstandard_opts_help): Add entry for -Xss.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	Imported GNU Classpath gcj-import-20051117.
+	* gnu/java/net/protocol/file/Connection.java: Removed, fully merged.
+	* sources.am: Regenerated.
+	* Makefile.in: Likewise.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/net/protocol/file/Handler.java: Removed, fully merged now.
+	* java/net/ServerSocket.java: Likewise.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	Fixes bug #24006
+	* java/net/ServerSocket.java (implAccept): Set Socket.bound to true.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/ServerSocket.java (accept): Use correct security manager
+	call.
+
+2005-11-17  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/net/ServerSocket.java
+	(bound): Removed.
+	(local): New field.
+	(bind): Cache local socket address.
+	(getInetAddress, getLocalPort, getLocalSocketAddress, isBound):
+	Use cached local socket address.
+	(close): bound field was removed.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLConnection.java (setDoInput): Javadoc fix.
+	(setDoOutput): Likewise.
+	(setContentHandlerFactory): Likewise.
+	(setFileNameMap): Likewise.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/URLClassloader.java (addURLs): Add comment about jboss.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/net/URLClassLoader.java (addURLs): Don't call addURL(), but
+	call urls.add() and addURLImpl() directly on each URL.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLClassLoader.java (definePackage): Javadoc fixes.
+
+2005-11-17  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/net/URLClassLoader.java
+	(Resource.name): Removed field.
+	(JarURLResource.name): Added field.
+	(FileResource.getURL): Use File.toURL() instead of doing it in
+	a way that breaks on Windows.
+
+2005-11-17  Roman Kennke  <roman@kennke.org>
+
+	Reported by: Ingo Proetel  <proetel@aicas.com>
+	* java/net/URLClassLoader.java
+	(findClass): Added null check to avoid NullPointerException.
+
+2005-11-17  David Gilbert  <david.gilbert@object-refinery.com>
+
+	* java/net/URLClassLoader.java: reordered some API doc comments to
+	suppress Eclipse warnings, and fixed API doc link.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/net/URLClassLoader.java (URLClassLoader): Removed
+	unused constructor.
+
+2005-11-17  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/net/URLClassLoader (findClass): Close InputStream after we're
+	done with it.
+
+2005-11-17  Bryce McKinlay  <mckinlay@redhat.com>
+
+	Implement -Xss.
+	* include/jvm.h (gcj::stack_size): Declare.
+	(_Jv_StackSize): Declare.
+	* posix-threads.cc (_Jv_InitThreads): Validate gcj::stack_size.
+	(_Jv_ThreadStart): Set stack size if specified.
+	* prims.cc (gcj::stack_size): Define.
+	(parse_memory_size): Renamed from parse_heap_size.
+	(_Jv_SetStackSize): Parse stack size argument and set 
+	gcj::stack_size.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/text/SimpleDateFormat.java: Removed, fully merged now.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-17  Sven de Marothy  <sven@physto.se>
+
+	* java/text/SimpleDateFormat.java
+	(computeOffset): Allow timezone to be first in the parsed String.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/text/SimpleDateFormat.java (field, size): Make package private.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/SimpleDateFormat.java (compileFormat): Correctly
+	handle quoted single quotes.  PR classspath/23183.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/SimpleDateFormat.java (compileFormat): Reformatted.
+
+2005-11-17  Tom Tromey  <tromey@redhat.com>
+
+	* java/text/DateFormat.java (serialVersionUID): New field.
+
+2005-11-17  Mark Wielaard  <mark@klomp.org>
+
+	* java/text/DateFormat.java (equals): Reimplement.
+
+2005-11-17  David Gilbert  <david.gilbert@object-refinery.com>
+
+	* java/text/Collator.java: API doc fixes,
+	* java/text/DateFormat.java: likewise,
+	* java/text/DecimalFormatSymbols.java: likewise,
+	* java/text/DateFormatSymbols.java: likewise,
+	* java/text/SimpleDateFormat.java: likewise.
+
+2005-11-17  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/text/Collator.java (getInstance(Locale)):
+	Added default collation pattern to handle case when resource
+	is missing and throw InternalError instead of returning null
+	should parsing fail.
+
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/zip/ZipEntry.java: Removed, fully merged now.
+	* java/util/zip/ZipFile.java: Likewise.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-15  Tom Tromey  <tromey@redhat.com>
+
+	classpath/23890:
+	* java/util/Calendar.java (equals): Include other calendar
+	attributes.
+	(hashCode): Updated.
+	* java/util/GregorianCalendar.java (hashCode): New method.
+	(equals): Use super.equals().
+
+2005-11-15  Sven de Marothy  <sven@physto.se>
+
+	* java/util/Calendar (setTimeInMillis): Recompute time fields.
+
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/util/SimpleTimeZone.java: Removed, fully merged now.
+	* java/util/Date.java: Likewise.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-15  David Gilbert  <david.gilbert@object-refinery.com>
+
+	* java/util/Calendar.java: fixed minor problems in API docs,
+	* java/util/Date.java: likewise,
+	* java/util/ResourceBundle.java: likewise,
+	* java/util/SimpleTimeZone.java: likewise,
+
+2005-11-15  Jeroen Frijters  <jeroen@frijters.net>
+
+	* java/io/ObjectInputStream.java
+	(parseContent): Removed bogus println and fixed bug #24422.
+		
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/ObjectStreamClass.java: Removed, fully merged now.
+	* sources.am: Regenerated.
+	* Makefile.in: Regenerated.
+
+2005-11-15  Wolfgang Baer  <WBaer@gmx.de>
+
+	* java/io/ObjectInputStream.java
+	(processResolution): Pass Error, RuntimeException and
+	ObjectStreamException through to the caller.
+	(readObject): Documentation update.
+
+2005-11-15  Mark Wielaard  <mark@klomp.org>
+
+	Imported GNU Classpath 0.19 + gcj-import-20051115.
+	* sources.am: Regenerated.
+	* Makefile.in: Likewise.
+	* scripts/makemake.tcl: Use glob -nocomplain.
+
+2005-11-15  Scott Gilbertson  <scottg@mantatest.com>
+
+	* Makefile.in: Re-generated.
+	* gnu/awt/xlib/XGraphicsDevice.java: New file.
+	* gnu/awt/xlib/XToolkit.java
+	(getLocalGraphicsEnvironment): Implemented. 
+	* gnu/awt/xlib/XGraphicsEnvironment.java: New file.
+	* sources.am: Re-generated.
+
+2005-15-09  David Daney <ddaney@avtrex.com>
+
+	PR libgcj/15430
+	* gnu/java/net/natPlainSocketImplPosix.cc (throw_on_sock_closed): New
+	function.
+	(accept): Call it.
+	(close): Call shutdown before closing.
+	(read()): Call read_helper with proper parameters.
+	(read(buffer, int, int)): Likewise.
+	(read_helper):  Pass pointer to the PlainSocketImpl, remove native_fd
+	and timeout parameters.  Make prototype to match. Use 
+	pointer to PlainSocketImpl to access members. Call throw_on_sock_closed
+	in two places.
+
+2005-11-15  Andrew Haley  <aph@redhat.com>
+
+	* Merge from Classpath head:
+
+   2005-09-16  Andrew Haley  <aph@redhat.com>
+   
+           * java/io/ObjectStreamClass.java (findAccessibleMethod): Allow
+           protected readResolve().  Rewrite accessibility check.
+   
+   2005-07-07  Jeroen Frijters  <jeroen@frijters.net>
+   
+           * java/io/ObjectStreamClass.java
+           (findAccessibleMethod): Added code to make method accessible.
+   
+   2005-07-03  Daniel Bonniot  <bonniot@users.sf.net>
+   
+           * java/io/ObjectStreamClass.java (inSamePackage): New private method.
+           (findAccessibleMethod): Likewise.
+           (cacheMethods): Lookup readResolve and writeReplace using the new
+           findAccessibleMethod().
+   
 2005-11-14  Mohan Embar  <gnustuff@thisiscool.com>
 
 	* java/net/natVMNetworkInterfaceWin32.cc: Include

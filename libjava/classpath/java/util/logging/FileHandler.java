@@ -43,10 +43,6 @@ import java.io.FileOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
-
 import java.util.LinkedList;
 import java.util.ListIterator;
 
@@ -119,7 +115,7 @@ import java.util.ListIterator;
  *
  * <li><code>%h</code> - replaced by the location of the home
  *     directory of the current user.  This value is taken from the
- *     system property <code>file.separator</code>.</li>
+ *     system property <code>user.home</code>.</li>
  *
  * <li><code>%g</code> - replaced by a generation number for
  *     distinguisthing the individual items in the rotating set 

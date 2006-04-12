@@ -4,17 +4,19 @@ dnl This file is part of the GNU Fortran 95 Runtime Library (libgfortran)
 dnl Distributed under the GNU GPL with exception.  See COPYING for details.
 define(START_FOREACH_FUNCTION,
 `
-extern void name`'rtype_qual`_'atype_code (rtype * retarray, atype *array);
+extern void name`'rtype_qual`_'atype_code (rtype * const restrict retarray, 
+	atype * const restrict array);
 export_proto(name`'rtype_qual`_'atype_code);
 
 void
-name`'rtype_qual`_'atype_code (rtype * retarray, atype *array)
+name`'rtype_qual`_'atype_code (rtype * const restrict retarray, 
+	atype * const restrict array)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type sstride[GFC_MAX_DIMENSIONS];
   index_type dstride;
-  atype_name *base;
+  const atype_name *base;
   rtype_name *dest;
   index_type rank;
   index_type n;
@@ -69,7 +71,7 @@ name`'rtype_qual`_'atype_code (rtype * retarray, atype *array)
 
   /* Initialize the return value.  */
   for (n = 0; n < rank; n++)
-    dest[n * dstride] = 1;
+    dest[n * dstride] = 0;
   {
 ')dnl
 define(START_FOREACH_BLOCK,
@@ -111,12 +113,14 @@ define(FINISH_FOREACH_FUNCTION,
 }')dnl
 define(START_MASKED_FOREACH_FUNCTION,
 `
-extern void `m'name`'rtype_qual`_'atype_code (rtype *, atype *, gfc_array_l4 *);
+extern void `m'name`'rtype_qual`_'atype_code (rtype * const restrict, 
+	atype * const restrict, gfc_array_l4 * const restrict);
 export_proto(`m'name`'rtype_qual`_'atype_code);
 
 void
-`m'name`'rtype_qual`_'atype_code (rtype * retarray, atype *array,
-				  gfc_array_l4 * mask)
+`m'name`'rtype_qual`_'atype_code (rtype * const restrict retarray, 
+	atype * const restrict array,
+	gfc_array_l4 * const restrict mask)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
@@ -124,7 +128,7 @@ void
   index_type mstride[GFC_MAX_DIMENSIONS];
   index_type dstride;
   rtype_name *dest;
-  atype_name *base;
+  const atype_name *base;
   GFC_LOGICAL_4 *mbase;
   int rank;
   index_type n;
@@ -194,7 +198,7 @@ void
 
   /* Initialize the return value.  */
   for (n = 0; n < rank; n++)
-    dest[n * dstride] = 1;
+    dest[n * dstride] = 0;
   {
 ')dnl
 define(START_MASKED_FOREACH_BLOCK, `START_FOREACH_BLOCK')dnl
@@ -244,3 +248,56 @@ $1
 START_MASKED_FOREACH_BLOCK
 $2
 FINISH_MASKED_FOREACH_FUNCTION')dnl
+define(SCALAR_FOREACH_FUNCTION,
+`
+extern void `s'name`'rtype_qual`_'atype_code (rtype * const restrict, 
+	atype * const restrict, GFC_LOGICAL_4 *);
+export_proto(`s'name`'rtype_qual`_'atype_code);
+
+void
+`s'name`'rtype_qual`_'atype_code (rtype * const restrict retarray, 
+	atype * const restrict array,
+	GFC_LOGICAL_4 * mask)
+{
+  index_type rank;
+  index_type dstride;
+  index_type n;
+  rtype_name *dest;
+
+  if (*mask)
+    {
+      name`'rtype_qual`_'atype_code (retarray, array);
+      return;
+    }
+
+  rank = GFC_DESCRIPTOR_RANK (array);
+
+  if (rank <= 0)
+    runtime_error ("Rank of array needs to be > 0");
+
+  if (retarray->data == NULL)
+    {
+      retarray->dim[0].lbound = 0;
+      retarray->dim[0].ubound = rank-1;
+      retarray->dim[0].stride = 1;
+      retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
+      retarray->offset = 0;
+      retarray->data = internal_malloc_size (sizeof (rtype_name) * rank);
+    }
+  else
+    {
+      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
+	runtime_error ("rank of return array does not equal 1");
+
+      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
+        runtime_error ("dimension of return array incorrect");
+
+      if (retarray->dim[0].stride == 0)
+	retarray->dim[0].stride = 1;
+    }
+
+  dstride = retarray->dim[0].stride;
+  dest = retarray->data;
+  for (n = 0; n<rank; n++)
+    dest[n * dstride] = $1 ;
+}')dnl

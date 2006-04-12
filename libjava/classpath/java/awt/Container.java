@@ -1,5 +1,6 @@
 /* Container.java -- parent container class in AWT
-   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005  Free Software Foundation
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -38,15 +39,14 @@ exception statement from your version. */
 
 package java.awt;
 
+import java.awt.event.ComponentListener;
 import java.awt.event.ContainerEvent;
 import java.awt.event.ContainerListener;
 import java.awt.event.KeyEvent;
-import java.awt.event.MouseEvent;
 import java.awt.peer.ComponentPeer;
 import java.awt.peer.ContainerPeer;
 import java.awt.peer.LightweightPeer;
 import java.beans.PropertyChangeListener;
-import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -60,8 +60,6 @@ import java.util.Iterator;
 import java.util.Set;
 
 import javax.accessibility.Accessible;
-
-import gnu.java.awt.AWTUtilities;
 
 /**
  * A generic window toolkit object that acts as a container for other objects.
@@ -87,9 +85,12 @@ public class Container extends Component
   Component[] component;
   LayoutManager layoutMgr;
 
-  LightweightDispatcher dispatcher;
-
   Dimension maxSize;
+
+  /**
+   * Keeps track if the Container was cleared during a paint/update.
+   */
+  private boolean backCleared;
 
   /**
    * @since 1.4
@@ -100,7 +101,6 @@ public class Container extends Component
 
   /* Anything else is non-serializable, and should be declared "transient". */
   transient ContainerListener containerListener;
-  transient PropertyChangeSupport changeSupport; 
 
   /** The focus traversal policy that determines how focus is
       transferred between this Container and its children. */
@@ -122,6 +122,7 @@ public class Container extends Component
    */
   public Container()
   {
+    // Nothing to do here.
   }
 
   /**
@@ -181,25 +182,6 @@ public class Container extends Component
           System.arraycopy(component, 0, result, 0, ncomponents);
 
         return result;
-      }
-  }
-
-  /**
-   * Swaps the components at position i and j, in the container.
-   */
-
-  protected void swapComponents (int i, int j)
-  {   
-    synchronized (getTreeLock ())
-      {
-        if (i < 0 
-            || i >= component.length
-            || j < 0 
-            || j >= component.length)
-          throw new ArrayIndexOutOfBoundsException ();
-        Component tmp = component[i];
-        component[i] = component[j];
-        component[j] = tmp;
       }
   }
 
@@ -383,6 +365,8 @@ public class Container extends Component
         // Notify the layout manager.
         if (layoutMgr != null)
           {
+	    // If we have a LayoutManager2 the constraints are "real",
+	    // otherwise they are the "name" of the Component to add.
             if (layoutMgr instanceof LayoutManager2)
               {
                 LayoutManager2 lm2 = (LayoutManager2) layoutMgr;
@@ -391,20 +375,23 @@ public class Container extends Component
             else if (constraints instanceof String)
               layoutMgr.addLayoutComponent((String) constraints, comp);
             else
-              layoutMgr.addLayoutComponent(null, comp);
+              layoutMgr.addLayoutComponent("", comp);
           }
 
-        if (isShowing ())
-          {
-            // Post event to notify of adding the component.
-            ContainerEvent ce = new ContainerEvent(this,
-                                                   ContainerEvent.COMPONENT_ADDED,
-                                                   comp);
-            getToolkit().getSystemEventQueue().postEvent(ce);
+        // We previously only sent an event when this container is showing.
+        // Also, the event was posted to the event queue. A Mauve test shows
+        // that this event is not delivered using the event queue and it is
+        // also sent when the container is not showing. 
+        ContainerEvent ce = new ContainerEvent(this,
+                                               ContainerEvent.COMPONENT_ADDED,
+                                               comp);
+        ContainerListener[] listeners = getContainerListeners();
+        for (int i = 0; i < listeners.length; i++)
+          listeners[i].componentAdded(ce);
 
-            // Repaint this container.
-            repaint();
-          }
+        // Repaint this container.
+        repaint(comp.getX(), comp.getY(), comp.getWidth(),
+                comp.getHeight());
       }
   }
 
@@ -419,6 +406,10 @@ public class Container extends Component
       {
         Component r = component[index];
 
+        ComponentListener[] list = r.getComponentListeners();
+        for (int j = 0; j < list.length; j++)
+              r.removeComponentListener(list[j]);
+        
         r.removeNotify();
 
         System.arraycopy(component, index + 1, component, index,
@@ -439,9 +430,6 @@ public class Container extends Component
                                                    ContainerEvent.COMPONENT_REMOVED,
                                                    r);
             getToolkit().getSystemEventQueue().postEvent(ce);
-
-            // Repaint this container.
-            repaint();
           }
       }
   }
@@ -730,7 +718,16 @@ public class Container extends Component
    */
   public float getAlignmentX()
   {
-    return super.getAlignmentX();
+    LayoutManager layout = getLayout();
+    float alignmentX = 0.0F;
+    if (layout != null && layout instanceof LayoutManager2)
+      {
+        LayoutManager2 lm2 = (LayoutManager2) layout;
+        alignmentX = lm2.getLayoutAlignmentX(this);
+      }
+    else
+      alignmentX = super.getAlignmentX();
+    return alignmentX;
   }
 
   /**
@@ -742,7 +739,16 @@ public class Container extends Component
    */
   public float getAlignmentY()
   {
-    return super.getAlignmentY();
+    LayoutManager layout = getLayout();
+    float alignmentY = 0.0F;
+    if (layout != null && layout instanceof LayoutManager2)
+      {
+        LayoutManager2 lm2 = (LayoutManager2) layout;
+        alignmentY = lm2.getLayoutAlignmentY(this);
+      }
+    else
+      alignmentY = super.getAlignmentY();
+    return alignmentY;
   }
 
   /**
@@ -752,16 +758,17 @@ public class Container extends Component
    * a superclass method so that lightweight components are properly
    * drawn.
    *
-   * @param g The graphics context for this paint job.
+   * @param g - The graphics context for this paint job.
    */
   public void paint(Graphics g)
   {
     if (!isShowing())
       return;
 
-    // Visit heavyweights as well, in case they were
-    // erased when we cleared the background for this container.
-    visitChildren(g, GfxPaintVisitor.INSTANCE, false);
+    // Visit heavyweights if the background was cleared
+    // for this container.
+    visitChildren(g, GfxPaintVisitor.INSTANCE, !backCleared);
+    backCleared = false;
   }
 
   /**
@@ -792,8 +799,11 @@ public class Container extends Component
     // also not cleared. So we do a check on !(peer instanceof LightweightPeer)
     // instead.
     ComponentPeer p = peer;
-    if (p != null && !(p instanceof LightweightPeer))
-      g.clearRect(0, 0, getWidth(), getHeight());
+    if (p != null && ! (p instanceof LightweightPeer))
+      {
+        g.clearRect(0, 0, getWidth(), getHeight());
+        backCleared = true;
+      }
 
     paint(g);
   }
@@ -820,7 +830,7 @@ public class Container extends Component
    */
   public void paintComponents(Graphics g)
   {
-    super.paint(g);
+    paint(g);
     visitChildren(g, GfxPaintAllVisitor.INSTANCE, true);
   }
 
@@ -868,13 +878,21 @@ public class Container extends Component
   }
 
   /**
-   * Returns an array of all the objects currently registered as FooListeners
-   * upon this Container. FooListeners are registered using the addFooListener
-   * method.
+   * Returns all registered {@link EventListener}s of the given 
+   * <code>listenerType</code>.
    *
-   * @exception ClassCastException If listenerType doesn't specify a class or
-   * interface that implements @see java.util.EventListener.
-   *
+   * @param listenerType the class of listeners to filter (<code>null</code> 
+   *                     not permitted).
+   *                     
+   * @return An array of registered listeners.
+   * 
+   * @throws ClassCastException if <code>listenerType</code> does not implement
+   *                            the {@link EventListener} interface.
+   * @throws NullPointerException if <code>listenerType</code> is 
+   *                              <code>null</code>.
+   *                            
+   * @see #getContainerListeners()
+   * 
    * @since 1.3
    */
   public EventListener[] getListeners(Class listenerType)
@@ -1044,6 +1062,54 @@ public class Container extends Component
               return component[i];
           }
 
+        return this;
+      }
+  }
+  
+  /**
+   * Finds the visible child component that contains the specified position.
+   * The top-most child is returned in the case where there is overlap.
+   * If the top-most child is transparent and has no MouseListeners attached,
+   * we discard it and return the next top-most component containing the
+   * specified position.
+   * @param x the x coordinate
+   * @param y the y coordinate
+   * @return null if the <code>this</code> does not contain the position,
+   * otherwise the top-most component (out of this container itself and 
+   * its descendants) meeting the criteria above.
+   */
+  Component findComponentForMouseEventAt(int x, int y)
+  {
+    synchronized (getTreeLock())
+      {
+        if (!contains(x, y))
+          return null;
+          
+        for (int i = 0; i < ncomponents; ++i)
+          {
+            // Ignore invisible children...
+            if (!component[i].isVisible())
+              continue;
+
+            int x2 = x - component[i].x;
+            int y2 = y - component[i].y;
+            // We don't do the contains() check right away because
+            // findComponentAt would redundantly do it first thing.
+            if (component[i] instanceof Container)
+              {
+                Container k = (Container) component[i];
+                Component r = k.findComponentForMouseEventAt(x2, y2);
+                if (r != null)
+                  return r;
+              }
+            else if (component[i].contains(x2, y2))
+              return component[i];
+          }
+
+        //don't return transparent components with no MouseListeners
+        if (getMouseListeners().length == 0
+            && getMouseMotionListeners().length == 0)
+          return null;
         return this;
       }
   }
@@ -1476,28 +1542,105 @@ public class Container extends Component
     if (orientation == null)
       throw new NullPointerException ();
   }
-  
+
   public void addPropertyChangeListener (PropertyChangeListener listener)
   {
-    if (listener == null)
-      return;
-
-    if (changeSupport == null)
-      changeSupport = new PropertyChangeSupport (this);
-
-    changeSupport.addPropertyChangeListener (listener);
+    // TODO: Why is this overridden?
+    super.addPropertyChangeListener(listener);
   }
-  
-  public void addPropertyChangeListener (String name,
+
+  public void addPropertyChangeListener (String propertyName,
                                          PropertyChangeListener listener)
   {
-    if (listener == null)
-      return;
-    
-    if (changeSupport == null)
-      changeSupport = new PropertyChangeSupport (this);
+    // TODO: Why is this overridden?
+    super.addPropertyChangeListener(propertyName, listener);
+  }
 
-    changeSupport.addPropertyChangeListener (name, listener);
+
+  /**
+   * Sets the Z ordering for the component <code>comp</code> to
+   * <code>index</code>. Components with lower Z order paint above components
+   * with higher Z order.
+   *
+   * @param comp the component for which to change the Z ordering
+   * @param index the index to set
+   *
+   * @throws NullPointerException if <code>comp == null</code>
+   * @throws IllegalArgumentException if comp is an ancestor of this container
+   * @throws IllegalArgumentException if <code>index</code> is not in
+   *         <code>[0, getComponentCount()]</code> for moving between
+   *         containers or <code>[0, getComponentCount() - 1]</code> for moving
+   *         inside this container
+   * @throws IllegalArgumentException if <code>comp == this</code>
+   * @throws IllegalArgumentException if <code>comp</code> is a
+   *         <code>Window</code>
+   *
+   * @see #getComponentZOrder(Component)
+   *
+   * @since 1.5
+   */
+  public final void setComponentZOrder(Component comp, int index)
+  {
+    if (comp == null)
+      throw new NullPointerException("comp must not be null");
+    if (comp instanceof Container && ((Container) comp).isAncestorOf(this))
+      throw new IllegalArgumentException("comp must not be an ancestor of "
+                                         + "this");
+    if (comp instanceof Window)
+      throw new IllegalArgumentException("comp must not be a Window");
+
+    if (comp == this)
+      throw new IllegalArgumentException("cannot add component to itself");
+
+    // FIXME: Implement reparenting.
+    if ( comp.getParent() != this)
+      throw new AssertionError("Reparenting is not implemented yet");
+    else
+      {
+        // Find current component index.
+        int currentIndex = getComponentZOrder(comp);
+        if (currentIndex < index)
+          {
+            System.arraycopy(component, currentIndex + 1, component,
+                             currentIndex, index - currentIndex);
+          }
+        else
+          {
+            System.arraycopy(component, index, component, index + 1,
+                             currentIndex - index);
+          }
+        component[index] = comp;
+      }
+  }
+
+  /**
+   * Returns the Z ordering index of <code>comp</code>. If <code>comp</code>
+   * is not a child component of this Container, this returns <code>-1</code>.
+   *
+   * @param comp the component for which to query the Z ordering
+   *
+   * @return the Z ordering index of <code>comp</code> or <code>-1</code> if
+   *         <code>comp</code> is not a child of this Container
+   *
+   * @see #setComponentZOrder(Component, int)
+   *
+   * @since 1.5
+   */
+  public final int getComponentZOrder(Component comp)
+  {
+    int index = -1;
+    if (component != null)
+      {
+        for (int i = 0; i < component.length; i++)
+          {
+            if (component[i] == comp)
+              {
+                index = i;
+                break;
+              }
+          }
+      }
+    return index;
   }
 
   // Hidden helper methods.
@@ -1519,17 +1662,17 @@ public class Container extends Component
   private void visitChildren(Graphics gfx, GfxVisitor visitor,
                              boolean lightweightOnly)
   {
-    synchronized (getTreeLock ())
+    synchronized (getTreeLock())
       {
         for (int i = ncomponents - 1; i >= 0; --i)
           {
             Component comp = component[i];
             boolean applicable = comp.isVisible()
-              && (comp.isLightweight() || !lightweightOnly);
-
+                                 && (comp.isLightweight() || ! lightweightOnly);
+            
             if (applicable)
               visitChild(gfx, visitor, comp);
-	  }
+          }
       }
   }
 
@@ -1550,46 +1693,35 @@ public class Container extends Component
                           Component comp)
   {
     Rectangle bounds = comp.getBounds();
-    Rectangle oldClip = gfx.getClipBounds();
-    if (oldClip == null)
-      oldClip = bounds;
-
-    Rectangle clip = oldClip.intersection(bounds);
-
-    if (clip.isEmpty()) return;
-
-    boolean clipped = false;
-    boolean translated = false;
+    
+    if(!gfx.hitClip(bounds.x,bounds.y, bounds.width, bounds.height))
+      return;
+    Graphics g2 = gfx.create(bounds.x, bounds.y, bounds.width,
+                             bounds.height);
     try
       {
-        gfx.setClip(clip.x, clip.y, clip.width, clip.height);
-        clipped = true;
-        gfx.translate(bounds.x, bounds.y);
-        translated = true;
-        visitor.visit(comp, gfx);
+        visitor.visit(comp, g2);
       }
     finally
       {
-        if (translated)
-          gfx.translate (-bounds.x, -bounds.y);
-        if (clipped)
-          gfx.setClip (oldClip.x, oldClip.y, oldClip.width, oldClip.height);
+        g2.dispose();
       }
   }
 
   void dispatchEventImpl(AWTEvent e)
   {
-    // Give lightweight dispatcher a chance to handle it.
-    if (dispatcher != null && dispatcher.handleEvent (e))
-      return;
-
-    if ((e.id <= ContainerEvent.CONTAINER_LAST
-             && e.id >= ContainerEvent.CONTAINER_FIRST)
-        && (containerListener != null
-            || (eventMask & AWTEvent.CONTAINER_EVENT_MASK) != 0))
-      processEvent(e);
-    else
-      super.dispatchEventImpl(e);
+    boolean dispatched =
+      LightweightDispatcher.getInstance().dispatchEvent(e);
+    if (! dispatched)
+      {
+        if ((e.id <= ContainerEvent.CONTAINER_LAST
+            && e.id >= ContainerEvent.CONTAINER_FIRST)
+            && (containerListener != null
+                || (eventMask & AWTEvent.CONTAINER_EVENT_MASK) != 0))
+          processEvent(e);
+        else
+          super.dispatchEventImpl(e);
+      }
   }
 
   /**
@@ -1673,15 +1805,6 @@ public class Container extends Component
             component[i].addNotify();
             if (component[i].isLightweight ())
 	      {
-
-                // If we're not lightweight, and we just got a lightweight
-                // child, we need a lightweight dispatcher to feed it events.
-                if (!this.isLightweight() && dispatcher == null) 
-                  dispatcher = new LightweightDispatcher (this);
-
-                if (dispatcher != null)
-                  dispatcher.enableEvents(component[i].eventMask);
-
 		enableEvents(component[i].eventMask);
 		if (peer != null && !isLightweight ())
 		  enableEvents (AWTEvent.PAINT_EVENT_MASK);
@@ -1899,6 +2022,7 @@ public class Container extends Component
        */
       protected AccessibleContainerHandler()
       {
+        // Nothing to do here.
       }
 
       /**
@@ -1927,197 +2051,3 @@ public class Container extends Component
     } // class AccessibleContainerHandler
   } // class AccessibleAWTContainer
 } // class Container
-
-/**
- * There is a helper class implied from stack traces called
- * LightweightDispatcher, but since it is not part of the public API,
- * rather than mimic it exactly we write something which does "roughly
- * the same thing".
- */
-class LightweightDispatcher implements Serializable
-{
-  private static final long serialVersionUID = 5184291520170872969L;
-  private Container nativeContainer;
-  private Cursor nativeCursor;
-  private long eventMask;
-  
-  private transient Component pressedComponent;
-  private transient Component lastComponentEntered;
-  private transient int pressCount;
-  
-  LightweightDispatcher(Container c)
-  {
-    nativeContainer = c;
-  }
-
-  void enableEvents(long l)
-  {
-    eventMask |= l;
-  }
-
-  Component acquireComponentForMouseEvent(MouseEvent me)
-  {
-    int x = me.getX ();
-    int y = me.getY ();
-
-    Component mouseEventTarget = null;
-    // Find the candidate which should receive this event.
-    Component parent = nativeContainer;
-    Component candidate = null;
-    Point p = me.getPoint();
-    while (candidate == null && parent != null)
-      {
-        candidate =
-          AWTUtilities.getDeepestComponentAt(parent, p.x, p.y);
-        if (candidate == null || (candidate.eventMask & me.getID()) == 0)
-          {
-            candidate = null;
-            p = AWTUtilities.convertPoint(parent, p.x, p.y, parent.parent);
-            parent = parent.parent;
-          }
-      }
-
-    // If the only candidate we found was the native container itself,
-    // don't dispatch any event at all.  We only care about the lightweight
-    // children here.
-    if (candidate == nativeContainer)
-      candidate = null;
-
-    // If our candidate is new, inform the old target we're leaving.
-    if (lastComponentEntered != null
-        && lastComponentEntered.isShowing()
-        && lastComponentEntered != candidate)
-      {
-        // Old candidate could have been removed from 
-        // the nativeContainer so we check first.
-        if (AWTUtilities.isDescendingFrom(lastComponentEntered,
-                                          nativeContainer))
-          {
-            Point tp = AWTUtilities.convertPoint(nativeContainer, 
-                                                 x, y, lastComponentEntered);
-            MouseEvent exited = new MouseEvent (lastComponentEntered, 
-                                                MouseEvent.MOUSE_EXITED,
-                                                me.getWhen (), 
-                                                me.getModifiersEx (), 
-                                                tp.x, tp.y,
-                                                me.getClickCount (),
-                                                me.isPopupTrigger (),
-                                                me.getButton ());
-            lastComponentEntered.dispatchEvent (exited); 
-          }
-        lastComponentEntered = null;
-      }
-
-    // If we have a candidate, maybe enter it.
-    if (candidate != null)
-      {
-        mouseEventTarget = candidate;
-        if (candidate.isLightweight() 
-            && candidate.isShowing()
-            && candidate != nativeContainer
-            && candidate != lastComponentEntered)
-	  {
-            lastComponentEntered = mouseEventTarget;
-            Point cp = AWTUtilities.convertPoint(nativeContainer, 
-                                                 x, y, lastComponentEntered);
-            MouseEvent entered = new MouseEvent (lastComponentEntered, 
-                                                 MouseEvent.MOUSE_ENTERED,
-                                                 me.getWhen (), 
-                                                 me.getModifiersEx (), 
-                                                 cp.x, cp.y,
-                                                 me.getClickCount (),
-                                                 me.isPopupTrigger (),
-                                                 me.getButton ());
-            lastComponentEntered.dispatchEvent (entered);
-          }
-      }
-
-    // Check which buttons where pressed except the last button that
-    // changed state.
-    int modifiers = me.getModifiersEx() & (MouseEvent.BUTTON1_DOWN_MASK
-                                           | MouseEvent.BUTTON2_DOWN_MASK
-                                           | MouseEvent.BUTTON3_DOWN_MASK);
-    switch(me.getButton())
-      {
-      case MouseEvent.BUTTON1:
-        modifiers &= ~MouseEvent.BUTTON1_DOWN_MASK;
-        break;
-      case MouseEvent.BUTTON2:
-        modifiers &= ~MouseEvent.BUTTON2_DOWN_MASK;
-        break;
-      case MouseEvent.BUTTON3:
-        modifiers &= ~MouseEvent.BUTTON3_DOWN_MASK;
-        break;
-      }
-
-    if (me.getID() == MouseEvent.MOUSE_RELEASED
-        || me.getID() == MouseEvent.MOUSE_PRESSED && modifiers > 0
-        || me.getID() == MouseEvent.MOUSE_DRAGGED)
-      {
-        // If any of the following events occur while a button is held down,
-        // they should be dispatched to the same component to which the
-        // original MOUSE_PRESSED event was dispatched:
-        //   - MOUSE_RELEASED
-        //   - MOUSE_PRESSED: another button pressed while the first is held
-        //     down
-        //   - MOUSE_DRAGGED
-        if (AWTUtilities.isDescendingFrom(pressedComponent, nativeContainer))
-          mouseEventTarget = pressedComponent;
-      }
-    else if (me.getID() == MouseEvent.MOUSE_CLICKED)
-      {
-        // Don't dispatch CLICKED events whose target is not the same as the
-        // target for the original PRESSED event.
-        if (candidate != pressedComponent)
-          mouseEventTarget = null;
-        else if (pressCount == 0)
-          pressedComponent = null;
-      }
-    return mouseEventTarget;
-  }
-
-  boolean handleEvent(AWTEvent e)
-  {
-    if (e instanceof MouseEvent)
-      {
-        MouseEvent me = (MouseEvent) e;
-
-        // Make the LightWeightDispatcher reentrant. This is necessary when
-        // a lightweight component does its own modal event queue.
-        Component mouseEventTarget = acquireComponentForMouseEvent(me);
-
-        // Avoid dispatching ENTERED and EXITED events twice.
-        if (mouseEventTarget != null
-            && mouseEventTarget.isShowing()
-            && e.getID() != MouseEvent.MOUSE_ENTERED
-            && e.getID() != MouseEvent.MOUSE_EXITED)
-          {
-            switch (e.getID())
-              {
-              case MouseEvent.MOUSE_PRESSED:
-                if (pressCount++ == 0)
-                  pressedComponent = mouseEventTarget;
-                break;
-              case MouseEvent.MOUSE_RELEASED:
-                // Clear our memory of the original PRESSED event, only if
-                // we're not expecting a CLICKED event after this. If
-                // there is a CLICKED event after this, it will do clean up.
-                if (--pressCount == 0
-                    && mouseEventTarget != pressedComponent)
-                  pressedComponent = null;
-                break;
-              }
-
-            MouseEvent newEvt =
-              AWTUtilities.convertMouseEvent(nativeContainer, me,
-                                             mouseEventTarget);
-            mouseEventTarget.dispatchEvent(newEvt);
-
-            if (newEvt.isConsumed())
-              e.consume();
-          }
-      }
-
-    return e.isConsumed();
-  }
-}

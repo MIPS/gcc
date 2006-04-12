@@ -43,8 +43,10 @@ import java.awt.Component;
 import java.awt.Rectangle;
 import java.io.Serializable;
 
+import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JTable;
+import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
 import javax.swing.JTextField;
@@ -64,8 +66,19 @@ public class DefaultTableCellRenderer extends JLabel
   {
     public UIResource()
     {
+      super();
     }
   }
+
+  /**
+   * Stores the color set by setForeground().
+   */
+  Color foreground;
+
+  /**
+   * Stores the color set by setBackground().
+   */
+  Color background;
 
   /**
    * Creates a default table cell renderer with an empty border.
@@ -83,6 +96,7 @@ public class DefaultTableCellRenderer extends JLabel
   public void setForeground(Color c)
   {
     super.setForeground(c);
+    foreground = c;
   }
 
   /**
@@ -93,6 +107,7 @@ public class DefaultTableCellRenderer extends JLabel
   public void setBackground(Color c)
   {
     super.setBackground(c);
+    background = c;
   }
 
   /**
@@ -104,13 +119,16 @@ public class DefaultTableCellRenderer extends JLabel
   public void updateUI()
   {
     super.updateUI();
+    background = null;
+    foreground = null;
   }
 
   /**
    * Get the string value of the object and pass it to setText().
    *
    * @param table the JTable
-   * @param value the value of the object
+   * @param value the value of the object. For the text content,
+   *        null is rendered as an empty cell.
    * @param isSelected is the cell selected?
    * @param hasFocus has the cell the focus?
    * @param row the row to render
@@ -123,13 +141,7 @@ public class DefaultTableCellRenderer extends JLabel
                                                  boolean hasFocus,
                                                  int row, int column)
   {
-    if (value != null)
-      {
-        if (value instanceof JTextField)
-          return new JTextField(((JTextField)value).getText());
-        super.setText(value.toString());
-      }
-
+    setValue(value);
     setOpaque(true);
 
     if (table == null)
@@ -137,17 +149,40 @@ public class DefaultTableCellRenderer extends JLabel
 
     if (isSelected)
       {
-        setBackground(table.getSelectionBackground());
-        setForeground(table.getSelectionForeground());
+        super.setBackground(table.getSelectionBackground());
+        super.setForeground(table.getSelectionForeground());
       }
     else
       {
-        setBackground(table.getBackground());
-        setForeground(table.getForeground());
+        if (background != null)
+          super.setBackground(background);
+        else
+          super.setBackground(table.getBackground());
+        if (foreground != null)
+          super.setForeground(foreground);
+        else
+          super.setForeground(table.getForeground());
       }
 
-    setEnabled(table.isEnabled());
+    if (hasFocus)
+      {
+        setBorder(UIManager.getBorder("Table.focusCellHighlightBorder"));
+        if (table.isCellEditable(row, column))
+          {
+            super.setBackground(UIManager.getColor("Table.focusCellBackground"));
+            super.setForeground(UIManager.getColor("Table.focusCellForeground"));
+          }
+      }
+    else
+      setBorder(BorderFactory.createEmptyBorder(1, 1, 1, 1));
+
     setFont(table.getFont());
+
+    // If the current background is equal to the table's background, then we
+    // can avoid filling the background by setting the renderer opaque.
+    Color back = getBackground();
+    setOpaque(back != null && back.equals(table.getBackground()));
+    
     return this;    
   }
 
@@ -234,6 +269,10 @@ public class DefaultTableCellRenderer extends JLabel
    */
   protected void setValue(Object value)
   {
-    super.setText((value!=null) ? value.toString() : "");
+    if (value != null)
+      setText(value.toString());
+    else
+      // null is rendered as an empty cell.
+      setText("");
   }
 }

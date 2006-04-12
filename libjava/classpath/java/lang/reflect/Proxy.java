@@ -1,5 +1,5 @@
 /* Proxy.java -- build a proxy class that implements reflected interfaces
-   Copyright (C) 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,6 +42,7 @@ import gnu.java.lang.reflect.TypeSignature;
 
 import java.io.Serializable;
 import java.security.ProtectionDomain;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -100,7 +101,7 @@ import java.util.Set;
  *      belongs to the classloader you designated.</li>
  *  <li>Reflection works as expected: {@link Class#getInterfaces()} and
  *      {@link Class#getMethods()} work as they do on normal classes.</li>
- *  <li>The method {@link #isProxyClass()} will distinguish between
+ *  <li>The method {@link #isProxyClass(Class)} will distinguish between
  *      true proxy classes and user extensions of this class.  It only
  *      returns true for classes created by {@link #getProxyClass}.</li>
  *  <li>The {@link ProtectionDomain} of a proxy class is the same as for
@@ -111,8 +112,8 @@ import java.util.Set;
  *      the only way to create an instance of the proxy class.</li>
  *  <li>The proxy class contains a single constructor, which takes as
  *      its only argument an {@link InvocationHandler}.  The method
- *      {@link #newInstance} is shorthand to do the necessary
- *      reflection.</li>
+ *      {@link #newProxyInstance(ClassLoader, Class[], InvocationHandler)}
+ *      is shorthand to do the necessary reflection.</li>
  * </ul>
  *
  * <h3>Proxy Instances</h3>
@@ -126,7 +127,7 @@ import java.util.Set;
  *      a {@link ClassCastException}.</li>
  *  <li>Each proxy instance has an invocation handler, which can be
  *      accessed by {@link #getInvocationHandler(Object)}.  Any call
- *      to an interface method, including {@link Object#hashcode()},
+ *      to an interface method, including {@link Object#hashCode()},
  *      {@link Object#equals(Object)}, or {@link Object#toString()},
  *      but excluding the public final methods of Object, will be
  *      encoded and passed to the {@link InvocationHandler#invoke}
@@ -413,8 +414,6 @@ public class Proxy implements Serializable
      */
     ProxyType(ClassLoader loader, Class[] interfaces)
     {
-      if (loader == null)
-         loader = ClassLoader.getSystemClassLoader();
       this.loader = loader;
       this.interfaces = interfaces;
     }
@@ -426,8 +425,7 @@ public class Proxy implements Serializable
      */
     public int hashCode()
     {
-      //loader is always not null
-      int hash = loader.hashCode();
+      int hash = loader == null ? 0 : loader.hashCode();
       for (int i = 0; i < interfaces.length; i++)
         hash = hash * 31 + interfaces[i].hashCode();
       return hash;
@@ -436,7 +434,7 @@ public class Proxy implements Serializable
     /**
      * Calculates equality.
      *
-     * @param the object to compare to
+     * @param other object to compare to
      * @return true if it is a ProxyType with same data
      */
     public boolean equals(Object other)
@@ -586,7 +584,7 @@ public class Proxy implements Serializable
     /**
      * Calculates equality.
      *
-     * @param the object to compare to
+     * @param other object to compare to
      * @return true if it is a ProxySignature with same data
      */
     public boolean equals(Object other)
@@ -617,7 +615,7 @@ public class Proxy implements Serializable
      * The package this class is in <b>including the trailing dot</b>
      * or an empty string for the unnamed (aka default) package.
      */
-    String pack;
+    String pack = "";
 
     /**
      * The interfaces this class implements.  Non-null, but possibly empty.
@@ -735,6 +733,12 @@ public class Proxy implements Serializable
           int j = methods.length;
           while (--j >= 0)
             {
+              if (isCoreObjectMethod(methods[j]))
+                {
+                  // In the case of an attempt to redefine a public non-final
+                  // method of Object, we must skip it
+                  continue;
+                }
               ProxySignature sig = new ProxySignature(methods[j]);
               ProxySignature old = (ProxySignature) method_set.put(sig, sig);
               if (old != null)
@@ -755,6 +759,41 @@ public class Proxy implements Serializable
         }
       return data;
     }
+
+    /**
+     * Checks whether the method is similar to a public non-final method of
+     * Object or not (i.e. with the same name and parameter types). Note that we
+     * can't rely, directly or indirectly (via Collection.contains) on
+     * Method.equals as it would also check the declaring class, what we do not
+     * want. We only want to check that the given method have the same signature
+     * as a core method (same name and parameter types)
+     * 
+     * @param method the method to check
+     * @return whether the method has the same name and parameter types as
+     *         Object.equals, Object.hashCode or Object.toString
+     * @see java.lang.Object#equals(Object)
+     * @see java.lang.Object#hashCode()
+     * @see java.lang.Object#toString()
+     */
+    private static boolean isCoreObjectMethod(Method method)
+    {
+      String methodName = method.getName();
+      if (methodName.equals("equals"))
+        {
+          return Arrays.equals(method.getParameterTypes(),
+                               new Class[] { Object.class });
+        }
+      if (methodName.equals("hashCode"))
+        {
+          return method.getParameterTypes().length == 0;
+        }
+      if (methodName.equals("toString"))
+        {
+          return method.getParameterTypes().length == 0;
+        }
+      return false;
+    }
+    
   } // class ProxyData
 
   /**

@@ -1,5 +1,5 @@
 /* HTTPConnection.java --
-   Copyright (C) 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,13 +38,8 @@ exception statement from your version. */
 
 package gnu.java.net.protocol.http;
 
-import gnu.classpath.Configuration;
 import gnu.classpath.SystemProperties;
 import gnu.java.net.EmptyX509TrustManager;
-import gnu.java.net.protocol.http.event.ConnectionEvent;
-import gnu.java.net.protocol.http.event.ConnectionListener;
-import gnu.java.net.protocol.http.event.RequestEvent;
-import gnu.java.net.protocol.http.event.RequestListener;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -57,7 +52,9 @@ import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 
 import javax.net.ssl.HandshakeCompletedListener;
@@ -131,8 +128,6 @@ public class HTTPConnection
    */
   protected int minorVersion;
 
-  private final List connectionListeners;
-  private final List requestListeners;
   private final List handshakeCompletedListeners;
 
   /**
@@ -164,6 +159,12 @@ public class HTTPConnection
    * The cookie manager for this connection.
    */
   protected CookieManager cookieManager;
+
+
+  /**
+   * The pool that this connection is a member of (if any).
+   */
+  private Pool pool;
 
   /**
    * Creates a new HTTP connection.
@@ -236,8 +237,6 @@ public class HTTPConnection
     this.connectionTimeout = connectionTimeout;
     this.timeout = timeout;
     majorVersion = minorVersion = 1;
-    connectionListeners = new ArrayList(4);
-    requestListeners = new ArrayList(4);
     handshakeCompletedListeners = new ArrayList(2);
   }
 
@@ -267,7 +266,8 @@ public class HTTPConnection
 
   /**
    * Returns the HTTP version string supported by this connection.
-   * @see #version
+   * @see #majorVersion
+   * @see #minorVersion
    */
   public String getVersion()
   {
@@ -332,6 +332,268 @@ public class HTTPConnection
   }
 
   /**
+   * Manages a pool of HTTPConections.  The pool will have a maximum
+   * size determined by the value of the maxConn parameter passed to
+   * the {@link #get} method.  This value inevitably comes from the
+   * http.maxConnections system property.  If the
+   * classpath.net.http.keepAliveTTL system property is set, that will
+   * be the maximum time (in seconds) that an idle connection will be
+   * maintained.
+   */
+  static class Pool
+  {
+    /**
+     * Singleton instance of the pool.
+     */
+    static Pool instance = new Pool();
+
+    /**
+     * The pool
+     */
+    final LinkedList connectionPool = new LinkedList();
+
+    /**
+     * Maximum size of the pool.
+     */
+    int maxConnections;
+
+    /**
+     * If greater than zero, the maximum time a connection will remain
+     * int the pool.
+     */
+    int connectionTTL;
+
+    /**
+     * A thread that removes connections older than connectionTTL.
+     */
+    class Reaper
+      implements Runnable
+    {
+      public void run()
+      {
+        synchronized (Pool.this)
+          {
+            try
+              {
+                do
+                  {
+                    while (connectionPool.size() > 0)
+                      {
+                        long currentTime = System.currentTimeMillis();
+
+                        HTTPConnection c =
+                          (HTTPConnection)connectionPool.getFirst();
+
+                        long waitTime = c.timeLastUsed
+                          + connectionTTL - currentTime;
+
+                        if (waitTime <= 0)
+                          removeOldest();
+                        else
+                          try
+                            {
+                              Pool.this.wait(waitTime);
+                            }
+                          catch (InterruptedException _)
+                            {
+                              // Ignore the interrupt.
+                            }
+                      }
+                    // After the pool is empty, wait TTL to see if it
+                    // is used again.  This is because in the
+                    // situation where a single thread is making HTTP
+                    // requests to the same server it can remove the
+                    // connection from the pool before the Reaper has
+                    // a chance to start.  This would cause the Reaper
+                    // to exit if it were not for this extra delay.
+                    // The result would be starting a Reaper thread
+                    // for each HTTP request.  With the delay we get
+                    // at most one Reaper created each TTL.
+                    try
+                      {
+                        Pool.this.wait(connectionTTL);
+                      }
+                    catch (InterruptedException _)
+                      {
+                        // Ignore the interrupt.
+                      }
+                  }
+                while (connectionPool.size() > 0);
+              }
+            finally
+              {
+                reaper = null;
+              }
+          }
+      }
+    }
+
+    Reaper reaper;
+
+    /**
+     * Private constructor to ensure singleton.
+     */
+    private Pool()
+    {
+    }
+
+    /**
+     * Tests for a matching connection.
+     *
+     * @param c connection to match.
+     * @param h the host name.
+     * @param p the port.
+     * @param sec true if using https.
+     *
+     * @return true if c matches h, p, and sec.
+     */
+    private static boolean matches(HTTPConnection c,
+                                   String h, int p, boolean sec)
+    {
+      return h.equals(c.hostname) && (p == c.port) && (sec == c.secure);
+    }
+
+    /**
+     * Get a pooled HTTPConnection.  If there is an existing idle
+     * connection to the requested server it is returned.  Otherwise a
+     * new connection is created.
+     *
+     * @param host the name of the host to connect to
+     * @param port the port on the host to connect to
+     * @param secure whether to use a secure connection
+     *
+     * @return the HTTPConnection.
+     */
+    synchronized HTTPConnection get(String host,
+                                    int port,
+                                    boolean secure)
+    {
+      String ttl =
+        SystemProperties.getProperty("classpath.net.http.keepAliveTTL");
+      connectionTTL = (ttl != null && ttl.length() > 0) ?
+        1000 * Math.max(1, Integer.parseInt(ttl)) : 10000;
+
+      String mc = SystemProperties.getProperty("http.maxConnections");
+      maxConnections = (mc != null && mc.length() > 0) ?
+        Math.max(Integer.parseInt(mc), 1) : 5;
+      if (maxConnections < 1)
+        maxConnections =  1;
+
+      HTTPConnection c = null;
+      
+      ListIterator it = connectionPool.listIterator(0);
+      while (it.hasNext())
+        {
+          HTTPConnection cc = (HTTPConnection)it.next();
+          if (matches(cc, host, port, secure))
+            {
+              c = cc;
+              it.remove();
+              break;
+            }
+        }
+      if (c == null)
+        {
+          c = new HTTPConnection(host, port, secure);
+          c.setPool(this);
+        }
+      return c;
+    }
+
+    /**
+     * Put an idle HTTPConnection back into the pool.  If this causes
+     * the pool to be come too large, the oldest connection is removed
+     * and closed.
+     *
+     */
+    synchronized void put(HTTPConnection c)
+    {
+      c.timeLastUsed = System.currentTimeMillis();
+      connectionPool.addLast(c);
+
+      // maxConnections must always be >= 1
+      while (connectionPool.size() >= maxConnections)
+        removeOldest();
+
+      if (connectionTTL > 0 && null == reaper) {
+        // If there is a connectionTTL, then the reaper has removed
+        // any stale connections, so we don't have to check for stale
+        // now.  We do have to start a reaper though, as there is not
+        // one running now.
+        reaper = new Reaper();
+        Thread t = new Thread(reaper, "HTTPConnection.Reaper");
+        t.setDaemon(true);
+        t.start();
+      }
+    }
+
+    /**
+     * Remove the oldest connection from the pool and close it.
+     */
+    void removeOldest()
+    {
+      HTTPConnection cx = (HTTPConnection)connectionPool.removeFirst();
+      try
+        {
+          cx.closeConnection();
+        }
+      catch (IOException ioe)
+        {
+          // Ignore it.  We are just cleaning up.
+        }
+    }
+  }
+  
+  /**
+   * The number of times this HTTPConnection has be used via keep-alive.
+   */
+  int useCount;
+
+  /**
+   * If this HTTPConnection is in the pool, the time it was put there.
+   */
+  long timeLastUsed;
+
+  /**
+   * Set the connection pool that this HTTPConnection is a member of.
+   * If left unset or set to null, it will not be a member of any pool
+   * and will not be a candidate for reuse.
+   *
+   * @param p the pool.
+   */
+  void setPool(Pool p)
+  {
+    pool = p;
+  }
+
+  /**
+   * Signal that this HTTPConnection is no longer needed and can be
+   * returned to the connection pool.
+   *
+   */
+  void release()
+  {
+    if (pool != null)
+      {
+        useCount++;
+        pool.put(this);
+        
+      }
+    else
+      {
+        // If there is no pool, just close.
+        try
+          {
+            closeConnection();
+          }
+        catch (IOException ioe)
+          {
+            // Ignore it.  We are just cleaning up.
+          }
+      }
+  }
+
+  /**
    * Creates a new request using this connection.
    * @param method the HTTP method to invoke
    * @param path the URI-escaped RFC2396 <code>abs_path</code> with
@@ -367,7 +629,7 @@ public class HTTPConnection
         Cookie[] cookies = cookieManager.getCookies(hostname, secure, path);
         if (cookies != null && cookies.length > 0)
           {
-            StringBuffer buf = new StringBuffer();
+            StringBuilder buf = new StringBuilder();
             buf.append("$Version=1");
             for (int i = 0; i < cookies.length; i++)
               {
@@ -378,7 +640,6 @@ public class HTTPConnection
             ret.setHeader("Cookie", buf.toString());
           }
       }
-    fireRequestEvent(RequestEvent.REQUEST_CREATED, ret);
     return ret;
   }
 
@@ -388,14 +649,7 @@ public class HTTPConnection
   public void close()
     throws IOException
   {
-    try
-      {
-        closeConnection();
-      }
-    finally
-      {
-        fireConnectionEvent(ConnectionEvent.CONNECTION_CLOSED);
-      }
+    closeConnection();
   }
 
   /**
@@ -534,7 +788,7 @@ public class HTTPConnection
    */
   protected String getURI()
   {
-    StringBuffer buf = new StringBuffer();
+    StringBuilder buf = new StringBuilder();
     buf.append(secure ? "https://" : "http://");
     buf.append(hostname);
     if (secure)
@@ -584,84 +838,6 @@ public class HTTPConnection
 
   // -- Events --
   
-  public void addConnectionListener(ConnectionListener l)
-  {
-    synchronized (connectionListeners)
-      {
-        connectionListeners.add(l);
-      }
-  }
-
-  public void removeConnectionListener(ConnectionListener l)
-  {
-    synchronized (connectionListeners)
-      {
-        connectionListeners.remove(l);
-      }
-  }
-
-  protected void fireConnectionEvent(int type)
-  {
-    ConnectionEvent event = new ConnectionEvent(this, type);
-    ConnectionListener[] l = null;
-    synchronized (connectionListeners)
-      {
-        l = new ConnectionListener[connectionListeners.size()];
-        connectionListeners.toArray(l);
-      }
-    for (int i = 0; i < l.length; i++)
-      {
-        switch (type)
-          {
-          case ConnectionEvent.CONNECTION_CLOSED:
-            l[i].connectionClosed(event);
-            break;
-          }
-      }
-  }
-
-  public void addRequestListener(RequestListener l)
-  {
-    synchronized (requestListeners)
-      {
-        requestListeners.add(l);
-      }
-  }
-
-  public void removeRequestListener(RequestListener l)
-  {
-    synchronized (requestListeners)
-      {
-        requestListeners.remove(l);
-      }
-  }
-
-  protected void fireRequestEvent(int type, Request request)
-  {
-    RequestEvent event = new RequestEvent(this, type, request);
-    RequestListener[] l = null;
-    synchronized (requestListeners)
-      {
-        l = new RequestListener[requestListeners.size()];
-        requestListeners.toArray(l);
-      }
-    for (int i = 0; i < l.length; i++)
-      {
-        switch (type)
-          {
-          case RequestEvent.REQUEST_CREATED:
-            l[i].requestCreated(event);
-            break;
-          case RequestEvent.REQUEST_SENDING:
-            l[i].requestSent(event);
-            break;
-          case RequestEvent.REQUEST_SENT:
-            l[i].requestSent(event);
-            break;
-          }
-      }
-  }
-
   void addHandshakeCompletedListener(HandshakeCompletedListener l)
   {
     synchronized (handshakeCompletedListeners)

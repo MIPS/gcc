@@ -1,5 +1,5 @@
 /* JProgressBar.java --
-   Copyright (C) 2002, 2004, 2005  Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -81,6 +81,8 @@ public class JProgressBar extends JComponent implements SwingConstants,
   /**
    * AccessibleJProgressBar
    */
+  // FIXME: This inner class is a complete stub and needs to be implemented
+  // properly.
   protected class AccessibleJProgressBar extends AccessibleJComponent
     implements AccessibleValue
   {
@@ -91,6 +93,7 @@ public class JProgressBar extends JComponent implements SwingConstants,
      */
     protected AccessibleJProgressBar()
     {
+      // Nothing to do here.
     } 
 
     /**
@@ -171,8 +174,8 @@ public class JProgressBar extends JComponent implements SwingConstants,
   /** Whether the ProgressBar is determinate. */
   private transient boolean indeterminate = false;
 
-  /** The orientation of the ProgressBar */
-  protected int orientation = HORIZONTAL;
+  /** The orientation of the ProgressBar. Always set by constructor. */
+  protected int orientation;
 
   /** Whether borders should be painted. */
   protected boolean paintBorder = true;
@@ -242,7 +245,8 @@ public class JProgressBar extends JComponent implements SwingConstants,
   {
     model = new DefaultBoundedRangeModel(minimum, 0, minimum, maximum);
     if (orientation != HORIZONTAL && orientation != VERTICAL)
-      throw new IllegalArgumentException(orientation + " is not a legal orientation");    
+      throw new IllegalArgumentException(orientation
+                                         + " is not a legal orientation");    
     this.orientation = orientation;
     changeListener = createChangeListener();
     model.addChangeListener(changeListener);
@@ -259,7 +263,8 @@ public class JProgressBar extends JComponent implements SwingConstants,
   {
     this.model = model;
     changeListener = createChangeListener();
-    model.addChangeListener(changeListener);
+    if (model != null)
+      model.addChangeListener(changeListener);
     updateUI();    
   }
 
@@ -312,11 +317,14 @@ public class JProgressBar extends JComponent implements SwingConstants,
    * JProgressBar can be either horizontal or vertical.
    *
    * @param orientation The orientation of the JProgressBar.
+   * @throws IllegalArgumentException if <code>orientation</code> is not
+   *         either {@link #HORIZONTAL} or {@link #VERTICAL}.
    */
   public void setOrientation(int orientation)
   {
     if (orientation != VERTICAL && orientation != HORIZONTAL)
-      throw new IllegalArgumentException("orientation must be one of VERTICAL or HORIZONTAL");
+      throw new IllegalArgumentException(orientation
+                                         + " is not a legal orientation");    
     if (this.orientation != orientation)
       {
 	int oldOrientation = this.orientation;

@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- internal _Meta class.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -40,8 +40,8 @@
 
 #pragma GCC system_header
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   //
   // gslice_array closure.
   //
@@ -222,47 +222,71 @@ namespace std
   template<class _Clos, typename _Tp>
     inline valarray<_Tp>
     _Expr<_Clos, _Tp>::operator[](slice __s) const
-    { return _M_closure[__s]; }
+    {
+      valarray<_Tp> __v = valarray<_Tp>(*this)[__s];
+      return __v;
+    }
 
   template<class _Clos, typename _Tp>
     inline valarray<_Tp>
     _Expr<_Clos, _Tp>::operator[](const gslice& __gs) const
-    { return _M_closure[__gs]; }
+    {
+      valarray<_Tp> __v = valarray<_Tp>(*this)[__gs];
+      return __v;
+    }
 
   template<class _Clos, typename _Tp>
     inline valarray<_Tp>
     _Expr<_Clos, _Tp>::operator[](const valarray<bool>& __m) const
-    { return _M_closure[__m]; }
+    {
+      valarray<_Tp> __v = valarray<_Tp>(*this)[__m];
+      return __v;
+    }
 
   template<class _Clos, typename _Tp>
     inline valarray<_Tp>
     _Expr<_Clos, _Tp>::operator[](const valarray<size_t>& __i) const
-    { return _M_closure[__i]; }
+    {
+      valarray<_Tp> __v = valarray<_Tp>(*this)[__i];
+      return __v;
+    }
 
   template<class _Clos, typename _Tp>
     inline size_t
     _Expr<_Clos, _Tp>::size() const
-    { return _M_closure.size (); }
+    { return _M_closure.size(); }
 
   template<class _Clos, typename _Tp>
     inline valarray<_Tp>
     _Expr<_Clos, _Tp>::shift(int __n) const
-    { return valarray<_Tp>(_M_closure).shift(__n); }
+    {
+      valarray<_Tp> __v = valarray<_Tp>(*this).shift(__n);
+      return __v;
+    }
 
   template<class _Clos, typename _Tp>
     inline valarray<_Tp>
     _Expr<_Clos, _Tp>::cshift(int __n) const
-    { return valarray<_Tp>(_M_closure).cshift(__n); }
+    {
+      valarray<_Tp> __v = valarray<_Tp>(*this).cshift(__n);
+      return __v;
+    }
 
   template<class _Clos, typename _Tp>
     inline valarray<_Tp>
     _Expr<_Clos, _Tp>::apply(_Tp __f(const _Tp&)) const
-    { return valarray<_Tp>(_M_closure).apply(__f); }
+    {
+      valarray<_Tp> __v = valarray<_Tp>(*this).apply(__f);
+      return __v;
+    }
 
   template<class _Clos, typename _Tp>
     inline valarray<_Tp>
     _Expr<_Clos, _Tp>::apply(_Tp __f(_Tp)) const
-    { return valarray<_Tp>(_M_closure).apply(__f); }
+    {
+      valarray<_Tp> __v = valarray<_Tp>(*this).apply(__f);
+      return __v;
+    }
 
   // XXX: replace this with a more robust summation algorithm.
   template<class _Clos, typename _Tp>
@@ -525,10 +549,6 @@ _DEFINE_EXPR_BINARY_FUNCTION(pow)
 
 #undef _DEFINE_EXPR_BINARY_FUNCTION
 
-} // std::
+_GLIBCXX_END_NAMESPACE
 
 #endif /* _CPP_VALARRAY_AFTER_H */
-
-// Local Variables:
-// mode:c++
-// End:

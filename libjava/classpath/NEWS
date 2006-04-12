@@ -1,3 +1,166 @@
+New in release 0.90 (March 6, 2006)
+
+* Free Swing improvements: JTable columns are rearrangeable and
+  resizeable with mouse. Painting and scrolling are now much
+  faster. Plain text components now support highlighting and
+  copy+paste to the system clipboard. Support for styled text has been
+  improved, including some very basic HTML support. JFileChooser is
+  now usable. Global event dispatching has been implemented. Memory
+  consumption of Swing components has been reduced. Lots of general
+  bugfixes. Added new system property to turn off Graphics2D use in
+  Swing, even if Graphics2D is available: gnu.javax.swing.noGraphics2D
+
+* AWT. Improved support for mixing "lightweight" and "heavyweight"
+  Components in Containers. Better support for dynamically updated
+  menus. Better 1.0 event model support for Scrollbars. Better class
+  documentation of gtk+ awt peers.
+
+* GNU Crypto and Jessie have been merged into GNU Classpath; this
+  provides Classpath with a wide array of cryptographic algorithms
+  (ciphers, message digests, etc.) and implementations of SSL version
+  3 and TLS version 1. These roughly complement the public
+  `java.security.' `javax.crypto,' and `javax.net.ssl' packages, and
+  are service providers implementing the underlying algorithms.
+ 
+* Updated HTTP and FTP URLConnection protocol handlers. HTTPS support
+  out of the box.
+
+* Unicode 4.0.0 is supported. Character now includes support for using
+  ether a char or an int to identify code points.
+
+* More correct handling of Object methods and serialization support
+  for Proxy and abstract classes.
+
+* The new folder tools includes GIOP and RMI stub and tie source code
+  generators, IOR parser and both transient and persistent GIOP naming
+  services.
+
+* Added experimental support for dynamic creation of the RMI stubs
+  using proxy classes. The rmic compiler is no longer required (unless
+  for research and specific stubs).
+
+* XML validaton support for RELAX NG and W3C XML schema namespace
+  URIs. RELAX NG pluggable XML schema datatype library API and an
+  implementation for XML Schema Datatypes
+  (http://www.w3.org/TR/xmlschema-2/).
+
+* Updated StAX implementaton to be compatible with final JSWDP 2.0.
+
+* The default back end for java.util.prefs has been changed.  The new
+  default is capable of saving and restoring preferences to and from
+  the file system.
+
+* javax.imageio.plugins.bmp implementation.
+
+* Added --enable-collections configure option which builds
+  "collections.jar", a 1.1 VM compatibility jar.
+
+* gnu.regexp updated from GNU/Posix syntax to support util.regex
+  syntax including various Unicode blocks, categories and properties.
+
+Runtime interface changes:
+
+* A new class, VMMath, is now available which separates the native
+  mathematical functions from java.lang.Math.  The previous fdlibm
+  implementation now forms the reference material for this class.
+
+* Updated VMObjectInputStream class to return Thread context class
+  loader if no other class loader is found.
+
+* Updated documentation on InstrumentationImpl in vmintegration guide.
+
+New in release 0.20 (Jan 13, 2006)
+
+* New StAX pull parser and SAX-over-StAX driver. Lots of DOM, SAX/StAX,
+  XPath and XSLT improvements.  Support for XInclude and XML Base added.
+  Conformance is now regularly tested against various test-suites at
+  http://builder.classpath.org/xml/ See also doc/README.jaxp.
+
+* Full beans XMLEncoder implementation.
+
+* javax.sound.sampled implementation.
+
+* javax.print.attribute and javax.print.event implementated.
+
+* Lots of new datatransfer, print swing and swing.text work and optimization.
+
+* Additional 1.5 support. Including new (separate) generic branch release.
+
+* SecurityManager cleanups and start of review of all Permission checks
+  (includes adding lots of new checks to the Mauve test-suite).
+
+* Buildable on cygwin.
+
+* Fully buildable as "in-workspace" library-plus-vm inside (native) Eclipse
+  see http://developer.classpath.org/mediation/ClasspathHackingWithEclipse
+
+* Full example that shows a real world CORBA and Free Swing implementation.
+  See examples/gnu/classpath/examples/CORBA/swing/README.html
+
+* A list of bug fixes can be found at:
+http://gcc.gnu.org/bugzilla/buglist.cgi?product=classpath&target_milestone=0.20
+
+Runtime interface changes:
+
+* New method VMStackWalker.getClassLoader() was added to avoid an infinite
+  loop between getCallingClassLoader() and Class.getClassLoader().
+
+* The included fdlibm implementation has seen several cleanups to handle
+  new architectures and namespacing issues (in particular for ppc, darwin
+  and non-C99 compilers). Please double check any arithmetic test against
+  new platforms/runtimes.
+
+* The gnu.java.net.Plain[Datagram]Socket implementations have been
+  turned into VM reference classes with JNI/Posix implementations.
+
+New in release 0.19 (Nov 2, 2005)
+
+* The Swing RepaintManager has been reworked for more efficient painting,
+  especially for large GUIs.
+
+* The Swing layout manager OverlayLayout has been implemented, the BoxLayout
+  has been rewritten to make use of the SizeRequirements utility class and
+  caching for more efficient layout.
+
+* Improved accessibility support for Swing.
+
+* The java.net.HttpURLConnection implementation no longer buffers the
+  entire response body in memory.  This means that response bodies
+  larger than available memory can now be handled.
+
+* The Andrew Watson, Vice President and Technical Director of the Object
+  Management Group, has officially assigned us 20 bit Vendor Minor Code Id: 
+  0x47430 ("GC") that will mark remote Classpath - specific system exceptions.
+  Obtaining the VMCID means that GNU Classpath now is a recogniseable type of
+  node in a highly interoperable CORBA world. 
+
+* Classpath now includes the first working draft to support the RMI over
+  IIOP protocol. The current implementation is capable for remote invocations,
+  transferring various Serializables and Externalizables via RMI-IIOP protocol.
+  It can flatten graphs and, at least for the simple cases, is interoperable
+  with Sun's jdk 1.5.
+
+* Qt4 configury switches for OS-X. Additional to the --enable-qt-peer, OS-X
+  users with a Qt4 installation can build the qt-peers with the argument
+  --with-qt4dir=<Qt4-installation-dir>.
+
+* Significant progress has been made in the implementation of the 
+  javax.swing.plaf.metal.* package, with most UI delegates in a working state
+  now.  Please test this with your own applications and provide feedback that 
+  will help us to improve this package.
+
+* The GUI demo (gnu.classpath.examples.swing.Demo) has been extended to 
+  highlight various features in our free-swing implementation. And includes
+  a look and feel switcher (Metal default, Ocean or GNU).
+
+Runtime interface changes:
+
+* Changed implementation of VMClassLoader.getPackage(s) : new method
+  VMClassLoader.getBootPackages should be implemented by the vm, and sould
+  return a string array of boot package names ("java.lang", "java.net", ...).
+  Feedback from vm implementors for usability and relevance of the
+  getBootPackages method would be greatly appreciated.
+  
 New in release 0.18 (Sep 6, 2005)
 
 * GNU JAWT implementation, the AWT Native Interface, which allows direct

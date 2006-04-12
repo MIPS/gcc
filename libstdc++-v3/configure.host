@@ -206,7 +206,11 @@ case "${host_os}" in
     os_include_dir="os/bsd/freebsd"
     ;;
   gnu* | linux* | kfreebsd*-gnu | knetbsd*-gnu)
-    os_include_dir="os/gnu-linux"
+    if [ "$uclibc" = "yes" ]; then
+      os_include_dir="os/uclibc"
+    else
+      os_include_dir="os/gnu-linux"
+    fi
     ;;
   hpux*)
     os_include_dir="os/hpux"
@@ -281,6 +285,9 @@ case "${host}" in
     atomicity_dir="cpu/mips"
     abi_baseline_pair="mips-linux-gnu"
     cpu_include_dir="cpu/mips"
+    ;;
+  powerpc*-*-darwin*)
+    port_specific_symbol_files="\$(srcdir)/../config/os/bsd/darwin/ppc-extra.ver"
     ;;
   powerpc64-*-linux*)
     abi_baseline_pair="powerpc64-linux-gnu"

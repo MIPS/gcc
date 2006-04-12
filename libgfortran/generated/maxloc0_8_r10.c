@@ -39,17 +39,19 @@ Boston, MA 02110-1301, USA.  */
 #if defined (HAVE_GFC_REAL_10) && defined (HAVE_GFC_INTEGER_8)
 
 
-extern void maxloc0_8_r10 (gfc_array_i8 * retarray, gfc_array_r10 *array);
+extern void maxloc0_8_r10 (gfc_array_i8 * const restrict retarray, 
+	gfc_array_r10 * const restrict array);
 export_proto(maxloc0_8_r10);
 
 void
-maxloc0_8_r10 (gfc_array_i8 * retarray, gfc_array_r10 *array)
+maxloc0_8_r10 (gfc_array_i8 * const restrict retarray, 
+	gfc_array_r10 * const restrict array)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type sstride[GFC_MAX_DIMENSIONS];
   index_type dstride;
-  GFC_REAL_10 *base;
+  const GFC_REAL_10 *base;
   GFC_INTEGER_8 *dest;
   index_type rank;
   index_type n;
@@ -104,7 +106,7 @@ maxloc0_8_r10 (gfc_array_i8 * retarray, gfc_array_r10 *array)
 
   /* Initialize the return value.  */
   for (n = 0; n < rank; n++)
-    dest[n * dstride] = 1;
+    dest[n * dstride] = 0;
   {
 
   GFC_REAL_10 maxval;
@@ -116,7 +118,7 @@ maxloc0_8_r10 (gfc_array_i8 * retarray, gfc_array_r10 *array)
       {
         /* Implementation start.  */
 
-  if (*base > maxval)
+  if (*base > maxval || !dest[0])
     {
       maxval = *base;
       for (n = 0; n < rank; n++)
@@ -154,12 +156,14 @@ maxloc0_8_r10 (gfc_array_i8 * retarray, gfc_array_r10 *array)
 }
 
 
-extern void mmaxloc0_8_r10 (gfc_array_i8 *, gfc_array_r10 *, gfc_array_l4 *);
+extern void mmaxloc0_8_r10 (gfc_array_i8 * const restrict, 
+	gfc_array_r10 * const restrict, gfc_array_l4 * const restrict);
 export_proto(mmaxloc0_8_r10);
 
 void
-mmaxloc0_8_r10 (gfc_array_i8 * retarray, gfc_array_r10 *array,
-				  gfc_array_l4 * mask)
+mmaxloc0_8_r10 (gfc_array_i8 * const restrict retarray, 
+	gfc_array_r10 * const restrict array,
+	gfc_array_l4 * const restrict mask)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
@@ -167,7 +171,7 @@ mmaxloc0_8_r10 (gfc_array_i8 * retarray, gfc_array_r10 *array,
   index_type mstride[GFC_MAX_DIMENSIONS];
   index_type dstride;
   GFC_INTEGER_8 *dest;
-  GFC_REAL_10 *base;
+  const GFC_REAL_10 *base;
   GFC_LOGICAL_4 *mbase;
   int rank;
   index_type n;
@@ -237,7 +241,7 @@ mmaxloc0_8_r10 (gfc_array_i8 * retarray, gfc_array_r10 *array,
 
   /* Initialize the return value.  */
   for (n = 0; n < rank; n++)
-    dest[n * dstride] = 1;
+    dest[n * dstride] = 0;
   {
 
   GFC_REAL_10 maxval;
@@ -249,7 +253,7 @@ mmaxloc0_8_r10 (gfc_array_i8 * retarray, gfc_array_r10 *array,
       {
         /* Implementation start.  */
 
-  if (*mbase && *base > maxval)
+  if (*mbase && (*base > maxval || !dest[0]))
     {
       maxval = *base;
       for (n = 0; n < rank; n++)
@@ -289,4 +293,56 @@ mmaxloc0_8_r10 (gfc_array_i8 * retarray, gfc_array_r10 *array,
   }
 }
 
+
+extern void smaxloc0_8_r10 (gfc_array_i8 * const restrict, 
+	gfc_array_r10 * const restrict, GFC_LOGICAL_4 *);
+export_proto(smaxloc0_8_r10);
+
+void
+smaxloc0_8_r10 (gfc_array_i8 * const restrict retarray, 
+	gfc_array_r10 * const restrict array,
+	GFC_LOGICAL_4 * mask)
+{
+  index_type rank;
+  index_type dstride;
+  index_type n;
+  GFC_INTEGER_8 *dest;
+
+  if (*mask)
+    {
+      maxloc0_8_r10 (retarray, array);
+      return;
+    }
+
+  rank = GFC_DESCRIPTOR_RANK (array);
+
+  if (rank <= 0)
+    runtime_error ("Rank of array needs to be > 0");
+
+  if (retarray->data == NULL)
+    {
+      retarray->dim[0].lbound = 0;
+      retarray->dim[0].ubound = rank-1;
+      retarray->dim[0].stride = 1;
+      retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
+      retarray->offset = 0;
+      retarray->data = internal_malloc_size (sizeof (GFC_INTEGER_8) * rank);
+    }
+  else
+    {
+      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
+	runtime_error ("rank of return array does not equal 1");
+
+      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
+        runtime_error ("dimension of return array incorrect");
+
+      if (retarray->dim[0].stride == 0)
+	retarray->dim[0].stride = 1;
+    }
+
+  dstride = retarray->dim[0].stride;
+  dest = retarray->data;
+  for (n = 0; n<rank; n++)
+    dest[n * dstride] = 0 ;
+}
 #endif

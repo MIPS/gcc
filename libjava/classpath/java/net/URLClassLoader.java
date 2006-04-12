@@ -1,5 +1,5 @@
 /* URLClassLoader.java --  ClassLoader that loads classes from one or more URLs
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -235,12 +235,10 @@ public class URLClassLoader extends SecureClassLoader
   abstract static class Resource
   {
     final URLLoader loader;
-    final String name;
 
-    Resource(URLLoader loader, String name)
+    Resource(URLLoader loader)
     {
       this.loader = loader;
-      this.name = name;
     }
 
     /**
@@ -294,9 +292,10 @@ public class URLClassLoader extends SecureClassLoader
 
     Vector classPath;	// The "Class-Path" attribute of this Jar's manifest
 
-    public JarURLLoader(URLClassLoader classloader, URL baseURL)
+    public JarURLLoader(URLClassLoader classloader, URL baseURL,
+			URL absoluteUrl)
     {
-      super(classloader, baseURL);
+      super(classloader, baseURL, absoluteUrl);
 
       // Cache url prefix for all resources in this jar url.
       String external = baseURL.toExternalForm();
@@ -391,11 +390,13 @@ public class URLClassLoader extends SecureClassLoader
   static final class JarURLResource extends Resource
   {
     private final JarEntry entry;
+    private final String name;
 
     JarURLResource(JarURLLoader loader, String name, JarEntry entry)
     {
-      super(loader, name);
+      super(loader);
       this.entry = entry;
+      this.name = name;
     }
 
     InputStream getInputStream() throws IOException
@@ -496,7 +497,7 @@ public class URLClassLoader extends SecureClassLoader
     RemoteResource(RemoteURLLoader loader, String name, URL url,
                    InputStream stream, int length)
     {
-      super(loader, name);
+      super(loader);
       this.url = url;
       this.stream = stream;
       this.length = length;
@@ -526,18 +527,25 @@ public class URLClassLoader extends SecureClassLoader
   {
     File dir; //the file for this file url
 
-    FileURLLoader(URLClassLoader classloader, URL url)
+    FileURLLoader(URLClassLoader classloader, URL url, URL absoluteUrl)
     {
-      super(classloader, url);
-      dir = new File(baseURL.getFile());
+      super(classloader, url, absoluteUrl);
+      dir = new File(absoluteUrl.getFile());
     }
 
     /** get resource with the name "name" in the file url */
     Resource getResource(String name)
     {
-      File file = new File(dir, name);
-      if (file.exists() && !file.isDirectory())
-        return new FileResource(this, name, file);
+      try 
+ 	{
+ 	  File file = new File(dir, name).getCanonicalFile();
+ 	  if (file.exists() && !file.isDirectory())
+ 	    return new FileResource(this, file);
+ 	}
+      catch (IOException e)
+ 	{
+ 	  // Fall through...
+ 	}
       return null;
     }
   }
@@ -546,9 +554,9 @@ public class URLClassLoader extends SecureClassLoader
   {
     final File file;
 
-    FileResource(FileURLLoader loader, String name, File file)
+    FileResource(FileURLLoader loader, File file)
     {
-      super(loader, name);
+      super(loader);
       this.file = file;
     }
 
@@ -566,8 +574,7 @@ public class URLClassLoader extends SecureClassLoader
     {
       try
         {
-          return new URL(loader.baseURL, name,
-                         loader.classloader.getURLStreamHandler("file"));
+          return file.toURL();
         }
       catch (MalformedURLException e)
         {
@@ -701,7 +708,7 @@ public class URLClassLoader extends SecureClassLoader
 
   private void addURLImpl(URL newUrl)
   {
-    synchronized (urlloaders)
+    synchronized (this)
       {
         if (newUrl == null)
           return; // Silently ignore...
@@ -717,11 +724,42 @@ public class URLClassLoader extends SecureClassLoader
             String file = newUrl.getFile();
             String protocol = newUrl.getProtocol();
 
+	    // If we have a file: URL, we want to make it absolute
+	    // here, before we decide whether it is really a jar.
+	    URL absoluteURL;
+	    if ("file".equals (protocol))
+	      {
+		File dir = new File(file);
+		URL absUrl;
+		try
+		  {
+		    absoluteURL = dir.getCanonicalFile().toURL();
+		  }
+		catch (IOException ignore)
+		  {
+		    try
+		      {
+			absoluteURL = dir.getAbsoluteFile().toURL();
+		      }
+		    catch (MalformedURLException _)
+		      {
+			// This really should not happen.
+			absoluteURL = newUrl;
+		      }
+		  }
+	      }
+	    else
+	      {
+		// This doesn't hurt, and it simplifies the logic a
+		// little.
+		absoluteURL = newUrl;
+	      }
+
             // Check that it is not a directory
             if (! (file.endsWith("/") || file.endsWith(File.separator)))
-              loader = new JarURLLoader(this, newUrl);
+              loader = new JarURLLoader(this, newUrl, absoluteURL);
             else if ("file".equals(protocol))
-              loader = new FileURLLoader(this, newUrl);
+              loader = new FileURLLoader(this, newUrl, absoluteURL);
             else
               loader = new RemoteURLLoader(this, newUrl);
 
@@ -748,19 +786,42 @@ public class URLClassLoader extends SecureClassLoader
   }
 
   /**
-   * Adds an array of new locations to the end of the internal URL store.
+   * Adds an array of new locations to the end of the internal URL
+   * store.  Called from the the constructors. Should not call to the
+   * protected addURL() method since that can be overridden and
+   * subclasses are not yet in a good state at this point.
+   * jboss 4.0.3 for example depends on this.
+   *
    * @param newUrls the locations to add
    */
   private void addURLs(URL[] newUrls)
   {
     for (int i = 0; i < newUrls.length; i++)
-      addURL(newUrls[i]);
+      {
+	urls.add(newUrls[i]);
+	addURLImpl(newUrls[i]);
+      }
+  }
+
+  /**
+   * Look in both Attributes for a given value.  The first Attributes
+   * object, if not null, has precedence.
+   */
+  private String getAttributeValue(Attributes.Name name, Attributes first,
+				   Attributes second)
+  {
+    String result = null;
+    if (first != null)
+      result = first.getValue(name);
+    if (result == null)
+      result = second.getValue(name);
+    return result;
   }
 
   /**
    * Defines a Package based on the given name and the supplied manifest
-   * information. The manifest indicates the tile, version and
-   * vendor information of the specification and implementation and wheter the
+   * information. The manifest indicates the title, version and
+   * vendor information of the specification and implementation and whether the
    * package is sealed. If the Manifest indicates that the package is sealed
    * then the Package will be sealed with respect to the supplied URL.
    *
@@ -768,20 +829,43 @@ public class URLClassLoader extends SecureClassLoader
    * @param manifest The manifest describing the specification,
    * implementation and sealing details of the package
    * @param url the code source url to seal the package
-   * @exception IllegalArgumentException If this package name already exists
-   * in this class loader
    * @return the defined Package
+   * @throws IllegalArgumentException If this package name already exists
+   * in this class loader
    */
   protected Package definePackage(String name, Manifest manifest, URL url)
     throws IllegalArgumentException
   {
+    // Compute the name of the package as it may appear in the
+    // Manifest.
+    StringBuffer xform = new StringBuffer(name);
+    for (int i = xform.length () - 1; i >= 0; --i)
+      if (xform.charAt(i) == '.')
+	xform.setCharAt(i, '/');
+    xform.append('/');
+    String xformName = xform.toString();
+
+    Attributes entryAttr = manifest.getAttributes(xformName);
     Attributes attr = manifest.getMainAttributes();
-    String specTitle = attr.getValue(Attributes.Name.SPECIFICATION_TITLE);
-    String specVersion = attr.getValue(Attributes.Name.SPECIFICATION_VERSION);
-    String specVendor = attr.getValue(Attributes.Name.SPECIFICATION_VENDOR);
-    String implTitle = attr.getValue(Attributes.Name.IMPLEMENTATION_TITLE);
-    String implVersion = attr.getValue(Attributes.Name.IMPLEMENTATION_VERSION);
-    String implVendor = attr.getValue(Attributes.Name.IMPLEMENTATION_VENDOR);
+
+    String specTitle
+      = getAttributeValue(Attributes.Name.SPECIFICATION_TITLE,
+			  entryAttr, attr);
+    String specVersion
+      = getAttributeValue(Attributes.Name.SPECIFICATION_VERSION,
+			  entryAttr, attr);
+    String specVendor
+      = getAttributeValue(Attributes.Name.SPECIFICATION_VENDOR,
+			  entryAttr, attr);
+    String implTitle
+      = getAttributeValue(Attributes.Name.IMPLEMENTATION_TITLE,
+			  entryAttr, attr);
+    String implVersion
+      = getAttributeValue(Attributes.Name.IMPLEMENTATION_VERSION,
+			  entryAttr, attr);
+    String implVendor
+      = getAttributeValue(Attributes.Name.IMPLEMENTATION_VENDOR,
+			  entryAttr, attr);
 
     // Look if the Manifest indicates that this package is sealed
     // XXX - most likely not completely correct!
@@ -793,8 +877,10 @@ public class URLClassLoader extends SecureClassLoader
       // make sure that the URL is null so the package is not sealed
       url = null;
 
-    return definePackage(name, specTitle, specVersion, specVendor, implTitle,
-                         implVersion, implVendor, url);
+    return definePackage(name,
+			 specTitle, specVendor, specVersion,
+			 implTitle, implVendor, implVersion,
+			 url);
   }
 
   /**
@@ -819,47 +905,47 @@ public class URLClassLoader extends SecureClassLoader
     // construct the class (and watch out for those nasty IOExceptions)
     try
       {
-        byte[] data;
-        InputStream in = resource.getInputStream();
-        try
-          {
-            int length = resource.getLength();
-            if (length != -1)
-              {
-                // We know the length of the data.
-                // Just try to read it in all at once
-                data = new byte[length];
-                int pos = 0;
-                while (length - pos > 0)
-                  {
-                    int len = in.read(data, pos, length - pos);
-                    if (len == -1)
-                      throw new EOFException("Not enough data reading from: "
-                                             + in);
-                    pos += len;
-                  }
-              }
-            else
-              {
-                // We don't know the data length.
-                // Have to read it in chunks.
-                ByteArrayOutputStream out = new ByteArrayOutputStream(4096);
-                byte[] b = new byte[4096];
-                int l = 0;
-                while (l != -1)
-                  {
-                    l = in.read(b);
-                    if (l != -1)
-                      out.write(b, 0, l);
-                  }
-                data = out.toByteArray();
-              }
-          }
-        finally
-          {
-            in.close();
-          }
-        final byte[] classData = data;
+	byte[] data;
+	InputStream in = resource.getInputStream();
+	try
+	  {
+	    int length = resource.getLength();
+	    if (length != -1)
+	      {
+		// We know the length of the data.
+		// Just try to read it in all at once
+		data = new byte[length];
+		int pos = 0;
+		while (length - pos > 0)
+		  {
+		    int len = in.read(data, pos, length - pos);
+		    if (len == -1)
+		      throw new EOFException("Not enough data reading from: "
+					     + in);
+		    pos += len;
+		  }
+	      }
+	    else
+	      {
+		// We don't know the data length.
+		// Have to read it in chunks.
+		ByteArrayOutputStream out = new ByteArrayOutputStream(4096);
+		byte[] b = new byte[4096];
+		int l = 0;
+		while (l != -1)
+		  {
+		    l = in.read(b);
+		    if (l != -1)
+		      out.write(b, 0, l);
+		  }
+		data = out.toByteArray();
+	      }
+	  }
+	finally
+	  {
+	    in.close();
+	  }
+	final byte[] classData = data;
 
         // Now get the CodeSource
         final CodeSource source = resource.getCodeSource();
@@ -926,7 +1012,7 @@ public class URLClassLoader extends SecureClassLoader
    */
   public String toString()
   {
-    synchronized (urlloaders)
+    synchronized (this)
       {
 	if (thisString == null)
 	  {

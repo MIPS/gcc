@@ -23,9 +23,9 @@ AC_DEFUN([CLASSPATH_FIND_JAVAC],
   AM_CONDITIONAL(FOUND_KJC, test "x${user_specified_javac}" = xkjc)
   AM_CONDITIONAL(FOUND_GCJX, test "x${user_specified_javac}" = xgcjx)
 
-  if test "x${GCJ}" = x && test "x${JIKES}" = x && test "x${user_specified_javac}" != xkjc && test "x${user_specified_javac}" != xgcjx; then
+  if test "x${GCJ}" = x && test "x${JIKES}" = x && test "x${user_specified_javac}" != xkjc && test "x${user_specified_javac}" != xgcjx && test "x${user_specified_javac}" != xecj; then
       # FIXME: use autoconf error function
-      echo "configure: cannot find javac, try --with-gcj, --with-jikes, --with-kjc, or --with-gcjx" 1>&2
+      echo "configure: cannot find javac, try --with-gcj, --with-jikes, --with-kjc, --with-ecj, or --with-gcjx" 1>&2
       exit 1    
   fi
 ])
@@ -63,48 +63,23 @@ AC_DEFUN([CLASSPATH_CHECK_GCJ],
   else
     AC_PATH_PROG(GCJ, "gcj")
   fi  
-
+  dnl Test the given GCJ, but use it as C (!) compiler to check version
   if test "x$GCJ" != x; then
-    ## GCC version 2 puts out version messages that looked like:
-    ##   2.95
-
-    ## GCC version 3 puts out version messages like:
-    ##   gcj (GCC) 3.3.3
-    ##   Copyright (C) 2003 Free Software Foundation, Inc.
-    ##   This is free software; see the source for copying conditions.  There is NO
-    ##   warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    AC_MSG_CHECKING(gcj version)
-    ## Take the output from gcj --version and extract just the version number
-    ## into GCJ_VERSION.
-    ## (we need to do this to be compatible with both GCC 2 and GCC 3 version
-    ##  numbers)
-    ## 
-    ## First, we get rid of everything before the first number on that line.
-    ## Assume that the first number on that line is the start of the
-    ## version.
-    ##
-    ## Second, while we're at it, go ahead and get rid of the first character
-    ## that is not part of a version number (i.e., is neither a digit nor
-    ## a dot).
-    ##
-    ## Third, quit, so that we won't process the second and subsequent lines.
-    GCJ_VERSION=`$GCJ --version | sed -e 's/^@<:@^0-9@:>@*//' -e 's/@<:@^.0-9@:>@@<:@^.0-9@:>@*//' -e 'q'` 
-    GCJ_VERSION_MAJOR=`echo "$GCJ_VERSION" | cut -d '.' -f 1`
-    GCJ_VERSION_MINOR=`echo "$GCJ_VERSION" | cut -d '.' -f 2`
-
-    if expr "$GCJ_VERSION_MAJOR" \< 3 > /dev/null; then
-      GCJ=""
-    fi
-    if expr "$GCJ_VERSION_MAJOR" = 3 > /dev/null; then
-      if expr "$GCJ_VERSION_MINOR" \< 3; then
-        GCJ=""
-      fi
-    fi
-    if test "x$GCJ" != x; then
-      AC_MSG_RESULT($GCJ_VERSION)
+    AC_MSG_CHECKING([gcj version 4.0])
+    AC_LANG_PUSH([C])
+    AC_LANG_CONFTEST(
+    [[#if __GNUC__ <= 3
+    #error GCJ 4.0.0 or higher is required
+    #endif
+    ]])
+    $GCJ -E conftest.c > /dev/null
+    gcj_4_result=$?
+    if test "x$gcj_4_result" = "x0"; then
+      AC_MSG_RESULT([4.0 or higher found])
     else
-      AC_MSG_WARN($GCJ_VERSION: gcj 3.3 or higher required)
+      AC_MSG_WARN([4.0 or higher required])
     fi
+    AC_LANG_POP
   fi 
 ])
 
@@ -160,9 +135,18 @@ AC_DEFUN([CLASSPATH_CHECK_JIKES],
 
     JIKESENCODING=
     if test -n "`$JIKES --help 2>&1 | grep encoding`"; then
-       JIKESENCODING='-encoding UTF-8'
+      JIKESENCODING='-encoding UTF-8'
     fi
     AC_SUBST(JIKESENCODING)
+
+    JIKESWARNINGS="+Pno-switchcheck"
+    if test "x$JIKES_VERSION_MAJOR" = x"1" ; then
+      if ! test "x$JIKES_VERSION_MINOR" = x"19"; then
+        JIKESWARNINGS="$JIKESWARNINGS +Pno-shadow"
+      fi
+    fi
+    AC_SUBST(JIKESWARNINGS)
+
   fi
 ])
 
@@ -320,6 +304,19 @@ dnl -----------------------------------------------------------
 AC_DEFUN([CLASSPATH_WITH_GLIBJ],
 [
   AC_PATH_PROG(ZIP, zip)
+  AC_ARG_WITH([fastjar],
+	      [AS_HELP_STRING([--with-fastjar=PATH], [define to use a fastjar style tool])],
+	      [
+		AC_MSG_CHECKING([for user supplied fastjar])
+		FASTJAR=${withval}
+		AC_MSG_RESULT([${FASTJAR}])
+	      ],
+	      [AC_PATH_PROG(FASTJAR, fastjar)])
+dnl We disable ZIP by default if we find fastjar.
+  if test x"${FASTJAR}" != x; then
+    ZIP=""
+  fi
+  
   AC_ARG_WITH([glibj],
               [AS_HELP_STRING([--with-glibj],[define what to install (zip|flat|both|none|build) [default=zip]])],
               [

@@ -39,9 +39,8 @@ exception statement from your version. */
 package javax.swing;
 
 import java.awt.Component;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 
+import javax.swing.text.AbstractDocument;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Caret;
@@ -51,6 +50,7 @@ import javax.swing.text.Element;
 import javax.swing.text.MutableAttributeSet;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.Style;
+import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 import javax.swing.text.StyledEditorKit;
 
@@ -106,7 +106,7 @@ public class JTextPane
    * @throws IllegalArgumentException if <code>document</code> is not an
    *         instance of <code>StyledDocument</code>
    *
-   * @see {@link #setStyledDocument}
+   * @see #setStyledDocument
    */
   public void setDocument(Document document)
   {
@@ -120,7 +120,7 @@ public class JTextPane
   /**
    * Returns the {@link StyledDocument} that is the content model for
    * this <code>JTextPane</code>. This is a typed wrapper for
-   * {@link #getDocument}.
+   * {@link #getDocument()}.
    *
    * @return the content model of this <code>JTextPane</code>
    */
@@ -152,40 +152,34 @@ public class JTextPane
   {
     Caret caret = getCaret();
     StyledDocument doc = getStyledDocument();
+    AttributeSet a = getInputAttributes().copyAttributes();
+    if (doc == null)
+      return;
 
     int dot = caret.getDot();
     int mark = caret.getMark();
 
-    // If content is empty delete selection.
-    if (content == null)
-      {
-	caret.setDot(dot);
-	return;
-      }
+    int p0 = Math.min (dot, mark);
+    int p1 = Math.max (dot, mark);
 
     try
       {
-	int start = getSelectionStart();
-	int end = getSelectionEnd();
-	int contentLength = content.length();
-
-	// Remove selected text.
-	if (dot != mark)
-	  doc.remove(start, end - start);
-
-	// Insert new text.
-	doc.insertString(start, content, null);
-	// Set attributes for inserted text
-	doc.setCharacterAttributes(start, contentLength, getInputAttributes(),
-				   true);
-
-	// Set dot to new position.
-	setCaretPosition(start + contentLength);
+        if (doc instanceof AbstractDocument)
+          ((AbstractDocument)doc).replace(p0, p1 - p0, content, a);
+        else
+          {
+            // Remove selected text.
+            if (dot != mark)
+              doc.remove(p0, p1 - p0);
+            // Insert new text.
+            if (content != null && content.length() > 0)
+              doc.insertString(p0, content, a);
+          }
       }
     catch (BadLocationException e)
       {
-	throw new AssertionError
-	  ("No BadLocationException should be thrown here");
+        throw new AssertionError
+          ("No BadLocationException should be thrown here");      
       }
   }
 
@@ -197,9 +191,20 @@ public class JTextPane
    */
   public void insertComponent(Component component)
   {
-    // TODO: One space must be inserted here with attributes set to indicate
-    // that the component must be displayed here. Have to figure out the
-    // attributes.
+    SimpleAttributeSet atts = new SimpleAttributeSet();
+    atts.addAttribute(StyleConstants.ComponentAttribute, component);
+    atts.addAttribute(StyleConstants.NameAttribute,
+                      StyleConstants.ComponentElementName);
+    try
+      {
+        getDocument().insertString(getCaret().getDot(), " ", atts);
+      }
+    catch (BadLocationException ex)
+      {
+        AssertionError err = new AssertionError("Unexpected bad location");
+        err.initCause(ex);
+        throw err;
+      }
   }
 
   /**
@@ -209,9 +214,20 @@ public class JTextPane
    */
   public void insertIcon(Icon icon)
   {
-    // TODO: One space must be inserted here with attributes set to indicate
-    // that the icon must be displayed here. Have to figure out the
-    // attributes.
+    SimpleAttributeSet atts = new SimpleAttributeSet();
+    atts.addAttribute(StyleConstants.IconAttribute, icon);
+    atts.addAttribute(StyleConstants.NameAttribute,
+                      StyleConstants.IconElementName);
+    try
+      {
+        getDocument().insertString(getCaret().getDot(), " ", atts);
+      }
+    catch (BadLocationException ex)
+      {
+        AssertionError err = new AssertionError("Unexpected bad location");
+        err.initCause(ex);
+        throw err;
+      }
   }
 
   /**
@@ -300,7 +316,7 @@ public class JTextPane
    * @param replace if <code>true</code>, the attributes of the current
    *     selection are overridden, otherwise they are merged
    *
-   * @see {@link #getInputAttributes}
+   * @see #getInputAttributes
    */
   public void setCharacterAttributes(AttributeSet attribute,
                                      boolean replace)
@@ -311,9 +327,11 @@ public class JTextPane
     if (start == dot && end == dot)
       // There is no selection, update insertAttributes instead
       {
-	MutableAttributeSet inputAttributes =
-	  getStyledEditorKit().getInputAttributes();
-	inputAttributes.addAttributes(attribute);
+        MutableAttributeSet inputAttributes =
+          getStyledEditorKit().getInputAttributes();
+        if (replace)
+          inputAttributes.removeAttributes(inputAttributes);
+        inputAttributes.addAttributes(attribute);
       }
     else
       getStyledDocument().setCharacterAttributes(start, end - start, attribute,

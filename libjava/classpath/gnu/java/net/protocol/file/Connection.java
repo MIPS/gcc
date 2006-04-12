@@ -59,6 +59,7 @@ import java.security.Permission;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.net.MalformedURLException;
 
 /**
  * This subclass of java.net.URLConnection models a URLConnection via
@@ -125,6 +126,60 @@ public class Connection extends URLConnection
   }
   
   /**
+   * Unquote "%" + hex quotes characters
+   *
+   * @param str The string to unquote or null.
+   *
+   * @return The unquoted string or null if str was null.
+   *
+   * @exception MalformedURLException If the given string contains invalid
+   * escape sequences.
+   *
+   */
+  public static String unquote(String str) throws MalformedURLException
+  {
+    if (str == null)
+      return null;
+
+    final int MAX_BYTES_PER_UTF_8_CHAR = 3;
+    byte[] buf = new byte[str.length()*MAX_BYTES_PER_UTF_8_CHAR];
+    int pos = 0;
+    for (int i = 0; i < str.length(); i++)
+      {
+	char c = str.charAt(i);
+	if (c == '%')
+	  {
+	    if (i + 2 >= str.length())
+	      throw new MalformedURLException(str + " : Invalid quoted character");
+	    int hi = Character.digit(str.charAt(++i), 16);
+	    int lo = Character.digit(str.charAt(++i), 16);
+	    if (lo < 0 || hi < 0)
+	      throw new MalformedURLException(str + " : Invalid quoted character");
+	    buf[pos++] = (byte) (hi * 16 + lo);
+	  }
+ 	else if (c > 127) {
+	    try {
+		byte [] c_as_bytes = Character.toString(c).getBytes("utf-8");
+		System.arraycopy(c_as_bytes, 0, buf, pos, c_as_bytes.length);
+	    }
+	    catch (java.io.UnsupportedEncodingException x2) {
+		throw (Error) new InternalError().initCause(x2);
+	    }
+	}    
+	else
+	  buf[pos++] = (byte) c;
+      }
+    try
+      {
+	return new String(buf, 0, pos, "utf-8");
+      }
+    catch (java.io.UnsupportedEncodingException x2)
+      {
+	throw (Error) new InternalError().initCause(x2);
+      }
+  }
+
+  /**
    * "Connects" to the file by opening it.
    */
   public void connect() throws IOException
@@ -134,7 +189,7 @@ public class Connection extends URLConnection
       return;
     
     // If not connected, then file needs to be openned.
-    file = new File (getURL().getFile());
+    file = new File (unquote(getURL().getFile()));
 
     if (! file.isDirectory())
       {

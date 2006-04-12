@@ -44,12 +44,15 @@ GFC_LOGICAL_4
 isatty_l4 (int *unit)
 {
   gfc_unit *u;
+  GFC_LOGICAL_4 ret = 0;
 
   u = find_unit (*unit);
   if (u != NULL)
-    return (GFC_LOGICAL_4) stream_isatty (u->s);
-  else
-    return 0;
+    {
+      ret = (GFC_LOGICAL_4) stream_isatty (u->s);
+      unlock_unit (u);
+    }
+  return ret;
 }
 
 
@@ -60,12 +63,15 @@ GFC_LOGICAL_8
 isatty_l8 (int *unit)
 {
   gfc_unit *u;
+  GFC_LOGICAL_8 ret = 0;
 
   u = find_unit (*unit);
   if (u != NULL)
-    return (GFC_LOGICAL_8) stream_isatty (u->s);
-  else
-    return 0;
+    {
+      ret = (GFC_LOGICAL_8) stream_isatty (u->s);
+      unlock_unit (u);
+    }
+  return ret;
 }
 
 
@@ -94,6 +100,7 @@ ttynam_sub (int *unit, char * name, gfc_charlen_type name_len)
 	  while (*n && i < name_len)
 	    name[i++] = *(n++);
 	}
+      unlock_unit (u);
     }
 }
 
@@ -114,8 +121,10 @@ ttynam (char ** name, gfc_charlen_type * name_len, int unit)
 	{
 	  *name_len = strlen (*name);
 	  *name = strdup (*name);
+	  unlock_unit (u);
 	  return;
 	}
+      unlock_unit (u);
     }
 
   *name_len = 0;

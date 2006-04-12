@@ -1,3 +1,60 @@
+2006-03-29  Tom Tromey  <tromey@redhat.com>
+
+	PR gcc/26901:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (SUBDIRS): Remove 'tools'.
+	(DIST_SUBDIRS): Likewise.
+
+2006-03-16  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26706:
+	* aclocal.m4, configure: Rebuilt.
+	* configure.ac (GCC_NO_EXECUTABLES): Moved earlier.
+
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26688:
+	* lib/Makefile.in: Rebuilt.
+	* lib/Makefile.am (propertydirs): Ignore .svn directories.
+	(metafiles): Likewise.
+
+2006-03-10  Tom Tromey  <tromey@redhat.com>
+
+	For PR libgcj/25713:
+	* java/util/zip/InflaterInputStream.java (read): Replaced with
+	libgcj implementation.
+
+2006-03-08  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24183:
+	* native/jni/xmlj/Makefile.in: Rebuilt.
+	* native/jni/xmlj/Makefile.am (nativelib_LTLIBRARIES): Renamed
+	(reverted local patch).
+
+2006-01-16  Mark Wielaard  <mark@klomp.org>
+
+	* native/fdlibm/namespace.h: Empty for gcj.
+
+2006-01-14  Anthony Green  <green@redhat.com>
+
+	* java/net/ServerSocket.java (accept): Remove bogus
+	security check.
+	(implAccept): Add FIXME comment.
+
+2006-01-06  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23499:
+	* lib/Makefile.in: Rebuilt.
+	* lib/Makefile.am (glibj_DATA): Commented out.
+
+2005-12-01  Anthony Green  <green@redhat.com>
+
+	PR bootstrap/25207
+	* configure.ac: Make sure we have an alsa library in addition to
+	the headers.  This extra test is required for systems with
+	multilibs.
+	* configure: Rebuilt.
+
 2005-10-03  Tom Tromey  <tromey@redhat.com>
 
 	* native/jawt/Makefile.in: Rebuilt.

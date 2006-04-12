@@ -108,16 +108,17 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
       state->frames = (_Jv_StackFrame *) newFrames;
       state->length = newLength;
     }
-  
-  _Unwind_Ptr func_addr = _Unwind_GetRegionStart (context);
-  
+
+  void *func_addr = (void *) _Unwind_GetRegionStart (context);
+
   // If we see the interpreter's main function, "pop" an entry off the 
   // interpreter stack and use that instead, so that the trace goes through 
   // the java code and not the interpreter itself. This assumes a 1:1 
   // correspondance between call frames in the interpreted stack and occurances
   // of _Jv_InterpMethod::run() on the native stack.
 #ifdef INTERPRETER
-  if ((void (*)(void)) func_addr == (void (*)(void)) &_Jv_InterpMethod::run)
+  void *interp_run = (void *) &_Jv_InterpMethod::run;
+  if (func_addr == UNWRAP_FUNCTION_DESCRIPTOR (interp_run))
     {
       state->frames[pos].type = frame_interpreter;
       state->frames[pos].interp.meth = state->interp_frame->self;
@@ -129,7 +130,7 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
     {
       state->frames[pos].type = frame_native;
       state->frames[pos].ip = (void *) _Unwind_GetIP (context);
-      state->frames[pos].start_ip = (void *) func_addr;
+      state->frames[pos].start_ip = func_addr;
     }
 
   //printf ("unwind ip: %p\n", _Unwind_GetIP (context));
@@ -170,7 +171,8 @@ _Jv_StackTrace::GetStackTrace(void)
 
 void
 _Jv_StackTrace::getLineNumberForFrame(_Jv_StackFrame *frame, NameFinder *finder, 
-		 jstring *sourceFileName, jint *lineNum)
+				      jstring *sourceFileName, jint *lineNum,
+				      jstring *methodName)
 {
 #ifdef INTERPRETER
   if (frame->type == frame_interpreter)
@@ -198,6 +200,9 @@ _Jv_StackTrace::getLineNumberForFrame(_Jv_StackFrame *frame, NameFinder *finder,
 	binaryName = JvNewStringUTF (info.dli_fname);
       else
         return;
+
+      if (*methodName == NULL && info.dli_sname)
+	*methodName = JvNewStringUTF (info.dli_sname);
 
       // addr2line expects relative addresses for shared libraries.
       if (strcmp (info.dli_fname, argv0) == 0)
@@ -322,16 +327,22 @@ _Jv_StackTrace::GetStackTraceElements (_Jv_StackTrace *trace,
 	end_idx = i - 1;
     }
   
+  const jboolean remove_unknown 
+    = gnu::gcj::runtime::NameFinder::removeUnknown();
+
   // Second pass: Look up line-number info for remaining frames.
   for (int i = start_idx; i <= end_idx; i++)
     {
       _Jv_StackFrame *frame = &trace->frames[i];
       
-      if (frame->klass == NULL)
-        // Not a Java frame.
+      if (frame->klass == NULL && remove_unknown)
+	// Not a Java frame.
 	continue;
-      
-      jstring className = frame->klass->getName ();
+
+      jstring className = NULL;
+      if (frame->klass != NULL)
+	className = frame->klass->getName ();
+
       jstring methodName = NULL;
       if (frame->meth)
         methodName = JvNewStringUTF (frame->meth->name->chars());
@@ -339,7 +350,8 @@ _Jv_StackTrace::GetStackTraceElements (_Jv_StackTrace *trace,
       jstring sourceFileName = NULL;
       jint lineNum = -1;
       
-      getLineNumberForFrame(frame, finder, &sourceFileName, &lineNum);
+      getLineNumberForFrame(frame, finder, &sourceFileName, &lineNum, 
+			    &methodName);
       
       StackTraceElement *element = new StackTraceElement (sourceFileName, lineNum,
         className, methodName, 0);

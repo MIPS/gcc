@@ -1,5 +1,5 @@
 /* SwingDemo.java -- An example of using the javax.swing UI.
-   Copyright (C) 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath examples.
 
@@ -24,20 +24,16 @@ package gnu.classpath.examples.swing;
 
 import java.awt.*;
 import java.awt.event.*;
-import java.awt.font.*;
-import java.awt.geom.*;
-import java.awt.image.*;
 
 import javax.swing.*;
-import javax.swing.event.*;
-import javax.swing.plaf.*;
-import javax.swing.plaf.basic.*;
-import javax.swing.plaf.metal.MetalLookAndFeel;
 import javax.swing.tree.*;
 import javax.swing.border.*;
 
+import javax.swing.plaf.metal.DefaultMetalTheme;
+import javax.swing.plaf.metal.MetalLookAndFeel;
+import javax.swing.plaf.metal.OceanTheme;
+
 import java.net.URL;
-import java.util.*;
 
 public class Demo
 {
@@ -51,26 +47,44 @@ public class Demo
         if (System.getProperty("swing.defaultlaf") == null)
           {
             StringBuffer text = new StringBuffer();
-            text.append("\tYou may change the Look and Feel of this\n");
-            text.append("\tDemo by setting the system property\n");
-            text.append("\t-Dswing.defaultlaf=<LAFClassName>\n\n");
-            text.append("\tPossible values for <LAFClassName> are:\n");
-            text.append("\t  * javax.swing.plaf.metal.MetalLookAndFeel\n");
-            text.append("\t\tthe default Java L&F\n");
-            text.append("\t  * gnu.classpath.examples.swing.GNULookAndFeel\n");
-            text.append("\tthe GNU Look and Feel\n");
-            text.append("\t(derived from javax.swing.plaf.basic.BasicLookAndFeel\n\n");
-            text.append("\tthe default is gnu.classpath.examples.swing.GNULookAndFeel\n");
-            JEditorPane textPane = new JEditorPane();
-            // temporary hack, preferred size should be computed by the
-            // component
-            textPane.setPreferredSize(new Dimension(400, 300));
-            textPane.setText(text.toString());
-            JOptionPane.showMessageDialog(null, textPane,
-                                          "Look and Feel notice",
-                                          JOptionPane.INFORMATION_MESSAGE);
-            
-            UIManager.setLookAndFeel(new GNULookAndFeel());
+            text.append("You may change the Look and Feel of this\n");
+            text.append("Demo by setting the system property\n");
+            text.append("-Dswing.defaultlaf=<LAFClassName>\n");
+	    text.append("\n");
+            text.append("Possible values for <LAFClassName> are:\n");
+	    text.append("\n");
+            text.append("* javax.swing.plaf.metal.MetalLookAndFeel\n");
+            text.append("  the default GNU Classpath L&F\n");
+	    text.append("\n");
+            text.append("* gnu.classpath.examples.swing.GNULookAndFeel\n");
+            text.append("  the GNU Look and Feel\n");
+            text.append("  (derived from javax.swing.plaf.basic.BasicLookAndFeel)\n");
+	    text.append("\n");
+            text.append("MetalLookAndFeel supports different Themes.\n");
+	    text.append("DefaultMetalTheme (the default) and OceanTheme (in development)\n");
+
+	    final String DEFAULT = "MetalLookAndFeel (default)";
+	    final String OCEAN = "MetalLookAndFeel (Ocean)";
+	    final String GNU = "GNULookAndFeel";
+	    final String[] lafs = new String[] { DEFAULT, OCEAN, GNU };
+
+	    int laf = JOptionPane.showOptionDialog(null, text /* textPane */,
+						   "Look and Feel choice",
+						   JOptionPane.OK_OPTION,
+						   JOptionPane.QUESTION_MESSAGE,
+						   null, lafs, DEFAULT);
+        if (laf == 0)
+          {
+            MetalLookAndFeel.setCurrentTheme(new DefaultMetalTheme());
+            UIManager.setLookAndFeel(new MetalLookAndFeel());
+          }
+	    if (laf == 1)
+	      {
+	        MetalLookAndFeel.setCurrentTheme(new OceanTheme());
+	        UIManager.setLookAndFeel(new MetalLookAndFeel());
+	      }
+	    else if (laf == 2)
+	      UIManager.setLookAndFeel(new GNULookAndFeel());
           }
       }
     catch (UnsupportedLookAndFeelException e)
@@ -147,27 +161,16 @@ public class Demo
 
     JMenu examples = new JMenu("Examples");
     new PopUpAction("Buttons",
-		    mkPanel(new JComponent[]
-			{mkBigButton("mango"), 
-			 mkBigButton("guava"),
-			 mkBigButton("lemon")}),
-		    examples);
-    
-    new PopUpAction("Toggles",
-		    mkToggle("cool and refreshing"),
-		    examples);
-
-    new PopUpAction("Checkbox",
-		    mkCheckbox("ice cold"),
-		    examples);
-
-    new PopUpAction("Radio",
-		    mkRadio("delicious"),
+		    (new ButtonDemo("Button Demo")).createContent(),
 		    examples);
 
     new PopUpAction("Slider",
-		    mkSliders(),
+		    (new SliderDemo("Slider Demo")).createContent(),
 		    examples);
+
+    new PopUpAction("ProgressBar",
+                    ProgressBarDemo.createContent(),
+                    examples);
 
     new PopUpAction("List",
 		    mkListPanel(new String[] { "hello",
@@ -181,7 +184,7 @@ public class Demo
 		    examples);
 
     new PopUpAction("Scrollbar",
-		    mkScrollBar(),
+		    (new ScrollBarDemo("ScrollBarDemo")).createContent(),
 		    examples);
 
     new PopUpAction("Viewport",
@@ -189,8 +192,8 @@ public class Demo
 		    examples);
 
     new PopUpAction("ScrollPane",
-		    mkScrollPane(mkBigButton("Scroll Me!")),
-		    examples);
+                    mkScrollPane(mkBigButton("Scroll Me!")),
+                    examples);
 
     new PopUpAction("TabPane",
 		    mkTabs(new String[] {"happy",
@@ -199,23 +202,22 @@ public class Demo
 		    examples);
 
     new PopUpAction("Spinner",
-		    mkSpinner(),
-		    examples);
+		    new SpinnerDemo("Spinner Demo").createContent(), examples);
 
     new PopUpAction("TextField",
-		    mkTextField("Hello, World!"),
+		    (new TextFieldDemo("TextField Demo")).createContent(),
 		    examples);
+
+    new PopUpAction("FileChooser",
+                    (new FileChooserDemo("FileChooser Demo")).createContent(),
+                    examples);
 
     new PopUpAction("ColorChooser",
 		    mkColorChooser(),
 		    examples);
 
     new PopUpAction("ComboBox",
-		    mkComboBox(new String[] {"Stop",
-					     "Software",
-					     "Hoarders",
-					     "Support",
-					     "GNU!"}),
+		    (new ComboBoxDemo("ComboBox Demo")).createContent(),
 		    examples);
 
     new PopUpAction("Editor",
@@ -317,6 +319,7 @@ public class Demo
     else
       b = new JButton(title, icon);
     
+    b.setToolTipText(title);
     if (hAlign != -1) b.setHorizontalAlignment(hAlign);
     if (vAlign != -1) b.setVerticalAlignment(vAlign);
     if (hPos != -1) b.setHorizontalTextPosition(hPos);
@@ -640,6 +643,14 @@ public class Demo
     panel.add(but, BorderLayout.NORTH);
     but.doClick();
     but.doClick();
+    JInternalFrame palette = new JInternalFrame("Palette", true, true, true, 
+        true);
+    palette.putClientProperty("JInternalFrame.isPalette", Boolean.TRUE);
+    desk.add(palette, JDesktopPane.PALETTE_LAYER);
+    JLabel label = new JLabel("This is a floating palette!");
+    palette.getContentPane().add(label);
+    palette.pack();
+    palette.setVisible(true);
     return panel;
   }
 
@@ -678,26 +689,6 @@ public class Demo
     return tabs;
   }
 
-  static JComponent mkSliders()
-  {
-    JSlider slider = new JSlider();
-    slider.setPaintTrack(true);
-    slider.setPaintTicks(true);
-    slider.setMajorTickSpacing(30);
-    slider.setMinorTickSpacing(5);
-    slider.setPaintLabels(true);
-    slider.setInverted(false);
-    JProgressBar progress = new JProgressBar();
-    BoundedRangeModel model = new DefaultBoundedRangeModel(10, 1, 0, 100);
-    progress.setModel(model);
-    slider.setModel(model);
-    JPanel panel = new JPanel();
-    panel.setLayout(new GridLayout(1, 2));
-    panel.add(slider);
-    panel.add(progress);
-    return panel;
-  }
-
   public Demo()
   {
     frame = new JFrame("Swing Activity Board");
@@ -711,6 +702,7 @@ public class Demo
     main.add(mkButtonBar());
     component.add(main, BorderLayout.CENTER);
     frame.pack();
+    frame.setSize(800, 600);
     frame.show();
   }
 
@@ -726,20 +718,6 @@ public class Demo
   public static void main(String args[])
   {
     SwingUtilities.invokeLater(new LaterMain());
-  }
-
-  public static JCheckBox mkCheckbox(String label)
-  {
-    JCheckBox c = new JCheckBox(label);
-    c.setFont(new Font("Luxi", Font.PLAIN, 14));
-    return c;
-  }
-
-  public static JRadioButton mkRadio(String label)
-  {
-    JRadioButton c = new JRadioButton(label);
-    c.setFont(new Font("Luxi", Font.PLAIN, 14));
-    return c;
   }
 
   public static JList mkList(Object[] elts)
@@ -765,26 +743,12 @@ public class Demo
     return box;
   }
 
-  public static JSpinner mkSpinner()
-  {
-    JSpinner spinner = new JSpinner();
-    return spinner;
-  }
-
   public static JButton mkBigButton(String title)
   {
     JButton b = new JButton(title);
     b.setMargin(new Insets(5,5,5,5));
     //b.setFont(new Font("Luxi", Font.PLAIN, 14));
     return b;
-  }
-
-  public static JToggleButton mkToggle(String title)
-  {
-    JToggleButton b = new JToggleButton(title);
-    b.setMargin(new Insets(5,5,5,5));
-    b.setFont(new Font("Luxi", Font.PLAIN, 14));
-    return b;    
   }
 
   public static JPanel mkPanel(JComponent[] inners)
@@ -937,37 +901,16 @@ public class Demo
     return editorPane;
   }
   
-  private static JTree mkTree()
+  /**
+   * Create the tree.
+   * 
+   * @return thr scroll pane, containing the tree.
+   */
+  private static JComponent mkTree()
   {
     DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root node");
-    DefaultMutableTreeNode child1 = new DefaultMutableTreeNode("Child node 1");
-    DefaultMutableTreeNode child11 =
-      new DefaultMutableTreeNode("Child node 1.1");
-    DefaultMutableTreeNode child12 =
-      new DefaultMutableTreeNode("Child node 1.2");
-    DefaultMutableTreeNode child13 =
-      new DefaultMutableTreeNode("Child node 1.3");
-    DefaultMutableTreeNode child2 = new DefaultMutableTreeNode("Child node 2");
-    DefaultMutableTreeNode child21 =
-      new DefaultMutableTreeNode("Child node 2.1");
-    DefaultMutableTreeNode child22 =
-      new DefaultMutableTreeNode("Child node 2.2");
-    DefaultMutableTreeNode child23 =
-      new DefaultMutableTreeNode("Child node 2.3");
-    DefaultMutableTreeNode child24 =
-      new DefaultMutableTreeNode("Child node 2.4");
-
-    DefaultMutableTreeNode child3 = new DefaultMutableTreeNode("Child node 3");
-    root.add(child1);
-    root.add(child2);
-    root.add(child3);
-    child1.add(child11);
-    child1.add(child12);
-    child1.add(child13);
-    child2.add(child21);
-    child2.add(child22);
-    child2.add(child23);
-    child2.add(child24);
+    
+    addChildren("Node", root, 12);
 
     JTree tree = new JTree(root);
     tree.setLargeModel(true);
@@ -975,58 +918,59 @@ public class Demo
     dtsm.setSelectionMode(DefaultTreeSelectionModel.SINGLE_TREE_SELECTION);
     tree.setSelectionModel(dtsm);
     
-    return tree;
+    // Make it editable.
+    tree.setEditable(true);
+    
+    JComponent t = mkScrollPane(tree);
+    t.setPreferredSize(new Dimension(200,200));
+    return t;
   }
-
-  private static JTable mkTable()
+  
+  /**
+   * Add the specified number of children to this parent node. For each
+   * child, the method is called recursively adding the nChildren-3 number of 
+   * grandchildren.
+   * 
+   * @param parent the parent node
+   * @param nChildren the number of children
+   */
+  private static void addChildren(String name, DefaultMutableTreeNode parent,
+                                                int nChildren)
   {
-    Object[][] tableData = new Object[][] {
+    for (int i = 0; i < nChildren; i++)
       {
-        "Field 1", "Field 2" , "Field 3"
-      },
-      {
-        "Field 4", "Field 5" , "Field 6"
-      },
-      {
-        "Field 7", "Field 8" , "Field 9"
-      },
-      {
-        "Field 10", "Field 11" , "Field 12"
+        String child_name = parent+"."+i;
+        DefaultMutableTreeNode child = new DefaultMutableTreeNode
+         (child_name);
+        parent.add(child);
+        addChildren(child_name, child, nChildren-3);
       }
-    };
-    Object[] columnNames = new Object[] {"Column 1", "Column 2", "Column 3"};
-
-    JTable table = new JTable(tableData, columnNames);
-    return table;
+  }
+  
+  /**
+   * Make a sample table component.
+   */
+  private static JPanel mkTable()
+  {
+    return new TableDemo("Table demo, double click to edit")
+                      .createContent();
   }
   
   private JPanel mkButtonBar()
   {    
-    JPanel panel = new JPanel ();
-    panel.setLayout(new FlowLayout());
-
+    JPanel panel = new JPanel(new FlowLayout());
     new PopUpAction("Buttons",
-		    mkPanel(new JComponent[]
-			{mkBigButton("mango"), 
-			 mkBigButton("guava"),
-			 mkBigButton("lemon")}),
-		    panel);
-    
-    new PopUpAction("Toggles",
-		    mkToggle("cool and refreshing"),
-		    panel);
-
-    new PopUpAction("Checkbox",
-		    mkCheckbox("ice cold"),
-		    panel);
-
-    new PopUpAction("Radio",
-		    mkRadio("delicious"),
+		    (new ButtonDemo("Button Demo")).createContent(),
 		    panel);
 
     new PopUpAction("Slider",
-		    mkSliders(),
+		    (new SliderDemo("Slider Demo")).createContent(),
 		    panel);
+
+    new PopUpAction("ProgressBar",
+            ProgressBarDemo.createContent(),
+             panel);
+
 
     new PopUpAction("List",
 		    mkListPanel(new String[] { "hello",
@@ -1040,7 +984,7 @@ public class Demo
 		    panel);
 
     new PopUpAction("Scrollbar",
-		    mkScrollBar(),
+		    (new ScrollBarDemo("ScrollBar Demo")).createContent(),
 		    panel);
 
     new PopUpAction("Viewport",
@@ -1057,24 +1001,23 @@ public class Demo
 					 "indifferent"}),
 		    panel);
 
-    new PopUpAction("Spinner",
-		    mkSpinner(),
-		    panel);
+    new PopUpAction("Spinner", 
+		    new SpinnerDemo("Spinner Demo").createContent(), panel);
 
     new PopUpAction("TextField",
-		    mkTextField("Hello, World!"),
+		    (new TextFieldDemo("TextField Demo")).createContent(),
 		    panel);
+
+    new PopUpAction("FileChooser",
+                    (new FileChooserDemo("FileChooser Demo")).createContent(),
+                    panel);
 
     new PopUpAction("ColorChooser",
 		    mkColorChooser(),
 		    panel);
 
     new PopUpAction("ComboBox",
-		    mkComboBox(new String[] {"Stop",
-					     "Software",
-					     "Hoarders",
-					     "Support",
-					     "GNU!"}),
+		    (new ComboBoxDemo("ComboBox Demo")).createContent(),
 		    panel);
 
     new PopUpAction("Editor",
@@ -1099,10 +1042,5 @@ public class Demo
 	}
       });
     return panel;
-  }
-
-  public static JTextField mkTextField(String sometext)
-  {
-    return new JTextField(sometext, 40);
   }
 }

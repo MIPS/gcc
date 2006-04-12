@@ -37,6 +37,8 @@ exception statement from your version. */
 
 package java.beans;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 /**
@@ -61,7 +63,6 @@ import java.lang.reflect.Method;
  ** @since 1.1
  ** @status updated to 1.4
  **/
-
 public class PropertyDescriptor extends FeatureDescriptor
 {
     Class propertyType;
@@ -345,6 +346,71 @@ public class PropertyDescriptor extends FeatureDescriptor
         this.propertyEditorClass = propertyEditorClass;
     }
 
+    /**
+     * Instantiate a property editor using the property editor class.
+     * If no property editor class has been set, this will return null.
+     * If the editor class has a public constructor which takes a single
+     * argument, that will be used and the bean parameter will be passed
+     * to it.  Otherwise, a public no-argument constructor will be used,
+     * if available.  This method will return null if no constructor is
+     * found or if construction fails for any reason.
+     * @param bean the argument to the constructor
+     * @return a new PropertyEditor, or null on error
+     * @since 1.5
+     */
+    public PropertyEditor createPropertyEditor(Object bean)
+    {
+      if (propertyEditorClass == null)
+        return null;
+      Constructor c = findConstructor(propertyEditorClass,
+                                      new Class[] { Object.class });
+      if (c != null)
+        return instantiateClass(c, new Object[] { bean });
+      c = findConstructor(propertyEditorClass, null);
+      if (c != null)
+        return instantiateClass(c, null);
+      return null;
+    }
+
+    // Helper method to look up a constructor and return null if it is not
+    // found.
+    private Constructor findConstructor(Class k, Class[] argTypes)
+    {
+      try
+        {
+          return k.getConstructor(argTypes);
+        }
+      catch (NoSuchMethodException _)
+        {
+          return null;
+        }
+    }
+
+    // Helper method to instantiate an object but return null on error.
+    private PropertyEditor instantiateClass(Constructor c, Object[] args)
+    {
+      try
+        {
+          return (PropertyEditor) c.newInstance(args);
+        }
+      catch (InstantiationException _)
+        {
+          return null;
+        }
+      catch (InvocationTargetException _)
+        {
+          return null;
+        }
+      catch (IllegalAccessException _)
+        {
+          return null;
+        }
+      catch (ClassCastException _)
+        {
+          return null;
+        }
+    }
+
     private void findMethods(
         Class beanClass,
         String getMethodName1,
@@ -519,6 +585,22 @@ public class PropertyDescriptor extends FeatureDescriptor
         }
 
         return newPropertyType;
+    }
+
+    /**
+     * Return a hash code for this object, conforming to the contract described
+     * in {@link Object#hashCode()}.
+     * @return the hash code
+     * @since 1.5
+     */
+    public int hashCode()
+    {
+      return ((propertyType == null ? 0 : propertyType.hashCode())
+              | (propertyEditorClass == null ? 0 : propertyEditorClass.hashCode())
+              | (bound ? Boolean.TRUE : Boolean.FALSE).hashCode()
+              | (constrained ? Boolean.TRUE : Boolean.FALSE).hashCode()
+              | (getMethod == null ? 0 : getMethod.hashCode())
+              | (setMethod == null ? 0 : setMethod.hashCode()));
     }
 
     /** Compares this <code>PropertyDescriptor</code> against the

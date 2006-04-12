@@ -1,5 +1,5 @@
 /* VMDouble.c - java.lang.VMDouble native functions
-   Copyright (C) 1998, 1999, 2001, 2003, 2004i, 2005
+   Copyright (C) 1998, 1999, 2001, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -71,6 +71,11 @@ Java_java_lang_VMDouble_initIDs (JNIEnv * env, jclass cls __attribute__ ((__unus
     {
       DBG ("unable to get class java.lang.Double\n") return;
     }
+  clsDouble = (*env)->NewGlobalRef(env, clsDouble);
+  if (clsDouble == NULL)
+    {
+      DBG ("unable to register class java.lang.Double as global ref\n") return;
+    }
   isNaNID = (*env)->GetStaticMethodID (env, clsDouble, "isNaN", "(D)Z");
   if (isNaNID == NULL)
     {
@@ -118,6 +123,16 @@ Java_java_lang_VMDouble_doubleToLongBits
   jlong e, f;
   val.d = doubleValue;
 
+#if defined(__IEEE_BYTES_LITTLE_ENDIAN)
+  /* On little endian ARM processors when using FPA, word order of
+     doubles is still big endian. So take that into account here. When
+     using VFP, word order of doubles follows byte order. */
+
+#define SWAP_DOUBLE(a)    (((a) << 32) | (((a) >> 32) & 0x00000000ffffffff))
+
+  val.j = SWAP_DOUBLE(val.j);
+#endif
+
   e = val.j & 0x7ff0000000000000LL;
   f = val.j & 0x000fffffffffffffLL;
 
@@ -139,6 +154,11 @@ Java_java_lang_VMDouble_doubleToRawLongBits
 {
   jvalue val;
   val.d = doubleValue;
+
+#if defined(__IEEE_BYTES_LITTLE_ENDIAN)
+  val.j = SWAP_DOUBLE(val.j);
+#endif
+
   return val.j;
 }
 
@@ -154,6 +174,11 @@ Java_java_lang_VMDouble_longBitsToDouble
 {
   jvalue val;
   val.j = longValue;
+
+#if defined(__IEEE_BYTES_LITTLE_ENDIAN)
+  val.j = SWAP_DOUBLE(val.j);
+#endif
+
   return val.d;
 }
 

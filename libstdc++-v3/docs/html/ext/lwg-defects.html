@@ -1,15 +1,18 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
-<html><head><title>C++ Standard Library Defect Report List</title></head>
+<html><head><title>C++ Standard Library Defect Report List</title>
+
+<style>ins {background-color:#FFFFA0}
+del {background-color:#FFFFA0}</style></head>
 
 <body bgcolor="#ffffff" text="#000000">
 <table>
 <tbody><tr>
 <td align="left">Doc. no.</td>
-<td align="left">N1909=05-0169</td>
+<td align="left">N1950=06-0020</td>
 </tr>
 <tr>
 <td align="left">Date:</td>
-<td align="left">2005-10-23</td>
+<td align="left">2006-02-24</td>
 </tr>
 <tr>
 <td align="left">Project:</td>
@@ -20,7 +23,7 @@
 <td align="left">Howard Hinnant &lt;howard.hinnant@gmail.com&gt;</td>
 </tr>
 </tbody></table>
-<h1>C++ Standard Library Defect Report List (Revision R39)</h1>
+<h1>C++ Standard Library Defect Report List (Revision R41)</h1>
   <p>Reference ISO/IEC IS 14882:1998(E)</p>
   <p>Also see:</p>
     <ul>
@@ -42,6 +45,16 @@
   document.</p>
 <h2>Revision History</h2>
 <ul>
+<li>R41: 
+2006-02-24 pre-Berlin mailing.
+Added new issues <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#536">536</a>-<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#566">566</a>.
+Moved <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#342">342</a> from Ready to Open.
+Reopened <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#309">309</a>.
+</li>
+<li>R40: 
+2005-12-16 mid-term mailing.
+Added new issues <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#529">529</a>-<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#535">535</a>.
+</li>
 <li>R39: 
 2005-10-14 post-Mont Tremblant mailing.
 Added new issues <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#526">526</a>-<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#528">528</a>.
@@ -894,7 +907,7 @@ one case.  The resolution of this issue clarifies what the LWG
 believes to have been the original intent.</p>
 
 <hr>
-<a name="24"></a><h3><a name="24">24.&nbsp;"do_convert" doesn't exist</a></h3><p><b>Section:</b>&nbsp;22.2.1.5.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.codecvt.virtuals"> [lib.locale.codecvt.virtuals]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Nathan Myers&nbsp; <b>Date:</b>&nbsp;6 Aug 1998</p>
+<a name="24"><h3>24.&nbsp;"do_convert" doesn't exist</h3></a><p><b>Section:</b>&nbsp;22.2.1.5.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.codecvt.virtuals"> [lib.locale.codecvt.virtuals]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Nathan Myers&nbsp; <b>Date:</b>&nbsp;6 Aug 1998</p>
 <p>The description of codecvt&lt;&gt;::do_out and do_in mentions a
 symbol "do_convert" which is not defined in the
 standard. This is a leftover from an edit, and should be "do_in
@@ -2068,7 +2081,7 @@ character"
 </p>
 
 <p>
-In 27.6.1.3, [lib.istream.unformatted], paragraph 5.  Change the
+In 27.6.1.3, [lib.istream.unformatted], paragraph 7.  Change the
 beginning of the first sentence of the effects clause from "Extracts
 characters" to "Behaves as an unformatted input function (as described
 in 27.6.1.3, paragraph 1).  After constructing a sentry object, extracts
@@ -2752,7 +2765,7 @@ returning eof or by throwing an exception; there are no other
 possibilities.  The proposed resolution makes it clear that these two
 functions do get characters from a streambuf.</p>
 <hr>
-<a name="92"></a><h3><a name="92">92.&nbsp;Incomplete Algorithm Requirements</a></h3><p><b>Section:</b>&nbsp;25 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.algorithms"> [lib.algorithms]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Nico Josuttis&nbsp; <b>Date:</b>&nbsp;29 Sep 1998</p>
+<a name="92"><h3>92.&nbsp;Incomplete Algorithm Requirements</h3></a><p><b>Section:</b>&nbsp;25 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-algorithms.html#lib.algorithms"> [lib.algorithms]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Nico Josuttis&nbsp; <b>Date:</b>&nbsp;29 Sep 1998</p>
 <p>The standard does not state, how often a function object is copied,
 called, or the order of calls inside an algorithm. This may lead to
 surprising/buggy behavior. Consider the following example: </p>
@@ -3662,7 +3675,7 @@ to return a const char* not a const charT*. </p>
 <tt>do_scan_not()</tt> to return a <tt> const
 charT*</tt>. </p>
 <hr>
-<a name="125"></a><h3><a name="125">125.&nbsp;valarray&lt;T&gt;::operator!() return type is inconsistent</a></h3><p><b>Section:</b>&nbsp;26.3.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-numerics.html#lib.template.valarray"> [lib.template.valarray]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Judy Ward&nbsp; <b>Date:</b>&nbsp;15 Dec 1998</p>
+<a name="125"><h3>125.&nbsp;valarray&lt;T&gt;::operator!() return type is inconsistent</h3></a><p><b>Section:</b>&nbsp;26.3.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-numerics.html#lib.template.valarray"> [lib.template.valarray]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#TC">TC</a>&nbsp; <b>Submitter:</b>&nbsp;Judy Ward&nbsp; <b>Date:</b>&nbsp;15 Dec 1998</p>
 <p>In Section 26.3.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-numerics.html#lib.template.valarray"> [lib.template.valarray]</a> valarray&lt;T&gt;::operator!() is
 declared to return a valarray&lt;T&gt;, but in Section 26.3.2.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-numerics.html#lib.valarray.unary"> [lib.valarray.unary]</a> it is declared to return a valarray&lt;bool&gt;. The
 latter appears to be correct. </p>
@@ -7330,7 +7343,7 @@ iterators into *this, not into x.
 <p>The original proposed resolution said that iterators and references
 would remain "valid".  The new proposed resolution clarifies what that
 means.  Note that this only applies to the case of equal allocators.
-&gt;From 20.1.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-utilities.html#lib.allocator.requirements"> [lib.allocator.requirements]</a> paragraph 4, the behavior of list when
+From 20.1.5 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-utilities.html#lib.allocator.requirements"> [lib.allocator.requirements]</a> paragraph 4, the behavior of list when
 allocators compare nonequal is outside the scope of the standard.</p>
 <hr>
 <a name="251"><h3>251.&nbsp;basic_stringbuf missing allocator_type</h3></a><p><b>Section:</b>&nbsp;27.7.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.stringbuf"> [lib.stringbuf]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;28 Jul 2000</p>
@@ -10598,7 +10611,7 @@ parameter name conveys real normative meaning.
 <hr>
 <a name="338"><h3>338.&nbsp; is whitespace allowed between `-' and a digit?</h3></a><p><b>Section:</b>&nbsp;22.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.categories"> [lib.locale.categories]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;17 Sep 2001</p>
 <p>
-&gt;From Stage 2 processing in 22.2.2.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.facet.num.get.virtuals"> [lib.facet.num.get.virtuals]</a>, p8 and 9 (the
+From Stage 2 processing in 22.2.2.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.facet.num.get.virtuals"> [lib.facet.num.get.virtuals]</a>, p8 and 9 (the
 original text or the text corrected by the proposed resolution of
 issue <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-defects.html#221">221</a>) it seems clear that no whitespace is allowed
 within a number, but 22.2.3.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.numpunct"> [lib.locale.numpunct]</a>, p2, which gives the
@@ -11080,7 +11093,7 @@ key greater than k, or a.end() if such an element is not found.
 <p><i>[Curaçao: LWG reviewed PR.]</i></p>
 
 <hr>
-<a name="355"></a><h3><a name="355">355.&nbsp;Operational semantics for a.back()</a></h3><p><b>Section:</b>&nbsp;23.1.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.sequence.reqmts"> [lib.sequence.reqmts]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Yaroslav Mironov&nbsp; <b>Date:</b>&nbsp;23 Jan 2002</p>
+<a name="355"><h3>355.&nbsp;Operational semantics for a.back()</h3></a><p><b>Section:</b>&nbsp;23.1.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-containers.html#lib.sequence.reqmts"> [lib.sequence.reqmts]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Yaroslav Mironov&nbsp; <b>Date:</b>&nbsp;23 Jan 2002</p>
 
 <p>Table 68 "Optional Sequence Operations" in 23.1.1/12
 specifies operational semantics for "a.back()" as
@@ -11149,8 +11162,8 @@ LWG would like a new issue opened.]</i></p>
 "*tmp" to "return *tmp;"]</i></p>
 
 <hr>
-<a name="358"></a><h3><a name="358">358.&nbsp;interpreting <tt>thousands_sep</tt> after a <tt>decimal_point</tt>
-</a></h3><p><b>Section:</b>&nbsp;22.2.2.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.facet.num.get.virtuals"> [lib.facet.num.get.virtuals]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;12 Mar 2002</p>
+<a name="358"><h3>358.&nbsp;interpreting <tt>thousands_sep</tt> after a <tt>decimal_point</tt>
+</h3></a><p><b>Section:</b>&nbsp;22.2.2.1.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.facet.num.get.virtuals"> [lib.facet.num.get.virtuals]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;12 Mar 2002</p>
 <p>
 I don't think <tt>thousands_sep</tt> is being treated correctly after
 decimal_point has been seen. Since grouping applies only to the
@@ -11432,7 +11445,7 @@ with the following signature:</p>
 <p><b>Rationale:</b></p>
 <p>Fixes an obvious typo.</p>
 <hr>
-<a name="373"></a><h3><a name="373">373.&nbsp;Are basic_istream and basic_ostream to use (exceptions()&amp;badbit) != 0 ?</a></h3><p><b>Section:</b>&nbsp;27.6.1.2.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.istream.formatted.reqmts"> [lib.istream.formatted.reqmts]</a>, 27.6.2.5.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.ostream.formatted.reqmts"> [lib.ostream.formatted.reqmts]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Keith Baker&nbsp; <b>Date:</b>&nbsp;23 Jul 2002</p>
+<a name="373"><h3>373.&nbsp;Are basic_istream and basic_ostream to use (exceptions()&amp;badbit) != 0 ?</h3></a><p><b>Section:</b>&nbsp;27.6.1.2.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.istream.formatted.reqmts"> [lib.istream.formatted.reqmts]</a>, 27.6.2.5.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.ostream.formatted.reqmts"> [lib.ostream.formatted.reqmts]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Keith Baker&nbsp; <b>Date:</b>&nbsp;23 Jul 2002</p>
 
 <p>
 In 27.6.1.2.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.istream.formatted.reqmts"> [lib.istream.formatted.reqmts]</a> and 27.6.2.5.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.ostream.formatted.reqmts"> [lib.ostream.formatted.reqmts]</a>
@@ -11449,7 +11462,7 @@ In 27.6.1.2.1 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams
 <p><b>Rationale:</b></p>
 <p>Fixes an obvious typo.</p>
 <hr>
-<a name="375"></a><h3><a name="375">375.&nbsp;basic_ios should be ios_base in 27.7.1.3</a></h3><p><b>Section:</b>&nbsp;27.7.1.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.stringbuf.virtuals"> [lib.stringbuf.virtuals]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Ray Lischner&nbsp; <b>Date:</b>&nbsp;14 Aug 2002</p>
+<a name="375"><h3>375.&nbsp;basic_ios should be ios_base in 27.7.1.3</h3></a><p><b>Section:</b>&nbsp;27.7.1.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.stringbuf.virtuals"> [lib.stringbuf.virtuals]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Ray Lischner&nbsp; <b>Date:</b>&nbsp;14 Aug 2002</p>
 <p>
 In Section 27.7.1.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.stringbuf.virtuals"> [lib.stringbuf.virtuals]</a>: Table 90, Table 91, and paragraph
 14 all contain references to "basic_ios::" which should be
@@ -11531,7 +11544,7 @@ heading Meaning, to "space for more than (to_limit - to) destination
 elements was needed to terminate a sequence given the value of state."
 </p>
 <hr>
-<a name="381"></a><h3><a name="381">381.&nbsp;detection of invalid mbstate_t in codecvt</a></h3><p><b>Section:</b>&nbsp;22.2.1.5.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.codecvt.virtuals"> [lib.locale.codecvt.virtuals]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;6 Sep 2002</p>
+<a name="381"><h3>381.&nbsp;detection of invalid mbstate_t in codecvt</h3></a><p><b>Section:</b>&nbsp;22.2.1.5.2 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-locales.html#lib.locale.codecvt.virtuals"> [lib.locale.codecvt.virtuals]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Martin Sebor&nbsp; <b>Date:</b>&nbsp;6 Sep 2002</p>
 <p>
 All but one codecvt member functions that take a state_type argument
 list as one of their preconditions that the state_type argument have
@@ -13203,7 +13216,7 @@ In section 27.6.2.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-ios
 of <tt>sentry::operator bool()</tt> to const.
 </p>
 <hr>
-<a name="443"><h3>443.&nbsp;filebuf::close() inconsistent use of EOF</h3></a><p><b>Section:</b>&nbsp;27.8.1.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.filebuf.members"> [lib.filebuf.members]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Vincent Leloup&nbsp; <b>Date:</b>&nbsp;20 Nov 2003</p>
+<a name="443"></a><h3><a name="443">443.&nbsp;filebuf::close() inconsistent use of EOF</a></h3><p><b>Section:</b>&nbsp;27.8.1.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.filebuf.members"> [lib.filebuf.members]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#WP">WP</a>&nbsp; <b>Submitter:</b>&nbsp;Vincent Leloup&nbsp; <b>Date:</b>&nbsp;20 Nov 2003</p>
 <p>
 In section 27.8.1.3 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lib-iostreams.html#lib.filebuf.members"> [lib.filebuf.members]</a> par6, in effects description of
 basic_filebuf&lt;charT, traits&gt;::close(), overflow(EOF) is used twice;
@@ -13886,5 +13899,24 @@ the non-template assign() function has the signature</p>
 <p>The type, T, is not defined in this context.</p>
 <p><b>Proposed resolution:</b></p>
 <p>Replace "T" with "value_type".</p>
+<hr>
+<a name="533"><h3>533.&nbsp;typo in 2.2.3.10/1</h3></a><p><b>Section:</b>&nbsp;TR1 2.2.3.10 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/tr1.html#tr.util.smartptr.getdeleter"> [tr.util.smartptr.getdeleter]</a>&nbsp; <b>Status:</b>&nbsp;<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#DR">DR</a>&nbsp; <b>Submitter:</b>&nbsp;Paolo Carlini&nbsp; <b>Date:</b>&nbsp;9 Nov 2005</p>
+<p>
+I'm seeing something that looks like a typo. The Return of <tt>get_deleter</tt>
+says:
+</p>
+<blockquote>
+If <tt>*this</tt> <i>owns</i> a deleter <tt>d</tt>...
+</blockquote>
+<p>
+but <tt>get_deleter</tt> is a free function!
+</p>
+<p><b>Proposed resolution:</b></p>
+<p>
+Therefore, I think should be:
+</p>
+<blockquote>
+If <tt><del>*this</del> <ins>p</ins></tt> <i>owns</i> a deleter <tt>d</tt>...
+</blockquote>
 <p>----- End of document -----</p>
 </body></html>

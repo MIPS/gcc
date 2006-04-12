@@ -1,6 +1,7 @@
 ## Makefile for the include subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+## Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+## Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -483,21 +484,52 @@ tr1_headers = \
 	${tr1_srcdir}/bind_repeat.h \
 	${tr1_srcdir}/bind_iterate.h \
 	${tr1_srcdir}/boost_shared_ptr.h \
-	${tr1_srcdir}/mu_iterate.h \
+	${tr1_srcdir}/cctype \
+	${tr1_srcdir}/cfenv \
+	${tr1_srcdir}/cfloat \
+	${tr1_srcdir}/cinttypes \
+	${tr1_srcdir}/climits \
+	${tr1_srcdir}/cmath \
+	${tr1_srcdir}/common.h \
+	${tr1_srcdir}/complex \
+	${tr1_srcdir}/cstdarg \
+	${tr1_srcdir}/cstdbool \
+	${tr1_srcdir}/cstdint \
+	${tr1_srcdir}/cstdio \
+	${tr1_srcdir}/cstdlib \
+	${tr1_srcdir}/ctgmath \
+	${tr1_srcdir}/ctime \
+	${tr1_srcdir}/ctype.h \
+	${tr1_srcdir}/cwchar \
+	${tr1_srcdir}/cwctype \
+	${tr1_srcdir}/fenv.h \
+	${tr1_srcdir}/float.h \
 	${tr1_srcdir}/functional \
 	${tr1_srcdir}/functional_iterate.h \
+	${tr1_srcdir}/hashtable \
+	${tr1_srcdir}/inttypes.h \
+	${tr1_srcdir}/limits.h \
+	${tr1_srcdir}/math.h \
 	${tr1_srcdir}/memory \
+	${tr1_srcdir}/mu_iterate.h \
 	${tr1_srcdir}/ref_fwd.h \
 	${tr1_srcdir}/ref_wrap_iterate.h \
 	${tr1_srcdir}/repeat.h \
+	${tr1_srcdir}/stdarg.h \
+	${tr1_srcdir}/stdbool.h \
+	${tr1_srcdir}/stdint.h \
+	${tr1_srcdir}/stdio.h \
+	${tr1_srcdir}/stdlib.h \
+	${tr1_srcdir}/tgmath.h \
 	${tr1_srcdir}/tuple \
 	${tr1_srcdir}/tuple_iterate.h \
-	${tr1_srcdir}/utility \
 	${tr1_srcdir}/type_traits \
 	${tr1_srcdir}/type_traits_fwd.h \
-	${tr1_srcdir}/hashtable \
 	${tr1_srcdir}/unordered_set \
-	${tr1_srcdir}/unordered_map
+	${tr1_srcdir}/unordered_map \
+	${tr1_srcdir}/utility \
+	${tr1_srcdir}/wchar.h \
+	${tr1_srcdir}/wctype.h
 
 
 # This is the common subset of files that all three "C" header models use.
@@ -612,6 +644,7 @@ endif
 
 host_srcdir = ${glibcxx_srcdir}/$(OS_INC_SRCDIR)
 host_builddir = ./${host_alias}/bits
+host_installdir = ${gxx_include_dir}/${host_alias}$(MULTISUBDIR)/bits
 host_headers = \
 	${host_srcdir}/ctype_base.h \
 	${host_srcdir}/ctype_inline.h \
@@ -646,6 +679,7 @@ thread_host_headers = \
 
 pch_input = ${host_builddir}/stdc++.h
 pch_output_builddir = ${host_builddir}/stdc++.h.gch
+pch_output_installdir = ${host_installdir}/stdc++.h.gch
 pch_source = ${glibcxx_srcdir}/include/stdc++.h
 PCHFLAGS=-Winvalid-pch -Wno-deprecated -x c++-header $(CXXFLAGS)
 if GLIBCXX_BUILD_PCH
@@ -821,19 +855,36 @@ stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
 	$(STAMP) stamp-host
 
 # Host includes dynamic.
-${host_builddir}/c++config.h: ${top_builddir}/config.h \
-				${glibcxx_srcdir}/include/bits/c++config \
-				stamp-${host_alias} \
-				${toplevel_srcdir}/gcc/DATESTAMP
-	@cat ${glibcxx_srcdir}/include/bits/c++config > $@ ;\
-	sed -e 's/^/#define __GLIBCXX__ /' \
-            < ${toplevel_srcdir}/gcc/DATESTAMP >> $@ ;\
+if ENABLE_SYMVERS_GNU_NAMESPACE
+stamp-namespace-version:
+	echo 1 > stamp-namespace-version
+else
+stamp-namespace-version:
+	echo 0 > stamp-namespace-version
+endif
+${host_builddir}/c++config.h: ${CONFIG_HEADER} \
+			      ${glibcxx_srcdir}/include/bits/c++config \
+			      stamp-${host_alias} \
+			      ${toplevel_srcdir}/gcc/DATESTAMP \
+			      stamp-namespace-version
+	@date=`cat ${toplevel_srcdir}/gcc/DATESTAMP` ;\
+	nsa_version=`cat stamp-namespace-version` ;\
+	ldbl_compat='' ;\
+	grep "^[ 	]*#[ 	]*define[ 	][ 	]*_GLIBCXX_LONG_DOUBLE_COMPAT[ 	][ 	]*1[ 	]*$$" \
+	${CONFIG_HEADER} > /dev/null 2>&1 \
+	&& ldbl_compat='s,^#undef _GLIBCXX_LONG_DOUBLE_COMPAT$$,#define _GLIBCXX_LONG_DOUBLE_COMPAT 1,' ;\
+	sed -e "s,define __GLIBCXX__,define __GLIBCXX__ $$date," \
+	-e "s,define _GLIBCXX_NAMESPACE_ASSOCIATION_VERSION, define _GLIBCXX_NAMESPACE_ASSOCIATION_VERSION $$nsa_version," \
+	-e "$$ldbl_compat" \
+            < ${glibcxx_srcdir}/include/bits/c++config > $@ ;\
 	sed -e 's/HAVE_/_GLIBCXX_HAVE_/g' \
 	    -e 's/PACKAGE/_GLIBCXX_PACKAGE/g' \
 	    -e 's/VERSION/_GLIBCXX_VERSION/g' \
 	    -e 's/WORDS_/_GLIBCXX_WORDS_/g' \
+	    -e '/[ 	]_GLIBCXX_LONG_DOUBLE_COMPAT[ 	]/d' \
 	    < ${CONFIG_HEADER} >> $@ ;\
-	echo "#endif // _CXXCONFIG_" >>$@
+	echo "" >> $@ ;\
+	echo "#endif // _CXXCONFIG_" >> $@
 
 # Host includes for threads
 uppercase = [ABCDEFGHIJKLMNOPQRSTUVWXYZ_]
@@ -907,9 +958,9 @@ endif
 # are copied here.
 install-freestanding-headers:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}
-	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${host_builddir}
+	$(mkinstalldirs) $(DESTDIR)${host_installdir}
 	for file in ${host_srcdir}/os_defines.h ${host_builddir}/c++config.h; do \
-	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${host_builddir}; done
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${host_installdir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${std_builddir}
 	$(INSTALL_DATA) ${std_builddir}/limits $(DESTDIR)${gxx_include_dir}/${std_builddir}
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${c_base_builddir}
@@ -969,15 +1020,15 @@ install-headers:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${debug_builddir}
 	for file in ${debug_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${debug_builddir}; done
-	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${host_builddir}
+	$(mkinstalldirs) $(DESTDIR)${host_installdir}
 	for file in ${host_headers} ${host_headers_extra} \
 	 ${thread_host_headers}; do \
-	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${host_builddir}; done
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${host_installdir}; done
 
 install-pch:
-	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${pch_output_builddir}
+	$(mkinstalldirs) $(DESTDIR)${pch_output_installdir}
 	for file in ${pch_output_builddir}/*; do \
-	  $(INSTALL_DATA) $$file $(DESTDIR)${gxx_include_dir}/${pch_output_builddir}; done
+	  $(INSTALL_DATA) $$file $(DESTDIR)${pch_output_installdir}; done
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = ${pch_input} ${pch_output_builddir}/*

@@ -464,6 +464,25 @@ public final class StringBuilder
   }
 
   /**
+   * Append the code point to this <code>StringBuilder</code>.
+   * This is like #append(char), but will append two characters
+   * if a supplementary code point is given.
+   *
+   * @param code the code point to append
+   * @return this <code>StringBuilder</code>
+   * @see Character#toChars(int, char[], int)
+   * @since 1.5
+   */
+  public synchronized StringBuilder appendCodePoint(int code)
+  {
+    int len = Character.charCount(code);
+    ensureCapacity(count + len);
+    Character.toChars(code, value, count);
+    count += len;
+    return this;
+  }
+
+  /**
    * Append the <code>String</code> value of the argument to this
    * <code>StringBuilder</code>. Uses <code>String.valueOf()</code> to convert
    * to <code>String</code>.
@@ -705,6 +724,52 @@ public final class StringBuilder
   }
 
   /**
+   * Insert the <code>CharSequence</code> argument into this
+   * <code>StringBuilder</code>.  If the sequence is null, the String
+   * "null" is used instead.
+   *
+   * @param offset the place to insert in this buffer
+   * @param sequence the <code>CharSequence</code> to insert
+   * @return this <code>StringBuilder</code>
+   * @throws IndexOutOfBoundsException if offset is out of bounds
+   */
+  public synchronized StringBuilder insert(int offset, CharSequence sequence)
+  {
+    if (sequence == null)
+      sequence = "null";
+    return insert(offset, sequence, 0, sequence.length());
+  }
+
+  /**
+   * Insert a subsequence of the <code>CharSequence</code> argument into this
+   * <code>StringBuilder</code>.  If the sequence is null, the String
+   * "null" is used instead.
+   *
+   * @param offset the place to insert in this buffer
+   * @param sequence the <code>CharSequence</code> to insert
+   * @param start the starting index of the subsequence
+   * @param end one past the ending index of the subsequence
+   * @return this <code>StringBuilder</code>
+   * @throws IndexOutOfBoundsException if offset, start,
+   * or end are out of bounds
+   */
+  public synchronized StringBuilder insert(int offset, CharSequence sequence,
+                      int start, int end)
+  {
+    if (sequence == null)
+      sequence = "null";
+    if (start < 0 || end < 0 || start > end || end > sequence.length())
+      throw new IndexOutOfBoundsException();
+    int len = end - start;
+    ensureCapacity(count + len);
+    VMSystem.arraycopy(value, offset, value, offset + len, count - offset);
+    for (int i = start; i < end; ++i)
+      value[offset++] = sequence.charAt(i);
+    count += len;
+    return this;
+  }
+
+  /**
    * Insert the <code>char[]</code> argument into this
    * <code>StringBuilder</code>.
    *
@@ -940,5 +1005,66 @@ public final class StringBuilder
       if (value[toffset++] != other.value[index++])
         return false;
     return true;
+  }
+
+  /**
+   * Get the code point at the specified index.  This is like #charAt(int),
+   * but if the character is the start of a surrogate pair, and the
+   * following character completes the pair, then the corresponding
+   * supplementary code point is returned.
+   * @param index the index of the codepoint to get, starting at 0
+   * @return the codepoint at the specified index
+   * @throws IndexOutOfBoundsException if index is negative or &gt;= length()
+   * @since 1.5
+   */
+  public int codePointAt(int index)
+  {
+    return Character.codePointAt(value, index, count);
+  }
+
+    /**
+   * Get the code point before the specified index.  This is like
+   * #codePointAt(int), but checks the characters at <code>index-1</code> and
+   * <code>index-2</code> to see if they form a supplementary code point.
+   * @param index the index just past the codepoint to get, starting at 0
+   * @return the codepoint at the specified index
+   * @throws IndexOutOfBoundsException if index is negative or &gt;= length()
+   * @since 1.5
+   */
+  public int codePointBefore(int index)
+  {
+    // Character.codePointBefore() doesn't perform this check.  We
+    // could use the CharSequence overload, but this is just as easy.
+    if (index >= count)
+      throw new IndexOutOfBoundsException();
+    return Character.codePointBefore(value, index, 1);
+  }
+
+  /**
+   * Returns the number of Unicode code points in the specified sub sequence.
+   * Surrogate pairs count as one code point.
+   * @param beginIndex the start of the subarray
+   * @param endIndex the index after the last char in the subarray
+   * @return the number of code points
+   * @throws IndexOutOfBoundsException if beginIndex is less than zero or 
+   * greater than endIndex or if endIndex is greater than the length of this 
+   * StringBuilder
+   */
+  public int codePointCount(int beginIndex,int endIndex)
+  {
+    if (beginIndex < 0 || beginIndex > endIndex || endIndex > count)
+      throw new IndexOutOfBoundsException("invalid indices: " + beginIndex
+                                          + ", " + endIndex);
+    return Character.codePointCount(value, beginIndex, endIndex - beginIndex);
+  }
+
+  public void trimToSize()
+  {
+    if (count < value.length)
+      {
+        char[] newValue = new char[count];
+        System.arraycopy(value, 0, newValue, 0, count);
+        value = newValue;
+      }
   }
 }

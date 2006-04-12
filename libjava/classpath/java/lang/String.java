@@ -98,7 +98,7 @@ public final class String implements Serializable, Comparable, CharSequence
 
   /**
    * Stores unicode multi-character uppercase expansion table.
-   * @see #toUpperCase(char)
+   * @see #toUpperCase(Locale)
    * @see CharData#UPPER_EXPAND
    */
   private static final char[] upperExpand
@@ -139,7 +139,7 @@ public final class String implements Serializable, Comparable, CharSequence
   final int offset;
 
   /**
-   * An implementation for {@link CASE_INSENSITIVE_ORDER}.
+   * An implementation for {@link #CASE_INSENSITIVE_ORDER}.
    * This must be {@link Serializable}. The class name is dictated by
    * compatibility with Sun's JDK.
    */
@@ -233,6 +233,7 @@ public final class String implements Serializable, Comparable, CharSequence
    * @param count the number of characters from data to copy
    * @throws NullPointerException if data is null
    * @throws IndexOutOfBoundsException if (offset &lt; 0 || count &lt; 0
+   *         || offset + count &lt; 0 (overflow)
    *         || offset + count &gt; data.length)
    *         (while unspecified, this is a StringIndexOutOfBoundsException)
    */
@@ -256,6 +257,7 @@ public final class String implements Serializable, Comparable, CharSequence
    * @param count the number of characters from ascii to copy
    * @throws NullPointerException if ascii is null
    * @throws IndexOutOfBoundsException if (offset &lt; 0 || count &lt; 0
+   *         || offset + count &lt; 0 (overflow)
    *         || offset + count &gt; ascii.length)
    *         (while unspecified, this is a StringIndexOutOfBoundsException)
    * @see #String(byte[])
@@ -267,8 +269,14 @@ public final class String implements Serializable, Comparable, CharSequence
    */
   public String(byte[] ascii, int hibyte, int offset, int count)
   {
-    if (offset < 0 || count < 0 || offset + count > ascii.length)
-      throw new StringIndexOutOfBoundsException();
+    if (offset < 0)
+      throw new StringIndexOutOfBoundsException("offset: " + offset);
+    if (count < 0)
+      throw new StringIndexOutOfBoundsException("count: " + count);
+    // equivalent to: offset + count < 0 || offset + count > ascii.length
+    if (ascii.length - offset < count)
+      throw new StringIndexOutOfBoundsException("offset + count: "
+						+ (offset + count));
     value = new char[count];
     this.offset = 0;
     this.count = count;
@@ -327,8 +335,14 @@ public final class String implements Serializable, Comparable, CharSequence
   public String(byte[] data, int offset, int count, String encoding)
     throws UnsupportedEncodingException
   {
-    if (offset < 0 || count < 0 || offset + count > data.length)
-      throw new StringIndexOutOfBoundsException();
+    if (offset < 0)
+      throw new StringIndexOutOfBoundsException("offset: " + offset);
+    if (count < 0)
+      throw new StringIndexOutOfBoundsException("count: " + count);
+    // equivalent to: offset + count < 0 || offset + count > data.length
+    if (data.length - offset < count)
+      throw new StringIndexOutOfBoundsException("offset + count: "
+						+ (offset + count));
     try 
       {
         CharsetDecoder csd = Charset.forName(encoding).newDecoder();
@@ -402,8 +416,14 @@ public final class String implements Serializable, Comparable, CharSequence
    */
   public String(byte[] data, int offset, int count)
   {
-    if (offset < 0 || count < 0 || offset + count > data.length)
-      throw new StringIndexOutOfBoundsException();
+    if (offset < 0)
+      throw new StringIndexOutOfBoundsException("offset: " + offset);
+    if (count < 0)
+      throw new StringIndexOutOfBoundsException("count: " + count);
+    // equivalent to: offset + count < 0 || offset + count > data.length
+    if (data.length - offset < count)
+      throw new StringIndexOutOfBoundsException("offset + count: "
+						+ (offset + count));
     int o, c;
     char[] v;
     String encoding;
@@ -512,8 +532,14 @@ public final class String implements Serializable, Comparable, CharSequence
    */
   String(char[] data, int offset, int count, boolean dont_copy)
   {
-    if (offset < 0 || count < 0 || offset + count > data.length)
-      throw new StringIndexOutOfBoundsException();
+    if (offset < 0)
+      throw new StringIndexOutOfBoundsException("offset: " + offset);
+    if (count < 0)
+      throw new StringIndexOutOfBoundsException("count: " + count);
+    // equivalent to: offset + count < 0 || offset + count > data.length
+    if (data.length - offset < count)
+      throw new StringIndexOutOfBoundsException("offset + count: "
+						+ (offset + count));
     if (dont_copy)
       {
         value = data;
@@ -528,6 +554,49 @@ public final class String implements Serializable, Comparable, CharSequence
     this.count = count;
   }
 
+  /**
+   * Creates a new String containing the characters represented in the
+   * given subarray of Unicode code points.
+   * @param codePoints the entire array of code points
+   * @param offset the start of the subarray
+   * @param count the length of the subarray
+   * 
+   * @throws IllegalArgumentException if an invalid code point is found
+   * in the codePoints array
+   * @throws IndexOutOfBoundsException if offset is negative or offset + count
+   * is greater than the length of the array.
+   */
+  public String(int[] codePoints, int offset, int count)
+  {
+    // FIXME: This implementation appears to give correct internal
+    // representation of the String because: 
+    //   - length() is correct
+    //   - getting a char[] from toCharArray() and testing 
+    //     Character.codePointAt() on all the characters in that array gives
+    //     the appropriate results
+    // however printing the String gives incorrect results.  This may be 
+    // due to printing method errors (such as incorrectly looping through
+    // the String one char at a time rather than one "character" at a time.
+    
+    if (offset < 0)
+      throw new IndexOutOfBoundsException();
+    int end = offset + count;
+    int pos = 0;
+    // This creates a char array that is long enough for all of the code
+    // points to represent supplementary characters.  This is more than likely
+    // a waste of storage, so we use it only temporarily and then copy the 
+    // used portion into the value array.
+    char[] temp = new char[2 * codePoints.length];
+    for (int i = offset; i < end; i++)
+      {
+        pos += Character.toChars(codePoints[i], temp, pos);        
+      }
+    this.count = pos;
+    this.value = new char[pos];
+    System.arraycopy(temp, 0, value, 0, pos);
+    this.offset = 0;
+  }
+  
   /**
    * Returns the number of characters contained in this String.
    *
@@ -551,6 +620,40 @@ public final class String implements Serializable, Comparable, CharSequence
     if (index < 0 || index >= count)
       throw new StringIndexOutOfBoundsException(index);
     return value[offset + index];
+  }
+
+  /**
+   * Get the code point at the specified index.  This is like #charAt(int),
+   * but if the character is the start of a surrogate pair, and the
+   * following character completes the pair, then the corresponding
+   * supplementary code point is returned.
+   * @param index the index of the codepoint to get, starting at 0
+   * @return the codepoint at the specified index
+   * @throws IndexOutOfBoundsException if index is negative or &gt;= length()
+   * @since 1.5
+   */
+  public synchronized int codePointAt(int index)
+  {
+    // Use the CharSequence overload as we get better range checking
+    // this way.
+    return Character.codePointAt(this, index);
+  }
+
+  /**
+   * Get the code point before the specified index.  This is like
+   * #codePointAt(int), but checks the characters at <code>index-1</code> and
+   * <code>index-2</code> to see if they form a supplementary code point.
+   * @param index the index just past the codepoint to get, starting at 0
+   * @return the codepoint at the specified index
+   * @throws IndexOutOfBoundsException if index is negative or &gt;= length()
+   *         (while unspecified, this is a StringIndexOutOfBoundsException)
+   * @since 1.5
+   */
+  public synchronized int codePointBefore(int index)
+  {
+    // Use the CharSequence overload as we get better range checking
+    // this way.
+    return Character.codePointBefore(this, index);
   }
 
   /**
@@ -628,21 +731,26 @@ public final class String implements Serializable, Comparable, CharSequence
 	ByteBuffer bbuf = cse.encode(CharBuffer.wrap(value, offset, count));
 	if(bbuf.hasArray())
 	  return bbuf.array();
-
+	
 	// Doubt this will happen. But just in case.
 	byte[] bytes = new byte[bbuf.remaining()];
 	bbuf.get(bytes);
 	return bytes;
-
-      } catch(IllegalCharsetNameException e){
-	  throw new UnsupportedEncodingException("Encoding: "+enc+
-						 " not found.");
-      } catch(UnsupportedCharsetException e){
-	  throw new UnsupportedEncodingException("Encoding: "+enc+
-						 " not found.");
-      } catch(CharacterCodingException e){
-	  // XXX - Ignore coding exceptions? They shouldn't really happen.
-	  return null;
+      } 
+    catch(IllegalCharsetNameException e)
+      {
+	throw new UnsupportedEncodingException("Encoding: " + enc
+					       + " not found.");
+      } 
+    catch(UnsupportedCharsetException e)
+      {
+	throw new UnsupportedEncodingException("Encoding: " + enc
+					       + " not found.");
+      } 
+    catch(CharacterCodingException e)
+      {
+	// This shouldn't ever happen.
+	throw (InternalError) new InternalError().initCause(e);
       }	  
   }
 
@@ -723,6 +831,26 @@ public final class String implements Serializable, Comparable, CharSequence
             return false;
         return true;
       }
+  }
+
+  /**
+   * Compares the given CharSequence to this String. This is true if
+   * the CharSequence has the same content as this String at this
+   * moment.
+   *
+   * @param seq the CharSequence to compare to
+   * @return true if CharSequence has the same character sequence
+   * @throws NullPointerException if the given CharSequence is null
+   * @since 1.5
+   */
+  public boolean contentEquals(CharSequence seq)
+  {
+    if (seq.length() != count)
+      return false;
+    for (int i = 0; i < count; ++i)
+      if (value[offset + i] != seq.charAt(i))
+	return false;
+    return true;
   }
 
   /**
@@ -1546,6 +1674,7 @@ public final class String implements Serializable, Comparable, CharSequence
    * @return String containing the chars from data[offset..offset+count]
    * @throws NullPointerException if data is null
    * @throws IndexOutOfBoundsException if (offset &lt; 0 || count &lt; 0
+   *         || offset + count &lt; 0 (overflow)
    *         || offset + count &gt; data.length)
    *         (while unspecified, this is a StringIndexOutOfBoundsException)
    * @see #String(char[], int, int)
@@ -1566,6 +1695,7 @@ public final class String implements Serializable, Comparable, CharSequence
    * @return String containing the chars from data[offset..offset+count]
    * @throws NullPointerException if data is null
    * @throws IndexOutOfBoundsException if (offset &lt; 0 || count &lt; 0
+   *         || offset + count &lt; 0 (overflow)
    *         || offset + count &gt; data.length)
    *         (while unspecified, this is a StringIndexOutOfBoundsException)
    * @see #String(char[], int, int)
@@ -1677,6 +1807,49 @@ public final class String implements Serializable, Comparable, CharSequence
   }
 
   /**
+   * Return the number of code points between two indices in the
+   * <code>String</code>.  An unpaired surrogate counts as a
+   * code point for this purpose.  Characters outside the indicated
+   * range are not examined, even if the range ends in the middle of a
+   * surrogate pair.
+   *
+   * @param start the starting index
+   * @param end one past the ending index
+   * @return the number of code points
+   * @since 1.5
+   */
+  public synchronized int codePointCount(int start, int end)
+  {
+    if (start < 0 || end >= count || start > end)
+      throw new StringIndexOutOfBoundsException();
+
+    start += offset;
+    end += offset;
+    int count = 0;
+    while (start < end)
+      {
+	char base = value[start];
+	if (base < Character.MIN_HIGH_SURROGATE
+	    || base > Character.MAX_HIGH_SURROGATE
+	    || start == end
+	    || start == count
+	    || value[start + 1] < Character.MIN_LOW_SURROGATE
+	    || value[start + 1] > Character.MAX_LOW_SURROGATE)
+	  {
+	    // Nothing.
+	  }
+	else
+	  {
+	    // Surrogate pair.
+	    ++start;
+	  }
+	++start;
+	++count;
+      }
+    return count;
+  }
+
+  /**
    * Helper function used to detect which characters have a multi-character
    * uppercase expansion. Note that this is only used in locations which
    * track one-to-many capitalization (java.lang.Character does not do this).
@@ -1692,7 +1865,7 @@ public final class String implements Serializable, Comparable, CharSequence
    */
   private static int upperCaseExpansion(char ch)
   {
-    return Character.direction[Character.readChar(ch) >> 7] & 3;
+    return Character.direction[0][Character.readCodePoint((int)ch) >> 7] & 3;
   }
 
   /**
@@ -1746,5 +1919,71 @@ public final class String implements Serializable, Comparable, CharSequence
       }
 
     return value;
+  }
+  
+  /**
+   * Returns true iff this String contains the sequence of Characters
+   * described in s.
+   * @param s the CharSequence
+   * @return true iff this String contains s
+   * 
+   * @since 1.5
+   */
+  public boolean contains (CharSequence s)
+  {
+    return this.indexOf(s.toString()) != -1;
+  }
+  
+  /**
+   * Returns a string that is this string with all instances of the sequence
+   * represented by <code>target</code> replaced by the sequence in 
+   * <code>replacement</code>.
+   * @param target the sequence to be replaced
+   * @param replacement the sequence used as the replacement
+   * @return the string constructed as above
+   */
+  public String replace (CharSequence target, CharSequence replacement)
+  {
+    String targetString = target.toString();
+    String replaceString = replacement.toString();
+    int targetLength = target.length();
+    int replaceLength = replacement.length();
+    
+    int startPos = this.indexOf(targetString);
+    StringBuilder result = new StringBuilder(this);    
+    while (startPos != -1)
+      {
+        // Replace the target with the replacement
+        result.replace(startPos, startPos + targetLength, replaceString);
+
+        // Search for a new occurrence of the target
+        startPos = result.indexOf(targetString, startPos + replaceLength);
+      }
+    return result.toString();
+  }
+  
+  /**
+   * Return the index into this String that is offset from the given index by 
+   * <code>codePointOffset</code> code points.
+   * @param index the index at which to start
+   * @param codePointOffset the number of code points to offset
+   * @return the index into this String that is <code>codePointOffset</code>
+   * code points offset from <code>index</code>.
+   * 
+   * @throws IndexOutOfBoundsException if index is negative or larger than the
+   * length of this string.
+   * @throws IndexOutOfBoundsException if codePointOffset is positive and the
+   * substring starting with index has fewer than codePointOffset code points.
+   * @throws IndexOutOfBoundsException if codePointOffset is negative and the
+   * substring ending with index has fewer than (-codePointOffset) code points.
+   * @since 1.5
+   */
+  public int offsetByCodePoints(int index, int codePointOffset)
+  {
+    if (index < 0 || index > count)
+      throw new IndexOutOfBoundsException();
+    
+    return Character.offsetByCodePoints(value, offset, count, offset + index,
+                                        codePointOffset);
   }
 }

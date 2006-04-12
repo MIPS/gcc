@@ -194,7 +194,7 @@ public class XMLFormatter
     
     
     appendTag(buf, 1, "date", iso8601.format(new Date(millis)));
-    appendTag(buf, 1, "millis", record.getMillis());
+    appendTag(buf, 1, "millis", millis);
     appendTag(buf, 1, "sequence", record.getSequenceNumber());
     appendTag(buf, 1, "logger", record.getLoggerName());
 
@@ -307,7 +307,7 @@ public class XMLFormatter
    *
    * @return a string for the header.
    *
-   * @param handler the handler which will prepend the returned
+   * @param h the handler which will prepend the returned
    *     string in front of the first log record.  This method
    *     will inspect certain properties of the handler, for
    *     example its encoding, in order to construct the header.
