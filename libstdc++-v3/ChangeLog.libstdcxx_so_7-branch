@@ -1,3 +1,12 @@
+2006-04-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_stdexcept.h (class __exception_string): Add.
+	(class logic_error, class runtime_error): Use it.
+	* src/stdexcept.cc (_exception_string::_Rep::_M_destroy,
+	__exception_string::__exception_string(const string&),
+	__exception_string::operator=(const __exception_string&)): Define.
+	* config/abi/pre/gnu.ver: Update exports.
+
 2006-04-11  Paolo Carlini  <pcarlini@suse.de>
 
 	Merged to mainline at revision 112818.
