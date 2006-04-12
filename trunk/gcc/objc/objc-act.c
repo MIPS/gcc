@@ -1260,33 +1260,48 @@ objc_build_getter_call (tree receiver, tree component)
   tree x;
   tree basetype;
   tree getter;
+  /* APPLE LOCAL begin radar 4506903 */
+  tree rtype;
 
   if (TREE_CODE (component) != IDENTIFIER_NODE)
     return NULL_TREE;
-
-  basetype = TYPE_MAIN_VARIANT (TREE_TYPE (receiver));
-
-  if (TREE_CODE (basetype) == POINTER_TYPE)
-    basetype = TREE_TYPE (basetype);
-  else return NULL_TREE;
-
-  while (TREE_CODE (basetype) == RECORD_TYPE && OBJC_TYPE_NAME (basetype)
-         && TREE_CODE (OBJC_TYPE_NAME (basetype)) == TYPE_DECL
-         && DECL_ORIGINAL_TYPE (OBJC_TYPE_NAME (basetype)))
-  basetype = DECL_ORIGINAL_TYPE (OBJC_TYPE_NAME (basetype));
-  if (TYPED_OBJECT (basetype))
+  rtype = TREE_TYPE (receiver);
+  x = NULL_TREE;
+  if (objc_is_id (rtype))
     {
-      /* APPLE LOCAL radar 4505126 */
-      tree call_exp;
-      interface_type = TYPE_OBJC_INTERFACE (basetype);
-      if (!interface_type)
-	return NULL_TREE;
-      /* APPLE LOCAL begin radar 4505126 */
-      x = lookup_property (interface_type, component);
-      /* APPLE LOCAL end radar 4505126 */
-      if (!x)
-	return NULL_TREE;
+      tree rprotos = (TYPE_HAS_OBJC_INFO (TREE_TYPE (rtype))
+		      ? TYPE_OBJC_PROTOCOL_LIST (TREE_TYPE (rtype))
+		      : NULL_TREE);
+      if (rprotos)
+	x = lookup_property_in_protocol_list (rprotos, component);
+    }
+  else
+  /* APPLE LOCAL end radar 4506903 */
+    {
+      basetype = TYPE_MAIN_VARIANT (rtype);
+      if (TREE_CODE (basetype) == POINTER_TYPE)
+        basetype = TREE_TYPE (basetype);
+      else return NULL_TREE;
 
+      while (TREE_CODE (basetype) == RECORD_TYPE && OBJC_TYPE_NAME (basetype)
+             && TREE_CODE (OBJC_TYPE_NAME (basetype)) == TYPE_DECL
+             && DECL_ORIGINAL_TYPE (OBJC_TYPE_NAME (basetype)))
+      basetype = DECL_ORIGINAL_TYPE (OBJC_TYPE_NAME (basetype));
+      if (TYPED_OBJECT (basetype))
+        {
+          /* APPLE LOCAL radar 4505126 */
+          interface_type = TYPE_OBJC_INTERFACE (basetype);
+          if (!interface_type)
+	    return NULL_TREE;
+          /* APPLE LOCAL begin radar 4505126 */
+          x = lookup_property (interface_type, component);
+          /* APPLE LOCAL end radar 4505126 */
+        }
+    }
+
+  if (x)
+    {
+      tree call_exp;
       /* Get the getter name. */
       gcc_assert (PROPERTY_NAME (x));
       getter = objc_finish_message_expr (receiver, PROPERTY_NAME (x), NULL_TREE);

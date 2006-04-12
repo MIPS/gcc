@@ -1,3 +1,9 @@
+2006-04-10 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4506903
+	* objc/objc-act.c (objc_build_getter_call): Lookup property in
+	id<protocol>.property as well.
+
 2006-04-12 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4507230
