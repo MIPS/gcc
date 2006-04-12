@@ -1,3 +1,7 @@
+2006-04-12  Diego Novillo  <dnovillo@redhat.com>
+
+	Mainline merge as of 2006-04-11 (@112868).
+
 2006-03-28  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-ssa-operands.h: Rename all *maydef* globals to *vdef*.

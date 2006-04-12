@@ -5,12 +5,14 @@ JAVA_DEPEND = java.dep
 ## this file and restart the make process again
 sinclude $(JAVA_DEPEND)
 
-propertydirs :=  $(shell cd $(top_srcdir)/resource && $(FIND) gnu java org META-INF -type d ! -name CVS -print)
+## GCJ LOCAL: prune .svn directories
+propertydirs :=  $(shell cd $(top_srcdir)/resource && $(FIND) gnu java org META-INF -type d ! -name CVS -print | fgrep -v .svn)
 propertyfiles :=  $(shell cd $(top_srcdir)/resource && $(FIND) gnu java org -name \*\.properties -print)
-metafiles :=  $(shell cd $(top_srcdir)/resource && $(FIND) META-INF -name CVS -prune -o -type f -print)
+metafiles :=  $(shell cd $(top_srcdir)/resource && $(FIND) META-INF -name CVS -prune -o -type f -print | fgrep -v .svn)
+## END GCJ LOCAL
 iconfiles :=  $(shell cd $(top_srcdir) && $(FIND) gnu/javax/swing/plaf/gtk/icons -name *.png -type f -print)
 
-compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:.:$(USER_CLASSLIB)
+compile_classpath = $(vm_classes):$(top_srcdir):$(top_srcdir)/external/w3c_dom:$(top_srcdir)/external/sax:$(top_srcdir)/external/relaxngDatatype:.:$(USER_CLASSLIB)
 
 # handling source to bytecode compiler programs like gcj, jikes  and kjc
 if FOUND_GCJ
@@ -37,6 +39,23 @@ endif # FOUND_GCJ
 endif # FOUND_JIKES
 
 JAVAH = $(USER_JAVAH) -jni -classpath .:$(USER_CLASSLIB)
+
+if CREATE_COLLECTIONS
+COLLECTIONS = collections.jar
+
+collections.jar: mkcollections.pl
+	./mkcollections.pl $(top_srcdir)
+if FOUND_GCJ
+	$(GCJ) -C `$(FIND) $(COLLECTIONS_PREFIX) -name '*' -type f -print`
+else
+	$(JAVAC) `$(FIND) $(COLLECTIONS_PREFIX) -name '*' -type f -print`
+endif
+	if test "$(FASTJAR)" != ""; then \
+	  $(FASTJAR) cf $@ $(COLLECTIONS_PREFIX); \
+	else \
+	  echo "fastjar not found" > collections.jar; \
+	fi
+endif # CREATE_COLLECTIONS
 
 if INSTALL_GLIBJ_ZIP
 
@@ -74,6 +93,7 @@ endif # INSTALL_CLASS_FILES
 
 glibj.zip: classes compile-classes resources
 	if test "$(ZIP)" != ""; then $(ZIP) -r -D glibj.zip gnu java javax org META-INF > /dev/null; fi
+	if test "$(FASTJAR)" != ""; then $(FASTJAR) cf glibj.zip gnu java javax org META-INF; fi
 
 resources: copy-vmresources.sh
 	if ! [ -e gnu ]; then mkdir gnu; fi
@@ -131,6 +151,7 @@ compile-classes: classes $(JAVA_SRCS) Makefile
 	  GCJ='$(GCJ)' \
 	  compile_classpath='$(top_builddir):$(compile_classpath)' \
 	  top_srcdir=$(top_srcdir)
+	touch compile-classes
 else
 compile-classes: classes $(JAVA_SRCS) Makefile
 	$(JAVAC)
@@ -139,7 +160,7 @@ endif
 
 EXTRA_DIST = standard.omit mkcollections.pl.in Makefile.gcj split-for-gcj.sh
 CLEANFILES = compile-classes resources classes \
-	glibj.zip classes.1 \
+	glibj.zip classes.1 classes.2 \
 	$(top_builddir)/java/util/LocaleData.java \
 	$(JAVA_DEPEND)
 

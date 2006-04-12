@@ -1,6 +1,6 @@
 /* Register Transfer Language (RTL) definitions for GCC
-   Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -360,6 +360,9 @@ struct rtvec_def GTY(()) {
 
 /* Predicate yielding nonzero iff X is an rtx for a memory location.  */
 #define MEM_P(X) (GET_CODE (X) == MEM)
+
+/* Predicate yielding nonzero iff X is an rtx for a constant integer.  */
+#define CONST_INT_P(X) (GET_CODE (X) == CONST_INT)
 
 /* Predicate yielding nonzero iff X is a label insn.  */
 #define LABEL_P(X) (GET_CODE (X) == CODE_LABEL)
@@ -961,13 +964,6 @@ enum label_kind
    The chain eventually winds up at the CODE_LABEL: it is circular.  */
 #define LABEL_REFS(LABEL) XCEXP (LABEL, 5, CODE_LABEL)
 
-/* This is the field in the LABEL_REF through which the circular chain
-   of references to a particular label is linked.
-   FIXME: This chain is used in loop.c and in the SH backend.
-	  Since loop.c is about to go away, it could be a win to replace
-	  the uses of this in the SH backend with something else.  */
-#define LABEL_NEXTREF(REF) XCEXP (REF, 1, LABEL_REF)
-
 /* For a REG rtx, REGNO extracts the register number.  ORIGINAL_REGNO holds
    the number the register originally had; for a pseudo register turned into
    a hard reg this will hold the old pseudo register number.  */
@@ -1760,6 +1756,12 @@ void free_EXPR_LIST_node		(rtx);
 void free_INSN_LIST_node		(rtx);
 rtx alloc_INSN_LIST			(rtx, rtx);
 rtx alloc_EXPR_LIST			(int, rtx, rtx);
+void free_DEPS_LIST_list (rtx *);
+rtx alloc_DEPS_LIST (rtx, rtx, int);
+void remove_free_DEPS_LIST_elem (rtx, rtx *);
+void remove_free_INSN_LIST_elem (rtx, rtx *);
+rtx remove_list_elem (rtx, rtx *);
+rtx copy_DEPS_LIST_list (rtx);
 
 /* regclass.c */
 
@@ -2063,7 +2065,6 @@ extern void remove_insn (rtx);
 extern void emit_insn_after_with_line_notes (rtx, rtx, rtx);
 extern rtx emit (rtx);
 extern void renumber_insns (void);
-extern unsigned int remove_unnecessary_notes (void);
 extern rtx delete_insn (rtx);
 extern rtx entry_of_function (void);
 extern void delete_insn_chain (rtx, rtx);

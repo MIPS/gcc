@@ -1,3 +1,138 @@
+2006-04-10  Matthias Klose  <doko@debian.org>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Recognize multilib
+	directory names containing underscores.
+
+2006-04-10  Paolo Carlini  <pcarlini@suse.de>
+
+	DR 538, [Ready]
+	* include/bits/stl_algo.h (__unique_copy(,,, input_iterator_tag,
+	output_iterator_tag), and predicated counterpart): Revert to the
+	algorithm pre-DR 241, i.e., value_type of InputIterator is now
+	required to be Assignable too.
+	* testsuite/25_algorithms/unique_copy/3.cc: Remove.
+	* docs/html/ext/howto.html: Add an entry for DR 538.
+
+2006-03-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/data/sgetn.txt:  Correct copyright holder.
+	* testsuite/data/wistream_extractor_other-1.tst: Same.
+	* testsuite/data/wistream_extractor_other-2.tst: Same.
+	* testsuite/data/istream_extractor_other-1.txt: Same.
+	* testsuite/data/filebuf_virtuals-1.txt: Same.
+	* testsuite/data/wostream_inserter_other-1.tst: Same.
+	* testsuite/data/wostream_inserter_other-2.tst: Same.
+	* testsuite/data/ostream_inserter_other-1.tst: Same.
+	* testsuite/data/ostream_inserter_other-2.tst: Same.
+	* testsuite/data/wistream_extractor_other-1.txt: Same.
+	* testsuite/data/istream_extractor_other-1.tst: Same.
+	* testsuite/data/istream_extractor_other-2.tst: Same.
+	* testsuite/data/filebuf_virtuals-1.tst: Same.
+	* testsuite/27_io/basic_filebuf/sgetn/char/1-in.cc: Adjust test
+	conditions.
+	* testsuite/27_io/basic_filebuf/sgetn/char/1-io.cc: Same.
+	* testsuite/27_io/basic_filebuf/sgetn/char/2-in.cc: Same.
+	* testsuite/27_io/basic_filebuf/sgetn/char/2-io.cc: Same.
+
+2006-03-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.h (operator[]): Allow s[s.size()] in
+	debug mode, but not pedantic mode.
+
+2006-03-24  Mark Mitchell  <mark@codesourcery.com>
+            Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR libstdc++/20448
+	PR libstdc++/20451
+	* scripts/testsuite_flags.in (--cxxflags): Don't define LOCALEDIR.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Always define
+	LOCALEDIR to ".".
+	(v3-build_support): Build MO files.
+
+2006-03-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26777
+	* include/bits/fstream.tcc (basic_filebuf<>::_M_seek): Check
+	the return value of _M_file.seekoff.
+	* testsuite/27_io/basic_filebuf/seekoff/char/26777.cc: New.
+
+2006-03-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/25482
+	* include/bits/stl_algobase.h (__copy_aux(_CharT*, _CharT*,
+	ostreambuf_iterator<_CharT>), __copy_aux(const _CharT*, const _CharT*,
+	ostreambuf_iterator<_CharT>), __copy_aux(istreambuf_iterator<_CharT>,
+	istreambuf_iterator<_CharT>, _CharT*), copy(istreambuf_iterator<_CharT>,
+	istreambuf_iterator<_CharT>, ostreambuf_iterator<_CharT>)): Declare.
+	* include/bits/stl_algo.h (find(istreambuf_iterator<_CharT>,
+	istreambuf_iterator<_CharT>, _CharT)): Likewise.
+	* include/bits/streambuf_iterator.h (copy(istreambuf_iterator<_CharT>,
+	istreambuf_iterator<_CharT>, ostreambuf_iterator<_CharT>),
+	__copy_aux(_CharT*, _CharT*, ostreambuf_iterator<_CharT>),
+	__copy_aux(const _CharT*, const _CharT*, ostreambuf_iterator<_CharT>),
+	__copy_aux(istreambuf_iterator<_CharT>, istreambuf_iterator<_CharT>,
+	_CharT*), find(istreambuf_iterator<_CharT>, istreambuf_iterator<_CharT>,
+	_CharT)): Define.
+	(class istreambuf_iterator<>, class ostreambuf_iterator<>): Declare
+	friends.
+	* include/std/std_streambuf.h (class basic_streambuf<>): Likewise.
+	* include/bits/cpp_type_traits.h (struct __is_char<>): Add.
+	* testsuite/25_algorithms/copy/streambuf_iterators/char/1.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/char/2.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/char/3.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/char/4.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/wchar_t/1.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/wchar_t/2.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/wchar_t/3.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/wchar_t/4.cc: New.
+	* testsuite/25_algorithms/find/istreambuf_iterators/char/1.cc: New.
+	* testsuite/25_algorithms/find/istreambuf_iterators/char/2.cc: New.
+	* testsuite/25_algorithms/find/istreambuf_iterators/wchar_t/1.cc: New.
+	* testsuite/25_algorithms/find/istreambuf_iterators/wchar_t/2.cc: New.
+	* testsuite/performance/25_algorithms/copy_streambuf_iterators.cc: New.
+	* testsuite/performance/25_algorithms/find_istreambuf_iterators.cc: New.
+
+006-03-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/postypes.h (fpos<>::operator==, operator!=): Remove,
+	exploit conversion to streamoff.
+	* testsuite/27_io/fpos/mbstate_t/5.cc: New.
+
+2006-03-12  Howard Hinnant  <hhinnant@apple.com>
+
+	* testsuite/27_io/basic_filebuf/underflow/char/10097.cc:
+	Fix race condition.
+	* testsuite/27_io/objects/char/9661-1.cc: Likewise.
+	* testsuite/27_io/objects/wchar_t/9661-1.cc: Likewise.
+
+2006-03-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cmath: Add atan2 and pow bits; add using declarations.	
+	* include/tr1/math.h: Add using declarations.
+	* include/tr1/complex: Add using declarations.
+	* testsuite/tr1/8_c_compatibility/cmath/functions.cc: Fully
+	qualify calls.
+	* testsuite/tr1/8_c_compatibility/cmath/overloads.cc: Likewise;
+	add atan2 and pow bits.
+	* testsuite/tr1/8_c_compatibility/complex/overloads_float.cc: Likewise.
+	* testsuite/tr1/8_c_compatibility/complex/overloads_int.cc: Likewise;
+	adjust polar bits.
+
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): Add checks for double_t
+	and float_t typedefs.
+	* include/tr1/cmath: Add double_t and float_t.
+	* testsuite/tr1/8_c_compatibility/cmath/types.cc: New.
+
+	* include/tr1/ctgmath: New.
+	* include/tr1/tgmath.h: Likewise.
+	* include/Makefile.am: Add.
+	* testsuite/tr1/headers.cc: Update.
+
+	* include/Makefile.in: Regenerate.
+	* configure: Likewise.
+
+	* docs/html/ext/tr1.html: Update.
+
 2006-03-08  Paolo Carlini  <pcarlini@suse.de>
 
 	Implement the resolution of DR 455, [DR].

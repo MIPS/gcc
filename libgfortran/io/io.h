@@ -412,7 +412,7 @@ typedef struct st_parameter_dt
 	     formatted field width.  */
 	  unsigned sf_read_comma : 1;
           /* A namelist specific flag used to enable reading input from 
-	       line_buffer for logical reads.  */
+	     line_buffer for logical reads.  */
 	  unsigned line_buffer_enabled : 1;
 	  /* 18 unused bits.  */
 
@@ -434,11 +434,20 @@ typedef struct st_parameter_dt
 	     enough to hold a complex value (two reals) of the largest
 	     kind.  */
 	  char value[32];
+	  gfc_offset size_used;
 	} p;
-      char pad[16 * sizeof (char *) + 34 * sizeof (int)];
+      /* This pad size must be equal to the pad_size declared in
+	 trans-io.c (gfc_build_io_library_fndecls).  The above structure
+	 must be smaller or equal to this array.  */
+      char pad[16 * sizeof (char *) + 32 * sizeof (int)];
     } u;
 }
 st_parameter_dt;
+
+/* Ensure st_parameter_dt's u.pad is bigger or equal to u.p.  */
+extern char check_st_parameter_dt[sizeof (((st_parameter_dt *) 0)->u.pad)
+				  >= sizeof (((st_parameter_dt *) 0)->u.p)
+				  ? 1 : -1];
 
 #undef CHARACTER1
 #undef CHARACTER2
@@ -742,6 +751,9 @@ internal_proto(type_name);
 
 extern void *read_block (st_parameter_dt *, int *);
 internal_proto(read_block);
+
+extern char *read_sf (st_parameter_dt *, int *, int);
+internal_proto(read_sf);
 
 extern void *write_block (st_parameter_dt *, int);
 internal_proto(write_block);

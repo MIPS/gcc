@@ -254,12 +254,12 @@ cgraph_check_inline_limits (struct cgraph_node *to, struct cgraph_node *what,
   int newsize;
   int limit;
 
-  if (to->global.inlined_to)
-    to = to->global.inlined_to;
-
   for (e = to->callees; e; e = e->next_callee)
     if (e->callee == what)
       times++;
+
+  if (to->global.inlined_to)
+    to = to->global.inlined_to;
 
   /* When inlining large function body called once into small function,
      take the inlined function as base for limiting the growth.  */
@@ -270,8 +270,11 @@ cgraph_check_inline_limits (struct cgraph_node *to, struct cgraph_node *what,
 
   limit += limit * PARAM_VALUE (PARAM_LARGE_FUNCTION_GROWTH) / 100;
 
+  /* Check the size after inlining against the function limits.  But allow
+     the function to shrink if it went over the limits by forced inlining.  */
   newsize = cgraph_estimate_size_after_inlining (times, to, what);
-  if (newsize > PARAM_VALUE (PARAM_LARGE_FUNCTION_INSNS)
+  if (newsize >= to->global.insns
+      && newsize > PARAM_VALUE (PARAM_LARGE_FUNCTION_INSNS)
       && newsize > limit)
     {
       if (reason)
@@ -1074,7 +1077,7 @@ cgraph_decide_inlining_incrementally (struct cgraph_node *node, bool early)
 	  && !e->callee->local.disregard_inline_limits
 	  && !cgraph_recursive_inlining_p (node, e->callee, &e->inline_failed)
 	  && (!early
-	      || (cgraph_estimate_size_after_inlining (1, e->caller, node)
+	      || (cgraph_estimate_size_after_inlining (1, e->caller, e->callee)
 	          <= e->caller->global.insns))
 	  && cgraph_check_inline_limits (node, e->callee, &e->inline_failed)
 	  && (DECL_SAVED_TREE (e->callee->decl) || e->callee->inline_decl))
@@ -1156,7 +1159,10 @@ cgraph_early_inlining (void)
       if (node->analyzed && node->local.inlinable
 	  && (node->needed || node->reachable)
 	  && node->callers)
-	cgraph_decide_inlining_incrementally (node, true);
+	{
+	  if (cgraph_decide_inlining_incrementally (node, true))
+	    ggc_collect ();
+	}
     }
   cgraph_remove_unreachable_nodes (true, dump_file);
 #ifdef ENABLE_CHECKING

@@ -418,12 +418,23 @@
   [(set (match_operand:HI 0 "nonimmediate_operand" "=x,da,x,d,mr")
         (match_operand:HI 1 "general_operand" "x,xKs7,xKsh,mr,d"))]
   "GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM"
-  "@
-   %0 = %1;
-   %0 = %1 (X);
-   %0 = %1 (X);
-   %0 = W %1 (X);
-   W %0 = %1;"
+{
+  static const char *templates[] = {
+    "%0 = %1;",
+    "%0 = %1 (X);",
+    "%0 = %1 (X);",
+    "%0 = W %1 (X);",
+    "W %0 = %1;",
+    "%h0 = W %1;",
+    "W %0 = %h1;"
+  };
+  int alt = which_alternative;
+  rtx mem = (MEM_P (operands[0]) ? operands[0]
+	     : MEM_P (operands[1]) ? operands[1] : NULL_RTX);
+  if (mem && bfin_dsp_memref_p (mem))
+    alt += 2;
+  return templates[alt];
+}
   [(set_attr "type" "move,mvi,mvi,mcld,mcst")
    (set_attr "length" "2,2,4,*,*")])
 
@@ -588,22 +599,34 @@
 
 ;; Sign and zero extensions
 
-(define_insn "extendhisi2"
+(define_insn_and_split "extendhisi2"
   [(set (match_operand:SI 0 "register_operand" "=d, d")
 	(sign_extend:SI (match_operand:HI 1 "nonimmediate_operand" "d, m")))]
   ""
   "@
    %0 = %h1 (X);
    %0 = W %h1 (X);"
+  "reload_completed && bfin_dsp_memref_p (operands[1])"
+  [(set (match_dup 2) (match_dup 1))
+   (set (match_dup 0) (sign_extend:SI (match_dup 2)))]
+{
+  operands[2] = gen_lowpart (HImode, operands[0]);
+}
   [(set_attr "type" "alu0,mcld")])
 
-(define_insn "zero_extendhisi2"
+(define_insn_and_split "zero_extendhisi2"
   [(set (match_operand:SI 0 "register_operand" "=d, d")
 	(zero_extend:SI (match_operand:HI 1 "nonimmediate_operand" "d, m")))]
   ""
   "@
    %0 = %h1 (Z);
-   %0 = W%h1 (Z);"
+   %0 = W %h1 (Z);"
+  "reload_completed && bfin_dsp_memref_p (operands[1])"
+  [(set (match_dup 2) (match_dup 1))
+   (set (match_dup 0) (zero_extend:SI (match_dup 2)))]
+{
+  operands[2] = gen_lowpart (HImode, operands[0]);
+}
   [(set_attr "type" "alu0,mcld")])
 
 (define_insn "zero_extendbisi2"
@@ -1362,10 +1385,10 @@
 	 (match_operand 1 "general_operand" "g"))
    (use (match_operand 2 "" ""))]
   "! SIBLING_CALL_P (insn)
-   && !flag_pic
+   && !TARGET_ID_SHARED_LIBRARY
    && GET_CODE (operands[0]) == SYMBOL_REF
    && !bfin_longcall_p (operands[0], INTVAL (operands[2]))"
-  "call %G0;"
+  "call %0;"
   [(set_attr "type" "call")
    (set_attr "length" "4")])
 
@@ -1375,10 +1398,10 @@
    (use (match_operand 2 "" ""))
    (return)]
   "SIBLING_CALL_P (insn)
-   && !flag_pic
+   && !TARGET_ID_SHARED_LIBRARY
    && GET_CODE (operands[0]) == SYMBOL_REF
    && !bfin_longcall_p (operands[0], INTVAL (operands[2]))"
-  "jump.l %G0;"
+  "jump.l %0;"
   [(set_attr "type" "br")
    (set_attr "length" "4")])
 
@@ -1388,10 +1411,10 @@
 	      (match_operand 2 "general_operand" "g")))
    (use (match_operand 3 "" ""))]
   "! SIBLING_CALL_P (insn)
-   && !flag_pic
+   && !TARGET_ID_SHARED_LIBRARY
    && GET_CODE (operands[1]) == SYMBOL_REF
    && !bfin_longcall_p (operands[1], INTVAL (operands[3]))"
-  "call %G1;"
+  "call %1;"
   [(set_attr "type" "call")
    (set_attr "length" "4")])
 
@@ -1402,10 +1425,10 @@
    (use (match_operand 3 "" ""))
    (return)]
   "SIBLING_CALL_P (insn)
-   && !flag_pic
+   && !TARGET_ID_SHARED_LIBRARY
    && GET_CODE (operands[1]) == SYMBOL_REF
    && !bfin_longcall_p (operands[1], INTVAL (operands[3]))"
-  "jump.l %G1;"
+  "jump.l %1;"
   [(set_attr "type" "br")
    (set_attr "length" "4")])
 
@@ -1491,14 +1514,14 @@
   [(set_attr "type" "misc")
    (set_attr "length" "16")])
 
-(define_expand "movstrsi"
+(define_expand "movmemsi"
   [(match_operand:BLK 0 "general_operand" "")
    (match_operand:BLK 1 "general_operand" "")
    (match_operand:SI 2 "const_int_operand" "")
    (match_operand:SI 3 "const_int_operand" "")]
   ""
 {
-  if (bfin_expand_strmov (operands[0], operands[1], operands[2], operands[3]))
+  if (bfin_expand_movmem (operands[0], operands[1], operands[2], operands[3]))
     DONE;
   FAIL;
 })

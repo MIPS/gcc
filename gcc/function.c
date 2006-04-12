@@ -63,6 +63,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-gimple.h"
 #include "tree-pass.h"
 #include "predict.h"
+#include "vecprim.h"
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
@@ -122,9 +123,6 @@ struct machine_function * (*init_machine_status) (void);
 
 /* The currently compiled function.  */
 struct function *cfun = 0;
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 /* These arrays record the INSN_UIDs of the prologue and epilogue insns.  */
 static VEC(int,heap) *prologue;
@@ -331,7 +329,7 @@ free_after_compilation (struct function *f)
   f->x_return_label = NULL;
   f->x_naked_return_label = NULL;
   f->x_stack_slot_list = NULL;
-  f->x_tail_recursion_reentry = NULL;
+  f->x_stack_check_probe_note = NULL;
   f->x_arg_pointer_save_area = NULL;
   f->x_parm_birth_insn = NULL;
   f->original_arg_vector = NULL;
@@ -358,10 +356,31 @@ get_func_frame_size (struct function *f)
 /* Return size needed for stack frame based on slots so far allocated.
    This size counts from zero.  It is not rounded to PREFERRED_STACK_BOUNDARY;
    the caller may have to do that.  */
+
 HOST_WIDE_INT
 get_frame_size (void)
 {
   return get_func_frame_size (cfun);
+}
+
+/* Issue an error message and return TRUE if frame OFFSET overflows in
+   the signed target pointer arithmetics for function FUNC.  Otherwise
+   return FALSE.  */
+
+bool
+frame_offset_overflow (HOST_WIDE_INT offset, tree func)
+{  
+  unsigned HOST_WIDE_INT size = FRAME_GROWS_DOWNWARD ? -offset : offset;
+
+  if (size > ((unsigned HOST_WIDE_INT) 1 << (GET_MODE_BITSIZE (Pmode) - 1))
+	       /* Leave room for the fixed part of the frame.  */
+	       - 64 * UNITS_PER_WORD)
+    {
+      error ("%Jtotal size of local objects too large", func);
+      return TRUE;
+    }
+
+  return FALSE;
 }
 
 /* Allocate a stack slot of SIZE bytes and return a MEM rtx for it
@@ -479,20 +498,8 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
   function->x_stack_slot_list
     = gen_rtx_EXPR_LIST (VOIDmode, x, function->x_stack_slot_list);
 
-  /* Try to detect frame size overflows on native platforms.  */
-#if BITS_PER_WORD >= 32
-  if ((FRAME_GROWS_DOWNWARD
-       ? (unsigned HOST_WIDE_INT) -function->x_frame_offset
-       : (unsigned HOST_WIDE_INT) function->x_frame_offset)
-	> ((unsigned HOST_WIDE_INT) 1 << (BITS_PER_WORD - 1))
-	    /* Leave room for the fixed part of the frame.  */
-	    - 64 * UNITS_PER_WORD)
-    {
-      error ("%Jtotal size of local objects too large", function->decl);
-      /* Avoid duplicate error messages as much as possible.  */
-      function->x_frame_offset = 0;
-    }
-#endif
+  if (frame_offset_overflow (function->x_frame_offset, function->decl))
+    function->x_frame_offset = 0;
 
   return x;
 }
@@ -4111,7 +4118,7 @@ expand_function_start (tree subr)
       else
 #endif
 	{
-	  rtx sv = targetm.calls.struct_value_rtx (TREE_TYPE (subr), 1);
+	  rtx sv = targetm.calls.struct_value_rtx (TREE_TYPE (subr), 2);
 	  /* Expect to be passed the address of a place to store the value.
 	     If it is passed as an argument, assign_parms will take care of
 	     it.  */
@@ -4215,8 +4222,8 @@ expand_function_start (tree subr)
      as opposed to parm setup.  */
   emit_note (NOTE_INSN_FUNCTION_BEG);
 
-  if (!NOTE_P (get_last_insn ()))
-    emit_note (NOTE_INSN_DELETED);
+  gcc_assert (NOTE_P (get_last_insn ()));
+
   parm_birth_insn = get_last_insn ();
 
   if (current_function_profile)
@@ -4226,10 +4233,10 @@ expand_function_start (tree subr)
 #endif
     }
 
-  /* After the display initializations is where the tail-recursion label
-     should go, if we end up needing one.   Ensure we have a NOTE here
-     since some things (like trampolines) get placed before this.  */
-  tail_recursion_reentry = emit_note (NOTE_INSN_DELETED);
+  /* After the display initializations is where the stack checking
+     probe should go.  */
+  if(flag_stack_check)
+    stack_check_probe_note = emit_note (NOTE_INSN_DELETED);
 
   /* Make sure there is a line number after the function entry setup code.  */
   force_next_line_note ();
@@ -4355,7 +4362,7 @@ expand_function_end (void)
 			       GEN_INT (STACK_CHECK_MAX_FRAME_SIZE));
 	    seq = get_insns ();
 	    end_sequence ();
-	    emit_insn_before (seq, tail_recursion_reentry);
+	    emit_insn_before (seq, stack_check_probe_note);
 	    break;
 	  }
     }
@@ -5578,6 +5585,23 @@ rest_of_handle_check_leaf_regs (void)
     = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
 #endif
   return 0;
+}
+
+/* Insert a type into the used types hash table.  */
+void
+used_types_insert (tree t, struct function *func)
+{
+  if (t != NULL && func != NULL)
+    {
+      void **slot;
+
+      if (func->used_types_hash == NULL)
+	func->used_types_hash = htab_create_ggc (37, htab_hash_pointer,
+					     htab_eq_pointer, NULL);
+      slot = htab_find_slot (func->used_types_hash, t, INSERT);
+      if (*slot == NULL)
+	*slot = t;
+    }
 }
 
 struct tree_opt_pass pass_leaf_regs =

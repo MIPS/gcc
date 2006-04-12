@@ -257,7 +257,9 @@ Common RejectNegative Joined UInteger
 ; 1 if pointer arguments may not alias each other but may alias
 ;   global variables.
 ; 2 if pointer arguments may not alias each other and may not
-;   alias global variables.  True in Fortran.
+;   alias global variables.
+; 3 if pointer arguments may not alias anything.  True in Fortran.
+;   Set by the front end.
 fargument-alias
 Common Report Var(flag_argument_noalias,0)
 Specify that arguments may alias each other and globals
@@ -269,6 +271,10 @@ Assume arguments may alias globals but not each other
 fargument-noalias-global
 Common Report Var(flag_argument_noalias,2) VarExists
 Assume arguments alias neither each other nor globals
+
+fargument-noalias-anything
+Common Report Var(flag_argument_noalias,3) VarExists
+Assume arguments alias no other storage
 
 fasynchronous-unwind-tables
 Common Report Var(flag_asynchronous_unwind_tables)
@@ -390,6 +396,10 @@ Perform unused type elimination in debug info
 feliminate-unused-debug-types
 Common Report Var(flag_eliminate_unused_debug_types) Init(1)
 Perform unused type elimination in debug info
+
+femit-class-debug-always
+Common Report Var(flag_emit_class_debug_always) Init(1)
+Do not suppress C++ class debug information.
 
 fexceptions
 Common Report Var(flag_exceptions)

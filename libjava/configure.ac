@@ -116,6 +116,10 @@ AC_CHECK_TOOL(AS, as)
 AC_CHECK_TOOL(LD, ld)
 AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
+AC_CHECK_PROGS(JAR, [jar fastjar], false)
+if test "$JAR" = false; then
+  AC_MSG_ERROR(jar program not found)
+fi
 
 AC_PROG_INSTALL
 
@@ -289,7 +293,6 @@ case "${which_gcj}" in
    built)
       GCJ="$built_gcc_dir/gcj -B`${PWDCMD-pwd}`/ -B$built_gcc_dir/"
       GCJH='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/gcc/gcjh'
-      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/fastjar/fastjar'
    ;;
    cross)
       if test "x${with_newlib}" = "xyes"; then
@@ -299,20 +302,15 @@ case "${which_gcj}" in
       else
          GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
       fi
-      ZIP='$(target_noncanonical)-fastjar'
       GCJH='$(target_noncanonical)-gcjh'
    ;;
    path)
       GCJ="gcj -B`${PWDCMD-pwd}`/"
-      ## In this case, gcj is found outside the build tree.  However, zip is
-      ## found in the build tree.
-      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
       GCJH=gcjh
    ;;
 esac
 
 AC_SUBST(GCJH)
-AC_SUBST(ZIP)
 
 # Create it, so that compile/link tests don't fail
 test -f libgcj.spec || touch libgcj.spec
@@ -1016,6 +1014,17 @@ else
 	    AC_DEFINE(HAVE_SCHED_YIELD)
 	    THREADLIBS="$THREADLIBS -lposix4"
 	    THREADSPEC="$THREADSPEC -lposix4"])])])
+
+      AC_CHECK_LIB(rt, clock_gettime, [
+         AC_DEFINE(HAVE_CLOCK_GETTIME, 1, [Define if you have clock_gettime()])
+	 case "$THREADSPEC" in
+	   *-lrt*) ;;
+	   *)
+ 	     THREADSPEC="$THREADSPEC -lrt"
+	     THREADLIBS="$THREADLIBS -lrt"
+	     ;;
+	 esac])
+
       LIBS="$save_LIBS"
 
       # We can save a little space at runtime if the mutex has m_count

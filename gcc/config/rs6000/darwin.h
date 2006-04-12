@@ -97,17 +97,11 @@ do {									\
 
 #define C_COMMON_OVERRIDE_OPTIONS do {					\
   /* On powerpc, __cxa_get_exception_ptr is available starting in the	\
-     10.5 libstdc++.dylib.  */						\
+     10.4.6 libstdc++.dylib.  */					\
   if ((! darwin_macosx_version_min					\
-       || strverscmp (darwin_macosx_version_min, "10.5") < 0)		\
+       || strverscmp (darwin_macosx_version_min, "10.4.6") < 0)		\
       && flag_use_cxa_get_exception_ptr == 2)				\
     flag_use_cxa_get_exception_ptr = 0;					\
-  /* On powerpc, __cxa_atexit is available starting in the 10.4		\
-     libSystem.dylib.  */						\
-  if ((! darwin_macosx_version_min					\
-       || strverscmp (darwin_macosx_version_min, "10.4") < 0)		\
-      && flag_use_cxa_atexit == 2)					\
-    flag_use_cxa_atexit = 0;						\
 } while (0)
 
 /* Darwin has 128-bit long double support in libc in 10.4 and later.
@@ -300,14 +294,14 @@ do {									\
 #ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
 /* This is supported in cctools 465 and later.  The macro test
    above prevents using it in earlier build environments.  */
-#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP)           \
-   if ((LOG) != 0)                                             \
-     {                                                         \
-       if ((MAX_SKIP) == 0)                                    \
-         fprintf ((FILE), "\t.p2align %d\n", (LOG));           \
-       else                                                    \
-         fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP)); \
-     }
+#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP)          \
+  if ((LOG) != 0)                                             \
+    {                                                         \
+      if ((MAX_SKIP) == 0)                                    \
+        fprintf ((FILE), "\t.p2align %d\n", (LOG));           \
+      else                                                    \
+        fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP)); \
+    }
 #endif
 
 #define PROFILE_HOOK(LABEL)   output_profile_hook (LABEL)

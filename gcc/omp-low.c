@@ -3,7 +3,7 @@
    marshalling to implement data sharing and copying clauses.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
-   Copyright (C) 2005 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2430,6 +2430,8 @@ expand_omp_for_generic (struct omp_region *region,
 
   istart0 = create_tmp_var (long_integer_type_node, ".istart0");
   iend0 = create_tmp_var (long_integer_type_node, ".iend0");
+  TREE_ADDRESSABLE (istart0) = 1;
+  TREE_ADDRESSABLE (iend0) = 1;
 
   l0 = create_artificial_label ();
   l1 = create_artificial_label ();
@@ -3462,6 +3464,9 @@ lower_omp_sections (tree *stmt_p, omp_context *ctx)
   new_body = alloc_stmt_list ();
   append_to_statement_list (ilist, &new_body);
   append_to_statement_list (stmt, &new_body);
+  /* ??? The OMP_RETURN doesn't logically belong here, but in
+     expand_omp_sections we expect this marker to be where the
+     individual sections join after completing the loop.  */
   append_to_statement_list (region_exit, &new_body);
   append_to_statement_list (olist, &new_body);
   append_to_statement_list (dlist, &new_body);
@@ -3608,9 +3613,9 @@ lower_omp_single (tree *stmt_p, omp_context *ctx)
     lower_omp_single_simple (single_stmt, &BIND_EXPR_BODY (bind));
 
   append_to_statement_list (dlist, &BIND_EXPR_BODY (bind));
+  maybe_catch_exception (&BIND_EXPR_BODY (bind));
   t = make_node (OMP_RETURN_EXPR);
   append_to_statement_list (t, &BIND_EXPR_BODY (bind));
-  maybe_catch_exception (&BIND_EXPR_BODY (bind));
   pop_gimplify_context (bind);
 
   BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
@@ -3645,9 +3650,9 @@ lower_omp_master (tree *stmt_p, omp_context *ctx)
 
   x = build1 (LABEL_EXPR, void_type_node, lab);
   gimplify_and_add (x, &BIND_EXPR_BODY (bind));
+  maybe_catch_exception (&BIND_EXPR_BODY (bind));
   x = make_node (OMP_RETURN_EXPR);
   append_to_statement_list (x, &BIND_EXPR_BODY (bind));
-  maybe_catch_exception (&BIND_EXPR_BODY (bind));
   pop_gimplify_context (bind);
 
   BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);
@@ -3681,9 +3686,9 @@ lower_omp_ordered (tree *stmt_p, omp_context *ctx)
   x = built_in_decls[BUILT_IN_GOMP_ORDERED_END];
   x = build_function_call_expr (x, NULL);
   gimplify_and_add (x, &BIND_EXPR_BODY (bind));
+  maybe_catch_exception (&BIND_EXPR_BODY (bind));
   x = make_node (OMP_RETURN_EXPR);
   append_to_statement_list (x, &BIND_EXPR_BODY (bind));
-  maybe_catch_exception (&BIND_EXPR_BODY (bind));
   pop_gimplify_context (bind);
 
   BIND_EXPR_VARS (bind) = chainon (BIND_EXPR_VARS (bind), ctx->block_vars);

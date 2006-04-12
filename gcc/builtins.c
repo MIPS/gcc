@@ -275,14 +275,28 @@ get_pointer_alignment (tree exp, unsigned int max_align)
 	case ADDR_EXPR:
 	  /* See what we are pointing at and look at its alignment.  */
 	  exp = TREE_OPERAND (exp, 0);
+	  inner = max_align;
+	  while (handled_component_p (exp))
+	    {
+	      /* Fields in a structure can be packed, honor DECL_ALIGN
+		 of the FIELD_DECL.  For all other references the conservative 
+		 alignment is the element type alignment.  */
+	      if (TREE_CODE (exp) == COMPONENT_REF)
+		inner = MIN (inner, DECL_ALIGN (TREE_OPERAND (exp, 1)));
+	      else
+		inner = MIN (inner, TYPE_ALIGN (TREE_TYPE (exp)));
+	      exp = TREE_OPERAND (exp, 0);
+	    }
 	  if (TREE_CODE (exp) == FUNCTION_DECL)
 	    align = FUNCTION_BOUNDARY;
 	  else if (DECL_P (exp))
-	    align = DECL_ALIGN (exp);
+	    align = MIN (inner, DECL_ALIGN (exp));
 #ifdef CONSTANT_ALIGNMENT
 	  else if (CONSTANT_CLASS_P (exp))
-	    align = CONSTANT_ALIGNMENT (exp, align);
+	    align = MIN (inner, (unsigned)CONSTANT_ALIGNMENT (exp, align));
 #endif
+	  else
+	    align = MIN (align, inner);
 	  return MIN (align, max_align);
 
 	default:
@@ -779,7 +793,7 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
 
       /* Pick up FP, label, and SP from the block and jump.  This code is
 	 from expand_goto in stmt.c; see there for detailed comments.  */
-#if HAVE_nonlocal_goto
+#ifdef HAVE_nonlocal_goto
       if (HAVE_nonlocal_goto)
 	/* We have to pass a value to the nonlocal_goto pattern that will
 	   get copied into the static_chain pointer, but it does not matter
@@ -852,7 +866,7 @@ expand_builtin_nonlocal_goto (tree arglist)
 
   current_function_has_nonlocal_goto = 1;
 
-#if HAVE_nonlocal_goto
+#ifdef HAVE_nonlocal_goto
   /* ??? We no longer need to pass the static chain value, afaik.  */
   if (HAVE_nonlocal_goto)
     emit_insn (gen_nonlocal_goto (const0_rtx, r_label, r_sp, r_fp));
@@ -3662,7 +3676,7 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
 			       GEN_INT (MIN (arg1_align, arg2_align)));
 	}
 #endif
-#if HAVE_cmpstrnsi 
+#ifdef HAVE_cmpstrnsi
       /* Try to determine at least one length and call cmpstrnsi.  */
       if (!insn && HAVE_cmpstrnsi) 
 	{
@@ -4281,7 +4295,7 @@ build_va_arg_indirect_ref (tree addr)
 static tree
 dummy_object (tree type)
 {
-  tree t = convert (build_pointer_type (type), null_pointer_node);
+  tree t = build_int_cst (build_pointer_type (type), 0);
   return build1 (INDIRECT_REF, type, t);
 }
 
@@ -5367,6 +5381,8 @@ expand_builtin_fork_or_exec (tree fn, tree arglist, rtx target, int ignore)
   TREE_PUBLIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   TREE_NOTHROW (decl) = 1;
+  DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+  DECL_VISIBILITY_SPECIFIED (decl) = 1;
   call = build_function_call_expr (decl, arglist);
 
   return expand_call (call, target, ignore);
@@ -9641,7 +9657,7 @@ fold_builtin_sprintf (tree arglist, int ignored)
 
   if (call && retval)
     {
-      retval = convert
+      retval = fold_convert
 	(TREE_TYPE (TREE_TYPE (implicit_built_in_decls[BUILT_IN_SPRINTF])),
 	 retval);
       return build2 (COMPOUND_EXPR, TREE_TYPE (retval), call, retval);

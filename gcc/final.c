@@ -856,14 +856,9 @@ shorten_branches (rtx first ATTRIBUTE_UNUSED)
 
       INSN_SHUID (insn) = i++;
       if (INSN_P (insn))
-	{
-	  /* reorg might make the first insn of a loop being run once only,
-             and delete the label in front of it.  Then we want to apply
-             the loop alignment to the new label created by reorg, which
-             is separated by the former loop start insn from the
-	     NOTE_INSN_LOOP_BEG.  */
-	}
-      else if (LABEL_P (insn))
+	continue;
+      
+      if (LABEL_P (insn))
 	{
 	  rtx next;
 
@@ -1422,7 +1417,6 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
      function.  */
   if (write_symbols)
     {
-      remove_unnecessary_notes ();
       reemit_insn_block_notes ();
       number_blocks (current_function_decl);
       /* We never actually put out begin/end notes for the top-level
@@ -1703,8 +1697,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
       switch (NOTE_LINE_NUMBER (insn))
 	{
 	case NOTE_INSN_DELETED:
-	case NOTE_INSN_LOOP_BEG:
-	case NOTE_INSN_LOOP_END:
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
 	case NOTE_INSN_EXPECTED_VALUE:

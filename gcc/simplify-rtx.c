@@ -656,7 +656,8 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
       if ((TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
 				 GET_MODE_BITSIZE (GET_MODE (op)))
 	   ? (num_sign_bit_copies (op, GET_MODE (op))
-	      >= (unsigned int) (GET_MODE_BITSIZE (mode) + 1))
+	      > (unsigned int) (GET_MODE_BITSIZE (GET_MODE (op))
+				- GET_MODE_BITSIZE (mode)))
 	   : truncated_to_mode (mode, op))
 	  && ! (GET_CODE (op) == LSHIFTRT
 		&& GET_CODE (XEXP (op, 0)) == MULT))
@@ -3320,8 +3321,21 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
 		else if (swap_commutative_operands_p (lhs, rhs))
 		  tem = lhs, lhs = rhs, rhs = tem;
 
-		tem = simplify_binary_operation (ncode, mode, lhs, rhs);
+		if ((GET_CODE (lhs) == CONST || GET_CODE (lhs) == CONST_INT)
+		    && (GET_CODE (rhs) == CONST || GET_CODE (rhs) == CONST_INT))
+		  {
+		    rtx tem_lhs, tem_rhs;
 
+		    tem_lhs = GET_CODE (lhs) == CONST ? XEXP (lhs, 0) : lhs;
+		    tem_rhs = GET_CODE (rhs) == CONST ? XEXP (rhs, 0) : rhs;
+		    tem = simplify_binary_operation (ncode, mode, tem_lhs, tem_rhs);
+
+		    if (tem && !CONSTANT_P (tem))
+		      tem = gen_rtx_CONST (GET_MODE (tem), tem);
+		  }
+		else
+		  tem = simplify_binary_operation (ncode, mode, lhs, rhs);
+		
 		/* Reject "simplifications" that just wrap the two
 		   arguments in a CONST.  Failure to do so can result
 		   in infinite recursion with simplify_binary_operation
@@ -3504,8 +3518,7 @@ simplify_relational_operation (enum rtx_code code, enum machine_mode mode,
     return simplify_relational_operation (code, mode, VOIDmode,
 				          XEXP (op0, 0), XEXP (op0, 1));
 
-  if (mode == VOIDmode
-      || GET_MODE_CLASS (cmp_mode) == MODE_CC
+  if (GET_MODE_CLASS (cmp_mode) == MODE_CC
       || CC0_P (op0))
     return NULL_RTX;
 

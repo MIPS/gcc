@@ -46,6 +46,7 @@ Boston, MA 02110-1301, USA.  */
 #include "ipa-type-escape.h"
 #include "vec.h"
 #include "bitmap.h"
+#include "vecprim.h"
 
 /* Obstack used to hold grouping bitmaps and other temporary bitmaps used by
    aliasing  */
@@ -134,9 +135,6 @@ bitmap addressable_vars;
    are forced to alias this variable.  This reduces compile times by not
    having to keep track of too many VDEF expressions at call sites.  */
 tree global_var;
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 /* qsort comparison function to sort type/name tags by DECL_UID.  */
 
@@ -426,6 +424,26 @@ compute_call_clobbered (struct alias_info *ai)
 }
 
 
+/* Helper for recalculate_used_alone.  Return a conservatively correct
+   answer as to whether STMT may make a store on the LHS to SYM.  */
+
+static bool
+lhs_may_store_to (tree stmt, tree sym ATTRIBUTE_UNUSED)
+{
+  tree lhs = TREE_OPERAND (stmt, 0);
+  
+  lhs = get_base_address (lhs);
+  
+  if (!lhs)
+    return false;
+
+  if (TREE_CODE (lhs) == SSA_NAME)
+    return false;
+  /* We could do better here by looking at the type tag of LHS, but it
+     is unclear whether this is worth it. */
+  return true;
+}
+
 /* Recalculate the used_alone information for SMTs . */
 
 void 
@@ -443,7 +461,10 @@ recalculate_used_alone (void)
   updating_used_alone = true;
   FOR_EACH_REFERENCED_VAR (var, rvi)
     if (TREE_CODE (var) == SYMBOL_MEMORY_TAG)
-      SMT_USED_ALONE (var) = 0;
+      {
+	SMT_OLD_USED_ALONE (var) = SMT_USED_ALONE (var);
+	SMT_USED_ALONE (var) = 0;
+      }
 
   /* Walk all the statements.
      Calls get put into a list of statements to update, since we will
@@ -454,34 +475,45 @@ recalculate_used_alone (void)
     {
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
+	  bool iscall = false;
+	  ssa_op_iter iter;
+
 	  stmt = bsi_stmt (bsi);
+	  
 	  if (TREE_CODE (stmt) == CALL_EXPR
 	      || (TREE_CODE (stmt) == MODIFY_EXPR 
 		  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
-	    VEC_safe_push (tree, heap, calls, stmt);
-	  else
 	    {
-	      ssa_op_iter iter;
+	      iscall = true;
+	      VEC_safe_push (tree, heap, calls, stmt);	    
+	    }
+	  
+	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, 
+				     SSA_OP_VUSE | SSA_OP_VIRTUAL_DEFS)
+	    {
+	      tree svar = var;
 	      
-	      FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, 
-					 SSA_OP_VUSE | SSA_OP_VIRTUAL_DEFS)
+	      if (TREE_CODE (var) == SSA_NAME)
+		svar = SSA_NAME_VAR (var);
+	      
+	      if (TREE_CODE (svar) == SYMBOL_MEMORY_TAG)
 		{
-		  tree svar = var;
-		  
-		  if(TREE_CODE (var) == SSA_NAME)
-		    svar = SSA_NAME_VAR (var);
-		  
-		  if (TREE_CODE (svar) == SYMBOL_MEMORY_TAG)
+		  /* We only care about the LHS on calls.  */
+		  if (iscall && !lhs_may_store_to (stmt, svar))
+		    continue;
+
+		  if (!SMT_USED_ALONE (svar))
 		    {
-		      if (!SMT_USED_ALONE (svar))
-			{
-			  SMT_USED_ALONE (svar) = true;
-			  mark_sym_for_renaming (svar);
-			}
+		      SMT_USED_ALONE (svar) = true;
+		      
+		      /* Only need to mark for renaming if it wasn't
+			 used alone before.  */
+		      if (!SMT_OLD_USED_ALONE (svar))
+			mark_sym_for_renaming (svar);
 		    }
 		}
-	    }	           
-	}
+	    }
+	}	           
     }
   
   /* Update the operands on all the calls we saw.  */
@@ -1804,8 +1836,17 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
       alias_stats.simple_resolved++;
       return false;
     }
-  
-  /* If -fargument-noalias-global is >1, pointer arguments may
+
+  /* If -fargument-noalias-global is > 2, pointer arguments may
+     not point to anything else.  */
+  if (flag_argument_noalias > 2 && TREE_CODE (ptr) == PARM_DECL)
+    {
+      alias_stats.alias_noalias++;
+      alias_stats.simple_resolved++;
+      return false;
+    }
+
+  /* If -fargument-noalias-global is > 1, pointer arguments may
      not point to global variables.  */
   if (flag_argument_noalias > 1 && is_global_var (var)
       && TREE_CODE (ptr) == PARM_DECL)
@@ -2844,6 +2885,7 @@ create_sft (tree var, tree field, unsigned HOST_WIDE_INT offset,
   TREE_PUBLIC  (subvar) = TREE_PUBLIC (var);
   TREE_STATIC (subvar) = TREE_STATIC (var);
   TREE_READONLY (subvar) = TREE_READONLY (var);
+  TREE_ADDRESSABLE (subvar) = TREE_ADDRESSABLE (var);
 
   /* Add the new variable to REFERENCED_VARS.  */
   ann = get_var_ann (subvar);
@@ -3182,5 +3224,36 @@ struct tree_opt_pass pass_create_structure_vars =
   0,			 /* properties_destroyed */
   0,			 /* todo_flags_start */
   TODO_dump_func,	 /* todo_flags_finish */
+  0			 /* letter */
+};
+
+/* Reset the DECL_CALL_CLOBBERED flags on our referenced vars.  In
+   theory, this only needs to be done for globals.  */
+
+static unsigned int
+reset_cc_flags (void)
+{
+  tree var;
+  referenced_var_iterator rvi;
+
+  FOR_EACH_REFERENCED_VAR (var, rvi)
+    DECL_CALL_CLOBBERED (var) = false;
+  return 0;
+}
+
+struct tree_opt_pass pass_reset_cc_flags =
+{
+  NULL,		 /* name */
+  NULL,  	 /* gate */
+  reset_cc_flags, /* execute */
+  NULL,			 /* sub */
+  NULL,			 /* next */
+  0,			 /* static_pass_number */
+  0,			 /* tv_id */
+  PROP_referenced_vars |PROP_cfg, /* properties_required */
+  0,			 /* properties_provided */
+  0,			 /* properties_destroyed */
+  0,			 /* todo_flags_start */
+  0,         	         /* todo_flags_finish */
   0			 /* letter */
 };

@@ -139,12 +139,6 @@ static int max_uid_cuid;
 #define INSN_CUID(INSN) \
 (INSN_UID (INSN) > max_uid_cuid ? insn_cuid (INSN) : uid_cuid[INSN_UID (INSN)])
 
-/* In case BITS_PER_WORD == HOST_BITS_PER_WIDE_INT, shifting by
-   BITS_PER_WORD would invoke undefined behavior.  Work around it.  */
-
-#define UWIDE_SHIFT_LEFT_BY_BITS_PER_WORD(val) \
-  (((unsigned HOST_WIDE_INT) (val) << (BITS_PER_WORD - 1)) << 1)
-
 /* Maximum register number, which is the size of the tables below.  */
 
 static unsigned int combine_max_regno;
@@ -9199,7 +9193,7 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 				GET_MODE_MASK (result_mode) >> orig_count);
 
   /* Do the remainder of the processing in RESULT_MODE.  */
-  x = gen_lowpart (result_mode, x);
+  x = gen_lowpart_or_truncate (result_mode, x);
 
   /* If COMPLEMENT_P is set, we have to complement X before doing the outer
      operation.  */

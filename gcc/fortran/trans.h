@@ -67,6 +67,10 @@ typedef struct gfc_se
   /* Ignore absent optional arguments.  Used for some intrinsics.  */
   unsigned ignore_optional:1;
 
+  /* When this is set the data and offset fields of the returned descriptor
+     are NULL.  Used by intrinsic size.  */
+  unsigned data_not_needed:1;
+
   /* Scalarization parameters.  */
   struct gfc_se *parent;
   struct gfc_ss *ss;
@@ -313,6 +317,8 @@ void gfc_conv_structure (gfc_se *, gfc_expr *, int);
 
 /* Return an expression which determines if a dummy parameter is present.  */
 tree gfc_conv_expr_present (gfc_symbol *);
+/* Convert a missing, dummy argument into a null or zero.  */
+void gfc_conv_missing_dummy (gfc_se *, gfc_expr *, gfc_typespec);
 
 /* Generate code to allocate a string temporary.  */
 tree gfc_conv_string_tmp (gfc_se *, tree, tree);

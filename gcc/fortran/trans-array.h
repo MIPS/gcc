@@ -30,10 +30,9 @@ bool gfc_array_allocate (gfc_se *, gfc_expr *, tree);
 void gfc_set_loop_bounds_from_array_spec (gfc_interface_mapping *,
 					  gfc_se *, gfc_array_spec *);
 
-/* Generate code to allocate a temporary array.  */
-tree gfc_trans_allocate_temp_array (stmtblock_t *, stmtblock_t *,
-                                    gfc_loopinfo *, gfc_ss_info *, tree, bool,
-                                    bool);
+/* Generate code to create a temporary array.  */
+tree gfc_trans_create_temp_array (stmtblock_t *, stmtblock_t *, gfc_loopinfo *,
+                                  gfc_ss_info *, tree, bool, bool, bool);
 
 /* Generate function entry code for allocation of compiler allocated array
    variables.  */
@@ -42,8 +41,8 @@ tree gfc_trans_auto_array_allocation (tree, gfc_symbol *, tree);
 tree gfc_trans_dummy_array_bias (gfc_symbol *, tree, tree);
 /* Generate entry and exit code for g77 calling convention arrays.  */
 tree gfc_trans_g77_array (gfc_symbol *, tree);
-/* Generate code to deallocate the symbol 'sym', if it is allocated.  */
-tree gfc_trans_dealloc_allocated (gfc_symbol * sym);
+/* Generate code to deallocate an array, if it is allocated.  */
+tree gfc_trans_dealloc_allocated (tree);
 /* Add initialization for deferred arrays.  */
 tree gfc_trans_deferred_array (gfc_symbol *, tree);
 /* Generate an initializer for a static pointer or allocatable array.  */

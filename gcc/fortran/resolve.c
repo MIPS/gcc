@@ -701,7 +701,7 @@ procedure_kind (gfc_symbol * sym)
 }
 
 /* Check references to assumed size arrays.  The flag need_full_assumed_size
-   is non-zero when matching actual arguments.  */
+   is nonzero when matching actual arguments.  */
 
 static int need_full_assumed_size = 0;
 
@@ -1205,6 +1205,7 @@ resolve_function (gfc_expr * expr)
   const char *name;
   try t;
   int temp;
+  int i;
 
   sym = NULL;
   if (expr->symtree)
@@ -1304,6 +1305,12 @@ resolve_function (gfc_expr * expr)
 	  if (arg->expr != NULL && arg->expr->rank > 0)
 	    {
 	      expr->rank = arg->expr->rank;
+	      if (!expr->shape && arg->expr->shape)
+		{
+		  expr->shape = gfc_get_shape (expr->rank);
+		  for (i = 0; i < expr->rank; i++)
+		    mpz_init_set (expr->shape[i], arg->expr->shape[i]);
+	        }
 	      break;
 	    }
 	}
@@ -1335,7 +1342,7 @@ resolve_function (gfc_expr * expr)
 	     && expr->value.function.isym->generic_id != GFC_ISYM_PRESENT)
     {
       /* Array instrinsics must also have the last upper bound of an
-	 asumed size array argument.  UBOUND and SIZE have to be
+	 assumed size array argument.  UBOUND and SIZE have to be
 	 excluded from the check if the second argument is anything
 	 than a constant.  */
       int inquiry;
@@ -4834,9 +4841,13 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
         }
     }
 
-  /* Ensure that derived type formal arguments of a public procedure
-     are not of a private type.  */
-  if (gfc_check_access(sym->attr.access, sym->ns->default_access))
+  /* Ensure that derived type for are not of a private type.  Internal
+     module procedures are excluded by 2.2.3.3 - ie. they are not
+     externally accessible and can access all the objects accessible in
+     the host. */
+  if (!(sym->ns->parent
+	    && sym->ns->parent->proc_name->attr.flavor == FL_MODULE)
+	&& gfc_check_access(sym->attr.access, sym->ns->default_access))
     {
       for (arg = sym->formal; arg; arg = arg->next)
 	{
@@ -5152,6 +5163,7 @@ resolve_symbol (gfc_symbol * sym)
 	      sym->as = gfc_copy_array_spec (sym->result->as);
 	      sym->attr.dimension = sym->result->attr.dimension;
 	      sym->attr.pointer = sym->result->attr.pointer;
+	      sym->attr.allocatable = sym->result->attr.allocatable;
 	    }
 	}
     }

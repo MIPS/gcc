@@ -2,7 +2,7 @@
    Register Transfer Expressions (rtx's) that make up the
    Register Transfer Language (rtl) used in the Back End of the GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1994, 1995, 1997, 1998, 1999, 2000, 2004,
-   2005
+   2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -92,6 +92,11 @@ DEF_RTL_EXPR(EXPR_LIST, "expr_list", "ee", RTX_EXTRA)
 /* a linked list of instructions.
    The insns are represented in print by their uids.  */
 DEF_RTL_EXPR(INSN_LIST, "insn_list", "ue", RTX_EXTRA)
+
+/* a linked list of dependencies. 
+   The insns are represented in print by their uids. 
+   Operand 2 is the status of a dependence (see sched-int.h for more).  */
+DEF_RTL_EXPR(DEPS_LIST, "deps_list", "uei", RTX_EXTRA)
 
 /* SEQUENCE appears in the result of a `gen_...' function
    for a DEFINE_EXPAND that wants to make several insns.
@@ -389,9 +394,8 @@ DEF_RTL_EXPR(CONCAT, "concat", "ee", RTX_OBJ)
 DEF_RTL_EXPR(MEM, "mem", "e0", RTX_OBJ)
 
 /* Reference to an assembler label in the code for this function.
-   The operand is a CODE_LABEL found in the insn chain.
-   The unprinted field 1 is used in flow.c for the LABEL_NEXTREF.  */
-DEF_RTL_EXPR(LABEL_REF, "label_ref", "u0", RTX_CONST_OBJ)
+   The operand is a CODE_LABEL found in the insn chain.  */
+DEF_RTL_EXPR(LABEL_REF, "label_ref", "u", RTX_CONST_OBJ)
 
 /* Reference to a named label: 
    Operand 0: label name
