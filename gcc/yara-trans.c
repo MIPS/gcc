@@ -97,7 +97,7 @@ static void deallocate_copy_memory_slot (copy_t);
 static int can_compare (const void *, const void *);
 static void finish_memory_slots (void);
 
-static void set_up_temp_mems_and_addresses (void);
+static void setup_temp_mems_and_addresses (void);
 static rtx get_temp_const_int (HOST_WIDE_INT);
 static rtx get_temp_disp (rtx, HOST_WIDE_INT);
 static rtx get_temp_stack_memory_slot_rtx (enum machine_mode, HOST_WIDE_INT,
@@ -201,7 +201,7 @@ mark_regno_release (int hard_regno, enum machine_mode mode)
   for (i = hard_regno_nregs [hard_regno] [mode] - 1; i >= 0; i--)
     {
       n = hard_regno + i;
-      gcc_assert (hard_reg_alocation_counts [n] > 0);
+      yara_assert (hard_reg_alocation_counts [n] > 0);
       --hard_reg_alocation_counts [n];
       if (hard_reg_alocation_counts [n] == 0)
 	{
@@ -245,10 +245,10 @@ reserve_stack_memory (int start, int size)
   int i;
   int begin, bound;
 
-  gcc_assert (start >= 0 && size > 0);
+  yara_assert (start >= 0 && size > 0);
 #ifdef FRAME_GROWS_DOWNWARD
   begin = start - size + 1;
-  gcc_assert (begin >= 0);
+  yara_assert (begin >= 0);
   bound = start + 1;
 #else
   begin = start;
@@ -272,7 +272,7 @@ find_free_stack_memory (int size, int align)
   int j, start;
   bool cont_p;
 
-  gcc_assert (size > 0 && align > 0);
+  yara_assert (size > 0 && align > 0);
   start = 0;
 #ifdef FRAME_GROWS_DOWNWARD
   EXECUTE_IF_SET_IN_SBITMAP (memory_stack_sbitmap, 0, k, sbi)
@@ -438,12 +438,12 @@ get_free_memory_slot_structure (void)
 static void
 free_memory_slot_structure (struct memory_slot *slot)
 {
-  gcc_assert (slot->allocnos_num == 0);
+  yara_assert (slot->allocnos_num == 0);
   if (pending_free_memory_slot_pending_p)
     VARRAY_PUSH_GENERIC_PTR (pending_free_memory_slot_varray, slot);
   else
     {
-      gcc_assert (slot->start >= 0);
+      yara_assert (slot->start >= 0);
       /* Mark it not to free it more one time.  */
       slot->start = -1;
       slot->next_free_slot = free_memory_slot_structures;
@@ -454,7 +454,7 @@ free_memory_slot_structure (struct memory_slot *slot)
 static void
 switch_on_pending_memory_slot_structures (void)
 {
-  gcc_assert (! pending_free_memory_slot_pending_p);
+  yara_assert (! pending_free_memory_slot_pending_p);
   pending_free_memory_slot_pending_p = true;
 }
 
@@ -464,7 +464,7 @@ free_pending_memory_slot_structures (void)
   int i;
   struct memory_slot *slot;
 
-  gcc_assert (pending_free_memory_slot_pending_p);
+  yara_assert (pending_free_memory_slot_pending_p);
   pending_free_memory_slot_pending_p = false;
   for (i = VARRAY_ACTIVE_SIZE (pending_free_memory_slot_varray) - 1;
        i >= 0;
@@ -488,18 +488,18 @@ add_memory_slot_end (int end)
     }
   VARRAY_INT (end_slot_numbers_varray, end)
     = VARRAY_INT (end_slot_numbers_varray, end) + 1;
-  gcc_assert (VARRAY_ACTIVE_SIZE (end_slot_numbers_varray)
-	      == (unsigned) slot_memory_size);
+  yara_assert (VARRAY_ACTIVE_SIZE (end_slot_numbers_varray)
+	       == (unsigned) slot_memory_size);
 }
 
 static void
 remove_memory_slot_end (int end)
 {
   VARRAY_INT (end_slot_numbers_varray, end)--;
-  gcc_assert ((VARRAY_ACTIVE_SIZE (end_slot_numbers_varray)
-	       == (unsigned) slot_memory_size)
-	      && slot_memory_size > end
-	      && VARRAY_INT (end_slot_numbers_varray, end) >= 0);
+  yara_assert ((VARRAY_ACTIVE_SIZE (end_slot_numbers_varray)
+		== (unsigned) slot_memory_size)
+	       && slot_memory_size > end
+	       && VARRAY_INT (end_slot_numbers_varray, end) >= 0);
   if (end + 1 == slot_memory_size)
     {
       while (end >= 0 && VARRAY_INT (end_slot_numbers_varray, end) == 0)
@@ -525,7 +525,7 @@ decrease_align_count (int align)
   int i;
 
   align_counts [align]--;
-  gcc_assert (align_counts [align] >= 0);
+  yara_assert (align_counts [align] >= 0);
   if (align_counts [align] == 0 && align == slot_memory_alignment)
     {
       for (i = align - 1; i > 0 && align_counts [i] == 0; i--)
@@ -678,7 +678,7 @@ register_memory_slot_usage (struct memory_slot *slot, int align)
 {
   if (slot->allocnos_num == 0)
     {
-      gcc_assert (slot->size > 0);
+      yara_assert (slot->size > 0);
 #ifdef FRAME_GROWS_DOWNWARD
       add_memory_slot_end (slot->start);
 #else
@@ -692,7 +692,7 @@ register_memory_slot_usage (struct memory_slot *slot, int align)
 static void
 unregister_memory_slot_usage (struct memory_slot *slot, int align)
 {
-  gcc_assert (slot != NULL && slot->allocnos_num > 0);
+  yara_assert (slot != NULL && slot->allocnos_num > 0);
   slot->allocnos_num--;
   decrease_align_count (align);
   if (slot->allocnos_num == 0)
@@ -715,7 +715,7 @@ get_paradoxical_subreg_memory_offset (int memory_slot_size,
   int offset = 0;
   int difference = memory_slot_size - GET_MODE_SIZE (rmode);
 
-  gcc_assert (difference >= 0);
+  yara_assert (difference >= 0);
   if (WORDS_BIG_ENDIAN)
     offset += (difference / UNITS_PER_WORD) * UNITS_PER_WORD;
   if (BYTES_BIG_ENDIAN)
@@ -811,7 +811,7 @@ get_copy_mode (copy_t cp)
     }
   else
     {
-      gcc_assert (src != NULL && dst != NULL);
+      yara_assert (src != NULL && dst != NULL);
       return ALLOCNO_MODE (src);
     }
 }
@@ -856,7 +856,7 @@ get_copy_loc (copy_t cp, bool src_p, enum machine_mode *mode,
     }
   else
     {
-      gcc_assert (a != NULL && a2 != NULL);
+      yara_assert (a != NULL && a2 != NULL);
       amode = ALLOCNO_MODE (a);
     }
   if (a != NULL)
@@ -898,12 +898,12 @@ get_copy_loc (copy_t cp, bool src_p, enum machine_mode *mode,
     }
   else
     {
-      gcc_assert (a2 != NULL && x != NULL_RTX);
+      yara_assert (a2 != NULL && x != NULL_RTX);
       *hard_regno = -1;
       *memory_slot = NULL;
       if ((a2_hard_regno = ALLOCNO_REGNO (a2)) >= 0)
 	{
-	  gcc_assert (HARD_REGISTER_NUM_P (a2_hard_regno));
+	  yara_assert (HARD_REGISTER_NUM_P (a2_hard_regno));
 	  if (GET_MODE_SIZE (*mode) < GET_MODE_SIZE (amode))
 	    *hard_regno = (a2_hard_regno
 			   - (int) subreg_regno_offset (a2_hard_regno, *mode,
@@ -937,9 +937,9 @@ allocate_allocno_memory_slot (allocno_t a)
   struct memory_slot *slot, *conflict_slot;
   can_t can;
 
-  gcc_assert (regno >= 0);
+  yara_assert (regno >= 0);
   can = ALLOCNO_CAN (a);
-  gcc_assert (can != NULL);
+  yara_assert (can != NULL);
   num = CAN_SLOTNO (can);
   align = slotno_max_ref_align [num];
   if (can_memory_slots [num] != NULL)
@@ -970,17 +970,17 @@ allocate_allocno_memory_slot (allocno_t a)
 	    {
 	      if (can_copy_conflict_p (can, copies [i]))
 		{
-		  gcc_assert (COPY_SECONDARY_CHANGE_ADDR (copies [i])
-			      != NULL);
+		  yara_assert (COPY_SECONDARY_CHANGE_ADDR (copies [i])
+			       != NULL);
 		  conflict_slot = COPY_MEMORY_SLOT (copies [i]);
-		  gcc_assert (conflict_slot != NULL);
+		  yara_assert (conflict_slot != NULL);
 		  reserve_stack_memory (conflict_slot->start,
 					conflict_slot->size);
 		}
 	    }
 #endif
 	  slot->start = find_free_stack_memory (slot->size, align);
-	  gcc_assert (slot->size > 0);
+	  yara_assert (slot->size > 0);
 	}
       can_memory_slots [num] = slot;
     }
@@ -1004,18 +1004,17 @@ allocate_allocno_memory_slot (allocno_t a)
 static void
 deallocate_allocno_memory_slot (allocno_t a)
 {
-  int regno = ALLOCNO_REGNO (a);
   struct memory_slot *slot = ALLOCNO_MEMORY_SLOT (a);
   can_t can = ALLOCNO_CAN (a);
   int num, align;
 
-  gcc_assert (regno >= 0 && can != NULL);
+  yara_assert (ALLOCNO_REGNO (a) >= 0 && can != NULL);
 #ifdef REGNO_SLOT
-  gcc_assert (slot == regno_memory_slots [regno]);
-  align = reg_max_ref_align [regno]
+  yara_assert (slot == regno_memory_slots [ALLOCNO_REGNO (a)]);
+  align = reg_max_ref_align [ALLOCNO_REGNO (a)]
 #else
   num = CAN_SLOTNO (can);
-  gcc_assert (slot == can_memory_slots [num]);
+  yara_assert (slot == can_memory_slots [num]);
   align = slotno_max_ref_align [num];
 #endif
   ALLOCNO_MEMORY_SLOT (a) = NULL;
@@ -1025,7 +1024,7 @@ deallocate_allocno_memory_slot (allocno_t a)
   if (slot->allocnos_num == 0)
     {
 #ifdef REGNO_SLOT
-      regno_memory_slots [regno] = NULL;
+      regno_memory_slots [ALLOCNO_REGNO (a)] = NULL;
 #else
       can_memory_slots [num] = NULL;
 #endif
@@ -1044,8 +1043,8 @@ allocate_copy_memory_slot (copy_t cp)
   struct memory_slot *slot, *conflict_slot;
   allocno_t *vec;
 
-  gcc_assert (COPY_SECONDARY_CHANGE_ADDR (cp) != NULL
-	      && COPY_MEMORY_SLOT (cp) == NULL);
+  yara_assert (COPY_SECONDARY_CHANGE_ADDR (cp) != NULL
+	       && COPY_MEMORY_SLOT (cp) == NULL);
   slot = COPY_MEMORY_SLOT (cp) = get_free_memory_slot_structure ();
   bitmap_set_bit (secondary_memory_copies, COPY_NUM (cp));
   slot->size = GET_MODE_SIZE (COPY_MEMORY_MODE (cp));
@@ -1062,7 +1061,7 @@ allocate_copy_memory_slot (copy_t cp)
 	reserve_stack_memory (conflict_slot->start, conflict_slot->size);
     }
   slot->start = find_free_stack_memory (slot->size, align);
-  gcc_assert (slot->size > 0);
+  yara_assert (slot->size > 0);
   register_memory_slot_usage (slot, align);
 }
 
@@ -1072,10 +1071,10 @@ deallocate_copy_memory_slot (copy_t cp)
   struct memory_slot *slot;
   int align;
 
-  gcc_assert (COPY_SECONDARY_CHANGE_ADDR (cp) != NULL);
+  yara_assert (COPY_SECONDARY_CHANGE_ADDR (cp) != NULL);
   slot = COPY_MEMORY_SLOT (cp);
   align = get_stack_align (COPY_MEMORY_MODE (cp)) / BITS_PER_UNIT;
-  gcc_assert (slot->mem == NULL_RTX);
+  yara_assert (slot->mem == NULL_RTX);
   unregister_memory_slot_usage (slot, align);
   COPY_MEMORY_SLOT (cp) = NULL;
   bitmap_clear_bit (secondary_memory_copies, COPY_NUM (cp));
@@ -1151,16 +1150,16 @@ compact_stack (void)
 	{
 	  if (can_copy_conflict_p (can, copies [j]))
 	    {
-	      gcc_assert (COPY_SECONDARY_CHANGE_ADDR (copies [j]) != NULL);
+	      yara_assert (COPY_SECONDARY_CHANGE_ADDR (copies [j]) != NULL);
 	      conflict_slot = COPY_MEMORY_SLOT (copies [j]);
-	      gcc_assert (conflict_slot != NULL
-			  && conflict_slot->mem == NULL_RTX);
+	      yara_assert (conflict_slot != NULL
+			   && conflict_slot->mem == NULL_RTX);
 	      reserve_stack_memory (conflict_slot->start, conflict_slot->size);
 	    }
 	}
 #endif
       start = find_free_stack_memory (slot->size, align);
-      gcc_assert (slot->start >= start);
+      yara_assert (slot->start >= start);
       if (start == slot->start)
 	continue;
       register_slot_start_change (start, slot);
@@ -1187,7 +1186,7 @@ compact_stack (void)
 	    reserve_stack_memory (conflict_slot->start, conflict_slot->size);
 	}
       start = find_free_stack_memory (slot->size, align);
-      gcc_assert (slot->start >= start);
+      yara_assert (slot->start >= start);
       if (start == slot->start)
 	continue;
       register_slot_start_change (start, slot);
@@ -1202,8 +1201,8 @@ finish_memory_slots (void)
   int i;
   struct memory_slot *slot;
 
-  gcc_assert (! pending_free_memory_slot_pending_p
-	      && VARRAY_ACTIVE_SIZE (pending_free_memory_slot_varray) == 0);
+  yara_assert (! pending_free_memory_slot_pending_p
+	       && VARRAY_ACTIVE_SIZE (pending_free_memory_slot_varray) == 0);
   VARRAY_FREE (pending_free_memory_slot_varray);
   yara_free (align_counts);
   for (i = 0; i < allocnos_num; i++)
@@ -1230,7 +1229,7 @@ hard_reg_in_set_p (int hard_regno, enum machine_mode mode,
 {
   int i;
 
-  gcc_assert (hard_regno >= 0);
+  yara_assert (hard_regno >= 0);
   for (i = hard_regno_nregs [hard_regno] [mode] - 1; i >= 0; i--)
     if (! TEST_HARD_REG_BIT (hard_regset, hard_regno + i))
       return false;
@@ -1243,7 +1242,7 @@ hard_reg_not_in_set_p (int hard_regno, enum machine_mode mode,
 {
   int i;
 
-  gcc_assert (hard_regno >= 0);
+  yara_assert (hard_regno >= 0);
   for (i = hard_regno_nregs [hard_regno] [mode] - 1; i >= 0; i--)
     if (TEST_HARD_REG_BIT (hard_regset, hard_regno + i))
       return false;
@@ -1260,7 +1259,7 @@ static GTY(()) rtx temp_stack_disp_mem [MAX_MACHINE_MODE];
 static GTY(()) rtx temp_hard_frame_disp_mem [MAX_MACHINE_MODE];
 
 static void
-set_up_temp_mems_and_addresses (void)
+setup_temp_mems_and_addresses (void)
 {
   int mode;
 
@@ -1395,7 +1394,7 @@ int minimal_memory_load_cost [MAX_MACHINE_MODE];
 int minimal_memory_store_cost [MAX_MACHINE_MODE];
 
 static void
-set_up_move_costs (void)
+setup_move_costs (void)
 {
   int mode, cl, cost;
   
@@ -1444,14 +1443,14 @@ non_pseudo_allocno_copy_cost (allocno_t a)
   enum reg_class cl;
   struct memory_slot *memory_slot;
 
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
   regno = ALLOCNO_REGNO (a);
-  gcc_assert (regno < 0 || HARD_REGISTER_NUM_P (regno));
+  yara_assert (regno < 0 || HARD_REGISTER_NUM_P (regno));
   mode = ALLOCNO_MODE (a);
   src_copy = ALLOCNO_SRC_COPIES (a);
   dst_copy = ALLOCNO_DST_COPIES (a);
-  gcc_assert ((src_copy == NULL || COPY_DST (src_copy) == NULL)
-	      && (dst_copy == NULL || COPY_SRC (dst_copy) == NULL));
+  yara_assert ((src_copy == NULL || COPY_DST (src_copy) == NULL)
+	       && (dst_copy == NULL || COPY_SRC (dst_copy) == NULL));
   cl = get_allocno_reg_class (a);
   SKIP_TO_REG (op, *INSN_ALLOCNO_LOC (a));
   memory_slot = ALLOCNO_MEMORY_SLOT (a);
@@ -1460,7 +1459,7 @@ non_pseudo_allocno_copy_cost (allocno_t a)
       /* It is a hard register.  */
       enum reg_class regno_class = REGNO_REG_CLASS (regno);
       
-      gcc_assert (REG_P (op));
+      yara_assert (REG_P (op));
       if (memory_slot != NULL)
 	cost = ((src_copy == NULL
 		 ? 0 : memory_move_cost [mode] [regno_class] [1])
@@ -1507,7 +1506,7 @@ non_pseudo_allocno_copy_cost (allocno_t a)
   else
     {
       /* an operation and others ??? */
-      gcc_assert (cl == NO_REGS && memory_slot == NULL);
+      yara_assert (cl == NO_REGS && memory_slot == NULL);
       cost = 0;
     }
   return cost * (src_copy != NULL ? COPY_FREQ (src_copy)
@@ -1531,9 +1530,9 @@ allocno_copy_cost (allocno_t a)
   mode = ALLOCNO_MODE (a);
   src_copy = ALLOCNO_SRC_COPIES (a);
   dst_copy = ALLOCNO_DST_COPIES (a);
-  gcc_assert (ALLOCNO_TYPE (a) != INSN_ALLOCNO
-	      || src_copy == NULL || COPY_NEXT_SRC_COPY (src_copy) == NULL
-	      || dst_copy == NULL || dst_copy->next_dst_copy == NULL);
+  yara_assert (ALLOCNO_TYPE (a) != INSN_ALLOCNO
+	       || src_copy == NULL || COPY_NEXT_SRC_COPY (src_copy) == NULL
+	       || dst_copy == NULL || dst_copy->next_dst_copy == NULL);
   if (ALLOCNO_REGNO (a) < 0 || HARD_REGISTER_NUM_P (ALLOCNO_REGNO (a)))
     cost = non_pseudo_allocno_copy_cost (a);
   else
@@ -1546,7 +1545,7 @@ allocno_copy_cost (allocno_t a)
 	if (COPY_SRC (cp) != COPY_DST (cp))
 	  cost += (*pseudo_reg_copy_cost_func) (cp);
     }
-  gcc_assert (cost >= 0);
+  yara_assert (cost >= 0);
   return cost;
 }
 
@@ -1596,8 +1595,8 @@ find_hard_reg (allocno_t a, enum reg_class cl,
       hard_regno = possible_hard_regnos [i];
       if (check_hard_reg (hard_regno, a, temp_set, false))
 	{
-	  gcc_assert (hard_reg_in_set_p (hard_regno, ALLOCNO_MODE (a),
-					 reg_class_contents [cl]));
+	  yara_assert (hard_reg_in_set_p (hard_regno, ALLOCNO_MODE (a),
+					  reg_class_contents [cl]));
 	  return hard_regno;
 	}
     }
@@ -1606,8 +1605,8 @@ find_hard_reg (allocno_t a, enum reg_class cl,
       hard_regno = class_hard_regs [cl] [i];
       if (check_hard_reg (hard_regno, a, prohibited_hard_regs, false))
 	{
-	  gcc_assert (hard_reg_in_set_p (hard_regno, ALLOCNO_MODE (a),
-					 reg_class_contents [cl]));
+	  yara_assert (hard_reg_in_set_p (hard_regno, ALLOCNO_MODE (a),
+					  reg_class_contents [cl]));
 	  return hard_regno;
 	}
     }
@@ -1693,13 +1692,13 @@ assign_copy_secondary (copy_t cp)
       a2 = NULL;
       in_p = true;
     }
-  gcc_assert (a != NULL);
+  yara_assert (a != NULL);
   regno = ALLOCNO_REGNO (a);
   if (a2 != NULL)
     {
-      gcc_assert (regno >= 0 && ! HARD_REGISTER_NUM_P (regno)
-		  && ALLOCNO_REGNO (a2) >= 0
-		  && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (a2)));
+      yara_assert (regno >= 0 && ! HARD_REGISTER_NUM_P (regno)
+		   && ALLOCNO_REGNO (a2) >= 0
+		   && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (a2)));
       if ((hard_regno = ALLOCNO_HARD_REGNO (a)) < 0)
 	{
 	  allocno_t tmp = a;
@@ -1709,25 +1708,25 @@ assign_copy_secondary (copy_t cp)
 	  in_p = ! in_p;
 	  hard_regno = ALLOCNO_HARD_REGNO (a);
 	}
-      gcc_assert (ALLOCNO_TYPE (a2) != INSN_ALLOCNO
-		  || (! INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a2)
-		      && ! INSN_ALLOCNO_CONST_POOL_P (a2)));
+      yara_assert (ALLOCNO_TYPE (a2) != INSN_ALLOCNO
+		   || (! INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a2)
+		       && ! INSN_ALLOCNO_CONST_POOL_P (a2)));
       if (hard_regno < 0 || (ALLOCNO_HARD_REGNO (a2) < 0
 			     && ALLOCNO_MEMORY_SLOT (a2) == NULL))
 	return true; /* not assigned yet.  */
     }
   else if ((hard_regno = ALLOCNO_HARD_REGNO (a)) >= 0)
     {
-      gcc_assert (regno < 0 || HARD_REGISTER_NUM_P (regno));
-      gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO
-		  && ! INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a)
-		  && ! INSN_ALLOCNO_CONST_POOL_P (a));
+      yara_assert (regno < 0 || HARD_REGISTER_NUM_P (regno));
+      yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO
+		   && ! INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a)
+		   && ! INSN_ALLOCNO_CONST_POOL_P (a));
     }
   else if (regno >= 0)
     {
-      gcc_assert (HARD_REGISTER_NUM_P (regno)
-		  && ALLOCNO_TYPE (a) == INSN_ALLOCNO
-		  && ! INSN_ALLOCNO_CONST_POOL_P (a));
+      yara_assert (HARD_REGISTER_NUM_P (regno)
+		   && ALLOCNO_TYPE (a) == INSN_ALLOCNO
+		   && ! INSN_ALLOCNO_CONST_POOL_P (a));
       if (ALLOCNO_MEMORY_SLOT (a) == NULL
 	  && ! INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a))
 	return true; /* not assigned yet.  */
@@ -1735,7 +1734,7 @@ assign_copy_secondary (copy_t cp)
     }
   else
     return true; /* no hard register is involved.  */
-  gcc_assert (hard_regno >= 0);
+  yara_assert (hard_regno >= 0);
   cl = REGNO_REG_CLASS (hard_regno);
   mode = get_copy_mode (cp);
   if (mode != ALLOCNO_MODE (a))
@@ -1746,10 +1745,10 @@ assign_copy_secondary (copy_t cp)
       int offset;
 
       get_copy_loc (cp, ! in_p, &cp_mode, &hard_regno, &memory_slot, &offset);
-      gcc_assert (cp_mode == mode && hard_regno >= 0 && memory_slot == NULL);
+      yara_assert (cp_mode == mode && hard_regno >= 0 && memory_slot == NULL);
       cl = REGNO_REG_CLASS (hard_regno);
     }
-  gcc_assert (cl != NO_REGS);
+  yara_assert (cl != NO_REGS);
   logged_p = false;
 #ifdef HAVE_SECONDARY_RELOADS
   {
@@ -1768,14 +1767,14 @@ assign_copy_secondary (copy_t cp)
     COPY_HARD_REG_SET (prohibited_hard_regs, COPY_HARD_REG_CONFLICTS (cp));
     if (regno < FIRST_PSEUDO_REGISTER)
       {
-	gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+	yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
 	x = *INSN_ALLOCNO_LOC (a);
       }
     else
       {
 	struct memory_slot *slot;
 	
-	gcc_assert (a2 != NULL);
+	yara_assert (a2 != NULL);
 	if (ALLOCNO_HARD_REGNO (a2) >= 0)
 	  {
 	    if (ALLOCNO_HARD_REGNO (a) == ALLOCNO_HARD_REGNO (a2))
@@ -1840,11 +1839,11 @@ assign_copy_secondary (copy_t cp)
     if (interm_class != NO_REGS)
       {
 #ifdef SECONDARY_RELOAD_MODE_P
-	gcc_assert (SECONDARY_RELOAD_MODE_P (mode));
+	yara_assert (SECONDARY_RELOAD_MODE_P (mode));
 #endif
 	if (ALLOCNO_TYPE (a) == INSN_ALLOCNO && INSN_ALLOCNO_ELIMINATION_P (a))
 	  return false;
-	gcc_assert (COPY_SECONDARY_CHANGE_ADDR (cp) == NULL);
+	yara_assert (COPY_SECONDARY_CHANGE_ADDR (cp) == NULL);
 	logged_p = true;
 	log_copy (cp);
 	vec = COPY_ALLOCNO_CONFLICT_VEC (cp);
@@ -1891,13 +1890,13 @@ assign_copy_secondary (copy_t cp)
 		  = (*str == 'r' ? GENERAL_REGS
 		     : REG_CLASS_FROM_CONSTRAINT ((unsigned char) *str, str));
 		
-		gcc_assert (insn_class != NO_REGS);
-		gcc_assert
+		yara_assert (insn_class != NO_REGS);
+		yara_assert
 		  (!in_p
 		   || (insn_data [(int) icode].operand [0].constraint [0]
 		       == '='));
 	      }
-	    gcc_assert
+	    yara_assert
 	      (insn_data [(int) icode].operand [2].constraint [0] == '='
 	       && insn_data [(int) icode].operand [2].constraint [1] == '&');
 	    str = &insn_data [(int) icode].operand [2].constraint [2];
@@ -1972,16 +1971,16 @@ assign_copy_secondary (copy_t cp)
 #endif
 #ifdef SECONDARY_MEMORY_NEEDED
   hard_regno = (a2 == NULL ? ALLOCNO_REGNO (a) : ALLOCNO_HARD_REGNO (a2));
-  gcc_assert (hard_regno < 0 || HARD_REGISTER_NUM_P (hard_regno));
+  yara_assert (hard_regno < 0 || HARD_REGISTER_NUM_P (hard_regno));
   if (! logged_p)
     log_copy (cp);
   if (! allocate_copy_secondary_memory (in_p, cp, hard_regno, cl,
 					NO_REGS, mode))
     {
-      gcc_assert ((a != NULL && ALLOCNO_TYPE (a) == INSN_ALLOCNO
-		   && INSN_ALLOCNO_ELIMINATION_P (a))
-		  || (a2 != NULL && ALLOCNO_TYPE (a2) == INSN_ALLOCNO
-		      && INSN_ALLOCNO_ELIMINATION_P (a2)));
+      yara_assert ((a != NULL && ALLOCNO_TYPE (a) == INSN_ALLOCNO
+		    && INSN_ALLOCNO_ELIMINATION_P (a))
+		   || (a2 != NULL && ALLOCNO_TYPE (a2) == INSN_ALLOCNO
+		       && INSN_ALLOCNO_ELIMINATION_P (a2)));
       return false;
     }
 #endif
@@ -2054,7 +2053,7 @@ unassign_secondary (allocno_t a)
 {
   copy_t cp;
 
-  gcc_assert (ALLOCNO_HARD_REGNO (a) >= 0 || ALLOCNO_MEMORY_SLOT (a) != NULL);
+  yara_assert (ALLOCNO_HARD_REGNO (a) >= 0 || ALLOCNO_MEMORY_SLOT (a) != NULL);
   for (cp = ALLOCNO_DST_COPIES (a); cp != NULL; cp = COPY_NEXT_DST_COPY (cp))
     unassign_copy_secondary (cp);
   for (cp = ALLOCNO_SRC_COPIES (a); cp != NULL; cp = COPY_NEXT_SRC_COPY (cp))
@@ -2226,7 +2225,7 @@ collect_conflict_hard_regs (allocno_t a, HARD_REG_SET *prohibited_hard_regs)
 	  if (temp_regno == hard_regno)
 	    continue;
 	  start = get_maximal_part_start_hard_regno (temp_regno, a);
-	  gcc_assert (start >= 0);
+	  yara_assert (start >= 0);
 	  if (! hard_reg_not_in_set_p (start, allocation_mode, conflict_set))
 	    {
 	      possible_hard_regnos [j]
@@ -2290,14 +2289,14 @@ get_allocno_hard_regno (allocno_t a, int hard_regno)
   rtx x;
   enum machine_mode smode, rmode;
 
-  gcc_assert (hard_regno >= 0);
+  yara_assert (hard_regno >= 0);
   if (ALLOCNO_TYPE (a) != INSN_ALLOCNO)
     return hard_regno;
   SKIP_TO_SUBREG (x, *INSN_ALLOCNO_LOC (a));
   if (GET_CODE (x) != SUBREG)
     return hard_regno;
   smode = GET_MODE (x);
-  gcc_assert (GET_MODE (x) == ALLOCNO_MODE (a));
+  yara_assert (GET_MODE (x) == ALLOCNO_MODE (a));
   rmode = GET_MODE (SUBREG_REG (x));
   return (hard_regno
 	  + (int) subreg_regno_offset (hard_regno, rmode,
@@ -2313,14 +2312,14 @@ get_allocno_reg_hard_regno (allocno_t a, int a_hard_regno)
   rtx x;
   enum machine_mode smode, rmode;
 
-  gcc_assert (a_hard_regno >= 0);
+  yara_assert (a_hard_regno >= 0);
   if (ALLOCNO_TYPE (a) != INSN_ALLOCNO)
     return a_hard_regno;
   SKIP_TO_SUBREG (x, *INSN_ALLOCNO_LOC (a));
   if (GET_CODE (x) != SUBREG)
     return a_hard_regno;
   smode = GET_MODE (x);
-  gcc_assert (GET_MODE (x) == ALLOCNO_MODE (a));
+  yara_assert (GET_MODE (x) == ALLOCNO_MODE (a));
   rmode = GET_MODE (SUBREG_REG (x));
   return (a_hard_regno
 	  - (int) subreg_regno_offset (a_hard_regno, rmode,
@@ -2334,7 +2333,7 @@ get_maximal_part_start_hard_regno (int hard_regno, allocno_t a)
   rtx container;
   enum machine_mode smode, rmode;
 
-  gcc_assert (hard_regno >= 0);
+  yara_assert (hard_regno >= 0);
   if (ALLOCNO_TYPE (a) != INSN_ALLOCNO)
     return hard_regno;
   container = *INSN_ALLOCNO_CONTAINER_LOC (a);
@@ -2345,7 +2344,7 @@ get_maximal_part_start_hard_regno (int hard_regno, allocno_t a)
   if (GET_MODE_SIZE (smode) > GET_MODE_SIZE (rmode))
     hard_regno += (int) subreg_regno_offset (hard_regno, rmode,
 					     SUBREG_BYTE (container), smode);
-  gcc_assert (hard_regno >= 0);
+  yara_assert (hard_regno >= 0);
   return hard_regno;
 }
 
@@ -2393,9 +2392,9 @@ copy_rtx_and_substitute (rtx x, allocno_t a)
 	   insn_a = INSN_ALLOCNO_NEXT (insn_a))
 	if (INSN_ALLOCNO_CONTAINER_LOC (insn_a) == INSN_ALLOCNO_LOC (a))
 	  break;
-      gcc_assert (insn_a != NULL
-		  && (INSN_ALLOCNO_TYPE (insn_a) == BASE_REG
-		      || INSN_ALLOCNO_TYPE (insn_a) == INDEX_REG));
+      yara_assert (insn_a != NULL
+		   && (INSN_ALLOCNO_TYPE (insn_a) == BASE_REG
+		       || INSN_ALLOCNO_TYPE (insn_a) == INDEX_REG));
       hard_regno = ALLOCNO_HARD_REGNO (insn_a);
       if (hard_regno < 0)
 	hard_regno =
@@ -2450,12 +2449,12 @@ assign_allocno_hard_regno (allocno_t a, int hard_regno,
   int start;
   enum machine_mode allocation_mode;
 
-  gcc_assert (hard_regno >= 0 && ALLOCNO_HARD_REGNO (a) < 0);
+  yara_assert (hard_regno >= 0 && ALLOCNO_HARD_REGNO (a) < 0);
   if (ALLOCNO_REGNO (a) == hard_regno)
     {
       rtx x;
 
-      gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+      yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
       SKIP_TO_SUBREG (x, *INSN_ALLOCNO_LOC (a));
       if (REG_P (x))
 	{
@@ -2463,7 +2462,7 @@ assign_allocno_hard_regno (allocno_t a, int hard_regno,
 	  INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a) = true;
 	  global_allocation_cost += allocno_copy_cost (a);
 #ifdef HAVE_ANY_SECONDARY_MOVES
-	  gcc_assert (assign_secondary (a));
+	  yara_assert (assign_secondary (a));
 #endif
 	  return true;
 	}
@@ -2481,7 +2480,7 @@ assign_allocno_hard_regno (allocno_t a, int hard_regno,
 #endif
   allocation_mode = get_allocation_mode (a);
   start = get_maximal_part_start_hard_regno (hard_regno, a);
-  gcc_assert (start >= 0);
+  yara_assert (start >= 0);
   mark_regno_allocation (start, allocation_mode);
   IOR_HARD_REG_SET
     (ALLOCNO_HARD_REGSET (a), reg_mode_hard_regset [start] [allocation_mode]);
@@ -2501,10 +2500,10 @@ assign_one_allocno (allocno_t a, enum reg_class cl, HARD_REG_SET possible_regs)
       rtx equiv_const = (ALLOCNO_REGNO (a) >= 0
 			 ? reg_equiv_constant [ALLOCNO_REGNO (a)] : NULL_RTX);
 
-      gcc_assert (equiv_const != NULL_RTX
-		  || (ALLOCNO_TYPE (a) == INSN_ALLOCNO
-		      && (ALLOCNO_REGNO (a) < 0
-			  || HARD_REGISTER_NUM_P (ALLOCNO_REGNO (a)))));
+      yara_assert (equiv_const != NULL_RTX
+		   || (ALLOCNO_TYPE (a) == INSN_ALLOCNO
+		       && (ALLOCNO_REGNO (a) < 0
+			   || HARD_REGISTER_NUM_P (ALLOCNO_REGNO (a)))));
       log_allocno (a);
       if (equiv_const == NULL_RTX)
 	INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a) = true;
@@ -2534,8 +2533,8 @@ assign_one_allocno (allocno_t a, enum reg_class cl, HARD_REG_SET possible_regs)
 	allocate_allocno_memory_slot (a);
       else
 	{
-	  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO
-		      && CONST_POOL_OK_P (*INSN_ALLOCNO_LOC (a)));
+	  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO
+		       && CONST_POOL_OK_P (*INSN_ALLOCNO_LOC (a)));
 	  /* ??? Implement elimination register if the address is not
 	     legitimate.  */
 	  INSN_ALLOCNO_CONST_POOL_P (a) = true;
@@ -2553,7 +2552,7 @@ assign_one_allocno (allocno_t a, enum reg_class cl, HARD_REG_SET possible_regs)
 #endif
       return true;
     }
-  gcc_assert (ALLOCNO_HARD_REGNO (a) < 0);
+  yara_assert (ALLOCNO_HARD_REGNO (a) < 0);
 #ifdef ENABLE_YARA_CHECKING
   GO_IF_HARD_REG_SUBSET (possible_regs, reg_class_contents [cl], ok);
   gcc_unreachable ();
@@ -2581,7 +2580,7 @@ assign_one_allocno (allocno_t a, enum reg_class cl, HARD_REG_SET possible_regs)
 #endif
   allocation_mode = get_allocation_mode (a);
   start = get_maximal_part_start_hard_regno (hard_regno, a);
-  gcc_assert (start >= 0);
+  yara_assert (start >= 0);
   mark_regno_allocation (start, allocation_mode);
   IOR_HARD_REG_SET
     (ALLOCNO_HARD_REGSET (a), reg_mode_hard_regset [start] [allocation_mode]);
@@ -2634,15 +2633,15 @@ assign_allocno_pair (allocno_t a1, allocno_t a2, enum reg_class cl,
 {
   int regno;
 
-  gcc_assert (a1 == INSN_ALLOCNO_TIED_ALLOCNO (a2)
-	      && a2 == INSN_ALLOCNO_TIED_ALLOCNO (a1));
+  yara_assert (a1 == INSN_ALLOCNO_TIED_ALLOCNO (a2)
+	       && a2 == INSN_ALLOCNO_TIED_ALLOCNO (a1));
   if (cl == LIM_REG_CLASSES)
     {
-      gcc_assert (start < 0);
+      yara_assert (start < 0);
       regno = ALLOCNO_REGNO (a1);
       if (regno >= 0 && HARD_REGISTER_NUM_P (regno))
 	{
-	  gcc_assert (REG_P (*INSN_ALLOCNO_LOC (a1)));
+	  yara_assert (REG_P (*INSN_ALLOCNO_LOC (a1)));
 	  if (! assign_one_allocno (a1, cl, possible_regs))
 	    gcc_unreachable ();
 	  if (! assign_allocno_hard_regno (a2, regno, possible_regs))
@@ -2662,7 +2661,7 @@ assign_allocno_pair (allocno_t a1, allocno_t a2, enum reg_class cl,
     }
   else if (cl == NO_REGS)
     {
-      gcc_assert (start < 0);
+      yara_assert (start < 0);
       /* We don't want move memory into memory because it needs
 	 additional register (but if the insn had identical memory as
 	 the two operands than they can still use them).  So we
@@ -2687,15 +2686,15 @@ assign_allocno_pair (allocno_t a1, allocno_t a2, enum reg_class cl,
     start = ALLOCNO_REGNO (a1);
   else
     start = ALLOCNO_HARD_REGNO (a1);
-  gcc_assert (start >= 0);
+  yara_assert (start >= 0);
   if (! assign_allocno_hard_regno (a2, start, possible_regs))
     {
       unassign_one_allocno (a1);
       return false;
     }
-  gcc_assert (ALLOCNO_CAN (a1) == ALLOCNO_CAN (a2)
-	      || (ALLOCNO_TYPE (a1) == INSN_ALLOCNO
-		  && ALLOCNO_TYPE (a2) == INSN_ALLOCNO));
+  yara_assert (ALLOCNO_CAN (a1) == ALLOCNO_CAN (a2)
+	       || (ALLOCNO_TYPE (a1) == INSN_ALLOCNO
+		   && ALLOCNO_TYPE (a2) == INSN_ALLOCNO));
   return true;
 }
 
@@ -2726,7 +2725,7 @@ assign_elimination_reg (allocno_t a, enum reg_class cl,
 {
   HARD_REG_SET prohibited_hard_regs;
 
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
 #ifdef ENABLE_YARA_CHECKING
   GO_IF_HARD_REG_SUBSET (possible_regs, reg_class_contents [cl], ok);
   gcc_unreachable ();
@@ -2737,11 +2736,11 @@ assign_elimination_reg (allocno_t a, enum reg_class cl,
   if (! collect_conflict_hard_regs (a, &prohibited_hard_regs))
     return false;
   /* We set up possible_hard_regnos only for pseudo-registers.  */
-  gcc_assert (possible_hard_regnos_num == 0);
+  yara_assert (possible_hard_regnos_num == 0);
   /* We assume that eliminated registers are not in subregisters.
      Otherwise we could use function get_allocation_mode.  */
-  gcc_assert (GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a)) != SUBREG
-	      && REG_P (*INSN_ALLOCNO_LOC (a)));
+  yara_assert (GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a)) != SUBREG
+	       && REG_P (*INSN_ALLOCNO_LOC (a)));
   if (hard_regno < 0)
     hard_regno = find_hard_reg (a, cl, prohibited_hard_regs, NULL, 0);
   else
@@ -2749,8 +2748,10 @@ assign_elimination_reg (allocno_t a, enum reg_class cl,
       if (! check_hard_reg (hard_regno, a, prohibited_hard_regs, false))
 	hard_regno = -1;
       else
-	gcc_assert (hard_reg_in_set_p (hard_regno, ALLOCNO_MODE (a),
-				       reg_class_contents [cl]));
+	{
+	  yara_assert (hard_reg_in_set_p (hard_regno, ALLOCNO_MODE (a),
+					  reg_class_contents [cl]));
+	}
     }
   if (hard_regno < 0)
     return false;
@@ -2770,10 +2771,10 @@ assign_elimination_reg (allocno_t a, enum reg_class cl,
 void
 create_tie (allocno_t original, allocno_t duplicate)
 {
-  gcc_assert (ALLOCNO_TYPE (original) == INSN_ALLOCNO
-	      && ALLOCNO_TYPE (duplicate) == INSN_ALLOCNO
-	      && INSN_ALLOCNO_TIED_ALLOCNO (original) == NULL
-	      && INSN_ALLOCNO_TIED_ALLOCNO (duplicate) == NULL);
+  yara_assert (ALLOCNO_TYPE (original) == INSN_ALLOCNO
+	       && ALLOCNO_TYPE (duplicate) == INSN_ALLOCNO
+	       && INSN_ALLOCNO_TIED_ALLOCNO (original) == NULL
+	       && INSN_ALLOCNO_TIED_ALLOCNO (duplicate) == NULL);
   log_allocno (original);
   log_allocno (duplicate);
   INSN_ALLOCNO_TIED_ALLOCNO (duplicate) = original;
@@ -2787,7 +2788,7 @@ break_tie (allocno_t a)
 {
   allocno_t another_a;
 
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
   if ((another_a = INSN_ALLOCNO_TIED_ALLOCNO (a)) != NULL)
     {
       log_allocno (a);
@@ -2808,8 +2809,8 @@ unassign_allocno (allocno_t a)
   if (ALLOCNO_TYPE (a) == INSN_ALLOCNO
       && (another_a = INSN_ALLOCNO_TIED_ALLOCNO (a)) != NULL)
     {
-      gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO
-		  && ALLOCNO_TYPE (another_a) == INSN_ALLOCNO);
+      yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO
+		   && ALLOCNO_TYPE (another_a) == INSN_ALLOCNO);
       unassign_one_allocno (another_a);
     }
 }
@@ -2867,9 +2868,9 @@ possible_alt_reg_intersection (allocno_t a, HARD_REG_SET *regs)
   struct insn_op_info *info;
   HARD_REG_SET alt_regs;
 
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
   op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
-  gcc_assert (op_num >= 0);
+  yara_assert (op_num >= 0);
   info = insn_infos [INSN_UID (INSN_ALLOCNO_INSN (a))];
   COPY_HARD_REG_SET (*regs, reg_class_contents [ALL_REGS]);
   for (n_alt = 0; n_alt < info->n_alts; n_alt++)
@@ -2961,9 +2962,9 @@ all_alt_offset_ok_p (allocno_t a, HOST_WIDE_INT val)
   const char *constraints;
   bool const_p, in_range_p;
 
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
   op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
-  gcc_assert (op_num >= 0);
+  yara_assert (op_num >= 0);
   info = insn_infos [INSN_UID (INSN_ALLOCNO_INSN (a))];
   for (n_alt = 0; n_alt < info->n_alts; n_alt++)
     {
@@ -3051,9 +3052,9 @@ find_interm_elimination_reg (allocno_t a, enum reg_class cl,
   
   /* We assume that eliminated registers are not in subregisters.
      Otherwise we could use function get_allocation_mode.  */
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO
-	      && GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a)) != SUBREG
-	      && REG_P (*INSN_ALLOCNO_LOC (a)));
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO
+	       && GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a)) != SUBREG
+	       && REG_P (*INSN_ALLOCNO_LOC (a)));
   if ((interm_elimination_regno = ALLOCNO_HARD_REGNO (a)) >= 0
       && mode_size [ALLOCNO_MODE (a)] >= mode_size [Pmode]
       && hard_reg_in_set_p (interm_elimination_regno, Pmode, possible_regs))
@@ -3090,26 +3091,26 @@ check_elimination_in_addr (rtx *address_loc, rtx *container_loc, bool *base_p)
   if (! decode_address (address_loc, &temp_container_loc, &base_reg_loc,
 			&disp_loc, &index_reg_loc, &scale, true))
     gcc_unreachable ();
-  gcc_assert (temp_container_loc == container_loc);
+  yara_assert (temp_container_loc == container_loc);
   base_regno = index_regno = -1;
   if (base_reg_loc != NULL)
     base_regno = REGNO (*base_reg_loc);
   if (index_reg_loc != NULL)
     index_regno = REGNO (*index_reg_loc);
-  gcc_assert (base_regno >= 0 || index_regno >= 0);
+  yara_assert (base_regno >= 0 || index_regno >= 0);
   if (base_regno >= 0 && HARD_REGISTER_NUM_P (base_regno)
       && reg_eliminate [base_regno] != NULL)
     {
-      gcc_assert (index_regno < 0 || ! HARD_REGISTER_NUM_P (index_regno)
-		  || reg_eliminate [index_regno] == NULL);
+      yara_assert (index_regno < 0 || ! HARD_REGISTER_NUM_P (index_regno)
+		   || reg_eliminate [index_regno] == NULL);
       *base_p = true;
     }
   else
     {
-      gcc_assert (index_regno >= 0 && HARD_REGISTER_NUM_P (index_regno)
-		  && reg_eliminate [index_regno] != NULL);
-      gcc_assert (base_regno < 0 || ! HARD_REGISTER_NUM_P (base_regno)
-		  || reg_eliminate [base_regno] == NULL);
+      yara_assert (index_regno >= 0 && HARD_REGISTER_NUM_P (index_regno)
+		   && reg_eliminate [index_regno] != NULL);
+      yara_assert (base_regno < 0 || ! HARD_REGISTER_NUM_P (base_regno)
+		   || reg_eliminate [base_regno] == NULL);
       *base_p = false;
     }
   mode = (GET_CODE (*container_loc) == MEM
@@ -3180,16 +3181,16 @@ eliminate_reg (allocno_t a)
   enum reg_class cl;
 
   container_loc = INSN_ALLOCNO_CONTAINER_LOC (a);
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO
-	      /* We assume that eliminated registers are not in
-		 subregisters.  Otherwise we could use function
-		 get_allocation_mode.  */
-	      && GET_CODE (*container_loc) != SUBREG
-	      && REG_P (*INSN_ALLOCNO_LOC (a))
-	      && mode_size [Pmode] >= mode_size [ALLOCNO_MODE (a)]
-	      && INSN_ALLOCNO_OP_MODE (a) == OP_IN
-	      && (regno < 0 || (HARD_REGISTER_NUM_P (regno)
-				&& reg_eliminate [regno] != NULL)));
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO
+	       /* We assume that eliminated registers are not in
+		  subregisters.  Otherwise we could use function
+		  get_allocation_mode.  */
+	       && GET_CODE (*container_loc) != SUBREG
+	       && REG_P (*INSN_ALLOCNO_LOC (a))
+	       && mode_size [Pmode] >= mode_size [ALLOCNO_MODE (a)]
+	       && INSN_ALLOCNO_OP_MODE (a) == OP_IN
+	       && (regno < 0 || (HARD_REGISTER_NUM_P (regno)
+				 && reg_eliminate [regno] != NULL)));
   if (regno < 0)
     {
       /* It is a non-register allocno.  */
@@ -3226,8 +3227,8 @@ eliminate_reg (allocno_t a)
       address_loc = (GET_CODE (*container_loc) == MEM
 		     ? &XEXP (*container_loc, 0) : container_loc);
       elim = check_elimination_in_addr (address_loc, container_loc, &base_p);
-      gcc_assert ((base_p && INSN_ALLOCNO_TYPE (a) == BASE_REG)
-		  || (! base_p && INSN_ALLOCNO_TYPE (a) == INDEX_REG));
+      yara_assert ((base_p && INSN_ALLOCNO_TYPE (a) == BASE_REG)
+		   || (! base_p && INSN_ALLOCNO_TYPE (a) == INDEX_REG));
       if (elim != NULL)
 	{
 	  INSN_ALLOCNO_ELIMINATION (a) = elim;
@@ -3253,7 +3254,7 @@ eliminate_reg (allocno_t a)
 	  /* The register is in operator PLUS.  */
 	  rtx temp_const_int;
 	  
-	  gcc_assert (XEXP (*container_loc, 0) == *INSN_ALLOCNO_LOC (a));
+	  yara_assert (XEXP (*container_loc, 0) == *INSN_ALLOCNO_LOC (a));
 	  temp_const_int = XEXP (*container_loc, 1);
 	  for (elim = reg_eliminate [regno]; elim != NULL; elim = elim->next)
 	    {
@@ -3280,11 +3281,10 @@ eliminate_reg (allocno_t a)
 }
 
 void
-uneliminate_reg (allocno_t a)
+uneliminate_reg (allocno_t a ATTRIBUTE_UNUSED)
 {
-  int regno = ALLOCNO_REGNO (a);
-
-  gcc_assert (regno < FIRST_VIRTUAL_REGISTER || regno > LAST_VIRTUAL_REGISTER);
+  yara_assert (ALLOCNO_REGNO (a) < FIRST_VIRTUAL_REGISTER
+	       || ALLOCNO_REGNO (a) > LAST_VIRTUAL_REGISTER);
 }
 
 
@@ -3454,7 +3454,7 @@ undo_allocno_change (struct allocno_log_entry *al)
     }
   if (ALLOCNO_MEMORY_SLOT (a) != al->change.memory_slot)
     {
-      gcc_assert (regno >= 0 && can != NULL);
+      yara_assert (regno >= 0 && can != NULL);
       if (ALLOCNO_MEMORY_SLOT (a) != NULL
 	  && ALLOCNO_MEMORY_SLOT (a)->mem == NULL_RTX)
 	unregister_memory_slot_usage (ALLOCNO_MEMORY_SLOT (a), align);
@@ -3469,8 +3469,8 @@ undo_allocno_change (struct allocno_log_entry *al)
       if (can_memory_slots [num] == NULL)
 	{
 	  can_memory_slots [num] = ALLOCNO_MEMORY_SLOT (a);
-	  gcc_assert (can_memory_slots [num]->mem != NULL_RTX
-		      || can_memory_slots [num]->allocnos_num != 0);
+	  yara_assert (can_memory_slots [num]->mem != NULL_RTX
+		       || can_memory_slots [num]->allocnos_num != 0);
 	}
       else if (ALLOCNO_MEMORY_SLOT (a) == NULL)
 	{
@@ -3541,7 +3541,7 @@ undo_copy_change (struct copy_log_entry *cl)
       if (copy_slot != NULL)
 	{
 	  align = get_stack_align (COPY_MEMORY_MODE (cp)) / BITS_PER_UNIT;
-	  gcc_assert (copy_slot->mem == NULL_RTX);
+	  yara_assert (copy_slot->mem == NULL_RTX);
 	  unregister_memory_slot_usage (copy_slot, align);
 	  bitmap_clear_bit (secondary_memory_copies, COPY_NUM (cp));
 	}
@@ -3549,7 +3549,7 @@ undo_copy_change (struct copy_log_entry *cl)
 	{
 	  align = (get_stack_align (cl->change.secondary_change->memory_mode)
 		   / BITS_PER_UNIT);
-	  gcc_assert (log_slot->mem == NULL_RTX);
+	  yara_assert (log_slot->mem == NULL_RTX);
 	  register_memory_slot_usage (log_slot, align);
 	  bitmap_set_bit (secondary_memory_copies, COPY_NUM (cp));
 	}
@@ -3662,7 +3662,7 @@ stop_transaction (bool accept_change_p)
   struct transaction *trans;
 
   len = VARRAY_ACTIVE_SIZE (transaction_varray);
-  gcc_assert (len != 0);
+  yara_assert (len != 0);
   trans = VARRAY_GENERIC_PTR (transaction_varray, len - 1);
   /* We don't end transaction until the top transaction.  Otherwise we
      would be not able to undo the top transaction.  */
@@ -3700,7 +3700,7 @@ end_transaction (void)
 static void
 finish_transactions (void)
 {
-  gcc_assert (VARRAY_ACTIVE_SIZE (transaction_varray) == 0);
+  yara_assert (VARRAY_ACTIVE_SIZE (transaction_varray) == 0);
   VARRAY_FREE (transaction_varray);
   VARRAY_FREE (log_varray);
   free_all_transactions ();
@@ -3720,8 +3720,8 @@ check_hard_regno_memory_on_contraint (allocno_t a, bool use_equiv_const_p,
   struct insn_op_info *info;
   allocno_t curr_a;
 
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
-  gcc_assert (! use_equiv_const_p || hard_regno < 0);
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+  yara_assert (! use_equiv_const_p || hard_regno < 0);
   if (INSN_ALLOCNO_TYPE (a) == NON_OPERAND)
     /* ???? */
     return hard_regno >= 0;
@@ -3735,7 +3735,7 @@ check_hard_regno_memory_on_contraint (allocno_t a, bool use_equiv_const_p,
     /* ??? use_equiv_const_p */
     return hard_regno >= 0 && TEST_HARD_REG_BIT (index_regs, hard_regno);
   op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
-  gcc_assert (op_num >= 0);
+  yara_assert (op_num >= 0);
   info = insn_infos [INSN_UID (INSN_ALLOCNO_INSN (a))];
   COPY_ALT_SET (saved_alt_set, INSN_ALLOCNO_POSSIBLE_ALTS (a));
   saved_use_equiv_const_p = ALLOCNO_USE_EQUIV_CONST_P (a);
@@ -3748,7 +3748,7 @@ check_hard_regno_memory_on_contraint (allocno_t a, bool use_equiv_const_p,
     ALLOCNO_USE_EQUIV_CONST_P (a) = true;
   else if (hard_regno < 0)
     ALLOCNO_MEMORY_SLOT (a) = &temp_memory_slot;
-  set_up_possible_allocno_alternatives (info, a, true);
+  setup_possible_allocno_alternatives (info, a, true);
   ALLOCNO_USE_EQUIV_CONST_P (a) = saved_use_equiv_const_p;
   ALLOCNO_HARD_REGNO (a) = saved_hard_regno;
   ALLOCNO_MEMORY_SLOT (a) = saved_memory_slot;
@@ -3794,8 +3794,8 @@ eliminate_virtual_registers (int (*func) (allocno_t, enum reg_class,
 void
 yara_trans_init_once (void)
 {
-  set_up_temp_mems_and_addresses ();
-  set_up_move_costs ();
+  setup_temp_mems_and_addresses ();
+  setup_move_costs ();
 }
 
 void

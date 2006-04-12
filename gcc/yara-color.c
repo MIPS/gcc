@@ -111,7 +111,7 @@ static enum reg_class closure_classes [N_REG_CLASSES];
 static int closure_classes_size;
 
 static void
-set_up_closure_classes (void)
+setup_closure_classes (void)
 {
   enum machine_mode mode;
   enum reg_class cl, *sub_cl_ptr;
@@ -182,7 +182,7 @@ extend_reg_class_cover (void)
   for (i = 0; i < closure_classes_size; i++)
     {
       cl = closure_classes [i];
-      gcc_assert (class_closure_p [cl]);
+      yara_assert (class_closure_p [cl]);
       GO_IF_HARD_REG_EQUAL (reg_class_contents [cl], zero_hard_reg_set,
 			    halt);
       COPY_HARD_REG_SET (temp_hard_reg_set, reg_class_cover_set);
@@ -215,7 +215,7 @@ extend_reg_class_cover (void)
 static enum reg_class class_translate [N_REG_CLASSES];
 
 static void
-set_up_class_translate (void)
+setup_class_translate (void)
 {
   enum reg_class cl, *cl_ptr;
   int i;
@@ -276,40 +276,47 @@ find_reg_class_closure (void)
   bool ok_p;
 
   setup_reg_subclasses ();
-  set_up_closure_classes ();
+  setup_closure_classes ();
   final_reg_class_cover_size = N_REG_CLASSES;
   reg_class_cover_size = 0;
   CLEAR_HARD_REG_SET (reg_class_cover_set);
   ok_p = extend_reg_class_cover ();
-  gcc_assert (ok_p);
-  set_up_class_translate ();
+  yara_assert (ok_p);
+  setup_class_translate ();
 }
 
-
-static int init_class_cost [N_REG_CLASSES];
 
 /* Minimal costs of usage the current insn alternative operand placed
    in memory or register of given class.  */
 static int min_op_memory_cost [MAX_RECOG_OPERANDS];
 static int min_op_class_cost [MAX_RECOG_OPERANDS] [N_REG_CLASSES];
 
+/* Classes for each can which we should check for finding cover
+   classes and the hard register costs.  */
+static enum reg_class *can_classes;
+
 /* Set up minimal op costs when any operand is ok.  */
 static void
-set_up_minimal_op_costs (allocno_t a)
+setup_minimal_op_costs (allocno_t a)
 {
-  int op_num;
-  enum reg_class cl;
+  int op_num, i;
+  enum reg_class cl, *classes;
+  can_t can;
 
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
   op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
-  gcc_assert (op_num >= 0);
+  yara_assert (op_num >= 0);
+  can = ALLOCNO_CAN (a);
+  if (can == NULL)
+    return;
+  classes = &can_classes [CAN_NUM (can) * N_REG_CLASSES];
   /* ??? If we have insn alt cost infrastructure we could just set it
      to 0.  */
   /* We still need read it from memory which is usually slower than
      register.  */
   if (min_op_memory_cost [op_num] > 1)
     min_op_memory_cost [op_num] = 1;
-  for (cl = 0; cl < N_REG_CLASSES; cl++)
+  for (i = 0; (cl = classes [i]) != NO_REGS; i++)
     min_op_class_cost [op_num] [cl] = 0;
 }
 
@@ -318,15 +325,19 @@ set_up_minimal_op_costs (allocno_t a)
 static void
 update_min_op_costs (allocno_t a, enum reg_class class, bool mem_p)
 {
-  int op_num, cost;
-  enum reg_class cl;
+  int op_num, cost, i;
+  enum reg_class cl, *classes;
   enum machine_mode mode;
   enum op_type op_mode;
+  can_t can;
 
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
-  gcc_assert (class != NO_REGS || mem_p);
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+  yara_assert (class != NO_REGS || mem_p);
   op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
-  gcc_assert (op_num >= 0);
+  yara_assert (op_num >= 0);
+  can = ALLOCNO_CAN (a);
+  yara_assert (can != NULL);
+  classes = &can_classes [CAN_NUM (can) * N_REG_CLASSES];
   op_mode = INSN_ALLOCNO_OP_MODE (a);
   mode = ALLOCNO_MODE (a);
   /* ??? If we have insn alt cost infrastructure we could set it to 0.  */
@@ -338,12 +349,11 @@ update_min_op_costs (allocno_t a, enum reg_class class, bool mem_p)
 	     ? memory_move_cost [mode] [class] [1] : 0)
 	    + (op_mode == OP_OUT || op_mode == OP_INOUT
 	       ? memory_move_cost [mode] [class] [0] : 0));
-  gcc_assert (cost >= 0);
+  yara_assert (cost >= 0);
   if (cost < min_op_memory_cost [op_num])
     min_op_memory_cost [op_num] = cost;
-  for (cl = 0; cl < N_REG_CLASSES; cl++)
+  for (i = 0; (cl = classes [i]) != NO_REGS; i++)
     {
-      /* ??? Tables to speed up.  */
       if (mem_p)
 	cost = ((op_mode == OP_IN || op_mode == OP_INOUT
 		 ? memory_move_cost [mode] [cl] [0] : 0)
@@ -360,7 +370,7 @@ update_min_op_costs (allocno_t a, enum reg_class class, bool mem_p)
 		cost += register_move_cost [mode] [class] [cl];
 	    }
 	}
-      gcc_assert (cost >= 0);
+      yara_assert (cost >= 0);
       if (cost < min_op_class_cost [op_num] [cl])
 	min_op_class_cost [op_num] [cl] = cost;
     }
@@ -399,7 +409,7 @@ process_insn_allocno_constraint (allocno_t a, const char *constraint,
       ;
     else
       {
-	gcc_assert (c != '#');
+	yara_assert (c != '#');
 	add_op_cost = 0;
 	op = *INSN_ALLOCNO_LOC (a);
 	SKIP_TO_REG (no_subreg_op, op);
@@ -409,7 +419,7 @@ process_insn_allocno_constraint (allocno_t a, const char *constraint,
 	  {
 	  case '\0':
 	  case 'X':
-	    set_up_minimal_op_costs (a);
+	    setup_minimal_op_costs (a);
 	    break;
 	    
 	  case 'i':
@@ -603,154 +613,102 @@ process_insn_allocno_constraint (allocno_t a, const char *constraint,
       }
 }
 
-/* Recursive function processing insn allocno A and the subsequent
-   insn allocnos to find the minimal costs.  */
+/* Function processing insn allocno A and the subsequent insn allocnos
+   to find the minimal costs.  */
 static void
-process_insn_allocno_for_costs (allocno_t a, int add_cost)
+process_insn_allocno_for_costs (bool commutative_exchange_p)
 {
-  allocno_t a2, next_a, prev_a, prev_a2;
-  int op_num, n, add_op_cost;
-  enum reg_class cl;
+  allocno_t a, a2;
+  can_t can;
+  int op_num, add_op_cost, add_cost;
+  enum reg_class cl, *classes;
   const char *str;
   struct insn_op_info *info;
-  /* If the element value is true, than the corresponding operand
-     actually represents the commutative operand.  */
-  static bool op_exchange_p [MAX_RECOG_OPERANDS];
+  int i, can_num, add_op, add_step, pseudo_op_num;
 
-  if (a == NULL)
+  info = insn_infos [INSN_UID (curr_preference_insn)];
+  pseudo_op_num = 0;
+  add_cost = 0;
+  for (a = insn_allocnos [INSN_UID (curr_preference_insn)];
+       a != NULL;
+       a = INSN_ALLOCNO_NEXT (a))
     {
-      int add_op, add_step, pseudo_op_num;
-
-      pseudo_op_num = 0;
-      for (a = insn_allocnos [INSN_UID (curr_preference_insn)];
-	   a != NULL;
-	   a = INSN_ALLOCNO_NEXT (a))
-	if (ALLOCNO_REGNO (a) >= 0 && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (a))
-	    && INSN_ALLOCNO_TYPE (a) >= OPERAND_BASE)
-	  pseudo_op_num++;
-      if (pseudo_op_num == 0)
-	return;
-      add_step = (add_cost + pseudo_op_num - 1) / pseudo_op_num;
-      for (a = insn_allocnos [INSN_UID (curr_preference_insn)];
-	   a != NULL;
-	   a = INSN_ALLOCNO_NEXT (a))
+      op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
+      if (INSN_ALLOCNO_TYPE (a) == BASE_REG
+	  || INSN_ALLOCNO_TYPE (a) == INDEX_REG
+	  || INSN_ALLOCNO_TYPE (a) == NON_OPERAND)
+	continue;
+      yara_assert (op_num >= 0);
+      if (ALLOCNO_REGNO (a) >= 0 && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (a)))
+	pseudo_op_num++;
+      if (info == NULL || info->n_alts == 0)
+	setup_minimal_op_costs (a);
+      else if (! TEST_ALT (INSN_ALLOCNO_POSSIBLE_ALTS (a),
+			   curr_preference_alt))
+	break;
+      else
 	{
-	  op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
-	  if (op_num < 0 || ALLOCNO_REGNO (a) < 0
-	      || HARD_REGISTER_NUM_P (ALLOCNO_REGNO (a)))
-	    continue;
-	  if (op_exchange_p [op_num])
-	    {
-	      a2 = INSN_ALLOCNO_COMMUTATIVE (a);
-	      op_num = INSN_ALLOCNO_TYPE (a2) - OPERAND_BASE;
-	    }
-	  gcc_assert (min_op_memory_cost [op_num] >= 0);
-	  if (add_step >= add_cost)
-	    {
-	      add_op = add_cost;
-	      add_cost = 0;
-	    }
+	  str = info->op_constraints [op_num * info->n_alts
+				      + curr_preference_alt];
+	  if (str == NULL || *str == '\0')
+	    setup_minimal_op_costs (a);
 	  else
 	    {
-	      add_op = add_step;
-	      add_cost -= add_op;
-	    }
-	  if (min_op_memory_cost [op_num] != INT_MAX
-	      && (min_alt_memory_cost [op_num]
-		  > min_op_memory_cost [op_num] + add_op))
-	    min_alt_memory_cost [op_num]
-	      = min_op_memory_cost [op_num] + add_op;
-	  for (cl = 0; cl < N_REG_CLASSES; cl++)
-	    {
-	      gcc_assert (min_op_class_cost [op_num] [cl] >= 0);
-	      if (min_op_class_cost [op_num] [cl] != INT_MAX
-		  && (min_alt_class_cost [op_num] [cl]
-		      > min_op_class_cost [op_num] [cl] + add_op))
-		{
-		  min_alt_class_cost [op_num] [cl]
-		    = min_op_class_cost [op_num] [cl] + add_op;
-		}
+	      add_op_cost = -1; /* undef */
+	      process_insn_allocno_constraint (a, str, &add_op_cost);
+	      if (add_op_cost < 0)
+		break;
+	      add_cost += add_op_cost;
 	    }
 	}
-      return;
     }
-  info = insn_infos [INSN_UID (curr_preference_insn)];
-  op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
-  for (n = 0; n < 2; n++)
-     {
-       a2 = INSN_ALLOCNO_COMMUTATIVE (a);
-       if (op_num >= 0)
-	 {
-	   op_exchange_p [op_num] = n != 0;
-	   if (a2 != NULL) 
-	     op_exchange_p [INSN_ALLOCNO_TYPE (a2) - OPERAND_BASE] = n != 0;
-	 }
-       if (INSN_ALLOCNO_TYPE (a) == BASE_REG
-	   || INSN_ALLOCNO_TYPE (a) == INDEX_REG
-	   || INSN_ALLOCNO_TYPE (a) == NON_OPERAND)
-	 process_insn_allocno_for_costs (INSN_ALLOCNO_NEXT (a), add_cost);
-       else
-	 {
-	   gcc_assert (op_num >= 0);
-	   if (info == NULL || info->n_alts == 0)
-	     {
-	       set_up_minimal_op_costs (a);
-	       process_insn_allocno_for_costs (INSN_ALLOCNO_NEXT (a),
-					       add_cost);
-	     }
-	   else if (! TEST_ALT (INSN_ALLOCNO_POSSIBLE_ALTS (a),
-				curr_preference_alt))
-	     ;
-	   else
-	     {
-	       str = info->op_constraints [op_num * info->n_alts
-					   + curr_preference_alt];
-	       add_op_cost = -1; /* undef */
-	       if (str == NULL || *str == '\0')
-		 {
-		   add_op_cost = 0;
-		   set_up_minimal_op_costs (a);
-		 }
-	       else
-		 process_insn_allocno_constraint (a, str, &add_op_cost);
-	       if (add_op_cost >= 0)
-		 process_insn_allocno_for_costs (INSN_ALLOCNO_NEXT (a),
-						 add_cost + add_op_cost);
-	     }
-	 }
-       if (a2 == NULL)
-	 break;
-       for (prev_a2 = a, next_a = INSN_ALLOCNO_NEXT (a);
-	    next_a != NULL;
-	    prev_a2 = next_a, next_a = INSN_ALLOCNO_NEXT (next_a))
-	 if (next_a == a2)
-	   break;
-       if (next_a == NULL)
-	 break;
-       for (prev_a = NULL,
-	      next_a = insn_allocnos [INSN_UID (curr_preference_insn)];
-	    next_a != NULL;
-	    prev_a = next_a, next_a = INSN_ALLOCNO_NEXT (next_a))
-	 if (next_a == a)
-	   break;
-       gcc_assert (next_a != NULL);
-       make_commutative_exchange (a);
-       next_a = INSN_ALLOCNO_NEXT (a);
-       INSN_ALLOCNO_NEXT (a) = INSN_ALLOCNO_NEXT (a2);
-       if (prev_a == NULL)
-	 insn_allocnos [INSN_UID (curr_preference_insn)] = a2;
-       else
-	 INSN_ALLOCNO_NEXT (prev_a) = a2;
-       if (next_a == a2)
-	 INSN_ALLOCNO_NEXT (a2) = a;
-       else
-	 {
-	   INSN_ALLOCNO_NEXT (prev_a2) = a;
-	   INSN_ALLOCNO_NEXT (a2) = next_a;
-	 }
-       a = a2;
-       gcc_assert (op_num == INSN_ALLOCNO_TYPE (a) - OPERAND_BASE);
-     }
+  if (a != NULL || pseudo_op_num == 0)
+    return;
+  add_step = (add_cost + pseudo_op_num - 1) / pseudo_op_num;
+  for (a = insn_allocnos [INSN_UID (curr_preference_insn)];
+       a != NULL;
+       a = INSN_ALLOCNO_NEXT (a))
+    {
+      op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
+      if (op_num < 0 || ALLOCNO_REGNO (a) < 0
+	  || HARD_REGISTER_NUM_P (ALLOCNO_REGNO (a)))
+	continue;
+      if (commutative_exchange_p
+	  && (a2 = INSN_ALLOCNO_COMMUTATIVE (a)) != NULL)
+	op_num = INSN_ALLOCNO_TYPE (a2) - OPERAND_BASE;
+      yara_assert (min_op_memory_cost [op_num] >= 0);
+      if (add_step >= add_cost)
+	{
+	  add_op = add_cost;
+	  add_cost = 0;
+	}
+      else
+	{
+	  add_op = add_step;
+	  add_cost -= add_op;
+	}
+      if (min_op_memory_cost [op_num] != INT_MAX
+	  && (min_alt_memory_cost [op_num]
+	      > min_op_memory_cost [op_num] + add_op))
+	min_alt_memory_cost [op_num]
+	  = min_op_memory_cost [op_num] + add_op;
+      can = ALLOCNO_CAN (a);
+      if (can == NULL)
+	continue;
+      can_num = CAN_NUM (can);
+      classes = &can_classes [can_num * N_REG_CLASSES];
+      for (i = 0; (cl = classes [i]) != NO_REGS; i++)
+	{
+	  yara_assert (min_op_class_cost [op_num] [cl] >= 0);
+	  if (min_op_class_cost [op_num] [cl] != INT_MAX
+	      && (min_alt_class_cost [op_num] [cl]
+		  > min_op_class_cost [op_num] [cl] + add_op))
+	    {
+	      min_alt_class_cost [op_num] [cl]
+		= min_op_class_cost [op_num] [cl] + add_op;
+	    }
+	}
+    }
 }
 
 /* Function processing all insn operand allocnos to update the minimal
@@ -758,10 +716,13 @@ process_insn_allocno_for_costs (allocno_t a, int add_cost)
 static void
 update_min_alt_costs (void)
 {
-  int op_num;
-  allocno_t a;
+  int i, op_num, hard_regno, can_num;
+  enum reg_class cl, *classes;
+  allocno_t a, a2;
+  can_t can;
+  struct insn_op_info *info;
   
-  for (a = insn_allocnos [INSN_UID (curr_preference_insn)];
+  for (a2 = NULL, a = insn_allocnos [INSN_UID (curr_preference_insn)];
        a != NULL;
        a = INSN_ALLOCNO_NEXT (a))
     {
@@ -769,29 +730,235 @@ update_min_alt_costs (void)
       if (op_num < 0)
 	continue;
       min_op_memory_cost [op_num] = INT_MAX;
-      memcpy (min_op_class_cost [op_num], init_class_cost,
-	      sizeof (init_class_cost));
+      if (INSN_ALLOCNO_COMMUTATIVE (a) != NULL)
+	a2 = a;
+      if ((hard_regno = ALLOCNO_REGNO (a)) < 0
+	  || HARD_REGISTER_NUM_P (hard_regno))
+	continue;
+      can = ALLOCNO_CAN (a);
+      if (can == NULL)
+	continue;
+      can_num = CAN_NUM (can);
+      classes = &can_classes [can_num * N_REG_CLASSES];
+      for (i = 0; (cl = classes [i]) != NO_REGS; i++)
+	min_op_class_cost [op_num] [cl] = INT_MAX;
     }
-  process_insn_allocno_for_costs
-    (insn_allocnos [INSN_UID (curr_preference_insn)], 0);
+  process_insn_allocno_for_costs (false);
+  info = insn_infos [INSN_UID (curr_preference_insn)];
+  if (info != NULL && info->commutative_op_p)
+    {
+      yara_assert (a2 != NULL);
+      op_num = INSN_ALLOCNO_TYPE (a2) - OPERAND_BASE;
+      yara_assert (op_num >= 0);
+      make_commutative_exchange (a2);
+      process_insn_allocno_for_costs (true);
+      make_commutative_exchange (a2);
+    }
+}
+
+/* Number and bitmap of classes which should be checked for each
+   class.  */
+static int *can_classes_num;
+static sbitmap can_classes_sbitmap;
+
+/* The function add class CL for checking can with givem CAN_NUM and
+   MODE.  */
+static void
+add_can_class_for_check (int can_num, enum machine_mode mode,
+			 enum reg_class cl)
+{
+  if (cl != NO_REGS
+      && ! TEST_BIT (can_classes_sbitmap, can_num * N_REG_CLASSES + cl)
+      /* ??? What happens if the first register of the class is ok
+	 but not second one (we could assign memory in
+	 assign_global_can_allocnos or better build
+	 CLASS_MODE_OK).  */
+      && HARD_REGNO_MODE_OK (class_hard_regs [cl] [0], mode))
+  {
+    can_classes [can_num * N_REG_CLASSES + can_classes_num [can_num]++] = cl;
+    SET_BIT (can_classes_sbitmap, can_num * N_REG_CLASSES + cl);
+  }
+}
+
+/* The function processes operand allocno A with given CONSTRAINT of
+   insn with given INFO for alternative N_ALT to find all classes
+   which should be checked for cover classes and register costs.  */
+static void
+process_op_insn_allocno_for_can_classes (allocno_t a,
+					 struct insn_op_info *info,
+					 int n_alt, const char *constraint)
+{
+  can_t can;
+  int c;
+  int can_num;
+  enum reg_class cl;
+  enum machine_mode can_mode;
+
+  can = ALLOCNO_CAN (a);
+  yara_assert (can != NULL);
+  can_num = CAN_NUM (can);
+  can_mode = CAN_MODE (can);
+  for (; (c = *constraint); constraint += CONSTRAINT_LEN (c, constraint))
+    if (c == '*')
+      /* That is really important for better performance.  */
+      constraint += CONSTRAINT_LEN (c, constraint);
+    else if (c == ' ' || c == '\t' || c == '=' || c == '+' || c == '*'
+	     || c == '&' || c == '%'
+	     /* We ignore this ambigous hints.  The cost should be
+		defined just by move costs. */
+	     || c == '?' || c == '!')
+      ;
+    else
+      {
+	yara_assert (c != '#');
+	switch (c)
+	  {
+	  case '\0':
+	  case 'X':
+	    for (cl = 0; cl < N_REG_CLASSES; cl++)
+	      add_can_class_for_check (can_num, can_mode, cl);
+	    break;
+	    
+	  case 'g':
+	    add_can_class_for_check (can_num, can_mode, GENERAL_REGS);
+	    break;
+	    
+	  case 'r':
+	  case 'a': case 'b': case 'c': case 'd': case 'e':
+	  case 'f': case 'h': case 'j': case 'k': case 'l':
+	  case 'q': case 't': case 'u':
+	  case 'v': case 'w': case 'x': case 'y': case 'z':
+	  case 'A': case 'B': case 'C': case 'D':
+	  case 'Q': case 'R': case 'S': case 'T': case 'U':
+	  case 'W': case 'Y': case 'Z':
+	    cl = (c == 'r'
+		  ? GENERAL_REGS
+		  : REG_CLASS_FROM_CONSTRAINT (c, constraint));
+	    if (cl != NO_REGS)
+	      add_can_class_for_check (can_num, can_mode, cl);
+	    break;
+	    
+	  case '0': case '1': case '2': case '3': case '4':
+	  case '5': case '6': case '7': case '8': case '9':
+	    {
+	      process_op_insn_allocno_for_can_classes
+		(a, info, n_alt,
+		 info->op_constraints [(c - '0') * info->n_alts + n_alt]);
+	      break;
+	    }
+	  }
+      }
+}
+
+/* The function finds all classes which should be checked for finding
+   cover classes and register costs.  */
+static void
+setup_can_classes (void)
+{
+  rtx insn, bound;
+  allocno_t a;
+  can_t can;
+  int i, j, can_num, hard_regno, op_num, curr_alt;
+  enum machine_mode can_mode;
+  enum reg_class cl;
+  const char *str;
+  basic_block bb;
+  struct insn_op_info *info;
+
+  can_classes_num = yara_allocate (cans_num * sizeof (int));
+  memset (can_classes_num, 0, cans_num * sizeof (int));
+  can_classes_sbitmap = sbitmap_alloc (cans_num * N_REG_CLASSES);
+  sbitmap_zero (can_classes_sbitmap);
+  FOR_EACH_BB (bb)
+    {
+      bound = NEXT_INSN (BB_END (bb));
+      for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
+	if (INSN_P (insn))
+	  {
+	    info = insn_infos [INSN_UID (insn)];
+	    for (a = insn_allocnos [INSN_UID (insn)];
+		 a != NULL;
+		 a = INSN_ALLOCNO_NEXT (a))
+	      {
+		if ((hard_regno = ALLOCNO_REGNO (a)) < 0
+		    || HARD_REGISTER_NUM_P (hard_regno))
+		  continue;
+		can = ALLOCNO_CAN (a);
+		if (can == NULL)
+		  continue;
+		can_num = CAN_NUM (can);
+		can_mode = CAN_MODE (can);
+		if (INSN_ALLOCNO_TYPE (a) == BASE_REG)
+		  add_can_class_for_check (can_num, can_mode, BASE_REG_CLASS);
+		else if (INSN_ALLOCNO_TYPE (a) == INDEX_REG)
+		  add_can_class_for_check (can_num, can_mode, INDEX_REG_CLASS);
+		else if ((op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE) >= 0)
+		  {
+		    if (info == NULL || info->n_alts == 0)
+		      {
+			for (cl = 0; cl < N_REG_CLASSES; cl++)
+			  add_can_class_for_check (can_num, can_mode, cl);
+		      }
+		    else
+		      {
+			for (curr_alt = info->n_alts - 1;
+			     curr_alt >= 0;
+			     curr_alt--)
+			  {
+			    str = info->op_constraints [op_num * info->n_alts
+							+ curr_alt];
+			    if (str == NULL || *str == '\0')
+			      {
+				for (cl = 0; cl < N_REG_CLASSES; cl++)
+				  add_can_class_for_check (can_num, can_mode,
+							   cl);
+			      }
+			    else
+			      {
+				process_op_insn_allocno_for_can_classes
+				  (a, info, curr_alt,
+				   info->op_constraints [op_num * info->n_alts
+							 + curr_alt]);
+			      }
+			  }
+		      }
+		  }
+	      }
+	  }
+    }
+  for (i = 0; i < cans_num; i++)
+    {
+      can = cans [i];
+      yara_assert (i == CAN_NUM (can));
+      can_mode = CAN_MODE (can);
+      if (can_classes_num [i] != 0)
+	for (j = 0; j < final_reg_class_cover_size; j++)
+	  add_can_class_for_check (i, can_mode, final_reg_class_cover [j]);
+      can_classes [i * N_REG_CLASSES + can_classes_num [i]] = NO_REGS;
+    }
+  sbitmap_free (can_classes_sbitmap);
+  yara_free (can_classes_num);
 }
 
 /* Function setting up reg class preferences and cover class for
    cans.  */
 static void
-set_up_cover_classes_and_reg_costs (void)
+setup_cover_classes_and_reg_costs (void)
 {
-  int i, j, min_cost, cl, cl1, freq, op_num, can_num, hard_regno;
-  enum reg_class best_class, cover_class;
+  int i, j, k, n, cost, min_cost, freq, op_num, can_num, hard_regno;
+  enum reg_class cl, cl1, best_class, cover_class, *classes;
   rtx insn, bound;
   enum machine_mode mode;
   enum op_type op_mode;
   basic_block bb;
   allocno_t a;
-  can_t can;
+  can_t can, conflict_can, *can_vec;
   struct insn_op_info *info;
-  int *can_class_cost, *can_memory_cost, *cost_ptr;
+  int *can_class_cost, *can_memory_cost, *cost_ptr, *costs;
 
+  can_classes = yara_allocate (cans_num * N_REG_CLASSES
+			       * sizeof (enum reg_class));
+  setup_can_classes ();
   can_class_cost = yara_allocate (cans_num * N_REG_CLASSES * sizeof (int));
   memset (can_class_cost, 0, cans_num * N_REG_CLASSES * sizeof (int));
   can_memory_cost = yara_allocate (cans_num * sizeof (int));
@@ -814,8 +981,16 @@ set_up_cover_classes_and_reg_costs (void)
 		if (op_num < 0)
 		  continue;
 		min_alt_memory_cost [op_num] = INT_MAX;
-		memcpy (min_alt_class_cost [op_num], init_class_cost,
-			sizeof (init_class_cost));
+		if ((hard_regno = ALLOCNO_REGNO (a)) < 0
+		    || HARD_REGISTER_NUM_P (hard_regno))
+		  continue;
+		can = ALLOCNO_CAN (a);
+		if (can == NULL)
+		  continue;
+		can_num = CAN_NUM (can);
+		classes = &can_classes [can_num * N_REG_CLASSES];
+		for (i = 0; (cl = classes [i]) != NO_REGS; i++)
+		  min_alt_class_cost [op_num] [cl] = INT_MAX;
 	      }
 	    info = insn_infos [INSN_UID (insn)];
 	    if (info == NULL || info->n_alts == 0)
@@ -838,6 +1013,7 @@ set_up_cover_classes_and_reg_costs (void)
 		if (can == NULL)
 		  continue;
 		can_num = CAN_NUM (can);
+		classes = &can_classes [can_num * N_REG_CLASSES];
 		op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
 		if (op_num >= 0)
 		  {
@@ -846,13 +1022,12 @@ set_up_cover_classes_and_reg_costs (void)
 		    else
 		      can_memory_cost [can_num]
 			+= min_alt_memory_cost [op_num] * freq;
-		    for (cl = 0; cl < N_REG_CLASSES; cl++)
+		    costs = &can_class_cost [can_num * N_REG_CLASSES];
+		    for (i = 0; (cl = classes [i]) != NO_REGS; i++)
 		      if (min_alt_class_cost [op_num] [cl] == INT_MAX)
-			can_class_cost [can_num * N_REG_CLASSES + cl]
-			  = INT_MAX;
+			costs [cl] = INT_MAX;
 		      else
-			can_class_cost [can_num * N_REG_CLASSES + cl]
-			  += min_alt_class_cost [op_num] [cl] * freq;
+			costs [cl] += min_alt_class_cost [op_num] [cl] * freq;
 		  }
 		else if (INSN_ALLOCNO_TYPE (a) == BASE_REG
 			 || INSN_ALLOCNO_TYPE (a) == INDEX_REG)
@@ -867,16 +1042,17 @@ set_up_cover_classes_and_reg_costs (void)
 			   + (op_mode == OP_OUT || op_mode == OP_INOUT
 			      ? memory_move_cost [mode] [cl] [0] : 0))
 			  * freq);
-		    for (cl1 = 0; cl1 < N_REG_CLASSES; cl1++)
+		    costs = &can_class_cost [can_num * N_REG_CLASSES];
+		    for (i = 0; (cl1 = classes [i]) != NO_REGS; i++)
 		      {
 			/* ??? Tables to speed up.  */
 			if ((op_mode == OP_IN || op_mode == OP_INOUT)
 			    && ! class_subset_p [cl1] [cl])
-			  can_class_cost [can_num * N_REG_CLASSES + cl1]
+			  costs [cl1]
 			    += register_move_cost [mode] [cl1] [cl] * freq;
 			if ((op_mode == OP_OUT || op_mode == OP_INOUT)
 			    && ! class_subset_p [cl] [cl1])
-			  can_class_cost [can_num * N_REG_CLASSES + cl1]
+			  costs [cl1]
 			    += register_move_cost [mode] [cl] [cl1] * freq;
 		      }
 		  }
@@ -887,38 +1063,57 @@ set_up_cover_classes_and_reg_costs (void)
     {
       can = cans [i];
       mode = CAN_MODE (can);
-      gcc_assert (i == CAN_NUM (can));
+      yara_assert (i == CAN_NUM (can));
+      classes = &can_classes [i * N_REG_CLASSES];
       cost_ptr = &can_class_cost [i * N_REG_CLASSES];
       best_class = NO_REGS;
       CAN_MEMORY_COST (can) = min_cost = can_memory_cost [i];
-      /* Skip NO_REGS.  */
-      for (cl = 1; cl < N_REG_CLASSES; cl++)
-	/* ??? What happens if the first register of the class is ok
-	   but not second one (we could assign memory in
-	   assign_global_can_allocnos or better build
-	   CLASS_MODE_OK).  */
-	if (HARD_REGNO_MODE_OK (class_hard_regs [cl] [0], mode)
-	    && (min_cost > cost_ptr [cl]
-		|| (min_cost == cost_ptr [cl]
-		    && class_subset_p [best_class] [cl])))
+      for (j = 0; (cl = classes [j]) != NO_REGS; j++)
+	if ((min_cost > cost_ptr [cl]
+	     || (min_cost == cost_ptr [cl]
+		 && class_subset_p [best_class] [cl])))
 	  {
 	    min_cost = cost_ptr [cl];
 	    best_class = cl;
 	  }
       cover_class = CAN_COVER_CLASS (can) = class_translate [best_class];
-      if (CAN_COVER_CLASS (can) != NO_REGS)
+      if (cover_class != NO_REGS)
 	{
 	  CAN_COVER_CLASS_COST (can) = cost_ptr [cover_class];
-	  CAN_HARD_REG_COSTS (can)
+	  costs = CAN_HARD_REG_COSTS (can)
 	    = yara_allocate (sizeof (int) * class_hard_regs_num [cover_class]);
-	  for (j = 0; j < (int) class_hard_regs_num [cover_class]; j++)
-	    {
-	      hard_regno = class_hard_regs [cover_class] [j];
-	      CAN_HARD_REG_COSTS (can) [j]
-		= cost_ptr [REGNO_REG_CLASS (hard_regno)] - min_cost;
-	    }
+	  cost = cost_ptr [cover_class] - min_cost;
+	  for (j = (int) class_hard_regs_num [cover_class] - 1; j >= 0; j--)
+	    costs [j] = cost;
+	  for (j = 0; (cl = classes [j]) != NO_REGS; j++)
+	    if (class_subset_p [cl] [cover_class] && cl != cover_class)
+	      for (k = (int) class_hard_regs_num [cl] - 1; k >= 0; k--)
+		{
+		  n = class_hard_reg_index [cover_class]
+		                           [class_hard_regs [cl] [k]];
+		  cost = cost_ptr [cl] - min_cost;
+		  if (costs [n] > cost)
+		    costs [n] = cost;
+		}
 	}
     }
+  /* Remove unnecessary conflicts to speed up assigning register to
+     cans (remember that memory is assigned to slotno not to
+     can).  */
+  for (i = 0; i < cans_num; i++)
+    {
+      can = cans [i];
+      cover_class = CAN_COVER_CLASS (can);
+      if (cover_class == NO_REGS)
+	continue;
+      can_vec = CAN_CONFLICT_CAN_VEC (can);
+      yara_assert (can_vec != NULL);
+      for (k = j = 0; (conflict_can = can_vec [j]) != NULL; j++)
+	if (cover_class == CAN_COVER_CLASS (conflict_can))
+	  can_vec [k++] = conflict_can;
+      can_vec [k] = NULL;
+    }
+  yara_free (can_classes);
   yara_free (can_memory_cost);
   yara_free (can_class_cost);
 }
@@ -1006,7 +1201,7 @@ add_move_costs (void)
 		    || ! TEST_HARD_REG_BIT (reg_class_contents [cover_class],
 					    hard_regno))
 		  continue;
-		gcc_assert (cover_class != NO_REGS);
+		yara_assert (cover_class != NO_REGS);
 		mode = CAN_MODE (can);
 		class = REGNO_REG_CLASS (hard_regno);
 		if (TEST_HARD_REG_BIT (no_alloc_regs, hard_regno))
@@ -1057,7 +1252,7 @@ split_can_by_split_allocno_bitmap (can_t can, bool global_p)
       else
 	can_allocnos [last++] = a;
     }
-  gcc_assert (last != 0);
+  yara_assert (last != 0);
   if ((n = VARRAY_ACTIVE_SIZE (new_can_allocno_varray)) == 0)
     return NULL;
   can_allocnos [last] = NULL;
@@ -1076,16 +1271,16 @@ split_can_by_split_allocno_bitmap (can_t can, bool global_p)
   freq = can_freq (new_can);
   CAN_FREQ (new_can) = freq;
   CAN_FREQ (can) -= freq;
-  gcc_assert (CAN_FREQ (can) >= 0);
+  yara_assert (CAN_FREQ (can) >= 0);
   if (CAN_CALL_P (can))
     {
-      set_up_can_call_info (can);
-      set_up_can_call_info (new_can);
+      setup_can_call_info (can);
+      setup_can_call_info (new_can);
     }
   if (global_p)
     CAN_GLOBAL_P (new_can) = true;
   can_vec = CAN_CONFLICT_CAN_VEC (can);
-  gcc_assert (can_vec != NULL);
+  yara_assert (can_vec != NULL);
   for (i = 0; (c = can_vec [i]) != NULL; i++)
     {
       yara_free (CAN_CONFLICT_CAN_VEC (c));
@@ -1144,7 +1339,7 @@ find_conflicting_biased_regs_and_costs (can_t can,
 
   COPY_HARD_REG_SET (*conflicting_regs, CAN_CONFLICT_HARD_REGS (can));
   cover_class = CAN_COVER_CLASS (can);
-  gcc_assert (cover_class != NO_REGS);
+  yara_assert (cover_class != NO_REGS);
   memset (conflicting_reg_costs, 0,
 	  sizeof (int) * class_hard_regs_num [cover_class]);
   bitmap_clear (biased_can_bitmap);
@@ -1152,8 +1347,7 @@ find_conflicting_biased_regs_and_costs (can_t can,
   can_vec = CAN_CONFLICT_CAN_VEC (can);
   for (i = 0; (conflict_can = can_vec [i]) != NULL; i++)
     {
-      if (cover_class != CAN_COVER_CLASS (conflict_can))
-	continue;
+      yara_assert (cover_class == CAN_COVER_CLASS (conflict_can));
       bitmap_set_bit (conflict_can_bitmap, CAN_NUM (conflict_can));
       if (! CAN_ASSIGNED_P (conflict_can))
 	{
@@ -1167,7 +1361,7 @@ find_conflicting_biased_regs_and_costs (can_t can,
       else if (CAN_HARD_REGNO (conflict_can) >= 0)
 	{
 	  size = (reg_class_nregs [cover_class] [CAN_MODE (conflict_can)]);
-	  gcc_assert (size > 0);
+	  yara_assert (size > 0);
 	  for (j = 0; j < size; j++)
 	    SET_HARD_REG_BIT (*conflicting_regs,
 			      CAN_HARD_REGNO (conflict_can) + j);
@@ -1181,7 +1375,7 @@ find_conflicting_biased_regs_and_costs (can_t can,
 	  && ! bitmap_bit_p (conflict_can_bitmap, i))
 	{
 	  size = reg_class_nregs [cover_class] [CAN_MODE (conflict_can)];
-	  gcc_assert (size > 0);
+	  yara_assert (size > 0);
 	  for (j = 0; j < size; j++)
 	    SET_HARD_REG_BIT (*biased_regs, CAN_HARD_REGNO (conflict_can) + j);
 	}
@@ -1195,7 +1389,6 @@ choose_global_hard_reg (can_t can)
   HARD_REG_SET conflicting_regs, biased_regs;
   int conflicting_reg_costs [FIRST_PSEUDO_REGISTER];
   int i, hard_regno, best_hard_regno, cost, min_cost, class_size, *costs;
-  short *hard_regs;
   bool call_p;
   enum reg_class cover_class, class;
   enum machine_mode mode;
@@ -1217,8 +1410,8 @@ choose_global_hard_reg (can_t can)
       can_vec = CAN_CONFLICT_CAN_VEC (can);
       for (i = 0; (conflict_can = can_vec [i]) != NULL; i++)
 	{
-	  if (cover_class != CAN_COVER_CLASS (conflict_can)
-	      || CAN_ASSIGNED_P (conflict_can))
+	  yara_assert (cover_class == CAN_COVER_CLASS (conflict_can));
+	  if (CAN_ASSIGNED_P (conflict_can))
 	    continue;
 	  conflict_costs = CAN_HARD_REG_COSTS (conflict_can);
 	  for (j = class_size - 1; j >= 0; j--)
@@ -1229,12 +1422,13 @@ choose_global_hard_reg (can_t can)
     find_conflicting_biased_regs_and_costs
       (can, &conflicting_regs, conflicting_reg_costs, &biased_regs);
   IOR_HARD_REG_SET (conflicting_regs, no_alloc_regs);
-  min_cost = -1;
   best_hard_regno = -1;
-  hard_regs = class_hard_regs [cover_class];
+  GO_IF_HARD_REG_SUBSET (reg_class_contents [cover_class], conflicting_regs,
+			 fail);
+  min_cost = INT_MAX;
   for (i = 0; i < class_size; i++)
     {
-      hard_regno = hard_regs [i];
+      hard_regno = class_hard_regs [cover_class] [i];
       if (hard_reg_not_in_set_p (hard_regno, mode, conflicting_regs))
 	{
 	  if ((YARA_PARAMS & YARA_NO_UPDATE_COSTS) == 0)
@@ -1250,18 +1444,20 @@ choose_global_hard_reg (can_t can)
 		       * (memory_move_cost [mode] [class] [0]
 			  + memory_move_cost [mode] [class] [1]));
 	    }
-	  if (best_hard_regno < 0 || min_cost > cost)
+	  if (min_cost > cost)
 	    {
 	      min_cost = cost;
 	      best_hard_regno = hard_regno;
-	      gcc_assert (hard_regno >= 0);
+	      yara_assert (hard_regno >= 0);
 	    }
 	  else if (min_cost == cost
+		   && (YARA_PARAMS & YARA_NO_BIASED_COLORING) == 0
 		   && TEST_HARD_REG_BIT (biased_regs, hard_regno)
 		   && ! TEST_HARD_REG_BIT (biased_regs, best_hard_regno))
 	    best_hard_regno = hard_regno;
 	}
     }
+ fail:
   CAN_HARD_REGNO (can) = best_hard_regno;
   CAN_ASSIGNED_P (can) = true;
   if ((YARA_PARAMS & YARA_NO_UPDATE_COSTS) == 0)
@@ -1273,16 +1469,18 @@ choose_global_hard_reg (can_t can)
 	can_vec = CAN_CONFLICT_CAN_VEC (can);
 	for (i = 0; (conflict_can = can_vec [i]) != NULL; i++)
 	  {
-	    if (cover_class != CAN_COVER_CLASS (conflict_can)
-		|| CAN_ASSIGNED_P (conflict_can))
+	    yara_assert (cover_class == CAN_COVER_CLASS (conflict_can));
+	    if (CAN_ASSIGNED_P (conflict_can))
 	      continue;
 	    IOR_HARD_REG_SET (CAN_CONFLICT_HARD_REGS (conflict_can),
 			      reg_mode_hard_regset [best_hard_regno] [mode]);
+	    if (YARA_PARAMS & YARA_NO_BIASED_COLORING)
+	      continue;
 	    can_vec2 = CAN_CONFLICT_CAN_VEC (conflict_can);
 	    for (j = 0; (conflict_can2 = can_vec2 [j]) != NULL; j++)
 	      {
-		if (cover_class != CAN_COVER_CLASS (conflict_can2)
-		    || CAN_ASSIGNED_P (conflict_can2))
+		yara_assert (cover_class == CAN_COVER_CLASS (conflict_can2));
+		if (CAN_ASSIGNED_P (conflict_can2))
 		  continue;
 		IOR_HARD_REG_SET (CAN_BIASED_HARD_REGS (conflict_can2),
 				  reg_mode_hard_regset 
@@ -1305,7 +1503,7 @@ update_copy_costs (can_t can)
   struct can_copy *cp;
 
   hard_regno = CAN_HARD_REGNO (can);
-  gcc_assert (hard_regno >= 0 && CAN_COVER_CLASS (can) != NO_REGS);
+  yara_assert (hard_regno >= 0 && CAN_COVER_CLASS (can) != NO_REGS);
   i = class_hard_reg_index [CAN_COVER_CLASS (can)] [hard_regno];
   class = REGNO_REG_CLASS (hard_regno);
   mode = CAN_MODE (can);
@@ -1314,7 +1512,7 @@ update_copy_costs (can_t can)
       another_can = cp->can;
       if (CAN_ASSIGNED_P (another_can))
 	continue;
-      gcc_assert (CAN_COVER_CLASS (can) == CAN_COVER_CLASS (another_can));
+      yara_assert (CAN_COVER_CLASS (can) == CAN_COVER_CLASS (another_can));
       cost = (cp->to_p
 	      ? register_move_cost [mode] [class]
 	        [CAN_COVER_CLASS (another_can)]
@@ -1368,7 +1566,7 @@ delete_can_from_bucket (can_t can, can_t *bucket_ptr)
     CAN_NEXT_BUCKET_CAN (prev_can) = next_can;
   else
     {
-      gcc_assert (*bucket_ptr == can);
+      yara_assert (*bucket_ptr == can);
       *bucket_ptr = next_can;
     }
   if (next_can != NULL)
@@ -1394,7 +1592,7 @@ global_can_compare (const void *c1p, const void *c2p)
     return 1;
   else
     {
-      gcc_assert (CAN_COVER_CLASS (c1) == CAN_COVER_CLASS (c2));
+      yara_assert (CAN_COVER_CLASS (c1) == CAN_COVER_CLASS (c2));
       size1 = reg_class_nregs [CAN_COVER_CLASS (c1)] [CAN_MODE (c1)];
       size2 = reg_class_nregs [CAN_COVER_CLASS (c2)] [CAN_MODE (c2)];
       diff = ((CAN_MEMORY_COST (c1) - CAN_COVER_CLASS_COST (c1))
@@ -1441,7 +1639,7 @@ push_globals_to_stack (void)
 	  cover_class_cans_num [cover_class] = 0;
 	}
     }
-  gcc_assert (num <= cans_num);
+  yara_assert (num <= cans_num);
   for (i = 0; i < cans_num; i++)
     if (CAN_GLOBAL_P (cans [i])
 	&& (cover_class = CAN_COVER_CLASS (cans [i])) != NO_REGS)
@@ -1456,9 +1654,9 @@ push_globals_to_stack (void)
 	  cover_class = CAN_COVER_CLASS (can);
 	  if (cover_class != NO_REGS)
 	    size = reg_class_nregs [cover_class] [CAN_MODE (can)];
-	  gcc_assert (CAN_LEFT_CONFLICTS_NUM (can)
-		      + reg_class_nregs [cover_class] [CAN_MODE (can)]
-		      <= available_class_regs [cover_class]);
+	  yara_assert (CAN_LEFT_CONFLICTS_NUM (can)
+		       + reg_class_nregs [cover_class] [CAN_MODE (can)]
+		       <= available_class_regs [cover_class]);
 	  bucket_ptr = &colorable_can_bucket;
 	}
       else
@@ -1473,29 +1671,29 @@ push_globals_to_stack (void)
 	  first_non_empty_bucket_num = i;
 	  bucket_ptr = (can_t *) &VARRAY_GENERIC_PTR (bucket_varray, i);
 	  can = *bucket_ptr;
-	  gcc_assert (CAN_LEFT_CONFLICTS_NUM (can) == i);
+	  yara_assert (CAN_LEFT_CONFLICTS_NUM (can) == i);
 	  cover_class = CAN_COVER_CLASS (can);
 	  if (cover_class != NO_REGS)
 	    {
 	      size = reg_class_nregs [cover_class] [CAN_MODE (can)];
-	      gcc_assert (size > 0);
+	      yara_assert (size > 0);
 	      if (i + size > available_class_regs [cover_class])
 		{
 		  num = cover_class_cans_num [cover_class];
-		  gcc_assert (num > 0);
+		  yara_assert (num > 0);
 		  can_vec = cover_class_cans [cover_class];
 		  qsort (can_vec, num, sizeof (can_t), global_can_compare);
 		  for (num--; ! CAN_IN_GRAPH_P (can_vec [num]); num--)
 		    ;
-		  gcc_assert (num >= 0);
+		  yara_assert (num >= 0);
 		  cover_class_cans_num [cover_class] = num;
 		  can = can_vec [0];
 		  cover_class_cans [cover_class]++;
 		  size = reg_class_nregs [cover_class] [CAN_MODE (can)];
-		  gcc_assert (CAN_IN_GRAPH_P (can)
-			      && CAN_COVER_CLASS (can) == cover_class
-			      && (CAN_LEFT_CONFLICTS_NUM (can) + size
-				  > available_class_regs [cover_class]));
+		  yara_assert (CAN_IN_GRAPH_P (can)
+			       && CAN_COVER_CLASS (can) == cover_class
+			       && (CAN_LEFT_CONFLICTS_NUM (can) + size
+				   > available_class_regs [cover_class]));
 		  bucket_ptr = ((can_t *) &VARRAY_GENERIC_PTR
 				(bucket_varray, CAN_LEFT_CONFLICTS_NUM (can)));
 		}
@@ -1509,14 +1707,13 @@ push_globals_to_stack (void)
       can_vec = CAN_CONFLICT_CAN_VEC (can);
       for (i = 0; (conflict_can = can_vec [i]) != NULL; i++)
 	{
-	  if (cover_class != CAN_COVER_CLASS (conflict_can))
-	    continue;
+	  yara_assert (cover_class == CAN_COVER_CLASS (conflict_can));
 	  if (CAN_IN_GRAPH_P (conflict_can))
 	    {
 	      conflicts_num = CAN_LEFT_CONFLICTS_NUM (conflict_can);
 	      conflict_size
 		= reg_class_nregs [cover_class] [CAN_MODE (conflict_can)];
-	      gcc_assert (CAN_LEFT_CONFLICTS_NUM (conflict_can) >= size);
+	      yara_assert (CAN_LEFT_CONFLICTS_NUM (conflict_can) >= size);
 	      CAN_LEFT_CONFLICTS_NUM (conflict_can) -= size;
 	      if (conflicts_num + conflict_size
 		  <= available_class_regs [cover_class])
@@ -1568,9 +1765,9 @@ put_allocno_on_split_stack_for_reg (allocno_t a)
     return true;
   can = ALLOCNO_CAN (a);
   cover_class = CAN_COVER_CLASS (can);
-  gcc_assert (cover_class != NO_REGS);
+  yara_assert (cover_class != NO_REGS);
   size = reg_class_nregs [cover_class] [CAN_MODE (can)];
-  gcc_assert (size > 0);
+  yara_assert (size > 0);
   find_allocno_conflicting_cans (a, true);
   COPY_HARD_REG_SET (used_hard_regs, no_alloc_regs);
   for (i = 0; i < conflict_cans_num; i++)
@@ -1584,7 +1781,7 @@ put_allocno_on_split_stack_for_reg (allocno_t a)
 	    {
 	      conflict_size
 		= reg_class_nregs [cover_class][CAN_MODE (conflict_can)];
-	      gcc_assert (conflict_size > 0);
+	      yara_assert (conflict_size > 0);
 	      for (j = 0; j < conflict_size; j++)
 		SET_HARD_REG_BIT (used_hard_regs,
 				  CAN_HARD_REGNO (conflict_can) + j);
@@ -1638,7 +1835,7 @@ split_global_can (can_t can)
   copy_t cp;
   can_t new_can;
 
-  gcc_assert (CAN_GLOBAL_P (can));
+  yara_assert (CAN_GLOBAL_P (can));
   can_allocnos = CAN_ALLOCNOS (can);
   for (i = 0; (a = can_allocnos [i]) != NULL; i++)
     {
@@ -1697,11 +1894,11 @@ split_global_can (can_t can)
 	    if (COPY_DST (cp) != a && ALLOCNO_CAN (COPY_DST (cp)) == can)
 	      put_allocno_on_split_stack_for_reg (COPY_DST (cp));
 	}
-      gcc_assert (border_freq >= 0);
+      yara_assert (border_freq >= 0);
       if (usage_freq <= YARA_SPLIT_THRESHOLD * border_freq)
 	continue;
       new_can = split_can_by_split_allocno_bitmap (can, true);
-      gcc_assert (new_can != NULL);
+      yara_assert (new_can != NULL);
       VARRAY_PUSH_GENERIC_PTR (global_stack_varray, new_can);
       global_cans_num++;
       return true;
@@ -1744,7 +1941,7 @@ pop_globals_from_stack (void)
 	  update_copy_costs (can);
 	  continue;
 	}
-      gcc_assert (CAN_SLOTNO (can) == CAN_NUM (can));
+      yara_assert (CAN_SLOTNO (can) == CAN_NUM (can));
       if (flag_split && split_global_can (can))
 	{
 	  /* Process CAN again.  */
@@ -1799,13 +1996,13 @@ global_can_alloc (void)
 	}
     skip:
       can_vec = CAN_CONFLICT_CAN_VEC (can);
-      for (j = 0; (conflict_can = can_vec [j]) != NULL; j++)
-	{
-	  if (cover_class != CAN_COVER_CLASS (conflict_can))
-	    continue;
-	  conflict_cans_size
-	    += reg_class_nregs [cover_class] [CAN_MODE (conflict_can)];
-	}
+      if (cover_class != NO_REGS)
+	for (j = 0; (conflict_can = can_vec [j]) != NULL; j++)
+	  {
+	    yara_assert (cover_class == CAN_COVER_CLASS (conflict_can));
+	    conflict_cans_size
+	      += reg_class_nregs [cover_class] [CAN_MODE (conflict_can)];
+	  }
       CAN_IN_GRAPH_P (can) = true;
       CAN_LEFT_CONFLICTS_NUM (can) = conflict_cans_size;
       while (conflict_cans_size >= (int) VARRAY_ACTIVE_SIZE (bucket_varray))
@@ -1954,7 +2151,7 @@ assign_global_can_allocnos (void)
 	      ok_p = assign_allocno (a, NO_REGS, reg_class_contents [NO_REGS],
 				     -1);
 #endif
-	    gcc_assert (ok_p);
+	    yara_assert (ok_p);
 	  }
     }
   yara_free (sorted_cans);
@@ -1976,7 +2173,7 @@ static int *insn_pos_map;
 /* Function to set up liveness information of cans for the current
    basic block.  */
 static void
-set_up_bb_pos_insn_maps (void)
+setup_bb_pos_insn_maps (void)
 {
   rtx insn, bound;
 
@@ -2003,7 +2200,7 @@ assign_dst_if_necessary (copy_t cp)
   dst = COPY_DST (cp);
   if (src == NULL || dst == NULL)
     return;
-  gcc_assert (ALLOCNO_REGNO (dst) >= 0
+  yara_assert (ALLOCNO_REGNO (dst) >= 0
 	      && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (dst)));
   hard_regno = ALLOCNO_HARD_REGNO (src);
   if (ALLOCNO_HARD_REGNO (dst) >= 0 || ALLOCNO_MEMORY_SLOT (dst) != NULL)
@@ -2133,9 +2330,8 @@ spill_hard_regno_for_allocno (allocno_t a, int hard_regno, int *pos)
 	  conflict_a = curr->a;
 	  if (ALLOCNO_HARD_REGNO (conflict_a) < 0)
 	    continue; /* already processed. */
-	  gcc_assert (ALLOCNO_TYPE (conflict_a) != INSN_ALLOCNO);
-	  if (ALLOCNO_TYPE (conflict_a) == REGION_ALLOCNO
-	      || (insn = RANGE_ALLOCNO_STOP_INSN (conflict_a)) == NULL_RTX)
+	  yara_assert (ALLOCNO_TYPE (conflict_a) != INSN_ALLOCNO);
+	  if ((insn = REGION_ALLOCNO_STOP_INSN (conflict_a)) == NULL_RTX)
 	    *pos += VARRAY_ACTIVE_SIZE (pos_insn_map) + 1;
 	  else
 	    *pos += insn_pos_map [INSN_UID (insn)];
@@ -2169,7 +2365,7 @@ assign_with_spill (allocno_t a, enum reg_class class, int hard_regno, int *pos)
 
 /* ??? */
 static void
-set_up_hard_regno_to_allocno_map (allocno_t a, HARD_REG_SET *prohibited_regs)
+setup_hard_regno_to_allocno_map (allocno_t a, HARD_REG_SET *prohibited_regs)
 {
   int i, j, hard_regno, size;
   enum machine_mode conflict_mode;
@@ -2212,7 +2408,7 @@ provide_allocno_class_hard_reg (allocno_t a, enum reg_class class)
   can_t can;
   enum reg_class cover_class;
 
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
   mode = ALLOCNO_MODE (a);
   best_pos = best_cost = best_hard_regno = -1;
   SET_HARD_REG_SET (prohibited);
@@ -2220,9 +2416,9 @@ provide_allocno_class_hard_reg (allocno_t a, enum reg_class class)
   IOR_HARD_REG_SET (prohibited, no_alloc_regs);
   for (i = 0; i < (int) class_hard_regs_num [class]; i++)
     free_allocno_list (class_hard_regs [class] [i]);
-  set_up_hard_regno_to_allocno_map (a, &prohibited);
+  setup_hard_regno_to_allocno_map (a, &prohibited);
   if (INSN_ALLOCNO_TIED_ALLOCNO (a) != NULL)
-    set_up_hard_regno_to_allocno_map (INSN_ALLOCNO_TIED_ALLOCNO (a),
+    setup_hard_regno_to_allocno_map (INSN_ALLOCNO_TIED_ALLOCNO (a),
 				      &prohibited);
   can = (ALLOCNO_REGNO (a) >= 0 && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (a))
 	 ? ALLOCNO_CAN (a) : NULL);
@@ -2268,7 +2464,7 @@ provide_allocno_class_hard_reg (allocno_t a, enum reg_class class)
 static bool
 call_cross_hint (allocno_t a)
 {
-  gcc_assert (ALLOCNO_TYPE (a) != INSN_ALLOCNO);
+  yara_assert (ALLOCNO_TYPE (a) != INSN_ALLOCNO);
   /* ??? can we improve it or should we prohibit it.  */
   return CAN_CALL_P (ALLOCNO_CAN (a));
 }
@@ -2328,7 +2524,7 @@ pick_up_hard_regs_from_constraints (const char *constraints,
 	 *mem_too_p = *mem_too_p || flag;
 	 break;
       default:
-	gcc_assert (c != '#');
+	yara_assert (c != '#');
       }
 }
 
@@ -2486,7 +2682,7 @@ one_pass_allocate (void)
 static void
 bb_local_can_alloc (void)
 {
-  set_up_bb_pos_insn_maps ();
+  setup_bb_pos_insn_maps ();
   one_pass_allocate ();
 }
 
@@ -2556,7 +2752,7 @@ provide_allocno_elimination_class_hard_reg (allocno_t a, enum reg_class class,
   enum machine_mode mode;
   HARD_REG_SET prohibited;
 
-  gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+  yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
   mode = ALLOCNO_MODE (a);
   best_pos = best_cost = best_hard_regno = -1;
   CLEAR_HARD_REG_SET (prohibited);
@@ -2564,7 +2760,7 @@ provide_allocno_elimination_class_hard_reg (allocno_t a, enum reg_class class,
   IOR_HARD_REG_SET (prohibited, no_alloc_regs);
   for (i = 0; i < (int) class_hard_regs_num [class]; i++)
     free_allocno_list (class_hard_regs [class] [i]);
-  set_up_hard_regno_to_allocno_map (a, &prohibited);
+  setup_hard_regno_to_allocno_map (a, &prohibited);
   for (i = 0; i < (int) class_hard_regs_num [class]; i++)
     {
       hard_regno = class_hard_regs [class] [i];
@@ -2639,8 +2835,8 @@ try_change_allocno (allocno_t old, bool use_equiv_const_p,
   old_reg_hard_regno = ALLOCNO_HARD_REGNO (old);
   if (old_reg_hard_regno >= 0)
     old_reg_hard_regno = get_allocno_reg_hard_regno (old, old_reg_hard_regno);
-  gcc_assert (! use_equiv_const_p || new_reg_hard_regno < 0);
-  gcc_assert (new_reg_hard_regno >= -1);
+  yara_assert (! use_equiv_const_p || new_reg_hard_regno < 0);
+  yara_assert (new_reg_hard_regno >= -1);
   new_allocno_hard_regno
     = (new_reg_hard_regno < 0
        ? -1 : get_allocno_hard_regno (old, new_reg_hard_regno));
@@ -2659,7 +2855,7 @@ try_change_allocno (allocno_t old, bool use_equiv_const_p,
       int start;
 
       start = get_maximal_part_start_hard_regno (new_allocno_hard_regno, old);
-      gcc_assert (start >= 0);
+      yara_assert (start >= 0);
       IOR_HARD_REG_SET
 	(regs, reg_mode_hard_regset [start] [get_allocation_mode (old)]);
       AND_COMPL_HARD_REG_SET (regs, no_alloc_regs);
@@ -2674,7 +2870,7 @@ try_change_allocno (allocno_t old, bool use_equiv_const_p,
       end_transaction ();
       if (ALLOCNO_TYPE (old) == INSN_ALLOCNO
 	  && INSN_ALLOCNO_TYPE (old) >= OPERAND_BASE)
-	set_up_possible_allocno_alternatives
+	setup_possible_allocno_alternatives
 	  (insn_infos [INSN_UID (INSN_ALLOCNO_INSN (old))], old, true);
       return;
     }
@@ -2721,8 +2917,8 @@ coalesce_allocnos_with_hard_regno (allocno_t a, bool use_equiv_const_p,
 {
   copy_t cp;
 
-  gcc_assert (! use_equiv_const_p || reg_hard_regno < 0);
-  gcc_assert (reg_hard_regno >= -1);
+  yara_assert (! use_equiv_const_p || reg_hard_regno < 0);
+  yara_assert (reg_hard_regno >= -1);
   if (use_equiv_const_p)
     {
       if (allocno_hard_regno_check [0] == curr_allocno_hard_regno_tick)
@@ -2802,7 +2998,7 @@ coalesce_allocno_copies (allocno_t a)
       coalesce_allocnos_with_hard_regno
 	(a, ALLOCNO_USE_EQUIV_CONST_P (dst), reg_hard_regno, true);
     }
-  gcc_assert (before == global_allocation_cost);
+  yara_assert (before == global_allocation_cost);
   if (best_coalesce_cost < 0 || best_coalesce_cost >= global_allocation_cost)
     return;
   curr_allocno_hard_regno_tick++;
@@ -2861,7 +3057,7 @@ coalesce_allocnos (void)
 
   if (allocnos_num == 0)
     return;
-  set_up_possible_alternatives (true);
+  setup_possible_alternatives (true);
   VARRAY_GENERIC_PTR_NOGC_INIT (allocnos_to_do, allocnos_num,
 				"allocnos to do");
   VARRAY_GENERIC_PTR_NOGC_INIT (new_allocnos_to_do, allocnos_num,
@@ -2933,7 +3129,7 @@ pseudo_reg_copy_cost (copy_t cp)
   src = COPY_SRC (cp);
   if (dst == src)
     return 0;
-  gcc_assert (dst != NULL && src != NULL);
+  yara_assert (dst != NULL && src != NULL);
   dst_hard_regno = ALLOCNO_HARD_REGNO (dst);
   dst_memory_slot = ALLOCNO_MEMORY_SLOT (dst);
   dst_offset = ALLOCNO_MEMORY_SLOT_OFFSET (dst);
@@ -2982,8 +3178,8 @@ pseudo_reg_copy_cost (copy_t cp)
     {
       dst_regno = ALLOCNO_REGNO (dst);
       src_regno = ALLOCNO_REGNO (src);
-      gcc_assert (dst_regno >= 0 && ! HARD_REGISTER_NUM_P (dst_regno)
-		  && src_regno >= 0 && ! HARD_REGISTER_NUM_P (src_regno));
+      yara_assert (dst_regno >= 0 && ! HARD_REGISTER_NUM_P (dst_regno)
+		   && src_regno >= 0 && ! HARD_REGISTER_NUM_P (src_regno));
       if (dst_hard_regno < 0)
 	{
 	  if (ALLOCNO_USE_EQUIV_CONST_P (dst)) /* We don't need an insn.  */
@@ -3001,7 +3197,7 @@ pseudo_reg_copy_cost (copy_t cp)
 #ifdef HAVE_SECONDARY_RELOADS
 	      int interm_regno = COPY_INTERM_REGNO (cp);
 
-	      gcc_assert (interm_regno >= 0);
+	      yara_assert (interm_regno >= 0);
 	      cost = (memory_move_cost [dst_mode]
                                        [REGNO_REG_CLASS (interm_regno)] [0]
 		      + memory_move_cost [dst_mode]
@@ -3024,7 +3220,7 @@ pseudo_reg_copy_cost (copy_t cp)
 	}
       else
 	{
-	  gcc_assert (src_hard_regno >= 0);
+	  yara_assert (src_hard_regno >= 0);
 	  /* ??? Subregs to get real hard regs.  */
 	  if (src_hard_regno != dst_hard_regno)
 	    cost = register_move_cost [dst_mode]
@@ -3040,10 +3236,6 @@ pseudo_reg_copy_cost (copy_t cp)
 void
 yara_color_init_once (void)
 {
-  int i;
-
-  for (i = 0; i < N_REG_CLASSES; i++)
-    init_class_cost [i] = INT_MAX;
   find_reg_class_closure ();
 }
 
@@ -3053,14 +3245,14 @@ int (*pseudo_reg_copy_cost_func) (copy_t);
 void
 yara_color (void)
 {
-  set_up_possible_alternatives (false);
+  setup_possible_alternatives (false);
   saved_conflict_cans = yara_allocate (sizeof (can_t) * allocnos_num);
   split_allocno_bitmap = yara_allocate_bitmap ();
   VARRAY_GENERIC_PTR_NOGC_INIT (new_can_allocno_varray, allocnos_num,
 				"allocnos for new can");
   biased_can_bitmap = yara_allocate_bitmap ();
   conflict_can_bitmap = yara_allocate_bitmap ();
-  set_up_cover_classes_and_reg_costs ();
+  setup_cover_classes_and_reg_costs ();
   add_move_costs ();
   if (yara_dump_file != NULL)
     print_cans (yara_dump_file);

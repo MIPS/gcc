@@ -31,10 +31,17 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define YARA_CLEAN_AFTER 128
 #define YARA_PRIORITY_COLORING 256
 #define YARA_NO_UPDATE_COSTS 512
+#define YARA_NO_BIASED_COLORING 1024
 
 
 #ifdef ENABLE_CHECKING
 /*#define ENABLE_YARA_CHECKING*/
+#endif
+
+#ifdef ENABLE_YARA_CHECKING
+#define yara_assert(c) gcc_assert (c)
+#else
+#define yara_assert(c)
 #endif
 
 #if defined (HAVE_SECONDARY_RELOADS) || defined (SECONDARY_MEMORY_NEEDED)
@@ -224,11 +231,9 @@ typedef unsigned long alt_set_t;
 
 
 /* o Insn allocno means pseudo-register occurence in an insn.
-   o Range allocno means living pseudo-register between two insns
-     inside a basic block.
-   o Region allocno means pseudo-register in a region (currently basic
-     block or loop). */
-enum allocno_type { INSN_ALLOCNO, RANGE_ALLOCNO, REGION_ALLOCNO};
+   o Region allocno means living pseudo-register between two insns
+     inside a basic block or loop. */
+enum allocno_type { INSN_ALLOCNO, REGION_ALLOCNO};
 
 /* Fixed insn allocno type values.  */
 #define BASE_REG 0
@@ -282,8 +287,7 @@ struct allocno_change
 };
 
 /* The following structure describes common information about allocno
-   representing a pseudo-register in a part of his live range
-   splitting.  */
+   representing a pseudo-register in a part of his live range.  */
 struct allocno_common
 {
   enum allocno_type type : 2;
@@ -313,8 +317,16 @@ struct allocno_common
      occurs.  */
   int freq;
 
+  /* The field value is allocated length without one of the subsequent
+     vector.  */
+  int conflict_vec_len;
+  /* Vector of conflicting allocnos with NULL end marker.  */
   allocno_t *conflict_vec;
 #ifdef HAVE_ANY_SECONDARY_MOVES
+  /* The field value is allocated length without one of the subsequent
+     vector.  */
+  int copy_conflict_vec_len;
+  /* Vector of conflicting copies with NULL end marker.  */
   copy_t *copy_conflict_vec;
 #endif
 
@@ -415,19 +427,13 @@ struct insn_allocno
   struct insn_allocno_change change;
 };
 
-struct range_allocno
-{
-  struct allocno_common common;
-  /* The allocno lives in range (start_insn, start_insn).  Null values
-     mean start/end of the basic block correspondingly.  */
-  rtx start_insn, stop_insn;
-  /* Basic block node in which the range allocno occurs.  */
-  struct yara_loop_tree_node *bb_node;
-};
-
 struct region_allocno
 {
   struct allocno_common common;
+  /* First or last insn where the region allocno connected to an insn
+     allocno.  Null values mean that the allocno lives beyond basic
+     block scope.  */
+  rtx start_insn, stop_insn;
   struct yara_loop_tree_node *node;
 };
 
@@ -435,7 +441,6 @@ union allocno_node
 {
   struct allocno_common common;
   struct insn_allocno insn;
-  struct range_allocno range;
   struct region_allocno region;
 };
 
@@ -466,8 +471,10 @@ union allocno_node
 #define ALLOCNO_FREQ(A) ((A)->common.freq)
 
 #define ALLOCNO_CONFLICT_VEC(A) ((A)->common.conflict_vec)
+#define ALLOCNO_CONFLICT_VEC_LEN(A) ((A)->common.conflict_vec_len)
 #ifdef HAVE_ANY_SECONDARY_MOVES
 #define ALLOCNO_COPY_CONFLICT_VEC(A) ((A)->common.copy_conflict_vec)
+#define ALLOCNO_COPY_CONFLICT_VEC_LEN(A) ((A)->common.copy_conflict_vec_len)
 #endif
 #define ALLOCNO_HARD_REG_CONFLICTS(A) ((A)->common.hard_reg_conflicts)
 #define ALLOCNO_CALL_CROSS_P(A) ((A)->common.call_cross_p)
@@ -482,8 +489,6 @@ union allocno_node
 
 #define INSN_ALLOCNO_CHECK(A)	\
   ((struct insn_allocno *) ALLOCNO_CHECK (A, INSN_ALLOCNO))
-#define RANGE_ALLOCNO_CHECK(A)	\
-  ((struct range_allocno *) ALLOCNO_CHECK (A, RANGE_ALLOCNO))
 #define REGION_ALLOCNO_CHECK(A)	\
   ((struct region_allocno *) ALLOCNO_CHECK (A, REGION_ALLOCNO))
 
@@ -518,12 +523,9 @@ union allocno_node
 #define INSN_ALLOCNO_INTERM_ELIMINATION_REGSET(A) \
   (INSN_ALLOCNO_CHECK (A)->change.interm_elimination_regset)
 
-/* Range allocno specific macros: */
-#define RANGE_ALLOCNO_START_INSN(A) (RANGE_ALLOCNO_CHECK (A)->start_insn)
-#define RANGE_ALLOCNO_STOP_INSN(A) (RANGE_ALLOCNO_CHECK (A)->stop_insn)
-#define RANGE_ALLOCNO_BB_NODE(A) (RANGE_ALLOCNO_CHECK (A)->bb_node)
-
 /* Region allocno specific macros: */
+#define REGION_ALLOCNO_START_INSN(A) (REGION_ALLOCNO_CHECK (A)->start_insn)
+#define REGION_ALLOCNO_STOP_INSN(A) (REGION_ALLOCNO_CHECK (A)->stop_insn)
 #define REGION_ALLOCNO_NODE(A) (REGION_ALLOCNO_CHECK (A)->node)
 
 /* Type of the point where copy insn to connect allocnos or insn
@@ -652,6 +654,10 @@ struct copy
   /* Set of hard regs conflicting with the copy.  */
   HARD_REG_SET hard_reg_conflicts;
 #endif
+  /* The field value is allocated length without one of the subsequent
+     vector.  */
+  int allocno_conflict_vec_len;
+  /* Vector of conflicting allocnos with NULL end marker.  */
   allocno_t *allocno_conflict_vec;
 #endif
 
@@ -680,6 +686,7 @@ extern int copies_num;
 
 #ifdef HAVE_ANY_SECONDARY_MOVES
 #define COPY_ALLOCNO_CONFLICT_VEC(C) ((C)->allocno_conflict_vec)
+#define COPY_ALLOCNO_CONFLICT_VEC_LEN(C) ((C)->allocno_conflict_vec_len)
 #endif
 
 #ifdef HAVE_SECONDARY_RELOADS
@@ -720,6 +727,7 @@ struct can
   /* The following is array of can allocno.  The vector end is NULL
      element.  */
   allocno_t *can_allocnos;
+  /* Vector of conflicting cans with NULL end marker.  */
   can_t *conflict_can_vec;
   HARD_REG_SET conflict_hard_regs;
   HARD_REG_SET biased_hard_regs;
@@ -880,7 +888,7 @@ extern rtx *get_container_loc (rtx *, rtx *);
 extern allocno_t insn_allocno (rtx, rtx);
 
 extern can_t create_can (void);
-extern void set_up_can_call_info (can_t);
+extern void setup_can_call_info (can_t);
 extern int can_freq (can_t);
 extern void print_can (FILE *, can_t);
 extern void debug_can (can_t);
@@ -888,7 +896,6 @@ extern void print_cans (FILE *);
 extern void debug_cans (void);
 
 extern void find_allocno_conflicting_cans (allocno_t, bool);
-extern void find_conflicting_cans (can_t, bool);
 
 extern void create_can_conflicts (can_t);
 
@@ -964,9 +971,9 @@ extern void eliminate_virtual_registers (int (*) (allocno_t, enum reg_class,
 						  HARD_REG_SET));
 
 /* yara-insn.c:  */
-extern void set_up_possible_allocno_alternatives (struct insn_op_info *,
+extern void setup_possible_allocno_alternatives (struct insn_op_info *,
 						  allocno_t, bool);
-extern void set_up_possible_alternatives (bool);
+extern void setup_possible_alternatives (bool);
 extern void make_commutative_exchange (allocno_t);
 extern void allocate_insn_allocnos (rtx, bool (*) (allocno_t),
 				    void (*) (allocno_t *, int, rtx, int),

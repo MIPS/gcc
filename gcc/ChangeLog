@@ -1,3 +1,182 @@
+2006-04-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* yara-int.h (yara_assert): New macro.
+	(YARA_NO_BIASED_COLORING): New macro.
+	(RANGE_ALLOCNO): Remove.
+	(allocno_common): New fields conflict_vec_len and
+	copy_conflict_vec_len.
+	(range_allocno): Remove.
+	(region_allocno): New fields start_insn and stop_insn.
+	(allocno_node): Remove range.
+	(ALLOCNO_CONFLICT_VEC_LEN, ALLOCNO_COPY_CONFLICT_VEC_LEN): New
+	macros.
+	(RANGE_ALLOCNO_CHECK, RANGE_ALLOCNO_START_INSN,
+	RANGE_ALLOCNO_STOP_INSN, RANGE_ALLOCNO_BB_NODE): Remove.
+	(REGION_ALLOCNO_START_INSN, REGION_ALLOCNO_STOP_INSN): New macros.
+	(copy): New field allocno_conflict_vec_len.
+	(COPY_ALLOCNO_CONFLICT_VEC_LEN): New macro.
+	(set_up_can_call_info): Rename to setup_can_call_info.
+	(find_conflicting_cans): Remove the prototype.
+	(set_up_possible_allocno_alternatives): Rename to
+	setup_possible_allocno_alternatives.
+	(set_up_possible_alternatives): Rename to
+	setup_possible_alternatives.
+	
+	* yara.c: Use yara_assert instead of gcc_assert.
+	(set_up_class_hard_regs): Rename to setup_class_hard_regs.
+	(set_up_available_class_regs): Rename to
+	setup_available_class_regs.
+	(set_non_alloc_regs): Use the new names.
+	(yara): Call check_allocation only when checking.
+
+	* yara-color.c: Use yara_assert instead of gcc_assert.
+	(set_up_closure_classes): Rename to setup_closure_classes.
+	(set_up_class_translate): Rename to setup_class_translate.
+	(find_reg_class_closure): Use the new names.
+	(init_class_cost): Remove.
+	(can_classes): New variable.
+	(set_up_minimal_op_costs): Rename to setup_minimal_op_costs.
+	Process only can_classes.
+	(update_min_op_costs): Process only can_classes.
+	(process_insn_allocno_constraint): Use setup_minimal_op_costs
+	instead of set_up_minimal_op_costs.
+	(process_insn_allocno_for_costs): Remove recursion.  Change
+	signature.  Process only can_classes.  Don't commutative operand
+	exchange.
+	(update_min_alt_costs): Process only can_classes.  Exchange
+	commutative operands.
+	(can_classes_num, can_classes_sbitmap): New variables.
+	(add_can_class_for_check, process_op_insn_allocno_for_can_classes,
+	setup_can_classes): New functions.
+	(set_up_cover_classes_and_reg_costs): Rename to
+	setup_cover_classes_and_reg_costs.  Call setup_can_classes.
+	Process only can_classes.  Remove unnecessary can conflicts.
+	(split_can_by_split_allocno_bitmap): Use setup_can_call_info
+	instead of set_up_can_call_info.
+	(find_conflicting_biased_regs_and_costs): Check that conflict can
+	class is the same.
+	(choose_global_hard_reg): Ditto.  Check that there are free hard
+	regs before searching for hard reg.  Use YARA_NO_BIASED_COLORING.
+	(push_globals_to_stack, global_can_alloc): Check that conflict can
+	class is the same.
+	(set_up_bb_pos_insn_maps): Rename to setup_bb_pos_insn_maps.
+	(spill_hard_regno_for_allocno): Don't check that is a region
+	allocno.
+	(set_up_hard_regno_to_allocno_map): Rename to
+	setup_hard_regno_to_allocno_map.
+	(provide_allocno_class_hard_reg): Use the new name.
+	(bb_local_can_alloc): Use setup_bb_pos_insn_maps instead of
+	set_up_bb_pos_insn_maps.
+	(provide_allocno_elimination_class_hard_reg): Use
+	setup_hard_regno_to_allocno_map instead of
+	set_up_hard_regno_to_allocno_map.
+	(try_change_allocno): Use setup_possible_allocno_alternatives
+	instead of set_up_possible_allocno_alternatives.
+	(possible_allocno_alternatives): Use setup_possible_alternatives
+	instead of set_up_possible_alternatives.
+	(yara_color_init_once): Remove init_class_cost initialization.
+	(yara_color): Use setup_possible_alternatives instead of
+	set_up_possible_alternatives and setup_cover_classes_and_reg_costs
+	instead of set_up_cover_classes_and_reg_costs.
+
+	* yara-final.c: Use yara_assert instead of gcc_assert.
+	(check_sync_and_set_up_copy_sync): Rename to
+	check_sync_and_setup_copy_sync.
+	(check_sync_and_set_up_copy_sync): Use the new name.
+	(set_up_bb_rts_numbers): Rename to setup_bb_rts_numbers.
+	(set_up_copy_sync_p): Rename to setup_copy_sync_p.
+	(find_sync_copies): Use the new names.
+
+	* yara-insn.c: Use yara_assert instead of gcc_assert.
+	(set_up_possible_allocno_alternatives): Rename to
+	setup_possible_allocno_alternatives.
+	(set_up_possible_operand_alternatives): Rename to
+	setup_possible_operand_alternatives.  Use
+	setup_possible_allocno_alternatives instead of
+	set_up_possible_allocno_alternatives.
+	(set_up_possible_alternatives): Rename to
+	setup_possible_alternatives.  Use
+	setup_possible_operand_alternatives instead of
+	set_up_possible_operand_alternatives.
+	(make_commutative_exchange): Use
+	setup_possible_allocno_alternatives instead of
+	set_up_possible_allocno_alternatives.
+
+	* yara-ir.c: Use yara_assert instead of gcc_assert.
+	(set_up_reg_class_nregs): Rename to setup_reg_class_nregs.
+	(set_up_mode_multi_reg_p): Rename to setup_mode_multi_reg_p.
+	(mark_allocno_live): Remove unnecessary parameter.
+	(setup_insn_elimination_part_const_p): Rename to
+	setup_insn_elimination_part_const_p.
+	(create_range_allocno, process_external_edges): Remove.
+	(create_region_allocno, create_edge_allocnos):
+	Change prototypes.
+	(add_live_through_allocno, check_abnormal_copy_list,
+	check_abnormal_edges, find_conflicting_cans): Add prototypes.
+	(abnormal_edge_p): New function.
+	(set_up_allocno_frequency): Rename to setup_allocno_frequency.
+	(set_up_all_allocno_frequencies): Rename to
+	setup_all_allocno_frequencies.
+	(allocno_check_failed, allocno_type_name, initiate_allocnos):
+	Remove code for range allocnos.
+	(range_allocnos_num, all_range_allocnos_num): Remove.
+	(create_allocno): Remove range allocno processing.  Initialize new
+	fields conflict_vec_len and copy_conflict_vec_len.
+	(print_allocno): Remove code for range allocnos.  Print new region
+	allocno fields.
+	(create_copy): Remove code for range allocnos.  Initialize new
+	fields allocno_conflict_vec_len and allocno_stop_insn.
+	(create_conflict): Increment conflict_vec_len of the allocnos.
+	(change_allocno_conflict, SKIP_THROUGH_CHANGED): Remove.
+	(commit_conflicts): Don't use SKIP_THROUGH_CHANGED and conflict
+	bitmap.  Add code to remove duplicated allocno-allocno conflicts.
+	(create_copy_conflict): Increment copy_conflict_vec_len and
+	allocno_conflict_vec_len of the allocno and copy.
+	(commit_copy_conflicts): Don't use conflict bitmap.
+	(nnn): Remove.
+	(create_insn_allocnos): Use setup_insn_elimination_part_const_p
+	instead of set_up_insn_elimination_part_const_p.
+	(live_allocno): Add new field bb_start_p.
+	(temp_live_through_abnormal): New bitmap.
+	(create_bb_allocno): Add new parameters.  Add special code to process
+	allocnos living through abnormal edges.
+	(create_block_allocnos): Add code to find allocnos living through
+	abnormal edges.
+	(create_edge_allocno): Add new parameter.  Add special code to process
+	allocnos living through abnormal edges.
+	(create_loop_allocnos): Add code to find allocnos living through
+	abnormal edges.
+	(create_all_allocnos): Create and free temp_live_through_abnormal.
+	(add_conflict_to_live_through_allocno): Process new field
+	bb_start_p of live_allocno structure.
+	(change_allocno, coalesce_edge_copy_list,
+	coalesce_copies_on_abnormal_edges): Remove.
+	(check_abnormal_copy_list): Define it when checking is enable.
+	Add new parameter.
+	(check_abnormal_edges): Define it when checking is enable.  Add
+	code to find  allocnos living through
+	abnormal edges.
+	(set_up_can_call_info): Rename to setup_can_call_info.
+	(create_cans): Remove code for range allocnos.  Use
+	setup_can_call_info instead of set_up_can_call_info.
+	(print_can): Remove code for range allocnos.
+	(find_conflicting_cans): Make it static.  Remove last parameter.
+	(set_up_slotno_max_ref_align_size): Rename to
+	setup_slotno_max_ref_align_size.
+	(yara_ir_init_once): Use new names setup_reg_class_nregs and
+	setup_spill_class_mode.
+	(yara_ir_init): Use new names setup_mode_multi_reg_p,
+	setup_all_allocno_frequencies, and
+	setup_slotno_max_ref_align_size.  Remove call
+	coalesce_copies_on_abnormal_edges.
+	(yara_ir_finish): Don't print range allocnos statistics.
+	
+	* yara-trans.c:	Use yara_assert instead of gcc_assert.
+	(set_up_temp_mems_and_addresses): Rename to
+	setup_temp_mems_and_addresses.
+	(set_up_move_costs): Rename to setup_move_costs.
+	(yara_trans_init_once): Use the new names.
+	
 2006-04-05  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* yara-int.h (YARA_NO_REGCLASS_BEFORE): Rename to

@@ -101,8 +101,8 @@ int *slotno_max_ref_size;
 
 
 
-static void set_up_reg_class_nregs (void);
-static void set_up_spill_class_mode (void);
+static void setup_reg_class_nregs (void);
+static void setup_spill_class_mode (void);
 
 static void mark_set_reg_not_eliminable (rtx, rtx, void *);
 static int mark_used_reg_not_eliminable_1 (rtx *, void *);
@@ -154,7 +154,7 @@ static copy_t find_copy (allocno_t, allocno_t);
 static copy_t sort_copy_list (copy_t, int (*) (const void *, const void *));
 static void finish_copies (void);
 
-static void set_up_mode_multi_reg_p (void);
+static void setup_mode_multi_reg_p (void);
 
 static void initiate_conflicts (void);
 static void create_conflict (allocno_t, allocno_t);
@@ -184,7 +184,7 @@ static void mark_hard_reg_live (int, enum machine_mode);
 static void mark_hard_reg_death (int, enum machine_mode);
 static int find_local_live_allocno (allocno_t);
 static void set_allocno_conflict (allocno_t, void *, int);
-static void mark_allocno_live (allocno_t, copy_t, bool);
+static void mark_allocno_live (allocno_t, bool);
 static void mark_allocno_death (allocno_t);
 static void process_non_operand_hard_regs (rtx *, bool);
 #ifdef HAVE_ANY_SECONDARY_MOVES
@@ -194,27 +194,27 @@ static void mark_output_allocno_death (allocno_t, rtx);
 static void build_insn_allocno_copy_conflicts (copy_t, rtx, bool);
 static void set_call_info (allocno_t, void *, int);
 static void build_insn_allocno_conflicts (rtx);
-static allocno_t create_range_allocno (int, struct yara_loop_tree_node *, rtx);
+static allocno_t create_region_allocno (int, struct yara_loop_tree_node *,
+					rtx);
 static int before_insn_copy_compare (const void *, const void *);
 static int after_insn_copy_compare (const void *, const void *);
 static void merge_the_same_regno_source_copies (copy_t);
 static void process_const_operands_in_elimination_part (rtx);
-static void set_up_insn_elimination_part_const_p (void);
+static void setup_insn_elimination_part_const_p (void);
 static void create_insn_copies (rtx);
 static allocno_t create_loc_insn_allocnos (rtx, rtx *, enum machine_mode,
 					   bool, enum op_type, int);
 static void create_insn_allocnos (rtx);
 static void create_bb_insn_allocnos (struct yara_loop_tree_node *);
-static allocno_t create_region_allocno (int, struct yara_loop_tree_node *);
-static void create_bb_allocno (int, struct yara_loop_tree_node *, bool);
+static void add_live_through_allocno (allocno_t, bool, basic_block, edge);
+static void create_bb_allocno (int, struct yara_loop_tree_node *,
+			       bool, bitmap, bool);
+static bool abnormal_edge_p (VEC(edge,gc) *);
 static void create_block_allocnos (struct yara_loop_tree_node *);
 static void create_edge_allocno (int, edge,
-				 struct yara_loop_tree_node *, bool);
-static void create_edge_allocnos (edge, struct yara_loop_tree_node *, bool);
-static void process_external_edges (struct yara_loop_tree_node *, bool,
-				    void (*) (edge,
-					      struct yara_loop_tree_node *,
-					      bool));
+				 struct yara_loop_tree_node *, bool, bitmap);
+static void create_edge_allocnos (edge, struct yara_loop_tree_node *,
+				  bool, bitmap);
 static void create_loop_allocnos (struct yara_loop_tree_node *);
 static void create_subloop_allocnos (struct yara_loop_tree_node *);
 static void create_all_allocnos (void);
@@ -227,17 +227,24 @@ static void add_region_allocno_list_conflicts (copy_t, HARD_REG_SET,
 					       HARD_REG_SET);
 static void add_region_allocno_copy_conflicts (void);
 
+#ifdef ENABLE_YARA_CHECKING
+static void check_abnormal_copy_list (copy_t, bitmap);
+static void check_abnormal_edges (void);
+#endif
+
 static bool propagate_value (allocno_t, allocno_t);
 static bool propagate_copy_value (copy_t);
 static void make_vn (void);
 
-static void set_up_allocno_frequency (allocno_t);
-static void set_up_all_allocno_frequencies (void);
+static void setup_allocno_frequency (allocno_t);
+static void setup_all_allocno_frequencies (void);
 
 static void initiate_cans (void);
 static void finish_cans (void);
 
 static void create_cans (void);
+
+static void find_conflicting_cans (can_t);
 
 
 
@@ -248,7 +255,7 @@ int reg_class_nregs [N_REG_CLASSES] [MAX_MACHINE_MODE];
 
 /* Function forming reg_class_nregs map.  */
 static void
-set_up_reg_class_nregs (void)
+setup_reg_class_nregs (void)
 {
   int i, m, old, hard_regno;
   enum reg_class cl;
@@ -277,7 +284,7 @@ enum machine_mode spill_class_mode [N_REG_CLASSES] [MAX_MACHINE_MODE];
 enum machine_mode spill_mode [MAX_MACHINE_MODE];
 
 static void
-set_up_spill_class_mode (void)
+setup_spill_class_mode (void)
 {
   int mode, m, cl, size;
   enum reg_class interm_class;
@@ -327,8 +334,8 @@ set_up_spill_class_mode (void)
       for (cl = 1; cl < (int) N_REG_CLASSES; cl++)
 	if (m != (int) spill_class_mode [cl] [mode])
 	  {
-	    gcc_assert ((int) spill_mode [mode] == mode
-			|| (int) spill_mode [mode] == m);
+	    yara_assert ((int) spill_mode [mode] == mode
+			 || (int) spill_mode [mode] == m);
 	    spill_mode [mode] = m;
 	  }
     }
@@ -348,11 +355,8 @@ allocno_check_failed (const allocno_t a, const char *file,
   const char *expected;
   const char *given;
 
-  expected = (type == INSN_ALLOCNO ? "INSN ALLOCNO"
-	      : type == RANGE_ALLOCNO ? "RANGE ALLOCNO" : "REGION ALLOCNO");
-  given = (ALLOCNO_TYPE (a) ? "INSN ALLOCNO"
-	   : ALLOCNO_TYPE (a) == RANGE_ALLOCNO
-	   ? "RANGE ALLOCNO" : "REGION_ALLOCNO");
+  expected = (type == INSN_ALLOCNO ? "INSN ALLOCNO" : "REGION ALLOCNO");
+  given = (ALLOCNO_TYPE (a) ? "INSN ALLOCNO" : "REGION_ALLOCNO");
   internal_error ("allocno check: expected %s, have %s in %s, at %s:%d",
 		  expected, given, function, trim_filename (file), line);
 }
@@ -451,7 +455,7 @@ mark_set_reg_not_eliminable (rtx dest, rtx x, void *data ATTRIBUTE_UNUSED)
 	  ep->offset += INTVAL (XEXP (SET_SRC (x), 1));
 	else
 	  {
-	    gcc_assert (REGNO (dest) == (unsigned) ep->from);
+	    yara_assert (REGNO (dest) == (unsigned) ep->from);
 	    ep->offset -= INTVAL (XEXP (SET_SRC (x), 1));
 	  }
       }
@@ -609,11 +613,11 @@ modify_offsets_and_frame_pointer_needed (void)
        ep = ep->from_next)
     if (ep->obligatory && ep->to == STACK_POINTER_REGNUM)
       {
-	gcc_assert (ep->can_eliminate);
+	yara_assert (ep->can_eliminate);
 	frame_pointer_needed = 0;
       }
   
-  gcc_assert (reg_eliminate [FRAME_POINTER_REGNUM] != NULL);
+  yara_assert (reg_eliminate [FRAME_POINTER_REGNUM] != NULL);
   stack_frame_pointer_can_be_eliminated_p = false;
 #ifdef ELIMINABLE_REGS
   INITIAL_ELIMINATION_OFFSET (FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM,
@@ -632,12 +636,12 @@ modify_offsets_and_frame_pointer_needed (void)
      calculate the real values here.  */
   for (ep = reg_eliminations; ep != NULL; ep = ep->next)
     {
-      gcc_assert (ep->can_eliminate);
+      yara_assert (ep->can_eliminate);
 #ifdef ELIMINABLE_REGS
       INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, ep->initial_offset);
 #else
-      gcc_assert (ep->from == FRAME_POINTER_REGNUM
-		  && ep->to == STACK_POINTER_REGNUM);
+      yara_assert (ep->from == FRAME_POINTER_REGNUM
+		   && ep->to == STACK_POINTER_REGNUM);
       INITIAL_FRAME_POINTER_OFFSET (ep->initial_offset);
 #endif
       ep->offset = ep->initial_offset;
@@ -665,9 +669,9 @@ verify_elimination_table (void)
   
   /* Verify elimination table */
   for (ep = reg_eliminations; ep != NULL; ep = ep->next)
-    gcc_assert (ep->can_eliminate
-		&& (ep->from == HARD_FRAME_POINTER_REGNUM
-		    || TEST_HARD_REG_BIT (fixed_reg_set, ep->from)));
+    yara_assert (ep->can_eliminate
+		 && (ep->from == HARD_FRAME_POINTER_REGNUM
+		     || TEST_HARD_REG_BIT (fixed_reg_set, ep->from)));
 }
 
 static void
@@ -798,12 +802,12 @@ update_elim_offsets (void)
 
   for (ep = reg_eliminations; ep != NULL; ep = ep->next)
     {
-      gcc_assert (ep->can_eliminate);
+      yara_assert (ep->can_eliminate);
 #ifdef ELIMINABLE_REGS
       INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, ep->offset);
 #else
-      gcc_assert (ep->from == FRAME_POINTER_REGNUM
-		  && ep->to == STACK_POINTER_REGNUM);
+      yara_assert (ep->from == FRAME_POINTER_REGNUM
+		   && ep->to == STACK_POINTER_REGNUM);
       INITIAL_FRAME_POINTER_OFFSET (ep->offset);
 #endif
     }
@@ -835,7 +839,7 @@ verify_elim_offsets (void)
 
   for (ep = reg_eliminations; ep != NULL; ep = ep->next)
     {
-      gcc_assert (ep->can_eliminate);
+      yara_assert (ep->can_eliminate);
       INITIAL_ELIMINATION_OFFSET (ep->from, ep->to, t);
       ep->offset = t;
     }
@@ -861,7 +865,7 @@ make_edge_enumeration (void)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	e->aux = (void *) (size_t) n++;
     }
-  gcc_assert (n <= n_edges);
+  yara_assert (n <= n_edges);
 }
 
 static void
@@ -1338,7 +1342,7 @@ print_point (FILE *f, struct point *p)
 	     p->u.e.loop_node->loop->depth);
   else
     {
-      gcc_assert (p->point_type == ON_EDGE_DST);
+      yara_assert (p->point_type == ON_EDGE_DST);
       fprintf (f, "ed[%d->%d:d%d]", p->u.e.e->src->index,
 	       p->u.e.e->dest->index, p->u.e.loop_node->loop->depth);
     }
@@ -1378,16 +1382,15 @@ point_freq (struct point *point)
 
 /* Varray containing references to allocnos.  */
 static varray_type allocno_varray;
-static int insn_allocnos_num, range_allocnos_num, region_allocnos_num;
+static int insn_allocnos_num, region_allocnos_num;
 static int all_insn_allocnos_num = 0;
-static int all_range_allocnos_num = 0;
 static int all_region_allocnos_num = 0;
 static int all_allocnos_num = 0;
 
 static void
 initiate_allocnos (void)
 {
-  insn_allocnos_num = range_allocnos_num = region_allocnos_num = 0;
+  insn_allocnos_num = region_allocnos_num = 0;
   VARRAY_GENERIC_PTR_NOGC_INIT (allocno_varray, yara_max_uid * 5, "allocnos");
 }
 
@@ -1401,11 +1404,6 @@ create_allocno (enum allocno_type type, int regno, enum machine_mode mode)
     {
       size = sizeof (struct insn_allocno);
       insn_allocnos_num++;
-    }
-  else if (type == RANGE_ALLOCNO)
-    {
-      size = sizeof (struct range_allocno);
-      range_allocnos_num++;
     }
   else
     {
@@ -1426,7 +1424,9 @@ create_allocno (enum allocno_type type, int regno, enum machine_mode mode)
   ALLOCNO_USE_EQUIV_CONST_P (a) = false;
   ALLOCNO_DST_COPIES (a) = ALLOCNO_SRC_COPIES (a) = NULL;
   ALLOCNO_CONFLICT_VEC (a) = NULL;
+  ALLOCNO_CONFLICT_VEC_LEN (a) = 0;
 #ifdef HAVE_ANY_SECONDARY_MOVES
+  ALLOCNO_COPY_CONFLICT_VEC_LEN (a) = 0;
   ALLOCNO_COPY_CONFLICT_VEC (a) = NULL;
 #endif
 #ifdef CONFLICT_CACHE
@@ -1496,8 +1496,7 @@ print_copy (FILE *f, copy_t cp, bool dst_p)
 const char *
 allocno_type_name (allocno_t a)
 {
-  return (ALLOCNO_TYPE (a) == INSN_ALLOCNO ? "insn"
-	  : ALLOCNO_TYPE (a) == RANGE_ALLOCNO ? "range" : "region");
+  return (ALLOCNO_TYPE (a) == INSN_ALLOCNO ? "insn" : "region");
 }
 
 static void
@@ -1514,18 +1513,7 @@ print_allocno (FILE *f, allocno_t a)
 	   GET_MODE_NAME (ALLOCNO_MODE (a)),
 	   ALLOCNO_HARD_REGNO (a), ALLOCNO_FREQ (a), ALLOCNO_CALL_FREQ (a),
 	   (ALLOCNO_CALL_CROSS_P (a) ? ", cross calls" : ""));
-  if (ALLOCNO_TYPE (a) == RANGE_ALLOCNO)
-    {
-      if (RANGE_ALLOCNO_START_INSN (a) == NULL_RTX)
-	fprintf (f, "[start bb %d, ", RANGE_ALLOCNO_BB_NODE (a)->bb->index);
-      else
-	fprintf (f, "(%d, ", INSN_UID (RANGE_ALLOCNO_START_INSN (a)));
-      if (RANGE_ALLOCNO_STOP_INSN (a) == NULL_RTX)
-	fprintf (f, "end bb %d], ", RANGE_ALLOCNO_BB_NODE (a)->bb->index);
-      else
-	fprintf (f, "%d), ", INSN_UID (RANGE_ALLOCNO_STOP_INSN (a)));
-    }
-  else if (ALLOCNO_TYPE (a) == REGION_ALLOCNO)
+  if (ALLOCNO_TYPE (a) == REGION_ALLOCNO)
     {
       if (REGION_ALLOCNO_NODE (a)->bb == NULL)
 	fprintf (f, " loop #%d (header %d)",
@@ -1533,10 +1521,14 @@ print_allocno (FILE *f, allocno_t a)
 		 REGION_ALLOCNO_NODE (a)->loop->header->index);
       else
 	fprintf (f, " bb #%d", REGION_ALLOCNO_NODE (a)->bb->index);
+      if (REGION_ALLOCNO_START_INSN (a) != NULL_RTX)
+	fprintf (f, ", start = %d", INSN_UID (REGION_ALLOCNO_START_INSN (a)));
+      if (REGION_ALLOCNO_STOP_INSN (a) != NULL_RTX)
+	fprintf (f, ", stop = %d", INSN_UID (REGION_ALLOCNO_STOP_INSN (a)));
     }
   else
     {
-      gcc_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
+      yara_assert (ALLOCNO_TYPE (a) == INSN_ALLOCNO);
       fprintf (f, " insn %d, ", INSN_UID (INSN_ALLOCNO_INSN (a)));
       if (INSN_ALLOCNO_BIGGEST_MODE (a) != ALLOCNO_MODE (a))
 	fprintf (f, "bigmode = %s, ",
@@ -1697,13 +1689,13 @@ create_copy (allocno_t dst, allocno_t src, struct point point, rtx insn)
 {
   copy_t cp, prev_cp, next_cp;
 
-  gcc_assert (dst != NULL || src != NULL);
+  yara_assert (dst != NULL || src != NULL);
   all_copies++;
   if (dst == src)
     all_ident_copies++;
-  gcc_assert (dst == NULL || src == NULL
-	      || (! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (src))
-		  && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (dst))));
+  yara_assert (dst == NULL || src == NULL
+	       || (! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (src))
+		   && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (dst))));
   cp = yara_allocate (sizeof (struct copy));
   COPY_NUM (cp) = VARRAY_ACTIVE_SIZE (copy_varray);
   VARRAY_PUSH_GENERIC_PTR (copy_varray, cp);
@@ -1720,11 +1712,10 @@ create_copy (allocno_t dst, allocno_t src, struct point point, rtx insn)
       COPY_NEXT_SRC_COPY (cp) = ALLOCNO_SRC_COPIES (src);
       ALLOCNO_SRC_COPIES (src) = cp;
     }
-  /* Originally active is the first created copy for copy an insn
-     allocno into a range allocno.  */
   COPY_POINT (cp) = point;
 #ifdef HAVE_ANY_SECONDARY_MOVES
   COPY_ALLOCNO_CONFLICT_VEC (cp) = NULL;
+  COPY_ALLOCNO_CONFLICT_VEC_LEN (cp) = 0;
 #endif
 #ifdef HAVE_SECONDARY_RELOADS
   CLEAR_HARD_REG_SET (COPY_HARD_REG_CONFLICTS (cp));
@@ -1738,8 +1729,8 @@ create_copy (allocno_t dst, allocno_t src, struct point point, rtx insn)
   COPY_SYNC_P (cp) = false;
   COPY_SUBST_SRC_HARD_REGNO (cp) = -1;
 
-  if (src != NULL && ALLOCNO_TYPE (src) == RANGE_ALLOCNO)
-    RANGE_ALLOCNO_STOP_INSN (src) = insn;
+  if (src != NULL && ALLOCNO_TYPE (src) == REGION_ALLOCNO)
+    REGION_ALLOCNO_STOP_INSN (src) = insn;
   switch (point.point_type)
     {
     case BEFORE_INSN:
@@ -1876,7 +1867,7 @@ finish_copies (void)
 static bool mode_multi_reg_p [MAX_MACHINE_MODE];
 
 static void
-set_up_mode_multi_reg_p (void)
+setup_mode_multi_reg_p (void)
 {
   int i, mode;
 
@@ -1963,81 +1954,76 @@ create_conflict (allocno_t a1, allocno_t a2)
     }
   VARRAY_PUSH_GENERIC_PTR (pending_allocno_conflict_varray, a1);
   VARRAY_PUSH_GENERIC_PTR (pending_allocno_conflict_varray, a2);
+  ALLOCNO_CONFLICT_VEC_LEN (a1)++;
+  ALLOCNO_CONFLICT_VEC_LEN (a2)++;
   return;
 }
-
-static allocno_t *change_allocno_conflict;
-
-#define SKIP_THROUGH_CHANGED(result, a)					\
-   for (result = (a);							\
-	change_allocno_conflict [ALLOCNO_NUM (result)] != result;	\
-	result = change_allocno_conflict [ALLOCNO_NUM (result)])
 
 static void
 commit_conflicts (void)
 {
-  int i, n;
-  allocno_t a1, a2;
-  int a1_num, a2_num;
+  int i, j, n;
+  int *check_allocno;
+  allocno_t a1, a2, *vec;
+  int a2_num;
   void **conflicts;
-  sbitmap allocno_conflicts;
-  int *allocno_conflict_vec_len;
 
-  allocno_conflicts = sbitmap_alloc ((size_t) allocnos_num * allocnos_num);
   conflicts
     = (void **)&VARRAY_GENERIC_PTR (pending_allocno_conflict_varray, 0);
-  allocno_conflict_vec_len = yara_allocate (allocnos_num * sizeof (int));
-  memset (allocno_conflict_vec_len, 0, allocnos_num * sizeof (int));
-  sbitmap_zero (allocno_conflicts);
-  for (i = VARRAY_ACTIVE_SIZE (pending_allocno_conflict_varray) - 2;
-       i >= 0;
-       i -= 2)
-    {
-      SKIP_THROUGH_CHANGED (a1, conflicts [i]);
-      SKIP_THROUGH_CHANGED (a2, conflicts [i + 1]);
-      a1_num = ALLOCNO_NUM (a1);
-      a2_num = ALLOCNO_NUM (a2);
-      if (TEST_BIT (allocno_conflicts,
-		    (size_t) a1_num * allocnos_num + a2_num))
-	  continue;
-      SET_BIT (allocno_conflicts, (size_t) a1_num * allocnos_num + a2_num);
-      allocno_conflict_vec_len [a1_num]++;
-      allocno_conflict_vec_len [a2_num]++;
-    }
   for (i = 0; i < allocnos_num; i++)
     {
       a1 = allocnos [i];
-      n = allocno_conflict_vec_len [i];
+      n = ALLOCNO_CONFLICT_VEC_LEN (a1);
+      ALLOCNO_CONFLICT_VEC_LEN (a1) = 0;
       ALLOCNO_CONFLICT_VEC (a1) = yara_allocate ((n + 1) * sizeof (allocno_t));
       ALLOCNO_CONFLICT_VEC (a1)	[n] = NULL;
     }
-  memset (allocno_conflict_vec_len, 0, allocnos_num * sizeof (int));
-  sbitmap_zero (allocno_conflicts);
-  conflicts_num = 0;
   for (i = VARRAY_ACTIVE_SIZE (pending_allocno_conflict_varray) - 2;
        i >= 0;
        i -= 2)
     {
-      SKIP_THROUGH_CHANGED (a1, conflicts [i]);
-      SKIP_THROUGH_CHANGED (a2, conflicts [i + 1]);
-      a1_num = ALLOCNO_NUM (a1);
-      a2_num = ALLOCNO_NUM (a2);
-      if (TEST_BIT (allocno_conflicts, a1_num * allocnos_num + a2_num))
-	continue;
-      SET_BIT (allocno_conflicts, a1_num * allocnos_num + a2_num);
-      conflicts_num++;
-      ALLOCNO_CONFLICT_VEC (a1) [allocno_conflict_vec_len [a1_num]++] = a2;
-      ALLOCNO_CONFLICT_VEC (a2) [allocno_conflict_vec_len [a2_num]++] = a1;
+      a1 = conflicts [i];
+      a2 = conflicts [i + 1];
+      ALLOCNO_CONFLICT_VEC (a1) [ALLOCNO_CONFLICT_VEC_LEN (a1)++] = a2;
+      ALLOCNO_CONFLICT_VEC (a2) [ALLOCNO_CONFLICT_VEC_LEN (a2)++] = a1;
     }
-  yara_free (allocno_conflict_vec_len);
+  check_allocno = yara_allocate (allocnos_num * sizeof (int));
+  for (i = 0; i < allocnos_num; i++)
+    check_allocno [i] = -1;
+  /* We might have duplicated conflicts for region allocnos because
+     our algorithm of conflicts building.  Remove the duplicates.  It
+     does not change result but it speeds conflict processing up
+     during subsequent allocation.  */
+  conflicts_num = 0;
+  for (i = 0; i < allocnos_num; i++)
+    {
+      a1 = allocnos [i];
+      if (ALLOCNO_TYPE (a1) == INSN_ALLOCNO)
+	continue;
+      vec = ALLOCNO_CONFLICT_VEC (a1);
+      for (n = j = 0; (a2 = vec [j]) != NULL; j++)
+	{
+	  a2_num = ALLOCNO_NUM (a2);
+	  if (check_allocno [a2_num] != i)
+	    {
+	      check_allocno [a2_num] = i;
+	      vec [n++] = a2;
+	    }
+	  else
+	    conflicts_num++;
+	}
+      vec [n] = NULL;
+    }
+  conflicts_num = ((int) VARRAY_ACTIVE_SIZE (pending_allocno_conflict_varray)
+		   - conflicts_num) / 2;
+  yara_free (check_allocno);
   if (yara_dump_file != NULL)
     fprintf (yara_dump_file,
 	     "Allocno conflicts (pending/final) %d/%d=%d%%\n",
-	     (int) VARRAY_ACTIVE_SIZE (pending_allocno_conflict_varray),
+	     (int) VARRAY_ACTIVE_SIZE (pending_allocno_conflict_varray) / 2,
 	     conflicts_num,
-	     (int) VARRAY_ACTIVE_SIZE (pending_allocno_conflict_varray) * 100
+	     (int) VARRAY_ACTIVE_SIZE (pending_allocno_conflict_varray) * 50
 	     / (conflicts_num ? conflicts_num : 1));
-  sbitmap_free (allocno_conflicts);
   VARRAY_FREE (pending_allocno_conflict_varray);
 }
 
@@ -2061,6 +2047,8 @@ create_copy_conflict (allocno_t a, copy_t cp)
 #endif
  VARRAY_PUSH_GENERIC_PTR (pending_allocno_copy_conflict_varray, a);
  VARRAY_PUSH_GENERIC_PTR (pending_allocno_copy_conflict_varray, cp);
+ ALLOCNO_COPY_CONFLICT_VEC_LEN (a)++;
+ COPY_ALLOCNO_CONFLICT_VEC_LEN (cp)++;
  return;
 }
 
@@ -2071,35 +2059,13 @@ commit_copy_conflicts (void)
   allocno_t a;
   copy_t cp;
   void **conflicts;
-  sbitmap allocno_copy_conflicts;
-  int *allocno_copy_conflict_vec_len;
-  int *copy_allocno_conflict_vec_len;
 
-  allocno_copy_conflicts = sbitmap_alloc (allocnos_num * copies_num);
   conflicts = &VARRAY_GENERIC_PTR (pending_allocno_copy_conflict_varray, 0);
-  allocno_copy_conflict_vec_len = yara_allocate (sizeof (int) * allocnos_num);
-  memset (allocno_copy_conflict_vec_len, 0, sizeof (int) * allocnos_num);
-  copy_allocno_conflict_vec_len = yara_allocate (sizeof (int) * copies_num);
-  memset (copy_allocno_conflict_vec_len, 0, sizeof (int) * copies_num);
-  sbitmap_zero (allocno_copy_conflicts);
-  for (i = 0;
-       i < (int) VARRAY_ACTIVE_SIZE (pending_allocno_copy_conflict_varray);
-       i += 2)
-    {
-      a = conflicts [i];
-      cp = conflicts [i + 1];
-      if (TEST_BIT (allocno_copy_conflicts,
-		    ALLOCNO_NUM (a) * copies_num + COPY_NUM (cp)))
-	continue;
-      SET_BIT (allocno_copy_conflicts,
-	       ALLOCNO_NUM (a) * copies_num + COPY_NUM (cp));
-      allocno_copy_conflict_vec_len [ALLOCNO_NUM (a)]++;
-      copy_allocno_conflict_vec_len [COPY_NUM (cp)]++;
-    }
   for (i = 0; i < allocnos_num; i++)
     {
       a = allocnos [i];
-      n = allocno_copy_conflict_vec_len [i];
+      n = ALLOCNO_COPY_CONFLICT_VEC_LEN (a);
+      ALLOCNO_COPY_CONFLICT_VEC_LEN (a) = 0;
       ALLOCNO_COPY_CONFLICT_VEC (a)
 	= yara_allocate ((n + 1) * sizeof (copy_t));
       ALLOCNO_COPY_CONFLICT_VEC (a) [n] = NULL;
@@ -2107,41 +2073,26 @@ commit_copy_conflicts (void)
   for (i = 0; i < copies_num; i++)
     {
       cp = copies [i];
-      n = copy_allocno_conflict_vec_len [i];
+      n = COPY_ALLOCNO_CONFLICT_VEC_LEN (cp);
+      COPY_ALLOCNO_CONFLICT_VEC_LEN (cp) = 0;
       COPY_ALLOCNO_CONFLICT_VEC (cp)
 	= yara_allocate ((n + 1) * sizeof (allocno_t));
       COPY_ALLOCNO_CONFLICT_VEC (cp) [n] = NULL;
     }
-  memset (allocno_copy_conflict_vec_len, 0, sizeof (int) * allocnos_num);
-  memset (copy_allocno_conflict_vec_len, 0, sizeof (int) * copies_num);
-  copy_conflicts_num = 0;
-  sbitmap_zero (allocno_copy_conflicts);
-  for (i = 0;
-       i < (int) VARRAY_ACTIVE_SIZE (pending_allocno_copy_conflict_varray);
-       i += 2)
+  for (i = VARRAY_ACTIVE_SIZE (pending_allocno_copy_conflict_varray) - 2;
+       i >= 0;
+       i -= 2)
     {
       a = conflicts [i];
       cp = conflicts [i + 1];
-      if (TEST_BIT (allocno_copy_conflicts,
-		    ALLOCNO_NUM (a) * copies_num + COPY_NUM (cp)))
-	continue;
-      SET_BIT (allocno_copy_conflicts,
-	       ALLOCNO_NUM (a) * copies_num + COPY_NUM (cp));
-      copy_conflicts_num++;
-      n = ALLOCNO_NUM (a);
-      ALLOCNO_COPY_CONFLICT_VEC (a) [allocno_copy_conflict_vec_len [n]++] = cp;
-      n = COPY_NUM (cp);
-      COPY_ALLOCNO_CONFLICT_VEC (cp) [copy_allocno_conflict_vec_len [n]++] = a;
+      ALLOCNO_COPY_CONFLICT_VEC (a) [ALLOCNO_COPY_CONFLICT_VEC_LEN (a)++] = cp;
+      COPY_ALLOCNO_CONFLICT_VEC (cp) [COPY_ALLOCNO_CONFLICT_VEC_LEN (cp)++]
+	= a;
     }
-  yara_free (copy_allocno_conflict_vec_len);
-  yara_free (allocno_copy_conflict_vec_len);
+  copy_conflicts_num
+    = (int) VARRAY_ACTIVE_SIZE (pending_allocno_copy_conflict_varray) / 2;
   if (yara_dump_file != NULL)
-    fprintf (yara_dump_file, "Copy conflicts (pending/final) %d/%d=%d%%\n",
-	     (int) VARRAY_ACTIVE_SIZE (pending_allocno_copy_conflict_varray),
-	     copy_conflicts_num,
-	     (int) VARRAY_ACTIVE_SIZE (pending_allocno_copy_conflict_varray)
-	     * 100 / (copy_conflicts_num ? copy_conflicts_num : 1));
-  sbitmap_free (allocno_copy_conflicts);
+    fprintf (yara_dump_file, "Copy conflicts %d\n", copy_conflicts_num);
   VARRAY_FREE (pending_allocno_copy_conflict_varray);
 }
 
@@ -2162,7 +2113,7 @@ static varray_type free_regno_allocno_maps;
 static allocno_t *new_regno_allocno_map;
 
 /* The following array is used for checking that we defined a new
-   range allocno after the insn for given pseudo-register.  If we
+   region allocno after the insn for given pseudo-register.  If we
    defined the new allocno, the array element corresponding to given
    pseudo-register will have value equal to the insn 2 * uid for
    output allocno and 2 * uid + 1 for input allocno.  */
@@ -2252,7 +2203,7 @@ finish_insn_maps (void)
     if (insn_code_infos [i] != NULL
 	&& insn_code_infos [i]->op_constraints != NULL)
       {
-	gcc_assert (i == insn_code_infos [i]->code);
+	yara_assert (i == insn_code_infos [i]->code);
 	yara_free (insn_code_infos [i]->op_constraints);
       }
   yara_free (insn_code_infos);
@@ -2274,7 +2225,7 @@ create_insn_allocno (enum op_type op_mode, int type, int regno,
   allocno_t a;
   rtx x;
 
-  gcc_assert ((type != BASE_REG && type != INDEX_REG) || op_mode != OP_OUT);
+  yara_assert ((type != BASE_REG && type != INDEX_REG) || op_mode != OP_OUT);
   a = create_allocno (INSN_ALLOCNO, regno, mode);
   for (x = GET_CODE (*container_loc) == SUBREG ? *container_loc : *loc;
        GET_CODE (x) == STRICT_LOW_PART || GET_CODE (x) == SUBREG
@@ -2357,7 +2308,7 @@ get_through_addr_subreg (rtx *x)
 {
   if (GET_CODE (*x) == SUBREG)
     {
-      gcc_assert (SUBREG_BYTE (*x) == 0 && REG_P (SUBREG_REG (*x)));
+      yara_assert (SUBREG_BYTE (*x) == 0 && REG_P (SUBREG_REG (*x)));
       x = &SUBREG_REG (*x);
     }
   return x;
@@ -2762,7 +2713,7 @@ create_insn_info (rtx insn)
       insn_infos [INSN_UID (insn)] = insn_code_infos [code];
       return insn_code_infos [code];
     }
-  gcc_assert (recog_data.n_alternatives <= MAX_ALT_SET_SIZE);
+  yara_assert (recog_data.n_alternatives <= MAX_ALT_SET_SIZE);
   insn_infos [INSN_UID (insn)]
     = info = yara_allocate (sizeof (struct insn_op_info));
   if (code >= 0)
@@ -2782,7 +2733,7 @@ create_insn_info (rtx insn)
       str = yara_allocate (sizeof (char)
 			   * (strlen (recog_data.constraints [i]) + 1));
       strcpy (str, recog_data.constraints [i]);
-      gcc_assert (recog_data.n_alternatives >= 0);
+      yara_assert (recog_data.n_alternatives >= 0);
       for (j = 0; j < recog_data.n_alternatives; j++)
 	{
 	  info->op_constraints [i * recog_data.n_alternatives + j] = str;
@@ -2858,7 +2809,7 @@ mark_hard_reg_live (int regno, enum machine_mode mode)
 {
   int last;
 
-  gcc_assert (HARD_REGISTER_NUM_P (regno));
+  yara_assert (HARD_REGISTER_NUM_P (regno));
   last = regno + hard_regno_nregs [regno] [mode];
   while (regno < last)
     {
@@ -2873,7 +2824,7 @@ mark_hard_reg_death (int regno, enum machine_mode mode)
 {
   int last;
 
-  gcc_assert (HARD_REGISTER_NUM_P (regno));
+  yara_assert (HARD_REGISTER_NUM_P (regno));
   last = regno + hard_regno_nregs [regno] [mode];
   while (regno < last)
     {
@@ -2896,7 +2847,7 @@ find_post_insn_allocno_copy (allocno_t src, rtx insn)
     {
       copy_t next_cp;
       
-      /* Check that we have no more copies into range allocnos.  */
+      /* Check that we have no more copies into region allocnos.  */
       for (next_cp = COPY_NEXT_SRC_COPY (cp);
 	   next_cp != NULL;
 	   next_cp = COPY_NEXT_SRC_COPY (next_cp))
@@ -2932,8 +2883,8 @@ set_allocno_conflict (allocno_t live_a, void *data, int local_live_index)
     create_conflict (a, live_a);
   else
     {
-      gcc_assert (live_a == VARRAY_GENERIC_PTR (local_live_allocnos,
-						local_live_index));
+      yara_assert (live_a == VARRAY_GENERIC_PTR (local_live_allocnos,
+						 local_live_index));
       if ((cp = find_copy (a, live_a)) != NULL)
 	/* Allocnos in copy before or after the insn never
 	   conflict.  */
@@ -2945,8 +2896,8 @@ set_allocno_conflict (allocno_t live_a, void *data, int local_live_index)
 	{
 	  /* We can use the same hard register for insn allocnos
 	     designating address and memory containing the address. */
-	  gcc_assert (find_post_insn_allocno_copy
-		      (live_a, INSN_ALLOCNO_INSN (a)) == NULL);
+	  yara_assert (find_post_insn_allocno_copy
+		       (live_a, INSN_ALLOCNO_INSN (a)) == NULL);
 	}
       else 
 	create_conflict (a, live_a);
@@ -2954,13 +2905,12 @@ set_allocno_conflict (allocno_t live_a, void *data, int local_live_index)
 }
 
 static void
-mark_allocno_live (allocno_t a, copy_t check_copy, bool no_map_change_p)
+mark_allocno_live (allocno_t a, bool no_map_change_p)
 {
   int i, regno;
 
   i = find_local_live_allocno (a);
 
-  gcc_assert (check_copy == NULL);
   if (i < 0)
     {
       /* We process local live allocnos first.  */
@@ -3044,15 +2994,15 @@ set_copy_conflict (allocno_t live_a, void *data,
 #endif
 
 static void
-mark_output_allocno_death (allocno_t a, rtx insn)
+mark_output_allocno_death (allocno_t a, rtx insn ATTRIBUTE_UNUSED)
 {
   allocno_t curr_a;
 
   mark_allocno_death (a);
   if (ALLOCNO_TYPE (a) != INSN_ALLOCNO)
     return;
-  gcc_assert (INSN_ALLOCNO_OP_MODE (a) == OP_OUT
-	      || INSN_ALLOCNO_OP_MODE (a) == OP_INOUT);
+  yara_assert (INSN_ALLOCNO_OP_MODE (a) == OP_OUT
+	       || INSN_ALLOCNO_OP_MODE (a) == OP_INOUT);
   /* We assume that each addr allocno can occur at most once in output
      memory allocno.  */
   for (curr_a = curr_insn_allocnos;
@@ -3060,8 +3010,8 @@ mark_output_allocno_death (allocno_t a, rtx insn)
        curr_a = INSN_ALLOCNO_NEXT (curr_a))
     if (INSN_ALLOCNO_ADDR_OUTPUT_ALLOCNO (curr_a) == a)
       {
-	gcc_assert (GET_CODE (*INSN_ALLOCNO_LOC (a)) == MEM);
-        gcc_assert (find_post_insn_allocno_copy (curr_a, insn) == NULL);
+	yara_assert (GET_CODE (*INSN_ALLOCNO_LOC (a)) == MEM);
+        yara_assert (find_post_insn_allocno_copy (curr_a, insn) == NULL);
 	mark_allocno_death (curr_a);
 	INSN_ALLOCNO_ADDR_OUTPUT_ALLOCNO (curr_a) = NULL;
       }
@@ -3077,8 +3027,6 @@ copy_src_p (copy_t list, allocno_t src)
       return true;
   return false;
 }
-
-extern int nnn;
 
 static void
 build_insn_allocno_copy_conflicts (copy_t list, rtx insn, bool after_insn_p)
@@ -3109,15 +3057,15 @@ build_insn_allocno_copy_conflicts (copy_t list, rtx insn, bool after_insn_p)
 		{
 		  /* It is a copy of out/inout allocno into hard
 		     register.  */
-		  gcc_assert (COPY_DST (cp) == NULL
-			      /* We assume that there are no hard
-				 registers in subregisters. If it is
-				 not true we could use
-				 get_allocation_mode result as the
-				 mode.  */
-			      && (ALLOCNO_TYPE (src) != INSN_ALLOCNO
-				  || GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC
-					       (src)) != SUBREG));
+		  yara_assert (COPY_DST (cp) == NULL
+			       /* We assume that there are no hard
+				  registers in subregisters. If it is
+				  not true we could use
+				  get_allocation_mode result as the
+				  mode.  */
+			       && (ALLOCNO_TYPE (src) != INSN_ALLOCNO
+				   || GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC
+						(src)) != SUBREG));
 		  mark_hard_reg_live (regno, ALLOCNO_MODE (src));
 		}
 	    }
@@ -3131,7 +3079,7 @@ build_insn_allocno_copy_conflicts (copy_t list, rtx insn, bool after_insn_p)
 #endif
 
       if (COPY_DST (cp) != NULL)
-	mark_allocno_live (COPY_DST (cp), NULL, no_map_change_p);
+	mark_allocno_live (COPY_DST (cp), no_map_change_p);
     }
 }
 
@@ -3263,7 +3211,7 @@ single_alt_reg_class (const char *constraints, struct insn_op_info *info,
 	break;
 
       default:
-	gcc_assert (c != '#');
+	yara_assert (c != '#');
 	return NO_REGS;
       }
   return cl;
@@ -3310,8 +3258,8 @@ build_insn_allocno_conflicts (rtx insn)
   for (a = curr_insn_allocnos; a != NULL; a = INSN_ALLOCNO_NEXT (a))
     if (INSN_ALLOCNO_EARLY_CLOBBER (a))
       {
-	gcc_assert (INSN_ALLOCNO_OP_MODE (a) == OP_OUT);
-	mark_allocno_live (a, NULL, false);
+	yara_assert (INSN_ALLOCNO_OP_MODE (a) == OP_OUT);
+	mark_allocno_live (a, false);
       }
 
   if (INSN_CODE (insn) < 0)
@@ -3351,7 +3299,7 @@ build_insn_allocno_conflicts (rtx insn)
 	  ;
 	else
 	  {
-	    gcc_assert (find_post_insn_allocno_copy (a, insn) == NULL);
+	    yara_assert (find_post_insn_allocno_copy (a, insn) == NULL);
             mark_allocno_death (a);
           }
 	/* Although it may be a bit conservative to change live hard
@@ -3364,7 +3312,7 @@ build_insn_allocno_conflicts (rtx insn)
 	    /* We assume that there are no hard registers in
 	       subregisters.  If it is not true we could use
 	       get_allocation_mode result as the mode.  */
-	    gcc_assert (GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a)) != SUBREG);
+	    yara_assert (GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a)) != SUBREG);
 	    mark_hard_reg_death (regno, ALLOCNO_MODE (a));
 	  }
       }
@@ -3382,7 +3330,7 @@ build_insn_allocno_conflicts (rtx insn)
   for (a = curr_insn_allocnos; a != NULL; a = INSN_ALLOCNO_NEXT (a))
     if (INSN_ALLOCNO_OP_MODE (a) == OP_OUT
 	|| INSN_ALLOCNO_OP_MODE (a) == OP_INOUT)
-      mark_allocno_live (a, NULL, false);
+      mark_allocno_live (a, false);
 
   for (a = curr_insn_allocnos; a != NULL; a = INSN_ALLOCNO_NEXT (a))
     if (INSN_ALLOCNO_OP_MODE (a) == OP_OUT
@@ -3432,16 +3380,16 @@ build_insn_allocno_conflicts (rtx insn)
 }
 
 static allocno_t
-create_range_allocno (int regno, struct yara_loop_tree_node *node,
-		      rtx start_insn)
+create_region_allocno (int regno, struct yara_loop_tree_node *node,
+		       rtx start_insn)
 {
   allocno_t a;
 
-  gcc_assert (! HARD_REGISTER_NUM_P (regno));
-  a = create_allocno (RANGE_ALLOCNO, regno, PSEUDO_REGNO_MODE (regno));
-  RANGE_ALLOCNO_BB_NODE (a) = node;
-  RANGE_ALLOCNO_START_INSN (a) = start_insn;
-  RANGE_ALLOCNO_STOP_INSN (a) = NULL_RTX;
+  yara_assert (! HARD_REGISTER_NUM_P (regno));
+  a = create_allocno (REGION_ALLOCNO, regno, PSEUDO_REGNO_MODE (regno));
+  REGION_ALLOCNO_NODE (a) = node;
+  REGION_ALLOCNO_START_INSN (a) = start_insn;
+  REGION_ALLOCNO_STOP_INSN (a) = NULL_RTX;
   return a;
 }
 
@@ -3450,11 +3398,11 @@ before_insn_copy_compare (const void *v1p, const void *v2p)
 {
   copy_t cp1 = *(copy_t *) v1p;
   copy_t cp2 = *(copy_t *) v2p;
+#if 0
   allocno_t dst1 = COPY_DST (cp1);
   allocno_t dst2 = COPY_DST (cp2);
   
-  gcc_assert (dst1 != NULL && dst2 != NULL);
-#if 0
+  yara_assert (dst1 != NULL && dst2 != NULL);
   if (ALLOCNO_REGNO (dst1) >= 0 && ALLOCNO_REGNO (dst1) == ALLOCNO_REGNO (dst2)
       && GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (dst1)) == SUBREG
       && GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (dst2)) == SUBREG)
@@ -3470,7 +3418,7 @@ after_insn_copy_compare (const void *v1p, const void *v2p)
   copy_t cp1 = *(copy_t *) v1p;
   copy_t cp2 = *(copy_t *) v2p;
   
-  gcc_assert (COPY_SRC (cp1) != NULL && COPY_SRC (cp2) != NULL);
+  yara_assert (COPY_SRC (cp1) != NULL && COPY_SRC (cp2) != NULL);
   if (COPY_DST (cp1) == NULL && COPY_DST (cp2) != NULL)
     return -1;
   else if (COPY_DST (cp1) != NULL && COPY_DST (cp2) == NULL)
@@ -3549,7 +3497,7 @@ create_insn_copies (rtx insn)
 		{
 		  /* It is potentially a part of multi-register.  */
 		  prev_a = curr_bb_node->regno_allocno_map [regno];
-		  gcc_assert (prev_a != NULL);
+		  yara_assert (prev_a != NULL);
 		}
 	      if (new_regno_allocno_map_check [regno] == 2 * uid)
 		dst = new_regno_allocno_map [regno];
@@ -3557,7 +3505,7 @@ create_insn_copies (rtx insn)
 		{
 		  new_regno_allocno_map_check [regno] = 2 * uid;
 		  dst = new_regno_allocno_map [regno]
-		    = create_range_allocno (regno, curr_bb_node, insn);
+		    = create_region_allocno (regno, curr_bb_node, insn);
 		}
 	    }
 	  if (prev_a == NULL)
@@ -3585,7 +3533,7 @@ create_insn_copies (rtx insn)
 	  else
 	    {
 	      src = curr_bb_node->regno_allocno_map [regno];
-	      gcc_assert (src != NULL);
+	      yara_assert (src != NULL);
 	    }
 	  create_copy (a, src, before, insn);
 	  /* What about predicates??? (p ? p := something).  */
@@ -3640,7 +3588,7 @@ process_const_operands_in_elimination_part (rtx x)
 }
 
 static void
-set_up_insn_elimination_part_const_p (void)
+setup_insn_elimination_part_const_p (void)
 {
   allocno_t a;
   rtx addr, *container_loc;
@@ -3757,11 +3705,11 @@ create_insn_allocnos (rtx insn)
   if (GET_CODE (pattern) == CLOBBER || GET_CODE (pattern) == USE)
     {
       loc = &XEXP (pattern, 0);
-      gcc_assert (recog_data.n_operands == 0
-		  && (GET_CODE (*loc) == REG || GET_CODE (*loc) == MEM
-		      || GET_CODE (*loc) == CONST_INT
-		      || GET_CODE (*loc) == CONST
-		      || GET_CODE (*loc) == SYMBOL_REF));
+      yara_assert (recog_data.n_operands == 0
+		   && (GET_CODE (*loc) == REG || GET_CODE (*loc) == MEM
+		       || GET_CODE (*loc) == CONST_INT
+		       || GET_CODE (*loc) == CONST
+		       || GET_CODE (*loc) == SYMBOL_REF));
       /* Ignore (mem:BLK (scratch)) and hard regno.  */
       if ((GET_CODE (*loc) != MEM || GET_MODE (*loc) != BLKmode
 	   || GET_CODE (XEXP (*loc, 0)) != SCRATCH)
@@ -3775,7 +3723,7 @@ create_insn_allocnos (rtx insn)
     {
       /* It is blockage used for nonlocal goto:
 	 all registers are clobbered.  */
-      gcc_assert (recog_data.n_operands == 0);
+      yara_assert (recog_data.n_operands == 0);
       process_live_allocnos (clobbered_all_hard_regs, NULL);
     }
   if (recog_data.n_operands == 0)
@@ -3828,7 +3776,7 @@ create_insn_allocnos (rtx insn)
 	      case '%':
 		{
 		  /* The last operand should not be marked commutative.  */
-		  gcc_assert (i != info->n_operands - 1);
+		  yara_assert (i != info->n_operands - 1);
 		  
 		  /* We currently only support one commutative pair of
 		     operands.  Some existing asm code currently uses
@@ -3838,21 +3786,23 @@ create_insn_allocnos (rtx insn)
 		  if (commutative < 0)
 		    commutative = i;
 		  else
-		    gcc_assert (INSN_CODE (insn) < 0); /* an asm insn */
+		    {
+		      yara_assert (INSN_CODE (insn) < 0); /* an asm insn */
+		    }
 		}
 		break;
 	      }
 	  }
-      gcc_assert (! address_p || ! non_white_p);
-      gcc_assert ((op_mode != OP_OUT && op_mode != OP_INOUT)
-		  || GET_CODE (operand) == REG
-		  || GET_CODE (operand) == SUBREG
-		  || GET_CODE (operand) == MEM
-		  || GET_CODE (operand) == SCRATCH);
+      yara_assert (! address_p || ! non_white_p);
+      yara_assert ((op_mode != OP_OUT && op_mode != OP_INOUT)
+		   || GET_CODE (operand) == REG
+		   || GET_CODE (operand) == SUBREG
+		   || GET_CODE (operand) == MEM
+		   || GET_CODE (operand) == SCRATCH);
       loc = recog_data.operand_loc [i];
       if (address_p)
 	{
-	  gcc_assert (op_mode != OP_OUT && op_mode != OP_INOUT);
+	  yara_assert (op_mode != OP_OUT && op_mode != OP_INOUT);
 	  process_address_for_allocno (insn, loc, loc, NULL);
 	}
       else
@@ -3870,7 +3820,7 @@ create_insn_allocnos (rtx insn)
 	= op_allocno [commutative];
     }
   insn_allocnos [INSN_UID (insn)] = curr_insn_allocnos;
-  set_up_insn_elimination_part_const_p ();
+  setup_insn_elimination_part_const_p ();
   create_insn_copies (insn);
 }
 
@@ -3928,17 +3878,8 @@ create_bb_insn_allocnos (struct yara_loop_tree_node *bb_node)
       }
 }
 
-static allocno_t
-create_region_allocno (int regno, struct yara_loop_tree_node *node)
-{
-  allocno_t a;
-
-  gcc_assert (! HARD_REGISTER_NUM_P (regno));
-  a = create_allocno (REGION_ALLOCNO, regno, PSEUDO_REGNO_MODE (regno));
-  REGION_ALLOCNO_NODE (a) = node;
-  return a;
-}
-
+/* Allocnos living on abnormal edges should not get the following hard
+   registers.  */
 static HARD_REG_SET prohibited_abnormal_edge_hard_regs;
 
 /* Info about allocno living through basic block or edge.  This
@@ -3946,6 +3887,9 @@ static HARD_REG_SET prohibited_abnormal_edge_hard_regs;
 struct live_allocno
 {
   allocno_t a;
+  /* The filed value is defined if BB is not NULL.  */
+  bool bb_start_p;
+  /* Either BB or e is not NULL.  */
   basic_block bb;
   edge e;
 };
@@ -3954,71 +3898,61 @@ struct live_allocno
    not haveing copy on start/end of the basic block or edge.  */
 static varray_type live_through_allocnos_varray;
 
+/* Bitmap used to calculate register living through abnormal edges.  */
+static bitmap temp_live_through_abnormal;
+
 static void
-add_live_through_allocno (allocno_t a, basic_block bb, edge e)
+add_live_through_allocno (allocno_t a, bool bb_start_p, basic_block bb, edge e)
 {
   struct live_allocno *live_allocno;
 
-  gcc_assert ((bb != NULL && e == NULL) || (bb == NULL && e != NULL));
+  yara_assert ((bb != NULL && e == NULL) || (bb == NULL && e != NULL));
   live_allocno = yara_allocate (sizeof (struct live_allocno));
   live_allocno->a = a;
+  live_allocno->bb_start_p = bb_start_p;
   live_allocno->bb = bb;
   live_allocno->e = e;
   VARRAY_PUSH_GENERIC_PTR (live_through_allocnos_varray, live_allocno);
 }
 
-extern int nnn;
-
 static void
 create_bb_allocno (int regno, struct yara_loop_tree_node *bb_node,
-		   bool start_p)
+		   bool start_p, bitmap live_through_abnormal, bool abnormal_p)
 {
   allocno_t a, outside_a;
   copy_t cp;
   struct point point;
-  bool outside_abnormal_p = false;
-  edge_iterator ei;
-  edge e;
+  bool live_through_abnormal_p;
 
-  if (start_p)
-    {
-      FOR_EACH_EDGE (e, ei, bb_node->bb->preds)
-	if (e->flags & EDGE_COMPLEX)
-	  {
-	    outside_abnormal_p = true;
-	    break;
-	  }
-    }
-  else
-    {
-      FOR_EACH_EDGE (e, ei, bb_node->bb->succs)
-	if (e->flags & EDGE_COMPLEX)
-	  {
-	    outside_abnormal_p = true;
-	    break;
-	  }
-    }
   point.u.bb = bb_node->bb;
-  if (! bitmap_bit_p (bb_node->regno_refs, regno))
+  live_through_abnormal_p = (live_through_abnormal != NULL
+			     && bitmap_bit_p (live_through_abnormal, regno));
+  if (! bitmap_bit_p (bb_node->regno_refs, regno) || live_through_abnormal_p)
     {
       if ((outside_a = bb_node->father->regno_allocno_map [regno]) == NULL)
-	outside_a = bb_node->father->regno_allocno_map [regno]
-	  = create_region_allocno (regno, bb_node->father);
-      if (start_p)
 	{
-	  bb_node->regno_allocno_map [regno] = outside_a;
-	  add_live_through_allocno (outside_a, bb_node->bb, NULL);
+	  if ((outside_a = bb_node->regno_allocno_map [regno]) != NULL)
+	    {
+	      yara_assert (! start_p);
+	      bb_node->father->regno_allocno_map [regno] = outside_a;
+	    }
+	  else
+	    outside_a = bb_node->father->regno_allocno_map [regno]
+	      = create_region_allocno (regno, bb_node->father, NULL_RTX);
 	}
+      if (start_p)
+	bb_node->regno_allocno_map [regno] = outside_a;
+      add_live_through_allocno (outside_a, start_p, bb_node->bb, NULL);
     }
   else if (start_p)
     {
       if ((outside_a = bb_node->father->regno_allocno_map [regno]) == NULL)
 	outside_a = bb_node->father->regno_allocno_map [regno]
-	  = create_region_allocno (regno, bb_node->father);
+	  = create_region_allocno (regno, bb_node->father, NULL_RTX);
       if (bitmap_bit_p (bb_node->regno_refs, regno)
 	  || bitmap_bit_p (bb_node->father->regno_refs, regno))
 	a = bb_node->regno_allocno_map [regno]
-	  = create_region_allocno (regno, bb_node);
+	  = create_region_allocno (regno, bb_node, NULL_RTX);
       else
 	{
 	  gcc_unreachable ();
@@ -4032,17 +3966,31 @@ create_bb_allocno (int regno, struct yara_loop_tree_node *bb_node,
     {
       if ((outside_a = bb_node->father->regno_allocno_map [regno]) == NULL)
 	outside_a = bb_node->father->regno_allocno_map [regno]
-	  = create_region_allocno (regno, bb_node->father);
+	  = create_region_allocno (regno, bb_node->father, NULL_RTX);
       a = bb_node->regno_allocno_map [regno];
-      /* It should be created at the start or as range for an insn
-	 inside the block.  */
-      gcc_assert (a != NULL && a != outside_a);
+      /* It should be created at the start or from an insn inside the
+	 block.  */
+      yara_assert (a != NULL && a != outside_a);
       point.point_type = AT_BB_END;
       cp = create_copy (outside_a, a, point, NULL_RTX);
     }
-  if (outside_abnormal_p)
+  if (abnormal_p)
     IOR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (outside_a),
 		      prohibited_abnormal_edge_hard_regs);
+}
+
+/* The function returns true if there is an abnormal edge in
+   EDGES.  */
+static bool
+abnormal_edge_p (VEC(edge,gc) *edges)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, edges)
+    if (e->flags & EDGE_COMPLEX)
+      return true;
+  return false;
 }
 
 static void
@@ -4052,8 +4000,11 @@ create_block_allocnos (struct yara_loop_tree_node *loop)
   bitmap_iterator bi;
   int i;
   unsigned int k;
+  edge_iterator ei;
+  edge e;
+  bitmap live_through_abnormal = NULL;
 
-  gcc_assert (bb != NULL);
+  yara_assert (bb != NULL);
   REG_SET_TO_HARD_REG_SET (live_hard_regs, bb->il.rtl->global_live_at_start);
   for (i = 0; i < live_pseudo_regs_num; i++)
     live_pseudo_reg_indexes [live_pseudo_regs [i]] = -1;
@@ -4064,50 +4015,75 @@ create_block_allocnos (struct yara_loop_tree_node *loop)
       live_pseudo_reg_indexes [k] = live_pseudo_regs_num;
       live_pseudo_regs [live_pseudo_regs_num++] = k;
     }
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (e->flags & EDGE_COMPLEX)
+      {
+	if (live_through_abnormal == NULL)
+	  {
+	    live_through_abnormal = yara_allocate_bitmap ();
+	    bitmap_and (live_through_abnormal, bb->il.rtl->global_live_at_end,
+			e->dest->il.rtl->global_live_at_start);
+	  }
+	else
+	  {
+	    bitmap_and (temp_live_through_abnormal,
+			bb->il.rtl->global_live_at_end,
+			e->dest->il.rtl->global_live_at_start);
+	    bitmap_ior_into (live_through_abnormal,
+			     temp_live_through_abnormal);
+	  }
+      }
   for (i = 0; i < live_pseudo_regs_num; i++)
-    create_bb_allocno (live_pseudo_regs [i], loop, true);
+    create_bb_allocno (live_pseudo_regs [i], loop, true,
+		       live_through_abnormal, abnormal_edge_p (bb->preds));
   create_bb_insn_allocnos (loop);
   EXECUTE_IF_SET_IN_REG_SET (bb->il.rtl->global_live_at_end,
 			     FIRST_PSEUDO_REGISTER, k, bi)
     {
-      create_bb_allocno (k, loop, false);
+      create_bb_allocno (k, loop, false,
+			 live_through_abnormal, abnormal_edge_p (bb->succs));
     }
+  if (live_through_abnormal != NULL)
+    yara_free_bitmap (live_through_abnormal);
 }
 
 static void
 create_edge_allocno (int regno, edge e, struct yara_loop_tree_node *loop_node,
-		     bool entry_p)
+		     bool entry_p, bitmap live_through_abnormal)
 {
   allocno_t a, outside_a;
   copy_t cp;
   struct point point;
+  bool live_through_abnormal_p;
   
   point.u.e.e = e;
   point.u.e.loop_node = loop_node;
-  if ((e->flags & EDGE_COMPLEX) != 0)
+  live_through_abnormal_p = (live_through_abnormal != NULL
+			     && bitmap_bit_p (live_through_abnormal, regno));
+  if ((e->flags & EDGE_COMPLEX) != 0 || live_through_abnormal_p)
     {
       if ((outside_a = loop_node->father->regno_allocno_map [regno]) == NULL)
 	outside_a = loop_node->father->regno_allocno_map [regno]
-	  = create_region_allocno (regno, loop_node->father);
+	  = create_region_allocno (regno, loop_node->father, NULL_RTX);
       if ((e->flags & EDGE_COMPLEX) != 0)
 	IOR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (outside_a),
 			  prohibited_abnormal_edge_hard_regs);
       if (entry_p)
 	loop_node->regno_allocno_map [regno] = outside_a;
-      add_live_through_allocno (outside_a, NULL, e);
+      add_live_through_allocno (outside_a, false, NULL, e);
     }
   else if (entry_p)
     {
       if ((outside_a = loop_node->father->regno_allocno_map [regno]) == NULL)
 	outside_a = loop_node->father->regno_allocno_map [regno]
-	  = create_region_allocno (regno, loop_node->father);
+	  = create_region_allocno (regno, loop_node->father, NULL_RTX);
       if (bitmap_bit_p (loop_node->regno_refs, regno)
 	  || bitmap_bit_p (loop_node->father->regno_refs, regno))
 	{
 	  a = loop_node->regno_allocno_map [regno];
 	  if (a == NULL)
 	    a = loop_node->regno_allocno_map [regno]
-	      = create_region_allocno (regno, loop_node);
+	      = create_region_allocno (regno, loop_node, NULL_RTX);
 	}
       else
 	{
@@ -4115,7 +4091,7 @@ create_edge_allocno (int regno, edge e, struct yara_loop_tree_node *loop_node,
 	  loop_node->regno_allocno_map [regno] = a;
 	}
       if (a == outside_a)
-	add_live_through_allocno (outside_a, NULL, e);
+	add_live_through_allocno (outside_a, false, NULL, e);
       else
 	{
 	  point.point_type = ON_EDGE_DST;
@@ -4127,15 +4103,15 @@ create_edge_allocno (int regno, edge e, struct yara_loop_tree_node *loop_node,
       /* ??? No change necessary for loop_node->regno_refs.  */
       if ((outside_a = loop_node->father->regno_allocno_map [regno]) == NULL)
 	outside_a = loop_node->father->regno_allocno_map [regno]
-	  = create_region_allocno (regno, loop_node->father);
+	  = create_region_allocno (regno, loop_node->father, NULL_RTX);
       a = loop_node->regno_allocno_map [regno];
       if (a == outside_a)
-	add_live_through_allocno (outside_a, NULL, e);
+	add_live_through_allocno (outside_a, false, NULL, e);
       else
 	{
 	  /* It should be created inside the loop or at the entry of
 	     the loop.  */
-	  gcc_assert (a != NULL);
+	  yara_assert (a != NULL);
 	  point.point_type = ON_EDGE_SRC;
 	  cp = create_copy (outside_a, a, point, NULL_RTX);
 	}
@@ -4144,53 +4120,78 @@ create_edge_allocno (int regno, edge e, struct yara_loop_tree_node *loop_node,
 
 static void
 create_edge_allocnos (edge e, struct yara_loop_tree_node *loop_node,
-		      bool entry_p)
+		      bool entry_p, bitmap live_through_abnormal)
 {
-  struct loop *loop = loop_node->loop;
   basic_block src = e->src, dst = e->dest;
   bitmap_iterator bi;
   unsigned int i;
 
-  gcc_assert (loop != NULL);
+  yara_assert (loop_node->loop != NULL);
   EXECUTE_IF_SET_IN_REG_SET (src->il.rtl->global_live_at_end,
 			     FIRST_PSEUDO_REGISTER, i, bi)
     {
       if (REGNO_REG_SET_P (dst->il.rtl->global_live_at_start, i))
-	create_edge_allocno (i, e, loop_node, entry_p);
-    }
-}
-
-static void
-process_external_edges (struct yara_loop_tree_node *loop, bool entry_p,
-			void (*func) (edge, struct yara_loop_tree_node *,
-				      bool))
-{
-  edge_iterator ei;
-  edge e, *edges;
-  int i;
-  unsigned int edges_num;
-
-  if (entry_p)
-    {
-      FOR_EACH_EDGE (e, ei, loop->loop->header->preds)
-	if (e->src != loop->loop->latch)
-	  (*func) (e, loop, true);
-    }
-  else
-    {
-      edges = get_loop_exit_edges (loop->loop, &edges_num);
-      for (i = 0 ; i < (int) edges_num; i++)
-	(*func) (edges [i], loop, false);
+	create_edge_allocno (i, e, loop_node, entry_p, live_through_abnormal);
     }
 }
 
 static void
 create_loop_allocnos (struct yara_loop_tree_node *loop_node)
 {
-  gcc_assert (loop_node->bb == NULL);
-  process_external_edges (loop_node, true, create_edge_allocnos);
+  edge_iterator ei;
+  edge e, *edges;
+  int i;
+  unsigned int edges_num;
+  bitmap live_through_abnormal = NULL;
+
+  yara_assert (loop_node->bb == NULL);
+  edges = get_loop_exit_edges (loop_node->loop, &edges_num);
+  for (i = 0 ; i < (int) edges_num; i++)
+    if (edges [i]->flags & EDGE_COMPLEX)
+      {
+	if (live_through_abnormal == NULL)
+	  {
+	    live_through_abnormal = yara_allocate_bitmap ();
+	    bitmap_and (live_through_abnormal,
+			edges [i]->src->il.rtl->global_live_at_end,
+			edges [i]->dest->il.rtl->global_live_at_start);
+	  }
+	else
+	  {
+	    bitmap_and (temp_live_through_abnormal,
+			edges [i]->src->il.rtl->global_live_at_end,
+			edges [i]->dest->il.rtl->global_live_at_start);
+	    bitmap_ior_into (live_through_abnormal,
+			     temp_live_through_abnormal);
+	  }
+      }
+  FOR_EACH_EDGE (e, ei, loop_node->loop->header->preds)
+    if (e->src != loop_node->loop->latch && (e->flags & EDGE_COMPLEX))
+      {
+	if (live_through_abnormal == NULL)
+	  {
+	    live_through_abnormal = yara_allocate_bitmap ();
+	    bitmap_and (live_through_abnormal,
+			e->src->il.rtl->global_live_at_end,
+			e->dest->il.rtl->global_live_at_start);
+	  }
+	else
+	  {
+	    bitmap_and (temp_live_through_abnormal,
+			e->src->il.rtl->global_live_at_end,
+			e->dest->il.rtl->global_live_at_start);
+	    bitmap_ior_into (live_through_abnormal,
+			     temp_live_through_abnormal);
+	  }
+      }
+  FOR_EACH_EDGE (e, ei, loop_node->loop->header->preds)
+    if (e->src != loop_node->loop->latch)
+      create_edge_allocnos (e, loop_node, true, live_through_abnormal);
   create_subloop_allocnos (loop_node);
-  process_external_edges (loop_node, false, create_edge_allocnos);
+  for (i = 0 ; i < (int) edges_num; i++)
+    create_edge_allocnos (edges [i], loop_node, false, live_through_abnormal);
+  if (live_through_abnormal != NULL)
+    yara_free_bitmap (live_through_abnormal);
 }
 
 static void
@@ -4215,6 +4216,7 @@ static void
 create_all_allocnos (void)
 {
   all = moves = 0;
+  temp_live_through_abnormal = yara_allocate_bitmap ();
   COPY_HARD_REG_SET (prohibited_abnormal_edge_hard_regs, call_used_reg_set);
 #ifdef STACK_REGS
   {
@@ -4228,6 +4230,7 @@ create_all_allocnos (void)
 				"allocnos whose life changes in given insn");
   create_subloop_allocnos (yara_loop_tree_root);
   VARRAY_FREE (local_live_allocnos);
+  yara_free_bitmap (temp_live_through_abnormal);
 #if 0
   if (all != 0 && yara_dump_file != NUL)
     fprintf (yara_dump_file, "Moves vs all insns: %d of %d - %d%%\n",
@@ -4246,9 +4249,9 @@ edge_copy_compare (const void *v1p, const void *v2p)
   struct yara_loop_tree_node *loop_node1 = COPY_POINT (cp1).u.e.loop_node;
   struct yara_loop_tree_node *loop_node2 = COPY_POINT (cp2).u.e.loop_node;
 
-  gcc_assert (COPY_POINT (cp1).point_type == COPY_POINT (cp2).point_type
-	      && (COPY_POINT (cp1).point_type == ON_EDGE_SRC
-		  || COPY_POINT (cp1).point_type == ON_EDGE_DST));
+  yara_assert (COPY_POINT (cp1).point_type == COPY_POINT (cp2).point_type
+	       && (COPY_POINT (cp1).point_type == ON_EDGE_SRC
+		   || COPY_POINT (cp1).point_type == ON_EDGE_DST));
 #if 0
   if (loop_node1 == NULL)
     {
@@ -4261,8 +4264,8 @@ edge_copy_compare (const void *v1p, const void *v2p)
 #endif
   regno1 = ALLOCNO_REGNO (COPY_SRC (cp1));
   regno2 = ALLOCNO_REGNO (COPY_SRC (cp2));
-  gcc_assert (regno1 == ALLOCNO_REGNO (COPY_DST (cp1))
-	      && regno2 == ALLOCNO_REGNO (COPY_DST (cp2)));
+  yara_assert (regno1 == ALLOCNO_REGNO (COPY_DST (cp1))
+	       && regno2 == ALLOCNO_REGNO (COPY_DST (cp2)));
   live1 = bitmap_bit_p (loop_node1->regno_refs, regno1);
   live2 = bitmap_bit_p (loop_node2->regno_refs, regno2);
   if (COPY_POINT (cp1).point_type == ON_EDGE_SRC)
@@ -4357,19 +4360,26 @@ add_conflict_to_live_through_allocno (struct live_allocno *live_allocno)
   a = live_allocno->a;
   if ((bb = live_allocno->bb) != NULL)
     {
-      REG_SET_TO_HARD_REG_SET (hard_regs, bb->il.rtl->global_live_at_start);
-      IOR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (a), hard_regs);
-      REG_SET_TO_HARD_REG_SET (hard_regs, bb->il.rtl->global_live_at_end);
-      IOR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (a), hard_regs);
-      process_allocno_and_copy_list_for_conflicts
-	(a, at_bb_start_copies [bb->index]);
-      process_allocno_and_copy_list_for_conflicts
-	(a, at_bb_end_copies [bb->index]);
+      if (live_allocno->bb_start_p)
+	{
+	  REG_SET_TO_HARD_REG_SET (hard_regs,
+				   bb->il.rtl->global_live_at_start);
+	  IOR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (a), hard_regs);
+	  process_allocno_and_copy_list_for_conflicts
+	    (a, at_bb_start_copies [bb->index]);
+	}
+      else
+	{
+	  REG_SET_TO_HARD_REG_SET (hard_regs, bb->il.rtl->global_live_at_end);
+	  IOR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (a), hard_regs);
+	  process_allocno_and_copy_list_for_conflicts
+	    (a, at_bb_end_copies [bb->index]);
+	}
     }
   else
     {
       e = live_allocno->e;
-      gcc_assert (e != NULL);
+      yara_assert (e != NULL);
       REG_SET_TO_HARD_REG_SET (hard_regs,
 			       e->src->il.rtl->global_live_at_end);
       IOR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (a), hard_regs);
@@ -4397,7 +4407,7 @@ add_subsequent_copy_conflicts (copy_t cp)
        next_cp != NULL;
        next_cp = COPY_NEXT_COPY (next_cp))
     {
-      gcc_assert (COPY_DST (next_cp) != NULL && COPY_SRC (next_cp) != NULL);
+      yara_assert (COPY_DST (next_cp) != NULL && COPY_SRC (next_cp) != NULL);
       /* We have situation: a1 <- a0 ... a2 <- a1.  a1 in this case is
          dying??? in the 2nd copy and there are no conflicts a2 with
          the copies, a2, and subsequent copies and their
@@ -4506,91 +4516,20 @@ add_region_allocno_copy_conflicts (void)
 
 
 
-static void
-change_allocno (allocno_t old, allocno_t new)
-{
-  copy_t cp, last_cp;
+#ifdef ENABLE_YARA_CHECKING
 
-  /* We can have such situation because of previous changes.  The code
-     below is supposed to work for different allocnos.  */
-  if (old == new)
-    return;
-  for (last_cp = NULL, cp = ALLOCNO_SRC_COPIES (old);
-       cp != NULL;
-       last_cp = cp, cp = COPY_NEXT_SRC_COPY (cp))
-    COPY_SRC (cp) = new;
-  if (last_cp != NULL)
-    {
-      COPY_NEXT_SRC_COPY (last_cp) = ALLOCNO_SRC_COPIES (new);
-      ALLOCNO_SRC_COPIES (new) = ALLOCNO_SRC_COPIES (old);
-    }
-  ALLOCNO_SRC_COPIES (old) = NULL;
-  for (last_cp = NULL, cp = ALLOCNO_DST_COPIES (old);
-       cp != NULL;
-       last_cp = cp, cp = COPY_NEXT_DST_COPY (cp))
-    COPY_DST (cp) = new;
-  if (last_cp != NULL)
-    {
-      COPY_NEXT_DST_COPY (last_cp) = ALLOCNO_DST_COPIES (new);
-      ALLOCNO_DST_COPIES (new) = ALLOCNO_DST_COPIES (old);
-    }
-  ALLOCNO_DST_COPIES (old) = NULL;
-  IOR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (new),
-		    ALLOCNO_HARD_REG_CONFLICTS (old));
-  CLEAR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (old));
-  change_allocno_conflict [ALLOCNO_NUM (old)] = new;
-  IOR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (new),
-		    prohibited_abnormal_edge_hard_regs);
-  ALLOCNO_CALL_CROSS_P (new)
-    = ALLOCNO_CALL_CROSS_P (new) || ALLOCNO_CALL_CROSS_P (old);
-  ALLOCNO_CALL_FREQ (new) += ALLOCNO_CALL_FREQ (old);
-}
-
+/* The function checks that list of copies with regnos in
+   LIVE_THROUGH_ABNORMAL have the same source and destination and
+   conflicting with prohibited abnormal hard registers.  */
 static void
-coalesce_edge_copy_list (copy_t cp, bool exit_p)
+check_abnormal_copy_list (copy_t cp, bitmap live_through_abnormal)
 {
   for (; cp != NULL; cp = COPY_NEXT_COPY (cp))
     {
-      if (exit_p)
-	change_allocno (cp->src, cp->dst);
-      else
-	change_allocno (cp->dst, cp->src);
-    }
-}
-
-static void
-coalesce_copies_on_abnormal_edges (void)
-{
-  int i;
-  basic_block bb;
-  edge_iterator ei;
-  edge e;
-  bool abnormal_p;
-
-  for (i = 0; i < allocnos_num; i++)
-    change_allocno_conflict [i] = allocnos [i];
-  FOR_EACH_BB (bb)
-    {
-      abnormal_p = false;
-      FOR_EACH_EDGE (e, ei, bb->succs)
-	if ((e->flags & EDGE_COMPLEX) != 0)
-	  {
-	    abnormal_p = true;
-	    coalesce_edge_copy_list
-	      (at_edge_start_copies [(size_t) e->aux], true);
-	    coalesce_edge_copy_list
-	      (at_edge_end_copies [(size_t) e->aux], false);
-	  }
-      if (abnormal_p)
-	coalesce_edge_copy_list (at_bb_end_copies [bb->index], true);
-    }
-}
-
-static void
-check_abnormal_copy_list (copy_t cp)
-{
-  for (; cp != NULL; cp = COPY_NEXT_COPY (cp))
-    {
+      if (live_through_abnormal != NULL
+	  && ! bitmap_bit_p (live_through_abnormal,
+			     ALLOCNO_REGNO (COPY_SRC (cp))))
+	continue;
       if (COPY_SRC (cp) != COPY_DST (cp))
 	abort ();
       GO_IF_HARD_REG_SUBSET (prohibited_abnormal_edge_hard_regs,
@@ -4605,28 +4544,53 @@ check_abnormal_copy_list (copy_t cp)
     }
 }
 
+/* The function checks that copy on abnormal edges will be not
+   generated and that allocnos living on abnormal edges conflicts with
+   hard registers clobbered by calls.  */
 static void
 check_abnormal_edges (void)
 {
   basic_block bb;
   edge_iterator ei;
   edge e;
-  bool abnormal_p;
+  bitmap live_through_abnormal, bb_live_through_abnormal, temp;
 
+  live_through_abnormal = yara_allocate_bitmap ();
+  temp = yara_allocate_bitmap ();
   FOR_EACH_BB (bb)
     {
-      abnormal_p = false;
+      bb_live_through_abnormal = NULL;
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if ((e->flags & EDGE_COMPLEX) != 0)
 	  {
-	    abnormal_p = true;
-	    check_abnormal_copy_list (at_edge_start_copies [(size_t) e->aux]);
-	    check_abnormal_copy_list (at_edge_end_copies [(size_t) e->aux]);
+	    if (bb_live_through_abnormal == NULL)
+	      {
+		bb_live_through_abnormal = live_through_abnormal;
+		bitmap_and (bb_live_through_abnormal,
+			    e->src->il.rtl->global_live_at_end,
+			    e->dest->il.rtl->global_live_at_start);
+	      }
+	    else
+	      {
+		bitmap_and (temp,
+			    e->src->il.rtl->global_live_at_end,
+			    e->dest->il.rtl->global_live_at_start);
+		bitmap_ior_into (bb_live_through_abnormal, temp);
+	      }
+	    check_abnormal_copy_list (at_edge_start_copies [(size_t) e->aux],
+				      NULL);
+	    check_abnormal_copy_list (at_edge_end_copies [(size_t) e->aux],
+				      NULL);
 	  }
-      if (abnormal_p)
-	check_abnormal_copy_list (at_bb_end_copies [bb->index]);
+      if (bb_live_through_abnormal != NULL)
+ 	check_abnormal_copy_list (at_bb_end_copies [bb->index],
+				  bb_live_through_abnormal);
     }
+  yara_free_bitmap (temp);
+  yara_free_bitmap (live_through_abnormal);
 }
+
+#endif /* #ifdef ENABLE_YARA_CHECKING */
 
 
 
@@ -4690,7 +4654,7 @@ static void
 make_vn (void)
 {
   bool changed_p;
-  int i, j, k, n, a_num;
+  int i, j, k, n, a_num, val;
   int *rts_order;
   basic_block bb;
   edge_iterator ei;
@@ -4713,7 +4677,7 @@ make_vn (void)
 	fprintf (yara_dump_file, "Allocno VN Iteration %d\n", ++n);
       for (i = n_basic_blocks - NUM_FIXED_BLOCKS - 1; i >= 0; i--)
 	{
-	  gcc_assert (rts_order [i] >= 0);
+	  yara_assert (rts_order [i] >= 0);
 	  bb = BASIC_BLOCK (rts_order [i]);
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
@@ -4725,8 +4689,7 @@ make_vn (void)
 	    }
 	  if (propagate_copy_value (at_bb_start_copies [bb->index]))
 	    changed_p = true;
-	  bound = (BB_END (bb) == NULL_RTX
-		   ? NULL_RTX : NEXT_INSN (BB_END (bb)));
+	  bound = NEXT_INSN (BB_END (bb));
 	  for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
 	    if (INSN_P (insn))
 	      {
@@ -4772,15 +4735,15 @@ make_vn (void)
   for (i = 0; i < allocnos_num; i++)
     {
       a = allocnos [i];
-      if (mode_multi_reg_p [ALLOCNO_MODE (a)])
+      val = allocno_value_vec [i];
+      if (val < 0 || mode_multi_reg_p [ALLOCNO_MODE (a)])
 	/* We don't remove conflicts for multi-reg pseudos because
 	   they might overlap.  */
 	continue;
       vec = ALLOCNO_CONFLICT_VEC (a);
       for (j = 0; (a2 = vec [j]) != NULL; j++)
 	{
-	  if (allocno_value_vec [i] >= 0
-	      && allocno_value_vec [i] == allocno_value_vec [ALLOCNO_NUM (a2)])
+	  if (val == allocno_value_vec [ALLOCNO_NUM (a2)])
 	    {
 	      if (yara_dump_file != NULL)
 		fprintf (yara_dump_file, "Removing conflict %d(%d)->%d(%d)\n",
@@ -4789,7 +4752,6 @@ make_vn (void)
 	      for (k = j; vec [k] != NULL; k++)
 		vec [k] = vec [k + 1];
 	      j--;
-	      
 	    }
 	}
     }
@@ -4799,7 +4761,7 @@ make_vn (void)
 
 
 static void
-set_up_allocno_frequency (allocno_t a)
+setup_allocno_frequency (allocno_t a)
 {
   int freq;
   copy_t cp;
@@ -4816,12 +4778,12 @@ set_up_allocno_frequency (allocno_t a)
 }
 
 static void
-set_up_all_allocno_frequencies (void)
+setup_all_allocno_frequencies (void)
 {
   int i;
 
   for (i = 0; i < allocnos_num; i++)
-    set_up_allocno_frequency (allocnos [i]);
+    setup_allocno_frequency (allocnos [i]);
 }
 
 
@@ -4871,7 +4833,7 @@ create_can (void)
 }
 
 void
-set_up_can_call_info (can_t can)
+setup_can_call_info (can_t can)
 {
   allocno_t a, *can_allocnos;
   int i;
@@ -4990,10 +4952,10 @@ merge_allocnos (allocno_t to, allocno_t from)
 {
   allocno_t a, last_a, tmp_a;
 
-  gcc_assert (to != from && to != NULL && from != NULL
-	      && ALLOCNO_NUM (to) < ALLOCNO_NUM (from));
-  gcc_assert (to == union_first [ALLOCNO_NUM (to)]
-	      && from == union_first [ALLOCNO_NUM (from)]);
+  yara_assert (to != from && to != NULL && from != NULL
+	       && ALLOCNO_NUM (to) < ALLOCNO_NUM (from));
+  yara_assert (to == union_first [ALLOCNO_NUM (to)]
+	       && from == union_first [ALLOCNO_NUM (from)]);
   /* Finding last and seting up ALLOCNO_UNION_FIRST in set given by
      from.  */
   for (a = from;;)
@@ -5016,10 +4978,10 @@ remove_allocnos_from_union (allocno_t a1, allocno_t a2)
   allocno_t first, second, a, last_a;
   int i;
 
-  gcc_assert (a1 != a2);
+  yara_assert (a1 != a2);
   first = union_first [ALLOCNO_NUM (a1)];
   second = union_first [ALLOCNO_NUM (a2)];
-  gcc_assert (first == second);
+  yara_assert (first == second);
   for (i = 0, last_a = a = first; i != 2;)
     {
       a = union_next [ALLOCNO_NUM (a)];
@@ -5066,7 +5028,7 @@ make_initial_allocno_can_partition (void)
 	      {
 		src = union_first [ALLOCNO_NUM (a)];
 		dst = union_first [ALLOCNO_NUM (curr_a)];
-		gcc_assert (! union_conflict_p (src, dst));
+		yara_assert (! union_conflict_p (src, dst));
 		if (ALLOCNO_NUM (src) > ALLOCNO_NUM (dst))
 		  merge_allocnos (dst, src);
 		else
@@ -5083,10 +5045,10 @@ make_initial_allocno_can_partition (void)
       dst = COPY_DST (cp);
       if (src == NULL || dst == NULL)
 	continue;
-      gcc_assert (ALLOCNO_REGNO (src) >= 0
-		  && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (src))
-		  && ALLOCNO_REGNO (dst) >= 0
-		  && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (dst)));
+      yara_assert (ALLOCNO_REGNO (src) >= 0
+		   && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (src))
+		   && ALLOCNO_REGNO (dst) >= 0
+		   && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (dst)));
       src = union_first [ALLOCNO_NUM (src)];
       dst = union_first [ALLOCNO_NUM (dst)];
       if (src == dst)
@@ -5114,7 +5076,7 @@ remove_allocno_from_vec (allocno_t *allocno_vec, allocno_t allocno_to_remove)
 	  allocno_vec [j] = allocno_vec [j + 1];
 	break;
       }
-  gcc_assert (a != NULL);
+  yara_assert (a != NULL);
 }
 
 static void
@@ -5130,7 +5092,7 @@ remove_copy_from_vec (copy_t *copy_vec, copy_t cp_to_remove)
 	  copy_vec [j] = copy_vec [j + 1];
 	break;
       }
-  gcc_assert (cp != NULL);
+  yara_assert (cp != NULL);
 }
 
 static copy_t
@@ -5290,8 +5252,8 @@ remove_allocno (allocno_t a)
       next_cp = COPY_NEXT_DST_COPY (cp);
       remove_copy (cp);
     }
-  gcc_assert (ALLOCNO_DST_COPIES (a) == NULL
-	      && ALLOCNO_SRC_COPIES (a) == NULL);
+  yara_assert (ALLOCNO_DST_COPIES (a) == NULL
+	       && ALLOCNO_SRC_COPIES (a) == NULL);
   if (ALLOCNO_TYPE (a) == INSN_ALLOCNO)
     insn_allocnos [INSN_UID (INSN_ALLOCNO_INSN (a))]
       = remove_allocno_from_next_allocno_list
@@ -5314,24 +5276,24 @@ get_move_insn_allocnos_and_copies (rtx move_insn,
        curr_a = INSN_ALLOCNO_NEXT (curr_a))
     if (INSN_ALLOCNO_OP_MODE (curr_a) == OP_IN)
       {
-	gcc_assert (*insn_src == NULL);
+	yara_assert (*insn_src == NULL);
 	*insn_src = curr_a;
       }
     else if (INSN_ALLOCNO_OP_MODE (curr_a) == OP_OUT)
       {
-	gcc_assert (*insn_dst == NULL);
+	yara_assert (*insn_dst == NULL);
 	*insn_dst = curr_a;
       }
     else
       gcc_unreachable ();
-  gcc_assert (*insn_src != NULL && *insn_dst != NULL);
+  yara_assert (*insn_src != NULL && *insn_dst != NULL);
   *src_copy = ALLOCNO_DST_COPIES (*insn_src);
   *dst_copy = ALLOCNO_SRC_COPIES (*insn_dst);
-  gcc_assert (*src_copy != NULL && *dst_copy != NULL
-	      && ALLOCNO_SRC_COPIES (*insn_src) == NULL
-	      && ALLOCNO_DST_COPIES (*insn_dst) == NULL
-	      && COPY_NEXT_DST_COPY (*src_copy) == NULL
-	      && COPY_NEXT_SRC_COPY (*dst_copy) == NULL);
+  yara_assert (*src_copy != NULL && *dst_copy != NULL
+	       && ALLOCNO_SRC_COPIES (*insn_src) == NULL
+	       && ALLOCNO_DST_COPIES (*insn_dst) == NULL
+	       && COPY_NEXT_DST_COPY (*src_copy) == NULL
+	       && COPY_NEXT_SRC_COPY (*dst_copy) == NULL);
   
 }
 
@@ -5374,7 +5336,7 @@ get_duplication_allocno (allocno_t a, bool commutative_p)
 	  }
 	else
 	  {
-	    gcc_assert (c != '#');
+	    yara_assert (c != '#');
 	    break;
 	  }
     }
@@ -5455,8 +5417,8 @@ change_move_insn_by_copy (rtx move_insn, copy_t dst_copy, copy_t src_copy)
   struct point point;
   allocno_t src, dst, insn_src, insn_dst;
 
-  gcc_assert (COPY_NEXT_DST_COPY (src_copy) == NULL
-	      && COPY_NEXT_SRC_COPY (dst_copy) == NULL);
+  yara_assert (COPY_NEXT_DST_COPY (src_copy) == NULL
+	       && COPY_NEXT_SRC_COPY (dst_copy) == NULL);
   src = COPY_SRC (src_copy);
   insn_src = COPY_DST (src_copy);
   dst = COPY_DST (dst_copy);
@@ -5465,10 +5427,10 @@ change_move_insn_by_copy (rtx move_insn, copy_t dst_copy, copy_t src_copy)
   COPY_DST (src_copy) = dst;
   COPY_NEXT_DST_COPY (src_copy) = ALLOCNO_DST_COPIES (dst);
   ALLOCNO_DST_COPIES (dst) = src_copy;
-  gcc_assert (COPY_POINT (src_copy).point_type == BEFORE_INSN
-	      && COPY_POINT (src_copy).u.insn == move_insn
-	      && before_insn_copies [INSN_UID (move_insn)] == src_copy
-	      && COPY_NEXT_COPY (src_copy) == NULL);
+  yara_assert (COPY_POINT (src_copy).point_type == BEFORE_INSN
+	       && COPY_POINT (src_copy).u.insn == move_insn
+	       && before_insn_copies [INSN_UID (move_insn)] == src_copy
+	       && COPY_NEXT_COPY (src_copy) == NULL);
   before_insn_copies [INSN_UID (move_insn)] = NULL;
   prev_insn = prev_nonnote_insn (move_insn);
   if (prev_insn != NULL
@@ -5573,7 +5535,7 @@ make_aggressive_coalescing (void)
 	{
 	  last = VARRAY_GENERIC_PTR (move_varray, n);
 	  move = VARRAY_GENERIC_PTR (move_varray, i);
-	  gcc_assert (move->first != move->second);
+	  yara_assert (move->first != move->second);
 	  if (last->first == move->first && last->second == move->second)
 	    {
 	      last->freq += move->freq;
@@ -5614,7 +5576,7 @@ make_aggressive_coalescing (void)
 	      move->first = move->second;
 	      move->second = temp;
 	    }
-	  gcc_assert
+	  yara_assert
 	    (union_first [ALLOCNO_NUM (move->first)] == move->first
 	     && union_first [ALLOCNO_NUM (move->second)] == move->second);
 	}
@@ -5684,7 +5646,7 @@ create_cans (void)
 	    {
 	      if (mode == VOIDmode)
 		mode = ALLOCNO_MODE (a);
-	      gcc_assert (mode == ALLOCNO_MODE (a));
+	      yara_assert (mode == ALLOCNO_MODE (a));
 	    }
 	  if (a == first)
 	    break;
@@ -5696,10 +5658,11 @@ create_cans (void)
       for (a = union_next [ALLOCNO_NUM (first)];; a = next)
 	{
 	  if (! CAN_GLOBAL_P (can)
-	      && (ALLOCNO_TYPE (a) == REGION_ALLOCNO
-		  || (ALLOCNO_TYPE (a) == RANGE_ALLOCNO
-		      && (RANGE_ALLOCNO_START_INSN (a) == NULL
-			  || RANGE_ALLOCNO_STOP_INSN (a) == NULL))))
+	      && ALLOCNO_TYPE (a) == REGION_ALLOCNO
+	      && (REGION_ALLOCNO_START_INSN (a) == NULL
+		  || REGION_ALLOCNO_STOP_INSN (a) == NULL
+		  || BLOCK_NUM (REGION_ALLOCNO_START_INSN (a))
+		     != BLOCK_NUM (REGION_ALLOCNO_STOP_INSN (a))))
 	    CAN_GLOBAL_P (can) = true;
 	  ALLOCNO_CAN (a) = can;
 	  can_allocnos [can_allocnos_num++] = a;
@@ -5711,7 +5674,7 @@ create_cans (void)
 	}
       can_allocnos [can_allocnos_num] = NULL;
       CAN_FREQ (can) = can_freq (can);
-      set_up_can_call_info (can);
+      setup_can_call_info (can);
     }
   yara_free (union_next);
   yara_free (union_first);
@@ -5743,28 +5706,20 @@ print_can (FILE *f, can_t can)
 	  fprintf (f, "%d(i%d)",
 		   ALLOCNO_NUM (a), INSN_UID (INSN_ALLOCNO_INSN (a)));
 	}
-      else if (ALLOCNO_TYPE (a) == RANGE_ALLOCNO)
-	{
-	  fprintf (f, "%d", ALLOCNO_NUM (a));
-	  if (RANGE_ALLOCNO_START_INSN (a) == NULL_RTX)
-	    fprintf (f, "[sbb%d, ", RANGE_ALLOCNO_BB_NODE (a)->bb->index);
-	  else
-	    fprintf (f, "(%d, ", INSN_UID (RANGE_ALLOCNO_START_INSN (a)));
-	  if (RANGE_ALLOCNO_STOP_INSN (a) == NULL_RTX)
-	    fprintf (f, "ebb%d]", RANGE_ALLOCNO_BB_NODE (a)->bb->index);
-	  else
-	    fprintf (f, "%d)", INSN_UID (RANGE_ALLOCNO_STOP_INSN (a)));
-	}
       else
 	{
-	  gcc_assert (ALLOCNO_TYPE (a) == REGION_ALLOCNO);
 	  fprintf (f, "%d", ALLOCNO_NUM (a));
 	  if (REGION_ALLOCNO_NODE (a)->bb == NULL)
-	    fprintf (f, "(l%d, h%d)",
+	    fprintf (f, "(l%d, h%d",
 		     REGION_ALLOCNO_NODE (a)->loop->num,
 		     REGION_ALLOCNO_NODE (a)->loop->header->index);
 	  else
-	    fprintf (f, "(bb%d)", REGION_ALLOCNO_NODE (a)->bb->index);
+	    fprintf (f, "(bb%d", REGION_ALLOCNO_NODE (a)->bb->index);
+	  if (REGION_ALLOCNO_START_INSN (a) != NULL_RTX)
+	    fprintf (f, ", si%d", INSN_UID (REGION_ALLOCNO_START_INSN (a)));
+	  if (REGION_ALLOCNO_STOP_INSN (a) != NULL_RTX)
+	    fprintf (f, ", ei%d", INSN_UID (REGION_ALLOCNO_STOP_INSN (a)));
+	  fprintf (f, ")");
 	}
     }
   fprintf (f, "\n");
@@ -5825,6 +5780,7 @@ find_allocno_conflicting_cans (allocno_t a, bool rewrite_p)
       can_conflict_tick++;
     }
   can = ALLOCNO_CAN (a);
+  yara_assert (can != NULL);
   IOR_HARD_REG_SET (conflict_hard_regs, ALLOCNO_HARD_REG_CONFLICTS (a));
   vec = ALLOCNO_CONFLICT_VEC (a);
   for (i = 0; (conflict_a = vec [i]) != NULL; i++)
@@ -5832,7 +5788,7 @@ find_allocno_conflicting_cans (allocno_t a, bool rewrite_p)
       conflict_can = ALLOCNO_CAN (conflict_a);
       if (conflict_can != NULL
 	  /* ??? Allocnos from the same CAN may conflict with each other.
-	     E.g. this is the case when range allocno being copied
+	     E.g. this is the case when region allocno being copied
 	     into an insn allocno lives after the insn.  We don't
 	     create such conflicts, the correct assignment is
 	     guaranteed on the allocno level.  */
@@ -5847,21 +5803,16 @@ find_allocno_conflicting_cans (allocno_t a, bool rewrite_p)
     }
 }
 
-/* Function forming the array of cans conflicting with CAN with
-   nullifying the array if REWRITE_P.  False value of rewrite_p can be
-   used to add conflicting cans of CAN to the array.  */
-void
-find_conflicting_cans (can_t can, bool rewrite_p)
+/* Function forming the array of cans conflicting with CAN.  */
+static void
+find_conflicting_cans (can_t can)
 {
   allocno_t a, *can_allocnos;
   int i;
 
-  if (rewrite_p)
-    {
-      conflict_cans_num = 0;
-      CLEAR_HARD_REG_SET (conflict_hard_regs);
-      can_conflict_tick++;
-    }
+  conflict_cans_num = 0;
+  CLEAR_HARD_REG_SET (conflict_hard_regs);
+  can_conflict_tick++;
   can_allocnos = CAN_ALLOCNOS (can);
   for (i = 0; (a = can_allocnos [i]) != NULL; i++)
     find_allocno_conflicting_cans (a, false);
@@ -5870,7 +5821,7 @@ find_conflicting_cans (can_t can, bool rewrite_p)
 void
 create_can_conflicts (can_t can)
 {
-  find_conflicting_cans (can, true);
+  find_conflicting_cans (can);
   COPY_HARD_REG_SET (CAN_CONFLICT_HARD_REGS (can), conflict_hard_regs);
   AND_COMPL_HARD_REG_SET (CAN_CONFLICT_HARD_REGS (can), no_alloc_regs);
   CAN_CONFLICT_CAN_VEC (can)
@@ -5943,7 +5894,6 @@ initiate_slotno_conflicts (void)
       for (j = 0; vec [j] != NULL; j++)
 	;
       slotno_conflicts [i] = yara_allocate (sizeof (int) * (j + 1));
-      vec = CAN_CONFLICT_CAN_VEC (can);
       for (j = 0; (another_can = vec [j]) != NULL; j++)
 	slotno_conflicts [i] [j] = CAN_NUM (another_can);
       slotno_conflicts [i] [j] = -1;
@@ -5966,7 +5916,7 @@ finish_slotno_conflicts (void)
 
 
 static void
-set_up_slotno_max_ref_align_size (void)
+setup_slotno_max_ref_align_size (void)
 {
   int i, j, num, regno;
   can_t can;
@@ -5998,9 +5948,9 @@ set_up_slotno_max_ref_align_size (void)
 void
 yara_ir_init_once (void)
 {
-  /* set_up_mode_multi_reg_p ??? */
-  set_up_reg_class_nregs ();
-  set_up_spill_class_mode ();
+  /* setup_mode_multi_reg_p ??? */
+  setup_reg_class_nregs ();
+  setup_spill_class_mode ();
 }
 
 void
@@ -6027,7 +5977,7 @@ yara_ir_init (void)
     live_pseudo_reg_indexes [i] = -1;
   create_regno_allocno_maps ();
   allocate_loop_regno_allocno_map (yara_loop_tree_root);
-  set_up_mode_multi_reg_p ();
+  setup_mode_multi_reg_p ();
   VARRAY_GENERIC_PTR_NOGC_INIT
     (live_through_allocnos_varray, max_regno * 2 * n_basic_blocks,
      "allocno living through basic blocks and egdes");
@@ -6036,7 +5986,6 @@ yara_ir_init (void)
   allocnos_num = VARRAY_ACTIVE_SIZE (allocno_varray);
   all_allocnos_num += allocnos_num;
   all_insn_allocnos_num += insn_allocnos_num;
-  all_range_allocnos_num += range_allocnos_num;
   all_region_allocnos_num += region_allocnos_num;
   free_loop_regno_allocno_map (yara_loop_tree_root);
   sort_copies_on_edges ();
@@ -6045,20 +5994,19 @@ yara_ir_init (void)
     yara_free (VARRAY_GENERIC_PTR (live_through_allocnos_varray, i));
   VARRAY_FREE (live_through_allocnos_varray);
   delete_regno_allocno_maps ();
-  change_allocno_conflict = yara_allocate (allocnos_num * sizeof (allocno_t));
-  coalesce_copies_on_abnormal_edges ();
   copies = (copy_t *) &VARRAY_GENERIC_PTR (copy_varray, 0);
   copies_num = VARRAY_ACTIVE_SIZE (copy_varray);
   commit_conflicts ();
 #ifdef HAVE_ANY_SECONDARY_MOVES
   commit_copy_conflicts ();
 #endif
-  yara_free (change_allocno_conflict);
+#ifdef ENABLE_YARA_CHECKING
   check_abnormal_edges ();
+#endif
   all_copies_num += copies_num;
   if ((YARA_PARAMS & YARA_NO_GVN) == 0)
     make_vn ();
-  set_up_all_allocno_frequencies ();
+  setup_all_allocno_frequencies ();
   if (yara_dump_file != NULL)
     print_allocnos (yara_dump_file);
   initiate_cans ();
@@ -6072,7 +6020,7 @@ yara_ir_init (void)
   initiate_slotno_conflicts ();
   slotno_max_ref_align = yara_allocate (cans_num * sizeof (int));
   slotno_max_ref_size = yara_allocate (cans_num * sizeof (int));
-  set_up_slotno_max_ref_align_size ();
+  setup_slotno_max_ref_align_size ();
   if (yara_dump_file != NULL)
     print_all_slotno_conflicts (yara_dump_file);
 }
@@ -6105,9 +6053,8 @@ yara_ir_finish (void)
   if (yara_dump_file != NULL)
     {
       fprintf (yara_dump_file,
-	       "Allocnos insn=%d(%d),range=%d(%d),region=%d(%d)\n",
+	       "Allocnos insn=%d(%d),region=%d(%d)\n",
 	       insn_allocnos_num, all_insn_allocnos_num,
-	       range_allocnos_num, all_range_allocnos_num,
 	       region_allocnos_num, all_region_allocnos_num);
       fprintf (yara_dump_file,
 	       "Copies=%d(%d), Conflicts=%d(%d), Copy conflicts=%d(%d)\n",

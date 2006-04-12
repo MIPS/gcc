@@ -74,7 +74,7 @@ set_inner_mode (void)
       wider = GET_MODE_WIDER_MODE (i);
       if (wider != VOIDmode)
 	{
-	  gcc_assert (mode_inner_mode [wider] == VOIDmode);
+	  yara_assert (mode_inner_mode [wider] == VOIDmode);
 	  mode_inner_mode [wider] = i;
 	}
     }
@@ -95,7 +95,7 @@ set_reg_mode_hard_regset (void)
 	if (HARD_REGNO_MODE_OK (hard_regno, m))
 	  for (i = hard_regno_nregs [hard_regno] [m] - 1; i >= 0; i--)
 	    {
-	      gcc_assert (hard_regno + i < FIRST_PSEUDO_REGISTER);
+	      yara_assert (hard_regno + i < FIRST_PSEUDO_REGISTER);
 	      SET_HARD_REG_BIT (reg_mode_hard_regset [hard_regno] [m],
 				hard_regno + i);
 	    }
@@ -146,12 +146,12 @@ static int hard_reg_alloc_order[FIRST_PSEUDO_REGISTER] = REG_ALLOC_ORDER;
 #endif
 
 static void
-set_up_class_hard_regs (void)
+setup_class_hard_regs (void)
 {
   int cl, i, hard_regno, n;
   HARD_REG_SET hard_reg_set;
 
-  gcc_assert (SHRT_MAX >= FIRST_PSEUDO_REGISTER);
+  yara_assert (SHRT_MAX >= FIRST_PSEUDO_REGISTER);
   
   for (cl = (int) N_REG_CLASSES - 1; cl >= 0; cl--)
     {
@@ -182,7 +182,7 @@ int available_class_regs [N_REG_CLASSES];
 
 /* Function setting up AVAILABLE_CLASS_REGS.  */
 static void
-set_up_available_class_regs (void)
+setup_available_class_regs (void)
 {
   int i, j;
   HARD_REG_SET temp_set;
@@ -206,8 +206,8 @@ set_non_alloc_regs (bool use_hard_frame_p)
   COPY_HARD_REG_SET (no_alloc_regs, fixed_reg_set);
   if (! use_hard_frame_p)
     SET_HARD_REG_BIT (no_alloc_regs, HARD_FRAME_POINTER_REGNUM);
-  set_up_class_hard_regs ();
-  set_up_available_class_regs ();
+  setup_class_hard_regs ();
+  setup_available_class_regs ();
 }
 
 
@@ -215,7 +215,7 @@ set_non_alloc_regs (bool use_hard_frame_p)
 static void print_disposition (FILE *);
 
 static bool check_insn (rtx);
-static void check_allocation (void);
+static void check_allocation (void) ATTRIBUTE_UNUSED;
 
 
 
@@ -300,7 +300,7 @@ print_disposition (FILE *f)
 	{
 	  if (ALLOCNO_MEMORY_SLOT (a)->mem != NULL_RTX)
 	    {
-	      gcc_assert (ALLOCNO_REGNO (a) >= 0);
+	      yara_assert (ALLOCNO_REGNO (a) >= 0);
 	      fprintf (f, " %4d:%-4d on eqmem",
 		       ALLOCNO_NUM (a), ALLOCNO_REGNO (a));
 	    }
@@ -349,8 +349,8 @@ check_insn (rtx insn)
   if (asm_noperands (PATTERN (insn)) >= 0)
     return true;
   code = recog_memoized (insn);
-  gcc_assert (code >= 0 ||GET_CODE (PATTERN (insn)) == ASM_INPUT
-	      || asm_noperands (PATTERN (insn)) >= 0);
+  yara_assert (code >= 0 ||GET_CODE (PATTERN (insn)) == ASM_INPUT
+	       || asm_noperands (PATTERN (insn)) >= 0);
   extract_insn (insn);
   /* We want constrain operands to treat this insn strictly
      in its validity determination, i.e., the way it would
@@ -432,7 +432,9 @@ yara (FILE *f)
   bitmap_obstack_release (&yara_bitmap_obstack);
   obstack_free (&yara_obstack, NULL);
   reload_completed = 1;
+#ifdef ENABLE_YARA_CHECKING
   check_allocation ();
+#endif
 }
 
 

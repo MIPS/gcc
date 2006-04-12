@@ -45,7 +45,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 static bool check_alternative_possibility (allocno_t, const char *, bool);
 static allocno_t get_first_operand_allocno (allocno_t);
-static void set_up_possible_operand_alternatives (rtx, bool);
+static void setup_possible_operand_alternatives (rtx, bool);
 
 static bool try_hard_regno_from_connected_allocno (allocno_t, enum reg_class,
 						   HARD_REG_SET, bool, bool *);
@@ -252,7 +252,7 @@ check_alternative_possibility (allocno_t a, const char *p, bool strict_p)
 }
 
 void
-set_up_possible_allocno_alternatives (struct insn_op_info *info, allocno_t a,
+setup_possible_allocno_alternatives (struct insn_op_info *info, allocno_t a,
 				      bool strict_p)
 {
   int op_num, n_alt, alts_num;
@@ -261,7 +261,7 @@ set_up_possible_allocno_alternatives (struct insn_op_info *info, allocno_t a,
   alt_set_t set;
 
   op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
-  gcc_assert (op_num >= 0);
+  yara_assert (op_num >= 0);
   alts_num = info->n_alts;
   if (info == NULL || alts_num == 0)
     /* We dont care about value of possible_alts in this case.  */
@@ -286,7 +286,7 @@ set_up_possible_allocno_alternatives (struct insn_op_info *info, allocno_t a,
 		const char *str;
 		int n = c - '0';
 
-		gcc_assert (op_num > n);
+		yara_assert (op_num > n);
 		a1 = (insn_op_allocnos [INSN_UID (INSN_ALLOCNO_INSN (a))] [n]);
 		if (! strict_p)
 		  SET_ALT (set, n_alt);
@@ -303,7 +303,7 @@ set_up_possible_allocno_alternatives (struct insn_op_info *info, allocno_t a,
 			;
 		      else
 			{
-			  gcc_assert (c != '#');
+			  yara_assert (c != '#');
 			  if (check_alternative_possibility (a, str, true))
 			    {
 			      SET_ALT (set, n_alt);
@@ -314,7 +314,7 @@ set_up_possible_allocno_alternatives (struct insn_op_info *info, allocno_t a,
 	      }
 	    else
 	      {
-		gcc_assert (c != '#');
+		yara_assert (c != '#');
 		if (check_alternative_possibility (a, constraints, strict_p))
 		  SET_ALT (set, n_alt);
 	      }
@@ -333,7 +333,7 @@ get_first_operand_allocno (allocno_t start)
 }
 
 static void
-set_up_possible_operand_alternatives (rtx insn, bool strict_p)
+setup_possible_operand_alternatives (rtx insn, bool strict_p)
 {
   allocno_t op;
   struct insn_op_info *info;
@@ -342,11 +342,11 @@ set_up_possible_operand_alternatives (rtx insn, bool strict_p)
   for (op = get_first_operand_allocno (insn_allocnos [INSN_UID (insn)]);
        op != NULL;
        op = get_first_operand_allocno (INSN_ALLOCNO_NEXT (op)))
-    set_up_possible_allocno_alternatives (info, op, strict_p);
+    setup_possible_allocno_alternatives (info, op, strict_p);
 }
 
 void
-set_up_possible_alternatives (bool strict_p)
+setup_possible_alternatives (bool strict_p)
 {
   basic_block bb;
   rtx bound, insn;
@@ -356,7 +356,7 @@ set_up_possible_alternatives (bool strict_p)
       bound = NEXT_INSN (BB_END (bb));
       for (insn = BB_HEAD (bb); insn != bound; insn = NEXT_INSN (insn))
 	if (INSN_P (insn))
-	  set_up_possible_operand_alternatives (insn, strict_p);
+	  setup_possible_operand_alternatives (insn, strict_p);
     }
 }
 
@@ -492,9 +492,9 @@ assign_constraint (allocno_t a, const char *p)
       if (CONSTANT_P (op)
 	  || (equiv_const != NULL_RTX && CONSTANT_P (equiv_const)))
 	{
-	  gcc_assert (equiv_const != NULL_RTX
-		      || (ALLOCNO_SRC_COPIES (a) == NULL
-			  && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
+	  yara_assert (equiv_const != NULL_RTX
+		       || (ALLOCNO_SRC_COPIES (a) == NULL
+			   && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
 	  success_p = assign_allocno (a, LIM_REG_CLASSES,
 				      reg_class_contents [NO_REGS], -1);
 	}
@@ -508,9 +508,9 @@ assign_constraint (allocno_t a, const char *p)
 		  || (GET_CODE (equiv_const) == CONST_DOUBLE
 		      && GET_MODE (equiv_const) == VOIDmode))))
 	{
-	  gcc_assert (equiv_const != NULL_RTX
-		      || (ALLOCNO_SRC_COPIES (a) == NULL
-			  && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
+	  yara_assert (equiv_const != NULL_RTX
+		       || (ALLOCNO_SRC_COPIES (a) == NULL
+			   && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
 	  success_p = assign_allocno (a, LIM_REG_CLASSES,
 				      reg_class_contents [NO_REGS], -1);
 	}
@@ -525,9 +525,9 @@ assign_constraint (allocno_t a, const char *p)
 	      && (GET_CODE (equiv_const) != CONST_DOUBLE
 		  || GET_MODE (equiv_const) != VOIDmode)))
 	{
-	  gcc_assert (equiv_const != NULL_RTX
-		      || (ALLOCNO_SRC_COPIES (a) == NULL
-			  && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
+	  yara_assert (equiv_const != NULL_RTX
+		       || (ALLOCNO_SRC_COPIES (a) == NULL
+			   && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
 	  success_p = assign_allocno (a, LIM_REG_CLASSES,
 				      reg_class_contents [NO_REGS], -1);
 	}
@@ -547,9 +547,9 @@ assign_constraint (allocno_t a, const char *p)
 	      && GET_CODE (equiv_const) == CONST_INT
 	      && CONST_OK_FOR_CONSTRAINT_P (INTVAL (equiv_const), c, p)))
 	{
-	  gcc_assert (equiv_const != NULL_RTX
-		      || (ALLOCNO_SRC_COPIES (a) == NULL
-			  && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
+	  yara_assert (equiv_const != NULL_RTX
+		       || (ALLOCNO_SRC_COPIES (a) == NULL
+			   && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
 	  success_p = assign_allocno (a, LIM_REG_CLASSES,
 				      reg_class_contents [NO_REGS], -1);
 	}
@@ -566,9 +566,9 @@ assign_constraint (allocno_t a, const char *p)
 		      && (GET_MODE_CLASS (GET_MODE (equiv_const))
 			  == MODE_VECTOR_FLOAT)))))
 	{
-	  gcc_assert (equiv_const != NULL_RTX
-		      || (ALLOCNO_SRC_COPIES (a) == NULL
-			  && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
+	  yara_assert (equiv_const != NULL_RTX
+		       || (ALLOCNO_SRC_COPIES (a) == NULL
+			   && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
 	  success_p = assign_allocno (a, LIM_REG_CLASSES,
 				      reg_class_contents [NO_REGS], -1);
 	}
@@ -582,9 +582,9 @@ assign_constraint (allocno_t a, const char *p)
 	      && GET_CODE (equiv_const) == CONST_DOUBLE
 	      && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (equiv_const, c, p)))
 	{
-	  gcc_assert (equiv_const != NULL_RTX
-		      || (ALLOCNO_SRC_COPIES (a) == NULL
-			  && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
+	  yara_assert (equiv_const != NULL_RTX
+		       || (ALLOCNO_SRC_COPIES (a) == NULL
+			   && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
 	  success_p = assign_allocno (a, LIM_REG_CLASSES,
 				      reg_class_contents [NO_REGS], -1);
 	}
@@ -597,8 +597,8 @@ assign_constraint (allocno_t a, const char *p)
 	{
 	  /* We already have legitimate memory address in non-strict
 	     sense.  */
-	  gcc_assert (INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL
-		      || INSN_ALLOCNO_ORIGINAL_P (a));
+	  yara_assert (INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL
+		       || INSN_ALLOCNO_ORIGINAL_P (a));
 	  success_p = assign_allocno (a, LIM_REG_CLASSES,
 				      reg_class_contents [NO_REGS], -1);
 	}
@@ -607,9 +607,9 @@ assign_constraint (allocno_t a, const char *p)
 	       || (0 && equiv_const != NULL_RTX
 		   && CONST_POOL_OK_P (equiv_const)))
 	{
-	  gcc_assert (equiv_const != NULL_RTX
-		      || (ALLOCNO_SRC_COPIES (a) == NULL
-			  && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
+	  yara_assert (equiv_const != NULL_RTX
+		       || (ALLOCNO_SRC_COPIES (a) == NULL
+			   && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
 	  success_p = (! INSN_ALLOCNO_ELIMINATION_PART_CONST_P (a)
 		       && assign_allocno (a, NO_REGS,
 					  reg_class_contents [NO_REGS], -1));
@@ -624,8 +624,8 @@ assign_constraint (allocno_t a, const char *p)
     case 'V':
       if (MEM_P (op) && ! offsettable_nonstrict_memref_p (op))
 	{
-	  gcc_assert (INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL
-		      || INSN_ALLOCNO_ORIGINAL_P (a));
+	  yara_assert (INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL
+		       || INSN_ALLOCNO_ORIGINAL_P (a));
 	  success_p = assign_allocno (a, LIM_REG_CLASSES,
 				      reg_class_contents [NO_REGS], -1);
 	}
@@ -664,10 +664,10 @@ assign_constraint (allocno_t a, const char *p)
       if (CONSTANT_P (op) || MEM_P (no_subreg_op)
 	  || (equiv_const != NULL_RTX && CONSTANT_P (equiv_const)))
 	{
-	  gcc_assert (! CONSTANT_P (op) || equiv_const != NULL_RTX
-		      || ALLOCNO_SRC_COPIES (a) == NULL);
-	  gcc_assert (INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL
-		      || INSN_ALLOCNO_ORIGINAL_P (a));
+	  yara_assert (! CONSTANT_P (op) || equiv_const != NULL_RTX
+		       || ALLOCNO_SRC_COPIES (a) == NULL);
+	  yara_assert (INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL
+		       || INSN_ALLOCNO_ORIGINAL_P (a));
 	  success_p = assign_allocno (a, LIM_REG_CLASSES,
 				      reg_class_contents [NO_REGS], -1);
 	  break;
@@ -689,7 +689,7 @@ assign_constraint (allocno_t a, const char *p)
 	      ? GENERAL_REGS : REG_CLASS_FROM_CONSTRAINT (c, p));
 	if (cl != NO_REGS)
 	  {
-	    gcc_assert (! REG_P (no_subreg_op) || ALLOCNO_REGNO (a) >= 0);
+	    yara_assert (! REG_P (no_subreg_op) || ALLOCNO_REGNO (a) >= 0);
 
 	    cl = limit_insn_allocno_class (a, cl);
 
@@ -701,8 +701,8 @@ assign_constraint (allocno_t a, const char *p)
 					   ALLOCNO_MODE (a),
 					   reg_class_contents [cl]))
 	      {
-		gcc_assert (INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL
-			    || INSN_ALLOCNO_ORIGINAL_P (a));
+		yara_assert (INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL
+			     || INSN_ALLOCNO_ORIGINAL_P (a));
 		success_p = assign_allocno (a, LIM_REG_CLASSES,
 					    reg_class_contents [NO_REGS], -1);
 		if (! success_p
@@ -741,10 +741,10 @@ assign_constraint (allocno_t a, const char *p)
 	
 	another_a = (insn_op_allocnos
 		     [INSN_UID (INSN_ALLOCNO_INSN (a))] [c - '0']);
-	gcc_assert ((INSN_ALLOCNO_OP_MODE (a) == OP_IN
-		     && INSN_ALLOCNO_OP_MODE (another_a) == OP_OUT)
-		    || (INSN_ALLOCNO_OP_MODE (another_a) == OP_IN
-			&& INSN_ALLOCNO_OP_MODE (a) == OP_OUT));
+	yara_assert ((INSN_ALLOCNO_OP_MODE (a) == OP_IN
+		      && INSN_ALLOCNO_OP_MODE (another_a) == OP_OUT)
+		     || (INSN_ALLOCNO_OP_MODE (another_a) == OP_IN
+			 && INSN_ALLOCNO_OP_MODE (a) == OP_OUT));
 	create_tie (another_a, a);
 	/* The cost will taken into account when the original will
 	   be allocated.  */
@@ -800,8 +800,8 @@ change_other_allocno_container_loc (allocno_t a, allocno_t a2,
 {
   allocno_t a1;
   
-  gcc_assert (INSN_ALLOCNO_INSN (a) == INSN_ALLOCNO_INSN (a2)
-	      && INSN_ALLOCNO_COMMUTATIVE (a) == a2);
+  yara_assert (INSN_ALLOCNO_INSN (a) == INSN_ALLOCNO_INSN (a2)
+	       && INSN_ALLOCNO_COMMUTATIVE (a) == a2);
   for (a1 = insn_allocnos [INSN_UID (INSN_ALLOCNO_INSN (a))];
        a1 != NULL;
        a1 = INSN_ALLOCNO_NEXT (a1))
@@ -826,19 +826,19 @@ make_commutative_exchange (allocno_t a)
   allocno_t tied_allocno, tied_allocno2;
   allocno_t a2 = INSN_ALLOCNO_COMMUTATIVE (a);
 
-  gcc_assert (a2 != NULL && INSN_ALLOCNO_TYPE (a) >= OPERAND_BASE
-	      && ALLOCNO_HARD_REGNO (a) < 0 && ALLOCNO_HARD_REGNO (a2) < 0
-	      && ALLOCNO_MEMORY_SLOT (a) == NULL
-	      && ALLOCNO_MEMORY_SLOT (a2) == NULL
-	      && INSN_ALLOCNO_ELIMINATION (a) == NULL
-	      && INSN_ALLOCNO_ELIMINATION (a2) == NULL
-	      && ! INSN_ALLOCNO_CONST_POOL_P (a)
-	      && ! INSN_ALLOCNO_CONST_POOL_P (a2)
-	      && ! INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a)
-	      && ! INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a2)
-	      && INSN_ALLOCNO_OP_MODE (a) == INSN_ALLOCNO_OP_MODE (a2)
-	      && (INSN_ALLOCNO_COMMUTATIVE (a)
-		  != INSN_ALLOCNO_COMMUTATIVE (a2)));
+  yara_assert (a2 != NULL && INSN_ALLOCNO_TYPE (a) >= OPERAND_BASE
+	       && ALLOCNO_HARD_REGNO (a) < 0 && ALLOCNO_HARD_REGNO (a2) < 0
+	       && ALLOCNO_MEMORY_SLOT (a) == NULL
+	       && ALLOCNO_MEMORY_SLOT (a2) == NULL
+	       && INSN_ALLOCNO_ELIMINATION (a) == NULL
+	       && INSN_ALLOCNO_ELIMINATION (a2) == NULL
+	       && ! INSN_ALLOCNO_CONST_POOL_P (a)
+	       && ! INSN_ALLOCNO_CONST_POOL_P (a2)
+	       && ! INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a)
+	       && ! INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a2)
+	       && INSN_ALLOCNO_OP_MODE (a) == INSN_ALLOCNO_OP_MODE (a2)
+	       && (INSN_ALLOCNO_COMMUTATIVE (a)
+		   != INSN_ALLOCNO_COMMUTATIVE (a2)));
   tmp_rtx = *INSN_ALLOCNO_LOC (a);
   *INSN_ALLOCNO_LOC (a) = *INSN_ALLOCNO_LOC (a2);
   *INSN_ALLOCNO_LOC (a2) = tmp_rtx;
@@ -877,8 +877,8 @@ make_commutative_exchange (allocno_t a)
       INSN_ALLOCNO_TIED_ALLOCNO (tied_allocno2) = a;
     }
   info = insn_infos [INSN_UID (INSN_ALLOCNO_INSN (a))];
-  set_up_possible_allocno_alternatives (info, a, false);
-  set_up_possible_allocno_alternatives (info, a2, false);
+  setup_possible_allocno_alternatives (info, a, false);
+  setup_possible_allocno_alternatives (info, a2, false);
 }
 
 /* Cost of all allocation before allocating insn allocnos of the
@@ -938,14 +938,14 @@ find_best_alt_allocation_1 (void)
 	      HARD_REG_SET temp_set;
 	      enum reg_class cl;
 	      
-	      gcc_assert (REG_P (reg)
-			  && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL
-			  && (INSN_ALLOCNO_OP_MODE (a) == OP_IN
-			      || INSN_ALLOCNO_OP_MODE (a) == OP_INOUT)
-			  /* We assume no base and index registers in
-			     subregisters.  */
-			  && (GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a))
-			      != SUBREG));
+	      yara_assert (REG_P (reg)
+			   && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL
+			   && (INSN_ALLOCNO_OP_MODE (a) == OP_IN
+			       || INSN_ALLOCNO_OP_MODE (a) == OP_INOUT)
+			   /* We assume no base and index registers in
+			      subregisters.  */
+			   && (GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a))
+			       != SUBREG));
 	      if (INSN_ALLOCNO_TYPE (a) == BASE_REG)
 		{
 		  COPY_HARD_REG_SET
@@ -987,7 +987,7 @@ find_best_alt_allocation_1 (void)
 	  else
 	    {
 	      op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
-	      gcc_assert (op_num >= 0);
+	      yara_assert (op_num >= 0);
 	      if (a_num == start)
 		constraints = op_alt_constraints [op_num];
 	      else
@@ -999,7 +999,7 @@ find_best_alt_allocation_1 (void)
 		{
 		  curr_alt_constraints [op_num] = "\0";
 		  ok_p = assign_constraint (a, "\0");
-		  gcc_assert (ok_p);
+		  yara_assert (ok_p);
 		}
 	      else if (! TEST_ALT (INSN_ALLOCNO_POSSIBLE_ALTS (a),
 				   curr_allocation_alt))
@@ -1034,7 +1034,7 @@ find_best_alt_allocation_1 (void)
 			  continue;
 
 			default:
-			  gcc_assert (c != '#');
+			  yara_assert (c != '#');
 			  if (*next_constraints != '\0')
 			    start_transaction ();
 			  if (assign_constraint (a, constraints))
@@ -1114,13 +1114,13 @@ find_best_alt_allocation (void)
 	  if (a2 != NULL)
 	    break;
 	}
-      gcc_assert (i < (int) VARRAY_ACTIVE_SIZE (insn_allocno_varray));
+      yara_assert (i < (int) VARRAY_ACTIVE_SIZE (insn_allocno_varray));
       for (j = i + 1; j < (int) VARRAY_ACTIVE_SIZE (insn_allocno_varray); j++)
 	if (VARRAY_GENERIC_PTR (insn_allocno_varray, j) == a2)
 	  break;
-      gcc_assert (j < (int) VARRAY_ACTIVE_SIZE (insn_allocno_varray));
+      yara_assert (j < (int) VARRAY_ACTIVE_SIZE (insn_allocno_varray));
       op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
-      gcc_assert (op_num >= 0);
+      yara_assert (op_num >= 0);
       make_commutative_exchange (a);
       VARRAY_GENERIC_PTR (insn_allocno_varray, i) = a2;
       VARRAY_GENERIC_PTR (insn_allocno_varray, j) = a;
@@ -1147,7 +1147,7 @@ get_duplication_number (const char *constraints)
 	 case '5': case '6': case '7': case '8': case '9':
 	   return c - '0';
 	 default:
-	   gcc_assert (c != '#');
+	   yara_assert (c != '#');
 	 }
   return -1;
 }
@@ -1181,8 +1181,8 @@ put_duplication_before_original (void)
 		       == dup_n)))
 	     break;
 	 }
-      gcc_assert (j >= 0 && j != i
-		  && j < (int) VARRAY_ACTIVE_SIZE (insn_allocno_varray));
+      yara_assert (j >= 0 && j != i
+		   && j < (int) VARRAY_ACTIVE_SIZE (insn_allocno_varray));
       if (j < i)
 	 {
 	   if (i != j + 1)
@@ -1246,7 +1246,7 @@ assign_pseudo_allocno_from_connected_allocno (allocno_t a)
   for (cp = ALLOCNO_DST_COPIES (a); cp != NULL; cp = COPY_NEXT_DST_COPY (cp))
     {
       connected_a = COPY_SRC (cp);
-      gcc_assert (connected_a != NULL);
+      yara_assert (connected_a != NULL);
       if ((hard_regno = ALLOCNO_HARD_REGNO (connected_a)) >= 0)
 	{
 	  hard_regno = get_allocno_hard_regno (a, hard_regno);
@@ -1319,7 +1319,7 @@ assign_insn_allocnos_without_copy (rtx insn)
 	break;
       if (INSN_ALLOCNO_TYPE (a) >= OPERAND_BASE)
 	{
-	  set_up_possible_allocno_alternatives
+	  setup_possible_allocno_alternatives
 	    (curr_allocation_insn_info, a, true);
 	  AND_ALT_SET (possible_alts, INSN_ALLOCNO_POSSIBLE_ALTS (a));
 	  if (EQ_ALT_SET (possible_alts, ZERO_ALT_SET))
@@ -1380,12 +1380,13 @@ allocate_insn_allocnos (rtx insn, bool (*call_cross_hint) (allocno_t),
 	  HARD_REG_SET temp_set;
 	  enum reg_class cl;
 
-	  gcc_assert (REG_P (reg)
-		      && (INSN_ALLOCNO_OP_MODE (a) == OP_IN
-			  || INSN_ALLOCNO_OP_MODE (a) == OP_INOUT)
-		      /* We assume no base and index registers in
-			 subregisters.  */
-		      && GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a)) != SUBREG);
+	  yara_assert (REG_P (reg)
+		       && (INSN_ALLOCNO_OP_MODE (a) == OP_IN
+			   || INSN_ALLOCNO_OP_MODE (a) == OP_INOUT)
+		       /* We assume no base and index registers in
+			  subregisters.  */
+		       && GET_CODE (*INSN_ALLOCNO_CONTAINER_LOC (a))
+		          != SUBREG);
 	  if (INSN_ALLOCNO_TYPE (a) == BASE_REG)
 	    {
 	      COPY_HARD_REG_SET
