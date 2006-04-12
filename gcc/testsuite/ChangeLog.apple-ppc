@@ -1,3 +1,13 @@
+2006-04-12  Mike Stump  <mrs@apple.com>
+
+	Radar 4477426 4466768
+	* g++.apple/asm-block-49.C: Add.
+	* gcc.apple/asm-block-49.c: Add.
+
+	Radar 4498501
+	* gcc.apple/asm-block-13.C: Update.
+	* g++.apple/asm-block-13.c: Update.
+
 2006-04-06  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4499627

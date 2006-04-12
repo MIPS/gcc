@@ -1,3 +1,17 @@
+2006-04-12  Mike Stump  <mrs@apple.com>
+
+	Radar 4477426 4466768 4498501
+	* c-common.c (cw_is_pseudo): Add.
+	(cw_asm_stmt): Handle _emit, opword and .machine better.
+	(print_cw_asm_operand): Handle .machine better.
+	* config/asm.h (struct cw_md_Extra_info, no_label_map): Add
+	(cw_is_pseudo): Add.
+	* i386/i386.c (cw_x86_needs_swapping): Handle pseduo instructions better.
+	(x86_canonicalize_operands): Likewise.
+	* i386/i386.h (TARGET_CW_EXTRA_INFO): Add.
+	(CW_IMMED_PREFIX): Handle pseduo instructions better.
+	(TARGET_CW_OP_CONSTRAINT): Add missing cmp.*{pd,ps,sd,ss} instructions.
+	
 2006-04-06  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4499627

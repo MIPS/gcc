@@ -17069,6 +17069,21 @@ cw_build_identifier_string (cp_parser* parser, const char* str)
   int len;
   tree id;
 
+  if (strcmp (str, ".") == 0
+      && (cp_lexer_peek_token (parser->lexer)->flags & PREV_WHITE) == 0)
+    {
+      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_SHORT))
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  return get_identifier (".short");
+	}
+      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_LONG))
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  return get_identifier (".long");
+	}
+    }
+
   id = cp_parser_cw_identifier_or_number (parser);
   len = strlen (str);
   buf = (char *) alloca (IDENTIFIER_LENGTH (id) + len + 1);

@@ -6386,6 +6386,19 @@ cw_asm_default_function_conversion (tree exp)
   return exp;
 }
 
+/* Return true iff op is a pseudo-op that doesn't need swapping on x86.  */
+
+bool
+cw_is_pseudo (const char *opcode)
+{
+  return strcmp (opcode, ".long") == 0
+    || strcmp (opcode, ".word") == 0
+    || strcmp (opcode, ".byte") == 0
+    || strcmp (opcode, ".short") == 0
+    || strcmp (opcode, ".quad") == 0
+    || strcmp (opcode, ".machine") == 0;
+}
+
 /* The constraints table for CW style assembly.  Things not listed are
    usually considered as "+b", "+v" or "+f" depending upon context.  */
 
@@ -6923,13 +6936,11 @@ cw_asm_stmt (tree expr, tree args, int lineno)
       return NULL_TREE;
     }
   else if (strcmp (opcodename, "machine") == 0)
-    {
-      return NULL_TREE;
-    }
+    return NULL_TREE;
   else if (strcmp (opcodename, "opword") == 0)
-    {
-      opcodename = ".long";
-    }
+    opcodename = " .long";
+  else if (strncmp (opcodename, "_emit", 5) == 0)
+    opcodename = " .byte";
 
   if (cw_asm_buffer == NULL)
     cw_asm_buffer = xmalloc (4000);
@@ -6953,6 +6964,9 @@ cw_asm_stmt (tree expr, tree args, int lineno)
   CW_CANONICALIZE_OPERANDS (opcodename, new_opcode, args, &e);
 
   CW_PRINT_PREFIX(cw_asm_buffer, prefix_list);
+
+  if (strcmp (opcodename, " .machine") == 0)
+    e.no_label_map = true;
 
   strcat (cw_asm_buffer, new_opcode);
   strcat (cw_asm_buffer, " ");
@@ -7197,6 +7211,18 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 
     case LABEL_DECL:
       TREE_USED (arg) = 1;
+      if (e->no_label_map
+	  && strncmp (IDENTIFIER_POINTER (DECL_NAME (arg)),
+		      "LASM$", 5) == 0)
+	{
+	  const char *name = IDENTIFIER_POINTER (DECL_NAME (arg)) + 5;
+#if defined(TARGET_TOC)
+	  if (strcmp (name, "all") == 0)
+	    name = "ppc970";
+#endif
+	  sprintf (buf + strlen (buf), "%s", name);
+	  break;
+	}
       CW_OFFSET_PREFIX (e, buf);
       arg = build1 (ADDR_EXPR, ptr_type_node, arg);
       /* There was no other spelling I could find that would work.

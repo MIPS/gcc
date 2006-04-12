@@ -2620,7 +2620,8 @@ struct machine_function GTY(())
 #define TARGET_CW_EXTRA_INFO			\
   char mod[3];					\
   bool as_immediate;				\
-  bool as_offset;
+  bool as_offset;				\
+  bool pseudo;
 
 #define TARGET_CW_REORDER_ARG(OPCODE, NEWARGNUM, NUM_ARGS, ARGNUM)	\
   do {									\
@@ -2696,7 +2697,7 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
 
 #define CW_IMMED_PREFIX(E, BUF)			\
   do {						\
-    if (! E->as_immediate)			\
+    if (!E->pseudo && ! E->as_immediate)	\
       sprintf (BUF + strlen (BUF), "$");	\
   } while (0)
 
@@ -2792,6 +2793,62 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "cmovz", 2, U("rm")},	\
   { "cmp", 1, "rm,r"},    	\
   { "cmp", 2, "ir,m"},    	\
+  { "cmpeqpd", 1, "=x"},	\
+  { "cmpeqpd", 2, "xm"},	\
+  { "cmpeqps", 1, "=x"},	\
+  { "cmpeqps", 2, "xm"},	\
+  { "cmpeqsd", 1, "=x"},	\
+  { "cmpeqsd", 2, "xm"},	\
+  { "cmpeqss", 1, "=x"},	\
+  { "cmpeqss", 2, "xm"},	\
+  { "cmplepd", 1, "=x"},	\
+  { "cmplepd", 2, "xm"},	\
+  { "cmpleps", 1, "=x"},	\
+  { "cmpleps", 2, "xm"},	\
+  { "cmplesd", 1, "=x"},	\
+  { "cmplesd", 2, "xm"},	\
+  { "cmpless", 1, "=x"},	\
+  { "cmpless", 2, "xm"},	\
+  { "cmpltpd", 1, "=x"},	\
+  { "cmpltpd", 2, "xm"},	\
+  { "cmpltps", 1, "=x"},	\
+  { "cmpltps", 2, "xm"},	\
+  { "cmpltsd", 1, "=x"},	\
+  { "cmpltsd", 2, "xm"},	\
+  { "cmpltss", 1, "=x"},	\
+  { "cmpltss", 2, "xm"},	\
+  { "cmpneqpd", 1, "=x"},	\
+  { "cmpneqpd", 2, "xm"},	\
+  { "cmpneqps", 1, "=x"},	\
+  { "cmpneqps", 2, "xm"},	\
+  { "cmpneqsd", 1, "=x"},	\
+  { "cmpneqsd", 2, "xm"},	\
+  { "cmpneqss", 1, "=x"},	\
+  { "cmpneqss", 2, "xm"},	\
+  { "cmpnlepd", 1, "=x"},	\
+  { "cmpnlepd", 2, "xm"},	\
+  { "cmpnleps", 1, "=x"},	\
+  { "cmpnleps", 2, "xm"},	\
+  { "cmpnlesd", 1, "=x"},	\
+  { "cmpnlesd", 2, "xm"},	\
+  { "cmpnless", 1, "=x"},	\
+  { "cmpnless", 2, "xm"},	\
+  { "cmpnltpd", 1, "=x"},	\
+  { "cmpnltpd", 2, "xm"},	\
+  { "cmpnltps", 1, "=x"},	\
+  { "cmpnltps", 2, "xm"},	\
+  { "cmpnltsd", 1, "=x"},	\
+  { "cmpnltsd", 2, "xm"},	\
+  { "cmpnltss", 1, "=x"},	\
+  { "cmpnltss", 2, "xm"},	\
+  { "cmpordpd", 1, "=x"},	\
+  { "cmpordpd", 2, "xm"},	\
+  { "cmpordps", 1, "=x"},	\
+  { "cmpordps", 2, "xm"},	\
+  { "cmpordsd", 1, "=x"},	\
+  { "cmpordsd", 2, "xm"},	\
+  { "cmpordss", 1, "=x"},	\
+  { "cmpordss", 2, "xm"},	\
   { "cmppd", 1, "=x"},		\
   { "cmppd", 2, "xm"},		\
   { "cmppd", 3, "i"},		\
@@ -2804,6 +2861,14 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "cmpss", 1, "=x"},		\
   { "cmpss", 2, "xm"},		\
   { "cmpss", 3, "i"},		\
+  { "cmpunordpd", 1, "=x"},	\
+  { "cmpunordpd", 2, "xm"},	\
+  { "cmpunordps", 1, "=x"},	\
+  { "cmpunordps", 2, "xm"},	\
+  { "cmpunordsd", 1, "=x"},	\
+  { "cmpunordsd", 2, "xm"},	\
+  { "cmpunordss", 1, "=x"},	\
+  { "cmpunordss", 2, "xm"},	\
   { "cmpxchg", 1, "+mr"},      	\
   { "cmpxchg", 2, "r"},      	\
   { "comisd", 1, "x"},		\

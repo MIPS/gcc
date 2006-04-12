@@ -19065,6 +19065,8 @@ cw_x86_needs_swapping (const char *opcode)
     return false;
   if (strcasecmp (opcode, "invlpga") == 0)
     return false;
+  if (opcode[0] == ' ' && cw_is_pseudo (opcode+1))
+    return false;
 
   return true;
 }
@@ -19415,6 +19417,8 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
   --argnum;
 
   args = x86_swap_operands (opcode, iargs);
+  if (opcode[0] == ' ' && cw_is_pseudo (opcode+1))
+    e->pseudo = true;
 
   /* movsx isn't part of the AT&T syntax, they spell it movs.  */
   if (strcasecmp (opcode, "movsx") == 0)
@@ -19450,7 +19454,9 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	e->mod[1] = 'l';
     }
 
-  if (strcasecmp (opcode, "out") == 0
+  if (e->pseudo)
+    e->mod[0] = e->mod[1] = 0;
+  else if (strcasecmp (opcode, "out") == 0
       || strcasecmp (opcode, "movntq") == 0
       || strcasecmp (opcode, "movd") == 0
       || strcasecmp (opcode, "movq") == 0

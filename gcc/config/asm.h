@@ -53,6 +53,8 @@ struct cw_md_Extra_info {
     bool was_output;
   } dat[CW_MAX_ARG];
 
+  bool no_label_map;
+
   TARGET_CW_EXTRA_INFO
 };
 typedef struct cw_md_Extra_info cw_md_extra_info;
@@ -77,4 +79,5 @@ extern void cw_force_constraint (const char *c, cw_md_extra_info *e);
 extern tree cw_ptr_conv (tree type, tree exp);
 extern void cw_asm_get_register_var (tree var, const char *modifier, char *buf,
 				     unsigned argnum, bool must_be_reg, cw_md_extra_info *e);
+extern bool cw_is_pseudo (const char *);
 #endif
