@@ -1,4 +1,23 @@
 2006-04-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* ifcvt.c (cond_exec_process_if_block, merge_if_block,
+	noce_process_if_block, cond_move_process_if_block,
+	process_if_block, find_if_header, find_cond_trap, find_if_case_1,
+	find_if_case_2, dead_or_predicable): Threaded local copy of df
+	thru the call stack.
+	(merge_if_block, find_cond_trap, find_if_case_1, find_if_case_2,
+	dead_or_predicable): Added code to update df in place.
+	(if_convert): Removed parameter concerned with correct dataflow
+	info, it now always is. Created instance of df.  Removed code to
+	update old flow info.
+	(rest_of_handle_if_after_reload): Removed unnecessary calls to
+	cleanup_cfg.
+	* passes.c (init_optimization_passes): Moved clear_df to before
+	last ifconvert.  Renamed pass_cprop to pass_cprop_hardreg.
+	* regrename.c (rest_of_handle_cprop): Renamed pass_cprop to
+	pass_cprop_hardreg.
+	* tree-pass.h: Renamed cprop to cprop_hardreg.
+	
+2006-04-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* sched-ebb.c (schedule_ebbs): Removed code to update dataflow
 	after scheduling and removed unused parm from 
 	reposition_prologue_and_epilogue_notes.

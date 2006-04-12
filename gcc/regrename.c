@@ -2000,9 +2000,9 @@ rest_of_handle_cprop (void)
   return 0;
 }
 
-struct tree_opt_pass pass_cprop =
+struct tree_opt_pass pass_cprop_hardreg =
 {
-  "rnreg",                              /* name */
+  "cprop_hardreg",                      /* name */
   gate_handle_cprop,                    /* gate */
   rest_of_handle_cprop,                 /* execute */
   NULL,                                 /* sub */
