@@ -19065,11 +19065,19 @@ objc_foreach_stmt (cp_parser* parser, tree statement)
   receiver  = cp_parser_condition (parser);
   cp_parser_require (parser, CPP_CLOSE_PAREN, "`)'");
 
-  if (!objc_compare_types (TREE_TYPE (elem_decl), TREE_TYPE (receiver), -4, NULL_TREE))
+  /* APPLE LOCAL begin radar 4507230 */
+  if (!objc_type_valid_for_messaging (TREE_TYPE (elem_decl)))
     {
-      error ("one or both selection variable and expression are not valid objective C types");
+      error ("selector element does not have a valid object type");
       return;
     }
+
+  if (!objc_type_valid_for_messaging (TREE_TYPE (receiver)))
+    {
+      error ("expression does not have a valid object type");
+      return;
+    }
+  /* APPLE LOCAL end radar 4507230 */
 
   enumerationMutation_call_exp = objc_build_foreach_components  (receiver, &enumState_decl, 
 								 &items_decl, &limit_decl, 

@@ -1,3 +1,9 @@
+2006-04-12 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4507230
+	* parser.c (objc_foreach_stmt): Check for valid objc
+	objects in foreach header.
+
 2006-04-06 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4436866 

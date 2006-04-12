@@ -1033,6 +1033,8 @@ extern bool objc_compare_types (tree, tree, int, tree);
 extern bool objc_have_common_type (tree, tree, int, tree);
 /* APPLE LOCAL radar 4133425 */
 extern bool objc_diagnose_private_ivar (tree);
+/* APPLE LOCAL radar 4507230 */
+bool objc_type_valid_for_messaging (tree);
 extern void objc_volatilize_decl (tree);
 extern bool objc_type_quals_match (tree, tree);
 extern tree objc_rewrite_function_call (tree, tree);

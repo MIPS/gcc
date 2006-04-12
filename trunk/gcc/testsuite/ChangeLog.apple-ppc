@@ -1,3 +1,9 @@
+2006-04-12 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4507230
+	* obj-c++.dg/objc-foreach-2.mm: New.
+	* objc.dg/objc-foreach-4.m: New.
+
 2006-04-07 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4505126

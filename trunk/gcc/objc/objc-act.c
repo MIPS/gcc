@@ -298,7 +298,7 @@ static tree hash_name_lookup (hash *, tree);
 static void build_objc_fast_enum_state_type (void);
 static tree objc_create_named_tmp_var (tree);
 /* APPLE LOCAL end C* language */
-/* APPLE LOCAL beginradar 4505126 */
+/* APPLE LOCAL begin radar 4505126 */
 static tree lookup_property (tree, tree);
 static tree lookup_property_in_list (tree, tree);
 static tree lookup_property_in_protocol_list (tree, tree);
@@ -10107,7 +10107,7 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	  = lookup_method_in_hash_lists (sel_name, class_tree != NULL_TREE);
     }
 
-  if (!method_prototype)
+  if (!method_prototype) 
     {
       static bool warn_missing_methods = false;
 
@@ -14399,6 +14399,29 @@ objc_build_foreach_components (tree receiver, tree *enumState_decl,
   return exp;
 }
 
+/* APPLE LOCAL begin radar 4507230 */
+/* This routine returns true if TYP is a valid objc object type, 
+   suitable for messaging; false otherwise.
+*/
+
+bool
+objc_type_valid_for_messaging (tree typ)
+{
+  if (!POINTER_TYPE_P (typ))
+    return false;
+
+  do
+    typ = TREE_TYPE (typ);  /* Remove indirections.  */
+  while (POINTER_TYPE_P (typ));
+
+  if (TREE_CODE (typ) != RECORD_TYPE)
+    return false;
+
+  return objc_is_object_id (typ) || TYPE_HAS_OBJC_INFO (typ);
+}
+
+/* APPLE LOCAL end radar 4507230 */
+
 #ifndef OBJCPLUS
 /*
   Synthesizer routine for C*'s feareach statement. 
@@ -14446,11 +14469,19 @@ objc_finish_foreach_loop (location_t location, tree cond, tree for_body, tree bl
   receiver = TREE_VALUE (cond);
   elem_decl = TREE_PURPOSE (cond);
 
-  if (!objc_compare_types (TREE_TYPE (elem_decl), TREE_TYPE (receiver), -4, NULL_TREE))
+  /* APPLE LOCAL begin radar 4507230 */
+  if (!objc_type_valid_for_messaging (TREE_TYPE (elem_decl)))
     {
-      error ("one or both selection variable and expression are not valid objective C types");
+      error ("selector element does not have a valid object type");
       return;
     }
+
+  if (!objc_type_valid_for_messaging (TREE_TYPE (receiver)))
+    {
+      error ("expression does not have a valid object type");
+      return;
+    }
+  /* APPLE LOCAL end radar 4507230 */
 
   enumerationMutation_call_exp = objc_build_foreach_components  (receiver, &enumState_decl,
                                                                  &items_decl, &limit_decl,

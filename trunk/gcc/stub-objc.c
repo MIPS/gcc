@@ -467,3 +467,10 @@ objc_v2_bitfield_ivar_bitpos (tree ARG_UNUSED (exp))
   return 0;
 }
 /* APPLE LOCAL end radar 4441049 */ 
+/* APPLE LOCAL begin radar 4507230 */
+bool 
+objc_type_valid_for_messaging (tree ARG_UNUSED (exp))
+{
+  return false;
+}
+/* APPLE LOCAL end radar 4507230 */
