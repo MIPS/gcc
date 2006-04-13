@@ -1339,10 +1339,11 @@ objc_setter_func_call (tree receiver, tree property_ident, tree rhs)
   tree setter_argument = build_tree_list (NULL_TREE, rhs);
   char *setter_name = objc_build_property_setter_name (property_ident, true);
   /* APPLE LOCAL radar 4506893 */
+  tree setter;
   in_objc_property_setter_name_context = true;
-  tree setter = objc_finish_message_expr (receiver, 
-					  get_identifier (setter_name),
-                                     	  setter_argument);
+  setter = objc_finish_message_expr (receiver, 
+				     get_identifier (setter_name),
+                                     setter_argument);
   /* APPLE LOCAL radar 4506893 */
   in_objc_property_setter_name_context = false;
   return setter;
