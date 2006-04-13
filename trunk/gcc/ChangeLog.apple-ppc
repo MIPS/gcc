@@ -1,3 +1,33 @@
+2006-04-12  Devang Patel  <dpatel@apple.com>
+
+ 	Radar 4509280
+ 	* tree-vectorizer.c (vectorize_loops): Print vectorized loop count in opt
+ 	diary only if count is more then zero.
+ 	* flags.h (opt_diary_filename): New.
+ 	* tree-pass.h (TODO_proposal_1): New.
+ 	* tree-sra.c (pass_sra): Add TODO_proposal_1 in todo_flags_finish.
+ 	* tree-ssa-forwprop.c (pass_forwprop): Same.
+ 	* tree-ssa-dce.c (pass_dce, pass_cd_dce): Same.
+	* tree-ssa-ccp.c (pass_ccp): Same.
+ 	* tree-ssa-loop.c (pass_lim, pass_unswitch, pass_vectorize, pass_linear_transform,
+ 	pass_loop_prefetch, pass_iv_canon, pass_complete_unroll, pass_iv_optimize): Same.
+ 	* common.opt (fopt-diary-proposal-1): New.
+ 	* toplev.c (opt-diary.h): Include.
+ 	(opt_diary_filename): new.
+ 	(do_compile): Open and close opt diary.
+ 	* tree-optimize.c (opt-diary.h): Include.
+ 	(execute_one_pass): Redir dump_file to opt diary and restore it back.
+ 	Insert annotation header tag in opt diary.
+ 	* Makefile.in (opt-diary.o): New rule.
+ 	(tree-cfg.o, tree-optimize.o, toplev.o): Depend on opt-diary.h
+ 	* tree-cfg.c (opt-diary.h): Include.
+ 	(dump_function_to_file): Do not dump function into opt diary.
+ 	* opts.c (common_handle_option): Handle OPT_fopt_diary_proposal_1_.
+ 	* tree-ssa-opearnds. (get_indirect_ref_operands): Suppress flow sensitive alias
+ 	info dump in optimization diary.
+ 	* opt-diary.c: New file.
+ 	* opt-diary.h: New file.
+
 2006-04-13 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4502236

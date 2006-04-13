@@ -109,6 +109,8 @@ struct dump_file_info
 #define TODO_verify_stmts	(1 << 5)
 #define TODO_fix_def_def_chains (1 << 6)        /* rewrite def-def chains  */
 #define TODO_cleanup_cfg        (1 << 7)        /* cleanup the cfg.  */
+/* APPLE LOCAL opt diary */
+#define TODO_proposal_1         (1 << 12)       /* Opt diary proposal 1 */
 /* APPLE LOCAL begin lno */
 /* well not exactly, this was 2 in lno, renumbered to mimize diffs */
 #define TODO_write_loop_closed	(1 << 8)	/* rewrite into loop-closed-ssa */

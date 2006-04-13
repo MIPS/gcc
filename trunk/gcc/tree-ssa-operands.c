@@ -1428,7 +1428,10 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags)
 	     aliasing again.  */
 	  if (dump_file
 	      && TREE_CODE (ptr) == SSA_NAME
-	      && pi == NULL)
+	      /* APPLE LOCAL begin opt diary */
+	      && pi == NULL
+	      && !opt_diary_filename)
+	      /* APPLE LOCAL end opt diary */
 	    {
 	      fprintf (dump_file,
 		  "NOTE: no flow-sensitive alias info for ");

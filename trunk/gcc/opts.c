@@ -1169,6 +1169,13 @@ common_handle_option (size_t scode, const char *arg, int value)
       asm_file_name = arg;
       break;
 
+      /* APPLE LOCAL begin opt diary */
+    case OPT_fopt_diary_proposal_1_:
+      warning ("-fopt-diary-proposal-1 is a prototype. Do not use this switch in production code. This warning may not be supressed.");
+      opt_diary_filename = arg;
+      vect_set_verbosity_level ("5");
+      break;
+      /* APPLE LOCAL end opt diary */
     case OPT_pedantic_errors:
       flag_pedantic_errors = pedantic = 1;
       break;

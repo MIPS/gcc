@@ -959,7 +959,7 @@ OBJS-common = \
  varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
  rtl-profile.o tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o          \
- lambda-trans.o	lambda-code.o tree-loop-linear.o
+ lambda-trans.o	lambda-code.o tree-loop-linear.o opt-diary.o
 # APPLE LOCAL end lno, loops-to-memset
 
 OBJS-md = $(out_object_file)
@@ -1652,6 +1652,9 @@ tree.o : tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(FLAGS_H) function.h $(PARAMS_H) \
    toplev.h $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h \
    real.h gt-tree.h tree-iterator.h $(BASIC_BLOCK_H) $(TREE_FLOW_H)
+# APPLE LOCAL begin opt diary
+opt-diary.o : opt-diary.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) opt-diary.h $(FLAGS_H) 
+# APPLE LOCAL end opt diary
 tree-dump.o: tree-dump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(C_TREE_H) $(FLAGS_H) langhooks.h toplev.h output.h $(C_PRAGMA_H) $(RTL_H) \
    $(GGC_H) $(EXPR_H) $(SPLAY_TREE_H) $(TREE_DUMP_H) tree-iterator.h tree-pass.h
@@ -1736,7 +1739,8 @@ tree-ssa-pre.o : tree-ssa-pre.c $(TREE_FLOW_H) $(CONFIG_H) \
 tree-vn.o : tree-vn.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GGC_H) \
    $(TREE_H) $(TREE_FLOW_H) $(HASHTAB_H) langhooks.h tree-pass.h \
    $(TREE_DUMP_H) diagnostic.h
-tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
+# APPLE LOCAL opt diary 
+tree-cfg.o : tree-cfg.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) opt-diary.h \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) $(FLAGS_H) output.h \
    diagnostic.h errors.h function.h $(TIMEVAR_H) $(TM_H) coretypes.h \
    $(TREE_DUMP_H) except.h langhooks.h $(CFGLOOP_H) gt-tree-cfg.h tree-pass.h \
@@ -1817,7 +1821,8 @@ tree-ssa-alias.o : tree-ssa-alias.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    function.h $(TIMEVAR_H) convert.h $(TM_H) coretypes.h \
    langhooks.h $(TREE_DUMP_H) tree-pass.h params.h
 # APPLE LOCAL begin optimization pragmas 3124235/3420242
-tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) \
+# APPLE LOCAL opt diary 
+tree-optimize.o : tree-optimize.c $(TREE_FLOW_H) $(CONFIG_H) opt-diary.h \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) \
    $(GGC_H) output.h diagnostic.h errors.h $(FLAGS_H) \
    $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) toplev.h function.h \
@@ -1892,7 +1897,8 @@ targhooks.o : targhooks.c targhooks.h $(CONFIG_H) $(SYSTEM_H) \
 	coretypes.h $(TREE_H) $(EXPR_H) $(TM_H) $(RTL_H) $(TM_P_H) function.h \
 	output.h toplev.h
 
-toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) version.h $(RTL_H) \
+# APPLE LOCAL opt diary 
+toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) version.h $(RTL_H) opt-diary.h \
    function.h $(FLAGS_H) xcoffout.h input.h $(INSN_ATTR_H) output.h $(DIAGNOSTIC_H) \
    debug.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h \
    dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \

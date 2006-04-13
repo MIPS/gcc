@@ -156,7 +156,8 @@ extern int flag_complex_method;
 
 extern int flag_obey_inline;
 /* APPLE LOCAL end -fobey-inline */
-
+/* APPLE LOCAL opt diary */
+extern const char *opt_diary_filename;
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */
 

@@ -45,6 +45,8 @@ Boston, MA 02111-1307, USA.  */
 #include "cfgloop.h"
 #include "cfglayout.h"
 #include "hashtab.h"
+/* APPLE LOCAL opt diary */
+#include "opt-diary.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -5109,7 +5111,10 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   bool ignore_topmost_bind = false, any_var = false;
   basic_block bb;
   tree chain;
-
+  /* APPLE LOCAL begin opt diary */
+  if (opt_diary_filename && opt_diary_file)
+      return;
+  /* APPLE LOCAL end opt diary */
   fprintf (file, "%s (", lang_hooks.decl_printable_name (fn, 2));
 
   arg = DECL_ARGUMENTS (fn);

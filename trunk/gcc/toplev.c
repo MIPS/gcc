@@ -81,6 +81,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "value-prof.h"
 #include "alloc-pool.h"
 #include "tree-mudflap.h"
+/* APPLE LOCAL opt diary */
+#include "opt-diary.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -295,6 +297,8 @@ int flag_obey_inline;
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */
 
+/* APPLE LOCAL opt diary */
+const char *opt_diary_filename;
 int flag_really_no_inline = 2;
 
 /* Nonzero means we should be saving declaration info into a .X file.  */
@@ -2286,9 +2290,13 @@ do_compile (void)
       if (!no_backend)
 	backend_init ();
 
+      /* APPLE LOCAL opt diary */
+      open_opt_diary ();
       /* Language-dependent initialization.  Returns true on success.  */
       if (lang_dependent_init (main_input_filename))
 	compile_file ();
+      /* APPLE LOCAL opt diary */
+      close_opt_diary ();
 
       finalize ();
     }

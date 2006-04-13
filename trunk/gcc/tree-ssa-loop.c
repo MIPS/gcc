@@ -160,7 +160,8 @@ struct tree_opt_pass pass_lim =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  /* APPLE LOCAL opt diary */
+  TODO_dump_func | TODO_proposal_1,                	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -194,7 +195,8 @@ struct tree_opt_pass pass_unswitch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  /* APPLE LOCAL opt diary */
+  TODO_dump_func | TODO_proposal_1,             	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -339,7 +341,8 @@ struct tree_opt_pass pass_vectorize =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
+  /* APPLE LOCAL opt diary */
+  TODO_dump_func | TODO_proposal_1,			/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -374,7 +377,8 @@ struct tree_opt_pass pass_linear_transform =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  /* APPLE LOCAL opt diary */
+  TODO_dump_func | TODO_proposal_1,                	/* todo_flags_finish */
   0				        /* letter */	
 };
 
@@ -409,7 +413,8 @@ struct tree_opt_pass pass_loop_prefetch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  /* APPLE LOCAL opt diary */
+  TODO_dump_func | TODO_proposal_1,                	/* todo_flags_finish */
   0
 };
 /* APPLE LOCAL end lno */
@@ -444,7 +449,8 @@ struct tree_opt_pass pass_iv_canon =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  /* APPLE LOCAL opt diary */
+  TODO_dump_func | TODO_proposal_1,                	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -507,7 +513,8 @@ struct tree_opt_pass pass_complete_unroll =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  /* APPLE LOCAL opt diary */
+  TODO_dump_func | TODO_proposal_1,                	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -541,7 +548,8 @@ struct tree_opt_pass pass_iv_optimize =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func,                	/* todo_flags_finish */
+  /* APPLE LOCAL opt diary */
+  TODO_dump_func | TODO_proposal_1,                	/* todo_flags_finish */
   0					/* letter */
 };
 

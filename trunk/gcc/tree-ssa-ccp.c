@@ -1245,7 +1245,8 @@ struct tree_opt_pass pass_ccp =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg | TODO_dump_func | TODO_rename_vars
+  /* APPLE LOCAL opt diary */
+  TODO_proposal_1 | TODO_cleanup_cfg | TODO_dump_func | TODO_rename_vars
     | TODO_ggc_collect | TODO_verify_ssa
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */

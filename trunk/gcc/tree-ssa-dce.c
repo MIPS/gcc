@@ -1022,7 +1022,8 @@ struct tree_opt_pass pass_dce =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_fix_def_def_chains | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_ssa,	/* todo_flags_finish */
+  /* APPLE LOCAL opt diary */
+  TODO_dump_func | TODO_fix_def_def_chains | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_ssa | TODO_proposal_1,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -1039,7 +1040,8 @@ struct tree_opt_pass pass_cd_dce =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_fix_def_def_chains | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_ssa | TODO_verify_flow,
+  /* APPLE LOCAL opt diary */
+  TODO_dump_func | TODO_fix_def_def_chains | TODO_cleanup_cfg | TODO_ggc_collect | TODO_verify_ssa | TODO_verify_flow | TODO_proposal_1,
 					/* todo_flags_finish */
   0					/* letter */
 };

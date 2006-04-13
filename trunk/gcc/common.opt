@@ -656,7 +656,10 @@ fobey-inline
 Common Report Var(flag_obey_inline) VarExists
 Obey 'inline' keyword and always inline, regardless of size
 ; APPLE LOCAL end -fobey-inline
-
+; APPLE LOCAL begin opt diary
+fopt-diary-proposal-1=
+Common Report Joined 
+; APPLE LOCAL end opt diary
 ; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fomit-frame-pointer
 Common Report Var(flag_omit_frame_pointer) PerFunc VarUint

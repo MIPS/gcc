@@ -1152,8 +1152,14 @@ vect_print_dump_info (enum verbosity_levels vl, LOC loc ATTRIBUTE_UNUSED)
   /* APPLE LOCAL begin AV dump */
   if (!vect_dump)
     return false;
-  fprintf (vect_dump, "\n%s:%d: note: ", LOC_FILE (vect_loop_location), 
-	   LOC_LINE (vect_loop_location));
+
+  if (vect_loop_location == UNKNOWN_LOC)
+    fprintf (vect_dump, "\n%s:%d: note: ",
+	     DECL_SOURCE_FILE (current_function_decl),
+	     DECL_SOURCE_LINE (current_function_decl));
+  else
+    fprintf (vect_dump, "\n%s:%d: note: ", LOC_FILE (vect_loop_location), 
+	     LOC_LINE (vect_loop_location));
   /* APPLE LOCAL end AV dump */
 
   return true;
@@ -1620,6 +1626,18 @@ vectorize_loops (struct loops *loops)
       num_vectorized_loops++;
     }
 
+  /* APPLE LOCAL begin opt diary */
+  if (opt_diary_filename)
+    {
+      if (num_vectorized_loops)
+	{
+	  if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS, UNKNOWN_LOC))
+	    fprintf (vect_dump, "vectorized %u loops in function.\n",
+		     num_vectorized_loops);
+	}
+    }
+  else
+  /* APPLE LOCAL end opt diary */
   if (vect_print_dump_info (REPORT_VECTORIZED_LOOPS, UNKNOWN_LOC))
     fprintf (vect_dump, "vectorized %u loops in function.\n",
 	     num_vectorized_loops);

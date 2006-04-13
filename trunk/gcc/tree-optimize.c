@@ -49,7 +49,8 @@ Boston, MA 02111-1307, USA.  */
 #include "graph.h"
 /* APPLE LOCAL optimization pragmas 3124235/3420242 */
 #include "opts.h"
-
+/* APPLE LOCAL opt diary */
+#include "opt-diary.h"
 
 /* Global variables used to communicate with passes.  */
 int dump_flags;
@@ -502,6 +503,10 @@ static bool
 execute_one_pass (struct tree_opt_pass *pass)
 {
   unsigned int todo; 
+  /* APPLE LOCAL begin opt diary */
+  FILE *saved_dump_file = NULL;
+  off_t dump_file_startpos = 0, dump_file_origpos = 0;
+  /* APPLE LOCAL end opt diary */
 
   /* See if we're supposed to run this pass.  */
   if (pass->gate && !pass->gate ())
@@ -517,6 +522,44 @@ execute_one_pass (struct tree_opt_pass *pass)
     execute_todo (pass->properties_required, todo);
 
   /* If a dump file name is present, open it if enabled.  */
+  /* APPLE LOCAL begin opt diary */
+  if (opt_diary_file && (pass->todo_flags_finish & TODO_proposal_1))
+    {
+      saved_dump_file = dump_file;
+      dump_file = opt_diary_file;
+      fflush (dump_file);
+      dump_file_origpos = ftello (dump_file);
+      fprintf (dump_file,"\n<");
+      /* File name */
+      fprintf (dump_file,"%s", LOCATION_FILE (input_location));
+      fprintf (dump_file,";");
+
+      /* First location */
+      fprintf (dump_file,"%d", LOCATION_LINE (input_location));
+      fprintf (dump_file,";");
+
+      /* Last location */
+      fprintf (dump_file,"-1");
+      fprintf (dump_file,";");
+
+      /* Compiler phase name */
+      if (pass->name)
+	fprintf (dump_file,"%s", pass->name);
+      fprintf (dump_file,";");
+
+      /* Function   name */
+      fprintf (dump_file, "%s", lang_hooks.decl_printable_name (current_function_decl, 2));
+      fprintf (dump_file, ";");
+
+      /* Status flag */
+      fprintf (dump_file, "0");
+      fprintf (dump_file,">\n");
+      
+      fflush (dump_file);
+      dump_file_startpos = ftello (dump_file);
+    }
+  else
+  /* APPLE LOCAL end opt diary */
   if (pass->static_pass_number != -1)
     {
       bool initializing_dump = !dump_initialized_p (pass->static_pass_number);
@@ -563,9 +606,32 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* Run post-pass cleanup and verification.  */
   todo = pass->todo_flags_finish;
   last_verified = todo & TODO_verify_all;
+  /* APPLE LOCAL begin opt diary */
+  if (opt_diary_file && (pass->todo_flags_finish & TODO_proposal_1))
+    {
+      off_t dump_file_endpos;
+      fflush (dump_file);
+      dump_file_endpos = ftello (dump_file);
+      if (dump_file_startpos == dump_file_endpos)
+	{
+	  if (ftruncate (fileno (dump_file), dump_file_origpos) != 0)
+	    fatal_error ("can%'t truncate %s: %m", dump_file_name);
+	  fclose (dump_file);
+	  opt_diary_file = fopen (opt_diary_filename, "a");
+	}
+      dump_file = NULL;
+    }
+  /* APPLE LOCAL end opt diary */
   if (todo)
     execute_todo (pass->properties_provided, todo);
 
+  /* APPLE LOCAL begin opt diary */
+  if (opt_diary_file && (pass->todo_flags_finish & TODO_proposal_1))
+    {
+      dump_file = saved_dump_file;
+      return true;
+    }
+  /* APPLE LOCAL end opt diary */
   /* Flush and close dump file.  */
   if (dump_file_name)
     {
