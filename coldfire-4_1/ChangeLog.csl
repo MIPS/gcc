@@ -1,3 +1,29 @@
+2006-04-13  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
+	* lib/target-supports.exp (check_missing_uclibc_feature): Make test
+	produce an error unless the required condition is known not to hold.
+	(check_effective_target_uclibc): New procedure.
+	(check_effective_target_uclibc_lax_strtofp): Likewise.
+	(check_effective_target_uclibc_dummy_wcsftime): Likewise.
+
+	libstdc++-v3/testsuite/
+	* 22_locale/time_put/put/wchar_t/1.cc: XFAIL if uclibc_dummy_wcsftime.
+	* 22_locale/time_put/put/wchar_t/5.cc: Likewise.
+	* 22_locale/time_put/put/wchar_t/9.cc: Likewise.
+	* 22_locale/time_put/put/wchar_t/10.cc: Likewise.
+	* 22_locale/num_get/get/wchar_t/2.cc: XFAIL if uclibc_lax_strtofp.
+	* 22_locale/num_get/get/char/2.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/wchar_t/12.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/wchar_t/09.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/char/12.cc: Likewise.
+	* 27_io/basic_istream/extractors_arithmetic/char/09.cc: Likewise.
+	* 27_io/basic_ostream/inserters_arithmetic/wchar_t/6.cc: Likewise.
+	* 27_io/basic_ostream/inserters_arithmetic/char/6.cc: Likewise.
+	* 26_numerics/cmath/c99_classification_macros_c++.cc: XFAIL
+	for uClibc.
+	* 26_numerics/cmath/c99_classification_macros_c.cc: Likewise.
+
 2006-04-08  Richard Sandiford  <richard@codesourcery.com>
 
 	* gcc/regrename.c (scan_rtx_address): Use REG_MODE_OK_FOR_INDEX_P

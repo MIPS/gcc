@@ -80,19 +80,16 @@ proc check_no_compiler_messages {prop args} {
     return $value
 }
 
-# Return true if this is a uclibc target and if the uclibc feature
+# Return true if this is a uClibc target and if the uClibc feature
 # described by __$feature__ is not present.
 
 proc check_missing_uclibc_feature {feature} {
-    if {[check_no_compiler_messages $feature object "
+    return [check_no_compiler_messages $feature object "
 	     #include <features.h>
-	     #if defined (__UCLIBC__) && !defined (__${feature}__)
+	     #if !defined (__UCLIBC__) || defined (__${feature}__)
 	     #error FOO
 	     #endif
-	 "]} {
-	return 0
-    }
-    return 1
+	 "]
 }
 
 ###############################
@@ -1298,6 +1295,36 @@ proc check_effective_target_wchar { } {
 	return 0
     }
     return 1
+}
+
+# Return true if this is a uClibc target.
+
+proc check_effective_target_uclibc {} {
+    return [check_no_compiler_messages uclibc object {
+	#include <features.h>
+	#if !defined (__UCLIBC__)
+	#error FOO
+	#endif
+    }]
+}
+
+# Return 1 if
+#   (a) this is a uClibc target; and
+#   (a) an error of a few ULP is expected in string to floating-point
+#       conversion functions; and
+#   (c) overflow is not always detected correctly by those functions.
+
+proc check_effective_target_uclibc_lax_strtofp {} {
+    # By default, assume that all uClibc targets suffer from this.
+    return [check_effective_target_uclibc]
+}
+
+# Return 1 if this is a uClibc target for which wcsftime is a dummy
+# function that always returns 0.
+
+proc check_effective_target_uclibc_dummy_wcsftime {} {
+    # By default, assume that all uClibc targets suffer from this.
+    return [check_effective_target_uclibc]
 }
 
 # Return 1 if the target matches the effective target 'arg', 0 otherwise.
