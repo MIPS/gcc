@@ -1,3 +1,10 @@
+2006-04-13  Devang Patel  <dpatel@apple.com>
+
+	Radar 4503683
+        * g++.dg/pch/R4503682.C: New.
+        * g++.dg/pch/R4503682.Hs: New.
+        * g++.dg/pch/R4503682-1.h: New.
+
 2006-04-13 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4502236

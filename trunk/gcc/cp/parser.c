@@ -263,7 +263,18 @@ cp_lexer_new_main (void)
      as -fpch-preprocess can generate a pragma to load the PCH file in
      the preprocessed output used by -save-temps.  */
   cp_lexer_get_preprocessor_token (NULL, &first_token);
-
+  /* APPLE LOCAL begin 4137741 */
+  while (first_token.type == CPP_BINCL
+	 || first_token.type == CPP_EINCL)
+    {
+      if (first_token.type == CPP_BINCL)
+	(*debug_hooks->start_source_file) (TREE_INT_CST_LOW (first_token.value),
+					   first_token.location.file);
+      else 
+	(*debug_hooks->end_source_file) (TREE_INT_CST_LOW (first_token.value));
+      cp_lexer_get_preprocessor_token (NULL, &first_token);
+    }
+  /* APPLE LOCAL begin 4137741 */
   /* Tell cpplib we want CPP_PRAGMA tokens.  */
   cpp_get_options (parse_in)->defer_pragmas = true;
 

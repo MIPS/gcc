@@ -738,7 +738,11 @@ c_lex_with_flags (tree *value, unsigned char *cpp_flags)
     --c_lex_depth;
   /* APPLE LOCAL end CW asm blocks */
 
-  if (!no_more_pch)
+    /* APPLE LOCAL begin 4137741 */
+  if (!no_more_pch
+      && type != CPP_BINCL
+      && type != CPP_EINCL)
+    /* APPLE LOCAL end 4137741 */
     {
       no_more_pch = true;
       c_common_no_more_pch ();

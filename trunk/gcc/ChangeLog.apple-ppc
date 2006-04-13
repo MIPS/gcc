@@ -1,3 +1,8 @@
+2006-04-13  Devang Patel  <dpatel@apple.com>
+
+	Radar 4503682
+        * c-lex.c (c_lex_with_flags): CPP_BINCL and CPP_EINCL tokens do not block PCH.
+
 2006-04-12  Devang Patel  <dpatel@apple.com>
 
  	Radar 4509280
