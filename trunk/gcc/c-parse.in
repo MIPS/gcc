@@ -2354,7 +2354,11 @@ lineno_labels:
 /* A labeled statement.  In C99 it also generates an implicit block.  */
 c99_block_lineno_labeled_stmt:
 	  c99_block_start lineno_labels lineno_stmt
-                { $$ = c_end_compound_stmt ($1, flag_isoc99); }
+		/* APPLE LOCAL begin radar 4502236 */
+                { $$ = c_end_compound_stmt ($1, 
+					    flag_isoc99 
+					    || (c_dialect_objc() && objc_foreach_context)); }
+		/* APPLE LOCAL end radar 4502236 */
 	;
 
 lineno_stmt:

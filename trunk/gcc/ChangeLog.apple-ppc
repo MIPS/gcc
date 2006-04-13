@@ -1,3 +1,9 @@
+2006-04-13 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4502236
+	* c-parse.in (c99_block_lineno_labeled_stmt): Pass same flags to
+	c_end_compound_stmt to match c_begin_compound_stmt.
+
 2006-04-12 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4507230
