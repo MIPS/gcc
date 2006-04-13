@@ -360,11 +360,11 @@ tail_duplicate (void)
 /* Main entry point to this file.  FLAGS is the set of flags to pass
    to cfg_layout_initialize().  */
 
-static void
+static unsigned int
 execute_tracer (void)
 {
   if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
-    return;
+    return 0;
 
   mark_dfs_back_edges ();
   if (dump_file)
@@ -375,6 +375,8 @@ execute_tracer (void)
   free_dominance_info (CDI_DOMINATORS);
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
+
+  return 0;
 }
 
 static bool

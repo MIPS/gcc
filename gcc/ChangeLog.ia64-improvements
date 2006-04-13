@@ -1,3 +1,7 @@
+2006-04-12  Robert Kidd  <rkidd@crhc.uiuc.edu>
+
+        * tracer.c (execute_tracer): Fixing return type.
+
 2006-02-17  Robert Kidd  <rkidd@crhc.uiuc.edu>
 
 	* tracer.c (mark_bb_seen): New function.
