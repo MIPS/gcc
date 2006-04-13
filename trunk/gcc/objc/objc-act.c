@@ -14373,12 +14373,21 @@ objc_build_foreach_components (tree receiver, tree *enumState_decl,
   tree type, exp;
   tree sel_name, method_params;
 
-  gcc_assert (objc_fast_enum_state_type != NULL_TREE);
-  constructor_fields = TYPE_FIELDS (objc_fast_enum_state_type);
+  /* APPLE LOCAL begin radar 4512937 */
+  tree fast_enum_state_type = objc_fast_enum_state_type;
+  tree enum_st_type_decl = lookup_name (get_identifier ("NSFastEnumerationState"));
+  if (enum_st_type_decl && TREE_CODE (enum_st_type_decl) == TYPE_DECL)
+    fast_enum_state_type = DECL_ORIGINAL_TYPE (enum_st_type_decl) 
+			     ? DECL_ORIGINAL_TYPE (enum_st_type_decl)  
+			     : TREE_TYPE (enum_st_type_decl);
+  gcc_assert (fast_enum_state_type != NULL_TREE 
+	      && TREE_CODE (fast_enum_state_type) == RECORD_TYPE);
+  constructor_fields = TYPE_FIELDS (fast_enum_state_type);
   /* __objcFastEnumerationState enumState = { 0 }; */
-  *enumState_decl = objc_create_named_tmp_var (objc_fast_enum_state_type);
+  *enumState_decl = objc_create_named_tmp_var (fast_enum_state_type);
   initlist = build_tree_list (constructor_fields, build_int_cst (NULL_TREE, 0));
-  init = objc_build_constructor (objc_fast_enum_state_type, initlist);
+  init = objc_build_constructor (fast_enum_state_type, initlist);
+  /* APPLE LOCAL end radar 4512937 */
   DECL_INITIAL (*enumState_decl) = init;
 
   /* id items[16]; */

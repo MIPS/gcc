@@ -1,3 +1,9 @@
+2006-04-13 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4512937
+	* objc/objc-act.c (objc_build_foreach_components): Use an existing
+	declaration of 'NSFastEnumerationState' if one is available.
+
 2006-04-10 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4506903
