@@ -1,3 +1,9 @@
+2006-04-12 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4506893
+	* objc.dg/property-neg-7.m: New.
+	* obj-c++.dg/property-neg-7.mm: New.
+
 2006-04-13  Devang Patel  <dpatel@apple.com>
 
 	Radar 4503683
