@@ -79,6 +79,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define OBJC_VOID_AT_END	void_list_node
 
+/* APPLE LOCAL radar 4506893 */
+static bool in_objc_property_setter_name_context = false;
 /* APPLE LOCAL begin mainline */
 static unsigned int should_call_super_dealloc = 0;
 /* APPLE LOCAL end mainline */
@@ -1336,9 +1338,13 @@ objc_setter_func_call (tree receiver, tree property_ident, tree rhs)
 {
   tree setter_argument = build_tree_list (NULL_TREE, rhs);
   char *setter_name = objc_build_property_setter_name (property_ident, true);
+  /* APPLE LOCAL radar 4506893 */
+  in_objc_property_setter_name_context = true;
   tree setter = objc_finish_message_expr (receiver, 
 					  get_identifier (setter_name),
                                      	  setter_argument);
+  /* APPLE LOCAL radar 4506893 */
+  in_objc_property_setter_name_context = false;
   return setter;
 }
 
@@ -10122,7 +10128,11 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
 	  = lookup_method_in_hash_lists (sel_name, class_tree != NULL_TREE);
     }
 
-  if (!method_prototype) 
+  /* APPLE LOCAL begin radar 4506893 */
+  if (!method_prototype && in_objc_property_setter_name_context)
+      error ("readonly property can not be set");
+  else if (!method_prototype) 
+  /* APPLE LOCAL end radar 4506893 */
     {
       static bool warn_missing_methods = false;
 
