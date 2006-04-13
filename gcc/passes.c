@@ -677,8 +677,8 @@ init_optimization_passes (void)
   NEXT_PASS (pass_branch_target_load_optimize1);
   NEXT_PASS (pass_flow2);
   NEXT_PASS (pass_rtl_seqabstr);
-  NEXT_PASS (pass_stack_adjustments);
   NEXT_PASS (pass_clear_df);
+  NEXT_PASS (pass_stack_adjustments);
   NEXT_PASS (pass_peephole2);
   NEXT_PASS (pass_if_after_reload);
   NEXT_PASS (pass_rtl_dce);

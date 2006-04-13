@@ -2505,9 +2505,7 @@ gate_handle_stack_adjustments (void)
 static unsigned int
 rest_of_handle_stack_adjustments (void)
 {
-  life_analysis (PROP_POSTRELOAD);
-  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
-               | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+  cleanup_cfg (flag_crossjumping ? CLEANUP_CROSSJUMP : 0);
 
   /* This is kind of a heuristic.  We need to run combine_stack_adjustments
      even for machines with possibly nonzero RETURN_POPS_ARGS
@@ -2516,7 +2514,14 @@ rest_of_handle_stack_adjustments (void)
 #ifndef PUSH_ROUNDING
   if (!ACCUMULATE_OUTGOING_ARGS)
 #endif
-    combine_stack_adjustments ();
+    {
+      struct df * df = df_init (DF_HARD_REGS);
+      df_ur_add_problem (df, 0);
+      df_ri_add_problem (df, 0);
+      df_analyze (df);
+      df_finish (df);
+      combine_stack_adjustments ();
+    }
   return 0;
 }
 

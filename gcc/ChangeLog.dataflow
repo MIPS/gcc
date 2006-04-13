@@ -1,3 +1,15 @@
+2006-04-13  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* regmove.c (rest_of_handle_stack_adjustments): Removed all
+	references to flow.c and replaced with df.
+	* passes.c (init_optimization_passes): Moved clear_df before 
+	pass_stack_adjustments.
+
+2006-04-12  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* recog.c (delete_insn_chain_and_dflow): New function.
+	(peephole2_optimize): Replaced all flow references with df.  Added
+	local instance of df.
+	* passes.c (init_optimization_passes): Moved clear_df before peephole2.
+	
 2006-04-11  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* ifcvt.c (cond_exec_process_if_block, merge_if_block,
 	noce_process_if_block, cond_move_process_if_block,
