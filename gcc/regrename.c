@@ -1961,10 +1961,7 @@ gate_handle_regrename (void)
 static unsigned int
 rest_of_handle_regrename (void)
 {
-  if (flag_rename_registers)
-    regrename_optimize ();
-  if (flag_cprop_registers)
-    copyprop_hardreg_forward ();
+  regrename_optimize ();
   return 0;
 }
 

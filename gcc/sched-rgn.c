@@ -3250,13 +3250,7 @@ rest_of_handle_sched2 (void)
   split_all_insns ();
 
   if (flag_sched2_use_superblocks || flag_sched2_use_traces)
-    {
-      schedule_ebbs ();
-      /* No liveness updating code yet, but it should be easy to do.
-         reg-stack recomputes the liveness when needed for now.  */
-      count_or_remove_death_notes (NULL, 1);
-      cleanup_cfg (CLEANUP_EXPENSIVE);
-    }
+    schedule_ebbs ();
   else
     schedule_insns ();
 #endif

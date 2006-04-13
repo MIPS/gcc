@@ -1,4 +1,17 @@
 2006-04-13  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* rtl-factoring (collect_pattern_seqs, clear_regs_live_in_seq,
+	recompute_gain_for_pattern_seq, clear_regs_live_in_seq,
+	recompute_gain, split_blocks_after_seqs, split_pattern_seq, 
+	erase_matching_seqs, abstract_best_seq, rtl_seqabstr): Threaded
+	local instance of df to replace all references to flow.
+	(gate_rtl_seqabstr): Removed unnecessary calls. 
+	* passes.c (init_optimization_passes): Moved clear_df before
+	rtl_seqabstr.  Removed some expensive calls to dce.
+	* tree-pass.h (pass_fast_rtl_dce): New.
+	* regrename.c (gate_handle_regrename): Update call to pass.
+	* sched-rgn.c (rest_of_handle_sched2): Remove outdated calls.
+	
+2006-04-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* regmove.c (rest_of_handle_stack_adjustments): Removed all
 	references to flow.c and replaced with df.
 	* passes.c (init_optimization_passes): Moved clear_df before 
