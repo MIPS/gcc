@@ -18509,6 +18509,10 @@ cp_parser_objc_interstitial_code (cp_parser* parser)
       objc_set_method_opt (0);
     }
   /* APPLE LOCAL end C* language */
+  /* APPLE LOCAL begin radar 4508851 */
+  else if (token->keyword == RID_NAMESPACE)
+    cp_parser_namespace_definition (parser);
+  /* APPLE LOCAL end radar 4508851 */
   /* APPLE LOCAL begin 4093475 */
   /* Other stray characters must generate errors.  */
   else if (token->type == CPP_OPEN_BRACE || token->type == CPP_CLOSE_BRACE)
