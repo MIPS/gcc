@@ -434,11 +434,20 @@ typedef struct st_parameter_dt
 	     enough to hold a complex value (two reals) of the largest
 	     kind.  */
 	  char value[32];
+          gfc_offset size_used;
 	} p;
-      char pad[16 * sizeof (char *) + 34 * sizeof (int)];
+      /* This pad size must be equal to the pad_size declared in
+	 trans-io.c (gfc_build_io_library_fndecls).  The above structure
+	 must be smaller or equal to this array.  */
+      char pad[16 * sizeof (char *) + 32 * sizeof (int)];
     } u;
 }
 st_parameter_dt;
+
+/* Ensure st_parameter_dt's u.pad is bigger or equal to u.p.  */
+extern char check_st_parameter_dt[sizeof (((st_parameter_dt *) 0)->u.pad)
+				  >= sizeof (((st_parameter_dt *) 0)->u.p)
+				  ? 1 : -1];
 
 #undef CHARACTER1
 #undef CHARACTER2

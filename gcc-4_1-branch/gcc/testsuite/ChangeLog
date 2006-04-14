@@ -1,3 +1,48 @@
+2006-04-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/fmt_zero_digits.f90: New test for no error when
+	zero decimal digits specified in format.
+
+2006-04-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26890
+	* gfortran.dg/read_size_noadvance.f90: New test.
+
+2006-04-13  Paolo Bonzini  <bonzini@gnu.org>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/27006
+	* gcc.dg/vmx/pr27006.c: New testcase.
+
+2006-04-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR fortran/23634
+	PR fortran/25619
+	Backport from mainline
+	2006-04-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/actual_array_constructor_1.f90: New testcase.
+
+2006-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26295
+	* g++.dg/parse/ptrmem4.C: New test.
+
+2006-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26122
+	* g++.dg/template/pure1.C: New test.
+
+2006-04-11  Paul Thomas  <pault@gcc.gnu.org>
+
+	* PR fortran/26257
+	gfortran.dg/auto_char_len_3.f90: New test
+
+2006-04-10  Matthias Klose  <doko@debian.org>
+
+	* testsuite/lib/gcc-defs.exp (gcc-set-multilib-library-path):
+	Recognize multilib directory names containing underscores.
+
 2006-04-10  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/27057

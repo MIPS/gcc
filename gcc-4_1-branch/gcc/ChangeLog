@@ -1,3 +1,32 @@
+2006-04-14  Alexey Starovoytov  <alexey.starovoytov@sun.com>
+            Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (emit_and_preserve): Allocate space for the
+	register save area.
+
+2006-04-13  Paolo Bonzini  <bonzini@gnu.org>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/27006
+	* config/rs6000/rs6000.h (EASY_VECTOR_15_ADD_SELF): Require n
+	to be even.
+
+2006-04-13  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/26459
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address): Don't
+	optimize to lo_sum for DFmode if !TARGET_FPRS.
+
+2006-04-07  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (cgraph_early_inlining): Collect garbage.
+
+2006-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR target/26459
+	* config/rs6000/e500-double.h (SUB3TARGET_OVERRIDE_OPTIONS): Test
+	rs6000_explicit_options.float_gprs.
+
 2006-04-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c (LINK_COMMAND_SPEC): Move link_gomp after %o.
