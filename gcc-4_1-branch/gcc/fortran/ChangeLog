@@ -1,3 +1,8 @@
+2006-04-13  Richard Henderson  <rth@redhat.com>
+
+	* trans-openmp.c (gfc_trans_omp_sections): Adjust for changed
+	number of operands to OMP_SECTIONS.
+
 2006-04-12  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR fortran/25619
