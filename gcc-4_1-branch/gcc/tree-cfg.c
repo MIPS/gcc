@@ -4688,9 +4688,16 @@ find_outermost_region_in_block (struct function *src_cfun,
       int stmt_region;
 
       stmt_region = lookup_stmt_eh_region_fn (src_cfun, stmt);
-      if (stmt_region > 0
-	  && (region < 0 || eh_region_outer_p (src_cfun, stmt_region, region)))
-	region = stmt_region;
+      if (stmt_region > 0)
+	{
+	  if (region < 0)
+	    region = stmt_region;
+	  else if (stmt_region != region)
+	    {
+	      region = eh_region_outermost (src_cfun, stmt_region, region);
+	      gcc_assert (region != -1);
+	    }
+	}
     }
 
   return region;
