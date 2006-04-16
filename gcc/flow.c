@@ -174,9 +174,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #endif
 #endif
 
-/* Nonzero if the second flow pass has completed.  */
-int flow2_completed;
-
 /* Maximum register number used in this function, plus one.  */
 
 int max_regno;
@@ -4163,46 +4160,5 @@ struct tree_opt_pass pass_life =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'f'                                   /* letter */
-};
-
-static unsigned int
-rest_of_handle_flow2 (void)
-{
-#if 0
-  int i;
-#endif
-  if (optimize)
-    cleanup_cfg (CLEANUP_EXPENSIVE);
-#if 0
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    fprintf (stderr, "regs_ever_live[%d]=%d before prologue\n", i,
-	     regs_ever_live[i]);
-#endif
-  /* On some machines, the prologue and epilogue code, or parts thereof,
-     can be represented as RTL.  Doing so lets us schedule insns between
-     it and the rest of the code and also allows delayed branch
-     scheduling to operate in the epilogue.  */
-  thread_prologue_and_epilogue_insns (get_insns ());
-  epilogue_completed = 1;
-  flow2_completed = 1;
-  return 0;
-}
-
-struct tree_opt_pass pass_flow2 =
-{
-  "flow2",                              /* name */
-  NULL,                                 /* gate */
-  rest_of_handle_flow2,                 /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_FLOW2,                             /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  TODO_verify_flow,                     /* todo_flags_start */
-  TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'w'                                   /* letter */
 };
 

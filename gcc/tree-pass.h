@@ -377,7 +377,7 @@ extern struct tree_opt_pass pass_postreload_cse;
 extern struct tree_opt_pass pass_gcse2;
 extern struct tree_opt_pass pass_split_after_reload;
 extern struct tree_opt_pass pass_branch_target_load_optimize1;
-extern struct tree_opt_pass pass_flow2;
+extern struct tree_opt_pass pass_thread_prologue_and_epilogue;
 extern struct tree_opt_pass pass_stack_adjustments;
 extern struct tree_opt_pass pass_peephole2;
 extern struct tree_opt_pass pass_if_after_reload;

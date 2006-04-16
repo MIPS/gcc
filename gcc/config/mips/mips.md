@@ -3026,7 +3026,7 @@
 	(high:DI (match_operand:DI 1 "general_symbolic_operand" "")))]
   "TARGET_EXPLICIT_RELOCS && ABI_HAS_64BIT_SYMBOLS"
   "#"
-  "&& flow2_completed"
+  "&& epilogue_completed"
   [(set (match_dup 0) (high:DI (match_dup 2)))
    (set (match_dup 0) (lo_sum:DI (match_dup 0) (match_dup 2)))
    (set (match_dup 0) (ashift:DI (match_dup 0) (const_int 16)))

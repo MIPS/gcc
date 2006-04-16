@@ -9897,7 +9897,7 @@ mov.l\\t1f,r0\\n\\
   [(set (reg:PSI FPSCR_REG)
 	(mem:PSI (match_operand:SI 0 "register_operand" "")))]
   "(TARGET_SH4 || TARGET_SH2A_DOUBLE)
-   && (flag_peephole2 ? flow2_completed : reload_completed)"
+   && (flag_peephole2 ? epilogue_completed : reload_completed)"
   [(const_int 0)]
 {
   rtx fpscr, mem, new_insn;

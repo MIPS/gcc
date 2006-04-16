@@ -301,6 +301,7 @@ struct df_ru_problem_data
 struct df_ru_bb_info *
 df_ru_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
+  gcc_assert (dflow);
   return (struct df_ru_bb_info *) dflow->block_info[index];
 }
 
@@ -833,6 +834,7 @@ struct df_rd_problem_data
 struct df_rd_bb_info *
 df_rd_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
+  gcc_assert (dflow);
   return (struct df_rd_bb_info *) dflow->block_info[index];
 }
 
@@ -1334,6 +1336,7 @@ df_rd_add_problem (struct df *df, int flags)
 struct df_lr_bb_info *
 df_lr_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
+  gcc_assert (dflow);
   return (struct df_lr_bb_info *) dflow->block_info[index];
 }
 
@@ -1855,6 +1858,7 @@ df_lr_add_problem (struct df *df, int flags)
 struct df_ur_bb_info *
 df_ur_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
+  gcc_assert (dflow);
   return (struct df_ur_bb_info *) dflow->block_info[index];
 }
 
@@ -2221,6 +2225,7 @@ struct df_urec_problem_data
 struct df_urec_bb_info *
 df_urec_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
+  gcc_assert (dflow);
   return (struct df_urec_bb_info *) dflow->block_info[index];
 }
 

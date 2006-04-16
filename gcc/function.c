@@ -64,6 +64,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-pass.h"
 #include "predict.h"
 #include "df.h"
+#include "timevar.h"
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
@@ -210,7 +211,7 @@ static int contains (rtx, VEC(int,heap) **);
 static void emit_return_into_block (basic_block, rtx);
 #endif
 #if defined(HAVE_epilogue) && defined(INCOMING_RETURN_ADDR_RTX)
-static rtx keep_stack_depressed (rtx);
+static rtx keep_stack_depressed (struct df *, rtx);
 #endif
 static void prepare_function_start (tree);
 static void do_clobber_return_reg (rtx, void *);
@@ -4763,7 +4764,7 @@ static void emit_equiv_load (struct epi_info *);
    no modifications to the stack pointer.  Return the new list of insns.  */
 
 static rtx
-keep_stack_depressed (rtx insns)
+keep_stack_depressed (struct df *df, rtx insns)
 {
   int j;
   struct epi_info info;
@@ -4880,7 +4881,7 @@ keep_stack_depressed (rtx insns)
 		    && !fixed_regs[regno]
 		    && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
 		    && !REGNO_REG_SET_P
-		    (DF_LIVE_IN (rtl_df, EXIT_BLOCK_PTR), regno)
+		    (DF_UPWARD_LIVE_IN (df, EXIT_BLOCK_PTR), regno)
 		    && !refers_to_regno_p (regno,
 					   regno + hard_regno_nregs[regno]
 								   [Pmode],
@@ -5092,8 +5093,8 @@ emit_equiv_load (struct epi_info *p)
    this into place with notes indicating where the prologue ends and where
    the epilogue begins.  Update the basic block information when possible.  */
 
-void
-thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
+static void
+thread_prologue_and_epilogue_insns (void)
 {
   int inserted = 0;
   edge e;
@@ -5107,6 +5108,20 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
   rtx epilogue_end = NULL_RTX;
 #endif
   edge_iterator ei;
+  struct df * df = df_init (DF_HARD_REGS);
+
+  /* Do not even think about running dce here!!!!  All life, as we
+     know it will cease!!!  There is dead code created by the previous
+     call to split_all_insns that is resurrected by the prologue and
+     epilogue.  This does not appear to be a bug in dce.  On the
+     x86-64 this shows up as failues in g++ excepion handling and is
+     extremely difficult to debug because the problem is with the way
+     that that the g++ library is compiled and this library was not
+     designed for modular testing.  All of the test cases that when
+     dce is added here fail in the gcc library, not in the test
+     case.  */
+  df_lr_add_problem (df, 0);
+  df_analyze (df);
 
 #ifdef HAVE_prologue
   if (HAVE_prologue)
@@ -5275,7 +5290,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	 it, massage the epilogue to actually do that.  */
       if (TREE_CODE (TREE_TYPE (current_function_decl)) == FUNCTION_TYPE
 	  && TYPE_RETURNS_STACK_DEPRESSED (TREE_TYPE (current_function_decl)))
-	seq = keep_stack_depressed (seq);
+	seq = keep_stack_depressed (df, seq);
 #endif
 
       emit_jump_insn (seq);
@@ -5422,6 +5437,7 @@ epilogue_done:
 	}
     }
 #endif
+  df_finish (df);
 }
 
 /* Reposition the prologue-end and epilogue-begin notes after instruction
@@ -5605,6 +5621,39 @@ struct tree_opt_pass pass_leaf_regs =
   0,                                    /* todo_flags_start */
   0,                                    /* todo_flags_finish */
   0                                     /* letter */
+};
+
+static unsigned int
+rest_of_handle_thread_prologue_and_epilogue (void)
+{
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE);
+  /* On some machines, the prologue and epilogue code, or parts thereof,
+     can be represented as RTL.  Doing so lets us schedule insns between
+     it and the rest of the code and also allows delayed branch
+     scheduling to operate in the epilogue.  */
+
+  thread_prologue_and_epilogue_insns ();
+  epilogue_completed = 1;
+  return 0;
+}
+
+struct tree_opt_pass pass_thread_prologue_and_epilogue =
+{
+  "pro_and_epilogue",                   /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_thread_prologue_and_epilogue, /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_THREAD_PROLOGUE_AND_EPILOGUE,      /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  TODO_verify_flow,                     /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'w'                                   /* letter */
 };
 
 

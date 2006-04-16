@@ -1,3 +1,30 @@
+2006-04-15  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-pass.h (pass_flow2): Renamed to
+	pass_thread_prologue_and_epilogue.
+	* passes.c (pass_flow2): Ditto.
+	* final.c (rest_of_clean_state): Removed flow2_completed.
+	* config/i386/i386.md: Ditto.
+	* config/sh/sh.md: Ditto.
+	* config/mips/mips.md: Ditto.
+	* config/h8300/h8300.md: Ditto.
+	* flow.c: Ditto.
+	(rest_of_handle_flow2): Moved to function.c as 
+	rest_of_handle_thread_prologue_and_epilogue.
+	* timevar.def (TV_FLOW2): Renamed to
+	TV_THREAD_PROLOGUE_AND_EPILOGUE.
+	* function.c (keep_stack_depressed): Added df parameter.
+	(thread_prologue_and_epilogue_insns): Made local function and
+	removed unused parameter.  Added local instance of df.
+	(rest_of_handle_thread_prologue_and_epilogue): New function
+	renamed from flow.c.
+	(pass_thread_prologue_and_epilogue): New pass.  
+	* rtl.h	(flow2_completed, thread_prologue_and_epilogue_insns): 
+	Removed.
+	* df-problems.c (df_ru_get_bb_info, df_rd_get_bb_info,
+	df_lr_get_bb_info, df_ur_get_bb_info, df_urec_get_bb_info): Added
+	check.
+	* Makefile.in (function.o): Added timevar.h.
+	
 2006-04-13  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* rtl-factoring (collect_pattern_seqs, clear_regs_live_in_seq,
 	recompute_gain_for_pattern_seq, clear_regs_live_in_seq,

@@ -1962,10 +1962,6 @@ extern rtx gen_rtx_MEM (enum machine_mode, rtx);
 extern rtx output_constant_def (tree, int);
 extern rtx lookup_constant_def (tree);
 
-/* Nonzero after the second flow pass has completed.
-   Set to 1 or 0 by toplev.c  */
-extern int flow2_completed;
-
 /* Nonzero after end of reload pass.
    Set to 1 or 0 by reload1.c.  */
 
@@ -1978,7 +1974,6 @@ extern int epilogue_completed;
    Required by some machines to handle any generated moves differently.  */
 
 extern int reload_in_progress;
-
 
 #ifdef STACK_REGS
 /* Nonzero after end of regstack pass.
@@ -2124,7 +2119,6 @@ extern void init_loop (void);
 
 /* In function.c */
 extern void reposition_prologue_and_epilogue_notes (void);
-extern void thread_prologue_and_epilogue_insns (rtx);
 extern int prologue_epilogue_contains (rtx);
 extern int sibcall_epilogue_contains (rtx);
 extern void mark_temp_addr_taken (rtx);
