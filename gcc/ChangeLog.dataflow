@@ -1,3 +1,17 @@
+2006-04-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-pass.h (pass_reset_df_after_reload): Removed.
+	* df-core.c (reset_df_after_reload, pass_reset_df_after_reload): 
+	Removed.
+	* function.c (prologue_epilogue_df): New global.
+	(rtx keep_stack_depressed, thread_prologue_and_epilogue_insns):
+	Unthreaded local version of df and replaced with
+	prologue_epilogue_df.
+	* rtl.h (prologue_epilogue_df): New.
+	* passes.c (init_optimization_passes): Removed all uses of flow
+	after register allocation.
+	* config/i386/i386.c (ix86_eax_live_at_start_p): Replaced use of
+	flow with prologue_epilogue_df.
+	
 2006-04-15  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* tree-pass.h (pass_flow2): Renamed to
 	pass_thread_prologue_and_epilogue.

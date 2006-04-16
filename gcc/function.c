@@ -115,6 +115,10 @@ int current_function_uses_only_leaf_regs;
    post-instantiation libcalls.  */
 int virtuals_instantiated;
 
+/* Instance of df used by thread_prologue_and_epilogue and all of it's
+   target hooks.  */
+struct df * prologue_epilogue_df;
+
 /* Assign unique numbers to labels generated for profiling, debugging, etc.  */
 static GTY(()) int funcdef_no;
 
@@ -211,7 +215,7 @@ static int contains (rtx, VEC(int,heap) **);
 static void emit_return_into_block (basic_block, rtx);
 #endif
 #if defined(HAVE_epilogue) && defined(INCOMING_RETURN_ADDR_RTX)
-static rtx keep_stack_depressed (struct df *, rtx);
+static rtx keep_stack_depressed (rtx);
 #endif
 static void prepare_function_start (tree);
 static void do_clobber_return_reg (rtx, void *);
@@ -4764,7 +4768,7 @@ static void emit_equiv_load (struct epi_info *);
    no modifications to the stack pointer.  Return the new list of insns.  */
 
 static rtx
-keep_stack_depressed (struct df *df, rtx insns)
+keep_stack_depressed (rtx insns)
 {
   int j;
   struct epi_info info;
@@ -4881,7 +4885,7 @@ keep_stack_depressed (struct df *df, rtx insns)
 		    && !fixed_regs[regno]
 		    && TEST_HARD_REG_BIT (regs_invalidated_by_call, regno)
 		    && !REGNO_REG_SET_P
-		    (DF_UPWARD_LIVE_IN (df, EXIT_BLOCK_PTR), regno)
+		    (DF_UPWARD_LIVE_IN (prologue_epilogue_df, EXIT_BLOCK_PTR), regno)
 		    && !refers_to_regno_p (regno,
 					   regno + hard_regno_nregs[regno]
 								   [Pmode],
@@ -5108,8 +5112,8 @@ thread_prologue_and_epilogue_insns (void)
   rtx epilogue_end = NULL_RTX;
 #endif
   edge_iterator ei;
-  struct df * df = df_init (DF_HARD_REGS);
 
+  prologue_epilogue_df = df_init (DF_HARD_REGS);
   /* Do not even think about running dce here!!!!  All life, as we
      know it will cease!!!  There is dead code created by the previous
      call to split_all_insns that is resurrected by the prologue and
@@ -5120,8 +5124,8 @@ thread_prologue_and_epilogue_insns (void)
      designed for modular testing.  All of the test cases that when
      dce is added here fail in the gcc library, not in the test
      case.  */
-  df_lr_add_problem (df, 0);
-  df_analyze (df);
+  df_lr_add_problem (prologue_epilogue_df, 0);
+  df_analyze (prologue_epilogue_df);
 
 #ifdef HAVE_prologue
   if (HAVE_prologue)
@@ -5290,7 +5294,7 @@ thread_prologue_and_epilogue_insns (void)
 	 it, massage the epilogue to actually do that.  */
       if (TREE_CODE (TREE_TYPE (current_function_decl)) == FUNCTION_TYPE
 	  && TYPE_RETURNS_STACK_DEPRESSED (TREE_TYPE (current_function_decl)))
-	seq = keep_stack_depressed (df, seq);
+	seq = keep_stack_depressed (seq);
 #endif
 
       emit_jump_insn (seq);
@@ -5437,7 +5441,7 @@ epilogue_done:
 	}
     }
 #endif
-  df_finish (df);
+  df_finish (prologue_epilogue_df);
 }
 
 /* Reposition the prologue-end and epilogue-begin notes after instruction

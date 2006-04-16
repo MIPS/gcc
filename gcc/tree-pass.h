@@ -367,7 +367,6 @@ extern struct tree_opt_pass pass_sched;
 extern struct tree_opt_pass pass_local_alloc;
 extern struct tree_opt_pass pass_global_alloc;
 extern struct tree_opt_pass pass_postreload;
-extern struct tree_opt_pass pass_reset_df_after_reload;
 extern struct tree_opt_pass pass_clear_df;
 extern struct tree_opt_pass pass_clean_state;
 extern struct tree_opt_pass pass_branch_prob;

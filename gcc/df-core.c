@@ -1397,38 +1397,6 @@ debug_df_chain (struct df_link *link)
 }
 
 static unsigned int 
-reset_df_after_reload (void)
-{
-  if (rtl_df)
-    df_finish (rtl_df);
-
-  /* Get rid of the rtl_df with the special version of the UR problem,
-     and put back the regular UR problem.  */
-  rtl_df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (rtl_df, 0);
-  df_ur_add_problem (rtl_df, 0);
-  df_analyze (rtl_df);
-  return 0;
-}
-
-struct tree_opt_pass pass_reset_df_after_reload =
-{
-  "reset_df",                           /* name */
-  NULL,                                 /* gate */
-  reset_df_after_reload,                /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
-  0                                     /* letter */
-};
-
-static unsigned int 
 clear_df (void)
 {
   if (rtl_df)

@@ -1967,6 +1967,11 @@ extern rtx lookup_constant_def (tree);
 
 extern int reload_completed;
 
+/* Instance of df used by thread_prologue_and_epilogue and all of it's
+   target hooks.  */
+struct df;
+extern struct df * prologue_epilogue_df;
+
 /* Nonzero after thread_prologue_and_epilogue_insns has run.  */
 extern int epilogue_completed;
 
