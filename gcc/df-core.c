@@ -294,7 +294,7 @@ are write-only operations.
 #include "tree-pass.h"
 
 static struct df *ddf = NULL;
-struct df *shared_df = NULL;
+struct df *ra_df = NULL;
 
 static void * df_get_bb_info (struct dataflow *, unsigned int);
 static void df_set_bb_info (struct dataflow *, unsigned int, void *);

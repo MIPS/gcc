@@ -662,6 +662,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_recompute_reg_usage);
   NEXT_PASS (pass_sms);
   NEXT_PASS (pass_sched);
+  NEXT_PASS (pass_clear_df);
   /* NEXT_PASS (pass_web); */
   NEXT_PASS (pass_local_alloc);
   NEXT_PASS (pass_global_alloc);
@@ -670,7 +671,6 @@ init_optimization_passes (void)
 
   p = &pass_postreload.sub;
   NEXT_PASS (pass_postreload_cse);
-  NEXT_PASS (pass_clear_df);
   NEXT_PASS (pass_gcse2);
   NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_split_after_reload);

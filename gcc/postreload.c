@@ -742,8 +742,8 @@ reload_combine (void)
 	{
 	  HARD_REG_SET live;
 
-	  REG_SET_TO_HARD_REG_SET (live, DF_RA_LIVE_IN (rtl_df, bb));
-	  compute_use_by_pseudos (&live, DF_RA_LIVE_IN (rtl_df, bb));
+	  REG_SET_TO_HARD_REG_SET (live, DF_RA_LIVE_IN (ra_df, bb));
+	  compute_use_by_pseudos (&live, DF_RA_LIVE_IN (ra_df, bb));
 	  COPY_HARD_REG_SET (LABEL_LIVE (insn), live);
 	  IOR_HARD_REG_SET (ever_live_at_start, live);
 	}
@@ -1580,6 +1580,8 @@ rest_of_handle_postreload (void)
      Remove any EH edges associated with them.  */
   if (flag_non_call_exceptions)
     purge_all_dead_edges ();
+
+  df_finish (ra_df);
   return 0;
 }
 

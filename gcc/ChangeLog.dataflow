@@ -1,4 +1,21 @@
 2006-04-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* df.h (shared_df): Removed.
+	(ra_df): New.
+	* core.c (shared_df): Removed.
+	(ra_df): New.
+	* postreload.c (reload_combine): Changed to use ra_df.
+	* reload.c (push_reload, find_dummy_reload): Ditto.
+	* global.c (global_alloc, global_conflicts, mark_elimination, 
+	build_insn_chain, rest_of_handle_global_alloc): Ditto.
+	* reload1.c (compute_use_by_pseudos, reload): Ditto.
+	* local-alloc.c (local_alloc, block_alloc): Created local instance
+	of df.
+	* passes.c (init_optimization_passes): Moved clear_df to before
+	register allocators.
+	* tree-pass.h (pass_partition_blocks): Removed redundant 
+	copy.
+	
+2006-04-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* tree-pass.h (pass_reset_df_after_reload): Removed.
 	* df-core.c (reset_df_after_reload, pass_reset_df_after_reload): 
 	Removed.

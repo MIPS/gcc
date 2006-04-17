@@ -576,8 +576,9 @@ extern void debug_df_defno (unsigned int);
 extern void debug_df_useno (unsigned int);
 extern void debug_df_ref (struct df_ref *);
 extern void debug_df_chain (struct df_link *);
-/* An instance of df that can be shared between passes.  */
-extern struct df *shared_df; 
+/* An instance of df that can be shared between global_alloc and the
+   reload passes.  */
+extern struct df *ra_df; 
 
 
 /* Functions defined in df-problems.c. */

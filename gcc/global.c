@@ -334,20 +334,18 @@ global_alloc (void)
 
   size_t i;
   rtx x;
-  df_finish (rtl_df);
-  rtl_df = NULL;
 
   max_regno = max_reg_num ();
   compact_blocks ();
 
   /* Create a new version of df that has the special version of UR.  */
-  rtl_df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (rtl_df, 0);
-  df_urec_add_problem (rtl_df, 0);
+  ra_df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (ra_df, 0);
+  df_urec_add_problem (ra_df, 0);
 
-  df_analyze (rtl_df);
+  df_analyze (ra_df);
   if (dump_file)
-    df_dump (rtl_df, dump_file);
+    df_dump (ra_df, dump_file);
   max_allocno = 0;
 
 #if 0
@@ -706,7 +704,7 @@ global_conflicts (void)
 	 be explicitly marked in basic_block_live_at_start.  */
 
       {
-	regset old = DF_RA_LIVE_IN (rtl_df, b);
+	regset old = DF_RA_LIVE_IN (ra_df, b);
 	int ax = 0;
 	reg_set_iterator rsi;
 
@@ -1759,7 +1757,7 @@ mark_elimination (int from, int to)
 
   FOR_EACH_BB (bb)
     {
-      regset r = DF_RA_LIVE_IN (rtl_df, bb);
+      regset r = DF_RA_LIVE_IN (ra_df, bb);
       if (REGNO_REG_SET_P (r, from))
 	{
 	  CLEAR_REGNO_REG_SET (r, from);
@@ -1849,7 +1847,7 @@ build_insn_chain (rtx first)
 
 	  CLEAR_REG_SET (live_relevant_regs);
 
-	  EXECUTE_IF_SET_IN_BITMAP (DF_RA_LIVE_IN (rtl_df, b), 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (DF_RA_LIVE_IN (ra_df, b), 0, i, bi)
 	    {
 	      if (i < FIRST_PSEUDO_REGISTER
 		  ? ! TEST_HARD_REG_BIT (eliminable_regset, i)
@@ -2026,15 +2024,14 @@ rest_of_handle_global_alloc (void)
     failure = global_alloc ();
   else
     {
-      df_finish (rtl_df);
-      rtl_df = NULL;
-      rtl_df = df_init (DF_HARD_REGS);
-      df_lr_add_problem (rtl_df, 0);
-      df_urec_add_problem (rtl_df, 0);
-      df_analyze (rtl_df);
+      ra_df = df_init (DF_HARD_REGS);
+      df_lr_add_problem (ra_df, 0);
+      df_urec_add_problem (ra_df, 0);
+      df_analyze (ra_df);
 
       build_insn_chain (get_insns ());
       failure = reload (get_insns (), 0);
+      df_finish (ra_df);
     }
 
   if (dump_enabled_p (pass_global_alloc.static_pass_number))
