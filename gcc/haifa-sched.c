@@ -144,12 +144,8 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "target.h"
 #include "output.h"
 #include "params.h"
-#include "df.h"
 
 #ifdef INSN_SCHEDULING
-
-/* Local holder for the dataflow info.  */
-static struct df *df = NULL;
 
 /* issue_rate is the number of insns that can be scheduled in the same
    machine cycle.  It can be defined in the config/mach/mach.h file,
@@ -571,15 +567,15 @@ static void extend_ready (int);
 static void extend_global (rtx);
 static void extend_all (rtx);
 static void init_h_i_d (rtx);
-static void generate_recovery_code (rtx);
+static void generate_recovery_code (struct df *, rtx);
 static void process_insn_depend_be_in_spec (rtx, rtx, ds_t);
-static void begin_speculative_block (rtx);
-static void add_to_speculative_block (rtx);
+static void begin_speculative_block (struct df *, rtx);
+static void add_to_speculative_block (struct df *, rtx);
 static dw_t dep_weak (ds_t);
 static edge find_fallthru_edge (basic_block);
-static void init_before_recovery (void);
-static basic_block create_recovery_block (void);
-static void create_check_block_twin (rtx, bool);
+static void init_before_recovery (struct df *);
+static basic_block create_recovery_block (struct df *);
+static void create_check_block_twin (struct df *, rtx, bool);
 static void fix_recovery_deps (basic_block);
 static void associate_line_notes_with_blocks (basic_block);
 static void change_pattern (rtx, rtx);
@@ -590,8 +586,8 @@ static void extend_bb (basic_block);
 static void fix_jump_move (rtx);
 static void move_block_after_check (rtx);
 static void move_succs (VEC(edge,gc) **, basic_block);
-static void init_glat (void);
-static void init_glat1 (basic_block);
+static void init_glat (struct df *);
+static void init_glat1 (struct df *, basic_block);
 static void free_glat (void);
 static void sched_remove_insn (rtx);
 static void clear_priorities (rtx);
@@ -2225,7 +2221,7 @@ choose_ready (struct ready_list *ready)
    region.  */
 
 void
-schedule_block (basic_block *target_bb, int rgn_n_insns1)
+schedule_block (struct df *df, basic_block *target_bb, int rgn_n_insns1)
 {
   struct ready_list ready;
   int i, first_cycle_insn_p;
@@ -2469,7 +2465,7 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
 	  /* DECISION is made.  */	
   
           if (TODO_SPEC (insn) & SPECULATIVE)
-            generate_recovery_code (insn);
+            generate_recovery_code (df, insn);
 
 	  if (control_flow_insn_p (last_scheduled_insn)	     
 	      /* This is used to to switch basic blocks by request
@@ -2495,7 +2491,7 @@ schedule_block (basic_block *target_bb, int rgn_n_insns1)
 	    }
  
 	  /* Update counters, etc in the scheduler's front end.  */
-	  (*current_sched_info->begin_schedule_ready) (insn,
+	  (*current_sched_info->begin_schedule_ready) (df, insn,
 						       last_scheduled_insn);
  
 	  move_insn (insn);
@@ -2696,7 +2692,7 @@ static int luid;
 /* Initialize some global state for the scheduler.  */
 
 void
-sched_init (void)
+sched_init (struct df *df)
 {
   basic_block b;
   rtx insn;
@@ -2801,12 +2797,12 @@ sched_init (void)
 
   line_note_head = 0;
   old_last_basic_block = 0;
-  glat_start = 0;  
-  glat_end = 0;
+  glat_start = NULL;  
+  glat_end = NULL;
   extend_bb (0);
 
   if (current_sched_info->flags & USE_GLAT)
-    init_glat ();
+    init_glat (df);
 
   /* Compute INSN_REG_WEIGHT for all blocks.  We must do this before
      removing death notes.  */
@@ -2828,7 +2824,7 @@ sched_init (void)
 /* Free global data used during insn scheduling.  */
 
 void
-sched_finish (void)
+sched_finish (struct df *df)
 {
   free (h_i_d);
   free (curr_state);
@@ -2868,6 +2864,7 @@ sched_finish (void)
     check_cfg (0, 0);
 #endif
 
+  df_finish (df);
   current_sched_info = NULL;
 }
 
@@ -3287,16 +3284,16 @@ init_h_i_d (rtx insn)
 
 /* Generates recovery code for INSN.  */
 static void
-generate_recovery_code (rtx insn)
+generate_recovery_code (struct df *df, rtx insn)
 {
   if (TODO_SPEC (insn) & BEGIN_SPEC)
-    begin_speculative_block (insn);
+    begin_speculative_block (df, insn);
   
   /* Here we have insn with no dependencies to
      instructions other then CHECK_SPEC ones.  */
   
   if (TODO_SPEC (insn) & BE_IN_SPEC)
-    add_to_speculative_block (insn);
+    add_to_speculative_block (df, insn);
 }
 
 /* Helper function.
@@ -3345,21 +3342,21 @@ process_insn_depend_be_in_spec (rtx link, rtx twin, ds_t fs)
 
 /* Generates recovery code for BEGIN speculative INSN.  */
 static void
-begin_speculative_block (rtx insn)
+begin_speculative_block (struct df *df, rtx insn)
 {
   if (TODO_SPEC (insn) & BEGIN_DATA)
     nr_begin_data++;      
   if (TODO_SPEC (insn) & BEGIN_CONTROL)
     nr_begin_control++;
 
-  create_check_block_twin (insn, false);
+  create_check_block_twin (df, insn, false);
 
   TODO_SPEC (insn) &= ~BEGIN_SPEC;
 }
 
 /* Generates recovery code for BE_IN speculative INSN.  */
 static void
-add_to_speculative_block (rtx insn)
+add_to_speculative_block (struct df *df, rtx insn)
 {
   ds_t ts;
   rtx link, twins = NULL;
@@ -3386,7 +3383,7 @@ add_to_speculative_block (rtx insn)
 
       if (RECOVERY_BLOCK (check))
 	{
-	  create_check_block_twin (check, true);
+	  create_check_block_twin (df, check, true);
 	  link = LOG_LINKS (insn);
 	}
       else
@@ -3560,7 +3557,7 @@ find_fallthru_edge (basic_block pred)
 
 /* Initialize BEFORE_RECOVERY variable.  */
 static void
-init_before_recovery (void)
+init_before_recovery (struct df *df)
 {
   basic_block last;
   edge e;
@@ -3602,8 +3599,8 @@ init_before_recovery (void)
           
       emit_barrier_after (x);
 
-      add_block (empty, 0);
-      add_block (single, 0);
+      add_block (df, empty, 0);
+      add_block (df, single, 0);
 
       before_recovery = single;
 
@@ -3618,7 +3615,7 @@ init_before_recovery (void)
 
 /* Returns new recovery block.  */
 static basic_block
-create_recovery_block (void)
+create_recovery_block (struct df *df)
 {
   rtx label;
   basic_block rec;
@@ -3626,7 +3623,7 @@ create_recovery_block (void)
   added_recovery_block_p = true;
 
   if (!before_recovery)
-    init_before_recovery ();
+    init_before_recovery (df);
  
   label = gen_label_rtx ();
   gcc_assert (BARRIER_P (NEXT_INSN (BB_END (before_recovery))));
@@ -3650,7 +3647,7 @@ create_recovery_block (void)
 /* This function creates recovery code for INSN.  If MUTATE_P is nonzero,
    INSN is a simple check, that should be converted to branchy one.  */
 static void
-create_check_block_twin (rtx insn, bool mutate_p)
+create_check_block_twin (struct df *df, rtx insn, bool mutate_p)
 {
   basic_block rec;
   rtx label, check, twin, link;
@@ -3664,7 +3661,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
   /* Create recovery block.  */
   if (mutate_p || targetm.sched.needs_block_p (insn))
     {
-      rec = create_recovery_block ();
+      rec = create_recovery_block (df);
       label = BB_HEAD (rec);
     }
   else
@@ -3758,7 +3755,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
       
       e = make_edge (first_bb, rec, edge_flags);
 
-      add_block (second_bb, first_bb);
+      add_block (df, second_bb, first_bb);
       
       gcc_assert (NOTE_INSN_BASIC_BLOCK_P (BB_HEAD (second_bb)));
       label = block_label (second_bb);
@@ -3789,7 +3786,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
       
       make_single_succ_edge (rec, second_bb, edge_flags);  
       
-      add_block (rec, EXIT_BLOCK_PTR);
+      add_block (df, rec, EXIT_BLOCK_PTR);
     }
 
   /* Move backward dependences from INSN to CHECK and 
@@ -4210,7 +4207,7 @@ extend_bb (basic_block bb)
    If EBB is EXIT_BLOCK_PTR, then BB is recovery block.
    If EBB is NULL, then BB should be a new region.  */
 void
-add_block (basic_block bb, basic_block ebb)
+add_block (struct df *df, basic_block bb, basic_block ebb)
 {
   gcc_assert (current_sched_info->flags & DETACH_LIFE_INFO
 	      && DF_LIVE_IN (df, bb) == NULL
@@ -4313,23 +4310,16 @@ move_succs (VEC(edge,gc) **succsp, basic_block to)
    structures are used to substitute the df live regsets during
    scheduling.  */
 static void
-init_glat (void)
+init_glat (struct df *df)
 {
   basic_block bb;
-
-  df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (df, DF_LR_RUN_DCE);
-  df_ur_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
-  df_analyze (df);
-
   FOR_ALL_BB (bb)
-    init_glat1 (bb);
+    init_glat1 (df, bb);
 }
 
 /* Helper function for init_glat.  */
 static void
-init_glat1 (basic_block bb)
+init_glat1 (struct df *df, basic_block bb)
 {
   glat_start[bb->index] =  DF_LIVE_IN (df, bb);
   glat_end[bb->index] =  DF_LIVE_OUT (df, bb);
@@ -4345,7 +4335,7 @@ init_glat1 (basic_block bb)
 static void
 free_glat (void)
 {
-  if (df)
+  if (glat_start)
     {
       basic_block bb;
 
@@ -4356,7 +4346,6 @@ free_glat (void)
 	  if (glat_end[bb->index])
 	    FREE_REG_SET (glat_end[bb->index]);
 	}
-      df_finish (df);
     }
 
   free (glat_start);

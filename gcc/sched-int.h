@@ -29,6 +29,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "basic-block.h"
 /* For reg_note.  */
 #include "rtl.h"
+#include "df.h"
 
 /* Pointer to data describing the current DFA state.  */
 extern state_t curr_state;
@@ -198,7 +199,7 @@ struct sched_info
   /* Called to notify frontend that instruction is being scheduled.
      The first parameter - instruction to scheduled, the second parameter -
      last scheduled instruction.  */
-  void (*begin_schedule_ready) (rtx, rtx);
+  void (*begin_schedule_ready) (struct df *, rtx, rtx);
 
   /* Called to notify frontend, that new basic block is being added.
      The first parameter - new basic block.
@@ -628,13 +629,13 @@ extern void rm_other_notes (rtx, rtx);
 extern int insn_cost (rtx, rtx, rtx);
 extern int set_priorities (rtx, rtx);
 
-extern void schedule_block (basic_block *, int);
-extern void sched_init (void);
-extern void sched_finish (void);
+extern void schedule_block (struct df *, basic_block *, int);
+extern void sched_init (struct df *);
+extern void sched_finish (struct df *);
 
 extern int try_ready (rtx);
 extern void * xrecalloc (void *, size_t, size_t, size_t);
 extern void unlink_bb_notes (basic_block, basic_block);
-extern void add_block (basic_block, basic_block);
+extern void add_block (struct df *, basic_block, basic_block);
 
 #endif /* GCC_SCHED_INT_H */

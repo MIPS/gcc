@@ -3871,51 +3871,6 @@ debug_regset (regset r)
   putc ('\n', stderr);
 }
 
-/* Recompute register set/reference counts immediately prior to register
-   allocation.
-
-   This avoids problems with set/reference counts changing to/from values
-   which have special meanings to the register allocators.
-
-   Additionally, the reference counts are the primary component used by the
-   register allocators to prioritize pseudos for allocation to hard regs.
-   More accurate reference counts generally lead to better register allocation.
-
-   It might be worthwhile to update REG_LIVE_LENGTH, REG_BASIC_BLOCK and
-   possibly other information which is used by the register allocators.  */
-
-static unsigned int
-recompute_reg_usage (void)
-{
-  allocate_reg_life_data ();
-  /* distribute_notes in combiner fails to convert some of the
-     REG_UNUSED notes to REG_DEAD notes.  This causes CHECK_DEAD_NOTES
-     in sched1 to die.  To solve this update the DEATH_NOTES
-     here.  */
-  update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO | PROP_DEATH_NOTES);
-
-  if (dump_file)
-    dump_flow_info (dump_file, dump_flags);
-  return 0;
-}
-
-struct tree_opt_pass pass_recompute_reg_usage =
-{
-  "life2",                              /* name */
-  NULL,                                 /* gate */
-  recompute_reg_usage,                  /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'f'                                   /* letter */
-};
-
 /* Optionally removes all the REG_DEAD and REG_UNUSED notes from a set of
    blocks.  If BLOCKS is NULL, assume the universal set.  Returns a count
    of the number of registers that died.

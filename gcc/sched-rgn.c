@@ -291,7 +291,7 @@ static void compute_block_backward_dependences (int);
 void debug_dependencies (void);
 
 static void init_regions (void);
-static void schedule_region (int);
+static void schedule_region (struct df *, int);
 static rtx concat_INSN_LIST (rtx, rtx);
 static void concat_insn_mem_list (rtx, rtx, rtx *, rtx *);
 static void propagate_deps (int, struct deps *);
@@ -1927,7 +1927,7 @@ static int sched_n_insns;
 /* Implementations of the sched_info functions for region scheduling.  */
 static void init_ready_list (void);
 static int can_schedule_ready_p (rtx);
-static void begin_schedule_ready (rtx, rtx);
+static void begin_schedule_ready (struct df *, rtx, rtx);
 static ds_t new_ready (rtx, ds_t);
 static int schedule_more_p (void);
 static const char *rgn_print_insn (rtx, int);
@@ -2043,7 +2043,8 @@ can_schedule_ready_p (rtx insn)
    can_schedule_ready_p () differs from the one passed to
    begin_schedule_ready ().  */
 static void
-begin_schedule_ready (rtx insn, rtx last ATTRIBUTE_UNUSED)
+begin_schedule_ready (struct df *df ATTRIBUTE_UNUSED, 
+		      rtx insn, rtx last ATTRIBUTE_UNUSED)
 {
   /* An interblock motion?  */
   if (INSN_BB (insn) != target_bb)
@@ -2640,7 +2641,7 @@ sched_is_disabled_for_current_region_p (void)
    scheduled after its flow predecessors.  */
 
 static void
-schedule_region (int rgn)
+schedule_region (struct df *df, int rgn)
 {
   basic_block block;
   edge_iterator ei;
@@ -2823,7 +2824,7 @@ schedule_region (int rgn)
       current_sched_info->queue_must_finish_empty = current_nr_blocks == 1;
 
       curr_bb = first_bb;
-      schedule_block (&curr_bb, rgn_n_insns);
+      schedule_block (df, &curr_bb, rgn_n_insns);
       gcc_assert (EBB_FIRST_BB (bb) == first_bb);
       sched_rgn_n_insns += sched_n_insns;
 
@@ -2929,6 +2930,7 @@ void
 schedule_insns (void)
 {
   int rgn;
+  struct df *df;
 
   /* Taking care of this degenerate case makes the rest of
      this code simpler.  */
@@ -2942,7 +2944,12 @@ schedule_insns (void)
      invoked via sched_init.  */
   current_sched_info = &region_sched_info;
 
-  sched_init ();
+  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
+  df_lr_add_problem (df, DF_LR_RUN_DCE);
+  df_ur_add_problem (df, 0);
+  df_ri_add_problem (df, 0);
+  df_analyze (df);
+  sched_init (df);
 
   min_spec_prob = ((PARAM_VALUE (PARAM_MIN_SPEC_PROB) * REG_BR_PROB_BASE)
 		    / 100);
@@ -2955,12 +2962,9 @@ schedule_insns (void)
   
   /* Schedule every region in the subroutine.  */
   for (rgn = 0; rgn < nr_regions; rgn++)
-    schedule_region (rgn);
+    schedule_region (df, rgn);
   
   free(ebb_head);
-
-  allocate_reg_life_data ();
-
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
   if (reload_completed)
@@ -2989,7 +2993,7 @@ schedule_insns (void)
   free (block_to_bb);
   free (containing_rgn);
 
-  sched_finish ();
+  sched_finish (df);
 }
 
 /* INSN has been added to/removed from current region.  */
@@ -3212,19 +3216,7 @@ static unsigned int
 rest_of_handle_sched (void)
 {
 #ifdef INSN_SCHEDULING
-  /* Do control and data sched analysis,
-     and write some of the results to dump file.  */
-
   schedule_insns ();
-
-  /* FIXME - temporary hack to rebuild dataflow info after the first
-     round of scheduling.  This will be removed when all passes are
-     responcible for building their own info before running.  */
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-                    (PROP_DEATH_NOTES
-                     | PROP_REG_INFO
-                     | PROP_KILL_DEAD_CODE
-                     | PROP_SCAN_DEAD_CODE));
 #endif
   return 0;
 }

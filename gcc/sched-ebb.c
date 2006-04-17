@@ -42,6 +42,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "sched-int.h"
 #include "target.h"
 #include "output.h"
+
 
 /* The number of insns scheduled so far.  */
 static int sched_n_insns;
@@ -59,7 +60,7 @@ static basic_block last_bb;
 
 /* Implementations of the sched_info functions for region scheduling.  */
 static void init_ready_list (void);
-static void begin_schedule_ready (rtx, rtx);
+static void begin_schedule_ready (struct df *, rtx, rtx);
 static int schedule_more_p (void);
 static const char *ebb_print_insn (rtx, int);
 static int rank (rtx, rtx);
@@ -67,7 +68,7 @@ static int contributes_to_priority (rtx, rtx);
 static void compute_jump_reg_dependencies (rtx, regset, regset, regset);
 static basic_block earliest_block_with_similiar_load (basic_block, rtx);
 static void add_deps_for_risky_insns (rtx, rtx);
-static basic_block schedule_ebb (rtx, rtx);
+static basic_block schedule_ebb (struct df *, rtx, rtx);
 
 static void add_remove_insn (rtx, int);
 static void add_block1 (basic_block, basic_block);
@@ -118,7 +119,7 @@ init_ready_list (void)
 
 /* INSN is being scheduled after LAST.  Update counters.  */
 static void
-begin_schedule_ready (rtx insn, rtx last)
+begin_schedule_ready (struct df *df, rtx insn, rtx last)
 {
   sched_n_insns++;
 
@@ -175,7 +176,7 @@ begin_schedule_ready (rtx insn, rtx last)
       current_sched_info->next_tail = NEXT_INSN (BB_END (bb));
       gcc_assert (current_sched_info->next_tail);
 
-      add_block (bb, last_bb);
+      add_block (df, bb, last_bb);
       gcc_assert (last_bb == bb);
     }
 }
@@ -433,7 +434,7 @@ add_deps_for_risky_insns (rtx head, rtx tail)
    and TAIL.  */
 
 static basic_block
-schedule_ebb (rtx head, rtx tail)
+schedule_ebb (struct df *df, rtx head, rtx tail)
 {
   basic_block first_bb, target_bb;
   struct deps tmp_deps;
@@ -509,7 +510,7 @@ schedule_ebb (rtx head, rtx tail)
   current_sched_info->queue_must_finish_empty = 1;
 
   target_bb = first_bb;
-  schedule_block (&target_bb, n_insns);
+  schedule_block (df, &target_bb, n_insns);
 
   /* We might pack all instructions into fewer blocks,
      so we may made some of them empty.  Can't assert (b == last_bb).  */
@@ -542,6 +543,7 @@ schedule_ebbs (void)
   basic_block bb;
   int probability_cutoff;
   rtx tail;
+  struct df *df;
 
   if (profile_info && flag_branch_probabilities)
     probability_cutoff = PARAM_VALUE (TRACER_MIN_BRANCH_PROBABILITY_FEEDBACK);
@@ -558,7 +560,12 @@ schedule_ebbs (void)
      invoked via sched_init.  */
   current_sched_info = &ebb_sched_info;
 
-  sched_init ();
+  df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
+  df_lr_add_problem (df, DF_LR_RUN_DCE);
+  df_ur_add_problem (df, 0);
+  df_ri_add_problem (df, 0);
+  df_analyze (df);
+  sched_init (df);
 
   compute_bb_for_insn ();
 
@@ -608,7 +615,7 @@ schedule_ebbs (void)
 	}
 
       bitmap_set_bit (&ebb_head, BLOCK_NUM (head));
-      bb = schedule_ebb (head, tail);
+      bb = schedule_ebb (df, head, tail);
       bitmap_set_bit (&ebb_tail, bb->index);
     }
   bitmap_clear (&dont_calc_deps);
@@ -629,7 +636,7 @@ schedule_ebbs (void)
   if (write_symbols != NO_DEBUG)
     rm_redundant_line_notes ();
 
-  sched_finish ();
+  sched_finish (df);
 }
 
 /* INSN has been added to/removed from current ebb.  */

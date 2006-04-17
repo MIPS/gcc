@@ -658,11 +658,9 @@ init_optimization_passes (void)
   NEXT_PASS (pass_regmove);
   NEXT_PASS (pass_split_all_insns);
   NEXT_PASS (pass_mode_switching);
-  NEXT_PASS (pass_rtl_dce);
-  NEXT_PASS (pass_recompute_reg_usage);
+  NEXT_PASS (pass_clear_df);
   NEXT_PASS (pass_sms);
   NEXT_PASS (pass_sched);
-  NEXT_PASS (pass_clear_df);
   /* NEXT_PASS (pass_web); */
   NEXT_PASS (pass_local_alloc);
   NEXT_PASS (pass_global_alloc);

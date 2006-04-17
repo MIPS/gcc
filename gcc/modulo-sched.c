@@ -45,7 +45,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "expr.h"
 #include "params.h"
 #include "gcov-io.h"
-#include "df.h"
 #include "ddg.h"
 #include "timevar.h"
 #include "tree-pass.h"
@@ -931,15 +930,16 @@ sms_schedule (void)
 
   /* Initialize the scheduler.  */
   current_sched_info = &sms_sched_info;
-  sched_init ();
 
   /* Init Data Flow analysis, to be used in interloop dep calculation.  */
   df = df_init (DF_HARD_REGS | DF_EQUIV_NOTES |	DF_SUBREGS);
   df_lr_add_problem (df, DF_LR_RUN_DCE);
   df_rd_add_problem (df, 0);
   df_ru_add_problem (df, 0);
+  df_ri_add_problem (df, 0);
   df_chain_add_problem (df, DF_DU_CHAIN | DF_UD_CHAIN);
   df_analyze (df);
+  sched_init (df);
 
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
@@ -1050,10 +1050,6 @@ sms_schedule (void)
 
       g_arr[i] = g;
     }
-
-  /* Release Data Flow analysis data structures.  */
-  df_finish (df);
-  df = NULL;
 
   /* We don't want to perform SMS on new loops - created by versioning.  */
   num_loops = loops->num;
@@ -1264,7 +1260,7 @@ sms_schedule (void)
   free (g_arr);
 
   /* Release scheduler data, needed until now because of DFA.  */
-  sched_finish ();
+  sched_finish (df);
   loop_optimizer_finalize (loops);
 }
 
@@ -2510,18 +2506,12 @@ rest_of_handle_sms (void)
   /* We want to be able to create new pseudos.  */
   no_new_pseudos = 0;
   /* Collect loop information to be used in SMS.  */
-  cfg_layout_initialize (CLEANUP_UPDATE_LIFE);
+  cfg_layout_initialize (0);
   sms_schedule ();
 
   /* Update the life information, because we add pseudos.  */
   max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-                    (PROP_DEATH_NOTES
-                     | PROP_REG_INFO
-                     | PROP_KILL_DEAD_CODE
-                     | PROP_SCAN_DEAD_CODE));
-
   no_new_pseudos = 1;
 
   /* Finalize layout changes.  */

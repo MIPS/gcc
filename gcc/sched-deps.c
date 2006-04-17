@@ -42,7 +42,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "sched-int.h"
 #include "params.h"
 #include "cselib.h"
-#include "df.h"
 
 
 static regset reg_pending_sets;

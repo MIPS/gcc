@@ -1,3 +1,32 @@
+2006-04-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-pass.h (pass_recompute_reg_usage): Deleted.  flow.c
+	(pass_recompute_reg_usage, recompute_reg_usage): Deleted.  *
+	sched-ebb.c (begin_schedule_ready, schedule_ebb,
+	begin_schedule_ready, schedule_ebb, schedule_block): Threaded
+	local instance of df.
+	(schedule_ebbs): Created local instance of df.  
+	* haifa-sched.c (schedule_block, sched_init, sched_finish,
+	generate_recovery_code, begin_speculative_block,
+	add_to_speculative_block, init_before_recovery,
+	create_recovery_block, create_check_block_twin, init_glat,
+	init_glat1): Threaded local instance of df.
+	* modulo-sched.c (sms_schedule): Ditto.
+	(rest_of_handle_sms): Removed unnecessary update of flow info.
+	* sched-int.h (df.h): Now includes this.
+	(schedule_block, sched_init, sched_finish, add_block): Added df
+	parm.
+	* sched-rgn.c (begin_schedule_ready, schedule_region,
+	schedule_insns): Threaded local instance of df.
+	(schedule_insns): Removed unnecessary update of flow info.
+	* Makefile.in (SCHED_INT_H): Added DF_H.
+	(ddg.o, modulo-sched.o, haifa-sched.o, sched-deps.o, sched-rgn.o, 
+	sched-ebb.o): Removed DF_H.
+	* ddg.c (build_inter_loop_deps): Swapped parms.
+	(create_ddg): Swapped parms for call.
+	* passes.c (init_optimization_passes): Removed dce and
+	recompute_reg_use pass and moved clear_df to before first
+	schedulers.
+	
 2006-04-16  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* df.h (shared_df): Removed.
 	(ra_df): New.

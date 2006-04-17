@@ -43,7 +43,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "sbitmap.h"
 #include "expr.h"
 #include "bitmap.h"
-#include "df.h"
 #include "ddg.h"
 
 /* A flag indicating that a ddg edge belongs to an SCC or not.  */
@@ -310,7 +309,7 @@ add_deps_for_use (ddg_ptr g, struct df *df, struct df_ref *use)
 
 /* Build inter-loop dependencies, by looking at DF analysis backwards.  */
 static void
-build_inter_loop_deps (ddg_ptr g, struct df *df)
+build_inter_loop_deps (struct df *df, ddg_ptr g)
 {
   unsigned rd_num, u_num;
   struct df_rd_bb_info *rd_bb_info;
@@ -338,7 +337,7 @@ build_inter_loop_deps (ddg_ptr g, struct df *df)
 
       /* We are interested in uses of this BB.  */
       if (BLOCK_FOR_INSN (use->insn) == g->bb)
-      	add_deps_for_use (g, df,use);
+      	add_deps_for_use (g, df, use);
     }
 }
 
@@ -511,7 +510,7 @@ create_ddg (basic_block bb, struct df *df, int closing_branch_deps)
 
   /* Build the data dependency graph.  */
   build_intra_loop_deps (df, g);
-  build_inter_loop_deps (g, df);
+  build_inter_loop_deps (df, g);
   return g;
 }
 
