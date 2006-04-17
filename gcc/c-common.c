@@ -7216,10 +7216,12 @@ print_cw_asm_operand (char *buf, tree arg, unsigned argnum,
 		      "LASM$", 5) == 0)
 	{
 	  const char *name = IDENTIFIER_POINTER (DECL_NAME (arg)) + 5;
+	  /* APPLE LOCAL begin remove when 4512478 is fixed */
 #if defined(TARGET_TOC)
 	  if (strcmp (name, "all") == 0)
 	    name = "ppc970";
 #endif
+	  /* APPLE LOCAL end remove when 4512478 is fixed */
 	  sprintf (buf + strlen (buf), "%s", name);
 	  break;
 	}
