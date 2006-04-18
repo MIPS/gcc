@@ -1,5 +1,9 @@
 2006-04-18  Andrew Haley  <aph@redhat.com>
 
+	* java/lang/Class.java (getClassLoader(Class)): New.
+
+2006-04-18  Andrew Haley  <aph@redhat.com>
+
 	* java/lang/natClass.cc (forName):  Pass
 	__PRETTY_FUNCTION__ to GetStackTrace().	
 	* java/lang/natRuntime.cc (_load): Likewise.

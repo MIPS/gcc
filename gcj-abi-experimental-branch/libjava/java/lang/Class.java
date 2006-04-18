@@ -185,6 +185,8 @@ public final class Class implements Serializable
    */
   public native ClassLoader getClassLoader ();
   
+  private final native ClassLoader getClassLoader (Class c);
+  
   /**
    * If this is an array, get the Class representing the type of array.
    * Examples: "[[Ljava.lang.String;" would return "[Ljava.lang.String;", and
