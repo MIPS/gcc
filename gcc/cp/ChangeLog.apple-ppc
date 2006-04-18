@@ -1,3 +1,9 @@
+2006-04-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 4499790
+	* parser.c (cp_parser_string_literal): Enable pascal strings for
+	wchars.
+
 2006-04-12  Mike Stump  <mrs@apple.com>
 
 	Radar 4477426 4466768

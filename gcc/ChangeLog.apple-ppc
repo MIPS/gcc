@@ -1,3 +1,8 @@
+2006-04-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 4499790
+	* c-lex.c (lex_string): Enable pascal strings for wchars.
+
 2006-04-12  Mike Stump  <mrs@apple.com>
 
 	Radar 4477426 4466768 4498501

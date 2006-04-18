@@ -1,3 +1,11 @@
+2006-04-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 4499790
+	* gcc.apple/R4499790.c: New.
+	* gcc.apple/R4499790-2.c: New.
+	* gcc.apple/pascal-strings-2.c: Update.
+	* g++.dg/pascal-strings-2.C: Update.
+
 2006-04-12  Mike Stump  <mrs@apple.com>
 
 	Radar 4477426 4466768

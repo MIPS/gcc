@@ -2846,9 +2846,13 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
       if (tok->type == CPP_WSTRING)
 	wide = true;
       /* APPLE LOCAL begin pascal strings */
-      else if (CPP_OPTION (parse_in, pascal_strings)
-	       && str.text[1] == '\\' && str.text[2] == 'p')
-	pascal_p = true;
+      if (CPP_OPTION (parse_in, pascal_strings))
+	{
+	  if (wide && str.text[0] == 'L' && str.text[2] == '\\' && str.text[3] == 'p')
+	    pascal_p = true;
+	  else if (str.text[1] == '\\' && str.text[2] == 'p')
+	    pascal_p = true;
+	}
       /* APPLE LOCAL end pascal strings */
 
       strs = &str;
@@ -2867,9 +2871,13 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
 	  if (tok->type == CPP_WSTRING)
 	    wide = true;
 	  /* APPLE LOCAL begin pascal strings */
-	  else if (count == 1 && CPP_OPTION (parse_in, pascal_strings)
-		   && str.text[1] == '\\' && str.text[2] == 'p')
-	    pascal_p = true;
+	  if (CPP_OPTION (parse_in, pascal_strings) && count == 1)
+	    {
+	      if (wide && str.text[0] == 'L' && str.text[2] == '\\' && str.text[3] == 'p')
+		pascal_p = true;
+	      else if (str.text[1] == '\\' && str.text[2] == 'p')
+		pascal_p = true;
+	    }
 	  /* APPLE LOCAL end pascal strings */
 
 	  obstack_grow (&str_ob, &str, sizeof (cpp_string));
@@ -2886,11 +2894,6 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
       cp_parser_error (parser, "a wide string is invalid in this context");
       wide = false;
     }
-
-  /* APPLE LOCAL begin pascal strings */
-  if (wide)
-    pascal_p = false;
-  /* APPLE LOCAL end pascal strings */
 
   if ((translate ? cpp_interpret_string : cpp_interpret_string_notranslate)
       /* APPLE LOCAL pascal strings */

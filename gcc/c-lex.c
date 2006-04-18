@@ -977,9 +977,13 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
   if (tok->type == CPP_WSTRING)
     wide = true;
   /* APPLE LOCAL begin pascal strings */
-  else if (CPP_OPTION (parse_in, pascal_strings)
-	   && str.text[1] == '\\' && str.text[2] == 'p')
-    pascal_p = true;
+  if (CPP_OPTION (parse_in, pascal_strings))
+    {
+      if (wide && str.text[0] == 'L' && str.text[2] == '\\' && str.text[3] == 'p')
+	pascal_p = true;
+      else if (str.text[1] == '\\' && str.text[2] == 'p')
+	pascal_p = true;
+    }
   /* APPLE LOCAL end pascal strings */
 
  retry:
@@ -1021,7 +1025,7 @@ lex_string (const cpp_token *tok, tree *valp, bool objc_string)
     strs = (cpp_string *) obstack_finish (&str_ob);
 
   /* APPLE LOCAL begin pascal strings */
-  if (wide || objc_string)
+  if (objc_string)
     pascal_p = false;
   /* APPLE LOCAL end pascal strings */
     
