@@ -45,13 +45,16 @@ details.  */
 #include <gnu/gcj/runtime/BootClassLoader.h>
 #include <gnu/gcj/runtime/SystemClassLoader.h>
 
+#undef _GNU_SOURCE
+#define _GNU_SOURCE
+#include <dlfcn.h>
+#include <link.h>
+
 // Size of local hash table.
 #define HASH_LEN 1013
 
 // Hash function for Utf8Consts.
 #define HASH_UTF(Utf) ((Utf)->hash16() % HASH_LEN)
-
-static jclass loaded_classes[HASH_LEN];
 
 // This records classes which will be registered with the system class
 // loader when it is initialized.
@@ -61,6 +64,8 @@ static jclass system_class_list;
 // initialized the system class loader; it lets us know that we should
 // no longer pay attention to the system abi flag.
 #define SYSTEM_LOADER_INITIALIZED ((jclass) -1)
+
+static jclass loaded_classes[HASH_LEN];
 
 // This is the root of a linked list of classes
 static jclass stack_head;
@@ -72,6 +77,99 @@ static jclass stack_head;
 static jclass bootstrap_class_list[BOOTSTRAP_CLASS_LIST_SIZE];
 static int bootstrap_index;
 
+
+
+
+// We keep a cache of the filenames of DSOs that need to be
+// conservatively scanned by the garbage collector.  During collection
+// the gc calls _Jv_GC_has_static_roots() to see if the data segment
+// of a DSO should be scanned.
+typedef struct filename_node
+{
+  char *name;
+  struct filename_node *link;
+} filename_node;
+
+#define FILENAME_CACHE_SIZE 17
+static filename_node *filename_cache[FILENAME_CACHE_SIZE];
+
+// Find a filename in filename_cache.
+static filename_node **
+find_file (const char *filename)
+{
+  int index = strlen (filename) % FILENAME_CACHE_SIZE;
+  filename_node **node = &filename_cache[index];
+  
+  while (*node)
+    {
+      if (strcmp ((*node)->name, filename) == 0)
+	return node;
+      node = &(*node)->link;
+    }
+
+  return node;
+}  
+
+// Print the cache of filenames of DSOs that need collection.
+void
+_Jv_print_gc_cache (void)
+{
+  for (int i = 0; i < FILENAME_CACHE_SIZE; i++)
+    {
+      filename_node *node = filename_cache[i];
+      while (node)
+	{
+	  fprintf (stderr, "%s\n", node->name);
+	  node = node->link;
+	}
+    }
+}
+
+// Create a new node in the cache of libraries to collect.
+static filename_node *
+new_node (const char *filename)
+{
+  filename_node *node = (filename_node*)_Jv_Malloc (sizeof (filename_node));
+  node->name = (char *)_Jv_Malloc (strlen (filename) + 1);
+  node->link = NULL;
+  strcpy (node->name, filename);
+  
+  return node;
+}
+
+// Register the DSO that contains p for collection.
+static void
+register_for_gc (const void *p)
+{
+  Dl_info info;
+  
+  if (dladdr (p, &info) != 0)
+    {
+      filename_node **node = find_file (info.dli_fname);
+      if (! *node)
+	*node = new_node (info.dli_fname);
+    }
+}
+
+// True if the gc should scan this lib.
+static int 
+_Jv_GC_has_static_roots (struct dl_phdr_info * info, size_t, void *)
+{
+  const char *filename = info->dlpi_name;
+
+  if (filename == NULL || strlen (filename) == 0)
+    // No filename; better safe than sorry.
+    return true;
+
+  filename_node **node = find_file (filename);
+  if (*node)
+    return true;
+
+  return false;
+}
+
+int (*GC_has_static_roots)(struct dl_phdr_info * info, size_t size, void *ptr)
+  = _Jv_GC_has_static_roots;
 
 
 
@@ -161,6 +259,8 @@ _Jv_UnregisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
 void
 _Jv_RegisterClasses (const jclass *classes)
 {
+  register_for_gc (classes);
+
   for (; *classes; ++classes)
     {
       jclass klass = *classes;
@@ -175,6 +275,9 @@ void
 _Jv_RegisterClasses_Counted (const jclass * classes, size_t count)
 {
   size_t i;
+
+  register_for_gc (classes);
+
   for (i = 0; i < count; i++)
     {
       jclass klass = classes[i];
@@ -184,10 +287,10 @@ _Jv_RegisterClasses_Counted (const jclass * classes, size_t count)
     }
 }
 
+// Create a class on the heap from an initializer struct.
 jclass
 _Jv_NewClassFromInitializer (const jclass class_initializer)
 {
-  _Jv_InitGC ();
   jclass new_class = (jclass)_Jv_AllocObj (sizeof *new_class,
 					   &java::lang::Class::class$);  
   memcpy ((void*)new_class, (void*)class_initializer, sizeof *new_class);
@@ -198,6 +301,27 @@ _Jv_NewClassFromInitializer (const jclass class_initializer)
   return new_class;
 }
 
+// Called by compiler-generated code at DSO initialization.  CLASSES
+// is an array of pairs: the first item of each pair is a pointer to
+// the initialized data that is a class initializer in a DSO, and the
+// second is a pointer to a class reference.
+// _Jv_NewClassFromInitializer() creates the new class (on the Java
+// heap) and we write the address of the new class into the address
+// pointed to by the second word.
+void
+_Jv_RegisterNewClasses (void **classes)
+{
+  _Jv_InitGC ();
+
+  jclass initializer;
+
+  while ((initializer = (jclass)*classes++))
+    {
+      jclass *class_ptr = (jclass *)*classes++;
+      *class_ptr = _Jv_NewClassFromInitializer (initializer);
+    }      
+}
+  
 void
 _Jv_RegisterClassHookDefault (jclass klass)
 {

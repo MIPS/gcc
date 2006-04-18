@@ -1,5 +1,25 @@
 2006-04-18  Andrew Haley  <aph@redhat.com>
 
+	* java/lang/Class.h (Jv_RegisterNewClasses): New.
+	(getClassLoader(jclass)): New.
+	(Jv_RegisterClasses): New.
+	* java/lang/natClassLoader.cc (_GNU_SOURCE): Define.
+	Include dlfcn.h and link.h.
+	(find_file): New.
+	(_Jv_print_gc_cache): New.
+	(new_node): New.
+	(register_for_gc): New.
+	(_Jv_GC_has_static_roots): New.
+	(GC_has_static_roots): New.
+
+	* gnu/gcj/runtime/natSharedLibLoader.cc: Remove
+	_Jv_GC_has_static_roots and GC_has_static_roots.
+
+	* scripts/makemake.tcl (emit_bc_rule): Add -fno-indirect-classes.
+	* Makefile.in: Rebuild.
+
+2006-04-18  Andrew Haley  <aph@redhat.com>
+
 	* java/lang/Class.java (getClassLoader(Class)): New.
 
 2006-04-18  Andrew Haley  <aph@redhat.com>

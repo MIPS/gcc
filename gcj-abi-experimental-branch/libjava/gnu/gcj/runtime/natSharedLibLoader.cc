@@ -30,41 +30,6 @@ static gnu::gcj::runtime::SharedLibHelper *curHelper;
 typedef void (*ClassHookFunc) (jclass);
 typedef void (*CoreHookFunc) (_Jv_core_chain *);
 
-static int 
-_Jv_GC_has_static_roots (struct dl_phdr_info * info, size_t size, void *ptr)
-{
-  static const char suffix[] = "libgcj.so.7";
-  const char *name = info->dlpi_name;
-
-//   fprintf (stderr, "%p: lib %s ", ptr, name);
-
-  if (strlen (name) <= strlen (suffix))
-    goto registered;
-
-  // If a DSO name ends with SUFFIX, it has GC roots.
-  if (strcmp (name + strlen (name) - strlen (suffix),
-	      suffix) == 0)
-    {
-//       fprintf (stderr, "registered\n");
-      goto registered;
-    }  
-
-  // If a name contains ".so", it is a DSO with no roots.
-  if (strstr (name, ".so"))
-    goto shlib;
-
- registered:
-//       fprintf (stderr, "registered\n");
-  return 1;
-
-  shlib:
-//   fprintf (stderr, "not registered\n");
-  return 0;
-}
-	      
-int (*GC_has_static_roots)(struct dl_phdr_info * info, size_t size, void *ptr)
-  = _Jv_GC_has_static_roots;
-
 void
 _Jv_sharedlib_register_hook (jclass cls)
 {

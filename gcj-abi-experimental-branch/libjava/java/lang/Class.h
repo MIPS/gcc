@@ -41,6 +41,7 @@ extern "Java"
 extern "C" void _Jv_InitClass (jclass klass);
 extern "C" jclass _Jv_NewClassFromInitializer 
    (const jclass class_initializer);
+extern "C" void _Jv_RegisterNewClasses (void **classes);
 extern "C" void _Jv_RegisterClasses (const jclass *classes);
 extern "C" void _Jv_RegisterClasses_Counted (const jclass *classes,
 					     size_t count);
@@ -288,7 +289,10 @@ public:
   JArray<jclass> *getClasses (void);
 
   java::lang::ClassLoader *getClassLoader (void);
+private:
+  java::lang::ClassLoader *getClassLoader (jclass);
 
+public:
   // This is an internal method that circumvents the usual security
   // checks when getting the class loader.
   java::lang::ClassLoader *getClassLoaderInternal (void)
@@ -433,6 +437,7 @@ private:
 
   friend void ::_Jv_InitClass (jclass klass);
   friend java::lang::Class* ::_Jv_NewClassFromInitializer (const jclass class_initializer);
+  friend void _Jv_RegisterNewClasses (void **classes);
 
   friend _Jv_Method* ::_Jv_LookupDeclaredMethod (jclass, _Jv_Utf8Const *, 
 						 _Jv_Utf8Const*, jclass *);
