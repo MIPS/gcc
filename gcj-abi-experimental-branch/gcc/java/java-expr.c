@@ -1997,12 +1997,40 @@ build_class_init (tree clas, tree expr)
   return init;
 }
 
+static void
+maybe_rewrite (tree *method_p, tree *arg_list_p, tree *method_signature_p)
+{
+  tree context = DECL_NAME (TYPE_NAME (DECL_CONTEXT (*method_p)));
+  if (strcmp ("java.lang.Class", IDENTIFIER_POINTER (context)) == 0)
+    {
+      tree name = DECL_NAME (*method_p);
+      if (strcmp ("getClassLoader", IDENTIFIER_POINTER (name)) == 0)
+	{
+	  if (strcmp ("()Ljava/lang/ClassLoader;",
+		      IDENTIFIER_POINTER (*method_signature_p)) == 0)
+	    {
+	      *method_p = lookup_java_method (DECL_CONTEXT (*method_p),
+					      name,
+					      get_identifier ("(Ljava/lang/Class;)Ljava/lang/ClassLoader;"));
+	      *arg_list_p = chainon (*arg_list_p, 
+				     tree_cons (NULL_TREE, build_class_ref (output_class), NULL_TREE));
+	      *method_signature_p = get_identifier ("(Ljava/lang/Class;)Ljava/lang/ClassLoader;");
+	    }
+	}
+    }
+}
+
 tree
-build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
-			tree self_type, tree method_signature ATTRIBUTE_UNUSED,
-			tree arg_list ATTRIBUTE_UNUSED)
+build_known_method_ref (tree *method_p, tree method_type ATTRIBUTE_UNUSED,
+			tree self_type, tree *method_signature_p ATTRIBUTE_UNUSED,
+			tree *arg_list_p ATTRIBUTE_UNUSED)
 {
   tree func;
+  tree method;
+
+  maybe_rewrite (method_p, arg_list_p, method_signature_p);
+  method = *method_p;
+
   if (is_compiled_class (self_type))
     {
       /* With indirect dispatch we have to use indirect calls for all
@@ -2373,8 +2401,8 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
 
   func = NULL_TREE;
   if (opcode == OPCODE_invokestatic)
-    func = build_known_method_ref (method, method_type, self_type,
-				   method_signature, arg_list);
+    func = build_known_method_ref (&method, method_type, self_type,
+				   &method_signature, &arg_list);
   else if (opcode == OPCODE_invokespecial
 	   || (opcode == OPCODE_invokevirtual
 	       && (METHOD_PRIVATE (method)
@@ -2393,8 +2421,8 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
       tree save_arg = save_expr (TREE_VALUE (arg_list));
       TREE_VALUE (arg_list) = save_arg;
       check = java_check_reference (save_arg, ! DECL_INIT_P (method));
-      func = build_known_method_ref (method, method_type, self_type,
-				     method_signature, arg_list);
+      func = build_known_method_ref (&method, method_type, self_type,
+				     &method_signature, &arg_list);
     }
   else
     {

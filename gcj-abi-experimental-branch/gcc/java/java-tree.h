@@ -1235,7 +1235,7 @@ extern tree check_for_builtin (tree, tree);
 extern void initialize_builtins (void);
 
 extern tree lookup_name (tree);
-extern tree build_known_method_ref (tree, tree, tree, tree, tree);
+extern tree build_known_method_ref (tree *, tree, tree, tree *, tree *);
 extern tree build_class_init (tree, tree);
 extern int attach_init_test_initialization_flags (void **, void *);
 extern tree build_invokevirtual (tree, tree);
