@@ -1,3 +1,9 @@
+2006-04-18  Devang Patel  <dpatel@apple.com>
+
+	Radar 4475058
+	* tree-ssa-forwprop.c (all_uses_are_replacable): Processing of one
+	worklist stmt may remove casts from another worklist item.
+
 2006-04-17  Devang Patel  <dpatel@apple.com>
 
 	Radar 4499790
