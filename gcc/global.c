@@ -338,15 +338,10 @@ global_alloc (void)
   max_regno = max_reg_num ();
   compact_blocks ();
 
-  /* Create a new version of df that has the special version of UR.  */
-  ra_df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (ra_df, 0);
-  df_urec_add_problem (ra_df, 0);
-
-  df_analyze (ra_df);
   if (dump_file)
     df_dump (ra_df, dump_file);
   max_allocno = 0;
+  df_analyze (ra_df);
 
 #if 0
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -2019,17 +2014,12 @@ rest_of_handle_global_alloc (void)
 
   /* If optimizing, allocate remaining pseudo-regs.  Do the reload
      pass fixing up any insns that are invalid.  */
-
   if (optimize)
     failure = global_alloc ();
   else
     {
-      ra_df = df_init (DF_HARD_REGS);
-      df_lr_add_problem (ra_df, 0);
-      df_urec_add_problem (ra_df, 0);
-      df_analyze (ra_df);
-
       build_insn_chain (get_insns ());
+      df_analyze (ra_df);
       failure = reload (get_insns (), 0);
       df_finish (ra_df);
     }

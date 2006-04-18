@@ -1634,10 +1634,6 @@ fix_crossing_conditional_branches (void)
 		  new_bb->il.rtl->footer = unlink_insn_chain (barrier, 
 							   barrier);
 		  
-		  /* Update register liveness information.  */
-		  if (rtl_df)
-		    df_analyze_simple_change_one_block (rtl_df, new_bb);
-  
 		  /* Make sure new bb is in same partition as source
 		     of conditional branch.  */
 		  BB_COPY_PARTITION (new_bb, cur_bb);

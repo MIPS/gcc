@@ -70,7 +70,7 @@ struct match {
 };
 
 static rtx discover_flags_reg (void);
-static void mark_flags_life_zones (rtx);
+static void mark_flags_life_zones (struct df *, rtx);
 static void flags_set_1 (rtx, rtx, void *);
 
 static int try_auto_increment (rtx, rtx, rtx, rtx, HOST_WIDE_INT, int);
@@ -218,7 +218,7 @@ static rtx flags_set_1_rtx;
 static int flags_set_1_set;
 
 static void
-mark_flags_life_zones (rtx flags)
+mark_flags_life_zones (struct df *df, rtx flags)
 {
   int flags_regno;
   int flags_nregs;
@@ -268,7 +268,7 @@ mark_flags_life_zones (rtx flags)
       {
 	int i;
 	for (i = 0; i < flags_nregs; ++i)
-	  live |= REGNO_REG_SET_P (DF_LIVE_IN (rtl_df, block), flags_regno + i);
+	  live |= REGNO_REG_SET_P (DF_LIVE_IN (df, block), flags_regno + i);
       }
 #endif
 
@@ -1046,6 +1046,10 @@ regmove_optimize (rtx f, int nregs)
   int i;
   rtx copy_src, copy_dst;
   basic_block bb;
+  struct df * df = df_init (DF_HARD_REGS);
+  df_ur_add_problem (df, 0);
+  df_ri_add_problem (df, 0);
+  df_analyze (df);
 
   /* ??? Hack.  Regmove doesn't examine the CFG, and gets mightily
      confused by non-call exceptions ending blocks.  */
@@ -1054,7 +1058,7 @@ regmove_optimize (rtx f, int nregs)
 
   /* Find out where a potential flags register is live, and so that we
      can suppress some optimizations in those zones.  */
-  mark_flags_life_zones (discover_flags_reg ());
+  mark_flags_life_zones (df, discover_flags_reg ());
 
   regno_src_regno = XNEWVEC (int, nregs);
   for (i = nregs; --i >= 0; ) regno_src_regno[i] = -1;
@@ -1503,6 +1507,7 @@ regmove_optimize (rtx f, int nregs)
   /* Clean up.  */
   free (regno_src_regno);
   free (regmove_bb_head);
+  df_finish (df);
 }
 
 /* Returns nonzero if INSN's pattern has matching constraints for any operand.
@@ -2473,7 +2478,6 @@ static unsigned int
 rest_of_handle_regmove (void)
 {
   regmove_optimize (get_insns (), max_reg_num ());
-  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
   return 0;
 }
 

@@ -1,3 +1,18 @@
+2006-04-18  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* mode-switching.c (optimize_mode_switching): Created local
+	instance of df and removed references to flow.
+	* regmove.c (mark_flags_life_zones, regmove_optimize): Ditto.
+	* global.c (global_alloc, rest_of_handle_global_alloc): Reused 
+	instance of df created in local alloc.
+	* local-alloc.c (rest_of_handle_local_alloc): Create instance of 
+	ra_df used by all register allocation.
+	* bb-reorder.c (fix_crossing_conditional_branches): Removed code
+	to keep dataflow up to date.
+	* Makefile.in (bb-reorder.o): Removed ref to DF_H.
+	* passes.c (init_optimization_passes): Meved clear_df to before
+	partition_blocks.
+		
+
 2006-04-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* tree-pass.h (pass_recompute_reg_usage): Deleted.  flow.c
 	(pass_recompute_reg_usage, recompute_reg_usage): Deleted.  *

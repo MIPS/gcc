@@ -2495,6 +2495,13 @@ rest_of_handle_local_alloc (void)
 {
   int rebuild_notes;
 
+  /* Create a new version of df that has the special version of UR.  */
+  ra_df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (ra_df, 0);
+  df_urec_add_problem (ra_df, 0);
+  df_ri_add_problem (ra_df, DF_RI_LIFE);
+  df_analyze (ra_df);
+
   /* Determine if the current function is a leaf before running reload
      since this can impact optimizations done by the prologue and
      epilogue thus changing register elimination offsets.  */
