@@ -1,3 +1,15 @@
+2006-04-18  Andrew Haley  <aph@redhat.com>
+
+	* java/lang/natVMThrowable.cc (fillInStackTrace): Pass
+	__PRETTY_FUNCTION__ to GetStackTrace().	
+	* stacktrace.cc (record_caller): New.
+	(print_callers): New.
+	(GetStackTrace): Call record_caller().
+	(GetCallerInfo): Likewise.
+	(GetClassContext): Likewise.
+	(GetFirstNonSystemClassLoader): Likewise.
+	* exception.cc(_Jv_Throw): Likewise.
+
 2006-04-10  Andrew Haley  <aph@redhat.com>
 
 	* include/x86_64-signal.h (HANDLE_DIVIDE_OVERFLOW): New.
