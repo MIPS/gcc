@@ -114,14 +114,14 @@ private:
   static _Unwind_Reason_Code non_system_trace_fn (_Jv_UnwindState *state);
 
 public:
-  static _Jv_StackTrace *GetStackTrace (void);
+  static _Jv_StackTrace *GetStackTrace (const char*);
   static JArray< ::java::lang::StackTraceElement *>*
     GetStackTraceElements (_Jv_StackTrace *trace, 
     java::lang::Throwable *throwable);
-  static jclass GetCallingClass (jclass);
-  static void GetCallerInfo (jclass checkClass, jclass *, _Jv_Method **);
-  static JArray<jclass> *GetClassContext (jclass checkClass);
-  static ClassLoader *GetFirstNonSystemClassLoader (void);
+  static jclass GetCallingClass (jclass, const char*);
+  static void GetCallerInfo (jclass checkClass, jclass *, _Jv_Method **, const char*);
+  static JArray<jclass> *GetClassContext (jclass checkClass, const char*);
+  static ClassLoader *GetFirstNonSystemClassLoader (const char*);
   
 };
 

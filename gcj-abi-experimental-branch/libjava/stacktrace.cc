@@ -42,6 +42,46 @@ using namespace gnu::gcj::runtime;
 // enable native class GC.
 static java::util::IdentityHashMap *ncodeMap;
 
+#ifdef RECORD_STACKTRACE_CALLERS
+
+typedef struct poo_t
+{
+  const char *name;
+  struct poo_t *p;
+  int count;
+} poo_t;
+
+poo_t poo = {"", NULL, 0};
+
+void record_caller (const char *name)
+{
+  poo_t *poop = &poo;
+
+  while (poop)
+    {
+      if (strcmp (poop->name, name) == 0)
+	{
+	  poop->count++;
+	  return;
+	}
+      poop = poop->p;
+    }
+
+  poop = (poo_t *)_Jv_Malloc(sizeof (poo_t));
+  poop->name = name;
+  poop->count = 1;
+  poop->p = poo.p;
+  poo.p = poop;
+}
+
+void print_callers()
+{
+  for (poo_t *poop = poo.p; poop; poop = poop->p)
+    fprintf (stderr, "%s %d\n", poop->name, poop->count);
+}
+
+#endif // RECORD_STACKTRACE_CALLERS
+
 // Check the "class stack" for any classes initialized since we were last 
 // called, and add them to ncodeMap.
 void 
@@ -145,8 +185,12 @@ _Jv_StackTrace::UnwindTraceFn (struct _Unwind_Context *context, void *state_ptr)
 // Return a raw stack trace from the current point of execution. The raw 
 // trace will include all functions that have unwind info.
 _Jv_StackTrace *
-_Jv_StackTrace::GetStackTrace(void)
+_Jv_StackTrace::GetStackTrace(const char *s __attribute__((unused)))
 {
+#ifdef RECORD_STACKTRACE_CALLERS
+  record_caller (s);
+#endif
+
   int trace_size = 100;
   _Jv_StackFrame frames[trace_size];
   _Jv_UnwindState state (trace_size);
@@ -323,7 +367,6 @@ _Jv_StackTrace::GetStackTraceElements (_Jv_StackTrace *trace,
 	end_idx = i - 1;
     }
   
-  // Second pass: Look up line-number info for remaining frames.
   for (int i = start_idx; i <= end_idx; i++)
     {
       _Jv_StackFrame *frame = &trace->frames[i];
@@ -396,17 +439,21 @@ _Jv_StackTrace::calling_class_trace_fn (_Jv_UnwindState *state)
 // CHECKCLASS is typically the class calling GetCallingClass. The first class
 // above CHECKCLASS on the call stack will be returned.
 jclass
-_Jv_StackTrace::GetCallingClass (jclass checkClass)
+_Jv_StackTrace::GetCallingClass (jclass checkClass, const char *s)
 {
   jclass result = NULL;
-  GetCallerInfo (checkClass, &result, NULL);
+  GetCallerInfo (checkClass, &result, NULL, s);
   return result;
 }
 
 void
 _Jv_StackTrace::GetCallerInfo (jclass checkClass, jclass *caller_class,
-  _Jv_Method **caller_meth)
+  _Jv_Method **caller_meth, const char *s __attribute__((unused)))
 {
+#ifdef RECORD_STACKTRACE_CALLERS
+  record_caller (s);
+#endif
+
 #ifndef SJLJ_EXCEPTIONS
   int trace_size = 20;
   _Jv_StackFrame frames[trace_size];
@@ -438,8 +485,11 @@ _Jv_StackTrace::GetCallerInfo (jclass checkClass, jclass *caller_class,
 
 // Return a java array containing the Java classes on the stack above CHECKCLASS.
 JArray<jclass> *
-_Jv_StackTrace::GetClassContext (jclass checkClass)
+_Jv_StackTrace::GetClassContext (jclass checkClass, const char*s __attribute__((unused)))
 {
+#ifdef RECORD_STACKTRACE_CALLERS
+  record_caller (s);
+#endif
   JArray<jclass> *result = NULL;
 
   int trace_size = 100;
@@ -509,8 +559,12 @@ _Jv_StackTrace::non_system_trace_fn (_Jv_UnwindState *state)
 }
 
 ClassLoader *
-_Jv_StackTrace::GetFirstNonSystemClassLoader ()
+_Jv_StackTrace::GetFirstNonSystemClassLoader (const char *s __attribute__((unused)))
 {
+#ifdef RECORD_STACKTRACE_CALLERS
+  record_caller (s);
+#endif
+
   int trace_size = 32;
   _Jv_StackFrame frames[trace_size];
   _Jv_UnwindState state (trace_size);
