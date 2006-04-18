@@ -1,5 +1,19 @@
 2006-04-18  Andrew Haley  <aph@redhat.com>
 
+	* java/lang/natClass.cc (forName):  Pass
+	__PRETTY_FUNCTION__ to GetStackTrace().	
+	* java/lang/natRuntime.cc (_load): Likewise.
+	* java/lang/reflect/natArray.cc (newInstance): Likewise.
+	* java/lang/reflect/natMethod.cc (invoke): Likewise.
+	* java/lang/reflect/natField.cc (getAddr): Likewise.
+	* java/lang/reflect/natConstructor.cc (newInstance): Likewise.
+	* java/lang/natVMSecurityManager.cc (getClassContext): Likewise.
+	* java/io/natObjectInputStream.cc (currentLoader): Likewise.
+	* java/util/logging/natLogger.cc (getCallerStackFrame): Likewise.
+	* java/util/natResourceBundle.cc (getCallingClassLoader): Likewise.
+
+2006-04-18  Andrew Haley  <aph@redhat.com>
+
 	* java/lang/natVMThrowable.cc (fillInStackTrace): Pass
 	__PRETTY_FUNCTION__ to GetStackTrace().	
 	* stacktrace.cc (record_caller): New.

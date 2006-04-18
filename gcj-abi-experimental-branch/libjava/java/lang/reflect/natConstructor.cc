@@ -56,7 +56,7 @@ java::lang::reflect::Constructor::newInstance (jobjectArray args)
   // Check accessibility, if required.
   if (! (Modifier::isPublic (meth->accflags) || this->isAccessible()))
     {
-      Class *caller = _Jv_StackTrace::GetCallingClass (&Constructor::class$);
+      Class *caller = _Jv_StackTrace::GetCallingClass (&Constructor::class$, __PRETTY_FUNCTION__);
       if (! _Jv_CheckAccess(caller, declaringClass, meth->accflags))
 	throw new IllegalAccessException;
     }

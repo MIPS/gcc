@@ -145,7 +145,7 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
 
   if (do_search)
     {
-      ClassLoader *look = _Jv_StackTrace::GetFirstNonSystemClassLoader ();
+      ClassLoader *look = _Jv_StackTrace::GetFirstNonSystemClassLoader (__PRETTY_FUNCTION__);
 
       if (look != NULL)
 	{
