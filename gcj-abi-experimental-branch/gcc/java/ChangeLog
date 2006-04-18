@@ -1,3 +1,13 @@
+2006-04-18  Andrew Haley  <aph@redhat.com>
+
+	* lang.opt (flag_indirect_classes): New.
+	* gjavah.c (process_file): Comment out class$$.
+	* lang.c (java_init): Set flag_indirect_classes.
+	* mangle.c (mangle_member_name): Removed unused vars.
+	* class.c (emit_indirect_register_classes): Rewrite.  Generate an
+	initialized array that contains the address of class initializer
+	and the address of each class$ pointer.
+ 
 2006-02-15  Andrew Haley  <aph@redhat.com>
 
 	* class.c (GEN_TABLE): Don't pushdecl *_SYMS_DECL here.

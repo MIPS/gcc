@@ -233,8 +233,6 @@ mangle_local_cni_method_decl (tree decl)
 static void
 mangle_member_name (tree name)
 {
-  const char *s;
-  int len;
   append_gpp_mangled_name (IDENTIFIER_POINTER (name),
 			   IDENTIFIER_LENGTH (name));
 

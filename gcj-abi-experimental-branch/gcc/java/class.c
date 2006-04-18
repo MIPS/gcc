@@ -947,6 +947,7 @@ static tree
 build_static_class_ref (tree type)
 {
   tree decl_name, decl, ref;
+
   if (TYPE_SIZE (type) == error_mark_node)
     return null_pointer_node;
   decl_name = identifier_subst (DECL_NAME (TYPE_NAME (type)),
@@ -1956,7 +1957,14 @@ make_class_data (tree type)
   if (flag_hash_synchronization && POINTER_SIZE < 64)
     DECL_ALIGN (decl) = 64; 
   
+  if (flag_indirect_classes)
+    {
+      TREE_READONLY (decl) = 1;
+      TREE_CONSTANT (DECL_INITIAL (decl)) = 1;
+    }
+
   rest_of_decl_compilation (decl, 1, 0);
+
   {
     tree classdollar_field = build_classdollar_field (type);
     if (!flag_indirect_classes)
@@ -2482,23 +2490,46 @@ emit_indirect_register_classes (tree *list_p)
   tree klass, t, register_class_fn;
   int i;
 
-  t = build_function_type_list (class_ptr_type, class_ptr_type, NULL);
+  tree init = NULL_TREE;
+  int size = VEC_length (tree, registered_class) * 2 + 1;
+  tree class_array_type
+    = build_prim_array_type (ptr_type_node, size);
+  tree cdecl = build_decl (VAR_DECL, get_identifier ("_Jv_CLS"),
+			   class_array_type);
+  tree reg_class_list;
+  for (i = 0; VEC_iterate (tree, registered_class, i, klass); ++i)
+    {
+      init = tree_cons (NULL_TREE, 
+			fold_convert (ptr_type_node, 
+				      build_static_class_ref (klass)), init);
+      init = tree_cons 
+	(NULL_TREE, 
+	 fold_convert (ptr_type_node, 
+		       build_address_of (build_classdollar_field (klass))),
+	 init);
+    }
+  init = tree_cons (NULL_TREE, integer_zero_node, init); 
+  DECL_INITIAL (cdecl) = build_constructor_from_list (class_array_type,
+						      nreverse (init));
+  TREE_CONSTANT (DECL_INITIAL (cdecl)) = 1;
+  TREE_STATIC (cdecl) = 1;
+  DECL_ARTIFICIAL (cdecl) = 1;
+  DECL_IGNORED_P (cdecl) = 1;
+  TREE_READONLY (cdecl) = 1;
+  TREE_CONSTANT (cdecl) = 1;
+  rest_of_decl_compilation (cdecl, 1, 0);
+  reg_class_list = fold_convert (ptr_type_node, build_address_of (cdecl));
+
+  t = build_function_type_list (void_type_node, 
+				build_pointer_type (ptr_type_node), NULL);
   t = build_decl (FUNCTION_DECL, 
-		  get_identifier ("_Jv_NewClassFromInitializer"), t);
+		  get_identifier ("_Jv_RegisterNewClasses"), t);
   TREE_PUBLIC (t) = 1;
   DECL_EXTERNAL (t) = 1;
   register_class_fn = t;
-
-  for (i = 0; VEC_iterate (tree, registered_class, i, klass); ++i)
-    {
-      output_class = current_class = klass;
-      t = build_static_class_ref (klass);
-      t = tree_cons (NULL, t, NULL);
-      t = build_function_call_expr (register_class_fn, t);
-      t = build2 (MODIFY_EXPR, class_ptr_type, build_class_ref (klass),
-		  t);
-      append_to_statement_list (t, list_p);
-    }
+  t = tree_cons (NULL, reg_class_list, NULL);
+  t = build_function_call_expr (register_class_fn, t);
+  append_to_statement_list (t, list_p);
 }
 
 /* Emit something to register classes at start-up time.
