@@ -138,9 +138,9 @@ mangle_class_field (tree decl)
   tree type = DECL_CONTEXT (decl);
   mangle_record_type (type, /* for_pointer = */ 0);
   if (TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE)
-    MANGLE_RAW_STRING ("7class$$");
-  else
     MANGLE_RAW_STRING ("6class$");
+  else
+    MANGLE_RAW_STRING ("7class$$");
   obstack_1grow (mangle_obstack, 'E');
 }
 

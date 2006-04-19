@@ -2272,12 +2272,9 @@ process_file (JCF *jcf, FILE *out)
 	  for (i = 0; i < add_count; ++i)
 	    fprintf (out, "  %s\n", add_specs[i]);
 
-	  /* Generate an entry for the class objects.  */
+	  /* Generate an entry for the class object.  */
 	  generate_access (out, ACC_PUBLIC);
-	  fprintf (out, "  // gcj private: Do NOT use this field.\n");
-	  fprintf (out, "  // static ::java::lang::Class class$$;\n");
-	  generate_access (out, ACC_PUBLIC);
-	  fprintf (out, "\n  static ::java::lang::Class &class$;\n");
+	  fprintf (out, "\n  static ::java::lang::Class class$;\n");
 
 	  fputs ("}", out);
 	  

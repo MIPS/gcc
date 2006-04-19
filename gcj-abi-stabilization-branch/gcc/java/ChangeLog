@@ -1,8 +1,15 @@
+2006-04-19  Andrew Haley  <aph@redhat.com>
+
+	* mangle.c (mangle_class_field): Swap class$$ and class$.
+	* jvgenmain.c: (do_mangle_classname): Use class$$, not class$.
+
+	Revert last change.
+
 2006-04-18  Andrew Haley  <aph@redhat.com>
 
 	* java-expr.c (maybe_rewrite): New.
 	(build_known_method_ref): Call maybe_rewrite().
-	(expand_invoke):  Pass method, signature, and
+	(expand_invoke): Pass method, signature, and
 	args by reference.
 	* java-tree.h (build_known_method_ref): Pass method, signature, and
 	args by reference.
