@@ -1,3 +1,8 @@
+2006-04-18  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4516827
+	* gcc.apple/4516827.c:  New.
+
 2006-04-18  Devang Patel  <dpatel@apple.com>
 
 	Radar 4475058

@@ -1,3 +1,9 @@
+2006-04-18  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4516827
+	* tree-ssa-loop-ivopts.c (find_interesting_uses_address):
+	Apply Zdenek's fix from mainline (PR 26643).
+
 2006-04-18  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4505290
