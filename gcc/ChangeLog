@@ -1,3 +1,44 @@
+2006-04-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* yara-color.c (update_min_alt_costs): Save and restore possible
+	alternatives after commutative exchanges.
+	(process_op_insn_allocno_for_can_classes): Rename to
+	process_insn_op_allocno_for_can_classes.
+	(global_can_compare): Remove.
+	(push_globals_to_stack): Use one pass scan instead of sorting.
+
+	* yara-final.c (add_copy_list): Use control_flow_insn_p instead of
+	JUMP_P.
+
+	* yara-insn.c (get_first_operand_allocno,
+	change_other_allocno_container_loc): Remove.
+	(setup_possible_allocno_alternatives): Use switches.
+	(change_other_allocno_container_loc): Rename to
+	change_other_op_allocno_container_loc.
+	(make_commutative_exchange): Remove calls of
+	setup_possible_allocno_alternatives.
+	(find_best_alt_allocation): Save and restore possible
+	alternatives after commutative exchanges.
+	(allocate_insn_allocnos): Set up possible
+	alternatives after commutative exchange.
+
+	* yara-int.h (single_allocno_class): Remove the prototype.
+
+	* yara-ir.c (set_call_info, set_single_hard_reg_allocno_info,
+	single_alt_reg_class): New prototypes.
+	(single_allocno_class): Rename to single_reg_allocno_class.  Add
+	prototype.  Make the function static.
+	(create_block_allocnos): Move abnormal_edge_p calls out of the
+	loops.
+	(yara_ir_init_once): Call setup_mode_multi_reg_p.
+	(yara_ir_init): Remove setup_mode_multi_reg_p call.
+
+	* yara-trans.c (set_base_index_reg_sets): Save and restore
+	reg_renumber.
+	(copy_rtx_and_substitute): Remove.
+	(yara_trans_init_once): Call set_base_index_reg_sets.
+	(yara_trans_init): Remove set_base_index_reg_sets call.
+	
 2006-04-12  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* yara-int.h (yara_assert): New macro.

@@ -721,6 +721,7 @@ update_min_alt_costs (void)
   allocno_t a, a2;
   can_t can;
   struct insn_op_info *info;
+  alt_set_t saved_alt_set, saved_alt_set2;
   
   for (a2 = NULL, a = insn_allocnos [INSN_UID (curr_preference_insn)];
        a != NULL;
@@ -750,9 +751,16 @@ update_min_alt_costs (void)
       yara_assert (a2 != NULL);
       op_num = INSN_ALLOCNO_TYPE (a2) - OPERAND_BASE;
       yara_assert (op_num >= 0);
+      a = INSN_ALLOCNO_COMMUTATIVE (a2);
+      COPY_ALT_SET (saved_alt_set, INSN_ALLOCNO_POSSIBLE_ALTS (a));
+      COPY_ALT_SET (saved_alt_set2, INSN_ALLOCNO_POSSIBLE_ALTS (a2));
       make_commutative_exchange (a2);
+      setup_possible_allocno_alternatives (info, a, false);
+      setup_possible_allocno_alternatives (info, a2, false);
       process_insn_allocno_for_costs (true);
       make_commutative_exchange (a2);
+      COPY_ALT_SET (INSN_ALLOCNO_POSSIBLE_ALTS (a), saved_alt_set);
+      COPY_ALT_SET (INSN_ALLOCNO_POSSIBLE_ALTS (a2), saved_alt_set2);
     }
 }
 
@@ -784,7 +792,7 @@ add_can_class_for_check (int can_num, enum machine_mode mode,
    insn with given INFO for alternative N_ALT to find all classes
    which should be checked for cover classes and register costs.  */
 static void
-process_op_insn_allocno_for_can_classes (allocno_t a,
+process_insn_op_allocno_for_can_classes (allocno_t a,
 					 struct insn_op_info *info,
 					 int n_alt, const char *constraint)
 {
@@ -841,7 +849,7 @@ process_op_insn_allocno_for_can_classes (allocno_t a,
 	  case '0': case '1': case '2': case '3': case '4':
 	  case '5': case '6': case '7': case '8': case '9':
 	    {
-	      process_op_insn_allocno_for_can_classes
+	      process_insn_op_allocno_for_can_classes
 		(a, info, n_alt,
 		 info->op_constraints [(c - '0') * info->n_alts + n_alt]);
 	      break;
@@ -915,7 +923,7 @@ setup_can_classes (void)
 			      }
 			    else
 			      {
-				process_op_insn_allocno_for_can_classes
+				process_insn_op_allocno_for_can_classes
 				  (a, info, curr_alt,
 				   info->op_constraints [op_num * info->n_alts
 							 + curr_alt]);
@@ -1577,42 +1585,14 @@ delete_can_from_bucket (can_t can, can_t *bucket_ptr)
    colouring.  */
 static varray_type global_stack_varray;
 
-/* Function used to sort cans according to their priorities to choose
-   one for spilling.  */
-static int
-global_can_compare (const void *c1p, const void *c2p)
-{
-  can_t c1 = *(can_t *) c1p;
-  can_t c2 = *(can_t *) c2p;
-  int diff, size1, size2;
-
-  if (CAN_IN_GRAPH_P (c1) && ! CAN_IN_GRAPH_P (c2))
-    return -1;
-  else if (! CAN_IN_GRAPH_P (c1) && CAN_IN_GRAPH_P (c2))
-    return 1;
-  else
-    {
-      yara_assert (CAN_COVER_CLASS (c1) == CAN_COVER_CLASS (c2));
-      size1 = reg_class_nregs [CAN_COVER_CLASS (c1)] [CAN_MODE (c1)];
-      size2 = reg_class_nregs [CAN_COVER_CLASS (c2)] [CAN_MODE (c2)];
-      diff = ((CAN_MEMORY_COST (c1) - CAN_COVER_CLASS_COST (c1))
-	      / (CAN_LEFT_CONFLICTS_NUM (c1) + 1) * size1
-	      - (CAN_MEMORY_COST (c2) - CAN_COVER_CLASS_COST (c2))
-	      / (CAN_LEFT_CONFLICTS_NUM (c2) + 1) * size2);
-      if (diff != 0)
-	return diff;
-      return CAN_NUM (c1) - CAN_NUM (c2);
-    }
-}
-
 /* Push global cans on the stack.  The order of cans in the stack
    defines the order for the subsequent colouring.  */
 static void
 push_globals_to_stack (void)
 {
-  int i, size = 0, conflicts_num, conflict_size;
+  int i, j, can_pri, i_can_pri, size = 0, conflicts_num, conflict_size;
   int first_non_empty_bucket_num;
-  can_t can, conflict_can;
+  can_t can, i_can, conflict_can;
   can_t *can_vec, *sorted_global_cans, *bucket_ptr;
   enum reg_class cover_class;
   int num, cover_class_cans_num [N_REG_CLASSES];
@@ -1682,13 +1662,40 @@ push_globals_to_stack (void)
 		  num = cover_class_cans_num [cover_class];
 		  yara_assert (num > 0);
 		  can_vec = cover_class_cans [cover_class];
-		  qsort (can_vec, num, sizeof (can_t), global_can_compare);
-		  for (num--; ! CAN_IN_GRAPH_P (can_vec [num]); num--)
-		    ;
-		  yara_assert (num >= 0);
-		  cover_class_cans_num [cover_class] = num;
-		  can = can_vec [0];
-		  cover_class_cans [cover_class]++;
+		  can = NULL;
+		  can_pri = 0;
+		  for (i = 0, j = num - 1; i <= j;)
+		    {
+		      i_can = can_vec [i];
+		      if (! CAN_IN_GRAPH_P (i_can)
+			  && CAN_IN_GRAPH_P (can_vec [j]))
+			{
+			  i_can = can_vec [j];
+			  can_vec [j] = can_vec [i];
+			  can_vec [i] = i_can;
+			}
+		      if (CAN_IN_GRAPH_P (i_can))
+			{
+			  i++;
+			  i_can_pri
+			    = ((CAN_MEMORY_COST (i_can)
+				- CAN_COVER_CLASS_COST (i_can))
+			       / (CAN_LEFT_CONFLICTS_NUM (i_can) + 1)
+			       * reg_class_nregs [CAN_COVER_CLASS (i_can)]
+			       [CAN_MODE (i_can)]);
+			  if (can == NULL || can_pri > i_can_pri
+			      || (can_pri == i_can_pri
+				  && CAN_NUM (can) > CAN_NUM (i_can)))
+			    {
+			      can = i_can;
+			      can_pri = i_can_pri;
+			    }
+			}
+		      if (! CAN_IN_GRAPH_P (can_vec [j]))
+			j--;
+		    }
+		  yara_assert (can != NULL && j >= 0);
+		  cover_class_cans_num [cover_class] = j + 1;
 		  size = reg_class_nregs [cover_class] [CAN_MODE (can)];
 		  yara_assert (CAN_IN_GRAPH_P (can)
 			       && CAN_COVER_CLASS (can) == cover_class
@@ -3228,7 +3235,8 @@ pseudo_reg_copy_cost (copy_t cp)
 	                              [REGNO_REG_CLASS (dst_hard_regno)];
 	}
     }
-  return cost * COPY_FREQ (cp) * COST_FACTOR;
+  cost *= COPY_FREQ (cp) * COST_FACTOR;
+  return cost;
 }
 
 

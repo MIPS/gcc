@@ -1371,11 +1371,21 @@ get_temp_stack_memory_slot_rtx (enum machine_mode mode, HOST_WIDE_INT disp,
 #define REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE) REGNO_OK_FOR_BASE_P (REGNO)
 #endif
 
+/* The function sets up sets of hard registers which can be used for
+   base and index registers.  */
 static void
 set_base_index_reg_sets (void)
 {
   int i, mode;
+  short *saved_reg_renumber;
+  short temp_array [FIRST_PSEUDO_REGISTER];
 
+  /* REGNO_OK_FOR_INDEX_P and REGNO_MODE_OK_FOR_BASE_P can use
+     reg_renumber so we need to define it temporarily.  */
+  saved_reg_renumber = reg_renumber;
+  reg_renumber = temp_array;
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    temp_array [i] = -1;
   CLEAR_HARD_REG_SET (index_regs);
   for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
     CLEAR_HARD_REG_SET (base_regs [mode]);
@@ -1388,6 +1398,7 @@ set_base_index_reg_sets (void)
 	if (REGNO_MODE_OK_FOR_BASE_P (i, mode))
 	  SET_HARD_REG_BIT (base_regs [mode], i);
     }
+  saved_reg_renumber = reg_renumber;
 }
 
 int minimal_memory_load_cost [MAX_MACHINE_MODE];
@@ -2370,75 +2381,6 @@ check_insns_added_since (rtx last)
 	  break;
       }
   return insn == NULL_RTX;
-}
-
-static rtx
-copy_rtx_and_substitute (rtx x, allocno_t a)
-{
-  int i, hard_regno;
-  bool copy_p;
-  const char *fmt;
-  rtx subst;
-  allocno_t insn_a;
-  enum rtx_code code = GET_CODE (x);
-
-  /* Ignore registers in memory.  */
-  if (code == REG)
-    {
-      if (HARD_REGISTER_P (x))
-	return NULL_RTX;
-      for (insn_a = insn_allocnos [INSN_UID (INSN_ALLOCNO_INSN (a))];
-	   insn_a != NULL;
-	   insn_a = INSN_ALLOCNO_NEXT (insn_a))
-	if (INSN_ALLOCNO_CONTAINER_LOC (insn_a) == INSN_ALLOCNO_LOC (a))
-	  break;
-      yara_assert (insn_a != NULL
-		   && (INSN_ALLOCNO_TYPE (insn_a) == BASE_REG
-		       || INSN_ALLOCNO_TYPE (insn_a) == INDEX_REG));
-      hard_regno = ALLOCNO_HARD_REGNO (insn_a);
-      if (hard_regno < 0)
-	hard_regno =
-	  class_hard_regs [(INSN_ALLOCNO_TYPE (a) == BASE_REG
-			    ? BASE_REG_CLASS : INDEX_REG_CLASS)] [0];
-      return gen_rtx_REG (ALLOCNO_MODE (insn_a), hard_regno);
-    }
-  fmt = GET_RTX_FORMAT (code);
-  copy_p = false;
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	{
-	  subst = copy_rtx_and_substitute (XEXP (x, i), a);
-	  if (subst != NULL_RTX)
-	    {
-	      if (! copy_p)
-		{
-		  copy_p = true;
-		  x = shallow_copy_rtx (x);
-		}
-	      XEXP (x, i) = subst;
-	    }
-	}
-      else if (fmt[i] == 'E')
-	{
-	  int j;
-
-	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	    {
-	      subst = copy_rtx_and_substitute (XVECEXP (x, i, j), a);
-	      if (subst != NULL_RTX)
-		{
-		  if (! copy_p)
-		    {
-		      copy_p = true;
-		      x = shallow_copy_rtx (x);
-		    }
-		  XVECEXP (x, i, j) = subst;
-		}
-	    }
-	}
-    }
-  return (copy_p ? x : NULL_RTX);
 }
 
 /* HARD_REGNO should be tried as hard regno for A.  */
@@ -3791,13 +3733,18 @@ eliminate_virtual_registers (int (*func) (allocno_t, enum reg_class,
 
 
 
+/* The function is called once for each compilation file.  It does
+   initialization of data common for all RTL functions.  */
 void
 yara_trans_init_once (void)
 {
   setup_temp_mems_and_addresses ();
   setup_move_costs ();
+  set_base_index_reg_sets ();
 }
 
+/* The function initializes local file data used for each RTL
+   function.  */
 void
 yara_trans_init (void)
 {
@@ -3807,9 +3754,9 @@ yara_trans_init (void)
 #endif
   initiate_memory_slots ();
   initiate_transactions ();
-  set_base_index_reg_sets ();
 }
 
+/* The function frees local file data used for each RTL function.  */
 void
 yara_trans_finish (void)
 {

@@ -187,6 +187,13 @@ static void set_allocno_conflict (allocno_t, void *, int);
 static void mark_allocno_live (allocno_t, bool);
 static void mark_allocno_death (allocno_t);
 static void process_non_operand_hard_regs (rtx *, bool);
+
+static void set_call_info (allocno_t, void *, int);
+static void set_single_hard_reg_allocno_info (allocno_t, void *, int);
+static enum reg_class single_alt_reg_class (const char *,
+					    struct insn_op_info *, int);
+static enum reg_class single_reg_allocno_class (allocno_t);
+
 #ifdef HAVE_ANY_SECONDARY_MOVES
 static void set_copy_conflict (allocno_t, void *, int);
 #endif
@@ -3137,6 +3144,9 @@ process_non_operand_hard_regs (rtx *loc, bool output_p)
     }
 }
 
+/* The function sets up call_p and increment call_freq for allocno
+   LIVE_A living through call insn given by DATA.  The function is
+   called by generic traverse function process_live_allocnos.  */
 static void
 set_call_info (allocno_t live_a, void *data,
 	       int local_live_index ATTRIBUTE_UNUSED)
@@ -3147,6 +3157,10 @@ set_call_info (allocno_t live_a, void *data,
   ALLOCNO_CALL_FREQ (live_a) += BLOCK_FOR_INSN (insn)->frequency;
 }
 
+/* The function sets up hard registers conflicting with allocno
+   LIVE_A.  The hard registers are given by their class passed through
+   DATA.  The function is called by generic traverse function
+   process_live_allocnos.  */
 static void
 set_single_hard_reg_allocno_info (allocno_t live_a, void *data,
 				  int local_live_index ATTRIBUTE_UNUSED)
@@ -3159,6 +3173,10 @@ set_single_hard_reg_allocno_info (allocno_t live_a, void *data,
 		    reg_class_contents [cl]);
 }
 
+/* The function checks that CONSTRAINTS of alternative ALT_NUM of insn
+   with INFO permits to use only one hard register.  If it is so, the
+   function returns the class of the hard register.  Otherwise it
+   returns NO_REGS.  */
 static enum reg_class
 single_alt_reg_class (const char *constraints, struct insn_op_info *info,
 		      int alt_num)
@@ -3217,8 +3235,11 @@ single_alt_reg_class (const char *constraints, struct insn_op_info *info,
   return cl;
 }
 
-enum reg_class
-single_allocno_class (allocno_t a)
+/* The function checks that insn allocno A can use only one hard
+   register.  If it is so, the function returns the class of the hard
+   register.  Otherwise it returns NO_REGS.  */
+static enum reg_class
+single_reg_allocno_class (allocno_t a)
 {
   enum reg_class cl, next_cl;
   struct insn_op_info *info;
@@ -3281,7 +3302,7 @@ build_insn_allocno_conflicts (rtx insn)
       {
 	enum reg_class cl;
 
-	cl = single_allocno_class (a);
+	cl = single_reg_allocno_class (a);
 	if (cl != NO_REGS)
 	  process_live_allocnos (set_single_hard_reg_allocno_info,
 				 (void *) cl);
@@ -3338,7 +3359,7 @@ build_insn_allocno_conflicts (rtx insn)
       {
 	enum reg_class cl;
 
-	cl = single_allocno_class (a);
+	cl = single_reg_allocno_class (a);
 	if (cl != NO_REGS)
 	  process_live_allocnos (set_single_hard_reg_allocno_info,
 				 (void *) cl);
@@ -3993,11 +4014,14 @@ abnormal_edge_p (VEC(edge,gc) *edges)
   return false;
 }
 
+/* The function create copies and allocnos for registers living in
+   basic block represented by node LOOP.  */
 static void
 create_block_allocnos (struct yara_loop_tree_node *loop)
 {
   basic_block bb = loop->bb;
   bitmap_iterator bi;
+  bool abnormal_p;
   int i;
   unsigned int k;
   edge_iterator ei;
@@ -4033,15 +4057,16 @@ create_block_allocnos (struct yara_loop_tree_node *loop)
 			     temp_live_through_abnormal);
 	  }
       }
+  abnormal_p = abnormal_edge_p (bb->preds);
   for (i = 0; i < live_pseudo_regs_num; i++)
     create_bb_allocno (live_pseudo_regs [i], loop, true,
-		       live_through_abnormal, abnormal_edge_p (bb->preds));
+		       live_through_abnormal, abnormal_p);
   create_bb_insn_allocnos (loop);
+  abnormal_p = abnormal_edge_p (bb->succs);
   EXECUTE_IF_SET_IN_REG_SET (bb->il.rtl->global_live_at_end,
 			     FIRST_PSEUDO_REGISTER, k, bi)
     {
-      create_bb_allocno (k, loop, false,
-			 live_through_abnormal, abnormal_edge_p (bb->succs));
+      create_bb_allocno (k, loop, false, live_through_abnormal, abnormal_p);
     }
   if (live_through_abnormal != NULL)
     yara_free_bitmap (live_through_abnormal);
@@ -5945,14 +5970,18 @@ setup_slotno_max_ref_align_size (void)
 
 
 
+/* The function is called once for each compilation file.  It does
+   initialization of data common for all RTL functions.  */
 void
 yara_ir_init_once (void)
 {
-  /* setup_mode_multi_reg_p ??? */
+  setup_mode_multi_reg_p ();
   setup_reg_class_nregs ();
   setup_spill_class_mode ();
 }
 
+/* The function builds IR of the allocator (alocnos, copies, CANs) and
+   initializes local file data used for each RTL function.  */
 void
 yara_ir_init (void)
 {
@@ -5977,7 +6006,6 @@ yara_ir_init (void)
     live_pseudo_reg_indexes [i] = -1;
   create_regno_allocno_maps ();
   allocate_loop_regno_allocno_map (yara_loop_tree_root);
-  setup_mode_multi_reg_p ();
   VARRAY_GENERIC_PTR_NOGC_INIT
     (live_through_allocnos_varray, max_regno * 2 * n_basic_blocks,
      "allocno living through basic blocks and egdes");
@@ -6026,6 +6054,8 @@ yara_ir_init (void)
 }
 
 
+/* The function frees the allocator IR and local file data used for
+   each RTL function.  */
 void
 yara_ir_finish (void)
 {

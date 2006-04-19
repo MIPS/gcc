@@ -883,7 +883,6 @@ extern void make_canon_plus (rtx **, rtx **);
 extern bool decode_address (rtx *, rtx **, rtx **, rtx **, rtx **,
 			    HOST_WIDE_INT *, bool);
 extern copy_t find_post_insn_allocno_copy (allocno_t, rtx);
-extern enum reg_class single_allocno_class (allocno_t);
 extern rtx *get_container_loc (rtx *, rtx *);
 extern allocno_t insn_allocno (rtx, rtx);
 

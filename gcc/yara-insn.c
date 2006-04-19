@@ -44,7 +44,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 
 static bool check_alternative_possibility (allocno_t, const char *, bool);
-static allocno_t get_first_operand_allocno (allocno_t);
 static void setup_possible_operand_alternatives (rtx, bool);
 
 static bool try_hard_regno_from_connected_allocno (allocno_t, enum reg_class,
@@ -53,8 +52,6 @@ static bool assign_hard_regno_to_pseudo_reg_insn_allocno (allocno_t,
 							  enum reg_class,
 							  HARD_REG_SET);
 static bool assign_constraint (allocno_t, const char *);
-static void change_other_allocno_container_loc (allocno_t, allocno_t,
-						rtx *, rtx *);
 static void find_best_alt_allocation_1 (void);
 static void find_best_alt_allocation (void);
 static int get_duplication_number (const char *);
@@ -65,6 +62,9 @@ static bool assign_insn_allocnos_without_copy (rtx insn);
 
 
 
+/* The function checks that constraint *P is possible (in strict sense
+   if STRICT_P) for allocno A.  The function returns true for the
+   successful try.  */
 static bool
 check_alternative_possibility (allocno_t a, const char *p, bool strict_p)
 {
@@ -251,6 +251,9 @@ check_alternative_possibility (allocno_t a, const char *p, bool strict_p)
   return false;
 }
 
+/* The function sets up possible alternatives (in strict sense if
+   STRICT_P) for allocno A representing an operand of insn given by
+   INFO.  */
 void
 setup_possible_allocno_alternatives (struct insn_op_info *info, allocno_t a,
 				      bool strict_p)
@@ -277,61 +280,69 @@ setup_possible_allocno_alternatives (struct insn_op_info *info, allocno_t a,
 	  for (;
 	       (c = *constraints);
 	       constraints += CONSTRAINT_LEN (c, constraints))
-	    if (c == ' ' || c == '\t' || c == '=' || c == '+' || c == '*'
-		|| c == '&' || c == '%' || c == '?' || c == '!')
-	      ;
-	    else if ('0' <= c && c <= '9')
-	      {
-		allocno_t a1;
-		const char *str;
-		int n = c - '0';
-
-		yara_assert (op_num > n);
-		a1 = (insn_op_allocnos [INSN_UID (INSN_ALLOCNO_INSN (a))] [n]);
-		if (! strict_p)
-		  SET_ALT (set, n_alt);
-		else if (INSN_ALLOCNO_TIED_ALLOCNO (a) == a1
-			 && TEST_ALT (INSN_ALLOCNO_POSSIBLE_ALTS (a1), n_alt))
+	    {
+	      switch (c)
+		{
+		case ' ': case '\t': case '=': case '+': case '*':
+		case '&': case '%': case '?': case '!':
+		  continue;
+		  
+		case '0': case '1': case '2': case '3': case '4':
+		case '5': case '6': case '7': case '8': case '9':
 		  {
-		    /* ???!!! We have after allocation duplication
-		       first.  */
-		    str = info->op_constraints [(n) * alts_num + n_alt];
-		    for (; (c = *str); str += CONSTRAINT_LEN (c, str))
-		      if (c == ' ' || c == '\t' || c == '=' || c == '+'
-			  || c == '*' || c == '&' || c == '%'
-			  || c == '?' || c == '!')
-			;
-		      else
-			{
-			  yara_assert (c != '#');
-			  if (check_alternative_possibility (a, str, true))
-			    {
-			      SET_ALT (set, n_alt);
+		    allocno_t a1;
+		    const char *str;
+		    int n = c - '0';
+		    
+		    yara_assert (op_num > n);
+		    a1 = insn_op_allocnos [INSN_UID (INSN_ALLOCNO_INSN (a))]
+                                          [n];
+		    if (! strict_p)
+		      SET_ALT (set, n_alt);
+		    else if (INSN_ALLOCNO_TIED_ALLOCNO (a) == a1
+			     && TEST_ALT (INSN_ALLOCNO_POSSIBLE_ALTS (a1),
+					  n_alt))
+		      {
+			/* ???!!! We have after allocation duplication
+			   first.  */
+			str = info->op_constraints [(n) * alts_num + n_alt];
+			for (; (c = *str); str += CONSTRAINT_LEN (c, str))
+			  {
+			    switch (c)
+			      {
+			      case ' ': case '\t': case '=': case '+':
+			      case '*': case '&': case '%': case '?': case '!':
+				break;
+			      default:
+				yara_assert (c != '#');
+				if (check_alternative_possibility (a, str,
+								   true))
+				  SET_ALT (set, n_alt);
+				break;
+			      }
+			    if (TEST_ALT (set, n_alt))
 			      break;
-			    }
-			}
+			  }
+		      }
+		    break;
 		  }
-	      }
-	    else
-	      {
-		yara_assert (c != '#');
-		if (check_alternative_possibility (a, constraints, strict_p))
-		  SET_ALT (set, n_alt);
-	      }
+
+		default:
+		  yara_assert (c != '#');
+		  if (check_alternative_possibility (a, constraints, strict_p))
+		    SET_ALT (set, n_alt);
+		  break;
+		}
+	      if (TEST_ALT (set, n_alt))
+		break;
+	    }
 	}
     }
   INSN_ALLOCNO_POSSIBLE_ALTS (a) = set;
 }
 
-static allocno_t
-get_first_operand_allocno (allocno_t start)
-{
-  for (;start != NULL; start = INSN_ALLOCNO_NEXT (start))
-    if (INSN_ALLOCNO_TYPE (start) >= OPERAND_BASE)
-      break;
-  return start;
-}
-
+/* The function sets up possible alternatives (in strict sense if
+   STRICT_P) for allocnos representing operands of INSN.  */
 static void
 setup_possible_operand_alternatives (rtx insn, bool strict_p)
 {
@@ -339,10 +350,11 @@ setup_possible_operand_alternatives (rtx insn, bool strict_p)
   struct insn_op_info *info;
 
   info = insn_infos [INSN_UID (insn)];
-  for (op = get_first_operand_allocno (insn_allocnos [INSN_UID (insn)]);
+  for (op = insn_allocnos [INSN_UID (insn)];
        op != NULL;
-       op = get_first_operand_allocno (INSN_ALLOCNO_NEXT (op)))
-    setup_possible_allocno_alternatives (info, op, strict_p);
+       op = INSN_ALLOCNO_NEXT (op))
+    if (INSN_ALLOCNO_TYPE (op) >= OPERAND_BASE)
+      setup_possible_allocno_alternatives (info, op, strict_p);
 }
 
 void
@@ -794,9 +806,12 @@ static const char *curr_alt_constraints [MAX_RECOG_OPERANDS];
    current alternative.  */
 static allocno_t curr_alt_exchange_allocno;
 
+/* The function exchange container locations of commutative allocnos A
+   and A2 with the corresponding locations OLD_LOC and OLD_LOC2 if
+   they coincide with container locs.  */
 static void
-change_other_allocno_container_loc (allocno_t a, allocno_t a2,
-				    rtx *old_loc, rtx *old_loc2)
+change_other_op_allocno_container_loc (allocno_t a, allocno_t a2,
+				       rtx *old_loc, rtx *old_loc2)
 {
   allocno_t a1;
   
@@ -813,8 +828,8 @@ change_other_allocno_container_loc (allocno_t a, allocno_t a2,
       INSN_ALLOCNO_CONTAINER_LOC (a1) = INSN_ALLOCNO_LOC (a2);
 }
 
-/* The function exchanges insn allocno A with corresponding
-   commutative allocno.  */
+/* The function exchanges insn allocno A with the corresponding
+   commutative allocno without changing possible alternatives.  */
 void
 make_commutative_exchange (allocno_t a)
 {
@@ -822,7 +837,6 @@ make_commutative_exchange (allocno_t a)
   int temp, uid;
   bool temp_bool;
   rtx *op_loc, *op_loc2;
-  struct insn_op_info *info;
   allocno_t tied_allocno, tied_allocno2;
   allocno_t a2 = INSN_ALLOCNO_COMMUTATIVE (a);
 
@@ -859,7 +873,7 @@ make_commutative_exchange (allocno_t a)
   INSN_ALLOCNO_LOC (a2) = op_loc;
   INSN_ALLOCNO_CONTAINER_LOC (a2)
     = get_container_loc (op_loc, &PATTERN (INSN_ALLOCNO_INSN (a2)));
-  change_other_allocno_container_loc (a, a2, op_loc, op_loc2);
+  change_other_op_allocno_container_loc (a, a2, op_loc, op_loc2);
   tied_allocno = INSN_ALLOCNO_TIED_ALLOCNO (a);
   tied_allocno2 = INSN_ALLOCNO_TIED_ALLOCNO (a2);
   if (tied_allocno == NULL)
@@ -876,9 +890,6 @@ make_commutative_exchange (allocno_t a)
       INSN_ALLOCNO_TIED_ALLOCNO (a) = tied_allocno2;
       INSN_ALLOCNO_TIED_ALLOCNO (tied_allocno2) = a;
     }
-  info = insn_infos [INSN_UID (INSN_ALLOCNO_INSN (a))];
-  setup_possible_allocno_alternatives (info, a, false);
-  setup_possible_allocno_alternatives (info, a2, false);
 }
 
 /* Cost of all allocation before allocating insn allocnos of the
@@ -1101,6 +1112,7 @@ find_best_alt_allocation (void)
 {
   int i, j, op_num;
   allocno_t a, a2;
+  alt_set_t saved_alt_set, saved_alt_set2;
 
   curr_alt_exchange_allocno = NULL;
   find_best_alt_allocation_1 ();
@@ -1121,12 +1133,20 @@ find_best_alt_allocation (void)
       yara_assert (j < (int) VARRAY_ACTIVE_SIZE (insn_allocno_varray));
       op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
       yara_assert (op_num >= 0);
+      COPY_ALT_SET (saved_alt_set, INSN_ALLOCNO_POSSIBLE_ALTS (a));
+      COPY_ALT_SET (saved_alt_set2, INSN_ALLOCNO_POSSIBLE_ALTS (a2));
       make_commutative_exchange (a);
+      setup_possible_allocno_alternatives
+	(curr_allocation_insn_info, a, false);
+      setup_possible_allocno_alternatives
+	(curr_allocation_insn_info, a2, false);
       VARRAY_GENERIC_PTR (insn_allocno_varray, i) = a2;
       VARRAY_GENERIC_PTR (insn_allocno_varray, j) = a;
       curr_alt_exchange_allocno = a;
       find_best_alt_allocation_1 ();
       make_commutative_exchange (a);
+      COPY_ALT_SET (INSN_ALLOCNO_POSSIBLE_ALTS (a), saved_alt_set);
+      COPY_ALT_SET (INSN_ALLOCNO_POSSIBLE_ALTS (a2), saved_alt_set2);
       VARRAY_GENERIC_PTR (insn_allocno_varray, i) = a;
       VARRAY_GENERIC_PTR (insn_allocno_varray, j) = a2;
     }
@@ -1335,6 +1355,13 @@ assign_insn_allocnos_without_copy (rtx insn)
   return true;
 }
 
+/* Function makes assignment for all allocnos of INSN.  It may spill
+   allocnos living through the insn by calling hook
+   PROVIDE_ALLOCNO_CLASS_HARD_REG.  It also may use hook
+   CALL_CROSS_HINT to define that given allocno lives through a call.
+   The insn allocnos are processed in order provided by hook
+   INSN_ALLOCNO_SORT (e.g. to process allocnos with bigger constraints
+   first).  */
 void
 allocate_insn_allocnos (rtx insn, bool (*call_cross_hint) (allocno_t),
 			void (*insn_allocno_sort) (allocno_t *, int, rtx, int),
@@ -1356,7 +1383,14 @@ allocate_insn_allocnos (rtx insn, bool (*call_cross_hint) (allocno_t),
   if (! find_best_allocation (insn))
     gcc_unreachable ();
   if (best_insn_exchange_allocno != NULL)
-    make_commutative_exchange (best_insn_exchange_allocno);
+    {
+      make_commutative_exchange (best_insn_exchange_allocno);
+      setup_possible_allocno_alternatives
+	(curr_allocation_insn_info, best_insn_exchange_allocno, false);
+      setup_possible_allocno_alternatives
+	(curr_allocation_insn_info,
+	 INSN_ALLOCNO_COMMUTATIVE (best_insn_exchange_allocno), false);
+    }
   for (i = 0; i < (int) VARRAY_ACTIVE_SIZE (best_insn_allocno_varray); i++)
     {
       a = VARRAY_GENERIC_PTR (best_insn_allocno_varray, i);

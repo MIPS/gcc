@@ -2272,6 +2272,8 @@ emit_insns_at_bb_end (rtx insns, basic_block bb, rtx jmp, bool before_jump_p)
     }
 }
 
+/* The function generates insns representing copies of the list given
+   by CP.  */
 static void
 add_copy_list (copy_t cp)
 {
@@ -2284,7 +2286,7 @@ add_copy_list (copy_t cp)
     return;
   p = COPY_POINT (cp);
   pt = p.point_type;
-  jmp = (pt == AT_BB_END && JUMP_P (BB_END (p.u.bb))
+  jmp = (pt == AT_BB_END && control_flow_insn_p (BB_END (p.u.bb))
 	 ? BB_END (p.u.bb) : NULL_RTX);
   before_jump_p = true;
   start_sequence ();
