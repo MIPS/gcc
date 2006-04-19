@@ -1,3 +1,10 @@
+2006-04-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* ifcvt.c (rest_of_handle_if_after_combine): Removed flow
+	scaffolding.
+	* passes.c (init_optimization_passes): Moved clear_df to after
+	combine and changed two expensive dce passes into a dse and fast
+	dce pass.
+	
 2006-04-18  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* mode-switching.c (optimize_mode_switching): Created local
 	instance of df and removed references to flow.

@@ -651,10 +651,10 @@ init_optimization_passes (void)
   NEXT_PASS (pass_rtl_fwprop_addr);
   NEXT_PASS (pass_life);
   NEXT_PASS (pass_combine);
-  NEXT_PASS (pass_rtl_dce);
-  NEXT_PASS (pass_if_after_combine);
-  NEXT_PASS (pass_rtl_dce);
   NEXT_PASS (pass_clear_df);
+  NEXT_PASS (pass_rtl_dse);
+  NEXT_PASS (pass_if_after_combine);
+  NEXT_PASS (pass_fast_rtl_dce);
   NEXT_PASS (pass_partition_blocks);
   NEXT_PASS (pass_regmove);
   NEXT_PASS (pass_split_all_insns);

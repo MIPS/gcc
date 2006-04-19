@@ -3986,24 +3986,9 @@ gate_handle_if_after_combine (void)
 static unsigned int
 rest_of_handle_if_after_combine (void)
 {
-  bool had_df = rtl_df != NULL;
-  if (had_df)
-    {
-      df_finish (rtl_df);
-      rtl_df = NULL;
-    }
-
   no_new_pseudos = 0;
   if_convert ();
   no_new_pseudos = 1;
-  if (had_df)
-    {
-      rtl_df = df_init (DF_HARD_REGS);
-      df_lr_add_problem (rtl_df, 0);
-      df_ur_add_problem (rtl_df, 0);
-      df_ri_add_problem (rtl_df, 0);
-      df_analyze (rtl_df);
-    }
   return 0;
 }
 
