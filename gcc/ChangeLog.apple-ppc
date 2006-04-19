@@ -1,3 +1,13 @@
+2006-04-18  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4505290
+        * config/rs6000/t-darwin (DARWIN_EXTRA_CRT_BUILD_CFLAGS): New.
+        * config/t-darwin (crt3.o): Use it.
+        * config/rs6000/rs6000.md (call_indirect_nonlocal_sysv,
+        call_nonlocal_sysv, call_value_indirect_nonlocal_sysv,
+        call_value_nonlocal_sysv, sibcall_nonlocal_sysv,
+	sibcall_value_nonlocal_sysv): Use the P macro for 32/64 support.
+
 2006-04-18  Devang Patel  <dpatel@apple.com>
 
 	Radar 4475058
