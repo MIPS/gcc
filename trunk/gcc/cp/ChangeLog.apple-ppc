@@ -1,3 +1,9 @@
+2006-04-19 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4516785
+	* parser.c (cp_parser_simple_type_specifier): Don't lookup for objc object types
+	if type is scope qualified.
+
 2006-04-18  Devang Patel  <dpatel@apple.com>
 
 	Radar 4517944
