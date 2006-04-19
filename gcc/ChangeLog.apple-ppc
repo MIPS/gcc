@@ -1,3 +1,9 @@
+2006-04-18  Stuart Hastings  <stuart@apple.com>
+
+	Radar 4505290
+        * config/rs6000/rs6000.c (rs6000_initialize_trampoline): Use
+	pmode for SYMBOL_REFs.
+
 2006-04-18  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4516827
