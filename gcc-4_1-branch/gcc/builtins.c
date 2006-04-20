@@ -2334,7 +2334,7 @@ expand_builtin_int_roundingfn (tree exp, rtx target, rtx subtarget)
   gcc_assert (fallback_fndecl != NULL_TREE);
   exp = build_function_call_expr (fallback_fndecl, arglist);
 
-  tmp = expand_builtin_mathfn (exp, NULL_RTX, NULL_RTX);
+  tmp = expand_expr (exp, NULL_RTX, VOIDmode, EXPAND_NORMAL);
 
   /* Truncate the result of floating point optab to integer
      via expand_fix ().  */
@@ -3412,11 +3412,13 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
       tree dest = TREE_VALUE (arglist);
       tree val = TREE_VALUE (TREE_CHAIN (arglist));
       tree len = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      tree fndecl, fn;
+      enum built_in_function fcode;
       char c;
-
-      unsigned int dest_align
-	= get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
+      unsigned int dest_align;
       rtx dest_mem, dest_addr, len_rtx;
+
+      dest_align = get_pointer_alignment (dest, BIGGEST_ALIGNMENT);
 
       /* If DEST is not a pointer type, don't do this
 	 operation in-line.  */
@@ -3431,15 +3433,21 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	  return expand_expr (dest, target, mode, EXPAND_NORMAL);
 	}
 
+      /* Stabilize the arguments in case we fail.  */
+      dest = builtin_save_expr (dest);
+      val = builtin_save_expr (val);
+      len = builtin_save_expr (len);
+
       len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
       dest_mem = get_memory_rtx (dest, len);
 
       if (TREE_CODE (val) != INTEGER_CST)
 	{
+	  tree cval;
 	  rtx val_rtx;
 
-	  val = fold_build1 (CONVERT_EXPR, unsigned_char_type_node, val);
-	  val_rtx = expand_expr (val, NULL_RTX, VOIDmode, 0);
+	  cval = fold_build1 (CONVERT_EXPR, unsigned_char_type_node, val);
+	  val_rtx = expand_expr (cval, NULL_RTX, VOIDmode, 0);
 
 	  /* Assume that we can memset by pieces if we can store the
 	   * the coefficients by pieces (in the required modes).
@@ -3455,9 +3463,9 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	      store_by_pieces (dest_mem, tree_low_cst (len, 1),
 			       builtin_memset_gen_str, val_rtx, dest_align, 0);
 	    }
-	  else if (!set_storage_via_setmem(dest_mem, len_rtx, val_rtx, 
-					   dest_align))
-	    return 0;
+	  else if (!set_storage_via_setmem (dest_mem, len_rtx, val_rtx, 
+					    dest_align))
+	    goto do_libcall;
 
 	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
 	  dest_mem = convert_memory_address (ptr_mode, dest_mem);
@@ -3465,7 +3473,7 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	}
 
       if (target_char_cast (val, &c))
-	return 0;
+	goto do_libcall;
 
       if (c)
 	{
@@ -3477,7 +3485,7 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 			     builtin_memset_read_str, &c, dest_align, 0);
 	  else if (!set_storage_via_setmem (dest_mem, len_rtx, GEN_INT (c),
 					    dest_align))
-	    return 0;
+	    goto do_libcall;
 
 	  dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
 	  dest_mem = convert_memory_address (ptr_mode, dest_mem);
@@ -3496,6 +3504,19 @@ expand_builtin_memset (tree arglist, rtx target, enum machine_mode mode,
 	}
 
       return dest_addr;
+
+    do_libcall:
+      fndecl = get_callee_fndecl (orig_exp);
+      fcode = DECL_FUNCTION_CODE (fndecl);
+      gcc_assert (fcode == BUILT_IN_MEMSET || fcode == BUILT_IN_BZERO);
+      arglist = build_tree_list (NULL_TREE, len);
+      if (fcode == BUILT_IN_MEMSET)
+	arglist = tree_cons (NULL_TREE, val, arglist);
+      arglist = tree_cons (NULL_TREE, dest, arglist);
+      fn = build_function_call_expr (fndecl, arglist);
+      if (TREE_CODE (fn) == CALL_EXPR)
+	CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (orig_exp);
+      return expand_call (fn, target, target == const0_rtx);
     }
 }
 
@@ -3741,9 +3762,8 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
 
 	  /* If both arguments have side effects, we cannot optimize.  */
 	  if (!len || TREE_SIDE_EFFECTS (len))
-	    return 0;
+	    goto do_libcall;
 
-	  /* Stabilize the arguments in case gen_cmpstrnsi fails.  */
 	  arg3_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
 
 	  /* Make a place to write the result of the instruction.  */
@@ -3774,6 +3794,9 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
 
       /* Expand the library call ourselves using a stabilized argument
 	 list to avoid re-evaluating the function's arguments twice.  */
+#if HAVE_cmpstrnsi 
+    do_libcall:
+#endif
       arglist = build_tree_list (NULL_TREE, arg2);
       arglist = tree_cons (NULL_TREE, arg1, arglist);
       fndecl = get_callee_fndecl (exp);

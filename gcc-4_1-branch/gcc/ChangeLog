@@ -1,3 +1,74 @@
+2006-04-20  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/27182
+	* config/sh/sh.md (movsicc_true+3): Tweak condition for the case
+	that the last insn has the REG_INC note.
+
+2006-04-19  Jeff Law  <law@redhat.com>
+
+        PR tree-optimization/26854
+	* tree-ssa-dse.c (dse_optimize_stmt): Use has_single_use rather
+	than num_imm_uses.
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Similarly.
+
+2006-04-18  Jeff Law  <law@redhat.com>
+
+        PR tree-optimization/27087
+        * tree-ssa-copy.c (may_propagate_copy): Test flow sensitive
+        alias information too.
+
+2006-04-18  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* builtins.c (expand_builtin_strcmp): Cover label definition of 
+	do_libcall with HAVE_cmpstrnsi.
+
+2006-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+        PR tree-optimization/26643
+
+	Backport from mainline:
+	2006-03-29  Zdenek Dvorak <dvorakz@suse.cz>
+
+        PR tree-optimization/26643
+        * tree-ssa-loop-ivopts.c (find_interesting_uses_address): Do not handle
+        bit_field_refs.
+
+2006-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/26821
+
+	Backport from mainline:
+
+	2006-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/26821
+	* tree-ssa-math-opts.c (get_constant_one): New.
+	(insert_reciprocals): Use it.
+
+	2006-02-02  Paolo Bonzini  <bonzini@gnu.org>
+            
+	* tree-flow-inline.h (bsi_after_labels): Rewrite, return
+	what its name says.
+	* lambda-code.c (perfect_nestify): Use bsi_insert_before on
+	bsi_after_labels iterator.
+	* tree-if-conv.c (find_phi_replacement_condition,
+	replace_phi_with_cond_modify_expr): Likewise.
+	* tree-scalar-evolution.c (scev_const_prop): Likewise.
+	* tree-ssa-loop-ivopts.c (compute_phi_arg_on_exit): Likewise.   
+
+2006-04-18  Alan Modra  <amodra@bigpond.net.au>
+
+	PR middle-end/27095
+	* builtins.c (expand_builtin_memset): Stabilize args before expansion
+	and emit libcall here in case the builtin fails.
+	(expand_builtin_strcmp): Always emit the libcall here on failure.
+
+2006-04-16  Uros Bizjak  <uros@kss-loka.si>
+
+	PR middle-end/27134
+	* builtins.c (expand_builtin_int_roundingfn): Use expand_expr()
+	to expand fallback builtin function call.
+
 2006-04-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/26823

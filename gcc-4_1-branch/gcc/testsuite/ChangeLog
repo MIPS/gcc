@@ -1,3 +1,44 @@
+2006-04-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26558
+	* g++.dg/parse/template19.C: New test.
+
+	PR c++/26036
+	* g++.dg/expr/call3.C: New test.
+
+	PR c++/10385
+	* g++.dg/conversion/dynamic1.C: New test.
+
+2006-04-18  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/27087
+	* gcc.c-torture/compile/pr27087.c: New test.
+
+2006-04-18  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR tree-optimization/26821
+	* gcc.dg/vect/vect-recip.c: New test.
+
+2006-04-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26766
+	* gfortran.dg/write_recursive.f90: New test.
+
+2006-04-16  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/26769
+	* gfortran.dg/transpose_reshape_r10.f90:  New test case.
+
+2006-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26365
+	* typeck.c (finish_class_member_access_expr): Robustify
+
+2006-04-16  Uros Bizjak  <uros@kss-loka.si>
+
+	PR middle-end/27134
+	* gcc.dg/pr27314.c: New test.
+
 2006-04-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/26823
