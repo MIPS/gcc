@@ -79,7 +79,7 @@ getAddr (java::lang::reflect::Field* field, jclass caller, jobject obj,
   // Check accessibility, if required.
   if (! (Modifier::isPublic (flags) || field->isAccessible()))
     {
-      caller = _Jv_StackTrace::GetCallingClass (&Field::class$, __PRETTY_FUNCTION__);
+      caller = _Jv_StackTrace::GetCallingClass (&Field::class$);
       if (! _Jv_CheckAccess (caller, field->getDeclaringClass(), flags))
 	throw new java::lang::IllegalAccessException;
     }

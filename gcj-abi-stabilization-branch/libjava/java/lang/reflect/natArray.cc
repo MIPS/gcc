@@ -55,7 +55,7 @@ java::lang::reflect::Array::newInstance (jclass componentType,
   if (ndims == 1)
     return newInstance (componentType, dims[0]);
 
-  Class *caller = _Jv_StackTrace::GetCallingClass (&Array::class$, __PRETTY_FUNCTION__);
+  Class *caller = _Jv_StackTrace::GetCallingClass (&Array::class$);
   ClassLoader *caller_loader = NULL;
   if (caller)
     caller_loader = caller->getClassLoaderInternal();

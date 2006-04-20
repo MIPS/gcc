@@ -23,7 +23,7 @@ JArray<jclass> *
 java::lang::VMSecurityManager::getClassContext (jclass klass)
 {
   JArray<jclass> *result = 
-    _Jv_StackTrace::GetClassContext (klass, __PRETTY_FUNCTION__);
+    _Jv_StackTrace::GetClassContext (klass);
 
   return result;
 }

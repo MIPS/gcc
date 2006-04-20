@@ -30,7 +30,7 @@ java::lang::VMThrowable::fillInStackTrace (java::lang::Throwable *)
   if (! trace_enabled)
     return NULL;
   
-  _Jv_StackTrace *trace = _Jv_StackTrace::GetStackTrace (__PRETTY_FUNCTION__);
+  _Jv_StackTrace *trace = _Jv_StackTrace::GetStackTrace ();
   VMThrowable *vmthrowable = new VMThrowable ();
   vmthrowable->data = (RawDataManaged *) trace;
   return vmthrowable;

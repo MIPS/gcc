@@ -170,7 +170,7 @@ java::lang::reflect::Method::invoke (jobject obj, jobjectArray args)
   // Check accessibility, if required.
   if (! (Modifier::isPublic (meth->accflags) || this->isAccessible()))
     {
-      Class *caller = _Jv_StackTrace::GetCallingClass (&Method::class$, __PRETTY_FUNCTION__);
+      Class *caller = _Jv_StackTrace::GetCallingClass (&Method::class$);
       if (! _Jv_CheckAccess(caller, declaringClass, meth->accflags))
 	throw new IllegalAccessException;
     }

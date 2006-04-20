@@ -76,20 +76,12 @@ get_exception_header_from_ue (_Unwind_Exception *exc)
   return reinterpret_cast<java_exception_header *>(exc + 1) - 1;
 }
 
-#ifdef RECORD_STACKTRACE_CALLERS
-extern void record_caller (const char *name);
-#endif
-
 /* Perform a throw, Java style. Throw will unwind through this call,
    so there better not be any handlers or exception thrown here. */
 
 extern "C" void
 _Jv_Throw (jthrowable value)
 {
-#ifdef RECORD_STACKTRACE_CALLERS
-  record_caller (__PRETTY_FUNCTION__);
-#endif
-
   java_exception_header *xh
     = static_cast<java_exception_header *>(_Jv_AllocRawObj (sizeof (*xh)));
 

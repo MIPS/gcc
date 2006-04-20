@@ -32,7 +32,7 @@ java::util::logging::Logger::getCallerStackFrame ()
 {
   jclass klass = NULL;
   _Jv_Method *meth = NULL;
-  _Jv_StackTrace::GetCallerInfo (&Logger::class$, &klass, &meth, __PRETTY_FUNCTION__);
+  _Jv_StackTrace::GetCallerInfo (&Logger::class$, &klass, &meth);
 
   jstring meth_name = NULL;
   jstring klass_name = NULL;

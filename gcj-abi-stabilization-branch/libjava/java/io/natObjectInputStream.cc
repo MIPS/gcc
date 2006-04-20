@@ -73,7 +73,7 @@ java::io::ObjectInputStream::allocateObject (jclass klass, jclass,
 java::lang::ClassLoader *
 java::io::ObjectInputStream::currentLoader ()
 {
-  jclass caller = _Jv_StackTrace::GetCallingClass (&ObjectInputStream::class$, __PRETTY_FUNCTION__);
+  jclass caller = _Jv_StackTrace::GetCallingClass (&ObjectInputStream::class$);
   if (caller)
     return caller->getClassLoaderInternal();
   return NULL;

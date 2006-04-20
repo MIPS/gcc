@@ -22,7 +22,7 @@ using namespace java::lang;
 java::lang::ClassLoader *
 java::util::ResourceBundle::getCallingClassLoader ()
 {
-  jclass caller = _Jv_StackTrace::GetCallingClass (&ResourceBundle::class$, __PRETTY_FUNCTION__);
+  jclass caller = _Jv_StackTrace::GetCallingClass (&ResourceBundle::class$);
   if (caller)
     return caller->getClassLoaderInternal();
   return NULL;
