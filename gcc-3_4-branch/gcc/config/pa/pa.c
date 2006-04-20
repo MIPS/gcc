@@ -7533,7 +7533,8 @@ attr_length_indirect_call (rtx insn)
 
   if (TARGET_FAST_INDIRECT_CALLS
       || (!TARGET_PORTABLE_RUNTIME
-	  && ((TARGET_PA_20 && distance < 7600000) || distance < 240000)))
+	  && ((TARGET_PA_20 && !TARGET_SOM && distance < 7600000)
+	      || distance < 240000)))
     return 8;
 
   if (flag_pic)
@@ -7570,10 +7571,10 @@ output_indirect_call (rtx insn, rtx call_dest)
      the remaining cases.  */
   if (attr_length_indirect_call (insn) == 8)
     {
-      /* The HP linker substitutes a BLE for millicode calls using
-	 the short PIC PCREL form.  Thus, we must use %r31 as the
-	 link register when generating PA 1.x code.  */
-      if (TARGET_PA_20)
+      /* The HP linker sometimes substitutes a BLE for BL/B,L calls to
+	 $$dyncall.  Since BLE uses %r31 as the link register, the 22-bit
+	 variant of the B,L instruction can't be used on the SOM target.  */
+      if (TARGET_PA_20 && !TARGET_SOM)
 	return ".CALL\tARGW0=GR\n\tb,l $$dyncall,%%r2\n\tcopy %%r2,%%r31";
       else
 	return ".CALL\tARGW0=GR\n\tbl $$dyncall,%%r31\n\tcopy %%r31,%%r2";
@@ -9127,19 +9128,17 @@ som_text_section_asm_op (void)
 	      && !DECL_WEAK (cfun->decl))
 	    return
  "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,SORT=24,COMDAT";
-
-	  return "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$";
 	}
       else
 	{
 	  /* There isn't a current function or the body of the current
 	     function has been completed.  So, we are changing to the
-	     text section to output debugging information.  Do this in
-	     the default text section.  We need to forget that we are
-	     in the text section so that the function text_section in
-	     varasm.c will call us the next time around.  */
+	     text section to output debugging information.  We need to
+	     forget that we are in the text section so that the function
+	     text_section in varasm.c will call us the next time around.  */
 	  forget_section ();
 	}
+      return "\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$";
     }
 
   return "\t.SPACE $TEXT$\n\t.SUBSPA $CODE$";

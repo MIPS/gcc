@@ -1,3 +1,127 @@
+2006-03-05  Release Manager
+
+	* GCC 3.4.6 released.
+
+2006-02-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26291
+	* decl.c (grok_op_properties): Check for ellipsis in arguments of
+	operators.
+
+2006-02-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26070
+	* decl.c (grokdeclarator): Clear RID_STATIC together with staticp.
+
+2006-02-01  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25369
+	* pt.c (tsubst_copy): Call mark_used on the member referenced by an
+	OFFSET_REF.
+	* decl2.c (mark_used): Accept BASELINKs.
+
+2006-02-01  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24915
+	* class.c (add_method): Do not treat templates as identical unless
+	their return types are the same.
+
+2006-02-01  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24278
+	* init.c (expand_member_init): Print messages about baseclasses
+	using %T rather than %D.
+
+2006-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/16829
+	* decl.c (start_preparsed_function): Check default arguments
+	unconditionally.
+	* name-lookup.c (pushdecl_maybe_friend): Check default arguments
+	of all functions and function templates.
+	* parser.c (cp_parser_late_parsing_default_args): Check default
+	arguments.
+	* decl2.c (check_default_args): Set missing default arguments to
+	error_mark_node.
+
+2006-01-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/25854
+	* pt.c (maybe_process_partial_specialization): Return early on
+	error_mark_node.
+
+2005-12-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20552
+	Backport:
+	2004-03-08  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (duplicate_decls): Don't check IDENTIFIER_ERROR_LOCUS.
+
+2005-12-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/19397
+	PR c++/19762
+	PR c++/19764
+	* parser.c (cp_parser_declarator_id): Check for error_mark_node
+	before building a SCOPE_REF.
+
+2005-12-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22618
+	* search.c (accessible_p): Check access in the outermost set of
+	template parameters.
+
+2005-12-06  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-10-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21383
+	* name-lookup.c (arg_assoc): Template args can be null in a
+	template-id-expr.
+
+2005-12-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22352
+	* pt.c (tsubst_template_parms): Set processing_template_decl while
+	processing the parameters.
+	(tsubst_decl): Set processing_template_decl when substituting into
+	a TEMPLATE_DECL.
+
+2005-12-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22464
+	* semantics.c (finish_id_expression): Issue errors about uses of
+	local variables in containing functions even in templates.
+
+2005-12-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23307
+	* pt.c (push_template_decl_real): Complain about attempts to
+	declare template variables.
+
 2005-11-30  Release Manager
 
 	* GCC 3.4.5 released.

@@ -1,3 +1,403 @@
+2006-03-05  Release Manager
+
+	* GCC 3.4.6 released.
+
+2006-02-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26291
+	* g++.dg/other/ellipsis1.C: New test.
+	* g++.dg/parse/operator4.C: Adjust error marker.
+
+2006-02-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR c++/21583
+
+	Backport:
+	2004-11-30  Loren James Rittle  <ljrittle@acm.org>
+
+        * g++.old-deja/g++.eh/badalloc1.C (arena_size): Bump up to 262144
+        to support new requirements on FreeBSD 5.
+
+	2004-11-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.eh/badalloc1.C: Robustify.
+
+2006-02-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26070
+	* g++.dg/other/virtual1.C: New test.
+
+2006-02-01  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-12-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25369
+	* g++.dg/template/ptrmem16.C: New test.
+
+2006-02-01  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24915
+	* g++.dg/template/overload8.C: New test.
+
+2006-02-01  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/24278
+	* g++.dg/template/ctor5.C: New test.
+
+2006-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/16829
+	* g++.dg/other/default2.C: New test.
+	* g++.dg/other/default3.C: New test.
+
+2006-01-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/25854
+	* g++.dg/template/spec28.C: New test.
+
+2006-01-16  Ian Lance Taylor  <ian@airs.com>
+
+	* consistency.vlad: Remove entire directory, 1652 files.
+
+2006-01-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/25728
+	* lib/gcov.exp (verify-lines): Add "close $fd".
+
+2005-12-30  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/25214
+	* gcc.dg/i386-local2.c: Skip if ilp32 and -fpic/-fpic.
+
+2005-12-30  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/25213
+	* gcc.dg/pr23098.c: Backport testcase from mainline.
+
+2005-12-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.dg/rtti/tinfo1.C: Scan for ".global" also.
+
+2005-12-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2005-02-09  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* g++.dg/rtti/tinfo1.C: Allow newline after assembler label.
+
+	2004-11-28  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18489
+	* g++.dg/rtti/tinfo1.C: In pattern for label definition ending
+	delimeter, match space and TAB as well as ":".
+
+	Backport portions of:
+	2004-11-04  Ben Elliston  <bje@au.ibm.com>
+
+	* g++.dg/rtti/tinfo1.C: Remove xfails.
+
+2005-12-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/20772
+	* gcc.dg/20020523-1.c: Change run target i386 to i?86.
+
+2005-12-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/20772
+	* g++.dg/abi/bitfield3.C, g++.dg/abi/bitfield8.C,
+	g++.dg/abi/bitfield9.C, g++.dg/abi/dtor1.C, g++.dg/abi/empty10.C,
+	g++.dg/abi/empty7.C, g++.dg/abi/empty9.C, g++.dg/abi/layout3.C,
+	g++.dg/abi/layout4.C, g++.dg/abi/thunk1.C, g++.dg/abi/thunk2.C,
+	g++.dg/abi/vbase11.C, g++.dg/abi/vthunk2.C, g++.dg/abi/vthunk3.C,
+	g++.dg/eh/simd-1.C, g++.dg/eh/simd-2.C, g++.dg/ext/attrib8.C,
+	g++.dg/opt/cse2.C, g++.dg/opt/inline9.C, g++.dg/opt/life1.C,
+	g++.dg/opt/longbranch2.C, g++.dg/opt/mmx1.C,
+	g++.dg/opt/reg-stack4.C, g++.dg/other/big-struct.C,
+	g++.old-deja/g++.abi/aggregates.C, g++.old-deja/g++.abi/align.C,
+	g++.old-deja/g++.abi/bitfields.C, g++.old-deja/g++.eh/tmpl2.C,
+	g++.old-deja/g++.ext/asmspec1.C, g++.old-deja/g++.ext/attrib1.C,
+	g++.old-deja/g++.ext/attrib2.C, g++.old-deja/g++.ext/attrib3.C,
+	g++.old-deja/g++.law/weak.C, g++.old-deja/g++.other/regstack.C,
+	g++.old-deja/g++.other/store-expr1.C,
+	g++.old-deja/g++.other/store-expr2.C, g++.old-deja/g++.pt/asm1.C,
+	g++.old-deja/g++.pt/asm2.C, g77.dg/20010216-1.f,
+	gcc.c-torture/compile/20000804-1.c,
+	gcc.c-torture/execute/990413-2.x, gcc.dg/20000609-1.c,
+	gcc.dg/20000614-1.c, gcc.dg/20000720-1.c, gcc.dg/20000724-1.c,
+	gcc.dg/20000807-1.c, gcc.dg/20000904-1.c, gcc.dg/20001127-1.c,
+	gcc.dg/20010202-1.c, gcc.dg/20010520-1.c, gcc.dg/20011009-1.c,
+	gcc.dg/20011029-2.c, gcc.dg/20011107-1.c, gcc.dg/20011119-1.c,
+	gcc.dg/20020108-1.c, gcc.dg/20020122-2.c, gcc.dg/20020122-3.c,
+	gcc.dg/20020201-3.c, gcc.dg/20020206-1.c, gcc.dg/20020218-1.c,
+	gcc.dg/20020224-1.c, gcc.dg/20020310-1.c, gcc.dg/20020411-1.c,
+	gcc.dg/20020418-1.c, gcc.dg/20020418-2.c, gcc.dg/20020426-1.c,
+	gcc.dg/20020426-2.c, gcc.dg/20020517-1.c, gcc.dg/20020523-1.c,
+	gcc.dg/20020523-2.c, gcc.dg/20020531-1.c, gcc.dg/20020616-1.c,
+	gcc.dg/20020729-1.c, gcc.dg/20030204-1.c, gcc.dg/20030826-2.c,
+	gcc.dg/20030926-1.c, gcc.dg/20031102-1.c, gcc.dg/20031202-1.c,
+	gcc.dg/980226-1.c, gcc.dg/980312-1.c, gcc.dg/980313-1.c,
+	gcc.dg/980414-1.c, gcc.dg/980520-1.c, gcc.dg/980709-1.c,
+	gcc.dg/990117-1.c, gcc.dg/990130-1.c, gcc.dg/990213-2.c,
+	gcc.dg/990214-1.c, gcc.dg/990424-1.c, gcc.dg/990524-1.c,
+	gcc.dg/991129-1.c, gcc.dg/991209-1.c, gcc.dg/991214-1.c,
+	gcc.dg/991230-1.c, gcc.dg/asm-1.c, gcc.dg/clobbers.c,
+	gcc.dg/i386-387-1.c, gcc.dg/i386-387-2.c, gcc.dg/i386-387-3.c,
+	gcc.dg/i386-387-4.c, gcc.dg/i386-387-5.c, gcc.dg/i386-387-6.c,
+	gcc.dg/i386-asm-1.c, gcc.dg/i386-asm-2.c, gcc.dg/i386-bitfield1.c,
+	gcc.dg/i386-bitfield2.c, gcc.dg/i386-bitfield3.c,
+	gcc.dg/i386-call-1.c, gcc.dg/i386-local.c, gcc.dg/i386-loop-1.c,
+	gcc.dg/i386-loop-2.c, gcc.dg/i386-loop-3.c,
+	gcc.dg/i386-memset-1.c, gcc.dg/i386-pentium4-not-mull.c,
+	gcc.dg/i386-pic-1.c, gcc.dg/i386-regparm.c,
+	gcc.dg/i386-signbit-1.c, gcc.dg/i386-signbit-2.c,
+	gcc.dg/i386-signbit-3.c, gcc.dg/i386-sse-5.c, gcc.dg/i386-sse-8.c,
+	gcc.dg/i386-ssetype-3.c, gcc.dg/i386-ssetype-5.c,
+	gcc.dg/i386-unroll-1.c, gcc.dg/i386-volatile-1.c, gcc.dg/loop-3.c,
+	gcc.dg/pr12092-1.c, gcc.dg/pr14289-1.c, gcc.dg/pr14289-2.c,
+	gcc.dg/pr14289-3.c, gcc.dg/pr9771-1.c, gcc.dg/setjmp-2.c,
+	gcc.dg/short-compare-1.c, gcc.dg/short-compare-2.c,
+	gcc.dg/sibcall-5.c, gcc.dg/sibcall-6.c, gcc.dg/tls/opt-1.c,
+	gcc.dg/tls/opt-2.c, gcc.dg/tls/opt-3.c,
+	gcc.dg/torture/pr18582-1.c, gcc.dg/unroll-1.c,
+	gcc.misc-tests/i386-pf-3dnow-1.c,
+	gcc.misc-tests/i386-pf-athlon-1.c,
+	gcc.misc-tests/i386-pf-none-1.c, gcc.misc-tests/i386-pf-sse-1.c:
+	Backport portions of testcases.
+
+2005-12-21  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport:
+	2004-11-30  Janis Johnson  <janis187@us.ibm.com>
+	* lib/compat.exp (compat-get-options): Fix for use with dg-xfail-if.
+	2004-05-25  Janis Johnson  <janis187@us.ibm.com>
+	* lib/compat.exp (compat-get-options-main): New.
+	(compat-get-options): Remove unneeded code, warn for ignored
+	command.
+	(compat-execute): Check flag set by dg-require-* commands, break up
+	long lines.
+
+2005-12-20  Janis Johnson  <janis187@us.ibm.com>
+
+	Backport:
+	2005-02-11  Janis Johnson  <janis187@us.ibm.com>
+	* lib/gcc-dg.exp (dg-require-weak, dg-require-visibility,
+	dg-require-alias, dg-require-gc-sections, dg-require-profiling,
+	dg-require-dll, dg-require-named-sections): Move from here ...
+	* lib/target-supports-dg.exp: ... to here.
+
+	Backport:
+	2005-12-06  Janis Johnson  <janis187@us.ibm.com>
+	* gcc.test-framework/dg-dot-run-sif-exp-P.c: New test.
+	* gcc.test-framework/dg-dot-run-sif-exp-U.c: New test.
+	* gcc.test-framework/dg-dot-run-xif-exp-P.c: New test.
+	* gcc.test-framework/dg-dot-run-xif-exp-XP.c: New test.
+
+	Backport:
+	2005-02-01  Janis Johnson  <janis187@us.ibm.com>
+	* gcc.test-framework/dg-bogus-exp-P.c: New test.
+	* gcc.test-framework/dg-bogus-exp-XF.c: New test.
+	* gcc.test-framework/dg-do-assemble-exp-P.c: New test.
+	* gcc.test-framework/dg-do-compile-exp-P.c: New test.
+	* gcc.test-framework/dg-do-link-exp-P.c: New test.
+	* gcc.test-framework/dg-do-run-exp-P.c: New test.
+	* gcc.test-framework/dg-dot-run-exp-P.c: New test.
+	* gcc.test-framework/dg-dot-run-exp-U.c: New test.
+	* gcc.test-framework/dg-dox-run-exp-XF.c: New test.
+	* gcc.test-framework/dg-error-exp-P.c: New test.
+	* gcc.test-framework/dg-error-exp-XP.c: New test.
+	* gcc.test-framework/dg-excess-errors-exp-XF.c: New test.
+	* gcc.test-framework/dg-excess-errors-exp-XP.c: New test.
+	* gcc.test-framework/dg-output-exp-P.c: New test.
+	* gcc.test-framework/dg-output-exp-XF.c: New test.
+	* gcc.test-framework/dg-warning-exp-P.c: New test.
+	* gcc.misc-tests/dg-1.c, gcc.misc-tests/dg-2.c, gcc.misc-tests/dg-3.c,
+        gcc.misc-tests/dg-4.c, gcc.misc-tests/dg-5.c, gcc.misc-tests/dg-6.c,
+        gcc.misc-tests/dg-7.c, gcc.misc-tests/dg-8.c, gcc.misc-tests/dg-9.c,
+        gcc.misc-tests/dg-10.c, gcc.misc-tests/dg-11.c, gcc.misc-tests/dg-12.c,
+        gcc.misc-tests/dg-test.exp: Remove.
+
+	Backport:
+	2005-02-01  Janis Johnson  <janis187@us.ibm.com>
+	* gcc.test-framwork: New directory.
+	* gcc.test-framework/README: New.
+	* gcc.test-framework/test-framework.exp
+	* gcc.test-framework/gen_directive_tests
+	* gcc.test-framework/test-framework.awk
+
+	Backport:
+	2005-01-24  Janis Johnson  <janis187@us.ibm.com>
+	* lib/gcc-dg.exp: Clear xfail data in dg-test
+
+	* lib/gcc-dg.exp: Remove dg-skip-if and dg-xfail-if, now in
+	target-supports-dg.exp.
+
+	* lib/gcc-dg.exp: Include target-supports-dg.exp.
+	
+2005-12-19  Janis Johnson  <janis187@us.ibm.com>
+
+	* gcc.dg/ppc-eabi.c: Test on ilp32.
+	* gcc.dg/ppc64-abi-1.c, gcc.dg/ppc64-abi-2.c, gcc.dg/ppc64-abi-3.c:
+	Test on lp64.
+
+	Backport (missed in previous batch):
+
+	* lib/target-supports.exp (get_compiler_messages,
+	current_target_name): New (missed in backport).
+
+	Backport:
+
+	2005-02-11  Janis Johnson  <janis187@us.ibm.com>
+	* lib/gcc-dg.exp: (dg-require-effective-target, dg-skip-if,
+	dg-xfail-if, selector_opd, selector_list, selector_expression,
+	dg-process-target): Move to new file target-supports-dg.exp.
+	* lib/target-supports-dg.exp: New.
+
+	2005-01-24  Janis Johnson  <janis187@us.ibm.com>
+	* lib/target-supports.exp (current_target_name): New.
+	(check_effective_target_ilp32, check_effective_target_lp64):
+	Cache the result to use as long as the current target, with
+	multilib flags, remains the same.
+
+	2004-12-01  Janis Johnson  <janis187@us.ibm.com>
+	* lib/gcc-dg.exp (dg-process-target): Wrapper for dg function to
+	handle effective-target-keyword.
+	(dg-skip-if): Support effective-target keyword as target list.
+	(dg-xfail-if): Ditto.
+	* lib/target-supports.exp (is-effective-target-keyword): New proc.
+
+	2004-11-30  Janis Johnson  <janis187@us.ibm.com>
+	* lib/target-supports.exp (is-effective-target): Simplify.
+
+	2004-11-11  Janis Johnson  <janis187@us.ibm.com>
+	* lib/target-supports.exp (get-compiler_messages): New.
+	(check_effective_target_ilp32): New.
+	(check_effective_target_lp64): New.
+	(is-effective-target): New.
+	* lib/gcc-dg.exp (dg-require-effective-target): New.
+
+2005-12-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20552
+	* g++.dg/ext/typeof10.C: New test.
+
+2005-12-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.old-deja/g++.brendan/redecl1.C,
+	g++.old-deja/g++.eh/inline1.C, g++.old-deja/g++.ns/crash2.C,
+	g++.old-deja/g++.ns/template7.C, g++.old-deja/g++.oliva/ns3.C,
+	g++.old-deja/g++.oliva/typeof1.C,
+	g++.old-deja/g++.other/crash16.C,
+	g++.old-deja/g++.other/crash34.C,
+	g++.old-deja/g++.other/lookup5.C, g++.old-deja/g++.pt/crash65.C,
+	g++.old-deja/g++.pt/decl2.C, g++.old-deja/g++.pt/explicit76.C,
+	g++.old-deja/g++.pt/memtemp85.C, g++.old-deja/g++.pt/memtemp86.C,
+	g++.old-deja/g++.pt/memtemp87.C, g++.old-deja/g++.pt/memtemp88.C,
+	g++.old-deja/g++.pt/memtemp91.C, g++.old-deja/g++.pt/spec14.C,
+	g++.old-deja/g++.pt/static10.C, g++.old-deja/g++.oliva/stkalign.C:
+	Remove xfail.
+
+2005-12-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/19397
+	* g++.dg/template/typedef3.C: New test.
+
+	PR c++/19762
+	PR c++/19764
+	* g++.dg/template/dtor3.C: Fix error markers.
+
+2005-12-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-10-20  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22618
+	* g++.dg/parse/access8.C: New test.
+
+2005-12-06  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-10-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/21383
+	* g++.dg/overload/koenig2.C: New.
+
+2005-12-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22352
+	* g++.dg/template/friend38.C: New test.
+
+2005-12-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/22464
+	* g++.dg/template/crash41.C: New test.
+
+2005-12-05  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	Backport:
+	2005-10-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/23307
+	* g++.dg/template/crash38.C: New test.
+
+2005-12-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/stdio-opt-1.c,
+	gcc.c-torture/execute/stdio-opt-2.c,
+	gcc.c-torture/execute/stdio-opt-3.c: Test the unlocked style.
+
+2005-12-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/loop-3.c: Skip if ix86 and -m64.
+	* gcc.dg/i386-local.c: Likewise.  Also skip if x86_64 and -m32.
+	
+	Backport:
+	
+	2005-08-25  Alan Modra  <amodra@bigpond.net.au>
+        * gcc.dg/20020103-1.c: Scan for LC[0-9], not LC.
+
+	2004-12-09  Richard Henderson  <rth@redhat.com>
+        * gcc.dg/loop-3.c: Don't use i386 tuning for amd64.
+
+	2004-11-17  Janis Johnson  <janis187@us.ibm.com>
+	* gcc.dg/i386-sse-8.c: Use dg-skip-if i?86 -m64.
+
+	2004-04-06  Jakub Jelinek  <jakub@redhat.com>
+        * gcc.dg/i386-sse-8.c: Don't use -march=pentium3 on x86_64.
+        * gcc.dg/i386-local.c: Expect %edi, not %eax register on x86_64.
+        * gcc.dg/20020103-1.c: Add -fno-asynchronous-unwind-tables to options.
+
+2005-12-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.old-deja/g++.other/enum5.C: Change from "run" to "compile".
+	Fix attribute for new parser.  Remove unnecessary dg-bogus.
+	* g++.old-deja/g++.pt/friend44.C: Change from "run" to "compile".
+
+2005-12-02  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/24103
+	* g++.dg/other/default1.C: New test.
+
+2005-12-01  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2005-02-09  Janis Johnson  <janis187@us.ibm.com>
+
+	PR C++/18491
+	* g++.old-deja/g++.mike/p10769a.C: Remove.
+
 2005-11-30  Release Manager
 
 	* GCC 3.4.5 released.
