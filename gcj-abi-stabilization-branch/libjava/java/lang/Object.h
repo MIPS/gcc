@@ -69,9 +69,9 @@ public:
 #endif
 
   // gcj private: Do NOT use this field.
-  static ::java::lang::Class class$$;
+  static ::java::lang::Class &class$$;
 
-  static java::lang::Class &class$;
+  static java::lang::Class class$;
 
 protected:
   virtual jobject clone (void);
