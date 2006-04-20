@@ -1265,9 +1265,12 @@ objc_build_getter_call (tree receiver, tree component)
   /* APPLE LOCAL begin radar 4506903 */
   tree rtype;
 
-  if (TREE_CODE (component) != IDENTIFIER_NODE)
+  /* APPLE LOCAL begin radar 4517826 */
+  if (component == NULL_TREE || TREE_CODE (component) != IDENTIFIER_NODE)
     return NULL_TREE;
-  rtype = TREE_TYPE (receiver);
+  if (receiver == NULL_TREE || (rtype = TREE_TYPE (receiver)) == NULL_TREE)
+    return NULL_TREE;
+  /* APPLE LOCAL end radar 4517826 */
   x = NULL_TREE;
   if (objc_is_id (rtype))
     {
@@ -1281,15 +1284,19 @@ objc_build_getter_call (tree receiver, tree component)
   /* APPLE LOCAL end radar 4506903 */
     {
       basetype = TYPE_MAIN_VARIANT (rtype);
-      if (TREE_CODE (basetype) == POINTER_TYPE)
+      /* APPLE LOCAL radar 4517826 */
+      if (basetype != NULL_TREE && TREE_CODE (basetype) == POINTER_TYPE)
         basetype = TREE_TYPE (basetype);
       else return NULL_TREE;
 
-      while (TREE_CODE (basetype) == RECORD_TYPE && OBJC_TYPE_NAME (basetype)
+      /* APPLE LOCAL begin radar 4517826 */
+      while (basetype != NULL_TREE
+	     && TREE_CODE (basetype) == RECORD_TYPE && OBJC_TYPE_NAME (basetype)
              && TREE_CODE (OBJC_TYPE_NAME (basetype)) == TYPE_DECL
              && DECL_ORIGINAL_TYPE (OBJC_TYPE_NAME (basetype)))
       basetype = DECL_ORIGINAL_TYPE (OBJC_TYPE_NAME (basetype));
-      if (TYPED_OBJECT (basetype))
+      if (basetype != NULL_TREE && TYPED_OBJECT (basetype))
+      /* APPLE LOCAL end radar 4517826 */
         {
           /* APPLE LOCAL radar 4505126 */
           interface_type = TYPE_OBJC_INTERFACE (basetype);

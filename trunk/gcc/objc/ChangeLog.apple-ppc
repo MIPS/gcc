@@ -1,3 +1,9 @@
+2006-04-19 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4517826
+	* objc/objc-act.c (objc_build_getter_call): Check for null tree(s)
+	before accessing their fields.
+
 2006-04-12 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4506893
