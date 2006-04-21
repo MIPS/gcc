@@ -1,3 +1,19 @@
+2006-04-21  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/pa/t-pa64: Add dependencies on $(GCC_PASSES).
+
+2006-04-21  Paul Brook  <paul@codesourcery.com>
+
+	Backport from mainline.
+	* config/arm/arm.c (arm_override_options): Error on iWMMXt and
+	hardware floating point.
+
+2006-04-20  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR mudflap/26789
+	* tree-mudflap.c (mudflap_finish_file): Skip function when there were
+	errors.
+
 2006-04-20  Kaz Kojima  <kkojima@gcc.gnu.org>
 
 	PR target/27182
