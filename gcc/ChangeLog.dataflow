@@ -1,3 +1,21 @@
+2006-04-21  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-pass.h (pass_stack_ptr_mod, pass_initialize_subregs,
+	pass_reset_df): New.  
+	* flow.c (notice_stack_pointer_modification_1,
+	notice_stack_pointer_modification, find_regno_partial_param,
+	find_regno_partial, initialize_uninitialized_subregs): Moved to
+	separate passes in separate files.
+	(life_analysis): Removed call to notice_stack_pointer_modification.
+	(rest_of_handle_life): Removed call to initialize_uninitialized_subargs.
+	* df-core.c (reset_df, pass_reset_df): New.
+	* Makefile.in (stack-ptr-mod.o, subregs-init.o): New.
+	* passes.c (pass_stack_ptr_mod, pass_initialize_subregs, 
+	pass_reset_df): New passes.
+	* subregs-init.c: New file that contains separate pass for
+	initialize_uninitialized_subargs.   
+	* stack-pointer-mod.c: New file that contains separate pass for 
+	notice_stack_pointer_modification.
+		
 2006-04-19  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* ifcvt.c (rest_of_handle_if_after_combine): Removed flow
 	scaffolding.

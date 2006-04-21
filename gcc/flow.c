@@ -289,8 +289,6 @@ static int verify_wide_reg_1 (rtx *, void *);
 static void verify_wide_reg (int, basic_block);
 static void verify_local_live_at_start (regset, basic_block);
 #endif
-static void notice_stack_pointer_modification_1 (rtx, rtx, void *);
-static void notice_stack_pointer_modification (void);
 static void propagate_block_delete_insn (rtx);
 static rtx propagate_block_delete_libcall (rtx, rtx);
 static int insn_dead_p (struct propagate_block_info *, rtx, int, rtx);
@@ -298,8 +296,6 @@ static int libcall_dead_p (struct propagate_block_info *, rtx, rtx);
 static void mark_set_regs (struct propagate_block_info *, rtx, rtx);
 static void mark_set_1 (struct propagate_block_info *, enum rtx_code, rtx,
 			rtx, rtx, int);
-static int find_regno_partial (rtx *, void *);
-
 #ifdef HAVE_conditional_execution
 static int mark_regno_cond_dead (struct propagate_block_info *, int, rtx);
 static void free_reg_cond_life_info (splay_tree_value);
@@ -398,12 +394,6 @@ life_analysis (int flags)
   /* Always remove no-op moves.  Do this before other processing so
      that we don't have to keep re-scanning them.  */
   delete_noop_moves ();
-
-  /* Some targets can emit simpler epilogues if they know that sp was
-     not ever modified during the function.  After reload, of course,
-     we've already emitted the epilogue so there's no sense searching.  */
-  if (! reload_completed)
-    notice_stack_pointer_modification ();
 
   /* Some targets can emit simpler epilogues if they know that sp was
      not ever modified during the function.  After reload, of course,
@@ -875,161 +865,6 @@ delete_dead_jumptables (void)
 	    }
 	}
     }
-}
-
-/* Determine if the stack pointer is constant over the life of the function.
-   Only useful before prologues have been emitted.  */
-
-static void
-notice_stack_pointer_modification_1 (rtx x, rtx pat ATTRIBUTE_UNUSED,
-				     void *data ATTRIBUTE_UNUSED)
-{
-  if (x == stack_pointer_rtx
-      /* The stack pointer is only modified indirectly as the result
-	 of a push until later in flow.  See the comments in rtl.texi
-	 regarding Embedded Side-Effects on Addresses.  */
-      || (MEM_P (x)
-	  && GET_RTX_CLASS (GET_CODE (XEXP (x, 0))) == RTX_AUTOINC
-	  && XEXP (XEXP (x, 0), 0) == stack_pointer_rtx))
-    current_function_sp_is_unchanging = 0;
-}
-
-static void
-notice_stack_pointer_modification (void)
-{
-  basic_block bb;
-  rtx insn;
-
-  /* Assume that the stack pointer is unchanging if alloca hasn't
-     been used.  */
-  current_function_sp_is_unchanging = !current_function_calls_alloca;
-  if (! current_function_sp_is_unchanging)
-    return;
-
-  FOR_EACH_BB (bb)
-    FOR_BB_INSNS (bb, insn)
-      {
-	if (INSN_P (insn))
-	  {
-	    /* Check if insn modifies the stack pointer.  */
-	    note_stores (PATTERN (insn),
-			 notice_stack_pointer_modification_1,
-			 NULL);
-	    if (! current_function_sp_is_unchanging)
-	      return;
-	  }
-      }
-}
-
-
-/* This structure is used to pass parameters to and from the
-   the function find_regno_partial(). It is used to pass in the
-   register number we are looking, as well as to return any rtx
-   we find.  */
-
-typedef struct {
-  unsigned regno_to_find;
-  rtx retval;
-} find_regno_partial_param;
-
-
-/* Find the rtx for the reg numbers specified in 'data' if it is
-   part of an expression which only uses part of the register.  Return
-   it in the structure passed in.  */
-static int
-find_regno_partial (rtx *ptr, void *data)
-{
-  find_regno_partial_param *param = (find_regno_partial_param *)data;
-  unsigned reg = param->regno_to_find;
-  param->retval = NULL_RTX;
-
-  if (*ptr == NULL_RTX)
-    return 0;
-
-  switch (GET_CODE (*ptr))
-    {
-    case ZERO_EXTRACT:
-    case SIGN_EXTRACT:
-    case STRICT_LOW_PART:
-      if (REG_P (XEXP (*ptr, 0)) && REGNO (XEXP (*ptr, 0)) == reg)
-	{
-	  param->retval = XEXP (*ptr, 0);
-	  return 1;
-	}
-      break;
-
-    case SUBREG:
-      if (REG_P (SUBREG_REG (*ptr))
-	  && REGNO (SUBREG_REG (*ptr)) == reg)
-	{
-	  param->retval = SUBREG_REG (*ptr);
-	  return 1;
-	}
-      break;
-
-    default:
-      break;
-    }
-
-  return 0;
-}
-
-/* Process all immediate successors of the entry block looking for pseudo
-   registers which are live on entry. Find all of those whose first
-   instance is a partial register reference of some kind, and initialize
-   them to 0 after the entry block.  This will prevent bit sets within
-   registers whose value is unknown, and may contain some kind of sticky
-   bits we don't want.  */
-
-static int
-initialize_uninitialized_subregs (void)
-{
-  rtx insn;
-  edge e;
-  unsigned reg, did_something = 0;
-  find_regno_partial_param param;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
-    {
-      basic_block bb = e->dest;
-      regset map = df_get_live_in (rtl_df, bb);
-      reg_set_iterator rsi;
-
-      EXECUTE_IF_SET_IN_REG_SET (map, FIRST_PSEUDO_REGISTER, reg, rsi)
-	{
-	  int uid = REGNO_FIRST_UID (reg);
-	  rtx i;
-
-	  /* Find an insn which mentions the register we are looking for.
-	     Its preferable to have an instance of the register's rtl since
-	     there may be various flags set which we need to duplicate.
-	     If we can't find it, its probably an automatic whose initial
-	     value doesn't matter, or hopefully something we don't care about.  */
-	  for (i = get_insns (); i && INSN_UID (i) != uid; i = NEXT_INSN (i))
-	    ;
-	  if (i != NULL_RTX)
-	    {
-	      /* Found the insn, now get the REG rtx, if we can.  */
-	      param.regno_to_find = reg;
-	      for_each_rtx (&i, find_regno_partial, &param);
-	      if (param.retval != NULL_RTX)
-		{
-		  start_sequence ();
-		  emit_move_insn (param.retval,
-				  CONST0_RTX (GET_MODE (param.retval)));
-		  insn = get_insns ();
-		  end_sequence ();
-		  insert_insn_on_edge (insn, e);
-		  did_something = 1;
-		}
-	    }
-	}
-    }
-
-  if (did_something)
-    commit_edge_insertions ();
-  return did_something;
 }
 
 
@@ -4081,18 +3916,6 @@ rest_of_handle_life (void)
     {
       setjmp_vars_warning (DECL_INITIAL (current_function_decl));
       setjmp_args_warning ();
-    }
-
-  if (optimize)
-    {
-      if (initialize_uninitialized_subregs ())
-        {
-          /* Insns were inserted, and possibly pseudos created, so
-             things might look a bit different.  */
-          allocate_reg_life_data ();
-          update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-                            PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
-        }
     }
 
   no_new_pseudos = 1;

@@ -1397,6 +1397,34 @@ debug_df_chain (struct df_link *link)
 }
 
 static unsigned int 
+reset_df (void)
+{
+  rtl_df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (rtl_df, 0);
+  df_ur_add_problem (rtl_df, 0);
+  df_ri_add_problem (rtl_df, DF_RI_LIFE);
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL, PROP_LOG_LINKS);
+  return 0;
+}
+
+struct tree_opt_pass pass_reset_df =
+{
+  "reset_df",                           /* name */
+  NULL,                                 /* gate */
+  reset_df,                             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+static unsigned int 
 clear_df (void)
 {
   if (rtl_df)
