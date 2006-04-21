@@ -1,3 +1,57 @@
+2006-04-17  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (free_AT): Delete.
+	(remove_AT): Update string ref counts.
+	(remove_child_TAG): Don't call free_die.
+	(free_die): Delete.
+	(break_out_includes): Don't call free_die on DW_TAG_GNU_BINCL
+	or DW_TAG_GNU_EINCL.
+	(prune_unused_types_walk_attribs): Reset string refcounts.
+	(prune_unused_types_update_strings): New.
+	(prune_unused_types_prune): Don't make unnecessary stores.  Don't
+	call free_die.  Do call prune_unused_types_update_strings.
+	(prune_unused_types): Empty debug_str_hash.
+
+2006-04-10  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (struct dw_attr_struct): Remove dw_attr_next.
+	Declare VECs of this type.
+	(struct die_struct): Make field die_attr a VEC of dw_attr_struct.
+	(remove_children): Delete.
+	(add_dwarf_attr): Use VEC routines.
+	(add_AT_flag): Update for changes to add_dwarf_attr.
+	(add_AT_int): Likewise.
+	(add_AT_unsigned): Likewise.
+	(add_AT_long_long): Likewise.
+	(add_AT_vec): Likewise.
+	(add_AT_string): Likewise.
+	(add_AT_die_ref): Likewise.
+	(add_AT_fde_ref): Likewise.
+	(add_AT_loc): Likewise.
+	(add_AT_loc_list): Likewise.
+	(add_AT_addr): Likewise.
+	(add_AT_lbl_id): Likewise.
+	(add_AT_lineptr): Likewise.
+	(add_AT_macptr): Likewise.
+	(add_AT_offset): Likewise.
+	(add_AT_range_list): Likewise.
+	(get_AT): Use VEC_iterate.
+	(remove_AT): Use VEC_ordered_remove.
+	(free_die): Fold remove_children into here; have it use VEC_iterate.
+	(print_die): Use VEC_iterate on attrs.
+	(reverse_die_lists): Don't reverse attr lists.
+	(die_checksum): Use VEC_iterate on attrs.
+	(same_die_p): Likewise.
+	(output_location_lists): Likewise.
+	(build_abbrev_table): Likewise.
+	(size_of_die): Likewise.
+	(unmark_all_dies): Likewise.
+	(output_abbrev_section): Likewise.
+	(output_die): Likewise.
+	(prune_unused_types_walk_attribs): Likewise.
+
 2006-04-04  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4502209
