@@ -126,16 +126,29 @@
   "TARGET_ARM && TARGET_VFP && TARGET_HARD_FLOAT
    && (   s_register_operand (operands[0], SImode)
        || s_register_operand (operands[1], SImode))"
-  "@
-  mov%?\\t%0, %1
-  mvn%?\\t%0, #%B1
-  ldr%?\\t%0, %1
-  str%?\\t%1, %0
-  fmsr%?\\t%0, %1\\t%@ int
-  fmrs%?\\t%0, %1\\t%@ int
-  fcpys%?\\t%0, %1\\t%@ int
-  flds%?\\t%0, %1\\t%@ int
-  fsts%?\\t%1, %0\\t%@ int"
+  "*
+  switch (which_alternative)
+    {
+    case 0:
+      return \"mov%?\\t%0, %1\";
+    case 1:
+      return \"mvn%?\\t%0, #%B1\";
+    case 2:
+      return \"ldr%?\\t%0, %1\";
+    case 3:
+      return \"str%?\\t%1, %0\";
+    case 4:
+      return \"fmsr%?\\t%0, %1\\t%@ int\";
+    case 5:
+      return \"fmrs%?\\t%0, %1\\t%@ int\";
+    case 6:
+      return \"fcpys%?\\t%0, %1\\t%@ int\";
+    case 7: case 8:
+      return output_move_vfp (operands);
+    default:
+      gcc_unreachable ();
+    }
+  "
   [(set_attr "predicable" "yes")
    (set_attr "type" "*,*,load1,store1,r_2_f,f_2_r,ffarith,f_loads,f_stores")
    (set_attr "pool_range"     "*,*,4096,*,*,*,*,1020,*")
@@ -148,16 +161,29 @@
   "TARGET_THUMB2 && TARGET_VFP && TARGET_HARD_FLOAT
    && (   s_register_operand (operands[0], SImode)
        || s_register_operand (operands[1], SImode))"
-  "@
-  mov%?\\t%0, %1
-  mvn%?\\t%0, #%B1
-  ldr%?\\t%0, %1
-  str%?\\t%1, %0
-  fmsr%?\\t%0, %1\\t%@ int
-  fmrs%?\\t%0, %1\\t%@ int
-  fcpys%?\\t%0, %1\\t%@ int
-  flds%?\\t%0, %1\\t%@ int
-  fsts%?\\t%1, %0\\t%@ int"
+  "*
+  switch (which_alternative)
+    {
+    case 0:
+      return \"mov%?\\t%0, %1\";
+    case 1:
+      return \"mvn%?\\t%0, #%B1\";
+    case 2:
+      return \"ldr%?\\t%0, %1\";
+    case 3:
+      return \"str%?\\t%1, %0\";
+    case 4:
+      return \"fmsr%?\\t%0, %1\\t%@ int\";
+    case 5:
+      return \"fmrs%?\\t%0, %1\\t%@ int\";
+    case 6:
+      return \"fcpys%?\\t%0, %1\\t%@ int\";
+    case 7: case 8:
+      return output_move_vfp (operands);
+    default:
+      gcc_unreachable ();
+    }
+  "
   [(set_attr "predicable" "yes")
    (set_attr "type" "*,*,load1,store1,r_2_f,f_2_r,ffarith,f_load,f_store")
    (set_attr "pool_range"     "*,*,4096,*,*,*,*,1020,*")
@@ -187,10 +213,8 @@
       return \"fmrrd%?\\t%0, %1\\t%@ int\";
     case 5:
       return \"fcpyd%?\\t%P0, %P1\\t%@ int\";
-    case 6:
-      return \"fldd%?\\t%P0, %1\\t%@ int\";
-    case 7:
-      return \"fstd%?\\t%P1, %0\\t%@ int\";
+    case 6: case 7:
+      return output_move_vfp (operands);
     default:
       gcc_unreachable ();
     }
@@ -216,10 +240,8 @@
       return \"fmrrd%?\\t%0, %1\\t%@ int\";
     case 5:
       return \"fcpyd%?\\t%P0, %P1\\t%@ int\";
-    case 6:
-      return \"fldd%?\\t%P0, %1\\t%@ int\";
-    case 7:
-      return \"fstd%?\\t%P1, %0\\t%@ int\";
+    case 6: case 7:
+      return output_move_vfp (operands);
     default:
       abort ();
     }
@@ -241,15 +263,27 @@
   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_VFP
    && (   s_register_operand (operands[0], SFmode)
        || s_register_operand (operands[1], SFmode))"
-  "@
-  fmsr%?\\t%0, %1
-  fmrs%?\\t%0, %1
-  flds%?\\t%0, %1
-  fsts%?\\t%1, %0
-  ldr%?\\t%0, %1\\t%@ float
-  str%?\\t%1, %0\\t%@ float
-  fcpys%?\\t%0, %1
-  mov%?\\t%0, %1\\t%@ float"
+  "*
+  switch (which_alternative)
+    {
+    case 0:
+      return \"fmsr%?\\t%0, %1\";
+    case 1:
+      return \"fmrs%?\\t%0, %1\";
+    case 2: case 3:
+      return output_move_vfp (operands);
+    case 4:
+      return \"ldr%?\\t%0, %1\\t%@ float\";
+    case 5:
+      return \"str%?\\t%1, %0\\t%@ float\";
+    case 6:
+      return \"fcpys%?\\t%0, %1\";
+    case 7:
+      return \"mov%?\\t%0, %1\\t%@ float\";
+    default:
+      gcc_unreachable ();
+    }
+  "
   [(set_attr "predicable" "yes")
    (set_attr "type" "r_2_f,f_2_r,ffarith,*,f_loads,f_stores,load1,store1")
    (set_attr "pool_range" "*,*,1020,*,4096,*,*,*")
@@ -262,15 +296,27 @@
   "TARGET_THUMB2 && TARGET_HARD_FLOAT && TARGET_VFP
    && (   s_register_operand (operands[0], SFmode)
        || s_register_operand (operands[1], SFmode))"
-  "@
-  fmsr%?\\t%0, %1
-  fmrs%?\\t%0, %1
-  flds%?\\t%0, %1
-  fsts%?\\t%1, %0
-  ldr%?\\t%0, %1\\t%@ float
-  str%?\\t%1, %0\\t%@ float
-  fcpys%?\\t%0, %1
-  mov%?\\t%0, %1\\t%@ float"
+  "*
+  switch (which_alternative)
+    {
+    case 0:
+      return \"fmsr%?\\t%0, %1\";
+    case 1:
+      return \"fmrs%?\\t%0, %1\";
+    case 2: case 3:
+      return output_move_vfp (operands);
+    case 4:
+      return \"ldr%?\\t%0, %1\\t%@ float\";
+    case 5:
+      return \"str%?\\t%1, %0\\t%@ float\";
+    case 6:
+      return \"fcpys%?\\t%0, %1\";
+    case 7:
+      return \"mov%?\\t%0, %1\\t%@ float\";
+    default:
+      gcc_unreachable ();
+    }
+  "
   [(set_attr "predicable" "yes")
    (set_attr "type" "r_2_f,f_2_r,ffarith,*,f_load,f_store,load1,store1")
    (set_attr "pool_range" "*,*,1020,*,4092,*,*,*")
@@ -296,10 +342,8 @@
 	return \"fmrrd%?\\t%Q0, %R0, %P1\";
       case 2: case 3:
 	return output_move_double (operands);
-      case 4:
-	return \"fldd%?\\t%P0, %1\";
-      case 5:
-	return \"fstd%?\\t%P1, %0\";
+      case 4: case 5:
+	return output_move_vfp (operands);
       case 6:
 	return \"fcpyd%?\\t%P0, %P1\";
       case 7:
@@ -329,10 +373,8 @@
 	return \"fmrrd%?\\t%Q0, %R0, %P1\";
       case 2: case 3: case 7:
 	return output_move_double (operands);
-      case 4:
-	return \"fldd%?\\t%P0, %1\";
-      case 5:
-	return \"fstd%?\\t%P1, %0\";
+      case 4: case 5:
+	return output_move_vfp (operands);
       case 6:
 	return \"fcpyd%?\\t%P0, %P1\";
       default:

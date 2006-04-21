@@ -1,3 +1,24 @@
+2006-04-21  Kazu Hirata  <kazu@codesourcery.com>
+
+	* gcc/config/arm/arm-protos.h: Add a prototype for
+	output_move_vfp.
+	* gcc/config/arm/arm.c (arm_coproc_mem_operand): When WB is
+	false, accept PRE_DEC and POST_INC.
+	(output_move_vfp): New.
+	* gcc/config/arm/vfp.md (*arm_movsi_vfp, *thumb2_movsi_vfp,
+	*arm_movdi_vfp, *thumb2_movdi_vfp, *movsf_vfp,
+	*thumb2_movsf_vfp, *movdf_vfp, *thumb2_movdf_vfp): Call
+	output_move_vfp on loads to and stores from VFP registers.
+	* gcc/testsuite/gcc.target/arm/arm.exp,
+	gcc/testsuite/gcc.target/arm/vfp-ldmdbd.c,
+	gcc/testsuite/gcc.target/arm/vfp-ldmdbs.c,
+	gcc/testsuite/gcc.target/arm/vfp-ldmiad.c,
+	gcc/testsuite/gcc.target/arm/vfp-ldmias.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmdbd.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmdbs.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmiad.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmias.c: New.
+
 2006-04-02  Paul Brook  <paul@codesourcery.com>
 
 	Merge from csl/sourcerygxx-4_1

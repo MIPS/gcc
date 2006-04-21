@@ -5593,7 +5593,9 @@ cirrus_memory_offset (rtx op)
 }
 
 /* Return TRUE if OP is a valid coprocessor memory address pattern.
-   WB if true if writeback address modes are allowed.  */
+   WB is true if full writeback address modes are allowed and is false
+   if limited writeback address modes (POST_INC and PRE_DEC) are
+   allowed.  */
 
 int
 arm_coproc_mem_operand (rtx op, bool wb)
@@ -5628,12 +5630,15 @@ arm_coproc_mem_operand (rtx op, bool wb)
   if (GET_CODE (ind) == REG)
     return arm_address_register_rtx_p (ind, 0);
 
-  /* Autoincremment addressing modes.  */
-  if (wb
-      && (GET_CODE (ind) == PRE_INC
-	  || GET_CODE (ind) == POST_INC
-	  || GET_CODE (ind) == PRE_DEC
-	  || GET_CODE (ind) == POST_DEC))
+  /* Autoincremment addressing modes.  POST_INC and PRE_DEC are
+     acceptable in any case (subject to verification by
+     arm_address_register_rtx_p).  We need WB to be true to accept
+     PRE_INC and POST_DEC.  */
+  if (GET_CODE (ind) == POST_INC
+      || GET_CODE (ind) == PRE_DEC
+      || (wb
+	  && (GET_CODE (ind) == PRE_INC
+	      || GET_CODE (ind) == POST_DEC)))
     return arm_address_register_rtx_p (XEXP (ind, 0), 0);
 
   if (wb
@@ -9216,6 +9221,62 @@ output_move_double (rtx *operands)
 	  output_asm_insn ("str%?\t%1, %0", otherops);
 	}
     }
+
+  return "";
+}
+
+/* Output a VFP load or store instruction.  */
+
+const char *
+output_move_vfp (rtx *operands)
+{
+  rtx reg, mem, addr, ops[2];
+  int load = REG_P (operands[0]);
+  int dp = GET_MODE_SIZE (GET_MODE (operands[0])) == 8;
+  int integer_p = GET_MODE_CLASS (GET_MODE (operands[0])) == MODE_INT;
+  const char *template;
+  char buff[50];
+
+  reg = operands[!load];
+  mem = operands[load];
+
+  gcc_assert (REG_P (reg));
+  gcc_assert (IS_VFP_REGNUM (REGNO (reg)));
+  gcc_assert (GET_MODE (reg) == SFmode
+	      || GET_MODE (reg) == DFmode
+	      || GET_MODE (reg) == SImode
+	      || GET_MODE (reg) == DImode);
+  gcc_assert (MEM_P (mem));
+
+  addr = XEXP (mem, 0);
+
+  switch (GET_CODE (addr))
+    {
+    case PRE_DEC:
+      template = "f%smdb%c\t%%0!, {%%%s1}%s";
+      ops[0] = XEXP (addr, 0);
+      ops[1] = reg;
+      break;
+
+    case POST_INC:
+      template = "f%smia%c\t%%0!, {%%%s1}%s";
+      ops[0] = XEXP (addr, 0);
+      ops[1] = reg;
+      break;
+
+    default:
+      template = "f%s%c\t%%%s0, %%1%s";
+      ops[0] = reg;
+      ops[1] = mem;
+      break;
+    }
+
+  sprintf (buff, template,
+	   load ? "ld" : "st",
+	   dp ? 'd' : 's',
+	   dp ? "P" : "",
+	   integer_p ? "\\t%@ int" : "");
+  output_asm_insn (buff, ops);
 
   return "";
 }
