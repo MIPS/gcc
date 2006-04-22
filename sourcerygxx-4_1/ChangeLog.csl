@@ -1,4 +1,4 @@
-2006-04-19  Carlos O'Donell  <carlos@codesourcery.com>
+2006-04-21  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* Makefile.tpl: Add install-html target.
 	* Makefile.def: Add install-html target.
@@ -91,7 +91,7 @@
 	* libada/Makefile.in: Add install-html target.
 	
 
-2006-04-19  Carlos O'Donell  <carlos@codesourcery.com>
+2006-04-21  Carlos O'Donell  <carlos@codesourcery.com>
 
 	Backport from mainline.
 	2006-04-06  Carlos O'Donell  <carlos@codesourcery.com>
