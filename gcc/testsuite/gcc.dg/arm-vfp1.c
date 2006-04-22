@@ -1,6 +1,6 @@
 /* { dg-do compile { target arm*-*-* } } */
 /* { dg-options "-O2 -mfpu=vfp -mfloat-abi=softfp" } */
-/* { dg-skip-if "" { *-*-* } { "-mcpu=iwmmxt" "-march=iwmmxt" } { "" } } */
+/* { dg-skip-if "" { *-*-* } { "-mcpu=iwmmxt" "-march=iwmmxt" "-tiwmmxt" } { "" } } */
 
 extern float fabsf (float);
 extern float sqrtf (float);

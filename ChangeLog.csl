@@ -1,3 +1,7 @@
+2006-04-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/arm-vfp1.c: Also skip for -tiwmmxt.
+
 2006-04-22  Paul Brook  <paul@codesourcery.com>
 
 	* gcc/config/arm/arm.c (arm_override_options): Error on iWMMXt and
