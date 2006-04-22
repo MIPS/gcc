@@ -1,3 +1,11 @@
+2005-04-21  Dale Johannesen <dalej@apple.com>
+
+	Radar 4506160
+	Bring in Joern Rennecke's fix from mainline:
+	PR middle-end/23135
+	* reload.c (find_reloads_subreg_address): Pass down TYPE
+	unchanged.  Change all callers except find_reloads_toplev.
+
 2006-04-18  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4505290
