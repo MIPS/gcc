@@ -96,6 +96,10 @@ gcc-vers.texi: $(BASEVER) $(DEVPHASE)
 	 fi) > $@T
 	mv -f $@T $@
 
+# HTML manual installation not complete.
+.PHONY: install-html
+install-html:
+
 # GCC LOCAL CHANGE
 # The following commands allow us to release tarballs with the man pages
 # and info documentation prebuilt.  This feature is enabled via 

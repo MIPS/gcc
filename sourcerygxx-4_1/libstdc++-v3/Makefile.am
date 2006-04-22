@@ -110,3 +110,11 @@ AM_MAKEFLAGS = \
 
 # Subdir rules rely on $(FLAGS_TO_PASS)
 FLAGS_TO_PASS = $(AM_MAKEFLAGS)
+
+# Install distribution html documentation, doxygen documentation
+# also needs install.
+
+.PHONY: install-html
+
+install-html:
+

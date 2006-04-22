@@ -131,7 +131,7 @@ fortran.tags: force
 
 fortran.info: doc/gfortran.info
 dvi:: doc/gfortran.dvi
-html:: $(htmldir)/gfortran/index.html
+html:: $(gcc_htmldir)/gfortran/index.html
 
 F95_MANFILES = doc/gfortran.1
 
@@ -166,10 +166,10 @@ doc/gfortran.info: $(GFORTRAN_TEXI)
 doc/gfortran.dvi: $(GFORTRAN_TEXI)
 	$(TEXI2DVI) -I $(srcdir)/fortran -I $(abs_docdir)/include -o $@ $<
 
-$(htmldir)/gfortran/index.html: $(GFORTRAN_TEXI)
+$(gcc_htmldir)/gfortran/index.html: $(GFORTRAN_TEXI)
 	$(mkinstalldirs) $(@D)
 	rm -f $(@D)/*
-	$(TEXI2HTML) -I $(docdir)/include -I $(srcdir)/fortran -o $(@D) $<
+	$(TEXI2HTML) -I $(gcc_docdir)/include -I $(srcdir)/fortran -o $(@D) $<
 
 .INTERMEDIATE: gfortran.pod
 
