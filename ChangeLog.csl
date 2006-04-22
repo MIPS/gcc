@@ -1,3 +1,11 @@
+2006-04-21  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/arm/arm.c (arm_legitimate_index_p): Allow mode ==
+	SImode as well as VALID_IWMMXT_REG_MODE if TARGET_REALLY_IWMMXT.
+	* gcc/config/arm/arm.h (ARM_LEGITIMIZE_RELOAD_ADDRESS): Restrict
+	offsets in iWMMXt case.
+	* gcc/testsuite/gcc.c-torture/compile/20060421-1.c: New testcase.
+
 2006-04-19  Richard Sandiford  <richard@codesourcery.com>
 
 	* gcc/config/arm/arm.md: Provide a big-endian version of the

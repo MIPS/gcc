@@ -3450,7 +3450,7 @@ arm_legitimate_index_p (enum machine_mode mode, rtx index, RTX_CODE outer,
 	    && INTVAL (index) > -1024
 	    && (INTVAL (index) & 3) == 0);
 
-  if (TARGET_REALLY_IWMMXT && VALID_IWMMXT_REG_MODE (mode))
+  if (TARGET_REALLY_IWMMXT && (VALID_IWMMXT_REG_MODE (mode) || mode == SImode))
     return (code == CONST_INT
 	    && INTVAL (index) < 1024
 	    && INTVAL (index) > -1024

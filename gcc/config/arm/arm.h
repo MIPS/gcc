@@ -1474,6 +1474,9 @@ enum reg_class
 	  else if (TARGET_MAVERICK && TARGET_HARD_FLOAT)		   \
 	    /* Need to be careful, -256 is not a valid offset.  */	   \
 	    low = val >= 0 ? (val & 0xff) : -((-val) & 0xff);		   \
+	  else if (TARGET_REALLY_IWMMXT					   \
+		   && (VALID_IWMMXT_REG_MODE (mode) || mode == SImode))	   \
+	    low = val >= 0 ? (val & 0x3ff) : -((-val) & 0x3ff);		   \
 	  else if (MODE == SImode					   \
 		   || (MODE == SFmode && TARGET_SOFT_FLOAT)		   \
 		   || ((MODE == HImode || MODE == QImode) && ! arm_arch4)) \
