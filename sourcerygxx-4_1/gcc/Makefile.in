@@ -3352,10 +3352,10 @@ doc/gcc.dvi: $(TEXI_GCC_FILES)
 doc/gccint.dvi: $(TEXI_GCCINT_FILES)
 doc/cppinternals.dvi: $(TEXI_CPPINT_FILES)
 
-$(gcc_htmldir)/cpp/index.html: $(TEXI_CPP_FILES)
-$(gcc_htmldir)/gcc/index.html: $(TEXI_GCC_FILES)
-$(gcc_htmldir)/gccint/index.html: $(TEXI_GCCINT_FILES)
-$(gcc_htmldir)/cppinternals/index.html: $(TEXI_CPPINT_FILES)
+$(gcc_htmldir)/cpp: $(TEXI_CPP_FILES)
+$(gcc_htmldir)/gcc: $(TEXI_GCC_FILES)
+$(gcc_htmldir)/gccint: $(TEXI_GCCINT_FILES)
+$(gcc_htmldir)/cppinternals: $(TEXI_CPPINT_FILES)
 
 dvi:: doc/gcc.dvi doc/gccint.dvi doc/gccinstall.dvi doc/cpp.dvi \
       doc/cppinternals.dvi

@@ -1,3 +1,8 @@
+2006-04-22  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* gcc/Makefile.in: Correct dependencies for gcc, cpp, 
+	gccint, and cppinternals html manuals.
+
 2006-04-22  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/testsuite/gcc.c-torture/compile/20060421-1.c: New testcase.
