@@ -1,5 +1,10 @@
 2006-04-21  Carlos O'Donell  <carlos@codesourcery.com>
 
+	* Makefile.tpl: Add install-html to install target.
+	* Makefile.in: Regenerate.
+
+2006-04-21  Carlos O'Donell  <carlos@codesourcery.com>
+
 	* Makefile.tpl: Add install-html target.
 	* Makefile.def: Add install-html target.
 	* Makefile.in: Regenerate.
