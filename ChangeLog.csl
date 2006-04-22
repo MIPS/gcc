@@ -1,3 +1,9 @@
+2006-04-22  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/arm.c (arm_override_options): Error on iWMMXt and
+	hardware floating point.
+	* gcc/testsuite/gcc.dg/arm-vfp1.c: Skip on iWMMXt cpus.
+
 2006-04-21  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/config/arm/arm.c (arm_legitimate_index_p): Allow mode ==
