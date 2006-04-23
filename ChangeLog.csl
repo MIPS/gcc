@@ -1,5 +1,11 @@
 2006-04-22  Joseph Myers  <joseph@codesourcery.com>
 
+	Backport:
+	2005-01-24  Janis Johnson  <janis187@us.ibm.com>
+	* lib/gcc-dg.exp (dg-skip-if): New.
+
+2006-04-22  Joseph Myers  <joseph@codesourcery.com>
+
 	* gcc/testsuite/gcc.dg/arm-vfp1.c: Also skip for -tiwmmxt.
 
 2006-04-22  Paul Brook  <paul@codesourcery.com>
