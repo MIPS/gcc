@@ -1,3 +1,11 @@
+2006-04-04  Eric Christopher  <echristo@apple.com>
+
+	Radar 4525014
+	* config/rs6000/rs6000.c (TARGET_MS_BITFIELD_LAYOUT_P): Define.
+	(TARGET_USE_MS_BITFIELD_LAYOUT): Ditto.
+	(rs6000_handle_struct_attribute): New.
+	(rs6000_ms_bitfield_layout_p): Ditto.
+
 2006-04-17  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4498201
@@ -59,7 +67,7 @@
 	NULL for dso parameter to atexit_common.
 
 	Radar 4383613
-	* doc/extend.texi (Function Attributes): Rewrite visibility 
+	* doc/extend.texi (Function Attributes): Rewrite visibility
 	attribute documentation.
 	* doc/invoke.texi (C++ Dialect Options): Rewrite
 	-fvisibility-inlines-hidden documentation to describe something
