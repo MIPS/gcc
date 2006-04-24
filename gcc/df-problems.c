@@ -48,6 +48,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #if 0
 #define REG_DEAD_DEBUGGING
 #endif
+#include "vecprim.h"
 
 #define DF_SPARSE_THRESHOLD 32
 
@@ -2354,9 +2355,6 @@ df_urec_mark_reg_change (rtx reg, rtx setter, void *data)
 }
 /* Classes of registers which could be early clobbered in the current
    insn.  */
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 static VEC(int,heap) *earlyclobber_regclass;
 

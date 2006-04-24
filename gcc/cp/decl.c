@@ -106,9 +106,6 @@ static void initialize_local_var (tree, tree);
 static void expand_static_init (tree, tree);
 static tree next_initializable_field (tree);
 
-/* Erroneous argument lists can use this *IFF* they do not modify it.  */
-tree error_mark_list;
-
 /* The following symbols are subsumed in the cp_global_trees array, and
    listed here individually for documentation purposes.
 
@@ -3118,9 +3115,6 @@ cxx_init_decl_processing (void)
   /* Initially, C.  */
   current_lang_name = lang_name_c;
 
-  error_mark_list = build_tree_list (error_mark_node, error_mark_node);
-  TREE_TYPE (error_mark_list) = error_mark_node;
-
   /* Create the `std' namespace.  */
   push_namespace (std_identifier);
   std_node = current_namespace;
@@ -5814,6 +5808,28 @@ check_class_member_definition_namespace (tree decl)
 	     decl, DECL_CONTEXT (decl));
 }
 
+/* Build a PARM_DECL for the "this" parameter.  TYPE is the
+   METHOD_TYPE for a non-static member function; QUALS are the
+   cv-qualifiers that apply to the function.  */
+ 
+tree
+build_this_parm (tree type, cp_cv_quals quals)
+{
+  tree this_type;
+  tree qual_type;
+  tree parm;
+  cp_cv_quals this_quals;
+
+  this_type = TREE_VALUE (TYPE_ARG_TYPES (type));
+  /* The `this' parameter is implicitly `const'; it cannot be
+     assigned to.  */
+  this_quals = (quals & TYPE_QUAL_RESTRICT) | TYPE_QUAL_CONST;
+  qual_type = cp_build_qualified_type (this_type, this_quals);
+  parm = build_artificial_parm (this_identifier, qual_type);
+  cp_apply_type_quals_to_decl (this_quals, parm);
+  return parm;
+} 
+
 /* CTYPE is class type, or null if non-class.
    TYPE is type this FUNCTION_DECL should have, either FUNCTION_TYPE
    or METHOD_TYPE.
@@ -5860,6 +5876,13 @@ grokfndecl (tree ctype,
     type = build_exception_variant (type, raises);
 
   decl = build_lang_decl (FUNCTION_DECL, declarator, type);
+  if (TREE_CODE (type) == METHOD_TYPE)
+    {
+      tree parm;
+      parm = build_this_parm (type, quals);
+      TREE_CHAIN (parm) = parms;
+      parms = parm;
+    }
   DECL_ARGUMENTS (decl) = parms;
   /* Propagate volatile out from type to decl.  */
   if (TYPE_VOLATILE (type))
@@ -6063,7 +6086,7 @@ grokfndecl (tree ctype,
       if (sfk == sfk_constructor)
 	DECL_CONSTRUCTOR_P (decl) = 1;
 
-      grokclassfn (ctype, decl, flags, quals);
+      grokclassfn (ctype, decl, flags);
     }
 
   decl = check_explicit_specialization (orig_declarator, decl,
@@ -6771,12 +6794,11 @@ grokdeclarator (const cp_declarator *declarator,
 {
   tree type = NULL_TREE;
   int longlong = 0;
-  int type_quals;
   int virtualp, explicitp, friendp, inlinep, staticp;
   int explicit_int = 0;
   int explicit_char = 0;
   int defaulted_int = 0;
-  tree dependant_name = NULL_TREE;
+  tree dependent_name = NULL_TREE;
 
   tree typedef_decl = NULL_TREE;
   const char *name = NULL;
@@ -6798,7 +6820,11 @@ grokdeclarator (const cp_declarator *declarator,
   tree dname = NULL_TREE;
   tree ctor_return_type = NULL_TREE;
   enum overload_flags flags = NO_SPECIAL;
-  cp_cv_quals quals = TYPE_UNQUALIFIED;
+  /* cv-qualifiers that apply to the declarator, for a declaration of
+     a member function.  */
+  cp_cv_quals memfn_quals = TYPE_UNQUALIFIED;
+  /* cv-qualifiers that apply to the type specified by the DECLSPECS.  */
+  int type_quals;
   tree raises = NULL_TREE;
   int template_count = 0;
   tree returned_attrs = NULL_TREE;
@@ -6956,7 +6982,7 @@ grokdeclarator (const cp_declarator *declarator,
 	    break;
 
 	  case cdk_error:
-	    break;
+	    return error_mark_node;
 
 	  default:
 	    gcc_unreachable ();
@@ -6966,11 +6992,15 @@ grokdeclarator (const cp_declarator *declarator,
 	break;
     }
 
-  /* A function definition's declarator must have the form of
-     a function declarator.  */
-
+  /* [dcl.fct.edf]
+     
+     The declarator in a function-definition shall have the form
+     D1 ( parameter-declaration-clause) ...  */
   if (funcdef_flag && innermost_code != cdk_function)
-    return NULL_TREE;
+    {
+      error ("function definition does not declare parameters");
+      return error_mark_node;
+    }
 
   if (((dname && IDENTIFIER_OPNAME_P (dname)) || flags == TYPENAME_FLAG)
       && innermost_code != cdk_function
@@ -7252,9 +7282,9 @@ grokdeclarator (const cp_declarator *declarator,
     }
   friendp = !! declspecs->specs[(int)ds_friend];
 
-  if (dependant_name && !friendp)
+  if (dependent_name && !friendp)
     {
-      error ("%<%T::%D%> is not a valid declarator", ctype, dependant_name);
+      error ("%<%T::%D%> is not a valid declarator", ctype, dependent_name);
       return void_type_node;
     }
 
@@ -7453,7 +7483,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      }
 
 	    /* Pick up type qualifiers which should be applied to `this'.  */
-	    quals = declarator->u.function.qualifiers;
+	    memfn_quals = declarator->u.function.qualifiers;
 
 	    /* Pick up the exception specifications.  */
 	    raises = declarator->u.function.exception_specification;
@@ -7475,53 +7505,44 @@ grokdeclarator (const cp_declarator *declarator,
 		   is the same as the class name, and we are defining
 		   a function, then it is a constructor/destructor, and
 		   therefore returns a void type.  */
-
-		if (flags == DTOR_FLAG)
+		
+		/* ISO C++ 12.4/2.  A destructor may not be declared
+		   const or volatile.  A destructor may not be
+		   static.
+		   
+		   ISO C++ 12.1.  A constructor may not be declared
+		   const or volatile.  A constructor may not be
+		   virtual.  A constructor may not be static.  */
+		if (staticp == 2) 
+		  error ((flags == DTOR_FLAG)
+			 ? "destructor cannot be static member function"
+			 : "constructor cannot be static member function");
+		if (memfn_quals)
 		  {
-		    /* ISO C++ 12.4/2.  A destructor may not be
-		       declared const or volatile.  A destructor may
-		       not be static.  */
-		    if (staticp == 2)
-		      error ("destructor cannot be static member function");
-		    if (quals)
-		      {
-			error ("destructors may not be cv-qualified");
-			quals = TYPE_UNQUALIFIED;
-		      }
-		    if (decl_context == FIELD)
-		      {
-			if (! member_function_or_else (ctype,
-						       current_class_type,
-						       flags))
-			  return void_type_node;
-		      }
+		    error ((flags == DTOR_FLAG)
+			   ? "destructors may not be cv-qualified"
+			   : "constructors may not be cv-qualified");
+		    memfn_quals = TYPE_UNQUALIFIED;
 		  }
-		else /* It's a constructor.  */
+
+		if (decl_context == FIELD
+		    && !member_function_or_else (ctype,
+						 current_class_type,
+						 flags))
+		  return void_type_node;
+
+		if (flags != DTOR_FLAG)
 		  {
+		    /* It's a constructor.  */
 		    if (explicitp == 1)
 		      explicitp = 2;
-		    /* ISO C++ 12.1.  A constructor may not be
-		       declared const or volatile.  A constructor may
-		       not be virtual.  A constructor may not be
-		       static.  */
-		    if (staticp == 2)
-		      error ("constructor cannot be static member function");
 		    if (virtualp)
 		      {
 			pedwarn ("constructors cannot be declared virtual");
 			virtualp = 0;
 		      }
-		    if (quals)
-		      {
-			error ("constructors may not be cv-qualified");
-			quals = TYPE_UNQUALIFIED;
-		      }
 		    if (decl_context == FIELD)
 		      {
-			if (! member_function_or_else (ctype,
-						       current_class_type,
-						       flags))
-			  return void_type_node;
 			TYPE_HAS_CONSTRUCTOR (ctype) = 1;
 			if (sfk != sfk_constructor)
 			  return NULL_TREE;
@@ -7562,7 +7583,6 @@ grokdeclarator (const cp_declarator *declarator,
 	      }
 
 	    type = build_function_type (type, arg_types);
-	    type = cp_build_qualified_type (type, quals);
 	  }
 	  break;
 
@@ -7592,22 +7612,13 @@ grokdeclarator (const cp_declarator *declarator,
 	  type_quals = TYPE_UNQUALIFIED;
 
 	  if (declarator->kind == cdk_ptrmem
-	      && (TREE_CODE (type) == FUNCTION_TYPE
-		  || (quals && TREE_CODE (type) == METHOD_TYPE)))
+	      && (TREE_CODE (type) == FUNCTION_TYPE || memfn_quals))
 	    {
-	      tree dummy;
-
-	      /* If the type is a FUNCTION_TYPE, pick up the
-		 qualifiers from that function type. No other
-		 qualifiers may be supplied. */
-	      if (TREE_CODE (type) == FUNCTION_TYPE)
-		quals = cp_type_quals (type);
-
-	      dummy = build_decl (TYPE_DECL, NULL_TREE, type);
-	      grok_method_quals (declarator->u.pointer.class_type,
-				 dummy, quals);
-	      type = TREE_TYPE (dummy);
-	      quals = TYPE_UNQUALIFIED;
+	      memfn_quals |= cp_type_quals (type);
+	      type = build_memfn_type (type, 
+				       declarator->u.pointer.class_type,
+				       memfn_quals);
+	      memfn_quals = TYPE_UNQUALIFIED;
 	    }
 
 	  if (declarator->kind == cdk_reference)
@@ -7619,15 +7630,9 @@ grokdeclarator (const cp_declarator *declarator,
 	    type = build_ptrmemfunc_type (build_pointer_type (type));
 	  else if (declarator->kind == cdk_ptrmem)
 	    {
-	      /* We might have parsed a namespace as the class type.  */
-	      if (TREE_CODE (declarator->u.pointer.class_type)
-		  == NAMESPACE_DECL)
-		{
-		  error ("%qD is a namespace",
-			 declarator->u.pointer.class_type);
-		  type = build_pointer_type (type);
-		}
-	      else if (declarator->u.pointer.class_type == error_mark_node)
+	      gcc_assert (TREE_CODE (declarator->u.pointer.class_type)
+			  != NAMESPACE_DECL);
+	      if (declarator->u.pointer.class_type == error_mark_node)
 		/* We will already have complained.  */
 		type = error_mark_node;
 	      else
@@ -7717,6 +7722,20 @@ grokdeclarator (const cp_declarator *declarator,
 	    pedwarn ("extra qualification %<%T::%> on member %qs",
 		     ctype, name);
 	}
+      else if (/* If the qualifying type is already complete, then we
+		  can skip the following checks.  */
+	       !COMPLETE_TYPE_P (ctype)
+	       /* If a function is being defined, then the qualifying
+		  type must be complete.  The qualifying type may be
+		  incomplete for a declaration only if the qualifying
+		  type is one of the classes presently being defined,
+		  or if it is a dependent type.  */
+	       && (funcdef_flag 
+		   || !(dependent_type_p (ctype)
+			|| currently_open_class (ctype)))
+	       /* Check that the qualifying type is complete.  */
+	       && !complete_type_or_else (ctype, NULL_TREE))
+	return error_mark_node;
       else if (TREE_CODE (type) == FUNCTION_TYPE)
 	{
 	  tree sname = declarator->u.id.unqualified_name;
@@ -7737,28 +7756,13 @@ grokdeclarator (const cp_declarator *declarator,
 	       are always static functions.  */
 	    ;
 	  else
-	    type = build_method_type_directly (ctype,
-					       TREE_TYPE (type),
-					       TYPE_ARG_TYPES (type));
+	    type = build_memfn_type (type, ctype, memfn_quals);
 	}
       else if (declspecs->specs[(int)ds_typedef]
-	       || COMPLETE_TYPE_P (complete_type (ctype)))
+	       && current_class_type)
 	{
-	  /* Have to move this code elsewhere in this function.
-	     this code is used for i.e., typedef int A::M; M *pm;
-
-	     It is?  How? jason 10/2/94 */
-
-	  if (current_class_type)
-	    {
-	      error ("cannot declare member %<%T::%s%> within %qT",
-		     ctype, name, current_class_type);
-	      return void_type_node;
-	    }
-	}
-      else
-	{
-	  cxx_incomplete_type_error (NULL_TREE, ctype);
+	  error ("cannot declare member %<%T::%s%> within %qT",
+		 ctype, name, current_class_type);
 	  return error_mark_node;
 	}
     }
@@ -7844,6 +7848,18 @@ grokdeclarator (const cp_declarator *declarator,
 	 in typenames, fields or parameters.  */
       if (current_lang_name == lang_name_java)
 	TYPE_FOR_JAVA (type) = 1;
+      
+      /* This declaration:
+
+           typedef void f(int) const;
+
+         declares a function type which is not a member of any
+	 particular class, but which is cv-qualified; for
+	 example "f S::*" declares a pointer to a const-qualified 
+	 member function of S.  We record the cv-qualification in the
+	 function type.  */
+      if (memfn_quals && TREE_CODE (type) == FUNCTION_TYPE)
+	type = cp_build_qualified_type (type, memfn_quals);
 
       if (decl_context == FIELD)
 	decl = build_lang_decl (TYPE_DECL, unqualified_id, type);
@@ -7905,26 +7921,17 @@ grokdeclarator (const cp_declarator *declarator,
 	     type with external linkage have external linkage.  */
 	}
 
-      if (quals)
-	{
-	  if (ctype == NULL_TREE)
-	    {
-	      if (TREE_CODE (type) == METHOD_TYPE)
-		ctype = TYPE_METHOD_BASETYPE (type);
-	      /* Any qualifiers on a function type typedef have
-		 already been dealt with. */
-	      else if (TREE_CODE (type) == FUNCTION_TYPE)
-		quals = TYPE_UNQUALIFIED;
-	    }
-	  if (ctype != NULL_TREE)
-	    grok_method_quals (ctype, decl, quals);
-	}
+	/* Any qualifiers on a function type typedef have already been
+	   dealt with. */
+      if (memfn_quals && !ctype && TREE_CODE (type) == FUNCTION_TYPE)
+	memfn_quals = TYPE_UNQUALIFIED;
 
       if (signed_p
 	  || (typedef_decl && C_TYPEDEF_EXPLICITLY_SIGNED (typedef_decl)))
 	C_TYPEDEF_EXPLICITLY_SIGNED (decl) = 1;
 
-      bad_specifiers (decl, "type", virtualp, quals != TYPE_UNQUALIFIED,
+      bad_specifiers (decl, "type", virtualp, 
+		      memfn_quals != TYPE_UNQUALIFIED,
 		      inlinep, friendp, raises != NULL_TREE);
 
       return decl;
@@ -7972,7 +7979,7 @@ grokdeclarator (const cp_declarator *declarator,
 
 	  /* The qualifiers on the function type become the qualifiers on
 	     the non-static member function. */
-	  quals |= cp_type_quals (type);
+	  memfn_quals |= cp_type_quals (type);
 	}
     }
 
@@ -8029,7 +8036,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      type = void_type_node;
 	    }
 	}
-      else if (quals)
+      else if (memfn_quals)
 	{
 	  if (ctype == NULL_TREE)
 	    {
@@ -8039,11 +8046,7 @@ grokdeclarator (const cp_declarator *declarator,
 		ctype = TYPE_METHOD_BASETYPE (type);
 	    }
 	  if (ctype)
-	    {
-	      tree dummy = build_decl (TYPE_DECL, unqualified_id, type);
-	      grok_method_quals (ctype, dummy, quals);
-	      type = TREE_TYPE (dummy);
-	    }
+	    type = build_memfn_type (type, ctype, memfn_quals);
 	}
 
       return type;
@@ -8101,7 +8104,8 @@ grokdeclarator (const cp_declarator *declarator,
       {
 	decl = cp_build_parm_decl (unqualified_id, type);
 
-	bad_specifiers (decl, "parameter", virtualp, quals != TYPE_UNQUALIFIED,
+	bad_specifiers (decl, "parameter", virtualp, 
+			memfn_quals != TYPE_UNQUALIFIED,
 			inlinep, friendp, raises != NULL_TREE);
       }
     else if (decl_context == FIELD)
@@ -8163,9 +8167,7 @@ grokdeclarator (const cp_declarator *declarator,
 		      }
 		  }
 		else if (staticp < 2)
-		  type = build_method_type_directly (ctype,
-						     TREE_TYPE (type),
-						     TYPE_ARG_TYPES (type));
+		  type = build_memfn_type (type, ctype, memfn_quals);
 	      }
 
 	    /* Check that the name used for a destructor makes sense.  */
@@ -8200,7 +8202,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       ? unqualified_id : dname,
 			       parms,
 			       unqualified_id,
-			       virtualp, flags, quals, raises,
+			       virtualp, flags, memfn_quals, raises,
 			       friendp ? -1 : 0, friendp, publicp, inlinep,
 			       sfk,
 			       funcdef_flag, template_count, in_namespace, attrlist);
@@ -8248,7 +8250,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       ? unqualified_id : dname,
 			       parms,
 			       unqualified_id,
-			       virtualp, flags, quals, raises,
+			       virtualp, flags, memfn_quals, raises,
 			       friendp ? -1 : 0, friendp, 1, 0, sfk,
 			       funcdef_flag, template_count, in_namespace,
 			       attrlist);
@@ -8305,7 +8307,8 @@ grokdeclarator (const cp_declarator *declarator,
 		  }
 
 		decl = do_friend (ctype, unqualified_id, decl,
-				  *attrlist, flags, quals, funcdef_flag);
+				  *attrlist, flags, 
+				  funcdef_flag);
 		return decl;
 	      }
 	    else
@@ -8384,7 +8387,8 @@ grokdeclarator (const cp_declarator *declarator,
 		  }
 	      }
 
-	    bad_specifiers (decl, "field", virtualp, quals != TYPE_UNQUALIFIED,
+	    bad_specifiers (decl, "field", virtualp, 
+			    memfn_quals != TYPE_UNQUALIFIED,
 			    inlinep, friendp, raises != NULL_TREE);
 	  }
       }
@@ -8445,7 +8449,7 @@ grokdeclarator (const cp_declarator *declarator,
 		   || storage_class != sc_static);
 
 	decl = grokfndecl (ctype, type, original_name, parms, unqualified_id,
-			   virtualp, flags, quals, raises,
+			   virtualp, flags, memfn_quals, raises,
 			   1, friendp,
 			   publicp, inlinep, sfk, funcdef_flag,
 			   template_count, in_namespace, attrlist);
@@ -8488,7 +8492,8 @@ grokdeclarator (const cp_declarator *declarator,
 			    initialized,
 			    (type_quals & TYPE_QUAL_CONST) != 0,
 			    ctype ? ctype : in_namespace);
-	bad_specifiers (decl, "variable", virtualp, quals != TYPE_UNQUALIFIED,
+	bad_specifiers (decl, "variable", virtualp, 
+			memfn_quals != TYPE_UNQUALIFIED,
 			inlinep, friendp, raises != NULL_TREE);
 
 	if (ctype)
@@ -10801,9 +10806,11 @@ finish_destructor_body (void)
       an implicit definition), non-placement operator delete shall
       be looked up in the scope of the destructor's class and if
       found shall be accessible and unambiguous.  */
-      exprstmt = build_op_delete_call
-	(DELETE_EXPR, current_class_ptr, virtual_size,
-	 /*global_p=*/false, NULL_TREE);
+      exprstmt = build_op_delete_call(DELETE_EXPR, current_class_ptr, 
+				      virtual_size,
+				      /*global_p=*/false, 
+				      /*placement=*/NULL_TREE, 
+				      /*alloc_fn=*/NULL_TREE);
 
       if_stmt = begin_if_stmt ();
       finish_if_stmt_cond (build2 (BIT_AND_EXPR, integer_type_node,

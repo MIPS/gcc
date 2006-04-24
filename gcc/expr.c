@@ -1940,11 +1940,11 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
       if (start < finish)
 	{
 	  inner = GET_MODE (tmps[start]);
-	  bytepos = subreg_lowpart_offset (outer, inner);
+	  bytepos = subreg_lowpart_offset (inner, outer);
 	  if (INTVAL (XEXP (XVECEXP (src, 0, start), 1)) == bytepos)
 	    {
 	      temp = simplify_gen_subreg (outer, tmps[start],
-					  inner, bytepos);
+					  inner, 0);
 	      if (temp)
 		{
 		  emit_move_insn (dst, temp);
@@ -1959,11 +1959,11 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 	  && start < finish - 1)
 	{
 	  inner = GET_MODE (tmps[finish - 1]);
-	  bytepos = subreg_lowpart_offset (outer, inner);
+	  bytepos = subreg_lowpart_offset (inner, outer);
 	  if (INTVAL (XEXP (XVECEXP (src, 0, finish - 1), 1)) == bytepos)
 	    {
 	      temp = simplify_gen_subreg (outer, tmps[finish - 1],
-					  inner, bytepos);
+					  inner, 0);
 	      if (temp)
 		{
 		  emit_move_insn (dst, temp);
@@ -3346,7 +3346,11 @@ compress_float_constant (rtx x, rtx y)
 	}
       else
 	continue;
- 
+
+      /* For CSE's benefit, force the compressed constant pool entry
+	 into a new pseudo.  This constant may be used in different modes,
+	 and if not, combine will put things back together for us.  */
+      trunc_y = force_reg (srcmode, trunc_y);
       emit_unop_insn (ic, x, trunc_y, UNKNOWN);
       last_insn = get_last_insn ();
 
@@ -3984,12 +3988,15 @@ expand_assignment (tree to, tree from)
   rtx result;
 
   /* Don't crash if the lhs of the assignment was erroneous.  */
-
   if (TREE_CODE (to) == ERROR_MARK)
     {
       result = expand_normal (from);
       return;
     }
+
+  /* Optimize away no-op moves without side-effects.  */
+  if (operand_equal_p (to, from, 0))
+    return;
 
   /* Assignment of a structure component needs special treatment
      if the structure component's rtx is not simply a MEM.
@@ -5325,7 +5332,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	  }
 	
 	/* Inform later passes that the old value is dead.  */
-	if (!cleared && REG_P (target))
+	if (!cleared && !vector && REG_P (target))
 	  emit_move_insn (target, CONST0_RTX (GET_MODE (target)));
 
         /* Store each element of the constructor into the corresponding
@@ -7717,7 +7724,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       else if (!MEM_P (op0))
 	{
 	  /* If the operand is not a MEM, force it into memory.  Since we
-	     are going to be be changing the mode of the MEM, don't call
+	     are going to be changing the mode of the MEM, don't call
 	     force_const_mem for constants because we don't allow pool
 	     constants to change mode.  */
 	  tree inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));

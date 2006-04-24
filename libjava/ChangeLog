@@ -1,3 +1,100 @@
+2006-04-21  Andrew Haley  <aph@redhat.com>
+
+	* include/execution.h (struct _Jv_CompiledEngine): Define for
+	compiled classes.
+	* java/lang/natClassLoader.cc (_Jv_RegisterClasses): Call
+	_Jv_RegisterLibForGc.
+	(_Jv_RegisterClasses_Counted): Likewise.
+	(_Jv_NewClassFromInitializer): New.
+	(_Jv_RegisterNewClasses): New.
+	* sources.am: Regenerate.
+	* boehm.cc (_Jv_GC_has_static_roots): new.
+	(_Jv_InitGC): Call GC_register_has_static_roots_callback.
+	(filename_node, find_file, _Jv_print_gc_store, new_node,
+	_Jv_GC_has_static_roots, _Jv_RegisterLibForGc): New.
+	* scripts/makemake.tcl: Add -fno-indirect-classes.
+	* Makefile.in: Regenerate.
+	* link.cc (resolve_pool_entry): Allocate constant pool.
+	Allocate fields.
+	
+2006-04-22  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.ac: Weaken the check for MMAP.
+	* configure: Rebuilt.
+	* include/config.h.in: Likewise.
+
+2006-04-20  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/27170
+	* gnu/gcj/runtime/natSharedLibLoader.cc: Include gc.h to override
+	dlopen(). From Anthony Green.
+
+2006-04-20  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21941:
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc (send): Throw
+	UnknownHostException if needed.
+	* gnu/java/net/natPlainSocketImplPosix.cc (connect): Throw
+	UnknownHostException if needed.
+
+2006-04-19  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (CLEANFILES): Removed all_java_filelist_files,
+	all_java_deps_files.
+
+2006-04-19  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/nio/channels/natFileChannelPosix.cc (write): Properly
+	handle EINTR.
+
+2006-04-17  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27171:
+	* testsuite/libjava.lang/pr27171.java: New file.
+	* testsuite/libjava.lang/pr27171.out: New file.
+	* gnu/gcj/convert/Output_UTF8.java (havePendingBytes): Return
+	true if we've seen a high surrogate.
+	(write): Handle high surrogates at the end of the stream.
+	Properly emit isolated low surrogates.
+
+2006-04-17  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libjava.lang/stringconst2.java: Print a stack trace in case
+	of failure.
+
+2006-04-13  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26522:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (libsubdir): New variable.
+
+2006-04-12  NAKATA Maho  <maho@FreeBSD.org> 
+
+	PR libgcj/23829
+	* configure.ac: Link against -lpthread rather than -lc_r on
+	FreeBSD 5 and above.
+	* configure: Regenerate.
+
+2006-04-11  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gnu/gcj/runtime/SystemClassLoader.java (addClass): Get the value
+	of package-private field "loadedClasses" using reflection.
+	* java/lang/VMCompiler.java (compileClass): Remove unreachable catch
+	block.
+
+2006-04-10  Matthias Klose  <doko@debian.org>
+
+	* testsuite/lib/libjava.exp (libjava_init): Recognize multilib
+	directory names containing underscores.
+
+2006-04-10  Andrew Haley  <aph@redhat.com>
+
+	* include/x86_64-signal.h (HANDLE_DIVIDE_OVERFLOW): New.
+	(SIGNAL_HANDLER): Mark arg as unused.
+	* configure.host (x86_64-* DIVIDESPEC): Use
+	fno-use-divide-subroutine.
+
 2006-04-07  Andrew Haley  <aph@redhat.com>
 
 	* java/net/InetAddress.java: Throw an UnknownHostException if

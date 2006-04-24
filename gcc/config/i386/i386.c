@@ -1084,8 +1084,8 @@ static rtx get_thread_pointer (int);
 static rtx legitimize_tls_address (rtx, enum tls_model, int);
 static void get_pc_thunk_name (char [32], unsigned int);
 static rtx gen_push (rtx);
-static int ix86_flags_dependant (rtx, rtx, enum attr_type);
-static int ix86_agi_dependant (rtx, rtx, enum attr_type);
+static int ix86_flags_dependent (rtx, rtx, enum attr_type);
+static int ix86_agi_dependent (rtx, rtx, enum attr_type);
 static struct machine_function * ix86_init_machine_status (void);
 static int ix86_split_to_parts (rtx, rtx *, enum machine_mode);
 static int ix86_nsaved_regs (void);
@@ -4123,6 +4123,7 @@ ix86_va_start (tree valist, rtx nextarg)
   HOST_WIDE_INT words, n_gpr, n_fpr;
   tree f_gpr, f_fpr, f_ovf, f_sav;
   tree gpr, fpr, ovf, sav, t;
+  tree type;
 
   /* Only 64bit target needs something special.  */
   if (!TARGET_64BIT)
@@ -4153,26 +4154,29 @@ ix86_va_start (tree valist, rtx nextarg)
 
   if (cfun->va_list_gpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (gpr), gpr,
-		  build_int_cst (NULL_TREE, n_gpr * 8));
+      type = TREE_TYPE (gpr);
+      t = build2 (MODIFY_EXPR, type, gpr,
+		  build_int_cst (type, n_gpr * 8));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
 
   if (cfun->va_list_fpr_size)
     {
-      t = build2 (MODIFY_EXPR, TREE_TYPE (fpr), fpr,
-		  build_int_cst (NULL_TREE, n_fpr * 16 + 8*REGPARM_MAX));
+      type = TREE_TYPE (fpr);
+      t = build2 (MODIFY_EXPR, type, fpr,
+		  build_int_cst (type, n_fpr * 16 + 8*REGPARM_MAX));
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
 
   /* Find the overflow area.  */
-  t = make_tree (TREE_TYPE (ovf), virtual_incoming_args_rtx);
+  type = TREE_TYPE (ovf);
+  t = make_tree (type, virtual_incoming_args_rtx);
   if (words != 0)
-    t = build2 (PLUS_EXPR, TREE_TYPE (ovf), t,
-	        build_int_cst (NULL_TREE, words * UNITS_PER_WORD));
-  t = build2 (MODIFY_EXPR, TREE_TYPE (ovf), ovf, t);
+    t = build2 (PLUS_EXPR, type, t,
+	        build_int_cst (type, words * UNITS_PER_WORD));
+  t = build2 (MODIFY_EXPR, type, ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
@@ -4180,8 +4184,9 @@ ix86_va_start (tree valist, rtx nextarg)
     {
       /* Find the register save area.
 	 Prologue of the function save it right above stack frame.  */
-      t = make_tree (TREE_TYPE (sav), frame_pointer_rtx);
-      t = build2 (MODIFY_EXPR, TREE_TYPE (sav), sav, t);
+      type = TREE_TYPE (sav);
+      t = make_tree (type, frame_pointer_rtx);
+      t = build2 (MODIFY_EXPR, type, sav, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -13428,7 +13433,7 @@ ix86_issue_rate (void)
    by DEP_INSN and nothing set by DEP_INSN.  */
 
 static int
-ix86_flags_dependant (rtx insn, rtx dep_insn, enum attr_type insn_type)
+ix86_flags_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
 {
   rtx set, set2;
 
@@ -13473,7 +13478,7 @@ ix86_flags_dependant (rtx insn, rtx dep_insn, enum attr_type insn_type)
    address with operands set by DEP_INSN.  */
 
 static int
-ix86_agi_dependant (rtx insn, rtx dep_insn, enum attr_type insn_type)
+ix86_agi_dependent (rtx insn, rtx dep_insn, enum attr_type insn_type)
 {
   rtx addr;
 
@@ -13531,17 +13536,17 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     {
     case PROCESSOR_PENTIUM:
       /* Address Generation Interlock adds a cycle of latency.  */
-      if (ix86_agi_dependant (insn, dep_insn, insn_type))
+      if (ix86_agi_dependent (insn, dep_insn, insn_type))
 	cost += 1;
 
       /* ??? Compares pair with jump/setcc.  */
-      if (ix86_flags_dependant (insn, dep_insn, insn_type))
+      if (ix86_flags_dependent (insn, dep_insn, insn_type))
 	cost = 0;
 
       /* Floating point stores require value to be ready one cycle earlier.  */
       if (insn_type == TYPE_FMOV
 	  && get_attr_memory (insn) == MEMORY_STORE
-	  && !ix86_agi_dependant (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
 	cost += 1;
       break;
 
@@ -13564,7 +13569,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependant (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
 	{
 	  /* Claim moves to take one cycle, as core can issue one load
 	     at time and the next load can start cycle later.  */
@@ -13593,7 +13598,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependant (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
 	{
 	  /* Claim moves to take one cycle, as core can issue one load
 	     at time and the next load can start cycle later.  */
@@ -13617,7 +13622,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
       if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
-	  && !ix86_agi_dependant (insn, dep_insn, insn_type))
+	  && !ix86_agi_dependent (insn, dep_insn, insn_type))
 	{
 	  enum attr_unit unit = get_attr_unit (insn);
 	  int loadcost = 3;
@@ -17852,11 +17857,66 @@ ix86_expand_vector_init_duplicate (bool mmx_ok, enum machine_mode mode,
       wvmode = V4HImode;
       goto widen;
     case V8HImode:
+      if (TARGET_SSE2)
+	{
+	  rtx tmp1, tmp2;
+	  /* Extend HImode to SImode using a paradoxical SUBREG.  */
+	  tmp1 = gen_reg_rtx (SImode);
+	  emit_move_insn (tmp1, gen_lowpart (SImode, val));
+	  /* Insert the SImode value as low element of V4SImode vector. */
+	  tmp2 = gen_reg_rtx (V4SImode);
+	  tmp1 = gen_rtx_VEC_MERGE (V4SImode,
+				    gen_rtx_VEC_DUPLICATE (V4SImode, tmp1),
+				    CONST0_RTX (V4SImode),
+				    const1_rtx);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp2, tmp1));
+	  /* Cast the V4SImode vector back to a V8HImode vector.  */
+	  tmp1 = gen_reg_rtx (V8HImode);
+	  emit_move_insn (tmp1, gen_lowpart (V8HImode, tmp2));
+	  /* Duplicate the low short through the whole low SImode word.  */
+	  emit_insn (gen_sse2_punpcklwd (tmp1, tmp1, tmp1));
+	  /* Cast the V8HImode vector back to a V4SImode vector.  */
+	  tmp2 = gen_reg_rtx (V4SImode);
+	  emit_move_insn (tmp2, gen_lowpart (V4SImode, tmp1));
+	  /* Replicate the low element of the V4SImode vector.  */
+	  emit_insn (gen_sse2_pshufd (tmp2, tmp2, const0_rtx));
+	  /* Cast the V2SImode back to V8HImode, and store in target.  */
+	  emit_move_insn (target, gen_lowpart (V8HImode, tmp2));
+	  return true;
+	}
       smode = HImode;
       wsmode = SImode;
       wvmode = V4SImode;
       goto widen;
     case V16QImode:
+      if (TARGET_SSE2)
+	{
+	  rtx tmp1, tmp2;
+	  /* Extend QImode to SImode using a paradoxical SUBREG.  */
+	  tmp1 = gen_reg_rtx (SImode);
+	  emit_move_insn (tmp1, gen_lowpart (SImode, val));
+	  /* Insert the SImode value as low element of V4SImode vector. */
+	  tmp2 = gen_reg_rtx (V4SImode);
+	  tmp1 = gen_rtx_VEC_MERGE (V4SImode,
+				    gen_rtx_VEC_DUPLICATE (V4SImode, tmp1),
+				    CONST0_RTX (V4SImode),
+				    const1_rtx);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp2, tmp1));
+	  /* Cast the V4SImode vector back to a V16QImode vector.  */
+	  tmp1 = gen_reg_rtx (V16QImode);
+	  emit_move_insn (tmp1, gen_lowpart (V16QImode, tmp2));
+	  /* Duplicate the low byte through the whole low SImode word.  */
+	  emit_insn (gen_sse2_punpcklbw (tmp1, tmp1, tmp1));
+	  emit_insn (gen_sse2_punpcklbw (tmp1, tmp1, tmp1));
+	  /* Cast the V16QImode vector back to a V4SImode vector.  */
+	  tmp2 = gen_reg_rtx (V4SImode);
+	  emit_move_insn (tmp2, gen_lowpart (V4SImode, tmp1));
+	  /* Replicate the low element of the V4SImode vector.  */
+	  emit_insn (gen_sse2_pshufd (tmp2, tmp2, const0_rtx));
+	  /* Cast the V2SImode back to V16QImode, and store in target.  */
+	  emit_move_insn (target, gen_lowpart (V16QImode, tmp2));
+	  return true;
+	}
       smode = QImode;
       wsmode = HImode;
       wvmode = V8HImode;
@@ -17881,15 +17941,16 @@ ix86_expand_vector_init_duplicate (bool mmx_ok, enum machine_mode mode,
 }
 
 /* A subroutine of ix86_expand_vector_init.  Store into TARGET a vector
-   whose low element is VAR, and other elements are zero.  Return true
+   whose ONE_VAR element is VAR, and other elements are zero.  Return true
    if successful.  */
 
 static bool
-ix86_expand_vector_init_low_nonzero (bool mmx_ok, enum machine_mode mode,
-				     rtx target, rtx var)
+ix86_expand_vector_init_one_nonzero (bool mmx_ok, enum machine_mode mode,
+				     rtx target, rtx var, int one_var)
 {
   enum machine_mode vsimode;
-  rtx x;
+  rtx new_target;
+  rtx x, tmp;
 
   switch (mode)
     {
@@ -17901,6 +17962,8 @@ ix86_expand_vector_init_low_nonzero (bool mmx_ok, enum machine_mode mode,
 
     case V2DFmode:
     case V2DImode:
+      if (one_var != 0)
+	return false;
       var = force_reg (GET_MODE_INNER (mode), var);
       x = gen_rtx_VEC_CONCAT (mode, var, CONST0_RTX (GET_MODE_INNER (mode)));
       emit_insn (gen_rtx_SET (VOIDmode, target, x));
@@ -17908,10 +17971,55 @@ ix86_expand_vector_init_low_nonzero (bool mmx_ok, enum machine_mode mode,
 
     case V4SFmode:
     case V4SImode:
+      if (!REG_P (target) || REGNO (target) < FIRST_PSEUDO_REGISTER)
+	new_target = gen_reg_rtx (mode);
+      else
+	new_target = target;
       var = force_reg (GET_MODE_INNER (mode), var);
       x = gen_rtx_VEC_DUPLICATE (mode, var);
       x = gen_rtx_VEC_MERGE (mode, x, CONST0_RTX (mode), const1_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, target, x));
+      emit_insn (gen_rtx_SET (VOIDmode, new_target, x));
+      if (one_var != 0)
+	{
+	  /* We need to shuffle the value to the correct position, so
+	     create a new pseudo to store the intermediate result.  */
+
+	  /* With SSE2, we can use the integer shuffle insns.  */
+	  if (mode != V4SFmode && TARGET_SSE2)
+	    {
+	      emit_insn (gen_sse2_pshufd_1 (new_target, new_target,
+					    GEN_INT (1),
+					    GEN_INT (one_var == 1 ? 0 : 1),
+					    GEN_INT (one_var == 2 ? 0 : 1),
+					    GEN_INT (one_var == 3 ? 0 : 1)));
+	      if (target != new_target)
+		emit_move_insn (target, new_target);
+	      return true;
+	    }
+
+	  /* Otherwise convert the intermediate result to V4SFmode and
+	     use the SSE1 shuffle instructions.  */
+	  if (mode != V4SFmode)
+	    {
+	      tmp = gen_reg_rtx (V4SFmode);
+	      emit_move_insn (tmp, gen_lowpart (V4SFmode, new_target));
+	    }
+	  else
+	    tmp = new_target;
+
+	  emit_insn (gen_sse_shufps_1 (tmp, tmp, tmp,
+				       GEN_INT (1),
+				       GEN_INT (one_var == 1 ? 0 : 1),
+				       GEN_INT (one_var == 2 ? 0+4 : 1+4),
+				       GEN_INT (one_var == 3 ? 0+4 : 1+4)));
+
+	  if (mode != V4SFmode)
+	    emit_move_insn (target, gen_lowpart (V4SImode, tmp));
+	  else if (tmp != target)
+	    emit_move_insn (target, tmp);
+	}
+      else if (target != new_target)
+	emit_move_insn (target, new_target);
       return true;
 
     case V8HImode:
@@ -17925,11 +18033,15 @@ ix86_expand_vector_init_low_nonzero (bool mmx_ok, enum machine_mode mode,
       vsimode = V2SImode;
       goto widen;
     widen:
+      if (one_var != 0)
+	return false;
+
       /* Zero extend the variable element to SImode and recurse.  */
       var = convert_modes (SImode, GET_MODE_INNER (mode), var, true);
 
       x = gen_reg_rtx (vsimode);
-      if (!ix86_expand_vector_init_low_nonzero (mmx_ok, vsimode, x, var))
+      if (!ix86_expand_vector_init_one_nonzero (mmx_ok, vsimode, x,
+						var, one_var))
 	gcc_unreachable ();
 
       emit_move_insn (target, gen_lowpart (mode, x));
@@ -18186,9 +18298,10 @@ ix86_expand_vector_init (bool mmx_ok, rtx target, rtx vals)
      the pool and overwritten via move later.  */
   if (n_var == 1)
     {
-      if (all_const_zero && one_var == 0
-	  && ix86_expand_vector_init_low_nonzero (mmx_ok, mode, target,
-						  XVECEXP (vals, 0, 0)))
+      if (all_const_zero
+	  && ix86_expand_vector_init_one_nonzero (mmx_ok, mode, target,
+						  XVECEXP (vals, 0, one_var),
+						  one_var))
 	return;
 
       if (ix86_expand_vector_init_one_var (mmx_ok, mode, target, vals, one_var))
@@ -18749,7 +18862,7 @@ asm_preferred_eh_data_format (int code, int global)
 {
   if (flag_pic)
     {
-int type = DW_EH_PE_sdata8;
+      int type = DW_EH_PE_sdata8;
       if (!TARGET_64BIT
 	  || ix86_cmodel == CM_SMALL_PIC
 	  || (ix86_cmodel == CM_MEDIUM_PIC && (global || code)))

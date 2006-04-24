@@ -3402,9 +3402,12 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && !flag_pic
 #endif
       /* Don't do this for TFmode, since the result isn't offsettable.
-	 The same goes for DImode without 64-bit gprs.  */
+	 The same goes for DImode without 64-bit gprs and DFmode
+	 without fprs.  */
       && mode != TFmode
-      && (mode != DImode || TARGET_POWERPC64))
+      && (mode != DImode || TARGET_POWERPC64)
+      && (mode != DFmode || TARGET_POWERPC64
+	  || (TARGET_FPRS && TARGET_HARD_FLOAT)))
     {
 #if TARGET_MACHO
       if (flag_pic)
@@ -5058,17 +5061,13 @@ rs6000_mixed_function_arg (enum machine_mode mode, tree type, int align_words)
   if (align_words + n_units > GP_ARG_NUM_REG)
     /* Not all of the arg fits in gprs.  Say that it goes in memory too,
        using a magic NULL_RTX component.
-       FIXME: This is not strictly correct.  Only some of the arg
-       belongs in memory, not all of it.  However, there isn't any way
-       to do this currently, apart from building rtx descriptions for
-       the pieces of memory we want stored.  Due to bugs in the generic
-       code we can't use the normal function_arg_partial_nregs scheme
-       with the PARALLEL arg description we emit here.
-       In any case, the code to store the whole arg to memory is often
-       more efficient than code to store pieces, and we know that space
-       is available in the right place for the whole arg.  */
-    /* FIXME: This should be fixed since the conversion to
-       TARGET_ARG_PARTIAL_BYTES.  */
+       This is not strictly correct.  Only some of the arg belongs in
+       memory, not all of it.  However, the normal scheme using
+       function_arg_partial_nregs can result in unusual subregs, eg.
+       (subreg:SI (reg:DF) 4), which are not handled well.  The code to
+       store the whole arg to memory is often more efficient than code
+       to store pieces, and we know that space is available in the right
+       place for the whole arg.  */
     rvec[k++] = gen_rtx_EXPR_LIST (VOIDmode, NULL_RTX, const0_rtx);
 
   i = 0;
@@ -5310,9 +5309,8 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			 include the portion actually in registers here.  */
 		      enum machine_mode rmode = TARGET_32BIT ? SImode : DImode;
 		      rtx off;
-		      int i=0;
-		      if (align_words + n_words > GP_ARG_NUM_REG
-			  && (TARGET_32BIT && TARGET_POWERPC64))
+		      int i = 0;
+		      if (align_words + n_words > GP_ARG_NUM_REG)
 			/* Not all of the arg fits in gprs.  Say that it
 			   goes in memory too, using a magic NULL_RTX
 			   component.  Also see comment in
@@ -5391,18 +5389,20 @@ rs6000_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
   align_words = rs6000_parm_start (mode, type, cum->words);
 
-  if (USE_FP_FOR_ARG_P (cum, mode, type)
+  if (USE_FP_FOR_ARG_P (cum, mode, type))
+    {
       /* If we are passing this arg in the fixed parameter save area
 	 (gprs or memory) as well as fprs, then this function should
-	 return the number of bytes passed in the parameter save area
-	 rather than bytes passed in fprs.  */
-      && !(type
-	   && (cum->nargs_prototype <= 0
-	       || (DEFAULT_ABI == ABI_AIX
-		   && TARGET_XL_COMPAT
-		   && align_words >= GP_ARG_NUM_REG))))
-    {
-      if (cum->fregno + ((GET_MODE_SIZE (mode) + 7) >> 3) > FP_ARG_MAX_REG + 1)
+	 return the number of partial bytes passed in the parameter
+	 save area rather than partial bytes passed in fprs.  */
+      if (type
+	  && (cum->nargs_prototype <= 0
+	      || (DEFAULT_ABI == ABI_AIX
+		  && TARGET_XL_COMPAT
+		  && align_words >= GP_ARG_NUM_REG)))
+	return 0;
+      else if (cum->fregno + ((GET_MODE_SIZE (mode) + 7) >> 3)
+	       > FP_ARG_MAX_REG + 1)
 	ret = (FP_ARG_MAX_REG + 1 - cum->fregno) * 8;
       else if (cum->nargs_prototype >= 0)
 	return 0;
@@ -5960,10 +5960,10 @@ rs6000_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
       t = build1 (LABEL_EXPR, void_type_node, lab_false);
       append_to_statement_list (t, pre_p);
 
-      if (n_reg > 2)
+      if ((n_reg == 2 && reg != gpr) || n_reg > 2)
 	{
 	  /* Ensure that we don't find any more args in regs.
-	     Alignment has taken care of the n_reg == 2 case.  */
+	     Alignment has taken care of the n_reg == 2 gpr case.  */
 	  t = build2 (MODIFY_EXPR, TREE_TYPE (reg), reg, size_int (8));
 	  gimplify_and_add (t, pre_p);
 	}
@@ -15326,7 +15326,8 @@ rs6000_output_function_epilogue (FILE *file,
 	 official way to discover the language being compiled, so we
 	 use language_string.
 	 C is 0.  Fortran is 1.  Pascal is 2.  Ada is 3.  C++ is 9.
-	 Java is 13.  Objective-C is 14.  */
+	 Java is 13.  Objective-C is 14.  Objective-C++ isn't assigned
+	 a number, so for now use 9.  */
       if (! strcmp (language_string, "GNU C"))
 	i = 0;
       else if (! strcmp (language_string, "GNU F77")
@@ -15336,7 +15337,8 @@ rs6000_output_function_epilogue (FILE *file,
 	i = 2;
       else if (! strcmp (language_string, "GNU Ada"))
 	i = 3;
-      else if (! strcmp (language_string, "GNU C++"))
+      else if (! strcmp (language_string, "GNU C++")
+	       || ! strcmp (language_string, "GNU Objective-C++"))
 	i = 9;
       else if (! strcmp (language_string, "GNU Java"))
 	i = 13;

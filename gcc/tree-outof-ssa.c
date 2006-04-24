@@ -46,15 +46,13 @@ Boston, MA 02110-1301, USA.  */
 #include "tree-ssa-live.h"
 #include "tree-pass.h"
 #include "toplev.h"
+#include "vecprim.h"
 
 /* Flags to pass to remove_ssa_form.  */
 
 #define SSANORM_PERFORM_TER		0x1
 #define SSANORM_COMBINE_TEMPS		0x2
 #define SSANORM_COALESCE_PARTITIONS	0x4
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 /* Used to hold all the components required to do SSA PHI elimination.
    The node and pred/succ list is a simple linear list of nodes and
@@ -1323,7 +1321,7 @@ static inline void add_value_to_list (temp_expr_table_p, value_expr_p *, int);
 static inline void add_info_to_list (temp_expr_table_p, value_expr_p *, 
 				     value_expr_p);
 static value_expr_p remove_value_from_list (value_expr_p *, int);
-static void add_dependance (temp_expr_table_p, int, tree);
+static void add_dependence (temp_expr_table_p, int, tree);
 static bool check_replaceable (temp_expr_table_p, tree);
 static void finish_expr (temp_expr_table_p, int, bool);
 static void mark_replaceable (temp_expr_table_p, tree);
@@ -1512,7 +1510,7 @@ remove_value_from_list (value_expr_p *list, int value)
    expression table.  */
 
 static void
-add_dependance (temp_expr_table_p tab, int version, tree var)
+add_dependence (temp_expr_table_p tab, int version, tree var)
 {
   int i, x;
   value_expr_p info;
@@ -1595,7 +1593,7 @@ check_replaceable (temp_expr_table_p tab, tree stmt)
   /* Add this expression to the dependency list for each use partition.  */
   FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
     {
-      add_dependance (tab, version, var);
+      add_dependence (tab, version, var);
 
       use_vars = tab->expr_vars[SSA_NAME_VERSION (var)];
       if (use_vars)

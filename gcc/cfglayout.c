@@ -38,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "flags.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "vecprim.h"
 
 /* Holds the interesting trailing notes for the function.  */
 rtx cfg_layout_function_footer, cfg_layout_function_header;
@@ -222,9 +223,6 @@ record_effective_endpoints (void)
     cfg_layout_function_footer = unlink_insn_chain (cfg_layout_function_footer, get_last_insn ());
 }
 
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
-
 /* Data structures representing mapping of INSN_LOCATOR into scope blocks, line
    numbers and files.  In order to be GGC friendly we need to use separate
    varrays.  This also slightly improve the memory locality in binary search.

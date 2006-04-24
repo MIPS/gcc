@@ -46,6 +46,7 @@ Boston, MA 02110-1301, USA.  */
 #include "ipa-type-escape.h"
 #include "vec.h"
 #include "bitmap.h"
+#include "vecprim.h"
 
 /* Obstack used to hold grouping bitmaps and other temporary bitmaps used by
    aliasing  */
@@ -134,9 +135,6 @@ bitmap addressable_vars;
    are forced to alias this variable.  This reduces compile times by not
    having to keep track of too many V_MAY_DEF expressions at call sites.  */
 tree global_var;
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 /* qsort comparison function to sort type/name tags by DECL_UID.  */
 
@@ -316,6 +314,7 @@ set_initial_properties (struct alias_info *ai)
   unsigned int i;
   referenced_var_iterator rvi;
   tree var;
+  tree ptr;
 
   FOR_EACH_REFERENCED_VAR (var, rvi)
     {
@@ -336,9 +335,8 @@ set_initial_properties (struct alias_info *ai)
 	}
     }
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
+  for (i = 0; VEC_iterate (tree, ai->processed_ptrs, i, ptr); i++)
     {
-      tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
       var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
       
@@ -426,6 +424,26 @@ compute_call_clobbered (struct alias_info *ai)
 }
 
 
+/* Helper for recalculate_used_alone.  Return a conservatively correct
+   answer as to whether STMT may make a store on the LHS to SYM.  */
+
+static bool
+lhs_may_store_to (tree stmt, tree sym ATTRIBUTE_UNUSED)
+{
+  tree lhs = TREE_OPERAND (stmt, 0);
+  
+  lhs = get_base_address (lhs);
+  
+  if (!lhs)
+    return false;
+
+  if (TREE_CODE (lhs) == SSA_NAME)
+    return false;
+  /* We could do better here by looking at the type tag of LHS, but it
+     is unclear whether this is worth it. */
+  return true;
+}
+
 /* Recalculate the used_alone information for SMTs . */
 
 void 
@@ -457,38 +475,45 @@ recalculate_used_alone (void)
     {
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
+	  bool iscall = false;
+	  ssa_op_iter iter;
+
 	  stmt = bsi_stmt (bsi);
+	  
 	  if (TREE_CODE (stmt) == CALL_EXPR
 	      || (TREE_CODE (stmt) == MODIFY_EXPR 
 		  && TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
-	    VEC_safe_push (tree, heap, calls, stmt);
-	  else
 	    {
-	      ssa_op_iter iter;
+	      iscall = true;
+	      VEC_safe_push (tree, heap, calls, stmt);	    
+	    }
+	  
+	  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, 
+				     SSA_OP_VUSE | SSA_OP_VIRTUAL_DEFS)
+	    {
+	      tree svar = var;
 	      
-	      FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, 
-					 SSA_OP_VUSE | SSA_OP_VIRTUAL_DEFS)
+	      if (TREE_CODE (var) == SSA_NAME)
+		svar = SSA_NAME_VAR (var);
+	      
+	      if (TREE_CODE (svar) == SYMBOL_MEMORY_TAG)
 		{
-		  tree svar = var;
-		  
-		  if(TREE_CODE (var) == SSA_NAME)
-		    svar = SSA_NAME_VAR (var);
-		  
-		  if (TREE_CODE (svar) == SYMBOL_MEMORY_TAG)
-		    {
-		      if (!SMT_USED_ALONE (svar))
-			{
-			  SMT_USED_ALONE (svar) = true;
+		  /* We only care about the LHS on calls.  */
+		  if (iscall && !lhs_may_store_to (stmt, svar))
+		    continue;
 
-			  /* Only need to mark for renaming if it wasn't
-			     used alone before.  */
-			  if (!SMT_OLD_USED_ALONE (svar))
-			    mark_sym_for_renaming (svar);
-			}
+		  if (!SMT_USED_ALONE (svar))
+		    {
+		      SMT_USED_ALONE (svar) = true;
+		      
+		      /* Only need to mark for renaming if it wasn't
+			 used alone before.  */
+		      if (!SMT_OLD_USED_ALONE (svar))
+			mark_sym_for_renaming (svar);
 		    }
 		}
-	    }	           
-	}
+	    }
+	}	           
     }
   
   /* Update the operands on all the calls we saw.  */
@@ -834,7 +859,7 @@ init_alias_info (void)
   ai = XCNEW (struct alias_info);
   ai->ssa_names_visited = sbitmap_alloc (num_ssa_names);
   sbitmap_zero (ai->ssa_names_visited);
-  VARRAY_TREE_INIT (ai->processed_ptrs, 50, "processed_ptrs");
+  ai->processed_ptrs = VEC_alloc (tree, heap, 50);
   ai->written_vars = BITMAP_ALLOC (&alias_obstack);
   ai->dereferenced_ptrs_store = BITMAP_ALLOC (&alias_obstack);
   ai->dereferenced_ptrs_load = BITMAP_ALLOC (&alias_obstack);
@@ -918,7 +943,7 @@ delete_alias_info (struct alias_info *ai)
   tree var;
 
   sbitmap_free (ai->ssa_names_visited);
-  ai->processed_ptrs = NULL;
+  VEC_free (tree, heap, ai->processed_ptrs);
 
   for (i = 0; i < ai->num_addressable_vars; i++)
     free (ai->addressable_vars[i]);
@@ -1060,20 +1085,19 @@ static void
 compute_flow_sensitive_aliasing (struct alias_info *ai)
 {
   size_t i;
+  tree ptr;
   
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
+  for (i = 0; VEC_iterate (tree, ai->processed_ptrs, i, ptr); i++)
     {
-      tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       if (!find_what_p_points_to (ptr))
 	set_pt_anything (ptr);
     }
 
   create_name_tags ();
 
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
+  for (i = 0; VEC_iterate (tree, ai->processed_ptrs, i, ptr); i++)
     {
       unsigned j;
-      tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
       var_ann_t v_ann = var_ann (SSA_NAME_VAR (ptr));
       bitmap_iterator bi;
@@ -1386,6 +1410,7 @@ static void
 group_aliases (struct alias_info *ai)
 {
   size_t i;
+  tree ptr;
 
   /* Sort the POINTERS array in descending order of contributed
      virtual operands.  */
@@ -1453,10 +1478,9 @@ group_aliases (struct alias_info *ai)
      into p_5->field, but that is wrong because there have been
      modifications to 'SMT.20' in between.  To prevent this we have to
      replace 'a' with 'SMT.20' in the name tag of p_5.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (ai->processed_ptrs); i++)
+  for (i = 0; VEC_iterate (tree, ai->processed_ptrs, i, ptr); i++)
     {
       size_t j;
-      tree ptr = VARRAY_TREE (ai->processed_ptrs, i);
       tree name_tag = SSA_NAME_PTR_INFO (ptr)->name_mem_tag;
       VEC(tree,gc) *aliases;
       tree alias;

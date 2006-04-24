@@ -65,6 +65,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "predict.h"
 #include "df.h"
 #include "timevar.h"
+#include "vecprim.h"
 
 #ifndef LOCAL_ALIGNMENT
 #define LOCAL_ALIGNMENT(TYPE, ALIGNMENT) ALIGNMENT
@@ -128,9 +129,6 @@ struct machine_function * (*init_machine_status) (void);
 
 /* The currently compiled function.  */
 struct function *cfun = 0;
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 /* These arrays record the INSN_UIDs of the prologue and epilogue insns.  */
 static VEC(int,heap) *prologue;
@@ -554,14 +552,18 @@ insert_slot_to_list (struct temp_slot *temp, struct temp_slot **list)
 static struct temp_slot **
 temp_slots_at_level (int level)
 {
+  if (level >= (int) VEC_length (temp_slot_p, used_temp_slots))
+    {
+      size_t old_length = VEC_length (temp_slot_p, used_temp_slots);
+      temp_slot_p *p;
 
-  if (!used_temp_slots)
-    VARRAY_GENERIC_PTR_INIT (used_temp_slots, 3, "used_temp_slots");
+      VEC_safe_grow (temp_slot_p, gc, used_temp_slots, level + 1);
+      p = VEC_address (temp_slot_p, used_temp_slots);
+      memset (&p[old_length], 0,
+	      sizeof (temp_slot_p) * (level + 1 - old_length));
+    }
 
-  while (level >= (int) VARRAY_ACTIVE_SIZE (used_temp_slots))
-    VARRAY_PUSH_GENERIC_PTR (used_temp_slots, NULL);
-
-  return (struct temp_slot **) &VARRAY_GENERIC_PTR (used_temp_slots, level);
+  return &(VEC_address (temp_slot_p, used_temp_slots)[level]);
 }
 
 /* Returns the maximal temporary slot level.  */
@@ -572,7 +574,7 @@ max_slot_level (void)
   if (!used_temp_slots)
     return -1;
 
-  return VARRAY_ACTIVE_SIZE (used_temp_slots) - 1;
+  return VEC_length (temp_slot_p, used_temp_slots) - 1;
 }
 
 /* Moves temporary slot TEMP to LEVEL.  */
@@ -5569,8 +5571,8 @@ reposition_prologue_and_epilogue_notes (void)
 void
 reset_block_changes (void)
 {
-  VARRAY_TREE_INIT (cfun->ib_boundaries_block, 100, "ib_boundaries_block");
-  VARRAY_PUSH_TREE (cfun->ib_boundaries_block, NULL_TREE);
+  cfun->ib_boundaries_block = VEC_alloc (tree, gc, 100);
+  VEC_quick_push (tree, cfun->ib_boundaries_block, NULL_TREE);
 }
 
 /* Record the boundary for BLOCK.  */
@@ -5586,13 +5588,12 @@ record_block_change (tree block)
   if(!cfun->ib_boundaries_block)
     return;
 
-  last_block = VARRAY_TOP_TREE (cfun->ib_boundaries_block);
-  VARRAY_POP (cfun->ib_boundaries_block);
+  last_block = VEC_pop (tree, cfun->ib_boundaries_block);
   n = get_max_uid ();
-  for (i = VARRAY_ACTIVE_SIZE (cfun->ib_boundaries_block); i < n; i++)
-    VARRAY_PUSH_TREE (cfun->ib_boundaries_block, last_block);
+  for (i = VEC_length (tree, cfun->ib_boundaries_block); i < n; i++)
+    VEC_safe_push (tree, gc, cfun->ib_boundaries_block, last_block);
 
-  VARRAY_PUSH_TREE (cfun->ib_boundaries_block, block);
+  VEC_safe_push (tree, gc, cfun->ib_boundaries_block, block);
 }
 
 /* Finishes record of boundaries.  */
@@ -5607,17 +5608,17 @@ check_block_change (rtx insn, tree *block)
 {
   unsigned uid = INSN_UID (insn);
 
-  if (uid >= VARRAY_ACTIVE_SIZE (cfun->ib_boundaries_block))
+  if (uid >= VEC_length (tree, cfun->ib_boundaries_block))
     return;
 
-  *block = VARRAY_TREE (cfun->ib_boundaries_block, uid);
+  *block = VEC_index (tree, cfun->ib_boundaries_block, uid);
 }
 
 /* Releases the ib_boundaries_block records.  */
 void
 free_block_changes (void)
 {
-  cfun->ib_boundaries_block = NULL;
+  VEC_free (tree, gc, cfun->ib_boundaries_block);
 }
 
 /* Returns the name of the current function.  */
@@ -5636,6 +5637,23 @@ rest_of_handle_check_leaf_regs (void)
     = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
 #endif
   return 0;
+}
+
+/* Insert a type into the used types hash table.  */
+void
+used_types_insert (tree t, struct function *func)
+{
+  if (t != NULL && func != NULL)
+    {
+      void **slot;
+
+      if (func->used_types_hash == NULL)
+	func->used_types_hash = htab_create_ggc (37, htab_hash_pointer,
+					     htab_eq_pointer, NULL);
+      slot = htab_find_slot (func->used_types_hash, t, INSERT);
+      if (*slot == NULL)
+	*slot = t;
+    }
 }
 
 struct tree_opt_pass pass_leaf_regs =

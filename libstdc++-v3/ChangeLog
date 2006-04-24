@@ -1,3 +1,64 @@
+2006-04-23  Marc Glisse  <marc.glisse@normalesup.org>
+
+	PR libstdc++/27199
+	* ext/pool_allocator.h: Add using declarations for size_t, ptrdiff_t.
+	* ext/bitmap_allocator.h: Likewise; qualify with std::.
+	* ext/new_allocator.h: Likewise.
+	* ext/malloc_allocator.h: Likewise.
+	* ext/array_allocator.h: Likewise.
+	* ext/mt_allocator.h: Likewise.
+	* ext/functional: Likewise for size_t.
+	* ext/debug_allocator.h: Likewise.
+	* bits/char_traits.h: Qualify with std:: size_t.
+	* debug/hash_multimap.h: Likewise.
+
+2006-04-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 42.
+
+2006-04-19  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26424
+	* include/tr1/hashtable (X<>::primes): Extend for 64-bit machines.
+	(X<>::n_primes): Adjust.
+	(prime_rehash_policy::next_bkt, bkt_for_elements, need_rehash): Adjust.
+
+2006-04-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/faq/index.html ([5.5]): Adjust to mention function
+	objects and reference_wrapper; minor tweaks.
+	* docs/html/faq/index.txt: Regenerate.
+
+2006-04-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/6702 (again)
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Don't check non-C99
+	wchar_t functions...
+	(GLIBCXX_ENABLE_WCHAR_T): ... do that here.
+	* configure.ac: Adjust order of checks.
+	* configure: Regenerate.
+
+2006-04-14  Douglas Gregor  <dgregor@cs.indiana.edu>
+
+	PR libstdc++/27162
+	* include/bits/stl_algo.h (__search_n(,,,, _BinaryPredicate,
+	std::forward_iterator_tag)): Use __binary_pred, not ==.
+
+2006-04-10  Matthias Klose  <doko@debian.org>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Recognize multilib
+	directory names containing underscores.
+
+2006-04-10  Paolo Carlini  <pcarlini@suse.de>
+
+	DR 538, [Ready]
+	* include/bits/stl_algo.h (__unique_copy(,,, input_iterator_tag,
+	output_iterator_tag), and predicated counterpart): Revert to the
+	algorithm pre-DR 241, i.e., value_type of InputIterator is now
+	required to be Assignable too.
+	* testsuite/25_algorithms/unique_copy/3.cc: Remove.
+	* docs/html/ext/howto.html: Add an entry for DR 538.
+
 2006-03-29  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* testsuite/data/sgetn.txt:  Correct copyright holder.

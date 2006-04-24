@@ -952,9 +952,17 @@ resolve_generic_f0 (gfc_expr * expr, gfc_symbol * sym)
 	{
 	  expr->value.function.name = s->name;
 	  expr->value.function.esym = s;
-	  expr->ts = s->ts;
+
+	  if (s->ts.type != BT_UNKNOWN)
+	    expr->ts = s->ts;
+	  else if (s->result != NULL && s->result->ts.type != BT_UNKNOWN)
+	    expr->ts = s->result->ts;
+
 	  if (s->as != NULL)
 	    expr->rank = s->as->rank;
+	  else if (s->result != NULL && s->result->as != NULL)
+	    expr->rank = s->result->as->rank;
+
 	  return MATCH_YES;
 	}
 
@@ -1229,28 +1237,16 @@ resolve_function (gfc_expr * expr)
   need_full_assumed_size--;
 
   if (sym && sym->ts.type == BT_CHARACTER
-	  && sym->ts.cl && sym->ts.cl->length == NULL)
+	&& sym->ts.cl
+	&& sym->ts.cl->length == NULL
+	&& !sym->attr.dummy
+	&& !sym->attr.contained)
     {
-      if (sym->attr.if_source == IFSRC_IFBODY)
-	{
-	  /* This follows from a slightly odd requirement at 5.1.1.5 in the
-	     standard that allows assumed character length functions to be
-	     declared in interfaces but not used.  Picking up the symbol here,
-	     rather than resolve_symbol, accomplishes that.  */
-	  gfc_error ("Function '%s' can be declared in an interface to "
-		     "return CHARACTER(*) but cannot be used at %L",
-		     sym->name, &expr->where);
-	  return FAILURE;
-	}
-
       /* Internal procedures are taken care of in resolve_contained_fntype.  */
-      if (!sym->attr.dummy && !sym->attr.contained)
-	{
-	  gfc_error ("Function '%s' is declared CHARACTER(*) and cannot "
-		     "be used at %L since it is not a dummy argument",
-		     sym->name, &expr->where);
-	  return FAILURE;
-	}
+      gfc_error ("Function '%s' is declared CHARACTER(*) and cannot "
+		 "be used at %L since it is not a dummy argument",
+		 sym->name, &expr->where);
+      return FAILURE;
     }
 
 /* See if function is already resolved.  */
@@ -1661,18 +1657,33 @@ resolve_call (gfc_code * c)
 	gfc_internal_error ("resolve_subroutine(): bad function type");
       }
 
+  /* Some checks of elemental subroutines.  */
   if (c->ext.actual != NULL
       && c->symtree->n.sym->attr.elemental)
     {
       gfc_actual_arglist * a;
-      /* Being elemental, the last upper bound of an assumed size array
-	 argument must be present.  */
+      gfc_expr * e;
+      e = NULL;
+
       for (a = c->ext.actual; a; a = a->next)
 	{
-	  if (a->expr != NULL
-		&& a->expr->rank > 0
-		&& resolve_assumed_size_actual (a->expr))
+	  if (a->expr == NULL || a->expr->rank == 0)
+	    continue;
+
+	 /* The last upper bound of an assumed size array argument must
+	    be present.  */
+	  if (resolve_assumed_size_actual (a->expr))
 	    return FAILURE;
+
+	  /* Array actual arguments must conform.  */
+	  if (e != NULL)
+	    {
+	      if (gfc_check_conformance ("elemental subroutine", a->expr, e)
+			== FAILURE)
+		return FAILURE;
+	    }
+	  else
+	    e = a->expr;
 	}
     }
 
@@ -6097,6 +6108,68 @@ resolve_fntype (gfc_namespace * ns)
       }
 }
 
+/* 12.3.2.1.1 Defined operators.  */
+
+static void
+gfc_resolve_uops(gfc_symtree *symtree)
+{
+  gfc_interface *itr;
+  gfc_symbol *sym;
+  gfc_formal_arglist *formal;
+
+  if (symtree == NULL) 
+    return; 
+ 
+  gfc_resolve_uops (symtree->left);
+  gfc_resolve_uops (symtree->right);
+
+  for (itr = symtree->n.uop->operator; itr; itr = itr->next)
+    {
+      sym = itr->sym;
+      if (!sym->attr.function)
+	gfc_error("User operator procedure '%s' at %L must be a FUNCTION",
+		  sym->name, &sym->declared_at);
+
+      if (sym->ts.type == BT_CHARACTER
+	    && !(sym->ts.cl && sym->ts.cl->length)
+	    && !(sym->result && sym->result->ts.cl && sym->result->ts.cl->length))
+	gfc_error("User operator procedure '%s' at %L cannot be assumed character "
+		  "length", sym->name, &sym->declared_at);
+
+      formal = sym->formal;
+      if (!formal || !formal->sym)
+	{
+	  gfc_error("User operator procedure '%s' at %L must have at least "
+		    "one argument", sym->name, &sym->declared_at);
+	  continue;
+	}
+
+      if (formal->sym->attr.intent != INTENT_IN)
+	gfc_error ("First argument of operator interface at %L must be "
+		   "INTENT(IN)", &sym->declared_at);
+
+      if (formal->sym->attr.optional)
+	gfc_error ("First argument of operator interface at %L cannot be "
+		   "optional", &sym->declared_at);
+
+      formal = formal->next;
+      if (!formal || !formal->sym)
+	continue;
+
+      if (formal->sym->attr.intent != INTENT_IN)
+	gfc_error ("Second argument of operator interface at %L must be "
+		   "INTENT(IN)", &sym->declared_at);
+
+      if (formal->sym->attr.optional)
+	gfc_error ("Second argument of operator interface at %L cannot be "
+		   "optional", &sym->declared_at);
+
+      if (formal->next)
+	gfc_error ("Operator interface at %L must have, at most, two "
+		   "arguments", &sym->declared_at);
+    }
+}
+
 
 /* Examine all of the expressions associated with a program unit,
    assign types to all intermediate expressions, make sure that all
@@ -6156,6 +6229,9 @@ resolve_types (gfc_namespace * ns)
   /* Warn about unused labels.  */
   if (gfc_option.warn_unused_labels)
     warn_unused_label (ns->st_labels);
+
+  gfc_resolve_uops (ns->uop_root);
+    
 }
 
 

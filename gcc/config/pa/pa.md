@@ -1,6 +1,6 @@
 ;;- Machine description for HP PA-RISC architecture for GCC compiler
 ;;   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-;;   2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+;;   2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
 
@@ -50,6 +50,16 @@
    (UNSPECV_OPC		3)	; outline_prologue_call
    (UNSPECV_OEC		4)	; outline_epilogue_call
    (UNSPECV_LONGJMP	5)	; builtin_longjmp
+  ])
+
+;; Maximum pc-relative branch offsets.
+
+;; These numbers are a bit smaller than the maximum allowable offsets
+;; so that a few instructions may be inserted before the actual branch.
+
+(define_constants
+  [(MAX_12BIT_OFFSET     8184)	; 12-bit branch
+   (MAX_17BIT_OFFSET   262100)	; 17-bit branch
   ])
 
 ;; Insn type.  Used to default other attribute values.
@@ -1713,10 +1723,10 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -1742,10 +1752,10 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -1769,10 +1779,10 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -1798,10 +1808,10 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -1824,10 +1834,10 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -1853,10 +1863,10 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -1882,16 +1892,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -1910,16 +1920,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -1938,16 +1948,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -1966,16 +1976,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -1994,16 +2004,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -2022,16 +2032,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -2050,16 +2060,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -2078,16 +2088,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 ;; Branch on Variable Bit patterns.
 (define_insn ""
@@ -2107,16 +2117,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -2135,16 +2145,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -2163,16 +2173,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -2191,16 +2201,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -2219,16 +2229,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -2247,16 +2257,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -2275,16 +2285,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 (define_insn ""
   [(set (pc)
@@ -2303,16 +2313,16 @@
 [(set_attr "type" "cbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
-	   (const_int 28)
+	   (const_int 24)
 	   (eq (symbol_ref "flag_pic") (const_int 0))
-	   (const_int 24)]
-	  (const_int 32)))])
+	   (const_int 20)]
+	  (const_int 28)))])
 
 ;; Floating point branches
 
@@ -2355,7 +2365,7 @@
 [(set_attr "type" "fbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 32)
@@ -2399,7 +2409,7 @@
 [(set_attr "type" "fbranch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 12)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 28)
@@ -7181,11 +7191,11 @@
     (cond [(eq (symbol_ref "jump_in_call_delay (insn)") (const_int 1))
 	   (if_then_else (lt (abs (minus (match_dup 0)
 					 (plus (pc) (const_int 8))))
-			     (const_int 8184))
+			     (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (const_int 8))
 	   (lt (abs (minus (match_dup 0) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 4)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 20)
@@ -9007,10 +9017,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 ;; Short branch has length of 4
 ;; Long branch has length of 8, 20, 24 or 28
 	(cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -9023,10 +9033,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	(if_then_else (eq_attr "alternative" "1")
 	  (if_then_else (lt (match_dup 3) (pc))
 	     (cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 24))))
-		      (const_int 8184))
+		      (const_int MAX_12BIT_OFFSET))
 		    (const_int 24)
 		    (lt (abs (minus (match_dup 3) (plus (pc) (const_int 24))))
-		      (const_int 262100))
+		      (const_int MAX_17BIT_OFFSET))
 		    (const_int 28)
 		    (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 		    (const_int 44)
@@ -9034,10 +9044,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 		    (const_int 40)]
 		  (const_int 48))
 	     (cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		      (const_int 8184))
+		      (const_int MAX_12BIT_OFFSET))
 		    (const_int 24)
 		    (lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		      (const_int 262100))
+		      (const_int MAX_17BIT_OFFSET))
 		    (const_int 28)
 		    (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 		    (const_int 44)
@@ -9049,10 +9059,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 ;; Extra goo to deal with additional reload insns.
 	(if_then_else (lt (match_dup 3) (pc))
 	     (cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 12))))
-		      (const_int 8184))
+		      (const_int MAX_12BIT_OFFSET))
 		    (const_int 12)
 		    (lt (abs (minus (match_dup 3) (plus (pc) (const_int 12))))
-		      (const_int 262100))
+		      (const_int MAX_17BIT_OFFSET))
 		    (const_int 16)
 		    (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 		    (const_int 32)
@@ -9060,10 +9070,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 		    (const_int 28)]
 		  (const_int 36))
 	     (cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		      (const_int 8184))
+		      (const_int MAX_12BIT_OFFSET))
 		    (const_int 12)
 		    (lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		      (const_int 262100))
+		      (const_int MAX_17BIT_OFFSET))
 		    (const_int 16)
 		    (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 		    (const_int 32)
@@ -9090,10 +9100,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 ;; Short branch has length of 4
 ;; Long branch has length of 8, 20, 24 or 28
         (cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -9106,10 +9116,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	(if_then_else (eq_attr "alternative" "1")
 	  (if_then_else (lt (match_dup 3) (pc))
 	     (cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 12))))
-		      (const_int 8184))
+		      (const_int MAX_12BIT_OFFSET))
 		    (const_int 12)
 		    (lt (abs (minus (match_dup 3) (plus (pc) (const_int 12))))
-		      (const_int 262100))
+		      (const_int MAX_17BIT_OFFSET))
 		    (const_int 16)
 		    (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 		    (const_int 32)
@@ -9117,10 +9127,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 		    (const_int 28)]
 		  (const_int 36))
 	     (cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		      (const_int 8184))
+		      (const_int MAX_12BIT_OFFSET))
 		    (const_int 12)
 		    (lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		      (const_int 262100))
+		      (const_int MAX_17BIT_OFFSET))
 		    (const_int 16)
 		    (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 		    (const_int 32)
@@ -9131,10 +9141,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 ;; Loop counter in memory or sar case.
 ;; Extra goo to deal with additional reload insns.
 	(cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		   (const_int 8184))
+		   (const_int MAX_12BIT_OFFSET))
 		(const_int 8)
 		(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		  (const_int 262100))
+		  (const_int MAX_17BIT_OFFSET))
 		(const_int 12)
 		(ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 		(const_int 28)
@@ -9162,10 +9172,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 ;; Short branch has length of 4
 ;; Long branch has length of 8
         (cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -9178,10 +9188,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	(if_then_else (eq_attr "alternative" "1")
 	  (if_then_else (lt (match_dup 3) (pc))
 	     (cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 12))))
-		      (const_int 8184))
+		      (const_int MAX_12BIT_OFFSET))
 		    (const_int 12)
 		    (lt (abs (minus (match_dup 3) (plus (pc) (const_int 12))))
-		      (const_int 262100))
+		      (const_int MAX_17BIT_OFFSET))
 		    (const_int 16)
 		    (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 		    (const_int 32)
@@ -9189,10 +9199,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 		    (const_int 28)]
 		  (const_int 36))
 	     (cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		      (const_int 8184))
+		      (const_int MAX_12BIT_OFFSET))
 		    (const_int 12)
 		    (lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		      (const_int 262100))
+		      (const_int MAX_17BIT_OFFSET))
 		    (const_int 16)
 		    (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 		    (const_int 32)
@@ -9203,10 +9213,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 ;; Loop counter in memory or SAR case.
 ;; Extra goo to deal with additional reload insns.
 	(cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		   (const_int 8184))
+		   (const_int MAX_12BIT_OFFSET))
 		(const_int 8)
 		(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-		  (const_int 262100))
+		  (const_int MAX_17BIT_OFFSET))
 		(const_int 12)
 		(ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 		(const_int 28)
@@ -9227,10 +9237,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 [(set_attr "type" "parallel_branch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 3) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -9250,10 +9260,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 [(set_attr "type" "parallel_branch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -9273,10 +9283,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 [(set_attr "type" "parallel_branch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -9296,10 +9306,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 [(set_attr "type" "parallel_branch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
@@ -9319,10 +9329,10 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 [(set_attr "type" "parallel_branch")
  (set (attr "length")
     (cond [(lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 8184))
+	       (const_int MAX_12BIT_OFFSET))
 	   (const_int 4)
 	   (lt (abs (minus (match_dup 2) (plus (pc) (const_int 8))))
-	       (const_int 262100))
+	       (const_int MAX_17BIT_OFFSET))
 	   (const_int 8)
 	   (ne (symbol_ref "TARGET_PORTABLE_RUNTIME") (const_int 0))
 	   (const_int 24)
