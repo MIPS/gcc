@@ -3929,26 +3929,11 @@ rest_of_handle_if_conversion (void)
 {
   if (flag_if_conversion)
     {
-      bool had_df = rtl_df != NULL;
-      if (had_df)
-	{
-	  df_finish (rtl_df);
-	  rtl_df = NULL;
-	}
-
       if (dump_file)
         dump_flow_info (dump_file, dump_flags);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       reg_scan (get_insns (), max_reg_num ());
       if_convert ();
-      if (had_df)
-	{
-	  rtl_df = df_init (DF_HARD_REGS);
-	  df_lr_add_problem (rtl_df, 0);
-	  df_ur_add_problem (rtl_df, 0);
-	  df_ri_add_problem (rtl_df, 0);
-	  df_analyze (rtl_df);
-	}
     }
 
   cleanup_cfg (CLEANUP_EXPENSIVE);

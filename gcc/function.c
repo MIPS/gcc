@@ -3513,13 +3513,30 @@ pad_below (struct args_size *offset_ptr, enum machine_mode passed_mode, tree siz
     }
 }
 
-/* Walk the tree of blocks describing the binding levels within a function
-   and warn about variables the might be killed by setjmp or vfork.
-   This is done after calling flow_analysis and before global_alloc
-   clobbers the pseudo-regs to hard regs.  */
 
-void
-setjmp_vars_warning (tree block)
+/* True if register REGNO was alive at a place where `setjmp' was
+   called and was set more than once or is an argument.  Such regs may
+   be clobbered by `longjmp'.  */
+
+static bool
+regno_clobbered_at_setjmp (struct df *df, bitmap setjmp_crosses, int regno)
+{
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
+    return 0;
+
+  return ((REG_N_SETS (regno) > 1
+	   || REGNO_REG_SET_P (df_get_live_out (df, ENTRY_BLOCK_PTR), regno))
+	  && REGNO_REG_SET_P (setjmp_crosses, regno));
+}
+
+/* Walk the tree of blocks describing the binding levels within a
+   function and warn about variables the might be killed by setjmp or
+   vfork.  This is done after calling flow_analysis before register
+   allocation since that will clobber the pseudo-regs to hard
+   regs.  */
+
+static void
+setjmp_vars_warning (struct df *df, bitmap setjmp_crosses, tree block)
 {
   tree decl, sub;
 
@@ -3528,30 +3545,41 @@ setjmp_vars_warning (tree block)
       if (TREE_CODE (decl) == VAR_DECL
 	  && DECL_RTL_SET_P (decl)
 	  && REG_P (DECL_RTL (decl))
-	  && regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
+	  && regno_clobbered_at_setjmp (df, setjmp_crosses, REGNO (DECL_RTL (decl))))
 	warning (0, "variable %q+D might be clobbered by %<longjmp%>"
 		 " or %<vfork%>",
 		 decl);
     }
 
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
-    setjmp_vars_warning (sub);
+    setjmp_vars_warning (df, setjmp_crosses, sub);
 }
 
 /* Do the appropriate part of setjmp_vars_warning
    but for arguments instead of local variables.  */
 
-void
-setjmp_args_warning (void)
+static void
+setjmp_args_warning (struct df *df, bitmap setjmp_crosses)
 {
   tree decl;
   for (decl = DECL_ARGUMENTS (current_function_decl);
        decl; decl = TREE_CHAIN (decl))
     if (DECL_RTL (decl) != 0
 	&& REG_P (DECL_RTL (decl))
-	&& regno_clobbered_at_setjmp (REGNO (DECL_RTL (decl))))
+	&& regno_clobbered_at_setjmp (df, setjmp_crosses, REGNO (DECL_RTL (decl))))
       warning (0, "argument %q+D might be clobbered by %<longjmp%> or %<vfork%>",
 	       decl);
+}
+
+/* Generate warning messages for variables live across setjmp.  */
+
+void 
+generate_setjmp_warnings (struct df *df)
+{
+  bitmap setjmp_crosses = df_ri_get_setjmp_crosses (df);
+
+  setjmp_vars_warning (df, setjmp_crosses, DECL_INITIAL (current_function_decl));
+  setjmp_args_warning (df, setjmp_crosses);
 }
 
 

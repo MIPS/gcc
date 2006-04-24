@@ -3202,7 +3202,7 @@ df_chain_add_problem (struct df *df, int flags)
   return df_add_problem (df, &problem_CHAIN, flags);
 }
 
-
+
 /*----------------------------------------------------------------------------
    REGISTER INFORMATION
 
@@ -3210,6 +3210,12 @@ df_chain_add_problem (struct df *df, int flags)
    and reg_unused.  But the plan is to enhance it so that it produces
    all of the register information needed by the register allocators.
    ----------------------------------------------------------------------------*/
+
+struct df_ri_problem_data
+{
+  bitmap setjmp_crosses;
+};
+
 
 #ifdef REG_DEAD_DEBUGGING
 static void 
@@ -3230,6 +3236,20 @@ df_ri_alloc (struct dataflow *dflow,
 {
   int i;
   struct df * df = dflow->df;
+  struct df_ri_problem_data *problem_data =
+    (struct df_ri_problem_data *) dflow->problem_data;
+
+  if (dflow->flags & DF_RI_SETJMP)
+    {
+      if (!dflow->problem_data)
+	{
+	  problem_data = XNEW (struct df_ri_problem_data);
+	  dflow->problem_data = problem_data;
+	  problem_data->setjmp_crosses = BITMAP_ALLOC (NULL);
+	}
+      else 
+	bitmap_clear (problem_data->setjmp_crosses);
+    }
 
   if (dflow->flags & DF_RI_LIFE)
     {
@@ -3549,7 +3569,7 @@ df_create_unused_note (basic_block bb, rtx insn, struct df_ref *def,
 static void
 df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index, 
 		  bitmap live, bitmap do_not_gen, bitmap artificial_uses,
-		  bitmap local_live, bitmap local_processed, bitmap setjumps_crossed)
+		  bitmap local_live, bitmap local_processed, bitmap setjmp_crosses)
 {
   struct df *df = dflow->df;
   basic_block bb = BASIC_BLOCK (bb_index);
@@ -3618,16 +3638,18 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
       /* Process the defs.  */
       if (CALL_P (insn))
 	{
-	  if (dflow->flags & DF_RI_LIFE)
+	  if (dflow->flags & (DF_RI_LIFE | DF_RI_SETJMP))
 	    {
 	      bool can_throw = can_throw_internal (insn); 
 	      bool set_jump = (find_reg_note (insn, REG_SETJMP, NULL) != NULL);
 	      EXECUTE_IF_SET_IN_BITMAP (live, 0, regno, bi)
 		{
-		  REG_N_CALLS_CROSSED (regno)++;
-		  if (can_throw)
-		    REG_N_THROWING_CALLS_CROSSED (regno)++;
-
+		  if (dflow->flags & DF_RI_LIFE)
+		    {
+		      REG_N_CALLS_CROSSED (regno)++;
+		      if (can_throw)
+			REG_N_THROWING_CALLS_CROSSED (regno)++;
+		    }
 		  /* We have a problem with any pseudoreg that lives
 		     across the setjmp.  ANSI says that if a user
 		     variable does not change in value between the
@@ -3639,8 +3661,8 @@ df_ri_bb_compute (struct dataflow *dflow, unsigned int bb_index,
 		     may occupy that hard reg where this pseudo is
 		     dead, thus clobbering the pseudo.  Conclusion:
 		     such a pseudo must not go in a hard reg.  */
-		  if (set_jump && regno >= FIRST_PSEUDO_REGISTER)
-		    bitmap_set_bit (setjumps_crossed, regno);
+		  if (set_jump)
+		    bitmap_set_bit (setjmp_crosses, regno);
 		}
 	    }
 	  
@@ -3773,14 +3795,21 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
   bitmap artificial_uses = BITMAP_ALLOC (NULL);
   bitmap local_live = NULL;
   bitmap local_processed = NULL;
-  bitmap setjumps_crossed = NULL;
+  bitmap setjmp_crosses = NULL;
+  struct df_ri_problem_data *problem_data =
+    (struct df_ri_problem_data *) dflow->problem_data;
 
   if (dflow->flags & DF_RI_LIFE)
     {
       local_live = BITMAP_ALLOC (NULL);
       local_processed = BITMAP_ALLOC (NULL);
-      setjumps_crossed = BITMAP_ALLOC (NULL);
+      if (dflow->flags & DF_RI_SETJMP)
+	setjmp_crosses = problem_data->setjmp_crosses;
+      else
+	setjmp_crosses = BITMAP_ALLOC (NULL);
     }
+  else if (dflow->flags & DF_RI_SETJMP)
+    setjmp_crosses = problem_data->setjmp_crosses;
 
 
 #ifdef REG_DEAD_DEBUGGING
@@ -3791,7 +3820,7 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
   EXECUTE_IF_SET_IN_BITMAP (blocks_to_scan, 0, bb_index, bi)
   {
     df_ri_bb_compute (dflow, bb_index, live, do_not_gen, artificial_uses,
-		      local_live, local_processed, setjumps_crossed);
+		      local_live, local_processed, setjmp_crosses);
   }
 
   BITMAP_FREE (live);
@@ -3801,8 +3830,9 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
     {
       bitmap_iterator bi;
       unsigned int regno;
-      /* See the setjump comment in df_ri_bb_compute.  */
-      EXECUTE_IF_SET_IN_BITMAP (setjumps_crossed, 0, regno, bi)
+      /* See the setjmp comment in df_ri_bb_compute.  */
+      EXECUTE_IF_SET_IN_BITMAP (setjmp_crosses, FIRST_PSEUDO_REGISTER, 
+				regno, bi)
 	{
 	  REG_BASIC_BLOCK (regno) = REG_BLOCK_UNKNOWN;
 	  REG_LIVE_LENGTH (regno) = -1;
@@ -3810,7 +3840,8 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
 
       BITMAP_FREE (local_live);
       BITMAP_FREE (local_processed);
-      BITMAP_FREE (setjumps_crossed);
+      if (!dflow->flags & DF_RI_SETJMP)
+	BITMAP_FREE (setjmp_crosses);
     }
 }
 
@@ -3820,7 +3851,14 @@ df_ri_compute (struct dataflow *dflow, bitmap all_blocks ATTRIBUTE_UNUSED,
 static void
 df_ri_free (struct dataflow *dflow)
 {
-  free (dflow->problem_data);
+  struct df_ri_problem_data *problem_data =
+    (struct df_ri_problem_data *) dflow->problem_data;
+
+  if (dflow->flags & DF_RI_SETJMP)
+    {
+      BITMAP_FREE (problem_data->setjmp_crosses);
+      free (dflow->problem_data);
+    }
   free (dflow);
 }
 
@@ -3874,4 +3912,14 @@ struct dataflow *
 df_ri_add_problem (struct df *df, int flags)
 {
   return df_add_problem (df, &problem_RI, flags);
+}
+
+bitmap
+df_ri_get_setjmp_crosses (struct df *df)
+{
+  struct dataflow *dflow = df->problems_by_index[DF_RI];
+  struct df_ri_problem_data *problem_data =
+    (struct df_ri_problem_data *) dflow->problem_data;
+
+  return problem_data->setjmp_crosses;
 }

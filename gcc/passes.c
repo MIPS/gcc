@@ -649,6 +649,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_cse2);
   NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_rtl_fwprop_addr);
+  NEXT_PASS (pass_subregs_of_mode_init);
   NEXT_PASS (pass_life);
   NEXT_PASS (pass_stack_ptr_mod);
   NEXT_PASS (pass_initialize_subregs);

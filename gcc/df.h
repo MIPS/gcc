@@ -212,7 +212,7 @@ struct dataflow
 #define DF_UD_CHAIN          2    /* Build UD chains.  */
   /* Flag to control the building of register info.  */
 #define DF_RI_LIFE           1    /* Build register info.  */
-
+#define DF_RI_SETJMP         2    /* Build pseudos that cross setjmp info.  */
   int flags;
 
   /* Other problem specific data that is not on a per basic block
@@ -605,7 +605,7 @@ extern struct dataflow *df_urec_add_problem (struct df *, int);
 extern struct df_urec_bb_info *df_urec_get_bb_info (struct dataflow *, unsigned int);
 extern struct dataflow *df_chain_add_problem (struct df *, int);
 extern struct dataflow *df_ri_add_problem (struct df *, int);
-
+extern bitmap df_ri_get_setjmp_crosses (struct df *);
 
 /* Functions defined in df-scan.c.  */
 

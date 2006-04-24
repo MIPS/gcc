@@ -936,7 +936,7 @@ sms_schedule (void)
   df_lr_add_problem (df, DF_LR_RUN_DCE);
   df_rd_add_problem (df, 0);
   df_ru_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
+  df_ri_add_problem (df, DF_RI_LIFE);
   df_chain_add_problem (df, DF_DU_CHAIN | DF_UD_CHAIN);
   df_analyze (df);
   sched_init (df);

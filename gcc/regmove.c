@@ -1048,7 +1048,7 @@ regmove_optimize (rtx f, int nregs)
   basic_block bb;
   struct df * df = df_init (DF_HARD_REGS);
   df_ur_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
+  df_ri_add_problem (df, DF_RI_LIFE);
   df_analyze (df);
 
   /* ??? Hack.  Regmove doesn't examine the CFG, and gets mightily

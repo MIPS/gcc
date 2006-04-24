@@ -1101,8 +1101,9 @@ df_ref_record (struct dataflow *dflow, rtx reg, rtx *loc,
 				      SUBREG_BYTE (reg), GET_MODE (reg));
       endregno += regno;
 
-      /*  If this is a multiword hardreg, we create some extra datastructures that 
-	  will enable us to easily build REG_DEAD and REG_UNUSED notes.  */
+      /*  If this is a multiword hardreg, we create some extra
+	  datastructures that will enable us to easily build REG_DEAD
+	  and REG_UNUSED notes.  */
       if ((endregno != regno + 1) && insn)
 	{
 	  struct df_insn_info *insn_info = DF_INSN_GET (df, insn);

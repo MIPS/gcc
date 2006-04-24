@@ -295,7 +295,7 @@ static int memref_referenced_p (rtx, rtx);
 static int memref_used_between_p (rtx, rtx, rtx);
 static void update_equiv_regs (void);
 static void no_equiv (rtx, rtx, void *);
-static void block_alloc (struct df *, int);
+static void block_alloc (int);
 static int qty_sugg_compare (int, int);
 static int qty_sugg_compare_1 (const void *, const void *);
 static int qty_compare (int, int);
@@ -346,12 +346,6 @@ local_alloc (void)
   int i;
   int max_qty;
   basic_block b;
-  struct df *df = df_init (DF_HARD_REGS);
-
-  df_lr_add_problem (df, 0);
-  df_ur_add_problem (df, 0);
-  df_ri_add_problem (df, DF_RI_LIFE);
-  df_analyze (df);
 
   /* We need to keep track of whether or not we recorded a LABEL_REF so
      that we know if the jump optimizer needs to be rerun.  */
@@ -438,10 +432,9 @@ local_alloc (void)
 
       next_qty = 0;
 
-      block_alloc (df, b->index);
+      block_alloc (b->index);
     }
 
-  df_finish (df);
   free (qty);
   free (qty_phys_copy_sugg);
   free (qty_phys_num_copy_sugg);
@@ -1246,7 +1239,7 @@ no_equiv (rtx reg, rtx store ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
    Only the pseudos that die but once can be handled.  */
 
 static void
-block_alloc (struct df * df, int b)
+block_alloc (int b)
 {
   int i, q;
   rtx insn;
@@ -1278,7 +1271,7 @@ block_alloc (struct df * df, int b)
 
   /* Initialize table of hardware registers currently live.  */
 
-  REG_SET_TO_HARD_REG_SET (regs_live, DF_LIVE_IN (df, BASIC_BLOCK (b)));
+  REG_SET_TO_HARD_REG_SET (regs_live, DF_RA_LIVE_IN (ra_df, BASIC_BLOCK (b)));
 
   /* This loop scans the instructions of the basic block
      and assigns quantities to registers.
@@ -2499,8 +2492,14 @@ rest_of_handle_local_alloc (void)
   ra_df = df_init (DF_HARD_REGS);
   df_lr_add_problem (ra_df, 0);
   df_urec_add_problem (ra_df, 0);
-  df_ri_add_problem (ra_df, DF_RI_LIFE);
+  df_ri_add_problem (ra_df, DF_RI_LIFE | DF_RI_SETJMP);
   df_analyze (ra_df);
+
+  /* If we are not optimizing, then this is the only place before
+     register allocation where dataflow is done.  And that is needed
+     to generate these warnings.  */
+  if (extra_warnings)
+    generate_setjmp_warnings (ra_df);
 
   /* Determine if the current function is a leaf before running reload
      since this can impact optimizations done by the prologue and

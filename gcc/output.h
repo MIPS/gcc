@@ -145,9 +145,6 @@ extern void leaf_renumber_regs_insn (rtx);
 /* Locate the proper template for the given insn-code.  */
 extern const char *get_insn_template (int, rtx);
 
-/* Functions in flow.c */
-extern int regno_clobbered_at_setjmp (int);
-
 /* Functions in varasm.c.  */
 
 /* Declare DECL to be a weak symbol.  */

@@ -365,12 +365,6 @@ life_analysis (int flags)
   SET_HARD_REG_BIT (elim_reg_set, FRAME_POINTER_REGNUM);
 #endif
 
-
-#ifdef CANNOT_CHANGE_MODE_CLASS
-  if (flags & PROP_REG_INFO)
-    init_subregs_of_mode ();
-#endif
-
   if (! optimize)
     flags &= ~(PROP_LOG_LINKS | PROP_AUTOINC | PROP_ALLOW_CFG_CHANGES);
 
@@ -391,29 +385,32 @@ life_analysis (int flags)
   if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     init_alias_analysis ();
 
+#if 0
   /* Always remove no-op moves.  Do this before other processing so
      that we don't have to keep re-scanning them.  */
   delete_noop_moves ();
-
+#endif
   /* Some targets can emit simpler epilogues if they know that sp was
      not ever modified during the function.  After reload, of course,
      we've already emitted the epilogue so there's no sense searching.  */
   /* Allocate and zero out data structures that will record the
      data from lifetime analysis.  */
+#if 1
   allocate_reg_life_data ();
-
+#endif
   regs_live_at_setjmp = ALLOC_REG_SET (&reg_obstack);
 
   /* "Update" life info from zero.  It'd be nice to begin the
      relaxation with just the exit and noreturn blocks, but that set
      is not immediately handy.  */
-
+#if 1
   update_life_info (NULL, UPDATE_LIFE_GLOBAL, flags);
   if (reg_deaths)
     {
       free (reg_deaths);
       reg_deaths = NULL;
     }
+#endif
 
   /* Clean up.  */
   if (optimize && (flags & PROP_SCAN_DEAD_STORES))
@@ -421,9 +418,10 @@ life_analysis (int flags)
 
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
-
+#if 0
   /* Removing dead insns should have made jumptables really dead.  */
   delete_dead_jumptables ();
+#endif
 }
 #if 0
 
@@ -1782,20 +1780,6 @@ libcall_dead_p (struct propagate_block_info *pbi, rtx note, rtx insn)
   return 0;
 }
 
-/* 1 if register REGNO was alive at a place where `setjmp' was called
-   and was set more than once or is an argument.
-   Such regs may be clobbered by `longjmp'.  */
-
-int
-regno_clobbered_at_setjmp (int regno)
-{
-  if (n_basic_blocks == NUM_FIXED_BLOCKS)
-    return 0;
-
-  return ((REG_N_SETS (regno) > 1
-	   || REGNO_REG_SET_P (df_get_live_out (rtl_df, ENTRY_BLOCK_PTR), regno))
-	  && REGNO_REG_SET_P (regs_live_at_setjmp, regno));
-}
 
 /* Add MEM to PBI->MEM_SET_LIST.  MEM should be canonical.  Respect the
    maximal list size; look for overlaps in mode and select the largest.  */
@@ -3908,15 +3892,11 @@ rest_of_handle_life (void)
   df_ur_add_problem (rtl_df, 0);
 
   life_analysis (PROP_FINAL);
+#if 0
   if (optimize)
     cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE | CLEANUP_LOG_LINKS
                  | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-
-  if (extra_warnings)
-    {
-      setjmp_vars_warning (DECL_INITIAL (current_function_decl));
-      setjmp_args_warning ();
-    }
+#endif
 
   no_new_pseudos = 1;
   return 0;

@@ -1,3 +1,45 @@
+2006-04-24  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* sched-ebb.c (schedule_ebbs): Updated register lifetime info.
+	* modulo-sched.c (sms_schedule): Ditto.
+	* sched-reg.c (schedule_insns): Ditto.
+	* regmove.c (regmove-optimize): Ditto.
+	* tree.h (setjmp_vars_warning, setjmp_args_warning): Removed.
+	(generate_setjmp_warning): Added.
+	* tree-pass.h (pass_subregs_of_mode_init): Added.
+	* flow.c (life_analysis): Moved parts to other passes.
+	(regno_clobbered_at_setjmp):Moved setjmp warning to local-alloc.
+	(rest_of_handle_life): Ditto.
+	* df-scan.c (df_ref_record): Reformatted comment.
+	* ifcvt.c (rest_of_handle_if_conversion): Removed last bit of
+	rtl_df scafolding.  
+	* local-alloc.c (local_alloc, no_equiv, block_alloc): Changed to
+	use same instance of df as global_alloc,
+	(rest_of_handle_local_alloc): Now also produces setjmp warnings.
+	* function.c (regno_clobbered_at_setjmp): Moved from flow.
+	(setjmp_vars_warning, setjmp_args_warning): Added parms to use 
+	passed in df instance.
+	(generate_setjmp_warnings): New function.
+	* df.h (DF_RI_SETJMP): New constant.
+	(df_ri_get_setjmp_crosses): New function.
+	* df-problems.c (df_ri_problem_data, setjmp_crosses): New
+	variables.
+	(df_ri_alloc, df_ri_bb_compute, df_ri_bb_compute, df_ri_compute):
+	Changed variables live across setjmp computation.
+	(df_ri_get_setjmp_crosses): New function.
+	* regclass.c (init_subregs_of_mode): Changed return.
+	(gate_subregs_of_mode_init, pass_subregs_of_mode_init): New.
+	* rtl.h (init_subregs_of_mode): Removed.
+	* integrate.c (allocate_initial_values): Removed incorrect parm
+	attribute and changed instance of df used.
+	* output.h (regno_clobbered_at_setjmp): Removed.
+	* stack-ptr-mod.c: Fixed comment.
+	* Makefile.in (regclass.o): Added tree-pass.h.
+	* basic-block.h (safe_insert_insn_on_edge): Deleted.
+	* passes.c (init_optimization_passes): Added
+	pass_subregs_of_mode_init.
+	* cfgrtl.c (mark_killed_regs, safe_insert_insn_on_edge): Deleted.
+	* rtl-profile.c: Removed.
+	
 2006-04-21  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* tree-pass.h (pass_stack_ptr_mod, pass_initialize_subregs,
 	pass_reset_df): New.  
@@ -37,7 +79,6 @@
 	* passes.c (init_optimization_passes): Meved clear_df to before
 	partition_blocks.
 		
-
 2006-04-17  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* tree-pass.h (pass_recompute_reg_usage): Deleted.  flow.c
 	(pass_recompute_reg_usage, recompute_reg_usage): Deleted.  *

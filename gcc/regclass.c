@@ -48,6 +48,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "hashtab.h"
 #include "target.h"
+#include "tree-pass.h"
 
 static void init_reg_sets_1 (void);
 static void init_reg_autoinc (void);
@@ -2564,13 +2565,14 @@ som_eq (const void *x, const void *y)
   return a->block == b->block;
 }
 
-void
+static unsigned int
 init_subregs_of_mode (void)
 {
   if (subregs_of_mode)
     htab_empty (subregs_of_mode);
   else
     subregs_of_mode = htab_create (100, som_hash, som_eq, free);
+  return 0;
 }
 
 void
@@ -2655,5 +2657,34 @@ invalid_mode_change_p (unsigned int regno, enum reg_class class,
   return false;
 }
 #endif /* CANNOT_CHANGE_MODE_CLASS */
+
+static bool
+gate_subregs_of_mode_init (void)
+{
+#ifdef CANNOT_CHANGE_MODE_CLASS
+  return true;
+#else
+  return false;
+#endif
+}
+
+struct tree_opt_pass pass_subregs_of_mode_init =
+{
+  "subregs_of_mode_init",               /* name */
+  gate_subregs_of_mode_init,            /* gate */
+  init_subregs_of_mode,                 /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
 
 #include "gt-regclass.h"

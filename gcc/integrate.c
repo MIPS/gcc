@@ -319,7 +319,7 @@ struct tree_opt_pass pass_initial_value_sets =
 /* If the backend knows where to allocate pseudos for hard
    register initial values, register these allocations now.  */
 void
-allocate_initial_values (rtx *reg_equiv_memory_loc ATTRIBUTE_UNUSED)
+allocate_initial_values (rtx *reg_equiv_memory_loc)
 {
   if (targetm.allocate_initial_value)
     {
@@ -352,10 +352,10 @@ allocate_initial_values (rtx *reg_equiv_memory_loc ATTRIBUTE_UNUSED)
 		  /* Update global register liveness information.  */
 		  FOR_EACH_BB (bb)
 		    {
-		      if (REGNO_REG_SET_P(DF_LIVE_IN (rtl_df, bb), regno))
-			SET_REGNO_REG_SET (DF_LIVE_IN (rtl_df, bb), new_regno);
-		      if (REGNO_REG_SET_P(DF_LIVE_OUT (rtl_df, bb), regno))
-			SET_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, bb), new_regno);
+		      if (REGNO_REG_SET_P(DF_LIVE_IN (ra_df, bb), regno))
+			SET_REGNO_REG_SET (DF_LIVE_IN (ra_df, bb), new_regno);
+		      if (REGNO_REG_SET_P(DF_LIVE_OUT (ra_df, bb), regno))
+			SET_REGNO_REG_SET (DF_LIVE_OUT (ra_df, bb), new_regno);
 		    }
 		}
 	    }
