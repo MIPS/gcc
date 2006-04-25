@@ -1,3 +1,8 @@
+2006-04-25  Devang Patel  <dpatel@apple.com>
+
+	Radar 4505813
+	* config/i386/mmintrin.h (__m64): Update def.
+
 2005-04-21  Dale Johannesen <dalej@apple.com>
 
 	Radar 4506160

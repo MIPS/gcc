@@ -1,3 +1,9 @@
+2006-04-25  Devang Patel  <dpatel@apple.com>
+
+	Radar 4505813
+	* gcc.target/i386/m64-1.c: New.
+	* gcc.target/i386/m64-2.c: New.
+
 2006-04-18  Dale Johannesen  <dalej@apple.com>
 
 	Radar 4516827
