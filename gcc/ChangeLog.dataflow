@@ -1,3 +1,19 @@
+2006-04-25  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* flow.c (rest_of_handle_life): Removed unnecessary code.
+	* df-scan.c (df_scan_free_internal, df_scan_free): Fixed
+	storage leak.
+	* df-core.c (df_delete_basic_block): Removed dangling pointer.
+	* mode-switching.c (optimize_move_switching): Moved creation of df
+	instance to avoid storage leak.
+	* ifcvt.c (if_convert): Fixed storage leak.  
+	* dce.c (mark_insn,
+	rest_of_handle_dce): Removed old way of processing libcalls.
+	(libcall_matches_p, mark_libcall_insns): Removed.
+	(mark_libcall): New function.
+	(mark_reg_dependencies, dce_process_block): New code to check for
+	libcalls.
+	(fast_dce): Fixed storage leak.
+	
 2006-04-24  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* sched-ebb.c (schedule_ebbs): Updated register lifetime info.
 	* modulo-sched.c (sms_schedule): Ditto.

@@ -478,8 +478,11 @@ df_delete_basic_block (struct df *df, int bb_index)
     {
       struct dataflow *dflow = df->problems_in_order[i];
       if (dflow->problem->free_bb_fun)
-	dflow->problem->free_bb_fun 
-	  (dflow, bb, df_get_bb_info (dflow, bb_index)); 
+	{
+	  dflow->problem->free_bb_fun 
+	    (dflow, bb, df_get_bb_info (dflow, bb_index)); 
+	  df_set_bb_info (dflow, bb_index, NULL);
+	}
     }
 }
 
@@ -493,7 +496,10 @@ df_finish1 (struct df *df)
   int i;
 
   for (i = 0; i < df->num_problems_defined; i++)
-    df->problems_in_order[i]->problem->free_fun (df->problems_in_order[i]); 
+    {
+      struct dataflow *dflow = df->problems_in_order[i];
+      dflow->problem->free_fun (df->problems_in_order[i]); 
+    }
 
   free (df);
 }

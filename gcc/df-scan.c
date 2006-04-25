@@ -159,6 +159,7 @@ df_scan_free_internal (struct dataflow *dflow)
   free_alloc_pool (problem_data->reg_pool);
   free_alloc_pool (problem_data->mw_reg_pool);
   free_alloc_pool (problem_data->mw_link_pool);
+  free (dflow->problem_data);
 }
 
 
@@ -279,10 +280,7 @@ df_scan_free (struct dataflow *dflow)
   struct df *df = dflow->df;
   
   if (dflow->problem_data)
-    {
-      df_scan_free_internal (dflow);
-      free (dflow->problem_data);
-    }
+    df_scan_free_internal (dflow);
 
   if (df->blocks_to_scan)
     BITMAP_FREE (df->blocks_to_scan);

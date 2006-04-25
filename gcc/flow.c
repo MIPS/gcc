@@ -3892,11 +3892,7 @@ rest_of_handle_life (void)
   df_ur_add_problem (rtl_df, 0);
 
   life_analysis (PROP_FINAL);
-#if 0
-  if (optimize)
-    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE | CLEANUP_LOG_LINKS
-                 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-#endif
+  df_finish (rtl_df);
 
   no_new_pseudos = 1;
   return 0;

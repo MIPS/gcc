@@ -398,12 +398,7 @@ optimize_mode_switching (void)
   int max_num_modes = 0;
   bool emited = false;
   basic_block post_entry ATTRIBUTE_UNUSED, pre_exit ATTRIBUTE_UNUSED;
-  struct df *df = df_init (DF_HARD_REGS);
-
-  df_lr_add_problem (df, 0);
-  df_ur_add_problem (df, 0);
-  df_ri_add_problem (df, 0);
-  df_analyze (df);
+  struct df *df;
 
   for (e = N_ENTITIES - 1, n_entities = 0; e >= 0; e--)
     if (OPTIMIZE_MODE_SWITCHING (e))
@@ -425,6 +420,12 @@ optimize_mode_switching (void)
 
   if (! n_entities)
     return 0;
+
+  df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (df, 0);
+  df_ur_add_problem (df, 0);
+  df_ri_add_problem (df, 0);
+  df_analyze (df);
 
 #if defined (MODE_ENTRY) && defined (MODE_EXIT)
   /* Split the edge from the entry block, so that we can note that

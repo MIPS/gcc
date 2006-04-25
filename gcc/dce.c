@@ -114,22 +114,11 @@ mark_insn (rtx insn, bool fast)
 {
   if (!marked_insn_p (insn))
     {
-      unsigned int id = INSN_UID (insn);
-      rtx note;
-
       if (!fast)
 	VEC_safe_push (rtx, heap, worklist, insn);
       bitmap_set_bit (marked, INSN_UID (insn));
       if (dump_file)
-	fprintf (dump_file, "  Adding insn %d to worklist\n", id);
-
-      if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
-	{
-	  if (dump_file)
-	    fprintf (dump_file, "Marking libcall " HOST_WIDE_INT_PRINT_DEC "\n",
- 		     INTVAL (XEXP (note, 0)));
-	  bitmap_set_bit (marked_libcalls, INTVAL (XEXP (note, 0)));
-	}
+	fprintf (dump_file, "  Adding insn %d to worklist\n", INSN_UID (insn));
     }
 }
 
@@ -255,28 +244,53 @@ delete_unmarked_insns (bool df_delete)
 	}
 }
 
-/* Mark each instruction belonging to a libcall whose id is in
-   marked_libcalls.  */
-
-static void
-mark_libcall_insns (void)
+/* Return true if INSN has libcall id ID.  */
+static bool
+libcall_matches_p (rtx insn, int id)
 {
-  basic_block bb;
+  rtx note;
+  if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
+    return id == INTVAL (XEXP (note, 0));
+  else 
+    return false;
+}
+
+
+/* Mark all insns using DELETE_PARM in the libcall that contains
+   START_INSN.  */
+static void 
+mark_libcall (rtx start_insn, bool delete_parm)
+{
+  rtx note = find_reg_note (start_insn, REG_LIBCALL_ID, NULL_RTX);
+  int id = INTVAL (XEXP (note, 0));
   rtx insn;
 
-  if (bitmap_empty_p (marked_libcalls))
-    return;
-  FOR_EACH_BB (bb)
-    FOR_BB_INSNS (bb, insn)
-      {
-	rtx note;
-	if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
-	  {
-	    if (bitmap_bit_p (marked_libcalls, INTVAL (XEXP (note, 0))))
-	      mark_insn (insn, false);
-	  }
-      }
+  mark_insn (start_insn, delete_parm);
+  insn = NEXT_INSN (start_insn);
+
+  for (insn = NEXT_INSN (start_insn); insn; insn = NEXT_INSN (insn))
+    {
+      if (INSN_P (insn))
+	{
+	  if (libcall_matches_p (insn, id))
+	    mark_insn (insn, delete_parm);
+	  else 
+	    break;
+	}
+    }
+  
+  for (insn = PREV_INSN (start_insn); insn; insn = PREV_INSN (insn))
+    {
+      if (INSN_P (insn))
+	{
+	  if (libcall_matches_p (insn, id))
+	    mark_insn (insn, delete_parm);
+	  else 
+	    break;
+	}
+    }
 }
+
 
 /* Free the data allocated by init_dce.  */
 
@@ -329,6 +343,10 @@ mark_reg_dependencies (rtx insn)
   struct df_link *defs;
   struct df_ref *use;
 
+  /* If this is part of a libcall, mark the entire libcall.  */
+  if (find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX))
+    mark_libcall (insn, false);
+
   for (use = DF_INSN_USES (dce_df, insn); use; use = use->next_ref)
     {
       if (dump_file)
@@ -358,13 +376,6 @@ rest_of_handle_dce (void)
   mark_artificial_uses ();
   while (VEC_length (rtx, worklist) > 0)
     mark_reg_dependencies (VEC_pop (rtx, worklist));
-
-  mark_libcall_insns ();
-
-  while (VEC_length (rtx, worklist) > 0)
-    mark_reg_dependencies (VEC_pop (rtx, worklist));
-
-  delete_unmarked_insns (false);
 
   end_dce ();
   return 0;
@@ -427,18 +438,22 @@ end_fast_dce (void)
    changed.  */
 
 static bool
-dce_process_block (struct dataflow * dflow, basic_block bb, bool redo_out)
+dce_process_block (basic_block bb, bool redo_out)
 {
   bitmap local_live = BITMAP_ALLOC (NULL);
   rtx insn;
   bool block_changed;
   struct df_ref *def, *use;
   unsigned int bb_index = bb->index;
+  struct dataflow * dflow = dce_df->problems_by_index[DF_LR];
+  rtx libcall_start = NULL;
+  int libcall_id = -1;
 
   if (redo_out)
     {
-      /* Need to redo the live_out set if when one of the succs was
-	 done its live in change.  */
+      /* Need to redo the live_out set of this block if when one of
+	 the succs of this block has had a change in it live in
+	 set.  */
       edge e;
       edge_iterator ei;
       df_confluence_function_n con_fun_n = dflow->problem->con_fun_n;
@@ -463,9 +478,34 @@ dce_process_block (struct dataflow * dflow, basic_block bb, bool redo_out)
   FOR_BB_INSNS_REVERSE (bb, insn)
     if (INSN_P (insn))
       {
+	/* If this is a recursive call, the libcall will have already
+	   been marked.  */
 	if (!marked_insn_p (insn))
-	  {
+	  {	
 	    bool needed = false;
+	    rtx note;
+	    if ((note = find_reg_note (insn, REG_LIBCALL_ID, NULL_RTX)))
+	      {
+		int new_id = INTVAL (XEXP (note, 0));
+		if (libcall_start)
+		  {
+		    if (libcall_id != new_id)
+		      {
+			libcall_start = insn;
+			libcall_id = new_id;
+		      }
+		  }
+		else
+		  {
+		    libcall_start = insn;
+		    libcall_id = new_id;
+		  }
+	      }
+	    else 
+	      {
+		libcall_start = NULL;
+		libcall_id = -1;
+	      }
 	    for (def = DF_INSN_GET (dce_df, insn)->defs; 
 		 def; def = def->next_ref)
 	      if (bitmap_bit_p (local_live, DF_REF_REGNO (def)))
@@ -475,7 +515,21 @@ dce_process_block (struct dataflow * dflow, basic_block bb, bool redo_out)
 		}
 	    
 	    if (needed)
-	      mark_insn (insn, true);
+	      {
+		/* If we need to mark an insn in the middle of a
+		   libcall, we need to back up to mark the entire
+		   libcall.  Given that libcalls are rare, rescanning
+		   the block should be a reasonable solution to trying
+		   to figure out how to back up.  */
+ 		if (libcall_start)
+		  {
+		    mark_libcall (libcall_start, true);
+		    BITMAP_FREE (local_live);
+		    return dce_process_block (bb, false);
+		  }
+		else
+		  mark_insn (insn, true);
+	      }
 	  }
 	
 	/* No matter if the instruction is needed or not, we remove
@@ -534,14 +588,12 @@ fast_dce (bool df_delete)
      the in of one of their successors has changed.  */
   bitmap redo_out = BITMAP_ALLOC (NULL);
   bitmap all_blocks = BITMAP_ALLOC (NULL);
-  struct dataflow *dflow;
   bool global_changed = true;
+  struct dataflow * dflow = dce_df->problems_by_index[DF_LR];
   int n_blocks;
   int loop_count = 0;
 
   prescan_insns_for_dce (true);
-
-  dflow = dce_df->problems_by_index[DF_LR];
 
   n_blocks = post_order_compute (postorder, true);
   if (n_blocks != n_basic_blocks)
@@ -558,7 +610,7 @@ fast_dce (bool df_delete)
 	  int index = postorder [i];
 	  basic_block bb = BASIC_BLOCK (index);
 	  bool local_changed 
-	    = dce_process_block (dflow, bb, bitmap_bit_p (redo_out, index));
+	    = dce_process_block (bb, bitmap_bit_p (redo_out, index));
 	  bitmap_set_bit (processed, index);
 	  
 	  if (local_changed)
@@ -613,6 +665,7 @@ fast_dce (bool df_delete)
 
   delete_unmarked_insns (df_delete);
 
+  free (postorder);
   BITMAP_FREE (processed);
   BITMAP_FREE (changed);
   BITMAP_FREE (redo_out);

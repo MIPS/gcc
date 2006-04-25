@@ -3950,6 +3950,7 @@ if_convert (void)
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+  df_finish (df);
 }
 
 static bool
