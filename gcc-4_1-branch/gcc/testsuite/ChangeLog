@@ -1,3 +1,53 @@
+2006-04-24  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/26961
+	* gcc.dg/fold-cond-1.c: New test case.
+	* gcc.dg/pr26961-1.c: Likewise.
+
+2006-04-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/sibcall-7.c: New test.
+	* gcc.dg/tree-ssa/tailrecursion-1.c: Pass -foptimize-sibling-calls.
+	* gcc.dg/tree-ssa/tailrecursion-2.c: Likewise.
+	* gcc.dg/tree-ssa/tailrecursion-3.c: Likewise.
+	* gcc.dg/tree-ssa/tailrecursion-4.c: Likewise.
+	* gcc.dg/tree-ssa/tailrecursion-5.c: Likewise.
+
+2006-04-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/27122
+	* gfortran.dg/defined_operators_1.f90: New test.
+	* gfortran.dg/assumed_charlen_function_1.f90: Add new error and
+	remove old ones associated, incorrectly, with Note 5.46.
+
+	PR fortran/26787
+	* gfortran.dg/proc_assign_1.f90: New test.
+	* gfortran.dg/procedure_lvalue.f90: Change message.
+	* gfortran.dg/namelist_4.f90: Add new error.
+
+	PR fortran/27089
+	* gfortran.dg/specification_type_resolution_1.f90
+
+	PR fortran/18803
+	PR fortran/25669
+	PR fortran/26834
+	* gfortran.dg/bounds_temporaries_1.f90: New test.
+
+	PR fortran/27124
+	* gfortran.dg/array_return_value_1.f90: New test.
+
+2006-04-21  Carlos O'Donell  <carlos@codesourcery.com>
+
+	Backport from mainline:
+	2006-04-19  Carlos O'Donell  <carlos@codesourcery.com>
+	PR c/26774
+	* gcc.dg/struct-parse-1.c: New test case.
+
+2006-04-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c/25875
+	* gcc.dg/init-bad-4.c: New test.
+
 2006-04-21  Paul Brook  <paul@codesourcery.com>
 
 	Backport from mainline.
