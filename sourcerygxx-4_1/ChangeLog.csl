@@ -1,3 +1,7 @@
+2006-04-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/config/mips/linux64.h (DWARF_OFFSET_SIZE): Remove.
+
 2006-04-22  Carlos O'Donell  <carlos@codesourcery.com>
 
 	* gcc/Makefile.in: Correct dependencies for gcc, cpp, 
