@@ -1844,7 +1844,7 @@ const struct attribute_spec ix86_attribute_table[] =
 static bool
 ix86_function_ok_for_sibcall (tree decl, tree exp)
 {
-  /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
+  /* APPLE LOCAL begin mainline 2006-04-16 4205103, 4314956 */
   tree func;
   rtx a, b;
 
@@ -1876,9 +1876,16 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   a = ix86_function_value (TREE_TYPE (exp), func, false);
   b = ix86_function_value (TREE_TYPE (DECL_RESULT (cfun->decl)),
 			   cfun->decl, false);
-  if (! rtx_equal_p (a, b))
+  if (STACK_REG_P (a) || STACK_REG_P (b))
+    {
+      if (!rtx_equal_p (a, b))
+        return false;
+    }
+  else if (VOID_TYPE_P (TREE_TYPE (DECL_RESULT (cfun->decl))))
+    ;
+  else if (! rtx_equal_p (a, b))
     return false;
-  /* APPLE LOCAL end mainline 2005-09-20 4205103 */
+  /* APPLE LOCAL end mainline 2006-04-16 4205103, 4314956 */
   
   /* If this call is indirect, we'll need to be able to use a call-clobbered
      register for the address of the target function.  Make sure that all

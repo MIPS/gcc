@@ -1,3 +1,11 @@
+2006-04-26  Hui-May Chang  <hm.chang@apple.com>
+
+	Radar 4314956
+	Import from mainline:
+	2005-08-31  Richard Henderson  <rth@redhat.com>
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Fix test for
+	fp return matching.
+
 2006-04-26  Mike Stump  <mrs@apple.com>
 
 	Radar 4505697
