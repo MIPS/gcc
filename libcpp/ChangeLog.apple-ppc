@@ -1,3 +1,14 @@
+2006-04-25  Mike Stump  <mrs@apple.com>
+
+	Radar 4505741
+	* lex.c: Rename cw_asm_states to iasm_states.
+	Rename cw_asm_in_operands to iasm_in_operands.
+	Rename cw_asm_state to iasm_state.
+	Rename cw_asm_label_follows to iasm_label_follows.
+	Rename flag_cw_asm_blocks to flag_iasm_blocks.
+	* macro.c: Likewise.
+	* makedepend.c: Likewise.	
+
 2006-04-17  Devang Patel  <dpatel@apple.com>
 
 	Radar 4499790

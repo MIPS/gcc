@@ -2253,9 +2253,9 @@ struct tree_binfo GTY (())
 #define DECL_DUPLICATE_DECL(NODE) (DECL_CHECK (NODE)->decl.duplicate_decl)
 
 /* APPLE LOCAL begin CW asm blocks */
-#define DECL_CW_ASM_FUNCTION(NODE) (DECL_CHECK (NODE)->decl.cw_asm_function_flag)
-#define DECL_CW_ASM_NORETURN(NODE) (DECL_CHECK (NODE)->decl.cw_asm_noreturn_flag)
-#define DECL_CW_ASM_FRAME_SIZE(NODE) (DECL_CHECK (NODE)->decl.cw_asm_frame_size)
+#define DECL_IASM_ASM_FUNCTION(NODE) (DECL_CHECK (NODE)->decl.iasm_asm_function_flag)
+#define DECL_IASM_NORETURN(NODE) (DECL_CHECK (NODE)->decl.iasm_noreturn_flag)
+#define DECL_IASM_FRAME_SIZE(NODE) (DECL_CHECK (NODE)->decl.iasm_frame_size)
 /* APPLE LOCAL end CW asm blocks */
 
 /* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
@@ -2423,9 +2423,9 @@ struct tree_decl GTY(())
   /* APPLE LOCAL unused bits */
   /* 9 unused bits.  */
   /* APPLE LOCAL begin CW asm blocks */
-  unsigned cw_asm_function_flag : 1;
-  unsigned cw_asm_noreturn_flag : 1;
-  unsigned int cw_asm_frame_size;
+  unsigned iasm_asm_function_flag : 1;
+  unsigned iasm_noreturn_flag : 1;
+  unsigned int iasm_frame_size;
   /* APPLE LOCAL end CW asm blocks */
 
   union tree_decl_u1 {

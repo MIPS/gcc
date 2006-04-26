@@ -2616,22 +2616,22 @@ struct machine_function GTY(())
 #define X86_FILE_START_FLTUSED false
 
 /* APPLE LOCAL begin CW asm blocks */
-#undef TARGET_CW_EXTRA_INFO
-#define TARGET_CW_EXTRA_INFO			\
+#undef TARGET_IASM_EXTRA_INFO
+#define TARGET_IASM_EXTRA_INFO			\
   char mod[3];					\
   bool as_immediate;				\
   bool as_offset;				\
   bool pseudo;
 
-#define TARGET_CW_REORDER_ARG(OPCODE, NEWARGNUM, NUM_ARGS, ARGNUM)	\
+#define TARGET_IASM_REORDER_ARG(OPCODE, NEWARGNUM, NUM_ARGS, ARGNUM)	\
   do {									\
     /* If we are outputting AT&T style assembly language, the argument	\
        numbering is reversed.  */					\
-    if (cw_x86_needs_swapping (opcode))					\
+    if (iasm_x86_needs_swapping (opcode))					\
       NEWARGNUM = NUM_ARGS - ARGNUM + 1;				\
   } while (0)
 
-#define CW_SYNTH_CONSTRAINTS(R, ARGNUM, NUM_ARGS, DB)					\
+#define IASM_SYNTH_CONSTRAINTS(R, ARGNUM, NUM_ARGS, DB)					\
   do {											\
     /* On x86, operand 2 or 3 can be left out and the assembler will deal with it.	\
 											\
@@ -2661,18 +2661,18 @@ struct machine_function GTY(())
       }											\
   } while (0)
 
-#define TARGET_CW_PRINT_OP(BUF, ARG, ARGNUM, USES, MUST_BE_REG, MUST_NOT_BE_REG, E) \
- cw_print_op (BUF, ARG, ARGNUM, USES, MUST_BE_REG, MUST_NOT_BE_REG, E)
+#define TARGET_IASM_PRINT_OP(BUF, ARG, ARGNUM, USES, MUST_BE_REG, MUST_NOT_BE_REG, E) \
+ iasm_print_op (BUF, ARG, ARGNUM, USES, MUST_BE_REG, MUST_NOT_BE_REG, E)
 
-extern tree x86_canonicalize_operands (const char **, tree, void *);
+extern tree iasm_x86_canonicalize_operands (const char **, tree, void *);
 /* On x86, we can rewrite opcodes, change argument ordering and so no... */
-#define CW_CANONICALIZE_OPERANDS(OPCODE, NEW_OPCODE, IARGS, E)	\
-  do {								\
-    NEW_OPCODE = OPCODE;					\
-    IARGS = x86_canonicalize_operands (&NEW_OPCODE, IARGS, E);	\
+#define IASM_CANONICALIZE_OPERANDS(OPCODE, NEW_OPCODE, IARGS, E)		\
+  do {									\
+    NEW_OPCODE = OPCODE;						\
+    IARGS = iasm_x86_canonicalize_operands (&NEW_OPCODE, IARGS, E);	\
   } while (0)
 
-#define CW_SEE_OPCODE(YYCHAR, T)					\
+#define IASM_SEE_OPCODE(YYCHAR, T)					\
     /* If we see an int, arrange to see it as an identifier (opcode),	\
        not as a type.  */						\
     ((YYCHAR == TYPESPEC						\
@@ -2681,7 +2681,7 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
 
 /* Return true iff the ID is a prefix for an instruction.  */
 
-#define CW_IS_PREFIX(ID)				\
+#define IASM_IS_PREFIX(ID)				\
   do {							\
     const char *myname = IDENTIFIER_POINTER (ID);	\
     if (strcasecmp (myname, "lock") == 0		\
@@ -2693,32 +2693,32 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
       return true;					\
   } while (0)
 
-#define CW_PRINT_PREFIX(BUF, PREFIX_LIST) x86_cw_print_prefix(BUF, PREFIX_LIST)
+#define IASM_PRINT_PREFIX(BUF, PREFIX_LIST) iasm_x86_print_prefix(BUF, PREFIX_LIST)
 
-#define CW_IMMED_PREFIX(E, BUF)			\
+#define IASM_IMMED_PREFIX(E, BUF)		\
   do {						\
     if (!E->pseudo && ! E->as_immediate)	\
       sprintf (BUF + strlen (BUF), "$");	\
   } while (0)
 
-#define CW_OFFSET_PREFIX(E, BUF)		\
+#define IASM_OFFSET_PREFIX(E, BUF)		\
   do {						\
     if (E->as_offset)				\
       sprintf (BUF + strlen (BUF), "$");	\
   } while (0)
 
 /* We can't yet expose ST(x) to reg-stack.c, don't try.  */
-#define CW_HIDE_REG(R) FP_REGNO_P (R)
+#define IASM_HIDE_REG(R) FP_REGNO_P (R)
 
-#define CW_SEE_IMMEDIATE(E)			\
+#define IASM_SEE_IMMEDIATE(E)			\
   E->as_immediate = true
 
-#define CW_SEE_NO_IMMEDIATE(E)			\
+#define IASM_SEE_NO_IMMEDIATE(E)			\
   E->as_immediate = false
 
 /* Table of instructions that need extra constraints.  Keep this table sorted.  */
-#undef TARGET_CW_OP_CONSTRAINT
-#define TARGET_CW_OP_CONSTRAINT \
+#undef TARGET_IASM_OP_CONSTRAINT
+#define TARGET_IASM_OP_CONSTRAINT \
   { "adc", 1, "+rm,r" },	\
   { "adc", 2, "ir,m" },		\
   { "add", 1, "+rm,r" },	\
@@ -3465,10 +3465,19 @@ extern tree x86_canonicalize_operands (const char **, tree, void *);
   { "xorps", 1, "+x"},		\
   { "xorps", 2, "xm"},
 
-#define TARGET_CW_EXTRA_CLOBBERS \
+#define TARGET_IASM_EXTRA_CLOBBERS \
   { "rdtsc", { "edx", "eax"} }
 
-#define CW_FUNCTION_MODIFIER "P"
+#define IASM_FUNCTION_MODIFIER "P"
+
+#define IASM_VALID_PIC(DECL, E)						\
+  do {									\
+    if (E->as_immediate && ! TARGET_DYNAMIC_NO_PIC && flag_pic)		\
+      warning ("non-pic addressing form not suitible for pic code");	\
+  } while (0)
+
+#define IASM_REGISTER_NAME(STR, BUF) i386_iasm_register_name (STR, BUF)
+
 /* APPLE LOCAL end CW asm blocks */
 
 /*

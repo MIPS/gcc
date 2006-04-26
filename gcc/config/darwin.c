@@ -2129,7 +2129,7 @@ darwin_build_constant_cfstring (tree str)
    otherwise return NULL signifying that we have no special
    knowledge.  */
 tree
-darwin_cw_asm_special_label (tree id)
+darwin_iasm_special_label (tree id)
 {
   const char *name = IDENTIFIER_POINTER (id);
 

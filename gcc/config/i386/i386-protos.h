@@ -279,11 +279,12 @@ extern enum rtx_code ix86_fp_compare_code_to_integer (enum rtx_code);
 #endif
 
 /* APPLE LOCAL begin CW asm blocks */
-extern const char *i386_cw_asm_register_name (const char *regname, char *buf);
-extern bool cw_x86_needs_swapping (const char *);
-extern bool cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
-			 bool must_be_reg, bool must_not_be_reg, void *);
-extern void x86_cw_print_prefix (char *buf, tree prefix_list);
+extern const char *i386_iasm_register_name (const char *regname, char *buf);
+extern bool iasm_x86_needs_swapping (const char *);
+extern bool iasm_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
+			   bool must_be_reg, bool must_not_be_reg, void *);
+extern void iasm_x86_print_prefix (char *buf, tree prefix_list);
+extern tree iasm_raise_reg (tree);
 /* APPLE LOCAL end CW asm blocks */
 
 /* APPLE LOCAL begin 4356747 stack realign */

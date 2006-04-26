@@ -14860,14 +14860,14 @@ rs6000_stack_info (void)
   /* If we have an assembly function, maybe use an explicit size.  To
      be consistent with CW behavior (and because it's safer), let
      RS6000_ALIGN round the explicit size up if necessary.  */
-  if (cfun->cw_asm_function && cfun->cw_asm_frame_size != -2)
+  if (cfun->iasm_asm_function && cfun->iasm_frame_size != -2)
     {
-      if (cfun->cw_asm_frame_size == -1)
+      if (cfun->iasm_frame_size == -1)
         non_fixed_size = 32;
-      else if (cfun->cw_asm_frame_size < 32)
+      else if (cfun->iasm_frame_size < 32)
         error ("fralloc frame size must be at least 32");
       else
-        non_fixed_size = cfun->cw_asm_frame_size;
+        non_fixed_size = cfun->iasm_frame_size;
       non_fixed_size += 24;
       info_ptr->total_size = RS6000_ALIGN (non_fixed_size, 
 					   ABI_STACK_BOUNDARY / BITS_PER_UNIT);
@@ -14890,7 +14890,7 @@ rs6000_stack_info (void)
      that the debugger can handle stackless frames.  */
 
   /* APPLE LOCAL CW asm blocks */
-  if (info_ptr->calls_p || (cfun->cw_asm_function && cfun->cw_asm_frame_size != -2))
+  if (info_ptr->calls_p || (cfun->iasm_asm_function && cfun->iasm_frame_size != -2))
     info_ptr->push_p = 1;
 
   else if (DEFAULT_ABI == ABI_V4)
@@ -16022,7 +16022,7 @@ rs6000_emit_prologue (void)
   int objc_method_using_pic = 0;
 
   /* APPLE LOCAL begin CW asm block */
-  if (cfun->cw_asm_function && cfun->cw_asm_frame_size == -2)
+  if (cfun->iasm_asm_function && cfun->iasm_frame_size == -2)
     return;
   /* APPLE LOCAL end CW asm block */
   /* APPLE LOCAL begin special ObjC method use of R12 */
@@ -16808,7 +16808,7 @@ rs6000_emit_epilogue (int sibcall)
   int i;
 
   /* APPLE LOCAL begin CW asm block */
-  if (cfun->cw_asm_function && cfun->cw_asm_frame_size == -2)
+  if (cfun->iasm_asm_function && cfun->iasm_frame_size == -2)
     {
       
       rtvec p = rtvec_alloc (2);
@@ -21473,7 +21473,7 @@ rs6000_dbx_register_number (unsigned int regno)
    forms.  */
 
 const char *
-rs6000_cw_asm_register_name (const char *regname, char *buf)
+rs6000_iasm_register_name (const char *regname, char *buf)
 {
   /* SP is a valid reg name, but asm doesn't like it yet, so translate.  */
   if (strcmp (regname, "sp") == 0)
@@ -21504,11 +21504,11 @@ rs6000_cw_asm_register_name (const char *regname, char *buf)
   return NULL;
 }
 
-extern bool cw_memory_clobber (const char *);
+extern bool iasm_memory_clobber (const char *);
 /* Return true iff the opcode wants memory to be stable.  We arrange
    for a memory clobber in these instances.  */
 bool
-cw_memory_clobber (const char *ARG_UNUSED (opcode))
+iasm_memory_clobber (const char *ARG_UNUSED (opcode))
 {
   return strncmp (opcode, "st", 2) == 0
     || (strncmp (opcode, "l", 1) == 0 && (strcmp (opcode, "la") != 0

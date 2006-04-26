@@ -4,5 +4,5 @@
 /* Radar 4419735 */
 
 void foo() {
-  asm fisubr DWORD PTR[WORD PTR esi]
-} 					 /* { dg-error "too many types in []" } */
+  asm fisubr DWORD PTR[WORD PTR esi]	 /* { dg-error "too many types in []" } */
+}

@@ -4826,14 +4826,14 @@ grokdeclarator (const struct c_declarator *declarator,
       }
 
     /* APPLE LOCAL begin CW asm blocks */
-    if (declspecs->cw_asm_specbit)
+    if (declspecs->iasm_asm_specbit)
       {
 	/* Record that this is a decl of a CW-style asm function.  */
-	if (flag_cw_asm_blocks)
+	if (flag_iasm_blocks)
 	  {
-	    DECL_CW_ASM_FUNCTION (decl) = 1;
-	    DECL_CW_ASM_NORETURN (decl) = 0;
-	    DECL_CW_ASM_FRAME_SIZE (decl) = -2;
+	    DECL_IASM_ASM_FUNCTION (decl) = 1;
+	    DECL_IASM_NORETURN (decl) = 0;
+	    DECL_IASM_FRAME_SIZE (decl) = -2;
 	  }
 	else
 	  error ("asm functions not enabled, use `-fasm-blocks'");
@@ -6198,10 +6198,10 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* If this was a function declared as an assembly function, change
      the state to expect to see C decls, possibly followed by assembly
      code.  */
-  if (DECL_CW_ASM_FUNCTION (current_function_decl))
+  if (DECL_IASM_ASM_FUNCTION (current_function_decl))
     {
-      cw_asm_state = cw_asm_decls;
-      cw_asm_in_decl = 0;
+      iasm_state = iasm_decls;
+      iasm_in_decl = false;
       current_function_returns_abnormally = 1;
       TREE_NO_WARNING (current_function_decl) = 1;
     }
@@ -7088,7 +7088,7 @@ build_null_declspecs (void)
   ret->volatile_p = false;
   ret->restrict_p = false;
   /* APPLE LOCAL CW asm blocks */
-  ret->cw_asm_specbit = false;
+  ret->iasm_asm_specbit = false;
   /* APPLE LOCAL private extern */
   ret->private_extern_p = false;
   return ret;
@@ -7445,8 +7445,8 @@ declspecs_add_scspec (struct c_declspecs *specs, tree scspec)
     {
       /* APPLE LOCAL begin CW asm blocks */
     case RID_ASM:
-      dupe = specs->cw_asm_specbit;
-      specs->cw_asm_specbit = true;
+      dupe = specs->iasm_asm_specbit;
+      specs->iasm_asm_specbit = true;
       break;
       /* APPLE LOCAL end CW asm blocks */
     case RID_INLINE:

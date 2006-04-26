@@ -621,7 +621,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
       /* APPLE LOCAL begin CW asm blocks */
     case OPT_fasm_blocks:
-      flag_cw_asm_blocks = value;
+      flag_iasm_blocks = value;
       break;
       /* APPLE LOCAL end CW asm blocks */
 

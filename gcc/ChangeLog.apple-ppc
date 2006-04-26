@@ -1,3 +1,188 @@
+2006-04-26  Mike Stump  <mrs@apple.com>
+
+	Radar 4505741
+	* c-common.c (iasm_print_operand): Fix .machine all for ppc64.
+
+	(iasm_addr): Add.
+	(pointer_int_sum): Handle ptr+4 correctly.
+	(iasm_stmt): Set up the line number correctly for C.
+	(IASM_VALID_PIC): Add.
+	(iasm_type_for): Move to i386.h
+	(iasm_maybe_force_mem): Add.
+	(iasm_print_operand): Split code out to new functions.
+	Add warnings for non-pic code when in PIC mode.
+	Add ARRAY_REF handling.
+	* i386/i386-protos.h (iasm_raise_reg): Add
+	* i386/i386.c:
+	Rename x86_canonicalize_operands to iasm_x86_canonicalize_operands.
+	(iasm_type_for): Add.
+	(iasm_raise_reg): Add.
+	(iasm_default_conv): Add.
+	(iasm_is_offset): Imrove support for ADDR_EXPR.
+	(iasm_canonicalize_bracket_1): Handle constants better.
+	Ensure that stack based addresses occur as one argument to the asm.
+	Ensure that expressions form adderess exrepssions.
+	(iasm_indirect): Add.
+	(iasm_add): Add.
+	(iasm_canonicalize_bracket): Split out code.
+	Ensure that stack based addresses occur as one argument to the asm.
+	Ensure that expressions form adderess exrepssions.
+	(iasm_x86_canonicalize_operands): Handle ARRAY_REF.
+	(iasm_warn_extra_reg): Add.
+	(iasm_print_op): Don't indirect here.
+	Handle address constant memory expressions.
+	Add warnings for extra registers.
+	Handle ADDR_EXPR better.
+	* i386/i386.h (IASM_VALID_PIC): Add.
+
+	Rename cw_ to iasm_:
+	* c-common.c:
+	Rename flag_cw_asm_blocks to flag_iasm_blocks.
+	Rename cw_asm_states to iasm_states.
+	Rename cw_asm_state to iasm_state.
+	Rename cw_asm_in_decl to iasm_in_decl.
+	Rename inside_cw_asm_block to inside_iasm_block.
+	Rename cw_asm_at_bol to iasm_at_bol.
+	Rename cw_asm_in_operands to iasm_in_operands.
+	Rename cw_split_next to iasm_split_next.
+	Rename cw_asm_buffer to iasm_buffer.
+	Rename cw_asm_labels to iasm_labels.
+	Rename cw_asm_labels_uniq to iasm_labels_uniq.
+	Rename cw_asm_identifier to iasm_identifier.
+	Rename cw_memory_clobber to iasm_memory_clobber.
+	Rename get_cw_asm_label to iasm_get_label.
+	Rename cw_get_mode to iasm_get_mode.
+	Rename cw_ptr_conv to iasm_ptr_conv.
+	Rename cw_build_bracket to iasm_build_bracket.
+	Rename cw_asm_default_function_conversion to iasm_default_function_conversion.
+	Rename cw_is_pseudo to iasm_is_pseudo.
+	Rename cw_op_constraint to iasm_op_constraint.
+	Rename TARGET_CW_OP_CONSTRAINT to TARGET_IASM_OP_CONSTRAINT.
+	Rename cw_op_comp to iasm_op_comp.
+	Rename TARGET_CW_REORDER_ARG to TARGET_IASM_REORDER_ARG.
+	Rename CW_SYNTH_CONSTRAINTS to IASM_SYNTH_CONSTRAINTS.
+	Rename cw_constraint_for to iasm_constraint_for.
+	Rename cw_process_arg to iasm_process_arg.
+	Rename CW_CANONICALIZE_OPERANDS to IASM_CANONICALIZE_OPERANDS.
+	Rename CW_IS_PREFIX to IASM_IS_PREFIX.
+	Rename CW_PRINT_PREFIX to IASM_PRINT_PREFIX.
+	Rename cw_is_prefix to iasm_is_prefix.
+	Rename cw_num_constraints_1 to iasm_num_constraints_1.
+	Rename cw_num_constraints to iasm_num_constraints.
+	Rename cw_set_constraints_1 to iasm_set_constraints_1.
+	Rename cw_set_constraints to iasm_set_constraints.
+	Rename CW_MAX_CLOBBERS to IASM_MAX_CLOBBERS.
+	Rename cw_op_clobber to iasm_op_clobber.
+	Rename cw_op_clobber_comp to iasm_op_clobber_comp.
+	Rename TARGET_CW_EXTRA_CLOBBERS to TARGET_IASM_EXTRA_CLOBBERS.
+	Rename cw_extra_clobbers to iasm_extra_clobbers.
+	Rename cw_asm_stmt to iasm_stmt.
+	Rename cw_asm_field_offset to iasm_field_offset.
+	Rename cw_simple_expr to iasm_simple_expr.
+	Rename cw_asm_expr_val to iasm_expr_val.
+	Rename TARGET_CW_PRINT_OP to TARGET_IASM_PRINT_OP.
+	Rename CW_IMMED_PREFIX to IASM_IMMED_PREFIX.
+	Rename CW_OFFSET_PREFIX to IASM_OFFSET_PREFIX.
+	Rename CW_HIDE_REG to IASM_HIDE_REG.
+	Rename CW_SEE_IMMEDIATE to IASM_SEE_IMMEDIATE.
+	Rename CW_SEE_NO_IMMEDIATE to IASM_SEE_NO_IMMEDIATE.
+	Rename CW_FUNCTION_MODIFIER to IASM_FUNCTION_MODIFIER.
+	Rename cw_force_constraint to iasm_force_constraint.
+	Rename print_cw_asm_operand to iasm_print_operand.
+	Rename cw_asm_get_register_var to iasm_get_register_var.
+	Rename cw_asm_reg_name to iasm_reg_name.
+	Rename cw_asm_label to iasm_label.
+	Rename cw_get_identifier to iasm_get_identifier.
+	Rename clear_cw_asm_labels to iasm_clear_labels.
+	Rename cw_ha16 to iasm_ha16.
+	Rename cw_hi16 to iasm_hi16.
+	Rename cw_lo16 to iasm_lo16.
+	Rename cw_do_id to iasm_do_id.
+	Rename cw_asm_build_register_offset to iasm_build_register_offset.
+	Rename cw_asm_entry to iasm_entry.
+	* c-lex.c: Likewise
+	Rename cw_skip_to_eol to iasm_skip_to_eol.
+	Rename cw_asm_saved_token to iasm_saved_token.
+	Rename cw_insert_saved_token to iasm_insert_saved_token.
+	* c-parse.in: Likewise.
+	Rename CW_ASM_KEYWORD to IASM_ASM_KEYWORD.
+	Rename CW_ASM_BOL to IASM_BOL.
+	Rename CW_ASM_EOL to IASM_EOL.
+	Rename cw_asm_lineno to iasm_lineno.
+	Rename CW_SEE_OPCODE to IASM_SEE_OPCODE.
+	Rename c_parse_cw_maybe_prefix to c_parse_iasm_maybe_prefix.
+	Rename cw_save_location to iasm_save_location.
+	Rename cw_asm_stmt_nobol to iasm_stmt_nobol.
+	Rename cw_asm_stmt_list to iasm_stmt_list.
+	Rename cw_maybe_comment to iasm_maybe_comment.
+	Rename cw_identifier to iasm_identifier.
+	Rename cw_identifier1 to iasm_identifier1.
+	Rename cw_maybe_prefix to iasm_maybe_prefix.
+	Rename single_cw_asm_stmt to single_iasm_stmt.
+	Rename cw_asm_stmts to iasm_stmts.
+	Rename cw_asm_compstmt_start to iasm_compstmt_start.
+	Rename cw_asm_compstmt to iasm_compstmt.
+	Rename cw_asm_compstmt_nostart to iasm_compstmt_nostart.
+	Rename cw_asm_compstmt_contents_nonempty to iasm_compstmt_contents_nonempty.
+	Rename cw_asm_operands to iasm_operands.
+	Rename cw_nonnull_asm_operands to iasm_nonnull_operands.
+	Rename cw_asm_operand to iasm_operand.
+	Rename cw_asm_expr_no_commas to iasm_expr_no_commas.
+	Rename cw_asm_unary_expr to iasm_unary_expr.
+	Rename cw_asm_primary to iasm_primary.
+	Rename cw_asm_specbit to iasm_asm_specbit.
+	Rename cw_asm_typename_or_reserved to iasm_typename_or_reserved.
+	Rename cw_asm_c_build_component_ref to iasm_c_build_component_ref.
+	* config/asm.h: Likewise.
+	Rename cw_asm_none to iasm_none.
+	Rename cw_asm_decls to iasm_decls.
+	Rename cw_asm_asm to iasm_asm.
+	Rename CW_MAX_ARG to IASM_MAX_ARG.
+	Rename TARGET_CW_EXTRA_INFO to TARGET_IASM_EXTRA_INFO.
+	Rename cw_md_Extra_info to iasm_md_Extra_info.
+	Rename cw_md_extra_info to iasm_md_extra_info.
+	* config/darwin-protos.h: Likewise.
+	Rename CW_ASM_SPECIAL_LABEL to IASM_SPECIAL_LABEL.
+	* config/darwin.c: Likewise.
+	Rename darwin_cw_asm_special_label to darwin_iasm_special_label.
+	* i386/darwin.h: Likewise.
+	Rename CW_ASM_REGISTER_NAME to IASM_REGISTER_NAME.
+	* i386/i386-protos.h: Likewise.
+	* i386/i386.c: Likewise.
+	Rename cw_reg_comp to iasm_reg_comp.
+	Rename i386_cw_asm_register_name to i386_iasm_register_name.
+	Rename cw_x86_needs_swapping to iasm_x86_needs_swapping.
+	Rename x86_swap_operands to iasm_x86_swap_operands.
+	Rename cw_is_offset to iasm_is_offset.
+	Rename cw_combine_type to iasm_combine_type.
+	Rename cw_canonicalize_bracket_1 to iasm_canonicalize_bracket_1.
+	Rename cw_canonicalize_bracket to iasm_canonicalize_bracket.
+	Rename x86_canonicalize_operands to iasm_x86_canonicalize_operands.
+	Rename CW_PREFIX_SEP to IASM_PREFIX_SEP.
+	Rename x86_cw_print_prefix to iasm_x86_print_prefix.
+	Rename cw_print_op to iasm_print_op.
+	* i386/i386.h: Likewise.
+	* rs6000/rs6000-protos.h: Likewise.
+	* rs6000/rs6000.c: Likewise.
+	Rename rs6000_cw_asm_register_name to rs6000_iasm_register_name.
+	* rs6000/rs6000.h: Likewise.
+	* rs6000/rs6000.md: Likewise.
+	* function.c: Likewise.
+	* function.h: Likewise.
+	Rename cw_asm_function to iasm_asm_function.
+	Rename cw_asm_noreturn to iasm_noreturn.
+	Rename cw_asm_frame_size to iasm_frame_size.
+	* gimple-low.c: Likewise.
+	* global.c: Likewise.
+	* print-tree.c: Likewise.
+	* reload1.c: Likewise.
+	* scan-decls.c: Likewise.
+	* stmt.c: Likewise.
+	* tree-inline.c: Likewise.
+	* tree.h: Likewise.
+	Rename cw_asm_function_flag to iasm_asm_function_flag.
+	Rename cw_asm_noreturn_flag to iasm_noreturn_flag.
+	
 2006-04-25  Devang Patel  <dpatel@apple.com>
 
 	Radar 4505813

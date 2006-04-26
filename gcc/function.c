@@ -4034,11 +4034,11 @@ init_function_start (tree subr)
   prepare_function_start (subr);
 
   /* APPLE LOCAL begin CW asm blocks */
-  if (DECL_CW_ASM_FUNCTION (subr))
+  if (DECL_IASM_ASM_FUNCTION (subr))
     {
-      cfun->cw_asm_function = 1;
-      cfun->cw_asm_noreturn = DECL_CW_ASM_NORETURN (subr);
-      cfun->cw_asm_frame_size = DECL_CW_ASM_FRAME_SIZE (subr);
+      cfun->iasm_asm_function = true;
+      cfun->iasm_noreturn = DECL_IASM_NORETURN (subr);
+      cfun->iasm_frame_size = DECL_IASM_FRAME_SIZE (subr);
     }
   /* APPLE LOCAL end CW asm blocks */
   /* Prevent ever trying to delete the first instruction of a
@@ -4158,7 +4158,7 @@ expand_function_start (tree subr)
     }
   /* APPLE LOCAL begin CW asm blocks */
   else if (DECL_MODE (DECL_RESULT (subr)) == VOIDmode
-	   || cfun->cw_asm_function)
+	   || cfun->iasm_asm_function)
   /* APPLE LOCAL end CW asm blocks */
     /* If return mode is void, this decl rtl should not be used.  */
     SET_DECL_RTL (DECL_RESULT (subr), NULL_RTX);
@@ -4402,7 +4402,7 @@ expand_function_end (void)
   do_pending_stack_adjust ();
 
   /* APPLE LOCAL begin CW asm blocks */
-  if (cfun->cw_asm_function)
+  if (cfun->iasm_asm_function)
     expand_naked_return ();
   /* APPLE LOCAL end CW asm blocks */ 
 

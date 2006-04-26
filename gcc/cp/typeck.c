@@ -2752,7 +2752,7 @@ build_x_binary_op (enum tree_code code, tree arg1, tree arg2,
 
   /* APPLE LOCAL begin CW asm blocks */
   /* I think this is dead now.  */
-  if (inside_cw_asm_block)
+  if (inside_iasm_block)
     if (TREE_CODE (arg1) == IDENTIFIER_NODE
 	|| TREE_CODE (arg2) == IDENTIFIER_NODE
 	|| TREE_TYPE (arg1) == NULL_TREE
@@ -6870,7 +6870,7 @@ non_reference (tree t)
 
 /* APPLE LOCAL begin CW asm blocks */
 tree
-cw_asm_cp_build_component_ref (tree datum, tree component)
+iasm_cp_build_component_ref (tree datum, tree component)
 {
   tree expr = finish_class_member_access_expr (datum, component);
   /* If this is not a real component reference, extract the field

@@ -6648,7 +6648,7 @@ grokdeclarator (const cp_declarator *declarator,
   cp_storage_class storage_class;
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
   /* APPLE LOCAL CW asm blocks */
-  bool cw_asm_p;
+  bool iasm_p;
   bool type_was_error_mark_node = false;
 
   signed_p = declspecs->specs[(int)ds_signed];
@@ -6657,7 +6657,7 @@ grokdeclarator (const cp_declarator *declarator,
   long_p = declspecs->specs[(int)ds_long];
   thread_p = declspecs->specs[(int)ds_thread];
   /* APPLE LOCAL CW asm blocks */
-  cw_asm_p = declspecs->specs[(int)ds_cw_asm];
+  iasm_p = declspecs->specs[(int)ds_iasm_asm];
 
   if (decl_context == FUNCDEF)
     funcdef_flag = 1, decl_context = NORMAL;
@@ -8382,14 +8382,14 @@ grokdeclarator (const cp_declarator *declarator,
       DECL_THIS_STATIC (decl) = 1;
 
     /* APPLE LOCAL begin CW asm blocks */
-    if (cw_asm_p)
+    if (iasm_p)
       {
 	/* Record that this is a decl of a CW-style asm function.  */
-	if (flag_cw_asm_blocks)
+	if (flag_iasm_blocks)
 	  {
-	    DECL_CW_ASM_FUNCTION (decl) = 1;
-	    DECL_CW_ASM_NORETURN (decl) = 0;
-	    DECL_CW_ASM_FRAME_SIZE (decl) = -2;
+	    DECL_IASM_ASM_FUNCTION (decl) = 1;
+	    DECL_IASM_NORETURN (decl) = 0;
+	    DECL_IASM_FRAME_SIZE (decl) = -2;
 	  }
 	else
 	  error ("asm functions not enabled, use `-fasm-blocks'");
@@ -10396,10 +10396,10 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   /* If this was a function declared as an assembly function, change
      the state to expect to see C++ decls, possibly followed by assembly
      code.  */
-  if (DECL_CW_ASM_FUNCTION (current_function_decl))
+  if (DECL_IASM_ASM_FUNCTION (current_function_decl))
     {
-      cw_asm_state = cw_asm_decls;
-      cw_asm_in_decl = 0;
+      iasm_state = iasm_decls;
+      iasm_in_decl = 0;
       current_function_returns_abnormally = 1;
       TREE_NO_WARNING (current_function_decl) = 1;
     }
