@@ -1,8 +1,7 @@
+/* APPLE LOCAL file mainline 4.2 2006-04-26 4498201 */
 /* Output Dwarf2 format symbol table information from GCC.
-   APPLE LOCAL begin dwarf 4383509
    Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
    2003, 2004, 2005, 2006 Free Software Foundation, Inc.
-   APPLE LOCAL end dwarf 4383509
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -3216,12 +3215,24 @@ size_of_loc_descr (dw_loc_descr_ref loc)
 static unsigned long
 size_of_locs (dw_loc_descr_ref loc)
 {
+  dw_loc_descr_ref l;
   unsigned long size;
 
-  for (size = 0; loc != NULL; loc = loc->dw_loc_next)
+  /* If there are no skip or bra opcodes, don't fill in the dw_loc_addr
+     field, to avoid writing to a PCH file.  */
+  for (size = 0, l = loc; l != NULL; l = l->dw_loc_next)
     {
-      loc->dw_loc_addr = size;
-      size += size_of_loc_descr (loc);
+      if (l->dw_loc_opc == DW_OP_skip || l->dw_loc_opc == DW_OP_bra)
+	break;
+      size += size_of_loc_descr (l);
+    }
+  if (! l)
+    return size;
+
+  for (size = 0, l = loc; l != NULL; l = l->dw_loc_next)
+    {
+      l->dw_loc_addr = size;
+      size += size_of_loc_descr (l);
     }
 
   return size;
@@ -3649,23 +3660,21 @@ dw_separate_line_info_entry;
 typedef struct dw_attr_struct GTY(())
 {
   enum dwarf_attribute dw_attr;
-  /* APPLE LOCAL mainline 2006-04-20 4498201 */
   /* remove field dw_attr_next */
   dw_val_node dw_attr_val;
 }
 dw_attr_node;
 
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
 DEF_VEC_GC_O(dw_attr_node);
 
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
-/* The Debugging Information Entry (DIE) structure */
+/* The Debugging Information Entry (DIE) structure.  DIEs form a tree.
+   The children of each node form a circular list linked by
+   die_sib.  die_child points to the node *before* the "first" child node.  */
 
 typedef struct die_struct GTY(())
 {
   enum dwarf_tag die_tag;
   char *die_symbol;
-/* APPLE LOCAL mainline 2006-04-20 4498201 */
   VEC(dw_attr_node) * die_attr;
   dw_die_ref die_parent;
   dw_die_ref die_child;
@@ -3677,6 +3686,15 @@ typedef struct die_struct GTY(())
   unsigned int decl_id;
 }
 die_node;
+
+/* Evaluate 'expr' while 'c' is set to each child of DIE in order.  */
+#define FOR_EACH_CHILD(die, c, expr) do {	\
+  c = die->die_child;				\
+  if (c) do {					\
+    c = c->die_sib;				\
+    expr;					\
+  } while (c != die->die_child);		\
+} while (0)
 
 /* The pubname structure */
 
@@ -4000,7 +4018,6 @@ static bool is_fortran (void);
 static bool is_ada (void);
 static void remove_AT (dw_die_ref, enum dwarf_attribute);
 static void remove_child_TAG (dw_die_ref, enum dwarf_tag);
-/* APPLE LOCAL mainline 2006-04-20 4498201 */
 /* free_die, remove_children removed */
 static void add_child_die (dw_die_ref, dw_die_ref);
 static dw_die_ref new_die (enum dwarf_tag, dw_die_ref, tree);
@@ -4017,8 +4034,6 @@ static void add_var_loc_to_decl (tree, struct var_loc_node *);
 static void print_spaces (FILE *);
 static void print_die (dw_die_ref, FILE *);
 static void print_dwarf_line_table (FILE *);
-static void reverse_die_lists (dw_die_ref);
-static void reverse_all_dies (dw_die_ref);
 static dw_die_ref push_new_compile_unit (dw_die_ref, dw_die_ref);
 static dw_die_ref pop_compile_unit (dw_die_ref);
 static void loc_checksum (dw_loc_descr_ref, struct md5_ctx *);
@@ -4832,13 +4847,11 @@ decl_class_context (tree decl)
   return context;
 }
 
-/* Add an attribute/value pair to a DIE.  We build the lists up in reverse
-   addition order, and correct that in reverse_all_dies.  */
+/* Add an attribute/value pair to a DIE.  */
 
 static inline void
 add_dwarf_attr (dw_die_ref die, dw_attr_ref attr)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   /* Maybe this should be an assert?  */
   if (die == NULL)
     return;
@@ -4846,7 +4859,6 @@ add_dwarf_attr (dw_die_ref die, dw_attr_ref attr)
   if (die->die_attr == NULL)
     die->die_attr = VEC_alloc (dw_attr_node, 1);
   VEC_safe_push (dw_attr_node, die->die_attr, attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 static inline enum dw_val_class
@@ -4860,14 +4872,12 @@ AT_class (dw_attr_ref a)
 static inline void
 add_AT_flag (dw_die_ref die, enum dwarf_attribute attr_kind, unsigned int flag)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_flag;
   attr.dw_attr_val.v.val_flag = flag;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 static inline unsigned
@@ -4882,14 +4892,12 @@ AT_flag (dw_attr_ref a)
 static inline void
 add_AT_int (dw_die_ref die, enum dwarf_attribute attr_kind, HOST_WIDE_INT int_val)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_const;
   attr.dw_attr_val.v.val_int = int_val;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 static inline HOST_WIDE_INT
@@ -4905,14 +4913,12 @@ static inline void
 add_AT_unsigned (dw_die_ref die, enum dwarf_attribute attr_kind,
 		 unsigned HOST_WIDE_INT unsigned_val)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_unsigned_const;
   attr.dw_attr_val.v.val_unsigned = unsigned_val;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 static inline unsigned HOST_WIDE_INT
@@ -4928,7 +4934,6 @@ static inline void
 add_AT_long_long (dw_die_ref die, enum dwarf_attribute attr_kind,
 		  long unsigned int val_hi, long unsigned int val_low)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
@@ -4936,7 +4941,6 @@ add_AT_long_long (dw_die_ref die, enum dwarf_attribute attr_kind,
   attr.dw_attr_val.v.val_long_long.hi = val_hi;
   attr.dw_attr_val.v.val_long_long.low = val_low;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 /* Add a floating point attribute value to a DIE and return it.  */
@@ -4945,7 +4949,6 @@ static inline void
 add_AT_vec (dw_die_ref die, enum dwarf_attribute attr_kind,
 	    unsigned int length, unsigned int elt_size, unsigned char *array)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
@@ -4954,7 +4957,6 @@ add_AT_vec (dw_die_ref die, enum dwarf_attribute attr_kind,
   attr.dw_attr_val.v.val_vec.elt_size = elt_size;
   attr.dw_attr_val.v.val_vec.array = array;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 /* Hash and equality functions for debug_str_hash.  */
@@ -4977,7 +4979,6 @@ debug_str_eq (const void *x1, const void *x2)
 static inline void
 add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
 {
-/* APPLE LOCAL mainline 2006-04-20 4498201 */
   dw_attr_node attr;
   struct indirect_string_node *node;
   void **slot;
@@ -4994,12 +4995,10 @@ add_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind, const char *str)
   node->str = ggc_strdup (str);
   node->refcount++;
 
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_str;
   attr.dw_attr_val.v.val_str = node;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 static inline const char *
@@ -5051,7 +5050,6 @@ AT_string_form (dw_attr_ref a)
 static inline void
 add_AT_die_ref (dw_die_ref die, enum dwarf_attribute attr_kind, dw_die_ref targ_die)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
@@ -5059,7 +5057,6 @@ add_AT_die_ref (dw_die_ref die, enum dwarf_attribute attr_kind, dw_die_ref targ_
   attr.dw_attr_val.v.val_die_ref.die = targ_die;
   attr.dw_attr_val.v.val_die_ref.external = 0;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 /* Add an AT_specification attribute to a DIE, and also make the back
@@ -5101,14 +5098,12 @@ set_AT_ref_external (dw_attr_ref a, int i)
 static inline void
 add_AT_fde_ref (dw_die_ref die, enum dwarf_attribute attr_kind, unsigned int targ_fde)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_fde_ref;
   attr.dw_attr_val.v.val_fde_index = targ_fde;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 /* Add a location description attribute value to a DIE.  */
@@ -5116,14 +5111,12 @@ add_AT_fde_ref (dw_die_ref die, enum dwarf_attribute attr_kind, unsigned int tar
 static inline void
 add_AT_loc (dw_die_ref die, enum dwarf_attribute attr_kind, dw_loc_descr_ref loc)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_loc;
   attr.dw_attr_val.v.val_loc = loc;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 static inline dw_loc_descr_ref
@@ -5136,14 +5129,12 @@ AT_loc (dw_attr_ref a)
 static inline void
 add_AT_loc_list (dw_die_ref die, enum dwarf_attribute attr_kind, dw_loc_list_ref loc_list)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_loc_list;
   attr.dw_attr_val.v.val_loc_list = loc_list;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 /* APPLE LOCAL mainline 4.2 2006-01-02 4386366 */
   have_location_lists = true;
 }
@@ -5160,14 +5151,12 @@ AT_loc_list (dw_attr_ref a)
 static inline void
 add_AT_addr (dw_die_ref die, enum dwarf_attribute attr_kind, rtx addr)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_addr;
   attr.dw_attr_val.v.val_addr = addr;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 static inline rtx
@@ -5182,14 +5171,12 @@ AT_addr (dw_attr_ref a)
 static inline void
 add_AT_lbl_id (dw_die_ref die, enum dwarf_attribute attr_kind, const char *lbl_id)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_lbl_id;
   attr.dw_attr_val.v.val_lbl_id = xstrdup (lbl_id);
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 /* APPLE LOCAL begin dwarf 4383509 */
@@ -5200,14 +5187,12 @@ static inline void
 add_AT_lineptr (dw_die_ref die, enum dwarf_attribute attr_kind,
 		const char *label)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_lineptr;
   attr.dw_attr_val.v.val_lbl_id = xstrdup (label);
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 /* Add a section offset attribute value to a DIE, an offset into the
@@ -5217,14 +5202,12 @@ static inline void
 add_AT_macptr (dw_die_ref die, enum dwarf_attribute attr_kind,
 	       const char *label)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_macptr;
   attr.dw_attr_val.v.val_lbl_id = xstrdup (label);
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 /* APPLE LOCAL end dwarf 4383509 */
@@ -5234,14 +5217,12 @@ static inline void
 add_AT_offset (dw_die_ref die, enum dwarf_attribute attr_kind,
 	       unsigned HOST_WIDE_INT offset)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_offset;
   attr.dw_attr_val.v.val_offset = offset;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 /* Add an range_list attribute value to a DIE.  */
@@ -5250,14 +5231,12 @@ static void
 add_AT_range_list (dw_die_ref die, enum dwarf_attribute attr_kind,
 		   long unsigned int offset)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_node attr;
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_range_list;
   attr.dw_attr_val.v.val_offset = offset;
   add_dwarf_attr (die, &attr);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 static inline const char *
@@ -5276,7 +5255,6 @@ AT_lbl (dw_attr_ref a)
 static dw_attr_ref
 get_AT (dw_die_ref die, enum dwarf_attribute attr_kind)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_ref a;
   unsigned ix;
   dw_die_ref spec = NULL;
@@ -5295,7 +5273,6 @@ get_AT (dw_die_ref die, enum dwarf_attribute attr_kind)
     return get_AT (spec, attr_kind);
 
   return NULL;
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 }
 
 /* Return the "low pc" attribute value, typically associated with a subprogram
@@ -5421,7 +5398,6 @@ is_ada (void)
   return lang == DW_LANG_Ada95 || lang == DW_LANG_Ada83;
 }
 
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
 /* Remove free_AT */
 
 /* Remove the specified attribute if present.  */
@@ -5448,64 +5424,77 @@ remove_AT (dw_die_ref die, enum dwarf_attribute attr_kind)
 	return;
       }
 }
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
+/* Remove CHILD from its parent.  PREV must have the property that
+   PREV->DIE_SIB == CHILD.  Does not alter CHILD.  */
 
-/* Remove child die whose die_tag is specified tag.  */
+static void
+remove_child_with_prev (dw_die_ref child, dw_die_ref prev)
+{
+  gcc_assert (child->die_parent == prev->die_parent);
+  gcc_assert (prev->die_sib == child);
+  if (prev == child)
+    {
+      gcc_assert (child->die_parent->die_child == child);
+      prev = NULL;
+    }
+  else
+    prev->die_sib = child->die_sib;
+  if (child->die_parent->die_child == child)
+    child->die_parent->die_child = prev;
+}
+
+/* Remove child DIE whose die_tag is TAG.  Do nothing if no child
+   matches TAG.  */
 
 static void
 remove_child_TAG (dw_die_ref die, enum dwarf_tag tag)
 {
-  dw_die_ref current, prev, next;
-  current = die->die_child;
-  prev = NULL;
-  while (current != NULL)
-    {
-      if (current->die_tag == tag)
-	{
-	  next = current->die_sib;
-	  if (prev == NULL)
-	    die->die_child = next;
-	  else
-	    prev->die_sib = next;
-	  /* APPLE LOCAL mainline 2006-04-20 4498201 */
-	  /* Don't call free_die */
-	  current = next;
-	}
-      else
-	{
-	  prev = current;
-	  current = current->die_sib;
-	}
-    }
+  dw_die_ref c;
+  
+  c = die->die_child;
+  if (c) do {
+    dw_die_ref prev = c;
+    c = c->die_sib;
+    while (c->die_tag == tag)
+      {
+	remove_child_with_prev (c, prev);
+	/* Might have removed every child.  */
+	if (c == c->die_sib)
+	  return;
+	c = c->die_sib;
+      }
+  } while (c != die->die_child);
 }
 
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
-/* Remove free_die */
+/* Add a CHILD_DIE as the last child of DIE.  */
 
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
-/* Add a child DIE below its parent.  We build the lists up in reverse
-   addition order, and correct that in reverse_all_dies.  */
-
-static inline void
+static void
 add_child_die (dw_die_ref die, dw_die_ref child_die)
 {
-  if (die != NULL && child_die != NULL)
-    {
-      gcc_assert (die != child_die);
+  /* FIXME this should probably be an assert.  */
+  if (! die || ! child_die)
+    return;
+  gcc_assert (die != child_die);
 
-      child_die->die_parent = die;
-      child_die->die_sib = die->die_child;
-      die->die_child = child_die;
+  child_die->die_parent = die;
+  if (die->die_child)
+    {
+      child_die->die_sib = die->die_child->die_sib;
+      die->die_child->die_sib = child_die;
     }
+  else
+    child_die->die_sib = child_die;
+  die->die_child = child_die;
 }
 
 /* Move CHILD, which must be a child of PARENT or the DIE for which PARENT
-   is the specification, to the front of PARENT's list of children.  */
+   is the specification, to the end of PARENT's list of children.  
+   This is done by removing and re-adding it.  */
 
 static void
 splice_child_die (dw_die_ref parent, dw_die_ref child)
 {
-  dw_die_ref *p;
+  dw_die_ref p;
 
   /* We want the declaration DIE from inside the class, not the
      specification DIE at toplevel.  */
@@ -5520,17 +5509,15 @@ splice_child_die (dw_die_ref parent, dw_die_ref child)
   gcc_assert (child->die_parent == parent
 	      || (child->die_parent
 		  == get_AT_ref (parent, DW_AT_specification)));
-
-  for (p = &(child->die_parent->die_child); *p; p = &((*p)->die_sib))
-    if (*p == child)
+  
+  for (p = child->die_parent->die_child; ; p = p->die_sib)
+    if (p->die_sib == child)
       {
-	*p = child->die_sib;
+	remove_child_with_prev (child, p);
 	break;
       }
 
-  child->die_parent = parent;
-  child->die_sib = parent->die_child;
-  parent->die_child = child;
+  add_child_die (parent, child);
 }
 
 /* Return a pointer to a newly created DIE node.  */
@@ -5696,7 +5683,6 @@ print_die (dw_die_ref die, FILE *outfile)
 {
   dw_attr_ref a;
   dw_die_ref c;
-  /* APPLE LOCAL mainline 2006-04-20 4498201 */
   unsigned ix;
 
   print_spaces (outfile);
@@ -5706,7 +5692,6 @@ print_die (dw_die_ref die, FILE *outfile)
   fprintf (outfile, "  abbrev id: %lu", die->die_abbrev);
   fprintf (outfile, " offset: %lu\n", die->die_offset);
 
-/* APPLE LOCAL mainline 2006-04-20 4498201 */
   for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     {
       print_spaces (outfile);
@@ -5781,9 +5766,7 @@ print_die (dw_die_ref die, FILE *outfile)
   if (die->die_child != NULL)
     {
       print_indent += 4;
-      for (c = die->die_child; c != NULL; c = c->die_sib)
-	print_die (c, outfile);
-
+      FOR_EACH_CHILD (die, c, print_die (c, outfile));
       print_indent -= 4;
     }
   if (print_indent == 0)
@@ -5833,44 +5816,6 @@ debug_dwarf (void)
     print_dwarf_line_table (stderr);
 }
 
-/* We build up the lists of children and attributes by pushing new ones
-   onto the beginning of the list.  Reverse the lists for DIE so that
-   they are in order of addition.  */
-
-static void
-reverse_die_lists (dw_die_ref die)
-{
-  dw_die_ref c, cp, cn;
-  /* APPLE LOCAL begin mainline 2006-04-20 4498201 */
-
-  /* APPLE LOCAL end mainline 2006-04-20 4498201 */
-  for (c = die->die_child, cp = 0; c; c = cn)
-    {
-      cn = c->die_sib;
-      c->die_sib = cp;
-      cp = c;
-    }
-
-  die->die_child = cp;
-}
-
-/* reverse_die_lists only reverses the single die you pass it. Since we used to
-   reverse all dies in add_sibling_attributes, which runs through all the dies,
-   it would reverse all the dies.  Now, however, since we don't call
-   reverse_die_lists in add_sibling_attributes, we need a routine to
-   recursively reverse all the dies. This is that routine.  */
-
-static void
-reverse_all_dies (dw_die_ref die)
-{
-  dw_die_ref c;
-
-  reverse_die_lists (die);
-
-  for (c = die->die_child; c; c = c->die_sib)
-    reverse_all_dies (c);
-}
-
 /* Start a new compilation unit DIE for an include file.  OLD_UNIT is the CU
    for the enclosing include file, if any.  BINCL_DIE is the DW_TAG_GNU_BINCL
    DIE that marks the start of the DIEs for this include file.  */
@@ -5986,7 +5931,6 @@ die_checksum (dw_die_ref die, struct md5_ctx *ctx, int *mark)
 {
   dw_die_ref c;
   dw_attr_ref a;
-  /* APPLE LOCAL mainline 2006-04-20 4498201 */
   unsigned ix;
 
   /* To avoid infinite recursion.  */
@@ -5999,12 +5943,10 @@ die_checksum (dw_die_ref die, struct md5_ctx *ctx, int *mark)
 
   CHECKSUM (die->die_tag);
 
-  /* APPLE LOCAL mainline 2006-04-20 4498201 */
   for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     attr_checksum (a, ctx, mark);
 
-  for (c = die->die_child; c; c = c->die_sib)
-    die_checksum (c, ctx, mark);
+  FOR_EACH_CHILD (die, c, die_checksum (c, ctx, mark));
 }
 
 #undef CHECKSUM
@@ -6110,10 +6052,8 @@ static int
 same_die_p (dw_die_ref die1, dw_die_ref die2, int *mark)
 {
   dw_die_ref c1, c2;
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_ref a1;
   unsigned ix;
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 
   /* To avoid infinite recursion.  */
   if (die1->die_mark)
@@ -6123,7 +6063,6 @@ same_die_p (dw_die_ref die1, dw_die_ref die2, int *mark)
   if (die1->die_tag != die2->die_tag)
     return 0;
 
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   if (VEC_length (dw_attr_node, die1->die_attr)
       != VEC_length (dw_attr_node, die2->die_attr))
     return 0;
@@ -6132,14 +6071,28 @@ same_die_p (dw_die_ref die1, dw_die_ref die2, int *mark)
     if (!same_attr_p (a1, VEC_index (dw_attr_node, die2->die_attr, ix), mark))
       return 0;
 
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
-  for (c1 = die1->die_child, c2 = die2->die_child;
-       c1 && c2;
-       c1 = c1->die_sib, c2 = c2->die_sib)
-    if (!same_die_p (c1, c2, mark))
-      return 0;
-  if (c1 || c2)
-    return 0;
+  c1 = die1->die_child;
+  c2 = die2->die_child;
+  if (! c1)
+    {
+      if (c2)
+	return 0;
+    }
+  else
+    for (;;)
+      {
+	if (!same_die_p (c1, c2, mark))
+	  return 0;
+	c1 = c1->die_sib;
+	c2 = c2->die_sib;
+	if (c1 == die1->die_child)
+	  {
+	    if (c2 == die2->die_child)
+	      break;
+	    else
+	      return 0;
+	  }
+    }
 
   return 1;
 }
@@ -6303,8 +6256,7 @@ assign_symbol_names (dw_die_ref die)
 	die->die_symbol = gen_internal_sym ("LDIE");
     }
 
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    assign_symbol_names (c);
+  FOR_EACH_CHILD (die, c, assign_symbol_names (c));
 }
 
 struct cu_hash_table_entry
@@ -6402,37 +6354,34 @@ record_comdat_symbol_number (dw_die_ref cu, htab_t htable, unsigned int sym_num)
 static void
 break_out_includes (dw_die_ref die)
 {
-  dw_die_ref *ptr;
+  dw_die_ref c;
   dw_die_ref unit = NULL;
   limbo_die_node *node, **pnode;
   htab_t cu_hash_table;
 
-  for (ptr = &(die->die_child); *ptr;)
-    {
-      dw_die_ref c = *ptr;
+  c = die->die_child;
+  if (c) do {
+    dw_die_ref prev = c;
+    c = c->die_sib;
+    while (c->die_tag == DW_TAG_GNU_BINCL || c->die_tag == DW_TAG_GNU_EINCL
+	   || (unit && is_comdat_die (c)))
+      {
+	dw_die_ref next = c->die_sib;
 
-      if (c->die_tag == DW_TAG_GNU_BINCL || c->die_tag == DW_TAG_GNU_EINCL
-	  || (unit && is_comdat_die (c)))
-	{
-	  /* This DIE is for a secondary CU; remove it from the main one.  */
-	  *ptr = c->die_sib;
-
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
-	  if (c->die_tag == DW_TAG_GNU_BINCL)
-	    unit = push_new_compile_unit (unit, c);
-	  else if (c->die_tag == DW_TAG_GNU_EINCL)
-	    unit = pop_compile_unit (unit);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
-	  else
-	    add_child_die (unit, c);
-	}
-      else
-	{
-	  /* Leave this DIE in the main CU.  */
-	  ptr = &(c->die_sib);
-	  continue;
-	}
-    }
+	/* This DIE is for a secondary CU; remove it from the main one.  */
+	remove_child_with_prev (c, prev);
+	
+	if (c->die_tag == DW_TAG_GNU_BINCL)
+	  unit = push_new_compile_unit (unit, c);
+	else if (c->die_tag == DW_TAG_GNU_EINCL)
+	  unit = pop_compile_unit (unit);
+	else
+	  add_child_die (unit, c);
+	c = next;
+	if (c == die->die_child)
+	  break;
+      }
+  } while (c != die->die_child);
 
 #if 0
   /* We can only use this in debugging, since the frontend doesn't check
@@ -6473,13 +6422,13 @@ add_sibling_attributes (dw_die_ref die)
 {
   dw_die_ref c;
 
-  if (die->die_tag != DW_TAG_compile_unit
-      && die->die_sib && die->die_child != NULL)
-    /* Add the sibling link to the front of the attribute list.  */
+  if (! die->die_child)
+    return;
+
+  if (die->die_parent && die != die->die_parent->die_child)
     add_AT_die_ref (die, DW_AT_sibling, die->die_sib);
 
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    add_sibling_attributes (c);
+  FOR_EACH_CHILD (die, c, add_sibling_attributes (c));
 }
 
 /* Output all location lists for the DIE and its children.  */
@@ -6488,7 +6437,6 @@ static void
 output_location_lists (dw_die_ref die)
 {
   dw_die_ref c;
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_ref a;
   unsigned ix;
 
@@ -6496,10 +6444,7 @@ output_location_lists (dw_die_ref die)
     if (AT_class (a) == dw_val_class_loc_list)
       output_loc_list (AT_loc_list (a));
 
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    output_location_lists (c);
-
+  FOR_EACH_CHILD (die, c, output_location_lists (c));
 }
 
 /* The format of each DIE (and its attribute value pairs) is encoded in an
@@ -6513,7 +6458,6 @@ build_abbrev_table (dw_die_ref die)
   unsigned long abbrev_id;
   unsigned int n_alloc;
   dw_die_ref c;
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   dw_attr_ref a;
   unsigned ix;
 
@@ -6556,7 +6500,6 @@ build_abbrev_table (dw_die_ref die)
 	}
       if (ok)
 	break;
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
     }
 
   if (abbrev_id >= abbrev_die_table_in_use)
@@ -6577,8 +6520,7 @@ build_abbrev_table (dw_die_ref die)
     }
 
   die->die_abbrev = abbrev_id;
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    build_abbrev_table (c);
+  FOR_EACH_CHILD (die, c, build_abbrev_table (c));
 }
 
 /* Return the power-of-two number of bytes necessary to represent VALUE.  */
@@ -6607,12 +6549,10 @@ size_of_die (dw_die_ref die)
 {
   unsigned long size = 0;
   dw_attr_ref a;
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   unsigned ix;
 
   size += size_of_uleb128 (die->die_abbrev);
   for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
     {
       switch (AT_class (a))
 	{
@@ -6698,8 +6638,7 @@ calc_die_sizes (dw_die_ref die)
   die->die_offset = next_die_offset;
   next_die_offset += size_of_die (die);
 
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    calc_die_sizes (c);
+  FOR_EACH_CHILD (die, c, calc_die_sizes (c));
 
   if (die->die_child != NULL)
     /* Count the null byte used to terminate sibling lists.  */
@@ -6719,8 +6658,7 @@ mark_dies (dw_die_ref die)
   gcc_assert (!die->die_mark);
 
   die->die_mark = 1;
-  for (c = die->die_child; c; c = c->die_sib)
-    mark_dies (c);
+  FOR_EACH_CHILD (die, c, mark_dies (c));
 }
 
 /* Clear the marks for a die and its children.  */
@@ -6733,8 +6671,7 @@ unmark_dies (dw_die_ref die)
   gcc_assert (die->die_mark);
 
   die->die_mark = 0;
-  for (c = die->die_child; c; c = c->die_sib)
-    unmark_dies (c);
+  FOR_EACH_CHILD (die, c, unmark_dies (c));
 }
 
 /* Clear the marks for a die, its children and referred dies.  */
@@ -6744,17 +6681,14 @@ unmark_all_dies (dw_die_ref die)
 {
   dw_die_ref c;
   dw_attr_ref a;
-/* APPLE LOCAL mainline 2006-04-20 4498201 */
   unsigned ix;
 
   if (!die->die_mark)
     return;
   die->die_mark = 0;
 
-  for (c = die->die_child; c; c = c->die_sib)
-    unmark_all_dies (c);
+  FOR_EACH_CHILD (die, c, unmark_all_dies (c));
 
-/* APPLE LOCAL mainline 2006-04-20 4498201 */
   for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     if (AT_class (a) == dw_val_class_die_ref)
       unmark_all_dies (AT_ref (a));
@@ -6894,14 +6828,12 @@ output_abbrev_section (void)
 {
   unsigned long abbrev_id;
 
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   for (abbrev_id = 1; abbrev_id < abbrev_die_table_in_use; ++abbrev_id)
     {
       dw_die_ref abbrev = abbrev_die_table[abbrev_id];
       unsigned ix;
       dw_attr_ref a_attr;
 
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
       dw2_asm_output_data_uleb128 (abbrev_id, "(abbrev code)");
       dw2_asm_output_data_uleb128 (abbrev->die_tag, "(TAG: %s)",
 				   dwarf_tag_name (abbrev->die_tag));
@@ -6911,10 +6843,8 @@ output_abbrev_section (void)
       else
 	dw2_asm_output_data (1, DW_children_no, "DW_children_no");
 
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
       for (ix = 0; VEC_iterate (dw_attr_node, abbrev->die_attr, ix, a_attr);
 	   ix++)
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 	{
 	  dw2_asm_output_data_uleb128 (a_attr->dw_attr, "(%s)",
 				       dwarf_attr_name (a_attr->dw_attr));
@@ -7043,7 +6973,6 @@ output_die (dw_die_ref die)
   dw_attr_ref a;
   dw_die_ref c;
   unsigned long size;
-/* APPLE LOCAL mainline 2006-04-20 4498201 */
   unsigned ix;
 
   /* If someone in another CU might refer to us, set up a symbol for
@@ -7054,7 +6983,6 @@ output_die (dw_die_ref die)
   dw2_asm_output_data_uleb128 (die->die_abbrev, "(DIE (0x%lx) %s)",
 			       die->die_offset, dwarf_tag_name (die->die_tag));
 
-/* APPLE LOCAL mainline 2006-04-20 4498201 */
   for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
     {
       const char *name = dwarf_attr_name (a->dw_attr);
@@ -7232,8 +7160,7 @@ output_die (dw_die_ref die)
 	}
     }
 
-  for (c = die->die_child; c != NULL; c = c->die_sib)
-    output_die (c);
+  FOR_EACH_CHILD (die, c, output_die (c));
 
   /* Add null byte to terminate sibling list.  */
   if (die->die_child != NULL)
@@ -10220,7 +10147,6 @@ containing_function_has_frame_base (tree decl)
 {
   tree declcontext = decl_function_context (decl);
   dw_die_ref context;
-  /* APPLE LOCAL mainline 2006-04-20 4498201 */
   /* Delete 'attr' */
   
   if (!declcontext)
@@ -10230,10 +10156,8 @@ containing_function_has_frame_base (tree decl)
   if (!context)
     return false;
 
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   if (get_AT (context, DW_AT_frame_base))
     return true;
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
   return false;
 }
   
@@ -13711,7 +13635,18 @@ output_indirect_string (void **h, void *v ATTRIBUTE_UNUSED)
   return 1;
 }
 
+#if ENABLE_ASSERT_CHECKING
+/* Verify that all marks are clear.  */
 
+static void
+verify_marks_clear (dw_die_ref die)
+{
+  dw_die_ref c;
+  
+  gcc_assert (! die->die_mark);
+  FOR_EACH_CHILD (die, c, verify_marks_clear (c));
+}
+#endif /* ENABLE_ASSERT_CHECKING */
 
 /* Clear the marks for a die and its children.
    Be cool if the mark isn't set.  */
@@ -13720,11 +13655,10 @@ static void
 prune_unmark_dies (dw_die_ref die)
 {
   dw_die_ref c;
-  die->die_mark = 0;
-  for (c = die->die_child; c; c = c->die_sib)
-    prune_unmark_dies (c);
+  if (die->die_mark)
+    die->die_mark = 0;
+  FOR_EACH_CHILD (die, c, prune_unmark_dies (c));
 }
-
 
 /* Given DIE that we're marking as used, find any other dies
    it references as attributes and mark them as used.  */
@@ -13733,11 +13667,9 @@ static void
 prune_unused_types_walk_attribs (dw_die_ref die)
 {
   dw_attr_ref a;
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   unsigned ix;
 
   for (ix = 0; VEC_iterate (dw_attr_node, die->die_attr, ix, a); ix++)
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
     {
       if (a->dw_attr_val.val_class == dw_val_class_die_ref)
 	{
@@ -13751,12 +13683,10 @@ prune_unused_types_walk_attribs (dw_die_ref die)
 	  a->dw_attr_val.v.val_unsigned =
 	    maybe_emit_file (a->dw_attr_val.v.val_unsigned);
 	}
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
       /* Set the string's refcount to 0 so that prune_unused_types_mark
 	 accounts properly for it.  */
       if (AT_class (a) == dw_val_class_str)
 	a->dw_attr_val.v.val_str->refcount = 0;
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
     }
 }
 
@@ -13794,16 +13724,12 @@ prune_unused_types_mark (dw_die_ref die, int dokids)
 	 Remember that we've walked the kids.  */
       die->die_mark = 2;
 
-      /* Walk them.  */
-      for (c = die->die_child; c; c = c->die_sib)
-	{
-	  /* If this is an array type, we need to make sure our
-	     kids get marked, even if they're types.  */
-	  if (die->die_tag == DW_TAG_array_type)
-	    prune_unused_types_mark (c, 1);
-	  else
-	    prune_unused_types_walk (c);
-	}
+      /* If this is an array type, we need to make sure our
+	 kids get marked, even if they're types.  */
+      if (die->die_tag == DW_TAG_array_type)
+	FOR_EACH_CHILD (die, c, prune_unused_types_mark (c, 1));
+      else
+	FOR_EACH_CHILD (die, c, prune_unused_types_walk (c));
     }
 }
 
@@ -13853,11 +13779,9 @@ prune_unused_types_walk (dw_die_ref die)
   prune_unused_types_walk_attribs (die);
 
   /* Mark children.  */
-  for (c = die->die_child; c; c = c->die_sib)
-    prune_unused_types_walk (c);
+  FOR_EACH_CHILD (die, c, prune_unused_types_walk (c));
 }
 
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
 /* Increment the string counts on strings referred to from DIE's
    attributes.  */
 
@@ -13888,37 +13812,41 @@ prune_unused_types_update_strings (dw_die_ref die)
       }
 }
 
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
 /* Remove from the tree DIE any dies that aren't marked.  */
 
 static void
 prune_unused_types_prune (dw_die_ref die)
 {
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
-  dw_die_ref *p;
+  dw_die_ref c;
 
   gcc_assert (die->die_mark);
 
-  p = &die->die_child;
-  while (*p)
-    {
-      dw_die_ref c = *p;
-      if (c && ! c->die_mark)
+  if (! die->die_child)
+    return;
+  
+  c = die->die_child;
+  do {
+    dw_die_ref prev = c;
+    for (c = c->die_sib; ! c->die_mark; c = c->die_sib)
+      if (c == die->die_child)
 	{
-	  do {
-	    c = c->die_sib;
-	  } while (c && ! c->die_mark);
-	  *p = c;
+	  /* No marked children between 'prev' and the end of the list.  */
+	  if (prev == c)
+	    /* No marked children at all.  */
+	    die->die_child = NULL;
+	  else
+	    {
+	      prev->die_sib = c->die_sib;
+	      die->die_child = prev;
+	    }
+	  return;
 	}
-      
-      if (c)
-	{
-	  prune_unused_types_update_strings (c);
-	  prune_unused_types_prune (c);
-	  p = &c->die_sib;
-	}
-    }
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
+
+    if (c != prev->die_sib)
+      prev->die_sib = c;
+    prune_unused_types_update_strings (c);
+    prune_unused_types_prune (c);
+  } while (c != die->die_child);
 }
 
 
@@ -13930,10 +13858,12 @@ prune_unused_types (void)
   unsigned int i;
   limbo_die_node *node;
 
-  /* Clear all the marks.  */
-  prune_unmark_dies (comp_unit_die);
+#if ENABLE_ASSERT_CHECKING
+  /* All the marks should already be clear.  */
+  verify_marks_clear (comp_unit_die);
   for (node = limbo_die_list; node; node = node->next)
-    prune_unmark_dies (node->die);
+    verify_marks_clear (node->die);
+#endif /* ENABLE_ASSERT_CHECKING */
 
   /* Set the mark on nodes that are actually used.  */
   prune_unused_types_walk (comp_unit_die);
@@ -13947,11 +13877,9 @@ prune_unused_types (void)
   for (i = 0; i < arange_table_in_use; i++)
     prune_unused_types_mark (arange_table[i], 1);
 
-/* APPLE LOCAL begin mainline 2006-04-20 4498201 */
   /* Get rid of nodes that aren't marked; and update the string counts.  */
   if (debug_str_hash)
     htab_empty (debug_str_hash);
-/* APPLE LOCAL end mainline 2006-04-20 4498201 */
   prune_unused_types_prune (comp_unit_die);
   for (node = limbo_die_list; node; node = node->next)
     prune_unused_types_prune (node->die);
@@ -14047,10 +13975,6 @@ dwarf2out_finish (const char *filename)
   /* Walk through the list of incomplete types again, trying once more to
      emit full debugging info for them.  */
   retry_incomplete_types ();
-
-  /* We need to reverse all the dies before break_out_includes, or
-     we'll see the end of an include file before the beginning.  */
-  reverse_all_dies (comp_unit_die);
 
   if (flag_eliminate_unused_debug_types)
     prune_unused_types ();
