@@ -661,8 +661,10 @@ static void rs6000_assemble_visibility (tree, int);
 static int rs6000_ra_ever_killed (void);
 static tree rs6000_handle_longcall_attribute (tree *, tree, tree, int, bool *);
 static tree rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *);
+/* APPLE LOCAL begin mainline */
 static bool rs6000_ms_bitfield_layout_p (tree);
 static tree rs6000_handle_struct_attribute (tree *, tree, tree, int, bool *);
+/* APPLE LOCAL end mainline */
 static void rs6000_eliminate_indexed_memrefs (rtx operands[2]);
 static const char *rs6000_mangle_fundamental_type (tree);
 extern const struct attribute_spec rs6000_attribute_table[];
@@ -19722,7 +19724,7 @@ rs6000_handle_struct_attribute (tree *node, tree name,
   if (!(type && (TREE_CODE (*type) == RECORD_TYPE
                  || TREE_CODE (*type) == UNION_TYPE)))
     {
-      warning (OPT_Wattributes, "%qs attribute ignored", IDENTIFIER_POINTER (name));
+      warning ("%qs attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
@@ -19731,8 +19733,7 @@ rs6000_handle_struct_attribute (tree *node, tree name,
            || ((is_attribute_p ("gcc_struct", name)
                 && lookup_attribute ("ms_struct", TYPE_ATTRIBUTES (*type)))))
     {
-      warning (OPT_Wattributes, "%qs incompatible attribute ignored",
-               IDENTIFIER_POINTER (name));
+      warning ("%qs incompatible attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
