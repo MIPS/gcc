@@ -19670,7 +19670,8 @@ iasm_x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	 same before and after size is accepted and it just a normal
 	 move.  */
       if (argnum == 2
-	  && e->mod[0] == e->mod[1])
+	  && (e->mod[0] == e->mod[1]
+	      || e->mod[1] == 0))
 	opcode = "mov";
       else
 	opcode = "movz";

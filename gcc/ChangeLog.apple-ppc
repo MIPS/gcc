@@ -1,5 +1,10 @@
 2006-04-26  Mike Stump  <mrs@apple.com>
 
+	Radar 4505697
+	* config/i386/i386.c (iasm_x86_canonicalize_operands): Fix movzx handling.
+
+2006-04-26  Mike Stump  <mrs@apple.com>
+
 	Radar 4505741
 	* c-common.c (iasm_print_operand): Fix .machine all for ppc64.
 

@@ -1,4 +1,10 @@
-2006-04-21  Mike Stump  <mrs@apple.com>
+2006-04-26  Mike Stump  <mrs@apple.com>
+
+	Radar 4505697
+	* g++.apple/asm-block-51.C: Add.
+	* gcc.apple/asm-block-51.c: Add.
+
+2006-04-26  Mike Stump  <mrs@apple.com>
 
 	Radar 4505741
 	* gcc.apple/asm-block-46.c: Fix warning line.
