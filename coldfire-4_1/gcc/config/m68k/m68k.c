@@ -1141,13 +1141,24 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
       && ! restore_from_sp
       && (current_frame.reg_mask || current_frame.fpu_mask))
     {
-      /* Because the ColdFire doesn't support moveml with
-         complex address modes we make an extra correction here.  */
-      if (m68k_arch_coldfire)
-        fsize += current_frame.offset;
-
-      asm_fprintf (stream, "\t%Omove" ASM_DOT "l %I%wd,%Ra1\n", -fsize);
-      fsize = 0, big = true;
+      if (m68k_arch_coldfire
+	  && (current_frame.reg_no > 2 || current_frame.fpu_mask))
+	{
+	  /* Because ColdFire doesn't support moveml with the (d8,Ax,Xi)
+	     addressing mode, we're as well using a normal stack-based
+	     restore.  */
+	  asm_fprintf (stream, "\t%Omove" ASM_DOT "l %I%wd,%Ra1\n",
+		       -(current_frame.offset + fsize));
+	  asm_fprintf (stream, MOTOROLA ?
+				 "\tlea 0(%Rsp,%Ra1.l),%Rsp\n" :
+			         "\tlea %Rsp@(0,%Ra1:l),%Rsp\n");
+	  restore_from_sp = true;
+	}
+      else
+	{
+	  asm_fprintf (stream, "\t%Omove" ASM_DOT "l %I%wd,%Ra1\n", -fsize);
+	  fsize = 0, big = true;
+	}
     }
   if (current_frame.reg_no <= 2)
     {
@@ -1201,20 +1212,11 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
       /* The ColdFire requires special handling due to its limited moveml insn.  */
       if (m68k_arch_coldfire)
         {
-          if (big)
-            {
-              asm_fprintf (stream, "\tadd" ASM_DOT "l %s,%Ra1\n",
-			   M68K_REGNAME(FRAME_POINTER_REGNUM));
-              asm_fprintf (stream, MOTOROLA ?
-				     "\tmovm.l (%Ra1),%I0x%x\n" :
-				     "\tmoveml %Ra1@,%I0x%x\n",
-			   current_frame.reg_mask);
-	     }
-	   else if (restore_from_sp)
-	     asm_fprintf (stream, MOTOROLA ?
-				    "\tmovm.l (%Rsp),%I0x%x\n" :
-				    "\tmoveml %Rsp@,%I0x%x\n",
-			  current_frame.reg_mask);
+	  if (restore_from_sp)
+	    asm_fprintf (stream, MOTOROLA ?
+				   "\tmovm.l (%Rsp),%I0x%x\n" :
+				   "\tmoveml %Rsp@,%I0x%x\n",
+			 current_frame.reg_mask);
           else
             {
 	      if (MOTOROLA)
@@ -1270,21 +1272,7 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
     {
       if (big)
 	{
-	  if (m68k_arch_coldfire)
-	    {
-	      if (current_frame.reg_no)
-		asm_fprintf (stream, MOTOROLA ?
-			     "\tfmovem.d %d(%Ra1),%I0x%x\n" :
-			     "\tfmovmd (%d,%Ra1),%I0x%x\n",
-			     current_frame.reg_no * 4,
-			     current_frame.fpu_rev_mask);
-	      else
-		asm_fprintf (stream, MOTOROLA ?
-			     "\tfmovem.d (%Ra1),%I0x%x\n" :
-			     "\tfmovmd (%Ra1),%I0x%x\n",
-			     current_frame.fpu_rev_mask);
-	    }
-	  else if (MOTOROLA)
+	  if (MOTOROLA)
 	    asm_fprintf (stream, "\tfmovm -%wd(%s,%Ra1.l),%I0x%x\n",
 		         current_frame.foffset + fsize,
 		         M68K_REGNAME(FRAME_POINTER_REGNUM),
@@ -1308,25 +1296,26 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	      else
 		offset = current_frame.reg_no * 4;
 	      if (offset)
-		 asm_fprintf (stream,
+		asm_fprintf (stream,
 			     "\tfmovem %Rsp@(%wd), %I0x%x\n",
-			      (HOST_WIDE_INT)offset,
-			      current_frame.fpu_rev_mask);
+			     (HOST_WIDE_INT) offset,
+			     current_frame.fpu_rev_mask);
 	      else
-		 asm_fprintf (stream,
+		asm_fprintf (stream,
 			     "\tfmovem %Rsp@, %I0x%x\n",
 			     current_frame.fpu_rev_mask);
 	    }
-	   else
-		  asm_fprintf (stream, MOTOROLA ?
-			       "\tfmovm (%Rsp)+,%I0x%x\n" :
-			       "\tfmovem %Rsp@+,%I0x%x\n",
-			       current_frame.fpu_rev_mask);
+	  else
+	    asm_fprintf (stream, MOTOROLA ?
+			 "\tfmovm (%Rsp)+,%I0x%x\n" :
+			 "\tfmovem %Rsp@+,%I0x%x\n",
+			 current_frame.fpu_rev_mask);
 	}
       else
 	{
-	  if (MOTOROLA && !m68k_arch_coldfire)
-	    asm_fprintf (stream, "\tfmovm -%wd(%s),%I0x%x\n",
+	  if (MOTOROLA)
+	    asm_fprintf (stream, "\t%s -%wd(%s),%I0x%x\n",
+			 m68k_arch_coldfire ? "fmovem" : "fmovm",
 			 current_frame.foffset + fsize,
 			 M68K_REGNAME(FRAME_POINTER_REGNUM),
 			 current_frame.fpu_rev_mask);
