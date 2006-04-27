@@ -262,18 +262,18 @@ int m68k_cf_hwdiv = 0;
 #define FL_ISA_C     (1 << 17)
 
 /* Base flags for 68k ISAs.  */
-#define FL_FOR_isa_00    FL_ISA_68000
-#define FL_FOR_isa_20    FL_ISA_68020
-#define FL_FOR_isa_40    FL_ISA_68040 | FL_ISA_68020
-#define FL_FOR_isa_60    FL_ISA_68060 | FL_ISA_68040 | FL_ISA_68020
+#define FL_FOR_isa_00    (FL_ISA_68000 | FL_PCREL_16)
+#define FL_FOR_isa_20    (FL_ISA_68020 | FL_BITFIELD)
+#define FL_FOR_isa_40    (FL_FOR_isa_20 | FL_ISA_68040 | FL_68881)
+#define FL_FOR_isa_60    (FL_FOR_isa_40 | FL_ISA_68060)
+#define FL_FOR_isa_cpu32 (FL_ISA_68020)
 
 /* Base flags for ColdFire ISAs.  */
-#define FL_FOR_isa_a     (FL_COLDFIRE | FL_ISA_A)
-#define FL_FOR_isa_aplus (FL_COLDFIRE | FL_ISA_A | FL_ISA_APLUS | FL_CF_USP)
+#define FL_FOR_isa_a     (FL_COLDFIRE | FL_ISA_A | FL_PCREL_16)
+#define FL_FOR_isa_aplus (FL_FOR_isa_a | FL_ISA_APLUS | FL_CF_USP)
 /* Note ISA_B doesn't necessarily include USP (user stack pointer) support.  */
-#define FL_FOR_isa_b     (FL_COLDFIRE | FL_ISA_A | FL_ISA_B | FL_CF_HWDIV)
-#define FL_FOR_isa_c     (FL_COLDFIRE | FL_ISA_A | FL_ISA_B | FL_ISA_C \
-                          | FL_CF_USP | FL_CF_HWDIV)
+#define FL_FOR_isa_b     (FL_FOR_isa_a | FL_ISA_B | FL_CF_HWDIV)
+#define FL_FOR_isa_c     (FL_FOR_isa_b | FL_ISA_C | FL_CF_USP)
 
 enum m68k_isa
 {
@@ -282,6 +282,7 @@ enum m68k_isa
   isa_20,
   isa_40,
   isa_60,
+  isa_cpu32,
   /* ColdFire instruction set variants.  */
   isa_a,
   isa_aplus,
@@ -315,50 +316,36 @@ static const struct processors all_cores[] =
 
 static const struct processors all_architectures[] =
 {
-  { "68000",    m68000,   u68000,   isa_00,    FL_ISA_68000 | FL_PCREL_16 },
-  { "68010",    m68010,   u68000,   isa_00,    FL_ISA_68000 | FL_PCREL_16 },
-  { "68020",    m68020,   u68020,   isa_20,    FL_ISA_68020 | FL_BITFIELD },
-  { "68030",    m68030,   u68020,   isa_20,    FL_ISA_68020 | FL_BITFIELD },
-  { "68040",    m68040,   u68040,   isa_40,    FL_ISA_68040 | FL_ISA_68020
-    					       | FL_BITFIELD | FL_68881 },
-  { "68060",    m68060,   u68060,   isa_60,    FL_ISA_68060 | FL_ISA_68040
-    					       | FL_ISA_68020 | FL_BITFIELD
-                                               | FL_68881 },
-  { "cpu32",    cpu32,    ucpu32,   isa_20,    FL_ISA_68020 },
-  { "isaa",     mcf5206e, ucfv2,    isa_a,     FL_COLDFIRE | FL_ISA_A
-    					       | FL_CF_HWDIV | FL_PCREL_16},
-  { "isaaplus", mcf5271,  ucfv2,    isa_aplus, FL_COLDFIRE | FL_ISA_A
-  					       | FL_ISA_APLUS | FL_CF_HWDIV
-    					       | FL_PCREL_16},
-  { "isab",     mcf5407,  ucfv4,    isa_b,     FL_COLDFIRE | FL_ISA_B
-                                               | FL_CF_HWDIV},
-  { "isac",     unk_proc, ucfv4,    isa_c,     FL_COLDFIRE | FL_ISA_C
-                                               | FL_CF_HWDIV | FL_CF_USP
-   					       | FL_CF_FPU | FL_CF_EMAC },
+  { "68000",    m68000,   u68000,   isa_00,    FL_FOR_isa_00 },
+  { "68010",    m68010,   u68000,   isa_00,    FL_FOR_isa_00 },
+  { "68020",    m68020,   u68020,   isa_20,    FL_FOR_isa_20 },
+  { "68030",    m68030,   u68020,   isa_20,    FL_FOR_isa_20 },
+  { "68040",    m68040,   u68040,   isa_40,    FL_FOR_isa_40 },
+  { "68060",    m68060,   u68060,   isa_60,    FL_FOR_isa_60 },
+  { "cpu32",    cpu32,    ucpu32,   isa_20,    FL_FOR_isa_cpu32 },
+  { "isaa",     mcf5206e, ucfv2,    isa_a,     FL_FOR_isa_a | FL_CF_HWDIV },
+  { "isaaplus", mcf5271,  ucfv2,    isa_aplus, FL_FOR_isa_aplus
+					       | FL_CF_HWDIV },
+  { "isab",     mcf5407,  ucfv4,    isa_b,     FL_FOR_isa_b },
+  { "isac",     unk_proc, ucfv4,    isa_c,     FL_FOR_isa_c | FL_CF_FPU
+					       | FL_CF_EMAC },
   { NULL,       unk_proc, unk_arch, isa_max,   0 }
 };
 
 static const struct processors all_tunings[] =
 {
-  { "68000",    m68000,   u68000,   isa_00,  FL_ISA_68000 | FL_PCREL_16 },
-  { "68010",    m68010,   u68000,   isa_00,  FL_ISA_68000 | FL_PCREL_16 },
-  { "68020",    m68020,   u68020,   isa_20,  FL_ISA_68020 | FL_BITFIELD },
-  { "68030",    m68030,   u68020,   isa_20,  FL_ISA_68020 | FL_BITFIELD },
-  { "68040",    m68040,   u68040,   isa_40,  FL_ISA_68040 | FL_ISA_68020
-                                             | FL_BITFIELD | FL_68881 },
-  { "68060",    m68060,   u68060,   isa_60,  FL_ISA_68060 | FL_ISA_68040
-   					     | FL_ISA_68020 | FL_BITFIELD
-                                             | FL_68881 },
-  { "cpu32",    cpu32,    ucpu32,   isa_20,  FL_ISA_68020 },
-  { "cfv2",     mcf5206,  ucfv2,    isa_a,   FL_COLDFIRE | FL_ISA_A
-					     | FL_PCREL_16},
-  { "cfv3",     mcf5307,  ucfv3,    isa_a,   FL_COLDFIRE | FL_ISA_A
-                                             | FL_CF_HWDIV | FL_PCREL_16},
-  { "cfv4",     mcf5407,  ucfv4,    isa_b,   FL_COLDFIRE | FL_ISA_B
-    					     | FL_CF_HWDIV },
-  { "cfv4e",    mcf547x,  ucfv4e,   isa_b,   FL_COLDFIRE | FL_ISA_B
-    					     | FL_CF_HWDIV | FL_CF_EMAC
-					     | FL_CF_FPU | FL_CF_USP },
+  { "68000",    m68000,   u68000,   isa_00,  FL_FOR_isa_00 },
+  { "68010",    m68010,   u68000,   isa_00,  FL_FOR_isa_00 },
+  { "68020",    m68020,   u68020,   isa_20,  FL_FOR_isa_20 },
+  { "68030",    m68030,   u68020,   isa_20,  FL_FOR_isa_20 },
+  { "68040",    m68040,   u68040,   isa_40,  FL_FOR_isa_40 },
+  { "68060",    m68060,   u68060,   isa_60,  FL_FOR_isa_60 },
+  { "cpu32",    cpu32,    ucpu32,   isa_20,  FL_FOR_isa_cpu32 },
+  { "cfv2",     mcf5206,  ucfv2,    isa_a,   FL_FOR_isa_a },
+  { "cfv3",     mcf5307,  ucfv3,    isa_a,   FL_FOR_isa_a | FL_CF_HWDIV },
+  { "cfv4",     mcf5407,  ucfv4,    isa_b,   FL_FOR_isa_b },
+  { "cfv4e",    mcf547x,  ucfv4e,   isa_b,   FL_FOR_isa_b | FL_CF_USP
+					     | FL_CF_EMAC | FL_CF_FPU },
   { NULL,       unk_proc, unk_arch, isa_max, 0 }
 };
 
