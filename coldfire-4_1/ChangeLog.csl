@@ -1,6 +1,13 @@
 2006-04-27  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.md (cmpsi): Remove PIC handling.
+	(movsi): Remove predicates.  Use LEGITIMATE_PIC_OPERAND_P.
+	* config/m68k/m68k.h (LEGITIMATE_PIC_OPERAND_P): Define.
+
+2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.c (m68k_output_function_epilogue): Use a stack-
 	based restore sequence for big frames on Coldfire if we need to
 	use a movem or fmovem instruction.  Fix formatting.  Use proper

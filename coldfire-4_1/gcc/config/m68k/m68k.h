@@ -772,6 +772,9 @@ __transfer_from_trampoline ()					\
    && !(M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P			\
 	&& constant_may_be_outside_section_p (X, NULL, NULL)))
 
+#define LEGITIMATE_PIC_OPERAND_P(X) \
+  (TARGET_PCREL || !symbolic_operand (X, VOIDmode))
+
 #ifndef REG_OK_STRICT
 
 /* Nonzero if X is a hard reg that can be used as an index
