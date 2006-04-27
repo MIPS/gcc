@@ -2293,8 +2293,8 @@ to be unlocked properly.
 @item -fobjc-gc
 @opindex fobjc-gc
 Enable garbage collection (GC) for Objective-C objects.  The resulting binary
-can only be used on Mac OS X 10.5 (Leopard) and later systems, due to additional
-functionality needed in the (NeXT) Objective-C runtime.
+requires additional runtime support which is not present in any released
+version of Mac OS X.
 
 When the @option{-fobjc-gc} switch is specified, the compiler will replace
 assignments to instance variables (ivars) and to certain kinds of pointers to
