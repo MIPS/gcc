@@ -761,6 +761,9 @@ m68k_save_reg (unsigned int regno, bool interrupt_handler)
 {
   if (flag_pic && regno == PIC_OFFSET_TABLE_REGNUM)
     {
+      /* We need to restore the PIC register on exceptional returns.  */
+      if (current_function_calls_eh_return)
+	return true;
       if (current_function_uses_pic_offset_table)
 	return true;
       if (!current_function_is_leaf && TARGET_ID_SHARED_LIBRARY)
