@@ -1761,14 +1761,18 @@ static bool cp_parser_objc_selector_p
   (enum cpp_ttype);
 static tree cp_parser_objc_selector
   (cp_parser *);
+/* APPLE LOCAL begin radar 3803157 - objc attribute */
+static void cp_parser_objc_maybe_attributes 
+  (cp_parser *, tree *);
 static tree cp_parser_objc_method_keyword_params
-  (cp_parser *);
+  (cp_parser *, tree *);
 static tree cp_parser_objc_method_tail_params_opt
-  (cp_parser *);
+  (cp_parser *, tree *);
 static void cp_parser_objc_interstitial_code
   (cp_parser *);
 static tree cp_parser_objc_method_signature
-  (cp_parser *);
+  (cp_parser *, tree *);
+/* APPLE LOCAL end radar 3803157 - objc attribute */
 static void cp_parser_objc_method_prototype_list
   (cp_parser *);
 static void cp_parser_objc_method_definition_list
@@ -18407,8 +18411,23 @@ cp_parser_objc_selector (cp_parser* parser)
     }
 }
 
+/* APPLE LOCAL begin radar 3803157 - objc attribute */
+static void 
+cp_parser_objc_maybe_attributes (cp_parser* parser, tree* attributes)
+{
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  if (*attributes != NULL_TREE)
+    {
+      error ("method attributes must be specified at the end only");
+      *attributes = NULL_TREE;
+    }
+  if (token->keyword == RID_ATTRIBUTE)
+    *attributes = cp_parser_attributes_opt (parser);
+}
+
 static tree
-cp_parser_objc_method_keyword_params (cp_parser* parser)
+cp_parser_objc_method_keyword_params (cp_parser* parser, tree* attributes)
+/* APPLE LOCAL end radar 3803157 - objc attribute */
 {
   tree params = NULL_TREE;
   bool maybe_unary_selector_p = true;
@@ -18424,12 +18443,20 @@ cp_parser_objc_method_keyword_params (cp_parser* parser)
       /* Detect if we have a unary selector.  */
       if (maybe_unary_selector_p
 	  && cp_lexer_next_token_is_not (parser->lexer, CPP_COLON))
-	return selector;
+	/* APPLE LOCAL begin radar 3803157 - objc attribute */
+	{
+	  cp_parser_objc_maybe_attributes (parser, attributes);
+	  if (cp_lexer_next_token_is_not (parser->lexer, CPP_COLON))
+	    return selector;
+	}
+	/* APPLE LOCAL end radar 3803157 - objc attribute */
 
       maybe_unary_selector_p = false;
       cp_parser_require (parser, CPP_COLON, "`:'");
       typename = cp_parser_objc_typename (parser);
       identifier = cp_parser_identifier (parser);
+      /* APPLE LOCAL radar 3803157 - objc attribute */
+      cp_parser_objc_maybe_attributes (parser, attributes);
 
       params
 	= chainon (params,
@@ -18450,7 +18477,8 @@ cp_parser_objc_method_keyword_params (cp_parser* parser)
 }
 
 static tree
-cp_parser_objc_method_tail_params_opt (cp_parser* parser)
+/* APPLE LOCAL radar 3803157 - objc attribute */
+cp_parser_objc_method_tail_params_opt (cp_parser* parser, tree* attributes)
 {
   tree params = make_node (TREE_LIST);
   cp_token *token = cp_lexer_peek_token (parser->lexer);
@@ -18469,6 +18497,8 @@ cp_parser_objc_method_tail_params_opt (cp_parser* parser)
 	{
 	  cp_lexer_consume_token (parser->lexer);  /* Eat '...'.  */
 	  TREE_OVERFLOW (params) = 1;
+	  /* APPLE LOCAL radar 3803157 - objc attribute */
+	  cp_parser_objc_maybe_attributes (parser, attributes);
 	  break;
 	}
 
@@ -18536,14 +18566,18 @@ cp_parser_objc_interstitial_code (cp_parser* parser)
 }
 
 static tree
-cp_parser_objc_method_signature (cp_parser* parser)
+/* APPLE LOCAL radar 3803157 - objc attribute */
+cp_parser_objc_method_signature (cp_parser* parser, tree* attributes)
 {
   tree rettype, kwdparms, optparms;
 
   cp_parser_objc_method_type (parser);
   rettype = cp_parser_objc_typename (parser);
-  kwdparms = cp_parser_objc_method_keyword_params (parser);
-  optparms = cp_parser_objc_method_tail_params_opt (parser);
+  /* APPLE LOCAL begin radar 3803157 - objc attribute */
+  *attributes = NULL_TREE;
+  kwdparms = cp_parser_objc_method_keyword_params (parser, attributes);
+  optparms = cp_parser_objc_method_tail_params_opt (parser, attributes);
+  /* APPLE LOCAL end radar 3803157 - objc attribute */
 
   return objc_build_method_signature (rettype, kwdparms, optparms);
 }
@@ -18558,8 +18592,11 @@ cp_parser_objc_method_prototype_list (cp_parser* parser)
     {
       if (token->type == CPP_PLUS || token->type == CPP_MINUS)
 	{
-	  objc_add_method_declaration
-	   (cp_parser_objc_method_signature (parser));
+	  /* APPLE LOCAL begin radar 3803157 - objc attribute */
+	  tree attributes, sig;
+	  sig = cp_parser_objc_method_signature (parser, &attributes);
+	  objc_add_method_declaration (sig, attributes);
+	  /* APPLE LOCAL end radar 3803157 - objc attribute */
 	  cp_parser_consume_semicolon_at_end_of_statement (parser);
 	}
       /* APPLE LOCAL begin C* interface */
@@ -18592,9 +18629,12 @@ cp_parser_objc_method_definition_list (cp_parser* parser)
 	{
 	  /* APPLE LOCAL radar 4290840 */
 	  cp_token *ptk;
+	  /* APPLE LOCAL begin radar 3803157 - objc attribute */
+	  tree sig, attribute;
 	  push_deferring_access_checks (dk_deferred);
-	  objc_start_method_definition
-	   (cp_parser_objc_method_signature (parser));
+	  sig = cp_parser_objc_method_signature (parser, &attribute);
+	  objc_start_method_definition (sig, attribute);
+	  /* APPLE LOCAL end radar 3803157 - objc attribute */
 
 	  /* For historical reasons, we accept an optional semicolon.  */
 	  if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))

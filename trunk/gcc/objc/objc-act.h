@@ -63,6 +63,8 @@ void objc_detect_field_duplicates (tree);
 #define METHOD_ADD_ARGS(DECL) ((DECL)->decl.result)
 #define METHOD_DEFINITION(DECL) ((DECL)->decl.initial)
 #define METHOD_ENCODING(DECL) ((DECL)->decl.context)
+/* APPLE LOCAL radar 3803157 */
+#define METHOD_TYPE_ATTRIBUTES(DECL) ((DECL)->decl.abstract_origin)
 /* APPLE LOCAL C* property metadata (Radar 4498373) */
 #define METHOD_PROPERTY_CONTEXT(DECL) ((DECL)->decl.size_unit)
 

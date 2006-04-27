@@ -341,6 +341,8 @@ static void objc_generate_cxx_cdtors (void);
 #endif
 /* APPLE LOCAL end mainline */
 
+/* APPLE LOCAL radar 3803157 - objc attribute */
+static void objc_decl_method_attributes (tree*, tree, int); 
 static tree build_keyword_selector (tree);
 static const char *synth_id_with_class_suffix (const char *, tree);
 
@@ -1328,6 +1330,8 @@ objc_build_getter_call (tree receiver, tree component)
 	}
 #endif
       gcc_assert (TREE_CODE (call_exp) == CALL_EXPR);
+      /* APPLE LOCAL radar 4523837 */
+      TREE_VALUE (TREE_OPERAND (call_exp, 1)) = receiver;
       CALL_EXPR_OBJC_PROPERTY_GETTER (call_exp) = 1;
       /* APPLE LOCAL end radar 4505126 */
       return getter;
@@ -1376,7 +1380,7 @@ objc_v2_build_setter_call (tree lhs, tree rhs)
       for (chain = message_ref_chain; chain; chain = TREE_CHAIN (chain))
 	{
 	  if (TREE_PURPOSE (chain) == selector_reference)
-	    return objc_setter_func_call (TREE_VALUE (arg), 
+	    return objc_setter_func_call (TREE_VALUE (arg),
 					  TREE_VALUE (TREE_CHAIN (chain)), rhs);
 	}
     }
@@ -1407,7 +1411,7 @@ objc_build_setter_call (tree lhs, tree rhs)
       for (chain = sel_ref_chain; chain; chain = TREE_CHAIN (chain))
         {
 	  if (TREE_PURPOSE (chain) == selector_reference)
-	    return objc_setter_func_call (TREE_VALUE (arg), 
+	    return objc_setter_func_call (TREE_VALUE (arg),  
 					  TREE_VALUE (chain), rhs);
         }
     }
@@ -1720,11 +1724,14 @@ objc_build_method_signature (tree rettype, tree selector, tree optparms)
 }
 
 void
-objc_add_method_declaration (tree decl)
+/* APPLE LOCAL radar 3803157 - objc attribute */
+objc_add_method_declaration (tree decl, tree attributes)
 {
   if (!objc_interface_context)
     fatal_error ("method declaration not in @interface context");
 
+  /* APPLE LOCAL radar 3803157 - objc attribute */
+  objc_decl_method_attributes (&decl, attributes, 0);
   /* APPLE LOCAL begin C* language */
   objc_add_method (objc_interface_context,
 		   decl,
@@ -1734,7 +1741,8 @@ objc_add_method_declaration (tree decl)
 }
 
 void
-objc_start_method_definition (tree decl)
+/* APPLE LOCAL radar 3803157 - objc attribute */
+objc_start_method_definition (tree decl, tree attributes)
 {
   if (!objc_implementation_context)
     fatal_error ("method definition not in @implementation context");
@@ -1753,6 +1761,8 @@ objc_start_method_definition (tree decl)
 #endif
   /* APPLE LOCAL end radar 4219590 */
 
+  /* APPLE LOCAL radar 3803157 - objc attribute */
+  objc_decl_method_attributes (&decl, attributes, 0);
   objc_add_method (objc_implementation_context,
 		   decl,
 		   /* APPLE LOCAL C* language */
@@ -6828,7 +6838,8 @@ objc_generate_cxx_ctor_or_dtor (bool dtor)
 				 get_identifier (dtor
 						 ? TAG_CXX_DESTRUCT
 						 : TAG_CXX_CONSTRUCT),
-				 make_node (TREE_LIST)));
+				 /* APPLE LOCAL radar 3803157 - objc attribute */
+				 make_node (TREE_LIST)), NULL_TREE);
   body = begin_function_body ();
   compound_stmt = begin_compound_stmt (0);
 
@@ -9661,6 +9672,28 @@ build_method_decl (enum tree_code code, tree ret_type, tree selector,
 #define METHOD_DEF 0
 #define METHOD_REF 1
 
+/* APPLE LOCAL begin radar 3803157 - objc attribute */
+/* This routine processes objective-c method attributes. */
+
+static void
+objc_decl_method_attributes (tree *node, tree attributes, int flags)
+{
+  tree sentinel_attr = lookup_attribute ("sentinel", attributes);
+  if (sentinel_attr)
+    {
+      /* hackery to make an obj method look like a function type. */
+      tree rettype = TREE_TYPE (*node);
+      TREE_TYPE (*node) = build_function_type (TREE_VALUE (rettype), 
+		       	    get_arg_type_list (*node, METHOD_REF, 0));
+      decl_attributes (node, attributes, flags);
+      METHOD_TYPE_ATTRIBUTES (*node) = TYPE_ATTRIBUTES (TREE_TYPE (*node));
+      TREE_TYPE (*node) = rettype;
+    }
+  else
+    decl_attributes (node, attributes, flags);
+}
+/* APPLE LOCAL end radar 3803157 - objc attribute */
+
 /* Used by `build_objc_method_call' and `comp_proto_with_proto'.  Return
    an argument list for method METH.  CONTEXT is either METHOD_DEF or
    METHOD_REF, saying whether we are trying to define a method or call
@@ -10278,15 +10311,23 @@ build_objc_method_call (int super_flag, tree method_prototype,
     = (method_prototype
        ? TREE_VALUE (TREE_TYPE (method_prototype))
        : objc_object_type);
-  tree sender_cast
-    = build_pointer_type
-      (build_function_type
-       (ret_type,
-	get_arg_type_list
-	(method_prototype, METHOD_REF, super_flag)));
+  /* APPLE LOCAL begin radar 3803157 - objc attribute */
+  tree method_param_types = get_arg_type_list (method_prototype, METHOD_REF, super_flag);
+  tree ftype = build_function_type (ret_type, method_param_types);
+  tree sender_cast;
   tree method, t;
+  if (method_prototype && METHOD_TYPE_ATTRIBUTES (method_prototype))
+    ftype = build_type_attribute_variant (
+	      ftype, METHOD_TYPE_ATTRIBUTES (method_prototype));
 
+  sender_cast = build_pointer_type (ftype);
+
+  if (method_prototype && TREE_DEPRECATED (method_prototype))
+    warn_deprecated_use (method_prototype);
+  if (method_prototype && TREE_UNAVAILABLE (method_prototype))
+    warn_unavailable_use (method_prototype);
   lookup_object = build_c_cast (rcv_p, lookup_object);
+  /* APPLE LOCAL end radar 3803157 - objc attribute */
     
   /* Use SAVE_EXPR to avoid evaluating the receiver twice.  */
   lookup_object = save_expr (lookup_object);
@@ -10362,12 +10403,21 @@ build_v2_build_objc_method_call (int super_flag, tree method_prototype,
        : objc_object_type);
   tree method_param_types = get_arg_type_list (method_prototype, 
 					       METHOD_REF, super_flag);
-  tree sender_cast
-    = build_pointer_type
-      (build_function_type
-       (ret_type,
-	method_param_types));
+  /* APPLE LOCAL begin radar 3803157 - objc attribute */
+  tree ftype = build_function_type (ret_type, method_param_types);
+  tree sender_cast;
 
+  if (method_prototype && METHOD_TYPE_ATTRIBUTES (method_prototype))
+    ftype = build_type_attribute_variant (
+	      ftype, METHOD_TYPE_ATTRIBUTES (method_prototype));
+
+  sender_cast = build_pointer_type (ftype);
+
+  if (method_prototype && TREE_DEPRECATED (method_prototype))
+    warn_deprecated_use (method_prototype);
+  if (method_prototype && TREE_UNAVAILABLE (method_prototype))
+    warn_unavailable_use (method_prototype);
+  /* APPLE LOCAL end radar 3803157 - objc attribute */
   if (check_for_nil)
     method_params = objc_copy_to_temp_side_effect_params (method_param_types, 
 							  method_params);
@@ -12000,7 +12050,8 @@ objc_synthesize_getter (tree class, tree class_method, tree property)
     return;
 
   objc_inherit_code = INSTANCE_METHOD_DECL;
-  objc_start_method_definition (copy_node (decl));
+  /* APPLE LOCAL radar 3803157 - objc attribute */
+  objc_start_method_definition (copy_node (decl), NULL_TREE);
   body = c_begin_compound_stmt (true);
   /* return self->_property_name; */
   /* If user specified an ivar, us it in generation of the getter. */
@@ -12057,7 +12108,8 @@ objc_synthesize_setter (tree class, tree class_method, tree property)
     return;
 
   objc_inherit_code = INSTANCE_METHOD_DECL;
-  objc_start_method_definition (copy_node (decl));
+  /* APPLE LOCAL radar 3803157 - objc attribute */
+  objc_start_method_definition (copy_node (decl), NULL_TREE);
   body = c_begin_compound_stmt (true);
   /* _property_name = _value; */
   /* If user specified an ivar, us it in generation of the setter. */
@@ -13250,6 +13302,15 @@ really_start_method (tree method,
 
       if (proto)
 	{
+	  /* APPLE LOCAL begin radar 3803157 - objc attribute */
+	  if (TREE_DEPRECATED (method) != TREE_DEPRECATED (proto)
+	      || TREE_UNAVAILABLE (method) != TREE_UNAVAILABLE (proto))
+	    {
+	      char type = (TREE_CODE (method) == INSTANCE_METHOD_DECL ? '-' : '+');
+	      warn_with_method ("conflicting attributes for", type, method);
+	      warn_with_method ("and previous declaration of", type, proto);
+	    }
+	  /* APPLE LOCAL end radar 3803157 - objc attribute */
 	  /* APPLE LOCAL mainline */
 	  if (!comp_proto_with_proto (method, proto, 1))
 	    {
@@ -14643,4 +14704,11 @@ diagnose_selector_cast (tree cast_type, tree sel_exp)
     }
 }
 /* APPLE LOCAL end C* warnings to easy porting to new abi */
+/* APPLE LOCAL begin radar 3803157 - objc attribute */
+bool 
+objc_method_decl (enum tree_code opcode)
+{
+  return opcode == INSTANCE_METHOD_DECL || opcode == CLASS_METHOD_DECL;
+}
+/* APPLE LOCAL end radar 3803157 - objc attribute */
 #include "gt-objc-objc-act.h"

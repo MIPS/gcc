@@ -373,6 +373,8 @@ static int objc_need_raw_identifier;
 /* For checking property attribute keywords */
 static int objc_property_attr_context = 0;
 /* APPLE LOCAL end C* property (Radar 4436866) */
+/* APPLE LOCAL radar 3803157 - objc attribute */
+static tree objc_method_attributes = NULL_TREE;
 @@end_ifobjc
 
 @@ifc
@@ -3352,7 +3354,10 @@ methoddef:
 	  methoddecl opt_semi
 		{
 		  objc_pq_context = 0;
-		  objc_start_method_definition ($3);
+		  /* APPLE LOCAL begin radar 3803157 - objc attribute */
+		  objc_start_method_definition ($3, objc_method_attributes);
+		  objc_method_attributes = NULL_TREE;
+		  /* APPLE LOCAL end radar 3803157 - objc attribute */
 		}
 	  compstmt_or_error
 		{
@@ -3394,31 +3399,48 @@ methodproto:
 		{
 		  /* Forget protocol qualifiers here.  */
 		  objc_pq_context = 0;
-		  objc_add_method_declaration ($3);
+		  /* APPLE LOCAL begin radar 3803157 - objc attribute */
+		  objc_add_method_declaration ($3, objc_method_attributes);
+		  objc_method_attributes = NULL_TREE;
+		  /* APPLE LOCAL end radar 3803157 - objc attribute */
 		}
 	  semi_or_error
 	;
 
 methoddecl:
-	  '(' objc_typename ')' unaryselector
+	/* APPLE LOCAL begin radar 3803157 - objc attribute */
+	  '(' objc_typename ')' unaryselector maybe_attribute
 		{
 		  $$ = objc_build_method_signature ($2, $4, NULL_TREE);
+		  objc_method_attributes = $5;
 		}
 
-	| unaryselector
+	| unaryselector maybe_attribute
 		{
 		  $$ = objc_build_method_signature (NULL_TREE, $1, NULL_TREE);
+		  objc_method_attributes = $2;
 		}
 
-	| '(' objc_typename ')' keywordselector optparmlist
+	| '(' objc_typename ')' keywordselector maybe_attribute optparmlist
 		{
-		  $$ = objc_build_method_signature ($2, $4, $5);
+		  $$ = objc_build_method_signature ($2, $4, $6);
+		  /* Check for ... at the end. */
+		  if (!TREE_OVERFLOW ($6))
+		    objc_method_attributes = $5;
+		  else if ($5)
+		    error ("method attributes must be specified at the end only");
 		}
 
-	| keywordselector optparmlist
+	| keywordselector maybe_attribute optparmlist
 		{
-		  $$ = objc_build_method_signature (NULL_TREE, $1, $2);
+		  $$ = objc_build_method_signature (NULL_TREE, $1, $3);
+		  /* Check for ... at the end. */
+		  if (!TREE_OVERFLOW ($3))
+		    objc_method_attributes = $2;
+		  else if ($2)
+		    error ("method attributes must be specified at the end only");
 		}
+	/* APPLE LOCAL end radar 3803157 - objc attribute */
 	;
 
 /* Optional ObjC method parameters follow the C syntax, and may include '...'
@@ -3448,10 +3470,13 @@ optellipsis:
 		{
 		  $$ = 0;
 		}
-	| ',' ELLIPSIS
+	/* APPLE LOCAL begin radar 3803157 - objc attribute */
+	| ',' ELLIPSIS maybe_attribute
 		{
 		  $$ = 1;
+		  objc_method_attributes = $3;
 		}
+	/* APPLE LOCAL end radar 3803157 - objc attribute */
 	;
 
 unaryselector:

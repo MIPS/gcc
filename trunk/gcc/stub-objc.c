@@ -223,12 +223,18 @@ objc_finish_implementation (void)
 }
 
 void
-objc_add_method_declaration (tree ARG_UNUSED (signature))
+/* APPLE LOCAL begin radar 3803157 - objc attribute */
+objc_add_method_declaration (tree ARG_UNUSED (signature),
+			     tree ARG_UNUSED (attribute))
+/* APPLE LOCAL end radar 3803157 - objc attribute */
 {
 }
 
 void
-objc_start_method_definition (tree ARG_UNUSED (signature))
+/* APPLE LOCAL begin radar 3803157 - objc attribute */
+objc_start_method_definition (tree ARG_UNUSED (signature),
+			      tree ARG_UNUSED (attribute))
+/* APPLE LOCAL end radar 3803157 - objc attribute */
 {
 }
 
@@ -474,3 +480,10 @@ objc_type_valid_for_messaging (tree ARG_UNUSED (exp))
   return false;
 }
 /* APPLE LOCAL end radar 4507230 */
+/* APPLE LOCAL begin radar 3803157 - objc attribute */
+bool 
+objc_method_decl (enum tree_code ARG_UNUSED (opcode))
+{
+  return false;
+}
+/* APPLE LOCAL end radar 3803157 - objc attribute */

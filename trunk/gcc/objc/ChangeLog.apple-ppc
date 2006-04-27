@@ -1,3 +1,26 @@
+2006-04-26 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4523837
+	* objc/objc-act.c (objc_build_getter_call): Restore 'receiver' 
+	to its original tree in call tree.
+
+2006-04-26 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 3803157 (method attributes)
+	* objc/objc-act.h (METHOD_TYPE_ATTRIBUTES): New macro.
+	* objc/objc-act.c (objc_decl_method_attributes): New.
+	(objc_add_method_declaration): Process method's attribute.
+	(objc_start_method_definition): Ditto.
+	(build_objc_method_call): Inject method attribute into
+	built function type.
+	(build_v2_build_objc_method_call): Ditto.
+	(objc_synthesize_getter): objc_start_method_definition takes
+	an extra argument.
+	(objc_synthesize_setter): Ditto.
+	(really_start_method): Check for consistant attribute
+	declaration on method decl. and method def.
+	(objc_method_decl): New.
+
 2006-04-19 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4517826

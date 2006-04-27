@@ -5089,7 +5089,10 @@ handle_deprecated_attribute (tree *node, tree name,
 	  || TREE_CODE (decl) == PARM_DECL
 	  || TREE_CODE (decl) == VAR_DECL
 	  || TREE_CODE (decl) == FUNCTION_DECL
-	  || TREE_CODE (decl) == FIELD_DECL)
+	  /* APPLE LOCAL begin radar 3803157 - objc attribute */
+	  || TREE_CODE (decl) == FIELD_DECL
+	  || objc_method_decl (TREE_CODE (decl)))
+	  /* APPLE LOCAL end radar 3803157 - objc attribute */
 	TREE_DEPRECATED (decl) = 1;
       else
 	warn = 1;
@@ -5149,7 +5152,10 @@ handle_unavailable_attribute (tree *node, tree name,
       	  || TREE_CODE (decl) == PARM_DECL
 	  || TREE_CODE (decl) == VAR_DECL
 	  || TREE_CODE (decl) == FUNCTION_DECL
-	  || TREE_CODE (decl) == FIELD_DECL)
+	  /* APPLE LOCAL begin radar 3803157 - objc attribute */
+	  || TREE_CODE (decl) == FIELD_DECL
+	  || objc_method_decl (TREE_CODE (decl)))
+	  /* APPLE LOCAL end radar 3803157 - objc attribute */
 	{
 	  TREE_DEPRECATED (decl) = 1;
 	  TREE_UNAVAILABLE (decl) = 1;

@@ -1,3 +1,20 @@
+2006-04-26 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 3803157 (method attributes)
+	* parser.c (cp_parser_objc_maybe_attributes): New.
+	(cp_parser_objc_method_keyword_params): Parse attributes at end
+	of method declaration.
+	(cp_parser_objc_method_tail_params_opt): Parse attributes after
+	'...'.
+	(cp_parser_objc_method_signature): Retreive method attribute for
+	the caller.
+	(cp_parser_objc_method_prototype_list): Pass new arg. to
+	cp_parser_objc_method_signature and pass attributes to 
+	objc_add_method_declaration.
+	(cp_parser_objc_method_definition_list): Pass new arg. to
+	cp_parser_objc_method_signature and pass attributes to
+	objc_start_method_definition.
+	
 2006-04-19 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4516785

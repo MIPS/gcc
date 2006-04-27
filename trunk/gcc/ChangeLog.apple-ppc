@@ -1,3 +1,16 @@
+2006-04-26 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 3803157 (method attributes)
+	* c-parse.in: Add grammar support for declaring
+	attribute for objc methods.
+	* c-common.c (handle_deprecated_attribute): Recognize
+	objc methods as valid declarations.
+	(handle_unavailable_attribute): Ditto.
+	* c-common.h: Bunch of new extern declarations.
+	* stub-objc.c (objc_add_method_declaration, objc_start_method_definition):
+	Added new argument.
+	(objc_method_decl): New stub.
+
 2006-04-13  Devang Patel  <dpatel@apple.com>
 
 	Radar 4503682

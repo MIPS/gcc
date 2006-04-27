@@ -1072,8 +1072,11 @@ extern void objc_finish_implementation (void);
 extern void objc_set_visibility (int);
 extern void objc_set_method_type (enum tree_code);
 extern tree objc_build_method_signature (tree, tree, tree);
-extern void objc_add_method_declaration (tree);
-extern void objc_start_method_definition (tree);
+/* APPLE LOCAL begin radar 3803157 - objc attribute */
+extern bool objc_method_decl (enum tree_code);
+extern void objc_add_method_declaration (tree, tree);
+extern void objc_start_method_definition (tree, tree);
+/* APPLE LOCAL end radar 3803157 - objc attribute */
 extern void objc_finish_method_definition (tree);
 extern void objc_add_instance_variable (tree);
 extern tree objc_build_keyword_decl (tree, tree, tree);
