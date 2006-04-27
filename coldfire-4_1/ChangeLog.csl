@@ -1,6 +1,11 @@
 2006-04-27  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/testsuite/
+	* gcc.dg/m68k-fp-1.c: Use -mcpu=547x instead of -mcpu=m5485.
+
+2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
 	* lib/target-supports.exp (check_effective_target_coldfire_fpu):
 	New procedure.
 	* gcc.c-torture/execute/ieee/mul-subnormal-single-1.x: XFAIL for

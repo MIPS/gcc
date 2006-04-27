@@ -1,6 +1,6 @@
 /* Coldfire has restricted addressing modes for float operands.  */
 /* { dg-do compile { target m68k-*-* } }  */
-/* { dg-options "-O0 -mcpu=5485 -mhard-float" }  */
+/* { dg-options "-O0 -mcpu=547x -mhard-float" }  */
 
 double Foo (unsigned a)
 {
