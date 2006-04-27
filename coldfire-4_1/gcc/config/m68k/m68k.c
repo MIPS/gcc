@@ -917,8 +917,9 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	}
       else
 	{
+	  dwarf2out_def_cfa ("", STACK_POINTER_REGNUM,
+			     cfa_offset + fsize_with_regs);
 	  cfa_offset += current_frame.size;
-	  dwarf2out_def_cfa ("", STACK_POINTER_REGNUM, cfa_offset);
 	}
     }
 
@@ -958,7 +959,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	  int n_regs, regno;
 
 	  cfa_offset += current_frame.fpu_no * TARGET_FP_REG_SIZE;
-	  if (! frame_pointer_needed)
+	  if (TARGET_68881 && !frame_pointer_needed)
 	    dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
 	  for (regno = 16, n_regs = 0; regno < 24; regno++)
 	    if (current_frame.fpu_mask & (1 << (regno - 16)))
@@ -1029,7 +1030,7 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	  int n_regs, regno;
 
 	  cfa_offset += current_frame.reg_no * 4;
-	  if (! frame_pointer_needed)
+	  if (!m68k_arch_coldfire && !frame_pointer_needed)
 	    dwarf2out_def_cfa (l, STACK_POINTER_REGNUM, cfa_offset);
 	  for (regno = 0, n_regs = 0; regno < 16; regno++)
 	    if (current_frame.reg_mask & (1 << regno))

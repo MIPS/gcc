@@ -1,5 +1,12 @@
 2006-04-27  Richard Sandiford  <richard@codesourcery.com>
 
+	gcc/
+	* config/m68k/m68k.c (m68k_output_function_prologue): Fix handling
+	of %sp-based CFA offsets on Coldfire.
+
+2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k-cores.def (68000, 68010): Remove FL_PCREL_16
 	from these isa_00 entries.
 	(68020, 68030): Remove FL_BITFIELD from these isa_20 entries.
