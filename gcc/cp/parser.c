@@ -18415,6 +18415,10 @@ cp_parser_objc_interstitial_code (cp_parser* parser)
   /* Allow stray semicolons.  */
   else if (token->type == CPP_SEMICOLON)
     cp_lexer_consume_token (parser->lexer);
+  /* APPLE LOCAL begin radar 4508851 */
+  else if (token->keyword == RID_NAMESPACE)
+    cp_parser_namespace_definition (parser);
+  /* APPLE LOCAL end radar 4508851 */
   /* APPLE LOCAL begin 4093475 */
   /* Other stray characters must generate errors.  */
   else if (token->type == CPP_OPEN_BRACE || token->type == CPP_CLOSE_BRACE)
