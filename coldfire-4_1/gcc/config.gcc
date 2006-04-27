@@ -1440,12 +1440,12 @@ m68k-*-linux*)		# Motorola m68k's running GNU/Linux
 	tm_file="m68k/m68k.h dbxelf.h elfos.h svr4.h linux.h m68k/linux.h"
 	extra_options="${extra_options} m68k/ieee.opt"
 	tm_defines="${tm_defines} MOTOROLA USE_GAS"
-        tmake_file="m68k/t-crtstuff m68k/t-linux m68k/t-mlib-matches"
+	tmake_file="${tmake_file} m68k/t-linux m68k/t-mlib-matches"
 	# if not configured with --enable-sjlj-exceptions, bump the
 	# libgcc version number
-	if test x$sjlj != x1; then
-	    tmake_file="$tmake_file m68k/t-slibgcc-elf-ver"
-	fi
+#	if test x$sjlj != x1; then
+#	    tmake_file="$tmake_file m68k/t-slibgcc-elf-ver"
+#	fi
 	;;
 m68k-*-rtems*)
 	tmake_file="m68k/t-m68kbare m68k/t-mlib-matches m68k/t-crtstuff t-rtems m68k/t-rtems"

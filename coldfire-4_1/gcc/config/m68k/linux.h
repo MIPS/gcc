@@ -291,12 +291,3 @@ do {									\
 /* glibc uses comments to hide section attributes.  So setting
    ASM_FILE_START_APP_OFF breaks it.  */
 #undef TARGET_ASM_FILE_START_APP_OFF
-
-/* Arbitrarily pick one multilib to be the default.  The true default
-   is enforced by the with_cpu setting in config.gcc.  */
-#define MULTILIB_DEFAULTS { "mcpu=547x", "mhard-float" }
-
-#define SYSROOT_SUFFIX_SPEC	\
-  "%{mcpu=547x:/m547x%{msoft-float:/softfp}}"
-
-#define SYSROOT_HEADERS_SUFFIX_SPEC "/m547x"

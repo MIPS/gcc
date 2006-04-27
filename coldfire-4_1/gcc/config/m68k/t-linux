@@ -12,14 +12,5 @@ xfgnulib.c: $(srcdir)/config/m68k/fpgnulib.c
 	echo '#define EXTFLOAT' > xfgnulib.c
 	cat $(srcdir)/config/m68k/fpgnulib.c >> xfgnulib.c
 
-MULTILIB_OPTIONS = mcpu=547x mhard-float/msoft-float
-MULTILIB_DIRNAMES = m547x hardfp softfp
-MULTILIB_EXCEPTIONS =
-
-# Arbitrarily pick one of the sysroots to act as the default one
-# for fixincludes.  Define OTHER_FIXINCLUDES_DIR to the full paths
-# of all the other build-time sysroots.
-NATIVE_SYSTEM_HEADER_DIR = /m547x/usr/include
-
-LIBGCC = stmp-multilib
-INSTALL_LIBGCC = install-multilib
+# crti and crtn are provided by glibc.
+EXTRA_MULTILIB_PARTS=crtbegin.o crtend.o

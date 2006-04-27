@@ -1,6 +1,26 @@
 2006-04-27  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config.gcc (m68k-*-linux*): Add to tmake_file instead of
+	replacing it.  Don't include m68k/t-crtstuff.  Don't include
+	m68k/t-slibgcc-elf-ver.
+	* config/m68k/linux.h (MULTILIB_DEFAULTS): Delete.
+	(SYSROOT_SUFFIX_SPEC): Delete.
+	(SYSROOT_HEADERS_SUFFIX_SPEC): Delete.
+	* config/m68k/uclinux.h (SYSROOT_HEADERS_SUFFIX_SPEC): Remove undef.
+	* config/m68k/t-linux (MULTILIB_OPTIONS): Delete.
+	(MULTILIB_DIRNAMES): Delete.
+	(MULTILIB_EXCEPTIONS): Delete.
+	(NATIVE_SYSTEM_HEADER_DIR): Delete.
+	(LIBGCC): Delete.
+	(INSTALL_LIBGCC): Delete.
+	(EXTRA_MULTILIB_PARTS): Override.
+	* config/m68k/m68k.h (TARGET_CPU_CPP_BUILTINS): Define __mcffpu__
+	when using the Coldfire FPU.
+
+2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.c (override_options): Restrict the -fPIC error
 	to -mpcrel.
 	(m68k_output_function_prologue): Use a (d8,%pc,Xi) lea to load the

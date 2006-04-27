@@ -182,6 +182,9 @@ Boston, MA 02110-1301, USA.  */
 	    }								     \
         }								     \
 									     \
+      if (TARGET_COLDFIRE_FPU)						     \
+        cpp_define (pfile, "__mcffpu__");				     \
+									     \
       if (m68k_cf_hwdiv)						     \
         cpp_define (pfile, "__mcfhwdiv__");				     \
 									     \

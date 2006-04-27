@@ -54,6 +54,3 @@ Boston, MA 02110-1301, USA.  */
    sections.  */
 #undef M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P
 #define M68K_OFFSETS_MUST_BE_WITHIN_SECTIONS_P 1
-
-/* Undefine linux.h definition.  */
-#undef SYSROOT_HEADERS_SUFFIX_SPEC
