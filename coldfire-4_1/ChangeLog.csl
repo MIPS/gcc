@@ -1,5 +1,13 @@
 2006-04-27  Richard Sandiford  <richard@codesourcery.com>
 
+	gcc/testsuite/
+	* lib/target-supports.exp (check_effective_target_coldfire_fpu):
+	New procedure.
+	* gcc.c-torture/execute/ieee/mul-subnormal-single-1.x: XFAIL for
+	Coldfire GNU/Linux.
+
+2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
 	gcc/
 	* combine.c (replaced_rhs_insn): New variable.
 	(combine_instructions): Set replaced_rhs_insn when trying to replace
