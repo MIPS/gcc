@@ -59,6 +59,9 @@ extern int emit_move_sequence (rtx *, enum machine_mode, rtx);
 #endif /* RTX_CODE */
 
 extern bool m68k_regno_mode_ok (int, enum machine_mode);
+extern enum reg_class m68k_secondary_reload_class (enum reg_class,
+						   enum machine_mode, rtx);
+extern enum reg_class m68k_preferred_reload_class (rtx, enum reg_class);
 extern int flags_in_68881 (void);
 extern bool use_return_insn (void);
 extern void override_options (void);
