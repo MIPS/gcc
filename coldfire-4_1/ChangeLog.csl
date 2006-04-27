@@ -1,6 +1,45 @@
 2006-04-27  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* real.c (encode_ieee_single): Use canonical_nan_lsbs_set instead
+	of qnan_msb_set to determine the lower bits of a canonical
+	NaN significand.
+	(encode_ieee_double): Likewise.
+	(encode_ieee_quad): Likewise.
+	(ieee_single_format): Initialize canonical_nan_lsbs_set.
+	(mips_single_format): Likewise.
+	(ieee_double_format): Likewise.
+	(mips_double_format): Likewise.
+	(ieee_extended_motorola_format): Likewise.
+	(ieee_extended_intel_96_format): Likewise.
+	(ieee_extended_intel_128_format): Likewise.
+	(ieee_extended_intel_96_round_53_format): Likewise.
+	(ibm_extended_format): Likewise.
+	(mips_extended_format): Likewise.
+	(ieee_quad_format): Likewise.
+	(mips_quad_format): Likewise.
+	(vax_f_format): Likewise.
+	(vax_d_format): Likewise.
+	(vax_g_format): Likewise.
+	(i370_single_format): Likewise.
+	(i370_double_format): Likewise.
+	(c4x_single_format): Likewise.
+	(c4x_extended_format): Likewise.
+	(real_internal_format): Likewise.
+	(coldfire_single_format): New real_format.
+	(coldfire_double_format): Likewise.
+	* real.h (real_format): Add a canonical_nan_lsbs_set field.
+	(coldfire_single_format): Declare.
+	(coldfire_double_format): Likewise.
+	* config/pdp11/pdp11.c (pdp11_f_format): Initialize
+	canonical_nan_lsbs_set.
+	(pdp11_d_format): Likewise.
+	* config/m68k/m68k.c (override_options): Override REAL_FORMAT_MODE
+	if TARGET_COLDFIRE_CPU.
+
+2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.md (cmpsi): Remove PIC handling.
 	(movsi): Remove predicates.  Use LEGITIMATE_PIC_OPERAND_P.
 	* config/m68k/m68k.h (LEGITIMATE_PIC_OPERAND_P): Define.

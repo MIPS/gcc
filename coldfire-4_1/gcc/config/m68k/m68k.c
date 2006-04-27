@@ -597,6 +597,12 @@ override_options (void)
       ;
     }
 
+  if (TARGET_COLDFIRE_FPU)
+    {
+      REAL_MODE_FORMAT (SFmode) = &coldfire_single_format;
+      REAL_MODE_FORMAT (DFmode) = &coldfire_double_format;
+    }
+
   /* Sanity check to ensure that msep-data and mid-sahred-library are not
    * both specified together.  Doing so simply doesn't make sense.
    */

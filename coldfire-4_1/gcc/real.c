@@ -2570,18 +2570,12 @@ encode_ieee_single (const struct real_format *fmt, long *buf,
       if (fmt->has_nans)
 	{
 	  if (r->canonical)
-	    sig = 0;
+	    sig = (fmt->canonical_nan_lsbs_set ? (1 << 22) - 1 : 0);
 	  if (r->signalling == fmt->qnan_msb_set)
 	    sig &= ~(1 << 22);
 	  else
 	    sig |= 1 << 22;
-	  /* We overload qnan_msb_set here: it's only clear for
-	     mips_ieee_single, which wants all mantissa bits but the
-	     quiet/signalling one set in canonical NaNs (at least
-	     Quiet ones).  */
-	  if (r->canonical && !fmt->qnan_msb_set)
-	    sig |= (1 << 22) - 1;
-	  else if (sig == 0)
+	  if (sig == 0)
 	    sig = 1 << 21;
 
 	  image |= 255 << 23;
@@ -2676,7 +2670,8 @@ const struct real_format ieee_single_format =
     true,
     true,
     true,
-    true
+    true,
+    false
   };
 
 const struct real_format mips_single_format =
@@ -2695,9 +2690,29 @@ const struct real_format mips_single_format =
     true,
     true,
     true,
-    false
+    false,
+    true
   };
 
+const struct real_format coldfire_single_format =
+  {
+    encode_ieee_single,
+    decode_ieee_single,
+    2,
+    1,
+    24,
+    24,
+    -125,
+    128,
+    31,
+    31,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+  };
 
 /* IEEE double-precision format.  */
 
@@ -2749,21 +2764,23 @@ encode_ieee_double (const struct real_format *fmt, long *buf,
       if (fmt->has_nans)
 	{
 	  if (r->canonical)
-	    sig_hi = sig_lo = 0;
+	    {
+	      if (fmt->canonical_nan_lsbs_set)
+		{
+		  sig_hi = (1 << 19) - 1;
+		  sig_lo = 0xffffffff;
+		}
+	      else
+		{
+		  sig_hi = 0;
+		  sig_lo = 0;
+		}
+	    }
 	  if (r->signalling == fmt->qnan_msb_set)
 	    sig_hi &= ~(1 << 19);
 	  else
 	    sig_hi |= 1 << 19;
-	  /* We overload qnan_msb_set here: it's only clear for
-	     mips_ieee_single, which wants all mantissa bits but the
-	     quiet/signalling one set in canonical NaNs (at least
-	     Quiet ones).  */
-	  if (r->canonical && !fmt->qnan_msb_set)
-	    {
-	      sig_hi |= (1 << 19) - 1;
-	      sig_lo = 0xffffffff;
-	    }
-	  else if (sig_hi == 0 && sig_lo == 0)
+	  if (sig_hi == 0 && sig_lo == 0)
 	    sig_hi = 1 << 18;
 
 	  image_hi |= 2047 << 20;
@@ -2901,7 +2918,8 @@ const struct real_format ieee_double_format =
     true,
     true,
     true,
-    true
+    true,
+    false
   };
 
 const struct real_format mips_double_format =
@@ -2920,9 +2938,29 @@ const struct real_format mips_double_format =
     true,
     true,
     true,
-    false
+    false,
+    true
   };
 
+const struct real_format coldfire_double_format =
+  {
+    encode_ieee_double,
+    decode_ieee_double,
+    2,
+    1,
+    53,
+    53,
+    -1021,
+    1024,
+    63,
+    63,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+  };
 
 /* IEEE extended real format.  This comes in three flavors: Intel's as
    a 12 byte image, Intel's as a 16 byte image, and Motorola's.  Intel
@@ -3250,7 +3288,8 @@ const struct real_format ieee_extended_motorola_format =
     true,
     true,
     true,
-    true
+    true,
+    false
   };
 
 const struct real_format ieee_extended_intel_96_format =
@@ -3269,7 +3308,8 @@ const struct real_format ieee_extended_intel_96_format =
     true,
     true,
     true,
-    true
+    true,
+    false
   };
 
 const struct real_format ieee_extended_intel_128_format =
@@ -3288,7 +3328,8 @@ const struct real_format ieee_extended_intel_128_format =
     true,
     true,
     true,
-    true
+    true,
+    false
   };
 
 /* The following caters to i386 systems that set the rounding precision
@@ -3309,7 +3350,8 @@ const struct real_format ieee_extended_intel_96_round_53_format =
     true,
     true,
     true,
-    true
+    true,
+    false
   };
 
 /* IBM 128-bit extended precision format: a pair of IEEE double precision
@@ -3395,7 +3437,8 @@ const struct real_format ibm_extended_format =
     true,
     true,
     true,
-    true
+    true,
+    false
   };
 
 const struct real_format mips_extended_format =
@@ -3414,7 +3457,8 @@ const struct real_format mips_extended_format =
     true,
     true,
     true,
-    false
+    false,
+    true
   };
 
 
@@ -3464,8 +3508,11 @@ encode_ieee_quad (const struct real_format *fmt, long *buf,
 
 	  if (r->canonical)
 	    {
-	      /* Don't use bits from the significand.  The
-		 initialization above is right.  */
+	      if (fmt->canonical_nan_lsbs_set)
+		{
+		  image3 |= 0x7fff;
+		  image2 = image1 = image0 = 0xffffffff;
+		}
 	    }
 	  else if (HOST_BITS_PER_LONG == 32)
 	    {
@@ -3487,16 +3534,7 @@ encode_ieee_quad (const struct real_format *fmt, long *buf,
 	    image3 &= ~0x8000;
 	  else
 	    image3 |= 0x8000;
-	  /* We overload qnan_msb_set here: it's only clear for
-	     mips_ieee_single, which wants all mantissa bits but the
-	     quiet/signalling one set in canonical NaNs (at least
-	     Quiet ones).  */
-	  if (r->canonical && !fmt->qnan_msb_set)
-	    {
-	      image3 |= 0x7fff;
-	      image2 = image1 = image0 = 0xffffffff;
-	    }
-	  else if (((image3 & 0xffff) | image2 | image1 | image0) == 0)
+	  if (((image3 & 0xffff) | image2 | image1 | image0) == 0)
 	    image3 |= 0x4000;
 	}
       else
@@ -3681,7 +3719,8 @@ const struct real_format ieee_quad_format =
     true,
     true,
     true,
-    true
+    true,
+    false
   };
 
 const struct real_format mips_quad_format =
@@ -3700,7 +3739,8 @@ const struct real_format mips_quad_format =
     true,
     true,
     true,
-    false
+    false,
+    true
   };
 
 /* Descriptions of VAX floating point formats can be found beginning at
@@ -3998,6 +4038,7 @@ const struct real_format vax_f_format =
     false,
     false,
     false,
+    false,
     false
   };
 
@@ -4017,6 +4058,7 @@ const struct real_format vax_d_format =
     false,
     false,
     false,
+    false,
     false
   };
 
@@ -4032,6 +4074,7 @@ const struct real_format vax_g_format =
     1023,
     15,
     15,
+    false,
     false,
     false,
     false,
@@ -4212,6 +4255,7 @@ const struct real_format i370_single_format =
     false,
     false, /* ??? The encoding does allow for "unnormals".  */
     false, /* ??? The encoding does allow for "unnormals".  */
+    false,
     false
   };
 
@@ -4231,6 +4275,7 @@ const struct real_format i370_double_format =
     false,
     false, /* ??? The encoding does allow for "unnormals".  */
     false, /* ??? The encoding does allow for "unnormals".  */
+    false,
     false
   };
 
@@ -4440,6 +4485,7 @@ const struct real_format c4x_single_format =
     false,
     false,
     false,
+    false,
     false
   };
 
@@ -4455,6 +4501,7 @@ const struct real_format c4x_extended_format =
     128,
     31,
     -1,
+    false,
     false,
     false,
     false,
@@ -4503,7 +4550,8 @@ const struct real_format real_internal_format =
     true,
     false,
     true,
-    true
+    true,
+    false
   };
 
 /* Calculate the square root of X in mode MODE, and store the result
