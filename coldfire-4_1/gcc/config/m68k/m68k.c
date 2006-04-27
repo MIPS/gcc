@@ -619,11 +619,10 @@ override_options (void)
 	error ("-msep-data or -mid-shared-library are not currently supported on selected cpu because they require -fPIC");
       flag_pic = 2;
     }
-  /* -fPIC uses 32-bit pc-relative displacements. Some chips do not
-      have single instructions to deal with this, and the ABI they
-      would need has not been defined.  */
-  if ((flags & FL_PCREL_16) && (flag_pic == 2))
-    error ("-fPIC is not currently supported on selected cpu");
+  /* -mpcrel -fPIC uses 32-bit pc-relative displacements.  Raise an
+     error if the target does not support them.  */
+  if (TARGET_PCREL && (flags & FL_PCREL_16) && flag_pic == 2)
+    error ("-mpcrel -fPIC is not currently supported on selected cpu");
 
   /* ??? A historic way of turning on pic, or is this intended to
      be an embedded thing that doesn't have the same name binding
@@ -1067,8 +1066,26 @@ m68k_output_function_prologue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
       else
 	{
 	  if (MOTOROLA)
-	    asm_fprintf (stream, "\t%Olea (%Rpc, %U_GLOBAL_OFFSET_TABLE_@GOTPC), %s\n",
-			 M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
+	    {
+	      if (m68k_arch_coldfire)
+		{
+		  /* Load the full 32-bit PC-relative offset of
+		     _GLOBAL_OFFSET_TABLE_ into the PIC register,
+		     then use it to calculate the absolute value.
+		     The offset and "lea" operation word together
+		     occupy 6 bytes.  */
+		  asm_fprintf (stream, "\tmove.l %I%U%s@GOTPC, %s\n",
+			       "_GLOBAL_OFFSET_TABLE_",
+			       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
+		  asm_fprintf (stream, "\tlea (-6, %Rpc, %s), %s\n",
+			       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM),
+			       M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
+		}
+	      else
+		asm_fprintf (stream, "\t%Olea (%Rpc, %U%s@GOTPC), %s\n",
+			     "_GLOBAL_OFFSET_TABLE_",
+			     M68K_REGNAME(PIC_OFFSET_TABLE_REGNUM));
+	    }
 	  else
 	    {
 	      asm_fprintf (stream, "\tmovel %I%U_GLOBAL_OFFSET_TABLE_, %s\n",
@@ -1436,7 +1453,7 @@ m68k_output_pic_call(rtx dest)
          Both sequences take the same time to execute on the ColdFire.  */
   else if (TARGET_PCREL)
     out = "bsr.l %o0";
-  else if (m68k_arch_68020)
+  else if (m68k_arch_68020 || m68k_arch_isab)
 #if defined(USE_GAS)
     out = "bsr.l %0@PLTPC";
 #else
@@ -3633,7 +3650,7 @@ print_operand_address (FILE *file, rtx addr)
 	            if (flag_pic && (breg == pic_offset_table_rtx))
 		      {
 			fprintf (file, "@GOT");
-			if (flag_pic == 1)
+			if (flag_pic == 1 && m68k_arch_68020)
 			  fprintf (file, ".w");
 		      }
 		  }
@@ -3647,7 +3664,7 @@ print_operand_address (FILE *file, rtx addr)
 		if (addr != 0)
 		  {
 		    output_addr_const (file, addr);
-		    if (breg == pic_offset_table_rtx)
+		    if (breg == pic_offset_table_rtx && m68k_arch_68020)
 		      switch (flag_pic)
 		        {
 		        case 1:
@@ -4020,7 +4037,7 @@ m68k_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
     {
       if (TARGET_PCREL)
 	fmt = "bra.l %o0";
-      else if ((flag_pic == 1) || m68k_arch_68020)
+      else if ((flag_pic == 1) || m68k_arch_68020 || m68k_arch_isab)
 	{
 	  if (MOTOROLA)
 #if defined(USE_GAS)

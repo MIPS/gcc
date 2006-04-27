@@ -1,6 +1,18 @@
 2006-04-27  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* config/m68k/m68k.c (override_options): Restrict the -fPIC error
+	to -mpcrel.
+	(m68k_output_function_prologue): Use a (d8,%pc,Xi) lea to load the
+	PIC register on Coldfire targets.
+	(m68k_output_pic_call): Use bsr.l for ISA B too.
+	(print_operand_address): Only use GOT displacement lengths for
+	m68k_arch_68020.
+	(m68k_output_mi_thunk): Use bra.l for ISA B too.
+
+2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k.c (m68k_save_reg): Save the PIC register in
 	functions that need a constant pool.
 
