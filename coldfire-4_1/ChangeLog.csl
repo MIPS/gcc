@@ -1,6 +1,18 @@
 2006-04-27  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
+	* combine.c (replaced_rhs_insn): New variable.
+	(combine_instructions): Set replaced_rhs_insn when trying to replace
+	a SET_SRC with a REG_EQUAL note.
+	(distribute_notes): Use replaced_rhs_insn when determining the live
+	range of a REG_DEAD register.
+
+	gcc/testsute
+	* gcc.c-torture/compile/pr25514.c: New test.
+
+2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
 	* config/m68k/m68k-protos.h (m68k_secondary_reload_class): Declare.
 	(m68k_preferred_reload_class): Declare.
 	* config/m68k/m68k.c (m68k_regno_mode_ok): Don't prevent address
