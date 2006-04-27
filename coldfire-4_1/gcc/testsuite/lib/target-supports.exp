@@ -363,7 +363,7 @@ proc check_effective_target_pcc_bitfield_type_matters { } {
 # This won't change for different subtargets so cache the result.
 
 proc check_effective_target_tls {} {
-    global et_tls_saved
+    global et_tls_saved tool
 
     if [info exists et_tls_saved] {
 	verbose "check_effective_target_tls: using cached result" 2
@@ -380,7 +380,7 @@ proc check_effective_target_tls {} {
 
 	# Test for thread-local data supported by the platform.
 	set comp_output \
-	    [target_compile $src $asm assembly ""]
+	    [${tool}_target_compile $src $asm assembly ""]
 	file delete $src
 	if { [string match "*not supported*" $comp_output] } {
 	    set et_tls_saved 0
@@ -396,7 +396,7 @@ proc check_effective_target_tls {} {
 # This won't change for different subtargets so cache the result.
 
 proc check_effective_target_tls_runtime {} {
-    global et_tls_runtime_saved
+    global et_tls_runtime_saved tool
 
     if [info exists et_tls_runtime_saved] {
 	verbose "check_effective_target_tls_runtime: using cached result" 2
@@ -413,7 +413,7 @@ proc check_effective_target_tls_runtime {} {
 	close $f
 
 	set comp_output \
-	    [target_compile $src $exe executable ""]
+	    [${tool}_target_compile $src $exe executable ""]
 	file delete $src
 
 	if [string match "" $comp_output] then {

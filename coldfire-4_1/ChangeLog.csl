@@ -1,6 +1,13 @@
 2006-04-27  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/testsuite/
+	* lib/target-supports.exp (check_effective_target_tls): Use
+	${tool}_target_compile instead of target_compile.
+	(check_effective_target_tls_runtime): Likewise.
+
+2006-04-27  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/testsuite/
 	* gcc.dg/m68k-fp-1.c: Use -mcpu=547x instead of -mcpu=m5485.
 
 2006-04-27  Richard Sandiford  <richard@codesourcery.com>
