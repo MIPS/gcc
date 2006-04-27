@@ -1,7 +1,7 @@
 2006-04-26  Hui-May Chang  <hm.chang@apple.com>
 
 	Radar 4491613
-	* loop.c (general_induction_var) : If an induction variable
+	* loop.c (general_induction_var) : If an induction variable 
 	may trap, it shouldn't be a general induction variable.
 
 2006-04-26  Hui-May Chang  <hm.chang@apple.com>
