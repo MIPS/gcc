@@ -575,6 +575,10 @@ $(gfor_built_specific2_src) \
 intrinsics/dprod_r8.f90 \
 intrinsics/f2c_specifics.F90
 
+# No install-html support yet.
+.PHONY: install-html
+install-html:
+
 # Turn on vectorization for matmul.
 $(patsubst %.c,%.lo,$(notdir $(i_matmul_c))): AM_CFLAGS += -ftree-vectorize
 

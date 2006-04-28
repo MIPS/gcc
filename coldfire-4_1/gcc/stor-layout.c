@@ -815,28 +815,19 @@ place_field (record_layout_info rli, tree field)
   unsigned int actual_align;
   /* The type of this field.  */
   tree type = TREE_TYPE (field);
+  unsigned bad_type = TREE_CODE (type) == ERROR_MARK;
 
   gcc_assert (TREE_CODE (field) != ERROR_MARK);
 
-  if (TREE_CODE (type) == ERROR_MARK)
-    {
-      if (TREE_CODE (field) == FIELD_DECL)
-	{
-	  DECL_FIELD_OFFSET (field) = size_int (0);
-	  DECL_FIELD_BIT_OFFSET (field) = bitsize_int (0);
-	}
-      
-      return;
-    }
-  
   /* If FIELD is static, then treat it like a separate variable, not
      really like a structure field.  If it is a FUNCTION_DECL, it's a
      method.  In both cases, all we do is lay out the decl, and we do
      it *after* the record is laid out.  */
   if (TREE_CODE (field) == VAR_DECL)
     {
-      rli->pending_statics = tree_cons (NULL_TREE, field,
-					rli->pending_statics);
+      if (!bad_type)
+	rli->pending_statics = tree_cons (NULL_TREE, field,
+					  rli->pending_statics);
       return;
     }
 
@@ -849,10 +840,28 @@ place_field (record_layout_info rli, tree field)
      that code off to another function.  */
   else if (TREE_CODE (rli->t) != RECORD_TYPE)
     {
-      place_union_field (rli, field);
+      if (bad_type)
+	{
+	  /* Place the field at the start of the union.  */
+	  DECL_FIELD_OFFSET (field) = size_zero_node;
+	  DECL_FIELD_BIT_OFFSET (field) = bitsize_zero_node;
+	  SET_DECL_OFFSET_ALIGN (field, BIGGEST_ALIGNMENT);
+	}
+      else
+	place_union_field (rli, field);
       return;
     }
 
+  else if (bad_type)
+    {
+      /* Place this field at the current allocation position, so we
+	 maintain monotonicity.  */
+      DECL_FIELD_OFFSET (field) = rli->offset;
+      DECL_FIELD_BIT_OFFSET (field) = rli->bitpos;
+      SET_DECL_OFFSET_ALIGN (field, rli->offset_align);
+      return;
+    }
+  
   /* Work out the known alignment so far.  Note that A & (-A) is the
      value of the least-significant bit in A that is one.  */
   if (! integer_zerop (rli->bitpos))
@@ -2126,13 +2135,17 @@ fixup_unsigned_type (tree type)
    If LARGEST_MODE is not VOIDmode, it means that we should not use a mode
    larger than LARGEST_MODE (usually SImode).
 
-   If no mode meets all these conditions, we return VOIDmode.  Otherwise, if
-   VOLATILEP is true or SLOW_BYTE_ACCESS is false, we return the smallest
-   mode meeting these conditions.
+   If no mode meets all these conditions, we return VOIDmode.
+   
+   If VOLATILEP is false and SLOW_BYTE_ACCESS is false, we return the
+   smallest mode meeting these conditions.
 
-   Otherwise (VOLATILEP is false and SLOW_BYTE_ACCESS is true), we return
-   the largest mode (but a mode no wider than UNITS_PER_WORD) that meets
-   all the conditions.  */
+   If VOLATILEP is false and SLOW_BYTE_ACCESS is true, we return the
+   largest mode (but a mode no wider than UNITS_PER_WORD) that meets
+   all the conditions.
+   
+   If VOLATILEP is true the narrow_volatile_bitfields target hook is used to
+   decide which of the above modes should be used.  */
 
 enum machine_mode
 get_best_mode (int bitsize, int bitpos, unsigned int align,
@@ -2162,7 +2175,8 @@ get_best_mode (int bitsize, int bitpos, unsigned int align,
       || (largest_mode != VOIDmode && unit > GET_MODE_BITSIZE (largest_mode)))
     return VOIDmode;
 
-  if (SLOW_BYTE_ACCESS && ! volatilep)
+  if ((SLOW_BYTE_ACCESS && ! volatilep)
+      || (volatilep && !targetm.narrow_volatile_bitfield()))
     {
       enum machine_mode wide_mode = VOIDmode, tmode;
 

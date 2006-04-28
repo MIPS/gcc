@@ -463,4 +463,18 @@ default_internal_arg_pointer (void)
     return virtual_incoming_args_rtx;
 }
 
+
+/* If STRICT_ALIGNMENT is true we use the container type for accessing
+   volatile bitfields.  This is generally the prefered behavior for memory
+   mapped peripherals on RISC architectures.
+   If STRICT_ALIGNMENT is false we use the narrowest type possible.  This
+   is typically used to avoid spurious page faults and extra memory accesses
+   due to unaligned accesses on CISC architectures.  */
+
+bool
+default_narrow_bitfield (void)
+{
+  return !STRICT_ALIGNMENT;
+}
+
 #include "gt-targhooks.h"
