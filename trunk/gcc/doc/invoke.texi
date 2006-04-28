@@ -2201,7 +2201,8 @@ support for invoking the @code{- (id) .cxx_construct} and
 @opindex fobjc-exceptions
 Enable syntactic support for structured exception handling in Objective-C,
 similar to what is offered by C++ and Java.  Currently, this option is only
-available in conjunction with the NeXT runtime on Mac OS X 10.3 and later.
+available in conjunction with the NeXT runtime on Mac OS X 10.3 and later
+and is on by default.
 
 @smallexample
   @@try @{

@@ -1,3 +1,8 @@
+2006-04-28 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4512786
+	* objc.dg/no-fobjc-exception.m: New.
+
 2006-04-26 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4523837

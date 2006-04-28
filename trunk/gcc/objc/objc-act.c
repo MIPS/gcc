@@ -5707,11 +5707,8 @@ objc_init_exceptions (void)
 
   if (flag_objc_sjlj_exceptions)
     {
-      /* On Darwin, ObjC exceptions require a sufficiently recent
-	 version of the runtime, so the user must ask for them explicitly.  */
-      if (!flag_objc_exceptions)
-	warning ("use %<-fobjc-exceptions%> to enable Objective-C "
-		 "exception syntax");
+      /* APPE LOCAL radar 4512786. */
+      /* code removed */
     }
 #ifndef OBJCPLUS
   else

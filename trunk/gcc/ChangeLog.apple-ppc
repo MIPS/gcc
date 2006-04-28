@@ -1,3 +1,9 @@
+2006-04-28 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4512786
+	* doc/invoke.texi (fobjc-exceptions): Say it is
+	on by default.
+	
 2006-04-26 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3803157 (method attributes)
