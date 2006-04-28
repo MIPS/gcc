@@ -16,11 +16,11 @@ __m64 i9 = { 1, 2, 3, 4, 5, 6, 7, 8 }; /* { dg-warning "excess elements" } */
 __m64 i10 = 0x0123456789ABCDEFLL; /* { dg-error "incompatible types" } */
 __m64 i11 = 1; /* { dg-error "incompatible types" } */
 
-/* { dg-warning "near initialization" "initialization" { target *-*-* } 7 } */
-/* { dg-warning "near initialization" "initialization" { target *-*-* } 10 } */
+/* { dg-warning "near initialization" "initialization" { target *-*-* } 8 } */
 /* { dg-warning "near initialization" "initialization" { target *-*-* } 11 } */
 /* { dg-warning "near initialization" "initialization" { target *-*-* } 12 } */
 /* { dg-warning "near initialization" "initialization" { target *-*-* } 13 } */
 /* { dg-warning "near initialization" "initialization" { target *-*-* } 14 } */
+/* { dg-warning "near initialization" "initialization" { target *-*-* } 15 } */
 
 
