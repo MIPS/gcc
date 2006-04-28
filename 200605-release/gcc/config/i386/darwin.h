@@ -169,8 +169,6 @@ extern void darwin_x86_file_end (void);
 #define MASK_ALIGN_MAC68K	0x20000000
 #define TARGET_ALIGN_MAC68K	(target_flags & MASK_ALIGN_MAC68K)
 
-#define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
-
 #define ROUND_TYPE_ALIGN(TYPE, COMPUTED, SPECIFIED) \
   (((TREE_CODE (TYPE) == RECORD_TYPE \
      || TREE_CODE (TYPE) == UNION_TYPE \
@@ -282,3 +280,10 @@ extern int flag_iasm_blocks;
 extern void ix86_darwin_init_expanders (void);
 #define INIT_EXPANDERS (ix86_darwin_init_expanders ())
 /* APPLE LOCAL end 4457939 stack alignment mishandled */
+/* APPLE LOCAL begin mainline */
+#undef REGISTER_TARGET_PRAGMAS
+#define REGISTER_TARGET_PRAGMAS() DARWIN_REGISTER_TARGET_PRAGMAS()
+
+#undef TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
+#define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES darwin_set_default_type_attributes
+/* APPLE LOCAL end mainline */

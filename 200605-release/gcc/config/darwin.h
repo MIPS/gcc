@@ -106,12 +106,12 @@ extern int machopic_symbol_defined_p (rtx);
    name, that also takes an argument, needs to be modified so the
    prefix is different, otherwise a '*' after the shorter option will
    match with the longer one.
-   
+
    The SUBTARGET_OPTION_TRANSLATE_TABLE macro, which _must_ be defined
    in gcc/config/{i386,rs6000}/darwin.h, should contain any additional
    command-line option translations specific to the particular target
    architecture.  */
-   
+
 #define TARGET_OPTION_TRANSLATE_TABLE \
 /* APPLE LOCAL KEXT terminated-vtables */ \
   { "-fterminated-vtables", "-fapple-kext" }, \
@@ -181,7 +181,7 @@ extern int darwin_running_cxx;
    but there are no more bits in rs6000 TARGET_SWITCHES.  Note
    that this switch has no "no-" variant. */
 extern const char *darwin_one_byte_bool;
-  
+
 /* APPLE LOCAL begin pragma reverse_bitfields */
 /* True if pragma reverse_bitfields is in effect. */
 extern GTY(()) int darwin_reverse_bitfields;
@@ -485,7 +485,7 @@ do {					\
    you want to explicitly link against the static version of those
    routines, because you know you don't need to unwind through system
    libraries, you need to explicitly say -static-libgcc.
-   
+
    If it is linked against, it has to be before -lgcc, because it may
    need symbols from -lgcc.  */
 #undef REAL_LIBGCC_SPEC
@@ -609,9 +609,9 @@ do {					\
    links to, so there's no need for weak-ness for that.  */
 #define GTHREAD_USE_WEAK 0
 
-/* The Darwin linker imposes two limitations on common symbols: they 
+/* The Darwin linker imposes two limitations on common symbols: they
    can't have hidden visibility, and they can't appear in dylibs.  As
-   a consequence, we should never use common symbols to represent 
+   a consequence, we should never use common symbols to represent
    vague linkage. */
 #undef USE_COMMON_FOR_ONE_ONLY
 #define USE_COMMON_FOR_ONE_ONLY 0
@@ -637,7 +637,7 @@ do {					\
 /* APPLE LOCAL mainline 2006-03-16 dwarf2 4392520 */
 #define FRAME_BEGIN_LABEL (for_eh ? "EH_frame" : "Lframe")
 
-/* Emit a label for the FDE corresponding to DECL.  EMPTY means 
+/* Emit a label for the FDE corresponding to DECL.  EMPTY means
    emit a label for an empty FDE. */
 #define TARGET_ASM_EMIT_UNWIND_LABEL darwin_emit_unwind_label
 
@@ -802,7 +802,7 @@ do {					\
 
 /* Ensure correct alignment of bss data.  */
 
-#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL					
+#undef	ASM_OUTPUT_ALIGNED_DECL_LOCAL
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN)	\
   do {									\
     fputs (".lcomm ", (FILE));						\
@@ -1340,6 +1340,10 @@ enum machopic_addr_class {
     /* APPLE LOCAL pragma fenv */                               \
     c_register_pragma ("GCC", "fenv", darwin_pragma_fenv);	\
     c_register_pragma (0, "unused", darwin_pragma_unused);	\
+    /* APPLE LOCAL begin mainline */				\
+    c_register_pragma (0, "ms_struct",				\
+			darwin_pragma_ms_struct);		\
+    /* APPLE LOCAL end mainline */				\
     /* APPLE LOCAL begin pragma reverse_bitfields */		\
     c_register_pragma (0, "reverse_bitfields",			\
 			darwin_pragma_reverse_bitfields);	\
@@ -1374,7 +1378,7 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
          : MIN ((DESIRED), 16))
 #else
 #define PEG_ALIGN_FOR_MAC68K(DESIRED)   MIN ((DESIRED), 16)
-#endif 
+#endif
 /* APPLE LOCAL end Macintosh alignment 2002-2-13 --ff */
 
 /* APPLE LOCAL begin KEXT double destructor */
