@@ -2451,6 +2451,7 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 	&& flag_ms_asms
 	&& resultcode == PLUS_EXPR
 	&& TREE_CODE (array) == ADDR_EXPR
+	&& TREE_CODE (TREE_TYPE (TREE_OPERAND (array, 0))) == ARRAY_TYPE
 	&& !(TREE_CODE (TREE_TYPE (TREE_TYPE (array))) == FUNCTION_TYPE
 	     || TREE_CODE (TREE_TYPE (TREE_TYPE (array))) == METHOD_TYPE))
       {
@@ -7195,7 +7196,7 @@ iasm_maybe_force_mem (tree arg, char *buf, unsigned argnum, bool must_be_reg, ia
      additional registers when not optimizing, so we punt with just
      "m", as all memory instructions are currently marked as
      clobbering memory anyway with iasm_memory_clobber.  */
-  if (! DECL_HARD_REGISTER (arg)
+  if (! (TREE_CODE (arg) == VAR_DECL && DECL_HARD_REGISTER (arg))
       && e->dat[e->num].constraint == 0)
     iasm_force_constraint ("m", e);
 #endif

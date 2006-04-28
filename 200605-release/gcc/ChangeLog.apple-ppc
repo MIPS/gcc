@@ -1,3 +1,12 @@
+2006-04-27  Mike Stump  <mrs@apple.com>
+
+	Radar 4529992
+	* c-common.c (pointer_int_sum): Only form ARRAY_REF for ARRAY_TYPEs.
+	(iasm_maybe_force_mem): Ensure that we only use DECL_HARD_REGISTER on
+	VAR_DECLs.
+	* c-typeck.c (iasm_c_build_component_ref): Move [eax].16 code up,
+	to avoid calling lookup_name on [eax].
+
 2006-04-26  Hui-May Chang  <hm.chang@apple.com>
 
 	Radar 4491613

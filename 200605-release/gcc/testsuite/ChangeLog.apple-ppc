@@ -1,3 +1,9 @@
+2006-04-27  Mike Stump  <mrs@apple.com>
+
+	Radar 4529992
+	* g++.apple/asm-block-50.C: Expect warning for [ptr][4].
+	* gcc.apple/asm-block-50.c: Likewise.
+
 2006-04-26  Hui-May Chang  <hm.chang@apple.com>
 
 	Radar 4314956
