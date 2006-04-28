@@ -1,5 +1,11 @@
 2006-04-28  Eric Christopher  <echristo@apple.com>
 
+	Revert part of previous patch:
+	* g++.dg/bitreverse-10.C: Ditto.
+	* g++.dg/bitreverse-23.C: Ditto.
+
+2006-04-28  Eric Christopher  <echristo@apple.com>
+
 	Radar 4454599
 	* gcc.apple/bitreverse-13.c: Remove.
 	* gcc.apple/bitreverse-19.c: Ditto.
@@ -13,6 +19,23 @@
 	* gcc.apple/bitreverse-6.c: Ditto.
 	* gcc.apple/bitreverse-7.c: Ditto.
 	* gcc.apple/bitreverse-8.c: Ditto.
+	* g++.dg/bitreverse-10.C: Ditto.
+	* g++.dg/bitreverse-23.C: Ditto.
+	* gcc.apple/bitreverse-18.c: Add #pragma ms_struct
+	to locations where we turn on pragma reverse_bitfields.
+	* gcc.apple/bitreverse-3.c: Ditto.
+	* gcc.apple/bitreverse-11.c: Ditto.
+	* gcc.apple/bitreverse-15.c: Ditto.
+	* gcc.apple/bitreverse-12.c: Ditto.
+	* gcc.apple/bitreverse-16.c: Ditto.
+	* gcc.apple/bitreverse-25.c: Ditto.
+	* gcc.apple/bitreverse-1.c: Ditto.
+	* gcc.apple/bitreverse-9.c: Ditto.
+	* gcc.apple/bitreverse-17.c: Ditto.
+	* gcc.apple/bitreverse-22.c: Ditto.
+	* gcc.apple/bitreverse-26.c: Ditto.
+	* gcc.apple/bitreverse-10.c: Ditto.
+	* gcc.apple/bitreverse-14.c: Ditto.
 	* g++.dg/bitreverse-10.C: Ditto.
 	* g++.dg/bitreverse-23.C: Ditto.
 
