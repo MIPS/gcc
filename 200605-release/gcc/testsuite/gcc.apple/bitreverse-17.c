@@ -5,6 +5,7 @@
 /* { dg-options "-std=gnu99" } */
 
 #pragma reverse_bitfields on
+#pragma ms_struct on
 struct empty {};
 
 struct uc0 { unsigned char content[0]; };
@@ -69,4 +70,3 @@ int main() {
     return 42;
   return 0;
 }
- 

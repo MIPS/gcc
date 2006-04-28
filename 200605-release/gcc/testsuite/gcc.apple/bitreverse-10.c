@@ -19,6 +19,7 @@ union {
 } unorm = { 5, 1, 6, 2 };
 
 #pragma reverse_bitfields on
+#pragma ms_struct on
 typedef struct TestState 
 {
     unsigned int fBlah : 7;     //  

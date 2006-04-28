@@ -1,3 +1,14 @@
+2006-04-27  Eric Christopher  <echristo@apple.com>
+
+       Radar 4454599
+       Radar 4481146
+       * stor-layout.c (update_alignment_for_field): Unconditionalize
+       ms_bitfield_layout_p code. Handle non-bitfield fields. Remove
+       extra alignment code.
+       (place_field): Don't realign if ms_bitfield_layout_p. Unconditionalize
+       ms_bitfield_layout_p code. Rewrite handling of structure fields.
+       Rewrite bitfield reversal handling.
+
 2006-04-27  Hui-May Chang  <hm.chang@apple.com>
 
 	Radar 4314956

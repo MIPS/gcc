@@ -9,6 +9,7 @@ typedef unsigned short WORD;
 typedef unsigned int DWORD;
 
 #pragma reverse_bitfields on
+#pragma ms_struct on
 
 #define USE_STRUCT_WRAPPER 0
 

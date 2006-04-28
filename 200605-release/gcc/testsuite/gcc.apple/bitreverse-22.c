@@ -5,6 +5,7 @@ extern void abort();
 /* { dg-options "-std=gnu99" } */
 
 #pragma reverse_bitfields on
+#pragma ms_struct on
 
 typedef struct _S5
 {

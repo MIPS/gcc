@@ -4,6 +4,7 @@
 /* { dg-options "-w" } */
 
 #pragma reverse_bitfields on
+#pragma ms_struct on
 #pragma pack(1)
 
 typedef struct _bee

@@ -4,7 +4,8 @@ extern "C" void abort();
 /* Check that layout works in presence of things other than
    data members. */
 #pragma reverse_bitfields on
-class X { 
+#pragma ms_struct on
+class X {
   public:
     int x : 8;
     static int y;
