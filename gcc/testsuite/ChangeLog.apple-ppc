@@ -1,3 +1,21 @@
+2006-04-28  Eric Christopher  <echristo@apple.com>
+
+	Radar 4454599
+	* gcc.apple/bitreverse-13.c: Remove.
+	* gcc.apple/bitreverse-19.c: Ditto.
+	* gcc.apple/bitreverse-2.c: Ditto.
+	* gcc.apple/bitreverse-20.c: Ditto.
+	* gcc.apple/bitreverse-21.c: Ditto.
+	* gcc.apple/bitreverse-24.c: Ditto.
+	* gcc.apple/bitreverse-27.c: Ditto.
+	* gcc.apple/bitreverse-4.c: Ditto.
+	* gcc.apple/bitreverse-5.c: Ditto.
+	* gcc.apple/bitreverse-6.c: Ditto.
+	* gcc.apple/bitreverse-7.c: Ditto.
+	* gcc.apple/bitreverse-8.c: Ditto.
+	* g++.dg/bitreverse-10.C: Ditto.
+	* g++.dg/bitreverse-23.C: Ditto.
+
 2006-04-27  Hui-May Chang  <hm.chang@apple.com>
 
 	Radar 4314956
