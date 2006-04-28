@@ -1,3 +1,9 @@
+2006-04-28  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/loop-2f.x,
+	gcc/testsuite/gcc.c-torture/execute/loop-2g.x: New.  XFAIL on
+	MIPS.
+
 2006-04-22  Joseph Myers  <joseph@codesourcery.com>
 
 	Backport:
