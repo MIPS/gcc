@@ -1,3 +1,8 @@
+2006-04-27  Hui-May Chang  <hm.chang@apple.com>
+
+	Radar 4314956
+	* g++.dg/sibcall-opt.C: Remove.
+
 2006-04-27  Devang Patel  <dpatel@apple.com>
 
 	* gcc.target/i386/m64-1.c: Update line numbers in dg-warning.
