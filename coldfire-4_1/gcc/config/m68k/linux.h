@@ -291,3 +291,5 @@ do {									\
 /* glibc uses comments to hide section attributes.  So setting
    ASM_FILE_START_APP_OFF breaks it.  */
 #undef TARGET_ASM_FILE_START_APP_OFF
+
+#define MD_UNWIND_SUPPORT "config/m68k/linux-unwind.h"
