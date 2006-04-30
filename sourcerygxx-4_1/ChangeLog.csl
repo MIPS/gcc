@@ -1,3 +1,10 @@
+2006-04-30  Mark Mitchell  <mark@codesourcery.com>
+
+	Backport:
+	2004-10-28  Pascal Obry  <obry@act-europe.fr>     
+	* w32-shared-ptr.c: New file.
+	* w32-shared-ptr.h: Likewise.
+
 2006-04-28  Joseph S. Myers  <joseph@codesourcery.com>
 
 	* gcc/gcc.c (process_command): Add program name to GCC_EXEC_PREFIX
