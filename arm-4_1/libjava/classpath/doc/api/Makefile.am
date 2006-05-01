@@ -35,18 +35,22 @@ clean-local:
 	-rm -rf html create_html gjdoc_rawcomment.cache
 
 create_html:
-	-$(MKDIR) html > /dev/null 2>&1
-	$(GJDOC) \
-	-use \
-	-sourcepath "$(sourcepath)" \
-	-encoding UTF-8 \
-	-breakiterator \
-	-licensetext \
-	-linksource \
-	-splitindex \
-	-d html \
-	-doctitle "GNU Classpath $(VERSION)" \
-	-windowtitle "GNU Classpath $(VERSION) Documentation" \
-	-header $(classpathbox) -footer $(classpathbox) \
-	-subpackages java:javax:org
-	touch create_html
+	if ! test -z "$(GJDOC)"; then \
+	  -$(MKDIR) html > /dev/null 2>&1; \
+	  $(GJDOC) \
+	  -use \
+	  -sourcepath "$(sourcepath)" \
+	  -encoding UTF-8 \
+	  -breakiterator \
+	  -licensetext \
+	  -linksource \
+	  -splitindex \
+	  -d html \
+	  -doctitle "GNU Classpath $(VERSION)" \
+	  -windowtitle "GNU Classpath $(VERSION) Documentation" \
+	  -header $(classpathbox) -footer $(classpathbox) \
+	  -subpackages java:javax:org; \
+	  touch "create_html"; \
+	else \
+	  echo "GJDOC not enabled. HTML files not built."; \
+	fi;
