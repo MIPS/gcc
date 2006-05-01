@@ -1,3 +1,10 @@
+2006-05-01  Kazu Hirata  <kazu@codesourcery.com>
+	Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/vfp.md (arm_movdi_vfp): Correct the output templates
+	for case 3 and 4.
+	(thumb2_movdi_vfp): Ditto.
+
 2006-05-01  Paul Brook  <paul@codesourcery.com>
 
 	Merge from branches/csl/sourcerygxx-4_1.

@@ -208,9 +208,9 @@
     case 2:
       return output_move_double (operands);
     case 3:
-      return \"fmdrr%?\\t%P0, %1\\t%@ int\";
+      return \"fmdrr%?\\t%P0, %Q1, %R1\\t%@ int\";
     case 4:
-      return \"fmrrd%?\\t%0, %1\\t%@ int\";
+      return \"fmrrd%?\\t%Q0, %R0, %P1\\t%@ int\";
     case 5:
       return \"fcpyd%?\\t%P0, %P1\\t%@ int\";
     case 6: case 7:
@@ -235,9 +235,9 @@
     case 0: case 1: case 2:
       return (output_move_double (operands));
     case 3:
-      return \"fmdrr%?\\t%P0, %1\\t%@ int\";
+      return \"fmdrr%?\\t%P0, %Q1, %R1\\t%@ int\";
     case 4:
-      return \"fmrrd%?\\t%0, %1\\t%@ int\";
+      return \"fmrrd%?\\t%Q0, %R0, %P1\\t%@ int\";
     case 5:
       return \"fcpyd%?\\t%P0, %P1\\t%@ int\";
     case 6: case 7:
