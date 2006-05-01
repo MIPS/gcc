@@ -2504,7 +2504,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, tree fnbody)
 	  /* An automatic character length, pointer array result.  */
 	  if (proc_sym->ts.type == BT_CHARACTER
 		&& TREE_CODE (proc_sym->ts.cl->backend_decl) == VAR_DECL)
-	    fnbody = gfc_trans_dummy_character (proc_sym->ts.cl, fnbody);
+	    fnbody = gfc_trans_dummy_character (proc_sym, proc_sym->ts.cl,
+						fnbody);
 	}
       else if (proc_sym->ts.type == BT_CHARACTER)
 	{
