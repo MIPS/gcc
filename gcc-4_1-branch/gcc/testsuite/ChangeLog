@@ -1,3 +1,63 @@
+2006-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26912
+	* g++.dg/template/friend41.C: New test.
+	
+2006-04-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26534
+	* g++.dg/opt/bitfield1.C: New test.
+
+	PR c++/27094
+	* g++.dg/template/defarg8.C: New test.
+
+2006-04-30  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27304
+	* gfortran.dg/fmt_exhaust.f90: New test.
+
+2006-04-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27278
+	* g++.dg/parse/operator7.C: New test.
+
+2006-04-29  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/26017
+	* gfortran.dg/allocate_zerosize.f90:  New test.
+
+2006-04-29  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27279
+	* g++.dg/parse/ctor4.C: New test.
+
+2006-04-28  Richard Guenther  <rguenther@suse.de>
+
+	PR target/26826
+	* gcc.target/i386/pr26826.c: New testcase.
+
+2006-04-28  Andrew Pinski  <pinskia@gcc.gnu.org>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27236
+	* gcc.dg/tree-ssa/pr27236.c: New testcase.
+
+2006-04-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/26869
+	* gcc.dg/torture/pr26869.c: New testcase.
+
+2006-04-28  Andrew Pinski  <pinskia@gcc.gnu.org>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27218
+	* g++.dg/tree-ssa/pr27218.C: New testcase.
+
+2006-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/26865
+	* gcc.dg/pr26865.c: New test.
+
 2006-04-24  Roger Sayle  <roger@eyesopen.com>
 
 	PR target/26961
