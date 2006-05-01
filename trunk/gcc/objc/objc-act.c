@@ -3660,7 +3660,8 @@ generate_objc_symtab_decl (void)
     forward_declare_categories ();
 
   /* APPLE LOCAL begin new ObjC abi v2 */
-  if (!(flag_objc_abi == 2 || flag_objc_abi == 3))
+  /* APPLE LOCAL radar 4531482 */
+  if (flag_objc_abi != 2)
     {
       build_objc_symtab_template ();
       UOBJC_SYMBOLS_decl = start_var_decl (objc_symtab_template, "_OBJC_SYMBOLS");
@@ -14008,7 +14009,8 @@ finish_objc (void)
       || meth_var_names_chain || meth_var_types_chain || sel_ref_chain)
     {
       /* APPLE LOCAL begin ObjC abi v2 */
-      if (!(flag_objc_abi == 2 || flag_objc_abi == 3))
+      /* APPLE LOCAL radar 4531482 */
+      if (flag_objc_abi != 2)
         build_module_descriptor ();
       /* APPLE LOCAL end ObjC abi v2 */
 

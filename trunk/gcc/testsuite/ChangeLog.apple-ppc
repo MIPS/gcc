@@ -1,3 +1,9 @@
+2006-05-01 Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4531482
+	* objc.dg/hybrid-abi-1.m: New.
+	* obj-c++.dg/hybrid-abi-1.mm: New.
+
 2006-04-28 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4512786

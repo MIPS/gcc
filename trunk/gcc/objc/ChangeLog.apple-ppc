@@ -1,3 +1,10 @@
+2006-05-01 Fariborz Jahanian <fjahanian@apple.com>
+
+	Radar 4531482
+	* objc/objc-act.c (generate_objc_symtab_decl): Generate
+	_OBJC_SYMBOLS metadata for hybrid abi.
+	(finish_objc): Generate MODULE descriptor for hybrid abi.
+
 2006-04-28 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4512786
