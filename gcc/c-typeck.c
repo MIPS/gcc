@@ -6870,6 +6870,13 @@ iasm_c_build_component_ref (tree typename, tree component)
   else if (TREE_CODE (typename) == LABEL_DECL)
     typename = DECL_NAME (typename);
 
+  /* We allow [eax].16 to refer to [eax + 16].  */
+  if (TREE_CODE (component) == INTEGER_CST
+      && TREE_CODE (typename) == BRACKET_EXPR)
+    {
+      return iasm_build_bracket (typename, component);
+    }
+
   val = lookup_name (typename);
   if (val)
     {
@@ -6877,12 +6884,6 @@ iasm_c_build_component_ref (tree typename, tree component)
     }
   else
     {
-      /* We allow [eax].16 to refer to [eax + 16].  */
-      if (TREE_CODE (component) == INTEGER_CST
-	  && TREE_CODE (typename) == BRACKET_EXPR)
-	{
-	  return iasm_build_bracket (typename, component);
-	}
       /* A structure tag will have been assumed to be a label; pick
 	 out the original name.  */
       if (strncmp ("LASM", IDENTIFIER_POINTER (typename), 4) == 0)

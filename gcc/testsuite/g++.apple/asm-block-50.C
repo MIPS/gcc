@@ -10,8 +10,6 @@ void foo(int pa[5], int j) {
   int i;
   int a[5];
   _asm {
-    mov   esi, [ptr][4]
-    mov   esi, [ptr+4]
     mov   esi, [ptr][0]
     mov   esi, [ptr]
     mov   esi, [esi][eax]
@@ -27,6 +25,8 @@ void foo(int pa[5], int j) {
     mov   esi, [c][4]	/* { dg-warning "non-pic addressing form not suitible for pic code" } */
     mov   esi, [b]	/* { dg-warning "non-pic addressing form not suitible for pic code" } */
     mov   esi, [c]	/* { dg-warning "non-pic addressing form not suitible for pic code" } */
+    mov   esi, [ptr][4]        /* { dg-warning "will consume extra register" } */
+    mov   esi, [ptr+4]         /* { dg-warning "will consume extra register" } */
     mov   esi, [ptr][eax]      /* { dg-warning "will consume extra register" } */
     mov   esi, [ptr+eax]       /* { dg-warning "will consume extra register" } */
     mov   esi, [-4][pa+esi]    /* { dg-warning "will consume extra register" } */
