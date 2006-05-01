@@ -83,6 +83,9 @@ fi
 
 echo DARWIN_VERS = $DARWIN_VERS
 
+# If the user has CC set in their environment unset it now
+unset CC
+
 ########################################
 # Run the build.
 
