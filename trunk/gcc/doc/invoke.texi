@@ -249,7 +249,8 @@ Objective-C and Objective-C++ Dialects}.
 -fno-nil-receivers @gol
 @c APPLE LOCAL mainline
 -fobjc-call-cxx-cdtors (APPLE ONLY) @gol
--fobjc-exceptions @gol
+@c APPLE LOCAL radar 4512786
+-fobjc-sjlj-exceptions @gol
 @c APPLE LOCAL ObjC GC
 -fobjc-gc @gol
 -freplace-objc-classes @gol
@@ -2197,12 +2198,14 @@ support for invoking the @code{- (id) .cxx_construct} and
 @code{- (void) .cxx_destruct} methods.
 @c APPLE LOCAL end mainline
 
-@item -fobjc-exceptions
-@opindex fobjc-exceptions
+@c APPLE LOCAL begin radar 4512786
+@item -fobjc-sjlj-exceptions
+@opindex fobjc-sjlj-exceptions
 Enable syntactic support for structured exception handling in Objective-C,
-similar to what is offered by C++ and Java.  Currently, this option is only
-available in conjunction with the NeXT runtime on Mac OS X 10.3 and later
-and is on by default.
+similar to what is offered by C++ and Java.  This option is available in 
+conjunction with the NeXT setjmp base exceptions on Mac OS X 10.3 and later.
+This option is on by default with the NeXT runtime.
+@c APPLE LOCAL end radar 4512786
 
 @smallexample
   @@try @{
@@ -2268,7 +2271,8 @@ from Objective-C and @code{catch} it in C++, or vice versa
 (i.e., @code{throw @dots{} @@catch}).
 @end itemize
 
-The @option{-fobjc-exceptions} switch also enables the use of synchronization
+@c APPLE LOCAL radar 4512786
+The @option{-fobjc-sjlj-exceptions} switch also enables the use of synchronization
 blocks for thread-safe execution:
 
 @smallexample
