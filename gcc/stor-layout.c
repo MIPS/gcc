@@ -360,7 +360,7 @@ layout_decl (tree decl, unsigned int known_align)
 	      && ! DECL_PACKED (decl)
 	      && ! targetm.ms_bitfield_layout_p (DECL_FIELD_CONTEXT (decl)))
 	    {
-#ifdef PCC_BITFIELD_TYPE_MATTRS
+#ifdef PCC_BITFIELD_TYPE_MATTERS
 	      if (PCC_BITFIELD_TYPE_MATTERS)
 		do_type_align (type, decl);
 	      else
@@ -873,15 +873,17 @@ place_field (record_layout_info rli, tree field)
 
   /* Work out the known alignment so far.  Note that A & (-A) is the
      value of the least-significant bit in A that is one.  */
+  /* APPLE LOCAL begin ms_struct */
   if (! integer_zerop (rli->bitpos))
     {
       int realoffset = tree_low_cst (rli->bitpos, 1);
-      /* APPLE LOCAL begin ms_struct */
+
       if (targetm.reverse_bitfields_p (rli->t))
 	realoffset += rli->remaining_in_alignment;
-      /* APPLE LOCAL end ms_struct */
+
       known_align = realoffset & -realoffset;
     }
+  /* APPLE LOCAL end ms_struct */
   else if (integer_zerop (rli->offset))
     known_align = BIGGEST_ALIGNMENT;
   else if (host_integerp (rli->offset, 1))
@@ -1264,14 +1266,13 @@ place_field (record_layout_info rli, tree field)
       /* Nothing we've done should let bitpos be negative.  */
       gcc_assert (tree_low_cst (rli->bitpos, 0) >= 0);
     }
-  /* APPLE LOCAL end ms_struct */
   /* Offset so far becomes the position of this field after normalizing.  */
   normalize_rli (rli);
 
     DECL_FIELD_BIT_OFFSET (field) = rli->bitpos;
   DECL_FIELD_OFFSET (field) = rli->offset;
   SET_DECL_OFFSET_ALIGN (field, rli->offset_align);
-
+  /* APPLE LOCAL end ms_struct */
   /* If this field ended up more aligned than we thought it would be (we
      approximate this by seeing if its position changed), lay out the field
      again; perhaps we can use an integral mode for it now.  */
