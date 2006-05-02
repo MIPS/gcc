@@ -1,3 +1,7 @@
+2006-05-01  Eric Christopher  <echristo@apple.com>
+
+        * global.c (flag_cw_asm_blocks): Declare.
+
 2006-05-01 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4512786
@@ -9,7 +13,7 @@
         Radar 4512786
 	* doc/invoke.texi (fobjc-exceptions): Say it is
 	on by default.
-	
+
 2006-04-26 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3803157 (method attributes)
@@ -81,7 +85,7 @@
 
         Radar 4498373
         (Metadata for objective-c properties)
-	* config/darwin.c (machopic_select_section): Put metadata 
+	* config/darwin.c (machopic_select_section): Put metadata
 	name/attribute strings in .data section.
 
 2006-03-29 Fariborz Jahanian <fjahanian@apple.com>
@@ -98,8 +102,8 @@
 	* c-common.h (objc_diagnose_private_ivar): New decl.
 	* stub-objc.c (objc_diagnose_private_ivar): New stub.
 	* c-decl.c (undeclared_variable): Issue disnostic on
-	private 'ivar' access.	
-	
+	private 'ivar' access.
+
 2006-03-27 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4491608
@@ -123,7 +127,7 @@
 	Radar 4255172
 	* config/rs6000/darwin.h (PEG_ALIGN_FOR_MAC68K): Move to here from
 	config/darwin.h.  Don't test TARGET_ALTIVEC.
-	* config/darwin.h [RS6000_VECTOR_ALIGNMENT] (PEG_ALIGN_FOR_MAC68K): 
+	* config/darwin.h [RS6000_VECTOR_ALIGNMENT] (PEG_ALIGN_FOR_MAC68K):
 	Move this definition to config/rs6000/darwin.h.
 	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Don't define
 	Altivec PIM macros unless -faltivec.
@@ -138,15 +142,15 @@
 	* c-typeck.c (build_component_ref): Call objc_build_getter_call.
 	(build_modify_expr): Call objc_build_setter_call.
 	* tree.h (CALL_EXPR_OBJC_PROPERTY_GETTER): New macro.
-	* c-common.h: Several new declarations in support of 
+	* c-common.h: Several new declarations in support of
 	objective-c's @property.
-	* stub-objc.c (objc_set_property_attr, objc_add_property_variable, 
+	* stub-objc.c (objc_set_property_attr, objc_add_property_variable,
 	objc_build_getter_call, objc_build_setter_call): New stubs.
-	
+
 2006-03-16 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4293709
-	* c-typeck.c (digest_init): Check for protocol match in 
+	* c-typeck.c (digest_init): Check for protocol match in
 	initialization of two otherwise matching pointers.
 
 2006-03-13 Fariborz Jahanian <fjahanian@apple.com>
@@ -154,7 +158,7 @@
 	Radar 4472881
 	* c-parse.in: Change grammar code as needed to allow
 	declaration in objective-c's foreach for-loop loop header.
- 
+
 2006-03-08 Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4468456
@@ -164,7 +168,7 @@
 2006-03-07 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4468498
-	* c-parse.in (for_objc_collection): Add grammar for non-declarative 
+	* c-parse.in (for_objc_collection): Add grammar for non-declarative
 	form of foreach-statement.
 
 2006-02-28 Fariborz Jahanian <fjahanian@apple.com>
@@ -174,7 +178,7 @@
 	* expr.h (objc_v2_bitfield_ivar_bitpos): New decl.
 	* stub-objc.c (objc_v2_bitfield_ivar_bitpos): New stub.
 	* expr.c (get_inner_reference): Compute ivar's bitfield bit offset.
-	
+
 2006-02-28  Devang Patel  <dpatel@apple.com>
   	    Ziemowit Laski  <zlaski@apple.com>
 
@@ -205,7 +209,7 @@
 	* stub-objc.c (diagnose_selector_cast): New stub.
 	* config/darwin-c.c (darwin_cpp_builtins): Define __OBJC2__ for
 	objc's new abi.
-	
+
 2006-02-14   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4441049
@@ -224,7 +228,7 @@
 	* config/darwin-protos.h: Stuff for new __OBJC2, __protocol section.
 	* config/darwin.c: Ditto.
 	* config/darwin.h: Ditto.
-	
+
 2006-02-07   Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4426814
@@ -237,11 +241,11 @@
 	each __weak object in the expession.
 	* c-typeck.c (build_modify_expr): Undo the call to objc_read_weak
 	on LHS expression.
-	* c-objc-common.c (c_objc_common_truthvalue_conversion): Generate 
+	* c-objc-common.c (c_objc_common_truthvalue_conversion): Generate
 	objc_read_weak call before generating tree for !exp, etc.
 	* c-common.h (objc_generate_weak_read, objc_remove_weak_read): New decl.
 	* stub-objc.c (objc_generate_weak_read, objc_remove_weak_read): New stubs.
-	 
+
 2006-01-30  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4386773
@@ -253,13 +257,13 @@
 2006-01-26  Devang Patel  <dpatel@apple.com>
 
 	Radar 4388369
-	* dbxout.c (dbxout_complete_type): Handle internally volatized 
+	* dbxout.c (dbxout_complete_type): Handle internally volatized
 	types for Objective-C EH mechanism.
 
 2006-01-23  Fariborz Jahanian <fjahanian@apple.com>
 
         Radar 4391705
-        * config/darwin-protos.h 
+        * config/darwin-protos.h
 	(objc_v2_selector_refs_section): New declaration.
 	* config/darwin.c: use section __OBJC2,__selector_refs for
 	@selector expressions in new-ABI and hybrid-ABI.
@@ -273,30 +277,30 @@
 	* c-parse.in: Add grammar supprt for the foreach initialization
 	part.
 	* c-gimplify.c (obj_reuse_bc_block): New function.
-	(gimplify_c_loop): Has a new argument to recgognize nested 
+	(gimplify_c_loop): Has a new argument to recgognize nested
 	do-while statement part of foreach-statement synthesis. Use
 	existing continue/break labels for this loop.
 	* c-common.h (DO_FOREACH): New field for a do-while statement.
-	(objc_finish_foreach_loop, objc_build_component_ref, 
+	(objc_finish_foreach_loop, objc_build_component_ref,
 	objc_build_foreach_components): New declarations.
 	* stub-objc.c: New stubs.
-	
+
 2006-01-18  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4391705
 	* config/darwin-protos.h: New declarations for new sections.
-	* config/darwin.c: Generate new symbols in OBJC2 segment in 
-	new sections __category_list, __class_refs, __nonlazy_class 
+	* config/darwin.c: Generate new symbols in OBJC2 segment in
+	new sections __category_list, __class_refs, __nonlazy_class
 	and __nonlazy_catgry.
 	* config/darwin.h: Define and initialize the above new sections.
 
 2006-01-02  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4391705
-	* config/darwin.h: Change segment and section name of class meta 
+	* config/darwin.h: Change segment and section name of class meta
 	data.
 	(objc_section_init): Initialize OBJC2 sections for new abi only.
-	
+
 2005-12-15  Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 4229905

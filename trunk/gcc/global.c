@@ -84,6 +84,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    5. Allocate the variables in that order; each if possible into
    a preferred register, else into another register.  */
 
+/* APPLE LOCAL CW asm blocks */
+extern int flag_cw_asm_blocks;
+
 /* Number of pseudo-registers which are candidates for allocation.  */
 
 static int max_allocno;
@@ -264,7 +267,7 @@ static int local_reg_n_refs[FIRST_PSEUDO_REGISTER];
 /* APPLE LOCAL begin rewrite weight computation */
 #ifdef REWRITE_WEIGHT_COMPUTATION
 /* Overall weight of each hard reg, as used by local alloc.
-   This was formerly computed once as 
+   This was formerly computed once as
    SUM(REG_FREQ(i))/SUM(REG_LIVE_LENGTH(i)) where the sums
    are computed over all uses.  But that computation produces very
    wrong answers when a reg is used both inside and outside a loop.
@@ -601,7 +604,7 @@ global_alloc (FILE *file)
   conflicts = xcalloc (max_allocno * allocno_row_words, sizeof (INT_TYPE));
 
   /* APPLE LOCAL begin 4321079 */
-  pseudo_preferences = 
+  pseudo_preferences =
 	xcalloc (max_allocno * allocno_row_words, sizeof (INT_TYPE));
   /* APPLE LOCAL end 4321079 */
 
@@ -627,17 +630,17 @@ global_alloc (FILE *file)
 	int i, j;
 	for (i = max_allocno - 1; i >= 0; i--)
 	  {
-	    EXECUTE_IF_SET_IN_ALLOCNO_SET (pseudo_preferences 
+	    EXECUTE_IF_SET_IN_ALLOCNO_SET (pseudo_preferences
 					      + i * allocno_row_words,
 					   j,
 	      {
 		if (REG_N_SETS (allocno[i].reg) == 1
 		    && REG_N_SETS (allocno[j].reg) == 1)
 		  {
-		    conflicts[(i) * allocno_row_words 
+		    conflicts[(i) * allocno_row_words
 				+ (unsigned) (j) / INT_BITS]
 		      &= ~((INT_TYPE) 1 << ((unsigned) (j) % INT_BITS));
-		    conflicts[(j) * allocno_row_words 
+		    conflicts[(j) * allocno_row_words
 				+ (unsigned) (i) / INT_BITS]
 		      &= ~((INT_TYPE) 1 << ((unsigned) (i) % INT_BITS));
 		  }
@@ -1037,7 +1040,7 @@ expand_preferences (void)
 	       to cut down on the number of reg-reg copies.  Since two
 	       inputs that both die conflict with each other, we shouldn't
 	       tie both.  Experimentally, neither picking the first nor the second
-	       seems to be a winner, so we tie neither. 
+	       seems to be a winner, so we tie neither.
 	       On ppc, this whole idea seems to be a loser; introducing extra
 	       dependencies for scheduling loses more than eliminating reg-reg
 	       copies gains.  We make some attempt to abstract this by looking
@@ -1064,9 +1067,9 @@ expand_preferences (void)
 		/* APPLE LOCAL begin 4321079 */
 		for (j = allocno_row_words - 1; j >= 0; j--)
 		  {
-		    pseudo_preferences[a1 * allocno_row_words + j] 
+		    pseudo_preferences[a1 * allocno_row_words + j]
 		      |= pseudo_preferences[a2 * allocno_row_words + j];
-		    pseudo_preferences[a2 * allocno_row_words + j] 
+		    pseudo_preferences[a2 * allocno_row_words + j]
 		      |= pseudo_preferences[a1 * allocno_row_words + j];
 		  }
 		/* APPLE LOCAL end 4321079 */
@@ -1510,7 +1513,7 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 	int k, l;
 	/* Mark tied pseudo-regs that have not yet been assigned a reg
 	   and do not conflict as preferring this reg.  Mark pseudo-regs
-	   conflicting with regs tied to this reg and not yet assigned a 
+	   conflicting with regs tied to this reg and not yet assigned a
 	   reg as not preferring this reg. */
 	EXECUTE_IF_SET_IN_ALLOCNO_SET (
 	  pseudo_preferences + num * allocno_row_words, k,
@@ -1533,14 +1536,14 @@ find_reg (int num, HARD_REG_SET losers, int alt_regs_p, int accept_call_clobbere
 	  {
 	    if (num != k)
 	      EXECUTE_IF_SET_IN_ALLOCNO_SET (
-		pseudo_preferences + k * allocno_row_words, l, 
+		pseudo_preferences + k * allocno_row_words, l,
 		{
-		  if (k != l && !CONFLICTP (k, l) 
+		  if (k != l && !CONFLICTP (k, l)
 		      && reg_renumber[allocno[l].reg] < 0)
 		    SET_REGBIT (regs_someone_prefers, l, best_reg);
 		});
 	  });
-      }	    
+      }
       /* APPLE LOCAL end 4321079 */
     }
 }
@@ -1646,13 +1649,13 @@ mirror_conflicts (void)
 	  q0++;
 	  qq0++;
 	}
-      for (j = allocno_row_words - 1, q1 = q0, qq1 = qq0; 
-	   j >= 0; 
+      for (j = allocno_row_words - 1, q1 = q0, qq1 = qq0;
+	   j >= 0;
 	   j--, q1 += rwb, qq1 += rwb)
 	{
 	  unsigned INT_TYPE word;
 
-	  for (word = (unsigned INT_TYPE) *p++, q2 = q1; 
+	  for (word = (unsigned INT_TYPE) *p++, q2 = q1;
 	       word;
 	       word >>= 1, q2 += rw)
 	    {
@@ -1956,7 +1959,7 @@ set_preference (rtx dest, rtx src)
   /* APPLE LOCAL begin 4321079 */
   /* If both are pseudos record that.  We do this only for "copies", as
      the current focus is to eliminate vector copies where the two
-     sides have different modes, converted by a SUBREG.  
+     sides have different modes, converted by a SUBREG.
      Expansion to reusing the input as output is possible, but there
      seems little advantage; reload handles this OK usually.
 
@@ -1982,7 +1985,7 @@ set_preference (rtx dest, rtx src)
 /* Callback for reload.  We are going to assign pseudo R a stack slot;
    see if a reg tied to it already has one that we can reuse. */
 rtx find_tied_stack_pseudo (int);
-rtx 
+rtx
 find_tied_stack_pseudo (int r)
 {
   int i = reg_allocno[r];
@@ -1991,7 +1994,7 @@ find_tied_stack_pseudo (int r)
     return 0;
   EXECUTE_IF_SET_IN_ALLOCNO_SET(pseudo_preferences + i * allocno_row_words, j,
     {
-      if (!CONFLICTP(i, j) 
+      if (!CONFLICTP(i, j)
 	  && reg_renumber[allocno[j].reg] < 0
 	  && reg_equiv_memory_loc[allocno[j].reg] != 0
 	  /* APPLE LOCAL begin 4405429 */
@@ -2463,7 +2466,7 @@ mark_reg_change (rtx reg, rtx setter, void *data)
 
   regno = REGNO (reg);
   bitmap_set_bit (bb_info->killed, regno);
-  
+
   if (GET_CODE (setter) != CLOBBER)
     bitmap_set_bit (bb_info->avloc, regno);
   else
@@ -2532,7 +2535,7 @@ check_earlyclobber (rtx insn)
 		  if (i < 0)
 		    VARRAY_PUSH_INT (earlyclobber_regclass, (int) class);
 		}
-	      
+
 	      amp_p = false;
 	      class = NO_REGS;
 	      break;
@@ -2630,7 +2633,7 @@ set_up_bb_rts_numbers (void)
 {
   int i;
   int *rts_order;
-  
+
   rts_order = xmalloc (sizeof (int) * n_basic_blocks);
   flow_reverse_top_sort_order_compute (rts_order);
   for (i = 0; i < n_basic_blocks; i++)
@@ -2689,7 +2692,7 @@ calculate_reg_pav (void)
 	  edge_iterator ei;
 	  struct bb_info *bb_info;
 	  bitmap bb_live_pavin, bb_live_pavout;
-	      
+
 	  bb = bb_array [i];
 	  bb_info = BB_INFO (bb);
 	  bb_live_pavin = bb_info->live_pavin;
@@ -2763,7 +2766,7 @@ modify_reg_pav (void)
   FOR_EACH_BB (bb)
     {
       bb_info = BB_INFO (bb);
-      
+
       /* Reload can assign the same hard register to uninitialized
 	 pseudo-register and early clobbered pseudo-register in an
 	 insn if the pseudo-register is used first time in given BB
@@ -2822,7 +2825,7 @@ make_accurate_live_analysis (void)
   FOR_EACH_BB (bb)
     {
       bb_info = BB_INFO (bb);
-      
+
       bitmap_and_into (bb->global_live_at_start, bb_info->live_pavin);
       bitmap_and_into (bb->global_live_at_end, bb_info->live_pavout);
     }
