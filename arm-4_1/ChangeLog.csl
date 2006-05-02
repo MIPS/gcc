@@ -1,3 +1,11 @@
+2006-05-02  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/config/arm/arm.c (add_minipool_forward_ref): Check if insn
+	and pool overlap.
+	(create_fix_barrier): Check that a suitable barrier location is
+	found.
+	(arm_reorg): Include ftmp->address in allowable range of addresses.
+
 2006-05-01  Kazu Hirata  <kazu@codesourcery.com>
 	Paul Brook  <paul@codesourcery.com>
 
