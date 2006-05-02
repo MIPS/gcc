@@ -238,7 +238,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wmain  -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-format-attribute  -Wmissing-include-dirs @gol
 -Wmissing-noreturn @gol
--Wno-multichar  -Wnonnull  -Woverlength-strings  -Wpacked  -Wpadded @gol
+-Wno-multichar  -Wnonnull  -Wno-overflow @gol
+-Woverlength-strings  -Wpacked  -Wpadded @gol
 -Wparentheses  -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
@@ -2682,8 +2683,9 @@ if a variable may be clobbered by a @code{setjmp} call.
 
 These warnings are possible only in optimizing compilation,
 because they require data flow information that is computed only
-when optimizing.  If you don't specify @option{-O}, you simply won't
-get these warnings.
+when optimizing.  If you do not specify @option{-O}, you will not get 
+these warnings. Instead, GCC will issue a warning about @option{-Wuninitialized}
+requiring @option{-O}.
 
 If you want to warn about code which uses the uninitialized value of the
 variable in its own initializer, use the @option{-Winit-self} option.
@@ -3282,6 +3284,10 @@ Do not warn about uses of functions, variables, and types marked as
 deprecated by using the @code{deprecated} attribute.
 (@pxref{Function Attributes}, @pxref{Variable Attributes},
 @pxref{Type Attributes}.)
+
+@item -Wno-overflow
+@opindex Wno-overflow
+Do not warn about compile-time overflow in constant expressions.
 
 @item -Wpacked
 @opindex Wpacked
@@ -6190,6 +6196,12 @@ The @option{reorder-block-duplicate-feedback} is used only when profile
 feedback is available and may be set to higher values than
 @option{reorder-block-duplicate} since information about the hot spots is more
 accurate.
+
+@item max-sched-ready-insns
+The maximum number of instructions ready to be issued the scheduler should
+consider at any given time during the first scheduling pass.  Increasing
+values mean more thorough searches, making the compilation time increase
+with probably little benefit.  The default value is 100.
 
 @item max-sched-region-blocks
 The maximum number of blocks in a region to be considered for

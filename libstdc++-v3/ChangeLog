@@ -1,3 +1,78 @@
+2006-05-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_WCHAR_T): Always check the
+	presence of wctype.h, for use in GLIBCXX_ENABLE_C99.
+	* configure: Regenerate.
+
+2006-04-29  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (num_get<>::_M_extract_float):
+	Special case main parsing loop for !_M_allocated (i.e., "C" locale).
+	(num_get<>::_M_extract_int): Likewise.
+	* include/bits/locale_facets.h (num_get<>::_M_find): New.
+
+2006-04-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* docs/html/17_intro/TODO: Update.
+	
+2006-04-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/26875
+	* include/ext/array_allocator.h (array_allocator): _M_used, new
+	data member.  
+	* testsuite/ext/array_allocator/26875.cc: New.
+	
+2006-04-26  Shantonu Sen  <ssen@opendarwin.org>
+
+         PR libstdc++/26513
+         * scripts/make_exports.pl: Use $ENV{NM_FOR_TARGET}, if present.
+
+2006-04-23  Marc Glisse  <marc.glisse@normalesup.org>
+
+	PR libstdc++/27199
+	* ext/pool_allocator.h: Add using declarations for size_t, ptrdiff_t.
+	* ext/bitmap_allocator.h: Likewise; qualify with std::.
+	* ext/new_allocator.h: Likewise.
+	* ext/malloc_allocator.h: Likewise.
+	* ext/array_allocator.h: Likewise.
+	* ext/mt_allocator.h: Likewise.
+	* ext/functional: Likewise for size_t.
+	* ext/debug_allocator.h: Likewise.
+	* bits/char_traits.h: Qualify with std:: size_t.
+	* debug/hash_multimap.h: Likewise.
+
+2006-04-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 42.
+
+2006-04-19  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26424
+	* include/tr1/hashtable (X<>::primes): Extend for 64-bit machines.
+	(X<>::n_primes): Adjust.
+	(prime_rehash_policy::next_bkt, bkt_for_elements, need_rehash): Adjust.
+
+2006-04-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/faq/index.html ([5.5]): Adjust to mention function
+	objects and reference_wrapper; minor tweaks.
+	* docs/html/faq/index.txt: Regenerate.
+
+2006-04-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/6702 (again)
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Don't check non-C99
+	wchar_t functions...
+	(GLIBCXX_ENABLE_WCHAR_T): ... do that here.
+	* configure.ac: Adjust order of checks.
+	* configure: Regenerate.
+
+2006-04-14  Douglas Gregor  <dgregor@cs.indiana.edu>
+
+	PR libstdc++/27162
+	* include/bits/stl_algo.h (__search_n(,,,, _BinaryPredicate,
+	std::forward_iterator_tag)): Use __binary_pred, not ==.
+
 2006-04-10  Matthias Klose  <doko@debian.org>
 
 	* testsuite/lib/libstdc++.exp (libstdc++_init): Recognize multilib
@@ -15,7 +90,7 @@
 
 2006-03-29  Benjamin Kosnik  <bkoz@redhat.com>
 
-	* testsuite/data/sgetn.txt:  Correct copyright holder.
+	* testsuite/data/sgetn.txt: Correct copyright holder.
 	* testsuite/data/wistream_extractor_other-1.tst: Same.
 	* testsuite/data/wistream_extractor_other-2.tst: Same.
 	* testsuite/data/istream_extractor_other-1.txt: Same.

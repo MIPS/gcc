@@ -1,3 +1,452 @@
+2006-05-01  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/27291
+	* g++.dg/tree-ssa/pr27291.C: New test.
+
+2006-05-01  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR tree-optimization/27283
+	* g++.dg/tree-ssa/pr27283.C: New test.
+
+2006-05-01  Zdenek Dvorak <dvorakz@suse.cz>
+
+	* gcc.dg/tree-ssa/loop-16.c: New test.
+
+2006-05-01  Roger Sayle  <roger@eyesopen.com>
+	    Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/Wconversion-3.c: New test case.
+	* gcc.dg/Wconversion-4.c: Likewise.
+
+2006-05-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/26726
+	* g++.dg/tree-ssa/ivopts-1.C: New testcase.
+
+2006-04-30  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.dg/Woverflow-1.c: New test case.
+	* gcc.dg/Woverflow-2.c: Likewise.
+	* gcc.dg/Woverflow-3.c: Likewise.
+
+2006-04-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27094
+	* g++.dg/template/defarg8.C: New test.
+
+2006-04-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27278
+	* g++.dg/parse/operator7.C: New test.
+
+2006-04-29  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/11471
+	PR c++/27102
+	* g++.dg/template/crash48.C: New test.
+
+	PR c++/27279
+	* g++.dg/parse/ctor4.C: New test.
+
+2006-04-29  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/25681
+	* gfortran.df/char_type_len.f90: New test.
+
+2006-04-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27304
+	* gfortran.dg/fmt_exhaust.f90: New test.
+
+2006-04-28  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/25309
+	* gcc.dg/large-size-array-2.c: New test case.
+
+2006-04-28  Richard Guenther  <rguenther@suse.de>
+
+	PR target/26826
+	* gcc.target/i386/pr26826.c: New testcase.
+
+2006-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/27260
+	* gcc.c-torture/execute/pr27260.c: New.
+
+2006-04-28  Alan Modra  <amodra@bigpond.net.au>
+
+	PR middle-end/27095
+	* gcc.dg/pr27095.c: New.
+
+2006-04-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27292
+	* g++.dg/conversion/bitfield4.C: New test.
+
+2006-04-27  Eric Christopher  <echristo@apple.com>
+
+	* gcc.dg/pragma-ms_struct.c: New.
+
+2006-04-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27102
+	* g++.dg/template/crash47.C: New test.
+
+2006-04-27  Dirk Mueller  <dmueller@suse.de>
+
+	* gcc.target/i386/sse-7.c: build with -msse.
+
+2006-04-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/27274:
+	* gcc.target/i386/sse-9.c: Include "../../gcc.dg/i386-cpuid.h".
+	(main): Exit if processor doesn't support SSE.
+
+2006-04-26  David Edelsohn  <edelsohn@gnu.org>
+
+	PR middle-end/27282
+	* gcc.c-torture/compile/pr27282.c: New test.
+
+2006-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26913
+	* g++.dg/gomp/pr26913.C: New test.
+
+	PR c/25996
+	* gcc.dg/gomp/pr25996.c: New test.
+	* g++.dg/gomp/pr25996.C: New test.
+
+2006-04-25  Richard Sandiford  <richard@codesourcery.com>
+
+	PR rtl-optimization/26725
+	* gcc.c-torture/compile/pr26725.c: New test.
+
+2006-04-25  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-prof/val-prof-2.c: Check for n + ffff rather
+	than n + -1.
+
+2006-04-25  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* gcc.dg/20060425-1.c: New testcase.
+
+2006-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/26865
+	* gcc.dg/pr26865.c: New test.
+
+2006-04-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27292
+	* g++.dg/conversion/bitfield1.C: New test.
+	* g++.dg/conversion/bitfield2.C: Likewise.
+	* g++.dg/conversion/bitfield3.C: Likewise.
+
+2006-04-24  Andrew Pinski  <pinskia@gcc.gnu.org>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27236
+	* gcc.dg/tree-ssa/pr27236.c: New testcase.
+
+2006-04-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/19963
+	* g++.dg/other/incomplete2.C: New test.
+
+2006-04-24  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/26869
+	* gcc.dg/torture/pr26869.c: New testcase.
+
+2006-04-24  Andrew Pinski  <pinskia@gcc.gnu.org>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27218
+	* g++.dg/tree-ssa/pr27218.C: New testcase.
+
+2006-04-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26912
+	* g++.dg/template/friend41.C: New test.
+
+2006-04-23  David Edelsohn  <edelsohn@gnu.org>
+
+	* g++.dg/opt/pr15551.C: Include cstdio.
+	(main): Use remove instead of unlink.
+
+2006-04-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/sibcall-7.c: New test.
+	* gcc.dg/tree-ssa/tailrecursion-1.c: Pass -foptimize-sibling-calls.
+	* gcc.dg/tree-ssa/tailrecursion-2.c: Likewise.
+	* gcc.dg/tree-ssa/tailrecursion-3.c: Likewise.
+	* gcc.dg/tree-ssa/tailrecursion-4.c: Likewise.
+	* gcc.dg/tree-ssa/tailrecursion-5.c: Likewise.
+
+2006-04-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26534
+	* g++.dg/opt/bitfield1.C: New test.
+	* g++.dg/compat/abi/bitfield1_main.C: Add -w.
+	* g++.dg/compat/abi/bitfield1_x.C: Likewise.
+	* g++.dg/compat/abi/bitfield1_y.C: Likewise.
+	* g++.dg/compat/abi/bitfield2_main.C: Likewise.
+	* g++.dg/compat/abi/bitfield2_x.C: Likewise.
+	* g++.dg/compat/abi/bitfield2_y.C: Likewise.
+	* g++.dg/abi/bitfield1.C: Add dg-warning markers.
+	* g++.dg/abi/bitfield2.C: Likewise.
+	* g++.dg/init/bitfield1.C: Likewise.
+
+2006-04-23  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/25099
+	* gfortran.dg/elemental_subroutine_4.f90: New test.
+	* gfortran.dg/assumed_size_refs_1.f90: Add error to non-conforming
+	call sub (m, x).
+
+2006-04-22  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* gcc.c-torture/compile/20060421-1.c: New testcase.
+
+2006-04-21  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c/25875
+	* gcc.dg/init-bad-4.c: New test.
+
+2006-04-21  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/arm-vfp1.c: Skip on iWMMXt cpus.
+
+2006-04-21 Paul Thomas <pault@gcc.gnu.org>
+
+	PR fortran/27122
+	* gfortran.dg/defined_operators_1.f90: New test.
+	* gfortran.dg/assumed_charlen_function_1.f90: Add new error and
+	remove old ones associated, incorrectly, with Note 5.46.
+
+	PR fortran/27113
+	* gfortran.dg/character_array_constructor_1.f90: New test.
+
+2006-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20060419-1.c: New test.
+
+2006-04-19  Carlos O'Donell  <carlos@codesourcery.com>
+
+	PR c/26774
+	* gcc.dg/struct-parse-1.c: New test case.
+
+2006-04-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26558
+	* g++.dg/parse/template19.C: New test.
+
+	PR c++/26739
+	* g++.old-deja/g++.pt/friend36.C: Adjust error markers.
+
+	PR c++/26036
+	* g++.dg/expr/call3.C: New test.
+
+	PR c++/10385
+	* g++.dg/conversion/dynamic1.C: New test.
+
+2006-04-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27102
+	* g++.dg/template/crash35.C: Tweak error markers.
+	* g++.dg/template/crash46.C: New test.
+	* g++.old-deja/g++.brendan/friend4.C: Tweak error markers.
+	* g++.old-deja/g++.pt/incomplete1.C: Likewise.
+
+2006-04-19  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR rtl-optimization/14261
+	* gcc.c-torture/compile/20060419-1.c: Added.
+
+2006-04-18  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	* gfortran.dg/label_1.f90: Adjust dg-error.
+
+2006-04-16  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/26961
+	* gcc.dg/fold-cond-1.c: New test case.
+	* gcc.dg/pr26961-1.c: Likewise.
+
+2006-04-16  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/27138
+	* gfortran.dg/read_bad_advance.f90: New test.
+
+2006-04-16  Roger Sayle  <roger@eyesopen.com>
+	    Dale Johannesen  <dalej@apple.com>
+
+	PR target/24076
+	* gcc.target/i386/vecinit-3.c: New testcase.
+	* gcc.target/i386/vecinit-4.c: Likewise.
+	* gcc.target/i386/sse-18.c: Likewise.
+	* gcc.target/i386/sse-19.c: Likewise.
+
+2006-04-16  Thomas Koenig  <Thomas.Koenig@online.de>
+
+        * gfortran.dg/allocate_zerosize_1.f90:  New test.
+
+2006-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26365
+	* g++.dg/template/crash45.C: New test.
+
+2006-04-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/26787
+	* gfortran.dg/proc_assign_1.f90: New test.
+	* gfortran.dg/procedure_lvalue.f90: Change message.
+	* gfortran.dg/namelist_4.f90: Add new error.
+
+	PR fortran/25597
+	PR fortran/27096
+	* gfortran.dg/auto_pointer_array_result_1.f90
+
+	PR fortran/27089
+	* gfortran.dg/specification_type_resolution_1.f90
+
+	PR fortran/18803
+	PR fortran/25669
+	PR fortran/26834
+	* gfortran.dg/bounds_temporaries_1.f90: New test.
+
+	PR fortran/27124
+	* gfortran.dg/array_return_value_1.f90: New test.
+
+2006-04-15  Jerry DeLisle <jvdelisle@gcc.gnu.org>
+
+	PR fortran/25336
+	* gfortran/dg/g77/20030115-1.f: Delete duplicate test.
+
+2006-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/26823
+	* g++.dg/gomp/pr26823-1.C: New test.
+	* g++.dg/gomp/pr26823-2.C: New test.
+
+2006-04-13  Uros Bizjak  <uros@kss-loka.si>
+
+	PR middle-end/27134
+	* gcc.dg/pr27314.c: New test.
+
+2006-04-13  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/gomp/block-0.C: Update expected matches.
+
+2006-04-13  DJ Delorie  <dj@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_int32plus): New.
+	(check_effective_target_ptr32plus): New.
+	(check_effective_target_size32plus): New.
+	(check_effective_target_int16): New.
+	(check_profiling_available): Add m32c to the list of unsupported targets.
+
+	* gcc.c-torture/compile/20000804-1.c: Skip m32c also.
+	* gcc.c-torture/compile/20001226-1.c: Skip m32c due to small
+	memory size.
+	* gcc.c-torture/compile/20010327-1.c: Skip m32c due to non-SI
+	pointers.
+	* gcc.c-torture/compile/20020604-1.c: Skip m32c due to small
+	size_t.
+	* gcc.c-torture/compile/20050303-1.c: Require >=32 bit integers
+	and size_t.
+	* gcc.c-torture/compile/980506-1.c: Require >=32 bit size_t.
+	* gcc.c-torture/execute/20020404-1.x: Check for any 16 bit target,
+	not just xstormy16.  Skip m32c due to weird pointer size.
+	* gcc.c-torture/execute/20021024-1.x: Check for any 16 bit target,
+	not just xstormy16.
+	* gcc.c-torture/execute/shiftdi.x: Check for any 16 bit target,
+	not just xstormy16.
+	* gcc.dg/20020312-2.c: Add m32c support.
+	* gcc.dg/20040622-2.c: Require >=32 bit pointers.
+	* gcc.dg/20050321-1.c: XFail m32c due to incorrect malloc prototype
+	in test.
+	* gcc.dg/20050321-2.c: Require >=32 bit integers.
+	* gcc.dg/asm-1.c: Skip if int and short are the same size.
+	* gcc.dg/fold-mod-1.c: Require >=32 bit integers.
+	* gcc.dg/fold-overflow-1.c: Skip m32c due to small const types in asm.
+	* gcc.dg/format/bitfld-1.c: Require >=32 bit integers due to printf formats
+	* gcc.dg/init-string-2.c: Require >=32 bit integers.
+	* gcc.dg/max-1.c: Skip m32c in r8c or m16c mode due to small pointers.
+	* gcc.dg/noncompile/920923-1.c: Skip small-int message for int16 hosts.
+	* gcc.dg/pch/struct-1.c: Require >= 32 bit integers.
+	* gcc.dg/pr14796-2.c: Require >=32 bit integers.
+	* gcc.dg/pr17112-1.c: Require >=32 bit integers.
+	* gcc.dg/pr18241-1.c: XFail m32c due to incorrect memset prototype
+	in test.
+	* gcc.dg/pr18241-2.c: XFail m32c due to incorrect memset prototype
+	in test.
+	* gcc.dg/pr19340.c: Skip m32c due to lack of scheduling.
+	* gcc.dg/pr23049.c: Require >=32 bit integers.
+	* gcc.dg/torture/pr26565.c: Skip m32c as everything is already packed.
+	* gcc.dg/torture/pr26587.c: Require >=32 bit integers.
+	* gcc.dg/torture/pr26630.c: Require >=32 bit integers.
+	* gcc.dg/tree-ssa/loop-10.c: Require >=32 bit integers.
+	* gcc.dg/tree-ssa/loop-2.c: Require >=32 bit size_t.
+	* gcc.dg/tree-ssa/loop-4.c: Require >=32 bit size_t.
+	* gcc.dg/tree-ssa/ltrans-1.c: Require >=32 bit size_t.
+	* gcc.dg/tree-ssa/ltrans-2.c: Require >=32 bit size_t.
+	* gcc.dg/tree-ssa/ltrans-3.c: Require >=32 bit size_t.
+	* gcc.dg/tree-ssa/ltrans-4.c: Require >=32 bit size_t.
+	* gcc.dg/tree-ssa/pr14341.c: Require >=32 bit integers.
+	* gcc.dg/tree-ssa/pr23382.c: XFail m32c due to incorrect malloc
+	prototype in test.
+	* gcc.dg/tree-ssa/pr24627.c: Require >=32 bit integers.
+	* gcc.dg/tree-ssa/pr26180.c: Require >=32 bit integers.
+	* gcc.dg/tree-ssa/vrp14.c: Require >=32 bit integers.
+	* gcc.dg/tree-ssa/vrp21.c: Require >=32 bit integers.
+	* gcc.dg/tree-ssa/vrp22.c: Require >=32 bit integers.
+
+	* gcc.c-torture/execute/20040629-1.x: New.  Require >16 bit integers.
+	* gcc.c-torture/execute/20040703-1.x: Likewise.
+	* gcc.c-torture/execute/20040705-1.x: Likewise.
+	* gcc.c-torture/execute/20040705-2.x: Likewise.
+	* gcc.c-torture/execute/20040709-1.x: Likewise.
+	* gcc.c-torture/execute/20040709-2.x: Likewise.
+	* gcc.c-torture/execute/20040811-1.x: Likewise.
+	* gcc.c-torture/execute/20050316-1.x: Likewise.
+	* gcc.c-torture/execute/bitfld-4.x: Likewise.
+	* gcc.c-torture/execute/pr19689.x: Likewise.
+	* gcc.c-torture/execute/pr7284-1.x: Likewise.
+	* gcc.c-torture/execute/usmul.x: Likewise.
+	* gcc.c-torture/execute/vrp-5.x: Likewise.
+	* gcc.c-torture/execute/vrp-6.x: Likewise.
+	* gcc.dg/debug/20041023-1.s: Likewise.
+
+2006-04-13  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.target/i386/20050113-1.c: Tweak testcase to reflect that casts
+	of integers to a vector types are now constant expressions in C.
+	* gcc.dg/vect/vect-fold-1.c: New test case.
+
+2006-04-13  Paolo Bonzini  <bonzini@gnu.org>
+	    Ulrich Weigand  <uweigand@de.ibm.com>
+
+	PR target/27006
+	* gcc.dg/vmx/pr27006.c: New testcase.
+
+2006-04-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/26766
+	* gfortran.dg/write_recursive.f90: New test.
+
+2006-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/parse/dtor7.C: New test.
+	* g++.dg/parse/new1.C: Add error marker.
+	* g++.dg/template/new3.C: New test.
+
+	PR c++/26122
+	* g++.dg/template/pure1.C: New test.
+
+	PR c++/26295
+	* g++.dg/parse/ptrmem4.C: New test.
+
 2006-04-10  Jeff Law  <law@redhat.com>
 
 	PR/27087

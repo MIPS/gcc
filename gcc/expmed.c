@@ -363,7 +363,25 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	 meaningful at a much higher level; when structures are copied
 	 between memory and regs, the higher-numbered regs
 	 always get higher addresses.  */
-      bitnum += SUBREG_BYTE (op0) * BITS_PER_UNIT;
+      int inner_mode_size = GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0)));
+      int outer_mode_size = GET_MODE_SIZE (GET_MODE (op0));
+      
+      byte_offset = 0;
+
+      /* Paradoxical subregs need special handling on big endian machines.  */
+      if (SUBREG_BYTE (op0) == 0 && inner_mode_size < outer_mode_size)
+	{
+	  int difference = inner_mode_size - outer_mode_size;
+
+	  if (WORDS_BIG_ENDIAN)
+	    byte_offset += (difference / UNITS_PER_WORD) * UNITS_PER_WORD;
+	  if (BYTES_BIG_ENDIAN)
+	    byte_offset += difference % UNITS_PER_WORD;
+	}
+      else
+	byte_offset = SUBREG_BYTE (op0);
+
+      bitnum += byte_offset * BITS_PER_UNIT;
       op0 = SUBREG_REG (op0);
     }
 
@@ -618,7 +636,9 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       && bitsize > 0
       && GET_MODE_BITSIZE (op_mode) >= bitsize
       && ! ((REG_P (op0) || GET_CODE (op0) == SUBREG)
-	    && (bitsize + bitpos > GET_MODE_BITSIZE (op_mode))))
+	    && (bitsize + bitpos > GET_MODE_BITSIZE (op_mode)))
+      && insn_data[CODE_FOR_insv].operand[1].predicate (GEN_INT (bitsize),
+							VOIDmode))
     {
       int xbitpos = bitpos;
       rtx value1;
@@ -904,7 +924,12 @@ store_fixed_bit_field (rtx op0, unsigned HOST_WIDE_INT offset,
 
   if (! all_one)
     {
-      temp = expand_binop (mode, and_optab, op0,
+      /* Don't try and keep the intermediate in memory, if we need to
+	 perform both a bit-wise AND and a bit-wise IOR (except when
+	 we're optimizing for size).  */
+      if (MEM_P (subtarget) && !all_zero && !optimize_size)
+	subtarget = force_reg (mode, subtarget);
+      temp = expand_binop (mode, and_optab, subtarget,
 			   mask_rtx (mode, bitpos, bitsize, 1),
 			   subtarget, 1, OPTAB_LIB_WIDEN);
       subtarget = temp;

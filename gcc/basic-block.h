@@ -460,7 +460,8 @@ extern bitmap_obstack reg_obstack;
 #define REG_BLOCK_UNKNOWN -1
 #define REG_BLOCK_GLOBAL -2
 
-#define REG_BASIC_BLOCK(N) (VARRAY_REG (reg_n_info, N)->basic_block)
+#define REG_BASIC_BLOCK(N)				\
+  (VEC_index (reg_info_p, reg_n_info, N)->basic_block)
 
 /* Stuff for recording basic block info.  */
 
@@ -485,7 +486,6 @@ extern void update_bb_for_insn (basic_block);
 extern void free_basic_block_vars (void);
 
 extern void insert_insn_on_edge (rtx, edge);
-bool safe_insert_insn_on_edge (rtx, edge);
 
 extern void commit_edge_insertions (void);
 extern void commit_edge_insertions_watch_calls (void);

@@ -2935,7 +2935,8 @@ check_field_decls (tree t, tree *access_decls,
 	     members.  */
 	  TYPE_HAS_COMPLEX_ASSIGN_REF (t) = 1;
 
-	  if (! TYPE_HAS_CONSTRUCTOR (t) && CLASSTYPE_NON_AGGREGATE (t))
+	  if (! TYPE_HAS_CONSTRUCTOR (t) && CLASSTYPE_NON_AGGREGATE (t)
+	      && extra_warnings)
 	    warning (OPT_Wextra, "non-static reference %q+#D in class without a constructor", x);
 	}
 
@@ -2981,7 +2982,8 @@ check_field_decls (tree t, tree *access_decls,
 	     members.  */
 	  TYPE_HAS_COMPLEX_ASSIGN_REF (t) = 1;
 
-	  if (! TYPE_HAS_CONSTRUCTOR (t) && CLASSTYPE_NON_AGGREGATE (t))
+	  if (! TYPE_HAS_CONSTRUCTOR (t) && CLASSTYPE_NON_AGGREGATE (t)
+	      && extra_warnings)
 	    warning (OPT_Wextra, "non-static const member %q+#D in class without a constructor", x);
 	}
       /* A field that is pseudo-const makes the structure likewise.  */
@@ -4605,6 +4607,8 @@ layout_class_type (tree t, tree *virtuals_p)
 	}
 
       type = TREE_TYPE (field);
+      if (type == error_mark_node)
+	continue;
 
       padding = NULL_TREE;
 
@@ -4724,6 +4728,29 @@ layout_class_type (tree t, tree *virtuals_p)
 	warning (OPT_Wabi, "%q+D contains empty classes which may cause base "
 		 "classes to be placed at different locations in a "
 		 "future version of GCC", field);
+
+      /* The middle end uses the type of expressions to determine the
+	 possible range of expression values.  In order to optimize
+	 "x.i > 7" to "false" for a 2-bit bitfield "i", the middle end
+	 must be made aware of the width of "i", via its type.  
+
+         Because C++ does not have integer types of arbitrary width,
+	 we must (for the purposes of the front end) convert from the
+	 type assigned here to the declared type of the bitfield
+	 whenever a bitfield expression is used as an rvalue.
+	 Similarly, when assigning a value to a bitfield, the value
+	 must be converted to the type given the bitfield here.  */
+      if (DECL_C_BIT_FIELD (field))
+	{
+	  tree ftype;
+	  unsigned HOST_WIDE_INT width;
+	  ftype = TREE_TYPE (field);
+	  width = tree_low_cst (DECL_SIZE (field), /*unsignedp=*/1);
+	  if (width != TYPE_PRECISION (ftype))
+	    TREE_TYPE (field) 
+	      = c_build_bitfield_integer_type (width, 
+					       TYPE_UNSIGNED (ftype));
+	}
 
       /* If we needed additional padding after this field, add it
 	 now.  */
@@ -5494,25 +5521,33 @@ pop_class_stack (void)
     --current_class_stack[current_class_depth - 1].hidden;
 }
 
-/* Returns 1 if current_class_type is either T or a nested type of T.
-   We start looking from 1 because entry 0 is from global scope, and has
-   no type.  */
+/* Returns 1 if the class type currently being defined is either T or
+   a nested type of T.  */
 
-int
+bool
 currently_open_class (tree t)
 {
   int i;
-  if (current_class_type && same_type_p (t, current_class_type))
-    return 1;
-  for (i = current_class_depth - 1; i > 0; --i)
+
+  /* We start looking from 1 because entry 0 is from global scope,
+     and has no type.  */
+  for (i = current_class_depth; i > 0; --i)
     {
-      if (current_class_stack[i].hidden)
-	break;
-      if (current_class_stack[i].type
-	  && same_type_p (current_class_stack [i].type, t))
-	return 1;
+      tree c;
+      if (i == current_class_depth)
+	c = current_class_type;
+      else
+	{
+	  if (current_class_stack[i].hidden)
+	    break;
+	  c = current_class_stack[i].type;
+	}
+      if (!c)
+	continue;
+      if (same_type_p (c, t))
+	return true;
     }
-  return 0;
+  return false;
 }
 
 /* If either current_class_type or one of its enclosing classes are derived

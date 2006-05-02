@@ -414,7 +414,10 @@ typedef struct st_parameter_dt
           /* A namelist specific flag used to enable reading input from 
 	     line_buffer for logical reads.  */
 	  unsigned line_buffer_enabled : 1;
-	  /* 18 unused bits.  */
+	  /* An internal unit specific flag used to identify that the associated
+	     unit is internal.  */
+	  unsigned unit_is_internal : 1;
+	  /* 17 unused bits.  */
 
 	  char last_char;
 	  char nml_delim;
@@ -698,6 +701,12 @@ internal_proto(unit_lock);
 
 extern int close_unit (gfc_unit *);
 internal_proto(close_unit);
+
+extern gfc_unit *get_internal_unit (st_parameter_dt *);
+internal_proto(get_internal_unit);
+
+extern void free_internal_unit (st_parameter_dt *);
+internal_proto(free_internal_unit);
 
 extern int is_internal_unit (st_parameter_dt *);
 internal_proto(is_internal_unit);

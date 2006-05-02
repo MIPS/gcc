@@ -906,7 +906,9 @@ constant_expression_warning (tree value)
   if ((TREE_CODE (value) == INTEGER_CST || TREE_CODE (value) == REAL_CST
        || TREE_CODE (value) == VECTOR_CST
        || TREE_CODE (value) == COMPLEX_CST)
-      && TREE_CONSTANT_OVERFLOW (value) && pedantic)
+      && TREE_CONSTANT_OVERFLOW (value)
+      && warn_overflow
+      && pedantic)
     pedwarn ("overflow in constant expression");
 }
 
@@ -927,7 +929,7 @@ overflow_warning (tree value)
     {
       TREE_OVERFLOW (value) = 0;
       if (skip_evaluation == 0)
-	warning (0, "integer overflow in expression");
+	warning (OPT_Woverflow, "integer overflow in expression");
     }
   else if ((TREE_CODE (value) == REAL_CST
 	    || (TREE_CODE (value) == COMPLEX_CST
@@ -936,13 +938,13 @@ overflow_warning (tree value)
     {
       TREE_OVERFLOW (value) = 0;
       if (skip_evaluation == 0)
-	warning (0, "floating point overflow in expression");
+	warning (OPT_Woverflow, "floating point overflow in expression");
     }
   else if (TREE_CODE (value) == VECTOR_CST && TREE_OVERFLOW (value))
     {
       TREE_OVERFLOW (value) = 0;
       if (skip_evaluation == 0)
-	warning (0, "vector overflow in expression");
+	warning (OPT_Woverflow, "vector overflow in expression");
     }
 }
 
@@ -951,7 +953,7 @@ overflow_warning (tree value)
    Invoke this function on every expression that might be implicitly
    converted to an unsigned type.  */
 
-void
+static void
 unsigned_conversion_warning (tree result, tree operand)
 {
   tree type = TREE_TYPE (result);
@@ -964,7 +966,8 @@ unsigned_conversion_warning (tree result, tree operand)
     {
       if (!int_fits_type_p (operand, c_common_signed_type (type)))
 	/* This detects cases like converting -129 or 256 to unsigned char.  */
-	warning (0, "large integer implicitly truncated to unsigned type");
+	warning (OPT_Woverflow,
+		 "large integer implicitly truncated to unsigned type");
       else
 	warning (OPT_Wconversion,
 		 "negative integer implicitly converted to unsigned type");
@@ -1093,7 +1096,8 @@ convert_and_check (tree type, tree expr)
 		 || !constant_fits_type_p (expr,
 					   c_common_unsigned_type (type)))
 		&& skip_evaluation == 0)
-	      warning (0, "overflow in implicit constant conversion");
+	      warning (OPT_Woverflow,
+                       "overflow in implicit constant conversion");
 	}
       else
 	unsigned_conversion_warning (t, expr);
@@ -1869,6 +1873,31 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
     return type;
   else
     return build_nonstandard_integer_type (TYPE_PRECISION (type), unsignedp);
+}
+
+/* Build a bit-field integer type for the given WIDTH and UNSIGNEDP.  */
+
+tree
+c_build_bitfield_integer_type (unsigned HOST_WIDE_INT width, int unsignedp)
+{
+  /* Extended integer types of the same width as a standard type have
+     lesser rank, so those of the same width as int promote to int or
+     unsigned int and are valid for printf formats expecting int or
+     unsigned int.  To avoid such special cases, avoid creating
+     extended integer types for bit-fields if a standard integer type
+     is available.  */
+  if (width == TYPE_PRECISION (integer_type_node))
+    return unsignedp ? unsigned_type_node : integer_type_node;
+  if (width == TYPE_PRECISION (signed_char_type_node))
+    return unsignedp ? unsigned_char_type_node : signed_char_type_node;
+  if (width == TYPE_PRECISION (short_integer_type_node))
+    return unsignedp ? short_unsigned_type_node : short_integer_type_node;
+  if (width == TYPE_PRECISION (long_integer_type_node))
+    return unsignedp ? long_unsigned_type_node : long_integer_type_node;
+  if (width == TYPE_PRECISION (long_long_integer_type_node))
+    return (unsignedp ? long_long_unsigned_type_node
+	    : long_long_integer_type_node);
+  return build_nonstandard_integer_type (width, unsignedp);
 }
 
 /* The C version of the register_builtin_type langhook.  */

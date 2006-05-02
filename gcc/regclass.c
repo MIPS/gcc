@@ -811,8 +811,7 @@ struct costs
 /* Structure used to record preferences of given pseudo.  */
 struct reg_pref
 {
-  /* (enum reg_class) prefclass is the preferred class.  May be
-     NO_REGS if no class is better than memory.  */
+  /* (enum reg_class) prefclass is the preferred class.  */
   char prefclass;
 
   /* altclass is a register class that we should use for allocating
@@ -1315,10 +1314,6 @@ regclass (rtx f, int nregs)
 		best = reg_class_subunion[(int) best][class];
 	    }
 
-	  /* If no register class is better than memory, use memory. */
-	  if (p->mem_cost < best_cost)
-	    best = NO_REGS;
-
 	  /* Record the alternate register class; i.e., a class for which
 	     every register in it is better than using memory.  If adding a
 	     class would make a smaller class (i.e., no union of just those
@@ -1529,7 +1524,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		     to what we would add if this register were not in the
 		     appropriate class.  */
 
-		  if (reg_pref && reg_pref[REGNO (op)].prefclass != NO_REGS)
+		  if (reg_pref)
 		    alt_cost
 		      += (may_move_in_cost[mode]
 			  [(unsigned char) reg_pref[REGNO (op)].prefclass]
@@ -1755,7 +1750,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		     to what we would add if this register were not in the
 		     appropriate class.  */
 
-		  if (reg_pref && reg_pref[REGNO (op)].prefclass != NO_REGS)
+		  if (reg_pref)
 		    alt_cost
 		      += (may_move_in_cost[mode]
 			  [(unsigned char) reg_pref[REGNO (op)].prefclass]
@@ -1841,8 +1836,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 	  int class;
 	  unsigned int nr;
 
-	  if (regno >= FIRST_PSEUDO_REGISTER && reg_pref != 0
-	      && reg_pref[regno].prefclass != NO_REGS)
+	  if (regno >= FIRST_PSEUDO_REGISTER && reg_pref != 0)
 	    {
 	      enum reg_class pref = reg_pref[regno].prefclass;
 
@@ -2176,13 +2170,28 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 
       if (!reg_n_info)
 	{
-	  VARRAY_REG_INIT (reg_n_info, regno_allocated, "reg_n_info");
+	  reg_n_info = VEC_alloc (reg_info_p, heap, regno_allocated);
+	  VEC_safe_grow (reg_info_p, heap, reg_n_info, regno_allocated);
+	  memset (VEC_address (reg_info_p, reg_n_info), 0,
+		  sizeof (reg_info_p) * regno_allocated);
 	  renumber = xmalloc (size_renumber);
 	  reg_pref_buffer = XNEWVEC (struct reg_pref, regno_allocated);
 	}
       else
 	{
-	  VARRAY_GROW (reg_n_info, regno_allocated);
+	  size_t old_length = VEC_length (reg_info_p, reg_n_info);
+	  if (old_length < regno_allocated)
+	    {
+	      reg_info_p *addr;
+	      VEC_safe_grow (reg_info_p, heap, reg_n_info, regno_allocated);
+	      addr = VEC_address (reg_info_p, reg_n_info);
+	      memset (&addr[old_length], 0,
+		      sizeof (reg_info_p) * (regno_allocated - old_length));
+	    }
+	  else if (regno_allocated < old_length)
+	    {
+	      VEC_truncate (reg_info_p, reg_n_info, regno_allocated);
+	    }
 
 	  if (new_p)		/* If we're zapping everything, no need to realloc.  */
 	    {
@@ -2238,7 +2247,8 @@ allocate_reg_info (size_t num_regs, int new_p, int renumber_p)
 
 	  for (i = min_index+local_min; i <= max; i++)
 	    {
-	      VARRAY_REG (reg_n_info, i) = &reg_data->data[i-min_index];
+	      VEC_replace (reg_info_p, reg_n_info, i,
+			   &reg_data->data[i-min_index]);
 	      REG_BASIC_BLOCK (i) = REG_BLOCK_UNKNOWN;
 	      renumber[i] = -1;
 	      reg_pref_buffer[i].prefclass = (char) NO_REGS;
@@ -2265,7 +2275,7 @@ free_reg_info (void)
       struct reg_info_data *reg_data;
       struct reg_info_data *reg_next;
 
-      VARRAY_FREE (reg_n_info);
+      VEC_free (reg_info_p, heap, reg_n_info);
       for (reg_data = reg_info_head; reg_data; reg_data = reg_next)
 	{
 	  reg_next = reg_data->next;

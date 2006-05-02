@@ -371,6 +371,9 @@ rvalue (tree expr)
   tree type;
   if (real_lvalue_p (expr))
     {
+      type = is_bitfield_expr_with_lowered_type (expr);
+      if (type)
+	return cp_convert (TYPE_MAIN_VARIANT (type), expr);
       type = TREE_TYPE (expr);
       /* [basic.lval]
 	 

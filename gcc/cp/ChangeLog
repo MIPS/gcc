@@ -1,3 +1,207 @@
+2006-04-30  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27094
+	* pt.c (tsubst_default_argument): Increment function_depth around
+	call to tsubst_expr.
+	* parser.c (cp_parser_parameter_declaration): Likewise.
+	* decl2.c (mark_used): Tidy.
+
+2006-04-30  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27278
+	* decl.c (grok_op_properties): Skip operators with invalid args
+	when checking for class-type or enum-type args.
+
+2006-04-29  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27279
+	* decl.c (copy_fn_p): Skip functions with invalid first arg.
+
+2006-04-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27292
+	* tree.c (rvalue): Convert bitfields to their declared types.
+
+	PR c++/27102
+	* typeck2.c (cxx_incomplete_type_diagnostic): Handle
+	TYPENAME_TYPE.
+
+2006-04-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27292
+	* typeck.c (decay_conversion): Don't adjust bitfield types.
+	(perform_integral_promotions): Treat bitfield enums as enums, not
+	as short integer types.
+	* tree.c (rvalue): Convert bitfields to their correct types.
+
+2006-04-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/19963
+	* class.c (layout_class_type): Skip fields with invalid types.
+
+2006-04-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26912
+	* cp-tree.h (build_this_parm): Declare.
+	(grok_method_quals): Remove.
+	(build_memfn_type): Declare.
+	(build_artificial_parm): Declare.
+	(do_friend): Remove quals parameter.
+	* decl.c (build_this_parm): New function.
+	(grokfndecl): Use it.  Do not pass quals to grokclassfn.
+	(grokdeclarator): Rename quals to memfn_quals.  Avoid allocating
+	unnecessary TYPE_DECLs.  Correct qualification of member function
+	types.  Tidy.
+	* method.c (implicitly_declare_fn): Use build_this_parm.
+	* friend.c (do_friend): Remove quals parameter.
+	* decl2.c (grok_method_quals): Remove.
+	(build_memfn_type): New function.
+	(build_artificial_parm): Give it external linkage.
+	(grokclassfn): Remove quals parameter.  Do not build "this"
+	PARM_DECL here.
+
+	PR c++/26534
+	* cp-tree.h (is_bitfield_expr_with_lowered_type): New function.
+	* typeck.c (is_bitfield_expr_with_lowered_type): New function.
+	(decay_conversion): Convert bitfield expressions to the correct
+	type.
+	(build_modify_expr): Remove spurious conversions.
+	* class.c (layout_class_type): Modify the type of bitfields to
+	indicate a limited range. 
+	* call.c (standard_conversion): Adjust the type of bitfield
+	expressions used in an rvalue context.
+	(build_conditional_expr): Likewise.
+	
+2006-04-22  Kazu Hirata  <kazu@codesourcery.com>
+
+	* decl.c: Fix comment typos.
+
+2006-04-21  Eric Christopher  <echristo@apple.com>
+
+	* decl.c: Fix typo in function name.
+
+2006-04-19  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/26558
+	* parser.c (cp_parser_class_name): Check for invalid typenames.
+	Rearrange code.
+
+	PR c++/26739
+	* pt.c (tsubst_friend_function): Return early if
+	pushdecl_namespace_level fails.
+
+	PR c++/26036
+	* typeck.c (convert_arguments): Return error_mark_node instead of
+	error_mark_list.
+	* cp-tree.h (error_mark_list): Remove declaration.
+	* decl.c (error_mark_list): Remove definition.
+	(cxx_init_decl_processing): Do not initialize error_mark_list.
+
+	PR c++/10385
+	* rtti.c (build_dynamic_cast_1): Check for invalid conversions
+	before calling convert_to_reference.
+	* cvt.c (convert_to_reference): Assert that reftype is a
+	REFERENCE_TYPE.
+
+2006-04-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/27102
+	* class.c (currently_open_class): Tidy.
+	* decl.c (grokdeclarator): If we encounter an erroneous
+	declarator, assume that we have already issued an error message
+	and return.  Return error_mark_node instead of NULL_TREE in more
+	places.  Issue errors about function definitions that do not have
+	a function declarator.  Check for complete types for all function
+	definitions.
+	* cp-tree.h (cp_error_declarator): Remove.
+	(currently_open_class): Change return type.
+	* parser.c (cp_parser_id_expression): Add optional_p parameter.
+	(cp_parser_parse_diagnose_invalid_type_name): Adjust calls.
+	(cp_parser_id_expression): Likewise.
+	(cp_parser_unqualified_id): If the name is optional, return
+	NULL_TREE.
+	(cp_parser_postfix_dot_deref_expression): Adjust calls.
+	(cp_parser_type_parameter): Likewise.
+	(cp_parser_unqualified_id): Likewise.
+	(cp_parser_direct_declarator): Likewise.
+	(cp_parser_declarator_id): Add optional_p parameter.
+	(cp_parser_function_definition_from_specifiers_and_declarator):
+	Assume that start_function indicates failure only if it has issued
+	an error.
+	(cp_parser_omp_var_list_no_open): Adjust calls.
+
+2006-04-17  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c++/26114, c++/26115
+	* typeck.c (cxx_mark_addressable): Restore check for extra_warnings.
+	* class.c (check_field_decls): Ditto.
+
+2006-04-17  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	* init.c (build_offset_ref): Remove superfluous temporary.
+
+2006-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/26365
+	* typeck.c (finish_class_member_access_expr): Robustify
+
+2006-04-15  Kazu Hirata  <kazu@codesourcery.com>
+
+	* Make-lang.in (cp/pt.o): Depend on vecprim.h.
+	* pt.c: Include vecprim.h.
+	(inline_parm_levels): Change the type to VEC(int,heap) *.
+	(inline_parm_levels_used): Remove.
+	(maybe_begin_member_template_processing,
+	maybe_end_member_template_processing): Use VEC instead of
+	VARRAY.
+
+	* cp/call.c: Fix comment typos.
+
+2006-04-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c (cp_parser_init_declarator): Initialize local variables
+	aggressively.
+
+2006-04-12  Roger Sayle  <roger@eyesopen.com>
+
+	* parser.c (cp_parser_init_declarator): Initialise
+	is_parenthesized_init to false to avoid compiler warning.
+
+2006-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (build_operator_new_call): Adjust prototype.
+	(build_new_method_call): Likewise.
+	(build_op_delete_call): Likewise.
+	* init.c (build_raw_new_expr): New function.
+	(build_new_1): Pass information as parameters, rather than
+	bundling it into a NEW_EXPR.
+	(build_new): Adjust accordingly.
+	(build_vec_delete_1): Adjust for changes to build_op_delete_call.
+	(build_delete): Likewise.
+	* decl.c (finish_destructor_body): Likewise.
+	* call.c (build_operator_new_call): Return the allocation function
+	used.
+	(build_op_delete_call): Take allocation function as parameter.
+	(build_special_member_call): Adjust call to build_new_method_call.
+	(build_new_method_call): Return function called.
+	* pt.c (tsubst_copy_and_build): Adjust call to
+	build_new_method_call.
+	* semantics.c (finish_call_expr): Likewise.
+	* parser.c (cp_parser_postfix_expression): Likewise.
+	* typeck2.c (cxx_incomplete_type_diagnostic): Refer to
+	"incomplete", not "undefined", types.
+
+	PR c++/26295
+	* decl.c (grokdeclarator): Remove namespace-handling code for
+	pointers-to-members.
+	* parser.c (cp_parser_ptr_operator): Check for qualified names
+	using namespaces.
+
+	PR c++/26122
+	* parser.c (cp_parser_init_declarator): Adjust logic for deciding
+	whether or not to look for a pure-specifier.
+	(cp_parser_member_declaration): Likewise.
+
 2006-04-08  Kazu Hirata  <kazu@codesourcery.com>
 
 	* decl2.c, pt.c, semantics.c: Fix comment typos.
@@ -37,7 +241,7 @@
 	PR c++/21581
 	* parser.c (cp_parser_declaration): Support attributes on
 	anonymous namespaces.
-	* name-lookup.c (push_namespace_with_attribs): Anonymous 
+	* name-lookup.c (push_namespace_with_attribs): Anonymous
 	namespaces default to hidden visibility.
 
 2006-03-20  Jason Merrill  <jason@redhat.com>
@@ -47,16 +251,16 @@
 	(start_preparsed_function): Likewise.
 	* cp-tree.h (CP_TYPE_CONTEXT, TYPE_NAMESPACE_SCOPE_P): New macros.
 	(TYPE_CLASS_SCOPE_P, TYPE_FUNCTION_SCOPE_P): New macros.
-	* name-lookup.h (struct cp_binding_level): Add has_visibility 
+	* name-lookup.h (struct cp_binding_level): Add has_visibility
 	bitfield.
 	* name-lookup.c: Include c-pragma.h.
 	(push_namespace_with_attribs): Split out from push_namespace.
 	Push visibility if appropriate.  Set TREE_PUBLIC on namespaces.
 	(leave_scope): Pop visibility if appropriate.
 	* decl2.c (determine_visibility_from_class): Split out from...
-	(determine_visibility): ...here.  Handle function scope and 
+	(determine_visibility): ...here.  Handle function scope and
 	nested classes.
-	(import_export_decl): Move visibility handling to 
+	(import_export_decl): Move visibility handling to
 	determine_visibility_from_class.
 	* parser.c (cp_parser_declaration, cp_parser_namespace_name): Allow
 	attributes on namespace declarations.
@@ -643,7 +847,7 @@
 2006-02-12  Jason Merrill  <jason@redhat.com>
 
 	PR c++/24996
-	* except.c (build_throw): Add a CLEANUP_POINT_EXPR inside the 
+	* except.c (build_throw): Add a CLEANUP_POINT_EXPR inside the
 	TRY_CATCH_EXPR or MUST_NOT_THROW_EXPR.
 
 2006-02-10  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
@@ -790,7 +994,7 @@
 
 	* Make-lang.in (cp-warn): Include CXX_COMPAT_WARN.
 	* repo.c (extract_string, afgets): Use cast when converting from
-	void *. 
+	void *.
 
 2006-01-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
@@ -824,7 +1028,7 @@
 2006-01-28  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* call.c (joust): Pass option code to warning.  Use inform for
-	explanation. 
+	explanation.
 	* class.c (check_bases): Likewise.
 	(maybe_warn_about_overly_private_class): Likewise.
 	(check_field_decls): Likewise.
@@ -888,7 +1092,7 @@
 	(pfn_from_ptrmemfunc): Add prototype, make static.
 
 2006-01-24  Dirk Mueller  <dmueller@suse.de>
-	
+
 	* typeck.c (build_binary_op): Use OPT_Wfloat_equal in warning().
 
 2006-01-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
@@ -939,7 +1143,7 @@
 
 	PR c++/10891
 	* rtti.c (build_dynamic_cast): Reject dynamic_cast use if
-	-fno-rtti. 
+	-fno-rtti.
 
 2006-01-21  Mark Mitchell  <mark@codesourcery.com>
 
@@ -951,9 +1155,9 @@
 	PR c++/25856
 	* decl.c (begin_destructor_body): Robustify.
 
-	PR c++/25858 
+	PR c++/25858
 	* parser.c (cp_parser_direct_declarator): Robustify.
-	
+
 2006-01-20  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* parser.c (cp_lexer_next_token_is_keyword): Simplify.
@@ -4711,7 +4915,7 @@
 	* pt.c (instantiate_class_template,
 	resolve_typename_type): Likewise.
 
-2005-01-03  Volker Reichelt  <reichelt@igpm.rwth-aaachen.de>
+2005-01-03  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	PR c++/14136
 	* parser.c (cp_parser_unqualified_id): Do not issue error message

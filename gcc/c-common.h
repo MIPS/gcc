@@ -644,6 +644,7 @@ extern tree c_common_type_for_size (unsigned int, int);
 extern tree c_common_unsigned_type (tree);
 extern tree c_common_signed_type (tree);
 extern tree c_common_signed_or_unsigned_type (int, tree);
+extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree c_common_truthvalue_conversion (tree);
 extern void c_apply_type_quals_to_decl (int, tree);
 extern tree c_sizeof_or_alignof_type (tree, bool, int);
@@ -658,7 +659,6 @@ extern void strict_aliasing_warning(tree, tree, tree);
 extern void empty_body_warning (tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (tree);
-extern void unsigned_conversion_warning (tree, tree);
 extern bool c_determine_visibility (tree);
 extern bool same_scalar_type_ignoring_signedness (tree, tree);
 

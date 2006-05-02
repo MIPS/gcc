@@ -391,7 +391,7 @@ DEFPARAM(PARAM_MAX_CSE_PATH_LENGTH,
 	 "The maximum length of path considered in cse",
 	 10, 0, 0)
 DEFPARAM(PARAM_MAX_CSE_INSNS,
-	 "max-flow-memory-locations",
+	 "max-cse-insns",
 	 "The maximum instructions CSE process before flushing",
 	 1000, 0, 0)
 
@@ -582,6 +582,12 @@ DEFPARAM (PARAM_MAX_FIELDS_FOR_FIELD_SENSITIVE,
           "max-fields-for-field-sensitive",
 	  "Maximum number of fields in a structure before pointer analysis treats the structure as a single variable",
 	  100, 0, 0)
+
+DEFPARAM(PARAM_MAX_SCHED_READY_INSNS,
+	 "max-sched-ready-insns",
+	 "The maximum number of instructions ready to be issued to be considered by the scheduler during the first scheduling pass",
+	 100, 0, 0)
+
 /*
 Local variables:
 mode:c
