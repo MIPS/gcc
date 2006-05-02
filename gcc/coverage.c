@@ -20,8 +20,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #define GCOV_LINKAGE
@@ -262,16 +262,16 @@ read_counts_file (void)
 	  entry = *slot;
 	  if (!entry)
 	    {
-	      *slot = entry = xcalloc (1, sizeof (counts_entry_t));
+	      *slot = entry = XCNEW (counts_entry_t);
 	      entry->ident = elt.ident;
 	      entry->ctr = elt.ctr;
 	      entry->checksum = checksum;
 	      entry->summary.num = n_counts;
-	      entry->counts = xcalloc (n_counts, sizeof (gcov_type));
+	      entry->counts = XCNEWVEC (gcov_type, n_counts);
 	    }
 	  else if (entry->checksum != checksum)
 	    {
-	      error ("coverage mismatch for function %u while reading execution counters.",
+	      error ("coverage mismatch for function %u while reading execution counters",
 		     fn_ident);
 	      error ("checksum is %x instead of %x", entry->checksum, checksum);
 	      htab_delete (counts_hash);
@@ -279,7 +279,7 @@ read_counts_file (void)
 	    }
 	  else if (entry->summary.num != n_counts)
 	    {
-	      error ("coverage mismatch for function %u while reading execution counters.",
+	      error ("coverage mismatch for function %u while reading execution counters",
 		     fn_ident);
 	      error ("number of counters is %d instead of %d", entry->summary.num, n_counts);
 	      htab_delete (counts_hash);
@@ -345,7 +345,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
   entry = htab_find (counts_hash, &elt);
   if (!entry)
     {
-      warning (0, "no coverage for function %qs found.", IDENTIFIER_POINTER
+      warning (0, "no coverage for function %qs found", IDENTIFIER_POINTER
 	       (DECL_ASSEMBLER_NAME (current_function_decl)));
       return 0;
     }
@@ -353,7 +353,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
   checksum = compute_checksum ();
   if (entry->checksum != checksum)
     {
-      error ("coverage mismatch for function %qs while reading counter %qs.",
+      error ("coverage mismatch for function %qs while reading counter %qs",
 	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
 	     ctr_names[counter]);
       error ("checksum is %x instead of %x", entry->checksum, checksum);
@@ -361,7 +361,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
     }
   else if (entry->summary.num != expected)
     {
-      error ("coverage mismatch for function %qs while reading counter %qs.",
+      error ("coverage mismatch for function %qs while reading counter %qs",
 	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)),
 	     ctr_names[counter]);
       error ("number of counters is %d instead of %d", entry->summary.num, expected);
@@ -410,32 +410,6 @@ coverage_counter_alloc (unsigned counter, unsigned num)
   return 1;
 }
 
-/* Generate a MEM rtl to access COUNTER NO.  */
-
-rtx
-rtl_coverage_counter_ref (unsigned counter, unsigned no)
-{
-  enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
-  rtx ref;
-
-  gcc_assert (no < fn_n_ctrs[counter] - fn_b_ctrs[counter]);
-  no += prg_n_ctrs[counter] + fn_b_ctrs[counter];
-  if (!ctr_labels[counter])
-      {
-        ctr_labels[counter] = gen_rtx_SYMBOL_REF (Pmode,
-			       ggc_strdup (IDENTIFIER_POINTER (DECL_NAME
-			       (tree_ctr_tables[counter]))));
-        SYMBOL_REF_FLAGS (ctr_labels[counter]) = SYMBOL_FLAG_LOCAL;
-      }
-  ref = plus_constant (ctr_labels[counter],
-		       GCOV_TYPE_SIZE / BITS_PER_UNIT * no);
-  ref = gen_rtx_MEM (mode, ref);
-  set_mem_alias_set (ref, new_alias_set ());
-  MEM_NOTRAP_P (ref) = 1;
-
-  return ref;
-}
-
 /* Generate a tree to access COUNTER NO.  */
 
 tree
@@ -471,36 +445,42 @@ coverage_checksum_string (unsigned chksum, const char *string)
      as the checksums are used only for sanity checking.  */
   for (i = 0; string[i]; i++)
     {
+      int offset = 0;
+      if (!strncmp (string + i, "_GLOBAL__N_", 11))
+      offset = 11;
       if (!strncmp (string + i, "_GLOBAL__", 9))
-	for (i = i + 9; string[i]; i++)
-	  if (string[i]=='_')
-	    {
-	      int y;
-	      unsigned seed;
-	      int scan;
+      offset = 9;
 
-	      for (y = 1; y < 9; y++)
-		if (!(string[i + y] >= '0' && string[i + y] <= '9')
-		    && !(string[i + y] >= 'A' && string[i + y] <= 'F'))
-		  break;
-	      if (y != 9 || string[i + 9] != '_')
-		continue;
-	      for (y = 10; y < 18; y++)
-		if (!(string[i + y] >= '0' && string[i + y] <= '9')
-		    && !(string[i + y] >= 'A' && string[i + y] <= 'F'))
-		  break;
-	      if (y != 18)
-		continue;
-	      scan = sscanf (string + i + 10, "%X", &seed);
-	      gcc_assert (scan);
-	      if (seed != crc32_string (0, flag_random_seed))
-		continue;
-	      string = dup = xstrdup (string);
-	      for (y = 10; y < 18; y++)
-		dup[i + y] = '0';
-	      break;
-	    }
-      break;
+      /* C++ namespaces do have scheme:
+         _GLOBAL__N_<filename>_<wrongmagicnumber>_<magicnumber>functionname
+       since filename might contain extra underscores there seems
+       to be no better chance then walk all possible offsets looking
+       for magicnuber.  */
+      if (offset)
+        for (;string[offset]; offset++)
+        for (i = i + offset; string[i]; i++)
+          if (string[i]=='_')
+            {
+              int y;
+
+              for (y = 1; y < 9; y++)
+                if (!(string[i + y] >= '0' && string[i + y] <= '9')
+                    && !(string[i + y] >= 'A' && string[i + y] <= 'F'))
+                  break;
+              if (y != 9 || string[i + 9] != '_')
+                continue;
+              for (y = 10; y < 18; y++)
+                if (!(string[i + y] >= '0' && string[i + y] <= '9')
+                    && !(string[i + y] >= 'A' && string[i + y] <= 'F'))
+                  break;
+              if (y != 18)
+                continue;
+              if (!dup)
+                string = dup = xstrdup (string);
+              for (y = 10; y < 18; y++)
+                dup[i + y] = '0';
+            }
+        break;
     }
 
   chksum = crc32_string (chksum, string);
@@ -520,10 +500,8 @@ compute_checksum (void)
   unsigned chksum = xloc.line;
 
   chksum = coverage_checksum_string (chksum, xloc.file);
-  /* Do not use DECL_ASSEMBLER_NAME here; with IMA names of static functions
-     get suffixes attached that differ between generate and use runs.  */
   chksum = coverage_checksum_string
-    (chksum, IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
+    (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
 
   return chksum;
 }
@@ -591,7 +569,7 @@ coverage_end_function (void)
     {
       struct function_list *item;
 
-      item = xmalloc (sizeof (struct function_list));
+      item = XNEW (struct function_list);
 
       *functions_tail = item;
       functions_tail = &item->next;
@@ -674,10 +652,13 @@ build_fn_info_value (const struct function_list *function, tree type)
 	array_value = tree_cons (NULL_TREE, counters, array_value);
       }
 
-  array_value = build_constructor (TREE_TYPE (fields), nreverse (array_value));
+  /* FIXME: use build_constructor directly.  */
+  array_value = build_constructor_from_list (TREE_TYPE (fields),
+					     nreverse (array_value));
   value = tree_cons (fields, array_value, value);
 
-  value = build_constructor (type, nreverse (value));
+  /* FIXME: use build_constructor directly.  */
+  value = build_constructor_from_list (type, nreverse (value));
 
   return value;
 }
@@ -770,7 +751,8 @@ build_ctr_info_value (unsigned int counter, tree type)
 		     build1 (ADDR_EXPR, TREE_TYPE (fields), fn),
 		     value);
 
-  value = build_constructor (type, nreverse (value));
+  /* FIXME: use build_constructor directly.  */
+  value = build_constructor_from_list (type, nreverse (value));
 
   return value;
 }
@@ -858,7 +840,9 @@ build_gcov_info (void)
       array_type = build_index_type (build_int_cst (NULL_TREE, n_fns - 1));
       array_type = build_array_type (fn_info_type, array_type);
 
-      fn_info_value = build_constructor (array_type, nreverse (fn_info_value));
+      /* FIXME: use build_constructor directly.  */
+      fn_info_value = build_constructor_from_list (array_type,
+						   nreverse (fn_info_value));
       fn_info_value = build1 (ADDR_EXPR, fn_info_ptr_type, fn_info_value);
     }
   else
@@ -896,8 +880,9 @@ build_gcov_info (void)
       ctr_info_value = tree_cons (NULL_TREE,
 				  build_ctr_info_value (ix, ctr_info_type),
 				  ctr_info_value);
-  ctr_info_value = build_constructor (ctr_info_ary_type,
-				      nreverse (ctr_info_value));
+  /* FIXME: use build_constructor directly.  */
+  ctr_info_value = build_constructor_from_list (ctr_info_ary_type,
+				                nreverse (ctr_info_value));
 
   field = build_decl (FIELD_DECL, NULL_TREE, ctr_info_ary_type);
   TREE_CHAIN (field) = fields;
@@ -906,7 +891,8 @@ build_gcov_info (void)
 
   finish_builtin_struct (type, "__gcov_info", fields, NULL_TREE);
 
-  value = build_constructor (type, nreverse (value));
+  /* FIXME: use build_constructor directly.  */
+  value = build_constructor_from_list (type, nreverse (value));
 
   return value;
 }
@@ -965,12 +951,12 @@ coverage_init (const char *filename)
   int len = strlen (filename);
 
   /* Name of da file.  */
-  da_file_name = xmalloc (len + strlen (GCOV_DATA_SUFFIX) + 1);
+  da_file_name = XNEWVEC (char, len + strlen (GCOV_DATA_SUFFIX) + 1);
   strcpy (da_file_name, filename);
   strcat (da_file_name, GCOV_DATA_SUFFIX);
 
   /* Name of bbg file.  */
-  bbg_file_name = xmalloc (len + strlen (GCOV_NOTE_SUFFIX) + 1);
+  bbg_file_name = XNEWVEC (char, len + strlen (GCOV_NOTE_SUFFIX) + 1);
   strcpy (bbg_file_name, filename);
   strcat (bbg_file_name, GCOV_NOTE_SUFFIX);
 

@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -44,9 +44,12 @@ gen_lowpart_general (enum machine_mode mode, rtx x)
 
   if (result)
     return result;
-  else if (REG_P (x))
+  /* If it's a REG, it must be a hard reg that's not valid in MODE.  */
+  else if (REG_P (x)
+	   /* Or we could have a subreg of a floating point value.  */
+	   || (GET_CODE (x) == SUBREG
+	       && FLOAT_MODE_P (GET_MODE (SUBREG_REG (x)))))
     {
-      /* Must be a hard reg that's not valid in MODE.  */
       result = gen_lowpart_common (mode, copy_to_reg (x));
       gcc_assert (result != 0);
       return result;
@@ -112,6 +115,13 @@ reg_nonzero_bits_general (rtx x ATTRIBUTE_UNUSED,
                           unsigned HOST_WIDE_INT *nonzero ATTRIBUTE_UNUSED)
 {
   return NULL;
+}
+
+bool
+reg_truncated_to_mode_general (enum machine_mode mode ATTRIBUTE_UNUSED,
+			       rtx x ATTRIBUTE_UNUSED)
+{
+  return false;
 }
 
 /* Assuming that X is an rtx (e.g., MEM, REG or SUBREG) for a fixed-point

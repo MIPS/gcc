@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -154,7 +154,8 @@ static enum machine_mode gpr_mode;
 /* Initialize the GCC target structure.  */
 static struct machine_function* iq2000_init_machine_status (void);
 static bool iq2000_handle_option      (size_t, const char *, int);
-static void iq2000_select_rtx_section (enum machine_mode, rtx, unsigned HOST_WIDE_INT);
+static section *iq2000_select_rtx_section (enum machine_mode, rtx,
+					   unsigned HOST_WIDE_INT);
 static void iq2000_init_builtins      (void);
 static rtx  iq2000_expand_builtin     (tree, rtx, rtx, enum machine_mode, int);
 static bool iq2000_return_in_memory   (tree, tree);
@@ -163,7 +164,7 @@ static void iq2000_setup_incoming_varargs (CUMULATIVE_ARGS *,
 					   int);
 static bool iq2000_rtx_costs          (rtx, int, int, int *);
 static int  iq2000_address_cost       (rtx);
-static void iq2000_select_section     (tree, int, unsigned HOST_WIDE_INT);
+static section *iq2000_select_section (tree, int, unsigned HOST_WIDE_INT);
 static bool iq2000_return_in_memory   (tree, tree);
 static bool iq2000_pass_by_reference  (CUMULATIVE_ARGS *, enum machine_mode,
 				       tree, bool);
@@ -184,6 +185,11 @@ static int  iq2000_arg_partial_bytes  (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_ADDRESS_COST		iq2000_address_cost
 #undef  TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION	iq2000_select_section
+
+/* The assembler supports switchable .bss sections, but
+   iq2000_select_section doesn't yet make use of them.  */
+#undef  TARGET_HAVE_SWITCHABLE_BSS_SECTIONS
+#define TARGET_HAVE_SWITCHABLE_BSS_SECTIONS false
 
 #undef  TARGET_PROMOTE_FUNCTION_ARGS
 #define TARGET_PROMOTE_FUNCTION_ARGS	hook_bool_tree_true
@@ -1124,7 +1130,7 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	       "function_adv({gp reg found = %d, arg # = %2d, words = %2d}, %4s, ",
 	       cum->gp_reg_found, cum->arg_number, cum->arg_words,
 	       GET_MODE_NAME (mode));
-      fprintf (stderr, HOST_PTR_PRINTF, (const PTR) type);
+      fprintf (stderr, "%p", (void *) type);
       fprintf (stderr, ", %d )\n\n", named);
     }
 
@@ -1197,7 +1203,7 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, tree type,
 	       "function_arg( {gp reg found = %d, arg # = %2d, words = %2d}, %4s, ",
 	       cum->gp_reg_found, cum->arg_number, cum->arg_words,
 	       GET_MODE_NAME (mode));
-      fprintf (stderr, HOST_PTR_PRINTF, (const PTR) type);
+      fprintf (stderr, "%p", (void *) type);
       fprintf (stderr, ", %d ) = ", named);
     }
 
@@ -1805,7 +1811,7 @@ save_restore_insns (int store_p)
 
   if (gp_offset < 0 || end_offset < 0)
     internal_error
-      ("gp_offset (%ld) or end_offset (%ld) is less than zero.",
+      ("gp_offset (%ld) or end_offset (%ld) is less than zero",
        (long) gp_offset, (long) end_offset);
 
   else if (gp_offset < 32768)
@@ -2146,15 +2152,13 @@ symbolic_expression_p (rtx x)
 /* Choose the section to use for the constant rtx expression X that has
    mode MODE.  */
 
-static void
+static section *
 iq2000_select_rtx_section (enum machine_mode mode, rtx x ATTRIBUTE_UNUSED,
 			   unsigned HOST_WIDE_INT align)
 {
   /* For embedded applications, always put constants in read-only data,
      in order to reduce RAM usage.  */
-      /* For embedded applications, always put constants in read-only data,
-         in order to reduce RAM usage.  */
-  mergeable_constant_section (mode, align, 0);
+  return mergeable_constant_section (mode, align, 0);
 }
 
 /* Choose the section to use for DECL.  RELOC is true if its value contains
@@ -2164,7 +2168,7 @@ iq2000_select_rtx_section (enum machine_mode mode, rtx x ATTRIBUTE_UNUSED,
    ENCODE_SECTION_INFO in iq2000.h so that references to these symbols
    are done correctly.  */
 
-static void
+static section *
 iq2000_select_section (tree decl, int reloc ATTRIBUTE_UNUSED,
 		       unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
@@ -2179,9 +2183,9 @@ iq2000_select_section (tree decl, int reloc ATTRIBUTE_UNUSED,
 	       || TREE_CONSTANT (DECL_INITIAL (decl))))
 	  /* Deal with calls from output_constant_def_contents.  */
 	  || TREE_CODE (decl) != VAR_DECL)
-	readonly_data_section ();
+	return readonly_data_section;
       else
-	data_section ();
+	return data_section;
     }
   else
     {
@@ -2194,9 +2198,9 @@ iq2000_select_section (tree decl, int reloc ATTRIBUTE_UNUSED,
 	       || TREE_CONSTANT (DECL_INITIAL (decl))))
 	  /* Deal with calls from output_constant_def_contents.  */
 	  || TREE_CODE (decl) != VAR_DECL)
-	readonly_data_section ();
+	return readonly_data_section;
       else
-	data_section ();
+	return data_section;
     }
 }
 /* Return register to use for a function return value with VALTYPE for function

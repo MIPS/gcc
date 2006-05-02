@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-gimple.h"
 #include "rtl.h"
 #include "insn-config.h"
+#include "integrate.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -273,64 +274,6 @@ lhd_types_compatible_p (tree x, tree y)
   return TYPE_MAIN_VARIANT (x) == TYPE_MAIN_VARIANT (y);
 }
 
-tree
-lhd_optimize_build_field_reference (tree t1 ATTRIBUTE_UNUSED, 
-				    tree t2 ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
-}
-
-tree
-lhd_optimize_build_array_ref (tree t1 ATTRIBUTE_UNUSED,
-			      tree t2 ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
-}
-
-tree
-lhd_optimize_decl_attributes (tree *t1 ATTRIBUTE_UNUSED,
-			      tree  t2 ATTRIBUTE_UNUSED,
-			      int i ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
-}
-
-tree
-lhd_optimize_build_pointer_ref (tree t ATTRIBUTE_UNUSED,
-				const char *c ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
-}
-
-tree
-lhd_optimize_lookup_field (tree t1 ATTRIBUTE_UNUSED,
-			   tree t2 ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
-}
-
-tree
-lhd_optimize_build_data_struct (void *type_info ATTRIBUTE_UNUSED,
-				char *name ATTRIBUTE_UNUSED,
-				tree t ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
-}
-
-tree
-lhd_optimize_sizeof_type (tree t ATTRIBUTE_UNUSED, 
-			  bool is_sizeof ATTRIBUTE_UNUSED, 
-			  int i ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
-}
-
-void
-lhd_optimize_structure_reorg_optimization (void)
-{
-  return;
-}
-
 /* lang_hooks.tree_inlining.walk_subtrees is called by walk_tree()
    after handling common cases, but before walking code-specific
    sub-trees.  If this hook is overridden for a language, it should
@@ -379,6 +322,19 @@ lhd_tree_inlining_disregard_inline_limits (tree fn)
   return 0;
 }
 
+/* lang_hooks.tree_inlining.add_pending_fn_decls is called before
+   starting to inline a function, to push any language-specific
+   functions that should not be inlined into the current function,
+   into VAFNP.  PFN is the top of varray, and should be returned if no
+   functions are pushed into VAFNP.  The top of the varray should be
+   returned.  */
+
+tree
+lhd_tree_inlining_add_pending_fn_decls (void *vafnp ATTRIBUTE_UNUSED, tree pfn)
+{
+  return pfn;
+}
+
 /* lang_hooks.tree_inlining.auto_var_in_fn_p is called to determine
    whether VT is an automatic variable defined in function FT.  */
 
@@ -392,28 +348,6 @@ lhd_tree_inlining_auto_var_in_fn_p (tree var, tree fn)
 	      || TREE_CODE (var) == RESULT_DECL));
 }
 
-/* lang_hooks.tree_inlining.copy_res_decl_for_inlining should return a
-   declaration for the result RES of function FN to be inlined into
-   CALLER.  NDP points to an integer that should be set in case a new
-   declaration wasn't created (presumably because RES was of aggregate
-   type, such that a TARGET_EXPR is used for the result).  TEXPS is a
-   pointer to a varray with the stack of TARGET_EXPRs seen while
-   inlining functions into caller; the top of TEXPS is supposed to
-   match RES.  */
-
-tree
-lhd_tree_inlining_copy_res_decl_for_inlining (tree res, tree fn, tree caller,
-                                              void *dm ATTRIBUTE_UNUSED,
-                                              int *ndp ATTRIBUTE_UNUSED,
-                                              tree return_slot_addr ATTRIBUTE_UNUSED)
-{
-  if (return_slot_addr)
-    return build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (return_slot_addr)),
-                   return_slot_addr);
-  else
-    return copy_decl_for_dup (res, fn, caller, false);
-}
-
 /* lang_hooks.tree_inlining.anon_aggr_type_p determines whether T is a
    type node representing an anonymous aggregate (union, struct, etc),
    i.e., one whose members are in the same scope as the union itself.  */
@@ -422,6 +356,25 @@ int
 lhd_tree_inlining_anon_aggr_type_p (tree t ATTRIBUTE_UNUSED)
 {
   return 0;
+}
+
+/* lang_hooks.tree_inlining.start_inlining and end_inlining perform any
+   language-specific bookkeeping necessary for processing
+   FN. start_inlining returns nonzero if inlining should proceed, zero if
+   not.
+
+   For instance, the C++ version keeps track of template instantiations to
+   avoid infinite recursion.  */
+
+int
+lhd_tree_inlining_start_inlining (tree fn ATTRIBUTE_UNUSED)
+{
+  return 1;
+}
+
+void
+lhd_tree_inlining_end_inlining (tree fn ATTRIBUTE_UNUSED)
+{
 }
 
 /* lang_hooks.tree_inlining.convert_parm_for_inlining performs any
@@ -514,7 +467,7 @@ write_global_declarations (void)
 
   tree globals = lang_hooks.decls.getdecls ();
   int len = list_length (globals);
-  tree *vec = xmalloc (sizeof (tree) * len);
+  tree *vec = XNEWVEC (tree, len);
   int i;
   tree decl;
 
@@ -525,10 +478,10 @@ write_global_declarations (void)
     vec[len - i - 1] = decl;
 
   wrapup_global_declarations (vec, len);
-
   check_global_declarations (vec, len);
+  emit_debug_global_declarations (vec, len);
 
-    /* Clean up.  */
+  /* Clean up.  */
   free (vec);
 }
 
@@ -589,4 +542,39 @@ HOST_WIDE_INT
 lhd_to_target_charset (HOST_WIDE_INT c)
 {
   return c;
+}
+
+tree
+lhd_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
+		  bool *ti ATTRIBUTE_UNUSED, bool *se ATTRIBUTE_UNUSED)
+{
+  return expr;
+}
+
+/* Return sharing kind if OpenMP sharing attribute of DECL is
+   predetermined, OMP_CLAUSE_DEFAULT_UNSPECIFIED otherwise.  */
+
+enum omp_clause_default_kind
+lhd_omp_predetermined_sharing (tree decl ATTRIBUTE_UNUSED)
+{
+  if (DECL_ARTIFICIAL (decl))
+    return OMP_CLAUSE_DEFAULT_SHARED;
+  return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
+}
+
+/* Generate code to copy SRC to DST.  */
+
+tree
+lhd_omp_assignment (tree clause ATTRIBUTE_UNUSED, tree dst, tree src)
+{
+  return build2 (MODIFY_EXPR, void_type_node, dst, src);
+}
+
+/* Register language specific type size variables as potentially OpenMP
+   firstprivate variables.  */
+
+void
+lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
+				   tree t ATTRIBUTE_UNUSED)
+{
 }

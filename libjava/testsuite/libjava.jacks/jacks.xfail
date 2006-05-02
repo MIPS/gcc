@@ -5,7 +5,6 @@
 13.1-runtime-constant-1
 13.1-runtime-constant-3
 13.1-runtime-field-1
-13.1-runtime-method-5
 13.1-runtime-method-6
 13.4.8-constant-runtime-1
 13.4.8-constant-runtime-2
@@ -152,8 +151,8 @@
 15.11.2-syntax-1
 15.12.1-syntax-1
 15.12.1-type-14
-15.12.2.1-accessibility-method-2
-15.12.2.1-accessibility-method-4
+15.12.2.1-accessibility-method-3
+15.12.2.1-accessibility-method-5
 15.12.2.1-accessibility-method-6
 15.12.2.2-ambiguous-10
 15.12.2.2-ambiguous-12
@@ -174,6 +173,7 @@
 15.12.3-explicit-constructor-4
 15.12.3-explicit-constructor-5
 15.12.3-explicit-constructor-7
+15.12.3-explicit-constructor-9
 15.12.3-runtime-mode-1
 15.12.3-runtime-mode-2
 15.12.3-runtime-mode-3
@@ -248,9 +248,6 @@
 15.18.1-float-9
 15.18.1-valid-1
 15.20-2-runtime-1
-15.21-assoc-7
-15.21-assoc-8
-15.21-equal-3
 15.25-runtime-1
 15.26.2-add-12
 15.26.2-and-10
@@ -274,9 +271,8 @@
 15.28-null-1
 15.28-null-3
 15.28-primitive-15
-15.28-primitive-16
 15.28-primitive-17
-15.28-primitive-9
+15.28-primitive-3
 15.28-qualified-name-10
 15.28-qualified-name-5
 15.28-qualified-name-6
@@ -292,9 +288,7 @@
 15.28-simple-namestr-2
 15.28-simple-namestr-3
 15.28-simple-namestr-4
-15.28-string-11
 15.28-string-15
-15.28-string-16
 15.28-string-17
 15.28-string-18
 15.28-string-2
@@ -330,6 +324,7 @@
 15.9.1-qualified-concrete-12
 15.9.1-qualified-concrete-14
 15.9.1-qualified-concrete-16
+15.9.1-qualified-concrete-24
 15.9.1-qualified-concrete-4
 15.9.1-qualified-concrete-5
 15.9.1-unqualified-anonymous-12
@@ -350,8 +345,6 @@
 15.9.4-runtime-creation-1
 15.9.4-runtime-creation-2
 15.9.4-runtime-creation-5
-15.9.5.1-exception-1
-15.9.5.1-exception-3
 15.9.5.1-exception-4
 15.9.5.1-superconstructor-7
 15.9.5.1-superconstructor-8
@@ -456,27 +449,11 @@
 5.1.2-btf-1
 5.1.2-btf-3
 5.1.2-btf-5
-5.1.2-bti-1
-5.1.2-bti-3
-5.1.2-bti-5
-5.1.2-btl-1
-5.1.2-btl-3
-5.1.2-btl-5
-5.1.2-bts-1
-5.1.2-bts-2
-5.1.2-bts-3
-5.1.2-bts-4
-5.1.2-bts-5
 5.1.2-std-3
 5.1.2-std-5
 5.1.2-stf-1
 5.1.2-stf-3
 5.1.2-stf-5
-5.1.2-sti-1
-5.1.2-sti-5
-5.1.2-stl-1
-5.1.2-stl-3
-5.1.2-stl-5
 6.3-1
 6.5.1-type-15
 6.5.1-type-16
@@ -487,14 +464,10 @@
 6.5.5.1-import-2
 6.5.5.1-import-3
 6.5.5.1-nested-14
-6.5.5.1-nested-16
-6.5.5.1-nested-17
 6.5.5.1-nested-19
 6.5.5.1-nested-20
 6.5.5.1-nested-21
 6.5.5.1-nested-23
-6.5.5.1-nested-4
-6.5.5.1-nested-7
 6.5.5.1-nested-8
 6.5.5.1-nested-9
 6.5.5.2-type-4
@@ -552,7 +525,6 @@
 7.6-optional-restrictions-1
 7.6-unnamed-scope-1
 7.6-unnamed-scope-2
-8.1.1.1-12
 8.1.1.1-default-abstract-11
 8.1.1.1-default-abstract-13
 8.1.1.1-default-abstract-15
@@ -582,8 +554,6 @@
 8.3.1.2-final-29
 8.3.2-abrupt-3
 8.3.2-abrupt-5
-8.3.2-abrupt-6
-8.3.2-abrupt-7
 8.3.2.2-super-2
 8.3.2.3-illegal-forward-instance-1
 8.3.2.3-illegal-forward-instance-2
@@ -609,7 +579,6 @@
 8.4.6-inheritance-2
 8.4.6.1-override-3
 8.4.6.2-hiding-3
-8.4.6.2-hiding-5
 8.4.6.3-default-10
 8.4.6.3-default-12
 8.4.6.3-default-14
@@ -634,8 +603,6 @@
 8.5-inheritance-2
 8.5-inheritance-3
 8.5-inheritance-6
-8.5.2-accessible-static-member-usage-3
-8.5.2-non-static-member-usage-2
 8.5.2-non-static-member-usage-4
 8.5.2-non-static-member-usage-5
 8.6-abrupt-1
@@ -676,7 +643,6 @@
 9.1.1-in-interface-3
 9.1.1-in-interface-9
 9.1.2-supertype-1
-9.1.3-body-5
 9.2-implicit-18
 9.2-implicit-19
 9.2-implicit-2
@@ -690,7 +656,7 @@
 9.4.1-conflict-2
 non-jls-argument-expansion-11
 non-jls-argument-expansion-12
-non-jls-argument-expansion-13
+non-jls-argument-expansion-error-1
 non-jls-argument-expansion-error-2
 non-jls-argument-expansion-tokens-1
 non-jls-jsr41.2-clash-1
@@ -718,4 +684,3 @@ non-jls-jsr41.4-loop-3
 non-jls-jsr41.4-loop-7
 non-jls-jsr41.4-loop-8
 non-jls-jsr41.4-loop-9
-non-jls-zip-2

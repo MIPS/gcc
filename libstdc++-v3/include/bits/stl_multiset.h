@@ -1,6 +1,6 @@
 // Multiset implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -63,8 +63,7 @@
 
 #include <bits/concept_check.h>
 
-namespace _GLIBCXX_STD
-{
+_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD)
 
   // Forward declaration of operators < and ==, needed for friend declaration.
   template <class _Key, class _Compare = std::less<_Key>,
@@ -168,7 +167,7 @@ namespace _GLIBCXX_STD
       template <class _InputIterator>
         multiset(_InputIterator __first, _InputIterator __last)
 	: _M_t(_Compare(), allocator_type())
-        { _M_t.insert_equal(__first, __last); }
+        { _M_t._M_insert_equal(__first, __last); }
 
       /**
        *  @brief  Builds a %multiset from a range.
@@ -186,7 +185,7 @@ namespace _GLIBCXX_STD
 		 const _Compare& __comp,
 		 const allocator_type& __a = allocator_type())
 	: _M_t(__comp, __a)
-        { _M_t.insert_equal(__first, __last); }
+        { _M_t._M_insert_equal(__first, __last); }
 
       /**
        *  @brief  %Multiset copy constructor.
@@ -307,7 +306,7 @@ namespace _GLIBCXX_STD
        */
       iterator
       insert(const value_type& __x)
-      { return _M_t.insert_equal(__x); }
+      { return _M_t._M_insert_equal(__x); }
 
       /**
        *  @brief Inserts an element into the %multiset.
@@ -331,10 +330,7 @@ namespace _GLIBCXX_STD
        */
       iterator
       insert(iterator __position, const value_type& __x)
-      {
-	typedef typename _Rep_type::iterator _Rep_iterator;
-	return _M_t.insert_equal((_Rep_iterator&)__position, __x);
-      }
+      { return _M_t._M_insert_equal(__position, __x); }
 
       /**
        *  @brief A template function that attemps to insert a range of elements.
@@ -347,7 +343,7 @@ namespace _GLIBCXX_STD
       template <class _InputIterator>
         void
         insert(_InputIterator __first, _InputIterator __last)
-        { _M_t.insert_equal(__first, __last); }
+        { _M_t._M_insert_equal(__first, __last); }
 
       /**
        *  @brief Erases an element from a %multiset.
@@ -361,10 +357,7 @@ namespace _GLIBCXX_STD
        */
       void
       erase(iterator __position)
-      {
-	typedef typename _Rep_type::iterator _Rep_iterator;
-	_M_t.erase((_Rep_iterator&)__position);
-      }
+      { _M_t.erase(__position); }
 
       /**
        *  @brief Erases elements according to the provided key.
@@ -394,10 +387,7 @@ namespace _GLIBCXX_STD
        */
       void
       erase(iterator __first, iterator __last)
-      {
-	typedef typename _Rep_type::iterator _Rep_iterator;
-	_M_t.erase((_Rep_iterator&)__first, (_Rep_iterator&)__last);
-      }
+      { _M_t.erase(__first, __last); }
 
       /**
        *  Erases all elements in a %multiset.  Note that this function only
@@ -584,6 +574,6 @@ namespace _GLIBCXX_STD
 	 multiset<_Key, _Compare, _Alloc>& __y)
     { __x.swap(__y); }
 
-} // namespace std
+_GLIBCXX_END_NESTED_NAMESPACE
 
 #endif /* _MULTISET_H */

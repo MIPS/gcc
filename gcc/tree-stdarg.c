@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -59,7 +59,7 @@ reachable_at_most_once (basic_block va_arg_bb, basic_block va_start_bb)
   if (! dominated_by_p (CDI_DOMINATORS, va_arg_bb, va_start_bb))
     return false;
 
-  stack = xmalloc ((n_basic_blocks + 1) * sizeof (edge));
+  stack = XNEWVEC (edge, n_basic_blocks + 1);
   sp = 0;
 
   visited = sbitmap_alloc (last_basic_block);
@@ -125,7 +125,7 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
     {
       unsigned int i;
 
-      si->offsets = xmalloc (num_ssa_names * sizeof (int));
+      si->offsets = XNEWVEC (int, num_ssa_names);
       for (i = 0; i < num_ssa_names; ++i)
 	si->offsets[i] = -1;
     }
@@ -259,7 +259,7 @@ find_va_list_reference (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
     var = SSA_NAME_VAR (var);
 
   if (TREE_CODE (var) == VAR_DECL
-      && bitmap_bit_p (va_list_vars, var_ann (var)->uid))
+      && bitmap_bit_p (va_list_vars, DECL_UID (var)))
     return var;
 
   return NULL_TREE;
@@ -337,12 +337,12 @@ va_list_counter_struct_op (struct stdarg_info *si, tree ap, tree var,
     return false;
 
   if (TREE_CODE (var) != SSA_NAME
-      || bitmap_bit_p (si->va_list_vars, var_ann (SSA_NAME_VAR (var))->uid))
+      || bitmap_bit_p (si->va_list_vars, DECL_UID (SSA_NAME_VAR (var))))
     return false;
 
   base = get_base_address (ap);
   if (TREE_CODE (base) != VAR_DECL
-      || !bitmap_bit_p (si->va_list_vars, var_ann (base)->uid))
+      || !bitmap_bit_p (si->va_list_vars, DECL_UID (base)))
     return false;
 
   if (TREE_OPERAND (ap, 1) == va_list_gpr_counter_field)
@@ -361,12 +361,12 @@ static bool
 va_list_ptr_read (struct stdarg_info *si, tree ap, tree tem)
 {
   if (TREE_CODE (ap) != VAR_DECL
-      || !bitmap_bit_p (si->va_list_vars, var_ann (ap)->uid))
+      || !bitmap_bit_p (si->va_list_vars, DECL_UID (ap)))
     return false;
 
   if (TREE_CODE (tem) != SSA_NAME
       || bitmap_bit_p (si->va_list_vars,
-		       var_ann (SSA_NAME_VAR (tem))->uid)
+		       DECL_UID (SSA_NAME_VAR (tem)))
       || is_global_var (SSA_NAME_VAR (tem)))
     return false;
 
@@ -396,7 +396,7 @@ va_list_ptr_read (struct stdarg_info *si, tree ap, tree tem)
   /* Note the temporary, as we need to track whether it doesn't escape
      the current function.  */
   bitmap_set_bit (si->va_list_escape_vars,
-		  var_ann (SSA_NAME_VAR (tem))->uid);
+		  DECL_UID (SSA_NAME_VAR (tem)));
   return true;
 }
 
@@ -413,11 +413,11 @@ va_list_ptr_write (struct stdarg_info *si, tree ap, tree tem2)
   unsigned HOST_WIDE_INT increment;
 
   if (TREE_CODE (ap) != VAR_DECL
-      || !bitmap_bit_p (si->va_list_vars, var_ann (ap)->uid))
+      || !bitmap_bit_p (si->va_list_vars, DECL_UID (ap)))
     return false;
 
   if (TREE_CODE (tem2) != SSA_NAME
-      || bitmap_bit_p (si->va_list_vars, var_ann (SSA_NAME_VAR (tem2))->uid))
+      || bitmap_bit_p (si->va_list_vars, DECL_UID (SSA_NAME_VAR (tem2))))
     return false;
 
   if (si->compute_sizes <= 0)
@@ -455,7 +455,7 @@ check_va_list_escapes (struct stdarg_info *si, tree lhs, tree rhs)
 
   if (TREE_CODE (rhs) != SSA_NAME
       || ! bitmap_bit_p (si->va_list_escape_vars,
-			 var_ann (SSA_NAME_VAR (rhs))->uid))
+			 DECL_UID (SSA_NAME_VAR (rhs))))
     return;
 
   if (TREE_CODE (lhs) != SSA_NAME || is_global_var (SSA_NAME_VAR (lhs)))
@@ -495,7 +495,7 @@ check_va_list_escapes (struct stdarg_info *si, tree lhs, tree rhs)
     }
 
   bitmap_set_bit (si->va_list_escape_vars,
-		  var_ann (SSA_NAME_VAR (lhs))->uid);
+		  DECL_UID (SSA_NAME_VAR (lhs)));
 }
 
 
@@ -519,7 +519,7 @@ check_all_va_list_escapes (struct stdarg_info *si)
 	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_ALL_USES)
 	    {
 	      if (! bitmap_bit_p (si->va_list_escape_vars,
-				  var_ann (SSA_NAME_VAR (use))->uid))
+				  DECL_UID (SSA_NAME_VAR (use))))
 		continue;
 
 	      if (TREE_CODE (stmt) == MODIFY_EXPR)
@@ -565,12 +565,12 @@ check_all_va_list_escapes (struct stdarg_info *si)
 		    {
 		      if (TREE_CODE (lhs) == SSA_NAME
 			  && bitmap_bit_p (si->va_list_escape_vars,
-					   var_ann (SSA_NAME_VAR (lhs))->uid))
+					   DECL_UID (SSA_NAME_VAR (lhs))))
 			continue;
 
 		      if (TREE_CODE (lhs) == VAR_DECL
 			  && bitmap_bit_p (si->va_list_vars,
-					   var_ann (lhs)->uid))
+					   DECL_UID (lhs)))
 			continue;
 		    }
 		}
@@ -603,7 +603,7 @@ gate_optimize_stdarg (void)
 
 /* Entry point to the stdarg optimization pass.  */
 
-static void
+static unsigned int
 execute_optimize_stdarg (void)
 {
   basic_block bb;
@@ -624,6 +624,7 @@ execute_optimize_stdarg (void)
   va_list_simple_ptr = POINTER_TYPE_P (va_list_type_node)
 		       && (TREE_TYPE (va_list_type_node) == void_type_node
 			   || TREE_TYPE (va_list_type_node) == char_type_node);
+  gcc_assert (is_gimple_reg_type (va_list_type_node) == va_list_simple_ptr);
 
   FOR_EACH_BB (bb)
     {
@@ -690,7 +691,7 @@ execute_optimize_stdarg (void)
 	      break;
 	    }
 
-	  bitmap_set_bit (si.va_list_vars, var_ann (ap)->uid);
+	  bitmap_set_bit (si.va_list_vars, DECL_UID (ap));
 
 	  /* VA_START_BB and VA_START_AP will be only used if there is just
 	     one va_start in the function.  */
@@ -734,12 +735,58 @@ execute_optimize_stdarg (void)
   if (va_list_simple_ptr)
     cfun->va_list_fpr_size = VA_LIST_MAX_FPR_SIZE;
 
+  calculate_dominance_info (CDI_DOMINATORS);
+
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator i;
 
       si.compute_sizes = -1;
       si.bb = bb;
+
+      /* For va_list_simple_ptr, we have to check PHI nodes too.  We treat
+	 them as assignments for the purpose of escape analysis.  This is
+	 not needed for non-simple va_list because virtual phis don't perform
+	 any real data movement.  */
+      if (va_list_simple_ptr)
+	{
+	  tree phi, lhs, rhs;
+	  use_operand_p uop;
+	  ssa_op_iter soi;
+
+	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	    {
+	      lhs = PHI_RESULT (phi);
+
+	      if (!is_gimple_reg (lhs))
+		continue;
+
+	      FOR_EACH_PHI_ARG (uop, phi, soi, SSA_OP_USE)
+		{
+		  rhs = USE_FROM_PTR (uop);
+		  if (va_list_ptr_read (&si, rhs, lhs))
+		    continue;
+		  else if (va_list_ptr_write (&si, lhs, rhs))
+		    continue;
+		  else
+		    check_va_list_escapes (&si, lhs, rhs);
+
+		  if (si.va_list_escapes
+		      || walk_tree (&phi, find_va_list_reference,
+				    si.va_list_vars, NULL))
+		    {
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+			{
+			  fputs ("va_list escapes in ", dump_file);
+			  print_generic_expr (dump_file, phi, dump_flags);
+			  fputc ('\n', dump_file);
+			}
+		      va_list_escapes = true;
+		    }
+		}
+	    }
+	}
+
       for (i = bsi_start (bb);
 	   !bsi_end_p (i) && !va_list_escapes;
 	   bsi_next (&i))
@@ -856,6 +903,7 @@ finish:
 	fprintf (dump_file, "%d", cfun->va_list_fpr_size);
       fputs (" FPR units.\n", dump_file);
     }
+  return 0;
 }
 
 
@@ -863,9 +911,7 @@ struct tree_opt_pass pass_stdarg =
 {
   "stdarg",				/* name */
   gate_optimize_stdarg,			/* gate */
-  NULL, NULL,				/* IPA */
   execute_optimize_stdarg,		/* execute */
-  NULL, NULL,				/* IPA */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

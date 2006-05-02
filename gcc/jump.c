@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This is the pathetic reminder of old fame of the jump-optimization pass
    of the compiler.  Now it contains basically set of utility function to
@@ -56,6 +56,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "reload.h"
 #include "predict.h"
 #include "timevar.h"
+#include "tree-pass.h"
+#include "target.h"
 
 /* Optimize jump y; x: ... y: jumpif... x?
    Don't know if it is worth bothering with.  */
@@ -102,7 +104,7 @@ rebuild_jump_labels (rtx f)
    This simple pass moves barriers and removes duplicates so that the
    old code is happy.
  */
-void
+unsigned int
 cleanup_barriers (void)
 {
   rtx insn, next, prev;
@@ -118,10 +120,28 @@ cleanup_barriers (void)
 	    reorder_insns (insn, insn, prev);
 	}
     }
+  return 0;
 }
 
-void
-purge_line_number_notes (rtx f)
+struct tree_opt_pass pass_cleanup_barriers =
+{
+  "barriers",                           /* name */
+  NULL,                                 /* gate */
+  cleanup_barriers,                     /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+unsigned int
+purge_line_number_notes (void)
 {
   rtx last_note = 0;
   rtx insn;
@@ -130,7 +150,7 @@ purge_line_number_notes (rtx f)
      extraneous.  There should be some indication where that line belonged,
      even if it became empty.  */
 
-  for (insn = f; insn; insn = NEXT_INSN (insn))
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     if (NOTE_P (insn))
       {
 	if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
@@ -156,7 +176,26 @@ purge_line_number_notes (rtx f)
 	    last_note = insn;
 	  }
       }
+  return 0;
 }
+
+struct tree_opt_pass pass_purge_lineno_notes =
+{
+  "elnotes",                            /* name */
+  NULL,                                 /* gate */
+  purge_line_number_notes,              /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
 
 /* Initialize LABEL_NUSES and JUMP_LABEL fields.  Delete any REG_LABEL
    notes whose labels don't occur in the insn any more.  Returns the
@@ -221,11 +260,11 @@ mark_all_labels (rtx f)
       }
 }
 
-/* Move all block-beg, block-end, loop-beg, loop-cont, loop-vtop, loop-end,
-   notes between START and END out before START.  START and END may be such
-   notes.  Returns the values of the new starting and ending insns, which
-   may be different if the original ones were such notes.
-   Return true if there were only such notes and no real instructions.  */
+/* Move all block-beg, block-end and loop-beg notes between START and END out
+   before START.  START and END may be such notes.  Returns the values of the
+   new starting and ending insns, which may be different if the original ones
+   were such notes.  Return true if there were only such notes and no real
+   instructions.  */
 
 bool
 squeeze_notes (rtx* startp, rtx* endp)
@@ -243,9 +282,7 @@ squeeze_notes (rtx* startp, rtx* endp)
       next = NEXT_INSN (insn);
       if (NOTE_P (insn)
 	  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END))
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG))
 	{
 	  /* BLOCK_BEG or BLOCK_END notes only exist in the `final' pass.  */
 	  gcc_assert (NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_BEG
@@ -1002,8 +1039,7 @@ sets_cc0_p (rtx x)
    If the chain loops or we can't find end, return LABEL,
    since that tells caller to avoid changing the insn.
 
-   If RELOAD_COMPLETED is 0, we do not chain across a NOTE_INSN_LOOP_BEG or
-   a USE or CLOBBER.  */
+   If RELOAD_COMPLETED is 0, we do not chain across a USE or CLOBBER.  */
 
 rtx
 follow_jumps (rtx label)
@@ -1024,19 +1060,15 @@ follow_jumps (rtx label)
 	&& BARRIER_P (next));
        depth++)
     {
-      /* Don't chain through the insn that jumps into a loop
-	 from outside the loop,
-	 since that would create multiple loop entry jumps
-	 and prevent loop optimization.  */
       rtx tem;
-      if (!reload_completed)
-	for (tem = value; tem != insn; tem = NEXT_INSN (tem))
-	  if (NOTE_P (tem)
-	      && (NOTE_LINE_NUMBER (tem) == NOTE_INSN_LOOP_BEG
-		  /* ??? Optional.  Disables some optimizations, but makes
-		     gcov output more accurate with -O.  */
-		  || (flag_test_coverage && NOTE_LINE_NUMBER (tem) > 0)))
-	    return value;
+      if (!reload_completed && flag_test_coverage)
+	{
+	  /* ??? Optional.  Disables some optimizations, but makes
+	     gcov output more accurate with -O.  */
+	  for (tem = value; tem != insn; tem = NEXT_INSN (tem))
+	    if (NOTE_P (tem) && NOTE_LINE_NUMBER (tem) > 0)
+	      return value;
+	}
 
       /* If we have found a cycle, make the insn jump to itself.  */
       if (JUMP_LABEL (insn) == label)
@@ -1758,15 +1790,7 @@ invert_jump (rtx jump, rtx nlabel, int delete_unused)
 /* Like rtx_equal_p except that it considers two REGs as equal
    if they renumber to the same value and considers two commutative
    operations to be the same if the order of the operands has been
-   reversed.
-
-   ??? Addition is not commutative on the PA due to the weird implicit
-   space register selection rules for memory addresses.  Therefore, we
-   don't consider a + b == b + a.
-
-   We could/should make this test a little tighter.  Possibly only
-   disabling it on the PA via some backend macro or only disabling this
-   case when the PLUS is inside a MEM.  */
+   reversed.  */
 
 int
 rtx_renumbered_equal_p (rtx x, rtx y)
@@ -1850,6 +1874,7 @@ rtx_renumbered_equal_p (rtx x, rtx y)
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
     case CONST_INT:
+    case CONST_DOUBLE:
       return 0;
 
     case LABEL_REF:
@@ -1879,10 +1904,8 @@ rtx_renumbered_equal_p (rtx x, rtx y)
     return 0;
 
   /* For commutative operations, the RTX match if the operand match in any
-     order.  Also handle the simple binary and unary cases without a loop.
-
-     ??? Don't consider PLUS a commutative operator; see comments above.  */
-  if (COMMUTATIVE_P (x) && code != PLUS)
+     order.  Also handle the simple binary and unary cases without a loop.  */
+  if (targetm.commutative_p (x, UNKNOWN))
     return ((rtx_renumbered_equal_p (XEXP (x, 0), XEXP (y, 0))
 	     && rtx_renumbered_equal_p (XEXP (x, 1), XEXP (y, 1)))
 	    || (rtx_renumbered_equal_p (XEXP (x, 0), XEXP (y, 1))

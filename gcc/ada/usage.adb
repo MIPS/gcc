@@ -6,7 +6,7 @@
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -162,7 +162,7 @@ begin
 
    --  Line for -gnateI switch
 
-   Write_Switch_Char ("eInnn");
+   Write_Switch_Char ("eInn");
    Write_Line ("Index in multi-unit source, e.g. -gnateI2");
 
    --  Line for -gnatem switch
@@ -213,22 +213,17 @@ begin
    --  Line for -gnatk switch
 
    Write_Switch_Char ("k");
-   Write_Line ("Limit file names to nnn characters (k = krunch)");
+   Write_Line ("Limit file names to nn characters (k = krunch)");
 
    --  Line for -gnatl switch
 
    Write_Switch_Char ("l");
    Write_Line ("Output full source listing with embedded error messages");
 
-   --  Line for -gnatL switch
-
-   Write_Switch_Char ("L");
-   Write_Line ("Use longjmp/setjmp for exception handling");
-
    --  Line for -gnatm switch
 
-   Write_Switch_Char ("mnnn");
-   Write_Line ("Limit number of detected errors to nnn (1-999999)");
+   Write_Switch_Char ("mnn");
+   Write_Line ("Limit number of detected errors to nn (1-999999)");
 
    --  Line for -gnatn switch
 
@@ -294,8 +289,8 @@ begin
 
    --  Line for -gnatT switch
 
-   Write_Switch_Char ("Tnnn");
-   Write_Line ("All compiler tables start at nnn times usual starting size");
+   Write_Switch_Char ("Tnn");
+   Write_Line ("All compiler tables start at nn times usual starting size");
 
    --  Line for -gnatu switch
 
@@ -390,7 +385,9 @@ begin
    Write_Line ("        v*   turn on warnings for unassigned variable");
    Write_Line ("        V    turn off warnings for unassigned variable");
    Write_Line ("        x*   turn on warnings for export/import");
-   Write_Line ("        X*   turn off warnings for export/import");
+   Write_Line ("        X    turn off warnings for export/import");
+   Write_Line ("        y*   turn on warnings for Ada 2005 incompatibility");
+   Write_Line ("        Y    turn off warnings for Ada 2005 incompatibility");
    Write_Line ("        z*   turn on size/align warnings for " &
                                                   "unchecked conversion");
    Write_Line ("        Z    turn off size/align warnings for " &
@@ -439,17 +436,19 @@ begin
    Write_Line ("        f    check no form feeds/vertical tabs in source");
    Write_Line ("        h    check no horizontal tabs in source");
    Write_Line ("        i    check if-then layout");
+   Write_Line ("        I    check mode in");
    Write_Line ("        k    check casing rules for keywords");
    Write_Line ("        l    check reference manual layout");
-   Write_Line ("        Lnnn check max nest level < nnn");
+   Write_Line ("        Lnn  check max nest level < nn ");
    Write_Line ("        m    check line length <= 79 characters");
    Write_Line ("        n    check casing of package Standard identifiers");
-   Write_Line ("        Mnnn check line length <= nnn characters");
+   Write_Line ("        Mnn  check line length <= nn  characters");
    Write_Line ("        o    check subprogram bodies in alphabetical order");
    Write_Line ("        p    check pragma casing");
    Write_Line ("        r    check casing for identifier references");
    Write_Line ("        s    check separate subprogram specs present");
    Write_Line ("        t    check token separation rules");
+   Write_Line ("        u    check no unnecessary blank lines");
    Write_Line ("        x    check extra parens around conditionals");
 
    --  Lines for -gnatyN switch
@@ -461,11 +460,6 @@ begin
 
    Write_Switch_Char ("z");
    Write_Line ("Distribution stub generation (r/c for receiver/caller stubs)");
-
-   --  Line for -gnatZ switch
-
-   Write_Switch_Char ("Z");
-   Write_Line ("Use zero cost exception handling");
 
    --  Line for -gnat83 switch
 

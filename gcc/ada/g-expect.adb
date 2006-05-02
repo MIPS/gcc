@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---           Copyright (C) 2000-2005 Ada Core Technologies, Inc.            --
+--                     Copyright (C) 2000-2005, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -69,6 +69,9 @@ package body GNAT.Expect is
    procedure Free is new Unchecked_Deallocation
      (Pattern_Matcher, Pattern_Matcher_Access);
 
+   procedure Free is new Unchecked_Deallocation
+     (Filter_List_Elem, Filter_List);
+
    procedure Call_Filters
      (Pid       : Process_Descriptor'Class;
       Str       : String;
@@ -86,8 +89,9 @@ package body GNAT.Expect is
    procedure Dup2 (Old_Fd, New_Fd : File_Descriptor);
    pragma Import (C, Dup2);
 
-   procedure Kill (Pid : Process_Id; Sig_Num : Integer);
+   procedure Kill (Pid : Process_Id; Sig_Num : Integer; Close : Integer);
    pragma Import (C, Kill, "__gnat_kill");
+   --  if Close is set to 1 all OS resources used by the Pid must be freed
 
    function Create_Pipe (Pipe : access Pipe_Type) return Integer;
    pragma Import (C, Create_Pipe, "__gnat_pipe");
@@ -108,7 +112,7 @@ package body GNAT.Expect is
 
    function Waitpid (Pid : Process_Id) return Integer;
    pragma Import (C, Waitpid, "__gnat_waitpid");
-   --  Wait for a specific process id, and return its exit code.
+   --  Wait for a specific process id, and return its exit code
 
    ---------
    -- "+" --
@@ -204,6 +208,9 @@ package body GNAT.Expect is
      (Descriptor : in out Process_Descriptor;
       Status     : out Integer)
    is
+      Current_Filter : Filter_List;
+      Next_Filter    : Filter_List;
+
    begin
       Close (Descriptor.Input_Fd);
 
@@ -214,11 +221,21 @@ package body GNAT.Expect is
       Close (Descriptor.Output_Fd);
 
       --  ??? Should have timeouts for different signals
-      Kill (Descriptor.Pid, 9);
+
+      Kill (Descriptor.Pid, 9, 0);
 
       GNAT.OS_Lib.Free (Descriptor.Buffer);
       Descriptor.Buffer_Size := 0;
 
+      Current_Filter := Descriptor.Filters;
+
+      while Current_Filter /= null loop
+         Next_Filter := Current_Filter.Next;
+         Free (Current_Filter);
+         Current_Filter := Next_Filter;
+      end loop;
+
+      Descriptor.Filters := null;
       Status := Waitpid (Descriptor.Pid);
    end Close;
 
@@ -323,10 +340,11 @@ package body GNAT.Expect is
             return;
          end if;
 
-         --  Calculate the timeout for the next turn.
+         --  Calculate the timeout for the next turn
+
          --  Note that Timeout is, from the caller's perspective, the maximum
          --  time until a match, not the maximum time until some output is
-         --  read, and thus can not be reused as is for Expect_Internal.
+         --  read, and thus cannot be reused as is for Expect_Internal.
 
          if Timeout /= -1 then
             Timeout_Tmp := Integer (Try_Until - Clock) * 1000;
@@ -656,7 +674,7 @@ package body GNAT.Expect is
                                    Descriptors (J).Buffer_Size - N;
                               end if;
 
-                              --  Keep what we read in the buffer.
+                              --  Keep what we read in the buffer
 
                               Descriptors (J).Buffer
                                 (Descriptors (J).Buffer_Index + 1 ..
@@ -754,8 +772,90 @@ package body GNAT.Expect is
                end if;
          end case;
       end loop;
-
    end Flush;
+
+   ------------------------
+   -- Get_Command_Output --
+   ------------------------
+
+   function Get_Command_Output
+     (Command    : String;
+      Arguments  : GNAT.OS_Lib.Argument_List;
+      Input      : String;
+      Status     : access Integer;
+      Err_To_Out : Boolean := False) return String
+   is
+      use GNAT.Expect;
+
+      Process : Process_Descriptor;
+
+      Output : String_Access := new String (1 .. 1024);
+      --  Buffer used to accumulate standard output from the launched
+      --  command, expanded as necessary during execution.
+
+      Last : Integer := 0;
+      --  Index of the last used character within Output
+
+   begin
+      Non_Blocking_Spawn
+        (Process, Command, Arguments, Err_To_Out => Err_To_Out);
+
+      if Input'Length > 0 then
+         Send (Process, Input);
+      end if;
+
+      GNAT.OS_Lib.Close (Get_Input_Fd (Process));
+
+      declare
+         Result : Expect_Match;
+
+      begin
+         --  This loop runs until the call to Expect raises Process_Died
+
+         loop
+            Expect (Process, Result, ".+");
+
+            declare
+               NOutput : String_Access;
+               S       : constant String := Expect_Out (Process);
+               pragma Assert (S'Length > 0);
+
+            begin
+               --  Expand buffer if we need more space
+
+               if Last + S'Length > Output'Last then
+                  NOutput := new String (1 .. 2 * Output'Last);
+                  NOutput (Output'Range) := Output.all;
+                  Free (Output);
+
+                  --  Here if current buffer size is OK
+
+               else
+                  NOutput := Output;
+               end if;
+
+               NOutput (Last + 1 .. Last + S'Length) := S;
+               Last := Last + S'Length;
+               Output := NOutput;
+            end;
+         end loop;
+
+      exception
+         when Process_Died =>
+            Close (Process, Status.all);
+      end;
+
+      if Last = 0 then
+         return "";
+      end if;
+
+      declare
+         S : constant String := Output (1 .. Last);
+      begin
+         Free (Output);
+         return S;
+      end;
+   end Get_Command_Output;
 
    ------------------
    -- Get_Error_Fd --
@@ -872,9 +972,9 @@ package body GNAT.Expect is
 
          for J in Args'Range loop
             Arg                     := new String (1 .. Args (J)'Length + 1);
-            Arg (1 .. Args (J)'Length)  := Args (J).all;
-            Arg (Arg'Last)              := ASCII.NUL;
-            Arg_List (J + 2 - Args'First)   := Arg.all'Access;
+            Arg (1 .. Args (J)'Length)    := Args (J).all;
+            Arg (Arg'Last)                := ASCII.NUL;
+            Arg_List (J + 2 - Args'First) := Arg.all'Access;
          end loop;
 
          Arg_List (Arg_List'Last) := null;
@@ -919,6 +1019,10 @@ package body GNAT.Expect is
       if Buffer_Size /= 0 then
          Descriptor.Buffer := new String (1 .. Positive (Buffer_Size));
       end if;
+
+      --  Initialize the filters
+
+      Descriptor.Filters := null;
    end Non_Blocking_Spawn;
 
    -------------------------
@@ -1012,7 +1116,7 @@ package body GNAT.Expect is
    begin
       if Empty_Buffer then
 
-         --  Force a read on the process if there is anything waiting.
+         --  Force a read on the process if there is anything waiting
 
          Expect_Internal (Descriptors, Result,
                           Timeout => 0, Full_Buffer => False);
@@ -1046,8 +1150,8 @@ package body GNAT.Expect is
       Signal     : Integer)
    is
    begin
-      Kill (Descriptor.Pid, Signal);
-      --  ??? Need to check process status here.
+      Kill (Descriptor.Pid, Signal, 1);
+      --  ??? Need to check process status here
    end Send_Signal;
 
    ---------------------------------
@@ -1059,8 +1163,8 @@ package body GNAT.Expect is
       Pipe1 : in out Pipe_Type;
       Pipe2 : in out Pipe_Type;
       Pipe3 : in out Pipe_Type;
-      Cmd   : in String;
-      Args  : in System.Address)
+      Cmd   : String;
+      Args  : System.Address)
    is
       pragma Warnings (Off, Pid);
 

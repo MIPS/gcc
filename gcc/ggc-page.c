@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -186,7 +186,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 static const size_t extra_order_size_table[] = {
   sizeof (struct stmt_ann_d),
-  sizeof (struct tree_decl),
+  sizeof (struct tree_decl_non_common),
+  sizeof (struct tree_field_decl),
+  sizeof (struct tree_parm_decl),
+  sizeof (struct tree_var_decl),
   sizeof (struct tree_list),
   TREE_EXP_SIZE (2),
   RTL_SIZE (2),			/* MEM, PLUS, etc.  */
@@ -625,7 +628,7 @@ found:
   L2 = LOOKUP_L2 (p);
 
   if (base[L1] == NULL)
-    base[L1] = xcalloc (PAGE_L2_SIZE, sizeof (page_entry *));
+    base[L1] = XCNEWVEC (page_entry *, PAGE_L2_SIZE);
 
   base[L1][L2] = entry;
 }
@@ -1343,7 +1346,7 @@ ggc_free (void *p)
      the data, but instead verify that the data is *actually* not 
      reachable the next time we collect.  */
   {
-    struct free_object *fo = xmalloc (sizeof (struct free_object));
+    struct free_object *fo = XNEW (struct free_object);
     fo->object = p;
     fo->next = G.free_object_list;
     G.free_object_list = fo;
@@ -1469,7 +1472,7 @@ init_ggc (void)
       }
 
     /* We have a good page, might as well hold onto it...  */
-    e = xcalloc (1, sizeof (struct page_entry));
+    e = XCNEW (struct page_entry);
     e->bytes = G.pagesize;
     e->page = p;
     e->next = G.free_pages;
@@ -1515,12 +1518,12 @@ init_ggc (void)
 
   G.depth_in_use = 0;
   G.depth_max = 10;
-  G.depth = xmalloc (G.depth_max * sizeof (unsigned int));
+  G.depth = XNEWVEC (unsigned int, G.depth_max);
 
   G.by_depth_in_use = 0;
   G.by_depth_max = INITIAL_PTE_COUNT;
-  G.by_depth = xmalloc (G.by_depth_max * sizeof (page_entry *));
-  G.save_in_use = xmalloc (G.by_depth_max * sizeof (unsigned long *));
+  G.by_depth = XNEWVEC (page_entry *, G.by_depth_max);
+  G.save_in_use = XNEWVEC (unsigned long *, G.by_depth_max);
 }
 
 /* Start a new GGC zone.  */
@@ -1535,18 +1538,6 @@ new_ggc_zone (const char *name ATTRIBUTE_UNUSED)
 void
 destroy_ggc_zone (struct alloc_zone *zone ATTRIBUTE_UNUSED)
 {
-}
-
-/* Increment the `GC context'.  Objects allocated in an outer context
-   are never freed, eliminating the need to register their roots.  */
-
-void
-ggc_push_context (void)
-{
-  ++G.context_depth;
-
-  /* Die on wrap.  */
-  gcc_assert (G.context_depth < HOST_BITS_PER_LONG);
 }
 
 /* Merge the SAVE_IN_USE_P and IN_USE_P arrays in P so that IN_USE_P
@@ -1583,89 +1574,6 @@ ggc_recalculate_in_use_p (page_entry *p)
     }
 
   gcc_assert (p->num_free_objects < num_objects);
-}
-
-/* Decrement the `GC context'.  All objects allocated since the
-   previous ggc_push_context are migrated to the outer context.  */
-
-void
-ggc_pop_context (void)
-{
-  unsigned long omask;
-  unsigned int depth, i, e;
-#ifdef ENABLE_CHECKING
-  unsigned int order;
-#endif
-
-  depth = --G.context_depth;
-  omask = (unsigned long)1 << (depth + 1);
-
-  if (!((G.context_depth_allocations | G.context_depth_collections) & omask))
-    return;
-
-  G.context_depth_allocations |= (G.context_depth_allocations & omask) >> 1;
-  G.context_depth_allocations &= omask - 1;
-  G.context_depth_collections &= omask - 1;
-
-  /* The G.depth array is shortened so that the last index is the
-     context_depth of the top element of by_depth.  */
-  if (depth+1 < G.depth_in_use)
-    e = G.depth[depth+1];
-  else
-    e = G.by_depth_in_use;
-
-  /* We might not have any PTEs of depth depth.  */
-  if (depth < G.depth_in_use)
-    {
-
-      /* First we go through all the pages at depth depth to
-	 recalculate the in use bits.  */
-      for (i = G.depth[depth]; i < e; ++i)
-	{
-	  page_entry *p = G.by_depth[i];
-
-	  /* Check that all of the pages really are at the depth that
-	     we expect.  */
-	  gcc_assert (p->context_depth == depth);
-	  gcc_assert (p->index_by_depth == i);
-
-	  prefetch (&save_in_use_p_i (i+8));
-	  prefetch (&save_in_use_p_i (i+16));
-	  if (save_in_use_p_i (i))
-	    {
-	      p = G.by_depth[i];
-	      ggc_recalculate_in_use_p (p);
-	      free (save_in_use_p_i (i));
-	      save_in_use_p_i (i) = 0;
-	    }
-	}
-    }
-
-  /* Then, we reset all page_entries with a depth greater than depth
-     to be at depth.  */
-  for (i = e; i < G.by_depth_in_use; ++i)
-    {
-      page_entry *p = G.by_depth[i];
-
-      /* Check that all of the pages really are at the depth we
-	 expect.  */
-      gcc_assert (p->context_depth > depth);
-      gcc_assert (p->index_by_depth == i);
-      p->context_depth = depth;
-    }
-
-  adjust_depth ();
-
-#ifdef ENABLE_CHECKING
-  for (order = 2; order < NUM_ORDERS; order++)
-    {
-      page_entry *p;
-
-      for (p = G.pages[order]; p != NULL; p = p->next)
-	gcc_assert (p->context_depth < depth ||
-		    (p->context_depth == depth && !save_in_use_p (p)));
-    }
-#endif
 }
 
 /* Unmark all objects.  */
@@ -2105,7 +2013,7 @@ struct ggc_pch_data
 struct ggc_pch_data *
 init_ggc_pch (void)
 {
-  return xcalloc (sizeof (struct ggc_pch_data), 1);
+  return XCNEW (struct ggc_pch_data);
 }
 
 void
@@ -2253,8 +2161,8 @@ move_ptes_to_front (int count_old_page_tables, int count_new_page_tables)
   page_entry **new_by_depth;
   unsigned long **new_save_in_use;
 
-  new_by_depth = xmalloc (G.by_depth_max * sizeof (page_entry *));
-  new_save_in_use = xmalloc (G.by_depth_max * sizeof (unsigned long *));
+  new_by_depth = XNEWVEC (page_entry *, G.by_depth_max);
+  new_save_in_use = XNEWVEC (unsigned long *, G.by_depth_max);
 
   memcpy (&new_by_depth[0],
 	  &G.by_depth[count_old_page_tables],

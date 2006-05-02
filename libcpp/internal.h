@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* This header defines all the internal data structures and functions
    that need to be visible across files.  It should not be used outside
@@ -205,9 +205,6 @@ struct lexer_state
   /* Nonzero to prevent macro expansion.  */
   unsigned char prevent_expansion;
 
-  /* Nonzero when handling a deferred pragma.  */
-  unsigned char in_deferred_pragma;
-
   /* Nonzero when parsing arguments to a function-like macro.  */
   unsigned char parsing_args;
 
@@ -217,6 +214,12 @@ struct lexer_state
 
   /* Nonzero to skip evaluating part of an expression.  */
   unsigned int skip_eval;
+
+  /* Nonzero when handling a deferred pragma.  */
+  unsigned char in_deferred_pragma;
+
+  /* Nonzero if the deferred pragma being handled allows macro expansion.  */
+  unsigned char pragma_allow_expansion;
 };
 
 /* Special nodes - identifiers with predefined significance.  */
@@ -260,6 +263,10 @@ struct cpp_buffer
   /* Pointer into the file table; non-NULL if this is a file buffer.
      Used for include_next and to record control macros.  */
   struct _cpp_file *file;
+
+  /* Saved value of __TIMESTAMP__ macro - date and time of last modification
+     of the assotiated file.  */
+  const unsigned char *timestamp;
 
   /* Value of if_stack at start of this file.
      Used to prohibit unmatched #endif (etc) in an include file.  */
@@ -496,15 +503,18 @@ extern bool _cpp_arguments_ok (cpp_reader *, cpp_macro *, const cpp_hashnode *,
 			       unsigned int);
 extern const unsigned char *_cpp_builtin_macro_text (cpp_reader *,
 						     cpp_hashnode *);
-int _cpp_warn_if_unused_macro (cpp_reader *, cpp_hashnode *, void *);
+extern int _cpp_warn_if_unused_macro (cpp_reader *, cpp_hashnode *, void *);
+extern void _cpp_push_token_context (cpp_reader *, cpp_hashnode *,
+				     const cpp_token *, unsigned int);
+
 /* In identifiers.c */
 extern void _cpp_init_hashtable (cpp_reader *, hash_table *);
 extern void _cpp_destroy_hashtable (cpp_reader *);
 
 /* In files.c */
 typedef struct _cpp_file _cpp_file;
-extern _cpp_file *_cpp_find_file (cpp_reader *, const char *fname,
-				  cpp_dir *start_dir, bool fake);
+extern _cpp_file *_cpp_find_file (cpp_reader *, const char *, cpp_dir *,
+				  bool, int);
 extern bool _cpp_find_failed (_cpp_file *);
 extern void _cpp_mark_file_once_only (cpp_reader *, struct _cpp_file *);
 extern void _cpp_fake_include (cpp_reader *, const char *);
@@ -518,6 +528,7 @@ extern void _cpp_cleanup_files (cpp_reader *);
 extern void _cpp_pop_file_buffer (cpp_reader *, struct _cpp_file *);
 extern bool _cpp_save_file_entries (cpp_reader *pfile, FILE *f);
 extern bool _cpp_read_file_entries (cpp_reader *, FILE *);
+extern struct stat *_cpp_get_file_stat (_cpp_file *);
 
 /* In expr.c */
 extern bool _cpp_parse_expr (cpp_reader *);

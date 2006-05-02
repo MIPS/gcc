@@ -20,8 +20,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Generate basic block profile instrumentation and auxiliary files.
    Tree-based version.  See profile.c for overview.  */
@@ -106,11 +106,11 @@ tree_gen_edge_profiler (int edgeno, edge e)
   tree tmp1 = create_tmp_var (gcov_type_node, "PROF");
   tree tmp2 = create_tmp_var (gcov_type_node, "PROF");
   tree ref = tree_coverage_counter_ref (GCOV_COUNTER_ARCS, edgeno);
-  tree stmt1 = build (MODIFY_EXPR, gcov_type_node, tmp1, ref);
-  tree stmt2 = build (MODIFY_EXPR, gcov_type_node, tmp2,
-		      build (PLUS_EXPR, gcov_type_node, 
-			     tmp1, integer_one_node));
-  tree stmt3 = build (MODIFY_EXPR, gcov_type_node, ref, tmp2);
+  tree stmt1 = build2 (MODIFY_EXPR, gcov_type_node, tmp1, ref);
+  tree stmt2 = build2 (MODIFY_EXPR, gcov_type_node, tmp2,
+		       build2 (PLUS_EXPR, gcov_type_node, 
+			      tmp1, integer_one_node));
+  tree stmt3 = build2 (MODIFY_EXPR, gcov_type_node, ref, tmp2);
   bsi_insert_on_edge (e, stmt1);
   bsi_insert_on_edge (e, stmt2);
   bsi_insert_on_edge (e, stmt3);
@@ -123,7 +123,7 @@ static tree
 prepare_instrumented_value (block_stmt_iterator *bsi,
 			    histogram_value value)
 {
-  tree val = value->hvalue.tree.value;
+  tree val = value->hvalue.value;
   return force_gimple_operand_bsi (bsi, fold_convert (gcov_type_node, val),
 				   true, NULL_TREE);
 }
@@ -135,7 +135,7 @@ prepare_instrumented_value (block_stmt_iterator *bsi,
 static void
 tree_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base)
 {
-  tree stmt = value->hvalue.tree.stmt;
+  tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
   tree args, call, val;
@@ -162,7 +162,7 @@ tree_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base)
 static void
 tree_gen_pow2_profiler (histogram_value value, unsigned tag, unsigned base)
 {
-  tree stmt = value->hvalue.tree.stmt;
+  tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
   tree args, call, val;
@@ -185,7 +185,7 @@ tree_gen_pow2_profiler (histogram_value value, unsigned tag, unsigned base)
 static void
 tree_gen_one_value_profiler (histogram_value value, unsigned tag, unsigned base)
 {
-  tree stmt = value->hvalue.tree.stmt;
+  tree stmt = value->hvalue.stmt;
   block_stmt_iterator bsi = bsi_for_stmt (stmt);
   tree ref = tree_coverage_counter_ref (tag, base), ref_ptr;
   tree args, call, val;
@@ -225,8 +225,7 @@ tree_gen_const_delta_profiler (histogram_value value ATTRIBUTE_UNUSED,
 static bool
 do_tree_profiling (void)
 {
-  if (flag_tree_based_profiling
-      && (profile_arc_flag || flag_test_coverage || flag_branch_probabilities))
+  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
       tree_register_profile_hooks ();
       tree_register_value_prof_hooks ();
@@ -235,13 +234,7 @@ do_tree_profiling (void)
   return false;
 }
 
-/* Return the file on which profile dump output goes, if any.  */
-
-static FILE *tree_profile_dump_file (void) {
-  return dump_file;
-}
-
-static void
+static unsigned int
 tree_profiling (void)
 {
   branch_prob ();
@@ -254,15 +247,41 @@ tree_profiling (void)
      easy to adjust it, if and when there is some.  */
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
+  return 0;
 }
 
 struct tree_opt_pass pass_tree_profile = 
 {
   "tree_profile",			/* name */
   do_tree_profiling,			/* gate */
-  NULL, NULL,				/* IPA analysis */
   tree_profiling,			/* execute */
-  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_BRANCH_PROB,			/* tv_id */
+  PROP_gimple_leh | PROP_cfg,		/* properties_required */
+  PROP_gimple_leh | PROP_cfg,		/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_verify_stmts,			/* todo_flags_finish */
+  0					/* letter */
+};
+
+/* Return 1 if tree-based profiling is in effect, else 0.
+   If it is, set up hooks for tree-based profiling.
+   Gate for pass_tree_profile.  */
+
+static bool
+do_early_tree_profiling (void)
+{
+  return (do_tree_profiling () && (!flag_unit_at_a_time || !optimize));
+}
+
+struct tree_opt_pass pass_early_tree_profile = 
+{
+  "early_tree_profile",			/* name */
+  do_early_tree_profiling,		/* gate */
+  tree_profiling,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -282,8 +301,7 @@ struct profile_hooks tree_profile_hooks =
   tree_gen_interval_profiler,   /* gen_interval_profiler */
   tree_gen_pow2_profiler,       /* gen_pow2_profiler */
   tree_gen_one_value_profiler,  /* gen_one_value_profiler */
-  tree_gen_const_delta_profiler,/* gen_const_delta_profiler */
-  tree_profile_dump_file	/* profile_dump_file */
+  tree_gen_const_delta_profiler /* gen_const_delta_profiler */
 };
 
 #include "gt-tree-profile.h"

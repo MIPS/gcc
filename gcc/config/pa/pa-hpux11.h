@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* GCC always defines __STDC__.  HP C++ compilers don't define it.  This
    causes trouble when sys/stdsyms.h is included.  As a work around,
@@ -134,7 +134,7 @@ Boston, MA 02111-1307, USA.  */
 #define LIB_SPEC \
   "%{!shared:\
      %{mt|pthread:-lpthread} -lc \
-     %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}"
+     %{static:%{!nolibdld:-a shared -ldld -a archive -lpthread -lc}}}"
 
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC \

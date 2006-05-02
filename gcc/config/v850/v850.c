@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -62,7 +62,8 @@ const struct attribute_spec v850_attribute_table[];
 static tree v850_handle_interrupt_attribute (tree *, tree, tree, int, bool *);
 static tree v850_handle_data_area_attribute (tree *, tree, tree, int, bool *);
 static void v850_insert_attributes   (tree, tree *);
-static void v850_select_section (tree, int, unsigned HOST_WIDE_INT);
+static void v850_asm_init_sections   (void);
+static section *v850_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void v850_encode_data_area    (tree, rtx);
 static void v850_encode_section_info (tree, rtx, int);
 static bool v850_return_in_memory    (tree, tree);
@@ -96,6 +97,12 @@ static int v850_interrupt_cache_p = FALSE;
 
 /* Whether current function is an interrupt handler.  */
 static int v850_interrupt_p = FALSE;
+
+static GTY(()) section *rosdata_section;
+static GTY(()) section *rozdata_section;
+static GTY(()) section *tdata_section;
+static GTY(()) section *zdata_section;
+static GTY(()) section *zbss_section;
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -109,6 +116,11 @@ static int v850_interrupt_p = FALSE;
 
 #undef  TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION  v850_select_section
+
+/* The assembler supports switchable .bss sections, but
+   v850_select_section doesn't yet make use of them.  */
+#undef  TARGET_HAVE_SWITCHABLE_BSS_SECTIONS
+#define TARGET_HAVE_SWITCHABLE_BSS_SECTIONS false
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO v850_encode_section_info
@@ -616,7 +628,7 @@ print_operand (FILE * file, rtx x, int code)
       break;
     case 'S':
       {
-        /* if it's a reference to a TDA variable, use sst/sld vs. st/ld */
+        /* If it's a reference to a TDA variable, use sst/sld vs. st/ld.  */
         if (GET_CODE (x) == MEM && ep_memory_operand (x, GET_MODE (x), FALSE))
           fputs ("s", file);
 
@@ -1056,6 +1068,13 @@ ep_memory_operand (rtx op, enum machine_mode mode, int unsigned_load)
   rtx addr, op0, op1;
   int max_offset;
   int mask;
+
+  /* If we are not using the EP register on a per-function basis
+     then do not allow this optimisation at all.  This is to
+     prevent the use of the SLD/SST instructions which cannot be
+     guaranteed to work properly due to a hardware bug.  */
+  if (!TARGET_EP)
+    return FALSE;
 
   if (GET_CODE (op) != MEM)
     return FALSE;
@@ -2138,7 +2157,7 @@ v850_handle_data_area_attribute (tree* node,
       if (current_function_decl != NULL_TREE)
 	{
           error ("%Jdata area attributes cannot be specified for "
-                 "local variables", decl, decl);
+                 "local variables", decl);
 	  *no_add_attrs = true;
 	}
 
@@ -2148,8 +2167,8 @@ v850_handle_data_area_attribute (tree* node,
       area = v850_get_data_area (decl);
       if (area != DATA_AREA_NORMAL && data_area != area)
 	{
-	  error ("%Jdata area of '%D' conflicts with previous declaration",
-                 decl, decl);
+	  error ("data area of %q+D conflicts with previous declaration",
+                 decl);
 	  *no_add_attrs = true;
 	}
       break;
@@ -2278,7 +2297,7 @@ construct_restore_jr (rtx op)
   
   if (count <= 2)
     {
-      error ("bogus JR construction: %d\n", count);
+      error ("bogus JR construction: %d", count);
       return NULL;
     }
 
@@ -2485,24 +2504,24 @@ void
 v850_output_aligned_bss (FILE * file,
                          tree decl,
                          const char * name,
-                         int size,
+                         unsigned HOST_WIDE_INT size,
                          int align)
 {
   switch (v850_get_data_area (decl))
     {
     case DATA_AREA_ZDA:
-      zbss_section ();
+      switch_to_section (zbss_section);
       break;
 
     case DATA_AREA_SDA:
-      sbss_section ();
+      switch_to_section (sbss_section);
       break;
 
     case DATA_AREA_TDA:
-      tdata_section ();
+      switch_to_section (tdata_section);
       
     default:
-      bss_section ();
+      switch_to_section (bss_section);
       break;
     }
   
@@ -2684,7 +2703,7 @@ construct_dispose_instruction (rtx op)
   
   if (count <= 2)
     {
-      error ("Bogus DISPOSE construction: %d\n", count);
+      error ("bogus DISPOSE construction: %d", count);
       return NULL;
     }
 
@@ -2703,7 +2722,7 @@ construct_dispose_instruction (rtx op)
      will fit into the DISPOSE instruction.  */
   if (stack_bytes > 128)
     {
-      error ("Too much stack space to dispose of: %d", stack_bytes);
+      error ("too much stack space to dispose of: %d", stack_bytes);
       return NULL;
     }
 
@@ -2805,7 +2824,7 @@ construct_prepare_instruction (rtx op)
   
   if (count <= 1)
     {
-      error ("Bogus PREPEARE construction: %d\n", count);
+      error ("bogus PREPEARE construction: %d", count);
       return NULL;
     }
 
@@ -2824,7 +2843,7 @@ construct_prepare_instruction (rtx op)
      will fit into the DISPOSE instruction.  */
   if (stack_bytes < -128)
     {
-      error ("Too much stack space to prepare: %d", stack_bytes);
+      error ("too much stack space to prepare: %d", stack_bytes);
       return NULL;
     }
 
@@ -2920,7 +2939,34 @@ v850_return_addr (int count)
   return get_hard_reg_initial_val (Pmode, LINK_POINTER_REGNUM);
 }
 
+/* Implement TARGET_ASM_INIT_SECTIONS.  */
+
 static void
+v850_asm_init_sections (void)
+{
+  rosdata_section
+    = get_unnamed_section (0, output_section_asm_op,
+			   "\t.section .rosdata,\"a\"");
+
+  rozdata_section
+    = get_unnamed_section (0, output_section_asm_op,
+			   "\t.section .rozdata,\"a\"");
+
+  tdata_section
+    = get_unnamed_section (SECTION_WRITE, output_section_asm_op,
+			   "\t.section .tdata,\"aw\"");
+
+  zdata_section
+    = get_unnamed_section (SECTION_WRITE, output_section_asm_op,
+			   "\t.section .zdata,\"aw\"");
+
+  zbss_section
+    = get_unnamed_section (SECTION_WRITE | SECTION_BSS,
+			   output_section_asm_op,
+			   "\t.section .zbss,\"aw\"");
+}
+
+static section *
 v850_select_section (tree exp,
                      int reloc ATTRIBUTE_UNUSED,
                      unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
@@ -2940,33 +2986,19 @@ v850_select_section (tree exp,
       switch (v850_get_data_area (exp))
         {
         case DATA_AREA_ZDA:
-	  if (is_const)
-	    rozdata_section ();
-	  else
-	    zdata_section ();
-	  break;
+	  return is_const ? rozdata_section : zdata_section;
 
         case DATA_AREA_TDA:
-	  tdata_section ();
-	  break;
+	  return tdata_section;
 
         case DATA_AREA_SDA:
-	  if (is_const)
-	    rosdata_section ();
-	  else
-	    sdata_section ();
-	  break;
+	  return is_const ? rosdata_section : sdata_section;
 
         default:
-          if (is_const)
-	    readonly_data_section ();
-	  else
-	    data_section ();
-	  break;
+	  return is_const ? readonly_data_section : data_section;
         }
     }
-  else
-    readonly_data_section ();
+  return readonly_data_section;
 }
 
 /* Worker function for TARGET_RETURN_IN_MEMORY.  */
@@ -2989,3 +3021,5 @@ v850_setup_incoming_varargs (CUMULATIVE_ARGS *ca,
 {
   ca->anonymous_args = (!TARGET_GHS ? 1 : 0);
 }
+
+#include "gt-v850.h"

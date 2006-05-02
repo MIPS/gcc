@@ -25,19 +25,23 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <assert.h>
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
-extern void transpose_`'rtype_code (rtype * ret, rtype * source);
+`#if defined (HAVE_'rtype_name`)'
+
+extern void transpose_`'rtype_code (rtype * const restrict ret, 
+	rtype * const restrict source);
 export_proto(transpose_`'rtype_code);
 
 void
-transpose_`'rtype_code (rtype * ret, rtype * source)
+transpose_`'rtype_code (rtype * const restrict ret, 
+	rtype * const restrict source)
 {
   /* r.* indicates the return array.  */
   index_type rxstride, rystride;
@@ -65,7 +69,7 @@ transpose_`'rtype_code (rtype * ret, rtype * source)
       ret->dim[1].stride = ret->dim[0].ubound+1;
 
       ret->data = internal_malloc_size (sizeof (rtype_name) * size0 ((array_t *) ret));
-      ret->base = 0;
+      ret->offset = 0;
     }
 
   if (ret->dim[0].stride == 0)
@@ -97,3 +101,5 @@ transpose_`'rtype_code (rtype * ret, rtype * source)
         rptr += rxstride - (rystride * xcount);
     }
 }
+
+#endif

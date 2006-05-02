@@ -19,8 +19,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Generate basic block profile instrumentation and auxiliary files.
    RTL-based version.  See profile.c for overview.  */
@@ -358,11 +358,6 @@ rtl_gen_const_delta_profiler (histogram_value value, unsigned tag, unsigned base
   safe_insert_insn_on_edge (sequence, e);
 }
 
-/* Return the file on which profile dump output goes, if any.  */
-
-static FILE *rtl_profile_dump_file (void) {
-  return dump_file;
-}
 
 struct profile_hooks rtl_profile_hooks =
 {
@@ -371,6 +366,5 @@ struct profile_hooks rtl_profile_hooks =
   rtl_gen_interval_profiler,
   rtl_gen_pow2_profiler,
   rtl_gen_one_value_profiler,
-  rtl_gen_const_delta_profiler,
-  rtl_profile_dump_file
+  rtl_gen_const_delta_profiler
 };

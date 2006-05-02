@@ -1,6 +1,6 @@
 // Allocator details.
 
-// Copyright (C) 2004 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -37,11 +37,11 @@
 
 namespace __gnu_internal
 {
-  __glibcxx_mutex_define_initialized(palloc_init_mutex);
+  static __glibcxx_mutex_define_initialized(palloc_init_mutex);
 }
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   // Definitions for __pool_alloc_base.
   __pool_alloc_base::_Obj* volatile*
   __pool_alloc_base::_M_get_free_list(size_t __bytes)
@@ -170,4 +170,5 @@ namespace __gnu_cxx
   // Instantiations.
   template class __pool_alloc<char>;
   template class __pool_alloc<wchar_t>;
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE

@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Random number that should be large enough for all purposes.  */
 #define MAX_RECOG_ALTERNATIVES 30
@@ -74,8 +74,8 @@ extern void init_recog_no_volatile (void);
 extern int check_asm_operands (rtx);
 extern int asm_operand_ok (rtx, const char *);
 extern int validate_change (rtx, rtx *, rtx, int);
-extern int validate_change_maybe_volatile (rtx, rtx *, rtx);
 extern int insn_invalid_p (rtx);
+extern int verify_changes (int);
 extern void confirm_change_group (void);
 extern int apply_change_group (void);
 extern int num_validated_changes (void);
@@ -84,7 +84,6 @@ extern int constrain_operands (int);
 extern int constrain_operands_cached (int);
 extern int memory_address_p (enum machine_mode, rtx);
 extern int strict_memory_address_p (enum machine_mode, rtx);
-extern int validate_replace_rtx_subexp (rtx, rtx, rtx, rtx *);
 extern int validate_replace_rtx (rtx, rtx, rtx);
 extern void validate_replace_rtx_group (rtx, rtx, rtx);
 extern void validate_replace_src_group (rtx, rtx, rtx);
@@ -118,7 +117,6 @@ extern int peep2_reg_dead_p (int, rtx);
 extern rtx peep2_find_free_register (int, int, const char *,
 				     enum machine_mode, HARD_REG_SET *);
 #endif
-extern void peephole2_optimize (FILE *);
 extern rtx peephole2_insns (rtx, rtx, int *);
 
 extern int store_data_bypass_p (rtx, rtx);
@@ -132,7 +130,7 @@ extern int if_test_bypass_p (rtx, rtx);
 
    This function is the normal interface to instruction recognition.
    The automatically-generated function `recog' is normally called
-   through this one.  (The only exception is in combine.c.)  */
+   through this one.  */
 
 static inline int
 recog_memoized (rtx insn)
@@ -265,3 +263,4 @@ struct insn_data
 };
 
 extern const struct insn_data insn_data[];
+extern int peep2_current_count;

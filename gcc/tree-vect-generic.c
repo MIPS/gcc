@@ -1,5 +1,5 @@
 /* Lower vector operations to scalar operations.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
    
@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -106,13 +106,8 @@ tree_vec_extract (block_stmt_iterator *bsi, tree type,
 {
   if (bitpos)
     return gimplify_build3 (bsi, BIT_FIELD_REF, type, t, bitsize, bitpos);
-
-  /* Build a conversion; VIEW_CONVERT_EXPR is very expensive unless T will
-     anyway be stored in memory, so prefer NOP_EXPR.  */
-  else if (TYPE_MODE (type) == BLKmode)
-    return gimplify_build1 (bsi, VIEW_CONVERT_EXPR, type, t);
   else
-    return gimplify_build1 (bsi, NOP_EXPR, type, t);
+    return gimplify_build1 (bsi, VIEW_CONVERT_EXPR, type, t);
 }
 
 static tree
@@ -207,7 +202,7 @@ expand_vector_piecewise (block_stmt_iterator *bsi, elem_op_func f,
 			 tree type, tree inner_type,
 			 tree a, tree b, enum tree_code code)
 {
-  tree head, *chain = &head;
+  VEC(constructor_elt,gc) *v;
   tree part_width = TYPE_SIZE (inner_type);
   tree index = bitsize_int (0);
   int nunits = TYPE_VECTOR_SUBPARTS (type);
@@ -215,15 +210,17 @@ expand_vector_piecewise (block_stmt_iterator *bsi, elem_op_func f,
 	      / tree_low_cst (TYPE_SIZE (TREE_TYPE (type)), 1);
   int i;
 
+  v = VEC_alloc(constructor_elt, gc, (nunits + delta - 1) / delta);
   for (i = 0; i < nunits;
        i += delta, index = int_const_binop (PLUS_EXPR, index, part_width, 0))
     {
       tree result = f (bsi, inner_type, a, b, index, part_width, code);
-      *chain = tree_cons (NULL_TREE, result, NULL_TREE);
-      chain = &TREE_CHAIN (*chain);
+      constructor_elt *ce = VEC_quick_push (constructor_elt, v, NULL);
+      ce->index = NULL_TREE;
+      ce->value = result;
     }
 
-  return build1 (CONSTRUCTOR, type, head);
+  return build_constructor (type, v);
 }
 
 /* Expand a vector operation to scalars with the freedom to use
@@ -351,7 +348,7 @@ type_for_widest_vector_mode (enum machine_mode inner_mode, optab op)
   enum machine_mode best_mode = VOIDmode, mode;
   int best_nunits = 0;
 
-  if (GET_MODE_CLASS (inner_mode) == MODE_FLOAT)
+  if (SCALAR_FLOAT_MODE_P (inner_mode))
     mode = MIN_MODE_VECTOR_FLOAT;
   else
     mode = MIN_MODE_VECTOR_INT;
@@ -414,6 +411,11 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
   gcc_assert (code != CONVERT_EXPR);
   op = optab_for_tree_code (code, type);
 
+  /* For widening vector operations, the relevant type is of the arguments,
+     not the widened result.  */
+  if (code == WIDEN_SUM_EXPR)
+    type = TREE_TYPE (TREE_OPERAND (rhs, 0));
+
   /* Optabs will try converting a negation into a subtraction, so
      look for it as well.  TODO: negation of floating-point vectors
      might be turned into an exclusive OR toggling the sign bit.  */
@@ -448,20 +450,12 @@ expand_vector_operations_1 (block_stmt_iterator *bsi)
 	compute_type = TREE_TYPE (type);
     }
 
+  gcc_assert (code != VEC_LSHIFT_EXPR && code != VEC_RSHIFT_EXPR);
   rhs = expand_vector_operation (bsi, type, compute_type, rhs, code);
   if (lang_hooks.types_compatible_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
     *p_rhs = rhs;
   else
-    {
-      /* Build a conversion; VIEW_CONVERT_EXPR is very expensive unless T will
-         be stored in memory anyway, so prefer NOP_EXPR.  We should also try
-	 performing the VIEW_CONVERT_EXPR on the left side of the
-	 assignment.  */
-      if (TYPE_MODE (TREE_TYPE (rhs)) == BLKmode)
-        *p_rhs = gimplify_build1 (bsi, VIEW_CONVERT_EXPR, TREE_TYPE (lhs), rhs);
-      else
-	*p_rhs = gimplify_build1 (bsi, NOP_EXPR, TREE_TYPE (lhs), rhs);
-    }
+    *p_rhs = gimplify_build1 (bsi, VIEW_CONVERT_EXPR, TREE_TYPE (lhs), rhs);
 
   mark_stmt_modified (bsi_stmt (*bsi));
 }
@@ -475,7 +469,7 @@ gate_expand_vector_operations (void)
   return flag_tree_vectorize != 0;
 }
 
-static void
+static unsigned int
 expand_vector_operations (void)
 {
   block_stmt_iterator bsi;
@@ -486,18 +480,18 @@ expand_vector_operations (void)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	{
 	  expand_vector_operations_1 (&bsi);
-	  update_stmt_if_modified (bsi_stmt (bsi));
+	  if (in_ssa_p)
+	    update_stmt_if_modified (bsi_stmt (bsi));
 	}
     }
+  return 0;
 }
 
 struct tree_opt_pass pass_lower_vector = 
 {
   "veclower",				/* name */
   0,					/* gate */
-  NULL, NULL,				/* IPA analysis */
   expand_vector_operations,		/* execute */
-  NULL, NULL,				/* IPA analysis */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -515,9 +509,7 @@ struct tree_opt_pass pass_lower_vector_ssa =
 {
   "veclower2",				/* name */
   gate_expand_vector_operations,	/* gate */
-  NULL, NULL,				/* IPA analysis */
   expand_vector_operations,		/* execute */
-  NULL, NULL,				/* IPA analysis */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -32,7 +32,7 @@
 ------------------------------------------------------------------------------
 
 --  This package contains a set of subprogram access variables that access
---  some low-level primitives that are called different depending wether
+--  some low-level primitives that are called different depending whether
 --  tasking is involved or not (e.g. the Get/Set_Jmpbuf_Address that needs
 --  to provide a different value for each task). To avoid dragging in the
 --  tasking all the time, we use a system of soft links where the links are
@@ -43,7 +43,9 @@ with Ada.Exceptions;
 with System.Stack_Checking;
 
 package System.Soft_Links is
-   pragma Elaborate_Body;
+   pragma Warnings (Off);
+   pragma Preelaborate_05;
+   pragma Warnings (On);
 
    subtype EOA is Ada.Exceptions.Exception_Occurrence_Access;
    subtype EO is Ada.Exceptions.Exception_Occurrence;
@@ -60,6 +62,7 @@ package System.Soft_Links is
 
    type No_Param_Proc     is access procedure;
    type Addr_Param_Proc   is access procedure (Addr : Address);
+   type EO_Param_Proc     is access procedure (Excep : EO);
 
    type Get_Address_Call  is access function return Address;
    type Set_Address_Call  is access procedure (Addr : Address);
@@ -90,6 +93,7 @@ package System.Soft_Links is
 
    pragma Suppress (Access_Check, No_Param_Proc);
    pragma Suppress (Access_Check, Addr_Param_Proc);
+   pragma Suppress (Access_Check, EO_Param_Proc);
    pragma Suppress (Access_Check, Get_Address_Call);
    pragma Suppress (Access_Check, Set_Address_Call);
    pragma Suppress (Access_Check, Set_Address_Call2);
@@ -137,9 +141,15 @@ package System.Soft_Links is
    procedure Task_Unlock_NT;
    --  Release lock set by Task_Lock (non-tasking case, does nothing)
 
-   procedure Null_Adafinal;
-   --  Shuts down the runtime system (non-tasking no-finalization case,
-   --  does nothing)
+   procedure Task_Termination_NT (Excep : EO);
+   --  Handle task termination routines for the environment task (non-tasking
+   --  case, does nothing).
+
+   procedure Null_Finalize_Global_List;
+   --  Finalize global list for controlled objects (does nothing)
+
+   procedure Adafinal_NT;
+   --  Shuts down the runtime system (non-tasking case)
 
    Abort_Defer : No_Param_Proc := Abort_Defer_NT'Access;
    pragma Suppress (Access_Check, Abort_Defer);
@@ -195,7 +205,13 @@ package System.Soft_Links is
    --  This ensures that the lock is not left set if an exception is raised
    --  explicitly or implicitly during the critical locked region.
 
-   Adafinal : No_Param_Proc := Null_Adafinal'Access;
+   Task_Termination_Handler : EO_Param_Proc := Task_Termination_NT'Access;
+   --  Handle task termination routines (task/non-task case as appropriate)
+
+   Finalize_Global_List : No_Param_Proc := Null_Finalize_Global_List'Access;
+   --  Performs finalization of global list for controlled objects
+
+   Adafinal : No_Param_Proc := Adafinal_NT'Access;
    --  Performs the finalization of the Ada Runtime
 
    function  Get_Jmpbuf_Address_NT return  Address;
@@ -210,21 +226,8 @@ package System.Soft_Links is
    Get_Sec_Stack_Addr : Get_Address_Call := Get_Sec_Stack_Addr_NT'Access;
    Set_Sec_Stack_Addr : Set_Address_Call := Set_Sec_Stack_Addr_NT'Access;
 
-   function  Get_Machine_State_Addr_NT return  Address;
-   procedure Set_Machine_State_Addr_NT (Addr : Address);
-
-   Get_Machine_State_Addr : Get_Address_Call
-     := Get_Machine_State_Addr_NT'Access;
-   Set_Machine_State_Addr : Set_Address_Call
-     := Set_Machine_State_Addr_NT'Access;
-
-   function  Get_Exc_Stack_Addr_NT return Address;
-   procedure Set_Exc_Stack_Addr_NT (Self_ID : Address; Addr : Address);
-   --  Self_ID is a Task_Id, but in the non-tasking case there is no
-   --  Task_Id type available, so make do with Address.
-
+   function Get_Exc_Stack_Addr_NT return Address;
    Get_Exc_Stack_Addr : Get_Address_Call := Get_Exc_Stack_Addr_NT'Access;
-   Set_Exc_Stack_Addr : Set_Address_Call2 := Set_Exc_Stack_Addr_NT'Access;
 
    function  Get_Current_Excep_NT return EOA;
 
@@ -302,23 +305,17 @@ package System.Soft_Links is
       --  to the tasks requested stack size before the task can do
       --  its first stack check.
 
-      Jmpbuf_Address : Address := Null_Address;
+      pragma Warnings (Off);
+      Jmpbuf_Address : System.Address := System.Null_Address;
       --  Address of jump buffer used to store the address of the
       --  current longjmp/setjmp buffer for exception management.
       --  These buffers are threaded into a stack, and the address
       --  here is the top of the stack. A null address means that
       --  no exception handler is currently active.
 
-      Sec_Stack_Addr : Address := Null_Address;
+      Sec_Stack_Addr : System.Address := System.Null_Address;
+      pragma Warnings (On);
       --  Address of currently allocated secondary stack
-
-      Exc_Stack_Addr : Address := Null_Address;
-      --  Address of a task-specific stack used for the propagation of
-      --  exceptions in response to synchronous faults. This alternate
-      --  stack is necessary when propagating Storage_Error resulting
-      --  from a stack overflow, as the task's primary stack is full.
-      --  This is currently only used on the SGI, and this value stays
-      --  null on other platforms.
 
       Current_Excep : aliased EO;
       --  Exception occurrence that contains the information for the
@@ -328,9 +325,6 @@ package System.Soft_Links is
       --
       --  Also act as a list of the active exceptions in the case of the GCC
       --  exception mechanism, organized as a stack with the most recent first.
-
-      Machine_State_Addr : Address := Null_Address;
-      --  Machine state address. Used by front-end zero cost exception
    end record;
 
    procedure Create_TSD (New_TSD : in out TSD);
@@ -340,7 +334,7 @@ package System.Soft_Links is
 
    procedure Destroy_TSD (Old_TSD : in out TSD);
    pragma Inline (Destroy_TSD);
-   --  Called from s-tassta  just before a thread is destroyed to perform
+   --  Called from s-tassta just before a thread is destroyed to perform
    --  any required finalization.
 
    function Get_GNAT_Exception return Ada.Exceptions.Exception_Id;
@@ -364,14 +358,6 @@ package System.Soft_Links is
    pragma Inline (Get_Sec_Stack_Addr_Soft);
    pragma Inline (Set_Sec_Stack_Addr_Soft);
 
-   function  Get_Exc_Stack_Addr_Soft return Address;
-   procedure Set_Exc_Stack_Addr_Soft (Self_ID : Address; Addr : Address);
-   pragma Inline (Get_Exc_Stack_Addr_Soft);
-   pragma Inline (Set_Exc_Stack_Addr_Soft);
-
-   function  Get_Machine_State_Addr_Soft return Address;
-   procedure Set_Machine_State_Addr_Soft (Addr : Address);
-   pragma Inline (Get_Machine_State_Addr_Soft);
-   pragma Inline (Set_Machine_State_Addr_Soft);
+   function Get_Exc_Stack_Addr_Soft return Address;
 
 end System.Soft_Links;

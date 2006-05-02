@@ -17,8 +17,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -56,6 +56,12 @@
    (UNSPEC_IMPLVER	25)
    (UNSPEC_PERR		26)
    (UNSPEC_COPYSIGN     27)
+
+   ;; Atomic operations
+   (UNSPEC_MB		28)
+   (UNSPEC_ATOMIC	31)
+   (UNSPEC_CMPXCHG	32)
+   (UNSPEC_XCHG		33)
   ])
 
 ;; UNSPEC_VOLATILE:
@@ -76,12 +82,8 @@
    (UNSPECV_SET_TP	12)
    (UNSPECV_RPCC	13)
    (UNSPECV_SETJMPR_ER	14)	; builtin_setjmp_receiver fragment
-   (UNSPECV_MB		15)
-   (UNSPECV_LL		16)	; load-locked
-   (UNSPECV_SC		17)	; store-conditional
-   (UNSPECV_ATOMIC	18)
-   (UNSPECV_CMPXCHG	19)
-   (UNSPECV_XCHG	20)
+   (UNSPECV_LL		15)	; load-locked
+   (UNSPECV_SC		16)	; store-conditional
   ])
 
 ;; Where necessary, the suffixes _le and _be are used to distinguish between
@@ -5174,13 +5176,7 @@
   [(set (match_dup 0) (match_dup 2))
    (set (match_dup 1) (match_dup 3))]
 {
-  alpha_split_tfmode_pair (operands);
-  if (reg_overlap_mentioned_p (operands[0], operands[3]))
-    {
-      rtx tmp;
-      tmp = operands[0], operands[0] = operands[1], operands[1] = tmp;
-      tmp = operands[2], operands[2] = operands[3], operands[3] = tmp;
-    }
+  alpha_split_tmode_pair (operands, TFmode, true); 
 })
 
 (define_expand "movsf"
@@ -5664,6 +5660,80 @@
     DONE;
   else
     FAIL;
+})
+
+;; We need to prevent reload from splitting TImode moves, because it
+;; might decide to overwrite a pointer with the value it points to.
+;; In that case we have to do the loads in the appropriate order so
+;; that the pointer is not destroyed too early.
+
+(define_insn_and_split "*movti_internal"
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=r,o")
+        (match_operand:TI 1 "input_operand" "roJ,rJ"))]
+  "(register_operand (operands[0], TImode)
+    /* Prevent rematerialization of constants.  */
+    && ! CONSTANT_P (operands[1]))
+   || reg_or_0_operand (operands[1], TImode)"
+  "#"
+  "reload_completed"
+  [(set (match_dup 0) (match_dup 2))
+   (set (match_dup 1) (match_dup 3))]
+{
+  alpha_split_tmode_pair (operands, TImode, true);
+})
+
+(define_expand "movti"
+  [(set (match_operand:TI 0 "nonimmediate_operand" "")
+        (match_operand:TI 1 "general_operand" ""))]
+  ""
+{
+  if (GET_CODE (operands[0]) == MEM
+      && ! reg_or_0_operand (operands[1], TImode))
+    operands[1] = force_reg (TImode, operands[1]);
+
+  if (operands[1] == const0_rtx)
+    ;
+  /* We must put 64-bit constants in memory.  We could keep the
+     32-bit constants in TImode and rely on the splitter, but
+     this doesn't seem to be worth the pain.  */
+  else if (GET_CODE (operands[1]) == CONST_INT
+	   || GET_CODE (operands[1]) == CONST_DOUBLE)
+    {
+      rtx in[2], out[2], target;
+
+      gcc_assert (!no_new_pseudos);
+
+      split_double (operands[1], &in[0], &in[1]);
+
+      if (in[0] == const0_rtx)
+	out[0] = const0_rtx;
+      else
+	{
+	  out[0] = gen_reg_rtx (DImode);
+	  emit_insn (gen_movdi (out[0], in[0]));
+	}
+
+      if (in[1] == const0_rtx)
+	out[1] = const0_rtx;
+      else
+	{
+	  out[1] = gen_reg_rtx (DImode);
+	  emit_insn (gen_movdi (out[1], in[1]));
+	}
+
+      if (GET_CODE (operands[0]) != REG)
+	target = gen_reg_rtx (TImode);
+      else
+	target = operands[0];
+
+      emit_insn (gen_movdi (gen_rtx_SUBREG (DImode, target, 0), out[0]));
+      emit_insn (gen_movdi (gen_rtx_SUBREG (DImode, target, 8), out[1]));
+
+      if (target != operands[0])
+	emit_insn (gen_rtx_SET (VOIDmode, operands[0], target));
+
+      DONE;
+    }
 })
 
 ;; These are the partial-word cases.
@@ -6361,6 +6431,26 @@
   ""
   "eqv %1,%2,%0"
   [(set_attr "type" "ilog")])
+
+(define_expand "vec_shl_<mode>"
+  [(set (match_operand:VEC 0 "register_operand" "")
+	(ashift:DI (match_operand:VEC 1 "register_operand" "")
+		   (match_operand:DI 2 "reg_or_6bit_operand" "")))]
+  ""
+{
+  operands[0] = gen_lowpart (DImode, operands[0]);
+  operands[1] = gen_lowpart (DImode, operands[1]);
+})
+
+(define_expand "vec_shr_<mode>"
+  [(set (match_operand:VEC 0 "register_operand" "")
+        (lshiftrt:DI (match_operand:VEC 1 "register_operand" "")
+                     (match_operand:DI 2 "reg_or_6bit_operand" "")))]
+  ""
+{
+  operands[0] = gen_lowpart (DImode, operands[0]);
+  operands[1] = gen_lowpart (DImode, operands[1]);
+})
 
 ;; Bit field extract patterns which use ext[wlq][lh]
 
@@ -6552,25 +6642,29 @@
   [(set_attr "type" "multi")
    (set_attr "length" "28")])
 
-(define_expand "clrmemqi"
+(define_expand "setmemqi"
   [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
-		   (const_int 0))
+		   (match_operand 2 "const_int_operand" ""))
 	      (use (match_operand:DI 1 "immediate_operand" ""))
-	      (use (match_operand:DI 2 "immediate_operand" ""))])]
+	      (use (match_operand:DI 3 "immediate_operand" ""))])]
   ""
 {
+  /* If value to set is not zero, use the library routine.  */
+  if (operands[2] != const0_rtx)
+    FAIL;
+
   if (alpha_expand_block_clear (operands))
     DONE;
   else
     FAIL;
 })
 
-(define_expand "clrmemdi"
+(define_expand "setmemdi"
   [(parallel [(set (match_operand:BLK 0 "memory_operand" "")
-		   (const_int 0))
+		   (match_operand 2 "const_int_operand" ""))
 	      (use (match_operand:DI 1 "immediate_operand" ""))
-	      (use (match_operand:DI 2 "immediate_operand" ""))
-	      (use (match_dup 3))
+	      (use (match_operand:DI 3 "immediate_operand" ""))
+	      (use (match_dup 4))
 	      (clobber (reg:DI 25))
 	      (clobber (reg:DI 16))
 	      (clobber (reg:DI 17))
@@ -6578,8 +6672,12 @@
 	      (clobber (reg:DI 27))])]
   "TARGET_ABI_OPEN_VMS"
 {
-  operands[3] = gen_rtx_SYMBOL_REF (Pmode, "OTS$ZERO");
-  alpha_need_linkage (XSTR (operands[3], 0), 0);
+  /* If value to set is not zero, use the library routine.  */
+  if (operands[2] != const0_rtx)
+    FAIL;
+
+  operands[4] = gen_rtx_SYMBOL_REF (Pmode, "OTS$ZERO");
+  alpha_need_linkage (XSTR (operands[4], 0), 0);
 })
 
 (define_insn "*clrmemdi_1"

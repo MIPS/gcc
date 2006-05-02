@@ -1,5 +1,5 @@
 /* File.java -- Class representing a file on disk
-   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -44,7 +44,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import gnu.classpath.Configuration;
-import gnu.gcj.runtime.FileDeleter;
 
 /* Written using "Java Class Libraries", 2nd edition, ISBN 0-201-31002-3
  * "The Java Language Specification", ISBN 0-201-63451-1
@@ -434,7 +433,11 @@ public class File implements Serializable, Comparable
     if (!uri.getScheme().equals("file"))
 	throw new IllegalArgumentException("invalid uri protocol");
 
-    path = normalizePath(uri.getPath());
+    String name = uri.getPath();
+    if (name == null)
+      throw new IllegalArgumentException("URI \"" + uri
+                     + "\" is not hierarchical");
+    path = normalizePath(name);
   }
 
   /**
@@ -1371,7 +1374,7 @@ public class File implements Serializable, Comparable
     if (sm != null)
       sm.checkDelete (getName());
 
-    FileDeleter.add (this);
+    DeleteFileHelper.add(this);
   }
 
   private void writeObject(ObjectOutputStream oos) throws IOException

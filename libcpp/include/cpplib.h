@@ -16,7 +16,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  In other words, you are welcome to use, share and improve this program.
  You are forbidden to forbid anyone else to use, share and improve
@@ -134,7 +134,8 @@ struct _cpp_file;
   TK(COMMENT,		LITERAL) /* Only if output comments.  */	\
 				 /* SPELL_LITERAL happens to DTRT.  */	\
   TK(MACRO_ARG,		NONE)	 /* Macro argument.  */			\
-  TK(PRAGMA,		NONE)	 /* Only if deferring pragmas */	\
+  TK(PRAGMA,		NONE)	 /* Only for deferred pragmas.  */	\
+  TK(PRAGMA_EOL,	NONE)	 /* End-of-line for deferred pragmas.  */ \
   TK(PADDING,		NONE)	 /* Whitespace for -E.	*/
 
 #define OP(e, s) CPP_ ## e,
@@ -172,6 +173,8 @@ struct cpp_string GTY(())
 #define NAMED_OP	(1 << 4) /* C++ named operators.  */
 #define NO_EXPAND	(1 << 5) /* Do not macro-expand this token.  */
 #define BOL		(1 << 6) /* Token at beginning of line.  */
+#define PURE_ZERO	(1 << 7) /* Single 0 digit, used by the C++ frontend,
+				    set in c-lex.c.  */
 
 /* Specify which field, if any, of the cpp_token union is used.  */
 
@@ -180,6 +183,7 @@ enum cpp_token_fld_kind {
   CPP_TOKEN_FLD_SOURCE,
   CPP_TOKEN_FLD_STR,
   CPP_TOKEN_FLD_ARG_NO,
+  CPP_TOKEN_FLD_PRAGMA,
   CPP_TOKEN_FLD_NONE
 };
 
@@ -209,6 +213,9 @@ struct cpp_token GTY(())
 
     /* Argument no. for a CPP_MACRO_ARG.  */
     unsigned int GTY ((tag ("CPP_TOKEN_FLD_ARG_NO"))) arg_no;
+
+    /* Caller-supplied identifier for a CPP_PRAGMA.  */
+    unsigned int GTY ((tag ("CPP_TOKEN_FLD_PRAGMA"))) pragma;
   } GTY ((desc ("cpp_token_val_index (&%1)"))) val;
 };
 
@@ -345,6 +352,9 @@ struct cpp_options
   /* Zero means dollar signs are punctuation.  */
   unsigned char dollars_in_ident;
 
+  /* Nonzero means UCNs are accepted in identifiers.  */
+  unsigned char extended_identifiers;
+
   /* True if we should warn about dollars in identifiers or numbers
      for this translation unit.  */
   unsigned char warn_dollars;
@@ -429,9 +439,8 @@ struct cpp_options
   /* Nonzero means __STDC__ should have the value 0 in system headers.  */
   unsigned char stdc_0_in_system_headers;
 
-  /* True means return pragmas as tokens rather than processing
-     them directly. */
-  bool defer_pragmas;
+  /* True means error callback should be used for diagnostics.  */
+  bool client_diagnostic;
 };
 
 /* Callback for header lookup for HEADER, which is the name of a
@@ -456,7 +465,7 @@ struct cpp_callbacks
 
   void (*dir_change) (cpp_reader *, const char *);
   void (*include) (cpp_reader *, unsigned int, const unsigned char *,
-		   const char *, int);
+		   const char *, int, const cpp_token **);
   void (*define) (cpp_reader *, unsigned int, cpp_hashnode *);
   void (*undef) (cpp_reader *, unsigned int, cpp_hashnode *);
   void (*ident) (cpp_reader *, unsigned int, const cpp_string *);
@@ -464,6 +473,11 @@ struct cpp_callbacks
   int (*valid_pch) (cpp_reader *, const char *, int);
   void (*read_pch) (cpp_reader *, const char *, int, const char *);
   missing_header_cb missing_header;
+
+  /* Called to emit a diagnostic if client_diagnostic option is true.
+     This callback receives the translated message.  */
+  void (*error) (cpp_reader *, int, const char *, va_list *)
+       ATTRIBUTE_FPTR_PRINTF(3,0);
 };
 
 /* Chain of directories to look for include files in.  */
@@ -541,7 +555,8 @@ enum builtin_type
   BT_INCLUDE_LEVEL,		/* `__INCLUDE_LEVEL__' */
   BT_TIME,			/* `__TIME__' */
   BT_STDC,			/* `__STDC__' */
-  BT_PRAGMA			/* `_Pragma' operator */
+  BT_PRAGMA,			/* `_Pragma' operator */
+  BT_TIMESTAMP			/* `__TIMESTAMP__' */
 };
 
 #define CPP_HASHNODE(HNODE)	((cpp_hashnode *) (HNODE))
@@ -660,7 +675,8 @@ extern unsigned char *cpp_spell_token (cpp_reader *, const cpp_token *,
 				       unsigned char *, bool);
 extern void cpp_register_pragma (cpp_reader *, const char *, const char *,
 				 void (*) (cpp_reader *), bool);
-extern void cpp_handle_deferred_pragma (cpp_reader *, const cpp_string *);
+extern void cpp_register_deferred_pragma (cpp_reader *, const char *,
+					  const char *, unsigned, bool, bool);
 extern int cpp_avoid_paste (cpp_reader *, const cpp_token *,
 			    const cpp_token *);
 extern const cpp_token *cpp_get_token (cpp_reader *);
@@ -732,6 +748,7 @@ struct cpp_num
 
 #define CPP_N_UNSIGNED	0x1000	/* Properties.  */
 #define CPP_N_IMAGINARY	0x2000
+#define CPP_N_DFLOAT	0x4000
 
 /* Classify a CPP_NUMBER token.  The return value is a combination of
    the flags from the above sets.  */

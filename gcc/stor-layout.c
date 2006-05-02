@@ -1,6 +1,7 @@
 /* C-compiler utilities for types and variables storage layout
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1996, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -30,6 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
+#include "output.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "target.h"
@@ -188,15 +190,16 @@ mode_for_size (unsigned int size, enum mode_class class, int limit)
 enum machine_mode
 mode_for_size_tree (tree size, enum mode_class class, int limit)
 {
-  if (TREE_CODE (size) != INTEGER_CST
-      || TREE_OVERFLOW (size)
-      /* What we really want to say here is that the size can fit in a
-	 host integer, but we know there's no way we'd find a mode for
-	 this many bits, so there's no point in doing the precise test.  */
-      || compare_tree_int (size, 1000) > 0)
+  unsigned HOST_WIDE_INT uhwi;
+  unsigned int ui;
+
+  if (!host_integerp (size, 1))
     return BLKmode;
-  else
-    return mode_for_size (tree_low_cst (size, 1), class, limit);
+  uhwi = tree_low_cst (size, 1);
+  ui = uhwi;
+  if (uhwi != ui)
+    return BLKmode;
+  return mode_for_size (ui, class, limit);
 }
 
 /* Similar, but never return BLKmode; return the narrowest mode that
@@ -231,6 +234,7 @@ int_mode_for_mode (enum machine_mode mode)
     case MODE_COMPLEX_INT:
     case MODE_COMPLEX_FLOAT:
     case MODE_FLOAT:
+    case MODE_DECIMAL_FLOAT:
     case MODE_VECTOR_INT:
     case MODE_VECTOR_FLOAT:
       mode = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 0);
@@ -336,17 +340,22 @@ layout_decl (tree decl, unsigned int known_align)
     /* For fields, it's a bit more complicated...  */
     {
       bool old_user_align = DECL_USER_ALIGN (decl);
+      bool zero_bitfield = false;
+      bool packed_p = DECL_PACKED (decl);
+      unsigned int mfa;
 
       if (DECL_BIT_FIELD (decl))
 	{
 	  DECL_BIT_FIELD_TYPE (decl) = type;
 
 	  /* A zero-length bit-field affects the alignment of the next
-	     field.  */
+	     field.  In essence such bit-fields are not influenced by
+	     any packing due to #pragma pack or attribute packed.  */
 	  if (integer_zerop (DECL_SIZE (decl))
-	      && ! DECL_PACKED (decl)
 	      && ! targetm.ms_bitfield_layout_p (DECL_FIELD_CONTEXT (decl)))
 	    {
+	      zero_bitfield = true;
+	      packed_p = false;
 #ifdef PCC_BITFIELD_TYPE_MATTERS
 	      if (PCC_BITFIELD_TYPE_MATTERS)
 		do_type_align (type, decl);
@@ -390,7 +399,7 @@ layout_decl (tree decl, unsigned int known_align)
 	      && DECL_ALIGN (decl) >= TYPE_ALIGN (type))
 	    DECL_BIT_FIELD (decl) = 0;
 	}
-      else if (DECL_PACKED (decl) && DECL_USER_ALIGN (decl))
+      else if (packed_p && DECL_USER_ALIGN (decl))
 	/* Don't touch DECL_ALIGN.  For other packed fields, go ahead and
 	   round up; we'll reduce it again below.  We want packing to
 	   supersede USER_ALIGN inherited from the type, but defer to
@@ -405,14 +414,14 @@ layout_decl (tree decl, unsigned int known_align)
 
 	 Note that do_type_align may set DECL_USER_ALIGN, so we need to
 	 check old_user_align instead.  */
-      if (DECL_PACKED (decl)
+      if (packed_p
 	  && !old_user_align
 	  && (DECL_NONADDRESSABLE_P (decl)
 	      || DECL_SIZE_UNIT (decl) == 0
 	      || TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST))
 	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), BITS_PER_UNIT);
 
-      if (! DECL_USER_ALIGN (decl) && ! DECL_PACKED (decl))
+      if (! packed_p && ! DECL_USER_ALIGN (decl))
 	{
 	  /* Some targets (i.e. i386, VMS) limit struct field alignment
 	     to a lower boundary than alignment of variables unless
@@ -426,9 +435,13 @@ layout_decl (tree decl, unsigned int known_align)
 #endif
 	}
 
+      if (zero_bitfield)
+        mfa = initial_max_fld_align * BITS_PER_UNIT;
+      else
+	mfa = maximum_field_alignment;
       /* Should this be controlled by DECL_USER_ALIGN, too?  */
-      if (maximum_field_alignment != 0)
-	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), maximum_field_alignment);
+      if (mfa != 0)
+	DECL_ALIGN (decl) = MIN (DECL_ALIGN (decl), mfa);
     }
 
   /* Evaluate nonconstant size only once, either now or as soon as safe.  */
@@ -451,10 +464,10 @@ layout_decl (tree decl, unsigned int known_align)
 	  int size_as_int = TREE_INT_CST_LOW (size);
 
 	  if (compare_tree_int (size, size_as_int) == 0)
-	    warning (0, "%Jsize of %qD is %d bytes", decl, decl, size_as_int);
+	    warning (0, "size of %q+D is %d bytes", decl, size_as_int);
 	  else
-	    warning (0, "%Jsize of %qD is larger than %d bytes",
-                     decl, decl, larger_than_size);
+	    warning (0, "size of %q+D is larger than %wd bytes",
+                     decl, larger_than_size);
 	}
     }
 
@@ -712,7 +725,16 @@ update_alignment_for_field (record_layout_info rli, tree field,
 	    type_align = ADJUST_FIELD_ALIGN (field, type_align);
 #endif
 
-	  if (maximum_field_alignment != 0)
+	  /* Targets might chose to handle unnamed and hence possibly
+	     zero-width bitfield.  Those are not influenced by #pragmas
+	     or packed attributes.  */
+	  if (integer_zerop (DECL_SIZE (field)))
+	    {
+	      if (initial_max_fld_align)
+	        type_align = MIN (type_align,
+				  initial_max_fld_align * BITS_PER_UNIT);
+	    }
+	  else if (maximum_field_alignment != 0)
 	    type_align = MIN (type_align, maximum_field_alignment);
 	  else if (DECL_PACKED (field))
 	    type_align = MIN (type_align, BITS_PER_UNIT);
@@ -799,9 +821,19 @@ place_field (record_layout_info rli, tree field)
   /* The type of this field.  */
   tree type = TREE_TYPE (field);
 
-  if (TREE_CODE (field) == ERROR_MARK || TREE_CODE (type) == ERROR_MARK)
-      return;
+  gcc_assert (TREE_CODE (field) != ERROR_MARK);
 
+  if (TREE_CODE (type) == ERROR_MARK)
+    {
+      if (TREE_CODE (field) == FIELD_DECL)
+	{
+	  DECL_FIELD_OFFSET (field) = size_int (0);
+	  DECL_FIELD_BIT_OFFSET (field) = bitsize_int (0);
+	}
+      
+      return;
+    }
+  
   /* If FIELD is static, then treat it like a separate variable, not
      really like a structure field.  If it is a FUNCTION_DECL, it's a
      method.  In both cases, all we do is lay out the decl, and we do
@@ -851,11 +883,11 @@ place_field (record_layout_info rli, tree field)
 	  if (TYPE_ALIGN (type) > desired_align)
 	    {
 	      if (STRICT_ALIGNMENT)
-		warning (OPT_Wattributes, "%Jpacked attribute causes "
-                         "inefficient alignment for %qD", field, field);
+		warning (OPT_Wattributes, "packed attribute causes "
+                         "inefficient alignment for %q+D", field);
 	      else
-		warning (OPT_Wattributes, "%Jpacked attribute is "
-			 "unnecessary for %qD", field, field);
+		warning (OPT_Wattributes, "packed attribute is "
+			 "unnecessary for %q+D", field);
 	    }
 	}
       else
@@ -869,7 +901,7 @@ place_field (record_layout_info rli, tree field)
       /* No, we need to skip space before this field.
 	 Bump the cumulative size to multiple of field alignment.  */
 
-      warning (OPT_Wpadded, "%Jpadding struct to align %qD", field, field);
+      warning (OPT_Wpadded, "padding struct to align %q+D", field);
 
       /* If the alignment is still within offset_align, just align
 	 the bit position.  */
@@ -1164,6 +1196,10 @@ place_field (record_layout_info rli, tree field)
   if (DECL_BIT_FIELD_TYPE (field))
     {
       unsigned int type_align = TYPE_ALIGN (type);
+      unsigned int mfa = maximum_field_alignment;
+
+      if (integer_zerop (DECL_SIZE (field)))
+        mfa = initial_max_fld_align * BITS_PER_UNIT;
 
       /* Only the MS bitfields use this.  We used to also put any kind of
 	 packed bit fields into prev_field, but that makes no sense, because
@@ -1172,8 +1208,8 @@ place_field (record_layout_info rli, tree field)
 	 are also not fulfilled.
 	 There is no sane value to set rli->remaining_in_alignment to when
 	 a packed bitfield in prev_field is unaligned.  */
-      if (maximum_field_alignment != 0)
-	type_align = MIN (type_align, maximum_field_alignment);
+      if (mfa != 0)
+	type_align = MIN (type_align, mfa);
       gcc_assert (rli->prev_field
 		  || actual_align >= type_align || DECL_PACKED (field)
 		  || integer_zerop (DECL_SIZE (field))
@@ -1210,8 +1246,8 @@ place_field (record_layout_info rli, tree field)
      is printed in finish_struct.  */
   if (DECL_SIZE (field) == 0)
     /* Do nothing.  */;
-  else if (TREE_CODE (DECL_SIZE_UNIT (field)) != INTEGER_CST
-	   || TREE_CONSTANT_OVERFLOW (DECL_SIZE_UNIT (field)))
+  else if (TREE_CODE (DECL_SIZE (field)) != INTEGER_CST
+	   || TREE_CONSTANT_OVERFLOW (DECL_SIZE (field)))
     {
       rli->offset
 	= size_binop (PLUS_EXPR, rli->offset,
@@ -1266,9 +1302,9 @@ finalize_record_size (record_layout_info rli)
   TYPE_SIZE_UNIT (rli->t)
     = round_up (unpadded_size_unit, TYPE_ALIGN_UNIT (rli->t));
 
-  if (warn_padded && TREE_CONSTANT (unpadded_size)
+  if (TREE_CONSTANT (unpadded_size)
       && simple_cst_equal (unpadded_size, TYPE_SIZE (rli->t)) == 0)
-    warning (0, "padding struct size to alignment boundary");
+    warning (OPT_Wpadded, "padding struct size to alignment boundary");
 
   if (warn_packed && TREE_CODE (rli->t) == RECORD_TYPE
       && TYPE_PACKED (rli->t) && ! rli->packed_maybe_necessary
@@ -1298,19 +1334,19 @@ finalize_record_size (record_layout_info rli)
 		name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (rli->t)));
 
 	      if (STRICT_ALIGNMENT)
-		warning (OPT_Wattributes, "packed attribute causes inefficient "
+		warning (OPT_Wpacked, "packed attribute causes inefficient "
 			 "alignment for %qs", name);
 	      else
-		warning (OPT_Wattributes,
+		warning (OPT_Wpacked,
 			 "packed attribute is unnecessary for %qs", name);
 	    }
 	  else
 	    {
 	      if (STRICT_ALIGNMENT)
-		warning (OPT_Wattributes,
+		warning (OPT_Wpacked,
 			 "packed attribute causes inefficient alignment");
 	      else
-		warning (OPT_Wattributes, "packed attribute is unnecessary");
+		warning (OPT_Wpacked, "packed attribute is unnecessary");
 	    }
 	}
     }
@@ -1366,14 +1402,15 @@ compute_record_mode (tree type)
 #endif /* MEMBER_TYPE_FORCES_BLK  */
     }
 
-  TYPE_MODE (type) = mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
-
   /* If we only have one real field; use its mode if that mode's size
      matches the type's size.  This only applies to RECORD_TYPE.  This
      does not apply to unions.  */
   if (TREE_CODE (type) == RECORD_TYPE && mode != VOIDmode
-      && GET_MODE_SIZE (mode) == GET_MODE_SIZE (TYPE_MODE (type)))
+      && host_integerp (TYPE_SIZE (type), 1)
+      && GET_MODE_BITSIZE (mode) == TREE_INT_CST_LOW (TYPE_SIZE (type)))
     TYPE_MODE (type) = mode;
+  else
+    TYPE_MODE (type) = mode_for_size_tree (TYPE_SIZE (type), MODE_INT, 1);
 
   /* If structure's known alignment is less than what the scalar
      mode would need, and it matters, then stick with BLKmode.  */
@@ -1406,8 +1443,15 @@ finalize_type_size (tree type)
 	      && TREE_CODE (type) != QUAL_UNION_TYPE
 	      && TREE_CODE (type) != ARRAY_TYPE)))
     {
-      TYPE_ALIGN (type) = GET_MODE_ALIGNMENT (TYPE_MODE (type));
-      TYPE_USER_ALIGN (type) = 0;
+      unsigned mode_align = GET_MODE_ALIGNMENT (TYPE_MODE (type));
+
+      /* Don't override a larger alignment requirement coming from a user
+	 alignment of one of the fields.  */
+      if (mode_align >= TYPE_ALIGN (type))
+	{
+	  TYPE_ALIGN (type) = mode_align;
+	  TYPE_USER_ALIGN (type) = 0;
+	}
     }
 
   /* Do machine-dependent extra alignment.  */
@@ -1572,7 +1616,6 @@ layout_type (tree type)
 
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
-    case CHAR_TYPE:
       if (TREE_CODE (TYPE_MIN_VALUE (type)) == INTEGER_CST
 	  && tree_int_cst_sgn (TYPE_MIN_VALUE (type)) >= 0)
 	TYPE_UNSIGNED (type) = 1;
@@ -1615,7 +1658,7 @@ layout_type (tree type)
 	    enum machine_mode mode;
 
 	    /* First, look for a supported vector type.  */
-	    if (GET_MODE_CLASS (innermode) == MODE_FLOAT)
+	    if (SCALAR_FLOAT_MODE_P (innermode))
 	      mode = MIN_MODE_VECTOR_FLOAT;
 	    else
 	      mode = MIN_MODE_VECTOR_INT;
@@ -1797,6 +1840,17 @@ layout_type (tree type)
 		TYPE_MODE (type) = BLKmode;
 	      }
 	  }
+	/* When the element size is constant, check that it is at least as
+	   large as the element alignment.  */
+	if (TYPE_SIZE_UNIT (element)
+	    && TREE_CODE (TYPE_SIZE_UNIT (element)) == INTEGER_CST
+	    /* If TYPE_SIZE_UNIT overflowed, then it is certainly larger than
+	       TYPE_ALIGN_UNIT.  */
+	    && !TREE_CONSTANT_OVERFLOW (TYPE_SIZE_UNIT (element))
+	    && !integer_zerop (TYPE_SIZE_UNIT (element))
+	    && compare_tree_int (TYPE_SIZE_UNIT (element),
+			  	 TYPE_ALIGN_UNIT (element)) < 0)
+	  error ("alignment of array elements is greater than element size");
 	break;
       }
 
@@ -1885,20 +1939,19 @@ void
 initialize_sizetypes (bool signed_p)
 {
   tree t = make_node (INTEGER_TYPE);
+  int precision = GET_MODE_BITSIZE (SImode);
 
   TYPE_MODE (t) = SImode;
   TYPE_ALIGN (t) = GET_MODE_ALIGNMENT (SImode);
   TYPE_USER_ALIGN (t) = 0;
   TYPE_IS_SIZETYPE (t) = 1;
   TYPE_UNSIGNED (t) = !signed_p;
-  TYPE_SIZE (t) = build_int_cst (t, GET_MODE_BITSIZE (SImode));
+  TYPE_SIZE (t) = build_int_cst (t, precision);
   TYPE_SIZE_UNIT (t) = build_int_cst (t, GET_MODE_SIZE (SImode));
-  TYPE_PRECISION (t) = GET_MODE_BITSIZE (SImode);
-  TYPE_MIN_VALUE (t) = build_int_cst (t, 0);
+  TYPE_PRECISION (t) = precision;
 
-  /* 1000 avoids problems with possible overflow and is certainly
-     larger than any size value we'd want to be storing.  */
-  TYPE_MAX_VALUE (t) = build_int_cst (t, 1000);
+  /* Set TYPE_MIN_VALUE and TYPE_MAX_VALUE.  */
+  set_min_and_max_values_for_integral_type (t, precision, !signed_p);
 
   sizetype = t;
   bitsizetype = build_distinct_type_copy (t);
@@ -1946,8 +1999,10 @@ set_sizetype (tree type)
   TYPE_PRECISION (t) = precision;
   TYPE_UID (t) = TYPE_UID (bitsizetype);
   TYPE_IS_SIZETYPE (t) = 1;
+
   /* Replace our original stub bitsizetype.  */
   memcpy (bitsizetype, t, tree_size (bitsizetype));
+  TYPE_MAIN_VARIANT (bitsizetype) = bitsizetype;
   
   if (TYPE_UNSIGNED (type))
     {
@@ -1963,10 +2018,29 @@ set_sizetype (tree type)
       ssizetype = sizetype;
       sbitsizetype = bitsizetype;
     }
+
+  /* If SIZETYPE is unsigned, we need to fix TYPE_MAX_VALUE so that
+     it is sign extended in a way consistent with force_fit_type.  */
+  if (TYPE_UNSIGNED (type))
+    {
+      tree orig_max, new_max;
+
+      orig_max = TYPE_MAX_VALUE (sizetype);
+
+      /* Build a new node with the same values, but a different type.  */
+      new_max = build_int_cst_wide (sizetype,
+				    TREE_INT_CST_LOW (orig_max),
+				    TREE_INT_CST_HIGH (orig_max));
+
+      /* Now sign extend it using force_fit_type to ensure
+	 consistency.  */
+      new_max = force_fit_type (new_max, 0, 0, 0);
+      TYPE_MAX_VALUE (sizetype) = new_max;
+    }
 }
 
-/* TYPE is an integral type, i.e., an INTEGRAL_TYPE, ENUMERAL_TYPE,
-   BOOLEAN_TYPE, or CHAR_TYPE.  Set TYPE_MIN_VALUE and TYPE_MAX_VALUE
+/* TYPE is an integral type, i.e., an INTEGRAL_TYPE, ENUMERAL_TYPE
+   or BOOLEAN_TYPE.  Set TYPE_MIN_VALUE and TYPE_MAX_VALUE
    for TYPE, based on the PRECISION and whether or not the TYPE
    IS_UNSIGNED.  PRECISION need not correspond to a width supported
    natively by the hardware; for example, on a machine with 8-bit,
@@ -2074,13 +2148,17 @@ fixup_unsigned_type (tree type)
    If LARGEST_MODE is not VOIDmode, it means that we should not use a mode
    larger than LARGEST_MODE (usually SImode).
 
-   If no mode meets all these conditions, we return VOIDmode.  Otherwise, if
-   VOLATILEP is true or SLOW_BYTE_ACCESS is false, we return the smallest
-   mode meeting these conditions.
+   If no mode meets all these conditions, we return VOIDmode.
+   
+   If VOLATILEP is false and SLOW_BYTE_ACCESS is false, we return the
+   smallest mode meeting these conditions.
 
-   Otherwise (VOLATILEP is false and SLOW_BYTE_ACCESS is true), we return
-   the largest mode (but a mode no wider than UNITS_PER_WORD) that meets
-   all the conditions.  */
+   If VOLATILEP is false and SLOW_BYTE_ACCESS is true, we return the
+   largest mode (but a mode no wider than UNITS_PER_WORD) that meets
+   all the conditions.
+   
+   If VOLATILEP is true the narrow_volatile_bitfields target hook is used to
+   decide which of the above modes should be used.  */
 
 enum machine_mode
 get_best_mode (int bitsize, int bitpos, unsigned int align,
@@ -2110,7 +2188,8 @@ get_best_mode (int bitsize, int bitpos, unsigned int align,
       || (largest_mode != VOIDmode && unit > GET_MODE_BITSIZE (largest_mode)))
     return VOIDmode;
 
-  if (SLOW_BYTE_ACCESS && ! volatilep)
+  if ((SLOW_BYTE_ACCESS && ! volatilep)
+      || (volatilep && !targetm.narrow_volatile_bitfield()))
     {
       enum machine_mode wide_mode = VOIDmode, tmode;
 

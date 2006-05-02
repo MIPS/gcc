@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* trans-const.c -- convert constant values */
 
@@ -86,12 +86,13 @@ gfc_build_string_const (int length, const char *s)
   return str;
 }
 
-/* Build a Fortran character constant from a zero-terminated string.  */
-
+/* Build a Fortran character constant from a zero-terminated string.
+   Since this is mainly used for error messages, the string will get
+   translated.  */
 tree
-gfc_build_cstring_const (const char *s)
+gfc_build_cstring_const (const char *msgid)
 {
-  return gfc_build_string_const (strlen (s) + 1, s);
+  return gfc_build_string_const (strlen (msgid) + 1, _(msgid));
 }
 
 /* Return a string constant with the given length.  Used for static
@@ -163,7 +164,7 @@ gfc_init_constants (void)
     gfc_build_cstring_const ("Incorrect function return value");
 
   gfc_strconst_current_filename =
-    gfc_build_cstring_const (gfc_option.source);
+    gfc_build_cstring_const (gfc_source_file);
 }
 
 /* Converts a GMP integer into a backend tree node.  */
@@ -274,30 +275,58 @@ gfc_conv_constant_to_tree (gfc_expr * expr)
 {
   gcc_assert (expr->expr_type == EXPR_CONSTANT);
 
+  /* If it is converted from Hollerith constant, we build string constant
+     and VIEW_CONVERT to its type.  */
+ 
   switch (expr->ts.type)
     {
     case BT_INTEGER:
-      return gfc_conv_mpz_to_tree (expr->value.integer, expr->ts.kind);
+      if (expr->from_H)
+	return build1 (VIEW_CONVERT_EXPR,
+			gfc_get_int_type (expr->ts.kind),
+			gfc_build_string_const (expr->value.character.length,
+				expr->value.character.string));
+      else
+	return gfc_conv_mpz_to_tree (expr->value.integer, expr->ts.kind);
 
     case BT_REAL:
-      return gfc_conv_mpfr_to_tree (expr->value.real, expr->ts.kind);
+      if (expr->from_H)
+	return build1 (VIEW_CONVERT_EXPR,
+			gfc_get_real_type (expr->ts.kind),
+			gfc_build_string_const (expr->value.character.length,
+				expr->value.character.string));
+      else
+	return gfc_conv_mpfr_to_tree (expr->value.real, expr->ts.kind);
 
     case BT_LOGICAL:
-      return build_int_cst (gfc_get_logical_type (expr->ts.kind),
+      if (expr->from_H)
+	return build1 (VIEW_CONVERT_EXPR,
+			gfc_get_logical_type (expr->ts.kind),
+			gfc_build_string_const (expr->value.character.length,
+				expr->value.character.string));
+      else
+	return build_int_cst (gfc_get_logical_type (expr->ts.kind),
 			    expr->value.logical);
 
     case BT_COMPLEX:
-      {
-	tree real = gfc_conv_mpfr_to_tree (expr->value.complex.r,
+      if (expr->from_H)
+	return build1 (VIEW_CONVERT_EXPR,
+			gfc_get_complex_type (expr->ts.kind),
+			gfc_build_string_const (expr->value.character.length,
+				expr->value.character.string));
+      else
+	{
+	  tree real = gfc_conv_mpfr_to_tree (expr->value.complex.r,
 					  expr->ts.kind);
-	tree imag = gfc_conv_mpfr_to_tree (expr->value.complex.i,
+	  tree imag = gfc_conv_mpfr_to_tree (expr->value.complex.i,
 					  expr->ts.kind);
 
-	return build_complex (gfc_typenode_for_spec (&expr->ts),
-			      real, imag);
-      }
+	  return build_complex (gfc_typenode_for_spec (&expr->ts),
+				real, imag);
+	}
 
     case BT_CHARACTER:
+    case BT_HOLLERITH:
       return gfc_build_string_const (expr->value.character.length,
 				     expr->value.character.string);
 

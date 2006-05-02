@@ -15,8 +15,8 @@ GNU General Public License for more details.
                                                                                
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -57,13 +57,6 @@ Boston, MA 02111-1307, USA.  */
    We could also use a zone allocator for these objects since they have
    a very well defined lifetime.  If someone wants to experiment with that
    this is the place to try it.  */
-   
-/* Array of all SSA_NAMEs used in the function.  */
-VEC(tree,gc) *ssa_names;
-
-/* Free list of SSA_NAMEs.  This list is wiped at the end of each function
-   after we leave SSA form.  */
-static GTY (()) tree free_ssanames;
 
 /* Version numbers with special meanings.  We start allocating new version
    numbers after the special ones.  */
@@ -183,7 +176,7 @@ release_ssa_name (tree var)
 
   /* Never release the default definition for a symbol.  It's a
      special SSA name that should always exist once it's created.  */
-  if (var == var_ann (SSA_NAME_VAR (var))->default_def)
+  if (var == default_def (SSA_NAME_VAR (var)))
     return;
 
   /* If VAR has been registered for SSA updating, don't remove it.
@@ -289,11 +282,13 @@ release_defs (tree stmt)
   tree def;
   ssa_op_iter iter;
 
+  /* Make sure that we are in SSA.  Otherwise, operand cache may point
+     to garbage.  */
+  gcc_assert (in_ssa_p);
+
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     if (TREE_CODE (def) == SSA_NAME)
       release_ssa_name (def);
-  stmt_ann(stmt)->addresses_taken = NULL;
-  /*free_ssa_operands (&stmt_ann (stmt)->operands);*/
 }
 
 
@@ -305,5 +300,3 @@ replace_ssa_name_symbol (tree ssa_name, tree sym)
   SSA_NAME_VAR (ssa_name) = sym;
   TREE_TYPE (ssa_name) = TREE_TYPE (sym);
 }
-
-#include "gt-tree-ssanames.h"

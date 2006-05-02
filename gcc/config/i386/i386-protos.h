@@ -1,6 +1,7 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Functions in i386.c */
 extern void override_options (void);
@@ -46,53 +47,6 @@ extern int symbolic_reference_mentioned_p (rtx);
 extern bool extended_reg_mentioned_p (rtx);
 extern bool x86_extended_QIreg_mentioned_p (rtx);
 extern bool x86_extended_reg_mentioned_p (rtx);
-
-extern int any_fp_register_operand (rtx, enum machine_mode);
-extern int register_and_not_any_fp_reg_operand (rtx, enum machine_mode);
-
-extern int fp_register_operand (rtx, enum machine_mode);
-extern int register_and_not_fp_reg_operand (rtx, enum machine_mode);
-
-extern int x86_64_general_operand (rtx, enum machine_mode);
-extern int x86_64_szext_general_operand (rtx, enum machine_mode);
-extern int x86_64_nonmemory_operand (rtx, enum machine_mode);
-extern int x86_64_szext_nonmemory_operand (rtx, enum machine_mode);
-extern int x86_64_immediate_operand (rtx, enum machine_mode);
-extern int x86_64_zext_immediate_operand (rtx, enum machine_mode);
-extern int symbolic_operand (rtx, enum machine_mode);
-extern int tls_symbolic_operand (rtx, enum machine_mode);
-extern int global_dynamic_symbolic_operand (rtx, enum machine_mode);
-extern int local_dynamic_symbolic_operand (rtx, enum machine_mode);
-extern int initial_exec_symbolic_operand (rtx, enum machine_mode);
-extern int local_exec_symbolic_operand (rtx, enum machine_mode);
-extern int pic_symbolic_operand (rtx, enum machine_mode);
-extern int call_insn_operand (rtx, enum machine_mode);
-extern int sibcall_insn_operand (rtx, enum machine_mode);
-extern int constant_call_address_operand (rtx, enum machine_mode);
-extern int const0_operand (rtx, enum machine_mode);
-extern int const1_operand (rtx, enum machine_mode);
-extern int const248_operand (rtx, enum machine_mode);
-extern int incdec_operand (rtx, enum machine_mode);
-extern int reg_no_sp_operand (rtx, enum machine_mode);
-extern int mmx_reg_operand (rtx, enum machine_mode);
-extern int general_no_elim_operand (rtx, enum machine_mode);
-extern int nonmemory_no_elim_operand (rtx, enum machine_mode);
-extern int q_regs_operand (rtx, enum machine_mode);
-extern int non_q_regs_operand (rtx, enum machine_mode);
-extern int sse_comparison_operator (rtx, enum machine_mode);
-extern int fcmov_comparison_operator (rtx, enum machine_mode);
-extern int cmp_fp_expander_operand (rtx, enum machine_mode);
-extern int ix86_comparison_operator (rtx, enum machine_mode);
-extern int ext_register_operand (rtx, enum machine_mode);
-extern int binary_fp_operator (rtx, enum machine_mode);
-extern int mult_operator (rtx, enum machine_mode);
-extern int div_operator (rtx, enum machine_mode);
-extern int arith_or_logical_operator (rtx, enum machine_mode);
-extern int promotable_binary_operator (rtx, enum machine_mode);
-extern int memory_displacement_operand (rtx, enum machine_mode);
-extern int cmpsi_operand (rtx, enum machine_mode);
-extern int long_memory_operand (rtx, enum machine_mode);
-extern int aligned_operand (rtx, enum machine_mode);
 extern enum machine_mode ix86_cc_mode (enum rtx_code, rtx, rtx);
 
 extern int ix86_expand_movmem (rtx, rtx, rtx, rtx);
@@ -114,13 +68,11 @@ extern bool output_addr_const_extra (FILE*, rtx);
 extern void split_di (rtx[], int, rtx[], rtx[]);
 extern void split_ti (rtx[], int, rtx[], rtx[]);
 
-extern const char *output_set_got (rtx);
+extern const char *output_set_got (rtx, rtx);
 extern const char *output_387_binary_op (rtx, rtx*);
 extern const char *output_387_reg_move (rtx, rtx*);
 extern const char *output_fix_trunc (rtx, rtx*, int);
 extern const char *output_fp_compare (rtx, rtx*, int, int);
-
-extern void i386_output_dwarf_dtprel (FILE*, int, rtx);
 
 extern void ix86_expand_clear (rtx);
 extern void ix86_expand_move (enum machine_mode, rtx[]);
@@ -151,19 +103,19 @@ extern int ix86_expand_setcc (enum rtx_code, rtx);
 extern int ix86_expand_int_movcc (rtx[]);
 extern int ix86_expand_fp_movcc (rtx[]);
 extern bool ix86_expand_fp_vcond (rtx[]);
-extern bool ix86_expand_int_vcond (rtx[], bool);
+extern bool ix86_expand_int_vcond (rtx[]);
 extern int ix86_expand_int_addcc (rtx[]);
 extern void ix86_expand_call (rtx, rtx, rtx, rtx, rtx, int);
 extern void x86_initialize_trampoline (rtx, rtx, rtx);
 extern rtx ix86_zero_extend_to_Pmode (rtx);
 extern void ix86_split_long_move (rtx[]);
-extern void ix86_split_ashldi (rtx *, rtx);
-extern void ix86_split_ashrdi (rtx *, rtx);
-extern void ix86_split_lshrdi (rtx *, rtx);
+extern void ix86_split_ashl (rtx *, rtx, enum machine_mode);
+extern void ix86_split_ashr (rtx *, rtx, enum machine_mode);
+extern void ix86_split_lshr (rtx *, rtx, enum machine_mode);
 extern rtx ix86_find_base_term (rtx);
 extern int ix86_check_movabs (rtx, int);
 
-extern rtx assign_386_stack_local (enum machine_mode, int);
+extern rtx assign_386_stack_local (enum machine_mode, enum ix86_stack_slot);
 extern int ix86_attr_length_immediate_default (rtx, int);
 extern int ix86_attr_length_address_default (rtx);
 
@@ -190,8 +142,10 @@ extern int ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 extern bool ix86_cannot_change_mode_class (enum machine_mode,
 					   enum machine_mode, enum reg_class);
 extern enum reg_class ix86_preferred_reload_class (rtx, enum reg_class);
+extern enum reg_class ix86_preferred_output_reload_class (rtx, enum reg_class);
 extern int ix86_memory_move_cost (enum machine_mode, enum reg_class, int);
-extern void emit_i387_cw_initialization (rtx, rtx, int);
+extern int ix86_mode_needed (int, rtx);
+extern void emit_i387_cw_initialization (int);
 extern bool ix86_fp_jump_nontrivial_p (enum rtx_code);
 extern void x86_order_regs_for_local_alloc (void);
 extern void x86_function_profiler (FILE *, int);
@@ -207,7 +161,7 @@ extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree);
 extern rtx function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
 extern void function_arg_advance (CUMULATIVE_ARGS *, enum machine_mode,
 				  tree, int);
-extern rtx ix86_function_value (tree, tree);
+extern rtx ix86_function_value (tree, tree, bool);
 #endif
 
 #endif
@@ -227,10 +181,12 @@ extern int x86_field_alignment (tree, int);
 #endif
 
 extern rtx ix86_tls_get_addr (void);
+extern rtx ix86_tls_module_base (void);
 
 extern void ix86_expand_vector_init (bool, rtx, rtx);
 extern void ix86_expand_vector_set (bool, rtx, rtx, int);
 extern void ix86_expand_vector_extract (bool, rtx, rtx, int);
+extern void ix86_expand_reduc_v4sf (rtx (*)(rtx, rtx, rtx), rtx, rtx);
 
 /* In winnt.c  */
 extern int i386_pe_dllexport_name_p (const char *);
@@ -244,6 +200,13 @@ extern void i386_pe_encode_section_info (tree, rtx, int);
 extern const char *i386_pe_strip_name_encoding (const char *);
 extern const char *i386_pe_strip_name_encoding_full (const char *);
 extern void i386_pe_output_labelref (FILE *, const char *);
+extern bool i386_pe_valid_dllimport_attribute_p (tree);
+
+/* In winnt-cxx.c and winnt-stubs.c  */
+extern void i386_pe_adjust_class_at_definition (tree);
+extern bool i386_pe_type_dllimport_p (tree);
+extern bool i386_pe_type_dllexport_p (tree);
+
 extern rtx maybe_get_pool_constant (rtx);
 
 extern char internal_label_prefix[16];
@@ -259,9 +222,14 @@ struct ix86_address
 
 extern int ix86_decompose_address (rtx, struct ix86_address *);
 extern int memory_address_length (rtx addr);
+extern void x86_output_aligned_bss (FILE *, tree, const char *,
+				    unsigned HOST_WIDE_INT, int);
+extern void x86_elf_aligned_common (FILE *, const char *,
+				    unsigned HOST_WIDE_INT, int);
 
 #ifdef RTX_CODE
 extern void ix86_fp_comparison_codes (enum rtx_code code, enum rtx_code *,
 				      enum rtx_code *, enum rtx_code *);
 extern enum rtx_code ix86_fp_compare_code_to_integer (enum rtx_code);
 #endif
+extern int asm_preferred_eh_data_format (int, int);

@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Get Xtensa configuration settings */
 #include "xtensa-config.h"
@@ -90,11 +90,6 @@ extern unsigned xtensa_current_frame_size;
     builtin_define (TARGET_BIG_ENDIAN ? "__XTENSA_EB__" : "__XTENSA_EL__"); \
     if (!TARGET_HARD_FLOAT)						\
       builtin_define ("__XTENSA_SOFT_FLOAT__");				\
-    if (flag_pic)							\
-      {									\
-        builtin_define ("__PIC__");					\
-        builtin_define ("__pic__");					\
-      }									\
   } while (0)
 
 #define CPP_SPEC " %(subtarget_cpp_spec) "
@@ -1213,7 +1208,7 @@ typedef struct xtensa_args
       }									\
     if ((SIZE) > 0)							\
       {									\
-	function_section (FUNDECL);  					\
+	switch_to_section (function_section (FUNDECL));			\
 	fprintf (FILE, "\t.literal_position\n");			\
       }									\
   } while (0)

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #define TARGET_OBJECT_SUFFIX ".obj"
 #define TARGET_EXECUTABLE_SUFFIX ".exe"
@@ -198,38 +198,9 @@ typedef struct {int num_args; enum avms_arg_type atypes[6];} avms_arg_info;
 #undef STACK_CHECK_BUILTIN
 #define STACK_CHECK_BUILTIN 0
 
-#define LINK_SECTION_ASM_OP "\t.link"
 #define READONLY_DATA_SECTION_ASM_OP "\t.rdata"
-#define LITERALS_SECTION_ASM_OP "\t.literals"
 #define CTORS_SECTION_ASM_OP "\t.ctors"
 #define DTORS_SECTION_ASM_OP "\t.dtors"
-
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS	in_link, in_literals
-
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS					\
-void								\
-link_section (void)						\
-{								\
-  if (in_section != in_link)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", LINK_SECTION_ASM_OP); 	\
-      in_section = in_link;					\
-    }								\
-}                                                               \
-void								\
-literals_section (void)						\
-{								\
-  if (in_section != in_literals)				\
-    {								\
-      fprintf (asm_out_file, "%s\n", LITERALS_SECTION_ASM_OP); 	\
-      in_section = in_literals;					\
-    }								\
-}
-
-extern void link_section (void);
-extern void literals_section (void);
 
 #undef ASM_OUTPUT_ADDR_DIFF_ELT
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) gcc_unreachable ()
@@ -327,7 +298,8 @@ do {									\
 #define TARGET_ASM_NAMED_SECTION vms_asm_named_section
 
 #define ASM_OUTPUT_DEF(FILE,LABEL1,LABEL2)				\
-  do {	literals_section();                                             \
+  do {	fprintf ((FILE), "\t.literals\n");				\
+	in_section = NULL;						\
 	fprintf ((FILE), "\t");						\
 	assemble_name (FILE, LABEL1);					\
 	fprintf (FILE, " = ");						\

@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -44,8 +44,8 @@ with System.OS_Interface;
 --  used for Thread_Id
 
 package System.Task_Primitives.Operations is
+   pragma Preelaborate;
 
-   pragma Elaborate_Body;
    package ST renames System.Tasking;
    package OSI renames System.OS_Interface;
 
@@ -356,8 +356,8 @@ package System.Task_Primitives.Operations is
      (Self_ID : ST.Task_Id;
       Time    : Duration;
       Mode    : ST.Delay_Modes);
-   --  Implement the semantics of the delay statement. It is assumed that
-   --  the caller is not abort-deferred and does not hold any locks.
+   --  Implement the semantics of the delay statement.
+   --  The caller should be abort-deferred and should not hold any locks.
 
    procedure Wakeup
      (T      : ST.Task_Id;
@@ -443,6 +443,38 @@ package System.Task_Primitives.Operations is
    --
    --  The call to Stack_Guard has no effect if guard pages are not used on
    --  the target, or if guard pages are automatically provided by the system.
+
+   ------------------------
+   -- Suspension objects --
+   ------------------------
+
+   --  These subprograms provide the functionality required for synchronizing
+   --  on a suspension object. Tasks can suspend execution and relinquish the
+   --  processors until the condition is signaled.
+
+   function Current_State (S : Suspension_Object) return Boolean;
+   --  Return the state of the suspension object
+
+   procedure Set_False (S : in out Suspension_Object);
+   --  Set the state of the suspension object to False
+
+   procedure Set_True (S : in out Suspension_Object);
+   --  Set the state of the suspension object to True. If a task were
+   --  suspended on the protected object then this task is released (and
+   --  the state of the suspension object remains set to False).
+
+   procedure Suspend_Until_True (S : in out Suspension_Object);
+   --  If the state of the suspension object is True then the calling task
+   --  continues its execution, and the state is set to False. If the state
+   --  of the object is False then the task is suspended on the suspension
+   --  object until a Set_True operation is executed. Program_Error is raised
+   --  if another task is already waiting on that suspension object.
+
+   procedure Initialize (S : in out Suspension_Object);
+   --  Initialize the suspension object
+
+   procedure Finalize (S : in out Suspension_Object);
+   --  Finalize the suspension object
 
    -----------------------------------------
    -- Runtime System Debugging Interfaces --

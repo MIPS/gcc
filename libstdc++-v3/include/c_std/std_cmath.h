@@ -1,6 +1,6 @@
 // -*- C++ -*- C forwarding header.
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -38,7 +38,8 @@
  *
  *  This is the C++ version of the Standard C Library header @c math.h,
  *  and its contents are (mostly) the same as that header, but are all
- *  contained in the namespace @c std.
+ *  contained in the namespace @c std (except for names which are defined
+ *  as macros in C).
  */
 
 #ifndef _GLIBCXX_CMATH
@@ -77,9 +78,8 @@
 #undef tan
 #undef tanh
 
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
-namespace std
-{
   // Forward declaration of a helper function.  This really should be
   // an `exported' forward declaration.
   template<typename _Tp> _Tp __cmath_power(_Tp, unsigned int);
@@ -434,68 +434,71 @@ namespace std
     inline typename __enable_if<double, __is_integer<_Tp>::__value>::__type
     tanh(_Tp __x)
     { return __builtin_tanh(__x); }
-}
+
+_GLIBCXX_END_NAMESPACE
 
 #if _GLIBCXX_USE_C99_MATH
 #if !_GLIBCXX_USE_C99_FP_MACROS_DYNAMIC
 // These are possible macros imported from C99-land. For strict
 // conformance, remove possible C99-injected names from the global
 // namespace, and sequester them in the __gnu_cxx extension namespace.
-namespace __gnu_cxx
-{
+
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template<typename _Tp>
-    int
+    inline int
     __capture_fpclassify(_Tp __f) { return fpclassify(__f); }
 
   template<typename _Tp>
-    int
+    inline int
     __capture_isfinite(_Tp __f) { return isfinite(__f); }
 
   template<typename _Tp>
-    int
+    inline int
     __capture_isinf(_Tp __f) { return isinf(__f); }
 
   template<typename _Tp>
-    int
+    inline int
     __capture_isnan(_Tp __f) { return isnan(__f); }
 
   template<typename _Tp>
-    int
+    inline int
     __capture_isnormal(_Tp __f) { return isnormal(__f); }
 
   template<typename _Tp>
-    int
+    inline int
     __capture_signbit(_Tp __f) { return signbit(__f); }
 
   template<typename _Tp>
-    int
+    inline int
     __capture_isgreater(_Tp __f1, _Tp __f2)
     { return isgreater(__f1, __f2); }
 
   template<typename _Tp>
-     int
-     __capture_isgreaterequal(_Tp __f1, _Tp __f2)
-     { return isgreaterequal(__f1, __f2); }
+    inline int
+    __capture_isgreaterequal(_Tp __f1, _Tp __f2)
+    { return isgreaterequal(__f1, __f2); }
 
   template<typename _Tp>
-     int
-     __capture_isless(_Tp __f1, _Tp __f2) { return isless(__f1, __f2); }
+    inline int
+    __capture_isless(_Tp __f1, _Tp __f2) { return isless(__f1, __f2); }
 
   template<typename _Tp>
-     int
-     __capture_islessequal(_Tp __f1, _Tp __f2)
-     { return islessequal(__f1, __f2); }
+    inline int
+    __capture_islessequal(_Tp __f1, _Tp __f2)
+    { return islessequal(__f1, __f2); }
 
   template<typename _Tp>
-     int
-     __capture_islessgreater(_Tp __f1, _Tp __f2)
-     { return islessgreater(__f1, __f2); }
+    inline int
+    __capture_islessgreater(_Tp __f1, _Tp __f2)
+    { return islessgreater(__f1, __f2); }
 
   template<typename _Tp>
-     int
-     __capture_isunordered(_Tp __f1, _Tp __f2)
-     { return isunordered(__f1, __f2); }
-}
+    inline int
+    __capture_isunordered(_Tp __f1, _Tp __f2)
+    { return isunordered(__f1, __f2); }
+
+_GLIBCXX_END_NAMESPACE
 
 // Only undefine the C99 FP macros, if actually captured for namespace movement
 #undef fpclassify
@@ -511,62 +514,64 @@ namespace __gnu_cxx
 #undef islessgreater
 #undef isunordered
 
-namespace std
-{
-  template<typename _Tp>
-    int
-    fpclassify(_Tp __f) { return __gnu_cxx::__capture_fpclassify(__f); }
+_GLIBCXX_BEGIN_NAMESPACE(std)
 
   template<typename _Tp>
-    int
-    isfinite(_Tp __f) { return __gnu_cxx::__capture_isfinite(__f); }
+    inline int
+    fpclassify(_Tp __f) { return ::__gnu_cxx::__capture_fpclassify(__f); }
 
   template<typename _Tp>
-    int
-    isinf(_Tp __f) { return __gnu_cxx::__capture_isinf(__f); }
+    inline int
+    isfinite(_Tp __f) { return ::__gnu_cxx::__capture_isfinite(__f); }
 
   template<typename _Tp>
-    int
-    isnan(_Tp __f) { return __gnu_cxx::__capture_isnan(__f); }
+    inline int
+    isinf(_Tp __f) { return ::__gnu_cxx::__capture_isinf(__f); }
 
   template<typename _Tp>
-    int
-    isnormal(_Tp __f) { return __gnu_cxx::__capture_isnormal(__f); }
+    inline int
+    isnan(_Tp __f) { return ::__gnu_cxx::__capture_isnan(__f); }
 
   template<typename _Tp>
-    int
-    signbit(_Tp __f) { return __gnu_cxx::__capture_signbit(__f); }
+    inline int
+    isnormal(_Tp __f) { return ::__gnu_cxx::__capture_isnormal(__f); }
 
   template<typename _Tp>
-    int
+    inline int
+    signbit(_Tp __f) { return ::__gnu_cxx::__capture_signbit(__f); }
+
+  template<typename _Tp>
+    inline int
     isgreater(_Tp __f1, _Tp __f2)
-    { return __gnu_cxx::__capture_isgreater(__f1, __f2); }
+    { return ::__gnu_cxx::__capture_isgreater(__f1, __f2); }
 
   template<typename _Tp>
-    int
+    inline int
     isgreaterequal(_Tp __f1, _Tp __f2)
-    { return __gnu_cxx::__capture_isgreaterequal(__f1, __f2); }
+    { return ::__gnu_cxx::__capture_isgreaterequal(__f1, __f2); }
 
   template<typename _Tp>
-    int
+    inline int
     isless(_Tp __f1, _Tp __f2)
-    { return __gnu_cxx::__capture_isless(__f1, __f2); }
+    { return ::__gnu_cxx::__capture_isless(__f1, __f2); }
 
   template<typename _Tp>
-    int
+    inline int
     islessequal(_Tp __f1, _Tp __f2)
-    { return __gnu_cxx::__capture_islessequal(__f1, __f2); }
+    { return ::__gnu_cxx::__capture_islessequal(__f1, __f2); }
 
   template<typename _Tp>
-    int
+    inline int
     islessgreater(_Tp __f1, _Tp __f2)
-    { return __gnu_cxx::__capture_islessgreater(__f1, __f2); }
+    { return ::__gnu_cxx::__capture_islessgreater(__f1, __f2); }
 
   template<typename _Tp>
-    int
+    inline int
     isunordered(_Tp __f1, _Tp __f2)
-    { return __gnu_cxx::__capture_isunordered(__f1, __f2); }
-}
+    { return ::__gnu_cxx::__capture_isunordered(__f1, __f2); }
+
+_GLIBCXX_END_NAMESPACE
+
 #endif /* _GLIBCXX_USE_C99_FP_MACROS_DYNAMIC */
 #endif
 

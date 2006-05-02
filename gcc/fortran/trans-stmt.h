@@ -1,5 +1,5 @@
 /* Header for statement translation functions
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2006 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Statement translators (gfc_trans_*) return a fully translated tree.
    Calls gfc_trans_*.  */
@@ -51,6 +51,9 @@ tree gfc_trans_allocate (gfc_code *);
 tree gfc_trans_deallocate (gfc_code *);
 tree gfc_trans_deallocate_array (tree);
 
+/* trans-openmp.c */
+tree gfc_trans_omp_directive (gfc_code *);
+
 /* trans-io.c */
 tree gfc_trans_open (gfc_code *);
 tree gfc_trans_close (gfc_code *);
@@ -61,6 +64,7 @@ tree gfc_trans_backspace (gfc_code *);
 tree gfc_trans_endfile (gfc_code *);
 tree gfc_trans_inquire (gfc_code *);
 tree gfc_trans_rewind (gfc_code *);
+tree gfc_trans_flush (gfc_code *);
 
 tree gfc_trans_transfer (gfc_code *);
 tree gfc_trans_dt_end (gfc_code *);

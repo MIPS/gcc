@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -45,7 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-pass.h"
 #include "convert.h"
 #include "params.h"
-#include "ipa-static.h"
+#include "cgraph.h"
 
 /* Build and maintain data flow information for trees.  */
 
@@ -82,8 +82,6 @@ static void add_referenced_var (tree, struct walk_state *);
 
 /* Global declarations.  */
 
-/* Array of all variables referenced in the function.  */
-VEC(tree,gc) *referenced_vars;
 
 
 /*---------------------------------------------------------------------------
@@ -97,15 +95,13 @@ VEC(tree,gc) *referenced_vars;
    various attributes for each variable used by alias analysis and the
    optimizer.  */
 
-static void
+static unsigned int
 find_referenced_vars (void)
 {
   htab_t vars_found;
   basic_block bb;
   block_stmt_iterator si;
   struct walk_state walk_state;
-
-  ipa_static_reset_maps ();
 
   vars_found = htab_create (50, htab_hash_pointer, htab_eq_pointer, NULL);
   memset (&walk_state, 0, sizeof (walk_state));
@@ -119,15 +115,14 @@ find_referenced_vars (void)
       }
 
   htab_delete (vars_found);
+  return 0;
 }
 
 struct tree_opt_pass pass_referenced_vars =
 {
   NULL,					/* name */
   NULL,					/* gate */
-  NULL, NULL,				/* IPA analysis */
   find_referenced_vars,			/* execute */
-  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -155,7 +150,7 @@ create_var_ann (tree t)
   gcc_assert (DECL_P (t));
   gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
 
-  ann = ggc_alloc (sizeof (*ann));
+  ann = GGC_NEW (struct var_ann_d);
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = VAR_ANN;
@@ -165,6 +160,26 @@ create_var_ann (tree t)
   return ann;
 }
 
+/* Create a new annotation for a FUNCTION_DECL node T.  */
+
+function_ann_t
+create_function_ann (tree t)
+{
+  function_ann_t ann;
+
+  gcc_assert (t);
+  gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
+  gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
+
+  ann = ggc_alloc (sizeof (*ann));
+  memset ((void *) ann, 0, sizeof (*ann));
+
+  ann->common.type = FUNCTION_ANN;
+
+  t->common.ann = (tree_ann_t) ann;
+
+  return ann;
+}
 
 /* Create a new annotation for a statement node T.  */
 
@@ -176,7 +191,7 @@ create_stmt_ann (tree t)
   gcc_assert (is_gimple_stmt (t));
   gcc_assert (!t->common.ann || t->common.ann->common.type == STMT_ANN);
 
-  ann = ggc_alloc (sizeof (*ann));
+  ann = GGC_NEW (struct stmt_ann_d);
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = STMT_ANN;
@@ -189,7 +204,6 @@ create_stmt_ann (tree t)
   return ann;
 }
 
-
 /* Create a new annotation for a tree T.  */
 
 tree_ann_t
@@ -200,7 +214,7 @@ create_tree_ann (tree t)
   gcc_assert (t);
   gcc_assert (!t->common.ann || t->common.ann->common.type == TREE_ANN_COMMON);
 
-  ann = ggc_alloc (sizeof (*ann));
+  ann = GGC_NEW (union tree_ann_d);
   memset ((void *) ann, 0, sizeof (*ann));
 
   ann->common.type = TREE_ANN_COMMON;
@@ -215,7 +229,11 @@ tree
 make_rename_temp (tree type, const char *prefix)
 {
   tree t = create_tmp_var (type, prefix);
-  if (referenced_vars)
+
+  if (TREE_CODE (type) == COMPLEX_TYPE)
+    DECL_COMPLEX_GIMPLE_REG_P (t) = 1;
+
+  if (cfun->ssa && referenced_vars)
     {
       add_referenced_tmp_var (t);
       mark_sym_for_renaming (t);
@@ -235,14 +253,14 @@ make_rename_temp (tree type, const char *prefix)
 void
 dump_referenced_vars (FILE *file)
 {
-  size_t i;
-
+  tree var;
+  referenced_var_iterator rvi;
+  
   fprintf (file, "\nReferenced variables in %s: %u\n\n",
 	   get_name (current_function_decl), (unsigned) num_referenced_vars);
-
-  for (i = 0; i < num_referenced_vars; i++)
+  
+  FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      tree var = referenced_var (i);
       fprintf (file, "Variable: ");
       dump_variable (file, var);
       fprintf (file, "\n");
@@ -256,6 +274,37 @@ void
 debug_referenced_vars (void)
 {
   dump_referenced_vars (stderr);
+}
+
+
+/* Dump sub-variables for VAR to FILE.  */
+
+void
+dump_subvars_for (FILE *file, tree var)
+{
+  subvar_t sv = get_subvars_for_var (var);
+
+  if (!sv)
+    return;
+
+  fprintf (file, "{ ");
+
+  for (; sv; sv = sv->next)
+    {
+      print_generic_expr (file, sv->var, dump_flags);
+      fprintf (file, " ");
+    }
+
+  fprintf (file, "}");
+}
+
+
+/* Dumb sub-variables for VAR to stderr.  */
+
+void
+debug_subvars_for (tree var)
+{
+  dump_subvars_for (stderr, var);
 }
 
 
@@ -283,19 +332,19 @@ dump_variable (FILE *file, tree var)
 
   ann = var_ann (var);
 
-  fprintf (file, ", UID %u", (unsigned) ann->uid);
+  fprintf (file, ", UID %u", (unsigned) DECL_UID (var));
 
   fprintf (file, ", ");
   print_generic_expr (file, TREE_TYPE (var), dump_flags);
 
-  if (ann->type_mem_tag)
+  if (ann && ann->symbol_mem_tag)
     {
-      fprintf (file, ", type memory tag: ");
-      print_generic_expr (file, ann->type_mem_tag, dump_flags);
+      fprintf (file, ", symbol memory tag: ");
+      print_generic_expr (file, ann->symbol_mem_tag, dump_flags);
     }
 
-  if (ann->is_alias_tag)
-    fprintf (file, ", is an alias tag");
+  if (ann && ann->is_aliased)
+    fprintf (file, ", is aliased");
 
   if (TREE_ADDRESSABLE (var))
     fprintf (file, ", is addressable");
@@ -307,18 +356,52 @@ dump_variable (FILE *file, tree var)
     fprintf (file, ", is volatile");
 
   if (is_call_clobbered (var))
-    fprintf (file, ", call clobbered");
-
-  if (ann->default_def)
     {
-      fprintf (file, ", default def: ");
-      print_generic_expr (file, ann->default_def, dump_flags);
+      fprintf (file, ", call clobbered");
+      if (dump_flags & TDF_DETAILS)
+	{
+	  var_ann_t va = var_ann (var);
+	  unsigned int escape_mask = va->escape_mask;
+	  
+	  fprintf (file, " (");
+	  if (escape_mask & ESCAPE_STORED_IN_GLOBAL)
+	    fprintf (file, ", stored in global");
+	  if (escape_mask & ESCAPE_TO_ASM)
+	    fprintf (file, ", goes through ASM");
+	  if (escape_mask & ESCAPE_TO_CALL)
+	    fprintf (file, ", passed to call");
+	  if (escape_mask & ESCAPE_BAD_CAST)
+	    fprintf (file, ", bad cast");
+	  if (escape_mask & ESCAPE_TO_RETURN)
+	    fprintf (file, ", returned from func");
+	  if (escape_mask & ESCAPE_TO_PURE_CONST)
+	    fprintf (file, ", passed to pure/const");
+	  if (escape_mask & ESCAPE_IS_GLOBAL)
+	    fprintf (file, ", is global var");
+	  if (escape_mask & ESCAPE_IS_PARM)
+	    fprintf (file, ", is incoming pointer");
+	  if (escape_mask & ESCAPE_UNKNOWN)
+	    fprintf (file, ", unknown escape");
+	  fprintf (file, " )");
+	}
     }
 
-  if (ann->may_aliases)
+  if (default_def (var))
+    {
+      fprintf (file, ", default def: ");
+      print_generic_expr (file, default_def (var), dump_flags);
+    }
+
+  if (may_aliases (var))
     {
       fprintf (file, ", may aliases: ");
       dump_may_aliases_for (file, var);
+    }
+
+  if (get_subvars_for_var (var))
+    {
+      fprintf (file, ", sub-vars: ");
+      dump_subvars_for (file, var);
     }
 
   fprintf (file, "\n");
@@ -431,7 +514,7 @@ debug_dfa_stats (void)
 }
 
 
-/* Collect DFA statistics and store them in the structure pointed by
+/* Collect DFA statistics and store them in the structure pointed to by
    DFA_STATS_P.  */
 
 static void
@@ -446,10 +529,11 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p)
   memset ((void *)dfa_stats_p, 0, sizeof (struct dfa_stats_d));
 
   /* Walk all the trees in the function counting references.  Start at
-     basic block 0, but don't stop at block boundaries.  */
+     basic block NUM_FIXED_BLOCKS, but don't stop at block boundaries.  */
   pset = pointer_set_create ();
 
-  for (i = bsi_start (BASIC_BLOCK (0)); !bsi_end_p (i); bsi_next (&i))
+  for (i = bsi_start (BASIC_BLOCK (NUM_FIXED_BLOCKS));
+       !bsi_end_p (i); bsi_next (&i))
     walk_tree (bsi_stmt_ptr (i), collect_dfa_stats_r, (void *) dfa_stats_p,
 	       pset);
 
@@ -533,6 +617,92 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
 }
 
 
+/* Lookup UID in the referenced_vars hashtable and return the associated
+   variable.  */
+
+tree 
+referenced_var_lookup (unsigned int uid)
+{
+  struct int_tree_map *h, in;
+  in.uid = uid;
+  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, &in, uid);
+  gcc_assert (h || uid == 0);
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+/* Insert the pair UID, TO into the referenced_vars hashtable.  */
+
+static void
+referenced_var_insert (unsigned int uid, tree to)
+{ 
+  struct int_tree_map *h;
+  void **loc;
+
+  h = GGC_NEW (struct int_tree_map);
+  h->uid = uid;
+  h->to = to;
+  loc = htab_find_slot_with_hash (referenced_vars, h, uid, INSERT);
+  *(struct int_tree_map **)  loc = h;
+}
+
+/* Lookup VAR UID in the default_defs hashtable and return the associated
+   variable.  */
+
+tree 
+default_def_fn (struct function *fn, tree var)
+{
+  struct int_tree_map *h, in;
+  gcc_assert (SSA_VAR_P (var));
+  in.uid = DECL_UID (var);
+  h = (struct int_tree_map *) htab_find_with_hash (fn->ssa->default_defs, &in,
+                                                   DECL_UID (var));
+  if (h)
+    return h->to;
+  return NULL_TREE;
+}
+
+tree 
+default_def (tree var)
+{
+  return default_def_fn (cfun, var);
+}
+
+/* Insert the pair VAR's UID, DEF into the default_defs hashtable.  */
+
+void
+set_default_def (tree var, tree def)
+{ 
+  struct int_tree_map in;
+  struct int_tree_map *h;
+  void **loc;
+
+  gcc_assert (SSA_VAR_P (var));
+  in.uid = DECL_UID (var);
+  if (!def && default_def (var))
+    {
+      loc = htab_find_slot_with_hash (cfun->ssa->default_defs, &in, DECL_UID (var), INSERT);
+      htab_remove_elt (cfun->ssa->default_defs, *loc);
+      return;
+    }
+  gcc_assert (TREE_CODE (def) == SSA_NAME);
+  loc = htab_find_slot_with_hash (cfun->ssa->default_defs, &in, DECL_UID (var), INSERT);
+  /* Default definition might be changed by tail call optimization.  */
+  if (!*loc)
+    {
+      h = GGC_NEW (struct int_tree_map);
+      h->uid = DECL_UID (var);
+      h->to = def;
+      *(struct int_tree_map **)  loc = h;
+    }
+   else
+    {
+      h = (struct int_tree_map *) *loc;
+      h->to = def;
+    }
+}
+
 /* Add VAR to the list of dereferenced variables.
 
    WALK_STATE contains a hash table used to avoid adding the same
@@ -560,24 +730,22 @@ add_referenced_var (tree var, struct walk_state *walk_state)
 	 intrinsic to the variable.  */
       if (slot)
 	*slot = (void *) var;
-      v_ann->uid = num_referenced_vars;
-      VEC_safe_push (tree, gc, referenced_vars, var);
-
-      /* Global variables are always call-clobbered.  */
-      if (is_global_var (var))
-	mark_call_clobbered (var);
+      
+      referenced_var_insert (DECL_UID (var), var);
+      
+      /* Tag's don't have DECL_INITIAL.  */
+      if (MTAG_P (var))
+	return;
 
       /* Scan DECL_INITIAL for pointer variables as they may contain
 	 address arithmetic referencing the address of other
-	 variables.  */
+	 variables.  
+	 Even non-constant intializers needs to be walked, because
+	 IPA passes might prove they invariantness later on.  */
       if (DECL_INITIAL (var)
 	  /* Initializers of external variables are not useful to the
 	     optimizers.  */
-          && !DECL_EXTERNAL (var)
-	  /* It's not necessary to walk the initial value of non-constant
-	     public variables because it cannot be propagated by the
-	     optimizers.  */
-	  && (!TREE_PUBLIC (var) || !TREE_CONSTANT (var)))
+          && !DECL_EXTERNAL (var))
       	walk_tree (&DECL_INITIAL (var), find_vars_r, walk_state, 0);
     }
 }
@@ -632,6 +800,10 @@ mark_new_vars_to_rename (tree stmt)
   int v_may_defs_before, v_may_defs_after;
   int v_must_defs_before, v_must_defs_after;
 
+  if (TREE_CODE (stmt) == PHI_NODE)
+    return;
+
+  get_stmt_ann (stmt);
   vars_in_vops_to_rename = BITMAP_ALLOC (NULL);
 
   /* Before re-scanning the statement for operands, mark the existing
@@ -651,7 +823,7 @@ mark_new_vars_to_rename (tree stmt)
     {
       if (!DECL_P (val))
 	val = SSA_NAME_VAR (val);
-      bitmap_set_bit (vars_in_vops_to_rename, var_ann (val)->uid);
+      bitmap_set_bit (vars_in_vops_to_rename, DECL_UID (val));
     }
 
   /* Now force an operand re-scan on the statement and mark any newly
@@ -709,45 +881,182 @@ find_new_referenced_vars (tree *stmt_p)
 }
 
 
-/* If REF is a COMPONENT_REF for a structure that can have sub-variables, and
-   we know where REF is accessing, return the variable in REF that has the
-   sub-variables.  If the return value is not NULL, POFFSET will be the
-   offset, in bits, of REF inside the return value, and PSIZE will be the
-   size, in bits, of REF inside the return value.  */
+/* If REF is a handled component reference for a structure, return the
+   base variable.  The access range is delimited by bit positions *POFFSET and
+   *POFFSET + *PMAX_SIZE.  The access size is *PSIZE bits.  If either
+   *PSIZE or *PMAX_SIZE is -1, they could not be determined.  If *PSIZE
+   and *PMAX_SIZE are equal, the access is non-variable.  */
 
 tree
-okay_component_ref_for_subvars (tree ref, HOST_WIDE_INT *poffset,
-				HOST_WIDE_INT *psize)
+get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
+			 HOST_WIDE_INT *psize,
+			 HOST_WIDE_INT *pmax_size)
 {
-  tree result = NULL;
-  HOST_WIDE_INT bitsize;
-  HOST_WIDE_INT bitpos;
-  tree offset;
-  enum machine_mode mode;
-  int unsignedp;
-  int volatilep;
+  HOST_WIDE_INT bitsize = -1;
+  HOST_WIDE_INT maxsize = -1;
+  tree size_tree = NULL_TREE;
+  tree bit_offset = bitsize_zero_node;
+  bool seen_variable_array_ref = false;
 
-  gcc_assert (!SSA_VAR_P (ref));
-  *poffset = 0;  
-  *psize = (unsigned int) -1;
-  
-  if (ref_contains_array_ref (ref))
-    return result;
-  ref = get_inner_reference (ref, &bitsize, &bitpos, &offset, &mode,
-			     &unsignedp, &volatilep, false);
-  if (TREE_CODE (ref) == INDIRECT_REF)
-    return result;
-  else if (offset == NULL && bitsize != -1 && SSA_VAR_P (ref))
+  gcc_assert (!SSA_VAR_P (exp));
+
+  /* First get the final access size from just the outermost expression.  */
+  if (TREE_CODE (exp) == COMPONENT_REF)
+    size_tree = DECL_SIZE (TREE_OPERAND (exp, 1));
+  else if (TREE_CODE (exp) == BIT_FIELD_REF)
+    size_tree = TREE_OPERAND (exp, 1);
+  else
     {
-      *poffset = bitpos;      
-      *psize = bitsize;
-      if (get_subvars_for_var (ref) != NULL)
-	return ref;
+      enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
+      if (mode == BLKmode)
+	size_tree = TYPE_SIZE (TREE_TYPE (exp));
+      else
+	bitsize = GET_MODE_BITSIZE (mode);
     }
-  else if (SSA_VAR_P (ref))
+  if (size_tree != NULL_TREE)
     {
-      if (get_subvars_for_var (ref) != NULL)
-	return ref;
+      if (! host_integerp (size_tree, 1))
+	bitsize = -1;
+      else
+	bitsize = TREE_INT_CST_LOW (size_tree);
     }
-  return NULL_TREE;
+
+  /* Initially, maxsize is the same as the accessed element size.
+     In the following it will only grow (or become -1).  */
+  maxsize = bitsize;
+
+  /* Compute cumulative bit-offset for nested component-refs and array-refs,
+     and find the ultimate containing object.  */
+  while (1)
+    {
+      switch (TREE_CODE (exp))
+	{
+	case BIT_FIELD_REF:
+	  bit_offset = size_binop (PLUS_EXPR, bit_offset,
+				   TREE_OPERAND (exp, 2));
+	  break;
+
+	case COMPONENT_REF:
+	  {
+	    tree field = TREE_OPERAND (exp, 1);
+	    tree this_offset = component_ref_field_offset (exp);
+
+	    if (this_offset && TREE_CODE (this_offset) == INTEGER_CST)
+	      {
+		this_offset = size_binop (MULT_EXPR,
+					  fold_convert (bitsizetype,
+							this_offset),
+					  bitsize_unit_node);
+		bit_offset = size_binop (PLUS_EXPR,
+				         bit_offset, this_offset);
+		bit_offset = size_binop (PLUS_EXPR, bit_offset,
+					 DECL_FIELD_BIT_OFFSET (field));
+	      }
+	    else
+	      {
+		tree csize = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+		/* We need to adjust maxsize to the whole structure bitsize.
+		   But we can subtract any constant offset seen sofar,
+		   because that would get us out of the structure otherwise.  */
+		if (maxsize != -1
+		    && csize && host_integerp (csize, 1))
+		  {
+		    maxsize = (TREE_INT_CST_LOW (csize)
+			       - TREE_INT_CST_LOW (bit_offset));
+		  }
+		else
+		  maxsize = -1;
+	      }
+	  }
+	  break;
+
+	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
+	  {
+	    tree index = TREE_OPERAND (exp, 1);
+	    tree low_bound = array_ref_low_bound (exp);
+	    tree unit_size = array_ref_element_size (exp);
+
+	    if (! integer_zerop (low_bound))
+	      index = fold_build2 (MINUS_EXPR, TREE_TYPE (index),
+				   index, low_bound);
+	    index = size_binop (MULT_EXPR,
+				fold_convert (sizetype, index), unit_size);
+	    if (TREE_CODE (index) == INTEGER_CST)
+	      {
+		index = size_binop (MULT_EXPR,
+				    fold_convert (bitsizetype, index),
+				    bitsize_unit_node);
+		bit_offset = size_binop (PLUS_EXPR, bit_offset, index);
+
+		/* An array ref with a constant index up in the structure
+		   hierarchy will constrain the size of any variable array ref
+		   lower in the access hierarchy.  */
+		seen_variable_array_ref = false;
+	      }
+	    else
+	      {
+		tree asize = TYPE_SIZE (TREE_TYPE (TREE_OPERAND (exp, 0)));
+		/* We need to adjust maxsize to the whole array bitsize.
+		   But we can subtract any constant offset seen sofar,
+		   because that would get us outside of the array otherwise.  */
+		if (maxsize != -1
+		    && asize && host_integerp (asize, 1))
+		  {
+		    maxsize = (TREE_INT_CST_LOW (asize)
+			       - TREE_INT_CST_LOW (bit_offset));
+		  }
+		else
+		  maxsize = -1;
+
+		/* Remember that we have seen an array ref with a variable
+		   index.  */
+		seen_variable_array_ref = true;
+	      }
+	  }
+	  break;
+
+	case REALPART_EXPR:
+	  break;
+
+	case IMAGPART_EXPR:
+	  bit_offset = size_binop (PLUS_EXPR, bit_offset,
+				   bitsize_int (bitsize));
+	  break;
+
+	case VIEW_CONVERT_EXPR:
+	  /* ???  We probably should give up here and bail out.  */
+	  break;
+
+	default:
+	  goto done;
+	}
+
+      exp = TREE_OPERAND (exp, 0);
+    }
+ done:
+
+  /* We need to deal with variable arrays ending structures such as
+       struct { int length; int a[1]; } x;           x.a[d]
+       struct { struct { int a; int b; } a[1]; } x;  x.a[d].a
+       struct { struct { int a[1]; } a[1]; } x;      x.a[0][d], x.a[d][0]
+     where we do not know maxsize for variable index accesses to
+     the array.  The simplest way to conservatively deal with this
+     is to punt in the case that offset + maxsize reaches the
+     base type boundary.  */
+  if (seen_variable_array_ref
+      && maxsize != -1
+      && host_integerp (TYPE_SIZE (TREE_TYPE (exp)), 1)
+      && TREE_INT_CST_LOW (bit_offset) + maxsize
+	 == TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (exp))))
+    maxsize = -1;
+
+  /* ???  Due to negative offsets in ARRAY_REF we can end up with
+     negative bit_offset here.  We might want to store a zero offset
+     in this case.  */
+  *poffset = TREE_INT_CST_LOW (bit_offset);
+  *psize = bitsize;
+  *pmax_size = maxsize;
+
+  return exp;
 }

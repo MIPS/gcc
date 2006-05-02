@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_LANG_HOOKS_DEF_H
 #define GCC_LANG_HOOKS_DEF_H
@@ -69,33 +69,30 @@ extern const char *lhd_comdat_group (tree);
 extern tree lhd_expr_size (tree);
 extern size_t lhd_tree_size (enum tree_code);
 extern HOST_WIDE_INT lhd_to_target_charset (HOST_WIDE_INT);
+extern tree lhd_expr_to_decl (tree, bool *, bool *, bool *);
 
 /* Declarations of default tree inlining hooks.  */
 extern tree lhd_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
 					     void *, struct pointer_set_t*);
 extern int lhd_tree_inlining_cannot_inline_tree_fn (tree *);
 extern int lhd_tree_inlining_disregard_inline_limits (tree);
+extern tree lhd_tree_inlining_add_pending_fn_decls (void *, tree);
 extern int lhd_tree_inlining_auto_var_in_fn_p (tree, tree);
-extern tree lhd_tree_inlining_copy_res_decl_for_inlining (tree, tree, tree,
-							  void *, int *, tree);
 extern int lhd_tree_inlining_anon_aggr_type_p (tree);
+extern int lhd_tree_inlining_start_inlining (tree);
+extern void lhd_tree_inlining_end_inlining (tree);
 extern tree lhd_tree_inlining_convert_parm_for_inlining (tree, tree, tree, int);
 extern void lhd_initialize_diagnostics (struct diagnostic_context *);
 extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 
-/* Declarations of default optimization hooks.  */
-
-extern tree lhd_optimize_build_field_reference (tree, tree);
-extern tree lhd_optimize_build_pointer_ref (tree, const char *);
-extern tree lhd_optimize_build_array_ref (tree, tree);
-extern tree lhd_optimize_lookup_field (tree, tree);
-extern tree lhd_optimize_build_data_struct (void *, char *, tree);
-extern tree lhd_optimize_sizeof_type (tree, bool, int);
-extern tree lhd_optimize_decl_attributes (tree *, tree, int);
-extern void lhd_optimize_structure_reorg_optimization (void);
 
 /* Declarations for tree gimplification hooks.  */
 extern int lhd_gimplify_expr (tree *, tree *, tree *);
+extern enum omp_clause_default_kind lhd_omp_predetermined_sharing (tree);
+extern tree lhd_omp_assignment (tree, tree, tree);
+struct gimplify_omp_ctx;
+extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
+					       tree);
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
@@ -132,7 +129,9 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
 #define LANG_HOOKS_TREE_SIZE		lhd_tree_size
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
 #define LANG_HOOKS_BUILTIN_FUNCTION	builtin_function
+#define LANG_HOOKS_EXPR_TO_DECL		lhd_expr_to_decl
 #define LANG_HOOKS_TO_TARGET_CHARSET	lhd_to_target_charset
+#define LANG_HOOKS_INIT_TS		lhd_do_nothing
 
 #define LANG_HOOKS_FUNCTION_INIT	lhd_do_nothing_f
 #define LANG_HOOKS_FUNCTION_FINAL	lhd_do_nothing_f
@@ -151,48 +150,31 @@ extern int lhd_gimplify_expr (tree *, tree *, tree *);
   lhd_tree_inlining_cannot_inline_tree_fn
 #define LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS \
   lhd_tree_inlining_disregard_inline_limits
+#define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
+  lhd_tree_inlining_add_pending_fn_decls
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   lhd_tree_inlining_auto_var_in_fn_p
-#define LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING \
-  lhd_tree_inlining_copy_res_decl_for_inlining
 #define LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P \
   lhd_tree_inlining_anon_aggr_type_p
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P \
   hook_bool_tree_tree_false
+#define LANG_HOOKS_TREE_INLINING_START_INLINING \
+  lhd_tree_inlining_start_inlining
+#define LANG_HOOKS_TREE_INLINING_END_INLINING \
+  lhd_tree_inlining_end_inlining
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   lhd_tree_inlining_convert_parm_for_inlining
-
-/* Optimization hooks.  */
-#define LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT lhd_optimize_build_data_struct
-#define LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF lhd_optimize_build_pointer_ref
-#define LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF lhd_optimize_build_array_ref
-#define LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE lhd_optimize_sizeof_type
-#define LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES lhd_optimize_decl_attributes
-#define LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD lhd_optimize_lookup_field
-#define LANG_HOOKS_OPTIMIZE_BUILD_FIELD_REFERENCE        \
-  lhd_optimize_build_field_reference
-#define LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION \
-  lhd_optimize_structure_reorg_optimization
-
-#define LANG_HOOKS_OPTIMIZE_INITIALIZER {     \
-  LANG_HOOKS_OPTIMIZE_BUILD_FIELD_REFERENCE,  \
-  LANG_HOOKS_OPTIMIZE_BUILD_POINTER_REF,      \
-  LANG_HOOKS_OPTIMIZE_BUILD_ARRAY_REF,        \
-  LANG_HOOKS_OPTIMIZE_LOOKUP_FIELD,           \
-  LANG_HOOKS_OPTIMIZE_BUILD_DATA_STRUCT,      \
-  LANG_HOOKS_OPTIMIZE_SIZEOF_TYPE,            \
-  LANG_HOOKS_OPTIMIZE_DECL_ATTRIBUTES,        \
-  LANG_HOOKS_OPTIMIZE_STRUCTURE_REORG_OPTIMIZATION \
-}
 
 #define LANG_HOOKS_TREE_INLINING_INITIALIZER { \
   LANG_HOOKS_TREE_INLINING_WALK_SUBTREES, \
   LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN, \
   LANG_HOOKS_TREE_INLINING_DISREGARD_INLINE_LIMITS, \
+  LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS, \
   LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P, \
-  LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING, \
   LANG_HOOKS_TREE_INLINING_ANON_AGGR_TYPE_P, \
   LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P, \
+  LANG_HOOKS_TREE_INLINING_START_INLINING, \
+  LANG_HOOKS_TREE_INLINING_END_INLINING, \
   LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
 }
 
@@ -236,6 +218,8 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
 #define LANG_HOOKS_TYPE_MAX_SIZE	lhd_return_null_tree
+#define LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES \
+  lhd_omp_firstprivatize_type_sizes
 #define LANG_HOOKS_HASH_TYPES		true
 
 #define LANG_HOOKS_FOR_TYPES_INITIALIZER { \
@@ -249,6 +233,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_REGISTER_BUILTIN_TYPE, \
   LANG_HOOKS_INCOMPLETE_TYPE_ERROR, \
   LANG_HOOKS_TYPE_MAX_SIZE, \
+  LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES, \
   LANG_HOOKS_HASH_TYPES \
 }
 
@@ -262,6 +247,14 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE NULL
 #define LANG_HOOKS_DECL_OK_FOR_SIBCALL	lhd_decl_ok_for_sibcall
 #define LANG_HOOKS_COMDAT_GROUP lhd_comdat_group
+#define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE hook_bool_tree_false
+#define LANG_HOOKS_OMP_PREDETERMINED_SHARING lhd_omp_predetermined_sharing
+#define LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR hook_bool_tree_bool_false
+#define LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE hook_bool_tree_bool_false
+#define LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR hook_tree_tree_tree_null
+#define LANG_HOOKS_OMP_CLAUSE_COPY_CTOR lhd_omp_assignment
+#define LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP lhd_omp_assignment
+#define LANG_HOOKS_OMP_CLAUSE_DTOR hook_tree_tree_tree_null
 
 #define LANG_HOOKS_DECLS { \
   LANG_HOOKS_GLOBAL_BINDINGS_P, \
@@ -272,7 +265,15 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_WRITE_GLOBALS, \
   LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE, \
   LANG_HOOKS_DECL_OK_FOR_SIBCALL, \
-  LANG_HOOKS_COMDAT_GROUP \
+  LANG_HOOKS_COMDAT_GROUP, \
+  LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE, \
+  LANG_HOOKS_OMP_PREDETERMINED_SHARING, \
+  LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR, \
+  LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE, \
+  LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR, \
+  LANG_HOOKS_OMP_CLAUSE_COPY_CTOR, \
+  LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP, \
+  LANG_HOOKS_OMP_CLAUSE_DTOR \
 }
 
 /* The whole thing.  The structure is defined in langhooks.h.  */
@@ -322,10 +323,11 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_TREE_DUMP_INITIALIZER, \
   LANG_HOOKS_DECLS, \
   LANG_HOOKS_FOR_TYPES_INITIALIZER, \
-  LANG_HOOKS_OPTIMIZE_INITIALIZER, \
   LANG_HOOKS_GIMPLIFY_EXPR, \
-  LANG_HOOKS_BUILTIN_FUNCTION, \
   LANG_HOOKS_FOLD_OBJ_TYPE_REF, \
+  LANG_HOOKS_BUILTIN_FUNCTION, \
+  LANG_HOOKS_INIT_TS,          \
+  LANG_HOOKS_EXPR_TO_DECL, \
 }
 
 #endif /* GCC_LANG_HOOKS_DEF_H */

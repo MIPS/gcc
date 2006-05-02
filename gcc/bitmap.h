@@ -16,12 +16,11 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_BITMAP_H
 #define GCC_BITMAP_H
-#include <obstack.h>
 
 /* Fundamental storage type for bitmap.  */
 
@@ -78,8 +77,6 @@ typedef struct bitmap_head_def GTY(()) {
 } bitmap_head;
 
 
-typedef struct bitmap_head_def *bitmap;
-
 /* Global data */
 extern bitmap_element bitmap_zero_bits;	/* Zero bitmap element */
 extern bitmap_obstack bitmap_default_obstack;   /* Default bitmap obstack */
@@ -103,6 +100,9 @@ extern bool bitmap_intersect_compl_p (bitmap, bitmap);
 /* True if MAP is an empty bitmap.  */
 #define bitmap_empty_p(MAP) (!(MAP)->first)
 
+/* Count the number of bits set in the bitmap.  */
+extern unsigned long bitmap_count_bits (bitmap);
+
 /* Boolean operations on bitmaps.  The _into variants are two operand
    versions that modify the first source operand.  The other variants
    are three operand versions that to not destroy the source bitmaps.
@@ -111,6 +111,9 @@ extern void bitmap_and (bitmap, bitmap, bitmap);
 extern void bitmap_and_into (bitmap, bitmap);
 extern void bitmap_and_compl (bitmap, bitmap, bitmap);
 extern bool bitmap_and_compl_into (bitmap, bitmap);
+#define bitmap_compl_and(DST, A, B) bitmap_and_compl (DST, B, A)
+extern void bitmap_compl_and_into (bitmap, bitmap);
+extern void bitmap_clear_range (bitmap, unsigned int, unsigned int);
 extern bool bitmap_ior (bitmap, bitmap, bitmap);
 extern bool bitmap_ior_into (bitmap, bitmap);
 extern void bitmap_xor (bitmap, bitmap, bitmap);

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -33,22 +33,17 @@ with Prj.Com;  use Prj.Com;
 with Prj.Dect;
 with Prj.Err;  use Prj.Err;
 with Prj.Ext;  use Prj.Ext;
-with Scans;    use Scans;
 with Sinput;   use Sinput;
 with Sinput.P; use Sinput.P;
 with Snames;
 with Table;
-with Types;    use Types;
 
 with Ada.Characters.Handling;    use Ada.Characters.Handling;
 with Ada.Exceptions;             use Ada.Exceptions;
 
 with GNAT.Directory_Operations;  use GNAT.Directory_Operations;
-with GNAT.OS_Lib;                use GNAT.OS_Lib;
 
 with System.HTable;              use System.HTable;
-
-pragma Elaborate_All (GNAT.OS_Lib);
 
 package body Prj.Part is
 
@@ -134,6 +129,10 @@ package body Prj.Part is
       In_Tree      : Project_Node_Tree_Ref);
    --  Create a virtual extending project of For_Project. Main_Project is
    --  the extending all project.
+   --
+   --  The String_Value_Of is not set for the automatically added with
+   --  clause and keeps the default value of No_Name. This enables Prj.PP
+   --  to skip these automatically added with clauses to be processed.
 
    procedure Look_For_Virtual_Projects_For
      (Proj                : Project_Node_Id;
@@ -333,6 +332,15 @@ package body Prj.Part is
 
       --  Source_Dirs empty list: nothing to do
 
+      --  Put virtual project into Projects_Htable
+
+      Prj.Tree.Tree_Private_Part.Projects_Htable.Set
+        (T => In_Tree.Projects_HT,
+         K => Virtual_Name_Id,
+         E => (Name           => Virtual_Name_Id,
+               Node           => Virtual_Project,
+               Canonical_Path => No_Name,
+               Extended       => False));
    end Create_Virtual_Extending_Project;
 
    ----------------------------
@@ -667,7 +675,10 @@ package body Prj.Part is
                Scan (In_Tree); -- scan past the semicolon.
                exit Comma_Loop;
 
-            elsif Token /= Tok_Comma then
+            elsif Token = Tok_Comma then
+               Set_Is_Not_Last_In_List (Current_With_Node, In_Tree);
+
+            else
                Error_Msg ("expected comma or semi colon", Token_Ptr);
                exit Comma_Loop;
             end if;
@@ -678,7 +689,6 @@ package body Prj.Part is
          end loop Comma_Loop;
       end loop With_Loop;
    end Pre_Parse_Context_Clause;
-
 
    -------------------------------
    -- Post_Parse_Context_Clause --
@@ -1030,7 +1040,7 @@ package body Prj.Part is
          return;
       end if;
 
-      Prj.Err.Scanner.Initialize_Scanner (Types.No_Unit, Source_Index);
+      Prj.Err.Scanner.Initialize_Scanner (Source_Index);
       Tree.Reset_State;
       Scan (In_Tree);
 
@@ -1472,7 +1482,7 @@ package body Prj.Part is
          then
             --  Invalid name: report an error
 
-            Error_Msg ("Expected """ &
+            Error_Msg ("expected """ &
                        Get_Name_String (Name_Of (Project, In_Tree)) & """",
                        Token_Ptr);
          end if;
@@ -1489,7 +1499,7 @@ package body Prj.Part is
 
          if Token /= Tok_EOF then
             Error_Msg
-              ("Unexpected text following end of project", Token_Ptr);
+              ("unexpected text following end of project", Token_Ptr);
          end if;
       end if;
 

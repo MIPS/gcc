@@ -1,5 +1,5 @@
 /* Definitions for MIPS running Linux-based GNU systems with ELF format.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "int"
@@ -56,11 +56,6 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_OS_CPP_BUILTINS()				\
   do {								\
     LINUX_TARGET_OS_CPP_BUILTINS();				\
-    if (TARGET_ABICALLS)					\
-      {								\
-	builtin_define ("__PIC__");				\
-	builtin_define ("__pic__");				\
-      }								\
     /* The GNU C++ standard library requires this.  */		\
     if (c_dialect_cxx ())					\
       builtin_define ("_GNU_SOURCE");				\
@@ -103,6 +98,8 @@ Boston, MA 02111-1307, USA.  */
 #undef MIPS_DEFAULT_GVALUE
 #define MIPS_DEFAULT_GVALUE 0
 
+#define GLIBC_DYNAMIC_LINKER "/lib/ld.so.1"
+
 /* Borrowed from sparc/linux.h */
 #undef LINK_SPEC
 #define LINK_SPEC \
@@ -112,7 +109,7 @@ Boston, MA 02111-1307, USA.  */
     %{!ibcs: \
       %{!static: \
         %{rdynamic:-export-dynamic} \
-        %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}} \
+        %{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER "}} \
         %{static:-static}}}"
 
 #undef SUBTARGET_ASM_SPEC

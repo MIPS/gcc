@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* Driver configuration.  */
 
@@ -301,7 +301,7 @@ enum reg_class
 
 #define STACK_GROWS_DOWNWARD
 
-/* #define FRAME_GROWS_DOWNWARD */
+#define FRAME_GROWS_DOWNWARD 0
 
 #define STARTING_FRAME_OFFSET						\
   (current_function_outgoing_args_size)
@@ -834,11 +834,6 @@ enum processor_type
 
 /* Recast the cpu class to be the cpu attribute.  */
 #define iq2000_cpu_attr ((enum attr_cpu) iq2000_tune)
-
-/* Functions to change what output section we are using.  */
-extern void		rdata_section (void);
-extern void		sdata_section (void);
-extern void		sbss_section  (void);
 
 #define BITMASK_UPPER16	((unsigned long) 0xffff << 16)	/* 0xffff0000 */
 #define BITMASK_LOWER16	((unsigned long) 0xffff)	/* 0x0000ffff */

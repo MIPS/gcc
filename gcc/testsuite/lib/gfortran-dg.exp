@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
 
 load_lib gcc-dg.exp
 
@@ -92,7 +92,7 @@ proc gfortran-dg-runtest { testcases default-extra-flags } {
 	# look if this is dg-do-run test, in which case
 	# we cycle through the option list, otherwise we don't
 	if [expr [search_for $test "dg-do run"]] {
-	    set option_list $TORTURE_OPTIONS			         
+	    set option_list $TORTURE_OPTIONS
 	} else {
 	    set option_list [list { -O } ]
 	}

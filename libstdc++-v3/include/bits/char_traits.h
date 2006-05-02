@@ -1,6 +1,6 @@
 // Character Traits for use by standard string and iostream -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -46,8 +46,8 @@
 #include <bits/stl_algobase.h>// For copy, lexicographical_compare, fill_n
 #include <bits/postypes.h>    // For streampos
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   /**
    *  @brief  Mapping from character type to associated types.
    *
@@ -204,10 +204,11 @@ namespace __gnu_cxx
       std::fill_n(__s, __n, __a);
       return __s;
     }
-}
 
-namespace std
-{
+_GLIBCXX_END_NAMESPACE
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   // 21.1
   /**
    *  @brief  Basis for explicit traits specializations.
@@ -361,6 +362,6 @@ namespace std
   };
 #endif //_GLIBCXX_USE_WCHAR_T
 
-} // namespace std
+_GLIBCXX_END_NAMESPACE
 
 #endif

@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Testing utilities for the tr1 testsuite.
 //
-// Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+// Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -16,7 +16,7 @@
 //
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 //
 // As a special exception, you may use this file as part of a free software
@@ -30,6 +30,8 @@
 
 #ifndef _GLIBCXX_TESTSUITE_TR1_H
 #define _GLIBCXX_TESTSUITE_TR1_H
+
+#include <bits/cpp_type_traits.h>
 
 namespace __gnu_test
 {
@@ -59,6 +61,20 @@ namespace __gnu_test
       bool ret = true;
       ret &= Property<Type>::value == value;
       ret &= Property<Type>::type::value == value;
+      return ret;
+    }
+
+  // For testing tr1/type_traits/extent, which has a second template
+  // parameter.
+  template<template<typename, unsigned> class Property,
+           typename Type,
+	   unsigned Uint>
+    bool
+    test_property(typename Property<Type, Uint>::value_type value)
+    {
+      bool ret = true;
+      ret &= Property<Type, Uint>::value == value;
+      ret &= Property<Type, Uint>::type::value == value;
       return ret;
     }
 
@@ -102,6 +118,7 @@ namespace __gnu_test
 
   union UnionType { };
 
+  class IncompleteClass;
 
   int truncate_float(float x) { return (int)x; }
   long truncate_double(double x) { return (long)x; }
@@ -163,6 +180,13 @@ namespace __gnu_test
     int foo_v()  volatile       { return 3; }
     int foo_cv() const volatile { return 4; }
   };
+
+  // For use in 8_c_compatibility.
+  template<typename R, typename T>
+    typename std::__enable_if<bool, std::__are_same<R, T>::__value>::__type
+    check_ret_type(T)
+    { return true; }
+
 } // namespace __gnu_test
 
 #endif // _GLIBCXX_TESTSUITE_TR1_H

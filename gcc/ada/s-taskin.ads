@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS               --
+--                  GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                --
 --                                                                          --
 --                        S Y S T E M . T A S K I N G                       --
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -37,7 +37,8 @@
 --  Any changes to this interface may require corresponding compiler changes.
 
 with Ada.Exceptions;
---  Used for:  Exception_Id
+--  Used for Exception_Id
+--           Exception_Occurrence
 
 with System.Parameters;
 --  used for Size_Type
@@ -51,9 +52,13 @@ with System.Soft_Links;
 with System.Task_Primitives;
 --  used for Private_Data
 
+with System.Stack_Usage;
+--  used for Stack_Analyzer
+
 with Unchecked_Conversion;
 
 package System.Tasking is
+   pragma Preelaborate;
 
    -------------------
    -- Locking Rules --
@@ -328,6 +333,32 @@ package System.Tasking is
    end record;
    pragma Suppress_Initialization (Restricted_Entry_Call_Record);
 
+   -------------------------------------------
+   -- Task termination procedure definition --
+   -------------------------------------------
+
+   --  We need to redefine here these types (already defined in
+   --  Ada.Task_Termination) for avoiding circular dependencies.
+
+   type Cause_Of_Termination is (Normal, Abnormal, Unhandled_Exception);
+   --  Possible causes for task termination:
+   --
+   --    Normal means that the task terminates due to completing the
+   --    last sentence of its body, or as a result of waiting on a
+   --    terminate alternative.
+
+   --    Abnormal means that the task terminates because it is being aborted
+
+   --    handled_Exception means that the task terminates because of exception
+   --    raised by by the execution of its task_body.
+
+   type Termination_Handler is access protected procedure
+     (Cause : Cause_Of_Termination;
+      T     : Task_Id;
+      X     : Ada.Exceptions.Exception_Occurrence);
+   --  Used to represent protected procedures to be executed when task
+   --  terminates.
+
    ------------------------------------
    -- Task related other definitions --
    ------------------------------------
@@ -342,8 +373,9 @@ package System.Tasking is
 
    type Access_Boolean is access all Boolean;
 
-   Detect_Blocking : constant Boolean;
-   --  Boolean constant set True iff Detect_Blocking is active
+   function Detect_Blocking return Boolean;
+   pragma Inline (Detect_Blocking);
+   --  Return whether the Detect_Blocking pragma is enabled
 
    ----------------------------------------------
    -- Ada_Task_Control_Block (ATCB) definition --
@@ -537,6 +569,30 @@ package System.Tasking is
       Task_Info : System.Task_Info.Task_Info_Type;
       --  System-specific attributes of the task as specified by the
       --  Task_Info pragma.
+
+      Analyzer  : System.Stack_Usage.Stack_Analyzer;
+      --  For storing informations used to measure the stack usage
+
+      Global_Task_Lock_Nesting : Natural;
+      --  This is the current nesting level of calls to
+      --  System.Tasking.Initialization.Lock_Task. This allows a task to call
+      --  Lock_Task multiple times without deadlocking. A task only locks
+      --  Global_Task_Lock when its Global_Task_Lock_Nesting goes from 0 to 1,
+      --  and only unlocked when it goes from 1 to 0.
+      --
+      --  Protection: Only accessed by Self
+
+      Fall_Back_Handler : Termination_Handler;
+      --  This is the fall-back handler that applies to the dependent tasks of
+      --  the task.
+      --
+      --  Protection: Self.L
+
+      Specific_Handler : Termination_Handler;
+      --  This is the specific handler that applies only to this task, and not
+      --  any of its dependent tasks.
+      --
+      --  Protection: Self.L
    end record;
 
    ---------------------------------------
@@ -794,15 +850,6 @@ package System.Tasking is
       --
       --  Protection: Self.L
 
-      Global_Task_Lock_Nesting : Natural := 0;
-      --  This is the current nesting level of calls to
-      --  System.Tasking.Stages.Lock_Task_T. This allows a task to call
-      --  Lock_Task_T multiple times without deadlocking. A task only locks
-      --  All_Task_Lock when its All_Tasks_Nesting goes from 0 to 1, and only
-      --  unlocked when it goes from 1 to 0.
-      --
-      --  Protection: Only accessed by Self
-
       Open_Accepts : Accept_List_Access;
       --  This points to the Open_Accepts array of accept alternatives passed
       --  to the RTS by the compiler-generated code to Selective_Wait. It is
@@ -977,9 +1024,19 @@ package System.Tasking is
       --  has exclusive access to this field.
    end record;
 
-   ---------------------
-   -- Initialize_ATCB --
-   ---------------------
+   --------------------
+   -- Initialization --
+   --------------------
+
+   procedure Initialize;
+   --  This procedure constitutes the first part of the initialization of the
+   --  GNARL. This includes creating data structures to make the initial thread
+   --  into the environment task. The last part of the initialization is done
+   --  in System.Tasking.Initialization or System.Tasking.Restricted.Stages.
+   --  All the initializations used to be in Tasking.Initialization, but this
+   --  is no longer possible with the run time simplification (including
+   --  optimized PO and the restricted run time) since one cannot rely on
+   --  System.Tasking.Initialization being present, as was done before.
 
    procedure Initialize_ATCB
      (Self_ID          : Task_Id;
@@ -998,14 +1055,6 @@ package System.Tasking is
 
 private
    Null_Task : constant Task_Id := null;
-
-   GL_Detect_Blocking : Integer;
-   pragma Import (C, GL_Detect_Blocking, "__gl_detect_blocking");
-   --  Global variable exported by the binder generated file. A value equal to
-   --  1 indicates that pragma Detect_Blocking is active, while 0 is used for
-   --  the pragma not being present.
-
-   Detect_Blocking : constant Boolean := GL_Detect_Blocking = 1;
 
    type Activation_Chain is record
       T_ID : Task_Id;

@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -45,6 +45,7 @@ Boston, MA 02111-1307, USA.  */
 #include "cfglayout.h"
 #include "hashtab.h"
 #include "tree-ssa-propagate.h"
+#include "tree-scalar-evolution.h"
 
 /* Remove any fallthru edge from EV.  Return true if an edge was removed.  */
 
@@ -81,11 +82,11 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
       switch (TREE_CODE (expr))
 	{
 	case COND_EXPR:
-	  val = COND_EXPR_COND (expr);
+	  val = fold (COND_EXPR_COND (expr));
 	  break;
 
 	case SWITCH_EXPR:
-	  val = SWITCH_COND (expr);
+	  val = fold (SWITCH_COND (expr));
 	  if (TREE_CODE (val) != INTEGER_CST)
 	    return false;
 	  break;
@@ -117,7 +118,7 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
   else
     taken_edge = single_succ_edge (bb);
 
-  bsi_remove (&bsi);
+  bsi_remove (&bsi, true);
   taken_edge->flags = EDGE_FALLTHRU;
 
   /* We removed some paths from the cfg.  */
@@ -125,14 +126,6 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 
   return retval;
 }
-
-/* A list of all the noreturn calls passed to modify_stmt.
-   cleanup_control_flow uses it to detect cases where a mid-block
-   indirect call has been turned into a noreturn call.  When this
-   happens, all the instructions after the call are no longer
-   reachable and must be deleted as dead.  */
-
-VEC(tree,gc) *modified_noreturn_calls;
 
 /* Try to remove superfluous control structures.  */
 
@@ -145,31 +138,37 @@ cleanup_control_flow (void)
   tree stmt;
 
   /* Detect cases where a mid-block call is now known not to return.  */
-  while (VEC_length (tree, modified_noreturn_calls))
-    {
-      stmt = VEC_pop (tree, modified_noreturn_calls);
-      bb = bb_for_stmt (stmt);
-      if (bb != NULL && last_stmt (bb) != stmt && noreturn_call_p (stmt))
-	split_block (bb, stmt);
-    }
+  if (cfun->ssa)
+    while (VEC_length (tree, modified_noreturn_calls))
+      {
+	stmt = VEC_pop (tree, modified_noreturn_calls);
+	bb = bb_for_stmt (stmt);
+	if (bb != NULL && last_stmt (bb) != stmt && noreturn_call_p (stmt))
+	  split_block (bb, stmt);
+      }
 
   FOR_EACH_BB (bb)
     {
       bsi = bsi_last (bb);
 
+      /* If the last statement of the block could throw and now cannot,
+	 we need to prune cfg.  */
+      tree_purge_dead_eh_edges (bb);
+
       if (bsi_end_p (bsi))
 	continue;
 
       stmt = bsi_stmt (bsi);
+
       if (TREE_CODE (stmt) == COND_EXPR
 	  || TREE_CODE (stmt) == SWITCH_EXPR)
 	retval |= cleanup_control_expr_graph (bb, bsi);
-
       /* If we had a computed goto which has a compile-time determinable
 	 destination, then we can eliminate the goto.  */
-      if (TREE_CODE (stmt) == GOTO_EXPR
-	  && TREE_CODE (GOTO_DESTINATION (stmt)) == ADDR_EXPR
-	  && TREE_CODE (TREE_OPERAND (GOTO_DESTINATION (stmt), 0)) == LABEL_DECL)
+      else if (TREE_CODE (stmt) == GOTO_EXPR
+	       && TREE_CODE (GOTO_DESTINATION (stmt)) == ADDR_EXPR
+	       && (TREE_CODE (TREE_OPERAND (GOTO_DESTINATION (stmt), 0))
+		   == LABEL_DECL))
 	{
 	  edge e;
 	  tree label;
@@ -207,13 +206,13 @@ cleanup_control_flow (void)
 
 	  /* Remove the GOTO_EXPR as it is not needed.  The CFG has all the
 	     relevant information we need.  */
-	  bsi_remove (&bsi);
+	  bsi_remove (&bsi, true);
 	  retval = true;
 	}
 
       /* Check for indirect calls that have been turned into
 	 noreturn calls.  */
-      if (noreturn_call_p (stmt) && remove_fallthru_edge (bb->succs))
+      else if (noreturn_call_p (stmt) && remove_fallthru_edge (bb->succs))
 	{
 	  free_dominance_info (CDI_DOMINATORS);
 	  retval = true;
@@ -433,7 +432,7 @@ remove_forwarder_block (basic_block bb, basic_block **worklist)
 	{
 	  label = bsi_stmt (bsi);
 	  gcc_assert (TREE_CODE (label) == LABEL_EXPR);
-	  bsi_remove (&bsi);
+	  bsi_remove (&bsi, false);
 	  bsi_insert_before (&bsi_to, label, BSI_CONTINUE_LINKING);
 	}
     }
@@ -470,7 +469,7 @@ cleanup_forwarder_blocks (void)
 {
   basic_block bb;
   bool changed = false;
-  basic_block *worklist = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  basic_block *worklist = XNEWVEC (basic_block, n_basic_blocks);
   basic_block *current = worklist;
 
   FOR_EACH_BB (bb)
@@ -489,46 +488,69 @@ cleanup_forwarder_blocks (void)
   return changed;
 }
 
-/* Remove unreachable blocks and other miscellaneous clean up work.  */
+/* Do one round of CFG cleanup.  */
 
-bool
-cleanup_tree_cfg (void)
+static bool
+cleanup_tree_cfg_1 (void)
 {
-  bool retval = false;
-
-  timevar_push (TV_TREE_CLEANUP_CFG);
+  bool retval;
 
   retval = cleanup_control_flow ();
   retval |= delete_unreachable_blocks ();
 
-  /* cleanup_forwarder_blocks can redirect edges out of SWITCH_EXPRs,
-     which can get expensive.  So we want to enable recording of edge
-     to CASE_LABEL_EXPR mappings around the call to
-     cleanup_forwarder_blocks.  */
-  start_recording_case_labels ();
-  retval |= cleanup_forwarder_blocks ();
-  end_recording_case_labels ();
+  /* Forwarder blocks can carry line number information which is
+     useful when debugging, so we only clean them up when
+     optimizing.  */
 
-#ifdef ENABLE_CHECKING
-  if (retval)
+  if (optimize > 0)
     {
-      gcc_assert (!cleanup_control_flow ());
-      gcc_assert (!delete_unreachable_blocks ());
-      gcc_assert (!cleanup_forwarder_blocks ());
+      /* cleanup_forwarder_blocks can redirect edges out of
+	 SWITCH_EXPRs, which can get expensive.  So we want to enable
+	 recording of edge to CASE_LABEL_EXPR mappings around the call
+	 to cleanup_forwarder_blocks.  */
+      start_recording_case_labels ();
+      retval |= cleanup_forwarder_blocks ();
+      end_recording_case_labels ();
     }
-#endif
 
-  /* Merging the blocks creates no new opportunities for the other
-     optimizations, so do it here.  */
+  /* Merging the blocks may create new opportunities for folding
+     conditional branches (due to the elimination of single-valued PHI
+     nodes).  */
   retval |= merge_seq_blocks ();
+
+  return retval;
+}
+
+
+/* Remove unreachable blocks and other miscellaneous clean up work.
+   Return true if the flowgraph was modified, false otherwise.  */
+
+bool
+cleanup_tree_cfg (void)
+{
+  bool retval, changed;
+
+  timevar_push (TV_TREE_CLEANUP_CFG);
+
+  /* Iterate until there are no more cleanups left to do.  If any
+     iteration changed the flowgraph, set CHANGED to true.  */
+  changed = false;
+  do
+    {
+      retval = cleanup_tree_cfg_1 ();
+      changed |= retval;
+    }
+  while (retval);
 
   compact_blocks ();
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+
   timevar_pop (TV_TREE_CLEANUP_CFG);
-  return retval;
+
+  return changed;
 }
 
 /* Cleanup cfg and repair loop structures.  */
@@ -536,23 +558,26 @@ cleanup_tree_cfg (void)
 void
 cleanup_tree_cfg_loop (void)
 {
-  bitmap changed_bbs = BITMAP_ALLOC (NULL);
+  bool changed = cleanup_tree_cfg ();
 
-  cleanup_tree_cfg ();
+  if (changed)
+    {
+      bitmap changed_bbs = BITMAP_ALLOC (NULL);
+      fix_loop_structure (current_loops, changed_bbs);
+      calculate_dominance_info (CDI_DOMINATORS);
 
-  fix_loop_structure (current_loops, changed_bbs);
-  calculate_dominance_info (CDI_DOMINATORS);
+      /* This usually does nothing.  But sometimes parts of cfg that originally
+	 were inside a loop get out of it due to edge removal (since they
+	 become unreachable by back edges from latch).  */
+      rewrite_into_loop_closed_ssa (changed_bbs, TODO_update_ssa);
 
-  /* This usually does nothing.  But sometimes parts of cfg that originally
-     were inside a loop get out of it due to edge removal (since they
-     become unreachable by back edges from latch).  */
-  rewrite_into_loop_closed_ssa (changed_bbs, TODO_update_ssa);
-
-  BITMAP_FREE (changed_bbs);
+      BITMAP_FREE (changed_bbs);
 
 #ifdef ENABLE_CHECKING
-  verify_loop_structure (current_loops);
+      verify_loop_structure (current_loops);
 #endif
+      scev_reset ();
+    }
 }
 
 /* Merge the PHI nodes at BB into those at BB's sole successor.  */
@@ -685,10 +710,10 @@ remove_forwarder_block_with_phi (basic_block bb)
 <L10>:;
 */
 
-static void
+static unsigned int
 merge_phi_nodes (void)
 {
-  basic_block *worklist = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  basic_block *worklist = XNEWVEC (basic_block, n_basic_blocks);
   basic_block *current = worklist;
   basic_block bb;
 
@@ -720,6 +745,41 @@ merge_phi_nodes (void)
 	     nodes at BB.  */
 	  *current++ = bb;
 	}
+      else
+	{
+	  tree phi;
+	  unsigned int dest_idx = single_succ_edge (bb)->dest_idx;
+
+	  /* BB dominates DEST.  There may be many users of the PHI
+	     nodes in BB.  However, there is still a trivial case we
+	     can handle.  If the result of every PHI in BB is used
+	     only by a PHI in DEST, then we can trivially merge the
+	     PHI nodes from BB into DEST.  */
+	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	    {
+	      tree result = PHI_RESULT (phi);
+	      int num_uses = num_imm_uses (result);
+	      use_operand_p imm_use;
+	      tree use_stmt;
+
+	      /* If the PHI's result is never used, then we can just
+		 ignore it.  */
+	      if (num_uses == 0)
+		continue;
+
+	      /* Get the single use of the result of this PHI node.  */
+  	      if (!single_imm_use (result, &imm_use, &use_stmt)
+		  || TREE_CODE (use_stmt) != PHI_NODE
+		  || bb_for_stmt (use_stmt) != dest
+		  || PHI_ARG_DEF (use_stmt, dest_idx) != result)
+		break;
+	    }
+
+	  /* If the loop above iterated through all the PHI nodes
+	     in BB, then we can merge the PHIs from BB into DEST.  */
+	  if (!phi)
+	    *current++ = bb;
+	}
     }
 
   /* Now let's drain WORKLIST.  */
@@ -730,6 +790,7 @@ merge_phi_nodes (void)
     }
 
   free (worklist);
+  return 0;
 }
 
 static bool
@@ -741,9 +802,7 @@ gate_merge_phi (void)
 struct tree_opt_pass pass_merge_phi = {
   "mergephi",			/* name */
   gate_merge_phi,		/* gate */
-  NULL, NULL,			/* IPA analysis */
   merge_phi_nodes,		/* execute */
-  NULL, NULL,			/* IPA analysis */
   NULL,				/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */

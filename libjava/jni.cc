@@ -1,6 +1,6 @@
 // jni.cc - JNI implementation, including the jump table.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation
 
    This file is part of libgcj.
@@ -224,6 +224,12 @@ unwrap (T *obj)
     return obj;
   JNIWeakRef *wr = reinterpret_cast<JNIWeakRef *> (obj);
   return reinterpret_cast<T *> (wr->get ());
+}
+
+jobject
+_Jv_UnwrapJNIweakReference (jobject obj)
+{
+  return unwrap (obj);
 }
 
 
@@ -552,7 +558,7 @@ _Jv_JNI_GetSuperclass (JNIEnv *env, jclass clazz)
 static jboolean JNICALL
 _Jv_JNI_IsAssignableFrom (JNIEnv *, jclass clazz1, jclass clazz2)
 {
-  return unwrap (clazz1)->isAssignableFrom (unwrap (clazz2));
+  return unwrap (clazz2)->isAssignableFrom (unwrap (clazz1));
 }
 
 static jint JNICALL
@@ -1112,10 +1118,10 @@ _Jv_JNI_NewObjectV (JNIEnv *env, jclass klass,
 		    jmethodID id, va_list args)
 {
   JvAssert (klass && ! klass->isArray ());
-  JvAssert (! strcmp (id->name->data, "<init>")
-	    && id->signature->length > 2
-	    && id->signature->data[0] == '('
-	    && ! strcmp (&id->signature->data[id->signature->length - 2],
+  JvAssert (! strcmp (id->name->chars(), "<init>")
+	    && id->signature->len() > 2
+	    && id->signature->chars()[0] == '('
+	    && ! strcmp (&id->signature->chars()[id->signature->len() - 2],
 			 ")V"));
 
   return _Jv_JNI_CallAnyMethodV<jobject, constructor> (env, NULL, klass,
@@ -1126,10 +1132,10 @@ static jobject JNICALL
 _Jv_JNI_NewObject (JNIEnv *env, jclass klass, jmethodID id, ...)
 {
   JvAssert (klass && ! klass->isArray ());
-  JvAssert (! strcmp (id->name->data, "<init>")
-	    && id->signature->length > 2
-	    && id->signature->data[0] == '('
-	    && ! strcmp (&id->signature->data[id->signature->length - 2],
+  JvAssert (! strcmp (id->name->chars(), "<init>")
+	    && id->signature->len() > 2
+	    && id->signature->chars()[0] == '('
+	    && ! strcmp (&id->signature->chars()[id->signature->len() - 2],
 			 ")V"));
 
   va_list args;
@@ -1148,10 +1154,10 @@ _Jv_JNI_NewObjectA (JNIEnv *env, jclass klass, jmethodID id,
 		    jvalue *args)
 {
   JvAssert (klass && ! klass->isArray ());
-  JvAssert (! strcmp (id->name->data, "<init>")
-	    && id->signature->length > 2
-	    && id->signature->data[0] == '('
-	    && ! strcmp (&id->signature->data[id->signature->length - 2],
+  JvAssert (! strcmp (id->name->chars(), "<init>")
+	    && id->signature->len() > 2
+	    && id->signature->chars()[0] == '('
+	    && ! strcmp (&id->signature->chars()[id->signature->len() - 2],
 			 ")V"));
 
   return _Jv_JNI_CallAnyMethodA<jobject, constructor> (env, NULL, klass,
@@ -2304,6 +2310,13 @@ _Jv_JNIMethod::call (ffi_cif *, void *ret, ffi_raw *args, void *__this)
 		     ret, real_args);
 #endif
 
+  // We might need to unwrap a JNI weak reference here.
+  if (_this->jni_cif.rtype == &ffi_type_pointer)
+    {
+      _Jv_value *val = (_Jv_value *) ret;
+      val->object_value = unwrap (val->object_value);
+    }
+
   if (sync != NULL)
     _Jv_MonitorExit (sync);
 
@@ -2339,10 +2352,14 @@ _Jv_JNI_AttachCurrentThread (JavaVM *, jstring name, void **penv,
     }
 
   // Attaching an already-attached thread is a no-op.
-  if (_Jv_GetCurrentJNIEnv () != NULL)
-    return 0;
+  JNIEnv *env = _Jv_GetCurrentJNIEnv ();
+  if (env != NULL)
+    {
+      *penv = reinterpret_cast<void *> (env);
+      return 0;
+    }
 
-  JNIEnv *env = (JNIEnv *) _Jv_MallocUnchecked (sizeof (JNIEnv));
+  env = (JNIEnv *) _Jv_MallocUnchecked (sizeof (JNIEnv));
   if (env == NULL)
     return JNI_ERR;
   env->p = &_Jv_JNIFunctions;
@@ -2409,7 +2426,12 @@ _Jv_JNI_DestroyJavaVM (JavaVM *vm)
 {
   JvAssert (the_vm && vm == the_vm);
 
-  JNIEnv *env;
+  union
+  {
+    JNIEnv *env;
+    void *env_p;
+  };
+
   if (_Jv_ThreadCurrent () != NULL)
     {
       jstring main_name;
@@ -2423,8 +2445,7 @@ _Jv_JNI_DestroyJavaVM (JavaVM *vm)
 	  return JNI_ERR;
 	}
 
-      jint r = _Jv_JNI_AttachCurrentThread (vm, main_name,
-					    reinterpret_cast<void **> (&env),
+      jint r = _Jv_JNI_AttachCurrentThread (vm, main_name, &env_p,
 					    NULL, false);
       if (r < 0)
 	return r;

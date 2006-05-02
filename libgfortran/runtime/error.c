@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -24,11 +24,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
+#include <assert.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
@@ -36,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 
 #include "libgfortran.h"
 #include "../io/io.h"
+#include "../io/unix.h"
 
 /* Error conditions.  The tricky part here is printing a message when
  * it is the I/O subsystem that is severely wounded.  Our goal is to
@@ -52,35 +54,19 @@ Boston, MA 02111-1307, USA.  */
  * Other error returns are reserved for the STOP statement with a numeric code.
  */
 
-/* locus variables.  These are optionally set by a caller before a
- * library subroutine is called.  They are always cleared on exit so
- * that files that report loci and those that do not can be linked
- * together without reporting an erroneous position. */
+/* gfc_itoa()-- Integer to decimal conversion. */
 
-char *filename = 0;
-iexport_data(filename);
-
-unsigned line = 0;
-iexport_data(line);
-
-static char buffer[32];		/* buffer for integer/ascii conversions */
-
-
-/* Returns a pointer to a static buffer. */
-
-char *
-gfc_itoa (int64_t n)
+const char *
+gfc_itoa (GFC_INTEGER_LARGEST n, char *buffer, size_t len)
 {
   int negative;
   char *p;
-  uint64_t t;
+  GFC_UINTEGER_LARGEST t;
+
+  assert (len >= GFC_ITOA_BUF_SIZE);
 
   if (n == 0)
-    {
-      buffer[0] = '0';
-      buffer[1] = '\0';
-      return buffer;
-    }
+    return "0";
 
   negative = 0;
   t = n;
@@ -90,39 +76,36 @@ gfc_itoa (int64_t n)
       t = -n; /*must use unsigned to protect from overflow*/
     }
 
-  p = buffer + sizeof (buffer) - 1;
-  *p-- = '\0';
+  p = buffer + GFC_ITOA_BUF_SIZE - 1;
+  *p = '\0';
 
   while (t != 0)
     {
-      *p-- = '0' + (t % 10);
+      *--p = '0' + (t % 10);
       t /= 10;
     }
 
   if (negative)
-    *p-- = '-';
-  return ++p;
+    *--p = '-';
+  return p;
 }
 
 
-/* xtoa()-- Integer to hexadecimal conversion.  Returns a pointer to a
- * static buffer. */
+/* xtoa()-- Integer to hexadecimal conversion.  */
 
-char *
-xtoa (uint64_t n)
+const char *
+xtoa (GFC_UINTEGER_LARGEST n, char *buffer, size_t len)
 {
   int digit;
   char *p;
 
-  if (n == 0)
-    {
-      buffer[0] = '0';
-      buffer[1] = '\0';
-      return buffer;
-    }
+  assert (len >= GFC_XTOA_BUF_SIZE);
 
-  p = buffer + sizeof (buffer) - 1;
-  *p-- = '\0';
+  if (n == 0)
+    return "0";
+
+  p = buffer + GFC_XTOA_BUF_SIZE - 1;
+  *p = '\0';
 
   while (n != 0)
     {
@@ -130,11 +113,11 @@ xtoa (uint64_t n)
       if (digit > 9)
 	digit += 'A' - '0' - 10;
 
-      *p-- = '0' + digit;
+      *--p = '0' + digit;
       n >>= 4;
     }
 
-  return ++p;
+  return p;
 }
 
 
@@ -148,11 +131,14 @@ st_printf (const char *format, ...)
 {
   int count, total;
   va_list arg;
-  char *p, *q;
+  char *p;
+  const char *q;
   stream *s;
+  char itoa_buf[GFC_ITOA_BUF_SIZE];
+  unix_stream err_stream;
 
   total = 0;
-  s = init_error_stream ();
+  s = init_error_stream (&err_stream);
   va_start (arg, format);
 
   for (;;)
@@ -186,7 +172,7 @@ st_printf (const char *format, ...)
 	  break;
 
 	case 'd':
-	  q = gfc_itoa (va_arg (arg, int));
+	  q = gfc_itoa (va_arg (arg, int), itoa_buf, sizeof (itoa_buf));
 	  count = strlen (q);
 
 	  p = salloc_w (s, &count);
@@ -195,7 +181,7 @@ st_printf (const char *format, ...)
 	  break;
 
 	case 'x':
-	  q = xtoa (va_arg (arg, unsigned));
+	  q = xtoa (va_arg (arg, unsigned), itoa_buf, sizeof (itoa_buf));
 	  count = strlen (q);
 
 	  p = salloc_w (s, &count);
@@ -239,8 +225,10 @@ void
 st_sprintf (char *buffer, const char *format, ...)
 {
   va_list arg;
-  char c, *p;
+  char c;
+  const char *p;
   int count;
+  char itoa_buf[GFC_ITOA_BUF_SIZE];
 
   va_start (arg, format);
 
@@ -263,7 +251,7 @@ st_sprintf (char *buffer, const char *format, ...)
 	  break;
 
 	case 'd':
-	  p = gfc_itoa (va_arg (arg, int));
+	  p = gfc_itoa (va_arg (arg, int), itoa_buf, sizeof (itoa_buf));
 	  count = strlen (p);
 
 	  memcpy (buffer, p, count);
@@ -291,12 +279,12 @@ st_sprintf (char *buffer, const char *format, ...)
  * something went wrong */
 
 void
-show_locus (void)
+show_locus (st_parameter_common *cmp)
 {
-  if (!options.locus || filename == NULL)
+  if (!options.locus || cmp == NULL || cmp->filename == NULL)
     return;
 
-  st_printf ("At line %d of file %s\n", line, filename);
+  st_printf ("At line %d of file %s\n", cmp->line, cmp->filename);
 }
 
 
@@ -327,7 +315,6 @@ void
 os_error (const char *message)
 {
   recursion_check ();
-  show_locus ();
   st_printf ("Operating system error: %s\n%s\n", get_oserror (), message);
   sys_exit (1);
 }
@@ -340,7 +327,6 @@ void
 runtime_error (const char *message)
 {
   recursion_check ();
-  show_locus ();
   st_printf ("Fortran runtime error: %s\n", message);
   sys_exit (2);
 }
@@ -351,11 +337,18 @@ iexport(runtime_error);
  * that indicate something deeply wrong. */
 
 void
-internal_error (const char *message)
+internal_error (st_parameter_common *cmp, const char *message)
 {
   recursion_check ();
-  show_locus ();
+  show_locus (cmp);
   st_printf ("Internal Error: %s\n", message);
+
+  /* This function call is here to get the main.o object file included
+     when linking statically. This works because error.o is supposed to
+     be always linked in (and the function call is in internal_error
+     because hopefully it doesn't happen too often).  */
+  stupid_function_name_for_static_linking();
+
   sys_exit (3);
 }
 
@@ -430,6 +423,18 @@ translate_error (int code)
       p = "Numeric overflow on read";
       break;
 
+    case ERROR_INTERNAL:
+      p = "Internal error in run-time library";
+      break;
+
+    case ERROR_INTERNAL_UNIT:
+      p = "Internal unit I/O error";
+      break;
+
+    case ERROR_DIRECT_EOR:
+      p = "Write exceeds length of DIRECT access record";
+      break;
+
     default:
       p = "Unknown error code";
       break;
@@ -440,51 +445,105 @@ translate_error (int code)
 
 
 /* generate_error()-- Come here when an error happens.  This
- * subroutine is called if it is possible to continue on after the
- * error.  If an IOSTAT variable exists, we set it.  If the IOSTAT or
- * ERR label is present, we return, otherwise we terminate the program
- * after print a message.  The error code is always required but the
+ * subroutine is called if it is possible to continue on after the error.
+ * If an IOSTAT or IOMSG variable exists, we set it.  If IOSTAT or
+ * ERR labels are present, we return, otherwise we terminate the program
+ * after printing a message.  The error code is always required but the
  * message parameter can be NULL, in which case a string describing
  * the most recent operating system error is used. */
 
 void
-generate_error (int family, const char *message)
+generate_error (st_parameter_common *cmp, int family, const char *message)
 {
   /* Set the error status.  */
-  if (ioparm.iostat != NULL)
-    *ioparm.iostat = family;
-
-  /* Report status back to the compiler.  */
-  switch (family)
-    {
-    case ERROR_EOR:
-      ioparm.library_return = LIBRARY_EOR;
-      if (ioparm.eor != 0)
-	return;
-      break;
-
-    case ERROR_END:
-      ioparm.library_return = LIBRARY_END;
-      if (ioparm.end != 0)
-	return;
-      break;
-
-    default:
-      ioparm.library_return = LIBRARY_ERROR;
-      if (ioparm.err != 0)
-	return;
-      break;
-    }
-
-  /* Return if the user supplied an iostat variable.  */
-  if (ioparm.iostat != NULL)
-    return;
-
-  /* Terminate the program */
+  if ((cmp->flags & IOPARM_HAS_IOSTAT))
+    *cmp->iostat = family;
 
   if (message == NULL)
     message =
       (family == ERROR_OS) ? get_oserror () : translate_error (family);
 
-  runtime_error (message);
+  if (cmp->flags & IOPARM_HAS_IOMSG)
+    cf_strcpy (cmp->iomsg, cmp->iomsg_len, message);
+
+  /* Report status back to the compiler.  */
+  cmp->flags &= ~IOPARM_LIBRETURN_MASK;
+  switch (family)
+    {
+    case ERROR_EOR:
+      cmp->flags |= IOPARM_LIBRETURN_EOR;
+      if ((cmp->flags & IOPARM_EOR))
+	return;
+      break;
+
+    case ERROR_END:
+      cmp->flags |= IOPARM_LIBRETURN_END;
+      if ((cmp->flags & IOPARM_END))
+	return;
+      break;
+
+    default:
+      cmp->flags |= IOPARM_LIBRETURN_ERROR;
+      if ((cmp->flags & IOPARM_ERR))
+	return;
+      break;
+    }
+
+  /* Return if the user supplied an iostat variable.  */
+  if ((cmp->flags & IOPARM_HAS_IOSTAT))
+    return;
+
+  /* Terminate the program */
+
+  recursion_check ();
+  show_locus (cmp);
+  st_printf ("Fortran runtime error: %s\n", message);
+  sys_exit (2);
+}
+
+
+/* Whether, for a feature included in a given standard set (GFC_STD_*),
+   we should issue an error or a warning, or be quiet.  */
+
+notification
+notification_std (int std)
+{
+  int warning;
+
+  if (!compile_options.pedantic)
+    return SILENT;
+
+  warning = compile_options.warn_std & std;
+  if ((compile_options.allow_std & std) != 0 && !warning)
+    return SILENT;
+
+  return warning ? WARNING : ERROR;
+}
+
+
+
+/* Possibly issue a warning/error about use of a nonstandard (or deleted)
+   feature.  An error/warning will be issued if the currently selected
+   standard does not contain the requested bits.  */
+
+try
+notify_std (int std, const char * message)
+{
+  int warning;
+
+  if (!compile_options.pedantic)
+    return SUCCESS;
+
+  warning = compile_options.warn_std & std;
+  if ((compile_options.allow_std & std) != 0 && !warning)
+    return SUCCESS;
+
+  if (!warning)
+    {
+      st_printf ("Fortran runtime error: %s\n", message);
+      sys_exit (2);
+    }
+  else
+    st_printf ("Fortran runtime warning: %s\n", message);
+  return FAILURE;
 }

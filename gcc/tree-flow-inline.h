@@ -16,14 +16,108 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef _TREE_FLOW_INLINE_H
 #define _TREE_FLOW_INLINE_H 1
 
 /* Inline functions for manipulating various data structures defined in
    tree-flow.h.  See tree-flow.h for documentation.  */
+
+/* Initialize the hashtable iterator HTI to point to hashtable TABLE */
+
+static inline void *
+first_htab_element (htab_iterator *hti, htab_t table)
+{
+  hti->htab = table;
+  hti->slot = table->entries;
+  hti->limit = hti->slot + htab_size (table);
+  do
+    {
+      PTR x = *(hti->slot);
+      if (x != HTAB_EMPTY_ENTRY && x != HTAB_DELETED_ENTRY)
+	break;
+    } while (++(hti->slot) < hti->limit);
+  
+  if (hti->slot < hti->limit)
+    return *(hti->slot);
+  return NULL;
+}
+
+/* Return current non-empty/deleted slot of the hashtable pointed to by HTI,
+   or NULL if we have  reached the end.  */
+
+static inline bool
+end_htab_p (htab_iterator *hti)
+{
+  if (hti->slot >= hti->limit)
+    return true;
+  return false;
+}
+
+/* Advance the hashtable iterator pointed to by HTI to the next element of the
+   hashtable.  */
+
+static inline void *
+next_htab_element (htab_iterator *hti)
+{
+  while (++(hti->slot) < hti->limit)
+    {
+      PTR x = *(hti->slot);
+      if (x != HTAB_EMPTY_ENTRY && x != HTAB_DELETED_ENTRY)
+	return x;
+    };
+  return NULL;
+}
+
+/* Initialize ITER to point to the first referenced variable in the
+   referenced_vars hashtable, and return that variable.  */
+
+static inline tree
+first_referenced_var (referenced_var_iterator *iter)
+{
+  struct int_tree_map *itm;
+  itm = (struct int_tree_map *) first_htab_element (&iter->hti,
+                                                    referenced_vars);
+  if (!itm) 
+    return NULL;
+  return itm->to;
+}
+
+/* Return true if we have hit the end of the referenced variables ITER is
+   iterating through.  */
+
+static inline bool
+end_referenced_vars_p (referenced_var_iterator *iter)
+{
+  return end_htab_p (&iter->hti);
+}
+
+/* Make ITER point to the next referenced_var in the referenced_var hashtable,
+   and return that variable.  */
+
+static inline tree
+next_referenced_var (referenced_var_iterator *iter)
+{
+  struct int_tree_map *itm;
+  itm = (struct int_tree_map *) next_htab_element (&iter->hti);
+  if (!itm) 
+    return NULL;
+  return itm->to;
+} 
+
+/* Fill up VEC with the variables in the referenced vars hashtable.  */
+
+static inline void
+fill_referenced_var_vec (VEC (tree, heap) **vec)
+{
+  referenced_var_iterator rvi;
+  tree var;
+  *vec = NULL;
+  FOR_EACH_REFERENCED_VAR (var, rvi)
+    VEC_safe_push (tree, heap, *vec, var);
+}
 
 /* Return the variable annotation for T, which must be a _DECL node.
    Return NULL if the variable annotation doesn't already exist.  */
@@ -32,6 +126,7 @@ var_ann (tree t)
 {
   gcc_assert (t);
   gcc_assert (DECL_P (t));
+  gcc_assert (TREE_CODE (t) != FUNCTION_DECL);
   gcc_assert (!t->common.ann || t->common.ann->common.type == VAR_ANN);
 
   return (var_ann_t) t->common.ann;
@@ -44,6 +139,27 @@ get_var_ann (tree var)
 {
   var_ann_t ann = var_ann (var);
   return (ann) ? ann : create_var_ann (var);
+}
+
+/* Return the function annotation for T, which must be a FUNCTION_DECL node.
+   Return NULL if the function annotation doesn't already exist.  */
+static inline function_ann_t
+function_ann (tree t)
+{
+  gcc_assert (t);
+  gcc_assert (TREE_CODE (t) == FUNCTION_DECL);
+  gcc_assert (!t->common.ann || t->common.ann->common.type == FUNCTION_ANN);
+
+  return (function_ann_t) t->common.ann;
+}
+
+/* Return the function annotation for T, which must be a FUNCTION_DECL node.
+   Create the function annotation if it doesn't exist.  */
+static inline function_ann_t
+get_function_ann (tree var)
+{
+  function_ann_t ann = function_ann (var);
+  return (ann) ? ann : create_function_ann (var);
 }
 
 /* Return the statement annotation for T, which must be a statement
@@ -65,7 +181,6 @@ get_stmt_ann (tree stmt)
   stmt_ann_t ann = stmt_ann (stmt);
   return (ann) ? ann : create_stmt_ann (stmt);
 }
-
 
 /* Return the annotation type for annotation ANN.  */
 static inline enum tree_ann_type
@@ -89,7 +204,7 @@ bb_for_stmt (tree t)
 
 /* Return the may_aliases varray for variable VAR, or NULL if it has
    no may aliases.  */
-static inline varray_type
+static inline VEC(tree, gc) *
 may_aliases (tree var)
 {
   var_ann_t ann = var_ann (var);
@@ -150,7 +265,7 @@ mark_stmt_modified (tree t)
   ann = stmt_ann (t);
   if (ann == NULL)
     ann = create_stmt_ann (t);
-  else if (noreturn_call_p (t))
+  else if (noreturn_call_p (t) && cfun->ssa)
     VEC_safe_push (tree, gc, modified_noreturn_calls, t);
   ann->modified = 1;
 }
@@ -229,7 +344,7 @@ link_imm_use (ssa_use_operand_t *linknode, tree def)
     }
 }
 
-/* Set the value of a use pointed by USE to VAL.  */
+/* Set the value of a use pointed to by USE to VAL.  */
 static inline void
 set_ssa_use_from_ptr (use_operand_p use, tree val)
 {
@@ -583,23 +698,6 @@ is_label_stmt (tree t)
   return false;
 }
 
-/* Set the default definition for VAR to DEF.  */
-static inline void
-set_default_def (tree var, tree def)
-{
-  var_ann_t ann = get_var_ann (var);
-  ann->default_def = def;
-}
-
-/* Return the default definition for variable VAR, or NULL if none
-   exists.  */
-static inline tree
-default_def (tree var)
-{
-  var_ann_t ann = var_ann (var);
-  return ann ? ann->default_def : NULL_TREE;
-}
-
 /* PHI nodes should contain only ssa_names and invariants.  A test
    for ssa_name is definitely simpler; don't let invalid contents
    slip in in the meantime.  */
@@ -627,7 +725,7 @@ bsi_start (basic_block bb)
     bsi.tsi = tsi_start (bb->stmt_list);
   else
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }
@@ -635,45 +733,16 @@ bsi_start (basic_block bb)
   return bsi;
 }
 
-/* Return a block statement iterator that points to the last label in
-   block BB.  */
+/* Return a block statement iterator that points to the first non-label
+   statement in block BB.  */
 
 static inline block_stmt_iterator
 bsi_after_labels (basic_block bb)
 {
-  block_stmt_iterator bsi;
-  tree_stmt_iterator next;
+  block_stmt_iterator bsi = bsi_start (bb);
 
-  bsi.bb = bb;
-
-  if (!bb->stmt_list)
-    {
-      gcc_assert (bb->index < 0);
-      bsi.tsi.ptr = NULL;
-      bsi.tsi.container = NULL;
-      return bsi;
-    }
-
-  bsi.tsi = tsi_start (bb->stmt_list);
-  if (tsi_end_p (bsi.tsi))
-    return bsi;
-
-  /* Ensure that there are some labels.  The rationale is that we want
-     to insert after the bsi that is returned, and these insertions should
-     be placed at the start of the basic block.  This would not work if the
-     first statement was not label; rather fail here than enable the user
-     proceed in wrong way.  */
-  gcc_assert (TREE_CODE (tsi_stmt (bsi.tsi)) == LABEL_EXPR);
-
-  next = bsi.tsi;
-  tsi_next (&next);
-
-  while (!tsi_end_p (next)
-	 && TREE_CODE (tsi_stmt (next)) == LABEL_EXPR)
-    {
-      bsi.tsi = next;
-      tsi_next (&next);
-    }
+  while (!bsi_end_p (bsi) && TREE_CODE (bsi_stmt (bsi)) == LABEL_EXPR)
+    bsi_next (&bsi);
 
   return bsi;
 }
@@ -688,7 +757,7 @@ bsi_last (basic_block bb)
     bsi.tsi = tsi_last (bb->stmt_list);
   else
     {
-      gcc_assert (bb->index < 0);
+      gcc_assert (bb->index < NUM_FIXED_BLOCKS);
       bsi.tsi.ptr = NULL;
       bsi.tsi.container = NULL;
     }
@@ -752,24 +821,20 @@ loop_containing_stmt (tree stmt)
 static inline bool
 is_call_clobbered (tree var)
 {
-  return is_global_var (var)
-	 || bitmap_bit_p (call_clobbered_vars, var_ann (var)->uid);
+  if (!MTAG_P (var))
+    return DECL_CALL_CLOBBERED (var);
+  else
+    return bitmap_bit_p (cfun->ssa->call_clobbered_vars, DECL_UID (var)); 
 }
 
 /* Mark variable VAR as being clobbered by function calls.  */
 static inline void
-mark_call_clobbered (tree var)
+mark_call_clobbered (tree var, unsigned int escape_type)
 {
-  var_ann_t ann = var_ann (var);
-  /* If VAR is a memory tag, then we need to consider it a global
-     variable.  This is because the pointer that VAR represents has
-     been found to point to either an arbitrary location or to a known
-     location in global memory.  */
-  if (ann->mem_tag_kind != NOT_A_TAG && ann->mem_tag_kind != STRUCT_FIELD)
-    DECL_EXTERNAL (var) = 1;
-  bitmap_set_bit (call_clobbered_vars, ann->uid);
-  ssa_call_clobbered_cache_valid = false;
-  ssa_ro_call_cache_valid = false;
+  var_ann (var)->escape_mask |= escape_type;
+  if (!MTAG_P (var))
+    DECL_CALL_CLOBBERED (var) = true;
+  bitmap_set_bit (cfun->ssa->call_clobbered_vars, DECL_UID (var));
 }
 
 /* Clear the call-clobbered attribute from variable VAR.  */
@@ -777,21 +842,22 @@ static inline void
 clear_call_clobbered (tree var)
 {
   var_ann_t ann = var_ann (var);
-  if (ann->mem_tag_kind != NOT_A_TAG && ann->mem_tag_kind != STRUCT_FIELD)
-    DECL_EXTERNAL (var) = 0;
-  bitmap_clear_bit (call_clobbered_vars, ann->uid);
-  ssa_call_clobbered_cache_valid = false;
-  ssa_ro_call_cache_valid = false;
+  ann->escape_mask = 0;
+  if (MTAG_P (var) && TREE_CODE (var) != STRUCT_FIELD_TAG)
+    MTAG_GLOBAL (var) = 0;
+  if (!MTAG_P (var))
+    DECL_CALL_CLOBBERED (var) = false;
+  bitmap_clear_bit (cfun->ssa->call_clobbered_vars, DECL_UID (var));
 }
 
 /* Mark variable VAR as being non-addressable.  */
 static inline void
 mark_non_addressable (tree var)
 {
-  bitmap_clear_bit (call_clobbered_vars, var_ann (var)->uid);
+  if (!MTAG_P (var))
+    DECL_CALL_CLOBBERED (var) = false;
+  bitmap_clear_bit (cfun->ssa->call_clobbered_vars, DECL_UID (var));
   TREE_ADDRESSABLE (var) = 0;
-  ssa_call_clobbered_cache_valid = false;
-  ssa_ro_call_cache_valid = false;
 }
 
 /* Return the common annotation for T.  Return NULL if the annotation
@@ -951,7 +1017,7 @@ op_iter_next_tree (ssa_op_iter *ptr)
 
 
 /* This functions clears the iterator PTR, and marks it done.  This is normally
-   used to prevent warnings in the compile about might be uninitailzied
+   used to prevent warnings in the compile about might be uninitialized
    components.  */
 
 static inline void
@@ -1099,7 +1165,7 @@ op_iter_init_must_and_may_def (ssa_op_iter *ptr, tree stmt,
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline tree
 single_ssa_tree_operand (tree stmt, int flags)
 {
@@ -1117,7 +1183,7 @@ single_ssa_tree_operand (tree stmt, int flags)
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline use_operand_p
 single_ssa_use_operand (tree stmt, int flags)
 {
@@ -1136,7 +1202,7 @@ single_ssa_use_operand (tree stmt, int flags)
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline def_operand_p
 single_ssa_def_operand (tree stmt, int flags)
 {
@@ -1154,7 +1220,7 @@ single_ssa_def_operand (tree stmt, int flags)
 
 
 /* If there is a single operand in STMT matching FLAGS, return it.  Otherwise
-   return NULL.  PTR is the iterator to use.  */
+   return NULL.  */
 static inline bool
 zero_ssa_operands (tree stmt, int flags)
 {
@@ -1319,20 +1385,41 @@ unmodifiable_var_p (tree var)
 {
   if (TREE_CODE (var) == SSA_NAME)
     var = SSA_NAME_VAR (var);
+
+  if (MTAG_P (var))
+    return TREE_READONLY (var) && (TREE_STATIC (var) || MTAG_GLOBAL (var));
+
   return TREE_READONLY (var) && (TREE_STATIC (var) || DECL_EXTERNAL (var));
 }
 
-/* Return true if REF, a COMPONENT_REF, has an ARRAY_REF somewhere in it.  */
+/* Return true if REF, an ARRAY_REF, has an INDIRECT_REF somewhere in it.  */
+
+static inline bool
+array_ref_contains_indirect_ref (tree ref)
+{
+  gcc_assert (TREE_CODE (ref) == ARRAY_REF);
+
+  do {
+    ref = TREE_OPERAND (ref, 0);
+  } while (handled_component_p (ref));
+
+  return TREE_CODE (ref) == INDIRECT_REF;
+}
+
+/* Return true if REF, a handled component reference, has an ARRAY_REF
+   somewhere in it.  */
 
 static inline bool
 ref_contains_array_ref (tree ref)
 {
-  while (handled_component_p (ref))
-    {
-      if (TREE_CODE (ref) == ARRAY_REF)
-	return true;
-      ref = TREE_OPERAND (ref, 0);
-    }
+  gcc_assert (handled_component_p (ref));
+
+  do {
+    if (TREE_CODE (ref) == ARRAY_REF)
+      return true;
+    ref = TREE_OPERAND (ref, 0);
+  } while (handled_component_p (ref));
+
   return false;
 }
 
@@ -1364,15 +1451,46 @@ get_subvars_for_var (tree var)
   return subvars;
 }
 
+/* Return the subvariable of VAR at offset OFFSET.  */
+
+static inline tree
+get_subvar_at (tree var, unsigned HOST_WIDE_INT offset)
+{
+  subvar_t sv;
+
+  for (sv = get_subvars_for_var (var); sv; sv = sv->next)
+    if (SFT_OFFSET (sv->var) == offset)
+      return sv->var;
+
+  return NULL_TREE;
+}
+
 /* Return true if V is a tree that we can have subvars for.
-   Normally, this is any aggregate type, however, due to implementation
-   limitations ATM, we exclude array types as well.  */
+   Normally, this is any aggregate type.  Also complex
+   types which are not gimple registers can have subvars.  */
 
 static inline bool
 var_can_have_subvars (tree v)
 {
-  return (AGGREGATE_TYPE_P (TREE_TYPE (v)) &&
-	  TREE_CODE (TREE_TYPE (v)) != ARRAY_TYPE);
+  /* Volatile variables should never have subvars.  */
+  if (TREE_THIS_VOLATILE (v))
+    return false;
+
+  /* Non decls or memory tags can never have subvars.  */
+  if (!DECL_P (v) || MTAG_P (v))
+    return false;
+
+  /* Aggregates can have subvars.  */
+  if (AGGREGATE_TYPE_P (TREE_TYPE (v)))
+    return true;
+
+  /* Complex types variables which are not also a gimple register can
+    have subvars. */
+  if (TREE_CODE (TREE_TYPE (v)) == COMPLEX_TYPE
+      && !DECL_COMPLEX_GIMPLE_REG_P (v))
+    return true;
+
+  return false;
 }
 
   
@@ -1381,8 +1499,8 @@ var_can_have_subvars (tree v)
    *EXACT will be set to true upon return. */
 
 static inline bool
-overlap_subvar (HOST_WIDE_INT offset, HOST_WIDE_INT size,
-		subvar_t sv,  bool *exact)
+overlap_subvar (unsigned HOST_WIDE_INT offset, unsigned HOST_WIDE_INT size,
+		tree sv,  bool *exact)
 {
   /* There are three possible cases of overlap.
      1. We can have an exact overlap, like so:   
@@ -1402,17 +1520,19 @@ overlap_subvar (HOST_WIDE_INT offset, HOST_WIDE_INT size,
 
   if (exact)
     *exact = false;
-  if (offset == sv->offset && size == sv->size)
+  if (offset == SFT_OFFSET (sv) && size == SFT_SIZE (sv))
     {
       if (exact)
 	*exact = true;
       return true;
     }
-  else if (offset >= sv->offset && offset < (sv->offset + sv->size))
+  else if (offset >= SFT_OFFSET (sv) 
+	   && offset < (SFT_OFFSET (sv) + SFT_SIZE (sv)))
     {
       return true;
     }
-  else if (offset < sv->offset && (offset + size > sv->offset))
+  else if (offset < SFT_OFFSET (sv) 
+	   && (size > SFT_OFFSET (sv) - offset))
     {
       return true;
     }

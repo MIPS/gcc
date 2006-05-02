@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -34,18 +34,15 @@ Boston, MA 02111-1307, USA.  */
 #include <string.h>
 #include "libgfortran.h"
 
-static const char zeros[16] =
-  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+#if defined (HAVE_GFC_INTEGER_4)
 
-extern void eoshift3_4 (gfc_array_char *, gfc_array_char *,
-				     gfc_array_i4 *, const gfc_array_char *,
-				     GFC_INTEGER_4 *);
-export_proto(eoshift3_4);
-
-void
-eoshift3_4 (gfc_array_char *ret, gfc_array_char *array,
-		       gfc_array_i4 *h, const gfc_array_char *bound,
-		       GFC_INTEGER_4 *pwhich)
+static void
+eoshift3 (gfc_array_char * const restrict ret, 
+	const gfc_array_char * const restrict array, 
+	const gfc_array_i4 * const restrict h,
+	const gfc_array_char * const restrict bound, 
+	const GFC_INTEGER_4 * const restrict pwhich,
+	index_type size, char filler)
 {
   /* r.* indicates the return array.  */
   index_type rstride[GFC_MAX_DIMENSIONS];
@@ -71,7 +68,6 @@ eoshift3_4 (gfc_array_char *ret, gfc_array_char *array,
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type dim;
-  index_type size;
   index_type len;
   index_type n;
   int which;
@@ -89,11 +85,28 @@ eoshift3_4 (gfc_array_char *ret, gfc_array_char *array,
   else
     which = 0;
 
-  size = GFC_DESCRIPTOR_SIZE (ret);
+  if (ret->data == NULL)
+    {
+      int i;
+
+      ret->data = internal_malloc_size (size * size0 ((array_t *)array));
+      ret->offset = 0;
+      ret->dtype = array->dtype;
+      for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
+        {
+          ret->dim[i].lbound = 0;
+          ret->dim[i].ubound = array->dim[i].ubound - array->dim[i].lbound;
+
+          if (i == 0)
+            ret->dim[i].stride = 1;
+          else
+            ret->dim[i].stride = (ret->dim[i-1].ubound + 1) * ret->dim[i-1].stride;
+        }
+    }
+
 
   extent[0] = 1;
   count[0] = 0;
-  size = GFC_DESCRIPTOR_SIZE (array);
   n = 0;
   for (dim = 0; dim < GFC_DESCRIPTOR_RANK (array); dim++)
     {
@@ -116,7 +129,7 @@ eoshift3_4 (gfc_array_char *ret, gfc_array_char *array,
 
           hstride[n] = h->dim[n].stride;
           if (bound)
-            bstride[n] = bound->dim[n].stride;
+            bstride[n] = bound->dim[n].stride * size;
           else
             bstride[n] = 0;
           n++;
@@ -142,13 +155,20 @@ eoshift3_4 (gfc_array_char *ret, gfc_array_char *array,
   if (bound)
     bptr = bound->data;
   else
-    bptr = zeros;
+    bptr = NULL;
 
   while (rptr)
     {
       /* Do the shift for this dimension.  */
       sh = *hptr;
-      delta = (sh >= 0) ? sh: -sh;
+      if (( sh >= 0 ? sh : -sh ) > len)
+	{
+	  delta = len;
+	  sh = len;
+	}
+      else
+	delta = (sh >= 0) ? sh: -sh;
+
       if (sh > 0)
         {
           src = &sptr[delta * soffset];
@@ -169,11 +189,18 @@ eoshift3_4 (gfc_array_char *ret, gfc_array_char *array,
         dest = rptr;
       n = delta;
 
-      while (n--)
-        {
-          memcpy (dest, bptr, size);
-          dest += roffset;
-        }
+      if (bptr)
+	while (n--)
+	  {
+	    memcpy (dest, bptr, size);
+	    dest += roffset;
+	  }
+      else
+	while (n--)
+	  {
+	    memset (dest, filler, size);
+	    dest += roffset;
+	  }
 
       /* Advance to the next section.  */
       rptr += rstride0;
@@ -211,3 +238,44 @@ eoshift3_4 (gfc_array_char *ret, gfc_array_char *array,
         }
     }
 }
+
+extern void eoshift3_4 (gfc_array_char * const restrict, 
+	const gfc_array_char * const restrict,
+	const gfc_array_i4 * const restrict, 
+	const gfc_array_char * const restrict,
+	const GFC_INTEGER_4 *);
+export_proto(eoshift3_4);
+
+void
+eoshift3_4 (gfc_array_char * const restrict ret, 
+	const gfc_array_char * const restrict array,
+	const gfc_array_i4 * const restrict h, 
+	const gfc_array_char * const restrict bound,
+	const GFC_INTEGER_4 * const restrict pwhich)
+{
+  eoshift3 (ret, array, h, bound, pwhich, GFC_DESCRIPTOR_SIZE (array), 0);
+}
+
+extern void eoshift3_4_char (gfc_array_char * const restrict, 
+	GFC_INTEGER_4,
+	const gfc_array_char * const restrict,
+	const gfc_array_i4 * const restrict,
+	const gfc_array_char * const restrict,
+	const GFC_INTEGER_4 * const restrict, 
+	GFC_INTEGER_4, GFC_INTEGER_4);
+export_proto(eoshift3_4_char);
+
+void
+eoshift3_4_char (gfc_array_char * const restrict ret,
+	GFC_INTEGER_4 ret_length __attribute__((unused)),
+	const gfc_array_char * const restrict array, 
+	const gfc_array_i4 *  const restrict h,
+	const gfc_array_char * const restrict bound,
+	const GFC_INTEGER_4 * const restrict pwhich,
+	GFC_INTEGER_4 array_length,
+	GFC_INTEGER_4 bound_length __attribute__((unused)))
+{
+  eoshift3 (ret, array, h, bound, pwhich, array_length, ' ');
+}
+
+#endif

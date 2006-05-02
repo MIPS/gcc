@@ -22,12 +22,17 @@ AC_CHECK_PROGS([AUTOHEADER], [autoheader], [$MISSING autoheader])
 # See config/warnings.m4 for details.
 
 ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wstrict-prototypes \
-			  -Wmissing-prototypes -Wold-style-definition])
+			  -Wmissing-prototypes -Wold-style-definition \
+			  -Wmissing-format-attribute])
 ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long])
 
 # Only enable with --enable-werror-always until existing warnings are
 # corrected.
 ACX_PROG_CC_WARNINGS_ARE_ERRORS([manual])
+
+# Dependency checking.
+ZW_CREATE_DEPDIR
+ZW_PROG_COMPILER_DEPENDENCIES([CC])
 
 # Checks for header files.
 AC_HEADER_TIME
@@ -108,7 +113,7 @@ fi
 m4_changequote(,)
 case $target in
 	alpha*-*-* | \
-	arm*-*-eabi* | \
+	arm*-*-*eabi* | \
 	arm*-*-symbianelf* | \
 	x86_64-*-* | \
 	ia64-*-* | \

@@ -14,7 +14,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
 
 
 # Copied from GCC.
@@ -29,6 +29,33 @@ proc dg-require-iconv { args } {
 
 proc dg-require-namedlocale { args } {
     if { ![ check_v3_target_namedlocale ] } {
+	upvar dg-do-what dg-do-what
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+	return
+    }
+    return
+}
+
+proc dg-require-cxa-atexit { args } {
+    if { ![ check_v3_target_cxa_atexit ] } {
+	upvar dg-do-what dg-do-what
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+	return
+    }
+    return
+}
+
+proc dg-require-sharedlib { args } {
+    if { ![ check_v3_target_sharedlib ] } {
+	upvar dg-do-what dg-do-what
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+	return
+    }
+    return
+}
+
+proc dg-require-debug-mode { args } {
+    if { ![ check_v3_target_debug_mode ] } {
 	upvar dg-do-what dg-do-what
 	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
 	return

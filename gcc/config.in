@@ -46,6 +46,12 @@
 #endif
 
 
+/* Define to 1 to enable decimal float extension to C. */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_DECIMAL_FLOAT
+#endif
+
+
 /* Define if you want fold checked that it never destructs its argument. This
    is quite expensive. */
 #ifndef USED_FOR_TARGET
@@ -158,6 +164,12 @@
 /* Define if your assembler supports explicit relocations. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_EXPLICIT_RELOCS
+#endif
+
+
+/* Define if your assembler supports fprnd. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_FPRND
 #endif
 
 
@@ -305,6 +317,13 @@
    */
 #ifndef USED_FOR_TARGET
 #undef HAVE_DECL_ABORT
+#endif
+
+
+/* Define to 1 if we found a declaration for 'asprintf', otherwise define to
+   0. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_ASPRINTF
 #endif
 
 
@@ -570,6 +589,13 @@
 #endif
 
 
+/* Define to 1 if we found a declaration for 'strverscmp', otherwise define to
+   0. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_STRVERSCMP
+#endif
+
+
 /* Define to 1 if we found a declaration for 'times', otherwise define to 0.
    */
 #ifndef USED_FOR_TARGET
@@ -594,12 +620,6 @@
 /* Define to 1 if you have the <direct.h> header file. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_DIRECT_H
-#endif
-
-
-/* Define to 1 if you have the `dup2' function. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_DUP2
 #endif
 
 
@@ -733,6 +753,12 @@
 /* Define if your assembler supports .weak. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GAS_WEAK
+#endif
+
+
+/* Define if your assembler supports .weakref. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GAS_WEAKREF
 #endif
 
 
@@ -941,12 +967,6 @@
 /* Define to 1 if you have the `nl_langinfo' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_NL_LANGINFO
-#endif
-
-
-/* Define if printf supports "%p". */
-#ifndef USED_FOR_TARGET
-#undef HAVE_PRINTF_PTR
 #endif
 
 
@@ -1260,6 +1280,18 @@
 /* Define if you can safely include both <string.h> and <strings.h>. */
 #ifndef USED_FOR_TARGET
 #undef STRING_WITH_STRINGS
+#endif
+
+
+/* Define if TFmode long double should be the default */
+#ifndef USED_FOR_TARGET
+#undef TARGET_DEFAULT_LONG_DOUBLE_128
+#endif
+
+
+/* Define if your target C library provides stack protector support */
+#ifndef USED_FOR_TARGET
+#undef TARGET_LIBC_PROVIDES_SSP
 #endif
 
 

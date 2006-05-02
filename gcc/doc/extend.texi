@@ -1,5 +1,6 @@
-@c Copyright (C) 1988,1989,1992,1993,1994,1996,1998,1999,2000,2001,2002,2003,2004,2005
-@c Free Software Foundation, Inc.
+@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1996, 1998, 1999, 2000,
+@c 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -32,6 +33,7 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Conditionals::        Omitting the middle operand of a @samp{?:} expression.
 * Long Long::		Double-word integers---@code{long long int}.
 * Complex::             Data types for complex numbers.
+* Decimal Float::	Decimal Floating Point. 
 * Hex Floats::          Hexadecimal floating-point constants.
 * Zero Length::         Zero-length arrays.
 * Variable Length::     Arrays whose length is computed at run time.
@@ -71,6 +73,8 @@ extensions, accepted by GCC in C89 mode and in C++.
 * Vector Extensions::   Using vector instructions through built-in functions.
 * Offsetof::            Special syntax for implementing @code{offsetof}.
 * Atomic Builtins::	Built-in functions for atomic memory access.
+* Object Size Checking:: Built-in functions for limited buffer overflow
+                        checking.
 * Other Builtins::      Other built-in functions.
 * Target Builtins::     Built-in functions specific to particular targets.
 * Target Format Checks:: Format checks specific to particular targets.
@@ -811,6 +815,42 @@ If the variable's actual name is @code{foo}, the two fictitious
 variables are named @code{foo$real} and @code{foo$imag}.  You can
 examine and set these two fictitious variables with your debugger.
 
+@node Decimal Float
+@section Decimal Floating Point
+@cindex decimal floating point
+@cindex @code{_Decimal32} data type
+@cindex @code{_Decimal64} data type
+@cindex @code{_Decimal128} data type
+@cindex @code{df} integer suffix
+@cindex @code{dd} integer suffix
+@cindex @code{dl} integer suffix
+@cindex @code{DF} integer suffix
+@cindex @code{DD} integer suffix
+@cindex @code{DL} integer suffix
+
+GNU C supports decimal floating point types in addition to the
+standard floating-point types.  This extension supports decimal
+floating-point arithmetic as defined in IEEE-754R, the proposed
+revision of IEEE-754.  The C language extension is defined in ISO/IEC
+DTR 24732, Draft 5.  Support for this functionality will change when
+it is accepted into the C standard and might change for new drafts
+of the proposal.  Calling conventions for any target might also change.
+Not all targets support decimal floating point.
+
+Support for decimal floating point includes the arithmetic operators
+add, subtract, multiply, divide; unary arithmetic operators;
+relational operators; equality operators; and conversions to and from
+integer and other floating-point types.  Use a suffix @samp{df} or
+@samp{DF} in a literal constant of type @code{_Decimal32}, @samp{dd}
+or @samp{DD} for @code{_Decimal64}, and @samp{dl} or @samp{DL} for
+@code{_Decimal128}.
+
+Passing a decimal floating-point value as an argument to a function
+without a prototype is undefined.
+
+Types @code{_Decimal32}, @code{_Decimal64}, and @code{_Decimal128}
+are supported by the DWARF2 debug information format.
+
 @node Hex Floats
 @section Hex Floats
 @cindex hex floats
@@ -1521,11 +1561,12 @@ attributes when making a declaration.  This keyword is followed by an
 attribute specification inside double parentheses.  The following
 attributes are currently defined for functions on all targets:
 @code{noreturn}, @code{returns_twice}, @code{noinline}, @code{always_inline},
-@code{pure}, @code{const}, @code{nothrow}, @code{sentinel},
+@code{flatten}, @code{pure}, @code{const}, @code{nothrow}, @code{sentinel},
 @code{format}, @code{format_arg}, @code{no_instrument_function},
 @code{section}, @code{constructor}, @code{destructor}, @code{used},
 @code{unused}, @code{deprecated}, @code{weak}, @code{malloc},
-@code{alias}, @code{warn_unused_result} and @code{nonnull}.  Several other
+@code{alias}, @code{warn_unused_result}, @code{nonnull}
+and @code{externally_visible}.  Several other
 attributes are defined for functions on particular target systems.  Other
 attributes, including @code{section} are supported for variables declarations
 (@pxref{Variable Attributes}) and for types (@pxref{Type Attributes}).
@@ -1551,7 +1592,7 @@ void __f () @{ /* @r{Do something.} */; @}
 void f () __attribute__ ((weak, alias ("__f")));
 @end smallexample
 
-declares @samp{f} to be a weak alias for @samp{__f}.  In C++, the
+defines @samp{f} to be a weak alias for @samp{__f}.  In C++, the
 mangled name for the target must be used.  It is an error if @samp{__f}
 is not defined in the same translation unit.
 
@@ -1562,6 +1603,14 @@ Not all target machines support this attribute.
 Generally, functions are not inlined unless optimization is specified.
 For functions declared inline, this attribute inlines the function even
 if no optimization level was specified.
+
+@cindex @code{flatten} function attribute
+@item flatten
+Generally, inlining into a function is limited.  For a function marked with
+this attribute, every call inside this function will be inlined, if possible.
+Whether the function itself is considered for inlining depends on its size and
+the current inlining parameters.  The @code{flatten} attribute only works
+reliably in unit-at-a-time mode.
 
 @item cdecl
 @cindex functions that do pop the argument stack on the 386
@@ -1752,9 +1801,10 @@ the @code{rtc}.
 @item fastcall
 @cindex functions that pop the argument stack on the 386
 On the Intel 386, the @code{fastcall} attribute causes the compiler to
-pass the first two arguments in the registers ECX and EDX@.  Subsequent
-arguments are passed on the stack.  The called function will pop the
-arguments off the stack.  If the number of arguments is variable all
+pass the first argument (if of integral type) in the register ECX and
+the second argument (if of integral type) in the register EDX@.  Subsequent
+and other typed arguments are passed on the stack.  The called function will
+pop the arguments off the stack.  If the number of arguments is variable all
 arguments are pushed on the stack.
 
 @item format (@var{archetype}, @var{string-index}, @var{first-to-check})
@@ -1875,10 +1925,10 @@ this attribute to work correctly.
 
 @item interrupt
 @cindex interrupt handler functions
-Use this attribute on the ARM, AVR, C4x, M32R/D and Xstormy16 ports to indicate
-that the specified function is an interrupt handler.  The compiler will
-generate function entry and exit sequences suitable for use in an
-interrupt handler when this attribute is present.
+Use this attribute on the ARM, AVR, C4x, CRX, M32C, M32R/D, MS1, and Xstormy16
+ports to indicate that the specified function is an interrupt handler.
+The compiler will generate function entry and exit sequences suitable
+for use in an interrupt handler when this attribute is present.
 
 Note, interrupt handlers for the Blackfin, m68k, H8/300, H8/300H, H8S, and
 SH processors can be specified via the @code{interrupt_handler} attribute.
@@ -1920,15 +1970,23 @@ instruction directly.
 
 @item longcall/shortcall
 @cindex functions called via pointer on the RS/6000 and PowerPC
-On the RS/6000 and PowerPC, the @code{longcall} attribute causes the
-compiler to always call this function via a pointer, just as it would if
+On the Blackfin, RS/6000 and PowerPC, the @code{longcall} attribute causes
+the compiler to always call this function via a pointer, just as it would if
 the @option{-mlongcall} option had been specified.  The @code{shortcall}
 attribute causes the compiler not to do this.  These attributes override
-both the @option{-mlongcall} switch and the @code{#pragma longcall}
-setting.
+both the @option{-mlongcall} switch and, on the RS/6000 and PowerPC, the
+@code{#pragma longcall} setting.
 
 @xref{RS/6000 and PowerPC Options}, for more information on whether long
 calls are necessary.
+
+@item long_call
+@cindex indirect calls on MIPS
+This attribute specifies how a particular function is called on MIPS@.
+The attribute overrides the @option{-mlong-calls} (@pxref{MIPS Options})
+command line switch.  This attribute causes the compiler to always call
+the function by first loading its address into a register, and then using
+the contents of that register.
 
 @item malloc
 @cindex @code{malloc} attribute
@@ -2126,9 +2184,9 @@ than 2.96.
 @cindex @code{regparm} attribute
 @cindex functions that are passed arguments in registers on the 386
 On the Intel 386, the @code{regparm} attribute causes the compiler to
-pass up to @var{number} integer arguments in registers EAX,
-EDX, and ECX instead of on the stack.  Functions that take a
-variable number of arguments will continue to be passed all of their
+pass arguments number one to @var{number} if they are of integral type
+in registers EAX, EDX, and ECX instead of on the stack.  Functions that
+take a variable number of arguments will continue to be passed all of their
 arguments on the stack.
 
 Beware that on some ELF systems this attribute is unsuitable for
@@ -2140,6 +2198,14 @@ GNU systems with GLIBC 2.1 or higher, and FreeBSD, are believed to be
 safe since the loaders there save all registers.  (Lazy binding can be
 disabled with the linker or the loader if desired, to avoid the
 problem.)
+
+@item sseregparm
+@cindex @code{sseregparm} attribute
+On the Intel 386 with SSE support, the @code{sseregparm} attribute
+causes the compiler to pass up to 8 floating point arguments in
+SSE registers instead of on the stack.  Functions that take a
+variable number of arguments will continue to pass all of their
+floating point arguments on the stack.
 
 @item returns_twice
 @cindex @code{returns_twice} attribute
@@ -2263,8 +2329,9 @@ inline assembly.
 
 @item visibility ("@var{visibility_type}")
 @cindex @code{visibility} attribute
-The @code{visibility} attribute on ELF targets causes the declaration
-to be emitted with default, hidden, protected or internal visibility.
+This attribute affects the linkage of the declaration to which it is attached.
+There are four supported @var{visibility_type} values: default,
+hidden, protected or internal visibility.
 
 @smallexample
 void __attribute__ ((visibility ("protected")))
@@ -2272,40 +2339,75 @@ f () @{ /* @r{Do something.} */; @}
 int i __attribute__ ((visibility ("hidden")));
 @end smallexample
 
-See the ELF gABI for complete details, but the short story is:
+The possible values of @var{visibility_type} correspond to the
+visibility settings in the ELF gABI.
 
 @table @dfn
 @c keep this list of visibilities in alphabetical order.
 
 @item default
-Default visibility is the normal case for ELF@.  This value is
-available for the visibility attribute to override other options
-that may change the assumed visibility of symbols.
+Default visibility is the normal case for the object file format.
+This value is available for the visibility attribute to override other
+options that may change the assumed visibility of entities.
+
+On ELF, default visibility means that the declaration is visible to other
+modules and, in shared libraries, means that the declared entity may be
+overridden.
+
+On Darwin, default visibility means that the declaration is visible to
+other modules.
+
+Default visibility corresponds to ``external linkage'' in the language.
 
 @item hidden
-Hidden visibility indicates that the symbol will not be placed into
-the dynamic symbol table, so no other @dfn{module} (executable or
-shared library) can reference it directly.
+Hidden visibility indicates that the entity declared will have a new
+form of linkage, which we'll call ``hidden linkage''.  Two
+declarations of an object with hidden linkage refer to the same object
+if they are in the same shared object.
 
 @item internal
 Internal visibility is like hidden visibility, but with additional
-processor specific semantics.  Unless otherwise specified by the psABI,
-GCC defines internal visibility to mean that the function is @emph{never}
-called from another module.  Note that hidden symbols, while they cannot
-be referenced directly by other modules, can be referenced indirectly via
-function pointers.  By indicating that a symbol cannot be called from
-outside the module, GCC may for instance omit the load of a PIC register
-since it is known that the calling function loaded the correct value.
+processor specific semantics.  Unless otherwise specified by the
+psABI, GCC defines internal visibility to mean that a function is
+@emph{never} called from another module.  Compare this with hidden
+functions which, while they cannot be referenced directly by other
+modules, can be referenced indirectly via function pointers.  By
+indicating that a function cannot be called from outside the module,
+GCC may for instance omit the load of a PIC register since it is known
+that the calling function loaded the correct value.
 
 @item protected
-Protected visibility indicates that the symbol will be placed in the
-dynamic symbol table, but that references within the defining module
-will bind to the local symbol.  That is, the symbol cannot be overridden
-by another module.
+Protected visibility is like default visibility except that it
+indicates that references within the defining module will bind to the
+definition in that module.  That is, the declared entity cannot be
+overridden by another module.
 
 @end table
 
-Not all ELF targets support this attribute.
+All visibilities are supported on many, but not all, ELF targets
+(supported when the assembler supports the @samp{.visibility}
+pseudo-op).  Default visibility is supported everywhere.  Hidden
+visibility is supported on Darwin targets.
+
+The visibility attribute should be applied only to declarations which
+would otherwise have external linkage.  The attribute should be applied
+consistently, so that the same entity should not be declared with
+different settings of the attribute.
+
+In C++, the visibility attribute applies to types as well as functions
+and objects, because in C++ types have linkage.  There are some bugs
+in the C++ support for this flag, for example a template which has a
+hidden type as a parameter is not properly hidden.
+@c bugzilla 26612
+
+In C++, you can mark member functions and static member variables of a
+class with the visibility attribute.  This is useful if if you know a
+particular method or static member variable should only be used from
+one shared object; then you can mark it hidden while the rest of the
+class has default visibility.  Care must be taken to avoid breaking
+the One Definition Rule; for example, it is not useful to mark a
+method which is defined inside a class definition as hidden without
+marking the whole class as hidden.
 
 @item warn_unused_result
 @cindex @code{warn_unused_result} attribute
@@ -2335,6 +2437,47 @@ library functions which can be overridden in user code, though it can
 also be used with non-function declarations.  Weak symbols are supported
 for ELF targets, and also for a.out targets when using the GNU assembler
 and linker.
+
+@item weakref
+@itemx weakref ("@var{target}")
+@cindex @code{weakref} attribute
+The @code{weakref} attribute marks a declaration as a weak reference.
+Without arguments, it should be accompanied by an @code{alias} attribute
+naming the target symbol.  Optionally, the @var{target} may be given as
+an argument to @code{weakref} itself.  In either case, @code{weakref}
+implicitly marks the declaration as @code{weak}.  Without a
+@var{target}, given as an argument to @code{weakref} or to @code{alias},
+@code{weakref} is equivalent to @code{weak}.
+
+@smallexample
+static int x() __attribute__ ((weakref ("y")));
+/* is equivalent to... */
+static int x() __attribute__ ((weak, weakref, alias ("y")));
+/* and to... */
+static int x() __attribute__ ((weakref));
+static int x() __attribute__ ((alias ("y")));
+@end smallexample
+
+A weak reference is an alias that does not by itself require a
+definition to be given for the target symbol.  If the target symbol is
+only referenced through weak references, then the becomes a @code{weak}
+undefined symbol.  If it is directly referenced, however, then such
+strong references prevail, and a definition will be required for the
+symbol, not necessarily in the same translation unit.
+
+The effect is equivalent to moving all references to the alias to a
+separate translation unit, renaming the alias to the aliased symbol,
+declaring it as weak, compiling the two separate translation units and
+performing a reloadable link on them.
+
+At present, a declaration to which @code{weakref} is attached can
+only be @code{static}.
+
+@item externally_visible
+@cindex @code{externally_visible} attribute.
+This attribute, attached to a global variable or function nullify
+effect of @option{-fwhole-program} command line option, so the object
+remain visible outside the current compilation unit
 
 @end table
 
@@ -2985,14 +3128,6 @@ The @var{tls_model} argument should be one of @code{global-dynamic},
 
 Not all targets support this attribute.
 
-@item transparent_union
-This attribute, attached to a function parameter which is a union, means
-that the corresponding argument may have the type of any union member,
-but the argument is passed as if its type were that of the first union
-member.  For more details see @xref{Type Attributes}.  You can also use
-this attribute on a @code{typedef} for a union data type; then it
-applies to all function parameters with that type.
-
 @item unused
 This attribute, attached to a variable, means that the variable is meant
 to be possibly unused.  GCC will not produce a warning for this
@@ -3230,9 +3365,10 @@ alignment.  See your linker documentation for further information.
 
 @item packed
 This attribute, attached to @code{struct} or @code{union} type
-definition, specifies that each member of the structure or union is
-placed to minimize the memory required.  When attached to an @code{enum}
-definition, it indicates that the smallest integral type should be used.
+definition, specifies that each member (other than zero-width bitfields)
+of the structure or union is placed to minimize the memory required.  When
+attached to an @code{enum} definition, it indicates that the smallest
+integral type should be used.
 
 @opindex fshort-enums
 Specifying this attribute for @code{struct} and @code{union} types is
@@ -4708,6 +4844,139 @@ previous memory loads have been satisfied, but following memory reads
 are not prevented from being speculated to before the barrier.
 @end table
 
+@node Object Size Checking
+@section Object Size Checking Builtins
+@findex __builtin_object_size
+@findex __builtin___memcpy_chk
+@findex __builtin___mempcpy_chk
+@findex __builtin___memmove_chk
+@findex __builtin___memset_chk
+@findex __builtin___strcpy_chk
+@findex __builtin___stpcpy_chk
+@findex __builtin___strncpy_chk
+@findex __builtin___strcat_chk
+@findex __builtin___strncat_chk
+@findex __builtin___sprintf_chk
+@findex __builtin___snprintf_chk
+@findex __builtin___vsprintf_chk
+@findex __builtin___vsnprintf_chk
+@findex __builtin___printf_chk
+@findex __builtin___vprintf_chk
+@findex __builtin___fprintf_chk
+@findex __builtin___vfprintf_chk
+
+GCC implements a limited buffer overflow protection mechanism
+that can prevent some buffer overflow attacks.
+
+@deftypefn {Built-in Function} {size_t} __builtin_object_size (void * @var{ptr}, int @var{type})
+is a built-in construct that returns a constant number of bytes from
+@var{ptr} to the end of the object @var{ptr} pointer points to
+(if known at compile time).  @code{__builtin_object_size} never evaluates
+its arguments for side-effects.  If there are any side-effects in them, it
+returns @code{(size_t) -1} for @var{type} 0 or 1 and @code{(size_t) 0}
+for @var{type} 2 or 3.  If there are multiple objects @var{ptr} can
+point to and all of them are known at compile time, the returned number
+is the maximum of remaining byte counts in those objects if @var{type} & 2 is
+0 and minimum if nonzero.  If it is not possible to determine which objects
+@var{ptr} points to at compile time, @code{__builtin_object_size} should
+return @code{(size_t) -1} for @var{type} 0 or 1 and @code{(size_t) 0}
+for @var{type} 2 or 3.
+
+@var{type} is an integer constant from 0 to 3.  If the least significant
+bit is clear, objects are whole variables, if it is set, a closest
+surrounding subobject is considered the object a pointer points to.
+The second bit determines if maximum or minimum of remaining bytes
+is computed.
+
+@smallexample
+struct V @{ char buf1[10]; int b; char buf2[10]; @} var;
+char *p = &var.buf1[1], *q = &var.b;
+
+/* Here the object p points to is var.  */
+assert (__builtin_object_size (p, 0) == sizeof (var) - 1);
+/* The subobject p points to is var.buf1.  */
+assert (__builtin_object_size (p, 1) == sizeof (var.buf1) - 1);
+/* The object q points to is var.  */
+assert (__builtin_object_size (q, 0)
+	== (char *) (&var + 1) - (char *) &var.b);
+/* The subobject q points to is var.b.  */
+assert (__builtin_object_size (q, 1) == sizeof (var.b));
+@end smallexample
+@end deftypefn
+
+There are built-in functions added for many common string operation
+functions, e.g. for @code{memcpy} @code{__builtin___memcpy_chk}
+built-in is provided.  This built-in has an additional last argument,
+which is the number of bytes remaining in object the @var{dest}
+argument points to or @code{(size_t) -1} if the size is not known.
+
+The built-in functions are optimized into the normal string functions
+like @code{memcpy} if the last argument is @code{(size_t) -1} or if
+it is known at compile time that the destination object will not
+be overflown.  If the compiler can determine at compile time the
+object will be always overflown, it issues a warning.
+
+The intended use can be e.g.
+
+@smallexample
+#undef memcpy
+#define bos0(dest) __builtin_object_size (dest, 0)
+#define memcpy(dest, src, n) \
+  __builtin___memcpy_chk (dest, src, n, bos0 (dest))
+
+char *volatile p;
+char buf[10];
+/* It is unknown what object p points to, so this is optimized
+   into plain memcpy - no checking is possible.  */
+memcpy (p, "abcde", n);
+/* Destination is known and length too.  It is known at compile
+   time there will be no overflow.  */
+memcpy (&buf[5], "abcde", 5);
+/* Destination is known, but the length is not known at compile time.
+   This will result in __memcpy_chk call that can check for overflow
+   at runtime.  */
+memcpy (&buf[5], "abcde", n);
+/* Destination is known and it is known at compile time there will
+   be overflow.  There will be a warning and __memcpy_chk call that
+   will abort the program at runtime.  */
+memcpy (&buf[6], "abcde", 5);
+@end smallexample
+
+Such built-in functions are provided for @code{memcpy}, @code{mempcpy},
+@code{memmove}, @code{memset}, @code{strcpy}, @code{stpcpy}, @code{strncpy},
+@code{strcat} and @code{strncat}.
+
+There are also checking built-in functions for formatted output functions.
+@smallexample
+int __builtin___sprintf_chk (char *s, int flag, size_t os, const char *fmt, ...);
+int __builtin___snprintf_chk (char *s, size_t maxlen, int flag, size_t os,
+			      const char *fmt, ...);
+int __builtin___vsprintf_chk (char *s, int flag, size_t os, const char *fmt,
+			      va_list ap);
+int __builtin___vsnprintf_chk (char *s, size_t maxlen, int flag, size_t os,
+			       const char *fmt, va_list ap);
+@end smallexample
+
+The added @var{flag} argument is passed unchanged to @code{__sprintf_chk}
+etc. functions and can contain implementation specific flags on what
+additional security measures the checking function might take, such as
+handling @code{%n} differently.
+
+The @var{os} argument is the object size @var{s} points to, like in the
+other built-in functions.  There is a small difference in the behavior
+though, if @var{os} is @code{(size_t) -1}, the built-in functions are
+optimized into the non-checking functions only if @var{flag} is 0, otherwise
+the checking function is called with @var{os} argument set to
+@code{(size_t) -1}.
+
+In addition to this, there are checking built-in functions
+@code{__builtin___printf_chk}, @code{__builtin___vprintf_chk},
+@code{__builtin___fprintf_chk} and @code{__builtin___vfprintf_chk}.
+These have just one additional argument, @var{flag}, right before
+format string @var{fmt}.  If the compiler is able to optimize them to
+@code{fputc} etc. functions, it will, otherwise the checking function
+should be called and the @var{flag} argument passed to it.
+
 @node Other Builtins
 @section Other built-in functions provided by GCC
 @cindex built-in functions
@@ -5467,6 +5736,18 @@ Similar to @code{__builtin_huge_val}, except a warning is generated
 if the target floating-point format does not support infinities.
 @end deftypefn
 
+@deftypefn {Built-in Function} _Decimal32 __builtin_infd32 (void)
+Similar to @code{__builtin_inf}, except the return type is @code{_Decimal32}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal64 __builtin_infd64 (void)
+Similar to @code{__builtin_inf}, except the return type is @code{_Decimal64}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal128 __builtin_infd128 (void)
+Similar to @code{__builtin_inf}, except the return type is @code{_Decimal128}.
+@end deftypefn
+
 @deftypefn {Built-in Function} float __builtin_inff (void)
 Similar to @code{__builtin_inf}, except the return type is @code{float}.
 This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
@@ -5489,8 +5770,21 @@ is at the least significant bit of the significand.  The number is
 truncated to fit the significand field provided.  The significand is
 forced to be a quiet NaN@.
 
-This function, if given a string literal, is evaluated early enough
-that it is considered a compile-time constant.
+This function, if given a string literal all of which would have been
+consumed by strtol, is evaluated early enough that it is considered a
+compile-time constant.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal32 __builtin_nand32 (const char *str)
+Similar to @code{__builtin_nan}, except the return type is @code{_Decimal32}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal64 __builtin_nand64 (const char *str)
+Similar to @code{__builtin_nan}, except the return type is @code{_Decimal64}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Decimal128 __builtin_nand128 (const char *str)
+Similar to @code{__builtin_nan}, except the return type is @code{_Decimal128}.
 @end deftypefn
 
 @deftypefn {Built-in Function} float __builtin_nanf (const char *str)
@@ -5615,8 +5909,10 @@ instructions, but allow the compiler to schedule those calls.
 @menu
 * Alpha Built-in Functions::
 * ARM Built-in Functions::
+* Blackfin Built-in Functions::
 * FR-V Built-in Functions::
 * X86 Built-in Functions::
+* MIPS DSP Built-in Functions::
 * MIPS Paired-Single Support::
 * PowerPC AltiVec Built-in Functions::
 * SPARC VIS Built-in Functions::
@@ -5851,6 +6147,20 @@ long long __builtin_arm_wxor (long long, long long)
 long long __builtin_arm_wzero ()
 @end smallexample
 
+@node Blackfin Built-in Functions
+@subsection Blackfin Built-in Functions
+
+Currently, there are two Blackfin-specific built-in functions.  These are
+used for generating @code{CSYNC} and @code{SSYNC} machine insns without
+using inline assembly; by using these built-in functions the compiler can
+automatically add workarounds for hardware errata involving these
+instructions.  These functions are named as follows:
+
+@smallexample
+void __builtin_bfin_csync (void)
+void __builtin_bfin_ssync (void)
+@end smallexample
+
 @node FR-V Built-in Functions
 @subsection FR-V Built-in Functions
 
@@ -5869,6 +6179,7 @@ here in tabular form.
 * Argument Types::
 * Directly-mapped Integer Functions::
 * Directly-mapped Media Functions::
+* Raw read/write Functions::
 * Other Built-in Functions::
 @end menu
 
@@ -6223,6 +6534,27 @@ The functions listed below map directly to FR-V M-type instructions.
 @tab @code{MXOR @var{a},@var{b},@var{c}}
 @end multitable
 
+@node Raw read/write Functions
+@subsubsection Raw read/write Functions
+
+This sections describes built-in functions related to read and write
+instructions to access memory.  These functions generate
+@code{membar} instructions to flush the I/O load and stores where
+appropriate, as described in Fujitsu's manual described above.
+
+@table @code
+
+@item unsigned char __builtin_read8 (void *@var{data})
+@item unsigned short __builtin_read16 (void *@var{data})
+@item unsigned long __builtin_read32 (void *@var{data})
+@item unsigned long long __builtin_read64 (void *@var{data})
+
+@item void __builtin_write8 (void *@var{data}, unsigned char @var{datum})
+@item void __builtin_write16 (void *@var{data}, unsigned short @var{datum})
+@item void __builtin_write32 (void *@var{data}, unsigned long @var{datum})
+@item void __builtin_write64 (void *@var{data}, unsigned long long @var{datum})
+@end table
+
 @node Other Built-in Functions
 @subsubsection Other Built-in Functions
 
@@ -6260,6 +6592,14 @@ into the data cache.  The instruction will be issued in slot I1@.
 
 These built-in functions are available for the i386 and x86-64 family
 of computers, depending on the command-line switches used.
+
+Note that, if you specify command-line switches such as @option{-msse},
+the compiler could use the extended instruction sets even if the built-ins
+are not used explicitly in the program.  For this reason, applications
+which perform runtime CPU detection must compile separate files for each
+supported architecture, using the appropriate flags.  In particular,
+the file containing the CPU detection code should be compiled without
+these options.
 
 The following machine modes are available for use with MMX built-in functions
 (@pxref{Vector Extensions}): @code{V2SI} for a vector of two 32-bit integers,
@@ -6500,6 +6840,237 @@ v2sf __builtin_ia32_pfpnacc (v2sf, v2sf)
 v2sf __builtin_ia32_pi2fw (v2si)
 v2sf __builtin_ia32_pswapdsf (v2sf)
 v2si __builtin_ia32_pswapdsi (v2si)
+@end smallexample
+
+The following built-in functions are available when @option{-msse2}
+is used.  All of them generate calls to an SSE2 ABI IEEE754 math intrinsic
+that is part of the name.  Rather than using these directly you may
+want them automatically substituted for calls to the regular intrinsics
+using the @option{-msselibm}.
+
+@smallexample
+double __builtin_sse2_acos (double)
+float __builtin_sse2_acosf (float)
+double __builtin_sse2_asin (double)
+float __builtin_sse2_asinf (float)
+double __builtin_sse2_atan (double)
+float __builtin_sse2_atanf (float)
+double __builtin_sse2_atan2 (double, double)
+float __builtin_sse2_atan2f (float, float)
+double __builtin_sse2_cos (double)
+float __builtin_sse2_cosf (float)
+double __builtin_sse2_exp (double)
+float __builtin_sse2_expf (float)
+double __builtin_sse2_log10 (double)
+float __builtin_sse2_log10f (float)
+double __builtin_sse2_log (double)
+float __builtin_sse2_logf (float)
+double __builtin_sse2_sin (double)
+float __builtin_sse2_sinf (float)
+double __builtin_sse2_tan (double)
+float __builtin_sse2_tanf (float)
+@end smallexample
+
+@node MIPS DSP Built-in Functions
+@subsection MIPS DSP Built-in Functions
+
+The MIPS DSP Application-Specific Extension (ASE) includes new
+instructions that are designed to improve the performance of DSP and
+media applications.  It provides instructions that operate on packed
+8-bit integer data, Q15 fractional data and Q31 fractional data.
+
+GCC supports MIPS DSP operations using both the generic
+vector extensions (@pxref{Vector Extensions}) and a collection of
+MIPS-specific built-in functions.  Both kinds of support are
+enabled by the @option{-mdsp} command-line option.
+
+At present, GCC only provides support for operations on 32-bit
+vectors.  The vector type associated with 8-bit integer data is
+usually called @code{v4i8} and the vector type associated with Q15 is
+usually called @code{v2q15}.  They can be defined in C as follows:
+
+@smallexample
+typedef char v4i8 __attribute__ ((vector_size(4)));
+typedef short v2q15 __attribute__ ((vector_size(4)));
+@end smallexample
+
+@code{v4i8} and @code{v2q15} values are initialized in the same way as
+aggregates.  For example:
+
+@smallexample
+v4i8 a = @{1, 2, 3, 4@};
+v4i8 b;
+b = (v4i8) @{5, 6, 7, 8@};
+
+v2q15 c = @{0x0fcb, 0x3a75@};
+v2q15 d;
+d = (v2q15) @{0.1234 * 0x1.0p15, 0.4567 * 0x1.0p15@};
+@end smallexample
+
+@emph{Note:} The CPU's endianness determines the order in which values
+are packed.  On little-endian targets, the first value is the least
+significant and the last value is the most significant.  The opposite
+order applies to big-endian targets.  For example, the code above will
+set the lowest byte of @code{a} to @code{1} on little-endian targets
+and @code{4} on big-endian targets.
+
+@emph{Note:} Q15 and Q31 values must be initialized with their integer
+representation.  As shown in this example, the integer representation
+of a Q15 value can be obtained by multiplying the fractional value by
+@code{0x1.0p15}.  The equivalent for Q31 values is to multiply by
+@code{0x1.0p31}.
+
+The table below lists the @code{v4i8} and @code{v2q15} operations for which
+hardware support exists.  @code{a} and @code{b} are @code{v4i8} values,
+and @code{c} and @code{d} are @code{v2q15} values.
+
+@multitable @columnfractions .50 .50
+@item C code @tab MIPS instruction
+@item @code{a + b} @tab @code{addu.qb}
+@item @code{c + d} @tab @code{addq.ph}
+@item @code{a - b} @tab @code{subu.qb}
+@item @code{c - d} @tab @code{subq.ph}
+@end multitable
+
+It is easier to describe the DSP built-in functions if we first define
+the following types:
+
+@smallexample
+typedef int q31;
+typedef int i32;
+typedef long long a64;
+@end smallexample
+
+@code{q31} and @code{i32} are actually the same as @code{int}, but we
+use @code{q31} to indicate a Q31 fractional value and @code{i32} to
+indicate a 32-bit integer value.  Similarly, @code{a64} is the same as
+@code{long long}, but we use @code{a64} to indicate values that will
+be placed in one of the four DSP accumulators (@code{$ac0},
+@code{$ac1}, @code{$ac2} or @code{$ac3}).
+
+Also, some built-in functions prefer or require immediate numbers as
+parameters, because the corresponding DSP instructions accept both immediate
+numbers and register operands, or accept immediate numbers only.  The
+immediate parameters are listed as follows.
+
+@smallexample
+imm0_7: 0 to 7.
+imm0_15: 0 to 15.
+imm0_31: 0 to 31.
+imm0_63: 0 to 63.
+imm0_255: 0 to 255.
+imm_n32_31: -32 to 31.
+imm_n512_511: -512 to 511.
+@end smallexample
+
+The following built-in functions map directly to a particular MIPS DSP
+instruction.  Please refer to the architecture specification
+for details on what each instruction does.
+
+@smallexample
+v2q15 __builtin_mips_addq_ph (v2q15, v2q15)
+v2q15 __builtin_mips_addq_s_ph (v2q15, v2q15)
+q31 __builtin_mips_addq_s_w (q31, q31)
+v4i8 __builtin_mips_addu_qb (v4i8, v4i8)
+v4i8 __builtin_mips_addu_s_qb (v4i8, v4i8)
+v2q15 __builtin_mips_subq_ph (v2q15, v2q15)
+v2q15 __builtin_mips_subq_s_ph (v2q15, v2q15)
+q31 __builtin_mips_subq_s_w (q31, q31)
+v4i8 __builtin_mips_subu_qb (v4i8, v4i8)
+v4i8 __builtin_mips_subu_s_qb (v4i8, v4i8)
+i32 __builtin_mips_addsc (i32, i32)
+i32 __builtin_mips_addwc (i32, i32)
+i32 __builtin_mips_modsub (i32, i32)
+i32 __builtin_mips_raddu_w_qb (v4i8)
+v2q15 __builtin_mips_absq_s_ph (v2q15)
+q31 __builtin_mips_absq_s_w (q31)
+v4i8 __builtin_mips_precrq_qb_ph (v2q15, v2q15)
+v2q15 __builtin_mips_precrq_ph_w (q31, q31)
+v2q15 __builtin_mips_precrq_rs_ph_w (q31, q31)
+v4i8 __builtin_mips_precrqu_s_qb_ph (v2q15, v2q15)
+q31 __builtin_mips_preceq_w_phl (v2q15)
+q31 __builtin_mips_preceq_w_phr (v2q15)
+v2q15 __builtin_mips_precequ_ph_qbl (v4i8)
+v2q15 __builtin_mips_precequ_ph_qbr (v4i8)
+v2q15 __builtin_mips_precequ_ph_qbla (v4i8)
+v2q15 __builtin_mips_precequ_ph_qbra (v4i8)
+v2q15 __builtin_mips_preceu_ph_qbl (v4i8)
+v2q15 __builtin_mips_preceu_ph_qbr (v4i8)
+v2q15 __builtin_mips_preceu_ph_qbla (v4i8)
+v2q15 __builtin_mips_preceu_ph_qbra (v4i8)
+v4i8 __builtin_mips_shll_qb (v4i8, imm0_7)
+v4i8 __builtin_mips_shll_qb (v4i8, i32)
+v2q15 __builtin_mips_shll_ph (v2q15, imm0_15)
+v2q15 __builtin_mips_shll_ph (v2q15, i32)
+v2q15 __builtin_mips_shll_s_ph (v2q15, imm0_15)
+v2q15 __builtin_mips_shll_s_ph (v2q15, i32)
+q31 __builtin_mips_shll_s_w (q31, imm0_31)
+q31 __builtin_mips_shll_s_w (q31, i32)
+v4i8 __builtin_mips_shrl_qb (v4i8, imm0_7)
+v4i8 __builtin_mips_shrl_qb (v4i8, i32)
+v2q15 __builtin_mips_shra_ph (v2q15, imm0_15)
+v2q15 __builtin_mips_shra_ph (v2q15, i32)
+v2q15 __builtin_mips_shra_r_ph (v2q15, imm0_15)
+v2q15 __builtin_mips_shra_r_ph (v2q15, i32)
+q31 __builtin_mips_shra_r_w (q31, imm0_31)
+q31 __builtin_mips_shra_r_w (q31, i32)
+v2q15 __builtin_mips_muleu_s_ph_qbl (v4i8, v2q15)
+v2q15 __builtin_mips_muleu_s_ph_qbr (v4i8, v2q15)
+v2q15 __builtin_mips_mulq_rs_ph (v2q15, v2q15)
+q31 __builtin_mips_muleq_s_w_phl (v2q15, v2q15)
+q31 __builtin_mips_muleq_s_w_phr (v2q15, v2q15)
+a64 __builtin_mips_dpau_h_qbl (a64, v4i8, v4i8)
+a64 __builtin_mips_dpau_h_qbr (a64, v4i8, v4i8)
+a64 __builtin_mips_dpsu_h_qbl (a64, v4i8, v4i8)
+a64 __builtin_mips_dpsu_h_qbr (a64, v4i8, v4i8)
+a64 __builtin_mips_dpaq_s_w_ph (a64, v2q15, v2q15)
+a64 __builtin_mips_dpaq_sa_l_w (a64, q31, q31)
+a64 __builtin_mips_dpsq_s_w_ph (a64, v2q15, v2q15)
+a64 __builtin_mips_dpsq_sa_l_w (a64, q31, q31)
+a64 __builtin_mips_mulsaq_s_w_ph (a64, v2q15, v2q15)
+a64 __builtin_mips_maq_s_w_phl (a64, v2q15, v2q15)
+a64 __builtin_mips_maq_s_w_phr (a64, v2q15, v2q15)
+a64 __builtin_mips_maq_sa_w_phl (a64, v2q15, v2q15)
+a64 __builtin_mips_maq_sa_w_phr (a64, v2q15, v2q15)
+i32 __builtin_mips_bitrev (i32)
+i32 __builtin_mips_insv (i32, i32)
+v4i8 __builtin_mips_repl_qb (imm0_255)
+v4i8 __builtin_mips_repl_qb (i32)
+v2q15 __builtin_mips_repl_ph (imm_n512_511)
+v2q15 __builtin_mips_repl_ph (i32)
+void __builtin_mips_cmpu_eq_qb (v4i8, v4i8)
+void __builtin_mips_cmpu_lt_qb (v4i8, v4i8)
+void __builtin_mips_cmpu_le_qb (v4i8, v4i8)
+i32 __builtin_mips_cmpgu_eq_qb (v4i8, v4i8)
+i32 __builtin_mips_cmpgu_lt_qb (v4i8, v4i8)
+i32 __builtin_mips_cmpgu_le_qb (v4i8, v4i8)
+void __builtin_mips_cmp_eq_ph (v2q15, v2q15)
+void __builtin_mips_cmp_lt_ph (v2q15, v2q15)
+void __builtin_mips_cmp_le_ph (v2q15, v2q15)
+v4i8 __builtin_mips_pick_qb (v4i8, v4i8)
+v2q15 __builtin_mips_pick_ph (v2q15, v2q15)
+v2q15 __builtin_mips_packrl_ph (v2q15, v2q15)
+i32 __builtin_mips_extr_w (a64, imm0_31)
+i32 __builtin_mips_extr_w (a64, i32)
+i32 __builtin_mips_extr_r_w (a64, imm0_31)
+i32 __builtin_mips_extr_s_h (a64, i32)
+i32 __builtin_mips_extr_rs_w (a64, imm0_31)
+i32 __builtin_mips_extr_rs_w (a64, i32)
+i32 __builtin_mips_extr_s_h (a64, imm0_31)
+i32 __builtin_mips_extr_r_w (a64, i32)
+i32 __builtin_mips_extp (a64, imm0_31)
+i32 __builtin_mips_extp (a64, i32)
+i32 __builtin_mips_extpdp (a64, imm0_31)
+i32 __builtin_mips_extpdp (a64, i32)
+a64 __builtin_mips_shilo (a64, imm_n32_31)
+a64 __builtin_mips_shilo (a64, i32)
+a64 __builtin_mips_mthlip (a64, i32)
+void __builtin_mips_wrdsp (i32, imm0_63)
+i32 __builtin_mips_rddsp (imm0_63)
+i32 __builtin_mips_lbux (void *, i32)
+i32 __builtin_mips_lhx (void *, i32)
+i32 __builtin_mips_lwx (void *, i32)
+i32 __builtin_mips_bposge32 (void)
 @end smallexample
 
 @node MIPS Paired-Single Support
@@ -8779,12 +9350,14 @@ for further explanation.
 
 @menu
 * ARM Pragmas::
+* M32C Pragmas::
 * RS/6000 and PowerPC Pragmas::
 * Darwin Pragmas::
 * Solaris Pragmas::
 * Symbol-Renaming Pragmas::
 * Structure-Packing Pragmas::
 * Weak Pragmas::
+* Diagnostic Pragmas::
 @end menu
 
 @node ARM Pragmas
@@ -8808,6 +9381,21 @@ Set all subsequent functions to have the @code{short_call} attribute.
 @cindex pragma, long_calls_off
 Do not affect the @code{long_call} or @code{short_call} attributes of
 subsequent functions.
+@end table
+
+@node M32C Pragmas
+@subsection M32C Pragmas
+
+@table @code
+@item memregs @var{number}
+@cindex pragma, memregs
+Overrides the command line option @code{-memregs=} for the current
+file.  Use with care!  This pragma must be before any function in the
+file, and mixing different memregs values in different objects may
+make them incompatible.  This pragma is useful when a
+performance-critical function uses a memreg for temporary values,
+as it may allow you to reduce the number of memregs used.
+
 @end table
 
 @node RS/6000 and PowerPC Pragmas
@@ -8968,10 +9556,10 @@ way of knowing that that happened.)
 @subsection Structure-Packing Pragmas
 
 For compatibility with Win32, GCC supports a set of @code{#pragma}
-directives which change the maximum alignment of members of structures,
-unions, and classes subsequently defined.  The @var{n} value below always
-is required to be a small power of two and specifies the new alignment
-in bytes.
+directives which change the maximum alignment of members of structures
+(other than zero-width bitfields), unions, and classes subsequently
+defined.  The @var{n} value below always is required to be a small power
+of two and specifies the new alignment in bytes.
 
 @enumerate
 @item @code{#pragma pack(@var{n})} simply sets the new alignment.
@@ -9008,6 +9596,51 @@ either its first use or its definition.  It is not an error for
 This pragma declares @var{symbol1} to be a weak alias of @var{symbol2}.
 It is an error if @var{symbol2} is not defined in the current
 translation unit.
+@end table
+
+@node Diagnostic Pragmas
+@subsection Diagnostic Pragmas
+
+GCC allows the user to selectively enable or disable certain types of
+diagnostics, and change the kind of the diagnostic.  For example, a
+project's policy might require that all sources compile with
+@option{-Werror} but certain files might have exceptions allowing
+specific types of warnings.  Or, a project might selectively enable
+diagnostics and treat them as errors depending on which preprocessor
+macros are defined.
+
+@table @code
+@item #pragma GCC diagnostic @var{kind} @var{option}
+@cindex pragma, diagnostic
+
+Modifies the disposition of a diagnostic.  Note that not all
+diagnostics are modifyiable; at the moment only warnings (normally
+controlled by @samp{-W...}) can be controlled, and not all of them.
+Use @option{-fdiagnostics-show-option} to determine which diagnostics
+are controllable and which option controls them.
+
+@var{kind} is @samp{error} to treat this diagnostic as an error,
+@samp{warning} to treat it like a warning (even if @option{-Werror} is
+in effect), or @samp{ignored} if the diagnostic is to be ignored.
+@var{option} is a double quoted string which matches the command line
+option.
+
+@example
+#pragma GCC diagnostic warning "-Wformat"
+#pragma GCC diagnostic error "-Walways-true"
+#pragma GCC diagnostic ignored "-Walways-true"
+@end example
+
+Note that these pragmas override any command line options.  Also,
+while it is syntactically valid to put these pragmas anywhere in your
+sources, the only supported location for them is before any data or
+functions are defined.  Doing otherwise may result in unpredictable
+results depending on how the optimizer manages your sources.  If the
+same option is listed multiple times, the last one specified is the
+one that is in effect.  This pragma is not intended to be a general
+purpose replacement for command line options, but for implementing
+strict control over project policies.
+
 @end table
 
 @node Unnamed Fields
@@ -9344,7 +9977,7 @@ Predefined Macros,cpp,The GNU C Preprocessor}).
 * Bound member functions:: You can extract a function pointer to the
                         method denoted by a @samp{->*} or @samp{.*} expression.
 * C++ Attributes::      Variable, function, and type attributes for C++ only.
-* Strong Using::      Strong using-directives for namespace composition.
+* Namespace Association:: Strong using-directives for namespace association.
 * Java Exceptions::     Tweaking exception handling to work with Java.
 * Deprecated Features:: Things will disappear from g++.
 * Backwards Compatibility:: Compatibilities with earlier definitions of C++.
@@ -9882,28 +10515,32 @@ interface table mechanism, instead of regular virtual table dispatch.
 
 @end table
 
-See also @xref{Strong Using}.
+See also @xref{Namespace Association}.
 
-@node Strong Using
-@section Strong Using
+@node Namespace Association
+@section Namespace Association
 
 @strong{Caution:} The semantics of this extension are not fully
 defined.  Users should refrain from using this extension as its
 semantics may change subtly over time.  It is possible that this
-extension wil be removed in future versions of G++.
+extension will be removed in future versions of G++.
 
 A using-directive with @code{__attribute ((strong))} is stronger
 than a normal using-directive in two ways:
 
 @itemize @bullet
 @item
-Templates from the used namespace can be specialized as though they were members of the using namespace.
+Templates from the used namespace can be specialized and explicitly
+instantiated as though they were members of the using namespace.
 
 @item
 The using namespace is considered an associated namespace of all
 templates in the used namespace for purposes of argument-dependent
 name lookup.
 @end itemize
+
+The used namespace must be nested within the using namespace so that
+normal unqualified lookup works properly.
 
 This is useful for composing a namespace transparently from
 implementation namespaces.  For example:

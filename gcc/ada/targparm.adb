@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1999-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,19 +16,19 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Csets;  use Csets;
-with Namet;  use Namet;
-with Opt;    use Opt;
-with Osint;  use Osint;
-with Output; use Output;
+with Csets;    use Csets;
+with Namet;    use Namet;
+with Opt;      use Opt;
+with Osint;    use Osint;
+with Output;   use Output;
 
 package body Targparm is
    use ASCII;
@@ -67,10 +67,9 @@ package body Targparm is
       UAM,  --   Use_Ada_Main_Program_Name
       VMS,  --   OpenVMS
       ZCD,  --   ZCX_By_Default
-      ZCG,  --   GCC_ZCX_Support
-      ZCF); --   Front_End_ZCX_Support
+      ZCG); --   GCC_ZCX_Support
 
-   subtype Targparm_Tags_OK is Targparm_Tags range AAM .. ZCF;
+   subtype Targparm_Tags_OK is Targparm_Tags range AAM .. ZCG;
    --  Range excluding obsolete entries
 
    Targparm_Flags : array (Targparm_Tags) of Boolean := (others => False);
@@ -106,7 +105,6 @@ package body Targparm is
    VMS_Str : aliased constant Source_Buffer := "OpenVMS";
    ZCD_Str : aliased constant Source_Buffer := "ZCX_By_Default";
    ZCG_Str : aliased constant Source_Buffer := "GCC_ZCX_Support";
-   ZCF_Str : aliased constant Source_Buffer := "Front_End_ZCX_Support";
 
    --  The following defines a set of pointers to the above strings,
    --  indexed by the tag values.
@@ -140,8 +138,7 @@ package body Targparm is
       UAM_Str'Access,
       VMS_Str'Access,
       ZCD_Str'Access,
-      ZCG_Str'Access,
-      ZCF_Str'Access);
+      ZCG_Str'Access);
 
    -----------------------
    -- Local Subprograms --
@@ -157,7 +154,6 @@ package body Targparm is
    procedure Set_Profile_Restrictions (P : Profile_Name) is
       R : Restriction_Flags  renames Profile_Info (P).Set;
       V : Restriction_Values renames Profile_Info (P).Value;
-
    begin
       for J in R'Range loop
          if R (J) then
@@ -571,7 +567,6 @@ package body Targparm is
                      when VMS => OpenVMS_On_Target                   := Result;
                      when ZCD => ZCX_By_Default_On_Target            := Result;
                      when ZCG => GCC_ZCX_Support_On_Target           := Result;
-                     when ZCF => Front_End_ZCX_Support_On_Target     := Result;
 
                      goto Line_Loop_Continue;
                   end case;
@@ -607,6 +602,13 @@ package body Targparm is
          end if;
       end loop Line_Loop;
 
+      --  Now that OpenVMS_On_Target has been given its definitive value,
+      --  change the multi-unit index character from '~' to '$' for OpenVMS.
+
+      if OpenVMS_On_Target then
+         Multi_Unit_Index_Character := '$';
+      end if;
+
       --  Check no missing target parameter settings (skip for compiler vsn)
 
       if not Compiler_System_Version then
@@ -627,7 +629,6 @@ package body Targparm is
             end if;
          end loop;
       end if;
-
 
       if Fatal then
          raise Unrecoverable_Error;

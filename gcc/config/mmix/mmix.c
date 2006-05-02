@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -1182,7 +1182,7 @@ mmix_file_start (void)
   fputs ("! mmixal:= 8H LOC Data_Section\n", asm_out_file);
 
   /* Make sure each file starts with the text section.  */
-  text_section ();
+  switch_to_section (text_section);
 }
 
 /* TARGET_ASM_FILE_END.  */
@@ -1191,7 +1191,7 @@ static void
 mmix_file_end (void)
 {
   /* Make sure each file ends with the data section.  */
-  data_section ();
+  switch_to_section (data_section);
 }
 
 /* ASM_OUTPUT_SOURCE_FILENAME.  */
@@ -1350,7 +1350,7 @@ mmix_asm_output_aligned_local (FILE *stream,
 			       int size,
 			       int align)
 {
-  data_section ();
+  switch_to_section (data_section);
 
   ASM_OUTPUT_ALIGN (stream, exact_log2 (align/BITS_PER_UNIT));
   assemble_name (stream, name);
@@ -1891,7 +1891,7 @@ mmix_expand_prologue (void)
 
   /* Make sure we don't get an unaligned stack.  */
   if ((stack_space_to_allocate % 8) != 0)
-    internal_error ("stack frame not a multiple of 8 bytes: %d",
+    internal_error ("stack frame not a multiple of 8 bytes: %wd",
 		    stack_space_to_allocate);
 
   if (current_function_pretend_args_size)
@@ -2127,7 +2127,7 @@ mmix_expand_epilogue (void)
 
   /* Make sure we don't get an unaligned stack.  */
   if ((stack_space_to_deallocate % 8) != 0)
-    internal_error ("stack frame not a multiple of octabyte: %d",
+    internal_error ("stack frame not a multiple of octabyte: %wd",
 		    stack_space_to_deallocate);
 
   /* We will add back small offsets to the stack pointer as we go.
@@ -2705,19 +2705,13 @@ mmix_intval (rtx x)
 
 	  REAL_VALUE_TO_TARGET_DOUBLE (value, bits);
 
-	  if (sizeof (long) < sizeof (HOST_WIDEST_INT))
-	    {
-	      retval = (unsigned long) bits[1] / 2;
-	      retval *= 2;
-	      retval |= (unsigned long) bits[1] & 1;
-	      retval
-		|= (unsigned HOST_WIDEST_INT) bits[0]
-		  << (sizeof (bits[0]) * 8);
-	    }
-	  else
-	    retval = (unsigned long) bits[1];
-
-	  return retval;
+	  /* The double cast is necessary to avoid getting the long
+	     sign-extended to unsigned long long(!) when they're of
+	     different size (usually 32-bit hosts).  */
+	  return
+	    ((unsigned HOST_WIDEST_INT) (unsigned long) bits[0]
+	     << (unsigned HOST_WIDEST_INT) 32U)
+	    | (unsigned HOST_WIDEST_INT) (unsigned long) bits[1];
 	}
       else if (GET_MODE (x) == SFmode)
 	{

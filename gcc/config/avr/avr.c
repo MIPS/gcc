@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
@@ -17,8 +17,8 @@
    
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -69,6 +69,7 @@ static void avr_file_end (void);
 static void avr_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void avr_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void avr_insert_attributes (tree, tree *);
+static void avr_asm_init_sections (void);
 static unsigned int avr_section_type_flags (tree, const char *, int);
 
 static void avr_reorg (void);
@@ -113,6 +114,8 @@ static int jump_tables_size;
 /* Preprocessor macros to define depending on MCU type.  */
 const char *avr_base_arch_macro;
 const char *avr_extra_arch_macro;
+
+section *progmem_section;
 
 /* More than 8K of program memory: use "call" and "jmp".  */
 int avr_mega_p = 0;
@@ -221,6 +224,12 @@ int avr_case_values_threshold = 30000;
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.word\t"
+#undef TARGET_ASM_ALIGNED_SI_OP
+#define TARGET_ASM_ALIGNED_SI_OP "\t.long\t"
+#undef TARGET_ASM_UNALIGNED_HI_OP
+#define TARGET_ASM_UNALIGNED_HI_OP "\t.word\t"
+#undef TARGET_ASM_UNALIGNED_SI_OP
+#define TARGET_ASM_UNALIGNED_SI_OP "\t.long\t"
 #undef TARGET_ASM_INTEGER
 #define TARGET_ASM_INTEGER avr_assemble_integer
 #undef TARGET_ASM_FILE_START
@@ -269,7 +278,7 @@ avr_override_options (void)
 
   if (!t->name)
     {
-      fprintf (stderr, "unknown MCU `%s' specified\nKnown MCU names:\n",
+      fprintf (stderr, "unknown MCU '%s' specified\nKnown MCU names:\n",
 	       avr_mcu_name);
       for (t = avr_mcu_types; t->name; t++)
 	fprintf (stderr,"   %s\n", t->name);
@@ -313,35 +322,6 @@ avr_regno_reg_class (int r)
   if (r <= 33)
     return reg_class_tab[r];
   return ALL_REGS;
-}
-
-
-/* A C expression which defines the machine-dependent operand
-   constraint letters for register classes.  If C is such a
-   letter, the value should be the register class corresponding to
-   it.  Otherwise, the value should be `NO_REGS'.  The register
-   letter `r', corresponding to class `GENERAL_REGS', will not be
-   passed to this macro; you do not need to handle it.  */
-
-enum reg_class
-avr_reg_class_from_letter  (int c)
-{
-  switch (c)
-    {
-    case 't' : return R0_REG;
-    case 'b' : return BASE_POINTER_REGS;
-    case 'e' : return POINTER_REGS;
-    case 'w' : return ADDW_REGS;
-    case 'd' : return LD_REGS;
-    case 'l' : return NO_LD_REGS;
-    case 'a' : return SIMPLE_LD_REGS;
-    case 'x' : return POINTER_X_REGS;
-    case 'y' : return POINTER_Y_REGS;
-    case 'z' : return POINTER_Z_REGS;
-    case 'q' : return STACK_REG;
-    default: break;
-    }
-  return NO_REGS;
 }
 
 /* Return nonzero if FUNC is a naked function.  */
@@ -950,7 +930,7 @@ legitimate_address_p (enum machine_mode mode, rtx x, int strict)
     }
   if (TARGET_ALL_DEBUG)
     {
-      fprintf (stderr, "   ret = %c\n", r);
+      fprintf (stderr, "   ret = %c\n", r + '0');
     }
   return r == NO_REGS ? 0 : (int)r;
 }
@@ -4684,7 +4664,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
         {
           if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
             {
-              warning (0, "`%s' appears to be a misspelled interrupt handler",
+              warning (0, "%qs appears to be a misspelled interrupt handler",
                        func_name);
             }
         }
@@ -4692,7 +4672,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
         {
           if (strncmp (func_name, "__vector", strlen ("__vector")) != 0)
             {
-              warning (0, "`%s' appears to be a misspelled signal handler",
+              warning (0, "%qs appears to be a misspelled signal handler",
                        func_name);
             }
         }
@@ -4748,6 +4728,29 @@ avr_insert_attributes (tree node, tree *attributes)
 	 thing const in the first place?  */
       TREE_READONLY (node) = 1;
     }
+}
+
+/* A get_unnamed_section callback for switching to progmem_section.  */
+
+static void
+avr_output_progmem_section_asm_op (const void *arg ATTRIBUTE_UNUSED)
+{
+  fprintf (asm_out_file,
+	   "\t.section .progmem.gcc_sw_table, \"%s\", @progbits\n",
+	   AVR_MEGA ? "a" : "ax");
+  /* Should already be aligned, this is just to be safe if it isn't.  */
+  fprintf (asm_out_file, "\t.p2align 1\n");
+}
+
+/* Implement TARGET_ASM_INIT_SECTIONS.  */
+
+static void
+avr_asm_init_sections (void)
+{
+  progmem_section = get_unnamed_section (AVR_MEGA ? 0 : SECTION_CODE,
+					 avr_output_progmem_section_asm_op,
+					 NULL);
+  readonly_data_section = data_section;
 }
 
 static unsigned int
@@ -5443,48 +5446,35 @@ avr_address_cost (rtx x)
   return 4;
 }
 
-/*  EXTRA_CONSTRAINT helper */
+/* Test for extra memory constraint 'Q'.
+   It's a memory address based on Y or Z pointer with valid displacement.  */
 
 int
-extra_constraint (rtx x, int c)
+extra_constraint_Q (rtx x)
 {
-  if (c == 'Q'
-      && GET_CODE (x) == MEM
-      && GET_CODE (XEXP (x,0)) == PLUS)
+  if (GET_CODE (XEXP (x,0)) == PLUS
+      && REG_P (XEXP (XEXP (x,0), 0))
+      && GET_CODE (XEXP (XEXP (x,0), 1)) == CONST_INT
+      && (INTVAL (XEXP (XEXP (x,0), 1))
+	  <= MAX_LD_OFFSET (GET_MODE (x))))
     {
-	  if (TARGET_ALL_DEBUG)
-	    {
-	      fprintf (stderr, ("extra_constraint:\n"
-				"reload_completed: %d\n"
-				"reload_in_progress: %d\n"),
-		       reload_completed, reload_in_progress);
-	      debug_rtx (x);
-	    }
-      if (GET_CODE (x) == MEM
-	  && GET_CODE (XEXP (x,0)) == PLUS
-	  && REG_P (XEXP (XEXP (x,0), 0))
-	  && GET_CODE (XEXP (XEXP (x,0), 1)) == CONST_INT
-	  && (INTVAL (XEXP (XEXP (x,0), 1))
-	      <= MAX_LD_OFFSET (GET_MODE (x))))
+      rtx xx = XEXP (XEXP (x,0), 0);
+      int regno = REGNO (xx);
+      if (TARGET_ALL_DEBUG)
 	{
-	  rtx xx = XEXP (XEXP (x,0), 0);
-	  int regno = REGNO (xx);
-	  if (TARGET_ALL_DEBUG)
-	    {
-	      fprintf (stderr, ("extra_constraint:\n"
-				"reload_completed: %d\n"
-				"reload_in_progress: %d\n"),
-		       reload_completed, reload_in_progress);
-	      debug_rtx (x);
-	    }
-	  if (regno >= FIRST_PSEUDO_REGISTER)
-	    return 1;		/* allocate pseudos */
-	  else if (regno == REG_Z || regno == REG_Y)
-	    return 1;		/* strictly check */
-	  else if (xx == frame_pointer_rtx
-		   || xx == arg_pointer_rtx)
-	    return 1;		/* XXX frame & arg pointer checks */
+	  fprintf (stderr, ("extra_constraint:\n"
+			    "reload_completed: %d\n"
+			    "reload_in_progress: %d\n"),
+		   reload_completed, reload_in_progress);
+	  debug_rtx (x);
 	}
+      if (regno >= FIRST_PSEUDO_REGISTER)
+	return 1;		/* allocate pseudos */
+      else if (regno == REG_Z || regno == REG_Y)
+	return 1;		/* strictly check */
+      else if (xx == frame_pointer_rtx
+	       || xx == arg_pointer_rtx)
+	return 1;		/* XXX frame & arg pointer checks */
     }
   return 0;
 }
@@ -5841,7 +5831,7 @@ avr_output_bld (rtx operands[], int bit_nr)
 void
 avr_output_addr_vec_elt (FILE *stream, int value)
 {
-  progmem_section ();
+  switch_to_section (progmem_section);
   if (AVR_MEGA)
     fprintf (stream, "\t.word pm(.L%d)\n", value);
   else

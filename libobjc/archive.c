@@ -15,8 +15,8 @@ details.
 
 You should have received a copy of the GNU General Public License along with
 GCC; see the file COPYING.  If not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with files compiled with
    GCC to produce an executable, this does not cause the resulting executable
@@ -25,9 +25,9 @@ Boston, MA 02111-1307, USA.  */
    covered by the GNU General Public License.  */
 
 #include "tconfig.h"
-#include "runtime.h"
-#include "typedstream.h"
-#include "encoding.h"
+#include "objc/runtime.h"
+#include "objc/typedstream.h"
+#include "objc/encoding.h"
 #include <stdlib.h>
 
 extern int fflush (FILE *);
@@ -1069,7 +1069,7 @@ objc_write_type (TypedStream *stream, const char *type, const void *data)
       while (*type != _C_STRUCT_E)
 	{
 	  align = objc_alignof_type (type);       /* padd to alignment */
-	  acc_size += ROUND (acc_size, align);
+	  acc_size = ROUND (acc_size, align);
 	  objc_write_type (stream, type, ((char *) data) + acc_size);
 	  acc_size += objc_sizeof_type (type);   /* add component size */
 	  type = objc_skip_typespec (type);	 /* skip component */
@@ -1165,7 +1165,7 @@ objc_read_type(TypedStream *stream, const char *type, void *data)
       while (*type != _C_STRUCT_E)
 	{
 	  align = objc_alignof_type (type);       /* padd to alignment */
-	  acc_size += ROUND (acc_size, align);
+	  acc_size = ROUND (acc_size, align);
 	  objc_read_type (stream, type, ((char*)data)+acc_size);
 	  acc_size += objc_sizeof_type (type);   /* add component size */
 	  type = objc_skip_typespec (type);	 /* skip component */

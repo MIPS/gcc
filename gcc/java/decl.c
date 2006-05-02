@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -163,8 +163,7 @@ update_aliases (tree decl, int index, int pc)
   tree decl_type = TREE_TYPE (decl);
   tree tmp;
 
-  if (debug_variable_p (decl))
-    abort ();
+  gcc_assert (! debug_variable_p (decl));
 
   for (tmp = TREE_VEC_ELT (decl_map, index); 
        tmp != NULL_TREE; 
@@ -188,8 +187,7 @@ update_aliases (tree decl, int index, int pc)
 		  && TREE_CODE (decl_type) == POINTER_TYPE)))
 	{
 	  tree src = build1 (NOP_EXPR, tmp_type, decl);
-	  if (LOCAL_VAR_OUT_OF_SCOPE_P (tmp))
-	    abort ();
+	  gcc_assert (! LOCAL_VAR_OUT_OF_SCOPE_P (tmp));
 	  java_add_stmt (build2 (MODIFY_EXPR, tmp_type, tmp, src));
 	}
     }
@@ -269,8 +267,7 @@ check_local_unnamed_variable (tree best, tree decl, tree type)
 {
   tree decl_type = TREE_TYPE (decl);
   
-  if (LOCAL_VAR_OUT_OF_SCOPE_P (decl))
-    abort ();
+  gcc_assert (! LOCAL_VAR_OUT_OF_SCOPE_P (decl));
 
   /* Use the same decl for all integer types <= 32 bits.  This is
      necessary because sometimes a value is stored as (for example)
@@ -411,9 +408,7 @@ java_replace_reference (tree var_decl, bool want_lvalue)
 	  int index = DECL_LOCAL_SLOT_NUMBER (var_decl);
 	  tree base_decl = TREE_VEC_ELT (base_decl_map, index); 
 
-	  if (! base_decl)
-	    abort ();
-
+	  gcc_assert (base_decl);
 	  if (! want_lvalue)
 	    base_decl = build1 (NOP_EXPR, decl_type, base_decl);
 
@@ -543,6 +538,7 @@ push_promoted_type (const char *name, tree actual_type)
   TYPE_MAX_VALUE (type) = copy_node (in_max);
   TREE_TYPE (TYPE_MAX_VALUE (type)) = type;
   TYPE_PRECISION (type) = TYPE_PRECISION (int_type_node);
+  TYPE_STRING_FLAG (type) = TYPE_STRING_FLAG (actual_type);
   layout_type (type);
   pushdecl (build_decl (TYPE_DECL, get_identifier (name), type));
   return type;
@@ -743,7 +739,8 @@ java_init_decl_processing (void)
      initializations of __FUNCTION__ and __PRETTY_FUNCTION__.  */
   short_array_type_node = build_prim_array_type (short_type_node, 200);
 #endif
-  char_type_node = make_node (CHAR_TYPE);
+  char_type_node = make_node (INTEGER_TYPE);
+  TYPE_STRING_FLAG (char_type_node) = 1;
   TYPE_PRECISION (char_type_node) = 16;
   fixup_unsigned_type (char_type_node);
   pushdecl (build_decl (TYPE_DECL, get_identifier ("char"), char_type_node));
@@ -1107,6 +1104,24 @@ java_init_decl_processing (void)
   TREE_THIS_VOLATILE (soft_nullpointer_node) = 1;
   TREE_SIDE_EFFECTS (soft_nullpointer_node) = 1;
 
+  soft_abstractmethod_node
+    = builtin_function ("_Jv_ThrowAbstractMethodError",
+			build_function_type (void_type_node, endlink),
+			0, NOT_BUILT_IN, NULL, NULL_TREE);
+  /* Mark soft_abstractmethod_node as a `noreturn' function with side
+     effects.  */
+  TREE_THIS_VOLATILE (soft_abstractmethod_node) = 1;
+  TREE_SIDE_EFFECTS (soft_abstractmethod_node) = 1;
+
+  soft_nosuchfield_node
+    = builtin_function ("_Jv_ThrowNoSuchFieldError",
+			build_function_type (void_type_node, endlink),
+			0, NOT_BUILT_IN, NULL, NULL_TREE);
+  /* Mark soft_nosuchfield_node as a `noreturn' function with side
+     effects.  */
+  TREE_THIS_VOLATILE (soft_nosuchfield_node) = 1;
+  TREE_SIDE_EFFECTS (soft_nosuchfield_node) = 1;
+
   t = tree_cons (NULL_TREE, class_ptr_type,
 		 tree_cons (NULL_TREE, object_ptr_type_node, endlink));
   soft_checkcast_node
@@ -1160,6 +1175,12 @@ java_init_decl_processing (void)
 			build_function_type (void_type_node, t),
 			0, NOT_BUILT_IN, NULL, NULL_TREE);
 
+  t = tree_cons (NULL_TREE, object_ptr_type_node, endlink);
+  soft_unwrapjni_node
+    = builtin_function ("_Jv_UnwrapJNIweakReference",
+			build_function_type (object_ptr_type_node, t),
+			0, NOT_BUILT_IN, NULL, NULL_TREE);
+
   t = tree_cons (NULL_TREE, int_type_node,
 		 tree_cons (NULL_TREE, int_type_node, endlink));
   soft_idiv_node
@@ -1188,6 +1209,7 @@ java_init_decl_processing (void)
   eh_personality_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
                                              ? "__gcj_personality_sj0"
                                              : "__gcj_personality_v0");
+  default_init_unwind_resume_libfunc ();
 
   lang_eh_runtime_type = do_nothing;
 
@@ -1221,7 +1243,7 @@ lookup_name (tree name)
 }
 
 /* Similar to `lookup_name' but look only at current binding level and
-   the previous one if its the parameter level.  */
+   the previous one if it's the parameter level.  */
 
 static tree
 lookup_name_current_level (tree name)
@@ -1300,7 +1322,7 @@ pushdecl (tree x)
 	/* error_mark_node is 0 for a while during initialization!  */
 	{
 	  t = 0;
-	  error ("%J'%D' used prior to declaration", x, x);
+	  error ("%q+D used prior to declaration", x);
 	}
 
       /* If we're naming a hitherto-unnamed type, set its TYPE_NAME
@@ -1672,12 +1694,12 @@ poplevel (int keep, int reverse, int functionbody)
 
 	  if (DECL_INITIAL (label) == 0)
 	    {
-	      error ("%Jlabel '%D' used but not defined", label, label);
+	      error ("label %q+D used but not defined", label);
 	      /* Avoid crashing later.  */
 	      define_label (input_location, DECL_NAME (label));
 	    }
 	  else if (warn_unused[UNUSED_LABEL] && !TREE_USED (label))
-	    warning (0, "%Jlabel '%D' defined but not used", label, label);
+	    warning (0, "label %q+D defined but not used", label);
 	  IDENTIFIER_LABEL_VALUE (DECL_NAME (label)) = 0;
 
 	  /* Put the labels into the "variables" of the
@@ -1805,8 +1827,8 @@ force_poplevels (int start_pc)
   while (current_binding_level->start_pc > start_pc)
     {
       if (pedantic && current_binding_level->start_pc > start_pc)
-	warning (0, "%JIn %D: overlapped variable and exception ranges at %d",
-                 current_function_decl, current_function_decl,
+	warning (0, "In %+D: overlapped variable and exception ranges at %d",
+                 current_function_decl,
 		 current_binding_level->start_pc);
       poplevel (1, 0, 0);
     }
@@ -1877,8 +1899,8 @@ give_name_to_locals (JCF *jcf)
 	  tree decl = build_decl (VAR_DECL, name, type);
 	  if (end_pc > DECL_CODE_LENGTH (current_function_decl))
 	    {
-	      warning (0, "%Jbad PC range for debug info for local '%D'",
-                       decl, decl);
+	      warning (0, "bad PC range for debug info for local %q+D",
+                       decl);
 	      end_pc = DECL_CODE_LENGTH (current_function_decl);
 	    }
 
@@ -1985,8 +2007,7 @@ start_java_method (tree fndecl)
     {
       tree parm_name = NULL_TREE, parm_decl;
       tree parm_type = TREE_VALUE (tem);
-      if (i >= DECL_MAX_LOCALS (fndecl))
-	abort ();
+      gcc_assert (i < DECL_MAX_LOCALS (fndecl));
 
       parm_decl = build_decl (PARM_DECL, parm_name, parm_type);
       DECL_CONTEXT (parm_decl) = fndecl;
@@ -2047,7 +2068,6 @@ end_java_method (void)
 		     attach_init_test_initialization_flags, block_body);
     }
 
-  flag_unit_at_a_time = 0;
   finish_method (fndecl);
 
   if (! flag_unit_at_a_time)
@@ -2155,7 +2175,7 @@ java_mark_decl_local (tree decl)
 static void
 java_mark_cni_decl_local (tree decl)
 {
-  /* Setting DECL_LOCAL_CNI_METHOD_P changes the behaviour of the mangler.
+  /* Setting DECL_LOCAL_CNI_METHOD_P changes the behavior of the mangler.
      We expect that we should not yet have referenced this decl in a 
      context that requires it.  Check this invariant even if we don't have
      support for hidden aliases.  */
@@ -2169,7 +2189,7 @@ java_mark_cni_decl_local (tree decl)
   DECL_LOCAL_CNI_METHOD_P (decl) = 1;
 }
 
-/* Use the preceeding two functions and mark all members of the class.  */
+/* Use the preceding two functions and mark all members of the class.  */
 
 void
 java_mark_class_local (tree class)
@@ -2253,8 +2273,7 @@ get_stmts (void)
 void
 register_exception_range (struct eh_range *range, int pc, int end_pc)
 {
-  if (current_binding_level->exception_range)
-    abort ();
+  gcc_assert (! current_binding_level->exception_range);
   current_binding_level->exception_range = range;
   current_binding_level->end_pc = end_pc;
   current_binding_level->start_pc = pc;      

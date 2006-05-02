@@ -16,8 +16,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* This file contains routines to update a path, both to canonicalize
    the directory format and to handle any prefix translation.
@@ -115,7 +115,7 @@ get_key_value (char *key)
 static char *
 save_string (const char *s, int len)
 {
-  char *result = xmalloc (len + 1);
+  char *result = XNEWVEC (char, len + 1);
 
   memcpy (result, s, len);
   result[len] = 0;
@@ -201,7 +201,7 @@ translate_name (char *name)
 	   keylen++)
 	;
 
-      key = alloca (keylen + 1);
+      key = (char *) alloca (keylen + 1);
       strncpy (key, &name[1], keylen);
       key[keylen] = 0;
 

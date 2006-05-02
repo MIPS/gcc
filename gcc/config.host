@@ -16,8 +16,8 @@
 
 #You should have received a copy of the GNU General Public License
 #along with GCC; see the file COPYING.  If not, write to the Free
-#Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-#02111-1307, USA.
+#Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+#02110-1301, USA.
 
 # This is the GCC host-specific configuration file
 # where a configuration type is mapped to different system-specific
@@ -119,29 +119,25 @@ case ${host} in
   hppa1.1-*-bsd*)
     host_xmake_file="pa/x-ada"
     ;;
-  hppa1.0-*-hpux10* | hppa1.1-*-hpux10* | hppa2*-*-hpux10* | \
+  hppa1.0-*-hpux10* | hppa1.1-*-hpux10* | hppa2*-*-hpux10*)
+    out_host_hook_obj=host-hpux.o
+    host_xmake_file="pa/x-ada-hpux10 x-hpux"
+    ;;
   hppa1.0-*-hpux11* | hppa1.1-*-hpux11* | hppa2*-*-hpux11* | \
   hppa*64*-*-hpux11*)
-    out_host_hook_obj=pa-host.o
-    host_xmake_file=pa/x-hpux
+    out_host_hook_obj=host-hpux.o
+    host_xmake_file="pa/x-ada x-hpux"
     ;;
   hppa*-*-linux*)
-    out_host_hook_obj=pa-host.o
-    host_xmake_file=pa/x-linux
+    out_host_hook_obj=host-hpux.o
+    host_xmake_file=x-hpux
     ;;
   i370-*-opened* | i370-*-mvs* ) # IBM 360/370/390 Architecture
     host_xm_defines='FATAL_EXIT_CODE=12'
     ;;
-  i[34567]86-sequent-ptx4*)
-    host_xm_defines="SMALL_ARG_MAX"
-    ;;
   i[34567]86-*-solaris2*)
-    host_xm_defines="SMALL_ARG_MAX"
     out_host_hook_obj=host-solaris.o
     host_xmake_file=x-solaris
-    ;;
-  i[34567]86-*-sysv4*) # Intel 80386's running System V Release 4
-    host_xm_defines="SMALL_ARG_MAX"
     ;;
   i[34567]86-pc-msdosdjgpp*)
     host_xm_file=i386/xm-djgpp.h
@@ -177,9 +173,6 @@ case ${host} in
     out_host_hook_obj="${out_host_hook_obj} host-i386-darwin.o"
     host_xmake_file="${host_xmake_file} i386/x-darwin"
     ;;
-  i860-*-sysv4*)
-    host_xmake_file=i860/x-sysv4
-    ;;
   powerpc-*-beos*)
     host_can_use_collect2=no
     ;;
@@ -197,5 +190,7 @@ case ${host} in
     ;;
   ia64-*-hpux*)
     use_long_long_for_widest_fast_int=yes
+    out_host_hook_obj=host-hpux.o
+    host_xmake_file=x-hpux
     ;;
 esac

@@ -1,5 +1,5 @@
 ;; GCC machine description for SSE instructions
-;; Copyright (C) 2005
+;; Copyright (C) 2005, 2006
 ;; Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
@@ -16,8 +16,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 
 ;; 16 byte integral modes handled by SSE, minus TImode, which gets
@@ -30,6 +30,7 @@
 ;; Mix-n-match
 (define_mode_macro SSEMODE12 [V16QI V8HI])
 (define_mode_macro SSEMODE24 [V8HI V4SI])
+(define_mode_macro SSEMODE14 [V16QI V4SI])
 (define_mode_macro SSEMODE124 [V16QI V8HI V4SI])
 (define_mode_macro SSEMODE248 [V8HI V4SI V2DI])
 
@@ -80,24 +81,14 @@
 }
   [(set_attr "type" "sselog1,ssemov,ssemov")
    (set (attr "mode")
-	(cond [(eq (symbol_ref "TARGET_SSE2") (const_int 0))
-		 (const_string "V4SF")
-
-	       (eq_attr "alternative" "0,1")
-		 (if_then_else
-		   (ne (symbol_ref "optimize_size")
-		       (const_int 0))
-		   (const_string "V4SF")
-		   (const_string "TI"))
-	       (eq_attr "alternative" "2")
-		 (if_then_else
-		   (ior (ne (symbol_ref "TARGET_SSE_TYPELESS_STORES")
-			    (const_int 0))
-			(ne (symbol_ref "optimize_size")
-			    (const_int 0)))
-		   (const_string "V4SF")
-		   (const_string "TI"))]
-	       (const_string "TI")))])
+	(if_then_else
+	  (ior (ior (ne (symbol_ref "optimize_size") (const_int 0))
+		    (eq (symbol_ref "TARGET_SSE2") (const_int 0)))
+	       (and (eq_attr "alternative" "2")
+	  	    (ne (symbol_ref "TARGET_SSE_TYPELESS_STORES")
+		        (const_int 0))))
+	  (const_string "V4SF")
+	  (const_string "TI")))])
 
 (define_expand "movv4sf"
   [(set (match_operand:V4SF 0 "nonimmediate_operand" "")
@@ -166,23 +157,14 @@
 }
   [(set_attr "type" "sselog1,ssemov,ssemov")
    (set (attr "mode")
-	(cond [(eq (symbol_ref "TARGET_SSE2") (const_int 0))
-		 (const_string "V4SF")
-	       (eq_attr "alternative" "0,1")
-		 (if_then_else
-		   (ne (symbol_ref "optimize_size")
-		       (const_int 0))
-		   (const_string "V4SF")
-		   (const_string "V2DF"))
-	       (eq_attr "alternative" "2")
-		 (if_then_else
-		   (ior (ne (symbol_ref "TARGET_SSE_TYPELESS_STORES")
-			    (const_int 0))
-			(ne (symbol_ref "optimize_size")
-			    (const_int 0)))
-		   (const_string "V4SF")
-		   (const_string "V2DF"))]
-	       (const_string "V2DF")))])
+	(if_then_else
+	  (ior (ior (ne (symbol_ref "optimize_size") (const_int 0))
+		    (eq (symbol_ref "TARGET_SSE2") (const_int 0)))
+	       (and (eq_attr "alternative" "2")
+	  	    (ne (symbol_ref "TARGET_SSE_TYPELESS_STORES")
+		        (const_int 0))))
+	  (const_string "V4SF")
+	  (const_string "V2DF")))])
 
 (define_split
   [(set (match_operand:V2DF 0 "register_operand" "")
@@ -588,6 +570,52 @@
   [(set_attr "type" "sse")
    (set_attr "mode" "SF")])
 
+;; These versions of the min/max patterns implement exactly the operations
+;;   min = (op1 < op2 ? op1 : op2)
+;;   max = (!(op1 < op2) ? op1 : op2)
+;; Their operands are not commutative, and thus they may be used in the
+;; presence of -0.0 and NaN.
+
+(define_insn "*ieee_sminv4sf3"
+  [(set (match_operand:V4SF 0 "register_operand" "=x")
+	(unspec:V4SF [(match_operand:V4SF 1 "register_operand" "0")
+		      (match_operand:V4SF 2 "nonimmediate_operand" "xm")]
+		     UNSPEC_IEEE_MIN))]
+  "TARGET_SSE"
+  "minps\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sseadd")
+   (set_attr "mode" "V4SF")])
+
+(define_insn "*ieee_smaxv4sf3"
+  [(set (match_operand:V4SF 0 "register_operand" "=x")
+	(unspec:V4SF [(match_operand:V4SF 1 "register_operand" "0")
+		      (match_operand:V4SF 2 "nonimmediate_operand" "xm")]
+		     UNSPEC_IEEE_MAX))]
+  "TARGET_SSE"
+  "maxps\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sseadd")
+   (set_attr "mode" "V4SF")])
+
+(define_insn "*ieee_sminv2df3"
+  [(set (match_operand:V2DF 0 "register_operand" "=x")
+	(unspec:V2DF [(match_operand:V2DF 1 "register_operand" "0")
+		      (match_operand:V2DF 2 "nonimmediate_operand" "xm")]
+		     UNSPEC_IEEE_MIN))]
+  "TARGET_SSE2"
+  "minpd\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sseadd")
+   (set_attr "mode" "V2DF")])
+
+(define_insn "*ieee_smaxv2df3"
+  [(set (match_operand:V2DF 0 "register_operand" "=x")
+	(unspec:V2DF [(match_operand:V2DF 1 "register_operand" "0")
+		      (match_operand:V2DF 2 "nonimmediate_operand" "xm")]
+		     UNSPEC_IEEE_MAX))]
+  "TARGET_SSE2"
+  "maxpd\t{%2, %0|%0, %2}"
+  [(set_attr "type" "sseadd")
+   (set_attr "mode" "V2DF")])
+
 (define_insn "sse3_addsubv4sf3"
   [(set (match_operand:V4SF 0 "register_operand" "=x")
 	(vec_merge:V4SF
@@ -652,6 +680,40 @@
   "hsubps\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseadd")
    (set_attr "mode" "V4SF")])
+
+(define_expand "reduc_splus_v4sf"
+  [(match_operand:V4SF 0 "register_operand" "")
+   (match_operand:V4SF 1 "register_operand" "")]
+  "TARGET_SSE"
+{
+  if (TARGET_SSE3)
+    {
+      rtx tmp = gen_reg_rtx (V4SFmode);
+      emit_insn (gen_sse3_haddv4sf3 (tmp, operands[1], operands[1]));
+      emit_insn (gen_sse3_haddv4sf3 (operands[0], tmp, tmp));
+    }
+  else
+    ix86_expand_reduc_v4sf (gen_addv4sf3, operands[0], operands[1]);
+  DONE;
+})
+
+(define_expand "reduc_smax_v4sf"
+  [(match_operand:V4SF 0 "register_operand" "")
+   (match_operand:V4SF 1 "register_operand" "")]
+  "TARGET_SSE"
+{
+  ix86_expand_reduc_v4sf (gen_smaxv4sf3, operands[0], operands[1]);
+  DONE;
+})
+
+(define_expand "reduc_smin_v4sf"
+  [(match_operand:V4SF 0 "register_operand" "")
+   (match_operand:V4SF 1 "register_operand" "")]
+  "TARGET_SSE"
+{
+  ix86_expand_reduc_v4sf (gen_sminv4sf3, operands[0], operands[1]);
+  DONE;
+})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -857,6 +919,7 @@
   "TARGET_SSE"
   "cvtps2pi\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssecvt")
+   (set_attr "unit" "mmx")
    (set_attr "mode" "DI")])
 
 (define_insn "sse_cvttps2pi"
@@ -867,6 +930,7 @@
   "TARGET_SSE"
   "cvttps2pi\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssecvt")
+   (set_attr "unit" "mmx")
    (set_attr "mode" "SF")])
 
 (define_insn "sse_cvtsi2ss"
@@ -980,17 +1044,17 @@
   [(set (match_operand:V4SF 0 "nonimmediate_operand"     "=x,x,m")
 	(vec_select:V4SF
 	  (vec_concat:V8SF
-	    (match_operand:V4SF 1 "nonimmediate_operand" " 0,o,x")
-	    (match_operand:V4SF 2 "nonimmediate_operand" " x,0,0"))
-	  (parallel [(const_int 4)
-		     (const_int 5)
+	    (match_operand:V4SF 1 "nonimmediate_operand" " 0,0,0")
+	    (match_operand:V4SF 2 "nonimmediate_operand" " x,o,x"))
+	  (parallel [(const_int 6)
+		     (const_int 7)
 		     (const_int 2)
 		     (const_int 3)])))]
   "TARGET_SSE && !(MEM_P (operands[1]) && MEM_P (operands[2]))"
   "@
    movhlps\t{%2, %0|%0, %2}
-   movlps\t{%H1, %0|%0, %H1}
-   movhps\t{%1, %0|%0, %1}"
+   movlps\t{%H2, %0|%0, %H2}
+   movhps\t{%2, %0|%0, %2}"
   [(set_attr "type" "ssemov")
    (set_attr "mode" "V4SF,V2SF,V2SF")])
 
@@ -1193,7 +1257,7 @@
   [(set (match_operand:V2SF 0 "register_operand"     "=x,x,*y,*y")
 	(vec_concat:V2SF
 	  (match_operand:SF 1 "nonimmediate_operand" " 0,m, 0, m")
-	  (match_operand:SF 2 "vector_move_operand"  " x,C,*y, C")))]
+	  (match_operand:SF 2 "reg_or_0_operand"     " x,C,*y, C")))]
   "TARGET_SSE"
   "@
    unpcklps\t{%2, %0|%0, %2}
@@ -1442,7 +1506,7 @@
   "TARGET_SSE2"
   "sqrtsd\t{%1, %0|%0, %1}"
   [(set_attr "type" "sse")
-   (set_attr "mode" "SF")])
+   (set_attr "mode" "DF")])
 
 ;; ??? For !flag_finite_math_only, the representation with SMIN/SMAX
 ;; isn't really correct, as those rtl operators aren't defined when 
@@ -1606,6 +1670,15 @@
   "hsubpd\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseadd")
    (set_attr "mode" "V2DF")])
+
+(define_expand "reduc_splus_v2df"
+  [(match_operand:V2DF 0 "register_operand" "")
+   (match_operand:V2DF 1 "register_operand" "")]
+  "TARGET_SSE3"
+{
+  emit_insn (gen_sse3_haddv2df3 (operands[0], operands[1], operands[1]));
+  DONE;
+})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -1791,11 +1864,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define_insn "sse2_cvtpi2pd"
-  [(set (match_operand:V2DF 0 "register_operand" "=x")
-	(float:V2DF (match_operand:V2SI 1 "nonimmediate_operand" "ym")))]
+  [(set (match_operand:V2DF 0 "register_operand" "=x,x")
+	(float:V2DF (match_operand:V2SI 1 "nonimmediate_operand" "y,m")))]
   "TARGET_SSE2"
   "cvtpi2pd\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssecvt")
+   (set_attr "unit" "mmx,*")
    (set_attr "mode" "V2DF")])
 
 (define_insn "sse2_cvtpd2pi"
@@ -1805,6 +1879,7 @@
   "TARGET_SSE2"
   "cvtpd2pi\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssecvt")
+   (set_attr "unit" "mmx")
    (set_attr "mode" "DI")])
 
 (define_insn "sse2_cvttpd2pi"
@@ -1813,6 +1888,7 @@
   "TARGET_SSE2"
   "cvttpd2pi\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssecvt")
+   (set_attr "unit" "mmx")
    (set_attr "mode" "TI")])
 
 (define_insn "sse2_cvtsi2sd"
@@ -2213,6 +2289,36 @@
   operands[0] = adjust_address (operands[0], DFmode, 8);
 })
 
+;; Not sure these two are ever used, but it doesn't hurt to have
+;; them. -aoliva
+(define_insn "*vec_extractv2df_1_sse"
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=m,x,x")
+	(vec_select:DF
+	  (match_operand:V2DF 1 "nonimmediate_operand" "x,x,o")
+	  (parallel [(const_int 1)])))]
+  "!TARGET_SSE2 && TARGET_SSE
+   && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   movhps\t{%1, %0|%0, %1}
+   movhlps\t{%1, %0|%0, %1}
+   movlps\t{%H1, %0|%0, %H1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "mode" "V2SF,V4SF,V2SF")])
+
+(define_insn "*vec_extractv2df_0_sse"
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=m,x,x")
+	(vec_select:DF
+	  (match_operand:V2DF 1 "nonimmediate_operand" "x,x,m")
+	  (parallel [(const_int 0)])))]
+  "!TARGET_SSE2 && TARGET_SSE
+   && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   movlps\t{%1, %0|%0, %1}
+   movaps\t{%1, %0|%0, %1}
+   movlps\t{%1, %0|%0, %1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "mode" "V2SF,V4SF,V2SF")])
+
 (define_insn "sse2_movsd"
   [(set (match_operand:V2DF 0 "nonimmediate_operand"   "=x,x,m,x,x,o")
 	(vec_merge:V2DF
@@ -2225,8 +2331,8 @@
    movlpd\t{%2, %0|%0, %2}
    movlpd\t{%2, %0|%0, %2}
    shufpd\t{$2, %2, %0|%0, %2, 2}
-   movhps\t{%H1, %0|%0, %H1
-   movhps\t{%1, %H0|%H0, %1"
+   movhps\t{%H1, %0|%0, %H1}
+   movhps\t{%1, %H0|%H0, %1}"
   [(set_attr "type" "ssemov,ssemov,ssemov,sselog,ssemov,ssemov")
    (set_attr "mode" "DF,V1DF,V1DF,V2DF,V1DF,V1DF")])
 
@@ -2624,6 +2730,48 @@
   DONE;
 })
 
+(define_expand "sdot_prodv8hi"
+  [(match_operand:V4SI 0 "register_operand" "")
+   (match_operand:V8HI 1 "nonimmediate_operand" "")
+   (match_operand:V8HI 2 "nonimmediate_operand" "")
+   (match_operand:V4SI 3 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  rtx t = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_pmaddwd (t, operands[1], operands[2]));
+  emit_insn (gen_addv4si3 (operands[0], operands[3], t));
+  DONE;
+})
+
+(define_expand "udot_prodv4si"
+  [(match_operand:V2DI 0 "register_operand" "") 
+   (match_operand:V4SI 1 "register_operand" "") 
+   (match_operand:V4SI 2 "register_operand" "")
+   (match_operand:V2DI 3 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  rtx t1, t2, t3, t4;
+
+  t1 = gen_reg_rtx (V2DImode);
+  emit_insn (gen_sse2_umulv2siv2di3 (t1, operands[1], operands[2]));
+  emit_insn (gen_addv2di3 (t1, t1, operands[3]));
+
+  t2 = gen_reg_rtx (V4SImode);
+  t3 = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_lshrti3 (gen_lowpart (TImode, t2),
+                               gen_lowpart (TImode, operands[1]),
+                               GEN_INT (32)));
+  emit_insn (gen_sse2_lshrti3 (gen_lowpart (TImode, t3),
+                               gen_lowpart (TImode, operands[2]),
+                               GEN_INT (32)));
+
+  t4 = gen_reg_rtx (V2DImode);
+  emit_insn (gen_sse2_umulv2siv2di3 (t4, t2, t3));
+
+  emit_insn (gen_addv2di3 (operands[0], t1, t4));
+  DONE;
+})
+
 (define_insn "ashr<mode>3"
   [(set (match_operand:SSEMODE24 0 "register_operand" "=x")
 	(ashiftrt:SSEMODE24
@@ -2666,6 +2814,18 @@
   [(set_attr "type" "sseishft")
    (set_attr "mode" "TI")])
 
+(define_expand "vec_shl_<mode>"
+  [(set (match_operand:SSEMODEI 0 "register_operand" "")
+        (ashift:TI (match_operand:SSEMODEI 1 "register_operand" "")
+		   (match_operand:SI 2 "general_operand" "")))]
+  "TARGET_SSE2"
+{
+  if (!const_0_to_255_mul_8_operand (operands[2], SImode))
+    FAIL;
+  operands[0] = gen_lowpart (TImode, operands[0]);
+  operands[1] = gen_lowpart (TImode, operands[1]);
+})
+
 (define_insn "sse2_lshrti3"
   [(set (match_operand:TI 0 "register_operand" "=x")
  	(lshiftrt:TI (match_operand:TI 1 "register_operand" "0")
@@ -2677,6 +2837,18 @@
 }
   [(set_attr "type" "sseishft")
    (set_attr "mode" "TI")])
+
+(define_expand "vec_shr_<mode>"
+  [(set (match_operand:SSEMODEI 0 "register_operand" "")
+        (lshiftrt:TI (match_operand:SSEMODEI 1 "register_operand" "")
+		     (match_operand:SI 2 "general_operand" "")))]
+  "TARGET_SSE2"
+{
+  if (!const_0_to_255_mul_8_operand (operands[2], SImode))
+    FAIL;
+  operands[0] = gen_lowpart (TImode, operands[0]);
+  operands[1] = gen_lowpart (TImode, operands[1]);
+})
 
 (define_expand "umaxv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "")
@@ -2710,6 +2882,59 @@
   [(set_attr "type" "sseiadd")
    (set_attr "mode" "TI")])
 
+(define_expand "umaxv8hi3"
+  [(set (match_operand:V8HI 0 "register_operand" "=x")
+	(us_minus:V8HI (match_operand:V8HI 1 "register_operand" "0")
+		       (match_operand:V8HI 2 "nonimmediate_operand" "xm")))
+   (set (match_dup 3)
+	(plus:V8HI (match_dup 0) (match_dup 2)))]
+  "TARGET_SSE2"
+{
+  operands[3] = operands[0];
+  if (rtx_equal_p (operands[0], operands[2]))
+    operands[0] = gen_reg_rtx (V8HImode);
+})
+
+(define_expand "smax<mode>3"
+  [(set (match_operand:SSEMODE14 0 "register_operand" "")
+	(smax:SSEMODE14 (match_operand:SSEMODE14 1 "register_operand" "")
+			(match_operand:SSEMODE14 2 "register_operand" "")))]
+  "TARGET_SSE2"
+{
+  rtx xops[6];
+  bool ok;
+
+  xops[0] = operands[0];
+  xops[1] = operands[1];
+  xops[2] = operands[2];
+  xops[3] = gen_rtx_GT (VOIDmode, operands[1], operands[2]);
+  xops[4] = operands[1];
+  xops[5] = operands[2];
+  ok = ix86_expand_int_vcond (xops);
+  gcc_assert (ok);
+  DONE;
+})
+
+(define_expand "umaxv4si3"
+  [(set (match_operand:V4SI 0 "register_operand" "")
+	(umax:V4SI (match_operand:V4SI 1 "register_operand" "")
+		   (match_operand:V4SI 2 "register_operand" "")))]
+  "TARGET_SSE2"
+{
+  rtx xops[6];
+  bool ok;
+
+  xops[0] = operands[0];
+  xops[1] = operands[1];
+  xops[2] = operands[2];
+  xops[3] = gen_rtx_GTU (VOIDmode, operands[1], operands[2]);
+  xops[4] = operands[1];
+  xops[5] = operands[2];
+  ok = ix86_expand_int_vcond (xops);
+  gcc_assert (ok);
+  DONE;
+})
+
 (define_expand "uminv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "")
 	(umin:V16QI (match_operand:V16QI 1 "nonimmediate_operand" "")
@@ -2741,6 +2966,46 @@
   "pminsw\t{%2, %0|%0, %2}"
   [(set_attr "type" "sseiadd")
    (set_attr "mode" "TI")])
+
+(define_expand "smin<mode>3"
+  [(set (match_operand:SSEMODE14 0 "register_operand" "")
+	(smin:SSEMODE14 (match_operand:SSEMODE14 1 "register_operand" "")
+			(match_operand:SSEMODE14 2 "register_operand" "")))]
+  "TARGET_SSE2"
+{
+  rtx xops[6];
+  bool ok;
+
+  xops[0] = operands[0];
+  xops[1] = operands[2];
+  xops[2] = operands[1];
+  xops[3] = gen_rtx_GT (VOIDmode, operands[1], operands[2]);
+  xops[4] = operands[1];
+  xops[5] = operands[2];
+  ok = ix86_expand_int_vcond (xops);
+  gcc_assert (ok);
+  DONE;
+})
+
+(define_expand "umin<mode>3"
+  [(set (match_operand:SSEMODE24 0 "register_operand" "")
+	(umin:SSEMODE24 (match_operand:SSEMODE24 1 "register_operand" "")
+			(match_operand:SSEMODE24 2 "register_operand" "")))]
+  "TARGET_SSE2"
+{
+  rtx xops[6];
+  bool ok;
+
+  xops[0] = operands[0];
+  xops[1] = operands[2];
+  xops[2] = operands[1];
+  xops[3] = gen_rtx_GTU (VOIDmode, operands[1], operands[2]);
+  xops[4] = operands[1];
+  xops[5] = operands[2];
+  ok = ix86_expand_int_vcond (xops);
+  gcc_assert (ok);
+  DONE;
+})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -2778,23 +3043,23 @@
           (match_operand:SSEMODE124 2 "general_operand" "")))]
   "TARGET_SSE2"
 {
-  if (ix86_expand_int_vcond (operands, false))
+  if (ix86_expand_int_vcond (operands))
     DONE;
   else
     FAIL;
 })
 
 (define_expand "vcondu<mode>"
-  [(set (match_operand:SSEMODE12 0 "register_operand" "")
-        (if_then_else:SSEMODE12
+  [(set (match_operand:SSEMODE124 0 "register_operand" "")
+        (if_then_else:SSEMODE124
           (match_operator 3 ""
-            [(match_operand:SSEMODE12 4 "nonimmediate_operand" "")
-             (match_operand:SSEMODE12 5 "nonimmediate_operand" "")])
-          (match_operand:SSEMODE12 1 "general_operand" "")
-          (match_operand:SSEMODE12 2 "general_operand" "")))]
+            [(match_operand:SSEMODE124 4 "nonimmediate_operand" "")
+             (match_operand:SSEMODE124 5 "nonimmediate_operand" "")])
+          (match_operand:SSEMODE124 1 "general_operand" "")
+          (match_operand:SSEMODE124 2 "general_operand" "")))]
   "TARGET_SSE2"
 {
-  if (ix86_expand_int_vcond (operands, true))
+  if (ix86_expand_int_vcond (operands))
     DONE;
   else
     FAIL;
@@ -3217,7 +3482,7 @@
 	(vec_merge:V4SI
 	  (vec_duplicate:V4SI
 	    (match_operand:SI 2 "nonimmediate_operand" "mr,m,x"))
-	  (match_operand:V4SI 1 "vector_move_operand"  " C,C,0")
+	  (match_operand:V4SI 1 "reg_or_0_operand"     " C,C,0")
 	  (const_int 1)))]
   "TARGET_SSE"
   "@
@@ -3270,6 +3535,34 @@
 {
   operands[1] = gen_rtx_REG (DImode, REGNO (operands[1]));
 })
+
+(define_insn "*vec_extractv2di_1_sse2"
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x")
+	(vec_select:DI
+	  (match_operand:V2DI 1 "nonimmediate_operand" "x,0,o")
+	  (parallel [(const_int 1)])))]
+  "TARGET_SSE2 && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   movhps\t{%1, %0|%0, %1}
+   psrldq\t{$4, %0|%0, 4}
+   movq\t{%H1, %0|%0, %H1}"
+  [(set_attr "type" "ssemov,sseishft,ssemov")
+   (set_attr "mode" "V2SF,TI,TI")])
+
+;; Not sure this is ever used, but it doesn't hurt to have it. -aoliva
+(define_insn "*vec_extractv2di_1_sse"
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=m,x,x")
+	(vec_select:DI
+	  (match_operand:V2DI 1 "nonimmediate_operand" "x,x,o")
+	  (parallel [(const_int 1)])))]
+  "!TARGET_SSE2 && TARGET_SSE
+   && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
+  "@
+   movhps\t{%1, %0|%0, %1}
+   movhlps\t{%1, %0|%0, %1}
+   movlps\t{%H1, %0|%0, %H1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "mode" "V2SF,V4SF,V2SF")])
 
 (define_insn "*vec_dupv4si"
   [(set (match_operand:V4SI 0 "register_operand" "=Y,x")

@@ -16,13 +16,38 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_C_PRAGMA_H
 #define GCC_C_PRAGMA_H
 
 #include <cpplib.h> /* For enum cpp_ttype.  */
+
+/* Pragma identifiers built in to the front end parsers.  Identifiers
+   for ancillary handlers will follow these.  */
+typedef enum pragma_kind {
+  PRAGMA_NONE = 0,
+
+  PRAGMA_OMP_ATOMIC,
+  PRAGMA_OMP_BARRIER,
+  PRAGMA_OMP_CRITICAL,
+  PRAGMA_OMP_FLUSH,
+  PRAGMA_OMP_FOR,
+  PRAGMA_OMP_MASTER,
+  PRAGMA_OMP_ORDERED,
+  PRAGMA_OMP_PARALLEL,
+  PRAGMA_OMP_PARALLEL_FOR,
+  PRAGMA_OMP_PARALLEL_SECTIONS,
+  PRAGMA_OMP_SECTION,
+  PRAGMA_OMP_SECTIONS,
+  PRAGMA_OMP_SINGLE,
+  PRAGMA_OMP_THREADPRIVATE,
+
+  PRAGMA_GCC_PCH_PREPROCESS,
+
+  PRAGMA_FIRST_EXTERNAL
+} pragma_kind;
 
 /* Cause the `yydebug' variable to be defined.  */
 #define YYDEBUG 1
@@ -50,21 +75,28 @@ extern struct cpp_reader* parse_in;
    visibility is not supported on the host OS platform the
    statements are ignored.  */
 #define HANDLE_PRAGMA_VISIBILITY 1
+extern void push_visibility (const char *);
+extern void pop_visibility (void);
 
 extern void init_pragma (void);
 
-/* Front-end wrappers for pragma registration to avoid dragging
-   cpplib.h in almost everywhere.  */
-extern void c_register_pragma (const char *, const char *,
-			       void (*) (struct cpp_reader *));
+/* Front-end wrappers for pragma registration.  */
+typedef void (*pragma_handler)(struct cpp_reader *);
+extern void c_register_pragma (const char *, const char *, pragma_handler);
 extern void c_register_pragma_with_expansion (const char *, const char *,
-					      void (*) (struct cpp_reader *));
+					      pragma_handler);
+extern void c_invoke_pragma_handler (unsigned int);
+
 extern void maybe_apply_pragma_weak (tree);
 extern void maybe_apply_pending_pragma_weaks (void);
 extern tree maybe_apply_renaming_pragma (tree, tree);
 extern void add_to_renaming_pragma_list (tree, tree);
 
-extern enum cpp_ttype c_lex (tree *);
+extern enum cpp_ttype pragma_lex (tree *);
+
+/* This is not actually available to pragma parsers.  It's merely a
+   convenient location to declare this function for c-lex, after
+   having enum cpp_ttype declared.  */
 extern enum cpp_ttype c_lex_with_flags (tree *, location_t *, unsigned char *);
 
 /* If 1, then lex strings into the execution character set.  

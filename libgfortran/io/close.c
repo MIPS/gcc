@@ -24,58 +24,83 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "libgfortran.h"
 #include "io.h"
+#include <limits.h>
 
 typedef enum
 { CLOSE_DELETE, CLOSE_KEEP, CLOSE_UNSPECIFIED }
 close_status;
 
-static st_option status_opt[] = {
+static const st_option status_opt[] = {
   {"keep", CLOSE_KEEP},
   {"delete", CLOSE_DELETE},
   {NULL, 0}
 };
 
 
-extern void st_close (void);
+extern void st_close (st_parameter_close *);
 export_proto(st_close);
 
 void
-st_close (void)
+st_close (st_parameter_close *clp)
 {
   close_status status;
   gfc_unit *u;
+#if !HAVE_UNLINK_OPEN_FILE
+  char * path;
 
-  library_start ();
+  path = NULL;
+#endif
 
-  status = (ioparm.status == NULL) ? CLOSE_UNSPECIFIED :
-    find_option (ioparm.status, ioparm.status_len, status_opt,
-		 "Bad STATUS parameter in CLOSE statement");
+  library_start (&clp->common);
 
-  if (ioparm.library_return != LIBRARY_OK)
+  status = !(clp->common.flags & IOPARM_CLOSE_HAS_STATUS) ? CLOSE_UNSPECIFIED :
+    find_option (&clp->common, clp->status, clp->status_len,
+		 status_opt, "Bad STATUS parameter in CLOSE statement");
+
+  if ((clp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
+  {
+    library_end ();
     return;
+  }
 
-  u = find_unit (ioparm.unit);
+  u = find_unit (clp->common.unit);
   if (u != NULL)
     {
       if (u->flags.status == STATUS_SCRATCH)
 	{
 	  if (status == CLOSE_KEEP)
-	    generate_error (ERROR_BAD_OPTION,
+	    generate_error (&clp->common, ERROR_BAD_OPTION,
 			    "Can't KEEP a scratch file on CLOSE");
+#if !HAVE_UNLINK_OPEN_FILE
+	  path = (char *) gfc_alloca (u->file_len + 1);
+          unpack_filename (path, u->file, u->file_len);
+#endif
 	}
       else
 	{
 	  if (status == CLOSE_DELETE)
-	    delete_file (u);
+            {
+#if HAVE_UNLINK_OPEN_FILE
+	      delete_file (u);
+#else
+	      path = (char *) gfc_alloca (u->file_len + 1);
+              unpack_filename (path, u->file, u->file_len);
+#endif
+            }
 	}
 
       close_unit (u);
+
+#if !HAVE_UNLINK_OPEN_FILE
+      if (path != NULL)
+        unlink (path);
+#endif
     }
 
   library_end ();

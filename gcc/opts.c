@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -38,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"		/* For OPTIMIZATION_OPTIONS.  */
 #include "insn-attr.h"		/* For INSN_SCHEDULING.  */
 #include "target.h"
+#include "tree-pass.h"
 
 /* Value of the -G xx switch, and whether it was passed or not.  */
 unsigned HOST_WIDE_INT g_switch_value;
@@ -79,6 +80,11 @@ bool use_gnu_debug_info_extensions;
 /* The default visibility for all symbols (unless overridden) */
 enum symbol_visibility default_visibility = VISIBILITY_DEFAULT;
 
+/* Disable unit-at-a-time for frontends that might be still broken in this
+   respect.  */
+  
+bool no_unit_at_a_time_default;
+
 /* Global visibility options.  */
 struct visibility_flags visibility_options;
 
@@ -93,16 +99,15 @@ static const char undocumented_msg[] = N_("This switch lacks documentation");
 static bool profile_arc_flag_set, flag_profile_values_set;
 static bool flag_unroll_loops_set, flag_tracer_set;
 static bool flag_value_profile_transformations_set;
-bool flag_speculative_prefetching_set;
 static bool flag_peel_loops_set, flag_branch_probabilities_set;
-static bool flag_inline_functions_set;
 
 /* Input file names.  */
 const char **in_fnames;
 unsigned num_in_fnames;
 
 static size_t find_opt (const char *, int);
-static int common_handle_option (size_t scode, const char *arg, int value);
+static int common_handle_option (size_t scode, const char *arg, int value,
+				 unsigned int lang_mask);
 static void handle_param (const char *);
 static void set_Wextra (int);
 static unsigned int handle_option (const char **argv, unsigned int lang_mask);
@@ -231,7 +236,7 @@ write_langs (unsigned int mask)
     if (mask & (1U << n))
       len += strlen (lang_name) + 1;
 
-  result = xmalloc (len);
+  result = XNEWVEC (char, len);
   len = 0;
   for (n = 0; (lang_name = lang_names[n]) != 0; n++)
     if (mask & (1U << n))
@@ -287,7 +292,7 @@ handle_option (const char **argv, unsigned int lang_mask)
       /* Drop the "no-" from negative switches.  */
       size_t len = strlen (opt) - 3;
 
-      dup = xmalloc (len + 1);
+      dup = XNEWVEC (char, len + 1);
       dup[0] = '-';
       dup[1] = opt[1];
       memcpy (dup + 2, opt + 5, len - 2 + 1);
@@ -405,7 +410,7 @@ handle_option (const char **argv, unsigned int lang_mask)
       result = 0;
 
   if (result && (option->flags & CL_COMMON))
-    if (common_handle_option (opt_index, arg, value) == 0)
+    if (common_handle_option (opt_index, arg, value, lang_mask) == 0)
       result = 0;
 
   if (result && (option->flags & CL_TARGET))
@@ -522,6 +527,8 @@ decode_options (unsigned int argc, const char **argv)
       flag_cprop_registers = 1;
       flag_if_conversion = 1;
       flag_if_conversion2 = 1;
+      flag_ipa_pure_const = 1;
+      flag_ipa_reference = 1;
       flag_tree_ccp = 1;
       flag_tree_dce = 1;
       flag_tree_dom = 1;
@@ -533,7 +540,10 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_fre = 1;
       flag_tree_copy_prop = 1;
       flag_tree_sink = 1;
-      flag_tree_salias = 1;
+      /* THere is problem with local annotations and aliasing run early right now.  */
+      /*flag_tree_salias = 1;*/
+      if (!no_unit_at_a_time_default)
+        flag_unit_at_a_time = 1;
 
       if (!optimize_size)
 	{
@@ -554,12 +564,9 @@ decode_options (unsigned int argc, const char **argv)
       flag_cse_skip_blocks = 1;
       flag_gcse = 1;
       flag_expensive_optimizations = 1;
-      flag_strength_reduce = 1;
+      flag_ipa_type_escape = 1;
       flag_rerun_cse_after_loop = 1;
-      flag_rerun_loop_opt = 1;
-      flag_early_optimizations = 1;
       flag_caller_saves = 1;
-      flag_force_mem = 1;
       flag_peephole2 = 1;
 #ifdef INSN_SCHEDULING
       flag_schedule_insns = 1;
@@ -570,7 +577,6 @@ decode_options (unsigned int argc, const char **argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
-      flag_unit_at_a_time = 1;
       flag_tree_store_ccp = 1;
       flag_tree_store_copy_prop = 1;
       flag_tree_vrp = 1;
@@ -628,11 +634,8 @@ decode_options (unsigned int argc, const char **argv)
      modify it.  */
   target_flags = targetm.default_target_flags;
 
-  /* Unwind tables are always present when a target has ABI-specified unwind
-     tables, so the default should be ON.  */
-#ifdef TARGET_UNWIND_INFO
-  flag_unwind_tables = TARGET_UNWIND_INFO;
-#endif
+  /* Some tagets have ABI-specified unwind tables.  */
+  flag_unwind_tables = targetm.unwind_tables_default;
 
 #ifdef OPTIMIZATION_OPTIONS
   /* Allow default optimizations to be specified on a per-machine basis.  */
@@ -676,7 +679,8 @@ decode_options (unsigned int argc, const char **argv)
 
   /* The optimization to partition hot and cold basic blocks into separate
      sections of the .o and executable files does not work (currently)
-     with exception handling.  If flag_exceptions is turned on we need to
+     with exception handling.  This is because there is no support for
+     generating unwind info.  If flag_exceptions is turned on we need to
      turn off the partitioning optimization.  */
 
   if (flag_exceptions && flag_reorder_blocks_and_partition)
@@ -687,14 +691,27 @@ decode_options (unsigned int argc, const char **argv)
       flag_reorder_blocks = 1;
     }
 
-  if (flag_whole_program)
-    flag_unit_at_a_time = 1;
+  /* If user requested unwind info, then turn off the partitioning
+     optimization.  */
+
+  if (flag_unwind_tables && ! targetm.unwind_tables_default
+      && flag_reorder_blocks_and_partition)
+    {
+      inform ("-freorder-blocks-and-partition does not support unwind info");
+      flag_reorder_blocks_and_partition = 0;
+      flag_reorder_blocks = 1;
+    }
+
+  /* If the target requested unwind info, then turn off the partitioning
+     optimization with a different message.  Likewise, if the target does not
+     support named sections.  */
 
   if (flag_reorder_blocks_and_partition
-      && !targetm.have_named_sections)
+      && (!targetm.have_named_sections
+	  || (flag_unwind_tables && targetm.unwind_tables_default)))
     {
       inform 
-       ("-freorder-blocks-and-partition does not work on this architecture.");
+       ("-freorder-blocks-and-partition does not work on this architecture");
       flag_reorder_blocks_and_partition = 0;
       flag_reorder_blocks = 1;
     }
@@ -706,7 +723,8 @@ decode_options (unsigned int argc, const char **argv)
    VALUE assigned to a variable, it happens automatically.  */
 
 static int
-common_handle_option (size_t scode, const char *arg, int value)
+common_handle_option (size_t scode, const char *arg, int value,
+		      unsigned int lang_mask)
 {
   enum opt_code code = (enum opt_code) scode;
 
@@ -744,6 +762,33 @@ common_handle_option (size_t scode, const char *arg, int value)
     case OPT_W:
       /* For backward compatibility, -W is the same as -Wextra.  */
       set_Wextra (value);
+      break;
+
+    case OPT_Werror_:
+      {
+	char *new_option;
+	int option_index;
+	new_option = XNEWVEC (char, strlen (arg) + 2);
+	new_option[0] = 'W';
+	strcpy (new_option+1, arg);
+	option_index = find_opt (new_option, lang_mask);
+	if (option_index == N_OPTS)
+	  {
+	    error ("-Werror-%s: No option -%s", arg, new_option);
+	  }
+	else
+	  {
+	    int kind = value ? DK_ERROR : DK_WARNING;
+	    diagnostic_classify_diagnostic (global_dc, option_index, kind);
+
+	    /* -Werror=foo implies -Wfoo.  */
+	    if (cl_options[option_index].var_type == CLVC_BOOLEAN
+		&& cl_options[option_index].flag_var
+		&& kind == DK_ERROR)
+	      *(int *) cl_options[option_index].flag_var = 1;
+	    free (new_option);
+	  }
+      }
       break;
 
     case OPT_Wextra:
@@ -846,10 +891,6 @@ common_handle_option (size_t scode, const char *arg, int value)
       fix_register (arg, 1, 1);
       break;
 
-    case OPT_finline_functions:
-      flag_inline_functions_set = true;
-      break;
-
     case OPT_finline_limit_:
     case OPT_finline_limit_eq:
       set_param_value ("max-inline-insns-single", value / 2);
@@ -891,14 +932,6 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_tracer = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
-      if (!flag_inline_functions_set)
-        flag_inline_functions = 1;
-#if 0
-#ifdef HAVE_prefetch
-      if (0 && !flag_speculative_prefetching_set)
-	flag_speculative_prefetching = value;
-#endif
-#endif
       break;
 
     case OPT_fprofile_generate:
@@ -908,14 +941,6 @@ common_handle_option (size_t scode, const char *arg, int value)
         flag_profile_values = value;
       if (!flag_value_profile_transformations_set)
         flag_value_profile_transformations = value;
-#if 0
-      if (!flag_unroll_loops_set)
-	flag_unroll_loops = value;
-#ifdef HAVE_prefetch
-      if (0 && !flag_speculative_prefetching_set)
-	flag_speculative_prefetching = value;
-#endif
-#endif
       break;
 
     case OPT_fprofile_values:
@@ -941,10 +966,6 @@ common_handle_option (size_t scode, const char *arg, int value)
       flag_value_profile_transformations_set = true;
       break;
 
-    case OPT_fspeculative_prefetching:
-      flag_speculative_prefetching_set = true;
-      break;
-
     case OPT_frandom_seed:
       /* The real switch is -fno-random-seed.  */
       if (value)
@@ -954,10 +975,6 @@ common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_frandom_seed_:
       flag_random_seed = arg;
-      break;
-
-    case OPT_freorg_structs:
-      flag_reorg_structs = true;
       break;
 
     case OPT_fsched_verbose_:
@@ -1060,6 +1077,16 @@ common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_pedantic_errors:
       flag_pedantic_errors = pedantic = 1;
+      break;
+
+    case OPT_fforce_mem:
+      warning (0, "-f[no-]force-mem is nop and option will be removed in 4.2");
+      break;
+
+    case OPT_floop_optimize:
+    case OPT_frerun_loop_opt:
+    case OPT_fstrength_reduce:
+      /* These are no-ops, preserved for backward compatibility.  */
       break;
 
     default:

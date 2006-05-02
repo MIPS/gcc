@@ -15,8 +15,8 @@ License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with files compiled
    with GCC to produce an executable, this does not cause the resulting
@@ -27,10 +27,10 @@ Boston, MA 02111-1307, USA.  */
 #ifndef __objc_api_INCLUDE_GNU
 #define __objc_api_INCLUDE_GNU
 
-#include <objc/objc.h>
-#include <objc/hash.h>
-#include <objc/thr.h>
-#include <objc/objc-decls.h>
+#include "objc.h"
+#include "hash.h"
+#include "thr.h"
+#include "objc-decls.h"
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -69,6 +69,7 @@ struct objc_method_description
 #define _C_FLT      'f'
 #define _C_DBL      'd'
 #define _C_BFLD     'b'
+#define _C_BOOL	    'B'
 #define _C_VOID     'v'
 #define _C_UNDEF    '?'
 #define _C_PTR      '^'
@@ -81,6 +82,7 @@ struct objc_method_description
 #define _C_STRUCT_B '{'
 #define _C_STRUCT_E '}'
 #define _C_VECTOR   '!'
+#define _C_COMPLEX   'j'
 
 
 /*
@@ -213,14 +215,7 @@ typedef struct objc_module {
 ** The compiler generates one of these structures for a class that has
 ** instance variables defined in its specification. 
 */
-typedef struct objc_ivar* Ivar_t;
-typedef struct objc_ivar_list {
-  int   ivar_count;                             /* Number of structures (Ivar) 
-                                                  contained in the list.  One
-                                                  structure per instance 
-                                                  variable defined in the
-                                                  class. */
-  struct objc_ivar {
+typedef struct objc_ivar {
     const char* ivar_name;                      /* Name of the instance
                                                   variable as entered in the
                                                   class definition. */
@@ -230,8 +225,15 @@ typedef struct objc_ivar_list {
     int        ivar_offset;                    /* Byte offset from the base 
                                                   address of the instance 
                                                   structure to the variable. */
+} *Ivar_t;
 
-  } ivar_list[1];                               /* Variable length 
+typedef struct objc_ivar_list {
+  int   ivar_count;                             /* Number of structures (Ivar) 
+                                                  contained in the list.  One
+                                                  structure per instance 
+                                                  variable defined in the
+                                                  class. */
+  struct objc_ivar ivar_list[1];               /* Variable length 
                                                   structure. */
 } IvarList, *IvarList_t;
 

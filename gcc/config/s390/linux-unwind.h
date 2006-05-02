@@ -1,5 +1,5 @@
 /* DWARF2 EH unwinding support for S/390 Linux.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,8 +23,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
@@ -113,27 +113,11 @@ s390_fallback_frame_state (struct _Unwind_Context *context,
   fs->regs.reg[32].how = REG_SAVED_OFFSET;
   fs->regs.reg[32].loc.offset = (long)&regs->psw_addr - new_cfa;
   fs->retaddr_column = 32;
-
-  /* If we got a SIGSEGV or a SIGBUS, the PSW address points *to*
-     the faulting instruction, not after it.  This causes the logic
-     in unwind-dw2.c that decrements the RA to determine the correct
-     CFI region to get confused.  To fix that, we *increment* the RA
-     here in that case.  Note that we cannot modify the RA in place,
-     and the frame state wants a *pointer*, not a value; thus we put
-     the modified RA value into the unused register 33 slot of FS and
-     have the register 32 save address point to that slot.
-
-     Unfortunately, for regular signals on old kernels, we don't know
-     the signal number.  We default to not fiddling with the RA;
-     that can fail in rare cases.  Upgrade your kernel.  */
-
-  if (signo && (*signo == 11 || *signo == 7))
-    {
-      fs->regs.reg[33].loc.exp =
-	(unsigned char *)regs->psw_addr + 1;
-      fs->regs.reg[32].loc.offset =
-	(long)&fs->regs.reg[33].loc.exp - new_cfa;
-    }
+  /* SIGILL, SIGFPE and SIGTRAP are delivered with psw_addr
+     after the faulting instruction rather than before it.
+     Don't set FS->signal_frame in that case.  */
+  if (!signo || (*signo != 4 && *signo != 5 && *signo != 8))
+    fs->signal_frame = 1;
 
   return _URC_NO_REASON;
 }

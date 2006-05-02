@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # If this target does not support weak symbols, skip this test.
 
@@ -183,7 +183,7 @@ proc check_test_flags { args } {
 proc dg-skip-if { args } {
     set args [lreplace $args 0 0]
 
-    set selector "target [join [lindex $args 1]]"
+    set selector [list target [lindex $args 1]]
     if { [dg-process-target $selector] == "S" } {
 	# The target list matched; now check the flags.  The DejaGnu proc
 	# check_conditional_xfail will look at the options in compiler_flags,
@@ -223,7 +223,7 @@ proc dg-xfail-if { args } {
     }
 
     set args [lreplace $args 0 0]
-    set selector "target [join [lindex $args 1]]"
+    set selector [list target [lindex $args 1]]
     if { [dg-process-target $selector] == "S" } {
 	global compiler_conditional_xfail_data
 	set compiler_conditional_xfail_data [lreplace $args 1 1 "*-*-*"]

@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  In other words, you are welcome to use, share and improve this program.
  You are forbidden to forbid anyone else to use, share and improve
@@ -42,8 +42,6 @@ struct macro_arg
 
 static int enter_macro_context (cpp_reader *, cpp_hashnode *);
 static int builtin_macro (cpp_reader *, cpp_hashnode *);
-static void push_token_context (cpp_reader *, cpp_hashnode *,
-				const cpp_token *, unsigned int);
 static void push_ptoken_context (cpp_reader *, cpp_hashnode *, _cpp_buff *,
 				 const cpp_token **, unsigned int);
 static _cpp_buff *collect_args (cpp_reader *, const cpp_hashnode *);
@@ -125,6 +123,44 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
 		 NODE_NAME (node));
       break;
 
+    case BT_TIMESTAMP:
+      {
+	cpp_buffer *pbuffer = cpp_get_buffer (pfile);
+	if (pbuffer->timestamp == NULL)
+	  {
+	    /* Initialize timestamp value of the assotiated file. */
+            struct _cpp_file *file = cpp_get_file (pbuffer);
+	    if (file)
+	      {
+    		/* Generate __TIMESTAMP__ string, that represents 
+		   the date and time of the last modification 
+		   of the current source file. The string constant 
+		   looks like "Sun Sep 16 01:03:52 1973".  */
+		struct tm *tb = NULL;
+		struct stat *st = _cpp_get_file_stat (file);
+		if (st)
+		  tb = localtime (&st->st_mtime);
+		if (tb)
+		  {
+		    char *str = asctime (tb);
+		    size_t len = strlen (str);
+		    unsigned char *buf = _cpp_unaligned_alloc (pfile, len + 2);
+		    buf[0] = '"';
+		    strcpy ((char *) buf + 1, str);
+		    buf[len] = '"';
+		    pbuffer->timestamp = buf;
+		  }
+		else
+		  {
+		    cpp_errno (pfile, CPP_DL_WARNING,
+			"could not determine file timestamp");
+		    pbuffer->timestamp = U"\"??? ??? ?? ??:??:?? ????\"";
+		  }
+	      }
+	  }
+	result = pbuffer->timestamp;
+      }
+      break;
     case BT_FILE:
     case BT_BASE_FILE:
       {
@@ -139,7 +175,7 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
 
 	name = map->to_file;
 	len = strlen (name);
-	buf = _cpp_unaligned_alloc (pfile, len * 4 + 3);
+	buf = _cpp_unaligned_alloc (pfile, len * 2 + 3);
 	result = buf;
 	*buf = '"';
 	buf = cpp_quote_string (buf + 1, (const unsigned char *) name, len);
@@ -171,16 +207,12 @@ _cpp_builtin_macro_text (cpp_reader *pfile, cpp_hashnode *node)
 	 However, if (a) we are in a system header, (b) the option
 	 stdc_0_in_system_headers is true (set by target config), and
 	 (c) we are not in strictly conforming mode, then it has the
-	 value 0.  */
+	 value 0.  (b) and (c) are already checked in cpp_init_builtins.  */
     case BT_STDC:
-      {
-	if (cpp_in_system_header (pfile)
-	    && CPP_OPTION (pfile, stdc_0_in_system_headers)
-	    && !CPP_OPTION (pfile,std))
-	  number = 0;
-	else
-	  number = 1;
-      }
+      if (cpp_in_system_header (pfile))
+	number = 0;
+      else
+	number = 1;
       break;
 
     case BT_DATE:
@@ -261,13 +293,6 @@ builtin_macro (cpp_reader *pfile, cpp_hashnode *node)
 	return 0;
 
       _cpp_do__Pragma (pfile);
-      if (pfile->directive_result.type == CPP_PRAGMA) 
-	{
-	  cpp_token *tok = _cpp_temp_token (pfile);
-	  *tok = pfile->directive_result;
-	  push_token_context (pfile, NULL, tok, 1);
-	}
-
       return 1;
     }
 
@@ -282,7 +307,7 @@ builtin_macro (cpp_reader *pfile, cpp_hashnode *node)
 
   /* Set pfile->cur_token as required by _cpp_lex_direct.  */
   pfile->cur_token = _cpp_temp_token (pfile);
-  push_token_context (pfile, NULL, _cpp_lex_direct (pfile), 1);
+  _cpp_push_token_context (pfile, NULL, _cpp_lex_direct (pfile), 1);
   if (pfile->buffer->cur != pfile->buffer->rlimit)
     cpp_error (pfile, CPP_DL_ICE, "invalid built-in macro \"%s\"",
 	       NODE_NAME (node));
@@ -292,9 +317,8 @@ builtin_macro (cpp_reader *pfile, cpp_hashnode *node)
 }
 
 /* Copies SRC, of length LEN, to DEST, adding backslashes before all
-   backslashes and double quotes.  Non-printable characters are
-   converted to octal.  DEST must be of sufficient size.  Returns
-   a pointer to the end of the string.  */
+   backslashes and double quotes. DEST must be of sufficient size.
+   Returns a pointer to the end of the string.  */
 uchar *
 cpp_quote_string (uchar *dest, const uchar *src, unsigned int len)
 {
@@ -308,15 +332,7 @@ cpp_quote_string (uchar *dest, const uchar *src, unsigned int len)
 	  *dest++ = c;
 	}
       else
-	{
-	  if (ISPRINT (c))
-	    *dest++ = c;
-	  else
-	    {
-	      sprintf ((char *) dest, "\\%03o", c);
-	      dest += 4;
-	    }
-	}
+	  *dest++ = c;
     }
 
   return dest;
@@ -489,7 +505,7 @@ paste_all_tokens (cpp_reader *pfile, const cpp_token *lhs)
   while (rhs->flags & PASTE_LEFT);
 
   /* Put the resulting token in its own context.  */
-  push_token_context (pfile, NULL, lhs, 1);
+  _cpp_push_token_context (pfile, NULL, lhs, 1);
 }
 
 /* Returns TRUE if the number of arguments ARGC supplied in an
@@ -703,7 +719,7 @@ funlike_invocation_p (cpp_reader *pfile, cpp_hashnode *node)
 	 too difficult.  We re-insert it in its own context.  */
       _cpp_backup_tokens (pfile, 1);
       if (padding)
-	push_token_context (pfile, NULL, padding, 1);
+	_cpp_push_token_context (pfile, NULL, padding, 1);
     }
 
   return NULL;
@@ -759,7 +775,7 @@ enter_macro_context (cpp_reader *pfile, cpp_hashnode *node)
       macro->used = 1;
 
       if (macro->paramc == 0)
-	push_token_context (pfile, node, macro->exp.tokens, macro->count);
+	_cpp_push_token_context (pfile, node, macro->exp.tokens, macro->count);
 
       return 1;
     }
@@ -952,9 +968,9 @@ push_ptoken_context (cpp_reader *pfile, cpp_hashnode *macro, _cpp_buff *buff,
 }
 
 /* Push a list of tokens.  */
-static void
-push_token_context (cpp_reader *pfile, cpp_hashnode *macro,
-		    const cpp_token *first, unsigned int count)
+void
+_cpp_push_token_context (cpp_reader *pfile, cpp_hashnode *macro,
+			 const cpp_token *first, unsigned int count)
 {
   cpp_context *context = next_context (pfile);
 

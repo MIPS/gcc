@@ -27,8 +27,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file is a bit like libgcc2.c in that it is compiled
    multiple times and yields multiple .o files.
@@ -58,6 +58,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    identified the set of defines that need to go into auto-target.h,
    this will have to do.  */
 #include "auto-host.h"
+#undef gid_t
+#undef pid_t
+#undef rlim_t
+#undef ssize_t
+#undef uid_t
+#undef vfork
 #include "tconfig.h"
 #include "tsystem.h"
 #include "coretypes.h"

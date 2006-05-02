@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA. 
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA. 
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -188,6 +188,14 @@ mangle_method_decl (tree mdecl)
   if (TREE_CODE (TREE_TYPE (mdecl)) == METHOD_TYPE)
     arglist = TREE_CHAIN (arglist);
   
+  /* Output literal 'J' and mangle the return type IF not a 
+     constructor.  */
+  if (!ID_INIT_P (method_name))
+    {
+      obstack_1grow (mangle_obstack, 'J');
+      mangle_type(TREE_TYPE(TREE_TYPE(mdecl)));
+    }
+  
   /* No arguments is easy. We shortcut it. */
   if (arglist == end_params_node)
     obstack_1grow (mangle_obstack, 'v');
@@ -235,9 +243,13 @@ mangle_type (tree type)
     {
       char code;
     case BOOLEAN_TYPE: code = 'b';  goto primitive;
-    case CHAR_TYPE:    code = 'w';  goto primitive;
     case VOID_TYPE:    code = 'v';  goto primitive;
     case INTEGER_TYPE:
+      if (type == char_type_node || type == promoted_char_type_node)
+	{
+	  code = 'w';
+	  goto primitive;
+	}
       /* Get the original type instead of the arguments promoted type.
 	 Avoid symbol name clashes. Should call a function to do that.
 	 FIXME.  */
@@ -272,7 +284,7 @@ mangle_type (tree type)
       break;
     bad_type:
     default:
-      abort ();
+      gcc_unreachable ();
     }
 }
 
@@ -389,8 +401,7 @@ mangle_record_type (tree type, int for_pointer)
 #define ADD_N() \
   do { obstack_1grow (mangle_obstack, 'N'); nadded_p = 1; } while (0)
 
-  if (TREE_CODE (type) != RECORD_TYPE)
-    abort ();
+  gcc_assert (TREE_CODE (type) == RECORD_TYPE);
 
   if (!TYPE_PACKAGE_LIST (type))
     set_type_package_list (type);
@@ -442,8 +453,7 @@ mangle_pointer_type (tree type)
   /* This didn't work. We start by mangling the pointed-to type */
   pointer_type = type;
   type = TREE_TYPE (type);
-  if (TREE_CODE (type) != RECORD_TYPE)
-    abort ();
+  gcc_assert (TREE_CODE (type) == RECORD_TYPE);
   
   obstack_1grow (mangle_obstack, 'P');
   if (mangle_record_type (type, /* for_pointer = */ 1))
@@ -465,8 +475,7 @@ mangle_array_type (tree p_type)
   int match;
 
   type = TREE_TYPE (p_type);
-  if (!type)
-    abort ();
+  gcc_assert (type);
 
   elt_type = TYPE_ARRAY_ELEMENT (type);
 

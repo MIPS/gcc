@@ -1,5 +1,6 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -13,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
  In other words, you are welcome to use, share and improve this program.
  You are forbidden to forbid anyone else to use, share and improve
@@ -51,6 +52,22 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "insn-modes.h"
 
 struct stdarg_info;
+struct spec_info_def;
+
+/* The struct used by the secondary_reload target hook.  */
+typedef struct secondary_reload_info
+{
+  /* icode is actually an enum insn_code, but we don't want to force every
+     file that includes target.h to include optabs.h .  */
+  int icode;
+  int extra_cost; /* Cost for using (a) scratch register(s) to be taken
+		     into account by copy_cost.  */
+  /* The next two members are for the use of the backward
+     compatibility hook.  */
+  struct secondary_reload_info *prev_sri;
+  int t_icode; /* Actually an enum insn_code - see above.  */
+} secondary_reload_info;
+
 
 struct gcc_target
 {
@@ -87,11 +104,18 @@ struct gcc_target
        this is only a placeholder for an omitted FDE.  */
     void (* unwind_label) (FILE *, tree, int, int);
 
+    /* Output code that will emit a label to divide up the exception
+       table.  */
+    void (* except_table_label) (FILE *);
+
     /* Emit any directives required to unwind this instruction.  */
     void (* unwind_emit) (FILE *, rtx);
 
     /* Output an internal label.  */
     void (* internal_label) (FILE *, const char *, unsigned long);
+
+    /* Emit a ttype table reference to a typeinfo object.  */
+    bool (* ttype) (rtx);
 
     /* Emit an assembler directive to set visibility for the symbol
        associated with the tree decl.  */
@@ -109,35 +133,31 @@ struct gcc_target
     /* Output the assembler code for function exit.  */
     void (* function_epilogue) (FILE *, HOST_WIDE_INT);
 
+    /* Initialize target-specific sections.  */
+    void (* init_sections) (void);
+
     /* Tell assembler to change to section NAME with attributes FLAGS.
        If DECL is non-NULL, it is the VAR_DECL or FUNCTION_DECL with
        which this section is associated.  */
     void (* named_section) (const char *name, unsigned int flags, tree decl);
 
-    /* Switch to the section that holds the exception table.  */
-    void (* exception_section) (void);
+    /* Return a section for EXP.  It may be a DECL or a constant.  RELOC
+       is nonzero if runtime relocations must be applied; bit 1 will be
+       set if the runtime relocations require non-local name resolution.
+       ALIGN is the required alignment of the data.  */
+    section *(* select_section) (tree, int, unsigned HOST_WIDE_INT);
 
-    /* Switch to the section that holds the exception frames.  */
-    void (* eh_frame_section) (void);
-
-    /* Select and switch to a section for EXP.  It may be a DECL or a
-       constant.  RELOC is nonzero if runtime relocations must be applied;
-       bit 1 will be set if the runtime relocations require non-local
-       name resolution.  ALIGN is the required alignment of the data.  */
-    void (* select_section) (tree, int, unsigned HOST_WIDE_INT);
-
-    /* Select and switch to a section for X with MODE.  ALIGN is
-       the desired alignment of the data.  */
-    void (* select_rtx_section) (enum machine_mode, rtx,
-				 unsigned HOST_WIDE_INT);
+    /* Return a section for X.  MODE is X's mode and ALIGN is its
+       alignment in bits.  */
+    section *(* select_rtx_section) (enum machine_mode, rtx,
+				     unsigned HOST_WIDE_INT);
 
     /* Select a unique section name for DECL.  RELOC is the same as
        for SELECT_SECTION.  */
     void (* unique_section) (tree, int);
 
-    /* Tell assembler to switch to the readonly data section associated
-       with function DECL.  */
-    void (* function_rodata_section) (tree);
+    /* Return the readonly data section associated with function DECL.  */
+    section *(* function_rodata_section) (tree);
 
     /* Output a constructor for a symbol with a given priority.  */
     void (* constructor) (rtx, int);
@@ -179,6 +199,12 @@ struct gcc_target
      /* Output an assembler directive to mark decl live. This instructs
 	linker to not dead code strip this symbol.  */
     void (*mark_decl_preserved) (const char *);
+
+    /* Output the definition of a section anchor.  */
+    void (*output_anchor) (rtx);
+
+    /* Output a DTP-relative reference to a TLS symbol.  */
+    void (*output_dwarf_dtprel) (FILE *file, int size, rtx x);
 
   } asm_out;
 
@@ -282,6 +308,58 @@ struct gcc_target
        between the already scheduled insn (first parameter) and the
        the second insn (second parameter).  */
     bool (* is_costly_dependence) (rtx, rtx, rtx, int, int);
+
+    /* Given the current cost, COST, of an insn, INSN, calculate and
+       return a new cost based on its relationship to DEP_INSN through the
+       dependence of type DEP_TYPE.  The default is to make no adjustment.  */
+    int (* adjust_cost_2) (rtx insn, int, rtx def_insn, int cost);
+
+    /* The following member value is a pointer to a function called
+       by the insn scheduler. This hook is called to notify the backend
+       that new instructions were emitted.  */
+    void (* h_i_d_extended) (void);
+    
+    /* The following member value is a pointer to a function called
+       by the insn scheduler.
+       The first parameter is an instruction, the second parameter is the type
+       of the requested speculation, and the third parameter is a pointer to the
+       speculative pattern of the corresponding type (set if return value == 1).
+       It should return
+       -1, if there is no pattern, that will satisfy the requested speculation
+       type,
+       0, if current pattern satisfies the requested speculation type,
+       1, if pattern of the instruction should be changed to the newly
+       generated one.  */
+    int (* speculate_insn) (rtx, int, rtx *);
+
+    /* The following member value is a pointer to a function called
+       by the insn scheduler.  It should return true if the check instruction
+       corresponding to the instruction passed as the parameter needs a
+       recovery block.  */
+    bool (* needs_block_p) (rtx);
+
+    /* The following member value is a pointer to a function called
+       by the insn scheduler.  It should return a pattern for the check
+       instruction.
+       The first parameter is a speculative instruction, the second parameter
+       is the label of the corresponding recovery block (or null, if it is a
+       simple check).  If the mutation of the check is requested (e.g. from
+       ld.c to chk.a), the third parameter is true - in this case the first
+       parameter is the previous check.  */
+    rtx (* gen_check) (rtx, rtx, bool);
+
+    /* The following member value is a pointer to a function controlling
+       what insns from the ready insn queue will be considered for the
+       multipass insn scheduling.  If the hook returns zero for the insn
+       passed as the parameter, the insn will not be chosen to be
+       issued.  This hook is used to discard speculative instructions,
+       that stand at the first position of the ready list.  */
+    bool (* first_cycle_multipass_dfa_lookahead_guard_spec) (rtx);
+
+    /* The following member value is a pointer to a function that provides
+       information about the speculation capabilities of the target.
+       The parameter is a pointer to spec_info variable.  */
+    void (* set_sched_flags) (struct spec_info_def *);
   } sched;
 
   /* Functions relating to vectorization.  */
@@ -335,14 +413,25 @@ struct gcc_target
      Microsoft Visual C++ bitfield layout rules.  */
   bool (* ms_bitfield_layout_p) (tree record_type);
 
+  /* True if the target supports decimal floating point.  */
+  bool (* decimal_float_supported_p) (void);
+
   /* Return true if anonymous bitfields affect structure alignment.  */
   bool (* align_anon_bitfield) (void);
+
+  /* Return true if volatile bitfields should use the narrowest type possible.
+     Return false if they should use the container type.  */
+  bool (* narrow_volatile_bitfield) (void);
 
   /* Set up target-specific built-in functions.  */
   void (* init_builtins) (void);
 
   /* Expand a target-specific builtin.  */
   rtx (* expand_builtin) (tree exp, rtx target, rtx subtarget,
+			  enum machine_mode mode, int ignore);
+
+  /* Expand a target-specific library builtin.  */
+  rtx (* expand_library_builtin) (tree exp, rtx target, rtx subtarget,
 			  enum machine_mode mode, int ignore);
 
   /* Select a replacement for a target-specific builtin.  This is done
@@ -353,7 +442,7 @@ struct gcc_target
 
   /* Fold a target-specific builtin.  */
   tree (* fold_builtin) (tree fndecl, tree arglist, bool ignore);
-  
+
   /* For a vendor-specific fundamental TYPE, return a pointer to
      a statically-allocated string containing the C++ mangling for
      TYPE.  In all other cases, return NULL.  */
@@ -387,8 +476,21 @@ struct gcc_target
   /* True if the insn X cannot be duplicated.  */
   bool (* cannot_copy_insn_p) (rtx);
 
+  /* True if X is considered to be commutative.  */
+  bool (* commutative_p) (rtx, int);
+
   /* Given an address RTX, undo the effects of LEGITIMIZE_ADDRESS.  */
   rtx (* delegitimize_address) (rtx);
+
+  /* True if the given constant can be put into an object_block.  */
+  bool (* use_blocks_for_constant_p) (enum machine_mode, rtx);
+
+  /* The minimum and maximum byte offsets for anchored addresses.  */
+  HOST_WIDE_INT min_anchor_offset;
+  HOST_WIDE_INT max_anchor_offset;
+
+  /* True if section anchors can be used to access the given symbol.  */
+  bool (* use_anchors_for_symbol_p) (rtx);
 
   /* True if it is OK to do sibling call optimization for the specified
      call expression EXP.  DECL will be the called function, or NULL if
@@ -412,6 +514,11 @@ struct gcc_target
   /* If shift optabs for MODE are known to always truncate the shift count,
      return the mask that they apply.  Return 0 otherwise.  */
   unsigned HOST_WIDE_INT (* shift_truncation_mask) (enum machine_mode mode);
+
+  /* Return the number of divisions in the given MODE that should be present,
+     so that it is profitable to turn the division into a multiplication by
+     the reciprocal.  */
+  unsigned int (* min_divisions_for_recip_mul) (enum machine_mode mode);
 
   /* True if MODE is valid for a pointer in __attribute__((mode("MODE"))).  */
   bool (* valid_pointer_mode) (enum machine_mode mode);
@@ -439,6 +546,10 @@ struct gcc_target
   /* Compute the cost of X, used as an address.  Never called with
      invalid addresses.  */
   int (* address_cost) (rtx x);
+
+  /* Return where to allocate pseudo for a given hard register initial
+     value.  */
+  rtx (* allocate_initial_value) (rtx x);
 
   /* Given a register, this hook should return a parallel of registers
      to represent where to find the register pieces.  Define this hook
@@ -523,11 +634,26 @@ struct gcc_target
      from VA_ARG_EXPR.  LHS is left hand side of MODIFY_EXPR, RHS
      is right hand side.  Returns true if the statements doesn't need
      to be checked for va_list references.  */
-  bool (*stdarg_optimize_hook) (struct stdarg_info *ai, tree lhs, tree rhs);
+  bool (* stdarg_optimize_hook) (struct stdarg_info *ai, tree lhs, tree rhs);
 
-  /* Returns true if target supports the insn within a doloop block.  */
-  bool (*insn_valid_within_doloop) (rtx);
-    
+  /* This target hook allows the operating system to override the DECL
+     that represents the external variable that contains the stack
+     protection guard variable.  The type of this DECL is ptr_type_node.  */
+  tree (* stack_protect_guard) (void);
+
+  /* This target hook allows the operating system to override the CALL_EXPR
+     that is invoked when a check vs the guard variable fails.  */
+  tree (* stack_protect_fail) (void);
+
+  /* Returns NULL if target supports the insn within a doloop block,
+     otherwise it returns an error message.  */
+  const char * (*invalid_within_doloop) (rtx);
+
+  /* DECL is a variable or function with __attribute__((dllimport))
+     specified.  Use this hook if the target needs to add extra validation
+     checks to  handle_dll_attribute ().  */
+  bool (* valid_dllimport_attribute_p) (tree decl);
+
   /* Functions relating to calls - argument passing, returns, etc.  */
   struct calls {
     bool (*promote_function_args) (tree fntype);
@@ -578,9 +704,31 @@ struct gcc_target
 
     /* Return the diagnostic message string if function without a prototype
        is not allowed for this 'val' argument; NULL otherwise. */
-    const char *(*invalid_arg_for_unprototyped_fn) (tree typelist, 
+    const char *(*invalid_arg_for_unprototyped_fn) (tree typelist,
 					     	    tree funcdecl, tree val);
+
+    /* Return an rtx for the return value location of the function
+       specified by FN_DECL_OR_TYPE with a return type of RET_TYPE.  */
+    rtx (*function_value) (tree ret_type, tree fn_decl_or_type,
+			   bool outgoing);
   } calls;
+
+  /* Return the diagnostic message string if conversion from FROMTYPE
+     to TOTYPE is not allowed, NULL otherwise.  */
+  const char *(*invalid_conversion) (tree fromtype, tree totype);
+
+  /* Return the diagnostic message string if the unary operation OP is
+     not permitted on TYPE, NULL otherwise.  */
+  const char *(*invalid_unary_op) (int op, tree type);
+
+  /* Return the diagnostic message string if the binary operation OP
+     is not permitted on TYPE1 and TYPE2, NULL otherwise.  */
+  const char *(*invalid_binary_op) (int op, tree type1, tree type2);
+
+  /* Return the class for a secondary reload, and fill in extra information.  */
+  enum reg_class (*secondary_reload) (bool, rtx, enum reg_class,
+				      enum machine_mode,
+				      struct secondary_reload_info *);
 
   /* Functions specific to the C++ frontend.  */
   struct cxx {
@@ -609,7 +757,7 @@ struct gcc_target
        visibility has been explicitly specified.  If the target needs
        to specify a visibility other than that of the containing class,
        use this hook to set DECL_VISIBILITY and
-       DECL_VISIBILITY_SPECIFIED.  */ 
+       DECL_VISIBILITY_SPECIFIED.  */
     void (*determine_class_data_visibility) (tree decl);
     /* Returns true (the default) if virtual tables and other
        similar implicit class data objects are always COMDAT if they
@@ -620,12 +768,29 @@ struct gcc_target
     /* Returns true if __aeabi_atexit should be used to register static
        destructors.  */
     bool (*use_aeabi_atexit) (void);
+    /* TYPE is a C++ class (i.e., RECORD_TYPE or UNION_TYPE) that
+       has just been defined.  Use this hook to make adjustments to the
+       class  (eg, tweak visibility or perform any other required
+       target modifications).  */
+    void (*adjust_class_at_definition) (tree type);
   } cxx;
+  
+  /* For targets that need to mark extra registers as live on entry to
+     the function, they should define this target hook and set their
+     bits in the bitmap passed in. */  
+  void (*live_on_entry) (bitmap); 
+
+  /* True if unwinding tables should be generated by default.  */
+  bool unwind_tables_default;
 
   /* Leave the boolean fields at the end.  */
 
   /* True if arbitrary sections are supported.  */
   bool have_named_sections;
+
+  /* True if we can create zeroed data by switching to a BSS section
+     and then using ASM_OUTPUT_SKIP to allocate the space.  */
+  bool have_switchable_bss_sections;
 
   /* True if "native" constructors and destructors are supported,
      false if we're using collect2 for the job.  */
@@ -657,6 +822,11 @@ struct gcc_target
   /* True if the target is allowed to reorder memory accesses unless
      synchronization is explicitly requested.  */
   bool relaxed_ordering;
+
+  /* Returns true if we should generate exception tables for use with the
+     ARM EABI.  The effects the encoding of function exception specifications.
+   */
+  bool arm_eabi_unwinder;
 
   /* Leave the boolean fields at the end.  */
 };

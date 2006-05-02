@@ -1,6 +1,6 @@
 // ostream classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -44,8 +44,8 @@
 
 #include <locale>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>::sentry::
     sentry(basic_ostream<_CharT, _Traits>& __os)
@@ -97,214 +97,57 @@ namespace std
     }
 
   template<typename _CharT, typename _Traits>
+    template<typename _ValueT>
+      basic_ostream<_CharT, _Traits>&
+      basic_ostream<_CharT, _Traits>::
+      _M_insert(_ValueT __v)
+      {
+	sentry __cerb(*this);
+	if (__cerb)
+	  {
+	    ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	    try
+	      {
+		const __num_put_type& __np = __check_facet(this->_M_num_put);
+		if (__np.put(*this, *this, this->fill(), __v).failed())
+		  __err |= ios_base::badbit;
+	      }
+	    catch(...)
+	      { this->_M_setstate(ios_base::badbit); }
+	    if (__err)
+	      this->setstate(__err);
+	  }
+	return *this;
+      }
+
+  template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>&
     basic_ostream<_CharT, _Traits>::
-    operator<<(bool __n)
+    operator<<(short __n)
     {
-      sentry __cerb(*this);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_put_type& __np = __check_facet(this->_M_num_put);
-	      if (__np.put(*this, *this, this->fill(), __n).failed())
-		__err |= ios_base::badbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 117. basic_ostream uses nonexistent num_put member functions.
+      const ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
+      if (__fmt == ios_base::oct || __fmt == ios_base::hex)
+	return _M_insert(static_cast<long>(static_cast<unsigned short>(__n)));
+      else
+	return _M_insert(static_cast<long>(__n));
     }
 
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>&
     basic_ostream<_CharT, _Traits>::
-    operator<<(long __n)
+    operator<<(int __n)
     {
-      sentry __cerb(*this);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      bool __b = false;
-	      const char_type __c = this->fill();
-	      const ios_base::fmtflags __fmt = (this->flags()
-						& ios_base::basefield);
-	      const __num_put_type& __np = __check_facet(this->_M_num_put);
-	      if ((__fmt & ios_base::oct) || (__fmt & ios_base::hex))
-		{
-		  const unsigned long __l = static_cast<unsigned long>(__n);
-		  __b = __np.put(*this, *this, __c, __l).failed();
-		}
-	      else
-		__b = __np.put(*this, *this, __c, __n).failed();
-	      if (__b)
-		__err |= ios_base::badbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 117. basic_ostream uses nonexistent num_put member functions.
+      const ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
+      if (__fmt == ios_base::oct || __fmt == ios_base::hex)
+	return _M_insert(static_cast<long>(static_cast<unsigned int>(__n)));
+      else
+	return _M_insert(static_cast<long>(__n));
     }
-
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(unsigned long __n)
-    {
-      sentry __cerb(*this);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_put_type& __np = __check_facet(this->_M_num_put);
-	      if (__np.put(*this, *this, this->fill(), __n).failed())
-		__err |= ios_base::badbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-#ifdef _GLIBCXX_USE_LONG_LONG
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(long long __n)
-    {
-      sentry __cerb(*this);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      bool __b = false;
-	      const char_type __c = this->fill();
-	      const ios_base::fmtflags __fmt = (this->flags()
-						& ios_base::basefield);
-	      const __num_put_type& __np = __check_facet(this->_M_num_put);
-	      if ((__fmt & ios_base::oct) || (__fmt & ios_base::hex))
-		{
-		  const unsigned long long __l = (static_cast<
-						  unsigned long long>(__n));
-		  __b = __np.put(*this, *this, __c, __l).failed();
-		}
-	      else
-		__b = __np.put(*this, *this, __c, __n).failed();
-	      if (__b)
-		__err |= ios_base::badbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(unsigned long long __n)
-    {
-      sentry __cerb(*this);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_put_type& __np = __check_facet(this->_M_num_put);
-	      if (__np.put(*this, *this, this->fill(), __n).failed())
-		__err |= ios_base::badbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-#endif
-
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(double __n)
-    {
-      sentry __cerb(*this);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_put_type& __np = __check_facet(this->_M_num_put);
-	      if (__np.put(*this, *this, this->fill(), __n).failed())
-		__err |= ios_base::badbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(long double __n)
-    {
-      sentry __cerb(*this);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_put_type& __np = __check_facet(this->_M_num_put);
-	      if (__np.put(*this, *this, this->fill(), __n).failed())
-		__err |= ios_base::badbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
-  template<typename _CharT, typename _Traits>
-    basic_ostream<_CharT, _Traits>&
-    basic_ostream<_CharT, _Traits>::
-    operator<<(const void* __n)
-    {
-      sentry __cerb(*this);
-      if (__cerb)
-	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	  try
-	    {
-	      const __num_put_type& __np = __check_facet(this->_M_num_put);
-	      if (__np.put(*this, *this, this->fill(), __n).failed())
-		__err |= ios_base::badbit;
-	    }
-	  catch(...)
-	    { this->_M_setstate(ios_base::badbit); }
-	  if (__err)
-	    this->setstate(__err);
-	}
-      return *this;
-    }
-
+  
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>&
     basic_ostream<_CharT, _Traits>::
@@ -699,6 +542,7 @@ namespace std
   extern template wostream& operator<<(wostream&, const char*);
 #endif
 #endif
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

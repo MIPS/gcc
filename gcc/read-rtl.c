@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "bconfig.h"
 
@@ -31,6 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "obstack.h"
 #include "hashtab.h"
+#include "gensupport.h"
 
 static htab_t md_constants;
 
@@ -138,11 +139,13 @@ static void read_escape (FILE *);
 static hashval_t def_hash (const void *);
 static int def_name_eq_p (const void *, const void *);
 static void read_constants (FILE *infile, char *tmp_char);
+static void read_conditions (FILE *infile, char *tmp_char);
 static void validate_const_int (FILE *, const char *);
 static int find_macro (struct macro_group *, const char *, FILE *);
 static struct mapping *read_mapping (struct macro_group *, htab_t, FILE *);
 static void check_code_macro (struct mapping *, FILE *);
 static rtx read_rtx_1 (FILE *, struct map_value **);
+static rtx read_rtx_variadic (FILE *, struct map_value **, rtx);
 
 /* The mode and code macro structures.  */
 static struct macro_group modes, codes;
@@ -243,7 +246,7 @@ uses_mode_macro_p (rtx x, int mode)
 static void
 apply_mode_macro (rtx x, int mode)
 {
-  PUT_MODE (x, mode);
+  PUT_MODE (x, (enum machine_mode) mode);
 }
 
 /* Implementations of the macro_group callbacks for codes.  */
@@ -269,7 +272,7 @@ uses_code_macro_p (rtx x, int code)
 static void
 apply_code_macro (rtx x, int code)
 {
-  PUT_CODE (x, code);
+  PUT_CODE (x, (enum rtx_code) code);
 }
 
 /* Map a code or mode attribute string P to the underlying string for
@@ -321,7 +324,7 @@ mode_attr_index (struct map_value **mode_maps, const char *string)
   /* Copy the attribute string into permanent storage, without the
      angle brackets around it.  */
   obstack_grow0 (&string_obstack, string + 1, strlen (string) - 2);
-  p = (char *) obstack_finish (&string_obstack);
+  p = XOBFINISH (&string_obstack, char *);
 
   mv = XNEW (struct map_value);
   mv->number = *mode_maps == 0 ? 0 : (*mode_maps)->number + 1;
@@ -363,7 +366,7 @@ apply_mode_maps (rtx x, struct map_value *mode_maps, struct mapping *macro,
 
 	  v = map_attr_string (pm->string, macro, value);
 	  if (v)
-	    PUT_MODE (x, find_mode (v->string, infile));
+	    PUT_MODE (x, (enum machine_mode) find_mode (v->string, infile));
 	  else
 	    *unknown = pm->string;
 	  return;
@@ -404,7 +407,7 @@ apply_macro_to_string (const char *string, struct mapping *macro, int value)
   if (base != copy)
     {
       obstack_grow (&string_obstack, base, strlen (base) + 1);
-      copy = obstack_finish (&string_obstack);
+      copy = XOBFINISH (&string_obstack, char *);
       copy_rtx_ptr_loc (copy, string);
       return copy;
     }
@@ -434,7 +437,7 @@ apply_macro_to_rtx (rtx original, struct mapping *macro, int value,
   /* Create a shallow copy of ORIGINAL.  */
   bellwether_code = BELLWETHER_CODE (GET_CODE (original));
   x = rtx_alloc (bellwether_code);
-  memcpy (x, original, RTX_SIZE (bellwether_code));
+  memcpy (x, original, RTX_CODE_SIZE (bellwether_code));
 
   /* Change the mode or code itself.  */
   group = macro->group;
@@ -785,7 +788,7 @@ join_c_conditions (const char *cond1, const char *cond2)
   obstack_ptr_grow (&joined_conditions_obstack, result);
   obstack_ptr_grow (&joined_conditions_obstack, cond1);
   obstack_ptr_grow (&joined_conditions_obstack, cond2);
-  entry = obstack_finish (&joined_conditions_obstack);
+  entry = XOBFINISH (&joined_conditions_obstack, const void **);
   *htab_find_slot (joined_conditions, entry, INSERT) = entry;
   return result;
 }
@@ -798,7 +801,7 @@ join_c_conditions (const char *cond1, const char *cond2)
 void
 print_c_condition (const char *cond)
 {
-  const void **halves = htab_find (joined_conditions, &cond);
+  const char **halves = (const char **) htab_find (joined_conditions, &cond);
   if (halves != 0)
     {
       printf ("(");
@@ -883,7 +886,7 @@ read_name (char *str, FILE *infile)
   p = str;
   while (1)
     {
-      if (c == ' ' || c == '\n' || c == '\t' || c == '\f' || c == '\r')
+      if (c == ' ' || c == '\n' || c == '\t' || c == '\f' || c == '\r' || c == EOF)
 	break;
       if (c == ':' || c == ')' || c == ']' || c == '"' || c == '/'
 	  || c == '(' || c == '[')
@@ -991,14 +994,14 @@ read_quoted_string (FILE *infile)
 	  read_escape (infile);
 	  continue;
 	}
-      else if (c == '"')
+      else if (c == '"' || c == EOF)
 	break;
 
       obstack_1grow (&string_obstack, c);
     }
 
   obstack_1grow (&string_obstack, 0);
-  return (char *) obstack_finish (&string_obstack);
+  return XOBFINISH (&string_obstack, char *);
 }
 
 /* Read a braced string (a la Tcl) onto the string obstack.  Caller
@@ -1036,7 +1039,7 @@ read_braced_string (FILE *infile)
     }
 
   obstack_1grow (&string_obstack, 0);
-  return (char *) obstack_finish (&string_obstack);
+  return XOBFINISH (&string_obstack, char *);
 }
 
 /* Read some kind of string constant.  This is the high-level routine
@@ -1205,6 +1208,58 @@ traverse_md_constants (htab_trav callback, void *info)
   if (md_constants)
     htab_traverse (md_constants, callback, info);
 }
+
+/* INFILE is a FILE pointer to read text from.  TMP_CHAR is a buffer
+   suitable to read a name or number into.  Process a
+   define_conditions directive, starting with the optional space after
+   the "define_conditions".  The directive looks like this:
+
+     (define_conditions [
+        (number "string")
+        (number "string")
+        ...
+     ])
+
+   It's not intended to appear in machine descriptions.  It is
+   generated by (the program generated by) genconditions.c, and
+   slipped in at the beginning of the sequence of MD files read by
+   most of the other generators.  */
+static void
+read_conditions (FILE *infile, char *tmp_char)
+{
+  int c;
+
+  c = read_skip_spaces (infile);
+  if (c != '[')
+    fatal_expected_char (infile, '[', c);
+
+  while ( (c = read_skip_spaces (infile)) != ']')
+    {
+      char *expr;
+      int value;
+
+      if (c != '(')
+	fatal_expected_char (infile, '(', c);
+
+      read_name (tmp_char, infile);
+      validate_const_int (infile, tmp_char);
+      value = atoi (tmp_char);
+
+      c = read_skip_spaces (infile);
+      if (c != '"')
+	fatal_expected_char (infile, '"', c);
+      expr = read_quoted_string (infile);
+
+      c = read_skip_spaces (infile);
+      if (c != ')')
+	fatal_expected_char (infile, ')', c);
+
+      add_c_test (expr, value);
+    }
+  c = read_skip_spaces (infile);
+  if (c != ')')
+    fatal_expected_char (infile, ')', c);
+}
 
 static void
 validate_const_int (FILE *infile, const char *string)
@@ -1311,7 +1366,7 @@ check_code_macro (struct mapping *macro, FILE *infile)
   struct map_value *v;
   enum rtx_code bellwether;
 
-  bellwether = macro->values->number;
+  bellwether = (enum rtx_code) macro->values->number;
   for (v = macro->values->next; v != 0; v = v->next)
     if (strcmp (GET_RTX_FORMAT (bellwether), GET_RTX_FORMAT (v->number)) != 0)
       fatal_with_file_and_line (infile, "code macro `%s' combines "
@@ -1354,16 +1409,23 @@ read_rtx (FILE *infile, rtx *x, int *lineno)
     {
       struct map_value *mode_maps;
       struct macro_traverse_data mtd;
+      rtx from_file;
 
       c = read_skip_spaces (infile);
       if (c == EOF)
 	return false;
       ungetc (c, infile);
 
-      queue_next = queue_head;
       queue_lineno = read_rtx_lineno;
       mode_maps = 0;
-      XEXP (queue_next, 0) = read_rtx_1 (infile, &mode_maps);
+      from_file = read_rtx_1 (infile, &mode_maps);
+      if (from_file == 0)
+	return false;  /* This confuses a top level (nil) with end of
+			  file, but a top level (nil) would have
+			  crashed our caller anyway.  */
+
+      queue_next = queue_head;
+      XEXP (queue_next, 0) = from_file;
       XEXP (queue_next, 1) = 0;
 
       mtd.queue = queue_next;
@@ -1412,6 +1474,10 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
 
  again:
   c = read_skip_spaces (infile); /* Should be open paren.  */
+
+  if (c == EOF)
+    return 0;
+  
   if (c != '(')
     fatal_expected_char (infile, '(', c);
 
@@ -1427,6 +1493,11 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
   if (strcmp (tmp_char, "define_constants") == 0)
     {
       read_constants (infile, tmp_char);
+      goto again;
+    }
+  if (strcmp (tmp_char, "define_conditions") == 0)
+    {
+      read_conditions (infile, tmp_char);
       goto again;
     }
   if (strcmp (tmp_char, "define_mode_attr") == 0)
@@ -1449,7 +1520,7 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
       check_code_macro (read_mapping (&codes, codes.macros, infile), infile);
       goto again;
     }
-  real_code = find_macro (&codes, tmp_char, infile);
+  real_code = (enum rtx_code) find_macro (&codes, tmp_char, infile);
   bellwether_code = BELLWETHER_CODE (real_code);
 
   /* If we end up with an insn expression then we free this space below.  */
@@ -1470,7 +1541,7 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
 	mode = find_macro (&modes, tmp_char, infile);
       else
 	mode = mode_attr_index (mode_maps, tmp_char);
-      PUT_MODE (return_rtx, mode);
+      PUT_MODE (return_rtx, (enum machine_mode) mode);
       if (GET_MODE (return_rtx) != mode)
 	fatal_with_file_and_line (infile, "mode too large");
     }
@@ -1581,7 +1652,7 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
 	      obstack_grow (&string_obstack, fn, strlen (fn));
 	      sprintf (line_name, ":%d", read_rtx_lineno);
 	      obstack_grow (&string_obstack, line_name, strlen (line_name)+1);
-	      stringbuf = (char *) obstack_finish (&string_obstack);
+	      stringbuf = XOBFINISH (&string_obstack, char *);
 	    }
 
 	  if (star_if_braced)
@@ -1626,7 +1697,49 @@ read_rtx_1 (FILE *infile, struct map_value **mode_maps)
 
   c = read_skip_spaces (infile);
   if (c != ')')
-    fatal_expected_char (infile, ')', c);
+    {
+      /* Syntactic sugar for AND and IOR, allowing Lisp-like
+	 arbitrary number of arguments for them.  */
+      if (c == '(' && (GET_CODE (return_rtx) == AND
+		       || GET_CODE (return_rtx) == IOR))
+	return read_rtx_variadic (infile, mode_maps, return_rtx);
+      else
+	fatal_expected_char (infile, ')', c);
+    }
 
   return return_rtx;
+}
+
+/* Mutually recursive subroutine of read_rtx which reads
+   (thing x1 x2 x3 ...) and produces RTL as if
+   (thing x1 (thing x2 (thing x3 ...)))  had been written.
+   When called, FORM is (thing x1 x2), and the file position
+   is just past the leading parenthesis of x3.  Only works
+   for THINGs which are dyadic expressions, e.g. AND, IOR.  */
+static rtx
+read_rtx_variadic (FILE *infile, struct map_value **mode_maps, rtx form)
+{
+  char c = '(';
+  rtx p = form, q;
+
+  do
+    {
+      ungetc (c, infile);
+
+      q = rtx_alloc (GET_CODE (p));
+      PUT_MODE (q, GET_MODE (p));
+
+      XEXP (q, 0) = XEXP (p, 1);
+      XEXP (q, 1) = read_rtx_1 (infile, mode_maps);
+      
+      XEXP (p, 1) = q;
+      p = q;
+      c = read_skip_spaces (infile);
+    }
+  while (c == '(');
+
+  if (c != ')')
+    fatal_expected_char (infile, ')', c);
+
+  return form;
 }

@@ -17,8 +17,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; OP is the current operation.
 ;; MODE is the current operation mode.
@@ -75,30 +75,19 @@
        (and (match_test "mode == Pmode")
 	    (match_test "!legitimate_la_operand_p (op)"))))
 
-;; Return true if OP is a valid shift count operand.
+;; Return true if OP is a valid operand as shift count or setmem.
 
-(define_predicate "shift_count_operand"
+(define_predicate "shift_count_or_setmem_operand"
   (match_code "reg, subreg, plus, const_int")
 {
   HOST_WIDE_INT offset = 0;
 
-  /* We can have an integer constant, an address register,
-     or a sum of the two.  Note that reload already checks
-     that any register present is an address register, so
-     we just check for any register here.  */
-  if (GET_CODE (op) == CONST_INT)
-    {
-      offset = INTVAL (op);
-      op = NULL_RTX;
-    }
-  if (op && GET_CODE (op) == PLUS && GET_CODE (XEXP (op, 1)) == CONST_INT)
-    {
-      offset = INTVAL (XEXP (op, 1));
-      op = XEXP (op, 0);
-    }
-  while (op && GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-  if (op && GET_CODE (op) != REG)
+  /* Extract base register and offset.  */
+  if (!s390_decompose_shift_count (op, &base, &offset))
+    return false;
+
+  if (op && REGNO (op) < FIRST_PSEUDO_REGISTER
+      && !GENERAL_REGNO_P (REGNO (op)))
     return false;
 
   /* Unfortunately we have to reject constants that are invalid

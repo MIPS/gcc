@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -34,18 +34,24 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 
-extern void count_4_l8 (gfc_array_i4 *, gfc_array_l8 *, index_type *);
+#if defined (HAVE_GFC_LOGICAL_8) && defined (HAVE_GFC_INTEGER_4)
+
+
+extern void count_4_l8 (gfc_array_i4 * const restrict, 
+	gfc_array_l8 * const restrict, const index_type * const restrict);
 export_proto(count_4_l8);
 
 void
-count_4_l8 (gfc_array_i4 *retarray, gfc_array_l8 *array, index_type *pdim)
+count_4_l8 (gfc_array_i4 * const restrict retarray, 
+	gfc_array_l8 * const restrict array, 
+	const index_type * const restrict pdim)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type sstride[GFC_MAX_DIMENSIONS];
   index_type dstride[GFC_MAX_DIMENSIONS];
-  GFC_LOGICAL_8 *base;
-  GFC_INTEGER_4 *dest;
+  const GFC_LOGICAL_8 * restrict base;
+  GFC_INTEGER_4 * restrict dest;
   index_type rank;
   index_type n;
   index_type len;
@@ -92,7 +98,7 @@ count_4_l8 (gfc_array_i4 *retarray, gfc_array_l8 *array, index_type *pdim)
 	 = internal_malloc_size (sizeof (GFC_INTEGER_4)
 		 		 * retarray->dim[rank-1].stride
 				 * extent[rank-1]);
-      retarray->base = 0;
+      retarray->offset = 0;
       retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
     }
   else
@@ -117,7 +123,7 @@ count_4_l8 (gfc_array_i4 *retarray, gfc_array_l8 *array, index_type *pdim)
 
   while (base)
     {
-      GFC_LOGICAL_8 *src;
+      const GFC_LOGICAL_8 * restrict src;
       GFC_INTEGER_4 result;
       src = base;
       {
@@ -167,3 +173,4 @@ count_4_l8 (gfc_array_i4 *retarray, gfc_array_l8 *array, index_type *pdim)
     }
 }
 
+#endif

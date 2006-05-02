@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Generic garbage collection (GC) functions and data, not specific to
    any particular GC implementation.  */
@@ -366,7 +366,7 @@ compare_ptr_data (const void *p1_p, const void *p2_p)
 
 /* Callbacks for note_ptr_fn.  */
 
-void
+static void
 relocate_ptrs (void *ptr_p, void *state_p)
 {
   void **ptr = (void **)ptr_p;
@@ -468,7 +468,7 @@ gt_pch_save (FILE *f)
       
   ggc_pch_this_base (state.d, mmi.preferred_base);
 
-  state.ptrs = xmalloc (state.count * sizeof (*state.ptrs));
+  state.ptrs = XNEWVEC (struct ptr_data *, state.count);
   state.ptrs_i = 0;
   htab_traverse (saving_htab, call_alloc, &state);
   qsort (state.ptrs, state.count, sizeof (*state.ptrs), compare_ptr_data);
@@ -865,7 +865,7 @@ ggc_record_overhead (size_t allocated, size_t overhead, void *ptr,
 		     const char *name, int line, const char *function)
 {
   struct loc_descriptor *loc = loc_descriptor (name, line, function);
-  struct ptr_hash_entry *p = xmalloc (sizeof (struct ptr_hash_entry));
+  struct ptr_hash_entry *p = XNEW (struct ptr_hash_entry);
   PTR *slot;
 
   p->ptr = ptr;

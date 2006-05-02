@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS()			\
@@ -672,10 +672,10 @@ enum reg_class {
    FP register.  */
 
 #define SECONDARY_INPUT_RELOAD_CLASS(CLASS,MODE,IN) \
-  secondary_reload_class((CLASS), (MODE), (IN), 1)
+  alpha_secondary_reload_class((CLASS), (MODE), (IN), 1)
 
 #define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS,MODE,OUT) \
-  secondary_reload_class((CLASS), (MODE), (OUT), 0)
+  alpha_secondary_reload_class((CLASS), (MODE), (OUT), 0)
 
 /* If we are copying between general and FP registers, we need a memory
    location unless the FIX extension is available.  */
@@ -735,11 +735,11 @@ extern int alpha_memory_latency;
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-/* #define FRAME_GROWS_DOWNWARD */
+/* #define FRAME_GROWS_DOWNWARD 0 */
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -1364,11 +1364,6 @@ do {						\
     }									      \
   }									      \
   while (0)
-
-/* This is how to output an element of a case-vector that is absolute.
-   (Alpha does not use such vectors, but we must define this macro anyway.)  */
-
-#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) gcc_unreachable ()
 
 /* This is how to output an element of a case-vector that is relative.  */
 

@@ -1,4 +1,6 @@
 ;; Predicate definitions for the Blackfin.
+;; Copyright (C) 2005, 2006  Free Software Foundation, Inc.
+;; Contributed by Analog Devices.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -14,8 +16,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; Return nonzero iff OP is one of the integer constants 1 or 2.
 (define_predicate "pos_scale_operand"
@@ -49,6 +51,11 @@
        (and (match_code "const_int")
 	    (match_test "log2constp (INTVAL (op))"))))
 
+;; Return nonzero if OP is a register or an integer constant.
+(define_predicate "reg_or_const_int_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_code "const_int")))
+
 ;; Like register_operand, but make sure that hard regs have a valid mode.
 (define_predicate "valid_reg_operand"
   (match_operand 0 "register_operand")
@@ -59,11 +66,6 @@
     return HARD_REGNO_MODE_OK (REGNO (op), mode);
   return 1;
 })
-
-;; Return nonzero if OP is the CC register.
-(define_predicate "cc_operand"
-  (and (match_code "reg")
-       (match_test "REGNO (op) == REG_CC && GET_MODE (op) == BImode")))
 
 ;; Return nonzero if OP is a register or a 7 bit signed constant.
 (define_predicate "reg_or_7bit_operand"
@@ -101,6 +103,10 @@
   (ior (match_code "const_int,const_double")
        (match_operand 0 "symbolic_operand")))
 
+;; Returns 1 if OP is a SYMBOL_REF.
+(define_predicate "symbol_ref_operand"
+  (match_code "symbol_ref"))
+
 ;; True for any non-virtual or eliminable register.  Used in places where
 ;; instantiation of such a register may cause the pattern to not be recognized.
 (define_predicate "register_no_elim_operand"
@@ -113,14 +119,6 @@
 	   || (REGNO (op) >= FIRST_PSEUDO_REGISTER
 	       && REGNO (op) <= LAST_VIRTUAL_REGISTER));
 })
-
-;; Test for a valid operand for a call instruction.  Don't allow the
-;; arg pointer register or virtual regs since they may decay into
-;; reg + const, which the patterns can't handle.
-;; We only allow SYMBOL_REF if !flag_pic.
-(define_predicate "call_insn_operand"
-  (ior (and (match_test "!flag_pic") (match_code "symbol_ref"))
-       (match_operand 0 "register_no_elim_operand")))
 
 ;; Test for an operator valid in a conditional branch
 (define_predicate "bfin_cbranch_operator"

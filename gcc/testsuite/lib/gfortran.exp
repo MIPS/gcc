@@ -1,18 +1,18 @@
-# Copyright (C) 2003, 2004 Free Software Foundation, Inc.
+# Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # This file is just 'sed -e 's/77/fortran/g' \
 #			 -e 's/f2c/gfortran' g77.exp > gfortran.exp'
@@ -76,16 +76,23 @@ proc gfortran_link_flags { paths } {
     global srcdir
     global ld_library_path
     global GFORTRAN_UNDER_TEST
+    global shlib_ext
 
     set gccpath ${paths}
     set libio_dir ""
     set flags ""
     set ld_library_path "."
+    set shlib_ext [get_shlib_extension]
+    verbose "shared lib extension: $shlib_ext"
 
     if { $gccpath != "" } {
       if [file exists "${gccpath}/libgfortran/.libs/libgfortran.a"] {
           append flags "-L${gccpath}/libgfortran/.libs "
           append ld_library_path ":${gccpath}/libgfortran/.libs"
+      }
+      if [file exists "${gccpath}/libgfortran/.libs/libgfortran.${shlib_ext}"] {
+	  append flags "-L${gccpath}/libgfortran/.libs "
+	  append ld_library_path ":${gccpath}/libgfortran/.libs"
       }
       if [file exists "${gccpath}/libgfortran/libgforbegin.a"] {
           append flags "-L${gccpath}/libgfortran "
@@ -130,7 +137,7 @@ proc gfortran_init { args } {
 	    if { [is_remote host] || ! [info exists TESTING_IN_BUILD_TREE] } {
 		set GFORTRAN_UNDER_TEST [transform gfortran]
 	    } else {
-		set GFORTRAN_UNDER_TEST [findfile $base_dir/../gfortran "$base_dir/../gfortran -B$base_dir/../" [findfile $base_dir/gfortran "$base_dir/gfortran -B$base_dir/" [transform gfortran]]]
+		set GFORTRAN_UNDER_TEST [findfile $base_dir/../../gfortran "$base_dir/../../gfortran -B$base_dir/../../" [findfile $base_dir/gfortran "$base_dir/gfortran -B$base_dir/" [transform gfortran]]]
 	    }
 	}
     }
@@ -188,6 +195,6 @@ proc gfortran_target_compile { source dest type options } {
     lappend options "compiler=$GFORTRAN_UNDER_TEST"
 
     set options [concat "$ALWAYS_GFORTRANFLAGS" $options]
-
+    set options [dg-additional-files-options $options $source]
     return [target_compile $source $dest $type $options]
 }

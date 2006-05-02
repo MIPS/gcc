@@ -1,6 +1,6 @@
 #
 # Makefile
-#   Copyright (C) 1990, 91-99, 2000, 2001, 2002, 2003, 2004
+#   Copyright (C) 1990, 91-99, 2000, 2001, 2002, 2003, 2004, 2005
 #   Free Software Foundation
 #
 # This file is part of the libiberty library.
@@ -151,7 +151,7 @@ CFILES = alloca.c argv.c asprintf.c atexit.c				\
 	safe-ctype.c setenv.c sigsetmask.c snprintf.c sort.c spaces.c	\
 	 splay-tree.c stpcpy.c stpncpy.c strcasecmp.c strchr.c strdup.c	\
 	 strerror.c strncasecmp.c strncmp.c strrchr.c strsignal.c	\
-	 strstr.c strtod.c strtol.c strtoul.c strndup.c			\
+	 strstr.c strtod.c strtol.c strtoul.c strndup.c	strverscmp.c	\
 	ternary.c tmpnam.c						\
 	unlink-if-ordinary.c						\
 	vasprintf.c vfork.c vfprintf.c vprintf.c vsnprintf.c vsprintf.c	\
@@ -200,7 +200,7 @@ CONFIGURED_OFILES = ./asprintf.o ./atexit.o				\
 	./setenv.o ./sigsetmask.o ./snprintf.o ./stpcpy.o ./stpncpy.o	\
 	 ./strcasecmp.o ./strchr.o ./strdup.o ./strncasecmp.o		\
 	 ./strncmp.o ./strndup.o ./strrchr.o ./strstr.o			\
-	 ./strtod.o ./strtol.o ./strtoul.o				\
+	 ./strtod.o ./strtol.o ./strtoul.o ./strverscmp.o		\
 	./tmpnam.o							\
 	./vasprintf.o ./vfork.o ./vfprintf.o ./vprintf.o ./vsnprintf.o	\
 	 ./vsprintf.o							\
@@ -270,7 +270,7 @@ libiberty.html : $(srcdir)/libiberty.texi $(TEXISRC)
 @MAINT@$(srcdir)/functions.texi : stamp-functions
 @MAINT@	@true
 
-@MAINT@stamp-functions : $(CFILES) $(TEXIFILES) $(srcdir)/gather-docs Makefile
+@MAINT@stamp-functions : $(CFILES:%=$(srcdir)/%) $(TEXIFILES:%=$(srcdir)/%) $(srcdir)/gather-docs Makefile
 @MAINT@@HAVE_PERL@	$(PERL) $(srcdir)/gather-docs $(srcdir) $(srcdir)/functions.texi $(CFILES) $(TEXIFILES)
 @MAINT@	echo stamp > stamp-functions
 
@@ -401,7 +401,7 @@ config.h: stamp-h ; @true
 stamp-h: $(srcdir)/config.in config.status Makefile
 	CONFIG_FILES= CONFIG_HEADERS=config.h:$(srcdir)/config.in $(SHELL) ./config.status
 
-config.status: $(srcdir)/configure $(srcdir)/config.table
+config.status: $(srcdir)/configure
 	$(SHELL) ./config.status --recheck
 
 # Depending on config.h makes sure that config.status has been re-run
@@ -441,7 +441,8 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/alloca.c $(OUTPUT_OPTION)
 
-./argv.o: $(srcdir)/argv.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h
+./argv.o: $(srcdir)/argv.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
+	$(INCDIR)/safe-ctype.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/argv.c -o pic/$@; \
 	else true; fi
@@ -601,7 +602,7 @@ $(CONFIGURED_OFILES): stamp-picdir
 	else true; fi
 	$(COMPILE.c) $(srcdir)/getcwd.c $(OUTPUT_OPTION)
 
-./getopt.o: $(srcdir)/getopt.c config.h $(INCDIR)/getopt.h
+./getopt.o: $(srcdir)/getopt.c config.h $(INCDIR)/ansidecl.h $(INCDIR)/getopt.h
 	if [ x"$(PICFLAG)" != x ]; then \
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/getopt.c -o pic/$@; \
 	else true; fi
@@ -995,6 +996,13 @@ $(CONFIGURED_OFILES): stamp-picdir
 	  $(COMPILE.c) $(PICFLAG) $(srcdir)/strtoul.c -o pic/$@; \
 	else true; fi
 	$(COMPILE.c) $(srcdir)/strtoul.c $(OUTPUT_OPTION)
+
+./strverscmp.o: $(srcdir)/strverscmp.c $(INCDIR)/ansidecl.h $(INCDIR)/libiberty.h \
+	$(INCDIR)/safe-ctype.h
+	if [ x"$(PICFLAG)" != x ]; then \
+	  $(COMPILE.c) $(PICFLAG) $(srcdir)/strverscmp.c -o pic/$@; \
+	else true; fi
+	$(COMPILE.c) $(srcdir)/strverscmp.c $(OUTPUT_OPTION)
 
 ./ternary.o: $(srcdir)/ternary.c config.h $(INCDIR)/ansidecl.h \
 	$(INCDIR)/libiberty.h $(INCDIR)/ternary.h

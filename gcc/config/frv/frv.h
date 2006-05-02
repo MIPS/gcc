@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #ifndef __FRV_H__
 #define __FRV_H__
@@ -187,7 +187,7 @@
 #undef	LINK_SPEC
 #define LINK_SPEC "\
 %{h*} %{v:-V} \
-%{b} %{Wl,*:%*} \
+%{b} \
 %{mfdpic:-melf32frvfd -z text} \
 %{static:-dn -Bstatic} \
 %{shared:-Bdynamic} \
@@ -1445,9 +1445,9 @@ typedef struct frv_stack {
    to a smaller address.  */
 #define STACK_GROWS_DOWNWARD 1
 
-/* Define this macro if the addresses of local variable slots are at negative
-   offsets from the frame pointer.  */
-#define FRAME_GROWS_DOWNWARD
+/* Define this macro to nonzero if the addresses of local variable slots
+   are at negative offsets from the frame pointer.  */
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset from the frame pointer to the first local variable slot to be
    allocated.
@@ -1491,13 +1491,6 @@ typedef struct frv_stack {
    zero, but may be `NULL_RTX' if there is not way to determine the return
    address of other frames.  */
 #define RETURN_ADDR_RTX(COUNT, FRAMEADDR) frv_return_addr_rtx (COUNT, FRAMEADDR)
-
-/* This function contains machine specific function data.  */
-struct machine_function GTY(())
-{
-  /* True if we have created an rtx that relies on the stack frame.  */
-  int frame_needed;
-};
 
 #define RETURN_POINTER_REGNUM LR_REGNO
 
@@ -1815,7 +1808,7 @@ struct machine_function GTY(())
 
 /* How Large Values are Returned.  */
 
-/* The number of the register that is used to to pass the structure
+/* The number of the register that is used to pass the structure
    value address.  */
 #define FRV_STRUCT_VALUE_REGNUM (GPR_FIRST + 3)
 
@@ -2157,19 +2150,8 @@ do {							\
 #define HAVE_PRE_MODIFY_REG 1
 
 
-/* Returns a mode from class `MODE_CC' to be used when comparison operation
-   code OP is applied to rtx X and Y.  For example, on the SPARC,
-   `SELECT_CC_MODE' is defined as (see *note Jump Patterns::.  for a
-   description of the reason for this definition)
+/* We define extra CC modes in frv-modes.def so we need a selector.  */
 
-        #define SELECT_CC_MODE(OP,X,Y) \
-          (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT          \
-           ? ((OP == EQ || OP == NE) ? CCFPmode : CCFPEmode)    \
-           : ((GET_CODE (X) == PLUS || GET_CODE (X) == MINUS    \
-               || GET_CODE (X) == NEG) \
-              ? CC_NOOVmode : CCmode))
-
-   You need not define this macro if `EXTRA_CC_MODES' is not defined.  */
 #define SELECT_CC_MODE frv_select_cc_mode
 
 /* A C expression whose value is one if it is always safe to reverse a
@@ -2290,43 +2272,6 @@ do {							\
    program so they can be changed program startup time if the program is loaded
    at a different address than linked for.  */
 #define FIXUP_SECTION_ASM_OP	"\t.section .rofixup,\"a\""
-
-/* A list of names for sections other than the standard two, which are
-   `in_text' and `in_data'.  You need not define this macro
-   on a system with no other sections (that GCC needs to use).  */
-#undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_const, in_fixup
-
-/* One or more functions to be defined in "varasm.c".  These
-   functions should do jobs analogous to those of `text_section' and
-   `data_section', for your additional sections.  Do not define this
-   macro if you do not define `EXTRA_SECTIONS'.  */
-#undef  EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS                                         \
-	SDATA_SECTION_FUNCTION						\
-	FIXUP_SECTION_FUNCTION
-
-#define SDATA_SECTION_FUNCTION						\
-void									\
-sdata_section (void)							\
-{									\
-  if (in_section != in_sdata)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", SDATA_SECTION_ASM_OP);		\
-      in_section = in_sdata;						\
-    }									\
-}
-
-#define FIXUP_SECTION_FUNCTION						\
-void									\
-fixup_section (void)							\
-{									\
-  if (in_section != in_fixup)						\
-    {									\
-      fprintf (asm_out_file, "%s\n", FIXUP_SECTION_ASM_OP);		\
-      in_section = in_fixup;						\
-    }									\
-}
 
 /* Position Independent Code.  */
 
@@ -2372,13 +2317,6 @@ do {									\
   assemble_name (STREAM, LABEL);					\
 } while (0)
 
-#if HAVE_AS_TLS
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  frv_output_dwarf_dtprel ((FILE), (SIZE), (X))
-#endif
-
 /* Whether to emit the gas specific dwarf2 line number support.  */
 #define DWARF2_ASM_LINE_DEBUG_INFO (TARGET_DEBUG_LOC)
 
@@ -2419,9 +2357,9 @@ extern int size_directive_output;
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(STREAM, DECL, NAME, SIZE, ALIGN)	\
 do {                                                                   	\
   if ((SIZE) > 0 && (SIZE) <= g_switch_value)				\
-    named_section (0, ".sbss", 0);                                    	\
+    switch_to_section (get_named_section (NULL, ".sbss", 0));           \
   else                                                                 	\
-    bss_section ();                                                  	\
+    switch_to_section (bss_section);                                  	\
   ASM_OUTPUT_ALIGN (STREAM, floor_log2 ((ALIGN) / BITS_PER_UNIT));     	\
   ASM_DECLARE_OBJECT_NAME (STREAM, NAME, DECL);                        	\
   ASM_OUTPUT_SKIP (STREAM, (SIZE) ? (SIZE) : 1);                       	\
@@ -2677,8 +2615,8 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 #define ASM_OUTPUT_CASE_LABEL(STREAM, PREFIX, NUM, TABLE)               \
 do {                                                                    \
   if (flag_pic)                                                         \
-    function_section (current_function_decl);                           \
-  (*targetm.asm_out.internal_label) (STREAM, PREFIX, NUM);                      \
+    switch_to_section (function_section (current_function_decl));       \
+  (*targetm.asm_out.internal_label) (STREAM, PREFIX, NUM);              \
 } while (0)
 
 
@@ -3003,7 +2941,15 @@ enum frv_builtins
   FRV_BUILTIN_IACCreadl,
   FRV_BUILTIN_IACCsetll,
   FRV_BUILTIN_IACCsetl,
-  FRV_BUILTIN_SCAN
+  FRV_BUILTIN_SCAN,
+  FRV_BUILTIN_READ8,
+  FRV_BUILTIN_READ16,
+  FRV_BUILTIN_READ32,
+  FRV_BUILTIN_READ64,
+  FRV_BUILTIN_WRITE8,
+  FRV_BUILTIN_WRITE16,
+  FRV_BUILTIN_WRITE32,
+  FRV_BUILTIN_WRITE64
 };
 #define FRV_BUILTIN_FIRST_NONMEDIA FRV_BUILTIN_SMUL
 

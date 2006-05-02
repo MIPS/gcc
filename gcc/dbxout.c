@@ -1,6 +1,7 @@
 /* Output dbx-format symbol table information from GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* Output dbx-format symbol table data.
@@ -89,6 +90,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "obstack.h"
+#include "expr.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -268,7 +270,7 @@ static int pending_bincls = 0;
 static const char *base_input_file;
 
 #ifdef DEBUG_SYMS_TEXT
-#define FORCE_TEXT current_function_section (current_function_decl);
+#define FORCE_TEXT switch_to_section (current_function_section ())
 #else
 #define FORCE_TEXT
 #endif
@@ -856,7 +858,7 @@ dbxout_finish_complex_stabs (tree sym, STAB_CODE_TYPE code,
       obstack_1grow (&stabstr_ob, '\0');
 
       len = obstack_object_size (&stabstr_ob);
-      chunk = str = obstack_finish (&stabstr_ob);
+      chunk = str = XOBFINISH (&stabstr_ob, char *);
 
       /* Within the buffer are a sequence of NUL-separated strings,
 	 each of which is to be written out as a separate stab
@@ -889,7 +891,7 @@ dbxout_finish_complex_stabs (tree sym, STAB_CODE_TYPE code,
 	 comma than to do a two-character fputs.  */
       obstack_grow (&stabstr_ob, "\",", 2);
       len = obstack_object_size (&stabstr_ob);
-      str = obstack_finish (&stabstr_ob);
+      str = XOBFINISH (&stabstr_ob, char *);
       
       fwrite (str, 1, len, asm_out_file);
       DBX_FINISH_STABS (sym, code, line, addr, label, number);
@@ -906,7 +908,7 @@ dbxout_function_end (tree decl)
 
   /* The Lscope label must be emitted even if we aren't doing anything
      else; dbxout_block needs it.  */
-  function_section (current_function_decl);
+  switch_to_section (function_section (current_function_decl));
   
   /* Convert Lscope into the appropriate format for local labels in case
      the system doesn't insert underscores in front of user generated
@@ -1032,7 +1034,7 @@ dbxout_init (const char *input_file_name)
 
   if (used_ltext_label_name)
     {
-      text_section ();
+      switch_to_section (text_section);
       targetm.asm_out.internal_label (asm_out_file, "Ltext", 0);
     }
 
@@ -1048,7 +1050,7 @@ dbxout_init (const char *input_file_name)
   next_type_number = 1;
 
 #ifdef DBX_USE_BINCL
-  current_file = xmalloc (sizeof *current_file);
+  current_file = XNEW (struct dbx_file);
   current_file->next = NULL;
   current_file->file_number = 0;
   current_file->next_type_number = 1;
@@ -1157,7 +1159,7 @@ dbxout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
 			  const char *filename ATTRIBUTE_UNUSED)
 {
 #ifdef DBX_USE_BINCL
-  struct dbx_file *n = xmalloc (sizeof *n);
+  struct dbx_file *n = XNEW (struct dbx_file);
 
   n->next = current_file;
   n->next_type_number = 1;
@@ -1231,7 +1233,7 @@ dbxout_source_file (const char *filename)
     {
       /* Don't change section amid function.  */
       if (current_function_decl == NULL_TREE)
-	text_section ();
+	switch_to_section (text_section);
 
       dbxout_begin_simple_stabs (filename, N_SOL);
       dbxout_stab_value_internal_label ("Ltext", &source_label_number);
@@ -1319,9 +1321,7 @@ dbxout_function_decl (tree decl)
 static void
 dbxout_global_decl (tree decl)
 {
-  if (TREE_CODE (decl) == VAR_DECL
-      && ! DECL_EXTERNAL (decl)
-      && DECL_RTL_SET_P (decl))	/* Not necessary?  */
+  if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
     {
       int saved_tree_used = TREE_USED (decl);
       TREE_USED (decl) = 1;
@@ -1348,7 +1348,7 @@ dbxout_finish (const char *filename ATTRIBUTE_UNUSED)
   DBX_OUTPUT_MAIN_SOURCE_FILE_END (asm_out_file, filename);
 #elif defined DBX_OUTPUT_NULL_N_SO_AT_MAIN_SOURCE_FILE_END
  {
-   text_section ();
+   switch_to_section (text_section);
    dbxout_begin_empty_stabs (N_SO);
    dbxout_stab_value_internal_label ("Letext", 0);
  }
@@ -1912,23 +1912,6 @@ dbxout_type (tree type, int full)
       stabstr_S (";0;");
       break;
 
-    case CHAR_TYPE:
-      if (use_gnu_debug_info_extensions)
-	{
-	  stabstr_S ("@s");
-	  stabstr_D (BITS_PER_UNIT * int_size_in_bytes (type));
-	  stabstr_S (";-20;");
-	}
-      else
-	{
-	  /* Output the type `char' as a subrange of itself.
-	     That is what pcc seems to do.  */
-	  stabstr_C ('r');
-	  dbxout_type_index (char_type_node);
-	  stabstr_S (TYPE_UNSIGNED (type) ? ";0;255;" : ";0;127;");
-	}
-      break;
-
     case BOOLEAN_TYPE:
       if (use_gnu_debug_info_extensions)
 	{
@@ -2081,7 +2064,8 @@ dbxout_type (tree type, int full)
 				   access == access_protected_node
 				   ? '1' :'0');
 		    if (BINFO_VIRTUAL_P (child)
-			&& strcmp (lang_hooks.name, "GNU C++") == 0)
+			&& (strcmp (lang_hooks.name, "GNU C++") == 0
+			    || strcmp (lang_hooks.name, "GNU Objective-C++") == 0))
 		      /* For a virtual base, print the (negative)
 		     	 offset within the vtable where we must look
 		     	 to find the necessary adjustment.  */
@@ -2324,6 +2308,63 @@ dbxout_class_name_qualifiers (tree decl)
     }
 }
 
+/* This is a specialized subset of expand_expr for use by dbxout_symbol in
+   evaluating DECL_VALUE_EXPR.  In particular, we stop if we find decls that
+   havn't been expanded, or if the expression is getting so complex we won't
+   be able to represent it in stabs anyway.  Returns NULL on failure.  */
+
+static rtx
+dbxout_expand_expr (tree expr)
+{
+  switch (TREE_CODE (expr))
+    {
+    case VAR_DECL:
+    case PARM_DECL:
+      if (DECL_HAS_VALUE_EXPR_P (expr))
+	return dbxout_expand_expr (DECL_VALUE_EXPR (expr));
+      /* FALLTHRU */
+
+    case CONST_DECL:
+    case RESULT_DECL:
+      return DECL_RTL_IF_SET (expr);
+
+    case INTEGER_CST:
+      return expand_expr (expr, NULL_RTX, VOIDmode, EXPAND_INITIALIZER);
+
+    case COMPONENT_REF:
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+    case BIT_FIELD_REF:
+      {
+	enum machine_mode mode;
+	HOST_WIDE_INT bitsize, bitpos;
+	tree offset, tem;
+	int volatilep = 0, unsignedp = 0;
+	rtx x;
+
+	tem = get_inner_reference (expr, &bitsize, &bitpos, &offset,
+				   &mode, &unsignedp, &volatilep, true);
+
+	x = dbxout_expand_expr (tem);
+	if (x == NULL || !MEM_P (x))
+	  return NULL;
+	if (offset != NULL)
+	  {
+	    if (!host_integerp (offset, 0))
+	      return NULL;
+	    x = adjust_address_nv (x, mode, tree_low_cst (offset, 0));
+	  }
+	if (bitpos != 0)
+	  x = adjust_address_nv (x, mode, bitpos / BITS_PER_UNIT);
+
+	return x;
+      }
+
+    default:
+      return NULL;
+    }
+}
+
 /* Output a .stabs for the symbol defined by DECL,
    which must be a ..._DECL node in the normal namespace.
    It may be a CONST_DECL, a FUNCTION_DECL, a PARM_DECL or a VAR_DECL.
@@ -2336,6 +2377,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
   tree type = TREE_TYPE (decl);
   tree context = NULL_TREE;
   int result = 0;
+  rtx decl_rtl;
 
   /* "Intercept" dbxout_symbol() calls like we do all debug_hooks.  */
   ++debug_nesting;
@@ -2420,7 +2462,8 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       break;
 
     case FUNCTION_DECL:
-      if (DECL_RTL (decl) == 0)
+      decl_rtl = DECL_RTL_IF_SET (decl);
+      if (!decl_rtl)
 	DBXOUT_DECR_NESTING_AND_RETURN (0);
       if (DECL_EXTERNAL (decl))
 	break;
@@ -2431,8 +2474,8 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       /* Don't mention an inline instance of a nested function.  */
       if (context && DECL_FROM_INLINE (decl))
 	break;
-      if (!MEM_P (DECL_RTL (decl))
-	  || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
+      if (!MEM_P (decl_rtl)
+	  || GET_CODE (XEXP (decl_rtl, 0)) != SYMBOL_REF)
 	break;
 
       dbxout_begin_complex_stabs ();
@@ -2456,8 +2499,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	  stabstr_I (DECL_NAME (context));
 	}
 
-      dbxout_finish_complex_stabs (decl, N_FUN, XEXP (DECL_RTL (decl), 0),
-				   0, 0);
+      dbxout_finish_complex_stabs (decl, N_FUN, XEXP (decl_rtl, 0), 0, 0);
       break;
 
     case TYPE_DECL:
@@ -2607,10 +2649,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
       gcc_unreachable ();
 
     case RESULT_DECL:
-      /* Named return value, treat like a VAR_DECL.  */
     case VAR_DECL:
-      if (! DECL_RTL_SET_P (decl))
-	DBXOUT_DECR_NESTING_AND_RETURN (0);
       /* Don't mention a variable that is external.
 	 Let the file that defines it describe it.  */
       if (DECL_EXTERNAL (decl))
@@ -2625,7 +2664,8 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	  && host_integerp (DECL_INITIAL (decl), 0)
 	  && ! TREE_ASM_WRITTEN (decl)
 	  && (DECL_CONTEXT (decl) == NULL_TREE
-	      || TREE_CODE (DECL_CONTEXT (decl)) == BLOCK)
+	      || TREE_CODE (DECL_CONTEXT (decl)) == BLOCK
+	      || TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
 	  && TREE_PUBLIC (decl) == 0)
 	{
 	  /* The sun4 assembler does not grok this.  */
@@ -2636,8 +2676,8 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	      HOST_WIDE_INT ival = TREE_INT_CST_LOW (DECL_INITIAL (decl));
 
 	      dbxout_begin_complex_stabs ();
-	      stabstr_I (DECL_NAME (decl));
-	      stabstr_S (":c=i");
+	      dbxout_symbol_name (decl, NULL, 'c');
+	      stabstr_S ("=i");
 	      stabstr_D (ival);
 	      dbxout_finish_complex_stabs (0, N_LSYM, 0, 0, 0);
 	      DBXOUT_DECR_NESTING;
@@ -2648,13 +2688,17 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	}
       /* else it is something we handle like a normal variable.  */
 
-      SET_DECL_RTL (decl, eliminate_regs (DECL_RTL (decl), 0, NULL_RTX));
+      decl_rtl = dbxout_expand_expr (decl);
+      if (!decl_rtl)
+	DBXOUT_DECR_NESTING_AND_RETURN (0);
+
+      decl_rtl = eliminate_regs (decl_rtl, 0, NULL_RTX);
 #ifdef LEAF_REG_REMAP
       if (current_function_uses_only_leaf_regs)
-	leaf_renumber_regs_insn (DECL_RTL (decl));
+	leaf_renumber_regs_insn (decl_rtl);
 #endif
 
-      result = dbxout_symbol_location (decl, type, 0, DECL_RTL (decl));
+      result = dbxout_symbol_location (decl, type, 0, decl_rtl);
       break;
 
     default:
@@ -2778,7 +2822,7 @@ dbxout_symbol_location (tree decl, tree type, const char *suffix, rtx home)
 	    {
 	      /* Ultrix `as' seems to need this.  */
 #ifdef DBX_STATIC_STAB_DATA_SECTION
-	      data_section ();
+	      switch_to_section (data_section);
 #endif
 	      code = N_STSYM;
 	    }

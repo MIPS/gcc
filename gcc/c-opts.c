@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -70,11 +70,17 @@ static bool deps_seen;
 /* If -v seen.  */
 static bool verbose;
 
+/* If -lang-fortran seen.  */
+static bool lang_fortran = false;
+
 /* Dependency output file.  */
 static const char *deps_file;
 
 /* The prefix given by -iprefix, if any.  */
 static const char *iprefix;
+
+/* The multilib directory given by -imultilib, if any.  */
+static const char *imultilib;
 
 /* The system root, if any.  Overridden by -isysroot.  */
 static const char *sysroot = TARGET_SYSTEM_ROOT;
@@ -219,9 +225,9 @@ c_common_init_options (unsigned int argc, const char **argv)
      before passing on command-line options to cpplib.  */
   cpp_opts->warn_dollars = 0;
 
-  flag_const_strings = c_dialect_cxx ();
   flag_exceptions = c_dialect_cxx ();
   warn_pointer_arith = c_dialect_cxx ();
+  warn_write_strings = c_dialect_cxx();
 
   deferred_opts = XNEWVEC (struct deferred_opt, argc);
 
@@ -237,6 +243,15 @@ c_common_init_options (unsigned int argc, const char **argv)
 	    result |= CL_C | CL_ObjC | CL_CXX | CL_ObjCXX;
 	    break;
 	  }
+
+#ifdef CL_Fortran
+      for (i = 1; i < argc; i++)
+	if (! strcmp (argv[i], "-lang-fortran"))
+	{
+	    result |= CL_Fortran;
+	    break;
+	}
+#endif
     }
 
   return result;
@@ -258,6 +273,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     default:
       if (cl_options[code].flags & (CL_C | CL_CXX | CL_ObjC | CL_ObjCXX))
 	break;
+#ifdef CL_Fortran
+      if (lang_fortran && (cl_options[code].flags & (CL_Fortran)))
+	break;
+#endif
       result = 0;
       break;
 
@@ -370,6 +389,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	warn_sign_compare = value;
       warn_switch = value;
       warn_strict_aliasing = value;
+      warn_string_literal_comparison = value;
+      warn_always_true = value;
 
       /* Only warn about unknown pragmas that are not in system
 	 headers.  */
@@ -388,7 +409,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       else
 	{
 	  /* C++-specific warnings.  */
-	  warn_nonvdtor = value;
 	  warn_reorder = value;
 	  warn_nontemplate_friend = value;
 	}
@@ -397,6 +417,9 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       cpp_opts->warn_comments = value;
       cpp_opts->warn_num_sign_change = value;
       cpp_opts->warn_multichar = value;	/* Was C++ only.  */
+
+      if (warn_pointer_sign == -1)
+	warn_pointer_sign = 1;
       break;
 
     case OPT_Wcomment:
@@ -406,10 +429,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_Wdeprecated:
       cpp_opts->warn_deprecated = value;
-      break;
-
-    case OPT_Wdiv_by_zero:
-      warn_div_by_zero = value;
       break;
 
     case OPT_Wendif_labels:
@@ -512,10 +531,13 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_Wwrite_strings:
-      if (!c_dialect_cxx ())
-	flag_const_strings = value;
-      else
-	warn_write_strings = value;
+      warn_write_strings = value;
+      break;
+
+    case OPT_Weffc__:
+      warn_ecpp = value;
+      if (value)
+        warn_nonvdtor = true;
       break;
 
     case OPT_ansi:
@@ -576,10 +598,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 	disable_builtin_function (arg);
       break;
 
-    case OPT_fdisable_typechecking_for_spec:
-      disable_typechecking_for_spec_flag = value;
-      break;
-
     case OPT_fdollars_in_identifiers:
       cpp_opts->dollars_in_ident = value;
       break;
@@ -631,10 +649,6 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_conserve_space = value;
       break;
 
-    case OPT_fconst_strings:
-      flag_const_strings = value;
-      break;
-
     case OPT_fconstant_string_class_:
       constant_string_class_name = arg;
       break;
@@ -651,11 +665,8 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_enforce_eh_specs = value;
       break;
 
-    case OPT_ffixed_form:
-    case OPT_ffixed_line_length_:
-      /* Fortran front end options ignored when preprocessing only.  */
-      if (!flag_preprocess_only)
-        result = 0;
+    case OPT_fextended_identifiers:
+      cpp_opts->extended_identifiers = value;
       break;
 
     case OPT_ffor_scope:
@@ -775,6 +786,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       flag_use_cxa_atexit = value;
       break;
       
+    case OPT_fuse_cxa_get_exception_ptr:
+      flag_use_cxa_get_exception_ptr = value;
+      break;
+      
     case OPT_fvisibility_inlines_hidden:
       visibility_options.inlines_hidden = value;
       break;
@@ -802,6 +817,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_imacros:
     case OPT_include:
       defer_opt (code, arg);
+      break;
+
+    case OPT_imultilib:
+      imultilib = arg;
       break;
 
     case OPT_iprefix:
@@ -833,6 +852,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       cpp_opts->dollars_in_ident = false;
       break;
 
+    case OPT_lang_fortran:
+      lang_fortran = true;
+      break;
+
     case OPT_lang_objc:
       cpp_opts->objc = 1;
       break;
@@ -861,6 +884,10 @@ c_common_handle_option (size_t scode, const char *arg, int value)
     case OPT_pedantic:
       cpp_opts->pedantic = 1;
       cpp_opts->warn_endif_labels = 1;
+      if (warn_pointer_sign == -1)
+	warn_pointer_sign = 1;
+      if (warn_overlength_strings == -1)
+	warn_overlength_strings = 1;
       break;
 
     case OPT_print_objc_runtime_info:
@@ -952,8 +979,14 @@ c_common_post_options (const char **pfilename)
 
   sanitize_cpp_opts ();
 
-  register_include_chains (parse_in, sysroot, iprefix,
+  register_include_chains (parse_in, sysroot, iprefix, imultilib,
 			   std_inc, std_cxx_inc && c_dialect_cxx (), verbose);
+
+#ifdef C_COMMON_OVERRIDE_OPTIONS
+  /* Some machines may reject certain combinations of C
+     language-specific options.  */
+  C_COMMON_OVERRIDE_OPTIONS;
+#endif
 
   flag_inline_trees = 1;
 
@@ -981,6 +1014,17 @@ c_common_post_options (const char **pfilename)
   if (warn_missing_field_initializers == -1)
     warn_missing_field_initializers = extra_warnings;
 
+  /* -Wpointer_sign is disabled by default, but it is enabled if any
+     of -Wall or -pedantic are given.  */
+  if (warn_pointer_sign == -1)
+    warn_pointer_sign = 0;
+
+  /* -Woverlength-strings is off by default, but is enabled by -pedantic.
+     It is never enabled in C++, as the minimum limit is not normative
+     in that standard.  */
+  if (warn_overlength_strings == -1 || c_dialect_cxx ())
+    warn_overlength_strings = 0;
+
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */
   if (!warn_format)
@@ -995,8 +1039,6 @@ c_common_post_options (const char **pfilename)
 	       "-Wformat-nonliteral ignored without -Wformat");
       warning (OPT_Wformat_security,
 	       "-Wformat-security ignored without -Wformat");
-      warning (OPT_Wmissing_format_attribute,
-	       "-Wmissing-format-attribute ignored without -Wformat");
     }
 
   /* C99 requires special handling of complex multiplication and division;

@@ -16,20 +16,17 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* Function prototypes that cannot exist in v850.h due to dependency
    complications.  */
 #define Mmode enum machine_mode
 
-extern void   sbss_section (void);
-extern void   sdata_section (void);
 extern void   m32r_init (void);
 extern void   m32r_init_expanders (void);
 extern unsigned m32r_compute_frame_size (int);
 extern void   m32r_expand_prologue (void);
-extern void   m32r_finalize_pic (void);
 extern int    direct_return (void);
 extern void   m32r_load_pic_register (void);
 

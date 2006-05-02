@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Note:
    A first 68HC11 port was made by Otto Lind (otto@coactive.com)
@@ -822,7 +822,7 @@ m68hc11_reload_operands (rtx operands[])
 	}
 
       /* If the offset is out of range, we have to compute the address
-         with a separate add instruction.  We try to do with with an 8-bit
+         with a separate add instruction.  We try to do this with an 8-bit
          add on the A register.  This is possible only if the lowest part
          of the offset (i.e., big_offset % 256) is a valid constant offset
          with respect to the mode.  If it's not, we have to generate a
@@ -5062,7 +5062,7 @@ m68hc11_reorg (void)
             }
         }
 
-      life_analysis (0, PROP_REG_INFO | PROP_DEATH_NOTES);
+      life_analysis (PROP_REG_INFO | PROP_DEATH_NOTES);
     }
 
   z_replacement_completed = 2;

@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -111,10 +111,10 @@ void dump_graph (FILE *f, struct graph *g)
 static struct graph *
 new_graph (int n_vertices)
 {
-  struct graph *g = xmalloc (sizeof (struct graph));
+  struct graph *g = XNEW (struct graph);
 
   g->n_vertices = n_vertices;
-  g->vertices = xcalloc (n_vertices, sizeof (struct vertex));
+  g->vertices = XCNEWVEC (struct vertex, n_vertices);
 
   return g;
 }
@@ -271,8 +271,8 @@ mark_irreducible_loops (struct loops *loops)
   edge_iterator ei;
   int i, src, dest;
   struct graph *g;
-  int *queue1 = xmalloc ((last_basic_block + loops->num) * sizeof (int));
-  int *queue2 = xmalloc ((last_basic_block + loops->num) * sizeof (int));
+  int *queue1 = XNEWVEC (int, last_basic_block + loops->num);
+  int *queue2 = XNEWVEC (int, last_basic_block + loops->num);
   int nq, depth;
   struct loop *cloop;
 

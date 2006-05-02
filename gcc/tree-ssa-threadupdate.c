@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -131,8 +131,6 @@ struct redirection_data
 /* Main data structure to hold information for duplicates of BB.  */
 static htab_t redirection_data;
 
-bool rediscover_loops_after_threading;
-
 /* Data structure of information to pass to hash table traversal routines.  */
 struct local_info
 {
@@ -146,6 +144,24 @@ struct local_info
   /* TRUE if we thread one or more jumps, FALSE otherwise.  */
   bool jumps_threaded;
 };
+
+/* Passes which use the jump threading code register jump threading
+   opportunities as they are discovered.  We keep the registered
+   jump threading opportunities in this vector as edge pairs
+   (original_edge, target_edge).  */
+DEF_VEC_ALLOC_P(edge,heap);
+static VEC(edge,heap) *threaded_edges;
+
+
+/* Jump threading statistics.  */
+
+struct thread_stats_d
+{
+  unsigned long num_threaded_edges;
+};
+
+struct thread_stats_d thread_stats;
+
 
 /* Remove the last statement in block BB if it is a control statement
    Also remove all outgoing edges except the edge which reaches DEST_BB.
@@ -170,7 +186,7 @@ remove_ctrl_stmt_and_useless_edges (basic_block bb, basic_block dest_bb)
       && (TREE_CODE (bsi_stmt (bsi)) == COND_EXPR
 	  || TREE_CODE (bsi_stmt (bsi)) == GOTO_EXPR
 	  || TREE_CODE (bsi_stmt (bsi)) == SWITCH_EXPR))
-    bsi_remove (&bsi);
+    bsi_remove (&bsi, true);
 
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
     {
@@ -189,7 +205,7 @@ create_block_for_threading (basic_block bb, struct redirection_data *rd)
 {
   /* We can use the generic block duplication code and simply remove
      the stuff we do not need.  */
-  rd->dup_block = duplicate_block (bb, NULL);
+  rd->dup_block = duplicate_block (bb, NULL, NULL);
 
   /* Zero out the profile, since the block is unreachable for now.  */
   rd->dup_block->frequency = 0;
@@ -235,7 +251,7 @@ lookup_redirection_data (edge e, edge incoming_edge, enum insert_option insert)
 
  /* Build a hash table element so we can see if E is already
      in the table.  */
-  elt = xmalloc (sizeof (struct redirection_data));
+  elt = XNEW (struct redirection_data);
   elt->outgoing_edge = e;
   elt->dup_block = NULL;
   elt->do_not_duplicate = false;
@@ -256,7 +272,7 @@ lookup_redirection_data (edge e, edge incoming_edge, enum insert_option insert)
   if (*slot == NULL)
     {
       *slot = (void *)elt;
-      elt->incoming_edges = xmalloc (sizeof (struct el));
+      elt->incoming_edges = XNEW (struct el);
       elt->incoming_edges->e = incoming_edge;
       elt->incoming_edges->next = NULL;
       return elt;
@@ -275,7 +291,7 @@ lookup_redirection_data (edge e, edge incoming_edge, enum insert_option insert)
 	 to the list of incoming edges associated with E.  */
       if (insert)
 	{
-          struct el *el = xmalloc (sizeof (struct el));
+          struct el *el = XNEW (struct el);
 	  el->next = elt->incoming_edges;
 	  el->e = incoming_edge;
 	  elt->incoming_edges = el;
@@ -589,6 +605,8 @@ redirect_edges (void **slot, void *data)
          to clear it will cause all kinds of unpleasant problems later.  */
       e->aux = NULL;
 
+      thread_stats.num_threaded_edges++;
+
       if (rd->dup_block)
 	{
 	  edge e2;
@@ -597,6 +615,9 @@ redirect_edges (void **slot, void *data)
 	    fprintf (dump_file, "  Threaded jump %d --> %d to %d\n",
 		     e->src->index, e->dest->index, rd->dup_block->index);
 
+	  rd->dup_block->count += e->count;
+	  rd->dup_block->frequency += EDGE_FREQUENCY (e);
+	  EDGE_SUCC (rd->dup_block, 0)->count += e->count;
 	  /* Redirect the incoming edge to the appropriate duplicate
 	     block.  */
 	  e2 = redirect_edge_and_branch (e, rd->dup_block);
@@ -709,30 +730,8 @@ thread_block (basic_block bb)
       else
 	{
 	  edge e2 = e->aux;
-
-	  /* If we thread to a loop exit edge, then we will need to 
-	     rediscover the loop exit edges.  While it may seem that
-	     the new edge is a loop exit edge, that is not the case.
-	     Consider threading the edge (5,6) to E in the CFG on the
-	     left which creates the CFG on the right:
-
-
-                      0<--+            0<---+
-                     / \  |           / \   |
-                    1   2 |          1   2  |
-                   / \  | |         / \  |  |
-                  3   4 | |        3   4 6--+
-                   \ /  | |         \ /
-                    5   | |          5
-                     \ /  |          |
-                      6---+          E
-                      |
-                      E
-
-	     After threading, the edge (0, 1)  is the loop exit edge and
-	     the nodes 0, 2, 6 are the only nodes in the loop.  */
-	  if (e2->flags & EDGE_LOOP_EXIT)
-	    rediscover_loops_after_threading = true;
+	  update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
+					   e->count, e->aux);
 
 	  /* Insert the outgoing edge into the hash table if it is not
 	     already in the hash table.  */
@@ -785,18 +784,37 @@ thread_block (basic_block bb)
   return local_info.jumps_threaded;
 }
 
-/* Walk through all blocks and thread incoming edges to the block's
-   destinations as requested.  This is the only entry point into this
-   file.
+/* Walk through the registered jump threads and convert them into a
+   form convenient for this pass.
 
-   Blocks which have one or more incoming edges have INCOMING_EDGE_THREADED
-   set in the block's annotation.
+   Any block which has incoming edges threaded to outgoing edges
+   will have its entry in THREADED_BLOCK set.
 
-   Each edge that should be threaded has the new destination edge stored in
-   the original edge's AUX field.
+   Any threaded edge will have its new outgoing edge stored in the
+   original edge's AUX field.
 
-   This routine (or one of its callees) will clear INCOMING_EDGE_THREADED
-   in the block annotations and the AUX field in the edges.
+   This form avoids the need to walk all the edges in the CFG to
+   discover blocks which need processing and avoids unnecessary
+   hash table lookups to map from threaded edge to new target.  */
+
+static void
+mark_threaded_blocks (bitmap threaded_blocks)
+{
+  unsigned int i;
+
+  for (i = 0; i < VEC_length (edge, threaded_edges); i += 2)
+    {
+      edge e = VEC_index (edge, threaded_edges, i);
+      edge e2 = VEC_index (edge, threaded_edges, i + 1);
+
+      e->aux = e2;
+      bitmap_set_bit (threaded_blocks, e->dest->index);
+    }
+}
+
+
+/* Walk through all blocks and thread incoming edges to the appropriate
+   outgoing edge for each edge pair recorded in THREADED_EDGES.
 
    It is the caller's responsibility to fix the dominance information
    and rewrite duplicated SSA_NAMEs back into SSA form.
@@ -804,13 +822,20 @@ thread_block (basic_block bb)
    Returns true if one or more edges were threaded, false otherwise.  */
 
 bool
-thread_through_all_blocks (bitmap threaded_blocks)
+thread_through_all_blocks (void)
 {
   bool retval = false;
   unsigned int i;
   bitmap_iterator bi;
+  bitmap threaded_blocks;
 
-  rediscover_loops_after_threading = false;
+  if (threaded_edges == NULL)
+    return false;
+
+  threaded_blocks = BITMAP_ALLOC (NULL);
+  memset (&thread_stats, 0, sizeof (thread_stats));
+
+  mark_threaded_blocks (threaded_blocks);
 
   EXECUTE_IF_SET_IN_BITMAP (threaded_blocks, 0, i, bi)
     {
@@ -820,5 +845,31 @@ thread_through_all_blocks (bitmap threaded_blocks)
 	retval |= thread_block (bb);
     }
 
+  if (dump_file && (dump_flags & TDF_STATS))
+    fprintf (dump_file, "\nJumps threaded: %lu\n",
+	     thread_stats.num_threaded_edges);
+
+  BITMAP_FREE (threaded_blocks);
+  threaded_blocks = NULL;
+  VEC_free (edge, heap, threaded_edges);
+  threaded_edges = NULL;
   return retval;
+}
+
+/* Register a jump threading opportunity.  We queue up all the jump
+   threading opportunities discovered by a pass and update the CFG
+   and SSA form all at once.
+
+   E is the edge we can thread, E2 is the new target edge.  ie, we
+   are effectively recording that E->dest can be changed to E2->dest
+   after fixing the SSA graph.  */
+
+void
+register_jump_thread (edge e, edge e2)
+{
+  if (threaded_edges == NULL)
+    threaded_edges = VEC_alloc (edge, heap, 10);
+
+  VEC_safe_push (edge, heap, threaded_edges, e);
+  VEC_safe_push (edge, heap, threaded_edges, e2);
 }

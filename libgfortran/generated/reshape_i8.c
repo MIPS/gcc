@@ -25,26 +25,34 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
 #include "libgfortran.h"
 
+#if defined (HAVE_GFC_INTEGER_8)
+
 typedef GFC_ARRAY_DESCRIPTOR(1, index_type) shape_type;
 
 /* The shape parameter is ignored. We can currently deduce the shape from the
    return array.  */
 
-extern void reshape_8 (gfc_array_i8 *, gfc_array_i8 *, shape_type *,
-				    gfc_array_i8 *, shape_type *);
+extern void reshape_8 (gfc_array_i8 * const restrict, 
+	gfc_array_i8 * const restrict, 
+	shape_type * const restrict,
+	gfc_array_i8 * const restrict, 
+	shape_type * const restrict);
 export_proto(reshape_8);
 
 void
-reshape_8 (gfc_array_i8 * ret, gfc_array_i8 * source, shape_type * shape,
-                      gfc_array_i8 * pad, shape_type * order)
+reshape_8 (gfc_array_i8 * const restrict ret, 
+	gfc_array_i8 * const restrict source, 
+	shape_type * const restrict shape,
+	gfc_array_i8 * const restrict pad, 
+	shape_type * const restrict order)
 {
   /* r.* indicates the return array.  */
   index_type rcount[GFC_MAX_DIMENSIONS];
@@ -97,7 +105,7 @@ reshape_8 (gfc_array_i8 * ret, gfc_array_i8 * source, shape_type * shape,
 	  ret->dim[n].stride = rs;
 	  rs *= rex;
 	}
-      ret->base = 0;
+      ret->offset = 0;
       ret->data = internal_malloc_size ( rs * sizeof (GFC_INTEGER_8));
       ret->dtype = (source->dtype & ~GFC_DTYPE_RANK_MASK) | rdim;
     }
@@ -174,9 +182,9 @@ reshape_8 (gfc_array_i8 * ret, gfc_array_i8 * source, shape_type * shape,
 
   if (rsize != 0 && ssize != 0 && psize != 0)
     {
-      rsize *= 8;
-      ssize *= 8;
-      psize *= 8;
+      rsize *= sizeof (GFC_INTEGER_8);
+      ssize *= sizeof (GFC_INTEGER_8);
+      psize *= sizeof (GFC_INTEGER_8);
       reshape_packed ((char *)ret->data, rsize, (char *)source->data,
 		      ssize, pad ? (char *)pad->data : NULL, psize);
       return;
@@ -256,3 +264,5 @@ reshape_8 (gfc_array_i8 * ret, gfc_array_i8 * source, shape_type * shape,
         }
     }
 }
+
+#endif

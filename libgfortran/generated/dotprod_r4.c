@@ -25,25 +25,28 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
 #include "libgfortran.h"
 
+#if defined (HAVE_GFC_REAL_4)
+
 typedef GFC_ARRAY_DESCRIPTOR(GFC_MAX_DIMENSIONS, char) char_array;
 
-extern GFC_REAL_4 dot_product_r4 (gfc_array_r4 * a, gfc_array_r4 * b);
+extern GFC_REAL_4 dot_product_r4 (gfc_array_r4 * const restrict a, 
+	gfc_array_r4 * const restrict b);
 export_proto(dot_product_r4);
 
 /* Both parameters will already have been converted to the result type.  */
 GFC_REAL_4
-dot_product_r4 (gfc_array_r4 * a, gfc_array_r4 * b)
+dot_product_r4 (gfc_array_r4 * const restrict a, gfc_array_r4 * const restrict b)
 {
-  GFC_REAL_4 *pa;
-  GFC_REAL_4 *pb;
+  const GFC_REAL_4 * restrict pa;
+  const GFC_REAL_4 * restrict pb;
   GFC_REAL_4 res;
   index_type count;
   index_type astride;
@@ -73,3 +76,5 @@ dot_product_r4 (gfc_array_r4 * a, gfc_array_r4 * b)
 
   return res;
 }
+
+#endif

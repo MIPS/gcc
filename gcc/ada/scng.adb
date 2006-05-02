@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -26,6 +26,7 @@
 
 with Csets;    use Csets;
 with Err_Vars; use Err_Vars;
+with Hostparm; use Hostparm;
 with Namet;    use Namet;
 with Opt;      use Opt;
 with Scans;    use Scans;
@@ -97,7 +98,8 @@ package body Scng is
    procedure Accumulate_Checksum (C : Char_Code) is
    begin
       if C > 16#FFFF# then
-         Accumulate_Checksum (Character'Val (C / 2 ** 16));
+         Accumulate_Checksum (Character'Val (C / 2 ** 24));
+         Accumulate_Checksum (Character'Val ((C / 2 ** 16) mod 256));
          Accumulate_Checksum (Character'Val ((C / 256) mod 256));
       else
          Accumulate_Checksum (Character'Val (C / 256));
@@ -139,113 +141,16 @@ package body Scng is
    -- Initialize_Scanner --
    ------------------------
 
-   procedure Initialize_Scanner
-     (Unit  : Unit_Number_Type;
-      Index : Source_File_Index)
-   is
-      procedure Set_Reserved (N : Name_Id; T : Token_Type);
-      pragma Inline (Set_Reserved);
-      --  Set given name as a reserved keyword (T is the corresponding token)
-
-      -------------
-      -- Set_NTB --
-      -------------
-
-      procedure Set_Reserved (N : Name_Id; T : Token_Type) is
-      begin
-         --  Set up Token_Type values in Names Table entries for reserved
-         --  keywords We use the Pos value of the Token_Type value. Note we
-         --  rely on the fact that Token_Type'Val (0) is not a reserved word!
-
-         Set_Name_Table_Byte (N, Token_Type'Pos (T));
-      end Set_Reserved;
-
-   --  Start of processing for Initialize_Scanner
-
+   procedure Initialize_Scanner (Index : Source_File_Index) is
    begin
       --  Establish reserved words
 
-      Set_Reserved (Name_Abort,     Tok_Abort);
-      Set_Reserved (Name_Abs,       Tok_Abs);
-      Set_Reserved (Name_Abstract,  Tok_Abstract);
-      Set_Reserved (Name_Accept,    Tok_Accept);
-      Set_Reserved (Name_Access,    Tok_Access);
-      Set_Reserved (Name_And,       Tok_And);
-      Set_Reserved (Name_Aliased,   Tok_Aliased);
-      Set_Reserved (Name_All,       Tok_All);
-      Set_Reserved (Name_Array,     Tok_Array);
-      Set_Reserved (Name_At,        Tok_At);
-      Set_Reserved (Name_Begin,     Tok_Begin);
-      Set_Reserved (Name_Body,      Tok_Body);
-      Set_Reserved (Name_Case,      Tok_Case);
-      Set_Reserved (Name_Constant,  Tok_Constant);
-      Set_Reserved (Name_Declare,   Tok_Declare);
-      Set_Reserved (Name_Delay,     Tok_Delay);
-      Set_Reserved (Name_Delta,     Tok_Delta);
-      Set_Reserved (Name_Digits,    Tok_Digits);
-      Set_Reserved (Name_Do,        Tok_Do);
-      Set_Reserved (Name_Else,      Tok_Else);
-      Set_Reserved (Name_Elsif,     Tok_Elsif);
-      Set_Reserved (Name_End,       Tok_End);
-      Set_Reserved (Name_Entry,     Tok_Entry);
-      Set_Reserved (Name_Exception, Tok_Exception);
-      Set_Reserved (Name_Exit,      Tok_Exit);
-      Set_Reserved (Name_For,       Tok_For);
-      Set_Reserved (Name_Function,  Tok_Function);
-      Set_Reserved (Name_Generic,   Tok_Generic);
-      Set_Reserved (Name_Goto,      Tok_Goto);
-      Set_Reserved (Name_If,        Tok_If);
-      Set_Reserved (Name_In,        Tok_In);
-      Set_Reserved (Name_Is,        Tok_Is);
-      Set_Reserved (Name_Limited,   Tok_Limited);
-      Set_Reserved (Name_Loop,      Tok_Loop);
-      Set_Reserved (Name_Mod,       Tok_Mod);
-      Set_Reserved (Name_New,       Tok_New);
-      Set_Reserved (Name_Not,       Tok_Not);
-      Set_Reserved (Name_Null,      Tok_Null);
-      Set_Reserved (Name_Of,        Tok_Of);
-      Set_Reserved (Name_Or,        Tok_Or);
-      Set_Reserved (Name_Others,    Tok_Others);
-      Set_Reserved (Name_Out,       Tok_Out);
-      Set_Reserved (Name_Package,   Tok_Package);
-      Set_Reserved (Name_Pragma,    Tok_Pragma);
-      Set_Reserved (Name_Private,   Tok_Private);
-      Set_Reserved (Name_Procedure, Tok_Procedure);
-      Set_Reserved (Name_Protected, Tok_Protected);
-      Set_Reserved (Name_Raise,     Tok_Raise);
-      Set_Reserved (Name_Range,     Tok_Range);
-      Set_Reserved (Name_Record,    Tok_Record);
-      Set_Reserved (Name_Rem,       Tok_Rem);
-      Set_Reserved (Name_Renames,   Tok_Renames);
-      Set_Reserved (Name_Requeue,   Tok_Requeue);
-      Set_Reserved (Name_Return,    Tok_Return);
-      Set_Reserved (Name_Reverse,   Tok_Reverse);
-      Set_Reserved (Name_Select,    Tok_Select);
-      Set_Reserved (Name_Separate,  Tok_Separate);
-      Set_Reserved (Name_Subtype,   Tok_Subtype);
-      Set_Reserved (Name_Tagged,    Tok_Tagged);
-      Set_Reserved (Name_Task,      Tok_Task);
-      Set_Reserved (Name_Terminate, Tok_Terminate);
-      Set_Reserved (Name_Then,      Tok_Then);
-      Set_Reserved (Name_Type,      Tok_Type);
-      Set_Reserved (Name_Until,     Tok_Until);
-      Set_Reserved (Name_Use,       Tok_Use);
-      Set_Reserved (Name_When,      Tok_When);
-      Set_Reserved (Name_While,     Tok_While);
-      Set_Reserved (Name_With,      Tok_With);
-      Set_Reserved (Name_Xor,       Tok_Xor);
-
-      --  Ada 2005 reserved words
-
-      Set_Reserved (Name_Interface,     Tok_Interface);
-      Set_Reserved (Name_Overriding,    Tok_Overriding);
-      Set_Reserved (Name_Synchronized,  Tok_Synchronized);
+      Scans.Initialize_Ada_Keywords;
 
       --  Initialize scan control variables
 
       Current_Source_File       := Index;
       Source                    := Source_Text (Current_Source_File);
-      Current_Source_Unit       := Unit;
       Scan_Ptr                  := Source_First (Current_Source_File);
       Token                     := No_Token;
       Token_Ptr                 := Scan_Ptr;
@@ -256,6 +161,7 @@ package body Scng is
       First_Non_Blank_Location  := Scan_Ptr;
 
       Initialize_Checksum;
+      Wide_Char_Byte_Count := 0;
 
       --  Do not call Scan, otherwise the License stuff does not work in Scn
 
@@ -339,7 +245,10 @@ package body Scng is
       -----------------------
 
       procedure Check_End_Of_Line is
-         Len : constant Int := Int (Scan_Ptr) - Int (Current_Line_Start);
+         Len : constant Int :=
+                 Int (Scan_Ptr) -
+                 Int (Current_Line_Start) -
+                 Wide_Char_Byte_Count;
 
       begin
          if Style_Check then
@@ -352,15 +261,15 @@ package body Scng is
             Style.Check_Line_Max_Length (Len);
 
          --  If style checking is inactive, check maximum line length against
-         --  standard value. Note that we take this from Opt.Max_Line_Length
-         --  rather than Hostparm.Max_Line_Length because we do not want to
-         --  impose any limit during scanning of configuration pragma files,
-         --  and Opt.Max_Line_Length (normally set to Hostparm.Max_Line_Length)
-         --  is reset to Column_Number'Max during scanning of such files.
+         --  standard value.
 
-         elsif Len > Opt.Max_Line_Length then
+         elsif Len > Max_Line_Length then
             Error_Long_Line;
          end if;
+
+         --  Reset wide character byte count for next line
+
+         Wide_Char_Byte_Count := 0;
       end Check_End_Of_Line;
 
       -----------------------
@@ -414,7 +323,7 @@ package body Scng is
       begin
          Error_Msg
            ("this line is too long",
-            Current_Line_Start + Source_Ptr (Opt.Max_Line_Length));
+            Current_Line_Start + Source_Ptr (Max_Line_Length));
       end Error_Long_Line;
 
       -------------------------------
@@ -1110,6 +1019,10 @@ package body Scng is
 
                   Accumulate_Checksum (Code);
 
+                  --  In Ada 95 mode we allow any wide characters in a string
+                  --  but in Ada 2005, the set of characters allowed has been
+                  --  restricted to graphic characters.
+
                   if Ada_Version >= Ada_05
                     and then Is_UTF_32_Non_Graphic (UTF_32 (Code))
                   then
@@ -1236,6 +1149,7 @@ package body Scng is
          when EOF =>
             if Scan_Ptr = Source_Last (Current_Source_File) then
                Check_End_Of_Line;
+               if Style_Check then Style.Check_EOF; end if;
                Token := Tok_EOF;
                return;
             else
@@ -1451,6 +1365,17 @@ package body Scng is
             else -- Source (Scan_Ptr + 1) = '-' then
                if Style_Check then Style.Check_Comment; end if;
                Scan_Ptr := Scan_Ptr + 2;
+
+               --  If we are in preprocessor mode with Replace_In_Comments set,
+               --  then we return the "--" as a token on its own.
+
+               if Replace_In_Comments then
+                  Token := Tok_Comment;
+                  return;
+               end if;
+
+               --  Otherwise scan out the comment
+
                Start_Of_Comment := Scan_Ptr;
 
                --  Loop to scan comment (this loop runs more than once only if
@@ -1644,7 +1569,11 @@ package body Scng is
 
                   if Err then
                      Error_Illegal_Wide_Character;
-                     Code := Character'Pos (' ');
+                        Code := Character'Pos (' ');
+
+                  --  In Ada 95 mode we allow any wide character in a character
+                  --  literal, but in Ada 2005, the set of characters allowed
+                  --  is restricted to graphic characters.
 
                   elsif Ada_Version >= Ada_05
                     and then Is_UTF_32_Non_Graphic (UTF_32 (Code))
@@ -2257,6 +2186,10 @@ package body Scng is
                      --  stored. It seems reasonable to exclude it from the
                      --  checksum.
 
+                     --  Note that it is correct (see AI-395) to simply strip
+                     --  other format characters, before testing for double
+                     --  underlines, or for reserved words).
+
                      elsif Is_UTF_32_Other (Cat) then
                         null;
 
@@ -2300,12 +2233,7 @@ package body Scng is
 
          --  Here is where we check if it was a keyword
 
-         if Get_Name_Table_Byte (Token_Name) /= 0
-           and then (Ada_Version >= Ada_95
-                       or else Token_Name not in Ada_95_Reserved_Words)
-           and then (Ada_Version >= Ada_05
-                       or else Token_Name not in Ada_2005_Reserved_Words)
-         then
+         if Is_Keyword_Name (Token_Name) then
             Token := Token_Type'Val (Get_Name_Table_Byte (Token_Name));
 
             --  Deal with possible style check for non-lower case keyword, but
@@ -2316,14 +2244,18 @@ package body Scng is
             --  Ada 2005 (AI-284): Do not apply the style check in case of
             --  "pragma Interface"
 
+            --  Ada 2005 (AI-340): Do not apply the style check in case of
+            --  MOD attribute.
+
             if Style_Check
               and then Source (Token_Ptr) <= 'Z'
               and then (Prev_Token /= Tok_Apostrophe
                           or else
-                            (Token /= Tok_Access
-                               and then Token /= Tok_Delta
-                               and then Token /= Tok_Digits
-                               and then Token /= Tok_Range))
+                            (Token /= Tok_Access and then
+                             Token /= Tok_Delta  and then
+                             Token /= Tok_Digits and then
+                             Token /= Tok_Mod    and then
+                             Token /= Tok_Range))
               and then (Token /= Tok_Interface
                           or else
                             (Token = Tok_Interface

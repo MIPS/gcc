@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_FLAGS_H
 #define GCC_FLAGS_H
@@ -181,6 +181,10 @@ extern int flag_shlib;
 
 extern int flag_debug_asm;
 
+/* Generate code for GNU or NeXT Objective-C runtime environment.  */
+
+extern int flag_next_runtime;
+
 extern int flag_dump_rtl_in_asm;
 
 /* If one, renumber instruction UIDs to reduce the number of
@@ -242,10 +246,6 @@ extern int flag_remove_unreachable_functions;
 /* Nonzero if we should track variables.  */
 extern int flag_var_tracking;
 
-/* Nonzero if we should perform data struct layout reorganization 
-   optimizations.  */
-extern int flag_reorg_structs;
-
 /* True if flag_speculative_prefetching was set by user.  Used to suppress
    warning message in case flag was set by -fprofile-{generate,use}.  */
 extern bool flag_speculative_prefetching_set;
@@ -286,7 +286,5 @@ extern const char *flag_random_seed;
    and the rounding mode is important.  */
 #define HONOR_SIGN_DEPENDENT_ROUNDING(MODE) \
   (MODE_HAS_SIGN_DEPENDENT_ROUNDING (MODE) && flag_rounding_math)
-
-extern int disable_typechecking_for_spec_flag;
 
 #endif /* ! GCC_FLAGS_H */

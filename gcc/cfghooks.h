@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_CFGHOOKS_H
 #define GCC_CFGHOOKS_H
@@ -157,7 +157,7 @@ extern void tidy_fallthru_edges (void);
 extern void predict_edge (edge e, enum br_predictor predictor, int probability);
 extern bool predicted_by_p (basic_block bb, enum br_predictor predictor);
 extern bool can_duplicate_block_p (basic_block);
-extern basic_block duplicate_block (basic_block, edge);
+extern basic_block duplicate_block (basic_block, edge, basic_block);
 extern bool block_ends_with_call_p (basic_block bb);
 extern bool block_ends_with_condjump_p (basic_block bb);
 extern int flow_call_edges_add (sbitmap);

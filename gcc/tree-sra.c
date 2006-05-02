@@ -1,7 +1,7 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -18,8 +18,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -75,6 +75,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 */
 
 
+/* The set of todo flags to return from tree_sra.  */
+static unsigned int todoflags;
+
 /* The set of aggregate variables that are candidates for scalarization.  */
 static bitmap sra_candidates;
 
@@ -127,6 +130,9 @@ struct sra_elt
      should happen via memcpy and not per-element.  */
   bool use_block_copy;
 
+  /* True if everything under this element has been marked TREE_NO_WARNING.  */
+  bool all_no_warning;
+
   /* A flag for use with/after random access traversals.  */
   bool visited;
 };
@@ -151,7 +157,7 @@ static tree generate_element_ref (struct sra_elt *);
 static bool
 is_sra_candidate_decl (tree decl)
 {
-  return DECL_P (decl) && bitmap_bit_p (sra_candidates, var_ann (decl)->uid);
+  return DECL_P (decl) && bitmap_bit_p (sra_candidates, DECL_UID (decl));
 }
 
 /* Return true if TYPE is a scalar type.  */
@@ -162,7 +168,7 @@ is_sra_scalar_type (tree type)
   enum tree_code code = TREE_CODE (type);
   return (code == INTEGER_TYPE || code == REAL_TYPE || code == VECTOR_TYPE
 	  || code == ENUMERAL_TYPE || code == BOOLEAN_TYPE
-	  || code == CHAR_TYPE || code == POINTER_TYPE || code == OFFSET_TYPE
+	  || code == POINTER_TYPE || code == OFFSET_TYPE
 	  || code == REFERENCE_TYPE);
 }
 
@@ -493,7 +499,7 @@ lookup_element (struct sra_elt *parent, tree child, tree type,
       if (TREE_CODE (child) == PARM_DECL)
 	{
 	  elt->n_copies = 1;
-	  bitmap_set_bit (needs_copy_in, var_ann (child)->uid);
+	  bitmap_set_bit (needs_copy_in, DECL_UID (child));
 	}
     }
 
@@ -598,9 +604,10 @@ struct sra_walk_fns
   /* Invoked when ELT is required as a unit.  Note that ELT might refer to
      a leaf node, in which case this is a simple scalar reference.  *EXPR_P
      points to the location of the expression.  IS_OUTPUT is true if this
-     is a left-hand-side reference.  */
+     is a left-hand-side reference.  USE_ALL is true if we saw something we
+     couldn't quite identify and had to force the use of the entire object.  */
   void (*use) (struct sra_elt *elt, tree *expr_p,
-	       block_stmt_iterator *bsi, bool is_output);
+	       block_stmt_iterator *bsi, bool is_output, bool use_all);
 
   /* Invoked when we have a copy between two scalarizable references.  */
   void (*copy) (struct sra_elt *lhs_elt, struct sra_elt *rhs_elt,
@@ -654,6 +661,7 @@ sra_walk_expr (tree *expr_p, block_stmt_iterator *bsi, bool is_output,
   tree expr = *expr_p;
   tree inner = expr;
   bool disable_scalarization = false;
+  bool use_all_p = false;
 
   /* We're looking to collect a reference expression between EXPR and INNER,
      such that INNER is a scalarizable decl and all other nodes through EXPR
@@ -674,7 +682,7 @@ sra_walk_expr (tree *expr_p, block_stmt_iterator *bsi, bool is_output,
 	    if (disable_scalarization)
 	      elt->cannot_scalarize = true;
 	    else
-	      fns->use (elt, expr_p, bsi, is_output);
+	      fns->use (elt, expr_p, bsi, is_output, use_all_p);
 	  }
 	return;
 
@@ -724,7 +732,7 @@ sra_walk_expr (tree *expr_p, block_stmt_iterator *bsi, bool is_output,
 	goto use_all;
 
       case ARRAY_RANGE_REF:
-	/* Similarly, an subrange reference is used to modify indexing.  Which
+	/* Similarly, a subrange reference is used to modify indexing.  Which
 	   means that the canonical element names that we have won't work.  */
 	goto use_all;
 
@@ -742,6 +750,7 @@ sra_walk_expr (tree *expr_p, block_stmt_iterator *bsi, bool is_output,
       use_all:
         expr_p = &TREE_OPERAND (inner, 0);
 	inner = expr = *expr_p;
+	use_all_p = true;
 	break;
 
       default:
@@ -813,7 +822,7 @@ sra_walk_modify_expr (tree expr, block_stmt_iterator *bsi,
       if (!rhs_elt->is_scalar)
 	fns->ldst (rhs_elt, lhs, bsi, false);
       else
-	fns->use (rhs_elt, &TREE_OPERAND (expr, 1), bsi, false);
+	fns->use (rhs_elt, &TREE_OPERAND (expr, 1), bsi, false, false);
     }
 
   /* If it isn't scalarizable, there may be scalarizable variables within, so
@@ -859,7 +868,7 @@ sra_walk_modify_expr (tree expr, block_stmt_iterator *bsi,
       /* Otherwise we're being used in some context that requires the
 	 aggregate to be seen as a whole.  Invoke USE.  */
       else
-	fns->use (lhs_elt, &TREE_OPERAND (expr, 0), bsi, true);
+	fns->use (lhs_elt, &TREE_OPERAND (expr, 0), bsi, true, false);
     }
 
   /* Similarly to above, LHS_ELT being null only means that the LHS as a
@@ -940,15 +949,15 @@ sra_walk_function (const struct sra_walk_fns *fns)
 static bool
 find_candidates_for_sra (void)
 {
-  size_t i;
   bool any_set = false;
+  tree var;
+  referenced_var_iterator rvi;
 
-  for (i = 0; i < num_referenced_vars; i++)
+  FOR_EACH_REFERENCED_VAR (var, rvi)
     {
-      tree var = referenced_var (i);
       if (decl_can_be_decomposed_p (var))
         {
-          bitmap_set_bit (sra_candidates, var_ann (var)->uid);
+          bitmap_set_bit (sra_candidates, DECL_UID (var));
           any_set = true;
         }
     }
@@ -967,7 +976,7 @@ find_candidates_for_sra (void)
 static void
 scan_use (struct sra_elt *elt, tree *expr_p ATTRIBUTE_UNUSED,
 	  block_stmt_iterator *bsi ATTRIBUTE_UNUSED,
-	  bool is_output ATTRIBUTE_UNUSED)
+	  bool is_output ATTRIBUTE_UNUSED, bool use_all ATTRIBUTE_UNUSED)
 {
   elt->n_uses += 1;
 }
@@ -1094,7 +1103,7 @@ build_element_name (struct sra_elt *elt)
 {
   build_element_name_1 (elt);
   obstack_1grow (&sra_obstack, '\0');
-  return obstack_finish (&sra_obstack);
+  return XOBFINISH (&sra_obstack, char *);
 }
 
 /* Instantiate an element as an independent variable.  */
@@ -1325,7 +1334,7 @@ decide_block_copy (struct sra_elt *elt)
       else if (host_integerp (size_tree, 1))
 	{
 	  unsigned HOST_WIDE_INT full_size, inst_size = 0;
-	  unsigned int max_size;
+	  unsigned int max_size, max_count, inst_count, full_count;
 
 	  /* If the sra-max-structure-size parameter is 0, then the
 	     user has not overridden the parameter and we can choose a
@@ -1333,8 +1342,13 @@ decide_block_copy (struct sra_elt *elt)
 	  max_size = SRA_MAX_STRUCTURE_SIZE
 	    ? SRA_MAX_STRUCTURE_SIZE
 	    : MOVE_RATIO * UNITS_PER_WORD;
+	  max_count = SRA_MAX_STRUCTURE_COUNT
+	    ? SRA_MAX_STRUCTURE_COUNT
+	    : MOVE_RATIO;
 
 	  full_size = tree_low_cst (size_tree, 1);
+	  full_count = count_type_elements (elt->type, false);
+	  inst_count = sum_instantiated_sizes (elt, &inst_size);
 
 	  /* ??? What to do here.  If there are two fields, and we've only
 	     instantiated one, then instantiating the other is clearly a win.
@@ -1344,15 +1358,12 @@ decide_block_copy (struct sra_elt *elt)
 	  /* If the structure is small, and we've made copies, go ahead
 	     and instantiate, hoping that the copies will go away.  */
 	  if (full_size <= max_size
+	      && (full_count - inst_count) <= max_count
 	      && elt->n_copies > elt->n_uses)
 	    use_block_copy = false;
-	  else
-	    {
-	      sum_instantiated_sizes (elt, &inst_size);
-
-	      if (inst_size * 100 >= full_size * SRA_FIELD_STRUCTURE_RATIO)
-		use_block_copy = false;
-	    }
+	  else if (inst_count * 100 >= full_count * SRA_FIELD_STRUCTURE_RATIO
+		   && inst_size * 100 >= full_size * SRA_FIELD_STRUCTURE_RATIO)
+	    use_block_copy = false;
 
 	  /* In order to avoid block copy, we have to be able to instantiate
 	     all elements of the type.  See if this is possible.  */
@@ -1424,6 +1435,9 @@ decide_instantiations (void)
       bitmap_and_compl_into (needs_copy_in, &done_head);
     }
   bitmap_clear (&done_head);
+  
+  if (!bitmap_empty_p (sra_candidates))
+    todoflags |= TODO_update_smt_usage;
 
   mark_set_for_renaming (sra_candidates);
 
@@ -1470,6 +1484,23 @@ mark_all_v_defs (tree list)
     }
 }
 
+/* Mark every replacement under ELT with TREE_NO_WARNING.  */
+
+static void
+mark_no_warning (struct sra_elt *elt)
+{
+  if (!elt->all_no_warning)
+    {
+      if (elt->replacement)
+	TREE_NO_WARNING (elt->replacement) = 1;
+      else
+	{
+	  struct sra_elt *c;
+	  for (c = elt->children; c ; c = c->sibling)
+	    mark_no_warning (c);
+	}
+    }
+}
 
 /* Build a single level component reference to ELT rooted at BASE.  */
 
@@ -1486,17 +1517,18 @@ generate_one_element_ref (struct sra_elt *elt, tree base)
 	if (DECL_FIELD_CONTEXT (field) != TYPE_MAIN_VARIANT (TREE_TYPE (base)))
 	  field = find_compatible_field (TREE_TYPE (base), field);
 
-        return build (COMPONENT_REF, elt->type, base, field, NULL);
+        return build3 (COMPONENT_REF, elt->type, base, field, NULL);
       }
 
     case ARRAY_TYPE:
-      return build (ARRAY_REF, elt->type, base, elt->element, NULL, NULL);
+      todoflags |= TODO_update_smt_usage;
+      return build4 (ARRAY_REF, elt->type, base, elt->element, NULL, NULL);
 
     case COMPLEX_TYPE:
       if (elt->element == integer_zero_node)
-	return build (REALPART_EXPR, elt->type, base);
+	return build1 (REALPART_EXPR, elt->type, base);
       else
-	return build (IMAGPART_EXPR, elt->type, base);
+	return build1 (IMAGPART_EXPR, elt->type, base);
 
     default:
       gcc_unreachable ();
@@ -1526,12 +1558,27 @@ generate_copy_inout (struct sra_elt *elt, bool copy_out, tree expr,
   struct sra_elt *c;
   tree t;
 
-  if (elt->replacement)
+  if (!copy_out && TREE_CODE (expr) == SSA_NAME
+      && TREE_CODE (TREE_TYPE (expr)) == COMPLEX_TYPE)
+    {
+      tree r, i;
+
+      c = lookup_element (elt, integer_zero_node, NULL, NO_INSERT);
+      r = c->replacement;
+      c = lookup_element (elt, integer_one_node, NULL, NO_INSERT);
+      i = c->replacement;
+
+      t = build2 (COMPLEX_EXPR, elt->type, r, i);
+      t = build2 (MODIFY_EXPR, void_type_node, expr, t);
+      SSA_NAME_DEF_STMT (expr) = t;
+      append_to_statement_list (t, list_p);
+    }
+  else if (elt->replacement)
     {
       if (copy_out)
-	t = build (MODIFY_EXPR, void_type_node, elt->replacement, expr);
+	t = build2 (MODIFY_EXPR, void_type_node, elt->replacement, expr);
       else
-	t = build (MODIFY_EXPR, void_type_node, expr, elt->replacement);
+	t = build2 (MODIFY_EXPR, void_type_node, expr, elt->replacement);
       append_to_statement_list (t, list_p);
     }
   else
@@ -1566,8 +1613,8 @@ generate_element_copy (struct sra_elt *dst, struct sra_elt *src, tree *list_p)
 
       gcc_assert (src->replacement);
 
-      t = build (MODIFY_EXPR, void_type_node, dst->replacement,
-		 src->replacement);
+      t = build2 (MODIFY_EXPR, void_type_node, dst->replacement,
+		  src->replacement);
       append_to_statement_list (t, list_p);
     }
 }
@@ -1598,7 +1645,7 @@ generate_element_zero (struct sra_elt *elt, tree *list_p)
       gcc_assert (elt->is_scalar);
       t = fold_convert (elt->type, integer_zero_node);
 
-      t = build (MODIFY_EXPR, void_type_node, elt->replacement, t);
+      t = build2 (MODIFY_EXPR, void_type_node, elt->replacement, t);
       append_to_statement_list (t, list_p);
     }
 }
@@ -1610,7 +1657,7 @@ static void
 generate_one_element_init (tree var, tree init, tree *list_p)
 {
   /* The replacement can be almost arbitrarily complex.  Gimplify.  */
-  tree stmt = build (MODIFY_EXPR, void_type_node, var, init);
+  tree stmt = build2 (MODIFY_EXPR, void_type_node, var, init);
   gimplify_and_add (stmt, list_p);
 }
 
@@ -1627,6 +1674,8 @@ generate_element_init_1 (struct sra_elt *elt, tree init, tree *list_p)
   enum tree_code init_code;
   struct sra_elt *sub;
   tree t;
+  unsigned HOST_WIDE_INT idx;
+  tree value, purpose;
 
   /* We can be passed DECL_INITIAL of a static variable.  It might have a
      conversion, which we strip off here.  */
@@ -1660,11 +1709,8 @@ generate_element_init_1 (struct sra_elt *elt, tree init, tree *list_p)
       break;
 
     case CONSTRUCTOR:
-      for (t = CONSTRUCTOR_ELTS (init); t ; t = TREE_CHAIN (t))
+      FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (init), idx, purpose, value)
 	{
-	  tree purpose = TREE_PURPOSE (t);
-	  tree value = TREE_VALUE (t);
-
 	  if (TREE_CODE (purpose) == RANGE_EXPR)
 	    {
 	      tree lower = TREE_OPERAND (purpose, 0);
@@ -1714,16 +1760,9 @@ generate_element_init (struct sra_elt *elt, tree init, tree *list_p)
   if (ret && *list_p)
     {
       tree_stmt_iterator i;
-      size_t old, new, j;
-
-      old = num_referenced_vars;
 
       for (i = tsi_start (*list_p); !tsi_end_p (i); tsi_next (&i))
 	find_new_referenced_vars (tsi_stmt_ptr (i));
-
-      new = num_referenced_vars;
-      for (j = old; j < new; ++j)
-	mark_sym_for_renaming (referenced_var (j));
     }
 
   return ret;
@@ -1793,7 +1832,7 @@ static void
 sra_replace (block_stmt_iterator *bsi, tree list)
 {
   sra_insert_before (bsi, list);
-  bsi_remove (bsi);
+  bsi_remove (bsi, false);
   if (bsi_end_p (*bsi))
     *bsi = bsi_last (bsi->bb);
   else
@@ -1806,7 +1845,7 @@ sra_replace (block_stmt_iterator *bsi, tree list)
 
 static void
 scalarize_use (struct sra_elt *elt, tree *expr_p, block_stmt_iterator *bsi,
-	       bool is_output)
+	       bool is_output, bool use_all)
 {
   tree list = NULL, stmt = bsi_stmt (*bsi);
 
@@ -1841,7 +1880,11 @@ scalarize_use (struct sra_elt *elt, tree *expr_p, block_stmt_iterator *bsi,
       if (is_output)
 	sra_insert_after (bsi, list);
       else
-	sra_insert_before (bsi, list);
+	{
+	  sra_insert_before (bsi, list);
+	  if (use_all)
+	    mark_no_warning (elt);
+	}
     }
 }
 
@@ -2006,7 +2049,7 @@ scalarize_ldst (struct sra_elt *elt, tree other,
     {
       /* Since ELT is not fully instantiated, we have to leave the
 	 block copy in place.  Treat this as a USE.  */
-      scalarize_use (elt, NULL, bsi, is_output);
+      scalarize_use (elt, NULL, bsi, is_output, false);
     }
   else
     {
@@ -2142,10 +2185,11 @@ sra_init_cache (void)
 
 /* Main entry point.  */
 
-static void
+static unsigned int
 tree_sra (void)
 {
   /* Initialize local variables.  */
+  todoflags = 0;
   gcc_obstack_init (&sra_obstack);
   sra_candidates = BITMAP_ALLOC (NULL);
   needs_copy_in = BITMAP_ALLOC (NULL);
@@ -2168,6 +2212,7 @@ tree_sra (void)
   BITMAP_FREE (sra_type_decomp_cache);
   BITMAP_FREE (sra_type_inst_cache);
   obstack_free (&sra_obstack, NULL);
+  return todoflags;
 }
 
 static bool
@@ -2180,18 +2225,17 @@ struct tree_opt_pass pass_sra =
 {
   "sra",				/* name */
   gate_sra,				/* gate */
-  NULL, NULL,				/* IPA analysis */
   tree_sra,				/* execute */
-  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_SRA,				/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  0,					/* properties_destroyed */
+  PROP_smt_usage,		        /* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_update_ssa
-    | TODO_ggc_collect | TODO_verify_ssa,  /* todo_flags_finish */
+  TODO_dump_func /* todo_flags_finish */
+  | TODO_update_ssa
+  | TODO_ggc_collect | TODO_verify_ssa,
   0					/* letter */
 };

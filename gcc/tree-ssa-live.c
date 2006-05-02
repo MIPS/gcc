@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -185,7 +185,8 @@ void
 compact_var_map (var_map map, int flags)
 {
   sbitmap used;
-  int x, limit, count, tmp, root, root_i;
+  int tmp, root, root_i;
+  unsigned int x, limit, count;
   tree var;
   root_var_p rv = NULL;
 
@@ -238,10 +239,12 @@ compact_var_map (var_map map, int flags)
   /* Build a compacted partitioning.  */
   if (count != limit)
     {
+      sbitmap_iterator sbi;
+
       map->compact_to_partition = (int *)xmalloc (count * sizeof (int));
       count = 0;
       /* SSA renaming begins at 1, so skip 0 when compacting.  */
-      EXECUTE_IF_SET_IN_SBITMAP (used, 1, x,
+      EXECUTE_IF_SET_IN_SBITMAP (used, 1, x, sbi)
 	{
 	  map->partition_to_compact[x] = count;
 	  map->compact_to_partition[count] = x;
@@ -249,7 +252,7 @@ compact_var_map (var_map map, int flags)
 	  if (TREE_CODE (var) != SSA_NAME)
 	    change_partition_var (map, var, count);
 	  count++;
-	});
+	}
     }
   else
     {
@@ -283,6 +286,7 @@ change_partition_var (var_map map, tree var, int part)
     map->partition_to_var[map->compact_to_partition[part]] = var;
 }
 
+static inline void mark_all_vars_used (tree *);
 
 /* Helper function for mark_all_vars_used, called via walk_tree.  */
 
@@ -291,6 +295,20 @@ mark_all_vars_used_1 (tree *tp, int *walk_subtrees,
 		      void *data ATTRIBUTE_UNUSED)
 {
   tree t = *tp;
+
+  if (TREE_CODE (t) == SSA_NAME)
+    t = SSA_NAME_VAR (t);
+
+  /* Ignore TREE_ORIGINAL for TARGET_MEM_REFS, as well as other
+     fields that do not contain vars.  */
+  if (TREE_CODE (t) == TARGET_MEM_REF)
+    {
+      mark_all_vars_used (&TMR_SYMBOL (t));
+      mark_all_vars_used (&TMR_BASE (t));
+      mark_all_vars_used (&TMR_INDEX (t));
+      *walk_subtrees = 0;
+      return NULL;
+    }
 
   /* Only need to mark VAR_DECLS; parameters and return results are not
      eliminated as unused.  */
@@ -312,6 +330,72 @@ mark_all_vars_used (tree *expr_p)
   walk_tree (expr_p, mark_all_vars_used_1, NULL, NULL);
 }
 
+
+/* Remove local variables that are not referenced in the IL.  */
+
+void
+remove_unused_locals (void)
+{
+  basic_block bb;
+  tree t, *cell;
+
+  /* Assume all locals are unused.  */
+  for (t = cfun->unexpanded_var_list; t; t = TREE_CHAIN (t))
+    {
+      tree var = TREE_VALUE (t);
+      if (TREE_CODE (var) != FUNCTION_DECL
+	  && var_ann (var))
+	var_ann (var)->used = false;
+    }
+
+  /* Walk the CFG marking all referenced symbols.  */
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator bsi;
+      tree phi, def;
+
+      /* Walk the statements.  */
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	mark_all_vars_used (bsi_stmt_ptr (bsi));
+
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+        {
+          use_operand_p arg_p;
+          ssa_op_iter i;
+
+	  /* No point processing globals.  */
+	  if (is_global_var (SSA_NAME_VAR (PHI_RESULT (phi))))
+	    continue;
+
+          def = PHI_RESULT (phi);
+          mark_all_vars_used (&def);
+
+          FOR_EACH_PHI_ARG (arg_p, phi, i, SSA_OP_ALL_USES)
+            {
+	      tree arg = USE_FROM_PTR (arg_p);
+	      mark_all_vars_used (&arg);
+            }
+        }
+    }
+
+  /* Remove unmarked vars and clear used flag.  */
+  for (cell = &cfun->unexpanded_var_list; *cell; )
+    {
+      tree var = TREE_VALUE (*cell);
+      var_ann_t ann;
+
+      if (TREE_CODE (var) != FUNCTION_DECL
+	  && (!(ann = var_ann (var))
+	      || !ann->used))
+	{
+	  *cell = TREE_CHAIN (*cell);
+	  continue;
+	}
+
+      cell = &TREE_CHAIN (*cell);
+    }
+}
+
 /* This function looks through the program and uses FLAGS to determine what 
    SSA versioned variables are given entries in a new partition table.  This
    new partition map is returned.  */
@@ -326,18 +410,15 @@ create_ssa_var_map (int flags)
   var_map map;
   ssa_op_iter iter;
 #ifdef ENABLE_CHECKING
-  sbitmap used_in_real_ops;
-  sbitmap used_in_virtual_ops;
+  bitmap used_in_real_ops;
+  bitmap used_in_virtual_ops;
 #endif
 
   map = init_var_map (num_ssa_names + 1);
 
 #ifdef ENABLE_CHECKING
-  used_in_real_ops = sbitmap_alloc (num_referenced_vars);
-  sbitmap_zero (used_in_real_ops);
-
-  used_in_virtual_ops = sbitmap_alloc (num_referenced_vars);
-  sbitmap_zero (used_in_virtual_ops);
+  used_in_real_ops = BITMAP_ALLOC (NULL);
+  used_in_virtual_ops = BITMAP_ALLOC (NULL);
 #endif
 
   if (flags & SSA_VAR_MAP_REF_COUNT)
@@ -350,6 +431,7 @@ create_ssa_var_map (int flags)
   FOR_EACH_BB (bb)
     {
       tree phi, arg;
+
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
 	  int i;
@@ -374,7 +456,7 @@ create_ssa_var_map (int flags)
 	      register_ssa_partition (map, use, true);
 
 #ifdef ENABLE_CHECKING
-	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (use))->uid);
+	      bitmap_set_bit (used_in_real_ops, DECL_UID (SSA_NAME_VAR (use)));
 #endif
 	    }
 
@@ -383,7 +465,7 @@ create_ssa_var_map (int flags)
 	      register_ssa_partition (map, dest, false);
 
 #ifdef ENABLE_CHECKING
-	      SET_BIT (used_in_real_ops, var_ann (SSA_NAME_VAR (dest))->uid);
+	      bitmap_set_bit (used_in_real_ops, DECL_UID (SSA_NAME_VAR (dest)));
 #endif
 	    }
 
@@ -392,7 +474,8 @@ create_ssa_var_map (int flags)
 	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, 
 				     SSA_OP_VIRTUAL_USES | SSA_OP_VMUSTDEF)
 	    {
-	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (use))->uid);
+	      bitmap_set_bit (used_in_virtual_ops, 
+			      DECL_UID (SSA_NAME_VAR (use)));
 	    }
 
 #endif /* ENABLE_CHECKING */
@@ -404,19 +487,21 @@ create_ssa_var_map (int flags)
 #if defined ENABLE_CHECKING
   {
     unsigned i;
-    sbitmap both = sbitmap_alloc (num_referenced_vars);
-    sbitmap_a_and_b (both, used_in_real_ops, used_in_virtual_ops);
-    if (sbitmap_first_set_bit (both) >= 0)
+    bitmap both = BITMAP_ALLOC (NULL);
+    bitmap_and (both, used_in_real_ops, used_in_virtual_ops);
+    if (!bitmap_empty_p (both))
       {
-	EXECUTE_IF_SET_IN_SBITMAP (both, 0, i,
+	bitmap_iterator bi;
+
+	EXECUTE_IF_SET_IN_BITMAP (both, 0, i, bi)
 	  fprintf (stderr, "Variable %s used in real and virtual operands\n",
-		   get_name (referenced_var (i))));
+		   get_name (referenced_var (i)));
 	internal_error ("SSA corruption");
       }
 
-    sbitmap_free (used_in_real_ops);
-    sbitmap_free (used_in_virtual_ops);
-    sbitmap_free (both);
+    BITMAP_FREE (used_in_real_ops);
+    BITMAP_FREE (used_in_virtual_ops);
+    BITMAP_FREE (both);
   }
 #endif
 
@@ -434,7 +519,7 @@ new_tree_live_info (var_map map)
 
   live = (tree_live_info_p) xmalloc (sizeof (struct tree_live_info_d));
   live->map = map;
-  live->num_blocks = n_basic_blocks;
+  live->num_blocks = last_basic_block;
 
   live->global = BITMAP_ALLOC (NULL);
 
@@ -624,7 +709,7 @@ calculate_live_on_entry (var_map map)
 	}
     }
 
-  stack = xmalloc (sizeof (int) * last_basic_block);
+  stack = XNEWVEC (int, last_basic_block);
   EXECUTE_IF_SET_IN_BITMAP (live->global, 0, i, bi)
     {
       live_worklist (live, stack, i);
@@ -993,12 +1078,12 @@ type_var_init (var_map map)
   tree t;
   sbitmap seen;
 
-  seen = sbitmap_alloc (num_partitions);
-  sbitmap_zero (seen);
-
   tv = tpa_init (map);
   if (!tv)
     return NULL;
+
+  seen = sbitmap_alloc (num_partitions);
+  sbitmap_zero (seen);
 
   for (x = num_partitions - 1; x >= 0; x--)
     {
@@ -1130,11 +1215,30 @@ find_partition_pair (coalesce_list_p cl, int p1, int p2, bool create)
   return node;
 }
 
+/* Return cost of execution of copy instruction with FREQUENCY
+   possibly on CRITICAL edge and in HOT basic block.  */
+int
+coalesce_cost (int frequency, bool hot, bool critical)
+{
+  /* Base costs on BB frequencies bounded by 1.  */
+  int cost = frequency;
+
+  if (!cost)
+    cost = 1;
+  if (optimize_size || hot)
+    cost = 1;
+  /* Inserting copy on critical edge costs more
+     than inserting it elsewhere.  */
+  if (critical)
+    cost *= 2;
+  return cost;
+}
 
 /* Add a potential coalesce between P1 and P2 in CL with a cost of VALUE.  */
 
 void 
-add_coalesce (coalesce_list_p cl, int p1, int p2, int value)
+add_coalesce (coalesce_list_p cl, int p1, int p2,
+	      int value)
 {
   partition_pair_p node;
 
@@ -1190,7 +1294,7 @@ sort_coalesce_list (coalesce_list_p cl)
   /* Only call qsort if there are more than 2 items.  */
   if (num > 2)
     {
-      list = xmalloc (sizeof (partition_pair_p) * num);
+      list = XNEWVEC (partition_pair_p, num);
       count = 0;
       for (p = chain; p != NULL; p = p->next)
 	list[count++] = p;
@@ -1311,8 +1415,8 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 
   live = BITMAP_ALLOC (NULL);
 
-  partition_link = xcalloc (num_var_partitions (map) + 1, sizeof (int));
-  tpa_nodes = xcalloc (tpa_num_trees (tpa), sizeof (int));
+  partition_link = XCNEWVEC (int, num_var_partitions (map) + 1);
+  tpa_nodes = XCNEWVEC (int, tpa_num_trees (tpa));
   tpa_to_clear = VEC_alloc (int, heap, 50);
 
   FOR_EACH_BB (bb)
@@ -1368,7 +1472,9 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 		  if (bit)
 		    bitmap_set_bit (live, p2);
 		  if (cl)
-		    add_coalesce (cl, p1, p2, 1);
+		    add_coalesce (cl, p1, p2,
+				  coalesce_cost (bb->frequency,
+				                 maybe_hot_bb_p (bb), false));
 		  set_if_valid (map, live, rhs);
 		}
 	    }

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for ARM.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -20,8 +20,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #ifndef GCC_ARM_H
 #define GCC_ARM_H
@@ -192,6 +192,9 @@ extern GTY(()) rtx aof_pic_label;
 #define TARGET_AAPCS_BASED \
     (arm_abi != ARM_ABI_APCS && arm_abi != ARM_ABI_ATPCS)
 
+#define TARGET_HARD_TP			(target_thread_pointer == TP_CP15)
+#define TARGET_SOFT_TP			(target_thread_pointer == TP_SOFT)
+
 /* True iff the full BPABI is being used.  If TARGET_BPABI is true,
    then TARGET_AAPCS_BASED must be true -- but the converse does not
    hold.  TARGET_BPABI implies the use of the BPABI runtime library,
@@ -217,7 +220,8 @@ extern GTY(()) rtx aof_pic_label;
   {"float", \
     "%{!msoft-float:%{!mhard-float:%{!mfloat-abi=*:-mfloat-abi=%(VALUE)}}}" }, \
   {"fpu", "%{!mfpu=*:-mfpu=%(VALUE)}"}, \
-  {"abi", "%{!mabi=*:-mabi=%(VALUE)}"},
+  {"abi", "%{!mabi=*:-mabi=%(VALUE)}"}, \
+  {"mode", "%{!marm:%{!mthumb:-m%(VALUE)}}"},
 
 /* Which floating point model to use.  */
 enum arm_fp_model
@@ -279,7 +283,8 @@ enum arm_abi_type
   ARM_ABI_APCS,
   ARM_ABI_ATPCS,
   ARM_ABI_AAPCS,
-  ARM_ABI_IWMMXT
+  ARM_ABI_IWMMXT,
+  ARM_ABI_AAPCS_LINUX
 };
 
 extern enum arm_abi_type arm_abi;
@@ -287,6 +292,15 @@ extern enum arm_abi_type arm_abi;
 #ifndef ARM_DEFAULT_ABI
 #define ARM_DEFAULT_ABI ARM_ABI_APCS
 #endif
+
+/* Which thread pointer access sequence to use.  */
+enum arm_tp_type {
+  TP_AUTO,
+  TP_SOFT,
+  TP_CP15
+};
+
+extern enum arm_tp_type target_thread_pointer;
 
 /* Nonzero if this chip supports the ARM Architecture 3M extensions.  */
 extern int arm_arch3m;
@@ -499,6 +513,10 @@ extern int arm_structure_size_boundary;
 
 #ifndef SIZE_TYPE
 #define SIZE_TYPE (TARGET_AAPCS_BASED ? "unsigned int" : "long unsigned int")
+#endif
+
+#ifndef PTRDIFF_TYPE
+#define PTRDIFF_TYPE (TARGET_AAPCS_BASED ? "int" : "long int")
 #endif
 
 /* AAPCS requires that structure alignment is affected by bitfields.  */
@@ -770,8 +788,11 @@ extern int arm_structure_size_boundary;
 #define FIRST_HI_REGNUM		8
 #define LAST_HI_REGNUM		11
 
+#ifndef TARGET_UNWIND_INFO
 /* We use sjlj exceptions for backwards compatibility.  */
 #define MUST_USE_SJLJ_EXCEPTIONS 1
+#endif
+
 /* We can generate DWARF2 Unwind info, even though we don't use it.  */
 #define DWARF2_UNWIND_INFO 1
 
@@ -1279,23 +1300,15 @@ enum reg_class
 /* We could probably achieve better results by defining PROMOTE_MODE to help
    cope with the variances between the Thumb's signed and unsigned byte and
    halfword load instructions.  */
-#define THUMB_LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN)	\
-{									\
-  if (GET_CODE (X) == PLUS						\
-      && GET_MODE_SIZE (MODE) < 4					\
-      && GET_CODE (XEXP (X, 0)) == REG					\
-      && XEXP (X, 0) == stack_pointer_rtx				\
-      && GET_CODE (XEXP (X, 1)) == CONST_INT				\
-      && ! thumb_legitimate_offset_p (MODE, INTVAL (XEXP (X, 1))))	\
-    {									\
-      rtx orig_X = X;							\
-      X = copy_rtx (X);							\
-      push_reload (orig_X, NULL_RTX, &X, NULL,				\
-		   MODE_BASE_REG_CLASS (MODE),				\
-		   Pmode, VOIDmode, 0, 0, OPNUM, TYPE);			\
-      goto WIN;								\
-    }									\
-}
+#define THUMB_LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_L, WIN)     \
+do {									      \
+  rtx new_x = thumb_legitimize_reload_address (&X, MODE, OPNUM, TYPE, IND_L); \
+  if (new_x)								      \
+    {									      \
+      X = new_x;							      \
+      goto WIN;								      \
+    }									      \
+} while (0)
 
 #define LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_LEVELS, WIN)   \
   if (TARGET_ARM)							   \
@@ -1334,7 +1347,7 @@ enum reg_class
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD  1
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
@@ -1481,6 +1494,7 @@ typedef struct arm_stack_offsets GTY(())
   int frame;		/* ARM_HARD_FRAME_POINTER_REGNUM.  */
   int saved_regs;
   int soft_frame;	/* FRAME_POINTER_REGNUM.  */
+  int locals_base;	/* THUMB_HARD_FRAME_POINTER_REGNUM.  */
   int outgoing_args;	/* STACK_POINTER_REGNUM.  */
 }
 arm_stack_offsets;
@@ -1506,6 +1520,8 @@ typedef struct machine_function GTY(())
   /* Records if sibcalls are blocked because an argument
      register is needed to preserve stack alignment.  */
   int sibcall_blocked;
+  /* The PIC register for this function.  This might be a pseudo.  */
+  rtx pic_reg;
   /* Labels for per-function Thumb call-via stubs.  One per potential calling
      register.  We can never call via LR or PC.  We can call via SP if a
      trampoline happens to be on the top of the stack.  */
@@ -1514,7 +1530,7 @@ typedef struct machine_function GTY(())
 machine_function;
 
 /* As in the machine_function, a global set of call-via labels, for code 
-   that is in text_section().  */
+   that is in text_section.  */
 extern GTY(()) rtx thumb_call_via_label[14];
 
 /* A C type for declaring a variable that is used as the first argument of
@@ -1881,8 +1897,10 @@ typedef struct
   || CONSTANT_ADDRESS_P (X)		\
   || flag_pic)
 
-#define LEGITIMATE_CONSTANT_P(X)	\
-  (TARGET_ARM ? ARM_LEGITIMATE_CONSTANT_P (X) : THUMB_LEGITIMATE_CONSTANT_P (X))
+#define LEGITIMATE_CONSTANT_P(X)			\
+  (!arm_tls_referenced_p (X)				\
+   && (TARGET_ARM ? ARM_LEGITIMATE_CONSTANT_P (X)	\
+		  : THUMB_LEGITIMATE_CONSTANT_P (X)))
 
 /* Special characters prefixed to function names
    in order to encode attribute like information.
@@ -1976,6 +1994,15 @@ typedef struct
 #define ARM_DECLARE_FUNCTION_SIZE(STREAM, NAME, DECL)	\
   if (!TARGET_LONG_CALLS || ! DECL_SECTION_NAME (DECL)) \
     arm_encode_call_attribute (DECL, SHORT_CALL_FLAG_CHAR)
+
+#define ARM_OUTPUT_FN_UNWIND(F, PROLOGUE) arm_output_fn_unwind (F, PROLOGUE)
+
+#ifdef TARGET_UNWIND_INFO
+#define ARM_EABI_UNWIND_TABLES \
+  ((!USING_SJLJ_EXCEPTIONS && flag_exceptions) || flag_unwind_tables)
+#else
+#define ARM_EABI_UNWIND_TABLES 0
+#endif
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -2182,21 +2209,23 @@ do {							\
 /* We decide which register to use based on the compilation options and
    the assembler in use; this is more general than the APCS restriction of
    using sb (r9) all the time.  */
-extern int arm_pic_register;
+extern unsigned arm_pic_register;
 
 /* The register number of the register used to address a table of static
    data addresses in memory.  */
 #define PIC_OFFSET_TABLE_REGNUM arm_pic_register
 
 /* We can't directly access anything that contains a symbol,
-   nor can we indirect via the constant pool.  */
+   nor can we indirect via the constant pool.  One exception is
+   UNSPEC_TLS, which is always PIC.  */
 #define LEGITIMATE_PIC_OPERAND_P(X)					\
 	(!(symbol_mentioned_p (X)					\
 	   || label_mentioned_p (X)					\
 	   || (GET_CODE (X) == SYMBOL_REF				\
 	       && CONSTANT_POOL_ADDRESS_P (X)				\
 	       && (symbol_mentioned_p (get_pool_constant (X))		\
-		   || label_mentioned_p (get_pool_constant (X))))))
+		   || label_mentioned_p (get_pool_constant (X)))))	\
+	 || tls_mentioned_p (X))
 
 /* We need to know when we are making a constant pool; this determines
    whether data needs to be in the GOT or can be referenced via a GOT
@@ -2231,7 +2260,8 @@ extern int making_const_table;
 	        || (const_ok_for_arm (- INTVAL (OP1)))))		\
         {								\
           rtx const_op = OP1;						\
-          CODE = arm_canonicalize_comparison ((CODE), &const_op);	\
+          CODE = arm_canonicalize_comparison ((CODE), GET_MODE (OP0),	\
+					      &const_op);		\
           OP1 = const_op;						\
         }								\
     }									\
@@ -2476,10 +2506,9 @@ extern int making_const_table;
   else						\
     THUMB_PRINT_OPERAND_ADDRESS (STREAM, X)
 
-#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)	\
-  if (GET_CODE (X) != CONST_VECTOR		\
-      || ! arm_emit_vector_const (FILE, X))	\
-    goto FAIL;
+#define OUTPUT_ADDR_CONST_EXTRA(file, x, fail)		\
+  if (arm_output_addr_const_extra (file, x) == FALSE)	\
+    goto fail
 
 /* A C expression whose value is RTL representing the value of the return
    address for the frame COUNT steps up from the current frame.  */
@@ -2670,6 +2699,8 @@ enum arm_builtins
   ARM_BUILTIN_WUNPCKELUB,
   ARM_BUILTIN_WUNPCKELUH,
   ARM_BUILTIN_WUNPCKELUW,
+
+  ARM_BUILTIN_THREAD_POINTER,
 
   ARM_BUILTIN_MAX
 };

@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -28,14 +28,16 @@ Boston, MA 02111-1307, USA.  */
 #include "c-pragma.h"
 #include "c-tree.h"
 #include "c-incpath.h"
+#include "c-common.h"
 #include "toplev.h"
+#include "flags.h"
 #include "tm_p.h"
 #include "cppdefault.h"
 #include "prefix.h"
 
 /* Pragmas.  */
 
-#define BAD(msgid) do { warning (0, msgid); return; } while (0)
+#define BAD(gmsgid) do { warning (0, gmsgid); return; } while (0)
 
 static bool using_frameworks = false;
 
@@ -60,7 +62,7 @@ static struct align_stack * field_align_stack = NULL;
 static void
 push_field_alignment (int bit_alignment)
 {
-  align_stack *entry = (align_stack *) xmalloc (sizeof (align_stack));
+  align_stack *entry = XNEW (align_stack);
 
   entry->alignment = maximum_field_alignment;
   entry->prev = field_align_stack;
@@ -100,17 +102,17 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
   const char *arg;
   tree t, x;
 
-  if (c_lex (&t) != CPP_NAME)
+  if (pragma_lex (&t) != CPP_NAME)
     BAD ("malformed '#pragma options', ignoring");
   arg = IDENTIFIER_POINTER (t);
   if (strcmp (arg, "align"))
     BAD ("malformed '#pragma options', ignoring");
-  if (c_lex (&t) != CPP_EQ)
+  if (pragma_lex (&t) != CPP_EQ)
     BAD ("malformed '#pragma options', ignoring");
-  if (c_lex (&t) != CPP_NAME)
+  if (pragma_lex (&t) != CPP_NAME)
     BAD ("malformed '#pragma options', ignoring");
 
-  if (c_lex (&x) != CPP_EOF)
+  if (pragma_lex (&x) != CPP_EOF)
     warning (0, "junk at end of '#pragma options'");
 
   arg = IDENTIFIER_POINTER (t);
@@ -132,19 +134,19 @@ darwin_pragma_unused (cpp_reader *pfile ATTRIBUTE_UNUSED)
   tree decl, x;
   int tok;
 
-  if (c_lex (&x) != CPP_OPEN_PAREN)
+  if (pragma_lex (&x) != CPP_OPEN_PAREN)
     BAD ("missing '(' after '#pragma unused', ignoring");
 
   while (1)
     {
-      tok = c_lex (&decl);
+      tok = pragma_lex (&decl);
       if (tok == CPP_NAME && decl)
 	{
 	  tree local = lookup_name (decl);
 	  if (local && (TREE_CODE (local) == PARM_DECL
 			|| TREE_CODE (local) == VAR_DECL))
 	    TREE_USED (local) = 1;
-	  tok = c_lex (&x);
+	  tok = pragma_lex (&x);
 	  if (tok != CPP_COMMA)
 	    break;
 	}
@@ -153,7 +155,7 @@ darwin_pragma_unused (cpp_reader *pfile ATTRIBUTE_UNUSED)
   if (tok != CPP_CLOSE_PAREN)
     BAD ("missing ')' after '#pragma unused', ignoring");
 
-  if (c_lex (&x) != CPP_EOF)
+  if (pragma_lex (&x) != CPP_EOF)
     warning (0, "junk at end of '#pragma unused'");
 }
 
@@ -192,7 +194,7 @@ add_framework (const char *name, size_t len, cpp_dir *dir)
       frameworks_in_use = xrealloc (frameworks_in_use,
 				    max_frameworks*sizeof(*frameworks_in_use));
     }
-  dir_name = xmalloc (len + 1);
+  dir_name = XNEWVEC (char, len + 1);
   memcpy (dir_name, name, len);
   dir_name[len] = '\0';
   frameworks_in_use[num_frameworks].name = dir_name;
@@ -259,7 +261,7 @@ framework_construct_pathname (const char *fname, cpp_dir *dir)
   if (fast_dir && dir != fast_dir)
     return 0;
 
-  frname = xmalloc (strlen (fname) + dir->len + 2
+  frname = XNEWVEC (char, strlen (fname) + dir->len + 2
 		    + strlen(".framework/") + strlen("PrivateHeaders"));
   strncpy (&frname[0], dir->name, dir->len);
   frname_len = dir->len;
@@ -347,7 +349,7 @@ find_subframework_file (const char *fname, const char *pname)
      into
      sfrname = /System/Library/Frameworks/Foundation.framework/Frameworks/CarbonCore.framework/Headers/OSUtils.h */
 
-  sfrname = (char *) xmalloc (strlen (pname) + strlen (fname) + 2 +
+  sfrname = XNEWVEC (char, strlen (pname) + strlen (fname) + 2 +
 			      strlen ("Frameworks/") + strlen (".framework/")
 			      + strlen ("PrivateHeaders"));
  
@@ -403,7 +405,7 @@ add_system_framework_path (char *path)
   int cxx_aware = 1;
   cpp_dir *p;
 
-  p = xmalloc (sizeof (cpp_dir));
+  p = XNEW (cpp_dir);
   p->next = NULL;
   p->name = path;
   p->sysp = 1 + !cxx_aware;
@@ -421,7 +423,7 @@ add_framework_path (char *path)
 {
   cpp_dir *p;
 
-  p = xmalloc (sizeof (cpp_dir));
+  p = XNEW (cpp_dir);
   p->next = NULL;
   p->name = path;
   p->sysp = 0;
@@ -540,4 +542,58 @@ find_subframework_header (cpp_reader *pfile, const char *header, cpp_dir **dirp)
     }
 
   return 0;
+}
+
+/* Return the value of darwin_macosx_version_min suitable for the
+   __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ macro,
+   so '10.4.2' becomes 1042.  
+   Print a warning if the version number is not known.  */
+static const char *
+version_as_macro (void)
+{
+  static char result[] = "1000";
+  
+  if (strncmp (darwin_macosx_version_min, "10.", 3) != 0)
+    goto fail;
+  if (! ISDIGIT (darwin_macosx_version_min[3]))
+    goto fail;
+  result[2] = darwin_macosx_version_min[3];
+  if (darwin_macosx_version_min[4] != '\0')
+    {
+      if (darwin_macosx_version_min[4] != '.')
+	goto fail;
+      if (! ISDIGIT (darwin_macosx_version_min[5]))
+	goto fail;
+      if (darwin_macosx_version_min[6] != '\0')
+	goto fail;
+      result[3] = darwin_macosx_version_min[5];
+    }
+  else
+    result[3] = '0';
+  
+  return result;
+  
+ fail:
+  error ("Unknown value %qs of -mmacosx-version-min",
+	 darwin_macosx_version_min);
+  return "1000";
+}
+
+/* Define additional CPP flags for Darwin.   */
+
+#define builtin_define(TXT) cpp_define (pfile, TXT)
+
+void
+darwin_cpp_builtins (cpp_reader *pfile)
+{
+  builtin_define ("__MACH__");
+  builtin_define ("__APPLE__");
+
+  /* __APPLE_CC__ is defined as some old Apple include files expect it
+     to be defined and won't work if it isn't.  */
+  builtin_define_with_value ("__APPLE_CC__", "1", false);
+
+  if (darwin_macosx_version_min)
+    builtin_define_with_value ("__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__",
+			       version_as_macro(), false);
 }

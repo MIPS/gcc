@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -38,8 +38,8 @@
    1 for informative messages about decisions to add attributes
    2 for verbose information about what is being done.  */
 #define SYMBIAN_DEBUG 0
-//#define SYMBIAN_DEBUG 1
-//#define SYMBIAN_DEBUG 2
+/* #define SYMBIAN_DEBUG 1 */
+/* #define SYMBIAN_DEBUG 2 */
 
 /* A unique character to encode declspec encoded objects.  */
 #define SH_SYMBIAN_FLAG_CHAR "$"
@@ -144,9 +144,9 @@ sh_symbian_dllimport_p (tree decl)
     {
       /* Don't warn about artificial methods.  */
       if (!DECL_ARTIFICIAL (decl))
-	warning (OPT_Wattributes, "%H function '%D' is defined after prior "
+	warning (OPT_Wattributes, "function %q+D is defined after prior "
 		 "declaration as dllimport: attribute ignored",
-		 & DECL_SOURCE_LOCATION (decl), decl);
+		 decl);
       return false;
     }
 
@@ -156,9 +156,9 @@ sh_symbian_dllimport_p (tree decl)
   else if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))
     {
       if (extra_warnings)
-	warning (OPT_Wattributes, "%Hinline function '%D' is declared as "
-		 "dllimport: attribute ignored.",
-		 & DECL_SOURCE_LOCATION (decl), decl);
+	warning (OPT_Wattributes, "inline function %q+D is declared as "
+		 "dllimport: attribute ignored",
+		 decl);
       return false;
     }
 
@@ -170,8 +170,8 @@ sh_symbian_dllimport_p (tree decl)
 	   && !DECL_EXTERNAL (decl))
     {
       if (!DECL_VIRTUAL_P (decl))
-	error ("%Hdefinition of static data member '%D' of dllimport'd class.",
-	       & DECL_SOURCE_LOCATION (decl), decl);
+	error ("definition of static data member %q+D of dllimport'd class",
+	       decl);
       return false;
     }
 
@@ -277,8 +277,8 @@ sh_symbian_mark_dllimport (tree decl)
     {
       /* Already done, but do a sanity check to prevent assembler errors.  */
       if (!DECL_EXTERNAL (decl) || !TREE_PUBLIC (decl))
-	error ("%Hfailure in redeclaration of '%D': dllimport'd symbol lacks external linkage.",
-	       &DECL_SOURCE_LOCATION (decl), decl);
+	error ("failure in redeclaration of %q+D: dllimport'd symbol lacks external linkage",
+	       decl);
     }
   else
     {
@@ -323,8 +323,7 @@ sh_symbian_encode_section_info (tree decl, rtx rtl, int first)
       tree idp = get_identifier (oldname + strlen (DLL_IMPORT_PREFIX));
       rtx newrtl = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
 
-      warning (0, "%H%s '%D' %s after being referenced with dllimport linkage.",
-	       & DECL_SOURCE_LOCATION (decl),
+      warning (0, "%s %q+D %s after being referenced with dllimport linkage",
 	       TREE_CODE (decl) == VAR_DECL ? "variable" : "function",
 	       decl, (DECL_INITIAL (decl) || !DECL_EXTERNAL (decl))
 	       ? "defined locally" : "redeclared without dllimport attribute");
@@ -376,8 +375,10 @@ symbian_add_attribute (tree node, const char *attr_name)
 
   attr = get_identifier (attr_name);
 
-  (DECL_P (node) ? DECL_ATTRIBUTES (node) : TYPE_ATTRIBUTES (node))
-    = tree_cons (attr, NULL_TREE, attrs);
+  if (DECL_P (node))
+    DECL_ATTRIBUTES (node) = tree_cons (attr, NULL_TREE, attrs);
+  else
+    TYPE_ATTRIBUTES (node) = tree_cons (attr, NULL_TREE, attrs);
 
 #if SYMBIAN_DEBUG
   fprintf (stderr, "propogate %s attribute", attr_name);
@@ -427,8 +428,8 @@ sh_symbian_handle_dll_attribute (tree *pnode, tree name, tree args,
 	{
 	  if (DECL_INITIAL (node))
 	    {
-	      error ("%Hvariable %qD definition is marked dllimport.",
-		     & DECL_SOURCE_LOCATION (node), node);
+	      error ("variable %q+D definition is marked dllimport",
+		     node);
 	      *no_add_attrs = true;
 	    }
 
@@ -502,8 +503,8 @@ sh_symbian_handle_dll_attribute (tree *pnode, tree name, tree args,
       && (   TREE_CODE (node) == VAR_DECL
 	  || TREE_CODE (node) == FUNCTION_DECL))
     {
-      error ("%Hexternal linkage required for symbol '%D' because of '%s' attribute.",
-	       & DECL_SOURCE_LOCATION (node), node, IDENTIFIER_POINTER (name));
+      error ("external linkage required for symbol %q+D because of %qs attribute",
+	     node, IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
     }
 
@@ -550,18 +551,18 @@ sh_symbian_handle_dll_attribute (tree *pnode, tree name, tree args,
 static void
 symbian_possibly_export_base_class (tree base_class)
 {
-  tree methods;
+  VEC(tree,gc) *method_vec;
   int len;
 
   if (! (TYPE_CONTAINS_VPTR_P (base_class)))
     return;
 
-  methods = CLASSTYPE_METHOD_VEC (base_class);
-  len = methods ? TREE_VEC_LENGTH (methods) : 0;
+  method_vec = CLASSTYPE_METHOD_VEC (base_class);
+  len = method_vec ? VEC_length (tree, method_vec) : 0;
 
   for (;len --;)
     {
-      tree member = TREE_VEC_ELT (methods, len);
+      tree member = VEC_index (tree, method_vec, len);
 
       if (! member)
 	continue;
@@ -612,7 +613,7 @@ symbian_export_vtable_and_rtti_p (tree ctype)
   bool dllimport_ctor_dtor;
   bool dllimport_member;
   tree binfo, base_binfo;
-  tree methods;
+  VEC(tree,gc) *method_vec;
   tree key;
   int i;
   int len;
@@ -654,12 +655,12 @@ symbian_export_vtable_and_rtti_p (tree ctype)
   dllimport_ctor_dtor = false;
   dllimport_member = false;
 
-  methods = CLASSTYPE_METHOD_VEC (ctype);
-  len = methods ? TREE_VEC_LENGTH (methods) : 0;
+  method_vec = CLASSTYPE_METHOD_VEC (ctype);
+  len = method_vec ? VEC_length (tree, method_vec) : 0;
 
   for (;len --;)
     {
-      tree member = TREE_VEC_ELT (methods, len);
+      tree member = VEC_index (tree, method_vec, len);
 
       if (! member)
 	continue;
@@ -755,22 +756,27 @@ symbian_add_attribute_to_class_vtable_and_rtti (tree ctype, const char *attr_nam
 static bool
 symbian_class_needs_attribute_p (tree ctype, const char *attribute_name)
 {
+  VEC(tree,gc) *method_vec;
+
+  method_vec = CLASSTYPE_METHOD_VEC (ctype);
+
   /* If the key function has the attribute then the class needs it too.  */
   if (TYPE_POLYMORPHIC_P (ctype)
-      && CLASSTYPE_KEY_METHOD (ctype)
+      && method_vec
       && lookup_attribute (attribute_name,
-			   DECL_ATTRIBUTES (CLASSTYPE_KEY_METHOD (ctype))))
+			   DECL_ATTRIBUTES (VEC_index (tree, method_vec, 0))))
     return true;
 
   /* Check the class's member functions.  */
   if (TREE_CODE (ctype) == RECORD_TYPE)
     {
-      tree methods = CLASSTYPE_METHOD_VEC (ctype);
-      unsigned int len = methods ? TREE_VEC_LENGTH (methods) : 0;
+      unsigned int len;
+
+      len = method_vec ? VEC_length (tree, method_vec) : 0;
 
       for (;len --;)
 	{
-	  tree member = TREE_VEC_ELT (methods, len);
+	  tree member = VEC_index (tree, method_vec, len);
 
 	  if (! member)
 	    continue;

@@ -1,6 +1,6 @@
 # Process this file with autoconf to produce a configure script.
 #   Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2002, 2003, 2004
-#   Free Software Foundation, Inc.
+#   2005, 2006 Free Software Foundation, Inc.
 #   Originally contributed by Dave Love (d.love@dl.ac.uk).
 #
 #This file is part of GCC.
@@ -17,8 +17,8 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with GCC; see the file COPYING.  If not, write to
-#the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-#02111-1307, USA.
+#the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+#02110-1301, USA.
 
 AC_PREREQ(2.59)
 AC_INIT(package-unused, version-unused,, libobjc)
@@ -28,7 +28,7 @@ GCC_TOPLEV_SUBDIRS
 # We need the following definitions because AC_PROG_LIBTOOL relies on them
 PACKAGE=libobjc
 # Version is pulled out to make it a bit easier to change using sed.
-VERSION=1:0:0
+VERSION=2:0:0
 AC_SUBST(VERSION)
 
 # This works around the fact that libtool configuration may change LD
@@ -73,11 +73,18 @@ AC_ARG_ENABLE(objc-gc,
 [  --enable-objc-gc       enable the use of Boehm's garbage collector with
                           the GNU Objective-C runtime.],
 [case $enable_objc_gc in
-  no) OBJC_BOEHM_GC='' ;;
-  *) OBJC_BOEHM_GC=libobjc_gc.la ;;
+  no)
+    OBJC_BOEHM_GC=''
+    OBJC_BOEHM_GC_INCLUDES=''
+    ;;
+  *)
+    OBJC_BOEHM_GC=libobjc_gc.la
+    OBJC_BOEHM_GC_INCLUDES='-I$(top_srcdir)/../boehm-gc/include -I../boehm-gc/include'
+    ;;
 esac],
-[OBJC_BOEHM_GC=''])
+[OBJC_BOEHM_GC=''; OBJC_BOEHM_GC_INCLUDES=''])
 AC_SUBST(OBJC_BOEHM_GC)
+AC_SUBST(OBJC_BOEHM_GC_INCLUDES)
 
 # -----------
 # Directories
@@ -177,6 +184,15 @@ m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
 m4_define([_AC_ARG_VAR_PRECIOUS],[])
 AC_PROG_CC
 m4_rename([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
+
+# extra LD Flags which are required for targets
+case "${host}" in
+  *-darwin*)
+    # Darwin needs -single_module when linking libobjc
+    extra_ldflags_libobjc=-Wl,-single_module
+    ;;
+esac
+AC_SUBST(extra_ldflags_libobjc)
 
 AC_SUBST(CFLAGS)
 

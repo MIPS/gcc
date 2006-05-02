@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -871,6 +871,17 @@ public class GregorianCalendar extends Calendar
 
     areFieldsSet = isSet[ERA] = isSet[YEAR] = isSet[MONTH] = isSet[WEEK_OF_YEAR] = isSet[WEEK_OF_MONTH] = isSet[DAY_OF_MONTH] = isSet[DAY_OF_YEAR] = isSet[DAY_OF_WEEK] = isSet[DAY_OF_WEEK_IN_MONTH] = isSet[AM_PM] = isSet[HOUR] = isSet[HOUR_OF_DAY] = isSet[MINUTE] = isSet[SECOND] = isSet[MILLISECOND] = isSet[ZONE_OFFSET] = isSet[DST_OFFSET] = true;
   }
+  
+  /**
+   * Return a hash code for this object, following the general contract
+   * specified by {@link Object#hashCode()}.
+   * @return the hash code
+   */
+  public int hashCode()
+  {
+    int val = (int) ((gregorianCutover >>> 32) ^ (gregorianCutover & 0xffffffff));
+    return super.hashCode() ^ val;
+  }
 
   /**
    * Compares the given calendar with this.  An object, o, is
@@ -893,7 +904,8 @@ public class GregorianCalendar extends Calendar
       return false;
 
     GregorianCalendar cal = (GregorianCalendar) o;
-    return (cal.getTimeInMillis() == getTimeInMillis());
+    return (cal.gregorianCutover == gregorianCutover
+            && super.equals(o));
   }
 
   /**

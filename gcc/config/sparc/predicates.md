@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; Predicates for numerical constants.
 
@@ -470,3 +470,9 @@
 ;; and (xor ... (not ...)) to (not (xor ...)).  */
 (define_predicate "cc_arith_not_operator"
   (match_code "and,ior"))
+
+;; Return true if OP is memory operand with just [%reg] addressing mode.
+(define_predicate "memory_reg_operand"
+  (and (match_code "mem")
+       (and (match_operand 0 "memory_operand")
+	    (match_test "REG_P (XEXP (op, 0))"))))

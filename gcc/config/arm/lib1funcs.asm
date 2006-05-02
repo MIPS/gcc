@@ -25,8 +25,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 /* ------------------------------------------------------------------------ */
 
 /* We need to know what prefix to add to function names.  */
@@ -85,6 +85,10 @@ Boston, MA 02111-1307, USA.  */
 	|| defined(__ARM_ARCH_6ZK__)
 # undef __ARM_ARCH__
 # define __ARM_ARCH__ 6
+#endif
+
+#ifndef __ARM_ARCH__
+#error Unable to determine architecture.
 #endif
 
 /* How to return from a function call depends on the architecture variant.  */
@@ -702,6 +706,7 @@ LSYM(Lgot_result):
 #ifdef L_udivsi3
 
 	FUNC_START udivsi3
+	FUNC_ALIAS aeabi_uidiv udivsi3
 
 #ifdef __thumb__
 
@@ -812,6 +817,7 @@ LSYM(Lover10):
 #ifdef L_divsi3
 
 	FUNC_START divsi3	
+	FUNC_ALIAS aeabi_idiv divsi3
 
 #ifdef __thumb__
 	cmp	divisor, #0
@@ -983,29 +989,15 @@ LSYM(Lover12):
 #ifdef L_dvmd_lnx
 @ GNU/Linux division-by zero handler.  Used in place of L_dvmd_tls
 
-/* Constants taken from <asm/unistd.h> and <asm/signal.h> */
+/* Constant taken from <asm/signal.h>.  */
 #define SIGFPE	8
-#define __NR_SYSCALL_BASE	0x900000
-#define __NR_getpid			(__NR_SYSCALL_BASE+ 20)
-#define __NR_kill			(__NR_SYSCALL_BASE+ 37)
-#define __NR_gettid			(__NR_SYSCALL_BASE+ 224)
-#define __NR_tkill			(__NR_SYSCALL_BASE+ 238)
 
 	.code	32
 	FUNC_START div0
 
 	stmfd	sp!, {r1, lr}
-	swi	__NR_gettid
-	cmn	r0, #1000
-	swihs	__NR_getpid
-	cmnhs	r0, #1000
-	RETLDM	r1 hs
-	mov	ip, r0
-	mov	r1, #SIGFPE
-	swi	__NR_tkill
-	movs	r0, r0
-	movne	r0, ip
-	swine	__NR_kill
+	mov	r0, #SIGFPE
+	bl	SYM(raise) __PLT__
 	RETLDM	r1
 
 	FUNC_END div0
@@ -1027,6 +1019,9 @@ LSYM(Lover12):
 #define al	r0
 #define ah	r1
 #endif
+
+/* Prevent __aeabi double-word shifts from being produced on SymbianOS.  */
+#ifndef __symbian__
 
 #ifdef L_lshrdi3
 
@@ -1128,6 +1123,8 @@ LSYM(Lover12):
 	FUNC_END ashldi3
 
 #endif
+
+#endif /* __symbian__ */
 
 /* ------------------------------------------------------------------------ */
 /* These next two sections are here despite the fact that they contain Thumb 

@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -72,21 +72,26 @@ struct lang_flags
   char c99;
   char cplusplus;
   char extended_numbers;
+  char extended_identifiers;
   char std;
   char cplusplus_comments;
   char digraphs;
 };
 
 static const struct lang_flags lang_defaults[] =
-{ /*              c99 c++ xnum std  //   digr  */
-  /* GNUC89 */  { 0,  0,  1,   0,   1,   1     },
-  /* GNUC99 */  { 1,  0,  1,   0,   1,   1     },
-  /* STDC89 */  { 0,  0,  0,   1,   0,   0     },
-  /* STDC94 */  { 0,  0,  0,   1,   0,   1     },
-  /* STDC99 */  { 1,  0,  1,   1,   1,   1     },
-  /* GNUCXX */  { 0,  1,  1,   0,   1,   1     },
-  /* CXX98  */  { 0,  1,  1,   1,   1,   1     },
-  /* ASM    */  { 0,  0,  1,   0,   1,   0     }
+{ /*              c99 c++ xnum xid std  //   digr  */
+  /* GNUC89 */  { 0,  0,  1,   0,  0,   1,   1     },
+  /* GNUC99 */  { 1,  0,  1,   0,  0,   1,   1     },
+  /* STDC89 */  { 0,  0,  0,   0,  1,   0,   0     },
+  /* STDC94 */  { 0,  0,  0,   0,  1,   0,   1     },
+  /* STDC99 */  { 1,  0,  1,   0,  1,   1,   1     },
+  /* GNUCXX */  { 0,  1,  1,   0,  0,   1,   1     },
+  /* CXX98  */  { 0,  1,  1,   0,  1,   1,   1     },
+  /* ASM    */  { 0,  0,  1,   0,  0,   1,   0     }
+  /* xid should be 1 for GNUC99, STDC99, GNUCXX and CXX98 when no
+     longer experimental (when all uses of identifiers in the compiler
+     have been audited for correct handling of extended
+     identifiers).  */
 };
 
 /* Sets internal flags correctly for a given language.  */
@@ -97,13 +102,14 @@ cpp_set_lang (cpp_reader *pfile, enum c_lang lang)
 
   CPP_OPTION (pfile, lang) = lang;
 
-  CPP_OPTION (pfile, c99)		 = l->c99;
-  CPP_OPTION (pfile, cplusplus)		 = l->cplusplus;
-  CPP_OPTION (pfile, extended_numbers)	 = l->extended_numbers;
-  CPP_OPTION (pfile, std)		 = l->std;
-  CPP_OPTION (pfile, trigraphs)		 = l->std;
-  CPP_OPTION (pfile, cplusplus_comments) = l->cplusplus_comments;
-  CPP_OPTION (pfile, digraphs)		 = l->digraphs;
+  CPP_OPTION (pfile, c99)			 = l->c99;
+  CPP_OPTION (pfile, cplusplus)			 = l->cplusplus;
+  CPP_OPTION (pfile, extended_numbers)		 = l->extended_numbers;
+  CPP_OPTION (pfile, extended_identifiers)	 = l->extended_identifiers;
+  CPP_OPTION (pfile, std)			 = l->std;
+  CPP_OPTION (pfile, trigraphs)			 = l->std;
+  CPP_OPTION (pfile, cplusplus_comments)	 = l->cplusplus_comments;
+  CPP_OPTION (pfile, digraphs)			 = l->digraphs;
 }
 
 /* Initialize library global state.  */
@@ -295,6 +301,7 @@ struct builtin
 #define B(n, t)    { DSC(n), t }
 static const struct builtin builtin_array[] =
 {
+  B("__TIMESTAMP__",	 BT_TIMESTAMP),
   B("__TIME__",		 BT_TIME),
   B("__DATE__",		 BT_DATE),
   B("__FILE__",		 BT_FILE),
@@ -351,8 +358,14 @@ cpp_init_builtins (cpp_reader *pfile, int hosted)
 
   if (CPP_OPTION (pfile, traditional))
     n -= 2;
+  else if (! CPP_OPTION (pfile, stdc_0_in_system_headers)
+	   || CPP_OPTION (pfile, std))
+    {
+      n--;
+      _cpp_define_builtin (pfile, "__STDC__ 1");
+    }
 
-  for(b = builtin_array; b < builtin_array + n; b++)
+  for (b = builtin_array; b < builtin_array + n; b++)
     {
       cpp_hashnode *hp = cpp_lookup (pfile, b->name, b->len);
       hp->type = NT_MACRO;
@@ -461,7 +474,7 @@ cpp_read_main_file (cpp_reader *pfile, const char *fname)
     }
 
   pfile->main_file
-    = _cpp_find_file (pfile, fname, &pfile->no_search_path, false);
+    = _cpp_find_file (pfile, fname, &pfile->no_search_path, false, 0);
   if (_cpp_find_failed (pfile->main_file))
     return NULL;
 
@@ -491,8 +504,10 @@ read_original_filename (cpp_reader *pfile)
   token = _cpp_lex_direct (pfile);
   if (token->type == CPP_HASH)
     {
+      pfile->state.in_directive = 1;
       token1 = _cpp_lex_direct (pfile);
       _cpp_backup_tokens (pfile, 1);
+      pfile->state.in_directive = 0;
 
       /* If it's a #line directive, handle it.  */
       if (token1->type == CPP_NUMBER)

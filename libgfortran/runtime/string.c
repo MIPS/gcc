@@ -24,14 +24,14 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <string.h>
 
 #include "libgfortran.h"
-
+#include "../io/io.h"
 
 /* Compare a C-style string with a fortran style string in a case-insensitive
    manner.  Used for decoding string options to various statements.  Returns
@@ -104,14 +104,14 @@ cf_strcpy (char *dest, int dest_len, const char *src)
    if no default is provided.  */
 
 int
-find_option (const char *s1, int s1_len, st_option * opts,
-	     const char *error_message)
+find_option (st_parameter_common *cmp, const char *s1, int s1_len,
+	     const st_option * opts, const char *error_message)
 {
   for (; opts->name; opts++)
     if (compare0 (s1, s1_len, opts->name))
       return opts->value;
 
-  generate_error (ERROR_BAD_OPTION, error_message);
+  generate_error (cmp, ERROR_BAD_OPTION, error_message);
 
   return -1;
 }

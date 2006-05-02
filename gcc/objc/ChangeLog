@@ -1,3 +1,161 @@
+2006-03-02 Fariborz Jahanian <fjahanian@apple.com>
+
+	* objc-act.c (init_module_descriptor): Remove file name from
+	module descriptor.
+	(gen_type_name_0): Fix ICE when issuing warning.
+
+2006-02-20 Rafael Ávila de Espíndola <rafael.espindola@gmail.com>
+	* Make-lang.in (OBJC): Remove
+	(OBJECTIVE-C): Remove
+	(objective-c): Remove
+	(.PHONY): Remove objective-c and ObjC
+
+2005-12-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/25360
+        * objc/objc-act.c (encode_type): Encode Complex types as 'j' followed
+        by the inner type.
+
+2005-12-12  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/25348
+	* objc-act.c (encode_array): Handle arrays to zero sized types.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in (objc.all.build, objc.install-normal): Remove.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in: Remove all dependencies on s-gtype.
+
+2005-12-02  Richard Guenther  <rguenther@suse.de>
+
+	* objc-act.c (objc_build_exc_ptr, next_sjlj_build_enter_and_setjmp
+	next_sjlj_build_exc_extract, next_sjlj_build_catch_list,
+	next_sjlj_build_try_catch_finally, objc_begin_catch_clause,
+	build_objc_method_call, objc_rewrite_function_call): Use buildN
+	instead of build.
+
+2005-10-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* objc-act.c (synth_module_prologue): Clear TREE_NOTHROW
+	on objc_msgSend and like builtin functions.
+
+2005-10-17  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* objc-act.c (objc_build_component_ref): Adjust call to
+	finish_class_member_access_expr due to a changed prototype.
+
+2005-08-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/23306
+	* objc-act.c (generate_strings): Remove and move code to
+	finish decl to ...
+	(add_objc_string): here when creating a new string decl.
+	(finish_objc): Don't call generate_strings.
+
+2005-08-31  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/23381
+	* objc-act.c (next_sjlj_build_try_catch_finally): Set
+	TREE_SIDE_EFFECTS on catch_seq after building it.
+
+2005-08-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	part of PR objc/21992
+	* objc-act.c (handle_class_ref): The ref decl is always referenced.
+
+2005-07-20  Giovanni Bajo  <giovannibajo@libero.it>
+
+	Make CONSTRUCTOR use VEC to store initializers.
+	* objc-act.c (objc_build_constructor): Use build_constructor_from_list
+	instead of build_constructor.
+
+2005-07-08  Daniel Berlin  <dberlin@dberlin.org>
+
+	* objc-act.c (objc_push_parm): DECL_ARG_TYPE_AS_WRITTEN is
+	removed.
+	* objc-act.h (KEYWORD_ARG_NAME): Use decl_non_common.
+	(KEYWORD_KEY_NAME): Use decl_minimal.
+	(METHOD_SEL_NAME): Ditto..
+	(METHOD_SEL_ARGS): Use decl_non_common.
+	(METHOD_ADD_ARGS): Ditto.
+	(METHOD_ADD_ARGS_ELLIPSIS_P): Use decl_common.
+	(METHOD_DEFINITION): Ditto.
+	(METHOD_ENCODING): Ditto.
+	* objc-lang.c: (objc_init_ts): New function.
+
+2005-07-07  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (objc_build_struct): Pass in an actual @interface
+	instead of its name, and annotate the struct created (and all
+	existing variants thereof) with the @interface.
+	(objc_compare_types): Treat forward-declared ObjC classes
+	as stand-alone (root) classes for purposes of type comparisons.
+	(build_private_template): Move some code to objc_build_struct().
+
+2005-07-07  Ziemowit Laski  <zlaski@apple.com>
+
+	PR objc/22274
+	* objc-act.c (objc_build_string_object): For GNU-style constants,
+	use the @interface type rather than the built-in type.
+
+2005-07-03  Kazu Hirata  <kazu@codesourcery.com>
+
+	* Make-lang.in (cc1plus-checksum.c): Use
+	build/genchecksum$(build_exeext), not build/genchecksum$(exeext).
+
+2005-07-02  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* objc-act.c: Use %q to quote in diagnostics.
+
+2005-07-02  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* objc-act.c: Use '+' flag instead of %J.  Use 'q' flag for
+	quoting.
+
+2005-06-30  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (objc_build_volatilized_type): New function.
+	(objc_volatilize_decl): Call objc_build_volatilized_type()
+	instead of build_qualified_type().
+
+2005-06-29  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (objc_build_internal_const_str_type): New function.
+	(check_string_class_template): Use objc_get_class_ivars() instead
+	of TYPE_FIELDS() to retrieve ivar list.
+	(AT_LEAST_AS_LARGE_AS): Check the size of each field's type rather
+	than the field itself.
+	(objc_build_string_object): Synthesize a "__builtin_ObjCString"
+	type and use it to lay out compile-time string objects.
+	* objc-act.h (OCTI_INTERNAL_CNST_STR_TYPE, internal_const_str_type):
+	New.
+
+2005-06-28  Paul Brook  <paul@codesourcery.com>
+
+	* objc-act.c (objc_init_exceptions): Call
+	default_init_unwind_resume_libfunc.
+
+2005-06-27  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (objc_build_struct): Save the TYPE_OBJC_INFO
+	portion of TYPE_LANG_SPECIFIC info for all variants of
+	a class before calling finish_struct(), and restore
+	same TYPE_OBJC_INFO afterwards.
+
+2005-06-25  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* all files: Update FSF address in copyright headers.
+
+2005-06-15  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* objc-act.c (my_build_string_pointer): New.
+	(objc_get_class_reference, get_super_receiver): Call
+	my_build_string_pointer instead of my_build_string when building
+	function arguments.
+
 2005-05-25  Mike Stump  <mrs@mrs.kithrup.com>
 
 	* objc-act.c (volatilized_hash): Avoid warnings on 64-bit
@@ -220,7 +378,7 @@
 
 	* objc-act.c (objc_finish_file): In ObjC++ mode, set at_eof before
 	calling instantiate_pending_templates.
-	
+
 2005-01-26  Alexander Malmberg  <alexander@malmberg.org>
 
 	PR objc/18862
@@ -296,7 +454,7 @@
 	(objc_types_are_equivalent): Check TYPE_HAS_OBJC_INFO(...) before
 	accessing TYPE_OBJC_PROTOCOL_LIST.
 	* objc-act.h (OBJC_INFO_SLOT_ELTS, TYPE_OBJC_INFO, INIT_TYPE_OBJC_INFO,
-	DUP_TYPE_OBJC_INFO, ALLOC_OBJC_TYPE_LANG_SPECIFIC, 
+	DUP_TYPE_OBJC_INFO, ALLOC_OBJC_TYPE_LANG_SPECIFIC,
 	SIZEOF_OBJC_TYPE_LANG_SPECIFIC): New macros.
 	(TYPE_OBJC_INTERFACE): Replaces TREE_STATIC_INSTANCE and now points
 	to an actual @interface; stored in TYPE_LANG_SPECIFIC(...).

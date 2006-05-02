@@ -25,13 +25,15 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
 #include "libgfortran.h"
+
+#if defined (HAVE_GFC_INTEGER_8)
 
 /* Allocates a block of memory with internal_malloc if the array needs
    repacking.  */
@@ -82,7 +84,7 @@ internal_pack_8 (gfc_array_i8 * source)
     return source->data;
 
   /* Allocate storage for the destination.  */
-  destptr = (GFC_INTEGER_8 *)internal_malloc_size (ssize * 8);
+  destptr = (GFC_INTEGER_8 *)internal_malloc_size (ssize * sizeof (GFC_INTEGER_8));
   dest = destptr;
   src = source->data;
   stride0 = stride[0];
@@ -121,3 +123,4 @@ internal_pack_8 (gfc_array_i8 * source)
   return destptr;
 }
 
+#endif

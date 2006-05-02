@@ -1,6 +1,6 @@
 // Debugging mode support code -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005
+// Copyright (C) 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -32,10 +32,8 @@
 #include <debug/safe_sequence.h>
 #include <debug/safe_iterator.h>
 #include <algorithm>
-#include <cstdlib>
 #include <cassert>
 #include <cstring>
-#include <cstdio>
 #include <cctype>
 #include <bits/concurrence.h>
 
@@ -43,20 +41,11 @@ using namespace std;
 
 namespace __gnu_internal
 {
-  __glibcxx_mutex_define_initialized(iterator_base_mutex);
+  static __glibcxx_mutex_define_initialized(iterator_base_mutex);
 } // namespace __gnu_internal
 
 namespace __gnu_debug
 {
-  void
-  __fancy_abort(const char* __file, int __line, const char* __function,
-		const char* __condition)
-  {
-    printf("%s:%d: %s: Assertion '%s' failed.\n", __file, __line,
-	   __function, __condition);
-    abort();
-  }
-
   const char* _S_debug_messages[] = 
   {
     "function requires a valid iterator range [%1.name;, %2.name;)",
@@ -258,8 +247,8 @@ namespace __gnu_debug
   _Safe_iterator_base::
   _M_can_compare(const _Safe_iterator_base& __x) const
   {
-    return (!_M_singular() && !__x._M_singular() 
-	    && _M_sequence == __x._M_sequence);
+    return (!_M_singular() 
+	    && !__x._M_singular() && _M_sequence == __x._M_sequence);
   }
 
   void

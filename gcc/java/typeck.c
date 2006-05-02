@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -55,8 +55,7 @@ set_local_type (int slot, tree type)
   int max_locals = DECL_MAX_LOCALS(current_function_decl);
   int nslots = TYPE_IS_WIDE (type) ? 2 : 1;
 
-  if (slot < 0 || slot + nslots - 1 >= max_locals)
-    abort ();
+  gcc_assert (slot >= 0 && (slot + nslots - 1 < max_locals));
 
   type_map[slot] = type;
   while (--nslots > 0)
@@ -83,24 +82,24 @@ convert_ieee_real_to_integer (tree type, tree expr)
   tree result;
   expr = save_expr (expr);
 
-  result = fold (build3 (COND_EXPR, type,
-			 fold (build2 (NE_EXPR, boolean_type_node, expr, expr)),
+  result = fold_build3 (COND_EXPR, type,
+			fold_build2 (NE_EXPR, boolean_type_node, expr, expr),
 			 convert (type, integer_zero_node),
-			 convert_to_integer (type, expr)));
+			 convert_to_integer (type, expr));
   
-  result = fold (build3 (COND_EXPR, type, 
-			 fold (build2 (LE_EXPR, boolean_type_node, expr, 
-				       convert (TREE_TYPE (expr), 
-						TYPE_MIN_VALUE (type)))),
-			 TYPE_MIN_VALUE (type),
-			 result));
+  result = fold_build3 (COND_EXPR, type, 
+			fold_build2 (LE_EXPR, boolean_type_node, expr, 
+				     convert (TREE_TYPE (expr), 
+					      TYPE_MIN_VALUE (type))),
+			TYPE_MIN_VALUE (type),
+			result);
   
-  result = fold (build3 (COND_EXPR, type,
-			 fold (build2 (GE_EXPR, boolean_type_node, expr, 
-				       convert (TREE_TYPE (expr), 
-						TYPE_MAX_VALUE (type)))),
-			 TYPE_MAX_VALUE (type),
-			 result));
+  result = fold_build3 (COND_EXPR, type,
+			fold_build2 (GE_EXPR, boolean_type_node, expr, 
+				     convert (TREE_TYPE (expr), 
+					      TYPE_MAX_VALUE (type))),
+			TYPE_MAX_VALUE (type),
+			result);
 
   return result;
 }  
@@ -126,23 +125,26 @@ convert (tree type, tree expr)
     return error_mark_node;
   if (code == VOID_TYPE)
     return build1 (CONVERT_EXPR, type, expr);
-  if (code == BOOLEAN_TYPE || code ==  CHAR_TYPE)
+  if (code == BOOLEAN_TYPE)
     return fold_convert (type, expr);
   if (code == INTEGER_TYPE)
     {
+      if (type == char_type_node || type == promoted_char_type_node)
+	return fold_convert (type, expr);
       if ((really_constant_p (expr)
 	   || (! flag_unsafe_math_optimizations
 	       && ! flag_emit_class_files))
 	  && TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
 	  && TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT)
-	return fold (convert_ieee_real_to_integer (type, expr));
+	return convert_ieee_real_to_integer (type, expr);
       else
 	{
 	  /* fold very helpfully sets the overflow status if a type
 	     overflows in a narrowing integer conversion, but Java
 	     doesn't care.  */
 	  tree tmp = fold (convert_to_integer (type, expr));
-	  TREE_OVERFLOW (tmp) = 0;
+	  if (TREE_CODE (tmp) == INTEGER_CST)
+	    TREE_OVERFLOW (tmp) = 0;
 	  return tmp;
 	}
     }	  
@@ -328,7 +330,7 @@ java_array_type_length (tree array_type)
   return -1;
 }
 
-/* An array of unknown length will be ultimately given an length of
+/* An array of unknown length will be ultimately given a length of
    -2, so that we can still have `length' producing a negative value
    even if found. This was part of an optimization aiming at removing
    `length' from static arrays. We could restore it, FIXME.  */
@@ -383,9 +385,11 @@ build_java_array_type (tree element_type, HOST_WIDE_INT length)
     else
       strcpy (suffix, "[]");
     TYPE_NAME (t) 
+      = TYPE_STUB_DECL (t)
       = build_decl (TYPE_DECL,
 		    identifier_subst (el_name, "", '.', '.', suffix),
                              t);
+    TYPE_DECL_SUPPRESS_DEBUG (TYPE_STUB_DECL (t)) = true;
   }
 
   set_java_signature (t, sig);
@@ -430,11 +434,9 @@ promote_type (tree type)
       if (type == boolean_type_node)
 	return promoted_boolean_type_node;
       goto handle_int;
-    case CHAR_TYPE:
+    case INTEGER_TYPE:
       if (type == char_type_node)
 	return promoted_char_type_node;
-      goto handle_int;
-    case INTEGER_TYPE:
     handle_int:
       if (TYPE_PRECISION (type) < TYPE_PRECISION (int_type_node))
 	{
@@ -457,9 +459,7 @@ static tree
 parse_signature_type (const unsigned char **ptr, const unsigned char *limit)
 {
   tree type;
-
-  if (*ptr >= limit)
-    abort ();
+  gcc_assert (*ptr < limit);
 
   switch (**ptr)
     {
@@ -483,8 +483,7 @@ parse_signature_type (const unsigned char **ptr, const unsigned char *limit)
 	const unsigned char *str = start;
 	for ( ; ; str++)
 	  {
-	    if (str >= limit)
-	      abort ();
+	    gcc_assert (str < limit);
 	    if (*str == ';')
 	      break;
 	  }
@@ -493,7 +492,7 @@ parse_signature_type (const unsigned char **ptr, const unsigned char *limit)
 	break;
       }
     default:
-      abort ();
+      gcc_unreachable ();
     }
   return promote_type (type);
 }
@@ -604,9 +603,13 @@ build_java_signature (tree type)
       switch (TREE_CODE (type))
 	{
 	case BOOLEAN_TYPE: sg[0] = 'Z';  goto native;
-	case CHAR_TYPE:    sg[0] = 'C';  goto native;
 	case VOID_TYPE:    sg[0] = 'V';  goto native;
 	case INTEGER_TYPE:
+          if (type == char_type_node || type == promoted_char_type_node)
+	    {
+	      sg[0] = 'C';
+	      goto native;
+	    }
 	  switch (TYPE_PRECISION (type))
 	    {
 	    case  8:       sg[0] = 'B';  goto native;
@@ -661,7 +664,7 @@ build_java_signature (tree type)
 	  break;
 	bad_type:
 	default:
-	  abort ();
+	  gcc_unreachable ();
 	}
       TYPE_SIGNATURE (type) = sig;
     }
@@ -841,6 +844,7 @@ lookup_do (tree searched_class, int flags, tree method_name,
 	   tree signature, tree (*signature_builder) (tree))
 {
   tree method;
+  tree orig_class = searched_class;
     
   if (searched_class == NULL_TREE)
     return NULL_TREE;
@@ -867,7 +871,7 @@ lookup_do (tree searched_class, int flags, tree method_name,
   
   /* If that doesn't work, look in our interfaces.  */
   if (flags & SEARCH_INTERFACE)
-    method = find_method_in_interfaces (searched_class, flags, method_name, 
+    method = find_method_in_interfaces (orig_class, flags, method_name, 
 					signature, signature_builder);
   
   return method;

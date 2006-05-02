@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -211,7 +211,7 @@ split_range (struct eh_range *range, int pc)
     }
 
   /* Create a new range.  */
-  h = xmalloc (sizeof (struct eh_range));
+  h = XNEW (struct eh_range);
 
   h->start_pc = pc;
   h->end_pc = range->end_pc;
@@ -289,7 +289,7 @@ add_handler (int start_pc, int end_pc, tree handler, tree type)
     }
 
   /* Create the new range.  */
-  h = xmalloc (sizeof (struct eh_range));
+  h = XNEW (struct eh_range);
   first_child = &h->first_child;
 
   h->start_pc = start_pc;

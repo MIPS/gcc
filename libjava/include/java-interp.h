@@ -1,6 +1,6 @@
 // java-interp.h - Header file for the bytecode interpreter.  -*- c++ -*-
 
-/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -22,27 +22,29 @@ details.  */
 #include <java/lang/Class.h>
 #include <java/lang/ClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
+#include <java/lang/Thread.h>
+#include <gnu/gcj/RawData.h>
 
 // Define this to get the direct-threaded interpreter.  If undefined,
 // we revert to a basic bytecode interpreter.  The former is faster
 // but uses more memory.
 #define DIRECT_THREADED
 
-extern "C" {
 #include <ffi.h>
-}
 
 struct _Jv_ResolvedMethod;
 
 void _Jv_InitInterpreter ();
 void _Jv_DefineClass (jclass, jbyteArray, jint, jint,
-		      java::security::ProtectionDomain *);
+		      java::security::ProtectionDomain *,
+		      _Jv_Utf8Const **);
 
 void _Jv_InitField (jobject, jclass, int);
 void * _Jv_AllocMethodInvocation (jsize size);
 int  _Jv_count_arguments (_Jv_Utf8Const *signature,
 			  jboolean staticp = true);
 void _Jv_VerifyMethod (_Jv_InterpMethod *method);
+void _Jv_CompileMethod (_Jv_InterpMethod* method);
 
 /* the interpreter is written in C++, primarily because it makes it easy for
  * the entire thing to be "friend" with class Class. */
@@ -136,12 +138,14 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   int              code_length;
 
   _Jv_ushort       exc_count;
+  bool             is_15;
 
   // Length of the line_table - when this is zero then line_table is NULL.
   int line_table_len;  
   _Jv_LineTableEntry *line_table;
 
   void *prepared;
+  int number_insn_slots;
 
   unsigned char* bytecode () 
   {
@@ -179,9 +183,28 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   // number info is unavailable.
   int get_source_line(pc_t mpc);
 
+#ifdef DIRECT_THREADED
+  // Convenience function for indexing bytecode PC/insn slots in
+  // line tables for JDWP
+  jlong insn_index (pc_t pc);
+#endif
+
  public:
   static void dump_object(jobject o);
 
+  /* Get the line table for this method.
+   * start  is the lowest index in the method
+   * end    is the  highest index in the method
+   * line_numbers is an array to hold the list of source line numbers
+   * code_indices is an array to hold the corresponding list of code indices
+   */
+  void get_line_table (jlong& start, jlong& end, jintArray& line_numbers,
+		       jlongArray& code_indices);
+
+#ifdef DIRECT_THREADED
+  friend void _Jv_CompileMethod (_Jv_InterpMethod*);
+#endif
+  
   friend class _Jv_ClassReader;
   friend class _Jv_BytecodeVerifier;
   friend class _Jv_StackTrace;
@@ -217,7 +240,8 @@ _Jv_GetFirstMethod (_Jv_InterpClass *klass)
   return klass->interpreted_methods;
 }
 
-struct _Jv_ResolvedMethod {
+struct _Jv_ResolvedMethod
+{
   jint            stack_item_count;	
   jint            vtable_index;	
   jclass          klass;
@@ -266,22 +290,22 @@ public:
 struct _Jv_InterpFrame
 {
   _Jv_InterpMethod *self;
-  _Jv_InterpFrame **ptr;
+  java::lang::Thread *thread;
   _Jv_InterpFrame *next;
   pc_t pc;
 
-  _Jv_InterpFrame (_Jv_InterpMethod *s, _Jv_InterpFrame **n)
+  _Jv_InterpFrame (_Jv_InterpMethod *s, java::lang::Thread *thr)
   {
     self = s;
-    ptr = n;
-    next = *n;
-    *n = this;
+    thread = thr;
+    next = (_Jv_InterpFrame *) thr->interp_frame;
+    thr->interp_frame = (gnu::gcj::RawData *) this;
     pc = NULL;
   }
 
   ~_Jv_InterpFrame ()
   {
-    *ptr = next;
+    thread->interp_frame = (gnu::gcj::RawData *) next;
   }
 };
 

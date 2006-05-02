@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include "config.h"
@@ -234,6 +234,21 @@ alpha_handle_option (size_t code, const char *arg, int value)
 
   return true;
 }
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+/* Implement TARGET_MANGLE_FUNDAMENTAL_TYPE.  */
+
+static const char *
+alpha_mangle_fundamental_type (tree type)
+{
+  if (TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_LONG_DOUBLE_128)
+    return "g";
+
+  /* For all other types, use normal C++ mangling.  */
+  return NULL;
+}
+#endif
 
 /* Parse target option strings.  */
 
@@ -501,6 +516,11 @@ override_options (void)
       REAL_MODE_FORMAT (DFmode) = &vax_g_format;
       REAL_MODE_FORMAT (TFmode) = NULL;
     }
+
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+  if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
+    target_flags |= MASK_LONG_DOUBLE_128;
+#endif
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -533,25 +553,14 @@ tls_symbolic_operand_1 (rtx op, int size, int unspec)
   if (GET_CODE (op) != SYMBOL_REF)
     return 0;
 
-  if (SYMBOL_REF_LOCAL_P (op))
-    {
-      if (alpha_tls_size > size)
-	return 0;
-    }
-  else
-    {
-      if (size != 64)
-	return 0;
-    }
-
   switch (SYMBOL_REF_TLS_MODEL (op))
     {
     case TLS_MODEL_LOCAL_DYNAMIC:
-      return unspec == UNSPEC_DTPREL;
+      return unspec == UNSPEC_DTPREL && size == alpha_tls_size;
     case TLS_MODEL_INITIAL_EXEC:
       return unspec == UNSPEC_TPREL && size == 64;
     case TLS_MODEL_LOCAL_EXEC:
-      return unspec == UNSPEC_TPREL;
+      return unspec == UNSPEC_TPREL && size == alpha_tls_size;
     default:
       gcc_unreachable ();
     }
@@ -1046,6 +1055,9 @@ alpha_legitimize_address (rtx x, rtx scratch,
 
       switch (tls_symbolic_operand_type (x))
 	{
+	case TLS_MODEL_NONE:
+	  break;
+
 	case TLS_MODEL_GLOBAL_DYNAMIC:
 	  start_sequence ();
 
@@ -1134,6 +1146,9 @@ alpha_legitimize_address (rtx x, rtx scratch,
 	      emit_insn (gen_rtx_SET (VOIDmode, tp, insn));
 	    }
 	  return gen_rtx_LO_SUM (Pmode, tp, eqv);
+
+	default:
+	  gcc_unreachable ();
 	}
 
       if (local_symbolic_operand (x, Pmode))
@@ -1467,9 +1482,15 @@ alpha_rtx_costs (rtx x, int code, int outer_code, int *total)
     case UNSIGNED_FLOAT:
     case FIX:
     case UNSIGNED_FIX:
-    case FLOAT_EXTEND:
     case FLOAT_TRUNCATE:
       *total = cost_data->fp_add;
+      return false;
+
+    case FLOAT_EXTEND:
+      if (GET_CODE (XEXP (x, 0)) == MEM)
+	*total = 0;
+      else
+	*total = cost_data->fp_add;
       return false;
 
     default:
@@ -1585,7 +1606,7 @@ alpha_preferred_reload_class(rtx x, enum reg_class class)
    from register elimination into a DImode fp register.  */
 
 enum reg_class
-secondary_reload_class (enum reg_class class, enum machine_mode mode,
+alpha_secondary_reload_class (enum reg_class class, enum machine_mode mode,
 			rtx x, int in)
 {
   if ((mode == QImode || mode == HImode) && ! TARGET_BWX)
@@ -2092,9 +2113,12 @@ alpha_legitimate_constant_p (rtx x)
     {
     case CONST:
     case LABEL_REF:
-    case SYMBOL_REF:
     case HIGH:
       return true;
+
+    case SYMBOL_REF:
+      /* TLS symbols are never valid.  */
+      return SYMBOL_REF_TLS_MODEL (x) == 0;
 
     case CONST_DOUBLE:
       if (x == CONST0_RTX (mode))
@@ -3186,12 +3210,17 @@ alpha_emit_xfloating_cvt (enum rtx_code orig_code, rtx operands[])
 					       operands[1]));
 }
 
-/* Split a TFmode OP[1] into DImode OP[2,3] and likewise for
-   OP[0] into OP[0,1].  Naturally, output operand ordering is
-   little-endian.  */
-
+/* Split a TImode or TFmode move from OP[1] to OP[0] into a pair of
+   DImode moves from OP[2,3] to OP[0,1].  If FIXUP_OVERLAP is true,
+   guarantee that the sequence
+     set (OP[0] OP[2])
+     set (OP[1] OP[3])
+   is valid.  Naturally, output operand ordering is little-endian.
+   This is used by *movtf_internal and *movti_internal.  */
+  
 void
-alpha_split_tfmode_pair (rtx operands[4])
+alpha_split_tmode_pair (rtx operands[4], enum machine_mode mode,
+			bool fixup_overlap)
 {
   switch (GET_CODE (operands[1]))
     {
@@ -3205,8 +3234,9 @@ alpha_split_tfmode_pair (rtx operands[4])
       operands[2] = adjust_address (operands[1], DImode, 0);
       break;
 
+    case CONST_INT:
     case CONST_DOUBLE:
-      gcc_assert (operands[1] == CONST0_RTX (TFmode));
+      gcc_assert (operands[1] == CONST0_RTX (mode));
       operands[2] = operands[3] = const0_rtx;
       break;
 
@@ -3229,6 +3259,13 @@ alpha_split_tfmode_pair (rtx operands[4])
     default:
       gcc_unreachable ();
     }
+
+  if (fixup_overlap && reg_overlap_mentioned_p (operands[0], operands[3]))
+    {
+      rtx tmp;
+      tmp = operands[0], operands[0] = operands[1], operands[1] = tmp;
+      tmp = operands[2], operands[2] = operands[3], operands[3] = tmp;
+    }
 }
 
 /* Implement negtf2 or abstf2.  Op0 is destination, op1 is source,
@@ -3242,7 +3279,7 @@ alpha_split_tfmode_frobsign (rtx operands[3], rtx (*operation) (rtx, rtx, rtx))
   rtx scratch;
   int move;
 
-  alpha_split_tfmode_pair (operands);
+  alpha_split_tmode_pair (operands, TFmode, false);
 
   /* Detect three flavors of operand overlap.  */
   move = 1;
@@ -4069,7 +4106,7 @@ int
 alpha_expand_block_clear (rtx operands[])
 {
   rtx bytes_rtx	= operands[1];
-  rtx align_rtx = operands[2];
+  rtx align_rtx = operands[3];
   HOST_WIDE_INT orig_bytes = INTVAL (bytes_rtx);
   HOST_WIDE_INT bytes = orig_bytes;
   HOST_WIDE_INT align = INTVAL (align_rtx) * BITS_PER_UNIT;
@@ -4447,6 +4484,34 @@ emit_store_conditional (enum machine_mode mode, rtx res, rtx mem, rtx val)
   emit_insn (fn (res, mem, val));
 }
 
+/* A subroutine of the atomic operation splitters.  Emit an insxl
+   instruction in MODE.  */
+
+static rtx
+emit_insxl (enum machine_mode mode, rtx op1, rtx op2)
+{
+  rtx ret = gen_reg_rtx (DImode);
+  rtx (*fn) (rtx, rtx, rtx);
+
+  if (WORDS_BIG_ENDIAN)
+    {
+      if (mode == QImode)
+	fn = gen_insbl_be;
+      else
+	fn = gen_inswl_be;
+    }
+  else
+    {
+      if (mode == QImode)
+	fn = gen_insbl_le;
+      else
+	fn = gen_inswl_le;
+    }
+  emit_insn (fn (ret, op1, op2));
+
+  return ret;
+}
+
 /* Expand an an atomic fetch-and-operate pattern.  CODE is the binary operation
    to perform.  MEM is the memory on which to operate.  VAL is the second 
    operand of the binary operator.  BEFORE and AFTER are optional locations to
@@ -4524,6 +4589,79 @@ alpha_split_compare_and_swap (rtx retval, rtx mem, rtx oldval, rtx newval,
   emit_label (XEXP (label2, 0));
 }
 
+void
+alpha_expand_compare_and_swap_12 (rtx dst, rtx mem, rtx oldval, rtx newval)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  rtx addr, align, wdst;
+  rtx (*fn5) (rtx, rtx, rtx, rtx, rtx);
+
+  addr = force_reg (DImode, XEXP (mem, 0));
+  align = expand_simple_binop (Pmode, AND, addr, GEN_INT (-8),
+			       NULL_RTX, 1, OPTAB_DIRECT);
+
+  oldval = convert_modes (DImode, mode, oldval, 1);
+  newval = emit_insxl (mode, newval, addr);
+
+  wdst = gen_reg_rtx (DImode);
+  if (mode == QImode)
+    fn5 = gen_sync_compare_and_swapqi_1;
+  else
+    fn5 = gen_sync_compare_and_swaphi_1;
+  emit_insn (fn5 (wdst, addr, oldval, newval, align));
+
+  emit_move_insn (dst, gen_lowpart (mode, wdst));
+}
+
+void
+alpha_split_compare_and_swap_12 (enum machine_mode mode, rtx dest, rtx addr,
+				 rtx oldval, rtx newval, rtx align,
+				 rtx scratch, rtx cond)
+{
+  rtx label1, label2, mem, width, mask, x;
+
+  mem = gen_rtx_MEM (DImode, align);
+  MEM_VOLATILE_P (mem) = 1;
+
+  emit_insn (gen_memory_barrier ());
+  label1 = gen_rtx_LABEL_REF (DImode, gen_label_rtx ());
+  label2 = gen_rtx_LABEL_REF (DImode, gen_label_rtx ());
+  emit_label (XEXP (label1, 0));
+
+  emit_load_locked (DImode, scratch, mem);
+  
+  width = GEN_INT (GET_MODE_BITSIZE (mode));
+  mask = GEN_INT (mode == QImode ? 0xff : 0xffff);
+  if (WORDS_BIG_ENDIAN)
+    emit_insn (gen_extxl_be (dest, scratch, width, addr));
+  else
+    emit_insn (gen_extxl_le (dest, scratch, width, addr));
+
+  if (oldval == const0_rtx)
+    x = gen_rtx_NE (DImode, dest, const0_rtx);
+  else
+    {
+      x = gen_rtx_EQ (DImode, dest, oldval);
+      emit_insn (gen_rtx_SET (VOIDmode, cond, x));
+      x = gen_rtx_EQ (DImode, cond, const0_rtx);
+    }
+  emit_unlikely_jump (x, label2);
+
+  if (WORDS_BIG_ENDIAN)
+    emit_insn (gen_mskxl_be (scratch, scratch, mask, addr));
+  else
+    emit_insn (gen_mskxl_le (scratch, scratch, mask, addr));
+  emit_insn (gen_iordi3 (scratch, scratch, newval));
+
+  emit_store_conditional (DImode, scratch, mem, scratch);
+
+  x = gen_rtx_EQ (DImode, scratch, const0_rtx);
+  emit_unlikely_jump (x, label1);
+
+  emit_insn (gen_memory_barrier ());
+  emit_label (XEXP (label2, 0));
+}
+
 /* Expand an atomic exchange operation.  */
 
 void
@@ -4542,6 +4680,68 @@ alpha_split_lock_test_and_set (rtx retval, rtx mem, rtx val, rtx scratch)
   emit_store_conditional (mode, cond, mem, scratch);
 
   x = gen_rtx_EQ (DImode, cond, const0_rtx);
+  emit_unlikely_jump (x, label);
+}
+
+void
+alpha_expand_lock_test_and_set_12 (rtx dst, rtx mem, rtx val)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  rtx addr, align, wdst;
+  rtx (*fn4) (rtx, rtx, rtx, rtx);
+
+  /* Force the address into a register.  */
+  addr = force_reg (DImode, XEXP (mem, 0));
+
+  /* Align it to a multiple of 8.  */
+  align = expand_simple_binop (Pmode, AND, addr, GEN_INT (-8),
+			       NULL_RTX, 1, OPTAB_DIRECT);
+
+  /* Insert val into the correct byte location within the word.  */
+  val = emit_insxl (mode, val, addr);
+
+  wdst = gen_reg_rtx (DImode);
+  if (mode == QImode)
+    fn4 = gen_sync_lock_test_and_setqi_1;
+  else
+    fn4 = gen_sync_lock_test_and_sethi_1;
+  emit_insn (fn4 (wdst, addr, val, align));
+
+  emit_move_insn (dst, gen_lowpart (mode, wdst));
+}
+
+void
+alpha_split_lock_test_and_set_12 (enum machine_mode mode, rtx dest, rtx addr,
+				  rtx val, rtx align, rtx scratch)
+{
+  rtx label, mem, width, mask, x;
+
+  mem = gen_rtx_MEM (DImode, align);
+  MEM_VOLATILE_P (mem) = 1;
+
+  emit_insn (gen_memory_barrier ());
+  label = gen_rtx_LABEL_REF (DImode, gen_label_rtx ());
+  emit_label (XEXP (label, 0));
+
+  emit_load_locked (DImode, scratch, mem);
+  
+  width = GEN_INT (GET_MODE_BITSIZE (mode));
+  mask = GEN_INT (mode == QImode ? 0xff : 0xffff);
+  if (WORDS_BIG_ENDIAN)
+    {
+      emit_insn (gen_extxl_be (dest, scratch, width, addr));
+      emit_insn (gen_mskxl_be (scratch, scratch, mask, addr));
+    }
+  else
+    {
+      emit_insn (gen_extxl_le (dest, scratch, width, addr));
+      emit_insn (gen_mskxl_le (scratch, scratch, mask, addr));
+    }
+  emit_insn (gen_iordi3 (scratch, scratch, val));
+
+  emit_store_conditional (DImode, scratch, mem, scratch);
+
+  x = gen_rtx_EQ (DImode, scratch, const0_rtx);
   emit_unlikely_jump (x, label);
 }
 
@@ -5515,7 +5715,7 @@ alpha_arg_partial_bytes (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 #if TARGET_ABI_OPEN_VMS
   if (cum->num_args < 6
       && 6 < cum->num_args + ALPHA_ARG_SIZE (mode, type, named))
-    words = 6 - (CUM).num_args;
+    words = 6 - cum->num_args;
 #elif TARGET_ABI_UNICOSMK
   /* Never any split arguments.  */
 #elif TARGET_ABI_OSF
@@ -5779,7 +5979,7 @@ alpha_stdarg_optimize_hook (struct stdarg_info *si, tree lhs, tree rhs)
 
   base = get_base_address (base);
   if (TREE_CODE (base) != VAR_DECL
-      || !bitmap_bit_p (si->va_list_vars, var_ann (base)->uid))
+      || !bitmap_bit_p (si->va_list_vars, DECL_UID (base)))
     return false;
 
   offset = TREE_OPERAND (lhs, offset_arg);
@@ -5921,6 +6121,7 @@ alpha_setup_incoming_varargs (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
 	  tmp = gen_rtx_MEM (BLKmode,
 			     plus_constant (virtual_incoming_args_rtx,
 					    (cum + 6) * UNITS_PER_WORD));
+	  MEM_NOTRAP_P (tmp) = 1;
 	  set_mem_alias_set (tmp, set);
 	  move_block_from_reg (16 + cum, tmp, count);
 	}
@@ -5930,6 +6131,7 @@ alpha_setup_incoming_varargs (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
 	  tmp = gen_rtx_MEM (BLKmode,
 			     plus_constant (virtual_incoming_args_rtx,
 					    cum * UNITS_PER_WORD));
+	  MEM_NOTRAP_P (tmp) = 1;
 	  set_mem_alias_set (tmp, set);
 	  move_block_from_reg (16 + cum + TARGET_FPREGS*32, tmp, count);
 	}
@@ -5971,8 +6173,8 @@ alpha_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
     {
       nextarg = plus_constant (nextarg, offset);
       nextarg = plus_constant (nextarg, NUM_ARGS * UNITS_PER_WORD);
-      t = build (MODIFY_EXPR, TREE_TYPE (valist), valist,
-		 make_tree (ptr_type_node, nextarg));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (valist), valist,
+		  make_tree (ptr_type_node, nextarg));
       TREE_SIDE_EFFECTS (t) = 1;
 
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -5982,20 +6184,20 @@ alpha_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
       base_field = TYPE_FIELDS (TREE_TYPE (valist));
       offset_field = TREE_CHAIN (base_field);
 
-      base_field = build (COMPONENT_REF, TREE_TYPE (base_field),
-			  valist, base_field, NULL_TREE);
-      offset_field = build (COMPONENT_REF, TREE_TYPE (offset_field),
-			    valist, offset_field, NULL_TREE);
+      base_field = build3 (COMPONENT_REF, TREE_TYPE (base_field),
+			   valist, base_field, NULL_TREE);
+      offset_field = build3 (COMPONENT_REF, TREE_TYPE (offset_field),
+			     valist, offset_field, NULL_TREE);
 
       t = make_tree (ptr_type_node, virtual_incoming_args_rtx);
-      t = build (PLUS_EXPR, ptr_type_node, t,
-		 build_int_cst (NULL_TREE, offset));
-      t = build (MODIFY_EXPR, TREE_TYPE (base_field), base_field, t);
+      t = build2 (PLUS_EXPR, ptr_type_node, t,
+		  build_int_cst (NULL_TREE, offset));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (base_field), base_field, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
       t = build_int_cst (NULL_TREE, NUM_ARGS * UNITS_PER_WORD);
-      t = build (MODIFY_EXPR, TREE_TYPE (offset_field), offset_field, t);
+      t = build2 (MODIFY_EXPR, TREE_TYPE (offset_field), offset_field, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
     }
@@ -6011,8 +6213,8 @@ alpha_gimplify_va_arg_1 (tree type, tree base, tree offset, tree *pre_p)
   if (targetm.calls.must_pass_in_stack (TYPE_MODE (type), type))
     {
       t = build_int_cst (TREE_TYPE (offset), 6*8);
-      t = build (MODIFY_EXPR, TREE_TYPE (offset), offset,
-		 build (MAX_EXPR, TREE_TYPE (offset), offset, t));
+      t = build2 (MODIFY_EXPR, TREE_TYPE (offset), offset,
+		  build2 (MAX_EXPR, TREE_TYPE (offset), offset, t));
       gimplify_and_add (t, pre_p);
     }
 
@@ -6033,23 +6235,23 @@ alpha_gimplify_va_arg_1 (tree type, tree base, tree offset, tree *pre_p)
       imag_part = alpha_gimplify_va_arg_1 (TREE_TYPE (type), base,
 					   offset, pre_p);
 
-      return build (COMPLEX_EXPR, type, real_temp, imag_part);
+      return build2 (COMPLEX_EXPR, type, real_temp, imag_part);
     }
   else if (TREE_CODE (type) == REAL_TYPE)
     {
       tree fpaddend, cond, fourtyeight;
 
       fourtyeight = build_int_cst (TREE_TYPE (addend), 6*8);
-      fpaddend = fold (build (MINUS_EXPR, TREE_TYPE (addend),
-			      addend, fourtyeight));
-      cond = fold (build (LT_EXPR, boolean_type_node, addend, fourtyeight));
-      addend = fold (build (COND_EXPR, TREE_TYPE (addend), cond,
-			    fpaddend, addend));
+      fpaddend = fold_build2 (MINUS_EXPR, TREE_TYPE (addend),
+			      addend, fourtyeight);
+      cond = fold_build2 (LT_EXPR, boolean_type_node, addend, fourtyeight);
+      addend = fold_build3 (COND_EXPR, TREE_TYPE (addend), cond,
+			    fpaddend, addend);
     }
 
   /* Build the final address and force that value into a temporary.  */
-  addr = build (PLUS_EXPR, ptr_type, fold_convert (ptr_type, base),
-	        fold_convert (ptr_type, addend));
+  addr = build2 (PLUS_EXPR, ptr_type, fold_convert (ptr_type, base),
+	         fold_convert (ptr_type, addend));
   internal_post = NULL;
   gimplify_expr (&addr, pre_p, &internal_post, is_gimple_val, fb_rvalue);
   append_to_statement_list (internal_post, pre_p);
@@ -6065,11 +6267,11 @@ alpha_gimplify_va_arg_1 (tree type, tree base, tree offset, tree *pre_p)
       t = size_binop (MULT_EXPR, t, size_int (8));
     }
   t = fold_convert (TREE_TYPE (offset), t);
-  t = build (MODIFY_EXPR, void_type_node, offset,
-	     build (PLUS_EXPR, TREE_TYPE (offset), offset, t));
+  t = build2 (MODIFY_EXPR, void_type_node, offset,
+	      build2 (PLUS_EXPR, TREE_TYPE (offset), offset, t));
   gimplify_and_add (t, pre_p);
 
-  return build_fold_indirect_ref (addr);
+  return build_va_arg_indirect_ref (addr);
 }
 
 static tree
@@ -6083,10 +6285,10 @@ alpha_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
 
   base_field = TYPE_FIELDS (va_list_type_node);
   offset_field = TREE_CHAIN (base_field);
-  base_field = build (COMPONENT_REF, TREE_TYPE (base_field),
-		      valist, base_field, NULL_TREE);
-  offset_field = build (COMPONENT_REF, TREE_TYPE (offset_field),
-			valist, offset_field, NULL_TREE);
+  base_field = build3 (COMPONENT_REF, TREE_TYPE (base_field),
+		       valist, base_field, NULL_TREE);
+  offset_field = build3 (COMPONENT_REF, TREE_TYPE (offset_field),
+			 valist, offset_field, NULL_TREE);
 
   /* Pull the fields of the structure out into temporaries.  Since we never
      modify the base field, we can use a formal temporary.  Sign-extend the
@@ -6105,12 +6307,12 @@ alpha_gimplify_va_arg (tree valist, tree type, tree *pre_p, tree *post_p)
   r = alpha_gimplify_va_arg_1 (type, base, offset, pre_p);
 
   /* Stuff the offset temporary back into its field.  */
-  t = build (MODIFY_EXPR, void_type_node, offset_field,
-	     fold_convert (TREE_TYPE (offset_field), offset));
+  t = build2 (MODIFY_EXPR, void_type_node, offset_field,
+	      fold_convert (TREE_TYPE (offset_field), offset));
   gimplify_and_add (t, pre_p);
 
   if (indirect)
-    r = build_fold_indirect_ref (r);
+    r = build_va_arg_indirect_ref (r);
 
   return r;
 }
@@ -6296,13 +6498,16 @@ static void
 alpha_init_builtins (void)
 {
   const struct alpha_builtin_def *p;
+  tree dimode_integer_type_node;
   tree ftype, attrs[2];
   size_t i;
+
+  dimode_integer_type_node = lang_hooks.types.type_for_mode (DImode, 0);
 
   attrs[0] = tree_cons (get_identifier ("nothrow"), NULL, NULL);
   attrs[1] = tree_cons (get_identifier ("const"), NULL, attrs[0]);
 
-  ftype = build_function_type (long_integer_type_node, void_list_node);
+  ftype = build_function_type (dimode_integer_type_node, void_list_node);
 
   p = zero_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (zero_arg_builtins); ++i, ++p)
@@ -6310,8 +6515,8 @@ alpha_init_builtins (void)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
 				   NULL, attrs[p->is_const]);
 
-  ftype = build_function_type_list (long_integer_type_node,
-				    long_integer_type_node, NULL_TREE);
+  ftype = build_function_type_list (dimode_integer_type_node,
+				    dimode_integer_type_node, NULL_TREE);
 
   p = one_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (one_arg_builtins); ++i, ++p)
@@ -6319,9 +6524,9 @@ alpha_init_builtins (void)
       lang_hooks.builtin_function (p->name, ftype, p->code, BUILT_IN_MD,
 				   NULL, attrs[p->is_const]);
 
-  ftype = build_function_type_list (long_integer_type_node,
-				    long_integer_type_node,
-				    long_integer_type_node, NULL_TREE);
+  ftype = build_function_type_list (dimode_integer_type_node,
+				    dimode_integer_type_node,
+				    dimode_integer_type_node, NULL_TREE);
 
   p = two_arg_builtins;
   for (i = 0; i < ARRAY_SIZE (two_arg_builtins); ++i, ++p)
@@ -7369,16 +7574,15 @@ alpha_expand_prologue (void)
     {
       if (frame_size > 4096)
 	{
-	  int probed = 4096;
+	  int probed;
 
-	  do
+	  for (probed = 4096; probed < frame_size; probed += 8192)
 	    emit_insn (gen_probe_stack (GEN_INT (TARGET_ABI_UNICOSMK
 						 ? -probed + 64
 						 : -probed)));
-	  while ((probed += 8192) < frame_size);
 
 	  /* We only have to do this probe if we aren't saving registers.  */
-	  if (sa_size == 0 && probed + 4096 < frame_size)
+	  if (sa_size == 0 && frame_size > probed - 4096)
 	    emit_insn (gen_probe_stack (GEN_INT (-frame_size)));
 	}
 
@@ -7780,14 +7984,14 @@ alpha_start_function (FILE *file, const char *fnname,
 
 #if TARGET_ABI_OPEN_VMS
   /* Ifdef'ed cause link_section are only available then.  */
-  readonly_data_section ();
+  switch_to_section (readonly_data_section);
   fprintf (file, "\t.align 3\n");
   assemble_name (file, fnname); fputs ("..na:\n", file);
   fputs ("\t.ascii \"", file);
   assemble_name (file, fnname);
   fputs ("\\0\"\n", file);
   alpha_need_linkage (fnname, 1);
-  text_section ();
+  switch_to_section (text_section);
 #endif
 }
 
@@ -8562,6 +8766,11 @@ alpha_handle_trap_shadows (void)
 
 /* Alpha can only issue instruction groups simultaneously if they are
    suitably aligned.  This is very processor-specific.  */
+/* There are a number of entries in alphaev4_insn_pipe and alphaev5_insn_pipe
+   that are marked "fake".  These instructions do not exist on that target,
+   but it is possible to see these insns with deranged combinations of 
+   command-line options, such as "-mtune=ev4 -mmax".  Instead of aborting,
+   choose a result at random.  */
 
 enum alphaev4_pipe {
   EV4_STOP = 0,
@@ -8605,6 +8814,7 @@ alphaev4_insn_pipe (rtx insn)
     case TYPE_SHIFT:
     case TYPE_IMUL:
     case TYPE_FBR:
+    case TYPE_MVI:		/* fake */
       return EV4_IB0;
 
     case TYPE_IST:
@@ -8619,6 +8829,9 @@ alphaev4_insn_pipe (rtx insn)
     case TYPE_FMUL:
     case TYPE_ST_C:
     case TYPE_MB:
+    case TYPE_FSQRT:		/* fake */
+    case TYPE_FTOI:		/* fake */
+    case TYPE_ITOF:		/* fake */
       return EV4_IB1;
 
     default:
@@ -8654,6 +8867,8 @@ alphaev5_insn_pipe (rtx insn)
     case TYPE_LD_L:
     case TYPE_ST_C:
     case TYPE_MB:
+    case TYPE_FTOI:		/* fake */
+    case TYPE_ITOF:		/* fake */
       return EV5_E0;
 
     case TYPE_IBR:
@@ -8668,6 +8883,7 @@ alphaev5_insn_pipe (rtx insn)
     case TYPE_FCMOV:
     case TYPE_FADD:
     case TYPE_FDIV:
+    case TYPE_FSQRT:		/* fake */
       return EV5_FA;
 
     case TYPE_FMUL:
@@ -8974,7 +9190,7 @@ alpha_align_insns (unsigned int max_align,
   unsigned int align;
   /* OFS is the offset of the current insn in the insn group.  */
   int ofs;
-  int prev_in_use, in_use, len;
+  int prev_in_use, in_use, len, ldgp;
   rtx i, next;
 
   /* Let shorten branches care for assigning alignments to code labels.  */
@@ -8991,6 +9207,8 @@ alpha_align_insns (unsigned int max_align,
   i = get_insns ();
   if (GET_CODE (i) == NOTE)
     i = next_nonnote_insn (i);
+
+  ldgp = alpha_function_needs_gp ? 8 : 0;
 
   while (i)
     {
@@ -9046,6 +9264,10 @@ alpha_align_insns (unsigned int max_align,
 	      ofs = 0;
 	    }
 	}
+
+      /* We may not insert padding inside the initial ldgp sequence.  */
+      else if (ldgp > 0)
+	ldgp -= len;
 
       /* If the group won't fit in the same INT16 as the previous,
 	 we need to add padding to keep the group together.  Rather
@@ -9158,18 +9380,18 @@ alpha_file_start (void)
 
 #ifdef OBJECT_FORMAT_ELF
 
-/* Switch to the section to which we should output X.  The only thing
-   special we do here is to honor small data.  */
+/* Return a section for X.  The only special thing we do here is to
+   honor small data.  */
 
-static void
+static section *
 alpha_elf_select_rtx_section (enum machine_mode mode, rtx x,
 			      unsigned HOST_WIDE_INT align)
 {
   if (TARGET_SMALL_DATA && GET_MODE_SIZE (mode) <= g_switch_value)
     /* ??? Consider using mergeable sdata sections.  */
-    sdata_section ();
+    return sdata_section;
   else
-    default_elf_select_rtx_section (mode, x, align);
+    return default_elf_select_rtx_section (mode, x, align);
 }
 
 #endif /* OBJECT_FORMAT_ELF */
@@ -9439,8 +9661,10 @@ alpha_write_linkage (FILE *stream, const char *funname, tree fundecl)
   splay_tree_node node;
   struct alpha_funcs *func;
 
-  link_section ();
+  fprintf (stream, "\t.link\n");
   fprintf (stream, "\t.align 3\n");
+  in_section = NULL;
+
   node = splay_tree_lookup (alpha_funcs_tree, (splay_tree_key) fundecl);
   func = (struct alpha_funcs *) node->value;
 
@@ -9520,7 +9744,7 @@ vms_asm_named_section (const char *name, unsigned int flags,
 static void
 vms_asm_out_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
 {
-  ctors_section ();
+  switch_to_section (ctors_section);
   assemble_align (BITS_PER_WORD);
   assemble_integer (symbol, UNITS_PER_WORD, BITS_PER_WORD, 1);
 }
@@ -9528,7 +9752,7 @@ vms_asm_out_constructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
 static void
 vms_asm_out_destructor (rtx symbol, int priority ATTRIBUTE_UNUSED)
 {
-  dtors_section ();
+  switch_to_section (dtors_section);
   assemble_align (BITS_PER_WORD);
   assemble_integer (symbol, UNITS_PER_WORD, BITS_PER_WORD, 1);
 }
@@ -9629,7 +9853,7 @@ unicosmk_output_common (FILE *file, const char *name, int size, int align)
   tree name_tree;
   printf ("T3E__: common %s\n", name);
 
-  common_section ();
+  in_section = NULL;
   fputs("\t.endp\n\n\t.psect ", file);
   assemble_name(file, name);
   fprintf(file, ",%d,common\n", floor_log2 (align / BITS_PER_UNIT));
@@ -9643,6 +9867,43 @@ unicosmk_output_common (FILE *file, const char *name, int size, int align)
 #define SECTION_PUBLIC SECTION_MACH_DEP
 #define SECTION_MAIN (SECTION_PUBLIC << 1)
 static int current_section_align;
+
+/* A get_unnamed_section callback for switching to the text section.  */
+
+static void
+unicosmk_output_text_section_asm_op (const void *data ATTRIBUTE_UNUSED)
+{
+  static int count = 0;
+  fprintf (asm_out_file, "\t.endp\n\n\t.psect\tgcc@text___%d,code\n", count++);
+}
+
+/* A get_unnamed_section callback for switching to the data section.  */
+
+static void
+unicosmk_output_data_section_asm_op (const void *data ATTRIBUTE_UNUSED)
+{
+  static int count = 1;
+  fprintf (asm_out_file, "\t.endp\n\n\t.psect\tgcc@data___%d,data\n", count++);
+}
+
+/* Implement TARGET_ASM_INIT_SECTIONS.
+
+   The Cray assembler is really weird with respect to sections. It has only
+   named sections and you can't reopen a section once it has been closed.
+   This means that we have to generate unique names whenever we want to
+   reenter the text or the data section.  */
+
+static void
+unicosmk_init_sections (void)
+{
+  text_section = get_unnamed_section (SECTION_CODE,
+				      unicosmk_output_text_section_asm_op,
+				      NULL);
+  data_section = get_unnamed_section (SECTION_WRITE,
+				      unicosmk_output_data_section_asm_op,
+				      NULL);
+  readonly_data_section = data_section;
+}
 
 static unsigned int
 unicosmk_section_type_flags (tree decl, const char *name,
@@ -9807,7 +10068,7 @@ unicosmk_output_deferred_case_vectors (FILE *file)
   if (machine->addr_list == NULL_RTX)
     return;
 
-  data_section ();
+  switch_to_section (data_section);
   for (t = machine->addr_list; t; t = XEXP (t, 1))
     unicosmk_output_addr_vec (file, XEXP (t, 0));
 }
@@ -9926,7 +10187,7 @@ unicosmk_output_ssib (FILE *file, const char *fnname)
   rtx ciw;
   struct machine_function *machine = cfun->machine;
 
-  ssib_section ();
+  in_section = NULL;
   fprintf (file, "\t.endp\n\n\t.psect\t%s%s,data\n", user_label_prefix,
 	   unicosmk_ssib_name ());
 
@@ -9996,26 +10257,6 @@ unicosmk_add_call_info_word (rtx x)
 
   return GEN_INT (machine->ciw_count
 		  + strlen (current_function_name ())/8 + 5);
-}
-
-static char unicosmk_section_buf[100];
-
-char *
-unicosmk_text_section (void)
-{
-  static int count = 0;
-  sprintf (unicosmk_section_buf, "\t.endp\n\n\t.psect\tgcc@text___%d,code",
-				 count++);
-  return unicosmk_section_buf;
-}
-
-char *
-unicosmk_data_section (void)
-{
-  static int count = 1;
-  sprintf (unicosmk_section_buf, "\t.endp\n\n\t.psect\tgcc@data___%d,data",
-				 count++);
-  return unicosmk_section_buf;
 }
 
 /* The Cray assembler doesn't accept extern declarations for symbols which
@@ -10492,6 +10733,11 @@ alpha_init_libfuncs (void)
   (TARGET_DEFAULT | TARGET_CPU_DEFAULT | TARGET_DEFAULT_EXPLICIT_RELOCS)
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION alpha_handle_option
+
+#ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING
+#undef TARGET_MANGLE_FUNDAMENTAL_TYPE
+#define TARGET_MANGLE_FUNDAMENTAL_TYPE alpha_mangle_fundamental_type
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

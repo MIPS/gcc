@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -102,7 +102,7 @@ struct lim_aux_data
 
 #define LIM_DATA(STMT) (TREE_CODE (STMT) == PHI_NODE \
 			? NULL \
-			: (struct lim_aux_data *) (stmt_ann (STMT)->aux))
+			: (struct lim_aux_data *) (stmt_ann (STMT)->common.aux))
 
 /* Description of a memory reference location for store motion.  */
 
@@ -202,15 +202,17 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 	case STRING_CST:
 	case RESULT_DECL:
 	case VECTOR_CST:
+	case COMPLEX_CST:
+	case INTEGER_CST:
+	case REAL_CST:
 	  return true;
 
-	case MEM_REF:
-	  idx = &MEM_REF_SYMBOL (*addr_p);
+	case TARGET_MEM_REF:
+	  idx = &TMR_BASE (*addr_p);
 	  if (*idx
 	      && !cbck (*addr_p, idx, data))
 	    return false;
-	  return true;
-	  idx = &MEM_REF_INDEX (*addr_p);
+	  idx = &TMR_INDEX (*addr_p);
 	  if (*idx
 	      && !cbck (*addr_p, idx, data))
 	    return false;
@@ -399,7 +401,7 @@ add_dependency (tree def, struct lim_aux_data *data, struct loop *loop,
       && def_bb->loop_father == loop)
     data->cost += LIM_DATA (def_stmt)->cost;
 
-  dep = xmalloc (sizeof (struct depend));
+  dep = XNEW (struct depend);
   dep->stmt = def_stmt;
   dep->next = data->depends;
   data->depends = dep;
@@ -610,6 +612,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	  && (rhs = TREE_OPERAND (stmt, 1)) != NULL
 	  && TREE_CODE (rhs) == RDIV_EXPR
 	  && flag_unsafe_math_optimizations
+	  && !flag_trapping_math
 	  && outermost_invariant_loop_expr (TREE_OPERAND (rhs, 1),
 					    loop_containing_stmt (stmt)) != NULL
 	  && outermost_invariant_loop_expr (rhs,
@@ -644,7 +647,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	  stmt = stmt1;
 	}
 
-      stmt_ann (stmt)->aux = xcalloc (1, sizeof (struct lim_aux_data));
+      stmt_ann (stmt)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
       LIM_DATA (stmt)->always_executed_in = outermost;
 
       if (maybe_never && pos == MOVE_PRESERVE_EXECUTION)
@@ -735,7 +738,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
       cost = LIM_DATA (stmt)->cost;
       level = LIM_DATA (stmt)->tgt_loop;
       free_lim_aux_data (LIM_DATA (stmt));
-      stmt_ann (stmt)->aux = NULL;
+      stmt_ann (stmt)->common.aux = NULL;
 
       if (!level)
 	{
@@ -756,7 +759,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 		   cost, level->num);
 	}
       bsi_insert_on_edge (loop_preheader_edge (level), stmt);
-      bsi_remove (&bsi);
+      bsi_remove (&bsi, false);
     }
 }
 
@@ -884,7 +887,7 @@ force_move_till (tree ref, tree *index, void *data)
 static void
 record_mem_ref_loc (struct mem_ref_loc **mem_refs, tree stmt, tree *ref)
 {
-  struct mem_ref_loc *aref = xmalloc (sizeof (struct mem_ref_loc));
+  struct mem_ref_loc *aref = XNEW (struct mem_ref_loc);
 
   aref->stmt = stmt;
   aref->ref = ref;
@@ -926,6 +929,109 @@ rewrite_mem_refs (tree tmp_var, struct mem_ref_loc *mem_refs)
     }
 }
 
+/* The name and the length of the currently generated variable
+   for lsm.  */
+#define MAX_LSM_NAME_LENGTH 40
+static char lsm_tmp_name[MAX_LSM_NAME_LENGTH + 1];
+static int lsm_tmp_name_length;
+
+/* Adds S to lsm_tmp_name.  */
+
+static void
+lsm_tmp_name_add (const char *s)
+{
+  int l = strlen (s) + lsm_tmp_name_length;
+  if (l > MAX_LSM_NAME_LENGTH)
+    return;
+
+  strcpy (lsm_tmp_name + lsm_tmp_name_length, s);
+  lsm_tmp_name_length = l;
+}
+
+/* Stores the name for temporary variable that replaces REF to
+   lsm_tmp_name.  */
+
+static void
+gen_lsm_tmp_name (tree ref)
+{
+  const char *name;
+
+  switch (TREE_CODE (ref))
+    {
+    case MISALIGNED_INDIRECT_REF:
+    case ALIGN_INDIRECT_REF:
+    case INDIRECT_REF:
+      gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
+      lsm_tmp_name_add ("_");
+      break;
+
+    case BIT_FIELD_REF:
+    case VIEW_CONVERT_EXPR:
+    case ARRAY_RANGE_REF:
+      gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
+      break;
+
+    case REALPART_EXPR:
+      gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
+      lsm_tmp_name_add ("_RE");
+      break;
+      
+    case IMAGPART_EXPR:
+      gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
+      lsm_tmp_name_add ("_IM");
+      break;
+
+    case COMPONENT_REF:
+      gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
+      lsm_tmp_name_add ("_");
+      name = get_name (TREE_OPERAND (ref, 1));
+      if (!name)
+	name = "F";
+      lsm_tmp_name_add ("_");
+      lsm_tmp_name_add (name);
+
+    case ARRAY_REF:
+      gen_lsm_tmp_name (TREE_OPERAND (ref, 0));
+      lsm_tmp_name_add ("_I");
+      break;
+
+    case SSA_NAME:
+      ref = SSA_NAME_VAR (ref);
+      /* Fallthru.  */
+
+    case VAR_DECL:
+    case PARM_DECL:
+      name = get_name (ref);
+      if (!name)
+	name = "D";
+      lsm_tmp_name_add (name);
+      break;
+
+    case STRING_CST:
+      lsm_tmp_name_add ("S");
+      break;
+
+    case RESULT_DECL:
+      lsm_tmp_name_add ("R");
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Determines name for temporary variable that replaces REF.
+   The name is accumulated into the lsm_tmp_name variable.  */
+
+static char *
+get_lsm_tmp_name (tree ref)
+{
+  lsm_tmp_name_length = 0;
+  gen_lsm_tmp_name (ref);
+  lsm_tmp_name_add ("_lsm");
+  return lsm_tmp_name;
+}
+
 /* Records request for store motion of memory reference REF from LOOP.
    MEM_REFS is the list of occurrences of the reference REF inside LOOP;
    these references are rewritten by a new temporary variable.
@@ -951,7 +1057,8 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
       fprintf (dump_file, " from loop %d\n", loop->num);
     }
 
-  tmp_var = make_rename_temp (TREE_TYPE (ref), "lsm_tmp");
+  tmp_var = make_rename_temp (TREE_TYPE (ref),
+			      get_lsm_tmp_name (ref));
 
   fmt_data.loop = loop;
   fmt_data.orig_loop = loop;
@@ -963,8 +1070,8 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
       LIM_DATA (aref->stmt)->sm_done = true;
 
   /* Emit the load & stores.  */
-  load = build (MODIFY_EXPR, void_type_node, tmp_var, ref);
-  get_stmt_ann (load)->aux = xcalloc (1, sizeof (struct lim_aux_data));
+  load = build2 (MODIFY_EXPR, void_type_node, tmp_var, ref);
+  get_stmt_ann (load)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
   LIM_DATA (load)->max_loop = loop;
   LIM_DATA (load)->tgt_loop = loop;
 
@@ -974,8 +1081,8 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree ref,
 
   for (i = 0; i < n_exits; i++)
     {
-      store = build (MODIFY_EXPR, void_type_node,
-		     unshare_expr (ref), tmp_var);
+      store = build2 (MODIFY_EXPR, void_type_node,
+		      unshare_expr (ref), tmp_var);
       bsi_insert_on_edge (exits[i], store);
     }
 }
@@ -1151,7 +1258,7 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
     ref = *slot;
   else
     {
-      ref = xmalloc (sizeof (struct mem_ref));
+      ref = XNEW (struct mem_ref);
       ref->mem = *mem;
       ref->hash = hash;
       ref->locs = NULL;
@@ -1165,20 +1272,14 @@ gather_mem_refs_stmt (struct loop *loop, htab_t mem_refs,
 
   FOR_EACH_SSA_TREE_OPERAND (vname, stmt, oi,
 			     SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
-    {
-      bitmap_set_bit (ref->vops,
-		      var_ann (SSA_NAME_VAR (vname))->uid);
-    }
+    bitmap_set_bit (ref->vops, DECL_UID (SSA_NAME_VAR (vname)));
   record_mem_ref_loc (&ref->locs, stmt, mem);
   return;
 
 fail:
   FOR_EACH_SSA_TREE_OPERAND (vname, stmt, oi,
 			     SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_KILLS)
-    {
-      bitmap_set_bit (clobbered_vops,
-		      var_ann (SSA_NAME_VAR (vname))->uid);
-    }
+    bitmap_set_bit (clobbered_vops, DECL_UID (SSA_NAME_VAR (vname)));
 }
 
 /* Gathers memory references in LOOP.  Notes vops accessed through unrecognized

@@ -1,5 +1,5 @@
 /* Handle the constant pool of the Java(TM) Virtual Machine.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -15,8 +15,8 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA. 
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA. 
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -313,8 +313,7 @@ write_constant_pool (CPool *cpool, unsigned char *buffer, int length)
 	}
     }
 
-  if (ptr != buffer + length)
-    abort ();
+  gcc_assert (ptr == buffer + length);
 }
 
 static GTY(()) tree tag_nodes[13];
@@ -481,7 +480,15 @@ build_constants_constructor (void)
       case CONSTANT_Fieldref:
       case CONSTANT_NameAndType:
 	{
-	  jword temp = outgoing_cpool->data[i].w;
+	  unsigned HOST_WIDE_INT temp = outgoing_cpool->data[i].w;
+
+	  /* Make sure that on a 64-bit big-endian machine this
+	     32-bit jint appears in the first word.  
+	     FIXME: This is a kludge.  The field we're initializing is
+	     not a scalar but a union, and that's how we should
+	     represent it in the compiler.  We should fix this.  */
+	  if (BYTES_BIG_ENDIAN && BITS_PER_WORD > 32)
+	    temp <<= BITS_PER_WORD - 32;
 
 	  tags_list
 	    = tree_cons (NULL_TREE, 
@@ -515,8 +522,8 @@ build_constants_constructor (void)
   
       data_decl = build_constant_data_ref ();
       TREE_TYPE (data_decl) = build_array_type (ptr_type_node, index_type);
-      DECL_INITIAL (data_decl) = build_constructor (TREE_TYPE (data_decl),
-						    data_list);
+      DECL_INITIAL (data_decl) = build_constructor_from_list
+				  (TREE_TYPE (data_decl), data_list);
       DECL_SIZE (data_decl) = TYPE_SIZE (TREE_TYPE (data_decl));
       DECL_SIZE_UNIT (data_decl) = TYPE_SIZE_UNIT (TREE_TYPE (data_decl));
       rest_of_decl_compilation (data_decl, 1, 0);
@@ -527,7 +534,8 @@ build_constants_constructor (void)
 							   current_class),
 			      tags_type);
       TREE_STATIC (tags_decl) = 1;
-      DECL_INITIAL (tags_decl) = build_constructor (tags_type, tags_list);
+      DECL_INITIAL (tags_decl) = build_constructor_from_list
+				 (tags_type, tags_list);
       rest_of_decl_compilation (tags_decl, 1, 0);
       tags_value = build_address_of (tags_decl);
     }

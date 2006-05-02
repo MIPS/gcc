@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for IBM RS/6000 POWER running AIX V5.2.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by David Edelsohn (edelsohn@gnu.org).
 
    This file is part of GCC.
@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -42,6 +42,12 @@ do {									\
       target_flags |= MASK_POWERPC64;					\
       warning (0, "-maix64 requires PowerPC64 architecture remain enabled"); \
     }									\
+  if (TARGET_SOFT_FLOAT && TARGET_LONG_DOUBLE_128)			\
+    {									\
+      rs6000_long_double_type_size = 64;				\
+      if (rs6000_explicit_options.long_double)				\
+	warning (0, "soft-float and long-double-128 are incompatible");	\
+    }									\
   if (TARGET_POWERPC64 && ! TARGET_64BIT)				\
     {									\
       error ("-maix64 required: 64-bit computation with 32-bit addressing not yet supported"); \
@@ -60,6 +66,8 @@ do {									\
   %{!mpower64: %(asm_default)}}} \
 %{mcpu=power3: -m620} \
 %{mcpu=power4: -m620} \
+%{mcpu=power5: -m620} \
+%{mcpu=power5+: -m620} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rs64a: -mppc} \
 %{mcpu=603: -m603} \
@@ -105,7 +113,7 @@ do {									\
 #define TARGET_DEFAULT (MASK_POWERPC | MASK_NEW_MNEMONICS)
 
 #undef  PROCESSOR_DEFAULT
-#define PROCESSOR_DEFAULT PROCESSOR_PPC630
+#define PROCESSOR_DEFAULT PROCESSOR_POWER4
 #undef  PROCESSOR_DEFAULT64
 #define PROCESSOR_DEFAULT64 PROCESSOR_POWER4
 

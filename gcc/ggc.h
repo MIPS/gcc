@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_GGC_H
 #define GCC_GGC_H
@@ -155,14 +155,6 @@ extern struct alloc_zone *new_ggc_zone (const char *);
 /* Free a complete GGC zone, destroying everything in it.  */
 extern void destroy_ggc_zone (struct alloc_zone *);
 
-/* Start a new GGC context.  Memory allocated in previous contexts
-   will not be collected while the new context is active.  */
-extern void ggc_push_context (void);
-
-/* Finish a GC context.  Any uncollected memory in the new context
-   will be merged with the old context.  */
-extern void ggc_pop_context (void);
-
 struct ggc_pch_data;
 
 /* Return a new ggc_pch_data structure.  */
@@ -239,6 +231,7 @@ extern void dump_ggc_loc_statistics (void);
 #define GGC_CNEWVEC(T, N)	((T *) ggc_alloc_cleared ((N) * sizeof(T)))
 #define GGC_NEWVAR(T, S)	((T *) ggc_alloc ((S)))
 #define GGC_CNEWVAR(T, S)	((T *) ggc_alloc_cleared ((S)))
+#define GGC_RESIZEVEC(T, P, N)  ((T *) ggc_realloc ((P), (N) * sizeof (T)))
 
 #define ggc_alloc_rtvec(NELT)						 \
   ((rtvec) ggc_alloc_zone (sizeof (struct rtvec_def) + ((NELT) - 1)	 \

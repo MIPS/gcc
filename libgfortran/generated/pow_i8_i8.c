@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "libgfortran.h"
@@ -35,6 +35,8 @@ Boston, MA 02111-1307, USA.  */
    a simple and reasonable arithmetic. See section 4.6.3, "Evaluation of
    Powers" of Donald E. Knuth, "Seminumerical Algorithms", Vol. 2, "The Art
    of Computer Programming", 3rd Edition, 1998.  */
+
+#if defined (HAVE_GFC_INTEGER_8) && defined (HAVE_GFC_INTEGER_8)
 
 GFC_INTEGER_8 pow_i8_i8 (GFC_INTEGER_8 a, GFC_INTEGER_8 b);
 export_proto(pow_i8_i8);
@@ -72,3 +74,5 @@ pow_i8_i8 (GFC_INTEGER_8 a, GFC_INTEGER_8 b)
     }
   return pow;
 }
+
+#endif

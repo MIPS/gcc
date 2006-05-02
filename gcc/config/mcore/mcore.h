@@ -17,8 +17,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_MCORE_H
 #define GCC_MCORE_H
@@ -820,12 +820,10 @@ extern const enum reg_class reg_class_from_letter[];
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS TARGET_SLOW_BYTES
 
-/* Immediate shift counts are truncated by the output routines (or was it
-   the assembler?).  Shift counts in a register are truncated by ARM.  Note
-   that the native compiler puts too large (> 32) immediate shift counts
-   into a register and shifts by the register, letting the ARM decide what
-   to do instead of doing that itself.  */
-#define SHIFT_COUNT_TRUNCATED 1
+/* Shift counts are truncated to 6-bits (0 to 63) instead of the expected
+   5-bits, so we can not define SHIFT_COUNT_TRUNCATED to true for this
+   target.  */
+#define SHIFT_COUNT_TRUNCATED 0
 
 /* All integers have the same format so truncation is easy.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC,INPREC)  1
@@ -858,36 +856,6 @@ extern const enum reg_class reg_class_from_letter[];
 /* Switch to the text or data segment.  */
 #define TEXT_SECTION_ASM_OP  "\t.text"
 #define DATA_SECTION_ASM_OP  "\t.data"
-
-#undef  EXTRA_SECTIONS
-#define EXTRA_SECTIONS SUBTARGET_EXTRA_SECTIONS
-
-#undef  EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS			\
-  SUBTARGET_EXTRA_SECTION_FUNCTIONS		\
-  SWITCH_SECTION_FUNCTION
-
-/* Switch to SECTION (an `enum in_section').
-
-   ??? This facility should be provided by GCC proper.
-   The problem is that we want to temporarily switch sections in
-   ASM_DECLARE_OBJECT_NAME and then switch back to the original section
-   afterwards.  */
-#define SWITCH_SECTION_FUNCTION					\
-static void switch_to_section (enum in_section, tree);		\
-static void							\
-switch_to_section (enum in_section section, tree decl)		\
-{								\
-  switch (section)						\
-    {								\
-      case in_text: text_section (); break;			\
-      case in_unlikely_executed_text: unlikely_text_section (); break;   \
-      case in_data: data_section (); break;			\
-      case in_named: named_section (decl, NULL, 0); break;	\
-      SUBTARGET_SWITCH_SECTIONS      				\
-      default: gcc_unreachable (); 				\
-    }								\
-}
 
 /* Switch into a generic section.  */
 #undef TARGET_ASM_NAMED_SECTION

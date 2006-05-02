@@ -1,6 +1,6 @@
 // natClass.cc - Implementation of java.lang.Class native methods.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005  
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006  
    Free Software Foundation
 
    This file is part of libgcj.
@@ -126,15 +126,6 @@ java::lang::Class::getClassLoader (void)
 	s->checkPermission (new RuntimePermission (JvNewStringLatin1 ("getClassLoader")));
     }
 
-  // This particular 'return' has been changed a couple of times over
-  // libgcj's history.  This particular approach is a little weird,
-  // because it means that all classes linked into the application
-  // will see NULL for their class loader.  This may confuse some
-  // applications that aren't expecting this; the solution is to use a
-  // different linking model for these applications.  In the past we
-  // returned the system class loader in this case, but that is
-  // incorrect.  Also, back then we didn't have other linkage models
-  // to fall back on.
   return loader;
 }
 
@@ -167,10 +158,8 @@ java::lang::Class::getConstructor (JArray<jclass> *param_types)
 }
 
 JArray<java::lang::reflect::Constructor *> *
-java::lang::Class::_getConstructors (jboolean declared)
+java::lang::Class::getDeclaredConstructors (jboolean publicOnly)
 {
-  memberAccessCheck(java::lang::reflect::Member::PUBLIC);
-
   int numConstructors = 0;
   int max = isPrimitive () ? 0 : method_count;
   int i;
@@ -180,7 +169,7 @@ java::lang::Class::_getConstructors (jboolean declared)
       if (method->name == NULL
 	  || ! _Jv_equalUtf8Consts (method->name, init_name))
 	continue;
-      if (! declared
+      if (publicOnly
 	  && ! java::lang::reflect::Modifier::isPublic(method->accflags))
 	continue;
       numConstructors++;
@@ -197,7 +186,7 @@ java::lang::Class::_getConstructors (jboolean declared)
       if (method->name == NULL
 	  || ! _Jv_equalUtf8Consts (method->name, init_name))
 	continue;
-      if (! declared
+      if (publicOnly
 	  && ! java::lang::reflect::Modifier::isPublic(method->accflags))
 	continue;
       java::lang::reflect::Constructor *cons
@@ -427,22 +416,8 @@ java::lang::Class::getName (void)
 }
 
 JArray<jclass> *
-java::lang::Class::getClasses (void)
+java::lang::Class::getDeclaredClasses (jboolean /*publicOnly*/)
 {
-  // FIXME: security checking.
-
-  // Until we have inner classes, it always makes sense to return an
-  // empty array.
-  JArray<jclass> *result
-    = (JArray<jclass> *) JvNewObjectArray (0, &java::lang::Class::class$,
-					   NULL);
-  return result;
-}
-
-JArray<jclass> *
-java::lang::Class::getDeclaredClasses (void)
-{
-  memberAccessCheck (java::lang::reflect::Member::DECLARED);
   // Until we have inner classes, it always makes sense to return an
   // empty array.
   JArray<jclass> *result
@@ -646,9 +621,10 @@ jboolean
 java::lang::Class::isAssignableFrom (jclass klass)
 {
   // Arguments may not have been initialized, given ".class" syntax.
-  _Jv_InitClass (this);
-  _Jv_InitClass (klass);
-  return _Jv_IsAssignableFrom (this, klass);
+  // This ensures we can at least look at their superclasses.
+  _Jv_Linker::wait_for_state (this, JV_STATE_LOADING);
+  _Jv_Linker::wait_for_state (klass, JV_STATE_LOADING);
+  return _Jv_IsAssignableFrom (klass, this);
 }
 
 jboolean
@@ -656,8 +632,7 @@ java::lang::Class::isInstance (jobject obj)
 {
   if (! obj)
     return false;
-  _Jv_InitClass (this);
-  return _Jv_IsAssignableFrom (this, JV_CLASS (obj));
+  return _Jv_IsAssignableFrom (JV_CLASS (obj), this);
 }
 
 jobject
@@ -693,8 +668,9 @@ java::lang::Class::finalize (void)
 void
 java::lang::Class::initializeClass (void)
 {
-  // Short-circuit to avoid needless locking.
-  if (state == JV_STATE_DONE)
+  // Short-circuit to avoid needless locking (expression includes
+  // JV_STATE_PHANTOM and JV_STATE_DONE).
+  if (state >= JV_STATE_PHANTOM)
     return;
 
   // Step 1.  We introduce a new scope so we can synchronize more
@@ -904,8 +880,10 @@ _Jv_LookupDeclaredMethod (jclass klass, _Jv_Utf8Const *name,
   return NULL;
 }
 
+#ifdef HAVE_TLS
+
 // NOTE: MCACHE_SIZE should be a power of 2 minus one.
-#define MCACHE_SIZE 1023
+#define MCACHE_SIZE 31
 
 struct _Jv_mcache
 {
@@ -913,37 +891,60 @@ struct _Jv_mcache
   _Jv_Method *method;
 };
 
-static _Jv_mcache method_cache[MCACHE_SIZE + 1];
+static __thread _Jv_mcache *method_cache;
+#endif // HAVE_TLS
 
 static void *
 _Jv_FindMethodInCache (jclass klass,
                        _Jv_Utf8Const *name,
                        _Jv_Utf8Const *signature)
 {
-  int index = name->hash16 () & MCACHE_SIZE;
-  _Jv_mcache *mc = method_cache + index;
-  _Jv_Method *m = mc->method;
+#ifdef HAVE_TLS
+  _Jv_mcache *cache = method_cache;
+  if (cache)
+    {
+      int index = name->hash16 () & MCACHE_SIZE;
+      _Jv_mcache *mc = &cache[index];
+      _Jv_Method *m = mc->method;
 
-  if (mc->klass == klass
-      && m != NULL             // thread safe check
-      && _Jv_equalUtf8Consts (m->name, name)
-      && _Jv_equalUtf8Consts (m->signature, signature))
-    return mc->method->ncode;
+      if (mc->klass == klass
+	  && _Jv_equalUtf8Consts (m->name, name)
+	  && _Jv_equalUtf8Consts (m->signature, signature))
+	return mc->method->ncode;
+    }
+#endif // HAVE_TLS
   return NULL;
 }
 
 static void
-_Jv_AddMethodToCache (jclass klass,
-                       _Jv_Method *method)
+_Jv_AddMethodToCache (jclass klass, _Jv_Method *method)
 {
-  _Jv_MonitorEnter (&java::lang::Class::class$); 
+#ifdef HAVE_TLS
+  if (method_cache == NULL)
+    method_cache = (_Jv_mcache *) _Jv_MallocUnchecked((MCACHE_SIZE + 1)
+						      * sizeof (_Jv_mcache));
+  // If the allocation failed, just keep going.
+  if (method_cache != NULL)
+    {
+      int index = method->name->hash16 () & MCACHE_SIZE;
+      method_cache[index].method = method;
+      method_cache[index].klass = klass;
+    }
+#endif // HAVE_TLS
+}
 
-  int index = method->name->hash16 () & MCACHE_SIZE;
-
-  method_cache[index].method = method;
-  method_cache[index].klass = klass;
-
-  _Jv_MonitorExit (&java::lang::Class::class$);
+// Free this thread's method cache.  We explicitly manage this memory
+// as the GC does not yet know how to scan TLS on all platforms.
+void
+_Jv_FreeMethodCache ()
+{
+#ifdef HAVE_TLS
+  if (method_cache != NULL)
+    {
+      _Jv_Free(method_cache);
+      method_cache = NULL;
+    }
+#endif // HAVE_TLS
 }
 
 void *
@@ -984,12 +985,12 @@ void *
 _Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface, int method_idx)
 {
   _Jv_IDispatchTable *cldt = klass->idt;
-  int idx = iface->idt->iface.ioffsets[cldt->cls.iindex] + method_idx;
-  return cldt->cls.itable[idx];
+  int idx = iface->ioffsets[cldt->iindex] + method_idx;
+  return cldt->itable[idx];
 }
 
 jboolean
-_Jv_IsAssignableFrom (jclass target, jclass source)
+_Jv_IsAssignableFrom (jclass source, jclass target)
 {
   if (source == target)
     return true;
@@ -1009,19 +1010,18 @@ _Jv_IsAssignableFrom (jclass target, jclass source)
       // two interfaces for assignability.
       if (__builtin_expect 
           (source->idt == NULL || source->isInterface(), false))
-        return _Jv_InterfaceAssignableFrom (target, source);
+        return _Jv_InterfaceAssignableFrom (source, target);
 
       _Jv_IDispatchTable *cl_idt = source->idt;
-      _Jv_IDispatchTable *if_idt = target->idt;
 
-      if (__builtin_expect ((if_idt == NULL), false))
+      if (__builtin_expect ((target->ioffsets == NULL), false))
 	return false; // No class implementing TARGET has been loaded.    
-      jshort cl_iindex = cl_idt->cls.iindex;
-      if (cl_iindex < if_idt->iface.ioffsets[0])
+      jshort cl_iindex = cl_idt->iindex;
+      if (cl_iindex < target->ioffsets[0])
         {
-	  jshort offset = if_idt->iface.ioffsets[cl_iindex];
-	  if (offset != -1 && offset < cl_idt->cls.itable_length
-	      && cl_idt->cls.itable[offset] == target)
+	  jshort offset = target->ioffsets[cl_iindex];
+	  if (offset != -1 && offset < cl_idt->itable_length
+	      && cl_idt->itable[offset] == target)
 	    return true;
 	}
       return false;
@@ -1058,19 +1058,19 @@ _Jv_IsAssignableFrom (jclass target, jclass source)
 // superinterface of SOURCE. This is used when SOURCE is also an interface,
 // or a class with no interface dispatch table.
 jboolean
-_Jv_InterfaceAssignableFrom (jclass iface, jclass source)
+_Jv_InterfaceAssignableFrom (jclass source, jclass iface)
 {
   for (int i = 0; i < source->interface_count; i++)
     {
       jclass interface = source->interfaces[i];
       if (iface == interface
-          || _Jv_InterfaceAssignableFrom (iface, interface))
+          || _Jv_InterfaceAssignableFrom (interface, iface))
         return true;      
     }
     
   if (!source->isInterface()
       && source->superclass 
-      && _Jv_InterfaceAssignableFrom (iface, source->superclass))
+      && _Jv_InterfaceAssignableFrom (source->superclass, iface))
     return true;
         
   return false;
@@ -1081,14 +1081,14 @@ _Jv_IsInstanceOf(jobject obj, jclass cl)
 {
   if (__builtin_expect (!obj, false))
     return false;
-  return (_Jv_IsAssignableFrom (cl, JV_CLASS (obj)));
+  return _Jv_IsAssignableFrom (JV_CLASS (obj), cl);
 }
 
 void *
 _Jv_CheckCast (jclass c, jobject obj)
 {
   if (__builtin_expect 
-       (obj != NULL && ! _Jv_IsAssignableFrom(c, JV_CLASS (obj)), false))
+      (obj != NULL && ! _Jv_IsAssignableFrom(JV_CLASS (obj), c), false))
     throw new java::lang::ClassCastException
       ((new java::lang::StringBuffer
 	(obj->getClass()->getName()))->append
@@ -1109,7 +1109,7 @@ _Jv_CheckArrayStore (jobject arr, jobject obj)
 	return;
       jclass obj_class = JV_CLASS (obj);
       if (__builtin_expect 
-          (! _Jv_IsAssignableFrom (elt_class, obj_class), false))
+          (! _Jv_IsAssignableFrom (obj_class, elt_class), false))
 	throw new java::lang::ArrayStoreException
 		((new java::lang::StringBuffer
 		 (JvNewStringUTF("Cannot store ")))->append
@@ -1120,7 +1120,7 @@ _Jv_CheckArrayStore (jobject arr, jobject obj)
 }
 
 jboolean
-_Jv_IsAssignableFromSlow (jclass target, jclass source)
+_Jv_IsAssignableFromSlow (jclass source, jclass target)
 {
   // First, strip arrays.
   while (target->isArray ())
@@ -1154,7 +1154,7 @@ _Jv_IsAssignableFromSlow (jclass target, jclass source)
            {
              // We use a recursive call because we also need to
              // check superinterfaces.
-             if (_Jv_IsAssignableFromSlow (target, source->getInterface (i)))
+             if (_Jv_IsAssignableFromSlow (source->getInterface (i), target))
                return true;
            }
        }
@@ -1220,3 +1220,29 @@ _Jv_getInterfaceMethod (jclass search_class, jclass &found_class, int &index,
 
   return false;
 }
+
+#ifdef INTERPRETER
+_Jv_InterpMethod*
+_Jv_FindInterpreterMethod (jclass klass, jmethodID desired_method)
+{
+  using namespace java::lang::reflect;
+
+  _Jv_InterpClass* iclass
+    = reinterpret_cast<_Jv_InterpClass*> (klass->aux_info);
+  _Jv_MethodBase** imethods = _Jv_GetFirstMethod (iclass);
+
+  for (int i = 0; i < JvNumMethods (klass); ++i)
+    {
+      _Jv_MethodBase* imeth = imethods[i];
+      _Jv_ushort accflags = klass->methods[i].accflags;
+      if ((accflags & (Modifier::NATIVE | Modifier::ABSTRACT)) == 0)
+	{
+	  _Jv_InterpMethod* im = reinterpret_cast<_Jv_InterpMethod*> (imeth);
+	  if (im->get_method () == desired_method)
+	    return im;
+	}
+    }
+
+  return NULL;
+}
+#endif

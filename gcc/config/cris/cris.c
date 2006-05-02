@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "toplev.h"
 #include "recog.h"
+#include "reload.h"
 #include "tm_p.h"
 #include "debug.h"
 #include "output.h"
@@ -81,12 +82,6 @@ struct machine_function GTY(())
 /* This little fix suppresses the 'u' or 's' when '%e' in assembly
    pattern.  */
 static char cris_output_insn_is_bound = 0;
-
-/* This one suppresses printing out the "rPIC+" in
-   "rPIC+sym:GOTOFF+offset" when doing PIC.  For a PLT symbol, it
-   suppresses outputting it as [rPIC+sym:GOTPLT] and outputs similarly
-   just the "sym:GOTOFF" part.  */
-static int cris_pic_sympart_only = 0;
 
 /* In code for output macros, this is how we know whether e.g. constant
    goes in code or in a static initializer.  */
@@ -398,6 +393,11 @@ cris_conditional_register_usage (void)
 
   if (TARGET_HAS_MUL_INSNS)
     fixed_regs[CRIS_MOF_REGNUM] = 0;
+
+  /* On early versions, we must use the 16-bit condition-code register,
+     which has another name.  */
+  if (cris_cpu_version < 8)
+    reg_names[CRIS_CC0_REGNUM] = "ccr";
 }
 
 /* Return current_function_uses_pic_offset_table.  For use in cris.md,
@@ -468,7 +468,7 @@ cris_op_str (rtx x)
       break;
 
     case UMIN:
-      /* Used to control the sign/zero-extend character for the 'e' modifier.
+      /* Used to control the sign/zero-extend character for the 'E' modifier.
 	 BOUND has none.  */
       cris_output_insn_is_bound = 1;
       return "bound";
@@ -681,15 +681,6 @@ cris_print_operand (FILE *file, rtx x, int code)
       fprintf (file, "%s", cris_op_str (operand));
       return;
 
-    case 'v':
-      /* Print the operand without the PIC register.  */
-      if (! flag_pic || ! CONSTANT_P (x) || ! cris_gotless_symbol (x))
-	LOSE_AND_RETURN ("invalid operand for 'v' modifier", x);
-      cris_pic_sympart_only++;
-      cris_output_addr_const (file, x);
-      cris_pic_sympart_only--;
-      return;
-
     case 'o':
       {
 	/* A movem modifier working on a parallel; output the register
@@ -744,14 +735,6 @@ cris_print_operand (FILE *file, rtx x, int code)
 	  }
 	output_address (addr);
       }
-      return;
-
-    case 'P':
-      /* Print the PIC register.  Applied to a GOT-less PIC symbol for
-         sanity.  */
-      if (! flag_pic || ! CONSTANT_P (x) || ! cris_gotless_symbol (x))
-	LOSE_AND_RETURN ("invalid operand for 'P' modifier", x);
-      fprintf (file, "$%s", reg_names [PIC_OFFSET_TABLE_REGNUM]);
       return;
 
     case 'p':
@@ -824,6 +807,13 @@ cris_print_operand (FILE *file, rtx x, int code)
 	       : ".p2alignw 5,0x050f,2\n\t", file);
       return;
 
+    case ':':
+      /* The PIC register.  */
+      if (! flag_pic)
+	internal_error ("invalid use of ':' modifier");
+      fprintf (file, "$%s", reg_names [PIC_OFFSET_TABLE_REGNUM]);
+      return;
+
     case 'H':
       /* Print high (most significant) part of something.  */
       switch (GET_CODE (operand))
@@ -882,6 +872,13 @@ cris_print_operand (FILE *file, rtx x, int code)
       break;
 
     case 'e':
+      /* Like 'E', but ignore state set by 'x'.  FIXME: Use code
+	 iterators ("code macros") and attributes in cris.md to avoid
+	 the need for %x and %E (and %e) and state passed between
+	 those modifiers.  */
+      cris_output_insn_is_bound = 0;
+      /* FALL THROUGH.  */
+    case 'E':
       /* Print 's' if operand is SIGN_EXTEND or 'u' if ZERO_EXTEND unless
 	 cris_output_insn_is_bound is nonzero.  */
       if (GET_CODE (operand) != SIGN_EXTEND
@@ -934,11 +931,16 @@ cris_print_operand (FILE *file, rtx x, int code)
       return;
 
     case 'd':
-      /* If this is a GOT symbol, print it as :GOT regardless of -fpic.  */
-      if (flag_pic && CONSTANT_P (operand) && cris_got_symbol (operand))
+      /* If this is a GOT symbol, force it to be emitted as :GOT and
+	 :GOTPLT regardless of -fpic (i.e. not as :GOT16, :GOTPLT16).
+	 Avoid making this too much of a special case.  */
+      if (flag_pic == 1 && CONSTANT_P (operand))
 	{
+	  int flag_pic_save = flag_pic;
+
+	  flag_pic = 2;
 	  cris_output_addr_const (file, operand);
-	  fprintf (file, ":GOT");
+	  flag_pic = flag_pic_save;
 	  return;
 	}
       break;
@@ -979,7 +981,8 @@ cris_print_operand (FILE *file, rtx x, int code)
     case REG:
       if (REGNO (operand) > 15
 	  && REGNO (operand) != CRIS_MOF_REGNUM
-	  && REGNO (operand) != CRIS_SRP_REGNUM)
+	  && REGNO (operand) != CRIS_SRP_REGNUM
+	  && REGNO (operand) != CRIS_CC0_REGNUM)
 	internal_error ("internal error: bad register: %d", REGNO (operand));
       fprintf (file, "$%s", reg_names[REGNO (operand)]);
       return;
@@ -1009,9 +1012,7 @@ cris_print_operand (FILE *file, rtx x, int code)
       return;
 
     case UNSPEC:
-      ASSERT_PLT_UNSPEC (operand);
       /* Fall through.  */
-
     case CONST:
       cris_output_addr_const (file, operand);
       return;
@@ -1147,7 +1148,16 @@ cris_initial_frame_pointer_offset (void)
 
   /* Initial offset is 0 if we don't have a frame pointer.  */
   int offs = 0;
-  bool got_really_used = current_function_uses_pic_offset_table;
+  bool got_really_used = false;
+
+  if (current_function_uses_pic_offset_table)
+    {
+      push_topmost_sequence ();
+      got_really_used
+	= reg_used_between_p (pic_offset_table_rtx, get_insns (),
+			      NULL_RTX);
+      pop_topmost_sequence ();
+    }
 
   /* And 4 for each register pushed.  */
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -1201,6 +1211,81 @@ cris_initial_elimination_offset (int fromreg, int toreg)
     return ap_fp_offset + fp_sp_offset - 4;
 
   gcc_unreachable ();
+}
+
+/* Worker function for LEGITIMIZE_RELOAD_ADDRESS.  */
+
+bool
+cris_reload_address_legitimized (rtx x,
+				 enum machine_mode mode ATTRIBUTE_UNUSED,
+				 int opnum ATTRIBUTE_UNUSED,
+				 int itype,
+				 int ind_levels ATTRIBUTE_UNUSED)
+{
+  enum reload_type type = itype;
+  rtx op0, op1;
+  rtx *op0p;
+  rtx *op1p;
+
+  if (GET_CODE (x) != PLUS)
+    return false;
+
+  op0 = XEXP (x, 0);
+  op0p = &XEXP (x, 0);
+  op1 = XEXP (x, 1);
+  op1p = &XEXP (x, 1);
+
+  if (!REG_P (op1))
+    return false;
+
+  if (GET_CODE (op0) == SIGN_EXTEND
+      && GET_CODE (XEXP (op0, 0)) == MEM)
+    {
+      rtx op00 = XEXP (op0, 0);
+      rtx op000 = XEXP (op00, 0);
+      rtx *op000p = &XEXP (op00, 0);
+
+      if ((GET_MODE (op00) == HImode || GET_MODE (op00) == QImode)
+	  && (REG_P (op000)
+	      || (GET_CODE (op000) == POST_INC && REG_P (XEXP (op000, 0)))))
+	{
+	  bool something_reloaded = false;
+
+	  if (GET_CODE (op000) == POST_INC
+	      && REG_P (XEXP (op000, 0))
+	      && REGNO (XEXP (op000, 0)) > CRIS_LAST_GENERAL_REGISTER)
+	    /* No, this gets too complicated and is too rare to care
+	       about trying to improve on the general code Here.
+	       As the return-value is an all-or-nothing indicator, we
+	       punt on the other register too.  */
+	    return false;
+
+	  if ((REG_P (op000)
+	       && REGNO (op000) > CRIS_LAST_GENERAL_REGISTER))
+	    {
+	      /* The address of the inner mem is a pseudo or wrong
+		 reg: reload that.  */
+	      push_reload (op000, NULL_RTX, op000p, NULL, GENERAL_REGS,
+			   GET_MODE (x), VOIDmode, 0, 0, opnum, type);
+	      something_reloaded = true;
+	    }
+
+	  if (REGNO (op1) > CRIS_LAST_GENERAL_REGISTER)
+	    {
+	      /* Base register is a pseudo or wrong reg: reload it.  */
+	      push_reload (op1, NULL_RTX, op1p, NULL, GENERAL_REGS,
+			   GET_MODE (x), VOIDmode, 0, 0,
+			   opnum, type);
+	      something_reloaded = true;
+	    }
+
+	  gcc_assert (something_reloaded);
+
+	  return true;
+	}
+    }
+
+  return false;
 }
 
 /*  This function looks into the pattern to see how this insn affects
@@ -1464,7 +1549,7 @@ cris_notice_update_cc (rtx exp, rtx insn)
       break;
 
     default:
-      internal_error ("Unknown cc_attr value");
+      internal_error ("unknown cc_attr value");
     }
 
   CC_STATUS_INIT;
@@ -1479,7 +1564,7 @@ cris_simple_epilogue (void)
 {
   unsigned int regno;
   unsigned int reglimit = STACK_POINTER_REGNUM;
-  bool got_really_used = current_function_uses_pic_offset_table;
+  bool got_really_used = false;
 
   if (! reload_completed
       || frame_pointer_needed
@@ -1493,6 +1578,14 @@ cris_simple_epilogue (void)
 	 not emit return-type instructions.  */
       || !TARGET_PROLOGUE_EPILOGUE)
     return false;
+
+  if (current_function_uses_pic_offset_table)
+    {
+      push_topmost_sequence ();
+      got_really_used
+	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL_RTX);
+      pop_topmost_sequence ();
+    }
 
   /* No simple epilogue if there are saved registers.  */
   for (regno = 0; regno < reglimit; regno++)
@@ -1555,18 +1648,7 @@ cris_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case CONST:
     case SYMBOL_REF:
-      /* For PIC, we need a prefix (if it isn't already there),
-	 and the PIC register.  For a global PIC symbol, we also
-	 need a read of the GOT.  */
-      if (flag_pic)
-	{
-	  if (cris_got_symbol (x))
-	    *total = 2 + 4 + 6;
-	  else
-	    *total = 2 + 6;
-	}
-      else
-	*total = 6;
+      *total = 6;
       return true;
 
     case CONST_DOUBLE:
@@ -1651,12 +1733,9 @@ cris_address_cost (rtx x)
     return (2 + 4) / 2;
 
   /* Assume (2 + 4) / 2 for a single constant; a dword, since it needs
-     an extra DIP prefix and 4 bytes of constant in most cases.
-     For PIC and a symbol with a GOT entry, we double the cost since we
-     add a [rPIC+...] offset.  A GOT-less symbol uses a BDAP prefix
-     equivalent to the DIP prefix for non-PIC, hence the same cost.  */
+     an extra DIP prefix and 4 bytes of constant in most cases.  */
   if (CONSTANT_P (x))
-    return flag_pic && cris_got_symbol (x) ? 2 * (2 + 4) / 2 : (2 + 4) / 2;
+    return (2 + 4) / 2;
 
   /* Handle BIAP and BDAP prefixes.  */
   if (GET_CODE (x) == PLUS)
@@ -1783,10 +1862,9 @@ cris_side_effect_mode_ok (enum rtx_code code, rtx *ops,
 	  && (INTVAL (val_rtx) <= 63 && INTVAL (val_rtx) >= -63))
 	return 0;
 
-      /* Check allowed cases, like [r(+)?].[bwd] and const.
-	 A symbol is not allowed with PIC.  */
+      /* Check allowed cases, like [r(+)?].[bwd] and const.  */
       if (CONSTANT_P (val_rtx))
-	return flag_pic == 0 || cris_symbol (val_rtx) == 0;
+	return 1;
 
       if (GET_CODE (val_rtx) == MEM
 	  && BASE_OR_AUTOINCR_P (XEXP (val_rtx, 0)))
@@ -1855,162 +1933,104 @@ cris_target_asm_named_section (const char *name, unsigned int flags,
     default_elf_asm_named_section (name, flags, decl);
 }
 
+/* Return TRUE iff X is a CONST valid for e.g. indexing.  */
+
+bool
+cris_valid_pic_const (rtx x)
+{
+  gcc_assert (flag_pic);
+
+  switch (GET_CODE (x))
+    {
+    case CONST_INT:
+    case CONST_DOUBLE:
+      return true;
+    default:
+      ;
+    }
+
+  if (GET_CODE (x) != CONST)
+    return false;
+
+  x = XEXP (x, 0);
+
+  /* Handle (const (plus (unspec .. UNSPEC_GOTREL) (const_int ...))).  */
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 0)) == UNSPEC
+      && XINT (XEXP (x, 0), 1) == CRIS_UNSPEC_GOTREL
+      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+    x = XEXP (x, 0);
+
+  if (GET_CODE (x) == UNSPEC)
+    switch (XINT (x, 1))
+      {
+      case CRIS_UNSPEC_PLT:
+      case CRIS_UNSPEC_PLTGOTREAD:
+      case CRIS_UNSPEC_GOTREAD:
+      case CRIS_UNSPEC_GOTREL:
+	return true;
+      default:
+	gcc_unreachable ();
+      }
+
+  return cris_pic_symbol_type_of (x) == cris_no_symbol;
+}
+
+/* Helper function to find the right PIC-type symbol to generate,
+   given the original (non-PIC) representation.  */
+
+enum cris_pic_symbol_type
+cris_pic_symbol_type_of (rtx x)
+{
+  switch (GET_CODE (x))
+    {
+    case SYMBOL_REF:
+      return SYMBOL_REF_LOCAL_P (x)
+	? cris_gotrel_symbol : cris_got_symbol;
+
+    case LABEL_REF:
+      return cris_gotrel_symbol;
+
+    case CONST:
+      return cris_pic_symbol_type_of (XEXP (x, 0));
+
+    case PLUS:
+    case MINUS:
+      {
+	enum cris_pic_symbol_type t1 = cris_pic_symbol_type_of (XEXP (x, 0));
+	enum cris_pic_symbol_type t2 = cris_pic_symbol_type_of (XEXP (x, 1));
+
+	gcc_assert (t1 == cris_no_symbol || t2 == cris_no_symbol);
+
+	if (t1 == cris_got_symbol || t1 == cris_got_symbol)
+	  return cris_got_symbol_needing_fixup;
+
+	return t1 != cris_no_symbol ? t1 : t2;
+      }
+
+    case CONST_INT:
+    case CONST_DOUBLE:
+      return cris_no_symbol;
+
+    case UNSPEC:
+      /* Likely an offsettability-test attempting to add a constant to
+	 a GOTREAD symbol, which can't be handled.  */
+      return cris_invalid_pic_symbol;
+
+    default:
+      fatal_insn ("unrecognized supposed constant", x);
+    }
+
+  gcc_unreachable ();
+}
+
 /* The LEGITIMATE_PIC_OPERAND_P worker.  */
 
 int
 cris_legitimate_pic_operand (rtx x)
 {
-  /* The PIC representation of a symbol with a GOT entry will be (for
-     example; relocations differ):
-      sym => [rPIC+sym:GOT]
-     and for a GOT-less symbol it will be (for example, relocation differ):
-      sym => rPIC+sym:GOTOFF
-     so only a symbol with a GOT is by itself a valid operand, and it
-     can't be a sum of a symbol and an offset.  */
-  return ! cris_symbol (x) || cris_got_symbol (x);
-}
-
-/* Return nonzero if there's a SYMBOL_REF or LABEL_REF hiding inside this
-   CONSTANT_P.  */
-
-int
-cris_symbol (rtx x)
-{
-  switch (GET_CODE (x))
-    {
-    case SYMBOL_REF:
-    case LABEL_REF:
-      return 1;
-
-    case UNSPEC:
-      if (XINT (x, 1) == CRIS_UNSPEC_GOT || XINT (x, 1) != CRIS_UNSPEC_PLT)
-	return 0;
-      /* A PLT reference.  */
-      ASSERT_PLT_UNSPEC (x);
-      return 1;
-
-    case CONST:
-      return cris_symbol (XEXP (x, 0));
-
-    case PLUS:
-    case MINUS:
-      return cris_symbol (XEXP (x, 0)) || cris_symbol (XEXP (x, 1));
-
-    case CONST_INT:
-    case CONST_DOUBLE:
-      return 0;
-
-    default:
-      fatal_insn ("unrecognized supposed constant", x);
-    }
-
-  return 1;
-}
-
-/* Return nonzero if there's a SYMBOL_REF or LABEL_REF hiding inside this
-   CONSTANT_P, and the symbol does not need a GOT entry.  Also set
-   current_function_uses_pic_offset_table if we're generating PIC and ever
-   see something that would need one.  */
-
-int
-cris_gotless_symbol (rtx x)
-{
-  CRIS_ASSERT (flag_pic);
-
-  switch (GET_CODE (x))
-    {
-    case UNSPEC:
-      if (XINT (x, 1) == CRIS_UNSPEC_GOT)
-	return 1;
-      if (XINT (x, 1) != CRIS_UNSPEC_PLT)
-	return 0;
-      ASSERT_PLT_UNSPEC (x);
-      return 1;
-
-    case SYMBOL_REF:
-      if (cfun != NULL)
-	current_function_uses_pic_offset_table = 1;
-      return SYMBOL_REF_LOCAL_P (x);
-
-    case LABEL_REF:
-      /* We don't set current_function_uses_pic_offset_table for
-	 LABEL_REF:s in here, since they are almost always originating
-	 from some branch.  The only time it does not come from a label is
-	 when GCC does something like __builtin_setjmp.  Then we get the
-	 LABEL_REF from the movsi expander, so we mark it there as a
-	 special case.  */
-      return 1;
-
-    case CONST:
-      return cris_gotless_symbol (XEXP (x, 0));
-
-    case PLUS:
-    case MINUS:
-      {
-	int x0 = cris_gotless_symbol (XEXP (x, 0)) != 0;
-	int x1 = cris_gotless_symbol (XEXP (x, 1)) != 0;
-
-	/* One and only one of them must be a local symbol.  Neither must
-	   be some other, more general kind of symbol.  */
-	return
-	  (x0 ^ x1)
-	  && ! (x0 == 0 && cris_symbol (XEXP (x, 0)))
-	  && ! (x1 == 0 && cris_symbol (XEXP (x, 1)));
-      }
-
-    case CONST_INT:
-    case CONST_DOUBLE:
-      return 0;
-
-    default:
-      fatal_insn ("unrecognized supposed constant", x);
-    }
-
-  return 1;
-}
-
-/* Return nonzero if there's a SYMBOL_REF or LABEL_REF hiding inside this
-   CONSTANT_P, and the symbol needs a GOT entry.  */
-
-int
-cris_got_symbol (rtx x)
-{
-  CRIS_ASSERT (flag_pic);
-
-  switch (GET_CODE (x))
-    {
-    case UNSPEC:
-      if (XINT (x, 1) == CRIS_UNSPEC_GOT)
-	return 0;
-      ASSERT_PLT_UNSPEC (x);
-      return 0;
-
-    case SYMBOL_REF:
-      if (cfun != NULL)
-	current_function_uses_pic_offset_table = 1;
-      return ! SYMBOL_REF_LOCAL_P (x);
-
-    case CONST:
-      return cris_got_symbol (XEXP (x, 0));
-
-    case LABEL_REF:
-      /* A LABEL_REF is never visible as a symbol outside the local
-         function.  */
-    case PLUS:
-    case MINUS:
-      /* Nope, can't access the GOT for "symbol + offset".  */
-      return 0;
-
-    case CONST_INT:
-    case CONST_DOUBLE:
-      return 0;
-
-    default:
-      fatal_insn ("unrecognized supposed constant in cris_global_pic_symbol",
-		  x);
-    }
-
-  return 1;
+  /* Symbols are not valid PIC operands as-is; just constants.  */
+  return cris_valid_pic_const (x);
 }
 
 /* TARGET_HANDLE_OPTION worker.  We just store the values into local
@@ -2018,7 +2038,8 @@ cris_got_symbol (rtx x)
    cris_override_options.  */
 
 static bool
-cris_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
+cris_handle_option (size_t code, const char *arg ATTRIBUTE_UNUSED,
+		    int value ATTRIBUTE_UNUSED)
 {
   switch (code)
     {
@@ -2222,7 +2243,7 @@ cris_asm_output_mi_thunk (FILE *stream,
     }
 }
 
-/* Boilerplate emitted at start of file.  
+/* Boilerplate emitted at start of file.
 
    NO_APP *only at file start* means faster assembly.  It also means
    comments are not allowed.  In some cases comments will be output
@@ -2339,12 +2360,31 @@ cris_split_movdx (rtx *operands)
 
           if (GET_CODE (addr) == POST_INC)
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode,
-				      operand_subword (dest, 0, TRUE, mode),
-				      change_address (src, SImode, addr)));
-	      emit_insn (gen_rtx_SET (VOIDmode,
-				      operand_subword (dest, 1, TRUE, mode),
-				      change_address (src, SImode, addr)));
+	      rtx mem;
+	      rtx insn;
+
+	      /* Whenever we emit insns with post-incremented
+		 addresses ourselves, we must add a post-inc note
+		 manually.  */
+	      mem = change_address (src, SImode, addr);
+	      insn
+		= gen_rtx_SET (VOIDmode,
+			       operand_subword (dest, 0, TRUE, mode), mem);
+	      insn = emit_insn (insn);
+	      if (GET_CODE (XEXP (mem, 0)) == POST_INC)
+		REG_NOTES (insn)
+		  = alloc_EXPR_LIST (REG_INC, XEXP (XEXP (mem, 0), 0),
+				     REG_NOTES (insn));
+
+	      mem = change_address (src, SImode, addr);
+	      insn
+		= gen_rtx_SET (VOIDmode,
+			       operand_subword (dest, 1, TRUE, mode), mem);
+	      insn = emit_insn (insn);
+	      if (GET_CODE (XEXP (mem, 0)) == POST_INC)
+		REG_NOTES (insn)
+		  = alloc_EXPR_LIST (REG_INC, XEXP (XEXP (mem, 0), 0),
+				     REG_NOTES (insn));
 	    }
 	  else
 	    {
@@ -2385,12 +2425,31 @@ cris_split_movdx (rtx *operands)
 
       if (GET_CODE (addr) == POST_INC)
 	{
-	  emit_insn (gen_rtx_SET (VOIDmode,
-				  change_address (dest, SImode, addr),
-				  operand_subword (src, 0, TRUE, mode)));
-	  emit_insn (gen_rtx_SET (VOIDmode,
-				  change_address (dest, SImode, addr),
-				  operand_subword (src, 1, TRUE, mode)));
+	  rtx mem;
+	  rtx insn;
+	  
+	  /* Whenever we emit insns with post-incremented addresses
+	     ourselves, we must add a post-inc note manually.  */
+	  mem = change_address (dest, SImode, addr);
+	  insn
+	    = gen_rtx_SET (VOIDmode,
+			   mem, operand_subword (src, 0, TRUE, mode));
+	  insn = emit_insn (insn);
+	  if (GET_CODE (XEXP (mem, 0)) == POST_INC)
+	    REG_NOTES (insn)
+	      = alloc_EXPR_LIST (REG_INC, XEXP (XEXP (mem, 0), 0),
+				 REG_NOTES (insn));
+
+	  mem = change_address (dest, SImode, addr);
+	  insn
+	    = gen_rtx_SET (VOIDmode,
+			   mem,
+			   operand_subword (src, 1, TRUE, mode));
+	  insn = emit_insn (insn);
+	  if (GET_CODE (XEXP (mem, 0)) == POST_INC)
+	    REG_NOTES (insn)
+	      = alloc_EXPR_LIST (REG_INC, XEXP (XEXP (mem, 0), 0),
+				 REG_NOTES (insn));
 	}
       else
 	{
@@ -2435,7 +2494,7 @@ cris_expand_prologue (void)
   int framesize = 0;
   rtx mem, insn;
   int return_address_on_stack = cris_return_address_on_stack ();
-  int got_really_used = current_function_uses_pic_offset_table;
+  int got_really_used = false;
   int n_movem_regs = 0;
   int pretend = current_function_pretend_args_size;
 
@@ -2444,6 +2503,17 @@ cris_expand_prologue (void)
     return;
 
   CRIS_ASSERT (size >= 0);
+
+  if (current_function_uses_pic_offset_table)
+    {
+      /* A reference may have been optimized out (like the abort () in
+	 fde_split in unwind-dw2-fde.c, at least 3.2.1) so check that
+	 it's still used.  */
+      push_topmost_sequence ();
+      got_really_used
+	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL_RTX);
+      pop_topmost_sequence ();
+    }
 
   /* Align the size to what's best for the CPU model.  */
   if (TARGET_STACK_ALIGN)
@@ -2707,11 +2777,22 @@ cris_expand_epilogue (void)
   /* A reference may have been optimized out
      (like the abort () in fde_split in unwind-dw2-fde.c, at least 3.2.1)
      so check that it's still used.  */
-  int got_really_used = current_function_uses_pic_offset_table;
+  int got_really_used = false;
   int n_movem_regs = 0;
 
   if (!TARGET_PROLOGUE_EPILOGUE)
     return;
+
+  if (current_function_uses_pic_offset_table)
+    {
+      /* A reference may have been optimized out (like the abort () in
+	 fde_split in unwind-dw2-fde.c, at least 3.2.1) so check that
+	 it's still used.  */
+      push_topmost_sequence ();
+      got_really_used
+	= reg_used_between_p (pic_offset_table_rtx, get_insns (), NULL_RTX);
+      pop_topmost_sequence ();
+    }
 
   /* Align byte count of stack frame.  */
   if (TARGET_STACK_ALIGN)
@@ -2744,6 +2825,8 @@ cris_expand_epilogue (void)
        regno--)
     if (cris_reg_saved_in_regsave_area (regno, got_really_used))
       {
+	rtx insn;
+
 	if (argspace_offset)
 	  {
 	    /* There is an area for outgoing parameters located before
@@ -2759,12 +2842,19 @@ cris_expand_epilogue (void)
 	mem = gen_rtx_MEM (SImode, gen_rtx_POST_INC (SImode,
 						     stack_pointer_rtx));
 	set_mem_alias_set (mem, get_frame_alias_set ());
-	emit_move_insn (gen_rtx_raw_REG (SImode, regno), mem);
+	insn = emit_move_insn (gen_rtx_raw_REG (SImode, regno), mem);
+
+	/* Whenever we emit insns with post-incremented addresses
+	   ourselves, we must add a post-inc note manually.  */
+	REG_NOTES (insn)
+	  = alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
       }
 
   /* If we have any movem-restore, do it now.  */
   if (last_movem_reg != -1)
     {
+      rtx insn;
+
       if (argspace_offset)
 	{
 	  emit_insn (gen_rtx_SET (VOIDmode,
@@ -2777,7 +2867,14 @@ cris_expand_epilogue (void)
       mem = gen_rtx_MEM (SImode,
 			 gen_rtx_POST_INC (SImode, stack_pointer_rtx));
       set_mem_alias_set (mem, get_frame_alias_set ());
-      emit_insn (cris_gen_movem_load (mem, GEN_INT (last_movem_reg + 1), 0));
+      insn
+	= emit_insn (cris_gen_movem_load (mem,
+					  GEN_INT (last_movem_reg + 1), 0));
+      /* Whenever we emit insns with post-incremented addresses
+	 ourselves, we must add a post-inc note manually.  */
+      if (side_effects_p (PATTERN (insn)))
+	REG_NOTES (insn)
+	  = alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
     }
 
   /* If we don't clobber all of the allocated stack area (we've already
@@ -2793,13 +2890,20 @@ cris_expand_epilogue (void)
   /* Restore frame pointer if necessary.  */
   if (frame_pointer_needed)
     {
+      rtx insn;
+
       emit_insn (gen_cris_frame_deallocated_barrier ());
 
       emit_move_insn (stack_pointer_rtx, frame_pointer_rtx);
       mem = gen_rtx_MEM (SImode, gen_rtx_POST_INC (SImode,
 						   stack_pointer_rtx));
       set_mem_alias_set (mem, get_frame_alias_set ());
-      emit_move_insn (frame_pointer_rtx, mem);
+      insn = emit_move_insn (frame_pointer_rtx, mem);
+
+      /* Whenever we emit insns with post-incremented addresses
+	 ourselves, we must add a post-inc note manually.  */
+      REG_NOTES (insn)
+	= alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
     }
   else if ((size + argspace_offset) != 0)
     {
@@ -2825,12 +2929,18 @@ cris_expand_epilogue (void)
       if (current_function_calls_eh_return)
 	{
 	  rtx mem;
+	  rtx insn;
 	  rtx srpreg = gen_rtx_raw_REG (SImode, CRIS_SRP_REGNUM);
 	  mem = gen_rtx_MEM (SImode,
 			     gen_rtx_POST_INC (SImode,
 					       stack_pointer_rtx));
 	  set_mem_alias_set (mem, get_frame_alias_set ());
-	  emit_move_insn (srpreg, mem);
+	  insn = emit_move_insn (srpreg, mem);
+
+	  /* Whenever we emit insns with post-incremented addresses
+	     ourselves, we must add a post-inc note manually.  */
+	  REG_NOTES (insn)
+	    = alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
 
 	  emit_insn (gen_addsi3 (stack_pointer_rtx,
 				 stack_pointer_rtx,
@@ -2853,11 +2963,18 @@ cris_expand_epilogue (void)
 	{
 	  rtx mem;
 	  rtx srpreg = gen_rtx_raw_REG (SImode, CRIS_SRP_REGNUM);
+	  rtx insn;
+
 	  mem = gen_rtx_MEM (SImode,
 			     gen_rtx_POST_INC (SImode,
 					       stack_pointer_rtx));
 	  set_mem_alias_set (mem, get_frame_alias_set ());
-	  emit_move_insn (srpreg, mem);
+	  insn = emit_move_insn (srpreg, mem);
+
+	  /* Whenever we emit insns with post-incremented addresses
+	     ourselves, we must add a post-inc note manually.  */
+	  REG_NOTES (insn)
+	    = alloc_EXPR_LIST (REG_INC, stack_pointer_rtx, REG_NOTES (insn));
 	}
 
       emit_insn (gen_rtx_SET (VOIDmode,
@@ -3053,6 +3170,109 @@ cris_emit_movem_store (rtx dest, rtx nregs_rtx, int increment,
   return insn;
 }
 
+/* Worker function for expanding the address for PIC function calls.  */
+
+void
+cris_expand_pic_call_address (rtx *opp)
+{
+  rtx op = *opp;
+
+  gcc_assert (MEM_P (op));
+  op = XEXP (op, 0);
+
+  /* It might be that code can be generated that jumps to 0 (or to a
+     specific address).  Don't die on that.  (There is a
+     testcase.)  */
+  if (CONSTANT_ADDRESS_P (op) && GET_CODE (op) != CONST_INT)
+    {
+      enum cris_pic_symbol_type t = cris_pic_symbol_type_of (op);
+
+      CRIS_ASSERT (!no_new_pseudos);
+
+      /* For local symbols (non-PLT), just get the plain symbol
+	 reference into a register.  For symbols that can be PLT, make
+	 them PLT.  */
+      if (t == cris_gotrel_symbol)
+	op = force_reg (Pmode, op);
+      else if (t == cris_got_symbol)
+	{
+	  if (TARGET_AVOID_GOTPLT)
+	    {
+	      /* Change a "jsr sym" into (allocate register rM, rO)
+		 "move.d (const (unspec [sym] CRIS_UNSPEC_PLT)),rM"
+		 "add.d rPIC,rM,rO", "jsr rO".  */
+	      rtx tem, rm, ro;
+	      gcc_assert (! no_new_pseudos);
+	      current_function_uses_pic_offset_table = 1;
+	      tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op), CRIS_UNSPEC_PLT);
+	      rm = gen_reg_rtx (Pmode);
+	      emit_move_insn (rm, gen_rtx_CONST (Pmode, tem));
+	      ro = gen_reg_rtx (Pmode);
+	      if (expand_binop (Pmode, add_optab, rm,
+				pic_offset_table_rtx,
+				ro, 0, OPTAB_LIB_WIDEN) != ro)
+		internal_error ("expand_binop failed in movsi got");
+	      op = ro;
+	    }
+	  else
+	    {
+	      /* Change a "jsr sym" into (allocate register rM, rO)
+		 "move.d (const (unspec [sym] CRIS_UNSPEC_PLTGOT)),rM"
+		 "add.d rPIC,rM,rO" "jsr [rO]" with the memory access
+		 marked as not trapping and not aliasing.  No "move.d
+		 [rO],rP" as that would invite to re-use of a value
+		 that should not be reused.  FIXME: Need a peephole2
+		 for cases when this is cse:d from the call, to change
+		 back to just get the PLT entry address, so we don't
+		 resolve the same symbol over and over (the memory
+		 access of the PLTGOT isn't constant).  */
+	      rtx tem, mem, rm, ro;
+
+	      gcc_assert (! no_new_pseudos);
+	      current_function_uses_pic_offset_table = 1;
+	      tem = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op),
+				    CRIS_UNSPEC_PLTGOTREAD);
+	      rm = gen_reg_rtx (Pmode);
+	      emit_move_insn (rm, gen_rtx_CONST (Pmode, tem));
+	      ro = gen_reg_rtx (Pmode);
+	      if (expand_binop (Pmode, add_optab, rm,
+				pic_offset_table_rtx,
+				ro, 0, OPTAB_LIB_WIDEN) != ro)
+		internal_error ("expand_binop failed in movsi got");
+	      mem = gen_rtx_MEM (Pmode, ro);
+
+	      /* This MEM doesn't alias anything.  Whether it aliases
+		 other same symbols is unimportant.  */
+	      set_mem_alias_set (mem, new_alias_set ());
+	      MEM_NOTRAP_P (mem) = 1;
+	      op = mem;
+	    }
+	}
+      else
+	/* Can't possibly get a GOT-needing-fixup for a function-call,
+	   right?  */
+	fatal_insn ("Unidentifiable call op", op);
+
+      *opp = replace_equiv_address (*opp, op);
+    }
+}
+
+/* Make sure operands are in the right order for an addsi3 insn as
+   generated by a define_split.  A MEM as the first operand isn't
+   recognized by addsi3 after reload.  OPERANDS contains the operands,
+   with the first at OPERANDS[N] and the second at OPERANDS[N+1].  */
+
+void
+cris_order_for_addsi3 (rtx *operands, int n)
+{
+  if (MEM_P (operands[n]))
+    {
+      rtx tem = operands[n];
+      operands[n] = operands[n + 1];
+      operands[n + 1] = tem;
+    }
+}
+
 /* Use from within code, from e.g. PRINT_OPERAND and
    PRINT_OPERAND_ADDRESS.  Macros used in output_addr_const need to emit
    different things depending on whether code operand or constant is
@@ -3071,38 +3291,18 @@ cris_output_addr_const (FILE *file, rtx x)
 void
 cris_asm_output_symbol_ref (FILE *file, rtx x)
 {
+  gcc_assert (GET_CODE (x) == SYMBOL_REF);
+
   if (flag_pic && in_code > 0)
     {
-      const char *origstr = XSTR (x, 0);
-      const char *str;
+     const char *origstr = XSTR (x, 0);
+     const char *str;
+     str = (* targetm.strip_name_encoding) (origstr);
+     assemble_name (file, str);
 
-      str = (* targetm.strip_name_encoding) (origstr);
-
-      if (cris_gotless_symbol (x))
-	{
-	  if (! cris_pic_sympart_only)
-	    fprintf (file, "$%s+", reg_names [PIC_OFFSET_TABLE_REGNUM]);
-	  assemble_name (file, str);
-	  fprintf (file, ":GOTOFF");
-	}
-      else if (cris_got_symbol (x))
-	{
-	  CRIS_ASSERT (!cris_pic_sympart_only);
-
-	  fprintf (file, "[$%s+", reg_names [PIC_OFFSET_TABLE_REGNUM]);
-	  assemble_name (file, XSTR (x, 0));
-
-	  if (flag_pic == 1)
-	    fprintf (file, ":GOT16]");
-	  else
-	    fprintf (file, ":GOT]");
-	}
-      else
-	LOSE_AND_RETURN ("unexpected PIC symbol", x);
-
-      /* Sanity check.  */
-      if (! current_function_uses_pic_offset_table)
-	output_operand_lossage ("PIC register isn't set up");
+     /* Sanity check.  */
+     if (! current_function_uses_pic_offset_table)
+       output_operand_lossage ("PIC register isn't set up");
     }
   else
     assemble_name (file, XSTR (x, 0));
@@ -3115,11 +3315,7 @@ cris_asm_output_label_ref (FILE *file, char *buf)
 {
   if (flag_pic && in_code > 0)
     {
-      if (! cris_pic_sympart_only)
-	fprintf (file, "$%s+", reg_names [PIC_OFFSET_TABLE_REGNUM]);
       assemble_name (file, buf);
-
-      fprintf (file, ":GOTOFF");
 
       /* Sanity check.  */
       if (! current_function_uses_pic_offset_table)
@@ -3132,34 +3328,44 @@ cris_asm_output_label_ref (FILE *file, char *buf)
 /* Worker function for OUTPUT_ADDR_CONST_EXTRA.  */
 
 bool
-cris_output_addr_const_extra (FILE *file, rtx x)
+cris_output_addr_const_extra (FILE *file, rtx xconst)
 {
-  switch (GET_CODE (x))
+  switch (GET_CODE (xconst))
     {
-      const char *origstr;
-      const char *str;
+      rtx x;
 
     case UNSPEC:
-      ASSERT_PLT_UNSPEC (x);
-      x = XVECEXP (x, 0, 0);
-      origstr = XSTR (x, 0);
-      str = (* targetm.strip_name_encoding) (origstr);
-      if (cris_pic_sympart_only)
+      x = XVECEXP (xconst, 0, 0);
+      CRIS_ASSERT (GET_CODE (x) == SYMBOL_REF
+		   || GET_CODE (x) == LABEL_REF
+		   || GET_CODE (x) == CONST);
+      output_addr_const (file, x);
+      switch (XINT (xconst, 1))
 	{
-	  assemble_name (file, str);
+	case CRIS_UNSPEC_PLT:
 	  fprintf (file, ":PLTG");
-	}
-      else
-	{
-	  CRIS_ASSERT (!TARGET_AVOID_GOTPLT);
+	  break;
 
-	  fprintf (file, "[$%s+", reg_names [PIC_OFFSET_TABLE_REGNUM]);
-	  assemble_name (file, XSTR (x, 0));
+	case CRIS_UNSPEC_GOTREL:
+	  fprintf (file, ":GOTOFF");
+	  break;
 
+	case CRIS_UNSPEC_GOTREAD:
 	  if (flag_pic == 1)
-	    fprintf (file, ":GOTPLT16]");
+	    fprintf (file, ":GOT16");
 	  else
-	    fprintf (file, ":GOTPLT]");
+	    fprintf (file, ":GOT");
+	  break;
+
+	case CRIS_UNSPEC_PLTGOTREAD:
+	  if (flag_pic == 1)
+	    fprintf (file, CRIS_GOTPLT_SUFFIX "16");
+	  else
+	    fprintf (file, CRIS_GOTPLT_SUFFIX);
+	  break;
+
+	default:
+	  gcc_unreachable ();
 	}
       return true;
 
@@ -3228,13 +3434,23 @@ cris_arg_partial_bytes (CUMULATIVE_ARGS *ca, enum machine_mode mode,
 /* Worker function for TARGET_MD_ASM_CLOBBERS.  */
 
 static tree
-cris_md_asm_clobbers (tree outputs, tree inputs, tree clobbers)
+cris_md_asm_clobbers (tree outputs, tree inputs, tree in_clobbers)
 {
   HARD_REG_SET mof_set;
+  tree clobbers;
   tree t;
 
   CLEAR_HARD_REG_SET (mof_set);
   SET_HARD_REG_BIT (mof_set, CRIS_MOF_REGNUM);
+
+  /* For the time being, all asms clobber condition codes.  Revisit when
+     there's a reasonable use for inputs/outputs that mention condition
+     codes.  */
+  clobbers
+    = tree_cons (NULL_TREE,
+		 build_string (strlen (reg_names[CRIS_CC0_REGNUM]),
+			       reg_names[CRIS_CC0_REGNUM]),
+		 in_clobbers);
 
   for (t = outputs; t != NULL; t = TREE_CHAIN (t))
     {
@@ -3246,7 +3462,7 @@ cris_md_asm_clobbers (tree outputs, tree inputs, tree clobbers)
 	 impossible constraints.  */
       if (strchr (TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t))),
 		  'h') != NULL
-	  || decl_overlaps_hard_reg_set_p (val, mof_set))
+	  || tree_overlaps_hard_reg_set (val, &mof_set) != NULL_TREE)
 	return clobbers;
     }
 
@@ -3256,7 +3472,7 @@ cris_md_asm_clobbers (tree outputs, tree inputs, tree clobbers)
 
       if (strchr (TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t))),
 		  'h') != NULL
-	  || decl_overlaps_hard_reg_set_p (val, mof_set))
+	  || tree_overlaps_hard_reg_set (val, &mof_set) != NULL_TREE)
 	return clobbers;
     }
 

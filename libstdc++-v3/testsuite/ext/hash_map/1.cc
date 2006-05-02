@@ -13,7 +13,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // hash_map (SGI extension)
@@ -23,11 +23,10 @@
 #include <ext/hash_map>
 #include <testsuite_hooks.h>
 
-using namespace std;
-using namespace __gnu_cxx;
-
 namespace __gnu_cxx 
 {
+  using std::string;
+
   inline size_t hash_string(const char* s)
   {
     unsigned long h; 
@@ -63,19 +62,22 @@ namespace __gnu_cxx
   };
 }
 
-
-const int Size = 5;
-
 void test01()
 {
+  const int Size = 5;
   bool test __attribute__((unused)) = true;
+
+  using std::string;
+  using std::pair;
+  using std::vector;
+  using __gnu_cxx::hash_map;
 
   for (int i = 0; i < 10; i++)
   {
-    hash_map<string,int> a;
-    hash_map<string,int> b;
+    hash_map<string, int> a;
+    hash_map<string, int> b;
     
-    vector<pair<string,int> > contents (Size);
+    vector<pair<string, int> > contents (Size);
     for (int j = 0; j < Size; j++)
     {
       string s;

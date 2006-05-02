@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -42,8 +42,8 @@
   // Define this here so codecvt.cc can have _S_max_size definition.
 #define _GLIBCXX_USE_ENCODING_STATE 1
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   /// @brief  Extension to use icov for dealing with character encodings.
   // This includes conversions and comparisons between various character
   // sets.  This object encapsulates data that may need to be shared between
@@ -213,10 +213,12 @@ namespace __gnu_cxx
       typedef encoding_state				state_type;
       typedef typename std::fpos<state_type>		pos_type;
     };
-} // namespace __gnu_cxx
 
-namespace std
-{
+_GLIBCXX_END_NAMESPACE
+
+
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   using __gnu_cxx::encoding_state;
 
   /// @brief  codecvt<InternT, _ExternT, encoding_state> specialization.
@@ -501,5 +503,6 @@ namespace std
     codecvt<_InternT, _ExternT, encoding_state>::
     do_max_length() const throw()
     { return 1; }
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 

@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #undef ASM_SPEC
@@ -425,7 +425,7 @@ enum reg_class {
   (!TARGET_AM33 && (MODE == QImode || MODE == HImode) ? DATA_REGS : CLASS)
 
 #define SECONDARY_RELOAD_CLASS(CLASS,MODE,IN) \
-  secondary_reload_class(CLASS,MODE,IN)
+  mn10300_secondary_reload_class(CLASS,MODE,IN)
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.  */
@@ -480,12 +480,12 @@ enum reg_class {
 
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
 
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -594,8 +594,9 @@ struct cum_arg {int nbytes; };
    otherwise, FUNC is 0.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-  gen_rtx_REG (TYPE_MODE (VALTYPE), POINTER_TYPE_P (VALTYPE) \
-	       ? FIRST_ADDRESS_REGNUM : FIRST_DATA_REGNUM)
+  mn10300_function_value (VALTYPE, FUNC, 0)
+#define FUNCTION_OUTGOING_VALUE(VALTYPE, FUNC) \
+  mn10300_function_value (VALTYPE, FUNC, 1)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */

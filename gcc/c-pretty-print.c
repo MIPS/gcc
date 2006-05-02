@@ -1,5 +1,5 @@
 /* Subroutines common to both C and C++ pretty-printers.
-   Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -311,14 +311,24 @@ pp_c_type_specifier (c_pretty_printer *pp, tree t)
 
     case VOID_TYPE:
     case BOOLEAN_TYPE:
-    case CHAR_TYPE:
     case INTEGER_TYPE:
     case REAL_TYPE:
       if (TYPE_NAME (t))
-        t = TYPE_NAME (t);
+	{
+	  t = TYPE_NAME (t);
+	  pp_c_type_specifier (pp, t);
+	}
       else
-        t = c_common_type_for_mode (TYPE_MODE (t), TYPE_UNSIGNED (t));
-      pp_c_type_specifier (pp, t);
+	{
+	  int prec = TYPE_PRECISION (t);
+	  t = c_common_type_for_mode (TYPE_MODE (t), TYPE_UNSIGNED (t));
+	  pp_c_type_specifier (pp, t);
+	  if (TYPE_PRECISION (t) != prec)
+	    {
+	      pp_string (pp, ":");
+	      pp_decimal_int (pp, prec);
+	    }
+	}
       break;
 
     case TYPE_DECL:
@@ -879,6 +889,12 @@ pp_c_floating_constant (c_pretty_printer *pp, tree r)
     pp_character (pp, 'f');
   else if (TREE_TYPE (r) == long_double_type_node)
     pp_character (pp, 'l');
+  else if (TREE_TYPE (r) == dfloat128_type_node)
+    pp_string (pp, "dl");
+  else if (TREE_TYPE (r) == dfloat64_type_node)
+    pp_string (pp, "dd");
+  else if (TREE_TYPE (r) == dfloat32_type_node)
+    pp_string (pp, "df");
 }
 
 /* Pretty-print a compound literal expression.  GNU extensions include
@@ -1126,14 +1142,14 @@ pp_c_initializer_list (c_pretty_printer *pp, tree e)
       if (TREE_CODE (e) == VECTOR_CST)
         pp_c_expression_list (pp, TREE_VECTOR_CST_ELTS (e));
       else if (TREE_CODE (e) == CONSTRUCTOR)
-        pp_c_expression_list (pp, CONSTRUCTOR_ELTS (e));
+        pp_c_constructor_elts (pp, CONSTRUCTOR_ELTS (e));
       else
         break;
       return;
 
     case COMPLEX_TYPE:
       if (TREE_CODE (e) == CONSTRUCTOR)
-	pp_c_expression_list (pp, CONSTRUCTOR_ELTS (e));
+	pp_c_constructor_elts (pp, CONSTRUCTOR_ELTS (e));
       else if (TREE_CODE (e) == COMPLEX_CST || TREE_CODE (e) == COMPLEX_EXPR)
 	{
 	  const bool cst = TREE_CODE (e) == COMPLEX_CST;
@@ -1358,6 +1374,22 @@ pp_c_expression_list (c_pretty_printer *pp, tree e)
     }
 }
 
+/* Print out V, which contains the elements of a constructor.  */
+
+void
+pp_c_constructor_elts (c_pretty_printer *pp, VEC(constructor_elt,gc) *v)
+{
+  unsigned HOST_WIDE_INT ix;
+  tree value;
+
+  FOR_EACH_CONSTRUCTOR_VALUE (v, ix, value)
+    {
+      pp_expression (pp, value);
+      if (ix != VEC_length (constructor_elt, v) - 1)
+	pp_separate_with (pp, ',');
+    }
+}
+
 /* Print out an expression-list in parens, as in a function call.  */
 
 void
@@ -1444,6 +1476,7 @@ pp_c_cast_expression (c_pretty_printer *pp, tree e)
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case CONVERT_EXPR:
+    case NOP_EXPR:
       pp_c_type_cast (pp, TREE_TYPE (e));
       pp_c_cast_expression (pp, TREE_OPERAND (e, 0));
       break;
@@ -1822,6 +1855,7 @@ pp_c_expression (c_pretty_printer *pp, tree e)
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
     case CONVERT_EXPR:
+    case NOP_EXPR:
       pp_c_cast_expression (pp, e);
       break;
 
@@ -1890,7 +1924,6 @@ pp_c_expression (c_pretty_printer *pp, tree e)
       pp_c_right_paren (pp);
       break;
 
-    case NOP_EXPR:
     case NON_LVALUE_EXPR:
     case SAVE_EXPR:
       pp_expression (pp, TREE_OPERAND (e, 0));
@@ -1946,6 +1979,7 @@ pp_c_pretty_printer_init (c_pretty_printer *pp)
 
   pp->statement                 = pp_c_statement;
 
+  pp->constant                  = pp_c_constant;
   pp->id_expression             = pp_c_id_expression;
   pp->primary_expression        = pp_c_primary_expression;
   pp->postfix_expression        = pp_c_postfix_expression;

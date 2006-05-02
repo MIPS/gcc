@@ -15,8 +15,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -58,11 +58,15 @@ segv_handler (int sig ATTRIBUTE_UNUSED,
 	      void *scp)
 {
   ucontext_t *uc = (ucontext_t *)scp;
+  sigset_t sigset;
   unsigned faulting_insn;
 
   /* The fault might have happened when trying to run some instruction, in
      which case the next line will segfault _again_.  Handle this case.  */
   signal (SIGSEGV, segv_crash_handler);
+  sigemptyset (&sigset);
+  sigaddset (&sigset, SIGSEGV);
+  sigprocmask (SIG_UNBLOCK, &sigset, NULL);
 
   faulting_insn = *(unsigned *)uc->uc_mcontext->ss.srr0;
 
@@ -73,7 +77,7 @@ segv_handler (int sig ATTRIBUTE_UNUSED,
      this.  */
 
   if ((faulting_insn & 0xFFFF8000) == 0x94218000  /* stwu %r1, -xxx(%r1) */
-      || (faulting_insn & 0xFFFF03FF) == 0x7C21016E /* stwux %r1, xxx, %r1 */
+      || (faulting_insn & 0xFC1F03FF) == 0x7C01016E /* stwux xxx, %r1, xxx */
       || (faulting_insn & 0xFC1F8000) == 0x90018000 /* stw xxx, -yyy(%r1) */
       || (faulting_insn & 0xFC1F8000) == 0xD8018000 /* stfd xxx, -yyy(%r1) */
       || (faulting_insn & 0xFC1F8000) == 0xBC018000 /* stmw xxx, -yyy(%r1) */)

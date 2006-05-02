@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -39,6 +39,9 @@ exception statement from your version. */
 package java.io;
 
 import gnu.gcj.convert.UnicodeToBytes;
+import gnu.gcj.convert.CharsetToBytesAdaptor;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
 
 /**
  * This class writes characters to an output stream that is byte oriented
@@ -126,6 +129,31 @@ public class OutputStreamWriter extends Writer
   public OutputStreamWriter (OutputStream out)
   {
     this(out, UnicodeToBytes.getDefaultEncoder());
+  }
+
+  /**
+   * This method initializes a new instance of <code>OutputStreamWriter</code>
+   * to write to the specified stream using a given <code>Charset</code>.
+   *
+   * @param out The <code>OutputStream</code> to write to
+   * @param cs The <code>Charset</code> of the encoding to use
+   */
+  public OutputStreamWriter(OutputStream out, Charset cs)
+  {
+    this(out, new CharsetToBytesAdaptor(cs));
+  }
+
+  /**
+   * This method initializes a new instance of <code>OutputStreamWriter</code>
+   * to write to the specified stream using a given
+   * <code>CharsetEncoder</code>.
+   *
+   * @param out The <code>OutputStream</code> to write to
+   * @param enc The <code>CharsetEncoder</code> to encode the output with
+   */
+  public OutputStreamWriter(OutputStream out, CharsetEncoder enc)
+  {
+    this(out, new CharsetToBytesAdaptor(enc));
   }
 
   /**

@@ -850,6 +850,8 @@ Optional Features:
   --enable-static=PKGS  build static libraries default=yes
   --enable-fast-install=PKGS  optimize for fast installation default=yes
   --disable-libtool-lock  avoid locking (might break parallel builds)
+  _g_switchUse thread-local storage
+                          [default=yes]
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -5831,7 +5833,7 @@ test x"$pic_mode" = xno && libtool_flags="$libtool_flags --prefer-non-pic"
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 5834 "configure"' > conftest.$ac_ext
+  echo '#line 5836 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -6323,19 +6325,22 @@ then
   mkdir pth
 fi
 
-pthread_create_version='""'
-if test "${ac_cv_header_pthread_h+set}" = set; then
-  echo "$as_me:$LINENO: checking for pthread.h" >&5
-echo $ECHO_N "checking for pthread.h... $ECHO_C" >&6
-if test "${ac_cv_header_pthread_h+set}" = set; then
+
+for ac_header in pthread.h
+do
+as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
+  echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 fi
-echo "$as_me:$LINENO: result: $ac_cv_header_pthread_h" >&5
-echo "${ECHO_T}$ac_cv_header_pthread_h" >&6
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 else
   # Is the header compilable?
-echo "$as_me:$LINENO: checking pthread.h usability" >&5
-echo $ECHO_N "checking pthread.h usability... $ECHO_C" >&6
+echo "$as_me:$LINENO: checking $ac_header usability" >&5
+echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -6343,7 +6348,7 @@ cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 $ac_includes_default
-#include <pthread.h>
+#include <$ac_header>
 _ACEOF
 rm -f conftest.$ac_objext
 if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
@@ -6379,15 +6384,15 @@ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
 echo "${ECHO_T}$ac_header_compiler" >&6
 
 # Is the header present?
-echo "$as_me:$LINENO: checking pthread.h presence" >&5
-echo $ECHO_N "checking pthread.h presence... $ECHO_C" >&6
+echo "$as_me:$LINENO: checking $ac_header presence" >&5
+echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-#include <pthread.h>
+#include <$ac_header>
 _ACEOF
 if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
   (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
@@ -6421,25 +6426,25 @@ echo "${ECHO_T}$ac_header_preproc" >&6
 # So?  What about this header?
 case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
   yes:no: )
-    { echo "$as_me:$LINENO: WARNING: pthread.h: accepted by the compiler, rejected by the preprocessor!" >&5
-echo "$as_me: WARNING: pthread.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h: proceeding with the compiler's result" >&5
-echo "$as_me: WARNING: pthread.h: proceeding with the compiler's result" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
+echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the compiler's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the compiler's result" >&2;}
     ac_header_preproc=yes
     ;;
   no:yes:* )
-    { echo "$as_me:$LINENO: WARNING: pthread.h: present but cannot be compiled" >&5
-echo "$as_me: WARNING: pthread.h: present but cannot be compiled" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h:     check for missing prerequisite headers?" >&5
-echo "$as_me: WARNING: pthread.h:     check for missing prerequisite headers?" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h: see the Autoconf documentation" >&5
-echo "$as_me: WARNING: pthread.h: see the Autoconf documentation" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h:     section \"Present But Cannot Be Compiled\"" >&5
-echo "$as_me: WARNING: pthread.h:     section \"Present But Cannot Be Compiled\"" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h: proceeding with the preprocessor's result" >&5
-echo "$as_me: WARNING: pthread.h: proceeding with the preprocessor's result" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h: in the future, the compiler will take precedence" >&5
-echo "$as_me: WARNING: pthread.h: in the future, the compiler will take precedence" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: present but cannot be compiled" >&5
+echo "$as_me: WARNING: $ac_header: present but cannot be compiled" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header:     check for missing prerequisite headers?" >&5
+echo "$as_me: WARNING: $ac_header:     check for missing prerequisite headers?" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: see the Autoconf documentation" >&5
+echo "$as_me: WARNING: $ac_header: see the Autoconf documentation" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&5
+echo "$as_me: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;}
+    { echo "$as_me:$LINENO: WARNING: $ac_header: in the future, the compiler will take precedence" >&5
+echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
     (
       cat <<\_ASBOX
 ## ------------------------------------- ##
@@ -6450,36 +6455,50 @@ _ASBOX
       sed "s/^/$as_me: WARNING:     /" >&2
     ;;
 esac
-echo "$as_me:$LINENO: checking for pthread.h" >&5
-echo $ECHO_N "checking for pthread.h... $ECHO_C" >&6
-if test "${ac_cv_header_pthread_h+set}" = set; then
+echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Header+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  ac_cv_header_pthread_h=$ac_header_preproc
+  eval "$as_ac_Header=\$ac_header_preproc"
 fi
-echo "$as_me:$LINENO: result: $ac_cv_header_pthread_h" >&5
-echo "${ECHO_T}$ac_cv_header_pthread_h" >&6
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 
 fi
-if test $ac_cv_header_pthread_h = yes; then
-
-
-cat >>confdefs.h <<_ACEOF
-#define HAVE_PTHREAD_H 1
+if test `eval echo '${'$as_ac_Header'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
 _ACEOF
 
-ac_have_pthread_h=yes
-
-else
-
-ac_have_pthread_h=
-
 fi
 
+done
+
+
+echo "$as_me:$LINENO: checking for thread model used by GCC" >&5
+echo $ECHO_N "checking for thread model used by GCC... $ECHO_C" >&6
+target_thread_file=`$CC -v 2>&1 | sed -n 's/^Thread model: //p'`
+echo "$as_me:$LINENO: result: $target_thread_file" >&5
+echo "${ECHO_T}$target_thread_file" >&6
+
+# We only support posix threads, or no threads at all.
+posix_threads=
+case ${target_thread_file} in
+  posix)
+    posix_threads=yes
+    ;;
+  single)
+    ;;
+  *)
+    echo "${target_thread_file} is an unsupported thread package" 1>&2
+    exit 1
+    ;;
+esac
 
 
 
-if test "x$ac_have_pthread_h" != "x"; then
+if test "x$posix_threads" != "x"; then
   LIBMUDFLAPTH_TRUE=
   LIBMUDFLAPTH_FALSE='#'
 else
@@ -6487,7 +6506,7 @@ else
   LIBMUDFLAPTH_FALSE=
 fi
 
-if test "x$ac_have_pthread_h" != "x"
+if test "x$posix_threads" != "x"
 then
         build_libmudflapth=1
 else
@@ -6600,7 +6619,8 @@ esac
 
 
 
-if test "x$enable_shared" = "xyes" && test "x$ac_have_pthread_h" != "x"; then
+pthread_create_version='""'
+if test "x$enable_shared" = "xyes" && test "x$posix_threads" != "x"; then
   # NB: don't check for -lpthread here, because then it would be
   # added to LIBS.  For the thread-unaware libmudflap.la, we don't
   # want it there.
@@ -6892,11 +6912,210 @@ echo "${ECHO_T}$ac_fdsections" >&6
 
 
 
+# Check for the name of the symbol used for the entry point.
+echo "$as_me:$LINENO: checking for the name of the symbol used for the entry point" >&5
+echo $ECHO_N "checking for the name of the symbol used for the entry point... $ECHO_C" >&6
+if test "${mudflap_cv_entry_point+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+for name in _start __start unknown; do
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+extern char $name[];
+int
+main ()
+{
+$name[0] = 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+done
+mudflap_cv_entry_point="$name"
+fi
+echo "$as_me:$LINENO: result: $mudflap_cv_entry_point" >&5
+echo "${ECHO_T}$mudflap_cv_entry_point" >&6
+if test "$mudflap_cv_entry_point" = unknown; then
+  { { echo "$as_me:$LINENO: error: none of the known symbol names works" >&5
+echo "$as_me: error: none of the known symbol names works" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+cat >>confdefs.h <<_ACEOF
+#define ENTRY_POINT $mudflap_cv_entry_point
+_ACEOF
+
+
+
 if test ${multilib} = yes; then
   multilib_arg="--enable-multilib"
 else
   multilib_arg=
 fi
+
+# See if we support thread-local storage.
+
+   # Check whether --enable-tls or --disable-tls was given.
+if test "${enable_tls+set}" = set; then
+  enableval="$enable_tls"
+
+      case "$enableval" in
+       yes|no) ;;
+       *) { { echo "$as_me:$LINENO: error: Argument to enable/disable tls must be yes or no" >&5
+echo "$as_me: error: Argument to enable/disable tls must be yes or no" >&2;}
+   { (exit 1); exit 1; }; } ;;
+      esac
+
+else
+  enable_tls=yes
+fi;
+
+  echo "$as_me:$LINENO: checking whether the target supports thread-local storage" >&5
+echo $ECHO_N "checking whether the target supports thread-local storage... $ECHO_C" >&6
+if test "${have_tls+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+    if test "$cross_compiling" = yes; then
+  cat >conftest.$ac_ext <<_ACEOF
+__thread int foo;
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  have_tls=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+have_tls=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+
+else
+  cat >conftest.$ac_ext <<_ACEOF
+__thread int a; int b; int main() { return a = b; }
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+                    save_LDFLAGS="$LDFLAGS"
+      LDFLAGS="-static $LDFLAGS"
+      if test "$cross_compiling" = yes; then
+  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+else
+  cat >conftest.$ac_ext <<_ACEOF
+__thread int a; int b; int main() { return a = b; }
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  have_tls=yes
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+have_tls=no
+fi
+rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+      LDFLAGS="$save_LDFLAGS"
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+have_tls=no
+fi
+rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+fi
+echo "$as_me:$LINENO: result: $have_tls" >&5
+echo "${ECHO_T}$have_tls" >&6
+  if test "$enable_tls $have_tls" = "yes yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_TLS 1
+_ACEOF
+
+  fi
 
                               ac_config_files="$ac_config_files Makefile testsuite/Makefile testsuite/mfconfig.exp"
 

@@ -26,28 +26,31 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
 #include "libgfortran.h"'
 include(iparm.m4)dnl
+include(mtype.m4)dnl
+
+`#if defined (HAVE_'rtype_name`)'
 
 typedef GFC_ARRAY_DESCRIPTOR(GFC_MAX_DIMENSIONS, char) char_array;
 
-extern rtype_name dot_product_`'rtype_code (rtype * a, rtype * b);
+extern rtype_name dot_product_`'rtype_code (rtype * const restrict a, 
+	rtype * const restrict b);
 export_proto(dot_product_`'rtype_code);
 
 /* Both parameters will already have been converted to the result type.  */
 rtype_name
-dot_product_`'rtype_code (rtype * a, rtype * b)
+dot_product_`'rtype_code (rtype * const restrict a, rtype * const restrict b)
 {
-  rtype_name *pa;
-  rtype_name *pb;
+  const rtype_name * restrict pa;
+  const rtype_name * restrict pb;
   rtype_name res;
-  rtype_name conjga;
   index_type count;
   index_type astride;
   index_type bstride;
@@ -70,11 +73,12 @@ sinclude(`dotprod_asm_'rtype_code`.m4')dnl
 
   while (count--)
     {
-      COMPLEX_ASSIGN(conjga, REALPART (*pa), -IMAGPART (*pa));
-      res += conjga * *pb;
+      res += __builtin_conj`'q (*pa) * *pb;
       pa += astride;
       pb += bstride;
     }
 
   return res;
 }
+
+#endif

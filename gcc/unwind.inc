@@ -24,8 +24,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 /* This is derived from the C++ ABI for IA-64.  Where we diverge
    for cross-architecture compatibility are noted with "@@@".  
@@ -184,8 +184,9 @@ _Unwind_ForcedUnwind_Phase2 (struct _Unwind_Exception *exc,
 	    return _URC_FATAL_PHASE2_ERROR;
 	}
 
-      /* Update cur_context to describe the same frame as fs.  */
-      uw_update_context (context, &fs);
+      /* Update cur_context to describe the same frame as fs, and discard
+	 the previous context if necessary.  */
+      uw_advance_context (context, &fs);
     }
 
   return code;

@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -33,7 +33,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "hashtab.h"
 #include "recog.h"    
-#include "varray.h"                        
 
 /* This pass performs loop unrolling and peeling.  We only perform these
    optimizations on innermost loops (with single exception) because
@@ -84,9 +83,6 @@ struct iv_to_split
 			   N_LOC is 2, the expression is located at
 			   XEXP (XEXP (single_set, loc[0]), loc[1]).  */ 
 };
-
-DEF_VEC_P(rtx);
-DEF_VEC_ALLOC_P(rtx,heap);
 
 /* Information about accumulators to expand.  */
 
@@ -508,7 +504,7 @@ peel_loop_completely (struct loops *loops, struct loop *loop)
       if (desc->noloop_assumptions)
 	RESET_BIT (wont_exit, 1);
 
-      remove_edges = xcalloc (npeel, sizeof (edge));
+      remove_edges = XCNEWVEC (edge, npeel);
       n_remove_edges = 0;
 
       if (flag_split_ivs_in_unroller)
@@ -519,7 +515,10 @@ peel_loop_completely (struct loops *loops, struct loop *loop)
 					  loops, npeel,
 					  wont_exit, desc->out_edge,
 					  remove_edges, &n_remove_edges,
-					  DLTHE_FLAG_UPDATE_FREQ);
+					  DLTHE_FLAG_UPDATE_FREQ
+					  | DLTHE_FLAG_COMPLETTE_PEEL
+					  | (opt_info
+					     ? DLTHE_RECORD_COPY_NUMBER : 0));
       gcc_assert (ok);
 
       free (wont_exit);
@@ -690,7 +689,7 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
   wont_exit = sbitmap_alloc (max_unroll + 1);
   sbitmap_ones (wont_exit);
 
-  remove_edges = xcalloc (max_unroll + exit_mod + 1, sizeof (edge));
+  remove_edges = XCNEWVEC (edge, max_unroll + exit_mod + 1);
   n_remove_edges = 0;
   if (flag_split_ivs_in_unroller 
       || flag_variable_expansion_in_unroller)
@@ -717,7 +716,10 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
 					      loops, exit_mod,
 					      wont_exit, desc->out_edge,
 					      remove_edges, &n_remove_edges,
-					      DLTHE_FLAG_UPDATE_FREQ);
+					      DLTHE_FLAG_UPDATE_FREQ
+					      | (opt_info && exit_mod > 1
+						 ? DLTHE_RECORD_COPY_NUMBER
+						   : 0));
 	  gcc_assert (ok);
 
           if (opt_info && exit_mod > 1)
@@ -753,7 +755,10 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
 					      loops, exit_mod + 1,
 					      wont_exit, desc->out_edge,
 					      remove_edges, &n_remove_edges,
-					      DLTHE_FLAG_UPDATE_FREQ);
+					      DLTHE_FLAG_UPDATE_FREQ
+					      | (opt_info && exit_mod > 0
+						 ? DLTHE_RECORD_COPY_NUMBER
+						   : 0));
 	  gcc_assert (ok);
  
           if (opt_info && exit_mod > 0)
@@ -777,7 +782,10 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
 				      loops, max_unroll,
 				      wont_exit, desc->out_edge,
 				      remove_edges, &n_remove_edges,
-				      DLTHE_FLAG_UPDATE_FREQ);
+				      DLTHE_FLAG_UPDATE_FREQ
+				      | (opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0));
   gcc_assert (ok);
 
   if (opt_info)
@@ -790,7 +798,7 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
 
   if (exit_at_end)
     {
-      basic_block exit_block = desc->in_edge->src->rbi->copy;
+      basic_block exit_block = get_bb_copy (desc->in_edge->src);
       /* Find a new in and out edge; they are in the last copy we have made.  */
       
       if (EDGE_SUCC (exit_block, 0)->dest == desc->out_edge->dest)
@@ -953,7 +961,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
     opt_info = analyze_insns_in_loop (loop);
   
   /* Remember blocks whose dominators will have to be updated.  */
-  dom_bbs = xcalloc (n_basic_blocks, sizeof (basic_block));
+  dom_bbs = XCNEWVEC (basic_block, n_basic_blocks);
   n_dom_bbs = 0;
 
   body = get_loop_body (loop);
@@ -1011,7 +1019,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
   /* Precondition the loop.  */
   loop_split_edge_with (loop_preheader_edge (loop), init_code);
 
-  remove_edges = xcalloc (max_unroll + n_peel + 1, sizeof (edge));
+  remove_edges = XCNEWVEC (edge, max_unroll + n_peel + 1);
   n_remove_edges = 0;
 
   wont_exit = sbitmap_alloc (max_unroll + 2);
@@ -1097,7 +1105,10 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
 				      loops, max_unroll,
 				      wont_exit, desc->out_edge,
 				      remove_edges, &n_remove_edges,
-				      DLTHE_FLAG_UPDATE_FREQ);
+				      DLTHE_FLAG_UPDATE_FREQ
+				      | (opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0));
   gcc_assert (ok);
   
   if (opt_info)
@@ -1110,7 +1121,7 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
 
   if (exit_at_end)
     {
-      basic_block exit_block = desc->in_edge->src->rbi->copy;
+      basic_block exit_block = get_bb_copy (desc->in_edge->src);
       /* Find a new in and out edge; they are in the last copy we have
 	 made.  */
       
@@ -1153,6 +1164,9 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
 	     ";; Unrolled loop %d times, counting # of iterations "
 	     "in runtime, %i insns\n",
 	     max_unroll, num_loop_insns (loop));
+
+  if (dom_bbs)
+    free (dom_bbs);
 }
 
 /* Decide whether to simply peel LOOP and how much.  */
@@ -1274,7 +1288,10 @@ peel_loop_simple (struct loops *loops, struct loop *loop)
   ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 				      loops, npeel, wont_exit,
 				      NULL, NULL,
-				      NULL, DLTHE_FLAG_UPDATE_FREQ);
+				      NULL, DLTHE_FLAG_UPDATE_FREQ
+				      | (opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0));
   gcc_assert (ok);
 
   free (wont_exit);
@@ -1422,7 +1439,10 @@ unroll_loop_stupid (struct loops *loops, struct loop *loop)
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      loops, nunroll, wont_exit,
 				      NULL, NULL, NULL,
-				      DLTHE_FLAG_UPDATE_FREQ);
+				      DLTHE_FLAG_UPDATE_FREQ
+				      | (opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0));
   gcc_assert (ok);
   
   if (opt_info)
@@ -1553,7 +1573,19 @@ analyze_insn_to_expand_var (struct loop *loop, rtx insn)
       && GET_CODE (src) != MINUS
       && GET_CODE (src) != MULT)
     return NULL;
-  
+
+  /* Hmm, this is a bit paradoxical.  We know that INSN is a valid insn
+     in MD.  But if there is no optab to generate the insn, we can not
+     perform the variable expansion.  This can happen if an MD provides
+     an insn but not a named pattern to generate it, for example to avoid
+     producing code that needs additional mode switches like for x87/mmx.
+
+     So we check have_insn_for which looks for an optab for the operation
+     in SRC.  If it doesn't exist, we can't perform the expansion even
+     though INSN is valid.  */
+  if (!have_insn_for (GET_CODE (src), GET_MODE (src)))
+    return NULL;
+
   if (!XEXP (src, 0))
     return NULL;
   
@@ -1581,7 +1613,7 @@ analyze_insn_to_expand_var (struct loop *loop, rtx insn)
     return NULL;
   
   /* Record the accumulator to expand.  */
-  ves = xmalloc (sizeof (struct var_to_expand));
+  ves = XNEW (struct var_to_expand);
   ves->insn = insn;
   ves->var_expansions = VEC_alloc (rtx, heap, 1);
   ves->reg = copy_rtx (dest);
@@ -1637,15 +1669,25 @@ analyze_iv_to_split_insn (rtx insn)
   if (!biv_p (insn, dest))
     return NULL;
 
-  ok = iv_analyze (insn, dest, &iv);
-  gcc_assert (ok);
+  ok = iv_analyze_result (insn, dest, &iv);
+
+  /* This used to be an assert under the assumption that if biv_p returns
+     true that iv_analyze_result must also return true.  However, that
+     assumption is not strictly correct as evidenced by pr25569.
+
+     Returning NULL when iv_analyze_result returns false is safe and
+     avoids the problems in pr25569 until the iv_analyze_* routines
+     can be fixed, which is apparently hard and time consuming
+     according to their author.  */
+  if (! ok)
+    return NULL;
 
   if (iv.step == const0_rtx
       || iv.mode != iv.extend_mode)
     return NULL;
 
   /* Record the insn to split.  */
-  ivts = xmalloc (sizeof (struct iv_to_split));
+  ivts = XNEW (struct iv_to_split);
   ivts->insn = insn;
   ivts->base_var = NULL_RTX;
   ivts->step = iv.step;
@@ -1665,7 +1707,7 @@ analyze_insns_in_loop (struct loop *loop)
 {
   basic_block *body, bb;
   unsigned i, num_edges = 0;
-  struct opt_info *opt_info = xcalloc (1, sizeof (struct opt_info));
+  struct opt_info *opt_info = XCNEW (struct opt_info);
   rtx insn;
   struct iv_to_split *ivts = NULL;
   struct var_to_expand *ves = NULL;
@@ -2058,10 +2100,13 @@ apply_opt_in_copies (struct opt_info *opt_info,
   for (i = opt_info->first_new_block; i < (unsigned) last_basic_block; i++)
     {
       bb = BASIC_BLOCK (i);
-      orig_bb = bb->rbi->original;
+      orig_bb = get_bb_original (bb);
       
-      delta = determine_split_iv_delta (bb->rbi->copy_number, n_copies,
+      /* bb->aux holds position in copy sequence initialized by
+	 duplicate_loop_to_header_edge.  */
+      delta = determine_split_iv_delta ((size_t)bb->aux, n_copies,
 					unrolling);
+      bb->aux = 0;
       orig_insn = BB_HEAD (orig_bb);
       for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb)); insn = next)
         {
@@ -2082,9 +2127,8 @@ apply_opt_in_copies (struct opt_info *opt_info,
               
               if (ivts)
                 {
-#ifdef ENABLE_CHECKING
-		  gcc_assert (rtx_equal_p (PATTERN (insn), PATTERN (orig_insn)));
-#endif
+		  gcc_assert (GET_CODE (PATTERN (insn))
+			      == GET_CODE (PATTERN (orig_insn)));
                   
                   if (!delta)
                     insert_base_initialization (ivts, insn);
@@ -2097,9 +2141,8 @@ apply_opt_in_copies (struct opt_info *opt_info,
               ves = htab_find (opt_info->insns_with_var_to_expand, &ve_templ);
               if (ves)
                 { 
-#ifdef ENABLE_CHECKING
-                  gcc_assert (rtx_equal_p (PATTERN (insn), PATTERN (orig_insn)));
-#endif
+		  gcc_assert (GET_CODE (PATTERN (insn))
+			      == GET_CODE (PATTERN (orig_insn)));
                   expand_var_during_unrolling (ves, insn);
                 }
             }
@@ -2124,12 +2167,12 @@ apply_opt_in_copies (struct opt_info *opt_info,
   
   /* Rewrite also the original loop body.  Find them as originals of the blocks
      in the last copied iteration, i.e. those that have
-     bb->rbi->original->copy == bb.  */
+     get_bb_copy (get_bb_original (bb)) == bb.  */
   for (i = opt_info->first_new_block; i < (unsigned) last_basic_block; i++)
     {
       bb = BASIC_BLOCK (i);
-      orig_bb = bb->rbi->original;
-      if (orig_bb->rbi->copy != bb)
+      orig_bb = get_bb_original (bb);
+      if (get_bb_copy (orig_bb) != bb)
 	continue;
       
       delta = determine_split_iv_delta (0, n_copies, unrolling);

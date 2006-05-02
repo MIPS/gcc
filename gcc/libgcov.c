@@ -26,8 +26,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "tconfig.h"
 #include "tsystem.h"
@@ -91,6 +91,7 @@ static gcov_unsigned_t gcov_crc32;
 /* Size of the longest file name. */
 static size_t gcov_max_filename = 0;
 
+#ifdef TARGET_POSIX_IO
 /* Make sure path component of the given FILENAME exists, create 
    missing directories. FILENAME must be writable. 
    Returns zero on success, or -1 if an error occurred.  */
@@ -122,6 +123,7 @@ create_file_directory (char *filename)
       };
   return 0;
 }
+#endif
 
 /* Check if VERSION of the info block PTR matches libgcov one.
    Return 1 on success, or zero in case of versions mismatch.
@@ -216,7 +218,7 @@ gcov_exit (void)
     prefix_length = 0;
   
   /* Allocate and initialize the filename scratch space.  */
-  gi_filename = alloca (prefix_length + gcov_max_filename + 1);
+  gi_filename = (char *) alloca (prefix_length + gcov_max_filename + 1);
   if (prefix_length)
     memcpy (gi_filename, gcov_prefix, prefix_length);
   gi_filename_up = gi_filename + prefix_length;
@@ -299,6 +301,7 @@ gcov_exit (void)
       
       if (!gcov_open (gi_filename))
 	{
+#ifdef TARGET_POSIX_IO
 	  /* Open failed likely due to missed directory.
 	     Create directory and retry to open file. */
           if (create_file_directory (gi_filename))
@@ -306,6 +309,7 @@ gcov_exit (void)
 	      fprintf (stderr, "profiling:%s:Skip\n", gi_filename);
 	      continue;
 	    }
+#endif
 	  if (!gcov_open (gi_filename))
 	    {
               fprintf (stderr, "profiling:%s:Cannot open\n", gi_filename);
@@ -782,7 +786,7 @@ __gcov_execl (const char *path, const char *arg, ...)
     length++;
   va_end (ap);
 
-  args = alloca (length * sizeof (void *));
+  args = (char **) alloca (length * sizeof (void *));
   args[0] = (char *) arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
@@ -813,7 +817,7 @@ __gcov_execlp (const char *path, const char *arg, ...)
     length++;
   va_end (ap);
 
-  args = alloca (length * sizeof (void *));
+  args = (char **) alloca (length * sizeof (void *));
   args[0] = (char *) arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);
@@ -845,7 +849,7 @@ __gcov_execle (const char *path, const char *arg, ...)
     length++;
   va_end (ap);
 
-  args = alloca (length * sizeof (void *));
+  args = (char **) alloca (length * sizeof (void *));
   args[0] = (char *) arg;
   for (i = 1; i < length; i++)
     args[i] = va_arg (aq, char *);

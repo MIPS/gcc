@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "fixlib.h"
 
@@ -1202,7 +1202,10 @@ write_replacement (tFixDesc* p_fixd)
 
    {
      FILE* out_fp = create_file ();
-     fputs (pz_text, out_fp);
+     size_t sz = strlen (pz_text);
+     fwrite (pz_text, sz, 1, out_fp);
+     if (pz_text[ sz-1 ] != '\n')
+       fputc ('\n', out_fp);
      fclose (out_fp);
    }
 }

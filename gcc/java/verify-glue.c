@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -252,8 +252,7 @@ char
 vfy_get_primitive_char (vfy_jclass klass)
 {
   tree sig;
-  if (! vfy_is_primitive (klass))
-    abort ();
+  gcc_assert (vfy_is_primitive (klass));
   sig = build_java_signature (klass);
   return (IDENTIFIER_POINTER (sig))[0];
 }
@@ -296,8 +295,7 @@ vfy_jclass
 vfy_get_component_type (vfy_jclass klass)
 {
   vfy_jclass k;
-  if (! vfy_is_array (klass))
-    abort ();
+  gcc_assert (vfy_is_array (klass));
   k = TYPE_ARRAY_ELEMENT (klass);
   if (TREE_CODE (k) == POINTER_TYPE)
     k = TREE_TYPE (k);

@@ -1,5 +1,5 @@
 /* CharsetProvider.java -- charset service provider interface
-   Copyright (C) 2002 Free Software Foundation
+   Copyright (C) 2002, 2006 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -67,8 +67,13 @@ public abstract class CharsetProvider
    */
   protected CharsetProvider()
   {
+    // We only do the security check for custom providers, not for the
+    // built in ones.
     SecurityManager s = System.getSecurityManager();
-    if (s != null)
+    if (s != null &&
+        ! (this instanceof gnu.java.nio.charset.Provider))
+	// GCJ LOCAL - We have the iconv provider in standard.omit
+        // || this instanceof gnu.java.nio.charset.iconv.IconvProvider))
       s.checkPermission(new RuntimePermission("charsetProvider"));
   }
 

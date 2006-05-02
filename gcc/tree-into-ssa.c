@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -53,9 +53,6 @@ Boston, MA 02111-1307, USA.  */
    Computing Static Single Assignment Form and the Control Dependence
    Graph. ACM Transactions on Programming Languages and Systems,
    13(4):451-490, October 1991.  */
-
-/* True if the code is in ssa form.  */
-bool in_ssa_p;
 
 /* Structure to map a variable VAR to the set of blocks that contain
    definitions for VAR.  */
@@ -246,7 +243,7 @@ get_ssa_name_ann (tree name)
   if (!SSA_NAME_AUX (name))
     SSA_NAME_AUX (name) = xcalloc (1, sizeof (struct ssa_name_info));
 
-  return SSA_NAME_AUX (name);
+  return (struct ssa_name_info *) SSA_NAME_AUX (name);
 }
 
 
@@ -365,7 +362,7 @@ get_def_blocks_for (tree var)
   slot = htab_find_slot (def_blocks, (void *) &db, INSERT);
   if (*slot == NULL)
     {
-      db_p = xmalloc (sizeof (*db_p));
+      db_p = XNEW (struct def_blocks_d);
       db_p->var = var;
       db_p->def_blocks = BITMAP_ALLOC (NULL);
       db_p->phi_blocks = BITMAP_ALLOC (NULL);
@@ -454,7 +451,7 @@ static inline bool
 symbol_marked_for_renaming (tree sym)
 {
   gcc_assert (DECL_P (sym));
-  return bitmap_bit_p (syms_to_rename, var_ann (sym)->uid);
+  return bitmap_bit_p (syms_to_rename, DECL_UID (sym));
 }
 
 
@@ -532,7 +529,7 @@ add_to_repl_tbl (tree new, tree old)
   slot = htab_find_slot (repl_tbl, (void *) &m, INSERT);
   if (*slot == NULL)
     {
-      mp = xmalloc (sizeof (*mp));
+      mp = XNEW (struct repl_map_d);
       mp->name = new;
       mp->set = BITMAP_ALLOC (NULL);
       *slot = (void *) mp;
@@ -582,7 +579,7 @@ add_new_name_mapping (tree new, tree old)
 	 Otherwise, the insertion of PHI nodes for each of the old
 	 names in these mappings will be very slow.  */
       sym = SSA_NAME_VAR (new);
-      uid = var_ann (sym)->uid;
+      uid = DECL_UID (sym);
       update_ssa_stats.num_virtual_mappings++;
       if (!bitmap_bit_p (update_ssa_stats.virtual_symbols, uid))
 	{
@@ -619,8 +616,7 @@ add_new_name_mapping (tree new, tree old)
       WALK_DATA->GLOBAL_DATA->KILLS.
 
    2- If S uses a variable VAR and there is no preceding kill of VAR,
-      then it is marked in marked in the LIVEIN_BLOCKS bitmap
-      associated with VAR.
+      then it is marked in the LIVEIN_BLOCKS bitmap associated with VAR.
 
    This information is used to determine which variables are live
    across block boundaries to reduce the number of PHI nodes
@@ -631,7 +627,8 @@ mark_def_sites (struct dom_walk_data *walk_data,
 		basic_block bb,
 		block_stmt_iterator bsi)
 {
-  struct mark_def_sites_global_data *gd = walk_data->global_data;
+  struct mark_def_sites_global_data *gd =
+     (struct mark_def_sites_global_data *) walk_data->global_data;
   bitmap kills = gd->kills;
   tree stmt, def;
   use_operand_p use_p;
@@ -651,7 +648,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
     {
       tree sym = USE_FROM_PTR (use_p);
       gcc_assert (DECL_P (sym));
-      if (!bitmap_bit_p (kills, var_ann (sym)->uid))
+      if (!bitmap_bit_p (kills, DECL_UID (sym)))
 	set_livein_block (sym, bb);
       REWRITE_THIS_STMT (stmt) = 1;
     }
@@ -676,7 +673,7 @@ mark_def_sites (struct dom_walk_data *walk_data,
     {
       gcc_assert (DECL_P (def));
       set_def_block (def, bb, false);
-      bitmap_set_bit (kills, var_ann (def)->uid);
+      bitmap_set_bit (kills, DECL_UID (def));
       REGISTER_DEFS_IN_THIS_STMT (stmt) = 1;
     }
 
@@ -861,15 +858,15 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 static void
 insert_phi_nodes (bitmap *dfs)
 {
-  unsigned i;
+  referenced_var_iterator rvi;
+  tree var;
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
-
-  for (i = 0; i < num_referenced_vars; i++)
+  
+  FOR_EACH_REFERENCED_VAR (var, rvi)
     {
       struct def_blocks_d *def_map;
       bitmap idf;
-      tree var = referenced_var (i);
 
       def_map = find_def_blocks_for (var);
       if (def_map == NULL)
@@ -889,7 +886,7 @@ insert_phi_nodes (bitmap *dfs)
 
 /* Register DEF (an SSA_NAME) to be a new definition for its underlying
    variable (SSA_NAME_VAR (DEF)) and push VAR's current reaching definition
-   into the stack pointed by BLOCK_DEFS_P.  */
+   into the stack pointed to by BLOCK_DEFS_P.  */
 
 void
 register_new_def (tree def, VEC(tree,heap) **block_defs_p)
@@ -1204,7 +1201,7 @@ def_blocks_eq (const void *p1, const void *p2)
 static void
 def_blocks_free (void *p)
 {
-  struct def_blocks_d *entry = p;
+  struct def_blocks_d *entry = (struct def_blocks_d *) p;
   BITMAP_FREE (entry->def_blocks);
   BITMAP_FREE (entry->phi_blocks);
   BITMAP_FREE (entry->livein_blocks);
@@ -1486,7 +1483,7 @@ rewrite_update_stmt (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 }
 
 
-/* Replace the operand pointed by USE_P with USE's current reaching
+/* Replace the operand pointed to by USE_P with USE's current reaching
    definition.  */
 
 static inline void
@@ -1646,7 +1643,8 @@ static void
 mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
 				 basic_block bb ATTRIBUTE_UNUSED)
 {
-  struct mark_def_sites_global_data *gd = walk_data->global_data;
+  struct mark_def_sites_global_data *gd =
+     (struct mark_def_sites_global_data *) walk_data->global_data;
   bitmap kills = gd->kills;
   bitmap_clear (kills);
 }
@@ -1662,16 +1660,16 @@ mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
 static void
 mark_def_site_blocks (sbitmap interesting_blocks)
 {
-  size_t i;
   struct dom_walk_data walk_data;
   struct mark_def_sites_global_data mark_def_sites_global_data;
+  referenced_var_iterator rvi;
+  tree var;
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
-  def_blocks = htab_create (VEC_length (tree, referenced_vars),
+  def_blocks = htab_create (num_referenced_vars,
 			    def_blocks_hash, def_blocks_eq, def_blocks_free);
-
-  for (i = 0; i < num_referenced_vars; i++)
-    set_current_def (referenced_var (i), NULL_TREE);
+  FOR_EACH_REFERENCED_VAR(var, rvi)
+    set_current_def (var, NULL_TREE);
 
   /* Setup callbacks for the generic dominator tree walker to find and
      mark definition sites.  */
@@ -1727,10 +1725,10 @@ mark_def_site_blocks (sbitmap interesting_blocks)
 
    4- Rename all the blocks (rewrite_blocks) and statements in the program.
 
-   Steps 3 and 5 are done using the dominator tree walker
+   Steps 3 and 4 are done using the dominator tree walker
    (walk_dominator_tree).  */
 
-static void
+static unsigned int
 rewrite_into_ssa (void)
 {
   bitmap *dfs;
@@ -1773,7 +1771,8 @@ rewrite_into_ssa (void)
   sbitmap_free (interesting_blocks);
 
   timevar_pop (TV_TREE_SSA_OTHER);
-  in_ssa_p = true;
+  cfun->ssa->x_in_ssa_p = true;
+  return 0;
 }
 
 
@@ -1781,9 +1780,7 @@ struct tree_opt_pass pass_build_ssa =
 {
   "ssa",				/* name */
   NULL,					/* gate */
-  NULL, NULL,				/* IPA analysis */
   rewrite_into_ssa,			/* execute */
-  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -1792,7 +1789,9 @@ struct tree_opt_pass pass_build_ssa =
   PROP_ssa,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_verify_ssa,	/* todo_flags_finish */
+  TODO_dump_func
+    | TODO_verify_ssa
+    | TODO_remove_unused_locals,	/* todo_flags_finish */
   0					/* letter */
 };
 
@@ -2033,8 +2032,9 @@ prepare_def_site_for (tree name, bitmap blocks, bool insert_phi_p)
 static void
 prepare_names_to_update (bitmap blocks, bool insert_phi_p)
 {
-  unsigned i;
+  unsigned i = 0;
   bitmap_iterator bi;
+  sbitmap_iterator sbi;
 
   /* If a name N from NEW_SSA_NAMES is also marked to be released,
      remove it from NEW_SSA_NAMES so that we don't try to visit its
@@ -2048,17 +2048,17 @@ prepare_names_to_update (bitmap blocks, bool insert_phi_p)
   /* First process names in NEW_SSA_NAMES.  Otherwise, uses of old
      names may be considered to be live-in on blocks that contain
      definitions for their replacements.  */
-  EXECUTE_IF_SET_IN_SBITMAP (new_ssa_names, 0, i,
-    prepare_def_site_for (ssa_name (i), blocks, insert_phi_p));
+  EXECUTE_IF_SET_IN_SBITMAP (new_ssa_names, 0, i, sbi)
+    prepare_def_site_for (ssa_name (i), blocks, insert_phi_p);
 
   /* If an old name is in NAMES_TO_RELEASE, we cannot remove it from
      OLD_SSA_NAMES, but we have to ignore its definition site.  */
-  EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i,
+  EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i, sbi)
     {
       if (names_to_release == NULL || !bitmap_bit_p (names_to_release, i))
 	prepare_def_site_for (ssa_name (i), blocks, insert_phi_p);
       prepare_use_sites_for (ssa_name (i), blocks, insert_phi_p);
-    });
+    }
 }
 
 
@@ -2099,7 +2099,7 @@ debug_names_replaced_by (tree name)
 void
 dump_update_ssa (FILE *file)
 {
-  unsigned i;
+  unsigned i = 0;
   bitmap_iterator bi;
 
   if (!need_ssa_update_p ())
@@ -2107,12 +2107,14 @@ dump_update_ssa (FILE *file)
 
   if (new_ssa_names && sbitmap_first_set_bit (new_ssa_names) >= 0)
     {
+      sbitmap_iterator sbi;
+
       fprintf (file, "\nSSA replacement table\n");
       fprintf (file, "N_i -> { O_1 ... O_j } means that N_i replaces "
 	             "O_1, ..., O_j\n\n");
 
-      EXECUTE_IF_SET_IN_SBITMAP (new_ssa_names, 0, i,
-	dump_names_replaced_by (file, ssa_name (i)));
+      EXECUTE_IF_SET_IN_SBITMAP (new_ssa_names, 0, i, sbi)
+	dump_names_replaced_by (file, ssa_name (i));
 
       fprintf (file, "\n");
       fprintf (file, "Number of virtual NEW -> OLD mappings: %7u\n",
@@ -2286,7 +2288,7 @@ mark_sym_for_renaming (tree sym)
   if (need_to_initialize_update_ssa_p)
     init_update_ssa ();
 
-  bitmap_set_bit (syms_to_rename, var_ann (sym)->uid);
+  bitmap_set_bit (syms_to_rename, DECL_UID (sym));
 
   if (!is_gimple_reg (sym))
     need_to_update_vops_p = true;
@@ -2346,12 +2348,13 @@ name_registered_for_update_p (tree n)
 bitmap
 ssa_names_to_replace (void)
 {
-  unsigned i;
+  unsigned i = 0;
   bitmap ret;
+  sbitmap_iterator sbi;
   
   ret = BITMAP_ALLOC (NULL);
-  EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i,
-    bitmap_set_bit (ret, i));
+  EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i, sbi)
+    bitmap_set_bit (ret, i);
 
   return ret;
 }
@@ -2517,7 +2520,8 @@ switch_virtuals_to_full_rewrite_p (void)
 static void
 switch_virtuals_to_full_rewrite (void)
 {
-  unsigned i;
+  unsigned i = 0;
+  sbitmap_iterator sbi;
 
   if (dump_file)
     {
@@ -2533,13 +2537,13 @@ switch_virtuals_to_full_rewrite (void)
   /* Remove all virtual names from NEW_SSA_NAMES and OLD_SSA_NAMES.
      Note that it is not really necessary to remove the mappings from
      REPL_TBL, that would only waste time.  */
-  EXECUTE_IF_SET_IN_SBITMAP (new_ssa_names, 0, i,
+  EXECUTE_IF_SET_IN_SBITMAP (new_ssa_names, 0, i, sbi)
     if (!is_gimple_reg (ssa_name (i)))
-      RESET_BIT (new_ssa_names, i));
+      RESET_BIT (new_ssa_names, i);
 
-  EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i,
+  EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i, sbi)
     if (!is_gimple_reg (ssa_name (i)))
-      RESET_BIT (old_ssa_names, i));
+      RESET_BIT (old_ssa_names, i);
 
   bitmap_ior_into (syms_to_rename, update_ssa_stats.virtual_symbols);
 }
@@ -2615,9 +2619,10 @@ update_ssa (unsigned update_flags)
   bitmap blocks;
   basic_block bb, start_bb;
   bitmap_iterator bi;
-  unsigned i;
+  unsigned i = 0;
   sbitmap tmp;
   bool insert_phi_p;
+  sbitmap_iterator sbi;
 
   if (!need_ssa_update_p ())
     return;
@@ -2741,13 +2746,15 @@ update_ssa (unsigned update_flags)
 
       /* If the caller requested PHI nodes to be added, compute
 	 dominance frontiers.  */
-      dfs = xmalloc (last_basic_block * sizeof (bitmap));
+      dfs = XNEWVEC (bitmap, last_basic_block);
       FOR_EACH_BB (bb)
 	dfs[bb->index] = BITMAP_ALLOC (NULL);
       compute_dominance_frontiers (dfs);
 
       if (sbitmap_first_set_bit (old_ssa_names) >= 0)
 	{
+	  sbitmap_iterator sbi;
+
 	  /* insert_update_phi_nodes_for will call add_new_name_mapping
 	     when inserting new PHI nodes, so the set OLD_SSA_NAMES
 	     will grow while we are traversing it (but it will not
@@ -2755,15 +2762,15 @@ update_ssa (unsigned update_flags)
 	     for traversal.  */
 	  sbitmap tmp = sbitmap_alloc (old_ssa_names->n_bits);
 	  sbitmap_copy (tmp, old_ssa_names);
-	  EXECUTE_IF_SET_IN_SBITMAP (tmp, 0, i,
+	  EXECUTE_IF_SET_IN_SBITMAP (tmp, 0, i, sbi)
 	    insert_updated_phi_nodes_for (ssa_name (i), dfs, blocks,
-	                                  update_flags));
+	                                  update_flags);
 	  sbitmap_free (tmp);
 	}
 
       EXECUTE_IF_SET_IN_BITMAP (syms_to_rename, 0, i, bi)
 	insert_updated_phi_nodes_for (referenced_var (i), dfs, blocks,
-	                              update_flags);
+	    		              update_flags);
 
       FOR_EACH_BB (bb)
 	BITMAP_FREE (dfs[bb->index]);
@@ -2778,8 +2785,8 @@ update_ssa (unsigned update_flags)
 
   /* Reset the current definition for name and symbol before renaming
      the sub-graph.  */
-  EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i,
-      set_current_def (ssa_name (i), NULL_TREE));
+  EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i, sbi)
+    set_current_def (ssa_name (i), NULL_TREE);
 
   EXECUTE_IF_SET_IN_BITMAP (syms_to_rename, 0, i, bi)
     set_current_def (referenced_var (i), NULL_TREE);

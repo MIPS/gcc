@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -39,8 +39,8 @@
 #include <bits/functexcept.h>
 #include <tr1/array>
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   /// @brief  Base class.
  template<typename _Tp>
     class array_allocator_base
@@ -140,6 +140,7 @@ namespace __gnu_cxx
     operator!=(const array_allocator<_Tp, _Array>&, 
 	       const array_allocator<_Tp, _Array>&)
     { return false; }
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

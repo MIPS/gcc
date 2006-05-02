@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -35,20 +35,15 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
-static const char zeros[16] =
-  {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+`#if defined (HAVE_'atype_name`)'
 
-extern void eoshift1_`'atype_kind (const gfc_array_char *,
-				     const gfc_array_char *,
-				     const atype *, const char *,
-				     const atype_name *);
-export_proto(eoshift1_`'atype_kind);
-
-void
-eoshift1_`'atype_kind (const gfc_array_char *ret,
-		       const gfc_array_char *array,
-		       const atype *h, const char *pbound,
-		       const atype_name *pwhich)
+static void
+eoshift1 (gfc_array_char * const restrict ret, 
+	const gfc_array_char * const restrict array, 
+	const atype * const restrict h,
+	const char * const restrict pbound, 
+	const atype_name * const restrict pwhich, 
+	index_type size, char filler)
 {
   /* r.* indicates the return array.  */
   index_type rstride[GFC_MAX_DIMENSIONS];
@@ -70,7 +65,6 @@ eoshift1_`'atype_kind (const gfc_array_char *ret,
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type dim;
-  index_type size;
   index_type len;
   index_type n;
   int which;
@@ -88,14 +82,28 @@ eoshift1_`'atype_kind (const gfc_array_char *ret,
   else
     which = 0;
 
-  if (!pbound)
-    pbound = zeros;
-
-  size = GFC_DESCRIPTOR_SIZE (ret);
-
   extent[0] = 1;
   count[0] = 0;
-  size = GFC_DESCRIPTOR_SIZE (array);
+
+  if (ret->data == NULL)
+    {
+      int i;
+
+      ret->data = internal_malloc_size (size * size0 ((array_t *)array));
+      ret->offset = 0;
+      ret->dtype = array->dtype;
+      for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
+        {
+          ret->dim[i].lbound = 0;
+          ret->dim[i].ubound = array->dim[i].ubound - array->dim[i].lbound;
+
+          if (i == 0)
+            ret->dim[i].stride = 1;
+          else
+            ret->dim[i].stride = (ret->dim[i-1].ubound + 1) * ret->dim[i-1].stride;
+        }
+    }
+
   n = 0;
   for (dim = 0; dim < GFC_DESCRIPTOR_RANK (array); dim++)
     {
@@ -139,7 +147,14 @@ eoshift1_`'atype_kind (const gfc_array_char *ret,
     {
 `      /* Do the shift for this dimension.  */'
       sh = *hptr;
-      delta = (sh >= 0) ? sh: -sh;
+      if (( sh >= 0 ? sh : -sh ) > len)
+	{
+	  delta = len;
+	  sh = len;
+	}
+      else
+	delta = (sh >= 0) ? sh: -sh;
+
       if (sh > 0)
         {
           src = &sptr[delta * soffset];
@@ -160,11 +175,18 @@ eoshift1_`'atype_kind (const gfc_array_char *ret,
         dest = rptr;
       n = delta;
 
-      while (n--)
-        {
-          memcpy (dest, pbound, size);
-          dest += roffset;
-        }
+      if (pbound)
+	while (n--)
+	  {
+	    memcpy (dest, pbound, size);
+	    dest += roffset;
+	  }
+      else
+	while (n--)
+	  {
+	    memset (dest, filler, size);
+	    dest += roffset;
+	  }
 
       /* Advance to the next section.  */
       rptr += rstride0;
@@ -199,3 +221,43 @@ eoshift1_`'atype_kind (const gfc_array_char *ret,
         }
     }
 }
+
+void eoshift1_`'atype_kind (gfc_array_char * const restrict, 
+	const gfc_array_char * const restrict,
+	const atype * const restrict, const char * const restrict, 
+	const atype_name * const restrict);
+export_proto(eoshift1_`'atype_kind);
+
+void
+eoshift1_`'atype_kind (gfc_array_char * const restrict ret, 
+	const gfc_array_char * const restrict array,
+	const atype * const restrict h, 
+	const char * const restrict pbound,
+	const atype_name * const restrict pwhich)
+{
+  eoshift1 (ret, array, h, pbound, pwhich, GFC_DESCRIPTOR_SIZE (array), 0);
+}
+
+void eoshift1_`'atype_kind`'_char (gfc_array_char * const restrict, 
+	GFC_INTEGER_4,
+	const gfc_array_char * const restrict, 
+	const atype * const restrict,
+	const char * const restrict, 
+	const atype_name * const restrict,
+	GFC_INTEGER_4, GFC_INTEGER_4);
+export_proto(eoshift1_`'atype_kind`'_char);
+
+void
+eoshift1_`'atype_kind`'_char (gfc_array_char * const restrict ret,
+	GFC_INTEGER_4 ret_length __attribute__((unused)),
+	const gfc_array_char * const restrict array, 
+	const atype * const restrict h,
+	const char *  const restrict pbound, 
+	const atype_name * const restrict pwhich,
+	GFC_INTEGER_4 array_length,
+	GFC_INTEGER_4 bound_length __attribute__((unused)))
+{
+  eoshift1 (ret, array, h, pbound, pwhich, array_length, ' ');
+}
+
+#endif

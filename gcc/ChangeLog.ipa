@@ -1,0 +1,269 @@
+2006-04-11  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (cgraph_early_inlining): Collect garbage.
+	* tree-inline.c (declare_return_variable): Unwind memory references.
+
+2006-04-06  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline
+
+2006-03-29  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (revision 112588).
+
+2006-01-31  Razya Ladelsky  <razya@il.ibm.com>
+ 
+        * function.c (get_last_funcdef_no): New function.
+        (allocate_struct_function) : Use the new function.            
+        * function.h (get_last_funcdef_no): New declaration.
+        * tree-inline.c (initialize_cfun): Add initializations.
+
+2006-01-26  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (remap_ssa_name): Fix imroperly resolved merging
+	conflict.
+
+2006-01-24  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (revision 110160).
+
+2006-01-15  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (revision 109724).
+
+2005-11-29  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-type-escape.c (look_for_casts): Use get_base_var.
+	* tree-inline.c (setup_one_parameter): Accept empty init_stmt
+	(declare_return_variable): Mark symbol for renaming only in SSA form
+	* passes.c (init_optimization_passes): Re-enable ipacp.
+
+2005-11-24  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (revsion 107437).
+
+2005-11-03  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (revision 106423).
+
+2005-09-30  Jan Hubicka  <jh@suse.cz>
+
+	* loop-init.c (loop_optimizer_init): Avoid calling RTL optimizer too
+	early.
+	* passes.c (init_optimization_passes): Schedule early VRP pass.
+
+2005-09-22  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-operands (get_indirect_ref_operands, add_stmt_operand):
+	Be more cureful with volatilizing.
+
+2005-09-21  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (optimize_inline_calls): Rebuild SSA if needed.
+
+	* ipa-type-escape.c (check_operand, check_tree, scan_for_refs): Handle
+	SSA_NAMEs.
+	(init_optimization_passes): Re-enable IPA passes.
+
+2005-09-19  Jan Hubicka  <jh@suse.cz>
+
+	* passes.c (init_optimization_passes): Remove commented out items; add early ccp/dce.
+	* tree-ssa-operands (get_indirect_ref_operands): Mark statments wirting
+	to memory as volatile before aliasing is built.
+	(add_stmt_operand): Likewise.
+
+2005-09-18  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_finalize_compilation_unit): Better dumping at -Q
+	(cgraph_optimize): Likewise.
+	* passes.c (execute_one_pass): New announce parameter.
+	(execute_ipa_pass_list): Use it.
+	(execute_pass_list): Likewise.
+	* tree-optimize.c (pass_early_local_passes,
+	gate_all_early_optimizations): Add names.
+
+2005-09-16  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (ipa-merge-20050915)
+
+2005-09-03  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (ipa-branch-merge-20050903)
+
+2005-08-19  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (rebuild_cgraph_edges): Declare.
+	* cgraphunit.c (rebuild_cgraph_edges): Rebuild.
+	* ipa-inline.c (cgraph_apply_inline_plan): Initialize bitmaps; free
+	dominance info.
+	(cgraph_decide_inlining_incrementally): Likewise.
+	* opts.c (decode_options): Temporarily disable salias.
+	* passes.c (init_optimization_passes): Temporariliy disable all IPA
+	passes; move SSA construction into early_optimization_passes.
+	* tree-inline.c: Include tree-pass.h
+	(remap_ssa_name): New function.
+	(remap_decl): Initialize SSA structs.
+	(copy_body_r): Handle SSA names; register global vars.
+	(copy_bb): Fold all new statements; update SSA_DEF_STMTs.
+	(copy_edges_for_bb): Update PHI nodes of EH edges.
+	(copy_phis_for_bb): New function.
+	(initialize_cfun): Break out from ...
+	(copy_cfg_body): ... here.
+	(setup_one_parameter): Handle SSA form.
+	(declare_return_variable): Likewise.
+	(expand_call_inline): Initialize calle_cfun early; deal with
+	SSA when replacing original assignment.
+	(optimize_inline_call): Some extra checking and rebuilding.
+	(tree_function_versioning): Use initialize_cfun; do not construct
+	temporary decl; free dominance info.
+	* tree-optimize.c (gate_all_optimizations): FOrce optimizations when in
+	SSA form.
+	(gate_all_early_optimizations): New.
+	(pass_all_early_optimizations): New.
+	(tree_lowering_passes): Do not compact blocks; do early
+	optimizations when called late; free dominance info.
+	* tree-pass.h (pass_all_early_optimizations): Declare.
+	* tree-ssa-ccp (get_maxval_strlen): Allow SSA to not be complette yet.
+
+2005-08-18  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (tree-ssanames, tree-eh, tree-ssa-operands): Kill GGC
+	file.
+	* function.h (struct function): Add struct ssa.
+	* tree-cfgcleanup (modified_noreturn_calls): Kill.
+	(cleanup_control_flow): Set modified_noreturn_calls only when in SSA.
+	* tree-dfa.c (referenced_vars): Kill.
+	(make_rename_temp): Touch referenced_vars only when in SSA.
+	(default_def_fn, default_def, set_default_def): New.
+	* tree-flow-inline.h (mark_stmt_modified): Only touch noreturn calls
+	when in SSA.
+	(default_def, set_default_def): Kill.
+	(is_call_clobbered, mark_call_clobbered, clear_call_clobbered,
+	mark_non_addressable): Update call_clobbered_vars and operand caches.
+	* tree-flow.h (in_ssa_p): Kill variable.
+	(struct opbuild_list_d): Declare here.
+	(struct ssa): New struct.
+	(referenced_vars, ssa_names, modified_noreturn_calls, global_var,
+	aliases_computed_p, in_ssa_p, free_ssanames, build_defs, build_uses,
+	build_v_may_defs, build_vuses, build_v_must_defs, operand_memory,
+	operand_memory_index, free_defs, free_uses, free_vuses, free_maydefs,
+	free_mustdefs): New macros.
+	(var_ann_d): Kill default_def.
+	(modified_noreturn_calls, referenced_vars, ssa_names, global_var,
+	call_clobbered_vars, addressable_vars, aliases_computed_p): Kill global
+	variable.
+	(set_default_def, default_def): No longer inline.
+	* tree-intossa.c (in_ssa_p): Kill.
+	(rewrite_into_ssa): Set in_ssa_p using x_ field.
+	* tree-optimize.c (execute_free_datastructures): Only kill SSA when
+	present.
+	* tree-outof-ssa.c (rewrite_out_of_ssa): Set in_ssa_p using x_ field.
+	* tree-ssa-alias.c (aliases_computed_p, call_clobbered_vars,
+	addressable_vars, global_var): Kill.
+	(init_alias_info, setup_pointers_and_addressables,
+	maybe_create_global_var): Update name of call clobbered bitmaps.
+	* tree-ssa-operands.c (opbuild_list_d): Kill structure definition.
+	(build_defs, build_uses, build_v_may_defs, build_vuses,
+	build_v_must_defs, ssa_call_clobbered_cache_valid,
+	ssa_ro_call_cache_valid): Kill.
+	(ssa_call_clobbered_cache_valid_for, ssa_ro_call_cache_valid_for): New.
+	(ops_active, operand_memory, operand_memory_index): Kill.
+	(free_defs, free_uses, free_vuses, free_maydefs, free_mustdefs): Kill.
+	(ssa_operands_active): Use cfun->ssa.
+	(init_ssa_operands): Likewise.
+	(fini_ssa_operands): Update clobbered cache.
+	(get_asm_expr_operands, get_call_expr_operands, add_call_clobber_ops,
+	debug_immediate_uses_for): Update.
+	* tree-ssa-operands.h (ssa_call_clobbered_cache_valid,
+	ssa_ro_call_cache_valid): Rename to...
+	(ssa_call_clobbered_cache_valid_for, ssa_ro_call_cache_valid_for): ...
+	this one.
+	* tree-ssa-opfinalize.h (FINALIZE_FUNC): Check datastructure sanity.
+	* tree-ssa-structalias (update_alias_info): Update.
+	* tree-ssa.c (init_tree_ssa): Allocate SSA structure; update for new
+	names.
+	(delete_tree_ssa): Similarly.
+	* tree-ssanames.c (ssa_names, free_ssanames): Kill; do not include
+	gt-tree-ssanames.h
+	* tree-vect-generic.c (expand_vector_operations): Do not update stmt
+	when not in SSA form.
+
+2005-08-14  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (cgraph_preserve_function_body_p): New argument.
+	* cgraphunit.c (cgraph_expand_function): Update call of
+	cgraph_preserve_function_body_p.
+	(cgraph_preserve_function_body_p): New argument.
+	* ipa-inline.c (cgraph_apply_inline_plan): New function.
+	(cgraph_decide_inlining): Use it; remove unreachable nodes.
+	(cgraph_decide_inlining_incrementally): Update call of
+	optimize_inline_calls.
+	* tree-inline.c (inline_data): New field early_inlining_p.
+	(expand_call_inline): Use it.
+	(optimize_inline_calls): New argument.
+	* tree-inline.h (optimize_inline_calls): Declare.
+	* tree-optimize.c (update_inlined_to_pointers): Kill
+	(tree_rest_of_compilation): Don't perform inlining.
+
+2005-08-13  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_insert_node_to_hashtable): New function.
+	* cgraph.h (cgraph_node): Add inline_decl.
+	(cgraph_insert_node_to_hashtable): Declare.
+	(save_inline_function_body): Declare.
+	* cgraphunit.c (verify_cgraph_node): Inline edges might point to inline
+	clones.
+	(cgraph_preserve_function_body_p): Do not presrve when dump is enabled.
+	(cgraph_function_versioning): Update call of tree_function_versioning.
+	(save_inline_function_body): New function.
+	* function.h (struct function): Kill saved_eh, saved_cfg, saved_args,
+	saved_static_chain_decl, saved_blocks and saved-unexpanded_var_list.
+	* ipa-inline.c (cgraph_mark_inline_edge): Look for inline clones.
+	(cgraph_default_inline_p): Likewise.
+	(cgraph_decide_inlining_incrementally): Likewise.
+	* tree-inline.c (inline_data): Kill saving_p add update_clones_p.
+	(copy_bb): Kill saving; do updating of clones.
+	(copy_cfg_body): Kill saving.
+	(initialize_inlined-parameters): Likewise.
+	(expand_call_inline): Likewise.
+	(save_body): Kill.
+	(tree_function_versioning): New parameter "update_clones".
+	(inlining_p): Kill saving.
+	* tree-inline.h (tree_function_versioning): Update prototype.
+	* tree-optimize.c (tree_rest_of_compilation): Use clonning instead of saving.
+
+	* java/decl.c (flag_unit_at_a_time): Kill.
+
+2005-08-08  Olga Golovanevsky  <olga@il.ibm.com>
+	
+	* common.opt (flag_ipa_alias): New flag.
+	* ipa-prop.c (ipa_methodlist_init_empty): New function.
+	(ipa_callsite_tree, ipa_method_is_modified): Non-static.
+	(ipa_callsite_compute_param): Check for valid index.
+	(ipa_method_compute_tree_map, ipa_method_compute_modify): 
+	Exit if count is 0.
+	(ipa_calc_formals_counts): New function.
+	* ipa_prop.h (ipaa_aliasing, ipaa_num_pairs_args): 
+	New fields in ipa_node structure.
+	(ipaa_num_pairs_arg, ipaa_aliasing): New field in 
+	ipa_edge structure.
+	(alias_info_d): New enums.
+	(ipaa_driver): New declaration.
+	(IS_VALID_TREE_MAP_INDEX): New macro.
+	(ipa_callsite_tree, ipa_methodlist_init_empty, 
+	ipa_method_is_modified, ipaa_func_tree_alias_info_print, 
+	ipa_calc_formals_counts, ipaa_get_aliasing_of_formals): 
+	New declarations. 
+	* timervar.def (TV_IPA_ALIAS_ANALYSIS): New time var.
+	* tree-flow.h (ipa-prop.h): New include file.
+	(ipa_alias): New field in var_ann_d struct. 
+	* passes.c (pass_ipa_alias) : New ipa pass.
+	* tree-pass.h (pass_ipa_alias): New ipa pass structure.
+	* tree-ssa-alias.c (ipa-prop.h): New include file.
+	(may_alias_p): User ipaa interface to disambiguate formals.
+	* tree-data-ref.c: (ptr_ptr_may_alias_p): User ipaa 
+	interface to disambiguate formals.
+	* Makefile.in (ipaa.c) : Added to GTFILES.
+	(ipa-alias.o): Added as target and into OBJS-archive.
+	(IPA_PROP_H): New variable, added to TREE_FLOW_H.
+	* ipa-alias.c New file.

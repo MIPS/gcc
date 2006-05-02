@@ -1767,7 +1767,7 @@ fi
 
 # Define the identity of the package.
  PACKAGE=gc
- VERSION=6.3
+ VERSION=6.6
 
 
 # Some tools Automake needs.
@@ -5409,9 +5409,9 @@ _ACEOF
 _ACEOF
 
 	;;
-     *-*-hpux*)
-	{ echo "$as_me:$LINENO: WARNING: \"Only HP/UX 11 threads are supported.\"" >&5
-echo "$as_me: WARNING: \"Only HP/UX 11 threads are supported.\"" >&2;}
+     *-*-hpux11*)
+	{ echo "$as_me:$LINENO: WARNING: \"Only HP-UX 11 POSIX threads are supported.\"" >&5
+echo "$as_me: WARNING: \"Only HP-UX 11 POSIX threads are supported.\"" >&2;}
 
 cat >>confdefs.h <<\_ACEOF
 #define GC_HPUX_THREADS 1
@@ -5433,6 +5433,16 @@ _ACEOF
 _ACEOF
 
 	THREADLIBS="-lpthread -lrt"
+	# HPUX needs REENTRANT for the _r calls.
+
+cat >>confdefs.h <<\_ACEOF
+#define _REENTRANT 1
+_ACEOF
+
+	;;
+     *-*-hpux10*)
+	{ echo "$as_me:$LINENO: WARNING: \"Only HP-UX 11 POSIX threads are supported.\"" >&5
+echo "$as_me: WARNING: \"Only HP-UX 11 POSIX threads are supported.\"" >&2;}
 	;;
      *-*-freebsd*)
 	{ echo "$as_me:$LINENO: WARNING: \"FreeBSD does not yet fully support threads with Boehm GC.\"" >&5
@@ -6626,6 +6636,29 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 fi
+
+symver=
+case "$target" in
+  *-*-linux* )
+    cat > conftest.c <<EOF
+#include <pthread.h>
+void *tf (void *arg) { (void) arg; return NULL; }
+int main (void) { pthread_t th; pthread_create (&th, NULL, tf, NULL); return 0; }
+EOF
+    if $CC $CFLAGS -pthread -o conftest conftest.c > /dev/null 2>&1; then
+      symver=`readelf -s conftest 2> /dev/null | sed -n '/UND pthread_create@/{s/^.*@//;s/ .*$//;p;q}'`
+    fi
+    rm -f conftest conftest.c
+    ;;
+esac
+if test -n "$symver"; then
+
+cat >>confdefs.h <<_ACEOF
+#define GC_PTHREAD_SYM_VERSION "$symver"
+_ACEOF
+
+fi
+
 
 if test -n "$with_cross_host" &&
    test x"$with_cross_host" != x"no"; then

@@ -1,4 +1,5 @@
-#   Copyright (C) 1997, 1999, 2000, 2003, 2004, 2005 Free Software Foundation, Inc.
+#   Copyright (C) 1997, 1999, 2000, 2003, 2004, 2005, 2006
+#   Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,15 +13,16 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 load_lib dg.exp
 load_lib file-format.exp
 load_lib target-supports.exp
 load_lib target-supports-dg.exp
 load_lib scanasm.exp
+load_lib scanrtl.exp
 load_lib scantree.exp
-load_lib scancgraph.exp
+load_lib scanipa.exp
 load_lib prune.exp
 load_lib libgloss.exp
 load_lib target-libpath.exp
@@ -123,7 +125,7 @@ proc gcc-dg-test-1 { target_compile prog do_what extra_tool_flags } {
 	    set output_file "./[file rootname [file tail $prog]].exe"
 	    # This is the only place where we care if an executable was
 	    # created or not.  If it was, dg.exp will try to run it.
-	    remote_file build delete $output_file
+	    catch { remote_file build delete $output_file }
 	}
 	default {
 	    perror "$do_what: not a valid dg-do keyword"
@@ -344,52 +346,37 @@ proc cleanup-repo-files { } {
 #
 # SUFFIX is the filename suffix pattern.
 proc cleanup-rtl-dump { suffix } {
-    # This assumes that we are two frames down from dg-test or some other proc
-    # that stores the filename of the testcase in a local variable "name".
-    # A cleaner solution would require a new DejaGnu release.
-    upvar 2 name testcase
-    remove-build-file "[file tail $testcase].??.$suffix"
-
-    # Clean up dump files for additional source files.
-    if [info exists additional_sources] {
-	foreach srcfile $additional_sources {
-	    remove-build-file "[file tail $srcfile].??.$suffix"
-	}
-    }
+  cleanup-dump "\[0-9\]\[0-9\]\[0-9\]r.$suffix"
 }
 
 # Remove a specific tree dump file for the current test.
 #
-# SUFFIX is the file suffix pattern.
+# SUFFIX is the tree dump file suffix pattern.
 proc cleanup-tree-dump { suffix } {
-    # This assumes that we are two frames down from dg-test or some other proc
-    # that stores the filename of the testcase in a local variable "name".
-    # A cleaner solution would require a new DejaGnu release.
-    upvar 2 name testcase
-    remove-build-file "[file tail $testcase].t??.$suffix"
-
-    # Clean up dump files for additional source files.
-    if [info exists additional_sources] {
-	foreach srcfile $additional_sources {
-	    remove-build-file "[file tail $srcfile].t??.$suffix"
-	}
-    }
+  cleanup-dump "\[0-9\]\[0-9\]\[0-9\]t.$suffix"
 }
 
 # Remove a specific ipa dump file for the current test.
 #
-# SUFFIX is the file suffix pattern.
+# SUFFIX is the ipa dump file suffix pattern.
 proc cleanup-ipa-dump { suffix } {
-    # This assumes that we are two frames down from dg-test or some other proc
-    # that stores the filename of the testcase in a local variable "name".
-    # A cleaner solution would require a new DejaGnu release.
-    upvar 2 name testcase
-    remove-build-file "[file tail $testcase].i??.$suffix"
+  cleanup-dump "\[0-9\]\[0-9\]\[0-9\]i.$suffix"
+}
+
+# Remove all dump files with the provided suffix.
+proc cleanup-dump { suffix } {
+    # This assumes that we are three frames down from dg-test or some other
+    # proc that stores the filename of the testcase in a local variable
+    # "name".  A cleaner solution would require a new DejaGnu release.
+    upvar 3 name testcase
+    # The name might include a list of options; extract the file name.
+    set src [file tail [lindex $testcase 0]]
+    remove-build-file "[file tail $src].$suffix"
 
     # Clean up dump files for additional source files.
     if [info exists additional_sources] {
 	foreach srcfile $additional_sources {
-	    remove-build-file "[file tail $srcfile].i??.$suffix"
+	    remove-build-file "[file tail $srcfile].$suffix"
 	}
     }
 }
@@ -414,6 +401,13 @@ proc cleanup-saved-temps { } {
             remove-build-file "[file rootname [file tail $srcfile]].ii"
             remove-build-file "[file rootname [file tail $srcfile]].i"
 	}
+    }
+}
+
+# Remove files for specified Fortran modules.
+proc cleanup-modules { modlist } {
+    foreach modname $modlist {
+	remove-build-file [string tolower $modname].mod
     }
 }
 

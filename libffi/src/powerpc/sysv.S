@@ -99,6 +99,7 @@ ENTRY(ffi_call_SYSV)
 
 	/* Now, deal with the return value.  */
 	mtcrf	0x01,%r31
+	bt-	31,L(small_struct_return_value)
 	bt-	30,L(done_return_value)
 	bt-	29,L(fp_return_value)
 	stw	%r3,0(%r30)
@@ -120,10 +121,39 @@ L(done_return_value):
 L(fp_return_value):
 	bf	28,L(float_return_value)
 	stfd	%f1,0(%r30)
+	bf	27,L(done_return_value)
+	stfd	%f2,8(%r30)
 	b	L(done_return_value)
 L(float_return_value):
 	stfs	%f1,0(%r30)
 	b	L(done_return_value)
+
+L(small_struct_return_value):
+	mtcrf	0x10,%r31	/* cr3  */
+	bt-	15,L(smst_one_register)
+	mtcrf	0x08,%r31	/* cr4  */
+	bt-	16,L(smst_two_register)
+	b       L(done_return_value)
+
+L(smst_one_register):
+	rlwinm  %r5,%r31,5+23,32-5,31 /* Extract the value to shift.  */
+	slw	%r3,%r3,%r5
+	stw	%r3,0(%r30)
+	b	L(done_return_value)
+L(smst_two_register):
+	rlwinm  %r5,%r31,5+23,32-5,31 /* Extract the value to shift.  */
+	cmpwi	%r5,0
+	subfic	%r9,%r5,32
+	slw	%r29,%r3,%r5
+	srw	%r9,%r4,%r9
+	beq-	L(smst_8byte)
+	or	%r3,%r9,%r29
+	slw	%r4,%r4,%r5
+L(smst_8byte):
+	stw	%r3,0(%r30)
+	stw	%r4,4(%r30)
+	b	L(done_return_value)
+
 .LFE1:
 END(ffi_call_SYSV)
 
@@ -169,9 +199,9 @@ END(ffi_call_SYSV)
       .uleb128  0x08
       .byte     0x4      /*  DW_CFA_advance_loc4 */
       .4byte    .LCFI5-.LCFI0
-      .byte     0x2f     /*  DW_CFA_GNU_negative_offset_extended */
+      .byte     0x11     /*  DW_CFA_offset_extended_sf */
       .uleb128  0x41
-      .uleb128  0x1
+      .sleb128  -1
       .byte     0x9f     /*  DW_CFA_offset, column 0x1f */
       .uleb128  0x1
       .byte     0x9e     /*  DW_CFA_offset, column 0x1e */

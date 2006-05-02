@@ -12,7 +12,7 @@ AC_CONFIG_HEADER(config.h)
 ### am handles this now?  ORIGINAL_LD_FOR_MULTILIBS=$LD
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:5:0
+libtool_VERSION=6:9:0
 AC_SUBST(libtool_VERSION)
 
 # Find the rest of the source tree framework.
@@ -41,7 +41,24 @@ target_alias=${target_alias-$host_alias}
 if test "$build" != "$host"; then
   # We are being configured with some form of cross compiler.
   GLIBCXX_IS_NATIVE=false
-  GCC_NO_EXECUTABLES
+  case "$host","$target" in
+    # Darwin crosses can use the host system's libraries and headers,
+    # because of the fat library support.  Of course, it must be the
+    # same version of Darwin on both sides.  Allow the user to
+    # just say --target=foo-darwin without a version number to mean
+    # "the version on this system".
+      *-*-darwin*,*-*-darwin*)
+	hostos=`echo $host | sed 's/.*-darwin/darwin/'`
+	targetos=`echo $target | sed 's/.*-darwin/darwin/'`
+	if test $hostos = $targetos -o $targetos = darwin ; then
+	  GLIBCXX_IS_NATIVE=true
+	fi
+	;;
+
+      *)
+	GCC_NO_EXECUTABLES
+	;;
+  esac
 else
   GLIBCXX_IS_NATIVE=true
 fi
@@ -139,6 +156,12 @@ if $GLIBCXX_IS_NATIVE; then
 
   # For LFS support.
   GLIBCXX_CHECK_LFS
+
+  # For C99 support to TR1.
+  GLIBCXX_CHECK_C99_TR1
+
+  # For TLS support.
+  GCC_CHECK_TLS
 
   AC_LC_MESSAGES
 
@@ -261,16 +284,37 @@ fi
 # This depends on GLIBCXX CHECK_LINKER_FEATURES, but without it assumes no.
 GLIBCXX_ENABLE_SYMVERS([yes])
 
+ac_ldbl_compat=no
+case "$target" in
+  powerpc*-*-*gnu* | \
+  sparc*-*-linux* | \
+  s390*-*-linux* | \
+  alpha*-*-linux*)
+  AC_TRY_COMPILE(, [
+#if !defined __LONG_DOUBLE_128__ || (defined(__sparc__) && defined(__arch64__))
+#error no need for long double compatibility
+#endif
+  ], [ac_ldbl_compat=yes], [ac_ldbl_compat=no])
+  if test "$ac_ldbl_compat" = yes; then
+    AC_DEFINE([_GLIBCXX_LONG_DOUBLE_COMPAT],1,
+	      [Define if compatibility should be provided for -mlong-double-64.])
+    port_specific_symbol_files="\$(top_srcdir)/config/os/gnu-linux/ldbl-extra.ver"
+  fi
+esac
+GLIBCXX_CONDITIONAL(GLIBCXX_LDBL_COMPAT, test $ac_ldbl_compat = yes)
+
 # This depends on GLIBCXX_ENABLE_SYMVERS and GLIBCXX_IS_NATIVE.
 GLIBCXX_CONFIGURE_TESTSUITE
 
 # Propagate the target-specific source directories through the build chain.
 ATOMICITY_SRCDIR=config/${atomicity_dir}
 ATOMIC_WORD_SRCDIR=config/${atomic_word_dir}
+CPU_DEFINES_SRCDIR=config/${cpu_defines_dir}
 OS_INC_SRCDIR=config/${os_include_dir}
 ABI_TWEAKS_SRCDIR=config/${abi_tweaks_dir}
 AC_SUBST(ATOMICITY_SRCDIR)
 AC_SUBST(ATOMIC_WORD_SRCDIR)
+AC_SUBST(CPU_DEFINES_SRCDIR)
 AC_SUBST(ABI_TWEAKS_SRCDIR)
 AC_SUBST(OS_INC_SRCDIR)
 

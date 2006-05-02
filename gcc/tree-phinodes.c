@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -392,7 +392,6 @@ add_phi_arg (tree phi, tree def, edge e)
     }
 
   SET_PHI_ARG_DEF (phi, e->dest_idx, def);
-  PHI_ARG_NONZERO (phi, e->dest_idx) = false;
 }
 
 /* Remove the Ith argument from PHI's argument list.  This routine
@@ -415,13 +414,11 @@ remove_phi_arg_num (tree phi, int i)
   if (i != num_elem - 1)
     {
       SET_PHI_ARG_DEF (phi, i, PHI_ARG_DEF (phi, num_elem - 1));
-      PHI_ARG_NONZERO (phi, i) = PHI_ARG_NONZERO (phi, num_elem - 1);
     }
 
   /* Shrink the vector and return.  Note that we do not have to clear
-     PHI_ARG_DEF or PHI_ARG_NONZERO because the garbage collector will
-     not look at those elements beyond the first PHI_NUM_ARGS elements
-     of the array.  */
+     PHI_ARG_DEF because the garbage collector will not look at those
+     elements beyond the first PHI_NUM_ARGS elements of the array.  */
   PHI_NUM_ARGS (phi)--;
 }
 

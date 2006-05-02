@@ -47,7 +47,7 @@ pexecute (const char *program, char * const *argv, const char *pname,
     {
       if (pex != NULL)
 	{
-	  *errmsg_fmt = "pexecute already in progress";
+	  *errmsg_fmt = (char *) "pexecute already in progress";
 	  *errmsg_arg = NULL;
 	  return -1;
 	}
@@ -58,7 +58,7 @@ pexecute (const char *program, char * const *argv, const char *pname,
     {
       if (pex == NULL)
 	{
-	  *errmsg_fmt = "pexecute not in progress";
+	  *errmsg_fmt = (char *) "pexecute not in progress";
 	  *errmsg_arg = NULL;
 	  return -1;
 	}
@@ -101,7 +101,10 @@ pwait (int pid, int *status, int flags ATTRIBUTE_UNUSED)
 
       vector = XNEWVEC (int, idx);
       if (!pex_get_status (pex, idx, vector))
-	return -1;
+	{
+	  free (vector);
+	  return -1;
+	}
       *status = vector[pid];
       free (vector);
     }

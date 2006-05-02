@@ -18,7 +18,7 @@
 
 ## You should have received a copy of the GNU General Public License along
 ## with this library; see the file COPYING.  If not, write to the Free
-## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+## Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 ## USA.
 
 AUTOMAKE_OPTIONS = dejagnu nostdinc
@@ -89,14 +89,10 @@ new-abi-baseline:
 	  fi; \
 	  ${extract_symvers} ../src/.libs/libstdc++.so $${output})
 
-if GLIBCXX_TEST_ABI
 # Use 'new-abi-baseline' to create an initial symbol file.  Then run
 # 'check-abi' to test for changes against that file.
 check-abi: baseline_symbols site.exp
 	-@runtest --tool libstdc++ abi.exp
-else
-check-abi:
-endif
 
 # Runs the testsuite, but in compile only mode.
 # Can be used to test sources with non-GNU FE's at various warning
@@ -123,4 +119,5 @@ check-performance: testsuite_files_performance ${performance_script}
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = *.txt *.tst *.exe core* filebuf_* tmp* ostream_* *.log *.sum \
-	     testsuite_* site.exp abi_check baseline_symbols *TEST*
+	     testsuite_* site.exp abi_check baseline_symbols *TEST* *.dat \
+	     *.o *.cc

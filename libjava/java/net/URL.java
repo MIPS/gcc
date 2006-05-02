@@ -16,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -408,10 +408,7 @@ public final class URL implements Serializable
 	    // The 1.2 doc specifically says these are copied to the new URL.
 	    host = context.host;
 	    port = context.port;
-	    file = context.file;
             userInfo = context.userInfo;
-	    if (file == null || file.length() == 0)
-	      file = "/";
 	    authority = context.authority;
 	  }
       }
@@ -423,10 +420,13 @@ public final class URL implements Serializable
 	protocol = context.protocol;
 	host = context.host;
 	port = context.port;
-	file = context.file;
         userInfo = context.userInfo;
-	if (file == null || file.length() == 0)
-	  file = "/";
+	if (spec.indexOf(":/", 1) < 0)
+	  {
+	    file = context.file;
+	    if (file == null || file.length() == 0)
+	      file = "/";
+	  }
 	authority = context.authority;
       }
     else // Protocol NOT specified in spec. and no context available.

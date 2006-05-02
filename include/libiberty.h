@@ -82,6 +82,9 @@ extern void freeargv (char **);
 
 extern char **dupargv (char **) ATTRIBUTE_MALLOC;
 
+/* Expand "@file" arguments in argv.  */
+
+extern void expandargv PARAMS ((int *, char ***));
 
 /* Return the last component of a path name.  Note that we can't use a
    prototype here because the parameter is declared inconsistently
@@ -326,7 +329,7 @@ extern double physmem_available (void);
 /* Type-safe obstack allocator.  */
 
 #define XOBNEW(O, T)		((T *) obstack_alloc ((O), sizeof (T)))
-
+#define XOBFINISH(O, T)         ((T) obstack_finish ((O)))
 
 /* hex character manipulation routines */
 
@@ -538,6 +541,11 @@ extern int snprintf (char *, size_t, const char *, ...) ATTRIBUTE_PRINTF_3;
 #if defined(HAVE_DECL_VSNPRINTF) && !HAVE_DECL_VSNPRINTF
 /* Like vsprintf but prints at most N characters.  */
 extern int vsnprintf (char *, size_t, const char *, va_list) ATTRIBUTE_PRINTF(3,0);
+#endif
+
+#if defined(HAVE_DECL_STRVERSCMP) && !HAVE_DECL_STRVERSCMP
+/* Compare version strings.  */
+extern int strverscmp (const char *, const char *);
 #endif
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))

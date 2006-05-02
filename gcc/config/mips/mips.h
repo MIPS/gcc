@@ -20,8 +20,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* MIPS external variables defined in mips.c.  */
@@ -36,6 +36,7 @@ enum processor_type {
   PROCESSOR_4KC,
   PROCESSOR_4KP,
   PROCESSOR_5KC,
+  PROCESSOR_5KF,
   PROCESSOR_20KC,
   PROCESSOR_24K,
   PROCESSOR_24KX,
@@ -105,6 +106,7 @@ struct mips_cpu_info {
   int isa;
 };
 
+#ifndef USED_FOR_TARGET
 extern char mips_print_operand_punct[256]; /* print_operand punctuation chars */
 extern const char *current_function_file; /* filename current function is in */
 extern int num_source_filenames;	/* current .file # */
@@ -116,6 +118,7 @@ extern int set_noat;			/* # of nested .set noat's  */
 extern int set_volatile;		/* # of nested .set volatile's  */
 extern int mips_branch_likely;		/* emit 'l' after br (branch likely) */
 extern int mips_dbx_regno[];		/* Map register # to debug register # */
+extern bool mips_split_p[];
 extern GTY(()) rtx cmp_operands[2];
 extern enum processor_type mips_arch;   /* which cpu to codegen for */
 extern enum processor_type mips_tune;   /* which cpu to schedule for */
@@ -126,6 +129,7 @@ extern const struct mips_cpu_info mips_cpu_info_table[];
 extern const struct mips_cpu_info *mips_arch_info;
 extern const struct mips_cpu_info *mips_tune_info;
 extern const struct mips_rtx_cost_data *mips_cost;
+#endif
 
 /* Macros to silence warnings about numbers being signed in traditional
    C and unsigned in ISO C when compiled on 32-bit hosts.  */
@@ -144,6 +148,19 @@ extern const struct mips_rtx_cost_data *mips_cost;
 
 #define TARGET_SPLIT_CALLS \
   (TARGET_EXPLICIT_RELOCS && TARGET_ABICALLS && !TARGET_NEWABI)
+
+/* True if we're generating a form of -mabicalls in which we can use
+   operators like %hi and %lo to refer to locally-binding symbols.
+   We can only do this for -mno-shared, and only then if we can use
+   relocation operations instead of assembly macros.  It isn't really
+   worth using absolute sequences for 64-bit symbols because GOT
+   accesses are so much shorter.  */
+
+#define TARGET_ABSOLUTE_ABICALLS	\
+  (TARGET_ABICALLS			\
+   && !TARGET_SHARED			\
+   && TARGET_EXPLICIT_RELOCS		\
+   && !ABI_HAS_64BIT_SYMBOLS)
 
 /* True if we can optimize sibling calls.  For simplicity, we only
    handle cases in which call_insn_operand will reject invalid
@@ -168,8 +185,10 @@ extern const struct mips_rtx_cost_data *mips_cost;
    We therefore disable GP-relative switch tables for n64 on IRIX targets.  */
 #define TARGET_GPWORD (TARGET_ABICALLS && !(mips_abi == ABI_64 && TARGET_IRIX))
 
-					/* Generate mips16 code */
+/* Generate mips16 code */
 #define TARGET_MIPS16		((target_flags & MASK_MIPS16) != 0)
+/* Generate mips16e code. Default 16bit ASE for mips32/mips32r2/mips64 */
+#define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
 
 /* Generic ISA defines.  */
 #define ISA_MIPS1		    (mips_isa == 1)
@@ -313,6 +332,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 								\
       if (TARGET_MIPS3D)					\
 	builtin_define ("__mips3d");				\
+								\
+      if (TARGET_DSP)						\
+	builtin_define ("__mips_dsp");				\
 								\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_ARCH", mips_arch_info);	\
       MIPS_CPP_SET_PROCESSOR ("_MIPS_TUNE", mips_tune_info);	\
@@ -805,11 +827,13 @@ extern const struct mips_rtx_cost_data *mips_cost;
 %{mips32} %{mips32r2} %{mips64} \
 %{mips16:%{!mno-mips16:-mips16}} %{mno-mips16:-no-mips16} \
 %{mips3d:-mips3d} \
+%{mdsp} \
 %{mfix-vr4120} %{mfix-vr4130} \
 %(subtarget_asm_optimizing_spec) \
 %(subtarget_asm_debugging_spec) \
 %{mabi=*} %{!mabi*: %(asm_abi_default_spec)} \
 %{mgp32} %{mgp64} %{march=*} %{mxgot:-xgot} \
+%{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
 %{mtune=*} %{v} \
 %(subtarget_asm_spec)"
@@ -968,7 +992,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (TARGET_64BIT ? 8 : 4)
+#ifndef IN_LIBGCC2
 #define MIN_UNITS_PER_WORD 4
+#endif
 
 /* For MIPS, width of a floating point register.  */
 #define UNITS_PER_FPREG (TARGET_FLOAT64 ? 8 : 4)
@@ -1128,6 +1154,11 @@ extern const struct mips_rtx_cost_data *mips_cost;
 
 /* Define if loading short immediate values into registers sign extends.  */
 #define SHORT_IMMEDIATES_SIGN_EXTEND
+
+/* The [d]clz instructions have the natural values at 0.  */
+
+#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
+  ((VALUE) = GET_MODE_BITSIZE (MODE), true)
 
 /* Standard register usage.  */
 
@@ -1142,9 +1173,11 @@ extern const struct mips_rtx_cost_data *mips_cost;
 	- ARG_POINTER_REGNUM
 	- FRAME_POINTER_REGNUM
 	- FAKE_CALL_REGNO (see the comment above load_callsi for details)
-   - 3 dummy entries that were used at various times in the past.  */
+   - 3 dummy entries that were used at various times in the past.
+   - 6 DSP accumulator registers (3 hi-lo pairs) for MIPS DSP ASE
+   - 6 DSP control registers  */
 
-#define FIRST_PSEUDO_REGISTER 176
+#define FIRST_PSEUDO_REGISTER 188
 
 /* By default, fix the kernel registers ($26 and $27), the global
    pointer ($28) and the stack pointer ($29).  This can change
@@ -1171,7 +1204,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   /* COP3 registers */							\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1			\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
+  /* 6 DSP accumulator registers & 6 control registers */		\
+  0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1					\
 }
 
 
@@ -1201,7 +1236,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
   /* COP3 registers */							\
   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
-  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1			\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,			\
+  /* 6 DSP accumulator registers & 6 control registers */		\
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1					\
 }
 
 
@@ -1224,7 +1261,9 @@ extern const struct mips_rtx_cost_data *mips_cost;
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
   /* COP3 registers */							\
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0			\
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,			\
+  /* 6 DSP accumulator registers & 6 control registers */		\
+  1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0					\
 }
 
 /* Internal macros to classify a register number as to whether it's a
@@ -1266,9 +1305,19 @@ extern const struct mips_rtx_cost_data *mips_cost;
 /* ALL_COP_REG_NUM assumes that COP0,2,and 3 are numbered consecutively.  */
 #define ALL_COP_REG_NUM (COP3_REG_LAST - COP0_REG_FIRST + 1)
 
+#define DSP_ACC_REG_FIRST 176
+#define DSP_ACC_REG_LAST 181
+#define DSP_ACC_REG_NUM (DSP_ACC_REG_LAST - DSP_ACC_REG_FIRST + 1)
+
 #define AT_REGNUM	(GP_REG_FIRST + 1)
 #define HI_REGNUM	(MD_REG_FIRST + 0)
 #define LO_REGNUM	(MD_REG_FIRST + 1)
+#define AC1HI_REGNUM	(DSP_ACC_REG_FIRST + 0)
+#define AC1LO_REGNUM	(DSP_ACC_REG_FIRST + 1)
+#define AC2HI_REGNUM	(DSP_ACC_REG_FIRST + 2)
+#define AC2LO_REGNUM	(DSP_ACC_REG_FIRST + 3)
+#define AC3HI_REGNUM	(DSP_ACC_REG_FIRST + 4)
+#define AC3LO_REGNUM	(DSP_ACC_REG_FIRST + 5)
 
 /* FPSW_REGNUM is the single condition code used if !ISA_HAS_8CC.
    If ISA_HAS_8CC, it should not be used, and an arbitrary ST_REG
@@ -1293,6 +1342,16 @@ extern const struct mips_rtx_cost_data *mips_cost;
   ((unsigned int) ((int) (REGNO) - COP3_REG_FIRST) < COP3_REG_NUM)
 #define ALL_COP_REG_P(REGNO) \
   ((unsigned int) ((int) (REGNO) - COP0_REG_FIRST) < ALL_COP_REG_NUM)
+/* Test if REGNO is one of the 6 new DSP accumulators.  */
+#define DSP_ACC_REG_P(REGNO) \
+  ((unsigned int) ((int) (REGNO) - DSP_ACC_REG_FIRST) < DSP_ACC_REG_NUM)
+/* Test if REGNO is hi, lo, or one of the 6 new DSP accumulators.  */
+#define ACC_REG_P(REGNO) \
+  (MD_REG_P (REGNO) || DSP_ACC_REG_P (REGNO))
+/* Test if REGNO is HI or the first register of 3 new DSP accumulator pairs.  */
+#define ACC_HI_REG_P(REGNO) \
+  ((REGNO) == HI_REGNUM || (REGNO) == AC1HI_REGNUM || (REGNO) == AC2HI_REGNUM \
+   || (REGNO) == AC3HI_REGNUM)
 
 #define FP_REG_RTX_P(X) (REG_P (X) && FP_REG_P (REGNO (X)))
 
@@ -1435,6 +1494,8 @@ enum reg_class
   ALL_COP_REGS,
   ALL_COP_AND_GR_REGS,
   ST_REGS,			/* status registers (fp status) */
+  DSP_ACC_REGS,			/* DSP accumulator registers */
+  ACC_REGS,			/* Hi/Lo and DSP accumulator registers */
   ALL_REGS,			/* all registers */
   LIM_REG_CLASSES		/* max value + 1 */
 };
@@ -1475,6 +1536,8 @@ enum reg_class
   "ALL_COP_REGS",							\
   "ALL_COP_AND_GR_REGS",						\
   "ST_REGS",								\
+  "DSP_ACC_REGS",							\
+  "ACC_REGS",								\
   "ALL_REGS"								\
 }
 
@@ -1516,7 +1579,9 @@ enum reg_class
   { 0x00000000, 0x00000000, 0xffff0000, 0xffffffff, 0xffffffff, 0x0000ffff },                           \
   { 0xffffffff, 0x00000000, 0xffff0000, 0xffffffff, 0xffffffff, 0x0000ffff },                           \
   { 0x00000000, 0x00000000, 0x000007f8, 0x00000000, 0x00000000, 0x00000000 },	/* status registers */	\
-  { 0xffffffff, 0xffffffff, 0xffff07ff, 0xffffffff, 0xffffffff, 0x0000ffff }	/* all registers */	\
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x003f0000 },	/* dsp accumulator registers */	\
+  { 0x00000000, 0x00000000, 0x00000003, 0x00000000, 0x00000000, 0x003f0000 },	/* hi/lo and dsp accumulator registers */	\
+  { 0xffffffff, 0xffffffff, 0xffff07ff, 0xffffffff, 0xffffffff, 0x0fffffff }	/* all registers */	\
 }
 
 
@@ -1577,7 +1642,8 @@ extern const enum reg_class mips_regno_to_class[];
   112,113,114,115,116,117,118,119,120,121,122,123,124,125,126,127,	\
   128,129,130,131,132,133,134,135,136,137,138,139,140,141,142,143,	\
   144,145,146,147,148,149,150,151,152,153,154,155,156,157,158,159,	\
-  160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175	\
+  160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,175,	\
+  176,177,178,179,180,181,182,183,184,185,186,187			\
 }
 
 /* ORDER_REGS_FOR_LOCAL_ALLOC is a macro which permits reg_alloc_order
@@ -1587,32 +1653,15 @@ extern const enum reg_class mips_regno_to_class[];
 
 #define ORDER_REGS_FOR_LOCAL_ALLOC mips_order_regs_for_local_alloc ()
 
-/* REGISTER AND CONSTANT CLASSES */
+/* True if VALUE is an unsigned 6-bit number.  */
 
-/* Get reg_class from a letter such as appears in the machine
-   description.
+#define UIMM6_OPERAND(VALUE) \
+  (((VALUE) & ~(unsigned HOST_WIDE_INT) 0x3f) == 0)
 
-   DEFINED REGISTER CLASSES:
+/* True if VALUE is a signed 10-bit number.  */
 
-   'd'  General (aka integer) registers
-        Normally this is GR_REGS, but in mips16 mode this is M16_REGS
-   'y'  General registers (in both mips16 and non mips16 mode)
-   'e'	Effective address registers (general registers except $25)
-   't'  mips16 temporary register ($24)
-   'f'	Floating point registers
-   'h'	Hi register
-   'l'	Lo register
-   'v'	$v1 only
-   'x'	Multiply/divide registers
-   'z'	FP Status register
-   'B'  Cop0 register
-   'C'  Cop2 register
-   'D'  Cop3 register
-   'b'	All registers */
-
-extern enum reg_class mips_char_to_class[256];
-
-#define REG_CLASS_FROM_LETTER(C) mips_char_to_class[(unsigned char)(C)]
+#define IMM10_OPERAND(VALUE) \
+  ((unsigned HOST_WIDE_INT) (VALUE) + 0x200 < 0x400)
 
 /* True if VALUE is a signed 16-bit number.  */
 
@@ -1642,111 +1691,6 @@ extern enum reg_class mips_char_to_class[256];
 #define SMALL_INT(X) SMALL_OPERAND (INTVAL (X))
 #define SMALL_INT_UNSIGNED(X) SMALL_OPERAND_UNSIGNED (INTVAL (X))
 #define LUI_INT(X) LUI_OPERAND (INTVAL (X))
-
-/* The letters I, J, K, L, M, N, O, and P in a register constraint
-   string can be used to stand for particular ranges of immediate
-   operands.  This macro defines what the ranges are.  C is the
-   letter, and VALUE is a constant value.  Return 1 if VALUE is
-   in the range specified by C.  */
-
-/* For MIPS:
-
-   `I'	is used for the range of constants an arithmetic insn can
-	actually contain (16 bits signed integers).
-
-   `J'	is used for the range which is just zero (i.e., $r0).
-
-   `K'	is used for the range of constants a logical insn can actually
-	contain (16 bit zero-extended integers).
-
-   `L'	is used for the range of constants that be loaded with lui
-	(i.e., the bottom 16 bits are zero).
-
-   `M'	is used for the range of constants that take two words to load
-	(i.e., not matched by `I', `K', and `L').
-
-   `N'	is used for negative 16 bit constants other than -65536.
-
-   `O'	is a 15 bit signed integer.
-
-   `P'	is used for positive 16 bit constants.  */
-
-#define CONST_OK_FOR_LETTER_P(VALUE, C)					\
-  ((C) == 'I' ? SMALL_OPERAND (VALUE)					\
-   : (C) == 'J' ? ((VALUE) == 0)					\
-   : (C) == 'K' ? SMALL_OPERAND_UNSIGNED (VALUE)			\
-   : (C) == 'L' ? LUI_OPERAND (VALUE)					\
-   : (C) == 'M' ? (!SMALL_OPERAND (VALUE)				\
-		   && !SMALL_OPERAND_UNSIGNED (VALUE)			\
-		   && !LUI_OPERAND (VALUE))				\
-   : (C) == 'N' ? ((unsigned HOST_WIDE_INT) ((VALUE) + 0xffff) < 0xffff) \
-   : (C) == 'O' ? ((unsigned HOST_WIDE_INT) ((VALUE) + 0x4000) < 0x8000) \
-   : (C) == 'P' ? ((VALUE) != 0 && (((VALUE) & ~0x0000ffff) == 0))	\
-   : 0)
-
-/* Similar, but for floating constants, and defining letters G and H.
-   Here VALUE is the CONST_DOUBLE rtx itself.  */
-
-/* For Mips
-
-  'G'	: Floating point 0 */
-
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)				\
-  ((C) == 'G'								\
-   && (VALUE) == CONST0_RTX (GET_MODE (VALUE)))
-
-/* Letters in the range `Q' through `U' may be defined in a
-   machine-dependent fashion to stand for arbitrary operand types.
-   The machine description macro `EXTRA_CONSTRAINT' is passed the
-   operand as its first argument and the constraint letter as its
-   second operand.
-
-   `Q' is for signed 16-bit constants.
-   `R' is for single-instruction memory references.  Note that this
-	 constraint has often been used in linux and glibc code.
-   `S' is for legitimate constant call addresses.
-   `T' is for constant move_operands that cannot be safely loaded into $25.
-   `U' is for constant move_operands that can be safely loaded into $25.
-   `W' is for memory references that are based on a member of BASE_REG_CLASS.
-	 This is true for all non-mips16 references (although it can sometimes
-	 be indirect if !TARGET_EXPLICIT_RELOCS).  For mips16, it excludes
-	 stack and constant-pool references.
-   `YG' is for 0 valued vector constants.  */
-
-#define EXTRA_CONSTRAINT_Y(OP,STR)					\
-  (((STR)[1] == 'G')	  ? (GET_CODE (OP) == CONST_VECTOR		\
-			     && (OP) == CONST0_RTX (GET_MODE (OP)))	\
-   : FALSE)
-
-
-#define EXTRA_CONSTRAINT_STR(OP,CODE,STR)				\
-  (((CODE) == 'Q')	  ? const_arith_operand (OP, VOIDmode)		\
-   : ((CODE) == 'R')	  ? (MEM_P (OP)					\
-			     && mips_fetch_insns (OP) == 1)		\
-   : ((CODE) == 'S')	  ? (CONSTANT_P (OP)				\
-			     && call_insn_operand (OP, VOIDmode))	\
-   : ((CODE) == 'T')	  ? (CONSTANT_P (OP)				\
-			     && move_operand (OP, VOIDmode)		\
-			     && mips_dangerous_for_la25_p (OP))		\
-   : ((CODE) == 'U')	  ? (CONSTANT_P (OP)				\
-			     && move_operand (OP, VOIDmode)		\
-			     && !mips_dangerous_for_la25_p (OP))	\
-   : ((CODE) == 'W')	  ? (MEM_P (OP)					\
-			     && memory_operand (OP, VOIDmode)		\
-			     && (!TARGET_MIPS16				\
-				 || (!stack_operand (OP, VOIDmode)	\
-				     && !CONSTANT_P (XEXP (OP, 0)))))	\
-   : ((CODE) == 'Y')	  ? EXTRA_CONSTRAINT_Y (OP, STR)		\
-   : FALSE)
-
-/* Y is the only multi-letter constraint, and has length 2.  */
-
-#define CONSTRAINT_LEN(C,STR)						\
-  (((C) == 'Y') ? 2							\
-   : DEFAULT_CONSTRAINT_LEN (C, STR))
-
-/* Say which of the above are memory constraints.  */
-#define EXTRA_MEMORY_CONSTRAINT(C, STR) ((C) == 'R' || (C) == 'W')
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS)					\
   mips_preferred_reload_class (X, CLASS)
@@ -2236,6 +2180,11 @@ typedef struct mips_args {
   else									\
     asm_fprintf ((FILE), "%U%s", (NAME))
 
+/* Flag to mark a function decl symbol that requires a long call.  */
+#define SYMBOL_FLAG_LONG_CALL	(SYMBOL_FLAG_MACH_DEP << 0)
+#define SYMBOL_REF_LONG_CALL_P(X)					\
+  ((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_LONG_CALL) != 0)
+
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.
    ??? Using HImode in mips16 mode can cause overflow.  */
@@ -2340,6 +2289,32 @@ typedef struct mips_args {
    be updated with the correct length of the insn.  */
 #define ADJUST_INSN_LENGTH(INSN, LENGTH) \
   ((LENGTH) = mips_adjust_insn_length ((INSN), (LENGTH)))
+
+/* Return the asm template for a non-MIPS16 conditional branch instruction.
+   OPCODE is the opcode's mnemonic and OPERANDS is the asm template for
+   its operands.  */
+#define MIPS_BRANCH(OPCODE, OPERANDS) \
+  "%*" OPCODE "%?\t" OPERANDS "%/"
+
+/* Return the asm template for a call.  INSN is the instruction's mnemonic
+   ("j" or "jal"), OPERANDS are its operands, and OPNO is the operand number
+   of the target.
+
+   When generating -mabicalls without explicit relocation operators,
+   all calls should use assembly macros.  Otherwise, all indirect
+   calls should use "jr" or "jalr"; we will arrange to restore $gp
+   afterwards if necessary.  Finally, we can only generate direct
+   calls for -mabicalls by temporarily switching to non-PIC mode.  */
+#define MIPS_CALL(INSN, OPERANDS, OPNO)				\
+  (TARGET_ABICALLS && !TARGET_EXPLICIT_RELOCS			\
+   ? "%*" INSN "\t%" #OPNO "%/"					\
+   : REG_P (OPERANDS[OPNO])					\
+   ? "%*" INSN "r\t%" #OPNO "%/"				\
+   : TARGET_ABICALLS						\
+   ? (".option\tpic0\n\t"					\
+      "%*" INSN "\t%" #OPNO "%/\n\t"				\
+      ".option\tpic2")						\
+   : "%*" INSN "\t%" #OPNO "%/")
 
 /* Control the assembler format that we output.  */
 
@@ -2379,7 +2354,9 @@ typedef struct mips_args {
   "$c3r0", "$c3r1", "$c3r2", "$c3r3", "$c3r4", "$c3r5", "$c3r6", "$c3r7",  \
   "$c3r8", "$c3r9", "$c3r10","$c3r11","$c3r12","$c3r13","$c3r14","$c3r15", \
   "$c3r16","$c3r17","$c3r18","$c3r19","$c3r20","$c3r21","$c3r22","$c3r23", \
-  "$c3r24","$c3r25","$c3r26","$c3r27","$c3r28","$c3r29","$c3r30","$c3r31" }
+  "$c3r24","$c3r25","$c3r26","$c3r27","$c3r28","$c3r29","$c3r30","$c3r31", \
+  "$ac1hi","$ac1lo","$ac2hi","$ac2lo","$ac3hi","$ac3lo","$dsp_po","$dsp_sc", \
+  "$dsp_ca","$dsp_ou","$dsp_cc","$dsp_ef" }
 
 /* List the "software" names for each register.  Also list the numerical
    names for $fp and $sp.  */
@@ -2626,7 +2603,7 @@ do {									\
 {									\
   const char *p = STRING;						\
   int size = strlen (p) + 1;						\
-  readonly_data_section ();						\
+  switch_to_section (readonly_data_section);				\
   assemble_string (p, size);						\
 }
 
@@ -2638,7 +2615,6 @@ do {									\
 /* Define the strings to put out for each section in the object file.  */
 #define TEXT_SECTION_ASM_OP	"\t.text"	/* instructions */
 #define DATA_SECTION_ASM_OP	"\t.data"	/* large data */
-#define SDATA_SECTION_ASM_OP	"\t.sdata"	/* small data */
 
 #undef READONLY_DATA_SECTION_ASM_OP
 #define READONLY_DATA_SECTION_ASM_OP	"\t.rdata"	/* read-only data */

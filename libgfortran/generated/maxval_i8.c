@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -35,18 +35,24 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"
 
 
-extern void maxval_i8 (gfc_array_i8 *, gfc_array_i8 *, index_type *);
+#if defined (HAVE_GFC_INTEGER_8) && defined (HAVE_GFC_INTEGER_8)
+
+
+extern void maxval_i8 (gfc_array_i8 * const restrict, 
+	gfc_array_i8 * const restrict, const index_type * const restrict);
 export_proto(maxval_i8);
 
 void
-maxval_i8 (gfc_array_i8 *retarray, gfc_array_i8 *array, index_type *pdim)
+maxval_i8 (gfc_array_i8 * const restrict retarray, 
+	gfc_array_i8 * const restrict array, 
+	const index_type * const restrict pdim)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type sstride[GFC_MAX_DIMENSIONS];
   index_type dstride[GFC_MAX_DIMENSIONS];
-  GFC_INTEGER_8 *base;
-  GFC_INTEGER_8 *dest;
+  const GFC_INTEGER_8 * restrict base;
+  GFC_INTEGER_8 * restrict dest;
   index_type rank;
   index_type n;
   index_type len;
@@ -93,7 +99,7 @@ maxval_i8 (gfc_array_i8 *retarray, gfc_array_i8 *array, index_type *pdim)
 	 = internal_malloc_size (sizeof (GFC_INTEGER_8)
 		 		 * retarray->dim[rank-1].stride
 				 * extent[rank-1]);
-      retarray->base = 0;
+      retarray->offset = 0;
       retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
     }
   else
@@ -118,7 +124,7 @@ maxval_i8 (gfc_array_i8 *retarray, gfc_array_i8 *array, index_type *pdim)
 
   while (base)
     {
-      GFC_INTEGER_8 *src;
+      const GFC_INTEGER_8 * restrict src;
       GFC_INTEGER_8 result;
       src = base;
       {
@@ -169,22 +175,25 @@ maxval_i8 (gfc_array_i8 *retarray, gfc_array_i8 *array, index_type *pdim)
 }
 
 
-extern void mmaxval_i8 (gfc_array_i8 *, gfc_array_i8 *, index_type *,
-					       gfc_array_l4 *);
+extern void mmaxval_i8 (gfc_array_i8 * const restrict, 
+	gfc_array_i8 * const restrict, const index_type * const restrict,
+	gfc_array_l4 * const restrict);
 export_proto(mmaxval_i8);
 
 void
-mmaxval_i8 (gfc_array_i8 * retarray, gfc_array_i8 * array,
-				  index_type *pdim, gfc_array_l4 * mask)
+mmaxval_i8 (gfc_array_i8 * const restrict retarray, 
+	gfc_array_i8 * const restrict array, 
+	const index_type * const restrict pdim, 
+	gfc_array_l4 * const restrict mask)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
   index_type sstride[GFC_MAX_DIMENSIONS];
   index_type dstride[GFC_MAX_DIMENSIONS];
   index_type mstride[GFC_MAX_DIMENSIONS];
-  GFC_INTEGER_8 *dest;
-  GFC_INTEGER_8 *base;
-  GFC_LOGICAL_4 *mbase;
+  GFC_INTEGER_8 * restrict dest;
+  const GFC_INTEGER_8 * restrict base;
+  const GFC_LOGICAL_4 * restrict mbase;
   int rank;
   int dim;
   index_type n;
@@ -239,7 +248,7 @@ mmaxval_i8 (gfc_array_i8 * retarray, gfc_array_i8 * array,
 	 = internal_malloc_size (sizeof (GFC_INTEGER_8)
 		 		 * retarray->dim[rank-1].stride
 				 * extent[rank-1]);
-      retarray->base = 0;
+      retarray->offset = 0;
       retarray->dtype = (array->dtype & ~GFC_DTYPE_RANK_MASK) | rank;
     }
   else
@@ -275,8 +284,8 @@ mmaxval_i8 (gfc_array_i8 * retarray, gfc_array_i8 * array,
 
   while (base)
     {
-      GFC_INTEGER_8 *src;
-      GFC_LOGICAL_4 *msrc;
+      const GFC_INTEGER_8 * restrict src;
+      const GFC_LOGICAL_4 * restrict msrc;
       GFC_INTEGER_8 result;
       src = base;
       msrc = mbase;
@@ -330,3 +339,58 @@ mmaxval_i8 (gfc_array_i8 * retarray, gfc_array_i8 * array,
     }
 }
 
+
+extern void smaxval_i8 (gfc_array_i8 * const restrict, 
+	gfc_array_i8 * const restrict, const index_type * const restrict,
+	GFC_LOGICAL_4 *);
+export_proto(smaxval_i8);
+
+void
+smaxval_i8 (gfc_array_i8 * const restrict retarray, 
+	gfc_array_i8 * const restrict array, 
+	const index_type * const restrict pdim, 
+	GFC_LOGICAL_4 * mask)
+{
+  index_type rank;
+  index_type n;
+  index_type dstride;
+  GFC_INTEGER_8 *dest;
+
+  if (*mask)
+    {
+      maxval_i8 (retarray, array, pdim);
+      return;
+    }
+    rank = GFC_DESCRIPTOR_RANK (array);
+  if (rank <= 0)
+    runtime_error ("Rank of array needs to be > 0");
+
+  if (retarray->data == NULL)
+    {
+      retarray->dim[0].lbound = 0;
+      retarray->dim[0].ubound = rank-1;
+      retarray->dim[0].stride = 1;
+      retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
+      retarray->offset = 0;
+      retarray->data = internal_malloc_size (sizeof (GFC_INTEGER_8) * rank);
+    }
+  else
+    {
+      if (GFC_DESCRIPTOR_RANK (retarray) != 1)
+	runtime_error ("rank of return array does not equal 1");
+
+      if (retarray->dim[0].ubound + 1 - retarray->dim[0].lbound != rank)
+        runtime_error ("dimension of return array incorrect");
+
+      if (retarray->dim[0].stride == 0)
+	retarray->dim[0].stride = 1;
+    }
+
+    dstride = retarray->dim[0].stride;
+    dest = retarray->data;
+
+    for (n = 0; n < rank; n++)
+      dest[n * dstride] = -GFC_INTEGER_8_HUGE ;
+}
+
+#endif

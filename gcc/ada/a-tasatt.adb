@@ -7,7 +7,7 @@
 --                                 B o d y                                  --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---             Copyright (C) 1995-2005, Ada Core Technologies               --
+--                     Copyright (C) 1995-2006, AdaCore                     --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -17,8 +17,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -56,10 +56,9 @@
 --  attribute is a potential source of dangling references.
 
 --  When a task goes away, we want to be able to recover all the storage
---  associated with its attributes. The Ada mechanism for this is
---  finalization, via controlled attribute types. For this reason, the ARM
---  requires finalization of attribute values when the associated task
---  terminates.
+--  associated with its attributes. The Ada mechanism for this is finalization,
+--  via controlled attribute types. For this reason, the ARM requires
+--  finalization of attribute values when the associated task terminates.
 
 --  This finalization must be triggered by the tasking runtime system, during
 --  termination of the task. Given the active set of instantiations of
@@ -222,11 +221,6 @@
 --  was having trouble with access discriminants, so all this work was moved
 --  to the package body.
 
-with Ada.Task_Identification;
---  Used for Task_Id
---           Null_Task_Id
---           Current_Task
-
 with System.Error_Reporting;
 --  Used for Shutdown;
 
@@ -376,7 +370,6 @@ package body Ada.Task_Attributes is
 
    procedure Deallocate (P : in out Access_Node) is
       T : Access_Wrapper := To_Access_Wrapper (P.Wrapper);
-
    begin
       Free (T);
    end Deallocate;
@@ -419,17 +412,18 @@ package body Ada.Task_Attributes is
 
       else
          declare
-            P : Access_Node := To_Access_Node (TT.Indirect_Attributes);
-            W : Access_Wrapper;
+            P       : Access_Node := To_Access_Node (TT.Indirect_Attributes);
+            W       : Access_Wrapper;
+            Self_Id : constant Task_Id := POP.Self;
 
          begin
-            Defer_Abortion;
+            Defer_Abort (Self_Id);
             POP.Lock_RTS;
 
             while P /= null loop
                if P.Instance = Access_Instance'(Local'Unchecked_Access) then
                   POP.Unlock_RTS;
-                  Undefer_Abortion;
+                  Undefer_Abort (Self_Id);
                   return To_Access_Wrapper (P.Wrapper).Value'Access;
                end if;
 
@@ -450,13 +444,13 @@ package body Ada.Task_Attributes is
             P.Next := To_Access_Node (TT.Indirect_Attributes);
             TT.Indirect_Attributes := To_Access_Address (P);
             POP.Unlock_RTS;
-            Undefer_Abortion;
+            Undefer_Abort (Self_Id);
             return W.Value'Access;
 
          exception
             when others =>
                POP.Unlock_RTS;
-               Undefer_Abortion;
+               Undefer_Abort (Self_Id);
                raise;
          end;
       end if;
@@ -496,10 +490,12 @@ package body Ada.Task_Attributes is
          Set_Value (Initial_Value, T);
       else
          declare
-            P, Q : Access_Node;
-            W    : Access_Wrapper;
+            P, Q    : Access_Node;
+            W       : Access_Wrapper;
+            Self_Id : constant Task_Id := POP.Self;
+
          begin
-            Defer_Abortion;
+            Defer_Abort (Self_Id);
             POP.Lock_RTS;
             Q := To_Access_Node (TT.Indirect_Attributes);
 
@@ -514,7 +510,7 @@ package body Ada.Task_Attributes is
                   W := To_Access_Wrapper (Q.Wrapper);
                   Free (W);
                   POP.Unlock_RTS;
-                  Undefer_Abortion;
+                  Undefer_Abort (Self_Id);
                   return;
                end if;
 
@@ -523,12 +519,12 @@ package body Ada.Task_Attributes is
             end loop;
 
             POP.Unlock_RTS;
-            Undefer_Abortion;
+            Undefer_Abort (Self_Id);
 
          exception
             when others =>
                POP.Unlock_RTS;
-               Undefer_Abortion;
+               Undefer_Abort (Self_Id);
                raise;
          end;
       end if;
@@ -581,11 +577,12 @@ package body Ada.Task_Attributes is
       --  Not directly addressed
 
       declare
-         P : Access_Node := To_Access_Node (TT.Indirect_Attributes);
-         W : Access_Wrapper;
+         P       : Access_Node := To_Access_Node (TT.Indirect_Attributes);
+         W       : Access_Wrapper;
+         Self_Id : constant Task_Id := POP.Self;
 
       begin
-         Defer_Abortion;
+         Defer_Abort (Self_Id);
          POP.Lock_RTS;
 
          while P /= null loop
@@ -593,7 +590,7 @@ package body Ada.Task_Attributes is
             if P.Instance = Access_Instance'(Local'Unchecked_Access) then
                To_Access_Wrapper (P.Wrapper).Value := Val;
                POP.Unlock_RTS;
-               Undefer_Abortion;
+               Undefer_Abort (Self_Id);
                return;
             end if;
 
@@ -613,12 +610,12 @@ package body Ada.Task_Attributes is
          TT.Indirect_Attributes := To_Access_Address (P);
 
          POP.Unlock_RTS;
-         Undefer_Abortion;
+         Undefer_Abort (Self_Id);
 
       exception
          when others =>
             POP.Unlock_RTS;
-            Undefer_Abortion;
+            Undefer_Abort (Self_Id);
             raise;
       end;
 
@@ -669,11 +666,12 @@ package body Ada.Task_Attributes is
       --  Not directly addressed
 
       declare
-         P      : Access_Node;
-         Result : Attribute;
+         P       : Access_Node;
+         Result  : Attribute;
+         Self_Id : constant Task_Id := POP.Self;
 
       begin
-         Defer_Abortion;
+         Defer_Abort (Self_Id);
          POP.Lock_RTS;
          P := To_Access_Node (TT.Indirect_Attributes);
 
@@ -681,7 +679,7 @@ package body Ada.Task_Attributes is
             if P.Instance = Access_Instance'(Local'Unchecked_Access) then
                Result := To_Access_Wrapper (P.Wrapper).Value;
                POP.Unlock_RTS;
-               Undefer_Abortion;
+               Undefer_Abort (Self_Id);
                return Result;
             end if;
 
@@ -689,13 +687,13 @@ package body Ada.Task_Attributes is
          end loop;
 
          POP.Unlock_RTS;
-         Undefer_Abortion;
+         Undefer_Abort (Self_Id);
          return Initial_Value;
 
       exception
          when others =>
             POP.Unlock_RTS;
-            Undefer_Abortion;
+            Undefer_Abort (Self_Id);
             raise;
       end;
 
@@ -720,8 +718,9 @@ begin
 
    declare
       Two_To_J : Direct_Index_Vector;
+      Self_Id  : constant Task_Id := POP.Self;
    begin
-      Defer_Abortion;
+      Defer_Abort (Self_Id);
 
       --  Need protection for updating links to per-task initialization and
       --  finalization routines, in case some task is being created or
@@ -798,6 +797,6 @@ begin
       end if;
 
       POP.Unlock_RTS;
-      Undefer_Abortion;
+      Undefer_Abort (Self_Id);
    end;
 end Ada.Task_Attributes;

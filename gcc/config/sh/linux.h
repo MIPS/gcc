@@ -1,5 +1,5 @@
 /* Definitions for SH running Linux-based GNU systems using ELF
-   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by Kazumoto Kojima <kkojima@rr.iij4u.or.jp>
 
@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Run-time Target Specification.  */
 #undef TARGET_VERSION
@@ -38,11 +38,6 @@ Boston, MA 02111-1307, USA.  */
   do						\
     {						\
       LINUX_TARGET_OS_CPP_BUILTINS();		\
-      if (flag_pic)				\
-	{					\
-	  builtin_define ("__PIC__");		\
-	  builtin_define ("__pic__");		\
-	}					\
     }						\
   while (0)
 
@@ -53,6 +48,8 @@ Boston, MA 02111-1307, USA.  */
 
 #define TARGET_ASM_FILE_END file_end_indicate_exec_stack
 
+#define GLIBC_DYNAMIC_LINKER "/lib/ld-linux.so.2"
+
 #undef SUBTARGET_LINK_EMUL_SUFFIX
 #define SUBTARGET_LINK_EMUL_SUFFIX "_linux"
 #undef SUBTARGET_LINK_SPEC
@@ -60,7 +57,7 @@ Boston, MA 02111-1307, USA.  */
   "%{shared:-shared} \
    %{!static: \
      %{rdynamic:-export-dynamic} \
-     %{!dynamic-linker:-dynamic-linker /lib/ld-linux.so.2}} \
+     %{!dynamic-linker:-dynamic-linker " LINUX_DYNAMIC_LINKER "}} \
    %{static:-static}"
 
 /* Output assembler code to STREAM to call the profiler.  */
@@ -68,29 +65,56 @@ Boston, MA 02111-1307, USA.  */
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(STREAM,LABELNO)				\
   do {									\
-    if (flag_pic)							\
+    if (TARGET_SHMEDIA)							\
       {									\
-	fprintf (STREAM, "\tmov.l\t3f,r1\n");				\
-	fprintf (STREAM, "\tmova\t3f,r0\n");				\
-	fprintf (STREAM, "\tadd\tr1,r0\n");				\
-	fprintf (STREAM, "\tmov.l\t1f,r1\n");				\
-	fprintf (STREAM, "\tmov.l\t@(r0,r1),r1\n");			\
+	fprintf (STREAM, "\tpt\t1f,tr1\n");				\
+	fprintf (STREAM, "\taddi.l\tr15,-8,r15\n");			\
+	fprintf (STREAM, "\tst.l\tr15,0,r18\n");			\
+	if (flag_pic)							\
+	  {								\
+	    const char *gofs = "(datalabel _GLOBAL_OFFSET_TABLE_-(0f-.))"; \
+	    fprintf (STREAM, "\tmovi\t((%s>>16)&0xffff),r21\n", gofs);	\
+	    fprintf (STREAM, "\tshori\t(%s & 0xffff),r21\n", gofs);	\
+	    fprintf (STREAM, "0:\tptrel/u\tr21,tr0\n");			\
+	    fprintf (STREAM, "\tmovi\t((mcount@GOTPLT)&0xffff),r22\n");	\
+	    fprintf (STREAM, "\tgettr\ttr0,r21\n");			\
+	    fprintf (STREAM, "\tadd.l\tr21,r22,r21\n");			\
+	    fprintf (STREAM, "\tld.l\tr21,0,r21\n");			\
+	    fprintf (STREAM, "\tptabs\tr21,tr0\n");			\
+	  }								\
+	else								\
+	  fprintf (STREAM, "\tpt\tmcount,tr0\n");			\
+	fprintf (STREAM, "\tgettr\ttr1,r18\n");				\
+	fprintf (STREAM, "\tblink\ttr0,r63\n");				\
+	fprintf (STREAM, "1:\tld.l\tr15,0,r18\n");			\
+	fprintf (STREAM, "\taddi.l\tr15,8,r15\n");			\
       }									\
     else								\
-      fprintf (STREAM, "\tmov.l\t1f,r1\n");				\
-    fprintf (STREAM, "\tsts.l\tpr,@-r15\n");				\
-    fprintf (STREAM, "\tmova\t2f,r0\n");				\
-    fprintf (STREAM, "\tjmp\t@r1\n");					\
-    fprintf (STREAM, "\tlds\tr0,pr\n");					\
-    fprintf (STREAM, "\t.align\t2\n");					\
-    if (flag_pic)							\
       {									\
-	fprintf (STREAM, "1:\t.long\tmcount@GOT\n");			\
-	fprintf (STREAM, "3:\t.long\t_GLOBAL_OFFSET_TABLE_\n");		\
+	if (flag_pic)							\
+	  {								\
+	    fprintf (STREAM, "\tmov.l\t3f,r1\n");			\
+	    fprintf (STREAM, "\tmova\t3f,r0\n");			\
+	    fprintf (STREAM, "\tadd\tr1,r0\n");				\
+	    fprintf (STREAM, "\tmov.l\t1f,r1\n");			\
+	    fprintf (STREAM, "\tmov.l\t@(r0,r1),r1\n");			\
+	  }								\
+	else								\
+	  fprintf (STREAM, "\tmov.l\t1f,r1\n");				\
+	fprintf (STREAM, "\tsts.l\tpr,@-r15\n");			\
+	fprintf (STREAM, "\tmova\t2f,r0\n");				\
+	fprintf (STREAM, "\tjmp\t@r1\n");				\
+	fprintf (STREAM, "\tlds\tr0,pr\n");				\
+	fprintf (STREAM, "\t.align\t2\n");				\
+	if (flag_pic)							\
+	  {								\
+	    fprintf (STREAM, "1:\t.long\tmcount@GOT\n");		\
+	    fprintf (STREAM, "3:\t.long\t_GLOBAL_OFFSET_TABLE_\n");	\
+	  }								\
+	else								\
+	  fprintf (STREAM, "1:\t.long\tmcount\n");			\
+	fprintf (STREAM, "2:\tlds.l\t@r15+,pr\n");			\
       }									\
-    else								\
-      fprintf (STREAM, "1:\t.long\tmcount\n");				\
-    fprintf (STREAM, "2:\tlds.l\t@r15+,pr\n");				\
   } while (0)
 
 #define MD_UNWIND_SUPPORT "config/sh/linux-unwind.h"

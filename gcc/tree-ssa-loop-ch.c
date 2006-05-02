@@ -15,8 +15,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -120,7 +120,7 @@ do_while_loop_p (struct loop *loop)
    of the loop.  This is beneficial since it increases efficiency of
    code motion optimizations.  It also saves one jump on entry to the loop.  */
 
-static void
+static unsigned int
 copy_loop_headers (void)
 {
   struct loops *loops;
@@ -132,20 +132,17 @@ copy_loop_headers (void)
   unsigned n_bbs;
   unsigned bbs_size;
 
-  loops = loop_optimizer_init (dump_file);
+  loops = loop_optimizer_init (LOOPS_HAVE_PREHEADERS
+			       | LOOPS_HAVE_SIMPLE_LATCHES);
   if (!loops)
-    return;
-  
-  /* We do not try to keep the information about irreducible regions
-     up-to-date.  */
-  loops->state &= ~LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS;
+    return 0;
 
 #ifdef ENABLE_CHECKING
   verify_loop_structure (loops);
 #endif
 
-  bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
-  copied_bbs = xmalloc (sizeof (basic_block) * n_basic_blocks);
+  bbs = XNEWVEC (basic_block, n_basic_blocks);
+  copied_bbs = XNEWVEC (basic_block, n_basic_blocks);
   bbs_size = n_basic_blocks;
 
   for (i = 1; i < loops->num; i++)
@@ -197,7 +194,7 @@ copy_loop_headers (void)
       /* Ensure that the header will have just the latch as a predecessor
 	 inside the loop.  */
       if (!single_pred_p (exit->dest))
-	exit = single_succ_edge (loop_split_edge_with (exit, NULL));
+	exit = single_pred_edge (loop_split_edge_with (exit, NULL));
 
       entry = loop_preheader_edge (loop);
 
@@ -216,7 +213,8 @@ copy_loop_headers (void)
   free (bbs);
   free (copied_bbs);
 
-  loop_optimizer_finalize (loops, NULL);
+  loop_optimizer_finalize (loops);
+  return 0;
 }
 
 static bool
@@ -229,9 +227,7 @@ struct tree_opt_pass pass_ch =
 {
   "ch",					/* name */
   gate_ch,				/* gate */
-  NULL, NULL,				/* IPA analysis */
   copy_loop_headers,			/* execute */
-  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

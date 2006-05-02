@@ -2929,8 +2929,65 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 ac_c_preproc_warn_flag=yes
 
+# Warn C++ incompatibilities if supported.
+
+echo "$as_me:$LINENO: checking whether ${CC} accepts -Wc++-compat" >&5
+echo $ECHO_N "checking whether ${CC} accepts -Wc++-compat... $ECHO_C" >&6
+if test "${ac_cv_prog_cc_w_cxx_compat+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  save_CFLAGS="$CFLAGS"
+  CFLAGS="-Wc++-compat"
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_prog_cc_w_cxx_compat=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_prog_cc_w_cxx_compat=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS="$save_CFLAGS"
+
+fi
+echo "$as_me:$LINENO: result: $ac_cv_prog_cc_w_cxx_compat" >&5
+echo "${ECHO_T}$ac_cv_prog_cc_w_cxx_compat" >&6
+
+
 if test x$GCC = xyes; then
   ac_libiberty_warn_cflags='-W -Wall -pedantic -Wwrite-strings -Wstrict-prototypes'
+fi
+if test $ac_cv_prog_cc_w_cxx_compat = yes ; then
+  ac_libiberty_warn_cflags="${ac_libiberty_warn_cflags} -Wc++-compat"
 fi
 
 
@@ -3030,7 +3087,6 @@ if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" = no"; then
 else
   OUTPUT_OPTION='-o $@'
 fi
-
 
 
 
@@ -3529,7 +3585,75 @@ test -z "$INSTALL_SCRIPT" && INSTALL_SCRIPT='${INSTALL}'
 test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 
 
-. ${srcdir}/config.table
+# Don't build the shared library for build.
+if [ -n "${with_build_subdir}" ]; then
+  enable_shared=no
+fi
+
+frag=
+case "${host}" in
+  rs6000-ibm-aix3.1 | rs6000-ibm-aix)
+                        frag=mh-aix ;;
+  *-*-cxux7*)		frag=mh-cxux7 ;;
+  *-*-freebsd2.1.*)	frag=mh-fbsd21 ;;
+  *-*-freebsd2.2.[012])	frag=mh-fbsd21 ;;
+  i370-*-opened*)       frag=mh-openedition ;;
+  i[34567]86-*-windows*)	frag=mh-windows ;;
+esac
+
+if [ -n "${frag}" ]; then
+  frags=${libiberty_topdir}/libiberty/config/$frag
+else
+  frags=
+fi
+
+# If they didn't specify --enable-shared, don't generate shared libs.
+case "${enable_shared}" in
+  yes) shared=yes ;;
+  no) shared=no ;;
+  "") shared=no ;;
+  *) shared=yes ;;
+esac
+if [ "${shared}" = "yes" ]; then
+  frag=
+  case "${host}" in
+    *-*-cygwin*)	;;
+    alpha*-*-linux*)	frag=mh-elfalphapic ;;
+    arm*-*-*)		frag=mh-armpic ;;
+    hppa*-*-*)		frag=mh-papic ;;
+    i[34567]86-*-* | x86_64-*-*)
+			frag=mh-x86pic ;;
+    powerpc*-*-aix*)	;;
+    powerpc*-*-*)	frag=mh-ppcpic ;;
+    sparc*-*-*)		frag=mh-sparcpic ;;
+    s390*-*-*)		frag=mh-s390pic ;;
+    *)			frag=mh-${host_cpu}pic ;;
+  esac
+  if [ -n "${frag}" ]; then
+    frags="${frags} ${libiberty_topdir}/config/${frag}"
+  fi
+fi
+
+echo "# Warning: this fragment is automatically generated" > temp-frag
+
+for frag in ${frags}; do
+  if [ -f ${frag} ]; then
+    echo "Appending ${frag} to xhost-mkfrag"
+    echo "# Following fragment copied from ${frag}" >> temp-frag
+    cat ${frag} >> temp-frag
+  fi
+done
+
+# record if we want to build shared libs.
+if [ "${shared}" = "yes" ]; then
+  echo enable_shared = yes >> temp-frag
+else
+  echo enable_shared = no >> temp-frag
+fi
+
+frag=xhost-mkfrag
+${CONFIG_SHELL-/bin/sh} ${libiberty_topdir}/move-if-change temp-frag xhost-mkfrag
+
 host_makefile_frag=${frag}
 
 
@@ -4825,6 +4949,7 @@ funcs="$funcs strstr"
 funcs="$funcs strtod"
 funcs="$funcs strtol"
 funcs="$funcs strtoul"
+funcs="$funcs strverscmp"
 funcs="$funcs tmpnam"
 funcs="$funcs vasprintf"
 funcs="$funcs vfprintf"
@@ -4912,11 +5037,12 @@ if test "x" = "y"; then
 
 
 
+
 for ac_func in asprintf atexit basename bcmp bcopy bsearch bzero calloc clock \
   getcwd getpagesize gettimeofday index insque mkstemps memchr memcmp memcpy \
   memmove mempcpy memset putenv random rename rindex sigsetmask \
   strcasecmp setenv stpcpy stpncpy strchr strdup strncasecmp strndup strrchr strstr \
-  strtod strtol strtoul tmpnam vasprintf vfprintf vprintf \
+  strtod strtol strtoul strverscmp tmpnam vasprintf vfprintf vprintf \
   vsprintf waitpid getrusage on_exit psignal strerror strsignal \
   sysconf times sbrk gettimeofday ffs snprintf vsnprintf \
   pstat_getstatic pstat_getdynamic sysmp getsysinfo table sysctl wait3 wait4 \
@@ -7637,6 +7763,76 @@ _ACEOF
 
 
 fi
+echo "$as_me:$LINENO: checking whether getopt is declared" >&5
+echo $ECHO_N "checking whether getopt is declared... $ECHO_C" >&6
+if test "${ac_cv_have_decl_getopt+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+#ifndef getopt
+  char *p = (char *) getopt;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_have_decl_getopt=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_have_decl_getopt=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_have_decl_getopt" >&5
+echo "${ECHO_T}$ac_cv_have_decl_getopt" >&6
+if test $ac_cv_have_decl_getopt = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_GETOPT 1
+_ACEOF
+
+
+else
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_GETOPT 0
+_ACEOF
+
+
+fi
 echo "$as_me:$LINENO: checking whether malloc is declared" >&5
 echo $ECHO_N "checking whether malloc is declared... $ECHO_C" >&6
 if test "${ac_cv_have_decl_malloc+set}" = set; then
@@ -7849,6 +8045,78 @@ _ACEOF
 fi
 
 
+  echo "$as_me:$LINENO: checking whether strverscmp is declared" >&5
+echo $ECHO_N "checking whether strverscmp is declared... $ECHO_C" >&6
+if test "${ac_cv_have_decl_strverscmp+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+#ifndef strverscmp
+  char *p = (char *) strverscmp;
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_have_decl_strverscmp=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_have_decl_strverscmp=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_have_decl_strverscmp" >&5
+echo "${ECHO_T}$ac_cv_have_decl_strverscmp" >&6
+if test $ac_cv_have_decl_strverscmp = yes; then
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_STRVERSCMP 1
+_ACEOF
+
+
+else
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DECL_STRVERSCMP 0
+_ACEOF
+
+
+fi
+
+
   echo "$as_me:$LINENO: checking whether canonicalize_file_name must be declared" >&5
 echo $ECHO_N "checking whether canonicalize_file_name must be declared... $ECHO_C" >&6
 if test "${libiberty_cv_decl_needed_canonicalize_file_name+set}" = set; then
@@ -7942,7 +8210,7 @@ if test x$gcc_no_link = xyes; then
     ac_cv_func_mmap_fixed_mapped=no
   fi
 fi
-if test "x${ac_cv_func_mmap_fixed_mapped+set}" != xset; then
+if test "x${ac_cv_func_mmap_fixed_mapped}" != xno; then
 
 
 for ac_header in stdlib.h unistd.h

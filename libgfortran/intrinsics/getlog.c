@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "libgfortran.h"
@@ -36,6 +36,29 @@ Boston, MA 02111-1307, USA.  */
 #endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+
+
+/* Windows32 version */
+#if defined __MINGW32__ && !defined  HAVE_GETLOGIN
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <lmcons.h>  /* for UNLEN */ 
+
+static char *
+w32_getlogin (void)
+{
+  static char name [UNLEN + 1];
+  DWORD namelen = sizeof (name);
+
+  GetUserName (name, &namelen);
+  return (name[0] == 0 ?  NULL : name);
+}
+
+#undef getlogin
+#define getlogin w32_getlogin
+#define HAVE_GETLOGIN 1
+
 #endif
 
 

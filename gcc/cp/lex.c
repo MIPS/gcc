@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* This file is the lexical analyzer for GNU C++.  */
@@ -117,7 +117,7 @@ init_operators (void)
 	 : &operator_name_info[(int) CODE]);				    \
   oni->identifier = identifier;						    \
   oni->name = NAME;							    \
-  oni->mangled_name = MANGLING;                                             \
+  oni->mangled_name = MANGLING;						    \
   oni->arity = ARITY;
 
 #include "operators.def"
@@ -184,7 +184,7 @@ static const struct resword reswords[] =
   { "_Complex",		RID_COMPLEX,	0 },
   { "__FUNCTION__",	RID_FUNCTION_NAME, 0 },
   { "__PRETTY_FUNCTION__", RID_PRETTY_FUNCTION_NAME, 0 },
-  { "__alignof", 	RID_ALIGNOF,	0 },
+  { "__alignof",	RID_ALIGNOF,	0 },
   { "__alignof__",	RID_ALIGNOF,	0 },
   { "__asm",		RID_ASM,	0 },
   { "__asm__",		RID_ASM,	0 },
@@ -277,7 +277,7 @@ static const struct resword reswords[] =
   { "virtual",		RID_VIRTUAL,	0 },
   { "void",		RID_VOID,	0 },
   { "volatile",		RID_VOLATILE,	0 },
-  { "wchar_t",          RID_WCHAR,	0 },
+  { "wchar_t",		RID_WCHAR,	0 },
   { "while",		RID_WHILE,	0 },
 
   /* The remaining keywords are specific to Objective-C++.  NB:
@@ -316,7 +316,7 @@ init_reswords (void)
 	      | D_OBJC
 	      | (flag_no_gnu_keywords ? D_EXT : 0));
 
-  ridpointers = ggc_calloc ((int) RID_MAX, sizeof (tree));
+  ridpointers = GGC_CNEWVEC (tree, (int) RID_MAX);
   for (i = 0; i < ARRAY_SIZE (reswords); i++)
     {
       id = get_identifier (reswords[i].word);
@@ -460,20 +460,19 @@ parse_strconst_pragma (const char* name, int opt)
   tree result, x;
   enum cpp_ttype t;
 
-  t = c_lex (&x);
+  t = pragma_lex (&result);
   if (t == CPP_STRING)
     {
-      result = x;
-      if (c_lex (&x) != CPP_EOF)
+      if (pragma_lex (&x) != CPP_EOF)
 	warning (0, "junk at end of #pragma %s", name);
       return result;
     }
 
   if (t == CPP_EOF && opt)
-    return 0;
+    return NULL_TREE;
 
   error ("invalid #pragma %s", name);
-  return (tree)-1;
+  return error_mark_node;
 }
 
 static void
@@ -497,7 +496,7 @@ handle_pragma_interface (cpp_reader* dfile ATTRIBUTE_UNUSED )
   struct c_fileinfo *finfo;
   const char *filename;
 
-  if (fname == (tree)-1)
+  if (fname == error_mark_node)
     return;
   else if (fname == 0)
     filename = lbasename (input_filename);
@@ -537,7 +536,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
   const char *filename;
   struct impl_files *ifiles = impl_file_chain;
 
-  if (fname == (tree)-1)
+  if (fname == error_mark_node)
     return;
 
   if (fname == 0)
@@ -553,7 +552,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
       filename = ggc_strdup (TREE_STRING_POINTER (fname));
 #if 0
       /* We currently cannot give this diagnostic, as we reach this point
-         only after cpplib has scanned the entire translation unit, so
+	 only after cpplib has scanned the entire translation unit, so
 	 cpp_included always returns true.  A plausible fix is to compare
 	 the current source-location cookie with the first source-location
 	 cookie (if any) of the filename, but this requires completing the
@@ -571,7 +570,7 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
     }
   if (ifiles == 0)
     {
-      ifiles = xmalloc (sizeof (struct impl_files));
+      ifiles = XNEW (struct impl_files);
       ifiles->filename = filename;
       ifiles->next = impl_file_chain;
       impl_file_chain = ifiles;
@@ -580,10 +579,10 @@ handle_pragma_implementation (cpp_reader* dfile ATTRIBUTE_UNUSED )
 
 /* Indicate that this file uses Java-personality exception handling.  */
 static void
-handle_pragma_java_exceptions (cpp_reader* dfile ATTRIBUTE_UNUSED )
+handle_pragma_java_exceptions (cpp_reader* dfile ATTRIBUTE_UNUSED)
 {
   tree x;
-  if (c_lex (&x) != CPP_EOF)
+  if (pragma_lex (&x) != CPP_EOF)
     warning (0, "junk at end of #pragma GCC java_exceptions");
 
   choose_personality_routine (lang_java);
@@ -633,16 +632,16 @@ unqualified_fn_lookup_error (tree name)
 	 declaration of "f" is available.  Historically, G++ and most
 	 other compilers accepted that usage since they deferred all name
 	 lookup until instantiation time rather than doing unqualified
-	 name lookup at template definition time; explain to the user what 
+	 name lookup at template definition time; explain to the user what
 	 is going wrong.
 
 	 Note that we have the exact wording of the following message in
 	 the manual (trouble.texi, node "Name lookup"), so they need to
 	 be kept in synch.  */
       pedwarn ("there are no arguments to %qD that depend on a template "
-	       "parameter, so a declaration of %qD must be available", 
+	       "parameter, so a declaration of %qD must be available",
 	       name, name);
-      
+
       if (!flag_permissive)
 	{
 	  static bool hint;
@@ -670,7 +669,7 @@ build_lang_decl (enum tree_code code, tree name, tree type)
 
   /* All nesting of C++ functions is lexical; there is never a "static
      chain" in the sense of GNU C nested functions.  */
-  if (code == FUNCTION_DECL) 
+  if (code == FUNCTION_DECL)
     DECL_NO_STATIC_CHAIN (t) = 1;
 
   return t;

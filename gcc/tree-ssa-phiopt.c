@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -35,7 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-dump.h"
 #include "langhooks.h"
 
-static void tree_ssa_phiopt (void);
+static unsigned int tree_ssa_phiopt (void);
 static bool conditional_replacement (basic_block, basic_block,
 				     edge, edge, tree, tree, tree);
 static bool value_replacement (basic_block, basic_block,
@@ -133,12 +133,13 @@ static basic_block *blocks_in_phiopt_order (void);
 
    A similar transformation is done for MAX_EXPR.  */
 
-static void
+static unsigned int
 tree_ssa_phiopt (void)
 {
   basic_block bb;
   basic_block *bb_order;
   unsigned n, i;
+  bool cfgchanged = false;
 
   /* Search every basic block for COND_EXPR we may be able to optimize.
 
@@ -148,9 +149,9 @@ tree_ssa_phiopt (void)
      outer ones, and also that we do not try to visit a removed
      block.  */
   bb_order = blocks_in_phiopt_order ();
-  n = n_basic_blocks;
+  n = n_basic_blocks - NUM_FIXED_BLOCKS;
 
-  for (i = 0; i < n; i++)
+  for (i = 0; i < n; i++) 
     {
       tree cond_expr;
       tree phi;
@@ -227,16 +228,19 @@ tree_ssa_phiopt (void)
 
       /* Do the replacement of conditional if it can be done.  */
       if (conditional_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
-	;
+	cfgchanged = true;
       else if (value_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
-	;
+	cfgchanged = true;
       else if (abs_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
-	;
-      else
-	minmax_replacement (bb, bb1, e1, e2, phi, arg0, arg1);
+	cfgchanged = true;
+      else if (minmax_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
+	cfgchanged = true;
     }
 
   free (bb_order);
+  
+  /* If the CFG has changed, we should cleanup the CFG. */
+  return cfgchanged ? TODO_cleanup_cfg : 0;
 }
 
 /* Returns the list of basic blocks in the function in an order that guarantees
@@ -247,12 +251,13 @@ static basic_block *
 blocks_in_phiopt_order (void)
 {
   basic_block x, y;
-  basic_block *order = xmalloc (sizeof (basic_block) * n_basic_blocks);
-  unsigned n = n_basic_blocks, np, i;
-  sbitmap visited = sbitmap_alloc (last_basic_block + 2);
+  basic_block *order = XNEWVEC (basic_block, n_basic_blocks);
+  unsigned n = n_basic_blocks - NUM_FIXED_BLOCKS; 
+  unsigned np, i;
+  sbitmap visited = sbitmap_alloc (last_basic_block); 
 
-#define MARK_VISITED(BB) (SET_BIT (visited, (BB)->index + 2))
-#define VISITED_P(BB) (TEST_BIT (visited, (BB)->index + 2))
+#define MARK_VISITED(BB) (SET_BIT (visited, (BB)->index)) 
+#define VISITED_P(BB) (TEST_BIT (visited, (BB)->index)) 
 
   sbitmap_zero (visited);
 
@@ -331,6 +336,8 @@ replace_phi_edge_with_variable (basic_block cond_block,
     {
       EDGE_SUCC (cond_block, 0)->flags |= EDGE_FALLTHRU;
       EDGE_SUCC (cond_block, 0)->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+      EDGE_SUCC (cond_block, 0)->probability = REG_BR_PROB_BASE;
+      EDGE_SUCC (cond_block, 0)->count += EDGE_SUCC (cond_block, 1)->count;
 
       block_to_remove = EDGE_SUCC (cond_block, 1)->dest;
     }
@@ -339,6 +346,8 @@ replace_phi_edge_with_variable (basic_block cond_block,
       EDGE_SUCC (cond_block, 1)->flags |= EDGE_FALLTHRU;
       EDGE_SUCC (cond_block, 1)->flags
 	&= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+      EDGE_SUCC (cond_block, 1)->probability = REG_BR_PROB_BASE;
+      EDGE_SUCC (cond_block, 1)->count += EDGE_SUCC (cond_block, 0)->count;
 
       block_to_remove = EDGE_SUCC (cond_block, 0)->dest;
     }
@@ -346,7 +355,7 @@ replace_phi_edge_with_variable (basic_block cond_block,
 
   /* Eliminate the COND_EXPR at the end of COND_BLOCK.  */
   bsi = bsi_last (cond_block);
-  bsi_remove (&bsi);
+  bsi_remove (&bsi, true);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file,
@@ -395,7 +404,14 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
   if (TREE_CODE (cond) != SSA_NAME
       && !lang_hooks.types_compatible_p (TREE_TYPE (cond), TREE_TYPE (result)))
     {
-      new_var = make_rename_temp (TREE_TYPE (cond), NULL);
+      tree tmp;
+
+      if (!COMPARISON_CLASS_P (cond))
+	return false;
+
+      tmp = create_tmp_var (TREE_TYPE (cond), NULL);
+      add_referenced_tmp_var (tmp);
+      new_var = make_ssa_name (tmp, NULL);
       old_result = cond;
       cond = new_var;
     }
@@ -418,14 +434,14 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
   if (old_result)
     {
       tree new1;
-      if (!COMPARISON_CLASS_P (old_result))
-	return false;
 
       new1 = build2 (TREE_CODE (old_result), TREE_TYPE (old_result),
 		     TREE_OPERAND (old_result, 0),
 		     TREE_OPERAND (old_result, 1));
 
       new1 = build2 (MODIFY_EXPR, TREE_TYPE (old_result), new_var, new1);
+      SSA_NAME_DEF_STMT (new_var) = new1;
+
       bsi_insert_after (&bsi, new1, BSI_NEW_STMT);
     }
 
@@ -461,9 +477,21 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
       tree cond1 = invert_truthvalue (cond);
 
       cond = cond1;
+
       /* If what we get back is a conditional expression, there is no
 	  way that it can be gimple.  */
       if (TREE_CODE (cond) == COND_EXPR)
+	{
+	  release_ssa_name (new_var1);
+	  return false;
+	}
+
+      /* If COND is not something we can expect to be reducible to a GIMPLE
+	 condition, return early.  */
+      if (is_gimple_cast (cond))
+	cond1 = TREE_OPERAND (cond, 0);
+      if (TREE_CODE (cond1) == TRUTH_NOT_EXPR
+	  && !is_gimple_val (TREE_OPERAND (cond1, 0)))
 	{
 	  release_ssa_name (new_var1);
 	  return false;
@@ -474,18 +502,23 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
       if (is_gimple_cast (cond)
 	  && !is_gimple_val (TREE_OPERAND (cond, 0)))
 	{
-	  tree temp = TREE_OPERAND (cond, 0);
-	  tree new_var_1 = make_rename_temp (TREE_TYPE (temp), NULL);
-	  new = build2 (MODIFY_EXPR, TREE_TYPE (new_var_1), new_var_1, temp);
-	  bsi_insert_after (&bsi, new, BSI_NEW_STMT);
-	  cond = fold_convert (TREE_TYPE (result), new_var_1);
-	}
+	  tree op0, tmp, cond_tmp;
 
-      if (TREE_CODE (cond) == TRUTH_NOT_EXPR
-	  &&  !is_gimple_val (TREE_OPERAND (cond, 0)))
-	{
-	  release_ssa_name (new_var1);
-	  return false;
+	  /* Only "real" casts are OK here, not everything that is
+	     acceptable to is_gimple_cast.  Make sure we don't do
+	     anything stupid here.  */
+	  gcc_assert (TREE_CODE (cond) == NOP_EXPR
+		      || TREE_CODE (cond) == CONVERT_EXPR);
+
+	  op0 = TREE_OPERAND (cond, 0);
+	  tmp = create_tmp_var (TREE_TYPE (op0), NULL);
+	  add_referenced_tmp_var (tmp);
+	  cond_tmp = make_ssa_name (tmp, NULL);
+	  new = build2 (MODIFY_EXPR, TREE_TYPE (cond_tmp), cond_tmp, op0);
+	  SSA_NAME_DEF_STMT (cond_tmp) = new;
+
+	  bsi_insert_after (&bsi, new, BSI_NEW_STMT);
+	  cond = fold_convert (TREE_TYPE (result), cond_tmp);
 	}
 
       new = build2 (MODIFY_EXPR, TREE_TYPE (new_var1), new_var1, cond);
@@ -720,8 +753,8 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		return false;
 
 	      /* We need BOUND <= LARGER.  */
-	      if (!integer_nonzerop (fold (build2 (LE_EXPR, boolean_type_node,
-						   bound, larger))))
+	      if (!integer_nonzerop (fold_build2 (LE_EXPR, boolean_type_node,
+						  bound, larger)))
 		return false;
 	    }
 	  else if (operand_equal_for_phi_arg_p (arg_false, smaller))
@@ -745,8 +778,8 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		return false;
 
 	      /* We need BOUND >= SMALLER.  */
-	      if (!integer_nonzerop (fold (build2 (GE_EXPR, boolean_type_node,
-						   bound, smaller))))
+	      if (!integer_nonzerop (fold_build2 (GE_EXPR, boolean_type_node,
+						  bound, smaller)))
 		return false;
 	    }
 	  else
@@ -779,8 +812,8 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		return false;
 
 	      /* We need BOUND >= LARGER.  */
-	      if (!integer_nonzerop (fold (build2 (GE_EXPR, boolean_type_node,
-						   bound, larger))))
+	      if (!integer_nonzerop (fold_build2 (GE_EXPR, boolean_type_node,
+						  bound, larger)))
 		return false;
 	    }
 	  else if (operand_equal_for_phi_arg_p (arg_true, smaller))
@@ -804,8 +837,8 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		return false;
 
 	      /* We need BOUND <= SMALLER.  */
-	      if (!integer_nonzerop (fold (build2 (LE_EXPR, boolean_type_node,
-						   bound, smaller))))
+	      if (!integer_nonzerop (fold_build2 (LE_EXPR, boolean_type_node,
+						  bound, smaller)))
 		return false;
 	    }
 	  else
@@ -924,13 +957,18 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
   result = duplicate_ssa_name (result, NULL);
 
   if (negate)
-    lhs = make_rename_temp (TREE_TYPE (result), NULL);
+    {
+      tree tmp = create_tmp_var (TREE_TYPE (result), NULL);
+      add_referenced_tmp_var (tmp);
+      lhs = make_ssa_name (tmp, NULL);
+    }
   else
     lhs = result;
 
   /* Build the modify expression with abs expression.  */
   new = build2 (MODIFY_EXPR, TREE_TYPE (lhs),
 		lhs, build1 (ABS_EXPR, TREE_TYPE (lhs), rhs));
+  SSA_NAME_DEF_STMT (lhs) = new;
 
   bsi = bsi_last (cond_bb);
   bsi_insert_before (&bsi, new, BSI_NEW_STMT);
@@ -942,11 +980,11 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
 	 in the block.  */
       new = build2 (MODIFY_EXPR, TREE_TYPE (result),
 		    result, build1 (NEGATE_EXPR, TREE_TYPE (lhs), lhs));
+      SSA_NAME_DEF_STMT (result) = new;
 
       bsi_insert_after (&bsi, new, BSI_NEW_STMT);
     }
 
-  SSA_NAME_DEF_STMT (result) = new;
   replace_phi_edge_with_variable (cond_bb, e1, phi, result);
 
   /* Note that we optimized this PHI.  */
@@ -966,9 +1004,7 @@ struct tree_opt_pass pass_phiopt =
 {
   "phiopt",				/* name */
   gate_phiopt,				/* gate */
-  NULL, NULL,				/* IPA analysis */
   tree_ssa_phiopt,			/* execute */
-  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -977,11 +1013,9 @@ struct tree_opt_pass pass_phiopt =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_cleanup_cfg
-    | TODO_dump_func
+  TODO_dump_func
     | TODO_ggc_collect
     | TODO_verify_ssa
-    | TODO_update_ssa
     | TODO_verify_flow
     | TODO_verify_stmts,		/* todo_flags_finish */
   0					/* letter */

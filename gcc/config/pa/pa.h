@@ -19,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 enum cmp_type				/* comparison type */
 {
@@ -289,6 +289,11 @@ typedef struct machine_function GTY(())
    conventions for TImode variables.  */
 #define MIN_UNITS_PER_WORD 4
 
+/* The widest floating point format supported by the hardware.  Note that
+   setting this influences some Ada floating point type sizes, currently
+   required for GNAT to operate properly.  */
+#define WIDEST_HARDWARE_FP_SIZE 64
+
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY BITS_PER_WORD
 
@@ -358,6 +363,12 @@ typedef struct machine_function GTY(())
 #define FRAME_POINTER_REQUIRED \
   (current_function_calls_alloca)
 
+/* Don't allow hard registers to be renamed into r2 unless r2
+   is already live or already being saved (due to eh).  */
+
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG) \
+  ((NEW_REG) != 2 || regs_ever_live[2] || current_function_calls_eh_return)
+
 /* C statement to store the difference between the frame pointer
    and the stack pointer values immediately after the function prologue.
 
@@ -398,12 +409,72 @@ extern struct rtx_def *hppa_pic_save_rtx (void);
   gen_rtx_MEM (word_mode,						\
 	       gen_rtx_PLUS (word_mode, frame_pointer_rtx,		\
 			     TARGET_64BIT ? GEN_INT (-16) : GEN_INT (-20)))
-			  	
 
-/* Offset from the argument pointer register value to the top of
-   stack.  This is different from FIRST_PARM_OFFSET because of the
-   frame marker.  */
-#define ARG_POINTER_CFA_OFFSET(FNDECL) 0
+/* Offset from the frame pointer register value to the top of stack.  */
+#define FRAME_POINTER_CFA_OFFSET(FNDECL) 0
+
+/* A C expression whose value is RTL representing the location of the
+   incoming return address at the beginning of any function, before the
+   prologue.  You only need to define this macro if you want to support
+   call frame debugging information like that provided by DWARF 2.  */
+#define INCOMING_RETURN_ADDR_RTX (gen_rtx_REG (word_mode, 2))
+#define DWARF_FRAME_RETURN_COLUMN (DWARF_FRAME_REGNUM (2))
+
+/* A C expression whose value is an integer giving a DWARF 2 column
+   number that may be used as an alternate return column.  This should
+   be defined only if DWARF_FRAME_RETURN_COLUMN is set to a general
+   register, but an alternate column needs to be used for signal frames.
+
+   Column 0 is not used but unfortunately its register size is set to
+   4 bytes (sizeof CCmode) so it can't be used on 64-bit targets.  */
+#define DWARF_ALT_FRAME_RETURN_COLUMN FIRST_PSEUDO_REGISTER
+
+/* This macro chooses the encoding of pointers embedded in the exception
+   handling sections.  If at all possible, this should be defined such
+   that the exception handling section will not require dynamic relocations,
+   and so may be read-only.
+
+   Because the HP assembler auto aligns, it is necessary to use
+   DW_EH_PE_aligned.  It's not possible to make the data read-only
+   on the HP-UX SOM port since the linker requires fixups for label
+   differences in different sections to be word aligned.  However,
+   the SOM linker can do unaligned fixups for absolute pointers.
+   We also need aligned pointers for global and function pointers.
+
+   Although the HP-UX 64-bit ELF linker can handle unaligned pc-relative
+   fixups, the runtime doesn't have a consistent relationship between
+   text and data for dynamically loaded objects.  Thus, it's not possible
+   to use pc-relative encoding for pointers on this target.  It may be
+   possible to use segment relative encodings but GAS doesn't currently
+   have a mechanism to generate these encodings.  For other targets, we
+   use pc-relative encoding for pointers.  If the pointer might require
+   dynamic relocation, we make it indirect.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)			\
+  (TARGET_GAS && !TARGET_HPUX						\
+   ? (DW_EH_PE_pcrel							\
+      | ((GLOBAL) || (CODE) == 2 ? DW_EH_PE_indirect : 0)		\
+      | (TARGET_64BIT ? DW_EH_PE_sdata8 : DW_EH_PE_sdata4))		\
+   : (!TARGET_GAS || (GLOBAL) || (CODE) == 2				\
+      ? DW_EH_PE_aligned : DW_EH_PE_absptr))
+
+/* Handle special EH pointer encodings.  Absolute, pc-relative, and
+   indirect are handled automatically.  We output pc-relative, and
+   indirect pc-relative ourself since we need some special magic to
+   generate pc-relative relocations, and to handle indirect function
+   pointers.  */
+#define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(FILE, ENCODING, SIZE, ADDR, DONE) \
+  do {									\
+    if (((ENCODING) & 0x70) == DW_EH_PE_pcrel)				\
+      {									\
+	fputs (integer_asm_op (SIZE, FALSE), FILE);			\
+	if ((ENCODING) & DW_EH_PE_indirect)				\
+	  output_addr_const (FILE, get_deferred_plabel (ADDR));		\
+	else								\
+	  assemble_name (FILE, XSTR ((ADDR), 0));			\
+	fputs ("+8-$PIC_pcrel$0", FILE);				\
+	goto DONE;							\
+      }									\
+    } while (0)
 
 /* The letters I, J, K, L and M in a register constraint string
    can be used to stand for particular ranges of immediate operands.
@@ -461,28 +532,19 @@ extern struct rtx_def *hppa_pic_save_rtx (void);
    in some cases it is preferable to use a more restrictive class.  */
 #define PREFERRED_RELOAD_CLASS(X,CLASS) (CLASS)
 
-/* Return the register class of a scratch register needed to copy
-   IN into a register in CLASS in MODE, or a register in CLASS in MODE
-   to IN.  If it can be done directly NO_REGS is returned. 
-
-  Avoid doing any work for the common case calls.  */
-#define SECONDARY_RELOAD_CLASS(CLASS,MODE,IN) \
-  ((CLASS == BASE_REG_CLASS && GET_CODE (IN) == REG		\
-    && REGNO (IN) < FIRST_PSEUDO_REGISTER)			\
-   ? NO_REGS : secondary_reload_class (CLASS, MODE, IN))
-
 #define MAYBE_FP_REG_CLASS_P(CLASS) \
   reg_classes_intersect_p ((CLASS), FP_REGS)
 
 /* On the PA it is not possible to directly move data between
-   GENERAL_REGS and FP_REGS.  */
-#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)		\
-  (MAYBE_FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2)	\
-   || MAYBE_FP_REG_CLASS_P (CLASS2) != FP_REG_CLASS_P (CLASS1))
-
-/* Return the stack location to use for secondary memory needed reloads.  */
-#define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
-  gen_rtx_MEM (MODE, gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (-16)))
+   GENERAL_REGS and FP_REGS.  On the 32-bit port, we use the
+   location at SP-16.  We don't expose this location in the RTL to
+   avoid scheduling related problems.  For example, the store and
+   load could be separated by a call to a pure or const function
+   which has no frame and uses SP-16.  */
+#define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)			\
+  (TARGET_64BIT								\
+   && (MAYBE_FP_REG_CLASS_P (CLASS1) != FP_REG_CLASS_P (CLASS2)		\
+       || MAYBE_FP_REG_CLASS_P (CLASS2) != FP_REG_CLASS_P (CLASS1)))
 
 
 /* Stack layout; function entry, exit and calling.  */
@@ -494,11 +556,11 @@ extern struct rtx_def *hppa_pic_save_rtx (void);
 /* Believe it or not.  */
 #define ARGS_GROW_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-/* #define FRAME_GROWS_DOWNWARD */
+#define FRAME_GROWS_DOWNWARD 0
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -763,6 +825,11 @@ void hppa_profile_hook (int label_no);
 /* The profile counter if emitted must come before the prologue.  */
 #define PROFILE_BEFORE_PROLOGUE 1
 
+/* We never want final.c to emit profile counters.  When profile
+   counters are required, we have to defer emitting them to the end
+   of the current file.  */
+#define NO_PROFILE_COUNTERS 1
+
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
@@ -1003,13 +1070,18 @@ extern int may_call_alloca;
 
 #define MAX_REGS_PER_ADDRESS 2
 
+/* Non-TLS symbolic references.  */
+#define PA_SYMBOL_REF_TLS_P(RTX) \
+  (GET_CODE (RTX) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (RTX) != 0)
+
 /* Recognize any constant value that is a valid address except
    for symbolic addresses.  We get better CSE by rejecting them
    here and allowing hppa_legitimize_address to break them up.  We
    use most of the constants accepted by CONSTANT_P, except CONST_DOUBLE.  */
 
 #define CONSTANT_ADDRESS_P(X) \
-  ((GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
+  ((GET_CODE (X) == LABEL_REF 						\
+   || (GET_CODE (X) == SYMBOL_REF && !SYMBOL_REF_TLS_MODEL (X))		\
    || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
    || GET_CODE (X) == HIGH) 						\
    && (reload_in_progress || reload_completed || ! symbolic_expression_p (X)))
@@ -1502,72 +1574,6 @@ do { 									\
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
    && DECL_SECTION_NAME (DECL) != NULL_TREE)
 
-/* The following extra sections and extra section functions are only used
-   for SOM, but they must be provided unconditionally because pa.c's calls
-   to the functions might not get optimized out when other object formats
-   are in use.  */
-
-#define EXTRA_SECTIONS							\
-  in_som_readonly_data,							\
-  in_som_one_only_readonly_data,					\
-  in_som_one_only_data
-
-#define EXTRA_SECTION_FUNCTIONS						\
-  SOM_READONLY_DATA_SECTION_FUNCTION					\
-  SOM_ONE_ONLY_READONLY_DATA_SECTION_FUNCTION				\
-  SOM_ONE_ONLY_DATA_SECTION_FUNCTION					\
-  FORGET_SECTION_FUNCTION
-
-/* SOM puts readonly data in the default $LIT$ subspace when PIC code
-   is not being generated.  */
-#define SOM_READONLY_DATA_SECTION_FUNCTION				\
-void									\
-som_readonly_data_section (void)					\
-{									\
-  if (!TARGET_SOM)							\
-    return;								\
-  if (in_section != in_som_readonly_data)				\
-    {									\
-      in_section = in_som_readonly_data;				\
-      fputs ("\t.SPACE $TEXT$\n\t.SUBSPA $LIT$\n", asm_out_file);	\
-    }									\
-}
-
-/* When secondary definitions are not supported, SOM makes readonly data one
-   only by creating a new $LIT$ subspace in $TEXT$ with the comdat flag.  */
-#define SOM_ONE_ONLY_READONLY_DATA_SECTION_FUNCTION			\
-void									\
-som_one_only_readonly_data_section (void)				\
-{									\
-  if (!TARGET_SOM)							\
-    return;								\
-  in_section = in_som_one_only_readonly_data;				\
-  fputs ("\t.SPACE $TEXT$\n"						\
-	 "\t.NSUBSPA $LIT$,QUAD=0,ALIGN=8,ACCESS=0x2c,SORT=16,COMDAT\n",\
-	 asm_out_file);							\
-}
-
-/* When secondary definitions are not supported, SOM makes data one only by
-   creating a new $DATA$ subspace in $PRIVATE$ with the comdat flag.  */
-#define SOM_ONE_ONLY_DATA_SECTION_FUNCTION				\
-void									\
-som_one_only_data_section (void)					\
-{									\
-  if (!TARGET_SOM)							\
-    return;								\
-  in_section = in_som_one_only_data;					\
-  fputs ("\t.SPACE $PRIVATE$\n"						\
-	 "\t.NSUBSPA $DATA$,QUAD=1,ALIGN=8,ACCESS=31,SORT=24,COMDAT\n",	\
-	 asm_out_file);							\
-}
-
-#define FORGET_SECTION_FUNCTION						\
-void									\
-forget_section (void)							\
-{									\
-  in_section = no_section;						\
-}
-
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or
    function named by the symbol (such as what section it is in).
@@ -1919,3 +1925,8 @@ forget_section (void)							\
 /* We need a libcall to canonicalize function pointers on TARGET_ELF32.  */
 #define CANONICALIZE_FUNCPTR_FOR_COMPARE_LIBCALL \
   "__canonicalize_funcptr_for_compare"
+
+#ifdef HAVE_AS_TLS
+#undef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS true
+#endif

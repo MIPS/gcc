@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -38,12 +38,14 @@ Boston, MA 02111-1307, USA.  */
 include(iparm.m4)dnl
 include(iforeach.m4)dnl
 
+`#if defined (HAVE_'atype_name`) && defined (HAVE_'rtype_name`)'
+
 FOREACH_FUNCTION(
 `  atype_name maxval;
 
   maxval = atype_min;'
 ,
-`  if (*base > maxval)
+`  if (*base > maxval || !dest[0])
     {
       maxval = *base;
       for (n = 0; n < rank; n++)
@@ -55,9 +57,12 @@ MASKED_FOREACH_FUNCTION(
 
   maxval = atype_min;'
 ,
-`  if (*mbase && *base > maxval)
+`  if (*mbase && (*base > maxval || !dest[0]))
     {
       maxval = *base;
       for (n = 0; n < rank; n++)
         dest[n * dstride] = count[n] + 1;
     }')
+
+SCALAR_FOREACH_FUNCTION(`0')
+#endif

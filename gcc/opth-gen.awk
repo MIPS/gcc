@@ -1,4 +1,4 @@
-#  Copyright (C) 2003,2004 Free Software Foundation, Inc.
+#  Copyright (C) 2003,2004,2005,2006 Free Software Foundation, Inc.
 #  Contributed by Kelley Cook, June 2004.
 #  Original code from Neil Booth, May 2003.
 #
@@ -14,7 +14,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # This Awk script reads in the option records generated from 
 # opt-gather.awk, combines the flags of duplicate options and generates a
@@ -118,9 +118,18 @@ print ""
 
 for (i = 0; i < n_opts; i++) {
 	opt = opt_args("InverseMask", flags[i])
-	if (opt ~ ",")
-		print "#define TARGET_" nth_arg(1, opt) \
-		      " ((target_flags & MASK_" nth_arg(0, opt) ") == 0)"
+	if (opt ~ ",") {
+		vname = var_name(flags[i])
+		macro = "OPTION_"
+		mask = "OPTION_MASK_"
+		if (vname == "") {
+			vname = "target_flags"
+			macro = "TARGET_"
+			mask = "MASK_"
+		}
+		print "#define " macro nth_arg(1, opt) \
+		      " ((" vname " & " mask nth_arg(0, opt) ") == 0)"
+	}
 }
 print ""
 

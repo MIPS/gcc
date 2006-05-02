@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -50,14 +50,15 @@
 #define _GLIBCXX_NUM_CATEGORIES 6
 
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   extern "C" __typeof(uselocale) __uselocale;
-}
+
+_GLIBCXX_END_NAMESPACE
 #endif
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   typedef __locale_t		__c_locale;
 
   // Convert numeric value of type _Tv to string and return length of
@@ -96,6 +97,7 @@ namespace std
 #endif
       return __ret;
     }
-}
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

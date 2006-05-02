@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -172,7 +172,7 @@ unswitch_loops (struct loops *loops)
 static rtx
 may_unswitch_on (basic_block bb, struct loop *loop, rtx *cinsn)
 {
-  rtx test, at, insn, op[2], stest;
+  rtx test, at, op[2], stest;
   struct rtx_iv iv;
   unsigned i;
   enum machine_mode mode;
@@ -205,8 +205,7 @@ may_unswitch_on (basic_block bb, struct loop *loop, rtx *cinsn)
       if (CONSTANT_P (op[i]))
 	continue;
 
-      insn = iv_get_reaching_def (at, op[i]);
-      if (!iv_analyze (insn, op[i], &iv))
+      if (!iv_analyze (at, op[i], &iv))
 	return NULL_RTX;
       if (iv.step != const0_rtx
 	  || iv.first_special)
@@ -426,15 +425,18 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
   sbitmap_zero (zero_bitmap);
   if (!duplicate_loop_to_header_edge (loop, entry, loops, 1,
 	zero_bitmap, NULL, NULL, NULL, 0))
-    return NULL;
-  free (zero_bitmap);
+    {
+      sbitmap_free (zero_bitmap);
+      return NULL;
+    }
+  sbitmap_free (zero_bitmap);
   entry->flags |= irred_flag;
 
   /* Record the block with condition we unswitch on.  */
-  unswitch_on_alt = unswitch_on->rbi->copy;
+  unswitch_on_alt = get_bb_copy (unswitch_on);
   true_edge = BRANCH_EDGE (unswitch_on_alt);
   false_edge = FALLTHRU_EDGE (unswitch_on);
-  latch_edge = single_succ_edge (loop->latch->rbi->copy);
+  latch_edge = single_succ_edge (get_bb_copy (loop->latch));
 
   /* Create a block with the condition.  */
   prob = true_edge->probability;
@@ -465,7 +467,7 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
 
   /* Loopify from the copy of LOOP body, constructing the new loop.  */
   nloop = loopify (loops, latch_edge,
-		   single_pred_edge (loop->header->rbi->copy), switch_bb,
+		   single_pred_edge (get_bb_copy (loop->header)), switch_bb,
 		   BRANCH_EDGE (switch_bb), FALLTHRU_EDGE (switch_bb), true);
 
   /* Remove branches that are now unreachable in new loops.  */

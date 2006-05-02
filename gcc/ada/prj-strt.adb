@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2005 Free Software Foundation, Inc.          --
+--          Copyright (C) 2001-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,24 +16,21 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Err_Vars;  use Err_Vars;
-with Namet;     use Namet;
-with Prj.Attr;  use Prj.Attr;
-with Prj.Err;   use Prj.Err;
-with Prj.Tree;  use Prj.Tree;
-with Scans;     use Scans;
+with Err_Vars; use Err_Vars;
+with Namet;    use Namet;
+with Prj.Attr; use Prj.Attr;
+with Prj.Err;  use Prj.Err;
 with Snames;
 with Table;
-with Types;     use Types;
-with Uintp;     use Uintp;
+with Uintp;    use Uintp;
 
 package body Prj.Strt is
 
@@ -67,7 +64,7 @@ package body Prj.Strt is
                        Table_Initial        => Choices_Initial,
                        Table_Increment      => Choices_Increment,
                        Table_Name           => "Prj.Strt.Choices");
-   --  Used to store the case labels and check that there is no duplicate.
+   --  Used to store the case labels and check that there is no duplicate
 
    package Choice_Lasts is
       new Table.Table (Table_Component_Type => Choice_Node_Id,
@@ -110,7 +107,7 @@ package body Prj.Strt is
       Current_Project : Project_Node_Id;
       Current_Package : Project_Node_Id;
       External_Value  : out Project_Node_Id);
-   --  Parse an external reference. Current token is "external".
+   --  Parse an external reference. Current token is "external"
 
    procedure Attribute_Reference
      (In_Tree         : Project_Node_Tree_Ref;
@@ -118,7 +115,7 @@ package body Prj.Strt is
       First_Attribute : Attribute_Node_Id;
       Current_Project : Project_Node_Id;
       Current_Package : Project_Node_Id);
-   --  Parse an attribute reference. Current token is an apostrophe.
+   --  Parse an attribute reference. Current token is an apostrophe
 
    procedure Terms
      (In_Tree         : Project_Node_Tree_Ref;

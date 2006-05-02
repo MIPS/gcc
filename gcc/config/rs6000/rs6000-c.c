@@ -19,8 +19,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the
-   Free Software Foundation, 59 Temple Place - Suite 330, Boston,
-   MA 02111-1307, USA.  */
+   Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+   MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -38,8 +38,6 @@
 
 
 
-static tree altivec_resolve_overloaded_builtin (tree, tree);
-
 /* Handle the machine specific pragma longcall.  Its syntax is
 
    # pragma longcall ( TOGGLE )
@@ -50,10 +48,10 @@ static tree altivec_resolve_overloaded_builtin (tree, tree);
    whether or not new function declarations receive a longcall
    attribute by default.  */
 
-#define SYNTAX_ERROR(msgid) do {			\
-  warning (0, msgid);					\
-  warning (0, "ignoring malformed #pragma longcall");	\
-  return;						\
+#define SYNTAX_ERROR(gmsgid) do {					\
+  warning (OPT_Wpragmas, gmsgid);					\
+  warning (OPT_Wpragmas, "ignoring malformed #pragma longcall");	\
+  return;								\
 } while (0)
 
 void
@@ -64,18 +62,18 @@ rs6000_pragma_longcall (cpp_reader *pfile ATTRIBUTE_UNUSED)
   /* If we get here, generic code has already scanned the directive
      leader and the word "longcall".  */
 
-  if (c_lex (&x) != CPP_OPEN_PAREN)
+  if (pragma_lex (&x) != CPP_OPEN_PAREN)
     SYNTAX_ERROR ("missing open paren");
-  if (c_lex (&n) != CPP_NUMBER)
+  if (pragma_lex (&n) != CPP_NUMBER)
     SYNTAX_ERROR ("missing number");
-  if (c_lex (&x) != CPP_CLOSE_PAREN)
+  if (pragma_lex (&x) != CPP_CLOSE_PAREN)
     SYNTAX_ERROR ("missing close paren");
 
   if (n != integer_zero_node && n != integer_one_node)
     SYNTAX_ERROR ("number must be 0 or 1");
 
-  if (c_lex (&x) != CPP_EOF)
-    warning (0, "junk at end of #pragma longcall");
+  if (pragma_lex (&x) != CPP_EOF)
+    warning (OPT_Wpragmas, "junk at end of #pragma longcall");
 
   rs6000_default_long_calls = (n == integer_one_node);
 }
@@ -96,8 +94,18 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
     builtin_define ("_ARCH_PWR");
   if (TARGET_POWERPC)
     builtin_define ("_ARCH_PPC");
+  if (TARGET_PPC_GPOPT)
+    builtin_define ("_ARCH_PPCSQ");
+  if (TARGET_PPC_GFXOPT)
+    builtin_define ("_ARCH_PPCGR");
   if (TARGET_POWERPC64)
     builtin_define ("_ARCH_PPC64");
+  if (TARGET_MFCRF)
+    builtin_define ("_ARCH_PWR4");
+  if (TARGET_POPCNTB)
+    builtin_define ("_ARCH_PWR5");
+  if (TARGET_FPRND)
+    builtin_define ("_ARCH_PWR5X");
   if (! TARGET_POWER && ! TARGET_POWER2 && ! TARGET_POWERPC)
     builtin_define ("_ARCH_COM");
   if (TARGET_ALTIVEC)
@@ -143,8 +151,6 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
   /* Let the compiled code know if 'f' class registers will not be available.  */
   if (TARGET_SOFT_FLOAT || !TARGET_FPRS)
     builtin_define ("__NO_FPRS__");
-
-  targetm.resolve_overloaded_builtin = altivec_resolve_overloaded_builtin;
 }
 
 
@@ -2470,7 +2476,7 @@ altivec_build_resolved_builtin (tree *args, int n,
 /* Implementation of the resolve_overloaded_builtin target hook, to
    support Altivec's overloaded builtins.  */
 
-static tree
+tree
 altivec_resolve_overloaded_builtin (tree fndecl, tree arglist)
 {
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);

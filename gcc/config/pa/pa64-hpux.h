@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* We can debug dynamically linked executables on hpux11; we also
    want dereferencing of a NULL pointer to cause a SEGV.  Do not move
@@ -56,23 +56,25 @@ Boston, MA 02111-1307, USA.  */
 #if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_GNU_LD)
 #define LIB_SPEC \
   "%{!shared:\
-     %{!p:%{!pg: -lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+     %{!p:%{!pg: %{static|mt|pthread:-lpthread} -lc\
+	    %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
      %{p:%{!pg:%{static:%{!mhp-ld:-a shared}%{mhp-ld:-a archive_shared}}\
-	   -lprof %{static:-a archive} -lc\
+	   -lprof %{static:-a archive} %{static|mt|pthread:-lpthread} -lc\
 	   %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
      %{pg:%{static:%{!mhp-ld:-a shared}%{mhp-ld:-a archive_shared}}\
-       -lgprof %{static:-a archive} -lc\
+       -lgprof %{static:-a archive} %{static|mt|pthread:-lpthread} -lc\
        %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
    /usr/lib/pa20_64/milli.a"
 #else
 #define LIB_SPEC \
   "%{!shared:\
-     %{!p:%{!pg: -lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+     %{!p:%{!pg: %{static|mt|pthread:-lpthread} -lc\
+	    %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
      %{p:%{!pg:%{static:%{mgnu-ld:-a shared}%{!mgnu-ld:-a archive_shared}}\
-	   -lprof %{static:-a archive} -lc\
+	   -lprof %{static:-a archive} %{shatic|mt|pthread:-lpthread} -lc\
 	   %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
      %{pg:%{static:%{mgnu-ld:-a shared}%{!mgnu-ld:-a archive_shared}}\
-       -lgprof %{static:-a archive} -lc\
+       -lgprof %{static:-a archive} %{static|mt|pthread:-lpthread} -lc\
        %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
    /usr/lib/pa20_64/milli.a"
 #endif

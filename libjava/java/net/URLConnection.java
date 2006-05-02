@@ -15,8 +15,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -539,7 +539,7 @@ public abstract class URLConnection
   }
 
   /**
-   * Returns the value of a flag indicating whether or not input is going
+   * Sets the value of a flag indicating whether or not input is going
    * to be done for this connection.  This default to true unless the
    * doOutput flag is set to false, in which case this defaults to false.
    *
@@ -569,7 +569,7 @@ public abstract class URLConnection
   }
 
   /**
-   * Returns a boolean flag indicating whether or not output will be done
+   * Sets a boolean flag indicating whether or not output will be done
    * on this connection.  The default value is false, so this method can
    * be used to override the default
    *
@@ -860,7 +860,7 @@ public abstract class URLConnection
   }
 
   /**
-   * Set's the ContentHandlerFactory for an application.  This can be called
+   * Sets the ContentHandlerFactory for an application.  This can be called
    * once and only once.  If it is called again, then an Error is thrown.
    * Unlike for other set factory methods, this one does not do a security
    * check prior to setting the factory.
@@ -956,7 +956,7 @@ public abstract class URLConnection
   }
 
   /**
-   * This method set the <code>FileNameMap</code> object being used
+   * This method sets the <code>FileNameMap</code> object being used
    * to decode MIME types by file extension.
    *
    * @param map The <code>FileNameMap</code>.
@@ -983,17 +983,22 @@ public abstract class URLConnection
     if (contentType == null || contentType.equals(""))
       return null;
 
-    ContentHandler handler;
+    ContentHandler handler = null;
 
     // See if a handler has been cached for this content type.
     // For efficiency, if a content type has been searched for but not
     // found, it will be in the hash table but as the contentType String
     // instead of a ContentHandler.
-    if ((handler = (ContentHandler) handlers.get(contentType)) != null)
-      if (handler instanceof ContentHandler)
-	return handler;
-      else
-	return null;
+    {
+      Object cachedHandler;
+      if ((cachedHandler = handlers.get(contentType)) != null)
+	{
+	  if (cachedHandler instanceof ContentHandler)
+	    return (ContentHandler)cachedHandler;
+	  else
+	    return null;
+	}
+    }
 
     // If a non-default factory has been set, use it.
     if (factory != null)

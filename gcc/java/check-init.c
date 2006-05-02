@@ -1,5 +1,5 @@
 /* Code to test for "definitive [un]assignment".
-   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005 Free Software Foundation,
+   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2006 Free Software Foundation,
    Inc.
 
 This file is part of GCC.
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  
 
 Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
@@ -37,7 +37,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 /* The basic idea is that we assign each local variable declaration
    and each blank final field an index, and then we pass around
    bitstrings, where the (2*i)'th bit is set if decl whose DECL_BIT_INDEX
-   is i is definitely assigned, and the the (2*i=1)'th bit is set if 
+   is i is definitely assigned, and the (2*i=1)'th bit is set if 
    decl whose DECL_BIT_INDEX is i is definitely unassigned */
 
 /* One segment of a bitstring. */
@@ -672,8 +672,7 @@ check_init (tree exp, words before)
 	DECLARE_BUFFERS(when_true, 2);
 	words when_false = when_true + num_current_words;
 #ifdef ENABLE_JC1_CHECKING
-	if (TREE_CODE (alt->block) != LOOP_EXPR)
-	  abort ();
+	gcc_assert (TREE_CODE (alt->block) == LOOP_EXPR);
 #endif
 	check_bool_init (TREE_OPERAND (exp, 0), before, when_false, when_true);
 	done_alternative (when_true, alt);
@@ -807,6 +806,7 @@ check_init (tree exp, words before)
     case TRUTH_NOT_EXPR:
     case BIT_NOT_EXPR:
     case CONVERT_EXPR:
+    case VIEW_CONVERT_EXPR:
     case BIT_FIELD_REF:
     case FLOAT_EXPR:
     case FIX_TRUNC_EXPR:
@@ -918,9 +918,11 @@ check_init (tree exp, words before)
 
     case NEW_ARRAY_INIT:
       {
-	tree x = CONSTRUCTOR_ELTS (TREE_OPERAND (exp, 0));
-	for ( ;  x != NULL_TREE;  x = TREE_CHAIN (x))
-	  check_init (TREE_VALUE (x), before);
+	tree value;
+	unsigned HOST_WIDE_INT idx;
+	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (TREE_OPERAND (exp, 0)),
+				    idx, value)
+	  check_init (value, before);
       }
       break;
 

@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                         GNAT RUNTIME COMPONENTS                          --
+--                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
 --         A D A . N U M E R I C S . D I S C R E T E _ R A N D O M          --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2005, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -32,6 +32,7 @@
 ------------------------------------------------------------------------------
 
 with Ada.Calendar;
+
 with Interfaces; use Interfaces;
 
 package body Ada.Numerics.Discrete_Random is
@@ -201,7 +202,6 @@ package body Ada.Numerics.Discrete_Random is
 
    procedure Reset (Gen : Generator; From_State : State) is
       Genp : constant Pointer := Gen.Gen_State'Unrestricted_Access;
-
    begin
       Genp.all := From_State;
    end Reset;
@@ -261,7 +261,7 @@ package body Ada.Numerics.Discrete_Random is
       Outs.FP  := Flt (Outs.P);
       Outs.Scl := (RstL - RstF + 1.0) / (Flt (Outs.P) * Flt (Outs.Q));
 
-      --  Now do *some* sanity checks.
+      --  Now do *some* sanity checks
 
       if Outs.Q < 31
         or else Outs.X1 not in 2 .. Outs.P - 1

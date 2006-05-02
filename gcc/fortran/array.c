@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -28,7 +28,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    will expand to an array constructor without iterators.
    Constructors larger than this will remain in the iterator form.  */
 
-#define GFC_MAX_AC_EXPAND 100
+#define GFC_MAX_AC_EXPAND 65535
 
 
 /**************** Array reference matching subroutines *****************/
@@ -169,8 +169,8 @@ gfc_match_array_ref (gfc_array_ref * ar, gfc_array_spec * as, int init)
 	}
     }
 
-  gfc_error ("Array reference at %C cannot have more than "
-	     stringize (GFC_MAX_DIMENSIONS) " dimensions");
+  gfc_error ("Array reference at %C cannot have more than %d dimensions",
+	     GFC_MAX_DIMENSIONS);
 
 error:
   return MATCH_ERROR;
@@ -419,8 +419,8 @@ gfc_match_array_spec (gfc_array_spec ** asp)
 
       if (as->rank >= GFC_MAX_DIMENSIONS)
 	{
-	  gfc_error ("Array specification at %C has more than "
-		     stringize (GFC_MAX_DIMENSIONS) " dimensions");
+	  gfc_error ("Array specification at %C has more than %d dimensions",
+		     GFC_MAX_DIMENSIONS);
 	  goto cleanup;
 	}
 
@@ -887,7 +887,10 @@ gfc_match_array_constructor (gfc_expr ** result)
   head = tail = NULL;
 
   if (gfc_match (end_delim) == MATCH_YES)
-    goto empty;			/* Special case */
+    {
+      gfc_error ("Empty array constructor at %C is not allowed");
+      goto cleanup;
+    }
 
   for (;;)
     {
@@ -911,7 +914,6 @@ gfc_match_array_constructor (gfc_expr ** result)
   if (gfc_match (end_delim) == MATCH_NO)
     goto syntax;
 
-empty:
   expr = gfc_get_expr ();
 
   expr->expr_type = EXPR_ARRAY;
@@ -1527,7 +1529,14 @@ resolve_character_array_constructor (gfc_expr * expr)
 
   max_length = -1;
 
-  if (expr->ts.cl == NULL || expr->ts.cl->length == NULL)
+  if (expr->ts.cl == NULL)
+    {
+      expr->ts.cl = gfc_get_charlen ();
+      expr->ts.cl->next = gfc_current_ns->cl_list;
+      gfc_current_ns->cl_list = expr->ts.cl;
+    }
+
+  if (expr->ts.cl->length == NULL)
     {
       /* Find the maximum length of the elements. Do nothing for variable array
 	 constructor.  */
@@ -1540,8 +1549,6 @@ resolve_character_array_constructor (gfc_expr * expr)
       if (max_length != -1)
 	{
 	  /* Update the character length of the array constructor.  */
-	  if (expr->ts.cl == NULL)
-	    expr->ts.cl = gfc_get_charlen ();
 	  expr->ts.cl->length = gfc_int_expr (max_length);
 	  /* Update the element constructors.  */
 	  for (p = expr->value.constructor; p; p = p->next)
@@ -1863,6 +1870,12 @@ gfc_array_dimen_size (gfc_expr * array, int dimen, mpz_t * result)
 
 	      return ref_dimen_size (&ref->u.ar, i - 1, result);
 	    }
+	}
+
+      if (array->shape && array->shape[dimen])
+	{
+	  mpz_init_set (*result, array->shape[dimen]);
+	  return SUCCESS;
 	}
 
       if (spec_dimen_size (array->symtree->n.sym->as, dimen, result) == FAILURE)

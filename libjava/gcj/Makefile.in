@@ -43,15 +43,19 @@ DIST_COMMON = $(gcj_HEADERS) $(srcdir)/Makefile.am \
 	$(toolgcj_HEADERS)
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
+	$(top_srcdir)/../config/depstand.m4 \
+	$(top_srcdir)/../config/enable.m4 \
 	$(top_srcdir)/../config/gxx-include-dir.m4 \
 	$(top_srcdir)/../config/iconv.m4 \
 	$(top_srcdir)/../config/lcmessage.m4 \
+	$(top_srcdir)/../config/lead-dot.m4 \
 	$(top_srcdir)/../config/lib-ld.m4 \
 	$(top_srcdir)/../config/lib-link.m4 \
-	$(top_srcdir)/../config/lib-prefix.m4 $(top_srcdir)/pkg.m4 \
-	$(top_srcdir)/acinclude.m4 \
+	$(top_srcdir)/../config/lib-prefix.m4 \
 	$(top_srcdir)/../config/no-executables.m4 \
-	$(top_srcdir)/../libtool.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/../config/tls.m4 $(top_srcdir)/../libtool.m4 \
+	$(top_srcdir)/mingwld.m4 $(top_srcdir)/pkg.m4 \
+	$(top_srcdir)/shlibpath.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 CONFIG_HEADER = $(top_builddir)/include/config.h libgcj-config.h
@@ -134,11 +138,15 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 INTERPRETER = @INTERPRETER@
+JAR = @JAR@
 JAVA_HOME = @JAVA_HOME@
 JAVA_HOME_SET_FALSE = @JAVA_HOME_SET_FALSE@
 JAVA_HOME_SET_TRUE = @JAVA_HOME_SET_TRUE@
 JC1GCSPEC = @JC1GCSPEC@
+LD = @LD@
 LDFLAGS = @LDFLAGS@
+LD_FINISH_STATIC_SPEC = @LD_FINISH_STATIC_SPEC@
+LD_START_STATIC_SPEC = @LD_START_STATIC_SPEC@
 LIBART_CFLAGS = @LIBART_CFLAGS@
 LIBART_LIBS = @LIBART_LIBS@
 LIBFFI = @LIBFFI@
@@ -178,12 +186,12 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 PERL = @PERL@
 PKG_CONFIG = @PKG_CONFIG@
 PLATFORM_INNER_NAT_HDRS = @PLATFORM_INNER_NAT_HDRS@
+QT_AWT_FALSE = @QT_AWT_FALSE@
+QT_AWT_TRUE = @QT_AWT_TRUE@
 RANLIB = @RANLIB@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
-SUPPLY_BACKTRACE_FALSE = @SUPPLY_BACKTRACE_FALSE@
-SUPPLY_BACKTRACE_TRUE = @SUPPLY_BACKTRACE_TRUE@
 SYSDEP_SOURCES = @SYSDEP_SOURCES@
 SYSTEMSPEC = @SYSTEMSPEC@
 SYS_ZLIBS = @SYS_ZLIBS@
@@ -200,8 +208,6 @@ USING_BOEHMGC_FALSE = @USING_BOEHMGC_FALSE@
 USING_BOEHMGC_TRUE = @USING_BOEHMGC_TRUE@
 USING_DARWIN_CRT_FALSE = @USING_DARWIN_CRT_FALSE@
 USING_DARWIN_CRT_TRUE = @USING_DARWIN_CRT_TRUE@
-USING_ECOS_PLATFORM_FALSE = @USING_ECOS_PLATFORM_FALSE@
-USING_ECOS_PLATFORM_TRUE = @USING_ECOS_PLATFORM_TRUE@
 USING_GCC_FALSE = @USING_GCC_FALSE@
 USING_GCC_TRUE = @USING_GCC_TRUE@
 USING_NOGC_FALSE = @USING_NOGC_FALSE@
@@ -224,7 +230,6 @@ X_EXTRA_LIBS = @X_EXTRA_LIBS@
 X_LIBS = @X_LIBS@
 X_PRE_LIBS = @X_PRE_LIBS@
 ZINCS = @ZINCS@
-ZIP = @ZIP@
 ZLIBS = @ZLIBS@
 ZLIBSPEC = @ZLIBSPEC@
 ZLIBTESTSPEC = @ZLIBTESTSPEC@
@@ -233,6 +238,7 @@ ac_ct_AS = @ac_ct_AS@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_GCJ = @ac_ct_GCJ@
+ac_ct_LD = @ac_ct_LD@
 ac_ct_RANLIB = @ac_ct_RANLIB@
 ac_ct_STRIP = @ac_ct_STRIP@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
@@ -254,7 +260,9 @@ build_os = @build_os@
 build_subdir = @build_subdir@
 build_vendor = @build_vendor@
 datadir = @datadir@
+dbexecdir = @dbexecdir@
 exec_prefix = @exec_prefix@
+extra_ldflags_libjava = @extra_ldflags_libjava@
 gxx_include_dir = @gxx_include_dir@
 here = @here@
 host = @host@

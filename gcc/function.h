@@ -16,11 +16,13 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_FUNCTION_H
 #define GCC_FUNCTION_H
+
+#include "tree.h"
 
 struct var_refs_queue GTY(())
 {
@@ -155,6 +157,7 @@ struct expr_status GTY(())
 #define apply_args_value (cfun->expr->x_apply_args_value)
 #define forced_labels (cfun->expr->x_forced_labels)
 #define stack_pointer_delta (cfun->expr->x_stack_pointer_delta)
+struct ssa;
 
 /* This structure can save all the important global and static variables
    describing the status of the current function.  */
@@ -162,22 +165,14 @@ struct expr_status GTY(())
 struct function GTY(())
 {
   struct eh_status *eh;
-  struct eh_status *saved_eh;
   struct expr_status *expr;
   struct emit_status *emit;
   struct varasm_status *varasm;
 
   /* The control flow graph for this function.  */
   struct control_flow_graph *cfg;
-  struct control_flow_graph *saved_cfg;
   bool after_inlining;
-
-  /* For tree-optimize.c.  */
-
-  /* Saved tree and arguments during tree optimization.  Used later for
-     inlining */
-  tree saved_args;
-  tree saved_static_chain_decl;
+  struct ssa *ssa;
 
   /* For function.c.  */
 
@@ -246,7 +241,7 @@ struct function GTY(())
   rtx x_stack_slot_list;
 
   /* Place after which to insert the tail_recursion_label if we need one.  */
-  rtx x_tail_recursion_reentry;
+  rtx x_stack_check_probe_note;
 
   /* Location at which to save the argument pointer if it will need to be
      referenced.  There are two cases where this is done: if nonlocal gotos
@@ -368,6 +363,10 @@ struct function GTY(())
 
   const char *unlikely_text_section_name;
 
+  /* A variable living at the top of the frame that holds a known value.
+     Used for detecting stack clobbers.  */
+  tree stack_protect_guard;
+
   /* Collected bit flags.  */
 
   /* Nonzero if function being compiled needs to be given an address
@@ -387,6 +386,10 @@ struct function GTY(())
   /* Nonzero if function being compiled can call alloca,
      either as a subroutine or builtin.  */
   unsigned int calls_alloca : 1;
+
+  /* Nonzero if function being compiled called builtin_return_addr or
+     builtin_frame_address with nonzero count.  */
+  unsigned int accesses_prior_frames : 1;
 
   /* Nonzero if the function calls __builtin_eh_return.  */
   unsigned int calls_eh_return : 1;
@@ -477,6 +480,7 @@ extern int trampolines_created;
 #define current_function_returns_pointer (cfun->returns_pointer)
 #define current_function_calls_setjmp (cfun->calls_setjmp)
 #define current_function_calls_alloca (cfun->calls_alloca)
+#define current_function_accesses_prior_frames (cfun->accesses_prior_frames)
 #define current_function_calls_eh_return (cfun->calls_eh_return)
 #define current_function_is_thunk (cfun->is_thunk)
 #define current_function_args_info (cfun->args_info)
@@ -501,7 +505,7 @@ extern int trampolines_created;
 #define stack_slot_list (cfun->x_stack_slot_list)
 #define parm_birth_insn (cfun->x_parm_birth_insn)
 #define frame_offset (cfun->x_frame_offset)
-#define tail_recursion_reentry (cfun->x_tail_recursion_reentry)
+#define stack_check_probe_note (cfun->x_stack_check_probe_note)
 #define arg_pointer_save_area (cfun->x_arg_pointer_save_area)
 #define used_temp_slots (cfun->x_used_temp_slots)
 #define avail_temp_slots (cfun->x_avail_temp_slots)
@@ -532,6 +536,11 @@ extern void free_block_changes (void);
    the caller may have to do that.  */
 extern HOST_WIDE_INT get_frame_size (void);
 
+/* Issue an error message and return TRUE if frame OFFSET overflows in
+   the signed target pointer arithmetics for function FUNC.  Otherwise
+   return FALSE.  */
+extern bool frame_offset_overflow (HOST_WIDE_INT, tree);
+
 /* A pointer to a function to create target specific, per-function
    data structures.  */
 extern struct machine_function * (*init_machine_status) (void);
@@ -545,19 +554,12 @@ extern void init_varasm_status (struct function *);
 #ifdef RTX_CODE
 extern void diddle_return_value (void (*)(rtx, void*), void*);
 extern void clobber_return_register (void);
-extern void use_return_register (void);
 #endif
 
 extern rtx get_arg_pointer_save_area (struct function *);
 
-extern void init_virtual_regs (struct emit_status *);
-extern void instantiate_virtual_regs (void);
-
 /* Returns the name of the current function.  */
 extern const char *current_function_name (void);
-
-/* Called once, at initialization, to initialize function.c.  */
-extern void init_function_once (void);
 
 extern void do_warn_unused_parameter (tree);
 
@@ -565,5 +567,7 @@ extern bool pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 			       tree, bool);
 extern bool reference_callee_copied (CUMULATIVE_ARGS *, enum machine_mode,
 				     tree, bool);
+
+extern int get_last_funcdef_no (void);
 
 #endif  /* GCC_FUNCTION_H */

@@ -15,8 +15,8 @@
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 
 ;; Operator predicates.
@@ -63,8 +63,8 @@
 
 (define_predicate "cris_bdap_const_operand"
   (and (match_code "label_ref, symbol_ref, const_int, const_double, const")
-       (not (and (match_test "flag_pic")
-		 (match_test "cris_symbol (op)")))))
+       (ior (not (match_test "flag_pic"))
+	    (match_test "cris_valid_pic_const (op)"))))
 
 (define_predicate "cris_simple_address_operand"
   (ior (match_operand:SI 0 "register_operand")
@@ -79,10 +79,13 @@
 
 ;; The caller needs to use :SI.
 (define_predicate "cris_bdap_sign_extend_operand"
-  (and (match_code "sign_extend")
-       (and (match_test "MEM_P (XEXP (op, 0))")
-	    (match_test "cris_simple_address_operand (XEXP (XEXP (op, 0), 0),
-						      Pmode)"))))
+; Disabled until <URL:http://gcc.gnu.org/ml/gcc-patches/2005-10/msg01376.html>
+; or <URL:http://gcc.gnu.org/ml/gcc-patches/2005-10/msg00940.html> is committed.
+  (match_test "0"))
+;  (and (match_code "sign_extend")
+;       (and (match_test "MEM_P (XEXP (op, 0))")
+;	    (match_test "cris_simple_address_operand (XEXP (XEXP (op, 0), 0),
+;						      Pmode)"))))
 
 ;; FIXME: Should not have to test for 1.
 (define_predicate "cris_scale_int_operand"
@@ -127,16 +130,6 @@
   (ior (match_operand 0 "cris_bdap_operand")
        (match_operand 0 "cris_biap_mult_operand")))
 
-;; Since a PIC symbol without a GOT entry is not a general_operand, we
-;; have to have a predicate that matches it.  We use this in the expanded
-;; "movsi" anonymous pattern.
-;; FIXME: Can s/special_// when PR 20413 is fixed.
-
-(define_special_predicate "cris_general_operand_or_gotless_symbol"
-  (ior (match_operand 0 "general_operand")
-       (and (match_code "const, symbol_ref, label_ref, unspec")
-	    (match_test "cris_gotless_symbol (op)"))))
-
 ;; Since with -fPIC, not all symbols are valid PIC symbols or indeed
 ;; general_operands, we have to have a predicate that matches it for the
 ;; "movsi" expander.
@@ -145,7 +138,8 @@
 (define_special_predicate "cris_general_operand_or_symbol"
   (ior (match_operand 0 "general_operand")
        (and (match_code "const, symbol_ref, label_ref")
-	    (match_test "cris_symbol (op)"))))
+       	    ; The following test is actually just an assertion.
+	    (match_test "cris_pic_symbol_type_of (op) != cris_no_symbol"))))
 
 ;; Since a PLT symbol is not a general_operand, we have to have a
 ;; predicate that matches it when we need it.  We use this in the expanded

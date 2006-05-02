@@ -1,5 +1,5 @@
 /* Generic SSA value propagation engine.
-   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
    This file is part of GCC.
@@ -16,8 +16,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to the Free
-   Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-   02111-1307, USA.  */
+   Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -130,7 +130,7 @@ static ssa_prop_visit_phi_fn ssa_prop_visit_phi;
 static sbitmap executable_blocks;
 
 /* Array of control flow edges on the worklist.  */
-static GTY(()) varray_type cfg_blocks = NULL;
+static VEC(basic_block,heap) *cfg_blocks;
 
 static unsigned int cfg_blocks_num = 0;
 static int cfg_blocks_tail;
@@ -187,19 +187,23 @@ cfg_blocks_add (basic_block bb)
   else
     {
       cfg_blocks_num++;
-      if (cfg_blocks_num > VARRAY_SIZE (cfg_blocks))
+      if (cfg_blocks_num > VEC_length (basic_block, cfg_blocks))
 	{
-	  /* We have to grow the array now.  Adjust to queue to occupy the
-	     full space of the original array.  */
-	  cfg_blocks_tail = VARRAY_SIZE (cfg_blocks);
+	  /* We have to grow the array now.  Adjust to queue to occupy
+	     the full space of the original array.  We do not need to
+	     initialize the newly allocated portion of the array
+	     because we keep track of CFG_BLOCKS_HEAD and
+	     CFG_BLOCKS_HEAD.  */
+	  cfg_blocks_tail = VEC_length (basic_block, cfg_blocks);
 	  cfg_blocks_head = 0;
-	  VARRAY_GROW (cfg_blocks, 2 * VARRAY_SIZE (cfg_blocks));
+	  VEC_safe_grow (basic_block, heap, cfg_blocks, 2 * cfg_blocks_tail);
 	}
       else
-	cfg_blocks_tail = (cfg_blocks_tail + 1) % VARRAY_SIZE (cfg_blocks);
+	cfg_blocks_tail = ((cfg_blocks_tail + 1)
+			   % VEC_length (basic_block, cfg_blocks));
     }
 
-  VARRAY_BB (cfg_blocks, cfg_blocks_tail) = bb;
+  VEC_replace (basic_block, cfg_blocks, cfg_blocks_tail, bb);
   SET_BIT (bb_in_list, bb->index);
 }
 
@@ -211,12 +215,13 @@ cfg_blocks_get (void)
 {
   basic_block bb;
 
-  bb = VARRAY_BB (cfg_blocks, cfg_blocks_head);
+  bb = VEC_index (basic_block, cfg_blocks, cfg_blocks_head);
 
   gcc_assert (!cfg_blocks_empty_p ());
   gcc_assert (bb);
 
-  cfg_blocks_head = (cfg_blocks_head + 1) % VARRAY_SIZE (cfg_blocks);
+  cfg_blocks_head = ((cfg_blocks_head + 1)
+		     % VEC_length (basic_block, cfg_blocks));
   --cfg_blocks_num;
   RESET_BIT (bb_in_list, bb->index);
 
@@ -473,7 +478,8 @@ ssa_prop_init (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_immediate_uses (dump_file);
 
-  VARRAY_BB_INIT (cfg_blocks, 20, "cfg_blocks");
+  cfg_blocks = VEC_alloc (basic_block, heap, 20);
+  VEC_safe_grow (basic_block, heap, cfg_blocks, 20);
 
   /* Initialize the values for every SSA_NAME.  */
   for (i = 1; i < num_ssa_names; i++)
@@ -507,6 +513,7 @@ ssa_prop_fini (void)
 {
   VEC_free (tree, gc, interesting_ssa_edges);
   VEC_free (tree, gc, varying_ssa_edges);
+  VEC_free (basic_block, heap, cfg_blocks);
   cfg_blocks = NULL;
   sbitmap_free (bb_in_list);
   sbitmap_free (executable_blocks);
@@ -604,6 +611,8 @@ set_rhs (tree *stmt_p, tree expr)
       break;
 
     case COND_EXPR:
+      if (!is_gimple_condexpr (expr))
+        return false;
       COND_EXPR_COND (stmt) = expr;
       break;
     case SWITCH_EXPR:
@@ -623,7 +632,8 @@ set_rhs (tree *stmt_p, tree expr)
       *stmt_p = TREE_SIDE_EFFECTS (expr) ? expr : build_empty_stmt ();
       (*stmt_p)->common.ann = (tree_ann_t) ann;
 
-      if (TREE_SIDE_EFFECTS (expr))
+      if (in_ssa_p
+	  && TREE_SIDE_EFFECTS (expr))
 	{
 	  /* Fix all the SSA_NAMEs created by *STMT_P to point to its new
 	     replacement.  */
@@ -1018,11 +1028,15 @@ static bool
 fold_predicate_in (tree stmt)
 {
   tree *pred_p = NULL;
+  bool modify_expr_p = false;
   tree val;
 
   if (TREE_CODE (stmt) == MODIFY_EXPR
       && COMPARISON_CLASS_P (TREE_OPERAND (stmt, 1)))
-    pred_p = &TREE_OPERAND (stmt, 1);
+    {
+      modify_expr_p = true;
+      pred_p = &TREE_OPERAND (stmt, 1);
+    }
   else if (TREE_CODE (stmt) == COND_EXPR)
     pred_p = &COND_EXPR_COND (stmt);
   else
@@ -1031,6 +1045,9 @@ fold_predicate_in (tree stmt)
   val = vrp_evaluate_conditional (*pred_p, true);
   if (val)
     {
+      if (modify_expr_p)
+        val = fold_convert (TREE_TYPE (*pred_p), val);
+      
       if (dump_file)
 	{
 	  fprintf (dump_file, "Folding predicate ");
@@ -1144,7 +1161,7 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 
 	      rhs = get_rhs (stmt);
 	      if (TREE_CODE (rhs) == ADDR_EXPR)
-		recompute_tree_invarant_for_addr_expr (rhs);
+		recompute_tree_invariant_for_addr_expr (rhs);
 
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
@@ -1155,6 +1172,16 @@ substitute_and_fold (prop_value_t *prop_value, bool use_ranges_p)
 		  fprintf (dump_file, "\n");
 		}
 	    }
+
+	  /* Some statements may be simplified using ranges.  For
+	     example, division may be replaced by shifts, modulo
+	     replaced with bitwise and, etc.   Do this after 
+	     substituting constants, folding, etc so that we're
+	     presented with a fully propagated, canonicalized
+	     statement.  */
+	  if (use_ranges_p)
+	    simplify_stmt_using_ranges (stmt);
+
 	}
     }
 

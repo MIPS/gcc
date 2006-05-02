@@ -1,3 +1,54 @@
+2006-02-20 Rafael Ávila de Espíndola <rafael.espindola@gmail.com>
+	* Make-lang.in (OBJ-C++): Remove
+	(.PHONY): Remove Obj-c++ and obj-C++. Add obj-c++
+
+2005-12-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* Make-lang.in (objcp/objcp-decl.o): Add depends on $(EXPR_H).
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in (obj-c++.all.build, obj-c++.install-normal): Remove.
+
+2005-12-07  Rafael Ávila de Espíndola  <rafael.espindola@gmail.com>
+
+	* Make-lang.in: Remove all dependencies on s-gtype.
+
+2005-11-22  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* objcp-decl.c (objcp_lookup_name): Remove.
+	* objcp-decl.h (objcp_lookup_name): Delete.
+	(lookup_name): Kill define.
+
+2005-09-11  Richard Henderson  <rth@redhat.com>
+
+	* objcp-lang.c (objcxx_init_ts): Remove ALIAS_DECL.
+
+2005-07-09  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config-lang.in (gtfiles): Add cp-objcp-common.c.
+	* objcp-lang.c (objcxx_init_ts): New function.
+	(LANG_HOOKS_INIT_TS): Define.
+
+2005-07-03  Kazu Hirata  <kazu@codesourcery.com>
+
+	* Make-lang.in (cc1plus-checksum.c): Use
+	build/genchecksum$(build_exeext), not build/genchecksum$(exeext).
+
+2005-06-30  Zack Weinberg  <zack@codesourcery.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* objcp-lang.c: No need to include cxx-pretty-print.h.
+	* Make-lang.in: Update dependencies.
+
+2005-06-25  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* all files: Update FSF in copyright headers.
+
+2005-06-20  Ziemowit Laski  <zlaski@apple.com>
+
+	* config-lang.in (gtfiles): Add cp/rtti.c.
+
 2005-05-24  Ziemowit Laski  <zlaski@apple.com>
 
 	* objcp-decl.c (objcp_start_struct, objcp_xref_tag): Adjust

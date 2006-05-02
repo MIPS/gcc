@@ -17,8 +17,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING.  If not, write to
-;; the Free Software Foundation, 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -41,6 +41,7 @@
    (UNSPEC_EH_RETURN_EPILOGUE	6)
    (UNSPEC_GOT			7)
    (UNSPEC_LDD			8)
+   (UNSPEC_OPTIONAL_MEMBAR	9)
 
    (UNSPEC_GETTLSOFF			200)
    (UNSPEC_TLS_LOAD_GOTTLSOFF12		201)
@@ -86,7 +87,9 @@
    (FDPIC_REG			15)
    ])
 
-
+(define_mode_macro IMODE [QI HI SI DI])
+(define_mode_attr IMODEsuffix [(QI "b") (HI "h") (SI "") (DI "d")])
+(define_mode_attr BREADsuffix [(QI "ub") (HI "uh") (SI "") (DI "d")])
 
 ;; ::::::::::::::::::::
 ;; ::
@@ -2139,25 +2142,44 @@
     FAIL;
 }")
 
-;; String/block clear insn.
+;; String/block set insn.
 ;; Argument 0 is the destination
 ;; Argument 1 is the length
-;; Argument 2 is the alignment
+;; Argument 2 is the byte value -- ignore any value but zero
+;; Argument 3 is the alignment
 
-(define_expand "clrmemsi"
+(define_expand "setmemsi"
   [(parallel [(set (match_operand:BLK 0 "" "")
-		   (const_int 0))
+		   (match_operand 2 "" ""))
 	      (use (match_operand:SI 1 "" ""))
-	      (use (match_operand:SI 2 "" ""))])]
+	      (use (match_operand:SI 3 "" ""))])]
   ""
   "
 {
+  /* If value to set is not zero, use the library routine.  */
+  if (operands[2] != const0_rtx)
+    FAIL;
+
   if (frv_expand_block_clear (operands))
     DONE;
   else
     FAIL;
 }")
+
 
+;; The "membar" part of a __builtin_read* or __builtin_write* function.
+;; Operand 0 is a volatile reference to the memory that the function reads
+;; or writes.  Operand 1 is the address being accessed, or zero if the
+;; address isn't a known constant.  Operand 2 describes the __builtin
+;; function (either FRV_IO_READ or FRV_IO_WRITE).
+(define_insn "optional_membar_<mode>"
+  [(set (match_operand:IMODE 0 "memory_operand" "=m")
+	(unspec:IMODE [(match_operand 1 "const_int_operand" "")
+		       (match_operand 2 "const_int_operand" "")]
+		      UNSPEC_OPTIONAL_MEMBAR))]
+  ""
+  "membar"
+  [(set_attr "length" "4")])
 
 ;; ::::::::::::::::::::
 ;; ::

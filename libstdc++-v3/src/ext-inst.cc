@@ -15,7 +15,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -39,8 +39,8 @@ namespace __gnu_internal
   const int min_len = __gnu_cxx::_Rope_constants::_S_max_rope_depth + 1;
 }
 
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   using namespace __gnu_internal;
 
   template
@@ -66,4 +66,5 @@ namespace __gnu_cxx
 
   template class stdio_filebuf<wchar_t>;
 #endif
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE

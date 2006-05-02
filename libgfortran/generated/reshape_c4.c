@@ -25,26 +25,34 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
 #include <assert.h>
 #include "libgfortran.h"
 
+#if defined (HAVE_GFC_COMPLEX_4)
+
 typedef GFC_ARRAY_DESCRIPTOR(1, index_type) shape_type;
 
 /* The shape parameter is ignored. We can currently deduce the shape from the
    return array.  */
 
-extern void reshape_c4 (gfc_array_c4 *, gfc_array_c4 *, shape_type *,
-				    gfc_array_c4 *, shape_type *);
+extern void reshape_c4 (gfc_array_c4 * const restrict, 
+	gfc_array_c4 * const restrict, 
+	shape_type * const restrict,
+	gfc_array_c4 * const restrict, 
+	shape_type * const restrict);
 export_proto(reshape_c4);
 
 void
-reshape_c4 (gfc_array_c4 * ret, gfc_array_c4 * source, shape_type * shape,
-                      gfc_array_c4 * pad, shape_type * order)
+reshape_c4 (gfc_array_c4 * const restrict ret, 
+	gfc_array_c4 * const restrict source, 
+	shape_type * const restrict shape,
+	gfc_array_c4 * const restrict pad, 
+	shape_type * const restrict order)
 {
   /* r.* indicates the return array.  */
   index_type rcount[GFC_MAX_DIMENSIONS];
@@ -97,7 +105,7 @@ reshape_c4 (gfc_array_c4 * ret, gfc_array_c4 * source, shape_type * shape,
 	  ret->dim[n].stride = rs;
 	  rs *= rex;
 	}
-      ret->base = 0;
+      ret->offset = 0;
       ret->data = internal_malloc_size ( rs * sizeof (GFC_COMPLEX_4));
       ret->dtype = (source->dtype & ~GFC_DTYPE_RANK_MASK) | rdim;
     }
@@ -174,9 +182,9 @@ reshape_c4 (gfc_array_c4 * ret, gfc_array_c4 * source, shape_type * shape,
 
   if (rsize != 0 && ssize != 0 && psize != 0)
     {
-      rsize *= 4;
-      ssize *= 4;
-      psize *= 4;
+      rsize *= sizeof (GFC_COMPLEX_4);
+      ssize *= sizeof (GFC_COMPLEX_4);
+      psize *= sizeof (GFC_COMPLEX_4);
       reshape_packed ((char *)ret->data, rsize, (char *)source->data,
 		      ssize, pad ? (char *)pad->data : NULL, psize);
       return;
@@ -256,3 +264,5 @@ reshape_c4 (gfc_array_c4 * ret, gfc_array_c4 * source, shape_type * shape,
         }
     }
 }
+
+#endif

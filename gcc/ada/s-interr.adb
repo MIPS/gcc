@@ -1,12 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS               --
+--                 GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                 --
 --                                                                          --
 --                     S Y S T E M . I N T E R R U P T S                    --
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2005, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2006, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -105,13 +105,6 @@ with System.Storage_Elements;
 --  used for To_Address
 --           To_Integer
 --           Integer_Address
-
-with System.Tasking;
---  used for Task_Id
---           Task_Entry_Index
---           Null_Task
---           Self
---           Interrupt_Manager_ID
 
 with System.Tasking.Utilities;
 --  used for Make_Independent
@@ -1438,8 +1431,13 @@ package body System.Interrupts is
 
          System.Tasking.Initialization.Undefer_Abort (Self_ID);
 
-         --  Undefer abort here to allow a window for this task
-         --  to be aborted  at the time of system shutdown.
+         if Self_ID.Pending_Action then
+            Initialization.Do_Pending_Action (Self_ID);
+         end if;
+
+         --  Undefer abort here to allow a window for this task to be aborted
+         --  at the time of system shutdown. We also explicitely test for
+         --  Pending_Action in case System.Parameters.No_Abort is True.
 
       end loop;
    end Server_Task;
@@ -1454,16 +1452,15 @@ begin
    --  During the elaboration of this package body we want the RTS
    --  to inherit the interrupt mask from the Environment Task.
 
-   --  The environment task should have gotten its mask from
-   --  the enclosing process during the RTS start up. (See
-   --  processing in s-inmaop.adb). Pass the Interrupt_Mask
-   --  of the environment task to the Interrupt_Manager.
+   IMOP.Setup_Interrupt_Mask;
 
-   --  Note : At this point we know that all tasks (including
-   --  RTS internal servers) are masked for non-reserved signals
-   --  (see s-taprop.adb). Only the Interrupt_Manager will have
-   --  masks set up differently inheriting the original environment
-   --  task's mask.
+   --  The environment task should have gotten its mask from the enclosing
+   --  process during the RTS start up. (See processing in s-inmaop.adb). Pass
+   --  the Interrupt_Mask of the environment task to the Interrupt_Manager.
+
+   --  Note : At this point we know that all tasks are masked for non-reserved
+   --  signals. Only the Interrupt_Manager will have masks set up differently
+   --  inheriting the original environment task's mask.
 
    Interrupt_Manager.Initialize (IMOP.Environment_Mask);
 end System.Interrupts;

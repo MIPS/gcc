@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_VEC_H
 #define GCC_VEC_H
@@ -147,6 +147,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define VEC_length(T,V)	(VEC_OP(T,base,length)(VEC_BASE(V)))
 
+
+/* Check if vector is empty
+   int VEC_T_empty(const VEC(T) *v);
+
+   Return nonzero if V is an empty vector (or V is NULL), zero otherwise.  */
+
+#define VEC_empty(T,V)	(VEC_length (T,V) == 0)
+
+
 /* Get the final element of the vector.
    T VEC_T_last(VEC(T) *v); // Integer
    T VEC_T_last(VEC(T) *v); // Pointer
@@ -204,6 +213,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define VEC_embedded_size(T,N)	 (VEC_OP(T,base,embedded_size)(N))
 #define VEC_embedded_init(T,O,N) (VEC_OP(T,base,embedded_init)(VEC_BASE(O),N))
+
+/* Copy a vector.
+   VEC(T,A) *VEC_T_A_copy(VEC(T) *);
+
+   Copy the live elements of a vector into a new vector.  The new and
+   old vectors need not be allocated by the same mechanism.  */
+
+#define VEC_copy(T,A,V) (VEC_OP(T,A,copy)(VEC_BASE(V) MEM_STAT_INFO))
 
 /* Determine if a vector has additional capacity.
    
@@ -283,7 +300,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    uninitialized.  */
 
 #define VEC_safe_grow(T,A,V,I)		\
-	(VEC_OP(T,A,safe_grow)(&(V),I VEC_CHECK_INFO))
+	(VEC_OP(T,A,safe_grow)(&(V),I VEC_CHECK_INFO MEM_STAT_INFO))
 
 /* Replace element
    T VEC_T_replace (VEC(T) *v, unsigned ix, T val); // Integer
@@ -348,6 +365,15 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define VEC_unordered_remove(T,V,I)	\
 	(VEC_OP(T,base,unordered_remove)(VEC_BASE(V),I VEC_CHECK_INFO))
+
+/* Remove a block of elements
+   void VEC_T_block_remove (VEC(T) *v, unsigned ix, unsigned len);
+   
+   Remove LEN elements starting at the IXth.  Ordering is retained.
+   This is an O(1) operation.  */
+
+#define VEC_block_remove(T,V,I,L)	\
+	(VEC_OP(T,base,block_remove)(VEC_BASE(V),I,L VEC_CHECK_INFO))
 
 /* Get the address of the array of elements
    T *VEC_T_address (VEC(T) v)
@@ -453,7 +479,7 @@ DEF_VEC_FUNC_P(T)							  \
 struct vec_swallow_trailing_semi
 #define DEF_VEC_ALLOC_I(T,A)						  \
 VEC_TA_GTY(T,base,A,);							  \
-DEF_VEC_ALLOC_FUNC_P(T,A)						  \
+DEF_VEC_ALLOC_FUNC_I(T,A)						  \
 struct vec_swallow_trailing_semi
 #endif
 
@@ -619,6 +645,17 @@ static inline T VEC_OP (T,base,unordered_remove)			  \
   return obj_;								  \
 }									  \
 									  \
+static inline void VEC_OP (T,base,block_remove)				  \
+     (VEC(T,base) *vec_, unsigned ix_, unsigned len_ VEC_CHECK_DECL)	  \
+{									  \
+  T *slot_;								  \
+									  \
+  VEC_ASSERT (ix_ + len_ <= vec_->num, "block_remove", T, base);	  \
+  slot_ = &vec_->vec[ix_];						  \
+  vec_->num -= len_;							  \
+  memmove (slot_, slot_ + len_, (vec_->num - ix_) * sizeof (T));	  \
+}									  \
+									  \
 static inline T *VEC_OP (T,base,address)				  \
      (VEC(T,base) *vec_)						  \
 {									  \
@@ -665,6 +702,23 @@ static inline void VEC_OP (T,A,free)					  \
   if (*vec_)								  \
     vec_##A##_free (*vec_);						  \
   *vec_ = NULL;								  \
+}									  \
+									  \
+static inline VEC(T,A) *VEC_OP (T,A,copy) (VEC(T,base) *vec_ MEM_STAT_DECL) \
+{									  \
+  size_t len_ = vec_ ? vec_->num : 0;					  \
+  VEC (T,A) *new_vec_ = NULL;						  \
+									  \
+  if (len_)								  \
+    {									  \
+      /* We must request exact size allocation, hence the negation. */	  \
+      new_vec_ = (VEC (T,A) *)(vec_##A##_p_reserve			  \
+			       (NULL, -len_ PASS_MEM_STAT));		  \
+									  \
+      new_vec_->base.num = len_;					  \
+      memcpy (new_vec_->base.vec, vec_->vec, sizeof (T) * len_);	  \
+    }									  \
+  return new_vec_;							  \
 }									  \
 									  \
 static inline int VEC_OP (T,A,reserve)	       				  \
@@ -852,6 +906,17 @@ static inline void VEC_OP (T,base,unordered_remove)			  \
   vec_->vec[ix_] = vec_->vec[--vec_->num];				  \
 }									  \
 									  \
+static inline void VEC_OP (T,base,block_remove)				  \
+     (VEC(T,base) *vec_, unsigned ix_, unsigned len_ VEC_CHECK_DECL)	  \
+{									  \
+  T *slot_;								  \
+									  \
+  VEC_ASSERT (ix_ + len_ <= vec_->num, "block_remove", T, base);	  \
+  slot_ = &vec_->vec[ix_];						  \
+  vec_->num -= len_;							  \
+  memmove (slot_, slot_ + len_, (vec_->num - ix_) * sizeof (T));	  \
+}									  \
+									  \
 static inline T *VEC_OP (T,base,address)				  \
      (VEC(T,base) *vec_)						  \
 {									  \
@@ -895,6 +960,25 @@ static inline VEC(T,A) *VEC_OP (T,A,alloc)      			  \
                                            PASS_MEM_STAT);		  \
 }									  \
 									  \
+static inline VEC(T,A) *VEC_OP (T,A,copy) (VEC(T,base) *vec_ MEM_STAT_DECL) \
+{									  \
+  size_t len_ = vec_ ? vec_->num : 0;					  \
+  VEC (T,A) *new_vec_ = NULL;						  \
+									  \
+  if (len_)								  \
+    {									  \
+      /* We must request exact size allocation, hence the negation. */	  \
+      new_vec_ = (VEC (T,A) *)(vec_##A##_o_reserve			  \
+			       (NULL, -len_,				  \
+				offsetof (VEC(T,A),base.vec), sizeof (T)  \
+				PASS_MEM_STAT));			  \
+									  \
+      new_vec_->base.num = len_;					  \
+      memcpy (new_vec_->base.vec, vec_->vec, sizeof (T) * len_);	  \
+    }									  \
+  return new_vec_;							  \
+}									  \
+									  \
 static inline void VEC_OP (T,A,free)					  \
      (VEC(T,A) **vec_)							  \
 {									  \
@@ -928,7 +1012,6 @@ static inline void VEC_OP (T,A,safe_grow)				  \
   VEC_OP (T,A,reserve) (vec_, (int)(*vec_ ? VEC_BASE(*vec_)->num : 0) - size_ \
 			VEC_CHECK_PASS PASS_MEM_STAT);			  \
   VEC_BASE (*vec_)->num = size_;					  \
-  VEC_BASE (*vec_)->num = size_;					  \
 }									  \
 									  \
 static inline T *VEC_OP (T,A,safe_push)					  \
@@ -948,4 +1031,88 @@ static inline T *VEC_OP (T,A,safe_insert)		     	  	  \
   return VEC_OP (T,base,quick_insert) (VEC_BASE(*vec_), ix_, obj_	  \
 				       VEC_CHECK_PASS);			  \
 }
+
+#define DEF_VEC_ALLOC_FUNC_I(T,A)					  \
+static inline VEC(T,A) *VEC_OP (T,A,alloc)      			  \
+     (int alloc_ MEM_STAT_DECL)						  \
+{									  \
+  /* We must request exact size allocation, hence the negation.  */	  \
+  return (VEC(T,A) *) vec_##A##_o_reserve (NULL, -alloc_,		  \
+                                           offsetof (VEC(T,A),base.vec),  \
+					   sizeof (T)			  \
+                                           PASS_MEM_STAT);		  \
+}									  \
+									  \
+static inline VEC(T,A) *VEC_OP (T,A,copy) (VEC(T,base) *vec_ MEM_STAT_DECL) \
+{									  \
+  size_t len_ = vec_ ? vec_->num : 0;					  \
+  VEC (T,A) *new_vec_ = NULL;						  \
+									  \
+  if (len_)								  \
+    {									  \
+      /* We must request exact size allocation, hence the negation. */	  \
+      new_vec_ = (VEC (T,A) *)(vec_##A##_o_reserve			  \
+			       (NULL, -len_,				  \
+				offsetof (VEC(T,A),base.vec), sizeof (T)  \
+				PASS_MEM_STAT));			  \
+									  \
+      new_vec_->base.num = len_;					  \
+      memcpy (new_vec_->base.vec, vec_->vec, sizeof (T) * len_);	  \
+    }									  \
+  return new_vec_;							  \
+}									  \
+									  \
+static inline void VEC_OP (T,A,free)					  \
+     (VEC(T,A) **vec_)							  \
+{									  \
+  if (*vec_)								  \
+    vec_##A##_free (*vec_);						  \
+  *vec_ = NULL;								  \
+}									  \
+									  \
+static inline int VEC_OP (T,A,reserve)	   	    			  \
+     (VEC(T,A) **vec_, int alloc_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
+{									  \
+  int extend = !VEC_OP (T,base,space) (VEC_BASE(*vec_),			  \
+				       alloc_ < 0 ? -alloc_ : alloc_	  \
+				       VEC_CHECK_PASS);			  \
+									  \
+  if (extend)								  \
+    *vec_ = (VEC(T,A) *) vec_##A##_o_reserve (*vec_, alloc_,		  \
+			   		      offsetof (VEC(T,A),base.vec),\
+ 					      sizeof (T)		  \
+			   		      PASS_MEM_STAT);		  \
+									  \
+  return extend;							  \
+}									  \
+									  \
+static inline void VEC_OP (T,A,safe_grow)				  \
+     (VEC(T,A) **vec_, int size_ VEC_CHECK_DECL MEM_STAT_DECL)		  \
+{									  \
+  VEC_ASSERT (size_ >= 0						  \
+	      && VEC_OP(T,base,length) VEC_BASE(*vec_) <= (unsigned)size_, \
+						 "grow", T, A);		  \
+  VEC_OP (T,A,reserve) (vec_, (int)(*vec_ ? VEC_BASE(*vec_)->num : 0) - size_ \
+			VEC_CHECK_PASS PASS_MEM_STAT);			  \
+  VEC_BASE (*vec_)->num = size_;					  \
+}									  \
+									  \
+static inline T *VEC_OP (T,A,safe_push)					  \
+     (VEC(T,A) **vec_, const T obj_ VEC_CHECK_DECL MEM_STAT_DECL)	  \
+{									  \
+  VEC_OP (T,A,reserve) (vec_, 1 VEC_CHECK_PASS PASS_MEM_STAT);		  \
+									  \
+  return VEC_OP (T,base,quick_push) (VEC_BASE(*vec_), obj_ VEC_CHECK_PASS);  \
+}									  \
+									  \
+static inline T *VEC_OP (T,A,safe_insert)		     	  	  \
+     (VEC(T,A) **vec_, unsigned ix_, const T obj_			  \
+ 		VEC_CHECK_DECL MEM_STAT_DECL)				  \
+{									  \
+  VEC_OP (T,A,reserve) (vec_, 1 VEC_CHECK_PASS PASS_MEM_STAT);		  \
+									  \
+  return VEC_OP (T,base,quick_insert) (VEC_BASE(*vec_), ix_, obj_	  \
+				       VEC_CHECK_PASS);			  \
+}
+
 #endif /* GCC_VEC_H */

@@ -17,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "langhooks.h"
 #include "tree-gimple.h"
+#include "ggc.h"
 
 static rtx emit_addhi3_postreload (rtx, rtx, rtx);
 static void xstormy16_asm_out_constructor (rtx, int);
@@ -64,6 +65,8 @@ static bool xstormy16_return_in_memory (tree, tree);
    stored from the compare operation.  */
 struct rtx_def * xstormy16_compare_op0;
 struct rtx_def * xstormy16_compare_op1;
+
+static GTY(()) section *bss100_section;
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
@@ -494,7 +497,7 @@ xs_hi_general_operand (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if ((GET_CODE (x) == CONST_INT) 
    && ((INTVAL (x) >= 32768) || (INTVAL (x) < -32768)))
-    error ("Constant halfword load operand out of range.");
+    error ("constant halfword load operand out of range");
   return general_operand (x, mode);
 }
 
@@ -504,7 +507,7 @@ xs_hi_nonmemory_operand (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   if ((GET_CODE (x) == CONST_INT) 
    && ((INTVAL (x) >= 32768) || (INTVAL (x) < -32768)))
-    error ("Constant arithmetic operand out of range.");
+    error ("constant arithmetic operand out of range");
   return nonmemory_operand (x, mode);
 }
 
@@ -529,12 +532,10 @@ xstormy16_below100_symbol (rtx x,
   if (GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 1)) == CONST_INT)
     x = XEXP (x, 0);
+
   if (GET_CODE (x) == SYMBOL_REF)
-    {
-      const char *n = XSTR (x, 0);
-      if (n[0] == '@' && n[1] == 'b' && n[2] == '.')
-	return 1;
-    }
+    return (SYMBOL_REF_FLAGS (x) & SYMBOL_FLAG_XSTORMY16_BELOW100) != 0;
+
   if (GET_CODE (x) == CONST_INT)
     {
       HOST_WIDE_INT i = INTVAL (x);
@@ -1107,7 +1108,7 @@ xstormy16_expand_prologue (void)
   layout = xstormy16_compute_stack_layout ();
 
   if (layout.locals_size >= 32768)
-    error ("Local variable memory requirements exceed capacity.");
+    error ("local variable memory requirements exceed capacity");
 
   /* Save the argument registers if necessary.  */
   if (layout.stdarg_save_size)
@@ -1367,20 +1368,20 @@ xstormy16_expand_builtin_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   f_base = TYPE_FIELDS (va_list_type_node);
   f_count = TREE_CHAIN (f_base);
   
-  base = build (COMPONENT_REF, TREE_TYPE (f_base), valist, f_base, NULL_TREE);
-  count = build (COMPONENT_REF, TREE_TYPE (f_count), valist, f_count,
-		 NULL_TREE);
+  base = build3 (COMPONENT_REF, TREE_TYPE (f_base), valist, f_base, NULL_TREE);
+  count = build3 (COMPONENT_REF, TREE_TYPE (f_count), valist, f_count,
+		  NULL_TREE);
 
   t = make_tree (TREE_TYPE (base), virtual_incoming_args_rtx);
-  t = build (PLUS_EXPR, TREE_TYPE (base), t, 
-	     build_int_cst (NULL_TREE, INCOMING_FRAME_SP_OFFSET));
-  t = build (MODIFY_EXPR, TREE_TYPE (base), base, t);
+  t = build2 (PLUS_EXPR, TREE_TYPE (base), t, 
+	      build_int_cst (NULL_TREE, INCOMING_FRAME_SP_OFFSET));
+  t = build2 (MODIFY_EXPR, TREE_TYPE (base), base, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  t = build (MODIFY_EXPR, TREE_TYPE (count), count, 
-	     build_int_cst (NULL_TREE,
-			    current_function_args_info * UNITS_PER_WORD));
+  t = build2 (MODIFY_EXPR, TREE_TYPE (count), count, 
+	      build_int_cst (NULL_TREE,
+			     current_function_args_info * UNITS_PER_WORD));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 }
@@ -1403,9 +1404,9 @@ xstormy16_expand_builtin_va_arg (tree valist, tree type, tree *pre_p,
   f_base = TYPE_FIELDS (va_list_type_node);
   f_count = TREE_CHAIN (f_base);
   
-  base = build (COMPONENT_REF, TREE_TYPE (f_base), valist, f_base, NULL_TREE);
-  count = build (COMPONENT_REF, TREE_TYPE (f_count), valist, f_count,
-		 NULL_TREE);
+  base = build3 (COMPONENT_REF, TREE_TYPE (f_base), valist, f_base, NULL_TREE);
+  count = build3 (COMPONENT_REF, TREE_TYPE (f_count), valist, f_count,
+		  NULL_TREE);
 
   must_stack = targetm.calls.must_pass_in_stack (TYPE_MODE (type), type);
   size_tree = round_up (size_in_bytes (type), UNITS_PER_WORD);
@@ -1423,23 +1424,23 @@ xstormy16_expand_builtin_va_arg (tree valist, tree type, tree *pre_p,
       tree r;
 
       t = fold_convert (TREE_TYPE (count), size_tree);
-      t = build (PLUS_EXPR, TREE_TYPE (count), count_tmp, t);
+      t = build2 (PLUS_EXPR, TREE_TYPE (count), count_tmp, t);
       r = fold_convert (TREE_TYPE (count), size_int (size_of_reg_args));
-      t = build (GT_EXPR, boolean_type_node, t, r);
-      t = build (COND_EXPR, void_type_node, t,
-		 build (GOTO_EXPR, void_type_node, lab_fromstack),
-		 NULL);
+      t = build2 (GT_EXPR, boolean_type_node, t, r);
+      t = build3 (COND_EXPR, void_type_node, t,
+		  build1 (GOTO_EXPR, void_type_node, lab_fromstack),
+		  NULL_TREE);
       gimplify_and_add (t, pre_p);
   
       t = fold_convert (ptr_type_node, count_tmp);
-      t = build (PLUS_EXPR, ptr_type_node, base, t);
-      t = build (MODIFY_EXPR, void_type_node, addr, t);
+      t = build2 (PLUS_EXPR, ptr_type_node, base, t);
+      t = build2 (MODIFY_EXPR, void_type_node, addr, t);
       gimplify_and_add (t, pre_p);
 
-      t = build (GOTO_EXPR, void_type_node, lab_gotaddr);
+      t = build1 (GOTO_EXPR, void_type_node, lab_gotaddr);
       gimplify_and_add (t, pre_p);
 
-      t = build (LABEL_EXPR, void_type_node, lab_fromstack);
+      t = build1 (LABEL_EXPR, void_type_node, lab_fromstack);
       gimplify_and_add (t, pre_p);
     }
   
@@ -1452,35 +1453,35 @@ xstormy16_expand_builtin_va_arg (tree valist, tree type, tree *pre_p,
       tree r, u;
 
       r = size_int (NUM_ARGUMENT_REGISTERS * UNITS_PER_WORD);
-      u = build (MODIFY_EXPR, void_type_node, count_tmp, r);
+      u = build2 (MODIFY_EXPR, void_type_node, count_tmp, r);
 
       t = fold_convert (TREE_TYPE (count), r);
-      t = build (GE_EXPR, boolean_type_node, count_tmp, t);
-      t = build (COND_EXPR, void_type_node, t, NULL, u);
+      t = build2 (GE_EXPR, boolean_type_node, count_tmp, t);
+      t = build3 (COND_EXPR, void_type_node, t, NULL_TREE, u);
       gimplify_and_add (t, pre_p);
     }
 
   t = size_int (NUM_ARGUMENT_REGISTERS * UNITS_PER_WORD
 		- INCOMING_FRAME_SP_OFFSET);
   t = fold_convert (TREE_TYPE (count), t);
-  t = build (MINUS_EXPR, TREE_TYPE (count), count_tmp, t);
-  t = build (PLUS_EXPR, TREE_TYPE (count), t,
-	     fold_convert (TREE_TYPE (count), size_tree));
+  t = build2 (MINUS_EXPR, TREE_TYPE (count), count_tmp, t);
+  t = build2 (PLUS_EXPR, TREE_TYPE (count), t,
+	      fold_convert (TREE_TYPE (count), size_tree));
   t = fold_convert (TREE_TYPE (base), fold (t));
-  t = build (MINUS_EXPR, TREE_TYPE (base), base, t);
-  t = build (MODIFY_EXPR, void_type_node, addr, t);
+  t = build2 (MINUS_EXPR, TREE_TYPE (base), base, t);
+  t = build2 (MODIFY_EXPR, void_type_node, addr, t);
   gimplify_and_add (t, pre_p);
 
-  t = build (LABEL_EXPR, void_type_node, lab_gotaddr);
+  t = build1 (LABEL_EXPR, void_type_node, lab_gotaddr);
   gimplify_and_add (t, pre_p);
 
   t = fold_convert (TREE_TYPE (count), size_tree);
-  t = build (PLUS_EXPR, TREE_TYPE (count), count_tmp, t);
-  t = build (MODIFY_EXPR, TREE_TYPE (count), count, t);
+  t = build2 (PLUS_EXPR, TREE_TYPE (count), count_tmp, t);
+  t = build2 (MODIFY_EXPR, TREE_TYPE (count), count, t);
   gimplify_and_add (t, pre_p);
   
   addr = fold_convert (build_pointer_type (type), addr);
-  return build_fold_indirect_ref (addr);
+  return build_va_arg_indirect_ref (addr);
 }
 
 /* Initialize the variable parts of a trampoline.  ADDR is an RTX for
@@ -1578,42 +1579,40 @@ xstormy16_asm_output_mi_thunk (FILE *file,
    than uninitialized.  */
 void
 xstormy16_asm_output_aligned_common (FILE *stream,
-				     tree decl ATTRIBUTE_UNUSED,
+				     tree decl,
 				     const char *name,
 				     int size,
 				     int align,
 				     int global)
 {
-  if (name[0] == '@' && name[2] == '.')
+  rtx mem = DECL_RTL (decl);
+  rtx symbol;
+    
+  if (mem != NULL_RTX
+      && GET_CODE (mem) == MEM
+      && GET_CODE (symbol = XEXP (mem, 0)) == SYMBOL_REF
+      && SYMBOL_REF_FLAGS (symbol) & SYMBOL_FLAG_XSTORMY16_BELOW100)
     {
-      const char *op = 0;
-      switch (name[1])
-	{
-	case 'b':
-	  bss100_section();
-	  op = "space";
-	  break;
-	}
-      if (op)
-	{
-	  const char *name2;
-	  int p2align = 0;
+      const char *name2;
+      int p2align = 0;
 
-	  while (align > 8)
-	    {
-	      align /= 2;
-	      p2align ++;
-	    }
-	  name2 = xstormy16_strip_name_encoding (name);
-	  if (global)
-	    fprintf (stream, "\t.globl\t%s\n", name2);
-	  if (p2align)
-	    fprintf (stream, "\t.p2align %d\n", p2align);
-	  fprintf (stream, "\t.type\t%s, @object\n", name2);
-	  fprintf (stream, "\t.size\t%s, %d\n", name2, size);
-	  fprintf (stream, "%s:\n\t.%s\t%d\n", name2, op, size);
-	  return;
+      switch_to_section (bss100_section);
+
+      while (align > 8)
+	{
+	  align /= 2;
+	  p2align ++;
 	}
+
+      name2 = default_strip_name_encoding (name);
+      if (global)
+	fprintf (stream, "\t.globl\t%s\n", name2);
+      if (p2align)
+	fprintf (stream, "\t.p2align %d\n", p2align);
+      fprintf (stream, "\t.type\t%s, @object\n", name2);
+      fprintf (stream, "\t.size\t%s, %d\n", name2, size);
+      fprintf (stream, "%s:\n\t.space\t%d\n", name2, size);
+      return;
     }
 
   if (!global)
@@ -1627,56 +1626,33 @@ xstormy16_asm_output_aligned_common (FILE *stream,
   fprintf (stream, ",%u,%u\n", size, align / BITS_PER_UNIT);
 }
 
+/* Implement TARGET_ASM_INIT_SECTIONS.  */
+
+static void
+xstormy16_asm_init_sections (void)
+{
+  bss100_section
+    = get_unnamed_section (SECTION_WRITE | SECTION_BSS,
+			   output_section_asm_op,
+			   "\t.section \".bss_below100\",\"aw\",@nobits");
+}
+
 /* Mark symbols with the "below100" attribute so that we can use the
    special addressing modes for them.  */
 
 static void
-xstormy16_encode_section_info (tree decl,
-			       rtx r,
-			       int first ATTRIBUTE_UNUSED)
+xstormy16_encode_section_info (tree decl, rtx r, int first)
 {
-  if (TREE_CODE (decl) == VAR_DECL
+  default_encode_section_info (decl, r, first);
+
+   if (TREE_CODE (decl) == VAR_DECL
       && (lookup_attribute ("below100", DECL_ATTRIBUTES (decl))
 	  || lookup_attribute ("BELOW100", DECL_ATTRIBUTES (decl))))
     {
-      const char *newsection = 0;
-      char *newname;
-      tree idp;
-      rtx rtlname, rtl;
-      const char *oldname;
-
-      rtl = r;
-      rtlname = XEXP (rtl, 0);
-      if (GET_CODE (rtlname) == MEM)
-	rtlname = XEXP (rtlname, 0);
-      gcc_assert (GET_CODE (rtlname) == SYMBOL_REF);
-      oldname = XSTR (rtlname, 0);
-
-      if (DECL_INITIAL (decl))
-	{
-	  newsection = ".data_below100";
-	  DECL_SECTION_NAME (decl) = build_string (strlen (newsection),
-						   newsection);
-	}
-
-      newname = alloca (strlen (oldname) + 4);
-      sprintf (newname, "@b.%s", oldname);
-      idp = get_identifier (newname);
-      XEXP (rtl, 0) = gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER (idp));
-    }
-}
-
-const char *
-xstormy16_strip_name_encoding (const char *name)
-{
-  while (1)
-    {
-      if (name[0] == '@' && name[2] == '.')
-	name += 3;
-      else if (name[0] == '*')
-	name ++;
-      else
-	return name;
+      rtx symbol = XEXP (r, 0);
+      
+      gcc_assert (GET_CODE (symbol) == SYMBOL_REF);
+      SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_XSTORMY16_BELOW100;
     }
 }
 
@@ -1704,7 +1680,7 @@ xstormy16_asm_out_destructor (rtx symbol, int priority)
       section = buf;
     }
 
-  named_section_flags (section, 0);
+  switch_to_section (get_section (section, 0, NULL));
   assemble_align (POINTER_SIZE);
   assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
 }
@@ -1726,7 +1702,7 @@ xstormy16_asm_out_constructor (rtx symbol, int priority)
       section = buf;
     }
 
-  named_section_flags (section, 0);
+  switch_to_section (get_section (section, 0, NULL));
   assemble_align (POINTER_SIZE);
   assemble_integer (symbol, POINTER_SIZE / BITS_PER_UNIT, POINTER_SIZE, 1);
 }
@@ -1955,7 +1931,7 @@ xstormy16_output_addr_vec (FILE *file, rtx label ATTRIBUTE_UNUSED, rtx table)
 { 
   int vlen, idx;
   
-  current_function_section (current_function_decl);
+  switch_to_section (current_function_section ());
 
   vlen = XVECLEN (table, 0);
   for (idx = 0; idx < vlen; idx++)
@@ -2306,7 +2282,7 @@ xstormy16_handle_below100_attribute (tree *node,
       if (! (TREE_PUBLIC (*node) || TREE_STATIC (*node)))
 	{
 	  warning (OPT_Wattributes, "__BELOW100__ attribute not allowed "
-		   "with auto storage class.");
+		   "with auto storage class");
 	  *no_add_attrs = true;
 	}
     }
@@ -2479,7 +2455,7 @@ combine_bnp (rtx insn)
 
   if (need_extend)
     {
-      /* LT and GE conditionals should have an sign extend before
+      /* LT and GE conditionals should have a sign extend before
 	 them.  */
       for (and = prev_real_insn (insn); and; and = prev_real_insn (and))
 	{
@@ -2676,8 +2652,10 @@ xstormy16_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO xstormy16_encode_section_info
-#undef TARGET_STRIP_NAME_ENCODING
-#define TARGET_STRIP_NAME_ENCODING xstormy16_strip_name_encoding
+
+/* select_section doesn't handle .bss_below100.  */
+#undef  TARGET_HAVE_SWITCHABLE_BSS_SECTIONS
+#define TARGET_HAVE_SWITCHABLE_BSS_SECTIONS false
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK xstormy16_asm_output_mi_thunk
@@ -2708,3 +2686,5 @@ xstormy16_return_in_memory (tree type, tree fntype ATTRIBUTE_UNUSED)
 #define TARGET_MACHINE_DEPENDENT_REORG xstormy16_reorg
 
 struct gcc_target targetm = TARGET_INITIALIZER;
+
+#include "gt-stormy16.h"

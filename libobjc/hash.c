@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* As a special exception, if you link this library with files
    compiled with GCC to produce an executable, this does not cause
@@ -26,9 +26,9 @@ Boston, MA 02111-1307, USA.  */
 
 #include "assert.h"
 
-#include "hash.h"
+#include "objc/hash.h"
 
-#include "runtime.h"		/* for DEBUG_PRINTF */
+#include "objc/runtime.h"		/* for DEBUG_PRINTF */
 
 /* These two macros determine when a hash table is full and
    by how much it should be expanded respectively.

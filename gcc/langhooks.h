@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_LANG_HOOKS_H
 #define GCC_LANG_HOOKS_H
@@ -24,6 +24,8 @@ Boston, MA 02111-1307, USA.  */
 /* This file should be #include-d after tree.h.  */
 
 struct diagnostic_context;
+
+struct gimplify_omp_ctx;
 
 /* A print hook for print_tree ().  */
 typedef void (*lang_print_tree_hook) (FILE *, tree, int indent);
@@ -38,29 +40,13 @@ struct lang_hooks_for_tree_inlining
 			 void *, struct pointer_set_t*);
   int (*cannot_inline_tree_fn) (tree *);
   int (*disregard_inline_limits) (tree);
+  tree (*add_pending_fn_decls) (void *, tree);
   int (*auto_var_in_fn_p) (tree, tree);
-  tree (*copy_res_decl_for_inlining) (tree, tree, tree,
-				      void *, int *, tree);
   int (*anon_aggr_type_p) (tree);
   bool (*var_mod_type_p) (tree, tree);
+  int (*start_inlining) (tree);
+  void (*end_inlining) (tree);
   tree (*convert_parm_for_inlining) (tree, tree, tree, int);
-};
-
-/* Lang hooks for performing various optimizations that depend on
-   language-specific things. Such optimizations include:
-
-   data structure reorganization (see struct-reorg.c)  */
-
-struct lang_hooks_for_optimizations
-{
-  tree (*build_field_reference) (tree, tree);
-  tree (*build_pointer_ref) (tree, const char *);
-  tree (*build_array_ref) (tree, tree);
-  tree (*lookup_field) (tree, tree);
-  tree (*build_data_struct) (void *, char *, tree);
-  tree (*sizeof_type) (tree, bool, int);
-  tree (*decl_attributes) (tree *, tree, int);
-  void (*structure_reorg_optimization) (void);
 };
 
 struct lang_hooks_for_callgraph
@@ -158,6 +144,10 @@ struct lang_hooks_for_types
      for a type.  */
   tree (*max_size) (tree);
 
+  /* Register language specific type size variables as potentially OpenMP
+     firstprivate variables.  */
+  void (*omp_firstprivatize_type_sizes) (struct gimplify_omp_ctx *, tree);
+
   /* Nonzero if types that are identical are to be hashed so that only
      one copy is kept.  If a language requires unique types for each
      user-specified type, such as Ada, this should be set to TRUE.  */
@@ -208,6 +198,38 @@ struct lang_hooks_for_decls
      value will be the string already stored in an
      IDENTIFIER_NODE.)  */
   const char * (*comdat_group) (tree);
+
+  /* True if OpenMP should privatize what this DECL points to rather
+     than the DECL itself.  */
+  bool (*omp_privatize_by_reference) (tree);
+
+  /* Return sharing kind if OpenMP sharing attribute of DECL is
+     predetermined, OMP_CLAUSE_DEFAULT_UNSPECIFIED otherwise.  */
+  enum omp_clause_default_kind (*omp_predetermined_sharing) (tree);
+
+  /* Return true if DECL's DECL_VALUE_EXPR (if any) should be
+     disregarded in OpenMP construct, because it is going to be
+     remapped during OpenMP lowering.  SHARED is true if DECL
+     is going to be shared, false if it is going to be privatized.  */
+  bool (*omp_disregard_value_expr) (tree, bool);
+
+  /* Return true if DECL that is shared iff SHARED is true should
+     be put into OMP_CLAUSE_PRIVATE_DEBUG.  */
+  bool (*omp_private_debug_clause) (tree, bool);
+
+  /* Build and return code for a default constructor for DECL in
+     response to CLAUSE.  Return NULL if nothing to be done.  */
+  tree (*omp_clause_default_ctor) (tree clause, tree decl);
+
+  /* Build and return code for a copy constructor from SRC to DST.  */
+  tree (*omp_clause_copy_ctor) (tree clause, tree dst, tree src);
+
+  /* Similarly, except use an assignment operator instead.  */
+  tree (*omp_clause_assign_op) (tree clause, tree dst, tree src);
+
+  /* Build and return code destructing DECL.  Return NULL if nothing
+     to be done.  */
+  tree (*omp_clause_dtor) (tree clause, tree decl);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
@@ -408,11 +430,13 @@ struct lang_hooks
 
   struct lang_hooks_for_types types;
 
-  struct lang_hooks_for_optimizations optimize;
-
   /* Perform language-specific gimplification on the argument.  Returns an
      enum gimplify_status, though we can't see that type here.  */
   int (*gimplify_expr) (tree *, tree *, tree *);
+
+  /* Fold an OBJ_TYPE_REF expression to the address of a function.
+     KNOWN_TYPE carries the true type of the OBJ_TYPE_REF_OBJECT.  */
+  tree (*fold_obj_type_ref) (tree, tree);
 
   /* Return a definition for a builtin function named NAME and whose data type
      is TYPE.  TYPE should be a function type with argument types.
@@ -426,9 +450,14 @@ struct lang_hooks
 			    enum built_in_class bt_class,
 			    const char *library_name, tree attrs);
 
-  /* Fold an OBJ_TYPE_REF expression to the address of a function.
-     KNOWN_TYPE carries the true type of the OBJ_TYPE_REF_OBJECT.  */
-  tree (*fold_obj_type_ref) (tree, tree);
+  /* Used to set up the tree_contains_structure array for a frontend. */
+  void (*init_ts) (void);
+
+  /* Called by recompute_tree_invariant_for_addr_expr to go from EXPR
+     to a contained expression or DECL, possibly updating *TC, *TI or
+     *SE if in the process TREE_CONSTANT, TREE_INVARIANT or
+     TREE_SIDE_EFFECTS need updating.  */
+  tree (*expr_to_decl) (tree expr, bool *tc, bool *ti, bool *se);
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

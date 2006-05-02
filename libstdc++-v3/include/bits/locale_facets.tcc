@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -42,8 +42,8 @@
 #include <typeinfo>		// For bad_cast.
 #include <bits/streambuf_iterator.h>
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template<typename _Facet>
     locale
     locale::combine(const locale& __other) const
@@ -193,7 +193,8 @@ namespace std
       char* __grouping = new char[_M_grouping_size];
       __np.grouping().copy(__grouping, _M_grouping_size);
       _M_grouping = __grouping;
-      _M_use_grouping = _M_grouping_size && __np.grouping()[0] != 0;
+      _M_use_grouping = (_M_grouping_size
+			 && static_cast<signed char>(__np.grouping()[0]) > 0);
 
       _M_truename_size = __np.truename().size();
       _CharT* __truename = new _CharT[_M_truename_size];
@@ -228,7 +229,8 @@ namespace std
       char* __grouping = new char[_M_grouping_size];
       __mp.grouping().copy(__grouping, _M_grouping_size);
       _M_grouping = __grouping;
-      _M_use_grouping = _M_grouping_size && __mp.grouping()[0] != 0;
+      _M_use_grouping = (_M_grouping_size
+			 && static_cast<signed char>(__mp.grouping()[0]) > 0);
       
       _M_decimal_point = __mp.decimal_point();
       _M_thousands_sep = __mp.thousands_sep();
@@ -270,6 +272,8 @@ namespace std
   __verify_grouping(const char* __grouping, size_t __grouping_size,
 		    const string& __grouping_tmp);
 
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
+
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::
@@ -306,6 +310,7 @@ namespace std
 
       // Next, look for leading zeros.
       bool __found_mantissa = false;
+      int __sep_pos = 0;
       while (!__testeof)
 	{
 	  if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep
@@ -318,6 +323,8 @@ namespace std
 		  __xtrc += '0';
 		  __found_mantissa = true;
 		}
+	      ++__sep_pos;
+
 	      if (++__beg != __end)
 		__c = *__beg;
 	      else
@@ -333,7 +340,6 @@ namespace std
       string __found_grouping;
       if (__lc->_M_use_grouping)
 	__found_grouping.reserve(32);
-      int __sep_pos = 0;
       const char_type* __q;
       const char_type* __lit_zero = __lit + __num_base::_S_izero;
       while (!__testeof)
@@ -353,7 +359,9 @@ namespace std
 		    }
 		  else
 		    {
-		      __err |= ios_base::failbit;
+		      // NB: __convert_to_v will not assign __v and will
+		      // set the failbit.
+		      __xtrc.clear();
 		      break;
 		    }
 		}
@@ -383,7 +391,7 @@ namespace std
 	    }
 	  else if ((__c == __lit[__num_base::_S_ie] 
 		    || __c == __lit[__num_base::_S_iE])
-		   && __found_mantissa && !__found_sci)
+		   && !__found_sci && __found_mantissa)
 	    {
 	      // Scientific notation.
 	      if (__found_grouping.size() && !__found_dec)
@@ -440,6 +448,8 @@ namespace std
       return __beg;
     }
 
+_GLIBCXX_END_LDBL_NAMESPACE
+
   template<typename _ValueT>
     struct __to_unsigned_type
     { typedef _ValueT __type; };
@@ -453,6 +463,8 @@ namespace std
     struct __to_unsigned_type<long long>
     { typedef unsigned long long __type; };
 #endif
+
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
 
   template<typename _CharT, typename _InIter>
     template<typename _ValueT>
@@ -500,6 +512,7 @@ namespace std
 	// Next, look for leading zeros and check required digits
 	// for base formats.
 	bool __found_zero = false;
+	int __sep_pos = 0;
 	while (!__testeof)
 	  {
 	    if (__lc->_M_use_grouping && __c == __lc->_M_thousands_sep
@@ -507,25 +520,27 @@ namespace std
 	      break;
 	    else if (__c == __lit[__num_base::_S_izero] 
 		     && (!__found_zero || __base == 10))
-	      __found_zero = true;
-	    else if (__found_zero)
 	      {
-		if (__c == __lit[__num_base::_S_ix] 
-		    || __c == __lit[__num_base::_S_iX])
+		__found_zero = true;
+		++__sep_pos;
+		if (__basefield == 0)
+		  __base = 8;
+		if (__base == 8)
+		  __sep_pos = 0;
+	      }
+	    else if (__found_zero
+		     && (__c == __lit[__num_base::_S_ix]
+			 || __c == __lit[__num_base::_S_iX]))
+	      {
+		if (__basefield == 0)
+		  __base = 16;
+		if (__base == 16)
 		  {
-		    if (__basefield == 0)
-		      __base = 16;
-		    if (__base == 16)
-		      __found_zero = false;
-		    else
-		      break;
+		    __found_zero = false;
+		    __sep_pos = 0;
 		  }
 		else
-		  {
-		    if (__basefield == 0)
-		      __base = 8;
-		    break;
-		  }
+		  break;
 	      }
 	    else
 	      break;
@@ -549,8 +564,7 @@ namespace std
 	string __found_grouping;
 	if (__lc->_M_use_grouping)
 	  __found_grouping.reserve(32);
-	int __sep_pos = 0;
-	bool __overflow = false;
+	bool __testfail = false;
 	const __unsigned_type __max = __negative ?
 	  -numeric_limits<_ValueT>::min() : numeric_limits<_ValueT>::max();
 	const __unsigned_type __smax = __max / __base;
@@ -572,7 +586,7 @@ namespace std
 		  }
 		else
 		  {
-		    __err |= ios_base::failbit;
+		    __testfail = true;
 		    break;
 		  }
 	      }
@@ -584,11 +598,11 @@ namespace std
 		if (__digit > 15)
 		  __digit -= 6;
 		if (__result > __smax)
-		  __overflow = true;
+		  __testfail = true;
 		else
 		  {
 		    __result *= __base;
-		    __overflow |= __result > __max - __digit;
+		    __testfail |= __result > __max - __digit;
 		    __result += __digit;
 		    ++__sep_pos;
 		  }
@@ -616,8 +630,8 @@ namespace std
 	      __err |= ios_base::failbit;
 	  }
 
-	if (!(__err & ios_base::failbit) && !__overflow
-	    && (__sep_pos || __found_zero || __found_grouping.size()))
+	if (!__testfail && (__sep_pos || __found_zero 
+			    || __found_grouping.size()))
 	  __v = __negative ? -__result : __result;
 	else
 	  __err |= ios_base::failbit;
@@ -764,6 +778,21 @@ namespace std
       return __beg;
     }
 
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+  template<typename _CharT, typename _InIter>
+    _InIter
+    num_get<_CharT, _InIter>::
+    __do_get(iter_type __beg, iter_type __end, ios_base& __io,
+	     ios_base::iostate& __err, double& __v) const
+    {
+      string __xtrc;
+      __xtrc.reserve(32);
+      __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
+      std::__convert_to_v(__xtrc.c_str(), __v, __err, _S_get_c_locale());
+      return __beg;
+    }
+#endif
+
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::
@@ -814,15 +843,21 @@ namespace std
       __len = static_cast<int>(__w);
     }
 
-  // Forwarding functions to peel signed from unsigned integer types.
+_GLIBCXX_END_LDBL_NAMESPACE
+
+  // Forwarding functions to peel signed from unsigned integer types and
+  // either cast or compute the absolute value for the former, depending
+  // on __basefield.
   template<typename _CharT>
     inline int
     __int_to_char(_CharT* __bufend, long __v, const _CharT* __lit,
 		  ios_base::fmtflags __flags)
     {
-      unsigned long __ul = static_cast<unsigned long>(__v);
-      if (__v < 0)
-	__ul = -__ul;
+      unsigned long __ul = __v;
+      const ios_base::fmtflags __basefield = __flags & ios_base::basefield;
+      if (__builtin_expect(__basefield != ios_base::oct
+			   && __basefield != ios_base::hex, true))
+	__ul = __v < 0 ? -__v : __ul;
       return __int_to_char(__bufend, __ul, __lit, __flags, false);
     }
 
@@ -838,9 +873,11 @@ namespace std
     __int_to_char(_CharT* __bufend, long long __v, const _CharT* __lit,
 		  ios_base::fmtflags __flags)
     {
-      unsigned long long __ull = static_cast<unsigned long long>(__v);
-      if (__v < 0)
-	__ull = -__ull;
+      unsigned long long __ull = __v;
+      const ios_base::fmtflags __basefield = __flags & ios_base::basefield;
+      if (__builtin_expect(__basefield != ios_base::oct
+			   && __basefield != ios_base::hex, true))
+	__ull = __v < 0 ? -__v : __ull;
       return __int_to_char(__bufend, __ull, __lit, __flags, false);
     }
 
@@ -896,6 +933,8 @@ namespace std
 	}
       return __bufend - __buf;
     }
+
+_GLIBCXX_BEGIN_LDBL_NAMESPACE
 
   template<typename _CharT, typename _OutIter>
     void
@@ -960,16 +999,11 @@ namespace std
 	    else if (__v)
 	      *--__cs = __lit[__num_base::_S_ominus], ++__len;
 	  }
-	else if (__basefield == ios_base::oct)
+	else if (__flags & ios_base::showbase && __v)
 	  {
-	    // Octal.
-	    if (__flags & ios_base::showbase && __v)
+	    if (__basefield == ios_base::oct)
 	      *--__cs = __lit[__num_base::_S_odigits], ++__len;
-	  }
-	else
-	  {
-	    // Hex.
-	    if (__flags & ios_base::showbase && __v)
+	    else
 	      {
 		// 'x' or 'X'
 		const bool __uppercase = __flags & ios_base::uppercase;
@@ -1207,8 +1241,8 @@ namespace std
   template<typename _CharT, typename _OutIter>
     _OutIter
     num_put<_CharT, _OutIter>::
-    do_put(iter_type __s, ios_base& __b, char_type __fill, long long __v) const
-    { return _M_insert_int(__s, __b, __fill, __v); }
+    do_put(iter_type __s, ios_base& __io, char_type __fill, long long __v) const
+    { return _M_insert_int(__s, __io, __fill, __v); }
 
   template<typename _CharT, typename _OutIter>
     _OutIter
@@ -1223,6 +1257,14 @@ namespace std
     num_put<_CharT, _OutIter>::
     do_put(iter_type __s, ios_base& __io, char_type __fill, double __v) const
     { return _M_insert_float(__s, __io, __fill, char(), __v); }
+
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+  template<typename _CharT, typename _OutIter>
+    _OutIter
+    num_put<_CharT, _OutIter>::
+    __do_put(iter_type __s, ios_base& __io, char_type __fill, double __v) const
+    { return _M_insert_float(__s, __io, __fill, char(), __v); }
+#endif
 
   template<typename _CharT, typename _OutIter>
     _OutIter
@@ -1444,7 +1486,7 @@ namespace std
 		if (!std::__verify_grouping(__lc->_M_grouping,
 					    __lc->_M_grouping_size,
 					    __grouping_tmp))
-		  __testvalid = false;
+		  __err |= ios_base::failbit;
 	      }
 	    
 	    // Iff not enough digits were supplied after the decimal-point.
@@ -1464,6 +1506,23 @@ namespace std
 	  __err |= ios_base::eofbit;
 	return __beg;
       }
+
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+  template<typename _CharT, typename _InIter>
+    _InIter
+    money_get<_CharT, _InIter>::
+    __do_get(iter_type __beg, iter_type __end, bool __intl, ios_base& __io,
+	     ios_base::iostate& __err, double& __units) const
+    {
+      string __str;
+      if (__intl)
+	__beg = _M_extract<true>(__beg, __end, __io, __err, __str);
+      else
+	__beg = _M_extract<false>(__beg, __end, __io, __err, __str);
+      std::__convert_to_v(__str.c_str(), __units, __err, _S_get_c_locale());
+      return __beg;
+    }
+#endif
 
   template<typename _CharT, typename _InIter>
     _InIter
@@ -1669,7 +1728,18 @@ namespace std
 	__io.width(0);
 	return __s;    
       }
-  
+
+#if defined _GLIBCXX_LONG_DOUBLE_COMPAT && defined __LONG_DOUBLE_128__
+  template<typename _CharT, typename _OutIter>
+    _OutIter
+    money_put<_CharT, _OutIter>::
+    __do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
+	     double __units) const
+    {
+      return this->do_put(__s, __intl, __io, __fill, (long double) __units);
+    }
+#endif
+
   template<typename _CharT, typename _OutIter>
     _OutIter
     money_put<_CharT, _OutIter>::
@@ -1717,6 +1787,7 @@ namespace std
     { return __intl ? _M_insert<true>(__s, __io, __fill, __digits)
 	            : _M_insert<false>(__s, __io, __fill, __digits); }
 
+_GLIBCXX_END_LDBL_NAMESPACE
 
   // NB: Not especially useful. Without an ios_base object or some
   // kind of locale reference, we are left clawing at the air where
@@ -2464,9 +2535,11 @@ namespace std
       __test = __grouping_tmp[__i] == __grouping[__j];
     for (; __i && __test; --__i)
       __test = __grouping_tmp[__i] == __grouping[__min];
-    // ... but the last parsed grouping can be <= numpunct
-    // grouping.
-    __test &= __grouping_tmp[0] <= __grouping[__min];
+    // ... but the first parsed grouping can be <= numpunct
+    // grouping (only do the check if the numpunct char is > 0
+    // because <= 0 means any size is ok).
+    if (static_cast<signed char>(__grouping[__min]) > 0)
+      __test &= __grouping_tmp[0] <= __grouping[__min];
     return __test;
   }
 
@@ -2476,7 +2549,8 @@ namespace std
 		   const char* __gbeg, size_t __gsize,
 		   const _CharT* __first, const _CharT* __last)
     {
-      if (__last - __first > *__gbeg)
+      if (__last - __first > *__gbeg
+	  && static_cast<signed char>(*__gbeg) > 0)
 	{
 	  const bool __bump = __gsize != 1;
 	  __s = std::__add_grouping(__s,  __sep, __gbeg + __bump,
@@ -2499,12 +2573,12 @@ namespace std
   extern template class moneypunct<char, true>;
   extern template class moneypunct_byname<char, false>;
   extern template class moneypunct_byname<char, true>;
-  extern template class money_get<char>;
-  extern template class money_put<char>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE money_get<char>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE money_put<char>;
   extern template class numpunct<char>;
   extern template class numpunct_byname<char>;
-  extern template class num_get<char>;
-  extern template class num_put<char>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE num_get<char>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE num_put<char>;
   extern template class __timepunct<char>;
   extern template class time_put<char>;
   extern template class time_put_byname<char>;
@@ -2626,12 +2700,12 @@ namespace std
   extern template class moneypunct<wchar_t, true>;
   extern template class moneypunct_byname<wchar_t, false>;
   extern template class moneypunct_byname<wchar_t, true>;
-  extern template class money_get<wchar_t>;
-  extern template class money_put<wchar_t>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE money_get<wchar_t>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE money_put<wchar_t>;
   extern template class numpunct<wchar_t>;
   extern template class numpunct_byname<wchar_t>;
-  extern template class num_get<wchar_t>;
-  extern template class num_put<wchar_t>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE num_get<wchar_t>;
+  extern template class _GLIBCXX_LDBL_NAMESPACE num_put<wchar_t>;
   extern template class __timepunct<wchar_t>;
   extern template class time_put<wchar_t>;
   extern template class time_put_byname<wchar_t>;
@@ -2749,6 +2823,7 @@ namespace std
     has_facet<messages<wchar_t> >(const locale&);
 #endif
 #endif
-} // namespace std
+
+_GLIBCXX_END_NAMESPACE
 
 #endif

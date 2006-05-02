@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---             Copyright (C) 2001-2005 Free Software Foundation, Inc.       --
+--          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -1006,6 +1006,21 @@ package body Prj.Tree is
       return In_Tree.Project_Nodes.Table (Node).Flag2;
    end Is_Extending_All;
 
+   -------------------------
+   -- Is_Not_Last_In_List --
+   -------------------------
+
+   function Is_Not_Last_In_List
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref) return Boolean is
+   begin
+      pragma Assert
+        (Node /= Empty_Node
+          and then
+            In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause);
+      return In_Tree.Project_Nodes.Table (Node).Flag1;
+   end Is_Not_Last_In_List;
+
    -------------------------------------
    -- Imported_Or_Extended_Project_Of --
    -------------------------------------
@@ -1414,7 +1429,7 @@ package body Prj.Tree is
    -- Restore --
    -------------
 
-   procedure Restore (S : in Comment_State) is
+   procedure Restore (S : Comment_State) is
    begin
       End_Of_Line_Node   := S.End_Of_Line_Node;
       Previous_Line_Node := S.Previous_Line_Node;
@@ -2103,6 +2118,22 @@ package body Prj.Tree is
              In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause));
       In_Tree.Project_Nodes.Table (Node).Flag2 := True;
    end Set_Is_Extending_All;
+
+   -----------------------------
+   -- Set_Is_Not_Last_In_List --
+   -----------------------------
+
+   procedure Set_Is_Not_Last_In_List
+     (Node    : Project_Node_Id;
+      In_Tree : Project_Node_Tree_Ref)
+   is
+   begin
+      pragma Assert
+        (Node /= Empty_Node
+          and then
+             In_Tree.Project_Nodes.Table (Node).Kind = N_With_Clause);
+      In_Tree.Project_Nodes.Table (Node).Flag1 := True;
+   end Set_Is_Not_Last_In_List;
 
    -----------------
    -- Set_Kind_Of --

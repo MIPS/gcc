@@ -1,3 +1,184 @@
+2006-02-17  Grigory Zagorodnev <grigory_zagorodnev@linux.intel.com>
+
+	* macro.c (_cpp_builtin_macro_text): Handle BT_TIMESTAMP.
+	* files.c (_cpp_get_file_stat): New function.
+	* include/cpplib.h (builtin_type): Add BT_TIMESTAMP.
+	* init.c (builtin_array): Add support for __TIMESTAMP__/BT_TIMESTAMP.
+	* internal.h (_cpp_get_file_stat): Prototype.
+	(struct cpp_buffer): Add timestamp.
+
+2006-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/25717
+	* init.c (cpp_init_builtins): If __STDC__ will not change value
+	between system headers and other sources, define it as a normal
+	macro rather than a builtin.
+	* macro.c (_cpp_builtin_macro_text) <case BT_STDC>: Only check
+	cpp_in_system_header condition.
+
+2006-01-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.in: Use -MMD instead of -MD.
+
+2006-01-04  Dmitry Kurochkin <dmitry.kurochkin@gmail.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	Merge from gomp branch:
+	* directives.c (struct pragma_entry): Add is_deferred.  Add ident
+	entry to value union.
+	(end_directive): Don't eat the line if in_deferred_pragma.
+	(run_directive): Remove pragma hacks.
+	(insert_pragma_entry): Remove.
+	(new_pragma_entry): New.
+	(register_pragma_1): Split out of register_pragma.  Only handle
+	the lookup tree and return the new entry.
+	(cpp_register_pragma): Fill in the pragma entry here.
+	(cpp_register_deferred_pragma): New.
+	(register_pragma_internal): New.
+	(_cpp_init_internal_pragmas): Use register_pragma_internal.
+	(do_pragma): Allow pragma expansion after namespace.  For deferred
+	pragmas, don't slurp the line into a string.
+	(destringize_and_run): Save tokens for deferred pragmas.
+	(cpp_handle_deferred_pragma): Remove.
+	* macro.c (builtin_macro): Remove pragma token hack.
+	(_cpp_push_token_context): Rename from push_token_context and export.
+	* internal.h (struct lexer_state): Add pragma_allow_expansion.
+	(_cpp_push_token_context): Declare.
+	* lex.c (_cpp_lex_token): Allow _cpp_handle_directive to return
+	a token.  Update the line number correctly if so.
+	(_cpp_lex_direct): Emit CPP_PRAGMA_EOL tokens.
+	(cpp_token_val_index): Return CPP_TOKEN_FLD_PRAGMA for pragmas.
+	* include/cpplib.h (PRAGMA_EOL): New.
+	(CPP_TOKEN_FLD_PRAGMA): New.
+	(struct cpp_token): Add val.pragma.
+	(struct cpp_options): Remove defer_pragmas.
+	(cpp_handle_deferred_pragma): Remove.
+	(cpp_register_deferred_pragma): Declare.
+
+2006-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/25294
+	* directives.c (do_pragma): If pragma line ends with multi-line
+	block comment, end the saved deferred pragma string before that
+	comment.  Handle embedded '\0' chars on the pragma line.
+
+2005-12-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/23333
+	* include/cpplib.h: Add PURE_ZERO to flags for the cpp_token structure.
+
+2005-12-07  Jon Grimm  <jgrimm2@us.ibm.com>
+	    Ben Elliston  <bje@au.ibm.com>
+
+	* include/cpplib.h (CPP_N_DFLOAT): New.
+	* expr.c (interpret_float_suffix): Identify df, dd, and dl
+	suffixes as decimal floating point constants.
+	(cpp_classify_number): Disallow hexadecimal DFP constants.
+
+2005-11-14  Gerald Pfeifer  <gerald@pfeifer.com>
+	    Ian Lance Taylor  <ian@airs.com>
+
+	* include/cpplib.h (struct cpp_callbacks): Annotate error with
+	ATTRIBUTE_FPTR_PRINTF(3,0) instead of ATTRIBUTE_PRINTF(3,0).
+
+2005-11-09  Per Bothner  <per@bothner.com>
+	    Uros Bizjak  <uros@kss-loka.si>
+	
+	PR c/24101
+	* init.c (read_original_filename): Temporarily set
+	state.in_directive before calling _cpp_lex_direct for
+	CPP_HASH tokens.
+
+2005-11-03  James E Wilson  <wilson@specifix.com>
+
+	PR preprocessor/24202
+	* files.c (_cpp_pop_file_buffer): Set buffer_valid to false.
+
+2005-11-04  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* include/cpplib.h (struct cpp_callbacks): Make error take
+	va_list* parameter.
+	* errors.c (cpp_error): Update call to callback.
+
+2005-11-03  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR preprocessor/22042
+	* macro.c (_cpp_builtin_macro_text): Lower the needed max
+	buffer size.
+	(cpp_quote_string): Don't octalify non printable
+	charactors.
+
+2005-11-03  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c++/17964
+	* include/cpplib.h (struct cpp_options): Add client_diagnostic.
+	(struct cpp_callbacks): Add error.
+	* errors.c (cpp_error): If client_diagnostic, use error callback.
+	* charset.c (convert_escape): Don't use %03o in diagnostic.
+
+2005-10-21  James E Wilson  <wilson@specifix.com>
+
+	PR preprocessor/15220
+	* files.c (_cpp_find_file): New parameter angle_brackets.  Fix all
+	callers.  Pass to open_file_failed.
+	(open_file_failed): New parameter angle_brackets.  Fix all callers.
+	Use in print_dep assignment.
+	* init.c (cpp_read_main_file): Pass additional arg to _cpp_find_file.
+	* internal.h (_cpp_find_file): Add new parm to declaration.
+	
+2005-10-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	* configure.ac: Require 64-bit int for arm*-*-*eabi*.
+	* configure: Regenerate.
+
+2005-10-04  Ian Lance Taylor  <ian@airs.com>
+
+	PR preprocessor/13726
+	* directives.c (check_eol_return_comments): New static function.
+	(parse_include): Add buf parameter.  Change all callers.
+	(do_include_common): If not discard comments, turn on
+	save_comments.  Pass collected comments to include callback.
+	* include/cpplib.h (struct cpp_callbacks): Add new parameter to
+	include callback: cpp_token list.
+
+2005-09-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* include/cpplib.h (struct cpp_options): Add extended_identifiers.
+	* init.c (struct lang_flags, lang_defaults): Add
+	extended_identifiers.
+	(cpp_set_lang): Use it.
+	* lex.c (forms_identifier_p): Check extended_identifiers.
+
+2005-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/20348
+	PR preprocessor/20356
+	* files.c (_cpp_find_file, search_cache): Revert 2004-06-26 and
+	2004-06-05 changes.
+
+2005-07-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.ac (ACX_PROG_CC_WARNING_OPTS): add
+	-Wmissing-format-attribute.
+
+	* configure: Regenerate.
+
+2005-06-29  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* all files: Update FSF address in copyright headers.
+	* makeucnid.c (write_copyright): Update outputted FSF address.
+
+2005-06-13  Zack Weinberg  <zack@codesourcery.com>
+
+	* configure.ac: Invoke ZW_CREATE_DEPDIR and
+	ZW_PROG_COMPILER_DEPENDENCIES.
+	* aclocal.m4, configure: Regenerate.
+	* Makefile.in (DEPMODE, DEPDIR, depcomp, COMPILE.base, COMPILE):
+	New variables.
+	(distclean): Clean up $(DEPDIR) and its contents.
+	(.c.o): Use $(COMPILE).
+	Include $(DEPDIR)/*.Po for most object->header dependencies.
+
 2005-05-28  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* configure.ac: Check declarations for asprintf and vasprintf.
@@ -17,7 +198,7 @@
 	* directives.c (glue_header_name): Use XNEWVEC and XRESIZEVEC.
 	(parse_include): Use XNEWVEC.
 	(insert_pragma_entry): Rename local variable "new" to
-	"new_entry". 
+	"new_entry".
 	(save_registered_pragmas): Cast return value of xmemdup.
 	(destringize_and_run): Same for alloca.
 	(parse_assertion): Likewise.

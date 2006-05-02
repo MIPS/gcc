@@ -17,7 +17,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -476,7 +476,7 @@ forms_identifier_p (cpp_reader *pfile, int first,
     }
 
   /* Is this a syntactically valid UCN?  */
-  if ((CPP_OPTION (pfile, cplusplus) || CPP_OPTION (pfile, c99))
+  if (CPP_OPTION (pfile, extended_identifiers)
       && *buffer->cur == '\\'
       && (buffer->cur[1] == 'u' || buffer->cur[1] == 'U'))
     {
@@ -767,24 +767,24 @@ _cpp_lex_token (cpp_reader *pfile)
 	      /* 6.10.3 p 11: Directives in a list of macro arguments
 		 gives undefined behavior.  This implementation
 		 handles the directive as normal.  */
-	      && pfile->state.parsing_args != 1
-	      && _cpp_handle_directive (pfile, result->flags & PREV_WHITE))
+	      && pfile->state.parsing_args != 1)
 	    {
-	      if (pfile->directive_result.type == CPP_PADDING)
-		continue;
-	      else
+	      if (_cpp_handle_directive (pfile, result->flags & PREV_WHITE))
 		{
+		  if (pfile->directive_result.type == CPP_PADDING)
+		    continue;
 		  result = &pfile->directive_result;
-		  break;
 		}
 	    }
+	  else if (pfile->state.in_deferred_pragma)
+	    result = &pfile->directive_result;
 
 	  if (pfile->cb.line_change && !pfile->state.skipping)
 	    pfile->cb.line_change (pfile, result, pfile->state.parsing_args);
 	}
 
       /* We don't skip tokens in directives.  */
-      if (pfile->state.in_directive)
+      if (pfile->state.in_directive || pfile->state.in_deferred_pragma)
 	break;
 
       /* Outside a directive, invalidate controlling macros.  At file
@@ -878,6 +878,14 @@ _cpp_lex_direct (cpp_reader *pfile)
   buffer = pfile->buffer;
   if (buffer->need_line)
     {
+      if (pfile->state.in_deferred_pragma)
+	{
+	  result->type = CPP_PRAGMA_EOL;
+	  pfile->state.in_deferred_pragma = false;
+	  if (!pfile->state.pragma_allow_expansion)
+	    pfile->state.prevent_expansion--;
+	  return result;
+	}
       if (!_cpp_get_fresh_line (pfile))
 	{
 	  result->type = CPP_EOF;
@@ -1697,7 +1705,7 @@ cpp_token_val_index (cpp_token *tok)
       else if (tok->type == CPP_PADDING)
 	return CPP_TOKEN_FLD_SOURCE;
       else if (tok->type == CPP_PRAGMA)
-	return CPP_TOKEN_FLD_STR;
+	return CPP_TOKEN_FLD_PRAGMA;
       /* else fall through */
     default:
       return CPP_TOKEN_FLD_NONE;

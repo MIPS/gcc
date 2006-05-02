@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -40,7 +40,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "toplev.h"
 #include "tree-pass.h"
-#include "pointer-set.h"
 
 struct lower_data
 {
@@ -56,11 +55,10 @@ static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_return_expr (tree_stmt_iterator *, struct lower_data *);
-static bool expand_var_p (tree);
 
 /* Lowers the body of current_function_decl.  */
 
-static void
+static unsigned int
 lower_function_body (void)
 {
   struct lower_data data;
@@ -71,12 +69,11 @@ lower_function_body (void)
 
   gcc_assert (TREE_CODE (bind) == BIND_EXPR);
 
+  memset (&data, 0, sizeof (data));
   data.block = DECL_INITIAL (current_function_decl);
   BLOCK_SUBBLOCKS (data.block) = NULL_TREE;
   BLOCK_CHAIN (data.block) = NULL_TREE;
   TREE_ASM_WRITTEN (data.block) = 1;
-
-  data.return_statements = NULL_TREE;
 
   *body_p = alloc_stmt_list ();
   i = tsi_start (*body_p);
@@ -92,7 +89,7 @@ lower_function_body (void)
       && (data.return_statements == NULL
           || TREE_OPERAND (TREE_VALUE (data.return_statements), 0) != NULL))
     {
-      x = build (RETURN_EXPR, void_type_node, NULL);
+      x = build1 (RETURN_EXPR, void_type_node, NULL);
       SET_EXPR_LOCATION (x, cfun->function_end_locus);
       tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
     }
@@ -101,7 +98,7 @@ lower_function_body (void)
      at the end of the function.  */
   for (t = data.return_statements ; t ; t = TREE_CHAIN (t))
     {
-      x = build (LABEL_EXPR, void_type_node, TREE_PURPOSE (t));
+      x = build1 (LABEL_EXPR, void_type_node, TREE_PURPOSE (t));
       tsi_link_after (&i, x, TSI_CONTINUE_LINKING);
 
       /* Remove the line number from the representative return statement.
@@ -121,22 +118,21 @@ lower_function_body (void)
     = blocks_nreverse (BLOCK_SUBBLOCKS (data.block));
 
   clear_block_marks (data.block);
+  return 0;
 }
 
 struct tree_opt_pass pass_lower_cf = 
 {
   "lower",				/* name */
   NULL,					/* gate */
-  NULL, NULL,				/* IPA analysis */
   lower_function_body,			/* execute */
-  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
   PROP_gimple_any,			/* properties_required */
   PROP_gimple_lcf,			/* properties_provided */
-  PROP_gimple_any,			/* properties_destroyed */
+  0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
@@ -155,6 +151,29 @@ lower_stmt_body (tree expr, struct lower_data *data)
   for (tsi = tsi_start (expr); !tsi_end_p (tsi); )
     lower_stmt (&tsi, data);
 }
+
+
+/* Lower the OpenMP directive statement pointed by TSI.  DATA is
+   passed through the recursion.  */
+
+static void
+lower_omp_directive (tree_stmt_iterator *tsi, struct lower_data *data)
+{
+  tree clause, stmt;
+  
+  stmt = tsi_stmt (*tsi);
+
+  clause = (TREE_CODE (stmt) >= OMP_PARALLEL && TREE_CODE (stmt) <= OMP_SINGLE)
+	   ? OMP_CLAUSES (stmt)
+	   : NULL_TREE;
+
+  lower_stmt_body (OMP_BODY (stmt), data);
+  tsi_link_before (tsi, stmt, TSI_SAME_STMT);
+  tsi_link_before (tsi, OMP_BODY (stmt), TSI_SAME_STMT);
+  OMP_BODY (stmt) = NULL_TREE;
+  tsi_delink (tsi);
+}
+
 
 /* Lowers statement TSI.  DATA is passed through the recursion.  */
 
@@ -197,14 +216,21 @@ lower_stmt (tree_stmt_iterator *tsi, struct lower_data *data)
     case GOTO_EXPR:
     case LABEL_EXPR:
     case SWITCH_EXPR:
+    case OMP_RETURN_EXPR:
       break;
 
+    case OMP_PARALLEL:
+    case OMP_FOR:
+    case OMP_SECTIONS:
+    case OMP_SECTION:
+    case OMP_SINGLE:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+    case OMP_CRITICAL:
+      lower_omp_directive (tsi, data);
+      return;
+
     default:
-#ifdef ENABLE_CHECKING
-      print_node_brief (stderr, "", stmt, 0);
-      internal_error ("unexpected node");
-#endif
-    case COMPOUND_EXPR:
       gcc_unreachable ();
     }
 
@@ -371,6 +397,9 @@ block_may_fallthru (tree block)
     case CALL_EXPR:
       /* Functions that do not return do not fall through.  */
       return (call_expr_flags (stmt) & ECF_NORETURN) == 0;
+    
+    case CLEANUP_POINT_EXPR:
+      return block_may_fallthru (TREE_OPERAND (stmt, 0));
 
     default:
       return true;
@@ -394,12 +423,10 @@ lower_cond_expr (tree_stmt_iterator *tsi, struct lower_data *data)
   lower_stmt_body (else_branch, data);
 
   then_goto = expr_only (then_branch);
-  then_is_goto = (then_goto && simple_goto_p (then_goto)
-		  && !EXPR_LOCUS (then_goto));
+  then_is_goto = then_goto && simple_goto_p (then_goto);
 
   else_goto = expr_only (else_branch);
-  else_is_goto = (else_goto && simple_goto_p (else_goto)
-		  && !EXPR_LOCUS (else_goto));
+  else_is_goto = else_goto && simple_goto_p (else_goto);
 
   if (!then_is_goto || !else_is_goto)
     {
@@ -505,112 +532,54 @@ lower_return_expr (tree_stmt_iterator *tsi, struct lower_data *data)
 
   /* Generate a goto statement and remove the return statement.  */
  found:
-  t = build (GOTO_EXPR, void_type_node, label);
+  t = build1 (GOTO_EXPR, void_type_node, label);
   SET_EXPR_LOCUS (t, EXPR_LOCUS (stmt));
   tsi_link_before (tsi, t, TSI_SAME_STMT);
   tsi_delink (tsi);
 }
 
 
-/* Record the variables in VARS.  */
+/* Record the variables in VARS into function FN.  */
 
 void
-record_vars (tree vars)
+record_vars_into (tree vars, tree fn)
 {
+  struct function *saved_cfun = cfun;
+
+  if (fn != current_function_decl)
+    cfun = DECL_STRUCT_FUNCTION (fn);
+
   for (; vars; vars = TREE_CHAIN (vars))
     {
       tree var = vars;
 
+      /* BIND_EXPRs contains also function/type/constant declarations
+         we don't need to care about.  */
+      if (TREE_CODE (var) != VAR_DECL)
+	continue;
+
       /* Nothing to do in this case.  */
       if (DECL_EXTERNAL (var))
-	continue;
-      if (TREE_CODE (var) == FUNCTION_DECL)
 	continue;
 
       /* Record the variable.  */
       cfun->unexpanded_var_list = tree_cons (NULL_TREE, var,
 					     cfun->unexpanded_var_list);
     }
+
+  if (fn != current_function_decl)
+    cfun = saved_cfun;
 }
 
-/* Check whether to expand a variable VAR.  */
 
-static bool
-expand_var_p (tree var)
+/* Record the variables in VARS into current_function_decl.  */
+
+void
+record_vars (tree vars)
 {
-  struct var_ann_d *ann;
-
-  if (TREE_CODE (var) != VAR_DECL)
-    return true;
-
-  /* Leave statics and externals alone.  */
-  if (TREE_STATIC (var) || DECL_EXTERNAL (var))
-    return true;
-
-  /* Remove all unused local variables.  */
-  ann = var_ann (var);
-  if (!ann || !ann->used)
-    return false;
-
-  return true;
+  record_vars_into (vars, current_function_decl);
 }
 
-/* Throw away variables that are unused.  */
-
-static void
-remove_useless_vars (void)
-{
-  tree var, *cell;
-  FILE *df = NULL;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      df = dump_file;
-      fputs ("Discarding as unused:\n", df);
-    }
-
-  for (cell = &cfun->unexpanded_var_list; *cell; )
-    {
-      var = TREE_VALUE (*cell);
-
-      if (!expand_var_p (var))
-	{
-	  if (df)
-	    {
-	      fputs ("  ", df);
-	      print_generic_expr (df, var, dump_flags);
-	      fputc ('\n', df);
-	    }
-
-	  *cell = TREE_CHAIN (*cell);
-	  continue;
-	}
-
-      cell = &TREE_CHAIN (*cell);
-    }
-
-  if (df)
-    fputc ('\n', df);
-}
-
-struct tree_opt_pass pass_remove_useless_vars = 
-{
-  "vars",				/* name */
-  NULL,					/* gate */
-  NULL, NULL,				/* IPA analysis */
-  remove_useless_vars,			/* execute */
-  NULL, NULL,				/* IPA modification */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
-};
 
 /* Mark BLOCK used if it has a used variable in it, then recurse over its
    subblocks.  */
@@ -642,10 +611,11 @@ mark_blocks_with_used_vars (tree block)
 
 /* Mark the used attribute on blocks correctly.  */
   
-static void
+static unsigned int
 mark_used_blocks (void)
 {  
   mark_blocks_with_used_vars (DECL_INITIAL (current_function_decl));
+  return 0;
 }
 
 
@@ -653,9 +623,7 @@ struct tree_opt_pass pass_mark_used_blocks =
 {
   "blocks",				/* name */
   NULL,					/* gate */
-  NULL, NULL,				/* IPA analysis */
   mark_used_blocks,			/* execute */
-  NULL, NULL,				/* IPA analysis */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -667,91 +635,3 @@ struct tree_opt_pass pass_mark_used_blocks =
   TODO_dump_func,			/* todo_flags_finish */
   0					/* letter */
 };
-
-/* Lower a MEM_REF tree to it's equivalent INDIRECT_REF form.  TP is a
-   pointer to the tree we are currently walking, and DATA is a pointer
-   to it's block_stmt_iterator, used for inserting whatever
-   expressions are necessary to create GIMPLE from it.  */ 
-
-static tree
-lower_memref (tree *tp,
-	      int *walk_subtrees ATTRIBUTE_UNUSED,
-	      void *data)
-{
-  block_stmt_iterator *bsip = (block_stmt_iterator *)data;
-  if (TREE_CODE (*tp) == MEM_REF)
-    {
-      tree indirect;
-      tree stmts;
-      tree with;
-      with = build2 (MULT_EXPR, TREE_TYPE (MEM_REF_INDEX (*tp)),
-		     MEM_REF_INDEX (*tp),
-		     size_in_bytes (TREE_TYPE (TREE_TYPE (MEM_REF_SYMBOL (*tp)))));
-      with = fold_convert (TREE_TYPE (MEM_REF_SYMBOL (*tp)), with);      
-      with = build2 (PLUS_EXPR, TREE_TYPE (MEM_REF_SYMBOL (*tp)),
-		     MEM_REF_SYMBOL (*tp), with);
-      
-
-      with = force_gimple_operand (with, &stmts, false, NULL_TREE);
-      if (stmts)
-	bsi_insert_before (bsip, stmts, BSI_SAME_STMT);
-      
-      indirect = build1 (INDIRECT_REF, TREE_TYPE (*tp), with);
-      TREE_READONLY (indirect) = TREE_READONLY (*tp);
-      TREE_SIDE_EFFECTS (indirect) = TREE_SIDE_EFFECTS (*tp);
-      TREE_THIS_VOLATILE (indirect) = TREE_THIS_VOLATILE (*tp);
-      
-      indirect = force_gimple_operand (indirect, &stmts, false, 
-					     NULL_TREE);
-      if (stmts)
-	bsi_insert_before (bsip, stmts, BSI_SAME_STMT);
-      *tp = indirect;
-    }
-  return NULL_TREE;
-}
-      
-/* Convert MEM_REF trees into their equivalent INDIRECT_REF form
-   across the entire function.  MEM_REF (symbol, index) = INDIRECT_REF
-   (symbol + (index * size in bytes of the type symbol points to))  */
-
-static void
-lower_memrefs (void)
-{
-  struct pointer_set_t *visited_nodes;
-  basic_block bb;
-  FOR_ALL_BB (bb)
-    {
-      block_stmt_iterator bsi;
-      for (bsi = bsi_start (bb);
-	   !bsi_end_p (bsi);
-	   bsi_next (&bsi))
-      {
-	tree stmt = bsi_stmt (bsi);
-	visited_nodes = pointer_set_create ();
-	walk_tree (&stmt,  lower_memref, (void *)&bsi, visited_nodes);
-	if (in_ssa_p)
-	  update_stmt (stmt);
-	pointer_set_destroy (visited_nodes);
-		   
-      }
-    }
-}
-struct tree_opt_pass pass_lower_memref = 
-{
-  "memrefs",				/* name */
-  NULL,					/* gate */
-  NULL, NULL,				/* IPA analysis */
-  lower_memrefs,			/* execute */
-  NULL, NULL,				/* IPA analysis */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
-};
-

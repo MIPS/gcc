@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  
 #
 # This script was submitted by Janis Johnson <janis187@us.ibm.com>.
 
@@ -221,23 +221,6 @@ proc profopt-execute { src } {
         error "No feedback option specified for second compile."
     }
 
-    # Get special options for this test from the .x file, if presnet.
-    # This can include the following strings to pass to setup_xfail
-    # for various test steps that might be expected to fail:
-    #   profopt_compile1_xfail
-    #   profopt_execute1_xfail
-    #   profopt_compile2_xfail
-    #   profopt_execute2_xfail
-    #   profopt_perfcheck_xfail
-    if [file exists [file rootname $src].x] {
-	verbose "Using alternate driver [file rootname [file tail $src]].x" 2
-	set done_p 0
-	catch "set done_p \[source [file rootname $src].x\]"
-	if { $done_p } {
-	    return
-	}
-    }
-
     regsub "^$srcdir/?" $src "" testcase
     # If we couldn't rip $srcdir out of `src' then just do the best we can.
     # The point is to reduce the unnecessary noise in the logs.  Don't strip
@@ -248,6 +231,8 @@ proc profopt-execute { src } {
     }
 
     set executable $tmpdir/[file tail [file rootname $src].x]
+    set basename [file tail $testcase]
+    set base [file rootname $basename]
 
     set count 0
     foreach option $prof_option_list {
@@ -262,7 +247,9 @@ proc profopt-execute { src } {
 	verbose "Testing $testcase, $option" 1
 
 	# Remove old profiling and performance data files.
-	profopt-cleanup $testcase $prof_ext
+	foreach ext $prof_ext {
+	    remote_file target delete $tmpdir/$base.$ext
+	}
 	if [info exists perf_ext] {
 	    profopt-cleanup $testcase $perf_ext
 	}
@@ -281,9 +268,6 @@ proc profopt-execute { src } {
 
 	# Compile for profiling.
 
-	if [info exists profopt_compile1_xfail] {
-	    setup_xfail $profopt_compile1_xfail
-	}
 	set options ""
 	lappend options "additional_flags=$option $extra_flags $profile_option"
 	set optstr "$option $profile_option"
@@ -297,17 +281,13 @@ proc profopt-execute { src } {
 
 	# Run the profiled test.
 
-	if [info exists profopt_execute1_xfail] {
-	    setup_xfail $profopt_execute1_xfail
-	}
 	set result [${tool}_load $execname1 "" ""]
 	set status [lindex $result 0]
 	set missing_file 0
 	# Make sure the profile data was generated, and fail if not.
 	if { $status == "pass" } {
-	    set basename [file tail $testcase]
-	    set base [file rootname $basename]
 	    foreach ext $prof_ext {
+		remote_upload target $tmpdir/$base.$ext
 		set files [glob -nocomplain $base.$ext]
 		if { $files == "" } {
 		    set status "fail"
@@ -337,9 +317,6 @@ proc profopt-execute { src } {
 
 	# Compile with feedback-directed optimizations.
 
-	if [info exists profopt_compile2_xfail] {
-	    setup_xfail $profopt_compile2_xfail
-	}
 	set options ""
 	lappend options "additional_flags=$option $extra_flags $feedback_option"
 	set optstr "$option $feedback_option"
@@ -351,9 +328,6 @@ proc profopt-execute { src } {
 
 	# Run the profile-directed optimized test.
 
-	if [info exists profopt_execute2_xfail] {
-	    setup_xfail $profopt_execute2_xfail
-	}
 	set result [${tool}_load "$execname2" "" ""]
 	set status [lindex $result 0]
 	$status "$testcase execution,   $optstr"
@@ -364,7 +338,9 @@ proc profopt-execute { src } {
 	}
 
 	# Remove the profiling data files.
-	profopt-cleanup $testcase $prof_ext
+	foreach ext $prof_ext {
+	    remote_file target delete $tmpdir/$base.$ext
+	}
 
 	if { $status != "pass" } {
 	    continue
@@ -423,9 +399,6 @@ proc profopt-execute { src } {
 	# Compare results of the two runs and fail if the time with the
 	# profile-directed optimization is significantly more than the time
 	# without it.
-	if [info exists profopt_perfcheck_xfail] {
-	    setup_xfail $profopt_perfcheck_xfail
-	}
 	set status "pass"
 	if { $val2 > $val1 } {
 	    # Check for a performance degration outside of allowable limits.

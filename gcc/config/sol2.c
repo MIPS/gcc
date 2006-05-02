@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -51,8 +51,8 @@ solaris_insert_attributes (tree decl, tree *attributes)
 	  {
 	    if (lookup_attribute ("aligned", DECL_ATTRIBUTES (decl))
 		|| lookup_attribute ("aligned", *attributes))
-	      warning (0, "%Jignoring %<#pragma align%> for explicitly "
-		       "aligned %<%D%>", decl, decl);
+	      warning (0, "ignoring %<#pragma align%> for explicitly "
+		       "aligned %q+D", decl);
 	    else
 	      *attributes = tree_cons (get_identifier ("aligned"), value,
 				       *attributes);

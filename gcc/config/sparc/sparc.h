@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler, for Sun SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997, 1998, 1999
-   2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com).
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -19,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Note that some other tm.h files include this one and then override
    whatever definitions are necessary.  */
@@ -206,7 +206,7 @@ extern enum cmodel sparc_cmodel;
    which requires the following macro to be true if enabled.  Prior to V9,
    there are no instructions to even talk about memory synchronization.
    Note that the UltraSPARC III processors don't implement RMO, unlike the
-   UltraSPARC II processors.
+   UltraSPARC II processors.  Niagara does not implement RMO either.
 
    Default to false; for example, Solaris never enables RMO, only ever uses
    total memory ordering (TMO).  */
@@ -238,10 +238,12 @@ extern enum cmodel sparc_cmodel;
 #define TARGET_CPU_sparc64	7	/* alias */
 #define TARGET_CPU_ultrasparc	8
 #define TARGET_CPU_ultrasparc3	9
+#define TARGET_CPU_niagara	10
 
 #if TARGET_CPU_DEFAULT == TARGET_CPU_v9 \
  || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc \
- || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc3
+ || TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc3 \
+ || TARGET_CPU_DEFAULT == TARGET_CPU_niagara
 
 #define CPP_CPU32_DEFAULT_SPEC ""
 #define ASM_CPU32_DEFAULT_SPEC ""
@@ -259,6 +261,10 @@ extern enum cmodel sparc_cmodel;
 #define ASM_CPU64_DEFAULT_SPEC "-Av9a"
 #endif
 #if TARGET_CPU_DEFAULT == TARGET_CPU_ultrasparc3
+#define CPP_CPU64_DEFAULT_SPEC "-D__sparc_v9__"
+#define ASM_CPU64_DEFAULT_SPEC "-Av9b"
+#endif
+#if TARGET_CPU_DEFAULT == TARGET_CPU_niagara
 #define CPP_CPU64_DEFAULT_SPEC "-D__sparc_v9__"
 #define ASM_CPU64_DEFAULT_SPEC "-Av9b"
 #endif
@@ -352,6 +358,7 @@ extern enum cmodel sparc_cmodel;
 %{mcpu=v9:-D__sparc_v9__} \
 %{mcpu=ultrasparc:-D__sparc_v9__} \
 %{mcpu=ultrasparc3:-D__sparc_v9__} \
+%{mcpu=niagara:-D__sparc_v9__} \
 %{!mcpu*:%{!mcypress:%{!msparclite:%{!mf930:%{!mf934:%{!mv8:%{!msupersparc:%(cpp_cpu_default)}}}}}}} \
 "
 #define CPP_ARCH32_SPEC ""
@@ -401,6 +408,7 @@ extern enum cmodel sparc_cmodel;
 %{mcpu=v9:-Av9} \
 %{mcpu=ultrasparc:%{!mv8plus:-Av9a}} \
 %{mcpu=ultrasparc3:%{!mv8plus:-Av9b}} \
+%{mcpu=niagara:%{!mv8plus:-Av9b}} \
 %{!mcpu*:%{!mcypress:%{!msparclite:%{!mf930:%{!mf934:%{!mv8:%{!msupersparc:%(asm_cpu_default)}}}}}}} \
 "
 
@@ -524,7 +532,8 @@ enum processor_type {
   PROCESSOR_TSC701,
   PROCESSOR_V9,
   PROCESSOR_ULTRASPARC,
-  PROCESSOR_ULTRASPARC3
+  PROCESSOR_ULTRASPARC3,
+  PROCESSOR_NIAGARA
 };
 
 /* This is set from -m{cpu,tune}=xxx.  */
@@ -624,11 +633,9 @@ if (TARGET_ARCH64				\
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
 /* FIXME, this is wrong when TARGET_ARCH64 and TARGET_STACK_BIAS, because
-   then sp+2047 is 128-bit aligned so sp is really only byte-aligned.  */
+   then %sp+2047 is 128-bit aligned so %sp is really only byte-aligned.  */
 #define STACK_BOUNDARY (TARGET_ARCH64 ? 128 : 64)
-/* Temporary hack until the FIXME above is fixed.  This macro is used
-   only in pad_to_arg_alignment in function.c; see the comment there
-   for details about what it does.  */
+/* Temporary hack until the FIXME above is fixed.  */
 #define SPARC_STACK_BOUNDARY_HACK (TARGET_ARCH64 && TARGET_STACK_BIAS)
 
 /* ALIGN FRAMES on double word boundaries */
@@ -885,6 +892,11 @@ extern int sparc_mode_class[];
    ??? RTL generation.  This only matters on arch32.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
   ((hard_regno_mode_classes[REGNO] & sparc_mode_class[MODE]) != 0)
+
+/* Value is 1 if it is OK to rename a hard register FROM to another hard
+   register TO.  We cannot rename %g1 as it may be used before the save
+   register window instruction in the prologue.  */
+#define HARD_REGNO_RENAME_OK(FROM, TO) ((FROM) != 1)
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -1360,11 +1372,11 @@ extern char leaf_reg_remap[];
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/* Define this if the nominal address of the stack frame
+/* Define this to nonzero if the nominal address of the stack frame
    is at the high-address end of the local variables;
    that is, each additional local variable allocated
    goes at a more negative offset in the frame.  */
-#define FRAME_GROWS_DOWNWARD
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset within stack frame to start allocating local variables at.
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
@@ -1584,6 +1596,7 @@ function_arg_padding ((MODE), (TYPE))
 
 extern GTY(()) rtx sparc_compare_op0;
 extern GTY(()) rtx sparc_compare_op1;
+extern GTY(()) rtx sparc_compare_emitted;
 
 
 /* Generate the special assembly code needed to tell the assembler whatever
@@ -2133,7 +2146,8 @@ do {                                                                    \
     || (GENERAL_OR_I64 (CLASS1) && FP_REG_CLASS_P (CLASS2)) \
     || (CLASS1) == FPCC_REGS || (CLASS2) == FPCC_REGS)		\
    ? ((sparc_cpu == PROCESSOR_ULTRASPARC \
-       || sparc_cpu == PROCESSOR_ULTRASPARC3) ? 12 : 6) : 2)
+       || sparc_cpu == PROCESSOR_ULTRASPARC3 \
+       || sparc_cpu == PROCESSOR_NIAGARA) ? 12 : 6) : 2)
 
 /* Provide the cost of a branch.  For pre-v9 processors we use
    a value of 3 to take into account the potential annulling of
@@ -2143,22 +2157,30 @@ do {                                                                    \
 
    On v9 and later, which have branch prediction facilities, we set
    it to the depth of the pipeline as that is the cost of a
-   mispredicted branch.  */
+   mispredicted branch.
+
+   On Niagara, normal branches insert 3 bubbles into the pipe
+   and annulled branches insert 4 bubbles.  */
 
 #define BRANCH_COST \
 	((sparc_cpu == PROCESSOR_V9 \
 	  || sparc_cpu == PROCESSOR_ULTRASPARC) \
 	 ? 7 \
          : (sparc_cpu == PROCESSOR_ULTRASPARC3 \
-            ? 9 : 3))
+            ? 9 \
+	 : (sparc_cpu == PROCESSOR_NIAGARA \
+	    ? 4 \
+	 : 3)))
 
 #define PREFETCH_BLOCK \
 	((sparc_cpu == PROCESSOR_ULTRASPARC \
-          || sparc_cpu == PROCESSOR_ULTRASPARC3) \
+          || sparc_cpu == PROCESSOR_ULTRASPARC3 \
+	  || sparc_cpu == PROCESSOR_NIAGARA) \
          ? 64 : 32)
 
 #define SIMULTANEOUS_PREFETCHES \
-	((sparc_cpu == PROCESSOR_ULTRASPARC) \
+	((sparc_cpu == PROCESSOR_ULTRASPARC \
+	  || sparc_cpu == PROCESSOR_NIAGARA) \
          ? 2 \
          : (sparc_cpu == PROCESSOR_ULTRASPARC3 \
             ? 8 : 3))
@@ -2349,13 +2371,6 @@ extern int sparc_indent_opcode;
       }					\
   } while (0)
 
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#ifdef HAVE_AS_TLS
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  sparc_output_dwarf_dtprel (FILE, SIZE, X)
-#endif
-
 #define SPARC_SYMBOL_REF_TLS_P(RTX) \
   (GET_CODE (RTX) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (RTX) != 0)
 
@@ -2447,11 +2462,14 @@ extern int sparc_indent_opcode;
     }								\
 }
 
+/* TLS support defaulting to original Sun flavor.  GNU extensions
+   must be activated in separate configuration files.  */
 #ifdef HAVE_AS_TLS
 #define TARGET_TLS 1
 #else
 #define TARGET_TLS 0
 #endif
+
 #define TARGET_SUN_TLS TARGET_TLS
 #define TARGET_GNU_TLS 0
 

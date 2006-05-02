@@ -56,6 +56,10 @@
    */
 #undef HAVE_DECL_GETENV
 
+/* Define to 1 if you have the declaration of `getopt', and to 0 if you don't.
+   */
+#undef HAVE_DECL_GETOPT
+
 /* Define to 1 if you have the declaration of `malloc', and to 0 if you don't.
    */
 #undef HAVE_DECL_MALLOC
@@ -71,6 +75,10 @@
 /* Define to 1 if you have the declaration of `snprintf', and to 0 if you
    don't. */
 #undef HAVE_DECL_SNPRINTF
+
+/* Define to 1 if you have the declaration of `strverscmp', and to 0 if you
+   don't. */
+#undef HAVE_DECL_STRVERSCMP
 
 /* Define to 1 if you have the declaration of `vasprintf', and to 0 if you
    don't. */
@@ -244,6 +252,9 @@
 
 /* Define to 1 if you have the `strtoul' function. */
 #undef HAVE_STRTOUL
+
+/* Define to 1 if you have the `strverscmp' function. */
+#undef HAVE_STRVERSCMP
 
 /* Define to 1 if you have the `sysconf' function. */
 #undef HAVE_SYSCONF

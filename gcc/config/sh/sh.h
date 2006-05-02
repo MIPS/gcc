@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005 Free Software Foundation, Inc.
+   2003, 2004, 2005, 2006 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_SH_H
 #define GCC_SH_H
@@ -92,11 +92,6 @@ do { \
     builtin_define ("__HITACHI__"); \
   builtin_define (TARGET_LITTLE_ENDIAN \
 		  ? "__LITTLE_ENDIAN__" : "__BIG_ENDIAN__"); \
-  if (flag_pic) \
-    { \
-      builtin_define ("__pic__"); \
-      builtin_define ("__PIC__"); \
-    } \
 } while (0)
 
 /* We can not debug without a frame pointer.  */
@@ -239,6 +234,9 @@ do { \
 #define TARGET_DIVIDE_INV20L (sh_div_strategy == SH_DIV_INV20L)
 #define TARGET_DIVIDE_INV_CALL (sh_div_strategy == SH_DIV_INV_CALL)
 #define TARGET_DIVIDE_INV_CALL2 (sh_div_strategy == SH_DIV_INV_CALL2)
+#define TARGET_DIVIDE_CALL_DIV1 (sh_div_strategy == SH_DIV_CALL_DIV1)
+#define TARGET_DIVIDE_CALL_FP (sh_div_strategy == SH_DIV_CALL_FP)
+#define TARGET_DIVIDE_CALL_TABLE (sh_div_strategy == SH_DIV_CALL_TABLE)
 
 #define SELECT_SH1               (MASK_SH1)
 #define SELECT_SH2               (MASK_SH2 | SELECT_SH1)
@@ -472,7 +470,7 @@ do {									\
       sh_div_str = SH_DIV_STR_FOR_SIZE ;				\
     }									\
   /* We can't meaningfully test TARGET_SHMEDIA here, because -m options	\
-     haven't been parsed yet, hence we';d read only the default.	\
+     haven't been parsed yet, hence we'd read only the default.	\
      sh_target_reg_class will return NO_REGS if this is not SHMEDIA, so	\
      it's OK to always set flag_branch_target_load_optimize.  */	\
   if (LEVEL > 1)							\
@@ -486,6 +484,10 @@ do {									\
     flag_finite_math_only.  We set it to 2 here so we know if the user	\
     explicitly requested this to be on or off.  */			\
   flag_finite_math_only = 2;						\
+  /* If flag_schedule_insns is 1, we set it to 2 here so we know if	\
+     the user explicitly requested this to be on or off.  */		\
+  if (flag_schedule_insns > 0)						\
+    flag_schedule_insns = 2;						\
 } while (0)
 
 #define ASSEMBLER_DIALECT assembler_dialect
@@ -493,16 +495,24 @@ do {									\
 extern int assembler_dialect;
 
 enum sh_divide_strategy_e {
+  /* SH5 strategies.  */
   SH_DIV_CALL,
   SH_DIV_CALL2,
-  SH_DIV_FP,
+  SH_DIV_FP, /* We could do this also for SH4.  */
   SH_DIV_INV,
   SH_DIV_INV_MINLAT,
   SH_DIV_INV20U,
   SH_DIV_INV20L,
   SH_DIV_INV_CALL,
   SH_DIV_INV_CALL2,
-  SH_DIV_INV_FP
+  SH_DIV_INV_FP,
+  /* SH1 .. SH4 strategies.  Because of the small number of registers
+     available, the compiler uses knowledge of the actual et of registers
+     being clobbed by the different functions called.  */
+  SH_DIV_CALL_DIV1, /* No FPU, medium size, highest latency.  */
+  SH_DIV_CALL_FP,     /* FPU needed, small size, high latency.  */
+  SH_DIV_CALL_TABLE,  /* No FPU, large size, medium latency. */
+  SH_DIV_INTRINSIC
 };
 
 extern enum sh_divide_strategy_e sh_div_strategy;
@@ -604,7 +614,7 @@ do {									\
 	 --with-newlib --with-headers.  But there is no way to check	\
 	 here we have a working libgcov, so just assume that we have.  */\
       if (profile_flag)							\
-	warning (0, "Profiling is still experimental for this target.");\
+	warning (0, "profiling is still experimental for this target");\
     }									\
   else									\
     {									\
@@ -612,17 +622,48 @@ do {									\
        targetm.asm_out.aligned_op.di = NULL;				\
        targetm.asm_out.unaligned_op.di = NULL;				\
     }									\
+  if (TARGET_SH1)							\
+    {									\
+      if (! strcmp (sh_div_str, "call-div1"))				\
+	sh_div_strategy = SH_DIV_CALL_DIV1;				\
+      else if (! strcmp (sh_div_str, "call-fp")				\
+	       && (TARGET_FPU_DOUBLE					\
+		   || (TARGET_HARD_SH4 && TARGET_SH2E)			\
+		   || (TARGET_SHCOMPACT && TARGET_FPU_ANY)))		\
+	sh_div_strategy = SH_DIV_CALL_FP;				\
+      else if (! strcmp (sh_div_str, "call-table") && TARGET_SH3)	\
+	sh_div_strategy = SH_DIV_CALL_TABLE;				\
+      else								\
+	/* Pick one that makes most sense for the target in general.	\
+	   It is not much good to use different functions depending	\
+	   on -Os, since then we'll end up with two different functions	\
+	   when some of the code is compiled for size, and some for	\
+	   speed.  */							\
+									\
+	/* SH4 tends to emphasize speed.  */				\
+	if (TARGET_HARD_SH4)						\
+	  sh_div_strategy = SH_DIV_CALL_TABLE;				\
+	/* These have their own way of doing things.  */		\
+	else if (TARGET_SH2A)						\
+	  sh_div_strategy = SH_DIV_INTRINSIC;				\
+	/* ??? Should we use the integer SHmedia function instead?  */	\
+	else if (TARGET_SHCOMPACT && TARGET_FPU_ANY)			\
+	  sh_div_strategy = SH_DIV_CALL_FP;				\
+        /* SH1 .. SH3 cores often go into small-footprint systems, so	\
+	   default to the smallest implementation available.  */	\
+	else								\
+	  sh_div_strategy = SH_DIV_CALL_DIV1;				\
+    }									\
+  if (!TARGET_SH1)							\
+    TARGET_PRETEND_CMOVE = 0;						\
   if (sh_divsi3_libfunc[0])						\
     ; /* User supplied - leave it alone.  */				\
-  else if (TARGET_HARD_SH4 && TARGET_SH2E)				\
+  else if (TARGET_DIVIDE_CALL_FP)					\
     sh_divsi3_libfunc = "__sdivsi3_i4";					\
+  else if (TARGET_DIVIDE_CALL_TABLE)					\
+    sh_divsi3_libfunc = "__sdivsi3_i4i";				\
   else if (TARGET_SH5)							\
-    {									\
-      if (TARGET_FPU_ANY && TARGET_SH1)					\
-	sh_divsi3_libfunc = "__sdivsi3_i4";				\
-      else								\
-	sh_divsi3_libfunc = "__sdivsi3_1";				\
-    }									\
+    sh_divsi3_libfunc = "__sdivsi3_1";					\
   else									\
     sh_divsi3_libfunc = "__sdivsi3";					\
   if (TARGET_FMOVD)							\
@@ -661,6 +702,17 @@ do {									\
 	 SH3 and lower as they give spill failures for R0.  */		\
       if (!TARGET_HARD_SH4) 						\
         flag_schedule_insns = 0;		 			\
+      /* ??? Current exception handling places basic block boundaries	\
+	 after call_insns.  It causes the high pressure on R0 and gives	\
+	 spill failures for R0 in reload.  See PR 22553 and the thread	\
+	 on gcc-patches							\
+         <http://gcc.gnu.org/ml/gcc-patches/2005-10/msg00816.html>.  */	\
+      else if (flag_exceptions)						\
+	{								\
+	  if (flag_schedule_insns == 1)		 			\
+	    warning (0, "ignoring -fschedule-insns because of exception handling bug");	\
+	  flag_schedule_insns = 0;		 			\
+	}								\
     }									\
 									\
   if (align_loops == 0)							\
@@ -882,7 +934,7 @@ extern char sh_register_names[][MAX_REGISTER_NAME_LENGTH + 1];
   "tr0",  "tr1",  "tr2",  "tr3",  "tr4",  "tr5",  "tr6",  "tr7", 	\
   "xd0",  "xd2",  "xd4",  "xd6",  "xd8",  "xd10", "xd12", "xd14",	\
   "gbr",  "ap",	  "pr",   "t",    "mach", "macl", "fpul", "fpscr",	\
-  "rap"									\
+  "rap",  "sfp"								\
 }
 
 #define REGNAMES_ARR_INDEX_1(index) \
@@ -907,7 +959,7 @@ extern char sh_register_names[][MAX_REGISTER_NAME_LENGTH + 1];
   REGNAMES_ARR_INDEX_8 (128), \
   REGNAMES_ARR_INDEX_8 (136), \
   REGNAMES_ARR_INDEX_8 (144), \
-  REGNAMES_ARR_INDEX_1 (152) \
+  REGNAMES_ARR_INDEX_2 (152) \
 }
 
 #define ADDREGNAMES_SIZE 32
@@ -969,7 +1021,8 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 	    (unsigned HOST_WIDE_INT) LAST_GENERAL_REG)
 
 #define GENERAL_OR_AP_REGISTER_P(REGNO) \
-  (GENERAL_REGISTER_P (REGNO) || ((REGNO) == AP_REG))
+  (GENERAL_REGISTER_P (REGNO) || ((REGNO) == AP_REG)	\
+   || ((REGNO) == FRAME_POINTER_REGNUM))
 
 #define FP_REGISTER_P(REGNO) \
   ((int) (REGNO) >= FIRST_FP_REG && (int) (REGNO) <= LAST_FP_REG)
@@ -999,6 +1052,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 #define VALID_REGISTER_P(REGNO) \
   (SHMEDIA_REGISTER_P (REGNO) || XD_REGISTER_P (REGNO) \
    || (REGNO) == AP_REG || (REGNO) == RAP_REG \
+   || (REGNO) == FRAME_POINTER_REGNUM \
    || (TARGET_SH1 && (SPECIAL_REGISTER_P (REGNO) || (REGNO) == PR_REG)) \
    || (TARGET_SH2E && (REGNO) == FPUL_REG))
 
@@ -1011,7 +1065,10 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
    ? DImode \
    : SImode)
 
-#define FIRST_PSEUDO_REGISTER 153
+#define FIRST_PSEUDO_REGISTER 154
+
+/* Don't count soft frame pointer.  */
+#define DWARF_FRAME_REGISTERS (FIRST_PSEUDO_REGISTER - 1)
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
@@ -1048,8 +1105,8 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
   0,      0,      0,      0,      0,      0,      0,      0,		\
 /*"gbr",  "ap",	  "pr",   "t",    "mach", "macl", "fpul", "fpscr", */	\
   1,      1,      1,      1,      1,      1,      0,      1,		\
-/*"rap" */								\
-  1,									\
+/*"rap",  "sfp" */							\
+  1,	  1,								\
 }
 
 /* 1 for registers not available across function calls.
@@ -1088,8 +1145,8 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
   1,      1,      1,      1,      1,      1,      0,      0,		\
 /*"gbr",  "ap",	  "pr",   "t",    "mach", "macl", "fpul", "fpscr", */	\
   1,      1,      1,      1,      1,      1,      1,      1,		\
-/*"rap" */								\
-  1,									\
+/*"rap",  "sfp" */							\
+  1,	  1,								\
 }
 
 /* CONDITIONAL_REGISTER_USAGE might want to make a register call-used, yet
@@ -1147,7 +1204,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
       || GENERAL_REGISTER_P (REGNO)) \
    : (MODE) == V4SFmode \
    ? ((FP_REGISTER_P (REGNO) && ((REGNO) - FIRST_FP_REG) % 4 == 0) \
-      || (! TARGET_SHMEDIA && GENERAL_REGISTER_P (REGNO))) \
+      || GENERAL_REGISTER_P (REGNO)) \
    : (MODE) == V16SFmode \
    ? (TARGET_SHMEDIA \
       ? (FP_REGISTER_P (REGNO) && ((REGNO) - FIRST_FP_REG) % 16 == 0) \
@@ -1204,7 +1261,10 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 #define STACK_POINTER_REGNUM	SP_REG
 
 /* Base register for access to local variables of the function.  */
-#define FRAME_POINTER_REGNUM	FP_REG
+#define HARD_FRAME_POINTER_REGNUM	FP_REG
+
+/* Base register for access to local variables of the function.  */
+#define FRAME_POINTER_REGNUM	153
 
 /* Fake register that holds the address on the stack of the
    current function's return address.  */
@@ -1246,16 +1306,18 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
    of elimination fail.  */
 
 #define ELIMINABLE_REGS						\
-{{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},			\
+{{ HARD_FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
+ { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},			\
+ { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},		\
  { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
- { RETURN_ADDRESS_POINTER_REGNUM, FRAME_POINTER_REGNUM},	\
+ { RETURN_ADDRESS_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},	\
  { ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},			\
- { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM},}
+ { ARG_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},}
 
 /* Given FROM and TO register numbers, say whether this elimination
    is allowed.  */
 #define CAN_ELIMINATE(FROM, TO) \
-  (!((FROM) == FRAME_POINTER_REGNUM && FRAME_POINTER_REQUIRED))
+  (!((FROM) == HARD_FRAME_POINTER_REGNUM && FRAME_POINTER_REQUIRED))
 
 /* Define the offset between two registers, one to be eliminated, and the other
    its replacement, at the start of a routine.  */
@@ -1331,6 +1393,7 @@ enum reg_class
   DF_REGS,
   FPSCR_REGS,
   GENERAL_FP_REGS,
+  GENERAL_DF_REGS,
   TARGET_REGS,
   ALL_REGS,
   LIM_REG_CLASSES
@@ -1355,6 +1418,7 @@ enum reg_class
   "DF_REGS",		\
   "FPSCR_REGS",		\
   "GENERAL_FP_REGS",	\
+  "GENERAL_DF_REGS",	\
   "TARGET_REGS",	\
   "ALL_REGS",		\
 }
@@ -1380,7 +1444,7 @@ enum reg_class
 /* SIBCALL_REGS: Initialized in CONDITIONAL_REGISTER_USAGE.  */	\
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	\
 /* GENERAL_REGS:  */							\
-  { 0xffffffff, 0xffffffff, 0x00000000, 0x00000000, 0x01020000 },	\
+  { 0xffffffff, 0xffffffff, 0x00000000, 0x00000000, 0x03020000 },	\
 /* FP0_REGS:  */							\
   { 0x00000000, 0x00000000, 0x00000001, 0x00000000, 0x00000000 },	\
 /* FP_REGS:  */								\
@@ -1392,11 +1456,13 @@ enum reg_class
 /* FPSCR_REGS:  */							\
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00800000 },	\
 /* GENERAL_FP_REGS:  */							\
-  { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x0102ff00 },	\
+  { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x03020000 },	\
+/* GENERAL_DF_REGS:  */							\
+  { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x0302ff00 },	\
 /* TARGET_REGS:  */							\
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x000000ff },	\
 /* ALL_REGS:  */							\
-  { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x01ffffff },	\
+  { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x03ffffff },	\
 }
 
 /* The same information, inverted:
@@ -1446,7 +1512,7 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
    128,129,130,131,132,133,134,135, \
    /* Fixed registers */ \
     15, 16, 24, 25, 26, 27, 63,144, \
-   145,146,147,148,149,152 }
+   145,146,147,148,149,152,153 }
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS \
@@ -1469,7 +1535,8 @@ extern enum reg_class reg_class_from_letter[];
     Bsc: SCRATCH - for the scratch register in movsi_ie in the
 	 fldi0 / fldi0 cases
    C: Constants other than only CONST_INT (constraint len == 3)
-    C16: 16 bit constant, literal or symbolic
+    Css: signed 16 bit constant, literal or symbolic
+    Csu: unsigned 16 bit constant, literal or symbolic
     Csy: label or symbol
     Cpg: non-explicit constants that can be directly loaded into a general
 	 purpose register in PIC code.  like 's' except we don't allow
@@ -1503,7 +1570,8 @@ extern enum reg_class reg_class_from_letter[];
    C is the letter, and VALUE is a constant value.
    Return 1 if VALUE is in the range specified by C.
 	I08: arithmetic operand -127..128, as used in add, sub, etc
-	I16: arithmetic operand -32768..32767, as used in SHmedia movi and shori
+	I16: arithmetic operand -32768..32767, as used in SHmedia movi
+	K16: arithmetic operand 0..65535, as used in SHmedia shori
 	P27: shift operand 1,2,8 or 16
 	K08: logical operand 0..255, as used in and, or, etc.
 	M: constant 1
@@ -1540,8 +1608,11 @@ extern enum reg_class reg_class_from_letter[];
 
 #define CONST_OK_FOR_K08(VALUE) (((HOST_WIDE_INT)(VALUE))>= 0 \
 				 && ((HOST_WIDE_INT)(VALUE)) <= 255)
+#define CONST_OK_FOR_K16(VALUE) (((HOST_WIDE_INT)(VALUE))>= 0 \
+				 && ((HOST_WIDE_INT)(VALUE)) <= 65535)
 #define CONST_OK_FOR_K(VALUE, STR) \
   ((STR)[1] == '0' && (STR)[2] == '8' ? CONST_OK_FOR_K08 (VALUE) \
+   : (STR)[1] == '1' && (STR)[2] == '6' ? CONST_OK_FOR_K16 (VALUE)	\
    : 0)
 #define CONST_OK_FOR_P27(VALUE) \
   ((VALUE)==1||(VALUE)==2||(VALUE)==8||(VALUE)==16)
@@ -1580,6 +1651,7 @@ extern enum reg_class reg_class_from_letter[];
    ? GENERAL_REGS \
    : (CLASS)) \
 
+#if 0
 #define SECONDARY_INOUT_RELOAD_CLASS(CLASS,MODE,X,ELSE) \
   ((((REGCLASS_HAS_FP_REG (CLASS) 					\
       && (GET_CODE (X) == REG						\
@@ -1651,6 +1723,9 @@ extern enum reg_class reg_class_from_letter[];
       && (GET_CODE (X) == LABEL_REF || PIC_DIRECT_ADDR_P (X)))		\
    ? TARGET_REGS							\
    : SECONDARY_INOUT_RELOAD_CLASS((CLASS),(MODE),(X), NO_REGS))
+#else
+#define HAVE_SECONDARY_RELOADS
+#endif
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
@@ -1694,11 +1769,9 @@ extern enum reg_class reg_class_from_letter[];
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
 
-/*  Define this macro if the addresses of local variable slots are at
-    negative offsets from the frame pointer.
-
-    The SH only has positive indexes, so grow the frame up.  */
-/* #define FRAME_GROWS_DOWNWARD */
+/*  Define this macro to nonzero if the addresses of local variable slots
+    are at negative offsets from the frame pointer.  */
+#define FRAME_GROWS_DOWNWARD 1
 
 /* Offset from the frame pointer to the first local variable slot to
    be allocated.  */
@@ -1771,7 +1844,6 @@ extern enum reg_class reg_class_from_letter[];
 	     && (TREE_CODE (VALTYPE) == INTEGER_TYPE			\
 		 || TREE_CODE (VALTYPE) == ENUMERAL_TYPE		\
 		 || TREE_CODE (VALTYPE) == BOOLEAN_TYPE			\
-		 || TREE_CODE (VALTYPE) == CHAR_TYPE			\
 		 || TREE_CODE (VALTYPE) == REAL_TYPE			\
 		 || TREE_CODE (VALTYPE) == OFFSET_TYPE))		\
              && sh_promote_prototypes (VALTYPE)				\
@@ -2072,7 +2144,9 @@ struct sh_args {
    && ((MODE) == BLKmode || (MODE) == TImode || (MODE) == CDImode \
        || (MODE) == DCmode) \
    && ((CUM).arg_count[(int) SH_ARG_INT]			\
-       + (int_size_in_bytes (TYPE) + 7) / 8) > NPARM_REGS (SImode))
+       + (((MODE) == BLKmode ? int_size_in_bytes (TYPE)		\
+			     : GET_MODE_SIZE (MODE))		\
+	  + 7) / 8) > NPARM_REGS (SImode))
 
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.  */
@@ -2286,10 +2360,25 @@ struct sh_args {
   ((STR)[1] == 's' && (STR)[2] == 'c' ? EXTRA_CONSTRAINT_Bsc (OP) \
    : 0)
 
-/* The `C16' constraint is a 16-bit constant, literal or symbolic.  */
-#define EXTRA_CONSTRAINT_C16(OP) \
+/* The `Css' constraint is a signed 16-bit constant, literal or symbolic.  */
+#define EXTRA_CONSTRAINT_Css(OP) \
   (GET_CODE (OP) == CONST \
    && GET_CODE (XEXP ((OP), 0)) == SIGN_EXTEND \
+   && (GET_MODE (XEXP ((OP), 0)) == DImode \
+       || GET_MODE (XEXP ((OP), 0)) == SImode) \
+   && GET_CODE (XEXP (XEXP ((OP), 0), 0)) == TRUNCATE \
+   && GET_MODE (XEXP (XEXP ((OP), 0), 0)) == HImode \
+   && (MOVI_SHORI_BASE_OPERAND_P (XEXP (XEXP (XEXP ((OP), 0), 0), 0)) \
+       || (GET_CODE (XEXP (XEXP (XEXP ((OP), 0), 0), 0)) == ASHIFTRT \
+	   && (MOVI_SHORI_BASE_OPERAND_P \
+	       (XEXP (XEXP (XEXP (XEXP ((OP), 0), 0), 0), 0))) \
+	   && GET_CODE (XEXP (XEXP (XEXP (XEXP ((OP), 0), 0), 0), \
+			      1)) == CONST_INT)))
+
+/* The `Csu' constraint is an unsigned 16-bit constant, literal or symbolic.  */
+#define EXTRA_CONSTRAINT_Csu(OP) \
+  (GET_CODE (OP) == CONST \
+   && GET_CODE (XEXP ((OP), 0)) == ZERO_EXTEND \
    && (GET_MODE (XEXP ((OP), 0)) == DImode \
        || GET_MODE (XEXP ((OP), 0)) == SImode) \
    && GET_CODE (XEXP (XEXP ((OP), 0), 0)) == TRUNCATE \
@@ -2387,7 +2476,8 @@ struct sh_args {
         && (! PIC_ADDR_P (OP) || PIC_OFFSET_P (OP)) \
         && GET_CODE (OP) != LABEL_REF)))
 #define EXTRA_CONSTRAINT_C(OP, STR) \
-  ((STR)[1] == '1' && (STR)[2] == '6' ? EXTRA_CONSTRAINT_C16 (OP) \
+  ((STR)[1] == 's' && (STR)[2] == 's' ? EXTRA_CONSTRAINT_Css (OP) \
+   : (STR)[1] == 's' && (STR)[2] == 'u' ? EXTRA_CONSTRAINT_Csu (OP) \
    : (STR)[1] == 's' && (STR)[2] == 'y' ? EXTRA_CONSTRAINT_Csy (OP) \
    : (STR)[1] == 'p' && (STR)[2] == 'g' ? EXTRA_CONSTRAINT_Cpg (OP) \
    : 0)
@@ -2528,9 +2618,11 @@ struct sh_args {
       if (GET_MODE_SIZE (MODE) <= 8 && BASE_REGISTER_RTX_P (xop0))	\
 	GO_IF_LEGITIMATE_INDEX ((MODE), xop1, LABEL);			\
       if ((ALLOW_INDEXED_ADDRESS || GET_MODE (X) == DImode		\
-	   || ((xop0 == stack_pointer_rtx || xop0 == frame_pointer_rtx)	\
+	   || ((xop0 == stack_pointer_rtx				\
+		|| xop0 == hard_frame_pointer_rtx)			\
 	       && REG_P (xop1) && REGNO (xop1) == R0_REG)		\
-	   || ((xop1 == stack_pointer_rtx || xop1 == frame_pointer_rtx)	\
+	   || ((xop1 == stack_pointer_rtx				\
+		|| xop1 == hard_frame_pointer_rtx)			\
 	       && REG_P (xop0) && REGNO (xop0) == R0_REG))		\
 	  && ((!TARGET_SHMEDIA && GET_MODE_SIZE (MODE) <= 4)		\
 	      || (TARGET_SHMEDIA && GET_MODE_SIZE (MODE) <= 8)		\
@@ -2625,7 +2717,7 @@ struct sh_args {
       && ! ((MODE) == PSImode && (TYPE) == RELOAD_FOR_INPUT_ADDRESS)	\
       && (ALLOW_INDEXED_ADDRESS						\
 	  || XEXP ((X), 0) == stack_pointer_rtx				\
-	  || XEXP ((X), 0) == frame_pointer_rtx))			\
+	  || XEXP ((X), 0) == hard_frame_pointer_rtx))			\
     {									\
       rtx index_rtx = XEXP (X, 1);					\
       HOST_WIDE_INT offset = INTVAL (index_rtx), offset_base;		\
@@ -3226,17 +3318,12 @@ extern enum mdep_reorg_phase_e mdep_reorg_phase;
   c_register_pragma (0, "nosave_low_regs", sh_pr_nosave_low_regs);	\
 } while (0)
 
-/* Set when processing a function with pragma interrupt turned on.  */
-
-extern int pragma_interrupt;
+extern tree sh_deferred_function_attributes;
+extern tree *sh_deferred_function_attributes_tail;
 
 /* Set when processing a function with interrupt attribute.  */
 
 extern int current_function_interrupt;
-
-/* Set to an RTX containing the address of the stack to switch to
-   for interrupt functions.  */
-extern struct rtx_def *sp_switch;
 
 
 /* Instructions with unfilled delay slots take up an
@@ -3359,18 +3446,6 @@ extern struct rtx_def *sp_switch;
 1:	.long	" USER_LABEL_PREFIX #FUNC " - 0b\n\
 2:\n" TEXT_SECTION_ASM_OP);
 #endif /* (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__ */
-
-#define ALLOCATE_INITIAL_VALUE(hard_reg) \
-  (REGNO (hard_reg) == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG) \
-   ? (current_function_is_leaf \
-      && ! sh_pr_n_sets () \
-      && ! (TARGET_SHCOMPACT \
-	    && ((current_function_args_info.call_cookie \
-		 & ~ CALL_COOKIE_RET_TRAMP (1)) \
-		|| current_function_has_nonlocal_label)) \
-      ? (hard_reg) \
-      : gen_rtx_MEM (Pmode, return_address_pointer_rtx)) \
-   : NULL_RTX)
 
 #define SIMULTANEOUS_PREFETCHES 2
 

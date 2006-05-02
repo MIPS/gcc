@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_CP_OBJCP_COMMON
 #define GCC_CP_OBJCP_COMMON
@@ -107,6 +107,9 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
 #define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
   cp_cannot_inline_tree_fn
+#undef LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS
+#define LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS \
+  cp_add_pending_fn_decls
 #undef LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P
 #define LANG_HOOKS_TREE_INLINING_AUTO_VAR_IN_FN_P \
   cp_auto_var_in_fn_p
@@ -148,5 +151,15 @@ extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 #define LANG_HOOKS_TO_TARGET_CHARSET c_common_to_target_charset
 #undef LANG_HOOKS_GIMPLIFY_EXPR
 #define LANG_HOOKS_GIMPLIFY_EXPR cp_gimplify_expr
+#undef LANG_HOOKS_OMP_PREDETERMINED_SHARING
+#define LANG_HOOKS_OMP_PREDETERMINED_SHARING cxx_omp_predetermined_sharing
+#undef LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR
+#define LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR cxx_omp_clause_default_ctor
+#undef LANG_HOOKS_OMP_CLAUSE_COPY_CTOR
+#define LANG_HOOKS_OMP_CLAUSE_COPY_CTOR cxx_omp_clause_copy_ctor
+#undef LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP
+#define LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP cxx_omp_clause_assign_op
+#undef LANG_HOOKS_OMP_CLAUSE_DTOR
+#define LANG_HOOKS_OMP_CLAUSE_DTOR cxx_omp_clause_dtor
 
 #endif /* GCC_CP_OBJCP_COMMON */

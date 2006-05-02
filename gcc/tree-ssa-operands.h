@@ -15,8 +15,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #ifndef GCC_TREE_SSA_OPERANDS_H
 #define GCC_TREE_SSA_OPERANDS_H
@@ -165,10 +165,9 @@ extern void dump_immediate_uses_for (FILE *file, tree var);
 extern void debug_immediate_uses (void);
 extern void debug_immediate_uses_for (tree var);
 
-extern bool ssa_call_clobbered_cache_valid;
-extern bool ssa_ro_call_cache_valid;
-
 extern bool ssa_operands_active (void);
+
+extern void add_to_addressable_set (tree, bitmap *);
 
 enum ssa_op_iter_type {
   ssa_op_iter_none = 0,

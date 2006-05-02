@@ -1,5 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -44,6 +44,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "cgraph.h"
 #include "varray.h"
+#include "tree-pass.h"
+#include "ipa-type-escape.h"
 
 /* The aliasing API provided here solves related but different problems:
 
@@ -63,13 +65,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    Consider the four questions:
 
-   Can a store to x1 interfere with px2->y2?
+   Can a store to x1 interfere with px2->y1?
    Can a store to x1 interfere with px2->z2?
    (*px2).z2
    Can a store to x1 change the value pointed to by with py?
    Can a store to x1 change the value pointed to by with pz?
 
-   The answer to these questions can be yes, yes, yes, and no.
+   The answer to these questions can be yes, yes, yes, and maybe.
 
    The first two questions can be answered with a simple examination
    of the type system.  If structure X contains a field of type Y then
@@ -78,10 +80,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    The last two of the questions can be solved in the same way as the
    first two questions but this is too conservative.  The observation
-   is that if the address of a field is not explicitly taken and the
-   type is completely local to the compilation unit, then it is
-   impossible that a pointer to an instance of the field type overlaps
-   with an enclosing structure.
+   is that in some cases analysis we can know if which (if any) fields
+   are addressed and if those addresses are used in bad ways.  This
+   analysis may be language specific.  In C, arbitrary operations may
+   be applied to pointers.  However, there is some indication that
+   this may be too conservative for some C++ types.
+
+   The pass ipa-type-escape does this analysis for the types whose
+   instances do not escape across the compilation boundary.  
 
    Historically in GCC, these two problems were combined and a single
    data structure was used to represent the solution to these
@@ -90,7 +96,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    first, but does not contain have the fields in it whose address are
    never taken.  For types that do escape the compilation unit, the
    data structures will have identical information.
-
 */
 
 /* The alias sets assigned to MEMs assist the back-end in determining
@@ -161,11 +166,6 @@ static bool nonoverlapping_component_refs_p (tree, tree);
 static tree decl_for_component_ref (tree);
 static rtx adjust_offset_for_component_ref (tree, rtx);
 static int nonoverlapping_memrefs_p (rtx, rtx);
-
-/* APPLE LOCAL begin aliasing improvement */
-static int overlapping_memrefs_p (rtx, rtx);
-/* APPLE LOCAL end */
-
 static int write_dependence_p (rtx, rtx, int);
 
 static void memory_modified_1 (rtx, rtx, void *);
@@ -221,17 +221,6 @@ static GTY (()) rtx static_reg_base_value[FIRST_PSEUDO_REGISTER];
 #define REG_BASE_VALUE(X) \
   (reg_base_value && REGNO (X) < VARRAY_SIZE (reg_base_value) \
    ? VARRAY_RTX (reg_base_value, REGNO (X)) : 0)
-
-/* Vector of known invariant relationships between registers.  Set in
-   loop unrolling.  Indexed by register number, if nonzero the value
-   is an expression describing this register in terms of another.
-
-   The length of this array is REG_BASE_VALUE_SIZE.
-
-   Because this array contains only pseudo registers it has no effect
-   after reload.  */
-static GTY((length("alias_invariant_size"))) rtx *alias_invariant;
-static GTY(()) unsigned int alias_invariant_size;
 
 /* Vector indexed by N giving the initial (unchanging) value known for
    pseudo-register N.  This array is initialized in init_alias_analysis,
@@ -395,9 +384,14 @@ find_base_decl (tree t)
   if (t == 0 || t == error_mark_node || ! POINTER_TYPE_P (TREE_TYPE (t)))
     return 0;
 
-  /* If this is a declaration, return it.  */
+  /* If this is a declaration, return it.  If T is based on a restrict
+     qualified decl, return that decl.  */
   if (DECL_P (t))
-    return t;
+    {
+      if (TREE_CODE (t) == VAR_DECL && DECL_BASED_ON_RESTRICT_P (t))
+	t = DECL_GET_RESTRICT_BASE (t);
+      return t;
+    }
 
   /* Handle general expressions.  It would be nice to deal with
      COMPONENT_REFs here.  If we could tell that `a' and `b' were the
@@ -742,11 +736,9 @@ record_component_aliases (tree type)
 	    record_alias_subset (superset,
 				 get_alias_set (BINFO_TYPE (base_binfo)));
 	}
-
       for (field = TYPE_FIELDS (type); field != 0; field = TREE_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL && ! DECL_NONADDRESSABLE_P (field))
 	  record_alias_subset (superset, get_alias_set (TREE_TYPE (field)));
-
       break;
 
     case COMPLEX_TYPE:
@@ -1074,31 +1066,6 @@ record_set (rtx dest, rtx set, void *data ATTRIBUTE_UNUSED)
     new_reg_base_value[regno] = find_base_value (src);
 
   reg_seen[regno] = 1;
-}
-
-/* Called from loop optimization when a new pseudo-register is
-   created.  It indicates that REGNO is being set to VAL.  f INVARIANT
-   is true then this value also describes an invariant relationship
-   which can be used to deduce that two registers with unknown values
-   are different.  */
-
-void
-record_base_value (unsigned int regno, rtx val, int invariant)
-{
-  if (invariant && alias_invariant && regno < alias_invariant_size)
-    alias_invariant[regno] = val;
-
-  if (regno >= VARRAY_SIZE (reg_base_value))
-    VARRAY_GROW (reg_base_value, max_reg_num ());
-
-  if (REG_P (val))
-    {
-      VARRAY_RTX (reg_base_value, regno)
-	 = REG_BASE_VALUE (val);
-      return;
-    }
-  VARRAY_RTX (reg_base_value, regno)
-     = find_base_value (val);
 }
 
 /* Clear alias info for a register.  This is used if an RTL transformation
@@ -1789,25 +1756,6 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	  return memrefs_conflict_p (xsize, x0, ysize, y0, c);
 	}
 
-      case REG:
-	/* Are these registers known not to be equal?  */
-	if (alias_invariant)
-	  {
-	    unsigned int r_x = REGNO (x), r_y = REGNO (y);
-	    rtx i_x, i_y;	/* invariant relationships of X and Y */
-
-	    i_x = r_x >= alias_invariant_size ? 0 : alias_invariant[r_x];
-	    i_y = r_y >= alias_invariant_size ? 0 : alias_invariant[r_y];
-
-	    if (i_x == 0 && i_y == 0)
-	      break;
-
-	    if (! memrefs_conflict_p (xsize, i_x ? i_x : x,
-				      ysize, i_y ? i_y : y, c))
-	      return 0;
-	  }
-	break;
-
       default:
 	break;
       }
@@ -1938,7 +1886,6 @@ aliases_everything_p (rtx mem)
   return 0;
 }
 
-/*#define AGRESSIVE_ALIASING 1*/
 /* Return true if we can determine that the fields referenced cannot
    overlap for any pair of objects.  */
 
@@ -1955,13 +1902,13 @@ nonoverlapping_component_refs_p (tree x, tree y)
       do
 	{
 	  fieldx = TREE_OPERAND (x, 1);
-	  typex = DECL_FIELD_CONTEXT (fieldx);
+	  typex = TYPE_MAIN_VARIANT (DECL_FIELD_CONTEXT (fieldx));
 
 	  y = orig_y;
 	  do
 	    {
 	      fieldy = TREE_OPERAND (y, 1);
-	      typey = DECL_FIELD_CONTEXT (fieldy);
+	      typey = TYPE_MAIN_VARIANT (DECL_FIELD_CONTEXT (fieldy));
 
 	      if (typex == typey)
 		goto found;
@@ -1974,11 +1921,7 @@ nonoverlapping_component_refs_p (tree x, tree y)
 	}
       while (x && TREE_CODE (x) == COMPONENT_REF);
       /* Never found a common type.  */
-#ifdef AGRESSIVE_ALIASING
-      return true;
-#else 
       return false;
-#endif /* AGRESSIVE_ALIASING */
 
     found:
       /* If we're left with accessing different fields of a structure,
@@ -2070,17 +2013,15 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   moffsetx = MEM_OFFSET (x);
   if (TREE_CODE (exprx) == COMPONENT_REF)
     {
-#ifdef AGRESSIVE_ALIASING
       if (TREE_CODE (expry) == VAR_DECL
 	  && POINTER_TYPE_P (TREE_TYPE (expry)))
 	{
 	 tree field = TREE_OPERAND (exprx, 1);
 	 tree fieldcontext = DECL_FIELD_CONTEXT (field);
-	 if (ipa_static_field_does_not_clobber_p (fieldcontext,
-						    TREE_TYPE (field)))
+	 if (ipa_type_escape_field_does_not_clobber_p (fieldcontext,
+						       TREE_TYPE (field)))
 	   return 1;	 
 	}
-#endif /* AGRESSIVE_ALIASING */
       {
 	tree t = decl_for_component_ref (exprx);
 	if (! t)
@@ -2100,17 +2041,15 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   moffsety = MEM_OFFSET (y);
   if (TREE_CODE (expry) == COMPONENT_REF)
     {
-#ifdef AGRESSIVE_ALIASING
       if (TREE_CODE (exprx) == VAR_DECL
 	  && POINTER_TYPE_P (TREE_TYPE (exprx)))
 	{
 	 tree field = TREE_OPERAND (expry, 1);
 	 tree fieldcontext = DECL_FIELD_CONTEXT (field);
-	 if (ipa_static_field_does_not_clobber_p (fieldcontext,
-						    TREE_TYPE (field)))
+	 if (ipa_type_escape_field_does_not_clobber_p (fieldcontext,
+						       TREE_TYPE (field)))
 	   return 1;	 
 	}
-#endif /* AGRESSIVE_ALIASING */
       {
 	tree t = decl_for_component_ref (expry);
 	if (! t)
@@ -2197,64 +2136,6 @@ nonoverlapping_memrefs_p (rtx x, rtx y)
   return sizex >= 0 && offsety >= offsetx + sizex;
 }
 
-/* APPLE LOCAL begin aliasing improvement */
-/* Helper for the following.  Return 1 only if we're sure of overlap. */
-
-static int
-overlapping_trees_p (tree exprx, tree expry)
-{
-  /* If no info about either one, can't tell. */
-  if (exprx == 0 || expry == 0)
-    return 0;
-
-  /* Top level code must match. */
-  if (TREE_CODE (exprx) != TREE_CODE (expry))
-    return 0;
-
-  /* Components.  */
-  if (TREE_CODE (exprx) == COMPONENT_REF)
-    {
-      /* They must refer to the same field... */
-      if (TREE_OPERAND (exprx, 1) != TREE_OPERAND (expry, 1))
-        return 0;   
-      /* ...of the same object.  (The object may be null, which
-         will compare as not overlapping.) */
-      return overlapping_trees_p (TREE_OPERAND (exprx, 0),
-                                  TREE_OPERAND (expry, 0));
-    }
-
-  /* Pointers. */
-  if (TREE_CODE (exprx) == INDIRECT_REF)
-    return overlapping_trees_p (TREE_OPERAND (exprx, 0),         
-                                TREE_OPERAND (expry, 0));
-
-  if (TREE_CODE (exprx) == VAR_DECL
-      || TREE_CODE (exprx) == PARM_DECL
-      || TREE_CODE (exprx) == CONST_DECL
-      || TREE_CODE (exprx) == FUNCTION_DECL)  
-    return exprx == expry;
-
-  return 0;
-}
-
-/* Return 1 if memrefs definitely overlap, 0 otherwise. */
-
-
-static int
-overlapping_memrefs_p (rtx x, rtx y)   
-{
-  tree exprx = MEM_EXPR (x), expry = MEM_EXPR (y);
-  rtx offsetx = MEM_OFFSET (x), offsety = MEM_OFFSET (y);
-
-  /* See if offsets collide.  Known but different offsets do not
-     overlap.  Unknown offsets will if the underlying object is the same. */
-  if (offsetx != 0 && offsety != 0 && !rtx_equal_p (offsetx, offsety))
-    return 0;
-
-  return overlapping_trees_p (exprx, expry);
-}
-/* APPLE LOCAL end aliasing improvement */
-
 /* True dependence: X is read after store in MEM takes place.  */
 
 int
@@ -2272,6 +2153,9 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
   if (GET_MODE (x) == BLKmode && GET_CODE (XEXP (x, 0)) == SCRATCH)
     return 1;
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
+    return 1;
+  if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
+      || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
     return 1;
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
@@ -2297,11 +2181,6 @@ true_dependence (rtx mem, enum machine_mode mem_mode, rtx x,
 	       || (GET_CODE (base) == SYMBOL_REF
 		   && CONSTANT_POOL_ADDRESS_P (base))))
     return 0;
-
-  /* APPLE LOCAL begin aliasing improvement */
-  if (overlapping_memrefs_p (mem, x))  
-       return 1;
-  /* APPLE LOCAL end */
 
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;
@@ -2351,6 +2230,9 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
     return 1;
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
     return 1;
+  if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
+      || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
+    return 1;
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
@@ -2365,11 +2247,6 @@ canon_true_dependence (rtx mem, enum machine_mode mem_mode, rtx mem_addr,
     return 0;
 
   x_addr = get_addr (XEXP (x, 0));
-
-  /* APPLE LOCAL begin aliasing improvement */
-  if (overlapping_memrefs_p (mem, x))  
-       return 1;
-  /* APPLE LOCAL end */
 
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;
@@ -2415,19 +2292,9 @@ write_dependence_p (rtx mem, rtx x, int writep)
     return 1;
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
     return 1;
-
-  /* APPLE LOCAL begin make SPEC gcc work with strict aliasing */
-  x_addr = get_addr (XEXP (x, 0));
-  mem_addr = get_addr (XEXP (mem, 0));
-
-  /* If two addresses are "the same" they conflict, even if type
-     checking says they don't.  This is a bit too conservative
-     since there's no guarantee identical registers will have the
-     same values in both addresses.  This is required to build
-     the (nonstandard) version of gcc found in SPEC.  */
-  if (rtx_equal_p (x_addr, mem_addr))
+  if (MEM_ALIAS_SET (x) == ALIAS_SET_MEMORY_BARRIER
+      || MEM_ALIAS_SET (mem) == ALIAS_SET_MEMORY_BARRIER)
     return 1;
-  /* APPLE LOCAL end make SPEC gcc work with strict aliasing */
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
@@ -2576,8 +2443,8 @@ init_alias_analysis (void)
       VARRAY_RTX_INIT (reg_base_value, maxreg, "reg_base_value");
     }
 
-  new_reg_base_value = xmalloc (maxreg * sizeof (rtx));
-  reg_seen = xmalloc (maxreg);
+  new_reg_base_value = XNEWVEC (rtx, maxreg);
+  reg_seen = XNEWVEC (char, maxreg);
 
   /* The basic idea is that each pass through this loop will use the
      "constant" information from the previous pass to propagate alias
@@ -2774,12 +2641,6 @@ end_alias_analysis (void)
   reg_known_value_size = 0;
   free (reg_known_equiv_p);
   reg_known_equiv_p = 0;
-  if (alias_invariant)
-    {
-      ggc_free (alias_invariant);
-      alias_invariant = 0;
-      alias_invariant_size = 0;
-    }
 }
 
 #include "gt-alias.h"

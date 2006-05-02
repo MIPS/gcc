@@ -16,8 +16,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #include "config.h"
@@ -31,6 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "recog.h"
 #include "regs.h"
+#include "addresses.h"
 #include "expr.h"
 #include "function.h"
 #include "flags.h"
@@ -39,6 +40,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "output.h"
 #include "reload.h"
+#include "timevar.h"
+#include "tree-pass.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -236,45 +239,6 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
 }
 
 
-/* Function to be passed to for_each_rtx to test whether a piece of
-   RTL contains any mem/v.  */
-static int
-volatile_mem_p (rtx *x, void *data ATTRIBUTE_UNUSED)
-{
-  return (MEM_P (*x) && MEM_VOLATILE_P (*x));
-}
-
-/* Same as validate_change, but doesn't support groups, and it accepts
-   volatile mems if they're already present in the original insn.  */
-
-int
-validate_change_maybe_volatile (rtx object, rtx *loc, rtx new)
-{
-  int result;
-
-  if (validate_change (object, loc, new, 0))
-    return 1;
-
-  if (volatile_ok
-      /* If there isn't a volatile MEM, there's nothing we can do.  */
-      || !for_each_rtx (&PATTERN (object), volatile_mem_p, 0)
-      /* Make sure we're not adding or removing volatile MEMs.  */
-      || for_each_rtx (loc, volatile_mem_p, 0)
-      || for_each_rtx (&new, volatile_mem_p, 0)
-      || !insn_invalid_p (object))
-    return 0;
-
-  volatile_ok = 1;
-
-  gcc_assert (!insn_invalid_p (object));
-
-  result = validate_change (object, loc, new, 0);
-
-  volatile_ok = 0;
-
-  return result;
-}
-
 /* This subroutine of apply_change_group verifies whether the changes to INSN
    were valid; i.e. whether INSN can still be recognized.  */
 
@@ -337,7 +301,7 @@ num_changes_pending (void)
 /* Tentatively apply the changes numbered NUM and up.
    Return 1 if all changes are valid, zero otherwise.  */
 
-static int
+int
 verify_changes (int num)
 {
   int i;
@@ -686,17 +650,6 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object)
     }
 }
 
-/* Try replacing every occurrence of FROM in subexpression LOC of INSN
-   with TO.  After all changes have been made, validate by seeing
-   if INSN is still valid.  */
-
-int
-validate_replace_rtx_subexp (rtx from, rtx to, rtx insn, rtx *loc)
-{
-  validate_replace_rtx_1 (loc, from, to, insn);
-  return apply_change_group ();
-}
-
 /* Try replacing every occurrence of FROM in INSN with TO.  After all
    changes have been made, validate by seeing if INSN is still valid.  */
 
@@ -1001,7 +954,7 @@ general_operand (rtx op, enum machine_mode mode)
 
       /* FLOAT_MODE subregs can't be paradoxical.  Combine will occasionally
 	 create such rtl, and we must reject it.  */
-      if (GET_MODE_CLASS (GET_MODE (op)) == MODE_FLOAT
+      if (SCALAR_FLOAT_MODE_P (GET_MODE (op))
 	  && GET_MODE_SIZE (GET_MODE (op)) > GET_MODE_SIZE (GET_MODE (sub)))
 	return 0;
 
@@ -1085,7 +1038,7 @@ register_operand (rtx op, enum machine_mode mode)
 
       /* FLOAT_MODE subregs can't be paradoxical.  Combine will occasionally
 	 create such rtl, and we must reject it.  */
-      if (GET_MODE_CLASS (GET_MODE (op)) == MODE_FLOAT
+      if (SCALAR_FLOAT_MODE_P (GET_MODE (op))
 	  && GET_MODE_SIZE (GET_MODE (op)) > GET_MODE_SIZE (GET_MODE (sub)))
 	return 0;
 
@@ -1989,6 +1942,7 @@ extract_insn_cached (rtx insn)
   extract_insn (insn);
   recog_data.insn = insn;
 }
+
 /* Do cached extract_insn, constrain_operands and complain about failures.
    Used by insn_attrtab.  */
 void
@@ -1999,6 +1953,7 @@ extract_constrain_insn_cached (rtx insn)
       && !constrain_operands (reload_completed))
     fatal_insn_not_found (insn);
 }
+
 /* Do cached constrain_operands and complain about failures.  */
 int
 constrain_operands_cached (int strict)
@@ -2203,7 +2158,7 @@ preprocess_constraints (void)
 		case 'p':
 		  op_alt[j].is_address = 1;
 		  op_alt[j].cl = reg_class_subunion[(int) op_alt[j].cl]
-		    [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		      [(int) base_reg_class (VOIDmode, ADDRESS, SCRATCH)];
 		  break;
 
 		case 'g':
@@ -2224,7 +2179,8 @@ preprocess_constraints (void)
 		      op_alt[j].cl
 			= (reg_class_subunion
 			   [(int) op_alt[j].cl]
-			   [(int) MODE_BASE_REG_CLASS (VOIDmode)]);
+			   [(int) base_reg_class (VOIDmode, ADDRESS,
+						  SCRATCH)]);
 		      break;
 		    }
 
@@ -2427,16 +2383,22 @@ constrain_operands (int strict)
 		break;
 
 		/* No need to check general_operand again;
-		   it was done in insn-recog.c.  */
+		   it was done in insn-recog.c.  Well, except that reload
+		   doesn't check the validity of its replacements, but
+		   that should only matter when there's a bug.  */
 	      case 'g':
 		/* Anything goes unless it is a REG and really has a hard reg
 		   but the hard reg is not in the class GENERAL_REGS.  */
-		if (strict < 0
-		    || GENERAL_REGS == ALL_REGS
-		    || !REG_P (op)
-		    || (reload_in_progress
-			&& REGNO (op) >= FIRST_PSEUDO_REGISTER)
-		    || reg_fits_class_p (op, GENERAL_REGS, offset, mode))
+		if (REG_P (op))
+		  {
+		    if (strict < 0
+			|| GENERAL_REGS == ALL_REGS
+			|| (reload_in_progress
+			    && REGNO (op) >= FIRST_PSEUDO_REGISTER)
+			|| reg_fits_class_p (op, GENERAL_REGS, offset, mode))
+		      win = 1;
+		  }
+		else if (strict < 0 || general_operand (op, mode))
 		  win = 1;
 		break;
 
@@ -2665,6 +2627,10 @@ reg_fits_class_p (rtx operand, enum reg_class cl, int offset,
 		  enum machine_mode mode)
 {
   int regno = REGNO (operand);
+
+  if (cl == NO_REGS)
+    return 0;
+
   if (regno < FIRST_PSEUDO_REGISTER
       && TEST_HARD_REG_BIT (reg_class_contents[(int) cl],
 			    regno + offset))
@@ -2810,7 +2776,7 @@ split_all_insns (int upd_life)
 /* Same as split_all_insns, but do not expect CFG to be available.
    Used by machine dependent reorg passes.  */
 
-void
+unsigned int
 split_all_insns_noflow (void)
 {
   rtx next, insn;
@@ -2840,6 +2806,7 @@ split_all_insns_noflow (void)
 	    split_insn (insn);
 	}
     }
+  return 0;
 }
 
 #ifdef HAVE_peephole2
@@ -2851,6 +2818,8 @@ struct peep2_insn_data
 
 static struct peep2_insn_data peep2_insn_data[MAX_INSNS_PER_PEEP2 + 1];
 static int peep2_current;
+/* The number of instructions available to match a peep2.  */
+int peep2_current_count;
 
 /* A non-insn marker indicating the last insn of the block.
    The live_before regset for this element is correct, indicating
@@ -2864,14 +2833,12 @@ static int peep2_current;
 rtx
 peep2_next_insn (int n)
 {
-  gcc_assert (n < MAX_INSNS_PER_PEEP2 + 1);
+  gcc_assert (n <= peep2_current_count);
 
   n += peep2_current;
   if (n >= MAX_INSNS_PER_PEEP2 + 1)
     n -= MAX_INSNS_PER_PEEP2 + 1;
 
-  if (peep2_insn_data[n].insn == PEEP2_EOB)
-    return NULL_RTX;
   return peep2_insn_data[n].insn;
 }
 
@@ -3023,8 +2990,8 @@ peep2_find_free_register (int from, int to, const char *class_str,
 
 /* Perform the peephole2 optimization pass.  */
 
-void
-peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
+static void
+peephole2_optimize (void)
 {
   rtx insn, prev;
   regset live;
@@ -3060,13 +3027,14 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
       /* Indicate that all slots except the last holds invalid data.  */
       for (i = 0; i < MAX_INSNS_PER_PEEP2; ++i)
 	peep2_insn_data[i].insn = NULL_RTX;
+      peep2_current_count = 0;
 
       /* Indicate that the last slot contains live_after data.  */
       peep2_insn_data[MAX_INSNS_PER_PEEP2].insn = PEEP2_EOB;
       peep2_current = MAX_INSNS_PER_PEEP2;
 
       /* Start up propagation.  */
-      COPY_REG_SET (live, bb->global_live_at_end);
+      COPY_REG_SET (live, bb->il.rtl->global_live_at_end);
       COPY_REG_SET (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
 
 #ifdef HAVE_conditional_execution
@@ -3088,12 +3056,25 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 	      /* Record this insn.  */
 	      if (--peep2_current < 0)
 		peep2_current = MAX_INSNS_PER_PEEP2;
+	      if (peep2_current_count < MAX_INSNS_PER_PEEP2
+		  && peep2_insn_data[peep2_current].insn == NULL_RTX)
+		peep2_current_count++;
 	      peep2_insn_data[peep2_current].insn = insn;
 	      propagate_one_insn (pbi, insn);
 	      COPY_REG_SET (peep2_insn_data[peep2_current].live_before, live);
 
-	      /* Match the peephole.  */
-	      try = peephole2_insns (PATTERN (insn), insn, &match_len);
+	      if (RTX_FRAME_RELATED_P (insn))
+		{
+		  /* If an insn has RTX_FRAME_RELATED_P set, peephole
+		     substitution would lose the
+		     REG_FRAME_RELATED_EXPR that is attached.  */
+		  peep2_current_count = 0;
+		  try = NULL;
+		}
+	      else
+		/* Match the peephole.  */
+		try = peephole2_insns (PATTERN (insn), insn, &match_len);
+
 	      if (try != NULL)
 		{
 		  /* If we are splitting a CALL_INSN, look for the CALL_INSN
@@ -3232,6 +3213,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 		  for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
 		    peep2_insn_data[i].insn = NULL_RTX;
 		  peep2_insn_data[peep2_current].insn = PEEP2_EOB;
+		  peep2_current_count = 0;
 #else
 		  /* Back up lifetime information past the end of the
 		     newly created sequence.  */
@@ -3247,6 +3229,9 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 			{
 			  if (--i < 0)
 			    i = MAX_INSNS_PER_PEEP2;
+			  if (peep2_current_count < MAX_INSNS_PER_PEEP2
+			      && peep2_insn_data[i].insn == NULL_RTX)
+			    peep2_current_count++;
 			  peep2_insn_data[i].insn = x;
 			  propagate_one_insn (pbi, x);
 			  COPY_REG_SET (peep2_insn_data[i].live_before, live);
@@ -3278,7 +3263,7 @@ peephole2_optimize (FILE *dump_file ATTRIBUTE_UNUSED)
 
       /* Some peepholes can decide the don't need one or more of their
 	 inputs.  If this happens, local life update is not enough.  */
-      EXECUTE_IF_AND_COMPL_IN_BITMAP (bb->global_live_at_start, live,
+      EXECUTE_IF_AND_COMPL_IN_BITMAP (bb->il.rtl->global_live_at_start, live,
 				      0, j, rsi)
 	{
 	  do_global_life_update = true;
@@ -3418,3 +3403,124 @@ if_test_bypass_p (rtx out_insn, rtx in_insn)
 
   return true;
 }
+
+static bool
+gate_handle_peephole2 (void)
+{
+  return (optimize > 0 && flag_peephole2);
+}
+
+static unsigned int
+rest_of_handle_peephole2 (void)
+{
+#ifdef HAVE_peephole2
+  peephole2_optimize ();
+#endif
+  return 0;
+}
+
+struct tree_opt_pass pass_peephole2 =
+{
+  "peephole2",                          /* name */
+  gate_handle_peephole2,                /* gate */
+  rest_of_handle_peephole2,             /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_PEEPHOLE2,                         /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'z'                                   /* letter */
+};
+
+static unsigned int
+rest_of_handle_split_all_insns (void)
+{
+  split_all_insns (1);
+  return 0;
+}
+
+struct tree_opt_pass pass_split_all_insns =
+{
+  "split1",                             /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_split_all_insns,       /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+/* The placement of the splitting that we do for shorten_branches
+   depends on whether regstack is used by the target or not.  */
+static bool
+gate_do_final_split (void)
+{
+#if defined (HAVE_ATTR_length) && !defined (STACK_REGS)
+  return 1;
+#else
+  return 0;
+#endif 
+}
+
+struct tree_opt_pass pass_split_for_shorten_branches =
+{
+  "split3",                             /* name */
+  gate_do_final_split,                  /* gate */
+  split_all_insns_noflow,               /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SHORTEN_BRANCH,                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+
+static bool
+gate_handle_split_before_regstack (void)
+{
+#if defined (HAVE_ATTR_length) && defined (STACK_REGS)
+  /* If flow2 creates new instructions which need splitting
+     and scheduling after reload is not done, they might not be
+     split until final which doesn't allow splitting
+     if HAVE_ATTR_length.  */
+# ifdef INSN_SCHEDULING
+  return (optimize && !flag_schedule_insns_after_reload);
+# else
+  return (optimize);
+# endif
+#else
+  return 0;
+#endif
+}
+
+struct tree_opt_pass pass_split_before_regstack =
+{
+  "split2",                             /* name */
+  gate_handle_split_before_regstack,    /* gate */
+  rest_of_handle_split_all_insns,       /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SHORTEN_BRANCH,                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};

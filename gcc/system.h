@@ -17,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 #ifndef GCC_SYSTEM_H
@@ -226,6 +226,8 @@ extern int errno;
 #  define FATAL_EXIT_CODE 1
 # endif
 #endif
+
+#define ICE_EXIT_CODE 4
 
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
@@ -511,19 +513,6 @@ extern int vsnprintf(char *, size_t, const char *, va_list);
 # define mkdir(a,b) mkdir(a)
 #endif
 
-/* Provide a way to print an address via printf.  */
-#ifndef HOST_PTR_PRINTF
-# ifdef HAVE_PRINTF_PTR
-#  define HOST_PTR_PRINTF "%p"
-# elif SIZEOF_INT == SIZEOF_VOID_P
-#  define HOST_PTR_PRINTF "%x"
-# elif SIZEOF_LONG == SIZEOF_VOID_P
-#  define HOST_PTR_PRINTF "%lx"
-# else
-#  define HOST_PTR_PRINTF "%llx"
-# endif
-#endif /* ! HOST_PTR_PRINTF */
-
 /* By default, colon separates directories in a path.  */
 #ifndef PATH_SEPARATOR
 #define PATH_SEPARATOR ':'
@@ -622,6 +611,8 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 # define FALSE false
 #endif /* !__cplusplus */
 
+/* Get definition of double_int.  */
+#include "double-int.h"
 
 /* Some compilers do not allow the use of unsigned char in bitfields.  */
 #define BOOL_BITFIELD unsigned int
@@ -692,7 +683,8 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	HANDLE_PRAGMA_REDEFINE_EXTNAME HANDLE_PRAGMA_EXTERN_PREFIX	\
 	MUST_PASS_IN_STACK FUNCTION_ARG_PASS_BY_REFERENCE               \
         VECTOR_MODE_SUPPORTED_P TARGET_SUPPORTS_HIDDEN 			\
-	FUNCTION_ARG_PARTIAL_NREGS
+	FUNCTION_ARG_PARTIAL_NREGS ASM_OUTPUT_DWARF_DTPREL		\
+	ALLOCATE_INITIAL_VALUE
 
 /* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
@@ -739,7 +731,12 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	CASE_DROPS_THROUGH TARGET_BELL TARGET_BS TARGET_CR TARGET_DIGIT0   \
         TARGET_ESC TARGET_FF TARGET_NEWLINE TARGET_TAB TARGET_VT	   \
         LINK_LIBGCC_SPECIAL DONT_ACCESS_GBLS_AFTER_EPILOGUE		   \
-	TARGET_OPTIONS TARGET_SWITCHES
+	TARGET_OPTIONS TARGET_SWITCHES EXTRA_CC_MODES FINALIZE_PIC	   \
+	PREDICATE_CODES SPECIAL_MODE_PREDICATES HOST_PTR_PRINTF		   \
+	EXTRA_SECTIONS EXTRA_SECTION_FUNCTIONS READONLY_DATA_SECTION	   \
+	TARGET_ASM_EXCEPTION_SECTION TARGET_ASM_EH_FRAME_SECTION	   \
+	SMALL_ARG_MAX ASM_OUTPUT_SHARED_BSS ASM_OUTPUT_SHARED_COMMON	   \
+	ASM_OUTPUT_SHARED_LOCAL UNALIGNED_WORD_ASM_OP
 
 /* Hooks that are no longer used.  */
  #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\

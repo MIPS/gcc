@@ -6,7 +6,7 @@
 --                                                                          --
 --                                S p e c                                   --
 --                                                                          --
---         Copyright (C) 2004,2005 Free Software Foundation, Inc.           --
+--         Copyright (C) 2004-2006, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -35,8 +35,9 @@
 --  on 64 bit VMS.  Note that routines that allocate memory remain 32bit.
 
 with System.Parameters;
+
 package System.CRTL is
-pragma Preelaborate (CRTL);
+   pragma Preelaborate;
 
    subtype chars is System.Address;
    --  Pointer to null-terminated array of characters
@@ -61,9 +62,6 @@ pragma Preelaborate (CRTL);
 
    procedure clearerr (stream : FILEs);
    pragma Import (C, clearerr, "decc$clearerr");
-
-   function closedir (directory : DIRs) return Integer;
-   pragma Import (C, closedir, "decc$closedir");
 
    function dup  (handle : int) return int;
    pragma Import (C, dup, "decc$dup");
@@ -135,9 +133,6 @@ pragma Preelaborate (CRTL);
 
    procedure mktemp (template : chars);
    pragma Import (C, mktemp, "decc$_mktemp64");
-
-   function opendir (file_name : String) return DIRs;
-   pragma Import (C, opendir, "decc$opendir");
 
    function pclose (stream : System.Address) return int;
    pragma Import (C, pclose, "decc$pclose");

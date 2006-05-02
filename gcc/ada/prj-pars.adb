@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---             Copyright (C) 2001-2005 Free Software Foundation, Inc.       --
+--          Copyright (C) 2001-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -43,7 +43,8 @@ package body Prj.Pars is
      (In_Tree           : Project_Tree_Ref;
       Project           : out Project_Id;
       Project_File_Name : String;
-      Packages_To_Check : String_List_Access := All_Packages)
+      Packages_To_Check : String_List_Access := All_Packages;
+      When_No_Sources   : Error_Warning := Error)
    is
       Project_Node_Tree : constant Project_Node_Tree_Ref :=
                             new Project_Node_Tree_Data;
@@ -73,7 +74,8 @@ package body Prj.Pars is
             From_Project_Node      => Project_Node,
             From_Project_Node_Tree => Project_Node_Tree,
             Report_Error           => null,
-            Follow_Links           => Opt.Follow_Links);
+            Follow_Links           => Opt.Follow_Links,
+            When_No_Sources        => When_No_Sources);
          Prj.Err.Finalize;
 
          if not Success then
@@ -99,7 +101,7 @@ package body Prj.Pars is
    -- Set_Verbosity --
    -------------------
 
-   procedure Set_Verbosity (To : in Verbosity) is
+   procedure Set_Verbosity (To : Verbosity) is
    begin
       Current_Verbosity := To;
    end Set_Verbosity;

@@ -1,5 +1,6 @@
 /* Security.java --- Java base security class implementation
-   Copyright (C) 1999, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -15,8 +16,8 @@ General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
-Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-02111-1307 USA.
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301 USA.
 
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
@@ -41,6 +42,8 @@ package java.security;
 import gnu.classpath.SystemProperties;
 
 import gnu.classpath.Configuration;
+// GCJ LOCAL - We don't have VMStackWalker yet.
+// import gnu.classpath.VMStackWalker;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -354,6 +357,14 @@ public final class Security
    */
   public static Provider getProvider(String name)
   {
+    if (name == null)
+      return null;
+    else
+      {
+        name = name.trim();
+        if (name.length() == 0)
+          return null;
+      }
     Provider p;
     int max = providers.size ();
     for (int i = 0; i < max; i++)
@@ -383,7 +394,12 @@ public final class Security
    */
   public static String getProperty(String key)
   {
+    // GCJ LOCAL - We don't have VMStackWalker yet.
+    // XXX To prevent infinite recursion when the SecurityManager calls us,
+    // don't do a security check if the caller is trusted (by virtue of having
+    // been loaded by the bootstrap class loader).
     SecurityManager sm = System.getSecurityManager();
+    // if (sm != null && VMStackWalker.getCallingClassLoader() != null)
     if (sm != null)
       sm.checkSecurityAccess("getProperty." + key);
 
@@ -399,20 +415,23 @@ public final class Security
    * </p>
    *
    * @param key the name of the property to be set.
-   * @param datnum the value of the property to be set.
+   * @param datum the value of the property to be set.
    * @throws SecurityException if a security manager exists and its
    * {@link SecurityManager#checkPermission(Permission)} method denies access
    * to set the specified security property value.
    * @see #getProperty(String)
    * @see SecurityPermission
    */
-  public static void setProperty(String key, String datnum)
+  public static void setProperty(String key, String datum)
   {
     SecurityManager sm = System.getSecurityManager();
     if (sm != null)
       sm.checkSecurityAccess("setProperty." + key);
 
-    secprops.put(key, datnum);
+    if (datum == null)
+      secprops.remove(key);
+    else
+      secprops.put(key, datum);
   }
 
   /**
@@ -651,7 +670,7 @@ public final class Security
     if (result.isEmpty())
       return null;
 
-    return (Provider[]) result.toArray(new Provider[0]);
+    return (Provider[]) result.toArray(new Provider[result.size()]);
   }
 
   private static void selectProviders(String svc, String algo, String attr,

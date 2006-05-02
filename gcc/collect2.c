@@ -20,8 +20,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 
 /* Build tables of static constructors and destructors and run ld.  */
@@ -271,26 +271,6 @@ static char *resolve_lib_name (const char *);
 #endif
 static char *extract_string (const char **);
 
-#ifndef HAVE_DUP2
-static int
-dup2 (int oldfd, int newfd)
-{
-  int fdtmp[256];
-  int fdx = 0;
-  int fd;
-
-  if (oldfd == newfd)
-    return oldfd;
-  close (newfd);
-  while ((fd = dup (oldfd)) != newfd && fd >= 0) /* good enough for low fd's */
-    fdtmp[fdx++] = fd;
-  while (fdx > 0)
-    close (fdtmp[--fdx]);
-
-  return fd;
-}
-#endif /* ! HAVE_DUP2 */
-
 /* Delete tempfiles and exit function.  */
 
 void
@@ -328,26 +308,26 @@ collect_exit (int status)
 
 /* Notify user of a non-error.  */
 void
-notice (const char *msgid, ...)
+notice (const char *cmsgid, ...)
 {
   va_list ap;
 
-  va_start (ap, msgid);
-  vfprintf (stderr, _(msgid), ap);
+  va_start (ap, cmsgid);
+  vfprintf (stderr, _(cmsgid), ap);
   va_end (ap);
 }
 
 /* Die when sys call fails.  */
 
 void
-fatal_perror (const char * msgid, ...)
+fatal_perror (const char * cmsgid, ...)
 {
   int e = errno;
   va_list ap;
 
-  va_start (ap, msgid);
+  va_start (ap, cmsgid);
   fprintf (stderr, "collect2: ");
-  vfprintf (stderr, _(msgid), ap);
+  vfprintf (stderr, _(cmsgid), ap);
   fprintf (stderr, ": %s\n", xstrerror (e));
   va_end (ap);
 
@@ -357,13 +337,13 @@ fatal_perror (const char * msgid, ...)
 /* Just die.  */
 
 void
-fatal (const char * msgid, ...)
+fatal (const char * cmsgid, ...)
 {
   va_list ap;
 
-  va_start (ap, msgid);
+  va_start (ap, cmsgid);
   fprintf (stderr, "collect2: ");
-  vfprintf (stderr, _(msgid), ap);
+  vfprintf (stderr, _(cmsgid), ap);
   fprintf (stderr, "\n");
   va_end (ap);
 
@@ -373,13 +353,13 @@ fatal (const char * msgid, ...)
 /* Write error message.  */
 
 void
-error (const char * msgid, ...)
+error (const char * gmsgid, ...)
 {
   va_list ap;
 
-  va_start (ap, msgid);
+  va_start (ap, gmsgid);
   fprintf (stderr, "collect2: ");
-  vfprintf (stderr, _(msgid), ap);
+  vfprintf (stderr, _(gmsgid), ap);
   fprintf (stderr, "\n");
   va_end(ap);
 }
@@ -453,7 +433,7 @@ extract_string (const char **pp)
 
   obstack_1grow (&temporary_obstack, '\0');
   *pp = p;
-  return obstack_finish (&temporary_obstack);
+  return XOBFINISH (&temporary_obstack, char *);
 }
 
 void
@@ -474,7 +454,7 @@ dump_file (const char *name, FILE *to)
 	  const char *word, *p;
 	  char *result;
 	  obstack_1grow (&temporary_obstack, '\0');
-	  word = obstack_finish (&temporary_obstack);
+	  word = XOBFINISH (&temporary_obstack, const char *);
 
 	  if (*word == '.')
 	    ++word, putc ('.', to);
@@ -599,7 +579,7 @@ find_a_file (struct path_prefix *pprefix, const char *name)
   len += strlen (HOST_EXECUTABLE_SUFFIX);
 #endif
 
-  temp = xmalloc (len);
+  temp = XNEWVEC (char, len);
 
   /* Determine the filename to execute (special case for absolute paths).  */
 
@@ -687,7 +667,7 @@ add_prefix (struct path_prefix *pprefix, const char *prefix)
   if (len > pprefix->max_len)
     pprefix->max_len = len;
 
-  pl = xmalloc (sizeof (struct prefix_list));
+  pl = XNEW (struct prefix_list);
   pl->prefix = xstrdup (prefix);
 
   if (*prev)
@@ -714,7 +694,7 @@ static void
 prefix_from_string (const char *p, struct path_prefix *pprefix)
 {
   const char *startp, *endp;
-  char *nstore = xmalloc (strlen (p) + 3);
+  char *nstore = XNEWVEC (char, strlen (p) + 3);
 
   if (debug)
     fprintf (stderr, "Convert string '%s' into prefixes, separator = '%c'\n", p, PATH_SEPARATOR);
@@ -1387,7 +1367,7 @@ main (int argc, char **argv)
       /* Strip now if it was requested on the command line.  */
       if (strip_flag)
 	{
-	  char **real_strip_argv = xcalloc (sizeof (char *), 3);
+	  char **real_strip_argv = XCNEWVEC (char *, 3);
 	  const char ** strip_argv = (const char **) real_strip_argv;
 
 	  strip_argv[0] = strip_file_name;
@@ -1821,7 +1801,7 @@ write_c_file_stat (FILE *stream, const char *name ATTRIBUTE_UNUSED)
 	}
     }
   /* q points to null at end of the string (or . of the .so version) */
-  prefix = xmalloc (q - p + 1);
+  prefix = XNEWVEC (char, q - p + 1);
   strncpy (prefix, p, q - p);
   prefix[q - p] = 0;
   for (r = prefix; *r; r++)

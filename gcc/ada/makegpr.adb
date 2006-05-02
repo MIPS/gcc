@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---       Copyright (C) 2004-2005 Free Software Foundation, Inc.             --
+--          Copyright (C) 2004-2006, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -16,8 +16,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -59,10 +59,6 @@ package body Makegpr is
    Max_In_Archives : constant := 50;
    --  The maximum number of arguments for a single invocation of the
    --  Archive Indexer (ar).
-
-   Cpp_Linker : constant String := "c++linker";
-   --  The name of a linking script, built one the fly, when there are C++
-   --  sources and the C++ compiler is not g++.
 
    No_Argument : aliased Argument_List := (1 .. 0 => null);
    --  Null argument list representing case of no arguments
@@ -133,7 +129,7 @@ package body Makegpr is
    --  ar commands.
 
    Archive_Indexer_Path : String_Access := null;
-   --  The path name of the archive indexer (ranlib), if it exists.
+   --  The path name of the archive indexer (ranlib), if it exists
 
    Copyright_Output : Boolean := False;
    Usage_Output     : Boolean := False;
@@ -280,6 +276,8 @@ package body Makegpr is
    Dash_c            : constant String_Access := Dash_c_String'Access;
    Dash_cargs_String : aliased  String := "-cargs";
    Dash_cargs        : constant String_Access := Dash_cargs_String'Access;
+   Dash_d_String     : aliased  String := "-d";
+   Dash_d            : constant String_Access := Dash_d_String'Access;
    Dash_f_String     : aliased  String := "-f";
    Dash_f            : constant String_Access := Dash_f_String'Access;
    Dash_k_String     : aliased  String := "-k";
@@ -358,7 +356,7 @@ package body Makegpr is
 
    procedure Add_Argument (Arg : String_Access; Display : Boolean);
    procedure Add_Argument (Arg : String; Display : Boolean);
-   --  Add an argument to Arguments. Reallocate if necessary.
+   --  Add an argument to Arguments. Reallocate if necessary
 
    procedure Add_Arguments (Args : Argument_List; Display : Boolean);
    --  Add a list of arguments to Arguments. Reallocate if necessary
@@ -1021,6 +1019,7 @@ package body Makegpr is
       Data      : Project_Data :=
                     Project_Tree.Projects.Table (Main_Project);
       Source_Id : Other_Source_Id;
+      S_Id      : Other_Source_Id;
       Source    : Other_Source;
       Success   : Boolean;
 
@@ -1088,22 +1087,28 @@ package body Makegpr is
                --  Put all sources of language other than Ada in
                --  Source_Indexes.
 
-               for Proj in Project_Table.First ..
-                           Project_Table.Last (Project_Tree.Projects)
-               loop
-                  Data := Project_Tree.Projects.Table (Proj);
+               declare
+                  Local_Data : Project_Data;
 
-                  if not Data.Library then
-                     Last_Source := 0;
-                     Source_Id := Data.First_Other_Source;
+               begin
+                  Last_Source := 0;
 
-                     while Source_Id /= No_Other_Source loop
-                        Add_Source_Id (Proj, Source_Id);
-                        Source_Id := Project_Tree.Other_Sources.Table
-                                       (Source_Id).Next;
-                     end loop;
-                  end if;
-               end loop;
+                  for Proj in Project_Table.First ..
+                    Project_Table.Last (Project_Tree.Projects)
+                  loop
+                     Local_Data := Project_Tree.Projects.Table (Proj);
+
+                     if not Local_Data.Library then
+                        Source_Id := Local_Data.First_Other_Source;
+
+                        while Source_Id /= No_Other_Source loop
+                           Add_Source_Id (Proj, Source_Id);
+                           Source_Id := Project_Tree.Other_Sources.Table
+                             (Source_Id).Next;
+                        end loop;
+                     end if;
+                  end loop;
+               end;
 
                --  Read the dependency file, line by line
 
@@ -1118,9 +1123,8 @@ package body Makegpr is
                   --  Check if this object file is for a source of this project
 
                   for S in 1 .. Last_Source loop
-                     Source_Id := Source_Indexes (S).Id;
-                     Source := Project_Tree.Other_Sources.Table
-                                 (Source_Id);
+                     S_Id := Source_Indexes (S).Id;
+                     Source := Project_Tree.Other_Sources.Table (S_Id);
 
                      if (not Source_Indexes (S).Found)
                        and then Source.Object_Path = Object_Path
@@ -1128,6 +1132,7 @@ package body Makegpr is
                         --  We have found the object file: get the source
                         --  data, and mark it as found.
 
+                        Source_Id := S_Id;
                         Source_Indexes (S).Found := True;
                         exit;
                      end if;
@@ -1683,7 +1688,6 @@ package body Makegpr is
 
          declare
             Archive : Ada.Text_IO.File_Type;
-            use Ada.Text_IO;
          begin
             Create (Archive, Out_File, Archive_Name);
             Close (Archive);
@@ -2011,7 +2015,7 @@ package body Makegpr is
                      end if;
                   end;
 
-                  --  If the source path name ends the line, we are done.
+                  --  If the source path name ends the line, we are done
 
                   exit Line_Loop when Finish = Last;
 
@@ -2082,7 +2086,7 @@ package body Makegpr is
 
    procedure Compile
      (Source_Id    : Other_Source_Id;
-      Data         : in Project_Data;
+      Data         : Project_Data;
       Local_Errors : in out Boolean)
    is
       Source  : Other_Source :=
@@ -2494,6 +2498,12 @@ package body Makegpr is
          Add_Argument (Dash_c, True);
       end if;
 
+      --  -d
+
+      if Display_Compilation_Progress then
+         Add_Argument (Dash_d, True);
+      end if;
+
       --  -k
 
       if Keep_Going then
@@ -2599,12 +2609,33 @@ package body Makegpr is
       --  Keep_Going is True, to inhibit the building of the archive.
 
       Need_To_Compile : Boolean;
-      --  Set to True when a source needs to be compiled/recompiled.
+      --  Set to True when a source needs to be compiled/recompiled
 
       Need_To_Rebuild_Archive : Boolean := Force_Compilations;
       --  True when the archive needs to be built/rebuilt unconditionally
 
+      Total_Number_Of_Sources : Int := 0;
+
+      Current_Source_Number : Int := 0;
+
    begin
+      --  First, get the number of sources
+
+      for Project in Project_Table.First ..
+                     Project_Table.Last (Project_Tree.Projects)
+      loop
+         Data := Project_Tree.Projects.Table (Project);
+
+         if (not Data.Virtual) and then Data.Other_Sources_Present then
+            Source_Id := Data.First_Other_Source;
+            while Source_Id /= No_Other_Source loop
+               Source := Project_Tree.Other_Sources.Table (Source_Id);
+               Total_Number_Of_Sources := Total_Number_Of_Sources + 1;
+               Source_Id := Source.Next;
+            end loop;
+         end if;
+      end loop;
+
       --  Loop through project files
 
       for Project in Project_Table.First ..
@@ -2636,7 +2667,9 @@ package body Makegpr is
             --  Process each source one by one
 
             while Source_Id /= No_Other_Source loop
+
                Source := Project_Tree.Other_Sources.Table (Source_Id);
+               Current_Source_Number := Current_Source_Number + 1;
                Need_To_Compile := Force_Compilations;
 
                --  Check if compilation is needed
@@ -2654,6 +2687,18 @@ package body Makegpr is
 
                   Need_To_Rebuild_Archive := True;
                   Compile (Source_Id, Data, Local_Errors);
+               end if;
+
+               if Display_Compilation_Progress then
+                  Write_Str ("completed ");
+                  Write_Int (Current_Source_Number);
+                  Write_Str (" out of ");
+                  Write_Int (Total_Number_Of_Sources);
+                  Write_Str (" (");
+                  Write_Int
+                    ((Current_Source_Number * 100) / Total_Number_Of_Sources);
+                  Write_Str ("%)...");
+                  Write_Eol;
                end if;
 
                --  Next source, if any
@@ -2708,7 +2753,6 @@ package body Makegpr is
       Source_Id : Other_Source_Id := First_Source;
       Source    : Other_Source;
       Dep_File  : Ada.Text_IO.File_Type;
-      use Ada.Text_IO;
 
    begin
       --  Create the file in Append mode, to avoid automatic insertion of
@@ -2740,8 +2784,6 @@ package body Makegpr is
       Source_Id : Other_Source_Id;
       Source    : Other_Source;
       Dep_File  : Ada.Text_IO.File_Type;
-
-      use Ada.Text_IO;
 
    begin
       --  Create the file in Append mode, to avoid automatic insertion of
@@ -3175,7 +3217,10 @@ package body Makegpr is
             --  If -c was not specified, link the executables,
             --  if there are any.
 
-            if not Compile_Only and then not Data.Library then
+            if not Compile_Only
+              and then not Data.Library
+              and then Data.Object_Directory /= No_Name
+            then
                Build_Global_Archive;
                Link_Executables;
             end if;
@@ -3326,18 +3371,9 @@ package body Makegpr is
 
       procedure Add_C_Plus_Plus_Link_For_Gnatmake is
       begin
-         if Compiler_Is_Gcc (C_Plus_Plus_Language_Index) then
-            Add_Argument
-              ("--LINK=" & Compiler_Names (C_Plus_Plus_Language_Index).all,
-               Verbose_Mode);
-
-         else
-            Add_Argument
-              ("--LINK=" &
-               Object_Dir & Directory_Separator &
-               Cpp_Linker,
-               Verbose_Mode);
-         end if;
+         Add_Argument
+           ("--LINK=" & Compiler_Names (C_Plus_Plus_Language_Index).all,
+            Verbose_Mode);
       end Add_C_Plus_Plus_Link_For_Gnatmake;
 
       -----------------------
@@ -3405,29 +3441,6 @@ package body Makegpr is
       begin
          if Compiler_Names (C_Plus_Plus_Language_Index) = null then
             Get_Compiler (C_Plus_Plus_Language_Index);
-         end if;
-
-         if not Compiler_Is_Gcc (C_Plus_Plus_Language_Index) then
-            Change_Dir (Object_Dir);
-
-            declare
-               File : Ada.Text_IO.File_Type;
-               use Ada.Text_IO;
-
-            begin
-               Create (File, Out_File, Cpp_Linker);
-
-               Put_Line (File, "#!/bin/sh");
-
-               Put_Line (File, "LIBGCC=`gcc -print-libgcc-file-name`");
-               Put_Line
-                 (File,
-                  Compiler_Names (C_Plus_Plus_Language_Index).all &
-                  " $* ${LIBGCC}");
-
-               Close (File);
-               Set_Executable (Cpp_Linker);
-            end;
          end if;
       end Choose_C_Plus_Plus_Link_Process;
 
@@ -3667,7 +3680,7 @@ package body Makegpr is
             --  project. Any main that is not a source of the other languages
             --  will be deemed to be an Ada main.
 
-            --  Find the mains of the other languages and the Ada mains.
+            --  Find the mains of the other languages and the Ada mains
 
             Mains.Reset;
             Ada_Mains.Set_Last (0);
@@ -4031,6 +4044,16 @@ package body Makegpr is
          if Arg = "-c" then
             Compile_Only := True;
 
+            --  Make sure that when a main is specified and switch -c is used,
+            --  only the main(s) is/are compiled.
+
+            if Mains.Number_Of_Mains > 0 then
+               Unique_Compile := True;
+            end if;
+
+         elsif Arg = "-d" then
+            Display_Compilation_Progress := True;
+
          elsif Arg = "-f" then
             Force_Compilations := True;
 
@@ -4103,6 +4126,13 @@ package body Makegpr is
          --  Not a switch: must be a main
 
          Mains.Add_Main (Arg);
+
+         --  Make sure that when a main is specified and switch -c is used,
+         --  only the main(s) is/are compiled.
+
+         if Compile_Only then
+            Unique_Compile := True;
+         end if;
       end if;
    end Scan_Arg;
 

@@ -19,8 +19,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef GCC_SH_PROTOS_H
 #define GCC_SH_PROTOS_H
@@ -132,7 +132,6 @@ extern int sh_need_epilogue (void);
 extern void sh_set_return_address (rtx, rtx);
 extern int initial_elimination_offset (int, int);
 extern int fldi_ok (void);
-extern int sh_pr_n_sets (void);
 extern int sh_hard_regno_rename_ok (unsigned int, unsigned int);
 extern int sh_cfun_interrupt_handler_p (void);
 extern int sh_attr_renesas_p (tree);
@@ -166,6 +165,10 @@ extern int shmedia_cleanup_truncate (rtx *, void *);
 
 extern int sh_contains_memref_p (rtx);
 extern rtx shmedia_prepare_call_address (rtx fnaddr, int is_sibcall);
+struct secondary_reload_info;
+extern enum reg_class sh_secondary_reload (bool, rtx, enum reg_class,
+					   enum machine_mode,
+					   struct secondary_reload_info *);
 
 #endif /* ! GCC_SH_PROTOS_H */
 

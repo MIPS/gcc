@@ -15,8 +15,8 @@
 
    You should have received a copy of the GNU General Public License
    along with GCC; see the file COPYING.  If not, write to
-   the Free Software Foundation, 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
 /* Function prototypes that cannot exist in v850.h due to dependency
    complications.  */
@@ -27,13 +27,6 @@
 
 extern void   expand_prologue               (void);
 extern void   expand_epilogue               (void);
-extern void   sdata_section                 (void);
-extern void   rosdata_section               (void);
-extern void   sbss_section                  (void);
-extern void   tdata_section                 (void);
-extern void   zdata_section                 (void);
-extern void   rozdata_section               (void);
-extern void   zbss_section                  (void);
 extern int    v850_handle_pragma            (int (*)(void), void (*)(int), char *);
 extern int    compute_register_save_size    (long *);
 extern int    compute_frame_size            (int, long *);
@@ -61,7 +54,7 @@ extern rtx    function_arg                  (CUMULATIVE_ARGS *, Mmode, tree, int
 
 #ifdef TREE_CODE
 extern int    v850_interrupt_function_p     (tree);
-extern void   v850_output_aligned_bss       (FILE *, tree, const char *, int, int);
+extern void   v850_output_aligned_bss       (FILE *, tree, const char *, unsigned HOST_WIDE_INT, int);
 extern void   v850_output_common            (FILE *, tree, const char *, int, int);
 extern void   v850_output_local             (FILE *, tree, const char *, int, int);
 extern v850_data_area v850_get_data_area    (tree);

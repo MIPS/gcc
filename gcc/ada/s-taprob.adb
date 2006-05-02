@@ -1,13 +1,13 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                GNU ADA RUN-TIME LIBRARY (GNARL) COMPONENTS               --
+--                 GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                 --
 --                                                                          --
 --      S Y S T E M . T A S K I N G . P R O T E C T E D _ O B J E C T S     --
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---                   Copyright (C) 1995-2005, AdaCore                       --
+--                     Copyright (C) 1995-2005, AdaCore                     --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -17,8 +17,8 @@
 -- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
 -- for  more details.  You should have  received  a copy of the GNU General --
 -- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the Free Software Foundation,  59 Temple Place - Suite 330,  Boston, --
--- MA 02111-1307, USA.                                                      --
+-- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
+-- Boston, MA 02110-1301, USA.                                              --
 --                                                                          --
 -- As a special exception,  if other files  instantiate  generics from this --
 -- unit, or you link  this unit with other files  to produce an executable, --
@@ -241,7 +241,9 @@ package body System.Tasking.Protected_Objects is
    end Unlock;
 
 begin
-   --  Ensure that tasking soft links are set when using protected objects
+   --  Ensure that tasking is initialized, as well as tasking soft links
+   --  when using protected objects.
 
+   Tasking.Initialize;
    System.Soft_Links.Tasking.Init_Tasking_Soft_Links;
 end System.Tasking.Protected_Objects;

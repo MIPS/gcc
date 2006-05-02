@@ -25,8 +25,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public
 License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include <stdlib.h>
@@ -34,19 +34,27 @@ Boston, MA 02111-1307, USA.  */
 #include "libgfortran.h"'
 include(iparm.m4)dnl
 
+`#if defined (HAVE_'rtype_name`)'
+
 typedef GFC_ARRAY_DESCRIPTOR(1, index_type) shape_type;
 
 /* The shape parameter is ignored. We can currently deduce the shape from the
    return array.  */
 dnl Only the kind (ie size) is used to name the function.
 
-extern void reshape_`'rtype_ccode (rtype *, rtype *, shape_type *,
-				    rtype *, shape_type *);
+extern void reshape_`'rtype_ccode (rtype * const restrict, 
+	rtype * const restrict, 
+	shape_type * const restrict,
+	rtype * const restrict, 
+	shape_type * const restrict);
 export_proto(reshape_`'rtype_ccode);
 
 void
-reshape_`'rtype_ccode (rtype * ret, rtype * source, shape_type * shape,
-                      rtype * pad, shape_type * order)
+reshape_`'rtype_ccode (rtype * const restrict ret, 
+	rtype * const restrict source, 
+	shape_type * const restrict shape,
+	rtype * const restrict pad, 
+	shape_type * const restrict order)
 {
   /* r.* indicates the return array.  */
   index_type rcount[GFC_MAX_DIMENSIONS];
@@ -99,7 +107,7 @@ reshape_`'rtype_ccode (rtype * ret, rtype * source, shape_type * shape,
 	  ret->dim[n].stride = rs;
 	  rs *= rex;
 	}
-      ret->base = 0;
+      ret->offset = 0;
       ret->data = internal_malloc_size ( rs * sizeof (rtype_name));
       ret->dtype = (source->dtype & ~GFC_DTYPE_RANK_MASK) | rdim;
     }
@@ -176,9 +184,9 @@ reshape_`'rtype_ccode (rtype * ret, rtype * source, shape_type * shape,
 
   if (rsize != 0 && ssize != 0 && psize != 0)
     {
-      rsize *= rtype_kind;
-      ssize *= rtype_kind;
-      psize *= rtype_kind;
+      rsize *= sizeof (rtype_name);
+      ssize *= sizeof (rtype_name);
+      psize *= sizeof (rtype_name);
       reshape_packed ((char *)ret->data, rsize, (char *)source->data,
 		      ssize, pad ? (char *)pad->data : NULL, psize);
       return;
@@ -258,3 +266,5 @@ reshape_`'rtype_ccode (rtype * ret, rtype * source, shape_type * shape,
         }
     }
 }
+
+#endif

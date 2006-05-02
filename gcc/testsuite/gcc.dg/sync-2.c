@@ -1,7 +1,7 @@
 /* { dg-do run } */
 /* { dg-require-effective-target sync_char_short } */
-/* { dg-options "-march=i486" { target i?86-*-* } } */
-/* { dg-options "-march=i486" { target { x86_64-*-* && ilp32 } } } */
+/* { dg-options "-march=i486" { target { { i?86-*-* x86_64-*-* } && ilp32 } } } */
+/* { dg-options "-mcpu=v9" { target sparc*-*-* } } */
 
 /* Test functionality of the intrinsics for 'short' and 'char'.  */
 
@@ -23,7 +23,7 @@ do_qi (void)
     abort ();
   if (__sync_fetch_and_sub(AI+7, 12) != 0)
     abort ();
-  if (__sync_fetch_and_and(AI+8, 7) != -1)
+  if (__sync_fetch_and_and(AI+8, 7) != (char)-1)
     abort ();
   if (__sync_fetch_and_or(AI+9, 8) != 0)
     abort ();
@@ -34,7 +34,7 @@ do_qi (void)
 
   if (__sync_add_and_fetch(AI+12, 1) != 1)
     abort ();
-  if (__sync_sub_and_fetch(AI+13, 12) != -12)
+  if (__sync_sub_and_fetch(AI+13, 12) != (char)-12)
     abort ();
   if (__sync_and_and_fetch(AI+14, 7) != 7)
     abort ();

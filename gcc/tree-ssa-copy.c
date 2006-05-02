@@ -15,8 +15,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include "config.h"
 #include "system.h"
@@ -108,8 +108,8 @@ may_propagate_copy (tree dest, tree orig)
       && POINTER_TYPE_P (type_d)
       && POINTER_TYPE_P (type_o))
     {
-      tree mt_dest = var_ann (SSA_NAME_VAR (dest))->type_mem_tag;
-      tree mt_orig = var_ann (SSA_NAME_VAR (orig))->type_mem_tag;
+      tree mt_dest = var_ann (SSA_NAME_VAR (dest))->symbol_mem_tag;
+      tree mt_orig = var_ann (SSA_NAME_VAR (orig))->symbol_mem_tag;
       if (mt_dest && mt_orig && mt_dest != mt_orig)
 	return false;
       else if (!lang_hooks.types_compatible_p (type_d, type_o))
@@ -165,7 +165,7 @@ may_propagate_copy_into_asm (tree dest)
    propagating NEW into ORIG, consolidate aliasing information so that
    they both share the same memory tags.  */
 
-static void
+void
 merge_alias_info (tree orig, tree new)
 {
   tree new_sym = SSA_NAME_VAR (new);
@@ -187,41 +187,52 @@ merge_alias_info (tree orig, tree new)
 	      == get_alias_set (TREE_TYPE (TREE_TYPE (orig_sym))));
 #endif
 
-  /* Synchronize the type tags.  If both pointers had a tag and they
-     are different, then something has gone wrong.  */
-  if (new_ann->type_mem_tag == NULL_TREE)
-    new_ann->type_mem_tag = orig_ann->type_mem_tag;
-  else if (orig_ann->type_mem_tag == NULL_TREE)
-    orig_ann->type_mem_tag = new_ann->type_mem_tag;
+  /* Synchronize the symbol tags.  If both pointers had a tag and they
+     are different, then something has gone wrong.  Symbol tags can
+     always be merged because they are flow insensitive, all the SSA
+     names of the same base DECL share the same symbol tag.  */
+  if (new_ann->symbol_mem_tag == NULL_TREE)
+    new_ann->symbol_mem_tag = orig_ann->symbol_mem_tag;
+  else if (orig_ann->symbol_mem_tag == NULL_TREE)
+    orig_ann->symbol_mem_tag = new_ann->symbol_mem_tag;
   else
-    gcc_assert (new_ann->type_mem_tag == orig_ann->type_mem_tag);
+    gcc_assert (new_ann->symbol_mem_tag == orig_ann->symbol_mem_tag);
 
-  /* Synchronize the name tags.  If NEW did not have a name tag, get
-     it from ORIG.  This happens when NEW is a compiler generated
-     temporary which still hasn't had its points-to information filled
-     in.  */
-  if (SSA_NAME_PTR_INFO (orig))
+  /* Check that flow-sensitive information is compatible.  Notice that
+     we may not merge flow-sensitive information here.  This function
+     is called when propagating equivalences dictated by the IL, like
+     a copy operation P_i = Q_j, and from equivalences dictated by
+     control-flow, like if (P_i == Q_j).
+     
+     In the former case, P_i and Q_j are equivalent in every block
+     dominated by the assignment, so their flow-sensitive information
+     is always the same.  However, in the latter case, the pointers
+     P_i and Q_j are only equivalent in one of the sub-graphs out of
+     the predicate, so their flow-sensitive information is not the
+     same in every block dominated by the predicate.
+
+     Since we cannot distinguish one case from another in this
+     function, we can only make sure that if P_i and Q_j have
+     flow-sensitive information, they should be compatible.  */
+  if (SSA_NAME_PTR_INFO (orig) && SSA_NAME_PTR_INFO (new))
     {
       struct ptr_info_def *orig_ptr_info = SSA_NAME_PTR_INFO (orig);
       struct ptr_info_def *new_ptr_info = SSA_NAME_PTR_INFO (new);
 
-      if (new_ptr_info == NULL)
-	duplicate_ssa_name_ptr_info (new, orig_ptr_info);
-      else if (orig_ptr_info->name_mem_tag
-	       && new_ptr_info->name_mem_tag
-	       && orig_ptr_info->pt_vars
-	       && new_ptr_info->pt_vars)
-	{
-	  /* Note that pointer NEW may actually have a different set
-	     of pointed-to variables.  However, since NEW is being
-	     copy-propagated into ORIG, it must always be true that
-	     the pointed-to set for pointer NEW is the same, or a
-	     subset, of the pointed-to set for pointer ORIG.  If this
-	     isn't the case, we shouldn't have been able to do the
-	     propagation of NEW into ORIG.  */
-	  gcc_assert (bitmap_intersect_p (new_ptr_info->pt_vars,
-		orig_ptr_info->pt_vars));
-	}
+      /* Note that pointer NEW and ORIG may actually have different
+	 pointed-to variables (e.g., PR 18291 represented in
+	 testsuite/gcc.c-torture/compile/pr18291.c).  However, since
+	 NEW is being copy-propagated into ORIG, it must always be
+	 true that the pointed-to set for pointer NEW is the same, or
+	 a subset, of the pointed-to set for pointer ORIG.  If this
+	 isn't the case, we shouldn't have been able to do the
+	 propagation of NEW into ORIG.  */
+      if (orig_ptr_info->name_mem_tag
+	  && new_ptr_info->name_mem_tag
+	  && orig_ptr_info->pt_vars
+	  && new_ptr_info->pt_vars)
+	gcc_assert (bitmap_intersect_p (new_ptr_info->pt_vars,
+					orig_ptr_info->pt_vars));
     }
 }   
 
@@ -256,7 +267,7 @@ replace_exp_1 (use_operand_p op_p, tree val,
 
 
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
-   into the operand pointed by OP_P.
+   into the operand pointed to by OP_P.
 
    Use this version for const/copy propagation as it will perform additional
    checks to ensure validity of the const/copy propagation.  */
@@ -269,7 +280,7 @@ propagate_value (use_operand_p op_p, tree val)
 
 
 /* Propagate the value VAL (assumed to be a constant or another SSA_NAME)
-   into the tree pointed by OP_P.
+   into the tree pointed to by OP_P.
 
    Use this version for const/copy propagation when SSA operands are not
    available.  It will perform the additional checks to ensure validity of
@@ -468,15 +479,15 @@ set_copy_of_val (tree dest, tree first, tree mem_ref)
 }
 
 
-/* Dump the copy-of value for variable VAR to DUMP_FILE.  */
+/* Dump the copy-of value for variable VAR to FILE.  */
 
 static void
-dump_copy_of (FILE *dump_file, tree var)
+dump_copy_of (FILE *file, tree var)
 {
   tree val;
   sbitmap visited;
 
-  print_generic_expr (dump_file, var, dump_flags);
+  print_generic_expr (file, var, dump_flags);
 
   if (TREE_CODE (var) != SSA_NAME)
     return;
@@ -485,17 +496,17 @@ dump_copy_of (FILE *dump_file, tree var)
   sbitmap_zero (visited);
   SET_BIT (visited, SSA_NAME_VERSION (var));
   
-  fprintf (dump_file, " copy-of chain: ");
+  fprintf (file, " copy-of chain: ");
 
   val = var;
-  print_generic_expr (dump_file, val, 0);
-  fprintf (dump_file, " ");
+  print_generic_expr (file, val, 0);
+  fprintf (file, " ");
   while (copy_of[SSA_NAME_VERSION (val)].value)
     {
-      fprintf (dump_file, "-> ");
+      fprintf (file, "-> ");
       val = copy_of[SSA_NAME_VERSION (val)].value;
-      print_generic_expr (dump_file, val, 0);
-      fprintf (dump_file, " ");
+      print_generic_expr (file, val, 0);
+      fprintf (file, " ");
       if (TEST_BIT (visited, SSA_NAME_VERSION (val)))
         break;
       SET_BIT (visited, SSA_NAME_VERSION (val));
@@ -503,11 +514,11 @@ dump_copy_of (FILE *dump_file, tree var)
 
   val = get_copy_of_val (var)->value;
   if (val == NULL_TREE)
-    fprintf (dump_file, "[UNDEFINED]");
+    fprintf (file, "[UNDEFINED]");
   else if (val != var)
-    fprintf (dump_file, "[COPY]");
+    fprintf (file, "[COPY]");
   else
-    fprintf (dump_file, "[NOT A COPY]");
+    fprintf (file, "[NOT A COPY]");
   
   sbitmap_free (visited);
 }
@@ -537,14 +548,6 @@ copy_prop_visit_assignment (tree stmt, tree *result_p)
       /* Straight copy between two SSA names.  First, make sure that
 	 we can propagate the RHS into uses of LHS.  */
       if (!may_propagate_copy (lhs, rhs))
-	return SSA_PROP_VARYING;
-
-      /* Avoid copy propagation from an inner into an outer loop.
-	 Otherwise, this may move loop variant variables outside of
-	 their loops and prevent coalescing opportunities.  If the
-	 value was loop invariant, it will be hoisted by LICM and
-	 exposed for copy propagation.  */
-      if (loop_depth_of_name (rhs) > loop_depth_of_name (lhs))
 	return SSA_PROP_VARYING;
 
       /* Notice that in the case of assignments, we make the LHS be a
@@ -660,7 +663,6 @@ copy_prop_visit_cond_stmt (tree stmt, edge *taken_edge_p)
 static enum ssa_prop_result
 copy_prop_visit_stmt (tree stmt, edge *taken_edge_p, tree *result_p)
 {
-  stmt_ann_t ann;
   enum ssa_prop_result retval;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -669,8 +671,6 @@ copy_prop_visit_stmt (tree stmt, edge *taken_edge_p, tree *result_p)
       print_generic_stmt (dump_file, stmt, dump_flags);
       fprintf (dump_file, "\n");
     }
-
-  ann = stmt_ann (stmt);
 
   if (TREE_CODE (stmt) == MODIFY_EXPR
       && TREE_CODE (TREE_OPERAND (stmt, 1)) == SSA_NAME
@@ -827,53 +827,72 @@ copy_prop_visit_phi_node (tree phi)
 }
 
 
-/* Initialize structures used for copy propagation.  */
+/* Initialize structures used for copy propagation.   PHIS_ONLY is true
+   if we should only consider PHI nodes as generating copy propagation
+   opportunities.  */
 
 static void
 init_copy_prop (void)
 {
   basic_block bb;
 
-  copy_of = xmalloc (num_ssa_names * sizeof (*copy_of));
+  copy_of = XNEWVEC (prop_value_t, num_ssa_names);
   memset (copy_of, 0, num_ssa_names * sizeof (*copy_of));
 
-  cached_last_copy_of = xmalloc (num_ssa_names * sizeof (*cached_last_copy_of));
+  cached_last_copy_of = XNEWVEC (tree, num_ssa_names);
   memset (cached_last_copy_of, 0, num_ssa_names * sizeof (*cached_last_copy_of));
 
   FOR_EACH_BB (bb)
     {
       block_stmt_iterator si;
-      tree phi;
+      tree phi, def;
+      int depth = bb->loop_depth;
 
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  tree stmt = bsi_stmt (si);
+	  ssa_op_iter iter;
 
 	  /* The only statements that we care about are those that may
 	     generate useful copies.  We also need to mark conditional
 	     jumps so that their outgoing edges are added to the work
-	     lists of the propagator.  */
+	     lists of the propagator.
+
+	     Avoid copy propagation from an inner into an outer loop.
+	     Otherwise, this may move loop variant variables outside of
+	     their loops and prevent coalescing opportunities.  If the
+	     value was loop invariant, it will be hoisted by LICM and
+	     exposed for copy propagation.  */
 	  if (stmt_ends_bb_p (stmt))
 	    DONT_SIMULATE_AGAIN (stmt) = false;
-	  else if (stmt_may_generate_copy (stmt))
+	  else if (stmt_may_generate_copy (stmt)
+		   && loop_depth_of_name (TREE_OPERAND (stmt, 1)) <= depth)
 	    DONT_SIMULATE_AGAIN (stmt) = false;
 	  else
-	    {
-	      tree def;
-	      ssa_op_iter iter;
+	    DONT_SIMULATE_AGAIN (stmt) = true;
 
-	      /* No need to simulate this statement anymore.  */
-	      DONT_SIMULATE_AGAIN (stmt) = true;
-
-	      /* Mark all the outputs of this statement as not being
-		 the copy of anything.  */
-	      FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
-		set_copy_of_val (def, def, NULL_TREE);
-	    }
+	  /* Mark all the outputs of this statement as not being
+	     the copy of anything.  */
+	  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
+	    if (DONT_SIMULATE_AGAIN (stmt))
+	      set_copy_of_val (def, def, NULL_TREE);
+	    else
+	      cached_last_copy_of[SSA_NAME_VERSION (def)] = def;
 	}
 
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	DONT_SIMULATE_AGAIN (phi) = false;
+	{
+	  def = PHI_RESULT (phi);
+	  if (!do_store_copy_prop && !is_gimple_reg (def))
+	    DONT_SIMULATE_AGAIN (phi) = true;
+	  else
+	    DONT_SIMULATE_AGAIN (phi) = false;
+
+	  if (DONT_SIMULATE_AGAIN (phi))
+	    set_copy_of_val (def, def, NULL_TREE);
+	  else
+	    cached_last_copy_of[SSA_NAME_VERSION (def)] = def;
+	}
     }
 }
 
@@ -885,27 +904,36 @@ static void
 fini_copy_prop (void)
 {
   size_t i;
+  prop_value_t *tmp;
   
   /* Set the final copy-of value for each variable by traversing the
      copy-of chains.  */
+  tmp = XNEWVEC (prop_value_t, num_ssa_names);
+  memset (tmp, 0, num_ssa_names * sizeof (*tmp));
   for (i = 1; i < num_ssa_names; i++)
     {
       tree var = ssa_name (i);
       if (var && copy_of[i].value && copy_of[i].value != var)
-	copy_of[i].value = get_last_copy_of (var);
+	tmp[i].value = get_last_copy_of (var);
     }
 
-  substitute_and_fold (copy_of, false);
+  substitute_and_fold (tmp, false);
 
   free (cached_last_copy_of);
   free (copy_of);
+  free (tmp);
 }
 
 
-/* Main entry point to the copy propagator.  The algorithm propagates
-   the value COPY-OF using ssa_propagate.  For every variable X_i,
-   COPY-OF(X_i) indicates which variable is X_i created from.  The
-   following example shows how the algorithm proceeds at a high level:
+/* Main entry point to the copy propagator.
+
+   PHIS_ONLY is true if we should only consider PHI nodes as generating
+   copy propagation opportunities. 
+
+   The algorithm propagates the value COPY-OF using ssa_propagate.  For
+   every variable X_i, COPY-OF(X_i) indicates which variable is X_i created
+   from.  The following example shows how the algorithm proceeds at a
+   high level:
 
 	    1	a_24 = x_1
 	    2	a_2 = PHI <a_24, x_1>
@@ -1020,19 +1048,18 @@ gate_copy_prop (void)
   return flag_tree_copy_prop != 0;
 }
 
-static void
+static unsigned int
 do_copy_prop (void)
 {
   execute_copy_prop (false);
+  return 0;
 }
 
 struct tree_opt_pass pass_copy_prop =
 {
   "copyprop",				/* name */
   gate_copy_prop,			/* gate */
-  NULL, NULL,				/* IPA  */
   do_copy_prop,				/* execute */
-  NULL, NULL,				/* IPA  */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -1049,7 +1076,6 @@ struct tree_opt_pass pass_copy_prop =
   0					/* letter */
 };
 
-
 static bool
 gate_store_copy_prop (void)
 {
@@ -1060,20 +1086,19 @@ gate_store_copy_prop (void)
   return flag_tree_store_copy_prop != 0 || flag_tree_copy_prop != 0;
 }
 
-static void
+static unsigned int
 store_copy_prop (void)
 {
   /* If STORE-COPY-PROP is not enabled, we just run regular COPY-PROP.  */
   execute_copy_prop (flag_tree_store_copy_prop != 0);
+  return 0;
 }
 
 struct tree_opt_pass pass_store_copy_prop =
 {
   "store_copyprop",			/* name */
   gate_store_copy_prop,			/* gate */
-  NULL, NULL,				/* IPA */
   store_copy_prop,			/* execute */
-  NULL, NULL,				/* IPA */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

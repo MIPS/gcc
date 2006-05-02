@@ -1,6 +1,7 @@
 /* Data flow analysis for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation,
+   Inc.
 
 This file is part of GCC.
 
@@ -16,8 +17,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* This file contains the data flow analysis pass of the compiler.  It
    computes data flow information which tells combine_instructions
@@ -104,7 +105,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    life_analysis fills in certain vectors containing information about
    register usage: REG_N_REFS, REG_N_DEATHS, REG_N_SETS, REG_LIVE_LENGTH,
-   REG_N_CALLS_CROSSED and REG_BASIC_BLOCK.
+   REG_N_CALLS_CROSSED, REG_N_THROWING_CALLS_CROSSED and REG_BASIC_BLOCK.
 
    life_analysis sets current_function_sp_is_unchanging if the function
    doesn't modify the stack pointer.  */
@@ -140,6 +141,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "obstack.h"
 #include "splay-tree.h"
+#include "tree-pass.h"
+#include "params.h"
 
 #ifndef HAVE_epilogue
 #define HAVE_epilogue 0
@@ -282,10 +285,6 @@ static int ndead;
 
 static int *reg_deaths;
 
-/* Maximum length of pbi->mem_set_list before we start dropping
-   new elements on the floor.  */
-#define MAX_MEM_SET_LIST_LEN	100
-
 /* Forward declarations */
 static int verify_wide_reg_1 (rtx *, void *);
 static void verify_wide_reg (int, basic_block);
@@ -355,7 +354,7 @@ first_insn_after_basic_block_note (basic_block block)
    FLAGS is a set of PROP_* flags to be used in accumulating flow info.  */
 
 void
-life_analysis (FILE *file, int flags)
+life_analysis (int flags)
 {
 #ifdef ELIMINABLE_REGS
   int i;
@@ -416,7 +415,7 @@ life_analysis (FILE *file, int flags)
   allocate_bb_life_data ();
 
   /* Find the set of registers live on function exit.  */
-  mark_regs_live_at_end (EXIT_BLOCK_PTR->global_live_at_start);
+  mark_regs_live_at_end (EXIT_BLOCK_PTR->il.rtl->global_live_at_start);
 
   /* "Update" life info from zero.  It'd be nice to begin the
      relaxation with just the exit and noreturn blocks, but that set
@@ -438,8 +437,8 @@ life_analysis (FILE *file, int flags)
   if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     end_alias_analysis ();
 
-  if (file)
-    dump_flow_info (file);
+  if (dump_file)
+    dump_flow_info (dump_file, dump_flags);
 
   /* Removing dead insns should have made jumptables really dead.  */
   delete_dead_jumptables ();
@@ -504,7 +503,8 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
     {
       /* After reload, there are no pseudos, nor subregs of multi-word
 	 registers.  The regsets should exactly match.  */
-      if (! REG_SET_EQUAL_P (new_live_at_start, bb->global_live_at_start))
+      if (! REG_SET_EQUAL_P (new_live_at_start,
+	    		     bb->il.rtl->global_live_at_start))
 	{
 	  if (dump_file)
 	    {
@@ -524,12 +524,12 @@ verify_local_live_at_start (regset new_live_at_start, basic_block bb)
       reg_set_iterator rsi;
 
       /* Find the set of changed registers.  */
-      XOR_REG_SET (new_live_at_start, bb->global_live_at_start);
+      XOR_REG_SET (new_live_at_start, bb->il.rtl->global_live_at_start);
 
       EXECUTE_IF_SET_IN_REG_SET (new_live_at_start, 0, i, rsi)
 	{
 	  /* No registers should die.  */
-	  if (REGNO_REG_SET_P (bb->global_live_at_start, i))
+	  if (REGNO_REG_SET_P (bb->il.rtl->global_live_at_start, i))
 	    {
 	      if (dump_file)
 		{
@@ -570,7 +570,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 		  int prop_flags)
 {
   regset tmp;
-  unsigned i;
+  unsigned i = 0;
   int stabilized_prop_flags = prop_flags;
   basic_block bb;
 
@@ -578,7 +578,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   ndead = 0;
 
   if ((prop_flags & PROP_REG_INFO) && !reg_deaths)
-    reg_deaths = xcalloc (sizeof (*reg_deaths), max_regno);
+    reg_deaths = XCNEWVEC (int, max_regno);
 
   timevar_push ((extent == UPDATE_LIFE_LOCAL || blocks)
 		? TV_LIFE_UPDATE : TV_LIFE);
@@ -608,7 +608,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 	     in turn may allow for further dead code detection / removal.  */
 	  FOR_EACH_BB_REVERSE (bb)
 	    {
-	      COPY_REG_SET (tmp, bb->global_live_at_end);
+	      COPY_REG_SET (tmp, bb->il.rtl->global_live_at_end);
 	      changed |= propagate_block (bb, tmp, NULL, NULL,
 				prop_flags & (PROP_SCAN_DEAD_CODE
 					      | PROP_SCAN_DEAD_STORES
@@ -628,7 +628,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 
 	  /* We repeat regardless of what cleanup_cfg says.  If there were
 	     instructions deleted above, that might have been only a
-	     partial improvement (see MAX_MEM_SET_LIST_LEN usage).
+	     partial improvement (see PARAM_MAX_FLOW_MEMORY_LOCATIONS  usage).
 	     Further improvement may be possible.  */
 	  cleanup_cfg (CLEANUP_EXPENSIVE);
 
@@ -637,14 +637,15 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 	     in the code being marked live at entry.  */
 	  FOR_EACH_BB (bb)
 	    {
-	      CLEAR_REG_SET (bb->global_live_at_start);
-	      CLEAR_REG_SET (bb->global_live_at_end);
+	      CLEAR_REG_SET (bb->il.rtl->global_live_at_start);
+	      CLEAR_REG_SET (bb->il.rtl->global_live_at_end);
 	    }
 	}
 
       /* If asked, remove notes from the blocks we'll update.  */
       if (extent == UPDATE_LIFE_GLOBAL_RM_NOTES)
-	count_or_remove_death_notes (blocks, 1);
+	count_or_remove_death_notes (blocks,
+				     prop_flags & PROP_POST_REGSTACK ? -1 : 1);
     }
 
   /* Clear log links in case we are asked to (re)compute them.  */
@@ -653,22 +654,28 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 
   if (blocks)
     {
-      EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i,
+      sbitmap_iterator sbi;
+
+      EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)
 	{
 	  bb = BASIC_BLOCK (i);
-
-	  COPY_REG_SET (tmp, bb->global_live_at_end);
-	  propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
-
-	  if (extent == UPDATE_LIFE_LOCAL)
-	    verify_local_live_at_start (tmp, bb);
-	});
+	  if (bb)
+	    {
+	      /* The bitmap may be flawed in that one of the basic
+		 blocks may have been deleted before you get here.  */
+	      COPY_REG_SET (tmp, bb->il.rtl->global_live_at_end);
+	      propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
+	      
+	      if (extent == UPDATE_LIFE_LOCAL)
+		verify_local_live_at_start (tmp, bb);
+	    }
+	};
     }
   else
     {
       FOR_EACH_BB_REVERSE (bb)
 	{
-	  COPY_REG_SET (tmp, bb->global_live_at_end);
+	  COPY_REG_SET (tmp, bb->il.rtl->global_live_at_end);
 
 	  propagate_block (bb, tmp, NULL, NULL, stabilized_prop_flags);
 
@@ -687,7 +694,7 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
 	 are those that were not set anywhere in the function.  local-alloc
 	 doesn't know how to handle these correctly, so mark them as not
 	 local to any one basic block.  */
-      EXECUTE_IF_SET_IN_REG_SET (ENTRY_BLOCK_PTR->global_live_at_end,
+      EXECUTE_IF_SET_IN_REG_SET (ENTRY_BLOCK_PTR->il.rtl->global_live_at_end,
 				 FIRST_PSEUDO_REGISTER, i, rsi)
 	REG_BASIC_BLOCK (i) = REG_BLOCK_GLOBAL;
 
@@ -765,9 +772,9 @@ free_basic_block_vars (void)
   label_to_block_map = NULL;
 
   ENTRY_BLOCK_PTR->aux = NULL;
-  ENTRY_BLOCK_PTR->global_live_at_end = NULL;
+  ENTRY_BLOCK_PTR->il.rtl->global_live_at_end = NULL;
   EXIT_BLOCK_PTR->aux = NULL;
-  EXIT_BLOCK_PTR->global_live_at_start = NULL;
+  EXIT_BLOCK_PTR->il.rtl->global_live_at_start = NULL;
 }
 
 /* Delete any insns that copy a register to itself.  */
@@ -808,8 +815,10 @@ delete_noop_moves (void)
 	    }
 	}
     }
+
   if (nnoops && dump_file)
-    fprintf (dump_file, "deleted %i noop moves", nnoops);
+    fprintf (dump_file, "deleted %i noop moves\n", nnoops);
+
   return nnoops;
 }
 
@@ -1032,7 +1041,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
      In other words, regs that are set only as part of a COND_EXEC.  */
   regset *cond_local_sets;
 
-  int i;
+  unsigned int i;
 
   /* Some passes used to forget clear aux field of basic block causing
      sick behavior here.  */
@@ -1052,17 +1061,14 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       SET_REGNO_REG_SET (invalidated_by_call, i);
 
   /* Allocate space for the sets of local properties.  */
-  local_sets = xcalloc (last_basic_block - (INVALID_BLOCK + 1),
-			sizeof (regset));
-  cond_local_sets = xcalloc (last_basic_block - (INVALID_BLOCK + 1),
-			     sizeof (regset));
+  local_sets = XCNEWVEC (bitmap, last_basic_block);
+  cond_local_sets = XCNEWVEC (bitmap, last_basic_block);
 
-  /* Create a worklist.  Allocate an extra slot for ENTRY_BLOCK, and one
-     because the `head == tail' style test for an empty queue doesn't
-     work with a full queue.  */
-  queue = xmalloc ((n_basic_blocks - (INVALID_BLOCK + 1)) * sizeof (*queue));
+  /* Create a worklist.  Allocate an extra slot for the `head == tail'
+     style test for an empty queue doesn't work with a full queue.  */
+  queue = XNEWVEC (basic_block, n_basic_blocks + 1);
   qtail = queue;
-  qhead = qend = queue + n_basic_blocks - (INVALID_BLOCK + 1);
+  qhead = qend = queue + n_basic_blocks;
 
   /* Queue the blocks set in the initial mask.  Do this in reverse block
      number order so that we are more likely for the first round to do
@@ -1085,7 +1091,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 	}
     }
 
-  block_accesses = xcalloc (last_basic_block, sizeof (int));
+  block_accesses = XCNEWVEC (int, last_basic_block);
   
   /* We clean aux when we remove the initially-enqueued bbs, but we
      don't enqueue ENTRY and EXIT initially, so clean them upfront and
@@ -1184,10 +1190,10 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 	       confused by sibling call edges, which crashes reg-stack.  */
 	    if (e->flags & EDGE_EH)
 	      bitmap_ior_and_compl_into (new_live_at_end,
-					 sb->global_live_at_start,
+					 sb->il.rtl->global_live_at_start,
 					 invalidated_by_call);
 	    else
-	      IOR_REG_SET (new_live_at_end, sb->global_live_at_start);
+	      IOR_REG_SET (new_live_at_end, sb->il.rtl->global_live_at_start);
 
 	    /* If a target saves one register in another (instead of on
 	       the stack) the save register will need to be live for EH.  */
@@ -1234,7 +1240,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 
       if (bb == ENTRY_BLOCK_PTR)
 	{
-	  COPY_REG_SET (bb->global_live_at_end, new_live_at_end);
+	  COPY_REG_SET (bb->il.rtl->global_live_at_end, new_live_at_end);
 	  continue;
 	}
 
@@ -1243,12 +1249,10 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
          basic block.  On subsequent passes, we get to skip out early if
 	 live_at_end wouldn't have changed.  */
 
-      if (local_sets[bb->index - (INVALID_BLOCK + 1)] == NULL)
+      if (local_sets[bb->index] == NULL)
 	{
-	  local_sets[bb->index - (INVALID_BLOCK + 1)]
-	    = ALLOC_REG_SET (&reg_obstack);
-	  cond_local_sets[bb->index - (INVALID_BLOCK + 1)]
-	    = ALLOC_REG_SET (&reg_obstack);
+	  local_sets[bb->index] = ALLOC_REG_SET (&reg_obstack);
+	  cond_local_sets[bb->index] = ALLOC_REG_SET (&reg_obstack);
 	  rescan = 1;
 	}
       else
@@ -1257,7 +1261,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 	     rescan the block.  This wouldn't be necessary if we had
 	     precalculated local_live, however with PROP_SCAN_DEAD_CODE
 	     local_live is really dependent on live_at_end.  */
-	  rescan = bitmap_intersect_compl_p (bb->global_live_at_end,
+	  rescan = bitmap_intersect_compl_p (bb->il.rtl->global_live_at_end,
 					     new_live_at_end);
 
 	  if (!rescan)
@@ -1272,7 +1276,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 		  successor block.  We can miss changes in those sets if
 		  we only compare the new live_at_end against the
 		  previous one.  */
-	      cond_local_set = cond_local_sets[bb->index - (INVALID_BLOCK + 1)];
+	      cond_local_set = cond_local_sets[bb->index];
 	      rescan = bitmap_intersect_p (new_live_at_end, cond_local_set);
 	    }
 
@@ -1282,13 +1286,13 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 
 	      /* Find the set of changed bits.  Take this opportunity
 		 to notice that this set is empty and early out.  */
-	      bitmap_xor (tmp, bb->global_live_at_end, new_live_at_end);
+	      bitmap_xor (tmp, bb->il.rtl->global_live_at_end, new_live_at_end);
 	      if (bitmap_empty_p (tmp))
 		continue;
   
 	      /* If any of the changed bits overlap with local_sets[bb],
  		 we'll have to rescan the block.  */
-	      local_set = local_sets[bb->index - (INVALID_BLOCK + 1)];
+	      local_set = local_sets[bb->index];
 	      rescan = bitmap_intersect_p (tmp, local_set);
 	    }
 	}
@@ -1303,33 +1307,34 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 	  /* Add to live_at_start the set of all registers in
 	     new_live_at_end that aren't in the old live_at_end.  */
 	  
-	  changed = bitmap_ior_and_compl_into (bb->global_live_at_start,
+	  changed = bitmap_ior_and_compl_into (bb->il.rtl->global_live_at_start,
 					       new_live_at_end,
-					       bb->global_live_at_end);
-	  COPY_REG_SET (bb->global_live_at_end, new_live_at_end);
+					       bb->il.rtl->global_live_at_end);
+	  COPY_REG_SET (bb->il.rtl->global_live_at_end, new_live_at_end);
 	  if (! changed)
 	    continue;
 	}
       else
 	{
-	  COPY_REG_SET (bb->global_live_at_end, new_live_at_end);
+	  COPY_REG_SET (bb->il.rtl->global_live_at_end, new_live_at_end);
 
 	  /* Rescan the block insn by insn to turn (a copy of) live_at_end
 	     into live_at_start.  */
 	  propagate_block (bb, new_live_at_end,
-			   local_sets[bb->index - (INVALID_BLOCK + 1)],
-			   cond_local_sets[bb->index - (INVALID_BLOCK + 1)],
+			   local_sets[bb->index],
+			   cond_local_sets[bb->index],
 			   flags);
 
 	  /* If live_at start didn't change, no need to go farther.  */
-	  if (REG_SET_EQUAL_P (bb->global_live_at_start, new_live_at_end))
+	  if (REG_SET_EQUAL_P (bb->il.rtl->global_live_at_start,
+			       new_live_at_end))
 	    continue;
 
 	  if (failure_strategy_required)
 	    {
 	      /* Get the list of registers that were removed from the
 	         bb->global_live_at_start set.  */
-	      bitmap_and_compl (tmp, bb->global_live_at_start,
+	      bitmap_and_compl (tmp, bb->il.rtl->global_live_at_start,
 				new_live_at_end);
 	      if (!bitmap_empty_p (tmp))
 		{
@@ -1348,11 +1353,13 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 		      pbb_changed = false;
 
 		      pbb_changed
-			|= bitmap_and_compl_into (pbb->global_live_at_start,
-						  registers_made_dead);
+			|= bitmap_and_compl_into
+			    (pbb->il.rtl->global_live_at_start,
+			     registers_made_dead);
 		      pbb_changed
-			|= bitmap_and_compl_into (pbb->global_live_at_end,
-						  registers_made_dead);
+			|= bitmap_and_compl_into
+			    (pbb->il.rtl->global_live_at_end,
+			     registers_made_dead);
 		      if (!pbb_changed)
 			continue;
 
@@ -1361,11 +1368,11 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 			SET_BIT (blocks_out, pbb->index);
 
 		      /* Makes sure to really rescan the block.  */
-		      if (local_sets[pbb->index - (INVALID_BLOCK + 1)])
+		      if (local_sets[pbb->index])
 			{
-			  FREE_REG_SET (local_sets[pbb->index - (INVALID_BLOCK + 1)]);
-			  FREE_REG_SET (cond_local_sets[pbb->index - (INVALID_BLOCK + 1)]);
-			  local_sets[pbb->index - (INVALID_BLOCK + 1)] = 0;
+			  FREE_REG_SET (local_sets[pbb->index]);
+			  FREE_REG_SET (cond_local_sets[pbb->index]);
+			  local_sets[pbb->index] = 0;
 			}
 
 		      /* Add it to the queue.  */
@@ -1381,7 +1388,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 		}
 	    } /* end of failure_strategy_required */
 
-	  COPY_REG_SET (bb->global_live_at_start, new_live_at_end);
+	  COPY_REG_SET (bb->il.rtl->global_live_at_start, new_live_at_end);
 	}
 
       /* Queue all predecessors of BB so that we may re-examine
@@ -1389,6 +1396,9 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  basic_block pb = e->src;
+
+	  gcc_assert ((e->flags & EDGE_FAKE) == 0);
+
 	  if (pb->aux == NULL)
 	    {
 	      *qtail++ = pb;
@@ -1406,19 +1416,21 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 
   if (blocks_out)
     {
-      EXECUTE_IF_SET_IN_SBITMAP (blocks_out, 0, i,
+      sbitmap_iterator sbi;
+
+      EXECUTE_IF_SET_IN_SBITMAP (blocks_out, 0, i, sbi)
 	{
 	  basic_block bb = BASIC_BLOCK (i);
-	  FREE_REG_SET (local_sets[bb->index - (INVALID_BLOCK + 1)]);
-	  FREE_REG_SET (cond_local_sets[bb->index - (INVALID_BLOCK + 1)]);
-	});
+ 	  FREE_REG_SET (local_sets[bb->index]);
+ 	  FREE_REG_SET (cond_local_sets[bb->index]);
+	};
     }
   else
     {
       FOR_EACH_BB (bb)
 	{
-	  FREE_REG_SET (local_sets[bb->index - (INVALID_BLOCK + 1)]);
-	  FREE_REG_SET (cond_local_sets[bb->index - (INVALID_BLOCK + 1)]);
+ 	  FREE_REG_SET (local_sets[bb->index]);
+ 	  FREE_REG_SET (cond_local_sets[bb->index]);
 	}
     }
 
@@ -1488,7 +1500,7 @@ find_regno_partial (rtx *ptr, void *data)
    registers whose value is unknown, and may contain some kind of sticky
    bits we don't want.  */
 
-int
+static int
 initialize_uninitialized_subregs (void)
 {
   rtx insn;
@@ -1500,7 +1512,7 @@ initialize_uninitialized_subregs (void)
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     {
       basic_block bb = e->dest;
-      regset map = bb->global_live_at_start;
+      regset map = bb->il.rtl->global_live_at_start;
       reg_set_iterator rsi;
 
       EXECUTE_IF_SET_IN_REG_SET (map, FIRST_PSEUDO_REGISTER, reg, rsi)
@@ -1552,8 +1564,8 @@ allocate_bb_life_data (void)
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
-      bb->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
-      bb->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
+      bb->il.rtl->global_live_at_start = ALLOC_REG_SET (&reg_obstack);
+      bb->il.rtl->global_live_at_end = ALLOC_REG_SET (&reg_obstack);
     }
 
   regs_live_at_setjmp = ALLOC_REG_SET (&reg_obstack);
@@ -1566,7 +1578,7 @@ allocate_reg_life_data (void)
 
   max_regno = max_reg_num ();
   gcc_assert (!reg_deaths);
-  reg_deaths = xcalloc (sizeof (*reg_deaths), max_regno);
+  reg_deaths = XCNEWVEC (int, max_regno);
 
   /* Recalculate the register space, in case it has grown.  Old style
      vector oriented regsets would set regset_{size,bytes} here also.  */
@@ -1580,6 +1592,7 @@ allocate_reg_life_data (void)
       REG_N_REFS (i) = 0;
       REG_N_DEATHS (i) = 0;
       REG_N_CALLS_CROSSED (i) = 0;
+      REG_N_THROWING_CALLS_CROSSED (i) = 0;
       REG_LIVE_LENGTH (i) = 0;
       REG_FREQ (i) = 0;
       REG_BASIC_BLOCK (i) = REG_BLOCK_UNKNOWN;
@@ -1811,6 +1824,9 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
 	  reg_set_iterator rsi;
 	  EXECUTE_IF_SET_IN_REG_SET (pbi->reg_live, 0, i, rsi)
 	    REG_N_CALLS_CROSSED (i)++;
+          if (can_throw_internal (insn))
+	    EXECUTE_IF_SET_IN_REG_SET (pbi->reg_live, 0, i, rsi)
+	      REG_N_THROWING_CALLS_CROSSED (i)++;
 	}
 
       /* Record sets.  Do this even for dead instructions, since they
@@ -1852,7 +1868,7 @@ propagate_one_insn (struct propagate_block_info *pbi, rtx insn)
 	     except for return values.  */
 
 	  sibcall_p = SIBLING_CALL_P (insn);
-	  live_at_end = EXIT_BLOCK_PTR->global_live_at_start;
+	  live_at_end = EXIT_BLOCK_PTR->il.rtl->global_live_at_start;
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i)
 		&& ! (sibcall_p
@@ -1928,7 +1944,7 @@ struct propagate_block_info *
 init_propagate_block_info (basic_block bb, regset live, regset local_set,
 			   regset cond_local_set, int flags)
 {
-  struct propagate_block_info *pbi = xmalloc (sizeof (*pbi));
+  struct propagate_block_info *pbi = XNEW (struct propagate_block_info);
 
   pbi->bb = bb;
   pbi->reg_live = live;
@@ -1941,7 +1957,7 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
   pbi->insn_num = 0;
 
   if (flags & (PROP_LOG_LINKS | PROP_AUTOINC))
-    pbi->reg_next_use = xcalloc (max_reg_num (), sizeof (rtx));
+    pbi->reg_next_use = XCNEWVEC (rtx, max_reg_num ());
   else
     pbi->reg_next_use = NULL;
 
@@ -1987,8 +2003,8 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 	}
 
       /* Compute which register lead different lives in the successors.  */
-      bitmap_xor (diff, bb_true->global_live_at_start,
-		  bb_false->global_live_at_start);
+      bitmap_xor (diff, bb_true->il.rtl->global_live_at_start,
+		  bb_false->il.rtl->global_live_at_start);
       
       if (!bitmap_empty_p (diff))
 	  {
@@ -2031,9 +2047,10 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 		  struct reg_cond_life_info *rcli;
 		  rtx cond;
 
-		  rcli = xmalloc (sizeof (*rcli));
+		  rcli = XNEW (struct reg_cond_life_info);
 
-		  if (REGNO_REG_SET_P (bb_true->global_live_at_start, i))
+		  if (REGNO_REG_SET_P (bb_true->il.rtl->global_live_at_start,
+				       i))
 		    cond = cond_false;
 		  else
 		    cond = cond_true;
@@ -2460,11 +2477,12 @@ libcall_dead_p (struct propagate_block_info *pbi, rtx note, rtx insn)
 int
 regno_clobbered_at_setjmp (int regno)
 {
-  if (n_basic_blocks == 0)
+  if (n_basic_blocks == NUM_FIXED_BLOCKS)
     return 0;
 
   return ((REG_N_SETS (regno) > 1
-	   || REGNO_REG_SET_P (ENTRY_BLOCK_PTR->global_live_at_end, regno))
+	   || REGNO_REG_SET_P (ENTRY_BLOCK_PTR->il.rtl->global_live_at_end,
+	     		       regno))
 	  && REGNO_REG_SET_P (regs_live_at_setjmp, regno));
 }
 
@@ -2500,7 +2518,7 @@ add_to_mem_set_list (struct propagate_block_info *pbi, rtx mem)
 	}
     }
 
-  if (pbi->mem_set_list_len < MAX_MEM_SET_LIST_LEN)
+  if (pbi->mem_set_list_len < PARAM_VALUE (PARAM_MAX_FLOW_MEMORY_LOCATIONS))
     {
 #ifdef AUTO_INC_DEC
       /* Store a copy of mem, otherwise the address may be
@@ -2804,7 +2822,7 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 	      else
 		SET_REGNO_REG_SET (pbi->local_set, i);
 	    }
-	  if (code != CLOBBER)
+	  if (code != CLOBBER || needed_regno)
 	    SET_REGNO_REG_SET (pbi->new_set, i);
 
 	  some_was_live |= needed_regno;
@@ -2914,7 +2932,13 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 	      if (flags & PROP_REG_INFO)
 		REG_N_DEATHS (regno_first) += 1;
 
-	      if (flags & PROP_DEATH_NOTES)
+	      if (flags & PROP_DEATH_NOTES
+#ifdef STACK_REGS
+		  && (!(flags & PROP_POST_REGSTACK)
+		      || !IN_RANGE (REGNO (reg), FIRST_STACK_REG,
+				    LAST_STACK_REG))
+#endif
+		  )
 		{
 		  /* Note that dead stores have already been deleted
 		     when possible.  If we get here, we have found a
@@ -2927,7 +2951,13 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
 	    }
 	  else
 	    {
-	      if (flags & PROP_DEATH_NOTES)
+	      if (flags & PROP_DEATH_NOTES
+#ifdef STACK_REGS
+		  && (!(flags & PROP_POST_REGSTACK)
+		      || !IN_RANGE (REGNO (reg), FIRST_STACK_REG,
+				    LAST_STACK_REG))
+#endif
+		  )
 		{
 		  /* This is a case where we have a multi-word hard register
 		     and some, but not all, of the words of the register are
@@ -2986,7 +3016,12 @@ mark_set_1 (struct propagate_block_info *pbi, enum rtx_code code, rtx reg, rtx c
      here and count it.  */
   else if (GET_CODE (reg) == SCRATCH)
     {
-      if (flags & PROP_DEATH_NOTES)
+      if (flags & PROP_DEATH_NOTES
+#ifdef STACK_REGS
+	  && (!(flags & PROP_POST_REGSTACK)
+	      || !IN_RANGE (REGNO (reg), FIRST_STACK_REG, LAST_STACK_REG))
+#endif
+	  )
 	REG_NOTES (insn)
 	  = alloc_EXPR_LIST (REG_UNUSED, reg, REG_NOTES (insn));
     }
@@ -3027,7 +3062,7 @@ mark_regno_cond_dead (struct propagate_block_info *pbi, int regno, rtx cond)
 	  /* The register was unconditionally live previously.
 	     Record the current condition as the condition under
 	     which it is dead.  */
-	  rcli = xmalloc (sizeof (*rcli));
+	  rcli = XNEW (struct reg_cond_life_info);
 	  rcli->condition = cond;
 	  rcli->stores = cond;
 	  rcli->orig_condition = const0_rtx;
@@ -3501,7 +3536,11 @@ attempt_auto_inc (struct propagate_block_info *pbi, rtx inc, rtx insn,
 	 that REGNO now crosses them.  */
       for (temp = insn; temp != incr; temp = NEXT_INSN (temp))
 	if (CALL_P (temp))
-	  REG_N_CALLS_CROSSED (regno)++;
+	  {
+	    REG_N_CALLS_CROSSED (regno)++;
+	    if (can_throw_internal (temp))
+	      REG_N_THROWING_CALLS_CROSSED (regno)++;
+	  }
 
       /* Invalidate alias info for Q since we just changed its value.  */
       clear_reg_alias_info (q);
@@ -3748,6 +3787,10 @@ mark_used_reg (struct propagate_block_info *pbi, rtx reg,
       if (! some_was_live)
 	{
 	  if ((pbi->flags & PROP_DEATH_NOTES)
+#ifdef STACK_REGS
+	      && (!(pbi->flags & PROP_POST_REGSTACK)
+		  || !IN_RANGE (REGNO (reg), FIRST_STACK_REG, LAST_STACK_REG))
+#endif
 	      && ! find_regno_note (insn, REG_DEAD, regno_first))
 	    REG_NOTES (insn)
 	      = alloc_EXPR_LIST (REG_DEAD, reg, REG_NOTES (insn));
@@ -3819,7 +3862,7 @@ mark_used_reg (struct propagate_block_info *pbi, rtx reg,
 	    {
 	      /* The register was not previously live at all.  Record
 		 the condition under which it is still dead.  */
-	      rcli = xmalloc (sizeof (*rcli));
+	      rcli = XNEW (struct reg_cond_life_info);
 	      rcli->condition = not_reg_cond (cond);
 	      rcli->stores = const0_rtx;
 	      rcli->orig_condition = const0_rtx;
@@ -3841,6 +3884,92 @@ mark_used_reg (struct propagate_block_info *pbi, rtx reg,
     }
 }
 
+/* Scan expression X for registers which have to be marked used in PBI.  
+   X is considered to be the SET_DEST rtx of SET.  TRUE is returned if
+   X could be handled by this function.  */
+
+static bool
+mark_used_dest_regs (struct propagate_block_info *pbi, rtx x, rtx cond, rtx insn)
+{
+  int regno;
+  bool mark_dest = false;
+  rtx dest = x;
+  
+  /* On some platforms calls return values spread over several 
+     locations.  These locations are wrapped in a EXPR_LIST rtx
+     together with a CONST_INT offset.  */
+  if (GET_CODE (x) == EXPR_LIST
+      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+    x = XEXP (x, 0);
+  
+  if (x == NULL_RTX)
+    return false;
+
+  /* If storing into MEM, don't show it as being used.  But do
+     show the address as being used.  */
+  if (MEM_P (x))
+    {
+#ifdef AUTO_INC_DEC
+      if (pbi->flags & PROP_AUTOINC)
+	find_auto_inc (pbi, x, insn);
+#endif
+      mark_used_regs (pbi, XEXP (x, 0), cond, insn);
+      return true;
+    }
+	    
+  /* Storing in STRICT_LOW_PART is like storing in a reg
+     in that this SET might be dead, so ignore it in TESTREG.
+     but in some other ways it is like using the reg.
+     
+     Storing in a SUBREG or a bit field is like storing the entire
+     register in that if the register's value is not used
+	       then this SET is not needed.  */
+  while (GET_CODE (x) == STRICT_LOW_PART
+	 || GET_CODE (x) == ZERO_EXTRACT
+	 || GET_CODE (x) == SUBREG)
+    {
+#ifdef CANNOT_CHANGE_MODE_CLASS
+      if ((pbi->flags & PROP_REG_INFO) && GET_CODE (x) == SUBREG)
+	record_subregs_of_mode (x);
+#endif
+      
+      /* Modifying a single register in an alternate mode
+	 does not use any of the old value.  But these other
+	 ways of storing in a register do use the old value.  */
+      if (GET_CODE (x) == SUBREG
+	  && !((REG_BYTES (SUBREG_REG (x))
+		+ UNITS_PER_WORD - 1) / UNITS_PER_WORD
+	       > (REG_BYTES (x)
+		  + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+	;
+      else
+	mark_dest = true;
+      
+      x = XEXP (x, 0);
+    }
+  
+  /* If this is a store into a register or group of registers,
+     recursively scan the value being stored.  */
+  if (REG_P (x)
+      && (regno = REGNO (x),
+	  !(regno == FRAME_POINTER_REGNUM
+	    && (!reload_completed || frame_pointer_needed)))
+#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
+      && !(regno == HARD_FRAME_POINTER_REGNUM
+	   && (!reload_completed || frame_pointer_needed))
+#endif
+#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+      && !(regno == ARG_POINTER_REGNUM && fixed_regs[regno])
+#endif
+      )
+    {
+      if (mark_dest)
+	mark_used_regs (pbi, dest, cond, insn);
+      return true;
+    }
+  return false;
+}
+
 /* Scan expression X and store a 1-bit in NEW_LIVE for each reg it uses.
    This is done assuming the registers needed from X are those that
    have 1-bits in PBI->REG_LIVE.
@@ -3852,7 +3981,6 @@ static void
 mark_used_regs (struct propagate_block_info *pbi, rtx x, rtx cond, rtx insn)
 {
   RTX_CODE code;
-  int regno;
   int flags = pbi->flags;
 
  retry:
@@ -3953,73 +4081,18 @@ mark_used_regs (struct propagate_block_info *pbi, rtx x, rtx cond, rtx insn)
 
     case SET:
       {
-	rtx testreg = SET_DEST (x);
-	int mark_dest = 0;
+	rtx dest = SET_DEST (x);
+	int i;
+	bool ret = false;
 
-	/* If storing into MEM, don't show it as being used.  But do
-	   show the address as being used.  */
-	if (MEM_P (testreg))
+	if (GET_CODE (dest) == PARALLEL)
+	  for (i = 0; i < XVECLEN (dest, 0); i++)
+	    ret |= mark_used_dest_regs (pbi, XVECEXP (dest, 0, i), cond, insn);
+	else
+	  ret = mark_used_dest_regs (pbi, dest, cond, insn);
+	
+	if (ret)
 	  {
-#ifdef AUTO_INC_DEC
-	    if (flags & PROP_AUTOINC)
-	      find_auto_inc (pbi, testreg, insn);
-#endif
-	    mark_used_regs (pbi, XEXP (testreg, 0), cond, insn);
-	    mark_used_regs (pbi, SET_SRC (x), cond, insn);
-	    return;
-	  }
-
-	/* Storing in STRICT_LOW_PART is like storing in a reg
-	   in that this SET might be dead, so ignore it in TESTREG.
-	   but in some other ways it is like using the reg.
-
-	   Storing in a SUBREG or a bit field is like storing the entire
-	   register in that if the register's value is not used
-	   then this SET is not needed.  */
-	while (GET_CODE (testreg) == STRICT_LOW_PART
-	       || GET_CODE (testreg) == ZERO_EXTRACT
-	       || GET_CODE (testreg) == SUBREG)
-	  {
-#ifdef CANNOT_CHANGE_MODE_CLASS
-	    if ((flags & PROP_REG_INFO) && GET_CODE (testreg) == SUBREG)
-	      record_subregs_of_mode (testreg);
-#endif
-
-	    /* Modifying a single register in an alternate mode
-	       does not use any of the old value.  But these other
-	       ways of storing in a register do use the old value.  */
-	    if (GET_CODE (testreg) == SUBREG
-		&& !((REG_BYTES (SUBREG_REG (testreg))
-		      + UNITS_PER_WORD - 1) / UNITS_PER_WORD
-		     > (REG_BYTES (testreg)
-			+ UNITS_PER_WORD - 1) / UNITS_PER_WORD))
-	      ;
-	    else
-	      mark_dest = 1;
-
-	    testreg = XEXP (testreg, 0);
-	  }
-
-	/* If this is a store into a register or group of registers,
-	   recursively scan the value being stored.  */
-
-	if ((GET_CODE (testreg) == PARALLEL
-	     && GET_MODE (testreg) == BLKmode)
-	    || (REG_P (testreg)
-		&& (regno = REGNO (testreg),
-		    ! (regno == FRAME_POINTER_REGNUM
-		       && (! reload_completed || frame_pointer_needed)))
-#if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-		&& ! (regno == HARD_FRAME_POINTER_REGNUM
-		      && (! reload_completed || frame_pointer_needed))
-#endif
-#if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-		&& ! (regno == ARG_POINTER_REGNUM && fixed_regs[regno])
-#endif
-		))
-	  {
-	    if (mark_dest)
-	      mark_used_regs (pbi, SET_DEST (x), cond, insn);
 	    mark_used_regs (pbi, SET_SRC (x), cond, insn);
 	    return;
 	  }
@@ -4336,7 +4409,7 @@ debug_regset (regset r)
    It might be worthwhile to update REG_LIVE_LENGTH, REG_BASIC_BLOCK and
    possibly other information which is used by the register allocators.  */
 
-void
+static unsigned int
 recompute_reg_usage (void)
 {
   allocate_reg_life_data ();
@@ -4345,17 +4418,40 @@ recompute_reg_usage (void)
      in sched1 to die.  To solve this update the DEATH_NOTES
      here.  */
   update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO | PROP_DEATH_NOTES);
+
+  if (dump_file)
+    dump_flow_info (dump_file, dump_flags);
+  return 0;
 }
+
+struct tree_opt_pass pass_recompute_reg_usage =
+{
+  "life2",                              /* name */
+  NULL,                                 /* gate */
+  recompute_reg_usage,                  /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  'f'                                   /* letter */
+};
 
 /* Optionally removes all the REG_DEAD and REG_UNUSED notes from a set of
    blocks.  If BLOCKS is NULL, assume the universal set.  Returns a count
-   of the number of registers that died.  */
+   of the number of registers that died.
+   If KILL is 1, remove old REG_DEAD / REG_UNUSED notes.  If it is 0, don't.
+   if it is -1, remove them unless they pertain to a stack reg.  */
 
 int
 count_or_remove_death_notes (sbitmap blocks, int kill)
 {
   int count = 0;
-  int i;
+  unsigned int i = 0;
   basic_block bb;
 
   /* This used to be a loop over all the blocks with a membership test
@@ -4367,10 +4463,16 @@ count_or_remove_death_notes (sbitmap blocks, int kill)
      than an sbitmap.  */
   if (blocks)
     {
-      EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i,
+      sbitmap_iterator sbi;
+
+      EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)
 	{
-	  count += count_or_remove_death_notes_bb (BASIC_BLOCK (i), kill);
-	});
+	  basic_block bb = BASIC_BLOCK (i);
+	  /* The bitmap may be flawed in that one of the basic blocks
+	     may have been deleted before you get here.  */
+	  if (bb)
+	    count += count_or_remove_death_notes_bb (bb, kill);
+	};
     }
   else
     {
@@ -4419,7 +4521,14 @@ count_or_remove_death_notes_bb (basic_block bb, int kill)
 		  /* Fall through.  */
 
 		case REG_UNUSED:
-		  if (kill)
+		  if (kill > 0
+		      || (kill
+#ifdef STACK_REGS
+			  && (!REG_P (XEXP (link, 0))
+			      || !IN_RANGE (REGNO (XEXP (link, 0)),
+					    FIRST_STACK_REG, LAST_STACK_REG))
+#endif
+			  ))
 		    {
 		      rtx next = XEXP (link, 1);
 		      free_EXPR_LIST_node (link);
@@ -4450,7 +4559,6 @@ static void
 clear_log_links (sbitmap blocks)
 {
   rtx insn;
-  int i;
 
   if (!blocks)
     {
@@ -4459,15 +4567,20 @@ clear_log_links (sbitmap blocks)
 	  free_INSN_LIST_list (&LOG_LINKS (insn));
     }
   else
-    EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i,
-      {
-	basic_block bb = BASIC_BLOCK (i);
+    {
+      unsigned int i = 0;
+      sbitmap_iterator sbi;
 
-	for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
-	     insn = NEXT_INSN (insn))
-	  if (INSN_P (insn))
-	    free_INSN_LIST_list (&LOG_LINKS (insn));
-      });
+      EXECUTE_IF_SET_IN_SBITMAP (blocks, 0, i, sbi)
+	{
+	  basic_block bb = BASIC_BLOCK (i);
+
+	  for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
+	       insn = NEXT_INSN (insn))
+	    if (INSN_P (insn))
+	      free_INSN_LIST_list (&LOG_LINKS (insn));
+	}
+    }
 }
 
 /* Given a register bitmap, turn on the bits in a HARD_REG_SET that
@@ -4488,3 +4601,129 @@ reg_set_to_hard_reg_set (HARD_REG_SET *to, bitmap from)
       SET_HARD_REG_BIT (*to, i);
     }
 }
+
+
+static bool
+gate_remove_death_notes (void)
+{
+  return flag_profile_values;
+}
+
+static unsigned int
+rest_of_handle_remove_death_notes (void)
+{
+  count_or_remove_death_notes (NULL, 1);
+  return 0;
+}
+
+struct tree_opt_pass pass_remove_death_notes =
+{
+  "ednotes",                            /* name */
+  gate_remove_death_notes,              /* gate */
+  rest_of_handle_remove_death_notes,    /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0,                                    /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+/* Perform life analysis.  */
+static unsigned int
+rest_of_handle_life (void)
+{
+  regclass_init ();
+
+  life_analysis (PROP_FINAL);
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE | CLEANUP_LOG_LINKS
+                 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
+
+  if (extra_warnings)
+    {
+      setjmp_vars_warning (DECL_INITIAL (current_function_decl));
+      setjmp_args_warning ();
+    }
+
+  if (optimize)
+    {
+      if (initialize_uninitialized_subregs ())
+        {
+          /* Insns were inserted, and possibly pseudos created, so
+             things might look a bit different.  */
+          allocate_reg_life_data ();
+          update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
+                            PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
+        }
+    }
+
+  no_new_pseudos = 1;
+  return 0;
+}
+
+struct tree_opt_pass pass_life =
+{
+  "life1",                              /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_life,                  /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_FLOW,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  TODO_verify_flow,                     /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'f'                                   /* letter */
+};
+
+static unsigned int
+rest_of_handle_flow2 (void)
+{
+  /* If optimizing, then go ahead and split insns now.  */
+#ifndef STACK_REGS
+  if (optimize > 0)
+#endif
+    split_all_insns (0);
+
+  if (flag_branch_target_load_optimize)
+    branch_target_load_optimize (epilogue_completed);
+
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE);
+
+  /* On some machines, the prologue and epilogue code, or parts thereof,
+     can be represented as RTL.  Doing so lets us schedule insns between
+     it and the rest of the code and also allows delayed branch
+     scheduling to operate in the epilogue.  */
+  thread_prologue_and_epilogue_insns (get_insns ());
+  epilogue_completed = 1;
+  flow2_completed = 1;
+  return 0;
+}
+
+struct tree_opt_pass pass_flow2 =
+{
+  "flow2",                              /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_flow2,                 /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_FLOW2,                             /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  TODO_verify_flow,                     /* todo_flags_start */
+  TODO_dump_func |
+  TODO_ggc_collect,                     /* todo_flags_finish */
+  'w'                                   /* letter */
+};
+

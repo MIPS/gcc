@@ -1,5 +1,5 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
    		  David Mosberger <davidm@hpl.hp.com>.
@@ -18,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* ??? Look at ABI group documents for list of preprocessor macros and
    other features required for ABI compliance.  */
@@ -324,6 +324,7 @@ while (0)
 #define ADDL_REGNO_P(REGNO) ((unsigned HOST_WIDE_INT) (REGNO) <= 3)
 #define GR_REGNO_P(REGNO) ((unsigned HOST_WIDE_INT) (REGNO) <= 127)
 #define FR_REGNO_P(REGNO) ((REGNO) >= 128 && (REGNO) <= 255)
+#define FP_REGNO_P(REGNO) ((REGNO) >= 128 && (REGNO) <= 254 && (REGNO) != 159)
 #define PR_REGNO_P(REGNO) ((REGNO) >= 256 && (REGNO) <= 319)
 #define BR_REGNO_P(REGNO) ((REGNO) >= 320 && (REGNO) <= 327)
 #define GENERAL_REGNO_P(REGNO) \
@@ -505,9 +506,7 @@ while (0)
 #define LOCAL_REGNO(REGNO) \
   (IN_REGNO_P (REGNO) || LOC_REGNO_P (REGNO))
 
-/* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
-   return the mode to be used for the comparison.  Must be defined if
-   EXTRA_CC_MODES is defined.  */
+/* We define CCImode in ia64-modes.def so we need a selector.  */
 
 #define SELECT_CC_MODE(OP,X,Y)  CCmode
 
@@ -653,7 +652,6 @@ while (0)
 #define HARD_REGNO_MODE_OK(REGNO, MODE)				\
   (FR_REGNO_P (REGNO) ?						\
      GET_MODE_CLASS (MODE) != MODE_CC &&			\
-     (MODE) != TImode &&					\
      (MODE) != BImode &&					\
      (MODE) != TFmode 						\
    : PR_REGNO_P (REGNO) ?					\
@@ -723,6 +721,7 @@ enum reg_class
   AR_I_REGS,
   ADDL_REGS,
   GR_REGS,
+  FP_REGS,
   FR_REGS,
   GR_AND_BR_REGS,
   GR_AND_FR_REGS,
@@ -739,7 +738,7 @@ enum reg_class
    constants.  These names are used in writing some of the debugging dumps.  */
 #define REG_CLASS_NAMES \
 { "NO_REGS", "PR_REGS", "BR_REGS", "AR_M_REGS", "AR_I_REGS", \
-  "ADDL_REGS", "GR_REGS", "FR_REGS", \
+  "ADDL_REGS", "GR_REGS", "FP_REGS", "FR_REGS", \
   "GR_AND_BR_REGS", "GR_AND_FR_REGS", "ALL_REGS" }
 
 /* An initializer containing the contents of the register classes, as integers
@@ -776,6 +775,10 @@ enum reg_class
   { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
     0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
     0x00000000, 0x00000000, 0x0100 },			\
+  /* FP_REGS.  */					\
+  { 0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
+    0x7FFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x7FFFFFFF,	\
+    0x00000000, 0x00000000, 0x0000 },			\
   /* FR_REGS.  */					\
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000,	\
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF,	\
@@ -803,7 +806,8 @@ enum reg_class
 #define REGNO_REG_CLASS(REGNO) \
 (ADDL_REGNO_P (REGNO) ? ADDL_REGS	\
  : GENERAL_REGNO_P (REGNO) ? GR_REGS	\
- : FR_REGNO_P (REGNO) ? FR_REGS		\
+ : FR_REGNO_P (REGNO) ? (REGNO) != R_FR (31) \
+			&& (REGNO) != R_FR(127) ? FP_REGS : FR_REGS \
  : PR_REGNO_P (REGNO) ? PR_REGS		\
  : BR_REGNO_P (REGNO) ? BR_REGS		\
  : AR_M_REGNO_P (REGNO) ? AR_M_REGS	\
@@ -834,6 +838,7 @@ enum reg_class
  : (CHAR) == 'c' ? PR_REGS		\
  : (CHAR) == 'd' ? AR_M_REGS		\
  : (CHAR) == 'e' ? AR_I_REGS		\
+ : (CHAR) == 'x' ? FP_REGS		\
  : NO_REGS)
 
 /* A C expression which is nonzero if register number NUM is suitable for use
@@ -890,15 +895,15 @@ enum reg_class
 
 #define CLASS_MAX_NREGS(CLASS, MODE) \
   ((MODE) == BImode && (CLASS) == PR_REGS ? 2			\
-   : ((CLASS) == FR_REGS && (MODE) == XFmode) ? 1		\
-   : ((CLASS) == FR_REGS && (MODE) == XCmode) ? 2		\
+   : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == XFmode) ? 1 \
+   : (((CLASS) == FR_REGS || (CLASS) == FP_REGS) && (MODE) == XCmode) ? 2 \
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
-/* In FP regs, we can't change FP values to integer values and vice
-   versa, but we can change e.g. DImode to SImode.  */
+/* In FP regs, we can't change FP values to integer values and vice versa,
+   but we can change e.g. DImode to SImode, and V2SFmode into DImode.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 	\
-  (GET_MODE_CLASS (FROM) != GET_MODE_CLASS (TO)		\
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 		\
+  (SCALAR_FLOAT_MODE_P (FROM) != SCALAR_FLOAT_MODE_P (TO)	\
    ? reg_classes_intersect_p (CLASS, FR_REGS) : 0)
 
 /* A C expression that defines the machine-dependent operand constraint
@@ -944,6 +949,13 @@ enum reg_class
 
 #define EXTRA_CONSTRAINT(VALUE, C) \
   ia64_extra_constraint (VALUE, C)
+
+/* Document the constraints that can accept reloaded memory operands.  This is
+   needed by the extended asm support, and by reload.  'Q' accepts mem, but
+   only non-volatile mem.  Since we can't reload a volatile mem into a
+   non-volatile mem, it can not be listed here.  */
+
+#define EXTRA_MEMORY_CONSTRAINT(C, STR)  ((C) == 'S')
 
 /* Basic Stack Layout */
 
@@ -951,9 +963,9 @@ enum reg_class
    to a smaller address.  */
 #define STACK_GROWS_DOWNWARD 1
 
-/* Define this macro if the addresses of local variable slots are at negative
-   offsets from the frame pointer.  */
-/* #define FRAME_GROWS_DOWNWARD */
+/* Define this macro to nonzero if the addresses of local variable slots
+   are at negative offsets from the frame pointer.  */
+#define FRAME_GROWS_DOWNWARD 0
 
 /* Offset from the frame pointer to the first local variable slot to
    be allocated.  */
@@ -1004,7 +1016,12 @@ enum reg_class
    beginning of any function, before the prologue.  The top of the frame is
    defined to be the value of the stack pointer in the previous frame, just
    before the call instruction.  */
-#define INCOMING_FRAME_SP_OFFSET 0
+/* The CFA is past the red zone, not at the entry-point stack
+   pointer.  */
+#define INCOMING_FRAME_SP_OFFSET STACK_POINTER_OFFSET
+
+/* We shorten debug info by using CFA-16 as DW_AT_frame_base.  */
+#define CFA_FRAME_BASE_OFFSET(FUNDECL) (-INCOMING_FRAME_SP_OFFSET)
 
 
 /* Register That Address the Stack Frame.  */
@@ -1267,24 +1284,11 @@ do {									\
    call the profiling subroutine `mcount'.  */
 
 #undef FUNCTION_PROFILER
-#define FUNCTION_PROFILER(FILE, LABELNO)				\
-do {									\
-  char buf[20];								\
-  ASM_GENERATE_INTERNAL_LABEL (buf, "LP", LABELNO);			\
-  fputs ("\talloc out0 = ar.pfs, 8, 0, 4, 0\n", FILE);			\
-  if (TARGET_AUTO_PIC)							\
-    fputs ("\tmovl out3 = @gprel(", FILE);				\
-  else									\
-    fputs ("\taddl out3 = @ltoff(", FILE);				\
-  assemble_name (FILE, buf);						\
-  if (TARGET_AUTO_PIC)							\
-    fputs (");;\n", FILE);						\
-  else									\
-    fputs ("), r1;;\n", FILE);						\
-  fputs ("\tmov out1 = r1\n", FILE);					\
-  fputs ("\tmov out2 = b0\n", FILE);					\
-  fputs ("\tbr.call.sptk.many b0 = _mcount;;\n", FILE);			\
-} while (0)
+#define FUNCTION_PROFILER(FILE, LABELNO) \
+  ia64_output_function_profiler(FILE, LABELNO)
+
+/* Neither hpux nor linux use profile counters.  */
+#define NO_PROFILE_COUNTERS 1
 
 /* Trampolines for Nested Functions.  */
 
@@ -1429,7 +1433,7 @@ do {									\
 /* A C expression for the cost of moving data of mode M between a
    register and memory.  */
 #define MEMORY_MOVE_COST(MODE,CLASS,IN) \
-  ((CLASS) == GENERAL_REGS || (CLASS) == FR_REGS \
+  ((CLASS) == GENERAL_REGS || (CLASS) == FR_REGS || (CLASS) == FP_REGS \
    || (CLASS) == GR_AND_FR_REGS ? 4 : 10)
 
 /* A C expression for the cost of a branch instruction.  A value of 1 is the
@@ -1735,13 +1739,6 @@ do {									\
   { "loc79", LOC_REG (79) }, 						\
 }
 
-/* Emit a dtp-relative reference to a TLS variable.  */
-
-#ifdef HAVE_AS_TLS
-#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
-  ia64_output_dwarf_dtprel (FILE, SIZE, X)
-#endif
-
 /* A C compound statement to output to stdio stream STREAM the assembler syntax
    for an instruction operand X.  X is an RTL expression.  */
 
@@ -1786,11 +1783,6 @@ do {									\
   else								\
     fprintf (STREAM, "\tdata8 @pcrel(.L%d)\n", VALUE);		\
   } while (0)
-
-/* This is how to output an element of a case-vector that is absolute.
-   (Ia64 does not use such vectors, but we must define this macro anyway.)  */
-
-#define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE) gcc_unreachable ()
 
 /* Jump tables only need 8 byte alignment.  */
 
@@ -1880,6 +1872,12 @@ do {									\
 
 #define DWARF2_DEBUGGING_INFO 1
 
+/* We do not want call-frame info to be output, since debuggers are
+   supposed to use the target unwind info.  Leave this undefined it
+   TARGET_UNWIND_INFO might ever be false.  */
+
+#define DWARF2_FRAME_INFO 0
+
 #define DWARF2_ASM_LINE_DEBUG_INFO (TARGET_DWARF2_ASM)
 
 /* Use tags for debug info labels, so that they don't break instruction
@@ -1893,12 +1891,12 @@ do {									\
 /* Use section-relative relocations for debugging offsets.  Unlike other
    targets that fake this by putting the section VMA at 0, IA-64 has
    proper relocations for them.  */
-#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL)	\
-  do {							\
-    fputs (integer_asm_op (SIZE, FALSE), FILE);		\
-    fputs ("@secrel(", FILE);				\
-    assemble_name (FILE, LABEL);			\
-    fputc (')', FILE);					\
+#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, SECTION)	\
+  do {								\
+    fputs (integer_asm_op (SIZE, FALSE), FILE);			\
+    fputs ("@secrel(", FILE);					\
+    assemble_name (FILE, LABEL);				\
+    fputc (')', FILE);						\
   } while (0)
 
 /* Emit a PC-relative relocation.  */
@@ -2006,6 +2004,8 @@ do {									\
 extern int ia64_final_schedule;
 
 #define TARGET_UNWIND_INFO	1
+
+#define TARGET_UNWIND_TABLES_DEFAULT true
 
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 15 : INVALID_REGNUM)
 

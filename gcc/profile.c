@@ -19,8 +19,8 @@ for more details.
 
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Generate basic block profile instrumentation and auxiliary files.
    Profile generation is optimized, so that not all arcs in the basic
@@ -65,15 +65,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "cfghooks.h"
 #include "tree-flow.h"
+#include "timevar.h"
+#include "cfgloop.h"
+#include "tree-pass.h"
 
 /* Hooks for profiling.  */
 static struct profile_hooks* profile_hooks;
-
-/* File for profiling debug output.  */
-static inline FILE*
-profile_dump_file (void) {
-  return profile_hooks->profile_dump_file ();
-}
 
 /* Additional information about the edges we need.  */
 struct edge_info {
@@ -467,8 +464,8 @@ compute_branch_probabilities (void)
 	    }
 	}
     }
-  if (dump_file && !ir_type ())
-    dump_flow_info (dump_file);
+  if (dump_file)
+    dump_flow_info (dump_file, dump_flags);
 
   total_num_passes += passes;
   if (dump_file)
@@ -528,7 +525,7 @@ compute_branch_probabilities (void)
 	{
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    e->probability = (e->count * REG_BR_PROB_BASE + bb->count / 2) / bb->count;
-	  if (bb->index >= 0
+	  if (bb->index >= NUM_FIXED_BLOCKS
 	      && block_ends_with_condjump_p (bb)
 	      && EDGE_COUNT (bb->succs) >= 2)
 	    {
@@ -606,7 +603,7 @@ compute_branch_probabilities (void)
 	      FOR_EACH_EDGE (e, ei, bb->succs)
 		e->probability = REG_BR_PROB_BASE / total;
 	    }
-	  if (bb->index >= 0
+	  if (bb->index >= NUM_FIXED_BLOCKS
 	      && block_ends_with_condjump_p (bb)
 	      && EDGE_COUNT (bb->succs) >= 2)
 	    num_branches++, num_never_executed;
@@ -648,14 +645,13 @@ compute_value_histograms (histogram_values values)
   gcov_type *histogram_counts[GCOV_N_VALUE_COUNTERS];
   gcov_type *act_count[GCOV_N_VALUE_COUNTERS];
   gcov_type *aact_count;
-  histogram_value hist;
  
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
     n_histogram_counters[t] = 0;
 
   for (i = 0; i < VEC_length (histogram_value, values); i++)
     {
-      hist = VEC_index (histogram_value, values, i);
+      histogram_value hist = VEC_index (histogram_value, values, i);
       n_histogram_counters[(int) hist->type] += hist->n_counters;
     }
 
@@ -680,37 +676,20 @@ compute_value_histograms (histogram_values values)
 
   for (i = 0; i < VEC_length (histogram_value, values); i++)
     {
-      rtx hist_list = NULL_RTX;
+      histogram_value hist = VEC_index (histogram_value, values, i);
+      tree stmt = hist->hvalue.stmt;
+      stmt_ann_t ann = get_stmt_ann (stmt);
 
-      hist = VEC_index (histogram_value, values, i);
       t = (int) hist->type;
 
       aact_count = act_count[t];
       act_count[t] += hist->n_counters;
 
-      if (!ir_type ())
-	{
-	  for (j = hist->n_counters; j > 0; j--)
-	    hist_list = alloc_EXPR_LIST (0, GEN_INT (aact_count[j - 1]), 
-					hist_list);
-	  hist_list = alloc_EXPR_LIST (0, 
-			copy_rtx (hist->hvalue.rtl.value), hist_list);
-	  hist_list = alloc_EXPR_LIST (0, GEN_INT (hist->type), hist_list);
-	  REG_NOTES (hist->hvalue.rtl.insn) =
-	      alloc_EXPR_LIST (REG_VALUE_PROFILE, hist_list,
-			       REG_NOTES (hist->hvalue.rtl.insn));
-	}
-      else
-	{
-	  tree stmt = hist->hvalue.tree.stmt;
-	  stmt_ann_t ann = get_stmt_ann (stmt);
-	  hist->hvalue.tree.next = ann->histograms;
-	  ann->histograms = hist;
-	  hist->hvalue.tree.counters = 
-		xmalloc (sizeof (gcov_type) * hist->n_counters);
-	  for (j = 0; j < hist->n_counters; j++)
-	    hist->hvalue.tree.counters[j] = aact_count[j];
-  	}
+      hist->hvalue.next = ann->histograms;
+      ann->histograms = hist;
+      hist->hvalue.counters =  XNEWVEC (gcov_type, hist->n_counters);
+      for (j = 0; j < hist->n_counters; j++)
+	hist->hvalue.counters[j] = aact_count[j];
     }
 
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
@@ -718,7 +697,9 @@ compute_value_histograms (histogram_values values)
       free (histogram_counts[t]);
 }
 
-#define BB_TO_GCOV_INDEX(bb)  ((bb)->index + 1)
+/* The entry basic block will be moved around so that it has index=1,
+   there is nothing at index 0 and the exit is at n_basic_block.  */
+#define BB_TO_GCOV_INDEX(bb)  ((bb)->index - 1)
 /* When passed NULL as file_name, initialize.
    When passed something else, output the necessary commands to change
    line to LINE and offset to FILE_NAME.  */
@@ -820,6 +801,40 @@ branch_prob (void)
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
+	  block_stmt_iterator bsi;
+	  tree last = NULL;
+
+	  /* It may happen that there are compiler generated statements
+	     without a locus at all.  Go through the basic block from the
+	     last to the first statement looking for a locus.  */
+	  for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
+	    {
+	      last = bsi_stmt (bsi);
+	      if (EXPR_LOCUS (last))
+		break;
+	    }
+
+	  /* Edge with goto locus might get wrong coverage info unless
+	     it is the only edge out of BB.   
+	     Don't do that when the locuses match, so 
+	     if (blah) goto something;
+	     is not computed twice.  */
+	  if (last && EXPR_LOCUS (last)
+	      && e->goto_locus
+	      && !single_succ_p (bb)
+#ifdef USE_MAPPED_LOCATION
+	      && (LOCATION_FILE (e->goto_locus)
+	          != LOCATION_FILE (EXPR_LOCATION  (last))
+		  || (LOCATION_LINE (e->goto_locus)
+		      != LOCATION_LINE (EXPR_LOCATION  (last)))))
+#else
+	      && (e->goto_locus->file != EXPR_LOCUS (last)->file
+		  || (e->goto_locus->line != EXPR_LOCUS (last)->line)))
+#endif
+	    {
+	      basic_block new = split_edge (e);
+	      single_succ_edge (new)->goto_locus = e->goto_locus;
+	    }
 	  if ((e->flags & (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL))
 	       && e->dest != EXIT_BLOCK_PTR)
 	    need_exit_edge = 1;
@@ -897,7 +912,7 @@ branch_prob (void)
 	num_instrumented++;
     }
 
-  total_num_blocks += n_basic_blocks + 2;
+  total_num_blocks += n_basic_blocks;
   if (dump_file)
     fprintf (dump_file, "%d basic blocks\n", n_basic_blocks);
 
@@ -918,7 +933,7 @@ branch_prob (void)
       gcov_position_t offset;
 
       offset = gcov_write_tag (GCOV_TAG_BLOCKS);
-      for (i = 0; i != (unsigned) (n_basic_blocks + 2); i++)
+      for (i = 0; i != (unsigned) (n_basic_blocks); i++)
 	gcov_write_unsigned (0);
       gcov_write_length (offset);
     }
@@ -926,7 +941,7 @@ branch_prob (void)
    /* Keep all basic block indexes nonnegative in the gcov output.
       Index 0 is used for entry block, last index is for exit block.
       */
-  ENTRY_BLOCK_PTR->index = -1;
+  ENTRY_BLOCK_PTR->index = 1;
   EXIT_BLOCK_PTR->index = last_basic_block;
 
   /* Arcs */
@@ -1134,8 +1149,8 @@ branch_prob (void)
       /* Re-merge split basic blocks and the mess introduced by
 	 insert_insn_on_edge.  */
       cleanup_cfg (profile_arc_flag ? CLEANUP_EXPENSIVE : 0);
-      if (profile_dump_file())
-	dump_flow_info (profile_dump_file());
+      if (dump_file)
+	dump_flow_info (dump_file, dump_flags);
     }
 
   free_edge_list (el);
@@ -1321,11 +1336,3 @@ tree_register_profile_hooks (void)
   profile_hooks = &tree_profile_hooks;
 }
 
-/* Set up hooks to enable RTL-based profiling.  */
-
-void
-rtl_register_profile_hooks (void)
-{
-  gcc_assert (!ir_type ());
-  profile_hooks = &rtl_profile_hooks;
-}

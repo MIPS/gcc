@@ -18,8 +18,8 @@ for more details.
    
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA
-02111-1307, USA.  */
+Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
+02110-1301, USA.  */
 
 /* Dead code elimination.
 
@@ -64,6 +64,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "flags.h"
+#include "cfgloop.h"
+#include "tree-scalar-evolution.h"
 
 static struct stmt_stats
 {
@@ -96,17 +98,19 @@ static bitmap *control_dependence_map;
    processed that it is control dependent on.  */
 static sbitmap visited_control_parents;
 
-/* Execute CODE for each edge (given number EDGE_NUMBER within the CODE)
-   for which the block with index N is control dependent.  */
-#define EXECUTE_IF_CONTROL_DEPENDENT(N, EDGE_NUMBER, CODE)		      \
-  {									      \
-    bitmap_iterator bi;							      \
-									      \
-    EXECUTE_IF_SET_IN_BITMAP (control_dependence_map[N], 0, EDGE_NUMBER, bi)  \
-      {									      \
-	CODE;								      \
-      }									      \
-  }
+/* TRUE if this pass alters the CFG (by removing control statements).
+   FALSE otherwise.
+
+   If this pass alters the CFG, then it will arrange for the dominators
+   to be recomputed.  */
+static bool cfg_altered;
+
+/* Execute code that follows the macro for each edge (given number
+   EDGE_NUMBER within the CODE) for which the block with index N is
+   control dependent.  */
+#define EXECUTE_IF_CONTROL_DEPENDENT(BI, N, EDGE_NUMBER)	\
+  EXECUTE_IF_SET_IN_BITMAP (control_dependence_map[(N)], 0,	\
+			    (EDGE_NUMBER), (BI))
 
 /* Local function prototypes.  */
 static inline void set_control_dependence_map_bit (basic_block, int);
@@ -173,7 +177,7 @@ find_control_dependence (struct edge_list *el, int edge_index)
   gcc_assert (INDEX_EDGE_PRED_BB (el, edge_index) != EXIT_BLOCK_PTR);
 
   if (INDEX_EDGE_PRED_BB (el, edge_index) == ENTRY_BLOCK_PTR)
-    ending_block = ENTRY_BLOCK_PTR->next_bb;
+    ending_block = single_succ (ENTRY_BLOCK_PTR);
   else
     ending_block = find_pdom (INDEX_EDGE_PRED_BB (el, edge_index));
 
@@ -276,8 +280,16 @@ static void
 mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 {
   stmt_ann_t ann;
-  tree op, def;
-  ssa_op_iter iter;
+  tree op;
+
+  /* With non-call exceptions, we have to assume that all statements could
+     throw.  If a statement may throw, it is inherently necessary.  */
+  if (flag_non_call_exceptions
+      && tree_could_throw_p (stmt))
+    {
+      mark_stmt_necessary (stmt, true);
+      return;
+    }
 
   /* Statements that are implicitly live.  Most function calls, asm and return
      statements are required.  Labels and BIND_EXPR nodes are kept because
@@ -354,14 +366,6 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
       return;
     }
 
-  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_DEF)
-    {
-      if (is_global_var (SSA_NAME_VAR (def)))
-	{
-	  mark_stmt_necessary (stmt, true);
-	  return;
-        }
-    }
   if (is_hidden_global_store (stmt))
     {
       mark_stmt_necessary (stmt, true);
@@ -434,6 +438,7 @@ find_obviously_necessary_stmts (struct edge_list *el)
 static void
 mark_control_dependent_edges_necessary (basic_block bb, struct edge_list *el)
 {
+  bitmap_iterator bi;
   unsigned edge_number;
 
   gcc_assert (bb != EXIT_BLOCK_PTR);
@@ -441,7 +446,7 @@ mark_control_dependent_edges_necessary (basic_block bb, struct edge_list *el)
   if (bb == ENTRY_BLOCK_PTR)
     return;
 
-  EXECUTE_IF_CONTROL_DEPENDENT (bb->index, edge_number,
+  EXECUTE_IF_CONTROL_DEPENDENT (bi, bb->index, edge_number)
     {
       tree t;
       basic_block cd_bb = INDEX_EDGE_PRED_BB (el, edge_number);
@@ -453,7 +458,7 @@ mark_control_dependent_edges_necessary (basic_block bb, struct edge_list *el)
       t = last_stmt (cd_bb);
       if (t && is_ctrl_stmt (t))
 	mark_stmt_necessary (t, true);
-    });
+    }
 }
 
 /* Propagate necessity using the operands of necessary statements.  Process
@@ -691,7 +696,7 @@ remove_dead_phis (basic_block bb)
     }
 }
 
-/* Remove dead statement pointed by iterator I.  Receives the basic block BB
+/* Remove dead statement pointed to by iterator I.  Receives the basic block BB
    containing I so that we don't have to look it up.  */
 
 static void
@@ -725,23 +730,27 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       gcc_assert (dom_computed[CDI_POST_DOMINATORS] == DOM_OK);
       /* Get the immediate post dominator of bb.  */
       post_dom_bb = get_immediate_dominator (CDI_POST_DOMINATORS, bb);
-      /* Some blocks don't have an immediate post dominator.  This can happen
-	 for example with infinite loops.  Removing an infinite loop is an
-	 inappropriate transformation anyway...  */
-      if (! post_dom_bb)
-	{
-	  bsi_next (i);
-	  return;
-	}
 
-      /* If the post dominator block has PHI nodes, we might be unable
-	 to compute the right PHI args for them.  Since the control
-	 statement is unnecessary, all edges can be regarded as
-	 equivalent, but we have to get rid of the condition, since it
-	 might reference a variable that was determined to be
-	 unnecessary and thus removed.  */
-      if (phi_nodes (post_dom_bb))
-	post_dom_bb = EDGE_SUCC (bb, 0)->dest;
+      /* There are three particularly problematical cases.
+
+	 1. Blocks that do not have an immediate post dominator.  This
+	    can happen with infinite loops.
+
+	 2. Blocks that are only post dominated by the exit block.  These
+	    can also happen for infinite loops as we create fake edges
+	    in the dominator tree.
+
+	 3. If the post dominator has PHI nodes we may be able to compute
+	    the right PHI args for them.
+
+
+	 In each of these cases we must remove the control statement
+	 as it may reference SSA_NAMEs which are going to be removed and
+	 we remove all but one outgoing edge from the block.  */
+      if (! post_dom_bb
+	  || post_dom_bb == EXIT_BLOCK_PTR
+	  || phi_nodes (post_dom_bb))
+	;
       else
 	{
 	  /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
@@ -755,17 +764,20 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	 not have TRUE/FALSE flags.  */
       EDGE_SUCC (bb, 0)->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
 
-      /* If the edge reaches any block other than the exit, then it is a
-	 fallthru edge; if it reaches the exit, then it is not a fallthru
-	 edge.  */
-      if (post_dom_bb != EXIT_BLOCK_PTR)
-	EDGE_SUCC (bb, 0)->flags |= EDGE_FALLTHRU;
-      else
-	EDGE_SUCC (bb, 0)->flags &= ~EDGE_FALLTHRU;
+      /* The lone outgoing edge from BB will be a fallthru edge.  */
+      EDGE_SUCC (bb, 0)->flags |= EDGE_FALLTHRU;
 
       /* Remove the remaining the outgoing edges.  */
       while (!single_succ_p (bb))
-        remove_edge (EDGE_SUCC (bb, 1));
+	{
+	  /* FIXME.  When we remove the edge, we modify the CFG, which
+	     in turn modifies the dominator and post-dominator tree.
+	     Is it safe to postpone recomputing the dominator and
+	     post-dominator tree until the end of this pass given that
+	     the post-dominators are used above?  */
+	  cfg_altered = true;
+          remove_edge (EDGE_SUCC (bb, 1));
+	}
     }
   
   FOR_EACH_SSA_DEF_OPERAND (def_p, t, iter, SSA_OP_VIRTUAL_DEFS)
@@ -773,7 +785,7 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       tree def = DEF_FROM_PTR (def_p);
       mark_sym_for_renaming (SSA_NAME_VAR (def));
     }
-  bsi_remove (i);  
+  bsi_remove (i, true);  
   release_defs (t); 
 }
 
@@ -811,8 +823,7 @@ tree_dce_init (bool aggressive)
     {
       int i;
 
-      control_dependence_map 
-	= xmalloc (last_basic_block * sizeof (bitmap));
+      control_dependence_map = XNEWVEC (bitmap, last_basic_block);
       for (i = 0; i < last_basic_block; ++i)
 	control_dependence_map[i] = BITMAP_ALLOC (NULL);
 
@@ -824,6 +835,7 @@ tree_dce_init (bool aggressive)
   sbitmap_zero (processed);
 
   worklist = VEC_alloc (tree, heap, 64);
+  cfg_altered = false;
 }
 
 /* Cleanup after this pass.  */
@@ -894,6 +906,12 @@ perform_tree_ssa_dce (bool aggressive)
   if (aggressive)
     free_dominance_info (CDI_POST_DOMINATORS);
 
+  /* If we removed paths in the CFG, then we need to update
+     dominators as well.  I haven't investigated the possibility
+     of incrementally updating dominators.  */
+  if (cfg_altered)
+    free_dominance_info (CDI_DOMINATORS);
+
   /* Debugging dumps.  */
   if (dump_file)
     print_stats ();
@@ -904,16 +922,27 @@ perform_tree_ssa_dce (bool aggressive)
 }
 
 /* Pass entry points.  */
-static void
+static unsigned int
 tree_ssa_dce (void)
 {
   perform_tree_ssa_dce (/*aggressive=*/false);
+  return 0;
 }
 
-static void
+static unsigned int
+tree_ssa_dce_loop (void)
+{
+  perform_tree_ssa_dce (/*aggressive=*/false);
+  free_numbers_of_iterations_estimates (current_loops);
+  scev_reset ();
+  return 0;
+}
+
+static unsigned int
 tree_ssa_cd_dce (void)
 {
   perform_tree_ssa_dce (/*aggressive=*/optimize >= 2);
+  return 0;
 }
 
 static bool
@@ -926,9 +955,29 @@ struct tree_opt_pass pass_dce =
 {
   "dce",				/* name */
   gate_dce,				/* gate */
-  NULL, NULL,				/* IPA analysis */
   tree_ssa_dce,				/* execute */
-  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_DCE,				/* tv_id */
+  PROP_cfg | PROP_ssa /*| PROP_alias*/,	/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func 
+    | TODO_update_ssa
+    | TODO_cleanup_cfg
+    | TODO_ggc_collect
+    | TODO_verify_ssa
+    | TODO_remove_unused_locals,	/* todo_flags_finish */
+  0					/* letter */
+};
+
+struct tree_opt_pass pass_dce_loop =
+{
+  "dceloop",				/* name */
+  gate_dce,				/* gate */
+  tree_ssa_dce_loop,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -938,9 +987,8 @@ struct tree_opt_pass pass_dce =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func 
-    | TODO_update_ssa_no_phi 
+    | TODO_update_ssa
     | TODO_cleanup_cfg
-    | TODO_ggc_collect
     | TODO_verify_ssa,			/* todo_flags_finish */
   0					/* letter */
 };
@@ -949,9 +997,7 @@ struct tree_opt_pass pass_cd_dce =
 {
   "cddce",				/* name */
   gate_dce,				/* gate */
-  NULL, NULL,				/* IPA analysis */
   tree_ssa_cd_dce,			/* execute */
-  NULL, NULL,				/* IPA modification */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
@@ -961,11 +1007,10 @@ struct tree_opt_pass pass_cd_dce =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_dump_func
-    | TODO_update_ssa_no_phi
+    | TODO_update_ssa
     | TODO_cleanup_cfg
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_verify_flow,			/* todo_flags_finish */
   0					/* letter */
 };
-

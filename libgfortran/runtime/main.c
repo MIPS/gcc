@@ -24,8 +24,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +34,14 @@ Boston, MA 02111-1307, USA.  */
 #include <stddef.h>
 
 #include "libgfortran.h"
+
+/* Stupid function to be sure the constructor is always linked in, even
+   in the case of static linking.  See PR libfortran/22298 for details.  */
+void
+stupid_function_name_for_static_linking (void)
+{
+  return;
+}
 
 /* This is the offset (in bytes) required to cast from logical(8)* to
    logical(4)*. and still get the same result.  Will be 0 for little-endian
@@ -96,6 +104,8 @@ init (void)
   init_variables ();
 
   init_units ();
+  set_fpu ();
+  init_compile_options ();
 
 #ifdef DEBUG
   /* Check for special command lines.  */

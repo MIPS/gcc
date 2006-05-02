@@ -1,6 +1,6 @@
 // The  -*- C++ -*- type traits classes for internal use in libstdc++
 
-// Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+// Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -16,7 +16,7 @@
 
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
+// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
 // USA.
 
 // As a special exception, you may use this file as part of a free software
@@ -84,17 +84,18 @@ namespace __gnu_internal
 } // namespace __gnu_internal
 
 // Forward declaration hack, should really include this from somewhere.
-namespace __gnu_cxx
-{
+_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+
   template<typename _Iterator, typename _Container>
     class __normal_iterator;
-} // namespace __gnu_cxx
+
+_GLIBCXX_END_NAMESPACE
 
 struct __true_type { };
 struct __false_type { };
 
-namespace std
-{
+_GLIBCXX_BEGIN_NAMESPACE(std)
+
   template<bool>
     struct __truth_type
     { typedef __false_type __type; };
@@ -364,6 +365,52 @@ namespace std
 	};
     };
 
-} // namespace std
+  //
+  // A stripped-down version of std::tr1::is_empty
+  //
+  template<typename _Tp>
+    struct __is_empty
+    { 
+    private:
+      template<typename>
+        struct __first { };
+      template<typename _Up>
+        struct __second
+        : public _Up { };
+           
+    public:
+      enum
+	{
+	  __value = sizeof(__first<_Tp>) == sizeof(__second<_Tp>)
+	};
+    };
+
+  //
+  // For use in std::copy and std::find overloads for streambuf iterators.
+  //
+  template<typename _Tp>
+    struct __is_char
+    {
+      enum { __value = 0 };
+      typedef __false_type __type;
+    };
+
+  template<>
+    struct __is_char<char>
+    {
+      enum { __value = 1 };
+      typedef __true_type __type;
+    };
+
+#ifdef _GLIBCXX_USE_WCHAR_T
+  template<>
+    struct __is_char<wchar_t>
+    {
+      enum { __value = 1 };
+      typedef __true_type __type;
+    };
+#endif
+
+_GLIBCXX_END_NAMESPACE
 
 #endif //_CPP_TYPE_TRAITS_H
