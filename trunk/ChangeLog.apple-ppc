@@ -1,5 +1,6 @@
 2006-05-01  Eric Christopher  <echristo@apple.com>
 
+	Radar 4533804
 	* build_gcc: Unset CC.
 
 2006-03-15  Devang Patel  <dpatel@apple.com>
