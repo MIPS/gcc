@@ -1,6 +1,19 @@
 2006-05-02  Kazu Hirata  <kazu@codesourcery.com>
 
 	Backport:
+	2006-05-02  Kazu Hirata  <kazu@codesourcery.com>
+	PR target/27387
+	* arm.c (arm_output_mi_thunk): Use pc-relative addressing when
+	-mthumb -fPIC are used.
+
+	2006-05-02  Kazu Hirata  <kazu@codesourcery.com>
+	PR target/27387
+	* gcc.target/arm/arm.exp: New.
+	* gcc.target/arm/pr27387.C: Likewise.
+
+2006-05-02  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport:
 	2006-05-01  Kazu Hirata  <kazu@codesourcery.com>
 	PR target/27374
 	* gcc/config/arm/vfp.md (*arm_movdi_vfp): Correct the output
