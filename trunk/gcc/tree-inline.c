@@ -1113,7 +1113,7 @@ inline_forbidden_p (tree fndecl)
   location_t saved_loc = input_location;
   /* APPLE LOCAL begin CW asm blocks */
   tree ret;
-  if (DECL_CW_ASM_FUNCTION (fndecl)
+  if (DECL_IASM_ASM_FUNCTION (fndecl)
       && ! flag_ms_asms)
     {
       inline_forbidden_reason

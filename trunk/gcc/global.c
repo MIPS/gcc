@@ -434,13 +434,13 @@ global_alloc (FILE *file)
 	SET_HARD_REG_BIT (no_global_alloc_regs, HARD_FRAME_POINTER_REGNUM);
     }
   else if (need_fp)
-    /* APPLE LOCAL begin 4443946 */
+    /* APPLE LOCAL begin CW asm blocks 4443946 */
     {
-      if (!flag_cw_asm_blocks)
+      if (!flag_iasm_blocks)
 	error ("%s cannot be used in asm here",
 	       reg_names[HARD_FRAME_POINTER_REGNUM]);
     }
-    /* APPLE LOCAL end 4443946 */
+    /* APPLE LOCAL end CW asm blocks 4443946 */
   else
     regs_ever_live[HARD_FRAME_POINTER_REGNUM] = 1;
 #endif

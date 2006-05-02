@@ -123,6 +123,62 @@ asm void bar() { fool:
 	cmp	eax, eax
 	cmp	fool, eax
 	cmp	eax, fool
+	cmpeqpd	xmm0, xmm0
+	cmpeqpd	xmm0, fool
+	cmpeqps	xmm0, xmm0
+	cmpeqps	xmm0, fool
+	cmpeqsd	xmm0, xmm0
+	cmpeqsd	xmm0, fool
+	cmpeqss	xmm0, xmm0
+	cmpeqss	xmm0, fool
+	cmplepd	xmm0, xmm0
+	cmplepd	xmm0, fool
+	cmpleps	xmm0, xmm0
+	cmpleps	xmm0, fool
+	cmplesd	xmm0, xmm0
+	cmplesd	xmm0, fool
+	cmpless	xmm0, xmm0
+	cmpless	xmm0, fool
+	cmpltpd	xmm0, xmm0
+	cmpltpd	xmm0, fool
+	cmpltps	xmm0, xmm0
+	cmpltps	xmm0, fool
+	cmpltsd	xmm0, xmm0
+	cmpltsd	xmm0, fool
+	cmpltss	xmm0, xmm0
+	cmpltss	xmm0, fool
+	cmpneqpd	xmm0, xmm0
+	cmpneqpd	xmm0, fool
+	cmpneqps	xmm0, xmm0
+	cmpneqps	xmm0, fool
+	cmpneqsd	xmm0, xmm0
+	cmpneqsd	xmm0, fool
+	cmpneqss	xmm0, xmm0
+	cmpneqss	xmm0, fool
+	cmpnlepd	xmm0, xmm0
+	cmpnlepd	xmm0, fool
+	cmpnleps	xmm0, xmm0
+	cmpnleps	xmm0, fool
+	cmpnlesd	xmm0, xmm0
+	cmpnlesd	xmm0, fool
+	cmpnless	xmm0, xmm0
+	cmpnless	xmm0, fool
+	cmpnltpd	xmm0, xmm0
+	cmpnltpd	xmm0, fool
+	cmpnltps	xmm0, xmm0
+	cmpnltps	xmm0, fool
+	cmpnltsd	xmm0, xmm0
+	cmpnltsd	xmm0, fool
+	cmpnltss	xmm0, xmm0
+	cmpnltss	xmm0, fool
+	cmpordpd	xmm0, xmm0
+	cmpordpd	xmm0, fool
+	cmpordps	xmm0, xmm0
+	cmpordps	xmm0, fool
+	cmpordsd	xmm0, xmm0
+	cmpordsd	xmm0, fool
+	cmpordss	xmm0, xmm0
+	cmpordss	xmm0, fool
 	cmppd	xmm0, xmm0, 4
 	cmppd	xmm0, fool, 4
 	cmpps	xmm0, xmm0, 4
@@ -131,6 +187,14 @@ asm void bar() { fool:
 	cmpsd	xmm0, fool, 4
 	cmpss	xmm0, xmm0, 4
 	cmpss	xmm0, fool, 4
+	cmpunordpd	xmm0, xmm0
+	cmpunordpd	xmm0, fool
+	cmpunordps	xmm0, xmm0
+	cmpunordps	xmm0, fool
+	cmpunordsd	xmm0, xmm0
+	cmpunordsd	xmm0, fool
+	cmpunordss	xmm0, xmm0
+	cmpunordss	xmm0, fool
 	cmpxchg	fool, eax
 	cmpxchg	eax, eax
 	comisd	xmm0, xmm0

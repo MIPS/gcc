@@ -27,12 +27,6 @@
 	* parser.c (cp_parser_enumerator_list): Eat CPP_BINCL and CPP_EINCL
 	tokens.
 
-2006-04-14 Fariborz Jahanian <fjahanian@apple.com>
-
-	Radar 4508851
-	* parser.c (cp_parser_objc_interstitial_code): Recognize
-	and parse RID_NAMESPACE keyword.
-
 2006-04-13  Devang Patel  <dpatel@apple.com>
 
 	Radar 4503682
@@ -177,6 +171,54 @@
         Radar 4360146
 	* typeck.c (build_class_member_access_expr): Build the new ivar
 	reference tree.
+
+2006-04-26  Fariborz Jahanian <fjahanian@apple.com>
+
+        Radar 4508851
+	* parser.c (cp_parser_objc_interstitial_code): Recognize
+	and parse RID_NAMESPACE keyword.
+
+2006-04-26  Mike Stump  <mrs@apple.com>
+
+	Radar 4505741
+	Rename cw_ to iasm_:
+	See ../ChangeLog.apple-ppc for additional changes.
+	* cp-tree.h: Rename ds_cw_asm to ds_iasm_asm.
+	* decl.c: Likewise.
+	Rename cw_asm_p to iasm_p.
+	* parser.c: Likewise.
+	Rename cp_lexer_cw_bol to cp_lexer_iasm_bol.
+	Rename cp_parser_cw_asm_compound_statement to cp_parser_iasm_compound_statement.
+	Rename cp_parser_cw_asm_top_statement to cp_parser_iasm_top_statement.
+	Rename cp_parser_cw_asm_declaration_seq_opt to cp_parser_iasm_declaration_seq_opt.
+	Rename cp_parser_cw_asm_line_seq_opt to cp_parser_iasm_line_seq_opt.
+	Rename cp_parser_cw_asm_line to cp_parser_iasm_line.
+	Rename cp_parser_cw_skip_to_eol to cp_parser_iasm_skip_to_eol.
+	Rename cp_parser_cw_maybe_skip_comments to cp_parser_iasm_maybe_skip_comments.
+	Rename cp_parser_cw_asm_statement_seq_opt to cp_parser_iasm_statement_seq_opt.
+	Rename cw_build_identifier_string to iasm_build_identifier_string.
+	Rename cp_parser_cw_identifier to cp_parser_iasm_identifier.
+	Rename cp_parser_cw_identifier_or_number to cp_parser_iasm_identifier_or_number.
+	Rename cp_parser_cw_asm_maybe_prefix to cp_parser_iasm_maybe_prefix.
+	Rename cp_parser_cw_asm_statement to cp_parser_iasm_statement.
+	Rename cp_parser_cw_skip_to_next_asm to cp_parser_iasm_skip_to_next_asm.
+	Rename cp_parser_cw_asm_operands to cp_parser_iasm_operands.
+	Rename cp_parser_cw_asm_operand to cp_parser_iasm_operand.
+	Rename cp_parser_cw_asm_relative_branch to cp_parser_iasm_relative_branch.
+	Rename cp_parser_cw_asm_postfix_expression to cp_parser_iasm_postfix_expression.
+	* semantics.c: Likewise.
+	Rename cw_asm_cp_build_component_ref to iasm_cp_build_component_ref.
+
+2006-04-17  Devang Patel  <dpatel@apple.com>
+
+	Radar 4499790
+	* parser.c (cp_parser_string_literal): Enable pascal strings for
+	wchars.
+
+2006-04-12  Mike Stump  <mrs@apple.com>
+
+	Radar 4477426 4466768
+	* parser.c (cw_build_identifier_string): Handle pseudo instructions bettter.
 
 2006-03-13  Mike Stump  <mrs@apple.com>
 

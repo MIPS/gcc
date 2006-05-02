@@ -70,8 +70,10 @@ extern void machopic_asm_out_destructor (rtx, int);
 
 extern void machopic_define_symbol (rtx);
 extern void darwin_encode_section_info (tree, rtx, int);
+/* APPLE LOCAL mainline */
+extern void darwin_set_default_type_attributes (tree);
 /* APPLE LOCAL CW asm blocks */
-extern tree darwin_cw_asm_special_label (tree);
+extern tree darwin_iasm_special_label (tree);
 
 #endif /* TREE_CODE */
 
@@ -94,6 +96,8 @@ extern void darwin_emit_except_table_label (FILE *);
 extern void darwin_pragma_ignore (struct cpp_reader *);
 extern void darwin_pragma_options (struct cpp_reader *);
 extern void darwin_pragma_unused (struct cpp_reader *);
+/* APPLE LOCAL mainline */
+extern void darwin_pragma_ms_struct (struct cpp_reader *);
 /* APPLE LOCAL pragma fenv */
 extern void darwin_pragma_fenv (struct cpp_reader *);
 /* APPLE LOCAL pragma reverse_bitfields */
@@ -212,7 +216,7 @@ extern tree darwin_construct_objc_string (tree);
 /* APPLE LOCAL end constant cfstrings */
 
 /* APPLE LOCAL CW asm blocks */
-#define CW_ASM_SPECIAL_LABEL(ID) darwin_cw_asm_special_label (ID)
+#define IASM_SPECIAL_LABEL(ID) darwin_iasm_special_label (ID)
 
 /* APPLE LOCAL begin KEXT */
 #ifdef TREE_CODE

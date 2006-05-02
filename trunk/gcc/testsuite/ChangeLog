@@ -4,6 +4,11 @@
 	PR c++/24302
 	* g++.dg/warn/Wunused-12.C: New test.
 
+2006-04-25  Eric Christopher  <echristo@apple.com>
+
+	Radar 4529978
+	* gcc.dg/pragma-ms_struct.c: New.
+
 2006-03-24  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4485597
@@ -17,7 +22,7 @@
 	* g++.dg/template/friend40.C: New test.
 
 2006-03-15  Geoffrey Keating  <geoffk@apple.com>
-	
+
 	Radar 3992198
 	* g++.old-deja/g++.other/init18.C: New.
 	* g++.old-deja/g++.other/init5.C: Remove xfail.

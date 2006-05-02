@@ -2298,8 +2298,8 @@ to be unlocked properly.
 @item -fobjc-gc
 @opindex fobjc-gc
 Enable garbage collection (GC) for Objective-C objects.  The resulting binary
-can only be used on Mac OS X 10.5 (Leopard) and later systems, due to additional
-functionality needed in the (NeXT) Objective-C runtime.
+requires additional runtime support which is not present in any released
+version of Mac OS X.
 
 When the @option{-fobjc-gc} switch is specified, the compiler will replace
 assignments to instance variables (ivars) and to certain kinds of pointers to
@@ -11822,6 +11822,12 @@ names in the assembly language output using symbolic forms.
 @itemx -mno-longcall
 @opindex mlongcall
 @opindex mno-longcall
+@c APPLE LOCAL begin 4222119
+@item -mlong-branch
+@itemx -mno-long-branch
+@opindex mlong-branch
+@opindex mno-long-branch
+@c APPLE LOCAL end 4222119
 Default to making all function calls indirectly, using a register, so
 that functions which reside further than 32 megabytes (33,554,432
 bytes) from the current location can be called.  This setting can be
@@ -11844,9 +11850,12 @@ island''.  The ``branch island'' is appended to the body of the
 calling function; it computes the full 32-bit address of the callee
 and jumps to it.
 
-On Mach-O (Darwin) systems, this option directs the compiler emit to
-the glue for every direct call, and the Darwin linker decides whether
-to use or discard it.
+@c APPLE LOCAL begin 4222119
+On Mach-O (Darwin) systems, @option{-mlongcall} directs the compiler
+emit to the glue for every direct call, and the Darwin linker decides
+whether to use or discard it.  @option{-mlong-branch} is a synonym for
+@option{-mlongcall}.
+@c APPLE LOCAL end 4222119
 
 In the future, we may cause GCC to ignore all longcall specifications
 when the linker is known to generate glue.

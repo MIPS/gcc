@@ -289,7 +289,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECTORIZE                                                \
 /* APPLE LOCAL begin 4375453 */                                         \
   {TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD,                              \
-   TARGET_VECTOR_ALIGNMENT_REACHABLE}                                   
+   TARGET_VECTOR_ALIGNMENT_REACHABLE}
 /* APPLE LOCAL end 4375453 */
 
 /* In except.c */
@@ -360,7 +360,11 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_DELEGITIMIZE_ADDRESS hook_rtx_rtx_identity
 #define TARGET_FUNCTION_OK_FOR_SIBCALL hook_bool_tree_tree_false
 #define TARGET_COMP_TYPE_ATTRIBUTES hook_int_tree_tree_1
+/* APPLE LOCAL begin mainline */
+#ifndef TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
 #define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES hook_void_tree
+#endif
+/* APPLE LOCAL end mainline */
 #define TARGET_INSERT_ATTRIBUTES hook_void_tree_treeptr
 #define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P hook_bool_tree_false
 #define TARGET_MS_BITFIELD_LAYOUT_P hook_bool_tree_false

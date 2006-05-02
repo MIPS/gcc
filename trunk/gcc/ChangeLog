@@ -11,6 +11,135 @@
 	* toplev.c (check_global_declarations): Check anonymous
 	decl name.
 	
+2006-04-25  Eric Christopher  <echristo@apple.com>
+
+	Radar 4529978
+	* target-def.h (TARGET_SET_DEFAULT_TYPE_ATTRIBUTES): Bracket
+	with #ifndef/#endif.
+	* config/darwin-c.c (darwin_ms_struct): New.
+	(darwin_pragma_ms_struct): Ditto.
+	(darwin_set_default_type_attributes): Ditto.
+	* config/darwin-protos.h (darwin_pragma_ms_struct): Declare.
+	* config/darwin.h (DARWIN_REGISTER_TARGET_PRAGMAS):
+	Register ms_struct pragma.
+	* config/i386/darwin.h (REGISTER_TARGET_PRAGMAS): Declare.
+	(TARGET_SET_DEFAULT_TYPE_ATTRIBUTES): Ditto.
+	* config/rs6000/rs6000.c (rs6000_set_default_type_attributes): Call
+	darwin_set_default_type_attributes if TARGET_MACHO.
+
+2006-04-25  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (size_of_locs): Don't fill dw_loc_addr if there
+	are no branches.
+
+	Radar 4498201
+	* dwarf2asm.c (dw2_asm_output_data): Don't generate RTL just
+	to print an integer.
+
+2006-04-24  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (verify_marks_clear): New.
+	(prune_unused_types): Call verify_marks_clear initially, not
+	prune_unmark_dies.
+
+2006-04-21  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (struct die_struct): Document that die_sib makes
+	a circular linked list.
+	(FOR_EACH_CHILD): New.
+	(reverse_die_lists): Delete.
+	(reverse_all_dies): Delete.
+	(add_dwarf_attr): Correct documentation.
+	(remove_child_with_prev): New.
+	(remove_child_TAG): Update for change to die_struct, use
+	remove_child_with_prev.
+	(add_child_die): Update for change to die_struct.
+	(splice_child_die): Use remove_child_with_prev and add_child_die.
+	(print_die): Use FOR_EACH_CHILD.
+	(die_checksum): Likewise.
+	(assign_symbol_names): Likewise.
+	(output_location_lists): Likewise.
+	(build_abbrev_table): Likewise.
+	(calc_die_sizes): Likewise.
+	(mark_dies): Likewise.
+	(unmark_dies): Likewise.
+	(unmark_all_dies): Likewise.
+	(output_die): Likewise.
+	(prune_unused_types_mark): Likewise.
+	(prune_unused_types_walk): Likewise.
+	(same_die_p): Update for change to die_struct.
+	(break_out_includes): Likewise.
+	(prune_unused_types_prune): Likewise.
+	(add_sibling_attributes): Use FOR_EACH_CHILD, simplify logic.
+	(prune_unmark_dies): Use FOR_EACH_CHILD, don't clear die_mark if
+	it's already clear.
+	(dwarf2out_finish): Don't call reverse_all_dies.
+
+2006-04-04  Eric Christopher  <echristo@apple.com>
+
+	Radar 4525014
+	* config/rs6000/rs6000.c (TARGET_MS_BITFIELD_LAYOUT_P): Define.
+	(TARGET_USE_MS_BITFIELD_LAYOUT): Ditto.
+	(rs6000_handle_struct_attribute): New.
+	(rs6000_ms_bitfield_layout_p): Ditto.
+
+2006-04-17  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (free_AT): Delete.
+	(remove_AT): Update string ref counts.
+	(remove_child_TAG): Don't call free_die.
+	(free_die): Delete.
+	(break_out_includes): Don't call free_die on DW_TAG_GNU_BINCL
+	or DW_TAG_GNU_EINCL.
+	(prune_unused_types_walk_attribs): Reset string refcounts.
+	(prune_unused_types_update_strings): New.
+	(prune_unused_types_prune): Don't make unnecessary stores.  Don't
+	call free_die.  Do call prune_unused_types_update_strings.
+	(prune_unused_types): Empty debug_str_hash.
+
+2006-04-10  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4498201
+	* dwarf2out.c (struct dw_attr_struct): Remove dw_attr_next.
+	Declare VECs of this type.
+	(struct die_struct): Make field die_attr a VEC of dw_attr_struct.
+	(remove_children): Delete.
+	(add_dwarf_attr): Use VEC routines.
+	(add_AT_flag): Update for changes to add_dwarf_attr.
+	(add_AT_int): Likewise.
+	(add_AT_unsigned): Likewise.
+	(add_AT_long_long): Likewise.
+	(add_AT_vec): Likewise.
+	(add_AT_string): Likewise.
+	(add_AT_die_ref): Likewise.
+	(add_AT_fde_ref): Likewise.
+	(add_AT_loc): Likewise.
+	(add_AT_loc_list): Likewise.
+	(add_AT_addr): Likewise.
+	(add_AT_lbl_id): Likewise.
+	(add_AT_lineptr): Likewise.
+	(add_AT_macptr): Likewise.
+	(add_AT_offset): Likewise.
+	(add_AT_range_list): Likewise.
+	(get_AT): Use VEC_iterate.
+	(remove_AT): Use VEC_ordered_remove.
+	(free_die): Fold remove_children into here; have it use VEC_iterate.
+	(print_die): Use VEC_iterate on attrs.
+	(reverse_die_lists): Don't reverse attr lists.
+	(die_checksum): Use VEC_iterate on attrs.
+	(same_die_p): Likewise.
+	(output_location_lists): Likewise.
+	(build_abbrev_table): Likewise.
+	(size_of_die): Likewise.
+	(unmark_all_dies): Likewise.
+	(output_abbrev_section): Likewise.
+	(output_die): Likewise.
+	(prune_unused_types_walk_attribs): Likewise.
+
 2006-04-04  Geoffrey Keating  <geoffk@apple.com>
 
 	Radar 4502209
@@ -18,7 +147,7 @@
 	NULL for dso parameter to atexit_common.
 
 	Radar 4383613
-	* doc/extend.texi (Function Attributes): Rewrite visibility 
+	* doc/extend.texi (Function Attributes): Rewrite visibility
 	attribute documentation.
 	* doc/invoke.texi (C++ Dialect Options): Rewrite
 	-fvisibility-inlines-hidden documentation to describe something

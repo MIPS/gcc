@@ -26,8 +26,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* APPLE LOCAL begin CW asm blocks */
 /* A hack that would be better done with a callback or some such.  */
-extern enum cw_asm_states { cw_asm_none, cw_asm_decls, cw_asm_asm } cw_asm_state;
-extern int cw_asm_in_operands;
+extern enum iasm_states { iasm_none, iasm_decls, iasm_asm } iasm_state;
+extern int iasm_in_operands;
 /* APPLE LOCAL end CW asm blocks */
 
 enum spell_type
@@ -505,8 +505,8 @@ forms_identifier_p (cpp_reader *pfile, int first,
   /* APPLE LOCAL begin CW asm blocks */
   /* Allow [.+-] in CW asm opcodes (PowerPC specific).  Do this here
      so we don't have to figure out "bl- 45" vs "bl -45".  */
-  if (cw_asm_state >= cw_asm_decls 
-      && !cw_asm_in_operands
+  if (iasm_state >= iasm_decls 
+      && !iasm_in_operands
       && (*buffer->cur == '.' || *buffer->cur == '+' || *buffer->cur == '-'))
     {
       buffer->cur++;
@@ -1004,7 +1004,7 @@ _cpp_get_fresh_line (cpp_reader *pfile)
   while (0)
 
 /* APPLE LOCAL begin CW asm blocks */
-static int cw_asm_label_follows;
+static bool iasm_label_follows;
 /* APPLE LOCAL end CW asm blocks */
 
 /* Lex a token into pfile->cur_token, which is also incremented, to
@@ -1086,7 +1086,7 @@ _cpp_lex_direct (cpp_reader *pfile)
       /* APPLE LOCAL begin CW asm blocks */
       /* An '@' in assembly code makes a following digit string into
 	 an identifier.  */
-      if (cw_asm_label_follows)
+      if (iasm_label_follows)
 	goto start_ident;
       /* APPLE LOCAL end CW asm blocks */
       /* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
@@ -1139,7 +1139,7 @@ _cpp_lex_direct (cpp_reader *pfile)
 	}
       /* APPLE LOCAL begin CW asm blocks */
       /* Got an identifier, reset the CW asm label hack flag.  */
-      cw_asm_label_follows = 0;
+      iasm_label_follows = false;
       /* APPLE LOCAL end CW asm blocks */
       break;
 
@@ -1361,8 +1361,8 @@ _cpp_lex_direct (cpp_reader *pfile)
     case ';':
       /* ';' separates instructions in CW asm, so flag that we're no
 	 longer seeing operands.  */
-      if (cw_asm_state >= cw_asm_decls)
-	cw_asm_in_operands = 0;
+      if (iasm_state >= iasm_decls)
+	iasm_in_operands = false;
       result->type = CPP_SEMICOLON;
       break;
     case '@':
@@ -1370,8 +1370,8 @@ _cpp_lex_direct (cpp_reader *pfile)
 	 either letters or digits, so set a hack flag for this.  (We
 	 still want to return the @ as a separate token so that the
 	 parser can distinguish labels from opcodes.)  */
-      if (cw_asm_state >= cw_asm_decls)
-	cw_asm_label_follows = 1;
+      if (iasm_state >= iasm_decls)
+	iasm_label_follows = true;
       result->type = CPP_ATSIGN;
       break;
       /* APPLE LOCAL end CW asm blocks */

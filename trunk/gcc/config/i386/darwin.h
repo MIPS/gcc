@@ -169,8 +169,6 @@ extern void darwin_x86_file_end (void);
 #define MASK_ALIGN_MAC68K	0x20000000
 #define TARGET_ALIGN_MAC68K	(target_flags & MASK_ALIGN_MAC68K)
 
-#define REGISTER_TARGET_PRAGMAS DARWIN_REGISTER_TARGET_PRAGMAS
-
 #define ROUND_TYPE_ALIGN(TYPE, COMPUTED, SPECIFIED) \
   (((TREE_CODE (TYPE) == RECORD_TYPE \
      || TREE_CODE (TYPE) == UNION_TYPE \
@@ -206,7 +204,7 @@ extern void darwin_x86_file_end (void);
     } while (0)
 
 /* APPLE LOCAL CW asm blocks */
-extern int flag_cw_asm_blocks;
+extern int flag_iasm_blocks;
 /* APPLE LOCAL begin fix-and-continue x86 */
 #undef SUBTARGET_OVERRIDE_OPTIONS
 #define SUBTARGET_OVERRIDE_OPTIONS				\
@@ -234,7 +232,7 @@ extern int flag_cw_asm_blocks;
       }								\
     /* APPLE LOCAL end AT&T-style stub 4164563 */		\
     /* APPLE LOCAL begin CW asm blocks */			\
-    if (flag_cw_asm_blocks)					\
+    if (flag_iasm_blocks)					\
       flag_ms_asms = 1;						\
     /* APPLE LOCAL end CW asm blocks */				\
   } while (0)
@@ -253,10 +251,6 @@ extern int flag_cw_asm_blocks;
 
 #define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)
 /* APPLE LOCAL end fix-and-continue x86 */
-
-/* APPLE LOCAL begin CW asm blocks */
-#define CW_ASM_REGISTER_NAME(STR, BUF) i386_cw_asm_register_name (STR, BUF)
-/* APPLE LOCAL end CW asm blocks */
 
 /* APPLE LOCAL begin mainline 2006-02-21 4439051 */
 /* Darwin uses the standard DWARF register numbers but the default
@@ -286,3 +280,10 @@ extern int flag_cw_asm_blocks;
 extern void ix86_darwin_init_expanders (void);
 #define INIT_EXPANDERS (ix86_darwin_init_expanders ())
 /* APPLE LOCAL end 4457939 stack alignment mishandled */
+/* APPLE LOCAL begin mainline */
+#undef REGISTER_TARGET_PRAGMAS
+#define REGISTER_TARGET_PRAGMAS() DARWIN_REGISTER_TARGET_PRAGMAS()
+
+#undef TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
+#define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES darwin_set_default_type_attributes
+/* APPLE LOCAL end mainline */

@@ -280,7 +280,7 @@ struct c_declspecs {
   BOOL_BITFIELD private_extern_p : 1;
   /* APPLE LOCAL end private extern */
   /* APPLE LOCAL CW asm blocks */
-  BOOL_BITFIELD cw_asm_specbit : 1;
+  BOOL_BITFIELD iasm_asm_specbit : 1;
   /* Whether the type defaulted to "int" because there were no type
      specifiers.  */
   BOOL_BITFIELD default_int_p;

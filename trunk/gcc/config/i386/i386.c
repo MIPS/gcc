@@ -4475,7 +4475,7 @@ ix86_save_reg (unsigned int regno, int maybe_eh_return)
   /* APPLE LOCAL begin CW asm blocks */
   /* For an asm function, we don't save any registers, instead, the
      user is responsible.  */
-  if (cfun->cw_asm_function)
+  if (cfun->iasm_asm_function)
     return 0;
   /* APPLE LOCAL end CW asm blocks */
 
@@ -4971,7 +4971,7 @@ ix86_expand_prologue (void)
   else if (! TARGET_STACK_PROBE || allocate < CHECK_STACK_LIMIT)
   /* APPLE LOCAL begin CW asm blocks */
     {
-      if (! cfun->cw_asm_function)
+      if (! cfun->iasm_asm_function)
 	pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
 				   GEN_INT (-allocate), -1);
     }
@@ -5108,7 +5108,7 @@ ix86_expand_epilogue (int style)
 
   /* APPLE LOCAL begin CW asm blocks */
   /* For an asm function, don't generate an epilogue. */
-  if (cfun->cw_asm_function)
+  if (cfun->iasm_asm_function)
     {
       emit_jump_insn (gen_return_internal ());
       return;
@@ -18978,11 +18978,13 @@ ix86_darwin_handle_regparmandstackparm (tree fndecl)
 #define CTI_MAX c_CTI_MAX
 #include "c-common.h"
 #undef CTI_MAX
+#undef GCC_DIAG_STYLE
+#include "c-tree.h"
 
 /* Addition register names accepted for inline assembly that would
    otherwise not be registers.  This table must be sorted for
    bsearch.  */
-static const char *additional_names[] = {
+static const char *iasm_additional_names[] = {
   "AH", "AL", "AX", "BH", "BL", "BP", "BX", "CH", "CL", "CX", "DH",
   "DI", "DL", "DX", "EAX", "EBP", "EBX", "ECX", "EDI", "EDX", "ESI",
   "ESP", "MM0", "MM1", "MM2", "MM3", "MM4", "MM5", "MM6", "MM7", "R10",
@@ -18994,7 +18996,7 @@ static const char *additional_names[] = {
 
 /* Comparison function for bsearch to find additional register names.  */
 static int
-cw_reg_comp (const void *a, const void *b)
+iasm_reg_comp (const void *a, const void *b)
 {
   char *const*x = a;
   char *const*y = b;
@@ -19006,7 +19008,7 @@ cw_reg_comp (const void *a, const void *b)
    forms.  */
 
 const char *
-i386_cw_asm_register_name (const char *regname, char *buf)
+i386_iasm_register_name (const char *regname, char *buf)
 {
   const char **r;
 
@@ -19021,9 +19023,9 @@ i386_cw_asm_register_name (const char *regname, char *buf)
 
   /* If we can find a lower case version of any registers in
      additional_names, return it.  */
-  r = bsearch (&regname, additional_names,
-	       sizeof (additional_names) / sizeof (additional_names[0]),
-	       sizeof (additional_names[0]), cw_reg_comp);
+  r = bsearch (&regname, iasm_additional_names,
+	       sizeof (iasm_additional_names) / sizeof (iasm_additional_names[0]),
+	       sizeof (iasm_additional_names[0]), iasm_reg_comp);
   if (r)
     {
       char *p;
@@ -19042,11 +19044,10 @@ i386_cw_asm_register_name (const char *regname, char *buf)
   return NULL;
 }
 
-extern bool cw_memory_clobber (const char *);
 /* Return true iff the opcode wants memory to be stable.  We arrange
    for a memory clobber in these instances.  */
 bool
-cw_memory_clobber (const char *ARG_UNUSED (opcode))
+iasm_memory_clobber (const char *ARG_UNUSED (opcode))
 {
   return true;
 }
@@ -19054,7 +19055,7 @@ cw_memory_clobber (const char *ARG_UNUSED (opcode))
 /* Return true iff the operands need swapping.  */
 
 bool
-cw_x86_needs_swapping (const char *opcode)
+iasm_x86_needs_swapping (const char *opcode)
 {
   /* Don't swap if output format is the same as input format.  */
   if (ASSEMBLER_DIALECT == ASM_INTEL)
@@ -19065,6 +19066,8 @@ cw_x86_needs_swapping (const char *opcode)
     return false;
   if (strcasecmp (opcode, "invlpga") == 0)
     return false;
+  if (opcode[0] == ' ' && iasm_is_pseudo (opcode+1))
+    return false;
 
   return true;
 }
@@ -19073,11 +19076,11 @@ cw_x86_needs_swapping (const char *opcode)
    is in ATT syntax.  */
 
 static tree
-x86_swap_operands (const char *opcode, tree args)
+iasm_x86_swap_operands (const char *opcode, tree args)
 {
   int noperands;
 
-  if (cw_x86_needs_swapping (opcode) == false)
+  if (iasm_x86_needs_swapping (opcode) == false)
     return args;
 
 #if 0
@@ -19095,27 +19098,123 @@ x86_swap_operands (const char *opcode, tree args)
   return args;
 }
 
+/* Map a register name to a high level tree type for a VAR_DECL of
+   that type, whose RTL will refer to the given register.  */
+
+static tree
+iasm_type_for (tree arg)
+{
+  tree type = NULL_TREE;
+  
+  if (IDENTIFIER_LENGTH (arg) > 2
+      && IDENTIFIER_POINTER (arg)[0] == '%')
+    {
+      enum machine_mode mode = VOIDmode;
+      if (IDENTIFIER_POINTER (arg)[1] == 'e')
+	mode = SImode;
+      else if (/* IDENTIFIER_POINTER (arg)[2] == 'h'
+		  || */ IDENTIFIER_POINTER (arg)[2] == 'l')
+	mode = QImode;
+      else if (IDENTIFIER_POINTER (arg)[2] == 'x')
+	mode = HImode;
+      else if (IDENTIFIER_POINTER (arg)[1] == 'r')
+	mode = DImode;
+      else if (IDENTIFIER_POINTER (arg)[1] == 'x')
+	mode = SFmode;
+      else if (IDENTIFIER_POINTER (arg)[1] == 'm')
+	mode = SFmode;
+
+      if (mode != VOIDmode)
+	type = c_common_type_for_mode (mode, 1);
+    }
+
+  return type;
+}
+
+/* We raise the code from a named register into a VAR_DECL of an
+   appropriate type that refers to the register so that reload doesn't
+   run out of registers.  */
+
+tree
+iasm_raise_reg (tree arg)
+{
+  int regno = decode_reg_name (IDENTIFIER_POINTER (arg));
+  if (regno >= 0)
+    {
+      tree decl = NULL_TREE;
+
+      decl = lookup_name_two (arg, 0);
+      if (decl == error_mark_node)
+	decl = 0;
+      if (decl == 0)
+	{
+	  tree type = iasm_type_for (arg);
+	  if (type)
+	    {
+	      decl = build_decl (VAR_DECL, arg, type);
+	      DECL_ARTIFICIAL (decl) = 1;
+	      DECL_REGISTER (decl) = 1;
+	      C_DECL_REGISTER (decl) = 1;
+	      DECL_HARD_REGISTER (decl) = 1;
+	      change_decl_assembler_name (decl, arg);
+	      decl = pushdecl (decl);
+	    }
+	}
+
+      if (decl)
+	return decl;
+    }
+
+  return arg;
+}
+
+/* Allow constants and readonly variables to be used in instructions
+   in places that require constants.  */
+
+static tree
+iasm_default_conv (tree e)
+{
+  if (e == NULL_TREE)
+    return e;
+
+  if (TREE_CODE (e) == CONST_DECL)
+    e = DECL_INITIAL (e);
+
+  if (DECL_P (e) && DECL_MODE (e) != BLKmode)
+    e = decl_constant_value (e);
+  return e;
+}
+
 /* Return true iff the operand is suitible for as the offset for a
    memory instruction.  */
 
 static bool
-cw_is_offset (tree v)
+iasm_is_offset (tree v)
 {
   if (TREE_CODE (v) == INTEGER_CST)
     return true;
   if (TREE_CODE (v) == ADDR_EXPR)
-    return true;
+    {
+      v = TREE_OPERAND (v, 0);
+      if (TREE_CODE (v) == VAR_DECL
+	  && TREE_STATIC (v)
+	  && MEM_P (DECL_RTL (v)))
+	return true;
+      if (TREE_CODE (v) == LABEL_DECL)
+	return true;
+      return false;
+    }
   if (TREE_CODE (v) == VAR_DECL
       && TREE_STATIC (v)
       && MEM_P (DECL_RTL (v)))
     return true;
   if ((TREE_CODE (v) == MINUS_EXPR
        || TREE_CODE (v) == PLUS_EXPR)
-      && cw_is_offset (TREE_OPERAND (v, 0))
-      && cw_is_offset (TREE_OPERAND (v, 1)))
+      && iasm_is_offset (TREE_OPERAND (v, 0))
+      && iasm_is_offset (TREE_OPERAND (v, 1)))
     return true;
   if (TREE_CODE (v) == NEGATE_EXPR
-      && cw_is_offset (TREE_OPERAND (v, 0)))
+      && iasm_is_offset (TREE_OPERAND (v, 0)))
     return true;
 
   return false;
@@ -19124,7 +19223,7 @@ cw_is_offset (tree v)
 /* Combine two types for [] expressions.  */
 
 static tree
-cw_combine_type (tree type0, tree type1)
+iasm_combine_type (tree type0, tree type1)
 {
   if (type0 == void_type_node
       || type0 == NULL_TREE)
@@ -19153,7 +19252,7 @@ cw_combine_type (tree type0, tree type1)
    TREE_OPERAND (, 0) is the offset portion of the expression.  ARGP
    points to the current part of the tree we're walking.
 
-   Thee tranformations we do:
+   The tranformations we do:
 
    (A+O) ==> A
    (A-O) ==> A
@@ -19162,12 +19261,14 @@ cw_combine_type (tree type0, tree type1)
    where O are offset expressions.  */
 
 static tree
-cw_canonicalize_bracket_1 (tree* argp, tree top)
+iasm_canonicalize_bracket_1 (tree* argp, tree top)
 {
   tree arg = *argp;
   tree offset = TREE_OPERAND (top, 0);
   tree arg0, arg1;
   tree rtype = NULL_TREE;
+
+  *argp = arg = iasm_default_conv (arg);
 
   switch (TREE_CODE (arg))
     {
@@ -19186,7 +19287,10 @@ cw_canonicalize_bracket_1 (tree* argp, tree top)
       arg0 = TREE_OPERAND (arg, 0);
       arg1 = TREE_OPERAND (arg, 1);
 
-      if (cw_is_offset (arg0))
+      arg0 = iasm_default_conv (arg0);
+      arg1 = iasm_default_conv (arg1);
+
+      if (iasm_is_offset (arg0))
 	{
 	  if (offset != integer_zero_node)
 	    arg0 = build2 (PLUS_EXPR, void_type_node, arg0, offset);
@@ -19194,24 +19298,24 @@ cw_canonicalize_bracket_1 (tree* argp, tree top)
 
 	  *argp = arg1;
 	  if (arg1)
-	    return cw_combine_type (rtype, cw_canonicalize_bracket_1 (argp, top));
+	    return iasm_combine_type (rtype, iasm_canonicalize_bracket_1 (argp, top));
 	}
-      else if (arg1 && cw_is_offset (arg1))
+      else if (arg1 && iasm_is_offset (arg1))
 	{
 	  if (offset != integer_zero_node)
 	    arg1 = build2 (PLUS_EXPR, void_type_node, arg1, offset);
 	  TREE_OPERAND (top, 0) = arg1;
 	  *argp = arg0;
-	  return cw_combine_type (rtype, cw_canonicalize_bracket_1 (argp, top));
+	  return iasm_combine_type (rtype, iasm_canonicalize_bracket_1 (argp, top));
 	}
       else
 	{
-	  rtype = cw_combine_type (rtype,
-				   cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top));
+	  rtype = iasm_combine_type (rtype,
+				     iasm_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top));
 
 	  if (arg1)
-	    rtype = cw_combine_type (rtype,
-				     cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), top));
+	    rtype = iasm_combine_type (rtype,
+				       iasm_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), top));
 	  if (TREE_OPERAND (arg, 0) == NULL_TREE)
 	    {
 	      if (TREE_OPERAND (arg, 1))
@@ -19222,14 +19326,29 @@ cw_canonicalize_bracket_1 (tree* argp, tree top)
 	      else
 		*argp = NULL_TREE;
 	    }
+	  else if (TREE_OPERAND (arg, 1) == NULL_TREE && rtype == NULL_TREE)
+	    *argp = TREE_OPERAND (arg, 0);
+	  if (TREE_CODE (arg) == PLUS_EXPR
+	      && TREE_TYPE (arg) == NULL_TREE
+	      && TREE_TYPE (TREE_OPERAND (arg, 0))
+	      && TREE_TYPE (TREE_OPERAND (arg, 1))
+	      && (POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg, 1)))
+		  || POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg, 0)))))
+	    {
+	      tree type = TREE_TYPE (TREE_OPERAND (arg, 1));
+	      if (INTEGRAL_TYPE_P (type))
+		type = TREE_TYPE (TREE_OPERAND (arg, 0));
+	      TREE_TYPE (arg) = type;
+	    }
 	}
       return rtype;
 
     case MINUS_EXPR:
-      rtype = cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top);
+      rtype = iasm_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top);
       arg0 = TREE_OPERAND (arg, 0);
       arg1 = TREE_OPERAND (arg, 1);
-      if (cw_is_offset (arg1))
+      arg1 = iasm_default_conv (arg1);
+      if (iasm_is_offset (arg1))
 	{
 	  offset = TREE_OPERAND (top, 0);
 	  if (offset == integer_zero_node)
@@ -19240,9 +19359,35 @@ cw_canonicalize_bracket_1 (tree* argp, tree top)
 	    arg1 = build2 (MINUS_EXPR, void_type_node, offset, arg1);
 	  TREE_OPERAND (top, 0) = arg1;
 	  *argp = arg0;
-	  return cw_combine_type (rtype, cw_canonicalize_bracket_1 (argp, top));;
+	  return iasm_combine_type (rtype, iasm_canonicalize_bracket_1 (argp, top));;
 	}
       return rtype;
+
+    case PARM_DECL:
+    case VAR_DECL:
+      {
+	*argp = iasm_addr (arg);
+	break;
+      }
+
+    case IDENTIFIER_NODE:
+      {
+	*argp = iasm_raise_reg (arg);
+	break;
+      }
+
+    case MULT_EXPR:
+      if (TREE_TYPE (arg) == NULL_TREE)
+	{
+	  if (TREE_CODE (TREE_OPERAND (arg, 1)) == IDENTIFIER_NODE)
+	    TREE_OPERAND (arg, 1) = iasm_raise_reg (TREE_OPERAND (arg, 1));
+	  if (TREE_CODE (TREE_OPERAND (arg, 0)) == IDENTIFIER_NODE)
+	    TREE_OPERAND (arg, 0) = iasm_raise_reg (TREE_OPERAND (arg, 0));
+	  if (TREE_TYPE (TREE_OPERAND (arg, 0))
+	      && TREE_TYPE (TREE_OPERAND (arg, 1)))
+	    TREE_TYPE (arg) = TREE_TYPE (TREE_OPERAND (arg, 0));
+	}
+      break;
 
     default:
       break;
@@ -19251,11 +19396,47 @@ cw_canonicalize_bracket_1 (tree* argp, tree top)
   return NULL_TREE;
 }
 
+/* Form an indirection for an inline asm address expression operand.
+   We give a warning when we think the optimizer might have to be used
+   to reform complex addresses, &stack_var + %eax + 4 for example,
+   after gimplification rips the address apart.  */
+
+static tree
+iasm_indirect (tree addr)
+{
+  if (TREE_CODE (addr) == ADDR_EXPR
+      /* && TREE_CODE (TREE_OPERAND (addr, 0)) == ARRAY_REF */)
+    return TREE_OPERAND (addr, 0);
+
+  addr = fold (build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (addr)), addr));
+
+  if (! optimize && TREE_CODE (addr) == INDIRECT_REF)
+    warning ("addressing mode too complex when not optimizing, will consume extra register(s)");
+  
+  return addr;
+}
+
+/* For an address addition for an inline asm address expression.  We
+   try and form ARRAY_REFs, as they will go through gimplification
+   without being ripped apart.  */
+
+static tree
+iasm_add (tree addr, tree off)
+{
+  if (integer_zerop (off))
+    return addr;
+
+  /* We have to convert the offset to an int type, as we rip apart
+     trees whose type has been converted to a pointer type for the
+     offset already.  */
+  return pointer_int_sum (PLUS_EXPR, addr, convert (integer_type_node, off));
+}
+
 /* We canonicalize the inputs form of bracket expressions as the input
    forms are less constrained than what the assembler will accept.  */
 
-static void
-cw_canonicalize_bracket (tree arg)
+static tree
+iasm_canonicalize_bracket (tree arg)
 {
   tree rtype;
 
@@ -19268,11 +19449,16 @@ cw_canonicalize_bracket (tree arg)
   if (TREE_OPERAND (arg, 1) == NULL_TREE
       && TREE_TYPE (TREE_OPERAND (arg, 0))
       && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg, 0))))
-    return;
+    {
+      if (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL
+	  || TREE_CODE (TREE_OPERAND (arg, 0)) == PARM_DECL)
+	return arg;
+      return iasm_indirect (TREE_OPERAND (arg, 0));
+    }
 
   /* Ensure that 0 is an offset */
   if (TREE_OPERAND (arg, 0)
-      && cw_is_offset (TREE_OPERAND (arg, 0)))
+      && iasm_is_offset (TREE_OPERAND (arg, 0)))
     {
       /* we win if 0 is an offset already. */
     }
@@ -19286,26 +19472,80 @@ cw_canonicalize_bracket (tree arg)
     {
       tree swp;
       /* Just have to force it now */
-      swp = cw_build_bracket (TREE_OPERAND (arg, 0), TREE_OPERAND (arg, 1));
+      swp = iasm_build_bracket (TREE_OPERAND (arg, 0), TREE_OPERAND (arg, 1));
       TREE_OPERAND (arg, 0) = integer_zero_node;
       TREE_OPERAND (arg, 1) = swp;
     }
     
   if (TREE_OPERAND (arg, 1))
     {
-      rtype = cw_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), arg);
+      rtype = iasm_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), arg);
       if (rtype)
-	TREE_TYPE (arg) = cw_combine_type (TREE_TYPE (arg), rtype);
+	TREE_TYPE (arg) = iasm_combine_type (TREE_TYPE (arg), rtype);
     }
+
+  /* For correctness, pointer types should be raised to the tree
+     level, as they denote address calculations with stack based
+     objects, and we want print_operand to print the entire address so
+     that it can combine contants and hard registers into the address.
+     Unfortunnately we might have to rely upon the optimizer to reform
+     the address after the gimplification pass rips it apart.  */
+
+  /* Handle [INTEGER_CST][ptr][op3] */
+  if (TREE_OPERAND (arg, 1)
+      && TREE_TYPE (arg) == void_type_node
+      && TREE_CODE (TREE_OPERAND (arg, 0)) == INTEGER_CST
+      && TREE_CODE (TREE_OPERAND (arg, 1)) == BRACKET_EXPR
+      && TREE_TYPE (TREE_OPERAND (TREE_OPERAND (arg, 1), 0))
+      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (arg, 1), 0)))
+      && TREE_TYPE (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (arg, 1), 0))) != void_type_node)
+    {
+      tree op3 = TREE_OPERAND (TREE_OPERAND (arg, 1), 1);
+      tree addr = iasm_add (TREE_OPERAND (TREE_OPERAND (arg, 1), 0),
+			    TREE_OPERAND (arg, 0));
+      tree type;
+      addr = iasm_indirect (addr);
+      if (op3 == NULL_TREE)
+	return addr;
+      type = TREE_TYPE (addr);
+      type = build_pointer_type (type);
+      addr = build1 (ADDR_EXPR, type, addr);
+      addr = fold (build2 (PLUS_EXPR, type, addr, op3));
+      return iasm_indirect (addr);
+    }
+
+  /* Handle ptr + INTEGER_CST */
+  if (TREE_OPERAND (arg, 1)
+      && TREE_TYPE (arg) == void_type_node
+      && TREE_TYPE (TREE_OPERAND (arg, 1))
+      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg, 1)))
+      && TREE_TYPE (TREE_TYPE (TREE_OPERAND (arg, 1))) != void_type_node)
+    {
+      if (TREE_CODE (TREE_OPERAND (arg, 1)) == ADDR_EXPR)
+	{
+	  if (TREE_OPERAND (arg, 0) == integer_zero_node)
+	    return TREE_OPERAND (TREE_OPERAND (arg, 1), 0);
+	  if (TREE_CODE (TREE_OPERAND (arg, 0)) == INTEGER_CST)
+	    return iasm_indirect (iasm_add (TREE_OPERAND (arg, 1), TREE_OPERAND (arg, 0)));
+	}
+      if (TREE_CODE (TREE_OPERAND (arg, 1)) == PLUS_EXPR)
+	{
+	  if (TREE_OPERAND (arg, 0) == integer_zero_node)
+	    return iasm_indirect (TREE_OPERAND (arg, 1));
+	  if (TREE_CODE (TREE_OPERAND (arg, 0)) == INTEGER_CST)
+	    return iasm_indirect (iasm_add (TREE_OPERAND (arg, 1), TREE_OPERAND (arg, 0)));
+	}
+    }
+  return arg;
 }
 
 /* We canonicalize the instruction by swapping operands and rewritting
    the opcode if the output style is in ATT syntax.  */
 
 tree
-x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
+iasm_x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 {
-  cw_md_extra_info *e = ep;
+  iasm_md_extra_info *e = ep;
   static char buf[40];
   tree args = iargs;
   int argnum = 1;
@@ -19344,10 +19584,11 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	    }
 	}
       else if (TREE_CODE (arg) == BRACKET_EXPR)
-	cw_canonicalize_bracket (arg);
+	TREE_VALUE (args) = arg = iasm_canonicalize_bracket (arg);
 	  
       switch (TREE_CODE (arg))
 	{
+	case ARRAY_REF:
 	case VAR_DECL:
 	case PARM_DECL:
 	case INDIRECT_REF:
@@ -19414,7 +19655,9 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
     }
   --argnum;
 
-  args = x86_swap_operands (opcode, iargs);
+  args = iasm_x86_swap_operands (opcode, iargs);
+  if (opcode[0] == ' ' && iasm_is_pseudo (opcode+1))
+    e->pseudo = true;
 
   /* movsx isn't part of the AT&T syntax, they spell it movs.  */
   if (strcasecmp (opcode, "movsx") == 0)
@@ -19427,7 +19670,8 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	 same before and after size is accepted and it just a normal
 	 move.  */
       if (argnum == 2
-	  && e->mod[0] == e->mod[1])
+	  && (e->mod[0] == e->mod[1]
+	      || e->mod[1] == 0))
 	opcode = "mov";
       else
 	opcode = "movz";
@@ -19450,7 +19694,9 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	e->mod[1] = 'l';
     }
 
-  if (strcasecmp (opcode, "out") == 0
+  if (e->pseudo)
+    e->mod[0] = e->mod[1] = 0;
+  else if (strcasecmp (opcode, "out") == 0
       || strcasecmp (opcode, "movntq") == 0
       || strcasecmp (opcode, "movd") == 0
       || strcasecmp (opcode, "movq") == 0
@@ -19489,10 +19735,10 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 
 /* Character used to seperate the prefix words.  */
 /* See radr://4141844 for the enhancement to make this uniformly ' '.  */
-#define CW_PREFIX_SEP '/'
+#define IASM_PREFIX_SEP '/'
 
 void
-x86_cw_print_prefix (char *buf, tree prefix_list)
+iasm_x86_print_prefix (char *buf, tree prefix_list)
 {
   buf += strlen (buf);
   while (prefix_list)
@@ -19501,18 +19747,30 @@ x86_cw_print_prefix (char *buf, tree prefix_list)
       size_t len = IDENTIFIER_LENGTH (prefix);
       memcpy (buf, IDENTIFIER_POINTER (prefix), len);
       buf += len;
-      buf[0] = CW_PREFIX_SEP;
+      buf[0] = IASM_PREFIX_SEP;
       ++buf;
       buf[0] = 0;
       prefix_list = TREE_CHAIN (prefix_list);
     }
 }
 
-bool
-cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
-	     bool must_be_reg, bool must_not_be_reg, void *ep)
+/* Warn when a variables address is used to form a memory address when
+   that address will use an extra register during reload.  */
+
+static void
+iasm_warn_extra_reg (tree arg)
 {
-  cw_md_extra_info *e = ep;
+  if (TREE_CODE (arg) == ADDR_EXPR
+      && (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL
+	  || TREE_CODE (TREE_OPERAND (arg, 0)) == PARM_DECL))
+    warning ("addressing mode too complex, will consume an extra register");
+}
+
+bool
+iasm_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
+	       bool must_be_reg, bool must_not_be_reg, void *ep)
+{
+  iasm_md_extra_info *e = ep;
   switch (TREE_CODE (arg))
     {
     case BRACKET_EXPR:
@@ -19530,15 +19788,14 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	       decompose it into parts so that things like (%esp + 20) + 4
 	       can be output as 24(%esp) by the optimizer instead of 4(%0)
 	       and burning an "R" with (%esp + 20).  */
-	    cw_force_constraint ("m", e);
-	    op1 = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (op1)), op1);
-	    op1 = fold (op1);
-	    cw_asm_get_register_var (op1, "", buf, argnum, must_be_reg, e);
-	    cw_force_constraint (0, e);
+	    iasm_force_constraint ("m", e);
+	    iasm_get_register_var (op1, "", buf, argnum, must_be_reg, e);
+	    iasm_force_constraint (0, e);
 	    break;
 	  }
 
-	if (TREE_CODE (op2) == BRACKET_EXPR)
+	if (op2
+	    && TREE_CODE (op2) == BRACKET_EXPR)
 	  {
 	    op3 = TREE_OPERAND (op2, 1);
 	    op2 = TREE_OPERAND (op2, 0);
@@ -19550,12 +19807,6 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	  }
 	if (op0)
 	  return false;
-	if (op2 == NULL_TREE)
-	  {
-	    op2 = op1;
-	    op1 = op0;
-	    op0 = NULL_TREE;
-	  }
 
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "[");
@@ -19592,9 +19843,13 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	  }
 
 	e->as_immediate = true;
-	print_cw_asm_operand (buf, op1, argnum, uses,
-			      must_be_reg, must_not_be_reg, e);
+	iasm_print_operand (buf, op1, argnum, uses,
+			    must_be_reg, must_not_be_reg, e);
 	e->as_immediate = false;
+
+	/* Just an immediate.  */
+	if (op2 == NULL_TREE && op3 == NULL_TREE)
+	  break;
 
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "]");
@@ -19606,10 +19861,11 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	if (op2)
 	  {
 	    /* We know by context, this has to be an R.  */
-	    cw_force_constraint ("R", e);
-	    print_cw_asm_operand (buf, op2, argnum, uses,
-				  must_be_reg, must_not_be_reg, e);
-	    cw_force_constraint (0, e);
+	    iasm_force_constraint ("R", e);
+	    iasm_warn_extra_reg (op2);
+	    iasm_print_operand (buf, op2, argnum, uses,
+				must_be_reg, must_not_be_reg, e);
+	    iasm_force_constraint (0, e);
 	  }
 	if (op3)
 	  {
@@ -19619,16 +19875,17 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	      strcat (buf, ",");
 
 	    /* We know by context, this has to be an l.  */
-	    cw_force_constraint ("l", e);
-	    print_cw_asm_operand (buf, op3, argnum, uses,
-				  must_be_reg, must_not_be_reg, e);
-	    cw_force_constraint (0, e);
+	    iasm_force_constraint ("l", e);
+	    iasm_warn_extra_reg (op3);
+	    iasm_print_operand (buf, op3, argnum, uses,
+				must_be_reg, must_not_be_reg, e);
+	    iasm_force_constraint (0, e);
 	    if (scale)
 	      {
 		strcat (buf, ",");
 		e->as_immediate = true;
-		print_cw_asm_operand (buf, scale, argnum, uses,
-				      must_be_reg, must_not_be_reg, e);
+		iasm_print_operand (buf, scale, argnum, uses,
+				    must_be_reg, must_not_be_reg, e);
 		e->as_immediate = false;
 	      }
 	  }
@@ -19640,19 +19897,25 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
       break;
 
     case ADDR_EXPR:
+      if (TREE_CODE (TREE_OPERAND (arg, 0)) == ARRAY_REF
+	  || TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL)
+	{
+	  iasm_get_register_var (arg, "", buf, argnum, must_be_reg, e);
+	  break;
+	}
       if (! e->as_immediate)
 	e->as_offset = true;
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
-			    must_be_reg, must_not_be_reg, e);
+      iasm_print_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
+			  must_be_reg, must_not_be_reg, e);
       e->as_offset = false;
       break;
 
     case MULT_EXPR:
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
-			    must_be_reg, must_not_be_reg, e);
+      iasm_print_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
+			  must_be_reg, must_not_be_reg, e);
       strcat (buf, "*");
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses,
-			    must_be_reg, must_not_be_reg, e);
+      iasm_print_operand (buf, TREE_OPERAND (arg, 1), argnum, uses,
+			  must_be_reg, must_not_be_reg, e);
       break;
     default:
       return false;
