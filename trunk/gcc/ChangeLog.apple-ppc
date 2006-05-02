@@ -1,3 +1,11 @@
+2006-05-02  Eric Christopher  <echristo@apple.com>
+
+	Radar 4533898
+	* global.c (flag_cw_asm_blocks): Change to
+	flag_iasm_blocks.
+	* config/i386/i386.h (IASM_VALID_PIC): Move...
+	* config/i386/darwin.h: ... here.
+
 2006-05-01  Eric Christopher  <echristo@apple.com>
 
 	Radar 4533757

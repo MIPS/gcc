@@ -287,3 +287,10 @@ extern void ix86_darwin_init_expanders (void);
 #undef TARGET_SET_DEFAULT_TYPE_ATTRIBUTES
 #define TARGET_SET_DEFAULT_TYPE_ATTRIBUTES darwin_set_default_type_attributes
 /* APPLE LOCAL end mainline */
+/* APPLE LOCAL begin CW asm blocks */
+#define IASM_VALID_PIC(DECL, E)						\
+  do {									\
+    if (E->as_immediate && ! TARGET_DYNAMIC_NO_PIC && flag_pic)		\
+      warning ("non-pic addressing form not suitible for pic code");	\
+  } while (0)
+/* APPLE LOCAL end cw asm blocks */

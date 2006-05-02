@@ -85,7 +85,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    a preferred register, else into another register.  */
 
 /* APPLE LOCAL CW asm blocks */
-extern int flag_cw_asm_blocks;
+extern int flag_iasm_blocks;
 
 /* Number of pseudo-registers which are candidates for allocation.  */
 

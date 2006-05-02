@@ -3470,12 +3470,6 @@ extern tree iasm_x86_canonicalize_operands (const char **, tree, void *);
 
 #define IASM_FUNCTION_MODIFIER "P"
 
-#define IASM_VALID_PIC(DECL, E)						\
-  do {									\
-    if (E->as_immediate && ! TARGET_DYNAMIC_NO_PIC && flag_pic)		\
-      warning ("non-pic addressing form not suitible for pic code");	\
-  } while (0)
-
 #define IASM_REGISTER_NAME(STR, BUF) i386_iasm_register_name (STR, BUF)
 
 /* APPLE LOCAL end CW asm blocks */
