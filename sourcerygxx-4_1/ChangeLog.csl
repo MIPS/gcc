@@ -1,3 +1,7 @@
+2006-05-04  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/version.c: Revert back to Sourcery G++.
+
 2006-05-03  Paul Brook  <paul@codesourcery.com>
 
 	Merge from branches/csl/arm-4_1 r113476.
