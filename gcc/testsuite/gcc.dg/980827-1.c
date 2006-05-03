@@ -1,5 +1,6 @@
 /* { dg-do run { target rs6000-*-linux* powerpc-*-linux*} } */
 /* { dg-options -O2 } */
+/* { dg-skip-if "" { powerpc-wrs-linux-gnu } { "-msoft-float" } { "" } } */
 
 extern void exit (int);
 extern void abort (void);

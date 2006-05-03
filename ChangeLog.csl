@@ -1,3 +1,9 @@
+2006-05-03  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/20020720-1.x: XFAIL for
+	PowerPC -msoft-float.
+	* gcc/testsuite/gcc.dg/980827-1.c: Skip for PowerPC -msoft-float.
+
 2006-04-28  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc/testsuite/gcc.c-torture/execute/loop-2f.x,

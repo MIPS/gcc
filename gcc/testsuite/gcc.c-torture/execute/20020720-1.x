@@ -24,6 +24,19 @@ if { [istarget "sparc*-*-*"] } {
     return 0
 }
 
+if { [istarget "powerpc-wrs-linux-gnu"] } {
+    set torture_eval_before_compile {
+        global compiler_conditional_xfail_data
+        set compiler_conditional_xfail_data {
+            "" \
+            { "*-*-*" } \
+            { "-msoft-float" } \
+            { "-O0" }
+        }
+    }
+    return 0
+}
+
 set torture_eval_before_compile {
     global compiler_conditional_xfail_data
     set compiler_conditional_xfail_data {
