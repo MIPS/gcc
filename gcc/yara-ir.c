@@ -192,15 +192,14 @@ static void set_call_info (allocno_t, void *, int);
 static void set_single_hard_reg_allocno_info (allocno_t, void *, int);
 static enum reg_class single_alt_reg_class (const char *,
 					    struct insn_op_info *, int);
-static enum reg_class single_reg_allocno_class (allocno_t);
+static enum reg_class single_reg_operand_class (rtx insn, int);
 
 #ifdef HAVE_ANY_SECONDARY_MOVES
 static void set_copy_conflict (allocno_t, void *, int);
 #endif
-static void mark_output_allocno_death (allocno_t, rtx);
 static void build_insn_allocno_copy_conflicts (copy_t, rtx, bool);
 static void set_call_info (allocno_t, void *, int);
-static void build_insn_allocno_conflicts (rtx);
+static void build_insn_allocno_conflicts (rtx, op_set_t);
 static allocno_t create_region_allocno (int, struct yara_loop_tree_node *,
 					rtx);
 static int before_insn_copy_compare (const void *, const void *);
@@ -904,11 +903,19 @@ create_loop_tree_nodes (void)
   yara_bb_nodes
     = yara_allocate (sizeof (struct yara_loop_tree_node) * bbs_num);
   for (i = 0; i < bbs_num; i++)
-    yara_bb_nodes [i].regno_refs = yara_allocate_bitmap ();
+    {
+      yara_bb_nodes [i].regno_refs = yara_allocate_bitmap ();
+      yara_bb_nodes [i].allocno_live_at_start = yara_allocate_bitmap ();
+      yara_bb_nodes [i].can_through = yara_allocate_bitmap ();
+    }
   yara_loop_nodes = yara_allocate (sizeof (struct yara_loop_tree_node)
 				   * yara_loops.num);
   for (i = 0; i < (int) yara_loops.num; i++)
-    yara_loop_nodes [i].regno_refs = yara_allocate_bitmap ();
+    {
+      yara_loop_nodes [i].regno_refs = yara_allocate_bitmap ();
+      yara_loop_nodes [i].allocno_live_at_start = yara_allocate_bitmap ();
+      yara_loop_nodes [i].can_through = yara_allocate_bitmap ();
+    }
 }
 
 static void
@@ -916,12 +923,20 @@ finish_loop_tree_nodes (void)
 {
   int i;
 
-  for (i = 0; i < bbs_num; i++)
-    yara_free_bitmap (yara_bb_nodes [i].regno_refs);
-  yara_free (yara_bb_nodes);
   for (i = 0; i < (int) yara_loops.num; i++)
-    yara_free_bitmap (yara_loop_nodes [i].regno_refs);
+    {
+      yara_free_bitmap (yara_loop_nodes [i].can_through);
+      yara_free_bitmap (yara_loop_nodes [i].allocno_live_at_start);
+      yara_free_bitmap (yara_loop_nodes [i].regno_refs);
+    }
   yara_free (yara_loop_nodes);
+  for (i = 0; i < bbs_num; i++)
+    {
+      yara_free_bitmap (yara_bb_nodes [i].can_through);
+      yara_free_bitmap (yara_bb_nodes [i].allocno_live_at_start);
+      yara_free_bitmap (yara_bb_nodes [i].regno_refs);
+    }
+  yara_free (yara_bb_nodes);
 }
 
 
@@ -2735,6 +2750,7 @@ create_insn_info (rtx insn)
       = yara_allocate (sizeof (char *) * recog_data.n_operands
 		       * recog_data.n_alternatives);
   info->commutative_op_p = false;
+  CLEAR_OP_SET (info->single_reg_op_set);
   for (i = 0; i < recog_data.n_operands; i++)
     {
       str = yara_allocate (sizeof (char)
@@ -2763,6 +2779,9 @@ create_insn_info (rtx insn)
 	    }
 	}
     }
+  for (i = 0; i < recog_data.n_operands; i++)
+    if (single_reg_operand_class (insn, i) != NO_REGS)
+      SET_OP (info->single_reg_op_set, i);
   return info;
 }
 
@@ -3000,30 +3019,6 @@ set_copy_conflict (allocno_t live_a, void *data,
 
 #endif
 
-static void
-mark_output_allocno_death (allocno_t a, rtx insn ATTRIBUTE_UNUSED)
-{
-  allocno_t curr_a;
-
-  mark_allocno_death (a);
-  if (ALLOCNO_TYPE (a) != INSN_ALLOCNO)
-    return;
-  yara_assert (INSN_ALLOCNO_OP_MODE (a) == OP_OUT
-	       || INSN_ALLOCNO_OP_MODE (a) == OP_INOUT);
-  /* We assume that each addr allocno can occur at most once in output
-     memory allocno.  */
-  for (curr_a = curr_insn_allocnos;
-       curr_a != NULL;
-       curr_a = INSN_ALLOCNO_NEXT (curr_a))
-    if (INSN_ALLOCNO_ADDR_OUTPUT_ALLOCNO (curr_a) == a)
-      {
-	yara_assert (GET_CODE (*INSN_ALLOCNO_LOC (a)) == MEM);
-        yara_assert (find_post_insn_allocno_copy (curr_a, insn) == NULL);
-	mark_allocno_death (curr_a);
-	INSN_ALLOCNO_ADDR_OUTPUT_ALLOCNO (curr_a) = NULL;
-      }
-}
-
 static bool
 copy_src_p (copy_t list, allocno_t src)
 {
@@ -3039,7 +3034,7 @@ static void
 build_insn_allocno_copy_conflicts (copy_t list, rtx insn, bool after_insn_p)
 {
   int regno;
-  allocno_t src;
+  allocno_t src, curr_a;
   copy_t cp;
   bool no_map_change_p;
 
@@ -3059,8 +3054,27 @@ build_insn_allocno_copy_conflicts (copy_t list, rtx insn, bool after_insn_p)
 	    }
 	  else
 	    {
-	      mark_output_allocno_death (src, insn);
-	      if (regno >= 0 && HARD_REGISTER_NUM_P (regno))
+	      mark_allocno_death (src);
+	      if (regno < 0)
+		{
+		  yara_assert (INSN_ALLOCNO_OP_MODE (src) == OP_OUT
+			       || INSN_ALLOCNO_OP_MODE (src) == OP_INOUT);
+		  /* We assume that each addr allocno can occur at most
+		     once in output memory allocno.  */
+		  if (GET_CODE (*INSN_ALLOCNO_LOC (src)) == MEM)
+		    for (curr_a = curr_insn_allocnos;
+			 curr_a != NULL;
+			 curr_a = INSN_ALLOCNO_NEXT (curr_a))
+		      if (INSN_ALLOCNO_ADDR_OUTPUT_ALLOCNO (curr_a) == src)
+			{
+			  yara_assert
+			    (find_post_insn_allocno_copy (curr_a, insn)
+			     == NULL);
+			  mark_allocno_death (curr_a);
+			  INSN_ALLOCNO_ADDR_OUTPUT_ALLOCNO (curr_a) = NULL;
+			}
+		}
+	      else if (HARD_REGISTER_NUM_P (regno))
 		{
 		  /* It is a copy of out/inout allocno into hard
 		     register.  */
@@ -3239,21 +3253,21 @@ single_alt_reg_class (const char *constraints, struct insn_op_info *info,
    register.  If it is so, the function returns the class of the hard
    register.  Otherwise it returns NO_REGS.  */
 static enum reg_class
-single_reg_allocno_class (allocno_t a)
+single_reg_operand_class (rtx insn, int op_num)
 {
   enum reg_class cl, next_cl;
   struct insn_op_info *info;
-  int i, op_num;
+  int i, n_alts;
+  char **constraints;
 
-  op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE;
-  info = insn_infos [INSN_UID (INSN_ALLOCNO_INSN (a))];
-  if (op_num < 0 || info->n_alts == 0)
+  info = insn_infos [INSN_UID (insn)];
+  if (op_num < 0 || (n_alts = info->n_alts) == 0)
     return NO_REGS;
   cl = NO_REGS;
-  for (i = 0; i < info->n_alts; i++)
+  constraints = &info->op_constraints [op_num * n_alts];
+  for (i = 0; i < n_alts; i++)
     {
-      next_cl = single_alt_reg_class (info->op_constraints
-				      [op_num * info->n_alts + i], info, i);
+      next_cl = single_alt_reg_class (constraints [i], info, i);
       if ((cl != NO_REGS && next_cl != cl)
 	  || available_class_regs [next_cl] > 1)
 	return NO_REGS;
@@ -3262,10 +3276,12 @@ single_reg_allocno_class (allocno_t a)
   return cl;
 }
 
+/* The function create conflicts for allocnos of INSN whose operands
+   requiring a single hard register given by SINGLE_REG_OP_SET.  */
 static void
-build_insn_allocno_conflicts (rtx insn)
+build_insn_allocno_conflicts (rtx insn, op_set_t single_reg_op_set)
 {
-  int i, hard_regno;
+  int i, hard_regno, op_num;
   allocno_t a;
   rtx link;
 
@@ -3297,16 +3313,20 @@ build_insn_allocno_conflicts (rtx insn)
 			      GET_MODE (output_insn_hard_regs [i]));
       }
 
-  for (a = curr_insn_allocnos; a != NULL; a = INSN_ALLOCNO_NEXT (a))
-    if (INSN_ALLOCNO_OP_MODE (a) == OP_IN)
-      {
-	enum reg_class cl;
-
-	cl = single_reg_allocno_class (a);
-	if (cl != NO_REGS)
+  
+  if (! EQ_OP_SET (single_reg_op_set, ZERO_OP_SET))
+    for (a = curr_insn_allocnos; a != NULL; a = INSN_ALLOCNO_NEXT (a))
+      if (INSN_ALLOCNO_OP_MODE (a) == OP_IN
+	  && (op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE) >= 0
+	  && TEST_OP (single_reg_op_set, op_num))
+	{
+	  enum reg_class cl;
+	  
+	  cl = single_reg_operand_class (insn, op_num);
+	  yara_assert (cl != NO_REGS);
 	  process_live_allocnos (set_single_hard_reg_allocno_info,
 				 (void *) cl);
-      }
+	}
 
   /* Death used allocnos: */
   for (a = curr_insn_allocnos; a != NULL; a = INSN_ALLOCNO_NEXT (a))
@@ -3353,17 +3373,20 @@ build_insn_allocno_conflicts (rtx insn)
 	|| INSN_ALLOCNO_OP_MODE (a) == OP_INOUT)
       mark_allocno_live (a, false);
 
-  for (a = curr_insn_allocnos; a != NULL; a = INSN_ALLOCNO_NEXT (a))
-    if (INSN_ALLOCNO_OP_MODE (a) == OP_OUT
-	|| INSN_ALLOCNO_OP_MODE (a) == OP_INOUT)
-      {
-	enum reg_class cl;
-
-	cl = single_reg_allocno_class (a);
-	if (cl != NO_REGS)
+  if (! EQ_OP_SET (single_reg_op_set, ZERO_OP_SET))
+    for (a = curr_insn_allocnos; a != NULL; a = INSN_ALLOCNO_NEXT (a))
+      if ((INSN_ALLOCNO_OP_MODE (a) == OP_OUT
+	   || INSN_ALLOCNO_OP_MODE (a) == OP_INOUT)
+	  && (op_num = INSN_ALLOCNO_TYPE (a) - OPERAND_BASE) >= 0
+	  && TEST_OP (single_reg_op_set, op_num))
+	{
+	  enum reg_class cl;
+	  
+	  cl = single_reg_operand_class (insn, op_num);
+	  yara_assert (cl != NO_REGS);
 	  process_live_allocnos (set_single_hard_reg_allocno_info,
 				 (void *) cl);
-      }
+	}
 
   /* Set up hard regs without allocnos */
   for (i = 0; i < output_insn_hard_reg_num; i++)
@@ -3489,6 +3512,7 @@ create_insn_copies (rtx insn)
   allocno_t src, dst;
   enum op_type op_mode;
   rtx x;
+  struct insn_op_info *info;
 
   uid = INSN_UID (insn);
   after.point_type = AFTER_INSN;
@@ -3572,7 +3596,9 @@ create_insn_copies (rtx insn)
   after_insn_copies [INSN_UID (insn)]
     = sort_copy_list (after_insn_copies [INSN_UID (insn)],
 		      after_insn_copy_compare);
-  build_insn_allocno_conflicts (insn);
+  info = insn_infos [INSN_UID (insn)];
+  build_insn_allocno_conflicts
+    (insn, info == NULL ? ZERO_OP_SET : info->single_reg_op_set);
 }
 
 static void
@@ -3962,7 +3988,11 @@ create_bb_allocno (int regno, struct yara_loop_tree_node *bb_node,
 	      = create_region_allocno (regno, bb_node->father, NULL_RTX);
 	}
       if (start_p)
-	bb_node->regno_allocno_map [regno] = outside_a;
+	{
+	  bb_node->regno_allocno_map [regno] = outside_a;
+	  bitmap_set_bit (bb_node->allocno_live_at_start,
+			  ALLOCNO_NUM (outside_a));
+	}
       add_live_through_allocno (outside_a, start_p, bb_node->bb, NULL);
     }
   else if (start_p)
@@ -3982,6 +4012,7 @@ create_bb_allocno (int regno, struct yara_loop_tree_node *bb_node,
 	}
       point.point_type = AT_BB_START;
       cp = create_copy (a, outside_a, point, NULL_RTX);
+      bitmap_set_bit (bb_node->allocno_live_at_start, ALLOCNO_NUM (a));
     }
   else
     {
@@ -4094,7 +4125,11 @@ create_edge_allocno (int regno, edge e, struct yara_loop_tree_node *loop_node,
 	IOR_HARD_REG_SET (ALLOCNO_HARD_REG_CONFLICTS (outside_a),
 			  prohibited_abnormal_edge_hard_regs);
       if (entry_p)
-	loop_node->regno_allocno_map [regno] = outside_a;
+	{
+	  loop_node->regno_allocno_map [regno] = outside_a;
+	  bitmap_set_bit (loop_node->allocno_live_at_start,
+			  ALLOCNO_NUM (outside_a));
+	}
       add_live_through_allocno (outside_a, false, NULL, e);
     }
   else if (entry_p)
@@ -4115,6 +4150,7 @@ create_edge_allocno (int regno, edge e, struct yara_loop_tree_node *loop_node,
 	  a = outside_a;
 	  loop_node->regno_allocno_map [regno] = a;
 	}
+      bitmap_set_bit (loop_node->allocno_live_at_start, ALLOCNO_NUM (a));
       if (a == outside_a)
 	add_live_through_allocno (outside_a, false, NULL, e);
       else

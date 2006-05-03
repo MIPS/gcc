@@ -709,6 +709,10 @@ fregmove
 Common Report Var(flag_regmove)
 Enables a register move optimization
 
+frelief
+Common Report Var(flag_relief)
+Register pressure relief
+
 frematerialize
 Common Report Var(flag_rematerialize)
 Perform a register rematerialization

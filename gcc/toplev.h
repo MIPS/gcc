@@ -134,6 +134,7 @@ extern int time_report;
 extern int flag_yara;
 extern int flag_optimistic_coalescing;
 extern int flag_extended_coalescing;
+extern int flag_relief;
 extern int flag_rematerialize;
 extern int flag_split;
 

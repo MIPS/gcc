@@ -284,6 +284,7 @@ find_reg_class_closure (void)
   yara_assert (ok_p);
   setup_class_translate ();
 }
+
 
 
 /* Minimal costs of usage the current insn alternative operand placed
@@ -948,6 +949,26 @@ setup_can_classes (void)
   yara_free (can_classes_num);
 }
 
+/* The function removes conflict cans of CAN which have different
+   cover class.  */
+static void
+remove_unecessary_can_conflicts (can_t can)
+{
+  int i, j;
+  enum reg_class cover_class;
+  can_t *can_vec, conflict_can;
+
+  cover_class = CAN_COVER_CLASS (can);
+  if (cover_class == NO_REGS)
+    return;
+  can_vec = CAN_CONFLICT_CAN_VEC (can);
+  yara_assert (can_vec != NULL);
+  for (i = j = 0; (conflict_can = can_vec [j]) != NULL; j++)
+    if (cover_class == CAN_COVER_CLASS (conflict_can))
+      can_vec [i++] = conflict_can;
+  can_vec [i] = NULL;
+}
+
 /* Function setting up reg class preferences and cover class for
    cans.  */
 static void
@@ -960,7 +981,7 @@ setup_cover_classes_and_reg_costs (void)
   enum op_type op_mode;
   basic_block bb;
   allocno_t a;
-  can_t can, conflict_can, *can_vec;
+  can_t can;
   struct insn_op_info *info;
   int *can_class_cost, *can_memory_cost, *cost_ptr, *costs;
 
@@ -1109,22 +1130,553 @@ setup_cover_classes_and_reg_costs (void)
      cans (remember that memory is assigned to slotno not to
      can).  */
   for (i = 0; i < cans_num; i++)
-    {
-      can = cans [i];
-      cover_class = CAN_COVER_CLASS (can);
-      if (cover_class == NO_REGS)
-	continue;
-      can_vec = CAN_CONFLICT_CAN_VEC (can);
-      yara_assert (can_vec != NULL);
-      for (k = j = 0; (conflict_can = can_vec [j]) != NULL; j++)
-	if (cover_class == CAN_COVER_CLASS (conflict_can))
-	  can_vec [k++] = conflict_can;
-      can_vec [k] = NULL;
-    }
+    remove_unecessary_can_conflicts (cans [i]);
   yara_free (can_classes);
   yara_free (can_memory_cost);
   yara_free (can_class_cost);
 }
+
+
+
+/* This page contains code for register pressure relief by splitting
+   cans on parts one of which lives in loops and basic block and not
+   used and which therefore probably gets memory.  */
+
+/* Bitmap of cans currently live.  It is used for reg pressure
+   calculation.  */
+static bitmap reg_pressure_live_can_bitmap;
+
+/* Current bb node being processed for register pressure
+   calculation.  */
+static struct yara_loop_tree_node *curr_reg_pressure_calculation_bb_node;
+
+/* Current reg pressuer for reg classes.  Only elements for cover
+   classes are defined.  */
+static int curr_reg_pressure [N_REG_CLASSES];
+
+/* Current register class (cover class) for which we are trying to
+   reduce register pressure.  */
+static enum reg_class curr_reg_pressure_class;
+
+/* Array of high pressure subloops of the loop being considered for
+   register pressure reduction.  */
+static varray_type high_reg_pressure_subloops;
+
+/* This is just a start of the previous varray.  */
+static struct yara_loop_tree_node **subloop_array;
+
+/* The size of the previous array.  */
+static int subloop_array_size;
+
+/* Array of all subloops (of the loop in consideration) in which can
+   choosen for splitting lives through.  */
+static varray_type quiet_subloops;
+
+/* Bitmap of the current can allocnos for splitting.  */
+static bitmap reg_pressure_decrease_allocno_bitmap;
+
+/* Varray for allocnos of splitted can.  */
+static varray_type reg_pressure_decrease_allocno_varray;
+
+/* The function sets up can_through for NODE.  */
+static void
+set_up_can_through (struct yara_loop_tree_node *node)
+{
+  bitmap_iterator bi;
+  bitmap can_through, regno_refs;
+  int i, regno;
+  allocno_t a;
+  can_t can;
+
+  can_through = node->can_through;
+  regno_refs = node->regno_refs;
+  EXECUTE_IF_SET_IN_BITMAP (node->allocno_live_at_start, 0, i, bi)
+    {
+      a = allocnos [i];
+      if ((regno = ALLOCNO_REGNO (a)) < 0 || bitmap_bit_p (regno_refs, regno))
+	continue;
+      can = ALLOCNO_CAN (a);
+      if (can == NULL)
+	continue;
+      bitmap_set_bit (can_through, CAN_NUM (can));
+    }
+}
+
+/* This recursive function updates max pressure for NODE and its
+   parents for the current reg class.  */
+static void
+update_node_reg_pressure (struct yara_loop_tree_node *node)
+{
+  if (curr_reg_pressure [curr_reg_pressure_class]
+      <= node->reg_pressure [curr_reg_pressure_class])
+    return;
+  node->reg_pressure [curr_reg_pressure_class]
+    = curr_reg_pressure [curr_reg_pressure_class];
+  if (node->father != NULL)
+    update_node_reg_pressure (node->father);
+}
+
+/* This function updates living cans and reg pressure processing start
+   of allocno A life.  */
+static void
+live_allocno (allocno_t a)
+{
+  can_t can;
+
+  can = ALLOCNO_CAN (a);
+  if (can == NULL
+      || bitmap_bit_p (reg_pressure_live_can_bitmap, CAN_NUM (can)))
+    return;
+  bitmap_set_bit (reg_pressure_live_can_bitmap, CAN_NUM (can));
+  curr_reg_pressure_class = CAN_COVER_CLASS (can);
+  if (curr_reg_pressure_class == NO_REGS)
+    return;
+  curr_reg_pressure [curr_reg_pressure_class]++;
+  update_node_reg_pressure (curr_reg_pressure_calculation_bb_node);
+}
+
+/* This function updates living cans and reg pressure processing
+   allocno A death.  */
+static void
+die_allocno (allocno_t a)
+{
+  can_t can;
+
+  can = ALLOCNO_CAN (a);
+  if (can == NULL
+      || ! bitmap_bit_p (reg_pressure_live_can_bitmap, CAN_NUM (can)))
+    return;
+  bitmap_clear_bit (reg_pressure_live_can_bitmap, CAN_NUM (can));
+  curr_reg_pressure_class = CAN_COVER_CLASS (can);
+  if (curr_reg_pressure_class == NO_REGS)
+    return;
+  curr_reg_pressure [curr_reg_pressure_class]--;
+  yara_assert (curr_reg_pressure [curr_reg_pressure_class] >= 0);
+}
+
+/* This function calculate max register pressure of all bbs and loops
+   for all cover classes.  It also sets up can_through for the bbs and
+   loops.  */
+static void
+calculate_reg_pressure (void)
+{
+  int i, j, class_num;
+  unsigned uid;
+  rtx insn, bound;
+  allocno_t a;
+  copy_t before_copies, after_copies, cp;
+  bitmap_iterator bi;
+
+  reg_pressure_live_can_bitmap = yara_allocate_bitmap ();
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      if (i == ENTRY_BLOCK || i == EXIT_BLOCK)
+	continue;
+      for (class_num = 0; class_num < final_reg_class_cover_size; class_num++)
+	yara_bb_nodes [i].reg_pressure [final_reg_class_cover [class_num]] = 0;
+      set_up_can_through (&yara_bb_nodes [i]);
+    }
+  for (i = 0; i < (int) yara_loops.num; i++)
+    {
+      for (class_num = 0; class_num < final_reg_class_cover_size; class_num++)
+	yara_loop_nodes [i].reg_pressure [final_reg_class_cover [class_num]]
+	  = 0;
+      set_up_can_through (&yara_loop_nodes [i]);
+    }
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      if (i == ENTRY_BLOCK || i == EXIT_BLOCK)
+	continue;
+      curr_reg_pressure_calculation_bb_node = &yara_bb_nodes [i];
+      for (class_num = 0; class_num < final_reg_class_cover_size; class_num++)
+	curr_reg_pressure [final_reg_class_cover [class_num]] = 0;
+      bitmap_clear (reg_pressure_live_can_bitmap);
+      EXECUTE_IF_SET_IN_BITMAP (yara_bb_nodes [i].allocno_live_at_start,
+				0, j, bi)
+	{
+	  live_allocno (allocnos [j]);;
+	}
+      bound = NEXT_INSN (BB_END (curr_reg_pressure_calculation_bb_node->bb));
+      for (insn = BB_HEAD (curr_reg_pressure_calculation_bb_node->bb);
+	   insn != bound;
+	   insn = NEXT_INSN (insn))
+	{
+	  if (! INSN_P (insn))
+	    continue;
+	  uid = INSN_UID (insn);
+	  before_copies = before_insn_copies [uid];
+	  after_copies = after_insn_copies [uid];
+	  for (cp = before_copies; cp != NULL; cp = COPY_NEXT_COPY (cp))
+	    {
+	      if ((a = COPY_SRC (cp)) != NULL)
+		die_allocno (a);
+	      live_allocno (COPY_DST (cp));
+	    }
+	  for (cp = after_copies; cp != NULL; cp = COPY_NEXT_COPY (cp))
+	    {
+	      a = COPY_SRC (cp);
+	      if (ALLOCNO_TYPE (a) != INSN_ALLOCNO)
+		live_allocno (a);
+	      else if (INSN_ALLOCNO_EARLY_CLOBBER (a))
+		{
+		  yara_assert (INSN_ALLOCNO_OP_MODE (a) == OP_OUT);
+		  live_allocno (a);
+		}
+	    }
+	  for (cp = before_copies; cp != NULL; cp = COPY_NEXT_COPY (cp))
+	    die_allocno (COPY_DST (cp));
+	  for (cp = after_copies; cp != NULL; cp = COPY_NEXT_COPY (cp))
+	    {
+	      a = COPY_SRC (cp);
+	      if (ALLOCNO_TYPE (a) == INSN_ALLOCNO)
+		live_allocno (a);
+	    }
+	  for (cp = after_copies; cp != NULL; cp = COPY_NEXT_COPY (cp))
+	    {
+	      die_allocno (COPY_SRC (cp));
+	      if (COPY_DST (cp) != NULL)
+		live_allocno (COPY_DST (cp));
+	    }
+	}
+    }
+  yara_free_bitmap (reg_pressure_live_can_bitmap);
+}
+
+/* The function processes all subloops of the loop in consideration,
+   finds in how many subloops CAN live through, and updates
+   *MAX_SUBLOOPS_NUM and *BEST if necessary.  */
+static void
+process_can_to_choose_split_can (can_t can, int *max_subloops_num, can_t *best)
+{
+  int i, subloops_num, can_num;
+
+  can_num = CAN_NUM (can);
+  subloops_num = 0;
+  for (i = subloop_array_size - 1; i >= 0; i--)
+    if (bitmap_bit_p (subloop_array [i]->can_through, can_num))
+      {
+	subloops_num++;
+	if (*max_subloops_num < subloops_num)
+	  {
+	    *max_subloops_num = subloops_num;
+	    *best = can;
+	  }
+      }
+}
+
+/* The function finds the best can to split for SUBLOOP and forms
+   array of subloops where the can lives through (quiet subloops).  */
+static can_t
+choose_can_to_split (struct yara_loop_tree_node *subloop)
+{
+  bitmap_iterator bi;
+  bitmap can_through;
+  int max_subloops_num, i, best_num;
+  can_t best, can;
+  
+  can_through = subloop->can_through;
+  max_subloops_num = 0;
+  best = NULL;
+  EXECUTE_IF_SET_IN_BITMAP (can_through, 0, i, bi)
+    {
+      can = cans [i];
+      if (CAN_COVER_CLASS (can) == curr_reg_pressure_class)
+	process_can_to_choose_split_can (can, &max_subloops_num, &best);
+    }
+  if (best != NULL)
+    {
+      best_num = CAN_NUM (best);
+      /* Forming quiet subloops for the best.  */
+      VARRAY_POP_ALL (quiet_subloops);
+      for (i = subloop_array_size - 1; i >= 0; i--)
+	if (bitmap_bit_p (subloop_array [i]->can_through, best_num))
+	  VARRAY_PUSH_GENERIC_PTR (quiet_subloops, subloop_array [i]);
+    }
+  return best;
+}
+
+/* The function decreases register pressure for NODE and all internal
+   nodes after CAN was slitted.  */
+static void
+decrease_reg_pressure (struct yara_loop_tree_node *node, can_t can)
+{
+  struct yara_loop_tree_node *subloop;;
+
+  if (node->loop != NULL)
+    for (subloop = node->inner; subloop; subloop = subloop->next)
+      decrease_reg_pressure (subloop, can);
+  /* Don't consider can for the node again.  */
+  bitmap_clear_bit (node->can_through, CAN_NUM (can));
+  yara_assert (curr_reg_pressure_class == CAN_COVER_CLASS (can));
+  node->reg_pressure [curr_reg_pressure_class]--;
+}
+
+/* The function decreases register pressure by splitting CAN. */
+static void
+perform_split (can_t can)
+{
+  struct yara_loop_tree_node *subloop, **quiet_subloops_array;
+  int i, n, last, freq, quiet_subloops_array_size;
+  allocno_t a, *can_allocnos;
+  can_t new_can, *can_vec, c;
+
+  quiet_subloops_array
+    = (struct yara_loop_tree_node **) &VARRAY_GENERIC_PTR (quiet_subloops, 0);
+  quiet_subloops_array_size = VARRAY_ACTIVE_SIZE (quiet_subloops);
+  bitmap_clear (reg_pressure_decrease_allocno_bitmap);
+  can_allocnos = CAN_ALLOCNOS (can);
+  for (i = 0; i < quiet_subloops_array_size; i++)
+    {
+      subloop = quiet_subloops_array [i];
+      for (n = 0; (a = can_allocnos [n]) != NULL; n++)
+	if (ALLOCNO_TYPE (a) == REGION_ALLOCNO
+	    && REGION_ALLOCNO_NODE (a) == subloop
+	    && ! bitmap_bit_p (reg_pressure_decrease_allocno_bitmap,
+			       ALLOCNO_NUM (a)))
+	  {
+	    bitmap_set_bit (reg_pressure_decrease_allocno_bitmap,
+			    ALLOCNO_NUM (a));
+	    decrease_reg_pressure (subloop, can);
+	    break;
+	  }
+      if (a == NULL)
+	/* Failure: don't consider can for the subloop again.  */
+	bitmap_clear_bit (subloop->can_through, CAN_NUM (can));
+    }
+  /* Actual splitting.  */
+  VARRAY_POP_ALL (reg_pressure_decrease_allocno_varray);
+  for (last = i = 0; (a = can_allocnos [i]) != NULL; i++)
+    {
+      if (bitmap_bit_p (reg_pressure_decrease_allocno_bitmap, ALLOCNO_NUM (a)))
+	VARRAY_PUSH_GENERIC_PTR (reg_pressure_decrease_allocno_varray, a);
+      else
+	can_allocnos [last++] = a;
+    }
+  yara_assert (last != 0);
+  n = VARRAY_ACTIVE_SIZE (reg_pressure_decrease_allocno_varray);
+  if (n == 0)
+    return;
+  can_allocnos [last] = NULL;
+  /* Create a new can.  */
+  new_can = create_can ();
+  CAN_SLOTNO (new_can) = CAN_SLOTNO (can);
+  can_allocnos = CAN_ALLOCNOS (new_can)
+    = yara_allocate ((n + 1) * sizeof (allocno_t));
+  memcpy (can_allocnos,
+	  &VARRAY_GENERIC_PTR (reg_pressure_decrease_allocno_varray, 0),
+	  n * sizeof (allocno_t));
+  can_allocnos [n] = NULL;
+  CAN_MODE (new_can) = CAN_MODE (can);
+  CAN_COVER_CLASS (new_can) = CAN_COVER_CLASS (can);
+  for (i = 0; (a = can_allocnos [i]) != NULL; i++)
+    ALLOCNO_CAN (a) = new_can;
+  freq = can_freq (new_can);
+  CAN_FREQ (new_can) = freq;
+  CAN_FREQ (can) -= freq;
+  yara_assert (CAN_FREQ (can) >= 0);
+  if (CAN_CALL_P (can))
+    {
+      setup_can_call_info (can);
+      setup_can_call_info (new_can);
+    }
+  CAN_GLOBAL_P (new_can) = CAN_GLOBAL_P (can);
+  can_vec = CAN_CONFLICT_CAN_VEC (can);
+  yara_assert (can_vec != NULL);
+  for (i = 0; (c = can_vec [i]) != NULL; i++)
+    {
+      yara_free (CAN_CONFLICT_CAN_VEC (c));
+      CAN_CONFLICT_CAN_VEC (c) = NULL;
+      create_can_conflicts (c);
+      remove_unecessary_can_conflicts (c);
+    }
+  yara_free (can_vec);
+  CAN_CONFLICT_CAN_VEC (can) = NULL;
+  /* ??? can_copies  */
+  /* cover_class_cost, memory_cost is not used by Chaitin??? */
+  /* ??? hard_reg_costs */
+  n = class_hard_regs_num [CAN_COVER_CLASS (new_can)];
+  CAN_HARD_REG_COSTS (new_can) = yara_allocate (sizeof (int) * n);
+  memset (CAN_HARD_REG_COSTS (new_can), 0, sizeof (int) * n);
+  create_can_conflicts (can);
+  remove_unecessary_can_conflicts (can);
+  create_can_conflicts (new_can);
+  remove_unecessary_can_conflicts (new_can);
+  if (yara_dump_file != NULL)
+    {
+      fprintf (stderr, "+++Splitting %scan#%d into:\n",
+	       (CAN_GLOBAL_P (can) ? "g" : ""), CAN_NUM (can));
+      print_can (stderr, can);
+      print_can (stderr, new_can);
+    }
+}
+
+/* The recursive function returns the first basic block of node LOOP
+   (in the loop tree).  */
+static basic_block
+get_first_loop_bb (struct yara_loop_tree_node *loop)
+{
+  if (loop->bb != NULL)
+    return loop->bb;
+  return get_first_loop_bb (loop->inner);
+}
+
+/* The recursive function returns the last basic block of node LOOP
+   (in the loop tree).  */
+static basic_block
+get_last_loop_bb (struct yara_loop_tree_node *loop)
+{
+  if (loop->bb != NULL)
+    return loop->bb;
+  for (loop = loop->inner; loop->next != NULL; loop = loop->next)
+    ;
+  return get_last_loop_bb (loop);
+}
+
+/* The function reduces register reg_pressure for SUBLOOP.  It finds a can
+   living through the subloop and biggest number of other subloops of
+   the loop in consideration.  */
+static bool
+reduce_subloop_reg_pressure (struct yara_loop_tree_node *subloop)
+{
+  can_t can;
+
+  if (yara_dump_file != NULL)
+    {
+      fprintf (yara_dump_file, "Trying to reduce reg_pressure in ");
+      if (subloop->bb != NULL)
+	fprintf (yara_dump_file, "BB %d:\n", subloop->bb->index);
+      else
+	fprintf (yara_dump_file, "LOOP %d (%d-%d):\n", subloop->loop->num,
+		 get_first_loop_bb (subloop)->index,
+		 get_last_loop_bb (subloop)->index);
+    }
+  can = choose_can_to_split (subloop);
+  if (can == NULL)
+    return false; /* failure */
+  if (yara_dump_file != NULL)
+    {
+      struct yara_loop_tree_node *loop, **quiet_subloops_array;
+      int i, quiet_subloops_array_size;
+
+      fprintf (stderr, "  Success with can %d -- all region:\n",
+	       CAN_NUM (can));
+      quiet_subloops_array
+	= (struct yara_loop_tree_node **) &VARRAY_GENERIC_PTR (quiet_subloops,
+							       0);
+      quiet_subloops_array_size = VARRAY_ACTIVE_SIZE (quiet_subloops);
+      for (i = quiet_subloops_array_size - 1; i >= 0; i--)
+	{
+	  loop = quiet_subloops_array [i];
+	  if (loop->bb != NULL)
+	    fprintf (stderr, "    BB %d:\n", loop->bb->index);
+	  else
+	    fprintf (stderr, "    LOOP %d (%d-%d):\n",
+		     loop->loop->num, get_first_loop_bb (loop)->index,
+		     get_last_loop_bb (loop)->index);
+	}
+    }
+  perform_split (can);
+  return true;
+}
+
+/* The function returns register reg_pressure excess in loop or block
+   NODE.  */
+static int
+reg_pressure_excess (struct yara_loop_tree_node *node)
+{
+  return (node->reg_pressure [curr_reg_pressure_class]
+	  - available_class_regs [curr_reg_pressure_class]);
+}
+
+/* The function is used to sort loops putting loops with smaller
+   reg_pressure excess first.  */
+static int
+loop_reg_pressure_excess_cmp (const void *ptr1, const void *ptr2)
+{
+  struct yara_loop_tree_node *n1 = *(struct yara_loop_tree_node **) ptr1;
+  struct yara_loop_tree_node *n2 = *(struct yara_loop_tree_node **) ptr2;
+
+  return n1->reg_pressure_excess - n2->reg_pressure_excess;
+}
+
+/* The function reduces reg_pressure in LOOP.  It collects all subloops
+   with high register reg_pressure and then reduces reg_pressure in the
+   subloops starting with subloops with higher register reg_pressure.  */
+static void
+reduce_loop_reg_pressure (struct yara_loop_tree_node *loop)
+{
+  struct yara_loop_tree_node *subloop;
+  int i;
+
+  VARRAY_POP_ALL (high_reg_pressure_subloops);
+  for (subloop = loop->inner; subloop; subloop = subloop->next)
+    if (reg_pressure_excess (subloop) > 0
+	&& ((YARA_PARAMS & YARA_BB_RELIEF) || subloop->loop != NULL))
+      VARRAY_PUSH_GENERIC_PTR (high_reg_pressure_subloops, subloop);
+  for (;;)
+    {
+      subloop_array = ((struct yara_loop_tree_node **)
+		       &VARRAY_GENERIC_PTR (high_reg_pressure_subloops, 0));
+      subloop_array_size = VARRAY_ACTIVE_SIZE (high_reg_pressure_subloops);
+      if (subloop_array_size == 0)
+	break;
+      for (i = 0; i < subloop_array_size; i++)
+	{
+	  subloop = subloop_array [i];
+	  subloop->reg_pressure_excess = reg_pressure_excess (subloop);
+	}
+      qsort (subloop_array, subloop_array_size,
+	     sizeof (struct yara_loop_tree_node *),
+	     loop_reg_pressure_excess_cmp);
+      subloop = VARRAY_TOP_GENERIC_PTR (high_reg_pressure_subloops);
+      if (subloop->reg_pressure_excess == 0)
+	break;
+      if (! reduce_subloop_reg_pressure (subloop))
+	VARRAY_POP (high_reg_pressure_subloops);
+    }
+}
+
+/* This recursive function reduces reg_pressure in LOOP and all its
+   subloops.  */
+static void
+reduce_reg_pressure_inside_loop (struct yara_loop_tree_node *loop)
+{
+  struct yara_loop_tree_node *subloop;
+
+  if (loop->loop != NULL && reg_pressure_excess (loop) > 0)
+    {
+      reduce_loop_reg_pressure (loop);
+      for (subloop = loop->inner; subloop; subloop = subloop->next)
+	reduce_reg_pressure_inside_loop (subloop);
+    }
+}
+
+/* The function is a start point of register reg_pressure reduction.  */
+static void
+reduce_reg_pressure (void)
+{
+  int class_num;
+
+  calculate_reg_pressure ();
+  VARRAY_GENERIC_PTR_NOGC_INIT (high_reg_pressure_subloops, 100,
+				"subloops with high reg pressure");
+  VARRAY_GENERIC_PTR_NOGC_INIT (quiet_subloops, 100,
+				"subloops in which allocno is not mentioned");
+  VARRAY_GENERIC_PTR_NOGC_INIT (reg_pressure_decrease_allocno_varray,
+				allocnos_num, "allocnos for new can");
+  reg_pressure_decrease_allocno_bitmap = yara_allocate_bitmap ();
+  for (class_num = 0; class_num < final_reg_class_cover_size; class_num++)
+    {
+      curr_reg_pressure_class = final_reg_class_cover [class_num];
+      reduce_reg_pressure_inside_loop (yara_loop_tree_root);
+    }
+  yara_free_bitmap (reg_pressure_decrease_allocno_bitmap);
+  VARRAY_FREE (reg_pressure_decrease_allocno_varray);
+  VARRAY_FREE (quiet_subloops);
+  VARRAY_FREE (high_reg_pressure_subloops);
+}
+
+
 
 static bool
 add_can_copy (can_t can, can_t another_can, bool to_p, int freq)
@@ -1294,10 +1846,10 @@ split_can_by_split_allocno_bitmap (can_t can, bool global_p)
       yara_free (CAN_CONFLICT_CAN_VEC (c));
       CAN_CONFLICT_CAN_VEC (c) = NULL;
       create_can_conflicts (c);
+      remove_unecessary_can_conflicts (c);
     }
   yara_free (can_vec);
   CAN_CONFLICT_CAN_VEC (can) = NULL;
-  /* ??? internal_cost, dividing_nodes is needed for cluing.  */
   /* ??? can_copies  */
   /* cover_class_cost, memory_cost is not used by Chaitin??? */
   /* ??? hard_reg_costs */
@@ -1305,7 +1857,9 @@ split_can_by_split_allocno_bitmap (can_t can, bool global_p)
   CAN_HARD_REG_COSTS (new_can) = yara_allocate (sizeof (int) * n);
   memset (CAN_HARD_REG_COSTS (new_can), 0, sizeof (int) * n);
   create_can_conflicts (can);
+  remove_unecessary_can_conflicts (can);
   create_can_conflicts (new_can);
+  remove_unecessary_can_conflicts (new_can);
   if (yara_dump_file != NULL)
     {
       fprintf (yara_dump_file, "+++Splitting %scan#%d into:\n",
@@ -1561,6 +2115,45 @@ add_can_to_bucket (can_t can, can_t *bucket_ptr)
   *bucket_ptr = can;
 }
 
+/* Add CAN to *BUCKET_PTR bucket maintaining the order according their
+   frequency (if bit YARA_NO_BUCKET_ORDER is clear).  CAN should be
+   not in a bucket before the call.  */
+static void
+add_can_to_ordered_bucket (can_t can, can_t *bucket_ptr)
+{
+  can_t before, after;
+  enum reg_class cover_class;
+  int freq, nregs;
+
+  if ((YARA_PARAMS & YARA_NO_FREQ_BUCKET_ORDER))
+    {
+      before = *bucket_ptr;
+      after = NULL;
+    }
+  else
+    {
+      freq = CAN_FREQ (can);
+      cover_class = CAN_COVER_CLASS (can);
+      nregs = reg_class_nregs [cover_class] [CAN_MODE (can)];
+      for (before = *bucket_ptr, after = NULL;
+	   before != NULL;
+	   after = before, before = CAN_NEXT_BUCKET_CAN (before))
+	if (((YARA_PARAMS & YARA_NREGS_BUCKET_ORDER)
+	     && cover_class == CAN_COVER_CLASS (before)
+	     && nregs < reg_class_nregs [cover_class] [CAN_MODE (before)])
+	    || CAN_FREQ (before) > freq)
+	  break;
+    }
+  CAN_NEXT_BUCKET_CAN (can) = before;
+  CAN_PREV_BUCKET_CAN (can) = after;
+  if (after == NULL)
+    *bucket_ptr = can;
+  else
+    CAN_NEXT_BUCKET_CAN (after) = can;
+  if (before != NULL)
+    CAN_PREV_BUCKET_CAN (before) = can;
+}
+
 /* Delete CAN from *BUCKET_PTR bucket.  It should be there before
    the call.  */
 static void
@@ -1631,13 +2224,15 @@ push_globals_to_stack (void)
       if (colorable_can_bucket != NULL)
 	{
 	  can = colorable_can_bucket;
+	  delete_can_from_bucket (can, &colorable_can_bucket);
+	  if (yara_dump_file != NULL)
+	    fprintf (yara_dump_file, "Pushing %d\n", CAN_NUM (can));
 	  cover_class = CAN_COVER_CLASS (can);
 	  if (cover_class != NO_REGS)
 	    size = reg_class_nregs [cover_class] [CAN_MODE (can)];
 	  yara_assert (CAN_LEFT_CONFLICTS_NUM (can)
 		       + reg_class_nregs [cover_class] [CAN_MODE (can)]
 		       <= available_class_regs [cover_class]);
-	  bucket_ptr = &colorable_can_bucket;
 	}
       else
 	{
@@ -1705,8 +2300,10 @@ push_globals_to_stack (void)
 				(bucket_varray, CAN_LEFT_CONFLICTS_NUM (can)));
 		}
 	    }
+	  delete_can_from_bucket (can, bucket_ptr);
+	  if (yara_dump_file != NULL)
+	    fprintf (yara_dump_file, "Pushing %d (potential spill)\n", CAN_NUM (can));
 	}
-      delete_can_from_bucket (can, bucket_ptr);
       CAN_IN_GRAPH_P (can) = false;
       VARRAY_PUSH_GENERIC_PTR (global_stack_varray, can);
       if (cover_class == NO_REGS)
@@ -1731,7 +2328,8 @@ push_globals_to_stack (void)
 	      conflicts_num = CAN_LEFT_CONFLICTS_NUM (conflict_can);
 	      if (conflicts_num + conflict_size
 		  <= available_class_regs [cover_class])
-		add_can_to_bucket (conflict_can, &colorable_can_bucket);
+		add_can_to_ordered_bucket (conflict_can,
+					   &colorable_can_bucket);
 	      else
 		{
 		  if (first_non_empty_bucket_num > conflicts_num)
@@ -1942,19 +2540,26 @@ pop_globals_from_stack (void)
 	  CAN_HARD_REGNO (can) = -1;
 	  continue;
 	}
+      if (yara_dump_file != NULL)
+	fprintf (yara_dump_file, "popping %d", CAN_NUM (can));
       if (choose_global_hard_reg (can))
 	{
+	  if (yara_dump_file != NULL)
+	    fprintf (yara_dump_file, "-- assign reg\n");
 	  CAN_IN_GRAPH_P (can) = true;
 	  update_copy_costs (can);
 	  continue;
 	}
-      yara_assert (CAN_SLOTNO (can) == CAN_NUM (can));
       if (flag_split && split_global_can (can))
 	{
+	  if (yara_dump_file != NULL)
+	    fprintf (yara_dump_file, "-- push back\n");
 	  /* Process CAN again.  */
 	  VARRAY_PUSH_GENERIC_PTR (global_stack_varray, can);
 	  continue;
 	}
+      if (yara_dump_file != NULL)
+	fprintf (yara_dump_file, "-- spill\n");
       /* ??? local alloc for conflicting and preferenced.  */
       CAN_IN_GRAPH_P (can) = true;
       CAN_HARD_REGNO (can) = -1;
@@ -2016,7 +2621,7 @@ global_can_alloc (void)
 	VARRAY_PUSH_GENERIC_PTR (bucket_varray, NULL);
       if (conflict_cans_size + reg_class_nregs [cover_class] [CAN_MODE (can)]
 	  <= available_class_regs [cover_class])
-	add_can_to_bucket (can, &colorable_can_bucket);
+	add_can_to_ordered_bucket (can, &colorable_can_bucket);
       else
 	add_can_to_bucket (can,
 			   (can_t *) &VARRAY_GENERIC_PTR (bucket_varray,
@@ -3220,7 +3825,7 @@ pseudo_reg_copy_cost (copy_t cp)
 	    cost = memory_move_cost [dst_mode]
                                     [REGNO_REG_CLASS (dst_hard_regno)] [1];
 	  else
-	    /* ??? constant lodaing */
+	    /* ??? constant loading */
 	    cost = register_move_cost [dst_mode]
                                       [REGNO_REG_CLASS (dst_hard_regno)]
 	                              [REGNO_REG_CLASS (dst_hard_regno)];
@@ -3261,6 +3866,8 @@ yara_color (void)
   biased_can_bitmap = yara_allocate_bitmap ();
   conflict_can_bitmap = yara_allocate_bitmap ();
   setup_cover_classes_and_reg_costs ();
+  if (flag_relief)
+    reduce_reg_pressure ();
   add_move_costs ();
   if (yara_dump_file != NULL)
     print_cans (yara_dump_file);

@@ -32,6 +32,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define YARA_PRIORITY_COLORING 256
 #define YARA_NO_UPDATE_COSTS 512
 #define YARA_NO_BIASED_COLORING 1024
+#define YARA_NO_FREQ_BUCKET_ORDER 2048
+#define YARA_NREGS_BUCKET_ORDER 4096
+#define YARA_BB_RELIEF 8192
 
 
 #ifdef ENABLE_CHECKING
@@ -123,6 +126,17 @@ struct yara_loop_tree_node
 
   /* Registers referred in the node.  */
   bitmap regno_refs;
+
+  /* Region allocnos living at start of the corresponding bb or
+     loop.  */
+  bitmap allocno_live_at_start;
+  /* Cans living through the node (but not used).  */
+  bitmap can_through;
+  /* Maximal pressure in given node.  */
+  int reg_pressure [N_REG_CLASSES];
+  /* Temporary field.  Register pressure excess for the current reg
+     class.  */
+  int reg_pressure_excess;
 
   /* Map regno -> allocno for given loop.  */
   allocno_t *regno_allocno_map;
@@ -821,6 +835,24 @@ struct can_copy
   struct can_copy *tied_can_copy;
 };
 
+/* Set of insn operands.  */
+typedef unsigned long op_set_t;
+
+#define MAX_OP_SET_SIZE         ((int) sizeof (op_set_t) * CHAR_BIT)
+
+#define ZERO_OP_SET             ((op_set_t) 0)
+#define SET_OP_RANGE(ops, n, m) 			\
+  ((ops) |= ((~ (op_set_t) 0) >> (MAX_OP_SET_SIZE - (m) + (n) - 1)) << (n))
+#define TEST_OP(ops, n)         (((ops) >> (n)) & 1)
+#define CLEAR_OP(ops, n)        ((ops) &= ~ ((op_set_t) 1) << (n))
+#define SET_OP(ops, n)          ((ops) |= ((op_set_t) 1) << (n))
+#define CLEAR_OP_SET(ops)       ((ops) = 0)
+#define SET_OP_SET(ops)         ((ops) = ~ ZERO_OP_SET)
+#define COPY_OP_SET(to, from)   ((to) = (from))
+#define OR_OP_SET(to, from)     ((to) |= (from))
+#define AND_OP_SET(to, from)    ((to) &= (from))
+#define EQ_OP_SET(as1, as2)     ((as1) == (as2))
+
 /* Information about the insn of given code.  */
 struct insn_op_info
 {
@@ -833,6 +865,9 @@ struct insn_op_info
   /* The following field value is true if there are commutative
      operands in the insn.  */
   bool commutative_op_p;
+  /* If an opernad can use only one hard_register, the corresponding
+     bit will be set.  */
+  op_set_t single_reg_op_set;
 };
 
 /* The following is a map: insn code -> insn operand info.  */

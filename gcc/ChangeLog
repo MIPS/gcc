@@ -1,3 +1,60 @@
+2006-05-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* toplev.h (flag_relief): New external declration.
+
+	* yara-int.h (YARA_NO_FREQ_BUCKET_ORDER,
+	YARA_NREGS_BUCKET_ORDER, YARA_BB_RELIEF): New macros.
+	(yara_loop_tree_node): New fields.
+	allocno_live_at_start, can_through, reg_pressure, and
+	reg_pressure_excess.
+	(op_set_t): New typedef.
+	(MAX_OP_SET_SIZE, ZERO_OP_SET, SET_OP_RANGE, TEST_OP, CLEAR_OP,
+	SET_OP, CLEAR_OP_SET, SET_OP_SET, COPY_OP_SET, OR_OP_SET,
+	AND_OP_SET, EQ_OP_SET): New macros.
+	(insn_op_info): New field single_reg_op_set.
+
+	* yara-color.c (remove_unecessary_can_conflicts): New function.
+	(setup_cover_classes_and_reg_costs): Use the function.
+	(reg_pressure_live_can_bitmap,
+	curr_reg_pressure_calculation_bb_node, curr_reg_pressure,
+	curr_reg_pressure_class, high_reg_pressure_subloops,
+	subloop_array_size, quiet_subloops,
+	reg_pressure_decrease_allocno_bitmap,
+	reg_pressure_decrease_allocno_varray): New static variables.
+	(set_up_can_through, update_node_reg_pressure, live_allocno,
+	die_allocno, calculate_reg_pressure,
+	process_can_to_choose_split_can, choose_can_to_split,
+	decrease_reg_pressure, perform_split, get_first_loop_bb,
+	get_last_loop_bb, reduce_subloop_reg_pressure,
+	reg_pressure_excess, loop_reg_pressure_excess_cmp,
+	reduce_loop_reg_pressure, reduce_reg_pressure_inside_loop,
+	reduce_reg_pressure): New functions.
+	(add_can_copy, split_can_by_split_allocno_bitmap): Add calls of
+	remove_unecessary_can_conflicts.
+	(add_can_to_ordered_bucket): New function.
+	(push_globals_to_stack): Use add_can_to_ordered_bucket instead of
+	add_can_to_bucket.  Add a debug output.
+	(pop_globals_from_stack): Add a debug output.
+	(global_can_alloc): Use add_can_to_ordered_bucket instead of
+	add_can_to_bucket.
+	(yara_color): Call reduce_reg_pressure.
+
+	* common.opt (frelief): New entry.
+
+	* yara-ir.c (single_reg_allocno_class): Rename to
+	single_reg_operand_class.  Change the signature.
+	(mark_output_allocno_death): Remove.
+	(build_insn_allocno_conflicts): Change the signature.
+	(create_loop_tree_nodes): Allocate allocno_live_at_start and
+	can_through.
+	(finish_loop_tree_nodes): Free allocno_live_at_start and
+	can_through.
+	(create_insn_info): Set up single_reg_op_set.
+	(build_insn_allocno_copy_conflicts):  Move code from
+	mark_output_allocno_death.
+	(create_bb_allocno, create_edge_allocno): Set up
+	allocno_live_at_start.
+	
 2006-04-19  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* yara-color.c (update_min_alt_costs): Save and restore possible
