@@ -1,3 +1,19 @@
+2006-05-02  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/27364
+	* gcc.c-torture/execute/pr27364.c: New test.
+
+2006-05-02  Roger Sayle  <roger@eyesopen.com>
+
+	PR c/25309
+	* gcc.dg/large-size-array-2.c: New test case.
+
+2006-05-02  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR target/27387
+	* gcc.target/arm/arm.exp: New.
+	* gcc.target/arm/pr27387.C: Likewise.
+
 2006-05-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/27337
