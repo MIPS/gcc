@@ -1,3 +1,77 @@
+2006-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/27395
+	* gimplify.c (gimplify_scan_omp_clauses): Compare OMP_CLAUSE_CODE
+	rather than TREE_CODE to OMP_CLAUSE_REDUCTION.  Set also GOVD_SEEN
+	bit for OMP_CLAUSE_REDUCTION_PLACEHOLDER.
+
+2006-05-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/26943
+	* omp-low.c (maybe_lookup_decl_in_outer_ctx): New function.
+	(build_outer_var_ref): Use maybe_lookup_decl_in_outer_ctx
+	to find if var will be a global variable even in the nested context.
+	(omp_copy_decl): Only check for global variable at the end, it might
+	be overridden in outer contexts.
+	(scan_sharing_clauses): For global variables don't create a field.
+	(lower_rec_input_clauses): Do nothing for global shared variables.
+	Emit a barrier at the end of ILIST if there were any decls in both
+	firstprivate and lastprivate clauses.
+	(lower_send_clauses): Do nothing for global variables except for
+	COPYIN.
+
+	PR middle-end/27337
+	* gimplify.c (gimplify_scan_omp_clauses): Handle INDIRECT_REF
+	around RESULT_DECL for result passed by reference.
+	(gimplify_expr): Call omp_notice_variable when RESULT_DECL is seen.
+	* omp-low.c (use_pointer_for_field): Don't look at
+	DECL_HAS_VALUE_EXPR_P for RESULT_DECLs.
+	(scan_omp_1): Call remap_decl on RESULT_DECLs.
+	(lower_rec_input_clauses): Don't allocate VLA memory for the second
+	time or var for passing by reference for
+	OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE clauses.  Allow creation of
+	TREE_ADDRESSABLE variables when passing by reference.
+
+	* omp-low.c (dump_omp_region): Fix output formatting.
+
+	PR middle-end/27328
+	* omp-low.c (remove_exit_barrier): Handle NULL exit_bb.
+	(expand_omp_parallel): Likewise.
+	* tree-cfg.c (move_sese_region_to_fn): Likewise.
+
+	PR middle-end/27325
+	* omp-low.c (lower_omp_sections): Call maybe_catch_exception
+	on statement list containing also constructors and destructors.
+	(lower_omp_single, lower_omp_for, lower_omp_parallel): Likewise.
+
+	PR middle-end/27310
+	* except.c (duplicate_eh_regions): Fix clearing of
+	cfun->eh->region_array entries.
+
+2006-05-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* omp-low.c (dump_omp_region): Add newlines.
+
+2006-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/26171
+	* cgraph.c (cgraph_varpool_finalize_decl): Don't call
+	cgraph_varpool_assemble_pending_decls if -fopenmp, unless
+	cgraph_global_info_ready.
+
+	PR middle-end/26913
+	* tree-cfg.c (find_outermost_region_in_block): Handle RESX_EXPR.
+
+	PR c/25996
+	* c-parser.c (c_parser_omp_for_loop): Don't call c_finish_omp_for if
+	either decl or init is error_mark_node.
+
+	PR middle-end/25989
+	* tree-flow.h (struct omp_region): Add sched_kind.
+	* omp-low.c (expand_parallel_call): Use region->inner->sched_kind
+	instead of extracting omp for data.
+	(expand_omp_for): Save extracted sched_kind.
+
 2006-05-01  Richard Henderson  <rth@redhat.com>
 
 	PR c/27358
