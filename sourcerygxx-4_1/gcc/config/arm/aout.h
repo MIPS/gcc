@@ -214,14 +214,24 @@
 #endif
      
 /* Output an element of a dispatch table.  */
-#define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE)  \
-  asm_fprintf (STREAM, "\t.word\t%LL%d\n", VALUE)
+#define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE)			\
+  do								\
+    {								\
+      if (TARGET_THUMB2)					\
+	asm_fprintf (STREAM, "\t.word\t%LL%d+1\n", VALUE);	\
+      else							\
+	asm_fprintf (STREAM, "\t.word\t%LL%d\n", VALUE);	\
+    }								\
+  while (0)
+	  
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(STREAM, BODY, VALUE, REL)		\
   do									\
     {									\
       if (TARGET_ARM)							\
 	asm_fprintf (STREAM, "\tb\t%LL%d\n", VALUE);			\
+      else if (TARGET_THUMB2)						\
+	asm_fprintf (STREAM, "\t.word\t%LL%d+1-%LL%d\n", VALUE, REL);	\
       else								\
 	asm_fprintf (STREAM, "\t.word\t%LL%d-%LL%d\n", VALUE, REL);	\
     }									\
