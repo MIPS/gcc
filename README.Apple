@@ -39,16 +39,13 @@ program will not compile or run when compiled with this program.  The
 version of the compiler that ships with OS X is the standard for
 correctness; any time something works with that compiler but fails
 with this one is probably a bug, and should be reported to
-darwin-development@lists.apple.com.
+http://bugreport.apple.com
 
 PREREQUISITES
 
 Presumably if you're reading this, you've figured out how to get the
 sources. :-) But just to be complete, these sources are available from
-the Darwin repository at opensource.apple.com, CVS module "gcc",
-branch "apple-ppc-branch".  See
-http://www.opensource.apple.com/tools/cvs if this isn't enough info
-yet.
+the Darwin repository at http://opensource.apple.com.
 
 If you want C++ exception handling to work, you will need a modified
 crt1.o. (crt1.o is the bit of code that sets up for execution and
