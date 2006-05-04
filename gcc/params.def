@@ -497,6 +497,11 @@ DEFPARAM(PARAM_MAX_CODE_GROWTH,
 	 "Maximal code growth caused by (treegion) tail duplication (in percent)",
 	 100, 0, 0)
 
+DEFPARAM(PARAM_ICSE_THRESHOLD,
+	 "treegion-icse-threshold",
+	 "Treegion tail duplication instantaneous code size efficiency threshold - should be between 268 (0.268) for more duplication and 577 (0.577) for less duplication",
+	 577, 0, 0)
+
 DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
 	 "max-last-value-rtl",
 	 "The maximum number of RTL nodes that can be recorded as combiner's last value",

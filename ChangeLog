@@ -1,3 +1,10 @@
+2006-05-04  Chad Rosier <mcrosier@unity.ncsu.edu>
+	* gcc/haifa-sched.c (ddg_init,ddg_finish): new.
+	* gcc/sched-treegions.c (td_treegions): Added ICSE threshold.
+	* gcc/emit-rtl.c (copy_insn_1): Double size of copy_insn_scratch_in
+	  to avoid assert for SCRATCH registers.
+	* gcc/params.def: Added PARAM_ICSE_THRESHOLD.
+
 2006-01-05  Alexandre Oliva  <aoliva@redhat.com>
 
 	* Makefile.tpl (clean-stage[+id+]-[+prefix+][+module+]): Remove

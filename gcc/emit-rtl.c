@@ -4903,8 +4903,8 @@ init_virtual_regs (struct emit_status *es)
 
 
 /* Used by copy_insn_1 to avoid copying SCRATCHes more than once.  */
-static rtx copy_insn_scratch_in[MAX_RECOG_OPERANDS];
-static rtx copy_insn_scratch_out[MAX_RECOG_OPERANDS];
+static rtx copy_insn_scratch_in[MAX_RECOG_OPERANDS*2];
+static rtx copy_insn_scratch_out[MAX_RECOG_OPERANDS*2];
 static int copy_insn_n_scratches;
 
 /* When an insn is being copied by copy_insn_1, this is nonzero if we have
@@ -5043,7 +5043,7 @@ copy_insn_1 (rtx orig)
   if (code == SCRATCH)
     {
       i = copy_insn_n_scratches++;
-      gcc_assert (i < MAX_RECOG_OPERANDS);
+      gcc_assert (i < MAX_RECOG_OPERANDS*2);
       copy_insn_scratch_in[i] = orig;
       copy_insn_scratch_out[i] = copy;
     }

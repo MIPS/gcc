@@ -2347,6 +2347,49 @@ sched_init (FILE *dump_file)
       targetm.sched.md_init_global (sched_dump, sched_verbose, old_max_uid);
 }
 
+/* Initialize some global state for building the region ddg. */
+
+void
+ddg_init (void)
+{
+  int luid;
+  basic_block b;
+  rtx insn;
+  int i;
+
+  /* We use LUID 0 for the fake insn (UID 0) which holds dependencies for
+     pseudos which do not cross calls.  */
+  old_max_uid = get_max_uid () + 1;
+
+  h_i_d = xcalloc (old_max_uid, sizeof (*h_i_d));
+
+  for (i = 0; i < old_max_uid; i++)
+    h_i_d [i].cost = -1;
+
+  h_i_d[0].luid = 0;
+  luid = 1;
+  FOR_EACH_BB (b)
+    for (insn = BB_HEAD (b); ; insn = NEXT_INSN (insn))
+      {
+	INSN_LUID (insn) = luid;
+	
+	/* Increment the next luid, unless this is a note.  We don't
+	   really need separate IDs for notes and we don't want to
+	   schedule differently depending on whether or not there are
+	   line-number notes, i.e., depending on whether or not we're
+	   generating debugging information.  */
+	if (!NOTE_P (insn))
+	  ++luid;
+	
+	if (insn == BB_END (b))
+	  break;
+      }
+
+  init_dependency_caches (luid);
+
+  init_alias_analysis ();
+}
+
 /* Free global data used during insn scheduling.  */
 
 void
@@ -2362,5 +2405,15 @@ sched_finish (void)
 
   if (targetm.sched.md_finish_global)
       targetm.sched.md_finish_global (sched_dump, sched_verbose);
+}
+
+/* Free global data used for ddg.  */
+
+void
+ddg_finish (void)
+{
+  free (h_i_d);
+  free_dependency_caches ();
+  end_alias_analysis ();
 }
 #endif /* INSN_SCHEDULING */

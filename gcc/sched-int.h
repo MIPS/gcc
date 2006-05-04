@@ -361,6 +361,8 @@ extern int set_priorities (rtx, rtx);
 extern void schedule_block (int, int);
 extern void sched_init (FILE *);
 extern void sched_finish (void);
+extern void ddg_init (void);
+extern void ddg_finish (void);
 
 extern void ready_add (struct ready_list *, rtx);
 

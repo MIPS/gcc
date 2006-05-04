@@ -277,8 +277,6 @@ static void propagate_deps (int, struct deps *);
 static void free_pending_lists (void);
 
 /* Tail duplication data structures */
-
-
 /* Types of tail duplication candidates
 
   We define 4 types of possible tail duplicate candidates
@@ -304,7 +302,7 @@ td_candidate *td_candidates;
 int max_td_candidates, nr_td_candidates;
 sbitmap free_candidate_bitmap;
 
-/* Tail duplication functions by Chad Rosier */
+/* Tail duplication functions */
 static void td_treegions (void);
 static int td_treegion (td_candidate c);
 static void td_reform_treegions (td_candidate c);
@@ -320,21 +318,22 @@ static void td_free_DDG (int trgn);
 static float td_treegion_exec_time (int trgn, edge *false_edges, int nr_false_edges);
 static float td_path_res_bound (basic_block *blocks, int nr_blocks, float prob);
 static float td_path_dd_bound (basic_block *blocks, int nr_blocks, float prob);
-static bool sched_treegion_too_large_p (int trgn);
+static bool sched_region_too_large_p (int trgn);
 
 /* Variables used to limit code expansion due to tail duplication */
 static float max_code_growth;
+static float icse_threshold;
 static float orig_insn_count;
 static float curr_insn_count;
 
-static float nr_insns_function (void);
-static float nr_insns_region (int trgn);
+static int nr_insns_function (void);
+static int nr_insns_region (int trgn);
 
 /* Number of instructions in function */
-static float
+static int
 nr_insns_function(void)
 {
-  float ret = 0;
+  int ret = 0;
   basic_block bb;
   rtx insn;
   
@@ -343,20 +342,20 @@ nr_insns_function(void)
       FOR_BB_INSNS(bb, insn)
 	{
 	  if(INSN_P(insn))
-	    ret += 1.0;
+	    ret += 1;
 	}
     }
   return ret;
 }
 
 /* Number of instructions in a treegion */
-static float
+static int
 nr_insns_region(int trgn)
 {
-  int i;
-  float ret = 0;
+  int i, nr_blocks, ret = 0;
 
-  for(i = 0; i < RGN_NR_BLOCKS (trgn); i++)
+  nr_blocks = RGN_NR_BLOCKS (trgn);
+  for(i = 0; i < nr_blocks; i++)
     ret += RGN_NR_INSNS (trgn);
 
   return ret;
@@ -456,8 +455,11 @@ debug_treegion (int rgn)
    If true is returned then this region is not scheduled. */
 
 static bool
-sched_treegion_too_large_p (int trgn)
+sched_region_too_large_p (int trgn)
 {
+  /* For now schedule all regions */
+  return false;
+
   /* Region includes too many blocks */
   if(RGN_NR_BLOCKS (trgn) > PARAM_VALUE (PARAM_MAX_SCHED_REGION_BLOCKS))
     return true;
@@ -467,22 +469,6 @@ sched_treegion_too_large_p (int trgn)
     return true;
       
   return false;
-}
-
-/* Update_loop_relations(blk, hdr): Check if the loop headed by max_hdr[blk]
-   is still an inner loop.  Put in max_hdr[blk] the header of the most inner
-   loop containing blk.  */
-#define UPDATE_LOOP_RELATIONS(blk, hdr)		\
-{						\
-  if (max_hdr[blk] == -1)			\
-    max_hdr[blk] = hdr;				\
-  else if (dfs_nr[max_hdr[blk]] > dfs_nr[hdr])	\
-    RESET_BIT (inner, hdr);			\
-  else if (dfs_nr[max_hdr[blk]] < dfs_nr[hdr])	\
-    {						\
-      RESET_BIT (inner,max_hdr[blk]);		\
-      max_hdr[blk] = hdr;			\
-    }						\
 }
 
 /* Functions for regions scheduling information.  */
@@ -1847,6 +1833,150 @@ sched_is_disabled_for_current_region_p (void)
   return true;
 }
 
+/* Returns a positive value if x is preferred; returns a negative value if
+   y is preferred.  Should never return 0, since that will make the sort
+   unstable.  */
+
+static int
+sort_edges (const void *x, const void *y)
+{
+  edge tmp = *(const edge *) y;
+  edge tmp2 = *(const edge *) x;
+
+  if(tmp->probability >= tmp2->probability)
+    return 1;
+  else
+    return -1;
+}
+
+/* Tree Traversal Scheduling - schedule blocks in DFS order giving 
+   priority to more frequently executing paths. */
+static void
+compute_DFS_TTS (int rgn, int *DFS_tree_traversal_order)
+{
+  int i, bb, sp; 
+  basic_block block;
+
+  edge e;
+  edge_iterator ei;
+
+  typedef struct {
+    edge *edges;      /* edge list */
+    int curr, total;  /* current edge and total edges */
+  } e_stack;
+  e_stack *stack;
+
+  if(current_nr_blocks < 3)
+    {
+      DFS_tree_traversal_order[0] = 0;
+      if (current_nr_blocks == 2)
+	DFS_tree_traversal_order[1] = 1;
+      return;
+    }
+
+#if 0
+  debug_treegion (rgn);
+#endif
+
+  /* Allocate stack */
+  sp = 0;
+  stack = xmalloc (sizeof (e_stack) * current_nr_blocks);
+  
+  /* Add root block to traversal order */
+  bb = 0;
+  DFS_tree_traversal_order[bb] = 0;
+
+  /* Allocate stack entry */
+  block = BASIC_BLOCK (BB_TO_BLOCK (bb));
+  bb++;
+
+  gcc_assert(EDGE_COUNT (block->succs) > 0);
+  stack[sp].edges = xmalloc (sizeof (edge) * EDGE_COUNT (block->succs));
+  stack[sp].curr = 0;
+  stack[sp].total = 0;
+
+  /* Insert successor edges into stack */
+  i = 0;
+  FOR_EACH_EDGE (e, ei, block->succs)
+    {
+      if(CONTAINING_RGN(e->dest->index) != rgn ||
+	 e->flags & EDGE_DFS_BACK ||
+	 e->dest == EXIT_BLOCK_PTR)
+	continue;
+
+      stack[sp].edges[i++] = e;
+    }
+  stack[sp].total = i;
+
+  /* Sort the edges based on execution frequency */
+  if(stack[sp].total == 2)
+    {
+      if(stack[sp].edges[1]->probability >
+	 stack[sp].edges[0]->probability)
+	{
+	  edge swap = stack[sp].edges[0];
+	  stack[sp].edges[0] = stack[sp].edges[1];
+	  stack[sp].edges[1] = swap;
+	}
+    }
+  else if(stack[sp].total > 2)
+    qsort (&(stack[sp].edges[0]), stack[sp].total, 
+	   sizeof (edge), sort_edges);
+
+  while(sp >= 0)
+    {
+      if(stack[sp].curr == stack[sp].total)
+	{
+	  free (stack[sp].edges);
+	  sp--;
+	  continue;
+	}
+
+      /* Add bb to traversal order */
+      block = stack[sp].edges[stack[sp].curr++]->dest;
+      DFS_tree_traversal_order[bb++] = BLOCK_TO_BB (block->index);
+
+      /* No successor to continue */
+      if(EDGE_COUNT (block->succs) == 0)
+	  continue;
+
+      /* Allocate stack entry */
+      sp++;
+      stack[sp].edges = xmalloc (sizeof (edge) * EDGE_COUNT (block->succs));
+      stack[sp].curr = 0;
+      stack[sp].total = 0;
+
+      /* Insert successor edges into stack */
+      i = 0;
+      FOR_EACH_EDGE (e, ei, block->succs)
+	{
+	  if(CONTAINING_RGN(e->dest->index) != rgn ||
+	     e->flags & EDGE_DFS_BACK ||
+	     e->dest == EXIT_BLOCK_PTR)
+	    continue;
+
+	  stack[sp].edges[i++] = e;
+	}
+      stack[sp].total = i;
+
+      /* Sort the edges based on execution frequency */
+      if(stack[sp].total == 2)
+	{
+	  if(stack[sp].edges[1]->probability >
+	     stack[sp].edges[0]->probability)
+	    {
+	      edge swap = stack[sp].edges[0];
+	      stack[sp].edges[0] = stack[sp].edges[1];
+	      stack[sp].edges[1] = swap;
+	    }
+	}
+      else if(stack[sp].total > 2)
+	qsort (&(stack[sp].edges[0]), stack[sp].total, 
+	       sizeof (edge), sort_edges);
+    }
+  free(stack);
+}
+
 /* Schedule a treegion.  A region is an acyclic subgraph of the cfg. 
    Each bb in the treegion is scheduled after its flow predecessors. */
 
@@ -1860,14 +1990,16 @@ schedule_treegion (int rgn)
   int rgn_n_insns = 0;
   int sched_rgn_n_insns = 0;
 
+  int *DFS_tree_traversal_order;
+
   /* Set variables for the current region.  */
   current_nr_blocks = RGN_NR_BLOCKS (rgn);
   current_blocks = RGN_BLOCKS (rgn);
   
   /* Don't schedule region that is too large */
-  if (sched_treegion_too_large_p (rgn))
+  if (sched_region_too_large_p (rgn))
     return;
-  
+
   /* Don't schedule region that is marked by
      NOTE_DISABLE_SCHED_OF_BLOCK.  */
   if (sched_is_disabled_for_current_region_p ())
@@ -1944,11 +2076,16 @@ schedule_treegion (int rgn)
 	compute_dom_prob_ps (bb);
     }
 
+  /* Schedule blocks in DFS giving priority to the most highly
+     executed path. */
+  DFS_tree_traversal_order = xmalloc (sizeof (int) * current_nr_blocks);
+  compute_DFS_TTS (rgn, DFS_tree_traversal_order);
+
   /* Now we can schedule all blocks.  */
   for (bb = 0; bb < current_nr_blocks; bb++)
     {
       rtx head, tail;
-      int b = BB_TO_BLOCK (bb);
+      int b = BB_TO_BLOCK (DFS_tree_traversal_order[bb]);
 
       get_block_head_tail (b, &head, &tail);
 
@@ -1984,7 +2121,7 @@ schedule_treegion (int rgn)
 	 schedule_block ().  */
       rm_other_notes (head, tail);
 
-      target_bb = bb;
+      target_bb = DFS_tree_traversal_order[bb];
 
       current_sched_info->queue_must_finish_empty
 	= current_nr_blocks > 1 && !flag_schedule_interblock;
@@ -2006,6 +2143,8 @@ schedule_treegion (int rgn)
 	  free (edgelst_table);
 	}
     }
+
+  free (DFS_tree_traversal_order);
 
   /* Sanity check: verify that all region insns were scheduled.  */
   gcc_assert (sched_rgn_n_insns == rgn_n_insns);
@@ -2051,26 +2190,29 @@ schedule_treegion (int rgn)
 static float 
 td_path_dd_bound (basic_block *blocks, int nr_blocks, float prob){
 
-  int bb;
-  int idx, dep_idx;
+  int bb, idx, dep_idx;
   int nr_insns, nr_dep_insns, first_dep_insn;
   rtx insn, *insn_list;
   int height, *insn_height_list, *max_pred_height;
 
   if(prob < 0.001)
-    return 0.0;
+    return 0.0f;
 
   /* Find the number of instructions */
   nr_insns = 0;
   first_dep_insn = 0;
   for (bb = 0; bb < nr_blocks; bb++)
-    FOR_BB_INSNS(blocks[bb], insn)
-      if(INSN_P(insn))
+    {
+      FOR_BB_INSNS(blocks[bb], insn)
 	{
-	  nr_insns++;
-	  if(INSN_DEP_COUNT (insn) == 0)
-	    first_dep_insn++;
+	  if(INSN_P(insn))
+	    {
+	      nr_insns++;
+	      if(INSN_DEP_COUNT (insn) == 0)
+		first_dep_insn++;
+	    }
 	}
+    }
 
   /* Allocate instruction list and height list */
   insn_list = xmalloc(sizeof(rtx) * nr_insns);
@@ -2083,25 +2225,26 @@ td_path_dd_bound (basic_block *blocks, int nr_blocks, float prob){
   idx = 0;
   dep_idx = first_dep_insn;
   for (bb = 0; bb < nr_blocks; bb++)
-    FOR_BB_INSNS(blocks[bb], insn)
-      if(INSN_P(insn))
+    {
+      FOR_BB_INSNS(blocks[bb], insn)
 	{
-	  if(INSN_DEP_COUNT (insn) == 0)
+	  if(INSN_P(insn))
 	    {
-	      gcc_assert(idx < first_dep_insn);
-	      insn_list[idx] = insn;
-	      insn_height_list[idx++] = 0;
-	    }
-	  else
-	    {
-	      gcc_assert(dep_idx < nr_insns);
-	      insn_list[dep_idx] = insn;
-	      max_pred_height[dep_idx - first_dep_insn] = 0;
-	      insn_height_list[dep_idx++] = 0;
+	      if(INSN_DEP_COUNT (insn) == 0)
+		{
+		  insn_list[idx] = insn;
+		  insn_height_list[idx++] = 0;
+		}
+	      else
+		{
+		  insn_list[dep_idx] = insn;
+		  max_pred_height[dep_idx - first_dep_insn] = 0;
+		  insn_height_list[dep_idx++] = 0;
+		}
 	    }
 	}
-  gcc_assert(idx == first_dep_insn);
-  gcc_assert(dep_idx == nr_insns);
+    }
+  gcc_assert(idx == first_dep_insn && dep_idx == nr_insns);
 
   /* Propagate height to dependent instructions */
   idx = 0;
@@ -2135,12 +2278,17 @@ td_path_dd_bound (basic_block *blocks, int nr_blocks, float prob){
 	    {
 	      /* Is this the dependent instruction? */
 	      if(INSN_UID(insn_list[dep_idx]) == INSN_UID (XEXP (link, 0)))
-		if(max_pred_height[dep_idx - first_dep_insn] < insn_height_list[idx])
-		  max_pred_height[dep_idx - first_dep_insn] = insn_height_list[idx];
+		{
+		  if(max_pred_height[dep_idx - first_dep_insn] < insn_height_list[idx])
+		    max_pred_height[dep_idx - first_dep_insn] = insn_height_list[idx];
+
+		  break;
+		}
 	    }
 	}
     }
-  return ((height * 1.0) * prob);
+
+  return ((((float)height) * 1.0f) * prob);
 }
 
 
@@ -2180,11 +2328,11 @@ td_build_DDG (int trgn)
 {
   int bb, idx;
 
+  ddg_init ();
+  current_sched_info = &treegion_sched_info;
+
   current_blocks = RGN_BLOCKS (trgn);
   current_nr_blocks = RGN_NR_BLOCKS (trgn);
-
-  sched_init (NULL);
-  current_sched_info = &treegion_sched_info;
 
   init_deps_global ();
 
@@ -2210,11 +2358,11 @@ td_build_DDG (int trgn)
     }
 }
 
-/* Build the DDG */
+/* Free the DDG */
 static void
 td_free_DDG (int trgn)
 {
-  int i;
+  int i, nr_blocks;
   gcc_assert (current_blocks == RGN_BLOCKS (trgn));
 
   free_pending_lists ();
@@ -2222,16 +2370,17 @@ td_free_DDG (int trgn)
   free (bb_deps);
 
   /* ia64.c assert...*/
-  for(i = 0; i < RGN_NR_BLOCKS (trgn); i++)
+  nr_blocks = RGN_NR_BLOCKS (trgn);
+  for(i = 0; i < nr_blocks; i++)
     {
       rtx insn;
-      basic_block bb = BASIC_BLOCK (BB_TO_BLOCK(i));
-      
-      FOR_BB_INSNS(bb, insn)
-	if(INSN_P(insn))
-	  SCHED_GROUP_P (insn) = 0;
+      FOR_BB_INSNS(BASIC_BLOCK (BB_TO_BLOCK(i)), insn)
+	{
+	  if(INSN_P(insn))
+	    SCHED_GROUP_P (insn) = 0;
+	}
     }
-  sched_finish ();
+  ddg_finish ();
 }
 
 /* Estimate the expected execution time of a region. The execution 
@@ -2251,9 +2400,6 @@ td_treegion_exec_time (int trgn, edge *false_edges, int nr_false_edges)
 
   /* Build the data dependence graph */
   td_build_DDG (trgn);
-
-  current_blocks = RGN_BLOCKS (trgn);
-  current_nr_blocks = RGN_NR_BLOCKS (trgn);
 
   /* Allocate and initialize variables for DFS traversal.  */
   path_blocks = xmalloc ((current_nr_blocks) * sizeof (basic_block));
@@ -2295,10 +2441,6 @@ td_treegion_exec_time (int trgn, edge *false_edges, int nr_false_edges)
 	    {
 	      /* Pop entry off the stack.  */
 	      current_edge = stack[sp--];
-	      node = ei_edge (current_edge)->src->index;
-	      gcc_assert (node != ENTRY_BLOCK);
-	      child = ei_edge (current_edge)->dest->index;
-	      gcc_assert (child != EXIT_BLOCK);
 	      ei_next (&current_edge);
 	    }
 
@@ -2312,29 +2454,27 @@ td_treegion_exec_time (int trgn, edge *false_edges, int nr_false_edges)
 
       /* Process a node.  */
       node = ei_edge (current_edge)->src->index;
-      gcc_assert (node != ENTRY_BLOCK);
-      gcc_assert (node != EXIT_BLOCK);
-
+      gcc_assert (node != ENTRY_BLOCK || node != EXIT_BLOCK);
       child = ei_edge (current_edge)->dest->index;
 
       /* Is this the end of a path? */
       if ((CONTAINING_RGN(child) != trgn) || 
 	  (ei_edge (current_edge)->flags & EDGE_DFS_BACK))
 	{
-	  path_prob = 1.0;
+	  path_prob = 1.0f;
 	  
 	  /* Get path and path probability info from stack */
 	  for(i = 0; i <= sp; i++)
 	    {
 	      path_blocks[i] = ei_edge (stack[i])->src;	      
-	      path_prob = path_prob * 
-		(ei_edge (stack[i])->probability * 1.0 / REG_BR_PROB_BASE);
+	      path_prob *= 
+		(ei_edge (stack[i])->probability * 1.0f / REG_BR_PROB_BASE);
 	    }
 	  
 	  /* Add path and path probability info from current edge  */
 	  path_blocks[i] = ei_edge (current_edge)->src;
-	  path_prob = path_prob * 
-	    (ei_edge (current_edge)->probability * 1.0 / REG_BR_PROB_BASE);
+	  path_prob *= 
+	    (ei_edge (current_edge)->probability * 1.0f / REG_BR_PROB_BASE);
 
 	  /* Find the resource/data dependence bounds */
 	  res_bound = td_path_res_bound (path_blocks, i+1, path_prob);
@@ -2507,7 +2647,7 @@ td_candidate_efficiency (td_candidate *c)
     }
 
   c->efficiency = 
-    (ave_p + ave_c + ave_p2 - (ave_pc + ave_p2c)) / nr_insns_region(c->ctrgn);
+    (ave_p + ave_c + ave_p2 - (ave_pc + ave_p2c)) / (float)nr_insns_region(c->ctrgn);
 
   /*
   fprintf(stderr," Efficiency: %f\n", c->efficiency);
@@ -2618,8 +2758,14 @@ td_candidate_p(int trgn)
 
   /* Check for backedge/complex edges into treegion */
   FOR_EACH_EDGE(e, ei, BASIC_BLOCK(BB_TO_BLOCK(0))->preds)
-    if(e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
-      return 0;
+    {
+      if(e->flags & (EDGE_DFS_BACK))
+	return 0;
+#if 0
+      if(e->flags & (EDGE_COMPLEX))
+	return 0;
+#endif
+    }
 
   /* Check to make sure all blocks can be replicated.
      Also check for successor complex edges. */
@@ -2627,10 +2773,11 @@ td_candidate_p(int trgn)
     {
       if(!can_duplicate_block_p (BASIC_BLOCK(BB_TO_BLOCK(i))))
 	return 0;
-
+#if 0
       FOR_EACH_EDGE(e, ei, BASIC_BLOCK(BB_TO_BLOCK(i))->succs)
 	if(e->flags & EDGE_COMPLEX)
 	  return 0;
+#endif
     }
 
   /* Don't duplicate a region that can't be scheduled */
@@ -2640,7 +2787,7 @@ td_candidate_p(int trgn)
   /* Exceeds our maximum code expansion */
   if (max_code_growth)
     {
-      if ((curr_insn_count + nr_insns_region(trgn)) > 
+      if ((curr_insn_count + (float)nr_insns_region(trgn)) > 
 	  (max_code_growth * orig_insn_count))
 	return 0;
     }
@@ -2658,7 +2805,7 @@ td_block(basic_block bb, edge redirect_e, int trgn)
   basic_block new_bb;
 
   gcc_assert(EDGE_COUNT (bb->preds) > 1);
-  
+
   new_bb = duplicate_block (bb, redirect_e, NULL);
   gcc_assert(new_bb);
 
@@ -2692,7 +2839,7 @@ td_treegion(td_candidate c)
   td_block (c.pc_edge->dest, c.pc_edge, c.ctrgn);
 
   /* Tail duplication was successful so update the code size */
-  curr_insn_count += nr_insns_region (c.ctrgn);
+  curr_insn_count += (float)nr_insns_region (c.ctrgn);
 
   gcc_assert((nr_blocks + nr_new_blocks) == n_basic_blocks);
 
@@ -2768,13 +2915,14 @@ td_update_candidates (int dup)
   return best;
 }
 
-/* For a single treegion (trgn) add new candidates to the candidate list.  
-   best is the current best candidate. Return the (new) best candidate. */
+/* For a single treegion (trgn) add new candidates to the tail 
+   duplication candidate list.  best is the current best candidate. 
+   Return the (new) best candidate. */
 
 static int
 td_add_candidates (int ctrgn, int best)
 {
-  int ptrgn, idx;
+  int ptrgn, idx, bb;
   edge e;
   edge_iterator ei;
 
@@ -2785,11 +2933,23 @@ td_add_candidates (int ctrgn, int best)
   current_blocks = RGN_BLOCKS (ctrgn);
   FOR_EACH_EDGE(e, ei, BASIC_BLOCK(BB_TO_BLOCK(0))->preds) 
     {
-      /* Is the parent treegion a candidate for duplication */
-      ptrgn = CONTAINING_RGN(e->src->index);
-      if(!td_candidate_p(ptrgn))
+
+      /* Entry block can't be in parent treegion */
+      if(e->src == ENTRY_BLOCK_PTR)
 	continue;
-      
+
+      /* Check to make sure parent treegions contains actual blocks. */
+      ptrgn = CONTAINING_RGN(e->src->index);
+      if(RGN_NR_BLOCKS (ptrgn) == 0)
+	continue;
+
+      /* Don't consider parents that can't be scheduled. */
+      current_blocks = RGN_BLOCKS (ptrgn);
+      current_nr_blocks = RGN_NR_BLOCKS (ptrgn);
+      for (bb = 0; bb < current_nr_blocks; bb++)
+	if (!(BASIC_BLOCK (BB_TO_BLOCK (bb))->flags & BB_DISABLE_SCHEDULE))
+	    continue;
+
       /* The parent-child region would include too many blocks */
       if((RGN_NR_BLOCKS (ptrgn) + RGN_NR_BLOCKS (ctrgn))
 	 > (PARAM_VALUE (PARAM_MAX_SCHED_REGION_BLOCKS)))
@@ -2870,7 +3030,7 @@ td_init_candidates (void)
   nr_td_candidates = 0;
   max_td_candidates = n_edges;
 
-  /* Allocate free candidate bitmap. Set all slots as free. */
+  /* Allocate free candidate bitmap. Set all entries as free. */
   free_candidate_bitmap = sbitmap_alloc (max_td_candidates);
   sbitmap_ones (free_candidate_bitmap);
 
@@ -2970,7 +3130,7 @@ td_reform_treegions (td_candidate c)
       while(head != tail)
 	{
 	  current_ei = ei_list[head++];
-	  
+
 	  while(!ei_end_p(current_ei))
 	    {
 	      
@@ -3079,6 +3239,10 @@ td_treegions (void)
   /* Tail duplicate the best candidate */
   while(nr_td_candidates > 0)
     {
+      /* Stop if below ICSE threshold */
+      if(icse_threshold > td_candidates[best].efficiency)
+	  break;
+
       td_treegion (td_candidates[best]);
       td_reform_treegions (td_candidates[best]);
       best = td_update_candidates (best);
@@ -3099,7 +3263,7 @@ find_treegions (void)
   int *rgn_blocks, *copy_blocks;
   int num_bbs, idx, node, head, tail;
   edge_iterator current_ei, *ei_list;
-  
+
   sbitmap zero_bitmap; /* Zero bitmap used to check for empty queue */
   sbitmap in_treegion; /* Track if block is assigned to a treegion */
   sbitmap saplings;    /* Saplings queue */
@@ -3139,7 +3303,7 @@ find_treegions (void)
       num_bbs = 0;
       RGN_NR_BLOCKS (nr_regions) = 0;      
 
-      /* Move sapling node into treegion */
+      /* Move node into treegion */
       rgn_blocks[idx++] = node;
       BLOCK_TO_BB (node) = num_bbs;      
       CONTAINING_RGN (node) = nr_regions;
@@ -3167,7 +3331,6 @@ find_treegions (void)
 
 	  while(!ei_end_p(current_ei))
 	    {
-	      
 	      /* Don't traverse backedges */
 	      if(ei_edge (current_ei)->flags & EDGE_DFS_BACK)
 		{
@@ -3198,7 +3361,7 @@ find_treegions (void)
 		  continue;
 		}
 	      
-	      /* Move successor into treegion */
+	      /* Move successor node into treegion */
 	      rgn_blocks[idx++] = ei_edge (current_ei)->dest->index;
 	      BLOCK_TO_BB (ei_edge (current_ei)->dest->index) = num_bbs;
 	      CONTAINING_RGN (ei_edge (current_ei)->dest->index) = nr_regions;
@@ -3235,7 +3398,7 @@ find_treegions (void)
       copy_blocks = NULL;
       nr_regions++;
     }
-  
+
   free (rgn_blocks);
   free (ei_list);
   
@@ -3265,10 +3428,11 @@ init_treegions (void)
   td_candidates = (td_candidate *)NULL;
 
   max_code_growth = PARAM_VALUE (PARAM_MAX_CODE_GROWTH) / 100.0;
+  icse_threshold = PARAM_VALUE (PARAM_ICSE_THRESHOLD) / 1000.0;
 
   /* If limiting by code expansion then initalize counters */
   if (max_code_growth)
-    orig_insn_count = curr_insn_count = nr_insns_function(); 
+    orig_insn_count = curr_insn_count = (float)nr_insns_function(); 
 
   cfg_layout_initialize(0);
 
