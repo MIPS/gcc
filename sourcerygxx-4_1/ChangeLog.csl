@@ -1,3 +1,16 @@
+2006-05-04  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport:
+	2006-05-04  Richard Sandiford  <richard@codesourcery.com>
+	PR target/26765
+	* gcc/config/mips/mips.c (mips_symbolic_address_p): Return true
+	for SYMBOL_TLSGD, SYMBOL_TLSLDM, SYMBOL_DTPREL, SYMBOL_TPREL,
+	SYMBOL_GOTTPREL, and SYMBOL_TLS.
+
+	2006-05-04  Kazu Hirata  <kazu@codesourcery.com>
+	PR target/26765
+	* gcc/testsuite/gcc.target/mips/pr26765.c: New.
+
 2006-05-04  Paul Brook  <paul@codesourcery.com>
 
 	* gcc/version.c: Revert back to Sourcery G++.
