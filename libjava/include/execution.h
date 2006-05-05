@@ -26,7 +26,7 @@ struct _Jv_ExecutionEngine
   void (*allocate_static_fields) (jclass, int, int);
   void (*create_ncode) (jclass);
   _Jv_ResolvedMethod *(*resolve_method) (_Jv_Method *, jclass,
-					 jboolean, jint);
+					 jboolean);
   void (*post_miranda_hook) (jclass);
 };
 
@@ -50,14 +50,30 @@ struct _Jv_CompiledEngine : public _Jv_ExecutionEngine
   }
 
   static _Jv_ResolvedMethod *do_resolve_method (_Jv_Method *, jclass,
-						jboolean, jint)
+						jboolean)
   {
     return NULL;
   }
 
-  static void do_allocate_static_fields (jclass, int, int)
+  static void do_allocate_static_fields (jclass klass,
+					 int pointer_size,
+					 int other_size)
   {
-    // Compiled classes don't need this.
+    // Splitting the allocations here lets us scan reference fields
+    // and avoid scanning non-reference fields.
+    char *reference_fields = (char *) _Jv_AllocRawObj (pointer_size);
+    char *non_reference_fields = (char *) _Jv_AllocBytes (other_size);
+
+    for (int i = 0; i < klass->field_count; i++)
+      {
+	_Jv_Field *field = &klass->fields[i];
+
+	if ((field->flags & java::lang::reflect::Modifier::STATIC) == 0)
+	  continue;
+
+	char *base = field->isRef() ? reference_fields : non_reference_fields;
+	field->u.addr  = base + field->u.boffset;
+      } 
   }
 
   static void do_create_ncode (jclass)
@@ -102,7 +118,7 @@ class _Jv_InterpreterEngine : public _Jv_ExecutionEngine
   static void do_allocate_static_fields (jclass, int, int);
   static void do_create_ncode (jclass);
   static _Jv_ResolvedMethod *do_resolve_method (_Jv_Method *, jclass,
-						jboolean, jint);
+						jboolean);
 
   static bool do_need_resolve_string_fields ()
   {

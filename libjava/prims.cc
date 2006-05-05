@@ -762,6 +762,11 @@ _Jv_NewMultiArray (jclass type, jint dimensions, jint *sizes)
 jobject
 _Jv_NewMultiArray (jclass array_type, jint dimensions, ...)
 {
+  // Creating an array of an unresolved type is impossible. So we throw
+  // the NoClassDefFoundError.
+  if (_Jv_IsPhantomClass(array_type))
+    throw new java::lang::NoClassDefFoundError(array_type->getName());
+
   va_list args;
   jint sizes[dimensions];
   va_start (args, dimensions);
@@ -1525,7 +1530,7 @@ _Jv_RunMain (JvVMInitArgs *vm_args, jclass klass, const char *name, int argc,
         ("Exception during runtime initialization"));
       t->printStackTrace();
       if (runtime)
-	runtime->exit (1);
+	java::lang::Runtime::exitNoChecksAccessor (1);
       // In case the runtime creation failed.
       ::exit (1);
     }

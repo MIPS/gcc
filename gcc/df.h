@@ -271,7 +271,7 @@ struct df_ref_info
   unsigned int bitmap_size;	/* Number of refs seen.  */
 
   /* True if refs table is organized so that every reference for a
-     pseudo is contigious.  */
+     pseudo is contiguous.  */
   bool refs_organized;
   /* True if the next refs should be added immediately or false to
      defer to later to reorganize the table.  */
@@ -591,6 +591,25 @@ extern void df_reorganize_refs (struct df_ref_info *);
 extern void df_set_state (int);
 extern void df_hard_reg_init (void);
 extern bool df_read_modify_subreg_p (rtx);
+
+
+/* web */
+
+/* This entry is allocated for each reference in the insn stream.  */
+struct web_entry
+{
+  /* Pointer to the parent in the union/find tree.  */
+  struct web_entry *pred;
+  /* Newly assigned register to the entry.  Set only for roots.  */
+  rtx reg;
+  void* extra_info;
+};
+
+extern struct web_entry *unionfind_root (struct web_entry *);
+extern bool unionfind_union (struct web_entry *, struct web_entry *);
+extern void union_defs (struct df *, struct df_ref *,
+                        struct web_entry *, struct web_entry *,
+			bool (*fun) (struct web_entry *, struct web_entry *));
 
 
 #endif /* GCC_DF_H */

@@ -114,7 +114,7 @@ struct cgraph_node *cgraph_nodes;
 struct cgraph_node *cgraph_nodes_queue;
 
 /* Queue of cgraph nodes scheduled to be expanded.  This is a
-   secondary queue used during optimization to accomodate passes that
+   secondary queue used during optimization to accommodate passes that
    may generate new functions that need to be optimized and expanded.  */
 struct cgraph_node *cgraph_expand_queue;
 
@@ -886,7 +886,7 @@ cgraph_varpool_finalize_decl (tree decl)
      if this function has already run.  */
   if (node->finalized)
     {
-      if (cgraph_global_info_ready || !flag_unit_at_a_time)
+      if (cgraph_global_info_ready || (!flag_unit_at_a_time && !flag_openmp))
 	cgraph_varpool_assemble_pending_decls ();
       return;
     }
@@ -901,7 +901,7 @@ cgraph_varpool_finalize_decl (tree decl)
      there.  */
   else if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     cgraph_varpool_mark_needed_node (node);
-  if (cgraph_global_info_ready || !flag_unit_at_a_time)
+  if (cgraph_global_info_ready || (!flag_unit_at_a_time && !flag_openmp))
     cgraph_varpool_assemble_pending_decls ();
 }
 

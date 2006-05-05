@@ -549,7 +549,7 @@ df_ref_create (struct df *df, rtx reg, rtx *loc, rtx insn,
 ----------------------------------------------------------------------------*/
 
 
-/* Get the artifical uses for a basic block.  */
+/* Get the artificial uses for a basic block.  */
 
 struct df_ref *
 df_get_artificial_defs (struct df *df, unsigned int bb_index)
@@ -559,7 +559,7 @@ df_get_artificial_defs (struct df *df, unsigned int bb_index)
 }
 
 
-/* Get the artifical uses for a basic block.  */
+/* Get the artificial uses for a basic block.  */
 
 struct df_ref *
 df_get_artificial_uses (struct df *df, unsigned int bb_index)
@@ -797,7 +797,7 @@ df_bb_refs_delete (struct dataflow *dflow, int bb_index)
 	}
     }
   
-  /* Get rid of any artifical uses or defs.  */
+  /* Get rid of any artificial uses or defs.  */
   if (bb_info)
     {
       def = bb_info->artificial_defs;
@@ -1599,11 +1599,11 @@ df_bb_refs_record (struct dataflow *dflow, basic_block bb)
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (EH_USES (i))
 	  df_uses_record (dflow, &regno_reg_rtx[i], 
-			  DF_REF_REG_USE, EXIT_BLOCK_PTR, NULL,
+			  DF_REF_REG_USE, bb, NULL,
 			  DF_REF_ARTIFICIAL | DF_REF_AT_TOP);
 #endif
 
-      /* The following code (down thru the arg_pointer seting APPEARS
+      /* The following code (down thru the arg_pointer setting APPEARS
 	 to be necessary because there is nothing that actually
 	 describes what the exception handling code may actually need
 	 to keep alive.  */

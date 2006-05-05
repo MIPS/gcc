@@ -1022,6 +1022,7 @@ compile_file (void)
   if (flag_mudflap)
     mudflap_finish_file ();
 
+  output_shared_constant_pool ();
   output_object_blocks ();
 
   /* Write out any pending weak symbol declarations.  */
@@ -1833,7 +1834,6 @@ backend_init (void)
   init_regs ();
   init_fake_stack_mems ();
   init_alias_once ();
-  init_loop ();
   init_reload ();
   init_varasm_once ();
 

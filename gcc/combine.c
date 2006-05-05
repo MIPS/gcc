@@ -139,12 +139,6 @@ static int max_uid_cuid;
 #define INSN_CUID(INSN) \
 (INSN_UID (INSN) > max_uid_cuid ? insn_cuid (INSN) : uid_cuid[INSN_UID (INSN)])
 
-/* In case BITS_PER_WORD == HOST_BITS_PER_WIDE_INT, shifting by
-   BITS_PER_WORD would invoke undefined behavior.  Work around it.  */
-
-#define UWIDE_SHIFT_LEFT_BY_BITS_PER_WORD(val) \
-  (((unsigned HOST_WIDE_INT) (val) << (BITS_PER_WORD - 1)) << 1)
-
 /* Maximum register number, which is the size of the tables below.  */
 
 static unsigned int combine_max_regno;
@@ -456,6 +450,9 @@ static rtx gen_lowpart_or_truncate (enum machine_mode, rtx);
 
 #undef RTL_HOOKS_REG_NUM_SIGN_BIT_COPIES
 #define RTL_HOOKS_REG_NUM_SIGN_BIT_COPIES  reg_num_sign_bit_copies_for_combine
+
+#undef RTL_HOOKS_REG_TRUNCATED_TO_MODE
+#define RTL_HOOKS_REG_TRUNCATED_TO_MODE    reg_truncated_to_mode
 
 static const struct rtl_hooks combine_rtl_hooks = RTL_HOOKS_INITIALIZER;
 
@@ -8193,8 +8190,7 @@ simplify_and_const_int_1 (enum machine_mode mode, rtx varop,
     return NULL_RTX;
 
   /* Otherwise, return an AND.  */
-  constop = trunc_int_for_mode (constop, mode);
-  return simplify_gen_binary (AND, mode, varop, GEN_INT (constop));
+  return simplify_gen_binary (AND, mode, varop, gen_int_mode (constop, mode));
 }
 
 
@@ -8213,7 +8209,8 @@ simplify_and_const_int (rtx x, enum machine_mode mode, rtx varop,
     return tem;
 
   if (!x)
-    x = simplify_gen_binary (AND, GET_MODE (varop), varop, GEN_INT (constop));
+    x = simplify_gen_binary (AND, GET_MODE (varop), varop,
+			     gen_int_mode (constop, mode));
   if (GET_MODE (x) != mode)
     x = gen_lowpart (mode, x);
   return x;
@@ -9196,7 +9193,7 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 				GET_MODE_MASK (result_mode) >> orig_count);
 
   /* Do the remainder of the processing in RESULT_MODE.  */
-  x = gen_lowpart (result_mode, x);
+  x = gen_lowpart_or_truncate (result_mode, x);
 
   /* If COMPLEMENT_P is set, we have to complement X before doing the outer
      operation.  */
@@ -11120,7 +11117,7 @@ record_truncated_value (rtx x)
 
       x = SUBREG_REG (x);
     }
-  /* ??? For hard-regs we now record everthing.  We might be able to
+  /* ??? For hard-regs we now record everything.  We might be able to
      optimize this using last_set_mode.  */
   else if (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER)
     truncated_mode = GET_MODE (x);
@@ -12575,7 +12572,7 @@ gate_handle_combine (void)
 }
 
 /* Try combining insns through substitution.  */
-static void
+static unsigned int
 rest_of_handle_combine (void)
 {
   int rebuild_jump_labels_after_combine
@@ -12593,6 +12590,7 @@ rest_of_handle_combine (void)
       delete_dead_jumptables ();
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
     }
+  return 0;
 }
 
 struct tree_opt_pass pass_combine =

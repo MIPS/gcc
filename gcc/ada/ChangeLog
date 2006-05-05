@@ -1,4 +1,29 @@
+2006-04-08  Aurelien Jarno  <aurel32@debian.org>
+
+	* Makefile.in: Add Ada support for GNU/kFreeBSD.
+	* s-osinte-kfreebsd-gnu.ads: New file.
+
+2006-03-29  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Make-lang.in: Rename docdir to gcc_docdir.
+
+2006-03-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gigi.h (get_ada_base_type): Delete.
+	* utils2.c (get_ada_base_type): Likewise.
+	* trans.c (convert_with_check): Operate in the real base type.
+
+2006-03-03  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* uintp.adb (Num_Bits): Handle Uint_Int_First specially.
+
+2006-03-02  Richard Sandiford  <richard@codesourcery.com>
+
+	* utils.c (create_var_decl): Use have_global_bss_p when deciding
+	whether to make the decl common.
+
 2006-02-20 Rafael Ávila de Espíndola <rafael.espindola@gmail.com>
+
 	* Make-lang.in (Ada): Remove
 	(.PHONY): Remove Ada
 

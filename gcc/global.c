@@ -38,6 +38,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "toplev.h"
 #include "tree-pass.h"
 #include "timevar.h"
+#include "vecprim.h"
 
 /* This pass of the compiler performs global register allocation.
    It assigns hard register numbers to all the pseudo registers
@@ -2124,9 +2125,6 @@ mark_reg_change (rtx reg, rtx setter, void *data)
 /* Classes of registers which could be early clobbered in the current
    insn.  */
 
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
-
 static VEC(int,heap) *earlyclobber_regclass;
 
 /* This function finds and stores register classes that could be early
@@ -2499,7 +2497,7 @@ make_accurate_live_analysis (void)
 }
 /* Run old register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
-static void
+static unsigned int
 rest_of_handle_global_alloc (void)
 {
   bool failure;
@@ -2524,6 +2522,7 @@ rest_of_handle_global_alloc (void)
 
   gcc_assert (reload_completed || failure);
   reload_completed = !failure;
+  return 0;
 }
 
 struct tree_opt_pass pass_global_alloc =

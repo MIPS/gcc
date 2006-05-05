@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "alloc-pool.h"
 #include "flags.h"
 #include "tree-pass.h"
+#include "vecprim.h"
 
 /* Holds the interesting trailing notes for the function.  */
 rtx cfg_layout_function_footer, cfg_layout_function_header;
@@ -99,7 +100,6 @@ skip_insns_after_block (basic_block bb)
 	case NOTE:
 	  switch (NOTE_LINE_NUMBER (insn))
 	    {
-	    case NOTE_INSN_LOOP_END:
 	    case NOTE_INSN_BLOCK_END:
 	      last_insn = insn;
 	      continue;
@@ -135,12 +135,12 @@ skip_insns_after_block (basic_block bb)
   /* It is possible to hit contradictory sequence.  For instance:
 
      jump_insn
-     NOTE_INSN_LOOP_BEG
+     NOTE_INSN_BLOCK_BEG
      barrier
 
      Where barrier belongs to jump_insn, but the note does not.  This can be
      created by removing the basic block originally following
-     NOTE_INSN_LOOP_BEG.  In such case reorder the notes.  */
+     NOTE_INSN_BLOCK_BEG.  In such case reorder the notes.  */
 
   for (insn = last_insn; insn != BB_END (bb); insn = prev)
     {
@@ -148,7 +148,6 @@ skip_insns_after_block (basic_block bb)
       if (NOTE_P (insn))
 	switch (NOTE_LINE_NUMBER (insn))
 	  {
-	  case NOTE_INSN_LOOP_END:
 	  case NOTE_INSN_BLOCK_END:
 	  case NOTE_INSN_DELETED:
 	  case NOTE_INSN_DELETED_LABEL:
@@ -223,9 +222,6 @@ record_effective_endpoints (void)
     cfg_layout_function_footer = unlink_insn_chain (cfg_layout_function_footer, get_last_insn ());
 }
 
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
-
 /* Data structures representing mapping of INSN_LOCATOR into scope blocks, line
    numbers and files.  In order to be GGC friendly we need to use separate
    varrays.  This also slightly improve the memory locality in binary search.
@@ -246,7 +242,7 @@ int epilogue_locator;
    represented via INSN_NOTEs.  Replace them by representation using
    INSN_LOCATORs.  */
 
-void
+unsigned int
 insn_locators_initialize (void)
 {
   tree block = NULL;
@@ -329,6 +325,7 @@ insn_locators_initialize (void)
   set_block_levels (DECL_INITIAL (cfun->decl), 0);
 
   free_block_changes ();
+  return 0;
 }
 
 struct tree_opt_pass pass_insn_locators_initialize =
@@ -985,10 +982,6 @@ duplicate_insn_chain (rtx from, rtx to)
 	         in first BB, we may want to copy the block.  */
 	    case NOTE_INSN_PROLOGUE_END:
 
-	    case NOTE_INSN_LOOP_BEG:
-	    case NOTE_INSN_LOOP_END:
-	      /* Strip down the loop notes - we don't really want to keep
-	         them consistent in loop copies.  */
 	    case NOTE_INSN_DELETED:
 	    case NOTE_INSN_DELETED_LABEL:
 	      /* No problem to strip these.  */

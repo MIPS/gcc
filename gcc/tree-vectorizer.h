@@ -122,10 +122,10 @@ typedef struct _loop_vec_info {
   int ptr_mask;
 
   /* All data references in the loop.  */
-  varray_type datarefs;
+  VEC (data_reference_p, heap) *datarefs;
 
   /* All data dependences in the loop.  */
-  varray_type ddrs;
+  VEC (ddr_p, heap) *ddrs;
 
   /* Statements in the loop that have data references that are candidates for a
      runtime (loop versioning) misalignment check.  */
@@ -208,7 +208,7 @@ typedef struct _stmt_vec_info {
   /* Stmt is part of some pattern (computation idiom)  */
   bool in_pattern_p;
 
-  /* Used for various bookeeping purposes, generally holding a pointer to 
+  /* Used for various bookkeeping purposes, generally holding a pointer to 
      some other stmt S that is in some way "related" to this stmt. 
      Current use of this field is:
         If this stmt is part of a pattern (i.e. the field 'in_pattern_p' is 

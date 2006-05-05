@@ -586,7 +586,7 @@ fd_truncate (unix_stream * s)
 
   /* non-seekable files, like terminals and fifo's fail the lseek.
      Using ftruncate on a seekable special file (like /dev/null)
-     is undefined, so we treat it as if the ftruncate failed.
+     is undefined, so we treat it as if the ftruncate succeeded.
   */
 #ifdef HAVE_FTRUNCATE
   if (s->special_file || ftruncate (s->fd, s->logical_offset))
@@ -597,7 +597,7 @@ fd_truncate (unix_stream * s)
 #endif
     {
       s->physical_offset = s->file_length = 0;
-      return FAILURE;
+      return SUCCESS;
     }
 
   s->physical_offset = s->file_length = s->logical_offset;
@@ -928,7 +928,8 @@ mem_truncate (unix_stream * s __attribute__ ((unused)))
 static try
 mem_close (unix_stream * s)
 {
-  free_mem (s);
+  if (s != NULL)
+    free_mem (s);
 
   return SUCCESS;
 }

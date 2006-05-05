@@ -237,12 +237,6 @@ sms_print_insn (rtx insn, int aligned ATTRIBUTE_UNUSED)
   return tmp;
 }
 
-static int
-contributes_to_priority (rtx next, rtx insn)
-{
-  return BLOCK_NUM (next) == BLOCK_NUM (insn);
-}
-
 static void
 compute_jump_reg_dependencies (rtx insn ATTRIBUTE_UNUSED,
 			       regset cond_exec ATTRIBUTE_UNUSED,
@@ -259,11 +253,17 @@ static struct sched_info sms_sched_info =
   NULL,
   NULL,
   sms_print_insn,
-  contributes_to_priority,
+  NULL,
   compute_jump_reg_dependencies,
   NULL, NULL,
   NULL, NULL,
-  0, 0, 0
+  0, 0, 0,
+
+  NULL, NULL, NULL, NULL, NULL,
+#ifdef ENABLE_CHECKING
+  NULL,
+#endif
+  0
 };
 
 
@@ -312,7 +312,7 @@ const_iteration_count (rtx count_reg, basic_block pre_header,
   if (! pre_header)
     return NULL_RTX;
 
-  get_block_head_tail (pre_header->index, &head, &tail);
+  get_ebb_head_tail (pre_header, pre_header, &head, &tail);
 
   for (insn = tail; insn != PREV_INSN (head); insn = PREV_INSN (insn))
     if (INSN_P (insn) && single_set (insn) &&
@@ -792,7 +792,7 @@ loop_single_full_bb_p (struct loop *loop)
 
       /* Make sure that basic blocks other than the header
          have only notes labels or jumps.  */
-      get_block_head_tail (bbs[i]->index, &head, &tail);
+      get_ebb_head_tail (bbs[i], bbs[i], &head, &tail);
       for (; head != NEXT_INSN (tail); head = NEXT_INSN (head))
         {
           if (NOTE_P (head) || LABEL_P (head)
@@ -970,7 +970,7 @@ sms_schedule (void)
 
       bb = loop->header;
 
-      get_block_head_tail (bb->index, &head, &tail);
+      get_ebb_head_tail (bb, bb, &head, &tail);
       latch_edge = loop_latch_edge (loop);
       gcc_assert (loop->single_exit);
       if (loop->single_exit->count)
@@ -1072,7 +1072,7 @@ sms_schedule (void)
       if (dump_file)
 	print_ddg (dump_file, g);
 
-      get_block_head_tail (loop->header->index, &head, &tail);
+      get_ebb_head_tail (loop->header, loop->header, &head, &tail);
 
       latch_edge = loop_latch_edge (loop);
       gcc_assert (loop->single_exit);
@@ -2500,7 +2500,7 @@ gate_handle_sms (void)
 
 /* Run instruction scheduler.  */
 /* Perform SMS module scheduling.  */
-static void
+static unsigned int
 rest_of_handle_sms (void)
 {
 #ifdef INSN_SCHEDULING
@@ -2530,6 +2530,7 @@ rest_of_handle_sms (void)
   cfg_layout_finalize ();
   free_dominance_info (CDI_DOMINATORS);
 #endif /* INSN_SCHEDULING */
+  return 0;
 }
 
 struct tree_opt_pass pass_sms =

@@ -590,6 +590,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	  if (n)
 	    {
 	      tree new;
+	      tree old;
 	      /* If we happen to get an ADDR_EXPR in n->value, strip
 	         it manually here as we'll eventually get ADDR_EXPRs
 		 which lie about their types pointed to.  In this case
@@ -598,13 +599,17 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	         does other useful transformations, try that first, though.  */
 	      tree type = TREE_TYPE (TREE_TYPE ((tree)n->value));
 	      new = unshare_expr ((tree)n->value);
+	      old = *tp;
 	      *tp = fold_indirect_ref_1 (type, new);
 	      if (! *tp)
 	        {
 		  if (TREE_CODE (new) == ADDR_EXPR)
 		    *tp = TREE_OPERAND (new, 0);
 	          else
-	            *tp = build1 (INDIRECT_REF, type, new);
+		    {
+	              *tp = build1 (INDIRECT_REF, type, new);
+		      TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+		    }
 		}
 	      *walk_subtrees = 0;
 	      return NULL;
@@ -893,7 +898,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
       *new_cfun = *DECL_STRUCT_FUNCTION (callee_fndecl);
       new_cfun->cfg = NULL;
       new_cfun->decl = new_fndecl = copy_node (callee_fndecl);
-      new_cfun->ib_boundaries_block = (varray_type) 0;
+      new_cfun->ib_boundaries_block = NULL;
       DECL_STRUCT_FUNCTION (new_fndecl) = new_cfun;
       push_cfun (new_cfun);
       init_empty_tree_cfg ();
@@ -924,7 +929,8 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency,
       if (id->transform_new_cfg)
         init_eh_for_function ();
       id->eh_region_offset
-	= duplicate_eh_regions (cfun_to_copy, remap_decl_1, id, id->eh_region);
+	= duplicate_eh_regions (cfun_to_copy, remap_decl_1, id,
+				0, id->eh_region);
     }
   /* Use aux pointers to map the original blocks to copy.  */
   FOR_EACH_BB_FN (bb, cfun_to_copy)
@@ -1602,7 +1608,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case PHI_NODE:
     case WITH_SIZE_EXPR:
     case OMP_CLAUSE:
-    case OMP_RETURN_EXPR:
+    case OMP_RETURN:
+    case OMP_CONTINUE:
       break;
 
     /* We don't account constants for now.  Assume that the cost is amortized
@@ -2071,6 +2078,7 @@ expand_call_inline (basic_block bb, tree stmt, tree *tp, void *data)
       if (CALL_EXPR_RETURN_SLOT_OPT (t))
 	{
 	  return_slot_addr = build_fold_addr_expr (modify_dest);
+	  STRIP_USELESS_TYPE_CONVERSION (return_slot_addr);
 	  modify_dest = NULL;
 	}
     }

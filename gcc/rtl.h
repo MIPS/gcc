@@ -1,6 +1,6 @@
 /* Register Transfer Language (RTL) definitions for GCC
-   Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -178,7 +178,7 @@ typedef union rtunion_def rtunion;
 
 /* This structure remembers the position of a SYMBOL_REF within an
    object_block structure.  A SYMBOL_REF only provides this information
-   if SYMBOL_REF_IN_BLOCK_P is true.  */
+   if SYMBOL_REF_HAS_BLOCK_INFO_P is true.  */
 struct block_symbol GTY(()) {
   /* The usual SYMBOL_REF fields.  */
   rtunion GTY ((skip)) fld[3];
@@ -212,7 +212,7 @@ struct object_block GTY(())
      order of increasing offset and the following conditions will
      hold for each element X:
 
-	 SYMBOL_REF_IN_BLOCK_P (X)
+	 SYMBOL_REF_HAS_BLOCK_INFO_P (X)
 	 !SYMBOL_REF_ANCHOR_P (X)
 	 SYMBOL_REF_BLOCK (X) == [address of this structure]
 	 SYMBOL_REF_BLOCK_OFFSET (X) >= 0.  */
@@ -222,7 +222,7 @@ struct object_block GTY(())
      in order of increasing offset, and then increasing TLS model.
      The following conditions will hold for each element X in this vector:
 
-	 SYMBOL_REF_IN_BLOCK_P (X)
+	 SYMBOL_REF_HAS_BLOCK_INFO_P (X)
 	 SYMBOL_REF_ANCHOR_P (X)
 	 SYMBOL_REF_BLOCK (X) == [address of this structure]
 	 SYMBOL_REF_BLOCK_OFFSET (X) >= 0.  */
@@ -360,6 +360,9 @@ struct rtvec_def GTY(()) {
 
 /* Predicate yielding nonzero iff X is an rtx for a memory location.  */
 #define MEM_P(X) (GET_CODE (X) == MEM)
+
+/* Predicate yielding nonzero iff X is an rtx for a constant integer.  */
+#define CONST_INT_P(X) (GET_CODE (X) == CONST_INT)
 
 /* Predicate yielding nonzero iff X is a label insn.  */
 #define LABEL_P(X) (GET_CODE (X) == CODE_LABEL)
@@ -529,7 +532,7 @@ struct rtvec_def GTY(()) {
 #define BLOCK_SYMBOL_CHECK(RTX) __extension__				\
 ({ rtx const _symbol = (RTX);						\
    unsigned int flags = RTL_CHECKC1 (_symbol, 1, SYMBOL_REF).rt_int;	\
-   if ((flags & SYMBOL_FLAG_IN_BLOCK) == 0)				\
+   if ((flags & SYMBOL_FLAG_HAS_BLOCK_INFO) == 0)			\
      rtl_check_failed_block_symbol (__FILE__, __LINE__,			\
 				    __FUNCTION__);			\
    &_symbol->u.block_sym; })
@@ -961,13 +964,6 @@ enum label_kind
    The chain eventually winds up at the CODE_LABEL: it is circular.  */
 #define LABEL_REFS(LABEL) XCEXP (LABEL, 5, CODE_LABEL)
 
-/* This is the field in the LABEL_REF through which the circular chain
-   of references to a particular label is linked.
-   FIXME: This chain is used in loop.c and in the SH backend.
-	  Since loop.c is about to go away, it could be a win to replace
-	  the uses of this in the SH backend with something else.  */
-#define LABEL_NEXTREF(REF) XCEXP (REF, 1, LABEL_REF)
-
 /* For a REG rtx, REGNO extracts the register number.  ORIGINAL_REGNO holds
    the number the register originally had; for a pseudo register turned into
    a hard reg this will hold the old pseudo register number.  */
@@ -1047,6 +1043,7 @@ extern unsigned int subreg_regno (rtx);
 extern unsigned HOST_WIDE_INT nonzero_bits (rtx, enum machine_mode);
 extern unsigned int num_sign_bit_copies (rtx, enum machine_mode);
 extern bool constant_pool_constant_p (rtx);
+extern bool truncated_to_mode (enum machine_mode, rtx);
 
 
 /* 1 if RTX is a subreg containing a reg that is already known to be
@@ -1317,11 +1314,11 @@ do {						\
 #define SYMBOL_REF_EXTERNAL_P(RTX) \
   ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_EXTERNAL) != 0)
 /* Set if this symbol has a block_symbol structure associated with it.  */
-#define SYMBOL_FLAG_IN_BLOCK	(1 << 7)
-#define SYMBOL_REF_IN_BLOCK_P(RTX) \
-  ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_IN_BLOCK) != 0)
+#define SYMBOL_FLAG_HAS_BLOCK_INFO (1 << 7)
+#define SYMBOL_REF_HAS_BLOCK_INFO_P(RTX) \
+  ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_HAS_BLOCK_INFO) != 0)
 /* Set if this symbol is a section anchor.  SYMBOL_REF_ANCHOR_P implies
-   SYMBOL_REF_IN_BLOCK_P.  */
+   SYMBOL_REF_HAS_BLOCK_INFO_P.  */
 #define SYMBOL_FLAG_ANCHOR	(1 << 8)
 #define SYMBOL_REF_ANCHOR_P(RTX) \
   ((SYMBOL_REF_FLAGS (RTX) & SYMBOL_FLAG_ANCHOR) != 0)
@@ -1330,13 +1327,15 @@ do {						\
 #define SYMBOL_FLAG_MACH_DEP_SHIFT	9
 #define SYMBOL_FLAG_MACH_DEP		(1 << SYMBOL_FLAG_MACH_DEP_SHIFT)
 
-/* The block to which the given SYMBOL_REF belongs.  Only valid if
-   SYMBOL_REF_IN_BLOCK_P (RTX).  */
+/* If SYMBOL_REF_HAS_BLOCK_INFO_P (RTX), this is the object_block
+   structure to which the symbol belongs, or NULL if it has not been
+   assigned a block.  */
 #define SYMBOL_REF_BLOCK(RTX) (BLOCK_SYMBOL_CHECK (RTX)->block)
 
-/* The byte offset of the given SYMBOL_REF from the start of its block,
-   or a negative value if the symbol has not yet been assigned a position.
-   Only valid if SYMBOL_REF_IN_BLOCK_P (RTX).  */
+/* If SYMBOL_REF_HAS_BLOCK_INFO_P (RTX), this is the offset of RTX from
+   the first object in SYMBOL_REF_BLOCK (RTX).  The value is negative if
+   RTX has not yet been assigned to a block, or it has not been given an
+   offset within that block.  */
 #define SYMBOL_REF_BLOCK_OFFSET(RTX) (BLOCK_SYMBOL_CHECK (RTX)->offset)
 
 /* Define a macro to look for REG_INC notes,
@@ -1599,7 +1598,7 @@ extern enum rtx_code swap_condition (enum rtx_code);
 extern enum rtx_code unsigned_condition (enum rtx_code);
 extern enum rtx_code signed_condition (enum rtx_code);
 extern void mark_jump_label (rtx, rtx, int);
-extern void cleanup_barriers (void);
+extern unsigned int cleanup_barriers (void);
 
 /* In jump.c */
 extern bool squeeze_notes (rtx *, rtx *);
@@ -1720,7 +1719,6 @@ extern int may_trap_after_code_motion_p (rtx);
 extern int may_trap_or_fault_p (rtx);
 extern int inequality_comparisons_p (rtx);
 extern rtx replace_rtx (rtx, rtx, rtx);
-extern rtx replace_regs (rtx, rtx *, unsigned int, int);
 extern int replace_label (rtx *, void *);
 extern int rtx_referenced_p (rtx, rtx);
 extern bool tablejump_p (rtx, rtx *, rtx *);
@@ -1731,7 +1729,6 @@ extern rtx regno_use_in (unsigned int, rtx);
 extern int auto_inc_p (rtx);
 extern int in_expr_list_p (rtx, rtx);
 extern void remove_node_from_expr_list (rtx, rtx *);
-extern int insns_safe_to_move_p (rtx, rtx, rtx *);
 extern int loc_mentioned_in_p (rtx *, rtx);
 extern rtx find_first_parameter_load (rtx, rtx);
 extern bool keep_with_call_p (rtx);
@@ -1759,6 +1756,12 @@ void free_EXPR_LIST_node		(rtx);
 void free_INSN_LIST_node		(rtx);
 rtx alloc_INSN_LIST			(rtx, rtx);
 rtx alloc_EXPR_LIST			(int, rtx, rtx);
+void free_DEPS_LIST_list (rtx *);
+rtx alloc_DEPS_LIST (rtx, rtx, int);
+void remove_free_DEPS_LIST_elem (rtx, rtx *);
+void remove_free_INSN_LIST_elem (rtx, rtx *);
+rtx remove_list_elem (rtx, rtx *);
+rtx copy_DEPS_LIST_list (rtx);
 
 /* regclass.c */
 
@@ -1780,7 +1783,7 @@ extern enum reg_class reg_preferred_class (int);
 extern enum reg_class reg_alternate_class (int);
 
 extern void split_all_insns (int);
-extern void split_all_insns_noflow (void);
+extern unsigned int split_all_insns_noflow (void);
 
 #define MAX_SAVED_CONST_INT 64
 extern GTY(()) rtx const_int_rtx[MAX_SAVED_CONST_INT * 2 + 1];
@@ -2026,7 +2029,7 @@ extern enum rtx_code reversed_comparison_code_parts (enum rtx_code,
 						     rtx, rtx, rtx);
 extern void delete_for_peephole (rtx, rtx);
 extern int condjump_in_parallel_p (rtx);
-extern void purge_line_number_notes (void);
+extern unsigned int purge_line_number_notes (void);
 
 /* In emit-rtl.c.  */
 extern int max_reg_num (void);
@@ -2048,7 +2051,7 @@ extern void init_emit_once (int);
 extern void push_topmost_sequence (void);
 extern void pop_topmost_sequence (void);
 extern void set_new_first_and_last_insn (rtx, rtx);
-extern void unshare_all_rtl (void);
+extern unsigned int unshare_all_rtl (void);
 extern void unshare_all_rtl_again (rtx);
 extern void unshare_all_rtl_in_chain (rtx);
 extern void verify_rtl_sharing (void);
@@ -2062,7 +2065,6 @@ extern void remove_insn (rtx);
 extern void emit_insn_after_with_line_notes (rtx, rtx, rtx);
 extern rtx emit (rtx);
 extern void renumber_insns (void);
-extern void remove_unnecessary_notes (void);
 extern rtx delete_insn (rtx);
 extern rtx entry_of_function (void);
 extern void delete_insn_chain (rtx, rtx);
@@ -2132,7 +2134,6 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 			   unsigned int, int);
 
 /* In flow.c */
-extern void recompute_reg_usage (void);
 extern void delete_dead_jumptables (void);
 extern void print_rtl_with_bb (FILE *, rtx);
 extern void dump_flow_info (FILE *, int);
@@ -2166,7 +2167,6 @@ extern void init_reg_sets (void);
 extern void regclass_init (void);
 extern void regclass (rtx, int);
 extern void reg_scan (rtx, unsigned int);
-extern void reg_scan_update (rtx, rtx, unsigned int);
 extern void fix_register (const char *, int, int);
 extern void init_subregs_of_mode (void);
 extern void record_subregs_of_mode (rtx);
@@ -2255,7 +2255,7 @@ extern bool expensive_function_p (int);
 extern void tracer (unsigned int);
 
 /* In var-tracking.c */
-extern void variable_tracking_main (void);
+extern unsigned int variable_tracking_main (void);
 
 /* In stor-layout.c.  */
 extern void get_mode_bounds (enum machine_mode, int, enum machine_mode,
@@ -2277,8 +2277,9 @@ struct rtl_hooks
 			   unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT *);
   rtx (*reg_num_sign_bit_copies) (rtx, enum machine_mode, rtx, enum machine_mode,
 				  unsigned int, unsigned int *);
+  bool (*reg_truncated_to_mode) (enum machine_mode, rtx);
 
-  /* Whenever you add entries here, make sure you adjust hosthooks-def.h.  */
+  /* Whenever you add entries here, make sure you adjust rtlhooks-def.h.  */
 };
 
 /* Each pass can provide its own.  */

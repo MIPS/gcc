@@ -35,6 +35,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "expr.h"
 #include "toplev.h"
 #include "tm_p.h"
+#include "addresses.h"
 
 #ifndef MAX_MOVE_MAX
 #define MAX_MOVE_MAX MOVE_MAX
@@ -153,7 +154,7 @@ init_caller_save (void)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT
 	(reg_class_contents
-	 [(int) MODE_BASE_REG_CLASS (regno_save_mode [i][1])], i))
+	 [(int) base_reg_class (regno_save_mode [i][1], PLUS, CONST_INT)], i))
       break;
 
   gcc_assert (i < FIRST_PSEUDO_REGISTER);

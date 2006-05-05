@@ -173,6 +173,9 @@
 #include "timevar.h"
 #include "tree-pass.h"
 #include "target.h"
+#include "vecprim.h"
+
+#ifdef STACK_REGS
 
 /* We use this array to cache info about insns, because otherwise we
    spend too much time in stack_regs_mentioned_p.
@@ -180,9 +183,7 @@
    Indexed by insn UIDs.  A value of zero is uninitialized, one indicates
    the insn uses stack registers, two indicates the insn does not use
    stack registers.  */
-static GTY(()) varray_type stack_regs_mentioned_data;
-
-#ifdef STACK_REGS
+static VEC(char,heap) *stack_regs_mentioned_data;
 
 #define REG_STACK_SIZE (LAST_STACK_REG - FIRST_STACK_REG + 1)
 
@@ -309,21 +310,27 @@ stack_regs_mentioned (rtx insn)
     return 0;
 
   uid = INSN_UID (insn);
-  max = VARRAY_SIZE (stack_regs_mentioned_data);
+  max = VEC_length (char, stack_regs_mentioned_data);
   if (uid >= max)
     {
+      char *p;
+      unsigned int old_max = max;
+
       /* Allocate some extra size to avoid too many reallocs, but
 	 do not grow too quickly.  */
-      max = uid + uid / 20;
-      VARRAY_GROW (stack_regs_mentioned_data, max);
+      max = uid + uid / 20 + 1;
+      VEC_safe_grow (char, heap, stack_regs_mentioned_data, max);
+      p = VEC_address (char, stack_regs_mentioned_data);
+      memset (&p[old_max], 0,
+	      sizeof (char) * (max - old_max));
     }
 
-  test = VARRAY_CHAR (stack_regs_mentioned_data, uid);
+  test = VEC_index (char, stack_regs_mentioned_data, uid);
   if (test == 0)
     {
       /* This insn has yet to be examined.  Do so now.  */
       test = stack_regs_mentioned_p (PATTERN (insn)) ? 1 : 2;
-      VARRAY_CHAR (stack_regs_mentioned_data, uid) = test;
+      VEC_replace (char, stack_regs_mentioned_data, uid, test);
     }
 
   return test == 1;
@@ -3031,7 +3038,8 @@ reg_to_stack (void)
   int max_uid;
 
   /* Clean up previous run.  */
-  stack_regs_mentioned_data = 0;
+  if (stack_regs_mentioned_data != NULL)
+    VEC_free (char, heap, stack_regs_mentioned_data);
 
   /* See if there is something to do.  Flow analysis is quite
      expensive so we might save some compilation time.  */
@@ -3114,8 +3122,9 @@ reg_to_stack (void)
 
   /* Allocate a cache for stack_regs_mentioned.  */
   max_uid = get_max_uid ();
-  VARRAY_CHAR_INIT (stack_regs_mentioned_data, max_uid + 1,
-		    "stack_regs_mentioned cache");
+  stack_regs_mentioned_data = VEC_alloc (char, heap, max_uid + 1);
+  memset (VEC_address (char, stack_regs_mentioned_data),
+	  0, sizeof (char) * max_uid + 1);
 
   convert_regs ();
 
@@ -3136,7 +3145,7 @@ gate_handle_stack_regs (void)
 
 /* Convert register usage from flat register file usage to a stack
    register file.  */
-static void
+static unsigned int
 rest_of_handle_stack_regs (void)
 {
 #ifdef STACK_REGS
@@ -3151,6 +3160,7 @@ rest_of_handle_stack_regs (void)
         }
     }
 #endif
+  return 0;
 }
 
 struct tree_opt_pass pass_stack_regs =
@@ -3170,5 +3180,3 @@ struct tree_opt_pass pass_stack_regs =
   TODO_ggc_collect,                     /* todo_flags_finish */
   'k'                                   /* letter */
 };
-
-#include "gt-reg-stack.h"

@@ -1,6 +1,6 @@
 ;; Machine description for SPARC chip for GCC
 ;;  Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-;;  1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+;;  1999, 2000, 2001, 2002, 2003, 2004, 2005,2006 Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;;  64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;;  at Cygnus Support.
@@ -94,7 +94,8 @@
    sparclet,tsc701,
    v9,
    ultrasparc,
-   ultrasparc3"
+   ultrasparc3,
+   niagara"
   (const (symbol_ref "sparc_cpu_attr")))
 
 ;; Attribute for the instruction set.
@@ -315,6 +316,7 @@
 (include "sparclet.md")
 (include "ultra1_2.md")
 (include "ultra3.md")
+(include "niagara.md")
 
 
 ;; Operand and operator predicates.
@@ -7092,8 +7094,13 @@
   DONE;
 })
 
-;; This is a bit of a hack.  We're incrementing a fixed register (%i7),
-;; and parts of the compiler don't want to believe that the add is needed.
+;; Adjust the return address conditionally. If the value of op1 is equal
+;; to all zero then adjust the return address i.e. op0 = op0 + 4.
+;; This is technically *half* the check required by the 32-bit SPARC
+;; psABI. This check only ensures that an "unimp" insn was written by
+;; the caller, but doesn't check to see if the expected size matches
+;; (this is encoded in the 12 lower bits). This check is obsolete and
+;; only used by the above code "untyped_return".
 
 (define_insn "update_return"
   [(unspec:SI [(match_operand:SI 0 "register_operand" "r")

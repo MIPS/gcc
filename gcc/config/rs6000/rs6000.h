@@ -1024,7 +1024,7 @@ enum reg_class
   { 0xffffffff, 0x00000000, 0x0000000f, 0x00022000 }, /* SPEC_OR_GEN_REGS */ \
   { 0x00000000, 0x00000000, 0x00000010, 0x00000000 }, /* CR0_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000ff0, 0x00000000 }, /* CR_REGS */	     \
-  { 0xffffffff, 0x00000000, 0x0000efff, 0x00000000 }, /* NON_FLOAT_REGS */   \
+  { 0xffffffff, 0x00000000, 0x0000efff, 0x00020000 }, /* NON_FLOAT_REGS */   \
   { 0x00000000, 0x00000000, 0x00001000, 0x00000000 }, /* XER_REGS */	     \
   { 0xffffffff, 0xffffffff, 0xffffffff, 0x0003ffff }  /* ALL_REGS */	     \
 }
@@ -1056,107 +1056,6 @@ enum reg_class
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS GENERAL_REGS
 #define BASE_REG_CLASS BASE_REGS
-
-/* Get reg_class from a letter such as appears in the machine description.  */
-
-#define REG_CLASS_FROM_LETTER(C) \
-  ((C) == 'f' ? ((TARGET_HARD_FLOAT && TARGET_FPRS) ? FLOAT_REGS : NO_REGS) \
-   : (C) == 'b' ? BASE_REGS	\
-   : (C) == 'h' ? SPECIAL_REGS	\
-   : (C) == 'q' ? MQ_REGS	\
-   : (C) == 'c' ? CTR_REGS	\
-   : (C) == 'l' ? LINK_REGS	\
-   : (C) == 'v' ? ALTIVEC_REGS	\
-   : (C) == 'x' ? CR0_REGS	\
-   : (C) == 'y' ? CR_REGS	\
-   : (C) == 'z' ? XER_REGS	\
-   : NO_REGS)
-
-/* The letters I, J, K, L, M, N, and P in a register constraint string
-   can be used to stand for particular ranges of immediate operands.
-   This macro defines what the ranges are.
-   C is the letter, and VALUE is a constant value.
-   Return 1 if VALUE is in the range specified by C.
-
-   `I' is a signed 16-bit constant
-   `J' is a constant with only the high-order 16 bits nonzero
-   `K' is a constant with only the low-order 16 bits nonzero
-   `L' is a signed 16-bit constant shifted left 16 bits
-   `M' is a constant that is greater than 31
-   `N' is a positive constant that is an exact power of two
-   `O' is the constant zero
-   `P' is a constant whose negation is a signed 16-bit constant */
-
-#define CONST_OK_FOR_LETTER_P(VALUE, C)					\
-   ( (C) == 'I' ? (unsigned HOST_WIDE_INT) ((VALUE) + 0x8000) < 0x10000	\
-   : (C) == 'J' ? ((VALUE) & (~ (unsigned HOST_WIDE_INT) 0xffff0000)) == 0 \
-   : (C) == 'K' ? ((VALUE) & (~ (HOST_WIDE_INT) 0xffff)) == 0		\
-   : (C) == 'L' ? (((VALUE) & 0xffff) == 0				\
-		   && ((VALUE) >> 31 == -1 || (VALUE) >> 31 == 0))	\
-   : (C) == 'M' ? (VALUE) > 31						\
-   : (C) == 'N' ? (VALUE) > 0 && exact_log2 (VALUE) >= 0		\
-   : (C) == 'O' ? (VALUE) == 0						\
-   : (C) == 'P' ? (unsigned HOST_WIDE_INT) ((- (VALUE)) + 0x8000) < 0x10000 \
-   : 0)
-
-/* Similar, but for floating constants, and defining letters G and H.
-   Here VALUE is the CONST_DOUBLE rtx itself.
-
-   We flag for special constants when we can copy the constant into
-   a general register in two insns for DF/DI and one insn for SF.
-
-   'H' is used for DI/DF constants that take 3 insns.  */
-
-#define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)				\
-  (  (C) == 'G' ? (num_insns_constant (VALUE, GET_MODE (VALUE))		\
-		   == ((GET_MODE (VALUE) == SFmode) ? 1 : 2))		\
-   : (C) == 'H' ? (num_insns_constant (VALUE, GET_MODE (VALUE)) == 3)	\
-   : 0)
-
-/* Optional extra constraints for this machine.
-
-   'Q' means that is a memory operand that is just an offset from a reg.
-   'R' is for AIX TOC entries.
-   'S' is a constant that can be placed into a 64-bit mask operand.
-   'T' is a constant that can be placed into a 32-bit mask operand.
-   'U' is for V.4 small data references.
-   'W' is a vector constant that can be easily generated (no mem refs).
-   'Y' is an indexed or word-aligned displacement memory operand.
-   'Z' is an indexed or indirect memory operand.
-   'a'  is an indexed or indirect address operand.
-   't' is for AND masks that can be performed by two rldic{l,r} insns
-       (but excluding those that could match other constraints of anddi3.)  */
-
-#define EXTRA_CONSTRAINT(OP, C)						\
-  ((C) == 'Q' ? GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == REG	\
-   : (C) == 'R' ? legitimate_constant_pool_address_p (OP)		\
-   : (C) == 'S' ? mask64_operand (OP, DImode)				\
-   : (C) == 'T' ? mask_operand (OP, GET_MODE (OP))			\
-   : (C) == 'U' ? (DEFAULT_ABI == ABI_V4				\
-		   && small_data_operand (OP, GET_MODE (OP)))		\
-   : (C) == 't' ? (mask64_2_operand (OP, DImode)			\
-		   && (fixed_regs[CR0_REGNO]				\
-		       || !logical_operand (OP, DImode))		\
-		   && !mask_operand (OP, DImode)			\
-		   && !mask64_operand (OP, DImode))			\
-   : (C) == 'W' ? (easy_vector_constant (OP, GET_MODE (OP)))		\
-   : (C) == 'Y' ? (word_offset_memref_operand (OP, GET_MODE (OP)))      \
-   : (C) == 'Z' ? (indexed_or_indirect_operand (OP, GET_MODE (OP)))	\
-   : (C) == 'a' ? (indexed_or_indirect_address (OP, GET_MODE (OP)))	\
-   : 0)
-
-/* Define which constraints are memory constraints.  Tell reload
-   that any memory address can be reloaded by copying the
-   memory address into a base register if required.  */
-
-#define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
-  ((C) == 'Q' || (C) == 'Y' || (C) == 'Z')
-
-/* Define which constraints should be treated like address constraints
-   by the reload pass.  */
-
-#define EXTRA_ADDRESS_CONSTRAINT(C, STR)			\
-  ((C) == 'a')
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -1213,22 +1112,19 @@ enum reg_class
   ? 1                                                                   \
   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
+/* Return nonzero if for CLASS a mode change from FROM to TO is invalid.  */
 
-/* Return a class of registers that cannot change FROM mode to TO mode.  */
-
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			  \
-  (!TARGET_IEEEQUAD							  \
-   && GET_MODE_SIZE (FROM) >= 8 && GET_MODE_SIZE (TO) >= 8		  \
-   ? 0									  \
-   : GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				  \
-   ? reg_classes_intersect_p (FLOAT_REGS, CLASS)			  \
-   : (TARGET_E500_DOUBLE && (((TO) == DFmode) + ((FROM) == DFmode)) == 1) \
-   ? reg_classes_intersect_p (GENERAL_REGS, CLASS)			  \
-   : (TARGET_E500_DOUBLE && (((TO) == DImode) + ((FROM) == DImode)) == 1) \
-   ? reg_classes_intersect_p (GENERAL_REGS, CLASS)			  \
-   : (TARGET_SPE && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1) \
-   ? reg_classes_intersect_p (GENERAL_REGS, CLASS)			  \
-   : 0)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				\
+   ? ((GET_MODE_SIZE (FROM) < 8 || GET_MODE_SIZE (TO) < 8		\
+       || TARGET_IEEEQUAD)						\
+      && reg_classes_intersect_p (FLOAT_REGS, CLASS))			\
+   : (((TARGET_E500_DOUBLE						\
+	&& ((((TO) == DFmode) + ((FROM) == DFmode)) == 1		\
+	    || (((TO) == DImode) + ((FROM) == DImode)) == 1))		\
+       || (TARGET_SPE							\
+	   && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1))	\
+      && reg_classes_intersect_p (GENERAL_REGS, CLASS)))
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -1702,7 +1598,8 @@ typedef struct rs6000_args
 
 #define EASY_VECTOR_15(n) ((n) >= -16 && (n) <= 15)
 #define EASY_VECTOR_15_ADD_SELF(n) (!EASY_VECTOR_15((n))	\
-				    && EASY_VECTOR_15((n) >> 1))
+				    && EASY_VECTOR_15((n) >> 1) \
+				    && ((n) & 1) == 0)
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.

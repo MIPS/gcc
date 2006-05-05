@@ -41,6 +41,7 @@
 #include "tree-scalar-evolution.h"
 #include "vec.h"
 #include "lambda.h"
+#include "vecprim.h"
 
 /* This loop nest code generation is based on non-singular matrix
    math.
@@ -113,9 +114,6 @@
 
  Fourier-Motzkin elimination is used to compute the bounds of the base space
  of the lattice.  */
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 static bool perfect_nestify (struct loops *, 
 			     struct loop *, VEC(tree,heap) *, 
@@ -1925,9 +1923,10 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
   for (i = 0; VEC_iterate (tree, old_ivs, i, oldiv); i++)
     {
       imm_use_iterator imm_iter;
-      use_operand_p imm_use;
+      use_operand_p use_p;
       tree oldiv_def;
       tree oldiv_stmt = SSA_NAME_DEF_STMT (oldiv);
+      tree stmt;
 
       if (TREE_CODE (oldiv_stmt) == PHI_NODE)
         oldiv_def = PHI_RESULT (oldiv_stmt);
@@ -1935,37 +1934,31 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 	oldiv_def = SINGLE_SSA_TREE_OPERAND (oldiv_stmt, SSA_OP_DEF);
       gcc_assert (oldiv_def != NULL_TREE);
 
-      FOR_EACH_IMM_USE_SAFE (imm_use, imm_iter, oldiv_def)
-	{
-	  tree stmt = USE_STMT (imm_use);
-	  use_operand_p use_p;
-	  ssa_op_iter iter;
-	  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
-	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
-	    {
-	      if (USE_FROM_PTR (use_p) == oldiv)
-		{
-		  tree newiv, stmts;
-		  lambda_body_vector lbv, newlbv;
-		  /* Compute the new expression for the induction
-		     variable.  */
-		  depth = VEC_length (tree, new_ivs);
-		  lbv = lambda_body_vector_new (depth);
-		  LBV_COEFFICIENTS (lbv)[i] = 1;
-		  
-		  newlbv = lambda_body_vector_compute_new (transform, lbv);
+      FOR_EACH_IMM_USE_STMT (stmt, imm_iter, oldiv_def)
+        {
+	  tree newiv, stmts;
+	  lambda_body_vector lbv, newlbv;
 
-		  newiv = lbv_to_gcc_expression (newlbv, TREE_TYPE (oldiv),
-						 new_ivs, &stmts);
-		  bsi = bsi_for_stmt (stmt);
-		  /* Insert the statements to build that
-		     expression.  */
-		  bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
-		  propagate_value (use_p, newiv);
-		  update_stmt (stmt);
-		  
-		}
-	    }
+	  gcc_assert (TREE_CODE (stmt) != PHI_NODE);
+
+	  /* Compute the new expression for the induction
+	     variable.  */
+	  depth = VEC_length (tree, new_ivs);
+	  lbv = lambda_body_vector_new (depth);
+	  LBV_COEFFICIENTS (lbv)[i] = 1;
+	  
+	  newlbv = lambda_body_vector_compute_new (transform, lbv);
+
+	  newiv = lbv_to_gcc_expression (newlbv, TREE_TYPE (oldiv),
+					 new_ivs, &stmts);
+	  bsi = bsi_for_stmt (stmt);
+	  /* Insert the statements to build that
+	     expression.  */
+	  bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
+
+	  FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+	    propagate_value (use_p, newiv);
+	  update_stmt (stmt);
 	}
     }
   VEC_free (tree, heap, new_ivs);
@@ -2257,18 +2250,15 @@ can_convert_to_perfect_nest (struct loop *loop,
 		if (stmt_uses_op (stmt, iv))
 		  goto fail;
 	      
-	      /* If this is a simple operation like a cast that is
-		 invariant in the inner loop, or after the inner loop,
-		 then see if we can place it back where it came from.
-		 This means that we will propagate casts and other
-		 cheap invariant operations *back* into or after
-		 the inner loop if we can interchange the loop, on the
-		 theory that we are going to gain a lot more by
-		 interchanging the loop than we are by leaving some
-		 invariant code there for some other pass to clean
-		 up.  */
+	      /* If this is a scalar operation that can be put back
+	         into the inner loop, or after the inner loop, through
+		 copying, then do so. This works on the theory that
+		 any amount of scalar code we have to reduplicate
+		 into or after the loops is less expensive that the
+		 win we get from rearranging the memory walk
+		 the loop is doing so that it has better
+		 cache behavior.  */
 	      if (TREE_CODE (stmt) == MODIFY_EXPR
-		  && is_gimple_cast (TREE_OPERAND (stmt, 1))
 		  && (can_put_in_inner_loop (loop->inner, stmt)
 		      || can_put_after_inner_loop (loop, stmt)))
 		continue;
@@ -2487,6 +2477,7 @@ perfect_nestify (struct loops *loops,
 		{ 
 		  use_operand_p use_p;
 		  imm_use_iterator imm_iter;
+		  tree imm_stmt;
 		  tree stmt = bsi_stmt (bsi);
 
 		  if (stmt == exit_condition
@@ -2500,10 +2491,9 @@ perfect_nestify (struct loops *loops,
 		  
 		  /* Make copies of this statement to put it back next
 		     to its uses. */
-		  FOR_EACH_IMM_USE_SAFE (use_p, imm_iter, 
+		  FOR_EACH_IMM_USE_STMT (imm_stmt, imm_iter, 
 					 TREE_OPERAND (stmt, 0))
 		    {
-		      tree imm_stmt = USE_STMT (use_p);
 		      if (!exit_phi_for_loop_p (loop->inner, imm_stmt))
 			{
 			  block_stmt_iterator tobsi;
@@ -2516,7 +2506,8 @@ perfect_nestify (struct loops *loops,
 			  newname = SSA_NAME_VAR (newname);
 			  newname = make_ssa_name (newname, newstmt);
 			  TREE_OPERAND (newstmt, 0) = newname;
-			  SET_USE (use_p, TREE_OPERAND (newstmt, 0));
+			  FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+			    SET_USE (use_p, newname);
 			  bsi_insert_before (&tobsi, newstmt, BSI_SAME_STMT);
 			  update_stmt (newstmt);
 			  update_stmt (imm_stmt);
@@ -2581,7 +2572,7 @@ perfect_nestify (struct loops *loops,
 bool
 lambda_transform_legal_p (lambda_trans_matrix trans, 
 			  int nb_loops,
-			  varray_type dependence_relations)
+			  VEC (ddr_p, heap) *dependence_relations)
 {
   unsigned int i, j;
   lambda_vector distres;
@@ -2592,8 +2583,7 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
 
   /* When there is an unknown relation in the dependence_relations, we
      know that it is no worth looking at this loop nest: give up.  */
-  ddr = (struct data_dependence_relation *) 
-    VARRAY_GENERIC_PTR (dependence_relations, 0);
+  ddr = VEC_index (ddr_p, dependence_relations, 0);
   if (ddr == NULL)
     return true;
   if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
@@ -2602,11 +2592,8 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
   distres = lambda_vector_new (nb_loops);
 
   /* For each distance vector in the dependence graph.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
+  for (i = 0; VEC_iterate (ddr_p, dependence_relations, i, ddr); i++)
     {
-      ddr = (struct data_dependence_relation *) 
-	VARRAY_GENERIC_PTR (dependence_relations, i);     
-
       /* Don't care about relations for which we know that there is no
 	 dependence, nor about read-read (aka. output-dependences):
 	 these data accesses can happen in any order.  */

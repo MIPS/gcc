@@ -1,6 +1,7 @@
 /* Emit RTL for the GCC expander.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1596,8 +1597,9 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 				     index, low_bound);
 
 	      off_tree = size_binop (PLUS_EXPR,
-				     size_binop (MULT_EXPR, convert (sizetype,
-								     index),
+				     size_binop (MULT_EXPR,
+						 fold_convert (sizetype,
+							       index),
 						 unit_size),
 				     off_tree);
 	      t2 = TREE_OPERAND (t2, 0);
@@ -2142,10 +2144,11 @@ unshare_all_rtl_again (rtx insn)
   unshare_all_rtl_1 (cfun->decl, insn);
 }
 
-void
+unsigned int
 unshare_all_rtl (void)
 {
   unshare_all_rtl_1 (current_function_decl, get_insns ());
+  return 0;
 }
 
 struct tree_opt_pass pass_unshare_all_rtl =
@@ -3675,79 +3678,6 @@ find_line_note (rtx insn)
 
   return insn;
 }
-
-/* Remove unnecessary notes from the instruction stream.  */
-
-void
-remove_unnecessary_notes (void)
-{
-  rtx eh_stack = NULL_RTX;
-  rtx insn;
-  rtx next;
-  rtx tmp;
-
-  /* We must not remove the first instruction in the function because
-     the compiler depends on the first instruction being a note.  */
-  for (insn = NEXT_INSN (get_insns ()); insn; insn = next)
-    {
-      /* Remember what's next.  */
-      next = NEXT_INSN (insn);
-
-      /* We're only interested in notes.  */
-      if (!NOTE_P (insn))
-	continue;
-
-      switch (NOTE_LINE_NUMBER (insn))
-	{
-	case NOTE_INSN_DELETED:
-	  remove_insn (insn);
-	  break;
-
-	case NOTE_INSN_EH_REGION_BEG:
-	  eh_stack = alloc_INSN_LIST (insn, eh_stack);
-	  break;
-
-	case NOTE_INSN_EH_REGION_END:
-	  /* Too many end notes.  */
-	  gcc_assert (eh_stack);
-	  /* Mismatched nesting.  */
-	  gcc_assert (NOTE_EH_HANDLER (XEXP (eh_stack, 0))
-		      == NOTE_EH_HANDLER (insn));
-	  tmp = eh_stack;
-	  eh_stack = XEXP (eh_stack, 1);
-	  free_INSN_LIST_node (tmp);
-	  break;
-
-	case NOTE_INSN_BLOCK_BEG:
-	case NOTE_INSN_BLOCK_END:
-          /* BLOCK_END and BLOCK_BEG notes only exist in the `final' pass.  */
-          gcc_unreachable ();
-
-	default:
-	  break;
-	}
-    }
-
-  /* Too many EH_REGION_BEG notes.  */
-  gcc_assert (!eh_stack);
-}
-
-struct tree_opt_pass pass_remove_unnecessary_notes =
-{
-  "eunotes",                            /* name */ 
-  NULL,					/* gate */
-  remove_unnecessary_notes,             /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,					/* tv_id */ 
-  0,					/* properties_required */
-  0,                                    /* properties_provided */
-  0,					/* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0                                     /* letter */ 
-};
 
 
 /* Emit insn(s) of given code and pattern

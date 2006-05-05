@@ -114,7 +114,7 @@ inverse (tree x, tree mask)
     }
   else
     {
-      rslt = build_int_cst_type (type, 1);
+      rslt = build_int_cst (type, 1);
       for (; ctr; ctr--)
 	{
 	  rslt = int_const_binop (MULT_EXPR, rslt, x, 0);
@@ -129,9 +129,9 @@ inverse (tree x, tree mask)
 /* Determines number of iterations of loop whose ending condition
    is IV <> FINAL.  TYPE is the type of the iv.  The number of
    iterations is stored to NITER.  NEVER_INFINITE is true if
-   we know that the loop cannot be infinite (we derived this
-   earlier, and possibly set NITER->assumptions to make sure this
-   is the case.  */
+   we know that the exit must be taken eventually, i.e., that the IV
+   ever reaches the value FINAL (we derived this earlier, and possibly set
+   NITER->assumptions to make sure this is the case).  */
 
 static bool
 number_of_iterations_ne (tree type, affine_iv *iv, tree final,
@@ -178,7 +178,7 @@ number_of_iterations_ne (tree type, affine_iv *iv, tree final,
 				- tree_low_cst (bits, 1)));
 
   d = fold_binary_to_constant (LSHIFT_EXPR, niter_type,
-			       build_int_cst_type (niter_type, 1), bits);
+			       build_int_cst (niter_type, 1), bits);
   s = fold_binary_to_constant (RSHIFT_EXPR, niter_type, s, bits);
 
   if (!never_infinite)
@@ -305,7 +305,7 @@ assert_no_overflow_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 	}
       else
 	diff = fold_build2 (MINUS_EXPR, niter_type, step,
-			    build_int_cst_type (niter_type, 1));
+			    build_int_cst (niter_type, 1));
       bound = fold_build2 (MINUS_EXPR, type,
 			   TYPE_MAX_VALUE (type), fold_convert (type, diff));
       assumption = fold_build2 (LE_EXPR, boolean_type_node,
@@ -326,7 +326,7 @@ assert_no_overflow_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 	}
       else
 	diff = fold_build2 (MINUS_EXPR, niter_type, step,
-			    build_int_cst_type (niter_type, 1));
+			    build_int_cst (niter_type, 1));
       bound = fold_build2 (PLUS_EXPR, type,
 			   TYPE_MIN_VALUE (type), fold_convert (type, diff));
       assumption = fold_build2 (GE_EXPR, boolean_type_node,
@@ -357,7 +357,7 @@ assert_loop_rolls_lt (tree type, affine_iv *iv0, affine_iv *iv1,
   if (nonzero_p (iv0->step))
     {
       diff = fold_build2 (MINUS_EXPR, type,
-			  iv0->step, build_int_cst_type (type, 1));
+			  iv0->step, build_int_cst (type, 1));
 
       /* We need to know that iv0->base >= MIN + iv0->step - 1.  Since
 	 0 address never belongs to any object, we can assume this for
@@ -378,7 +378,7 @@ assert_loop_rolls_lt (tree type, affine_iv *iv0, affine_iv *iv1,
   else
     {
       diff = fold_build2 (PLUS_EXPR, type,
-			  iv1->step, build_int_cst_type (type, 1));
+			  iv1->step, build_int_cst (type, 1));
 
       if (!POINTER_TYPE_P (type))
 	{
@@ -464,7 +464,7 @@ number_of_iterations_lt (tree type, affine_iv *iv0, affine_iv *iv1,
     {
       affine_iv zps;
 
-      zps.base = build_int_cst_type (niter_type, 0);
+      zps.base = build_int_cst (niter_type, 0);
       zps.step = step;
       /* number_of_iterations_lt_to_ne will add assumptions that ensure that
 	 zps does not overflow.  */
@@ -483,7 +483,7 @@ number_of_iterations_lt (tree type, affine_iv *iv0, affine_iv *iv1,
   assert_loop_rolls_lt (type, iv0, iv1, niter);
 
   s = fold_build2 (MINUS_EXPR, niter_type,
-		   step, build_int_cst_type (niter_type, 1));
+		   step, build_int_cst (niter_type, 1));
   delta = fold_build2 (PLUS_EXPR, niter_type, delta, s);
   niter->niter = fold_build2 (FLOOR_DIV_EXPR, niter_type, delta, step);
   return true;
@@ -492,9 +492,9 @@ number_of_iterations_lt (tree type, affine_iv *iv0, affine_iv *iv1,
 /* Determines number of iterations of loop whose ending condition
    is IV0 <= IV1.  TYPE is the type of the iv.  The number of
    iterations is stored to NITER.  NEVER_INFINITE is true if
-   we know that the loop cannot be infinite (we derived this
+   we know that this condition must eventually become false (we derived this
    earlier, and possibly set NITER->assumptions to make sure this
-   is the case.  */
+   is the case).  */
 
 static bool
 number_of_iterations_le (tree type, affine_iv *iv0, affine_iv *iv1,
@@ -525,10 +525,10 @@ number_of_iterations_le (tree type, affine_iv *iv0, affine_iv *iv1,
 
   if (nonzero_p (iv0->step))
     iv1->base = fold_build2 (PLUS_EXPR, type,
-			     iv1->base, build_int_cst_type (type, 1));
+			     iv1->base, build_int_cst (type, 1));
   else
     iv0->base = fold_build2 (MINUS_EXPR, type,
-			     iv0->base, build_int_cst_type (type, 1));
+			     iv0->base, build_int_cst (type, 1));
   return number_of_iterations_lt (type, iv0, iv1, niter, never_infinite);
 }
 
@@ -538,6 +538,11 @@ number_of_iterations_le (tree type, affine_iv *iv0, affine_iv *iv1,
    is IV0, the right-hand side is IV1.  Both induction variables must have
    type TYPE, which must be an integer or pointer type.  The steps of the
    ivs must be constants (or NULL_TREE, which is interpreted as constant zero).
+
+   ONLY_EXIT is true if we are sure this is the only way the loop could be
+   exited (including possibly non-returning function calls, exceptions, etc.)
+   -- in this case we can use the information whether the control induction
+   variables can overflow or not in a more efficient way.
    
    The results (number of iterations and assumptions as described in
    comments at struct tree_niter_desc in tree-flow.h) are stored to NITER.
@@ -546,7 +551,8 @@ number_of_iterations_le (tree type, affine_iv *iv0, affine_iv *iv1,
 
 static bool
 number_of_iterations_cond (tree type, affine_iv *iv0, enum tree_code code,
-			   affine_iv *iv1, struct tree_niter_desc *niter)
+			   affine_iv *iv1, struct tree_niter_desc *niter,
+			   bool only_exit)
 {
   bool never_infinite;
 
@@ -572,13 +578,30 @@ number_of_iterations_cond (tree type, affine_iv *iv0, enum tree_code code,
       code = swap_tree_comparison (code);
     }
 
+  if (!only_exit)
+    {
+      /* If this is not the only possible exit from the loop, the information
+	 that the induction variables cannot overflow as derived from
+	 signedness analysis cannot be relied upon.  We use them e.g. in the
+	 following way:  given loop for (i = 0; i <= n; i++), if i is
+	 signed, it cannot overflow, thus this loop is equivalent to
+	 for (i = 0; i < n + 1; i++);  however, if n == MAX, but the loop
+	 is exited in some other way before i overflows, this transformation
+	 is incorrect (the new loop exits immediately).  */
+      iv0->no_overflow = false;
+      iv1->no_overflow = false;
+    }
+
   if (POINTER_TYPE_P (type))
     {
       /* Comparison of pointers is undefined unless both iv0 and iv1 point
 	 to the same object.  If they do, the control variable cannot wrap
 	 (as wrap around the bounds of memory will never return a pointer
 	 that would be guaranteed to point to the same object, even if we
-	 avoid undefined behavior by casting to size_t and back).  */
+	 avoid undefined behavior by casting to size_t and back).  The
+	 restrictions on pointer arithmetics and comparisons of pointers
+	 ensure that using the no-overflow assumptions is correct in this
+	 case even if ONLY_EXIT is false.  */
       iv0->no_overflow = true;
       iv1->no_overflow = true;
     }
@@ -623,10 +646,10 @@ number_of_iterations_cond (tree type, affine_iv *iv0, enum tree_code code,
 	return false;
     }
 
-  /* If the loop exits immediatelly, there is nothing to do.  */
+  /* If the loop exits immediately, there is nothing to do.  */
   if (zero_p (fold_build2 (code, boolean_type_node, iv0->base, iv1->base)))
     {
-      niter->niter = build_int_cst_type (unsigned_type_for (type), 0);
+      niter->niter = build_int_cst (unsigned_type_for (type), 0);
       return true;
     }
 
@@ -963,6 +986,37 @@ simplify_using_outer_evolutions (struct loop *loop, tree expr)
   return expr;
 }
 
+/* Returns true if EXIT is the only possible exit from LOOP.  */
+
+static bool
+loop_only_exit_p (struct loop *loop, edge exit)
+{
+  basic_block *body;
+  block_stmt_iterator bsi;
+  unsigned i;
+  tree call;
+
+  if (exit != loop->single_exit)
+    return false;
+
+  body = get_loop_body (loop);
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      for (bsi = bsi_start (body[0]); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  call = get_call_expr_in (bsi_stmt (bsi));
+	  if (call && TREE_SIDE_EFFECTS (call))
+	    {
+	      free (body);
+	      return false;
+	    }
+	}
+    }
+
+  free (body);
+  return true;
+}
+
 /* Stores description of number of iterations of LOOP derived from
    EXIT (an exit edge of the LOOP) in NITER.  Returns true if some
    useful information could be derived (and fields of NITER has
@@ -1023,7 +1077,8 @@ number_of_iterations_exit (struct loop *loop, edge exit,
 
   iv0.base = expand_simple_operations (iv0.base);
   iv1.base = expand_simple_operations (iv1.base);
-  if (!number_of_iterations_cond (type, &iv0, code, &iv1, niter))
+  if (!number_of_iterations_cond (type, &iv0, code, &iv1, niter,
+				  loop_only_exit_p (loop, exit)))
     return false;
 
   if (optimize >= 3)
@@ -1116,7 +1171,7 @@ find_loop_niter (struct loop *loop, edge *exit)
 	{
 	  /* We exit in the first iteration through this exit.
 	     We won't find anything better.  */
-	  niter = build_int_cst_type (unsigned_type_node, 0);
+	  niter = build_int_cst (unsigned_type_node, 0);
 	  *exit = ex;
 	  break;
 	}
@@ -1409,6 +1464,24 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
 
 */
 
+/* Returns a constant upper bound on the value of expression VAL.  The
+   condition ADDITIONAL must be satisfied (for example, if VAL is
+   "(unsigned) n" and ADDITIONAL is "n > 0", then we can derive that
+   VAL is at most (unsigned) MAX_INT).
+ 
+   TODO -- actually do something nontrivial here.  */
+
+static tree
+derive_constant_upper_bound (tree val, tree additional ATTRIBUTE_UNUSED)
+{
+  tree type = TREE_TYPE (val);
+  tree unsigned_type = unsigned_type_for (type);
+
+  if (TREE_CODE (val) != INTEGER_CST)
+    val = upper_bound_in_type (type, type);
+  return fold_convert (unsigned_type, val);
+}
+
 /* Records that AT_STMT is executed at most BOUND times in LOOP.  The
    additional condition ADDITIONAL is recorded with the bound.  */
 
@@ -1416,6 +1489,7 @@ void
 record_estimate (struct loop *loop, tree bound, tree additional, tree at_stmt)
 {
   struct nb_iter_bound *elt = xmalloc (sizeof (struct nb_iter_bound));
+  tree c_bound = derive_constant_upper_bound (bound, additional);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1423,12 +1497,13 @@ record_estimate (struct loop *loop, tree bound, tree additional, tree at_stmt)
       print_generic_expr (dump_file, at_stmt, TDF_SLIM);
       fprintf (dump_file, " are executed at most ");
       print_generic_expr (dump_file, bound, TDF_SLIM);
-      fprintf (dump_file, " times in loop %d.\n", loop->num);
+      fprintf (dump_file, " (bounded by ");
+      print_generic_expr (dump_file, c_bound, TDF_SLIM);
+      fprintf (dump_file, ") times in loop %d.\n", loop->num);
     }
 
-  elt->bound = bound;
+  elt->bound = c_bound;
   elt->at_stmt = at_stmt;
-  elt->additional = additional;
   elt->next = loop->bounds;
   loop->bounds = elt;
 }
@@ -1442,12 +1517,16 @@ compute_estimated_nb_iterations (struct loop *loop)
   struct nb_iter_bound *bound;
   
   for (bound = loop->bounds; bound; bound = bound->next)
-    if (TREE_CODE (bound->bound) == INTEGER_CST
-	/* Update only when there is no previous estimation.  */
-	&& (chrec_contains_undetermined (loop->estimated_nb_iterations)
-	    /* Or when the current estimation is smaller.  */
-	    || tree_int_cst_lt (bound->bound, loop->estimated_nb_iterations)))
-      loop->estimated_nb_iterations = bound->bound;
+    {
+      if (TREE_CODE (bound->bound) != INTEGER_CST)
+	continue;
+
+      /* Update only when there is no previous estimation, or when the current
+	 estimation is smaller.  */
+      if (chrec_contains_undetermined (loop->estimated_nb_iterations)
+	  || tree_int_cst_lt (bound->bound, loop->estimated_nb_iterations))
+	loop->estimated_nb_iterations = bound->bound;
+    }
 }
 
 /* The following analyzers are extracting informations on the bounds
@@ -1527,9 +1606,13 @@ infer_loop_bounds_from_undefined (struct loop *loop)
 		      diff = fold_build2 (MINUS_EXPR, utype,
 					  TYPE_MAX_VALUE (type), init);
 
-		    estimation = fold_build2 (CEIL_DIV_EXPR, utype, diff,
-					      step);
-		    record_estimate (loop, estimation, boolean_true_node, stmt);
+		    if (!integer_zerop (step))
+		      {
+			estimation = fold_build2 (CEIL_DIV_EXPR, utype, diff,
+						  step);
+			record_estimate (loop, estimation, boolean_true_node,
+					 stmt);
+		      }
 		  }
 
 		break;
@@ -1552,11 +1635,9 @@ infer_loop_bounds_from_undefined (struct loop *loop)
 	      break;
 	    }
 	}
-
-      if (chrec_contains_undetermined (loop->estimated_nb_iterations))
-	compute_estimated_nb_iterations (loop);
     }
 
+  compute_estimated_nb_iterations (loop);
   free (bbs);
 }
 
@@ -1590,7 +1671,7 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
       if (!zero_p (niter_desc.may_be_zero)
 	  && !nonzero_p (niter_desc.may_be_zero))
 	niter = build3 (COND_EXPR, type, niter_desc.may_be_zero,
-			build_int_cst_type (type, 0),
+			build_int_cst (type, 0),
 			niter);
       record_estimate (loop, niter,
 		       niter_desc.additional_info,
@@ -1670,73 +1751,41 @@ stmt_dominates_stmt_p (tree s1, tree s2)
   return dominated_by_p (CDI_DOMINATORS, bb2, bb1);
 }
 
-/* Return true when it is possible to prove that the induction
-   variable does not wrap: vary outside the type specified bounds.
-   Checks whether BOUND < VALID_NITER that means in the context of iv
-   conversion that all the iterations in the loop are safe: not
-   producing wraps.
-
-   The statement NITER_BOUND->AT_STMT is executed at most
-   NITER_BOUND->BOUND times in the loop.
-   
-   NITER_BOUND->ADDITIONAL is the additional condition recorded for
-   operands of the bound.  This is useful in the following case,
-   created by loop header copying:
-
-   i = 0;
-   if (n > 0)
-     do
-       {
-         something;
-       } while (++i < n)
-
-   If the n > 0 condition is taken into account, the number of iterations of the
-   loop can be expressed as n - 1.  If the type of n is signed, the ADDITIONAL
-   assumption "n > 0" says us that the value of the number of iterations is at
-   most MAX_TYPE - 1 (without this assumption, it might overflow).  */
+/* Returns true when we can prove that the number of executions of
+   STMT in the loop is at most NITER, according to the fact
+   that the statement NITER_BOUND->at_stmt is executed at most
+   NITER_BOUND->bound times.  */
 
 static bool
-proved_non_wrapping_p (tree at_stmt,
-		       struct nb_iter_bound *niter_bound, 
-		       tree new_type,
-		       tree valid_niter)
+n_of_executions_at_most (tree stmt,
+			 struct nb_iter_bound *niter_bound, 
+			 tree niter)
 {
   tree cond;
   tree bound = niter_bound->bound;
+  tree bound_type = TREE_TYPE (bound);
+  tree nit_type = TREE_TYPE (niter);
   enum tree_code cmp;
 
-  if (TYPE_PRECISION (new_type) > TYPE_PRECISION (TREE_TYPE (bound)))
-    bound = fold_convert (unsigned_type_for (new_type), bound);
+  gcc_assert (TYPE_UNSIGNED (bound_type)
+	      && TYPE_UNSIGNED (nit_type)
+	      && is_gimple_min_invariant (bound));
+  if (TYPE_PRECISION (nit_type) > TYPE_PRECISION (bound_type))
+    bound = fold_convert (nit_type, bound);
   else
-    valid_niter = fold_convert (TREE_TYPE (bound), valid_niter);
-
-  /* Give up if BOUND was not folded to an INTEGER_CST, as in PR23434.  */
-  if (TREE_CODE (bound) != INTEGER_CST)
-    return false;
+    niter = fold_convert (bound_type, niter);
 
   /* After the statement niter_bound->at_stmt we know that anything is
      executed at most BOUND times.  */
-  if (at_stmt && stmt_dominates_stmt_p (niter_bound->at_stmt, at_stmt))
+  if (stmt && stmt_dominates_stmt_p (niter_bound->at_stmt, stmt))
     cmp = GE_EXPR;
   /* Before the statement niter_bound->at_stmt we know that anything
      is executed at most BOUND + 1 times.  */
   else
     cmp = GT_EXPR;
 
-  cond = fold_binary (cmp, boolean_type_node, valid_niter, bound);
-  if (nonzero_p (cond))
-    return true;
-
-  cond = build2 (cmp, boolean_type_node, valid_niter, bound);
-  /* Try taking additional conditions into account.  */
-  cond = fold_binary (TRUTH_OR_EXPR, boolean_type_node,
-		      invert_truthvalue (niter_bound->additional),
-		      cond);
-
-  if (nonzero_p (cond))
-    return true;
-
-  return false;
+  cond = fold_binary (cmp, boolean_type_node, niter, bound);
+  return nonzero_p (cond);
 }
 
 /* Checks whether it is correct to count the induction variable BASE +
@@ -1814,7 +1863,7 @@ convert_step_widening (struct loop *loop, tree new_type, tree base, tree step,
 
   estimate_numbers_of_iterations_loop (loop);
   for (bound = loop->bounds; bound; bound = bound->next)
-    if (proved_non_wrapping_p (at_stmt, bound, new_type, valid_niter))
+    if (n_of_executions_at_most (at_stmt, bound, valid_niter))
       return step_in_new_type;
 
   /* Fail when the loop has no bound estimations, or when no bound can
@@ -2018,7 +2067,7 @@ scev_probably_wraps_p (tree type, tree base, tree step,
 
   estimate_numbers_of_iterations_loop (loop);
   for (bound = loop->bounds; bound; bound = bound->next)
-    if (proved_non_wrapping_p (at_stmt, bound, type, valid_niter))
+    if (n_of_executions_at_most (at_stmt, bound, valid_niter))
       return false;
 
   /* At this point we still don't have a proof that the iv does not
@@ -2035,7 +2084,7 @@ tree
 convert_step (struct loop *loop, tree new_type, tree base, tree step,
 	      tree at_stmt)
 {
-  tree base_type;
+  tree res, base_type;
 
   if (chrec_contains_undetermined (base)
       || chrec_contains_undetermined (step))
@@ -2045,12 +2094,22 @@ convert_step (struct loop *loop, tree new_type, tree base, tree step,
 
   /* When not using wrapping arithmetic, signed types don't wrap.  */
   if (!flag_wrapv && !TYPE_UNSIGNED (base_type))
-    return fold_convert (new_type, step);
+    goto do_convert_step;
 
   if (TYPE_PRECISION (new_type) > TYPE_PRECISION (base_type))
     return convert_step_widening (loop, new_type, base, step, at_stmt);
 
-  return fold_convert (new_type, step);
+ do_convert_step:
+  
+  res = fold_convert (new_type, step);
+
+  if (TREE_CODE (res) == INTEGER_CST)
+    {
+      TREE_OVERFLOW (res) = 0;
+      TREE_CONSTANT_OVERFLOW (res) = 0;
+    }
+
+  return res;
 }
 
 /* Frees the information on upper bounds on numbers of iterations of LOOP.  */
@@ -2093,14 +2152,7 @@ free_numbers_of_iterations_estimates (struct loops *loops)
 void
 substitute_in_loop_info (struct loop *loop, tree name, tree val)
 {
-  struct nb_iter_bound *bound;
-
   loop->nb_iterations = simplify_replace_tree (loop->nb_iterations, name, val);
   loop->estimated_nb_iterations
 	  = simplify_replace_tree (loop->estimated_nb_iterations, name, val);
-  for (bound = loop->bounds; bound; bound = bound->next)
-    {
-      bound->bound = simplify_replace_tree (bound->bound, name, val);
-      bound->additional = simplify_replace_tree (bound->additional, name, val);
-    }
 }

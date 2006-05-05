@@ -115,9 +115,19 @@ java::lang::Class::getClassLoader (void)
   if (s != NULL)
     {
       jclass caller = _Jv_StackTrace::GetCallingClass (&Class::class$);
-      ClassLoader *caller_loader = NULL;
-      if (caller)
-	caller_loader = caller->getClassLoaderInternal();
+      return getClassLoader (caller);
+   }
+
+  return loader;
+}
+
+java::lang::ClassLoader *
+java::lang::Class::getClassLoader (jclass caller)
+{
+  java::lang::SecurityManager *s = java::lang::System::getSecurityManager();
+  if (s != NULL)
+    {
+      ClassLoader *caller_loader = caller->getClassLoaderInternal();
 
       // If the caller has a non-null class loader, and that loader
       // is not this class' loader or an ancestor thereof, then do a
@@ -621,8 +631,9 @@ jboolean
 java::lang::Class::isAssignableFrom (jclass klass)
 {
   // Arguments may not have been initialized, given ".class" syntax.
-  _Jv_InitClass (this);
-  _Jv_InitClass (klass);
+  // This ensures we can at least look at their superclasses.
+  _Jv_Linker::wait_for_state (this, JV_STATE_LOADING);
+  _Jv_Linker::wait_for_state (klass, JV_STATE_LOADING);
   return _Jv_IsAssignableFrom (klass, this);
 }
 
@@ -631,7 +642,6 @@ java::lang::Class::isInstance (jobject obj)
 {
   if (! obj)
     return false;
-  _Jv_InitClass (this);
   return _Jv_IsAssignableFrom (JV_CLASS (obj), this);
 }
 
@@ -1182,9 +1192,14 @@ _Jv_getInterfaceMethod (jclass search_class, jclass &found_class, int &index,
       if (!klass->isInterface ())
 	return false;
       
-      int i = klass->method_count;
-      while (--i >= 0)
+      int max = klass->method_count;
+      int offset = 0;
+      for (int i = 0; i < max; ++i)
 	{
+	  // Skip <clinit> here, as it will not be in the IDT.
+	  if (klass->methods[i].name->first() == '<')
+	    continue;
+
 	  if (_Jv_equalUtf8Consts (klass->methods[i].name, utf_name)
 	      && _Jv_equalUtf8Consts (klass->methods[i].signature, utf_sig))
 	    {
@@ -1197,9 +1212,11 @@ _Jv_getInterfaceMethod (jclass search_class, jclass &found_class, int &index,
 
 	      found_class = klass;
 	      // Interface method indexes count from 1.
-	      index = i+1;
+	      index = offset + 1;
 	      return true;
 	    }
+
+	  ++offset;
 	}
     }
 
@@ -1211,8 +1228,8 @@ _Jv_getInterfaceMethod (jclass search_class, jclass &found_class, int &index,
 	{
 	  using namespace java::lang::reflect;
 	  bool found = _Jv_getInterfaceMethod (search_class->interfaces[i], 
-					   found_class, index,
-					   utf_name, utf_sig);
+					       found_class, index,
+					       utf_name, utf_sig);
 	  if (found)
 	    return true;
 	}

@@ -42,6 +42,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "bitmap.h"
 #include "timevar.h"
 #include "df.h"
+#include "vecprim.h"
 
 #define DF_SPARSE_THRESHOLD 32
 
@@ -184,7 +185,7 @@ df_get_live_out (struct df *df, basic_block bb)
 ----------------------------------------------------------------------------*/
 
 /* Generic versions to get the void* version of the block info.  Only
-   used inside the problem instace vectors.  */
+   used inside the problem instance vectors.  */
 
 /* Grow the bb_info array.  */
 
@@ -2208,9 +2209,6 @@ df_urec_mark_reg_change (rtx reg, rtx setter, void *data)
 /* Classes of registers which could be early clobbered in the current
    insn.  */
 
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
-
 static VEC(int,heap) *earlyclobber_regclass;
 
 /* This function finds and stores register classes that could be early
@@ -2781,7 +2779,7 @@ df_chain_bb_reset (struct dataflow *dflow, unsigned int bb_index)
 	}
     }
   
-  /* Get rid of any chains in artifical uses or defs.  */
+  /* Get rid of any chains in artificial uses or defs.  */
   if (problem_data->flags & DF_DU_CHAIN)
     {
       struct df_ref *def;
@@ -2994,7 +2992,9 @@ df_chains_dump (struct dataflow *dflow, FILE *file)
 	    {
 	      fprintf (file, "d%d bb %d luid %d insn %d reg %d ",
 		       j, DF_REF_BBNO (def),
-		       DF_INSN_LUID (df, DF_REF_INSN (def)),
+		       DF_REF_INSN (def) ? 
+		       DF_INSN_LUID (df, DF_REF_INSN (def)):
+		       -1,
 		       DF_REF_INSN (def) ? DF_REF_INSN_UID (def) : -1,
 		       DF_REF_REGNO (def));
 	      if (def->flags & DF_REF_READ_WRITE)

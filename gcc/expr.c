@@ -1409,6 +1409,8 @@ init_block_move_fn (const char *asmspec)
       TREE_PUBLIC (fn) = 1;
       DECL_ARTIFICIAL (fn) = 1;
       TREE_NOTHROW (fn) = 1;
+      DECL_VISIBILITY (fn) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (fn) = 1;
 
       block_move_fn = fn;
     }
@@ -1855,7 +1857,7 @@ void
 emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 {
   rtx *tmps, dst;
-  int start, i;
+  int start, finish, i;
   enum machine_mode m = GET_MODE (orig_dst);
 
   gcc_assert (GET_CODE (src) == PARALLEL);
@@ -1881,15 +1883,21 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
     start = 0;
   else
     start = 1;
+  finish = XVECLEN (src, 0);
 
-  tmps = alloca (sizeof (rtx) * XVECLEN (src, 0));
+  tmps = alloca (sizeof (rtx) * finish);
 
   /* Copy the (probable) hard regs into pseudos.  */
-  for (i = start; i < XVECLEN (src, 0); i++)
+  for (i = start; i < finish; i++)
     {
       rtx reg = XEXP (XVECEXP (src, 0, i), 0);
-      tmps[i] = gen_reg_rtx (GET_MODE (reg));
-      emit_move_insn (tmps[i], reg);
+      if (!REG_P (reg) || REGNO (reg) < FIRST_PSEUDO_REGISTER)
+	{
+	  tmps[i] = gen_reg_rtx (GET_MODE (reg));
+	  emit_move_insn (tmps[i], reg);
+	}
+      else
+	tmps[i] = reg;
     }
 
   /* If we won't be storing directly into memory, protect the real destination
@@ -1916,13 +1924,62 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
     }
   else if (!MEM_P (dst) && GET_CODE (dst) != CONCAT)
     {
-      dst = gen_reg_rtx (GET_MODE (orig_dst));
+      enum machine_mode outer = GET_MODE (dst);
+      enum machine_mode inner;
+      HOST_WIDE_INT bytepos;
+      bool done = false;
+      rtx temp;
+
+      if (!REG_P (dst) || REGNO (dst) < FIRST_PSEUDO_REGISTER)
+	dst = gen_reg_rtx (outer);
+
       /* Make life a bit easier for combine.  */
-      emit_move_insn (dst, CONST0_RTX (GET_MODE (orig_dst)));
+      /* If the first element of the vector is the low part
+	 of the destination mode, use a paradoxical subreg to
+	 initialize the destination.  */
+      if (start < finish)
+	{
+	  inner = GET_MODE (tmps[start]);
+	  bytepos = subreg_lowpart_offset (inner, outer);
+	  if (INTVAL (XEXP (XVECEXP (src, 0, start), 1)) == bytepos)
+	    {
+	      temp = simplify_gen_subreg (outer, tmps[start],
+					  inner, 0);
+	      if (temp)
+		{
+		  emit_move_insn (dst, temp);
+		  done = true;
+		  start++;
+		}
+	    }
+	}
+
+      /* If the first element wasn't the low part, try the last.  */
+      if (!done
+	  && start < finish - 1)
+	{
+	  inner = GET_MODE (tmps[finish - 1]);
+	  bytepos = subreg_lowpart_offset (inner, outer);
+	  if (INTVAL (XEXP (XVECEXP (src, 0, finish - 1), 1)) == bytepos)
+	    {
+	      temp = simplify_gen_subreg (outer, tmps[finish - 1],
+					  inner, 0);
+	      if (temp)
+		{
+		  emit_move_insn (dst, temp);
+		  done = true;
+		  finish--;
+		}
+	    }
+	}
+
+      /* Otherwise, simply initialize the result to zero.  */
+      if (!done)
+        emit_move_insn (dst, CONST0_RTX (outer));
     }
 
   /* Process the pieces.  */
-  for (i = start; i < XVECLEN (src, 0); i++)
+  for (i = start; i < finish; i++)
     {
       HOST_WIDE_INT bytepos = INTVAL (XEXP (XVECEXP (src, 0, i), 1));
       enum machine_mode mode = GET_MODE (tmps[i]);
@@ -2556,6 +2613,8 @@ init_block_clear_fn (const char *asmspec)
       TREE_PUBLIC (fn) = 1;
       DECL_ARTIFICIAL (fn) = 1;
       TREE_NOTHROW (fn) = 1;
+      DECL_VISIBILITY (fn) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (fn) = 1;
 
       block_clear_fn = fn;
     }
@@ -3287,7 +3346,11 @@ compress_float_constant (rtx x, rtx y)
 	}
       else
 	continue;
- 
+
+      /* For CSE's benefit, force the compressed constant pool entry
+	 into a new pseudo.  This constant may be used in different modes,
+	 and if not, combine will put things back together for us.  */
+      trunc_y = force_reg (srcmode, trunc_y);
       emit_unop_insn (ic, x, trunc_y, UNKNOWN);
       last_insn = get_last_insn ();
 
@@ -3925,12 +3988,15 @@ expand_assignment (tree to, tree from)
   rtx result;
 
   /* Don't crash if the lhs of the assignment was erroneous.  */
-
   if (TREE_CODE (to) == ERROR_MARK)
     {
       result = expand_normal (from);
       return;
     }
+
+  /* Optimize away no-op moves without side-effects.  */
+  if (operand_equal_p (to, from, 0))
+    return;
 
   /* Assignment of a structure component needs special treatment
      if the structure component's rtx is not simply a MEM.
@@ -4229,14 +4295,14 @@ store_expr (tree exp, rtx target, int call_param_p)
 	{
 	  if (TYPE_UNSIGNED (TREE_TYPE (exp))
 	      != SUBREG_PROMOTED_UNSIGNED_P (target))
-	    exp = convert
+	    exp = fold_convert
 	      (lang_hooks.types.signed_or_unsigned_type
 	       (SUBREG_PROMOTED_UNSIGNED_P (target), TREE_TYPE (exp)), exp);
 
-	  exp = convert (lang_hooks.types.type_for_mode
-			 (GET_MODE (SUBREG_REG (target)),
-			  SUBREG_PROMOTED_UNSIGNED_P (target)),
-			 exp);
+	  exp = fold_convert (lang_hooks.types.type_for_mode
+				(GET_MODE (SUBREG_REG (target)),
+				 SUBREG_PROMOTED_UNSIGNED_P (target)),
+			      exp);
 
 	  inner_target = SUBREG_REG (target);
 	}
@@ -4904,13 +4970,13 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		  {
 		    type = lang_hooks.types.type_for_size
 		      (BITS_PER_WORD, TYPE_UNSIGNED (type));
-		    value = convert (type, value);
+		    value = fold_convert (type, value);
 		  }
 		
 		if (BYTES_BIG_ENDIAN)
 		  value
 		   = fold_build2 (LSHIFT_EXPR, type, value,
-				   build_int_cst (NULL_TREE,
+				   build_int_cst (type,
 						  BITS_PER_WORD - bitsize));
 		bitsize = BITS_PER_WORD;
 		mode = word_mode;
@@ -5108,13 +5174,17 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		    emit_label (loop_start);
 
 		    /* Assign value to element index.  */
-		    position
-		      = convert (ssizetype,
-				 fold_build2 (MINUS_EXPR, TREE_TYPE (index),
-					      index, TYPE_MIN_VALUE (domain)));
-		    position = size_binop (MULT_EXPR, position,
-					   convert (ssizetype,
-						    TYPE_SIZE_UNIT (elttype)));
+		    position =
+		      fold_convert (ssizetype,
+				    fold_build2 (MINUS_EXPR,
+						 TREE_TYPE (index),
+						 index,
+						 TYPE_MIN_VALUE (domain)));
+
+		    position =
+			size_binop (MULT_EXPR, position,
+				    fold_convert (ssizetype,
+						  TYPE_SIZE_UNIT (elttype)));
 		    
 		    pos_rtx = expand_normal (position);
 		    xtarget = offset_address (target, pos_rtx,
@@ -5158,9 +5228,10 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 						     index,
 						     TYPE_MIN_VALUE (domain)));
 		
-		position = size_binop (MULT_EXPR, index,
-				       convert (ssizetype,
-						TYPE_SIZE_UNIT (elttype)));
+		position =
+		  size_binop (MULT_EXPR, index,
+			      fold_convert (ssizetype,
+					    TYPE_SIZE_UNIT (elttype)));
 		xtarget = offset_address (target,
 					  expand_normal (position),
 					  highest_pow2_factor (position));
@@ -5261,7 +5332,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	  }
 	
 	/* Inform later passes that the old value is dead.  */
-	if (!cleared && REG_P (target))
+	if (!cleared && !vector && REG_P (target))
 	  emit_move_insn (target, CONST0_RTX (GET_MODE (target)));
 
         /* Store each element of the constructor into the corresponding
@@ -5613,7 +5684,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 
 	    offset = size_binop (PLUS_EXPR, offset,
 			         size_binop (MULT_EXPR,
-					     convert (sizetype, index),
+					     fold_convert (sizetype, index),
 					     unit_size));
 	  }
 	  break;
@@ -5652,7 +5723,8 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
   /* If OFFSET is constant, see if we can return the whole thing as a
      constant bit position.  Otherwise, split it up.  */
   if (host_integerp (offset, 0)
-      && 0 != (tem = size_binop (MULT_EXPR, convert (bitsizetype, offset),
+      && 0 != (tem = size_binop (MULT_EXPR,
+				 fold_convert (bitsizetype, offset),
 				 bitsize_unit_node))
       && 0 != (tem = size_binop (PLUS_EXPR, tem, bit_offset))
       && host_integerp (tem, 0))
@@ -6282,7 +6354,7 @@ expand_operands (tree exp0, tree exp1, rtx target, rtx *op0, rtx *op1,
 }
 
 
-/* Return a MEM that constains constant EXP.  DEFER is as for
+/* Return a MEM that contains constant EXP.  DEFER is as for
    output_constant_def and MODIFIER is as for expand_expr.  */
 
 static rtx
@@ -7652,7 +7724,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       else if (!MEM_P (op0))
 	{
 	  /* If the operand is not a MEM, force it into memory.  Since we
-	     are going to be be changing the mode of the MEM, don't call
+	     are going to be changing the mode of the MEM, don't call
 	     force_const_mem for constants because we don't allow pool
 	     constants to change mode.  */
 	  tree inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
@@ -8441,14 +8513,11 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    && integer_onep (DECL_SIZE (TREE_OPERAND (TREE_OPERAND (rhs, 1), 1))))
 	  {
 	    rtx label = gen_label_rtx ();
-
+	    int value = TREE_CODE (rhs) == BIT_IOR_EXPR;
 	    do_jump (TREE_OPERAND (rhs, 1),
-		     TREE_CODE (rhs) == BIT_IOR_EXPR ? label : 0,
-		     TREE_CODE (rhs) == BIT_AND_EXPR ? label : 0);
-	    expand_assignment (lhs, convert (TREE_TYPE (rhs),
-					     (TREE_CODE (rhs) == BIT_IOR_EXPR
-					      ? integer_one_node
-					      : integer_zero_node)));
+		     value ? label : 0,
+		     value ? 0 : label);
+	    expand_assignment (lhs, build_int_cst (TREE_TYPE (rhs), value));
 	    do_pending_stack_adjust ();
 	    emit_label (label);
 	    return const0_rtx;
@@ -8768,7 +8837,7 @@ string_constant (tree arg, tree *ptr_offset)
 
   if (TREE_CODE (array) == STRING_CST)
     {
-      *ptr_offset = convert (sizetype, offset);
+      *ptr_offset = fold_convert (sizetype, offset);
       return array;
     }
   else if (TREE_CODE (array) == VAR_DECL)
@@ -8795,7 +8864,7 @@ string_constant (tree arg, tree *ptr_offset)
 
       /* If variable is bigger than the string literal, OFFSET must be constant
 	 and inside of the bounds of the string literal.  */
-      offset = convert (sizetype, offset);
+      offset = fold_convert (sizetype, offset);
       if (compare_tree_int (DECL_SIZE_UNIT (array), length) > 0
 	  && (! host_integerp (offset, 1)
 	      || compare_tree_int (offset, length) >= 0))
@@ -9107,9 +9176,8 @@ try_casesi (tree index_type, tree index_expr, tree minval, tree range,
     {
       if (TYPE_MODE (index_type) != index_mode)
 	{
-	  index_expr = convert (lang_hooks.types.type_for_size
-				(index_bits, 0), index_expr);
-	  index_type = TREE_TYPE (index_expr);
+	  index_type = lang_hooks.types.type_for_size (index_bits, 0);
+	  index_expr = fold_convert (index_type, index_expr);
 	}
 
       index = expand_normal (index_expr);
@@ -9235,8 +9303,8 @@ try_tablejump (tree index_type, tree index_expr, tree minval, tree range,
     return 0;
 
   index_expr = fold_build2 (MINUS_EXPR, index_type,
-			    convert (index_type, index_expr),
-			    convert (index_type, minval));
+			    fold_convert (index_type, index_expr),
+			    fold_convert (index_type, minval));
   index = expand_normal (index_expr);
   do_pending_stack_adjust ();
 

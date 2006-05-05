@@ -130,6 +130,10 @@ static GTY(()) tree quick_stack;
 /* A free-list of unused permanent TREE_LIST nodes.  */
 static GTY((deletable)) tree tree_list_free_list;
 
+/* The physical memory page size used in this computer.  See
+   build_field_ref().  */
+static GTY(()) tree page_size;
+
 /* The stack pointer of the Java virtual machine.
    This does include the size of the quick_stack. */
 
@@ -1678,11 +1682,29 @@ build_field_ref (tree self_value, tree self_class, tree name)
     }
   else
     {
-      int check = (flag_check_references
-		   && ! (DECL_P (self_value)
-			 && DECL_NAME (self_value) == this_identifier_node));
-
       tree base_type = promote_type (base_class);
+
+      /* CHECK is true if self_value is not the this pointer.  */
+      int check = (! (DECL_P (self_value)
+		      && DECL_NAME (self_value) == this_identifier_node));
+
+      /* Determine whether a field offset from NULL will lie within
+	 Page 0: this is necessary on those GNU/Linux/BSD systems that
+	 trap SEGV to generate NullPointerExceptions.  
+
+	 We assume that Page 0 will be mapped with NOPERM, and that
+	 memory may be allocated from any other page, so only field
+	 offsets < pagesize are guaranteed to trap.  We also assume
+	 the smallest page size we'll encounter is 4k bytes.  */
+      if (! flag_syntax_only && check && ! flag_check_references 
+	  && ! flag_indirect_dispatch)
+	{
+	  tree field_offset = byte_position (field_decl);
+	  if (! page_size)
+	    page_size = size_int (4096); 	      
+	  check = ! INT_CST_LT_UNSIGNED (field_offset, page_size);
+	}
+
       if (base_type != TREE_TYPE (self_value))
 	self_value = fold_build1 (NOP_EXPR, base_type, self_value);
       if (! flag_syntax_only && flag_indirect_dispatch)
@@ -1708,6 +1730,7 @@ build_field_ref (tree self_value, tree self_class, tree name)
 			field_offset);
 	  
 	  field_offset = fold (convert (sizetype, field_offset));
+	  self_value = java_check_reference (self_value, check);
 	  address 
 	    = fold_build2 (PLUS_EXPR, 
 			   build_pointer_type (TREE_TYPE (field_decl)),
@@ -1996,6 +2019,86 @@ build_class_init (tree clas, tree expr)
     }
   return init;
 }
+
+
+
+/* Rewrite expensive calls that require stack unwinding at runtime to
+   cheaper alternatives.  The logic here performs thse
+   transformations:
+
+   java.lang.Class.forName("foo") -> java.lang.Class.forName("foo", class$)
+   java.lang.Class.getClassLoader() -> java.lang.Class.getClassLoader(class$)
+
+*/
+
+typedef struct
+{
+  const char *classname;
+  const char *method;
+  const char *signature;
+  const char *new_signature;
+  int flags;
+  tree (*rewrite_arglist) (tree arglist);
+} rewrite_rule;
+
+/* Add this.class to the end of an arglist.  */
+
+static tree 
+rewrite_arglist_getclass (tree arglist)
+{
+  return chainon (arglist, 
+		  tree_cons (NULL_TREE, build_class_ref (output_class), NULL_TREE));
+}
+
+static rewrite_rule rules[] =
+  {{"java.lang.Class", "getClassLoader", "()Ljava/lang/ClassLoader;", 
+    "(Ljava/lang/Class;)Ljava/lang/ClassLoader;", 
+    ACC_FINAL|ACC_PRIVATE, rewrite_arglist_getclass},
+   {"java.lang.Class", "forName", "(Ljava/lang/String;)Ljava/lang/Class;",
+    "(Ljava/lang/String;Ljava/lang/Class;)Ljava/lang/Class;",
+    ACC_FINAL|ACC_PRIVATE|ACC_STATIC, rewrite_arglist_getclass},
+   {NULL, NULL, NULL, NULL, 0, NULL}};
+
+/* Scan the rules list for replacements for *METHOD_P and replace the
+   args accordingly.  */
+
+void
+maybe_rewrite_invocation (tree *method_p, tree *arg_list_p, 
+			  tree *method_signature_p)
+{
+  tree context = DECL_NAME (TYPE_NAME (DECL_CONTEXT (*method_p)));
+  rewrite_rule *p;
+  for (p = rules; p->classname; p++)
+    {
+      if (get_identifier (p->classname) == context)
+	{
+	  tree method = DECL_NAME (*method_p);
+	  if (get_identifier (p->method) == method
+	      && get_identifier (p->signature) == *method_signature_p)
+	    {
+	      tree maybe_method
+		= lookup_java_method (DECL_CONTEXT (*method_p),
+				      method,
+				      get_identifier (p->new_signature));
+	      if (! maybe_method && ! flag_verify_invocations)
+		{
+		  maybe_method
+		    = add_method (DECL_CONTEXT (*method_p), p->flags, 
+				  method, get_identifier (p->new_signature));
+		  DECL_EXTERNAL (maybe_method) = 1;
+		}
+	      *method_p = maybe_method;
+	      gcc_assert (*method_p);
+	      *arg_list_p = p->rewrite_arglist (*arg_list_p);
+	      *method_signature_p = get_identifier (p->new_signature);
+
+	      break;
+	    }
+	}
+    }
+}
+
+
 
 tree
 build_known_method_ref (tree method, tree method_type ATTRIBUTE_UNUSED,
@@ -2370,6 +2473,8 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
   method_type = TREE_TYPE (method);
   arg_list = pop_arguments (TYPE_ARG_TYPES (method_type));
   flush_quick_stack ();
+
+  maybe_rewrite_invocation (&method, &arg_list, &method_signature);
 
   func = NULL_TREE;
   if (opcode == OPCODE_invokestatic)

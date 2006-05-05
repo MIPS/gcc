@@ -185,10 +185,10 @@ struct var_ann_d GTY(())
   unsigned in_v_may_def_list : 1;
 
   /* An artificial variable representing the memory location pointed-to by
-     all the pointers that TBAA (type-based alias analysis) considers
-     to be aliased.  If the variable is not a pointer or if it is never
-     dereferenced, this must be NULL.  */
-  tree type_mem_tag;
+     all the pointer symbols that flow-insensitive alias analysis
+     (mostly type-based) considers to be aliased.  If the variable is
+     not a pointer or if it is never dereferenced, this must be NULL.  */
+  tree symbol_mem_tag;
 
   /* Variables that may alias this variable.  */
   VEC(tree, gc) *may_aliases;
@@ -225,9 +225,15 @@ struct function_ann_d GTY(())
 
 typedef struct immediate_use_iterator_d
 {
+  /* This is the current use the iterator is processing.  */
   ssa_use_operand_t *imm_use;
+  /* This marks the last use in the list (use node from SSA_NAME)  */
   ssa_use_operand_t *end_p;
+  /* This node is inserted and used to mark the end of the uses for a stmt.  */
   ssa_use_operand_t iter_node;
+  /* This is the next ssa_name to visit.  IMM_USE may get removed before
+     the next one is traversed to, so it must be cached early.  */
+  ssa_use_operand_t *next_imm_name;
 } imm_use_iterator;
 
 
@@ -239,17 +245,42 @@ typedef struct immediate_use_iterator_d
        !end_readonly_imm_use_p (&(ITER));			\
        (DEST) = next_readonly_imm_use (&(ITER)))
   
+/* Use this iterator to visit each stmt which has a use of SSAVAR.  */
 
-#define FOR_EACH_IMM_USE_SAFE(DEST, ITER, SSAVAR)		\
-  for ((DEST) = first_safe_imm_use (&(ITER), (SSAVAR));		\
-       !end_safe_imm_use_p (&(ITER));				\
-       (DEST) = next_safe_imm_use (&(ITER)))
+#define FOR_EACH_IMM_USE_STMT(STMT, ITER, SSAVAR)		\
+  for ((STMT) = first_imm_use_stmt (&(ITER), (SSAVAR));		\
+       !end_imm_use_stmt_p (&(ITER));				\
+       (STMT) = next_imm_use_stmt (&(ITER)))
 
-#define BREAK_FROM_SAFE_IMM_USE(ITER)				\
+/* Use this to terminate the FOR_EACH_IMM_USE_STMT loop early.  Failure to 
+   do so will result in leaving a iterator marker node in the immediate
+   use list, and nothing good will come from that.   */
+#define BREAK_FROM_IMM_USE_STMT(ITER)				\
    {								\
-     end_safe_imm_use_traverse (&(ITER));			\
+     end_imm_use_stmt_traverse (&(ITER));			\
      break;							\
    }
+
+
+/* Use this iterator in combination with FOR_EACH_IMM_USE_STMT to 
+   get access to each occurence of ssavar on the stmt returned by
+   that iterator..  for instance:
+
+     FOR_EACH_IMM_USE_STMT (stmt, iter, var)
+       {
+         FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
+	   {
+	     SET_USE (use_p) = blah;
+	   }
+	 update_stmt (stmt);
+       }							 */
+
+#define FOR_EACH_IMM_USE_ON_STMT(DEST, ITER)			\
+  for ((DEST) = first_imm_use_on_stmt (&(ITER));		\
+       !end_imm_use_on_stmt_p (&(ITER));			\
+       (DEST) = next_imm_use_on_stmt (&(ITER)))
+
+
 
 struct stmt_ann_d GTY(())
 {
@@ -393,7 +424,6 @@ extern GTY((param_is (struct int_tree_map))) htab_t referenced_vars;
 extern GTY((param_is (struct int_tree_map))) htab_t default_defs;
 
 extern tree referenced_var_lookup (unsigned int);
-extern tree referenced_var_lookup_if_exists (unsigned int);
 #define num_referenced_vars htab_elements (referenced_vars)
 #define referenced_var(i) referenced_var_lookup (i)
 
@@ -469,6 +499,54 @@ extern void bsi_insert_after (block_stmt_iterator *, tree,
 			      enum bsi_iterator_update);
 
 extern void bsi_replace (const block_stmt_iterator *, tree, bool);
+
+/*---------------------------------------------------------------------------
+			      OpenMP Region Tree
+---------------------------------------------------------------------------*/
+
+/* Parallel region information.  Every parallel and workshare
+   directive is enclosed between two markers, the OMP_* directive
+   and a corresponding OMP_RETURN statement.  */
+
+struct omp_region
+{
+  /* The enclosing region.  */
+  struct omp_region *outer;
+
+  /* First child region.  */
+  struct omp_region *inner;
+
+  /* Next peer region.  */
+  struct omp_region *next;
+
+  /* Block containing the omp directive as its last stmt.  */
+  basic_block entry;
+
+  /* Block containing the OMP_RETURN as its last stmt.  */
+  basic_block exit;
+
+  /* Block containing the OMP_CONTINUE as its last stmt.  */
+  basic_block cont;
+
+  /* If this is a combined parallel+workshare region, this is a list
+     of additional arguments needed by the combined parallel+workshare
+     library call.  */
+  tree ws_args;
+
+  /* The code for the omp directive of this region.  */
+  enum tree_code type;
+
+  /* Schedule kind, only used for OMP_FOR type regions.  */
+  enum omp_clause_schedule_kind sched_kind;
+
+  /* True if this is a combined parallel+workshare region.  */
+  bool is_combined_parallel;
+};
+
+extern struct omp_region *root_omp_region;
+extern struct omp_region *new_omp_region (basic_block, enum tree_code,
+					  struct omp_region *);
+extern void free_omp_regions (void);
 
 /*---------------------------------------------------------------------------
 			      Function prototypes

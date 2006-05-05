@@ -159,6 +159,28 @@ darwin_pragma_unused (cpp_reader *pfile ATTRIBUTE_UNUSED)
     warning (0, "junk at end of '#pragma unused'");
 }
 
+/* Parse the ms_struct pragma.  */
+void
+darwin_pragma_ms_struct (cpp_reader *pfile ATTRIBUTE_UNUSED)
+{
+  const char *arg;
+  tree t;
+
+  if (pragma_lex (&t) != CPP_NAME)
+    BAD ("malformed '#pragma ms_struct', ignoring");
+  arg = IDENTIFIER_POINTER (t);
+
+  if (!strcmp (arg, "on"))
+    darwin_ms_struct = true;
+  else if (!strcmp (arg, "off") || !strcmp (arg, "reset"))
+    darwin_ms_struct = false;
+  else
+    warning (OPT_Wpragmas, "malformed '#pragma ms_struct {on|off|reset}', ignoring");
+
+  if (pragma_lex (&t) != CPP_EOF)
+    warning (OPT_Wpragmas, "junk at end of '#pragma ms_struct'");
+}
+
 static struct {
   size_t len;
   const char *name;
@@ -295,7 +317,7 @@ framework_construct_pathname (const char *fname, cpp_dir *dir)
   /* Append framework_header_dirs and header file name */
   for (i = 0; framework_header_dirs[i].dirName; i++)
     {
-      strncpy (&frname[frname_len], 
+      strncpy (&frname[frname_len],
 	       framework_header_dirs[i].dirName,
 	       framework_header_dirs[i].dirNameLen);
       strcpy (&frname[frname_len + framework_header_dirs[i].dirNameLen],
@@ -318,8 +340,8 @@ find_subframework_file (const char *fname, const char *pname)
 {
   char *sfrname;
   const char *dot_framework = ".framework/";
-  char *bufptr; 
-  int sfrname_len, i, fname_len; 
+  char *bufptr;
+  int sfrname_len, i, fname_len;
   struct cpp_dir *fast_dir;
   static struct cpp_dir subframe_dir;
   struct stat st;
@@ -329,7 +351,7 @@ find_subframework_file (const char *fname, const char *pname)
   /* Subframework files must have / in the name.  */
   if (bufptr == 0)
     return 0;
-    
+
   fname_len = bufptr - fname;
   fast_dir = find_framework (fname, fname_len);
 
@@ -344,7 +366,7 @@ find_subframework_file (const char *fname, const char *pname)
     return 0;
 
   /* Now translate. For example,                  +- bufptr
-     fname = CarbonCore/OSUtils.h                 | 
+     fname = CarbonCore/OSUtils.h                 |
      pname = /System/Library/Frameworks/Foundation.framework/Headers/Foundation.h
      into
      sfrname = /System/Library/Frameworks/Foundation.framework/Frameworks/CarbonCore.framework/Headers/OSUtils.h */
@@ -352,10 +374,10 @@ find_subframework_file (const char *fname, const char *pname)
   sfrname = XNEWVEC (char, strlen (pname) + strlen (fname) + 2 +
 			      strlen ("Frameworks/") + strlen (".framework/")
 			      + strlen ("PrivateHeaders"));
- 
+
   bufptr += strlen (dot_framework);
 
-  sfrname_len = bufptr - pname; 
+  sfrname_len = bufptr - pname;
 
   strncpy (&sfrname[0], pname, sfrname_len);
 
@@ -371,12 +393,12 @@ find_subframework_file (const char *fname, const char *pname)
   /* Append framework_header_dirs and header file name */
   for (i = 0; framework_header_dirs[i].dirName; i++)
     {
-      strncpy (&sfrname[sfrname_len], 
+      strncpy (&sfrname[sfrname_len],
 	       framework_header_dirs[i].dirName,
 	       framework_header_dirs[i].dirNameLen);
       strcpy (&sfrname[sfrname_len + framework_header_dirs[i].dirNameLen],
 	      &fname[fname_len]);
-    
+
       if (stat (sfrname, &st) == 0)
 	{
 	  if (fast_dir != &subframe_dir)
@@ -433,7 +455,7 @@ add_framework_path (char *path)
   add_cpp_dir_path (p, BRACKET);
 }
 
-static const char *framework_defaults [] = 
+static const char *framework_defaults [] =
   {
     "/System/Library/Frameworks",
     "/Library/Frameworks",
@@ -450,9 +472,9 @@ darwin_register_objc_includes (const char *sysroot, const char *iprefix,
   /* We do not do anything if we do not want the standard includes. */
   if (!stdinc)
     return;
-  
+
   fname = GCC_INCLUDE_DIR "-gnu-runtime";
-  
+
   /* Register the GNU OBJC runtime include path if we are compiling  OBJC
     with GNU-runtime.  */
 
@@ -469,13 +491,13 @@ darwin_register_objc_includes (const char *sysroot, const char *iprefix,
           /* FIXME: wrap the headers for C++awareness.  */
 	  add_path (str, SYSTEM, /*c++aware=*/false, false);
 	}
-      
+
       /* Should this directory start with the sysroot?  */
       if (sysroot)
 	str = concat (sysroot, fname, NULL);
       else
 	str = update_path (fname, "");
-      
+
       add_path (str, SYSTEM, /*c++aware=*/false, false);
     }
 }
@@ -546,13 +568,13 @@ find_subframework_header (cpp_reader *pfile, const char *header, cpp_dir **dirp)
 
 /* Return the value of darwin_macosx_version_min suitable for the
    __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ macro,
-   so '10.4.2' becomes 1042.  
+   so '10.4.2' becomes 1042.
    Print a warning if the version number is not known.  */
 static const char *
 version_as_macro (void)
 {
   static char result[] = "1000";
-  
+
   if (strncmp (darwin_macosx_version_min, "10.", 3) != 0)
     goto fail;
   if (! ISDIGIT (darwin_macosx_version_min[3]))
@@ -570,9 +592,9 @@ version_as_macro (void)
     }
   else
     result[3] = '0';
-  
+
   return result;
-  
+
  fail:
   error ("Unknown value %qs of -mmacosx-version-min",
 	 darwin_macosx_version_min);

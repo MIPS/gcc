@@ -34,6 +34,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 
+#ifndef LIBGCC2_WORDS_BIG_ENDIAN
+#define LIBGCC2_WORDS_BIG_ENDIAN WORDS_BIG_ENDIAN
+#endif
+
 #ifndef LIBGCC2_FLOAT_WORDS_BIG_ENDIAN
 #define LIBGCC2_FLOAT_WORDS_BIG_ENDIAN LIBGCC2_WORDS_BIG_ENDIAN
 #endif
@@ -426,11 +430,9 @@ typedef unsigned int USItype __attribute__ ((mode (SI)));
 typedef unsigned int UDItype __attribute__ ((mode (DI)));
 
 /* The type of the result of a decimal float comparison.  This must
-   match `word_mode' in GCC for the target.  Default to SItype.  */
+   match `word_mode' in GCC for the target.  */
 
-#ifndef CMPtype
-#define CMPtype SItype
-#endif
+typedef int CMPtype __attribute__ ((mode (word)));
 
 /* Prototypes.  */
 

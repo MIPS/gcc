@@ -312,6 +312,9 @@ static bool arm_tls_symbol_p (rtx x);
 #undef TARGET_ALIGN_ANON_BITFIELD
 #define TARGET_ALIGN_ANON_BITFIELD arm_align_anon_bitfield
 
+#undef TARGET_NARROW_VOLATILE_BITFIELD
+#define TARGET_NARROW_VOLATILE_BITFIELD hook_bool_void_false
+
 #undef TARGET_CXX_GUARD_TYPE
 #define TARGET_CXX_GUARD_TYPE arm_cxx_guard_type
 
@@ -1226,6 +1229,12 @@ arm_override_options (void)
 
   if (arm_float_abi == ARM_FLOAT_ABI_HARD && TARGET_VFP)
     sorry ("-mfloat-abi=hard and VFP");
+
+  /* FPA and iWMMXt are incompatible because the insn encodings overlap.
+     VFP and iWMMXt can theoretically coexist, but it's unlikely such silicon
+     will ever exist.  GCC makes no attempt to support this combination.  */
+  if (TARGET_IWMMXT && !TARGET_SOFT_FLOAT)
+    sorry ("iWMMXt and hardware floating point");
 
   /* If soft-float is specified then don't use FPU.  */
   if (TARGET_SOFT_FLOAT)
@@ -7308,6 +7317,7 @@ struct minipool_fixup
 static Mnode *	minipool_vector_head;
 static Mnode *	minipool_vector_tail;
 static rtx	minipool_vector_label;
+static int	minipool_pad;
 
 /* The linked list of all minipool fixes required for this function.  */
 Mfix * 		minipool_fix_head;
@@ -7419,16 +7429,16 @@ add_minipool_forward_ref (Mfix *fix)
   /* If set, max_mp is the first pool_entry that has a lower
      constraint than the one we are trying to add.  */
   Mnode *       max_mp = NULL;
-  HOST_WIDE_INT max_address = fix->address + fix->forwards;
+  HOST_WIDE_INT max_address = fix->address + fix->forwards - minipool_pad;
   Mnode *       mp;
 
-  /* If this fix's address is greater than the address of the first
-     entry, then we can't put the fix in this pool.  We subtract the
-     size of the current fix to ensure that if the table is fully
-     packed we still have enough room to insert this value by shuffling
-     the other fixes forwards.  */
+  /* If the minipool starts before the end of FIX->INSN then this FIX
+     can not be placed into the current pool.  Furthermore, adding the
+     new constant pool entry may cause the pool to start FIX_SIZE bytes
+     earlier.  */
   if (minipool_vector_head &&
-      fix->address >= minipool_vector_head->max_address - fix->fix_size)
+      (fix->address + get_attr_length (fix->insn)
+       >= minipool_vector_head->max_address - fix->fix_size))
     return NULL;
 
   /* Scan the pool to see if a constant with the same value has
@@ -7871,8 +7881,10 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
   HOST_WIDE_INT count = 0;
   rtx barrier;
   rtx from = fix->insn;
-  rtx selected = from;
+  /* The instruction after which we will insert the jump.  */
+  rtx selected = NULL;
   int selected_cost;
+  /* The address at which the jump instruction will be placed.  */
   HOST_WIDE_INT selected_address;
   Mfix * new_fix;
   HOST_WIDE_INT max_count = max_address - fix->address;
@@ -7904,7 +7916,8 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
 	     still put the pool after the table.  */
 	  new_cost = arm_barrier_cost (from);
 
-	  if (count < max_count && new_cost <= selected_cost)
+	  if (count < max_count 
+	      && (!selected || new_cost <= selected_cost))
 	    {
 	      selected = tmp;
 	      selected_cost = new_cost;
@@ -7918,7 +7931,8 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
 
       new_cost = arm_barrier_cost (from);
 
-      if (count < max_count && new_cost <= selected_cost)
+      if (count < max_count
+	  && (!selected || new_cost <= selected_cost))
 	{
 	  selected = from;
 	  selected_cost = new_cost;
@@ -7927,6 +7941,9 @@ create_fix_barrier (Mfix *fix, HOST_WIDE_INT max_address)
 
       from = NEXT_INSN (from);
     }
+
+  /* Make sure that we found a place to insert the jump.  */
+  gcc_assert (selected);
 
   /* Create a new JUMP_INSN that branches around a barrier.  */
   from = emit_jump_insn_after (gen_jump (label), selected);
@@ -7997,12 +8014,11 @@ push_minipool_fix (rtx insn, HOST_WIDE_INT address, rtx *loc,
      to generate duff assembly code.  */
   gcc_assert (fix->forwards || fix->backwards);
 
-  /* With AAPCS/iWMMXt enabled, the pool is aligned to an 8-byte boundary.
-     So there might be an empty word before the start of the pool.
-     Hence we reduce the forward range by 4 to allow for this
-     possibility.  */
+  /* If an entry requires 8-byte alignment then assume all constant pools
+     require 4 bytes of padding.  Trying to do this later on a per-pool
+     basis is awkward because existing pool entries have to be modified.  */
   if (ARM_DOUBLEWORD_ALIGN && fix->fix_size == 8)
-    fix->forwards -= 4;
+    minipool_pad = 4;
 
   if (dump_file)
     {
@@ -8179,6 +8195,7 @@ arm_reorg (void)
      scan it properly.  */
   insn = get_insns ();
   gcc_assert (GET_CODE (insn) == NOTE);
+  minipool_pad = 0;
 
   /* Scan all the insns and record the operands that will need fixing.  */
   for (insn = next_nonnote_insn (insn); insn; insn = next_nonnote_insn (insn))
@@ -8278,9 +8295,11 @@ arm_reorg (void)
 	  /* Check that there isn't another fix that is in range that
 	     we couldn't fit into this pool because the pool was
 	     already too large: we need to put the pool before such an
-	     instruction.  */
+	     instruction.  The pool itself may come just after the
+	     fix because create_fix_barrier also allows space for a
+	     jump instruction.  */
 	  if (ftmp->address < max_address)
-	    max_address = ftmp->address;
+	    max_address = ftmp->address + 1;
 
 	  last_barrier = create_fix_barrier (last_added_fix, max_address);
 	}
@@ -14682,6 +14701,7 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 {
   static int thunk_label = 0;
   char label[256];
+  char labelpc[256];
   int mi_delta = delta;
   const char *const mi_op = mi_delta < 0 ? "sub" : "add";
   int shift = 0;
@@ -14696,6 +14716,23 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       fputs ("\tldr\tr12, ", file);
       assemble_name (file, label);
       fputc ('\n', file);
+      if (flag_pic)
+	{
+	  /* If we are generating PIC, the ldr instruction below loads
+	     "(target - 7) - .LTHUNKPCn" into r12.  The pc reads as
+	     the address of the add + 8, so we have:
+
+	     r12 = (target - 7) - .LTHUNKPCn + (.LTHUNKPCn + 8)
+	         = target + 1.
+
+	     Note that we have "+ 1" because some versions of GNU ld
+	     don't set the low bit of the result for R_ARM_REL32
+	     relocations against thumb function symbols.  */
+	  ASM_GENERATE_INTERNAL_LABEL (labelpc, "LTHUNKPC", labelno);
+	  assemble_name (file, labelpc);
+	  fputs (":\n", file);
+	  fputs ("\tadd\tr12, pc, r12\n", file);
+	}
     }
   while (mi_delta != 0)
     {
@@ -14716,7 +14753,20 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       ASM_OUTPUT_ALIGN (file, 2);
       assemble_name (file, label);
       fputs (":\n", file);
-      assemble_integer (XEXP (DECL_RTL (function), 0), 4, BITS_PER_WORD, 1);
+      if (flag_pic)
+	{
+	  /* Output ".word .LTHUNKn-7-.LTHUNKPCn".  */
+	  rtx tem = XEXP (DECL_RTL (function), 0);
+	  tem = gen_rtx_PLUS (GET_MODE (tem), tem, GEN_INT (-7));
+	  tem = gen_rtx_MINUS (GET_MODE (tem),
+			       tem,
+			       gen_rtx_SYMBOL_REF (Pmode,
+						   ggc_strdup (labelpc)));
+	  assemble_integer (tem, 4, BITS_PER_WORD, 1);
+	}
+      else
+	/* Output ".word .LTHUNKn".  */
+	assemble_integer (XEXP (DECL_RTL (function), 0), 4, BITS_PER_WORD, 1);
     }
   else
     {

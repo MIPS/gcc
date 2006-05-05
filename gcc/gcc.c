@@ -330,6 +330,7 @@ static int default_arg (const char *, int);
 static void set_multilib_dir (void);
 static void print_multilib_info (void);
 static void perror_with_name (const char *);
+static void fatal_ice (const char *, ...) ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
 static void notice (const char *, ...) ATTRIBUTE_PRINTF_1;
 static void display_help (void);
 static void add_preprocessor_option (const char *, int);
@@ -703,8 +704,8 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l " LINK_PIE_SPEC "%X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(mfwrap) %{fopenmp:%:include(libgomp.spec)%(link_gomp)}\
-    %(link_libgcc) %o %(mflib)\
+    %{static:} %{L*} %(mfwrap) %(link_libgcc) %o\
+    %{fopenmp:%:include(libgomp.spec)%(link_gomp)} %(mflib)\
     %{fprofile-arcs|fprofile-generate|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_gcc_math) %(link_ssp) %(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
@@ -2997,12 +2998,12 @@ execute (void)
 	      }
 	    else
 #endif
-	      fatal ("\
+	      fatal_ice ("\
 Internal error: %s (program %s)\n\
 Please submit a full bug report.\n\
 See %s for instructions.",
-		     strsignal (WTERMSIG (status)), commands[i].prog,
-		     bug_report_url);
+		 	strsignal (WTERMSIG (status)), commands[i].prog,
+		 	bug_report_url);
 	  }
 	else if (WIFEXITED (status)
 		 && WEXITSTATUS (status) >= MIN_FATAL_STATUS)
@@ -3375,9 +3376,17 @@ process_command (int argc, const char **argv)
 	putenv (concat ("GCC_EXEC_PREFIX=", gcc_exec_prefix, NULL));
     }
   else
-    gcc_libexec_prefix = make_relative_prefix (gcc_exec_prefix,
-					       standard_exec_prefix,
-					       standard_libexec_prefix);
+    {
+      /* make_relative_prefix requires a program name, but
+	 GCC_EXEC_PREFIX is typically a directory name with a trailing
+	 / (which is ignored by make_relative_prefix), so append a
+	 program name.  */
+      char *tmp_prefix = concat (gcc_exec_prefix, "gcc", NULL);
+      gcc_libexec_prefix = make_relative_prefix (tmp_prefix,
+						 standard_exec_prefix,
+						 standard_libexec_prefix);
+      free (tmp_prefix);
+    }
 #else
 #endif
 
@@ -6818,10 +6827,25 @@ perror_with_name (const char *name)
 void
 fancy_abort (const char *file, int line, const char *func)
 {
-  fatal ("internal gcc abort in %s, at %s:%d", func, file, line);
+  fatal_ice ("internal gcc abort in %s, at %s:%d", func, file, line);
 }
 
 /* Output an error message and exit.  */
+
+void
+fatal_ice (const char *cmsgid, ...)
+{
+  va_list ap;
+
+  va_start (ap, cmsgid);
+
+  fprintf (stderr, "%s: ", programname);
+  vfprintf (stderr, _(cmsgid), ap);
+  va_end (ap);
+  fprintf (stderr, "\n");
+  delete_temp_files ();
+  exit (pass_exit_codes ? ICE_EXIT_CODE : 1);
+}
 
 void
 fatal (const char *cmsgid, ...)

@@ -30,9 +30,7 @@ details.  */
 // but uses more memory.
 #define DIRECT_THREADED
 
-extern "C" {
 #include <ffi.h>
-}
 
 struct _Jv_ResolvedMethod;
 
@@ -245,7 +243,6 @@ _Jv_GetFirstMethod (_Jv_InterpClass *klass)
 struct _Jv_ResolvedMethod
 {
   jint            stack_item_count;	
-  jint            vtable_index;	
   jclass          klass;
   _Jv_Method*     method;
 

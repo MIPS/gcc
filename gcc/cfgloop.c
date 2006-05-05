@@ -127,8 +127,7 @@ flow_loop_dump (const struct loop *loop, FILE *file,
   if (! loop || ! loop->header)
     return;
 
-  fprintf (file, ";;\n;; Loop %d:%s\n", loop->num,
-	     loop->invalid ? " invalid" : "");
+  fprintf (file, ";;\n;; Loop %d\n", loop->num);
 
   fprintf (file, ";;  header %d, latch %d\n",
 	   loop->header->index, loop->latch->index);
@@ -1012,7 +1011,8 @@ find_common_loop (struct loop *loop_s, struct loop *loop_d)
 }
 
 /* Cancels the LOOP; it must be innermost one.  */
-void
+
+static void
 cancel_loop (struct loops *loops, struct loop *loop)
 {
   basic_block *bbs;

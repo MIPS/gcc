@@ -717,7 +717,7 @@ remove_forwarder_block_with_phi (basic_block bb)
 <L10>:;
 */
 
-static void
+static unsigned int
 merge_phi_nodes (void)
 {
   basic_block *worklist = XNEWVEC (basic_block, n_basic_blocks);
@@ -765,13 +765,12 @@ merge_phi_nodes (void)
 	  for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	    {
 	      tree result = PHI_RESULT (phi);
-	      int num_uses = num_imm_uses (result);
 	      use_operand_p imm_use;
 	      tree use_stmt;
 
 	      /* If the PHI's result is never used, then we can just
 		 ignore it.  */
-	      if (num_uses == 0)
+	      if (has_zero_uses (result))
 		continue;
 
 	      /* Get the single use of the result of this PHI node.  */
@@ -782,7 +781,7 @@ merge_phi_nodes (void)
 		break;
 	    }
 
-	  /* If the loop above iterated thorugh all the PHI nodes
+	  /* If the loop above iterated through all the PHI nodes
 	     in BB, then we can merge the PHIs from BB into DEST.  */
 	  if (!phi)
 	    *current++ = bb;
@@ -797,6 +796,7 @@ merge_phi_nodes (void)
     }
 
   free (worklist);
+  return 0;
 }
 
 static bool

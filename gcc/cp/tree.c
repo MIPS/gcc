@@ -371,6 +371,9 @@ rvalue (tree expr)
   tree type;
   if (real_lvalue_p (expr))
     {
+      type = is_bitfield_expr_with_lowered_type (expr);
+      if (type)
+	return cp_convert (TYPE_MAIN_VARIANT (type), expr);
       type = TREE_TYPE (expr);
       /* [basic.lval]
 	 
@@ -1173,16 +1176,11 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
       tree u;
 
       if (TREE_CODE (TREE_OPERAND (t, 1)) == AGGR_INIT_EXPR)
-	{
-	  mark_used (TREE_OPERAND (TREE_OPERAND (TREE_OPERAND (t, 1), 0), 0));
-	  u = build_cplus_new
-	    (TREE_TYPE (t), break_out_target_exprs (TREE_OPERAND (t, 1)));
-	}
+	u = build_cplus_new
+	  (TREE_TYPE (t), break_out_target_exprs (TREE_OPERAND (t, 1)));
       else
-	{
-	  u = build_target_expr_with_type
-	    (break_out_target_exprs (TREE_OPERAND (t, 1)), TREE_TYPE (t));
-	}
+	u = build_target_expr_with_type
+	  (break_out_target_exprs (TREE_OPERAND (t, 1)), TREE_TYPE (t));
 
       /* Map the old variable to the new one.  */
       splay_tree_insert (target_remap,
@@ -1197,8 +1195,6 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
       *walk_subtrees = 0;
       return NULL_TREE;
     }
-  else if (TREE_CODE (t) == CALL_EXPR)
-    mark_used (TREE_OPERAND (TREE_OPERAND (t, 0), 0));
 
   /* Make a copy of this node.  */
   return copy_tree_r (tp, walk_subtrees, NULL);

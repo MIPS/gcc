@@ -90,7 +90,6 @@ static tree convert_for_assignment (tree, tree, enum impl_conv, tree, tree,
 static tree valid_compound_expr_initializer (tree, tree);
 static void push_string (const char *);
 static void push_member_name (tree);
-static void push_array_bounds (int);
 static int spelling_length (void);
 static char *print_spelling (char *);
 static void warning_init (const char *);
@@ -2629,8 +2628,6 @@ parser_build_binary_op (enum tree_code code, struct c_expr arg1,
     warning (OPT_Wstring_literal_comparison,
 	     "comparison with string literal");
 
-  unsigned_conversion_warning (result.value, arg1.value);
-  unsigned_conversion_warning (result.value, arg2.value);
   overflow_warning (result.value);
 
   return result;
@@ -4309,7 +4306,7 @@ struct spelling
   int kind;
   union
     {
-      int i;
+      unsigned HOST_WIDE_INT i;
       const char *s;
     } u;
 };
@@ -4369,7 +4366,7 @@ push_member_name (tree decl)
 /* Push an array bounds on the stack.  Printed as [BOUNDS].  */
 
 static void
-push_array_bounds (int bounds)
+push_array_bounds (unsigned HOST_WIDE_INT bounds)
 {
   PUSH_SPELLING (SPELLING_BOUNDS, bounds, u.i);
 }
@@ -4404,7 +4401,7 @@ print_spelling (char *buffer)
   for (p = spelling_base; p < spelling; p++)
     if (p->kind == SPELLING_BOUNDS)
       {
-	sprintf (d, "[%d]", p->u.i);
+	sprintf (d, "[" HOST_WIDE_INT_PRINT_UNSIGNED "]", p->u.i);
 	d += strlen (d);
       }
     else
@@ -4495,6 +4492,7 @@ digest_init (tree type, tree init, bool strict_string, int require_constant)
   tree inside_init = init;
 
   if (type == error_mark_node
+      || !init
       || init == error_mark_node
       || TREE_TYPE (init) == error_mark_node)
     return error_mark_node;
@@ -5082,7 +5080,7 @@ really_start_incremental_init (tree type)
       /* Vectors are like simple fixed-size arrays.  */
       constructor_max_index =
 	build_int_cst (NULL_TREE, TYPE_VECTOR_SUBPARTS (constructor_type) - 1);
-      constructor_index = convert (bitsizetype, bitsize_zero_node);
+      constructor_index = bitsize_zero_node;
       constructor_unfilled_index = constructor_index;
     }
   else
@@ -5199,7 +5197,7 @@ push_init_level (int implicit)
   else if (TREE_CODE (constructor_type) == ARRAY_TYPE)
     {
       constructor_type = TREE_TYPE (constructor_type);
-      push_array_bounds (tree_low_cst (constructor_index, 0));
+      push_array_bounds (tree_low_cst (constructor_index, 1));
       constructor_depth++;
     }
 
@@ -5442,15 +5440,8 @@ pop_init_level (int implicit)
   constructor_stack = p->next;
   free (p);
 
-  if (ret.value == 0)
-    {
-      if (constructor_stack == 0)
-	{
-	  ret.value = error_mark_node;
-	  return ret;
-	}
-      return ret;
-    }
+  if (ret.value == 0 && constructor_stack == 0)
+    ret.value = error_mark_node;
   return ret;
 }
 
@@ -6594,7 +6585,7 @@ process_init_element (struct c_expr value)
 	  /* Now output the actual element.  */
 	  if (value.value)
 	    {
-	      push_array_bounds (tree_low_cst (constructor_index, 0));
+	      push_array_bounds (tree_low_cst (constructor_index, 1));
 	      output_init_element (value.value, strict_string,
 				   elttype, constructor_index, 1);
 	      RESTORE_SPELLING_DEPTH (constructor_depth);
@@ -8374,9 +8365,9 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
   if (!converted)
     {
       if (TREE_TYPE (op0) != result_type)
-	op0 = convert (result_type, op0);
+	op0 = convert_and_check (result_type, op0);
       if (TREE_TYPE (op1) != result_type)
-	op1 = convert (result_type, op1);
+	op1 = convert_and_check (result_type, op1);
 
       /* This can happen if one operand has a vector type, and the other
 	 has a different type.  */
@@ -8456,7 +8447,7 @@ c_expr_to_decl (tree expr, bool *tc ATTRIBUTE_UNUSED,
 }
 
 
-/* Like c_begin_compound_stmt, except force the retension of the BLOCK.  */
+/* Like c_begin_compound_stmt, except force the retention of the BLOCK.  */
 
 tree
 c_begin_omp_parallel (void)

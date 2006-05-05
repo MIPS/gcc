@@ -2523,7 +2523,7 @@ dump_local_alloc (FILE *file)
 
 /* Run old register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
-static void
+static unsigned int
 rest_of_handle_local_alloc (void)
 {
   int rebuild_notes;
@@ -2537,8 +2537,10 @@ rest_of_handle_local_alloc (void)
   allocate_reg_info (max_regno, FALSE, TRUE);
 
   /* And the reg_equiv_memory_loc array.  */
-  VARRAY_GROW (reg_equiv_memory_loc_varray, max_regno);
-  reg_equiv_memory_loc = &VARRAY_RTX (reg_equiv_memory_loc_varray, 0);
+  VEC_safe_grow (rtx, gc, reg_equiv_memory_loc_vec, max_regno);
+  memset (VEC_address (rtx, reg_equiv_memory_loc_vec), 0,
+	  sizeof (rtx) * max_regno);
+  reg_equiv_memory_loc = VEC_address (rtx, reg_equiv_memory_loc_vec);
 
   allocate_initial_values (reg_equiv_memory_loc);
 
@@ -2566,6 +2568,7 @@ rest_of_handle_local_alloc (void)
       dump_local_alloc (dump_file);
       timevar_pop (TV_DUMP);
     }
+  return 0;
 }
 
 struct tree_opt_pass pass_local_alloc =
