@@ -1,3 +1,15 @@
+2006-05-05  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* haifa-sched.c (glat_size): New variable.
+        (sched-init, extend_bb): Properly initialized glat_start and
+        glat_end.
+	(free_glat): Fixed double free of bitmaps.
+	* df-scan.c (df_scan_get_bb_info, df_scan_set_bb_info): Added
+	assertions.
+	* df-problems.c (df_ru_get_bb_info, df_ru_set_bb_info, 
+	df_rd_get_bb_info, df_rd_set_bb_info, df_lr_get_bb_info, 
+	df_lr_set_bb_info, df_ur_get_bb_info, df_ur_set_bb_info, 
+	df_urec_get_bb_info, df_urec_set_bb_info): Ditto. 
+
 2006-04-25  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* flow.c (rest_of_handle_life): Removed unnecessary code.
 	* df-scan.c (df_scan_free_internal, df_scan_free): Fixed
