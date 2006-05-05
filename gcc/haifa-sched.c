@@ -222,6 +222,7 @@ static int nr_begin_data, nr_be_in_data, nr_begin_control, nr_be_in_control;
 
 /* Pointers to GLAT data.  See init_glat for more information.  */
 regset *glat_start, *glat_end;
+int glat_size;
 
 /* Array used in {unlink, restore}_bb_notes.  */
 static rtx *bb_header = 0;
@@ -2837,6 +2838,7 @@ sched_init (struct df *df)
   old_last_basic_block = 0;
   glat_start = NULL;  
   glat_end = NULL;
+  glat_size = 0;
   extend_bb (0);
 
   if (current_sched_info->flags & USE_GLAT)
@@ -2871,7 +2873,6 @@ sched_finish (struct df *df)
   end_alias_analysis ();
   free (line_note_head);
   free_glat ();
-
   if (targetm.sched.md_finish_global)
     targetm.sched.md_finish_global (sched_dump, sched_verbose);
   
@@ -4224,6 +4225,12 @@ extend_bb (basic_block bb)
       glat_start = xrealloc (glat_start,
                              last_basic_block * sizeof (*glat_start));
       glat_end = xrealloc (glat_end, last_basic_block * sizeof (*glat_end));
+
+      memset (glat_start + glat_size, 0, 
+	      (last_basic_block - glat_size) * sizeof (*glat_start));
+      memset (glat_end + glat_size, 0, 
+	      (last_basic_block - glat_size) * sizeof (*glat_end));
+      glat_size = last_basic_block;
     }
 
   /* The following is done to keep current_sched_info->next_tail non null.  */
@@ -4375,19 +4382,21 @@ free_glat (void)
 {
   if (glat_start)
     {
-      basic_block bb;
-
-      FOR_ALL_BB (bb)
+      if (current_sched_info->flags & DETACH_LIFE_INFO)
 	{
-	  if (glat_start[bb->index])
-	    FREE_REG_SET (glat_start[bb->index]);
-	  if (glat_end[bb->index])
-	    FREE_REG_SET (glat_end[bb->index]);
+	  basic_block bb;
+	  
+	  FOR_ALL_BB (bb)
+	    {
+	      if (glat_start[bb->index])
+		FREE_REG_SET (glat_start[bb->index]);
+	      if (glat_end[bb->index])
+		FREE_REG_SET (glat_end[bb->index]);
+	    }
 	}
+      free (glat_start);
+      free (glat_end);
     }
-
-  free (glat_start);
-  free (glat_end);
 }
 
 /* Remove INSN from the instruction stream.

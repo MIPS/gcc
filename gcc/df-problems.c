@@ -303,6 +303,7 @@ struct df_ru_bb_info *
 df_ru_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   return (struct df_ru_bb_info *) dflow->block_info[index];
 }
 
@@ -313,6 +314,8 @@ static void
 df_ru_set_bb_info (struct dataflow *dflow, unsigned int index, 
 		   struct df_ru_bb_info *bb_info)
 {
+  gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   dflow->block_info[index] = bb_info;
 }
 
@@ -836,6 +839,7 @@ struct df_rd_bb_info *
 df_rd_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   return (struct df_rd_bb_info *) dflow->block_info[index];
 }
 
@@ -846,6 +850,8 @@ static void
 df_rd_set_bb_info (struct dataflow *dflow, unsigned int index, 
 		   struct df_rd_bb_info *bb_info)
 {
+  gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   dflow->block_info[index] = bb_info;
 }
 
@@ -1338,6 +1344,7 @@ struct df_lr_bb_info *
 df_lr_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   return (struct df_lr_bb_info *) dflow->block_info[index];
 }
 
@@ -1348,6 +1355,8 @@ static void
 df_lr_set_bb_info (struct dataflow *dflow, unsigned int index, 
 		   struct df_lr_bb_info *bb_info)
 {
+  gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   dflow->block_info[index] = bb_info;
 }
 
@@ -1860,6 +1869,7 @@ struct df_ur_bb_info *
 df_ur_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   return (struct df_ur_bb_info *) dflow->block_info[index];
 }
 
@@ -1870,6 +1880,8 @@ static void
 df_ur_set_bb_info (struct dataflow *dflow, unsigned int index, 
 		   struct df_ur_bb_info *bb_info)
 {
+  gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   dflow->block_info[index] = bb_info;
 }
 
@@ -2227,6 +2239,7 @@ struct df_urec_bb_info *
 df_urec_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
   gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   return (struct df_urec_bb_info *) dflow->block_info[index];
 }
 
@@ -2237,6 +2250,8 @@ static void
 df_urec_set_bb_info (struct dataflow *dflow, unsigned int index, 
 		   struct df_urec_bb_info *bb_info)
 {
+  gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   dflow->block_info[index] = bb_info;
 }
 

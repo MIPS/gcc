@@ -168,7 +168,8 @@ df_scan_free_internal (struct dataflow *dflow)
 struct df_scan_bb_info *
 df_scan_get_bb_info (struct dataflow *dflow, unsigned int index)
 {
-  gcc_assert (index < dflow->block_info_size); 
+  gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   return (struct df_scan_bb_info *) dflow->block_info[index];
 }
 
@@ -179,7 +180,8 @@ static void
 df_scan_set_bb_info (struct dataflow *dflow, unsigned int index, 
 		     struct df_scan_bb_info *bb_info)
 {
-  gcc_assert (index < dflow->block_info_size); 
+  gcc_assert (dflow);
+  gcc_assert (index < dflow->block_info_size);
   dflow->block_info[index] = (void *) bb_info;
 }
 
