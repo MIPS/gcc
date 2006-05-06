@@ -1,3 +1,9 @@
+2006-05-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.c-torture/execute/loop-2f.x,
+	gcc/testsuite/gcc.c-torture/execute/loop-2g.x: New.  XFAIL on
+	mips*-*-linux*.
+
 2006-05-05  Mark Mitchell  <mark@codesourcery.com>
 
 	* configure.in: Do not mangle arguments like "--with-foo=A B C" when
