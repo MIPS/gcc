@@ -2784,7 +2784,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "clzdi2"
   [(set (match_operand:DI 0 "register_operand" "=d")
 	(clz:DI (match_operand:DI 1 "register_operand" "d")))]
-  "ISA_HAS_DCLZ_DCLO"
+  "TARGET_64BIT && ISA_HAS_DCLZ_DCLO"
   "dclz\t%0,%1"
   [(set_attr "type" "arith")
    (set_attr "mode" "DI")])

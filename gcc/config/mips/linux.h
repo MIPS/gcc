@@ -232,6 +232,24 @@ typedef struct _sig_ucontext {
         } *rt_ = (CONTEXT)->ra;                                      \
         sc_ = &rt_->uc.uc_mcontext;                                  \
       }                                                              \
+    else if (*(pc_ + 0) == 0x24021843)                               \
+      {                                                              \
+        struct rt_sigframe {                                         \
+          u_int32_t  trampoline[2];                                \
+          struct siginfo info;                                       \
+          _sig_ucontext_t uc;                                        \
+        } *rt_ = (CONTEXT)->ra;                                      \
+        sc_ = &rt_->uc.uc_mcontext;                                  \
+      }                                                              \
+    else if (*(pc_ + 0) == 0x2402145b)                               \
+      {                                                              \
+        struct rt_sigframe {                                         \
+          u_int32_t  trampoline[2];                                \
+          struct siginfo info;                                       \
+          _sig_ucontext_t uc;                                        \
+        } *rt_ = (CONTEXT)->ra;                                      \
+        sc_ = &rt_->uc.uc_mcontext;                                  \
+      }                                                              \
     else                                                             \
       break;                                                         \
                                                                      \

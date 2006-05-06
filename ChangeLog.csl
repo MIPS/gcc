@@ -1,3 +1,36 @@
+2006-05-05  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* gcc/config/mips/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Support
+	N32 and N64.
+
+2006-05-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/20030121-1.c,
+	gcc/fixinc/tests/base/internal/math_core.h: Fix SVN conversion
+	errors.
+	* gcc/testsuite/gcc.c-torture/execute/loop-2f.x,
+	gcc/testsuite/gcc.c-torture/execute/loop-2g.x: New.  XFAIL on
+	mips*-*-linux*.
+	* gcc/testsuite/g++.old-deja/g++.abi/ptrflags.C: Expect excess
+	errors on mips*-*-linux*.
+	* gcc/testsuite/g++.old-deja/g++.eh/catchptr1.C: XFAIL execution
+	on mips*-*-linux*.
+	* gcc/testsuite/gcc.dg/builtins-18.c: Expect excess errors on
+	mips*-*-linux*.
+	* gcc/config/mips/mips.md (clzdi2): Restrict to TARGET_64BIT.
+
+2006-05-05  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/testsuite/gcc.dg/20050629-1.c: Add missing close comment.
+
+2006-05-05  Richard Sandiford  <richard@codesourcery.com>
+
+	* gcc/reload1.c (inherit_piecemeal_p): New function.
+	(emit_reload_insns): When reloading a group of hard registers, use
+	inherit_piecemeal_p to decide whether the values of individual hard
+	registers can be inherited.
+	* gcc/testsuite/gcc.dg/torture/mips-hilo-2.c: New test.
+
 2006-04-30  Mark Mitchell  <mark@codesourcery.com>
 
 	Backport:
