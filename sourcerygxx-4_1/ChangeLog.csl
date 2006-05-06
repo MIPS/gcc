@@ -1,3 +1,17 @@
+2006-05-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* configure.in: Do not mangle arguments like "--with-foo=A B C" when
+	storing in baseargs.
+	* configure: Regenerated.
+	* gcc/configure.ac: Add --with-versuffix and --with-bugurl.
+	* gcc/version.c (VERSUFFIX): Remove.
+	(bug_report_url): Do not hard-code initializer.
+	* gcc/Makefile.in (VERSUFFIX_s): Define.
+	(BUGURL_s): Likewise.
+	(version.o): Define VERSUFFIX and BUGURL.
+	* gcc/doc/install.texi: Document them.
+	* gcc/configure: Regenerated.
+
 2006-05-04  Kazu Hirata  <kazu@codesourcery.com>
 
 	Backport:
