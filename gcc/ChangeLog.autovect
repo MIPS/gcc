@@ -1,3 +1,21 @@
+2006-05-07  Victor Kaplansky   <victork@il.ibm.com>
+
+	* tree-if-conv.c (store_movable_loop_p): New.
+	(store_movable_modify_expr_p): New.
+	(last_store_found): New.
+	(remove_all_phi_uses): New.
+	(remove_store): New.
+	(sink_store): New.
+	(store_motion): New.
+	(tree_if_conversion): Add call to store_movable_loop_p,
+	store_motion and update_ssa.
+	(if_convertible_modify_expr_p): Remove check of tree_could_trap_p
+	on loads, Replace call to bb_with_exit_edge_p by dominated_by_p.
+	(store_movable_stmt_p): New.
+	(if_convertible_loop_p): Single call to calculate_dominance_info.
+	(ifc_temp_var): Remove call to is_gimple_reg.
+	(main_tree_if_conversion): add call to dump_tree_ssa.
+	
 2006-05-07  Mircea Namolaru  <namolaru@il.ibm.com>
 	    Vladimir Yanovsky  <yanov@il.ibm.com>
 	    Victor Kaplansky   <victork@il.ibm.com>
