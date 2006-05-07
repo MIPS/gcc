@@ -66,6 +66,31 @@ gate_tree_loop (void)
   return flag_tree_loop_optimize != 0;
 }
 
+
+static bool  gate_loop0 (void)
+ {
+   return flag_tree_early_loop_optimize != 0;
+ }
+
+
+struct tree_opt_pass pass_tree_loop0 = 
+{
+  "loop",				/* name */
+  gate_loop0,			/* gate */
+  NULL,					/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP,				/* tv_id */
+  PROP_cfg,				/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  TODO_ggc_collect,			/* todo_flags_start */
+  TODO_dump_func | TODO_verify_ssa | TODO_ggc_collect,	/* todo_flags_finish */
+  0					/* letter */
+};
+
+
 struct tree_opt_pass pass_tree_loop = 
 {
   "loop",				/* name */

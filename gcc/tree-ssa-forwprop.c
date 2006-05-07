@@ -1166,11 +1166,22 @@ tree_ssa_forward_propagate_single_use_vars (void)
 	      tree lhs = TREE_OPERAND (stmt, 0);
 	      tree rhs = TREE_OPERAND (stmt, 1);
 
-
 	      if (TREE_CODE (lhs) != SSA_NAME)
 		{
 		  bsi_next (&bsi);
 		  continue;
+		}
+              /* Try to transform &A + offs into &A[offset].  */ 
+	      if (TREE_CODE (rhs) == PLUS_EXPR && (
+		  (TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR || 
+		   TREE_CODE (TREE_OPERAND (rhs, 1)) ==  ADDR_EXPR)))
+		{
+		  fold_stmt (&stmt);
+		  rhs = TREE_OPERAND (stmt, 1);
+		  if (TREE_CODE (rhs) == ADDR_EXPR){
+		    recompute_tree_invariant_for_addr_expr (rhs);
+                  } 
+                   
 		}
 
 	      if (TREE_CODE (rhs) == ADDR_EXPR)

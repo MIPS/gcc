@@ -225,6 +225,7 @@ extern struct tree_opt_pass pass_referenced_vars;
 extern struct tree_opt_pass pass_sra;
 extern struct tree_opt_pass pass_tail_recursion;
 extern struct tree_opt_pass pass_tail_calls;
+extern struct tree_opt_pass pass_tree_loop0;
 extern struct tree_opt_pass pass_tree_loop;
 extern struct tree_opt_pass pass_tree_loop_init;
 extern struct tree_opt_pass pass_lim;
@@ -293,6 +294,7 @@ extern struct tree_opt_pass pass_rebuild_cgraph_edges;
 extern struct tree_opt_pass pass_eliminate_useless_stores;
 
 /* IPA Passes */
+extern struct tree_opt_pass pass_cv;
 extern struct tree_opt_pass pass_ipa_cp;
 extern struct tree_opt_pass pass_ipa_inline;
 extern struct tree_opt_pass pass_early_ipa_inline;

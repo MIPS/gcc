@@ -1,3 +1,29 @@
+2006-05-07  Mircea Namolaru  <namolaru@il.ibm.com>
+	    Vladimir Yanovsky  <yanov@il.ibm.com>
+	    Victor Kaplansky   <victork@il.ibm.com>
+
+	* gcc/tree-pass.h: Define two new passes pass_tree_loop0 and pass_cv.
+	* gcc/timevar.def: Define new timevar.
+	* gcc/tree-ssa-loop.c: (gate_loop0) New.
+	(pass_tree_loop0): New pass.
+	* gcc/ipa-prop.h: (cv_driver): New. 
+	* gcc/tree-ssa-forwprop.c (tree_ssa_forward_propagate_single_use_va):
+	Add transformation to array access.
+	* gcc/common.opt (ftree-early-loop): New option.
+	(fcv): New option.
+	* gcc/tree-inline.c: Add include of tree-inline-aux.h.
+	(copy_body_r): Change condition for tree_inlining.
+	(copy_bb): Change to non-static, add call to cgraph_clone_edge.
+	(copy_edges_for_bb): Change to non-static.
+	* gcc/Makefile.in: Add rules for cv.o
+	* gcc/passes.c (pass_cv): Add new pass pass_cv.
+	(pass_tree_loop0): New pass.
+	(init_optimization_passes): Add call to various existing pass to make
+	scalar expansion happen.
+	* gcc/config/rs6000/rs6000.c: Add include of cfgloop.h
+	* tree-inline-aux.h: New.
+	* cv.c: New.
+
 2006-03-23  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* tree-data-ref.c (index_in_loop_nest): Moved...

@@ -50,6 +50,7 @@ Boston, MA 02110-1301, USA.  */
 #include "debug.h"
 #include "pointer-set.h"
 #include "ipa-prop.h"
+#include "tree-inline-aux.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -105,6 +106,7 @@ int flag_inline_trees = 0;
 
 /* Data required for function inlining.  */
 
+#if 0
 typedef struct inline_data
 {
   /* FUNCTION_DECL for function being inlined.  */
@@ -129,6 +131,8 @@ typedef struct inline_data
   bool saving_p;
   /* Versioning function is slightly different from inlining. */
   bool versioning_p;
+  /* Duplicate block in the same method.  */
+  bool copybb_only_p;
   /* Callgraph node of function we are inlining into.  */
   struct cgraph_node *node;
   /* Callgraph node of currently inlined function.  */
@@ -142,6 +146,7 @@ typedef struct inline_data
      get eh region number of the duplicate in the function we inline into.  */
   int eh_region_offset;
 } inline_data;
+#endif
 
 /* Prototypes.  */
 
@@ -552,7 +557,8 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
      variables.  We don't want to copy static variables; there's only
      one of those, no matter how many times we inline the containing
      function.  Similarly for globals from an outer function.  */
-  else if (lang_hooks.tree_inlining.auto_var_in_fn_p (*tp, fn))
+  else if ((!id->copybb_only_p || TREE_CODE (*tp) == LABEL_EXPR) &&
+	   lang_hooks.tree_inlining.auto_var_in_fn_p (*tp, fn))
     {
       tree new_decl;
 
@@ -664,23 +670,26 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       /* Here is the "usual case".  Copy this tree node, and then
 	 tweak some special cases.  */
       copy_tree_r (tp, walk_subtrees, id->versioning_p ? data : NULL);
-       
-      /* If EXPR has block defined, map it to newly constructed block.
-         When inlining we want EXPRs without block appear in the block
-	 of function call.  */
-      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (*tp))))
-	{
-	  new_block = id->block;
-	  if (TREE_BLOCK (*tp))
-	    {
-	      splay_tree_node n;
-	      n = splay_tree_lookup (id->decl_map,
-				     (splay_tree_key) TREE_BLOCK (*tp));
-	      gcc_assert (n);
-	      new_block = (tree) n->value;
-	    }
-	  TREE_BLOCK (*tp) = new_block;
-	}
+
+      if (!id->copybb_only_p)
+      {
+	/* If EXPR has block defined, map it to newly constructed block.
+	   When inlining we want EXPRs without block appear in the block
+	   of function call.  */
+	if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (*tp))))
+	  {
+	    new_block = id->block;
+	    if (TREE_BLOCK (*tp))
+	      {
+		splay_tree_node n;
+		n = splay_tree_lookup (id->decl_map,
+				       (splay_tree_key) TREE_BLOCK (*tp));
+		gcc_assert (n);
+		new_block = (tree) n->value;
+	      }
+	    TREE_BLOCK (*tp) = new_block;
+	  }
+      }
 
       if (TREE_CODE (*tp) == RESX_EXPR && id->eh_region_offset)
 	TREE_OPERAND (*tp, 0) =
@@ -716,7 +725,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 /* Copy basic block, scale profile accordingly.  Edges will be taken care of
    later  */
 
-static basic_block
+basic_block
 copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
 {
   block_stmt_iterator bsi, copy_bsi;
@@ -789,7 +798,13 @@ copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
 		  struct cgraph_edge *edge;
 		  edge = cgraph_edge (id->node, orig_stmt);
 		  if (edge)
-		    edge->call_stmt = stmt;
+		    {
+		      if (id->copybb_only_p)
+			cgraph_clone_edge (edge, id->node, stmt,
+					   REG_BR_PROB_BASE, 1, true);
+		      else
+			edge->call_stmt = stmt;
+		    }
 		}
 	    }
 	  /* If you think we can abort here, you are wrong.
@@ -825,7 +840,7 @@ copy_bb (inline_data *id, basic_block bb, int frequency_scale, int count_scale)
 /* Copy edges from BB into its copy constructed earlier, scale profile
    accordingly.  Edges will be taken care of later.  Assume aux
    pointers to point to the copies of each BB.  */
-static void
+void
 copy_edges_for_bb (basic_block bb, int count_scale)
 {
   basic_block new_bb = (basic_block) bb->aux;

@@ -54,6 +54,7 @@
 #include "cfglayout.h"
 #include "sched-int.h"
 #include "tree-gimple.h"
+#include "cfgloop.h"
 #include "tree-data-ref.h"
 #include "tree-vectorizer.h"
 #include "intl.h"

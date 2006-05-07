@@ -450,6 +450,7 @@ init_optimization_passes (void)
   p = &all_ipa_passes;
   NEXT_PASS (pass_early_ipa_inline);
   NEXT_PASS (pass_early_local_passes);
+  NEXT_PASS (pass_cv);
   NEXT_PASS (pass_ipa_cp);
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_reference);
@@ -494,6 +495,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_referenced_vars);
   NEXT_PASS (pass_create_structure_vars);
   NEXT_PASS (pass_build_ssa);
+
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_return_slot);
   NEXT_PASS (pass_rename_ssa_copies);
@@ -520,8 +522,10 @@ init_optimization_passes (void)
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_tail_recursion);
+
   NEXT_PASS (pass_profile);
   NEXT_PASS (pass_ch);
+  NEXT_PASS (pass_tree_loop0);
   NEXT_PASS (pass_stdarg);
   NEXT_PASS (pass_lower_complex);
   NEXT_PASS (pass_sra);
@@ -590,6 +594,27 @@ init_optimization_passes (void)
   NEXT_PASS (pass_mark_used_blocks);
   NEXT_PASS (pass_cleanup_cfg_post_optimizing);
   *p = NULL;
+
+   p = &pass_tree_loop0.sub;
+   NEXT_PASS (pass_tree_loop_init);
+   NEXT_PASS (pass_complete_unroll);
+   NEXT_PASS (pass_tree_loop_done);
+   NEXT_PASS (pass_dominator);
+   NEXT_PASS (pass_phi_only_copy_prop); 
+   NEXT_PASS (pass_tree_loop_init);
+   NEXT_PASS (pass_complete_unroll);
+   NEXT_PASS (pass_tree_loop_done);
+   NEXT_PASS (pass_dominator);
+   NEXT_PASS (pass_phi_only_copy_prop);
+  NEXT_PASS (pass_dce);
+  NEXT_PASS (pass_ccp);
+  NEXT_PASS (pass_forwprop);
+  NEXT_PASS (pass_may_alias);
+  NEXT_PASS (pass_ch);
+
+   *p = NULL;  
+
+/****************************************************/
 
   p = &pass_tree_loop.sub;
   NEXT_PASS (pass_tree_loop_init);

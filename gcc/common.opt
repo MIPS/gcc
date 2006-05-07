@@ -379,6 +379,11 @@ fearly-inlining
 Common Report Var(flag_early_inlining) Init(1)
 Perform early inlining
 
+ftree-early-loop
+Common Report Var(flag_tree_early_loop_optimize)
+
+
+
 feliminate-dwarf2-dups
 Common Report Var(flag_eliminate_dwarf2_dups)
 Perform DWARF2 duplicate elimination
@@ -514,6 +519,10 @@ Common RejectNegative Joined UInteger
 finstrument-functions
 Common Report Var(flag_instrument_function_entry_exit)
 Instrument function entry and exit with profiling calls
+
+fcv
+Common Report Var(flag_cv)
+Perform call versioning
 
 fipa-cp
 Common Report Var(flag_ipa_cp)

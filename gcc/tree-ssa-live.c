@@ -410,7 +410,7 @@ create_ssa_var_map (int flags)
 
 #endif /* ENABLE_CHECKING */
 
-	  mark_all_vars_used (bsi_stmt_ptr (bsi));
+ 	  mark_all_vars_used (bsi_stmt_ptr (bsi));
 	}
     }
 
