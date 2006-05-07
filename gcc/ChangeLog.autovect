@@ -1,5 +1,31 @@
 2006-05-07  Victor Kaplansky   <victork@il.ibm.com>
 
+	* gcc/tree-vectorizer.c (new_loop_vec_info): new field
+	LOOP_VINFO_MAY_MISALIAS_DDRS.
+	(destroy_loop_vec_info): Call VEC_free to free
+	LOOP_VINFO_MAY_MISALIAS_DDRS.
+	* gcc/tree-vectorizer.h (_loop_vec_info): New field may_misalias_ddrs
+	and macro for access.
+	* gcc/tree-vect-analyze.c (vect_check_dependences): Remove.
+	(vect_determine_vectorization_factor): Remove dead code.
+	(vect_analyze_data_ref_dependence): Remove arg check_interleaving,
+	remove call to vect_check_interleaving, remove message ""not
+	vectorized", do not report unvectorized loops.
+	(vect_mark_for_alv): New.
+	(vect_analyze_data_ref_dependences): Add call to
+	vect_check_interleaving and vect_mark_for_alv.
+	(vect_enhance_data_refs_alignment): Execute versioning path if there
+	are some missalligned ddrs.
+	* gcc/tree-vect-transform.c (remove_same_pairs): New.
+	(vect_create_cond_for_alias_checks): New.
+	(vect_transform_loop): Add call to vect_create_cond_for_alias_checks.
+	* gcc/config/rs6000/rs6000.c (get_vec_cmp_insn): Fix errrneous fall
+	thru between GE and GT.
+	* gcc/config/rs6000/rs6000.h (DATA_ALIGNMENT): make array to be
+	128-bit aligned when TARGET_ALTIVEC
+
+2006-05-07  Victor Kaplansky   <victork@il.ibm.com>
+
 	* tree-if-conv.c (store_movable_loop_p): New.
 	(store_movable_modify_expr_p): New.
 	(last_store_found): New.
