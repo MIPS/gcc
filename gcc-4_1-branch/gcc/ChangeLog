@@ -1,3 +1,51 @@
+2006-05-08  Alan Modra  <amodra@bigpond.net.au>
+
+	PR middle-end/27260
+	* builtins.c (expand_builtin_memset): Expand val in original mode.
+
+2006-05-06   Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27151
+	* tree-vect-transform.c (vectorizable_condition): Punt on
+	values that have a different type than the condition.
+
+2006-05-04  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/26481
+	* config/rs6000/rs6000.md (stmsi_power): Mark clobber constraint
+	with output modifier.
+
+2006-05-04  Richard Sandiford  <richard@codesourcery.com>
+
+	PR target/26765
+	* config/mips/mips.c (mips_symbolic_address_p): Return true
+	for SYMBOL_TLSGD, SYMBOL_TLSLDM, SYMBOL_DTPREL, SYMBOL_TPREL,
+	SYMBOL_GOTTPREL, and SYMBOL_TLS.
+
+2006-05-04  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/26481
+	* config/rs6000/rs6000.md (store_multiple_power): Delete.
+	(stmsi[345678]_power): New.
+
+2006-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/27285
+
+	Backport from mainline:
+
+	2006-03-28  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/25985
+	* tree-ssa-loop-niter.c (number_of_iterations_le,
+	number_of_iterations_ne): Make comments more precise.
+	(number_of_iterations_cond): Add only_exit argument.  Use the
+	fact that signed variables do not overflow only when only_exit
+	is true.
+	(loop_only_exit_p): New.
+	(number_of_iterations_exit): Pass result of loop_only_exit_p to
+	number_of_iterations_cond.
+
 2006-05-02  Jeff Law  <law@redhat.com>
 
 	PR tree-optimization/27364
