@@ -1,3 +1,9 @@
+2006-05-03  Mike Stump  <mrs@apple.com>
+
+	Radar 4529651
+	* doc/invoke.texi (Optimize Options): Improve -fast documentation
+	a little.
+
 2006-05-01  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4222119

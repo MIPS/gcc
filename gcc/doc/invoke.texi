@@ -4690,10 +4690,8 @@ optimized for G5 will not run on PPC7450. To optimize for PPC7450, add
 @option{-mcpu=7450} on command line.
 
 @option{-fast} currently enables the following optimization flags (for G5 and PPC7450). 
-These flags may change in the future. You cannot override any of these options if you use 
-@option{-fast} except by setting @option{-mcpu=7450}. 
-
-To build shared libraries with @option{-fast}, specify @option{-fPIC} on command line. 
+These flags may change in the future.  You cannot override any of these options if you use 
+@option{-fast} except by setting @option{-mcpu=7450} (or @option{-fPIC}, see below). 
 
 @gccoptlist{-O3
 -falign-loops-max-skip=15
@@ -4701,7 +4699,7 @@ To build shared libraries with @option{-fast}, specify @option{-fPIC} on command
 -falign-loops=16
 -falign-jumps=16
 -falign-functions=16
--malign-natural (except when -fastf is speified)
+-malign-natural (except when -fastf is specified)
 -ffast-math
 -funroll-loops
 -ftree-loop-linear
@@ -4712,6 +4710,10 @@ To build shared libraries with @option{-fast}, specify @option{-fPIC} on command
 -fsched-interblock
 -fgcse-sm
 -mpowerpc64}
+
+To build shared libraries with @option{-fast}, specify @option{-fPIC}
+on the command line as @option{-fast} turns on @option{-mdynamic-no-pic}
+otherwise.
 
 Important notes: @option{-ffast-math} results in code that is not necessarily 
 IEEE-compliant.  @option{-fstrict-aliasing} is highly likely break 

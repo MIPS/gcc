@@ -2,7 +2,11 @@
 
 	* build_gcc: Unset CC.
 
-2006-05-04  Devang Patel  <dpatel@apple.com>
+2006-06-04  Devang Patel  <dpatel@apple.com>
+
+	* README.Apple: Remove outdated info.
+
+2006-06-04  Devang Patel  <dpatel@apple.com>
 
 	* README.Apple: Update web links.
 
