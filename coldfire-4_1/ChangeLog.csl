@@ -1,3 +1,8 @@
+2006-05-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/config/m68k/m68k-none.h (ASM_CPU_DEFAULT_SPEC): Undefine it
+	before setting it.
+
 2006-05-07  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* configure.in (TOPLEVEL_CONFIGURE_ARGS): Protect args with active
