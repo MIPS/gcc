@@ -1,3 +1,8 @@
+2006-05-09  Victor Kaplansky   <victork@il.ibm.com>
+
+        * gcc/tree-vect-transform.c (vect_create_cond_for_alias_checks):
+	Tune up range overlap condition.
+
 2006-05-07  Victor Kaplansky   <victork@il.ibm.com>
 
 	* gcc/tree-vectorizer.c (new_loop_vec_info): new field

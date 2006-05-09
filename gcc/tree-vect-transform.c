@@ -4807,7 +4807,6 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
   tree cond_expr = NULL_TREE;
   tree part_cond_expr;
   tree int_cst_32 = build_int_cst (NULL_TREE, 32);
-
   /* Create expression
      ((store_ptr_0 + offset) < load_ptr_0)
      || (load_ptr_0 + offset) < store_ptr_0))
@@ -4851,20 +4850,14 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
 	  fprintf (vect_dump, " and ");
 	  print_generic_expr (vect_dump, addr_base_b, TDF_SLIM);
        }
-
+ 
       part_cond_expr = 
-      	build2 (TRUTH_OR_EXPR, boolean_type_node,
-	  build2 (LT_EXPR, integer_type_node,
-	    build2 (PLUS_EXPR, integer_type_node,
-	      addr_base_a,
-	      int_cst_32),
-	    addr_base_b),
-	  build2 (LT_EXPR, integer_type_node,
-	    build2 (PLUS_EXPR, integer_type_node,
-	      addr_base_b,
-	      int_cst_32),
-	    addr_base_a));
-      
+         build2(GE_EXPR, boolean_type_node,
+           build1 (ABS_EXPR, integer_type_node,
+             build2(MINUS_EXPR, integer_type_node,
+                addr_base_a, addr_base_b)),
+           int_cst_32);
+
       if (cond_expr)
         {
 	  cond_expr = build2 (TRUTH_AND_EXPR, boolean_type_node,
