@@ -2463,7 +2463,7 @@ static char *
 find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 	     int multilib)
 {
-  char *temp;
+  char *temp, *temp2;
   const char *const file_suffix =
     ((mode & X_OK) != 0 ? HOST_EXECUTABLE_SUFFIX : "");
   struct prefix_list *pl;
@@ -2499,19 +2499,18 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 				    NULL));
     }
 
-  temp = xmalloc (len);
-
   /* Determine the filename to execute (special case for absolute paths).  */
 
   if (IS_ABSOLUTE_PATH (name))
     {
-      if (access (name, mode) == 0)
-	{
-	  strcpy (temp, name);
-	  return temp;
-	}
+      /* IS_ABSOLUTE_PATHNAME lets anything through that starts with '/'  */
+      temp = update_path (name, NULL);
+      if (access (temp, mode) == 0)
+	return temp;
     }
   else
+  {
+    temp = xmalloc (len);
     for (pl = pprefix->plist; pl; pl = pl->next)
       {
 	const char *this_name
@@ -2527,16 +2526,26 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 		strcat (temp, machine_suffix);
 		strcat (temp, multilib_name);
 		strcat (temp, file_suffix);
-		if (access_check (temp, mode) == 0)
-		  return temp;
+		temp2 = update_path (temp, NULL);
+		if (access_check (temp2, mode) == 0)
+		  {
+		    free (temp);
+		    return temp2;
+		  }
+		free (temp2);
 	      }
 
 	    /* Now try just the multilib_name.  */
 	    strcpy (temp, pl->prefix);
 	    strcat (temp, machine_suffix);
 	    strcat (temp, multilib_name);
-	    if (access_check (temp, mode) == 0)
-	      return temp;
+	    temp2 = update_path (temp, NULL);
+	    if (access_check (temp2, mode) == 0)
+	      {
+		free (temp);
+		return temp2;
+	      }
+	    free (temp2);
 	  }
 
 	/* Certain prefixes are tried with just the machine type,
@@ -2551,15 +2560,25 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 		strcat (temp, just_machine_suffix);
 		strcat (temp, multilib_name);
 		strcat (temp, file_suffix);
-		if (access_check (temp, mode) == 0)
-		  return temp;
+		temp2 = update_path (temp, NULL);
+		if (access_check (temp2, mode) == 0)
+		  {
+		    free (temp);
+		    return temp2;
+		  }
+		free (temp2);
 	      }
 
 	    strcpy (temp, pl->prefix);
 	    strcat (temp, just_machine_suffix);
 	    strcat (temp, multilib_name);
-	    if (access_check (temp, mode) == 0)
-	      return temp;
+	    temp2 = update_path (temp, NULL);
+	    if (access_check (temp2, mode) == 0)
+	      {
+		free (temp);
+		return temp2;
+	      }
+	    free (temp2);
 	  }
 
 	/* Certain prefixes can't be used without the machine suffix
@@ -2573,16 +2592,27 @@ find_a_file (struct path_prefix *pprefix, const char *name, int mode,
 		strcpy (temp, pl->prefix);
 		strcat (temp, this_name);
 		strcat (temp, file_suffix);
-		if (access_check (temp, mode) == 0)
-		  return temp;
+		temp2 = update_path (temp, NULL);
+		if (access_check (temp2, mode) == 0)
+		  {
+		    free (temp);
+		    return temp2;
+		  }
+		free (temp2);
 	      }
 
 	    strcpy (temp, pl->prefix);
 	    strcat (temp, this_name);
-	    if (access_check (temp, mode) == 0)
-	      return temp;
+	    temp2 = update_path (temp, NULL);
+	    if (access_check (temp2, mode) == 0)
+	      {
+		free (temp);
+		return temp2;
+	      }
+	    free (temp2);
 	  }
       }
+  }
 
   free (temp);
   return 0;

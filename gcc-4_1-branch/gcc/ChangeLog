@@ -1,3 +1,10 @@
+2005-11-30  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c (find_a_file): Use update_path before access tests.
+	Mostly from Thomas Walker <thomas.walker@morganstanley.com>
+	* prefix.c (update_path): Move dir/../-stripping code to...
+	(maybe_strip_dotdots): New function.  Reorganize.
+
 2006-03-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* unwind-dw2.h (_Unwind_FrameState): Add REG_SAVED_VAL_OFFSET
