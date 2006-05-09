@@ -21,6 +21,7 @@ Boston, MA 02110-1301, USA.  */
 /* Default to m68k (m68020).  */
 #ifndef TARGET_CPU_DEFAULT
 #define TARGET_CPU_DEFAULT TARGET_CPU_m68020
+#undef ASM_CPU_DEFAULT_SPEC
 #define ASM_CPU_DEFAULT_SPEC "-mcpu=68020"
 #endif
 
