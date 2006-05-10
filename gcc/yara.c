@@ -451,6 +451,11 @@ rest_of_handle_yara (void)
 {
   compact_blocks ();
 
+  /* Determine if the current function is a leaf before running YARA
+     since this can impact optimizations done by the prologue and
+     epilogue thus changing register elimination offsets.  */
+  current_function_is_leaf = leaf_function_p ();
+
   /* Allocate the reg_renumber array.  */
   allocate_reg_info (max_regno, FALSE, TRUE);
 

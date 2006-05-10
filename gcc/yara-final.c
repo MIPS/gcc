@@ -180,7 +180,7 @@ process_allocno_locs (allocno_t dst, allocno_t src, copy_t cp, rtx insn)
       && INSN_ALLOCNO_ELIMINATION (dst) != NULL)
     {
       int hard_regno;
-      
+
       yara_assert (src == NULL);
       if ((hard_regno = INSN_ALLOCNO_INTERM_ELIMINATION_REGNO (dst)) >= 0)
 	{
@@ -1445,7 +1445,7 @@ get_reg_set_and_memory_slots (copy_t cp, HARD_REG_SET *regs,
       COPY_HARD_REG_SET (*regs, ALLOCNO_HARD_REGSET (src));
       if (ALLOCNO_TYPE (src) == INSN_ALLOCNO)
 	{
-	  IOR_HARD_REG_SET (*regs,\
+	  IOR_HARD_REG_SET (*regs,
 			    INSN_ALLOCNO_INTERM_ELIMINATION_REGSET (src));
 	  if (INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (src)
 	      && ALLOCNO_REGNO (src) >= 0)
@@ -2126,7 +2126,7 @@ emit_copy (copy_t cp)
       int hard_regno, offset;
       struct memory_slot *memory_slot;
       enum machine_mode cp_mode;
-      
+
       try_spill_mode_p = true;
       yara_assert (ALLOCNO_REGNO (src) >= 0
 		   && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (src))

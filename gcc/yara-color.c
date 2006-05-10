@@ -1178,6 +1178,13 @@ static bitmap reg_pressure_decrease_allocno_bitmap;
 /* Varray for allocnos of splitted can.  */
 static varray_type reg_pressure_decrease_allocno_varray;
 
+/* Cans whose conflicts should be updated (or build) after the
+   relief.  */
+static bitmap update_conflict_can_bitmap;
+
+/* Number of cans before the relief.  */
+static int before_relief_cans_num;
+
 /* The function sets up can_through for NODE.  */
 static void
 set_up_can_through (struct yara_loop_tree_node *node)
@@ -1420,6 +1427,7 @@ perform_split (can_t can)
   allocno_t a, *can_allocnos;
   can_t new_can, *can_vec, c;
 
+  yara_assert (CAN_NUM (can) < before_relief_cans_num);
   quiet_subloops_array
     = (struct yara_loop_tree_node **) &VARRAY_GENERIC_PTR (quiet_subloops, 0);
   quiet_subloops_array_size = VARRAY_ACTIVE_SIZE (quiet_subloops);
@@ -1483,24 +1491,17 @@ perform_split (can_t can)
   can_vec = CAN_CONFLICT_CAN_VEC (can);
   yara_assert (can_vec != NULL);
   for (i = 0; (c = can_vec [i]) != NULL; i++)
-    {
-      yara_free (CAN_CONFLICT_CAN_VEC (c));
-      CAN_CONFLICT_CAN_VEC (c) = NULL;
-      create_can_conflicts (c);
-      remove_unecessary_can_conflicts (c);
-    }
-  yara_free (can_vec);
-  CAN_CONFLICT_CAN_VEC (can) = NULL;
+    bitmap_set_bit (update_conflict_can_bitmap, CAN_NUM (c));
+  bitmap_set_bit (update_conflict_can_bitmap, CAN_NUM (can));
   /* ??? can_copies  */
   /* cover_class_cost, memory_cost is not used by Chaitin??? */
   /* ??? hard_reg_costs */
   n = class_hard_regs_num [CAN_COVER_CLASS (new_can)];
   CAN_HARD_REG_COSTS (new_can) = yara_allocate (sizeof (int) * n);
   memset (CAN_HARD_REG_COSTS (new_can), 0, sizeof (int) * n);
-  create_can_conflicts (can);
-  remove_unecessary_can_conflicts (can);
-  create_can_conflicts (new_can);
-  remove_unecessary_can_conflicts (new_can);
+  /* We don't copy or set up conflicts here because we don't split the
+     new can.  */
+  bitmap_set_bit (update_conflict_can_bitmap, CAN_NUM (new_can));
   if (yara_dump_file != NULL)
     {
       fprintf (stderr, "+++Splitting %scan#%d into:\n",
@@ -1655,7 +1656,9 @@ reduce_reg_pressure_inside_loop (struct yara_loop_tree_node *loop)
 static void
 reduce_reg_pressure (void)
 {
-  int class_num;
+  int class_num, i;
+  can_t can;
+  bitmap_iterator bi;
 
   calculate_reg_pressure ();
   VARRAY_GENERIC_PTR_NOGC_INIT (high_reg_pressure_subloops, 100,
@@ -1665,11 +1668,25 @@ reduce_reg_pressure (void)
   VARRAY_GENERIC_PTR_NOGC_INIT (reg_pressure_decrease_allocno_varray,
 				allocnos_num, "allocnos for new can");
   reg_pressure_decrease_allocno_bitmap = yara_allocate_bitmap ();
+  update_conflict_can_bitmap = yara_allocate_bitmap ();
+  before_relief_cans_num = cans_num;
   for (class_num = 0; class_num < final_reg_class_cover_size; class_num++)
     {
       curr_reg_pressure_class = final_reg_class_cover [class_num];
       reduce_reg_pressure_inside_loop (yara_loop_tree_root);
     }
+  EXECUTE_IF_SET_IN_BITMAP (update_conflict_can_bitmap, 0, i, bi)
+    {
+      can = cans [i];
+      if (CAN_CONFLICT_CAN_VEC (can) != NULL)
+	{
+	  yara_free (CAN_CONFLICT_CAN_VEC (can));
+	  CAN_CONFLICT_CAN_VEC (can) = NULL;
+	}
+      create_can_conflicts (can);
+      remove_unecessary_can_conflicts (can);
+    }
+  yara_free_bitmap (update_conflict_can_bitmap);
   yara_free_bitmap (reg_pressure_decrease_allocno_bitmap);
   VARRAY_FREE (reg_pressure_decrease_allocno_varray);
   VARRAY_FREE (quiet_subloops);
@@ -1717,11 +1734,30 @@ add_move_costs (void)
   rtx insn, bound, set, dst, src;
   basic_block bb;
   allocno_t a, src_a, dst_a;
+  copy_t cp;
   can_t can, src_can, dst_can;
   bool to_p;
   enum machine_mode mode;
   enum reg_class class, cover_class;
 
+  if (flag_relief)
+    {
+      /* We can not have copies connecting different cans right after
+	 building cans.  We need to split some cans to get such
+	 copies.  */
+      for (i = 0; i < copies_num; i++)
+	{
+	  cp = copies [i];
+	  if (cp == NULL
+	      || (src_a = COPY_SRC (cp)) == NULL
+	      || (dst_a = COPY_DST (cp)) == NULL
+	      || ((src_can = ALLOCNO_CAN (src_a))
+		  == (dst_can = ALLOCNO_CAN (dst_a))))
+	    continue;
+	  yara_assert (src_can != NULL && dst_can != NULL);
+	  add_can_copies (dst_can, src_can, COPY_FREQ (cp));
+	}
+    }
   FOR_EACH_BB (bb)
     {
       bound = NEXT_INSN (BB_END (bb));
@@ -1787,91 +1823,6 @@ add_move_costs (void)
 
 
 
-/* Bitmap of allocnos in the next varray.  */
-static bitmap split_allocno_bitmap;
-
-/* Varray for allocnos of splitted can.  */
-static varray_type new_can_allocno_varray;
-
-/* Split CAN and return the new can (if any).  CAN will contain
-   allocnos in split_allocno_bitmap, the new can will contain the
-   rest.  */
-static can_t
-split_can_by_split_allocno_bitmap (can_t can, bool global_p)
-{
-  allocno_t a, *can_allocnos;
-  can_t new_can, *can_vec, c;
-  int i, n, last, freq;
-
-  VARRAY_POP_ALL (new_can_allocno_varray);
-  can_allocnos = CAN_ALLOCNOS (can);
-  for (last = i = 0; (a = can_allocnos [i]) != NULL; i++)
-    {
-      if (bitmap_bit_p (split_allocno_bitmap, ALLOCNO_NUM (a)))
-	VARRAY_PUSH_GENERIC_PTR (new_can_allocno_varray, a);
-      else
-	can_allocnos [last++] = a;
-    }
-  yara_assert (last != 0);
-  if ((n = VARRAY_ACTIVE_SIZE (new_can_allocno_varray)) == 0)
-    return NULL;
-  can_allocnos [last] = NULL;
-  /* Create a new can.  */
-  new_can = create_can ();
-  CAN_SLOTNO (new_can) = CAN_SLOTNO (can);
-  can_allocnos = CAN_ALLOCNOS (new_can)
-    = yara_allocate ((n + 1) * sizeof (allocno_t));
-  memcpy (can_allocnos, &VARRAY_GENERIC_PTR (new_can_allocno_varray, 0),
-	  n * sizeof (allocno_t));
-  can_allocnos [n] = NULL;
-  CAN_MODE (new_can) = CAN_MODE (can);
-  CAN_COVER_CLASS (new_can) = CAN_COVER_CLASS (can);
-  for (i = 0; (a = can_allocnos [i]) != NULL; i++)
-    ALLOCNO_CAN (a) = new_can;
-  freq = can_freq (new_can);
-  CAN_FREQ (new_can) = freq;
-  CAN_FREQ (can) -= freq;
-  yara_assert (CAN_FREQ (can) >= 0);
-  if (CAN_CALL_P (can))
-    {
-      setup_can_call_info (can);
-      setup_can_call_info (new_can);
-    }
-  if (global_p)
-    CAN_GLOBAL_P (new_can) = true;
-  can_vec = CAN_CONFLICT_CAN_VEC (can);
-  yara_assert (can_vec != NULL);
-  for (i = 0; (c = can_vec [i]) != NULL; i++)
-    {
-      yara_free (CAN_CONFLICT_CAN_VEC (c));
-      CAN_CONFLICT_CAN_VEC (c) = NULL;
-      create_can_conflicts (c);
-      remove_unecessary_can_conflicts (c);
-    }
-  yara_free (can_vec);
-  CAN_CONFLICT_CAN_VEC (can) = NULL;
-  /* ??? can_copies  */
-  /* cover_class_cost, memory_cost is not used by Chaitin??? */
-  /* ??? hard_reg_costs */
-  n = class_hard_regs_num [CAN_COVER_CLASS (new_can)];
-  CAN_HARD_REG_COSTS (new_can) = yara_allocate (sizeof (int) * n);
-  memset (CAN_HARD_REG_COSTS (new_can), 0, sizeof (int) * n);
-  create_can_conflicts (can);
-  remove_unecessary_can_conflicts (can);
-  create_can_conflicts (new_can);
-  remove_unecessary_can_conflicts (new_can);
-  if (yara_dump_file != NULL)
-    {
-      fprintf (yara_dump_file, "+++Splitting %scan#%d into:\n",
-	       (CAN_GLOBAL_P (can) ? "g" : ""), CAN_NUM (can));
-      print_can (yara_dump_file, can);
-      print_can (yara_dump_file, new_can);
-    }
-  return new_can;
-}
-
-
-
 /* ??? Call preferences of conflict cans.  */
 
 /* This page contains function to choose hard register for cans.  */
@@ -1883,73 +1834,11 @@ static can_t *saved_conflict_cans;
 static bitmap conflict_can_bitmap;
 static bitmap biased_can_bitmap;
 
-/* Function setting up conflicting, biased hard registers used for
-   implementing biased coloring.  It also picks up conflicting can
-   preference data.  */
-static void
-find_conflicting_biased_regs_and_costs (can_t can,
-					HARD_REG_SET *conflicting_regs,
-					int *conflicting_reg_costs,
-					HARD_REG_SET *biased_regs)
-{
-  bitmap_iterator bi;
-  unsigned int i;
-  int j, size;
-  enum reg_class cover_class;
-  can_t conflict_can, conflict_can2;
-  can_t *can_vec, *can_vec2;
-
-  COPY_HARD_REG_SET (*conflicting_regs, CAN_CONFLICT_HARD_REGS (can));
-  cover_class = CAN_COVER_CLASS (can);
-  yara_assert (cover_class != NO_REGS);
-  memset (conflicting_reg_costs, 0,
-	  sizeof (int) * class_hard_regs_num [cover_class]);
-  bitmap_clear (biased_can_bitmap);
-  bitmap_clear (conflict_can_bitmap);
-  can_vec = CAN_CONFLICT_CAN_VEC (can);
-  for (i = 0; (conflict_can = can_vec [i]) != NULL; i++)
-    {
-      yara_assert (cover_class == CAN_COVER_CLASS (conflict_can));
-      bitmap_set_bit (conflict_can_bitmap, CAN_NUM (conflict_can));
-      if (! CAN_ASSIGNED_P (conflict_can))
-	{
-	  for (j = (int) class_hard_regs_num [cover_class] - 1; j >= 0; j--)
-	    conflicting_reg_costs [j] += CAN_HARD_REG_COSTS (conflict_can) [j];
-	  can_vec2 = CAN_CONFLICT_CAN_VEC (conflict_can);
-	  for (j = 0; (conflict_can2 = can_vec2 [j]) != NULL; j++)
-	    if (cover_class == CAN_COVER_CLASS (conflict_can2))
-	      bitmap_set_bit (biased_can_bitmap, CAN_NUM (conflict_can2));
-	}
-      else if (CAN_HARD_REGNO (conflict_can) >= 0)
-	{
-	  size = (reg_class_nregs [cover_class] [CAN_MODE (conflict_can)]);
-	  yara_assert (size > 0);
-	  for (j = 0; j < size; j++)
-	    SET_HARD_REG_BIT (*conflicting_regs,
-			      CAN_HARD_REGNO (conflict_can) + j);
-	}
-    }
-  CLEAR_HARD_REG_SET (*biased_regs);
-  EXECUTE_IF_SET_IN_BITMAP (biased_can_bitmap, 0, i, bi)
-    {
-      conflict_can = cans [i];
-      if (CAN_HARD_REGNO (conflict_can) >= 0
-	  && ! bitmap_bit_p (conflict_can_bitmap, i))
-	{
-	  size = reg_class_nregs [cover_class] [CAN_MODE (conflict_can)];
-	  yara_assert (size > 0);
-	  for (j = 0; j < size; j++)
-	    SET_HARD_REG_BIT (*biased_regs, CAN_HARD_REGNO (conflict_can) + j);
-	}
-    }
-}
-
 /* Function choosing a hard register for CAN.  */
 static bool
 choose_global_hard_reg (can_t can)
 {
   HARD_REG_SET conflicting_regs, biased_regs;
-  int conflicting_reg_costs [FIRST_PSEUDO_REGISTER];
   int i, hard_regno, best_hard_regno, cost, min_cost, class_size, *costs;
   bool call_p;
   enum reg_class cover_class, class;
@@ -1964,25 +1853,18 @@ choose_global_hard_reg (can_t can)
   class_size = class_hard_regs_num [cover_class];
   call_p = CAN_CALL_P (can);
   costs = CAN_HARD_REG_COSTS (can);
-  if ((YARA_PARAMS & YARA_NO_UPDATE_COSTS) == 0)
+  COPY_HARD_REG_SET (conflicting_regs, CAN_CONFLICT_HARD_REGS (can));
+  COPY_HARD_REG_SET (biased_regs, CAN_BIASED_HARD_REGS (can));
+  can_vec = CAN_CONFLICT_CAN_VEC (can);
+  for (i = 0; (conflict_can = can_vec [i]) != NULL; i++)
     {
-
-      COPY_HARD_REG_SET (conflicting_regs, CAN_CONFLICT_HARD_REGS (can));
-      COPY_HARD_REG_SET (biased_regs, CAN_BIASED_HARD_REGS (can));
-      can_vec = CAN_CONFLICT_CAN_VEC (can);
-      for (i = 0; (conflict_can = can_vec [i]) != NULL; i++)
-	{
-	  yara_assert (cover_class == CAN_COVER_CLASS (conflict_can));
-	  if (CAN_ASSIGNED_P (conflict_can))
-	    continue;
-	  conflict_costs = CAN_HARD_REG_COSTS (conflict_can);
-	  for (j = class_size - 1; j >= 0; j--)
-	    costs [j] -= conflict_costs [j];
-	}
+      yara_assert (cover_class == CAN_COVER_CLASS (conflict_can));
+      if (CAN_ASSIGNED_P (conflict_can))
+	continue;
+      conflict_costs = CAN_HARD_REG_COSTS (conflict_can);
+      for (j = class_size - 1; j >= 0; j--)
+	costs [j] -= conflict_costs [j];
     }
-  else
-    find_conflicting_biased_regs_and_costs
-      (can, &conflicting_regs, conflicting_reg_costs, &biased_regs);
   IOR_HARD_REG_SET (conflicting_regs, no_alloc_regs);
   best_hard_regno = -1;
   GO_IF_HARD_REG_SUBSET (reg_class_contents [cover_class], conflicting_regs,
@@ -1993,10 +1875,7 @@ choose_global_hard_reg (can_t can)
       hard_regno = class_hard_regs [cover_class] [i];
       if (hard_reg_not_in_set_p (hard_regno, mode, conflicting_regs))
 	{
-	  if ((YARA_PARAMS & YARA_NO_UPDATE_COSTS) == 0)
-	    cost = costs [i];
-	  else
-	    cost = costs [i] - conflicting_reg_costs [i];
+	  cost = costs [i];
 	  if (call_p
 	      && ! hard_reg_not_in_set_p (hard_regno, mode, call_used_reg_set))
 	    {
@@ -2022,33 +1901,32 @@ choose_global_hard_reg (can_t can)
  fail:
   CAN_HARD_REGNO (can) = best_hard_regno;
   CAN_ASSIGNED_P (can) = true;
-  if ((YARA_PARAMS & YARA_NO_UPDATE_COSTS) == 0)
-    if (best_hard_regno >= 0)
-      {
-	can_t conflict_can2;
-	can_t *can_vec2;
-	
-	can_vec = CAN_CONFLICT_CAN_VEC (can);
-	for (i = 0; (conflict_can = can_vec [i]) != NULL; i++)
-	  {
-	    yara_assert (cover_class == CAN_COVER_CLASS (conflict_can));
-	    if (CAN_ASSIGNED_P (conflict_can))
-	      continue;
-	    IOR_HARD_REG_SET (CAN_CONFLICT_HARD_REGS (conflict_can),
-			      reg_mode_hard_regset [best_hard_regno] [mode]);
-	    if (YARA_PARAMS & YARA_NO_BIASED_COLORING)
-	      continue;
-	    can_vec2 = CAN_CONFLICT_CAN_VEC (conflict_can);
-	    for (j = 0; (conflict_can2 = can_vec2 [j]) != NULL; j++)
-	      {
-		yara_assert (cover_class == CAN_COVER_CLASS (conflict_can2));
-		if (CAN_ASSIGNED_P (conflict_can2))
-		  continue;
-		IOR_HARD_REG_SET (CAN_BIASED_HARD_REGS (conflict_can2),
-				  reg_mode_hard_regset 
-				  [best_hard_regno] [mode]);
-	      }
-	  }
+  if (best_hard_regno >= 0)
+    {
+      can_t conflict_can2;
+      can_t *can_vec2;
+      
+      can_vec = CAN_CONFLICT_CAN_VEC (can);
+      for (i = 0; (conflict_can = can_vec [i]) != NULL; i++)
+	{
+	  yara_assert (cover_class == CAN_COVER_CLASS (conflict_can));
+	  if (CAN_ASSIGNED_P (conflict_can))
+	    continue;
+	  IOR_HARD_REG_SET (CAN_CONFLICT_HARD_REGS (conflict_can),
+			    reg_mode_hard_regset [best_hard_regno] [mode]);
+	  if (YARA_PARAMS & YARA_NO_BIASED_COLORING)
+	    continue;
+	  can_vec2 = CAN_CONFLICT_CAN_VEC (conflict_can);
+	  for (j = 0; (conflict_can2 = can_vec2 [j]) != NULL; j++)
+	    {
+	      yara_assert (cover_class == CAN_COVER_CLASS (conflict_can2));
+	      if (CAN_ASSIGNED_P (conflict_can2))
+		continue;
+	      IOR_HARD_REG_SET (CAN_BIASED_HARD_REGS (conflict_can2),
+				reg_mode_hard_regset 
+				[best_hard_regno] [mode]);
+	    }
+	}
     }
   return best_hard_regno >= 0;
 }
@@ -2345,172 +2223,6 @@ push_globals_to_stack (void)
   yara_free (sorted_global_cans);
 }
 
-/* Varray implementing stack used to find allocnos forming a can for
-   spilling.  */
-static varray_type split_allocno_stack_varray;
-/* Varray of allocnos forming a can which will be spilled.  */
-static varray_type split_allocno_varray;
-
-/* Varray of insn allocnos of can to be splitted.  */
-static varray_type split_can_insn_allocno_varray;
-
-static HARD_REG_SET split_allocno_available_regs;
-
-/* Function putting allocno A onto stack for spilling.  Return true if
-   it is sucessfull.  */
-static bool
-put_allocno_on_split_stack_for_reg (allocno_t a)
-{
-  int i, j, size, conflict_size, hard_regno;
-  can_t can, conflict_can;
-  enum reg_class cover_class;
-  HARD_REG_SET used_hard_regs;
-
-  if (bitmap_bit_p (split_allocno_bitmap, ALLOCNO_NUM (a)))
-    return true;
-  can = ALLOCNO_CAN (a);
-  cover_class = CAN_COVER_CLASS (can);
-  yara_assert (cover_class != NO_REGS);
-  size = reg_class_nregs [cover_class] [CAN_MODE (can)];
-  yara_assert (size > 0);
-  find_allocno_conflicting_cans (a, true);
-  COPY_HARD_REG_SET (used_hard_regs, no_alloc_regs);
-  for (i = 0; i < conflict_cans_num; i++)
-    {
-      conflict_can = conflict_cans [i];
-      if (cover_class != CAN_COVER_CLASS (conflict_can))
-	continue;
-      if (CAN_IN_GRAPH_P (conflict_can))
-	{
-	  if (CAN_HARD_REGNO (conflict_can) >= 0)
-	    {
-	      conflict_size
-		= reg_class_nregs [cover_class][CAN_MODE (conflict_can)];
-	      yara_assert (conflict_size > 0);
-	      for (j = 0; j < conflict_size; j++)
-		SET_HARD_REG_BIT (used_hard_regs,
-				  CAN_HARD_REGNO (conflict_can) + j);
-	    }
-	}
-    }
-  COPY_HARD_REG_SET (temp_hard_reg_set, split_allocno_available_regs);
-  AND_COMPL_HARD_REG_SET (temp_hard_reg_set, used_hard_regs);
-  AND_COMPL_HARD_REG_SET (temp_hard_reg_set, ALLOCNO_HARD_REG_CONFLICTS (a));
-  if (reg_class_nregs [cover_class] [CAN_MODE (can)] == 1)
-    {
-      GO_IF_HARD_REG_EQUAL (temp_hard_reg_set, zero_hard_reg_set, fail);
-    }
-  else
-    {
-      for (i = (int) class_hard_regs_num [cover_class] - 1; i >= 0; i--)
-	{
-	  hard_regno = class_hard_regs [cover_class] [i];
-	  if (! TEST_HARD_REG_BIT (temp_hard_reg_set, hard_regno))
-	    continue;
-	  for (j = reg_class_nregs [cover_class][CAN_MODE (can)] - 1;
-	       j >= 1;
-	       j--)
-	  if (! TEST_HARD_REG_BIT (temp_hard_reg_set, hard_regno + j))
-	    break;
-	  if (j == 0)
-	    break;
-	}
-      if (i < 0)
-	goto fail;
-    }
-  COPY_HARD_REG_SET (split_allocno_available_regs, temp_hard_reg_set);
-  VARRAY_PUSH_GENERIC_PTR (split_allocno_stack_varray, a);
-  VARRAY_PUSH_GENERIC_PTR (split_allocno_varray, a);
-  bitmap_set_bit (split_allocno_bitmap, ALLOCNO_NUM (a));
-  return true;
- fail:
-  return false;
-}
-
-/* Function trying to split global CAN.  CAN presenting the part of
-   the input can is supposed to be spilled.  The new can (if any) will
-   be put on the global stack.  If splitting occurs, the function
-   returns true.  */
-static bool
-split_global_can (can_t can)
-{
-  allocno_t a, *can_allocnos;
-  int i, stack_size, usage_freq, border_freq, start;
-  int best_usage_freq, best_border_freq, best_start;
-  copy_t cp;
-  can_t new_can;
-
-  yara_assert (CAN_GLOBAL_P (can));
-  can_allocnos = CAN_ALLOCNOS (can);
-  for (i = 0; (a = can_allocnos [i]) != NULL; i++)
-    {
-      VARRAY_POP_ALL (split_allocno_stack_varray);
-      VARRAY_POP_ALL (split_allocno_varray);
-      COPY_HARD_REG_SET (split_allocno_available_regs,
-			 reg_class_contents [CAN_COVER_CLASS (can)]);
-      bitmap_clear (split_allocno_bitmap);
-      if (! put_allocno_on_split_stack_for_reg (a))
-	continue;
-      best_usage_freq = usage_freq = 0;
-      best_border_freq = border_freq = 0;
-      best_start = start = 0;
-      /* Split: find connected allocnos for splitting as many as
-	 possible.  */
-      for (;;)
-	{
-	  stack_size = VARRAY_ACTIVE_SIZE (split_allocno_stack_varray);
-	  if (stack_size == 0)
-	    break;
-	  a = VARRAY_GENERIC_PTR (split_allocno_stack_varray,
-				  stack_size - 1);
-	  VARRAY_POP (split_allocno_stack_varray);
-	  if (ALLOCNO_TYPE (a) == INSN_ALLOCNO)
-	    usage_freq += ALLOCNO_FREQ (a);
-	  for (cp = ALLOCNO_DST_COPIES (a);
-	       cp != NULL;
-	       cp = COPY_NEXT_DST_COPY (cp))
-	    if (COPY_SRC (cp) != a)
-	      {
-		if (bitmap_bit_p (split_allocno_bitmap,
-				  ALLOCNO_NUM (COPY_SRC (cp))))
-		  border_freq -= COPY_FREQ (cp);
-		else
-		  border_freq += COPY_FREQ (cp);
-	      }
-	  for (cp = ALLOCNO_SRC_COPIES (a);
-	       cp != NULL;
-	       cp = COPY_NEXT_SRC_COPY (cp))
-	    if (COPY_DST (cp) != a)
-	      {
-		if (bitmap_bit_p (split_allocno_bitmap,
-				  ALLOCNO_NUM (COPY_DST (cp))))
-		  border_freq -= COPY_FREQ (cp);
-		else
-		  border_freq += COPY_FREQ (cp);
-	      }
-	  for (cp = ALLOCNO_DST_COPIES (a);
-	       cp != NULL;
-	       cp = COPY_NEXT_DST_COPY (cp))
-	    if (COPY_SRC (cp) != a && ALLOCNO_CAN (COPY_SRC (cp)) == can)
-	      put_allocno_on_split_stack_for_reg (COPY_SRC (cp));
-	  for (cp = ALLOCNO_SRC_COPIES (a);
-	       cp != NULL;
-	       cp = COPY_NEXT_SRC_COPY (cp))
-	    if (COPY_DST (cp) != a && ALLOCNO_CAN (COPY_DST (cp)) == can)
-	      put_allocno_on_split_stack_for_reg (COPY_DST (cp));
-	}
-      yara_assert (border_freq >= 0);
-      if (usage_freq <= YARA_SPLIT_THRESHOLD * border_freq)
-	continue;
-      new_can = split_can_by_split_allocno_bitmap (can, true);
-      yara_assert (new_can != NULL);
-      VARRAY_PUSH_GENERIC_PTR (global_stack_varray, new_can);
-      global_cans_num++;
-      return true;
-    }
-  return false;
-}
-
 /* Assign hard registers to cans on the stack (colour the cans).  */
 static void
 pop_globals_from_stack (void)
@@ -2519,13 +2231,6 @@ pop_globals_from_stack (void)
   int stack_size;
   enum reg_class cover_class;
 
-  VARRAY_GENERIC_PTR_NOGC_INIT (split_allocno_stack_varray, allocnos_num,
-				"stack used for splitting global cans");
-  VARRAY_GENERIC_PTR_NOGC_INIT
-    (split_allocno_varray, allocnos_num,
-     "allocnos of can which forms new can for splitting");
-  VARRAY_GENERIC_PTR_NOGC_INIT (split_can_insn_allocno_varray, allocnos_num,
-				"insn allocnos of can to be splitted");
   for (;;)
     {
       stack_size = VARRAY_ACTIVE_SIZE (global_stack_varray);
@@ -2550,23 +2255,12 @@ pop_globals_from_stack (void)
 	  update_copy_costs (can);
 	  continue;
 	}
-      if (flag_split && split_global_can (can))
-	{
-	  if (yara_dump_file != NULL)
-	    fprintf (yara_dump_file, "-- push back\n");
-	  /* Process CAN again.  */
-	  VARRAY_PUSH_GENERIC_PTR (global_stack_varray, can);
-	  continue;
-	}
       if (yara_dump_file != NULL)
 	fprintf (yara_dump_file, "-- spill\n");
       /* ??? local alloc for conflicting and preferenced.  */
       CAN_IN_GRAPH_P (can) = true;
       CAN_HARD_REGNO (can) = -1;
     }
-  VARRAY_FREE (split_can_insn_allocno_varray);
-  VARRAY_FREE (split_allocno_stack_varray);
-  VARRAY_FREE (split_allocno_varray);
 }
 
 /* Function assigning hard-registers to all global cans (colouring
@@ -3440,7 +3134,6 @@ try_change_allocno (allocno_t old, bool use_equiv_const_p,
 		    int new_reg_hard_regno)
 {
   HARD_REG_SET regs;
-  int before;
   int old_reg_hard_regno, new_allocno_hard_regno;
   enum reg_class cl;
 
@@ -3457,7 +3150,6 @@ try_change_allocno (allocno_t old, bool use_equiv_const_p,
 	  && ! check_hard_regno_memory_on_contraint (old, use_equiv_const_p,
 						     new_allocno_hard_regno)))
     return;
-  before = global_allocation_cost;
   start_transaction ();
   unassign_allocno (old); /* ??? implement breaking ties.  */
   CLEAR_HARD_REG_SET (regs);
@@ -3860,9 +3552,6 @@ yara_color (void)
 {
   setup_possible_alternatives (false);
   saved_conflict_cans = yara_allocate (sizeof (can_t) * allocnos_num);
-  split_allocno_bitmap = yara_allocate_bitmap ();
-  VARRAY_GENERIC_PTR_NOGC_INIT (new_can_allocno_varray, allocnos_num,
-				"allocnos for new can");
   biased_can_bitmap = yara_allocate_bitmap ();
   conflict_can_bitmap = yara_allocate_bitmap ();
   setup_cover_classes_and_reg_costs ();
@@ -3891,6 +3580,4 @@ yara_color (void)
   yara_free (saved_conflict_cans);
   yara_free_bitmap (conflict_can_bitmap);
   yara_free_bitmap (biased_can_bitmap);
-  VARRAY_FREE (new_can_allocno_varray);
-  yara_free_bitmap (split_allocno_bitmap);
 }

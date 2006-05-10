@@ -1,3 +1,37 @@
+2006-05-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* common.opt (fsplit): Remove.
+
+	* toplev.h (flag_split): Remove.
+
+	* yara.c (rest_of_handle_yara): Set up current_function_is_leaf.
+
+	* yara-color.c (update_conflict_can_bitmap,
+	before_relief_cans_num): New static variables.
+	(perform_split): Set up update_conflict_can_bitmap instead of
+	updating conflicts.
+	(reduce_reg_pressure): Initialize the new variables.  Use them to
+	update can conflicts.
+	(add_move_costs): Add can copies if relief pass was run.
+	(split_allocno_bitmap, new_can_allocno_varray,
+	split_can_by_split_allocno_bitmap,
+	find_conflicting_biased_regs_and_costs): Remove.
+	(choose_global_hard_reg): Use only code updating costs.
+	(split_allocno_stack_varray, split_allocno_varray,
+	split_can_insn_allocno_varray, split_allocno_available_regs,
+	put_allocno_on_split_stack_for_reg, split_global_can): Remove.
+	(pop_globals_from_stack): Remove initialization and freeing of
+	split_allocno_stack_varray, split_allocno_varray,
+	split_can_insn_allocno_varray.  Don't split cans.
+	(yara_color): Remove initialization and freeing of
+	split_allocno_bitmap, new_can_allocno_varray.
+
+	* yara-final.c (get_reg_set_and_memory_slots): Remove backslash.
+	
+	* yara-int.h (YARA_NO_UPDATE_COSTS): Remove.
+	(YARA_NO_BIASED_COLORING, YARA_NO_FREQ_BUCKET_ORDER,
+	YARA_NREGS_BUCKET_ORDER, YARA_BB_RELIEF): Reenumerate.
+
 2006-05-03  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* toplev.h (flag_relief): New external declration.
