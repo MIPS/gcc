@@ -1183,8 +1183,9 @@ m68k_output_function_epilogue (FILE *stream, HOST_WIDE_INT size ATTRIBUTE_UNUSED
 	  asm_fprintf (stream, "\t%Omove" ASM_DOT "l %I%wd,%Ra1\n",
 		       -(current_frame.offset + fsize));
 	  asm_fprintf (stream, MOTOROLA ?
-				 "\tlea 0(%Rsp,%Ra1.l),%Rsp\n" :
-			         "\tlea %Rsp@(0,%Ra1:l),%Rsp\n");
+				 "\tlea 0(%s,%Ra1.l),%Rsp\n" :
+			         "\tlea %s@(0,%Ra1:l),%Rsp\n",
+		       M68K_REGNAME(FRAME_POINTER_REGNUM));
 	  restore_from_sp = true;
 	}
       else

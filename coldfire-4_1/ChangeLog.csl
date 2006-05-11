@@ -1,3 +1,9 @@
+2006-05-11  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.c (m68k_output_function_epilogue): Fix the lea
+	instruction that restores the stack pointer from the frame pointer.
+
 2006-05-09  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gcc/config/m68k/m68k-none.h (ASM_CPU_DEFAULT_SPEC): Undefine it
