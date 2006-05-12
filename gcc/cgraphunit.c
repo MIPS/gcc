@@ -618,7 +618,7 @@ initialize_inline_failed (struct cgraph_node *node)
 
 /* Rebuild call edges from current function after a passes not aware
    of cgraph updating.  */
-static void
+static unsigned int
 rebuild_cgraph_edges (void)
 {
   basic_block bb;
@@ -643,6 +643,7 @@ rebuild_cgraph_edges (void)
       }
   initialize_inline_failed (node);
   gcc_assert (!node->global.inlined_to);
+  return 0;
 }
 
 struct tree_opt_pass pass_rebuild_cgraph_edges =
@@ -1574,7 +1575,8 @@ update_call_expr (struct cgraph_node *new_version)
 
 static struct cgraph_node *
 cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
-				 tree new_decl, varray_type redirect_callers)
+				 tree new_decl,
+				 VEC(cgraph_edge_p,heap) *redirect_callers)
  {
    struct cgraph_node *new_version;
    struct cgraph_edge *e, *new_e;
@@ -1613,14 +1615,12 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
        if (!next_callee)
 	 break;
      }
-   if (redirect_callers)
-     for (i = 0; i < VARRAY_ACTIVE_SIZE (redirect_callers); i++)
-       {
-         e = VARRAY_GENERIC_PTR (redirect_callers, i);
-	 /* Redirect calls to the old version node
-	    to point to it's new version.  */
-         cgraph_redirect_edge_callee (e, new_version);
-       }
+   for (i = 0; VEC_iterate (cgraph_edge_p, redirect_callers, i, e); i++)
+     {
+       /* Redirect calls to the old version node to point to its new
+	  version.  */
+       cgraph_redirect_edge_callee (e, new_version);
+     }
 
    return new_version;
  }
@@ -1640,7 +1640,7 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
 
 struct cgraph_node *
 cgraph_function_versioning (struct cgraph_node *old_version_node,
-			    varray_type redirect_callers,
+			    VEC(cgraph_edge_p,heap) *redirect_callers,
 			    varray_type tree_map)
 {
   tree old_decl = old_version_node->decl;
@@ -1691,7 +1691,7 @@ save_inline_function_body (struct cgraph_node *node)
   cgraph_lower_function (node);
 
   /* In non-unit-at-a-time we construct full fledged clone we never output to
-     assembly file.  This clone is pointed out by inline_decl of orginal function
+     assembly file.  This clone is pointed out by inline_decl of original function
      and inlining infrastructure knows how to deal with this.  */
   if (!flag_unit_at_a_time)
     {

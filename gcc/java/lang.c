@@ -108,6 +108,14 @@ const char *const tree_code_name[] = {
 };
 #undef DEFTREECODE
 
+/* Table of machine-independent attributes.  */
+const struct attribute_spec java_attribute_table[] =
+{
+ { "nonnull",                0, -1, false, true, true,
+			      NULL },
+  { NULL,                     0, 0, false, false, false, NULL }
+};
+
 /* Used to avoid printing error messages with bogus function
    prototypes.  Starts out false.  */
 static bool inhibit_error_function_printing;
@@ -212,6 +220,9 @@ struct language_function GTY(())
 
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
 #define LANG_HOOKS_SET_DECL_ASSEMBLER_NAME java_mangle_decl
+
+#undef LANG_HOOKS_ATTRIBUTE_TABLE
+#define LANG_HOOKS_ATTRIBUTE_TABLE java_attribute_table
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
@@ -356,6 +367,9 @@ java_init (void)
      init optimization.  */
   if (flag_indirect_dispatch)
     always_initialize_class_p = true;
+
+  if (!flag_indirect_dispatch)
+    flag_indirect_classes = false;
 
   /* Force minimum function alignment if g++ uses the least significant
      bit of function pointers to store the virtual bit. This is required
@@ -607,6 +621,15 @@ java_post_options (const char **pfilename)
      must always verify everything.  */
   if (! flag_indirect_dispatch)
     flag_verify_invocations = true;
+
+  if (flag_reduced_reflection)
+    {
+      if (flag_indirect_dispatch)
+        error ("-findirect-dispatch is incompatible "
+               "with -freduced-reflection");
+      if (flag_jni)
+        error ("-fjni is incompatible with -freduced-reflection");
+    }
 
   /* Open input file.  */
 

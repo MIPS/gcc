@@ -279,7 +279,7 @@ has_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
   return NULL_RTX;
 }
 
-void
+unsigned int
 emit_initial_value_sets (void)
 {
   struct initial_value_struct *ivs = cfun->hard_reg_initial_vals;
@@ -287,7 +287,7 @@ emit_initial_value_sets (void)
   rtx seq;
 
   if (ivs == 0)
-    return;
+    return 0;
 
   start_sequence ();
   for (i = 0; i < ivs->num_entries; i++)
@@ -296,6 +296,7 @@ emit_initial_value_sets (void)
   end_sequence ();
 
   emit_insn_after (seq, entry_of_function ());
+  return 0;
 }
 
 struct tree_opt_pass pass_initial_value_sets =
@@ -318,7 +319,7 @@ struct tree_opt_pass pass_initial_value_sets =
 /* If the backend knows where to allocate pseudos for hard
    register initial values, register these allocations now.  */
 void
-allocate_initial_values (rtx *reg_equiv_memory_loc ATTRIBUTE_UNUSED)
+allocate_initial_values (rtx *reg_equiv_memory_loc)
 {
   if (targetm.allocate_initial_value)
     {
@@ -351,10 +352,10 @@ allocate_initial_values (rtx *reg_equiv_memory_loc ATTRIBUTE_UNUSED)
 		  /* Update global register liveness information.  */
 		  FOR_EACH_BB (bb)
 		    {
-		      if (REGNO_REG_SET_P(DF_LIVE_IN (rtl_df, bb), regno))
-			SET_REGNO_REG_SET (DF_LIVE_IN (rtl_df, bb), new_regno);
-		      if (REGNO_REG_SET_P(DF_LIVE_OUT (rtl_df, bb), regno))
-			SET_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, bb), new_regno);
+		      if (REGNO_REG_SET_P(DF_LIVE_IN (ra_df, bb), regno))
+			SET_REGNO_REG_SET (DF_LIVE_IN (ra_df, bb), new_regno);
+		      if (REGNO_REG_SET_P(DF_LIVE_OUT (ra_df, bb), regno))
+			SET_REGNO_REG_SET (DF_LIVE_OUT (ra_df, bb), new_regno);
 		    }
 		}
 	    }

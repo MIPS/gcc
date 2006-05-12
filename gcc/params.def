@@ -499,6 +499,21 @@ DEFPARAM(PARAM_MIN_SPEC_PROB,
          "The minimum probability of reaching a source block for interblock speculative scheduling",
          40, 0, 0)
 
+DEFPARAM(PARAM_MAX_SCHED_EXTEND_REGIONS_ITERS,
+         "max-sched-extend-regions-iters",
+         "The maximum number of iterations through CFG to extend regions",
+         2, 0, 0)
+
+DEFPARAM(PARAM_MAX_SCHED_INSN_CONFLICT_DELAY,
+         "max-sched-insn-conflict-delay",
+         "The maximum conflict delay for an insn to be considered for speculative motion",
+         3, 1, 10)
+
+DEFPARAM(PARAM_SCHED_SPEC_PROB_CUTOFF,
+         "sched-spec-prob-cutoff",
+         "The minimal probability of speculation success (in percents), so that speculative insn will be scheduled.",
+         40, 0, 100)
+
 DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
 	 "max-last-value-rtl",
 	 "The maximum number of RTL nodes that can be recorded as combiner's last value",
@@ -567,6 +582,12 @@ DEFPARAM (PARAM_MAX_FIELDS_FOR_FIELD_SENSITIVE,
           "max-fields-for-field-sensitive",
 	  "Maximum number of fields in a structure before pointer analysis treats the structure as a single variable",
 	  100, 0, 0)
+
+DEFPARAM(PARAM_MAX_SCHED_READY_INSNS,
+	 "max-sched-ready-insns",
+	 "The maximum number of instructions ready to be issued to be considered by the scheduler during the first scheduling pass",
+	 100, 0, 0)
+
 /*
 Local variables:
 mode:c

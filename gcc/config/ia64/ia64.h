@@ -1020,6 +1020,9 @@ enum reg_class
    pointer.  */
 #define INCOMING_FRAME_SP_OFFSET STACK_POINTER_OFFSET
 
+/* We shorten debug info by using CFA-16 as DW_AT_frame_base.  */
+#define CFA_FRAME_BASE_OFFSET(FUNDECL) (-INCOMING_FRAME_SP_OFFSET)
+
 
 /* Register That Address the Stack Frame.  */
 
@@ -1888,12 +1891,12 @@ do {									\
 /* Use section-relative relocations for debugging offsets.  Unlike other
    targets that fake this by putting the section VMA at 0, IA-64 has
    proper relocations for them.  */
-#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL)	\
-  do {							\
-    fputs (integer_asm_op (SIZE, FALSE), FILE);		\
-    fputs ("@secrel(", FILE);				\
-    assemble_name (FILE, LABEL);			\
-    fputc (')', FILE);					\
+#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL, SECTION)	\
+  do {								\
+    fputs (integer_asm_op (SIZE, FALSE), FILE);			\
+    fputs ("@secrel(", FILE);					\
+    assemble_name (FILE, LABEL);				\
+    fputc (')', FILE);						\
   } while (0)
 
 /* Emit a PC-relative relocation.  */

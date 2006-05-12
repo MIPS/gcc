@@ -50,10 +50,6 @@ struct df_link;
 #define DF_RI    7      /* Register Info. */
 #define DF_LAST_PROBLEM_PLUS1 (DF_RI + 1)
 
-/* Flags that control the building of chains.  */
-#define DF_DU_CHAIN   1    /* Build DU chains.  */  
-#define DF_UD_CHAIN   2    /* Build UD chains.  */
-
 
 /* Dataflow direction.  */
 enum df_flow_dir
@@ -113,7 +109,7 @@ enum df_ref_flags
 /* Function prototypes added to df_problem instance.  */
 
 /* Allocate the problem specific data.  */
-typedef void (*df_alloc_function) (struct dataflow *, bitmap);
+typedef void (*df_alloc_function) (struct dataflow *, bitmap, bitmap);
 
 /* This function is called if the problem has global data that needs
    to be cleared when ever the set of blocks changes.  The bitmap
@@ -155,6 +151,10 @@ typedef void (*df_free_function) (struct dataflow *);
 /* Function to dump results to FILE.  */
 typedef void (*df_dump_problem_function) (struct dataflow *, FILE *);
 
+/* Function to add problem a dataflow problem that must be solved
+   before this problem can be solved.  */
+typedef struct dataflow * (*df_dependent_problem_function) (struct df *, int);
+
 /* The static description of a dataflow problem to solve.  See above
    typedefs for doc for the function fields.  */
 
@@ -175,10 +175,10 @@ struct df_problem {
   df_finalizer_function finalize_fun;
   df_free_function free_fun;
   df_dump_problem_function dump_fun;
+  df_dependent_problem_function dependent_problem_fun;
 
-  /* A dataflow problem that must be solved before this problem can be
-     solved.  */
-  struct df_problem *dependent_problem;
+  /* Flags can be changed after analysis starts.  */
+  int changeable_flags;
 };
 
 
@@ -198,6 +198,22 @@ struct dataflow
 
   /* The pool to allocate the block_info from. */
   alloc_pool block_pool;                
+
+  /* Problem specific control infomation.  */
+
+  /* Scanning flags.  */
+#define DF_HARD_REGS	     1	/* Mark hard registers.  */
+#define DF_EQUIV_NOTES	     2	/* Mark uses present in EQUIV/EQUAL notes.  */
+#define DF_SUBREGS	     4	/* Return subregs rather than the inner reg.  */
+  /* Flag to control the running of dce as a side effect of building LR.  */
+#define DF_LR_RUN_DCE        1    /* Run DCE.  */
+  /* Flags that control the building of chains.  */
+#define DF_DU_CHAIN          1    /* Build DU chains.  */  
+#define DF_UD_CHAIN          2    /* Build UD chains.  */
+  /* Flag to control the building of register info.  */
+#define DF_RI_LIFE           1    /* Build register info.  */
+#define DF_RI_SETJMP         2    /* Build pseudos that cross setjmp info.  */
+  int flags;
 
   /* Other problem specific data that is not on a per basic block
      basis.  The structure is generally defined privately for the
@@ -295,7 +311,7 @@ struct df_ref_info
   unsigned int bitmap_size;	/* Number of refs seen.  */
 
   /* True if refs table is organized so that every reference for a
-     pseudo is contigious.  */
+     pseudo is contiguous.  */
   bool refs_organized;
   /* True if the next refs should be added immediately or false to
      defer to later to reorganize the table.  */
@@ -311,12 +327,6 @@ struct df_ref_info
 
 struct df
 {
-
-#define DF_HARD_REGS	     1	/* Mark hard registers.  */
-#define DF_EQUIV_NOTES	     2	/* Mark uses present in EQUIV/EQUAL notes.  */
-#define DF_SUBREGS	     4	/* Return subregs rather than the inner reg.  */
-
-  int flags;			/* Indicates what's recorded.  */
 
   /* The set of problems to be solved is stored in two arrays.  In
      PROBLEMS_IN_ORDER, the problems are stored in the order that they
@@ -348,6 +358,12 @@ struct df
   struct df_insn_info **insns;   /* Insn table, indexed by insn UID.  */
   unsigned int insns_size;       /* Size of insn table.  */
   bitmap hardware_regs_used;     /* The set of hardware registers used.  */
+  /* The set of hard regs that are in the artificial uses at the end
+     of a regular basic block.  */
+  bitmap regular_block_artificial_uses;
+  /* The set of hard regs that are in the artificial uses at the end
+     of a basic block that has an EH pred.  */
+  bitmap eh_block_artificial_uses;
   bitmap entry_block_defs;       /* The set of hardware registers live on entry to the function.  */
   bitmap exit_block_uses;        /* The set of hardware registers used in exit block.  */
 };
@@ -422,8 +438,10 @@ struct df
 #define DF_REG_SIZE(DF) ((DF)->def_info.regs_inited)
 #define DF_REG_DEF_GET(DF, REG) ((DF)->def_info.regs[(REG)])
 #define DF_REG_DEF_SET(DF, REG, VAL) ((DF)->def_info.regs[(REG)]=(VAL))
+#define DF_REG_DEF_COUNT(DF, REG) ((DF)->def_info.regs[(REG)]->n_refs)
 #define DF_REG_USE_GET(DF, REG) ((DF)->use_info.regs[(REG)])
 #define DF_REG_USE_SET(DF, REG, VAL) ((DF)->use_info.regs[(REG)]=(VAL))
+#define DF_REG_USE_COUNT(DF, REG) ((DF)->use_info.regs[(REG)]->n_refs)
 
 /* Macros to access the elements within the reg_info structure table.  */
 
@@ -452,21 +470,6 @@ struct df
    easily add it into bitmaps, etc. */ 
 
 extern bitmap df_invalidated_by_call;
-
-/* Initialize ur_in and ur_out as if all hard registers were partially
-available.  */
-
-/* The way that registers are processed, especially hard registers,
-   changes as the compilation proceeds. These states are passed to
-   df_set_state to control this processing.  */
-
-#define DF_SCAN_INITIAL    1    /* Processing from beginning of rtl to
-				   global-alloc.  */
-#define DF_SCAN_GLOBAL     2    /* Processing before global
-				   allocation.  */
-#define DF_SCAN_POST_ALLOC 4    /* Processing after register
-				   allocation.  */
-extern int df_state;            /* Indicates where we are in the compilation.  */
 
 
 /* One of these structures is allocated for every basic block.  */
@@ -538,8 +541,11 @@ struct df_urec_bb_info
 /* Functions defined in df-core.c.  */
 
 extern struct df *df_init (int);
-extern struct dataflow *df_add_problem (struct df *, struct df_problem *);
+extern struct dataflow *df_add_problem (struct df *, struct df_problem *, int);
+extern int df_set_flags (struct dataflow *, int);
+extern int df_clear_flags (struct dataflow *, int);
 extern void df_set_blocks (struct df*, bitmap);
+extern void df_delete_basic_block (struct df *, int);
 extern void df_finish1 (struct df *);
 extern void df_analyze_problem (struct dataflow *, bitmap, bitmap, bitmap, int *, int, bool);
 extern void df_analyze (struct df *);
@@ -570,13 +576,13 @@ extern void debug_df_defno (unsigned int);
 extern void debug_df_useno (unsigned int);
 extern void debug_df_ref (struct df_ref *);
 extern void debug_df_chain (struct df_link *);
-/* An instance of df that can be shared between passes.  */
-extern struct df *shared_df; 
+/* An instance of df that can be shared between global_alloc and the
+   reload passes.  */
+extern struct df *ra_df; 
 
 
 /* Functions defined in df-problems.c. */
 
-extern struct dataflow *df_get_dependent_problem (struct dataflow *);
 extern struct df_link *df_chain_create (struct dataflow *, struct df_ref *, struct df_ref *);
 extern void df_chain_unlink (struct dataflow *, struct df_ref *, struct df_link *);
 extern void df_chain_copy (struct dataflow *, struct df_ref *, struct df_link *);
@@ -585,25 +591,26 @@ extern bitmap df_get_live_out (struct df *, basic_block);
 extern void df_grow_bb_info (struct dataflow *);
 extern void df_chain_dump (struct df_link *, FILE *);
 extern void df_print_bb_index (basic_block bb, FILE *file);
-extern struct dataflow *df_ru_add_problem (struct df *);
+extern struct dataflow *df_ru_add_problem (struct df *, int);
 extern struct df_ru_bb_info *df_ru_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_rd_add_problem (struct df *);
+extern struct dataflow *df_rd_add_problem (struct df *, int);
 extern struct df_rd_bb_info *df_rd_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_lr_add_problem (struct df *);
+extern struct dataflow *df_lr_add_problem (struct df *, int);
 extern struct df_lr_bb_info *df_lr_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_ur_add_problem (struct df *);
+extern struct dataflow *df_ur_add_problem (struct df *, int);
+extern void df_lr_simulate_artificial_refs_at_end (struct df *, basic_block, bitmap);
+extern void df_lr_simulate_one_insn (struct df *, basic_block, rtx, bitmap);
 extern struct df_ur_bb_info *df_ur_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_urec_add_problem (struct df *);
+extern struct dataflow *df_urec_add_problem (struct df *, int);
 extern struct df_urec_bb_info *df_urec_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_chain_add_problem (struct df *, int flags);
-extern struct dataflow *df_ri_add_problem (struct df *);
-extern int df_reg_lifetime (struct df *, rtx reg);
-
+extern struct dataflow *df_chain_add_problem (struct df *, int);
+extern struct dataflow *df_ri_add_problem (struct df *, int);
+extern bitmap df_ri_get_setjmp_crosses (struct df *);
 
 /* Functions defined in df-scan.c.  */
 
 extern struct df_scan_bb_info *df_scan_get_bb_info (struct dataflow *, unsigned int);
-extern struct dataflow *df_scan_add_problem (struct df *);
+extern struct dataflow *df_scan_add_problem (struct df *, int);
 extern void df_rescan_blocks (struct df *, bitmap);
 extern struct df_ref *df_ref_create (struct df *, rtx, rtx *, rtx,basic_block,enum df_ref_type, enum df_ref_flags);
 extern struct df_ref *df_get_artificial_defs (struct df *, unsigned int);
@@ -611,11 +618,13 @@ extern struct df_ref *df_get_artificial_uses (struct df *, unsigned int);
 extern void df_reg_chain_create (struct df_reg_info *, struct df_ref *);
 extern struct df_ref *df_reg_chain_unlink (struct dataflow *, struct df_ref *);
 extern void df_ref_remove (struct df *, struct df_ref *);
+extern void df_insn_create_insn_record (struct dataflow *, rtx);
 extern void df_insn_refs_delete (struct dataflow *, rtx);
 extern void df_bb_refs_delete (struct dataflow *, int);
 extern void df_refs_delete (struct dataflow *, bitmap);
+extern void df_insn_refs_record (struct dataflow *, basic_block, rtx);
+extern bool df_has_eh_preds (basic_block);
 extern void df_reorganize_refs (struct df_ref_info *);
-extern void df_set_state (int);
 extern void df_hard_reg_init (void);
 extern bool df_read_modify_subreg_p (rtx);
 

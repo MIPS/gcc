@@ -91,7 +91,7 @@ struct address_walk_data
 };
 
 static bool gate_dse (void);
-static void tree_ssa_dse (void);
+static unsigned int tree_ssa_dse (void);
 static void dse_initialize_block_local_data (struct dom_walk_data *,
 					     basic_block,
 					     bool);
@@ -269,7 +269,7 @@ dse_optimize_stmt (struct dom_walk_data *walk_data,
 
 	  /* If this virtual def does not have precisely one use, then
 	     we will not be able to eliminate STMT.  */
-	  if (num_imm_uses (defvar) != 1)
+	  if (! has_single_use (defvar))
 	    {
 	      fail = true;
 	      break;
@@ -398,7 +398,7 @@ dse_finalize_block (struct dom_walk_data *walk_data,
       }
 }
 
-static void
+static unsigned int
 tree_ssa_dse (void)
 {
   struct dom_walk_data walk_data;
@@ -455,6 +455,7 @@ tree_ssa_dse (void)
 
   /* For now, just wipe the post-dominator information.  */
   free_dominance_info (CDI_POST_DOMINATORS);
+  return 0;
 }
 
 static bool

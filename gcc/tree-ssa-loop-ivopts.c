@@ -1482,8 +1482,9 @@ find_interesting_uses_address (struct ivopts_data *data, tree stmt, tree *op_p)
 
   /* Ignore bitfields for now.  Not really something terribly complicated
      to handle.  TODO.  */
-  if (TREE_CODE (base) == COMPONENT_REF
-      && DECL_NONADDRESSABLE_P (TREE_OPERAND (base, 1)))
+  if (TREE_CODE (base) == BIT_FIELD_REF
+      || (TREE_CODE (base) == COMPONENT_REF
+	  && DECL_NONADDRESSABLE_P (TREE_OPERAND (base, 1))))
     goto fail;
 
   if (STRICT_ALIGNMENT
@@ -1762,7 +1763,7 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
 	return orig_expr;
 
       *offset = int_cst_value (expr);
-      return build_int_cst_type (orig_type, 0);
+      return build_int_cst (orig_type, 0);
 
     case PLUS_EXPR:
     case MINUS_EXPR:
@@ -3379,8 +3380,8 @@ force_expr_to_var_cost (tree expr)
       tree addr;
       tree type = build_pointer_type (integer_type_node);
 
-      integer_cost = computation_cost (build_int_cst_type (integer_type_node,
-							   2000));
+      integer_cost = computation_cost (build_int_cst (integer_type_node,
+						      2000));
 
       SET_DECL_RTL (var, x);
       TREE_STATIC (var) = 1;
@@ -3390,7 +3391,7 @@ force_expr_to_var_cost (tree expr)
       address_cost
 	= computation_cost (build2 (PLUS_EXPR, type,
 				    addr,
-				    build_int_cst_type (type, 2000))) + 1;
+				    build_int_cst (type, 2000))) + 1;
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "force_expr_to_var_cost:\n");
@@ -5342,8 +5343,8 @@ get_ref_tag (tree ref, tree orig)
 
   if (TREE_CODE (var) == INDIRECT_REF)
     {
-      /* In case the base is a dereference of a pointer, first check its name
-	 mem tag, and if it does not have one, use type mem tag.  */
+      /* If the base is a dereference of a pointer, first check its name memory
+	 tag.  If it does not have one, use its symbol memory tag.  */
       var = TREE_OPERAND (var, 0);
       if (TREE_CODE (var) != SSA_NAME)
 	return NULL_TREE;
@@ -5356,7 +5357,7 @@ get_ref_tag (tree ref, tree orig)
 	}
  
       var = SSA_NAME_VAR (var);
-      tag = var_ann (var)->type_mem_tag;
+      tag = var_ann (var)->symbol_mem_tag;
       gcc_assert (tag != NULL_TREE);
       return tag;
     }
@@ -5365,7 +5366,7 @@ get_ref_tag (tree ref, tree orig)
       if (!DECL_P (var))
 	return NULL_TREE;
 
-      tag = var_ann (var)->type_mem_tag;
+      tag = var_ann (var)->symbol_mem_tag;
       if (tag)
 	return tag;
 

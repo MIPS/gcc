@@ -72,6 +72,7 @@
    (UNSPEC_RSQRT2		209)
    (UNSPEC_RECIP1		210)
    (UNSPEC_RECIP2		211)
+   (UNSPEC_SINGLE_CC		212)
 
    ;; MIPS DSP ASE Revision 0.98 3/24/2005
    (UNSPEC_ADDQ			300)
@@ -146,6 +147,7 @@
 )
 
 (include "predicates.md")
+(include "constraints.md")
 
 ;; ....................
 ;;
@@ -164,14 +166,15 @@
 ;; This attribute is YES if the instruction is a jal macro (not a
 ;; real jal instruction).
 ;;
-;; jal is always a macro in SVR4 PIC since it includes an instruction to
-;; restore $gp.  Direct jals are also macros in NewABI PIC since they
-;; load the target address into $25.
+;; jal is always a macro for o32 and o64 abicalls because it includes an
+;; instruction to restore $gp.  Direct jals are also macros for -mshared
+;; abicalls because they first load the target address into $25.
 (define_attr "jal_macro" "no,yes"
   (cond [(eq_attr "jal" "direct")
-	 (symbol_ref "TARGET_ABICALLS != 0")
+	 (symbol_ref "TARGET_ABICALLS
+		      && (TARGET_OLDABI || !TARGET_ABSOLUTE_ABICALLS)")
 	 (eq_attr "jal" "indirect")
-	 (symbol_ref "(TARGET_ABICALLS && !TARGET_NEWABI) != 0")]
+	 (symbol_ref "TARGET_ABICALLS && TARGET_OLDABI")]
 	(const_string "no")))
 
 ;; Classification of each insn.
@@ -3023,7 +3026,7 @@
 	(high:DI (match_operand:DI 1 "general_symbolic_operand" "")))]
   "TARGET_EXPLICIT_RELOCS && ABI_HAS_64BIT_SYMBOLS"
   "#"
-  "&& flow2_completed"
+  "&& epilogue_completed"
   [(set (match_dup 0) (high:DI (match_dup 2)))
    (set (match_dup 0) (lo_sum:DI (match_dup 0) (match_dup 2)))
    (set (match_dup 0) (ashift:DI (match_dup 0) (const_int 16)))
@@ -3191,6 +3194,28 @@
   [(set_attr "type" "arith")
    (set_attr "mode" "<MODE>")
    (set_attr "length" "8")])
+
+;; Allow combine to split complex const_int load sequences, using operand 2
+;; to store the intermediate results.  See move_operand for details.
+(define_split
+  [(set (match_operand:GPR 0 "register_operand")
+	(match_operand:GPR 1 "splittable_const_int_operand"))
+   (clobber (match_operand:GPR 2 "register_operand"))]
+  ""
+  [(const_int 0)]
+{
+  mips_move_integer (operands[0], operands[2], INTVAL (operands[1]));
+  DONE;
+})
+
+;; Likewise, for symbolic operands.
+(define_split
+  [(set (match_operand:P 0 "register_operand")
+	(match_operand:P 1 "splittable_symbolic_operand"))
+   (clobber (match_operand:P 2 "register_operand"))]
+  ""
+  [(set (match_dup 0) (match_dup 1))]
+  { operands[1] = mips_split_symbol (operands[2], operands[1]); })
 
 ;; 64-bit integer moves
 
@@ -3958,7 +3983,7 @@
 (define_insn_and_split "loadgp"
   [(unspec_volatile [(match_operand 0 "" "")
 		     (match_operand 1 "register_operand" "")] UNSPEC_LOADGP)]
-  "TARGET_ABICALLS && TARGET_NEWABI"
+  "mips_current_loadgp_style () == LOADGP_NEWABI"
   "#"
   ""
   [(set (match_dup 2) (match_dup 3))
@@ -3971,6 +3996,19 @@
   operands[5] = gen_rtx_LO_SUM (Pmode, operands[2], operands[0]);
 }
   [(set_attr "length" "12")])
+
+;; Likewise, for -mno-shared code.  Operand 0 is the __gnu_local_gp symbol.
+(define_insn_and_split "loadgp_noshared"
+  [(unspec_volatile [(match_operand 0 "" "")] UNSPEC_LOADGP)]
+  "mips_current_loadgp_style () == LOADGP_ABSOLUTE"
+  "#"
+  ""
+  [(const_int 0)]
+{
+  emit_move_insn (pic_offset_table_rtx, operands[0]);
+  DONE;
+}
+  [(set_attr "length" "8")])
 
 ;; The use of gp is hidden when not using explicit relocations.
 ;; This blockage instruction prevents the gp load from being
@@ -4271,85 +4309,65 @@
 
 ;; Conditional branches on floating-point equality tests.
 
-(define_insn "branch_fp"
+(define_insn "*branch_fp"
   [(set (pc)
         (if_then_else
-         (match_operator:CC 0 "comparison_operator"
-                            [(match_operand:CC 2 "register_operand" "z")
-			     (const_int 0)])
+         (match_operator 0 "equality_operator"
+                         [(match_operand:CC 2 "register_operand" "z")
+			  (const_int 0)])
          (label_ref (match_operand 1 "" ""))
          (pc)))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn,
-					 operands,
-					 /*two_operands_p=*/0,
-					 /*float_p=*/1,
-					 /*inverted_p=*/0,
-					 get_attr_length (insn));
+  return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%F0", "%Z2%1"),
+					 MIPS_BRANCH ("b%W0", "%Z2%1"));
 }
-  [(set_attr "type"	"branch")
-   (set_attr "mode"	"none")])
+  [(set_attr "type" "branch")
+   (set_attr "mode" "none")])
 
-(define_insn "branch_fp_inverted"
+(define_insn "*branch_fp_inverted"
   [(set (pc)
         (if_then_else
-         (match_operator:CC 0 "comparison_operator"
-                            [(match_operand:CC 2 "register_operand" "z")
-			     (const_int 0)])
+         (match_operator 0 "equality_operator"
+                         [(match_operand:CC 2 "register_operand" "z")
+			  (const_int 0)])
          (pc)
          (label_ref (match_operand 1 "" ""))))]
   "TARGET_HARD_FLOAT"
 {
-  return mips_output_conditional_branch (insn,
-					 operands,
-					 /*two_operands_p=*/0,
-					 /*float_p=*/1,
-					 /*inverted_p=*/1,
-					 get_attr_length (insn));
+  return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%W0", "%Z2%1"),
+					 MIPS_BRANCH ("b%F0", "%Z2%1"));
 }
-  [(set_attr "type"	"branch")
-   (set_attr "mode"	"none")])
+  [(set_attr "type" "branch")
+   (set_attr "mode" "none")])
 
-;; Conditional branches on comparisons with zero.
+;; Conditional branches on ordered comparisons with zero.
 
-(define_insn "*branch_zero<mode>"
+(define_insn "*branch_order<mode>"
   [(set (pc)
 	(if_then_else
-	 (match_operator 0 "comparison_operator"
+	 (match_operator 0 "order_operator"
 			 [(match_operand:GPR 2 "register_operand" "d")
 			  (const_int 0)])
 	 (label_ref (match_operand 1 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
-{
-  return mips_output_conditional_branch (insn,
-					 operands,
-					 /*two_operands_p=*/0,
-					 /*float_p=*/0,
-					 /*inverted_p=*/0,
-					 get_attr_length (insn));
-}
+  { return mips_output_order_conditional_branch (insn, operands, false); }
   [(set_attr "type" "branch")
    (set_attr "mode" "none")])
 
-(define_insn "*branch_zero<mode>_inverted"
+(define_insn "*branch_order<mode>_inverted"
   [(set (pc)
 	(if_then_else
-	 (match_operator 0 "comparison_operator"
+	 (match_operator 0 "order_operator"
 			 [(match_operand:GPR 2 "register_operand" "d")
 			  (const_int 0)])
 	 (pc)
 	 (label_ref (match_operand 1 "" ""))))]
   "!TARGET_MIPS16"
-{
-  return mips_output_conditional_branch (insn,
-					 operands,
-					 /*two_operands_p=*/0,
-					 /*float_p=*/0,
-					 /*inverted_p=*/1,
-					 get_attr_length (insn));
-}
+  { return mips_output_order_conditional_branch (insn, operands, true); }
   [(set_attr "type" "branch")
    (set_attr "mode" "none")])
 
@@ -4360,17 +4378,14 @@
 	(if_then_else
 	 (match_operator 0 "equality_operator"
 			 [(match_operand:GPR 2 "register_operand" "d")
-			  (match_operand:GPR 3 "register_operand" "d")])
+			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
 	 (label_ref (match_operand 1 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
 {
-  return mips_output_conditional_branch (insn,
-					 operands,
-					 /*two_operands_p=*/1,
-					 /*float_p=*/0,
-					 /*inverted_p=*/0,
-					 get_attr_length (insn));
+  return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%C0", "%2,%z3,%1"),
+					 MIPS_BRANCH ("b%N0", "%2,%z3,%1"));
 }
   [(set_attr "type" "branch")
    (set_attr "mode" "none")])
@@ -4380,17 +4395,14 @@
 	(if_then_else
 	 (match_operator 0 "equality_operator"
 			 [(match_operand:GPR 2 "register_operand" "d")
-			  (match_operand:GPR 3 "register_operand" "d")])
+			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
 	 (pc)
 	 (label_ref (match_operand 1 "" ""))))]
   "!TARGET_MIPS16"
 {
-  return mips_output_conditional_branch (insn,
-					 operands,
-					 /*two_operands_p=*/1,
-					 /*float_p=*/0,
-					 /*inverted_p=*/1,
-					 get_attr_length (insn));
+  return mips_output_conditional_branch (insn, operands,
+					 MIPS_BRANCH ("b%N0", "%2,%z3,%1"),
+					 MIPS_BRANCH ("b%C0", "%2,%z3,%1"));
 }
   [(set_attr "type" "branch")
    (set_attr "mode" "none")])
@@ -4437,6 +4449,13 @@
   gen_conditional_branch (operands, <CODE>);
   DONE;
 })
+
+;; Used to implement built-in functions.
+(define_expand "condjump"
+  [(set (pc)
+	(if_then_else (match_operand 0)
+		      (label_ref (match_operand 1))
+		      (pc)))])
 
 ;;
 ;;  ....................
@@ -5055,9 +5074,7 @@
   [(call (mem:SI (match_operand 0 "call_insn_operand" "j,S"))
 	 (match_operand 1 "" ""))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
-  "@
-    %*jr\t%0%/
-    %*j\t%0%/"
+  { return MIPS_CALL ("j", operands, 0); }
   [(set_attr "type" "call")])
 
 (define_expand "sibcall_value"
@@ -5077,9 +5094,7 @@
         (call (mem:SI (match_operand 1 "call_insn_operand" "j,S"))
               (match_operand 2 "" "")))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
-  "@
-    %*jr\t%1%/
-    %*j\t%1%/"
+  { return MIPS_CALL ("j", operands, 1); }
   [(set_attr "type" "call")])
 
 (define_insn "sibcall_value_multiple_internal"
@@ -5090,9 +5105,7 @@
 	(call (mem:SI (match_dup 1))
 	      (match_dup 2)))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
-  "@
-    %*jr\t%1%/
-    %*j\t%1%/"
+  { return MIPS_CALL ("j", operands, 1); }
   [(set_attr "type" "call")])
 
 (define_expand "call"
@@ -5148,7 +5161,7 @@
 	 (match_operand 1 "" ""))
    (clobber (reg:SI 31))]
   ""
-  { return TARGET_SPLIT_CALLS ? "#" : "%*jal\t%0%/"; }
+  { return TARGET_SPLIT_CALLS ? "#" : MIPS_CALL ("jal", operands, 0); }
   "reload_completed && TARGET_SPLIT_CALLS && (operands[2] = insn)"
   [(const_int 0)]
 {
@@ -5161,12 +5174,12 @@
    (set_attr "extended_mips16" "no,yes")])
 
 (define_insn "call_split"
-  [(call (mem:SI (match_operand 0 "call_insn_operand" "c"))
+  [(call (mem:SI (match_operand 0 "call_insn_operand" "cS"))
 	 (match_operand 1 "" ""))
    (clobber (reg:SI 31))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  "%*jalr\t%0%/"
+  { return MIPS_CALL ("jal", operands, 0); }
   [(set_attr "type" "call")])
 
 (define_expand "call_value"
@@ -5188,7 +5201,7 @@
               (match_operand 2 "" "")))
    (clobber (reg:SI 31))]
   ""
-  { return TARGET_SPLIT_CALLS ? "#" : "%*jal\t%1%/"; }
+  { return TARGET_SPLIT_CALLS ? "#" : MIPS_CALL ("jal", operands, 1); }
   "reload_completed && TARGET_SPLIT_CALLS && (operands[3] = insn)"
   [(const_int 0)]
 {
@@ -5203,12 +5216,12 @@
 
 (define_insn "call_value_split"
   [(set (match_operand 0 "register_operand" "=df")
-        (call (mem:SI (match_operand 1 "call_insn_operand" "c"))
+        (call (mem:SI (match_operand 1 "call_insn_operand" "cS"))
               (match_operand 2 "" "")))
    (clobber (reg:SI 31))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  "%*jalr\t%1%/"
+  { return MIPS_CALL ("jal", operands, 1); }
   [(set_attr "type" "call")])
 
 ;; See comment for call_internal.
@@ -5221,7 +5234,7 @@
 	      (match_dup 2)))
    (clobber (reg:SI 31))]
   ""
-  { return TARGET_SPLIT_CALLS ? "#" : "%*jal\t%1%/"; }
+  { return TARGET_SPLIT_CALLS ? "#" : MIPS_CALL ("jal", operands, 1); }
   "reload_completed && TARGET_SPLIT_CALLS && (operands[4] = insn)"
   [(const_int 0)]
 {
@@ -5236,7 +5249,7 @@
 
 (define_insn "call_value_multiple_split"
   [(set (match_operand 0 "register_operand" "=df")
-        (call (mem:SI (match_operand 1 "call_insn_operand" "c"))
+        (call (mem:SI (match_operand 1 "call_insn_operand" "cS"))
               (match_operand 2 "" "")))
    (set (match_operand 3 "register_operand" "=df")
 	(call (mem:SI (match_dup 1))
@@ -5244,7 +5257,7 @@
    (clobber (reg:SI 31))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  "%*jalr\t%1%/"
+  { return MIPS_CALL ("jal", operands, 1); }
   [(set_attr "type" "call")])
 
 ;; Call subroutine returning any type.

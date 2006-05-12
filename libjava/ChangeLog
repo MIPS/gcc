@@ -1,3 +1,408 @@
+2006-04-21  Andrew Haley  <aph@redhat.com>
+
+	* include/execution.h (struct _Jv_CompiledEngine): Define for
+	compiled classes.
+	* java/lang/natClassLoader.cc (_Jv_RegisterClasses): Call
+	_Jv_RegisterLibForGc.
+	(_Jv_RegisterClasses_Counted): Likewise.
+	(_Jv_NewClassFromInitializer): New.
+	(_Jv_RegisterNewClasses): New.
+	* sources.am: Regenerate.
+	* boehm.cc (_Jv_GC_has_static_roots): new.
+	(_Jv_InitGC): Call GC_register_has_static_roots_callback.
+	(filename_node, find_file, _Jv_print_gc_store, new_node,
+	_Jv_GC_has_static_roots, _Jv_RegisterLibForGc): New.
+	* scripts/makemake.tcl: Add -fno-indirect-classes.
+	* Makefile.in: Regenerate.
+	* link.cc (resolve_pool_entry): Allocate constant pool.
+	Allocate fields.
+	
+2006-04-22  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* configure.ac: Weaken the check for MMAP.
+	* configure: Rebuilt.
+	* include/config.h.in: Likewise.
+
+2006-04-20  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/27170
+	* gnu/gcj/runtime/natSharedLibLoader.cc: Include gc.h to override
+	dlopen(). From Anthony Green.
+
+2006-04-20  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/21941:
+	* gnu/java/net/natPlainDatagramSocketImplPosix.cc (send): Throw
+	UnknownHostException if needed.
+	* gnu/java/net/natPlainSocketImplPosix.cc (connect): Throw
+	UnknownHostException if needed.
+
+2006-04-19  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (CLEANFILES): Removed all_java_filelist_files,
+	all_java_deps_files.
+
+2006-04-19  Tom Tromey  <tromey@redhat.com>
+
+	* gnu/java/nio/channels/natFileChannelPosix.cc (write): Properly
+	handle EINTR.
+
+2006-04-17  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/27171:
+	* testsuite/libjava.lang/pr27171.java: New file.
+	* testsuite/libjava.lang/pr27171.out: New file.
+	* gnu/gcj/convert/Output_UTF8.java (havePendingBytes): Return
+	true if we've seen a high surrogate.
+	(write): Handle high surrogates at the end of the stream.
+	Properly emit isolated low surrogates.
+
+2006-04-17  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* testsuite/libjava.lang/stringconst2.java: Print a stack trace in case
+	of failure.
+
+2006-04-13  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26522:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (libsubdir): New variable.
+
+2006-04-12  NAKATA Maho  <maho@FreeBSD.org> 
+
+	PR libgcj/23829
+	* configure.ac: Link against -lpthread rather than -lc_r on
+	FreeBSD 5 and above.
+	* configure: Regenerate.
+
+2006-04-11  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gnu/gcj/runtime/SystemClassLoader.java (addClass): Get the value
+	of package-private field "loadedClasses" using reflection.
+	* java/lang/VMCompiler.java (compileClass): Remove unreachable catch
+	block.
+
+2006-04-10  Matthias Klose  <doko@debian.org>
+
+	* testsuite/lib/libjava.exp (libjava_init): Recognize multilib
+	directory names containing underscores.
+
+2006-04-10  Andrew Haley  <aph@redhat.com>
+
+	* include/x86_64-signal.h (HANDLE_DIVIDE_OVERFLOW): New.
+	(SIGNAL_HANDLER): Mark arg as unused.
+	* configure.host (x86_64-* DIVIDESPEC): Use
+	fno-use-divide-subroutine.
+
+2006-04-07  Andrew Haley  <aph@redhat.com>
+
+	* java/net/InetAddress.java: Throw an UnknownHostException if
+	lookup fails.
+
+2006-04-05  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26625:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (libgcj-$(gcc_version).jar): Depend on
+	classpath/lib/compile-classes.
+
+2006-04-05  Ranjit Mathew  <rmathew@gcc.gnu.org>
+
+	* configure.host: Add -fno-omit-frame-pointer to libgcj_flags for
+	MinGW since EBP is used for backtracking through call frames on this
+	platform.
+
+2006-04-05  Archit Shah  <ashah@redhat.com>
+
+	PR java/25414
+	* gnu/java/rmi/rmic/CompilerProcess.java (computeTypicalArguments):
+	Add classpath argument.
+	* gnu/java/rmi/rmic/Compile_gcj.java (computeArguments): Adjust
+	caller.
+	* gnu/java/rmi/rmic/Compile_jikes.java (computeArguments): Likewise.
+	* gnu/java/rmi/rmic/Compile_kjc.java (computeArguments): Likewise.
+	* gnu/java/rmi/rmic/Compiler.java (getClasspath, setClasspath): New.
+	* gnu/java/rmi/rmic/RMIC.java: Set classpath for compiler, call
+	mkdirs for destination directory, correct handling of superclasses
+	and interfaces of the remote class, correct handling of exceptions
+	declared by remote methods.
+
+2006-04-04  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26990:
+	* prims.cc (_Jv_RunMain): Use exitNoChecksAccessor.
+	* gnu/java/lang/natMainThread.cc (call_main): Use
+	exitNoChecksAccessor.
+	* testsuite/libjava.lang/pr26990.out: New file.
+	* testsuite/libjava.lang/pr26990.java: New file.
+	* java/lang/Runtime.java (exitNoChecks): New method.
+	(exitNoChecksAccessor): Likewise.
+	(exit): Call exitNoChecks.
+
+2006-04-03  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (ZIP): Removed.
+	(libgcj-$(gcc_version).jar): Use $(JAR).
+	(src.zip): Likewise.
+	* configure: Rebuilt.
+	* configure.ac: Check for jar.  Removed code to set ZIP.
+
+2006-04-03  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/libjava.lang/Float_2.java: New file.
+
+2006-03-31  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* posix.cc (_Jv_platform_nanotime): Declare id with clockid_t.
+
+2006-03-30  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26042:
+	* testsuite/libjava.compile/pr26042.java: New file.
+
+2006-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl: Scan classpath/external/relaxngDatatype.
+
+2006-03-29  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26390:
+	* testsuite/libjava.lang/pr26390.out: New file.
+	* testsuite/libjava.lang/pr26390.java: New file.
+	* sources.am, Makefile.in: Rebuilt.
+	* scripts/makemake.tcl: Compile gnu/java/awt/peer/swing.
+
+2006-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* posix.cc (_Jv_platform_nanotime): Look for CLOCK_MONOTONIC and
+	CLOCK_HIGHRES.
+
+2006-03-28  Anthony Balkissoon  <abalkiss@redhat.com>
+
+	* scripts/unicode-muncher.pl: Removed this file.
+	* scripts/MakeCharTables.java: Likewise.
+	* scripts/unicode-to-chartables.pl: New file.
+	* java/lang/natCharacter.cc: 
+	(UNASSIGNED_TYPE): New field.
+	(UNASSIGNED_DIGIT): Likewise.
+	(UNASSIGNED_DIRECTION): Likewise.
+	(UNASSIGNED_NUMERIC_VALUE): Likewise.
+	(PRIVATE_TYPE): Likewise.
+	(PRIVATE_DIRECTION): Likewise.
+	(readCodePoint): New method.
+	(getType(jint)): Likewise.
+	(toLowerCase(jint)): Likewise.
+	(toUpperCase(jint)): Likewise.
+	(toTitleCase(jint)): Likewise.
+	(digit(jint, jint)): Likewise.
+	(getNumericValue(jint)): Likewise.
+	(getDirectionality(jint)): Likewise.
+	(readChar),
+	(getType(jchar)),
+	(toLowerCase(jchar)),
+	(toUpperCase(jchar)),
+	(toTitleCase(jchar)),
+	(digit(jchar, jint)),
+	(getNumericValue(jchar)),
+	(getDirectionality(jchar)): Changed references from data to data[0], 
+	blocks to blocks[0], direction to direction[0], numValue to 
+	numValue[0], upper to upper[0], lower to lower[0], and shift to 
+	shift[0] to reflect the new structures in java-chartables.h.	
+	* java/lang/Character.java:
+	(readCodePoint): Declared new native method.
+	(getType(int)): Likewise.
+	(toLowerCase(int)): Likewise.
+	(toUpperCase(int)): Likewise.
+	(toTitleCase(int)): Likewise.
+	(digit(int, int)): Likewise.
+	(getNumericValue(int)): Likewise.
+	(getDirectionality(int)): Likewise.
+	(isLowerCase(int)): New method.
+	(isUpperCase(int)): Likewise.
+	(itTitleCase(int)): Likewise.
+	(isDigit(int)): Likewise.
+	(isDefined(int)): Likewise.
+	(isLetter(int)): Likewise.
+	(isLetterOrDigit(int)): Likewise.
+	(isJavaIdentifierStart(int)): Likewise.
+	(isJavaIdentifierPart(int)): Likewise.
+	(isUnicodeIdentifierStart(int)): Likewise.
+	(isUnicodeIdentifierPart(int)): Likewise.
+	(isIdentifierIgnorable(int)): Likewise.
+	(isSpaceChar(int)): Likewise.
+	(isWhitespace(int)): Likewise.
+	(isISOControl(int)): Likewise.
+	(isMirrored(int)): Likewise.
+	* include/java-chartables.h: Generated from 
+	scripts/unicode-to-chartables.h.
+
+2006-03-24  David Daney  <ddaney@avtrex.com)
+
+	* testsuite/libjava.lang/PR26858.java: New test.
+	* testsuite/libjava.lang/PR26858.out: Ditto.
+	* testsuite/libjava.lang/PR26858.xfail: Ditto.
+
+2006-03-16  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* include/sh-signal.h (MAKE_THROW_FRAME): Change into empty
+	macro.
+	
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libjava.jacks/jacks.xfail: Removed
+	13.1-runtime-method-5.
+
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26638:
+	* link.cc (get_interfaces): Skip <clinit>.
+	(append_partial_itable): Likewise.
+
+2006-03-10  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/25713:
+	* java/util/zip/Deflater.java (flush): New method.
+	* sources.am, Makefile.in: Rebuilt.
+	* java/util/zip/DeflaterOutputStream.java: Removed.
+	* java/util/zip/InflaterInputStream.java: Likewise.
+	* java/util/zip/GZIPInputStream.java: Likewise.
+	* java/util/zip/GZIPOutputStream.java: Likewise.
+
+2006-03-10  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* include/powerpc-signal.h: Fix typo in comment.
+
+2006-03-09  Mark Wielaard  <mark@klomp.org>
+
+	Imported GNU Classpath 0.90
+	* scripts/makemake.tcl: Set gnu/java/awt/peer/swing to ignore.
+	* gnu/classpath/jdwp/VMFrame.java (SIZE): New constant.
+	* java/lang/VMCompiler.java: Use gnu.java.security.hash.MD5.
+	* java/lang/Math.java: New override file.
+	* java/lang/Character.java: Merged from Classpath.
+	(start, end): Now 'int's.
+	(canonicalName): New field.
+	(CANONICAL_NAME, NO_SPACES_NAME, CONSTANT_NAME): New constants.
+	(UnicodeBlock): Added argument.
+	(of): New overload.
+	(forName): New method.
+	Updated unicode blocks.
+	(sets): Updated.
+	* sources.am: Regenerated.
+	* Makefile.in: Likewise.
+
+2006-03-09  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/23495:
+	* java/lang/natString.cc (_Jv_NewString): Use memcpy.
+	(equals): Use memcmp.
+	(contentEquals): Likewise.
+	(getChars): Use memcpy.
+	(toCharArray): Likewise.
+	(regionMatches): Use memcmp.
+	(regionMatches): Likewise.
+	(startsWith): Likewise.
+	(concat): Use memcpy.
+	(valueOf): Likewise.
+
+2006-03-09  Tom Tromey  <tromey@redhat.com>
+
+	* configure: Rebuilt.
+	* configure.ac (HAVE_CLOCK_GETTIME): Put -lrt in THREADLIBS as
+	well.
+
+2006-03-09  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/24461:
+	* java/util/zip/InflaterInputStream.java (fill): Throw exception
+	if stream is truncated.
+
+2006-03-09  Tom Tromey  <tromey@redhat.com>
+
+	* win32.cc (_Jv_platform_nanotime): New function.
+	* include/win32.h (_Jv_platform_nanotime): Declare.
+	* posix.cc (_Jv_platform_nanotime): New function.
+	* include/posix.h (_Jv_platform_nanotime): Declare.
+	* java/lang/natSystem.cc (nanoTime): New method.
+	* java/lang/System.java (nanoTime): Declare.
+	* include/config.h.in, configure: Rebuilt.
+	* configure.ac: Check for clock_gettime.
+
+2006-03-08  David Daney  <ddaney@avtrex.com>
+
+	* configure.ac (LD): Add AC_CHECK_TOOL for ld.
+	(LD_START_STATIC_SPEC): New AC_SUBST, set with ld check.
+	(LD_FINISH_STATIC_SPEC): Ditto
+	* configure: Regenerated.
+	* libgcj.spec.in: Wrap -lgcj in LD_START_STATIC_SPEC and
+	LD_FINISH_STATIC_SPEC.
+	
+2006-03-07  Tom Tromey  <tromey@redhat.com>
+
+	PR libgcj/26103:
+	* java/lang/ClassLoader.java (loadClass): Don't throw
+	StringIndexOutOfBoundsException if name is empty.
+	* java/lang/natClassLoader.cc (loadClassFromSig): Throw exception
+	if class not found.
+
+2006-03-07  David Daney  <ddaney@avtrex.com>
+
+	* include/java-interp.h: Removed extern "C" around #include <ffi.h>.
+
+2006-03-07  David Daney  <ddaney@avtrex.com>
+
+	* link.cc: Include ffi.h if USE_LIBFFI defined.
+	
+2006-03-03  Tom Tromey  <tromey@redhat.com>
+
+	* interpret.cc (do_allocate_static_fields): Added comment.
+
+2006-03-01  Tom Tromey  <tromey@redhat.com>
+
+	PR java/24321:
+	* testsuite/libjava.lang/pr24321.java: New file.
+	* testsuite/libjava.lang/pr24321.out: New file.
+	* java/lang/natClass.cc (isInstance): Don't initialize class.
+	(isAssignableFrom): Likewise.
+
+2006-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/26208
+	* exception.cc (PERSONALITY_FUNCTION): Use _Unwind_GetIPInfo instead
+	of _Unwind_GetIP.
+	* include/i386-signal.h (MAKE_THROW_FRAME): Change into empty macro.
+	(HANDLE_DIVIDE_OVERFLOW): Don't adjust _res->eip if falling through
+	to throw.
+	* include/x86_64-signal.h (MAKE_THROW_FRAME): Change into empty
+	macro.
+	* include/powerpc-signal.h (MAKE_THROW_FRAME): Change into empty
+	macro.
+
+2006-02-23  Scott Gilbertson  <scottg@mantatest.com>
+
+	* gnu/awt/j2d/IntegerGraphicsState.java (getClip): Clone clip
+	before returning, handle null clip.
+	(getClipBounds): Handle null clip.
+	* gnu/awt/j2d/Graphics2DImpl.java (clipRect): Handle null clip.
+	* gnu/awt/xlib/XCanvasPeer.java (): 
+	(getLocationOnScreen): Implement.
+	* classpath/gnu/java/awt/peer/GLightweightPeer.java
+	(repaint): Merged with Classpath.
+	* classpath/java/awt/Graphics.java (hitClip): Merged with
+	Classpath.
+
+2006-02-21  Robert Schuster  <robertschuster@fsfe.org>
+
+	* link.cc: Added variant of create_error_method that
+	will not complain about unused parameter if compiled with
+	USE_LIBFFI not being defined.
+	(_Jv_Linker::find_field_helper): Fixed indentation.
+	(_Jv_Linker::create_error_method): Fixed indentation.
+	(_Jv_Linker::link_symbol_table): Fixed indentation.
+
 2006-02-16  Andrew Haley  <aph@redhat.com>
 
 	* stacktrace.cc (GetStackTraceElements): Call
@@ -74,7 +479,7 @@
 	is_attribute_name): Likewise.
 	* prims.cc (_Jv_strLengthUtf8, _Jv_hashUtf8String, _Jv_Utf8Const::init,
 	_Jv_makeUtf8Const, _Jv_InitPrimClass): Likewise.
-	
+
 2006-02-08  Tom Tromey  <tromey@redhat.com>
 
 	PR libgcj/26063, PR libgcj/17978, PR libgcj/10598:

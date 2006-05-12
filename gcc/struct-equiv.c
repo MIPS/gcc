@@ -484,7 +484,7 @@ rtx_equiv_p (rtx *xp, rtx y, int rvalue, struct equiv_info *info)
 		   pair, use the old one.  If the width is the same, use the
 		   old one if the modes match, but the new if they don't.
 		   We don't want to get too fancy with subreg_regno_offset
-		   here, so we just test two straightforwad cases each.  */
+		   here, so we just test two straightforward cases each.  */
 		if (info->live_update
 		    && (x_mode != GET_MODE (info->x_local[i])
 			? size >= size_i : size > size_i))
@@ -571,17 +571,13 @@ rtx_equiv_p (rtx *xp, rtx y, int rvalue, struct equiv_info *info)
 	  return false;
 	x_dest1 = XEXP (x, 0);
 	/* validate_change might have changed the destination.  Put it back
-	   so that we can do a valid source match.  */
+	   so that we can do a proper match for its role a an input.  */
 	XEXP (x, 0) = x_dest0;
-	if (!rtx_equiv_p (&XEXP (x, 1), XEXP (y, 1), 0, info))
+	if (!rtx_equiv_p (&XEXP (x, 0), XEXP (y, 0), 1, info))
 	  return false;
 	gcc_assert (x_dest1 == XEXP (x, 0));
 	/* Process source.  */
 	return rtx_equiv_p (&XEXP (x, 1), XEXP (y, 1), 1, info);
-      if (!rtx_equiv_p (&XEXP(x, 0), XEXP (y, 0), 0, info))
-	return false;
-      /* Process both subexpressions as inputs.  */
-      break;
       }
     case CLOBBER:
       gcc_assert (rvalue < 0);

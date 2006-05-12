@@ -257,7 +257,9 @@ Common RejectNegative Joined UInteger
 ; 1 if pointer arguments may not alias each other but may alias
 ;   global variables.
 ; 2 if pointer arguments may not alias each other and may not
-;   alias global variables.  True in Fortran.
+;   alias global variables.
+; 3 if pointer arguments may not alias anything.  True in Fortran.
+;   Set by the front end.
 fargument-alias
 Common Report Var(flag_argument_noalias,0)
 Specify that arguments may alias each other and globals
@@ -269,6 +271,10 @@ Assume arguments may alias globals but not each other
 fargument-noalias-global
 Common Report Var(flag_argument_noalias,2) VarExists
 Assume arguments alias neither each other nor globals
+
+fargument-noalias-anything
+Common Report Var(flag_argument_noalias,3) VarExists
+Assume arguments alias no other storage
 
 fasynchronous-unwind-tables
 Common Report Var(flag_asynchronous_unwind_tables)
@@ -390,6 +396,10 @@ Perform unused type elimination in debug info
 feliminate-unused-debug-types
 Common Report Var(flag_eliminate_unused_debug_types) Init(1)
 Perform unused type elimination in debug info
+
+femit-class-debug-always
+Common Report Var(flag_emit_class_debug_always) Init(1)
+Do not suppress C++ class debug information.
 
 fexceptions
 Common Report Var(flag_exceptions)
@@ -564,8 +574,8 @@ Common Report Var(flag_leading_underscore) Init(-1)
 Give external symbols a leading underscore
 
 floop-optimize
-Common Report Var(flag_loop_optimize)
-Perform loop optimizations
+Common
+Does nothing.  Preserved for backward compatibility.
 
 fmath-errno
 Common Report Var(flag_errno_math) Init(1)
@@ -603,7 +613,7 @@ Common RejectNegative Report Var(flag_mudflap)
 Add mudflap bounds-checking instrumentation for single-threaded program
 
 fmudflapth
-Common RejectNegative Report Var(flag_mudflap_threads)
+Common RejectNegative Report VarExists Var(flag_mudflap,2)
 Add mudflap bounds-checking instrumentation for multi-threaded program
 
 fmudflapir
@@ -675,11 +685,7 @@ Common Report Var(flag_pie,1) VarExists
 Generate position-independent code for executables if possible (small mode)
 
 fprefetch-loop-arrays
-Common Report Var(flag_prefetch_loop_arrays,1)
-Generate prefetch instructions, if available, for arrays in loops
-
-fprefetch-loop-arrays-rtl
-Common Report Var(flag_prefetch_loop_arrays,2)
+Common Report Var(flag_prefetch_loop_arrays)
 Generate prefetch instructions, if available, for arrays in loops
 
 fprofile
@@ -738,8 +744,8 @@ Common Report Var(flag_rerun_cse_after_loop) Init(2)
 Add a common subexpression elimination pass after loop optimizations
 
 frerun-loop-opt
-Common Report Var(flag_rerun_loop_opt)
-Run the loop optimizer twice
+Common
+Does nothing.  Preserved for backward compatibility.
 
 frounding-math
 Common Report Var(flag_rounding_math)
@@ -811,10 +817,6 @@ frtl-abstract-sequences
 Common Report Var(flag_rtl_seqabstr)
 Perform sequence abstraction optimization on RTL
 
-fshared-data
-Common Report Var(flag_shared_data)
-Mark data as shared rather than private
-
 fshow-column
 Common C ObjC C++ ObjC++ Report Var(flag_show_column) Init(1)
 Show column numbers in diagnostics, when available.  Default on
@@ -861,8 +863,8 @@ Common Report RejectNegative Var(flag_stack_protect, 2) VarExists
 Use a stack protection method for every function
 
 fstrength-reduce
-Common Report Var(flag_strength_reduce)
-Perform strength reduction optimizations
+Common
+Does nothing.  Preserved for backward compatibility.
 
 ; Nonzero if we should do (language-dependent) alias analysis.
 ; Typically, this analysis will assume that expressions of certain

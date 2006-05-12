@@ -115,7 +115,7 @@ case "${host}" in
 	libgcj_flags="${libgcj_flags} -fomit-frame-pointer"
 	libgcj_cxxflags=
 	libgcj_cflags=
-	DIVIDESPEC=-f%{m32:no-}use-divide-subroutine
+	DIVIDESPEC=-fno-use-divide-subroutine
 	enable_hash_synchronization_default=yes
 	slow_pthread_self=yes
 	libgcj_interpreter=yes
@@ -260,6 +260,7 @@ EOF
 	slow_pthread_self=
 	;;
   *-mingw*)
+        libgcj_flags="${libgcj_flags} -fno-omit-frame-pointer"
   	# FIXME: win32_exception_handler( ) in win32.cc does not do the
 	# right stuff yet w.r.t. SEH. Live with the following for now.
 	can_unwind_signal=no

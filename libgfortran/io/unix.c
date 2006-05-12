@@ -562,9 +562,15 @@ fd_sfree (unix_stream * s)
 static try
 fd_seek (unix_stream * s, gfc_offset offset)
 {
-  s->logical_offset = offset;
+  if (s->physical_offset == offset) /* Are we lucky and avoid syscall?  */
+    {
+      s->logical_offset = offset;
+      return SUCCESS;
+    }
 
-  return SUCCESS;
+  s->physical_offset = s->logical_offset = offset;
+
+  return (lseek (s->fd, offset, SEEK_SET) < 0) ? FAILURE : SUCCESS;
 }
 
 
@@ -580,7 +586,7 @@ fd_truncate (unix_stream * s)
 
   /* non-seekable files, like terminals and fifo's fail the lseek.
      Using ftruncate on a seekable special file (like /dev/null)
-     is undefined, so we treat it as if the ftruncate failed.
+     is undefined, so we treat it as if the ftruncate succeeded.
   */
 #ifdef HAVE_FTRUNCATE
   if (s->special_file || ftruncate (s->fd, s->logical_offset))
@@ -591,7 +597,7 @@ fd_truncate (unix_stream * s)
 #endif
     {
       s->physical_offset = s->file_length = 0;
-      return FAILURE;
+      return SUCCESS;
     }
 
   s->physical_offset = s->file_length = s->logical_offset;
@@ -666,8 +672,7 @@ fd_read (unix_stream * s, void * buf, size_t * nbytes)
       return errno;
     }
 
-  if (is_seekable ((stream *) s) && s->physical_offset != s->logical_offset 
-      && lseek (s->fd, s->logical_offset, SEEK_SET) < 0)
+  if (is_seekable ((stream *) s) && fd_seek (s, s->logical_offset) == FAILURE)
     {
       *nbytes = 0;
       return errno;
@@ -715,8 +720,7 @@ fd_write (unix_stream * s, const void * buf, size_t * nbytes)
       return errno;
     }
 
-  if (is_seekable ((stream *) s) && s->physical_offset != s->logical_offset
-      && lseek (s->fd, s->logical_offset, SEEK_SET) < 0)
+  if (is_seekable ((stream *) s) && fd_seek (s, s->logical_offset) == FAILURE)
     {
       *nbytes = 0;
       return errno;
@@ -924,7 +928,8 @@ mem_truncate (unix_stream * s __attribute__ ((unused)))
 static try
 mem_close (unix_stream * s)
 {
-  free_mem (s);
+  if (s != NULL)
+    free_mem (s);
 
   return SUCCESS;
 }

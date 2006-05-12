@@ -45,7 +45,7 @@ Here is an example of using the dataflow routines.
 
       df = df_init (init_flags);
       
-      df_add_problem (df, problem);
+      df_add_problem (df, problem, flags);
 
       df_set_blocks (df, blocks);
 
@@ -63,29 +63,28 @@ DF_INIT simply creates a poor man's object (df) that needs to be
 passed to all the dataflow routines.  df_finish destroys this object
 and frees up any allocated memory.
 
-There are two flags that can be passed to df_init:
-
-DF_NO_SCAN means that no scanning of the rtl code is performed.  This
-is used if the problem instance is to do it's own scanning.
+There are three flags that can be passed to df_init, each of these
+flags controls the scanning of the rtl:
 
 DF_HARD_REGS means that the scanning is to build information about
 both pseudo registers and hardware registers.  Without this
 information, the problems will be solved only on pseudo registers.
-
+DF_EQUIV_NOTES marks the uses present in EQUIV/EQUAL notes.
+DF_SUBREGS return subregs rather than the inner reg.
 
 
 DF_ADD_PROBLEM adds a problem, defined by an instance to struct
 df_problem, to the set of problems solved in this instance of df.  All
 calls to add a problem for a given instance of df must occur before
-the first call to DF_RESCAN_BLOCKS or DF_ANALYZE.
+the first call to DF_RESCAN_BLOCKS, DF_SET_BLOCKS or DF_ANALYZE.
 
 For all of the problems defined in df-problems.c, there are
-convienence functions named DF_*_ADD_PROBLEM.
+convenience functions named DF_*_ADD_PROBLEM.
 
 
 Problems can be dependent on other problems.  For instance, solving
-def-use or use-def chains is dependant on solving reaching
-definitions. As long as these dependancies are listed in the problem
+def-use or use-def chains is dependent on solving reaching
+definitions. As long as these dependencies are listed in the problem
 definition, the order of adding the problems is not material.
 Otherwise, the problems will be solved in the order of calls to
 df_add_problem.  Note that it is not necessary to have a problem.  In
@@ -100,7 +99,7 @@ to analyze the entire function and no call to df_set_blocks is made.
 When a subset is given, the analysis behaves as if the function only
 contains those blocks and any edges that occur directly between the
 blocks in the set.  Care should be taken to call df_set_blocks right
-before the call to analyze in order to eliminate the possiblity that
+before the call to analyze in order to eliminate the possibility that
 optimizations that reorder blocks invalidate the bitvector.
 
 
@@ -220,7 +219,7 @@ There are 4 ways to obtain access to refs:
      register and are put there to keep the code from forgetting about
      them.
 
-     Artifical defs occur at the end of the entry block.  These arise
+     Artificial defs occur at the end of the entry block.  These arise
      from registers that are live at entry to the function.
 
 2) All of the uses and defs associated with each pseudo or hard
@@ -295,7 +294,7 @@ are write-only operations.
 #include "tree-pass.h"
 
 static struct df *ddf = NULL;
-struct df *shared_df = NULL;
+struct df *ra_df = NULL;
 
 static void * df_get_bb_info (struct dataflow *, unsigned int);
 static void df_set_bb_info (struct dataflow *, unsigned int, void *);
@@ -311,14 +310,13 @@ struct df *
 df_init (int flags)
 {
   struct df *df = XCNEW (struct df);
-  df->flags = flags;
 
   /* This is executed once per compilation to initialize platform
      specific data structures. */
   df_hard_reg_init ();
   
   /* All df instance must define the scanning problem.  */
-  df_scan_add_problem (df);
+  df_scan_add_problem (df, flags);
   ddf = df;
   return df;
 }
@@ -326,13 +324,13 @@ df_init (int flags)
 /* Add PROBLEM to the DF instance.  */
 
 struct dataflow *
-df_add_problem (struct df *df, struct df_problem *problem)
+df_add_problem (struct df *df, struct df_problem *problem, int flags)
 {
   struct dataflow *dflow;
 
   /* First try to add the dependent problem. */
-  if (problem->dependent_problem)
-    df_add_problem (df, problem->dependent_problem);
+  if (problem->dependent_problem_fun)
+    (problem->dependent_problem_fun) (df, 0);
 
   /* Check to see if this problem has already been defined.  If it
      has, just return that instance, if not, add it to the end of the
@@ -343,6 +341,7 @@ df_add_problem (struct df *df, struct df_problem *problem)
 
   /* Make a new one and add it to the end.  */
   dflow = XCNEW (struct dataflow);
+  dflow->flags = flags;
   dflow->df = df;
   dflow->problem = problem;
   df->problems_in_order[df->num_problems_defined++] = dflow;
@@ -351,6 +350,36 @@ df_add_problem (struct df *df, struct df_problem *problem)
   return dflow;
 }
 
+
+/* Set the MASK flags in the DFLOW problem.  The old flags are
+   returned.  If a flag is not allowed to be changed this will fail if
+   checking is enabled.  */
+int 
+df_set_flags (struct dataflow *dflow, int mask)
+{
+  int old_flags = dflow->flags;
+
+  gcc_assert (!(mask & (~dflow->problem->changeable_flags)));
+
+  dflow->flags |= mask;
+
+  return old_flags;
+}
+
+/* Clear the MASK flags in the DFLOW problem.  The old flags are
+   returned.  If a flag is not allowed to be changed this will fail if
+   checking is enabled.  */
+int 
+df_clear_flags (struct dataflow *dflow, int mask)
+{
+  int old_flags = dflow->flags;
+
+  gcc_assert (!(mask & (~dflow->problem->changeable_flags)));
+
+  dflow->flags &= !mask;
+
+  return old_flags;
+}
 
 /* Set the blocks that are to be considered for analysis.  If this is
    not called or is called with null, the entire function in
@@ -435,6 +464,29 @@ df_set_blocks (struct df *df, bitmap blocks)
 }
 
 
+/* Free all of the per basic block dataflow from all of the problems.
+   This is typically called before a basic block is deleted and the
+   problem will be reanalyzed.  */
+
+void
+df_delete_basic_block (struct df *df, int bb_index)
+{
+  basic_block bb = BASIC_BLOCK (bb_index);
+  int i;
+  
+  for (i = 0; i < df->num_problems_defined; i++)
+    {
+      struct dataflow *dflow = df->problems_in_order[i];
+      if (dflow->problem->free_bb_fun)
+	{
+	  dflow->problem->free_bb_fun 
+	    (dflow, bb, df_get_bb_info (dflow, bb_index)); 
+	  df_set_bb_info (dflow, bb_index, NULL);
+	}
+    }
+}
+
+
 /* Free all the dataflow info and the DF structure.  This should be
    called from the df_finish macro which also NULLs the parm.  */
 
@@ -444,7 +496,10 @@ df_finish1 (struct df *df)
   int i;
 
   for (i = 0; i < df->num_problems_defined; i++)
-    df->problems_in_order[i]->problem->free_fun (df->problems_in_order[i]); 
+    {
+      struct dataflow *dflow = df->problems_in_order[i];
+      dflow->problem->free_fun (df->problems_in_order[i]); 
+    }
 
   free (df);
 }
@@ -707,7 +762,7 @@ df_analyze_problem (struct dataflow *dflow,
 {
   /* (Re)Allocate the datastructures necessary to solve the problem.  */ 
   if (dflow->problem->alloc_fun)
-    dflow->problem->alloc_fun (dflow, blocks_to_scan);
+    dflow->problem->alloc_fun (dflow, blocks_to_scan, blocks_to_init);
 
   /* Set up the problem and compute the local information.  This
      function is passed both the blocks_to_consider and the
@@ -819,8 +874,7 @@ df_set_bb_info (struct dataflow *dflow, unsigned int index,
    these modifications, general iteration is not required, a single
    pass thru the blocks specified reading only the out-sets of the
    preds and the in-sets of the successors is all the work that is
-   accomplished.  No flags are accepted, the flags used when the df
-   was last built are used instead.
+   accomplished.  
 
    The only input is an post ordered (last block in the sequence is
    first) vector of blocks and the count of these blocks.
@@ -1348,25 +1402,22 @@ debug_df_chain (struct df_link *link)
   fputc ('\n', stderr);
 }
 
-static void 
-reset_df_after_reload (void)
+static unsigned int 
+reset_df (void)
 {
-  if (rtl_df)
-    df_finish (rtl_df);
-
-  /* Get rid of the rtl_df with the special version of the UR problem,
-     and put back the regular UR problem.  */
   rtl_df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (rtl_df);
-  df_ur_add_problem (rtl_df);
-  df_analyze (rtl_df);
+  df_lr_add_problem (rtl_df, 0);
+  df_ur_add_problem (rtl_df, 0);
+  df_ri_add_problem (rtl_df, DF_RI_LIFE);
+  update_life_info (NULL, UPDATE_LIFE_GLOBAL, PROP_LOG_LINKS);
+  return 0;
 }
 
-struct tree_opt_pass pass_reset_df_after_reload =
+struct tree_opt_pass pass_reset_df =
 {
   "reset_df",                           /* name */
   NULL,                                 /* gate */
-  reset_df_after_reload,                /* execute */
+  reset_df,                             /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -1379,7 +1430,7 @@ struct tree_opt_pass pass_reset_df_after_reload =
   0                                     /* letter */
 };
 
-static void 
+static unsigned int 
 clear_df (void)
 {
   if (rtl_df)
@@ -1387,6 +1438,9 @@ clear_df (void)
       df_finish (rtl_df);
       rtl_df = NULL;
     }
+
+  clear_reg_deaths ();
+  return 0;
 }
 
 struct tree_opt_pass pass_clear_df =

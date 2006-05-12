@@ -36,6 +36,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "expr.h"
 #include "optabs.h"
 #include "regs.h"
+#include "addresses.h"
 #include "basic-block.h"
 #include "reload.h"
 #include "recog.h"
@@ -112,7 +113,7 @@ rtx *reg_equiv_memory_loc;
 
 /* We allocate reg_equiv_memory_loc inside a varray so that the garbage
    collector can keep track of what is inside.  */
-varray_type reg_equiv_memory_loc_varray;
+VEC(rtx,gc) *reg_equiv_memory_loc_vec;
 
 /* Element N is the address of stack slot to which pseudo reg N is equivalent.
    This is used when the address is not valid as a memory address
@@ -496,7 +497,6 @@ init_reload (void)
 
   INIT_REG_SET (&spilled_pseudos);
   INIT_REG_SET (&pseudos_counted);
-  VARRAY_RTX_INIT (reg_equiv_memory_loc_varray, 0, "reg_equiv_memory_loc");
 }
 
 /* List of insn chains that are currently unused.  */
@@ -543,7 +543,7 @@ compute_use_by_pseudos (HARD_REG_SET *to, regset from)
       if (r < 0)
 	{
 	  /* reload_combine uses the information from
-	     DF_RA_LIVE_IN (rtl_df, BASIC_BLOCK), which might still
+	     DF_RA_LIVE_IN (ra_df, BASIC_BLOCK), which might still
 	     contain registers that have not actually been allocated
 	     since they have an equivalence.  */
 	  gcc_assert (reload_completed);
@@ -1089,8 +1089,8 @@ reload (rtx first, int global)
   if (! frame_pointer_needed)
     FOR_EACH_BB (bb)
       {
-	CLEAR_REGNO_REG_SET (DF_RA_LIVE_IN (rtl_df, bb), HARD_FRAME_POINTER_REGNUM);
-	/*	CLEAR_REGNO_REG_SET (DF_RA_LIVE_OUT (rtl_df, bb), HARD_FRAME_POINTER_REGNUM); */
+	CLEAR_REGNO_REG_SET (DF_RA_LIVE_IN (ra_df, bb), HARD_FRAME_POINTER_REGNUM);
+	/*	CLEAR_REGNO_REG_SET (DF_RA_LIVE_OUT (ra_df, bb), HARD_FRAME_POINTER_REGNUM); */
       }
 	
   /* Come here (with failure set nonzero) if we can't get enough spill
@@ -1253,7 +1253,7 @@ reload (rtx first, int global)
     free (reg_equiv_invariant);
   reg_equiv_constant = 0;
   reg_equiv_invariant = 0;
-  VARRAY_GROW (reg_equiv_memory_loc_varray, 0);
+  VEC_free (rtx, gc, reg_equiv_memory_loc_vec);
   reg_equiv_memory_loc = 0;
 
   if (offsets_known_at)
@@ -1378,7 +1378,7 @@ maybe_fix_stack_asms (void)
 
 		case 'p':
 		  cls = (int) reg_class_subunion[cls]
-		    [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		      [(int) base_reg_class (VOIDmode, ADDRESS, SCRATCH)];
 		  break;
 
 		case 'g':
@@ -1389,7 +1389,7 @@ maybe_fix_stack_asms (void)
 		default:
 		  if (EXTRA_ADDRESS_CONSTRAINT (c, p))
 		    cls = (int) reg_class_subunion[cls]
-		      [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		      [(int) base_reg_class (VOIDmode, ADDRESS, SCRATCH)];
 		  else
 		    cls = (int) reg_class_subunion[cls]
 		      [(int) REG_CLASS_FROM_CONSTRAINT (c, p)];
@@ -5507,10 +5507,7 @@ choose_reload_regs (struct insn_chain *chain)
 		  mode = GET_MODE (rld[r].in_reg);
 		}
 #ifdef AUTO_INC_DEC
-	      else if ((GET_CODE (rld[r].in_reg) == PRE_INC
-			|| GET_CODE (rld[r].in_reg) == PRE_DEC
-			|| GET_CODE (rld[r].in_reg) == POST_INC
-			|| GET_CODE (rld[r].in_reg) == POST_DEC)
+	      else if (GET_RTX_CLASS (GET_CODE (rld[r].in_reg)) == RTX_AUTOINC
 		       && REG_P (XEXP (rld[r].in_reg, 0)))
 		{
 		  regno = REGNO (XEXP (rld[r].in_reg, 0));
@@ -8117,7 +8114,8 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
   /* REG or MEM to be copied and incremented.  */
   rtx incloc = XEXP (value, 0);
   /* Nonzero if increment after copying.  */
-  int post = (GET_CODE (value) == POST_DEC || GET_CODE (value) == POST_INC);
+  int post = (GET_CODE (value) == POST_DEC || GET_CODE (value) == POST_INC
+	      || GET_CODE (value) == POST_MODIFY);
   rtx last;
   rtx inc;
   rtx add_insn;
@@ -8132,10 +8130,18 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
   if (REG_P (incloc))
     reg_last_reload_reg[REGNO (incloc)] = 0;
 
-  if (GET_CODE (value) == PRE_DEC || GET_CODE (value) == POST_DEC)
-    inc_amount = -inc_amount;
+  if (GET_CODE (value) == PRE_MODIFY || GET_CODE (value) == POST_MODIFY)
+    {
+      gcc_assert (GET_CODE (XEXP (value, 1)) == PLUS);
+      inc = XEXP (XEXP (value, 1), 1);
+    }
+  else
+    {
+      if (GET_CODE (value) == PRE_DEC || GET_CODE (value) == POST_DEC)
+	inc_amount = -inc_amount;
 
-  inc = GEN_INT (inc_amount);
+      inc = GEN_INT (inc_amount);
+    }
 
   /* If this is post-increment, first copy the location to the reload reg.  */
   if (post && real_in != reloadreg)
@@ -8195,7 +8201,10 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
 
       emit_insn (gen_add2_insn (reloadreg, inc));
       store = emit_insn (gen_move_insn (incloc, reloadreg));
-      emit_insn (gen_add2_insn (reloadreg, GEN_INT (-inc_amount)));
+      if (GET_CODE (inc) == CONST_INT)
+	emit_insn (gen_add2_insn (reloadreg, GEN_INT (-INTVAL(inc))));
+      else
+	emit_insn (gen_sub2_insn (reloadreg, inc));
     }
 
   return store;

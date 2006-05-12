@@ -31,6 +31,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "hard-reg-set.h"
 #include "recog.h"
 #include "regs.h"
+#include "addresses.h"
 #include "expr.h"
 #include "function.h"
 #include "flags.h"
@@ -238,45 +239,6 @@ validate_change (rtx object, rtx *loc, rtx new, int in_group)
     return apply_change_group ();
 }
 
-
-/* Function to be passed to for_each_rtx to test whether a piece of
-   RTL contains any mem/v.  */
-static int
-volatile_mem_p (rtx *x, void *data ATTRIBUTE_UNUSED)
-{
-  return (MEM_P (*x) && MEM_VOLATILE_P (*x));
-}
-
-/* Same as validate_change, but doesn't support groups, and it accepts
-   volatile mems if they're already present in the original insn.  */
-
-int
-validate_change_maybe_volatile (rtx object, rtx *loc, rtx new)
-{
-  int result;
-
-  if (validate_change (object, loc, new, 0))
-    return 1;
-
-  if (volatile_ok
-      /* If there isn't a volatile MEM, there's nothing we can do.  */
-      || !for_each_rtx (&PATTERN (object), volatile_mem_p, 0)
-      /* Make sure we're not adding or removing volatile MEMs.  */
-      || for_each_rtx (loc, volatile_mem_p, 0)
-      || for_each_rtx (&new, volatile_mem_p, 0)
-      || !insn_invalid_p (object))
-    return 0;
-
-  volatile_ok = 1;
-
-  gcc_assert (!insn_invalid_p (object));
-
-  result = validate_change (object, loc, new, 0);
-
-  volatile_ok = 0;
-
-  return result;
-}
 
 /* This subroutine of apply_change_group verifies whether the changes to INSN
    were valid; i.e. whether INSN can still be recognized.  */
@@ -2197,7 +2159,7 @@ preprocess_constraints (void)
 		case 'p':
 		  op_alt[j].is_address = 1;
 		  op_alt[j].cl = reg_class_subunion[(int) op_alt[j].cl]
-		    [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		      [(int) base_reg_class (VOIDmode, ADDRESS, SCRATCH)];
 		  break;
 
 		case 'g':
@@ -2218,7 +2180,8 @@ preprocess_constraints (void)
 		      op_alt[j].cl
 			= (reg_class_subunion
 			   [(int) op_alt[j].cl]
-			   [(int) MODE_BASE_REG_CLASS (VOIDmode)]);
+			   [(int) base_reg_class (VOIDmode, ADDRESS,
+						  SCRATCH)]);
 		      break;
 		    }
 
@@ -2665,6 +2628,10 @@ reg_fits_class_p (rtx operand, enum reg_class cl, int offset,
 		  enum machine_mode mode)
 {
   int regno = REGNO (operand);
+
+  if (cl == NO_REGS)
+    return 0;
+
   if (regno < FIRST_PSEUDO_REGISTER
       && TEST_HARD_REG_BIT (reg_class_contents[(int) cl],
 			    regno + offset))
@@ -2719,7 +2686,7 @@ split_insn (rtx insn)
 /* Split all insns in the function.  If UPD_LIFE, update life info after.  */
 
 void
-split_all_insns (int upd_life)
+split_all_insns (void)
 {
   sbitmap blocks;
   bool changed;
@@ -2755,17 +2722,7 @@ split_all_insns (int upd_life)
 		     allocation, and there are unlikely to be very many
 		     nops then anyways.  */
 		  if (reload_completed)
-		    {
-		      /* If the no-op set has a REG_UNUSED note, we need
-			 to update liveness information.  */
-		      if (find_reg_note (insn, REG_UNUSED, NULL_RTX))
-			{
-			  SET_BIT (blocks, bb->index);
-			  changed = true;
-			}
-		      /* ??? Is life info affected by deleting edges?  */
 		      delete_insn_and_edges (insn);
-		    }
 		}
 	      else
 		{
@@ -2787,18 +2744,7 @@ split_all_insns (int upd_life)
     }
 
   if (changed)
-    {
-      int old_last_basic_block = last_basic_block;
-
-      find_many_sub_basic_blocks (blocks);
-
-      if (old_last_basic_block != last_basic_block && upd_life)
-	blocks = sbitmap_resize (blocks, last_basic_block, 1);
-    }
-
-  if (changed && upd_life)
-    update_life_info (blocks, UPDATE_LIFE_GLOBAL_RM_NOTES,
-		      PROP_DEATH_NOTES);
+    find_many_sub_basic_blocks (blocks);
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -2810,7 +2756,7 @@ split_all_insns (int upd_life)
 /* Same as split_all_insns, but do not expect CFG to be available.
    Used by machine dependent reorg passes.  */
 
-void
+unsigned int
 split_all_insns_noflow (void)
 {
   rtx next, insn;
@@ -2840,6 +2786,7 @@ split_all_insns_noflow (void)
 	    split_insn (insn);
 	}
     }
+  return 0;
 }
 
 #ifdef HAVE_peephole2
@@ -3021,42 +2968,63 @@ peep2_find_free_register (int from, int to, const char *class_str,
   return NULL_RTX;
 }
 
+/* Delete dataflow info and insn from START to FINISH.  */
+
+static void
+delete_insn_chain_and_dflow (struct dataflow *dflow, rtx start, rtx finish)
+{
+  rtx next;
+  rtx orig_start = start;
+
+  while (1)
+    {
+      next = NEXT_INSN (start);
+      if (INSN_P (start))
+	df_insn_refs_delete (dflow, start);
+
+      if (start == finish)
+	break;
+      start = next;
+    }
+
+  delete_insn_chain (orig_start, finish);
+}
+
 /* Perform the peephole2 optimization pass.  */
 
 static void
 peephole2_optimize (void)
 {
   rtx insn, prev;
-  regset live;
+  bitmap live;
+#if 0
+  bitmap livep;
+#endif
   int i;
   basic_block bb;
-#ifdef HAVE_conditional_execution
-  sbitmap blocks;
-  bool changed;
-#endif
   bool do_cleanup_cfg = false;
-  bool do_global_life_update = false;
   bool do_rebuild_jump_labels = false;
+  struct df * df = df_init (DF_HARD_REGS);
+  struct dataflow *dflow = df->problems_by_index [DF_SCAN];
+
+  df_lr_add_problem (df, DF_LR_RUN_DCE);
+  df_ur_add_problem (df, 0);
+  df_ru_add_problem (df, 0);
+  df_analyze (df);
 
   /* Initialize the regsets we're going to use.  */
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
-    peep2_insn_data[i].live_before = ALLOC_REG_SET (&reg_obstack);
-  live = ALLOC_REG_SET (&reg_obstack);
-
-#ifdef HAVE_conditional_execution
-  blocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (blocks);
-  changed = false;
-#else
-  count_or_remove_death_notes (NULL, 1);
-#endif
+    peep2_insn_data[i].live_before = BITMAP_ALLOC (&reg_obstack);
+  live = BITMAP_ALLOC (&reg_obstack);
+#if 0
+  livep = BITMAP_ALLOC (&reg_obstack);
+#endif  
 
   FOR_EACH_BB_REVERSE (bb)
     {
+#if 0
       struct propagate_block_info *pbi;
-      reg_set_iterator rsi;
-      unsigned int j;
-
+#endif
       /* Indicate that all slots except the last holds invalid data.  */
       for (i = 0; i < MAX_INSNS_PER_PEEP2; ++i)
 	peep2_insn_data[i].insn = NULL_RTX;
@@ -3067,14 +3035,17 @@ peephole2_optimize (void)
       peep2_current = MAX_INSNS_PER_PEEP2;
 
       /* Start up propagation.  */
-      COPY_REG_SET (live, DF_LIVE_OUT (rtl_df, bb));
-      COPY_REG_SET (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
-
+      df_lr_simulate_artificial_refs_at_end (df, bb, live);
+#if 0
+      COPY_REG_SET (livep, DF_LIVE_OUT (rtl_df, bb));
+      gcc_assert (bitmap_equal_p (livep, live));
 #ifdef HAVE_conditional_execution
-      pbi = init_propagate_block_info (bb, live, NULL, NULL, 0);
+      pbi = init_propagate_block_info (bb, livep, NULL, NULL, 0);
 #else
-      pbi = init_propagate_block_info (bb, live, NULL, NULL, PROP_DEATH_NOTES);
+      pbi = init_propagate_block_info (bb, livep, NULL, NULL, PROP_DEATH_NOTES);
 #endif
+#endif
+      bitmap_copy (peep2_insn_data[MAX_INSNS_PER_PEEP2].live_before, live);
 
       for (insn = BB_END (bb); ; insn = prev)
 	{
@@ -3093,7 +3064,17 @@ peephole2_optimize (void)
 		  && peep2_insn_data[peep2_current].insn == NULL_RTX)
 		peep2_current_count++;
 	      peep2_insn_data[peep2_current].insn = insn;
+	      df_lr_simulate_one_insn (df, bb, insn, live);
+#if 0
 	      propagate_one_insn (pbi, insn);
+	      if (!bitmap_equal_p (livep, live))
+		{
+		  fprintf (stderr, "****failing with insn %d****\n\n", 
+			   INSN_UID (insn));
+		  print_rtl_with_bb (stderr, get_insns ());
+		  gcc_assert (0);
+		}
+#endif
 	      COPY_REG_SET (peep2_insn_data[peep2_current].live_before, live);
 
 	      if (RTX_FRAME_RELATED_P (insn))
@@ -3178,7 +3159,7 @@ peephole2_optimize (void)
 		  try = emit_insn_after_setloc (try, peep2_insn_data[i].insn,
 					        INSN_LOCATOR (peep2_insn_data[i].insn));
 		  before_try = PREV_INSN (insn);
-		  delete_insn_chain (insn, peep2_insn_data[i].insn);
+		  delete_insn_chain_and_dflow (dflow, insn, peep2_insn_data[i].insn);
 
 		  /* Re-insert the EH_REGION notes.  */
 		  if (note || (was_call && nonlocal_goto_handler_labels))
@@ -3220,10 +3201,6 @@ peephole2_optimize (void)
 				  = REG_BR_PROB_BASE - nehe->probability;
 
 			        do_cleanup_cfg |= purge_dead_edges (nfte->dest);
-#ifdef HAVE_conditional_execution
-				SET_BIT (blocks, nfte->dest->index);
-				changed = true;
-#endif
 				bb = nfte->src;
 				eh_edge = nehe;
 			      }
@@ -3235,14 +3212,6 @@ peephole2_optimize (void)
 		    }
 
 #ifdef HAVE_conditional_execution
-		  /* With conditional execution, we cannot back up the
-		     live information so easily, since the conditional
-		     death data structures are not so self-contained.
-		     So record that we've made a modification to this
-		     block and update life information at the end.  */
-		  SET_BIT (blocks, bb->index);
-		  changed = true;
-
 		  for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
 		    peep2_insn_data[i].insn = NULL_RTX;
 		  peep2_insn_data[peep2_current].insn = PEEP2_EOB;
@@ -3252,12 +3221,13 @@ peephole2_optimize (void)
 		     newly created sequence.  */
 		  if (++i >= MAX_INSNS_PER_PEEP2 + 1)
 		    i = 0;
-		  COPY_REG_SET (live, peep2_insn_data[i].live_before);
+		  bitmap_copy (live, peep2_insn_data[i].live_before);
 
 		  /* Update life information for the new sequence.  */
 		  x = try;
 		  do
 		    {
+		      df_insn_create_insn_record (dflow, insn);
 		      if (INSN_P (x))
 			{
 			  if (--i < 0)
@@ -3266,8 +3236,13 @@ peephole2_optimize (void)
 			      && peep2_insn_data[i].insn == NULL_RTX)
 			    peep2_current_count++;
 			  peep2_insn_data[i].insn = x;
+			  df_insn_refs_record (dflow, bb, insn);
+			  df_lr_simulate_one_insn (df, bb, insn, live);
+#if 0
 			  propagate_one_insn (pbi, x);
-			  COPY_REG_SET (peep2_insn_data[i].live_before, live);
+			  gcc_assert (bitmap_equal_p (livep, live));
+#endif
+			  bitmap_copy (peep2_insn_data[i].live_before, live);
 			}
 		      x = PREV_INSN (x);
 		    }
@@ -3293,43 +3268,18 @@ peephole2_optimize (void)
 	  if (insn == BB_HEAD (bb))
 	    break;
 	}
-
-      /* Some peepholes can decide the don't need one or more of their
-	 inputs.  If this happens, local life update is not enough.  */
-      EXECUTE_IF_AND_COMPL_IN_BITMAP (DF_LIVE_IN (rtl_df, bb), live, 0, j, rsi)
-	{
-	  do_global_life_update = true;
-	  break;
-	}
-
-      free_propagate_block_info (pbi);
     }
 
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
-    FREE_REG_SET (peep2_insn_data[i].live_before);
-  FREE_REG_SET (live);
-
+    BITMAP_FREE (peep2_insn_data[i].live_before);
+  BITMAP_FREE (live);
+#if 0
+  BITMAP_FREE (livep);
+#endif
   if (do_rebuild_jump_labels)
     rebuild_jump_labels (get_insns ());
 
-  /* If we eliminated EH edges, we may be able to merge blocks.  Further,
-     we've changed global life since exception handlers are no longer
-     reachable.  */
-  if (do_cleanup_cfg)
-    {
-      cleanup_cfg (0);
-      do_global_life_update = true;
-    }
-  if (do_global_life_update)
-    update_life_info (0, UPDATE_LIFE_GLOBAL_RM_NOTES, PROP_DEATH_NOTES);
-#ifdef HAVE_conditional_execution
-  else
-    {
-      count_or_remove_death_notes (blocks, 1);
-      update_life_info (blocks, UPDATE_LIFE_LOCAL, PROP_DEATH_NOTES);
-    }
-  sbitmap_free (blocks);
-#endif
+  df_finish (df);
 }
 #endif /* HAVE_peephole2 */
 
@@ -3442,12 +3392,13 @@ gate_handle_peephole2 (void)
   return (optimize > 0 && flag_peephole2);
 }
 
-static void
+static unsigned int
 rest_of_handle_peephole2 (void)
 {
 #ifdef HAVE_peephole2
   peephole2_optimize ();
 #endif
+  return 0;
 }
 
 struct tree_opt_pass pass_peephole2 =
@@ -3467,10 +3418,11 @@ struct tree_opt_pass pass_peephole2 =
   'z'                                   /* letter */
 };
 
-static void
+static unsigned int
 rest_of_handle_split_all_insns (void)
 {
-  split_all_insns (1);
+  split_all_insns ();
+  return 0;
 }
 
 struct tree_opt_pass pass_split_all_insns =
@@ -3482,6 +3434,76 @@ struct tree_opt_pass pass_split_all_insns =
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
   0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+static unsigned int
+rest_of_handle_split_after_reload (void)
+{
+  /* If optimizing, then go ahead and split insns now.  */
+#ifndef STACK_REGS
+  if (optimize > 0)
+#endif
+    split_all_insns ();
+  return 0;
+}
+
+struct tree_opt_pass pass_split_after_reload =
+{
+  "split2",                             /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_split_after_reload,    /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  0,                                    /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* letter */
+};
+
+static bool
+gate_handle_split_before_regstack (void)
+{
+#if defined (HAVE_ATTR_length) && defined (STACK_REGS)
+  /* If flow2 creates new instructions which need splitting
+     and scheduling after reload is not done, they might not be
+     split until final which doesn't allow splitting
+     if HAVE_ATTR_length.  */
+# ifdef INSN_SCHEDULING
+  return (optimize && !flag_schedule_insns_after_reload);
+# else
+  return (optimize);
+# endif
+#else
+  return 0;
+#endif
+}
+
+static unsigned int
+rest_of_handle_split_before_regstack (void)
+{
+  split_all_insns ();
+  return 0;
+}
+
+struct tree_opt_pass pass_split_before_regstack =
+{
+  "split3",                             /* name */
+  gate_handle_split_before_regstack,    /* gate */
+  rest_of_handle_split_before_regstack, /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_SHORTEN_BRANCH,                    /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -3504,7 +3526,7 @@ gate_do_final_split (void)
 
 struct tree_opt_pass pass_split_for_shorten_branches =
 {
-  "split3",                             /* name */
+  "split4",                             /* name */
   gate_do_final_split,                  /* gate */
   split_all_insns_noflow,               /* execute */
   NULL,                                 /* sub */
@@ -3520,37 +3542,3 @@ struct tree_opt_pass pass_split_for_shorten_branches =
 };
 
 
-static bool
-gate_handle_split_before_regstack (void)
-{
-#if defined (HAVE_ATTR_length) && defined (STACK_REGS)
-  /* If flow2 creates new instructions which need splitting
-     and scheduling after reload is not done, they might not be
-     split until final which doesn't allow splitting
-     if HAVE_ATTR_length.  */
-# ifdef INSN_SCHEDULING
-  return (optimize && !flag_schedule_insns_after_reload);
-# else
-  return (optimize);
-# endif
-#else
-  return 0;
-#endif
-}
-
-struct tree_opt_pass pass_split_before_regstack =
-{
-  "split2",                             /* name */
-  gate_handle_split_before_regstack,    /* gate */
-  rest_of_handle_split_all_insns,       /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_SHORTEN_BRANCH,                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  0                                     /* letter */
-};

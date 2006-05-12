@@ -174,16 +174,13 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #endif
 #endif
 
-/* Nonzero if the second flow pass has completed.  */
-int flow2_completed;
-
 /* Maximum register number used in this function, plus one.  */
 
 int max_regno;
 
 /* Indexed by n, giving various register information */
 
-varray_type reg_n_info;
+VEC(reg_info_p,heap) *reg_n_info;
 
 /* Regset of regs live when calls to `setjmp'-like functions happen.  */
 /* ??? Does this exist only for the setjmp-clobbered warning message?  */
@@ -292,8 +289,6 @@ static int verify_wide_reg_1 (rtx *, void *);
 static void verify_wide_reg (int, basic_block);
 static void verify_local_live_at_start (regset, basic_block);
 #endif
-static void notice_stack_pointer_modification_1 (rtx, rtx, void *);
-static void notice_stack_pointer_modification (void);
 static void propagate_block_delete_insn (rtx);
 static rtx propagate_block_delete_libcall (rtx, rtx);
 static int insn_dead_p (struct propagate_block_info *, rtx, int, rtx);
@@ -301,8 +296,6 @@ static int libcall_dead_p (struct propagate_block_info *, rtx, rtx);
 static void mark_set_regs (struct propagate_block_info *, rtx, rtx);
 static void mark_set_1 (struct propagate_block_info *, enum rtx_code, rtx,
 			rtx, rtx, int);
-static int find_regno_partial (rtx *, void *);
-
 #ifdef HAVE_conditional_execution
 static int mark_regno_cond_dead (struct propagate_block_info *, int, rtx);
 static void free_reg_cond_life_info (splay_tree_value);
@@ -372,12 +365,6 @@ life_analysis (int flags)
   SET_HARD_REG_BIT (elim_reg_set, FRAME_POINTER_REGNUM);
 #endif
 
-
-#ifdef CANNOT_CHANGE_MODE_CLASS
-  if (flags & PROP_REG_INFO)
-    init_subregs_of_mode ();
-#endif
-
   if (! optimize)
     flags &= ~(PROP_LOG_LINKS | PROP_AUTOINC | PROP_ALLOW_CFG_CHANGES);
 
@@ -398,35 +385,32 @@ life_analysis (int flags)
   if (optimize && (flags & PROP_SCAN_DEAD_STORES))
     init_alias_analysis ();
 
+#if 0
   /* Always remove no-op moves.  Do this before other processing so
      that we don't have to keep re-scanning them.  */
   delete_noop_moves ();
-
-  /* Some targets can emit simpler epilogues if they know that sp was
-     not ever modified during the function.  After reload, of course,
-     we've already emitted the epilogue so there's no sense searching.  */
-  if (! reload_completed)
-    notice_stack_pointer_modification ();
-
+#endif
   /* Some targets can emit simpler epilogues if they know that sp was
      not ever modified during the function.  After reload, of course,
      we've already emitted the epilogue so there's no sense searching.  */
   /* Allocate and zero out data structures that will record the
      data from lifetime analysis.  */
+#if 1
   allocate_reg_life_data ();
-
+#endif
   regs_live_at_setjmp = ALLOC_REG_SET (&reg_obstack);
 
   /* "Update" life info from zero.  It'd be nice to begin the
      relaxation with just the exit and noreturn blocks, but that set
      is not immediately handy.  */
-
+#if 1
   update_life_info (NULL, UPDATE_LIFE_GLOBAL, flags);
   if (reg_deaths)
     {
       free (reg_deaths);
       reg_deaths = NULL;
     }
+#endif
 
   /* Clean up.  */
   if (optimize && (flags & PROP_SCAN_DEAD_STORES))
@@ -434,9 +418,10 @@ life_analysis (int flags)
 
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
-
+#if 0
   /* Removing dead insns should have made jumptables really dead.  */
   delete_dead_jumptables ();
+#endif
 }
 #if 0
 
@@ -758,6 +743,16 @@ update_life_info (sbitmap blocks, enum update_life_extent extent,
   return ndead;
 }
 
+void 
+clear_reg_deaths (void)
+{
+  if (reg_deaths)
+    {
+      free (reg_deaths);
+      reg_deaths = NULL;
+    }
+}
+
 /* Update life information in all blocks where BB_DIRTY is set.  */
 
 int
@@ -868,161 +863,6 @@ delete_dead_jumptables (void)
 	    }
 	}
     }
-}
-
-/* Determine if the stack pointer is constant over the life of the function.
-   Only useful before prologues have been emitted.  */
-
-static void
-notice_stack_pointer_modification_1 (rtx x, rtx pat ATTRIBUTE_UNUSED,
-				     void *data ATTRIBUTE_UNUSED)
-{
-  if (x == stack_pointer_rtx
-      /* The stack pointer is only modified indirectly as the result
-	 of a push until later in flow.  See the comments in rtl.texi
-	 regarding Embedded Side-Effects on Addresses.  */
-      || (MEM_P (x)
-	  && GET_RTX_CLASS (GET_CODE (XEXP (x, 0))) == RTX_AUTOINC
-	  && XEXP (XEXP (x, 0), 0) == stack_pointer_rtx))
-    current_function_sp_is_unchanging = 0;
-}
-
-static void
-notice_stack_pointer_modification (void)
-{
-  basic_block bb;
-  rtx insn;
-
-  /* Assume that the stack pointer is unchanging if alloca hasn't
-     been used.  */
-  current_function_sp_is_unchanging = !current_function_calls_alloca;
-  if (! current_function_sp_is_unchanging)
-    return;
-
-  FOR_EACH_BB (bb)
-    FOR_BB_INSNS (bb, insn)
-      {
-	if (INSN_P (insn))
-	  {
-	    /* Check if insn modifies the stack pointer.  */
-	    note_stores (PATTERN (insn),
-			 notice_stack_pointer_modification_1,
-			 NULL);
-	    if (! current_function_sp_is_unchanging)
-	      return;
-	  }
-      }
-}
-
-
-/* This structure is used to pass parameters to and from the
-   the function find_regno_partial(). It is used to pass in the
-   register number we are looking, as well as to return any rtx
-   we find.  */
-
-typedef struct {
-  unsigned regno_to_find;
-  rtx retval;
-} find_regno_partial_param;
-
-
-/* Find the rtx for the reg numbers specified in 'data' if it is
-   part of an expression which only uses part of the register.  Return
-   it in the structure passed in.  */
-static int
-find_regno_partial (rtx *ptr, void *data)
-{
-  find_regno_partial_param *param = (find_regno_partial_param *)data;
-  unsigned reg = param->regno_to_find;
-  param->retval = NULL_RTX;
-
-  if (*ptr == NULL_RTX)
-    return 0;
-
-  switch (GET_CODE (*ptr))
-    {
-    case ZERO_EXTRACT:
-    case SIGN_EXTRACT:
-    case STRICT_LOW_PART:
-      if (REG_P (XEXP (*ptr, 0)) && REGNO (XEXP (*ptr, 0)) == reg)
-	{
-	  param->retval = XEXP (*ptr, 0);
-	  return 1;
-	}
-      break;
-
-    case SUBREG:
-      if (REG_P (SUBREG_REG (*ptr))
-	  && REGNO (SUBREG_REG (*ptr)) == reg)
-	{
-	  param->retval = SUBREG_REG (*ptr);
-	  return 1;
-	}
-      break;
-
-    default:
-      break;
-    }
-
-  return 0;
-}
-
-/* Process all immediate successors of the entry block looking for pseudo
-   registers which are live on entry. Find all of those whose first
-   instance is a partial register reference of some kind, and initialize
-   them to 0 after the entry block.  This will prevent bit sets within
-   registers whose value is unknown, and may contain some kind of sticky
-   bits we don't want.  */
-
-static int
-initialize_uninitialized_subregs (void)
-{
-  rtx insn;
-  edge e;
-  unsigned reg, did_something = 0;
-  find_regno_partial_param param;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
-    {
-      basic_block bb = e->dest;
-      regset map = df_get_live_in (rtl_df, bb);
-      reg_set_iterator rsi;
-
-      EXECUTE_IF_SET_IN_REG_SET (map, FIRST_PSEUDO_REGISTER, reg, rsi)
-	{
-	  int uid = REGNO_FIRST_UID (reg);
-	  rtx i;
-
-	  /* Find an insn which mentions the register we are looking for.
-	     Its preferable to have an instance of the register's rtl since
-	     there may be various flags set which we need to duplicate.
-	     If we can't find it, its probably an automatic whose initial
-	     value doesn't matter, or hopefully something we don't care about.  */
-	  for (i = get_insns (); i && INSN_UID (i) != uid; i = NEXT_INSN (i))
-	    ;
-	  if (i != NULL_RTX)
-	    {
-	      /* Found the insn, now get the REG rtx, if we can.  */
-	      param.regno_to_find = reg;
-	      for_each_rtx (&i, find_regno_partial, &param);
-	      if (param.retval != NULL_RTX)
-		{
-		  start_sequence ();
-		  emit_move_insn (param.retval,
-				  CONST0_RTX (GET_MODE (param.retval)));
-		  insn = get_insns ();
-		  end_sequence ();
-		  insert_insn_on_edge (insn, e);
-		  did_something = 1;
-		}
-	    }
-	}
-    }
-
-  if (did_something)
-    commit_edge_insertions ();
-  return did_something;
 }
 
 
@@ -1940,20 +1780,6 @@ libcall_dead_p (struct propagate_block_info *pbi, rtx note, rtx insn)
   return 0;
 }
 
-/* 1 if register REGNO was alive at a place where `setjmp' was called
-   and was set more than once or is an argument.
-   Such regs may be clobbered by `longjmp'.  */
-
-int
-regno_clobbered_at_setjmp (int regno)
-{
-  if (n_basic_blocks == NUM_FIXED_BLOCKS)
-    return 0;
-
-  return ((REG_N_SETS (regno) > 1
-	   || REGNO_REG_SET_P (df_get_live_out (rtl_df, ENTRY_BLOCK_PTR), regno))
-	  && REGNO_REG_SET_P (regs_live_at_setjmp, regno));
-}
 
 /* Add MEM to PBI->MEM_SET_LIST.  MEM should be canonical.  Respect the
    maximal list size; look for overlaps in mode and select the largest.  */
@@ -3864,50 +3690,6 @@ debug_regset (regset r)
   putc ('\n', stderr);
 }
 
-/* Recompute register set/reference counts immediately prior to register
-   allocation.
-
-   This avoids problems with set/reference counts changing to/from values
-   which have special meanings to the register allocators.
-
-   Additionally, the reference counts are the primary component used by the
-   register allocators to prioritize pseudos for allocation to hard regs.
-   More accurate reference counts generally lead to better register allocation.
-
-   It might be worthwhile to update REG_LIVE_LENGTH, REG_BASIC_BLOCK and
-   possibly other information which is used by the register allocators.  */
-
-void
-recompute_reg_usage (void)
-{
-  allocate_reg_life_data ();
-  /* distribute_notes in combiner fails to convert some of the
-     REG_UNUSED notes to REG_DEAD notes.  This causes CHECK_DEAD_NOTES
-     in sched1 to die.  To solve this update the DEATH_NOTES
-     here.  */
-  update_life_info (NULL, UPDATE_LIFE_LOCAL, PROP_REG_INFO | PROP_DEATH_NOTES);
-
-  if (dump_file)
-    dump_flow_info (dump_file, dump_flags);
-}
-
-struct tree_opt_pass pass_recompute_reg_usage =
-{
-  "life2",                              /* name */
-  NULL,                                 /* gate */
-  recompute_reg_usage,                  /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
-  'f'                                   /* letter */
-};
-
 /* Optionally removes all the REG_DEAD and REG_UNUSED notes from a set of
    blocks.  If BLOCKS is NULL, assume the universal set.  Returns a count
    of the number of registers that died.
@@ -4076,10 +3858,11 @@ gate_remove_death_notes (void)
   return flag_profile_values;
 }
 
-static void
+static unsigned int
 rest_of_handle_remove_death_notes (void)
 {
   count_or_remove_death_notes (NULL, 1);
+  return 0;
 }
 
 struct tree_opt_pass pass_remove_death_notes =
@@ -4100,39 +3883,19 @@ struct tree_opt_pass pass_remove_death_notes =
 };
 
 /* Perform life analysis.  */
-static void
+static unsigned int
 rest_of_handle_life (void)
 {
   regclass_init ();
-  df_set_state (DF_SCAN_INITIAL);
   rtl_df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (rtl_df);
-  df_ur_add_problem (rtl_df);
+  df_lr_add_problem (rtl_df, 0);
+  df_ur_add_problem (rtl_df, 0);
 
   life_analysis (PROP_FINAL);
-  if (optimize)
-    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE | CLEANUP_LOG_LINKS
-                 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-
-  if (extra_warnings)
-    {
-      setjmp_vars_warning (DECL_INITIAL (current_function_decl));
-      setjmp_args_warning ();
-    }
-
-  if (optimize)
-    {
-      if (initialize_uninitialized_subregs ())
-        {
-          /* Insns were inserted, and possibly pseudos created, so
-             things might look a bit different.  */
-          allocate_reg_life_data ();
-          update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-                            PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
-        }
-    }
+  df_finish (rtl_df);
 
   no_new_pseudos = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_life =
@@ -4151,59 +3914,5 @@ struct tree_opt_pass pass_life =
   TODO_dump_func |
   TODO_ggc_collect,                     /* todo_flags_finish */
   'f'                                   /* letter */
-};
-
-static void
-rest_of_handle_flow2 (void)
-{
-#if 0
-  int i;
-#endif
-  /* If optimizing, then go ahead and split insns now.  */
-#ifndef STACK_REGS
-  if (optimize > 0)
-#endif
-    split_all_insns (0);
-
-  if (flag_branch_target_load_optimize)
-    branch_target_load_optimize (epilogue_completed);
-
-  if (optimize)
-    cleanup_cfg (CLEANUP_EXPENSIVE);
-#if 0
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    fprintf (stderr, "regs_ever_live[%d]=%d before prologue\n", i,
-	     regs_ever_live[i]);
-#endif
-  /* On some machines, the prologue and epilogue code, or parts thereof,
-     can be represented as RTL.  Doing so lets us schedule insns between
-     it and the rest of the code and also allows delayed branch
-     scheduling to operate in the epilogue.  */
-  thread_prologue_and_epilogue_insns (get_insns ());
-  epilogue_completed = 1;
-  flow2_completed = 1;
-#if 0
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    fprintf (stderr, "regs_ever_live[%d]=%d after prologue\n", i,
-	     regs_ever_live[i]);
-#endif
-}
-
-struct tree_opt_pass pass_flow2 =
-{
-  "flow2",                              /* name */
-  NULL,                                 /* gate */
-  rest_of_handle_flow2,                 /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_FLOW2,                             /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  TODO_verify_flow,                     /* todo_flags_start */
-  TODO_dump_func |
-  TODO_ggc_collect,                     /* todo_flags_finish */
-  'w'                                   /* letter */
 };
 

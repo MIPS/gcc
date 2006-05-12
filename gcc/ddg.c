@@ -43,7 +43,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "sbitmap.h"
 #include "expr.h"
 #include "bitmap.h"
-#include "df.h"
 #include "ddg.h"
 
 /* A flag indicating that a ddg edge belongs to an SCC or not.  */
@@ -310,7 +309,7 @@ add_deps_for_use (ddg_ptr g, struct df *df, struct df_ref *use)
 
 /* Build inter-loop dependencies, by looking at DF analysis backwards.  */
 static void
-build_inter_loop_deps (ddg_ptr g, struct df *df)
+build_inter_loop_deps (struct df *df, ddg_ptr g)
 {
   unsigned rd_num, u_num;
   struct df_rd_bb_info *rd_bb_info;
@@ -338,7 +337,7 @@ build_inter_loop_deps (ddg_ptr g, struct df *df)
 
       /* We are interested in uses of this BB.  */
       if (BLOCK_FOR_INSN (use->insn) == g->bb)
-      	add_deps_for_use (g, df,use);
+      	add_deps_for_use (g, df, use);
     }
 }
 
@@ -370,7 +369,7 @@ add_inter_loop_mem_dep (ddg_ptr g, ddg_node_ptr from, ddg_node_ptr to)
 /* Perform intra-block Data Dependency analysis and connect the nodes in
    the DDG.  We assume the loop has a single basic block.  */
 static void
-build_intra_loop_deps (ddg_ptr g)
+build_intra_loop_deps (struct df *df ATTRIBUTE_UNUSED, ddg_ptr g)
 {
   int i;
   /* Hold the dependency analysis state during dependency calculations.  */
@@ -382,7 +381,7 @@ build_intra_loop_deps (ddg_ptr g)
   init_deps (&tmp_deps);
 
   /* Do the intra-block data dependence analysis for the given block.  */
-  get_block_head_tail (g->bb->index, &head, &tail);
+  get_ebb_head_tail (g->bb, g->bb, &head, &tail);
   sched_analyze (&tmp_deps, head, tail);
 
   /* Build intra-loop data dependencies using the scheduler dependency
@@ -401,8 +400,7 @@ build_intra_loop_deps (ddg_ptr g)
 	  if (!src_node)
 	    continue;
 
-      	  add_forward_dependence (XEXP (link, 0), dest_node->insn,
-				  REG_NOTE_KIND (link));
+      	  add_forw_dep (dest_node->insn, link);
 	  create_ddg_dependence (g, src_node, dest_node,
 				 INSN_DEPEND (src_node->insn));
 	}
@@ -511,8 +509,8 @@ create_ddg (basic_block bb, struct df *df, int closing_branch_deps)
   
 
   /* Build the data dependency graph.  */
-  build_intra_loop_deps (g);
-  build_inter_loop_deps (g, df);
+  build_intra_loop_deps (df, g);
+  build_inter_loop_deps (df, g);
   return g;
 }
 

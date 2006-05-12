@@ -37,6 +37,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "timevar.h"
 #include "output.h"
 #include "df.h"
+#include "addresses.h"
 
 /* Sequence abstraction:
 
@@ -126,7 +127,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    TODO:
    - Use REG_ALLOC_ORDER when choosing link register.
    - Handle JUMP_INSNs. Also handle volatile function calls (handle them
-     simmilar to unconditional jumps.)
+     similar to unconditional jumps.)
    - Test command line option -fpic.
 */
 
@@ -228,7 +229,7 @@ typedef struct seq_block_def
   struct seq_block_def *next_seq_block;
 } *seq_block;
 
-/* Contains same sequence candidates for futher searching.  */
+/* Contains same sequence candidates for further searching.  */
 typedef struct hash_bucket_def
 {
   /* The hash value of the group.  */
@@ -437,7 +438,7 @@ match_seqs (p_hash_elem e0, p_hash_elem e1)
    into PATTERN_SEQS.  */
 
 static void
-collect_pattern_seqs (void)
+collect_pattern_seqs (struct df *df ATTRIBUTE_UNUSED)
 {
   htab_iterator hti0, hti1, hti2;
   p_hash_bucket hash_bucket;
@@ -454,36 +455,39 @@ collect_pattern_seqs (void)
   FOR_EACH_BB (bb)
   {
     regset_head live;
-    struct propagate_block_info *pbi;
     rtx insn;
+    rtx prev;
 
     /* Initialize liveness propagation.  */
     INIT_REG_SET (&live);
-    COPY_REG_SET (&live, DF_LIVE_OUT (rtl_df, bb));
-    pbi = init_propagate_block_info (bb, &live, NULL, NULL, 0);
+    df_lr_simulate_artificial_refs_at_end (df, bb, &live);
 
     /* Propagate liveness info and mark insns where a stack reg is live.  */
     insn = BB_END (bb);
-    while (1)
+    for (insn = BB_END (bb); ; insn = prev)
       {
-        int reg;
-        for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
-          {
-            if (REGNO_REG_SET_P (&live, reg))
-              {
-                bitmap_set_bit (&stack_reg_live, INSN_UID (insn));
-                break;
-              }
-          }
-
-        if (insn == BB_HEAD (bb))
-          break;
-        insn = propagate_one_insn (pbi, insn);
+	prev = PREV_INSN (insn);
+	if (INSN_P (insn))
+	  {
+	    int reg;
+	    for (reg = FIRST_STACK_REG; reg <= LAST_STACK_REG; reg++)
+	      {
+		if (REGNO_REG_SET_P (&live, reg))
+		  {
+		    bitmap_set_bit (&stack_reg_live, INSN_UID (insn));
+		    break;
+		  }
+	      }
+	    
+	  }
+	if (insn == BB_HEAD (bb))
+	  break;
+	df_lr_simulate_one_insn (df, bb, insn, &live);
+	insn = prev;
       }
 
     /* Free unused data.  */
     CLEAR_REG_SET (&live);
-    free_propagate_block_info (pbi);
   }
 #endif
 
@@ -530,24 +534,22 @@ renumbered_reg_set_to_hard_reg_set (HARD_REG_SET * hregs, regset regs)
    give by its last INSN and its LENGTH.  */
 
 static void
-clear_regs_live_in_seq (HARD_REG_SET * regs, rtx insn, int length)
+clear_regs_live_in_seq (struct df *df, HARD_REG_SET * regs, rtx insn, int length)
 {
   basic_block bb;
   regset_head live;
   HARD_REG_SET hlive;
-  struct propagate_block_info *pbi;
   rtx x;
   int i;
 
   /* Initialize liveness propagation.  */
   bb = BLOCK_FOR_INSN (insn);
   INIT_REG_SET (&live);
-  COPY_REG_SET (&live, DF_LIVE_OUT (rtl_df, bb));
-  pbi = init_propagate_block_info (bb, &live, NULL, NULL, 0);
+  df_lr_simulate_artificial_refs_at_end (df, bb, &live);
 
   /* Propagate until INSN if found.  */
   for (x = BB_END (bb); x != insn;)
-    x = propagate_one_insn (pbi, x);
+    df_lr_simulate_one_insn (df, bb, insn, &live);
 
   /* Clear registers live after INSN.  */
   renumbered_reg_set_to_hard_reg_set (&hlive, &live);
@@ -556,7 +558,8 @@ clear_regs_live_in_seq (HARD_REG_SET * regs, rtx insn, int length)
   /* Clear registers live in and before the sequence.  */
   for (i = 0; i < length;)
     {
-      rtx prev = propagate_one_insn (pbi, x);
+      rtx prev = PREV_INSN (x);
+      df_lr_simulate_one_insn (df, bb, insn, &live);
 
       if (INSN_P (x))
         {
@@ -569,7 +572,6 @@ clear_regs_live_in_seq (HARD_REG_SET * regs, rtx insn, int length)
     }
 
   /* Free unused data.  */
-  free_propagate_block_info (pbi);
   CLEAR_REG_SET (&live);
 }
 
@@ -578,7 +580,7 @@ clear_regs_live_in_seq (HARD_REG_SET * regs, rtx insn, int length)
    abstract from  the matching sequences.  */
 
 static void
-recompute_gain_for_pattern_seq (pattern_seq pseq)
+recompute_gain_for_pattern_seq (struct df *df, pattern_seq pseq)
 {
   matching_seq mseq;
   rtx x;
@@ -617,7 +619,7 @@ recompute_gain_for_pattern_seq (pattern_seq pseq)
          of PSEQ.  */
       if (mseq->cost > seq_call_cost)
         {
-          clear_regs_live_in_seq (&linkregs, mseq->insn,
+          clear_regs_live_in_seq (df, &linkregs, mseq->insn,
                                   mseq->abstracted_length);
           if (mseq->abstracted_length > pseq->abstracted_length)
             pseq->abstracted_length = mseq->abstracted_length;
@@ -663,7 +665,7 @@ recompute_gain_for_pattern_seq (pattern_seq pseq)
 
   /* Should not use registers live in the pattern sequence as link register.
    */
-  clear_regs_live_in_seq (&linkregs, pseq->insn, pseq->abstracted_length);
+  clear_regs_live_in_seq (df, &linkregs, pseq->insn, pseq->abstracted_length);
 
   /* Determine whether pattern sequence contains a call_insn.  */
   hascall = 0;
@@ -690,8 +692,9 @@ recompute_gain_for_pattern_seq (pattern_seq pseq)
 #ifdef REGNO_OK_FOR_INDIRECT_JUMP_P
         || (!REGNO_OK_FOR_INDIRECT_JUMP_P (i, Pmode))
 #else
-        || (!REGNO_MODE_OK_FOR_BASE_P (i, Pmode))
-        || (!reg_class_subset_p (REGNO_REG_CLASS (i), BASE_REG_CLASS))
+        || (!ok_for_base_p_1 (i, Pmode, MEM, SCRATCH))
+        || (!reg_class_subset_p (REGNO_REG_CLASS (i),
+				 base_reg_class (VOIDmode, MEM, SCRATCH)))
 #endif
         || (hascall && call_used_regs[i])
         || (!call_used_regs[i] && !regs_ever_live[i]))
@@ -731,7 +734,7 @@ free_pattern_seq (pattern_seq pseq)
    place of PATTERN_SEQS.  */
 
 static void
-recompute_gain (void)
+recompute_gain (struct df *df)
 {
   pattern_seq *pseq;
   int maxgain;
@@ -740,7 +743,7 @@ recompute_gain (void)
   for (pseq = &pattern_seqs; *pseq;)
     {
       if ((*pseq)->gain <= 0)
-        recompute_gain_for_pattern_seq (*pseq);
+        recompute_gain_for_pattern_seq (df, *pseq);
 
       if ((*pseq)->gain > 0)
         {
@@ -889,7 +892,7 @@ determine_seq_blocks (void)
         }
 
       /* Ensure that SB contains a seq_block with the appropriate length.
-         Insert a new seq_block if neccessary.  */
+         Insert a new seq_block if necessary.  */
       if (!seq_blocks || ((*mseq)->abstracted_length < seq_blocks->length))
         {
           sb = (seq_block) xmalloc (sizeof (struct seq_block_def));
@@ -962,7 +965,7 @@ block_label_after (rtx insn)
    sequences.  */
 
 static void
-split_blocks_after_seqs (void)
+split_blocks_after_seqs (struct df *df)
 {
   seq_block sb;
   matching_seq mseq;
@@ -973,17 +976,17 @@ split_blocks_after_seqs (void)
       for (mseq = sb->matching_seqs; mseq; mseq = mseq->next_matching_seq)
         {
           block_label_after (mseq->insn);
-          IOR_REG_SET (DF_LIVE_OUT (rtl_df, BLOCK_FOR_INSN (pattern_seqs->insn)),
-                       DF_LIVE_OUT (rtl_df, BLOCK_FOR_INSN (mseq->insn)));
+          IOR_REG_SET (DF_LIVE_OUT (df, BLOCK_FOR_INSN (pattern_seqs->insn)),
+                       DF_LIVE_OUT (df, BLOCK_FOR_INSN (mseq->insn)));
         }
     }
 }
 
-/* Splits the best pattern sequence accoring to SEQ_BLOCKS. Emits pseudo-call
+/* Splits the best pattern sequence according to SEQ_BLOCKS. Emits pseudo-call
    and -return insns before and after the sequence.  */
 
 static void
-split_pattern_seq (void)
+split_pattern_seq (struct df *df)
 {
   rtx insn;
   basic_block bb;
@@ -1028,7 +1031,7 @@ split_pattern_seq (void)
                               gen_symbol_ref_rtx_for_label
                               (retlabel)), BB_END (bb));
   /* Update liveness info.  */
-  SET_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, bb),
+  SET_REGNO_REG_SET (DF_LIVE_OUT (df, bb),
                      REGNO (pattern_seqs->link_reg));
 }
 
@@ -1036,7 +1039,7 @@ split_pattern_seq (void)
    replaces them with pseudo-calls to the pattern sequence.  */
 
 static void
-erase_matching_seqs (void)
+erase_matching_seqs (struct df *df)
 {
   seq_block sb;
   matching_seq mseq;
@@ -1080,12 +1083,12 @@ erase_matching_seqs (void)
           BB_END (bb) = callinsn;
 
           /* Maintain control flow and liveness information.  */
-          SET_REGNO_REG_SET (DF_LIVE_OUT (rtl_df, bb),
+          SET_REGNO_REG_SET (DF_LIVE_OUT (df, bb),
                              REGNO (pattern_seqs->link_reg));
           emit_barrier_after (BB_END (bb));
           make_single_succ_edge (bb, BLOCK_FOR_INSN (sb->label), 0);
-          IOR_REG_SET (DF_LIVE_OUT (rtl_df, bb),
-		       DF_LIVE_IN (rtl_df, BLOCK_FOR_INSN (sb->label)));
+          IOR_REG_SET (DF_LIVE_OUT (df, bb),
+		       DF_LIVE_IN (df, BLOCK_FOR_INSN (sb->label)));
 
           make_edge (BLOCK_FOR_INSN (seq_blocks->label),
                      BLOCK_FOR_INSN (retlabel), EDGE_ABNORMAL);
@@ -1117,15 +1120,15 @@ free_seq_blocks (void)
    from PATTERN_SEQS.  */
 
 static void
-abstract_best_seq (void)
+abstract_best_seq (struct df *df)
 {
   pattern_seq bestpseq;
 
   /* Do the abstraction.  */
   determine_seq_blocks ();
-  split_blocks_after_seqs ();
-  split_pattern_seq ();
-  erase_matching_seqs ();
+  split_blocks_after_seqs (df);
+  split_pattern_seq (df);
+  erase_matching_seqs (df);
   free_seq_blocks ();
 
   /* Record the usage of the link register.  */
@@ -1357,6 +1360,10 @@ static void
 rtl_seqabstr (void)
 {
   int iter;
+  struct df * df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (df, DF_LR_RUN_DCE);
+  df_ur_add_problem (df, 0);
+  df_analyze (df);
 
   /* Create a hash list for COLLECT_PATTERN_SEQS.  */
   hash_buckets = htab_create (HASH_INIT, htab_hash_bucket , htab_eq_bucket ,
@@ -1367,15 +1374,15 @@ rtl_seqabstr (void)
   compute_init_costs ();
 
   /* Build an initial set of pattern sequences from the current function.  */
-  collect_pattern_seqs ();
+  collect_pattern_seqs (df);
   dump_pattern_seqs ();
 
   /* Iterate until there are no sequences to abstract.  */
   for (iter = 1;; iter++)
     {
-      /* Recompute gain for sequences if neccessary and select sequence with
+      /* Recompute gain for sequences if necessary and select sequence with
          biggest gain.  */
-      recompute_gain ();
+      recompute_gain (df);
       if (!pattern_seqs)
         break;
       dump_best_pattern_seq (iter);
@@ -1383,25 +1390,12 @@ rtl_seqabstr (void)
          recomputation where needed.  */
       update_pattern_seqs ();
       /* Turn best sequences into pseudo-functions and -calls.  */
-      abstract_best_seq ();
+      abstract_best_seq (df);
     }
 
   /* Cleanup hash tables.  */
   htab_delete (hash_buckets);
-
-  if (iter > 1)
-    {
-      /* Update notes.  */
-      count_or_remove_death_notes (NULL, 1);
-
-      life_analysis (PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
-		     | PROP_KILL_DEAD_CODE);
-
-      /* Extra cleanup.  */
-      cleanup_cfg (CLEANUP_EXPENSIVE |
-                   CLEANUP_UPDATE_LIFE |
-                   (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
-    }
+  df_finish (df);
 }
 
 /* The gate function for TREE_OPT_PASS.  */
@@ -1414,17 +1408,12 @@ gate_rtl_seqabstr (void)
 
 /* The entry point of the sequence abstraction algorithm.  */
 
-static void
+static unsigned int
 rest_of_rtl_seqabstr (void)
 {
-  life_analysis (PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE | PROP_KILL_DEAD_CODE);
-
-  cleanup_cfg (CLEANUP_EXPENSIVE |
-               CLEANUP_UPDATE_LIFE |
-               (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
-
   /* Abstract out common insn sequences. */
   rtl_seqabstr ();
+  return 0;
 }
 
 struct tree_opt_pass pass_rtl_seqabstr = {

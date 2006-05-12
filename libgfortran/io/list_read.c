@@ -117,6 +117,19 @@ free_saved (st_parameter_dt *dtp)
 }
 
 
+/* Free the line buffer if necessary.  */
+
+static void
+free_line (st_parameter_dt *dtp)
+{
+  if (dtp->u.p.line_buffer == NULL)
+    return;
+
+  free_mem (dtp->u.p.line_buffer);
+  dtp->u.p.line_buffer = NULL;
+}
+
+
 static char
 next_char (st_parameter_dt *dtp)
 {
@@ -132,7 +145,23 @@ next_char (st_parameter_dt *dtp)
       goto done;
     }
 
-  length = 1;
+  /* Read from line_buffer if enabled.  */
+
+  if (dtp->u.p.line_buffer_enabled)
+    {
+      dtp->u.p.at_eol = 0;
+
+      c = dtp->u.p.line_buffer[dtp->u.p.item_count];
+      if (c != '\0' && dtp->u.p.item_count < 64)
+	{
+	  dtp->u.p.line_buffer[dtp->u.p.item_count] = '\0';
+	  dtp->u.p.item_count++;
+	  goto done;
+	}
+
+        dtp->u.p.item_count = 0;
+	dtp->u.p.line_buffer_enabled = 0;
+    }    
 
   /* Handle the end-of-record condition for internal array unit */
   if (is_array_io(dtp) && dtp->u.p.current_unit->bytes_left == 0)
@@ -154,6 +183,9 @@ next_char (st_parameter_dt *dtp)
     }
 
   /* Get the next character and handle end-of-record conditions */
+
+  length = 1;
+
   p = salloc_r (dtp->u.p.current_unit->s, &length);
 
   if (is_internal_unit(dtp))
@@ -343,6 +375,21 @@ finish_separator (st_parameter_dt *dtp)
     }
 }
 
+
+/* This function reads characters through to the end of the current line and
+   just ignores them.  */
+
+static void
+eat_line (st_parameter_dt *dtp)
+{
+  char c;
+  if (!is_internal_unit (dtp))
+    do
+      c = next_char (dtp);
+    while (c != '\n');
+}
+
+
 /* This function is needed to catch bad conversions so that namelist can
    attempt to see if dtp->u.p.saved_string contains a new object name rather
    than a bad value.  */
@@ -502,11 +549,31 @@ parse_repeat (st_parameter_dt *dtp)
   return 0;
 
  bad_repeat:
+
+  eat_line (dtp);
+  free_saved (dtp);
   st_sprintf (message, "Bad repeat count in item %d of list input",
 	      dtp->u.p.item_count);
-
   generate_error (&dtp->common, ERROR_READ_VALUE, message);
   return 1;
+}
+
+
+/* To read a logical we have to look ahead in the input stream to make sure
+    there is not an equal sign indicating a variable name.  To do this we use 
+    line_buffer to point to a temporary buffer, pushing characters there for
+    possible later reading. */
+
+static void
+l_push_char (st_parameter_dt *dtp, char c)
+{
+  if (dtp->u.p.line_buffer == NULL)
+    {
+      dtp->u.p.line_buffer = get_mem (SCRATCH_SIZE);
+      memset (dtp->u.p.line_buffer, 0, SCRATCH_SIZE);
+    }
+
+  dtp->u.p.line_buffer[dtp->u.p.item_count++] = c;
 }
 
 
@@ -516,37 +583,47 @@ static void
 read_logical (st_parameter_dt *dtp, int length)
 {
   char c, message[100];
-  int v;
+  int i, v;
 
   if (parse_repeat (dtp))
     return;
 
-  c = next_char (dtp);
+  c = tolower (next_char (dtp));
+  l_push_char (dtp, c);
   switch (c)
     {
     case 't':
-    case 'T':
       v = 1;
+      c = next_char (dtp);
+      l_push_char (dtp, c);
+
+      if (!is_separator(c))
+	goto possible_name;
+
+      unget_char (dtp, c);
       break;
     case 'f':
-    case 'F':
       v = 0;
-      break;
-
-    case '.':
       c = next_char (dtp);
+      l_push_char (dtp, c);
+
+      if (!is_separator(c))
+	goto possible_name;
+
+      unget_char (dtp, c);
+      break;
+    case '.':
+      c = tolower (next_char (dtp));
       switch (c)
 	{
-	case 't':
-	case 'T':
-	  v = 1;
-	  break;
-	case 'f':
-	case 'F':
-	  v = 0;
-	  break;
-	default:
-	  goto bad_logical;
+	  case 't':
+	    v = 1;
+	    break;
+	  case 'f':
+	    v = 0;
+	    break;
+	  default:
+	    goto bad_logical;
 	}
 
       break;
@@ -572,20 +649,65 @@ read_logical (st_parameter_dt *dtp, int length)
 
   unget_char (dtp, c);
   eat_separator (dtp);
-  free_saved (dtp);
+  dtp->u.p.item_count = 0;
+  dtp->u.p.line_buffer_enabled = 0;
   set_integer ((int *) dtp->u.p.value, v, length);
 
   return;
+
+ possible_name:
+
+  for(i = 0; i < 63; i++)
+    {
+      c = next_char (dtp);
+      if (is_separator(c))
+	{
+	  /* All done if this is not a namelist read.  */
+	  if (!dtp->u.p.namelist_mode)
+	    goto logical_done;
+
+	  unget_char (dtp, c);
+	  eat_separator (dtp);
+	  c = next_char (dtp);
+	  if (c != '=')
+	    {
+	      unget_char (dtp, c);
+	      goto logical_done;
+	    }
+	}
+ 
+      l_push_char (dtp, c);
+      if (c == '=')
+	{
+	  dtp->u.p.nml_read_error = 1;
+	  dtp->u.p.line_buffer_enabled = 1;
+	  dtp->u.p.item_count = 0;
+	  return;
+	}
+      
+    }
 
  bad_logical:
 
   if (nml_bad_return (dtp, c))
     return;
 
+  eat_line (dtp);
+  free_saved (dtp);
+  if (dtp->u.p.line_buffer != NULL)
+    free_mem (dtp->u.p.line_buffer);
   st_sprintf (message, "Bad logical value while reading item %d",
 	      dtp->u.p.item_count);
-
   generate_error (&dtp->common, ERROR_READ_VALUE, message);
+  return;
+
+ logical_done:
+  
+  dtp->u.p.item_count = 0;
+  dtp->u.p.line_buffer_enabled = 0;
+  dtp->u.p.saved_type = BT_LOGICAL;
+  dtp->u.p.saved_length = length;
+  set_integer ((int *) dtp->u.p.value, v, length);
 }
 
 
@@ -701,9 +823,9 @@ read_integer (st_parameter_dt *dtp, int length)
 
   if (nml_bad_return (dtp, c))
     return;
-
+  
+  eat_line (dtp);
   free_saved (dtp);
-
   st_sprintf (message, "Bad integer for item %d in list input",
 	      dtp->u.p.item_count);
   generate_error (&dtp->common, ERROR_READ_VALUE, message);
@@ -981,6 +1103,11 @@ parse_real (st_parameter_dt *dtp, void *buffer, int length)
   return m;
 
  bad:
+
+  if (nml_bad_return (dtp, c))
+    return 0;
+
+  eat_line (dtp);
   free_saved (dtp);
   st_sprintf (message, "Bad floating point number for item %d",
 	      dtp->u.p.item_count);
@@ -1063,9 +1190,10 @@ eol_2:
   if (nml_bad_return (dtp, c))
     return;
 
+  eat_line (dtp);
+  free_saved (dtp);
   st_sprintf (message, "Bad complex value in item %d of list input",
 	      dtp->u.p.item_count);
-
   generate_error (&dtp->common, ERROR_READ_VALUE, message);
 }
 
@@ -1277,9 +1405,10 @@ read_real (st_parameter_dt *dtp, int length)
   if (nml_bad_return (dtp, c))
     return;
 
+  eat_line (dtp);
+  free_saved (dtp);
   st_sprintf (message, "Bad real number in item %d of list input",
 	      dtp->u.p.item_count);
-
   generate_error (&dtp->common, ERROR_READ_VALUE, message);
 }
 
@@ -2435,6 +2564,7 @@ find_nml_name:
 
   dtp->u.p.eof_jump = NULL;
   free_saved (dtp);
+  free_line (dtp);
   return;
 
   /* All namelist error calls return from here */
@@ -2443,6 +2573,7 @@ nml_err_ret:
 
   dtp->u.p.eof_jump = NULL;
   free_saved (dtp);
+  free_line (dtp);
   generate_error (&dtp->common, ERROR_READ_VALUE, nml_err_msg);
   return;
 }

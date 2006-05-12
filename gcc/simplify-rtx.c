@@ -590,12 +590,28 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
       if (GET_CODE (op) == LT
 	  && XEXP (op, 1) == const0_rtx)
 	{
+	  enum machine_mode inner = GET_MODE (XEXP (op, 0));
+	  int isize = GET_MODE_BITSIZE (inner);
 	  if (STORE_FLAG_VALUE == 1)
-	    return simplify_gen_binary (ASHIFTRT, mode, XEXP (op, 0),
-					GEN_INT (GET_MODE_BITSIZE (mode) - 1));
+	    {
+	      temp = simplify_gen_binary (ASHIFTRT, inner, XEXP (op, 0),
+					  GEN_INT (isize - 1));
+	      if (mode == inner)
+		return temp;
+	      if (GET_MODE_BITSIZE (mode) > isize)
+		return simplify_gen_unary (SIGN_EXTEND, mode, temp, inner);
+	      return simplify_gen_unary (TRUNCATE, mode, temp, inner);
+	    }
 	  else if (STORE_FLAG_VALUE == -1)
-	    return simplify_gen_binary (LSHIFTRT, mode, XEXP (op, 0),
-					GEN_INT (GET_MODE_BITSIZE (mode) - 1));
+	    {
+	      temp = simplify_gen_binary (LSHIFTRT, inner, XEXP (op, 0),
+					  GEN_INT (isize - 1));
+	      if (mode == inner)
+		return temp;
+	      if (GET_MODE_BITSIZE (mode) > isize)
+		return simplify_gen_unary (ZERO_EXTEND, mode, temp, inner);
+	      return simplify_gen_unary (TRUNCATE, mode, temp, inner);
+	    }
 	}
       break;
 
@@ -631,14 +647,18 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 				   GET_MODE (XEXP (SUBREG_REG (op), 0)));
 
       /* If we know that the value is already truncated, we can
-         replace the TRUNCATE with a SUBREG if TRULY_NOOP_TRUNCATION
-         is nonzero for the corresponding modes.  But don't do this
-         for an (LSHIFTRT (MULT ...)) since this will cause problems
-         with the umulXi3_highpart patterns.  */
-      if (TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+         replace the TRUNCATE with a SUBREG.  Note that this is also
+         valid if TRULY_NOOP_TRUNCATION is false for the corresponding
+         modes we just have to apply a different definition for
+         truncation.  But don't do this for an (LSHIFTRT (MULT ...)) 
+         since this will cause problems with the umulXi3_highpart
+         patterns.  */
+      if ((TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
 				 GET_MODE_BITSIZE (GET_MODE (op)))
-	  && num_sign_bit_copies (op, GET_MODE (op))
-	     >= (unsigned int) (GET_MODE_BITSIZE (mode) + 1)
+	   ? (num_sign_bit_copies (op, GET_MODE (op))
+	      > (unsigned int) (GET_MODE_BITSIZE (GET_MODE (op))
+				- GET_MODE_BITSIZE (mode)))
+	   : truncated_to_mode (mode, op))
 	  && ! (GET_CODE (op) == LSHIFTRT
 		&& GET_CODE (XEXP (op, 0)) == MULT))
 	return rtl_hooks.gen_lowpart_no_emit (mode, op);
@@ -3301,8 +3321,21 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
 		else if (swap_commutative_operands_p (lhs, rhs))
 		  tem = lhs, lhs = rhs, rhs = tem;
 
-		tem = simplify_binary_operation (ncode, mode, lhs, rhs);
+		if ((GET_CODE (lhs) == CONST || GET_CODE (lhs) == CONST_INT)
+		    && (GET_CODE (rhs) == CONST || GET_CODE (rhs) == CONST_INT))
+		  {
+		    rtx tem_lhs, tem_rhs;
 
+		    tem_lhs = GET_CODE (lhs) == CONST ? XEXP (lhs, 0) : lhs;
+		    tem_rhs = GET_CODE (rhs) == CONST ? XEXP (rhs, 0) : rhs;
+		    tem = simplify_binary_operation (ncode, mode, tem_lhs, tem_rhs);
+
+		    if (tem && !CONSTANT_P (tem))
+		      tem = gen_rtx_CONST (GET_MODE (tem), tem);
+		  }
+		else
+		  tem = simplify_binary_operation (ncode, mode, lhs, rhs);
+		
 		/* Reject "simplifications" that just wrap the two
 		   arguments in a CONST.  Failure to do so can result
 		   in infinite recursion with simplify_binary_operation
@@ -3485,8 +3518,7 @@ simplify_relational_operation (enum rtx_code code, enum machine_mode mode,
     return simplify_relational_operation (code, mode, VOIDmode,
 				          XEXP (op0, 0), XEXP (op0, 1));
 
-  if (mode == VOIDmode
-      || GET_MODE_CLASS (cmp_mode) == MODE_CC
+  if (GET_MODE_CLASS (cmp_mode) == MODE_CC
       || CC0_P (op0))
     return NULL_RTX;
 
@@ -3512,7 +3544,8 @@ simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
     {
       if (INTVAL (op1) == 0 && COMPARISON_P (op0))
 	{
-	  /* If op0 is a comparison, extract the comparison arguments form it.  */
+	  /* If op0 is a comparison, extract the comparison arguments
+	     from it.  */
 	  if (code == NE)
 	    {
 	      if (GET_MODE (op0) == mode)
@@ -3560,6 +3593,37 @@ simplify_relational_operation_1 (enum rtx_code code, enum machine_mode mode,
     return GET_MODE_SIZE (mode) > GET_MODE_SIZE (cmp_mode)
 	   ? simplify_gen_unary (ZERO_EXTEND, mode, op0, cmp_mode)
 	   : lowpart_subreg (mode, op0, cmp_mode);
+
+  /* (eq/ne (xor x y) 0) simplifies to (eq/ne x y).  */
+  if ((code == EQ || code == NE)
+      && op1 == const0_rtx
+      && op0code == XOR)
+    return simplify_gen_relational (code, mode, cmp_mode,
+				    XEXP (op0, 0), XEXP (op0, 1));
+
+  /* (eq/ne (xor x y) x) simplifies to (eq/ne x 0).  */
+  if ((code == EQ || code == NE)
+      && op0code == XOR
+      && rtx_equal_p (XEXP (op0, 0), op1)
+      && !side_effects_p (XEXP (op0, 1)))
+    return simplify_gen_relational (code, mode, cmp_mode, op1, const0_rtx);
+  /* Likewise (eq/ne (xor x y) y) simplifies to (eq/ne y 0).  */
+  if ((code == EQ || code == NE)
+      && op0code == XOR
+      && rtx_equal_p (XEXP (op0, 1), op1)
+      && !side_effects_p (XEXP (op0, 0)))
+    return simplify_gen_relational (code, mode, cmp_mode, op1, const0_rtx);
+
+  /* (eq/ne (xor x C1) C2) simplifies to (eq/ne x (C1^C2)).  */
+  if ((code == EQ || code == NE)
+      && op0code == XOR
+      && (GET_CODE (op1) == CONST_INT
+	  || GET_CODE (op1) == CONST_DOUBLE)
+      && (GET_CODE (XEXP (op0, 1)) == CONST_INT
+	  || GET_CODE (XEXP (op0, 1)) == CONST_DOUBLE))
+    return simplify_gen_relational (code, mode, cmp_mode, XEXP (op0, 0),
+				    simplify_gen_binary (XOR, cmp_mode,
+							 XEXP (op0, 1), op1));
 
   return NULL_RTX;
 }

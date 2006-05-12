@@ -518,39 +518,6 @@ try_forward_edges (int mode, basic_block b)
 	  if (!new_target)
 	    break;
 
-	  /* Avoid killing of loop pre-headers, as it is the place loop
-	     optimizer wants to hoist code to.
-
-	     For fallthru forwarders, the LOOP_BEG note must appear between
-	     the header of block and CODE_LABEL of the loop, for non forwarders
-	     it must appear before the JUMP_INSN.  */
-	  if ((mode & CLEANUP_PRE_LOOP) && optimize && flag_loop_optimize)
-	    {
-	      rtx insn = (EDGE_SUCC (target, 0)->flags & EDGE_FALLTHRU
-			  ? BB_HEAD (target) : prev_nonnote_insn (BB_END (target)));
-
-	      if (!NOTE_P (insn))
-		insn = NEXT_INSN (insn);
-
-	      for (; insn && !LABEL_P (insn) && !INSN_P (insn);
-		   insn = NEXT_INSN (insn))
-		if (NOTE_P (insn)
-		    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-		  break;
-
-	      if (insn && NOTE_P (insn))
-		break;
-
-	      /* Do not clean up branches to just past the end of a loop
-		 at this time; it can mess up the loop optimizer's
-		 recognition of some patterns.  */
-
-	      insn = PREV_INSN (BB_HEAD (target));
-	      if (insn && NOTE_P (insn)
-		    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-		break;
-	    }
-
 	  counter++;
 	  target = new_target;
 	  threaded |= new_target_threaded;
@@ -1702,7 +1669,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
       && (newpos1 != BB_HEAD (src1)))
     return false;
 
-  /* Avoid deleting preserve label when redirecting ABNORMAL edeges.  */
+  /* Avoid deleting preserve label when redirecting ABNORMAL edges.  */
   if (block_has_preserve_label (e1->dest)
       && (e1->flags & EDGE_ABNORMAL))
     return false;
@@ -2302,13 +2269,14 @@ cleanup_cfg (int mode)
   return changed;
 }
 
-static void
+static unsigned int
 rest_of_handle_jump (void)
 {
   delete_unreachable_blocks ();
 
   if (cfun->tail_call_emit)
     fixup_tail_calls ();
+  return 0;
 }
 
 struct tree_opt_pass pass_jump =
@@ -2330,7 +2298,7 @@ struct tree_opt_pass pass_jump =
 };
 
 
-static void
+static unsigned int
 rest_of_handle_jump2 (void)
 {
   /* Turn NOTE_INSN_EXPECTED_VALUE into REG_BR_PROB.  Do this
@@ -2342,15 +2310,13 @@ rest_of_handle_jump2 (void)
   reg_scan (get_insns (), max_reg_num ());
   if (dump_file)
     dump_flow_info (dump_file, dump_flags);
-  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
+  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
                | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-
-  create_loop_notes ();
 
   purge_line_number_notes ();
 
   if (optimize)
-    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+    cleanup_cfg (CLEANUP_EXPENSIVE);
 
   /* Jump optimization, and the removal of NULL pointer checks, may
      have reduced the number of instructions substantially.  CSE, and
@@ -2358,6 +2324,7 @@ rest_of_handle_jump2 (void)
      maximum instruction UID, so if we can reduce the maximum UID
      we'll save big on memory.  */
   renumber_insns ();
+  return 0;
 }
 
 

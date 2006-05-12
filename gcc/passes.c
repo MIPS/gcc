@@ -216,10 +216,10 @@ finish_optimization_passes (void)
   timevar_push (TV_DUMP);
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
-      dump_file = dump_begin (pass_branch_prob.static_pass_number, NULL);
+      dump_file = dump_begin (pass_profile.static_pass_number, NULL);
       end_branch_prob ();
       if (dump_file)
-	dump_end (pass_branch_prob.static_pass_number, dump_file);
+	dump_end (pass_profile.static_pass_number, dump_file);
     }
 
   if (optimize > 0)
@@ -364,7 +364,7 @@ register_dump_files_1 (struct tree_opt_pass *pass, bool ipa, int properties)
 
 /* Register the dump files for the pipeline starting at PASS.  IPA is
    true if the pass is inter-procedural, and PROPERTIES reflects the
-   properties that are guarenteed to be available at the beginning of
+   properties that are guaranteed to be available at the beginning of
    the pipeline.  */
 
 static void 
@@ -488,6 +488,7 @@ init_optimization_passes (void)
 
   p = &pass_all_optimizations.sub;
   NEXT_PASS (pass_referenced_vars);
+  NEXT_PASS (pass_reset_cc_flags);
   NEXT_PASS (pass_create_structure_vars);
   NEXT_PASS (pass_build_ssa);
   NEXT_PASS (pass_may_alias);
@@ -506,11 +507,12 @@ init_optimization_passes (void)
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dominator);
 
-  /* The only copy propagation opportunities left after DOM
-     should be due to degenerate PHI nodes.  So rather than
-     run the full copy propagator, just discover and copy
-     propagate away the degenerate PHI nodes.  */
-  NEXT_PASS (pass_phi_only_copy_prop);
+  /* The only const/copy propagation opportunities left after
+     DOM should be due to degenerate PHI nodes.  So rather than
+     run the full propagators, run a specialized pass which
+     only examines PHIs to discover const/copy propagation
+     opportunities.  */
+  NEXT_PASS (pass_phi_only_cprop);
 
   NEXT_PASS (pass_phiopt);
   NEXT_PASS (pass_may_alias);
@@ -527,11 +529,12 @@ init_optimization_passes (void)
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
 
-  /* The only copy propagation opportunities left after DOM
-     should be due to degenerate PHI nodes.  So rather than
-     run the full copy propagator, just discover and copy
-     propagate away the degenerate PHI nodes.  */
-  NEXT_PASS (pass_phi_only_copy_prop);
+  /* The only const/copy propagation opportunities left after
+     DOM should be due to degenerate PHI nodes.  So rather than
+     run the full propagators, run a specialized pass which
+     only examines PHIs to discover const/copy propagation
+     opportunities.  */
+  NEXT_PASS (pass_phi_only_cprop);
 
   NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_dce);
@@ -557,11 +560,12 @@ init_optimization_passes (void)
   NEXT_PASS (pass_vrp);
   NEXT_PASS (pass_dominator);
 
-  /* The only copy propagation opportunities left after DOM
-     should be due to degenerate PHI nodes.  So rather than
-     run the full copy propagator, just discover and copy
-     propagate away the degenerate PHI nodes.  */
-  NEXT_PASS (pass_phi_only_copy_prop);
+  /* The only const/copy propagation opportunities left after
+     DOM should be due to degenerate PHI nodes.  So rather than
+     run the full propagators, run a specialized pass which
+     only examines PHIs to discover const/copy propagation
+     opportunities.  */
+  NEXT_PASS (pass_phi_only_cprop);
 
   NEXT_PASS (pass_cd_dce);
 
@@ -623,7 +627,6 @@ init_optimization_passes (void)
   *p = NULL;
   
   p = &pass_rest_of_compilation.sub;
-  NEXT_PASS (pass_remove_unnecessary_notes);
   NEXT_PASS (pass_init_function);
   NEXT_PASS (pass_jump);
   NEXT_PASS (pass_insn_locators_initialize);
@@ -635,10 +638,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_cse);
   NEXT_PASS (pass_rtl_fwprop);
   NEXT_PASS (pass_gcse);
-  NEXT_PASS (pass_loop_optimize);
   NEXT_PASS (pass_jump_bypass);
-  NEXT_PASS (pass_cfg);
-  NEXT_PASS (pass_branch_prob);
   NEXT_PASS (pass_rtl_ifcvt);
   NEXT_PASS (pass_tracer);
   /* Perform loop optimizations.  It might be better to do them a bit
@@ -649,17 +649,20 @@ init_optimization_passes (void)
   NEXT_PASS (pass_cse2);
   NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_rtl_fwprop_addr);
+  NEXT_PASS (pass_subregs_of_mode_init);
   NEXT_PASS (pass_life);
+  NEXT_PASS (pass_stack_ptr_mod);
+  NEXT_PASS (pass_initialize_subregs);
+  NEXT_PASS (pass_reset_df);
   NEXT_PASS (pass_combine);
-  NEXT_PASS (pass_rtl_dce);
+  NEXT_PASS (pass_clear_df);
+  NEXT_PASS (pass_rtl_dse);
   NEXT_PASS (pass_if_after_combine);
-  NEXT_PASS (pass_rtl_dce);
+  NEXT_PASS (pass_fast_rtl_dce);
   NEXT_PASS (pass_partition_blocks);
   NEXT_PASS (pass_regmove);
   NEXT_PASS (pass_split_all_insns);
   NEXT_PASS (pass_mode_switching);
-  NEXT_PASS (pass_rtl_dce);
-  NEXT_PASS (pass_recompute_reg_usage);
   NEXT_PASS (pass_sms);
   NEXT_PASS (pass_sched);
   /* NEXT_PASS (pass_web); */
@@ -670,24 +673,23 @@ init_optimization_passes (void)
 
   p = &pass_postreload.sub;
   NEXT_PASS (pass_postreload_cse);
-  NEXT_PASS (pass_reset_df_after_reload);
   NEXT_PASS (pass_gcse2);
   NEXT_PASS (pass_rtl_dse);
-  NEXT_PASS (pass_flow2);
+  NEXT_PASS (pass_split_after_reload);
+  NEXT_PASS (pass_branch_target_load_optimize1);
+  NEXT_PASS (pass_thread_prologue_and_epilogue);
   NEXT_PASS (pass_rtl_seqabstr);
   NEXT_PASS (pass_stack_adjustments);
   NEXT_PASS (pass_peephole2);
-
   NEXT_PASS (pass_if_after_reload);
-  NEXT_PASS (pass_rtl_dce);
   NEXT_PASS (pass_regrename);
-  NEXT_PASS (pass_rtl_dce);
+  NEXT_PASS (pass_cprop_hardreg);
+  NEXT_PASS (pass_fast_rtl_dce);
   NEXT_PASS (pass_reorder_blocks);
-  NEXT_PASS (pass_branch_target_load_optimize);
+  NEXT_PASS (pass_branch_target_load_optimize2);
   NEXT_PASS (pass_leaf_regs);
   NEXT_PASS (pass_sched2);
   NEXT_PASS (pass_split_before_regstack);
-  NEXT_PASS (pass_clear_df);
   NEXT_PASS (pass_stack_regs);
   NEXT_PASS (pass_compute_alignments);
   NEXT_PASS (pass_duplicate_computed_gotos);
@@ -734,8 +736,8 @@ execute_todo (unsigned int flags)
   if (!flags)
     return;
   
-  /* Always recalculate TMT usage before doing anything else.  */
-  if (flags & TODO_update_tmt_usage)
+  /* Always recalculate SMT usage before doing anything else.  */
+  if (flags & TODO_update_smt_usage)
     recalculate_used_alone ();
 
   /* Always cleanup the CFG before trying to update SSA .  */
@@ -823,6 +825,7 @@ static bool
 execute_one_pass (struct tree_opt_pass *pass)
 {
   bool initializing_dump;
+  unsigned int todo_after = 0;
 
   /* See if we're supposed to run this pass.  */
   if (pass->gate && !pass->gate ())
@@ -841,7 +844,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   gcc_assert ((curr_properties & pass->properties_required)
 	      == pass->properties_required);
 
-  if (pass->properties_destroyed & PROP_tmt_usage)
+  if (pass->properties_destroyed & PROP_smt_usage)
     updating_used_alone = true;
 
   /* If a dump file name is present, open it if enabled.  */
@@ -874,7 +877,7 @@ execute_one_pass (struct tree_opt_pass *pass)
   /* Do it!  */
   if (pass->execute)
     {
-      pass->execute ();
+      todo_after = pass->execute ();
       last_verified = 0;
     }
 
@@ -896,7 +899,7 @@ execute_one_pass (struct tree_opt_pass *pass)
     }
 
   /* Run post-pass cleanup and verification.  */
-  execute_todo (pass->todo_flags_finish);
+  execute_todo (todo_after | pass->todo_flags_finish);
 
   /* Flush and close dump file.  */
   if (dump_file_name)
@@ -910,7 +913,7 @@ execute_one_pass (struct tree_opt_pass *pass)
       dump_file = NULL;
     }
 
-  if (pass->properties_destroyed & PROP_tmt_usage)
+  if (pass->properties_destroyed & PROP_smt_usage)
     updating_used_alone = false;
 
   return true;

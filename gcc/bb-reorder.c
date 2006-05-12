@@ -1634,10 +1634,6 @@ fix_crossing_conditional_branches (void)
 		  new_bb->il.rtl->footer = unlink_insn_chain (barrier, 
 							   barrier);
 		  
-		  /* Update register liveness information.  */
-		  if (rtl_df)
-		    df_analyze_simple_change_one_block (rtl_df, new_bb);
-  
 		  /* Make sure new bb is in same partition as source
 		     of conditional branch.  */
 		  BB_COPY_PARTITION (new_bb, cur_bb);
@@ -1975,7 +1971,7 @@ gate_duplicate_computed_gotos (void)
 }
 
 
-static void
+static unsigned int
 duplicate_computed_gotos (void)
 {
   basic_block bb, new_bb;
@@ -1983,10 +1979,10 @@ duplicate_computed_gotos (void)
   int max_size;
 
   if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1)
-    return;
+    return 0;
 
   if (targetm.cannot_modify_jumps_p ())
-    return;
+    return 0;
 
   cfg_layout_initialize (0);
 
@@ -2079,6 +2075,7 @@ done:
   cfg_layout_finalize ();
 
   BITMAP_FREE (candidates);
+  return 0;
 }
 
 struct tree_opt_pass pass_duplicate_computed_gotos =
@@ -2197,16 +2194,12 @@ gate_handle_reorder_blocks (void)
 
 
 /* Reorder basic blocks.  */
-static void
+static unsigned int
 rest_of_handle_reorder_blocks (void)
 {
-  bool changed;
-  struct df * saved_df = rtl_df;
-  rtl_df = NULL;
-
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
      splitting possibly introduced more crossjumping opportunities.  */
-  changed = cleanup_cfg (CLEANUP_EXPENSIVE);
+  cleanup_cfg (CLEANUP_EXPENSIVE);
 
   if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
     {
@@ -2217,16 +2210,14 @@ rest_of_handle_reorder_blocks (void)
 
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition)
     reorder_basic_blocks ();
+
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
-    changed |= cleanup_cfg (CLEANUP_EXPENSIVE);
-
-  rtl_df = saved_df;
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
-		    PROP_DEATH_NOTES);
+    cleanup_cfg (CLEANUP_EXPENSIVE);
 
   /* Add NOTE_INSN_SWITCH_TEXT_SECTIONS notes.  */
   insert_section_boundary_note ();
+  return 0;
 }
 
 struct tree_opt_pass pass_reorder_blocks =
@@ -2260,7 +2251,7 @@ gate_handle_partition_blocks (void)
 }
 
 /* Partition hot and cold basic blocks.  */
-static void
+static unsigned int
 rest_of_handle_partition_blocks (void)
 {
   no_new_pseudos = 0;
@@ -2269,6 +2260,7 @@ rest_of_handle_partition_blocks (void)
   update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
                     PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
   no_new_pseudos = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_partition_blocks =

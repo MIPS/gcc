@@ -1,5 +1,5 @@
 ; Options for the Fortran 95 front end.
-; Copyright (C) 2003, 2004, 2005 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -41,6 +41,10 @@ Waliasing
 Fortran
 Warn about possible aliasing of dummy arguments
 
+Wampersand
+Fortran
+Warn about missing ampersand in continued character constants
+
 Wconversion
 Fortran
 Warn about implicit conversion
@@ -60,6 +64,10 @@ Warn about usage of non-standard intrinsics
 Wsurprising
 Fortran
 Warn about \"suspicious\" constructs
+
+Wtabs
+Fortran
+Warn about nonconforming uses of the tab character
 
 Wunderflow
 Fortran
@@ -224,5 +232,13 @@ Use native format for unformatted files
 fconvert=swap
 Fortran RejectNegative
 Swap endianness for unformatted files
+
+frecord-marker=4
+Fortran RejectNegative
+Use a 4-byte record marker for unformatted files
+
+frecord-marker=8
+Fortran RejectNegative
+Use an 8-byte record marker for unformatted files
 
 ; This comment is to ensure we retain the blank line above.

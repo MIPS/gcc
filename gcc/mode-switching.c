@@ -398,7 +398,7 @@ optimize_mode_switching (void)
   int max_num_modes = 0;
   bool emited = false;
   basic_block post_entry ATTRIBUTE_UNUSED, pre_exit ATTRIBUTE_UNUSED;
-
+  struct df *df;
 
   for (e = N_ENTITIES - 1, n_entities = 0; e >= 0; e--)
     if (OPTIMIZE_MODE_SWITCHING (e))
@@ -420,6 +420,12 @@ optimize_mode_switching (void)
 
   if (! n_entities)
     return 0;
+
+  df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (df, 0);
+  df_ur_add_problem (df, 0);
+  df_ri_add_problem (df, 0);
+  df_analyze (df);
 
 #if defined (MODE_ENTRY) && defined (MODE_EXIT)
   /* Split the edge from the entry block, so that we can note that
@@ -451,7 +457,7 @@ optimize_mode_switching (void)
 	  int last_mode = no_mode;
 	  HARD_REG_SET live_now;
 
-	  REG_SET_TO_HARD_REG_SET (live_now, DF_LIVE_IN (rtl_df, bb));
+	  REG_SET_TO_HARD_REG_SET (live_now, DF_LIVE_IN (df, bb));
 
 	  /* Pretend the mode is clobbered across abnormal edges.  */
 	  {
@@ -592,7 +598,7 @@ optimize_mode_switching (void)
 	      mode = current_mode[j];
 	      src_bb = eg->src;
 
-	      REG_SET_TO_HARD_REG_SET (live_at_edge, DF_LIVE_OUT (rtl_df, src_bb));
+	      REG_SET_TO_HARD_REG_SET (live_at_edge, DF_LIVE_OUT (df, src_bb));
 
 	      start_sequence ();
 	      EMIT_MODE_SET (entity_map[j], mode, live_at_edge);
@@ -693,7 +699,6 @@ optimize_mode_switching (void)
     }
 
   /* Finished. Free up all the things we've allocated.  */
-
   sbitmap_vector_free (kill);
   sbitmap_vector_free (antic);
   sbitmap_vector_free (transp);
@@ -702,6 +707,8 @@ optimize_mode_switching (void)
   if (need_commit)
     commit_edge_insertions ();
 
+  df_finish (df);
+
 #if defined (MODE_ENTRY) && defined (MODE_EXIT)
   cleanup_cfg (CLEANUP_NO_INSN_DEL);
 #else
@@ -709,12 +716,7 @@ optimize_mode_switching (void)
     return 0;
 #endif
 
-  max_regno = max_reg_num ();
   allocate_reg_info (max_regno, FALSE, FALSE);
-  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-				    (PROP_DEATH_NOTES | PROP_KILL_DEAD_CODE
-				     | PROP_SCAN_DEAD_CODE));
-
   return 1;
 }
 
@@ -730,7 +732,7 @@ gate_mode_switching (void)
 #endif
 }
 
-static void
+static unsigned int
 rest_of_handle_mode_switching (void)
 {
 #ifdef OPTIMIZE_MODE_SWITCHING
@@ -738,6 +740,7 @@ rest_of_handle_mode_switching (void)
   optimize_mode_switching ();
   no_new_pseudos = 1;
 #endif /* OPTIMIZE_MODE_SWITCHING */
+  return 0;
 }
 
 

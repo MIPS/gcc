@@ -45,6 +45,7 @@ Boston, MA 02110-1301, USA.  */
 #include "rtl.h"
 #include "timevar.h"
 #include "tree-iterator.h"
+#include "vecprim.h"
 
 /* The type of functions taking a tree, and some additional data, and
    returning an int.  */
@@ -63,8 +64,7 @@ int processing_template_parmlist;
 static int template_header_count;
 
 static GTY(()) tree saved_trees;
-static GTY(()) varray_type inline_parm_levels;
-static size_t inline_parm_levels_used;
+static VEC(int,heap) *inline_parm_levels;
 
 static GTY(()) tree current_tinst_level;
 
@@ -396,12 +396,7 @@ maybe_begin_member_template_processing (tree decl)
 
   /* Remember how many levels of template parameters we pushed so that
      we can pop them later.  */
-  if (!inline_parm_levels)
-    VARRAY_INT_INIT (inline_parm_levels, 4, "inline_parm_levels");
-  if (inline_parm_levels_used == inline_parm_levels->num_elements)
-    VARRAY_GROW (inline_parm_levels, 2 * inline_parm_levels_used);
-  VARRAY_INT (inline_parm_levels, inline_parm_levels_used) = levels;
-  ++inline_parm_levels_used;
+  VEC_safe_push (int, heap, inline_parm_levels, levels);
 }
 
 /* Undo the effects of maybe_begin_member_template_processing.  */
@@ -410,14 +405,13 @@ void
 maybe_end_member_template_processing (void)
 {
   int i;
+  int last;
 
-  if (!inline_parm_levels_used)
+  if (VEC_length (int, inline_parm_levels) == 0)
     return;
 
-  --inline_parm_levels_used;
-  for (i = 0;
-       i < VARRAY_INT (inline_parm_levels, inline_parm_levels_used);
-       ++i)
+  last = VEC_pop (int, inline_parm_levels);
+  for (i = 0; i < last; ++i)
     {
       --processing_template_decl;
       current_template_parms = TREE_CHAIN (current_template_parms);
@@ -3984,7 +3978,7 @@ convert_template_argument (tree parm,
    warning messages are issued under control of COMPLAIN.
 
    If REQUIRE_ALL_ARGS is false, argument deduction will be performed
-   for arugments not specified in ARGS.  Otherwise, if
+   for arguments not specified in ARGS.  Otherwise, if
    USE_DEFAULT_ARGS is true, default arguments will be used to fill in
    unspecified arguments.  If REQUIRE_ALL_ARGS is true, but
    USE_DEFAULT_ARGS is false, then all arguments must be specified in
@@ -5235,6 +5229,9 @@ tsubst_friend_function (tree decl, tree args)
       push_nested_namespace (ns);
       old_decl = pushdecl_namespace_level (new_friend, /*is_friend=*/true);
       pop_nested_namespace (ns);
+
+      if (old_decl == error_mark_node)
+	return error_mark_node;
 
       if (old_decl != new_friend)
 	{
@@ -8081,6 +8078,47 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     }
 }
 
+/* Like tsubst_copy, but specifically for OpenMP clauses.  */
+
+static tree
+tsubst_omp_clauses (tree clauses, tree args, tsubst_flags_t complain,
+		    tree in_decl)
+{
+  tree new_clauses = NULL, nc, oc;
+
+  for (oc = clauses; oc ; oc = OMP_CLAUSE_CHAIN (oc))
+    {
+      nc = copy_node (oc);
+      OMP_CLAUSE_CHAIN (nc) = new_clauses;
+      new_clauses = nc;
+
+      switch (OMP_CLAUSE_CODE (nc))
+	{
+	case OMP_CLAUSE_PRIVATE:
+	case OMP_CLAUSE_SHARED:
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_LASTPRIVATE:
+	case OMP_CLAUSE_REDUCTION:
+	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_COPYPRIVATE:
+	case OMP_CLAUSE_IF:
+	case OMP_CLAUSE_NUM_THREADS:
+	case OMP_CLAUSE_SCHEDULE:
+	  OMP_CLAUSE_OPERAND (nc, 0)
+	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 0), args, complain, in_decl);
+	  break;
+	case OMP_CLAUSE_NOWAIT:
+	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_DEFAULT:
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  return finish_omp_clauses (nreverse (new_clauses));
+}
+
 /* Like tsubst_copy_and_build, but unshare TREE_LIST nodes.  */
 
 static tree
@@ -8398,6 +8436,84 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
     case TAG_DEFN:
       tsubst (TREE_TYPE (t), args, complain, NULL_TREE);
+      break;
+
+    case OMP_PARALLEL:
+      tmp = tsubst_omp_clauses (OMP_PARALLEL_CLAUSES (t),
+				args, complain, in_decl);
+      stmt = begin_omp_parallel ();
+      tsubst_expr (OMP_PARALLEL_BODY (t), args, complain, in_decl);
+      finish_omp_parallel (tmp, stmt);
+      break;
+
+    case OMP_FOR:
+      {
+	tree clauses, decl, init, cond, incr, body, pre_body;
+
+	clauses = tsubst_omp_clauses (OMP_FOR_CLAUSES (t),
+				      args, complain, in_decl);
+	init = OMP_FOR_INIT (t);
+	gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
+	decl = tsubst_expr (TREE_OPERAND (init, 0), args, complain, in_decl);
+	init = tsubst_expr (TREE_OPERAND (init, 1), args, complain, in_decl);
+	cond = tsubst_expr (OMP_FOR_COND (t), args, complain, in_decl);
+	incr = tsubst_expr (OMP_FOR_INCR (t), args, complain, in_decl);
+
+	stmt = begin_omp_structured_block ();
+
+	pre_body = push_stmt_list ();
+	tsubst_expr (OMP_FOR_PRE_BODY (t), args, complain, in_decl);
+	pre_body = pop_stmt_list (pre_body);
+
+	body = push_stmt_list ();
+	tsubst_expr (OMP_FOR_BODY (t), args, complain, in_decl);
+	body = pop_stmt_list (body);
+
+	t = finish_omp_for (EXPR_LOCATION (t), decl, init, cond, incr, body,
+			    pre_body);
+	if (t)
+	  OMP_FOR_CLAUSES (t) = clauses;
+
+	add_stmt (finish_omp_structured_block (stmt));
+      }
+      break;
+
+    case OMP_SECTIONS:
+    case OMP_SINGLE:
+      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), args, complain, in_decl);
+      stmt = push_stmt_list ();
+      tsubst_expr (OMP_BODY (t), args, complain, in_decl);
+      stmt = pop_stmt_list (stmt);
+
+      t = copy_node (t);
+      OMP_BODY (t) = stmt;
+      OMP_CLAUSES (t) = tmp;
+      add_stmt (t);
+      break;
+
+    case OMP_SECTION:
+    case OMP_CRITICAL:
+    case OMP_MASTER:
+    case OMP_ORDERED:
+      stmt = push_stmt_list ();
+      tsubst_expr (OMP_BODY (t), args, complain, in_decl);
+      stmt = pop_stmt_list (stmt);
+
+      t = copy_node (t);
+      OMP_BODY (t) = stmt;
+      add_stmt (t);
+      break;
+
+    case OMP_ATOMIC:
+      {
+	tree op0, op1;
+	op0 = tsubst_expr (TREE_OPERAND (t, 0), args, complain, in_decl);
+	op1 = tsubst_expr (TREE_OPERAND (t, 1), args, complain, in_decl);
+	if (OMP_ATOMIC_DEPENDENT_P (t))
+	  c_finish_omp_atomic (OMP_ATOMIC_CODE (t), op0, op1);
+	else
+	  add_stmt (build2 (OMP_ATOMIC, void_type_node, op0, op1));
+      }
       break;
 
     default:
@@ -8777,7 +8893,8 @@ tsubst_copy_and_build (tree t,
 		      (TREE_OPERAND (function, 0),
 		       TREE_OPERAND (function, 1),
 		       call_args, NULL_TREE,
-		       qualified_p ? LOOKUP_NONVIRTUAL : LOOKUP_NORMAL));
+		       qualified_p ? LOOKUP_NONVIRTUAL : LOOKUP_NORMAL,
+		       /*fn_p=*/NULL));
 	  }
 	return finish_call_expr (function, call_args,
 				 /*disallow_virtual=*/qualified_p,

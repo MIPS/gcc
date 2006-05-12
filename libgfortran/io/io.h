@@ -371,7 +371,9 @@ typedef struct st_parameter_dt
 	  void (*transfer) (struct st_parameter_dt *, bt, void *, int,
 			    size_t, size_t);
 	  struct gfc_unit *current_unit;
-	  int item_count; /* Item number in a formatted data transfer.  */
+	  /* Item number in a formatted data transfer.  Also used in namelist
+	       read_logical as an index into line_buffer.  */
+	  int item_count;
 	  unit_mode mode;
 	  unit_blank blank_status;
 	  enum {SIGN_S, SIGN_SS, SIGN_SP} sign_status;
@@ -409,7 +411,13 @@ typedef struct st_parameter_dt
 	     character string is being read so don't use commas to shorten a
 	     formatted field width.  */
 	  unsigned sf_read_comma : 1;
-	  /* 19 unused bits.  */
+          /* A namelist specific flag used to enable reading input from 
+	     line_buffer for logical reads.  */
+	  unsigned line_buffer_enabled : 1;
+	  /* An internal unit specific flag used to identify that the associated
+	     unit is internal.  */
+	  unsigned unit_is_internal : 1;
+	  /* 17 unused bits.  */
 
 	  char last_char;
 	  char nml_delim;
@@ -429,11 +437,20 @@ typedef struct st_parameter_dt
 	     enough to hold a complex value (two reals) of the largest
 	     kind.  */
 	  char value[32];
+	  gfc_offset size_used;
 	} p;
-      char pad[16 * sizeof (char *) + 34 * sizeof (int)];
+      /* This pad size must be equal to the pad_size declared in
+	 trans-io.c (gfc_build_io_library_fndecls).  The above structure
+	 must be smaller or equal to this array.  */
+      char pad[16 * sizeof (char *) + 32 * sizeof (int)];
     } u;
 }
 st_parameter_dt;
+
+/* Ensure st_parameter_dt's u.pad is bigger or equal to u.p.  */
+extern char check_st_parameter_dt[sizeof (((st_parameter_dt *) 0)->u.pad)
+				  >= sizeof (((st_parameter_dt *) 0)->u.p)
+				  ? 1 : -1];
 
 #undef CHARACTER1
 #undef CHARACTER2
@@ -685,6 +702,12 @@ internal_proto(unit_lock);
 extern int close_unit (gfc_unit *);
 internal_proto(close_unit);
 
+extern gfc_unit *get_internal_unit (st_parameter_dt *);
+internal_proto(get_internal_unit);
+
+extern void free_internal_unit (st_parameter_dt *);
+internal_proto(free_internal_unit);
+
 extern int is_internal_unit (st_parameter_dt *);
 internal_proto(is_internal_unit);
 
@@ -737,6 +760,9 @@ internal_proto(type_name);
 
 extern void *read_block (st_parameter_dt *, int *);
 internal_proto(read_block);
+
+extern char *read_sf (st_parameter_dt *, int *, int);
+internal_proto(read_sf);
 
 extern void *write_block (st_parameter_dt *, int);
 internal_proto(write_block);

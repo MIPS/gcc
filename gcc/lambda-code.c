@@ -41,6 +41,7 @@
 #include "tree-scalar-evolution.h"
 #include "vec.h"
 #include "lambda.h"
+#include "vecprim.h"
 
 /* This loop nest code generation is based on non-singular matrix
    math.
@@ -113,9 +114,6 @@
 
  Fourier-Motzkin elimination is used to compute the bounds of the base space
  of the lattice.  */
-
-DEF_VEC_I(int);
-DEF_VEC_ALLOC_I(int,heap);
 
 static bool perfect_nestify (struct loops *, 
 			     struct loop *, VEC(tree,heap) *, 
@@ -2257,18 +2255,15 @@ can_convert_to_perfect_nest (struct loop *loop,
 		if (stmt_uses_op (stmt, iv))
 		  goto fail;
 	      
-	      /* If this is a simple operation like a cast that is
-		 invariant in the inner loop, or after the inner loop,
-		 then see if we can place it back where it came from.
-		 This means that we will propagate casts and other
-		 cheap invariant operations *back* into or after
-		 the inner loop if we can interchange the loop, on the
-		 theory that we are going to gain a lot more by
-		 interchanging the loop than we are by leaving some
-		 invariant code there for some other pass to clean
-		 up.  */
+	      /* If this is a scalar operation that can be put back
+	         into the inner loop, or after the inner loop, through
+		 copying, then do so. This works on the theory that
+		 any amount of scalar code we have to reduplicate
+		 into or after the loops is less expensive that the
+		 win we get from rearranging the memory walk
+		 the loop is doing so that it has better
+		 cache behavior.  */
 	      if (TREE_CODE (stmt) == MODIFY_EXPR
-		  && is_gimple_cast (TREE_OPERAND (stmt, 1))
 		  && (can_put_in_inner_loop (loop->inner, stmt)
 		      || can_put_after_inner_loop (loop, stmt)))
 		continue;
@@ -2581,7 +2576,7 @@ perfect_nestify (struct loops *loops,
 bool
 lambda_transform_legal_p (lambda_trans_matrix trans, 
 			  int nb_loops,
-			  varray_type dependence_relations)
+			  VEC (ddr_p, heap) *dependence_relations)
 {
   unsigned int i, j;
   lambda_vector distres;
@@ -2592,8 +2587,7 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
 
   /* When there is an unknown relation in the dependence_relations, we
      know that it is no worth looking at this loop nest: give up.  */
-  ddr = (struct data_dependence_relation *) 
-    VARRAY_GENERIC_PTR (dependence_relations, 0);
+  ddr = VEC_index (ddr_p, dependence_relations, 0);
   if (ddr == NULL)
     return true;
   if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
@@ -2602,11 +2596,8 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
   distres = lambda_vector_new (nb_loops);
 
   /* For each distance vector in the dependence graph.  */
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
+  for (i = 0; VEC_iterate (ddr_p, dependence_relations, i, ddr); i++)
     {
-      ddr = (struct data_dependence_relation *) 
-	VARRAY_GENERIC_PTR (dependence_relations, i);     
-
       /* Don't care about relations for which we know that there is no
 	 dependence, nor about read-read (aka. output-dependences):
 	 these data accesses can happen in any order.  */

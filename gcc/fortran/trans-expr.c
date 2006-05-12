@@ -142,6 +142,31 @@ gfc_conv_expr_present (gfc_symbol * sym)
 }
 
 
+/* Converts a missing, dummy argument into a null or zero.  */
+
+void
+gfc_conv_missing_dummy (gfc_se * se, gfc_expr * arg, gfc_typespec ts)
+{
+  tree present;
+  tree tmp;
+
+  present = gfc_conv_expr_present (arg->symtree->n.sym);
+  tmp = build3 (COND_EXPR, TREE_TYPE (se->expr), present, se->expr,
+		convert (TREE_TYPE (se->expr), integer_zero_node));
+  tmp = gfc_evaluate_now (tmp, &se->pre);
+  se->expr = tmp;
+  if (ts.type == BT_CHARACTER)
+    {
+      tmp = convert (gfc_charlen_type_node, integer_zero_node);
+      tmp = build3 (COND_EXPR, gfc_charlen_type_node, present,
+		    se->string_length, tmp);
+      tmp = gfc_evaluate_now (tmp, &se->pre);
+      se->string_length = tmp;
+    }
+  return;
+}
+
+
 /* Get the character length of an expression, looking through gfc_refs
    if necessary.  */
 
@@ -296,6 +321,11 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 {
   gfc_ref *ref;
   gfc_symbol *sym;
+  tree parent_decl;
+  int parent_flag;
+  bool return_value;
+  bool alternate_entry;
+  bool entry_master;
 
   sym = expr->symtree->n.sym;
   if (se->ss != NULL)
@@ -317,32 +347,48 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 
       se->expr = gfc_get_symbol_decl (sym);
 
+      /* Deal with references to a parent results or entries by storing
+	 the current_function_decl and moving to the parent_decl.  */
+      return_value = sym->attr.function && sym->result == sym;
+      alternate_entry = sym->attr.function && sym->attr.entry
+			&& sym->result == sym;
+      entry_master = sym->attr.result
+		     && sym->ns->proc_name->attr.entry_master
+		     && !gfc_return_by_reference (sym->ns->proc_name);
+      parent_decl = DECL_CONTEXT (current_function_decl);
+
+      if ((se->expr == parent_decl && return_value)
+	   || (sym->ns && sym->ns->proc_name
+	       && sym->ns->proc_name->backend_decl == parent_decl
+	       && (alternate_entry || entry_master)))
+	parent_flag = 1;
+      else
+	parent_flag = 0;
+
       /* Special case for assigning the return value of a function.
 	 Self recursive functions must have an explicit return value.  */
-      if (se->expr == current_function_decl && sym->attr.function
-	  && (sym->result == sym))
-	se_expr = gfc_get_fake_result_decl (sym);
+      if (return_value && (se->expr == current_function_decl || parent_flag))
+	se_expr = gfc_get_fake_result_decl (sym, parent_flag);
 
       /* Similarly for alternate entry points.  */
-      else if (sym->attr.function && sym->attr.entry
-	       && (sym->result == sym)
-	       && sym->ns->proc_name->backend_decl == current_function_decl)
+      else if (alternate_entry 
+	       && (sym->ns->proc_name->backend_decl == current_function_decl
+		   || parent_flag))
 	{
 	  gfc_entry_list *el = NULL;
 
 	  for (el = sym->ns->entries; el; el = el->next)
 	    if (sym == el->sym)
 	      {
-		se_expr = gfc_get_fake_result_decl (sym);
+		se_expr = gfc_get_fake_result_decl (sym, parent_flag);
 		break;
 	      }
 	}
 
-      else if (sym->attr.result
-	       && sym->ns->proc_name->backend_decl == current_function_decl
-	       && sym->ns->proc_name->attr.entry_master
-	       && !gfc_return_by_reference (sym->ns->proc_name))
-	se_expr = gfc_get_fake_result_decl (sym);
+      else if (entry_master
+	       && (sym->ns->proc_name->backend_decl == current_function_decl
+		   || parent_flag))
+	se_expr = gfc_get_fake_result_decl (sym, parent_flag);
 
       if (se_expr)
 	se->expr = se_expr;
@@ -1292,6 +1338,7 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
   new_sym->attr.referenced = 1;
   new_sym->attr.dimension = sym->attr.dimension;
   new_sym->attr.pointer = sym->attr.pointer;
+  new_sym->attr.allocatable = sym->attr.allocatable;
   new_sym->attr.flavor = sym->attr.flavor;
 
   /* Create a fake symtree for it.  */
@@ -1343,8 +1390,9 @@ gfc_add_interface_mapping (gfc_interface_mapping * mapping,
 	value = build_fold_indirect_ref (value);
     }
 
-  /* If the argument is a scalar or a pointer to an array, dereference it.  */
-  else if (!sym->attr.dimension || sym->attr.pointer)
+  /* If the argument is a scalar, a pointer to an array or an allocatable,
+     dereference it.  */
+  else if (!sym->attr.dimension || sym->attr.pointer || sym->attr.allocatable)
     value = build_fold_indirect_ref (se->expr);
   
   /* For character(*), use the actual argument's descriptor.  */  
@@ -1664,7 +1712,7 @@ gfc_conv_aliased_arg (gfc_se * parmse, gfc_expr * expr, int g77)
      temporary array has lbounds of zero and strides of one in all
      dimensions, so this is very simple.  The offset is only computed
      outside the innermost loop, so the overall transfer could be
-     optimised further.  */
+     optimized further.  */
   info = &rse.ss->data.info;
 
   tmp_index = gfc_index_zero_node;
@@ -1779,8 +1827,12 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   gfc_formal_arglist *formal;
   int has_alternate_specifier = 0;
   bool need_interface_mapping;
+  bool callee_alloc;
   gfc_typespec ts;
   gfc_charlen cl;
+  gfc_expr *e;
+  gfc_symbol *fsym;
+  stmtblock_t post;
 
   arglist = NULL_TREE;
   retargs = NULL_TREE;
@@ -1810,6 +1862,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   else
     info = NULL;
 
+  gfc_init_block (&post);
   gfc_init_interface_mapping (&mapping);
   need_interface_mapping = ((sym->ts.type == BT_CHARACTER
 				  && sym->ts.cl->length
@@ -1820,7 +1873,9 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
   /* Evaluate the arguments.  */
   for (; arg != NULL; arg = arg->next, formal = formal ? formal->next : NULL)
     {
-      if (arg->expr == NULL)
+      e = arg->expr;
+      fsym = formal ? formal->sym : NULL;
+      if (e == NULL)
 	{
 
 	  if (se->ignore_optional)
@@ -1848,19 +1903,19 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	{
 	  /* An elemental function inside a scalarized loop.  */
           gfc_init_se (&parmse, se);
-          gfc_conv_expr_reference (&parmse, arg->expr);
+          gfc_conv_expr_reference (&parmse, e);
 	}
       else
 	{
 	  /* A scalar or transformational function.  */
 	  gfc_init_se (&parmse, NULL);
-	  argss = gfc_walk_expr (arg->expr);
+	  argss = gfc_walk_expr (e);
 
 	  if (argss == gfc_ss_terminator)
             {
-	      gfc_conv_expr_reference (&parmse, arg->expr);
-              if (formal && formal->sym->attr.pointer
-		  && arg->expr->expr_type != EXPR_NULL)
+	      gfc_conv_expr_reference (&parmse, e);
+              if (fsym && fsym->attr.pointer
+		  && e->expr_type != EXPR_NULL)
                 {
                   /* Scalar pointer dummy args require an extra level of
 		  indirection. The null pointer already contains
@@ -1870,35 +1925,54 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
             }
 	  else
 	    {
-	      /* If the procedure requires an explicit interface, the
-		 actual argument is passed according to the
-		 corresponding formal argument.  If the corresponding
-		 formal argument is a POINTER or assumed shape, we do
-		 not use g77's calling convention, and pass the
-		 address of the array descriptor instead. Otherwise we
-		 use g77's calling convention.  */
+              /* If the procedure requires an explicit interface, the actual
+                 argument is passed according to the corresponding formal
+                 argument.  If the corresponding formal argument is a POINTER,
+                 ALLOCATABLE or assumed shape, we do not use g77's calling
+                 convention, and pass the address of the array descriptor
+                 instead. Otherwise we use g77's calling convention.  */
 	      int f;
-	      f = (formal != NULL)
-		  && !formal->sym->attr.pointer
-		  && formal->sym->as->type != AS_ASSUMED_SHAPE;
+	      f = (fsym != NULL)
+		  && !(fsym->attr.pointer || fsym->attr.allocatable)
+		  && fsym->as->type != AS_ASSUMED_SHAPE;
 	      f = f || !sym->attr.always_explicit;
-	      if (arg->expr->expr_type == EXPR_VARIABLE
-		    && is_aliased_array (arg->expr))
+	      if (e->expr_type == EXPR_VARIABLE
+		    && is_aliased_array (e))
 		/* The actual argument is a component reference to an
 		   array of derived types.  In this case, the argument
 		   is converted to a temporary, which is passed and then
 		   written back after the procedure call.  */
-		gfc_conv_aliased_arg (&parmse, arg->expr, f);
+		gfc_conv_aliased_arg (&parmse, e, f);
 	      else
-	        gfc_conv_array_parameter (&parmse, arg->expr, argss, f);
+	        gfc_conv_array_parameter (&parmse, e, argss, f);
+
+              /* If an ALLOCATABLE dummy argument has INTENT(OUT) and is 
+                 allocated on entry, it must be deallocated.  */
+              if (fsym && fsym->attr.allocatable
+                  && fsym->attr.intent == INTENT_OUT)
+                {
+		  tmp = e->symtree->n.sym->backend_decl;
+		  if (e->symtree->n.sym->attr.dummy)
+                    tmp = build_fold_indirect_ref (tmp);
+                  tmp = gfc_trans_dealloc_allocated (tmp);
+                  gfc_add_expr_to_block (&se->pre, tmp);
+                }
+
 	    } 
 	}
 
-      if (formal && need_interface_mapping)
-	gfc_add_interface_mapping (&mapping, formal->sym, &parmse);
+      /* If an optional argument is itself an optional dummy argument,
+	 check its presence and substitute a null if absent.  */
+      if (e && e->expr_type == EXPR_VARIABLE
+	    && e->symtree->n.sym->attr.optional
+	    && fsym && fsym->attr.optional)
+	gfc_conv_missing_dummy (&parmse, e, fsym->ts);
+
+      if (fsym && need_interface_mapping)
+	gfc_add_interface_mapping (&mapping, fsym, &parmse);
 
       gfc_add_block_to_block (&se->pre, &parmse.pre);
-      gfc_add_block_to_block (&se->post, &parmse.post);
+      gfc_add_block_to_block (&post, &parmse.post);
 
       /* Character strings are passed as two parameters, a length and a
          pointer.  */
@@ -1957,11 +2031,12 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	  /* Evaluate the bounds of the result, if known.  */
 	  gfc_set_loop_bounds_from_array_spec (&mapping, se, sym->result->as);
 
-	  /* Allocate a temporary to store the result.  In case the function
-             returns a pointer, the temporary will be a shallow copy and
-             mustn't be deallocated.  */
-          gfc_trans_allocate_temp_array (&se->pre, &se->post, se->loop, info,
-                                         tmp, false, !sym->attr.pointer);
+	  /* Create a temporary to store the result.  In case the function
+	     returns a pointer, the temporary will be a shallow copy and
+	     mustn't be deallocated.  */
+	  callee_alloc = sym->attr.allocatable || sym->attr.pointer;
+	  gfc_trans_create_temp_array (&se->pre, &se->post, se->loop, info, tmp,
+				       false, !sym->attr.pointer, callee_alloc);
 
 	  /* Zero the first stride to indicate a temporary.  */
 	  tmp = gfc_conv_descriptor_stride (info->descriptor, gfc_rank_cst[0]);
@@ -2103,6 +2178,12 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	    }
 	}
     }
+
+  /* Follow the function call with the argument post block.  */
+  if (byref)
+    gfc_add_block_to_block (&se->pre, &post);
+  else
+    gfc_add_block_to_block (&se->post, &post);
 
   return has_alternate_specifier;
 }
@@ -2920,7 +3001,8 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
     return NULL;
 
   /* Functions returning pointers need temporaries.  */
-  if (expr2->symtree->n.sym->attr.pointer)
+  if (expr2->symtree->n.sym->attr.pointer 
+      || expr2->symtree->n.sym->attr.allocatable)
     return NULL;
 
   /* Check that no LHS component references appear during an array

@@ -21,7 +21,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 02110-1301, USA.  */
 
 /* This is the pathetic reminder of old fame of the jump-optimization pass
-   of the compiler.  Now it contains basically set of utility function to
+   of the compiler.  Now it contains basically a set of utility functions to
    operate with jumps.
 
    Each CODE_LABEL has a count of the times it is used
@@ -104,7 +104,7 @@ rebuild_jump_labels (rtx f)
    This simple pass moves barriers and removes duplicates so that the
    old code is happy.
  */
-void
+unsigned int
 cleanup_barriers (void)
 {
   rtx insn, next, prev;
@@ -120,6 +120,7 @@ cleanup_barriers (void)
 	    reorder_insns (insn, insn, prev);
 	}
     }
+  return 0;
 }
 
 struct tree_opt_pass pass_cleanup_barriers =
@@ -139,7 +140,7 @@ struct tree_opt_pass pass_cleanup_barriers =
   0                                     /* letter */
 };
 
-void
+unsigned int
 purge_line_number_notes (void)
 {
   rtx last_note = 0;
@@ -175,6 +176,7 @@ purge_line_number_notes (void)
 	    last_note = insn;
 	  }
       }
+  return 0;
 }
 
 struct tree_opt_pass pass_purge_lineno_notes =
@@ -258,11 +260,11 @@ mark_all_labels (rtx f)
       }
 }
 
-/* Move all block-beg, block-end, loop-beg, loop-cont, loop-vtop, loop-end,
-   notes between START and END out before START.  START and END may be such
-   notes.  Returns the values of the new starting and ending insns, which
-   may be different if the original ones were such notes.
-   Return true if there were only such notes and no real instructions.  */
+/* Move all block-beg, block-end and loop-beg notes between START and END out
+   before START.  START and END may be such notes.  Returns the values of the
+   new starting and ending insns, which may be different if the original ones
+   were such notes.  Return true if there were only such notes and no real
+   instructions.  */
 
 bool
 squeeze_notes (rtx* startp, rtx* endp)
@@ -280,9 +282,7 @@ squeeze_notes (rtx* startp, rtx* endp)
       next = NEXT_INSN (insn);
       if (NOTE_P (insn)
 	  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END))
+	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG))
 	{
 	  /* BLOCK_BEG or BLOCK_END notes only exist in the `final' pass.  */
 	  gcc_assert (NOTE_LINE_NUMBER (insn) != NOTE_INSN_BLOCK_BEG
@@ -1039,8 +1039,7 @@ sets_cc0_p (rtx x)
    If the chain loops or we can't find end, return LABEL,
    since that tells caller to avoid changing the insn.
 
-   If RELOAD_COMPLETED is 0, we do not chain across a NOTE_INSN_LOOP_BEG or
-   a USE or CLOBBER.  */
+   If RELOAD_COMPLETED is 0, we do not chain across a USE or CLOBBER.  */
 
 rtx
 follow_jumps (rtx label)
@@ -1061,19 +1060,15 @@ follow_jumps (rtx label)
 	&& BARRIER_P (next));
        depth++)
     {
-      /* Don't chain through the insn that jumps into a loop
-	 from outside the loop,
-	 since that would create multiple loop entry jumps
-	 and prevent loop optimization.  */
       rtx tem;
-      if (!reload_completed)
-	for (tem = value; tem != insn; tem = NEXT_INSN (tem))
-	  if (NOTE_P (tem)
-	      && (NOTE_LINE_NUMBER (tem) == NOTE_INSN_LOOP_BEG
-		  /* ??? Optional.  Disables some optimizations, but makes
-		     gcov output more accurate with -O.  */
-		  || (flag_test_coverage && NOTE_LINE_NUMBER (tem) > 0)))
-	    return value;
+      if (!reload_completed && flag_test_coverage)
+	{
+	  /* ??? Optional.  Disables some optimizations, but makes
+	     gcov output more accurate with -O.  */
+	  for (tem = value; tem != insn; tem = NEXT_INSN (tem))
+	    if (NOTE_P (tem) && NOTE_LINE_NUMBER (tem) > 0)
+	      return value;
+	}
 
       /* If we have found a cycle, make the insn jump to itself.  */
       if (JUMP_LABEL (insn) == label)

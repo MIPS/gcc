@@ -174,6 +174,9 @@
 #include "tree-pass.h"
 #include "target.h"
 #include "df.h"
+#include "vecprim.h"
+
+#ifdef STACK_REGS
 
 /* We use this array to cache info about insns, because otherwise we
    spend too much time in stack_regs_mentioned_p.
@@ -181,9 +184,7 @@
    Indexed by insn UIDs.  A value of zero is uninitialized, one indicates
    the insn uses stack registers, two indicates the insn does not use
    stack registers.  */
-static GTY(()) varray_type stack_regs_mentioned_data;
-
-#ifdef STACK_REGS
+static VEC(char,heap) *stack_regs_mentioned_data;
 
 #define REG_STACK_SIZE (LAST_STACK_REG - FIRST_STACK_REG + 1)
 
@@ -314,21 +315,27 @@ stack_regs_mentioned (rtx insn)
     return 0;
 
   uid = INSN_UID (insn);
-  max = VARRAY_SIZE (stack_regs_mentioned_data);
+  max = VEC_length (char, stack_regs_mentioned_data);
   if (uid >= max)
     {
+      char *p;
+      unsigned int old_max = max;
+
       /* Allocate some extra size to avoid too many reallocs, but
 	 do not grow too quickly.  */
-      max = uid + uid / 20;
-      VARRAY_GROW (stack_regs_mentioned_data, max);
+      max = uid + uid / 20 + 1;
+      VEC_safe_grow (char, heap, stack_regs_mentioned_data, max);
+      p = VEC_address (char, stack_regs_mentioned_data);
+      memset (&p[old_max], 0,
+	      sizeof (char) * (max - old_max));
     }
 
-  test = VARRAY_CHAR (stack_regs_mentioned_data, uid);
+  test = VEC_index (char, stack_regs_mentioned_data, uid);
   if (test == 0)
     {
       /* This insn has yet to be examined.  Do so now.  */
       test = stack_regs_mentioned_p (PATTERN (insn)) ? 1 : 2;
-      VARRAY_CHAR (stack_regs_mentioned_data, uid) = test;
+      VEC_replace (char, stack_regs_mentioned_data, uid, test);
     }
 
   return test == 1;
@@ -1327,9 +1334,12 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	    emit_pop_insn (insn, regstack, *src, EMIT_AFTER);
 	  return control_flow_insn_deleted;
 	}
-      /* ??? Uninitialized USE should not happen.  */
-      else
-	gcc_assert (get_hard_regnum (regstack, *src) != -1);
+      /* Uninitialized USE might happen for functions returning uninitialized
+         value.  We will properly initialize the USE on the edge to EXIT_BLOCK,
+	 so it is safe to ignore the use here. This is consistent with behaviour
+	 of dataflow analyzer that ignores USE too.  (This also imply that 
+	 forcingly initializing the register to NaN here would lead to ICE later,
+	 since the REG_DEAD notes are not issued.)  */
       break;
 
     case CLOBBER:
@@ -3068,7 +3078,8 @@ reg_to_stack (void)
   int max_uid;
 
   /* Clean up previous run.  */
-  stack_regs_mentioned_data = 0;
+  if (stack_regs_mentioned_data != NULL)
+    VEC_free (char, heap, stack_regs_mentioned_data);
 
   /* See if there is something to do.  Flow analysis is quite
      expensive so we might save some compilation time.  */
@@ -3079,9 +3090,9 @@ reg_to_stack (void)
     return false;
 
   df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (df);
-  df_ur_add_problem (df);
-  df_ri_add_problem (df);
+  df_lr_add_problem (df, 0);
+  df_ur_add_problem (df, 0);
+  df_ri_add_problem (df, 0);
   df_analyze (df);
 
   mark_dfs_back_edges ();
@@ -3146,8 +3157,9 @@ reg_to_stack (void)
 
   /* Allocate a cache for stack_regs_mentioned.  */
   max_uid = get_max_uid ();
-  VARRAY_CHAR_INIT (stack_regs_mentioned_data, max_uid + 1,
-		    "stack_regs_mentioned cache");
+  stack_regs_mentioned_data = VEC_alloc (char, heap, max_uid + 1);
+  memset (VEC_address (char, stack_regs_mentioned_data),
+	  0, sizeof (char) * max_uid + 1);
 
   convert_regs ();
 
@@ -3169,27 +3181,14 @@ gate_handle_stack_regs (void)
 
 /* Convert register usage from flat register file usage to a stack
    register file.  */
-static void
+static unsigned int
 rest_of_handle_stack_regs (void)
 {
 #ifdef STACK_REGS
-#if 0
-  if (reg_to_stack () && optimize)
-    {
-      regstack_completed = 1;
-      if (cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
-                       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
-          && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
-        {
-          reorder_basic_blocks ();
-          cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
-        }
-    }
-#else
   reg_to_stack ();
-#endif
   regstack_completed = 1;
 #endif
+  return 0;
 }
 
 struct tree_opt_pass pass_stack_regs =
@@ -3209,5 +3208,3 @@ struct tree_opt_pass pass_stack_regs =
   TODO_ggc_collect,                     /* todo_flags_finish */
   'k'                                   /* letter */
 };
-
-#include "gt-reg-stack.h"

@@ -43,6 +43,7 @@
 #include "basic-block.h"
 #include "toplev.h"
 #include "et-forest.h"
+#include "timevar.h"
 
 /* Whether the dominators and the postdominators are available.  */
 enum dom_state dom_computed[2];
@@ -617,6 +618,7 @@ calculate_dominance_info (enum cdi_direction dir)
   if (dom_computed[dir] == DOM_OK)
     return;
 
+  timevar_push (TV_DOMINANCE);
   if (!dom_info_available_p (dir))
     {
       gcc_assert (!n_bbs_in_dom_tree[dir]);
@@ -644,6 +646,8 @@ calculate_dominance_info (enum cdi_direction dir)
     }
 
   compute_dom_fast_query (dir);
+
+  timevar_pop (TV_DOMINANCE);
 }
 
 /* Free dominance information for direction DIR.  */

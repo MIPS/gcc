@@ -1,5 +1,5 @@
 /* Support routines for the various generation passes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -287,6 +287,10 @@ process_rtx (rtx desc, int lineno)
 
     case DEFINE_PREDICATE:
     case DEFINE_SPECIAL_PREDICATE:
+    case DEFINE_CONSTRAINT:
+    case DEFINE_REGISTER_CONSTRAINT:
+    case DEFINE_MEMORY_CONSTRAINT:
+    case DEFINE_ADDRESS_CONSTRAINT:
       queue_pattern (desc, &define_pred_tail, read_rtx_filename, lineno);
       break;
 
@@ -464,6 +468,8 @@ identify_predicable_attribute (void)
       message_with_line (elem->lineno,
 			 "attribute `predicable' is not a boolean");
       errors = 1;
+      if (p_false)
+        free (p_false);
       return;
     }
   p_true[-1] = '\0';
@@ -481,12 +487,16 @@ identify_predicable_attribute (void)
       message_with_line (elem->lineno,
 			 "attribute `predicable' cannot be const");
       errors = 1;
+      if (p_false)
+	free (p_false);
       return;
 
     default:
       message_with_line (elem->lineno,
 			 "attribute `predicable' must have a constant default");
       errors = 1;
+      if (p_false)
+	free (p_false);
       return;
     }
 
@@ -500,6 +510,8 @@ identify_predicable_attribute (void)
 			 "unknown value `%s' for `predicable' attribute",
 			 value);
       errors = 1;
+      if (p_false)
+	free (p_false);
     }
 }
 

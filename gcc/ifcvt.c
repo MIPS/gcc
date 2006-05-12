@@ -44,6 +44,7 @@
 #include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
+#include "dce.h"
 
 #ifndef HAVE_conditional_execution
 #define HAVE_conditional_execution 0
@@ -77,14 +78,11 @@ static int num_possible_if_blocks;
    execution.  */
 static int num_updated_if_blocks;
 
-/* # of changes made which require life information to be updated.  */
+/* # of changes made.  */
 static int num_true_changes;
 
 /* Whether conditional execution changes were made.  */
 static int cond_exec_changed_p;
-
-/* True if life data ok at present.  */
-static bool life_data_ok;
 
 /* Forward references.  */
 static int count_bb_insns (basic_block);
@@ -94,20 +92,20 @@ static rtx last_active_insn (basic_block, int);
 static basic_block block_fallthru (basic_block);
 static int cond_exec_process_insns (ce_if_block_t *, rtx, rtx, rtx, rtx, int);
 static rtx cond_exec_get_condition (rtx);
-static int cond_exec_process_if_block (ce_if_block_t *, int);
+static int cond_exec_process_if_block (struct df *, bitmap, ce_if_block_t *, int);
 static rtx noce_get_condition (rtx, rtx *);
 static int noce_operand_ok (rtx);
-static int noce_process_if_block (ce_if_block_t *);
-static int process_if_block (ce_if_block_t *);
-static void merge_if_block (ce_if_block_t *);
-static int find_cond_trap (basic_block, edge, edge);
-static basic_block find_if_header (basic_block, int);
+static int noce_process_if_block (struct df *, bitmap, ce_if_block_t *);
+static int process_if_block (struct df *, bitmap, ce_if_block_t *);
+static void merge_if_block (struct df *, bitmap, ce_if_block_t *);
+static int find_cond_trap (struct df *, bitmap, basic_block, edge, edge);
+static basic_block find_if_header (struct df *, bitmap, basic_block, int);
 static int block_jumps_and_fallthru_p (basic_block, basic_block);
-static int find_if_block (ce_if_block_t *);
-static int find_if_case_1 (basic_block, edge, edge);
-static int find_if_case_2 (basic_block, edge, edge);
+static int find_if_block (struct df *, bitmap, ce_if_block_t *);
+static int find_if_case_1 (struct df *, bitmap, basic_block, edge, edge);
+static int find_if_case_2 (struct df *, bitmap, basic_block, edge, edge);
 static int find_memory (rtx *, void *);
-static int dead_or_predicable (basic_block, basic_block, basic_block,
+static int dead_or_predicable (struct df *, basic_block, basic_block, basic_block,
 			       basic_block, int);
 static void noce_emit_move_insn (rtx, rtx);
 static rtx block_has_only_trap (basic_block);
@@ -369,7 +367,8 @@ cond_exec_get_condition (rtx jump)
    converting the block.  */
 
 static int
-cond_exec_process_if_block (ce_if_block_t * ce_info,
+cond_exec_process_if_block (struct df *df, bitmap modified, 
+			    ce_if_block_t * ce_info,
 			    /* if block information */int do_multiple_p)
 {
   basic_block test_bb = ce_info->test_bb;	/* last test block */
@@ -572,7 +571,7 @@ cond_exec_process_if_block (ce_if_block_t * ce_info,
 	     n_insns, (n_insns == 1) ? " was" : "s were");
 
   /* Merge the blocks!  */
-  merge_if_block (ce_info);
+  merge_if_block (df, modified, ce_info);
   cond_exec_changed_p = TRUE;
   return TRUE;
 
@@ -702,47 +701,76 @@ noce_emit_move_insn (rtx x, rtx y)
       end_sequence();
 
       if (recog_memoized (insn) <= 0)
-	switch (GET_RTX_CLASS (GET_CODE (y)))
-	  {
-	  case RTX_UNARY:
-	    ot = code_to_optab[GET_CODE (y)];
-	    if (ot)
-	      {
-		start_sequence ();
-		target = expand_unop (GET_MODE (y), ot, XEXP (y, 0), x, 0);
-		if (target != NULL_RTX)
-		  {
-		    if (target != x)
-		      emit_move_insn (x, target);
-		    seq = get_insns ();
-		  }
-		end_sequence ();
-	      }
-	    break;
+	{
+	  if (GET_CODE (x) == ZERO_EXTRACT)
+	    {
+	      rtx op = XEXP (x, 0);
+	      unsigned HOST_WIDE_INT size = INTVAL (XEXP (x, 1));
+	      unsigned HOST_WIDE_INT start = INTVAL (XEXP (x, 2));
 
-	  case RTX_BIN_ARITH:
-	  case RTX_COMM_ARITH:
-	    ot = code_to_optab[GET_CODE (y)];
-	    if (ot)
-	      {
-		start_sequence ();
-		target = expand_binop (GET_MODE (y), ot,
-				       XEXP (y, 0), XEXP (y, 1),
-				       x, 0, OPTAB_DIRECT);
-		if (target != NULL_RTX)
-		  {
-		    if (target != x)
-		      emit_move_insn (x, target);
-		    seq = get_insns ();
-		  }
-		end_sequence ();
-	      }
-	    break;
+	      /* store_bit_field expects START to be relative to 
+		 BYTES_BIG_ENDIAN and adjusts this value for machines with 
+		 BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN.  In order to be able to 
+		 invoke store_bit_field again it is necessary to have the START
+		 value from the first call.  */
+	      if (BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
+		{
+		  if (MEM_P (op))
+		    start = BITS_PER_UNIT - start - size;
+		  else
+		    {
+		      gcc_assert (REG_P (op));
+		      start = BITS_PER_WORD - start - size;
+		    }
+		}
 
-	  default:
-	    break;
-	  }
+	      gcc_assert (start < (MEM_P (op) ? BITS_PER_UNIT : BITS_PER_WORD));
+	      store_bit_field (op, size, start, GET_MODE (x), y);
+	      return;
+	    }
 
+	  switch (GET_RTX_CLASS (GET_CODE (y)))
+	    {
+	    case RTX_UNARY:
+	      ot = code_to_optab[GET_CODE (y)];
+	      if (ot)
+		{
+		  start_sequence ();
+		  target = expand_unop (GET_MODE (y), ot, XEXP (y, 0), x, 0);
+		  if (target != NULL_RTX)
+		    {
+		      if (target != x)
+			emit_move_insn (x, target);
+		      seq = get_insns ();
+		    }
+		  end_sequence ();
+		}
+	      break;
+	      
+	    case RTX_BIN_ARITH:
+	    case RTX_COMM_ARITH:
+	      ot = code_to_optab[GET_CODE (y)];
+	      if (ot)
+		{
+		  start_sequence ();
+		  target = expand_binop (GET_MODE (y), ot,
+					 XEXP (y, 0), XEXP (y, 1),
+					 x, 0, OPTAB_DIRECT);
+		  if (target != NULL_RTX)
+		    {
+		      if (target != x)
+			  emit_move_insn (x, target);
+		      seq = get_insns ();
+		    }
+		  end_sequence ();
+		}
+	      break;
+	      
+	    default:
+	      break;
+	    }
+	}
+      
       emit_insn (seq);
       return;
     }
@@ -2136,7 +2164,7 @@ noce_mem_write_may_trap_or_fault_p (rtx mem)
    successful at converting the block.  */
 
 static int
-noce_process_if_block (struct ce_if_block * ce_info)
+noce_process_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_info)
 {
   basic_block test_bb = ce_info->test_bb;	/* test block */
   basic_block then_bb = ce_info->then_bb;	/* THEN */
@@ -2231,6 +2259,12 @@ noce_process_if_block (struct ce_if_block * ce_info)
     {
       if (no_new_pseudos || GET_MODE (x) == BLKmode)
 	return FALSE;
+
+      if (GET_MODE (x) == ZERO_EXTRACT 
+	  && (GET_CODE (XEXP (x, 1)) != CONST_INT 
+	      || GET_CODE (XEXP (x, 2)) != CONST_INT))
+	return FALSE;
+	  
       x = gen_reg_rtx (GET_MODE (GET_CODE (x) == STRICT_LOW_PART
 				 ? XEXP (x, 0) : x));
     }
@@ -2357,7 +2391,7 @@ noce_process_if_block (struct ce_if_block * ce_info)
     }
 
   /* Merge the blocks!  */
-  merge_if_block (ce_info);
+  merge_if_block (df, modified, ce_info);
 
   return TRUE;
 }
@@ -2425,7 +2459,8 @@ check_cond_move_block (basic_block bb, rtx *vals, rtx cond)
    converting the block.  */
 
 static int
-cond_move_process_if_block (struct ce_if_block *ce_info)
+cond_move_process_if_block (struct df *df, bitmap modified, 
+			    struct ce_if_block *ce_info)
 {
   basic_block then_bb = ce_info->then_bb;
   basic_block else_bb = ce_info->else_bb;
@@ -2586,7 +2621,7 @@ cond_move_process_if_block (struct ce_if_block *ce_info)
     }
   delete_insn (jump);
 
-  merge_if_block (ce_info);
+  merge_if_block (df, modified, ce_info);
 
   return TRUE;
 }
@@ -2595,14 +2630,15 @@ cond_move_process_if_block (struct ce_if_block *ce_info)
    straight line code.  Return true if successful.  */
 
 static int
-process_if_block (struct ce_if_block * ce_info)
+process_if_block (struct df *df, bitmap modified, 
+		  struct ce_if_block * ce_info)
 {
   if (! reload_completed
-      && noce_process_if_block (ce_info))
+      && noce_process_if_block (df, modified, ce_info))
     return TRUE;
 
   if (HAVE_conditional_move
-      && cond_move_process_if_block (ce_info))
+      && cond_move_process_if_block (df, modified, ce_info))
     return TRUE;
 
   if (HAVE_conditional_execution && reload_completed)
@@ -2611,14 +2647,14 @@ process_if_block (struct ce_if_block * ce_info)
          || tests into the conditional code, and if that fails, go back and
          handle it without the && and ||, which at present handles the && case
          if there was no ELSE block.  */
-      if (cond_exec_process_if_block (ce_info, TRUE))
+      if (cond_exec_process_if_block (df, modified, ce_info, TRUE))
 	return TRUE;
 
       if (ce_info->num_multiple_test_blocks)
 	{
 	  cancel_changes (0);
 
-	  if (cond_exec_process_if_block (ce_info, FALSE))
+	  if (cond_exec_process_if_block (df, modified, ce_info, FALSE))
 	    return TRUE;
 	}
     }
@@ -2629,7 +2665,7 @@ process_if_block (struct ce_if_block * ce_info)
 /* Merge the blocks and mark for local life update.  */
 
 static void
-merge_if_block (struct ce_if_block * ce_info)
+merge_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_info)
 {
   basic_block test_bb = ce_info->test_bb;	/* last test block */
   basic_block then_bb = ce_info->then_bb;	/* THEN */
@@ -2640,6 +2676,7 @@ merge_if_block (struct ce_if_block * ce_info)
   /* All block merging is done into the lower block numbers.  */
 
   combo_bb = test_bb;
+  bitmap_set_bit (modified, test_bb->index);
 
   /* Merge any basic blocks to handle && and || subtests.  Each of
      the blocks are on the fallthru path from the predecessor block.  */
@@ -2653,6 +2690,7 @@ merge_if_block (struct ce_if_block * ce_info)
 	{
 	  bb = fallthru;
 	  fallthru = block_fallthru (bb);
+	  df_delete_basic_block (df, bb->index);
 	  merge_blocks (combo_bb, bb);
 	  num_true_changes++;
 	}
@@ -2665,6 +2703,7 @@ merge_if_block (struct ce_if_block * ce_info)
 
   if (then_bb)
     {
+      df_delete_basic_block (df, then_bb->index);
       merge_blocks (combo_bb, then_bb);
       num_true_changes++;
     }
@@ -2674,6 +2713,7 @@ merge_if_block (struct ce_if_block * ce_info)
      get their addresses taken.  */
   if (else_bb)
     {
+      df_delete_basic_block (df, else_bb->index);
       merge_blocks (combo_bb, else_bb);
       num_true_changes++;
     }
@@ -2714,7 +2754,9 @@ merge_if_block (struct ce_if_block * ce_info)
   else if (EDGE_COUNT (join_bb->preds) < 2
 	   && join_bb != EXIT_BLOCK_PTR)
     {
-      /* We can merge the JOIN.  */
+      /* We can merge the JOIN cleanly and update the dataflow try
+	 again on this pass.*/
+      df_delete_basic_block (df, join_bb->index);
       merge_blocks (combo_bb, join_bb);
       num_true_changes++;
     }
@@ -2741,7 +2783,7 @@ merge_if_block (struct ce_if_block * ce_info)
    first block if some transformation was done.  Return NULL otherwise.  */
 
 static basic_block
-find_if_header (basic_block test_bb, int pass)
+find_if_header (struct df *df, bitmap modified, basic_block test_bb, int pass)
 {
   ce_if_block_t ce_info;
   edge then_edge;
@@ -2753,6 +2795,11 @@ find_if_header (basic_block test_bb, int pass)
 
   then_edge = EDGE_SUCC (test_bb, 0);
   else_edge = EDGE_SUCC (test_bb, 1);
+
+  if (bitmap_bit_p (modified, then_edge->dest->index))
+    return NULL;
+  if (bitmap_bit_p (modified, else_edge->dest->index))
+    return NULL;
 
   /* Neither edge should be abnormal.  */
   if ((then_edge->flags & EDGE_COMPLEX)
@@ -2787,19 +2834,19 @@ find_if_header (basic_block test_bb, int pass)
   IFCVT_INIT_EXTRA_FIELDS (&ce_info);
 #endif
 
-  if (find_if_block (&ce_info))
+  if (find_if_block (df, modified, &ce_info))
     goto success;
 
   if (HAVE_trap && HAVE_conditional_trap
-      && find_cond_trap (test_bb, then_edge, else_edge))
+      && find_cond_trap (df, modified, test_bb, then_edge, else_edge))
     goto success;
 
   if (dom_computed[CDI_POST_DOMINATORS] >= DOM_NO_FAST_QUERY
       && (! HAVE_conditional_execution || reload_completed))
     {
-      if (find_if_case_1 (test_bb, then_edge, else_edge))
+      if (find_if_case_1 (df, modified, test_bb, then_edge, else_edge))
 	goto success;
-      if (find_if_case_2 (test_bb, then_edge, else_edge))
+      if (find_if_case_2 (df, modified, test_bb, then_edge, else_edge))
 	goto success;
     }
 
@@ -2808,6 +2855,7 @@ find_if_header (basic_block test_bb, int pass)
  success:
   if (dump_file)
     fprintf (dump_file, "Conversion succeeded on pass %d.\n", pass);
+  cond_exec_changed_p = TRUE;
   return ce_info.test_bb;
 }
 
@@ -2885,7 +2933,7 @@ block_jumps_and_fallthru_p (basic_block cur_bb, basic_block target_bb)
    Return TRUE if we were successful at converting the block.  */
 
 static int
-find_if_block (struct ce_if_block * ce_info)
+find_if_block (struct df *df, bitmap modified, struct ce_if_block * ce_info)
 {
   basic_block test_bb = ce_info->test_bb;
   basic_block then_bb = ce_info->then_bb;
@@ -2977,7 +3025,7 @@ find_if_block (struct ce_if_block * ce_info)
   if (EDGE_COUNT (then_bb->succs) > 0
       && (!single_succ_p (then_bb)
           || (single_succ_edge (then_bb)->flags & EDGE_COMPLEX)
-	  || (flow2_completed && tablejump_p (BB_END (then_bb), NULL, NULL))))
+	  || (epilogue_completed && tablejump_p (BB_END (then_bb), NULL, NULL))))
     return FALSE;
 
   /* If the THEN block has no successors, conditional execution can still
@@ -3024,7 +3072,7 @@ find_if_block (struct ce_if_block * ce_info)
 	   && single_succ (then_bb) == single_succ (else_bb)
 	   && single_pred_p (else_bb)
 	   && ! (single_succ_edge (else_bb)->flags & EDGE_COMPLEX)
-	   && ! (flow2_completed && tablejump_p (BB_END (else_bb), NULL, NULL)))
+	   && ! (epilogue_completed && tablejump_p (BB_END (else_bb), NULL, NULL)))
     join_bb = single_succ (else_bb);
 
   /* Otherwise it is not an IF-THEN or IF-THEN-ELSE combination.  */
@@ -3090,14 +3138,15 @@ find_if_block (struct ce_if_block * ce_info)
   ce_info->else_bb = else_bb;
   ce_info->join_bb = join_bb;
 
-  return process_if_block (ce_info);
+  return process_if_block (df, modified, ce_info);
 }
 
 /* Convert a branch over a trap, or a branch
    to a trap, into a conditional trap.  */
 
 static int
-find_cond_trap (basic_block test_bb, edge then_edge, edge else_edge)
+find_cond_trap (struct df *df, bitmap modified, 
+		basic_block test_bb, edge then_edge, edge else_edge)
 {
   basic_block then_bb = then_edge->dest;
   basic_block else_bb = else_edge->dest;
@@ -3160,7 +3209,14 @@ find_cond_trap (basic_block test_bb, edge then_edge, edge else_edge)
   /* Delete the trap block if possible.  */
   remove_edge (trap_bb == then_bb ? then_edge : else_edge);
   if (EDGE_COUNT (trap_bb->preds) == 0)
-    delete_basic_block (trap_bb);
+    {
+      df_delete_basic_block (df, trap_bb->index);
+      delete_basic_block (trap_bb);
+    }
+
+  bitmap_set_bit (modified, test_bb->index);
+  bitmap_set_bit (modified, then_bb->index);
+  bitmap_set_bit (modified, else_bb->index);
 
   /* If the non-trap block and the test are now adjacent, merge them.
      Otherwise we must insert a direct branch.  */
@@ -3173,7 +3229,7 @@ find_cond_trap (basic_block test_bb, edge then_edge, edge else_edge)
       new_ce_info.then_bb = NULL;
       new_ce_info.else_bb = NULL;
       new_ce_info.join_bb = other_bb;
-      merge_if_block (&new_ce_info);
+      merge_if_block (df, modified, &new_ce_info);
     }
   else
     {
@@ -3295,12 +3351,13 @@ block_has_only_trap (basic_block bb)
 /* Tests for case 1 above.  */
 
 static int
-find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
+find_if_case_1 (struct df *df, bitmap modified, 
+		basic_block test_bb, edge then_edge, edge else_edge)
 {
   basic_block then_bb = then_edge->dest;
-  basic_block else_bb = else_edge->dest, new_bb;
+  basic_block else_bb = else_edge->dest;
+  basic_block new_bb;
   int then_bb_index;
-  int * block_list = alloca (2 * sizeof (int));
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
      mess up unconditional or indirect jumps that cross between hot
@@ -3348,7 +3405,7 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
     return FALSE;
 
   /* Registers set are dead, or are predicable.  */
-  if (! dead_or_predicable (test_bb, then_bb, else_bb,
+  if (! dead_or_predicable (df, test_bb, then_bb, else_bb,
 			    single_succ (then_bb), 1))
     return FALSE;
 
@@ -3370,7 +3427,11 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
     new_bb = redirect_edge_and_branch_force (FALLTHRU_EDGE (test_bb),
 					     else_bb);
 
+  bitmap_set_bit (modified, test_bb->index);
+  bitmap_set_bit (modified, else_bb->index);
+
   then_bb_index = then_bb->index;
+  df_delete_basic_block (df, then_bb_index);
   delete_basic_block (then_bb);
 
   /* Make rest of code believe that the newly created block is the THEN_BB
@@ -3378,32 +3439,15 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
   if (new_bb)
     {
       int old_index = new_bb->index;
-
-#if 0
-      /* This is so rude.  */
-      if (rtl_df)
-	df_bb_replace (rtl_df, then_bb_index, new_bb);
-      else
-#endif
-	{
-	  new_bb->index = then_bb_index;
-	  SET_BASIC_BLOCK (then_bb_index, new_bb);
-	}
-
+      new_bb->index = then_bb_index;
+      SET_BASIC_BLOCK (then_bb_index, new_bb);
+      bitmap_set_bit (modified, then_bb_index);
       SET_BASIC_BLOCK (old_index, NULL);
       /* Since the fallthru edge was redirected from test_bb to new_bb,
          we need to ensure that new_bb is in the same partition as
          test bb (you can not fall through across section boundaries).  */
       BB_COPY_PARTITION (new_bb, test_bb);
-      /* We've possibly created jump to next insn, cleanup_cfg will solve that
-	 later.  */
-      block_list[0] = new_bb->index;
-      block_list[1] = test_bb->index;
-
-      df_analyze_simple_change_some_blocks (rtl_df, block_list, 2);
     }
-  else
-    df_analyze_simple_change_one_block (rtl_df, test_bb);
 
   num_true_changes++;
   num_updated_if_blocks++;
@@ -3414,7 +3458,8 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
 /* Test for case 2 above.  */
 
 static int
-find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
+find_if_case_2 (struct df *df, bitmap modified, 
+		basic_block test_bb, edge then_edge, edge else_edge)
 {
   basic_block then_bb = then_edge->dest;
   basic_block else_bb = else_edge->dest;
@@ -3480,15 +3525,16 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
     return FALSE;
 
   /* Registers set are dead, or are predicable.  */
-  if (! dead_or_predicable (test_bb, else_bb, then_bb, else_succ->dest, 0))
+  if (! dead_or_predicable (df, test_bb, else_bb, then_bb, else_succ->dest, 0))
     return FALSE;
 
   /* Conversion went ok, including moving the insns and fixing up the
      jump.  Adjust the CFG to match.  */
 
+  bitmap_set_bit (modified, test_bb->index);
+  bitmap_set_bit (modified, then_bb->index);
+  df_delete_basic_block (df, else_bb->index);
   delete_basic_block (else_bb);
-
-  df_analyze_simple_change_one_block (rtl_df, test_bb);
 
   num_true_changes++;
   num_updated_if_blocks++;
@@ -3517,7 +3563,7 @@ find_memory (rtx *px, void *data ATTRIBUTE_UNUSED)
    REVERSEP is true if the sense of the branch should be reversed.  */
 
 static int
-dead_or_predicable (basic_block test_bb, basic_block merge_bb,
+dead_or_predicable (struct df *df, basic_block test_bb, basic_block merge_bb,
 		    basic_block other_bb, basic_block new_dest, int reversep)
 {
   rtx head, end, jump, earliest = NULL_RTX, old_dest, new_label = NULL_RTX;
@@ -3596,8 +3642,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	 that any registers modified are dead at the branch site.  */
 
       rtx insn, cond, prev;
-      regset merge_set, tmp, test_live, test_set;
-      struct propagate_block_info *pbi;
+      bitmap merge_set, test_live, test_set;
       unsigned i, fail = 0;
       bitmap_iterator bi;
 
@@ -3637,10 +3682,9 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	   TEST_SET  = set of registers set between EARLIEST and the
 		       end of the block.  */
 
-      tmp = ALLOC_REG_SET (&reg_obstack);
-      merge_set = ALLOC_REG_SET (&reg_obstack);
-      test_live = ALLOC_REG_SET (&reg_obstack);
-      test_set = ALLOC_REG_SET (&reg_obstack);
+      merge_set = BITMAP_ALLOC (&reg_obstack);
+      test_live = BITMAP_ALLOC (&reg_obstack);
+      test_set = BITMAP_ALLOC (&reg_obstack);
 
       /* ??? bb->local_set is only valid during calculate_global_regs_live,
 	 so we must recompute usage for MERGE_BB.  Not so bad, I suppose,
@@ -3653,7 +3697,17 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	  max_regno = max_reg_num ();
 	  allocate_reg_info (max_regno, FALSE, FALSE);
 	}
-      propagate_block (merge_bb, tmp, merge_set, merge_set, 0);
+
+      FOR_BB_INSNS (merge_bb, insn)
+	{
+	  if (INSN_P (insn))
+	    {
+	      unsigned int uid = INSN_UID (insn);
+	      struct df_ref *def;
+	      for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
+		bitmap_set_bit (merge_set, DF_REF_REGNO (def));
+	    }
+	}
 
       /* For small register class machines, don't lengthen lifetimes of
 	 hard registers before reload.  */
@@ -3667,38 +3721,40 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 		fail = 1;
 	    }
 	}
-
+      
       /* For TEST, we're interested in a range of insns, not a whole block.
 	 Moreover, we're interested in the insns live from OTHER_BB.  */
-
-      COPY_REG_SET (test_live, DF_LIVE_IN (rtl_df, other_bb));
-      pbi = init_propagate_block_info (test_bb, test_live, test_set, test_set,
-				       0);
-
+      
+      bitmap_copy (test_live, DF_LIVE_IN (df, other_bb));
+      bitmap_copy (test_set, DF_LIVE_IN (df, other_bb));
       for (insn = jump; ; insn = prev)
 	{
-	  prev = propagate_one_insn (pbi, insn);
+	  if (INSN_P (insn))
+	    {
+	      unsigned int uid = INSN_UID (insn);
+	      struct df_ref *def;
+	      for (def = DF_INSN_UID_DEFS (df, uid); def; def = def->next_ref)
+		bitmap_set_bit (test_set, DF_REF_REGNO (def));
+	    }
+	  prev = PREV_INSN (insn);
 	  if (insn == earliest)
 	    break;
 	}
 
-      free_propagate_block_info (pbi);
-
       /* We can perform the transformation if
 	   MERGE_SET & (TEST_SET | TEST_LIVE)
 	 and
-	   TEST_SET & DF_LIVE_IN (rtl_df, merge_bb)
+	   TEST_SET & DF_LIVE_IN (df, merge_bb)
 	 are empty.  */
 
       if (bitmap_intersect_p (test_set, merge_set)
 	  || bitmap_intersect_p (test_live, merge_set)
-	  || bitmap_intersect_p (test_set, DF_LIVE_IN (rtl_df, merge_bb)))
+	  || bitmap_intersect_p (test_set, DF_LIVE_IN (df, merge_bb)))
 	fail = 1;
 
-      FREE_REG_SET (tmp);
-      FREE_REG_SET (merge_set);
-      FREE_REG_SET (test_live);
-      FREE_REG_SET (test_set);
+      BITMAP_FREE (merge_set);
+      BITMAP_FREE (test_live);
+      BITMAP_FREE (test_set);
 
       if (fail)
 	return FALSE;
@@ -3791,48 +3847,33 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 /* Main entry point for all if-conversion.  */
 
 static void
-if_convert (int x_life_data_ok)
+if_convert (void)
 {
   basic_block bb;
   int pass;
+  bitmap modified = BITMAP_ALLOC (NULL);
+  struct df * df = df_init (DF_HARD_REGS);
+  struct dataflow *lr_dflow = df_lr_add_problem (df, DF_LR_RUN_DCE);
+  df_ur_add_problem (df, 0);
 
   num_possible_if_blocks = 0;
   num_updated_if_blocks = 0;
   num_true_changes = 0;
-  life_data_ok = (x_life_data_ok != 0);
 
   if ((! targetm.cannot_modify_jumps_p ())
       && (!flag_reorder_blocks_and_partition || !no_new_pseudos
 	  || !targetm.have_named_sections))
     {
       struct loops loops;
-      bool had_df = rtl_df != NULL;
-      if (had_df)
-	{
-	  df_finish (rtl_df);
-	  rtl_df = NULL;
-	}
-
       flow_loops_find (&loops);
       mark_loop_exit_edges (&loops);
       flow_loops_free (&loops);
       free_dominance_info (CDI_DOMINATORS);
-
-      if (had_df)
-	{
-	  rtl_df = df_init (DF_HARD_REGS);
-	  df_lr_add_problem (rtl_df);
-	  df_ur_add_problem (rtl_df);
-	  df_analyze (rtl_df);
-	}
     }
 
   /* Compute postdominators if we think we'll use them.  */
-  if (HAVE_conditional_execution || life_data_ok)
+  if (HAVE_conditional_execution)
     calculate_dominance_info (CDI_POST_DOMINATORS);
-
-  if (life_data_ok)
-    clear_bb_flags ();
 
   /* Go through each of the basic blocks looking for things to convert.  If we
      have conditional execution, we make multiple passes to allow us to handle
@@ -3840,6 +3881,9 @@ if_convert (int x_life_data_ok)
   pass = 0;
   do
     {
+      df_analyze (df);
+      /* Only need to do dce on the first pass.  */
+      df_clear_flags (lr_dflow, DF_LR_RUN_DCE);
       cond_exec_changed_p = FALSE;
       pass++;
 
@@ -3850,9 +3894,16 @@ if_convert (int x_life_data_ok)
 
       FOR_EACH_BB (bb)
 	{
-	  basic_block new_bb;
-	  while ((new_bb = find_if_header (bb, pass)))
-	    bb = new_bb;
+	  if (!bitmap_bit_p (modified, bb->index))
+	    find_if_header (df, modified, bb, pass);
+	}
+
+      if (cond_exec_changed_p)
+	{
+	  /* If we are going to go around again, rescan the blocks
+	     that have changed.  */
+	  df_rescan_blocks (df, modified);
+	  bitmap_clear (modified);
 	}
 
 #ifdef IFCVT_MULTIPLE_DUMPS
@@ -3874,18 +3925,11 @@ if_convert (int x_life_data_ok)
 
   clear_aux_for_blocks ();
 
-  /* Rebuild life info for basic blocks that require it.  */
-  if (num_true_changes && life_data_ok)
+  /* If we allocated new pseudos, we must resize the array for sched1.  */
+  if (max_regno < max_reg_num ())
     {
-      /* If we allocated new pseudos, we must resize the array for sched1.  */
-      if (max_regno < max_reg_num ())
-	{
-	  max_regno = max_reg_num ();
-	  allocate_reg_info (max_regno, FALSE, FALSE);
-	}
-      update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-					PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
-					| PROP_KILL_DEAD_CODE);
+      max_regno = max_reg_num ();
+      allocate_reg_info (max_regno, FALSE, FALSE);
     }
 
   /* Write the final stats.  */
@@ -3902,9 +3946,11 @@ if_convert (int x_life_data_ok)
 	       num_true_changes);
     }
 
+  BITMAP_FREE (modified);
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+  df_finish (df);
 }
 
 static bool
@@ -3914,7 +3960,7 @@ gate_handle_if_conversion (void)
 }
 
 /* If-conversion and CFG cleanup.  */
-static void
+static unsigned int
 rest_of_handle_if_conversion (void)
 {
   if (flag_if_conversion)
@@ -3923,13 +3969,13 @@ rest_of_handle_if_conversion (void)
         dump_flow_info (dump_file, dump_flags);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       reg_scan (get_insns (), max_reg_num ());
-      if_convert (0);
+      if_convert ();
     }
 
-  timevar_push (TV_JUMP);
   cleanup_cfg (CLEANUP_EXPENSIVE);
+  clear_reg_deaths ();
   reg_scan (get_insns (), max_reg_num ());
-  timevar_pop (TV_JUMP);
+  return 0;
 }
 
 struct tree_opt_pass pass_rtl_ifcvt =
@@ -3958,12 +4004,13 @@ gate_handle_if_after_combine (void)
 
 /* Rerun if-conversion, as combine may have simplified things enough
    to now meet sequence length restrictions.  */
-static void
+static unsigned int
 rest_of_handle_if_after_combine (void)
 {
   no_new_pseudos = 0;
-  if_convert (1);
+  if_convert ();
   no_new_pseudos = 1;
+  return 0;
 }
 
 struct tree_opt_pass pass_if_after_combine =
@@ -3991,16 +4038,12 @@ gate_handle_if_after_reload (void)
   return (optimize > 0);
 }
 
-static void
+static unsigned int
 rest_of_handle_if_after_reload (void)
 {
-  /* Last attempt to optimize CFG, as scheduling, peepholing and insn
-     splitting possibly introduced more crossjumping opportunities.  */
-  cleanup_cfg (CLEANUP_EXPENSIVE
-             | CLEANUP_UPDATE_LIFE
-             | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
   if (flag_if_conversion2)
-    if_convert (1);
+    if_convert ();
+  return 0;
 }
 
 

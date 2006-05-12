@@ -1,3 +1,374 @@
+2006-04-23  Marc Glisse  <marc.glisse@normalesup.org>
+
+	PR libstdc++/27199
+	* ext/pool_allocator.h: Add using declarations for size_t, ptrdiff_t.
+	* ext/bitmap_allocator.h: Likewise; qualify with std::.
+	* ext/new_allocator.h: Likewise.
+	* ext/malloc_allocator.h: Likewise.
+	* ext/array_allocator.h: Likewise.
+	* ext/mt_allocator.h: Likewise.
+	* ext/functional: Likewise for size_t.
+	* ext/debug_allocator.h: Likewise.
+	* bits/char_traits.h: Qualify with std:: size_t.
+	* debug/hash_multimap.h: Likewise.
+
+2006-04-23  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 42.
+
+2006-04-19  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26424
+	* include/tr1/hashtable (X<>::primes): Extend for 64-bit machines.
+	(X<>::n_primes): Adjust.
+	(prime_rehash_policy::next_bkt, bkt_for_elements, need_rehash): Adjust.
+
+2006-04-18  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/faq/index.html ([5.5]): Adjust to mention function
+	objects and reference_wrapper; minor tweaks.
+	* docs/html/faq/index.txt: Regenerate.
+
+2006-04-16  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/6702 (again)
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Don't check non-C99
+	wchar_t functions...
+	(GLIBCXX_ENABLE_WCHAR_T): ... do that here.
+	* configure.ac: Adjust order of checks.
+	* configure: Regenerate.
+
+2006-04-14  Douglas Gregor  <dgregor@cs.indiana.edu>
+
+	PR libstdc++/27162
+	* include/bits/stl_algo.h (__search_n(,,,, _BinaryPredicate,
+	std::forward_iterator_tag)): Use __binary_pred, not ==.
+
+2006-04-10  Matthias Klose  <doko@debian.org>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Recognize multilib
+	directory names containing underscores.
+
+2006-04-10  Paolo Carlini  <pcarlini@suse.de>
+
+	DR 538, [Ready]
+	* include/bits/stl_algo.h (__unique_copy(,,, input_iterator_tag,
+	output_iterator_tag), and predicated counterpart): Revert to the
+	algorithm pre-DR 241, i.e., value_type of InputIterator is now
+	required to be Assignable too.
+	* testsuite/25_algorithms/unique_copy/3.cc: Remove.
+	* docs/html/ext/howto.html: Add an entry for DR 538.
+
+2006-03-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/data/sgetn.txt:  Correct copyright holder.
+	* testsuite/data/wistream_extractor_other-1.tst: Same.
+	* testsuite/data/wistream_extractor_other-2.tst: Same.
+	* testsuite/data/istream_extractor_other-1.txt: Same.
+	* testsuite/data/filebuf_virtuals-1.txt: Same.
+	* testsuite/data/wostream_inserter_other-1.tst: Same.
+	* testsuite/data/wostream_inserter_other-2.tst: Same.
+	* testsuite/data/ostream_inserter_other-1.tst: Same.
+	* testsuite/data/ostream_inserter_other-2.tst: Same.
+	* testsuite/data/wistream_extractor_other-1.txt: Same.
+	* testsuite/data/istream_extractor_other-1.tst: Same.
+	* testsuite/data/istream_extractor_other-2.tst: Same.
+	* testsuite/data/filebuf_virtuals-1.tst: Same.
+	* testsuite/27_io/basic_filebuf/sgetn/char/1-in.cc: Adjust test
+	conditions.
+	* testsuite/27_io/basic_filebuf/sgetn/char/1-io.cc: Same.
+	* testsuite/27_io/basic_filebuf/sgetn/char/2-in.cc: Same.
+	* testsuite/27_io/basic_filebuf/sgetn/char/2-io.cc: Same.
+
+2006-03-28  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/ext/vstring.h (operator[]): Allow s[s.size()] in
+	debug mode, but not pedantic mode.
+
+2006-03-24  Mark Mitchell  <mark@codesourcery.com>
+            Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR libstdc++/20448
+	PR libstdc++/20451
+	* scripts/testsuite_flags.in (--cxxflags): Don't define LOCALEDIR.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Always define
+	LOCALEDIR to ".".
+	(v3-build_support): Build MO files.
+
+2006-03-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26777
+	* include/bits/fstream.tcc (basic_filebuf<>::_M_seek): Check
+	the return value of _M_file.seekoff.
+	* testsuite/27_io/basic_filebuf/seekoff/char/26777.cc: New.
+
+2006-03-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/25482
+	* include/bits/stl_algobase.h (__copy_aux(_CharT*, _CharT*,
+	ostreambuf_iterator<_CharT>), __copy_aux(const _CharT*, const _CharT*,
+	ostreambuf_iterator<_CharT>), __copy_aux(istreambuf_iterator<_CharT>,
+	istreambuf_iterator<_CharT>, _CharT*), copy(istreambuf_iterator<_CharT>,
+	istreambuf_iterator<_CharT>, ostreambuf_iterator<_CharT>)): Declare.
+	* include/bits/stl_algo.h (find(istreambuf_iterator<_CharT>,
+	istreambuf_iterator<_CharT>, _CharT)): Likewise.
+	* include/bits/streambuf_iterator.h (copy(istreambuf_iterator<_CharT>,
+	istreambuf_iterator<_CharT>, ostreambuf_iterator<_CharT>),
+	__copy_aux(_CharT*, _CharT*, ostreambuf_iterator<_CharT>),
+	__copy_aux(const _CharT*, const _CharT*, ostreambuf_iterator<_CharT>),
+	__copy_aux(istreambuf_iterator<_CharT>, istreambuf_iterator<_CharT>,
+	_CharT*), find(istreambuf_iterator<_CharT>, istreambuf_iterator<_CharT>,
+	_CharT)): Define.
+	(class istreambuf_iterator<>, class ostreambuf_iterator<>): Declare
+	friends.
+	* include/std/std_streambuf.h (class basic_streambuf<>): Likewise.
+	* include/bits/cpp_type_traits.h (struct __is_char<>): Add.
+	* testsuite/25_algorithms/copy/streambuf_iterators/char/1.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/char/2.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/char/3.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/char/4.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/wchar_t/1.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/wchar_t/2.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/wchar_t/3.cc: New.
+	* testsuite/25_algorithms/copy/streambuf_iterators/wchar_t/4.cc: New.
+	* testsuite/25_algorithms/find/istreambuf_iterators/char/1.cc: New.
+	* testsuite/25_algorithms/find/istreambuf_iterators/char/2.cc: New.
+	* testsuite/25_algorithms/find/istreambuf_iterators/wchar_t/1.cc: New.
+	* testsuite/25_algorithms/find/istreambuf_iterators/wchar_t/2.cc: New.
+	* testsuite/performance/25_algorithms/copy_streambuf_iterators.cc: New.
+	* testsuite/performance/25_algorithms/find_istreambuf_iterators.cc: New.
+
+006-03-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/postypes.h (fpos<>::operator==, operator!=): Remove,
+	exploit conversion to streamoff.
+	* testsuite/27_io/fpos/mbstate_t/5.cc: New.
+
+2006-03-12  Howard Hinnant  <hhinnant@apple.com>
+
+	* testsuite/27_io/basic_filebuf/underflow/char/10097.cc:
+	Fix race condition.
+	* testsuite/27_io/objects/char/9661-1.cc: Likewise.
+	* testsuite/27_io/objects/wchar_t/9661-1.cc: Likewise.
+
+2006-03-10  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cmath: Add atan2 and pow bits; add using declarations.	
+	* include/tr1/math.h: Add using declarations.
+	* include/tr1/complex: Add using declarations.
+	* testsuite/tr1/8_c_compatibility/cmath/functions.cc: Fully
+	qualify calls.
+	* testsuite/tr1/8_c_compatibility/cmath/overloads.cc: Likewise;
+	add atan2 and pow bits.
+	* testsuite/tr1/8_c_compatibility/complex/overloads_float.cc: Likewise.
+	* testsuite/tr1/8_c_compatibility/complex/overloads_int.cc: Likewise;
+	adjust polar bits.
+
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): Add checks for double_t
+	and float_t typedefs.
+	* include/tr1/cmath: Add double_t and float_t.
+	* testsuite/tr1/8_c_compatibility/cmath/types.cc: New.
+
+	* include/tr1/ctgmath: New.
+	* include/tr1/tgmath.h: Likewise.
+	* include/Makefile.am: Add.
+	* testsuite/tr1/headers.cc: Update.
+
+	* include/Makefile.in: Regenerate.
+	* configure: Likewise.
+
+	* docs/html/ext/tr1.html: Update.
+
+2006-03-08  Paolo Carlini  <pcarlini@suse.de>
+
+	Implement the resolution of DR 455, [DR].
+	* src/ios_init.cc (ios_base::Init::Init()): Do it.
+	* testsuite/27_io/objects/char/dr455.cc: New.
+	* testsuite/27_io/objects/wchar_t/dr455.cc: Likewise.
+	* docs/html/ext/howto.html: Add an entry for DR 455.
+
+2006-03-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cmath: Add C99 overloads.
+	* include/tr1/common.h (struct __promote_3): Add.
+	* testsuite/tr1/8_c_compatibility/cmath/overloads.cc: New.
+
+	* testsuite/tr1/8_c_compatibility/cmath/functions.cc: Tweak.
+	* testsuite/tr1/8_c_compatibility/complex/overloads_float.cc: Likewise.
+
+2006-03-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR target/26532
+	* config/io/c_io_stdio.h (struct __ios_flags): Remove.
+	* include/bits/ios_base.h: Adjust consistently.
+	(ios_base::_S_local_word_size): Change to an anonymous enum.
+	* src/ios.cc: Do not define static const data of __ios_flags,
+	likewise for ios_base::_S_local_word_size.	
+	* include/bits/locale_classes.h (locale::_S_categories_size):
+	Change to an anonymous enum.
+	* src/locale.cc: Don't define.
+
+2006-03-03  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26526
+	* config/abi/pre/gnu.ver (__copy_streambufs, 64-bit version): Add
+	@GLIBCXX_3.4.8; move existing symbols @GLIBCXX_3.4.8 to 3.4.9.
+	* configure.ac (libtool_VERSION): To 6:9:0.
+	* testsuite/testsuite_abi.cc (check_version): Add GLIBCXX_3.4.9.
+	* configure: Regenerate.
+
+2006-03-02  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/abi/pre/gnu.ver: Adjust __copy_streambufs_eof export
+	vs 64-bit arches.
+
+2006-03-01  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/lwg-active.html, lwg-defects.html: Import Revision 41.
+
+2006-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/26208
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION): Use
+	_Unwind_GetIPInfo instead of _Unwind_GetIP.
+
+2006-02-27  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/14866
+	* testsuite/27_io/ios_base/sync_with_stdio/1.cc: Redirect
+	stderr instead.
+
+2006-02-26  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/cmath: Add templates (8.16.3).	
+	* include/tr1/cstdbool: New.
+	* include/tr1/stdbool.h: Likewise.
+	* include/Makefile.am: Add.
+	* testsuite/tr1/8_c_compatibility/cmath/templates.cc: New.
+	* testsuite/tr1/headers.cc: Update.
+	* acinclude.m4 ([GLIBCXX_CHECK_C99_TR1]): Add <stdbool.h> check.
+	* docs/html/ext/tr1.html: Update.
+	* include/Makefile.in: Regenerate.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+
+2006-02-24  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/array (array<>::swap, assign): Implement.
+	* include/tr1/array (operator==, operator!=, operator<,
+	operator>, operator>=, operator<=, swap, get): Inline.
+	* testsuite/tr1/6_containers/array/requirements/member_swap.cc: New.
+	* testsuite/tr1/6_containers/array/requirements/assign.cc: Likewise.
+	* testsuite/tr1/6_containers/array/specialized_algorithms/swap.cc:
+	Likewise.
+
+2006-02-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/22_locale/codecvt/in/wchar_t/1.cc (test01): Change int
+	to size_t. Use explicit static_cast for casts.
+	* testsuite/22_locale/codecvt/in/wchar_t/6.cc (test06): Same.
+	* testsuite/22_locale/codecvt/in/wchar_t/5.cc (test05): Same.
+	* testsuite/ext/stdio_sync_filebuf/wchar_t/1.cc (test01): Same.
+	
+2006-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* docs/html/ext/pb_assoc/
+	basic_tree_assoc_cntnr_const_node_iterator.html:Fix links
+	* docs/html/ext/pb_assoc/basic_tree_assoc_cntnr_node_iterator.html:
+	Likewise.
+	* docs/html/ext/pb_assoc/hash_based_containers.html: Likewise.
+	* docs/html/ext/pb_assoc/hash_standard_resize_policy.html: Likewise.
+	* docs/html/ext/pb_assoc/interface.html: Likewise..
+	* docs/html/ext/pb_assoc/list_updates.html: Likewise.
+	* docs/html/ext/pb_assoc/lu_based_containers.html: Likewise.
+	* docs/html/ext/pb_assoc/resize_policies.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_probe_fn.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_range_hashing.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_ranged_hash_fn.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_ranged_probe_fn.html: Likewise.
+	* docs/html/ext/pb_assoc/sample_resize_policy.html: Likewise.
+	* docs/html/ext/pb_assoc/tree_assoc_cntnr_const_node_iterator.html:
+	Likewise.
+	* docs/html/ext/pb_assoc/tree_assoc_cntnr_node_iterator.html: Likewise.
+
+2006-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/26132
+	* include/tr1/hashtable (hashtable<>::rehash): Define.
+	* testsuite/tr1/6_containers/unordered/hashtable/26132.cc: New.
+
+	* include/tr1/hashtable: Trivial formatting and stylistic fixes.
+
+	* testsuite/tr1/headers.cc: remove <tr1/hashtable>, not a tr1 header,
+	only an implementation detail.
+
+2006-02-22  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/debug/list (splice): Remove splice_alloc check, redundant
+	after implementing the splice bits of N1599.
+
+2006-02-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/c_std/cmath.tcc: Use _GLIBCXX_BEGIN_NAMESPACE,
+	_GLIBCXX_END_NAMESPACE.
+
+2006-02-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/c++config: Simplify debug namespaces.
+	* include/ext/hash_set: Specialize insert_iterator after norm,
+	debug containers have been (optionally) declared. Use nested
+	namespaces.	
+	* include/ext/hash_map: Same.
+	* include/debug/hash_map.h (insert): Add specialization for value
+	pointer types.
+	* include/debug/hash_set.h (insert): Same.
+	* include/debug/hash_multimap.h: Change __gnu_debug_def to __debug.
+	* include/debug/set.h: Same.
+	* include/debug/bitset: Same.
+	* include/debug/multiset.h: Same.
+	* include/debug/hash_multiset.h: Same.
+	* include/debug/vector: Same.
+	* include/debug/map.h: Same.
+	* include/debug/deque: Same.
+	* include/debug/list: Same.
+	* include/debug/multimap.h. Same.
+	* include/debug/macros.h: Use __gnu_debug.
+	* include/debug/debug.h: Same.
+	* include/debug/formatter.h: Same.
+	* include/debug/safe_sequence.h: Same.
+	* include/debug/functions.h: Same.
+	* include/debug/safe_base.h: Same.
+	* include/debug/safe_iterator.h: Same.
+	* include/debug/safe_iterator.tcc: Same.
+	(_M_invalidate): Adjust compare order.
+	* include/debug/string: Change std::__gnu_debug to __gnu_debug.
+	* include/ext/hashtable.h: Formatting fixes.
+	* include/bits/stl_map.h: Formatting fixes.		
+	* src/compatibility.cc: Adjust compatibility symbols for old debug
+	mode model.	
+	* src/debug_list.cc: Tweak.
+	* src/debug.cc: Adjust namespaces.
+	* docs/html/debug_mode.html: Adjust namespace names.
+	* testsuite/25_algorithms/heap/heap.cc: Restore _GLIBCXX_DEBUG
+	macro guards, as count values differ when in debug mode.	
+	* testsuite/23_containers/vector/26412.cc: Move to...
+	* testsuite/23_containers/vector/26412-1.cc: ... here.
+	* testsuite/23_containers/vector/26412-2.cc: Add.
+
+	* include/ext/pb_assoc/detail/standard_policies.hpp
+	(PB_ASSOC_HASH_NAMESPACE): Remove, use __gnu_cxx::hash_map and
+	std::equal_to.
+
+	* configure.ac (libtool_VERSION): To 6:8:0.
+	* configure: Regenerate.
+	* config/abi/pre/gnu.ver: Revert to exporting __gnu_debug symbols.
+	(GLIBCXX_3.4.8): New.
+	* testsuite/testsuite_abi.cc: Add GLIBCXX_3.4.8 to known versions.
+	
+2006-02-21  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/hashtable: Trivial formatting fixes.
+
 2006-02-20  Paolo Carlini  <pcarlini@suse.de>
 
 	Revert recent commit for libstdc++/26211, now suspended waiting for

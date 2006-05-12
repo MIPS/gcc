@@ -26,6 +26,9 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 # autoconf2.13's target_alias
 target_noncanonical = @target_noncanonical@
 
+# This is required by TL_AC_GXX_INCLUDE_DIR.
+libsubdir = $(libdir)/gcc/$(target_noncanonical)/$(gcc_version)
+
 ##
 ## What gets installed, and where.
 ##
@@ -87,7 +90,6 @@ bin_SCRIPTS = addr2name.awk
 ##
 
 GCJH = @GCJH@
-ZIP = @ZIP@
 
 ## The compiler with whatever flags we want for both -c and -C
 ## compiles.
@@ -321,15 +323,11 @@ $(propertyo_files): %.lo: classpath/resource/%
 	$(mkinstalldirs) `dirname $@`; \
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,$(@:.lo=)
 
-libgcj-$(gcc_version).jar:
-	jardir=`dirname $(ZIP)`; \
-	jardir=`cd $$jardir && pwd`; \
-	jarname=`basename $(ZIP)`; \
-	cd classpath/lib; $$jardir/$$jarname -cfM \
+libgcj-$(gcc_version).jar: classpath/lib/compile-classes
+	cd classpath/lib; $(JAR) -cfM \
 	    ../../libgcj-$(gcc_version).jar gnu java javax org
 
-CLEANFILES = libgcj-$(gcc_version).jar \
-	$(all_java_deps_files) $(all_java_filelist_files)
+CLEANFILES = libgcj-$(gcc_version).jar
 DISTCLEANFILES = native.dirs
 
 mostlyclean-local:
@@ -883,9 +881,10 @@ src.zip:
 	    echo $$file; \
 	  done ); \
 	) | \
-## Many of the above circumlocutions are because ZIP will most likely
-## be a relative path to fastjar.
-	$(ZIP) -cfM@ $$here/src.zip
+## Many of the above circumlocutions were because ZIP used to be a
+## relative path to fastjar.  It didn't seem worthwhile to change the
+## code when we moved to an external jar.
+	$(JAR) -cfM@ $$here/src.zip
 ## Override GNU Classpath sources with libgcj replacements.
 	here=`pwd`; \
 	( \
@@ -897,7 +896,7 @@ src.zip:
 	    echo $$file; \
 	  done ); \
 	) | \
-	$(ZIP) -ufM@ $$here/src.zip
+	$(JAR) -ufM@ $$here/src.zip
 
 ## We use a variable for this in case the user wants to override it.
 sourcesdir = $(jardir)

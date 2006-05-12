@@ -113,8 +113,13 @@ AC_SUBST(LDFLAGS)
 AM_INIT_AUTOMAKE([1.9.0])
 
 AC_CHECK_TOOL(AS, as)
+AC_CHECK_TOOL(LD, ld)
 AC_CHECK_TOOL(AR, ar)
 AC_CHECK_TOOL(RANLIB, ranlib, :)
+AC_CHECK_PROGS(JAR, [jar fastjar], false)
+if test "$JAR" = false; then
+  AC_MSG_ERROR(jar program not found)
+fi
 
 AC_PROG_INSTALL
 
@@ -288,7 +293,6 @@ case "${which_gcj}" in
    built)
       GCJ="$built_gcc_dir/gcj -B`${PWDCMD-pwd}`/ -B$built_gcc_dir/"
       GCJH='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/gcc/gcjh'
-      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../../$(host_subdir)/fastjar/fastjar'
    ;;
    cross)
       if test "x${with_newlib}" = "xyes"; then
@@ -298,20 +302,15 @@ case "${which_gcj}" in
       else
          GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
       fi
-      ZIP='$(target_noncanonical)-fastjar'
       GCJH='$(target_noncanonical)-gcjh'
    ;;
    path)
       GCJ="gcj -B`${PWDCMD-pwd}`/"
-      ## In this case, gcj is found outside the build tree.  However, zip is
-      ## found in the build tree.
-      ZIP='$(top_builddir)/$(MULTIBUILDTOP)../$(COMPPATH)/fastjar/fastjar'
       GCJH=gcjh
    ;;
 esac
 
 AC_SUBST(GCJH)
-AC_SUBST(ZIP)
 
 # Create it, so that compile/link tests don't fail
 test -f libgcj.spec || touch libgcj.spec
@@ -801,11 +800,10 @@ case "$THREADS" in
 	THREADSPEC='%{!pthread: %{!shared: %eUnder this configuration, the user must provide -pthread when linking.}}'
 	;;
      *-*-freebsd*)
-	# FreeBSD 5 implements a model much closer to other modern UNIX
-	# which support threads.  However, it still does not support
-	# -lpthread.
+	# FreeBSD >=5.3 implements a model much closer to other modern UNIX
+	# systems which support threads and -lpthread.
 	THREADLDFLAGS=-pthread
-	THREADSPEC=-lc_r
+	THREADSPEC=-lpthread
 	;;
      alpha*-dec-osf*)
 	THREADCXXFLAGS=-pthread
@@ -1015,6 +1013,17 @@ else
 	    AC_DEFINE(HAVE_SCHED_YIELD)
 	    THREADLIBS="$THREADLIBS -lposix4"
 	    THREADSPEC="$THREADSPEC -lposix4"])])])
+
+      AC_CHECK_LIB(rt, clock_gettime, [
+         AC_DEFINE(HAVE_CLOCK_GETTIME, 1, [Define if you have clock_gettime()])
+	 case "$THREADSPEC" in
+	   *-lrt*) ;;
+	   *)
+ 	     THREADSPEC="$THREADSPEC -lrt"
+	     THREADLIBS="$THREADLIBS -lrt"
+	     ;;
+	 esac])
+
       LIBS="$save_LIBS"
 
       # We can save a little space at runtime if the mutex has m_count
@@ -1337,7 +1346,31 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <time.h>]], [[struct tm tim; tim.t
           [AC_MSG_RESULT(no)])])])
 
 AC_FUNC_ALLOCA
-AC_FUNC_MMAP
+
+dnl Check for mmap()
+# AC_FUNC_MMAP goes to far and checks for mmap fixed, we do only need mmap
+# at a mmap selected address. See
+# gnu/java/nio/channels/natFileChannelPosix.cc
+
+AC_MSG_CHECKING([for mmap])
+AC_CACHE_VAL(ac_cv_func_mmap_ok,
+    [AC_TRY_LINK(
+    changequote(<<, >>)dnl
+    <<
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+    >>,
+    changequote([, ])dnl
+    [mmap((void *)0, 0, PROT_READ, 0, 0, 0);],
+    ac_cv_func_mmap_ok=yes,
+    ac_cv_func_mmap_ok=no)] )
+AC_MSG_RESULT($ac_cv_func_mmap_ok)
+if test $ac_cv_func_mmap_ok = yes
+then
+  AC_DEFINE(HAVE_MMAP, 1, [ Define to 1 if you have a working `mmap' system call w/o fixed address ability.])
+fi
 
 AC_CHECK_PROGS(PERL, perl, false)
 
@@ -1418,6 +1451,17 @@ fi
 # See if we support thread-local storage.
 GCC_CHECK_TLS
 
+# Check if linker supports static linking on a per library basis
+LD_START_STATIC_SPEC=
+LD_FINISH_STATIC_SPEC=
+if $LD --help 2>&1 | grep -q -e -call_shared ; then
+  if $LD --help 2>&1 | grep -q -e -non_shared ; then
+    LD_START_STATIC_SPEC='%{static-libgcj:-non_shared}'
+    LD_FINISH_STATIC_SPEC='%{static-libgcj:-call_shared}'
+  fi
+fi
+AC_SUBST(LD_START_STATIC_SPEC)
+AC_SUBST(LD_FINISH_STATIC_SPEC)
 
 here=`${PWDCMD-pwd}`
 AC_SUBST(here)

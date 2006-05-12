@@ -1,3 +1,433 @@
+2006-05-05  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* haifa-sched.c (glat_size): New variable.
+        (sched-init, extend_bb): Properly initialized glat_start and
+        glat_end.
+	(free_glat): Fixed double free of bitmaps.
+	* df-scan.c (df_scan_get_bb_info, df_scan_set_bb_info): Added
+	assertions.
+	* df-problems.c (df_ru_get_bb_info, df_ru_set_bb_info, 
+	df_rd_get_bb_info, df_rd_set_bb_info, df_lr_get_bb_info, 
+	df_lr_set_bb_info, df_ur_get_bb_info, df_ur_set_bb_info, 
+	df_urec_get_bb_info, df_urec_set_bb_info): Ditto. 
+
+2006-04-25  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* flow.c (rest_of_handle_life): Removed unnecessary code.
+	* df-scan.c (df_scan_free_internal, df_scan_free): Fixed
+	storage leak.
+	* df-core.c (df_delete_basic_block): Removed dangling pointer.
+	* mode-switching.c (optimize_move_switching): Moved creation of df
+	instance to avoid storage leak.
+	* ifcvt.c (if_convert): Fixed storage leak.  
+	* dce.c (mark_insn,
+	rest_of_handle_dce): Removed old way of processing libcalls.
+	(libcall_matches_p, mark_libcall_insns): Removed.
+	(mark_libcall): New function.
+	(mark_reg_dependencies, dce_process_block): New code to check for
+	libcalls.
+	(fast_dce): Fixed storage leak.
+	
+2006-04-24  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* sched-ebb.c (schedule_ebbs): Updated register lifetime info.
+	* modulo-sched.c (sms_schedule): Ditto.
+	* sched-reg.c (schedule_insns): Ditto.
+	* regmove.c (regmove-optimize): Ditto.
+	* tree.h (setjmp_vars_warning, setjmp_args_warning): Removed.
+	(generate_setjmp_warning): Added.
+	* tree-pass.h (pass_subregs_of_mode_init): Added.
+	* flow.c (life_analysis): Moved parts to other passes.
+	(regno_clobbered_at_setjmp):Moved setjmp warning to local-alloc.
+	(rest_of_handle_life): Ditto.
+	* df-scan.c (df_ref_record): Reformatted comment.
+	* ifcvt.c (rest_of_handle_if_conversion): Removed last bit of
+	rtl_df scafolding.  
+	* local-alloc.c (local_alloc, no_equiv, block_alloc): Changed to
+	use same instance of df as global_alloc,
+	(rest_of_handle_local_alloc): Now also produces setjmp warnings.
+	* function.c (regno_clobbered_at_setjmp): Moved from flow.
+	(setjmp_vars_warning, setjmp_args_warning): Added parms to use 
+	passed in df instance.
+	(generate_setjmp_warnings): New function.
+	* df.h (DF_RI_SETJMP): New constant.
+	(df_ri_get_setjmp_crosses): New function.
+	* df-problems.c (df_ri_problem_data, setjmp_crosses): New
+	variables.
+	(df_ri_alloc, df_ri_bb_compute, df_ri_bb_compute, df_ri_compute):
+	Changed variables live across setjmp computation.
+	(df_ri_get_setjmp_crosses): New function.
+	* regclass.c (init_subregs_of_mode): Changed return.
+	(gate_subregs_of_mode_init, pass_subregs_of_mode_init): New.
+	* rtl.h (init_subregs_of_mode): Removed.
+	* integrate.c (allocate_initial_values): Removed incorrect parm
+	attribute and changed instance of df used.
+	* output.h (regno_clobbered_at_setjmp): Removed.
+	* stack-ptr-mod.c: Fixed comment.
+	* Makefile.in (regclass.o): Added tree-pass.h.
+	* basic-block.h (safe_insert_insn_on_edge): Deleted.
+	* passes.c (init_optimization_passes): Added
+	pass_subregs_of_mode_init.
+	* cfgrtl.c (mark_killed_regs, safe_insert_insn_on_edge): Deleted.
+	* rtl-profile.c: Removed.
+	
+2006-04-21  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-pass.h (pass_stack_ptr_mod, pass_initialize_subregs,
+	pass_reset_df): New.  
+	* flow.c (notice_stack_pointer_modification_1,
+	notice_stack_pointer_modification, find_regno_partial_param,
+	find_regno_partial, initialize_uninitialized_subregs): Moved to
+	separate passes in separate files.
+	(life_analysis): Removed call to notice_stack_pointer_modification.
+	(rest_of_handle_life): Removed call to initialize_uninitialized_subargs.
+	* df-core.c (reset_df, pass_reset_df): New.
+	* Makefile.in (stack-ptr-mod.o, subregs-init.o): New.
+	* passes.c (pass_stack_ptr_mod, pass_initialize_subregs, 
+	pass_reset_df): New passes.
+	* subregs-init.c: New file that contains separate pass for
+	initialize_uninitialized_subargs.   
+	* stack-pointer-mod.c: New file that contains separate pass for 
+	notice_stack_pointer_modification.
+		
+2006-04-19  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* ifcvt.c (rest_of_handle_if_after_combine): Removed flow
+	scaffolding.
+	* passes.c (init_optimization_passes): Moved clear_df to after
+	combine and changed two expensive dce passes into a dse and fast
+	dce pass.
+	
+2006-04-18  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* mode-switching.c (optimize_mode_switching): Created local
+	instance of df and removed references to flow.
+	* regmove.c (mark_flags_life_zones, regmove_optimize): Ditto.
+	* global.c (global_alloc, rest_of_handle_global_alloc): Reused 
+	instance of df created in local alloc.
+	* local-alloc.c (rest_of_handle_local_alloc): Create instance of 
+	ra_df used by all register allocation.
+	* bb-reorder.c (fix_crossing_conditional_branches): Removed code
+	to keep dataflow up to date.
+	* Makefile.in (bb-reorder.o): Removed ref to DF_H.
+	* passes.c (init_optimization_passes): Meved clear_df to before
+	partition_blocks.
+		
+2006-04-17  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-pass.h (pass_recompute_reg_usage): Deleted.  flow.c
+	(pass_recompute_reg_usage, recompute_reg_usage): Deleted.  *
+	sched-ebb.c (begin_schedule_ready, schedule_ebb,
+	begin_schedule_ready, schedule_ebb, schedule_block): Threaded
+	local instance of df.
+	(schedule_ebbs): Created local instance of df.  
+	* haifa-sched.c (schedule_block, sched_init, sched_finish,
+	generate_recovery_code, begin_speculative_block,
+	add_to_speculative_block, init_before_recovery,
+	create_recovery_block, create_check_block_twin, init_glat,
+	init_glat1): Threaded local instance of df.
+	* modulo-sched.c (sms_schedule): Ditto.
+	(rest_of_handle_sms): Removed unnecessary update of flow info.
+	* sched-int.h (df.h): Now includes this.
+	(schedule_block, sched_init, sched_finish, add_block): Added df
+	parm.
+	* sched-rgn.c (begin_schedule_ready, schedule_region,
+	schedule_insns): Threaded local instance of df.
+	(schedule_insns): Removed unnecessary update of flow info.
+	* Makefile.in (SCHED_INT_H): Added DF_H.
+	(ddg.o, modulo-sched.o, haifa-sched.o, sched-deps.o, sched-rgn.o, 
+	sched-ebb.o): Removed DF_H.
+	* ddg.c (build_inter_loop_deps): Swapped parms.
+	(create_ddg): Swapped parms for call.
+	* passes.c (init_optimization_passes): Removed dce and
+	recompute_reg_use pass and moved clear_df to before first
+	schedulers.
+	
+2006-04-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* df.h (shared_df): Removed.
+	(ra_df): New.
+	* core.c (shared_df): Removed.
+	(ra_df): New.
+	* postreload.c (reload_combine): Changed to use ra_df.
+	* reload.c (push_reload, find_dummy_reload): Ditto.
+	* global.c (global_alloc, global_conflicts, mark_elimination, 
+	build_insn_chain, rest_of_handle_global_alloc): Ditto.
+	* reload1.c (compute_use_by_pseudos, reload): Ditto.
+	* local-alloc.c (local_alloc, block_alloc): Created local instance
+	of df.
+	* passes.c (init_optimization_passes): Moved clear_df to before
+	register allocators.
+	* tree-pass.h (pass_partition_blocks): Removed redundant 
+	copy.
+	
+2006-04-16  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-pass.h (pass_reset_df_after_reload): Removed.
+	* df-core.c (reset_df_after_reload, pass_reset_df_after_reload): 
+	Removed.
+	* function.c (prologue_epilogue_df): New global.
+	(rtx keep_stack_depressed, thread_prologue_and_epilogue_insns):
+	Unthreaded local version of df and replaced with
+	prologue_epilogue_df.
+	* rtl.h (prologue_epilogue_df): New.
+	* passes.c (init_optimization_passes): Removed all uses of flow
+	after register allocation.
+	* config/i386/i386.c (ix86_eax_live_at_start_p): Replaced use of
+	flow with prologue_epilogue_df.
+	
+2006-04-15  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-pass.h (pass_flow2): Renamed to
+	pass_thread_prologue_and_epilogue.
+	* passes.c (pass_flow2): Ditto.
+	* final.c (rest_of_clean_state): Removed flow2_completed.
+	* config/i386/i386.md: Ditto.
+	* config/sh/sh.md: Ditto.
+	* config/mips/mips.md: Ditto.
+	* config/h8300/h8300.md: Ditto.
+	* flow.c: Ditto.
+	(rest_of_handle_flow2): Moved to function.c as 
+	rest_of_handle_thread_prologue_and_epilogue.
+	* timevar.def (TV_FLOW2): Renamed to
+	TV_THREAD_PROLOGUE_AND_EPILOGUE.
+	* function.c (keep_stack_depressed): Added df parameter.
+	(thread_prologue_and_epilogue_insns): Made local function and
+	removed unused parameter.  Added local instance of df.
+	(rest_of_handle_thread_prologue_and_epilogue): New function
+	renamed from flow.c.
+	(pass_thread_prologue_and_epilogue): New pass.  
+	* rtl.h	(flow2_completed, thread_prologue_and_epilogue_insns): 
+	Removed.
+	* df-problems.c (df_ru_get_bb_info, df_rd_get_bb_info,
+	df_lr_get_bb_info, df_ur_get_bb_info, df_urec_get_bb_info): Added
+	check.
+	* Makefile.in (function.o): Added timevar.h.
+	
+2006-04-13  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* rtl-factoring (collect_pattern_seqs, clear_regs_live_in_seq,
+	recompute_gain_for_pattern_seq, clear_regs_live_in_seq,
+	recompute_gain, split_blocks_after_seqs, split_pattern_seq, 
+	erase_matching_seqs, abstract_best_seq, rtl_seqabstr): Threaded
+	local instance of df to replace all references to flow.
+	(gate_rtl_seqabstr): Removed unnecessary calls. 
+	* passes.c (init_optimization_passes): Moved clear_df before
+	rtl_seqabstr.  Removed some expensive calls to dce.
+	* tree-pass.h (pass_fast_rtl_dce): New.
+	* regrename.c (gate_handle_regrename): Update call to pass.
+	* sched-rgn.c (rest_of_handle_sched2): Remove outdated calls.
+	
+2006-04-13  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* regmove.c (rest_of_handle_stack_adjustments): Removed all
+	references to flow.c and replaced with df.
+	* passes.c (init_optimization_passes): Moved clear_df before 
+	pass_stack_adjustments.
+
+2006-04-12  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* recog.c (delete_insn_chain_and_dflow): New function.
+	(peephole2_optimize): Replaced all flow references with df.  Added
+	local instance of df.
+	* passes.c (init_optimization_passes): Moved clear_df before peephole2.
+	
+2006-04-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* ifcvt.c (cond_exec_process_if_block, merge_if_block,
+	noce_process_if_block, cond_move_process_if_block,
+	process_if_block, find_if_header, find_cond_trap, find_if_case_1,
+	find_if_case_2, dead_or_predicable): Threaded local copy of df
+	thru the call stack.
+	(merge_if_block, find_cond_trap, find_if_case_1, find_if_case_2,
+	dead_or_predicable): Added code to update df in place.
+	(if_convert): Removed parameter concerned with correct dataflow
+	info, it now always is. Created instance of df.  Removed code to
+	update old flow info.
+	(rest_of_handle_if_after_reload): Removed unnecessary calls to
+	cleanup_cfg.
+	* passes.c (init_optimization_passes): Moved clear_df to before
+	last ifconvert.  Renamed pass_cprop to pass_cprop_hardreg.
+	* regrename.c (rest_of_handle_cprop): Renamed pass_cprop to
+	pass_cprop_hardreg.
+	* tree-pass.h: Renamed cprop to cprop_hardreg.
+	
+2006-04-11  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* sched-ebb.c (schedule_ebbs): Removed code to update dataflow
+	after scheduling and removed unused parm from 
+	reposition_prologue_and_epilogue_notes.
+	* sched-rgn.c (schedule_insns): Ditto.
+	(rest_of_handle_sched): Added temp hack to rebuild flow based dataflow
+	until flow is permanently removed.
+	* haifa-sched.c (init_glat): Modified to create glat from df info.
+	(attach_life_info, attach_life_info1, check_reg_live): Removed.
+	(free_glat): Now cleans up df.
+	* modulo-sched.c (compute_jump_reg_dependencies): Removed df parm.
+	* ifcvt.c (rest_of_handle_if_conversion): Added code to clean up
+	flow based reg_deaths after first call to ifconvert.
+	* function.c (reposition_prologue_and_epilogue_notes): Removed
+	unused parm.
+	* rtl.h (reposition_prologue_and_epilogue_notes): Ditto.
+	* sched-int.h (check_reg_live): Removed.
+
+2006-04-10  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* df-core.c (reset_df_after_reload, clear_df): Added return to
+	make compatible with pass manager.
+	* dce.c (rest_of_handle_dce, rest_of_handle_fast_dce,
+	rest_of_handle_dse): Ditto.
+
+2006-04-09 Kenneth Zadeck <zadeck@naturalbridge.com>
+	* regrename.c (merge_overlapping_regs, regrename_optimize):
+	Threaded private instance of df.
+	(regrename_optimize): Created private instance of df, removed
+	all references or flow.
+	(copyprop_hardreg_forward): Removed all references to flow.
+	(gate_handle_regrename): Split reg rename and cprop into separate 
+	passes.
+	(gate_handle_cprop): New function.
+	(pass_cprop): New pass structure.
+	* tree-pass.h (pass_cprop): New pass structure.
+	* passes.c (init_optimization_passes): Added cprop pass and 
+	moved clear_df pass closer to beginning.	
+
+2006-04-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* tree-pass.h (pass_split_after_reload, pass_branch_target_load_optimize1
+	pass_branch_target_load_optimize2): Added.
+	(pass_branch_target_load_optimize): Deleted.
+	* flow.c (rest_of_handle_flow2): Split the calls to split_all_insns and 
+	branch_target_load_optimize into their own passes.
+	* passes.c (init_optimization_passes): Ditto.
+	(init_optimization_passes): Moved clear_df pass to before 
+	second branch_target_load_optimize pass.
+	* bt-load (compute_defs_uses_and_gen, build_btr_def_use_webs, 
+	migrate_btr_defs): Threaded private copy of df into these functions.
+	(branch_target_load_optimize): Made private and add local
+	instance of df.  Removed all references to flow.
+	(rest_of_handle_branch_target_load_optimize1): New function.
+	(rest_of_handle_branch_target_load_optimize): Renamed to 
+	rest_of_handle_branch_target_load_optimize2.
+	rtl.h (branch_target_load_optimize): Removed.
+
+2006-04-08  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* sched-ebb.c (init_ready_list, can_schedule_ready_p, new_ready,
+	compute_jump_reg_dependencies, schedule_ebb, sched_analyze,
+	schedule_block): Changed to pass instance of df.
+	(compute_jump_reg_dependencies): Changed to use local instance
+	of dataflow.
+	* ddg.c (build_intra_loop_deps, sched_analyze,
+	build_intra_loop_deps): Changed to pass instance of df.
+	* ddg.h: added forward reference to struct df.
+	* haifa-sched.c (schedule_insns, schedule_insn,
+	schedule_block): Changed to pass instance of df.
+	* modulo-sched (compute_jump_reg_dependencies): Ditto.
+	(sms_schedule): Added call to do dce when stated.
+	* sched-deps.c (sched_analyze_insn, sched_analyze):
+	Changed to pass instance of df.
+	* rtl.h (schedule_insns, schedule_ebbs): Ditto.
+	* sched-int.h (init_ready_list, can_schedule_ready_p, new_ready, 
+	compute_jump_reg_dependencies, sched_analyze, schedule_block):
+	Ditto.
+	* sched-rgn.c (check_live_1, update_live_1, check_live, 
+	update_live, init_ready_list, can_schedule_ready_p, new_ready,
+	compute_jump_reg_dependencies, compute_block_backward_dependences,
+	schedule_region, schedule_insns): Ditto.
+	(schedule_insns): Removed call to update_life_info when finished.
+ 	(rest_of_handle_sched, rest_of_handle_sched2): Creates local
+ 	instance of df.
+	* passes.c (init_optimization_passes): moved clear_df pass
+	earlier.
+	* Makefile.in (df-core.o): Added except.h and dce.h
+	(modulo-sched.o): Added DF_H.
+	* recog.c (split_all_insns): Removed old code that was used to 
+	update dataflow.
+	* reg-stack.c (rest_of_handle_stack_regs): Removed ifdefed out code.
+
+2006-04-07  Kenneth Zadeck <zadeck@naturalbridge.com>
+	* recog.c (split_all_insns): Removed parameter and code to
+	update dataflow.
+	* sched-rgn.c (rest_of_handle_sched2): Removed parm to 
+	split_all_insns.
+	* flow.c (rest_of_handle_flow2): Ditto.
+	(rest_of_handle_split_all_insns): Added call to update old
+	dataflow after this pass.
+	(rest_of_handle_split_after_reload,
+	rest_of_handle_split_before_regstack): New function.
+	(pass_split_after_reload): New structure.
+	* rtl.h (split_all_insns): Removed param.
+	* bb-reorder.c (rest_of_handle_reorder_blocks): Removed 
+	references to flow.
+	* reg-stack.c (subst_stack_regs_pat): Removed unnecessary 
+	assertion.
+
+2006-04-07  Daniel Berlin  <dberlin@dberlin.org>
+	    Kenneth Zadeck <zadeck@naturalbridge.com>
+	* regoc.c (dbr_schedule): Added parm to call to df_lr_add_problem.
+	* ifcvt.c (if_convert): Ditto.
+	* modulo-sched.c (sms_schedule): Ditto.
+	* reg-stack.c (reg_to_stack): Ditto.
+	* global.c (global_alloc, rest_of_handle_global_alloc): Ditto.
+	(rest_of_handle_global_alloc): Removed call to df_set_state.
+	* basic_block.h (clear_reg_deaths): New function.
+	* flow.c: (clear_reg_deaths): New function.
+	(rest_of_handle_life): Added parm to call to df_lr_add_problem and
+	df_ur_add_problem.
+	* df-scan.c (df_scan_free_internal): Added code to clear new
+	bit vectors.
+	(df_scan_alloc): Added extra parameter and code to initialize
+	new bit vectors.
+	(df_scan_dump): Added code to dump new bit vectors.
+	(df_problem problem_SCAN): Added extra field.
+	(df_scan_add_problem): Added flags parameter.
+	(df_rescan_blocks): Added code to remove deleted blocks from
+	bitmap and extra parm to call to df_scan_alloc.
+	(df_insn_create_insn_record): Removed return value.
+	(df_set_state): Removed function.
+	(df_ref_record, df_bb_refs_record, df_record_entry_block_defs,
+	df_record_exit_block_uses): Changed the way flags are processed.
+	(df_bb_refs_record, df_refs_record, df_record_exit_block_uses): 
+	Restructured scanning to fixed hard regs so bitmaps could be
+	recorded for later use.
+	(df_has_eh_preds): Now public.
+	* df-core.c (df_mvs_dump, df_set_flags, df_clear_flags,
+	df_delete_basic_block): New function.
+	(df_init): Changed location of flags.
+	(df_add_problem): Added flags parameter and the way flags are
+	processed.
+	(df_insn_uid_debug, df_ref_debug, debug_df_defno, debug_df_ref,
+	debug_df_chain): Improved debugging output.
+	(clear_df): Added call to clear_reg_deaths.
+	* df.h: Some reordering to remove forward references.
+	(dataflow.flags): New field.
+	(df.flag): Deleted field.
+	(df_alloc_function): Added additional bitmap parameter.
+	(df_dependent_problem_function): New type.
+	(df_problem.changeable_flags): New field.
+	(df_ref_flags.DF_SCAN_INITIAL,
+	DF_SCAN_GLOBAL, DF_SCAN_POST_ALLOC, df_state): Removed.
+	(df_refs_chain_dump, df_ref_debug, df_chain_dump): Removed df
+	parameter.
+	(df_add_problem, df_ru_add_problem, df_rd_add_problem,
+	df_lr_add_problem, df_ur_add_problem, df_urec_add_problem, 
+	df_ri_add_problem, df_scan_add_problem): Added flags parameter.
+	(df_set_state): Removed function.
+	(df_set_flags, df_clear_flags, df_delete_basic_block, df_has_eh_preds) New functions.
+	* df-problems.c (df_get_dependent_problem): Deleted function.
+	(df_ru_alloc, df_rd_alloc, df_lr_alloc, df_ur_alloc,
+	df_urec_alloc, df_chain_alloc, df_ri_alloc): Added all blocks
+	parameter.
+	(df_ru_alloc, df_rd_alloc): Now resets all blocks.
+	(df_ru_dump, df_rd_dump, df_lr_dump, df_ur_dump, df_urec_dump,
+	df_chains_dump): Fixed crash if problem was never run.
+	(df_ru_add_problem, df_rd_add_problem, df_lr_add_problem, 
+	df_ur_add_problem, df_urec_add_problem, df_chain_add_problem,
+	df_ri_add_problem): Processes flags in uniform manner.
+	(df_lr_bb_local_compute): Fixed case to account for return value
+	correctly.
+	(df_lr_bb_local_compute): Changed processing of exit block.
+	(df_lr_transfer_function): Added hook to call dce.
+	(df_lr_free): Added lr problem data.
+	(df_set_notes_for_mw, df_reg_lifetime): Removed function.
+	(df_lr_simulate_artificial_refs_at_end, df_lr_simulate_one_insn,
+	df_kill_notes, df_set_unused_notes_for_mw, df_set_dead_notes_for_mw):
+	New function.
+	(df_ri_alloc, df_ri_bb_compute, df_create_unused_note, 
+	df_ri_bb_compute, df_ri_compute, df_ri_free, df_ri_add_problem):
+	Added functionality to compute register information. 
+	dce.c (deletable_insn_p): Cannot delete PREFETCHes.
+	(delete_unmarked_insns): Also delete noop moves as well as support for
+	calling dce from df.
+	(prescan_insns_for_dce, rest_of_handle_dce, end_fast_dce, 
+	dce_process_block, rest_of_handle_fast_dce,
+	rest_of_handle_dse): Restructured to handle being directly called from
+	df.
+
+
 2006-03-14  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree-pass.h: Added pass to clear other dataflow infomation out.

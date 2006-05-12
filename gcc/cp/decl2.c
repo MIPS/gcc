@@ -82,6 +82,7 @@ static tree prune_vars_needing_no_initialization (tree *);
 static void write_out_vars (tree);
 static void import_export_class (tree);
 static tree get_guard_bits (tree);
+static void determine_visibility_from_class (tree, tree);
 
 /* A list of static class variables.  This is needed, because a
    static class variable can be declared inside the class without
@@ -102,33 +103,28 @@ tree static_ctors;
 tree static_dtors;
 
 
-/* Incorporate `const' and `volatile' qualifiers for member functions.
-   FUNCTION is a TYPE_DECL or a FUNCTION_DECL.
-   QUALS is a list of qualifiers.  Returns any explicit
-   top-level qualifiers of the method's this pointer, anything other than
-   TYPE_UNQUALIFIED will be an extension.  */
 
-int
-grok_method_quals (tree ctype, tree function, cp_cv_quals quals)
+/* Return a member function type (a METHOD_TYPE), given FNTYPE (a
+   FUNCTION_TYPE), CTYPE (class type), and QUALS (the cv-qualifiers
+   that apply to the function).  */
+
+tree
+build_memfn_type (tree fntype, tree ctype, cp_cv_quals quals)
 {
-  tree fntype = TREE_TYPE (function);
-  tree raises = TYPE_RAISES_EXCEPTIONS (fntype);
-  int type_quals = TYPE_UNQUALIFIED;
-  int this_quals = TYPE_UNQUALIFIED;
+  tree raises;
+  int type_quals;
 
   type_quals = quals & ~TYPE_QUAL_RESTRICT;
-  this_quals = quals & TYPE_QUAL_RESTRICT;
-
   ctype = cp_build_qualified_type (ctype, type_quals);
   fntype = build_method_type_directly (ctype, TREE_TYPE (fntype),
 				       (TREE_CODE (fntype) == METHOD_TYPE
 					? TREE_CHAIN (TYPE_ARG_TYPES (fntype))
 					: TYPE_ARG_TYPES (fntype)));
+  raises = TYPE_RAISES_EXCEPTIONS (fntype);
   if (raises)
     fntype = build_exception_variant (fntype, raises);
 
-  TREE_TYPE (function) = fntype;
-  return this_quals;
+  return fntype;
 }
 
 /* Build a PARM_DECL with NAME and TYPE, and set DECL_ARG_TYPE
@@ -148,7 +144,7 @@ cp_build_parm_decl (tree name, tree type)
 /* Returns a PARM_DECL for a parameter of the indicated TYPE, with the
    indicated NAME.  */
 
-static tree
+tree
 build_artificial_parm (tree name, tree type)
 {
   tree parm = cp_build_parm_decl (name, type);
@@ -256,11 +252,9 @@ maybe_retrofit_in_chrg (tree fn)
    QUALS are the qualifiers for the this pointer.  */
 
 void
-grokclassfn (tree ctype, tree function, enum overload_flags flags,
-	     cp_cv_quals quals)
+grokclassfn (tree ctype, tree function, enum overload_flags flags)
 {
   tree fn_name = DECL_NAME (function);
-  cp_cv_quals this_quals = TYPE_UNQUALIFIED;
 
   /* Even within an `extern "C"' block, members get C++ linkage.  See
      [dcl.link] for details.  */
@@ -271,28 +265,6 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags,
       error ("name missing for member function");
       fn_name = get_identifier ("<anonymous>");
       DECL_NAME (function) = fn_name;
-    }
-
-  if (quals)
-    this_quals = grok_method_quals (ctype, function, quals);
-
-  if (TREE_CODE (TREE_TYPE (function)) == METHOD_TYPE)
-    {
-      /* Must add the class instance variable up front.  */
-      /* Right now we just make this a pointer.  But later
-	 we may wish to make it special.  */
-      tree type = TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (function)));
-      tree qual_type;
-      tree parm;
-
-      /* The `this' parameter is implicitly `const'; it cannot be
-	 assigned to.  */
-      this_quals |= TYPE_QUAL_CONST;
-      qual_type = cp_build_qualified_type (type, this_quals);
-      parm = build_artificial_parm (this_identifier, qual_type);
-      cp_apply_type_quals_to_decl (this_quals, parm);
-      TREE_CHAIN (parm) = DECL_ARGUMENTS (function);
-      DECL_ARGUMENTS (function) = parm;
     }
 
   DECL_CONTEXT (function) = ctype;
@@ -786,7 +758,7 @@ finish_static_data_member_decl (tree decl,
   cp_finish_decl (decl, init, init_const_expr_p, asmspec_tree, flags);
 }
 
-/* DECLARATOR and DECLSPECS correspond to a class member.  The othe
+/* DECLARATOR and DECLSPECS correspond to a class member.  The other
    parameters are as for cp_finish_decl.  Return the DECL for the
    class member declared.  */ 
 
@@ -1566,12 +1538,26 @@ maybe_emit_vtables (tree ctype)
 }
 
 /* Like c_determine_visibility, but with additional C++-specific
-   behavior.  */
+   behavior.
+
+   Function-scope entities can rely on the function's visibility because
+   it is set in start_preparsed_function.
+
+   Class-scope entities cannot rely on the class's visibility until the end
+   of the enclosing class definition.
+
+   Note that because namespaces have multiple independent definitions,
+   namespace visibility is handled elsewhere using the #pragma visibility
+   machinery rather than by decorating the namespace declaration.  */
 
 void
 determine_visibility (tree decl)
 {
   tree class_type;
+
+  /* Only relevant for names with external linkage.  */
+  if (!TREE_PUBLIC (decl))
+    return;
 
   /* Cloned constructors and destructors get the same visibility as
      the underlying function.  That should be set up in
@@ -1596,6 +1582,14 @@ determine_visibility (tree decl)
 	 so they are automatically handled above.  */
       gcc_assert (TREE_CODE (decl) != VAR_DECL
 		  || !DECL_VTABLE_OR_VTT_P (decl));
+
+      if (DECL_FUNCTION_SCOPE_P (decl))
+	{
+	  tree fn = DECL_CONTEXT (decl);
+	  DECL_VISIBILITY (decl) = DECL_VISIBILITY (fn);
+	  DECL_VISIBILITY_SPECIFIED (decl) = DECL_VISIBILITY_SPECIFIED (fn);
+	}
+
       /* Entities not associated with any class just get the
 	 visibility specified by their attributes.  */
       return;
@@ -1605,33 +1599,62 @@ determine_visibility (tree decl)
      the visibility of their containing class.  */
   if (class_type)
     {
-      if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
-	  && lookup_attribute ("dllexport", TYPE_ATTRIBUTES (class_type)))
+      determine_visibility_from_class (decl, class_type);
+
+      /* Give the target a chance to override the visibility associated
+	 with DECL.  */
+      if (TREE_CODE (decl) == VAR_DECL
+	  && (DECL_TINFO_P (decl)
+	      || (DECL_VTABLE_OR_VTT_P (decl)
+		  /* Construction virtual tables are not exported because
+		     they cannot be referred to from other object files;
+		     their name is not standardized by the ABI.  */
+		  && !DECL_CONSTRUCTION_VTABLE_P (decl)))
+	  && TREE_PUBLIC (decl)
+	  && !DECL_REALLY_EXTERN (decl)
+	  && DECL_VISIBILITY_SPECIFIED (decl)
+	  && (!class_type || !CLASSTYPE_VISIBILITY_SPECIFIED (class_type)))
+	targetm.cxx.determine_class_data_visibility (decl);
+    }      
+}
+
+static void
+determine_visibility_from_class (tree decl, tree class_type)
+{
+  if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
+      && lookup_attribute ("dllexport", TYPE_ATTRIBUTES (class_type)))
+    {
+      DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (decl) = 1;
+    }
+  else if (TREE_CODE (decl) == FUNCTION_DECL
+	   && DECL_DECLARED_INLINE_P (decl)
+	   && visibility_options.inlines_hidden)
+    {
+      /* Don't change it if it has been set explicitly by user.  */
+      if (!DECL_VISIBILITY_SPECIFIED (decl))
 	{
-	  DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+	  DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
 	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
 	}
-      else if (TREE_CODE (decl) == FUNCTION_DECL
-	       && DECL_DECLARED_INLINE_P (decl)
-	       && visibility_options.inlines_hidden)
-	{
-	  /* Don't change it if it has been set explicitly by user.  */
-	  if (!DECL_VISIBILITY_SPECIFIED (decl))
-	    {
-	      DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
-	      DECL_VISIBILITY_SPECIFIED (decl) = 1;
-	    }
-	}
-      else if (CLASSTYPE_VISIBILITY_SPECIFIED (class_type))
-	{
-	  DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
-	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
-	}
-      else if (!DECL_VISIBILITY_SPECIFIED (decl))
-	{
-	  DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
-	  DECL_VISIBILITY_SPECIFIED (decl) = 0;
-	}
+    }
+  else if (CLASSTYPE_VISIBILITY_SPECIFIED (class_type))
+    {
+      DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
+      DECL_VISIBILITY_SPECIFIED (decl) = 1;
+    }
+  else if (TYPE_CLASS_SCOPE_P (class_type))
+    determine_visibility_from_class (decl, TYPE_CONTEXT (class_type));
+  else if (TYPE_FUNCTION_SCOPE_P (class_type))
+    {
+      tree fn = TYPE_CONTEXT (class_type);
+      DECL_VISIBILITY (decl) = DECL_VISIBILITY (fn);
+      DECL_VISIBILITY_SPECIFIED (decl) = DECL_VISIBILITY_SPECIFIED (fn);
+    }
+  else if (!DECL_VISIBILITY_SPECIFIED (decl))
+    {
+      DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
+      DECL_VISIBILITY_SPECIFIED (decl) = 0;
     }
 }
 
@@ -1784,9 +1807,13 @@ import_export_decl (tree decl)
 	      /* The generic C++ ABI says that class data is always
 		 COMDAT, even if there is a key function.  Some
 		 variants (e.g., the ARM EABI) says that class data
-		 only has COMDAT linkage if the class data might
-		 be emitted in more than one translation unit.  */
+		 only has COMDAT linkage if the class data might be
+		 emitted in more than one translation unit.  When the
+		 key method can be inline and is inline, we still have
+		 to arrange for comdat even though
+		 class_data_always_comdat is false.  */
 	      if (!CLASSTYPE_KEY_METHOD (class_type)
+		  || DECL_DECLARED_INLINE_P (CLASSTYPE_KEY_METHOD (class_type))
 		  || targetm.cxx.class_data_always_comdat ())
 		{
 		  /* The ABI requires COMDAT linkage.  Normally, we
@@ -1825,7 +1852,9 @@ import_export_decl (tree decl)
 	      if (CLASSTYPE_INTERFACE_KNOWN (type)
 		  && !CLASSTYPE_INTERFACE_ONLY (type))
 		{
-		  comdat_p = targetm.cxx.class_data_always_comdat ();
+		  comdat_p = (targetm.cxx.class_data_always_comdat ()
+			      || (CLASSTYPE_KEY_METHOD (type)
+				  && DECL_DECLARED_INLINE_P (CLASSTYPE_KEY_METHOD (type))));
 		  mark_needed (decl);
 		  if (!flag_weak)
 		    {
@@ -1898,21 +1927,6 @@ import_export_decl (tree decl)
 	 this point.  */
       comdat_linkage (decl);
     }
-
-  /* Give the target a chance to override the visibility associated
-     with DECL.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      && (DECL_TINFO_P (decl)
-	  || (DECL_VTABLE_OR_VTT_P (decl)
-	      /* Construction virtual tables are not exported because
-		 they cannot be referred to from other object files;
-		 their name is not standardized by the ABI.  */
-	      && !DECL_CONSTRUCTION_VTABLE_P (decl)))
-      && TREE_PUBLIC (decl)
-      && !DECL_REALLY_EXTERN (decl)
-      && DECL_VISIBILITY_SPECIFIED (decl)
-      && (!class_type || !CLASSTYPE_VISIBILITY_SPECIFIED (class_type)))
-    targetm.cxx.determine_class_data_visibility (decl);
 
   DECL_INTERFACE_KNOWN (decl) = 1;
 }

@@ -103,7 +103,7 @@ htab_t default_defs;
    various attributes for each variable used by alias analysis and the
    optimizer.  */
 
-static void
+static unsigned int
 find_referenced_vars (void)
 {
   htab_t vars_found;
@@ -123,6 +123,7 @@ find_referenced_vars (void)
       }
 
   htab_delete (vars_found);
+  return 0;
 }
 
 struct tree_opt_pass pass_referenced_vars =
@@ -344,10 +345,10 @@ dump_variable (FILE *file, tree var)
   fprintf (file, ", ");
   print_generic_expr (file, TREE_TYPE (var), dump_flags);
 
-  if (ann && ann->type_mem_tag)
+  if (ann && ann->symbol_mem_tag)
     {
-      fprintf (file, ", type memory tag: ");
-      print_generic_expr (file, ann->type_mem_tag, dump_flags);
+      fprintf (file, ", symbol memory tag: ");
+      print_generic_expr (file, ann->symbol_mem_tag, dump_flags);
     }
 
   if (ann && ann->is_aliased)
@@ -623,20 +624,6 @@ find_vars_r (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-
-/* Lookup UID in the referenced_vars hashtable and return the associated
-   variable or NULL if it is not there.  */
-
-tree 
-referenced_var_lookup_if_exists (unsigned int uid)
-{
-  struct int_tree_map *h, in;
-  in.uid = uid;
-  h = (struct int_tree_map *) htab_find_with_hash (referenced_vars, &in, uid);
-  if (h)
-    return h->to;
-  return NULL_TREE;
-}
 
 /* Lookup UID in the referenced_vars hashtable and return the associated
    variable.  */

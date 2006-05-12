@@ -1,5 +1,5 @@
 /* Definitions for the Blackfin port.
-   Copyright (C) 2005  Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006  Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
    This file is part of GCC.
@@ -41,6 +41,8 @@ extern int target_flags;
     {                                           \
       builtin_define ("bfin");                  \
       builtin_define ("BFIN");                  \
+      if (TARGET_ID_SHARED_LIBRARY)		\
+	builtin_define ("__ID_SHARED_LIB__");	\
     }                                           \
   while (0)
 #endif
@@ -213,9 +215,13 @@ extern const char *bfin_library_id_string;
 
 #define FIRST_PSEUDO_REGISTER 44
 
-#define PREG_P(X) (REG_P (X) && REGNO (X) >= REG_P0 && REGNO (X) <= REG_P7)
+#define PREG_P(X) (REG_P (X) && P_REGNO_P (REGNO (X)))
+#define IREG_P(X) (REG_P (X) && I_REGNO_P (REGNO (X)))
 #define ADDRESS_REGNO_P(X) ((X) >= REG_P0 && (X) <= REG_M3)
 #define D_REGNO_P(X) ((X) <= REG_R7)
+#define P_REGNO_P(X) ((X) >= REG_P0 && (X) <= REG_P7)
+#define I_REGNO_P(X) \
+  ((X) == REG_I0 || (X) == REG_I1 || (X) == REG_I2 || (X) == REG_I3)
 
 #define REGISTER_NAMES { \
   "R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7", \
@@ -256,7 +262,7 @@ extern const char *bfin_library_id_string;
 /*i0 i1 i2 i3 b0 b1 b2 b3   l0 l1 l2 l3 m0 m1 m2 m3 */ \
   0, 0, 0, 0, 0, 0, 0, 0,   1, 1, 1, 1, 0, 0, 0, 0,    \
 /*a0 a1 cc rets/i/x/n/e     astat seqstat usp argp */ \
-  0, 0, 1, 1, 1, 1, 1, 1,   1, 1, 1, 1	 \
+  0, 0, 0, 1, 1, 1, 1, 1,   1, 1, 1, 1	 \
 }
 
 /* 1 for registers not available across function calls.
@@ -342,6 +348,7 @@ enum reg_class
   DREGS,
   PREGS_CLOBBERED,
   PREGS,
+  IPREGS,
   DPREGS,
   MOST_REGS,
   PROLOGUE_REGS,
@@ -372,6 +379,7 @@ enum reg_class
    "DREGS",		\
    "PREGS_CLOBBERED",	\
    "PREGS",		\
+   "IPREGS",		\
    "DPREGS",		\
    "MOST_REGS",		\
    "PROLOGUE_REGS",	\
@@ -410,27 +418,40 @@ enum reg_class
     { 0x000000ff,    0 },		/* DREGS */   \
     { 0x00004700,    0x800 },		/* PREGS_CLOBBERED */   \
     { 0x0000ff00,    0x800 },		/* PREGS */   \
+    { 0x000fff00,    0x800 },		/* IPREGS */	\
     { 0x0000ffff,    0x800 },		/* DPREGS */   \
     { 0xffffffff,    0x800 },		/* MOST_REGS */\
     { 0x00000000,    0x7f8 },		/* PROLOGUE_REGS */\
     { 0xffffffff,    0xff8 },		/* NON_A_CC_REGS */\
     { 0xffffffff,    0xfff }}		/* ALL_REGS */
 
-#define BASE_REG_CLASS          PREGS
+#define IREG_POSSIBLE_P(OUTER)				     \
+  ((OUTER) == POST_INC || (OUTER) == PRE_INC		     \
+   || (OUTER) == POST_DEC || (OUTER) == PRE_DEC		     \
+   || (OUTER) == MEM || (OUTER) == ADDRESS)
+
+#define MODE_CODE_BASE_REG_CLASS(MODE, OUTER, INDEX)			\
+  ((MODE) == HImode && IREG_POSSIBLE_P (OUTER) ? IPREGS : PREGS)
+
 #define INDEX_REG_CLASS         PREGS
 
-#define REGNO_OK_FOR_BASE_STRICT_P(X) (REGNO_REG_CLASS (X) == BASE_REG_CLASS)
-#define REGNO_OK_FOR_BASE_NONSTRICT_P(X)  \
- (((X) >= FIRST_PSEUDO_REGISTER) || REGNO_REG_CLASS (X) == BASE_REG_CLASS)
+#define REGNO_OK_FOR_BASE_STRICT_P(X, MODE, OUTER, INDEX)	\
+  (P_REGNO_P (X) || (X) == REG_ARGP				\
+   || (IREG_POSSIBLE_P (OUTER) && (MODE) == HImode		\
+       && I_REGNO_P (X)))
+
+#define REGNO_OK_FOR_BASE_NONSTRICT_P(X, MODE, OUTER, INDEX)	\
+  ((X) >= FIRST_PSEUDO_REGISTER					\
+   || REGNO_OK_FOR_BASE_STRICT_P (X, MODE, OUTER, INDEX))
 
 #ifdef REG_OK_STRICT
-#define REGNO_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_STRICT_P (X)
+#define REGNO_MODE_CODE_OK_FOR_BASE_P(X, MODE, OUTER, INDEX) \
+  REGNO_OK_FOR_BASE_STRICT_P (X, MODE, OUTER, INDEX)
 #else
-#define REGNO_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_NONSTRICT_P (X)
+#define REGNO_MODE_CODE_OK_FOR_BASE_P(X, MODE, OUTER, INDEX) \
+  REGNO_OK_FOR_BASE_NONSTRICT_P (X, MODE, OUTER, INDEX)
 #endif
 
-#define REG_OK_FOR_BASE_P(X)    (REG_P (X) && REGNO_OK_FOR_BASE_P (REGNO (X)))
-#define REG_OK_FOR_INDEX_P(X)   0
 #define REGNO_OK_FOR_INDEX_P(X)   0
 
 /* Get reg_class from a letter such as appears in the machine description.  */
@@ -462,7 +483,7 @@ enum reg_class
 #define REGNO_REG_CLASS(REGNO) \
  ((REGNO) < REG_P0 ? DREGS				\
  : (REGNO) < REG_I0 ? PREGS				\
- : (REGNO) == REG_ARGP ? BASE_REG_CLASS			\
+ : (REGNO) == REG_ARGP ? PREGS				\
  : (REGNO) >= REG_I0 && (REGNO) <= REG_I3 ? IREGS	\
  : (REGNO) >= REG_L0 && (REGNO) <= REG_L3 ? LREGS	\
  : (REGNO) >= REG_B0 && (REGNO) <= REG_B3 ? BREGS	\
@@ -1043,19 +1064,6 @@ typedef enum directives {
     do {  fprintf (FILE, "_%s", NAME); \
         } while (0)
 
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)			\
-  do {									\
-    int len = strlen (NAME);						\
-    char *temp = (char *) alloca (len + 4);				\
-    temp[0] = 'L';							\
-    temp[1] = '_';							\
-    strcpy (&temp[2], (NAME));						\
-    temp[len + 2] = '_';						\
-    temp[len + 3] = 0;							\
-    (OUTPUT) = (char *) alloca (strlen (NAME) + 13);			\
-    sprintf (OUTPUT, "_%s$%d", temp, LABELNO);				\
-  } while (0)
-
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)    	\
 do { char __buf[256];					\
      fprintf (FILE, "\t.dd\t");				\
@@ -1123,10 +1131,6 @@ extern struct rtx_def *bfin_cc_rtx, *bfin_rets_rtx;
 
 /* This works for GAS and some other assemblers.  */
 #define SET_ASM_OP              ".set "
-
-/* Don't know how to order these.  UNALIGNED_WORD_ASM_OP is in
-   dwarf2.out. */
-#define UNALIGNED_WORD_ASM_OP ".4byte"
 
 /* DBX register number for a given compiler register number */
 #define DBX_REGISTER_NUMBER(REGNO)  (REGNO) 

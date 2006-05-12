@@ -1,3 +1,60 @@
+2006-04-18  DJ Delorie  <dj@redhat.com>
+
+	* configure.in (m32c): Build libstdc++-v3.  Pass flags to
+	reference libgloss so that libssp can be built in a combined
+	tree.
+	* configure: Regenerate.
+
+2006-04-08  Robert Millan  <rmh@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2006-04-05  Ben Elliston  <bje@au.ibm.com>
+
+	* configure.in: Require makeinfo 4.4 or higher.
+	* configure: Regenerate.
+
+2006-04-04  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* MAINTAINERS: Add Richard Henderson as libgomp maintainer.
+	Rearrange the entries of other libraries to have them in one place.
+
+2006-03-22  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval): Remove myself. 
+	(Language Front End Maintainers): Add myself as fortran 95 maintainer.
+
+2006-03-14  Richard Guenther  <rguenther@suse.de>
+
+	* configure: Regenerate with autoconf 2.13.
+
+2006-03-13  Jim Blandy  <jimb@codesourcery.com>
+
+	* MAINTAINERS: Use my work address.
+
+	* MAINTAINERS: Update my E-mail address.
+
+2006-03-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	* configure.in: Handle --disable-<component> generically.
+	* configure: Regenerate.
+
+2006-03-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libgcj/17311
+	* ltmain.sh: Don't use "$finalize_rpath" for compile.
+
+2006-02-21  Erik Edelmann  <eedelman@gcc.gnu.org>
+
+	* MAINTAINERS (Write After Approval):  Remove myself.
+	(Language Front End Maintainers):  Add myself as fortran 95 maintainer.
+
+2006-02-21 Rafael Ãvila de EspÃ­ndola <rafael.espindola@gmail.com>
+	* Makefile.tpl  (BUILD_CONFIGDIRS): Remove.
+	(TARGET_CONFIGDIRS): Remove.
+	* configure.in: Remove AC_SUBST(target_configdirs).
+	* Makefile.in, configure: Regenerated.
+
 2006-02-20  Steven G. Kargl  <kargls@comcast.net>
 
 	* MAINTAINERS (Write After Approval):  Remove myself.
@@ -1902,7 +1959,7 @@
 	of libf2c.
 	* configure, Makefile.in: Regenerate.
 
-2004-05-13  Tobias Schl�ter  <tobi@gcc.gnu.org>
+2004-05-13  Tobias SchlÃ¼ter  <tobi@gcc.gnu.org>
 
 	* MAINTAINERS (Write After Approval): Add myself.
 

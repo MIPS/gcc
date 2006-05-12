@@ -138,10 +138,8 @@ static void asm_output_aligned_bss (FILE *, tree, const char *,
      ATTRIBUTE_UNUSED;
 #endif
 #endif /* BSS_SECTION_ASM_OP */
-static bool asm_emit_uninitialised (tree, const char*,
-				    unsigned HOST_WIDE_INT,
-				    unsigned HOST_WIDE_INT);
 static void mark_weak (tree);
+static void output_constant_pool (const char *, tree);
 
 /* Well-known sections, each one associated with some sort of *_ASM_OP.  */
 section *text_section;
@@ -152,6 +150,15 @@ section *ctors_section;
 section *dtors_section;
 section *bss_section;
 section *sbss_section;
+
+/* Various forms of common section.  All are guaranteed to be nonnull.  */
+section *tls_comm_section;
+section *comm_section;
+section *lcomm_section;
+
+/* A SECTION_NOSWITCH section used for declaring global BSS variables.
+   May be null.  */
+section *bss_noswitch_section;
 
 /* The section that holds the main exception table, when known.  The section
    is set either by the target's init_sections hook or by the first call to
@@ -189,6 +196,9 @@ static GTY((param_is (struct object_block))) htab_t object_block_htab;
 
 /* The next number to use for internal anchor labels.  */
 static GTY(()) int anchor_labelno;
+
+/* A pool of constants that can be shared between functions.  */
+static GTY(()) struct rtx_constant_pool *shared_constant_pool;
 
 /* Helper routines for maintaining section_htab.  */
 
@@ -245,12 +255,26 @@ get_unnamed_section (unsigned int flags, void (*callback) (const void *),
   section *sect;
 
   sect = ggc_alloc (sizeof (struct unnamed_section));
-  sect->unnamed.common.flags = flags;
+  sect->unnamed.common.flags = flags | SECTION_UNNAMED;
   sect->unnamed.callback = callback;
   sect->unnamed.data = data;
   sect->unnamed.next = unnamed_sections;
 
   unnamed_sections = sect;
+  return sect;
+}
+
+/* Return a SECTION_NOSWITCH section with the given fields.  */
+
+static section *
+get_noswitch_section (unsigned int flags, noswitch_section_callback callback)
+{
+  section *sect;
+
+  sect = ggc_alloc (sizeof (struct unnamed_section));
+  sect->noswitch.common.flags = flags | SECTION_NOSWITCH;
+  sect->noswitch.callback = callback;
+
   return sect;
 }
 
@@ -300,13 +324,17 @@ use_object_blocks_p (void)
 }
 
 /* Return the object_block structure for section SECT.  Create a new
-   structure if we haven't created one already.  */
+   structure if we haven't created one already.  Return null if SECT
+   itself is null.  */
 
 static struct object_block *
 get_block_for_section (section *sect)
 {
   struct object_block *block;
   void **slot;
+
+  if (sect == NULL)
+    return NULL;
 
   slot = htab_find_slot_with_hash (object_block_htab, sect,
 				   hash_section (sect), INSERT);
@@ -341,7 +369,7 @@ create_block_symbol (const char *label, struct object_block *block,
   PUT_CODE (symbol, SYMBOL_REF);
   PUT_MODE (symbol, Pmode);
   XSTR (symbol, 0) = label;
-  SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_IN_BLOCK;
+  SYMBOL_REF_FLAGS (symbol) = SYMBOL_FLAG_HAS_BLOCK_INFO;
 
   /* Initialize the block_symbol stuff.  */
   SYMBOL_REF_BLOCK (symbol) = block;
@@ -409,7 +437,7 @@ unlikely_text_section_p (section *sect)
 
   return (name
 	  && sect
-	  && (sect->common.flags & SECTION_NAMED) != 0
+	  && SECTION_STYLE (sect) == SECTION_NAMED
 	  && strcmp (name, sect->named.name) == 0);
 }
 
@@ -620,19 +648,6 @@ default_no_function_rodata_section (tree decl ATTRIBUTE_UNUSED)
   return readonly_data_section;
 }
 
-/* Switch to section for variable DECL.  RELOC is the same as the
-   argument to SELECT_SECTION.  */
-
-void
-variable_section (tree decl, int reloc)
-{
-  if (IN_NAMED_SECTION (decl))
-    switch_to_section (get_named_section (decl, NULL, reloc));
-  else
-    switch_to_section (targetm.asm_out.select_section (decl, reloc,
-						       DECL_ALIGN (decl)));
-}
-
 /* Return the section to use for string merging.  */
 
 static section *
@@ -799,68 +814,38 @@ decode_reg_name (const char *asmspec)
   return -1;
 }
 
-/* Return true if it is possible to put DECL in an object_block.  */
+/* Return true if DECL's initializer is suitable for a BSS section.  */
 
 static bool
-use_blocks_for_decl_p (tree decl)
+bss_initializer_p (tree decl)
 {
-  /* Only data DECLs can be placed into object blocks.  */
-  if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != CONST_DECL)
-    return false;
-
-  if (TREE_CODE (decl) == VAR_DECL)
-    {
-      /* The object must be defined in this translation unit.  */
-      if (DECL_EXTERNAL (decl))
-	return false;
-
-      /* There's no point using object blocks for something that is
-	 isolated by definition.  */
-      if (DECL_ONE_ONLY (decl))
-	return false;
-
-      /* Symbols that use .common cannot be put into blocks.  */
-      if (DECL_COMMON (decl) && DECL_INITIAL (decl) == NULL)
-	return false;
-    }
-
-  /* We can only calculate block offsets if the decl has a known
-     constant size.  */
-  if (DECL_SIZE_UNIT (decl) == NULL)
-    return false;
-  if (!host_integerp (DECL_SIZE_UNIT (decl), 1))
-    return false;
-
-  /* Detect decls created by dw2_force_const_mem.  Such decls are
-     special because DECL_INITIAL doesn't specify the decl's true value.
-     dw2_output_indirect_constants will instead call assemble_variable
-     with dont_output_data set to 1 and then print the contents itself.  */
-  if (DECL_INITIAL (decl) == decl)
-    return false;
-
-  return true;
-}
-
-/* Make sure block symbol SYMBOL is in section SECT, moving it to a
-   different block if necessary.  */
-
-static void
-change_symbol_section (rtx symbol, section *sect)
-{
-  if (sect != SYMBOL_REF_BLOCK (symbol)->sect)
-    {
-      gcc_assert (SYMBOL_REF_BLOCK_OFFSET (symbol) < 0);
-      SYMBOL_REF_BLOCK (symbol) = get_block_for_section (sect);
-    }
+  return (DECL_INITIAL (decl) == NULL
+	  || DECL_INITIAL (decl) == error_mark_node
+	  || (flag_zero_initialized_in_bss
+	      /* Leave constant zeroes in .rodata so they
+		 can be shared.  */
+	      && !TREE_READONLY (decl)
+	      && initializer_zerop (DECL_INITIAL (decl))));
 }
 
 /* Return the section into which the given VAR_DECL or CONST_DECL
-   should be placed.  */
+   should be placed.  PREFER_NOSWITCH_P is true if a noswitch
+   section should be used wherever possible.  */
 
 static section *
-get_variable_section (tree decl)
+get_variable_section (tree decl, bool prefer_noswitch_p)
 {
   int reloc;
+
+  /* If the decl has been given an explicit section name, then it
+     isn't common, and shouldn't be handled as such.  */
+  if (DECL_COMMON (decl) && DECL_SECTION_NAME (decl) == NULL)
+    {
+      if (DECL_THREAD_LOCAL_P (decl))
+	return tls_comm_section;
+      if (TREE_PUBLIC (decl) && bss_initializer_p (decl))
+	return comm_section;
+    }
 
   if (DECL_INITIAL (decl) == error_mark_node)
     reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
@@ -872,8 +857,84 @@ get_variable_section (tree decl)
   resolve_unique_section (decl, reloc, flag_data_sections);
   if (IN_NAMED_SECTION (decl))
     return get_named_section (decl, NULL, reloc);
-  else
-    return targetm.asm_out.select_section (decl, reloc, DECL_ALIGN (decl));
+
+  if (!DECL_THREAD_LOCAL_P (decl)
+      && !(prefer_noswitch_p && targetm.have_switchable_bss_sections)
+      && bss_initializer_p (decl))
+    {
+      if (!TREE_PUBLIC (decl))
+	return lcomm_section;
+      if (bss_noswitch_section)
+	return bss_noswitch_section;
+    }
+
+  return targetm.asm_out.select_section (decl, reloc, DECL_ALIGN (decl));
+}
+
+/* Return the block into which object_block DECL should be placed.  */
+
+static struct object_block *
+get_block_for_decl (tree decl)
+{
+  section *sect;
+
+  if (TREE_CODE (decl) == VAR_DECL)
+    {
+      /* The object must be defined in this translation unit.  */
+      if (DECL_EXTERNAL (decl))
+	return NULL;
+
+      /* There's no point using object blocks for something that is
+	 isolated by definition.  */
+      if (DECL_ONE_ONLY (decl))
+	return NULL;
+    }
+
+  /* We can only calculate block offsets if the decl has a known
+     constant size.  */
+  if (DECL_SIZE_UNIT (decl) == NULL)
+    return NULL;
+  if (!host_integerp (DECL_SIZE_UNIT (decl), 1))
+    return NULL;
+
+  /* Find out which section should contain DECL.  We cannot put it into
+     an object block if it requires a standalone definition.  */
+  sect = get_variable_section (decl, true);
+  if (SECTION_STYLE (sect) == SECTION_NOSWITCH)
+    return NULL;
+
+  return get_block_for_section (sect);
+}
+
+/* Make sure block symbol SYMBOL is in block BLOCK.  */
+
+static void
+change_symbol_block (rtx symbol, struct object_block *block)
+{
+  if (block != SYMBOL_REF_BLOCK (symbol))
+    {
+      gcc_assert (SYMBOL_REF_BLOCK_OFFSET (symbol) < 0);
+      SYMBOL_REF_BLOCK (symbol) = block;
+    }
+}
+
+/* Return true if it is possible to put DECL in an object_block.  */
+
+static bool
+use_blocks_for_decl_p (tree decl)
+{
+  /* Only data DECLs can be placed into object blocks.  */
+  if (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != CONST_DECL)
+    return false;
+
+  /* Detect decls created by dw2_force_const_mem.  Such decls are
+     special because DECL_INITIAL doesn't specify the decl's true value.
+     dw2_output_indirect_constants will instead call assemble_variable
+     with dont_output_data set to 1 and then print the contents itself.  */
+  if (DECL_INITIAL (decl) == decl)
+    return false;
+
+  return true;
 }
 
 /* Create the DECL_RTL for a VAR_DECL or FUNCTION_DECL.  DECL should
@@ -929,12 +990,12 @@ make_decl_rtl (tree decl)
 	 decl attribute overrides another.  */
       targetm.encode_section_info (decl, DECL_RTL (decl), false);
 
-      /* If the old address was assigned to an object block, see whether
-	 that block is still in the right section.  */
+      /* If the symbol has a SYMBOL_REF_BLOCK field, update it based
+	 on the new decl information.  */
       if (MEM_P (x)
 	  && GET_CODE (XEXP (x, 0)) == SYMBOL_REF
-	  && SYMBOL_REF_IN_BLOCK_P (XEXP (x, 0)))
-	change_symbol_section (XEXP (x, 0), get_variable_section (decl));
+	  && SYMBOL_REF_HAS_BLOCK_INFO_P (XEXP (x, 0)))
+	change_symbol_block (XEXP (x, 0), get_block_for_decl (decl));
 
       /* Make this function static known to the mudflap runtime.  */
       if (flag_mudflap && TREE_CODE (decl) == VAR_DECL)
@@ -1033,10 +1094,7 @@ make_decl_rtl (tree decl)
     DECL_COMMON (decl) = 0;
 
   if (use_object_blocks_p () && use_blocks_for_decl_p (decl))
-    {
-      section *sect = get_variable_section (decl);
-      x = create_block_symbol (name, get_block_for_section (sect), -1);
-    }
+    x = create_block_symbol (name, get_block_for_decl (decl), -1);
   else
     x = gen_rtx_SYMBOL_REF (Pmode, name);
   SYMBOL_REF_WEAK (x) = DECL_WEAK (decl);
@@ -1205,7 +1263,8 @@ notice_global_symbol (tree decl)
   const char **type = &first_global_object_name;
 
   if (first_global_object_name
-      || !TREE_PUBLIC (decl) || DECL_EXTERNAL (decl)
+      || !TREE_PUBLIC (decl)
+      || DECL_EXTERNAL (decl)
       || !DECL_NAME (decl)
       || (TREE_CODE (decl) != FUNCTION_DECL
 	  && (TREE_CODE (decl) != VAR_DECL
@@ -1381,7 +1440,7 @@ assemble_start_function (tree decl, const char *fnname)
    function.  DECL describes the function.  NAME is the function's name.  */
 
 void
-assemble_end_function (tree decl, const char *fnname)
+assemble_end_function (tree decl, const char *fnname ATTRIBUTE_UNUSED)
 {
 #ifdef ASM_DECLARE_FUNCTION_SIZE
   /* We could have switched section in the middle of the function.  */
@@ -1471,124 +1530,110 @@ assemble_string (const char *p, int size)
 }
 
 
-#if defined  ASM_OUTPUT_ALIGNED_DECL_LOCAL
-#define ASM_EMIT_LOCAL(decl, name, size, rounded) \
-  ASM_OUTPUT_ALIGNED_DECL_LOCAL (asm_out_file, decl, name, size, DECL_ALIGN (decl))
-#else
-#if defined  ASM_OUTPUT_ALIGNED_LOCAL
-#define ASM_EMIT_LOCAL(decl, name, size, rounded) \
-  ASM_OUTPUT_ALIGNED_LOCAL (asm_out_file, name, size, DECL_ALIGN (decl))
-#else
-#define ASM_EMIT_LOCAL(decl, name, size, rounded) \
-  ASM_OUTPUT_LOCAL (asm_out_file, name, size, rounded)
-#endif
-#endif
-
-#if defined ASM_OUTPUT_ALIGNED_BSS
-#define ASM_EMIT_BSS(decl, name, size, rounded) \
-  ASM_OUTPUT_ALIGNED_BSS (asm_out_file, decl, name, size, DECL_ALIGN (decl))
-#else
-#if defined ASM_OUTPUT_BSS
-#define ASM_EMIT_BSS(decl, name, size, rounded) \
-  ASM_OUTPUT_BSS (asm_out_file, decl, name, size, rounded)
-#else
-#undef  ASM_EMIT_BSS
-#endif
-#endif
-
-#if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
-#define ASM_EMIT_COMMON(decl, name, size, rounded) \
-  ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, decl, name, size, DECL_ALIGN (decl))
-#else
-#if defined ASM_OUTPUT_ALIGNED_COMMON
-#define ASM_EMIT_COMMON(decl, name, size, rounded) \
-  ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, name, size, DECL_ALIGN (decl))
-#else
-#define ASM_EMIT_COMMON(decl, name, size, rounded) \
-  ASM_OUTPUT_COMMON (asm_out_file, name, size, rounded)
-#endif
-#endif
+/* A noswitch_section_callback for lcomm_section.  */
 
 static bool
-asm_emit_uninitialised (tree decl, const char *name,
-			unsigned HOST_WIDE_INT size ATTRIBUTE_UNUSED,
-			unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
+emit_local (tree decl ATTRIBUTE_UNUSED,
+	    const char *name ATTRIBUTE_UNUSED,
+	    unsigned HOST_WIDE_INT size ATTRIBUTE_UNUSED,
+	    unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
 {
-  enum
-  {
-    asm_dest_common,
-    asm_dest_bss,
-    asm_dest_local
-  }
-  destination = asm_dest_local;
-
-  /* ??? We should handle .bss via select_section mechanisms rather than
-     via special target hooks.  That would eliminate this special case.  */
-  if (TREE_PUBLIC (decl))
-    {
-      if (!DECL_COMMON (decl))
-#ifdef ASM_EMIT_BSS
-	destination = asm_dest_bss;
-#else
-	return false;
-#endif
-      else
-	destination = asm_dest_common;
-    }
-
-  if (destination != asm_dest_common)
-    {
-      resolve_unique_section (decl, 0, flag_data_sections);
-      /* Custom sections don't belong here.  */
-      if (DECL_SECTION_NAME (decl))
-        return false;
-    }
-
-  if (destination == asm_dest_bss)
-    globalize_decl (decl);
-
-  if (flag_shared_data)
-    {
-      switch (destination)
-	{
-#ifdef ASM_OUTPUT_SHARED_BSS
-	case asm_dest_bss:
-	  ASM_OUTPUT_SHARED_BSS (asm_out_file, decl, name, size, rounded);
-	  return;
-#endif
-#ifdef ASM_OUTPUT_SHARED_COMMON
-	case asm_dest_common:
-	  ASM_OUTPUT_SHARED_COMMON (asm_out_file, name, size, rounded);
-	  return;
-#endif
-#ifdef ASM_OUTPUT_SHARED_LOCAL
-	case asm_dest_local:
-	  ASM_OUTPUT_SHARED_LOCAL (asm_out_file, name, size, rounded);
-	  return;
-#endif
-	default:
-	  break;
-	}
-    }
-
-  switch (destination)
-    {
-#ifdef ASM_EMIT_BSS
-    case asm_dest_bss:
-      ASM_EMIT_BSS (decl, name, size, rounded);
-      break;
-#endif
-    case asm_dest_common:
-      ASM_EMIT_COMMON (decl, name, size, rounded);
-      break;
-    case asm_dest_local:
-      ASM_EMIT_LOCAL (decl, name, size, rounded);
-      break;
-    default:
-      gcc_unreachable ();
-    }
-
+#if defined ASM_OUTPUT_ALIGNED_DECL_LOCAL
+  ASM_OUTPUT_ALIGNED_DECL_LOCAL (asm_out_file, decl, name,
+				 size, DECL_ALIGN (decl));
   return true;
+#elif defined ASM_OUTPUT_ALIGNED_LOCAL
+  ASM_OUTPUT_ALIGNED_LOCAL (asm_out_file, name, size, DECL_ALIGN (decl));
+  return true;
+#else
+  ASM_OUTPUT_LOCAL (asm_out_file, name, size, rounded);
+  return false;
+#endif
+}
+
+/* A noswitch_section_callback for bss_noswitch_section.  */
+
+#if defined ASM_OUTPUT_ALIGNED_BSS || defined ASM_OUTPUT_BSS
+static bool
+emit_bss (tree decl ATTRIBUTE_UNUSED,
+	  const char *name ATTRIBUTE_UNUSED,
+	  unsigned HOST_WIDE_INT size ATTRIBUTE_UNUSED,
+	  unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
+{
+#if defined ASM_OUTPUT_ALIGNED_BSS
+  ASM_OUTPUT_ALIGNED_BSS (asm_out_file, decl, name, size, DECL_ALIGN (decl));
+  return true;
+#else
+  ASM_OUTPUT_BSS (asm_out_file, decl, name, size, rounded);
+  return false;
+#endif
+}
+#endif
+
+/* A noswitch_section_callback for comm_section.  */
+
+static bool
+emit_common (tree decl ATTRIBUTE_UNUSED,
+	     const char *name ATTRIBUTE_UNUSED,
+	     unsigned HOST_WIDE_INT size ATTRIBUTE_UNUSED,
+	     unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
+{
+#if defined ASM_OUTPUT_ALIGNED_DECL_COMMON
+  ASM_OUTPUT_ALIGNED_DECL_COMMON (asm_out_file, decl, name,
+				  size, DECL_ALIGN (decl));
+  return true;
+#elif defined ASM_OUTPUT_ALIGNED_COMMON
+  ASM_OUTPUT_ALIGNED_COMMON (asm_out_file, name, size, DECL_ALIGN (decl));
+  return true;
+#else
+  ASM_OUTPUT_COMMON (asm_out_file, name, size, rounded);
+  return false;
+#endif
+}
+
+/* A noswitch_section_callback for tls_comm_section.  */
+
+static bool
+emit_tls_common (tree decl ATTRIBUTE_UNUSED,
+		 const char *name ATTRIBUTE_UNUSED,
+		 unsigned HOST_WIDE_INT size ATTRIBUTE_UNUSED,
+		 unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
+{
+#ifdef ASM_OUTPUT_TLS_COMMON
+  ASM_OUTPUT_TLS_COMMON (asm_out_file, decl, name, size);
+  return true;
+#else
+  sorry ("thread-local COMMON data not implemented");
+  return true;
+#endif
+}
+
+/* Assemble DECL given that it belongs in SECTION_NOSWITCH section SECT.
+   NAME is the name of DECL's SYMBOL_REF.  */
+
+static void
+assemble_noswitch_variable (tree decl, const char *name, section *sect)
+{
+  unsigned HOST_WIDE_INT size, rounded;
+
+  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+  rounded = size;
+
+  /* Don't allocate zero bytes of common,
+     since that means "undefined external" in the linker.  */
+  if (size == 0)
+    rounded = 1;
+
+  /* Round size up to multiple of BIGGEST_ALIGNMENT bits
+     so that each uninitialized object starts on such a boundary.  */
+  rounded += (BIGGEST_ALIGNMENT / BITS_PER_UNIT) - 1;
+  rounded = (rounded / (BIGGEST_ALIGNMENT / BITS_PER_UNIT)
+	     * (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
+
+  if (!sect->noswitch.callback (decl, name, size, rounded)
+      && (unsigned HOST_WIDE_INT) DECL_ALIGN_UNIT (decl) > rounded)
+    warning (0, "requested alignment for %q+D is greater than "
+	     "implemented alignment of %wu", decl, rounded);
 }
 
 /* A subroutine of assemble_variable.  Output the label and contents of
@@ -1639,8 +1684,8 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 {
   const char *name;
   unsigned int align;
-  rtx decl_rtl;
-  bool in_block_p;
+  rtx decl_rtl, symbol;
+  section *sect;
 
   if (lang_hooks.decls.prepare_assemble_variable)
     lang_hooks.decls.prepare_assemble_variable (decl);
@@ -1712,8 +1757,8 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 
   gcc_assert (MEM_P (decl_rtl));
   gcc_assert (GET_CODE (XEXP (decl_rtl, 0)) == SYMBOL_REF);
-  in_block_p = SYMBOL_REF_IN_BLOCK_P (XEXP (decl_rtl, 0));
-  name = XSTR (XEXP (decl_rtl, 0), 0);
+  symbol = XEXP (decl_rtl, 0);
+  name = XSTR (symbol, 0);
   if (TREE_PUBLIC (decl) && DECL_NAME (decl))
     notice_global_symbol (decl);
 
@@ -1761,70 +1806,11 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (DECL_PRESERVE_P (decl))
     targetm.asm_out.mark_decl_preserved (name);
 
-  /* Handle uninitialized definitions.  */
-
-  /* If the decl has been given an explicit section name, then it
-     isn't common, and shouldn't be handled as such.  */
-  if (DECL_SECTION_NAME (decl) || dont_output_data)
-    ;
-  else if (DECL_THREAD_LOCAL_P (decl))
-    {
-      if (DECL_COMMON (decl))
-	{
-#ifdef ASM_OUTPUT_TLS_COMMON
-	  unsigned HOST_WIDE_INT size;
-
-	  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
-	  ASM_OUTPUT_TLS_COMMON (asm_out_file, decl, name, size);
-	  return;
-#else
-	  sorry ("thread-local COMMON data not implemented");
-#endif
-	}
-    }
-  /* Do not handle decls as common if they will be assigned a
-     specific section position.  */
-  else if (in_block_p)
-    ;
-  else if (DECL_INITIAL (decl) == 0
-	   || DECL_INITIAL (decl) == error_mark_node
-	   || (flag_zero_initialized_in_bss
-	       /* Leave constant zeroes in .rodata so they can be shared.  */
-	       && !TREE_READONLY (decl)
-	       && initializer_zerop (DECL_INITIAL (decl))))
-    {
-      unsigned HOST_WIDE_INT size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
-      unsigned HOST_WIDE_INT rounded = size;
-
-      /* Don't allocate zero bytes of common,
-	 since that means "undefined external" in the linker.  */
-      if (size == 0)
-	rounded = 1;
-
-      /* Round size up to multiple of BIGGEST_ALIGNMENT bits
-	 so that each uninitialized object starts on such a boundary.  */
-      rounded += (BIGGEST_ALIGNMENT / BITS_PER_UNIT) - 1;
-      rounded = (rounded / (BIGGEST_ALIGNMENT / BITS_PER_UNIT)
-		 * (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
-
-#if !defined(ASM_OUTPUT_ALIGNED_COMMON) && !defined(ASM_OUTPUT_ALIGNED_DECL_COMMON) && !defined(ASM_OUTPUT_ALIGNED_BSS)
-      if ((unsigned HOST_WIDE_INT) DECL_ALIGN_UNIT (decl) > rounded)
-	warning (0, "requested alignment for %q+D is greater than "
-                 "implemented alignment of %wu", decl, rounded);
-#endif
-
-      /* If the target cannot output uninitialized but not common global data
-	 in .bss, then we have to use .data, so fall through.  */
-      if (asm_emit_uninitialised (decl, name, size, rounded))
-	return;
-    }
-
-  /* Handle initialized definitions.
-     Also handle uninitialized global definitions if -fno-common and the
-     target doesn't support ASM_OUTPUT_BSS.  */
-
   /* First make the assembler name(s) global if appropriate.  */
-  if (TREE_PUBLIC (decl) && DECL_NAME (decl))
+  sect = get_variable_section (decl, false);
+  if (TREE_PUBLIC (decl)
+      && DECL_NAME (decl)
+      && (sect->common.flags & SECTION_COMMON) == 0)
     globalize_decl (decl);
 
   /* Output any data that we will need to use the address of.  */
@@ -1832,20 +1818,22 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
     output_addressed_constants (DECL_INITIAL (decl));
 
   /* dbxout.c needs to know this.  */
-  if (in_section && (in_section->common.flags & SECTION_CODE) != 0)
+  if (sect && (sect->common.flags & SECTION_CODE) != 0)
     DECL_IN_TEXT_SECTION (decl) = 1;
 
   /* If the decl is part of an object_block, make sure that the decl
      has been positioned within its block, but do not write out its
      definition yet.  output_object_blocks will do that later.  */
-  if (in_block_p)
+  if (SYMBOL_REF_HAS_BLOCK_INFO_P (symbol) && SYMBOL_REF_BLOCK (symbol))
     {
       gcc_assert (!dont_output_data);
-      place_block_symbol (XEXP (decl_rtl, 0));
+      place_block_symbol (symbol);
     }
+  else if (SECTION_STYLE (sect) == SECTION_NOSWITCH)
+    assemble_noswitch_variable (decl, name, sect);
   else
     {
-      switch_to_section (get_variable_section (decl));
+      switch_to_section (sect);
       if (align > BITS_PER_UNIT)
 	ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (DECL_ALIGN_UNIT (decl)));
       assemble_variable_contents (decl, name, dont_output_data);
@@ -2103,11 +2091,6 @@ assemble_static_space (unsigned HOST_WIDE_INT size)
   char name[12];
   const char *namestring;
   rtx x;
-
-#if 0
-  if (flag_shared_data)
-    switch_to_section (data_section);
-#endif
 
   ASM_GENERATE_INTERNAL_LABEL (name, "LF", const_labelno);
   ++const_labelno;
@@ -2969,7 +2952,7 @@ output_constant_def_contents (rtx symbol)
   /* If the constant is part of an object block, make sure that the
      decl has been positioned within its block, but do not write out
      its definition yet.  output_object_blocks will do that later.  */
-  if (SYMBOL_REF_IN_BLOCK_P (symbol))
+  if (SYMBOL_REF_HAS_BLOCK_INFO_P (symbol) && SYMBOL_REF_BLOCK (symbol))
     place_block_symbol (symbol);
   else
     {
@@ -3143,25 +3126,34 @@ const_rtx_hash (rtx x)
 }
 
 
+/* Create and return a new rtx constant pool.  */
+
+static struct rtx_constant_pool *
+create_constant_pool (void)
+{
+  struct rtx_constant_pool *pool;
+
+  pool = ggc_alloc (sizeof (struct rtx_constant_pool));
+  pool->const_rtx_htab = htab_create_ggc (31, const_desc_rtx_hash,
+					  const_desc_rtx_eq, NULL);
+  pool->first = NULL;
+  pool->last = NULL;
+  pool->offset = 0;
+  return pool;
+}
+
 /* Initialize constant pool hashing for a new function.  */
 
 void
 init_varasm_status (struct function *f)
 {
   struct varasm_status *p;
-  struct rtx_constant_pool *pool;
 
   p = ggc_alloc (sizeof (struct varasm_status));
   f->varasm = p;
 
-  pool = ggc_alloc (sizeof (struct rtx_constant_pool));
-  p->pool = pool;
+  p->pool = create_constant_pool ();
   p->deferred_constants = 0;
-
-  pool->const_rtx_htab = htab_create_ggc (31, const_desc_rtx_hash,
-					  const_desc_rtx_eq, NULL);
-  pool->first = pool->last = NULL;
-  pool->offset = 0;
 }
 
 /* Given a MINUS expression, simplify it if both sides
@@ -3181,7 +3173,7 @@ rtx
 force_const_mem (enum machine_mode mode, rtx x)
 {
   struct constant_descriptor_rtx *desc, tmp;
-  struct rtx_constant_pool *pool = cfun->varasm->pool;
+  struct rtx_constant_pool *pool;
   char label[256];
   rtx def, symbol;
   hashval_t hash;
@@ -3191,6 +3183,14 @@ force_const_mem (enum machine_mode mode, rtx x)
   /* If we're not allowed to drop X into the constant pool, don't.  */
   if (targetm.cannot_force_const_mem (x))
     return NULL_RTX;
+
+  /* Record that this function has used a constant pool entry.  */
+  current_function_uses_const_pool = 1;
+
+  /* Decide which pool to use.  */
+  pool = (targetm.use_blocks_for_constant_p (mode, x)
+	  ? shared_constant_pool
+	  : cfun->varasm->pool);
 
   /* Lookup the value in the hashtable.  */
   tmp.constant = x;
@@ -3254,7 +3254,6 @@ force_const_mem (enum machine_mode mode, rtx x)
   SYMBOL_REF_FLAGS (symbol) |= SYMBOL_FLAG_LOCAL;
   CONSTANT_POOL_ADDRESS_P (symbol) = 1;
   SET_SYMBOL_REF_CONSTANT (symbol, desc);
-  current_function_uses_const_pool = 1;
 
   /* Construct the MEM.  */
   desc->mem = def = gen_const_mem (mode, symbol);
@@ -3425,9 +3424,8 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc,
    be used with for_each_rtx to mark all SYMBOL_REFs in an rtx.  */
 
 static int
-mark_constant (rtx *current_rtx, void *data)
+mark_constant (rtx *current_rtx, void *data ATTRIBUTE_UNUSED)
 {
-  struct rtx_constant_pool *pool = data;
   rtx x = *current_rtx;
 
   if (x == NULL_RTX || GET_CODE (x) != SYMBOL_REF)
@@ -3439,7 +3437,7 @@ mark_constant (rtx *current_rtx, void *data)
       if (desc->mark == 0)
 	{
 	  desc->mark = 1;
-	  for_each_rtx (&desc->constant, mark_constant, pool);
+	  for_each_rtx (&desc->constant, mark_constant, NULL);
 	}
     }
   else if (TREE_CONSTANT_POOL_ADDRESS_P (x))
@@ -3461,7 +3459,7 @@ mark_constant (rtx *current_rtx, void *data)
    deferred strings that are used.  */
 
 static void
-mark_constants (struct rtx_constant_pool *pool, rtx insn)
+mark_constants (rtx insn)
 {
   if (!INSN_P (insn))
     return;
@@ -3477,11 +3475,11 @@ mark_constants (struct rtx_constant_pool *pool, rtx insn)
 	{
 	  rtx subinsn = XVECEXP (seq, 0, i);
 	  if (INSN_P (subinsn))
-	    for_each_rtx (&PATTERN (subinsn), mark_constant, pool);
+	    for_each_rtx (&PATTERN (subinsn), mark_constant, NULL);
 	}
     }
   else
-    for_each_rtx (&PATTERN (insn), mark_constant, pool);
+    for_each_rtx (&PATTERN (insn), mark_constant, NULL);
 }
 
 /* Look through the instructions for this function, and mark all the
@@ -3489,39 +3487,28 @@ mark_constants (struct rtx_constant_pool *pool, rtx insn)
    which have indeed been used.  */
 
 static void
-mark_constant_pool (struct rtx_constant_pool *pool)
+mark_constant_pool (void)
 {
   rtx insn, link;
 
-  if (pool->first == 0 && n_deferred_constants == 0)
+  if (!current_function_uses_const_pool && n_deferred_constants == 0)
     return;
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    mark_constants (pool, insn);
+    mark_constants (insn);
 
   for (link = current_function_epilogue_delay_list;
        link;
        link = XEXP (link, 1))
-    mark_constants (pool, XEXP (link, 0));
+    mark_constants (XEXP (link, 0));
 }
 
-/* Write all the constants in the constant pool.  */
+/* Write all the constants in POOL.  */
 
-void
-output_constant_pool (const char *fnname ATTRIBUTE_UNUSED,
-		      tree fndecl ATTRIBUTE_UNUSED)
+static void
+output_constant_pool_contents (struct rtx_constant_pool *pool)
 {
-  struct rtx_constant_pool *pool = cfun->varasm->pool;
   struct constant_descriptor_rtx *desc;
-
-  /* It is possible for gcc to call force_const_mem and then to later
-     discard the instructions which refer to the constant.  In such a
-     case we do not need to output the constant.  */
-  mark_constant_pool (pool);
-
-#ifdef ASM_OUTPUT_POOL_PROLOGUE
-  ASM_OUTPUT_POOL_PROLOGUE (asm_out_file, fnname, fndecl, pool->offset);
-#endif
 
   for (desc = pool->first; desc ; desc = desc->next)
     if (desc->mark)
@@ -3530,7 +3517,8 @@ output_constant_pool (const char *fnname ATTRIBUTE_UNUSED,
 	   the constant has been positioned within its block, but do not
 	   write out its definition yet.  output_object_blocks will do
 	   that later.  */
-	if (SYMBOL_REF_IN_BLOCK_P (desc->sym))
+	if (SYMBOL_REF_HAS_BLOCK_INFO_P (desc->sym)
+	    && SYMBOL_REF_BLOCK (desc->sym))
 	  place_block_symbol (desc->sym);
 	else
 	  {
@@ -3539,10 +3527,39 @@ output_constant_pool (const char *fnname ATTRIBUTE_UNUSED,
 	    output_constant_pool_1 (desc, desc->align);
 	  }
       }
+}
+
+/* Mark all constants that are used in the current function, then write
+   out the function's private constant pool.  */
+
+static void
+output_constant_pool (const char *fnname ATTRIBUTE_UNUSED,
+		      tree fndecl ATTRIBUTE_UNUSED)
+{
+  struct rtx_constant_pool *pool = cfun->varasm->pool;
+
+  /* It is possible for gcc to call force_const_mem and then to later
+     discard the instructions which refer to the constant.  In such a
+     case we do not need to output the constant.  */
+  mark_constant_pool ();
+
+#ifdef ASM_OUTPUT_POOL_PROLOGUE
+  ASM_OUTPUT_POOL_PROLOGUE (asm_out_file, fnname, fndecl, pool->offset);
+#endif
+
+  output_constant_pool_contents (pool);
 
 #ifdef ASM_OUTPUT_POOL_EPILOGUE
   ASM_OUTPUT_POOL_EPILOGUE (asm_out_file, fnname, fndecl, pool->offset);
 #endif
+}
+
+/* Write the contents of the shared constant pool.  */
+
+void
+output_shared_constant_pool (void)
+{
+  output_constant_pool_contents (shared_constant_pool);
 }
 
 /* Determine what kind of relocations EXP may need.  */
@@ -4120,7 +4137,7 @@ array_size_for_constructor (tree val)
 {
   tree max_index, i;
   unsigned HOST_WIDE_INT cnt;
-  tree index, value;
+  tree index, value, tmp;
 
   /* This code used to attempt to handle string constants that are not
      arrays of single-bytes, but nothing else does, so there's no point in
@@ -4141,9 +4158,9 @@ array_size_for_constructor (tree val)
     return 0;
 
   /* Compute the total number of array elements.  */
-  i = size_binop (MINUS_EXPR, convert (sizetype, max_index),
-		  convert (sizetype,
-			   TYPE_MIN_VALUE (TYPE_DOMAIN (TREE_TYPE (val)))));
+  tmp = TYPE_MIN_VALUE (TYPE_DOMAIN (TREE_TYPE (val)));
+  i = size_binop (MINUS_EXPR, fold_convert (sizetype, max_index),
+		  fold_convert (sizetype, tmp));
   i = size_binop (PLUS_EXPR, i, build_int_cst (sizetype, 1));
 
   /* Multiply by the array element unit size to find number of bytes.  */
@@ -5084,6 +5101,7 @@ init_varasm_once (void)
 				     const_desc_eq, NULL);
 
   const_alias_set = new_alias_set ();
+  shared_constant_pool = create_constant_pool ();
 
 #ifdef TEXT_SECTION_ASM_OP
   text_section = get_unnamed_section (SECTION_CODE, output_section_asm_op,
@@ -5125,6 +5143,18 @@ init_varasm_once (void)
   sbss_section = get_unnamed_section (SECTION_WRITE | SECTION_BSS,
 				      output_section_asm_op,
 				      SBSS_SECTION_ASM_OP);
+#endif
+
+  tls_comm_section = get_noswitch_section (SECTION_WRITE | SECTION_BSS
+					   | SECTION_COMMON, emit_tls_common);
+  lcomm_section = get_noswitch_section (SECTION_WRITE | SECTION_BSS
+					| SECTION_COMMON, emit_local);
+  comm_section = get_noswitch_section (SECTION_WRITE | SECTION_BSS
+				       | SECTION_COMMON, emit_common);
+
+#if defined ASM_OUTPUT_ALIGNED_BSS || defined ASM_OUTPUT_BSS
+  bss_noswitch_section = get_noswitch_section (SECTION_WRITE | SECTION_BSS,
+					       emit_bss);
 #endif
 
   targetm.asm_out.init_sections ();
@@ -5231,6 +5261,16 @@ default_section_type_flags_1 (tree decl, const char *name, int reloc,
     flags |= SECTION_NOTYPE;
 
   return flags;
+}
+
+/* Return true if the target supports some form of global BSS,
+   either through bss_noswitch_section, or by selecting a BSS
+   section in TARGET_ASM_SELECT_SECTION.  */
+
+bool
+have_global_bss_p (void)
+{
+  return bss_noswitch_section || targetm.have_switchable_bss_sections;
 }
 
 /* Output assembly to switch to section NAME with attribute FLAGS.
@@ -5386,12 +5426,7 @@ categorize_decl_for_section (tree decl, int reloc, int shlib)
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
-      if (DECL_INITIAL (decl) == NULL
-	  || DECL_INITIAL (decl) == error_mark_node
-	  || (flag_zero_initialized_in_bss
-	      /* Leave constant zeroes in .rodata so they can be shared.  */
-	      && !TREE_READONLY (decl)
-	      && initializer_zerop (DECL_INITIAL (decl))))
+      if (bss_initializer_p (decl))
 	ret = SECCAT_BSS;
       else if (! TREE_READONLY (decl)
 	       || TREE_SIDE_EFFECTS (decl)
@@ -5688,7 +5723,7 @@ default_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
   if (GET_CODE (symbol) != SYMBOL_REF)
     return;
 
-  flags = SYMBOL_REF_FLAGS (symbol) & SYMBOL_FLAG_IN_BLOCK;
+  flags = SYMBOL_REF_FLAGS (symbol) & SYMBOL_FLAG_HAS_BLOCK_INFO;
   if (TREE_CODE (decl) == FUNCTION_DECL)
     flags |= SYMBOL_FLAG_FUNCTION;
   if (targetm.binds_local_p (decl))
@@ -5930,8 +5965,9 @@ switch_to_section (section *new_section)
   else
     in_section = new_section;
 
-  if (new_section->common.flags & SECTION_NAMED)
+  switch (SECTION_STYLE (new_section))
     {
+    case SECTION_NAMED:
       if (cfun
 	  && !cfun->unlikely_text_section_name
 	  && strcmp (new_section->named.name,
@@ -5941,9 +5977,16 @@ switch_to_section (section *new_section)
       targetm.asm_out.named_section (new_section->named.name,
 				     new_section->named.common.flags,
 				     new_section->named.decl);
+      break;
+
+    case SECTION_UNNAMED:
+      new_section->unnamed.callback (new_section->unnamed.data);
+      break;
+
+    case SECTION_NOSWITCH:
+      gcc_unreachable ();
+      break;
     }
-  else
-    new_section->unnamed.callback (new_section->unnamed.data);
 
   new_section->common.flags |= SECTION_DECLARED;
 }
@@ -5960,6 +6003,7 @@ place_block_symbol (rtx symbol)
   struct object_block *block;
   tree decl;
 
+  gcc_assert (SYMBOL_REF_BLOCK (symbol));
   if (SYMBOL_REF_BLOCK_OFFSET (symbol) >= 0)
     return;
 

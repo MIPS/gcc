@@ -78,14 +78,6 @@ struct loop
   /* Average number of executed insns per iteration.  */
   unsigned av_ninsns;
 
-  /* The first block in the loop.  This is not necessarily the same as
-     the loop header.  */
-  basic_block first;
-
-  /* The last block in the loop.  This is not necessarily the same as
-     the loop latch.  */
-  basic_block last;
-
   /* Number of blocks contained within the loop.  */
   unsigned num_nodes;
 
@@ -111,45 +103,8 @@ struct loop
   /* Loop that is copy of this loop.  */
   struct loop *copy;
 
-  /* Nonzero if the loop is invalid (e.g., contains setjmp.).  */
-  int invalid;
-
   /* Auxiliary info specific to a pass.  */
   void *aux;
-
-  /* The following are currently used by loop.c but they are likely to
-     disappear when loop.c is replaced and removed.  */
-
-  /* The NOTE_INSN_LOOP_BEG.  */
-  rtx start;
-
-  /* The NOTE_INSN_LOOP_END.  */
-  rtx end;
-
-  /* For a rotated loop that is entered near the bottom,
-     this is the label at the top.  Otherwise it is zero.  */
-  rtx top;
-
-  /* Place in the loop where control enters.  */
-  rtx scan_start;
-
-  /* The position where to sink insns out of the loop.  */
-  rtx sink;
-
-  /* List of all LABEL_REFs which refer to code labels outside the
-     loop.  Used by routines that need to know all loop exits, such as
-     final_biv_value and final_giv_value.
-
-     This does not include loop exits due to return instructions.
-     This is because all bivs and givs are pseudos, and hence must be
-     dead after a return, so the presence of a return does not affect
-     any of the optimizations that use this info.  It is simpler to
-     just not include return instructions on this list.  */
-  rtx exit_labels;
-
-  /* The number of LABEL_REFs on exit_labels for this loop and all
-     loops nested inside it.  */
-  int exit_count;
 
   /* The probable number of times the loop is executed at runtime.
      This is an INTEGER_CST or an expression containing symbolic
@@ -194,13 +149,10 @@ struct loops
   /* Number of natural loops in the function.  */
   unsigned num;
 
-  /* Array of natural loop descriptors (scanning this array in reverse order
-     will find the inner loops before their enclosing outer loops).  */
-  struct loop *array;
+  /* State of loops.  */
+  int state;
 
-  /* The above array is unused in new loop infrastructure and is kept only for
-     purposes of the old loop optimizer.  Instead we store just pointers to
-     loops here.  
+  /* We store just pointers to loops here.  
      Note that a loop in this array may actually be NULL, if the loop
      has been removed and the entire loops structure has not been
      recomputed since that time.  */
@@ -222,9 +174,6 @@ struct loops
 
   /* Headers shared by multiple loops that should be merged.  */
   sbitmap shared_headers;
-
-  /* State of loops.  */
-  int state;
 };
 
 /* The loop tree currently optimized.  */
@@ -243,7 +192,6 @@ int flow_loop_nodes_find (basic_block, struct loop *);
 void fix_loop_structure (struct loops *, bitmap changed_bbs);
 void mark_irreducible_loops (struct loops *);
 void mark_single_exit_loops (struct loops *);
-extern void create_loop_notes (void);
 
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);
@@ -272,7 +220,6 @@ extern edge loop_latch_edge (const struct loop *);
 extern void add_bb_to_loop (basic_block, struct loop *);
 extern void remove_bb_from_loops (basic_block);
 
-extern void cancel_loop (struct loops *, struct loop *);
 extern void cancel_loop_tree (struct loops *, struct loop *);
 
 extern basic_block loop_split_edge_with (edge, rtx);
@@ -454,10 +401,5 @@ extern void unroll_and_peel_loops (struct loops *, int);
 extern void doloop_optimize_loops (struct loops *);
 extern void move_loop_invariants (struct loops *);
 extern void record_estimate (struct loop *, tree, tree, tree);
-
-/* Old loop optimizer interface.  */
-
-/* Flags passed to loop_optimize.  */
-#define LOOP_PREFETCH 1
 
 #endif /* GCC_CFGLOOP_H */

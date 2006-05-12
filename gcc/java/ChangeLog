@@ -1,3 +1,104 @@
+2006-04-21  Andrew Haley  <aph@redhat.com>
+
+	* lang.c (java_init): Handle flag_indirect_classes.
+	* jvgenmain.c: Use "class$$" instead of "class$".
+	* mangle.c (java_mangle_decl): Accept RECORD_TYPEs sw well as
+	DECLs.
+	(mangle_class_field): Special case "class$$" as well as "class$".
+	* constants.c (build_ref_from_constant_pool): If
+	flag_indirect_classes, generate a ref into the heap.
+	* decl.c (constants_field_decl_node,
+	constants_data_field_decl_node): New.
+	* class.c (build_static_class_ref): New.
+	(build_classdollar_field): Factor out from build_class_ref().
+	(make_field_value): Handle static fields in heap.
+	(make_class_data): Make sure we get a static ref to class.
+	Make class initializer const if flag_indirect_classes.
+	(register_class): Build a class_ref for initialization if
+	flag_indirect_classes.
+	(emit_indirect_register_classes): New.
+
+2006-04-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	* expr.c, gjavah.c: Fix comment typos.
+
+2006-04-03  Andrew Haley  <aph@redhat.com>
+
+	PR java/26858
+	* expr.c (build_field_ref): Don't check the field offset if
+	flag_syntax_only.
+
+2006-03-30  Andrew Haley  <aph@redhat.com>
+
+	PR java/26858
+	* lang.c (java_attribute_table): New.
+	(LANG_HOOKS_ATTRIBUTE_TABLE): Define.
+	* expr.c (build_field_ref): Add a null pointer check for all
+	fields of offset > 4k.  Don't do so for accesses via the this
+	pointer, which we know can never be null.
+	* class.c (build_java_method_type): Mark arg 1 of all nonstatic
+	methods nonnull.
+
+2006-03-30  Carlos O'Donell  <carlos@codesourcery.com>
+
+	* Make-lang.in: Rename docdir to gcc_docdir.
+
+2006-03-30  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26042:
+	* parse.y (java_reorder_fields): Reset superclass field's size as
+	well.
+
+2006-03-28  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26390:
+	* parse.y (find_most_specific_methods_list): Added 'class'
+	argument.
+	(lookup_method_invoke): Updated.
+
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-write.c (generate_bytecode_insns): Use qualifying type for
+	non-static method calls.
+
+2006-03-15  David Daney  <ddaney@avtrex.com>
+
+	* java-tree.h : Moved comment for TYPE_DOT_CLASS adjacent to its
+	declaration.
+
+2006-03-15  David Daney  <ddaney@avtrex.com>
+
+	* lang.opt (-freduced-reflection): New option.
+	* lang.c (java_post_options): Generate an error if
+	-freduced-reflection used with -fjni or -findirect-dispatch.
+	* java-tree.h (flag_reduced_reflection): Declare new variable.
+	* boehm.c (get_boehm_type_descriptor): Indicate all pointers
+	if bitmap overflows and flag_reduced_reflection set.
+	* class.c (uses_jv_markobj_p): New function.
+	(make_class_data): Moved generation of vtable to before
+	reflection data, generate less reflection data if
+	flag_reduced_reflection set.
+	* gcj.texi: Document -freduced-reflection.
+
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	PR java/26638:
+	* class.c (get_interface_method_index): Don't put <clinit> into
+	interface table.
+
+2006-03-15  Tom Tromey  <tromey@redhat.com>
+
+	* parse.y (analyze_clinit_body): Ignore empty statements.
+
+2006-03-08  David Daney  <ddaney@avtrex.com>
+
+	* gcj.texi: Document -static-libgcj option.
+
+2006-02-20  Andrew Haley  <aph@redhat.com>
+
+	* jcf-parse.c (parse_class_file): Set input_location from
+	current_class.
+
 2006-02-15  Andrew Haley  <aph@redhat.com>
 
 	* class.c (GEN_TABLE): Don't pushdecl *_SYMS_DECL here.

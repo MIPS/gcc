@@ -105,7 +105,7 @@ extern const enum tree_code_class tree_code_type[];
 #define MTAG_P(CODE) \
   (TREE_CODE (CODE) == STRUCT_FIELD_TAG		\
    || TREE_CODE (CODE) == NAME_MEMORY_TAG	\
-   || TREE_CODE (CODE) == TYPE_MEMORY_TAG)
+   || TREE_CODE (CODE) == SYMBOL_MEMORY_TAG)
         
 
 /* Nonzero if DECL represents a VAR_DECL or FUNCTION_DECL.  */
@@ -170,14 +170,15 @@ extern const enum tree_code_class tree_code_type[];
 
 #define OMP_DIRECTIVE_P(NODE)				\
     (TREE_CODE (NODE) == OMP_PARALLEL			\
-     || TREE_CODE (NODE) == OMP_SECTIONS		\
-     || TREE_CODE (NODE) == OMP_SECTION			\
      || TREE_CODE (NODE) == OMP_FOR			\
-     || TREE_CODE (NODE) == OMP_RETURN_EXPR		\
+     || TREE_CODE (NODE) == OMP_SECTIONS		\
      || TREE_CODE (NODE) == OMP_SINGLE			\
+     || TREE_CODE (NODE) == OMP_SECTION			\
      || TREE_CODE (NODE) == OMP_MASTER			\
      || TREE_CODE (NODE) == OMP_ORDERED			\
-     || TREE_CODE (NODE) == OMP_CRITICAL)
+     || TREE_CODE (NODE) == OMP_CRITICAL		\
+     || TREE_CODE (NODE) == OMP_RETURN			\
+     || TREE_CODE (NODE) == OMP_CONTINUE)
 
 /* Number of argument-words in each kind of tree-node.  */
 
@@ -437,6 +438,10 @@ struct tree_common GTY(())
            CALL_EXPR
        DECL_BY_REFERENCE in
            PARM_DECL, RESULT_DECL
+       OMP_RETURN_NOWAIT in
+	   OMP_RETURN
+       OMP_SECTION_LAST in
+	   OMP_SECTION
 
    protected_flag:
 
@@ -1239,13 +1244,7 @@ extern void omp_clause_range_check_failed (const tree, const char *, int,
 struct tree_int_cst GTY(())
 {
   struct tree_common common;
-  /* A sub-struct is necessary here because the function `const_hash'
-     wants to scan both words as a unit and taking the address of the
-     sub-struct yields the properly inclusive bounded pointer.  */
-  struct tree_int_cst_lowhi {
-    unsigned HOST_WIDE_INT low;
-    HOST_WIDE_INT high;
-  } int_cst;
+  double_int int_cst;
 };
 
 /* In a REAL_CST node.  struct real_value is an opaque entity, with
@@ -1552,7 +1551,6 @@ struct tree_constructor GTY(())
 
 #define OMP_SECTIONS_BODY(NODE)    TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 0)
 #define OMP_SECTIONS_CLAUSES(NODE) TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 1)
-#define OMP_SECTIONS_SECTIONS(NODE) TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 2)
 
 #define OMP_SECTION_BODY(NODE)	   TREE_OPERAND (OMP_SECTION_CHECK (NODE), 0)
 
@@ -1571,6 +1569,18 @@ struct tree_constructor GTY(())
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
 					      OMP_CLAUSE_PRIVATE,	\
 	                                      OMP_CLAUSE_COPYPRIVATE), 0)
+
+/* True on an OMP_SECTION statement that was the last lexical member.
+   This status is meaningful in the implementation of lastprivate.  */
+#define OMP_SECTION_LAST(NODE) \
+  TREE_PRIVATE (OMP_SECTION_CHECK (NODE))
+
+/* True on an OMP_RETURN statement if the return does not require a
+   thread synchronization via some sort of barrier.  The exact barrier
+   that would otherwise be emitted is dependent on the OMP statement
+   with which this return is associated.  */
+#define OMP_RETURN_NOWAIT(NODE) \
+  TREE_PRIVATE (OMP_RETURN_CHECK (NODE))
 
 /* True on a PRIVATE clause if its decl is kept around for debugging
    information only and its DECL_VALUE_EXPR is supposed to point
@@ -1737,7 +1747,6 @@ struct tree_ssa_name GTY(())
 #define PHI_ARG_CAPACITY(NODE)		PHI_NODE_CHECK (NODE)->phi.capacity
 #define PHI_ARG_ELT(NODE, I)		PHI_NODE_ELT_CHECK (NODE, I)
 #define PHI_ARG_EDGE(NODE, I) 		(EDGE_PRED (PHI_BB ((NODE)), (I)))
-#define PHI_ARG_NONZERO(NODE, I) 	PHI_NODE_ELT_CHECK (NODE, I).nonzero
 #define PHI_BB(NODE)			PHI_NODE_CHECK (NODE)->phi.bb
 #define PHI_ARG_IMM_USE_NODE(NODE, I)	PHI_NODE_ELT_CHECK (NODE, I).imm_use
 
@@ -1747,7 +1756,6 @@ struct phi_arg_d GTY(())
      pointer arithmetic with it.  See phi_arg_index_from_use.  */
   struct ssa_use_operand_d imm_use;
   tree def;
-  bool nonzero;
 };
 
 struct tree_phi_node GTY(())
@@ -2300,24 +2308,40 @@ struct tree_decl_minimal GTY(())
 
 /* When computing aliasing information, we represent the memory pointed-to
    by pointers with artificial variables called "memory tags" (MT).  There
-   are two kinds of tags: type and name.  Type tags (TMT) are used in
-   type-based alias analysis, they represent all the pointed-to locations
-   and variables of the same alias set class.  Name tags (NMT) are used in
-   flow-sensitive points-to alias analysis, they represent the variables
-   and memory locations pointed-to by a specific SSA_NAME pointer.  */
+   are two kinds of tags, namely symbol and name:
+   
+   Symbol tags (SMT) are used in flow-insensitive alias analysis, they
+   represent all the pointed-to locations and variables pointed-to by
+   the same pointer symbol.  Usually, this set is computed using
+   type-based analysis (i.e., alias set classes), but this may not
+   always be the case.
 
+   Name tags (NMT) are used in flow-sensitive points-to alias
+   analysis, they represent the variables and memory locations
+   pointed-to by a specific SSA_NAME pointer.
+
+   In general, given a pointer P with a symbol tag SMT, the alias set
+   of SMT should be the union of all the alias sets of the NMTs of
+   every SSA_NAME for P.  */
 struct tree_memory_tag GTY(())
 {
   struct tree_decl_minimal common;
   unsigned int is_global:1;
   unsigned int is_used_alone:1;
+  unsigned int old_used_alone:1;
 };
 
 #define MTAG_GLOBAL(NODE) (TREE_MEMORY_TAG_CHECK (NODE)->mtag.is_global)
 
-/* This flag is true if a TMT is used as the vdef or vuse operand directly,
-   because the access had all of the TMT's aliases pruned from it.  */
-#define TMT_USED_ALONE(NODE) (TYPE_MEMORY_TAG_CHECK (NODE)->mtag.is_used_alone)
+/* This flag is true if a SMT is used as the V_MAY_DEF or VUSE operand
+   directly, because the access had all of the SMT's aliases pruned
+   from it.  */
+#define SMT_USED_ALONE(NODE) (SYMBOL_MEMORY_TAG_CHECK (NODE)->mtag.is_used_alone)
+
+/* This flag is used to temporarily store the old value of the used alone
+   flag when updating so we know whether to mark the symbol for
+   renaming.  */
+#define SMT_OLD_USED_ALONE(NODE) (SYMBOL_MEMORY_TAG_CHECK (NODE)->mtag.old_used_alone)
 
 struct tree_struct_field_tag GTY(())
 {
@@ -2484,6 +2508,12 @@ struct tree_struct_field_tag GTY(())
 #define DECL_COMPLEX_GIMPLE_REG_P(DECL) \
   DECL_COMMON_CHECK (DECL)->decl_common.gimple_reg_flag
 
+/* This is true if DECL is call clobbered in the current function.
+   The result of this flag should always be the same as
+   bitmap_bit_p (call_clobbered_vars, DECL_UID (decl)).  */
+#define DECL_CALL_CLOBBERED(DECL) \
+  DECL_COMMON_CHECK (DECL)->decl_common.call_clobbered_flag
+
 struct tree_decl_common GTY(())
 {
   struct tree_decl_minimal common;
@@ -2521,9 +2551,10 @@ struct tree_decl_common GTY(())
   /* In FIELD_DECL, this is DECL_NONADDRESSABLE_P
      In VAR_DECL and PARM_DECL, this is DECL_HAS_VALUE_EXPR.  */
   unsigned decl_flag_3 : 1;  
-  /* Logically, this would go in a theoretical base shared by var and parm 
-     decl. */
+  /* Logically, these two would go in a theoretical base shared by var and 
+     parm decl. */
   unsigned gimple_reg_flag : 1;
+  unsigned call_clobbered_flag : 1;
   
   union tree_decl_u1 {
     /* In a FUNCTION_DECL for which DECL_BUILT_IN holds, this is
@@ -3891,10 +3922,6 @@ extern void categorize_ctor_elements (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 				      HOST_WIDE_INT *, bool *);
 extern HOST_WIDE_INT count_type_elements (tree, bool);
 
-/* add_var_to_bind_expr (bind_expr, var) binds var to bind_expr.  */
-
-extern void add_var_to_bind_expr (tree, tree);
-
 /* integer_zerop (tree x) is nonzero if X is an integer constant of value 0.  */
 
 extern int integer_zerop (tree);
@@ -4273,15 +4300,16 @@ extern bool fields_compatible_p (tree, tree);
 extern tree find_compatible_field (tree, tree);
 
 /* In function.c */
+struct df;
+
 extern void expand_main_function (void);
 extern void init_dummy_function_start (void);
 extern void expand_dummy_function_end (void);
-extern void init_function_for_compilation (void);
+extern unsigned int init_function_for_compilation (void);
 extern void allocate_struct_function (tree);
 extern void init_function_start (tree);
 extern bool use_register_for_decl (tree);
-extern void setjmp_vars_warning (tree);
-extern void setjmp_args_warning (void);
+extern void generate_setjmp_warnings (struct df *);
 extern void init_temp_slots (void);
 extern void free_temp_slots (void);
 extern void pop_temp_slots (void);
@@ -4381,7 +4409,6 @@ extern unsigned int update_alignment_for_field (record_layout_info, tree,
 extern void make_decl_rtl (tree);
 extern void make_decl_one_only (tree);
 extern int supports_one_only (void);
-extern void variable_section (tree, int);
 extern void resolve_unique_section (tree, int, int);
 extern void mark_referenced (tree);
 extern void mark_decl_referenced (tree);

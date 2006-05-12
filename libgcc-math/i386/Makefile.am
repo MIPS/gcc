@@ -11,9 +11,9 @@ gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 noinst_LTLIBRARIES = libsse2.la
 
 libsse2_la_CFLAGS = -I@srcdir@/../include -I.. -include @srcdir@/sse2.h \
-  -Wall -O2 -g -msse2 -msseregparm -mfpmath=sse -march=pentium3 \
-  -fno-math-errno -fno-trapping-math -ffinite-math-only \
-  -fno-rounding-math -fno-signaling-nans -D__NO_MATH_INLINES
+  -Wall -std=c99 -O2 -g \
+  -msse2 -msseregparm -mfpmath=sse -march=pentium3 -mtune=generic \
+  -fno-math-errno -fno-trapping-math -fno-rounding-math -fno-signaling-nans
 
 libsse2_la_SOURCES = \
   @srcdir@/../flt-32/e_acosf.c \
@@ -35,37 +35,7 @@ libsse2_la_SOURCES = \
   @srcdir@/../flt-32/e_sqrtf.c \
   @srcdir@/../flt-32/s_scalbnf.c \
   @srcdir@/../flt-32/s_floorf.c \
-  @srcdir@/../flt-32/s_isinff.c \
-  @srcdir@/../dbl-64/t_exp.c \
-  @srcdir@/../dbl-64/e_asin.c \
-  @srcdir@/../dbl-64/e_atan2.c \
-  @srcdir@/../dbl-64/s_atan.c \
-  @srcdir@/../dbl-64/branred.c \
-  @srcdir@/../dbl-64/doasin.c \
-  @srcdir@/../dbl-64/dosincos.c \
-  @srcdir@/../dbl-64/e_exp.c \
-  @srcdir@/../dbl-64/halfulp.c \
-  @srcdir@/../dbl-64/k_rem_pio2.c \
-  @srcdir@/../dbl-64/e_log10.c \
-  @srcdir@/../dbl-64/e_log.c \
-  @srcdir@/../dbl-64/mpa.c \
-  @srcdir@/../dbl-64/mpatan2.c \
-  @srcdir@/../dbl-64/mpatan.c \
-  @srcdir@/../dbl-64/mpexp.c \
-  @srcdir@/../dbl-64/mplog.c \
-  @srcdir@/../dbl-64/mpsqrt.c \
-  @srcdir@/../dbl-64/mptan.c \
-  @srcdir@/../dbl-64/e_pow.c \
-  @srcdir@/../dbl-64/e_rem_pio2.c \
-  @srcdir@/../dbl-64/s_sin.c \
-  @srcdir@/../dbl-64/sincos32.c \
-  @srcdir@/../dbl-64/slowexp.c \
-  @srcdir@/../dbl-64/slowpow.c \
-  @srcdir@/../dbl-64/e_sqrt.c \
-  @srcdir@/../dbl-64/s_tan.c \
-  @srcdir@/../dbl-64/s_scalbn.c \
-  @srcdir@/../dbl-64/s_floor.c \
-  @srcdir@/../dbl-64/s_isinf.c
+  @srcdir@/../flt-32/s_isinff.c
 
 
 # XXX hack alert

@@ -331,6 +331,19 @@ struct machine_function GTY(())
 #define CONST_OK_FOR_On(x) \
         CONST_OK_FOR_CONSTRAINT_P((x), 'O', "On")
 
+#define REGNO_PAIR_OK(REGNO, MODE)                               \
+  (HARD_REGNO_NREGS ((REGNO), (MODE)) == 1 || !((REGNO) & 1))
+
+/* Return true if the back end supports mode MODE.  */
+static bool
+s390_scalar_mode_supported_p (enum machine_mode mode)
+{
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return true;
+  else
+    return default_scalar_mode_supported_p (mode);
+}
+
 /* Set the has_landing_pad_p flag in struct machine_function to VALUE.  */
 
 void
@@ -1415,6 +1428,11 @@ override_options (void)
     }
   else if (s390_stack_guard)
     error ("-mstack-guard implies use of -mstack-size"); 
+
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+  if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
+    target_flags |= MASK_LONG_DOUBLE_128;
+#endif
 }
 
 /* Map for smallest class containing reg regno.  */
@@ -1612,7 +1630,9 @@ s390_decompose_address (rtx addr, struct s390_address *out)
 	    return false;
 	  }
 
-      if (GET_CODE (base) != REG || GET_MODE (base) != Pmode)
+      if (!REG_P (base) 
+	  || (GET_MODE (base) != SImode 
+	      && GET_MODE (base) != Pmode))
 	return false;
 
       if (REGNO (base) == STACK_POINTER_REGNUM
@@ -1658,7 +1678,9 @@ s390_decompose_address (rtx addr, struct s390_address *out)
 	    return false;
 	  }
 
-      if (GET_CODE (indx) != REG || GET_MODE (indx) != Pmode)
+      if (!REG_P (indx) 
+	  || (GET_MODE (indx) != SImode
+	      && GET_MODE (indx) != Pmode))
 	return false;
 
       if (REGNO (indx) == STACK_POINTER_REGNUM
@@ -2673,8 +2695,8 @@ s390_expand_plus_operand (rtx target, rtx src,
 
   /* If the address is already strictly valid, there's nothing to do.  */
   if (!s390_decompose_address (src, &ad)
-      || (ad.base && !REG_OK_FOR_BASE_STRICT_P (ad.base))
-      || (ad.indx && !REG_OK_FOR_INDEX_STRICT_P (ad.indx)))
+      || (ad.base && !REGNO_OK_FOR_BASE_P (REGNO (ad.base)))
+      || (ad.indx && !REGNO_OK_FOR_INDEX_P (REGNO (ad.indx))))
     {
       /* Otherwise, one of the operands cannot be an address register;
          we reload its value into the scratch register.  */
@@ -2722,19 +2744,24 @@ legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
 
   if (strict)
     {
-      if (ad.base && !REG_OK_FOR_BASE_STRICT_P (ad.base))
+      if (ad.base && !REGNO_OK_FOR_BASE_P (REGNO (ad.base)))
 	return false;
-      if (ad.indx && !REG_OK_FOR_INDEX_STRICT_P (ad.indx))
+
+      if (ad.indx && !REGNO_OK_FOR_INDEX_P (REGNO (ad.indx)))
 	return false;
     }
   else
     {
-      if (ad.base && !REG_OK_FOR_BASE_NONSTRICT_P (ad.base))
+      if (ad.base 
+	  && !(REGNO (ad.base) >= FIRST_PSEUDO_REGISTER
+	       || REGNO_REG_CLASS (REGNO (ad.base)) == ADDR_REGS))
 	return false;
-      if (ad.indx && !REG_OK_FOR_INDEX_NONSTRICT_P (ad.indx))
-	return false;
+      
+      if (ad.indx
+	  && !(REGNO (ad.indx) >= FIRST_PSEUDO_REGISTER
+	       || REGNO_REG_CLASS (REGNO (ad.indx)) == ADDR_REGS))
+	  return false;
     }
-
   return true;
 }
 
@@ -2765,9 +2792,9 @@ preferred_la_operand_p (rtx op1, rtx op2)
 
   if (!s390_decompose_address (op1, &addr))
     return false;
-  if (addr.base && !REG_OK_FOR_BASE_STRICT_P (addr.base))
+  if (addr.base && !REGNO_OK_FOR_BASE_P (REGNO (addr.base)))
     return false;
-  if (addr.indx && !REG_OK_FOR_INDEX_STRICT_P (addr.indx))
+  if (addr.indx && !REGNO_OK_FOR_INDEX_P (REGNO (addr.indx)))
     return false;
 
   if (!TARGET_64BIT && !addr.pointer)
@@ -4495,8 +4522,8 @@ print_operand_address (FILE *file, rtx addr)
   struct s390_address ad;
 
   if (!s390_decompose_address (addr, &ad)
-      || (ad.base && !REG_OK_FOR_BASE_STRICT_P (ad.base))
-      || (ad.indx && !REG_OK_FOR_INDEX_STRICT_P (ad.indx)))
+      || (ad.base && !REGNO_OK_FOR_BASE_P (REGNO (ad.base)))
+      || (ad.indx && !REGNO_OK_FOR_INDEX_P (REGNO (ad.indx))))
     output_operand_lossage ("cannot decompose address");
 
   if (ad.disp)
@@ -4580,7 +4607,7 @@ print_operand (FILE *file, rtx x, int code)
         gcc_assert (GET_CODE (x) == MEM);
 	ret = s390_decompose_address (XEXP (x, 0), &ad);
 	gcc_assert (ret);
-	gcc_assert (!ad.base || REG_OK_FOR_BASE_STRICT_P (ad.base));
+	gcc_assert (!ad.base || REGNO_OK_FOR_BASE_P (REGNO (ad.base)));
 	gcc_assert (!ad.indx);
 
         if (ad.disp)
@@ -4598,7 +4625,7 @@ print_operand (FILE *file, rtx x, int code)
         gcc_assert (GET_CODE (x) == MEM);
 	ret = s390_decompose_address (XEXP (x, 0), &ad);
 	gcc_assert (ret);
-	gcc_assert (!ad.base || REG_OK_FOR_BASE_STRICT_P (ad.base));
+	gcc_assert (!ad.base || REGNO_OK_FOR_BASE_P (REGNO (ad.base)));
 	gcc_assert (!ad.indx);
 
         if (ad.base)
@@ -4616,7 +4643,7 @@ print_operand (FILE *file, rtx x, int code)
         gcc_assert (GET_CODE (x) == MEM);
 	ret = s390_decompose_address (XEXP (x, 0), &ad);
 	gcc_assert (ret);
-	gcc_assert (!ad.base || REG_OK_FOR_BASE_STRICT_P (ad.base));
+	gcc_assert (!ad.base || REGNO_OK_FOR_BASE_P (REGNO (ad.base)));
 	gcc_assert (!ad.indx);
 
 	if (ad.disp)
@@ -5242,12 +5269,12 @@ replace_ltrel_base (rtx *x)
 /* We keep a list of constants which we have to add to internal
    constant tables in the middle of large functions.  */
 
-#define NR_C_MODES 8
+#define NR_C_MODES 11
 enum machine_mode constant_modes[NR_C_MODES] =
 {
-  TFmode, TImode,
-  DFmode, DImode,
-  SFmode, SImode,
+  TFmode, TImode, TDmode,
+  DFmode, DImode, DDmode,
+  SFmode, SImode, SDmode,
   HImode,
   QImode
 };
@@ -6190,6 +6217,7 @@ s390_output_pool_entry (rtx exp, enum machine_mode mode, unsigned int align)
   switch (GET_MODE_CLASS (mode))
     {
     case MODE_FLOAT:
+    case MODE_DECIMAL_FLOAT:
       gcc_assert (GET_CODE (exp) == CONST_DOUBLE);
 
       REAL_VALUE_FROM_CONST_DOUBLE (r, exp);
@@ -6739,6 +6767,54 @@ s390_update_frame_layout (void)
     regs_ever_live[REGNO (cfun->machine->base_reg)] = 1;
 }
 
+/* Return true if it is legal to put a value with MODE into REGNO.  */
+
+bool
+s390_hard_regno_mode_ok (unsigned int regno, enum machine_mode mode)
+{
+  switch (REGNO_REG_CLASS (regno))
+    {
+    case FP_REGS:
+      if (REGNO_PAIR_OK (regno, mode))
+	{
+	  if (mode == SImode || mode == DImode)
+	    return true;
+
+	  if (FLOAT_MODE_P (mode) && GET_MODE_CLASS (mode) != MODE_VECTOR_FLOAT)
+	    return true;
+	}
+      break;
+    case ADDR_REGS:
+      if (FRAME_REGNO_P (regno) && mode == Pmode)
+	return true;
+
+      /* fallthrough */
+    case GENERAL_REGS:
+      if (REGNO_PAIR_OK (regno, mode))
+	{
+	  if (TARGET_64BIT 
+	      || (mode != TFmode && mode != TCmode && mode != TDmode))
+	    return true;
+	}	  
+      break;
+    case CC_REGS:
+      if (GET_MODE_CLASS (mode) == MODE_CC)
+	return true;
+      break;
+    case ACCESS_REGS:
+      if (REGNO_PAIR_OK (regno, mode))
+	{
+	  if (mode == SImode || mode == Pmode)
+	    return true;
+	}
+      break;
+    default:
+      return false;
+    }
+  
+  return false;
+}
+
 /* Return nonzero if register OLD_REG can be renamed to register NEW_REG.  */
 
 bool
@@ -6752,6 +6828,27 @@ s390_hard_regno_rename_ok (unsigned int old_reg, unsigned int new_reg)
       return false;
 
   return true;
+}
+
+/* Maximum number of registers to represent a value of mode MODE
+   in a register of class CLASS.  */
+
+bool
+s390_class_max_nregs (enum reg_class class, enum machine_mode mode)
+{
+  switch (class)
+    {
+    case FP_REGS:
+      if (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT)
+	return 2 * ((GET_MODE_SIZE (mode) / 2 + 8 - 1) / 8);
+      else
+	return (GET_MODE_SIZE (mode) + 8 - 1) / 8;
+    case ACCESS_REGS:
+      return (GET_MODE_SIZE (mode) + 4 - 1) / 4;
+    default:
+      break;
+    }
+  return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
 
 /* Return true if register FROM can be eliminated via register TO.  */
@@ -7515,7 +7612,7 @@ s390_function_arg_float (enum machine_mode mode, tree type)
 
   /* No type info available for some library calls ...  */
   if (!type)
-    return mode == SFmode || mode == DFmode;
+    return mode == SFmode || mode == DFmode || mode == SDmode || mode == DDmode;
 
   /* The ABI says that record types with a single member are treated
      just like that member would be.  */
@@ -7557,7 +7654,7 @@ s390_function_arg_integer (enum machine_mode mode, tree type)
   /* No type info available for some library calls ...  */
   if (!type)
     return GET_MODE_CLASS (mode) == MODE_INT
-	   || (TARGET_SOFT_FLOAT &&  GET_MODE_CLASS (mode) == MODE_FLOAT);
+	   || (TARGET_SOFT_FLOAT &&  SCALAR_FLOAT_MODE_P (mode));
 
   /* We accept small integral (and similar) types.  */
   if (INTEGRAL_TYPE_P (type)
@@ -7719,11 +7816,10 @@ s390_function_value (tree type, enum machine_mode mode)
       mode = promote_mode (type, TYPE_MODE (type), &unsignedp, 1);
     }
 
-  gcc_assert (GET_MODE_CLASS (mode) == MODE_INT
-               || GET_MODE_CLASS (mode) == MODE_FLOAT);
+  gcc_assert (GET_MODE_CLASS (mode) == MODE_INT || SCALAR_FLOAT_MODE_P (mode));
   gcc_assert (GET_MODE_SIZE (mode) <= 8);
 
-  if (TARGET_HARD_FLOAT && GET_MODE_CLASS (mode) == MODE_FLOAT)
+  if (TARGET_HARD_FLOAT && SCALAR_FLOAT_MODE_P (mode))
     return gen_rtx_REG (mode, 16);
   else
     return gen_rtx_REG (mode, 2);
@@ -9216,6 +9312,9 @@ s390_reorg (void)
 #undef TARGET_MANGLE_FUNDAMENTAL_TYPE
 #define TARGET_MANGLE_FUNDAMENTAL_TYPE s390_mangle_fundamental_type
 #endif
+
+#undef TARGET_SCALAR_MODE_SUPPORTED_P
+#define TARGET_SCALAR_MODE_SUPPORTED_P s390_scalar_mode_supported_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

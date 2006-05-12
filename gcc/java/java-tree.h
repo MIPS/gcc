@@ -208,12 +208,18 @@ extern int flag_check_references;
    initialization optimization should be performed.  */
 extern int flag_optimize_sci;
 
+/* Generate instances of Class at runtime.  */
+extern int flag_indirect_classes;
+
 /* When nonzero, use offset tables for virtual method calls
    in order to improve binary compatibility. */
 extern int flag_indirect_dispatch;
 
 /* When zero, don't generate runtime array store checks. */
 extern int flag_store_check;
+
+/* When nonzero, generate only a limited set of class meta-data. */
+extern int flag_reduced_reflection;
 
 /* Encoding used for source files.  */
 extern const char *current_encoding;
@@ -266,6 +272,12 @@ typedef struct CPool constant_pool;
 extern GTY(()) tree java_lang_cloneable_identifier_node;
 extern GTY(()) tree java_io_serializable_identifier_node;
 extern GTY(()) tree gcj_abi_version;
+
+/* The decl for the .constants field of an instance of Class.  */
+extern GTY(()) tree constants_field_decl_node;
+
+/* The decl for the .data field of an instance of Class.  */
+extern GTY(()) tree constants_data_field_decl_node;
 
 enum java_tree_index
 {
@@ -1048,10 +1060,11 @@ struct lang_decl GTY(())
 #define TYPE_FINIT_STMT_LIST(T)  (TYPE_LANG_SPECIFIC (T)->finit_stmt_list)
 #define TYPE_CLINIT_STMT_LIST(T) (TYPE_LANG_SPECIFIC (T)->clinit_stmt_list)
 #define TYPE_II_STMT_LIST(T)     (TYPE_LANG_SPECIFIC (T)->ii_block)
-/* The decl of the synthetic method `class$' used to handle `.class'
-   for non primitive types when compiling to bytecode. */
 
 #define TYPE_DUMMY(T)		(TYPE_LANG_SPECIFIC(T)->dummy_class)
+
+/* The decl of the synthetic method `class$' used to handle `.class'
+   for non primitive types when compiling to bytecode. */
 
 #define TYPE_DOT_CLASS(T)        (TYPE_LANG_SPECIFIC (T)->dot_class)
 #define TYPE_PACKAGE_LIST(T)     (TYPE_LANG_SPECIFIC (T)->package_list)

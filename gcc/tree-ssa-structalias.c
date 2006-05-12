@@ -1040,7 +1040,7 @@ merge_graph_nodes (constraint_graph_t graph, unsigned int to,
 		       graph->zero_weight_succs[from]);
     }
 
-  /* Merge all the non-zero weighted predecessor edges.  */
+  /* Merge all the nonzero weighted predecessor edges.  */
   for (i = 0; VEC_iterate (constraint_edge_t, predvec, i, c); i++)
     {
       unsigned int d = c->dest;
@@ -1064,7 +1064,7 @@ merge_graph_nodes (constraint_graph_t graph, unsigned int to,
       
     }
   
-  /* Merge all the non-zero weighted successor edges.  */
+  /* Merge all the nonzero weighted successor edges.  */
   for (i = 0; VEC_iterate (constraint_edge_t, succvec, i, c); i++)
     {
       unsigned int d = c->dest;
@@ -2484,6 +2484,7 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results)
 	      struct constraint_expr *c;
 	      unsigned int i;
 	      tree exp = TREE_OPERAND (t, 0);
+	      tree pttype = TREE_TYPE (TREE_TYPE (t));
 
 	      get_constraint_for (exp, results);
 	      /* Make sure we capture constraints to all elements
@@ -2507,6 +2508,26 @@ get_constraint_for (tree t, VEC (ce_s, heap) **results)
 		      VEC_safe_push (ce_s, heap, *results, &tmp);
 		    }
 		}
+	      else if (VEC_length (ce_s, *results) == 1
+		       && (AGGREGATE_TYPE_P (pttype)
+			   || TREE_CODE (pttype) == COMPLEX_TYPE))
+		{
+		  struct constraint_expr *origrhs;
+		  varinfo_t origvar;
+		  struct constraint_expr tmp;
+
+		  gcc_assert (VEC_length (ce_s, *results) == 1);
+		  origrhs = VEC_last (ce_s, *results);
+		  tmp = *origrhs;
+		  VEC_pop (ce_s, *results);
+		  origvar = get_varinfo (origrhs->var);
+		  for (; origvar; origvar = origvar->next)
+		    {
+		      tmp.var = origvar->id;
+		      VEC_safe_push (ce_s, heap, *results, &tmp);
+		    }
+		}
+	      
 	      for (i = 0; VEC_iterate (ce_s, *results, i, c); i++)
 		{
 		  if (c->type == DEREF)
@@ -3020,7 +3041,7 @@ update_alias_info (tree stmt, struct alias_info *ai)
       if (!TEST_BIT (ai->ssa_names_visited, SSA_NAME_VERSION (op)))
 	{
 	  SET_BIT (ai->ssa_names_visited, SSA_NAME_VERSION (op));
-	  VARRAY_PUSH_TREE (ai->processed_ptrs, op);
+	  VEC_safe_push (tree, heap, ai->processed_ptrs, op);
 	}
 
       /* If STMT is a PHI node, then it will not have pointer
@@ -3161,7 +3182,8 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
   VEC (ce_s, heap) *temp = NULL;
   unsigned int rhsoffset = 0;
 
-  if (TREE_CODE (expr) != PLUS_EXPR)
+  if (TREE_CODE (expr) != PLUS_EXPR
+      && TREE_CODE (expr) != MINUS_EXPR)
     return false;
 
   op0 = TREE_OPERAND (expr, 0);
@@ -3169,7 +3191,8 @@ handle_ptr_arith (VEC (ce_s, heap) *lhsc, tree expr)
 
   get_constraint_for (op0, &temp);
   if (POINTER_TYPE_P (TREE_TYPE (op0))
-      && TREE_CODE (op1) == INTEGER_CST)
+      && TREE_CODE (op1) == INTEGER_CST
+      && TREE_CODE (expr) == PLUS_EXPR)
     {
       rhsoffset = TREE_INT_CST_LOW (op1) * BITS_PER_UNIT;
     }
@@ -3220,10 +3243,12 @@ find_func_aliases (tree origt)
   /* Now build constraints expressions.  */
   if (TREE_CODE (t) == PHI_NODE)
     {
+      gcc_assert (!AGGREGATE_TYPE_P (TREE_TYPE (PHI_RESULT (t))));
+
       /* Only care about pointers and structures containing
 	 pointers.  */
       if (POINTER_TYPE_P (TREE_TYPE (PHI_RESULT (t)))
-	  || AGGREGATE_TYPE_P (TREE_TYPE (PHI_RESULT (t))))
+	  || TREE_CODE (TREE_TYPE (PHI_RESULT (t))) == COMPLEX_TYPE)
 	{
 	  int i;
 	  unsigned int j;
@@ -3239,26 +3264,6 @@ find_func_aliases (tree origt)
 	      STRIP_NOPS (strippedrhs);
 	      rhstype = TREE_TYPE (strippedrhs);
 	      get_constraint_for (PHI_ARG_DEF (t, i), &rhsc);
-
-	      if (TREE_CODE (strippedrhs) == ADDR_EXPR
-		 && AGGREGATE_TYPE_P (TREE_TYPE (rhstype))
-		 && VEC_length (ce_s, rhsc) == 1)
-		{
-		  struct constraint_expr *origrhs;
-		  varinfo_t origvar;
-		  struct constraint_expr tmp;
-
-		  gcc_assert (VEC_length (ce_s, rhsc) == 1);
-		  origrhs = VEC_last (ce_s, rhsc);
-		  tmp = *origrhs;
-		  VEC_pop (ce_s, rhsc);
-		  origvar = get_varinfo (origrhs->var);
-		  for (; origvar; origvar = origvar->next)
-		    {
-		      tmp.var = origvar->id;
-		      VEC_safe_push (ce_s, heap, rhsc, &tmp);
-		    }
-		}
 
 	      for (j = 0; VEC_iterate (ce_s, lhsc, j, c); j++)
 		{
@@ -3289,7 +3294,6 @@ find_func_aliases (tree origt)
       tree lhsop;
       tree rhsop;
       unsigned int varid;
-      bool found = false;
       tree arglist;
       varinfo_t fi;
       int i = 1;
@@ -3311,14 +3315,12 @@ find_func_aliases (tree origt)
 	 we should still be able to handle.  */
       if (decl)
 	{
-	  found = lookup_id_for_tree (decl, &varid);
-	  gcc_assert (found);
+	  varid = get_id_for_tree (decl);
 	}
       else
 	{
 	  decl = TREE_OPERAND (rhsop, 0);
-	  found = lookup_id_for_tree (decl, &varid);
-	  gcc_assert (found);
+	  varid = get_id_for_tree (decl);
 	}
 
       /* Assign all the passed arguments to the appropriate incoming
@@ -3384,8 +3386,10 @@ find_func_aliases (tree origt)
       tree rhsop = TREE_OPERAND (t, 1);
       int i;
 
-      if (AGGREGATE_TYPE_P (TREE_TYPE (lhsop)) 
-	  && AGGREGATE_TYPE_P (TREE_TYPE (rhsop)))
+      if ((AGGREGATE_TYPE_P (TREE_TYPE (lhsop)) 
+	   || TREE_CODE (TREE_TYPE (lhsop)) == COMPLEX_TYPE)
+	  && (AGGREGATE_TYPE_P (TREE_TYPE (rhsop))
+	      || TREE_CODE (TREE_TYPE (lhsop)) == COMPLEX_TYPE))
 	{
 	  do_structure_copy (lhsop, rhsop);
 	}
@@ -3395,6 +3399,7 @@ find_func_aliases (tree origt)
 	     containing pointers, dereferences, and call expressions.  */
 	  if (POINTER_TYPE_P (TREE_TYPE (lhsop))
 	      || AGGREGATE_TYPE_P (TREE_TYPE (lhsop))
+	      || TREE_CODE (TREE_TYPE (lhsop)) == COMPLEX_TYPE
 	      || TREE_CODE (rhsop) == CALL_EXPR)
 	    {
 	      get_constraint_for (lhsop, &lhsc);
@@ -3411,35 +3416,8 @@ find_func_aliases (tree origt)
 		  case tcc_unary:
 		      {
 			unsigned int j;
-			tree strippedrhs = rhsop;
-			tree rhstype;
 
-			/* XXX: Push this back into the ADDR_EXPR
-			   case, and remove anyoffset handling.  */
-			STRIP_NOPS (strippedrhs);
-			rhstype = TREE_TYPE (strippedrhs);
-			
 			get_constraint_for (rhsop, &rhsc);
-			if (TREE_CODE (strippedrhs) == ADDR_EXPR
-			    && AGGREGATE_TYPE_P (TREE_TYPE (rhstype))
-			    && VEC_length (ce_s, rhsc) == 1)
-			  {
-			    struct constraint_expr *origrhs;
-			    varinfo_t origvar;
-			    struct constraint_expr tmp;
-
-			    gcc_assert (VEC_length (ce_s, rhsc) == 1);
-			    origrhs = VEC_last (ce_s, rhsc);
-			    tmp = *origrhs;
-			    VEC_pop (ce_s, rhsc);
-			    origvar = get_varinfo (origrhs->var);
-			    for (; origvar; origvar = origvar->next)
-			      {
-				tmp.var = origvar->id;
-				VEC_safe_push (ce_s, heap, rhsc, &tmp);
-			      }
-			  }
-
 			for (j = 0; VEC_iterate (ce_s, lhsc, j, c); j++)
 			  {
 			    struct constraint_expr *c2;
@@ -3800,7 +3778,6 @@ create_function_info_for (tree decl, const char *name)
   
   arg = DECL_ARGUMENTS (decl);
 
-
   /* Set up variables for each argument.  */
   for (i = 1; i < vi->fullsize; i++)
     {      
@@ -4064,7 +4041,7 @@ intra_create_variable_infos (void)
   tree t;
 
   /* For each incoming argument arg, ARG = &ANYTHING or a dummy variable if
-     flag_argument_noalias > 1. */
+     flag_argument_noalias > 2. */
   for (t = DECL_ARGUMENTS (current_function_decl); t; t = TREE_CHAIN (t))
     {
       struct constraint_expr lhs;
@@ -4074,11 +4051,11 @@ intra_create_variable_infos (void)
       lhs.type = SCALAR;
       lhs.var  = create_variable_info_for (t, alias_get_name (t));
 
-      /* With flag_argument_noalias greater than one means that the incomming
+      /* With flag_argument_noalias greater than two means that the incoming
          argument cannot alias anything except for itself so create a HEAP
          variable.  */
       if (POINTER_TYPE_P (TREE_TYPE (t))
-	  && flag_argument_noalias > 1)
+	  && flag_argument_noalias > 2)
 	{
 	  varinfo_t vi;
 	  struct constraint_expr rhs;
@@ -4577,7 +4554,7 @@ gate_ipa_pta (void)
 }
 
 /* Execute the driver for IPA PTA.  */
-static void
+static unsigned int
 ipa_pta_execute (void)
 {
   struct cgraph_node *node;
@@ -4672,6 +4649,7 @@ ipa_pta_execute (void)
   in_ipa_mode = 0;
   delete_alias_heapvars ();
   delete_points_to_sets ();
+  return 0;
 }
   
 struct tree_opt_pass pass_ipa_pta =

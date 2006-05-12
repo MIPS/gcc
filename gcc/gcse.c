@@ -2660,9 +2660,9 @@ try_replace_reg (rtx from, rtx to, rtx insn)
 	validate_change (insn, &SET_SRC (set), src, 0);
     }
 
-  /* If there is already a NOTE, update the expression in it with our
-     replacement.  */
-  if (note != 0)
+  /* If there is already a REG_EQUAL note, update the expression in it
+     with our replacement.  */
+  if (note != 0 && REG_NOTE_KIND (note) == REG_EQUAL)
     XEXP (note, 0) = simplify_replace_rtx (XEXP (note, 0), from, to);
 
   if (!success && set && reg_mentioned_p (from, SET_SRC (set)))
@@ -2689,7 +2689,7 @@ try_replace_reg (rtx from, rtx to, rtx insn)
      We don't allow that. Remove that note. This code ought
      not to happen, because previous code ought to synthesize
      reg-reg move, but be on the safe side.  */
-  if (note && REG_P (XEXP (note, 0)))
+  if (note && REG_NOTE_KIND (note) == REG_EQUAL && REG_P (XEXP (note, 0)))
     remove_note (insn, note);
 
   return success;
@@ -6621,7 +6621,7 @@ gate_handle_jump_bypass (void)
 }
 
 /* Perform jump bypassing and control flow optimizations.  */
-static void
+static unsigned int
 rest_of_handle_jump_bypass (void)
 {
   cleanup_cfg (CLEANUP_EXPENSIVE);
@@ -6633,6 +6633,7 @@ rest_of_handle_jump_bypass (void)
       cleanup_cfg (CLEANUP_EXPENSIVE);
       delete_trivially_dead_insns (get_insns (), max_reg_num ());
     }
+  return 0;
 }
 
 struct tree_opt_pass pass_jump_bypass =
@@ -6661,7 +6662,7 @@ gate_handle_gcse (void)
 }
 
 
-static void
+static unsigned int
 rest_of_handle_gcse (void)
 {
   int save_csb, save_cfj;
@@ -6695,12 +6696,13 @@ rest_of_handle_gcse (void)
       timevar_push (TV_JUMP);
       rebuild_jump_labels (get_insns ());
       delete_dead_jumptables ();
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
       timevar_pop (TV_JUMP);
     }
 
   flag_cse_skip_blocks = save_csb;
   flag_cse_follow_jumps = save_cfj;
+  return 0;
 }
 
 struct tree_opt_pass pass_gcse =

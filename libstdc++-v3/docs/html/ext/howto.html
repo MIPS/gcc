@@ -561,11 +561,25 @@
     <dd>Don't fail if the next pointer is null and newoff is zero.
     </dd>
 
+    <dt><a href="lwg-defects.html#455">455</a>:
+        <em>cerr::tie() and wcerr::tie() are overspecified</em>
+    </dt>
+    <dd>Initialize cerr tied to cout and wcerr tied to wcout.
+    </dd>
+
     <dt><a href="lwg-defects.html#464">464</a>:
         <em>Suggestion for new member functions in standard containers</em>
     </dt>
     <dd>Add <code>data()</code> to <code>std::vector</code> and
         <code>at(const key_type&amp;)</code> to <code>std::map</code>.
+    </dd>
+
+    <dt><a href="lwg-active.html#538">538</a>:
+        <em>DR 538. 241 again: Does unique_copy() require CopyConstructible
+	    and Assignable?</em>
+    </dt>
+    <dd>In case of input_iterator/output_iterator rely on Assignability of
+        input_iterator' value_type.
     </dd>
 <!--
     <dt><a href="lwg-defects.html#"></a>:

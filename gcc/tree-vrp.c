@@ -826,66 +826,6 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	  || symbolic_range_p (limit_vr)))
     limit_vr = NULL;
 
-  /* Special handling for integral types with super-types.  Some FEs
-     construct integral types derived from other types and restrict
-     the range of values these new types may take.
-
-     It may happen that LIMIT is actually smaller than TYPE's minimum
-     value.  For instance, the Ada FE is generating code like this
-     during bootstrap:
-
-	    D.1480_32 = nam_30 - 300000361;
-	    if (D.1480_32 <= 1) goto <L112>; else goto <L52>;
-	    <L112>:;
-	    D.1480_94 = ASSERT_EXPR <D.1480_32, D.1480_32 <= 1>;
-
-     All the names are of type types__name_id___XDLU_300000000__399999999
-     which has min == 300000000 and max == 399999999.  This means that
-     the ASSERT_EXPR would try to create the range [3000000, 1] which
-     is invalid.
-
-     The fact that the type specifies MIN and MAX values does not
-     automatically mean that every variable of that type will always
-     be within that range, so the predicate may well be true at run
-     time.  If we had symbolic -INF and +INF values, we could
-     represent this range, but we currently represent -INF and +INF
-     using the type's min and max values.
-	 
-     So, the only sensible thing we can do for now is set the
-     resulting range to VR_VARYING.  TODO, would having symbolic -INF
-     and +INF values be worth the trouble?  */
-  if (TREE_CODE (limit) != SSA_NAME
-      && INTEGRAL_TYPE_P (type)
-      && TREE_TYPE (type))
-    {
-      if (cond_code == LE_EXPR || cond_code == LT_EXPR)
-	{
-	  tree type_min = TYPE_MIN_VALUE (type);
-	  int cmp = compare_values (limit, type_min);
-
-	  /* For < or <= comparisons, if LIMIT is smaller than
-	     TYPE_MIN, set the range to VR_VARYING.  */
-	  if (cmp == -1 || cmp == 0)
-	    {
-	      set_value_range_to_varying (vr_p);
-	      return;
-	    }
-	}
-      else if (cond_code == GE_EXPR || cond_code == GT_EXPR)
-	{
-	  tree type_max = TYPE_MIN_VALUE (type);
-	  int cmp = compare_values (limit, type_max);
-
-	  /* For > or >= comparisons, if LIMIT is bigger than
-	     TYPE_MAX, set the range to VR_VARYING.  */
-	  if (cmp == 1 || cmp == 0)
-	    {
-	      set_value_range_to_varying (vr_p);
-	      return;
-	    }
-	}
-    }
-
   /* Initially, the new range has the same set of equivalences of
      VAR's range.  This will be revised before returning the final
      value.  Since assertions may be chained via mutually exclusive
@@ -1118,7 +1058,7 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	     there are three cases to consider.
 
 
-	     1. The VR_ANTI_RANGE range is competely within the 
+	     1. The VR_ANTI_RANGE range is completely within the 
 		VR_RANGE and the endpoints of the ranges are
 		different.  In that case the resulting range
 		should be whichever range is more precise.
@@ -1176,7 +1116,7 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	    }
 	  /* Case 3a, the anti-range extends into the low
 	     part of the real range.  Thus creating a new
-	     low for the real reange.  */
+	     low for the real range.  */
 	  else if ((compare_values (anti_max, real_min) == 1
 		    || compare_values (anti_max, real_min) == 0)
 		   && compare_values (anti_max, real_max) == -1)
@@ -1189,7 +1129,7 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	    }
 	  /* Case 3b, the anti-range extends into the high
 	     part of the real range.  Thus creating a new
-	     higher for the real reange.  */
+	     higher for the real range.  */
 	  else if (compare_values (anti_min, real_min) == 1
 		   && (compare_values (anti_min, real_max) == -1
 		       || compare_values (anti_min, real_max) == 0))
@@ -1701,14 +1641,12 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
       return;
     }
 
-  /* Refuse to operate on varying and symbolic ranges.  Also, if the
-     operand is neither a pointer nor an integral type, set the
-     resulting range to VARYING.  TODO, in some cases we may be able
-     to derive anti-ranges (like nonzero values).  */
-  if (vr0.type == VR_VARYING
-      || (!INTEGRAL_TYPE_P (TREE_TYPE (op0))
-	  && !POINTER_TYPE_P (TREE_TYPE (op0)))
-      || symbolic_range_p (&vr0))
+  /* Refuse to operate on symbolic ranges, or if neither operand is
+     a pointer or integral type.  */
+  if ((!INTEGRAL_TYPE_P (TREE_TYPE (op0))
+       && !POINTER_TYPE_P (TREE_TYPE (op0)))
+      || (vr0.type != VR_VARYING
+	  && symbolic_range_p (&vr0)))
     {
       set_value_range_to_varying (vr);
       return;
@@ -1741,20 +1679,36 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
 	 or equal to the new max, then we can safely use the newly
 	 computed range for EXPR.  This allows us to compute
 	 accurate ranges through many casts.  */
-      if (vr0.type == VR_RANGE)
+      if (vr0.type == VR_RANGE
+	  || (vr0.type == VR_VARYING
+	      && TYPE_PRECISION (outer_type) > TYPE_PRECISION (inner_type)))
 	{
-	  tree new_min, new_max;
+	  tree new_min, new_max, orig_min, orig_max;
 
-	  /* Convert VR0's min/max to OUTER_TYPE.  */
-	  new_min = fold_convert (outer_type, vr0.min);
-	  new_max = fold_convert (outer_type, vr0.max);
+	  /* Convert the input operand min/max to OUTER_TYPE.   If
+	     the input has no range information, then use the min/max
+	     for the input's type.  */
+	  if (vr0.type == VR_RANGE)
+	    {
+	      orig_min = vr0.min;
+	      orig_max = vr0.max;
+	    }
+	  else
+	    {
+	      orig_min = TYPE_MIN_VALUE (inner_type);
+	      orig_max = TYPE_MAX_VALUE (inner_type);
+	    }
+
+	  new_min = fold_convert (outer_type, orig_min);
+	  new_max = fold_convert (outer_type, orig_max);
 
 	  /* Verify the new min/max values are gimple values and
-	     that they compare equal to VR0's min/max values.  */
+	     that they compare equal to the original input's
+	     min/max values.  */
 	  if (is_gimple_val (new_min)
 	      && is_gimple_val (new_max)
-	      && tree_int_cst_equal (new_min, vr0.min)
-	      && tree_int_cst_equal (new_max, vr0.max)
+	      && tree_int_cst_equal (new_min, orig_min)
+	      && tree_int_cst_equal (new_max, orig_max)
 	      && compare_values (new_min, new_max) <= 0
 	      && compare_values (new_min, new_max) >= -1)
 	    {
@@ -1777,6 +1731,16 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
 	}
     }
 
+  /* Conversion of a VR_VARYING value to a wider type can result
+     in a usable range.  So wait until after we've handled conversions
+     before dropping the result to VR_VARYING if we had a source
+     operand that is VR_VARYING.  */
+  if (vr0.type == VR_VARYING)
+    {
+      set_value_range_to_varying (vr);
+      return;
+    }
+
   /* Apply the operation to each end of the range and see what we end
      up with.  */
   if (code == NEGATE_EXPR
@@ -1790,6 +1754,24 @@ extract_range_from_unary_expr (value_range_t *vr, tree expr)
       max = (vr0.min == TYPE_MIN_VALUE (TREE_TYPE (expr)) && !flag_wrapv)
 	     ? TYPE_MAX_VALUE (TREE_TYPE (expr))
 	     : fold_unary_to_constant (code, TREE_TYPE (expr), vr0.min);
+
+    }
+  else if (code == NEGATE_EXPR
+	   && TYPE_UNSIGNED (TREE_TYPE (expr)))
+    {
+      if (!range_includes_zero_p (&vr0))
+	{
+	  max = fold_unary_to_constant (code, TREE_TYPE (expr), vr0.min);
+	  min = fold_unary_to_constant (code, TREE_TYPE (expr), vr0.max);
+	}
+      else
+	{
+	  if (range_is_null (&vr0))
+	    set_value_range_to_null (vr, TREE_TYPE (expr));
+	  else
+	    set_value_range_to_varying (vr);
+	  return;
+	}
     }
   else if (code == ABS_EXPR
            && !TYPE_UNSIGNED (TREE_TYPE (expr)))
@@ -2482,16 +2464,16 @@ infer_value_range (tree stmt, tree op, enum tree_code *comp_code_p, tree *val_p)
   if (stmt_ends_bb_p (stmt) && EDGE_COUNT (bb_for_stmt (stmt)->succs) == 0)
     return false;
 
-  if (POINTER_TYPE_P (TREE_TYPE (op)))
+  /* We can only assume that a pointer dereference will yield
+     non-NULL if -fdelete-null-pointer-checks is enabled.  */
+  if (flag_delete_null_pointer_checks && POINTER_TYPE_P (TREE_TYPE (op)))
     {
       bool is_store;
       unsigned num_uses, num_derefs;
 
       count_uses_and_derefs (op, stmt, &num_uses, &num_derefs, &is_store);
-      if (num_derefs > 0 && flag_delete_null_pointer_checks)
+      if (num_derefs > 0)
 	{
-	  /* We can only assume that a pointer dereference will yield
-	     non-NULL if -fdelete-null-pointer-checks is enabled.  */
 	  *val_p = build_int_cst (TREE_TYPE (op), 0);
 	  *comp_code_p = NE_EXPR;
 	  return true;
@@ -2994,21 +2976,50 @@ find_assert_locations (basic_block bb)
 	     operands it was looking for was present in the sub-graph.  */
 	  SET_BIT (found_in_subgraph, SSA_NAME_VERSION (op));
 
-	  /* If OP is used only once, namely in this STMT, don't
-	     bother creating an ASSERT_EXPR for it.  Such an
-	     ASSERT_EXPR would do nothing but increase compile time.
-	     Experiments show that with this simple check, we can save
-	     more than 20% of ASSERT_EXPRs.  */
-	  if (has_single_use (op))
-	    continue;
-
 	  /* If OP is used in such a way that we can infer a value
 	     range for it, and we don't find a previous assertion for
 	     it, create a new assertion location node for OP.  */
 	  if (infer_value_range (stmt, op, &comp_code, &value))
 	    {
-	      register_new_assert_for (op, comp_code, value, bb, NULL, si);
-	      need_assert = true;
+	      /* If we are able to infer a nonzero value range for OP,
+		 then walk backwards through the use-def chain to see if OP
+		 was set via a typecast.
+
+		 If so, then we can also infer a nonzero value range
+		 for the operand of the NOP_EXPR.  */
+	      if (comp_code == NE_EXPR && integer_zerop (value))
+		{
+		  tree t = op;
+		  tree def_stmt = SSA_NAME_DEF_STMT (t);
+	
+		  while (TREE_CODE (def_stmt) == MODIFY_EXPR
+			 && TREE_CODE (TREE_OPERAND (def_stmt, 1)) == NOP_EXPR
+			 && TREE_CODE (TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0)) == SSA_NAME
+			 && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0))))
+		    {
+		      t = TREE_OPERAND (TREE_OPERAND (def_stmt, 1), 0);
+		      def_stmt = SSA_NAME_DEF_STMT (t);
+
+		      /* Note we want to register the assert for the
+			 operand of the NOP_EXPR after SI, not after the
+			 conversion.  */
+		      if (! has_single_use (t))
+			{
+			  register_new_assert_for (t, comp_code, value,
+						   bb, NULL, si);
+			  need_assert = true;
+			}
+		    }
+		}
+
+	      /* If OP is used only once, namely in this STMT, don't
+		 bother creating an ASSERT_EXPR for it.  Such an
+		 ASSERT_EXPR would do nothing but increase compile time.  */
+	      if (!has_single_use (op))
+		{
+		  register_new_assert_for (op, comp_code, value, bb, NULL, si);
+		  need_assert = true;
+		}
 	    }
 	}
 
@@ -3240,21 +3251,19 @@ remove_range_assertions (void)
 	if (TREE_CODE (stmt) == MODIFY_EXPR
 	    && TREE_CODE (TREE_OPERAND (stmt, 1)) == ASSERT_EXPR)
 	  {
-	    tree rhs = TREE_OPERAND (stmt, 1);
+	    tree rhs = TREE_OPERAND (stmt, 1), var;
 	    tree cond = fold (ASSERT_EXPR_COND (rhs));
 	    use_operand_p use_p;
 	    imm_use_iterator iter;
 
 	    gcc_assert (cond != boolean_false_node);
-	    TREE_OPERAND (stmt, 1) = ASSERT_EXPR_VAR (rhs);
-	    update_stmt (stmt);
 
-	    /* The statement is now a copy.  Propagate the RHS into
-	       every use of the LHS.  */
+	    /* Propagate the RHS into every use of the LHS.  */
+	    var = ASSERT_EXPR_VAR (rhs);
 	    FOR_EACH_IMM_USE_SAFE (use_p, iter, TREE_OPERAND (stmt, 0))
 	      {
-		SET_USE (use_p, ASSERT_EXPR_VAR (rhs));
-		update_stmt (USE_STMT (use_p));
+		SET_USE (use_p, var);
+		gcc_assert (TREE_CODE (var) == SSA_NAME);
 	      }
 
 	    /* And finally, remove the copy, it is not needed.  */
@@ -3281,11 +3290,19 @@ stmt_interesting_for_vrp (tree stmt)
   else if (TREE_CODE (stmt) == MODIFY_EXPR)
     {
       tree lhs = TREE_OPERAND (stmt, 0);
+      tree rhs = TREE_OPERAND (stmt, 1);
 
+      /* In general, assignments with virtual operands are not useful
+	 for deriving ranges, with the obvious exception of calls to
+	 builtin functions.  */
       if (TREE_CODE (lhs) == SSA_NAME
 	  && (INTEGRAL_TYPE_P (TREE_TYPE (lhs))
 	      || POINTER_TYPE_P (TREE_TYPE (lhs)))
-	  && ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
+	  && ((TREE_CODE (rhs) == CALL_EXPR
+	       && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
+	       && DECL_P (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0))
+	       && DECL_IS_BUILTIN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
+	      || ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS)))
 	return true;
     }
   else if (TREE_CODE (stmt) == COND_EXPR || TREE_CODE (stmt) == SWITCH_EXPR)
@@ -3357,7 +3374,11 @@ vrp_visit_assignment (tree stmt, tree *output_p)
 
   /* We only keep track of ranges in integral and pointer types.  */
   if (TREE_CODE (lhs) == SSA_NAME
-      && (INTEGRAL_TYPE_P (TREE_TYPE (lhs))
+      && ((INTEGRAL_TYPE_P (TREE_TYPE (lhs))
+	   /* It is valid to have NULL MIN/MAX values on a type.  See
+	      build_range_type.  */
+	   && TYPE_MIN_VALUE (TREE_TYPE (lhs))
+	   && TYPE_MAX_VALUE (TREE_TYPE (lhs)))
 	  || POINTER_TYPE_P (TREE_TYPE (lhs))))
     {
       struct loop *l;
@@ -3750,9 +3771,20 @@ vrp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
     }
 
   ann = stmt_ann (stmt);
-  if (TREE_CODE (stmt) == MODIFY_EXPR
-      && ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
-    return vrp_visit_assignment (stmt, output_p);
+  if (TREE_CODE (stmt) == MODIFY_EXPR)
+    {
+      tree rhs = TREE_OPERAND (stmt, 1);
+
+      /* In general, assignments with virtual operands are not useful
+	 for deriving ranges, with the obvious exception of calls to
+	 builtin functions.  */
+      if ((TREE_CODE (rhs) == CALL_EXPR
+	   && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
+	   && DECL_P (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0))
+	   && DECL_IS_BUILTIN (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)))
+	  || ZERO_SSA_OPERANDS (stmt, SSA_OP_ALL_VIRTUALS))
+	return vrp_visit_assignment (stmt, output_p);
+    }
   else if (TREE_CODE (stmt) == COND_EXPR || TREE_CODE (stmt) == SWITCH_EXPR)
     return vrp_visit_cond_stmt (stmt, taken_edge_p);
 
@@ -4556,7 +4588,7 @@ vrp_finalize (void)
    DON'T KNOW.  In the future, it may be worthwhile to propagate
    probabilities to aid branch prediction.  */
 
-static void
+static unsigned int
 execute_vrp (void)
 {
   insert_range_assertions ();
@@ -4589,7 +4621,7 @@ execute_vrp (void)
   update_ssa (TODO_update_ssa);
 
   finalize_jump_threads ();
-
+  return 0;
 }
 
 static bool
@@ -4609,12 +4641,13 @@ struct tree_opt_pass pass_vrp =
   TV_TREE_VRP,				/* tv_id */
   PROP_ssa | PROP_alias,		/* properties_required */
   0,					/* properties_provided */
-  0,					/* properties_destroyed */
+  PROP_smt_usage,			/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_cleanup_cfg
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_dump_func
-    | TODO_update_ssa,			/* todo_flags_finish */
+    | TODO_update_ssa
+    | TODO_update_smt_usage,			/* todo_flags_finish */
   0					/* letter */
 };

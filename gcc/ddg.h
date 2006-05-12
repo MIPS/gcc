@@ -166,6 +166,7 @@ struct ddg_all_sccs
 };
 
 
+struct df;
 ddg_ptr create_ddg (basic_block, struct df *, int closing_branch_deps);
 void free_ddg (ddg_ptr);
 

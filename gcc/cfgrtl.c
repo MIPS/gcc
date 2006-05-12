@@ -65,8 +65,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 static int can_delete_note_p (rtx);
 static int can_delete_label_p (rtx);
 static void commit_one_edge_insertion (edge, int);
-static rtx last_loop_beg_note (rtx);
-static bool back_edge_of_syntactic_loop_p (basic_block, basic_block);
 static basic_block rtl_split_edge (edge);
 static bool rtl_move_block_after (basic_block, basic_block);
 static int rtl_verify_flow_info (void);
@@ -80,7 +78,6 @@ static edge rtl_redirect_edge_and_branch (edge, basic_block);
 static basic_block rtl_split_block (basic_block, void *);
 static void rtl_dump_bb (basic_block, FILE *, int);
 static int rtl_verify_flow_info_1 (void);
-static void mark_killed_regs (rtx, rtx, void *);
 static void rtl_make_forwarder_block (edge);
 
 /* Return true if NOTE is not one of the ones that must be kept paired,
@@ -420,13 +417,14 @@ compute_bb_for_insn (void)
 
 /* Release the basic_block_for_insn array.  */
 
-void
+unsigned int
 free_bb_for_insn (void)
 {
   rtx insn;
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     if (!BARRIER_P (insn))
       BLOCK_FOR_INSN (insn) = NULL;
+  return 0;
 }
 
 struct tree_opt_pass pass_free_cfg =
@@ -871,28 +869,6 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
   return e;
 }
 
-/* Return last loop_beg note appearing after INSN, before start of next
-   basic block.  Return INSN if there are no such notes.
-
-   When emitting jump to redirect a fallthru edge, it should always appear
-   after the LOOP_BEG notes, as loop optimizer expect loop to either start by
-   fallthru edge or jump following the LOOP_BEG note jumping to the loop exit
-   test.  */
-
-static rtx
-last_loop_beg_note (rtx insn)
-{
-  rtx last = insn;
-
-  for (insn = NEXT_INSN (insn); insn && NOTE_P (insn)
-       && NOTE_LINE_NUMBER (insn) != NOTE_INSN_BASIC_BLOCK;
-       insn = NEXT_INSN (insn))
-    if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-      last = insn;
-
-  return last;
-}
-
 /* Redirect edge representing branch of (un)conditional jump or tablejump,
    NULL on failure  */
 static edge
@@ -1112,9 +1088,6 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 	 forward from the last instruction of the old block.  */
       if (!tablejump_p (BB_END (e->src), NULL, &note))
 	note = BB_END (e->src);
-
-      /* Position the new block correctly relative to loop notes.  */
-      note = last_loop_beg_note (note);
       note = NEXT_INSN (note);
 
       jump_block = create_basic_block (note, NULL, e->src);
@@ -1259,40 +1232,6 @@ rtl_tidy_fallthru_edge (edge e)
   e->flags |= EDGE_FALLTHRU;
 }
 
-/* Helper function for split_edge.  Return true in case edge BB2 to BB1
-   is back edge of syntactic loop.  */
-
-static bool
-back_edge_of_syntactic_loop_p (basic_block bb1, basic_block bb2)
-{
-  rtx insn;
-  int count = 0;
-  basic_block bb;
-
-  if (bb1 == bb2)
-    return true;
-
-  /* ??? Could we guarantee that bb indices are monotone, so that we could
-     just compare them?  */
-  for (bb = bb1; bb && bb != bb2; bb = bb->next_bb)
-    continue;
-
-  if (!bb)
-    return false;
-
-  for (insn = BB_END (bb1); insn != BB_HEAD (bb2) && count >= 0;
-       insn = NEXT_INSN (insn))
-    if (NOTE_P (insn))
-      {
-	if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
-	  count++;
-	else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
-	  count--;
-      }
-
-  return count >= 0;
-}
-
 /* Should move basic block BB after basic block AFTER.  NIY.  */
 
 static bool
@@ -1333,32 +1272,8 @@ rtl_split_edge (edge edge_in)
 	force_nonfallthru (e);
     }
 
-  /* Create the basic block note.
-
-     Where we place the note can have a noticeable impact on the generated
-     code.  Consider this cfg:
-
-		        E
-			|
-			0
-		       / \
-		   +->1-->2--->E
-                   |  |
-		   +--+
-
-      If we need to insert an insn on the edge from block 0 to block 1,
-      we want to ensure the instructions we insert are outside of any
-      loop notes that physically sit between block 0 and block 1.  Otherwise
-      we confuse the loop optimizer into thinking the loop is a phony.  */
-
-  if (edge_in->dest != EXIT_BLOCK_PTR
-      && PREV_INSN (BB_HEAD (edge_in->dest))
-      && NOTE_P (PREV_INSN (BB_HEAD (edge_in->dest)))
-      && (NOTE_LINE_NUMBER (PREV_INSN (BB_HEAD (edge_in->dest)))
-	  == NOTE_INSN_LOOP_BEG)
-      && !back_edge_of_syntactic_loop_p (edge_in->dest, edge_in->src))
-    before = PREV_INSN (BB_HEAD (edge_in->dest));
-  else if (edge_in->dest != EXIT_BLOCK_PTR)
+  /* Create the basic block note.  */
+  if (edge_in->dest != EXIT_BLOCK_PTR)
     before = BB_HEAD (edge_in->dest);
   else
     before = NULL_RTX;
@@ -1368,10 +1283,6 @@ rtl_split_edge (edge edge_in)
   if (edge_in->flags & EDGE_FALLTHRU && edge_in->dest == EXIT_BLOCK_PTR)
     {
       before = NEXT_INSN (BB_END (edge_in->src));
-      if (before
-	  && NOTE_P (before)
-	  && NOTE_LINE_NUMBER (before) == NOTE_INSN_LOOP_END)
-	before = NEXT_INSN (before);
       bb = create_basic_block (before, NULL, edge_in->src);
       BB_COPY_PARTITION (bb, edge_in->src);
     }
@@ -1420,108 +1331,6 @@ insert_insn_on_edge (rtx pattern, edge e)
 
   e->insns.r = get_insns ();
   end_sequence ();
-}
-
-/* Called from safe_insert_insn_on_edge through note_stores, marks live
-   registers that are killed by the store.  */
-static void
-mark_killed_regs (rtx reg, rtx set ATTRIBUTE_UNUSED, void *data)
-{
-  regset killed = data;
-  int regno, i;
-
-  if (GET_CODE (reg) == SUBREG)
-    reg = SUBREG_REG (reg);
-  if (!REG_P (reg))
-    return;
-  regno = REGNO (reg);
-  if (regno >= FIRST_PSEUDO_REGISTER)
-    SET_REGNO_REG_SET (killed, regno);
-  else
-    {
-      for (i = 0; i < (int) hard_regno_nregs[regno][GET_MODE (reg)]; i++)
-	SET_REGNO_REG_SET (killed, regno + i);
-    }
-}
-
-/* Similar to insert_insn_on_edge, tries to put INSN to edge E.  Additionally
-   it checks whether this will not clobber the registers that are live on the
-   edge (i.e. it requires liveness information to be up-to-date) and if there
-   are some, then it tries to save and restore them.  Returns true if
-   successful.  */
-bool
-safe_insert_insn_on_edge (rtx insn, edge e)
-{
-  rtx x;
-  regset killed;
-  rtx save_regs = NULL_RTX;
-  unsigned regno;
-  enum machine_mode mode;
-  reg_set_iterator rsi;
-
-  killed = ALLOC_REG_SET (&reg_obstack);
-
-  for (x = insn; x; x = NEXT_INSN (x))
-    if (INSN_P (x))
-      note_stores (PATTERN (x), mark_killed_regs, killed);
-
-  /* Mark all hard registers as killed.  Register allocator/reload cannot
-     cope with the situation when life range of hard register spans operation
-     for that the appropriate register is needed, i.e. it would be unsafe to
-     extend the life ranges of hard registers.  */
-  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-    if (!fixed_regs[regno]
-	&& !REGNO_PTR_FRAME_P (regno))
-      SET_REGNO_REG_SET (killed, regno);
-
-  bitmap_and_into (killed, DF_LIVE_IN (rtl_df, e->dest));
-
-  EXECUTE_IF_SET_IN_REG_SET (killed, 0, regno, rsi)
-    {
-      mode = regno < FIRST_PSEUDO_REGISTER
-	      ? reg_raw_mode[regno]
-	      : GET_MODE (regno_reg_rtx[regno]);
-      if (mode == VOIDmode)
-	return false;
-
-      /* Avoid copying in CCmode if we can't.  */
-      if (!can_copy_p (mode))
-	return false;
-	
-      save_regs = alloc_EXPR_LIST (0,
-				   alloc_EXPR_LIST (0,
-						    gen_reg_rtx (mode),
-						    gen_raw_REG (mode, regno)),
-				   save_regs);
-    }
-
-  if (save_regs)
-    {
-      rtx from, to;
-
-      start_sequence ();
-      for (x = save_regs; x; x = XEXP (x, 1))
-	{
-	  from = XEXP (XEXP (x, 0), 1);
-	  to = XEXP (XEXP (x, 0), 0);
-	  emit_move_insn (to, from);
-	}
-      emit_insn (insn);
-      for (x = save_regs; x; x = XEXP (x, 1))
-	{
-	  from = XEXP (XEXP (x, 0), 0);
-	  to = XEXP (XEXP (x, 0), 1);
-	  emit_move_insn (to, from);
-	}
-      insn = get_insns ();
-      end_sequence ();
-      free_EXPR_LIST_list (&save_regs);
-    }
-  insert_insn_on_edge (insn, e);
-  
-  FREE_REG_SET (killed);
-
-  return true;
 }
 
 /* Update the CFG for the instructions queued on edge E.  */
@@ -1593,11 +1402,7 @@ commit_one_edge_insertion (edge e, int watch_calls)
 	     We know this block has a single successor, so we can just emit
 	     the queued insns before the jump.  */
 	  if (JUMP_P (BB_END (bb)))
-	    for (before = BB_END (bb);
-		 NOTE_P (PREV_INSN (before))
-		 && NOTE_LINE_NUMBER (PREV_INSN (before)) ==
-		 NOTE_INSN_LOOP_BEG; before = PREV_INSN (before))
-	      ;
+	    before = BB_END (bb);
 	  else
 	    {
 	      /* We'd better be fallthru, or we've lost track of

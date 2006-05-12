@@ -1271,7 +1271,7 @@ block_alloc (int b)
 
   /* Initialize table of hardware registers currently live.  */
 
-  REG_SET_TO_HARD_REG_SET (regs_live, DF_LIVE_IN (rtl_df, BASIC_BLOCK (b)));
+  REG_SET_TO_HARD_REG_SET (regs_live, DF_RA_LIVE_IN (ra_df, BASIC_BLOCK (b)));
 
   /* This loop scans the instructions of the basic block
      and assigns quantities to registers.
@@ -2483,10 +2483,23 @@ dump_local_alloc (FILE *file)
 
 /* Run old register allocator.  Return TRUE if we must exit
    rest_of_compilation upon return.  */
-static void
+static unsigned int
 rest_of_handle_local_alloc (void)
 {
   int rebuild_notes;
+
+  /* Create a new version of df that has the special version of UR.  */
+  ra_df = df_init (DF_HARD_REGS);
+  df_lr_add_problem (ra_df, 0);
+  df_urec_add_problem (ra_df, 0);
+  df_ri_add_problem (ra_df, DF_RI_LIFE | DF_RI_SETJMP);
+  df_analyze (ra_df);
+
+  /* If we are not optimizing, then this is the only place before
+     register allocation where dataflow is done.  And that is needed
+     to generate these warnings.  */
+  if (extra_warnings)
+    generate_setjmp_warnings (ra_df);
 
   /* Determine if the current function is a leaf before running reload
      since this can impact optimizations done by the prologue and
@@ -2497,8 +2510,10 @@ rest_of_handle_local_alloc (void)
   allocate_reg_info (max_regno, FALSE, TRUE);
 
   /* And the reg_equiv_memory_loc array.  */
-  VARRAY_GROW (reg_equiv_memory_loc_varray, max_regno);
-  reg_equiv_memory_loc = &VARRAY_RTX (reg_equiv_memory_loc_varray, 0);
+  VEC_safe_grow (rtx, gc, reg_equiv_memory_loc_vec, max_regno);
+  memset (VEC_address (rtx, reg_equiv_memory_loc_vec), 0,
+	  sizeof (rtx) * max_regno);
+  reg_equiv_memory_loc = VEC_address (rtx, reg_equiv_memory_loc_vec);
 
   allocate_initial_values (reg_equiv_memory_loc);
 
@@ -2526,6 +2541,7 @@ rest_of_handle_local_alloc (void)
       dump_local_alloc (dump_file);
       timevar_pop (TV_DUMP);
     }
+  return 0;
 }
 
 struct tree_opt_pass pass_local_alloc =

@@ -75,6 +75,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 */
 
 
+/* The set of todo flags to return from tree_sra.  */
+static unsigned int todoflags;
+
 /* The set of aggregate variables that are candidates for scalarization.  */
 static bitmap sra_candidates;
 
@@ -1432,6 +1435,9 @@ decide_instantiations (void)
       bitmap_and_compl_into (needs_copy_in, &done_head);
     }
   bitmap_clear (&done_head);
+  
+  if (!bitmap_empty_p (sra_candidates))
+    todoflags |= TODO_update_smt_usage;
 
   mark_set_for_renaming (sra_candidates);
 
@@ -1515,6 +1521,7 @@ generate_one_element_ref (struct sra_elt *elt, tree base)
       }
 
     case ARRAY_TYPE:
+      todoflags |= TODO_update_smt_usage;
       return build4 (ARRAY_REF, elt->type, base, elt->element, NULL, NULL);
 
     case COMPLEX_TYPE:
@@ -2178,10 +2185,11 @@ sra_init_cache (void)
 
 /* Main entry point.  */
 
-static void
+static unsigned int
 tree_sra (void)
 {
   /* Initialize local variables.  */
+  todoflags = 0;
   gcc_obstack_init (&sra_obstack);
   sra_candidates = BITMAP_ALLOC (NULL);
   needs_copy_in = BITMAP_ALLOC (NULL);
@@ -2204,6 +2212,7 @@ tree_sra (void)
   BITMAP_FREE (sra_type_decomp_cache);
   BITMAP_FREE (sra_type_inst_cache);
   obstack_free (&sra_obstack, NULL);
+  return todoflags;
 }
 
 static bool
@@ -2223,9 +2232,9 @@ struct tree_opt_pass pass_sra =
   TV_TREE_SRA,				/* tv_id */
   PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
-  PROP_tmt_usage,		        /* properties_destroyed */
+  PROP_smt_usage,		        /* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_update_tmt_usage | TODO_dump_func /* todo_flags_finish */
+  TODO_dump_func /* todo_flags_finish */
   | TODO_update_ssa
   | TODO_ggc_collect | TODO_verify_ssa,
   0					/* letter */

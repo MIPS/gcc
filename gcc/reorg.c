@@ -3539,7 +3539,7 @@ dbr_schedule (rtx first)
   rtx insn, next, epilogue_insn = 0;
   int i;
   struct df *df = df_init (DF_HARD_REGS);
-  df_lr_add_problem (df);
+  df_lr_add_problem (df, 0);
   df_ur_add_problem (df);
   df_ri_add_problem (df);
   df_analyze (df);
@@ -3784,12 +3784,13 @@ gate_handle_delay_slots (void)
 }
 
 /* Run delay slot optimization.  */
-static void
+static unsigned int
 rest_of_handle_delay_slots (void)
 {
 #ifdef DELAY_SLOTS
   dbr_schedule (get_insns ());
 #endif
+  return 0;
 }   
 
 struct tree_opt_pass pass_delay_slots =
@@ -3818,10 +3819,11 @@ gate_handle_machine_reorg (void)
 }
 
 
-static void
+static unsigned int
 rest_of_handle_machine_reorg (void)
 {
   targetm.machine_dependent_reorg ();
+  return 0;
 }
 
 struct tree_opt_pass pass_machine_reorg =

@@ -190,15 +190,16 @@ mode_for_size (unsigned int size, enum mode_class class, int limit)
 enum machine_mode
 mode_for_size_tree (tree size, enum mode_class class, int limit)
 {
-  if (TREE_CODE (size) != INTEGER_CST
-      || TREE_OVERFLOW (size)
-      /* What we really want to say here is that the size can fit in a
-	 host integer, but we know there's no way we'd find a mode for
-	 this many bits, so there's no point in doing the precise test.  */
-      || compare_tree_int (size, 1000) > 0)
+  unsigned HOST_WIDE_INT uhwi;
+  unsigned int ui;
+
+  if (!host_integerp (size, 1))
     return BLKmode;
-  else
-    return mode_for_size (tree_low_cst (size, 1), class, limit);
+  uhwi = tree_low_cst (size, 1);
+  ui = uhwi;
+  if (uhwi != ui)
+    return BLKmode;
+  return mode_for_size (ui, class, limit);
 }
 
 /* Similar, but never return BLKmode; return the narrowest mode that
@@ -662,6 +663,10 @@ update_alignment_for_field (record_layout_info rli, tree field,
   bool user_align;
   bool is_bitfield;
 
+  /* Do not attempt to align an ERROR_MARK node */
+  if (TREE_CODE (type) == ERROR_MARK)
+    return 0;
+
   /* Lay out the field so we know what alignment it needs.  */
   layout_decl (field, known_align);
   desired_align = DECL_ALIGN (field);
@@ -774,6 +779,12 @@ place_union_field (record_layout_info rli, tree field)
   DECL_FIELD_BIT_OFFSET (field) = bitsize_zero_node;
   SET_DECL_OFFSET_ALIGN (field, BIGGEST_ALIGNMENT);
 
+  /* If this is an ERROR_MARK return *after* having set the 
+     field at the start of the union. This helps when parsing
+     invalid fields. */
+  if (TREE_CODE (TREE_TYPE (field)) == ERROR_MARK)
+    return;
+
   /* We assume the union's size will be a multiple of a byte so we don't
      bother with BITPOS.  */
   if (TREE_CODE (rli->t) == UNION_TYPE)
@@ -822,17 +833,6 @@ place_field (record_layout_info rli, tree field)
 
   gcc_assert (TREE_CODE (field) != ERROR_MARK);
 
-  if (TREE_CODE (type) == ERROR_MARK)
-    {
-      if (TREE_CODE (field) == FIELD_DECL)
-	{
-	  DECL_FIELD_OFFSET (field) = size_int (0);
-	  DECL_FIELD_BIT_OFFSET (field) = bitsize_int (0);
-	}
-      
-      return;
-    }
-  
   /* If FIELD is static, then treat it like a separate variable, not
      really like a structure field.  If it is a FUNCTION_DECL, it's a
      method.  In both cases, all we do is lay out the decl, and we do
@@ -854,6 +854,16 @@ place_field (record_layout_info rli, tree field)
   else if (TREE_CODE (rli->t) != RECORD_TYPE)
     {
       place_union_field (rli, field);
+      return;
+    }
+
+  else if (TREE_CODE (type) == ERROR_MARK) 
+    {
+      /* Place this field at the current allocation position, so we
+	 maintain monotonicity.  */
+      DECL_FIELD_OFFSET (field) = rli->offset;
+      DECL_FIELD_BIT_OFFSET (field) = rli->bitpos;
+      SET_DECL_OFFSET_ALIGN (field, rli->offset_align);
       return;
     }
 
@@ -1938,20 +1948,19 @@ void
 initialize_sizetypes (bool signed_p)
 {
   tree t = make_node (INTEGER_TYPE);
+  int precision = GET_MODE_BITSIZE (SImode);
 
   TYPE_MODE (t) = SImode;
   TYPE_ALIGN (t) = GET_MODE_ALIGNMENT (SImode);
   TYPE_USER_ALIGN (t) = 0;
   TYPE_IS_SIZETYPE (t) = 1;
   TYPE_UNSIGNED (t) = !signed_p;
-  TYPE_SIZE (t) = build_int_cst (t, GET_MODE_BITSIZE (SImode));
+  TYPE_SIZE (t) = build_int_cst (t, precision);
   TYPE_SIZE_UNIT (t) = build_int_cst (t, GET_MODE_SIZE (SImode));
-  TYPE_PRECISION (t) = GET_MODE_BITSIZE (SImode);
-  TYPE_MIN_VALUE (t) = build_int_cst (t, 0);
+  TYPE_PRECISION (t) = precision;
 
-  /* 1000 avoids problems with possible overflow and is certainly
-     larger than any size value we'd want to be storing.  */
-  TYPE_MAX_VALUE (t) = build_int_cst (t, 1000);
+  /* Set TYPE_MIN_VALUE and TYPE_MAX_VALUE.  */
+  set_min_and_max_values_for_integral_type (t, precision, !signed_p);
 
   sizetype = t;
   bitsizetype = build_distinct_type_copy (t);
@@ -2148,13 +2157,17 @@ fixup_unsigned_type (tree type)
    If LARGEST_MODE is not VOIDmode, it means that we should not use a mode
    larger than LARGEST_MODE (usually SImode).
 
-   If no mode meets all these conditions, we return VOIDmode.  Otherwise, if
-   VOLATILEP is true or SLOW_BYTE_ACCESS is false, we return the smallest
-   mode meeting these conditions.
+   If no mode meets all these conditions, we return VOIDmode.
+   
+   If VOLATILEP is false and SLOW_BYTE_ACCESS is false, we return the
+   smallest mode meeting these conditions.
 
-   Otherwise (VOLATILEP is false and SLOW_BYTE_ACCESS is true), we return
-   the largest mode (but a mode no wider than UNITS_PER_WORD) that meets
-   all the conditions.  */
+   If VOLATILEP is false and SLOW_BYTE_ACCESS is true, we return the
+   largest mode (but a mode no wider than UNITS_PER_WORD) that meets
+   all the conditions.
+   
+   If VOLATILEP is true the narrow_volatile_bitfields target hook is used to
+   decide which of the above modes should be used.  */
 
 enum machine_mode
 get_best_mode (int bitsize, int bitpos, unsigned int align,
@@ -2184,7 +2197,8 @@ get_best_mode (int bitsize, int bitpos, unsigned int align,
       || (largest_mode != VOIDmode && unit > GET_MODE_BITSIZE (largest_mode)))
     return VOIDmode;
 
-  if (SLOW_BYTE_ACCESS && ! volatilep)
+  if ((SLOW_BYTE_ACCESS && ! volatilep)
+      || (volatilep && !targetm.narrow_volatile_bitfield()))
     {
       enum machine_mode wide_mode = VOIDmode, tmode;
 
