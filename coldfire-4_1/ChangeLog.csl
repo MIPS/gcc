@@ -1,3 +1,10 @@
+2006-05-12  Sandra Loosemore <sandra@codesourcery.com>
+
+        * gcc/config/m68k/m68k.md ("clzsi2"):  Define for ColdFire
+        architectures that support ff1 instruction.
+        * gcc/config/m68k/m68k.h (CLZ_DEFINED_VALUE_AT_ZERO): Ditto.
+        * gcc/longlong.h (count_leading_zeros, COUNT_LEADING_ZEROS_0): Ditto.
+
 2006-05-11  Richard Sandiford  <richard@codesourcery.com>
 
 	gcc/
