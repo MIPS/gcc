@@ -1,3 +1,55 @@
+2006-05-12  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (s390_const_ok_for_constraint_p): Disallow -4G for
+	On contraint.
+	* config/s390/s390.md: Adjust comment describing On constraint.
+
+2006-05-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR target/27421
+	* config/i386/i386.c (classify_argument): Skip fields with invalid
+	types.
+
+	PR middle-end/27384
+	* fold-const.c (size_binop): Move sanity check for arguments to
+	the beginning of the function.
+
+	PR middle-end/27488
+	* fold-const.c (tree_expr_nonnegative_p): Return early on invalid
+	expression.
+
+2006-05-11  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/27158
+	* reload.c (find_reloads_toplev): Only return the simplified SUBREG
+	of a reg_equiv_constant if the result is a legitimate constant.
+
+2006-05-09  Steve Ellcey  <sje@cup.hp.com>
+
+	PR bootstrap/26872
+	* config.gcc (hppa[12]*-*-hpux10*): Set gas to yes.
+	(hppa*64*-*-hpux11*): Ditto.
+	(hppa[12]*-*-hpux11*): Ditto.
+
+2006-05-09  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/26545
+	* config/rs6000/aix41.h (TARGET_64BIT): Define.
+
+2006-05-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27136
+	* tree-ssa-loop-niter.c (get_val_for): Correct function
+	comment, assert requirements.
+	(loop_niter_by_eval): Stop processing if the iterated
+	value did not simplify.
+
+2006-05-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27409
+	* tree-ssa-structalias.c (get_constraint_for_component_ref):
+	Do not try to find zero-sized subvars.
+
 2005-11-30  Alexandre Oliva  <aoliva@redhat.com>
 
 	* gcc.c (find_a_file): Use update_path before access tests.

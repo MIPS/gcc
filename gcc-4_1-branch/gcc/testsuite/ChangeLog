@@ -1,3 +1,37 @@
+2006-05-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/24549
+	* gfortran.dg/error_recovery_1.f90: New test.
+
+2006-05-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR target/27421
+	* gcc.dg/array-9.c: New test.
+
+	PR middle-end/27384
+	* g++.dg/other/fold1.C: New test.
+
+	PR middle-end/27488
+	* gcc.dg/fold-nonneg-1.c: New test.
+
+	PR c++/27547
+	* g++.dg/other/operator1.C: New test.
+
+2006-05-11  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/27158
+	* gcc.target/powerpc/pr27158.c: New test case.
+
+2006-05-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27136
+	* gcc.dg/torture/pr27136.c: New testcase.
+
+2006-05-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27409
+	* gcc.dg/torture/pr27409.c: New testcase.
+
 2006-05-08  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR libfortran/18271
