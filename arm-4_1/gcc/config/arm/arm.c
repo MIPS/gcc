@@ -9284,7 +9284,7 @@ output_move_vfp (rtx *operands)
 	   load ? "ld" : "st",
 	   dp ? 'd' : 's',
 	   dp ? "P" : "",
-	   integer_p ? "\\t%@ int" : "");
+	   integer_p ? "\t%@ int" : "");
   output_asm_insn (buff, ops);
 
   return "";

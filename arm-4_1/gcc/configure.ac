@@ -742,6 +742,34 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
+# The trailing component of the string reported as the version number
+# by all components of the compiler.  For an official FSF release, it
+# is empty.
+AC_ARG_WITH(versuffix,
+  AS_HELP_STRING([--with-versuffix=SFX],
+                 [Append SFX to the version string]),
+  [case "$withval" in
+    yes) AC_MSG_ERROR([version suffix not specified]) ;;
+    no)  VERSUFFIX=" (CodeSourcery Unofficial)" ;;
+    *)   VERSUFFIX=" ($withval)" ;;
+   esac],
+  VERSUFFIX=
+)
+AC_SUBST(VERSUFFIX)
+
+# The location to which bugs should be reported.
+AC_ARG_WITH(bugurl,
+  AS_HELP_STRING([--with-bugurl=URL],
+                 [Direct users to URL to report a bug]),
+  [case "$withval" in
+    yes) AC_MSG_ERROR([bug URL not specified]) ;;
+    no)  BUGURL="<unsupported>" ;; 
+    *)   BUGURL="<URL:$withval>" ;;
+   esac],
+   BUGURL="<URL:http://gcc.gnu.org/bugs.html>"
+)
+AC_SUBST(BUGURL)
+ 
 # Sanity check enable_languages in case someone does not run the toplevel
 # configure # script.
 AC_ARG_ENABLE(languages,

@@ -1,3 +1,394 @@
+2006-05-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* Merge from csl/sourcerygxx-4_1 version 113722
+
+	2006-05-11  Joseph S. Myers  <joseph@codesourcery.com>
+	* gcc/testsuite/lib/target-supports.exp
+	(check_effective_target_powerpc_fprs,
+	check_effective_target_powerpc_altivec_ok): New.
+	* gcc/testsuite/g++.dg/eh/simd-2.C,
+	gcc/testsuite/g++.dg/ext/altivec-1.C,
+	gcc/testsuite/g++.dg/ext/altivec-10.C,
+	gcc/testsuite/g++.dg/ext/altivec-11.C,
+	gcc/testsuite/g++.dg/ext/altivec-12.C,
+	gcc/testsuite/g++.dg/ext/altivec-13.C,
+	gcc/testsuite/g++.dg/ext/altivec-2.C,
+	gcc/testsuite/g++.dg/ext/altivec-3.C,
+	gcc/testsuite/g++.dg/ext/altivec-4.C,
+	gcc/testsuite/g++.dg/ext/altivec-5.C,
+	gcc/testsuite/g++.dg/ext/altivec-6.C,
+	gcc/testsuite/g++.dg/ext/altivec-7.C,
+	gcc/testsuite/g++.dg/ext/altivec-8.C,
+	gcc/testsuite/g++.dg/ext/altivec-9.C,
+	gcc/testsuite/g++.dg/ext/altivec-types-1.C,
+	gcc/testsuite/g++.dg/ext/altivec-types-2.C,
+	gcc/testsuite/g++.dg/ext/altivec-types-3.C,
+	gcc/testsuite/g++.dg/ext/altivec-types-4.C,
+	gcc/testsuite/gcc.dg/simd-3.c,
+	gcc/testsuite/gcc.dg/vect/vect-82_64.c,
+	gcc/testsuite/gcc.dg/vect/vect-83_64.c,
+	gcc/testsuite/gcc.dg/vmx/vmx.exp,
+	gcc/testsuite/gcc.target/powerpc/980827-1.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-1.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-10.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-11.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-12.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-13.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-14.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-15.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-16.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-17.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-18.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-19.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-2.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-21.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-22.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-3.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-4.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-5.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-6.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-7.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-8.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-9.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-consts.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-pr22085.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-splat.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-types-1.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-types-2.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-types-3.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-types-4.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-varargs-1.c,
+	gcc/testsuite/gcc.target/powerpc/altivec-vec-merge.c,
+	gcc/testsuite/gcc.target/powerpc/ppc-vector-memcpy.c,
+	gcc/testsuite/gcc.target/powerpc/ppc-vector-memset.c,
+	gcc/testsuite/gcc.target/powerpc/ppc64-abi-2.c,
+	gcc/testsuite/gcc.target/powerpc/pr16155.c,
+	gcc/testsuite/gcc.target/powerpc/pr16286.c: Use these effective
+	targets.
+	* gcc/testsuite/gcc.dg/20020103-1.c: XFAIL on powerpc*-*-*.
+
+	2006-05-08  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (output_move_vfp): Fix typo.
+
+	2006-05-07  Nathan Sidwell  <nathan@codesourcery.com>
+	* configure.in (TOPLEVEL_CONFIGURE_ARGS): Protect args with active
+	characters.
+	(baseargs): Simplify protection, use ac_arg temp name, correct $
+	to $$ conversion.
+	* configure: Rebuilt.
+
+	2006-05-05  Joseph Myers  <joseph@codesourcery.com>
+	* gcc/testsuite/gcc.c-torture/execute/loop-2f.x,
+	gcc/testsuite/gcc.c-torture/execute/loop-2g.x: New.  XFAIL on
+	mips*-*-linux*.
+
+	2006-05-05  Mark Mitchell  <mark@codesourcery.com>
+	* configure.in: Do not mangle arguments like "--with-foo=A B C" when
+	storing in baseargs.
+	* configure: Regenerated.
+	* gcc/configure.ac: Add --with-versuffix and --with-bugurl.
+	* gcc/version.c (VERSUFFIX): Remove.
+	(bug_report_url): Do not hard-code initializer.
+	* gcc/Makefile.in (VERSUFFIX_s): Define.
+	(BUGURL_s): Likewise.
+	(version.o): Define VERSUFFIX and BUGURL.
+	* gcc/doc/install.texi: Document them.
+	* gcc/configure: Regenerated.
+
+2006-05-04  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport:
+	2006-05-04  Richard Sandiford  <richard@codesourcery.com>
+	PR target/26765
+	* gcc/config/mips/mips.c (mips_symbolic_address_p): Return true
+	for SYMBOL_TLSGD, SYMBOL_TLSLDM, SYMBOL_DTPREL, SYMBOL_TPREL,
+	SYMBOL_GOTTPREL, and SYMBOL_TLS.
+
+	2006-05-04  Kazu Hirata  <kazu@codesourcery.com>
+	PR target/26765
+	* gcc/testsuite/gcc.target/mips/pr26765.c: New.
+
+2006-05-04  Paul Brook  <paul@codesourcery.com>
+
+	* gcc/version.c: Revert back to Sourcery G++.
+
+2006-05-03  Paul Brook  <paul@codesourcery.com>
+
+	Merge from branches/csl/arm-4_1 r113476.
+	2006-05-02  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (add_minipool_forward_ref): Check if insn
+	and pool overlap.
+	(create_fix_barrier): Check that a suitable barrier location is
+	found.
+	(arm_reorg): Include ftmp->address in allowable range of addresses.
+
+	2006-05-01  Kazu Hirata  <kazu@codesourcery.com>
+	Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/vfp.md (arm_movdi_vfp): Correct the output templates
+	for case 3 and 4.
+	(thumb2_movdi_vfp): Ditto.
+
+	2006-04-21  Kazu Hirata  <kazu@codesourcery.com>
+	* gcc/config/arm/arm-protos.h: Add a prototype for
+	output_move_vfp.
+	* gcc/config/arm/arm.c (arm_coproc_mem_operand): When WB is
+	false, accept PRE_DEC and POST_INC.
+	(output_move_vfp): New.
+	* gcc/config/arm/vfp.md (*arm_movsi_vfp, *thumb2_movsi_vfp,
+	*arm_movdi_vfp, *thumb2_movdi_vfp, *movsf_vfp,
+	*thumb2_movsf_vfp, *movdf_vfp, *thumb2_movdf_vfp): Call
+	output_move_vfp on loads to and stores from VFP registers.
+	* gcc/testsuite/gcc.target/arm/arm.exp,
+	gcc/testsuite/gcc.target/arm/vfp-ldmdbd.c,
+	gcc/testsuite/gcc.target/arm/vfp-ldmdbs.c,
+	gcc/testsuite/gcc.target/arm/vfp-ldmiad.c,
+	gcc/testsuite/gcc.target/arm/vfp-ldmias.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmdbd.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmdbs.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmiad.c,
+	gcc/testsuite/gcc.target/arm/vfp-stmias.c: New.
+
+	2006-04-02  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/ieee754-df.S (adddf3): Avoid clobbering yl.
+
+
+	2006-04-02  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (arm_file_start): Output additional object
+	attribute directives.
+
+	2006-03-31  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/thumb2.md (thumb2_shiftsi3_short): Disallow rotate by
+	immediate.
+	(divsi3, udivsi3): Remove bogus length attribute.
+
+	2006-03-31  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (arm_output_shift): Fix typo in condition
+	modifier characters.
+
+	2006-03-31  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (arm_output_shift): Handle Thumb register shifts.
+
+	2006-03-30  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (arm_output_shift): Change set_flags to
+	tristate option.  Use modified shift value.
+	* gcc/config/arm/thumb2.md (thumb2_shiftsi3_short): Use
+	arm_output_shift.
+	* gcc/config/arm/arm.md (arm_shiftsi3, shiftsi3_compare0,
+	shiftsi3_compare0_scratch): Adjust arguments to arm_output_shift.
+
+	2006-03-29  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/vfp.md (movsf_vfp): Disparage w<->r alternatives.
+	(thumb2_movsf_vfp, movdf_vfp, thumb2_movdf_vfp): Ditto.
+
+	2005-03-21  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/thumb2.md (divsi3, udivsi3): New define_insn.
+	* gcc/config/arm/arm.c (arm_arch_hwdiv): Define.
+	(arm_override_options): Set arm_arch_hwdiv.
+	* gcc/config/arm/arm.h (arm_arch_hwdiv): Declare.
+
+
+	2006-03-14  Paul Brook  <paul@codesourcery.com>
+	* doc/install.texi: Docuemnt --with-mode.
+	* config.gcc: Add --with-mode for arm*-*-*.
+	* config/arm/arm.h (OPTION_DEFAULT_SPECS): Add "mode".
+
+	2006-03-13  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (arm_dwarf_handle_frame_unspec): New function.
+	(TARGET_DWARF_HANDLE_FRAME_UNSPEC): Define.
+	(arm_compute_save_reg0_reg12_mask): Save r0 if dynamic stack
+	alignment is required.
+	(arm_output_epilogue): Restore sp from r0.
+	(arm_expand_prologue): Save sp in r0 before aligning stack.
+	(arm_unwind_emit_sequence): Remove redundant SP push code.
+	(arm_unwind_emit_set): Handle UNSPEC_STACK_ALIGN.
+	* gcc/config/arm/arm.md (UNSPEC_STACK_ALIGN): Define.
+
+	2006-03-01  Paul Brook  <paul@codesourcery.com>
+	* gcc/doc/extend.texi: Document ARMv7 interrupt attribute.
+	* gcc/config/arm/arm.c (arm_isr_value): Check arm_arch_notm.
+	(use_return_insn): Return 0 is SP needs realignment.
+	(arm_function_ok_for_sibcall): Ditto.
+	(arm_output_function_prologue): Add IS_STACKALIGN comment.
+	(arm_output_epilogue): Restore SP from stack if it needed realignment.
+	(arm_expand_prologue): Add dynamic stack alignment code.
+	(-arm_unwind_emit_stm): Rename...
+	(arm_unwind_emit_sequence): ... to this.  Handle popping SP.
+	* gcc/config/arm/arm.h (ARM_FT_STACKALIGN, IS_STACKALIGN): Define.
+	* gcc/g++.dg/other/armv7m-1.c: New test.
+
+	2006-02-27  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/t-arm-elf: Fix backwards MULTILIB_MATCHES.
+
+	2006-02-24  Paul Brook  <paul@codesourcery.com>
+	* gcc/config/arm/arm.c (FL_NOTM, FL_DIV, FL_FOR_ARCH7, FL_FOR_ARCH7A,
+	FL_FOR_ARCH7R, FL_FOR_ARCH7M): New defines.
+	(arm_arch_notm): New variable.
+	(arm_override_options): Check if CPU supports ARM mode.
+	Set arm_arch_notm.
+	* gcc/config/arm/lib1funcs.asm: Recognise V7 architecture variants.
+	* gcc/config/arm/arm.h (TARGET_DSP_MULTIPLY, TARGET_INT_SIMD): Define.
+	(arm_arch_notm): Declare.
+	* gcc/config/arm/arm-cores.def: Add cortex-a8, cortex-r4 and cortex-m3.
+	* gcc/config/arm/arm-cores.def: Regenerate.
+	* gcc/config/arm/t-arm-elf: Add Armv7 Thumb-2 multilib.
+	* gcc/config/arm/arm.md (mulhisi3, mulhisi3tb, mulhisi3bt, mulhisi3tt,
+	mulhisi3addsi, mulhidi3adddi): Depend on TARGET_DSP_MULTIPLY.
+	(arm_zero_extendhisi2addsi, arm_zero_extendqisi2addsi,
+	arm_extendhisi2addsi, arm_extendqisi2addsi): Depend on
+	TARGET_INT_SIMD.
+
+	2006-02-07  Paul Brook  <paul@codesourcery.com>
+	* config/gcc/arm/lib1funcs.asm: Use unified assembly syntax.
+	Assemble "Arm" code as Thumb-2 where appropriate.
+	* config/gcc/arm/ieee754-df.S: Use unified assembly syntax for Arm
+	code.  Add Thumb-2 code.
+	* config/gcc/arm/ieee754-df.S: Ditto.
+	* config/gcc/arm/libunwind.S: Ditto.
+	* config/gcc/arm/bpabi.S: Ditto.
+
+	2006-01-27  Paul Brook  <paul@codesourcery.com>
+	* version.c: Mark as CodeSourcery build.
+
+	2006-01-26  Paul Brook  <paul@codesourcery.com>
+	Thumb-2 support.
+	* gcc/doc/invoke.texi: Document -cpu=arm1156t2-s and -march=armv6t2
+	Document that -mthumb may enable Thumb-2.
+	* gcc/config/arm/aof.h (ASM_OUTPUT_ADDR_DIFF_ELT,
+	ASM_OUTPUT_ADDR_VEC_ELT): Set Thumb bit on Thumb-2 addresses.
+	* gcc/config/arm/out.h (ASM_OUTPUT_ADDR_DIFF_ELT,
+	ASM_OUTPUT_ADDR_VEC_ELT): Ditto.
+	* gcc/config/arm/arm-cores.def: Add arm1156t2-s.
+	* gcc/config/arm/arm-protos.h: Update and add function prototypes.
+	* gcc/config/arm/arm-tune.md: Regenerate.
+	* gcc/config/arm/arm.c (TARGET_ASM_FILE_START, FL_THUMB2,
+	FL_FOR_ARCH6T2): Define.
+	(arm_arch_thumb2, arm_condexec_count, arm_condexec_mask,
+	arm_condexec_masklen): New variables.
+	(ARM_LSL_NAME): Define.
+	(THUMB2_WORK_REGS): Define.
+	(all_architectures): Add 6T2.
+	(arm_override_options): Set arm_arch_thumb2. Allow use of 
+	coprocessors in Thumb-2.
+	(use_return_insn): Only use StrongARM workaround in Arm mode.
+	(const_ok_for_arm): Handle Thumb-2 constants.
+	(arm_gen_constant): Ditto.
+	(legitimize_pic_address): Add Thumb-2.
+	(arm_load_pic_register): Generate Thumb-2 sequence.
+	(arm_call_tls_get_addr): Ditto.
+	(legitimize_tls_address): Ditto.
+	(thumb2_legitimate_address_p): New function.
+	(thumb2_index_mul_operand): New function.
+	(thumb2_legitimate_index_p): New function.
+	(thumb_base_register_rtx_p, thumb_index_register_rtx_p,
+	thumb_legitimate_address_p, thumb_rtx_costs,
+	thumb_compute_save_reg_mask, thumb_final_prescan_insn,
+	thumb_expand_prologue, thumb_expand_epilogue,
+	thumb_output_function_prologue, thumb_cmp_operand,
+	thumb_cmpneg_operand): Rename ...
+	(thumb1_base_register_rtx_p, thumb1_index_register_rtx_p,
+	thumb1_legitimate_address_p, thumb1_rtx_costs,
+	thumb1_compute_save_reg_mask, thumb1_final_prescan_insn,
+	thumb1_expand_prologue, thumb1_expand_epilogue,
+	thumb1_output_function_prologue, thumb1_cmp_operand,
+	thumb1_cmpneg_operand): ... to this.  Update callers.
+	(arm_address_cost): Use arm routine for Thumb-2.
+	(load_multiple_sequence): Only allow ldmib and ldmda in Arm mode.
+	(emit_ldm_seq): Output unified assembly.
+	(emit_stm_seq): Ditto.
+	(arm_select_cc_mode): Treat Thumb-2 like Arm.
+	(print_multi_reg): Don't print comma.
+	(output_mov_long_double_fpa_from_arm): Output unified assebly.
+	(output_mov_double_arm_from_fpa): Ditto.
+	(output_move_double): Ditto.  Disallow Arm specific addressing modes
+	in Thumb-2 mode.
+	(arm_shift_nmem): New function.
+	(arithmetic_instr, shift_op): Use it.  Use ARM_LSL_NAME.
+	(arm_compute_save_reg0_reg12_mask): Handle Thumb-2 frames.
+	(arm_compute_save_reg_mask): Don't create apcs frame for Thumb-2.
+	Create scratch register if needed for PIC.
+	(output_return_instruction): Only use StrongARM workaround in Arm mode.
+	(arm_output_function_prologue): Threat Thumb-2 like Arm.
+	(arm_output_epilogue): Implement Thumb-2.
+	(arm_output_function_epilogue): Treat Thumb-2 like Arm.
+	(arm_get_frame_offsets): Ditto.
+	(arm_save_coproc_regs, thumb_set_frame_pointer): New function.
+	(arm_expand_prologue): Use them.  Handle Thumb-2.
+	(arm_print_condition): New function.
+	(arm_print_operand): Use it.  Implement '(', ')', '.', '!' and 'L'.
+	(thumb2_final_prescan_insn): New function.
+	(thumb2_asm_output_opcode): New function.
+	(arm_hard_regno_mode_ok): Treat Thumb-2 like Arm.
+	(arm_regno_class): Implement thumb2 classes.
+	(arm_file_start): New function.
+	(arm_output_mi_thunk): Treat Thumb-2 like Arm.
+	(thumb_set_return_address): Implement Thumb-2.
+	(arm_output_shift): New function.
+	* gcc/config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Add __thumb2__.
+	(TARGET_THUMB1, TARGET_THUMB2, TARGET_32BIT, TARGET_UNIFIED_ASM):
+	Define.
+	(arm_arch_thumb2): Declare;
+	(CONDITIONAL_REGISTER_USAGE): Enable coprocessor registers on Thumb-2.
+	(STATIC_CHAIN_REGNUM, HARD_REGNO_NREGS, MODE_BASE_REG_CLASS,
+	SMALL_REGISTER_CLASSES, CONST_DOUBLE_OK_FOR_LETTER_P,
+	EXTRA_CONSTRAINT_STR, SECONDARY_OUTPUT_RELOAD_CLASS,
+	SECONDARY_INPUT_RELOAD_CLASS, REGISTER_MOVE_COST, LIBCALL_VALUE,
+	FUNCTION_VALUE_REGNO_P, REGNO_MODE_OK_FOR_BASE_P,
+	LEGITIMATE_CONSTANT_P, REG_MODE_OK_FOR_BASE_P, REG_OK_FOR_INDEX_P,
+	GO_IF_MODE_DEPENDENT_ADDRESS, MEMORY_MOVE_COST, BRANCH_COST,
+	(HAVE_PRE_INCREMENT, HAVE_POST_DECREMENT, HAVE_PRE_DECREMENT,
+	HAVE_PRE_MODIFY_DISP, HAVE_POST_MODIFY_DISP, HAVE_PRE_MODIFY_REG,
+	HAVE_POST_MODIFY_REG, PRINT_OPERAND_ADDRESS): Treat Thumb-2 like Arm.
+	(CONST_OK_FOR_THUMB2_LETTER): Define.
+	(CONST_OK_FOR_THUMB_LETTER, THUMB_TRAMPOLINE_TEMPLATE,
+	THUMB_REGNO_MODE_OK_FOR_BASE_P, THUMB_REG_MODE_OK_FOR_BASE_P,
+	THUMB_REG_MODE_OK_FOR_BASE_P, THUMB_REG_OK_FOR_INDEX_P,
+	THUMB_GO_IF_LEGITIMATE_ADDRESS): Rename ...
+	(CONST_OK_FOR_THUMB1_LETTER, THUMB_TRAMPOLINE_TEMPLATE,
+	THUMB1_REGNO_MODE_OK_FOR_BASE_P, THUMB1_REG_MODE_OK_FOR_BASE_P,
+	THUMB1_REG_MODE_OK_FOR_BASE_P, THUMB1_REG_OK_FOR_INDEX_P,
+	THUMB1_GO_IF_LEGITIMATE_ADDRESS): ... to this.
+	(CONST_OK_FOR_LETTER_P, TRAMPOLINE_TEMPLATE, TRAMPOLINE_SIZE,
+	INITIALIZE_TRAMPOLINE, GO_IF_LEGITIMATE_ADDRESS, LEGITIMIZE_ADDRESS,
+	ASM_APP_OFF, ARM_DECLARE_FUNCTION_NAME): Handle Thumb-2.
+	(THUMB2_TRAMPOLINE_TEMPLATE): Define.
+	(TRAMPOLINE_ADJUST_ADDRESS, ASM_OUTPUT_OPCODE,
+	THUMB2_GO_IF_LEGITIMATE_ADDRESS, THUMB2_LEGITIMIZE_ADDRESS,
+	ADJUST_INSN_LENGTH): Define.
+	(PRINT_OPERAND_PUNCT_VALID_P): Add '(', ')', '.' and '!'.
+	(PREFERRED_RELOAD_CLASS): Prefer LO_REGS for core integer reg
+	classes.
+	* gcc/config/arm/arm.md: Rename thumb_* thumb1_*.  Make 16-bit thumb
+	patterns conditional on TARGET_THUMB1. Replace '%?' with
+	'%(', '%)' and '%.' as appropriate for unified assembly syntax.
+	Enable many Arm patterns/expanders for Thumb-2.
+	Add new "ce_count" attribute.
+	Include thumb2.md
+	(incscc, decscc, smaxsi3, sminsi3, umaxsi3, sminsi3, zero_extendsidi2,
+	zero_extendqidi2, extendsidi2): Divide into
+	define_expand and define_insn.
+	(ne_zeroextractsi, minmax_arithsi): Insert IT instructions for Thumb-2.
+	(arm_shiftsi3, shiftsi3_compare0, shiftsi3_compare0_scratch): Use
+	arm_output_shift.
+	(movhi, indirect_jump): Handle thumb2.
+	(push_multi): Use push and pop for thumb2.
+	(nop): Output "nop" in unified assembly.
+	* gcc/config/arm/cirrus.md: Enable arithmetic patterns for Thumb-2.
+	(cirrus_thumb2_movdi, cirrus_thumb2_movsi_insn,
+	thumb2_cirrus_movsf_hard_insn, thumb2_cirrus_movdf_hard_insn): New.
+	* gcc/config/arm/fpa.md: Enable arithmetic patterns for Thumb-2.
+	(thumb2_movsf_fpa, thumb2_movdf_fpa, thumb2_movxf_fpa): New.
+	(thumb2_movsfcc_fpa, thumb2_movdfcc_fpa): New.
+	* gcc/config/arm/vfp.md: Enable arithmetic patterns for Thumb-2.
+	(thumb2_movsi_vfp, thumb2_movdi_vfp, thumb2_movsf_vfp,
+	thumb2_movdf_vfp, thumb2_movsfcc_vfp, thumb2_movdfcc_vfp): New.
+	* gcc/config/arm/predicates.md (low_register_operand): New predicate.
+	(low_reg_or_int_operand, thumb_16bit_operator): New predicates.
+	(thumb_cmp_operand, thumb_cmpneg_operand): Rename...
+	(thumb1_cmp_operand, thumb1_cmpneg_operand): ... to this.
+	* gcc/config/arm/lib1funcs.asm: Add __ARM_ARCH_6T2__.
+	* gcc/config/arm/t-arm (MD_INCLUDES): Add thumb2.md
+	* gcc/config/arm/thumb2.md: New file.
+
 2006-05-02  Kazu Hirata  <kazu@codesourcery.com>
 
 	Backport:
