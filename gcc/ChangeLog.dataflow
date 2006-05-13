@@ -1,3 +1,9 @@
+2006-05-13  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* df-core.c (df_bb_regno_last_use_find): Do not look for dataflow
+	information attached to non-INSNs such as NOTEs.
+	(df_bb_regno_first_def_find, df_bb_regno_last_def_find): Likewise.
+
 2006-05-05  Kenneth Zadeck <zadeck@naturalbridge.com>
 	* haifa-sched.c (glat_size): New variable.
         (sched-init, extend_bb): Properly initialized glat_start and
@@ -648,7 +654,7 @@
 	update_df, subst, forward_propagate_subreg,
 	forward_propagate_and_simplify, forward_propagate_into, fwprop,
 	fwprop_addr): Changes to support modifications to df datastructures.
-	ddg.c (add_deps_for_def, add_deps_for_use, build_inter_loop_deps):
+	* ddg.c (add_deps_for_def, add_deps_for_use, build_inter_loop_deps):
 	Ditto.
 	* flow.c (verify_local_live_at_start, update_life_info,
 	update_life_info, initialize_uninitialized_subregs,

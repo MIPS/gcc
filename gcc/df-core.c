@@ -1046,10 +1046,14 @@ df_bb_regno_last_use_find (struct df *df, basic_block bb, unsigned int regno)
 {
   rtx insn;
   struct df_ref *use;
+  unsigned int uid;
 
   FOR_BB_INSNS_REVERSE (bb, insn)
     {
-      unsigned int uid = INSN_UID (insn);
+      if (!INSN_P (insn))
+	continue;
+
+      uid = INSN_UID (insn);
       for (use = DF_INSN_UID_GET (df, uid)->uses; use; use = use->next_ref)
 	if (DF_REF_REGNO (use) == regno)
 	  return use;
@@ -1065,10 +1069,14 @@ df_bb_regno_first_def_find (struct df *df, basic_block bb, unsigned int regno)
 {
   rtx insn;
   struct df_ref *def;
+  unsigned int uid;
 
   FOR_BB_INSNS (bb, insn)
     {
-      unsigned int uid = INSN_UID (insn);
+      if (!INSN_P (insn))
+	continue;
+
+      uid = INSN_UID (insn);
       for (def = DF_INSN_UID_GET (df, uid)->defs; def; def = def->next_ref)
 	if (DF_REF_REGNO (def) == regno)
 	  return def;
@@ -1084,11 +1092,14 @@ df_bb_regno_last_def_find (struct df *df, basic_block bb, unsigned int regno)
 {
   rtx insn;
   struct df_ref *def;
+  unsigned int uid;
 
   FOR_BB_INSNS_REVERSE (bb, insn)
     {
-      unsigned int uid = INSN_UID (insn);
+      if (!INSN_P (insn))
+	continue;
 
+      uid = INSN_UID (insn);
       for (def = DF_INSN_UID_GET (df, uid)->defs; def; def = def->next_ref)
 	if (DF_REF_REGNO (def) == regno)
 	  return def;
