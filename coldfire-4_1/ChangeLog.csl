@@ -1,3 +1,9 @@
+2006-05-13  Richard Sandiford  <richard@codesourcery.com>
+
+	gcc/
+	* config/m68k/m68k.md (movdf_cf_hard): Use output_move_double for
+	GPR<-GPR moves.
+
 2006-05-12  Sandra Loosemore <sandra@codesourcery.com>
 
         * gcc/config/m68k/m68k.md ("clzsi2"):  Define for ColdFire
