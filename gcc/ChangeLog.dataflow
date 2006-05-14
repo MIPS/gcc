@@ -1,4 +1,4 @@
-2006-05-05  Kenneth Zadeck <zadeck@naturalbridge.com>
+2006-05-14  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* regclass.c (init_subregs_of_mode): Created dummy version 
 	when CANNOT_CHANGE_MODE_CLASS is undefined.
