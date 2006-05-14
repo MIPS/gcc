@@ -1,3 +1,8 @@
+2006-05-05  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* regclass.c (init_subregs_of_mode): Created dummy version 
+	when CANNOT_CHANGE_MODE_CLASS is undefined.
+
 2006-05-13  Steven Bosscher  <stevenb.gcc@gmail.com>
 
 	* df-core.c (df_bb_regno_last_use_find): Do not look for dataflow
