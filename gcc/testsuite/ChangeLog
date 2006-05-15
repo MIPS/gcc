@@ -1,3 +1,11 @@
+2005-01-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.misc-tests/bprob.exp: Same.
+
+	* gcc.c-torture/execute/ieee/ieee.exp: Disable tests for SPE.
+
+	* gcc.c-torture/execute/20020720-1.x: Disable on SPE.
+
 2005-05-19  Release Manager
 
 	* GCC 3.4.4 released.

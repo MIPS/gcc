@@ -2559,7 +2559,7 @@ alter_subreg (rtx *xp)
       /* Simplify_subreg can't handle some REG cases, but we have to.  */
       else if (GET_CODE (y) == REG)
 	{
-	  unsigned int regno = subreg_hard_regno (x, 1);
+	  unsigned int regno = subreg_regno (x);
 	  *xp = gen_rtx_REG_offset (y, GET_MODE (x), regno, SUBREG_BYTE (x));
 	}
       else

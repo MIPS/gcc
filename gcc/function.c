@@ -4767,19 +4767,42 @@ assign_parms (tree fndecl)
 
 	 Set DECL_RTL to that place.  */
 
-      if (GET_CODE (entry_parm) == PARALLEL && nominal_mode != BLKmode
-	  && XVECLEN (entry_parm, 0) > 1)
+      if (GET_CODE (entry_parm) == PARALLEL && nominal_mode != BLKmode)
 	{
 	  /* Reconstitute objects the size of a register or larger using
 	     register operations instead of the stack.  */
 	  rtx parmreg = gen_reg_rtx (nominal_mode);
+	  rtx elt0 = XEXP (XVECEXP (entry_parm, 0, 0), 0);
 
-	  if (REG_P (parmreg))
+	  if ((XVECLEN (entry_parm, 0) > 1
+	       || HARD_REGNO_NREGS(REGNO (elt0), GET_MODE (elt0)) > 1)
+	      && REG_P (parmreg))
 	    {
 	      unsigned int regno = REGNO (parmreg);
 
-	      emit_group_store (parmreg, entry_parm, TREE_TYPE (parm),
-				int_size_in_bytes (TREE_TYPE (parm)));
+	      /* For values returned in multiple registers, handle possible
+		 incompatible calls to emit_group_store.
+
+		 For example, the following would be invalid, and would have to
+		 be fixed by the conditional below:
+
+		 emit_group_store ((reg:SF), (parallel:DF))
+		 emit_group_store ((reg:SI), (parallel:DI))
+
+		 An example of this are doubles in e500 v2:
+		   (parallel:DF (expr_list (reg:SI) (const_int 0))
+		                (expr_list (reg:SI) (const_int 4))).  */
+	      if (nominal_mode != passed_mode)
+		{
+		  rtx t = gen_reg_rtx (GET_MODE (entry_parm));
+
+		  emit_group_store (t, entry_parm, NULL_TREE,
+				    GET_MODE_SIZE (GET_MODE (entry_parm)));
+		  convert_move (parmreg, t, 0);
+		}
+	      else
+		emit_group_store (parmreg, entry_parm, TREE_TYPE (parm),
+				  int_size_in_bytes (TREE_TYPE (parm)));
 	      SET_DECL_RTL (parm, parmreg);
 
 	      if (regno >= max_parm_reg)

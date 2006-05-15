@@ -391,22 +391,11 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
     {
       if (GET_MODE (op0) != fieldmode)
 	{
-	  if (GET_CODE (op0) == SUBREG)
-	    {
-	      if (GET_MODE (SUBREG_REG (op0)) == fieldmode
-		  || GET_MODE_CLASS (fieldmode) == MODE_INT
-		  || GET_MODE_CLASS (fieldmode) == MODE_PARTIAL_INT)
-		op0 = SUBREG_REG (op0);
-	      else
-		/* Else we've got some float mode source being extracted into
-		   a different float mode destination -- this combination of
-		   subregs results in Severe Tire Damage.  */
-		abort ();
-	    }
-	  if (GET_CODE (op0) == REG)
-	    op0 = gen_rtx_SUBREG (fieldmode, op0, byte_offset);
+	  if (GET_CODE (op0) == MEM)
+            op0 = adjust_address (op0, fieldmode, offset);
 	  else
-	    op0 = adjust_address (op0, fieldmode, offset);
+	    op0 = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
+				       byte_offset);
 	}
       emit_move_insn (op0, value);
       return value;
@@ -1145,12 +1134,12 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
     enum machine_mode imode = int_mode_for_mode (GET_MODE (op0));
     if (imode != GET_MODE (op0))
       {
-	if (GET_CODE (op0) == MEM)
-	  op0 = adjust_address (op0, imode, 0);
-	else if (imode != BLKmode)
-	  op0 = gen_lowpart (imode, op0);
-	else
-	  abort ();
+	op0 = gen_lowpart (imode, op0);
+
+	/* If we got a SUBREG, force it into a register since we aren't going
+	   to be able to do another SUBREG on it.  */
+	if (GET_CODE (op0) == SUBREG)
+	  op0 = force_reg (imode, op0);
       }
   }
 
@@ -1213,24 +1202,18 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 		      && MEM_ALIGN (op0) % bitsize == 0)))))
     {
       if (mode1 != GET_MODE (op0))
-	{
-	  if (GET_CODE (op0) == SUBREG)
-	    {
-	      if (GET_MODE (SUBREG_REG (op0)) == mode1
-		  || GET_MODE_CLASS (mode1) == MODE_INT
-		  || GET_MODE_CLASS (mode1) == MODE_PARTIAL_INT)
-		op0 = SUBREG_REG (op0);
-	      else
-		/* Else we've got some float mode source being extracted into
-		   a different float mode destination -- this combination of
-		   subregs results in Severe Tire Damage.  */
-		goto no_subreg_mode_swap;
-	    }
-	  if (GET_CODE (op0) == REG)
-	    op0 = gen_rtx_SUBREG (mode1, op0, byte_offset);
-	  else
+        {
+	  if (GET_CODE (op0) == MEM)
 	    op0 = adjust_address (op0, mode1, offset);
-	}
+	  else
+            {
+	      rtx sub = simplify_gen_subreg (mode1, op0, GET_MODE (op0),
+					     byte_offset);
+	      if (sub == NULL)
+                goto no_subreg_mode_swap;
+	      op0 = sub;
+            }
+        }
       if (mode1 != mode)
 	return convert_to_mode (tmode, op0, unsignedp);
       return op0;
@@ -1614,19 +1597,43 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
     return spec_target;
   if (GET_MODE (target) != tmode && GET_MODE (target) != mode)
     {
-      /* If the target mode is floating-point, first convert to the
-	 integer mode of that size and then access it as a floating-point
-	 value via a SUBREG.  */
-      if (GET_MODE_CLASS (tmode) != MODE_INT
-	  && GET_MODE_CLASS (tmode) != MODE_PARTIAL_INT)
+      /* If the target mode is complex, then extract the two scalar elements
+	 from the value now.  Creating (subreg:SC (reg:DI) 0), as we would do
+	 with the clause below, will cause gen_realpart or gen_imagpart to
+	 fail, since those functions must return lvalues.  */
+      if (COMPLEX_MODE_P (tmode))
 	{
+	  rtx realpart, imagpart;
+	  enum machine_mode itmode = GET_MODE_INNER (tmode);
+
 	  target = convert_to_mode (mode_for_size (GET_MODE_BITSIZE (tmode),
 						   MODE_INT, 0),
 				    target, unsignedp);
+
+	  realpart = extract_bit_field (target, GET_MODE_BITSIZE (itmode), 0,
+					unsignedp, NULL, itmode, itmode,
+					total_size);
+	  imagpart = extract_bit_field (target, GET_MODE_BITSIZE (itmode),
+					GET_MODE_BITSIZE (itmode), unsignedp,
+					NULL, itmode, itmode,
+					total_size);
+
+	  return gen_rtx_CONCAT (tmode, realpart, imagpart);
+	}
+
+      /* If the target mode is not a scalar integral, first convert to the
+	 integer mode of that size and then access it as a floating-point
+	 value via a SUBREG.  */
+      if (!SCALAR_INT_MODE_P (tmode))
+	{
+	  enum machine_mode smode
+	    = mode_for_size (GET_MODE_BITSIZE (tmode), MODE_INT, 0);
+	  target = convert_to_mode (smode, target, unsignedp);
+	  target = force_reg (smode, target);
 	  return gen_lowpart (tmode, target);
 	}
-      else
-	return convert_to_mode (tmode, target, unsignedp);
+
+      return convert_to_mode (tmode, target, unsignedp);
     }
   return target;
 }

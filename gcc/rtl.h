@@ -1473,7 +1473,6 @@ extern rtvec gen_rtvec_v (int, rtx *);
 extern rtx gen_reg_rtx (enum machine_mode);
 extern rtx gen_rtx_REG_offset (rtx, enum machine_mode, unsigned int, int);
 extern rtx gen_label_rtx (void);
-extern int subreg_hard_regno (rtx, int);
 extern rtx gen_lowpart_common (enum machine_mode, rtx);
 extern rtx gen_lowpart (enum machine_mode, rtx);
 
@@ -2090,6 +2089,8 @@ extern void delete_insn_chain_and_edges (rtx, rtx);
 extern int combine_instructions (rtx, unsigned int);
 extern unsigned int extended_count (rtx, enum machine_mode, int);
 extern rtx remove_death (unsigned int, rtx);
+extern bool validate_subreg (enum machine_mode, enum machine_mode,
+			     rtx, unsigned int);
 #ifdef BUFSIZ
 extern void dump_combine_stats (FILE *);
 extern void dump_combine_total_stats (FILE *);

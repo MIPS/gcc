@@ -484,7 +484,7 @@ enum group_termination
    --with-float is ignored if -mhard-float or -msoft-float are
     specified.  */
 #define OPTION_DEFAULT_SPECS \
-  {"cpu", "%{!mcpu=*:-mcpu=%(VALUE)}" }, \
+  {"cpu", "%{!te500v2:%{!mcpu=*:-mcpu=%(VALUE)}}" }, \
   {"tune", "%{!mtune=*:-mtune=%(VALUE)}" }, \
   {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }
 
@@ -563,7 +563,9 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define TARGET_SPE rs6000_spe
 #define TARGET_E500 (rs6000_cpu == PROCESSOR_PPC8540)
 #define TARGET_ISEL rs6000_isel
-#define TARGET_FPRS (!rs6000_float_gprs)
+#define TARGET_FPRS (rs6000_float_gprs == 0)
+#define TARGET_E500_SINGLE (TARGET_HARD_FLOAT && rs6000_float_gprs == 1)
+#define TARGET_E500_DOUBLE (TARGET_HARD_FLOAT && rs6000_float_gprs == 2)
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -740,6 +742,7 @@ extern const char *rs6000_warn_altivec_long_switch;
    that the object would ordinarily have.  */
 #define LOCAL_ALIGNMENT(TYPE, ALIGN)				\
   ((TARGET_ALTIVEC && TREE_CODE (TYPE) == VECTOR_TYPE) ? 128 :	\
+    (TARGET_E500_DOUBLE && TYPE_MODE (TYPE) == DFmode) ? 64 : \
     (TARGET_SPE && TREE_CODE (TYPE) == VECTOR_TYPE) ? 64 : ALIGN)
 
 /* Alignment of field after `int : 0' in a structure.  */
@@ -756,9 +759,13 @@ extern const char *rs6000_warn_altivec_long_switch;
    store_bit_field() will force (subreg:DI (reg:V2SI x))'s to the
    back-end.  Because a single GPR can hold a V2SI, but not a DI, the
    best thing to do is set structs to BLKmode and avoid Severe Tire
-   Damage.  */
+   Damage.
+
+   On e500 v2, DF and DI modes suffer from the same anomaly.  DF can
+   fit into 1, whereas DI still needs two.  */
 #define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
-  (TARGET_SPE && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE)
+  ((TARGET_SPE && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE) \
+   || (TARGET_E500_DOUBLE && (MODE) == DFmode))
 
 /* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
@@ -772,9 +779,11 @@ extern const char *rs6000_warn_altivec_long_switch;
    : (ALIGN))
 
 /* Make arrays of chars word-aligned for the same reasons.
-   Align vectors to 128 bits.  */
+   Align vectors to 128 bits.  Align SPE vectors and E500 v2 doubles to
+   64 bits.  */
 #define DATA_ALIGNMENT(TYPE, ALIGN)		\
   (TREE_CODE (TYPE) == VECTOR_TYPE ? (TARGET_SPE_ABI ? 64 : 128)	\
+   : (TARGET_E500_DOUBLE && TYPE_MODE (TYPE) == DFmode) ? 64 \
    : TREE_CODE (TYPE) == ARRAY_TYPE		\
    && TYPE_MODE (TREE_TYPE (TYPE)) == QImode	\
    && (ALIGN) < BITS_PER_WORD ? BITS_PER_WORD : (ALIGN))
@@ -1020,6 +1029,7 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define HARD_REGNO_NREGS(REGNO, MODE)					\
   (FP_REGNO_P (REGNO)							\
    ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
+   : (TARGET_E500_DOUBLE && SPE_SIMD_REGNO_P (REGNO) && (MODE) == DFmode) ? 1 \
    : (SPE_SIMD_REGNO_P (REGNO) && TARGET_SPE && SPE_VECTOR_MODE (MODE))   \
    ? ((GET_MODE_SIZE (MODE) + UNITS_PER_SPE_WORD - 1) / UNITS_PER_SPE_WORD) \
    : ALTIVEC_REGNO_P (REGNO)						\
@@ -1515,6 +1525,8 @@ enum reg_class
 #define CLASS_MAX_NREGS(CLASS, MODE)					\
  (((CLASS) == FLOAT_REGS) 						\
   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
+  : (TARGET_E500_DOUBLE && (CLASS) == GENERAL_REGS && (MODE) == DFmode) \
+  ? 1                                                                   \
   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 
@@ -1526,6 +1538,10 @@ enum reg_class
    ? 0									  \
    : GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)				  \
    ? reg_classes_intersect_p (FLOAT_REGS, CLASS)			  \
+   : (TARGET_E500_DOUBLE && (((TO) == DFmode) + ((FROM) == DFmode)) == 1) \
+   ? reg_classes_intersect_p (GENERAL_REGS, CLASS)			  \
+   : (TARGET_E500_DOUBLE && (((TO) == DImode) + ((FROM) == DImode)) == 1) \
+   ? reg_classes_intersect_p (GENERAL_REGS, CLASS)			  \
    : (TARGET_SPE && (SPE_VECTOR_MODE (FROM) + SPE_VECTOR_MODE (TO)) == 1) \
    ? reg_classes_intersect_p (GENERAL_REGS, CLASS)			  \
    : 0)
@@ -2693,6 +2709,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"current_file_function_operand", {SYMBOL_REF}},			   \
   {"input_operand", {SUBREG, MEM, REG, CONST_INT,			   \
 		     CONST_DOUBLE, SYMBOL_REF}},			   \
+  {"rs6k_nonimmediate_operand", {SUBREG, MEM, REG}},		   	   \
   {"load_multiple_operation", {PARALLEL}},				   \
   {"store_multiple_operation", {PARALLEL}},				   \
   {"vrsave_operation", {PARALLEL}},					   \

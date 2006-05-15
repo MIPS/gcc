@@ -1,0 +1,357 @@
+2005-06-10  Aldy Hernandez  <aldyh@redhat.com>
+
+	Backport from mainline.
+	* config/rs6000/sysv4.h (TARGET_ASM_EXCEPTION_SECTION): Delete.
+
+2005-03-10  Aldy Hernandez  <aldyh@redhat.com>
+
+        * doc/invoke.texi: Add 8540 to list of cpus in rs6000 cpu section.
+
+2005-03-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000-protos.h: Rename output_e500_flip_eq_bit to
+	output_e500_flip_gt_bit.
+
+	* config/rs6000/rs6000.c (print_operand): case D: Print out bit 31
+	as bit 31.
+	(rs6000_generate_compare): Fix logic to look at the correct bits.
+	(output_e500_flip_eq_bit): Rename to output_e500_flip_gt_bit.
+	Look at GT bit.
+	(rs6000_emit_sCOND): Rename gen_e500_flip_eq_bit to
+	gen_e500_flip_gt_bit.  Rename gen_move_from_CR_eq_bit to
+	gen_move_from_CR_gt_bit.
+
+	* config/rs6000/rs6000.md ("move_from_CR_eq_bit"): Change bit
+	("move_from_CR_eq_bit"): Rename to move_from_CR_gt_bit.
+	(UNSPEC_MV_CR_EQ): Rename to UNSPEC_MV_CR_GT.
+
+	* config/rs6000/spe.md ("e500_cr_ior_compare"): New.
+	(E500_CR_IOR_COMPARE): New constant.
+
+2005-02-02  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_spe_function_arg): Multi-reg
+	arguments go on the stack.  Do not put complex doubles in odd/even
+	pairs.
+
+2005-01-27  Aldy Hernandez  <aldyh@redhat.com>
+
+	* expr.c (emit_move_insn_1): Kludge it so failures to
+	simplify_gen_subreg are handled gracefully.
+
+2005-01-24  Richard Henderson  <rth@redhat.com>
+            Aldy Hernandez  <aldyh@redhat.com>
+
+        * regrename.c (note_sets): Handle subregs.
+
+2005-01-21  Aldy Hernandez  <aldyh@redhat.com>
+
+        Backport from mainline.
+
+        * expmed.c (store_bit_field): Use simplify_gen_subreg instead
+        of gen_rtx_SUBREG directly.
+
+2005-01-20  Aldy Hernandez  <aldyh@redhat.com>
+
+	Backport from mainline.
+
+	2004-11-26  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+        * expmed.c (extract_bit_field): When extracting from non-integer mode,
+        force a SUBREG into a register because we may be taking a further
+        SUBREG of it.
+
+2005-01-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	Backport from mainline.
+
+	2004-11-23  Richard Henderson  <rth@redhat.com>
+
+        * rtl.h (validate_subreg): Declare.
+        * emit-rtl.c (validate_subreg): New.
+        (gen_rtx_SUBREG): Use it.
+        * simplify-rtx.c (simplify_subreg): Likewise.
+        (simplify_gen_subreg): Likewise.  Remove duplicate asserts.
+        * expr.c (emit_move_insn_1): Tidy complex move code.  Use memory
+        fallback whenever gen_realpart/gen_imagpart would not be able to
+        create SUBREGs.
+
+2005-01-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	Backport from mainline.
+
+	2004-11-23  Richard Henderson  <rth@redhat.com>
+
+        * expmed.c (extract_bit_field): Use simplify_gen_subreg instead of
+        hard-coding avoiding calls to gen_rtx_SUBREG.  Split complex return
+        modes to CONCAT.
+
+2005-01-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	Backport from mainline.
+
+	2004-11-23  Richard Henderson  <rth@redhat.com>
+
+        * combine.c (gen_lowpart_for_combine): Factor out mode of x as well
+        as mode sizes into local temporaries.  Unify failure path.
+
+2005-01-19  Aldy Hernandez  <aldyh@redhat.com>
+	
+	Backport from mainline:
+
+	2004-11-23  Richard Henderson  <rth@redhat.com>
+
+        * emit-rtl.c, rtl.h (subreg_hard_regno): Remove.
+        * caller-save.c (mark_set_regs): Use subreg_regno instead.
+        * final.c (alter_subreg): Likewise.
+        * local-alloc.c (reg_is_born): Likewise.
+
+2005-01-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	Backport from mainline:
+
+	2004-11-23  Richard Henderson  <rth@redhat.com>
+
+        * simplify-rtx.c (simplify_subreg): Use subreg_regno_offset directly
+        instead of using a SUBREG temporary.
+
+2005-01-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.md ("sunordered"): Disable for e500.
+	("sordered"): Same.
+	(bunordered): Same.
+	(bordered): Same.
+
+2005-01-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.misc-tests/bprob.exp: Same.
+
+	* gcc.c-torture/execute/ieee/ieee.exp: Disable tests for SPE.
+
+	* gcc.c-torture/execute/20020720-1.x: Disable on SPE.
+
+2005-01-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.h (CLASS_MAX_NREGS): DF goes in 1 register
+	on e500v2.
+	(CANNOT_CHANGE_MODE_CLASS): Restrict DI mode changes on e500v2.
+	(PREDICATE_CODES): Add rs6k_nonimmediate_operand.
+
+	* config/rs6000/rs6000.c (invalid_e500_subreg): New.
+	(rs6k_nonimmediate_operand): New.
+	(rs6000_legitimate_offset_address_p): Handle DI modes on e500v2
+	correctly.
+	(legitimate_lo_sum_address_p): Same.
+	(rs6000_legitimize_address): Same.
+	(rs6000_legitimize_reload_address): Same.
+	(rs6000_legitimate_address): Same.
+	(spe_build_register_parallel): Pass DF and DC modes in a DI
+	register.
+
+	* config/rs6000/rs6000.md ("*movsi_internal1"): Change predicate
+	to rs6k_nonimmediate_operand.
+
+	* config/rs6000/spe.md ("*frob_df_di"): New.
+	("*frob_di_df"): New.
+	("*frob_di_df_2"): New.
+	("*mov_sidf_e500_subreg0"): New.
+	("*mov_sidf_e500_subreg4"): New.
+	("*movdf_e500_double"): Change predicate to
+	rs6k_nonimmediate_operand.
+
+2005-01-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* postreload.c (move2add_note_store): Only call
+	trunc_int_for_mode on scalar integers.
+
+2005-01-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_stack_info): Fix caching of SPE
+	64-bit register usage.
+	(spe_func_has_64bit_regs_p): Add FIXME note.
+
+2005-01-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_generate_compare): Replace
+	flag_finite_math_only with flag_unsafe_math_optimizations.
+
+2005-01-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* function.c (assign_parm_setup_block): Relax condition on
+	multi-register optimization.
+
+2005-01-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* regrename.c (kill_value): Handle subreg's that won't simplify.
+
+2004-12-16  Richard Henderson  <rth@redhat.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+
+	* simplify-rtx.c (simplify_replace_rtx): Do not blindly replace
+	hard registers.
+
+2004-11-19  Aldy Hernandez  <aldyh@redhat.com>
+
+        * simplify-rtx.c (simplify_ternary_operation): Use
+        gen_int_mode.
+
+2004-11-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_complex_function_value): Revert
+	previous change.
+	(rs6000_override_options): Likewise.
+	(spe_build_register_parallel): Handle complex doubles on e500v2.
+	(rs6000_spe_function_arg): Likewise.
+	(function_arg): Likewise.
+	(rs6000_function_value): Likewise.
+	(rs6000_libcall_value): Likewise.
+
+2004-11-16  Aldy Hernandez  <aldyh@redhat.com>
+
+        * config/rs6000/rs6000.c (rs6000_override_options): Split e500v2
+        doubles.
+        (rs6000_complex_function_value): Handle e500 v2 variant.
+
+2004-11-09  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.md (fix_truncdfsi2): Handle e500
+	doubles.
+	(floatunssidf2): Same.
+	(floatsidf2): Same.
+	("extendsfdf2"): New expander.
+	(*extendsfdf2_fpr): Rename.
+	(*truncdfsf2_fpr): Same.
+	(*negdf2_fpr): Same.
+	(*absdf2_fpr): Same.
+	(*nabsdf2_fpr): Same.
+	(*adddf3_fpr): Same.
+	(*subdf3_fpr): Same.
+	(*muldf3_fpr): Same.
+	(*divdf3_fpr): Same.
+
+	* config/rs6000/spe.md ("spe_extendsfdf2"): Remove FIXME comment.
+	("spe_fix_truncdfsi2"): Same.
+	(spe_floatunssidf2): Same.
+	(spe_floatsidf2): Same.
+
+2004-10-28  Aldy Hernandez  <aldyh@redhat.com>
+
+	* expr.c (emit_group_store): Fix undefine reference to MEM_P.
+	(emit_group_load): Same.
+
+	* function.c (assign_parms): Handle parallels correctly.
+
+2004-10-27  Richard Henderson  <rth@redhat.com>
+
+        PR middle-end/18163
+        * expr.c (emit_group_load): Don't go force temporary for memory
+        or concat source.
+        (emit_group_store): Similarly.
+
+2004-10-26  Aldy Hernandez  <aldyh@redhat.com>
+
+	* expr.c (emit_group_store): Do not treat floats as BLKmode.
+	(emit_group_load): Same.
+
+2004-10-26  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.h (MEMBER_TYPE_FORCES_BLK): Adjust for e500
+	doubles.
+
+2004-10-26  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs): Adjust for
+	e500 doubles.
+	(spe_build_register_parallel): New.
+	(rs6000_spe_function_arg): Handle e500 doubles.
+	(function_arg): Same.
+	(spe_func_has_64bit_regs_p): Same.
+	(rs6000_function_value): Same.
+	(rs6000_libcall_value): Same.
+	(legitimate_lo_sum_address_p): Return false for e500 doubles.
+
+	* config/rs6000/rs6000.h (LOCAL_ALIGNMENT): Adjust for e500
+	doubles.
+	(DATA_ALIGNMENT): Same.
+	(CANNOT_CHANGE_MODE_CLASS): Same.
+
+2004-10-26  Aldy Hernandez  <aldyh@redhat.com>
+
+        * expr.c (emit_group_load): Handle floats.
+        (emit_group_store): Same.
+
+2004-10-22  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/spe.md (spe_extendsfdf2): New.
+	(movdf_e500_double): New.
+	(spe_truncdfsf2): New.
+	(spe_absdf2): New.
+	(spe_nabsdf2): New.
+	(spe_negdf2): New.
+	(sub_adddf3): New.
+	(spe_subdf3): New.
+	(spe_muldf3): New.
+	(spe_floatsidf2): New.
+	(spe_floatunssidf2): New.
+	(fix_truncdfsi2): New.
+	(spe_fixuns_truncdfsi2): New.
+
+	* config/rs6000/rs6000.md (truncdfsf2): Change to expander.
+	(fpr_truncdfsf2): New.
+	(negdf2): Change to expander.
+	(fpr_negdf2): New.
+	(fpr_nabsdf2): Name pattern.
+	(adddf3): Change to expander.
+	(fpr_adddf3): Nem.
+	(subdf3): Change to expander.
+	(fpr_subdf3): New.
+	(muldf3): Change to expander.
+	(fpr_muldf3): New.
+	(divdf3): Change to expander.
+	(fpr_divdf3): New.
+	(movdf_softfloat32): Change !TARGET_FPRS to TARGET_E500_SINGLE.
+	(cmpdf): Allow for TARGET_E500_DOUBLE.
+
+2004-10-22  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config.gcc: Add support for --enable-e500_double.
+
+	* config/rs6000/e500-double.h: New file.
+
+	* config/rs6000/rs6000.h: Define TARGET_E500_SINGLE and
+	TARGET_E500_DOUBLE.
+	(HARD_REGNO_NREGS): Handle e500 doubles.
+
+	* config/rs6000/eabi.h: Define TARGET_E500_SINGLE and
+	TARGET_E500_DOUBLE.
+
+	* config/rs6000/linuxspe.h: Same.
+
+	* doc/invoke.texi (Option Summary): Document new options for
+	mfloat-gprs.
+	(RS/6000 and PowerPC Options): Same.
+
+	* config/rs6000/rs6000.c (rs6000_parse_float_gprs_option): New
+	function.
+	(rs6000_override_options): Use it.  Use
+	SUB3TARGET_OVERRIDE_OPTIONS.
+	Add 8548 to processor_target_table.
+	(rs6000_legitimate_address): Handle e500 doubles.
+	(rs6000_legitimize_address): Same.
+	(rs6000_legitimize_reload_address): Same.
+	(spe_func_has_64bit_regs_p): Same.
+	(emit_frame_save): Same.
+	(gen_frame_mem_offset): Same.
+	(rs6000_dwarf_register_span): Same.
+	(rs6000_generate_compare): Same.
+	(easy_fp_constant): Same.
+	(legitimate_offset_address_p): Same.
+
+	* config/rs6000/spe.md: (cmdfeq_gpr): New.
+	(tstdfeq_gpr): New.
+	(cmpdfgt_gpr): New.
+	(tstdfgt_gpr): New.
+	(tstdfgt_gpr): New.
+	(cmpdflt_gpr): New.
+	(tstdflt_gpr): New.
+	Add new constants.

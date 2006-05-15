@@ -1846,9 +1846,28 @@ emit_group_load (rtx dst, rtx orig_src, tree type ATTRIBUTE_UNUSED, int ssize)
 {
   rtx *tmps, src;
   int start, i;
+  enum machine_mode m = GET_MODE (orig_src);
 
   if (GET_CODE (dst) != PARALLEL)
     abort ();
+
+  if (!SCALAR_INT_MODE_P (m)
+      && GET_CODE (orig_src) != MEM && GET_CODE (orig_src) != CONCAT)
+    {
+      enum machine_mode imode = int_mode_for_mode (GET_MODE (orig_src));
+      if (imode == BLKmode)
+	src = assign_stack_temp (GET_MODE (orig_src), ssize, 0);
+      else
+	src = gen_reg_rtx (imode);
+      if (imode != BLKmode)
+	src = gen_lowpart (GET_MODE (orig_src), src);
+      emit_move_insn (src, orig_src);
+      /* ...and back again.  */
+      if (imode != BLKmode)
+	src = gen_lowpart (imode, src);
+      emit_group_load (dst, src, type, ssize);
+      return;
+    }
 
   /* Check for a NULL entry, used to indicate that the parameter goes
      both on the stack and in registers.  */
@@ -2006,9 +2025,25 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 {
   rtx *tmps, dst;
   int start, i;
+  enum machine_mode m = GET_MODE (orig_dst);
 
   if (GET_CODE (src) != PARALLEL)
     abort ();
+
+  if (!SCALAR_INT_MODE_P (m)
+      && GET_CODE (orig_dst) != MEM && GET_CODE (orig_dst) != CONCAT)
+    {
+      enum machine_mode imode = int_mode_for_mode (GET_MODE (orig_dst));
+      if (imode == BLKmode)
+        dst = assign_stack_temp (GET_MODE (orig_dst), ssize, 0);
+      else
+        dst = gen_reg_rtx (imode);
+      emit_group_store (dst, src, type, ssize);
+      if (imode != BLKmode)
+        dst = gen_lowpart (GET_MODE (orig_dst), dst);
+      emit_move_insn (orig_dst, dst);
+      return;
+    }
 
   /* Check for a NULL entry, used to indicate that the parameter goes
      both on the stack and in registers.  */
@@ -2870,7 +2905,6 @@ emit_move_insn_1 (rtx x, rtx y)
 {
   enum machine_mode mode = GET_MODE (x);
   enum machine_mode submode;
-  enum mode_class class = GET_MODE_CLASS (mode);
 
   if ((unsigned int) mode >= (unsigned int) MAX_MACHINE_MODE)
     abort ();
@@ -2880,20 +2914,21 @@ emit_move_insn_1 (rtx x, rtx y)
       emit_insn (GEN_FCN (mov_optab->handlers[(int) mode].insn_code) (x, y));
 
   /* Expand complex moves by moving real part and imag part, if possible.  */
-  else if ((class == MODE_COMPLEX_FLOAT || class == MODE_COMPLEX_INT)
+  else if (COMPLEX_MODE_P (mode)
 	   && BLKmode != (submode = GET_MODE_INNER (mode))
 	   && (mov_optab->handlers[(int) submode].insn_code
 	       != CODE_FOR_nothing))
     {
+      unsigned int modesize = GET_MODE_SIZE (mode);
+      unsigned int submodesize = GET_MODE_SIZE (submode);
+
       /* Don't split destination if it is a stack push.  */
-      int stack = push_operand (x, GET_MODE (x));
+      int stack = push_operand (x, mode);
 
 #ifdef PUSH_ROUNDING
       /* In case we output to the stack, but the size is smaller than the
 	 machine can push exactly, we need to use move instructions.  */
-      if (stack
-	  && (PUSH_ROUNDING (GET_MODE_SIZE (submode))
-	      != GET_MODE_SIZE (submode)))
+      if (stack && PUSH_ROUNDING (submodesize) != submodesize)
 	{
 	  rtx temp;
 	  HOST_WIDE_INT offset1, offset2;
@@ -2907,9 +2942,7 @@ emit_move_insn_1 (rtx x, rtx y)
 			       add_optab,
 #endif
 			       stack_pointer_rtx,
-			       GEN_INT
-				 (PUSH_ROUNDING
-				  (GET_MODE_SIZE (GET_MODE (x)))),
+			       GEN_INT (PUSH_ROUNDING (modesize)),
 			       stack_pointer_rtx, 0, OPTAB_LIB_WIDEN);
 
 	  if (temp != stack_pointer_rtx)
@@ -2917,11 +2950,10 @@ emit_move_insn_1 (rtx x, rtx y)
 
 #ifdef STACK_GROWS_DOWNWARD
 	  offset1 = 0;
-	  offset2 = GET_MODE_SIZE (submode);
+	  offset2 = submodesize;
 #else
-	  offset1 = -PUSH_ROUNDING (GET_MODE_SIZE (GET_MODE (x)));
-	  offset2 = (-PUSH_ROUNDING (GET_MODE_SIZE (GET_MODE (x)))
-		     + GET_MODE_SIZE (submode));
+	  offset1 = -PUSH_ROUNDING (modesize);
+	  offset2 = -PUSH_ROUNDING (modesize) + submodesize;
 #endif
 
 	  emit_move_insn (change_address (x, submode,
@@ -2972,48 +3004,39 @@ emit_move_insn_1 (rtx x, rtx y)
 	     memory and reload.  FIXME, we should see about using extract and
 	     insert on integer registers, but complex short and complex char
 	     variables should be rarely used.  */
-	  if (GET_MODE_BITSIZE (mode) < 2 * BITS_PER_WORD
-	      && (reload_in_progress | reload_completed) == 0)
+	  if ((reload_in_progress | reload_completed) == 0
+	      && (!validate_subreg (submode, mode, NULL, submodesize)
+		  || !validate_subreg (submode, mode, NULL, 0)))
 	    {
-	      int packed_dest_p
-		= (REG_P (x) && REGNO (x) < FIRST_PSEUDO_REGISTER);
-	      int packed_src_p
-		= (REG_P (y) && REGNO (y) < FIRST_PSEUDO_REGISTER);
-
-	      if (packed_dest_p || packed_src_p)
+	      if (REG_P (x) || REG_P (y))
 		{
-		  enum mode_class reg_class = ((class == MODE_COMPLEX_FLOAT)
-					       ? MODE_FLOAT : MODE_INT);
-
+		  rtx mem, cmem;
 		  enum machine_mode reg_mode
-		    = mode_for_size (GET_MODE_BITSIZE (mode), reg_class, 1);
+		    = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 1);
 
-		  if (reg_mode != BLKmode)
+		  if (reg_mode == BLKmode)
+		    abort ();
+
+		  cfun->cannot_inline
+		    = N_("function using short complex types cannot be inline");
+
+		  mem = assign_stack_temp (reg_mode, modesize, 0);
+		  cmem = adjust_address (mem, mode, 0);
+
+		  if (REG_P (x))
 		    {
-		      rtx mem = assign_stack_temp (reg_mode,
-						   GET_MODE_SIZE (mode), 0);
-		      rtx cmem = adjust_address (mem, mode, 0);
-
-		      cfun->cannot_inline
-			= N_("function using short complex types cannot be inline");
-
-		      if (packed_dest_p)
-			{
-			  rtx sreg = gen_rtx_SUBREG (reg_mode, x, 0);
-
-			  emit_move_insn_1 (cmem, y);
-			  return emit_move_insn_1 (sreg, mem);
-			}
-		      else
-			{
-			  rtx sreg = gen_rtx_SUBREG (reg_mode, y, 0);
-
-			  emit_move_insn_1 (mem, sreg);
-			  return emit_move_insn_1 (x, cmem);
-			}
+		      rtx sreg = gen_rtx_SUBREG (reg_mode, x, 0);
+		      emit_move_insn_1 (cmem, y);
+		      return emit_move_insn_1 (sreg, mem);
 		    }
-		}
-	    }
+		  else
+		    {
+		      rtx sreg = gen_rtx_SUBREG (reg_mode, y, 0);
+		      emit_move_insn_1 (mem, sreg);
+		      return emit_move_insn_1 (x, cmem);
+                    }
+                }
+            }
 
 	  realpart_x = gen_realpart (submode, x);
 	  realpart_y = gen_realpart (submode, y);
@@ -3099,14 +3122,23 @@ emit_move_insn_1 (rtx x, rtx y)
   else if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 	   && (submode = int_mode_for_mode (mode)) != BLKmode
 	   && mov_optab->handlers[submode].insn_code != CODE_FOR_nothing)
-    return emit_insn (GEN_FCN (mov_optab->handlers[submode].insn_code)
-		      (simplify_gen_subreg (submode, x, mode, 0),
-		       simplify_gen_subreg (submode, y, mode, 0)));
+    {
+      rtx sub1 = simplify_gen_subreg (submode, x, mode, 0),
+	sub2 = simplify_gen_subreg (submode, y, mode, 0);
+
+      if (sub1 == NULL_RTX || sub2 == NULL_RTX)
+	goto multi_word_move;
+      return emit_insn (GEN_FCN (mov_optab->handlers[submode].insn_code)
+			(sub1, sub2));
+    }
 
   /* This will handle any multi-word or full-word mode that lacks a move_insn
      pattern.  However, you will get better code if you define such patterns,
      even if they must turn into multiple assembler instructions.  */
-  else if (GET_MODE_SIZE (mode) >= UNITS_PER_WORD)
+  else
+    {
+    multi_word_move:
+    if (GET_MODE_SIZE (mode) >= UNITS_PER_WORD)
     {
       rtx last_insn = 0;
       rtx seq, inner;
@@ -3210,8 +3242,7 @@ emit_move_insn_1 (rtx x, rtx y)
 
       return last_insn;
     }
-  else
-    abort ();
+    else abort (); }
 }
 
 /* If Y is representable exactly in a narrower mode, and the target can

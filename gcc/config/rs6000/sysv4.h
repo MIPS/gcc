@@ -835,6 +835,9 @@ extern int fixuplabelno;
 
 #define	CC1_ENDIAN_DEFAULT_SPEC "%(cc1_endian_big)"
 
+#undef CC1_EXTRA_SPEC
+#define CC1_EXTRA_SPEC ""
+
 /* Pass -G xxx to the compiler and set correct endian mode.  */
 #define	CC1_SPEC "%{G*} \
 %{mlittle|mlittle-endian: %(cc1_endian_little);           \
@@ -859,7 +862,7 @@ extern int fixuplabelno;
     %{mcall-openbsd: -mno-eabi }}} \
 %{msdata: -msdata=default} \
 %{mno-sdata: -msdata=none} \
-%{profile: -p}"
+%{profile: -p} " CC1_EXTRA_SPEC
 
 /* Don't put -Y P,<path> for cross compilers.  */
 #ifndef CROSS_COMPILE
@@ -1353,8 +1356,6 @@ ncrtn.o%s"
   ((flag_pic || TARGET_RELOCATABLE)					     \
    ? (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4) \
    : DW_EH_PE_absptr)
-
-#define TARGET_ASM_EXCEPTION_SECTION readonly_data_section
 
 #define DOUBLE_INT_ASM_OP "\t.quad\t"
 

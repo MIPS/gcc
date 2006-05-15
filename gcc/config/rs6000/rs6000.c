@@ -381,6 +381,7 @@ static rtx spe_expand_builtin (tree, rtx, bool *);
 static rtx spe_expand_stv_builtin (enum insn_code, tree);
 static rtx spe_expand_predicate_builtin (enum insn_code, tree, rtx);
 static rtx spe_expand_evsel_builtin (enum insn_code, tree, rtx);
+static bool invalid_e500_subreg (rtx, enum machine_mode);
 static int rs6000_emit_int_cmove (rtx, rtx, rtx, rtx);
 static rs6000_stack_t *rs6000_stack_info (void);
 static void debug_stack_info (rs6000_stack_t *);
@@ -398,6 +399,7 @@ static void rs6000_parse_abi_options (void);
 static void rs6000_parse_alignment_option (void);
 static void rs6000_parse_tls_size_option (void);
 static void rs6000_parse_yes_no_option (const char *, const char *, int *);
+static void rs6000_parse_float_gprs_option (void);
 static int first_altivec_reg_to_save (void);
 static unsigned int compute_vrsave_mask (void);
 static void is_altivec_return_reg (rtx, void *);
@@ -701,6 +703,8 @@ rs6000_override_options (const char *default_cpu)
 	 {"821", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"823", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"8540", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
+	 /* 8548 has a dummy entry for now.  */
+	 {"8548", PROCESSOR_PPC8540, POWERPC_BASE_MASK | MASK_PPC_GFXOPT},
 	 {"860", PROCESSOR_MPCCORE, POWERPC_BASE_MASK | MASK_SOFT_FLOAT},
 	 {"970", PROCESSOR_POWER4,
 	  POWERPC_7400_MASK | MASK_PPC_GPOPT | MASK_MFCRF | MASK_POWERPC64},
@@ -870,14 +874,14 @@ rs6000_override_options (const char *default_cpu)
   /* Handle -malign-XXXXX option.  */
   rs6000_parse_alignment_option ();
 
+  rs6000_parse_float_gprs_option ();
+
   /* Handle generic -mFOO=YES/NO options.  */
   rs6000_parse_yes_no_option ("vrsave", rs6000_altivec_vrsave_string,
 			      &rs6000_altivec_vrsave);
   rs6000_parse_yes_no_option ("isel", rs6000_isel_string,
 			      &rs6000_isel);
   rs6000_parse_yes_no_option ("spe", rs6000_spe_string, &rs6000_spe);
-  rs6000_parse_yes_no_option ("float-gprs", rs6000_float_gprs_string,
-			      &rs6000_float_gprs);
 
   /* Handle -mtls-size option.  */
   rs6000_parse_tls_size_option ();
@@ -887,6 +891,9 @@ rs6000_override_options (const char *default_cpu)
 #endif
 #ifdef SUBSUBTARGET_OVERRIDE_OPTIONS
   SUBSUBTARGET_OVERRIDE_OPTIONS;
+#endif
+#ifdef SUB3TARGET_OVERRIDE_OPTIONS
+  SUB3TARGET_OVERRIDE_OPTIONS;
 #endif
 
   if (TARGET_E500)
@@ -1084,6 +1091,23 @@ rs6000_parse_abi_options (void)
     rs6000_spe_abi = 0;
   else
     error ("unknown ABI specified: '%s'", rs6000_abi_string);
+}
+
+/* Handle -mfloat-gprs= options.  */
+static void
+rs6000_parse_float_gprs_option (void)
+{
+  if (rs6000_float_gprs_string == 0)
+    return;
+  else if (! strcmp (rs6000_float_gprs_string, "yes")
+	   || ! strcmp (rs6000_float_gprs_string, "single"))
+    rs6000_float_gprs = 1;
+  else if (! strcmp (rs6000_float_gprs_string, "double"))
+    rs6000_float_gprs = 2;
+  else if (! strcmp (rs6000_float_gprs_string, "no"))
+    rs6000_float_gprs = 0;
+  else
+    error ("invalid option for -mfloat-gprs");
 }
 
 /* Handle -malign-XXXXXX options.  */
@@ -1616,7 +1640,7 @@ easy_fp_constant (rtx op, enum machine_mode mode)
     return 0;
 
   /* Consider all constants with -msoft-float to be easy.  */
-  if ((TARGET_SOFT_FLOAT || !TARGET_FPRS)
+  if ((TARGET_SOFT_FLOAT || TARGET_E500_SINGLE)
       && mode != DImode)
     return 1;
 
@@ -1649,6 +1673,9 @@ easy_fp_constant (rtx op, enum machine_mode mode)
     {
       long k[2];
       REAL_VALUE_TYPE rv;
+
+      if (TARGET_E500_DOUBLE)
+	return 0;
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
@@ -2412,6 +2439,39 @@ input_operand (rtx op, enum machine_mode mode)
   return 0;
 }
 
+/* Return TRUE if OP is an invalid SUBREG operation on the e500.  */
+static bool
+invalid_e500_subreg (rtx op, enum machine_mode mode)
+{
+  /* Reject (subreg:SI (reg:DF)).  */
+  if (GET_CODE (op) == SUBREG
+      && mode == SImode
+      && REG_P (SUBREG_REG (op))
+      && GET_MODE (SUBREG_REG (op)) == DFmode)
+    return true;
+
+  /* Reject (subreg:DF (reg:DI)).  */
+  if (GET_CODE (op) == SUBREG
+      && mode == DFmode
+      && REG_P (SUBREG_REG (op))
+      && GET_MODE (SUBREG_REG (op)) == DImode)
+    return true;
+
+  return false;
+}
+
+/* Just like nonimmediate_operand, but return 0 for invalid SUBREG's
+   on the e500.  */
+int
+rs6k_nonimmediate_operand (rtx op, enum machine_mode mode)
+{
+  if (TARGET_E500_DOUBLE
+      && GET_CODE (op) == SUBREG
+      && invalid_e500_subreg (op, mode))
+    return 0;
+
+  return nonimmediate_operand (op, mode);
+}
 
 /* Darwin, AIX increases natural record alignment to doubleword if the first
    field is an FP double while the FP fields remain word aligned.  */
@@ -2657,7 +2717,18 @@ legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
       return SPE_CONST_OFFSET_OK (offset);
 
     case DFmode:
+      if (TARGET_E500_DOUBLE)
+	return SPE_CONST_OFFSET_OK (offset);
+
     case DImode:
+      /* On e500v2, we may have:
+
+      (subreg:DF (mem:DI (plus (reg) (const_int))) 0).
+
+      Which gets addressed with evldd instructions.  */
+      if (TARGET_E500_DOUBLE)
+	return SPE_CONST_OFFSET_OK (offset);
+
       /* Both DFmode and DImode may end up in gprs.  If gprs are 32-bit,
 	 then we need to load/store at both offset and offset+4.  */
       if (!TARGET_POWERPC64)
@@ -2733,6 +2804,9 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
     return false;
   if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict))
     return false;
+  /* Restrict addressing for DI because of our SUBREG hackery.  */
+  if (TARGET_E500_DOUBLE && (mode == DFmode || mode == DImode))
+    return false;
   x = XEXP (x, 1);
 
   if (TARGET_ELF || TARGET_MACHO)
@@ -2807,7 +2881,8 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	   && GET_MODE_NUNITS (mode) == 1
 	   && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	       || TARGET_POWERPC64
-	       || (mode != DFmode && mode != TFmode))
+	       || (((mode != DImode && mode != DFmode) || TARGET_E500_DOUBLE)
+		   && mode != TFmode))
 	   && (TARGET_POWERPC64 || mode != DImode)
 	   && mode != TImode)
     {
@@ -2826,8 +2901,12 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       reg = force_reg (Pmode, x);
       return reg;
     }
-  else if (SPE_VECTOR_MODE (mode))
+  else if (SPE_VECTOR_MODE (mode)
+	   || (TARGET_E500_DOUBLE && (mode == DFmode
+				      || mode == DImode)))
     {
+      if (mode == DImode)
+	return NULL_RTX;
       /* We accept [reg + reg] and [reg + OFFSET].  */
 
       if (GET_CODE (x) == PLUS)
@@ -3212,6 +3291,8 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
       && REG_MODE_OK_FOR_BASE_P (XEXP (x, 0), mode)
       && GET_CODE (XEXP (x, 1)) == CONST_INT
       && !SPE_VECTOR_MODE (mode)
+      && !(TARGET_E500_DOUBLE && (mode == DFmode
+				  || mode == DImode))
       && !ALTIVEC_VECTOR_MODE (mode))
     {
       HOST_WIDE_INT val = INTVAL (XEXP (x, 1));
@@ -3308,6 +3389,8 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
   if ((GET_CODE (x) == PRE_INC || GET_CODE (x) == PRE_DEC)
       && !ALTIVEC_VECTOR_MODE (mode)
       && !SPE_VECTOR_MODE (mode)
+      /* Restrict addressing for DI because of our SUBREG hackery.  */
+      && !(TARGET_E500_DOUBLE && (mode == DFmode || mode == DImode))
       && TARGET_UPDATE
       && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict))
     return 1;
@@ -3328,7 +3411,7 @@ rs6000_legitimate_address (enum machine_mode mode, rtx x, int reg_ok_strict)
   if (mode != TImode
       && ((TARGET_HARD_FLOAT && TARGET_FPRS)
 	  || TARGET_POWERPC64
-	  || (mode != DFmode && mode != TFmode))
+	  || ((mode != DFmode || TARGET_E500_DOUBLE) && mode != TFmode))
       && (TARGET_POWERPC64 || mode != DImode)
       && legitimate_indexed_address_p (x, reg_ok_strict))
     return 1;
@@ -4243,15 +4326,54 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 }
 
-/* Determine where to put a SIMD argument on the SPE.  */
+static rtx
+spe_build_register_parallel (enum machine_mode mode, int gregno)
+{
+  rtx r1, r3;
 
+  if (mode == DFmode)
+    {
+      r1 = gen_rtx_REG (DImode, gregno);
+      r1 = gen_rtx_EXPR_LIST (VOIDmode, r1, const0_rtx);
+      return gen_rtx_PARALLEL (mode, gen_rtvec (1, r1));
+    }
+  else if (mode == DCmode)
+    {
+      r1 = gen_rtx_REG (DImode, gregno);
+      r1 = gen_rtx_EXPR_LIST (VOIDmode, r1, const0_rtx);
+      r3 = gen_rtx_REG (DImode, gregno + 2);
+      r3 = gen_rtx_EXPR_LIST (VOIDmode, r3, GEN_INT (8));
+      return gen_rtx_PARALLEL (mode, gen_rtvec (2, r1, r3));
+    }
+  abort();
+  return NULL_RTX;
+}
+
+/* Determine where to put a SIMD argument on the SPE.  */
 static rtx
 rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, 
 			 tree type)
 {
+  int gregno = cum->sysv_gregno;
+
+  /* On E500 v2, double arithmetic is done on the full 64-bit GPR, but
+     are passed and returned in a pair of GPRs for ABI compatability.  */
+  if (TARGET_E500_DOUBLE && (mode == DFmode || mode == DCmode))
+    {
+      int n_words = rs6000_arg_size (mode, type);
+
+      /* Doubles go in an odd/even register pair (r5/r6, etc).  */
+      if (mode == DFmode)
+	gregno += (1 - gregno) & 1;
+
+      /* Multi-reg args are not split between registers and stack.  */
+      if (gregno + n_words - 1 > GP_ARG_MAX_REG)
+	return NULL_RTX;
+
+      return spe_build_register_parallel (mode, gregno);
+    }
   if (cum->stdarg)
     {
-      int gregno = cum->sysv_gregno;
       int n_words = rs6000_arg_size (mode, type);
 
       /* SPE vectors are put in odd registers.  */
@@ -4274,8 +4396,8 @@ rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
   else
     {
-      if (cum->sysv_gregno <= GP_ARG_MAX_REG)
-	return gen_rtx_REG (mode, cum->sysv_gregno);
+      if (gregno <= GP_ARG_MAX_REG)
+	return gen_rtx_REG (mode, gregno);
       else
 	return NULL_RTX;
     }
@@ -4454,7 +4576,10 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	  return gen_rtx_REG (part_mode, GP_ARG_MIN_REG + align_words);
 	}
     }
-  else if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode))
+  else if (TARGET_SPE_ABI && TARGET_SPE
+	   && (SPE_VECTOR_MODE (mode)
+	       || (TARGET_E500_DOUBLE && (mode == DFmode
+					  || mode == DCmode))))
     return rs6000_spe_function_arg (cum, mode, type);
   else if (abi == ABI_V4)
     {
@@ -9087,8 +9212,7 @@ print_operand (FILE *file, rtx x, int code)
       /* Bit 1 is EQ bit.  */
       i = 4 * (REGNO (x) - CR0_REGNO) + 2;
 
-      /* If we want bit 31, write a shift count of zero, not 32.  */
-      fprintf (file, "%d", i == 31 ? 0 : i + 1);
+      fprintf (file, "%d", i);
       return;
 
     case 'E':
@@ -9875,33 +9999,61 @@ rs6000_generate_compare (enum rtx_code code)
   if ((TARGET_E500 && !TARGET_FPRS && TARGET_HARD_FLOAT)
       && rs6000_compare_fp_p)
     {
-      rtx cmp, or1, or2, or_result, compare_result2;
+      rtx cmp, or_result, compare_result2;
+      enum machine_mode op_mode = GET_MODE (rs6000_compare_op0);
+
+      if (op_mode == VOIDmode)
+	op_mode = GET_MODE (rs6000_compare_op1);
 
       /* Note: The E500 comparison instructions set the GT bit (x +
         1), on success.  This explains the mess.  */
 
       switch (code)
-	{
-       case EQ: case UNEQ: case NE: case LTGT:
-	  cmp = flag_finite_math_only
-	    ? gen_tstsfeq_gpr (compare_result, rs6000_compare_op0,
-			       rs6000_compare_op1)
-	    : gen_cmpsfeq_gpr (compare_result, rs6000_compare_op0,
-			       rs6000_compare_op1);
+        {
+        case EQ: case UNEQ: case NE: case LTGT:
+	  if (op_mode == SFmode)
+	    cmp = flag_unsafe_math_optimizations
+	      ? gen_tstsfeq_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1)
+	      : gen_cmpsfeq_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1);
+	  else if (op_mode == DFmode)
+	    cmp = flag_unsafe_math_optimizations
+	      ? gen_tstdfeq_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1)
+	      : gen_cmpdfeq_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1);
+	  else abort ();
 	  break;
-       case GT: case GTU: case UNGT: case UNGE: case GE: case GEU:
-	  cmp = flag_finite_math_only
-	    ? gen_tstsfgt_gpr (compare_result, rs6000_compare_op0,
-			       rs6000_compare_op1)
-	    : gen_cmpsfgt_gpr (compare_result, rs6000_compare_op0,
-			       rs6000_compare_op1);
+	case GT: case GTU: case UNGT: case UNGE: case GE: case GEU:
+	  if (op_mode == SFmode)
+	    cmp = flag_unsafe_math_optimizations
+	      ? gen_tstsfgt_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1)
+	      : gen_cmpsfgt_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1);
+	  else if (op_mode == DFmode)
+	    cmp = flag_unsafe_math_optimizations
+	      ? gen_tstdfgt_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1)
+	      : gen_cmpdfgt_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1);
+	  else abort ();
 	  break;
-       case LT: case LTU: case UNLT: case UNLE: case LE: case LEU:
-	  cmp = flag_finite_math_only
-	    ? gen_tstsflt_gpr (compare_result, rs6000_compare_op0,
-			       rs6000_compare_op1)
-	    : gen_cmpsflt_gpr (compare_result, rs6000_compare_op0,
-			       rs6000_compare_op1);
+	case LT: case LTU: case UNLT: case UNLE: case LE: case LEU:
+	  if (op_mode == SFmode)
+	    cmp = flag_unsafe_math_optimizations
+	      ? gen_tstsflt_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1)
+	      : gen_cmpsflt_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1);
+	  else if (op_mode == DFmode)
+	    cmp = flag_unsafe_math_optimizations
+	      ? gen_tstdflt_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1)
+	      : gen_cmpdflt_gpr (compare_result, rs6000_compare_op0,
+				 rs6000_compare_op1);
+	  else abort ();
 	  break;
 	default:
 	  abort ();
@@ -9921,27 +10073,28 @@ rs6000_generate_compare (enum rtx_code code)
 	    default: abort ();
 	    }
 
-	  or1 = gen_reg_rtx (SImode);
-	  or2 = gen_reg_rtx (SImode);
-	  or_result = gen_reg_rtx (CCEQmode);
 	  compare_result2 = gen_reg_rtx (CCFPmode);
 
 	  /* Do the EQ.  */
-	  cmp = flag_finite_math_only
-	    ? gen_tstsfeq_gpr (compare_result2, rs6000_compare_op0,
-			       rs6000_compare_op1)
-	    : gen_cmpsfeq_gpr (compare_result2, rs6000_compare_op0,
-			       rs6000_compare_op1);
+	  if (op_mode == SFmode)
+	    cmp = flag_unsafe_math_optimizations
+	      ? gen_tstsfeq_gpr (compare_result2, rs6000_compare_op0,
+				 rs6000_compare_op1)
+	      : gen_cmpsfeq_gpr (compare_result2, rs6000_compare_op0,
+				 rs6000_compare_op1);
+	  else if (op_mode == DFmode)
+	    cmp = flag_unsafe_math_optimizations
+	      ? gen_tstdfeq_gpr (compare_result2, rs6000_compare_op0,
+				 rs6000_compare_op1)
+	      : gen_cmpdfeq_gpr (compare_result2, rs6000_compare_op0,
+				 rs6000_compare_op1);
+	  else abort ();
 	  emit_insn (cmp);
 
-	  or1 = gen_rtx_GT (SImode, compare_result, const0_rtx);
-	  or2 = gen_rtx_GT (SImode, compare_result2, const0_rtx);
-
 	  /* OR them together.  */
-	  cmp = gen_rtx_SET (VOIDmode, or_result,
-			     gen_rtx_COMPARE (CCEQmode,
-					      gen_rtx_IOR (SImode, or1, or2),
-					      const_true_rtx));
+	  or_result = gen_reg_rtx (CCFPmode);
+	  cmp = gen_e500_cr_ior_compare (or_result, compare_result,
+					   compare_result2);
 	  compare_result = or_result;
 	  code = EQ;
 	}
@@ -9986,9 +10139,9 @@ rs6000_generate_compare (enum rtx_code code)
     }
   
   /* Some kinds of FP comparisons need an OR operation;
-     under flag_finite_math_only we don't bother.  */
+     under flag_unsafe_math_optimizations we don't bother.  */
   if (rs6000_compare_fp_p
-      && ! flag_finite_math_only
+      && ! flag_unsafe_math_optimizations
       && ! (TARGET_HARD_FLOAT && TARGET_E500 && !TARGET_FPRS)
       && (code == LE || code == GE
 	  || code == UNEQ || code == LTGT
@@ -10051,9 +10204,9 @@ rs6000_emit_sCOND (enum rtx_code code, rtx result)
        abort ();
 
       if (cond_code == NE)
-       emit_insn (gen_e500_flip_eq_bit (t, t));
+       emit_insn (gen_e500_flip_gt_bit (t, t));
 
-      emit_insn (gen_move_from_CR_eq_bit (result, t));
+      emit_insn (gen_move_from_CR_gt_bit (result, t));
       return;
     }
 
@@ -10234,9 +10387,9 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
   return string;
 }
 
-/* Return the string to flip the EQ bit on a CR.  */
+/* Return the string to flip the GT bit on a CR.  */
 char *
-output_e500_flip_eq_bit (rtx dst, rtx src)
+output_e500_flip_gt_bit (rtx dst, rtx src)
 {
   static char string[64];
   int a, b;
@@ -10245,9 +10398,9 @@ output_e500_flip_eq_bit (rtx dst, rtx src)
       || GET_CODE (src) != REG || ! CR_REGNO_P (REGNO (src)))
     abort ();
 
-  /* EQ bit.  */
-  a = 4 * (REGNO (dst) - CR0_REGNO) + 2;
-  b = 4 * (REGNO (src) - CR0_REGNO) + 2;
+  /* GT bit.  */
+  a = 4 * (REGNO (dst) - CR0_REGNO) + 1;
+  b = 4 * (REGNO (src) - CR0_REGNO) + 1;
 
   sprintf (string, "crnot %d,%d", a, b);
   return string;
@@ -10859,10 +11012,9 @@ rs6000_stack_info (void)
     {
       /* Cache value so we don't rescan instruction chain over and over.  */
       if (cfun->machine->insn_chain_scanned_p == 0)
-	{
-	  cfun->machine->insn_chain_scanned_p = 1;
-	  info_ptr->spe_64bit_regs_used = (int) spe_func_has_64bit_regs_p ();
-	}
+	cfun->machine->insn_chain_scanned_p
+	  = spe_func_has_64bit_regs_p () + 1;
+      info_ptr->spe_64bit_regs_used = cfun->machine->insn_chain_scanned_p - 1;
     }
 
   /* Select which calling sequence.  */
@@ -11169,10 +11321,23 @@ spe_func_has_64bit_regs_p (void)
 	{
 	  rtx i;
 
+	  /* FIXME: This should be implemented with attributes...
+
+	         (set_attr "spe64" "true")....then,
+	         if (get_spe64(insn)) return true;
+
+	     It's the only reliable way to do the stuff below.  */
+
 	  i = PATTERN (insn);
-	  if (GET_CODE (i) == SET
-	      && SPE_VECTOR_MODE (GET_MODE (SET_SRC (i))))
-	    return true;
+	  if (GET_CODE (i) == SET)
+	    {
+	      enum machine_mode mode = GET_MODE (SET_SRC (i));
+
+	      if (SPE_VECTOR_MODE (mode))
+		return true;
+	      if (TARGET_E500_DOUBLE && mode == DFmode)
+		return true;
+	    }
 	}
     }
 
@@ -11983,6 +12148,7 @@ emit_frame_save (rtx frame_reg, rtx frame_ptr, enum machine_mode mode,
 
   /* Some cases that need register indexed addressing.  */
   if ((TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
+      || (TARGET_E500_DOUBLE && mode == DFmode)
       || (TARGET_SPE_ABI
 	  && SPE_VECTOR_MODE (mode)
 	  && !SPE_CONST_OFFSET_OK (offset)))
@@ -12022,7 +12188,8 @@ gen_frame_mem_offset (enum machine_mode mode, rtx reg, int offset)
 
   int_rtx = GEN_INT (offset);
 
-  if (TARGET_SPE_ABI && SPE_VECTOR_MODE (mode))
+  if ((TARGET_SPE_ABI && SPE_VECTOR_MODE (mode))
+      || (TARGET_E500_DOUBLE && mode == DFmode))
     {
       offset_rtx = gen_rtx_REG (Pmode, FIXED_SCRATCH);
       emit_move_insn (offset_rtx, int_rtx);
@@ -16331,6 +16498,9 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   else if (TREE_CODE (valtype) == VECTOR_TYPE
 	   && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI)
     regno = ALTIVEC_ARG_RETURN;
+  else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
+	   && (mode == DFmode || mode == DCmode))
+    return spe_build_register_parallel (mode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;
 
@@ -16352,6 +16522,9 @@ rs6000_libcall_value (enum machine_mode mode)
     regno = ALTIVEC_ARG_RETURN;
   else if (COMPLEX_MODE_P (mode) && targetm.calls.split_complex_arg)
     return rs6000_complex_function_value (mode);
+  else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
+	   && (mode == DFmode || mode == DCmode))
+    return spe_build_register_parallel (mode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;
 
@@ -16396,7 +16569,11 @@ rs6000_dwarf_register_span (rtx reg)
 {
   unsigned regno;
 
-  if (!TARGET_SPE || !SPE_VECTOR_MODE (GET_MODE (reg)))
+  if (TARGET_SPE
+      && (SPE_VECTOR_MODE (GET_MODE (reg))
+	  || (TARGET_E500_DOUBLE && GET_MODE (reg) == DFmode)))
+    ;
+  else
     return NULL_RTX;
 
   regno = REGNO (reg);

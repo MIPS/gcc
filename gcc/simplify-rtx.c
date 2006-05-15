@@ -355,7 +355,7 @@ simplify_replace_rtx (rtx x, rtx old, rtx new)
 	}
       else if (code == REG)
 	{
-	  if (REG_P (old) && REGNO (x) == REGNO (old))
+	  if (rtx_equal_p (x, old))
 	    return new;
 	}
       break;
@@ -2906,7 +2906,7 @@ simplify_ternary_operation (enum rtx_code code, enum machine_mode mode,
 		  != ((HOST_WIDE_INT) (-1) << (width - 1))))
 	    val &= ((HOST_WIDE_INT) 1 << width) - 1;
 
-	  return GEN_INT (val);
+	  return gen_int_mode (val, mode);
 	}
       break;
 
@@ -3382,13 +3382,15 @@ simplify_subreg (enum machine_mode outermode, rtx op,
 	    return NULL_RTX;
 	}
 
-      /* Recurse for further possible simplifications.  */
-      new = simplify_subreg (outermode, SUBREG_REG (op),
-			     GET_MODE (SUBREG_REG (op)),
-			     final_offset);
+        /* Recurse for further possible simplifications.  */
+      new = simplify_subreg (outermode, SUBREG_REG (op), innermostmode,
+                             final_offset);
       if (new)
 	return new;
-      return gen_rtx_SUBREG (outermode, SUBREG_REG (op), final_offset);
+      if (validate_subreg (outermode, innermostmode,
+			   SUBREG_REG (op), final_offset))
+	return gen_rtx_SUBREG (outermode, SUBREG_REG (op), final_offset);
+      return NULL_RTX;
     }
 
   /* SUBREG of a hard register => just change the register number
@@ -3418,14 +3420,15 @@ simplify_subreg (enum machine_mode outermode, rtx op,
       && subreg_offset_representable_p (REGNO (op), innermode,
 					byte, outermode))
     {
-      rtx tem = gen_rtx_SUBREG (outermode, op, byte);
-      int final_regno = subreg_hard_regno (tem, 0);
+      unsigned int regno = REGNO (op);
+      unsigned int final_regno
+	= regno + subreg_regno_offset (regno, innermode, byte, outermode);
 
       /* ??? We do allow it if the current REG is not valid for
 	 its mode.  This is a kludge to work around how float/complex
 	 arguments are passed on 32-bit SPARC and should be fixed.  */
       if (HARD_REGNO_MODE_OK (final_regno, outermode)
-	  || ! HARD_REGNO_MODE_OK (REGNO (op), innermode))
+	  || ! HARD_REGNO_MODE_OK (regno, innermode))
 	{
 	  rtx x = gen_rtx_REG_offset (op, outermode, final_regno, byte);
 
@@ -3467,8 +3470,9 @@ simplify_subreg (enum machine_mode outermode, rtx op,
       res = simplify_subreg (outermode, part, GET_MODE (part), final_offset);
       if (res)
 	return res;
-      /* We can at least simplify it by referring directly to the relevant part.  */
-      return gen_rtx_SUBREG (outermode, part, final_offset);
+      if (validate_subreg (outermode, GET_MODE (part), part, final_offset))
+	return gen_rtx_SUBREG (outermode, part, final_offset);
+      return NULL_RTX;
     }
 
   return NULL_RTX;
@@ -3481,18 +3485,6 @@ simplify_gen_subreg (enum machine_mode outermode, rtx op,
 		     enum machine_mode innermode, unsigned int byte)
 {
   rtx new;
-  /* Little bit of sanity checking.  */
-  if (innermode == VOIDmode || outermode == VOIDmode
-      || innermode == BLKmode || outermode == BLKmode)
-    abort ();
-
-  if (GET_MODE (op) != innermode
-      && GET_MODE (op) != VOIDmode)
-    abort ();
-
-  if (byte % GET_MODE_SIZE (outermode)
-      || byte >= GET_MODE_SIZE (innermode))
-    abort ();
 
   if (GET_CODE (op) == QUEUED)
     return NULL_RTX;
@@ -3504,8 +3496,12 @@ simplify_gen_subreg (enum machine_mode outermode, rtx op,
   if (GET_CODE (op) == SUBREG || GET_MODE (op) == VOIDmode)
     return NULL_RTX;
 
-  return gen_rtx_SUBREG (outermode, op, byte);
+  if (validate_subreg (outermode, innermode, op, byte))
+    return gen_rtx_SUBREG (outermode, op, byte);
+
+  return NULL_RTX;
 }
+
 /* Simplify X, an rtx expression.
 
    Return the simplified expression or NULL if no simplifications

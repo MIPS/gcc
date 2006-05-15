@@ -24,6 +24,7 @@ load_lib target-supports.exp
 if { ![check_profiling_available "-fprofile-arcs"] } { 
     return
 }
+if { [ istarget "powerpc-*-*spe"] } { return }
 
 # The procedures in profopt.exp need these parameters.
 set tool gcc
