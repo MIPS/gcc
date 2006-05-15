@@ -1,3 +1,25 @@
+2006-05-15  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27582
+	* g++.dg/template/dependent-args1.C: New test.
+
+	PR c++/27581
+	* g++.dg/lookup/this1.C: New test.
+
+	PR c++/27315
+	* g++.dg/template/operator6.C: New test.
+	* g++.dg/template/incomplete3.C: New test.
+
+2006-05-13  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/26729
+	* gcc.dg/pr26729-1.c: New test case.
+
+2005-05-13  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR rtl-optimization/27335
+	* gcc.dg/pr27335.c: New test.
+
 2006-05-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR fortran/24549

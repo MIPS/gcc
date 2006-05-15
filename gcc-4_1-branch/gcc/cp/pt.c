@@ -11239,7 +11239,7 @@ do_decl_instantiation (tree decl, tree storage)
   tree result = NULL_TREE;
   int extern_p = 0;
 
-  if (!decl)
+  if (!decl || decl == error_mark_node)
     /* An error occurred, for which grokdeclarator has already issued
        an appropriate message.  */
     return;
@@ -12779,6 +12779,8 @@ any_dependent_template_arguments_p (tree args)
 
   if (!args)
     return false;
+  if (args == error_mark_node)
+    return true;
 
   for (i = 0; i < TMPL_ARGS_DEPTH (args); ++i)
     {
