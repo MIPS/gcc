@@ -1,3 +1,9 @@
+2006-05-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/27446
+	* trans-openmp.c (gfc_trans_omp_array_reduction): Ensure
+	OMP_CLAUSE_REDUCTION_{INIT,MERGE} are set to BIND_EXPR.
+
 2006-05-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
 
 	PR fortran/24549
