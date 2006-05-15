@@ -44,7 +44,8 @@ _Jv_sharedlib_register_hook (jclass cls)
 {
   cls->protectionDomain = curHelper->domain;
   cls->loader = curLoader;
-  cls->engine = &_Jv_soleCompiledEngine;
+  if (! cls->engine)
+    cls->engine = &_Jv_soleCompiledEngine;
   curHelper->registerClass(cls->getName(), cls);
 }
 

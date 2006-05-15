@@ -1,3 +1,59 @@
+2006-05-11  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/27553
+	* parse.c (next_free): Return instead of calling decode_statement
+	upon error.
+
+2005-05-10  Thomas Koenig  <Thomas.Koenig@online.de>
+
+	PR fortran/27470
+	* trans-array.c(gfc_array_allocate):  If ref->next exists
+	that is if there is a statement like ALLOCATE(foo%bar(2)),
+	F95 rules require that bar should be a pointer.
+
+2006-05-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/20460
+	* resolve.c (gfc_resolve_index): Make REAL array indices a
+	GFC_STD_LEGACY feature.
+
+2006-05-10  Francois-Xavier Coudert  <coudert@clipper.ens.fr>
+
+	PR fortran/24549
+	* parse.c (reject_statement): Clear gfc_new_block.
+
+2006-05-09  Steven G. Kargl  <kargls@comcast.net>
+
+	* invoke.texi: Missed file in previous commit.  Update
+	 description of -fall-intrinsics
+
+2006-05-07  Steven Boscher  <steven@gcc.gnu.org>
+
+	PR fortran/27378
+	* parse.c (next_statement): Add check to avoid an ICE when
+	gfc_current_locus.lb is not set.
+
+2006-05-07  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/27457
+	* match.c (match_case_eos): Error out on garbage following
+	CASE(...).
+
+2006-05-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/24813
+	* trans-array.c (get_array_ctor_strlen): Remove static attribute.
+	* trans.h: Add prototype for get_array_ctor_strlen.
+	* trans-intrinsic.c (gfc_conv_intrinsic_len): Switch on EXPR_ARRAY
+	and call get_array_ctor_strlen.
+
+2006-05-05  Steven G. Kargl  <kargls@comcast.net>
+
+	* invoke.texi: Update description of -fall-intrinsics
+	* options.c (gfc_post_options): Disable -Wnonstd-intrinsics if
+	-fall-intrinsics is used.
+	(gfc_handle_option): Permit -Wno-nonstd-intrinsics.
+
 2006-05-04  Tobias SchlÅ¸ter  <tobias.schlueter@physik.uni-muenchen.de>
 
 	* simplify.c (ascii_table): Fix wrong entry.

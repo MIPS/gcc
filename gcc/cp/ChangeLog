@@ -1,3 +1,43 @@
+2006-05-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* pt.c (build_non_dependent_expr): Leave ADDR_EXPR of
+	COMPONENT_REF alone.
+
+2006-05-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27547
+	* decl.c (copy_fn_p): Return early on non-member functions.
+
+2006-05-08  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27447
+	* decl2.c (build_memfn_type): Skip invalid functions and class types.
+
+2006-05-06  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/27427
+	* pt.c (convert_nontype_argument): Return early on invalid arguments.
+
+	* pt.c (process_template_parm): Remove superfluous temporary.
+
+	PR c++/27430
+	* pt.c (process_template_parm): Handle erroneous non-type parameters.
+
+	PR c++/27423
+	* typeck.c (convert_for_initialization): Skip erroneous types.
+
+	PR c++/27422
+	* typeck.c (convert_arguments): Return early on args with
+	invalid types.
+
+2006-05-03  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR/21391
+	* typeck.c (build_static_cast_1): Save casted types in used types
+	hash table.
+	(build_reinterpret_cast_1): Same.
+	* rtti.c (build_dynamic_cast_1): Same.
+
 2006-05-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/27359

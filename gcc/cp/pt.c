@@ -2312,19 +2312,17 @@ reduce_template_parm_level (tree index, tree type, int levels)
   return TEMPLATE_PARM_DESCENDANTS (index);
 }
 
-/* Process information from new template parameter NEXT and append it to the
+/* Process information from new template parameter PARM and append it to the
    LIST being built.  This new parameter is a non-type parameter iff
    IS_NON_TYPE is true.  */
 
 tree
-process_template_parm (tree list, tree next, bool is_non_type)
+process_template_parm (tree list, tree parm, bool is_non_type)
 {
-  tree parm;
   tree decl = 0;
   tree defval;
   int idx;
 
-  parm = next;
   gcc_assert (TREE_CODE (parm) == TREE_LIST);
   defval = TREE_PURPOSE (parm);
 
@@ -2347,18 +2345,23 @@ process_template_parm (tree list, tree next, bool is_non_type)
 
       SET_DECL_TEMPLATE_PARM_P (parm);
 
-      /* [temp.param]
+      if (TREE_TYPE (parm) == error_mark_node)
+	TREE_TYPE (parm) = void_type_node;
+      else
+      {
+	/* [temp.param]
 
-	 The top-level cv-qualifiers on the template-parameter are
-	 ignored when determining its type.  */
-      TREE_TYPE (parm) = TYPE_MAIN_VARIANT (TREE_TYPE (parm));
+	   The top-level cv-qualifiers on the template-parameter are
+	   ignored when determining its type.  */
+	TREE_TYPE (parm) = TYPE_MAIN_VARIANT (TREE_TYPE (parm));
+	if (invalid_nontype_parm_type_p (TREE_TYPE (parm), 1))
+	  TREE_TYPE (parm) = void_type_node;
+      }
 
       /* A template parameter is not modifiable.  */
       TREE_CONSTANT (parm) = 1;
       TREE_INVARIANT (parm) = 1;
       TREE_READONLY (parm) = 1;
-      if (invalid_nontype_parm_type_p (TREE_TYPE (parm), 1))
-	TREE_TYPE (parm) = void_type_node;
       decl = build_decl (CONST_DECL, DECL_NAME (parm), TREE_TYPE (parm));
       TREE_CONSTANT (decl) = 1;
       TREE_INVARIANT (decl) = 1;
@@ -3454,6 +3457,8 @@ convert_nontype_argument (tree type, tree expr)
      instantiated -- but here we need the resolved form so that we can
      convert the argument.  */
   expr = fold_non_dependent_expr (expr);
+  if (error_operand_p (expr))
+    return error_mark_node;
   expr_type = TREE_TYPE (expr);
 
   /* HACK: Due to double coercion, we can get a
@@ -12898,10 +12903,11 @@ build_non_dependent_expr (tree expr)
     return expr;
   /* Preserve OVERLOADs; the functions must be available to resolve
      types.  */
-  inner_expr = (TREE_CODE (expr) == ADDR_EXPR ?
-		TREE_OPERAND (expr, 0) :
-		TREE_CODE (expr) == COMPONENT_REF ?
-		TREE_OPERAND (expr, 1) : expr);
+  inner_expr = expr;
+  if (TREE_CODE (inner_expr) == ADDR_EXPR)
+    inner_expr = TREE_OPERAND (inner_expr, 0);
+  if (TREE_CODE (inner_expr) == COMPONENT_REF)
+    inner_expr = TREE_OPERAND (inner_expr, 1);
   if (is_overloaded_fn (inner_expr)
       || TREE_CODE (inner_expr) == OFFSET_REF)
     return expr;

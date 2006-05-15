@@ -1,3 +1,268 @@
+2006-05-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/27538
+	* combine.c (expand_compound_operation): Call gen_lowpart
+	before calling simplify_shift_const.
+
+2006-05-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/22563
+	* expmed.c (store_fixed_bit_field): When using AND and IOR to store
+	a fixed width bitfield, always force the intermediates into psuedos.
+
+2006-05-14  Bernhard Fischer  <aldot@gcc.gnu.org>
+
+	PR 27501
+	* mkconfig.sh: Use operator = instead of == for test.
+
+2006-05-13  Nick Clifton  <nickc@redhat.com>
+
+	* dwarf2out.c (dbx_reg_number): Check return value from
+	LEAF_REG_REMAP and only use it if it is valid.
+	(multiple_reg_loc_descriptor): Likewise.
+
+2006-05-13  Richard Guenther  <rguenther@suse.de>
+
+	* config.host <i[34567]86-*-cygwin*>: Append i386/x-cygwin to
+	host_xmake_file.
+
+2006-05-13  Steven Bosscher  <stevenb.gcc@gmail.com>
+
+	* df-core.c (df_bb_regno_last_use_find): Do not look for dataflow
+	information attached to non-INSNs such as NOTEs.
+	(df_bb_regno_first_def_find, df_bb_regno_last_def_find): Likewise.
+
+2006-05-12  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.c (s390_const_ok_for_constraint_p): Disallow -4G for
+	On contraint.
+	* config/s390/s390.md: Adjust comment describing On constraint.
+
+2006-05-11  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (decide_is_function_needed): Don't force always_inline
+	to be output at -O0.
+
+2006-05-11  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR middle-end/27384
+	* fold-const.c (size_binop): Move sanity check for arguments to
+	the beginning of the function.
+
+	PR middle-end/27488
+	* fold-const.c (tree_expr_nonnegative_p): Return early on invalid
+	expression.
+
+2006-05-11  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27529
+	* fold-const.c (fold_unary): Handle intermediate conversion
+	to a pointer type like intermediate conversion to an integer
+	type in folding of (T1)(T2)var to var.
+	Match the code to the comment in the final conversion for
+	(T1)(T2)var to (T1)var regarding to type precision.  Rather
+	than disallow T1 being of pointer type, assert that both T1
+	and var are of pointer type or not.  Make sure not to fall
+	over the frontends lazyness wrt array to pointer decay though.
+
+2006-05-10  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (arm_struct_value_rtx): Delete.
+	(TARGET_STRUCT_VALUE_RTX): Use the default definition.
+	(arm_init_cumulative_args): Always initialize nregs to zero.
+
+2006-05-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27532
+	* tree-object-size.c (plus_expr_object_size): Fix typo.
+
+2006-05-10  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR target/24949
+	* config/m68k/m68k.md (ashrdi_const32, ashrdi_const32_mem,
+	ashrdi_const, ashrdi3): Use a scratch register.
+
+2006-05-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27302
+	* fold-const.c (operand_equal_p): For two comparisons,
+	try comparison of one comparison code swapped if that yields
+	the same code.
+
+2006-05-10  Ben Elliston  <bje@au.ibm.com>
+
+	* tree-pretty-print.c (pretty_print_string): No need to handle
+	'\0' as a special character.
+
+	* tree.h: Include "hashtab.h".
+	(iterative_hash_expr): Use hashval_t in its prototype.
+	* Makefile.in (TREE_H): Add $(HASHTAB_H).
+
+2006-05-09  Steve Ellcey  <sje@cup.hp.com>
+
+	PR bootstrap/26872
+	* config.gcc (hppa[12]*-*-hpux10*): Set gas to yes.
+	(hppa*64*-*-hpux11*): Ditto.
+	(hppa[12]*-*-hpux11*): Ditto.
+
+2006-05-09  David Edelsohn  <edelsohn@gnu.org>
+
+	PR target/26545
+	* config/rs6000/aix41.h (TARGET_64BIT): Define.
+
+2006-05-09  Michael Matz  <matz@suse.de>
+
+	* config.host (<i[34567]86-*-*, x86_64-*-*>): Set
+	host_extra_gcc_objs and host_xmake_file.
+	(<*-*-linux*>): Don't overwrite host_xmake_file.
+	* gcc.c (static_spec_functions): Add EXTRA_SPEC_FUNCTIONS.
+	* config/i386/i386.h (EXTRA_SPEC_FUNCTIONS): Define.
+	(host_detect_local_cpu): Declare.
+	(CC1_CPU_SPEC): Add -march=native and -mtune=native cases.
+	* config/i386/i386.c (override_options): Handle -mtune=native
+	as -mtune=generic.
+	* config/i386/x-i386: New file.
+	* config/i386/driver-i386.c: New file.
+	* doc/invoke.texi (<i386 and x86-64 Options>): Describe
+	cpu-type "native".
+
+2006-05-09  Dirk Mueller  <dmueller@suse.de>
+	Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/27498
+	* fold-const.c (fold_read_from_constant_string): Relax check
+	for matching types to matching modes.
+
+2006-05-09  Zdenek Dvorak <dvorakz@suse.cz>
+
+	PR rtl-optimization/27335
+	* loop-unroll.c (peel_loops_completely): Use loops->parray to walk the
+	loops.
+
+2006-05-08  Chao-ying Fu  <fu@mips.com>
+	    Richard Sandiford  <richard@codesourcery.com>
+
+	* config/mips/mips-ps-3d.md (scc_ps, s<code>_ps): New patterns.
+	(vcondv2sf, sminv2sf3, smaxv2sf3): Likewise.
+	* config/mips/mips.md (UNSPEC_SCC): New constant.
+	* config/mips/mips-protos.h (mips_expand_vcondv2sf): Declare.
+	* config/mips/mips.c (mips_reverse_fp_cond_p): New function.
+	(mips_emit_compare): Use it.
+	(mips_expand_vcondv2sf): New function.
+
+2006-05-08  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR tree-optimization/27093
+	* tree-ssa-alias.c (recalculate_used_alone): Mark variables for 
+	renaming when they become not-used_alone.
+
+2006-05-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* hpux-unwind.h (pa_fallback_frame_state): Handle return parameter
+	relocation and relocation stubs.
+
+2006-05-08  Eric Christopher  <echristo@apple.com>
+
+	* unwind-dw2-fde-darwin.c (examine_objects): Only check data
+	section for ppc.
+
+2006-05-08  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/25962
+	* cgraphunit.c (decide_is_function_needed): When not optimizing even
+	unused static functions are needed.
+
+2006-05-08  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/27158
+	* reload.c (find_reloads_toplev): Only return the simplified SUBREG
+	of a reg_equiv_constant if the result is a legitimate constant.
+
+2006-05-08  Uros Bizjak  <uros@kss-loka.si>
+
+	PR target/27277
+	* config/i386/i386.c (ix86_rtx_costs) [FLOAT_EXTEND]: For
+	standard 80387 constants, raise the cost to prevent
+	compress_float_constant() to generate load from memory.
+
+2006-05-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	* config/arm/constraints.md (c): Fix a typo.
+
+	* see.c, tree-flow-inline.h, tree-phinodes.c: Fix comment
+	typos.
+
+2006-05-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/24879
+	* config/i386/pmmintrin.h (_mm_monitor): Remove macro. Use
+	inline function.
+	(_mm_mwait): Likewise.
+
+	* config/i386/sse.md (sse3_mwait): Replace "mwait\t%0, %1" with
+	"mwait".
+	(sse3_monitor): Make it 32bit only.
+	(sse3_monitor64): New. 64bit monitor.
+
+2006-05-07  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR target/27421
+	* config/i386/i386.c (classify_argument): Skip fields with invalid
+	types.
+
+2006-05-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27409
+	* tree-ssa-structalias.c (get_constraint_for_component_ref):
+	Do not try to find zero-sized subvars.
+
+2006-05-07  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27136
+	* tree-ssa-loop-niter.c (get_val_for): Correct function
+	comment, assert requirements.
+	(loop_niter_by_eval): Stop processing if the iterated
+	value did not simplify.
+
+2006-05-07  Mircea Namolaru  <namolaru@il.ibm.com>
+
+        * opts.c (flag_see): remove its setting at -O3.
+
+2006-05-07  Richard Earnshaw  <rearnsha@arm.com>
+
+	* genpeep.c (main): Make insn-peep.c depend on flags.h.
+	* arm/constraints.md: New file.
+	* arm.h (REG_CLASS_FROM_LETTER_P): Delete.
+	(CONST_OK_FOR_ARM_LETTER, CONST_OK_FOR_THUMB_LETTER)
+	(CONST_OK_FOR_LETTER_P, CONST_DOUBLE_OK_FOR_ARM_LETTER)
+	(CONST_DOUBLE_OK_FOR_LETTER_P, EXTRA_CONSTRAINT_STR_ARM)
+	(CONSTRAINT_LEN, EXTRA_CONSTRAINT_THUMB, EXTRA_CONSTRAINT_STR)
+	(EXTRA_MEMORY_CONSTRAINT): Likewise.
+	* arm.md: Include constraints.md.
+	(thumb_movsi_insn): Use satisfies_constraint_J.
+	(movhi, movqi): Use satisfies_constraint_I.
+
+2006-04-29 Anatoly Sokolov <aesok@post.ru>
+
+        * config/avr/avr.h (CRT_BINUTILS_SPECS): Fixed crt* file name
+	for atmeg a645 device.
+
+2006-05-06   Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27151
+	* tree-vect-transform.c (vectorizable_condition): Punt on
+	values that have a different type than the condition.
+
+2006-05-03  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR/21391
+	* c-parser.c (c_parser_cast_expression): Only insert casts into
+	hash table if pointer.
+	* function.c (used_types_insert_helper): Rename from
+	used_types_insert.
+	(used_types_insert): Call used_types_insert_helper.
+	* function.h (used_types_insert): Accept only one argument.
+
 2006-05-05  David Edelsohn  <edesohn@gnu.org>
 
 	* config/rs6000/rs6000.md: Mark all "X" constraints for clobbered
@@ -113,9 +378,9 @@
 2006-05-02  Andrew MacLeod  <amacleod@redhat.com>
 
 	PR tree-optimization/27381
-	* tree-phinodes.c (remove_phi_arg_num): When moving a phi argument, 
+	* tree-phinodes.c (remove_phi_arg_num): When moving a phi argument,
 	maintain the same immediate_use links.
-	* tree-ssa-operands.c (dump_immediate_uses_for): Show iteration marker 
+	* tree-ssa-operands.c (dump_immediate_uses_for): Show iteration marker
 	node rather than segfaulting.
 
 2006-05-03  Jakub Jelinek  <jakub@redhat.com>
@@ -169,7 +434,8 @@
 	* arm.c (arm_output_mi_thunk): Use pc-relative addressing when
 	-mthumb -fPIC are used.
 
-2006-05-02  Joshua Kinard  <kumba@gentoo.org>
+2006-05-02  Stanislaw Skowronek  <skylark@linux-mips.org>
+	    Joshua Kinard  <kumba@gentoo.org>
 
 	PR target/25871
 	* gcc/config/mips/mips.h (TRAMPOLINE_TEMPLATE): Avoid 32-bit moves
@@ -186,7 +452,7 @@
 2006-05-02  David Billinghurst <David.Billinghurst@riotinto.com>
 
 	PR ada/27366
-	* ada/env.c (__gnat_clearenv): Use unsetenv() to clear environment 
+	* ada/env.c (__gnat_clearenv): Use unsetenv() to clear environment
 	on Cygwin.
 
 2006-05-02  Jakub Jelinek  <jakub@redhat.com>
@@ -450,7 +716,6 @@
 
 	* basic-block.h (safe_insert_insn_on_edge): Removed.
 	* cfgrtl.c (mark_killed_regs, safe_insert_insn_on_edge): Removed.
-
 
 2006-04-26  David Edelsohn  <edelsohn@gnu.org>
 	    Paolo Bonzini  <bonzini@gnu.org>

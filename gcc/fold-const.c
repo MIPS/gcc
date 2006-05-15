@@ -1732,6 +1732,9 @@ size_binop (enum tree_code code, tree arg0, tree arg1)
 {
   tree type = TREE_TYPE (arg0);
 
+  if (arg0 == error_mark_node || arg1 == error_mark_node)
+    return error_mark_node;
+
   gcc_assert (TREE_CODE (type) == INTEGER_TYPE && TYPE_IS_SIZETYPE (type)
 	      && type == TREE_TYPE (arg1));
 
@@ -1750,9 +1753,6 @@ size_binop (enum tree_code code, tree arg0, tree arg1)
       /* Handle general case of two integer constants.  */
       return int_const_binop (code, arg0, arg1, 0);
     }
-
-  if (arg0 == error_mark_node || arg1 == error_mark_node)
-    return error_mark_node;
 
   return fold_build2 (code, type, arg0, arg1);
 }
@@ -2488,6 +2488,22 @@ operand_equal_p (tree arg0, tree arg1, unsigned int flags)
 
   STRIP_NOPS (arg0);
   STRIP_NOPS (arg1);
+
+  /* In case both args are comparisons but with different comparison
+     code, try to swap the comparison operands of one arg to produce
+     a match and compare that variant.  */
+  if (TREE_CODE (arg0) != TREE_CODE (arg1)
+      && COMPARISON_CLASS_P (arg0)
+      && COMPARISON_CLASS_P (arg1))
+    {
+      enum tree_code swap_code = swap_tree_comparison (TREE_CODE (arg1));
+
+      if (TREE_CODE (arg0) == swap_code)
+	return operand_equal_p (TREE_OPERAND (arg0, 0),
+			        TREE_OPERAND (arg1, 1), flags)
+	       && operand_equal_p (TREE_OPERAND (arg0, 1),
+				   TREE_OPERAND (arg1, 0), flags);
+    }
 
   if (TREE_CODE (arg0) != TREE_CODE (arg1)
       /* This is needed for conversions and for COMPONENT_REF.
@@ -7307,7 +7323,8 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	     type via an object of identical or wider precision, neither
 	     conversion is needed.  */
 	  if (TYPE_MAIN_VARIANT (inside_type) == TYPE_MAIN_VARIANT (type)
-	      && ((inter_int && final_int) || (inter_float && final_float))
+	      && (((inter_int || inter_ptr) && final_int)
+		  || (inter_float && final_float))
 	      && inter_prec >= final_prec)
 	    return fold_build1 (code, type, TREE_OPERAND (op0, 0));
 
@@ -7346,10 +7363,13 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	     - the initial type is a pointer type and the precisions of the
 	       intermediate and final types differ, or
 	     - the final type is a pointer type and the precisions of the
-	       initial and intermediate types differ.  */
+	       initial and intermediate types differ.
+	     - the final type is a pointer type and the initial type not
+	     - the initial type is a pointer to an array and the final type
+	       not.  */
 	  if (! inside_float && ! inter_float && ! final_float
 	      && ! inside_vec && ! inter_vec && ! final_vec
-	      && (inter_prec > inside_prec || inter_prec > final_prec)
+	      && (inter_prec >= inside_prec || inter_prec >= final_prec)
 	      && ! (inside_int && inter_int
 		    && inter_unsignedp != inside_unsignedp
 		    && inter_prec < final_prec)
@@ -7359,7 +7379,10 @@ fold_unary (enum tree_code code, tree type, tree op0)
 	      && ! (final_ptr && inside_prec != inter_prec)
 	      && ! (final_prec != GET_MODE_BITSIZE (TYPE_MODE (type))
 		    && TYPE_MODE (type) == TYPE_MODE (inter_type))
-	      && ! final_ptr)
+	      && final_ptr == inside_ptr
+	      && ! (inside_ptr
+		    && TREE_CODE (TREE_TYPE (inside_type)) == ARRAY_TYPE
+		    && TREE_CODE (TREE_TYPE (type)) != ARRAY_TYPE))
 	    return fold_build1 (code, type, TREE_OPERAND (op0, 0));
 	}
 
@@ -11773,6 +11796,9 @@ multiple_of_p (tree type, tree top, tree bottom)
 int
 tree_expr_nonnegative_p (tree t)
 {
+  if (t == error_mark_node)
+    return 0;
+
   if (TYPE_UNSIGNED (TREE_TYPE (t)))
     return 1;
 
@@ -12220,7 +12246,7 @@ fold_read_from_constant_string (tree exp)
 	}
 
       if (string
-	  && TREE_TYPE (exp) == TREE_TYPE (TREE_TYPE (string))
+	  && TYPE_MODE (TREE_TYPE (exp)) == TYPE_MODE (TREE_TYPE (TREE_TYPE (string)))
 	  && TREE_CODE (string) == STRING_CST
 	  && TREE_CODE (index) == INTEGER_CST
 	  && compare_tree_int (index, TREE_STRING_LENGTH (string)) < 0

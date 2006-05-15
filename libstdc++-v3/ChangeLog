@@ -1,3 +1,47 @@
+2006-05-13  Peter Doerfler  <gcc@pdoerfler.com>
+
+	* include/tr1/hashtable (identity<>::operator(),
+	extract1st<>::operator()): Return by const ref.
+
+2006-05-10  Steve Ellcey  <sje@cup.hp.com>
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_cxa_atexit):
+	Move to gcc subdir.
+	* testsuite/lib/dg-options.exp (dg-require-iconv): Remove.
+	(dg-require-cxa-atexit): Move to gcc subdir.
+
+2006-05-10  Paolo Carlini  <pcarlini@suse.de>
+	    Peter Doerfler  <gcc@pdoerfler.com>
+
+	* include/tr1/hashtable (hashtable_iterator<>::hashtable_iterator(),
+	hashtable_const_iterator<>::hashtable_const_iterator(),
+	node_iterator<>::node_iterator(),
+	node_const_iterator<>::node_const_iterator()): Add.
+	(node_iterator<>::node_iterator(hash_node<>*),
+	node_const_iterator<>::node_const_iterator(hash_node<>*)): Tweak,
+	remove default.
+	* testsuite/tr1/6_containers/unordered/hashtable/
+	iterators_default_constructor.c: New.
+
+2006-05-10  Marc Glisse  <marc.glisse@normalesup.org>
+
+	* include/ext/pool_allocator.h: Add missing std:: qualifications.
+	* include/ext/mt_allocator.h: Likewise.
+	* include/ext/pb_assoc/detail/resize_policy/
+	hash_load_check_resize_trigger_imp.hpp: Likewise.
+	* include/ext/pb_assoc/detail/resize_policy/
+	hash_standard_resize_policy_imp.hpp: Likewise.
+	* include/ext/pb_assoc/detail/lu_policy/
+	counter_lu_metadata_imp.hpp: Likewise.
+	* include/ext/pb_assoc/detail/map_debug_base.hpp: Likewise.
+	* libsupc++/eh_alloc.cc: Typo: memcpy -> memset.
+
+2006-05-07  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/tr1/type_traits (integral_constant<>::value): Define.
+	* testsuite/tr1/4_metaprogramming/helper_classes/static_definition.cc:
+	New.
+
 2006-05-04  Douglas Gregor  <dgregor@cs.indiana.edu>
 
 	PR libstdc++/27404
