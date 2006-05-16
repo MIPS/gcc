@@ -35,6 +35,7 @@
 4194030: g++.dg/lookup/hidden-temp-class6.C (test for excess errors)
 4194030: g++.dg/lookup/hidden-temp-class7.C  (test for errors, line 13)
 4285232: g++.dg/4285232.C scan-assembler-not \\$0,
+4531667: g++.dg/bitreverse-23.C execution test
 #
 # The following tests fail only when the c++ suite is run through Obj-C++.
 3904139: g++.dg/ext/fnname3.C execution test
@@ -69,6 +70,7 @@
 #
 # The following tests fail only when the c++ suite is run with -mcpu=G5
 3719311: g++.dg/template/warn1.C  (test for warnings, line 12)
+0000000: g++.dg/align-test-1.C (test for excess errors)
 #
 # The following tests fail only when the c++ suite is run with -m64
 3964999: g++.old-deja/g++.pt/const2.C (test for excess errors)
