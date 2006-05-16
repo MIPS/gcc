@@ -1,3 +1,8 @@
+2006-05-15  Eric Christopher  <echristo@apple.com>
+
+	Radar 4549340
+	* stor-layout.c (layout_decl): Fix typo.
+
 2006-05-03  Mike Stump  <mrs@apple.com>
 
 	Radar 4529651
@@ -37,7 +42,7 @@
 2006-04-26  Hui-May Chang  <hm.chang@apple.com>
 
 	Radar 4491613
-	* loop.c (general_induction_var) : If an induction variable 
+	* loop.c (general_induction_var) : If an induction variable
 	may trap, it shouldn't be a general induction variable.
 
 2006-04-26  Hui-May Chang  <hm.chang@apple.com>
@@ -237,7 +242,7 @@
 	* tree.h: Likewise.
 	Rename cw_asm_function_flag to iasm_asm_function_flag.
 	Rename cw_asm_noreturn_flag to iasm_noreturn_flag.
-	
+
 2006-04-25  Devang Patel  <dpatel@apple.com>
 
 	Radar 4505813
@@ -297,7 +302,7 @@
 	* i386/i386.h (TARGET_CW_EXTRA_INFO): Add.
 	(CW_IMMED_PREFIX): Handle pseduo instructions better.
 	(TARGET_CW_OP_CONSTRAINT): Add missing cmp.*{pd,ps,sd,ss} instructions.
-	
+
 2006-04-06  Stuart Hastings  <stuart@apple.com>
 
 	Radar 4499627

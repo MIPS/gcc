@@ -360,7 +360,7 @@ layout_decl (tree decl, unsigned int known_align)
 	      && ! DECL_PACKED (decl)
 	      && ! targetm.ms_bitfield_layout_p (DECL_FIELD_CONTEXT (decl)))
 	    {
-#ifdef PCC_BITFIELD_TYPE_MATTRS
+#ifdef PCC_BITFIELD_TYPE_MATTERS
 	      if (PCC_BITFIELD_TYPE_MATTERS)
 		do_type_align (type, decl);
 	      else
