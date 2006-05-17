@@ -1,3 +1,111 @@
+2006-05-17  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/27548
+	* tree-scalar-evolution.c (scev_const_prop): Do not prolong life
+	range of ssa names that appear on abnormal edges.
+	* tree-ssa-loop-ivopts.c (contains_abnormal_ssa_name_p): Export.
+	* tree-flow.h (contains_abnormal_ssa_name_p): Declare.
+
+2006-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/27549
+	Backported from mainline
+
+	2006-05-01  Zdenek Dvorak  <dvorakz@suse.cz>
+
+	PR tree-optimization/27283
+	* tree-ssa-loop-ivopts.c (struct nfe_cache_elt): Store just trees,
+	not whole # of iteration descriptions.
+	(niter_for_exit): Return just # of iterations.  Fail if # of iterations
+	uses abnormal ssa name.
+	(niter_for_single_dom_exit): Ditto.
+	(find_induction_variables, may_eliminate_iv): Expect niter_for_exit to
+	return just the number of iterations.
+	(add_iv_outer_candidates, may_replace_final_value): Likewise.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* Makefile.in (GCC_OBJS): Replace options.o with gcc-options.o.
+	(gcc-options.o): New rule.
+
+	* optc-gen.awk: Protect variables for gcc-options.o with
+	#ifdef GCC_DRIVER/#endif.
+
+2006-05-16  Roger Sayle  <roger@eyesopen.com>
+
+	PR target/26600
+	* config/i386/i386.c (legitimate_constant_p) <CONST_DOUBLE>: TImode
+	integer constants other than zero are only legitimate on TARGET_64BIT.
+	<CONST_VECTOR> Only zero vectors are legitimate.
+	(ix86_cannot_force_const_mem): Integral and vector constants can
+	always be put in the constant pool.
+
+2006-05-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	PR c++/26757
+	* tree-dfa.c (struct walk_state): Remove.
+	(add_referenced_var): Change Parameters.
+	(find_referenced_vars): Done use a walk_state.
+	(find_vars_r): Unused parameter and change parms to add_referenced_var.
+	(referenced_var_insert): Assert same UID has not been inserted.
+	(add_referenced_var): Check if var exists via referenced_var table.
+	(get_virtual_var): Call add_referenced_var with new parameter.
+
+2006-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/26885
+	* Makefile.in (GCC_OBJS): New.
+	(OBJS-common): Add opts-common.o.
+	(xgcc$(exeext)): Replace gcc.o with $(GCC_OBJS).
+	(cpp$(exeext)): Likewise.
+	(gcc.o): Also depend on opts.h.
+	(opts-common.o): New.
+
+	* common.opt (gcoff): Add Negative(gdwarf-2).
+	(gdwarf-2): Add Negative(gstabs).
+	(gstabs): Add Negative(gstabs+).
+	(gstabs+): Add Negative(gvms).
+	(gvms): Add Negative(gxcoff).
+	(gxcoff): Add Negative(gxcoff+).
+	(gxcoff+): Add Negative(gcoff).
+	* config/i386/i386.opt (m32): Add Negative(m64).
+	(m64): Add Negative(m32).
+
+	* doc/options.texi: Document the Negative option.
+
+	* gcc.c: Include "opts.h".
+	(main): Call prune_options after expandargv.
+
+	* optc-gen.awk: Generate common declarations for all flag
+	variables in options.c. Output the neg_index field.
+
+	* opts.c (find_opt): Moved to ...
+	* opts-common.c: Here. New file.
+
+	* opts.h (cl_option): Add a neg_index field.
+	(find_opt): New.
+	(prune_options): Likewise.
+
+2006-05-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/27603
+	* tree-ssa-loop-niter.c (infer_loop_bounds_from_undefined):
+	Do computation in original type, do division only for nonzero
+	steps.
+
+2006-05-15  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* expmed.c (store_bit_field): Handle paradoxical subregs on big endian
+	machines.
+
+2006-05-15  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	PR rtl-optimization/14261
+	* ifcvt.c (noce_emit_move_insn): Call store_bit_field if the resulting
+	move would be an INSV insn.
+	(noce_process_if_block): Don't optimize if the destination is a 
+	ZERO_EXTRACT which can't be handled by noce_emit_move_insn.
+
 2006-05-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (check_omp_nesting_restrictions): New function.
