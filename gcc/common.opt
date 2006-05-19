@@ -714,7 +714,7 @@ Common Report Var(flag_relief)
 Register pressure relief
 
 frematerialize
-Common Report Var(flag_rematerialize)
+Common Report Var(flag_rematerialize) Init(2)
 Perform a register rematerialization
 
 frename-registers

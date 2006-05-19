@@ -46,10 +46,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #define yara_assert(c)
 #endif
 
-#if defined (HAVE_SECONDARY_RELOADS) || defined (SECONDARY_MEMORY_NEEDED)
-#define HAVE_ANY_SECONDARY_MOVES 1
-#endif
-
 /* True if X is a constant that can be forced into the constant pool.  */
 #define CONST_POOL_OK_P(X)			\
   (CONSTANT_P (X)				\
@@ -335,13 +331,11 @@ struct allocno_common
   int conflict_vec_len;
   /* Vector of conflicting allocnos with NULL end marker.  */
   allocno_t *conflict_vec;
-#ifdef HAVE_ANY_SECONDARY_MOVES
   /* The field value is allocated length without one of the subsequent
      vector.  */
   int copy_conflict_vec_len;
   /* Vector of conflicting copies with NULL end marker.  */
   copy_t *copy_conflict_vec;
-#endif
 
   /* Set of hard regs conflicting with allocno N.  */
   HARD_REG_SET hard_reg_conflicts;
@@ -485,10 +479,8 @@ union allocno_node
 
 #define ALLOCNO_CONFLICT_VEC(A) ((A)->common.conflict_vec)
 #define ALLOCNO_CONFLICT_VEC_LEN(A) ((A)->common.conflict_vec_len)
-#ifdef HAVE_ANY_SECONDARY_MOVES
 #define ALLOCNO_COPY_CONFLICT_VEC(A) ((A)->common.copy_conflict_vec)
 #define ALLOCNO_COPY_CONFLICT_VEC_LEN(A) ((A)->common.copy_conflict_vec_len)
-#endif
 #define ALLOCNO_HARD_REG_CONFLICTS(A) ((A)->common.hard_reg_conflicts)
 #define ALLOCNO_CALL_CROSS_P(A) ((A)->common.call_cross_p)
 #define ALLOCNO_CALL_FREQ(A) ((A)->common.call_freq)
@@ -578,12 +570,9 @@ extern allocno_t *insn_allocnos;
    number -> allocno corresponding the insn operand.  */
 extern allocno_t **insn_op_allocnos;
 
-
-#ifdef HAVE_ANY_SECONDARY_MOVES
-
 /* The following structure contains copy attributes which should be
    logged during transactions.  */
-struct secondary_copy_change
+struct copy_change
 {
 #ifdef HAVE_SECONDARY_RELOADS
   /* The following true value means that we use icode insn with src as
@@ -601,6 +590,10 @@ struct secondary_copy_change
      the value is -1.  */
   short scratch_regno;
 #endif
+  /* The following hard register (in given mode) might be needed to
+     load equivalent constant into the destination allocno.  */
+  short interm_equiv_const_regno;
+  enum machine_mode interm_equiv_const_mode : 8;
   /* The following two member values are used only when secondary
      memory is needed.  We don't need secondary memory if the two
      values are NULL.  */
@@ -611,28 +604,16 @@ struct secondary_copy_change
   /* Allocated memory used only the previous value is NULL.  */
   struct memory_slot *memory_slot;
 #endif
-#ifdef HAVE_SECONDARY_RELOADS
-  /* The following set contains all hard regnos of intermediate and
-     scratch registers.  */
+  /* The following set contains all hard regnos of intermediate,
+     scratch and intermidiate equiv const registers.  */
   HARD_REG_SET interm_scratch_hard_regset;
-#endif
 };
-
-#endif /* #ifdef HAVE_ANY_SECONDARY_MOVES */
-
-struct copy_change
-{
-#ifdef HAVE_ANY_SECONDARY_MOVES
-  struct secondary_copy_change *secondary_change;
-#endif
-};
-
 
 /* The following describes change log entry for copy.  */
 struct copy_log_entry
 {
   copy_t copy;
-  struct copy_change change;
+  struct copy_change *copy_change;
 };
 
 /* The following structure describes allocno connection.  If the
@@ -661,21 +642,16 @@ struct copy
      location.  */
   short subst_src_hard_regno : 15;
 
-#ifdef HAVE_ANY_SECONDARY_MOVES
-  /* ??? */
-#ifdef HAVE_SECONDARY_RELOADS
   /* Set of hard regs conflicting with the copy.  */
   HARD_REG_SET hard_reg_conflicts;
-#endif
   /* The field value is allocated length without one of the subsequent
      vector.  */
   int allocno_conflict_vec_len;
   /* Vector of conflicting allocnos with NULL end marker.  */
   allocno_t *allocno_conflict_vec;
-#endif
 
   /* Copy attributes should be logged.  */
-  struct copy_change change;
+  struct copy_change *copy_change;
 };
 
 /* Array of references to copies after forming all of them.  */
@@ -693,37 +669,35 @@ extern int copies_num;
 
 #define COPY_POINT(C) ((C)->point)
 
-#ifdef HAVE_SECONDARY_RELOADS
-#define COPY_SECONDARY_CHANGE_ADDR(C) ((C)->change.secondary_change)
-#endif
+#define COPY_CHANGE_ADDR(C) ((C)->copy_change)
 
-#ifdef HAVE_ANY_SECONDARY_MOVES
 #define COPY_ALLOCNO_CONFLICT_VEC(C) ((C)->allocno_conflict_vec)
 #define COPY_ALLOCNO_CONFLICT_VEC_LEN(C) ((C)->allocno_conflict_vec_len)
-#endif
 
-#ifdef HAVE_SECONDARY_RELOADS
 #define COPY_HARD_REG_CONFLICTS(C) ((C)->hard_reg_conflicts)
-#endif
 #define COPY_FREQ(C) ((C)->freq)
 #define COPY_SYNC_P(C) ((C)->sync_p)
 #define COPY_SUBST_SRC_HARD_REGNO(C) ((C)->subst_src_hard_regno)
 #define COPY_CHANGE(C) ((C)->change)
 #ifdef HAVE_SECONDARY_RELOADS
-#define COPY_ICODE(C) (COPY_SECONDARY_CHANGE_ADDR (C)->icode)
-#define COPY_INTERM_MODE(C) (COPY_SECONDARY_CHANGE_ADDR (C)->interm_mode)
-#define COPY_SCRATCH_MODE(C) (COPY_SECONDARY_CHANGE_ADDR (C)->scratch_mode)
-#define COPY_INTERM_REGNO(C) (COPY_SECONDARY_CHANGE_ADDR (C)->interm_regno)
-#define COPY_SCRATCH_REGNO(C) (COPY_SECONDARY_CHANGE_ADDR (C)->scratch_regno)
-#define COPY_INTERM_SCRATCH_HARD_REGSET(C) \
-  (COPY_SECONDARY_CHANGE_ADDR (C)->interm_scratch_hard_regset)
-#define COPY_IN_P(C) (COPY_SECONDARY_CHANGE_ADDR (C)->in_p)
+#define COPY_ICODE(C) (COPY_CHANGE_ADDR (C)->icode)
+#define COPY_INTERM_MODE(C) (COPY_CHANGE_ADDR (C)->interm_mode)
+#define COPY_SCRATCH_MODE(C) (COPY_CHANGE_ADDR (C)->scratch_mode)
+#define COPY_INTERM_REGNO(C) (COPY_CHANGE_ADDR (C)->interm_regno)
+#define COPY_SCRATCH_REGNO(C) (COPY_CHANGE_ADDR (C)->scratch_regno)
+#define COPY_IN_P(C) (COPY_CHANGE_ADDR (C)->in_p)
 #endif
+#define COPY_INTERM_SCRATCH_HARD_REGSET(C) \
+  (COPY_CHANGE_ADDR (C)->interm_scratch_hard_regset)
+#define COPY_INTERM_EQUIV_CONST_REGNO(C) \
+  (COPY_CHANGE_ADDR (C)->interm_equiv_const_regno)
+#define COPY_INTERM_EQUIV_CONST_MODE(C) \
+  (COPY_CHANGE_ADDR (C)->interm_equiv_const_mode)
 #ifdef SECONDARY_MEMORY_NEEDED
-#define COPY_MEMORY_MODE(C) (COPY_SECONDARY_CHANGE_ADDR (C)->memory_mode)
+#define COPY_MEMORY_MODE(C) (COPY_CHANGE_ADDR (C)->memory_mode)
 #define COPY_USER_DEFINED_MEMORY(C) \
-  (COPY_SECONDARY_CHANGE_ADDR (C)->user_defined_memory)
-#define COPY_MEMORY_SLOT(C) (COPY_SECONDARY_CHANGE_ADDR (C)->memory_slot)
+  (COPY_CHANGE_ADDR (C)->user_defined_memory)
+#define COPY_MEMORY_SLOT(C) (COPY_CHANGE_ADDR (C)->memory_slot)
 #endif
 
 /* Copies attached to the insns, basic blocks, edges in the same order
@@ -967,9 +941,7 @@ extern bool hard_reg_in_set_p (int, enum machine_mode, HARD_REG_SET);
 extern bool hard_reg_not_in_set_p (int, enum machine_mode, HARD_REG_SET);
 
 extern int allocno_copy_cost (allocno_t);
-#ifdef HAVE_ANY_SECONDARY_MOVES
-extern void unassign_copy_secondary (copy_t);
-#endif
+extern void unassign_copy (copy_t);
 extern enum machine_mode get_allocation_mode (allocno_t);
 extern int get_allocno_hard_regno (allocno_t, int);
 extern int get_allocno_reg_hard_regno (allocno_t, int);
@@ -995,10 +967,16 @@ extern bool assign_hard_regno_to_allocno_with_unassign (allocno_t,
 extern bool assign_class_allocno_with_unassign (allocno_t, enum reg_class,
 						HARD_REG_SET);
 
-extern bool check_hard_regno_memory_on_contraint (allocno_t, bool, int);
+extern bool check_hard_regno_memory_on_constraint (allocno_t, bool, int);
 
+extern struct reg_eliminate *check_elimination_in_addr (int, int,
+							HOST_WIDE_INT,
+							rtx *, rtx *, bool *);
 extern bool eliminate_reg (allocno_t);
 extern void uneliminate_reg (allocno_t a);
+extern void get_equiv_const_addr_info (rtx, int *, HOST_WIDE_INT *);
+
+extern void get_equiv_const_elimination_info (rtx, int *, HOST_WIDE_INT *);
 
 extern void eliminate_virtual_registers (int (*) (allocno_t, enum reg_class,
 						  HARD_REG_SET));

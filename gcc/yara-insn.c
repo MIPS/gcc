@@ -68,7 +68,8 @@ static bool assign_insn_allocnos_without_copy (rtx insn);
 static bool
 check_alternative_possibility (allocno_t a, const char *p, bool strict_p)
 {
-  rtx op, no_subreg_op, equiv_const;
+  rtx x, op, no_subreg_op, equiv_const;
+  allocno_t another_a;
   int c = *p;
 
   op = *INSN_ALLOCNO_LOC (a);
@@ -164,15 +165,27 @@ check_alternative_possibility (allocno_t a, const char *p, bool strict_p)
 		    ((MEM_P (no_subreg_op) && c == 'm')
 		     || (c == 'o'
 			 && offsettable_nonstrict_memref_p (no_subreg_op)))));
+      else if ((MEM_P (no_subreg_op) && c == 'm')
+	       || (c == 'o' && offsettable_nonstrict_memref_p (no_subreg_op)))
+	return true;
+      /* Accept a register which might be placed in memory.  */
+      else if (REG_P (no_subreg_op)
+	       && (! strict_p || ALLOCNO_MEMORY_SLOT (a) != NULL))
+	return true;
+      /* Accept a register which might be placed in memory.  */
+      else if (CONST_POOL_OK_P (op)
+	       || (equiv_const != NULL_RTX && CONST_POOL_OK_P (equiv_const)))
+	{
+	  if (! INSN_ALLOCNO_ELIMINATION_PART_CONST_P (a))
+	    return true;
+	  x = *INSN_ALLOCNO_CONTAINER_LOC (a);
+	  yara_assert (GET_CODE (x) == PLUS && XEXP (x, 1) == op);
+	  another_a = insn_allocno (XEXP (x, 0), INSN_ALLOCNO_INSN (a));
+	  yara_assert (another_a != NULL);
+	  return ! ALLOCNO_USE_EQUIV_CONST_P (another_a);
+	}
       else
-	return ((MEM_P (no_subreg_op) && c == 'm')
-		|| (c == 'o' && offsettable_nonstrict_memref_p (no_subreg_op))
-		/* We could accept a constant that can be turned into
-		   memory.  */
-		|| CONST_POOL_OK_P (op)
-		|| (equiv_const != NULL_RTX && CONST_POOL_OK_P (equiv_const))
-		/* Accept a register which might be placed in memory.  */
-		|| REG_P (no_subreg_op));
+	return false;
       
     case 'V':
       if (strict_p && ! INSN_ALLOCNO_USE_WITHOUT_CHANGE_P (a))
@@ -234,6 +247,33 @@ check_alternative_possibility (allocno_t a, const char *p, bool strict_p)
 		&& hard_reg_in_set_p (hard_regno, mode,
 				      reg_class_contents [cl]))
 	      return true;
+	    if (INSN_ALLOCNO_ELIMINATION_PART_CONST_P (a))
+	      {
+		x = *INSN_ALLOCNO_CONTAINER_LOC (a);
+		yara_assert (GET_CODE (x) == PLUS && XEXP (x, 1) == op);
+		another_a = insn_allocno (XEXP (x, 0),
+					  INSN_ALLOCNO_INSN (a));
+		yara_assert (another_a != NULL);
+		if (! ALLOCNO_USE_EQUIV_CONST_P (another_a))
+		  return true;
+	      }
+	    else if (equiv_const != NULL_RTX && op == no_subreg_op
+		     && ! CONSTANT_P (equiv_const))
+	      {
+		x = *INSN_ALLOCNO_CONTAINER_LOC (a);
+		if (GET_CODE (x) == PLUS)
+		  {
+		    another_a
+		      = insn_allocno (XEXP (x, 1), INSN_ALLOCNO_INSN (a));
+		    if (INSN_ALLOCNO_ELIMINATION_PART_CONST_P (another_a)
+			&& ALLOCNO_HARD_REGNO (another_a) < 0
+			&& ALLOCNO_MEMORY_SLOT (another_a) == NULL
+			&& hard_reg_in_set_p (REGNO (XEXP (equiv_const, 0)),
+					      ALLOCNO_MODE (a),
+					      reg_class_contents [cl]))
+		      return true;
+		  }
+	      }
 	  }
 #ifdef EXTRA_CONSTRAINT_STR
 	else if (EXTRA_CONSTRAINT_STR (op, c, p))
@@ -473,7 +513,8 @@ assign_hard_regno_to_pseudo_reg_insn_allocno (allocno_t a, enum reg_class cl,
 static bool
 assign_constraint (allocno_t a, const char *p)
 {
-  rtx op, no_subreg_op, equiv_const;
+  rtx x, op, no_subreg_op, equiv_const;
+  allocno_t another_a;
   bool success_p;
   int before;
   int c = *p;
@@ -616,15 +657,27 @@ assign_constraint (allocno_t a, const char *p)
 	}
       /* We could accept a constant that can be turned into mem.  */
       else if (CONST_POOL_OK_P (op)
-	       || (0 && equiv_const != NULL_RTX
+	       || (equiv_const != NULL_RTX
 		   && CONST_POOL_OK_P (equiv_const)))
 	{
+	  rtx x;
+
 	  yara_assert (equiv_const != NULL_RTX
 		       || (ALLOCNO_SRC_COPIES (a) == NULL
 			   && INSN_ALLOCNO_TIED_ALLOCNO (a) == NULL));
-	  success_p = (! INSN_ALLOCNO_ELIMINATION_PART_CONST_P (a)
-		       && assign_allocno (a, NO_REGS,
-					  reg_class_contents [NO_REGS], -1));
+	  if (! INSN_ALLOCNO_ELIMINATION_PART_CONST_P (a))
+	    success_p = true;
+	  else
+	    {
+	      x = *INSN_ALLOCNO_CONTAINER_LOC (a);
+	      yara_assert (GET_CODE (x) == PLUS && XEXP (x, 1) == op);
+	      another_a = insn_allocno (XEXP (x, 0), INSN_ALLOCNO_INSN (a));
+	      yara_assert (another_a != NULL);
+	      success_p = ! ALLOCNO_USE_EQUIV_CONST_P (another_a);
+	    }
+	  success_p
+	    = success_p && assign_allocno (a, NO_REGS,
+					   reg_class_contents [NO_REGS], -1);
 	}
       /* Accept a register which might be placed in memory.  */
       else if (REG_P (no_subreg_op))
@@ -722,15 +775,51 @@ assign_constraint (allocno_t a, const char *p)
 		       (a, cl, reg_class_contents [cl]))
 		  success_p = true;
 	      }
-	    else if (! INSN_ALLOCNO_ELIMINATION_PART_CONST_P (a)
-		     && assign_hard_regno_to_pseudo_reg_insn_allocno
-                        (a, cl, reg_class_contents [cl]))
-	      success_p = true;
-	    /* Accept a register which might be placed in memory.  */
-	    else if (c == 'g' && REG_P (no_subreg_op))
-	      success_p = assign_allocno (a, NO_REGS,
-					  reg_class_contents [NO_REGS], -1);
-	    /* We can fail here because a wrong copy is active.  */
+	    else
+	      {
+		if (INSN_ALLOCNO_ELIMINATION_PART_CONST_P (a))
+		  {
+		    x = *INSN_ALLOCNO_CONTAINER_LOC (a);
+		    yara_assert (GET_CODE (x) == PLUS && XEXP (x, 1) == op);
+		    another_a = insn_allocno (XEXP (x, 0),
+					      INSN_ALLOCNO_INSN (a));
+		    yara_assert (another_a != NULL);
+		    if (ALLOCNO_USE_EQUIV_CONST_P (another_a))
+		      break;
+		  }
+		else if (equiv_const != NULL_RTX && op == no_subreg_op
+			 && ! CONSTANT_P (equiv_const))
+		  {
+		    x = *INSN_ALLOCNO_CONTAINER_LOC (a);
+		    if (GET_CODE (x) == PLUS)
+		      {
+			another_a
+			  = insn_allocno (XEXP (x, 1), INSN_ALLOCNO_INSN (a));
+			if (INSN_ALLOCNO_ELIMINATION_PART_CONST_P (another_a)
+			    && ALLOCNO_HARD_REGNO (another_a) < 0
+			    && ALLOCNO_MEMORY_SLOT (another_a) == NULL
+			    && hard_reg_in_set_p (REGNO (XEXP (equiv_const,
+							       0)),
+						  ALLOCNO_MODE (a),
+						  reg_class_contents [cl])
+			    && assign_allocno (a, LIM_REG_CLASSES,
+					       reg_class_contents [NO_REGS],
+					       -1))
+			  {
+			    success_p = true;
+			    break;
+			  }
+		      }
+		  }
+		if (assign_hard_regno_to_pseudo_reg_insn_allocno
+		    (a, cl, reg_class_contents [cl]))
+		  success_p = true;
+		/* Accept a register which might be placed in memory.  */
+		else if (c == 'g' && REG_P (no_subreg_op))
+		  success_p
+		    = assign_allocno (a, NO_REGS,
+				      reg_class_contents [NO_REGS], -1);
+	      }
  	    break;
 	  }
 #ifdef EXTRA_CONSTRAINT_STR
@@ -749,8 +838,6 @@ assign_constraint (allocno_t a, const char *p)
     case '0': case '1': case '2': case '3': case '4':
     case '5': case '6': case '7': case '8': case '9':
       {
-	allocno_t another_a;
-	
 	another_a = (insn_op_allocnos
 		     [INSN_UID (INSN_ALLOCNO_INSN (a))] [c - '0']);
 	yara_assert ((INSN_ALLOCNO_OP_MODE (a) == OP_IN
@@ -977,9 +1064,38 @@ find_best_alt_allocation_1 (void)
 					reg_class_contents [NO_REGS], -1))
 		    gcc_unreachable ();
 		}
-	      else if (! assign_hard_regno_to_pseudo_reg_insn_allocno
-		         (a, cl, temp_set))
-		break;
+	      else
+		{
+		  int to;
+		  bool base_p;
+		  HOST_WIDE_INT offset;
+		  bool cont_p = true;
+		  rtx x, *address_loc, *container_loc;
+
+		  if ((x = reg_equiv_constant [ALLOCNO_REGNO (a)]) != NULL_RTX
+		      && ! CONSTANT_P (x))
+		    {
+		      get_equiv_const_elimination_info (x, &to, &offset);
+		      get_equiv_const_addr_info (x, &to, &offset);
+		      container_loc = INSN_ALLOCNO_CONTAINER_LOC (a);
+		      address_loc = (GET_CODE (*container_loc) == MEM
+				     ? &XEXP (*container_loc, 0)
+				     : container_loc);
+		      /* ??? Allocate interm equiv constant register.  Do
+			 we need this?  */
+		      if (check_elimination_in_addr (ALLOCNO_REGNO (a), to,
+						     offset, address_loc,
+						     container_loc,
+						     &base_p) != NULL
+			  && assign_allocno (a, LIM_REG_CLASSES,
+					     reg_class_contents [NO_REGS], -1))
+			cont_p = false;
+		    }
+		  if (cont_p
+		      && ! assign_hard_regno_to_pseudo_reg_insn_allocno
+		           (a, cl, temp_set))
+		    break;
+		}
 	    }
 	  else if (INSN_ALLOCNO_TYPE (a) == NON_OPERAND)
 	    {
@@ -1319,6 +1435,8 @@ assign_insn_allocnos_without_copy (rtx insn)
     {
       if ((regno = ALLOCNO_REGNO (a)) >= 0 && ! HARD_REGISTER_NUM_P (regno))
 	{
+	  /* If connected allocnos use equiv. constants we try them in
+	     find_best_allocation.  */
 	  if (! assign_pseudo_allocno_from_connected_allocno (a))
 	    break;
 	  if (INSN_ALLOCNO_TYPE (a) == BASE_REG
@@ -1336,6 +1454,8 @@ assign_insn_allocnos_without_copy (rtx insn)
 	}
       else if (! assign_allocno (a, LIM_REG_CLASSES,
 				 reg_class_contents [NO_REGS], -1))
+	/* We assume that if hard register is used as a base or index
+	   register it already has a right class.  */
 	break;
       if (INSN_ALLOCNO_TYPE (a) >= OPERAND_BASE)
 	{
@@ -1440,9 +1560,35 @@ allocate_insn_allocnos (rtx insn, bool (*call_cross_hint) (allocno_t),
 				    reg_class_contents [NO_REGS], -1))
 		gcc_unreachable ();
 	    }
-	  else if (! assign_hard_regno_to_pseudo_reg_insn_allocno (a, cl,
-								   temp_set))
-	    gcc_unreachable ();
+	  else
+	    {
+	      int to;
+	      bool base_p;
+	      HOST_WIDE_INT offset;
+	      bool cont_p = true;
+	      rtx x, *address_loc, *container_loc;
+	      
+	      if ((x = reg_equiv_constant [ALLOCNO_REGNO (a)]) != NULL_RTX
+		  && ! CONSTANT_P (x))
+		{
+		  get_equiv_const_addr_info (x, &to, &offset);
+		  container_loc = INSN_ALLOCNO_CONTAINER_LOC (a);
+		  address_loc = (GET_CODE (*container_loc) == MEM
+				 ? &XEXP (*container_loc, 0) : container_loc);
+		  /* ??? Allocate interm equiv constant register.  Do
+		     we need this?  */
+		  if (check_elimination_in_addr (ALLOCNO_REGNO (a), to, offset,
+						 address_loc, container_loc,
+						 &base_p) != NULL
+		      && assign_allocno (a, LIM_REG_CLASSES,
+					 reg_class_contents [NO_REGS], -1))
+		    cont_p = false;
+		}
+	      if (cont_p
+		  && ! assign_hard_regno_to_pseudo_reg_insn_allocno (a, cl,
+								     temp_set))
+		gcc_unreachable ();
+	    }
 	}
       else
 	{

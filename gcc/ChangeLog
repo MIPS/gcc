@@ -1,3 +1,75 @@
+2006-05-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* yara-int.h (HAVE_ANY_SECONDARY_MOVES): Remove.
+	(secondary_copy_change): Rename to copy_change.  Add new fields
+	interm_equiv_const_regno and interm_equiv_const_mode.
+	(COPY_SECONDARY_CHANGE_ADDR): Rename to COPY_CHANGE_ADDR.
+	(COPY_INTERM_EQUIV_CONST_REGNO, COPY_INTERM_EQUIV_CONST_MODE): New
+	macros.
+	(unassign_copy_secondary): Rename to unassign_copy.
+	(check_elimination_in_addr, get_equiv_const_addr_info,
+	get_equiv_const_elimination_info): New prototypes.
+
+	* yara-insn.c (check_alternative_possibility): Check allocation of
+	the plus constant of the constant address with eliminated
+	register.
+	(assign_constraint): Ditto.
+	(find_best_alt_allocation_1): Check base and index register with
+	equivalent constant address.
+	(allocate_insn_allocnos): Ditto.
+
+	* yara-color.c (setup_minimal_op_costs): Take equivalent constant
+	into account.
+	(update_min_op_costs): Ditto.
+	(assign_global_can_allocnos): Ditto.
+	(assign_dst_if_necessary): Ditto.
+	(try_change_allocno): Ditto.
+
+	* common.opt (frematerialize): Switch it on by default for -O2.
+
+	* yara-final.c: Rename COPY_SECONDARY_CHANGE_ADDR to
+	COPY_CHANGE_ADDR.  Rename unassign_copy_secondary to
+	unassign_copy.  Remove HAVE_ANY_SECONDARY_MOVES.
+	(unnecessary_copy_p): Take equivalent constant into account.
+	(process_allocno_locs): Ditto.
+	(emit_copy): Ditto.
+	(eliminate_reg_allocno): New function.
+	(modify_insn): Use the function.  Take equivalent constant into
+	account.
+
+	* yara-trans.c: Rename COPY_SECONDARY_CHANGE_ADDR to
+	COPY_CHANGE_ADDR.  Remove HAVE_ANY_SECONDARY_MOVES.
+	(initiate_secondary_copy_changes, free_secondary_copy_change,
+	get_free_secondary_copy_change, finish_secondary_copy_changes,
+	assign_copy_secondary, assign_secondary, unassign_copy_secondary,
+	unassign_secondary, free_secondary_copy_changes,
+	secondary_copy_change_varray): Rename to correspondingly
+	initiate_copy_changes, free_copy_change, get_free_copy_change,
+	finish_copy_changes, assign_copy, assign_allocno_copies,
+	unassign_copy, unassign_allocno_copies, free_copy_changes,
+	copy_change_varray.
+	(get_free_copy_change): Initialize interm_equiv_const_regno and
+	interm_equiv_const_mode.
+	(assign_copy_interm_equiv_const_hard_reg,
+	unassign_copy_interm_equiv_const_hard_reg): New functions.
+	(assign_copy, unassign_copy): Take equivalent constant into
+	account.
+	(unassign_one_allocno): Call unassign_allocno_copies when the
+	equivalent constant is used.
+	(check_elimination_in_addr): New parameters.
+	(get_equiv_const_addr_info, get_equiv_const_elimination_info): New
+	functions.
+	(undo_copy_change): Process interm_equiv_const_regno.
+	(check_hard_regno_memory_on_constraint): Take equivalent constant
+	into account.
+
+	* yara-ir.c: Rename COPY_SECONDARY_CHANGE_ADDR to
+	COPY_CHANGE_ADDR.  Remove HAVE_ANY_SECONDARY_MOVES.
+	(print_copy): Print new fields interm_equiv_const_regno and
+	interm_equiv_const_mode.
+	(make_aggressive_coalescing): Prevent coalescing cans with
+	equivalent constants.
+	
 2006-05-10  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* common.opt (fsplit): Remove.

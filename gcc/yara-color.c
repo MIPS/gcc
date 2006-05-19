@@ -288,8 +288,12 @@ find_reg_class_closure (void)
 
 
 /* Minimal costs of usage the current insn alternative operand placed
-   in memory or register of given class.  */
+   in memory or, if it has equivalent constant, the cost of usage of
+   the constant.  */
 static int min_op_memory_cost [MAX_RECOG_OPERANDS];
+
+/* Minimal costs of usage the current insn alternative operand placed
+   in register of given class.  */
 static int min_op_class_cost [MAX_RECOG_OPERANDS] [N_REG_CLASSES];
 
 /* Classes for each can which we should check for finding cover
@@ -301,6 +305,7 @@ static void
 setup_minimal_op_costs (allocno_t a)
 {
   int op_num, i;
+  bool equiv_const_p;
   enum reg_class cl, *classes;
   can_t can;
 
@@ -313,10 +318,23 @@ setup_minimal_op_costs (allocno_t a)
   classes = &can_classes [CAN_NUM (can) * N_REG_CLASSES];
   /* ??? If we have insn alt cost infrastructure we could just set it
      to 0.  */
-  /* We still need read it from memory which is usually slower than
-     register.  */
   if (min_op_memory_cost [op_num] > 1)
-    min_op_memory_cost [op_num] = 1;
+    {
+      equiv_const_p = (ALLOCNO_REGNO (a) >= 0
+		       && reg_equiv_constant [ALLOCNO_REGNO (a)] != NULL_RTX);
+      /* ??? If we have insn alt cost infrastructure we could set it to 0.  */
+      if (equiv_const_p)
+	/* ??? constant loading or reg plus constant: make more
+	   accurate costs.  */
+	min_op_memory_cost [op_num]
+	  = (register_move_cost [ALLOCNO_MODE (a)]
+	     [BASE_REG_CLASS] [BASE_REG_CLASS]);
+      else
+	/* We still need read it from memory which is usually slower
+	   than register.  */
+	min_op_memory_cost [op_num]
+	  = memory_move_cost [ALLOCNO_MODE (a)] [BASE_REG_CLASS] [1];
+    }
   for (i = 0; (cl = classes [i]) != NO_REGS; i++)
     min_op_class_cost [op_num] [cl] = 0;
 }
@@ -327,6 +345,7 @@ static void
 update_min_op_costs (allocno_t a, enum reg_class class, bool mem_p)
 {
   int op_num, cost, i;
+  bool equiv_const_p;
   enum reg_class cl, *classes;
   enum machine_mode mode;
   enum op_type op_mode;
@@ -341,10 +360,25 @@ update_min_op_costs (allocno_t a, enum reg_class class, bool mem_p)
   classes = &can_classes [CAN_NUM (can) * N_REG_CLASSES];
   op_mode = INSN_ALLOCNO_OP_MODE (a);
   mode = ALLOCNO_MODE (a);
+  equiv_const_p = (ALLOCNO_REGNO (a) >= 0
+		   && reg_equiv_constant [ALLOCNO_REGNO (a)] != NULL_RTX);
   /* ??? If we have insn alt cost infrastructure we could set it to 0.  */
   if (mem_p)
-    cost = 1; /* We still need read it from memory which is usually
-		 slower than register.  */
+    {
+      if (equiv_const_p)
+	/* ??? constant loading or reg plus constant: make more
+	   accurate costs.  */
+	cost = (register_move_cost [mode] [BASE_REG_CLASS] [BASE_REG_CLASS]
+		+ memory_move_cost [mode] [BASE_REG_CLASS] [0]);
+      else
+	/* We still need read it from memory which is usually slower
+	   than register.  */
+	cost = memory_move_cost [mode] [BASE_REG_CLASS] [1];
+    }
+  else if (equiv_const_p)
+    /* ??? constant loading or reg plus constant: make more accurate
+       costs.  */
+    cost = register_move_cost [mode] [BASE_REG_CLASS] [class];
   else
     cost = ((op_mode == OP_IN || op_mode == OP_INOUT
 	     ? memory_move_cost [mode] [class] [1] : 0)
@@ -2424,6 +2458,7 @@ assign_global_can_allocnos (void)
   allocno_t a, *can_allocnos;
   can_t can;
   bool ok_p;
+  rtx equiv_const;
 
   sorted_cans = yara_allocate (sizeof (can_t) * cans_num);
   memcpy (sorted_cans, cans, cans_num * sizeof (can_t));
@@ -2446,17 +2481,28 @@ assign_global_can_allocnos (void)
 		|| (ALLOCNO_CALL_CROSS_P (a)
 		    && ! hard_reg_not_in_set_p (hard_regno, CAN_MODE (can),
 						call_used_reg_set)))
-	      ok_p = assign_allocno (a, NO_REGS, reg_class_contents [NO_REGS],
-				     -1);
+	      {
+		equiv_const = (ALLOCNO_REGNO (a) >= 0
+			       ? reg_equiv_constant [ALLOCNO_REGNO (a)]
+			       : NULL_RTX);
+		if (equiv_const != NULL)
+		  ok_p = assign_allocno (a, LIM_REG_CLASSES,
+					 reg_class_contents [NO_REGS], -1);
+		else
+		  ok_p = assign_allocno (a, NO_REGS,
+					 reg_class_contents [NO_REGS], -1);
+	      }
 	    else
-	      ok_p = assign_allocno (a, cover_class,
-				     reg_class_contents [cover_class],
-				     hard_regno);
+	      {
+		ok_p = assign_allocno (a, cover_class,
+				       reg_class_contents [cover_class],
+				       hard_regno);
 #if 1
-	    if (! ok_p)
-	      ok_p = assign_allocno (a, NO_REGS, reg_class_contents [NO_REGS],
-				     -1);
+		if (! ok_p)
+		  ok_p = assign_allocno (a, NO_REGS,
+					 reg_class_contents [NO_REGS], -1);
 #endif
+	      }
 	    yara_assert (ok_p);
 	  }
     }
@@ -2509,7 +2555,8 @@ assign_dst_if_necessary (copy_t cp)
   yara_assert (ALLOCNO_REGNO (dst) >= 0
 	      && ! HARD_REGISTER_NUM_P (ALLOCNO_REGNO (dst)));
   hard_regno = ALLOCNO_HARD_REGNO (src);
-  if (ALLOCNO_HARD_REGNO (dst) >= 0 || ALLOCNO_MEMORY_SLOT (dst) != NULL)
+  if (ALLOCNO_HARD_REGNO (dst) >= 0 || ALLOCNO_MEMORY_SLOT (dst) != NULL
+      || ALLOCNO_USE_EQUIV_CONST_P (dst))
     return;
   can = ALLOCNO_CAN (dst);
   cover_class = CAN_COVER_CLASS (can);
@@ -3135,8 +3182,10 @@ try_change_allocno (allocno_t old, bool use_equiv_const_p,
 {
   HARD_REG_SET regs;
   int old_reg_hard_regno, new_allocno_hard_regno;
+  bool old_use_equiv_const_p;
   enum reg_class cl;
 
+  old_use_equiv_const_p = ALLOCNO_USE_EQUIV_CONST_P (old);
   old_reg_hard_regno = ALLOCNO_HARD_REGNO (old);
   if (old_reg_hard_regno >= 0)
     old_reg_hard_regno = get_allocno_reg_hard_regno (old, old_reg_hard_regno);
@@ -3145,10 +3194,13 @@ try_change_allocno (allocno_t old, bool use_equiv_const_p,
   new_allocno_hard_regno
     = (new_reg_hard_regno < 0
        ? -1 : get_allocno_hard_regno (old, new_reg_hard_regno));
-  if (new_reg_hard_regno == old_reg_hard_regno
+  if ((new_reg_hard_regno >= 0 && new_reg_hard_regno == old_reg_hard_regno)
+      || (new_reg_hard_regno < 0 && old_reg_hard_regno < 0
+	  && ! old_use_equiv_const_p)
+      || (use_equiv_const_p && old_use_equiv_const_p)
       || (ALLOCNO_TYPE (old) == INSN_ALLOCNO
-	  && ! check_hard_regno_memory_on_contraint (old, use_equiv_const_p,
-						     new_allocno_hard_regno)))
+	  && ! check_hard_regno_memory_on_constraint (old, use_equiv_const_p,
+						      new_allocno_hard_regno)))
     return;
   start_transaction ();
   unassign_allocno (old); /* ??? implement breaking ties.  */
@@ -3165,7 +3217,12 @@ try_change_allocno (allocno_t old, bool use_equiv_const_p,
       AND_COMPL_HARD_REG_SET (regs, no_alloc_regs);
       cl = smallest_superset_class (regs);
     }
-  if ((use_equiv_const_p && assign_allocno (old, LIM_REG_CLASSES, regs, -1))
+  /* ??? Check constaints and legitimate address for
+     equiv_const_p.  */
+  if ((use_equiv_const_p
+       /* Allocnos with different regno can be connected.  */
+       && reg_equiv_constant [ALLOCNO_REGNO (old)] != NULL_RTX
+       && assign_allocno (old, LIM_REG_CLASSES, regs, -1))
       || (new_reg_hard_regno < 0 && assign_allocno (old, NO_REGS, regs, -1))
       || (new_reg_hard_regno >= 0 && cl != NO_REGS
 	  && assign_allocno (old, cl, regs, new_allocno_hard_regno)))
@@ -3491,6 +3548,12 @@ pseudo_reg_copy_cost (copy_t cp)
 	  else if (src_hard_regno >= 0)
 	    cost = memory_move_cost [src_mode]
 	                            [REGNO_REG_CLASS (src_hard_regno)] [0];
+	  else if (ALLOCNO_USE_EQUIV_CONST_P (src))
+	    {
+	      /* ??? Change class when interm reg will be added.  */
+	      cost = (memory_move_cost [dst_mode] [BASE_REG_CLASS] [0]
+		      + memory_move_cost [dst_mode] [BASE_REG_CLASS] [1]);
+	    }
 	  else if (src_regno != dst_regno
 		   && (src_memory_slot->mem != dst_memory_slot->mem
 		       || src_memory_slot->start != dst_memory_slot->start
@@ -3517,14 +3580,16 @@ pseudo_reg_copy_cost (copy_t cp)
 	    cost = memory_move_cost [dst_mode]
                                     [REGNO_REG_CLASS (dst_hard_regno)] [1];
 	  else
-	    /* ??? constant loading */
+	    /* ??? constant loading or reg plus constant: make more
+	       accurate costs.  */
 	    cost = register_move_cost [dst_mode]
                                       [REGNO_REG_CLASS (dst_hard_regno)]
 	                              [REGNO_REG_CLASS (dst_hard_regno)];
 	}
       else
 	{
-	  yara_assert (src_hard_regno >= 0);
+	  yara_assert (src_hard_regno >= 0
+		       && ! ALLOCNO_USE_EQUIV_CONST_P (dst));
 	  /* ??? Subregs to get real hard regs.  */
 	  if (src_hard_regno != dst_hard_regno)
 	    cost = register_move_cost [dst_mode]

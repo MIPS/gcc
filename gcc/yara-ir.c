@@ -158,9 +158,7 @@ static void setup_mode_multi_reg_p (void);
 
 static void initiate_conflicts (void);
 static void create_conflict (allocno_t, allocno_t);
-#ifdef HAVE_ANY_SECONDARY_MOVES
 static void create_copy_conflict (allocno_t, copy_t);
-#endif
 static void finish_conflicts (void);
 
 static void create_regno_allocno_maps (void);
@@ -194,9 +192,7 @@ static enum reg_class single_alt_reg_class (const char *,
 					    struct insn_op_info *, int);
 static enum reg_class single_reg_operand_class (rtx insn, int);
 
-#ifdef HAVE_ANY_SECONDARY_MOVES
 static void set_copy_conflict (allocno_t, void *, int);
-#endif
 static void build_insn_allocno_copy_conflicts (copy_t, rtx, bool);
 static void set_call_info (allocno_t, void *, int);
 static void build_insn_allocno_conflicts (rtx, op_set_t);
@@ -1181,7 +1177,6 @@ scan_insn_for_reg_equivs (rtx insn)
   int i;
   rtx set = single_set (insn);
   bool eliminable_invariant_p;
-
   eliminable_invariant_p = false;
   if (set != 0 && REG_P (SET_DEST (set)))
     {
@@ -1447,10 +1442,8 @@ create_allocno (enum allocno_type type, int regno, enum machine_mode mode)
   ALLOCNO_DST_COPIES (a) = ALLOCNO_SRC_COPIES (a) = NULL;
   ALLOCNO_CONFLICT_VEC (a) = NULL;
   ALLOCNO_CONFLICT_VEC_LEN (a) = 0;
-#ifdef HAVE_ANY_SECONDARY_MOVES
   ALLOCNO_COPY_CONFLICT_VEC_LEN (a) = 0;
   ALLOCNO_COPY_CONFLICT_VEC (a) = NULL;
-#endif
 #ifdef CONFLICT_CACHE
   CLEAR_HARD_REG_SET (ALLOCNO_CACHED_CONFLICT_HARD_REGS (a));
   ALLOCNO_CACHE_VALID_P (a) = true;
@@ -1466,9 +1459,7 @@ print_copy (FILE *f, copy_t cp, bool dst_p)
   int i;
   allocno_t a = (dst_p ? COPY_DST (cp) : COPY_SRC (cp));
   bool new_line_p = false;
-#ifdef HAVE_ANY_SECONDARY_MOVES
   allocno_t *vec;
-#endif
 
   fprintf (f, "%5d:", COPY_NUM (cp));
   if (a == NULL)
@@ -1477,7 +1468,7 @@ print_copy (FILE *f, copy_t cp, bool dst_p)
     fprintf (f, "%5d(", ALLOCNO_NUM (a));
   print_point (f, &COPY_POINT (cp));
 #ifdef HAVE_SECONDARY_RELOADS
-  if (COPY_SECONDARY_CHANGE_ADDR (cp) != NULL)
+  if (COPY_CHANGE_ADDR (cp) != NULL)
     {
       if (COPY_INTERM_REGNO (cp) >= 0)
 	fprintf (f, ", interm. %d(%s)", COPY_INTERM_REGNO (cp),
@@ -1490,8 +1481,11 @@ print_copy (FILE *f, copy_t cp, bool dst_p)
       new_line_p = true;
     }
 #endif
+  if (COPY_CHANGE_ADDR (cp) != NULL && COPY_INTERM_EQUIV_CONST_REGNO (cp) >= 0)
+    fprintf (f, ", equiv interm. %d(%s)", COPY_INTERM_EQUIV_CONST_REGNO (cp),
+	     GET_MODE_NAME (COPY_INTERM_EQUIV_CONST_MODE (cp)));
 #ifdef SECONDARY_MEMORY_NEEDED
-  if (COPY_SECONDARY_CHANGE_ADDR (cp) != NULL)
+  if (COPY_CHANGE_ADDR (cp) != NULL)
     {
       if (COPY_USER_DEFINED_MEMORY (cp) != NULL_RTX)
 	{
@@ -1505,14 +1499,12 @@ print_copy (FILE *f, copy_t cp, bool dst_p)
     }
 #endif
   fprintf (f, new_line_p ? ")\n" : ")");
-#ifdef HAVE_ANY_SECONDARY_MOVES
   fprintf (f, "    Copy conflicts:");
   vec = COPY_ALLOCNO_CONFLICT_VEC (cp);
   if (vec != NULL)
     for (i = 0; (a = vec [i]) != NULL; i++)
       fprintf (f, "%5d", ALLOCNO_NUM (a));
   fprintf (f, "\n");
-#endif
 }
 
 const char *
@@ -1653,10 +1645,8 @@ free_allocno (allocno_t a)
 {
   if (ALLOCNO_CONFLICT_VEC (a) != NULL)
     yara_free (ALLOCNO_CONFLICT_VEC (a));
-#ifdef HAVE_ANY_SECONDARY_MOVES
   if (ALLOCNO_COPY_CONFLICT_VEC (a) != NULL)
     yara_free (ALLOCNO_COPY_CONFLICT_VEC (a));
-#endif
   yara_free (a);
 }
 
@@ -1735,17 +1725,11 @@ create_copy (allocno_t dst, allocno_t src, struct point point, rtx insn)
       ALLOCNO_SRC_COPIES (src) = cp;
     }
   COPY_POINT (cp) = point;
-#ifdef HAVE_ANY_SECONDARY_MOVES
   COPY_ALLOCNO_CONFLICT_VEC (cp) = NULL;
   COPY_ALLOCNO_CONFLICT_VEC_LEN (cp) = 0;
-#endif
-#ifdef HAVE_SECONDARY_RELOADS
   CLEAR_HARD_REG_SET (COPY_HARD_REG_CONFLICTS (cp));
-#endif
 
-#ifdef HAVE_SECONDARY_RELOADS
-  COPY_SECONDARY_CHANGE_ADDR (cp) = NULL;
-#endif
+  COPY_CHANGE_ADDR (cp) = NULL;
 
   COPY_FREQ (cp) = point_freq (&point);
   COPY_SYNC_P (cp) = false;
@@ -1853,10 +1837,8 @@ sort_copy_list (copy_t list,
 static void
 free_copy (copy_t cp)
 {
-#ifdef HAVE_ANY_SECONDARY_MOVES
   if (COPY_ALLOCNO_CONFLICT_VEC (cp) != NULL)
     yara_free (COPY_ALLOCNO_CONFLICT_VEC (cp));
-#endif
   yara_free (cp);
 }
 
@@ -1917,11 +1899,9 @@ initiate_conflicts (void)
   VARRAY_GENERIC_PTR_NOGC_INIT (pending_allocno_conflict_varray,
 				yara_max_uid * 100,
 				"pending allocno conflicts");
-#ifdef HAVE_ANY_SECONDARY_MOVES
   VARRAY_GENERIC_PTR_NOGC_INIT (pending_allocno_copy_conflict_varray,
 				yara_max_uid * 100,
 				"pending allocno copy conflicts");
-#endif
 }
 
 bool
@@ -2049,24 +2029,9 @@ commit_conflicts (void)
   VARRAY_FREE (pending_allocno_conflict_varray);
 }
 
-#ifdef HAVE_ANY_SECONDARY_MOVES
-
 static void
 create_copy_conflict (allocno_t a, copy_t cp)
 {
-#if 0
-#ifdef SECONDARY_RELOAD_MODE_P
- {
-   enum machine_mode mode;
-
-   if ((COPY_SRC (cp) == NULL
-	|| ! SECONDARY_RELOAD_MODE_P (ALLOCNO_MODE (COPY_SRC (cp))))
-       && (COPY_DST (cp) == NULL
-	   || ! SECONDARY_RELOAD_MODE_P (ALLOCNO_MODE (COPY_DST (cp)))))
-     return;
- }
-#endif
-#endif
  VARRAY_PUSH_GENERIC_PTR (pending_allocno_copy_conflict_varray, a);
  VARRAY_PUSH_GENERIC_PTR (pending_allocno_copy_conflict_varray, cp);
  ALLOCNO_COPY_CONFLICT_VEC_LEN (a)++;
@@ -2117,8 +2082,6 @@ commit_copy_conflicts (void)
     fprintf (yara_dump_file, "Copy conflicts %d\n", copy_conflicts_num);
   VARRAY_FREE (pending_allocno_copy_conflict_varray);
 }
-
-#endif
 
 static void
 finish_conflicts (void)
@@ -3006,8 +2969,6 @@ mark_allocno_death (allocno_t a)
     }
 }
 
-#ifdef HAVE_ANY_SECONDARY_MOVES
-
 static void
 set_copy_conflict (allocno_t live_a, void *data,
 		   int local_live_index ATTRIBUTE_UNUSED)
@@ -3016,8 +2977,6 @@ set_copy_conflict (allocno_t live_a, void *data,
 
   create_copy_conflict (live_a, cp);
 }
-
-#endif
 
 static bool
 copy_src_p (copy_t list, allocno_t src)
@@ -3092,12 +3051,8 @@ build_insn_allocno_copy_conflicts (copy_t list, rtx insn, bool after_insn_p)
 	    }
 	}
 
-#ifdef HAVE_ANY_SECONDARY_MOVES
       process_live_allocnos (set_copy_conflict, cp);
-#ifdef HAVE_SECONDARY_RELOADS
       COPY_HARD_REG_SET (COPY_HARD_REG_CONFLICTS (cp), live_hard_regs);
-#endif
-#endif
 
       if (COPY_DST (cp) != NULL)
 	mark_allocno_live (COPY_DST (cp), no_map_change_p);
@@ -5560,6 +5515,14 @@ make_aggressive_coalescing (void)
 						   &src_copy, &dst_copy);
 		src = COPY_SRC (src_copy);
 		dst = COPY_DST (dst_copy);
+		if (reg_equiv_constant [ALLOCNO_REGNO (src)] != NULL_RTX
+		    && reg_equiv_constant [ALLOCNO_REGNO (dst)] == NULL_RTX)
+		  /* Coalescing cans with allocnos which have equiv
+		     constant can create problem during global
+		     allocations because such move might need an
+		     intermediate register.  Even if we fix that I
+		     believe it will not generate a better code.  */
+		  continue;
 		move = get_move (src, dst, BLOCK_FOR_INSN (insn)->frequency);
 		VARRAY_PUSH_GENERIC_PTR (move_varray, move);
 		VARRAY_PUSH_RTX (move_insn_varray, insn);
@@ -6061,9 +6024,7 @@ yara_ir_init (void)
   copies = (copy_t *) &VARRAY_GENERIC_PTR (copy_varray, 0);
   copies_num = VARRAY_ACTIVE_SIZE (copy_varray);
   commit_conflicts ();
-#ifdef HAVE_ANY_SECONDARY_MOVES
   commit_copy_conflicts ();
-#endif
 #ifdef ENABLE_YARA_CHECKING
   check_abnormal_edges ();
 #endif
