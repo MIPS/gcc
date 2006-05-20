@@ -1,3 +1,10 @@
+2006-05-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libiberty/make-relative-prefix.c (split_directories): Add
+	ignore_final arg.
+	(make_relative_prefix): Keep the final path component if it was a
+	directory.  Adjust calls to split_directories.
+
 2006-05-20  Richard Sandiford  <richard@codesourcery.com>
 
 	Merge from mainline:

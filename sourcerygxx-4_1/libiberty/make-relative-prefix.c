@@ -96,7 +96,7 @@ relative prefix can be found, return @code{NULL}.
 #define DIR_UP ".."
 
 static char *save_string (const char *, int);
-static char **split_directories	(const char *, int *);
+static char **split_directories	(const char *, int *, int);
 static void free_split_directories (char **);
 
 static char *
@@ -112,7 +112,7 @@ save_string (const char *s, int len)
 /* Split a filename into component directories.  */
 
 static char **
-split_directories (const char *name, int *ptr_num_dirs)
+split_directories (const char *name, int *ptr_num_dirs, int ignore_final)
 {
   int num_dirs = 0;
   char **dirs;
@@ -179,7 +179,7 @@ split_directories (const char *name, int *ptr_num_dirs)
 	}
     }
 
-  if (p - 1 - q > 0)
+  if (!ignore_final && p - 1 - q > 0)
     dirs[num_dirs++] = save_string (q, p - 1 - q);
   dirs[num_dirs] = NULL;
 
@@ -226,6 +226,8 @@ make_relative_prefix (const char *progname,
   int i, n, common;
   int needed_len;
   char *ret, *ptr, *full_progname = NULL;
+  int len;
+  int isdir;
 
   if (progname == NULL || bin_prefix == NULL || prefix == NULL)
     return NULL;
@@ -293,14 +295,17 @@ make_relative_prefix (const char *progname,
   if (full_progname == NULL)
     return NULL;
 
-  prog_dirs = split_directories (full_progname, &prog_num);
-  bin_dirs = split_directories (bin_prefix, &bin_num);
+  /* If the incoming prog is really a directory, then we need to keep
+     the final element, otherwise we need to remove it.  */
+  len = strlen (progname);
+  isdir = IS_DIR_SEPARATOR (progname[len - 1]);
+  
+  prog_dirs = split_directories (full_progname, &prog_num, !isdir);
+  
+  bin_dirs = split_directories (bin_prefix, &bin_num, 0);
   free (full_progname);
   if (bin_dirs == NULL || prog_dirs == NULL)
     return NULL;
-
-  /* Remove the program name from comparison of directory names.  */
-  prog_num--;
 
   /* If we are still installed in the standard location, we don't need to
      specify relative directories.  Also, if argv[0] still doesn't contain
@@ -323,7 +328,7 @@ make_relative_prefix (const char *progname,
 	}
     }
 
-  prefix_dirs = split_directories (prefix, &prefix_num);
+  prefix_dirs = split_directories (prefix, &prefix_num, 0);
   if (prefix_dirs == NULL)
     {
       free_split_directories (prog_dirs);
@@ -350,7 +355,7 @@ make_relative_prefix (const char *progname,
 
   /* Two passes: first figure out the size of the result string, and
      then construct it.  */
-  needed_len = 0;
+  needed_len = isdir;
   for (i = 0; i < prog_num; i++)
     needed_len += strlen (prog_dirs[i]);
   needed_len += sizeof (DIR_UP) * (bin_num - common);
@@ -363,24 +368,37 @@ make_relative_prefix (const char *progname,
     return NULL;
 
   /* Build up the pathnames in argv[0].  */
-  *ret = '\0';
+  ptr = ret;
   for (i = 0; i < prog_num; i++)
-    strcat (ret, prog_dirs[i]);
-
+    {
+      len = strlen (prog_dirs[i]);
+      memcpy (ptr, prog_dirs[i], len);
+      ptr += len;
+    }
+  
+  /* lrealpath will have removed the trailing '/', so put it back
+     now. */
+  if (isdir)
+    *ptr++ = DIR_SEPARATOR;
+  
   /* Now build up the ..'s.  */
-  ptr = ret + strlen(ret);
   for (i = common; i < bin_num; i++)
     {
       strcpy (ptr, DIR_UP);
       ptr += sizeof (DIR_UP) - 1;
       *(ptr++) = DIR_SEPARATOR;
     }
-  *ptr = '\0';
 
   /* Put in directories to move over to prefix.  */
   for (i = common; i < prefix_num; i++)
-    strcat (ret, prefix_dirs[i]);
-
+    {
+      len = strlen (prefix_dirs[i]);
+      memcpy (ptr, prefix_dirs[i], len);
+      ptr += len;
+    }
+  
+  *ptr = 0;
+  
   free_split_directories (prog_dirs);
   free_split_directories (bin_dirs);
   free_split_directories (prefix_dirs);
