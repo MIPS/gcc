@@ -1,3 +1,10 @@
+2006-05-22  Victor Kaplansky   <victork@il.ibm.com>
+	    Vladimir Yanovsky  <yanov@il.ibm.com>
+
+        * gcc/tree-vect-transform.c (vectorizable_condition):
+	Replace GE and LE comparisons by GT for altivec.
+	(vect_create_cond_for_alias_checks): change indentation.
+
 2006-05-09  Victor Kaplansky   <victork@il.ibm.com>
 
         * gcc/tree-vect-transform.c (vect_create_cond_for_alias_checks):

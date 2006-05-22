@@ -3832,11 +3832,31 @@ vectorizable_condition (tree stmt, block_stmt_iterator *bsi, tree *vec_stmt)
   vec_then_clause = vect_get_vec_def_for_operand (then_clause, stmt, NULL);
   vec_else_clause = vect_get_vec_def_for_operand (else_clause, stmt, NULL);
 
-  /* Arguments are ready. create the new vector stmt.  */
-  vec_compare = build2 (TREE_CODE (cond_expr), vectype, 
-			vec_cond_lhs, vec_cond_rhs);
-  vec_cond_expr = build3 (VEC_COND_EXPR, vectype, 
-			  vec_compare, vec_then_clause, vec_else_clause);
+  /* Arguments are ready. create the new vector stmt. 
+    We invert the GE and LE conditions to GT since we
+    have only GT and EQ in PPC. Doing this at rtl level
+    is more difficult since we don't have a use-def-chains there.
+    TODO implement using optab_for_tree_code
+  */
+  if (TARGET_ALTIVEC && TREE_CODE (cond_expr) == GE_EXPR)
+    {
+      vec_compare = build2 (GT_EXPR, vectype, vec_cond_rhs, vec_cond_lhs);
+      vec_cond_expr = build3 (VEC_COND_EXPR, vectype,
+			      vec_compare, vec_else_clause, vec_then_clause);
+    }
+  else if (TARGET_ALTIVEC && TREE_CODE (cond_expr) == LE_EXPR)
+    {
+      vec_compare = build2 (GT_EXPR, vectype, vec_cond_lhs, vec_cond_rhs);
+      vec_cond_expr = build3 (VEC_COND_EXPR, vectype,
+			      vec_compare, vec_else_clause, vec_then_clause);
+    }
+  else
+    {
+      vec_compare = build2 (TREE_CODE (cond_expr), vectype,
+			    vec_cond_lhs, vec_cond_rhs);
+      vec_cond_expr = build3 (VEC_COND_EXPR, vectype,
+			      vec_compare, vec_then_clause, vec_else_clause);
+    }
 
   *vec_stmt = build2 (MODIFY_EXPR, vectype, vec_dest, vec_cond_expr);
   new_temp = make_ssa_name (vec_dest, *vec_stmt);
@@ -4843,28 +4863,27 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
         vect_create_addr_base_for_vector_ref (stmt_b, cond_expr_stmt_list,
 					      NULL_TREE);
 
-     if (vect_print_dump_info (REPORT_DR_DETAILS))
-       {
+      if (vect_print_dump_info (REPORT_DR_DETAILS))
+        {
 	  fprintf (vect_dump, "ALV: PAIR [%d] - ", i);
 	  print_generic_expr (vect_dump, addr_base_a, TDF_SLIM);
 	  fprintf (vect_dump, " and ");
 	  print_generic_expr (vect_dump, addr_base_b, TDF_SLIM);
-       }
- 
-      part_cond_expr = 
-         build2(GE_EXPR, boolean_type_node,
-           build1 (ABS_EXPR, integer_type_node,
-             build2(MINUS_EXPR, integer_type_node,
-                addr_base_a, addr_base_b)),
-           int_cst_32);
+        }
+
+      part_cond_expr =
+	build2 (GE_EXPR, boolean_type_node,
+		build1 (ABS_EXPR, integer_type_node,
+			build2 (MINUS_EXPR, integer_type_node, addr_base_a,
+				addr_base_b)), int_cst_32);
 
       if (cond_expr)
-        {
+	{
 	  cond_expr = build2 (TRUTH_AND_EXPR, boolean_type_node,
-	                        cond_expr, part_cond_expr);
+			      cond_expr, part_cond_expr);
 	}
       else
-        {
+	{
 	  cond_expr = part_cond_expr;
 	}
 
